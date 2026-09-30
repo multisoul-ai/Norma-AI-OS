@@ -107,6 +107,7 @@ fn open_multisoul_window(
             })
         };
         app_entity = Some(app.clone());
+        MultisoulApp::guard_preview_window_close(&app, window, cx);
         window.focus(&app.read(cx).focus_handle);
         let root_focus = app.read(cx).focus_handle.clone();
         window.defer(cx, move |window, _cx| {

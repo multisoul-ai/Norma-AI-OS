@@ -1,4 +1,5 @@
 use super::{playback::start_playback, DoubaoStatus};
+use crate::app::voice_window_inset::VoiceWindowInsetEventSink;
 use agent::NormaToolRuntime;
 use async_channel::{Receiver, Sender};
 use reqwest::Client;
@@ -34,9 +35,11 @@ pub(super) async fn run_session(
     cancellation: CancellationToken,
     events: Sender<DoubaoStatus>,
     reports: Receiver<String>,
+    playback_events: VoiceWindowInsetEventSink,
 ) -> Result<(), String> {
+    let credential_store = storage::SettingsStore::new(database.clone());
     let key = tokio::task::spawn_blocking(move || {
-        crate::settings::voice::VoiceSettingsState::load_credential(&account)
+        crate::settings::voice::VoiceSettingsState::load_credential(&credential_store, &account)
     })
     .await
     .map_err(|_| "无法读取方舟凭据".to_string())??
@@ -46,7 +49,7 @@ pub(super) async fn run_session(
         .timeout(std::time::Duration::from_secs(30))
         .build()
         .map_err(|_| "无法初始化方舟网络客户端".to_string())?;
-    let playback = Arc::new(start_playback());
+    let playback = Arc::new(start_playback(playback_events));
     let chat = Arc::new(chat::ChatRuntime {
         client,
         key: key.clone(),
@@ -99,7 +102,7 @@ pub(super) async fn run_session(
                             let _ = done.send((id, result)).await;
                         });
                     }
-                    Err(_) => break Err("ASR 事件通道已关闭".into()),
+                    Err(_) => break (&mut asr_task).await.map_err(|_| "ASR 任务中断".to_string())?,
                 }
             }
             report = reports.recv(), if !reply_active => {
@@ -133,7 +136,10 @@ pub(super) async fn run_session(
     if let Some(token) = reply_token {
         token.cancel();
     }
-    asr_task.abort();
+    cancellation.cancel();
+    if !asr_task.is_finished() {
+        let _ = asr_task.await;
+    }
     playback.end();
     result
 }

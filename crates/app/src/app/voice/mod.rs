@@ -71,6 +71,10 @@ impl MultisoulApp {
         ) {
             let values = self.voice_settings.values().clone();
             let model_root = self.voice_settings.model_root().to_path_buf();
+            let store = self
+                .voice_settings
+                .credential_store()
+                .expect("app voice settings need SQLite");
             let input_device_id = voice_recording_input_device_id_from_value(
                 self.voice_settings.values().input_device_id(),
             );
@@ -84,6 +88,7 @@ impl MultisoulApp {
                         let factory = crate::app::dialogue::resolve_asr_recognizer_factory(
                             &values,
                             &model_root,
+                            &store,
                         )
                         .map_err(|error| SpeechError::Recognizer(error.to_string()))?;
                         voice_input::request_microphone_permission().map_err(SpeechError::from)?;

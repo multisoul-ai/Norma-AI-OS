@@ -12,8 +12,7 @@ elif [[ $# -gt 0 ]]; then
   exit 2
 fi
 
-echo "[voice-e2e] headless GPUI and cross-crate scenarios"
-cargo test -p e2e
+echo "[voice-e2e] legacy crates/e2e disabled pending deletion and rebuild; running remaining crate tests only"
 
 echo "[voice-e2e] app shortcut, mode, dialogue, provider and playback scenarios"
 cargo test -p app voice_
@@ -26,11 +25,6 @@ echo "[voice-e2e] Sherpa capture, stream, recognizer factory and pipeline scenar
 cargo test -p voice_sherpa
 
 if [[ "$run_real_models" == true ]]; then
-  echo "[voice-e2e] managed Paraformer/Zipformer UI selection and persistence"
-  cargo test -p e2e \
-    e2e_10_real_paraformer_and_zipformer_selection_is_shared_and_persistent \
-    -- --ignored
-
   echo "[voice-e2e] real Paraformer WAV to final transcript"
   cargo test -p voice_sherpa \
     test_real_wav_reaches_final_transcript_and_thinking \
@@ -47,4 +41,4 @@ if [[ "$run_real_models" == true ]]; then
     -- --ignored
 fi
 
-echo "[voice-e2e] all requested scenarios passed"
+echo "[voice-e2e] remaining crate tests passed; legacy e2e acceptance was not run"

@@ -93,6 +93,7 @@ fn closed_watches_release_capacity_before_the_heartbeat() {
                 cols: 80,
                 running: true,
                 input_ready: true,
+                cursor: None,
                 rows: vec!["Ready".into()],
                 soft_wrapped: vec![false],
             }));

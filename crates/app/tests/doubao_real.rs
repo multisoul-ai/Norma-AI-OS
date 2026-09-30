@@ -12,31 +12,21 @@ use tokio_tungstenite::tungstenite::{client::IntoClientRequest, http::HeaderValu
 /// TTS 请求声明 24 kHz PCM，测试文字为两个汉字，未上传麦克风数据。
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 从本机 Keychain 读取用户提供的方舟 Key，不写入日志。
+///   1. 从本机 AppDB 读取用户在 Voice Setup 保存的方舟 Key，不写入日志。
 ///   2. 与 ASR 2.0 WebSocket 握手并收取配置确认。
 ///   3. 调用方舟 Chat 2.0 获取短回复，再请求 TTS 2.0 的音频流。
 ///
 /// 预期结果：三个真实服务均接受同一凭据；不再依赖 Seeduplex 3.0 鉴权。
 #[tokio::test]
-#[ignore = "需要本机 Keychain 方舟凭据与联网，消耗少量方舟额度"]
+#[ignore = "需要本机 SQLite 方舟凭据与联网，消耗少量方舟额度"]
 async fn doubao_real_ark_2_services() {
     let _ = rustls::crypto::ring::default_provider().install_default();
-    let credential = std::process::Command::new("security")
-        .args([
-            "find-generic-password",
-            "-s",
-            "com.norma-ai.os.agent-provider",
-            "-a",
-            "doubao-ark-e2e",
-            "-w",
-        ])
-        .output()
-        .expect("应可读取本机 Keychain");
-    assert!(
-        credential.status.success(),
-        "本机 Keychain 应有方舟测试凭据"
-    );
-    let key = String::from_utf8(credential.stdout).expect("凭据应为 UTF-8");
+    let key = storage::AppStore::open_default()
+        .expect("应打开本机 AppDB")
+        .settings_store()
+        .get_string("credential.agent-provider.doubao-desktop")
+        .expect("应读取本机 SQLite 方舟凭据")
+        .expect("请先在 Voice Setup 保存豆包 API Key");
     let key = key.trim();
     let mut request = "wss://openspeech.bytedance.com/api/v3/plan/sauc/bigmodel_async"
         .into_client_request()

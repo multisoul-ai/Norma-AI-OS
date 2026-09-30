@@ -224,16 +224,18 @@ fn test_manual_dispatch_receipt_does_not_spawn_norma_visual_effect() {
 ///   Agent cards = 1（Alan/Codex）
 ///   ready nodes = 1
 ///   task writes = 1，注入失败数 = 1
-///   expected Failed receipts = 1；expected visual effects = 0
+///   同目标 assignments = 2；首条写入失败 → 两条 Failed receipts，待发送项 = 0。
+///   expected visual effects = 0
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 使用拒绝全部 task write 的 PTY backend 创建 Alan Agent Card。
 ///   2. 显式把 Agent 标记为 ready，使任务立即进入真实输入提交路径。
-///   3. 从 Norma 入口派发任务，得到最终 Failed receipt。
+///   3. 从 Norma 入口同时派发两条任务，得到两条 Failed receipt。
 ///   4. 读取 MotionStore presentations，确认失败没有被包装为成功动画。
 ///
 /// 预期结果：
-///   - 正断言：业务层返回唯一 Failed receipt，错误语义不被视觉层篡改。
+///   - 正断言：两条任务均为 Failed，错误语义不被视觉层篡改。
+///   - 负断言：不得留下待发送项，避免报告失败后仍向 CLI 投递。
 ///   - 负断言：Failed receipt 不得创建 Flight、Impact 或粒子 presentation。
 ///   - 负断言：MotionStore 中 effect 数量必须为零。
 #[test]
@@ -279,10 +281,16 @@ fn test_failed_norma_dispatch_receipt_does_not_spawn_success_visual_effect() {
                 app,
                 window,
                 CardCommand::DispatchAgentTasks {
-                    assignments: vec![AgentTaskAssignment {
-                        name: "Alan".to_string(),
-                        task: "这条任务应注入写入失败".to_string(),
-                    }],
+                    assignments: vec![
+                        AgentTaskAssignment {
+                            name: "Alan".to_string(),
+                            task: "这条任务应注入写入失败".to_string(),
+                        },
+                        AgentTaskAssignment {
+                            name: "Alan".to_string(),
+                            task: "同批任务不得残留待发送".to_string(),
+                        },
+                    ],
                     force_untracked: false,
                 },
             )
@@ -298,9 +306,16 @@ fn test_failed_norma_dispatch_receipt_does_not_spawn_success_visual_effect() {
         matches!(
             dispatch_result,
             Ok(CardCommandResult::AgentTasksDispatched { ref receipts })
-                if receipts.len() == 1 && receipts[0].status == AgentTaskReceiptStatus::Failed
+                if receipts.len() == 2 && receipts[0].status == AgentTaskReceiptStatus::Failed
+                    && receipts[1].status == AgentTaskReceiptStatus::Failed
         ),
-        "注入 task write 失败后必须返回唯一 Failed receipt；实际：{dispatch_result:?}"
+        "注入 task write 失败后两条任务均应 Failed；实际：{dispatch_result:?}"
+    );
+    assert!(
+        !app.update(cx, |app, _| app
+            .pending_agent_submissions
+            .input_in_progress(node_id)),
+        "整批 Failed 后不得残留待发送正文"
     );
     assert!(
         presentations.is_empty(),

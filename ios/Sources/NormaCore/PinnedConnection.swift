@@ -3,7 +3,7 @@ import CryptoKit
 import Security
 import os
 
-private final class PinDelegate: NSObject, URLSessionDelegate, URLSessionTaskDelegate {
+final class PinDelegate: NSObject, URLSessionDelegate, URLSessionTaskDelegate {
     private let rejected = OSAllocatedUnfairLock(initialState: false)
     var rejectedIdentity: Bool { rejected.withLock { $0 } }
     let pin: String
@@ -129,7 +129,7 @@ struct PinnedConnection: Sendable {
     }
     func close() { socket.cancel(with: .goingAway, reason: nil); session.invalidateAndCancel() }
 
-    private func bounded<T: Sendable>(timeout: Duration = .seconds(5), _ operation: @escaping @Sendable () async throws -> T) async throws -> T {
+    func bounded<T: Sendable>(timeout: Duration = .seconds(5), _ operation: @escaping @Sendable () async throws -> T) async throws -> T {
         try await withTaskCancellationHandler {
             try await withThrowingTaskGroup(of: T.self) { group in
                 group.addTask { try await operation() }

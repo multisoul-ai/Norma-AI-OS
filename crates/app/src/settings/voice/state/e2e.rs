@@ -6,8 +6,12 @@ use std::path::PathBuf;
 
 impl VoiceSettingsState {
     pub(crate) fn configure_doubao_for_e2e(&mut self, secret: &str) {
-        crate::settings::voice::credentials::store("doubao-desktop", secret)
-            .expect("E2E in-memory Keychain should accept synthetic credential");
+        let store = self
+            .storage
+            .as_ref()
+            .expect("E2E voice settings need a SQLite store");
+        crate::settings::voice::credentials::store(store, "doubao-desktop", secret)
+            .expect("E2E SQLite should accept synthetic credential");
         self.saved.doubao_credential_ref = Some("doubao-desktop".into());
         self.microphone_requirement = crate::settings::voice::VoiceRequirementState::Ready;
         self.readiness_override = None;

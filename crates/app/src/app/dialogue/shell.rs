@@ -91,6 +91,10 @@ impl MultisoulApp {
         self.voice.reset_caption_to_default();
         let values = self.voice_settings.values().clone();
         let model_root = self.voice_settings.model_root().to_path_buf();
+        let store = self
+            .voice_settings
+            .credential_store()
+            .expect("app voice settings need SQLite");
         let input_device_id = values.input_device_id().map(ToOwned::to_owned);
         let startup_attempt = self.dialogue.begin_startup_attempt();
         tracing::info!(
@@ -106,7 +110,7 @@ impl MultisoulApp {
         );
         let task = cx.spawn(async move |this, cx| {
             let runtime_task = cx.background_executor().spawn(async move {
-                start_dialogue_listening_runtime(values, model_root, input_device_id)
+                start_dialogue_listening_runtime(values, model_root, input_device_id, store)
             });
             let runtime = runtime_task.await;
             let _ = this.update(cx, |app, cx| {

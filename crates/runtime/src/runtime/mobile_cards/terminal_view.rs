@@ -77,10 +77,19 @@ impl Runtime {
             start_line: start,
             total_lines: total,
             cols: snapshot.cols,
+            cursor: (request.before.is_none() && snapshot.show_cursor).then_some(
+                norma::mobile::TerminalCursor {
+                    line: snapshot.history_size + snapshot.cursor_line,
+                    column: snapshot.cursor_col,
+                },
+            ),
             rows,
             soft_wrapped,
             running,
-            input_ready: running && request.before.is_none() && terminal_input_ready(run),
+            input_ready: running
+                && request.before.is_none()
+                && terminal_input_ready(run)
+                && !self.mobile_terminal_is_controlled(request.node_id),
         })
     }
 
@@ -98,7 +107,8 @@ impl Runtime {
             snapshot.lines,
             snapshot.alt_screen,
             snapshot.cursor_col,
-            snapshot.cursor_line.saturating_sub(snapshot.display_offset),
+            // The cursor is in live-screen coordinates, independent of desktop scrollback.
+            snapshot.cursor_line,
         )
             .hash(&mut hash);
         let rows = self
@@ -124,6 +134,22 @@ impl Runtime {
         input_sequence: u64,
         input: &TerminalInput,
     ) -> Result<(), &'static str> {
+        self.send_terminal_input(expected, screen_signature, input_sequence, input, None)
+    }
+
+    pub(super) fn send_terminal_input(
+        &mut self,
+        expected: &CardSnapshot,
+        screen_signature: u64,
+        input_sequence: u64,
+        input: &TerminalInput,
+        owner: Option<(&storage::MobileTurnKey, &Arc<super::TerminalInputLease>)>,
+    ) -> Result<(), &'static str> {
+        if let Some((key, lease)) = owner {
+            self.validate_terminal_input_owner(key, lease)?;
+        } else if self.mobile_terminal_is_controlled(expected.node_id) {
+            return Err("terminal_controlled");
+        }
         if !input.valid() {
             return Err("invalid_request");
         }
@@ -190,11 +216,20 @@ impl Runtime {
                 shift: false,
             }),
         };
-        self.send_node_input(current.node_id, input)
+        if let Some((key, lease)) = owner {
+            self.validate_terminal_input_owner(key, lease)?;
+            // Mark attempted owner input too: a partial PTY write may have left human text.
+            self.mobile_runs
+                .get_mut(&key.node_id)
+                .expect("validated owner")
+                .native_input
+                .controlled_draft = true;
+        }
+        self.write_node_input(current.node_id, input)
             .map_err(|_| "outcome_unknown")
     }
 }
-fn terminal_input_ready(run: &MobileRun) -> bool {
+pub(super) fn terminal_input_ready(run: &MobileRun) -> bool {
     run.message.is_none()
         && run.interrupt.is_none()
         && run

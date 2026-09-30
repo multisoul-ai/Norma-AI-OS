@@ -15,6 +15,8 @@ use norma::protocol::AgentProfile;
 ///   预期第一条任务保留、第二条没有持久记录；返回 outcome_unknown，重试不产生第三个任务。
 /// 首次派工分支：空项目没有名为 codex 的已启用 Agent；先派给它应明确拒绝且不产生卡片/任务，
 ///   原操作重放仍拒绝，随后另一个明确的新建操作可以正常接收。
+/// 线程分支：按 Codex 定义 ID 派工，目标是原节点、共享上下文与正文一并持久化；
+///   同一次派工重查不能增加任务。该分支只检验真实 GPUI 适配器/FIFO，不代表真实模型执行。
 #[test]
 fn realtime_adapter_receipt_requires_persisted_task_and_canvas() {
     use crate::e2e_mobile_snapshot::fetch_action;
@@ -295,6 +297,86 @@ fn realtime_adapter_receipt_requires_persisted_task_and_canvas() {
         app.update(cx, |app, _| app.agent_task_count_for_e2e()),
         2,
         "只有原任务和写入失败的已执行操作，不能产生第三次副作用"
+    );
+    let definition = project_store
+        .agent_definition_store()
+        .list()
+        .expect("定义库")
+        .into_iter()
+        .find(|d| d.runtime_profile == canvas::AgentProfile::Codex)
+        .expect("已有 Codex 定义");
+    let thread_task = MobileCommandRequest {
+        operation_id: "thread-dispatch".into(),
+        workspace_id: project.clone(),
+        route_id: snapshot["result"]["projects"][0]["route_id"]
+            .as_str()
+            .expect("当前路由")
+            .into(),
+        grant_revision: 1,
+        command: MobileCommand::ThreadTask {
+            agent_definition_id: definition.id,
+            task: "调整线程首屏".into(),
+            context: "已经确认保留用户草稿".into(),
+        },
+    };
+    server
+        .submit_internal_command_for_e2e(&machine, "phone-realtime", &token, thread_task.clone())
+        .expect("已验证线程请求进入正式命令通道");
+    // Reuse the 5s foreground + save debounce + SQLite/TLS bound used by the preceding task.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    let dispatch_receipt = loop {
+        let value = fetch_action(
+            cx,
+            &server,
+            &certificate,
+            &machine,
+            json!({"type":"receipt","device_id":"phone-realtime","token":token,
+                "workspace_id":project,"operation_id":"thread-dispatch"}),
+        );
+        if value["result"]["receipt"]["state"] != "accepted" {
+            break value;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "线程派工应持久回执，不得无限等待"
+        );
+    };
+    assert_eq!(
+        dispatch_receipt["result"]["receipt"]["state"], "succeeded",
+        "线程派工应在落盘后成功"
+    );
+    let result = &dispatch_receipt["result"]["receipt"]["result"];
+    assert_eq!(result["node_id"], node, "稳定定义必须解析到原 Codex 节点");
+    assert_eq!(result["status"], "accepted", "入队不能表示执行完成");
+    let tasks = project_store
+        .agent_dispatch_task_store()
+        .list()
+        .expect("任务持久记录");
+    let assigned = tasks
+        .iter()
+        .find(|t| t.runtime_task_id == result["task_id"].as_u64().expect("任务 ID"))
+        .expect("本次任务已落盘");
+    assert_eq!(
+        assigned.task_text,
+        "工作线程上下文（参考信息）：\n已经确认保留用户草稿\n\n当前任务：\n调整线程首屏",
+        "共享上下文与当前任务都必须准确送入既有队列"
+    );
+    assert_eq!(
+        result["task_ref"], assigned.task_ref,
+        "手机必须保存跨 Mac 重启仍唯一的持久任务引用，不能只依赖运行期 task_id"
+    );
+    assert_ne!(
+        assigned.state,
+        storage::AgentDispatchTaskState::Done,
+        "测试 PTY 未执行该任务，不能声称完成"
+    );
+    server
+        .submit_internal_command_for_e2e(&machine, "phone-realtime", &token, thread_task)
+        .expect("重查线程派工");
+    assert_eq!(
+        app.update(cx, |app, _| app.agent_task_count_for_e2e()),
+        3,
+        "原任务、故障任务、线程任务共三项，重试不得产生第四项"
     );
 }
 

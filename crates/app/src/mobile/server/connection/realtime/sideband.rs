@@ -274,9 +274,9 @@ fn credential(shared: &Shared) -> Result<String, &'static str> {
         .map_err(|_| "credential_unavailable")?
         .store
         .settings_store();
-    let mut settings = VoiceSettingsState::load_from_store(store);
+    let mut settings = VoiceSettingsState::load_from_store(store.clone());
     let values = settings.values();
-    // Check the configured provider and complete origin/path BEFORE touching Keychain.
+    // Check the configured provider and complete origin/path before reading the stored secret.
     // A key for a third-party OpenAI-compatible gateway must never be sent to OpenAI.
     if values.agent_provider().as_str() != "openai"
         || !matches!(
@@ -288,7 +288,7 @@ fn credential(shared: &Shared) -> Result<String, &'static str> {
     }
     for (provider, account) in settings.credential_refs() {
         if provider.as_str() == "openai" {
-            let result = VoiceSettingsState::load_credential(&account);
+            let result = VoiceSettingsState::load_credential(&store, &account);
             settings.apply_loaded_credential(provider, &account, result);
         }
     }

@@ -145,16 +145,14 @@ pub(crate) fn execute_norma_adapter_command_with_source(
                 ))),
             }
         }
-        AdapterCommand::AssignAgentTask { agent, task } => {
-            adapter_task::dispatch_agent_task(
-                app,
-                window.as_deref_mut(),
-                cx,
-                agent,
-                task,
-                input_source == agent::AgentInputSource::DoubaoVoice,
-            )
-        }
+        AdapterCommand::AssignAgentTask { agent, task } => adapter_task::dispatch_agent_task(
+            app,
+            window.as_deref_mut(),
+            cx,
+            agent,
+            task,
+            input_source == agent::AgentInputSource::DoubaoVoice,
+        ),
         AdapterCommand::CancelAgentTask { task_id } => {
             let task_to_cancel = app.agent_task_coordinator.as_ref().and_then(|coordinator| {
                 coordinator
@@ -248,7 +246,8 @@ pub(crate) fn execute_norma_adapter_command_with_source(
                     agent::AgentTaskCancellation::CancelRequested => {
                         writer.persist_cancellation(task_id, true)
                     }
-                    agent::AgentTaskCancellation::NotFound => {}
+                    agent::AgentTaskCancellation::NotFound
+                    | agent::AgentTaskCancellation::AlreadySubmitted => {}
                 }
             }
             match result {
@@ -267,19 +266,19 @@ pub(crate) fn execute_norma_adapter_command_with_source(
                 agent::AgentTaskCancellation::NotFound => Err(AdapterError::Rejected(format!(
                     "未找到可取消的任务 #{task_id}"
                 ))),
+                agent::AgentTaskCancellation::AlreadySubmitted => Err(AdapterError::Rejected(
+                    "消息已交给 Agent CLI，请在卡片内管理其消息队列".to_string(),
+                )),
             }
         }
         command @ AdapterCommand::ReplyAgent { .. } => {
             let result = reply_adapter::execute_reply_adapter_command(app, command)?;
-            if let Some(window) = window
-                .as_deref_mut()
-                .filter(|_| {
-                    matches!(
-                        input_source,
-                        agent::AgentInputSource::Voice | agent::AgentInputSource::DoubaoVoice
-                    )
-                })
-            {
+            if let Some(window) = window.as_deref_mut().filter(|_| {
+                matches!(
+                    input_source,
+                    agent::AgentInputSource::Voice | agent::AgentInputSource::DoubaoVoice
+                )
+            }) {
                 let visible_area = app.visible_canvas_rect(window);
                 if dispatch_effects::spawn_accepted_session_reply(
                     app,
@@ -390,14 +389,12 @@ pub(crate) fn execute_norma_adapter_command_with_source(
             "已删除卡片",
             input_source != agent::AgentInputSource::DoubaoVoice,
         ),
-        AdapterCommand::DeleteCanvasCardAtPosition { position } => {
-            delete_card::close_position(
-                app,
-                window.as_deref_mut(),
-                position,
-                input_source != agent::AgentInputSource::DoubaoVoice,
-            )
-        }
+        AdapterCommand::DeleteCanvasCardAtPosition { position } => delete_card::close_position(
+            app,
+            window.as_deref_mut(),
+            position,
+            input_source != agent::AgentInputSource::DoubaoVoice,
+        ),
         AdapterCommand::DeleteAgentCard { agent } => delete_card::close_agent(
             app,
             window,

@@ -53,6 +53,8 @@ mod task_progress_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/mobile_task_summary_tests.rs"]
 mod task_summary_tests;
+mod terminal_control;
+pub use terminal_control::TerminalInputLease;
 #[cfg(test)]
 #[path = "../../tests/unit/mobile_terminal_tests.rs"]
 mod terminal_tests;

@@ -77,7 +77,7 @@ fn test_doubao_credential_is_keychain_only_and_clearable() {
         "Debug 不得输出豆包密钥"
     );
     let writes = state.take_pending_writes();
-    assert!(writes.iter().any(|write| matches!(write, PendingVoiceSettingWrite::StoreCredential { account, secret } if account == "doubao-desktop" && secret == "synthetic-secret-123")), "密钥应只经 Keychain 写任务落地");
+    assert!(writes.iter().any(|write| matches!(write, PendingVoiceSettingWrite::StoreCredential { account, secret, .. } if account == "doubao-desktop" && secret == "synthetic-secret-123")), "密钥应通过后台 SQLite 写任务落地");
     assert!(!writes.iter().any(|write| matches!(write, PendingVoiceSettingWrite::Set { value, .. } if value == "synthetic-secret-123")), "SQLite 设置不得保存密钥明文");
     state.record_persistence_result(Ok(()));
     state.clear_doubao_credential();

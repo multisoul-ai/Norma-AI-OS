@@ -1,8 +1,7 @@
-//! E2E-05：Agent task 状态驱动 terminal cursor 动画（L1 headless GPUI）。
+//! E2E-05：Agent 任务状态与 terminal cursor 动画独立（L1 headless GPUI）。
 //!
-//! Agent 卡片使用持久的交互式 PTY，因此任务失败或手动中断后，PTY 仍存活并不表示
-//! Agent 仍在执行。本用例验证公开 action、任务状态更新与聚焦 cursor 动画意图之间的
-//! 用户可见闭环。
+//! Agent 卡片使用持久的交互式 PTY。任务失败或中断后，任务特效结束，
+//! 但只要 PTY 仍可输入，聚焦光标就应继续呼吸。
 
 use gpui::TestAppContext;
 use runtime::{AgentTaskState, AgentTaskUpdate, NodeRunState};
@@ -12,7 +11,7 @@ use crate::harness::{
     create_codex_agent, create_terminal, echo_factory, enter_canvas, make_app, read_runtime,
 };
 
-/// E2E-05：失败或手动中断后的 Agent 不得因仍存活的 PTY 保持运行中 cursor 动画。
+/// E2E-05：失败或任务完成后的 Agent 在 PTY 存活时保留输入光标动画。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   echo_factory() 生成确定性 TestPtyBackend，创建后 session.status=Running
@@ -23,23 +22,26 @@ use crate::harness::{
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. headless 启动 app，进入 Canvas 并通过公开 NewCodexAgent action 创建卡片
-///   2. 注入 Thinking task update，读取公开 e2e 动画状态
+///   2. 读取 Ready 光标动画状态，再注入 Thinking task update
 ///   3. 注入 Failed task update，不退出 PTY，再读取动画状态与 NodeRunState
 ///   4. 注入 Done task update，模拟 Stop hook，再读取动画状态
 ///
 /// 预期结果：
-///   - 正断言：Thinking 时 focused Agent cursor 动画启用
-///   - 正断言：Failed 与 Done 时 focused Agent cursor 动画关闭
-///   - 正断言：Failed 后 NodeRunState 仍为 Running，证明不是靠杀死 PTY 达成
-///   - 负断言：Failed Agent 动画状态不得与 Thinking 相同
-///   - 负断言：Done Agent 动画状态不得因 PTY 存活而恢复为运行中
+///   - 正断言：Ready 与 Thinking 时 focused Agent cursor 动画启用
+///   - 正断言：Failed 与 Done 时 focused Agent cursor 动画保持启用
+///   - 正断言：Failed 后 NodeRunState 仍为 Running，证明输入通道仍可用
+///   - 负断言：Failed 与 Done 不得因为任务结束而关闭输入光标动画
 #[test]
-fn e2e_05_agent_cursor_stops_when_failed_or_interrupted_while_pty_survives() {
+fn e2e_05_agent_cursor_keeps_animating_when_task_ends_and_pty_survives() {
     let mut cx = TestAppContext::single();
     let (app, cx) = make_app(&mut cx, echo_factory());
     let workspace = tempfile::TempDir::new().expect("temporary workspace root should create");
     enter_canvas(&app, cx, workspace.path());
     let node_id = create_codex_agent(&app, cx);
+
+    let ready_active = app.read_with(cx, |app, _| {
+        app.focused_terminal_cursor_animation_active_e2e()
+    });
 
     app.update(cx, |app, _| {
         let changed = app.runtime.apply_agent_task_update(AgentTaskUpdate {
@@ -92,31 +94,28 @@ fn e2e_05_agent_cursor_stops_when_failed_or_interrupted_while_pty_survives() {
         app.focused_terminal_cursor_animation_active_e2e()
     });
 
+    assert!(ready_active, "Ready Agent 的输入光标应开始动画");
     assert!(thinking_active, "Thinking Agent 应展示运行中的 cursor 动画");
     assert!(
-        !failed_active,
-        "Failed Agent 必须切换到结束后的静态 cursor 效果"
+        failed_active,
+        "Failed Agent 的 PTY 仍可输入时，光标应保持动画"
     );
     assert_eq!(
         failed_run_state,
         Some(NodeRunState::Running),
-        "Failed 后 PTY 应仍存活，测试必须证明动画不是依赖进程退出才停止"
+        "Failed 后 PTY 应仍存活，证明输入通道未关闭"
     );
-    assert!(!done_active, "Stop/Done 后 Agent cursor 不得继续运行中动画");
+    assert!(done_active, "Stop/Done 后 PTY 仍可输入，光标应保持动画");
     assert_ne!(
-        failed_active, thinking_active,
-        "Failed Agent 的 cursor 动画状态不得与运行中的 Thinking 相同"
+        failed_active, false,
+        "Failed Agent 不得关闭可输入的光标动画"
     );
-    assert_ne!(
-        done_active, thinking_active,
-        "Stop/Done 后 Agent 不得因 PTY 存活恢复为运行中 cursor 动画"
-    );
+    assert_ne!(done_active, false, "Done Agent 不得关闭可输入的光标动画");
 
     app.update(cx, |app, _| app.runtime.kill_all());
 }
 
-/// E2E-05：用户在聚焦且运行中的 Codex Agent 卡片按 Ctrl+C 时，卡片必须立即停止运行特效，
-/// 同时保留既有的终端输入转发路径。
+/// E2E-05：Ctrl+C 结束 Agent 任务时，输入光标继续动画，保留终端输入转发路径。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   echo_factory() 生成确定性 TestPtyBackend，PTY 始终保持 Running，排除“进程退出”导致动画停止的干扰。
@@ -132,11 +131,11 @@ fn e2e_05_agent_cursor_stops_when_failed_or_interrupted_while_pty_survives() {
 /// 预期结果：
 ///   - 正断言：Ctrl+C 前 Thinking Agent 的运行特效处于 active。
 ///   - 正断言：Ctrl+C 后 task state 为 Ended，表示本地已知的手动终止立即结束活动态。
-///   - 正断言：Ctrl+C 后运行特效关闭，即使 echo PTY 仍保持 Running。
+///   - 正断言：Ctrl+C 后可输入光标仍保持动画，echo PTY 仍为 Running。
 ///   - 负断言：Ctrl+C 后状态不得保留 Thinking，避免没有 Stop Hook 时动画永久运行。
-///   - 负断言：Ctrl+C 后特效不得继续与中断前相同的 active 状态。
+///   - 负断言：Ctrl+C 后任务不得保留 Thinking；光标不得变为静态。
 #[test]
-fn e2e_05_ctrl_c_stops_focused_agent_cursor_without_waiting_for_stop_hook() {
+fn e2e_05_ctrl_c_ends_task_but_keeps_live_agent_cursor_animating() {
     let mut cx = TestAppContext::single();
     let (app, cx) = make_app(&mut cx, echo_factory());
     let workspace = tempfile::TempDir::new().expect("temporary workspace root should create");
@@ -176,8 +175,8 @@ fn e2e_05_ctrl_c_stops_focused_agent_cursor_without_waiting_for_stop_hook() {
         "Ctrl+C 必须立即把 Agent 标为 Ended，不能等待可能缺失的 Stop Hook"
     );
     assert!(
-        !active_after_interrupt,
-        "Ctrl+C 后 Agent cursor 特效必须停止，即使 PTY 仍存活"
+        active_after_interrupt,
+        "Ctrl+C 后 PTY 仍可输入，光标应保持动画"
     );
     assert_ne!(
         state_after_interrupt,
@@ -185,8 +184,8 @@ fn e2e_05_ctrl_c_stops_focused_agent_cursor_without_waiting_for_stop_hook() {
         "Ctrl+C 后 Agent 不得继续保留 Thinking，否则运行特效会永久卡住"
     );
     assert_ne!(
-        active_after_interrupt, active_before_interrupt,
-        "Ctrl+C 后特效状态必须与中断前不同，不能继续 active"
+        active_after_interrupt, false,
+        "Ctrl+C 后不能冻结可输入的光标"
     );
 
     app.update(cx, |app, _| app.runtime.kill_all());
@@ -214,7 +213,7 @@ fn e2e_05_ctrl_c_stops_focused_agent_cursor_without_waiting_for_stop_hook() {
 ///   - 正断言：Thinking 稳定期局部 Working Snake active，并请求下一显示帧。
 ///   - 负断言：Thinking 稳定期根 Canvas 不报告 motion/ambient。
 ///   - 正断言：焦点 cursor 可独立保留 Timer(67ms)，但来源不得是 Working Snake。
-///   - 正断言：Done 收束后局部 Working Snake、根 ambient 与 cursor 均关闭。
+///   - 正断言：Done 收束后局部 Working Snake、根 ambient 关闭，但 cursor 保持。
 ///   - 正断言：Done 后 PTY 仍为 Running，证明调度停止不依赖销毁进程。
 #[test]
 fn e2e_05_thinking_uses_local_snake_frames_then_done_stops_without_killing_pty() {
@@ -323,13 +322,13 @@ fn e2e_05_thinking_uses_local_snake_frames_then_done_stops_without_killing_pty()
         "Done 收束后必须退出 Working Snake ambient 活动"
     );
     assert!(
-        !done_schedule.cursor_active,
-        "Done 收束后 focused Agent cursor 动画必须关闭"
+        done_schedule.cursor_active,
+        "Done 后 PTY 仍可输入，光标应保持动画"
     );
-    assert_ne!(
+    assert_eq!(
         done_schedule.timer_interval,
         Some(Duration::from_millis(67)),
-        "Done 收束后不得继续保留 67ms ambient timer"
+        "Done 后仅聚焦光标应保留 ceil(1000ms / 15fps) = 67ms timer"
     );
     assert_eq!(
         done_run_state,

@@ -1,7 +1,7 @@
 import Foundation
 
 /// Live queue state is separate from the immutable acknowledgement of durable handoff.
-public struct QueuedMessageStatus: Decodable, Sendable {
+public struct QueuedMessageStatus: Codable, Equatable, Sendable {
     public let deviceID: String
     public let operationID: String
     public let workspaceID: String

@@ -8,13 +8,16 @@ use audio::PcmAudioChunk;
 use crossbeam_channel::bounded;
 use std::sync::{mpsc, Arc};
 use std::thread::JoinHandle;
+use std::time::{Duration, Instant};
 
 #[cfg(feature = "test-support")]
 use std::sync::{Mutex, OnceLock};
 
 const STREAM_CHUNK_QUEUE: usize = 64;
-// 8 × 20 ms = 160 ms：双工采集不能在网络短暂停顿后补发一整秒旧语音。
+// 双工队列最多保留 8 个 chunk，网络暂慢时丢弃旧音频；实际 chunk 时长由设备决定。
 const DUPLEX_STREAM_CHUNK_QUEUE: usize = 8;
+// 首块 PCM 通常约 100 ms 到达；给 8 个回调周期（800 ms）验证 AEC 采集就绪。
+const DUPLEX_CAPTURE_READY_TIMEOUT: Duration = Duration::from_millis(800);
 
 pub struct PcmStreamSession {
     stop_tx: Option<mpsc::Sender<()>>,
@@ -118,6 +121,7 @@ fn start_pcm_stream_with_voice_processing(
         target: "norma_voice",
         input_device_selected = input_device_id.is_some(),
         sample_rate_hz = PCM_STREAM_SAMPLE_RATE_HZ,
+        voice_processing,
         "starting microphone PCM capture"
     );
     ensure_microphone_authorized()?;
@@ -132,12 +136,14 @@ fn start_pcm_stream_with_voice_processing(
     let (stop_tx, stop_rx) = mpsc::channel::<()>();
     let (started_tx, started_rx) = mpsc::channel::<Result<(), VoiceInputError>>();
 
+    let stats = Arc::new(AudioQueueStats::default());
     let capture_thread = spawn_capture_thread(
         pcm_tx,
         stop_rx,
         started_tx,
         input_device_id,
         voice_processing,
+        Arc::clone(&stats),
     )?;
     match started_rx.recv() {
         Ok(Ok(())) => {}
@@ -170,16 +176,36 @@ fn start_pcm_stream_with_voice_processing(
 
     tracing::info!(target: "norma_voice", "microphone PCM capture threads ready");
 
-    Ok((
-        PcmStreamSession {
-            stop_tx: Some(stop_tx),
-            capture_thread: Some(capture_thread),
-            forward_thread: Some(forward_thread),
-            #[cfg(feature = "test-support")]
-            test_hold_tx: None,
-        },
-        chunk_rx,
-    ))
+    let session = PcmStreamSession {
+        stop_tx: Some(stop_tx),
+        capture_thread: Some(capture_thread),
+        forward_thread: Some(forward_thread),
+        #[cfg(feature = "test-support")]
+        test_hold_tx: None,
+    };
+    if voice_processing {
+        wait_for_voice_processing_ready(&stats, DUPLEX_CAPTURE_READY_TIMEOUT)?;
+        tracing::info!(target: "norma_voice", "voice processing delivered first PCM chunk");
+    }
+    Ok((session, chunk_rx))
+}
+
+fn wait_for_voice_processing_ready(
+    stats: &AudioQueueStats,
+    timeout: Duration,
+) -> Result<(), VoiceInputError> {
+    let deadline = Instant::now() + timeout;
+    while stats.sent_chunks() == 0 && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    if stats.sent_chunks() == 0 {
+        tracing::warn!(target: "norma_voice", timeout_ms = timeout.as_millis(),
+            "voice processing produced no PCM; refusing capture without echo cancellation");
+        return Err(VoiceInputError::Audio(
+            "回声消除未能启动，请重新开启语音对话".into(),
+        ));
+    }
+    Ok(())
 }
 
 fn spawn_capture_thread(
@@ -188,43 +214,51 @@ fn spawn_capture_thread(
     started_tx: mpsc::Sender<Result<(), VoiceInputError>>,
     input_device_id: Option<String>,
     voice_processing: bool,
+    stats: Arc<AudioQueueStats>,
 ) -> Result<JoinHandle<()>, VoiceInputError> {
     std::thread::Builder::new()
         .name("voice_input_pcm_capture".to_string())
         .spawn(move || {
-            let stats = Arc::new(AudioQueueStats::default());
-            let capture = AudioCapture::start_with_voice_processing(
-                pcm_tx,
-                stats.clone(),
-                input_device_id.as_deref(),
-                PCM_STREAM_SAMPLE_RATE_HZ,
-                voice_processing,
-            );
-            match capture {
-                Ok(capture) => {
-                    tracing::info!(
-                        target: "norma_voice",
-                        "AVAudioEngine microphone capture started"
-                    );
-                    let _ = started_tx.send(Ok(()));
-                    let _ = stop_rx.recv();
-                    capture.stop();
-                    tracing::info!(
-                        target: "norma_voice",
-                        sent_chunks = stats.sent_chunks(),
-                        dropped_chunks = stats.dropped_chunks(),
-                        "AVAudioEngine microphone capture stopped"
-                    );
+            let run = || {
+                let capture = AudioCapture::start_with_voice_processing(
+                    pcm_tx,
+                    stats.clone(),
+                    input_device_id.as_deref(),
+                    PCM_STREAM_SAMPLE_RATE_HZ,
+                    voice_processing,
+                );
+                match capture {
+                    Ok(capture) => {
+                        tracing::info!(
+                            target: "norma_voice",
+                            "AVAudioEngine microphone capture started"
+                        );
+                        let _ = started_tx.send(Ok(()));
+                        let _ = stop_rx.recv();
+                        capture.stop();
+                        tracing::info!(
+                            target: "norma_voice",
+                            sent_chunks = stats.sent_chunks(),
+                            dropped_chunks = stats.dropped_chunks(),
+                            voice_processing,
+                            "AVAudioEngine microphone capture stopped"
+                        );
+                    }
+                    Err(error) => {
+                        tracing::warn!(
+                            target: "norma_voice",
+                            %error,
+                            "AVAudioEngine microphone capture initialization failed"
+                        );
+                        let _ = started_tx.send(Err(error));
+                    }
                 }
-                Err(error) => {
-                    tracing::warn!(
-                        target: "norma_voice",
-                        %error,
-                        "AVAudioEngine microphone capture initialization failed"
-                    );
-                    let _ = started_tx.send(Err(error));
-                }
-            }
+            };
+            // std::thread 没有 Cocoa autorelease pool；必须在会话结束前释放旧 IO 对象。
+            #[cfg(target_os = "macos")]
+            objc2::rc::autoreleasepool(|_| run());
+            #[cfg(not(target_os = "macos"))]
+            run();
         })
         .map_err(|error| {
             VoiceInputError::Audio(format!("could not spawn pcm capture thread: {error}"))

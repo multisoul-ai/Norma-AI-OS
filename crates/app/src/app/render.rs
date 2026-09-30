@@ -53,6 +53,7 @@ impl Render for MultisoulApp {
                 |root| {
                     root.on_action(cx.listener(Self::on_new_terminal))
                         .on_action(cx.listener(Self::on_preview_image_command))
+                        .on_action(cx.listener(Self::on_preview_edit_command))
                         .on_action(cx.listener(Self::on_new_browser))
                         .on_action(cx.listener(Self::on_new_ego))
                         .on_action(cx.listener(Self::on_new_claude_agent))

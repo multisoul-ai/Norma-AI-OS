@@ -93,43 +93,26 @@ fn exchange(server: &ServerIdentity, trusted: &ServerIdentity, accepted: bool) {
     );
 }
 
-/// Keychain 中的证书和私钥跨重新打开保持不变，损坏记录不能被静默换成另一台电脑。
+/// SQLite 身份记录解码后保持原证书，损坏记录不能生成另一台电脑。
 ///
-/// 数据构造：当前测试进程+纳秒组成独立 Keychain account，不读写生产 account；测试结束删除该唯一项目。
-/// 执行过程：首次加载 → 第二次加载 → 核验证书不变 → 仅将测试项目改为坏 JSON → 再加载。
-/// 预期结果：前两次返回同一机器身份；坏项目明确失败，不能生成新身份覆盖原记录。
-#[cfg(target_os = "macos")]
+/// 数据构造（含关键数值的推导过程）：一份本地生成身份、一个合法 JSON 和一个坏 JSON。
+/// 执行过程（逐步说明系统如何处理）：生成身份 → 编码 → 解码 → 尝试解码坏记录。
+/// 预期结果：合法记录指纹一致；坏记录明确失败且不等于合法记录。
 #[test]
-#[ignore = "writes and removes one isolated test Keychain item"]
-fn native_keychain_preserves_identity_and_fails_closed() {
-    const SERVICE: &str = "com.norma-ai.os.mobile-server";
-    let suffix = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("时钟")
-        .as_nanos();
-    let account = format!("mobile-test-{}-{suffix}", std::process::id());
-    struct Cleanup(String);
-    impl Drop for Cleanup {
-        fn drop(&mut self) {
-            let _ = security_framework::passwords::delete_generic_password(SERVICE, &self.0);
-        }
-    }
-    let _cleanup = Cleanup(account.clone());
-    let a = ServerIdentity::load_or_create(&account).expect("首次 Keychain 保存");
-    let b = ServerIdentity::load_or_create(&account).expect("重新打开");
-    assert_eq!(a.machine_id(), b.machine_id(), "重新打开不能变成另一台电脑");
-    assert_eq!(a.certificate_der(), b.certificate_der(), "证书指纹必须稳定");
-    security_framework::passwords::set_generic_password(SERVICE, &account, b"invalid-json")
-        .expect("仅破坏隔离项目");
-    assert!(
-        ServerIdentity::load_or_create(&account).is_err(),
-        "损坏 Keychain 必须停止，不可静默覆盖"
-    );
+fn stored_identity_rejects_corruption_without_changing_certificate() {
+    let original = ServerIdentity::generate().expect("测试应生成独立身份");
+    let saved = original.storage_json().expect("身份应可编码为 JSON");
+    let loaded = ServerIdentity::from_storage_json(&saved).expect("完整身份应可解码");
     assert_eq!(
-        security_framework::passwords::get_generic_password(SERVICE, &account).expect("读隔离项目"),
-        b"invalid-json",
-        "失败不得改写项目"
+        original.machine_id(),
+        loaded.machine_id(),
+        "合法记录应保留证书指纹"
     );
+    assert!(
+        ServerIdentity::from_storage_json("invalid-json").is_err(),
+        "损坏记录必须拒绝"
+    );
+    assert_ne!(saved, "invalid-json", "损坏测试值不能等于合法身份记录");
 }
 
 /// 移动入口只接受 TLS 内的指定 WebSocket 路径；浏览器 Origin、query 和慢握手均不能进入应用路由。

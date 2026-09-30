@@ -39,7 +39,8 @@ fn corrupt_shared_vad_is_rejected_before_provider_or_microphone_start() {
         model_root.path().to_path_buf(),
     );
 
-    let result = resolve_asr_recognizer_factory(state.values(), model_root.path());
+    let store = storage::SettingsStore::new(model_root.path().join("app.sqlite"));
+    let result = resolve_asr_recognizer_factory(state.values(), model_root.path(), &store);
 
     assert!(
         matches!(

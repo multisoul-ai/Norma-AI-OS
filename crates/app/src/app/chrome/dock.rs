@@ -17,16 +17,6 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) -> Div {
         let theme = self.theme;
-        let canvas_mode_icon = if self.interaction.canvas_scroll_enabled {
-            ToolbarIcon::Scroll
-        } else {
-            ToolbarIcon::Cursor
-        };
-        let canvas_mode_tooltip = if self.interaction.canvas_scroll_enabled {
-            "Scroll mode"
-        } else {
-            "Select mode"
-        };
         let new_menu = self
             .interaction
             .new_menu_open
@@ -53,16 +43,6 @@ impl MultisoulApp {
                     .shadow(command_dock_shadow())
                     .bg(rgba(theme.dock))
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                    .child(
-                        chrome_icon_button(
-                            theme,
-                            canvas_mode_icon,
-                            false,
-                            "toolbar-canvas-scroll",
-                            canvas_mode_tooltip,
-                        )
-                        .on_click(cx.listener(Self::on_toolbar_canvas_scroll)),
-                    )
                     .child(
                         chrome_icon_button(
                             theme,

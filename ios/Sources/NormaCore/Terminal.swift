@@ -30,7 +30,12 @@ public struct TerminalPage: Codable, Equatable, Sendable {
     public let inputReady: Bool
     public var rows: [String]
     public let softWrapped: [Bool]?
-    enum CodingKeys: String, CodingKey { case card, revision, screenSignature = "screen_signature", inputSequence = "input_sequence", startLine = "start_line", totalLines = "total_lines", cols, running, inputReady = "input_ready", rows, softWrapped = "soft_wrapped" }
+    public var cursor: Cursor? = nil
+    public struct Cursor: Codable, Equatable, Sendable {
+        public let line: Int
+        public let column: Int
+    }
+    enum CodingKeys: String, CodingKey { case cursor, card, revision, screenSignature = "screen_signature", inputSequence = "input_sequence", startLine = "start_line", totalLines = "total_lines", cols, running, inputReady = "input_ready", rows, softWrapped = "soft_wrapped" }
 
     /// Reflow only confirmed soft boundaries; a legacy screen keeps its original line breaks.
     public func text(lastRows: Int = 120) -> String {
@@ -46,6 +51,10 @@ public struct TerminalPage: Codable, Equatable, Sendable {
         try request.validate(); try card.validate()
         guard card.nodeID == request.nodeID, card.runID == request.runID,
               request.sessionID == nil || card.sessionID == request.sessionID else { throw MobileError.sessionChanged }
+        if let cursor {
+            guard request.before == nil, cursor.line >= startLine, cursor.line < totalLines,
+                  cursor.column >= 0, cursor.column < cols else { throw MobileError.invalidResponse }
+        }
         let end = request.before ?? totalLines
         guard (1...100_000).contains(totalLines), (1...512).contains(cols), end <= totalLines, end > 0,
               startLine == max(0, end - 120), rows.count == end - startLine,

@@ -35,6 +35,14 @@ codesign --force --sign - "$validation_bundle"
 NORMA_MOBILE_APP_BUNDLE="$validation_bundle" cargo test --manifest-path "$root/Cargo.toml" \
   -p e2e --test mobile_desktop_bundle -- --ignored
 validation_extra=(--env "NORMA_VISUAL_PREVIEW=$validation_preview")
+if [[ -n ${NORMA_THREAD_REAL_CODEX_HOME:-} ]]; then
+  test -d "$NORMA_THREAD_REAL_CODEX_HOME"
+  test -n "${NORMA_CLOUD_LOCAL_PORT:?real thread validation needs a local relay port}"
+  validation_extra+=(--env "CODEX_HOME=$NORMA_THREAD_REAL_CODEX_HOME"
+    --env "ZDOTDIR=$NORMA_THREAD_REAL_CODEX_HOME"
+    --env "NORMA_THREAD_CODEX_REAL_L3=1"
+    --env "NORMA_CLOUD_LOCAL_PORT=$NORMA_CLOUD_LOCAL_PORT")
+fi
 if [[ -n ${NORMA_REALTIME_L3_UPSTREAM:-} ]]; then
   test -d "${NORMA_NATIVE_FIXTURE_ROOT:?realtime validation requires an isolated provider}"
   validation_extra+=(--env "NORMA_REALTIME_L3_UPSTREAM=$NORMA_REALTIME_L3_UPSTREAM"

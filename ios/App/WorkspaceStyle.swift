@@ -10,12 +10,16 @@ enum WorkspaceStyle {
 
 private struct WorkspaceTabKey: EnvironmentKey { static let defaultValue: Binding<Int>? = nil }
 private struct WorkspaceNotificationsKey: EnvironmentKey { static let defaultValue: @MainActor @Sendable () -> Void = {} }
+private struct WorkspaceIdeasKey: EnvironmentKey { static let defaultValue: @MainActor @Sendable () -> Void = {} }
 extension EnvironmentValues {
     var workspaceTab: Binding<Int>? {
         get { self[WorkspaceTabKey.self] } set { self[WorkspaceTabKey.self] = newValue }
     }
     var workspaceNotifications: @MainActor @Sendable () -> Void {
         get { self[WorkspaceNotificationsKey.self] } set { self[WorkspaceNotificationsKey.self] = newValue }
+    }
+    var workspaceIdeas: @MainActor @Sendable () -> Void {
+        get { self[WorkspaceIdeasKey.self] } set { self[WorkspaceIdeasKey.self] = newValue }
     }
 }
 
@@ -47,6 +51,7 @@ private struct WorkspaceTopBar: View {
     let model: ComputerModel
     let manageComputers: () -> Void
     @Environment(\.workspaceNotifications) private var openNotifications
+    @Environment(\.workspaceIdeas) private var openIdeas
     var body: some View {
         HStack(spacing: 4) {
             Button(action: manageComputers) {
@@ -68,13 +73,15 @@ private struct WorkspaceTopBar: View {
                 .accessibilityLabel("切换或管理电脑").accessibilityValue(model.selected?.name ?? "未连接")
                 .accessibilityIdentifier("manage-computers")
             Menu {
+                Button("想法库", systemImage: "lightbulb", action: openIdeas)
+                    .accessibilityIdentifier("idea-library-entry")
                 Button("设备与连接", action: manageComputers)
                 Button("任务提醒", action: openNotifications)
                 Button("刷新连接", action: model.refresh)
             } label: {
                 Text("A").font(.system(size: 12, weight: .semibold))
                     .frame(width: 29, height: 29).background(WorkspaceStyle.line, in: Circle()).frame(width: 44, height: 44).contentShape(Rectangle())
-            }.accessibilityLabel("偏好设置")
+            }.accessibilityLabel("偏好设置").accessibilityIdentifier("workspace-preferences")
         }.buttonStyle(WorkspacePressStyle()).foregroundStyle(.white)
             .padding(.horizontal, 20).frame(height: 58).background(.black)
             .dynamicTypeSize(...DynamicTypeSize.large)
@@ -83,41 +90,51 @@ private struct WorkspaceTopBar: View {
 
 struct WorkspaceTabBar: View {
     @Binding var selection: Int
-    @Namespace private var highlight
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.dynamicTypeSize) private var typeSize
     var body: some View {
-        WorkspaceGlassTrack {
-            HStack(spacing: 0) {
-                item(0, title: "项目", symbol: "folder", id: "projects")
-                item(1, title: "指挥台", symbol: nil, id: "command")
-                item(2, title: "任务", symbol: "list.bullet", id: "tasks")
-            }.frame(height: 66)
+        HStack(alignment: typeSize.isAccessibilitySize ? .top : .center, spacing: typeSize.isAccessibilitySize ? 8 : 0) {
+            item(0, title: "工作空间", symbol: "folder.fill", id: "projects")
+            item(1, title: "Norma", symbol: nil, id: "command")
+            item(2, title: "收件箱", symbol: "tray.fill", id: "tasks")
         }
-            .animation(reduceMotion ? .easeOut(duration: 0.12) : .interactiveSpring(response: 0.28, dampingFraction: 0.9), value: selection)
-            .dynamicTypeSize(...DynamicTypeSize.large)
+        .frame(minHeight: typeSize.isAccessibilitySize ? 94 : 72)
+        .padding(.horizontal, typeSize.isAccessibilitySize ? 8 : 16)
+        .background {
+            let shape = UnevenRoundedRectangle(topLeadingRadius: 30, topTrailingRadius: 30)
+            Group {
+                if reduceTransparency { shape.fill(.white) }
+                else if #available(iOS 26.0, *) { Color.clear.glassEffect(.regular, in: shape) }
+                else { shape.fill(.ultraThinMaterial) }
+            }.ignoresSafeArea(edges: .bottom)
+        }
+        .overlay(alignment: .top) { Color.white.opacity(0.8).frame(height: 1) }
     }
     private func item(_ index: Int, title: String, symbol: String?, id: String) -> some View {
-        Button { selection = index } label: {
-            VStack(spacing: index == 1 ? 2 : 5) {
+        let keepWord = typeSize.isAccessibilitySize && index == 1
+        return Button { selection = index } label: {
+            VStack(spacing: 5) {
                 if let symbol {
-                    Image(systemName: symbol).font(.system(size: 20, weight: selection == index ? .medium : .regular)).frame(height: 23)
+                    Image(systemName: symbol).font(.system(size: 23, weight: .medium))
+                        .frame(width: 38, height: 38)
+                        .background(selection == index ? IdeaPalette.blue.opacity(0.08) : .clear, in: Circle())
                 } else {
-                    NormaMark().fill(.black).frame(width: 24, height: 24)
-                        .frame(width: 44, height: 44).background(Color(white: 0.98), in: Circle())
-                        .overlay(Circle().stroke(.white.opacity(selection == index ? 0.15 : 0.06), lineWidth: 4).padding(-2))
+                    Image("NormaPortrait").resizable().scaledToFill()
+                        .frame(width: 36, height: 36).clipShape(Circle())
+                        .accessibilityHidden(true)
                 }
-                Text(title).font(.system(size: 10))
-            }.foregroundStyle(selection == index ? .white : WorkspaceStyle.muted)
-                .frame(maxWidth: .infinity, minHeight: 66).contentShape(Rectangle())
-                .background {
-                    if selection == index { WorkspaceGlassSelection(namespace: highlight) }
-                }
-        }.buttonStyle(WorkspacePressStyle()).accessibilityLabel(title)
-            .accessibilityIdentifier("workspace-tab-" + id).accessibilityAddTraits(selection == index ? .isSelected : [])
+                Text(title).font(.caption2).multilineTextAlignment(.center)
+                    .fixedSize(horizontal: keepWord, vertical: true)
+            }
+            .foregroundStyle(selection == index ? IdeaPalette.blue : IdeaPalette.secondary)
+            .padding(.horizontal, typeSize.isAccessibilitySize ? 6 : 0)
+            .frame(maxWidth: keepWord ? nil : .infinity, minHeight: 60).contentShape(Rectangle())
+        }.frame(maxWidth: keepWord ? nil : .infinity).buttonStyle(IdeaPressStyle()).accessibilityLabel(title)
+            .accessibilityIdentifier("workspace-tab-" + id)
+            .accessibilityAddTraits(selection == index ? .isSelected : [])
     }
 }
 
-/// One moving glass lens per selector; the track uses Material so glass is not stacked on glass.
 struct WorkspaceGlassTrack<Content: View>: View {
     @ViewBuilder var content: Content
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency

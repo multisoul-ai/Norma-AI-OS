@@ -5,6 +5,87 @@ use serde::Deserialize;
 #[derive(Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub(super) enum Action {
+    CloudRegistration {
+        device_id: String,
+        token: String,
+        cloud_device_id: String,
+        token_hash: String,
+    },
+    ThreadTaskFollowup {
+        device_id: String,
+        token: String,
+        followup: Box<norma::mobile::ThreadFollowup>,
+        route_id: String,
+        grant_revision: u64,
+    },
+    ThreadTaskFollowupReceipt {
+        device_id: String,
+        token: String,
+        followup: Box<norma::mobile::ThreadFollowup>,
+    },
+    ThreadTaskTerminalControl {
+        device_id: String,
+        token: String,
+        request: crate::mobile::ThreadTerminalRequest,
+        operation: crate::mobile::ThreadTerminalOperation,
+        #[serde(default)]
+        lookup_only: bool,
+    },
+    ThreadTaskTerminal {
+        device_id: String,
+        token: String,
+        request: crate::mobile::thread_task_terminal::Request,
+    },
+    ThreadTaskAccept {
+        device_id: String,
+        token: String,
+        decision: crate::mobile::thread_task_acceptance::Decision,
+        route_id: String,
+        grant_revision: u64,
+    },
+    ThreadTaskAcceptance {
+        device_id: String,
+        token: String,
+        decision: crate::mobile::thread_task_acceptance::Decision,
+    },
+    ThreadTaskReview {
+        device_id: String,
+        token: String,
+        request: crate::mobile::thread_task_review::Request,
+    },
+    ThreadTask {
+        device_id: String,
+        token: String,
+        task: Box<norma::mobile::ThreadTask>,
+        route_id: String,
+        grant_revision: u64,
+    },
+    ThreadTaskReceipt {
+        device_id: String,
+        token: String,
+        collaboration_workspace_id: String,
+        thread_id: String,
+        operation_id: String,
+    },
+    ThreadMessage {
+        device_id: String,
+        token: String,
+        message: Box<norma::mobile::ThreadMessage>,
+    },
+    ThreadReceipt {
+        device_id: String,
+        token: String,
+        collaboration_workspace_id: String,
+        thread_id: String,
+        operation_id: String,
+    },
+    ThreadEvents {
+        device_id: String,
+        token: String,
+        collaboration_workspace_id: String,
+        thread_id: String,
+        after: u64,
+    },
     VoiceAuthorization {
         device_id: String,
         token: String,

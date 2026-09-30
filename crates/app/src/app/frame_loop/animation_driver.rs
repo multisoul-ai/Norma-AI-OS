@@ -117,7 +117,7 @@ impl MultisoulApp {
             voice_active: self.voice_caption_animation_active(),
             canvas_motion_active: motion_activity.canvas_active,
             canvas_frame_synced_active: motion_activity.frame_synced_active,
-            canvas_ambient_active: motion_activity.ambient_active,
+            canvas_ambient_active: motion_activity.ambient_active || self.browsers.any_loading(),
             cursor_active: self.focused_terminal_cursor_animation_active(),
             screen_is_canvas: matches!(self.screen, AppScreen::Canvas),
             window_active: self.window_active,

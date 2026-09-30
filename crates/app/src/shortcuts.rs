@@ -19,6 +19,7 @@ pub(crate) enum ShortcutCommandId {
     CopyCardContent,
     OpenProject,
     OpenPreviewFile,
+    SavePreviewFile,
     NewClaudeAgent,
     NewCodexAgent,
     NewCursorAgent,

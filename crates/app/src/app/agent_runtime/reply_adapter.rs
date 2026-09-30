@@ -56,7 +56,7 @@ fn reply_agent(
     let text = match receipt.status {
         agent::AgentReplyStatus::Sent => format!("已经发给 {name} 了。"),
         agent::AgentReplyStatus::Queued => {
-            format!("{name} 还在处理当前内容，我已经把这句话排为下一条。")
+            format!("{name} 的输入暂不可用，这条消息等待发送。")
         }
         agent::AgentReplyStatus::Failed => {
             format!("没能发给 {name}。")

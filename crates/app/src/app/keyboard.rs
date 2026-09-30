@@ -243,9 +243,8 @@ impl MultisoulApp {
         let Some(node_id) = current_delete_node_id(&self.runtime) else {
             return;
         };
-        if self.close_node_through_route(node_id, window) {
-            cx.notify();
-        }
+        self.close_node_through_route(node_id, window);
+        cx.notify();
     }
 
     /// 键盘事件：维护 space_held；聚焦终端时把按键编码写入对应 PTY。
@@ -256,6 +255,15 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         if self.handle_feature_guide_key_down(ev, window, cx) {
+            return;
+        }
+        if let Some(node_id) = self.previews.focused_editor(window, cx) {
+            if self.shortcuts.command_for_keystroke(&ev.keystroke)
+                == Some(ShortcutCommandId::SavePreviewFile)
+            {
+                self.save_preview_edit(node_id, cx);
+                cx.stop_propagation();
+            }
             return;
         }
         if self.settings_panel.open {

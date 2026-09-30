@@ -10,11 +10,15 @@ pub(crate) use delivery::migrate as migrate_delivery_acceptances;
 pub use delivery::DeliveryAcceptance;
 pub(crate) use feedback::migrate as migrate_delivery_feedback;
 pub use feedback::DeliveryFeedback;
+mod execution;
 mod queue;
 mod realtime;
+mod thread;
 mod todo;
+pub use execution::{ThreadTaskExecution, ThreadTaskExecutionEvent};
 pub use queue::{NewQueuedMessage, QueuedMessage};
 pub use realtime::{RealtimeCall, RealtimeOperation, RealtimeReservation};
+pub use thread::{StoredThreadCommand, ThreadCommandBinding};
 pub use todo::{PlanTodoReservation, StoredTodoDecision, TodoDecisionRef};
 
 #[derive(Clone, Debug)]
@@ -63,6 +67,15 @@ impl MobileCommandStore {
         let result = reserve_on(&tx, request)?;
         tx.commit()?;
         Ok(result)
+    }
+
+    /// Compare the original payload without reserving or replaying a missing operation.
+    pub fn lookup(
+        &self,
+        request: &NewMobileCommand,
+    ) -> StorageResult<Option<MobileCommandReservation>> {
+        validate(request)?;
+        lookup_on(&open_app_connection(&self.path)?, request)
     }
 
     pub fn get(
@@ -197,6 +210,20 @@ fn reserve_on(
     connection: &Connection,
     request: &NewMobileCommand,
 ) -> StorageResult<MobileCommandReservation> {
+    if let Some(existing) = lookup_on(connection, request)? {
+        return Ok(existing);
+    }
+    connection.execute("INSERT INTO mobile_commands
+            (device_id,operation_id,workspace_id,route_id,owner_id,request_hash,state,created_at_unix)
+            VALUES (?1,?2,?3,?4,?5,?6,'accepted',?7)", params![request.device_id, request.operation_id,
+            request.workspace_id, request.route_id, request.owner_id, request.request_hash, current_unix_timestamp()?])?;
+    Ok(MobileCommandReservation::New)
+}
+
+fn lookup_on(
+    connection: &Connection,
+    request: &NewMobileCommand,
+) -> StorageResult<Option<MobileCommandReservation>> {
     if let Some((mut receipt, owner, hash)) =
         read(connection, &request.device_id, &request.operation_id)?
     {
@@ -204,16 +231,12 @@ fn reserve_on(
             || receipt.workspace_id != request.workspace_id
             || receipt.route_id != request.route_id
         {
-            return Ok(MobileCommandReservation::Conflict);
+            return Ok(Some(MobileCommandReservation::Conflict));
         }
         recover(&mut receipt, &owner, &request.owner_id);
-        return Ok(MobileCommandReservation::Existing(Box::new(receipt)));
+        return Ok(Some(MobileCommandReservation::Existing(Box::new(receipt))));
     }
-    connection.execute("INSERT INTO mobile_commands
-            (device_id,operation_id,workspace_id,route_id,owner_id,request_hash,state,created_at_unix)
-            VALUES (?1,?2,?3,?4,?5,?6,'accepted',?7)", params![request.device_id, request.operation_id,
-            request.workspace_id, request.route_id, request.owner_id, request.request_hash, current_unix_timestamp()?])?;
-    Ok(MobileCommandReservation::New)
+    Ok(None)
 }
 
 /// Mobile command and FIFO tables share one migration owner.
@@ -254,6 +277,8 @@ pub(crate) fn migrate(connection: &Connection) -> StorageResult<()> {
 
     "#)?;
     migrate_mobile_message_queue_profiles(connection)?;
+    thread::migrate(connection)?;
+    execution::migrate(connection)?;
     Ok(())
 }
 

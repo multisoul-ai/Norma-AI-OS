@@ -7,6 +7,9 @@ impl MultisoulApp {
     pub(crate) fn refresh_voice_provider_credentials(&mut self, cx: &mut Context<Self>) {
         let refs = self.voice_settings.credential_refs();
         let minimax_ref = self.voice_settings.minimax_credential_ref_to_load();
+        let Some(store) = self.voice_settings.credential_store() else {
+            return;
+        };
         if refs.is_empty() && minimax_ref.is_none() {
             return;
         }
@@ -14,12 +17,12 @@ impl MultisoulApp {
             let agent_credentials = refs
                 .into_iter()
                 .map(|(provider, account)| {
-                    let result = VoiceSettingsState::load_credential(&account);
+                    let result = VoiceSettingsState::load_credential(&store, &account);
                     (provider, account, result)
                 })
                 .collect::<Vec<_>>();
             let minimax_credential = minimax_ref.map(|account| {
-                let result = VoiceSettingsState::load_credential(&account);
+                let result = VoiceSettingsState::load_credential(&store, &account);
                 (account, result)
             });
             (agent_credentials, minimax_credential)

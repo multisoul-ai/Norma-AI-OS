@@ -1,7 +1,7 @@
 import Foundation
 
 public enum MobileError: Error, LocalizedError, Sendable, Equatable {
-    case terminalChanged, terminalUnavailable
+    case terminalChanged, terminalUnavailable, terminalControlExpired, terminalControlled, desktopInputPending
     case pushSubscriptionChanged, invalidPushRegistration
     case invalidComputerAddress, invalidPairingCode
     case invalidOffer, unsupportedVersion, invalidResponse, wrongComputer, unauthorized
@@ -17,6 +17,9 @@ public enum MobileError: Error, LocalizedError, Sendable, Equatable {
     case eventGap
     public var errorDescription: String? {
         switch self {
+        case .terminalControlExpired: "终端接管已结束，请重新接管后输入。"
+        case .terminalControlled: "终端正由其他连接接管，请交还后重试。"
+        case .desktopInputPending: "电脑终端有尚未处理的输入，请先在电脑上处理。"
         case .terminalChanged: "终端已变化，请查看最新屏幕后重新输入。"
         case .terminalUnavailable: "终端暂不可用，请确认电脑使用最新版本，且原卡已启动。"
         case .pushSubscriptionChanged: "提醒设置已变化，请重新读取后确认。"

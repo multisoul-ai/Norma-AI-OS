@@ -89,8 +89,11 @@ impl VoiceSettingsState {
             || self.minimax_credential_clear_rollback.is_some()
     }
 
-    pub(crate) fn load_credential(account: &str) -> Result<Option<String>, String> {
-        crate::settings::voice::credentials::load(account)
+    pub(crate) fn load_credential(
+        store: &storage::SettingsStore,
+        account: &str,
+    ) -> Result<Option<String>, String> {
+        crate::settings::voice::credentials::load(store, account)
     }
 
     pub(super) fn queue_legacy_api_key_migrations(&mut self) {
@@ -144,7 +147,10 @@ impl VoiceSettingsState {
             }
         }
         if let Some(account) = account {
-            self.queue_pending_write(PendingVoiceSettingWrite::DeleteCredential { account });
+            self.queue_pending_write(PendingVoiceSettingWrite::DeleteCredential {
+                store: self.storage.clone(),
+                account,
+            });
         }
         self.delete_string(ref_key);
         self.delete_string(plaintext_key);
@@ -192,6 +198,7 @@ impl VoiceSettingsState {
             new_account: account.clone(),
         });
         self.queue_pending_write(PendingVoiceSettingWrite::StoreCredential {
+            store: self.storage.clone(),
             account: account.clone(),
             secret,
         });
@@ -202,6 +209,7 @@ impl VoiceSettingsState {
         }
         if let Some(previous_account) = previous.credential_ref {
             self.queue_pending_write(PendingVoiceSettingWrite::DeleteCredential {
+                store: self.storage.clone(),
                 account: previous_account,
             });
         }
@@ -245,6 +253,7 @@ impl VoiceSettingsState {
             }
         }
         self.queue_pending_write(PendingVoiceSettingWrite::DeleteCredential {
+            store: self.storage.clone(),
             account: rollback.new_account,
         });
         self.provider_requirement = VoiceRequirementState::Failed;
@@ -273,6 +282,7 @@ impl VoiceSettingsState {
             }
         }
         self.queue_pending_write(PendingVoiceSettingWrite::DeleteCredential {
+            store: self.storage.clone(),
             account: account.to_string(),
         });
     }

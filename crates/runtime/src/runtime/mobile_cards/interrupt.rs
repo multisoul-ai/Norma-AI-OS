@@ -40,6 +40,9 @@ impl Runtime {
     }
 
     pub(super) fn validate_terminal_stop_input(&self, node: NodeId) -> Result<(), &'static str> {
+        if self.mobile_terminal_is_controlled(node) {
+            return Err("terminal_controlled");
+        }
         if matches!(self.document.node(node).map(|node| &node.kind), Some(CanvasNodeKind::Agent(spec)) if spec.profile == AgentProfile::Codex)
             && self
                 .mobile_runs

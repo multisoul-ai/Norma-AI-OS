@@ -10,84 +10,99 @@ struct ComputersView: View {
     @State private var showDrafts = false
     @State private var showQueue = false
     @State private var showNotifications = false
+    @State private var projectRoute: (machine: PairedMachine, project: KnownProject)?
 
     var body: some View {
         NavigationStack {
-            List {
-                if model.machines.isEmpty {
-                    Section {
-                        VStack(alignment: .leading, spacing: 16) {
-                            Image(systemName: "laptopcomputer.and.iphone").font(.largeTitle).foregroundStyle(.secondary)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    Text("项目来自已连接的电脑")
+                        .font(.subheadline).foregroundStyle(IdeaPalette.secondary)
+                        .padding(.top, 8)
+                    if model.machines.isEmpty {
+                        VStack(alignment: .leading, spacing: 13) {
+                            Image(systemName: "laptopcomputer.and.iphone")
+                                .font(.system(size: 38)).foregroundStyle(IdeaPalette.blue)
                             Text("你的电脑，随手可达").font(.title3.weight(.semibold))
-                            Text("输入验证码或扫码，将这台 iPhone 与你的 Mac 安全配对。").font(.subheadline).foregroundStyle(.secondary)
-                        }.padding(.vertical, 16)
-                    }
-                } else {
-                    Section("已保存的电脑") {
+                            Text("输入验证码或扫码，将这台 iPhone 与你的 Mac 安全配对。")
+                                .font(.subheadline).foregroundStyle(IdeaPalette.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(24)
+                        .background(.white, in: RoundedRectangle(cornerRadius: 23))
+                    } else {
                         ForEach(model.machines) { machine in
-                            HStack(spacing: 4) {
-                                Button { model.select(machine.id); dismiss() } label: {
-                                    HStack(spacing: 14) {
-                                        Image(systemName: "laptopcomputer").font(.title3).frame(width: 32)
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text(machine.name).font(.subheadline.weight(.semibold))
-                                            Text(machine.id == model.selectedID ? "当前电脑" : "轻点切换").font(.caption).foregroundStyle(.secondary)
-                                        }
-                                        Spacer()
-                                        if machine.id == model.selectedID {
-                                            Image(systemName: "checkmark.circle.fill").accessibilityLabel("已选择")
-                                        }
-                                    }.padding(.vertical, 7)
-                                }
-                                .buttonStyle(.plain)
-                                Menu {
-                                    Button("忘记这台电脑", systemImage: "trash", role: .destructive) { forgetting = machine }
-                                } label: {
-                                    Image(systemName: "ellipsis").frame(width: 44, height: 44).contentShape(Rectangle())
-                                }.buttonStyle(.borderless).tint(.secondary)
-                                    .accessibilityLabel("管理 " + machine.name)
-                                    .accessibilityIdentifier("computer-actions-" + machine.id)
-                            }
-                            .swipeActions(allowsFullSwipe: false) {
-                                Button("忘记", systemImage: "trash", role: .destructive) { forgetting = machine }.tint(.red)
-                            }
+                            ConnectedComputerCard(
+                                machine: machine,
+                                online: model.onlineMachineIDs.contains(machine.id),
+                                checked: model.checkedMachineIDs.contains(machine.id),
+                                select: { model.select(machine.id); dismiss() },
+                                openProject: { project in
+                                    model.openProject(project.id, on: machine)
+                                    projectRoute = (machine, project)
+                                },
+                                forget: { forgetting = machine }
+                            )
                         }
                     }
-                    if model.selected != nil {
-                        Section("设备授权") {
-                            if model.connecting { WorkspaceLoadingView(message: "正在核验电脑…", inline: true) }
-                            else if let grant = model.grant, let date = model.checkedAt {
-                                LabeledContent("最近核验", value: date.formatted(date: .omitted, time: .standard))
-                                LabeledContent("已授权项目", value: "\(grant.projects.count)")
-                                Text(model.projects == nil ? "已核验授权，等待读取项目。" : "已读取当前电脑的项目目录。").font(.caption).foregroundStyle(.secondary)
-                            } else { Text("尚未核验授权").foregroundStyle(.secondary) }
-                            Button("重新核验") { model.refresh() }.disabled(model.connecting)
-                        }.font(.subheadline)
-                    }
+                    Text("电脑离线时仍可查看上次同步的项目；打开项目需要重新连接。")
+                        .font(.caption).foregroundStyle(IdeaPalette.secondary)
                 }
-                Section {
-                    Button { showNotifications = true } label: { Label("任务提醒", systemImage: "bell").frame(minHeight: 28) }
-                        .accessibilityIdentifier("notification-settings")
-                    Button { adding = true } label: { Label("添加电脑", systemImage: "qrcode.viewfinder").frame(minHeight: 28) }
-                        .accessibilityIdentifier("add-computer")
-                } footer: {
-                    Text("可添加多台 Mac，通过局域网或 Tailscale 连接。开启手机服务后，关闭窗口仍可使用；退出 Norma 后停止。")
-                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 22)
             }
-            .scrollContentBackground(.hidden).background(.black)
-            .navigationTitle("电脑").navigationBarTitleDisplayMode(.inline)
+            .background(IdeaPalette.background)
+            .refreshable { await model.refreshAllMachines() }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                Button { adding = true } label: {
+                    Label("扫码添加电脑", systemImage: "qrcode.viewfinder")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity, minHeight: 56)
+                        .foregroundStyle(.white)
+                        .background(IdeaPalette.blue, in: Capsule())
+                }
+                .buttonStyle(IdeaPressStyle())
+                .accessibilityIdentifier("add-computer")
+                .padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 12)
+                .background(.ultraThinMaterial)
+            }
+            .navigationTitle("已连接电脑").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("完成") { dismiss() }.accessibilityIdentifier("computers-close")
+                    Button { dismiss() } label: { Image(systemName: "chevron.left").frame(width: 44, height: 44) }
+                        .accessibilityLabel("返回").accessibilityIdentifier("computers-close")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { showQueue = true } label: { Image(systemName: "text.line.first.and.arrowtriangle.forward") }
-                        .accessibilityLabel("消息队列").accessibilityIdentifier("local-message-queue")
+                    Menu {
+                        Button("任务提醒", systemImage: "bell") { showNotifications = true }
+                            .accessibilityIdentifier("notification-settings")
+                        Button("消息队列", systemImage: "text.line.first.and.arrowtriangle.forward") { showQueue = true }
+                            .accessibilityIdentifier("local-message-queue")
+                        Button("本地草稿", systemImage: "note.text") { showDrafts = true }
+                            .accessibilityIdentifier("local-drafts")
+                    } label: { Image(systemName: "ellipsis") }
+                        .accessibilityLabel("更多电脑操作")
+                        .accessibilityIdentifier("computer-more-actions")
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { showDrafts = true } label: { Image(systemName: "note.text") }
-                        .accessibilityLabel("本地草稿").accessibilityIdentifier("local-drafts")
-                }
+            }
+        }
+        .preferredColorScheme(.light)
+        .tint(IdeaPalette.ink)
+        .task {
+            while !Task.isCancelled {
+                await model.refreshAllMachines()
+                try? await Task.sleep(for: .seconds(30))
+            }
+        }
+        .fullScreenCover(isPresented: Binding(get: { projectRoute != nil }, set: { if !$0 { projectRoute = nil } })) {
+            if let route = projectRoute {
+                NavigationStack {
+                    ProjectCardsView(machine: route.machine, workspaceID: route.project.id,
+                                     name: route.project.name, model: model)
+                        .toolbar { ToolbarItem(placement: .cancellationAction) {
+                            Button("关闭项目") { projectRoute = nil }.accessibilityIdentifier("computer-project-close")
+                        } }
+                }.preferredColorScheme(.dark).tint(.white)
             }
         }
         .sheet(isPresented: $adding) { PairComputerView(model: model) }
@@ -105,7 +120,106 @@ struct ComputersView: View {
             Text("从此 iPhone 移除连接和凭据，重新连接需要配对。会尝试关闭提醒；离线时请在 Mac 上关闭提醒或撤销授权。电脑上的项目和 Agent 不受影响。")
         }
     }
+}
 
+private struct ConnectedComputerCard: View {
+    let machine: PairedMachine
+    let online: Bool
+    let checked: Bool
+    let select: () -> Void
+    let openProject: (KnownProject) -> Void
+    let forget: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 12) {
+                    Button(action: select) {
+                        HStack(spacing: 14) {
+                            Image(systemName: "laptopcomputer")
+                                .font(.system(size: 42, weight: .ultraLight))
+                                .foregroundStyle(online ? IdeaPalette.blue : IdeaPalette.faint)
+                                .frame(width: 61, height: 54)
+                            Text(machine.name).font(.title3.weight(.semibold))
+                            Spacer(minLength: 2)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(IdeaPressStyle())
+                    .accessibilityIdentifier("computer-select-" + machine.id)
+                    status
+                    Menu {
+                        Button("忘记这台电脑", systemImage: "trash", role: .destructive, action: forget)
+                    } label: { Image(systemName: "ellipsis").frame(width: 35, height: 44) }
+                        .accessibilityLabel("管理 " + machine.name)
+                        .accessibilityIdentifier("computer-actions-" + machine.id)
+                }
+                HStack(spacing: 4) {
+                    if online { Text("刚刚同步") }
+                    else if let date = machine.lastSyncedAt {
+                        Text("上次同步")
+                        Text(date, style: .relative)
+                            .environment(\.locale, Locale(identifier: "zh_CN"))
+                    } else { Text(checked ? "尚未同步" : "正在检查连接") }
+                    Text("· \(machine.knownProjects?.count ?? 0) 个项目")
+                    Text(online ? "· Mac 直连" : "· 本机缓存")
+                }
+                .font(.caption).foregroundStyle(IdeaPalette.secondary)
+                .padding(.leading, 75)
+            }
+            .padding(.horizontal, 15).padding(.vertical, 14)
+            if let projects = machine.knownProjects, !projects.isEmpty {
+                ForEach(projects) { project in
+                    Rectangle().fill(Color(red: 0.90, green: 0.93, blue: 0.96))
+                        .frame(height: 1).padding(.horizontal, 18)
+                    Button { openProject(project) } label: {
+                        HStack(spacing: 14) {
+                            Image(systemName: "folder.fill")
+                                .font(.system(size: 24))
+                                .foregroundStyle(online ? .white : IdeaPalette.faint)
+                                .frame(width: 46, height: 46)
+                                .background(online ? IdeaPalette.blue : IdeaPalette.softGray,
+                                            in: RoundedRectangle(cornerRadius: 12))
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(project.name).font(.body.weight(.semibold))
+                                Text(online ? "打开这个项目" : "电脑已离线，暂时不可访问")
+                                    .font(.caption).foregroundStyle(IdeaPalette.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right").foregroundStyle(IdeaPalette.faint)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 63, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(IdeaPressStyle())
+                    .disabled(!online)
+                    .accessibilityIdentifier("computer-project-" + machine.id + "-" + project.id)
+                    .padding(.horizontal, 18).padding(.vertical, 8)
+                }
+            } else {
+                Text(online ? "这台电脑没有已授权项目" : "连接后显示项目")
+                    .font(.subheadline).foregroundStyle(IdeaPalette.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 21).padding(.bottom, 18)
+            }
+        }
+        .foregroundStyle(IdeaPalette.ink)
+        .background(.white, in: RoundedRectangle(cornerRadius: 23))
+        .shadow(color: IdeaPalette.ink.opacity(0.045), radius: 18, y: 7)
+    }
+
+    private var status: some View {
+        HStack(spacing: 6) {
+            Circle().fill(online ? IdeaPalette.green : IdeaPalette.faint).frame(width: 7, height: 7)
+            Text(online ? "在线" : checked ? "离线" : "检查中")
+                .font(.caption.weight(.medium))
+        }
+        .foregroundStyle(online ? Color(red: 0, green: 0.51, blue: 0.34) : IdeaPalette.secondary)
+        .padding(.horizontal, 10).frame(minHeight: 29)
+        .background(online ? IdeaPalette.mint.opacity(0.28) : IdeaPalette.softGray, in: Capsule())
+        .accessibilityIdentifier("computer-status-" + machine.id)
+    }
 }
 
 struct ComputerAccessButton: View {

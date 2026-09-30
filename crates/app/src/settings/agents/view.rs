@@ -7,12 +7,14 @@ use super::components::{action_button, status_block, with_alpha};
 use super::{AgentDefinitionsState, AgentDeleteDialog};
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, AnyElement, Context, Div, FontWeight, ScrollHandle, Window};
+use std::collections::HashSet;
 use ui::Theme;
 
 pub(crate) fn agents_settings(
     theme: Theme,
     state: &AgentDefinitionsState,
     selected_agent_on_canvas: bool,
+    on_canvas_ids: &HashSet<i64>,
     list_scroll: &ScrollHandle,
     window: &mut Window,
     cx: &mut Context<MultisoulApp>,
@@ -39,6 +41,7 @@ pub(crate) fn agents_settings(
             theme,
             state,
             selected_agent_on_canvas,
+            on_canvas_ids,
             list_scroll,
             window,
             cx,
@@ -146,6 +149,7 @@ fn master_detail(
     theme: Theme,
     state: &AgentDefinitionsState,
     selected_agent_on_canvas: bool,
+    on_canvas_ids: &HashSet<i64>,
     list_scroll: &ScrollHandle,
     window: &mut Window,
     cx: &mut Context<MultisoulApp>,
@@ -163,7 +167,14 @@ fn master_detail(
         .border_1()
         .border_color(rgba(with_alpha(theme.edge_highlight, 0x30)))
         .bg(rgba(with_alpha(theme.node_fill, 0xb8)))
-        .child(agent_list(theme, state, list_scroll, window, cx))
+        .child(agent_list(
+            theme,
+            state,
+            on_canvas_ids,
+            list_scroll,
+            window,
+            cx,
+        ))
         .child(agent_detail(
             theme,
             state,

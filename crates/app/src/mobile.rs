@@ -2,10 +2,20 @@
 mod approval;
 pub use approval::LiveApprovalRequest;
 mod command;
+mod thread_followup;
+mod thread_task;
+mod thread_task_execution;
+mod thread_task_terminal;
+mod thread_terminal_control;
+pub use thread_task_terminal::Request as ThreadTerminalRequest;
+pub use thread_terminal_control::{ThreadTerminalCommand, ThreadTerminalOperation};
+mod thread_task_acceptance;
+mod thread_task_review;
+pub(crate) use thread_task::instruction as thread_task_instruction;
 pub(crate) mod controller;
 mod conversation;
 mod terminal;
-pub use terminal::LiveTerminalRequest;
+pub use terminal::{LiveTerminalRequest, LiveTerminalTask};
 mod review;
 pub use review::{LiveReviewRequest, ProjectReviewRequest};
 mod plan;
@@ -25,7 +35,7 @@ use norma::mobile::{PairingPending, PairingQr, PairingRequest, PairingSession, S
 pub use server::MobileServer;
 pub use snapshot::LiveSnapshotRequest;
 use std::time::Instant;
-use storage::{AppStore, MobileDeviceGrant, MobileProjectAccess};
+use storage::{AppStore, MobileDeviceGrant, MobilePermission, MobileProjectAccess};
 
 /// All methods belong on a serialized background owner: authentication and pairing perform IO.
 /// Foreground UI controls pairing/permissions; the gateway separately validates remote commands.
@@ -38,8 +48,16 @@ pub struct MobileAccess {
 impl MobileAccess {
     #[cfg(target_os = "macos")]
     pub fn open(store: AppStore) -> Result<Self> {
-        let account = store.mobile_access_store().keychain_account()?;
-        let identity = ServerIdentity::load_or_create(&account)?;
+        let settings = store.settings_store();
+        let identity = match settings.get_string("mobile.server_identity")? {
+            Some(record) => ServerIdentity::from_storage_json(&record)?,
+            None => {
+                let generated = ServerIdentity::generate()?;
+                let record = settings
+                    .get_or_insert_string("mobile.server_identity", &generated.storage_json()?)?;
+                ServerIdentity::from_storage_json(&record)?
+            }
+        };
         Ok(Self {
             store,
             identity,
@@ -116,6 +134,22 @@ impl MobileAccess {
             })
     }
 
+    /// LOCAL DESKTOP ONLY. The Mac chooses this mode while approving the pending phone.
+    pub fn approve_all_projects(
+        &mut self,
+        request_id: &str,
+        access: MobilePermission,
+        now: Instant,
+    ) -> Result<MobileDeviceGrant> {
+        let store = self.store.mobile_access_store();
+        self.pairing
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("pairing unavailable"))?
+            .approve(request_id, now, |id, name, token| {
+                Ok(store.register_all_projects(id, name, token, access)?)
+            })
+    }
+
     pub fn cancel_pairing(&mut self) {
         if let Some(mut pairing) = self.pairing.take() {
             pairing.cancel();
@@ -151,6 +185,19 @@ impl MobileAccess {
             .store
             .mobile_access_store()
             .replace_permissions(device_id, revision, projects)?)
+    }
+
+    /// LOCAL DESKTOP ONLY. Changing mode increments the grant revision.
+    pub fn replace_with_all_projects(
+        &mut self,
+        device_id: &str,
+        revision: u64,
+        access: MobilePermission,
+    ) -> Result<MobileDeviceGrant> {
+        Ok(self
+            .store
+            .mobile_access_store()
+            .replace_with_all_projects(device_id, revision, access)?)
     }
 
     /// LOCAL DESKTOP ONLY. The network owner must also close this device's active connections.

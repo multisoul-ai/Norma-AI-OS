@@ -4,7 +4,9 @@ use super::chrome_auth::{BrowserAuthUiState, CookieImportBatch};
 #[cfg(feature = "e2e-test-support")]
 use super::chrome_auth::{BrowserCookie, SameSitePolicy};
 use super::chrome_auth_broker::request_chrome_cookies;
+use super::load_timeline::{BrowserLoadPhase, LoadTimeline};
 use super::native::CookieImportStatus;
+use super::wry_backend::WarmWebView;
 use super::{
     canonical_browser_location, BrowserEngineKind, BrowserEvent, BrowserViewBounds,
     NativeBrowserView,
@@ -13,12 +15,14 @@ use canvas::NodeId;
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use gpui::Window;
 use std::collections::{HashMap, HashSet};
+use std::time::{Duration, Instant};
 
 pub(crate) struct BrowserStore {
     views: HashMap<NodeId, BrowserView>,
     sender: Sender<BrowserEvent>,
     receiver: Receiver<BrowserEvent>,
     native_views_enabled: bool,
+    warm_view: Option<WarmWebView>,
     auth_states: HashMap<NodeId, BrowserAuthUiState>,
     #[cfg(feature = "e2e-test-support")]
     auth_fake_result: Option<Result<(usize, usize), String>>,
@@ -29,6 +33,7 @@ struct BrowserView {
     bounds: BrowserViewBounds,
     visible: bool,
     native_view: Option<NativeBrowserView>,
+    load_timeline: LoadTimeline,
 }
 
 impl Default for BrowserStore {
@@ -39,6 +44,7 @@ impl Default for BrowserStore {
             sender,
             receiver,
             native_views_enabled: true,
+            warm_view: None,
             auth_states: HashMap::new(),
             #[cfg(feature = "e2e-test-support")]
             auth_fake_result: None,
@@ -62,9 +68,61 @@ impl BrowserStore {
                 BrowserEvent::LocationChanged { node_id, url } => {
                     self.accept_location_change(node_id, url)
                 }
+                BrowserEvent::PageLoad { node_id, phase, at } => {
+                    self.record_page_load(node_id, phase, at);
+                    None
+                }
                 event => Some(event),
             })
             .collect()
+    }
+
+    pub(crate) fn warm_up(&mut self, window: &mut Window) {
+        if !self.native_views_enabled || self.warm_view.is_some() {
+            return;
+        }
+        let configured = std::env::var("MULTISOUL_BROWSER_ENGINE").ok();
+        if BrowserEngineKind::from_env_value(configured.as_deref()) != BrowserEngineKind::Wry {
+            return;
+        }
+        match WarmWebView::create(window) {
+            Ok(view) => self.warm_view = Some(view),
+            Err(error) => tracing::warn!(%error, "browser warm-up view failed"),
+        }
+    }
+
+    pub(crate) fn is_loading(&self, node_id: NodeId) -> bool {
+        self.views
+            .get(&node_id)
+            .is_some_and(|view| view.load_timeline.is_loading(Instant::now()))
+    }
+
+    pub(crate) fn any_loading(&self) -> bool {
+        let now = Instant::now();
+        self.views
+            .values()
+            .any(|view| view.load_timeline.is_loading(now))
+    }
+
+    fn record_page_load(&mut self, node_id: NodeId, phase: BrowserLoadPhase, at: Instant) {
+        let Some(view) = self.views.get_mut(&node_id) else {
+            return;
+        };
+        let Some(report) = view.load_timeline.record(phase, at) else {
+            return;
+        };
+        let url = view.url.clone();
+        view.report_resource_timing(node_id);
+        let millis = |duration: Duration| duration.as_secs_f64() * 1000.0;
+        tracing::info!(
+            node_id,
+            url = %url,
+            create_ms = report.create.map(millis),
+            committed_ms = report.committed.map(millis),
+            finished_ms = millis(report.finished),
+            resizes_during_load = report.resizes,
+            "browser_load_timing"
+        );
     }
 
     pub(crate) fn sync_view(
@@ -85,6 +143,7 @@ impl BrowserStore {
             bounds,
             visible: false,
             native_view: None,
+            load_timeline: LoadTimeline::default(),
         });
         if self.native_views_enabled {
             view.sync(node_id, url, bounds, window, event_sender);
@@ -132,6 +191,10 @@ impl BrowserStore {
 
     pub(crate) fn reload(&mut self, node_id: NodeId) {
         if let Some(view) = self.views.get_mut(&node_id) {
+            if view.load_timeline.is_loading(Instant::now()) {
+                view.stop_loading();
+                return;
+            }
             view.reload();
         }
     }
@@ -166,8 +229,9 @@ impl BrowserStore {
     pub(crate) fn retain_visible(&mut self, visible: &HashSet<NodeId>) {
         let hidden_nodes = self
             .views
-            .keys()
-            .filter(|node_id| !visible.contains(node_id))
+            .iter()
+            .filter(|(node_id, view)| view.visible && !visible.contains(*node_id))
+            .map(|(node_id, _)| node_id)
             .copied()
             .collect::<Vec<_>>();
         for node_id in hidden_nodes {
@@ -318,8 +382,18 @@ impl BrowserView {
         if self.native_view.is_none() {
             let configured = std::env::var("MULTISOUL_BROWSER_ENGINE").ok();
             let engine = BrowserEngineKind::from_env_value(configured.as_deref());
+            let create_started = Instant::now();
             match NativeBrowserView::create(engine, node_id, url, bounds, window, event_sender) {
-                Ok(native_view) => self.native_view = Some(native_view),
+                Ok(native_view) => {
+                    self.native_view = Some(native_view);
+                    tracing::info!(
+                        node_id,
+                        create_ms = create_started.elapsed().as_secs_f64() * 1000.0,
+                        "browser_view_created"
+                    );
+                    self.load_timeline
+                        .begin(create_started, Some(create_started.elapsed()));
+                }
                 Err(error) => tracing::warn!(
                     node_id,
                     engine = ?engine,
@@ -331,6 +405,7 @@ impl BrowserView {
 
         if self.bounds != bounds {
             self.bounds = bounds;
+            self.load_timeline.note_resize();
             self.set_bounds(bounds);
         }
         if self.url != url {
@@ -342,7 +417,14 @@ impl BrowserView {
 
     fn load_url(&mut self, url: &str) {
         if let Some(native_view) = &mut self.native_view {
+            self.load_timeline.begin(Instant::now(), None);
             native_view.load_url(url);
+        }
+    }
+
+    fn report_resource_timing(&self, node_id: NodeId) {
+        if let Some(native_view) = &self.native_view {
+            native_view.report_resource_timing(node_id);
         }
     }
 
@@ -366,7 +448,15 @@ impl BrowserView {
 
     fn reload(&mut self) {
         if let Some(native_view) = &mut self.native_view {
+            self.load_timeline.begin(Instant::now(), None);
             native_view.reload();
+        }
+    }
+
+    fn stop_loading(&mut self) {
+        self.load_timeline.cancel();
+        if let Some(native_view) = &self.native_view {
+            native_view.stop_loading();
         }
     }
 

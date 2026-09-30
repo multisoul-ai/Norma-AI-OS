@@ -62,6 +62,24 @@ pub(crate) fn shutdown(cx: &mut App) {
     }
 }
 
+pub(crate) fn can_quit(cx: &mut App) -> bool {
+    let projects = cx
+        .default_global::<Sessions>()
+        .projects
+        .values()
+        .cloned()
+        .collect::<Vec<_>>();
+    for app in projects {
+        if !app.update(cx, |app, cx| app.confirm_preview_edits_before_leaving(cx)) {
+            if let Some(window) = app.read(cx).project_window {
+                let _ = window.update(cx, |_, window, _| window.activate_window());
+            }
+            return false;
+        }
+    }
+    true
+}
+
 pub(crate) fn find(database: &Path, workspace: &str, cx: &App) -> Option<Entity<MultisoulApp>> {
     cx.try_global::<Sessions>()?
         .projects

@@ -5,6 +5,7 @@ struct NotificationDestinationView: View {
     let target: PushNotificationTarget
     let model: ComputerModel
     let call: VoiceCall
+    let cloudChat: CloudChatModel
     let close: () -> Void
     @Environment(\.scenePhase) private var phase
     @State private var project: ProjectSnapshot?
@@ -33,7 +34,7 @@ struct NotificationDestinationView: View {
                                 Section("电脑上当前的请求") {
                                     ApprovalContext(snapshot: approval)
                                     NavigationLink("前往指挥台处理") {
-                                        CommandCenterView(model: model, call: call, manageComputers: close, focus: target)
+                                        CommandCenterView(model: model, call: call, cloudChat: cloudChat, manageComputers: close, focus: target)
                                     }.frame(minHeight: 44)
                                 }
                             }

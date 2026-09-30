@@ -6,9 +6,11 @@ struct ReviewFileView: View {
     let file: ReviewFileChange
     var baselineName: String = "HEAD"
     var resultName: String = "工作副本"
+    let showsIndex: Bool
     @State private var mode = "diff"
-    init(file: ReviewFileChange, baselineName: String = "HEAD", resultName: String = "工作副本") {
+    init(file: ReviewFileChange, baselineName: String = "HEAD", resultName: String = "工作副本", showsIndex: Bool = true) {
         self.file = file; self.baselineName = baselineName; self.resultName = resultName
+        self.showsIndex = showsIndex
         // Binary files have no text diff; open the existing version, including deleted images.
         let existing = file.after ?? file.before
         _mode = State(initialValue: existing?.kind == "binary" ? (file.after == nil ? "before" : "after") : "diff")
@@ -26,10 +28,10 @@ struct ReviewFileView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 Picker("查看版本", selection: $mode) {
                     Text("变更 · \(baselineName) → \(resultName)").tag("diff")
-                    Text("变更 · \(baselineName) → 暂存区").tag("staged")
+                    if showsIndex { Text("变更 · \(baselineName) → 暂存区").tag("staged") }
                     Text("原文 · \(baselineName)").tag("before")
                     Text(resultName).tag("after")
-                    Text("暂存区").tag("index")
+                    if showsIndex { Text("暂存区").tag("index") }
                 }.pickerStyle(.menu).font(.subheadline).frame(minHeight: 44)
                     .accessibilityIdentifier("review-version")
             }.padding(.horizontal, 16)
@@ -48,12 +50,12 @@ struct ReviewFileView: View {
                     .font(.caption).foregroundStyle(.secondary).padding(16)
             }
         }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(.black).navigationTitle("文件内容").navigationBarTitleDisplayMode(.inline)
+        .background(Color(uiColor: .systemBackground)).navigationTitle("文件内容").navigationBarTitleDisplayMode(.inline)
     }
     private var explanation: String {
         if file.isConflicted && ["index", "staged"].contains(mode) { return "存在合并冲突，暂存区没有唯一版本。" }
         if ["diff", "staged"].contains(mode) { return "二进制或符号链接不生成文本 diff，可切换到具体版本查看信息。" }
-        if version == nil { return "文件在这个版本中不存在。新增文件没有原文，删除文件没有工作副本。" }
+        if version == nil { return "文件在这个版本中不存在。新增文件没有\(baselineName)，删除文件没有\(resultName)。" }
         return "此二进制文件请在电脑上查看。"
     }
 }
@@ -63,7 +65,11 @@ struct ReviewText: UIViewRepresentable {
     let text: String
     func makeUIView(context: Context) -> UITextView {
         let view = UITextView()
-        view.isEditable = false; view.isSelectable = true; view.backgroundColor = .black
+        view.isEditable = false; view.isSelectable = true; view.backgroundColor = .systemBackground
+        // A native readable text element avoids UIKit enumerating one AX child per line (20k+).
+        // Keep the full value and TextKit selection/scrolling; never truncate accessibility content.
+        view.isAccessibilityElement = true; view.accessibilityElements = []
+        view.accessibilityLabel = "文件内容"
         view.textColor = .label; view.alwaysBounceVertical = true
         view.adjustsFontForContentSizeCategory = true
         view.textContainerInset = UIEdgeInsets(top: 14, left: 12, bottom: 20, right: 12)
@@ -71,6 +77,9 @@ struct ReviewText: UIViewRepresentable {
         return view
     }
     func updateUIView(_ view: UITextView, context: Context) {
-        if view.text != text { view.text = text; view.setContentOffset(.zero, animated: false) }
+        if view.text != text {
+            view.text = text; view.accessibilityValue = text
+            view.setContentOffset(.zero, animated: false)
+        }
     }
 }

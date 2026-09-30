@@ -4,7 +4,11 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 mod actions;
+mod editing;
+mod editing_actions;
+pub(crate) use editing::{PreviewEditCommand, PreviewEditCommandKind, PreviewEditor};
 mod image_viewer;
+mod terminal_path;
 use image_viewer::ImageViewerSession;
 #[cfg(test)]
 pub(crate) use image_viewer::{drag_scroll_offset, ImageViewerState};
@@ -17,6 +21,7 @@ pub(crate) struct PreviewStore {
     states: HashMap<NodeId, PreviewLoadState>,
     generations: HashMap<NodeId, u64>,
     image_viewers: HashMap<NodeId, ImageViewerSession>,
+    editors: HashMap<NodeId, PreviewEditor>,
     next_generation: u64,
 }
 
@@ -65,12 +70,14 @@ impl PreviewStore {
         self.states.remove(&node_id);
         self.generations.remove(&node_id);
         self.image_viewers.remove(&node_id);
+        self.editors.remove(&node_id);
     }
 
     pub(crate) fn clear(&mut self) {
         self.states.clear();
         self.generations.clear();
         self.image_viewers.clear();
+        self.editors.clear();
     }
 }
 
@@ -87,6 +94,16 @@ pub(crate) enum PreviewContent {
     Text(String),
     Image { path: PathBuf },
     Images { paths: Vec<PathBuf> },
+}
+
+impl PreviewContent {
+    pub(crate) fn text_source(&self) -> Option<&str> {
+        match self {
+            Self::Markdown(document) => Some(&document.source),
+            Self::Text(text) => Some(text),
+            Self::Image { .. } | Self::Images { .. } => None,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

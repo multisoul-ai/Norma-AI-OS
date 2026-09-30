@@ -42,6 +42,19 @@ impl SettingsStore {
             .optional()?)
     }
 
+    pub fn get_or_insert_string(&self, key: &str, value: &str) -> StorageResult<String> {
+        let connection = open_app_connection(&self.path)?;
+        connection.execute(
+            "INSERT OR IGNORE INTO settings (key, value, updated_at_unix) VALUES (?1, ?2, ?3)",
+            params![key, value, current_unix_timestamp()?],
+        )?;
+        Ok(connection.query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            params![key],
+            |row| row.get(0),
+        )?)
+    }
+
     pub fn delete_string(&self, key: &str) -> StorageResult<()> {
         let connection = open_app_connection(&self.path)?;
         connection.execute("DELETE FROM settings WHERE key = ?1", params![key])?;

@@ -101,7 +101,7 @@ fn paired_control_device_gets_signed_voice_access_without_provider_keys() {
         .and_then(std::path::Path::parent)
         .expect("workspace");
     let output = std::process::Command::new("node")
-        .arg(root.join("services/voice/check-authorization.mjs"))
+        .arg(root.join("services/norma-cloud/check-authorization.mjs"))
         .arg(fixture)
         .output()
         .expect("真实网关验签");

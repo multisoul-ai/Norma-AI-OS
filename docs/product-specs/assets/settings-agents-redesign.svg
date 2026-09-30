@@ -1,0 +1,189 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="900" viewBox="0 0 1040 900" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif">
+  <defs>
+    <filter id="soft" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#313d44" flood-opacity="0.14"/>
+    </filter>
+    <filter id="seg" x="-10%" y="-20%" width="120%" height="150%">
+      <feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="#313d44" flood-opacity="0.18"/>
+    </filter>
+    <clipPath id="panel"><rect x="20" y="20" width="1000" height="600" rx="14"/></clipPath>
+    <linearGradient id="fadeBottom" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FAFAF8" stop-opacity="0"/>
+      <stop offset="1" stop-color="#FAFAF8" stop-opacity="1"/>
+    </linearGradient>
+  </defs>
+
+  <!-- ===== Main frame: selected Agent with unsaved edit ===== -->
+  <rect x="0" y="0" width="1040" height="640" fill="#F5F4F1"/>
+  <rect x="20" y="20" width="1000" height="600" rx="14" fill="#FFFFFF" stroke="#E4E2DC"/>
+
+  <g clip-path="url(#panel)">
+    <!-- Sidebar -->
+    <rect x="20" y="20" width="264" height="600" fill="#FAFAF8"/>
+    <line x1="284" y1="20" x2="284" y2="620" stroke="#E4E2DC"/>
+
+    <text x="36" y="58" font-size="20" font-weight="700" fill="#313D44">Agents</text>
+    <text x="36" y="78" font-size="12" fill="#313D4494">12 agents · 2 on Canvas</text>
+    <rect x="176" y="40" width="92" height="28" rx="8" fill="#2F80ED"/>
+    <text x="222" y="58.5" font-size="12" font-weight="600" fill="#FFFFFF" text-anchor="middle">+ New Agent</text>
+
+    <!-- Search -->
+    <rect x="36" y="92" width="232" height="32" rx="8" fill="#EEEDE8"/>
+    <circle cx="52" cy="107" r="5" fill="none" stroke="#313D446B" stroke-width="1.5"/>
+    <line x1="56" y1="111" x2="60" y2="115" stroke="#313D446B" stroke-width="1.5" stroke-linecap="round"/>
+    <text x="68" y="112" font-size="13" fill="#313D446B">Search</text>
+
+    <!-- Status filter (segmented) -->
+    <rect x="36" y="134" width="232" height="28" rx="8" fill="#EEEDE8"/>
+    <rect x="38" y="136" width="76" height="24" rx="6" fill="#FFFFFF" filter="url(#seg)"/>
+    <text x="76" y="152" font-size="12" font-weight="600" fill="#313D44" text-anchor="middle">All</text>
+    <text x="152" y="152" font-size="12" fill="#313D4494" text-anchor="middle">Enabled</text>
+    <text x="228" y="152" font-size="12" fill="#313D4494" text-anchor="middle">Disabled</text>
+
+    <!-- Section: On Canvas -->
+    <text x="36" y="190" font-size="11" font-weight="600" letter-spacing="0.6" fill="#313D446B">ON CANVAS</text>
+
+    <!-- Row 1: selected -->
+    <rect x="28" y="200" width="248" height="56" rx="10" fill="#2F80ED" fill-opacity="0.12"/>
+    <circle cx="54" cy="228" r="16" fill="#2F80ED"/>
+    <text x="54" y="233" font-size="14" font-weight="600" fill="#FFFFFF" text-anchor="middle">A</text>
+    <text x="78" y="224" font-size="14" font-weight="600" fill="#313D44">Alan</text>
+    <text x="78" y="242" font-size="12" fill="#313D4494">Codex · Reviews diffs and flags…</text>
+    <circle cx="258" cy="228" r="4" fill="#34C759"/>
+
+    <!-- Row 2 -->
+    <circle cx="54" cy="288" r="16" fill="#D97757"/>
+    <text x="54" y="293" font-size="14" font-weight="600" fill="#FFFFFF" text-anchor="middle">B</text>
+    <text x="78" y="284" font-size="14" font-weight="600" fill="#313D44">Bella</text>
+    <text x="78" y="302" font-size="12" fill="#313D4494">Claude · Writes and runs tests</text>
+    <circle cx="258" cy="288" r="4" fill="#34C759"/>
+
+    <!-- Section: Library -->
+    <text x="36" y="346" font-size="11" font-weight="600" letter-spacing="0.6" fill="#313D446B">LIBRARY</text>
+
+    <!-- Row 3: hover -->
+    <rect x="28" y="356" width="248" height="56" rx="10" fill="#313D44" fill-opacity="0.05"/>
+    <circle cx="54" cy="384" r="16" fill="#313D44"/>
+    <text x="54" y="389" font-size="14" font-weight="600" fill="#FFFFFF" text-anchor="middle">C</text>
+    <text x="78" y="380" font-size="14" font-weight="600" fill="#313D44">Cora</text>
+    <text x="78" y="398" font-size="12" fill="#313D4494">Cursor · No instructions</text>
+
+    <!-- Row 4 -->
+    <circle cx="54" cy="444" r="16" fill="#6A5CFF"/>
+    <text x="54" y="449" font-size="14" font-weight="600" fill="#FFFFFF" text-anchor="middle">D</text>
+    <text x="78" y="440" font-size="14" font-weight="600" fill="#313D44">Dana</text>
+    <text x="78" y="458" font-size="12" fill="#313D4494">Grok · Researches libraries</text>
+
+    <!-- Row 5: disabled -->
+    <g opacity="0.5">
+      <circle cx="54" cy="504" r="16" fill="#3BB98F"/>
+      <text x="54" y="509" font-size="14" font-weight="600" fill="#FFFFFF" text-anchor="middle">E</text>
+      <text x="78" y="500" font-size="14" font-weight="600" fill="#313D44">Ethan</text>
+      <text x="78" y="518" font-size="12" fill="#313D4494">OpenCode · Refactors modules</text>
+    </g>
+    <rect x="232" y="485" width="36" height="18" rx="9" fill="#313D44" fill-opacity="0.10"/>
+    <text x="250" y="498" font-size="10" font-weight="500" fill="#313D4494" text-anchor="middle">Off</text>
+
+    <!-- Scroll fade -->
+    <rect x="20" y="560" width="264" height="60" fill="url(#fadeBottom)"/>
+
+    <!-- ===== Detail ===== -->
+    <!-- Header -->
+    <circle cx="336" cy="72" r="28" fill="#2F80ED"/>
+    <text x="336" y="81" font-size="24" font-weight="600" fill="#FFFFFF" text-anchor="middle">A</text>
+    <text x="376" y="68" font-size="22" font-weight="700" fill="#313D44">Alan</text>
+    <circle cx="382" cy="87" r="4" fill="#34C759"/>
+    <text x="392" y="91" font-size="13" fill="#313D4494">On Canvas · Codex</text>
+    <rect x="860" y="56" width="120" height="32" rx="8" fill="#FFFFFF" stroke="#313D4433"/>
+    <text x="920" y="76" font-size="13" font-weight="500" fill="#313D44" text-anchor="middle">Show on Canvas</text>
+    <line x1="308" y1="112" x2="996" y2="112" stroke="#E4E2DC"/>
+
+    <!-- Grouped form -->
+    <rect x="308" y="132" width="688" height="144" rx="10" fill="#FAFAF8" stroke="#E4E2DC"/>
+    <line x1="324" y1="180" x2="996" y2="180" stroke="#E4E2DC"/>
+    <line x1="324" y1="228" x2="996" y2="228" stroke="#E4E2DC"/>
+
+    <text x="324" y="161" font-size="13" fill="#313D44">Name</text>
+    <rect x="724" y="140" width="256" height="32" rx="7" fill="#FFFFFF" stroke="#313D4433"/>
+    <text x="736" y="161" font-size="13" fill="#313D44">Alan</text>
+
+    <text x="324" y="209" font-size="13" fill="#313D44">Runtime</text>
+    <rect x="640" y="188" width="340" height="32" rx="8" fill="#EEEDE8"/>
+    <rect x="708" y="190" width="68" height="28" rx="6" fill="#FFFFFF" filter="url(#seg)"/>
+    <text x="674" y="208" font-size="12" fill="#313D4494" text-anchor="middle">Claude</text>
+    <text x="742" y="208" font-size="12" font-weight="600" fill="#313D44" text-anchor="middle">Codex</text>
+    <text x="810" y="208" font-size="12" fill="#313D4494" text-anchor="middle">Cursor</text>
+    <text x="878" y="208" font-size="12" fill="#313D4494" text-anchor="middle">Grok</text>
+    <text x="946" y="208" font-size="12" fill="#313D4494" text-anchor="middle">OpenCode</text>
+
+    <text x="324" y="250" font-size="13" fill="#313D44">Enabled</text>
+    <text x="324" y="266" font-size="11" fill="#313D446B">Include this Agent in project routing</text>
+    <rect x="940" y="240" width="40" height="24" rx="12" fill="#34C759"/>
+    <circle cx="968" cy="252" r="10" fill="#FFFFFF"/>
+
+    <!-- Instructions -->
+    <text x="308" y="304" font-size="11" font-weight="600" letter-spacing="0.6" fill="#313D446B">WORKFLOW INSTRUCTIONS</text>
+    <rect x="306" y="312" width="692" height="144" rx="11" fill="none" stroke="#2F80ED" stroke-opacity="0.35" stroke-width="3"/>
+    <rect x="308" y="314" width="688" height="140" rx="10" fill="#FFFFFF" stroke="#2F80ED" stroke-width="1.5"/>
+    <text x="324" y="340" font-size="13" fill="#313D44">Review pull requests for correctness and risk before merge.</text>
+    <text x="324" y="360" font-size="13" fill="#313D44">Focus on data loss, concurrency and API compatibility.</text>
+    <text x="324" y="380" font-size="13" fill="#313D44">Report findings as a short, ranked list.</text>
+    <rect x="325" y="384" width="1.5" height="16" fill="#2F80ED"/>
+    <text x="308" y="478" font-size="12" fill="#313D446B">Used when Alan receives a task.</text>
+
+    <!-- Floating action bar (dirty state) -->
+    <rect x="308" y="540" width="688" height="52" rx="12" fill="#FFFFFF" stroke="#E4E2DC" filter="url(#soft)"/>
+    <text x="326" y="571" font-size="13" font-weight="500" fill="#FF6B7A">Delete Agent…</text>
+    <circle cx="646" cy="566" r="4" fill="#FF9F0A"/>
+    <text x="658" y="571" font-size="12" fill="#313D4494">Unsaved changes</text>
+    <rect x="782" y="550" width="80" height="32" rx="8" fill="#FFFFFF" stroke="#313D4433"/>
+    <text x="822" y="570" font-size="13" font-weight="500" fill="#313D44" text-anchor="middle">Discard</text>
+    <rect x="872" y="550" width="112" height="32" rx="8" fill="#2F80ED"/>
+    <text x="928" y="570" font-size="13" font-weight="600" fill="#FFFFFF" text-anchor="middle">Save Changes</text>
+  </g>
+
+  <!-- ===== Interaction states legend ===== -->
+  <rect x="0" y="640" width="1040" height="260" fill="#F5F4F1"/>
+  <text x="24" y="676" font-size="14" font-weight="700" fill="#313D44">Interaction states</text>
+  <text x="24" y="694" font-size="12" fill="#313D4494">Every clickable element implements each applicable state. Hover stays visible in every theme.</text>
+
+  <!-- List row states -->
+  <text x="24" y="726" font-size="11" font-weight="600" letter-spacing="0.6" fill="#313D446B">LIST ROW</text>
+  <g font-size="12">
+    <rect x="24" y="736" width="150" height="40" rx="10" fill="none" stroke="#E4E2DC"/>
+    <text x="99" y="761" fill="#313D44" text-anchor="middle">Default</text>
+    <rect x="186" y="736" width="150" height="40" rx="10" fill="#313D44" fill-opacity="0.05"/>
+    <text x="261" y="761" fill="#313D44" text-anchor="middle">Hover</text>
+    <rect x="348" y="736" width="150" height="40" rx="10" fill="#2F80ED" fill-opacity="0.20"/>
+    <text x="423" y="761" fill="#313D44" text-anchor="middle">Pressed</text>
+    <rect x="510" y="736" width="150" height="40" rx="10" fill="#2F80ED" fill-opacity="0.12"/>
+    <text x="585" y="761" fill="#313D44" text-anchor="middle">Selected</text>
+    <rect x="672" y="736" width="150" height="40" rx="10" fill="none" stroke="#2F80ED" stroke-width="2"/>
+    <text x="747" y="761" fill="#313D44" text-anchor="middle">Keyboard focus</text>
+    <g opacity="0.5"><text x="897" y="761" fill="#313D44" text-anchor="middle">Disabled agent</text></g>
+    <rect x="834" y="736" width="150" height="40" rx="10" fill="none" stroke="#E4E2DC" stroke-dasharray="3 3"/>
+  </g>
+
+  <!-- Button states -->
+  <text x="24" y="812" font-size="11" font-weight="600" letter-spacing="0.6" fill="#313D446B">BUTTON (PRIMARY / SECONDARY)</text>
+  <g font-size="13" font-weight="600" text-anchor="middle">
+    <rect x="24" y="822" width="112" height="32" rx="8" fill="#2F80ED"/>
+    <text x="80" y="842" fill="#FFFFFF">Default</text>
+    <rect x="148" y="822" width="112" height="32" rx="8" fill="#5A9BF0"/>
+    <text x="204" y="842" fill="#FFFFFF">Hover</text>
+    <rect x="272" y="822" width="112" height="32" rx="8" fill="#2569C4"/>
+    <text x="328" y="842" fill="#FFFFFF">Pressed</text>
+    <rect x="396" y="822" width="112" height="32" rx="8" fill="#2F80ED"/>
+    <rect x="393" y="819" width="118" height="38" rx="11" fill="none" stroke="#2F80ED" stroke-opacity="0.45" stroke-width="3"/>
+    <text x="452" y="842" fill="#FFFFFF">Focus</text>
+    <rect x="520" y="822" width="112" height="32" rx="8" fill="#313D44" fill-opacity="0.10"/>
+    <text x="576" y="842" fill="#313D446B">Disabled</text>
+
+    <rect x="660" y="822" width="112" height="32" rx="8" fill="#FFFFFF" stroke="#313D4433"/>
+    <text x="716" y="842" fill="#313D44" font-weight="500">Default</text>
+    <rect x="784" y="822" width="112" height="32" rx="8" fill="#F0EFEA" stroke="#313D4433"/>
+    <text x="840" y="842" fill="#313D44" font-weight="500">Hover</text>
+    <rect x="908" y="822" width="112" height="32" rx="8" fill="#E4E2DC" stroke="#313D4433"/>
+    <text x="964" y="842" fill="#313D44" font-weight="500">Pressed</text>
+  </g>
+</svg>

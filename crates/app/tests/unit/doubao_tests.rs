@@ -10,22 +10,41 @@ use std::sync::{
 };
 use std::time::Duration;
 
+fn playback_events() -> crate::app::voice_window_inset::VoiceWindowInsetEventSink {
+    let (events, _wake) = crate::app::voice_window_inset::VoiceWindowInsetEventBus::new();
+    events.sink(crate::app::voice_window_inset::TtsPlaybackSource::Doubao)
+}
+
 /// DB-9：方舟 ASR 2.0 使用二进制 gzip 帧，首帧必须声明 16 kHz 单声道 PCM。
 ///
 /// 数据构造（含关键数值的推导过程）：100 毫秒 PCM = 16,000 × 2 × 0.1 = 3,200 字节；
-/// 首帧序号 1，首个音频帧序号 2。
+/// 首帧序号 1，首个音频帧序号 2；结束帧使用 -3（下一个序号取负）。
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 编码配置帧 → 解析 gzip JSON。
-///   2. 编码 3,200 字节音频 → 核对二进制帧类型和序号。
+///   2. 编码 3,200 字节音频 → 核对普通帧类型和正序号。
+///   3. 编码结束音频帧 → 核对 last flag 和负序号。
 ///
-/// 预期结果：配置准确声明采样率；音频帧保留长度，且不是旧 3.0 JSON 音频事件。
+/// 预期结果：配置准确声明采样率；普通帧保留长度且无 last flag；
+/// 结束帧有 last flag 和负序号，且不是旧 3.0 JSON 音频事件。
 #[test]
 fn test_doubao_plan_asr_uses_binary_pcm_frames() {
     let start = plan::asr::encode_start().expect("ASR 配置应可编码");
     let frame = plan::asr::encode_audio(2, &vec![0; 3_200]).expect("100 毫秒 PCM 应可编码");
+    let last = plan::asr::encode_audio(-3, &vec![0; 3_200]).expect("结束音频帧应可编码");
     assert_eq!(start[0], 0x11, "ASR 配置应使用 V3 二进制头");
     assert_eq!(frame[1], 0x21, "音频应使用二进制音频请求类型");
+    assert_eq!(
+        i32::from_be_bytes(frame[4..8].try_into().expect("普通序号应为 4 字节")),
+        2,
+        "普通音频帧必须保持正序号 2"
+    );
+    assert_eq!(last[1], 0x23, "最后一帧必须设置 last flag");
+    assert_eq!(
+        i32::from_be_bytes(last[4..8].try_into().expect("结束序号应为 4 字节")),
+        -3,
+        "结束帧必须使用下一个序号的负值"
+    );
     let mut config = String::new();
     GzDecoder::new(&start[12..])
         .read_to_string(&mut config)
@@ -39,6 +58,34 @@ fn test_doubao_plan_asr_uses_binary_pcm_frames() {
         .expect("音频 gzip 应可解码");
     assert_eq!(pcm.len(), 3_200, "上传帧应覆盖恰好 100 毫秒音频");
     assert_ne!(frame[0], b'{', "不得继续发送 Seeduplex JSON 音频事件");
+}
+
+/// ASR 错误帧：协议头的错误码必须进入诊断，不能被 JSON 缺失的 code 覆盖为 0。
+///
+/// 数据构造（含关键数值的推导过程）：4 B 基础头 + 4 B 错误码 + 4 B 长度 + JSON；
+/// 错误码 45,000,000 来自测试构造，JSON 只有 message 而没有 code。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 构造 0xF 服务端错误帧，在头部写入 45,000,000。
+///   2. 解码错误帧并提取供界面及日志使用的原因。
+///
+/// 预期结果：原因包含真实协议错误码 45,000,000；不得报告虚假的错误码 0。
+#[test]
+fn test_doubao_asr_error_frame_uses_header_code() {
+    let payload = br#"{"message":"synthetic error"}"#;
+    let mut frame = vec![0x11, 0xf0, 0x10, 0];
+    frame.extend_from_slice(&45_000_000_u32.to_be_bytes());
+    frame.extend_from_slice(&(payload.len() as u32).to_be_bytes());
+    frame.extend_from_slice(payload);
+    let error = plan::asr::decode(&frame).expect_err("ASR 错误帧不得被当作成功结果");
+    assert!(
+        error.contains("45000000"),
+        "诊断必须包含协议头中的真实错误码：{error}"
+    );
+    assert!(
+        !error.contains("错误码 0"),
+        "缺失 JSON code 时不得伪造错误码 0：{error}"
+    );
 }
 
 struct BlockingSink {
@@ -72,22 +119,31 @@ impl super::super::voice::playback::AssistantAudioSink for BlockingSink {
 ///   2. 插话经独立控制队列发出 Stop，随后释放第一段。
 ///   3. 播放线程先处理 Stop，再发现第二段属于旧 epoch。
 ///
-/// 预期结果：确实收到 Stop；只有第一段被提交播放，第二段不能续播。
+/// 预期结果：确实收到 Stop；只有第一段被提交播放，第二段不能续播；
+///   白色边框收到中断事件且不得收到正常结束事件。
 #[test]
 fn test_doubao_interruption_discards_queued_audio() {
+    use crate::app::voice_window_inset::{
+        TtsPlaybackEvent, TtsPlaybackSource, VoiceWindowInsetEventBus,
+    };
+
+    let (events, _wake) = VoiceWindowInsetEventBus::new();
     let (first_tx, first_rx) = mpsc::channel();
     let (release_tx, release_rx) = mpsc::channel();
     let (stopped_tx, stopped_rx) = mpsc::channel();
     let written = Arc::new(AtomicUsize::new(0));
     let recorded = Arc::clone(&written);
-    let playback = start_playback_with(move || {
-        Box::new(BlockingSink {
-            written: recorded,
-            first_started: first_tx,
-            release_first: release_rx,
-            stopped: stopped_tx,
-        })
-    });
+    let playback = start_playback_with(
+        move || {
+            Box::new(BlockingSink {
+                written: recorded,
+                first_started: first_tx,
+                release_first: release_rx,
+                stopped: stopped_tx,
+            })
+        },
+        events.sink(TtsPlaybackSource::Doubao),
+    );
     let chunk = PcmAudioChunk::new(PcmFormat::Pcm16, 24_000, 1, vec![0; 960])
         .expect("20 ms output PCM should be valid");
     playback
@@ -104,6 +160,28 @@ fn test_doubao_interruption_discards_queued_audio() {
     stopped_rx
         .recv_timeout(Duration::from_secs(2))
         .expect("插话后应停止播放器");
+    let deadline = std::time::Instant::now() + Duration::from_secs(2);
+    let mut visual_events = Vec::new();
+    while !visual_events
+        .iter()
+        .any(|(_, event)| matches!(event, TtsPlaybackEvent::Interrupted))
+        && std::time::Instant::now() < deadline
+    {
+        visual_events.extend(events.drain());
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    assert!(
+        visual_events
+            .iter()
+            .any(|(_, event)| matches!(event, TtsPlaybackEvent::Interrupted)),
+        "插话必须立即让白色边框进入中断淡出"
+    );
+    assert!(
+        !visual_events
+            .iter()
+            .any(|(_, event)| matches!(event, TtsPlaybackEvent::Finished)),
+        "插话不得把未播完的旧语音标为正常完成"
+    );
     playback.end();
     stopped_rx
         .recv_timeout(Duration::from_secs(2))
@@ -138,14 +216,17 @@ fn test_doubao_late_tts_chunk_is_rejected_after_interruption() {
     let (stopped_tx, stopped_rx) = mpsc::channel();
     let written = Arc::new(AtomicUsize::new(0));
     let recorded = Arc::clone(&written);
-    let playback = start_playback_with(move || {
-        Box::new(BlockingSink {
-            written: recorded,
-            first_started: first_tx,
-            release_first: release_rx,
-            stopped: stopped_tx,
-        })
-    });
+    let playback = start_playback_with(
+        move || {
+            Box::new(BlockingSink {
+                written: recorded,
+                first_started: first_tx,
+                release_first: release_rx,
+                stopped: stopped_tx,
+            })
+        },
+        playback_events(),
+    );
     let pcm =
         PcmAudioChunk::new(PcmFormat::Pcm16, 24_000, 1, vec![0; 960]).expect("20 ms PCM 应有效");
     let old_generation = playback.generation();
@@ -188,14 +269,17 @@ fn test_doubao_playback_overflow_is_reported() {
     let (first_tx, first_rx) = mpsc::channel();
     let (release_tx, release_rx) = mpsc::channel();
     let (stopped_tx, _stopped_rx) = mpsc::channel();
-    let playback = start_playback_with(move || {
-        Box::new(BlockingSink {
-            written: Arc::new(AtomicUsize::new(0)),
-            first_started: first_tx,
-            release_first: release_rx,
-            stopped: stopped_tx,
-        })
-    });
+    let playback = start_playback_with(
+        move || {
+            Box::new(BlockingSink {
+                written: Arc::new(AtomicUsize::new(0)),
+                first_started: first_tx,
+                release_first: release_rx,
+                stopped: stopped_tx,
+            })
+        },
+        playback_events(),
+    );
     let chunk =
         PcmAudioChunk::new(PcmFormat::Pcm16, 24_000, 1, vec![0; 960]).expect("20 ms PCM 应有效");
     playback
@@ -229,9 +313,10 @@ fn test_doubao_playback_overflow_is_reported() {
 /// 预期结果：明确得到输出失败；不能静默丢帧却保持“已连接”。
 #[test]
 fn test_doubao_playback_backend_error_is_reported() {
-    let playback = start_playback_with(|| {
-        Box::<crate::app::voice::playback::NoopAssistantAudioSink>::default()
-    });
+    let playback = start_playback_with(
+        || Box::<crate::app::voice::playback::NoopAssistantAudioSink>::default(),
+        playback_events(),
+    );
     let chunk =
         PcmAudioChunk::new(PcmFormat::Pcm16, 24_000, 1, vec![0; 960]).expect("20 ms PCM 应有效");
     playback

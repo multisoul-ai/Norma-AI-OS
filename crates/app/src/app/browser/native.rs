@@ -89,6 +89,17 @@ impl NativeBrowserView {
         }
     }
 
+    pub(crate) fn report_resource_timing(&self, node_id: NodeId) {
+        match self {
+            #[cfg(target_os = "macos")]
+            Self::Wry(view) => view.report_resource_timing(node_id),
+            #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
+            Self::Cef(_) => {
+                let _ = node_id;
+            }
+        }
+    }
+
     pub(crate) fn current_url_for_polling(&self) -> Option<String> {
         match self {
             #[cfg(target_os = "macos")]
@@ -122,6 +133,15 @@ impl NativeBrowserView {
             Self::Wry(view) => view.reload(),
             #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
             Self::Cef(view) => view.reload(),
+        }
+    }
+
+    pub(crate) fn stop_loading(&self) {
+        match self {
+            #[cfg(target_os = "macos")]
+            Self::Wry(view) => view.stop_loading(),
+            #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
+            Self::Cef(_) => {}
         }
     }
 

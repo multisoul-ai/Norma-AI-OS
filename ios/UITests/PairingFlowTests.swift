@@ -76,8 +76,13 @@ final class PairingFlowTests: XCTestCase {
         let app = XCUIApplication(); app.launch()
         XCTAssertTrue(app.buttons["workspace-tab-tasks"].waitForExistence(timeout: 5), "第三个主Tab必须是任务")
         XCTAssertFalse(app.tabBars.buttons["电脑"].exists, "电脑管理不能替代任务Tab")
-        XCTAssertEqual(app.tabBars.buttons.element(boundBy: 0).label, "项目", "项目应位于左侧")
-        XCTAssertEqual(app.tabBars.buttons.element(boundBy: 1).label, "指挥台", "指挥台应位于正中间")
+        let projects = app.buttons["workspace-tab-projects"]
+        let command = app.buttons["workspace-tab-command"]
+        let tasks = app.buttons["workspace-tab-tasks"]
+        XCTAssertEqual(projects.label, "项目", "项目入口必须保留原生可访问名称")
+        XCTAssertEqual(command.label, "指挥台", "指挥台入口必须保留原生可访问名称")
+        XCTAssertLessThan(projects.frame.midX, command.frame.midX, "项目应位于左侧")
+        XCTAssertLessThan(command.frame.midX, tasks.frame.midX, "指挥台应位于正中间")
         app.buttons["workspace-tab-tasks"].tap()
         XCTAssertTrue(app.staticTexts["连接电脑后查看任务"].waitForExistence(timeout: 5), "空态不能伪造任务")
         app.buttons["manage-computers"].tap()
@@ -96,6 +101,7 @@ final class PairingFlowTests: XCTestCase {
         let app = XCUIApplication(); app.launch()
         XCTAssertTrue(app.buttons["manage-computers"].waitForExistence(timeout: 5), "需要公共电脑入口")
         app.buttons["manage-computers"].tap()
+        app.buttons["computer-more-actions"].tap()
         app.buttons["notification-settings"].tap()
         XCTAssertTrue(app.staticTexts["连接电脑后开启任务提醒"].waitForExistence(timeout: 5), "应说明按电脑订阅")
         XCTAssertFalse(app.buttons["enable-notifications"].exists, "未配对不得触发系统授权")
@@ -157,6 +163,7 @@ final class PairingFlowTests: XCTestCase {
         let devices = app.buttons["manage-computers"]
         XCTAssertTrue(devices.waitForExistence(timeout: 5), "需要原生电脑页")
         devices.tap()
+        app.buttons["computer-more-actions"].tap()
         let queue = app.buttons["local-message-queue"]
         XCTAssertTrue(queue.waitForExistence(timeout: 5), "断线时也须能找回消息原文")
         queue.tap()
@@ -199,6 +206,7 @@ final class PairingFlowTests: XCTestCase {
         app.buttons["pairing-cancel"].tap()
         XCTAssertTrue(app.buttons["add-computer"].waitForExistence(timeout: 5), "取消必须回到原页面")
         XCTAssertFalse(app.staticTexts["核对码"].exists, "取消后不保留未完成配对状态")
+        app.buttons["computer-more-actions"].tap()
         app.buttons["local-drafts"].tap()
         XCTAssertTrue(app.staticTexts["没有未发送的草稿"].waitForExistence(timeout: 5), "尚未连接电脑也能访问本地草稿")
         app.buttons["drafts-close"].tap()

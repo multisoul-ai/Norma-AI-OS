@@ -100,6 +100,10 @@ pub(crate) struct VoiceSettingsState {
     advanced_expanded: bool,
 }
 impl VoiceSettingsState {
+    pub(crate) fn credential_store(&self) -> Option<SettingsStore> {
+        self.storage.clone()
+    }
+
     pub(crate) fn load_from_store(store: SettingsStore) -> Self {
         match SavedVoiceSettings::load(&store) {
             Ok(saved) => {
@@ -256,6 +260,7 @@ impl VoiceSettingsState {
             self.doubao_credential_previous = Some(self.saved.doubao_credential_ref.clone());
         }
         self.queue_pending_write(PendingVoiceSettingWrite::StoreCredential {
+            store: self.storage.clone(),
             account: ACCOUNT.to_string(),
             secret,
         });
@@ -271,6 +276,7 @@ impl VoiceSettingsState {
         self.saved.doubao_credential_ref = None;
         self.delete_string(values::KEY_DOUBAO_CREDENTIAL_REF);
         self.queue_pending_write(PendingVoiceSettingWrite::DeleteCredential {
+            store: self.storage.clone(),
             account: "doubao-desktop".to_string(),
         });
         self.refresh_values();

@@ -59,6 +59,14 @@ fn mobile_terminal_retains_soft_wraps_for_phone_reflow() {
     );
     assert_eq!(page.rows[1], "world", "续行文字必须完整");
     assert_eq!(page.rows[2], "hard", "显式换行后的文字必须完整");
+    assert_eq!(
+        wire["cursor"]["line"], 2,
+        "真实光标应在hard所在第3行，不能伪造为输出末尾"
+    );
+    assert_eq!(
+        wire["cursor"]["column"], 4,
+        "hard写入4列，光标必须指向其后原PTY位置"
+    );
     assert_eq!(page.cols, 8, "手机重排不能改变电脑PTY列数");
     assert_eq!(runtime.live_len(), 1, "手机阅读不得创建第二个PTY");
     let mut projection = norma::mobile::TerminalProjection::new("stream-a".into(), scope);
@@ -200,12 +208,17 @@ fn mobile_terminal_same_pty_input_and_scrollback() {
         .send(terminal::PtyEvent::Output(history.into_bytes()))
         .expect("输出历史");
     runtime.drain_all();
+    let before_scroll = runtime.mobile_terminal_page(&scope).expect("滚动前原终端");
     runtime
         .scroll_node(node, crate::NodeScroll::TermLines(10))
         .expect("电脑回看10行");
     let page = runtime
         .mobile_terminal_page(&scope)
         .expect("手机独立最新页");
+    assert_eq!(
+        page.screen_signature, before_scroll.screen_signature,
+        "电脑回看不改变实时屏幕，不能使手机输入前置校验失效"
+    );
     assert!(
         page.rows.iter().any(|s| s.contains("history-199")),
         "手机应读取最新输出"
@@ -214,9 +227,19 @@ fn mobile_terminal_same_pty_input_and_scrollback() {
         !page.rows.iter().any(|s| s.contains("history-000")),
         "最新页只复制有界尾部"
     );
+    let cursor = serde_json::to_value(&page).expect("最新页光标");
+    assert_eq!(
+        cursor["cursor"]["line"],
+        page.total_lines - 1,
+        "电脑向上回看不能改变手机原PTY光标绝对行"
+    );
     scope.before = Some(page.start_line);
     scope.revision = Some(page.revision);
     let older = runtime.mobile_terminal_page(&scope).expect("回看历史");
+    assert!(
+        serde_json::to_value(&older).expect("历史页")["cursor"].is_null(),
+        "历史页不能伪造当前光标"
+    );
     assert!(
         older.rows.iter().any(|s| s.contains("history-000")),
         "可读取更早历史"

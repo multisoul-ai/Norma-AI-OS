@@ -65,7 +65,7 @@ pub(super) fn execute(
             let push = super::super::push::configuration::effective(&store);
             let addresses = interfaces::addresses()?;
             let access = MobileAccess::open(store.clone())
-                .context("Unable to read this Mac’s identity from Keychain")?;
+                .context("Unable to read this Mac’s identity from SQLite")?;
             ensure!(
                 !cancelled.load(Ordering::Acquire),
                 "Window closed. Connection cancelled."
@@ -74,6 +74,9 @@ pub(super) fn execute(
                 MobileServer::start_with_mobile_sources(access, addresses, sources)
                     .context("Unable to enable mobile connection")?,
             );
+            if server.start_collaboration_relay().is_err() {
+                tracing::warn!("Mobile connection is on, but the collaboration relay could not start. Local project access remains available.");
+            }
             match push {
                 Ok(Some(config)) => {
                     if server.start_push_notifications(config).is_err() {
@@ -125,6 +128,12 @@ pub(super) fn execute(
                 .context("Pairing was not approved. Check whether the code has expired.")?;
             Ok(Completion::Approved(server.devices()?))
         }
+        Command::ApproveAll { request_id, access } => {
+            server
+                .approve_all_projects(&request_id, access)
+                .context("Pairing was not approved. Check whether the code has expired.")?;
+            Ok(Completion::Approved(server.devices()?))
+        }
         Command::Revoke(device) => {
             server.revoke(&device)?;
             Ok(Completion::Devices(server.devices()?))
@@ -136,6 +145,16 @@ pub(super) fn execute(
         } => {
             server
                 .replace_permissions(&device_id, revision, &projects)
+                .context("Unable to save permissions. Refresh the device list and try again.")?;
+            Ok(Completion::Devices(server.devices()?))
+        }
+        Command::PermissionsAll {
+            device_id,
+            revision,
+            access,
+        } => {
+            server
+                .replace_with_all_projects(&device_id, revision, access)
                 .context("Unable to save permissions. Refresh the device list and try again.")?;
             Ok(Completion::Devices(server.devices()?))
         }

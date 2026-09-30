@@ -4,6 +4,11 @@ use std::path::Path;
 
 pub(crate) fn open_app_connection(path: &Path) -> StorageResult<Connection> {
     let connection = open_connection(path)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
+    }
     migrate_app_db(&connection)?;
     Ok(connection)
 }
@@ -24,6 +29,7 @@ fn open_connection(path: &Path) -> StorageResult<Connection> {
 }
 
 pub fn migrate_app_db(connection: &Connection) -> StorageResult<()> {
+    crate::thread_message_store::migrate(connection)?;
     crate::mobile_session_store::migrate(connection)?;
     crate::mobile_turn_store::migrate(connection)?;
     crate::mobile_command_store::migrate(connection)?;
@@ -448,7 +454,7 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
     Ok(())
 }
 
-fn ensure_column(
+pub(crate) fn ensure_column(
     connection: &Connection,
     table: &'static str,
     column: &'static str,

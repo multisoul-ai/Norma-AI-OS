@@ -42,10 +42,20 @@ pub fn encode(input: &KeyInput) -> Vec<u8> {
         Key::Tab => vec![0x09],       // HT
         Key::Backspace => vec![0x7f], // DEL
         Key::Escape => vec![0x1b],    // ESC
-        Key::Up => vec![0x1b, b'[', b'A'],
-        Key::Down => vec![0x1b, b'[', b'B'],
-        Key::Right => vec![0x1b, b'[', b'C'],
-        Key::Left => vec![0x1b, b'[', b'D'],
+        Key::Up => encode_arrow(input, b'A'),
+        Key::Down => encode_arrow(input, b'B'),
+        Key::Right => encode_arrow(input, b'C'),
+        Key::Left => encode_arrow(input, b'D'),
+    }
+}
+
+fn encode_arrow(input: &KeyInput, direction: u8) -> Vec<u8> {
+    // xterm: modifier = 1 + Shift(1) + Alt(2) + Ctrl(4)。无修饰键沿用短序列。
+    let modifier = 1 + u8::from(input.shift) + 2 * u8::from(input.alt) + 4 * u8::from(input.ctrl);
+    if modifier == 1 {
+        vec![0x1b, b'[', direction]
+    } else {
+        vec![0x1b, b'[', b'1', b';', b'0' + modifier, direction]
     }
 }
 
@@ -200,6 +210,54 @@ mod tests {
             vec![0x1b, b'[', b'D'],
             "Left → CSI D"
         );
+    }
+
+    /// 修饰方向键使用 xterm CSI 1;modifier 序列，保留 TUI 快捷键语义。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   modifier = 1(default) + 1(shift) + 2(alt) + 4(ctrl)。
+    ///   Option+Up = 1+2=3 → ESC[1;3A；Ctrl+Right = 1+4=5 → ESC[1;5C。
+    ///   Shift+Down = 1+1=2 → ESC[1;2B；Shift+Option+Ctrl+Left = 1+1+2+4=8 → ESC[1;8D。
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 分别编码四种修饰方向键。
+    ///   2. 对照各自应发送给 PTY 的完整字节序列。
+    ///
+    /// 预期结果：
+    ///   - 正断言：四个组合均保留方向和修饰键。
+    ///   - 负断言：Option+Up 不得退化为普通 Up。
+    #[test]
+    fn test_modified_arrow_keys_keep_xterm_modifiers() {
+        let option_up = encode(&KeyInput {
+            key: Key::Up,
+            ctrl: false,
+            alt: true,
+            shift: false,
+        });
+        let ctrl_right = encode(&KeyInput {
+            key: Key::Right,
+            ctrl: true,
+            alt: false,
+            shift: false,
+        });
+        let shift_down = encode(&KeyInput {
+            key: Key::Down,
+            ctrl: false,
+            alt: false,
+            shift: true,
+        });
+        let all_left = encode(&KeyInput {
+            key: Key::Left,
+            ctrl: true,
+            alt: true,
+            shift: true,
+        });
+
+        assert_eq!(option_up, b"\x1b[1;3A", "Option+Up 应保留 Alt 修饰值 3");
+        assert_eq!(ctrl_right, b"\x1b[1;5C", "Ctrl+Right 应保留 Ctrl 修饰值 5");
+        assert_eq!(shift_down, b"\x1b[1;2B", "Shift+Down 应保留 Shift 修饰值 2");
+        assert_eq!(all_left, b"\x1b[1;8D", "三个修饰键同时按下应得到值 8");
+        assert_ne!(option_up, b"\x1b[A", "Option+Up 不能退化为普通 Up");
     }
 
     /// Alt+char 前缀 ESC（meta 键约定：ESC 后跟字符）。

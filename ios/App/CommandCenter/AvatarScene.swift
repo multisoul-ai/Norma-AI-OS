@@ -43,7 +43,7 @@ final class AvatarScene: NSObject, SCNSceneRendererDelegate, @unchecked Sendable
         } else { scene = SCNScene(); loadError = "角色资源缺失，请重新安装 Norma" }
         camera = SCNNode(); camera.camera = SCNCamera()
         super.init()
-        scene.background.contents = UIColor.black
+        scene.background.contents = UIColor(red: 0.971, green: 0.978, blue: 0.988, alpha: 1)
         scene.rootNode.enumerateChildNodes { node, _ in
             for material in node.geometry?.materials ?? [] { AvatarMaterials.apply(to: material) }
             if let name = node.name, node.skinner == nil { self.bones[name] = node; self.rest[name] = node.simdOrientation }

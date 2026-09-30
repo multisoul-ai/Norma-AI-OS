@@ -27,7 +27,7 @@ use crate::workspace::clone_project::CloneProjectUiState;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
 use canvas::{CanvasRect, NodeId, NodeType, Vec2};
-use gpui::{actions, div, prelude::*, px, ClickEvent, Context, FocusHandle, Focusable, Window};
+use gpui::{actions, div, prelude::*, px, Context, FocusHandle, Focusable, Window};
 use runtime::{route, InputEvent, Route, Runtime};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -393,6 +393,13 @@ impl MultisoulApp {
         node_id: NodeId,
         window: &mut Window,
     ) -> bool {
+        if self.previews.has_pending_edits(node_id) {
+            self.workspace_state.error = Some(
+                "You have unsaved changes. Save or cancel your edits before closing this card."
+                    .into(),
+            );
+            return false;
+        }
         if self.runtime.ego_task_state(node_id).is_some()
             && !self.runtime.can_close_ego_node(node_id)
         {
@@ -442,16 +449,6 @@ impl MultisoulApp {
             self.last_reflow_window_size = Some(current);
             self.apply_layout_for_current_mode(window);
         }
-    }
-
-    fn on_toolbar_canvas_scroll(
-        &mut self,
-        _: &ClickEvent,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.interaction.canvas_scroll_enabled = !self.interaction.canvas_scroll_enabled;
-        cx.notify();
     }
 
     pub(crate) fn remove_recent_project(&mut self, path: &Path, cx: &mut Context<Self>) {

@@ -112,7 +112,7 @@ pub(super) fn asr_provider_group(
             setting_row(
                 theme,
                 "Azure API Key",
-                "Stored only in macOS Keychain and never written to Settings or logs",
+                "Stored in this Mac's local database; never written to logs",
             )
             .child(
                 div()
@@ -276,12 +276,16 @@ impl MultisoulApp {
         let profile = self.voice_settings.values().azure_asr_profile().clone();
         let validated_profile = profile.clone();
         let model_root = self.voice_settings.model_root().to_path_buf();
+        let credential_store = self.voice_settings.credential_store();
         let work = cx.background_executor().spawn(async move {
+            let store = credential_store
+                .as_ref()
+                .ok_or("SQLite settings unavailable")?;
             let account = profile
                 .credential_ref()
                 .ok_or_else(|| "add an API Key first".to_string())?;
-            let secret = VoiceSettingsState::load_azure_asr_secret(account)?
-                .ok_or_else(|| "API Key is missing from Keychain".to_string())?;
+            let secret = VoiceSettingsState::load_azure_asr_secret(store, account)?
+                .ok_or_else(|| "API Key is missing from SQLite".to_string())?;
             let config = asr::AzureSpeechConfig::new(
                 profile.region(),
                 profile.locale(),
@@ -328,12 +332,16 @@ impl MultisoulApp {
             .map(ToOwned::to_owned);
         self.voice_settings.begin_azure_asr_recognition_test();
         cx.notify();
+        let credential_store = self.voice_settings.credential_store();
         let work = cx.background_executor().spawn(async move {
+            let store = credential_store
+                .as_ref()
+                .ok_or("SQLite settings unavailable")?;
             let account = profile
                 .credential_ref()
                 .ok_or_else(|| "API Key is not configured".to_string())?;
-            let secret = VoiceSettingsState::load_azure_asr_secret(account)?
-                .ok_or_else(|| "API Key is missing from Keychain".to_string())?;
+            let secret = VoiceSettingsState::load_azure_asr_secret(store, account)?
+                .ok_or_else(|| "API Key is missing from SQLite".to_string())?;
             let config = asr::AzureSpeechConfig::new(
                 profile.region(),
                 profile.locale(),

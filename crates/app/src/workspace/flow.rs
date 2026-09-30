@@ -57,6 +57,9 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if !self.confirm_preview_edits_before_leaving(cx) {
+            return;
+        }
         self.agent_runtime = None;
         self.agent_queue_ui.close();
         let result = enter_workspace_for_path_with_source(

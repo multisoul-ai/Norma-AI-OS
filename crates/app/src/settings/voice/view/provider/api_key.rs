@@ -19,7 +19,7 @@ pub(super) fn api_key_row(
     setting_row(
         theme,
         "API Key",
-        "Stored in macOS Keychain; hidden by default and never written to logs",
+        "Stored in this Mac's local database; hidden by default and never written to logs",
     )
     .child(
         div()

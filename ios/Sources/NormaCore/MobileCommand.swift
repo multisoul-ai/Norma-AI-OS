@@ -194,7 +194,7 @@ public struct PendingMobileCommand: Codable, Sendable, Identifiable, Equatable {
     }
 }
 
-public struct MobileCommandReceipt: Decodable, Sendable {
+public struct MobileCommandReceipt: Codable, Equatable, Sendable {
     public let deviceID: String
     public let operationID: String
     public let workspaceID: String
@@ -202,7 +202,7 @@ public struct MobileCommandReceipt: Decodable, Sendable {
     public let state: String
     public let result: CommandResult?
     public let error: String?
-    public struct CommandResult: Decodable, Sendable {
+    public struct CommandResult: Codable, Equatable, Sendable {
         public let feedback: DeliveryFeedback.Reference?
         public let fingerprint: String?
         public let acceptedAtUnix: UInt64?
@@ -216,13 +216,16 @@ public struct MobileCommandReceipt: Decodable, Sendable {
         public let queueID: String?
         public let requestID: String?
         public let decision: ApprovalDecision?
-        enum CodingKeys: String, CodingKey { case feedback, fingerprint, acceptedAtUnix = "accepted_at_unix", todoIndex = "todo_index", planID = "plan_id", nodeID = "node_id", runID = "run_id", sessionID = "session_id", turnID = "turn_id", queueID = "queue_id", requestID = "request_id", status, decision }
+        public var key: MobileTurnOutcome.Key? = nil
+        public var taskRef: String? = nil
+        enum CodingKeys: String, CodingKey { case key, taskRef = "task_ref", feedback, fingerprint, acceptedAtUnix = "accepted_at_unix", todoIndex = "todo_index", planID = "plan_id", nodeID = "node_id", runID = "run_id", sessionID = "session_id", turnID = "turn_id", queueID = "queue_id", requestID = "request_id", status, decision }
     }
     enum CodingKeys: String, CodingKey {
         case deviceID = "device_id", operationID = "operation_id", workspaceID = "workspace_id", routeID = "route_id", state, result, error
     }
     func validate(for pending: PendingMobileCommand) throws {
         try pending.validate()
+        guard result?.key == nil, result?.taskRef == nil else { throw MobileError.invalidResponse }
         guard deviceID == pending.deviceID, operationID == pending.request.operationID,
               workspaceID == pending.request.workspaceID, routeID == pending.request.routeID else { throw MobileError.invalidResponse }
         if case let .decidePlanTodo(planID, index, choice, _) = pending.request.command {

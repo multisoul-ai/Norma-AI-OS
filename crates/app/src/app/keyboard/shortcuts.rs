@@ -8,6 +8,11 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         match command {
+            ShortcutCommandId::SavePreviewFile => {
+                if let Some(node_id) = current_selection_node_id(&self.runtime) {
+                    self.save_preview_edit(node_id, cx);
+                }
+            }
             ShortcutCommandId::NewWindow => self.on_new_window(&crate::app::NewWindow, window, cx),
             ShortcutCommandId::NewTerminal => {
                 self.on_new_terminal(&crate::app::NewTerminal, window, cx)

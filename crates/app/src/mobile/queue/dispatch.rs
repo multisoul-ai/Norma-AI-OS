@@ -151,22 +151,40 @@ fn dispatch(
 ) -> Result<Option<Sending>, String> {
     // Permission edits use the same lock and cancel all unstarted leases before releasing it.
     let access = shared.access().map_err(|e| e.to_string())?;
-    let allowed = access
-        .devices()
-        .map_err(|e| e.to_string())?
-        .iter()
-        .any(|g| {
-            g.device_id == entry.request.device_id
-                && g.revision == entry.message.grant_revision
-                && g.allows(&entry.request.workspace_id, true)
-        });
-    if !allowed {
+    let grants = access.devices().map_err(|e| e.to_string())?;
+    let grant = grants.iter().find(|g| {
+        g.device_id == entry.request.device_id
+            && g.revision == entry.message.grant_revision
+            && g.allows(&entry.request.workspace_id, true)
+    });
+    let Some(grant) = grant else {
         store
             .cancel_queued_message(&entry.request)
             .map_err(|e| e.to_string())?;
         crate::mobile::project_events::changed();
         return Ok(None);
-    }
+    };
+    let target = match crate::mobile::thread_followup::queued_target(
+        access.store.path(),
+        store,
+        &entry,
+        grant,
+    ) {
+        Ok(target) => target,
+        Err("unavailable") => return Ok(None),
+        Err(error) => {
+            if store
+                .claim_queued_message(&entry.request)
+                .map_err(|e| e.to_string())?
+            {
+                store
+                    .finish_queued_message(&entry.request, Err(error.into()))
+                    .map_err(|e| e.to_string())?;
+                crate::mobile::project_events::changed();
+            }
+            return Ok(None);
+        }
+    };
     let lease = match shared.command_lease(&entry.request.device_id, &entry.request.operation_id) {
         Ok(lease) => lease,
         Err("busy") => return Ok(None),
@@ -187,9 +205,17 @@ fn dispatch(
         workspace_id: entry.request.workspace_id.clone(),
         route_id: entry.request.route_id.clone(),
         grant_revision: entry.message.grant_revision,
-        command: MobileCommand::SendMessage {
-            expected: card,
-            text: entry.message.text.clone(),
+        command: if let Some(target) = target {
+            MobileCommand::ThreadFollowup {
+                target,
+                expected: card,
+                text: entry.message.text.clone(),
+            }
+        } else {
+            MobileCommand::SendMessage {
+                expected: card,
+                text: entry.message.text.clone(),
+            }
         },
     };
     if shared
@@ -245,7 +271,11 @@ fn poll_receipts(store: &MobileCommandStore, sending: &mut Vec<Sending>) -> Resu
         match result {
             // These stable codes originate only from the App's validation before any Provider input.
             Err(
-                "state_not_ready" | "desktop_input_pending" | "terminal_not_ready" | "card_changed",
+                "state_not_ready"
+                | "desktop_input_pending"
+                | "terminal_not_ready"
+                | "terminal_controlled"
+                | "card_changed",
             ) => store
                 .defer_queued_message(&item.entry.request)
                 .map_err(|e| e.to_string())?,
@@ -260,6 +290,7 @@ fn poll_receipts(store: &MobileCommandStore, sending: &mut Vec<Sending>) -> Resu
                     | "not_found"
                     | "expired"
                     | "unavailable" => code,
+                    "session_changed" => "session_changed",
                     _ => "outcome_unknown",
                 };
                 store

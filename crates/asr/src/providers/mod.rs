@@ -103,7 +103,7 @@ pub fn builtin_recognizer_factory(
         BuiltinAsrProfile::LocalSherpa(model) => Ok(Box::new(SherpaRecognizerFactory::new(model))),
         BuiltinAsrProfile::CloudAzure(profile) => {
             let secret = resolve_credential(&profile.credential_ref)?.ok_or_else(|| {
-                AsrError::Provider("Azure Speech API Key is missing from Keychain".to_string())
+                AsrError::Provider("Azure Speech API Key is missing from local storage".to_string())
             })?;
             let config = AzureSpeechConfig::new(
                 profile.region,

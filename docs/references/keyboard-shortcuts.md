@@ -40,6 +40,7 @@ canvas/view.rs
 | `⌘C` | `CopyCardContent` | `on_copy_card_content` | Canvas | 复制当前终端文本选区到剪贴板；无选区时不写入 |
 | `⌘O` | `OpenProject` | `on_open_project` | 全局 | 弹出目录选择器打开 workspace（Launchpad / Canvas 均可用） |
 | `⌘⇧O` | `OpenPreviewFile` | `on_open_preview_file` | Canvas | 弹出文件选择器，创建 Preview 卡片 |
+| `⌘S` | `SavePreviewFile` | `save_preview_edit` | 文本 / Markdown 卡片编辑中 | 保存当前编辑；检测到外部修改时保留草稿并提示冲突 |
 | `⌘2` | `NewClaudeAgent` | `on_new_claude_agent` | Canvas | 创建 Claude Code agent 卡片 |
 | `⌘3` | `NewCodexAgent` | `on_new_codex_agent` | Canvas | 创建 Codex agent 卡片 |
 | `⌘4` | `NewCursorAgent` | `on_new_cursor_agent` | Canvas | 创建 Cursor Agent CLI 卡片 |
@@ -53,6 +54,8 @@ canvas/view.rs
 | `⌘E` | `VoiceInteraction` | `activate_ready_voice` | 全局 | 按当前语音交互模式开始/停止单次语音指令或持续聆听；Hold 模式下松开结束输入 |
 
 ### 复制（`⌘C`）优先级
+
+文件卡片的编辑输入框聚焦时，复制、粘贴、撤销、方向键及文本选择由输入组件处理，不触发画布操作；`⌘S` 按配置保存文件。
 
 `on_copy_card_content` 的复制来源逻辑（`keyboard.rs`）：
 
@@ -228,7 +231,7 @@ Layout:   Reflow Layout / Toggle Master Layout
 **画布层滚轮**（`apply_canvas_wheel_scroll`）：
 
 - 默认**关闭**（`InteractionState.canvas_scroll_enabled = false`）。
-- 用户需点击顶部工具栏 `↕` 按钮开启后，滚轮才平移 `viewport.pan`。
+- Command Dock 已移除 Select/Scroll 模式按钮，目前没有 UI 入口可开启；开启后滚轮才会平移 `viewport.pan`。
 - 当前实现**不会**通过滚轮改变 `viewport.zoom`（旧 zoom 行为已移除，见 `canvas_view_tests.rs`）。
 
 ## 6. 输入模式速查

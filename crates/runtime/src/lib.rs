@@ -27,5 +27,5 @@ pub use live::{Caps, LiveNode, NodeError, NodeInput, NodeResize, NodeScroll, Nod
 pub use nodes::term::PtyFactory;
 pub use preview::PreviewSpawnError;
 pub use route::{route, InputEvent, Route};
-pub use runtime::{Runtime, DEFAULT_TERMINAL_SHELL};
+pub use runtime::{Runtime, TerminalInputLease, DEFAULT_TERMINAL_SHELL};
 pub use session_restore::merge_session_checkpoints;

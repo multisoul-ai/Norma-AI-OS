@@ -16,6 +16,7 @@ static DOUBAO_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 mod delete;
 mod reports;
+mod restart;
 
 /// 豆包首次使用：已保存 Key 但麦克风未授权时，设置页必须提供授权入口。
 ///
@@ -180,6 +181,7 @@ fn doubao_voice_dock_uses_generic_labels_and_stateful_waveform() {
 /// 桌面豆包 2.0：设置切换后走 ASR 2.0 → 方舟 Chat → TTS 2.0，工具仍经现有桌面 Adapter。
 ///
 /// 数据构造（含关键数值的推导过程）：5 × 640 字节 = 100 ms 的 16 kHz PCM16；
+/// TTS 输出 100 × (24,000 × 2 × 0.01) = 48,000 字节，即 100 段 10 ms PCM 的 1 秒播报；
 /// 方舟返回两次相同 call_id 的 create_terminal，预期仅创建一张 Terminal。
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -187,9 +189,11 @@ fn doubao_voice_dock_uses_generic_labels_and_stateful_waveform() {
 ///   2. ⌘E 启动；假 ASR 接收二进制配置与音频，返回口语化建卡指令。
 ///   3. 假方舟 Chat 检查现有人设、项目与工具，提出重复工具调用。
 ///   4. 桌面只执行一次工具，回传真实结果；假 Chat 回复，假 TTS 输出 PCM。
+///   5. PCM 播放期间推进白光动画，检查 Canvas 窗口内缘实际可见。
 ///
 /// 预期结果：旧 Voice 回合保持空闲；ASR/Chat/TTS 均经过 2.0 路由；
-/// Terminal 恰好一张，重复调用不能产生第二次副作用。
+/// Terminal 恰好一张，重复调用不能产生第二次副作用；
+/// 豆包播报时白色边框应出现，不能只有声音而没有视觉反馈。
 #[test]
 fn desktop_doubao_2_settings_shortcut_audio_and_tool_dedup() {
     let _lock = DOUBAO_TEST_LOCK
@@ -287,15 +291,13 @@ fn desktop_doubao_2_settings_shortcut_audio_and_tool_dedup() {
             tts["req_params"]["text"], "已创建。",
             "TTS 应朗读方舟真实回复"
         );
-        let pcm = base64::engine::general_purpose::STANDARD.encode(vec![0_u8; 960]);
-        write_lines(
-            stream,
-            &format!(
-                "{}\n{}\n",
-                json!({"code":0,"data":pcm}),
-                json!({"code":20_000_000})
-            ),
-        );
+        let pcm = base64::engine::general_purpose::STANDARD.encode(vec![0_u8; 480]);
+        let mut lines = String::new();
+        for _ in 0..100 {
+            lines.push_str(&format!("{}\n", json!({"code":0,"data":pcm})));
+        }
+        lines.push_str(&format!("{}\n", json!({"code":20_000_000})));
+        write_lines(stream, &lines);
         http_tx
             .send(receipt["node_id"].as_u64())
             .expect("应报告工具身份");
@@ -364,6 +366,24 @@ fn desktop_doubao_2_settings_shortcut_audio_and_tool_dedup() {
     };
     assert!(audio_rx.try_recv().is_ok(), "ASR 2.0 应收到真实麦克风 PCM");
     assert!(node_id.is_some(), "工具应返回真实 Terminal node_id");
+    let deadline = Instant::now() + Duration::from_secs(2);
+    let inset = loop {
+        app.update(cx, |app, cx| {
+            app.advance_animations_for_e2e(Duration::from_millis(16), cx)
+        });
+        let inset = app.read_with(cx, |app, _| app.voice_window_inset_e2e_snapshot());
+        if inset.active {
+            break inset;
+        }
+        assert!(Instant::now() < deadline, "豆包播报应在 2 秒内激活窗口白光");
+        std::thread::sleep(Duration::from_millis(5));
+    };
+    assert!(inset.opacity_milli > 0, "豆包播报期间白色边框应可见");
+    assert!(inset.inset_px_milli > 0, "豆包播报期间白色边框应向内延展");
+    assert!(
+        cx.debug_bounds("voice-window-inset").is_some(),
+        "豆包播报期间 Canvas 渲染树必须包含窗口白光"
+    );
     let terminals = read_runtime(&app, cx, |runtime| {
         runtime
             .document

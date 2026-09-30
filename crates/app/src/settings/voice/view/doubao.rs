@@ -94,7 +94,7 @@ pub(super) fn doubao_settings(
                         .text_size(px(12.0))
                         .text_color(rgba(theme.text_secondary))
                         .child(if configured {
-                            "API Key saved in macOS Keychain"
+                            "API Key saved in this Mac's local database"
                         } else {
                             "Enter your Volcengine Ark API Key for ASR 2.0, Chat and TTS 2.0"
                         }),

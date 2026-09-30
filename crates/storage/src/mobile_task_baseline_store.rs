@@ -43,6 +43,48 @@ impl MobileTaskBaselineStore {
         Self { path }
     }
 
+    /// Background-only metadata lookup. Never deserialize the baseline's file bytes for polling.
+    pub fn turn_for_command(
+        &self,
+        device: &str,
+        operation: &str,
+        workspace: &str,
+        route: &str,
+    ) -> StorageResult<Option<MobileTurnKey>> {
+        for id in [device, operation, workspace, route] {
+            crate::mobile_access_store::validate_id(id)?;
+        }
+        let connection = open_app_connection(&self.path)?;
+        let raw: Option<String> = connection.query_row(
+            "SELECT json_object('key',json_extract(b.data_json,'$.key'),
+              'workspace',json_extract(b.data_json,'$.workspace_id'),
+              'route',json_extract(b.data_json,'$.route_id'),
+              'device',json_extract(b.data_json,'$.device_id'),
+              'operation',json_extract(b.data_json,'$.operation_id'),
+              'run',b.run_id,'turn',b.turn_id)
+             FROM mobile_task_baselines b JOIN mobile_commands c
+               ON c.device_id=b.device_id AND c.operation_id=b.operation_id AND c.workspace_id=b.workspace_id
+             WHERE b.device_id=?1 AND b.operation_id=?2 AND b.workspace_id=?3 AND c.route_id=?4",
+            params![device, operation, workspace, route], |row| row.get(0),
+        ).optional()?;
+        raw.map(|raw| {
+            let saved: serde_json::Value = serde_json::from_str(&raw)?;
+            let key: MobileTurnKey = serde_json::from_value(saved["key"].clone())?;
+            key.validate()?;
+            if saved["workspace"] != workspace
+                || saved["route"] != route
+                || saved["device"] != device
+                || saved["operation"] != operation
+                || saved["run"] != key.run_id
+                || saved["turn"] != key.turn_id
+            {
+                return Err(invalid("command turn scope mismatch"));
+            }
+            Ok(key)
+        })
+        .transpose()
+    }
+
     /// Save the pre-send bytes only after the real Provider has confirmed its precise turn identity.
     /// An unconfirmed or deferred queue attempt never replaces a previously bound task baseline.
     pub fn record(

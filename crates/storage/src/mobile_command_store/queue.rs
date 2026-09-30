@@ -215,7 +215,10 @@ impl NewQueuedMessage {
     }
 }
 
-fn checked(connection: &Connection, request: &NewMobileCommand) -> StorageResult<QueuedMessage> {
+pub(super) fn checked(
+    connection: &Connection,
+    request: &NewMobileCommand,
+) -> StorageResult<QueuedMessage> {
     validate(request)?;
     let entry = read_queue(connection, &request.device_id, &request.operation_id)?
         .ok_or_else(|| invalid("queued message missing"))?;

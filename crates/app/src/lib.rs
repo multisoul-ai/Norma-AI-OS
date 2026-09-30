@@ -56,12 +56,13 @@ pub use app::{DispatchReceiptEffectE2eSnapshot, DispatchReceiptEffectItemE2eSnap
 pub use assets::EmbeddedAssets;
 pub use browser_auth_host::run_browser_auth_native_host;
 #[cfg(all(target_os = "macos", feature = "l3-test-support"))]
-pub use mobile::push::configuration::l3::run_push_keychain_probe;
+pub use mobile::push::configuration::l3::run_push_sqlite_probe;
 pub use mobile::{
     CommandLease, LiveApprovalRequest, LiveCommandRequest, LiveConversationRequest,
-    LiveReviewRequest, LiveSnapshotRequest, LiveTerminalRequest, MobileAccess, MobileCommand,
-    MobileCommandRequest, MobileProvider, MobileServer, MobileSources, ProjectReviewRequest,
-    PushRelayConfig,
+    LiveReviewRequest, LiveSnapshotRequest, LiveTerminalRequest, LiveTerminalTask, MobileAccess,
+    MobileCommand, MobileCommandRequest, MobileProvider, MobileServer, MobileSources,
+    ProjectReviewRequest, PushRelayConfig, ThreadTerminalCommand, ThreadTerminalOperation,
+    ThreadTerminalRequest,
 };
 
 #[cfg(feature = "e2e-test-support")]
@@ -70,7 +71,11 @@ pub use license_gate::{build_activation_root_e2e, build_configured_unlicensed_ro
 use gpui::{App, Application, KeyBinding};
 
 fn register_global_actions(cx: &mut App) {
-    cx.on_action(|_: &QuitNormaOs, cx| cx.quit());
+    cx.on_action(|_: &QuitNormaOs, cx| {
+        if workspace::sessions::can_quit(cx) {
+            cx.quit();
+        }
+    });
     cx.on_action(|_: &OpenFeatureGuide, cx| open_feature_guide_in_active_window(cx));
     cx.on_action(|_: &CheckForUpdates, cx| updater::check_for_updates(cx));
 }

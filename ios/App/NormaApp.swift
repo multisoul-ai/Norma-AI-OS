@@ -13,8 +13,8 @@ import NormaCore
             RootView(model: model, notifications: notifications, call: call)
                 .environmentObject(call)
                 .background(KeyboardDismissal().frame(width: 0, height: 0).accessibilityHidden(true))
-                .preferredColorScheme(.dark)
-                .tint(.white)
+                .preferredColorScheme(.light)
+                .tint(IdeaPalette.blue)
                 .task {
                     await model.load()
                     await call.discussions.load()
@@ -28,7 +28,7 @@ import NormaCore
                     call.setForeground(phase == .active)
                     if phase == .background { model.disconnect(); model.finishDraftWrites() }
                     if phase == .active {
-                        model.refresh()
+                        model.refresh(reportErrors: false)
                         Task {
                             await notifications.refreshSystem()
                             await notifications.synchronize(model.machines, client: model.client)
@@ -42,6 +42,8 @@ import NormaCore
 @MainActor @Observable final class ComputerModel {
     var loaded = false
     var machines: [PairedMachine] = []
+    var onlineMachineIDs: Set<String> = []
+    var checkedMachineIDs: Set<String> = []
     var selectedID: String? = UserDefaults.standard.string(forKey: "selected-machine")
     var grant: DeviceGrant?
     var projects: [ProjectSnapshot]?
@@ -53,6 +55,11 @@ import NormaCore
     func selectProject(_ id: String) {
         guard let selectedID, projects?.contains(where: { $0.id == id }) == true else { return }
         projectSelections[selectedID] = id
+    }
+    func openProject(_ id: String, on machine: PairedMachine) {
+        guard onlineMachineIDs.contains(machine.id), machine.knownProjects?.contains(where: { $0.id == id }) == true else { return }
+        projectSelections[machine.id] = id
+        select(machine.id)
     }
     var pendingCommands: [PendingMobileCommand] = []
     var acknowledgedQueueIDs: Set<String> = []
@@ -77,8 +84,8 @@ import NormaCore
         catch { self.error = "无法读取未决操作。原始记录已保留。" }
         do {
             machines = try await store.load()
-            if selected == nil { select(machines.first?.id) }
-            else { refresh() }
+            if selected == nil { select(machines.first?.id, reportErrors: false) }
+            else { refresh(reportErrors: false) }
         } catch { self.error = "无法读取电脑列表。原始记录已保留。" }
     }
     func reloadCommands() async throws { pendingCommands = try await commandStore.load() }
@@ -118,24 +125,65 @@ import NormaCore
     func disconnect() {
         operation?.cancel(); operation = nil
         connecting = false; grant = nil; projects = nil; checkedAt = nil
+        onlineMachineIDs.removeAll(); checkedMachineIDs.removeAll()
     }
     func refresh() { refresh(reportErrors: true) }
-    private func refresh(reportErrors: Bool) {
+    func refresh(reportErrors: Bool) {
         disconnect()
         guard let machine = selected else { return }
         connecting = true
+        checkedMachineIDs.remove(machine.id)
         operation = Task {
             do {
                 let result = try await client.snapshot(machine)
                 try Task.checkCancellation()
                 guard selectedID == machine.id else { return }
-                grant = result.grant; projects = result.projects; checkedAt = .now
+                let observedAt = Date()
+                grant = result.grant; projects = result.projects; checkedAt = observedAt
+                onlineMachineIDs.insert(machine.id)
+                checkedMachineIDs.insert(machine.id)
+                await saveObservation(result, machineID: machine.id, at: observedAt)
             } catch {
                 guard !Task.isCancelled else { return }
+                onlineMachineIDs.remove(machine.id)
+                checkedMachineIDs.insert(machine.id)
                 if reportErrors { self.error = error.localizedDescription }
             }
             connecting = false
         }
+    }
+    func refreshAllMachines() async {
+        // ponytail: sequential checks avoid a burst of up to 128 sockets; add bounded parallelism if long lists become common.
+        onlineMachineIDs.removeAll()
+        checkedMachineIDs.removeAll()
+        for machine in machines {
+            if Task.isCancelled { return }
+            if machine.id == selectedID && connecting { continue }
+            checkedMachineIDs.remove(machine.id)
+            do {
+                let result = try await client.snapshot(machine)
+                try Task.checkCancellation()
+                guard machines.contains(where: { $0.id == machine.id }) else { continue }
+                let observedAt = Date()
+                onlineMachineIDs.insert(machine.id)
+                checkedMachineIDs.insert(machine.id)
+                if selectedID == machine.id {
+                    grant = result.grant; projects = result.projects; checkedAt = observedAt
+                }
+                await saveObservation(result, machineID: machine.id, at: observedAt)
+            } catch {
+                if Task.isCancelled { return }
+                onlineMachineIDs.remove(machine.id)
+                checkedMachineIDs.insert(machine.id)
+            }
+        }
+    }
+    private func saveObservation(_ result: MachineSnapshot, machineID: String, at date: Date) async {
+        do {
+            let projects = result.projects.map { KnownProject(id: $0.id, name: $0.displayName) }
+            try await store.updateObservation(id: machineID, projects: projects, at: date)
+            machines = try await store.load()
+        } catch { self.error = "电脑已连接，但无法保存项目摘要。原记录已保留。" }
     }
     func refreshAndWait() async { refresh(); await operation?.value }
     func remember(_ machine: PairedMachine) async throws {
@@ -150,6 +198,8 @@ import NormaCore
             try await store.remove(id: machine.id)
             notifications?.forget(machine.id, cleanup: cleanup)
             projectSelections[machine.id] = nil
+            onlineMachineIDs.remove(machine.id)
+            checkedMachineIDs.remove(machine.id)
             machines = try await store.load()
             if selectedID == machine.id { select(machines.first?.id, reportErrors: false) }
         } catch { self.error = error.localizedDescription }

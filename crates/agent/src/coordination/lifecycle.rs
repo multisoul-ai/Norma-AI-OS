@@ -91,6 +91,9 @@ impl AgentTaskCoordinator {
         if let Some(next) = agent.queue.pop_front() {
             agent.roster.busy = true;
             agent.active = Some(next.clone());
+            if next.submitted {
+                return None;
+            }
             Some(AgentDispatchReceipt {
                 task_id: next.task_id,
                 task_ref: next.task_ref.clone(),
@@ -191,15 +194,21 @@ impl AgentTaskCoordinator {
         };
         let failed = {
             let agent = &mut self.agents[index];
-            if agent
+            let failed = if agent
                 .active
                 .as_ref()
-                .is_none_or(|active| active.task_id != task_id)
+                .is_some_and(|active| active.task_id == task_id)
             {
+                agent.active.take()
+            } else if let Some(position) =
+                agent.queue.iter().position(|task| task.task_id == task_id)
+            {
+                agent.queue.remove(position)
+            } else {
                 return false;
-            }
+            };
             agent.roster.busy = true;
-            agent.active.take()
+            failed
         };
         if let Some(failed) = failed {
             self.retain_terminal_task(index, failed, "failed");
@@ -234,7 +243,7 @@ impl AgentTaskCoordinator {
         self.agents
             .iter()
             .find(|agent| agent.roster.definition_id == definition_id)
-            .map(|agent| agent.queue.len())
+            .map(|agent| agent.queue.iter().filter(|task| !task.submitted).count())
             .unwrap_or(0)
     }
 
@@ -245,7 +254,12 @@ impl AgentTaskCoordinator {
             .find(|agent| agent.roster.definition_id == definition_id)?;
         Some(AgentQueueSnapshot {
             current: agent.active.as_ref().map(queue_task),
-            waiting: agent.queue.iter().map(queue_task).collect(),
+            waiting: agent
+                .queue
+                .iter()
+                .filter(|task| !task.submitted)
+                .map(queue_task)
+                .collect(),
         })
     }
 
@@ -294,6 +308,9 @@ impl AgentTaskCoordinator {
                 .iter()
                 .position(|queued| queued.task_id == task_id)
             {
+                if agent.queue[index].submitted {
+                    return AgentTaskCancellation::AlreadySubmitted;
+                }
                 let cancelled = agent
                     .queue
                     .remove(index)
@@ -349,7 +366,20 @@ impl AgentTaskCoordinator {
                 AgentTaskCancellation::Cancelled,
                 self.finish_current_with_state(definition_id, "cancelled"),
             ),
-            None => (AgentTaskCancellation::NotFound, None),
+            None => {
+                let definition_id = self.agents.iter().find_map(|agent| {
+                    agent
+                        .queue
+                        .iter()
+                        .any(|task| task.task_id == task_id)
+                        .then_some(agent.roster.definition_id)
+                });
+                let cancellation = self.cancel_task(task_id);
+                let next = (cancellation == AgentTaskCancellation::Cancelled)
+                    .then(|| definition_id.and_then(|id| self.next_unsubmitted(id)))
+                    .flatten();
+                (cancellation, next)
+            }
         }
     }
 

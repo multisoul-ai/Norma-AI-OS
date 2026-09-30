@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <link rel="icon" href="data:,">
+  <title>Norma OS · iOS 样式规范</title>
+  <style>
+    :root {
+      --canvas:#F8FAFC; --card:#FFFFFF; --control:#EEF2F7; --ink:#13213D;
+      --muted:#566783; --line:#E5EBF3; --action:#2468F2; --action-soft:#E8F0FF;
+      --positive:#008F61; --positive-soft:#DFF8EC; --attention:#C52C60;
+      --attention-soft:#FCE8EF; --caution:#9A5B00; --caution-soft:#FFF2D5;
+      --terminal:#07152D; --shadow:0 16px 50px rgba(30,63,111,.075);
+    }
+    *,*::before,*::after { box-sizing:border-box }
+    html { scroll-behavior:smooth }
+    body {
+      margin:0; color:var(--ink);
+      background:radial-gradient(circle at 100% 2%,#dfeaff 0,transparent 28rem),
+        radial-gradient(circle at 0 32%,#e7faf3 0,transparent 26rem),var(--canvas);
+      font:16px/1.55 -apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;
+    }
+    a { color:inherit }
+    :focus-visible { outline:3px solid var(--action); outline-offset:3px }
+    .skip { position:absolute;top:-60px;left:16px;z-index:100;padding:10px 14px;background:white }
+    .skip:focus { top:10px }
+    .topbar { position:sticky;top:0;z-index:20;border-bottom:1px solid var(--line);
+      background:rgba(248,250,252,.9);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px) }
+    .topbar-inner { max-width:1280px;min-height:68px;margin:auto;padding:10px 28px;
+      display:flex;align-items:center;justify-content:space-between;gap:24px }
+    .brand { display:flex;align-items:center;gap:12px;font-size:15px;font-weight:750;
+      text-decoration:none;white-space:nowrap }
+    .brand-mark { display:grid;place-items:center;width:33px;height:33px;border-radius:11px;
+      color:white;background:var(--action);font-size:21px;line-height:1 }
+    .brand-mark svg { width:22px;height:22px;fill:currentColor }
+    .brand-note { color:var(--muted);font-size:13px;font-weight:500 }
+    .nav { display:flex;align-items:center;gap:clamp(12px,2vw,28px);overflow-x:auto;white-space:nowrap }
+    .nav a { text-decoration:none;color:var(--muted);font-size:13px;font-weight:600 }
+    .nav a:hover,.nav .doc-link { color:var(--action) }
+    main { max-width:1280px;margin:auto;padding:32px 28px 100px }
+    section { scroll-margin-top:100px }
+    .hero { display:grid;grid-template-columns:minmax(0,1.03fr) minmax(350px,.97fr);
+      min-height:580px;gap:30px;overflow:hidden;border:1px solid var(--line);
+      border-radius:32px;background:var(--card);box-shadow:var(--shadow) }
+    .hero-copy { display:flex;flex-direction:column;justify-content:space-between;
+      padding:clamp(30px,4.5vw,68px) }
+    .eyebrow { display:flex;align-items:center;gap:9px;color:var(--action);
+      font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase }
+    .eyebrow::before { content:"";width:19px;height:2px;background:currentColor }
+    h1,h2,h3,p { margin-top:0 }
+    h1 { margin:30px 0 24px;font-size:clamp(48px,5vw,78px);line-height:1.1;
+      letter-spacing:-.065em;font-weight:760 }
+    h1 em { color:var(--action);font-style:normal }
+    .lede { max-width:560px;color:var(--muted);font-size:clamp(17px,1.8vw,21px);line-height:1.65 }
+    .hero-actions { display:flex;flex-wrap:wrap;gap:10px;margin-top:32px }
+    .button { display:inline-flex;align-items:center;justify-content:center;min-height:46px;
+      padding:0 19px;border:1px solid transparent;border-radius:15px;background:var(--action);
+      color:white;font-size:14px;font-weight:700;text-decoration:none;
+      transition:transform .18s ease,box-shadow .18s ease }
+    .button:hover { transform:translateY(-2px);box-shadow:0 8px 18px rgba(36,104,242,.18) }
+    .button.secondary { border-color:var(--line);background:white;color:var(--ink) }
+    .hero-foot { display:flex;flex-wrap:wrap;gap:8px;margin-top:38px;color:var(--muted);font-size:12px }
+    .hero-foot span { padding:6px 10px;border-radius:999px;background:var(--control) }
+    .hero-visual { position:relative;display:grid;place-items:center;min-height:580px;padding:24px;
+      background:linear-gradient(138deg,#e8f0ff 0%,#f2fbf8 58%,#fff5e4 100%) }
+    .hero-visual img { display:block;width:min(100%,390px);height:520px;object-fit:contain;
+      filter:drop-shadow(0 26px 30px rgba(23,49,95,.18)) }
+    .visual-label { position:absolute;z-index:1;top:26px;right:26px;border:1px solid white;
+      border-radius:999px;padding:7px 12px;background:rgba(255,255,255,.82);
+      color:var(--muted);font-size:11px;font-weight:700 }
+    .source-note { display:grid;grid-template-columns:165px 1fr;gap:22px;margin-top:22px;
+      padding:20px 24px;border:1px solid #d6e4fa;border-radius:21px;background:#edf4ff;font-size:14px }
+    .source-note strong { color:var(--action) }
+    .source-note p { margin:0;color:var(--muted) }
+    .chapter { margin-top:96px }
+    .chapter-head { display:grid;grid-template-columns:90px 1fr;gap:22px;align-items:start;
+      padding-bottom:22px;border-bottom:1px solid #d9e3ee }
+    .chapter-no { padding-top:9px;color:var(--action);font-size:15px;font-weight:800;letter-spacing:.06em }
+    .chapter h2 { margin:0;font-size:clamp(30px,3vw,42px);letter-spacing:-.045em;line-height:1.17 }
+    .chapter-head p { max-width:700px;margin:10px 0 0;color:var(--muted);font-size:15px }
+    .principles { display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:22px }
+    .principle { min-height:198px;padding:20px;border:1px solid var(--line);
+      border-radius:20px;background:white }
+    .principle .number { display:inline-grid;place-items:center;width:31px;height:31px;
+      border-radius:10px;background:var(--action-soft);color:var(--action);font-size:12px;font-weight:800 }
+    .principle h3 { margin:28px 0 9px;font-size:18px;line-height:1.3 }
+    .principle p { margin:0;color:var(--muted);font-size:13px }
+    .palette { display:grid;grid-template-columns:repeat(5,1fr);gap:13px;margin-top:22px }
+    .swatch { overflow:hidden;border:1px solid var(--line);border-radius:19px;background:white }
+    .swatch-color { height:96px;background:var(--swatch) }
+    .swatch-meta { display:grid;gap:2px;padding:14px 15px 15px }
+    .swatch-meta strong { font-size:13px }
+    .swatch-meta code { color:var(--muted);font:12px/1.5 ui-monospace,"SF Mono",monospace }
+    .swatch-meta small { color:var(--muted);font-size:11px }
+    .signal-strip { display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:20px }
+    .signal { display:flex;align-items:center;gap:10px;min-height:58px;padding:10px 14px;
+      border-radius:16px;background:var(--signal-bg);color:var(--signal-fg);font-size:14px;font-weight:700 }
+    .signal i { width:9px;height:9px;border-radius:50%;background:currentColor }
+    .signal small { margin-left:auto;font-size:11px;font-weight:500 }
+    .type-layout { display:grid;grid-template-columns:1.3fr .7fr;gap:16px;margin-top:22px }
+    .type-card,.type-note { padding:26px;border:1px solid var(--line);border-radius:22px;background:white }
+    .type-row { display:grid;grid-template-columns:128px 1fr 108px;align-items:baseline;gap:12px;
+      padding:18px 0;border-bottom:1px solid var(--line) }
+    .type-row:last-child { border:0 }
+    .type-row small,.type-row code { color:var(--muted);font-size:12px }
+    .type-row code { text-align:right;font-family:ui-monospace,"SF Mono",monospace }
+    .display { font-size:34px;line-height:1.2;font-weight:740;letter-spacing:-.05em }
+    .detail { font-size:27px;line-height:1.2;font-weight:730;letter-spacing:-.035em }
+    .card-title { font-size:19px;font-weight:650 }
+    .body-copy { font-size:17px }
+    .support { color:var(--muted);font-size:14px }
+    .type-note { display:flex;flex-direction:column;justify-content:space-between;background:#eaf2ff }
+    .type-note span { color:var(--action);font-size:12px;font-weight:800;letter-spacing:.08em }
+    .type-note blockquote { margin:34px 0;font-size:clamp(24px,2.4vw,36px);
+      line-height:1.3;font-weight:720;letter-spacing:-.04em }
+    .type-note p { margin:0;color:var(--muted);font-size:13px }
+    .specimen-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:22px }
+    .specimen { display:flex;flex-direction:column;min-height:360px;padding:22px;
+      border:1px solid var(--line);border-radius:22px;background:white }
+    .specimen-label { display:flex;justify-content:space-between;gap:12px;margin-bottom:22px;
+      font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase }
+    .specimen-label span { color:var(--muted);font-weight:500 }
+    .mock-card { margin-top:auto;padding:20px;border:1px solid var(--line);
+      border-radius:22px;background:white;box-shadow:var(--shadow) }
+    .mock-card h3 { margin:14px 0 5px;font-size:21px;line-height:1.25 }
+    .mock-card p { margin:0 0 14px;color:var(--muted);font-size:14px }
+    .pill { display:inline-flex;align-items:center;gap:7px;padding:4px 10px;
+      border-radius:999px;font-size:12px;font-weight:700 }
+    .pill::before { content:"";width:7px;height:7px;border-radius:50%;background:currentColor }
+    .pill.positive { color:var(--positive);background:var(--positive-soft) }
+    .pill.attention { color:var(--attention);background:var(--attention-soft) }
+    .tag { display:inline-block;margin:0 5px 0 0;padding:3px 9px;border-radius:999px;
+      color:var(--action);background:var(--action-soft);font-size:12px }
+    .mock-foot { display:flex;align-items:center;justify-content:space-between;gap:8px;
+      margin-top:24px;color:var(--muted);font-size:12px }
+    .mock-foot b { color:var(--action);font-size:16px }
+    .chat-demo { display:grid;gap:13px }
+    .bubble { max-width:87%;padding:13px 15px;border-radius:19px;font-size:14px;line-height:1.5 }
+    .bubble.user { justify-self:end;border-bottom-right-radius:7px;color:white;background:var(--action) }
+    .bubble.norma { justify-self:start;border:1px solid var(--line);border-bottom-left-radius:7px;background:white }
+    .composer { margin-top:auto;padding:13px 16px;border:1px solid var(--line);
+      border-radius:999px;background:var(--control);color:var(--muted);font-size:13px }
+    .attention-card .action-text { display:block;padding-top:12px;border-top:1px solid var(--line);
+      color:var(--action);font-size:14px;font-weight:700 }
+    .material-grid { display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px }
+    .material { min-height:275px;padding:24px;border:1px solid var(--line);border-radius:22px }
+    .material.glass { display:flex;flex-direction:column;justify-content:space-between;
+      background:linear-gradient(135deg,#e5edff,#e4fbf3 67%,#fff2df) }
+    .material h3 { margin:0 0 8px;font-size:19px }
+    .material p { max-width:400px;margin:0;color:var(--muted);font-size:13px }
+    .glass-rail { display:flex;align-items:center;justify-content:space-around;gap:10px;
+      padding:11px;border:1px solid white;border-radius:999px;background:rgba(255,255,255,.72);
+      box-shadow:0 12px 30px rgba(30,50,90,.1);-webkit-backdrop-filter:blur(15px);backdrop-filter:blur(15px) }
+    .glass-rail span { flex:1;padding:7px 3px;border-radius:999px;color:var(--muted);
+      text-align:center;font-size:13px }
+    .glass-rail .selected { background:var(--action-soft);color:var(--action);font-weight:750 }
+    .terminal-panel { color:#dbe8ff;background:var(--terminal) }
+    .terminal-panel h3 { color:white }
+    .terminal-panel p { color:#a6b9d5 }
+    .terminal-panel pre { overflow-x:auto;margin:23px 0 0;padding:18px;
+      border:1px solid #244268;border-radius:16px;background:#0b203f;color:#d8e8ff;
+      font:13px/1.65 ui-monospace,"SF Mono",monospace }
+    .terminal-panel pre span { color:#82eac3 }
+    .measure { display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:22px }
+    .measure div { min-height:95px;padding:18px;border:1px solid var(--line);border-radius:18px;background:white }
+    .measure strong { display:block;color:var(--action);font-size:24px;line-height:1.1 }
+    .measure small { display:block;margin-top:10px;color:var(--muted);font-size:12px }
+    .gallery { display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-top:22px }
+    .gallery a { display:block;overflow:hidden;border:1px solid var(--line);
+      border-radius:18px;background:white;text-decoration:none;
+      transition:transform .2s ease,box-shadow .2s ease }
+    .gallery a:hover { transform:translateY(-4px);box-shadow:var(--shadow) }
+    .gallery img { display:block;width:100%;height:244px;object-fit:contain;background:#f2f6fa }
+    .gallery span { display:block;min-height:67px;padding:11px 13px;font-size:13px;font-weight:700 }
+    .gallery small { display:block;color:var(--muted);font-size:11px;font-weight:500 }
+    .checklist { display:grid;grid-template-columns:repeat(2,1fr);gap:10px;
+      margin:22px 0 0;padding:0;list-style:none }
+    .checklist li { padding:16px 18px;border:1px solid var(--line);border-radius:15px;
+      background:white;font-size:14px }
+    .checklist li::before { content:"✓";margin-right:12px;color:var(--positive);font-weight:800 }
+    footer { max-width:1280px;margin:auto;padding:30px 28px 55px;
+      border-top:1px solid #d9e3ee;color:var(--muted);font-size:13px }
+    footer a { color:var(--action) }
+    @media (max-width:1060px) {
+      .principles,.palette { grid-template-columns:repeat(3,1fr) }
+      .gallery { grid-template-columns:repeat(4,1fr) }
+      .specimen-grid { grid-template-columns:repeat(2,1fr) }
+      .measure { grid-template-columns:repeat(3,1fr) }
+    }
+    @media (max-width:760px) {
+      main { padding:18px 16px 66px }
+      .topbar-inner { padding:10px 16px }
+      .brand-note { display:none }
+      .nav { gap:16px }
+      .hero { grid-template-columns:1fr;gap:0 }
+      .hero-copy { padding:30px 26px 22px }
+      .hero-visual { min-height:390px }
+      .hero-visual img { height:360px }
+      .source-note,.chapter-head { grid-template-columns:1fr;gap:5px }
+      .chapter { margin-top:68px }
+      .principles,.palette { grid-template-columns:repeat(2,1fr) }
+      .signal-strip,.type-layout,.material-grid,.checklist,.specimen-grid { grid-template-columns:1fr }
+      .gallery { grid-template-columns:repeat(2,1fr) }
+      .gallery img { height:210px }
+    }
+    @media (max-width:480px) {
+      .nav a:not(.doc-link) { display:none }
+      .principle { min-height:175px;padding:16px }
+      .swatch-color { height:70px }
+      .type-card,.type-note { padding:18px }
+      .type-row { grid-template-columns:1fr;gap:4px }
+      .type-row code { text-align:left }
+      .measure { grid-template-columns:repeat(2,1fr) }
+    }
+    @media (prefers-reduced-motion:reduce) {
+      html { scroll-behavior:auto }
+      .button,.gallery a { transition:none }
+      .button:hover,.gallery a:hover { transform:none }
+    }
+    @media (prefers-reduced-transparency:reduce) {
+      .topbar,.glass-rail { -webkit-backdrop-filter:none;backdrop-filter:none;background:white }
+    }
+  </style>
+</head>
+<body>
+<a class="skip" href="#content">跳到正文</a>
+<header class="topbar"><div class="topbar-inner">
+  <a class="brand" href="#top"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 36 36"><polygon points="5,27 14,8 18,8 16,25 26,8 31,8 20,29 14,29 16,12 9,27"/></svg></span>Norma OS <span class="brand-note">/ iOS Visual System</span></a>
+  <nav class="nav" aria-label="页面章节"><a href="#principles">原则</a><a href="#palette">色彩</a><a href="#type">排版</a><a href="#components">组件</a><a href="#references">原型</a><a class="doc-link" href="norma-ios-style-guide.md">完整规范 ↗</a></nav>
+</div></header>
+<main id="content">
+  <section class="hero" id="top" aria-labelledby="hero-title">
+    <div class="hero-copy">
+      <div><div class="eyebrow">Norma OS / iOS 样式规范</div>
+        <h1 id="hero-title">清晰地工作，<br><em>安静地陪伴。</em></h1>
+        <p class="lede">从工作空间到实时对话，再到证据与验收。浅色界面让复杂协作保持可读，蓝色指向下一步，状态色只在系统真正变化时出现。</p>
+        <div class="hero-actions"><a class="button" href="#palette">查看视觉系统 ↓</a><a class="button secondary" href="#references">浏览原型</a></div>
+      </div>
+      <div class="hero-foot"><span>原生 iOS</span><span>白 / 暖灰 / 深蓝</span><span>内容优先</span><span>系统材质</span></div>
+    </div>
+    <div class="hero-visual"><span class="visual-label">W04 · 工作线程视觉参考</span>
+      <img src="../product-specs/norma-ios-prototypes-2026-09-26/W04-workspace-chat.png" alt="W04 工作空间对话原型，展示浅色卡片、蓝色消息与悬浮输入栏">
+    </div>
+  </section>
+  <aside class="source-note" aria-label="规范来源"><strong>样式与产品边界</strong>
+    <p>W01–W09 提供视觉语言；P03/P05 是现行工作空间首页与工作线程主构图。旧原型里的“想法即工作空间”和 Workspace“硬约束”不作为现行产品规则。角色身份以品牌规范为准。<a href="norma-ios-style-guide.md">阅读完整优先级说明</a>。</p>
+  </aside>
+
+  <section class="chapter" id="principles">
+    <div class="chapter-head"><div class="chapter-no">01 / ETHOS</div><div><h2>视觉原则</h2><p>从参考原型提取可复用的界面决定，让每个页面回答：我在哪里、正在发生什么、接下来能做什么。</p></div></div>
+    <div class="principles">
+      <article class="principle"><span class="number">01</span><h3>工作先于装饰</h3><p>首屏先呈现事项、状态与下一步；Norma 角色只在通话和引导中成为主视觉。</p></article>
+      <article class="principle"><span class="number">02</span><h3>色彩解释状态</h3><p>蓝色负责操作，薄荷提示积极状态，粉色提示待处理，黄色提示限制。</p></article>
+      <article class="principle"><span class="number">03</span><h3>实底承载内容</h3><p>对话、任务和证据保持稳定对比；玻璃留给导航、底栏、输入与 Sheet。</p></article>
+      <article class="principle"><span class="number">04</span><h3>一个主要行动</h3><p>同屏最强操作只有一个，其余操作清楚、可达、不会和危险行为混淆。</p></article>
+      <article class="principle"><span class="number">05</span><h3>随时可接管</h3><p>返回保留上下文，Sheet 跟手；任务、终端输入权与验收结果始终可见。</p></article>
+    </div>
+  </section>
+
+  <section class="chapter" id="palette">
+    <div class="chapter-head"><div class="chapter-no">02 / COLOR</div><div><h2>颜色有自己的工作</h2><p>以下色值是原型观感的实现起点，并非从生成图中精确取样。落实到原生 App 后仍需在真机与对比度检查中校准。</p></div></div>
+    <div class="palette" aria-label="iOS 语义色板">
+      <div class="swatch"><div class="swatch-color" style="--swatch:#F8FAFC"></div><div class="swatch-meta"><strong>Canvas</strong><code>#F8FAFC</code><small>页面背景</small></div></div>
+      <div class="swatch"><div class="swatch-color" style="--swatch:#FFFFFF"></div><div class="swatch-meta"><strong>Card</strong><code>#FFFFFF</code><small>阅读面</small></div></div>
+      <div class="swatch"><div class="swatch-color" style="--swatch:#EEF2F7"></div><div class="swatch-meta"><strong>Control</strong><code>#EEF2F7</code><small>次级控件底</small></div></div>
+      <div class="swatch"><div class="swatch-color" style="--swatch:#13213D"></div><div class="swatch-meta"><strong>Ink</strong><code>#13213D</code><small>标题与正文</small></div></div>
+      <div class="swatch"><div class="swatch-color" style="--swatch:#566783"></div><div class="swatch-meta"><strong>Muted</strong><code>#566783</code><small>次级信息</small></div></div>
+      <div class="swatch"><div class="swatch-color" style="--swatch:#E5EBF3"></div><div class="swatch-meta"><strong>Line</strong><code>#E5EBF3</code><small>分隔与描边</small></div></div>
+      <div class="swatch"><div class="swatch-color" style="--swatch:#2468F2"></div><div class="swatch-meta"><strong>Action</strong><code>#2468F2</code><small>主要操作</small></div></div>
+      <div class="swatch"><div class="swatch-color" style="--swatch:#E8F0FF"></div><div class="swatch-meta"><strong>Action Soft</strong><code>#E8F0FF</code><small>选中底色</small></div></div>
+      <div class="swatch"><div class="swatch-color" style="--swatch:#008F61"></div><div class="swatch-meta"><strong>Positive</strong><code>#008F61</code><small>在线与完成</small></div></div>
+      <div class="swatch"><div class="swatch-color" style="--swatch:#DFF8EC"></div><div class="swatch-meta"><strong>Positive Soft</strong><code>#DFF8EC</code><small>薄荷状态底</small></div></div>
+      <div class="swatch"><div class="swatch-color" style="--swatch:#C52C60"></div><div class="swatch-meta"><strong>Attention</strong><code>#C52C60</code><small>需人处理</small></div></div>
+      <div class="swatch"><div class="swatch-color" style="--swatch:#FCE8EF"></div><div class="swatch-meta"><strong>Attention Soft</strong><code>#FCE8EF</code><small>粉色提醒底</small></div></div>
+      <div class="swatch"><div class="swatch-color" style="--swatch:#9A5B00"></div><div class="swatch-meta"><strong>Caution</strong><code>#9A5B00</code><small>限制与警告</small></div></div>
+      <div class="swatch"><div class="swatch-color" style="--swatch:#FFF2D5"></div><div class="swatch-meta"><strong>Caution Soft</strong><code>#FFF2D5</code><small>淡黄提示底</small></div></div>
+      <div class="swatch"><div class="swatch-color" style="--swatch:#07152D"></div><div class="swatch-meta"><strong>Terminal</strong><code>#07152D</code><small>终端内容区</small></div></div>
+    </div>
+    <div class="signal-strip" aria-label="状态语义示例">
+      <div class="signal" style="--signal-bg:#E8F0FF;--signal-fg:#2468F2"><i></i>当前操作 <small>选中 / 链接</small></div>
+      <div class="signal" style="--signal-bg:#DFF8EC;--signal-fg:#008F61"><i></i>执行中 <small>状态须有文字</small></div>
+      <div class="signal" style="--signal-bg:#FCE8EF;--signal-fg:#C52C60"><i></i>需要决定 <small>进入收件箱</small></div>
+      <div class="signal" style="--signal-bg:#FFF2D5;--signal-fg:#9A5B00"><i></i>需要核对 <small>解释限制</small></div>
+    </div>
+  </section>
+
+  <section class="chapter" id="type">
+    <div class="chapter-head"><div class="chapter-no">03 / TYPE</div><div><h2>文字就是界面的骨架</h2><p>原生系统字体负责中英文与 Dynamic Type；命令和终端使用系统等宽字体。数值是默认字号下的视觉目标，不是固定字号上限。</p></div></div>
+    <div class="type-layout">
+      <div class="type-card">
+        <div class="type-row"><small>一级大标题</small><span class="display">工作空间</span><code>34 pt · bold</code></div>
+        <div class="type-row"><small>详情主标题</small><span class="detail">调整 iOS 入口</span><code>26–28 pt</code></div>
+        <div class="type-row"><small>卡片标题</small><span class="card-title">首屏交接待验收</span><code>18–20 pt</code></div>
+        <div class="type-row"><small>正文与消息</small><span class="body-copy">让进展、证据与下一步持续可见。</span><code>16–17 pt</code></div>
+        <div class="type-row"><small>次级信息</small><span class="support">iOS App · 今天 09:36</span><code>14–15 pt</code></div>
+      </div>
+      <div class="type-note"><span>DYNAMIC TYPE / ACCESSIBILITY</span><blockquote>标题醒目，<br>内容从容。</blockquote><p>大字号下让卡片自然增高、标签换行。不能用淡灰承载错误、限制、证据或唯一的操作提示。</p></div>
+    </div>
+  </section>
+
+  <section class="chapter" id="components">
+    <div class="chapter-head"><div class="chapter-no">04 / COMPONENTS</div><div><h2>可直接使用的视觉语法</h2><p>示意组件展示结构与状态。真实 iOS 页面由系统导航、输入、键盘和安全区构成，不把这张网页的 CSS 当成 SwiftUI 实现。</p></div></div>
+    <div class="specimen-grid">
+      <article class="specimen"><div class="specimen-label">Workspace card <span>W01 / P03</span></div><div class="mock-card"><span class="pill positive">执行中</span><h3>改进首屏交接</h3><p>让用户从 Mac 切到 iPhone 时，看懂当前任务并继续操作。</p><span class="tag">iOS App</span><span class="tag">Norma API</span><div class="mock-foot"><span>Codex 已接收 · 12 分钟前</span><b>›</b></div></div></article>
+      <article class="specimen"><div class="specimen-label">Conversation <span>W04 / P05</span></div><div class="chat-demo"><div class="bubble user">@Norma 请开始改进首屏交接。</div><div class="bubble norma">我会先请 Codex 核对状态，再请 Design 调整信息层级。</div></div><div class="composer">＋ &nbsp; 发送消息或 @Agent &nbsp; ↗</div></article>
+      <article class="specimen"><div class="specimen-label">Decision card <span>W08</span></div><div class="mock-card"><span class="pill attention">需要决定</span><h3>部署前检查</h3><p>有一项操作需要你确认。先阅读原因与建议，再决定下一步。</p><span class="action-text">查看原因与建议　›</span></div></article>
+    </div>
+    <div class="material-grid">
+      <article class="material glass"><div><h3>功能层 · 系统材质</h3><p>导航、底栏、Sheet 与悬浮输入可承载克制的玻璃感；减少透明度时变为清晰实底。</p></div><div class="glass-rail" aria-label="底部导航示意"><span class="selected">▣ 工作空间</span><span>Norma</span><span>✉ 收件箱</span></div></article>
+      <article class="material terminal-panel"><h3>终端 · 深色内容井</h3><p>深色只服务真实终端输出；浅色页面外壳仍显示电脑、项目和输入权归属。</p><pre><span>● Codex 会话 · Alan Studio</span>
+iOS App % git status --short
+ M HomeView.swift
+ M TaskStatus.swift
+iOS App % ▌</pre></article>
+    </div>
+    <div class="measure" aria-label="核心尺寸速查">
+      <div><strong>20</strong><small>pt 页面边距</small></div><div><strong>4–32</strong><small>pt 间距阶梯</small></div><div><strong>18–24</strong><small>pt 卡片圆角</small></div><div><strong>44</strong><small>pt 最小触控区</small></div><div><strong>48–52</strong><small>pt 主按钮目标高</small></div><div><strong>0.2–0.35</strong><small>s 普通状态过渡</small></div>
+    </div>
+  </section>
+
+  <section class="chapter" id="references">
+    <div class="chapter-head"><div class="chapter-no">05 / REFERENCES</div><div><h2>原型画面索引</h2><p>点击查看原图。W 系列提供视觉风格和组件状态；现行产品结构请按 P03/P05 与逐屏验收文件处理。</p></div></div>
+    <div class="gallery">
+      <a href="../product-specs/norma-ios-prototypes-2026-09-26/W01-workspace-list.png"><img loading="lazy" src="../product-specs/norma-ios-prototypes-2026-09-26/W01-workspace-list.png" alt="工作空间列表视觉原型"><span>W01 工作空间<small>列表 / 搜索 / 筛选</small></span></a>
+      <a href="../product-specs/norma-ios-prototypes-2026-09-26/W02-connected-computers.png"><img loading="lazy" src="../product-specs/norma-ios-prototypes-2026-09-26/W02-connected-computers.png" alt="已连接电脑视觉原型"><span>W02 已连接电脑<small>在线 / 离线分组</small></span></a>
+      <a href="../product-specs/norma-ios-prototypes-2026-09-26/W03-project-picker.png"><img loading="lazy" src="../product-specs/norma-ios-prototypes-2026-09-26/W03-project-picker.png" alt="项目选择 Sheet 视觉原型"><span>W03 项目 Sheet<small>分组 / 选中 / 禁用</small></span></a>
+      <a href="../product-specs/norma-ios-prototypes-2026-09-26/W04-workspace-chat.png"><img loading="lazy" src="../product-specs/norma-ios-prototypes-2026-09-26/W04-workspace-chat.png" alt="持续对话视觉原型"><span>W04 持续对话<small>消息 / 任务 / 输入</small></span></a>
+      <a href="../product-specs/norma-ios-prototypes-2026-09-26/W05-work-brief.png"><img loading="lazy" src="../product-specs/norma-ios-prototypes-2026-09-26/W05-work-brief.png" alt="工作简报视觉原型"><span>W05 工作简报<small>目标 / 项目 / 决定</small></span></a>
+      <a href="../product-specs/norma-ios-prototypes-2026-09-26/W06-agent-task.png"><img loading="lazy" src="../product-specs/norma-ios-prototypes-2026-09-26/W06-agent-task.png" alt="Agent 任务详情视觉原型"><span>W06 Agent 任务<small>进展 / 证据</small></span></a>
+      <a href="../product-specs/norma-ios-prototypes-2026-09-26/W06a-terminal-control.png"><img loading="lazy" src="../product-specs/norma-ios-prototypes-2026-09-26/W06a-terminal-control.png" alt="终端接管视觉原型"><span>W06a 终端接管<small>同一任务 / 输入权</small></span></a>
+      <a href="../product-specs/norma-ios-prototypes-2026-09-26/W07-norma-call.png"><img loading="lazy" src="../product-specs/norma-ios-prototypes-2026-09-26/W07-norma-call.png" alt="Norma 通话布局视觉原型"><span>W07 Norma 通话<small>角色布局 / 实时字幕</small></span></a>
+      <a href="../product-specs/norma-ios-prototypes-2026-09-26/W08-inbox.png"><img loading="lazy" src="../product-specs/norma-ios-prototypes-2026-09-26/W08-inbox.png" alt="收件箱视觉原型"><span>W08 收件箱<small>需要人处理的事</small></span></a>
+      <a href="../product-specs/norma-ios-prototypes-2026-09-26/W09-acceptance.png"><img loading="lazy" src="../product-specs/norma-ios-prototypes-2026-09-26/W09-acceptance.png" alt="成果验收视觉原型"><span>W09 成果验收<small>预览 / 证据 / 双操作</small></span></a>
+      <a href="../product-specs/norma-ios-ideas-workspaces-2026-09-28/P03-workspaces-drawer.png"><img loading="lazy" src="../product-specs/norma-ios-ideas-workspaces-2026-09-28/P03-workspaces-drawer.png" alt="现行工作空间首页原型"><span>P03 工作空间首页<small>现行主构图</small></span></a>
+      <a href="../product-specs/norma-ios-ideas-workspaces-2026-09-28/P05-work-thread.png"><img loading="lazy" src="../product-specs/norma-ios-ideas-workspaces-2026-09-28/P05-work-thread.png" alt="现行工作线程原型"><span>P05 工作线程<small>现行主构图</small></span></a>
+    </div>
+  </section>
+
+  <section class="chapter" id="quality">
+    <div class="chapter-head"><div class="chapter-no">06 / REVIEW</div><div><h2>交付前检查</h2><p>HTML 是视觉速览，完整规则、冲突优先级与真实 App 验收要求以 Markdown 规范和逐屏验收文件为准。</p></div></div>
+    <ul class="checklist">
+      <li>相同机型、字号、外观与内容下对照原型和真实 App 截图</li>
+      <li>长内容保持实底；玻璃仅用于功能层</li>
+      <li>状态既有色彩，也有文字或图标</li>
+      <li>Dynamic Type、VoiceOver、键盘与安全区可用</li>
+      <li>主要触控目标至少 44 pt，并有按下/选中/禁用反馈</li>
+      <li>减少动态效果与减少透明度均有明确替代表现</li>
+    </ul>
+  </section>
+</main>
+<footer>Norma OS · iOS 样式规范视觉速览　/　<a href="norma-ios-style-guide.md">Markdown 正文</a>　/　<a href="../product-specs/2026-09-28-norma-ios-prototype-fidelity-acceptance.md">逐屏还原与验收</a></footer>
+</body>
+</html>

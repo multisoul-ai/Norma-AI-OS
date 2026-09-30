@@ -86,9 +86,9 @@ fn actual_gateway_desktop_and_native_report() {
         ));
     }
     let script = if cloud {
-        "services/voice/check-cloud-native.mjs"
+        "services/norma-cloud/check-cloud-native.mjs"
     } else {
-        "services/voice/check-native.mjs"
+        "services/norma-cloud/check-native.mjs"
     };
     let mut gateway = Gateway(
         gateway_command

@@ -1,0 +1,143 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2080 1540" role="img" aria-labelledby="title desc">
+  <title id="title">C4 动态图：iPhone 向 Mac 派发一个 Agent 任务</title>
+  <desc id="desc">用户在 iPhone 工作线程中发出执行指令。iPhone 保存消息并把相关上下文发给 Norma Cloud；云端返回回复和候选派工意图。iPhone 生成稳定操作 ID，经云端在线中继转发加密封套给已主动连云的 Mac。Mac 校验权限、持久去重、启动 Agent，保存真实结果并经中继回传回执。Mac 服务未连接时手机保持待发送，重连先查原操作回执。</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1">
+      <stop stop-color="#F8FAFD"/>
+      <stop offset="1" stop-color="#EAF0F7"/>
+    </linearGradient>
+    <filter id="shadow" x="-15%" y="-20%" width="130%" height="150%">
+      <feDropShadow dx="0" dy="6" stdDeviation="9" flood-color="#1D3853" flood-opacity="0.09"/>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M1 1 L10 6 L1 11" fill="none" stroke="#3A78C0" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="returnArrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M1 1 L10 6 L1 11" fill="none" stroke="#258365" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", sans-serif; fill: #18304B; }
+      .title { font-size: 42px; font-weight: 780; }
+      .subtitle { font-size: 21px; fill: #5D7086; }
+      .group { font-size: 17px; font-weight: 750; letter-spacing: 1px; fill: #60778F; }
+      .boxTitle { font-size: 23px; font-weight: 740; }
+      .boxSub { font-size: 15px; fill: #526B82; }
+      .step { font-size: 19px; font-weight: 700; }
+      .stepDetail { font-size: 16px; fill: #5C7085; }
+      .branchTitle { font-size: 22px; font-weight: 740; }
+      .branch { font-size: 18px; fill: #4F657C; }
+    </style>
+  </defs>
+
+  <rect width="2080" height="1540" fill="url(#bg)"/>
+  <text x="70" y="72" class="title">一个任务如何从 iPhone 到 Mac</text>
+  <text x="70" y="110" class="subtitle">C4 Dynamic · 按容器与组件展示一次派工；数字表示交互顺序，绿色表示回执</text>
+  <rect x="1775" y="43" width="235" height="47" rx="23" fill="#E9F2FC" stroke="#C9DCEC"/>
+  <text x="1892" y="73" text-anchor="middle" class="group" fill="#376BAD">A1 · 讨论稿</text>
+
+  <rect x="318" y="147" width="335" height="1075" rx="26" fill="#F4F8FD" stroke="#DCE8F5"/>
+  <rect x="664" y="147" width="335" height="1075" rx="26" fill="#F3FAF7" stroke="#D6EADF"/>
+  <rect x="1010" y="147" width="1025" height="1075" rx="26" fill="#F8F6FC" stroke="#E3DCF1"/>
+  <text x="339" y="174" class="group">iOS 应用边界</text>
+  <text x="685" y="174" class="group">Norma Cloud · 单服务</text>
+  <text x="1031" y="174" class="group">Mac · Norma OS 边界</text>
+
+  <rect x="53" y="194" width="235" height="103" rx="19" fill="#FFFFFF" stroke="#D2DCE7" filter="url(#shadow)"/>
+  <text x="170" y="230" text-anchor="middle" class="boxTitle">用户</text>
+  <text x="170" y="259" text-anchor="middle" class="boxSub">Person</text>
+  <text x="170" y="281" text-anchor="middle" class="boxSub">在工作线程 @Agent</text>
+
+  <rect x="337" y="194" width="297" height="103" rx="19" fill="#E6F0FD" stroke="#BFD3EC" filter="url(#shadow)"/>
+  <text x="485" y="230" text-anchor="middle" class="boxTitle">Norma iOS</text>
+  <text x="485" y="259" text-anchor="middle" class="boxSub">Container · App / NormaCore</text>
+  <text x="485" y="281" text-anchor="middle" class="boxSub">本地消息、上下文与派工</text>
+
+  <rect x="683" y="194" width="297" height="103" rx="19" fill="#E6F5EE" stroke="#BFDCCB" filter="url(#shadow)"/>
+  <text x="831" y="230" text-anchor="middle" class="boxTitle">Norma Cloud</text>
+  <text x="831" y="259" text-anchor="middle" class="boxSub">Container · services/norma-cloud</text>
+  <text x="831" y="281" text-anchor="middle" class="boxSub">鉴别、推理、候选动作</text>
+
+  <rect x="1031" y="194" width="298" height="103" rx="19" fill="#EEEAF8" stroke="#D5CBEA" filter="url(#shadow)"/>
+  <text x="1180" y="230" text-anchor="middle" class="boxTitle">Mac Mobile Gateway</text>
+  <text x="1180" y="259" text-anchor="middle" class="boxSub">Component · app / norma mobile</text>
+  <text x="1180" y="281" text-anchor="middle" class="boxSub">主动连云、权限与回执</text>
+
+  <rect x="1380" y="194" width="298" height="103" rx="19" fill="#EEEAF8" stroke="#D5CBEA" filter="url(#shadow)"/>
+  <text x="1529" y="230" text-anchor="middle" class="boxTitle">Mac SQLite</text>
+  <text x="1529" y="259" text-anchor="middle" class="boxSub">Component · crates/storage</text>
+  <text x="1529" y="281" text-anchor="middle" class="boxSub">授权、操作 ID、执行事件</text>
+
+  <rect x="1728" y="194" width="286" height="103" rx="19" fill="#EEEAF8" stroke="#D5CBEA" filter="url(#shadow)"/>
+  <text x="1871" y="230" text-anchor="middle" class="boxTitle">Agent Runtime</text>
+  <text x="1871" y="259" text-anchor="middle" class="boxSub">Component · crates/agent</text>
+  <text x="1871" y="281" text-anchor="middle" class="boxSub">真实项目 / Agent 执行</text>
+
+  <g stroke="#B8C9DA" stroke-width="2" stroke-dasharray="7 9">
+    <path d="M170 301 V1202"/><path d="M485 301 V1202"/><path d="M831 301 V1202"/>
+    <path d="M1180 301 V1202"/><path d="M1529 301 V1202"/><path d="M1871 301 V1202"/>
+  </g>
+
+  <path d="M170 348 H485" fill="none" stroke="#3A78C0" stroke-width="3.4" marker-end="url(#arrow)"/>
+  <rect x="215" y="311" width="225" height="30" rx="12" fill="#F8FAFD"/>
+  <text x="327" y="333" text-anchor="middle" class="step">1 · 发出执行指令</text>
+  <text x="328" y="378" text-anchor="middle" class="stepDetail">手机先保存线程消息</text>
+
+  <path d="M485 430 H831" fill="none" stroke="#3A78C0" stroke-width="3.4" marker-end="url(#arrow)"/>
+  <rect x="526" y="393" width="267" height="30" rx="12" fill="#F8FAFD"/>
+  <text x="659" y="415" text-anchor="middle" class="step">2 · 请求 Norma 推理</text>
+  <text x="659" y="460" text-anchor="middle" class="stepDetail">发送目标、决定与相关消息</text>
+
+  <path d="M831 512 H485" fill="none" stroke="#258365" stroke-width="3.4" marker-end="url(#returnArrow)"/>
+  <rect x="510" y="475" width="300" height="30" rx="12" fill="#F8FAFD"/>
+  <text x="660" y="497" text-anchor="middle" class="step">3 · 回复 + 候选派工意图</text>
+  <text x="660" y="542" text-anchor="middle" class="stepDetail">云端此时没有执行回执</text>
+
+  <path d="M485 594 H831" fill="none" stroke="#3A78C0" stroke-width="3.4" marker-end="url(#arrow)"/>
+  <rect x="516" y="557" width="285" height="30" rx="12" fill="#F8FAFD"/>
+  <text x="659" y="579" text-anchor="middle" class="step">4 · 提交加密任务封套</text>
+  <text x="659" y="624" text-anchor="middle" class="stepDetail">手机保存稳定 operation_id</text>
+
+  <path d="M831 676 H1180" fill="none" stroke="#3A78C0" stroke-width="3.4" marker-end="url(#arrow)"/>
+  <rect x="863" y="639" width="285" height="30" rx="12" fill="#F8FAFD"/>
+  <text x="1005" y="661" text-anchor="middle" class="step">5 · 在线中继转发给 Mac</text>
+  <text x="1005" y="706" text-anchor="middle" class="stepDetail">Mac 已主动建立出站 WSS</text>
+
+  <path d="M1180 758 H1529" fill="none" stroke="#3A78C0" stroke-width="3.4" marker-end="url(#arrow)"/>
+  <rect x="1203" y="721" width="302" height="30" rx="12" fill="#F8FAFD"/>
+  <text x="1354" y="743" text-anchor="middle" class="step">6 · 校验授权并持久去重</text>
+  <text x="1354" y="788" text-anchor="middle" class="stepDetail">重复 ID 返回原回执</text>
+
+  <path d="M1180 840 H1871" fill="none" stroke="#3A78C0" stroke-width="3.4" marker-end="url(#arrow)"/>
+  <rect x="1302" y="803" width="447" height="30" rx="12" fill="#F8FAFD"/>
+  <text x="1525" y="825" text-anchor="middle" class="step">7 · 在目标项目运行具名 Agent</text>
+  <text x="1525" y="870" text-anchor="middle" class="stepDetail">执行前再次核对设备与项目权限</text>
+
+  <path d="M1871 922 H1529" fill="none" stroke="#258365" stroke-width="3.4" marker-end="url(#returnArrow)"/>
+  <rect x="1561" y="885" width="279" height="30" rx="12" fill="#F8FAFD"/>
+  <text x="1700" y="907" text-anchor="middle" class="step">8 · 落盘真实状态与结果</text>
+  <text x="1700" y="952" text-anchor="middle" class="stepDetail">接收、运行、失败或成果</text>
+
+  <path d="M1180 1004 H831" fill="none" stroke="#258365" stroke-width="3.4" marker-end="url(#returnArrow)"/>
+  <rect x="864" y="967" width="286" height="30" rx="12" fill="#F8FAFD"/>
+  <text x="1007" y="989" text-anchor="middle" class="step">9 · Mac 回执经中继返回</text>
+  <text x="1007" y="1034" text-anchor="middle" class="stepDetail">云端不代报完成</text>
+
+  <path d="M831 1086 H485" fill="none" stroke="#258365" stroke-width="3.4" marker-end="url(#returnArrow)"/>
+  <rect x="514" y="1049" width="290" height="30" rx="12" fill="#F8FAFD"/>
+  <text x="659" y="1071" text-anchor="middle" class="step">10 · 手机核对原操作 ID</text>
+  <text x="659" y="1116" text-anchor="middle" class="stepDetail">Mac 持久接收后才显示已送达</text>
+
+  <path d="M485 1168 H170" fill="none" stroke="#258365" stroke-width="3.4" marker-end="url(#returnArrow)"/>
+  <rect x="196" y="1131" width="261" height="30" rx="12" fill="#F8FAFD"/>
+  <text x="327" y="1153" text-anchor="middle" class="step">11 · 更新原线程任务卡</text>
+  <text x="327" y="1198" text-anchor="middle" class="stepDetail">展示真实状态与成果入口</text>
+
+  <rect x="70" y="1260" width="1940" height="190" rx="26" fill="#FFFFFF" stroke="#CDDCEB" filter="url(#shadow)"/>
+  <rect x="93" y="1282" width="140" height="37" rx="18" fill="#FFF0DC"/>
+  <text x="163" y="1307" text-anchor="middle" class="branchTitle" fill="#9E641F">断连分支</text>
+  <text x="260" y="1308" class="branch">Mac 手机服务未连云 → iPhone 保留「待发送」，云端不持久排队；云聊仍可继续。</text>
+  <text x="94" y="1353" class="branch">Mac 连接恢复且手机可运行 → 先查原 operation_id 回执；未接收才发送，结果未知则待核验，不另建 ID 重做。</text>
+  <text x="94" y="1395" class="branch">手机锁屏/离线后是否还要自动跨 Mac 推进，仍需决定；当前方案不承诺后台常驻协调。</text>
+
+  <text x="70" y="1497" class="stepDetail">身份说明：现有 Mac 协议中的 workspace_id 仍表示 Mac 项目；新协作 Workspace ID 与 thread_id 单独传递。</text>
+</svg>

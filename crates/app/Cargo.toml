@@ -37,8 +37,8 @@ path = "src/bin/ego_live_capture_l3.rs"
 required-features = ["l3-test-support"]
 
 [[bin]]
-name = "norma-push-keychain-l3"
-path = "src/bin/norma_push_keychain_l3.rs"
+name = "norma-push-sqlite-l3"
+path = "src/bin/norma_push_sqlite_l3.rs"
 required-features = ["l3-test-support"]
 
 [dependencies]
@@ -95,7 +95,6 @@ rfd = "0.16"
 # neither compiled against nor linked.
 [target.'cfg(target_os = "macos")'.dependencies]
 libc = "0.2"
-security-framework = "3.7"
 core-video = { version = "=0.4.3", features = ["metal"] }
 core-foundation = "0.10"
 objc2 = "0.6"

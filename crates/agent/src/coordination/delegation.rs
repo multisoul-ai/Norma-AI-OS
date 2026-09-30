@@ -78,6 +78,7 @@ impl AgentTaskCoordinator {
                 target_node_id: node_id,
                 task: assignment.task.clone(),
                 cancel_requested: false,
+                submitted: false,
             };
             let state = match (agent.roster.tracking, agent.roster.busy) {
                 (AgentTrackingMode::Managed, true) => {
@@ -163,6 +164,7 @@ impl AgentTaskCoordinator {
             target_node_id: node_id,
             task: task.clone(),
             cancel_requested: false,
+            submitted: true,
         };
         self.unfinished_tasks.insert(
             task_ref.clone(),

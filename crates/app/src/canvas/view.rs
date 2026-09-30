@@ -323,8 +323,7 @@ pub fn render_canvas(
         let preview_image_dragging = app
             .interaction
             .preview_pan
-            .map(|pan| pan.node_id == id)
-            .unwrap_or(false);
+            .is_some_and(|pan| pan.node_id == id);
         // 浏览器卡片：计算其内容区是否被底部弹出菜单遮挡。
         let occluded_by_overlay = matches!(node_type, NodeType::Browser) && {
             let browser_header_h = (TITLE_BAR_H + BROWSER_TOOLBAR_H_PX) * vp.zoom;
@@ -343,6 +342,7 @@ pub fn render_canvas(
                 runtime: &app.runtime,
                 terminal_render_cache: app.terminal_render_cache.clone(),
                 preview_state: app.previews.state_for(id),
+                preview_editor: app.previews.editor_for(id),
                 preview_image_viewer,
                 preview_image_dragging,
                 text_selection: app.interaction.active_text_selection,
@@ -352,6 +352,7 @@ pub fn render_canvas(
                 terminal_cursor_phase: app.terminal_cursor_phase,
                 browser_address_input: app.browser_address_input_for(id),
                 browser_auth_state: app.browser_chrome_auth_state_for(id),
+                browser_loading: app.browsers.is_loading(id),
                 ego_preview: app.ego_previews.frame_for(id),
                 #[cfg(all(target_os = "macos", not(feature = "e2e-test-support")))]
                 ego_live_preview: app.ego_previews.live_frame_for(id),

@@ -3,6 +3,7 @@ import NormaCore
 
 struct PairComputerView: View {
     let model: ComputerModel
+    @Environment(CloudChatModel.self) private var cloud
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @State private var scanning = false
@@ -10,13 +11,37 @@ struct PairComputerView: View {
     @State private var offer: PairingOffer?
     @State private var pending: PairingPending?
     @State private var busy = false
+    @State private var paired = false
+    @State private var canControl = false
+    private var registered: Bool { paired && (!canControl || cloud.credential != nil) }
     @State private var error: String?
     @State private var operation: Task<Void, Never>?
 
     var body: some View {
         NavigationStack {
             List {
-                if let pending {
+                if paired {
+                    Section {
+                        VStack(alignment: .leading, spacing: 16) {
+                            Label(registered ? (canControl ? "已连接，可以派工" : "已连接，可查看项目") : "电脑已配对", systemImage: registered ? "checkmark.circle.fill" : "laptopcomputer")
+                                .font(.headline).foregroundStyle(registered ? IdeaPalette.blue : IdeaPalette.ink)
+                                .accessibilityIdentifier("pairing-registration-status")
+                            Text(offer?.machineName ?? "电脑").foregroundStyle(.secondary)
+                            if registered {
+                                Text(canControl ? "现在可以把这台电脑的项目和 Agent 加入工作空间。" : "电脑已授予查看权限。派工前，请在 Mac 上授予控制权限。")
+                                    .font(.subheadline).foregroundStyle(.secondary)
+                                Button("完成") { dismiss() }.accessibilityIdentifier("pairing-done")
+                            } else if busy || cloud.enrolling {
+                                WorkspaceLoadingView(message: "正在完成手机注册…", inline: true)
+                            } else {
+                                Text("手机注册尚未完成，配对已保存。恢复连接后重试即可。")
+                                    .font(.subheadline).foregroundStyle(.secondary)
+                                Button("重试完成注册") { checkAuthorization() }
+                                    .accessibilityIdentifier("pairing-registration-retry")
+                            }
+                        }.padding(.vertical, 12)
+                    }
+                } else if let pending {
                     Section {
                         VStack(alignment: .leading, spacing: 16) {
                             Label("等待电脑确认", systemImage: "lock.shield").font(.headline)
@@ -47,9 +72,9 @@ struct PairComputerView: View {
                         VStack(alignment: .leading, spacing: 18) {
                             Image(systemName: "qrcode.viewfinder").font(.largeTitle).foregroundStyle(.secondary)
                             Text("连接你的电脑").font(.title3.weight(.semibold))
-                            step("1", "在 Mac 上打开 Norma", "保持窗口打开，Agent 才能继续工作。")
+                            step("1", "在 Mac 上打开 Norma", "保持电脑唤醒，并开启手机连接。")
                             step("2", "打开手机连接", "在电脑上生成 6 位验证码或二维码。")
-                            step("3", "输入验证码或扫码", "在电脑上确认核对码，选择访问权限。")
+                            step("3", "在 Norma 内扫码", "在 Mac 确认授权后，自动完成手机注册。")
                         }.padding(.vertical, 12)
                     }
                     Section {
@@ -59,10 +84,10 @@ struct PairComputerView: View {
                             .accessibilityIdentifier("enter-pairing-code")
                     } footer: { Text("手机和电脑连接同一局域网，或在两端登录 Tailscale 并开启连接。") }
                 }
-                if let error {
+                if let error = paired ? (cloud.error ?? error) : error, !registered, !cloud.enrolling {
                     Section {
                         Text(error).font(.subheadline).foregroundStyle(.orange)
-                        if offer != nil {
+                        if offer != nil && !paired {
                             Button("查询授权结果") { checkAuthorization() }.disabled(busy)
                             Button("重新扫描") { cancel(); offer = nil; pending = nil; self.error = nil; scanning = true }
                             if pending != nil { Button("输入新的验证码") { enteringCode = true }.disabled(busy) }
@@ -70,7 +95,7 @@ struct PairComputerView: View {
                     }
                 }
             }
-            .scrollContentBackground(.hidden).background(.black)
+            .scrollContentBackground(.hidden).background(IdeaPalette.background)
             .navigationTitle("添加电脑").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -90,18 +115,21 @@ struct PairComputerView: View {
                 }
             }
         }
+        .preferredColorScheme(.light)
+        .tint(IdeaPalette.blue)
         .onDisappear { cancel() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background {
                 cancel()
-                if offer != nil { error = "配对已暂停。返回后可查询授权结果，或重新扫描。" }
+                if offer != nil && !registered { error = paired ? "注册已暂停。返回后点击重试完成注册。" : "配对已暂停。返回后可查询授权结果，或重新扫描。" }
             }
         }
     }
 
     private func step(_ number: String, _ title: String, _ subtitle: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
-            Text(number).font(.caption.weight(.semibold)).frame(width: 24, height: 24).background(.white.opacity(0.08), in: Circle())
+            Text(number).font(.caption.weight(.semibold)).foregroundStyle(IdeaPalette.blue)
+                .frame(width: 24, height: 24).background(IdeaPalette.blue.opacity(0.1), in: Circle())
             VStack(alignment: .leading, spacing: 4) {
                 Text(title).font(.subheadline.weight(.medium))
                 Text(subtitle).font(.caption).foregroundStyle(.secondary)
@@ -116,15 +144,9 @@ struct PairComputerView: View {
             do {
                 let result = try await model.client.connect(offer, deviceName: UIDevice.current.name)
                 try Task.checkCancellation()
-                // Only trust new route metadata after a verified host response. The in-memory
-                // offer and Keychain credential still allow querying a lost pairing response.
-                try await model.remember(PairedMachine(offer: offer))
-                try Task.checkCancellation()
                 switch result {
                 case .authorized(let grant):
-                    model.select(offer.machineID, verified: grant)
-                    model.refresh()
-                    busy = false; dismiss(); return
+                    try await finishPairing(offer, grant: grant); return
                 case .pending(let request): pending = request
                 }
                 // Host owns QR expiry. Local monotonic deadline only bounds UI polling.
@@ -154,11 +176,20 @@ struct PairComputerView: View {
     private func authenticate(_ offer: PairingOffer) async throws {
         let machine = PairedMachine(offer: offer)
         let grant = try await model.client.authenticate(machine)
+        try await finishPairing(offer, grant: grant)
+    }
+    private func finishPairing(_ offer: PairingOffer, grant: DeviceGrant) async throws {
+        let machine = PairedMachine(offer: offer)
         try Task.checkCancellation()
         try await model.remember(machine)
         try Task.checkCancellation()
         model.select(machine.id, verified: grant)
         model.refresh()
-        busy = false; dismiss()
+        canControl = grant.allProjectsAccess == "control" || grant.projects.contains { $0.access == "control" }
+        paired = true; pending = nil
+        // Foreground recovery may already be registering this phone; observe its shared result.
+        if canControl && !cloud.enrolling { try await cloud.register(on: machine, using: model.client) }
+        try Task.checkCancellation()
+        busy = false; error = nil
     }
 }

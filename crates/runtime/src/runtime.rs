@@ -30,6 +30,7 @@ mod restore;
 pub use mobile_cards::{
     CodexExternalApproval, MobileAgentLaunch, MobileArchiveRead, MobileClaudeHistoryRead,
     MobileNativeApproval, MobileTerminalInterrupt, NativeAgentLaunch, PreparedMobileAgent,
+    TerminalInputLease,
 };
 
 pub const DEFAULT_TERMINAL_SHELL: &str = "/bin/zsh";

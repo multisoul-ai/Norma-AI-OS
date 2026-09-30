@@ -221,7 +221,6 @@ dependencies = [
  "runtime",
  "rustls",
  "screencapturekit",
- "security-framework",
  "serde",
  "serde_json",
  "sha2",
@@ -2096,31 +2095,6 @@ checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
 [[package]]
 name = "e2e"
 version = "0.1.71"
-dependencies = [
- "agent",
- "app",
- "asr",
- "async-channel 2.5.0",
- "audio",
- "base64",
- "canvas",
- "crossbeam-channel",
- "dialogue",
- "gpui",
- "norma",
- "runtime",
- "rusqlite",
- "rustls",
- "serde_json",
- "storage",
- "tempfile",
- "terminal",
- "tracing-subscriber",
- "tts",
- "tungstenite",
- "ui",
- "workspace",
-]
 
 [[package]]
 name = "ed25519"
@@ -4628,14 +4602,13 @@ version = "0.1.71"
 dependencies = [
  "anyhow",
  "clap",
- "core-foundation 0.10.0",
  "crossbeam-channel",
  "dirs 6.0.0",
  "hex",
  "mobile_pairing",
  "rcgen",
+ "ring",
  "rustls",
- "security-framework",
  "serde",
  "serde_json",
  "sha2",

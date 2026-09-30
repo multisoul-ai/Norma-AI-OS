@@ -1,7 +1,7 @@
 use agent::{AgentReplyReceipt, AgentReplyStatus};
 use canvas::{CanvasNodeKind, NodeId};
 use runtime::AgentTaskState;
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::time::{Duration, Instant};
 
 use super::command_support::{clear_agent_task_input, submit_agent_enter, type_agent_task};
@@ -110,7 +110,11 @@ impl MultisoulApp {
             status: AgentReplyStatus::Queued,
         };
 
-        if session_reply_input_ready(self.runtime.agent_task_state(node_id).as_ref()) {
+        if session_reply_input_ready(self.runtime.agent_task_state(node_id).as_ref())
+            && !self.runtime.agent_task_input_held(node_id)
+            && !self.pending_agent_submissions.input_in_progress(node_id)
+            && !self.session_reply_queue.has_pending_for_node(node_id)
+        {
             type_agent_task(&mut self.runtime, node_id, &receipt.message)
                 .map_err(|error| error.to_string())?;
             match submit_agent_enter(&mut self.runtime, node_id) {
@@ -138,24 +142,35 @@ impl MultisoulApp {
     pub(crate) fn advance_session_reply_queue(&mut self) {
         let now = Instant::now();
         let mut index = 0;
+        let mut visited = HashSet::new();
         while index < self.session_reply_queue.entries.len() {
             let Some(entry) = self.session_reply_queue.entries.get(index).cloned() else {
                 break;
             };
+            if !visited.insert(entry.receipt.node_id)
+                || self
+                    .pending_agent_submissions
+                    .input_in_progress(entry.receipt.node_id)
+            {
+                index += 1;
+                continue;
+            }
             if entry.ready_after > now {
+                index += 1;
+                continue;
+            }
+            if self.runtime.agent_task_input_held(entry.receipt.node_id)
+                || !session_reply_input_ready(
+                    self.runtime
+                        .agent_task_state(entry.receipt.node_id)
+                        .as_ref(),
+                )
+            {
                 index += 1;
                 continue;
             }
             match entry.stage {
                 ReplyStage::WaitingForInputReady => {
-                    if !session_reply_input_ready(
-                        self.runtime
-                            .agent_task_state(entry.receipt.node_id)
-                            .as_ref(),
-                    ) {
-                        index += 1;
-                        continue;
-                    }
                     if !self.session_still_matches(&entry.receipt) {
                         self.fail_reply_at(index);
                         continue;
@@ -238,13 +253,14 @@ impl MultisoulApp {
 fn session_reply_input_ready(state: Option<&AgentTaskState>) -> bool {
     match state {
         None => true,
-        Some(AgentTaskState::Ready | AgentTaskState::Done | AgentTaskState::Failed { .. }) => true,
         Some(
-            AgentTaskState::Thinking
-            | AgentTaskState::RunningTool { .. }
-            | AgentTaskState::WaitingApproval { .. }
-            | AgentTaskState::Ended,
-        ) => false,
+            AgentTaskState::Ready
+            | AgentTaskState::Done
+            | AgentTaskState::Failed { .. }
+            | AgentTaskState::Thinking
+            | AgentTaskState::RunningTool { .. },
+        ) => true,
+        Some(AgentTaskState::WaitingApproval { .. } | AgentTaskState::Ended) => false,
     }
 }
 
@@ -308,23 +324,33 @@ mod tests {
         );
     }
 
-    /// Thinking/RunningTool/WaitingApproval/Ended 不可立即输入。
+    /// 运行中的会话可接收消息，审批和已结束状态仍禁止输入。
+    ///
+    /// 数据构造：无状态、Ready、Thinking、RunningTool、WaitingApproval、Ended。
+    /// 执行过程：逐一判断会话是否允许写入正文与 Enter。
+    /// 预期结果：Thinking/RunningTool 交给 CLI 接收；审批与结束状态不得写入。
     #[test]
-    fn input_ready_excludes_busy_and_ended_states() {
+    fn input_ready_accepts_running_but_excludes_approval_and_ended_states() {
         assert!(session_reply_input_ready(None), "无状态应视为可输入");
         assert!(
             session_reply_input_ready(Some(&AgentTaskState::Ready)),
             "Ready 应可输入"
         );
         assert!(
-            !session_reply_input_ready(Some(&AgentTaskState::Thinking)),
-            "Thinking 不得立即发送"
+            session_reply_input_ready(Some(&AgentTaskState::Thinking)),
+            "Thinking 应直接发送，由 Agent CLI 管理消息队列"
         );
         assert!(
-            !session_reply_input_ready(Some(&AgentTaskState::RunningTool {
+            session_reply_input_ready(Some(&AgentTaskState::RunningTool {
                 tool_name: Some("Bash".to_string()),
             })),
-            "RunningTool 不得立即发送"
+            "RunningTool 应直接发送，不等待当前工具结束"
+        );
+        assert!(
+            !session_reply_input_ready(Some(&AgentTaskState::WaitingApproval {
+                tool_name: Some("Bash".to_string()),
+            })),
+            "审批期间不得把消息和 Enter 当作批准输入"
         );
         assert!(
             !session_reply_input_ready(Some(&AgentTaskState::Ended)),

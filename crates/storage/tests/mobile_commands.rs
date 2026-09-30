@@ -12,6 +12,69 @@ fn command(device: &str, operation: &str) -> NewMobileCommand {
     }
 }
 
+/// 恢复查询只比较已有回执，未登记的操作不得被查询登记或取得执行权。
+///
+/// 数据构造：phone-a/op-a、64个a为原指纹，64个b为冲突指纹；不存在记录的数量为0。
+/// 执行过程：查询不存在操作→get仍无记录→显式reserve→查回accepted→改正文/路由查回冲突。
+/// 预期结果：只有显式reserve返回New；原回执保持accepted，查询不创建记录、不改变参数。
+#[test]
+fn mobile_command_lookup_never_reserves_and_checks_original_payload() {
+    let directory = tempfile::tempdir().expect("隔离命令库");
+    let store = MobileCommandStore::new(directory.path().join("app.sqlite"));
+    let request = command("phone-a", "op-a");
+    assert!(
+        store.lookup(&request).expect("恢复查询").is_none(),
+        "不存在的输入不能生成回执"
+    );
+    assert!(
+        store
+            .get("phone-a", "op-a", "project-a", "boot-a")
+            .expect("确认没有记录")
+            .is_none(),
+        "查询不能隐式登记一个待执行命令"
+    );
+    assert!(
+        matches!(
+            store.reserve(&request).expect("明确提交"),
+            MobileCommandReservation::New
+        ),
+        "第一次显式提交仍须取得唯一执行权"
+    );
+    let Some(MobileCommandReservation::Existing(receipt)) =
+        store.lookup(&request).expect("已登记查询")
+    else {
+        panic!("已有记录必须返回Existing，不能再次取得执行权");
+    };
+    assert_eq!(receipt.state, "accepted", "查询不能伪造完成");
+    let mut changed = request.clone();
+    changed.request_hash = "b".repeat(64);
+    assert!(
+        matches!(
+            store.lookup(&changed).expect("改正文"),
+            Some(MobileCommandReservation::Conflict)
+        ),
+        "查询也必须拒绝同ID换正文"
+    );
+    changed = request;
+    changed.route_id = "window-b".into();
+    assert!(
+        matches!(
+            store.lookup(&changed).expect("改路由"),
+            Some(MobileCommandReservation::Conflict)
+        ),
+        "不能将原操作移到另一会话查询"
+    );
+    assert_eq!(
+        store
+            .get("phone-a", "op-a", "project-a", "boot-a")
+            .expect("原回执")
+            .expect("存在")
+            .route_id,
+        "window-a",
+        "冲突查询不得改变原路由"
+    );
+}
+
 /// 同一手机命令并发提交只能领取一次执行权，换参数冲突；掉线或重开不能重放副作用。
 ///
 /// 数据构造：两个线程同时提交 phone-a/op-a，hash=64 个 a 表示同一规范化请求；结果为 node_id=7。

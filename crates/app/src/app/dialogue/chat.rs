@@ -46,21 +46,23 @@ pub(crate) fn start_dialogue_listening_runtime(
     values: VoiceSettingsValues,
     model_root: std::path::PathBuf,
     input_device_id: Option<String>,
+    store: storage::SettingsStore,
 ) -> Result<DialogueListeningRuntime, DialogueStartError> {
     tracing::info!(
         target: "norma_voice",
         input_device_selected = input_device_id.is_some(),
         "validating realtime voice provider"
     );
-    let provider = resolve_asr_recognizer_factory(&values, &model_root).map_err(|error| {
-        tracing::warn!(
-            target: "norma_voice",
-            stage = "provider_validation",
-            %error,
-            "realtime voice startup stage failed"
-        );
-        error
-    })?;
+    let provider =
+        resolve_asr_recognizer_factory(&values, &model_root, &store).map_err(|error| {
+            tracing::warn!(
+                target: "norma_voice",
+                stage = "provider_validation",
+                %error,
+                "realtime voice startup stage failed"
+            );
+            error
+        })?;
     values
         .agent_provider_config()
         .map_err(|error| DialogueStartError::Provider(error.to_string()))?;
@@ -116,6 +118,7 @@ pub(crate) fn start_dialogue_listening_runtime(
 pub(crate) fn resolve_asr_recognizer_factory(
     values: &VoiceSettingsValues,
     model_root: &std::path::Path,
+    store: &storage::SettingsStore,
 ) -> Result<Box<dyn asr::RecognizerFactory>, DialogueStartError> {
     validate_runtime_vad_installation(model_root).map_err(|error| {
         DialogueStartError::Speech(SpeechError::ModelNotFound(format!(
@@ -125,7 +128,7 @@ pub(crate) fn resolve_asr_recognizer_factory(
     let profile = crate::settings::voice::resolve_builtin_asr_profile(values, model_root)
         .map_err(DialogueStartError::Provider)?;
     asr::builtin_recognizer_factory(profile, |credential_ref| {
-        crate::settings::voice::VoiceSettingsState::load_azure_asr_secret(credential_ref)
+        crate::settings::voice::VoiceSettingsState::load_azure_asr_secret(store, credential_ref)
             .map_err(asr::AsrError::Provider)
     })
     .map_err(|error| DialogueStartError::Provider(error.to_string()))

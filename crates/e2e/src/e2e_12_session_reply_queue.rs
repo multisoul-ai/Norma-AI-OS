@@ -1,4 +1,4 @@
-//! Headless GPUI E2E：忙碌会话回复排队、撤回，以及恢复后发送。
+//! Headless GPUI E2E：运行时直接发送会话消息，审批期间保留撤回保护。
 
 use agent::{AdapterCommand, AdapterResult};
 use canvas::AgentProfile;
@@ -64,13 +64,26 @@ fn bind_session(
     .expect("SessionStart 后应缓存 session_id");
 }
 
-/// E2E-SESSION-REPLY-02：Thinking 时 reply_agent 返回 queued；回到 Ready 后只提交一次。
+/// E2E-SESSION-REPLY-02：运行时 reply_agent 直接提交，不等当前任务结束。
 ///
-/// 数据构造：Alan 活跃 + session；runtime Thinking；scripted PTY 回执 QUEUED_TYPED/SUBMITTED。
-/// 执行：reply → Queued；apply Ready；drain 直到 grid 出现回执。
-/// 预期：首回执 queued；终态 PTY 含正文与 Enter；task_count=0。
+/// 数据构造：
+///   1 张 Alan 卡片、1 个 session、1 条消息；PTY 分别回显正文和 Enter 的标记。
+///   覆盖 Thinking 与 RunningTool，两者均不先发送 Stop/Ready。
+/// 执行过程：
+///   1. 激活并绑定会话，设置运行状态后调用 reply_agent。
+///   2. 保持运行状态，drain 验证正文与 Enter；再切到 Ready 并继续 drain。
+/// 预期结果：
+///   - 回执为 sent，运行中已提交且原 session 不变。
+///   - Ready 后不重复发送，不新增独立 Agent task。
 #[test]
-fn busy_agent_queues_session_reply_and_sends_once_when_ready() {
+fn busy_agent_sends_session_reply_without_waiting_or_resending() {
+    assert_busy_reply_is_sent(AgentTaskState::Thinking);
+    assert_busy_reply_is_sent(AgentTaskState::RunningTool {
+        tool_name: Some("Bash".to_string()),
+    });
+}
+
+fn assert_busy_reply_is_sent(state: AgentTaskState) {
     let mut test_cx = TestAppContext::single();
     let rules = vec![
         (
@@ -91,11 +104,11 @@ fn busy_agent_queues_session_reply_and_sends_once_when_ready() {
                 node_id,
                 profile: AgentProfile::Codex,
                 provider_event: "UserPromptSubmit".to_string(),
-                to: AgentTaskState::Thinking,
+                to: state.clone(),
                 task_title: None,
                 session_id: Some("codex-queue-session".to_string()),
             }),
-            "Thinking 应写入 Alan"
+            "运行状态应写入 Alan"
         );
     });
 
@@ -116,27 +129,18 @@ fn busy_agent_queues_session_reply_and_sends_once_when_ready() {
         reply_id,
         message,
         ..
-    } = result.expect("忙碌时应接受排队");
+    } = result.expect("运行时应直接发送消息");
     assert_eq!(
         reply_status.as_deref(),
-        Some("queued"),
-        "忙碌续聊回执应为 queued，实际 message={message}"
+        Some("sent"),
+        "运行时续聊应直接发送，实际 message={message}"
     );
-    assert!(reply_id.is_some(), "排队回执应带 reply_id");
-
-    app.update(cx, |app, _| {
-        assert!(
-            app.runtime.apply_agent_task_update(AgentTaskUpdate {
-                node_id,
-                profile: AgentProfile::Codex,
-                provider_event: "Stop".to_string(),
-                to: AgentTaskState::Ready,
-                task_title: None,
-                session_id: Some("codex-queue-session".to_string()),
-            }),
-            "Ready 应解除忙碌"
-        );
-    });
+    assert!(reply_id.is_some(), "发送回执应带 reply_id");
+    assert_eq!(
+        app.update(cx, |app, _| app.runtime.agent_task_state(node_id)),
+        Some(state),
+        "发送消息不得伪造当前任务已结束"
+    );
 
     let after_text = drain_until(
         &app,
@@ -153,25 +157,69 @@ fn busy_agent_queues_session_reply_and_sends_once_when_ready() {
             }
             _ => None,
         },
-        Duration::from_millis(2_000),
+        // 500ms / 12ms 每帧 ≈ 41 帧，足够消费同步测试 PTY 的正文与 Enter 回显。
+        Duration::from_millis(500),
     )
-    .expect("就绪后应只提交一次排队回复");
+    .expect("当前任务未结束前，CLI 应已收到正文和 Enter");
 
     assert!(
         after_text.contains("QUEUED_TYPED"),
-        "PTY 应收到排队正文，grid：{after_text:?}"
+        "PTY 应收到正文，grid：{after_text:?}"
     );
     assert!(
         after_text.contains("QUEUED_SUBMITTED"),
         "PTY 应收到 Enter，grid：{after_text:?}"
     );
     let task_count = app.update(cx, |app, _cx| app.agent_task_count_for_e2e());
-    assert_eq!(task_count, 0, "排队续聊不得创建 Agent task");
+    assert_eq!(task_count, 0, "续聊不得创建重复的 Agent task");
+    assert_eq!(
+        app.update(cx, |app, _| app.runtime.agent_session_id(node_id))
+            .as_deref(),
+        Some("codex-queue-session"),
+        "消息必须进入原有会话"
+    );
+    app.update(cx, |app, _| {
+        assert!(
+            app.runtime.apply_agent_task_update(AgentTaskUpdate {
+                node_id,
+                profile: AgentProfile::Codex,
+                provider_event: "Stop".to_string(),
+                to: AgentTaskState::Ready,
+                task_title: None,
+                session_id: Some("codex-queue-session".to_string()),
+            }),
+            "Ready 应解除忙碌"
+        );
+    });
+    let duplicate = drain_until(
+        &app,
+        cx,
+        |runtime| match runtime.node_view(node_id) {
+            Some(runtime::NodeView::Term { snapshot, .. }) => {
+                let text = snapshot
+                    .rows
+                    .iter()
+                    .flatten()
+                    .map(|cell| cell.c)
+                    .collect::<String>();
+                (text.matches("QUEUED_TYPED").count() > 1
+                    || text.matches("QUEUED_SUBMITTED").count() > 1)
+                    .then_some(text)
+            }
+            _ => None,
+        },
+        // 500ms = 5 × 旧队列的 100ms Enter 延迟，覆盖 Ready 后误补发窗口。
+        Duration::from_millis(500),
+    );
+    assert!(
+        duplicate.is_none(),
+        "Ready 后不得重复投递，实际：{duplicate:?}"
+    );
 }
 
 /// E2E-SESSION-REPLY-03：排队期间 cancel_agent_reply 撤回后，CLI 不得收到该文本。
 ///
-/// 数据构造：Thinking + reply queued；scripted 规则若收到正文会回 CANCEL_LEAKED。
+/// 数据构造：WaitingApproval + reply queued；scripted 规则若收到正文会回 CANCEL_LEAKED。
 /// 执行：cancel_agent_reply(reply_id)；再 Ready 并 drain。
 /// 预期：cancel 回执 cancelled；grid 不含 CANCEL_LEAKED。
 #[test]
@@ -196,11 +244,13 @@ fn cancel_queued_session_reply_never_reaches_pty() {
                 node_id,
                 profile: AgentProfile::Codex,
                 provider_event: "UserPromptSubmit".to_string(),
-                to: AgentTaskState::Thinking,
+                to: AgentTaskState::WaitingApproval {
+                    tool_name: Some("Bash".to_string()),
+                },
                 task_title: None,
                 session_id: Some("codex-cancel-session".to_string()),
             }),
-            "Thinking 应写入 Alan"
+            "WaitingApproval 应写入 Alan，禁止把正文和 Enter 注入审批界面"
         );
     });
 

@@ -177,7 +177,7 @@ fn run(
         if !grant.allows(&binding.workspace_id, true) {
             return Err("unauthorized");
         }
-        // Reuse the eight existing socket slots. Register before any snapshot/keychain/network wait.
+        // Reuse the eight existing socket slots. Register before any snapshot/database/network wait.
         // Revocation takes these same locks in the same order.
         let mut sockets = shared.sockets.lock().map_err(|_| "unavailable")?;
         for (other_id, other) in sockets.iter() {

@@ -218,3 +218,68 @@ fn reload_cancels_permission_draft_and_uses_current_revision() {
     );
     assert!(saved[0].allows("project-a", false), "原有只读授权仍应保留");
 }
+
+/// Mac 设置里的全项目授权操作须经过后台服务并替换当前版本，旧逐项目范围不能残留。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   一台 iPhone 的初始逐项目只读授权 revision=1；改为全部项目 control 后应为 1+1=2。
+///   回环地址端口 0 由系统分配；测试不依赖外部网络或真实手机。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 注册逐项目设备并开启真实回环 MobileServer。
+///   2. 将设置界面对应的后台命令送入生产 work::execute。
+///   3. 从存储重新读取授权与修订号。
+///
+/// 预期结果：全项目 control 明确生效；逐项目模式被替换；修订号推进且设备仍未撤销。
+#[test]
+fn all_project_permission_command_replaces_old_scope() {
+    let dir = tempfile::tempdir().expect("隔离目录");
+    let store = AppStore::new(dir.path().join("app.sqlite"));
+    let initial = store
+        .mobile_access_store()
+        .register(
+            "phone-a",
+            "iPhone",
+            &"a".repeat(64),
+            &[storage::MobileProjectAccess {
+                workspace_id: "project-a".into(),
+                access: storage::MobilePermission::Read,
+            }],
+        )
+        .expect("初始逐项目授权");
+    let server = Arc::new(
+        crate::mobile::MobileServer::start(
+            crate::mobile::MobileAccess::with_identity_for_e2e(
+                store.clone(),
+                norma::mobile::ServerIdentity::generate().expect("测试 TLS 身份"),
+            ),
+            vec!["127.0.0.1:0".parse().expect("回环地址")],
+        )
+        .expect("真实回环服务"),
+    );
+    let result = super::work::execute(
+        Command::PermissionsAll {
+            device_id: initial.device_id.clone(),
+            revision: initial.revision,
+            access: storage::MobilePermission::Control,
+        },
+        store.clone(),
+        Some(server),
+        Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        crate::mobile::MobileSources::default(),
+    )
+    .expect("后台应接受全项目控制命令");
+    assert!(
+        matches!(result, super::work::Completion::Devices(_)),
+        "权限变更后必须返回新的设备列表供设置页刷新"
+    );
+    let saved = store.mobile_access_store().list().expect("读取最新授权");
+    assert_eq!(saved.len(), 1, "更改权限不能创建第二台设备");
+    assert_eq!(saved[0].revision, 2, "权限修订号必须从 1 推进到 2");
+    assert_eq!(
+        saved[0].all_projects_access,
+        Some(storage::MobilePermission::Control),
+        "当前及未来项目应明确授权 control"
+    );
+    assert!(!saved[0].revoked, "切换模式不能误撤销设备");
+}

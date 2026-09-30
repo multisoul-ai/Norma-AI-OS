@@ -23,7 +23,7 @@ Mac 通过 Settings → Mobile Connection 管理手机连接，欢迎页不再�
 3. 看到「任务将安排到…」表示任务工具已连接；明确提出执行请求才会派工。授权缓存24小时，电脑暂时离线仍可聊天；到期需要连接Mac自动更新。
 4. 成果播报后从记录查看产物；「已播」和「执行完成」不会自动变成「验收通过」。挂断保留已安排的任务。
 
-旧默认服务自动迁移到新地址；已有自定义开发网关保留原设置，配置见[服务说明](../services/voice/README.md)。当前生产服务登记的是此用户正式Mac安装；换装或新增Mac须由管理员登记公开证书，手机始终不填Key。本次网关部署不会自动升级已安装的Mac、手机或TestFlight版本。GPT云端与物理设备验收延后，当前以豆包为准。
+旧默认服务自动迁移到新地址；已有自定义开发网关保留原设置，配置见[服务说明](../services/norma-cloud/README.md)。当前生产服务登记的是此用户正式Mac安装；换装或新增Mac须由管理员登记公开证书，手机始终不填Key。本次网关部署不会自动升级已安装的Mac、手机或TestFlight版本。GPT云端与物理设备验收延后，当前以豆包为准。
 
 ## 开发
 
@@ -509,4 +509,18 @@ E2E233、Swift38、iOS45通过/4跳过；本轮生产逻辑未改。计划建议
 
 重跑核心及正式网络验证：`swift test --package-path ios`、`cargo test -p e2e --test mobile_image_network`。原生Agent专项见`crates/e2e/src/e2e_mobile_images.rs`；显式设置`NORMA_SWIFT_PROBE`和`NORMA_TEST_IMAGE`，只使用隔离AppDB与测试图片。UI复测使用独立模拟器和`NORMA_DECISION_UI=1 NORMA_NOTIFICATION_UI=1` fixture，启用`ui-decision-deck`、`ui-chat-interactions`、`ui-card-management`后放入`photo-fixture.jpg`；依次运行`NotificationFlowTests/testSeedChatPhoto`与`ChatPhotoFlowTests`，最后正式忘记测试电脑并结束fixture。未上传TestFlight，证据见`../target/norma-ios-evidence/v116/`。
 
-默认语音服务的原生生产授权验收见[部署验证](../docs/exec-plans/2026-09-14-voice-vercel-deployment.md)。复用`native_voice_authorization_without_keys` runner；显式设置`NORMA_VOICE_REGISTERED_ACCOUNT`与`NORMA_VOICE_REGISTERED_FINGERPRINT`时，使用已登记Mac的Keychain身份并在隔离项目/权限库中配对，验证自动签名→生产换票→豆包WSS就绪/关闭。手机不接收供应商Key；缺少匹配指纹或模拟器已有该Mac配对时不得算通过。
+默认语音服务的原生生产授权验收见[部署验证](../docs/exec-plans/2026-09-14-voice-vercel-deployment.md)。复用`native_voice_authorization_without_keys` runner；显式设置`NORMA_VOICE_REGISTERED_DATABASE`与`NORMA_VOICE_REGISTERED_FINGERPRINT`时，使用已登记 Mac 的 AppDB 身份并在隔离项目/权限库中配对，验证自动签名→生产换票→豆包 WSS 就绪/关闭。手机不接收供应商 Key；缺少匹配指纹或模拟器已有该 Mac 配对时不得算通过。
+
+
+### #58 本地网关联调（仅 Debug Simulator）
+
+保持正式服务不动。先按 `services/norma-cloud/README.md` 在本机启动隔离网关，再在 Xcode Scheme 的 Run 环境添加：
+
+```text
+NORMA_CLOUD_LOCAL_PORT=<本机网关监听端口>
+NORMA_CLOUD_TEST_NAMESPACE=<本次测试专用 UUID>
+```
+
+该入口固定使用 `127.0.0.1`，适用于 Simulator；不是手机访问 Mac 局域网地址的配置。两项必须同时有效，否则 App 显式报本地配置错误，绝不回退正式服务。测试历史与 Keychain 按端口/UUID 隔离；保留 UUID 可验证重启恢复，使用新 UUID 可从空白开始。Release 忽略这些环境变量且不包含本地客户端入口。
+
+只使用此隔离网关生成的邀请链接；供应商 Key 和管理员令牌都留在本机服务进程，不能传给 App。未配置供应商时应看到模型不可用，不以测试回答冒充真实推理。自动化 HTTP 验证运行 `npm --prefix services/norma-cloud run test:native:text`，不需要生产凭据。

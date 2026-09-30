@@ -15,8 +15,10 @@ mod conversation_watch;
 mod push;
 pub(super) mod realtime;
 mod record_watch;
+pub(super) mod relay;
 mod review;
 mod stream;
+mod thread_delivery;
 mod watch_wait;
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -203,6 +205,21 @@ fn decode(text: &str) -> Result<Request, Value> {
 
 fn handle(request: Request, shared: &Arc<Shared>, socket_id: u64) -> Value {
     let id = &request.request_id;
+    if matches!(
+        request.action,
+        Action::ThreadMessage { .. }
+            | Action::ThreadReceipt { .. }
+            | Action::ThreadEvents { .. }
+            | Action::ThreadTask { .. }
+            | Action::ThreadTaskReceipt { .. }
+            | Action::ThreadTaskReview { .. }
+            | Action::ThreadTaskAccept { .. }
+            | Action::ThreadTaskAcceptance { .. }
+            | Action::ThreadTaskTerminal { .. }
+            | Action::ThreadTaskTerminalControl { .. }
+    ) {
+        return failure(id, "unsupported_transport");
+    }
     if let Action::PairingCode { message } = &request.action {
         // Before identity is known, ONLY a public SPAKE2 message is accepted. This returns
         // encrypted bootstrap data and never tags the socket as authorized.
@@ -361,6 +378,37 @@ fn handle(request: Request, shared: &Arc<Shared>, socket_id: u64) -> Value {
         return failure(id, "unauthorized");
     }
     match request.action {
+        Action::CloudRegistration {
+            device_id,
+            token,
+            cloud_device_id,
+            token_hash,
+        } => {
+            let allowed = access
+                .authenticate(&request.machine_id, &device_id, &token)
+                .ok()
+                .flatten()
+                .is_some_and(|grant| {
+                    grant.all_projects_access == Some(storage::MobilePermission::Control)
+                        || grant
+                            .projects
+                            .iter()
+                            .any(|p| p.access == storage::MobilePermission::Control)
+                });
+            if !allowed {
+                return failure(id, "unauthorized");
+            }
+            match access
+                .identity
+                .cloud_registration(&device_id, &cloud_device_id, &token_hash)
+            {
+                Ok(proof) => success(
+                    id,
+                    json!({"status":"cloud_registration", "registration_proof":proof}),
+                ),
+                Err(_) => failure(id, "invalid_request"),
+            }
+        }
         Action::VoiceAuthorization { device_id, token } => {
             let allowed = access
                 .authenticate(&request.machine_id, &device_id, &token)
@@ -383,7 +431,19 @@ fn handle(request: Request, shared: &Arc<Shared>, socket_id: u64) -> Value {
                 Err(_) => failure(id, "unavailable"),
             }
         }
-        Action::UploadImage { .. }
+        Action::ThreadMessage { .. }
+        | Action::ThreadTaskFollowup { .. }
+        | Action::ThreadTaskFollowupReceipt { .. }
+        | Action::ThreadTask { .. }
+        | Action::ThreadTaskReceipt { .. }
+        | Action::ThreadTaskReview { .. }
+        | Action::ThreadTaskTerminal { .. }
+        | Action::ThreadTaskTerminalControl { .. }
+        | Action::ThreadTaskAccept { .. }
+        | Action::ThreadTaskAcceptance { .. }
+        | Action::ThreadReceipt { .. }
+        | Action::ThreadEvents { .. }
+        | Action::UploadImage { .. }
         | Action::RealtimeOperations { .. }
         | Action::BindRealtime { .. }
         | Action::ChatImage { .. }

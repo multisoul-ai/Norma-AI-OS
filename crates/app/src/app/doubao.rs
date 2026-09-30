@@ -35,6 +35,7 @@ pub(crate) struct DoubaoVoiceState {
     pub(crate) status: DoubaoStatus,
     pub(crate) generation: u64,
     pub(crate) cancellation: Option<CancellationToken>,
+    session_task: Option<tokio::task::JoinHandle<()>>,
     pub(crate) reports: Option<async_channel::Sender<String>>,
     pub(crate) tracked_tasks: HashSet<u64>,
 }
@@ -45,6 +46,7 @@ impl Default for DoubaoVoiceState {
             status: DoubaoStatus::Idle,
             generation: 0,
             cancellation: None,
+            session_task: None,
             reports: None,
             tracked_tasks: HashSet::new(),
         }
@@ -53,6 +55,10 @@ impl Default for DoubaoVoiceState {
 
 impl DoubaoVoiceState {
     pub(crate) fn stop(&mut self) {
+        if self.is_active() {
+            tracing::info!(target: "norma_voice", generation = self.generation,
+                "Doubao session cancellation requested");
+        }
         self.generation = self.generation.wrapping_add(1);
         if let Some(cancellation) = self.cancellation.take() {
             cancellation.cancel();
@@ -136,11 +142,27 @@ impl MultisoulApp {
         let cancellation = CancellationToken::new();
         self.doubao.cancellation = Some(cancellation.clone());
         self.doubao.status = DoubaoStatus::Connecting;
+        tracing::info!(target: "norma_voice", generation,
+            "Doubao session start requested");
         let (events_tx, events_rx) = async_channel::bounded(32);
         let (reports_tx, reports_rx) = async_channel::unbounded();
         self.doubao.reports = Some(reports_tx);
+        let playback_events = self
+            .voice_window_inset_events
+            .sink(crate::app::voice_window_inset::TtsPlaybackSource::Doubao);
         if let Ok(runtime) = super::shared_tokio_runtime() {
-            runtime.spawn(async move {
+            let previous_task = self.doubao.session_task.take();
+            self.doubao.session_task = Some(runtime.spawn(async move {
+                if let Some(previous_task) = previous_task {
+                    tracing::info!(target: "norma_voice", generation,
+                        "waiting for previous Doubao session to finish");
+                    let _ = previous_task.await;
+                    tracing::info!(target: "norma_voice", generation,
+                        "previous Doubao session finished");
+                }
+                if cancellation.is_cancelled() {
+                    return;
+                }
                 let result = run_session(
                     account,
                     prompt,
@@ -150,14 +172,18 @@ impl MultisoulApp {
                     cancellation,
                     events_tx.clone(),
                     reports_rx,
+                    playback_events,
                 )
                 .await;
+                tracing::info!(target: "norma_voice", generation,
+                    reason = result.as_ref().err().map(String::as_str).unwrap_or("normal"),
+                    "Doubao session task finished");
                 let _ = events_tx
                     .send(DoubaoStatus::Disconnected(
                         result.err().unwrap_or_else(|| "通话已结束".into()),
                     ))
                     .await;
-            });
+            }));
         } else {
             self.doubao.stop();
             self.doubao.status = DoubaoStatus::Disconnected("无法启动语音网络运行时".into());
@@ -223,3 +249,7 @@ fn task_completion_message(task: &agent::AgentCoordinatedTask) -> Option<String>
 #[cfg(test)]
 #[path = "../../tests/unit/doubao_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/doubao_visual_tests.rs"]
+mod visual_tests;

@@ -102,7 +102,8 @@ fn task_status(app: &MultisoulApp, task_ref: &str) -> Result<CardCommandResult, 
     let pending = app
         .pending_agent_submissions
         .task_stage(task.task_id)
-        .is_some();
+        .is_some()
+        && matches!(task.state, "queued" | "running" | "cancel_requested");
     let mut status = wire_task_status(task);
     if pending {
         status.status = AgentTaskReceiptStatus::Queued;
@@ -234,6 +235,13 @@ fn cancel_task(
             AgentTaskReceiptStatus::Cancelled
         }
         agent::AgentTaskCancellation::CancelRequested => AgentTaskReceiptStatus::CancelRequested,
+        agent::AgentTaskCancellation::AlreadySubmitted => {
+            return Err(CardCommandError::agent(
+                AgentErrorCode::TaskNotCancellable,
+                "消息已交给 Agent CLI，请在卡片内管理其消息队列",
+                false,
+            ));
+        }
         agent::AgentTaskCancellation::NotFound => {
             return Err(CardCommandError::agent(
                 AgentErrorCode::TaskNotFound,

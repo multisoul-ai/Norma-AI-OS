@@ -46,7 +46,7 @@ struct CommandDecisionInbox: View {
         Button { showing = true } label: {
             Label("待决定 · " + (decisionCount.map(String.init) ?? "待核验"), systemImage: "checkmark.shield")
                 .font(.caption).frame(maxWidth: .infinity, minHeight: 44)
-                .background(WorkspaceStyle.surface, in: Capsule())
+                .foregroundStyle(IdeaPalette.ink).background(IdeaPalette.softGray, in: Capsule())
         }.accessibilityLabel("待决定，全部电脑").accessibilityValue(decisionCount.map(String.init) ?? "待核验")
             .accessibilityIdentifier("command-decision-inbox")
             .sheet(isPresented: $showing) {

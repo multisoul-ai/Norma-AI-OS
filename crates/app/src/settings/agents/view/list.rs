@@ -1,12 +1,16 @@
-use super::super::components::{action_button, empty_list_message, with_alpha};
+use super::super::components::{avatar, empty_list_message, primary_button, with_alpha};
+use super::super::grouping::{group_definitions, roster_summary};
 use super::super::{AgentDefinitionsState, AgentStatusFilter};
 use crate::app::MultisoulApp;
+use canvas::AgentProfile;
 use gpui::{
     div, prelude::*, px, rgba, AnyElement, AppContext, Context, Div, Entity, Focusable, FontWeight,
     KeyDownEvent, MouseButton, MouseDownEvent, ScrollHandle, Subscription, Window,
 };
+use std::collections::HashSet;
 use storage::AgentDefinition;
 use ui::component::input::{Input, InputEvent, InputState};
+use ui::component::{Icon, IconName};
 use ui::Theme;
 
 struct AgentSearchInputState {
@@ -17,14 +21,23 @@ struct AgentSearchInputState {
 pub(super) fn agent_list(
     theme: Theme,
     state: &AgentDefinitionsState,
+    on_canvas_ids: &HashSet<i64>,
     list_scroll: &ScrollHandle,
     window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     let definitions = state.visible_definitions();
+    let on_canvas_total = state
+        .definitions()
+        .iter()
+        .filter(|definition| on_canvas_ids.contains(&definition.id))
+        .count();
+    let summary = roster_summary(state.definitions().len(), on_canvas_total);
+    let groups = group_definitions(definitions, on_canvas_ids);
+    let no_rows = groups.on_canvas.is_empty() && groups.library.is_empty();
 
     div()
-        .w(px(224.0))
+        .w(px(264.0))
         .h_full()
         .min_h(px(0.0))
         .flex_none()
@@ -35,27 +48,39 @@ pub(super) fn agent_list(
         .border_r_1()
         .border_color(rgba(with_alpha(theme.edge_highlight, 0x28)))
         .bg(rgba(with_alpha(theme.panel_high, 0x72)))
-        .p(px(12.0))
-        .gap(px(10.0))
+        .p(px(16.0))
+        .gap(px(12.0))
         .child(
             div()
                 .flex()
                 .flex_row()
-                .items_center()
+                .items_start()
                 .justify_between()
                 .gap(px(8.0))
                 .child(
                     div()
-                        .text_size(px(13.0))
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .text_color(rgba(theme.text_secondary))
-                        .child("Agent Library"),
+                        .flex()
+                        .flex_col()
+                        .gap(px(2.0))
+                        .child(
+                            div()
+                                .text_size(px(20.0))
+                                .font_weight(FontWeight::BOLD)
+                                .text_color(rgba(theme.text_primary))
+                                .child("Agents"),
+                        )
+                        .child(
+                            div()
+                                .text_size(px(12.0))
+                                .text_color(rgba(theme.text_secondary))
+                                .child(summary),
+                        ),
                 )
-                .child(action_button(
+                .child(primary_button(
                     theme,
                     "settings-agent-new",
-                    "New Agent",
-                    theme.accent_orange,
+                    "+ New Agent",
+                    true,
                     cx.listener(MultisoulApp::on_agent_settings_new_definition),
                 )),
         )
@@ -71,11 +96,11 @@ pub(super) fn agent_list(
                 .flex_col()
                 .overflow_y_scroll()
                 .track_scroll(list_scroll)
-                .gap(px(3.0))
+                .gap(px(2.0))
                 .when(state.is_creating_new(), |this| {
                     this.child(unsaved_agent_row(theme, &state.draft().name))
                 })
-                .when(definitions.is_empty() && !state.is_creating_new(), |this| {
+                .when(no_rows && !state.is_creating_new(), |this| {
                     this.child(empty_list_message(
                         theme,
                         if state.definitions().is_empty() {
@@ -85,10 +110,26 @@ pub(super) fn agent_list(
                         },
                     ))
                 })
-                .children(definitions.into_iter().map(|definition| {
+                .when(!groups.on_canvas.is_empty(), |this| {
+                    this.child(section_label(theme, "ON CANVAS"))
+                })
+                .children(groups.on_canvas.into_iter().map(|definition| {
                     agent_list_row(
                         theme,
                         definition,
+                        true,
+                        state.selected_definition_id() == Some(definition.id),
+                        cx,
+                    )
+                }))
+                .when(!groups.library.is_empty(), |this| {
+                    this.child(section_label(theme, "LIBRARY"))
+                })
+                .children(groups.library.into_iter().map(|definition| {
+                    agent_list_row(
+                        theme,
+                        definition,
+                        false,
                         state.selected_definition_id() == Some(definition.id),
                         cx,
                     )
@@ -96,33 +137,39 @@ pub(super) fn agent_list(
         )
 }
 
+fn section_label(theme: Theme, label: &'static str) -> AnyElement {
+    div()
+        .pt(px(8.0))
+        .pb(px(4.0))
+        .px(px(8.0))
+        .text_size(px(11.0))
+        .font_weight(FontWeight::SEMIBOLD)
+        .text_color(rgba(theme.text_secondary))
+        .child(label)
+        .into_any_element()
+}
+
 fn unsaved_agent_row(theme: Theme, name: &str) -> AnyElement {
     div()
         .id("settings-agent-list-row-unsaved")
         .debug_selector(|| "settings-agent-list-row-unsaved".to_string())
-        .min_h(px(58.0))
+        .h(px(56.0))
+        .flex_none()
         .flex()
         .flex_row()
         .items_center()
-        .gap(px(9.0))
-        .px(px(10.0))
-        .py(px(8.0))
+        .gap(px(10.0))
+        .px(px(8.0))
         .rounded(px(8.0))
-        .bg(rgba(with_alpha(theme.accent_orange, 0x18)))
-        .child(
-            div()
-                .w(px(3.0))
-                .h_full()
-                .rounded(px(2.0))
-                .bg(rgba(theme.accent_orange)),
-        )
+        .bg(rgba(with_alpha(theme.accent_orange, 0x1f)))
+        .child(avatar(name, AgentProfile::Codex, 32.0))
         .child(
             div()
                 .min_w(px(0.0))
                 .flex_1()
                 .flex()
                 .flex_col()
-                .gap(px(3.0))
+                .gap(px(2.0))
                 .child(
                     div()
                         .truncate()
@@ -133,7 +180,7 @@ fn unsaved_agent_row(theme: Theme, name: &str) -> AnyElement {
                 )
                 .child(
                     div()
-                        .text_size(px(11.0))
+                        .text_size(px(12.0))
                         .font_weight(FontWeight::MEDIUM)
                         .text_color(rgba(theme.accent_orange))
                         .child("Unsaved · Codex"),
@@ -150,14 +197,12 @@ fn agent_status_filter(
     div()
         .id("settings-agent-status-filter")
         .w_full()
-        .h(px(30.0))
+        .h(px(28.0))
         .flex_none()
         .flex()
         .flex_row()
-        .rounded(px(7.0))
-        .border_1()
-        .border_color(rgba(with_alpha(theme.edge_highlight, 0x38)))
-        .bg(rgba(with_alpha(theme.panel_high, 0x58)))
+        .rounded(px(8.0))
+        .bg(rgba(with_alpha(theme.text_primary, 0x0d)))
         .p(px(2.0))
         .gap(px(2.0))
         .child(status_filter_button(
@@ -204,28 +249,35 @@ fn status_filter_button(
         .flex()
         .items_center()
         .justify_center()
-        .rounded(px(5.0))
+        .rounded(px(6.0))
         .border_1()
         .border_color(rgba(with_alpha(theme.edge_highlight, 0x00)))
         .bg(rgba(if is_selected {
-            with_alpha(theme.accent_orange, 0x1f)
+            theme.panel_high
         } else {
             with_alpha(theme.panel_high, 0x00)
         }))
-        .text_size(px(11.0))
+        .when(is_selected, |this| this.shadow_sm())
+        .text_size(px(12.0))
         .font_weight(if is_selected {
             FontWeight::SEMIBOLD
         } else {
             FontWeight::NORMAL
         })
         .text_color(rgba(if is_selected {
-            theme.accent_orange
+            theme.text_primary
         } else {
             theme.text_secondary
         }))
         .cursor_pointer()
-        .hover(move |style| style.bg(rgba(with_alpha(theme.panel_high, 0xb8))))
-        .active(move |style| style.bg(rgba(with_alpha(theme.accent_orange, 0x2c))))
+        .hover(move |style| {
+            if is_selected {
+                style
+            } else {
+                style.bg(rgba(with_alpha(theme.text_primary, 0x0d)))
+            }
+        })
+        .active(move |style| style.bg(rgba(with_alpha(theme.accent_orange, 0x33))))
         .tab_index(0)
         .focus(move |style| style.border_color(rgba(theme.accent_orange)))
         .on_click(cx.listener(move |app, event, window, cx| {
@@ -284,12 +336,12 @@ fn agent_search_input(
         .id("settings-agent-search-input")
         .debug_selector(|| "settings-agent-search-input".to_string())
         .w_full()
-        .h(px(34.0))
+        .h(px(32.0))
         .flex_none()
         .flex()
         .items_center()
-        .px(px(9.0))
-        .rounded(px(7.0))
+        .px(px(8.0))
+        .rounded(px(8.0))
         .border_1()
         .border_color(rgba(theme.text_secondary))
         .bg(rgba(with_alpha(theme.panel_high, 0x96)))
@@ -299,39 +351,54 @@ fn agent_search_input(
             focus.focus(window);
             cx.stop_propagation();
         })
-        .child(Input::new(&input).appearance(false).cleanable(true))
+        .child(
+            Input::new(&input)
+                .appearance(false)
+                .cleanable(true)
+                .prefix(Icon::new(IconName::Search).text_color(rgba(theme.text_secondary))),
+        )
         .into_any_element()
 }
 
 fn agent_list_row(
     theme: Theme,
     definition: &AgentDefinition,
+    on_canvas: bool,
     selected: bool,
     cx: &mut Context<MultisoulApp>,
 ) -> AnyElement {
     let id = definition.id;
     let selector = format!("settings-agent-list-row-{id}");
-    let initial = definition.name.chars().next().unwrap_or('A').to_string();
     let bg = if selected {
-        with_alpha(theme.accent_orange, 0x18)
+        with_alpha(theme.accent_orange, 0x1f)
     } else {
-        with_alpha(theme.panel_high, 0x00)
+        with_alpha(theme.text_primary, 0x00)
     };
 
     div()
         .id(("settings-agent-list-row", id as u64))
         .debug_selector(move || selector.clone())
-        .min_h(px(68.0))
+        .h(px(56.0))
+        .flex_none()
         .flex()
         .flex_row()
-        .py(px(8.0))
+        .items_center()
+        .gap(px(10.0))
+        .px(px(8.0))
         .rounded(px(8.0))
-        .border_1()
-        .border_color(rgba(with_alpha(theme.edge_highlight, 0x00)))
+        .border_2()
+        .border_color(rgba(with_alpha(theme.accent_orange, 0x00)))
         .bg(rgba(bg))
+        .when(!definition.enabled, |this| this.opacity(0.5))
         .cursor_pointer()
-        .hover(move |style| style.bg(rgba(with_alpha(theme.panel_high, 0xb0))))
-        .active(move |style| style.bg(rgba(with_alpha(theme.accent_orange, 0x28))))
+        .hover(move |style| {
+            if selected {
+                style
+            } else {
+                style.bg(rgba(with_alpha(theme.text_primary, 0x0d)))
+            }
+        })
+        .active(move |style| style.bg(rgba(with_alpha(theme.accent_orange, 0x33))))
         .tab_index(0)
         .focus(move |style| style.border_color(rgba(theme.accent_orange)))
         .on_mouse_down(
@@ -347,49 +414,20 @@ fn agent_list_row(
                 cx.stop_propagation();
             }
         }))
-        .child(
-            div()
-                .w(px(3.0))
-                .flex_none()
-                .rounded(px(2.0))
-                .bg(rgba(if selected {
-                    theme.accent_orange
-                } else {
-                    with_alpha(theme.accent_orange, 0x00)
-                })),
-        )
-        .child(
-            div()
-                .ml(px(8.0))
-                .w(px(28.0))
-                .h(px(28.0))
-                .flex_none()
-                .flex()
-                .items_center()
-                .justify_center()
-                .rounded(px(14.0))
-                .bg(rgba(with_alpha(theme.accent_orange, 0x18)))
-                .text_size(px(11.0))
-                .font_weight(FontWeight::SEMIBOLD)
-                .text_color(rgba(theme.accent_orange))
-                .child(initial),
-        )
+        .child(avatar(&definition.name, definition.runtime_profile, 32.0))
         .child(
             div()
                 .min_w(px(0.0))
                 .flex_1()
-                .pl(px(8.0))
-                .pr(px(6.0))
                 .flex()
                 .flex_col()
                 .justify_center()
-                .gap(px(3.0))
+                .gap(px(2.0))
                 .child(
                     div()
                         .flex()
                         .flex_row()
                         .items_center()
-                        .justify_between()
                         .gap(px(6.0))
                         .child(
                             div()
@@ -400,22 +438,19 @@ fn agent_list_row(
                                 .text_color(rgba(theme.text_primary))
                                 .child(definition.name.clone()),
                         )
-                        .child(
-                            div()
-                                .flex_none()
-                                .text_size(px(10.0))
-                                .font_weight(FontWeight::MEDIUM)
-                                .text_color(rgba(if definition.enabled {
-                                    theme.accent_cyan
-                                } else {
-                                    theme.text_tertiary
-                                }))
-                                .child(if definition.enabled {
-                                    "Enabled"
-                                } else {
-                                    "Disabled"
-                                }),
-                        ),
+                        .when(!definition.enabled, |this| {
+                            this.child(
+                                div()
+                                    .flex_none()
+                                    .px(px(6.0))
+                                    .rounded(px(8.0))
+                                    .bg(rgba(with_alpha(theme.text_primary, 0x14)))
+                                    .text_size(px(10.0))
+                                    .font_weight(FontWeight::MEDIUM)
+                                    .text_color(rgba(theme.text_secondary))
+                                    .child("Off"),
+                            )
+                        }),
                 )
                 .child(
                     div()
@@ -431,6 +466,17 @@ fn agent_list_row(
                         )),
                 ),
         )
+        .when(on_canvas, |this| {
+            this.child(
+                div()
+                    .id(("settings-agent-list-on-canvas-dot", id as u64))
+                    .w(px(8.0))
+                    .h(px(8.0))
+                    .flex_none()
+                    .rounded(px(4.0))
+                    .bg(rgba(theme.accent_green)),
+            )
+        })
         .into_any_element()
 }
 

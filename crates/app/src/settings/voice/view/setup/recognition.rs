@@ -197,7 +197,7 @@ fn azure_detail(
             setting_row(
                 theme,
                 "Azure API Key",
-                "Stored only in macOS Keychain and never written to Settings or logs",
+                "Stored in this Mac's local database; never written to logs",
             )
             .child(
                 div()

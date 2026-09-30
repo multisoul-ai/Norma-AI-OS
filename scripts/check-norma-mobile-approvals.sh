@@ -1,6 +1,9 @@
 #!/bin/bash
 # Explicit isolated Provider check, authorized by the user. Never modifies global Hook settings.
 set -euo pipefail
+echo 'Legacy crates/e2e is disabled pending deletion and rebuild; this approval check is unavailable.' >&2
+exit 1
+
 root=$(cd "$(dirname "$0")/.." && pwd)
 case "${1:-macos}" in
   macos) swift build --package-path "$root/ios" --product PairingProbe

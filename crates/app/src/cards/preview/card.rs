@@ -34,7 +34,23 @@ impl Card for PreviewCard {
     }
 
     fn body(&self, node: &CanvasNode, context: CardBodyContext<'_>) -> AnyElement {
-        render_preview_state(
+        if let Some(editor) = context.preview_editor {
+            return super::editor::render_editor(
+                node.id,
+                editor,
+                context.theme,
+                context.zoom,
+                context.bottom_radius_px,
+            );
+        }
+        let editable = matches!(
+            context.preview_state,
+            Some(PreviewLoadState::Ready(content)) if content.text_source().is_some()
+        );
+        let theme = context.theme;
+        let zoom = context.zoom;
+        let bottom_radius = context.bottom_radius_px;
+        let content = render_preview_state(
             node.id,
             context.preview_state,
             context.preview_image_viewer,
@@ -42,7 +58,12 @@ impl Card for PreviewCard {
             context.theme,
             context.zoom,
             context.bottom_radius_px,
-        )
+        );
+        if editable {
+            super::editor::render_reading(node.id, content, theme, zoom, bottom_radius)
+        } else {
+            content
+        }
     }
 
     fn resize(&self, _bounds: CanvasRect, _zoom: f32) -> Option<NodeResize> {

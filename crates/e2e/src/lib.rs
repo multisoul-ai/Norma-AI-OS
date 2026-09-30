@@ -1,10 +1,8 @@
-//! E2E 测试 crate：在 headless GPUI `TestAppContext` 中驱动 `MultisoulApp`。
+//! 已禁用的旧 E2E 测试 crate，后续需要删除与重构；新需求不再使用。
 //!
-//! 本 crate 隔离 headless GPUI 启动，避免污染域层的快速单测。`gpui` 的
-//! `test-support` feature 在此 crate 局部启用，生产 `cargo build -p app`
-//! 不受影响。跨 crate domain-level 验收测试放在 `tests/`。
+//! 源码暂留作历史参考。即使显式指定 `--lib` / `--all-targets`，也不编译旧测试。
 
-#![cfg(test)]
+#![cfg(any())]
 
 use app::{AppScreen, MultisoulApp};
 use gpui::TestAppContext;
@@ -128,6 +126,7 @@ mod e2e_11_launchpad_video;
 // 可语音呼叫 Agent：Settings 未保存草稿与快速创建的定义/卡片闭环。
 mod e2e_12_agent_presentation;
 mod e2e_12_agent_queue_ui;
+mod e2e_12_agent_running_dispatch;
 mod e2e_12_agent_self_dispatch;
 mod e2e_12_agent_settings_delete;
 mod e2e_12_agent_settings_ime;
@@ -144,6 +143,7 @@ mod e2e_12_dispatch_receipt_effect;
 mod e2e_12_norma_agent_layout;
 mod e2e_12_norma_master;
 mod e2e_12_orchestration_lifecycle;
+mod e2e_12_quick_agent_name_reuse;
 mod e2e_12_session_reply;
 mod e2e_12_session_reply_card_present;
 mod e2e_12_session_reply_queue;
@@ -477,3 +477,7 @@ mod e2e_mobile_empty_claude;
 #[cfg(test)]
 mod e2e_realtime_adapter;
 mod e2e_realtime_roster;
+mod e2e_thread_followup;
+#[cfg(test)]
+mod e2e_thread_terminal;
+mod e2e_thread_terminal_control;

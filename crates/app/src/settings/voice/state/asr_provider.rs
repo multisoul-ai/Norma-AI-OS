@@ -69,6 +69,7 @@ impl VoiceSettingsState {
         let previous_account = self.saved.azure_asr_credential_ref.clone();
         let account = crate::settings::voice::credentials::new_account("asr-azure");
         self.queue_pending_write(PendingVoiceSettingWrite::StoreCredential {
+            store: self.storage.clone(),
             account: account.clone(),
             secret,
         });
@@ -82,6 +83,7 @@ impl VoiceSettingsState {
         self.persist_string(KEY_ASR_AZURE_READY, "false");
         if let Some(previous_account) = previous_account {
             self.queue_pending_write(PendingVoiceSettingWrite::DeleteCredential {
+                store: self.storage.clone(),
                 account: previous_account,
             });
         }
@@ -90,7 +92,10 @@ impl VoiceSettingsState {
 
     pub(crate) fn clear_azure_asr_credential(&mut self) {
         if let Some(account) = self.saved.azure_asr_credential_ref.take() {
-            self.queue_pending_write(PendingVoiceSettingWrite::DeleteCredential { account });
+            self.queue_pending_write(PendingVoiceSettingWrite::DeleteCredential {
+                store: self.storage.clone(),
+                account,
+            });
         }
         self.saved.azure_asr_ready = Some(false);
         self.delete_string(KEY_ASR_AZURE_CREDENTIAL_REF);
@@ -101,8 +106,11 @@ impl VoiceSettingsState {
         self.refresh_values();
     }
 
-    pub(crate) fn load_azure_asr_secret(account: &str) -> Result<Option<String>, String> {
-        crate::settings::voice::credentials::load(account)
+    pub(crate) fn load_azure_asr_secret(
+        store: &storage::SettingsStore,
+        account: &str,
+    ) -> Result<Option<String>, String> {
+        crate::settings::voice::credentials::load(store, account)
     }
 
     pub(super) fn finish_azure_credential_persistence(&mut self, result: &Result<(), String>) {
@@ -120,6 +128,7 @@ impl VoiceSettingsState {
         }
         self.persist_string(KEY_ASR_AZURE_READY, "false");
         self.queue_pending_write(PendingVoiceSettingWrite::DeleteCredential {
+            store: self.storage.clone(),
             account: rollback.new_account,
         });
         if self.saved.asr_provider == Some(asr::AsrProviderId::CloudAzure) {

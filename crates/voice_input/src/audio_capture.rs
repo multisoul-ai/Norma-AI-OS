@@ -108,8 +108,10 @@ mod macos {
     use super::*;
     use crate::resample::LinearResampler;
     use block2::RcBlock;
-    use objc2::rc::Retained;
-    use objc2_avf_audio::{AVAudioEngine, AVAudioInputNode, AVAudioPCMBuffer, AVAudioTime};
+    use objc2::{rc::Retained, AllocAnyThread};
+    use objc2_avf_audio::{
+        AVAudioEngine, AVAudioFormat, AVAudioInputNode, AVAudioPCMBuffer, AVAudioTime,
+    };
     use std::cell::RefCell;
     use std::ptr::NonNull;
 
@@ -141,11 +143,33 @@ mod macos {
                 })?;
             }
 
-            // AVAudioEngine will NOT resample on an inputNode tap: the tap format
+            // AVAudioEngine will NOT resample on a raw inputNode tap: the tap format
             // must equal the hardware output format, otherwise it throws
             // "Input HW format and tap format not matching". Tap at the native
             // rate and resample to the target mono rate in the callback instead.
-            let hw_format = unsafe { input_node.outputFormatForBus(INPUT_BUS) };
+            let hw_format = if voice_processing {
+                // 统一 VPIO 两侧为 48 kHz 单声道，避免继承
+                // 包含系统参考通道的硬件格式。静音 mixer 驱动双工图但不回放麦克风。
+                let format = unsafe {
+                    AVAudioFormat::initStandardFormatWithSampleRate_channels(
+                        AVAudioFormat::alloc(),
+                        48_000.0,
+                        1,
+                    )
+                }
+                .ok_or_else(|| VoiceInputError::Audio("invalid voice processing format".into()))?;
+                unsafe {
+                    // 先实例化输出节点，再连接 mixer；反序会导致重开后没有 PCM。
+                    let output = engine.outputNode();
+                    let mixer = engine.mainMixerNode();
+                    mixer.setOutputVolume(0.0);
+                    engine.connect_to_format(&input_node, &mixer, Some(&format));
+                    engine.connect_to_format(&mixer, &output, Some(&format));
+                }
+                format
+            } else {
+                unsafe { input_node.outputFormatForBus(INPUT_BUS) }
+            };
             let hw_sample_rate = unsafe { hw_format.sampleRate() };
             if hw_sample_rate <= 0.0 {
                 return Err(VoiceInputError::Audio(
@@ -215,11 +239,20 @@ mod macos {
         }
 
         fn stop_audio(&mut self) {
-            if self.tap_installed {
-                unsafe { self.input_node.removeTapOnBus(INPUT_BUS) };
-                self.tap_installed = false;
+            if !self.tap_installed {
+                return;
             }
+            unsafe { self.input_node.removeTapOnBus(INPUT_BUS) };
+            self.tap_installed = false;
             unsafe { self.engine.stop() };
+            if unsafe { self.input_node.isVoiceProcessingEnabled() } {
+                if let Err(error) =
+                    unsafe { self.input_node.setVoiceProcessingEnabled_error(false) }
+                {
+                    tracing::warn!(target: "norma_voice", reason = %error.localizedDescription(),
+                        "could not release voice processing IO after capture stopped");
+                }
+            }
         }
     }
 

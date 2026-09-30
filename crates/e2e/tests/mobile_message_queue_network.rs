@@ -13,8 +13,8 @@ mod support;
 /// 正式 WSS 队列必须先持久化，忙碌时不输入；撤回不派发，空闲后仅领取一次并等待真实格式回执。
 ///
 /// 数据构造：一个临时项目、phone-a control revision=1；node7/run-a/session-a；快照用可控原生通道模拟，TLS和存储真实。
-/// 执行过程：忙碌入队 → 取消第二条/拒绝插队 → Ready后发送首条 → 新条目输入前拒绝回队 → 输入后失联标记未知 → 降权取消。
-/// 预期结果：queued不立即发；取消条目不执行；dispatching不能安全撤回；仅明确输入前拒绝可重试，输入后未知不重放。
+/// 执行过程：忙碌入队 → 取消第二条/拒绝插队 → Ready后发送首条 → 草稿/终端接管拒绝回队 → 交还后输入失联标记未知 → 降权取消。
+/// 预期结果：queued不立即发；取消条目不执行；终端接管保留原条目等待；dispatching不能安全撤回；输入后未知不重放。
 #[test]
 fn wss_queue_waits_cancels_and_dispatches_once_with_scoped_receipts() {
     let directory = tempfile::tempdir().expect("目录");
@@ -184,6 +184,36 @@ fn wss_queue_waits_cancels_and_dispatches_once_with_scoped_receipts() {
         "电脑有输入时不得持续重复投递"
     );
     drop(rejected);
+    ready.store(true, Ordering::Release);
+    let controlled = wait_for(|| deliveries.try_recv().ok());
+    assert!(
+        controlled.lease.begin(),
+        "前台取得有效调用后仍须检查终端接管"
+    );
+    ready.store(false, Ordering::Release);
+    controlled
+        .reply
+        .send(Err("terminal_controlled"))
+        .expect("明确在Provider输入前拒绝");
+    let waiting = wait_for(|| {
+        let value = support::exchange(&mut socket, &machine, "controlled-state", query("deferred"));
+        let state = value["result"]["queued_message"]["state"].as_str();
+        (!matches!(state, Some("dispatching"))).then_some(value)
+    });
+    assert_eq!(
+        waiting["result"]["queued_message"]["state"], "queued",
+        "终端接管是输入前等待条件，不能把未发送的追问误报为结果未知"
+    );
+    assert_eq!(
+        waiting["result"]["queued_message"]["text"], "keep original",
+        "接管期间必须保留原追问正文"
+    );
+    assert!(
+        waiting["result"]["queued_message"]["result"].is_null(),
+        "接管期间不得生成Provider发送回执"
+    );
+    assert!(deliveries.try_recv().is_err(), "接管等待不能触发额外发送");
+    drop(controlled);
     ready.store(true, Ordering::Release);
     let uncertain = wait_for(|| deliveries.try_recv().ok());
     assert_eq!(

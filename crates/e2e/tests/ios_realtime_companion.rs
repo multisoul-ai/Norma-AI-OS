@@ -260,7 +260,7 @@ fn native_realtime_companion_entry_and_resources() {
 /// 数据构造：独立TLS目标与一次性配对QR；使用已有回环fixture自动批准控制项目。
 /// 执行过程：启动真实模拟器App → 正式配对 → 空口令自动领取 → 缓存复用 → 清理配对。
 /// 预期结果：XCTest通过且不伪造通话；本用例单独创建QR，不能重用已被音频测试消费的QR。
-/// 显式NORMA_VOICE_REGISTERED_ACCOUNT进一步验证正式网关换票与ASR连接，不采集麦克风。
+/// 显式 NORMA_VOICE_REGISTERED_DATABASE 进一步验证正式网关换票与 ASR 连接，不采集麦克风。
 #[test]
 #[ignore = "requires explicit iOS simulator; pinned TLS and native Keychain authorization"]
 #[cfg(target_os = "macos")]
@@ -271,13 +271,17 @@ fn native_voice_authorization_without_keys() {
         .parent()
         .and_then(Path::parent)
         .expect("workspace");
-    let registered = std::env::var("NORMA_VOICE_REGISTERED_ACCOUNT")
+    let registered = std::env::var("NORMA_VOICE_REGISTERED_DATABASE")
         .ok()
-        .map(|account| {
+        .map(|database| {
             let expected = std::env::var("NORMA_VOICE_REGISTERED_FINGERPRINT")
                 .expect("显式提供已登记公开证书指纹");
-            let identity = norma::mobile::ServerIdentity::load_or_create(&account)
-                .expect("读取已登记安装身份；不导出私钥");
+            let record = storage::SettingsStore::new(database.into())
+                .get_string("mobile.server_identity")
+                .expect("读取已登记安装身份")
+                .expect("数据库必须包含安装身份");
+            let identity = norma::mobile::ServerIdentity::from_storage_json(&record)
+                .expect("安装身份记录必须有效");
             assert_eq!(
                 identity.certificate_sha256(),
                 expected,
