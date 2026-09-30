@@ -29,6 +29,12 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.voice_settings.values().desktop_mode()
+            == crate::settings::voice::DesktopVoiceMode::Doubao
+        {
+            self.toggle_doubao_voice(window, cx);
+            return;
+        }
         let continuous = self.voice_settings.values().interaction_mode()
             == crate::settings::voice::VoiceInteractionMode::ContinuousListening;
         match self.dialogue.voice_shortcut_key_down_action(continuous) {
@@ -101,6 +107,11 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) -> bool {
         let voice_shortcut = self.shortcuts.voice_interaction_keystroke();
+        if self.voice_settings.values().desktop_mode()
+            == crate::settings::voice::DesktopVoiceMode::Doubao
+        {
+            return false;
+        }
         if self.voice_settings.values().dictation_trigger()
             != crate::settings::voice::DictationTrigger::Hold
             || !self.is_voice_recording_shortcut()
@@ -119,6 +130,11 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         let voice_shortcut = self.shortcuts.voice_interaction_keystroke();
+        if self.voice_settings.values().desktop_mode()
+            == crate::settings::voice::DesktopVoiceMode::Doubao
+        {
+            return;
+        }
         if self.voice_settings.values().dictation_trigger()
             == crate::settings::voice::DictationTrigger::Hold
             && self.is_voice_recording_shortcut()

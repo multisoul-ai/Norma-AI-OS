@@ -5,6 +5,9 @@
 //! 所有 helper 仅依赖 `app` / `runtime` / `canvas` / `terminal` 的公开 API，
 //! 不触达 `pub(crate)` 字段或私有方法。
 
+mod settings;
+pub(crate) use settings::scroll_settings_target_into_view;
+
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -208,6 +211,23 @@ fn focus_root(view: &Entity<MultisoulApp>, cx: &mut VisualTestContext) {
 /// 保留现有 runtime（含工厂）、不加载持久化快照，并通过 `set_workspace_root`
 /// 注入 cwd。对 fresh tempdir 场景，这与真实流程行为等价（无快照可加载、
 /// 无 session 可恢复），且为 L2（真实 PTY）提供了正确的 cwd。
+/// Mobile fixtures use the production workspace identity/route, not only a visible canvas.
+pub fn enter_mobile_canvas(
+    view: &Entity<MultisoulApp>,
+    cx: &mut VisualTestContext,
+    root: &Path,
+) -> tempfile::TempDir {
+    let sockets = tempfile::tempdir().expect("隔离手机路由");
+    cx.update(|window, cx| {
+        app::install_norma_endpoint_for_e2e(sockets.path().join("norma.sock"), cx)
+            .expect("正式路由注册");
+        view.update(cx, |app, cx| {
+            app.enter_canvas_and_register_norma_route_for_e2e(root, window, cx)
+        });
+    });
+    sockets
+}
+
 pub fn enter_canvas(view: &Entity<MultisoulApp>, cx: &mut VisualTestContext, root: &Path) {
     view.update(cx, |app, cx| app.enter_canvas_for_test(root, cx));
     cx.run_until_parked();

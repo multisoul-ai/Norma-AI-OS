@@ -14,6 +14,7 @@ mod frame_diagnostics;
 mod license_gate;
 mod logging;
 mod menu_bar;
+mod mobile;
 mod motion;
 mod network_crypto;
 mod norma;
@@ -54,6 +55,15 @@ pub use app::{
 pub use app::{DispatchReceiptEffectE2eSnapshot, DispatchReceiptEffectItemE2eSnapshot};
 pub use assets::EmbeddedAssets;
 pub use browser_auth_host::run_browser_auth_native_host;
+#[cfg(all(target_os = "macos", feature = "l3-test-support"))]
+pub use mobile::push::configuration::l3::run_push_sqlite_probe;
+pub use mobile::{
+    CommandLease, LiveApprovalRequest, LiveCommandRequest, LiveConversationRequest,
+    LiveReviewRequest, LiveSnapshotRequest, LiveTerminalRequest, LiveTerminalTask, MobileAccess,
+    MobileCommand, MobileCommandRequest, MobileProvider, MobileServer, MobileSources,
+    ProjectReviewRequest, PushRelayConfig, ThreadTerminalCommand, ThreadTerminalOperation,
+    ThreadTerminalRequest,
+};
 
 #[cfg(feature = "e2e-test-support")]
 pub use license_gate::{build_activation_root_e2e, build_configured_unlicensed_root_e2e};
@@ -61,7 +71,11 @@ pub use license_gate::{build_activation_root_e2e, build_configured_unlicensed_ro
 use gpui::{App, Application, KeyBinding};
 
 fn register_global_actions(cx: &mut App) {
-    cx.on_action(|_: &QuitNormaOs, cx| cx.quit());
+    cx.on_action(|_: &QuitNormaOs, cx| {
+        if workspace::sessions::can_quit(cx) {
+            cx.quit();
+        }
+    });
     cx.on_action(|_: &OpenFeatureGuide, cx| open_feature_guide_in_active_window(cx));
     cx.on_action(|_: &CheckForUpdates, cx| updater::check_for_updates(cx));
 }
@@ -91,39 +105,52 @@ pub fn run_norma_os() {
     let _logging_guard = logging::initialize();
     app::browser::initialize_safari_browser_identity();
 
-    Application::new()
-        .with_assets(EmbeddedAssets)
-        .run(|cx: &mut App| {
-            // gpui-component：主题与组件 actions；须在开窗前初始化。
-            ui::init_components(cx);
-            performance_monitor::install(cx);
-            settings::orchestration::health::install(cx);
-            settings::agent_hook_ingress::install(cx)
-                .expect("failed to start App-global Agent Hook ingress");
-            updater::install(cx);
-            if let Err(error) = norma::endpoint::install(cx) {
-                tracing::error!(
-                    %error,
-                    "App-global Norma endpoint unavailable; another App process may own it"
-                );
+    let application = Application::new().with_assets(EmbeddedAssets);
+    application.on_reopen(|cx| {
+        if cx.windows().is_empty() {
+            if let Err(error) = license_gate::open_gated_window(cx) {
+                tracing::warn!(%error, "failed to reopen Norma window");
             }
+        }
+        cx.activate(true);
+    });
+    application.run(|cx: &mut App| {
+        // gpui-component：主题与组件 actions；须在开窗前初始化。
+        ui::init_components(cx);
+        performance_monitor::install(cx);
+        settings::orchestration::health::install(cx);
+        settings::agent_hook_ingress::install(cx)
+            .expect("failed to start App-global Agent Hook ingress");
+        updater::install(cx);
+        if let Err(error) = norma::endpoint::install(cx) {
+            tracing::error!(
+                %error,
+                "App-global Norma endpoint unavailable; another App process may own it"
+            );
+        }
 
-            // Quit 是唯一由 GPUI keymap 固定绑定的菜单快捷键；可配置命令仍由
-            // ShortcutSettingsState 统一处理，暂不在原生菜单中显示提示。
-            register_global_actions(cx);
-            cx.bind_keys([KeyBinding::new("cmd-q", QuitNormaOs, None)]);
-            cx.set_menus(menu_bar::menu_bar());
+        // Quit 是唯一由 GPUI keymap 固定绑定的菜单快捷键；可配置命令仍由
+        // ShortcutSettingsState 统一处理，暂不在原生菜单中显示提示。
+        register_global_actions(cx);
+        cx.bind_keys([KeyBinding::new("cmd-q", QuitNormaOs, None)]);
+        cx.set_menus(menu_bar::menu_bar());
 
-            cx.on_window_closed(|cx| {
-                if cx.windows().is_empty() {
-                    cx.quit();
-                }
-            })
-            .detach();
+        cx.on_window_closed(|cx| {
+            let background = workspace::sessions::windows_closed(cx);
+            if cx.windows().is_empty() && !background {
+                cx.quit();
+            }
+        })
+        .detach();
+        cx.on_app_quit(|cx| {
+            workspace::sessions::shutdown(cx);
+            async {}
+        })
+        .detach();
 
-            // The opt-in `licenses` feature controls the hard gate (ADR 0015).
-            // Default and packaged builds enter the workbench without a license.
-            license_gate::open_gated_window(cx).expect("failed to open window");
-            cx.activate(true);
-        });
+        // The opt-in `licenses` feature controls the hard gate (ADR 0015).
+        // Default and packaged builds enter the workbench without a license.
+        license_gate::open_gated_window(cx).expect("failed to open window");
+        cx.activate(true);
+    });
 }

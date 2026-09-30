@@ -1,5 +1,4 @@
 pub(crate) use self::conversion::canvas_preview_type;
-use self::conversion::node_error;
 use self::layout::{
     apply_layout_for_new_node_or_master, resolve_bounds, summarize_cards, CardCreationState,
 };
@@ -18,13 +17,15 @@ use norma::protocol::{
     AgentErrorCode, CardCommand, CardCommandError, CardCommandResult, CardKind, NodeId, Placement,
     WireRequest, WireResponse,
 };
-use runtime::{NodeInput, Runtime, DEFAULT_TERMINAL_SHELL};
+use runtime::{Runtime, DEFAULT_TERMINAL_SHELL};
 use std::time::Instant;
 
 mod conversion;
 mod effects;
 mod execution;
+use execution::{focus_card, send_text};
 mod layout;
+mod mobile;
 mod orchestration;
 mod presentation;
 
@@ -47,7 +48,7 @@ impl MultisoulApp {
     pub(crate) fn execute_card_command(
         &mut self,
         request: WireRequest,
-        window: &mut Window,
+        mut window: Option<&mut Window>,
         cx: &mut Context<Self>,
     ) -> WireResponse {
         let WireRequest {
@@ -63,6 +64,16 @@ impl MultisoulApp {
         let logged_command = managed_command.then(|| command.clone());
         let logged_authorization = authorization.clone();
         let result = match command {
+            CardCommand::Delete { node_id } if self.previews.has_pending_edits(node_id) => {
+                Err(CardCommandError::Unsupported {
+                    message: "You have unsaved changes. Save or cancel your edits before closing this card.".into(),
+                })
+            }
+            CardCommand::Present { .. } | CardCommand::Focus { .. } if window.is_none() => {
+                Err(CardCommandError::Unsupported {
+                    message: "This operation requires a visible project window.".into(),
+                })
+            }
             CardCommand::Doctor => Ok(NormaExecution {
                 result: CardCommandResult::Doctor {
                     report: crate::norma::endpoint::doctor_report(client_version.as_deref(), cx),
@@ -104,7 +115,12 @@ impl MultisoulApp {
                             unreachable!("presentation classifier only accepts Present");
                         };
                         presentation::execute_presentation_command(
-                            self, window, cx, target, create_new, source,
+                            self,
+                            window.as_deref_mut().expect("presentation needs window"),
+                            cx,
+                            target,
+                            create_new,
+                            source,
                         )
                     }
                     Ok((_source, _provider)) if matches!(command, CardCommand::ListWorkspaces) => {
@@ -138,7 +154,11 @@ impl MultisoulApp {
                         })
                     }
                     Ok((source, provider)) => crate::app::execute_orchestration_agent_command(
-                        self, window, command, source, provider,
+                        self,
+                        window.as_deref_mut(),
+                        command,
+                        source,
+                        provider,
                     )
                     .map(|result| NormaExecution {
                         result,
@@ -149,13 +169,23 @@ impl MultisoulApp {
                 }
             }
             command @ (CardCommand::CreateAgent { .. } | CardCommand::ActivateAgent { .. }) => {
-                crate::app::execute_agent_card_command(self, window, command)
-                    .map(|result| NormaExecution {
-                        result,
-                        effects: NormaCommandEffects::NONE,
-                        removed_agent_definition_id: None,
-                    })
-                    .map_err(|message| CardCommandError::Runtime { message })
+                let area = self.mobile_canvas_area(window);
+                let zoom = self.runtime.document.viewport.zoom;
+                crate::app::execute_high_level_agent_command(
+                    self,
+                    command,
+                    area,
+                    zoom,
+                    agent::AgentDispatchSource::norma(),
+                    None,
+                )
+                .map_err(|error| error.to_string())
+                .map(|result| NormaExecution {
+                    result,
+                    effects: NormaCommandEffects::NONE,
+                    removed_agent_definition_id: None,
+                })
+                .map_err(|message| CardCommandError::Runtime { message })
             }
             CardCommand::Create {
                 kind:
@@ -165,7 +195,7 @@ impl MultisoulApp {
                     },
                 placement,
             } => {
-                let area = self.visible_canvas_rect(window);
+                let area = self.mobile_canvas_area(window.as_deref_mut());
                 let zoom = self.runtime.document.viewport.zoom;
                 let bounds = resolve_bounds(
                     placement,
@@ -189,7 +219,7 @@ impl MultisoulApp {
                 })
             }
             command => {
-                let area = self.visible_canvas_rect(window);
+                let area = self.mobile_canvas_area(window);
                 let zoom = self.runtime.document.viewport.zoom;
                 execute_card_command_for_area_with_strategy(
                     &mut self.runtime,
@@ -446,48 +476,6 @@ fn delete_card(
         result: CardCommandResult::Deleted { node_id },
         effects: NormaCommandEffects::CANVAS_SESSION,
         removed_agent_definition_id,
-    })
-}
-
-fn send_text(
-    runtime: &mut Runtime,
-    node_id: NodeId,
-    text: String,
-) -> Result<NormaExecution, CardCommandError> {
-    if runtime
-        .document
-        .node(node_id)
-        .is_some_and(|node| matches!(node.kind, CanvasNodeKind::Agent(_)))
-    {
-        return Err(CardCommandError::Unsupported {
-            message: "Agent text must be submitted through dispatch_agent_tasks".into(),
-        });
-    }
-    runtime
-        .send_node_input(node_id, NodeInput::Text(text))
-        .map_err(|error| node_error(node_id, error))?;
-    Ok(NormaExecution {
-        result: CardCommandResult::Sent { node_id },
-        effects: NormaCommandEffects::NOTIFY,
-        removed_agent_definition_id: None,
-    })
-}
-
-fn focus_card(runtime: &mut Runtime, node_id: NodeId) -> Result<NormaExecution, CardCommandError> {
-    if runtime.document.node(node_id).is_none() {
-        return Err(CardCommandError::NotFound { node_id });
-    }
-    if !runtime.node_caps(node_id).focusable {
-        return Err(CardCommandError::Unsupported {
-            message: format!("card {node_id} is not focusable"),
-        });
-    }
-    runtime.selection.select_only(node_id);
-    runtime.focus.focus_node(node_id);
-    Ok(NormaExecution {
-        result: CardCommandResult::Focused { node_id },
-        effects: NormaCommandEffects::NOTIFY,
-        removed_agent_definition_id: None,
     })
 }
 

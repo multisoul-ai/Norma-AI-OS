@@ -47,7 +47,7 @@ impl MultisoulApp {
             };
         }
 
-        if super::super::dialogue::selected_tts_model_matches(
+        if self.dialogue.selected_tts_model_matches(
             self.voice_settings.values().active_tts_model_id(),
             self.voice_settings.values().active_tts_voice_id(),
         ) {

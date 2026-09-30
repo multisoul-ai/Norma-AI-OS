@@ -8,6 +8,7 @@ pub(super) fn shortcut_command_name(command: ShortcutCommandId) -> &'static str 
         ShortcutCommandId::CopyCardContent => "copy_card_content",
         ShortcutCommandId::OpenProject => "open_project",
         ShortcutCommandId::OpenPreviewFile => "open_preview_file",
+        ShortcutCommandId::SavePreviewFile => "save_preview_file",
         ShortcutCommandId::NewClaudeAgent => "new_claude_agent",
         ShortcutCommandId::NewCodexAgent => "new_codex_agent",
         ShortcutCommandId::NewCursorAgent => "new_cursor_agent",

@@ -5,5 +5,6 @@ pub(crate) mod legacy_agent_migration;
 mod norma_route;
 pub mod persistence;
 pub(crate) mod project_picker;
+pub(crate) mod sessions;
 pub mod state;
 pub mod windowing;

@@ -807,7 +807,15 @@ impl VisualTestContext {
 
     /// debug_bounds returns the bounds of the element with the given selector.
     pub fn debug_bounds(&mut self, selector: &'static str) -> Option<Bounds<Pixels>> {
-        self.update(|window, _| window.rendered_frame.debug_bounds.get(selector).copied())
+        // ponytail: linear diagnostic lookup; index if selector-heavy test timings require it.
+        self.update(|window, _| {
+            window
+                .rendered_frame
+                .debug_bounds
+                .iter()
+                .rev()
+                .find_map(|(name, bounds)| (name == selector).then_some(*bounds))
+        })
     }
 
     /// Draw an element to the window. Useful for simulating events or actions

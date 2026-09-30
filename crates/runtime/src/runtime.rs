@@ -24,6 +24,14 @@ use terminal::PtyCommand;
 use terminal::{Cell, PtyError, TerminalSessionId};
 
 mod definition_identity;
+mod input;
+mod mobile_cards;
+mod restore;
+pub use mobile_cards::{
+    CodexExternalApproval, MobileAgentLaunch, MobileArchiveRead, MobileClaudeHistoryRead,
+    MobileNativeApproval, MobileTerminalInterrupt, NativeAgentLaunch, PreparedMobileAgent,
+    TerminalInputLease,
+};
 
 pub const DEFAULT_TERMINAL_SHELL: &str = "/bin/zsh";
 pub(crate) const DEFAULT_SESSION_COLS: u16 = 80;
@@ -34,6 +42,8 @@ pub struct Runtime {
     pub selection: Selection,
     pub focus: FocusState,
     live: HashMap<NodeId, Box<dyn LiveNode>>,
+    mobile_runs: HashMap<NodeId, mobile_cards::MobileRun>,
+    archive_reads: mobile_cards::ArchiveReads,
     pub(crate) events: RuntimeEvents,
     pub(crate) agent_hook_config: Option<crate::agent_hooks::AgentHookRuntimeConfig>,
     terminal_shells: HashMap<NodeId, String>,
@@ -60,6 +70,8 @@ impl Runtime {
             selection: Selection::new(),
             focus: FocusState::new(),
             live: HashMap::new(),
+            mobile_runs: HashMap::new(),
+            archive_reads: mobile_cards::ArchiveReads::default(),
             events: RuntimeEvents::default(),
             agent_hook_config: None,
             terminal_shells: HashMap::new(),
@@ -92,6 +104,9 @@ impl Runtime {
 
     /// 测试用：设置 workspace root（供 e2e 进入 Canvas 后注入 cwd，生产不调用）。
     pub fn set_workspace_root(&mut self, root: std::path::PathBuf) {
+        if self.workspace_root.as_ref() != Some(&root) {
+            self.archive_reads.cancel();
+        }
         self.workspace_root = Some(root);
     }
 
@@ -134,81 +149,6 @@ impl Runtime {
 
     pub fn save_session_checkpoints(&self, store: &SessionStore) -> StorageResult<()> {
         crate::session_restore::save_session_checkpoints(store, &self.collect_session_checkpoints())
-    }
-
-    pub fn restore_live_sessions(&mut self, checkpoints: &[SessionCheckpoint]) -> usize {
-        let mut ctx = crate::session_restore::RestoreCtx {
-            live: &mut self.live,
-            terminal_shells: &mut self.terminal_shells,
-            agent_session_bindings: &self.agent_session_bindings,
-            events: &mut self.events,
-            next_session_id: &mut self.next_session_id,
-            workspace_root: self.workspace_root.as_deref(),
-            agent_hook_config: self.agent_hook_config.as_ref(),
-        };
-        crate::session_restore::restore_live_sessions(checkpoints, &self.document, &mut ctx)
-    }
-
-    pub fn save_node_sessions(&self, store: &NodeSessionStore) -> StorageResult<()> {
-        crate::session_restore::save_node_sessions(
-            store,
-            &self.live,
-            &self.document,
-            self.workspace_root.as_deref(),
-            &self.agent_session_bindings,
-        )
-    }
-
-    pub fn restore_live_sessions_with_node_sessions(
-        &mut self,
-        checkpoints: &[SessionCheckpoint],
-        node_sessions: &[NodeSession],
-    ) -> usize {
-        self.hydrate_agent_session_bindings(node_sessions);
-        let mut ctx = crate::session_restore::RestoreCtx {
-            live: &mut self.live,
-            terminal_shells: &mut self.terminal_shells,
-            agent_session_bindings: &self.agent_session_bindings,
-            events: &mut self.events,
-            next_session_id: &mut self.next_session_id,
-            workspace_root: self.workspace_root.as_deref(),
-            agent_hook_config: self.agent_hook_config.as_ref(),
-        };
-        crate::session_restore::restore_live_sessions_with_node_sessions(
-            checkpoints,
-            node_sessions,
-            &self.document,
-            &mut ctx,
-        )
-    }
-
-    pub fn restore_live_session_for_node_with_node_sessions(
-        &mut self,
-        node_id: NodeId,
-        checkpoints: &[SessionCheckpoint],
-        node_sessions: &[NodeSession],
-        discovered_session_id: Option<&str>,
-    ) -> bool {
-        if let Some(session_id) = discovered_session_id {
-            self.bind_discovered_agent_session(node_id, session_id);
-        }
-        let mut ctx = crate::session_restore::RestoreCtx {
-            live: &mut self.live,
-            terminal_shells: &mut self.terminal_shells,
-            agent_session_bindings: &self.agent_session_bindings,
-            events: &mut self.events,
-            next_session_id: &mut self.next_session_id,
-            workspace_root: self.workspace_root.as_deref(),
-            agent_hook_config: self.agent_hook_config.as_ref(),
-        };
-        crate::session_restore::restore_live_session_for_node_with_node_sessions(
-            node_id,
-            checkpoints,
-            node_sessions,
-            discovered_session_id,
-            &self.document,
-            &mut ctx,
-        )
     }
 
     /// 新建一个 Terminal 节点：spawn live runtime + 在画布加 Term 节点。返回画布节点 id。
@@ -306,6 +246,7 @@ impl Runtime {
                 profile,
                 alias,
                 definition_id,
+                mobile_control: false,
             }),
             bounds,
         )
@@ -314,6 +255,7 @@ impl Runtime {
     fn register_agent_live_node(&mut self, node_id: NodeId, live: TermLive) {
         self.live.insert(node_id, Box::new(live));
         self.events.register(node_id, NodeType::Agent);
+        self.track_native_agent(node_id);
     }
 
     fn spawn_agent_live_for_profile(
@@ -369,14 +311,6 @@ impl Runtime {
         self.finish_node_operation(Some(node_id), "resize", result)
     }
 
-    pub fn send_node_input(&mut self, node_id: NodeId, input: NodeInput) -> Result<(), NodeError> {
-        let Some(node) = self.live.get_mut(&node_id) else {
-            return self.fail_node_operation(Some(node_id), "input", NodeError::MissingNode);
-        };
-        let result = node.input(input);
-        self.finish_node_operation(Some(node_id), "input", result)
-    }
-
     pub fn scroll_node(&mut self, node_id: NodeId, scroll: NodeScroll) -> Result<bool, NodeError> {
         let Some(node) = self.live.get_mut(&node_id) else {
             return self.fail_node_operation(Some(node_id), "scroll", NodeError::MissingNode);
@@ -398,7 +332,9 @@ impl Runtime {
 
     /// drain 所有 live node；任一 dirty 则返回 true（app 据此决定是否 repaint）。
     pub fn drain_all(&mut self) -> bool {
-        let mut dirty = false;
+        let mut dirty = self.drain_mobile_codex()
+            | self.drain_mobile_claude()
+            | self.advance_mobile_messages(std::time::Instant::now());
         let mut statuses = Vec::new();
         for (node_id, node) in self.live.iter_mut() {
             if node.drain() {
@@ -409,7 +345,11 @@ impl Runtime {
             }
         }
         for (node_id, status) in statuses {
+            if matches!(status, terminal::TerminalStatus::Exited { .. }) {
+                self.end_mobile_run(node_id);
+            }
             self.events.update_from_terminal_status(node_id, status);
+            dirty |= self.finish_native_resume(node_id);
         }
         dirty
     }
@@ -420,6 +360,7 @@ impl Runtime {
             return false;
         }
 
+        self.mobile_runs.remove(&node_id);
         if let Some(mut node) = self.live.remove(&node_id) {
             node.kill();
         }
@@ -438,6 +379,8 @@ impl Runtime {
 
     /// 窗口关闭时杀掉所有子进程（SPEC §8）。
     pub fn kill_all(&mut self) {
+        self.archive_reads.cancel();
+        self.end_all_mobile_runs();
         for node in self.live.values_mut() {
             node.kill();
         }
@@ -450,8 +393,8 @@ impl Runtime {
     }
 
     pub fn agent_session_id(&self, node_id: NodeId) -> Option<String> {
-        self.agent_session_bindings
-            .session_id(node_id)
+        self.mobile_session_id(node_id)
+            .or_else(|| self.agent_session_bindings.session_id(node_id))
             .map(ToString::to_string)
     }
 

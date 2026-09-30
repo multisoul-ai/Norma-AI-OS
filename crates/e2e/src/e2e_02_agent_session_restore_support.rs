@@ -14,6 +14,8 @@ pub(super) struct ProcessEnvGuard {
     _lock: std::sync::MutexGuard<'static, ()>,
     home: Option<std::ffi::OsString>,
     path: Option<std::ffi::OsString>,
+    zdotdir: Option<std::ffi::OsString>,
+    test_path: Option<std::ffi::OsString>,
 }
 
 impl ProcessEnvGuard {
@@ -23,6 +25,8 @@ impl ProcessEnvGuard {
             .expect("Agent session restore 环境变量测试锁不应中毒");
         let previous_home = std::env::var_os("HOME");
         let previous_path = std::env::var_os("PATH");
+        let zdotdir = std::env::var_os("ZDOTDIR");
+        let test_path = std::env::var_os("NORMA_RESTORE_TEST_PATH");
         let mut paths = vec![bin.to_path_buf()];
         if let Some(existing) = previous_path.as_deref() {
             paths.extend(std::env::split_paths(existing));
@@ -30,12 +34,33 @@ impl ProcessEnvGuard {
         let joined_path =
             std::env::join_paths(paths).expect("测试 fake bin 与原 PATH 应能组成合法 PATH");
         std::env::set_var("HOME", home);
+        // /etc/zprofile 的 path_helper 会把 Homebrew CLI 移到 fake bin 前面。
+        // 使用临时 zsh 配置，在系统 profile 之后恢复测试 PATH；不读取用户的 rc。
+        std::fs::write(
+            home.join(".zshrc"),
+            "export PATH=\"$NORMA_RESTORE_TEST_PATH\"\n",
+        )
+        .expect("测试 zsh 配置应写入临时 HOME");
+        std::env::set_var("ZDOTDIR", home);
+        std::env::set_var("NORMA_RESTORE_TEST_PATH", &joined_path);
         std::env::set_var("PATH", joined_path);
-        Self {
+        let guard = Self {
             _lock: lock,
             home: previous_home,
             path: previous_path,
-        }
+            zdotdir,
+            test_path,
+        };
+        let resolved = std::process::Command::new("/bin/zsh")
+            .args(["-lic", "command -v claude"])
+            .output()
+            .expect("测试应能检查真实登录 shell 的 CLI 路径");
+        assert_eq!(
+            String::from_utf8_lossy(&resolved.stdout).trim(),
+            bin.join("claude").to_string_lossy(),
+            "恢复测试必须使用临时 fake Claude，不能启动用户安装的真实 Agent"
+        );
+        guard
     }
 }
 
@@ -43,6 +68,8 @@ impl Drop for ProcessEnvGuard {
     fn drop(&mut self) {
         restore_env("HOME", self.home.take());
         restore_env("PATH", self.path.take());
+        restore_env("ZDOTDIR", self.zdotdir.take());
+        restore_env("NORMA_RESTORE_TEST_PATH", self.test_path.take());
     }
 }
 
@@ -93,6 +120,7 @@ fn agent_node(node_id: u64, alias: &str) -> CanvasNodeSnapshot {
             profile: AgentProfile::Claude,
             alias: Some(alias.to_string()),
             definition_id: None,
+            mobile_control: false,
         }),
         bounds: CanvasRect::new(10.0, 20.0, 640.0, 400.0),
         z_index: node_id as i32,

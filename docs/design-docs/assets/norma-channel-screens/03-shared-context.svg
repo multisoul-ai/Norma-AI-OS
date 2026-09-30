@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-label="Norma OS · 频道共享上下文">
+<title>Norma OS · 频道共享上下文</title>
+<rect width="390" height="844" fill="#08090a"/>
+<style>text{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","PingFang SC",sans-serif}</style>
+<text x="25" y="30" font-size="15" fill="#f5f5f5" font-weight="650">9:41</text>
+<rect x="145" y="11" width="100" height="29" rx="15" fill="#020303"/>
+<text x="329" y="30" font-size="13" fill="#f5f5f5" font-weight="600">●●  ▰</text>
+<text x="320" y="73" font-size="10" fill="#929497" font-weight="550">概念稿</text>
+<text x="24" y="80" font-size="14" fill="#c9e8d6" font-weight="550">‹  改进 iOS 首屏交接</text>
+<text x="24" y="119" font-size="27" fill="#f5f5f5" font-weight="680">频道上下文</text>
+<text x="24" y="147" font-size="12" fill="#929497" font-weight="400">所有参与 Agent 共享这些已确认事实</text>
+<rect x="24" y="172" width="342" height="111" rx="18" fill="#19231d" stroke="#527059" stroke-width="1"/>
+<text x="43" y="202" font-size="12" fill="#c9e8d6" font-weight="650">目标</text>
+<text x="43" y="229" font-size="14" fill="#f5f5f5" font-weight="400">让新用户从 Mac 切到 iPhone 时，</text>
+<text x="43" y="252" font-size="14" fill="#f5f5f5" font-weight="400">能看懂当前任务并继续操作。</text>
+<text x="43" y="272" font-size="10" fill="#929497" font-weight="400">来源：你 · 今天 09:41</text>
+<rect x="24" y="296" width="342" height="105" rx="18" fill="#26211c" stroke="#6b5641" stroke-width="1"/>
+<text x="43" y="326" font-size="12" fill="#efd2a6" font-weight="650">硬约束 · 仅用户可修改</text>
+<text x="43" y="354" font-size="14" fill="#f5f5f5" font-weight="400">禁止直接发布生产环境。</text>
+<text x="43" y="381" font-size="10" fill="#929497" font-weight="400">来源：你 · 昨天 21:10</text>
+<text x="24" y="441" font-size="16" fill="#f5f5f5" font-weight="650">已确认决定</text>
+<rect x="24" y="458" width="342" height="107" rx="18" fill="#181a1c" stroke="#323538" stroke-width="1"/>
+<circle cx="44" cy="484" r="4" fill="#c9e8d6"/>
+<text x="57" y="488" font-size="13" fill="#f5f5f5" font-weight="400">首屏展示任务状态与最近成果</text>
+<text x="57" y="512" font-size="10" fill="#929497" font-weight="400">Norma 更新 · 基于频道讨论 #18</text>
+<line x1="43" y1="526" x2="346" y2="526" stroke="#2b2d30" stroke-width="1"/>
+<circle cx="44" cy="545" r="4" fill="#c9e8d6"/>
+<text x="57" y="549" font-size="13" fill="#f5f5f5" font-weight="400">交接卡只保留一个主操作</text>
+<text x="24" y="604" font-size="16" fill="#f5f5f5" font-weight="650">关联资源</text>
+<rect x="24" y="623" width="100" height="26" rx="13" fill="#233028"/>
+<text x="74.0" y="641" font-size="11" fill="#c9e8d6" font-weight="600" text-anchor="middle">iOS App</text>
+<rect x="133" y="623" width="76" height="26" rx="13" fill="#233028"/>
+<text x="171.0" y="641" font-size="11" fill="#c9e8d6" font-weight="600" text-anchor="middle">API</text>
+<rect x="218" y="623" width="115" height="26" rx="13" fill="#252629"/>
+<text x="275.5" y="641" font-size="11" fill="#c6c7c9" font-weight="600" text-anchor="middle">3 位参与者</text>
+<rect x="24" y="673" width="342" height="88" rx="17" fill="#151719" stroke="#2d3032" stroke-width="1"/>
+<text x="43" y="701" font-size="12" fill="#c6c7c9" font-weight="620">上下文如何给 Agent</text>
+<text x="43" y="725" font-size="11" fill="#929497" font-weight="400">目标、决定、来源摘要 + 最近相关消息；</text>
+<text x="43" y="744" font-size="11" fill="#929497" font-weight="400">更早记录与项目文件按需读取。</text>
+<rect x="146" y="830" width="98" height="5" rx="3" fill="#d8d8d8"/>
+</svg>

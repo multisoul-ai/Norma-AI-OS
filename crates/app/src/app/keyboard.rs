@@ -111,20 +111,7 @@ pub(crate) fn copy_text_for_active_selection(
 
 #[cfg(test)]
 fn terminal_row_copy_text(row: &[Cell]) -> String {
-    let mut line = row
-        .iter()
-        .map(|cell| {
-            if cell.attrs.hidden || cell.attrs.wide_char_spacer || cell.c == '\0' {
-                ' '
-            } else {
-                cell.c
-            }
-        })
-        .collect::<String>();
-    while line.ends_with(' ') {
-        line.pop();
-    }
-    line
+    crate::cards::term::selection::terminal_line_copy_text(row)
 }
 
 fn canvas_navigation_direction(key: &str, modifiers: Modifiers) -> Option<NavigationDirection> {
@@ -256,9 +243,8 @@ impl MultisoulApp {
         let Some(node_id) = current_delete_node_id(&self.runtime) else {
             return;
         };
-        if self.close_node_through_route(node_id, window) {
-            cx.notify();
-        }
+        self.close_node_through_route(node_id, window);
+        cx.notify();
     }
 
     /// 键盘事件：维护 space_held；聚焦终端时把按键编码写入对应 PTY。
@@ -269,6 +255,15 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         if self.handle_feature_guide_key_down(ev, window, cx) {
+            return;
+        }
+        if let Some(node_id) = self.previews.focused_editor(window, cx) {
+            if self.shortcuts.command_for_keystroke(&ev.keystroke)
+                == Some(ShortcutCommandId::SavePreviewFile)
+            {
+                self.save_preview_edit(node_id, cx);
+                cx.stop_propagation();
+            }
             return;
         }
         if self.settings_panel.open {

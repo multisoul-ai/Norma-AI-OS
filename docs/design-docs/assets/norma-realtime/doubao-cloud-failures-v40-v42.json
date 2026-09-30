@@ -1,0 +1,118 @@
+{
+  "v40": {
+    "audioPackets": 57,
+    "chats": 2,
+    "receipts": [
+      {
+        "status": "unknown",
+        "message": "执行结果未知，请核对原回执；不能重复派工",
+        "operation_id": "rt-ff3dc56c66f0c0a6dc564bf027873232b5ee5d9968b82dc8497b3637f3ee0b3a"
+      }
+    ],
+    "speech": [
+      "刚刚的派工结果未知，麻烦你确认一下是否完成了新建文件的操作呀？"
+    ],
+    "users": [
+      "请让 CodeX 新建 Result 点 txt 文件，内容为云端验证完成，现在执行。"
+    ],
+    "tools": [
+      {
+        "function": {
+          "arguments": " {\"agent\": \"codex\", \"task\": \"新建一个名为Result的txt文件，写入内容‘云端验证完成，现在执行。’\"}",
+          "name": "assign_agent_task"
+        },
+        "id": "call_lbm7lj1han1ww0951clvi0q4",
+        "type": "function"
+      }
+    ],
+    "http": [
+      {
+        "service": "chat",
+        "status": 200
+      },
+      {
+        "service": "chat",
+        "status": 200
+      },
+      {
+        "service": "tts",
+        "status": 200
+      }
+    ],
+    "asrConnections": 3,
+    "turns": []
+  },
+  "v41": {
+    "audioPackets": 79,
+    "chats": 2,
+    "receipts": [
+      {
+        "status": "accepted",
+        "message": "已创建并打开 Agent Alan，AgentCard 已接收任务",
+        "task_id": 1,
+        "node_id": 1,
+        "operation_id": "rt-80d65fb32da86ed7e42d347799a328efbc81427d03fb377f3f6cf82a7abbea91"
+      }
+    ],
+    "speech": [
+      "已帮你安排CodeX创建目标文件啦，请稍等片刻哦~"
+    ],
+    "users": [
+      "请让 CodeX 新建一个文本文件，文件名是全小写的 result txt，文件内容只有云端验证完成这六个汉字，并以换行结尾。"
+    ],
+    "tools": [
+      {
+        "function": {
+          "arguments": " {\"profile\": \"codex\", \"task\": \"新建一个全小写文件名是result txt的文本文件，内容为云端验证完成并以换行结尾\"}",
+          "name": "create_agent"
+        },
+        "id": "call_eb2ortvej41afp545mvg2caw",
+        "type": "function"
+      }
+    ],
+    "http": [
+      {
+        "service": "chat",
+        "status": 200
+      },
+      {
+        "service": "chat",
+        "status": 200
+      },
+      {
+        "service": "tts",
+        "status": 200
+      }
+    ],
+    "asrConnections": 3,
+    "turns": []
+  },
+  "v42": {
+    "turns": [
+      {
+        "turn": "dcd876a4-1673-4336-a7dd-22add02706ca",
+        "prompt": "新建一个名为result.txt的文本文件，内容为“云端验证完成”并以换行结尾"
+      }
+    ],
+    "receipts": [
+      {
+        "operation_id": "rt-689af6d3d04fae203d76f2ed515ecf9fa383a46fdecf9f6269e543afacd61891",
+        "state": "rejected",
+        "error": "agent_not_found",
+        "result": null
+      },
+      {
+        "operation_id": "rt-f273fb7dd296ddf9016e93af39030c33eb746d959929f80d48f4144c8af07e0c",
+        "state": "succeeded",
+        "error": null,
+        "result": {
+          "status": "accepted",
+          "message": "已创建并打开 Agent Alan，AgentCard 已接收任务",
+          "task_id": 1,
+          "node_id": 1
+        }
+      }
+    ],
+    "native_failure": "PTY observed before accepted receipt reached cloud; wait condition fixed in v43"
+  }
+}

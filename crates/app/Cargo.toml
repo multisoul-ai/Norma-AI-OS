@@ -36,6 +36,11 @@ name = "ego-live-capture-l3"
 path = "src/bin/ego_live_capture_l3.rs"
 required-features = ["l3-test-support"]
 
+[[bin]]
+name = "norma-push-sqlite-l3"
+path = "src/bin/norma_push_sqlite_l3.rs"
+required-features = ["l3-test-support"]
+
 [dependencies]
 gpui = { workspace = true, features = ["test-support"] }
 ui.workspace = true
@@ -71,27 +76,30 @@ hex.workspace = true
 pulldown-cmark.workspace = true
 ureq.workspace = true
 rustls.workspace = true
+tungstenite.workspace = true
+tokio-tungstenite.workspace = true
+reqwest = { workspace = true, features = ["stream"] }
+flate2 = "1"
+uuid = { version = "1", features = ["v4"] }
 hound = "3.5"
 image = "0.25"
+tempfile.workspace = true
 base64 = "0.22"
 
 # Native file picker for wallpaper import (Task 8). AsyncFileDialog is awaited
 # inside a cx.spawn task so it never blocks the GPUI event loop.
 rfd = "0.16"
 
-[dev-dependencies]
-tempfile.workspace = true
-
 # Video wallpaper spike (Task 1): objc2 + AVAssetReader → 420f CVPixelBuffer.
 # All AVFoundation interop is macOS-only; on other targets these crates are
 # neither compiled against nor linked.
 [target.'cfg(target_os = "macos")'.dependencies]
 libc = "0.2"
-security-framework = "3.7"
 core-video = { version = "=0.4.3", features = ["metal"] }
 core-foundation = "0.10"
 objc2 = "0.6"
 objc2-foundation = "0.3"
+objc2-core-image = { version = "0.3.2", default-features = false, features = ["CIContext", "CIFilter", "CIImage", "objc2-core-foundation", "objc2-core-graphics"] }
 objc2-web-kit = { version = "0.3", default-features = false, features = [
     "WKHTTPCookieStore",
     "WKWebViewConfiguration",

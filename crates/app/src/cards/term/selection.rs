@@ -102,6 +102,11 @@ fn terminal_span_text(snapshot: &GridSnapshot, span: SelectionSpan) -> String {
     span_text_from_row(row, span.start_col, span.end_col)
 }
 
+#[cfg(test)]
+pub(crate) fn terminal_line_copy_text(row: &[Cell]) -> String {
+    span_text_from_row(row, 0, row.len())
+}
+
 fn span_text_from_row(row: &[Cell], start: usize, end: usize) -> String {
     let start = start.min(row.len());
     let end = end.min(row.len());
@@ -111,7 +116,7 @@ fn span_text_from_row(row: &[Cell], start: usize, end: usize) -> String {
 
     let mut text = row[start..end]
         .iter()
-        .map(copy_char_for_cell)
+        .filter_map(copy_char_for_cell)
         .collect::<String>();
     while text.ends_with(' ') {
         text.pop();
@@ -119,11 +124,13 @@ fn span_text_from_row(row: &[Cell], start: usize, end: usize) -> String {
     text
 }
 
-fn copy_char_for_cell(cell: &Cell) -> char {
-    if cell.attrs.hidden || cell.attrs.wide_char_spacer || cell.c == '\0' {
-        ' '
+fn copy_char_for_cell(cell: &Cell) -> Option<char> {
+    if cell.attrs.wide_char_spacer {
+        None
+    } else if cell.attrs.hidden || cell.c == '\0' {
+        Some(' ')
     } else {
-        cell.c
+        Some(cell.c)
     }
 }
 

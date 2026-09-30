@@ -51,7 +51,7 @@ impl TermLive {
         Self::from_session(TerminalSession::spawn_command(id, command, cols, rows)?)
     }
 
-    fn from_session(session: TerminalSession) -> Result<Self, PtyError> {
+    pub(crate) fn from_session(session: TerminalSession) -> Result<Self, PtyError> {
         let revision = 0;
         let cached_view = Self::view_from_session(&session, revision);
         Ok(Self {
@@ -145,6 +145,10 @@ impl LiveNode for TermLive {
         Some(self.session.status)
     }
 
+    fn terminal_bracketed_paste_enabled(&self) -> bool {
+        self.session.bracketed_paste_enabled()
+    }
+
     fn resize(&mut self, resize: NodeResize) -> Result<(), NodeError> {
         match resize {
             NodeResize::TermGrid { cols, rows } => {
@@ -199,6 +203,9 @@ impl LiveNode for TermLive {
 
     fn child_pid(&self) -> Option<u32> {
         self.session.child_pid()
+    }
+    fn child_process_observer(&self) -> Option<terminal::ChildProcessObserver> {
+        self.session.child_process_observer()
     }
 }
 

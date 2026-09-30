@@ -38,6 +38,7 @@ mod tests {
                 profile: AgentProfile::Claude,
                 alias: None,
                 definition_id: None,
+                mobile_control: false,
             }),
             CanvasRect::new(0.0, 0.0, 640.0, 360.0),
         );
@@ -46,6 +47,7 @@ mod tests {
                 profile: AgentProfile::Codex,
                 alias: None,
                 definition_id: None,
+                mobile_control: false,
             }),
             CanvasRect::new(720.0, 0.0, 640.0, 360.0),
         );

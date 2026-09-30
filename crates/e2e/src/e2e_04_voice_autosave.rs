@@ -161,6 +161,25 @@ fn e2e_04_voice_api_key_auto_save_shows_configured_after_blur_and_reload() {
         saved_api_key_configured,
         "从同一个 SQLite 重新加载后 API Key 仍应标记为已配置"
     );
+    let account = store
+        .get_string("agent.provider.openai.credential_ref")
+        .expect("SQLite 应可读取 Provider credential ref")
+        .expect("保存 API Key 后应有 credential ref");
+    assert_eq!(
+        store
+            .get_string(&format!("credential.agent-provider.{account}"))
+            .expect("SQLite 应可读取 Provider secret")
+            .as_deref(),
+        Some("sk-e2e-autosave"),
+        "真实 Settings 输入的 API Key 必须写入同一 app.sqlite"
+    );
+    assert!(
+        store
+            .get_string("agent.provider.openai.api_key")
+            .expect("应能查询旧明文设置键")
+            .is_none(),
+        "旧 API Key 设置键不得保留第二份明文"
+    );
     assert_eq!(
         after_blur.agent_api_key_display_state,
         app::ApiKeyDisplayState::Configured,

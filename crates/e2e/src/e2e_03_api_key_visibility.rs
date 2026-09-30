@@ -5,10 +5,10 @@ use crate::harness::{echo_factory, enter_canvas, make_app};
 /// 已保存 API Key 的安全显隐：默认掩码，眼睛按钮只在用户点击期间显示明文
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   API Key = 1 个仅存在测试内存的 synthetic secret
+///   API Key = 1 个写入隔离测试数据库的 synthetic secret
 ///   visibility clicks = reveal(1) + conceal(1) = 2
 ///   downward scroll = 650 + 2,200 + 1,600 = 4,450 px（覆盖新增 ASR provider 设置组）
-///   expected persisted plaintext copies = 0（SQLite 只保存 Keychain 引用）
+///   expected legacy plaintext copies = 0（新凭据保存在独立命名空间）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 打开 Settings → Voice → Advanced Settings
@@ -66,7 +66,7 @@ fn e2e_03_configured_api_key_can_be_revealed_and_concealed() {
     assert_eq!(
         revealed.agent_api_key_display_state,
         app::ApiKeyDisplayState::Revealed,
-        "first visibility click must render the loaded Keychain secret"
+        "first visibility click must render the loaded SQLite secret"
     );
     assert!(
         revealed.agent_api_key_configured,

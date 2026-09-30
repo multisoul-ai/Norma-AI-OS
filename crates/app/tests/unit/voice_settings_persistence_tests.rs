@@ -370,3 +370,52 @@ fn test_tts_model_and_voice_selection_persist_as_independent_ids() {
         "重载后不得把 af_bella 静默替换为单 Voice 模型的 default"
     );
 }
+/// VS-DB：保存 Provider Key 后，新状态可从同一 SQLite 数据库恢复明文凭据。
+///
+/// 数据构造（含关键数值的推导过程）：一份 synthetic Key、一个隔离 app.sqlite、一次保存批次。
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 在 Voice Settings 输入 Key，执行后台保存批次。
+///   2. 从设置中的 credential ref 定位 SQLite 凭据，再用新 store 实例读取。
+///   3. 清除凭据，执行删除批次并重读。
+/// 预期结果：
+///   - 正断言：重开数据库后能读回原 Key。
+///   - 负断言：清除后数据库不再返回 Key。
+#[test]
+fn test_voice_provider_credential_round_trips_in_sqlite() {
+    let temp = tempfile::tempdir().expect("测试应创建隔离数据库目录");
+    let store = storage::SettingsStore::new(temp.path().join("app.sqlite"));
+    let mut state = VoiceSettingsState::load_from_store(store.clone());
+    state.begin_edit(VoiceSettingsField::ApiKey);
+    assert!(
+        state
+            .auto_save_edit_value(VoiceSettingsField::ApiKey, "synthetic-db-secret".into())
+            .is_some(),
+        "有效 API Key 应进入保存队列"
+    );
+    for write in state.take_pending_writes() {
+        write.execute().expect("SQLite 保存批次应成功");
+    }
+    state.record_persistence_result(Ok(()));
+    let account = store
+        .get_string("agent.provider.openai.credential_ref")
+        .expect("保存后应可读取 credential ref")
+        .expect("保存后应生成 credential ref");
+    let reopened = storage::SettingsStore::new(store.path().to_path_buf());
+    assert_eq!(
+        crate::settings::voice::credentials::load(&reopened, &account)
+            .expect("重开 SQLite 应读取凭据")
+            .as_deref(),
+        Some("synthetic-db-secret"),
+        "Provider 凭据必须存在同一个 app.sqlite 中"
+    );
+    state.clear_agent_api_key();
+    for write in state.take_pending_writes() {
+        write.execute().expect("SQLite 删除批次应成功");
+    }
+    assert!(
+        crate::settings::voice::credentials::load(&reopened, &account)
+            .expect("清除后应能重查数据库")
+            .is_none(),
+        "清除 Provider Key 后 SQLite 不得残留凭据"
+    );
+}

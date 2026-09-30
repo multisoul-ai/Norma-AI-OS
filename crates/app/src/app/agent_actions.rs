@@ -15,6 +15,7 @@ pub(crate) fn agent_spec_from_definition(definition: &AgentDefinition) -> AgentS
         profile: definition.runtime_profile,
         alias: Some(definition.name.clone()),
         definition_id: Some(definition.id),
+        mobile_control: false,
     }
 }
 

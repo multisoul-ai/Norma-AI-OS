@@ -2,6 +2,7 @@
 
 mod actions;
 mod components;
+mod grouping;
 mod state;
 mod text_input;
 mod view;

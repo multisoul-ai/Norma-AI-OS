@@ -179,14 +179,14 @@ fn test_new_agent_dispatch_waits_then_submits_after_session_start() {
         }),
     )
     .expect("Codex SessionStart 测试事件应解析成功");
-    let typed_after_ready = app.update(cx, |app, _cx| {
+    let typed_after_ready = app.update(cx, |app, cx| {
         let changed =
             crate::settings::agent_hooks::apply_agent_hook_event(&mut app.runtime, ready_event);
         assert!(changed, "SessionStart 必须把目标 Agent 状态更新为 Ready");
-        app.submit_pending_agent_task_for_ready_node(node_id)
+        app.submit_pending_agent_task_for_ready_node(node_id, cx)
     });
-    let submitted_after_delay = app.update(cx, |app, _cx| {
-        app.submit_pending_agent_task_for_ready_node(node_id)
+    let submitted_after_delay = app.update(cx, |app, cx| {
+        app.submit_pending_agent_task_for_ready_node(node_id, cx)
     });
     let ready_writes = writes
         .lock()
@@ -286,14 +286,14 @@ fn test_agent_dispatch_enter_failure_queues_and_automatically_retries() {
             )
         })
     });
-    let failed_enter = app.update(cx, |app, _cx| {
-        app.submit_pending_agent_task_for_ready_node(ready_node_id)
+    let failed_enter = app.update(cx, |app, cx| {
+        app.submit_pending_agent_task_for_ready_node(ready_node_id, cx)
     });
-    let retry_typed = app.update(cx, |app, _cx| {
-        app.submit_pending_agent_task_for_ready_node(ready_node_id)
+    let retry_typed = app.update(cx, |app, cx| {
+        app.submit_pending_agent_task_for_ready_node(ready_node_id, cx)
     });
-    let retry_submitted = app.update(cx, |app, _cx| {
-        app.submit_pending_agent_task_for_ready_node(ready_node_id)
+    let retry_submitted = app.update(cx, |app, cx| {
+        app.submit_pending_agent_task_for_ready_node(ready_node_id, cx)
     });
     let actual_writes = writes
         .lock()
@@ -408,8 +408,8 @@ fn test_queued_agent_task_advances_with_text_then_real_enter_key() {
             )
         })
     });
-    let first_submitted = app.update(cx, |app, _cx| {
-        app.submit_pending_agent_task_for_ready_node(ready_node_id)
+    let first_submitted = app.update(cx, |app, cx| {
+        app.submit_pending_agent_task_for_ready_node(ready_node_id, cx)
     });
     let second_dispatch = cx.update(|window, app_cx| {
         app.update(app_cx, |app, _cx| {
@@ -431,11 +431,11 @@ fn test_queued_agent_task_advances_with_text_then_real_enter_key() {
         other => panic!("首次任务必须成功提交并返回 node_id，实际结果：{other:?}"),
     };
     let queue_advanced = app.update(cx, |app, _cx| app.advance_agent_task_queue(node_id));
-    let second_typed = app.update(cx, |app, _cx| {
-        app.submit_pending_agent_task_for_ready_node(node_id)
+    let second_typed = app.update(cx, |app, cx| {
+        app.submit_pending_agent_task_for_ready_node(node_id, cx)
     });
-    let second_submitted = app.update(cx, |app, _cx| {
-        app.submit_pending_agent_task_for_ready_node(node_id)
+    let second_submitted = app.update(cx, |app, cx| {
+        app.submit_pending_agent_task_for_ready_node(node_id, cx)
     });
     let actual_writes = writes
         .lock()

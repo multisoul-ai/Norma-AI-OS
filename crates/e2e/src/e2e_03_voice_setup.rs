@@ -1,7 +1,8 @@
 use gpui::{Modifiers, TestAppContext};
 
 use crate::harness::{
-    echo_factory, enter_canvas, make_app, VoiceModelInstallE2eGuard, VoiceTranscriptEnvGuard,
+    echo_factory, enter_canvas, make_app, scroll_settings_target_into_view,
+    VoiceModelInstallE2eGuard, VoiceTranscriptEnvGuard,
 };
 
 /// Voice 尚未配置时按下 Cmd+E：必须打开 Settings → Voice 设置页，且不得开始录音
@@ -244,7 +245,7 @@ fn setup_cards_allow_out_of_order_provider_configuration() {
 ///   1. 进入 Canvas，真实点击工具栏 Settings 和 Voice section
 ///   2. 从 Ready banner 点击 Review Setup
 ///   3. 确认同一 Settings 页面切为四项 Setup 清单
-///   4. 点击 Done Reviewing 回到简化 Ready 页面
+///   4. 将 Done Reviewing 滚入可点击区域，再点击回到简化 Ready 页面
 ///
 /// 预期结果：
 ///   - 正断言：Ready 页面与 Setup 清单之间可双向切换
@@ -290,6 +291,7 @@ fn ready_voice_page_can_review_setup_and_return() {
         "reviewing setup must not start recording"
     );
 
+    scroll_settings_target_into_view(cx, "voice-review-setup-done");
     let done = cx
         .debug_bounds("voice-review-setup-done")
         .expect("review setup page must keep the Done Reviewing action clickable");
@@ -300,6 +302,10 @@ fn ready_voice_page_can_review_setup_and_return() {
     assert!(
         cx.debug_bounds("voice-ready-banner").is_some(),
         "Done Reviewing must restore the simplified Voice ready page"
+    );
+    assert!(
+        cx.debug_bounds("voice-review-setup-done").is_none(),
+        "返回 Ready 后不能残留 Review Setup 的退出按钮"
     );
     assert_ne!(
         app.update(cx, |app, _cx| app.voice_e2e_snapshot().phase),
@@ -314,7 +320,7 @@ fn ready_voice_page_can_review_setup_and_return() {
 ///   ASR fake completion = immediate
 ///   TTS fake completion = held until Settings closes
 ///   explicit activation = 1 次 Use This Voice
-///   post-apply settle passes = 8（异步链最多 4 层，按 2 倍余量收口）
+///   post-apply wait = 最多 3s / 5ms = 600 次检查，等待实际 Provider 激活
 ///   expected audio starts = 0（Voice phase 保持 idle）
 ///   model root = workspace/models（与用户模型和其他测试隔离）
 ///
@@ -412,11 +418,23 @@ fn background_setup_install_requires_explicit_voice_activation() {
     cx.simulate_mouse_move(close.center(), None, Modifiers::none());
     cx.simulate_click(close.center(), Modifiers::none());
 
-    for _ in 0..8 {
+    // 3s = 600 × 5ms scheduling allowance, matching the install budget above.
+    // Executor parking alone does not prove the asynchronous activation reached the runtime.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+    let final_settings = loop {
         cx.run_until_parked();
-    }
+        let snapshot = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
+        if snapshot.runtime_tts_provider_id.as_deref() == Some("local") {
+            break snapshot;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "explicit Apply must finish configuring the runtime within 3s; provider={:?}",
+            snapshot.runtime_tts_provider_id
+        );
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    };
     let final_voice = app.update(cx, |app, _cx| app.voice_e2e_snapshot());
-    let final_settings = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
     app.update(cx, |app, _cx| {
         app.set_voice_setup_install_fakes_for_e2e(false)
     });

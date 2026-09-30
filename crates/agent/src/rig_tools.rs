@@ -1,17 +1,17 @@
-use crate::{norma_tool_definitions, AdapterError, AdapterResult, NormaToolRuntime, ToolContext};
+use crate::{
+    norma_tool_definitions, AdapterError, AdapterResult, NormaToolRuntime, ToolCallPolicy,
+    ToolContext,
+};
 use rig_core::tool::{Tool, ToolCallExtensions};
 use serde_json::Value;
 use std::collections::VecDeque;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
 pub(crate) struct RigToolContext {
     base: ToolContext,
     pending_tool_call_ids: Arc<Mutex<VecDeque<String>>>,
-    tool_call_count: Arc<AtomicU64>,
-    consecutive_failures: Arc<AtomicU64>,
-    unknown_seen: Arc<AtomicBool>,
+    policy: ToolCallPolicy,
 }
 
 impl RigToolContext {
@@ -19,18 +19,16 @@ impl RigToolContext {
         Self {
             base,
             pending_tool_call_ids: Arc::new(Mutex::new(VecDeque::new())),
-            tool_call_count: Arc::new(AtomicU64::new(0)),
-            consecutive_failures: Arc::new(AtomicU64::new(0)),
-            unknown_seen: Arc::new(AtomicBool::new(false)),
+            policy: ToolCallPolicy::default(),
         }
     }
 
     pub(crate) fn unknown_seen(&self) -> bool {
-        self.unknown_seen.load(Ordering::Acquire)
+        self.policy.unknown_seen()
     }
 
     pub(crate) fn failure_budget_exhausted(&self) -> bool {
-        self.consecutive_failures.load(Ordering::Acquire) >= 3
+        self.policy.failure_budget_exhausted()
     }
 
     pub(crate) fn record_tool_call(
@@ -48,12 +46,6 @@ impl RigToolContext {
     }
 
     fn next(&self) -> Result<ToolContext, AdapterError> {
-        let count = self.tool_call_count.fetch_add(1, Ordering::Relaxed) + 1;
-        if count > 20 {
-            return Err(AdapterError::Rejected(
-                "Norma 单回合工具调用预算已耗尽".to_string(),
-            ));
-        }
         let tool_call_id = self
             .pending_tool_call_ids
             .lock()
@@ -105,22 +97,10 @@ impl NormaRigTool {
             AdapterError::Failed("Norma tool runtime context is missing".to_string())
         })?;
         let context = binding.next()?;
-        let result = self.runtime.execute(name, args, &context).await;
-        match &result {
-            Ok(result) => {
-                binding.consecutive_failures.store(0, Ordering::Release);
-                if result.status == "unknown" {
-                    binding.unknown_seen.store(true, Ordering::Release);
-                    return Err(AdapterError::Failed(
-                        "AgentCard Adapter 回执为 unknown，停止后续工具调用".to_string(),
-                    ));
-                }
-            }
-            Err(_) => {
-                binding.consecutive_failures.fetch_add(1, Ordering::AcqRel);
-            }
-        }
-        result
+        binding
+            .policy
+            .execute(&self.runtime, name, args, &context)
+            .await
     }
 }
 

@@ -1,6 +1,7 @@
 //! Card registry: app 层按 NodeType 分发卡片渲染。
 
 pub mod agent;
+pub(crate) mod border_glow;
 pub mod browser;
 pub mod chrome;
 pub(crate) mod intro;
@@ -41,6 +42,7 @@ pub struct CardBodyContext<'a> {
     pub runtime: &'a Runtime,
     pub terminal_render_cache: TerminalRenderCacheHandle,
     pub preview_state: Option<&'a PreviewLoadState>,
+    pub preview_editor: Option<&'a crate::preview::PreviewEditor>,
     pub preview_image_viewer: Option<ImageViewerPresentation>,
     pub preview_image_dragging: bool,
     pub text_selection: Option<TextSelection>,
@@ -50,6 +52,7 @@ pub struct CardBodyContext<'a> {
     pub terminal_cursor_phase: f32,
     pub browser_address_input: Option<gpui::Entity<BrowserAddressInput>>,
     pub browser_auth_state: BrowserAuthUiState,
+    pub browser_loading: bool,
     pub ego_preview: Option<Arc<gpui::RenderImage>>,
     #[cfg(all(target_os = "macos", not(feature = "e2e-test-support")))]
     pub ego_live_preview: Option<core_video::pixel_buffer::CVPixelBuffer>,

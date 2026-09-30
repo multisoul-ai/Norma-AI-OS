@@ -3,6 +3,9 @@ target/
 **/*.rs.bk
 .DS_Store
 /dist
+**/.gradle/
+**/node_modules/
+**/local.properties
 .cargo-packager/
 build
 .agents/*
@@ -27,3 +30,5 @@ assets/models/tts/*
 # superpowers scratch (subagent reports, ledger)
 .superpowers/
 artifacts/
+.zvec-grep
+apps/quest/outputs/

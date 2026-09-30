@@ -46,6 +46,7 @@ fn test_snapshot_with_cursor(
         alternate_scroll: true,
         mouse_mode: false,
         sgr_mouse: false,
+        show_cursor: true,
     }
 }
 
@@ -172,6 +173,52 @@ fn test_scrollback_layout_hides_live_cursor() {
         layers.last(),
         Some(&TerminalPaintLayer::Cursor),
         "scrollback 下最后一层不应仍是 Cursor，否则会覆盖历史文本"
+    );
+}
+
+/// TUI 关闭硬件光标后，绘制层不得再包含 Norma 玻璃光标。
+///
+/// 数据构造（含关键数值推导）：
+///   display_offset = 0，表示当前是 live viewport
+///   show_cursor = false，对应 CSI ?25l（Codex 等 TUI 会把硬件光标停在输入框左缘并隐藏）
+///   cursor_line=0，cursor_col=0，正好是输入框左边框那一格
+///
+/// 执行过程：
+///   1. 构造 show_cursor=false 的 snapshot
+///   2. build_layout 决定 cursor_visible
+///   3. paint_layer_order 决定是否包含 Cursor 层
+///
+/// 预期结果：
+///   - 正断言：layout.cursor_visible 为 false
+///   - 正断言：paint_layer_order 不含 Cursor
+///   - 负断言：即使 display_offset=0 也不应再画光标，否则会显示在输入框外
+#[test]
+fn test_hidden_show_cursor_omits_cursor_paint_layer() {
+    let palette = test_palette();
+    let fg = TerminalColor::Named(TerminalNamedColor::Foreground);
+    let bg = TerminalColor::Named(TerminalNamedColor::Background);
+    let rows = vec![vec![
+        test_cell('›', fg, bg, CellAttrs::default()),
+        test_cell(' ', fg, bg, CellAttrs::default()),
+    ]];
+    let mut snapshot = test_snapshot_with_cursor(rows, 0, 0);
+    snapshot.show_cursor = false;
+
+    let layout = build_layout(&snapshot, palette, test_metrics(), test_glass_style());
+    let layers = paint_layer_order(&layout);
+
+    assert!(
+        !layout.cursor_visible,
+        "show_cursor=false 时 live viewport 也不应显示 Norma 光标"
+    );
+    assert!(
+        !layers.contains(&TerminalPaintLayer::Cursor),
+        "隐藏硬件光标后不应绘制 Cursor 层，实际层为 {layers:?}"
+    );
+    assert_ne!(
+        layers.contains(&TerminalPaintLayer::Cursor),
+        true,
+        "Codex 输入框左缘的停放光标不应被 Norma 玻璃光标画出来"
     );
 }
 

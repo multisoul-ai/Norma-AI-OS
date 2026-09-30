@@ -38,6 +38,10 @@ pub(super) fn input_placeholder(
             CONFIGURED_API_KEY_PLACEHOLDER
         }
         VoiceSettingsField::MiniMaxApiKey => UNCONFIGURED_API_KEY_PLACEHOLDER,
+        VoiceSettingsField::DoubaoApiKey if state.values().doubao_credential_ref().is_some() => {
+            CONFIGURED_API_KEY_PLACEHOLDER
+        }
+        VoiceSettingsField::DoubaoApiKey => UNCONFIGURED_API_KEY_PLACEHOLDER,
         VoiceSettingsField::MiniMaxVoiceId => "Enter Voice ID",
         VoiceSettingsField::MiniMaxVoiceSearch => "Search by name or Voice ID",
     }

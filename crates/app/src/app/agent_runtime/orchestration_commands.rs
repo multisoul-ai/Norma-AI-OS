@@ -7,7 +7,7 @@ use norma::protocol::{
 
 pub(crate) fn execute_orchestration_agent_command(
     app: &mut MultisoulApp,
-    window: &mut Window,
+    window: Option<&mut Window>,
     command: CardCommand,
     source: agent::AgentDispatchSource,
     source_provider: AgentProfile,
@@ -24,7 +24,7 @@ pub(crate) fn execute_orchestration_agent_command(
 
 pub(crate) fn execute_orchestration_agent_command_with_visual_origin(
     app: &mut MultisoulApp,
-    window: &mut Window,
+    window: Option<&mut Window>,
     command: CardCommand,
     source: agent::AgentDispatchSource,
     source_provider: AgentProfile,
@@ -35,7 +35,7 @@ pub(crate) fn execute_orchestration_agent_command_with_visual_origin(
         CardCommand::AgentTaskResult { task_ref } => task_result(app, &task_ref),
         CardCommand::AgentTaskCancel { task_ref } => cancel_task(app, &task_ref),
         command => {
-            let area = app.visible_canvas_rect(window);
+            let area = app.mobile_canvas_area(window);
             let zoom = app.runtime.document.viewport.zoom;
             super::commands::execute_coordinated_agent_command(
                 app,
@@ -102,7 +102,8 @@ fn task_status(app: &MultisoulApp, task_ref: &str) -> Result<CardCommandResult, 
     let pending = app
         .pending_agent_submissions
         .task_stage(task.task_id)
-        .is_some();
+        .is_some()
+        && matches!(task.state, "queued" | "running" | "cancel_requested");
     let mut status = wire_task_status(task);
     if pending {
         status.status = AgentTaskReceiptStatus::Queued;
@@ -229,8 +230,18 @@ fn cancel_task(
         .cancel_task_ref(task_ref)
         .map_err(task_reference_error)?;
     let status = match cancellation {
-        agent::AgentTaskCancellation::Cancelled => AgentTaskReceiptStatus::Cancelled,
+        agent::AgentTaskCancellation::Cancelled => {
+            app.pending_agent_submissions.remove_task(task.task_id);
+            AgentTaskReceiptStatus::Cancelled
+        }
         agent::AgentTaskCancellation::CancelRequested => AgentTaskReceiptStatus::CancelRequested,
+        agent::AgentTaskCancellation::AlreadySubmitted => {
+            return Err(CardCommandError::agent(
+                AgentErrorCode::TaskNotCancellable,
+                "消息已交给 Agent CLI，请在卡片内管理其消息队列",
+                false,
+            ));
+        }
         agent::AgentTaskCancellation::NotFound => {
             return Err(CardCommandError::agent(
                 AgentErrorCode::TaskNotFound,

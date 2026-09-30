@@ -113,6 +113,18 @@ impl ConversationTailMemory {
 
 impl MultisoulApp {
     pub(crate) fn bind_conversation_tails_for_project(&mut self) {
+        let stored = self
+            .persistence
+            .project_store()
+            .and_then(|store| store.agent_conversation_tail_store().list().ok())
+            .unwrap_or_default();
+        self.bind_preloaded_conversation_tails(stored);
+    }
+
+    pub(crate) fn bind_preloaded_conversation_tails(
+        &mut self,
+        stored: Vec<StoredAgentConversationTail>,
+    ) {
         self.conversation_tail_memory = ConversationTailMemory::default();
         let Some(project_store) = self.persistence.project_store().cloned() else {
             self.conversation_tail_writer = None;
@@ -123,7 +135,7 @@ impl MultisoulApp {
             previous,
             project_store.agent_conversation_tail_store(),
         ));
-        if let Ok(stored) = project_store.agent_conversation_tail_store().list() {
+        {
             let tails = stored
                 .into_iter()
                 .filter_map(from_stored)

@@ -4,24 +4,24 @@ use canvas::CanvasNodeKind;
 use gpui::TestAppContext;
 use norma::protocol::AgentProfile;
 
-/// E2E-NORMA-LAYOUT-1：Norma 连续创建 AgentCard 时，前三张必须进入默认的每列两张网格。
+/// E2E-NORMA-LAYOUT-1：Norma 连续创建 AgentCard 时，前三张必须进入默认的每行三张网格。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   初始画布节点数 = 0
 ///   Norma `create_agent` 调用 = 3（Codex + Claude + Cursor）
-///   默认布局 = ColumnFirst、每列 2 张
-///   index=0 → 第 0 行第 0 列；index=1 → 第 1 行第 0 列；index=2 → 第 0 行第 1 列
+///   默认布局 = RowFirst、每行 3 张
+///   index=0 → 第 0 行第 0 列；index=1 → 第 0 行第 1 列；index=2 → 第 0 行第 2 列
 ///   预期 AgentCard 数 = 0 + 3 = 3
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 启动 headless 真实 MultisoulApp 并进入临时项目 Canvas。
 ///   2. 经 production `AgentCardAdapter` 依次执行三次 `create_agent`。
 ///   3. 从 Runtime 画布节点投影读取三张创建回执对应的最终 bounds。
-///   4. 比较尺寸与坐标，验证先向下填满两张、再向右开启第二列。
+///   4. 比较尺寸与坐标，验证前三张从左向右填满第一行。
 ///
 /// 预期结果：
 ///   - 正断言：三次创建都成功且画布精确存在三张 AgentCard。
-///   - 正断言：三张卡片尺寸相同；第二张在第一张下方，第三张在第一张右侧。
+///   - 正断言：三张卡片尺寸相同；第二张在第一张右侧，第三张在第二张右侧。
 ///   - 负断言：三张卡片的 origin 必须逐一不同，避免新建卡片覆盖已有卡片。
 #[test]
 fn norma_created_agents_join_the_current_grid_instead_of_maximizing() {
@@ -131,20 +131,20 @@ fn norma_created_agents_join_the_current_grid_instead_of_maximizing() {
         "the third AgentCard must use the same fitted size as the first two"
     );
     assert_eq!(
-        second_bounds.origin.x, first_bounds.origin.x,
-        "ColumnFirst must keep the first two AgentCards in the same column"
+        second_bounds.origin.y, first_bounds.origin.y,
+        "RowFirst must keep the first two AgentCards in the same row"
     );
     assert!(
-        second_bounds.origin.y > first_bounds.origin.y,
-        "the second AgentCard must occupy the grid cell below the first"
+        second_bounds.origin.x > first_bounds.origin.x,
+        "the second AgentCard must occupy the grid cell to the right of the first"
     );
     assert!(
-        third_bounds.origin.x > first_bounds.origin.x,
-        "after two cards the third AgentCard must open the column to the right"
+        third_bounds.origin.x > second_bounds.origin.x,
+        "the third AgentCard must occupy the third column to the right of the second"
     );
     assert_eq!(
         third_bounds.origin.y, first_bounds.origin.y,
-        "the third AgentCard must return to the first row of the second column"
+        "the third AgentCard must remain in the first row"
     );
     assert_ne!(
         first_bounds.origin, second_bounds.origin,

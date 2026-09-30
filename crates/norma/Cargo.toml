@@ -17,6 +17,7 @@ name = "multisoul-agent-hook"
 path = "src/bin/multisoul_agent_hook.rs"
 
 [dependencies]
+mobile_pairing = { path = "../mobile_pairing" }
 anyhow.workspace = true
 clap.workspace = true
 dirs.workspace = true
@@ -24,7 +25,15 @@ hex.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
+subtle = { version = "2.6", default-features = false }
 url.workspace = true
+tungstenite.workspace = true
+crossbeam-channel.workspace = true
+rustls.workspace = true
+# Already used by mobile_pairing/rustls; X25519, HKDF and AES-GCM for opaque relay sessions.
+ring = "0.17"
+# Self-signed pairing certificates; use the existing ring TLS backend.
+rcgen = { version = "=0.13.2", default-features = false, features = ["ring"] }
 
 [dev-dependencies]
 tempfile.workspace = true

@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-label="Norma OS · 频道对话">
+<title>Norma OS · 频道对话</title>
+<rect width="390" height="844" fill="#08090a"/>
+<style>text{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","PingFang SC",sans-serif}</style>
+<text x="25" y="30" font-size="15" fill="#f5f5f5" font-weight="650">9:41</text>
+<rect x="145" y="11" width="100" height="29" rx="15" fill="#020303"/>
+<text x="329" y="30" font-size="13" fill="#f5f5f5" font-weight="600">●●  ▰</text>
+<text x="320" y="73" font-size="10" fill="#929497" font-weight="550">概念稿</text>
+<text x="24" y="80" font-size="14" fill="#c9e8d6" font-weight="550">‹  频道</text>
+<text x="24" y="119" font-size="27" fill="#f5f5f5" font-weight="680">改进 iOS 首屏交接</text>
+<text x="24" y="147" font-size="12" fill="#929497" font-weight="400">执行中 · iOS App + API</text>
+<circle cx="35" cy="179" r="10" fill="#c9e8d6"/>
+<text x="35" y="183" font-size="9" fill="#172019" font-weight="700" text-anchor="middle">N</text>
+<circle cx="60" cy="179" r="10" fill="#9db8e8"/>
+<text x="60" y="183" font-size="9" fill="#172019" font-weight="700" text-anchor="middle">C</text>
+<circle cx="85" cy="179" r="10" fill="#d5baa8"/>
+<text x="85" y="183" font-size="9" fill="#172019" font-weight="700" text-anchor="middle">D</text>
+<text x="105" y="183" font-size="11" fill="#929497" font-weight="400">Norma、Codex、Design</text>
+<rect x="263" y="165" width="103" height="26" rx="13" fill="#dfece3"/>
+<text x="314.5" y="183" font-size="11" fill="#172019" font-weight="600" text-anchor="middle">与 Norma 通话</text>
+<rect x="24" y="207" width="342" height="104" rx="18" fill="#19231d" stroke="#4a6953" stroke-width="1"/>
+<text x="43" y="235" font-size="12" fill="#c9e8d6" font-weight="650">共享上下文</text>
+<text x="43" y="258" font-size="13" fill="#f5f5f5" font-weight="400">目标：让手机接续桌面工作更清楚</text>
+<text x="43" y="282" font-size="11" fill="#c6c7c9" font-weight="400">决定 2 条  ·  硬约束 1 条</text>
+<text x="341" y="283" font-size="19" fill="#c9e8d6" font-weight="400">›</text>
+<text x="24" y="344" font-size="11" fill="#929497" font-weight="400">今天 09:41 · 实时通话转写</text>
+<circle cx="38" cy="374" r="13" fill="#646b77"/>
+<text x="38" y="378" font-size="10" fill="#f5f5f5" font-weight="600" text-anchor="middle">我</text>
+<text x="61" y="370" font-size="12" fill="#c6c7c9" font-weight="600">你</text>
+<text x="61" y="392" font-size="13" fill="#f5f5f5" font-weight="400">@Norma，把首屏交接做顺，</text>
+<text x="61" y="412" font-size="13" fill="#f5f5f5" font-weight="400">iOS 和 API 都看一下。</text>
+<circle cx="38" cy="457" r="13" fill="#c9e8d6"/>
+<text x="38" y="461" font-size="10" fill="#172019" font-weight="700" text-anchor="middle">N</text>
+<text x="61" y="452" font-size="12" fill="#c9e8d6" font-weight="650">Norma</text>
+<text x="61" y="475" font-size="13" fill="#f5f5f5" font-weight="400">我会让 Design 检查引导，Codex 处理</text>
+<text x="61" y="495" font-size="13" fill="#f5f5f5" font-weight="400">实现；两个项目已关联到频道。</text>
+<text x="61" y="517" font-size="11" fill="#929497" font-weight="400">2 条派工接收回执  ·  查看依据</text>
+<rect x="24" y="540" width="342" height="93" rx="17" fill="#1b1e25" stroke="#405273" stroke-width="1"/>
+<rect x="24" y="540" width="4" height="93" rx="2" fill="#aac5ee"/>
+<text x="43" y="566" font-size="11" fill="#bdd3f5" font-weight="650">Codex · 执行中</text>
+<text x="43" y="590" font-size="14" fill="#f5f5f5" font-weight="600">调整 iOS 入口和状态提示</text>
+<text x="43" y="612" font-size="11" fill="#929497" font-weight="400">方案、进展和追问在原任务里  ›</text>
+<circle cx="38" cy="662" r="13" fill="#d5baa8"/>
+<text x="38" y="666" font-size="10" fill="#172019" font-weight="700" text-anchor="middle">D</text>
+<text x="61" y="657" font-size="12" fill="#efd2a6" font-weight="650">Design</text>
+<text x="61" y="679" font-size="12" fill="#f5f5f5" font-weight="400">已整理 3 处引导文案，等你看预览。</text>
+<rect x="24" y="721" width="342" height="50" rx="22" fill="#1d1e21" stroke="#434549" stroke-width="1"/>
+<text x="42" y="752" font-size="13" fill="#929497" font-weight="400">发消息，或 @ Agent…</text>
+<circle cx="339" cy="746" r="17" fill="#e6e6e6"/>
+<text x="339" y="752" font-size="19" fill="#111" font-weight="600" text-anchor="middle">↑</text>
+<rect x="146" y="830" width="98" height="5" rx="3" fill="#d8d8d8"/>
+</svg>

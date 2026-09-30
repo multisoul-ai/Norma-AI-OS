@@ -27,6 +27,19 @@ pub struct VoiceWindowInsetE2eSnapshot {
 }
 
 #[cfg(feature = "e2e-test-support")]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct AgentCardBorderE2eSnapshot {
+    pub stroke_color: u32,
+    pub fill_color: u32,
+    pub shadow_color: u32,
+    pub border_is_emphasized: bool,
+    pub breathing_border_active: bool,
+    pub border_glow_intensity_milli: u16,
+    pub border_flash_milli: u16,
+    pub shadow_count: usize,
+}
+
+#[cfg(feature = "e2e-test-support")]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DispatchReceiptEffectE2eSnapshot {
     pub canvas_active: bool,
@@ -51,6 +64,33 @@ pub struct DispatchReceiptEffectItemE2eSnapshot {
 }
 
 impl MultisoulApp {
+    #[cfg(feature = "e2e-test-support")]
+    pub fn agent_card_border_e2e_snapshot(
+        &mut self,
+        node_id: canvas::NodeId,
+    ) -> Option<AgentCardBorderE2eSnapshot> {
+        let rect = self.runtime.document.node(node_id)?.bounds;
+        let visual = self
+            .motion
+            .resolve_node_visual_at(node_id, rect, self.theme, Instant::now());
+        Some(AgentCardBorderE2eSnapshot {
+            stroke_color: visual.stroke_color,
+            fill_color: visual.fill_color,
+            shadow_color: visual.shadow_color,
+            border_is_emphasized: visual.border_is_emphasized,
+            breathing_border_active: visual.breathing_border_active,
+            border_glow_intensity_milli: visual
+                .border_glow
+                .map(|glow| (glow.intensity * 1000.0).round() as u16)
+                .unwrap_or(0),
+            border_flash_milli: visual
+                .border_glow
+                .map(|glow| (glow.flash * 1000.0).round() as u16)
+                .unwrap_or(0),
+            shadow_count: crate::cards::chrome::node_shadow(visual).len(),
+        })
+    }
+
     #[cfg(feature = "e2e-test-support")]
     pub fn dispatch_receipt_effect_e2e_snapshot(&self) -> DispatchReceiptEffectE2eSnapshot {
         let counts = self.motion.dispatch_receipt_counts();

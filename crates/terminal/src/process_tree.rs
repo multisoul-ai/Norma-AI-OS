@@ -1,5 +1,8 @@
 use portable_pty::ChildKiller;
 
+mod observation;
+pub use observation::ChildProcessObserver;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct ManagedProcessIdentity {
     pid: u32,
@@ -8,6 +11,10 @@ pub(crate) struct ManagedProcessIdentity {
     #[cfg(target_os = "macos")]
     start_microseconds: u64,
 }
+
+#[cfg(all(test, target_os = "macos"))]
+#[path = "../tests/unit/process_observation_tests.rs"]
+mod observation_tests;
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct ManagedProcess {
@@ -31,6 +38,10 @@ pub(crate) fn capture(root_pid: Option<u32>) -> ManagedProcess {
 impl ManagedProcess {
     pub(crate) fn pid(self) -> Option<u32> {
         self.pid
+    }
+
+    pub(crate) fn observer(self) -> Option<ChildProcessObserver> {
+        ChildProcessObserver::from_managed(self)
     }
 }
 
@@ -110,6 +121,10 @@ mod macos {
     }
 
     pub(super) fn process_identity(pid: u32) -> Option<ManagedProcessIdentity> {
+        process_info(pid).map(|(identity, _)| identity)
+    }
+
+    pub(super) fn process_info(pid: u32) -> Option<(ManagedProcessIdentity, u32)> {
         let pid = libc::pid_t::try_from(pid).ok()?;
         if pid <= 1 {
             return None;
@@ -130,14 +145,24 @@ mod macos {
             return None;
         }
         let info = unsafe { info.assume_init() };
-        Some(ManagedProcessIdentity {
-            pid: info.pbi_pid,
-            start_seconds: info.pbi_start_tvsec,
-            start_microseconds: info.pbi_start_tvusec,
-        })
+        if info.pbi_pid != pid as u32 {
+            return None;
+        }
+        Some((
+            ManagedProcessIdentity {
+                pid: info.pbi_pid,
+                start_seconds: info.pbi_start_tvsec,
+                start_microseconds: info.pbi_start_tvusec,
+            },
+            info.pbi_ppid,
+        ))
     }
 
-    fn child_pids(parent_pid: libc::pid_t) -> Vec<libc::pid_t> {
+    pub(super) fn child_pids(parent_pid: libc::pid_t) -> Vec<libc::pid_t> {
+        checked_child_pids(parent_pid).unwrap_or_default()
+    }
+
+    pub(super) fn checked_child_pids(parent_pid: libc::pid_t) -> Option<Vec<libc::pid_t>> {
         let mut capacity = INITIAL_CHILD_CAPACITY;
         loop {
             let mut pids = vec![0 as libc::pid_t; capacity];
@@ -145,17 +170,21 @@ mod macos {
                 .len()
                 .saturating_mul(std::mem::size_of::<libc::pid_t>());
             let Ok(byte_len) = libc::c_int::try_from(byte_len) else {
-                return Vec::new();
+                return None;
             };
-            let count =
-                unsafe { libc::proc_listchildpids(parent_pid, pids.as_mut_ptr().cast(), byte_len) };
-            if count <= 0 {
-                return Vec::new();
+            let (count, error) = unsafe {
+                *libc::__error() = 0;
+                let count =
+                    libc::proc_listchildpids(parent_pid, pids.as_mut_ptr().cast(), byte_len);
+                (count, *libc::__error())
+            };
+            if count < 0 || (count == 0 && error != 0) {
+                return None;
             }
             let count = count as usize;
             if count < capacity || capacity >= MAX_CHILD_CAPACITY {
                 pids.truncate(count.min(capacity));
-                return pids;
+                return Some(pids);
             }
             capacity = capacity.saturating_mul(2).min(MAX_CHILD_CAPACITY);
         }

@@ -90,7 +90,7 @@ impl MultisoulApp {
                     app.stop_continuous_listening(cx);
                     app.voice.stop_for_model_switch();
                     app.voice_settings.select_tts_model_and_voice(None, None);
-                    crate::app::dialogue::configure_selected_tts_model(None);
+                    app.dialogue.selected_tts_model = None;
                     app.persist_voice_settings_in_background(cx);
                 }
                 cx.notify();

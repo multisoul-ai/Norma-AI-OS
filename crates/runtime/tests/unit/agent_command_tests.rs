@@ -252,6 +252,7 @@ fn test_task_title_locked_on_first_set() {
             profile: canvas::AgentProfile::Claude,
             alias: None,
             definition_id: None,
+            mobile_control: false,
         }),
         canvas::CanvasRect::new(0.0, 0.0, 100.0, 80.0),
     );
@@ -305,6 +306,7 @@ fn test_task_title_none_does_not_write() {
             profile: canvas::AgentProfile::Codex,
             alias: None,
             definition_id: None,
+            mobile_control: false,
         }),
         canvas::CanvasRect::new(0.0, 0.0, 100.0, 80.0),
     );
@@ -347,6 +349,7 @@ fn test_task_title_cleared_on_node_remove() {
             profile: canvas::AgentProfile::Claude,
             alias: None,
             definition_id: None,
+            mobile_control: false,
         }),
         canvas::CanvasRect::new(0.0, 0.0, 100.0, 80.0),
     );
@@ -441,6 +444,7 @@ fn test_task_title_cleared_on_new_session() {
             profile: canvas::AgentProfile::Claude,
             alias: None,
             definition_id: None,
+            mobile_control: false,
         }),
         canvas::CanvasRect::new(0.0, 0.0, 100.0, 80.0),
     );

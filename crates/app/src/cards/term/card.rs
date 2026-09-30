@@ -54,7 +54,6 @@ impl Card for TermCard {
                 reduce_motion: context.reduce_motion,
                 initialization: context.initialization,
                 cursor_phase: context.terminal_cursor_phase,
-                cursor_task_running: None,
             },
         )
     }

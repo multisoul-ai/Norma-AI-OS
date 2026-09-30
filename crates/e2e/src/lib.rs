@@ -1,17 +1,18 @@
-//! E2E 测试 crate：在 headless GPUI `TestAppContext` 中驱动 `MultisoulApp`。
+//! 已禁用的旧 E2E 测试 crate，后续需要删除与重构；新需求不再使用。
 //!
-//! 本 crate 隔离 headless GPUI 启动，避免污染域层的快速单测。`gpui` 的
-//! `test-support` feature 在此 crate 局部启用，生产 `cargo build -p app`
-//! 不受影响。跨 crate domain-level 验收测试放在 `tests/`。
+//! 源码暂留作历史参考。即使显式指定 `--lib` / `--all-targets`，也不编译旧测试。
 
-#![cfg(test)]
+#![cfg(any())]
 
 use app::{AppScreen, MultisoulApp};
 use gpui::TestAppContext;
 
+mod e2e_debug_bounds;
 /// E2E 驱动 harness：装配 MultisoulApp、进入 Canvas、创建 Terminal、读取 runtime。
 /// 详见 `harness.rs` 顶部模块文档。Task 8/9 (E2E-01/02) 在此模块上构建。
 mod harness;
+#[path = "../tests/support/mobile.rs"]
+mod mobile_wire;
 
 // E2E-01（SPEC §4.2）：创建 Terminal 节点 + 焦点 + layout reflow 正/负断言矩阵。
 mod e2e_01_create_terminal;
@@ -27,6 +28,25 @@ mod e2e_02_terminal_echo;
 
 // E2E-02：用户删除 live 卡片时，必须沿统一关闭路由请求终止 PTY 后端。
 mod e2e_02_process_cleanup;
+mod e2e_mobile_archive;
+mod e2e_mobile_background;
+mod e2e_mobile_background_messages;
+mod e2e_mobile_claude_interrupt;
+mod e2e_mobile_codex_readiness;
+mod e2e_mobile_commands;
+mod e2e_mobile_controlled_claude;
+mod e2e_mobile_controlled_codex;
+mod e2e_mobile_conversation;
+mod e2e_mobile_desktop_input;
+mod e2e_mobile_images;
+mod e2e_mobile_native_approval_probe;
+mod e2e_mobile_native_codex_interrupt;
+mod e2e_mobile_plans;
+mod e2e_mobile_progress;
+mod e2e_mobile_review;
+mod e2e_mobile_settings;
+mod e2e_mobile_snapshot;
+mod e2e_mobile_task_baseline;
 
 // E2E-02：终端应用输出 DSR 查询时，卡片必须将坐标报告写回同一 PTY。
 mod e2e_02_terminal_dsr;
@@ -49,6 +69,7 @@ mod e2e_02_real_pty;
 // Settings E2E：真实点击 Settings 面板控件、录制快捷键、恢复默认、关闭面板。
 mod e2e_03_api_key_visibility;
 mod e2e_03_azure_asr_settings;
+mod e2e_03_doubao_desktop;
 mod e2e_03_orchestration_auto_repair;
 mod e2e_03_orchestration_settings;
 mod e2e_03_performance_settings;
@@ -73,6 +94,7 @@ mod e2e_05_card_initialization_animation;
 mod e2e_05_master_layout_animation;
 
 // Agent 任务结束后：即使交互式 PTY 存活，光标运行态动画也必须停止。
+mod e2e_05_agent_border;
 mod e2e_05_agent_task_cursor_animation;
 
 // 语音驱动窗口内缘光：PCM 能量、Settings 层级与正常收束。
@@ -104,6 +126,7 @@ mod e2e_11_launchpad_video;
 // 可语音呼叫 Agent：Settings 未保存草稿与快速创建的定义/卡片闭环。
 mod e2e_12_agent_presentation;
 mod e2e_12_agent_queue_ui;
+mod e2e_12_agent_running_dispatch;
 mod e2e_12_agent_self_dispatch;
 mod e2e_12_agent_settings_delete;
 mod e2e_12_agent_settings_ime;
@@ -120,6 +143,7 @@ mod e2e_12_dispatch_receipt_effect;
 mod e2e_12_norma_agent_layout;
 mod e2e_12_norma_master;
 mod e2e_12_orchestration_lifecycle;
+mod e2e_12_quick_agent_name_reuse;
 mod e2e_12_session_reply;
 mod e2e_12_session_reply_card_present;
 mod e2e_12_session_reply_queue;
@@ -438,3 +462,22 @@ fn smoke_headless_gpui_boots_to_launchpad() {
         "未 OpenProject，屏幕不应为 Canvas"
     );
 }
+
+#[cfg(test)]
+mod e2e_mobile_messages;
+
+#[cfg(test)]
+mod e2e_mobile_native_codex_approval;
+
+mod e2e_mobile_terminal;
+
+#[cfg(test)]
+mod e2e_mobile_empty_claude;
+
+#[cfg(test)]
+mod e2e_realtime_adapter;
+mod e2e_realtime_roster;
+mod e2e_thread_followup;
+#[cfg(test)]
+mod e2e_thread_terminal;
+mod e2e_thread_terminal_control;

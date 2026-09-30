@@ -53,12 +53,12 @@ impl MultisoulApp {
                     .is_some_and(|provider| provider.as_str() == tts::LOCAL_TTS_PROVIDER_ID);
                 match configured {
                     Ok(Some(model)) if local_active => {
-                        crate::app::dialogue::configure_selected_tts_model(Some(model))
+                        app.dialogue.selected_tts_model = Some(model)
                     }
                     Ok(Some(_)) => {}
                     Ok(None) => {
                         if local_active {
-                            crate::app::dialogue::configure_selected_tts_model(None);
+                            app.dialogue.selected_tts_model = None;
                         }
                         app.voice_settings.report_tts_status(
                             "No Local TTS model is selected; replies will stay text-only.",
@@ -67,7 +67,7 @@ impl MultisoulApp {
                     }
                     Err(error) => {
                         if local_active {
-                            crate::app::dialogue::configure_selected_tts_model(None);
+                            app.dialogue.selected_tts_model = None;
                         }
                         app.voice_settings.report_tts_status(
                             format!(

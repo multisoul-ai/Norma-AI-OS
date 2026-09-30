@@ -5,6 +5,12 @@ pub type StorageResult<T> = Result<T, StorageError>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum StorageError {
+    #[error("invalid project plan: {0}")]
+    InvalidProjectPlan(String),
+    #[error("invalid mobile command: {0}")]
+    InvalidMobileCommand(String),
+    #[error("invalid mobile authorization: {0}")]
+    InvalidMobileAccess(String),
     #[error("could not determine user home directory for Application Support")]
     MissingHomeDirectory,
     #[error("invalid app database path: {0}")]

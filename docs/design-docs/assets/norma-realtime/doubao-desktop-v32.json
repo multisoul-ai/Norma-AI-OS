@@ -1,0 +1,31 @@
+{
+  "speech": [
+    "可以先讨论，尚未派工。",
+    "任务已接收，尚未完成。",
+    "1项执行完成，1项待你验收。",
+    "详情在成果记录中。"
+  ],
+  "frames": 37,
+  "receipts": [
+    {
+      "status": "accepted",
+      "message": "已创建并打开 Agent Alan，AgentCard 已接收任务",
+      "node_id": 1,
+      "operation_id": "rt-92800906ff53ec064a1668e5b8b47b1ae5e5c1627fb62b6c79ac18d3800332b8",
+      "task_id": 1
+    }
+  ],
+  "chats": 3,
+  "stored": {
+    "mobile_commands": 1,
+    "mobile_turn_outcomes": 1,
+    "mobile_task_baselines": 1,
+    "mobile_task_deliveries": 1,
+    "mobile_delivery_acceptances": 0
+  },
+  "desktop_listener_stopped": true,
+  "asr_packet_counts": {
+    "configuration": 1,
+    "audio": 36
+  }
+}

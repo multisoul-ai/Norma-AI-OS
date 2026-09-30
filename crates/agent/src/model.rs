@@ -3,6 +3,8 @@ pub type TaskId = u64;
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum AgentInputSource {
     Voice,
+    /// Only the local desktop Doubao session may use this source.
+    DoubaoVoice,
     #[default]
     Other,
 }

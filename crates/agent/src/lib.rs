@@ -12,10 +12,16 @@ mod master;
 mod master_history;
 mod master_prompt;
 mod model;
+mod project_plan;
 mod protocol;
 mod provider_catalog;
+mod realtime_intent;
 mod reply_visibility;
 mod rig_tools;
+mod tool_policy;
+
+pub use realtime_intent::realtime_command_authorized;
+pub use tool_policy::{ToolCallBudget, ToolCallPolicy, MAX_TOOL_CALLS_PER_TURN};
 
 pub use adapter::{
     norma_tool_definitions, AdapterCommand, AdapterError, AdapterResult, AgentCardAdapter,
@@ -49,6 +55,9 @@ pub use master::{
 };
 pub use master_prompt::norma_system_prompt;
 pub use model::{AgentCommand, AgentEvent, AgentInputSource, TaskId, TaskState};
+pub use project_plan::{
+    generate_project_plan, valid_plan_direction, PlanTodo, PlanTodoChoice, ProjectPlanDraft,
+};
 pub use protocol::{ProviderConfig, ProviderError, ProviderProtocol, RedactedProviderConfig};
 pub use provider_catalog::{
     discover_provider_models, normalize_provider_models, validate_provider_model,

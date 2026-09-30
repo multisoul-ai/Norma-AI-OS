@@ -1,4 +1,5 @@
 use self::asr_provider::asr_provider_group;
+use self::doubao::{desktop_mode_picker, doubao_settings};
 pub(crate) use self::editable::VoiceSettingsInputs;
 use self::input_device::input_device_row;
 use self::interaction::interaction_group;
@@ -10,10 +11,12 @@ use self::spoken_reply::spoken_reply_group;
 use self::status::status_message;
 use super::state::{VoiceSettingsField, VoiceSettingsState, VoiceSetupDestination};
 use crate::app::MultisoulApp;
-use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, FontWeight, SharedString, Window};
+use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, FontWeight, Window};
 use ui::Theme;
 
 mod asr_provider;
+mod components;
+mod doubao;
 mod editable;
 mod input_device;
 mod interaction;
@@ -27,6 +30,7 @@ mod status;
 mod tts_catalog;
 mod tts_provider;
 
+pub(super) use components::action_button;
 pub(crate) use options::VoiceSettingsView;
 
 pub(crate) fn voice_settings(
@@ -42,17 +46,34 @@ pub(crate) fn voice_settings(
         setup_scroll_target,
         voice_shortcut_label,
     } = view;
+    let picker = desktop_mode_picker(theme, state, cx);
+    if state.values().desktop_mode() == super::DesktopVoiceMode::Doubao {
+        return div()
+            .w_full()
+            .flex()
+            .flex_col()
+            .gap(px(20.0))
+            .child(picker)
+            .child(doubao_settings(theme, state, inputs, cx))
+            .children(status_message(theme, state));
+    }
     if !matches!(state.readiness(), super::VoiceEntryState::Ready) || state.reviewing_setup() {
-        return voice_setup(
-            theme,
-            state,
-            inputs,
-            content_scroll,
-            setup_scroll_target,
-            window,
-            cx,
-        )
-        .children(status_message(theme, state));
+        return div()
+            .w_full()
+            .flex()
+            .flex_col()
+            .gap(px(20.0))
+            .child(picker)
+            .child(voice_setup(
+                theme,
+                state,
+                inputs,
+                content_scroll,
+                setup_scroll_target,
+                window,
+                cx,
+            ))
+            .children(status_message(theme, state));
     }
     div()
         .w_full()
@@ -60,6 +81,7 @@ pub(crate) fn voice_settings(
         .flex()
         .flex_col()
         .gap(px(20.0))
+        .child(picker)
         .child(voice_ready_overview(theme, voice_shortcut_label, cx))
         .child(interaction_group(theme, state, voice_shortcut_label, cx))
         .child(settings_group(theme, "Input").child(input_device_row(theme, state, cx)))
@@ -185,6 +207,7 @@ impl MultisoulApp {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.stop_doubao_voice(cx);
         self.voice_settings.select_input_device(None);
         self.voice_settings.close_input_device_picker();
         self.persist_voice_settings_in_background(cx);
@@ -284,7 +307,7 @@ impl MultisoulApp {
                     app.cancel_agent_announcements();
                     app.tts_preview.cancel();
                     app.invalidate_tts_for_configuration_change(cx);
-                    crate::app::dialogue::configure_selected_tts_model(None);
+                    app.dialogue.selected_tts_model = None;
                 }
                 if let Some(activation) = app.pending_tts_activation.take() {
                     let selected = &activation.selected;
@@ -469,25 +492,6 @@ pub(super) fn setting_label(theme: Theme, title: &'static str, hint: &'static st
                 .text_color(rgba(theme.text_tertiary))
                 .child(hint),
         )
-}
-
-/// Settings actions keep a GPUI `Div` because callers attach stable debug selectors after
-/// construction; gpui-component 0.5.1's `Button` does not expose that test seam or this compact
-/// accent variant. Keep this exception local instead of introducing another general button type.
-pub(super) fn action_button(_theme: Theme, label: impl Into<SharedString>, accent: u32) -> Div {
-    div()
-        .px(px(12.0))
-        .py(px(8.0))
-        .rounded(px(8.0))
-        .border_1()
-        .border_color(rgba(with_alpha(accent, 0x70)))
-        .bg(rgba(with_alpha(accent, 0x18)))
-        .text_size(px(13.0))
-        .font_weight(FontWeight::MEDIUM)
-        .text_color(rgba(accent))
-        .cursor_pointer()
-        .hover(move |style| style.bg(rgba(with_alpha(accent, 0x28))))
-        .child(label.into())
 }
 
 pub(super) fn with_alpha(color: u32, alpha: u8) -> u32 {

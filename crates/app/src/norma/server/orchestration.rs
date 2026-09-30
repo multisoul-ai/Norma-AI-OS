@@ -93,7 +93,7 @@ impl MultisoulApp {
     pub(crate) fn execute_validated_orchestration_command(
         &mut self,
         request: ValidatedOrchestrationCommand,
-        window: &mut Window,
+        window: Option<&mut Window>,
         cx: &mut Context<Self>,
     ) -> norma::protocol::WireResponse {
         let ValidatedOrchestrationCommand {

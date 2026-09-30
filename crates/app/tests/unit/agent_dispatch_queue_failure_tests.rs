@@ -123,21 +123,21 @@ fn test_queued_submission_failure_retries_same_fifo_head_before_next_task() {
         Ok(CardCommandResult::AgentTasksDispatched { receipts }) => receipts[0].node_id,
         other => panic!("首项任务应返回 node_id，实际：{other:?}"),
     };
-    let first_submitted = app.update(cx, |app, _cx| {
-        app.submit_pending_agent_task_for_ready_node(node_id)
+    let first_submitted = app.update(cx, |app, cx| {
+        app.submit_pending_agent_task_for_ready_node(node_id, cx)
     });
     let advanced = app.update(cx, |app, _cx| app.advance_agent_task_queue(node_id));
-    let second_typed = app.update(cx, |app, _cx| {
-        app.submit_pending_agent_task_for_ready_node(node_id)
+    let second_typed = app.update(cx, |app, cx| {
+        app.submit_pending_agent_task_for_ready_node(node_id, cx)
     });
-    let second_enter_failed = app.update(cx, |app, _cx| {
-        app.submit_pending_agent_task_for_ready_node(node_id)
+    let second_enter_failed = app.update(cx, |app, cx| {
+        app.submit_pending_agent_task_for_ready_node(node_id, cx)
     });
-    let second_retyped = app.update(cx, |app, _cx| {
-        app.submit_pending_agent_task_for_ready_node(node_id)
+    let second_retyped = app.update(cx, |app, cx| {
+        app.submit_pending_agent_task_for_ready_node(node_id, cx)
     });
-    let second_submitted = app.update(cx, |app, _cx| {
-        app.submit_pending_agent_task_for_ready_node(node_id)
+    let second_submitted = app.update(cx, |app, cx| {
+        app.submit_pending_agent_task_for_ready_node(node_id, cx)
     });
     let actual_writes = writes.lock().expect("队列失败写入记录应可读取").clone();
 

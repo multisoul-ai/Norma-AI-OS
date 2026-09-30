@@ -183,6 +183,10 @@ impl AgentDefinitionStore {
             "DELETE FROM agent_dispatch_tasks WHERE definition_id = ?1",
             params![id],
         )?;
+        transaction.execute(
+            "DELETE FROM agent_conversation_tails WHERE definition_id = ?1",
+            params![id],
+        )?;
         let deleted =
             transaction.execute("DELETE FROM agent_definitions WHERE id = ?1", params![id])? > 0;
         transaction.commit()?;
@@ -211,6 +215,10 @@ impl AgentDefinitionStore {
             "DELETE FROM agent_dispatch_tasks WHERE definition_id = ?1",
             params![id],
         )?;
+        transaction.execute(
+            "DELETE FROM agent_conversation_tails WHERE definition_id = ?1",
+            params![id],
+        )?;
         let deleted = transaction.execute(
             "DELETE FROM agent_definitions WHERE id = ?1 AND origin = ?2",
             params![
@@ -220,6 +228,36 @@ impl AgentDefinitionStore {
         )? > 0;
         transaction.commit()?;
         Ok(deleted)
+    }
+
+    /// Deletes QuickCard definitions whose id is not in `live_ids`, returning the count removed.
+    pub fn purge_quick_except(&self, live_ids: &[i64]) -> StorageResult<usize> {
+        let mut connection = open_project_connection(&self.path)?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let quick_ids = {
+            let mut statement =
+                transaction.prepare("SELECT id FROM agent_definitions WHERE origin = ?1")?;
+            let rows = statement.query_map(
+                params![encode_agent_definition_origin(
+                    AgentDefinitionOrigin::QuickCard
+                )],
+                |row| row.get::<_, i64>(0),
+            )?;
+            rows.collect::<Result<Vec<_>, _>>()?
+        };
+        let mut purged = 0;
+        for id in quick_ids.into_iter().filter(|id| !live_ids.contains(id)) {
+            for table in ["agent_dispatch_tasks", "agent_conversation_tails"] {
+                transaction.execute(
+                    &format!("DELETE FROM {table} WHERE definition_id = ?1"),
+                    params![id],
+                )?;
+            }
+            purged +=
+                transaction.execute("DELETE FROM agent_definitions WHERE id = ?1", params![id])?;
+        }
+        transaction.commit()?;
+        Ok(purged)
     }
 
     fn get(&self, id: i64) -> StorageResult<Option<AgentDefinition>> {

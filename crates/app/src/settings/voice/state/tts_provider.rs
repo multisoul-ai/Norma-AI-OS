@@ -247,10 +247,13 @@ impl VoiceSettingsState {
         self.minimax_credential_clear_rollback = Some(MiniMaxCredentialClearRollback {
             account: account.clone(),
         });
-        // Delete the recoverable SQLite reference first. If Keychain deletion then fails,
+        // Delete the recoverable SQLite reference first. If credential deletion then fails,
         // the completion handler restores this reference while the secret remains in memory.
         self.delete_string(KEY_TTS_MINIMAX_CREDENTIAL_REF);
-        self.queue_pending_write(PendingVoiceSettingWrite::DeleteCredential { account });
+        self.queue_pending_write(PendingVoiceSettingWrite::DeleteCredential {
+            store: self.storage.clone(),
+            account,
+        });
     }
 
     pub(crate) fn begin_minimax_connection(&mut self) -> Result<(u64, String), String> {
@@ -442,6 +445,7 @@ impl VoiceSettingsState {
             new_account: account.clone(),
         });
         self.queue_pending_write(PendingVoiceSettingWrite::StoreCredential {
+            store: self.storage.clone(),
             account: account.clone(),
             secret,
         });

@@ -79,35 +79,6 @@ impl SelectedTtsModel {
     }
 }
 
-static SELECTED_TTS_MODEL: Mutex<Option<SelectedTtsModel>> = Mutex::new(None);
-
-pub(crate) fn configure_selected_tts_model(model: Option<SelectedTtsModel>) {
-    *SELECTED_TTS_MODEL
-        .lock()
-        .expect("selected TTS model lock should not be poisoned") = model;
-}
-
-pub(crate) fn selected_tts_model() -> Option<SelectedTtsModel> {
-    SELECTED_TTS_MODEL
-        .lock()
-        .expect("selected TTS model lock should not be poisoned")
-        .clone()
-}
-
-pub(crate) fn selected_tts_model_matches(
-    model_id: Option<&tts::TtsModelId>,
-    voice_id: Option<&tts::TtsVoiceId>,
-) -> bool {
-    let (Some(model_id), Some(voice_id)) = (model_id, voice_id) else {
-        return false;
-    };
-    SELECTED_TTS_MODEL
-        .lock()
-        .expect("selected TTS model lock should not be poisoned")
-        .as_ref()
-        .is_some_and(|selected| &selected.model_id == model_id && &selected.voice_id == voice_id)
-}
-
 pub(crate) fn create_tts_client_for_selected(
     selected: &SelectedTtsModel,
 ) -> Result<TtsClientBox, SpeechError> {
@@ -339,12 +310,6 @@ type AssistantAudioSinkFactory = fn() -> Box<dyn AssistantAudioSink>;
 
 static TTS_CLIENT_FACTORY: Mutex<Option<TtsClientFactory>> = Mutex::new(None);
 static AUDIO_SINK_FACTORY: Mutex<Option<AssistantAudioSinkFactory>> = Mutex::new(None);
-
-#[cfg(test)]
-pub(crate) fn create_tts_client() -> Result<TtsClientBox, SpeechError> {
-    let selected = selected_tts_model();
-    create_tts_client_for_selection(selected.as_ref())
-}
 
 pub(crate) fn create_tts_client_for_selection(
     selected: Option<&SelectedTtsModel>,

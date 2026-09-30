@@ -1,0 +1,244 @@
+{
+  "crashed_pid": 76646,
+  "recovered_receipt": {
+    "status": "accepted",
+    "message": "已创建并打开 Agent Alan，AgentCard 已接收任务",
+    "task_id": 1,
+    "node_id": 1,
+    "operation_id": "rt-2459086bf87d4fe0efacce5aded01540a3df6bdfcb6c523c379422c9382a9ef7"
+  },
+  "operations": {
+    "version": 1,
+    "request_id": "recovered-operations",
+    "result": {
+      "status": "realtime_operations",
+      "grant": {
+        "device_id": "phone-l3",
+        "device_name": "Realtime Bundle Test",
+        "projects": [
+          {
+            "workspace_id": "2576b4bf-47b0-4a5f-9eb5-602d7ddb6fd7",
+            "access": "control"
+          }
+        ],
+        "revision": 1,
+        "revoked": false
+      },
+      "operations": [
+        {
+          "sequence": 1,
+          "device_id": "phone-l3",
+          "call_id": "rtc_bundle_l3",
+          "turn_id": "utterance-l3",
+          "workspace_id": "2576b4bf-47b0-4a5f-9eb5-602d7ddb6fd7",
+          "operation_id": "rt-2459086bf87d4fe0efacce5aded01540a3df6bdfcb6c523c379422c9382a9ef7",
+          "result": {
+            "status": "accepted",
+            "message": "已创建并打开 Agent Alan，AgentCard 已接收任务",
+            "task_id": 1,
+            "node_id": 1
+          }
+        }
+      ]
+    }
+  },
+  "snapshot": {
+    "version": 1,
+    "request_id": "snapshot",
+    "result": {
+      "status": "snapshot",
+      "grant": {
+        "device_id": "phone-l3",
+        "device_name": "Realtime Bundle Test",
+        "projects": [
+          {
+            "workspace_id": "2576b4bf-47b0-4a5f-9eb5-602d7ddb6fd7",
+            "access": "control"
+          }
+        ],
+        "revision": 1,
+        "revoked": false
+      },
+      "projects": [
+        {
+          "workspace_id": "2576b4bf-47b0-4a5f-9eb5-602d7ddb6fd7",
+          "display_name": "Realtime Delivery",
+          "state": "open",
+          "route_id": "42b7d146-bcd3-4ff3-8d5d-99092de57cdc",
+          "card_count": 1,
+          "cards": [
+            {
+              "node_id": 1,
+              "profile": "Codex",
+              "title": "Alan",
+              "mobile_control": true,
+              "state": "ready",
+              "run_id": "1ff32fa9-1d09-4a5e-b8b6-dcbe05211405",
+              "session_id": "f1fd93d3-3906-4a62-bc64-39a2445edc9e",
+              "turn_id": null,
+              "task_title": null,
+              "can_interrupt": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "delivery": {
+    "response": {
+      "version": 1,
+      "request_id": "recovered-delivery",
+      "result": {
+        "status": "task_deliveries",
+        "grant": {
+          "device_id": "phone-l3",
+          "device_name": "Realtime Bundle Test",
+          "projects": [
+            {
+              "workspace_id": "2576b4bf-47b0-4a5f-9eb5-602d7ddb6fd7",
+              "access": "control"
+            }
+          ],
+          "revision": 1,
+          "revoked": false
+        },
+        "deliveries": {
+          "request": {
+            "workspace_id": "2576b4bf-47b0-4a5f-9eb5-602d7ddb6fd7",
+            "route_id": "42b7d146-bcd3-4ff3-8d5d-99092de57cdc"
+          },
+          "node_id": null,
+          "items": [
+            {
+              "sequence": 1,
+              "workspace_id": "2576b4bf-47b0-4a5f-9eb5-602d7ddb6fd7",
+              "outcome": {
+                "key": {
+                  "node_id": 1,
+                  "profile": "Codex",
+                  "run_id": "c8925ca1-d369-49bf-a034-46f9da3dda05",
+                  "session_id": "0e766068-882d-4746-9e29-8afe88ae05a6",
+                  "turn_id": "1284fc78-444d-4ae8-ab3b-575d347fde22"
+                },
+                "state": "completed",
+                "summary": "已创建 result.txt，并核对内容。"
+              },
+              "fingerprint": "61e626989aecae712dd74085ff95d84552e1cde8c8b61ae21e81cbbdebc3e5a4",
+              "saved_at_unix": 1789330285,
+              "status": "window_closed",
+              "file_count": 0,
+              "acceptance": null
+            }
+          ],
+          "next_cursor": null,
+          "pending_only": false,
+          "pending_count": 0,
+          "collecting": false
+        }
+      }
+    },
+    "inbox": {
+      "version": 1,
+      "request_id": "pending",
+      "result": {
+        "status": "task_deliveries",
+        "grant": {
+          "device_id": "phone-l3",
+          "device_name": "Realtime Bundle Test",
+          "projects": [
+            {
+              "workspace_id": "2576b4bf-47b0-4a5f-9eb5-602d7ddb6fd7",
+              "access": "control"
+            }
+          ],
+          "revision": 1,
+          "revoked": false
+        },
+        "deliveries": {
+          "request": {
+            "workspace_id": "2576b4bf-47b0-4a5f-9eb5-602d7ddb6fd7",
+            "route_id": "42b7d146-bcd3-4ff3-8d5d-99092de57cdc"
+          },
+          "node_id": null,
+          "items": [],
+          "next_cursor": null,
+          "pending_only": true,
+          "pending_count": 0,
+          "collecting": false
+        }
+      }
+    },
+    "saved": {
+      "workspace_id": "2576b4bf-47b0-4a5f-9eb5-602d7ddb6fd7",
+      "outcome": {
+        "key": {
+          "node_id": 1,
+          "profile": "Codex",
+          "run_id": "c8925ca1-d369-49bf-a034-46f9da3dda05",
+          "session_id": "0e766068-882d-4746-9e29-8afe88ae05a6",
+          "turn_id": "1284fc78-444d-4ae8-ab3b-575d347fde22"
+        },
+        "state": "completed",
+        "summary": "已创建 result.txt，并核对内容。"
+      },
+      "content": {
+        "status": "unavailable",
+        "reason": "window_closed"
+      },
+      "fingerprint": "61e626989aecae712dd74085ff95d84552e1cde8c8b61ae21e81cbbdebc3e5a4",
+      "saved_at_unix": 1789330285
+    }
+  },
+  "task_state": "Done",
+  "task_result": "已创建 result.txt，并核对内容。",
+  "before_crash": {
+    "outcome": {
+      "key": {
+        "node_id": 1,
+        "profile": "Codex",
+        "run_id": "c8925ca1-d369-49bf-a034-46f9da3dda05",
+        "session_id": "0e766068-882d-4746-9e29-8afe88ae05a6",
+        "turn_id": "1284fc78-444d-4ae8-ab3b-575d347fde22"
+      },
+      "state": "completed",
+      "summary": "已创建 result.txt，并核对内容。"
+    },
+    "baseline": {
+      "workspace_id": "2576b4bf-47b0-4a5f-9eb5-602d7ddb6fd7",
+      "route_id": "ea8accba-300e-4e65-959b-d4e070066410",
+      "device_id": "phone-l3",
+      "operation_id": "rt-2459086bf87d4fe0efacce5aded01540a3df6bdfcb6c523c379422c9382a9ef7",
+      "key": {
+        "node_id": 1,
+        "profile": "Codex",
+        "run_id": "c8925ca1-d369-49bf-a034-46f9da3dda05",
+        "session_id": "0e766068-882d-4746-9e29-8afe88ae05a6",
+        "turn_id": "1284fc78-444d-4ae8-ab3b-575d347fde22"
+      },
+      "baseline": {
+        "status": "available",
+        "review": {
+          "base_commit": null,
+          "files": [],
+          "conflicted": false
+        }
+      },
+      "recorded_at_unix": 1789330150
+    },
+    "file": "realtime complete\n",
+    "delivery": null
+  },
+  "later_file": "unrelated edit after crash\n",
+  "provider_turns": [
+    {
+      "turn": "1284fc78-444d-4ae8-ab3b-575d347fde22",
+      "prompt": "创建 result.txt，内容为 realtime complete"
+    }
+  ],
+  "listeners_stopped": {
+    "53589": true,
+    "56896": true
+  },
+  "test_grant_revoked": true,
+  "test_trigger_removed": true
+}

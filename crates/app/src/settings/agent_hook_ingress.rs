@@ -1,9 +1,12 @@
 use crossbeam_channel::{bounded, Receiver, Sender, TrySendError};
 use gpui::{App, Global};
-use norma::agent_hook::AgentHookEvent;
+use norma::agent_hook::{fresh_control_id, AgentHookEvent, HookApproval};
+mod approval_wait;
+mod http;
+use approval_wait::WaitingHook;
+pub(super) use http::AgentHookHttpError;
+use http::{read_hook_request, write_status, HookRequest};
 use std::collections::{HashMap, HashSet};
-use std::fs::File;
-use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -17,10 +20,15 @@ const CLIENT_QUEUE_CAPACITY: usize = 32;
 const EVENT_QUEUE_CAPACITY: usize = 256;
 const CLIENT_WORKER_COUNT: usize = 4;
 
+#[cfg(test)]
+#[path = "../../tests/unit/agent_hook_approval_transport_tests.rs"]
+mod approval_transport_tests;
+
 pub(crate) struct AgentHookRegistration {
     pub(crate) endpoint: Option<String>,
     pub(crate) token: Option<String>,
     pub(crate) receiver: Receiver<AgentHookEvent>,
+    pub(crate) approvals: Receiver<HookApproval>,
     #[cfg(feature = "e2e-test-support")]
     pub(crate) sender: Sender<AgentHookEvent>,
 }
@@ -35,19 +43,38 @@ enum HookDelivery {
 
 #[derive(Default)]
 struct AgentHookRegistry {
-    routes: HashMap<String, Sender<AgentHookEvent>>,
+    routes: HashMap<String, HookRoute>,
     retired_tokens: HashSet<String>,
 }
 
+struct HookRoute {
+    events: Sender<AgentHookEvent>,
+    approvals: Sender<HookApproval>,
+}
+
+type HookChannels = (
+    String,
+    Receiver<AgentHookEvent>,
+    Sender<AgentHookEvent>,
+    Receiver<HookApproval>,
+);
+
 impl AgentHookRegistry {
-    fn register(&mut self) -> (String, Receiver<AgentHookEvent>, Sender<AgentHookEvent>) {
+    fn register(&mut self) -> std::io::Result<HookChannels> {
         let (sender, receiver) = bounded(EVENT_QUEUE_CAPACITY);
-        let mut token = random_token();
+        let (approvals_sender, approvals) = bounded(approval_wait::CAPACITY);
+        let mut token = fresh_control_id()?;
         while self.routes.contains_key(&token) || self.retired_tokens.contains(&token) {
-            token = random_token();
+            token = fresh_control_id()?;
         }
-        self.routes.insert(token.clone(), sender.clone());
-        (token, receiver, sender)
+        self.routes.insert(
+            token.clone(),
+            HookRoute {
+                events: sender.clone(),
+                approvals: approvals_sender,
+            },
+        );
+        Ok((token, receiver, sender, approvals))
     }
 
     fn unregister(&mut self, token: &str) -> bool {
@@ -66,7 +93,7 @@ impl AgentHookRegistry {
                 HookDelivery::Unauthorized
             };
         };
-        match sender.try_send(event) {
+        match sender.events.try_send(event) {
             Ok(()) => HookDelivery::Accepted,
             Err(TrySendError::Full(_)) => HookDelivery::Overloaded,
             Err(TrySendError::Disconnected(_)) => HookDelivery::Retired,
@@ -138,22 +165,38 @@ pub(crate) fn register(cx: &mut App) -> AgentHookRegistration {
             endpoint: None,
             token: None,
             receiver,
+            approvals: bounded(1).1,
             #[cfg(feature = "e2e-test-support")]
             sender,
         };
     }
     let ingress = cx.global_mut::<AgentHookIngress>();
-    let (token, receiver, sender) = ingress
+    let registration = ingress
         .registry
         .lock()
         .expect("Agent Hook registry mutex poisoned")
         .register();
+    let Ok((token, receiver, sender, approvals)) = registration else {
+        tracing::error!("secure Hook token generation failed; control disabled");
+        let (sender, receiver) = bounded(EVENT_QUEUE_CAPACITY);
+        #[cfg(not(feature = "e2e-test-support"))]
+        let _ = &sender;
+        return AgentHookRegistration {
+            endpoint: None,
+            token: None,
+            receiver,
+            approvals: bounded(1).1,
+            #[cfg(feature = "e2e-test-support")]
+            sender,
+        };
+    };
     #[cfg(not(feature = "e2e-test-support"))]
     let _ = &sender;
     AgentHookRegistration {
         endpoint: Some(ingress.endpoint.clone()),
         token: Some(token),
         receiver,
+        approvals,
         #[cfg(feature = "e2e-test-support")]
         sender,
     }
@@ -184,7 +227,21 @@ fn accept_loop(
     shutdown: Arc<AtomicBool>,
 ) {
     let (stream_sender, stream_receiver) = bounded(CLIENT_QUEUE_CAPACITY);
-    let workers = spawn_client_workers(stream_receiver, registry, Arc::clone(&shutdown));
+    let (approval_sender, approval_receiver) = bounded(approval_wait::CAPACITY);
+    let wait_registry = Arc::clone(&registry);
+    let wait_shutdown = Arc::clone(&shutdown);
+    let waiter = thread::Builder::new()
+        .name("agent-hook-permissions".into())
+        .spawn(move || approval_wait::run(approval_receiver, wait_registry, wait_shutdown));
+    let Ok(waiter) = waiter else {
+        return;
+    };
+    let workers = spawn_client_workers(
+        stream_receiver,
+        registry,
+        Arc::clone(&shutdown),
+        approval_sender,
+    );
     while !shutdown.load(Ordering::Acquire) {
         match listener.accept() {
             Ok((mut stream, _)) => match stream_sender.try_send(stream) {
@@ -204,27 +261,31 @@ fn accept_loop(
             }
         }
     }
+    shutdown.store(true, Ordering::Release);
     drop(stream_sender);
     for worker in workers {
         if worker.join().is_err() {
             tracing::warn!("Agent Hook client worker panicked during shutdown");
         }
     }
+    let _ = waiter.join();
 }
 
 fn spawn_client_workers(
     receiver: Receiver<TcpStream>,
     registry: Arc<Mutex<AgentHookRegistry>>,
     shutdown: Arc<AtomicBool>,
+    approvals: Sender<WaitingHook>,
 ) -> Vec<JoinHandle<()>> {
     (0..CLIENT_WORKER_COUNT)
         .filter_map(|index| {
             let streams = receiver.clone();
+            let approvals = approvals.clone();
             let routes = Arc::clone(&registry);
             let worker_shutdown = Arc::clone(&shutdown);
             thread::Builder::new()
                 .name(format!("agent-hook-client-{index}"))
-                .spawn(move || client_worker_loop(streams, routes, worker_shutdown))
+                .spawn(move || client_worker_loop(streams, routes, worker_shutdown, approvals))
                 .map_err(|error| tracing::warn!(%error, index, "failed to start Agent Hook client worker"))
                 .ok()
         })
@@ -235,21 +296,62 @@ fn client_worker_loop(
     receiver: Receiver<TcpStream>,
     registry: Arc<Mutex<AgentHookRegistry>>,
     shutdown: Arc<AtomicBool>,
+    approvals: Sender<WaitingHook>,
 ) {
     while !shutdown.load(Ordering::Acquire) || !receiver.is_empty() {
         match receiver.recv_timeout(CLIENT_RECV_INTERVAL) {
-            Ok(stream) => handle_stream(stream, &registry),
+            Ok(stream) => handle_stream(stream, &registry, &approvals),
             Err(crossbeam_channel::RecvTimeoutError::Timeout) => {}
             Err(crossbeam_channel::RecvTimeoutError::Disconnected) => break,
         }
     }
 }
 
-fn handle_stream(mut stream: TcpStream, registry: &Arc<Mutex<AgentHookRegistry>>) {
-    let _ = stream.set_read_timeout(Some(STREAM_TIMEOUT));
-    let _ = stream.set_write_timeout(Some(STREAM_TIMEOUT));
+fn handle_stream(
+    mut stream: TcpStream,
+    registry: &Arc<Mutex<AgentHookRegistry>>,
+    approvals: &Sender<WaitingHook>,
+) {
+    // accept may inherit O_NONBLOCK on macOS. Workers use bounded blocking reads;
+    // an HTTP packet boundary must not be treated as a malformed request.
+    if stream
+        .set_nonblocking(false)
+        .and_then(|_| stream.set_read_timeout(Some(STREAM_TIMEOUT)))
+        .and_then(|_| stream.set_write_timeout(Some(STREAM_TIMEOUT)))
+        .is_err()
+    {
+        return;
+    }
     let status = match read_hook_request(&stream) {
-        Ok((token, event)) => match registry
+        Ok((token, HookRequest::Approval(request))) => {
+            let sender = registry
+                .lock()
+                .expect("Agent Hook registry mutex poisoned")
+                .routes
+                .get(&token)
+                .map(|route| route.approvals.clone());
+            let Some(sender) = sender else {
+                write_status(&mut stream, "401 Unauthorized");
+                return;
+            };
+            let Ok(approval) = HookApproval::new(request, std::time::Instant::now()) else {
+                write_status(&mut stream, "400 Bad Request");
+                return;
+            };
+            if sender.try_send(approval.clone()).is_err() {
+                approval.cancel();
+                write_status(&mut stream, "503 Service Unavailable");
+                return;
+            }
+            match WaitingHook::new(stream, token, approval.clone()) {
+                Ok(waiting) => {
+                    let _ = approvals.try_send(waiting);
+                }
+                Err(_) => approval.cancel(),
+            }
+            return;
+        }
+        Ok((token, HookRequest::Event(event))) => match registry
             .lock()
             .expect("Agent Hook registry mutex poisoned")
             .deliver(&token, event)
@@ -265,42 +367,6 @@ fn handle_stream(mut stream: TcpStream, registry: &Arc<Mutex<AgentHookRegistry>>
     write_status(&mut stream, status);
 }
 
-fn write_status(stream: &mut TcpStream, status: &str) {
-    let response = format!("HTTP/1.1 {status}\r\nContent-Length: 0\r\n\r\n");
-    let _ = stream.write_all(response.as_bytes());
-    let _ = stream.flush();
-}
-
-fn read_hook_request(stream: &TcpStream) -> Result<(String, AgentHookEvent), AgentHookHttpError> {
-    let mut reader = BufReader::new(stream);
-    let mut request_line = String::new();
-    reader.read_line(&mut request_line)?;
-    if !request_line.starts_with("POST /agent-hooks ") {
-        return Err(AgentHookHttpError::BadRequest);
-    }
-    let mut token = None;
-    let mut content_len = 0_usize;
-    loop {
-        let mut line = String::new();
-        reader.read_line(&mut line)?;
-        let trimmed = line.trim_end_matches(['\r', '\n']);
-        if trimmed.is_empty() {
-            break;
-        }
-        if let Some(value) = trimmed.strip_prefix("Authorization: Bearer ") {
-            token = Some(value.to_owned());
-        }
-        if let Some(value) = trimmed.strip_prefix("Content-Length: ") {
-            content_len = value.parse::<usize>().unwrap_or(0);
-        }
-    }
-    let token = token.ok_or(AgentHookHttpError::Unauthorized)?;
-    let mut body = vec![0_u8; content_len];
-    reader.read_exact(&mut body)?;
-    let event = serde_json::from_slice(&body).map_err(|_| AgentHookHttpError::Json)?;
-    Ok((token, event))
-}
-
 #[cfg(test)]
 pub(super) fn read_authorized_event(
     stream: &TcpStream,
@@ -310,164 +376,12 @@ pub(super) fn read_authorized_event(
     if token != expected_token {
         return Err(AgentHookHttpError::Unauthorized);
     }
-    Ok(event)
-}
-
-fn random_token() -> String {
-    let mut bytes = [0_u8; 32];
-    if File::open("/dev/urandom")
-        .and_then(|mut file| file.read_exact(&mut bytes))
-        .is_err()
-    {
-        bytes = fallback_token_bytes();
-    }
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
-}
-
-fn fallback_token_bytes() -> [u8; 32] {
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|duration| duration.as_nanos())
-        .unwrap_or(0);
-    let mut bytes = [0_u8; 32];
-    for (index, byte) in bytes.iter_mut().enumerate() {
-        *byte = ((nanos >> ((index % 16) * 8)) & 0xff) as u8;
-    }
-    bytes
-}
-
-#[derive(Debug)]
-pub(super) enum AgentHookHttpError {
-    Io,
-    Json,
-    Unauthorized,
-    BadRequest,
-}
-
-impl From<std::io::Error> for AgentHookHttpError {
-    fn from(_error: std::io::Error) -> Self {
-        Self::Io
+    match event {
+        HookRequest::Event(event) => Ok(event),
+        _ => Err(AgentHookHttpError::BadRequest),
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use norma::agent_hook::{parse_hook_event, HookSource};
-
-    /// Hook mailbox 隔离：每个 token 只能把事件送入自己的 Workspace 邮箱。
-    ///
-    /// 数据构造（含关键数值的推导过程）：
-    ///   registrations = alpha(1) + beta(1) = 2 个 token
-    ///   events        = alpha/node 7(1) + beta/node 7(1) = 2 条
-    ///   node collision = 两边 node_id 都为 7，刻意验证 token 隔离
-    ///
-    /// 执行过程（逐步说明系统如何处理）：
-    ///   1. 注册 alpha 与 beta 两个独立邮箱。
-    ///   2. 使用各自 token 投递同 node_id 的不同 Provider 事件。
-    ///   3. 分别从两个 receiver 读取结果。
-    ///
-    /// 预期结果：
-    ///   - 正断言：alpha 只收到 Codex 事件，beta 只收到 Claude 事件。
-    ///   - 负断言：任一邮箱都不得收到第二条串线事件。
-    #[test]
-    fn hook_tokens_route_same_node_id_to_distinct_workspace_mailboxes() {
-        let mut registry = AgentHookRegistry::default();
-        let (alpha_token, alpha_receiver, _) = registry.register();
-        let (beta_token, beta_receiver, _) = registry.register();
-        let alpha_event = parse_hook_event(
-            HookSource::Codex,
-            7,
-            serde_json::json!({"hook_event_name": "Stop"}),
-        )
-        .expect("alpha hook event 应可构造");
-        let beta_event = parse_hook_event(
-            HookSource::Claude,
-            7,
-            serde_json::json!({"hook_event_name": "Stop"}),
-        )
-        .expect("beta hook event 应可构造");
-
-        let alpha_delivery = registry.deliver(&alpha_token, alpha_event);
-        let beta_delivery = registry.deliver(&beta_token, beta_event);
-        let alpha_received = alpha_receiver
-            .try_recv()
-            .expect("alpha 邮箱应收到自己的事件");
-        let beta_received = beta_receiver.try_recv().expect("beta 邮箱应收到自己的事件");
-
-        assert_eq!(
-            alpha_delivery,
-            HookDelivery::Accepted,
-            "alpha token 的事件应被明确接受"
-        );
-        assert_eq!(
-            beta_delivery,
-            HookDelivery::Accepted,
-            "beta token 的事件应被明确接受"
-        );
-        assert_eq!(
-            alpha_received.profile,
-            norma::protocol::AgentProfile::Codex,
-            "alpha 邮箱只能收到 Codex 事件"
-        );
-        assert_eq!(
-            beta_received.profile,
-            norma::protocol::AgentProfile::Claude,
-            "beta 邮箱只能收到 Claude 事件"
-        );
-        assert!(
-            alpha_receiver.try_recv().is_err(),
-            "alpha 邮箱不得收到 beta 的第二条事件"
-        );
-        assert!(
-            beta_receiver.try_recv().is_err(),
-            "beta 邮箱不得收到 alpha 的第二条事件"
-        );
-    }
-
-    /// Hook 晚到事件：Workspace 注销后必须返回终态失败，不能虚假接受。
-    ///
-    /// 数据构造（含关键数值的推导过程）：
-    ///   registrations = 1 个 token
-    ///   unregisters   = 1 次
-    ///   late events   = 1 条 Stop 事件
-    ///
-    /// 执行过程（逐步说明系统如何处理）：
-    ///   1. 注册邮箱并立即注销 token。
-    ///   2. 使用相同 token 投递一条晚到事件。
-    ///   3. 检查 receiver 与投递状态。
-    ///
-    /// 预期结果：
-    ///   - 正断言：注销成功且晚到事件返回 Retired（HTTP 层映射 410）。
-    ///   - 负断言：receiver 不得收到事件，系统不得返回 Accepted。
-    #[test]
-    fn retired_hook_token_rejects_late_event_without_false_acceptance() {
-        let mut registry = AgentHookRegistry::default();
-        let (token, receiver, _) = registry.register();
-        let removed = registry.unregister(&token);
-        let event = parse_hook_event(
-            HookSource::Codex,
-            9,
-            serde_json::json!({"hook_event_name": "Stop"}),
-        )
-        .expect("晚到 hook event 应可构造");
-
-        let delivery = registry.deliver(&token, event);
-
-        assert!(removed, "活跃 Hook token 应成功注销");
-        assert_eq!(
-            delivery,
-            HookDelivery::Retired,
-            "已注销 token 的晚到事件必须返回 Retired"
-        );
-        assert_ne!(
-            delivery,
-            HookDelivery::Accepted,
-            "已关闭 Workspace 的晚到事件不得虚假返回 Accepted"
-        );
-        assert!(
-            receiver.try_recv().is_err(),
-            "已注销 Workspace 的邮箱不得收到晚到事件"
-        );
-    }
-}
+#[path = "../../tests/unit/agent_hook_registry_tests.rs"]
+mod tests;

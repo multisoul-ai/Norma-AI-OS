@@ -126,12 +126,12 @@ impl OrchestrationAuthorizationStore {
     }
 }
 
-fn hash_token(token: &str) -> String {
+pub(crate) fn hash_token(token: &str) -> String {
     let digest = Sha256::digest(token.as_bytes());
     digest.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
-fn constant_time_equal(left: &[u8], right: &[u8]) -> bool {
+pub(crate) fn constant_time_equal(left: &[u8], right: &[u8]) -> bool {
     let mut difference = left.len() ^ right.len();
     let compared_len = left.len().max(right.len());
     for index in 0..compared_len {

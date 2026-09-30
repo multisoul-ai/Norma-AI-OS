@@ -32,6 +32,7 @@ fn test_norma_delete_agent_reports_removed_definition_id() {
             profile: AgentProfile::Codex,
             alias: Some("Alan".to_string()),
             definition_id: Some(41),
+            mobile_control: false,
         }),
         CanvasRect::new(0.0, 0.0, 640.0, 360.0),
     );
@@ -150,7 +151,7 @@ fn test_orchestration_socket_validates_authorization_and_source_agent_profile() 
                     source_node_id: Some(source_node_id),
                     command: CardCommand::ListAgents,
                 },
-                window,
+                Some(window),
                 cx,
             );
             let mismatched = app.execute_card_command(
@@ -169,7 +170,7 @@ fn test_orchestration_socket_validates_authorization_and_source_agent_profile() 
                     source_node_id: Some(source_node_id),
                     command: CardCommand::ListAgents,
                 },
-                window,
+                Some(window),
                 cx,
             );
             let unauthorized = app.execute_card_command(
@@ -188,7 +189,7 @@ fn test_orchestration_socket_validates_authorization_and_source_agent_profile() 
                     source_node_id: Some(source_node_id),
                     command: CardCommand::ListAgents,
                 },
-                window,
+                Some(window),
                 cx,
             );
             (valid, mismatched, unauthorized)
@@ -329,7 +330,7 @@ fn test_orchestration_socket_dispatch_reuses_coordinator_and_derives_parent_line
                         force_untracked: false,
                     },
                 },
-                window,
+                Some(window),
                 cx,
             )
         })

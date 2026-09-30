@@ -115,7 +115,7 @@ impl MultisoulApp {
         self.stop_continuous_listening(cx);
         self.voice.stop_for_model_switch();
         self.invalidate_tts_for_configuration_change(cx);
-        crate::app::dialogue::configure_selected_tts_model(Some(activation.selected));
+        self.dialogue.selected_tts_model = Some(activation.selected);
         if activation.close_picker_on_success {
             self.voice_settings.finish_tts_picker();
         }

@@ -4,6 +4,11 @@ use std::path::Path;
 
 pub(crate) fn open_app_connection(path: &Path) -> StorageResult<Connection> {
     let connection = open_connection(path)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
+    }
     migrate_app_db(&connection)?;
     Ok(connection)
 }
@@ -24,6 +29,10 @@ fn open_connection(path: &Path) -> StorageResult<Connection> {
 }
 
 pub fn migrate_app_db(connection: &Connection) -> StorageResult<()> {
+    crate::thread_message_store::migrate(connection)?;
+    crate::mobile_session_store::migrate(connection)?;
+    crate::mobile_turn_store::migrate(connection)?;
+    crate::mobile_command_store::migrate(connection)?;
     connection.execute_batch(
         r#"
         CREATE TABLE IF NOT EXISTS recent_workspaces (
@@ -146,13 +155,34 @@ pub fn migrate_app_db(connection: &Connection) -> StorageResult<()> {
         "CREATE INDEX IF NOT EXISTS idx_orchestration_task_routes_root
          ON orchestration_task_routes(root_task_ref, state);",
     )?;
-    connection.pragma_update(None, "user_version", 1)?;
+    // Rewriting the same version still takes SQLite's write lock. Mobile reads reopen this
+    // connection for each authorization check, including every conversation fragment.
+    if connection.pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))? != 1 {
+        connection.pragma_update(None, "user_version", 1)?;
+    }
+    crate::mobile_access_store::migrate(connection)?;
+    crate::mobile_push_store::migrate(connection)?;
+    crate::project_plan_store::migrate(connection)?;
+    crate::mobile_task_baseline_store::migrate(connection)?;
+    crate::mobile_task_delivery_store::migrate(connection)?;
+    crate::mobile_command_store::migrate_delivery_acceptances(connection)?;
+    crate::mobile_command_store::migrate_delivery_feedback(connection)?;
     Ok(())
 }
 
 pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
+    crate::mobile_session_store::migrate(connection)?;
+    crate::mobile_turn_store::migrate(connection)?;
     connection.execute_batch(
         r#"
+        CREATE TABLE IF NOT EXISTS approval_audit (
+            run_id TEXT NOT NULL,
+            sequence INTEGER NOT NULL CHECK(sequence > 0),
+            entry_json TEXT NOT NULL,
+            recorded_at_unix INTEGER NOT NULL,
+            PRIMARY KEY (run_id, sequence)
+        );
+
         CREATE TABLE IF NOT EXISTS canvas_snapshots (
             id INTEGER PRIMARY KEY CHECK (id = 1),
             json TEXT NOT NULL,
@@ -424,7 +454,7 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
     Ok(())
 }
 
-fn ensure_column(
+pub(crate) fn ensure_column(
     connection: &Connection,
     table: &'static str,
     column: &'static str,

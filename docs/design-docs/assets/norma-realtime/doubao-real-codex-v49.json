@@ -1,0 +1,144 @@
+{
+  "cloud": {
+    "speech": [
+      "已经帮你安排Codex创建result.txt文件啦，内容会按要求设置好。",
+      "1项执行完成，1项待你验收。",
+      "详情在成果记录中。"
+    ],
+    "receipts": [
+      {
+        "status": "accepted",
+        "message": "已创建并打开 Agent Alan，AgentCard 已接收任务",
+        "node_id": 2,
+        "operation_id": "rt-c5b3b0d472c766ed82a97a15a56c9257eeed511453d6f7d7e9d99383980e8502",
+        "task_id": 1
+      }
+    ],
+    "asrConnections": 3,
+    "tools": [
+      {
+        "id": "call_5awg31k8gxeg1bu1pkva28ds",
+        "function": {
+          "name": "create_agent",
+          "arguments": " {\"profile\": \"codex\", \"task\": \"创建一个名为result.txt的文本文件，内容为“云端验证完成”加换行符\"}"
+        },
+        "type": "function"
+      }
+    ],
+    "realCLI": true,
+    "users": [
+      "请让 Codex 新建一个文本文件，文件名由小写英文单词 result 一个英文句点和小写扩展名 txt 组成。文件内容只有云端验证完成这6个汉字，并以换行结尾。"
+    ],
+    "turns": [
+      {
+        "turn": "01a09d42-6a95-7f92-866f-6a4a2126926b",
+        "session": "01a09d41-f53b-7901-a927-79d1dc72665f",
+        "prompt": "创建一个名为result.txt的文本文件，内容为“云端验证完成”加换行符"
+      }
+    ],
+    "chats": 2,
+    "audioPackets": 100,
+    "http": [
+      {
+        "service": "chat",
+        "status": 200
+      },
+      {
+        "service": "chat",
+        "status": 200
+      },
+      {
+        "service": "tts",
+        "status": 200
+      },
+      {
+        "service": "tts",
+        "status": 200
+      },
+      {
+        "service": "tts",
+        "status": 200
+      }
+    ]
+  },
+  "delivery": {
+    "workspace_id": "b6f28c1c-f635-4812-940d-6be3e05f5899",
+    "outcome": {
+      "key": {
+        "node_id": 2,
+        "profile": "Codex",
+        "run_id": "6a5f9659-93f1-458f-9bce-b89e32a026a9",
+        "session_id": "01a09d41-f53b-7901-a927-79d1dc72665f",
+        "turn_id": "01a09d42-6a95-7f92-866f-6a4a2126926b"
+      },
+      "state": "completed",
+      "summary": "已创建 [result.txt](</private/tmp/norma-doubao-l3.y3nz39t8/Realtime Delivery/result.txt>)，内容为“云端验证完成”并带换行符。"
+    },
+    "content": {
+      "status": "available",
+      "review": {
+        "base_commit": null,
+        "files": [
+          {
+            "path": "result.txt",
+            "status": "??",
+            "before": null,
+            "after": {
+              "kind": "text",
+              "executable": false,
+              "bytes": [
+                228,
+                186,
+                145,
+                231,
+                171,
+                175,
+                233,
+                170,
+                140,
+                232,
+                175,
+                129,
+                229,
+                174,
+                140,
+                230,
+                136,
+                144,
+                10
+              ]
+            },
+            "index": null,
+            "diff": "--- before\n+++ after\n@@ -0,0 +1 @@\n+云端验证完成\n",
+            "staged_diff": ""
+          }
+        ],
+        "conflicted": false
+      }
+    },
+    "fingerprint": "800d0e1fc69cae1857bd1051e3a4cc2d0a6d8673c10896e8cd81d44a5632d700",
+    "saved_at_unix": 1789344792
+  },
+  "baseline": {
+    "workspace_id": "b6f28c1c-f635-4812-940d-6be3e05f5899",
+    "route_id": "bae55639-4527-4a46-abcb-f77a223f672e",
+    "device_id": "BE2D76C6-0370-409C-B886-547CDBEE2B61",
+    "operation_id": "rt-c5b3b0d472c766ed82a97a15a56c9257eeed511453d6f7d7e9d99383980e8502",
+    "key": {
+      "node_id": 2,
+      "profile": "Codex",
+      "run_id": "6a5f9659-93f1-458f-9bce-b89e32a026a9",
+      "session_id": "01a09d41-f53b-7901-a927-79d1dc72665f",
+      "turn_id": "01a09d42-6a95-7f92-866f-6a4a2126926b"
+    },
+    "baseline": {
+      "status": "available",
+      "review": {
+        "base_commit": null,
+        "files": [],
+        "conflicted": false
+      }
+    },
+    "recorded_at_unix": 1789344772
+  }
+}

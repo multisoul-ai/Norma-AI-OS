@@ -27,21 +27,18 @@ pub(super) fn validate_source(
     let authorization = request.authorization.clone();
     let source_node_id = request.source_node_id;
     source_target
-        .window
-        .update(cx, |_root, _window, cx| {
-            source_target.app.update(cx, |app, _cx| {
-                let (source, provider) =
-                    app.validate_orchestration_source(authorization, source_node_id)?;
-                let identity = app.agent_identity_for_source(source);
-                Ok(ValidatedAgentSource {
-                    source,
-                    provider,
-                    identity,
-                })
+        .app
+        .update(cx, |app, _cx| {
+            let (source, provider) =
+                app.validate_orchestration_source(authorization, source_node_id)?;
+            let identity = app.agent_identity_for_source(source);
+            Ok(ValidatedAgentSource {
+                source,
+                provider,
+                identity,
             })
         })
         .ok()
-        .and_then(Result::ok)
         .ok_or_else(|| Box::new(closed_workspace_response(request_id)))?
         .map_err(|error| Box::new(WireResponse::new(request_id, Err(error))))
 }
@@ -52,14 +49,9 @@ pub(super) fn source_active_task_ref(
     cx: &mut App,
 ) -> Option<String> {
     source_target
-        .window
-        .update(cx, |_root, _window, cx| {
-            source_target
-                .app
-                .update(cx, |app, _cx| app.active_orchestration_task_ref(source))
-        })
+        .app
+        .update(cx, |app, _cx| app.active_orchestration_task_ref(source))
         .ok()
-        .and_then(Result::ok)
         .flatten()
 }
 
@@ -70,14 +62,11 @@ pub(super) fn resolve_target_definition(
 ) -> Result<i64, Box<WireResponse>> {
     let request_id = request.request_id;
     target
-        .window
-        .update(cx, |_root, _window, cx| {
-            target.app.update(cx, |app, _cx| {
-                app.resolve_orchestration_target_definition(&request.command)
-            })
+        .app
+        .update(cx, |app, _cx| {
+            app.resolve_orchestration_target_definition(&request.command)
         })
         .ok()
-        .and_then(Result::ok)
         .ok_or_else(|| Box::new(closed_workspace_response(request_id)))?
         .map_err(|error| Box::new(WireResponse::new(request_id, Err(error))))
 }
@@ -92,8 +81,7 @@ pub(super) fn execute_validated_in_workspace(
     cx: &mut App,
 ) -> WireResponse {
     target
-        .window
-        .update(cx, |_root, window, cx| {
+        .with_optional_window(cx, |window, cx| {
             target.app.update(cx, |app, cx| {
                 app.execute_validated_orchestration_command(
                     crate::norma::server::ValidatedOrchestrationCommand {
@@ -150,8 +138,7 @@ pub(super) fn execute_in_workspace(
 ) -> WireResponse {
     let request_id = request.request_id;
     target
-        .window
-        .update(cx, |_root, window, cx| {
+        .with_optional_window(cx, |window, cx| {
             target
                 .app
                 .update(cx, |app, cx| app.execute_card_command(request, window, cx))

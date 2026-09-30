@@ -216,6 +216,7 @@ impl MultisoulApp {
             .draft()
             .id
             .is_some_and(|id| self.runtime.has_active_agent_definition(id));
+        let agent_on_canvas_ids = self.runtime.active_agent_definition_ids();
         let content = settings_content(
             SettingsContentContext {
                 theme,
@@ -223,6 +224,7 @@ impl MultisoulApp {
                 panel: &self.settings_panel,
                 agent_definitions: &self.agent_definitions,
                 selected_agent_on_canvas,
+                agent_on_canvas_ids: &agent_on_canvas_ids,
                 orchestration: &self.orchestration_settings,
                 performance: &self.performance_settings,
                 voice: VoiceSettingsContent {
@@ -235,6 +237,7 @@ impl MultisoulApp {
                 wallpaper_state: &self.wallpaper_settings,
                 wallpaper_previews: &mut self.wallpaper_previews,
                 shortcuts: &self.shortcuts,
+                mobile: self.mobile.clone(),
             },
             window,
             cx,

@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="980" viewBox="0 0 1600 980" role="img" aria-labelledby="title desc">
+  <title id="title">以工作空间为主入口的桌面启动页草图</title>
+  <desc id="desc">首页主操作是新建工作空间，主体是最近工作空间的画布缩略图。打开本地项目和克隆仓库作为次级入口，选定项目后选择目标工作空间，再自动创建项目区域。</desc>
+  <defs>
+    <linearGradient id="page" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f9fafb"/>
+      <stop offset="1" stop-color="#eef1f7"/>
+    </linearGradient>
+    <radialGradient id="ambient">
+      <stop offset="0" stop-color="#e3d6f7" stop-opacity=".85"/>
+      <stop offset="1" stop-color="#e3d6f7" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-25%" y="-30%" width="150%" height="180%">
+      <feDropShadow dx="0" dy="13" stdDeviation="20" flood-color="#2b3651" flood-opacity=".11"/>
+    </filter>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Microsoft YaHei", sans-serif; fill: #1d2626; }
+      .eyebrow { font-size: 15px; font-weight: 700; letter-spacing: 1px; fill: #32967a; }
+      .headline { font-size: 52px; font-weight: 730; letter-spacing: -1px; }
+      .subtitle { font-size: 20px; fill: #64716e; }
+      .section { font-size: 22px; font-weight: 700; }
+      .muted { font-size: 16px; fill: #71807c; }
+      .button { font-size: 18px; font-weight: 700; }
+      .primary-button { fill: #ffffff; }
+      .workspace-name { font-size: 21px; font-weight: 700; }
+      .workspace-meta { font-size: 15px; fill: #677674; }
+      .mini-title { font-size: 14px; font-weight: 700; }
+      .mini-card { font-size: 12px; fill: #5a6868; }
+      .flow { font-size: 16px; font-weight: 600; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="980" fill="url(#page)"/>
+  <circle cx="1445" cy="215" r="405" fill="url(#ambient)"/>
+  <circle cx="1480" cy="715" r="352" fill="none" stroke="#dce3f0" stroke-width="2"/>
+  <circle cx="1480" cy="715" r="242" fill="none" stroke="#e5eaf3" stroke-width="2"/>
+  <circle cx="1260" cy="625" r="56" fill="#dceee9" opacity=".9"/>
+  <circle cx="1510" cy="454" r="34" fill="#eee4fa" opacity=".95"/>
+  <circle cx="1390" cy="861" r="21" fill="#f6eadb" opacity=".95"/>
+
+  <rect x="39" y="29" width="1030" height="921" rx="32" fill="#ffffff" fill-opacity=".83" stroke="#e8edf2" filter="url(#shadow)"/>
+  <rect x="80" y="71" width="39" height="39" rx="12" fill="#263a35"/>
+  <circle cx="99.5" cy="90.5" r="9" fill="#a9e2cc"/>
+  <circle cx="96" cy="89" r="2" fill="#263a35"/>
+  <circle cx="103" cy="89" r="2" fill="#263a35"/>
+  <path d="M96 95q3.5 3 7 0" fill="none" stroke="#263a35" stroke-width="1.5" stroke-linecap="round"/>
+  <text class="eyebrow" x="134" y="96">NORMA / 工作空间</text>
+  <rect x="865" y="73" width="158" height="32" rx="16" fill="#eef3f1"/>
+  <text x="883" y="95" font-size="14" font-weight="600" fill="#5e746b">启动页 · 讨论草案</text>
+
+  <text class="headline" x="80" y="189">继续你的工作空间</text>
+  <text class="subtitle" x="82" y="231">选择一张画布，回到正在运行的项目与 Agent。</text>
+
+  <rect x="80" y="272" width="247" height="58" rx="19" fill="#202b28" filter="url(#shadow)"/>
+  <text class="button primary-button" x="109" y="308">＋ 新建工作空间</text>
+  <path d="M361 275v54" stroke="#dce3df" stroke-width="2"/>
+  <text class="muted" x="388" y="279">从项目开始</text>
+  <rect x="388" y="293" width="191" height="47" rx="16" fill="#f2f5f3" stroke="#dce5e0"/>
+  <text class="button" x="410" y="323" fill="#35423e">打开本地项目</text>
+  <rect x="593" y="293" width="158" height="47" rx="16" fill="#f2f5f3" stroke="#dce5e0"/>
+  <text class="button" x="617" y="323" fill="#35423e">克隆仓库</text>
+
+  <text class="section" x="80" y="410">最近工作空间</text>
+  <text class="muted" x="260" y="408">点选画布缩略图进入工作空间</text>
+  <text x="915" y="410" font-size="16" font-weight="600" fill="#4b806d">查看全部 ›</text>
+
+  <g filter="url(#shadow)">
+    <rect x="80" y="436" width="443" height="316" rx="22" fill="#ffffff" stroke="#e1e8e5"/>
+    <rect x="550" y="436" width="443" height="316" rx="22" fill="#ffffff" stroke="#e1e8e5"/>
+  </g>
+
+  <rect x="98" y="454" width="407" height="224" rx="16" fill="#edf3f5" stroke="#dce5e8"/>
+  <rect x="98" y="454" width="407" height="30" rx="16" fill="#dfe9e7"/>
+  <rect x="98" y="472" width="407" height="12" fill="#dfe9e7"/>
+  <circle cx="116" cy="469" r="4" fill="#87aa9d"/>
+  <text x="131" y="474" font-size="12" font-weight="700" fill="#526c62">日常开发 · 工作空间画布</text>
+  <rect x="119" y="505" width="171" height="149" rx="13" fill="#e6f6f1" stroke="#9cd4c4"/>
+  <text class="mini-title" x="133" y="527" fill="#307763">项目 A</text>
+  <rect x="132" y="542" width="144" height="44" rx="9" fill="#ffffff" stroke="#c6e2d8"/>
+  <text class="mini-card" x="143" y="569">Agent ① · login</text>
+  <rect x="132" y="594" width="144" height="44" rx="9" fill="#ffffff" stroke="#c6e2d8"/>
+  <text class="mini-card" x="143" y="621">Agent ② · api</text>
+  <rect x="304" y="505" width="180" height="149" rx="13" fill="#fdf1e6" stroke="#eccda9"/>
+  <text class="mini-title" x="319" y="527" fill="#9c754a">项目 B</text>
+  <rect x="319" y="542" width="151" height="44" rx="9" fill="#ffffff" stroke="#efd8bc"/>
+  <text class="mini-card" x="330" y="569">Agent ③ · docs</text>
+  <text class="workspace-name" x="101" y="710">日常开发</text>
+  <circle cx="392" cy="701" r="5" fill="#45b88a"/>
+  <text class="workspace-meta" x="401" y="707">3 个运行中</text>
+  <text class="workspace-meta" x="101" y="735">2 个项目 · 最近打开</text>
+
+  <rect x="568" y="454" width="407" height="224" rx="16" fill="#f0eef6" stroke="#e2ddeb"/>
+  <rect x="568" y="454" width="407" height="30" rx="16" fill="#e5e0ef"/>
+  <rect x="568" y="472" width="407" height="12" fill="#e5e0ef"/>
+  <circle cx="586" cy="469" r="4" fill="#a495be"/>
+  <text x="601" y="474" font-size="12" font-weight="700" fill="#6c607a">版本发布 · 工作空间画布</text>
+  <rect x="589" y="505" width="365" height="149" rx="13" fill="#e6f6f1" stroke="#9cd4c4"/>
+  <text class="mini-title" x="604" y="527" fill="#307763">项目 A</text>
+  <rect x="604" y="542" width="335" height="44" rx="9" fill="#ffffff" stroke="#c6e2d8"/>
+  <text class="mini-card" x="617" y="569">Agent ④ · release</text>
+  <text class="workspace-name" x="571" y="710">版本发布</text>
+  <circle cx="862" cy="701" r="5" fill="#45b88a"/>
+  <text class="workspace-meta" x="872" y="707">1 个运行中</text>
+  <text class="workspace-meta" x="571" y="735">1 个项目 · 2 小时前</text>
+
+  <rect x="80" y="786" width="913" height="125" rx="20" fill="#f2f6f3" stroke="#dce8e0"/>
+  <text x="101" y="819" font-size="15" font-weight="700" fill="#4e7966">次级入口的后续流程</text>
+  <text class="flow" x="101" y="855">打开项目 / 克隆仓库</text>
+  <text x="315" y="855" font-size="25" fill="#91a89c">→</text>
+  <text class="flow" x="358" y="855">选择目标工作空间</text>
+  <text x="561" y="855" font-size="25" fill="#91a89c">→</text>
+  <text class="flow" x="606" y="855">自动添加项目区域</text>
+  <text class="muted" x="101" y="885">最近项目会出现在「添加项目」选择器里，不再占据首页主列表。</text>
+</svg>

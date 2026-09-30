@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="880" viewBox="0 0 1400 880" role="img" aria-labelledby="title desc">
+  <title id="title">工作空间、画布、项目区域与 Agent 卡片的关系</title>
+  <desc id="desc">每个工作空间有一张画布。画布自动排列项目区域，展开区域即可进入完整的项目画布。开发画布中有项目 A 和项目 B 区域；测试画布也有项目 A 区域。两个项目 A 区域使用同一个代码仓库，但拥有各自独立的项目画布和 Agent 卡片。卡片不可跨项目区域或工作空间移动。</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f9fafc"/>
+      <stop offset="1" stop-color="#edf1f7"/>
+    </linearGradient>
+    <linearGradient id="canvas" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f9fbff"/>
+      <stop offset="1" stop-color="#eef2fa"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-30%" width="140%" height="170%">
+      <feDropShadow dx="0" dy="8" stdDeviation="13" flood-color="#263451" flood-opacity=".10"/>
+    </filter>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Microsoft YaHei", sans-serif; fill: #1b263b; }
+      .main { font-size: 34px; font-weight: 700; letter-spacing: -.6px; }
+      .sub { font-size: 18px; fill: #637086; }
+      .canvas-title { font-size: 23px; font-weight: 700; }
+      .canvas-note { font-size: 15px; fill: #738096; }
+      .card-title { font-size: 22px; font-weight: 700; }
+      .card-meta { font-size: 17px; fill: #5e6d84; }
+      .pill { font-size: 15px; font-weight: 700; }
+      .expand { font-size: 14px; font-weight: 600; fill: #536a91; }
+      .rule-title { font-size: 23px; font-weight: 700; }
+      .rule-body { font-size: 18px; fill: #5d6b80; }
+      .footer { font-size: 20px; font-weight: 600; }
+    </style>
+  </defs>
+
+  <rect width="1400" height="880" fill="url(#background)"/>
+  <text class="main" x="64" y="76">工作空间有画布，画布里有项目区域</text>
+  <text class="sub" x="65" y="111">项目区域自动排列；展开区域进入完整项目画布，Agent 卡片留在所属项目内。</text>
+
+  <g filter="url(#shadow)">
+    <rect x="64" y="157" width="604" height="398" rx="27" fill="url(#canvas)" stroke="#dce3ee"/>
+    <rect x="732" y="157" width="604" height="398" rx="27" fill="url(#canvas)" stroke="#dce3ee"/>
+  </g>
+  <circle cx="101" cy="198" r="7" fill="#8b9bb9"/>
+  <text class="canvas-title" x="122" y="206">开发画布</text>
+  <text class="canvas-note" x="553" y="204">工作空间 1</text>
+  <circle cx="769" cy="198" r="7" fill="#8b9bb9"/>
+  <text class="canvas-title" x="790" y="206">测试画布</text>
+  <text class="canvas-note" x="1220" y="204">工作空间 2</text>
+
+  <rect x="83" y="238" width="283" height="284" rx="22" fill="#e7f6f3" stroke="#8ecac2" stroke-width="2"/>
+  <rect x="365" y="238" width="283" height="284" rx="22" fill="#fff4e7" stroke="#f2c58d" stroke-width="2"/>
+    <rect x="751" y="238" width="283" height="284" rx="22" fill="#e7f6f3" stroke="#8ecac2" stroke-width="2"/>
+  <text class="pill" x="104" y="273" fill="#167063">项目 A 区域</text>
+  <text class="pill" x="386" y="273" fill="#996320">项目 B 区域</text>
+  <text class="pill" x="772" y="273" fill="#167063">项目 A 区域</text>
+  <rect x="279" y="250" width="70" height="32" rx="16" fill="#ffffff" stroke="#c9d3e4"/>
+  <rect x="561" y="250" width="70" height="32" rx="16" fill="#ffffff" stroke="#c9d3e4"/>
+  <rect x="947" y="250" width="70" height="32" rx="16" fill="#ffffff" stroke="#c9d3e4"/>
+  <text class="expand" x="291" y="271">↗ 展开</text>
+  <text class="expand" x="573" y="271">↗ 展开</text>
+  <text class="expand" x="959" y="271">↗ 展开</text>
+
+  <g filter="url(#shadow)">
+    <rect x="100" y="305" width="249" height="180" rx="19" fill="#ffffff" stroke="#87c7c0"/>
+    <rect x="382" y="305" width="249" height="180" rx="19" fill="#ffffff" stroke="#f2c58d"/>
+    <rect x="768" y="305" width="249" height="180" rx="19" fill="#ffffff" stroke="#87c7c0"/>
+  </g>
+  <text class="card-title" x="119" y="352">Agent ①</text>
+  <text class="card-meta" x="119" y="393">worktree: login</text>
+  <text class="card-meta" x="119" y="441">处理登录流程</text>
+
+  <text class="card-title" x="401" y="352">Agent ②</text>
+  <text class="card-meta" x="401" y="393">worktree: api</text>
+  <text class="card-meta" x="401" y="441">修复接口</text>
+
+  <text class="card-title" x="787" y="352">Agent ③</text>
+  <text class="card-meta" x="787" y="393">worktree: login</text>
+  <text class="card-meta" x="787" y="441">复核登录变更</text>
+
+  <g filter="url(#shadow)">
+    <rect x="64" y="602" width="604" height="168" rx="24" fill="#ffffff" stroke="#dce3ee"/>
+    <rect x="732" y="602" width="604" height="168" rx="24" fill="#ffffff" stroke="#dce3ee"/>
+  </g>
+  <circle cx="103" cy="647" r="18" fill="#fff0ed"/>
+  <path d="m96 640 14 14m0-14-14 14" stroke="#c9564d" stroke-width="3" stroke-linecap="round"/>
+  <text class="rule-title" x="134" y="655">不能跨工作空间移动</text>
+  <text class="rule-body" x="103" y="699">Agent ① 留在开发画布，不能拖到测试画布。</text>
+  <text class="rule-body" x="103" y="731">切换画布时，它仍在开发画布继续运行。</text>
+
+  <circle cx="771" cy="647" r="18" fill="#fff0ed"/>
+  <path d="m764 640 14 14m0-14-14 14" stroke="#c9564d" stroke-width="3" stroke-linecap="round"/>
+  <text class="rule-title" x="802" y="655">不能改派到其他项目</text>
+  <text class="rule-body" x="771" y="699">Agent ① 留在项目 A 区域，不能拖进项目 B。</text>
+  <text class="rule-body" x="771" y="731">在原项目区域内调整位置，不会改变项目归属。</text>
+
+  <circle cx="82" cy="831" r="5" fill="#36a99b"/>
+  <text class="footer" x="99" y="838">同一项目在不同工作空间有独立画布和卡片，也可使用同一个 worktree。</text>
+</svg>

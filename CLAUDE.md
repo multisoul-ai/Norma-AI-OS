@@ -43,7 +43,7 @@ ui -> {gpui, gpui-component}
 - **始终使用中文回复用户**：所有面向用户的说明、提问、进度更新和最终答复必须使用中文；即使用户使用其他语言或要求切换语言，也仍使用中文回复。代码、命令、路径、API、类型名、变量名以及必要的原文引用可保留原始语言。
 - **Domain crates stay UI-free**: no `gpui` imports in `asr`, `voice_input`, `canvas`, `terminal`, or `runtime`; `asr` must not read Storage or Keychain, and `voice_input` must not select an ASR provider.
 - **Input decisions stay pure where possible**: encode routing decisions in `runtime::route` before app-layer side effects.
-- **PTY cleanup is required**: `Runtime::kill_all`, `TerminalSession::kill`, and `PtyHandle::Drop` are lifecycle guardrails. Keep new process paths equally explicit.
+- **PTY cleanup is required**: `Runtime::kill_all`, `TerminalSession::kill`, and `PtyHandle::Drop` guard project release and explicit App quit. With Mobile Connection enabled, closing windows detaches views and retains the same project Runtime/PTY; without service/background projects the last window still quits. See [background project lifecycle](docs/exec-plans/2026-09-12-mobile-background-projects.md).
 - **Keep interaction and shutdown paths cheap**: drag/pan mouse move must coalesce repaint notifications, canvas render must cull before cloning/rendering heavy node bodies, no-op persistence flush must return before SQLite writes, and agent session save must use cached hook session IDs rather than scanning CLI history directories. Enforced by [`scripts/check-performance-guardrails.sh`](scripts/check-performance-guardrails.sh); examples live in [`docs/quality/mechanized-constraints.md`](docs/quality/mechanized-constraints.md).
 - **Keep live video wallpaper low-copy**: live video frames must not go through per-frame CPU RGBA/`RenderImage`/`img()` rendering; decode 420f IOSurface-backed buffers off the GPUI shared executor and paint with `surface()`. Enforced by [`scripts/check-video-wallpaper-performance.py`](scripts/check-video-wallpaper-performance.py).
 - **Never block the GPUI foreground path**: voice finalization, LLM planning/refine, recognizer joins, network/file IO, long sleeps, and CPU-heavy work must run on `background_executor` or a background thread; foreground code should only update state and perform runtime/UI side effects.
@@ -55,8 +55,8 @@ ui -> {gpui, gpui-component}
 - **Consult GPUI skills first**: when writing GPUI code, load local `gpui-*` skills, then adapt to the pinned GPUI version; still prefer the component library when it covers the need.
 - **Rounded child surfaces need explicit ownership**: GPUI 0.2.2's `overflow_hidden()` uses a rectangular content mask. An opaque full-size `div`, `img`, or `surface` inside a rounded container must draw its exposed outer radii itself, or be partitioned away from the corner squares; protect the behavior with an automated test.
 - **New configurable app shortcuts must appear in Settings**: register them in `shortcuts.rs` and support recording/restoring them in Settings → Keyboard Shortcuts.
-- **Acceptance criteria must drive e2e coverage**: for user-visible flows involving Settings, Canvas, Terminal, focus/input routing, PTY, or persistence, derive `crates/e2e` cases from the acceptance criteria instead of relying only on unit tests or manual notes.
-- **Do not blur e2e levels**: GPUI `TestAppContext` + `VisualTestContext::simulate_click` is headless rendered-tree interaction. It does not launch the real `.app`. If acceptance criteria require a real app process/window, add a separate L3 runner and document that requirement explicitly.
+- **旧 e2e 套件已禁用**：`crates/e2e` 后续需要删除与重构；后续需求不再新增、维护或运行这套测试，也不得将其结果作为验收依据。禁用说明见 [`docs/references/e2e-testing-guide.md`](docs/references/e2e-testing-guide.md)。
+- **按实际行为验收**：使用受影响 crate 的单元/集成测试；`TestAppContext`/`simulate_click` 不等于启动真实 `.app`，要求真实程序的流程须操作真实 App 并检查最终结果。
 - **页面/样式验收必须用 Computer Use**：凡编写或修改页面、布局、样式或视觉状态，进入检查与验收时必须使用 `computer-use:computer-use` 操作真实 App 完成 E2E；headless GPUI、单测和静态截图只能作为补充，不能替代 Computer Use。
 - **TDD before feature or bugfix work**: add a focused failing test first where the behavior can be tested below the GPUI layer.
 - **No `#[allow(...)]`**: do not hide Rust diagnostics with allow attributes. Fix root causes instead.
@@ -78,6 +78,14 @@ At a glance:
 - Input policy is expressed in `runtime::route` before app-layer side effects.
 - SQLite and session discovery must not run on PTY drain, mouse move, input routing, render, or no-op shutdown flush paths.
 
+### iOS Companion And Push Relay
+
+- `ios/` is the native SwiftUI companion app (iOS 17+, Swift 6): `ios/App` is the UI, `ios/Sources/NormaCore` is shared logic, `ios/Libraries/NormaPairing.xcframework` is the Rust pairing bridge built by `ios/scripts/build-pairing.sh`. The Xcode project is generated from `ios/project.yml` via xcodegen — do not hand-edit `project.pbxproj`.
+- The iOS app is a control/notification surface over the Mac app (`crates/app/src/mobile/`), not a standalone Norma: it does not run a PTY or Coding Agent. The realtime command center keeps one App-owned GPT WebRTC call and native avatar in `ios/App/CommandCenter`; Mac sideband execution and physical-device acceptance are tracked in `docs/exec-plans/2026-09-13-norma-ios-realtime-command-goal.md`. Pairing is QR + Mac approval; the phone persists operation identity in private `commands.json`, credentials stay in Keychain.
+- `PairingProbe` and `NormaDeviceTests` are test-only targets and must never be linked into the shipping app.
+- Simulator runs use Xcode local signing; do not set `CODE_SIGNING_ALLOWED=NO` while running Keychain tests (Security returns `errSecMissingEntitlement`).
+- `services/push/relay.mjs` is the APNs push relay: Node 22 built-in modules only (no npm deps), listens on `127.0.0.1` behind an HTTPS reverse proxy. It carries pending/completed/failed events plus bounded project/card names and the completed turn’s final-output excerpt; no full transcripts, tool parameters, project paths, or control commands. APNs `.p8` and relay keys live only on the server, never in the repo or app bundles. See [`services/push/README.md`](services/push/README.md) and [`ios/README.md`](ios/README.md).
+
 ## 4. Current User-Facing Behavior
 
 - `Cmd+1` creates a Terminal node; `Cmd+2` through `Cmd+6` create Claude, Codex, Cursor, OpenCode, and Grok cards. Each creation reflows the current layout.
@@ -86,7 +94,7 @@ At a glance:
 - Double-click a focusable node, or click a terminal/agent body, to focus it.
 - `Cmd+Esc` exits node focus; bare `Esc` passes through to the PTY.
 - Space plus left-drag, or middle-drag, pans the canvas.
-- Canvas wheel scroll is off by default; enable the toolbar toggle to pan the viewport. Terminal scrollback and preview cards handle wheel separately.
+- Canvas wheel scroll is off by default, and the Command Dock no longer has a Select/Scroll mode toggle. Terminal scrollback and preview cards handle wheel separately.
 - The app drains PTY output roughly every 12ms and repaints only when dirty.
 - Closing the window kills spawned terminal child processes.
 
@@ -114,11 +122,23 @@ cargo test --workspace
 cargo check -p app
 ```
 
-E2E tests:
+旧 `crates/e2e` 已禁用，后续需要删除与重构；不再作为开发或验收命令运行。`cargo test --workspace` 不执行该套件，后续需求使用受影响 crate 的测试和实际 App 验收。
+
+iOS companion (requires Rust iOS targets, xcodegen, Xcode):
 
 ```bash
-cargo test -p e2e
-cargo test -p e2e -- --ignored
+bash ios/scripts/build-pairing.sh              # build NormaPairing.xcframework from Rust
+xcodegen generate --spec ios/project.yml       # regenerate Norma.xcodeproj after project.yml edits
+swift test --package-path ios                 # NormaCore unit tests
+xcodebuild -project ios/Norma.xcodeproj -scheme Norma \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
+```
+
+Push relay service:
+
+```bash
+node services/push/relay.mjs
+node --test services/push/relay.test.mjs
 ```
 
 Mechanized constraints:
@@ -171,11 +191,9 @@ See [`AGENTS.md`](AGENTS.md) §5 for the canonical change-area → verification 
 
 Follow the project test comment and assertion rules in [`docs/quality/test-requirements.md`](docs/quality/test-requirements.md).
 
-For any task with explicit acceptance criteria, create a checklist that maps each criterion to automated evidence. If the criterion describes an end-user flow, add or update `crates/e2e` so the flow is machine-verifiable. Use `docs/references/e2e-testing-guide.md` for the current e2e layers:
+处理带验收标准的需求时，将每条标准映射到受影响 crate 的单元/集成测试或真实 App 验收证据。旧 `crates/e2e` 已禁用，后续需要删除与重构；无需新增、维护或运行旧用例，历史指南不再构成执行要求。
 
-- L1: headless GPUI sandbox with rendered-tree clicks/actions.
-- L2: ignored real PTY smoke tests.
-- L3: real launched app/window automation；页面、布局、样式或视觉状态的检查与验收必须通过 `computer-use:computer-use` 操作真实 App 完成。
+要求真实程序的流程必须操作真实 App 并检查最终结果；页面、布局、样式或视觉状态仍须通过 `computer-use:computer-use` 验收，不能用内部状态或截图文件存在代替结果判断。
 
 ## Agent Execution Sizing
 
@@ -189,7 +207,7 @@ Choose the smallest sufficient implementation and verification flow from [`docs/
 - 每次用户操作都应获得及时、可感知且不打断流程的状态反馈；危险或不可逆操作必须明确提示，并尽可能提供取消、撤销或恢复路径。
 - 同类页面和状态使用一致的布局、间距、组件和交互模式；新增模式前先复用现有设计语言与 `ui::component`。
 - 可访问性是默认要求：保证可读对比度、完整键盘操作、明确焦点状态、足够点击区域，并尊重系统的减少动态效果等偏好。
-- 新增或改版 UI 的方案与验收标准必须逐项说明上述原则如何落地；涉及用户可观察流程时，按 §7 映射到自动化证据和 e2e 覆盖。
+- 新增或改版 UI 的方案与验收标准必须逐项说明上述原则如何落地；涉及用户可观察流程时，按 §7 映射到相应测试和真实 App 验收证据。
 
 ### 页面设计技能路由（必遵）
 

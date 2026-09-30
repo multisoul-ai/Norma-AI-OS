@@ -28,6 +28,7 @@ pub(super) struct SettingsContentContext<'a> {
     pub(super) panel: &'a SettingsPanelState,
     pub(super) agent_definitions: &'a AgentDefinitionsState,
     pub(super) selected_agent_on_canvas: bool,
+    pub(super) agent_on_canvas_ids: &'a std::collections::HashSet<i64>,
     pub(super) orchestration: &'a OrchestrationSettingsState,
     pub(super) performance: &'a PerformanceSettingsState,
     pub(super) voice: VoiceSettingsContent<'a>,
@@ -36,6 +37,7 @@ pub(super) struct SettingsContentContext<'a> {
     pub(super) wallpaper_state: &'a WallpaperSettingsState,
     pub(super) wallpaper_previews: &'a mut PreviewCache,
     pub(super) shortcuts: &'a ShortcutSettingsState,
+    pub(super) mobile: gpui::Entity<crate::mobile::controller::MobileController>,
 }
 
 pub(super) fn settings_content(
@@ -49,6 +51,7 @@ pub(super) fn settings_content(
         panel,
         agent_definitions,
         selected_agent_on_canvas,
+        agent_on_canvas_ids,
         orchestration,
         performance,
         voice,
@@ -57,6 +60,7 @@ pub(super) fn settings_content(
         wallpaper_state,
         wallpaper_previews,
         shortcuts,
+        mobile,
     } = content;
     div()
         .flex_1()
@@ -109,6 +113,7 @@ pub(super) fn settings_content(
                         theme,
                         agent_definitions,
                         selected_agent_on_canvas,
+                        agent_on_canvas_ids,
                         agent_list_scroll,
                         window,
                         cx,
@@ -120,6 +125,9 @@ pub(super) fn settings_content(
                         wallpaper_settings(theme, wallpaper_state, wallpaper_previews, cx)
                     }
                     SettingsSection::Performance => performance_settings(theme, performance, cx),
+                    SettingsSection::Mobile => {
+                        crate::settings::mobile::settings(theme, &mobile, cx)
+                    }
                     // Mock-only sections are hidden from the sidebar; keep a blank
                     // fallback so stale state or tests cannot route to old placeholders.
                     #[cfg(test)]
@@ -208,11 +216,15 @@ fn content_title(section: SettingsSection) -> &'static str {
         SettingsSection::Orchestration => "Orchestration",
         SettingsSection::Wallpaper => "Wallpaper",
         SettingsSection::Performance => "Performance",
+        SettingsSection::Mobile => "Mobile Connection",
     }
 }
 
 fn content_subtitle(section: SettingsSection, voice_shortcut_label: &str) -> String {
     match section {
+        SettingsSection::Mobile => {
+            "Connect your iPhone over a local network or Tailscale".to_string()
+        }
         SettingsSection::Themes => "Choose one of the six reviewed Core UI V2 palettes".to_string(),
         SettingsSection::Keyboard => {
             "Customize app commands and review system input behavior".to_string()

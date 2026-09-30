@@ -1,20 +1,22 @@
-/// Product UI Command Dock：7 个图标按钮 + 2 个分隔符，并嵌入 Voice 状态单元。
+/// Product UI Command Dock：6 个图标按钮 + 2 个分隔符，并嵌入 Voice 状态单元。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   source = include_str!("../../src/app/chrome/dock.rs")
 ///   render_source = source 中 #[cfg(test)] 前的生产渲染区
 ///   dock_start = `fn render_command_dock`
 ///   dock_end = `fn command_dock_shadow`
-///   分隔符调用次数 = 2；图标按钮调用次数 = 7
+///   分隔符调用次数 = 2；图标按钮调用次数 = Layout + Terminal + Codex + Browser + Preview + Settings = 6
+///   （New 使用 chrome_primary_icon_button，不计入；Select/Scroll 模式按钮已移除）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 截取 Command Dock 函数区段。
-///   2. 确认 Dock 含 7 个 chrome_icon_button、2 个 chrome_divider 和稳定 selector。
-///   3. 确认 Voice 嵌入 Dock，旧文字按钮与旧 glyph 不再出现。
+///   2. 确认 Dock 含 6 个 chrome_icon_button、2 个 chrome_divider 和稳定 selector。
+///   3. 确认 Voice 嵌入 Dock，旧文字按钮、旧 glyph 与 Select/Scroll 模式按钮不再出现。
 ///
 /// 预期结果：
-///   - 正断言：Dock 含 7 个图标按钮、2 个分隔符、Preview 与 Voice。
+///   - 正断言：Dock 含 6 个图标按钮、2 个分隔符、Preview 与 Voice。
 ///   - 负断言：Dock 不含旧 chrome_button、CANVAS、+、⚙ 或 ↕ 字面量。
+///   - 负断言：Dock 不含 toolbar-canvas-scroll、"Select mode"、"Scroll mode"。
 #[test]
 fn test_product_ui_command_dock_uses_grouped_icons_and_embedded_voice() {
     let source = include_str!("../../src/app/chrome/dock.rs");
@@ -30,8 +32,14 @@ fn test_product_ui_command_dock_uses_grouped_icons_and_embedded_voice() {
     let divider_calls = dock.matches("chrome_divider(").count();
 
     assert_eq!(
-        icon_button_calls, 7,
-        "Dock 应恰好含 7 个图标按钮，actual={icon_button_calls}"
+        icon_button_calls, 6,
+        "Dock 应恰好含 6 个图标按钮，actual={icon_button_calls}"
+    );
+    assert!(
+        !dock.contains("toolbar-canvas-scroll")
+            && !dock.contains("Select mode")
+            && !dock.contains("Scroll mode"),
+        "Dock 不得再渲染 Select/Scroll 画布模式按钮"
     );
     assert_eq!(
         divider_calls, 2,
@@ -55,19 +63,19 @@ fn test_product_ui_command_dock_uses_grouped_icons_and_embedded_voice() {
     );
 }
 
-/// Command Dock 信息层级：画布、创建与工具入口必须形成 2｜5｜2 三组布局。
+/// Command Dock 信息层级：画布、创建与工具入口必须形成 1｜5｜2 三组布局。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   画布控制 = Select/Scroll + Layout = 2 项
+///   画布控制 = Layout = 1 项（Select/Scroll 模式按钮已移除）
 ///   创建快捷入口 = Terminal + Codex + New + Browser + Preview = 5 项
 ///   工具入口 = Voice + Settings = 2 项
 ///   组间分隔符 = 画布→创建、创建→工具 = 2 条
-///   连续顺序 = 2 个画布控制 < 第 1 条分隔符 < 5 个创建入口 < 第 2 条分隔符 < 2 个工具入口
+///   连续顺序 = 1 个画布控制 < 第 1 条分隔符 < 5 个创建入口 < 第 2 条分隔符 < 2 个工具入口
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 截取 Command Dock 的生产渲染区，排除 helper 与测试文本的干扰。
 ///   2. 定位每个稳定 debug selector、两条分隔符和 Voice 渲染调用的位置。
-///   3. 验证画布控制、创建动作和工具入口按 2｜5｜2 连续分组。
+///   3. 验证画布控制、创建动作和工具入口按 1｜5｜2 连续分组。
 ///   4. 验证持续生效的画布模式不会再使用 92% 白色的大面积主按钮填充。
 ///
 /// 预期结果：
@@ -102,9 +110,6 @@ fn test_product_ui_command_dock_orders_canvas_creation_and_utility_as_three_grou
     let preview = dock
         .find("\"toolbar-open-preview\"")
         .expect("Dock 必须保留 Preview 快捷入口");
-    let canvas_mode = dock
-        .find("\"toolbar-canvas-scroll\"")
-        .expect("Dock 必须保留 Select/Scroll 切换入口");
     let layout = dock
         .find("\"toolbar-layout\"")
         .expect("Dock 必须保留 Layout 入口");
@@ -123,8 +128,8 @@ fn test_product_ui_command_dock_orders_canvas_creation_and_utility_as_three_grou
         .expect("Dock 必须保留 Voice 状态入口");
 
     assert!(
-        canvas_mode < layout && layout < first_divider,
-        "画布组必须按 Select/Scroll、Layout 连续排在第 1 条分隔符前"
+        layout < first_divider,
+        "画布组的 Layout 必须排在第 1 条分隔符前"
     );
     assert!(
         first_divider < terminal
@@ -153,7 +158,7 @@ fn test_product_ui_command_dock_orders_canvas_creation_and_utility_as_three_grou
 /// Product UI 启动主题：应用必须恢复已保存主题，并在没有保存值时回退到 Paper Blue。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   bootstrap source = `app/bootstrap.rs`
+///   bootstrap source = `app/bootstrap.rs` + `app/bootstrap/stored.rs`
 ///   selection source = `settings/theme_selection.rs`
 ///   主题 id 初始化数 = 1；该 id 会同时影响 Launchpad、Canvas 卡片与 Settings
 ///   持久化优先级 = 已保存合法 ThemeId > `ThemeId::default()`（Paper Blue）
@@ -171,14 +176,16 @@ fn test_product_ui_command_dock_orders_canvas_creation_and_utility_as_three_grou
 #[test]
 fn test_product_ui_bootstrap_activates_light_glass_theme() {
     let bootstrap = include_str!("../../src/app/bootstrap.rs");
+    let stored = include_str!("../../src/app/bootstrap/stored.rs");
     let selection = include_str!("../../src/settings/theme_selection.rs");
 
     assert!(
-        bootstrap.contains("let settings_store = app_store.settings_store();"),
+        bootstrap.contains("StoredBootstrap::load(&app_store)")
+            && stored.contains("let settings = store.settings_store();"),
         "Product UI 启动时必须从已选择的 AppStore 派生共享 SettingsStore"
     );
     assert!(
-        bootstrap.contains("ThemeSettingsState::load_from_store(settings_store.clone())")
+        stored.contains("ThemeSettingsState::load_from_store(settings.clone())")
             && bootstrap.contains("let theme = Theme::for_id(theme_id);"),
         "Product UI 启动时必须从显式 SettingsStore 恢复主题，并用恢复出的 ThemeId 构造主题"
     );
@@ -187,7 +194,7 @@ fn test_product_ui_bootstrap_activates_light_glass_theme() {
         "没有合法保存值时必须回退 ThemeId::default() 对应的 Paper Blue"
     );
     assert!(
-        !bootstrap.contains("let theme = Theme::dark();"),
+        !bootstrap.contains("let theme = Theme::dark();") && !stored.contains("Theme::dark()"),
         "bootstrap 不得硬编码旧暗色主题，否则保存的选择与 Paper Blue 缺省值都不会生效"
     );
 }

@@ -51,6 +51,31 @@ pub(crate) fn agent_command(profile: AgentProfile, hook_env: Option<&AgentHookEn
     }
 }
 
+/// Mobile creation and resume use the same full-access policy as desktop native cards.
+pub(crate) fn mobile_agent_command(
+    profile: AgentProfile,
+    session: Option<&str>,
+    hook: Option<&AgentHookEnv>,
+) -> Result<PtyCommand, PtyError> {
+    let resume = session.map(crate::session_snapshot::shell_quote);
+    let command = match profile {
+        AgentProfile::Claude => format!("exec claude --dangerously-skip-permissions{}", resume.map(|id| format!(" --resume {id}")).unwrap_or_default()),
+        AgentProfile::Codex => format!("exec codex -c disable_paste_burst=true -c check_for_update_on_startup=false --dangerously-bypass-approvals-and-sandbox{}{}", if hook.is_some() { " --dangerously-bypass-hook-trust" } else { "" }, resume.map(|id| format!(" resume {id}")).unwrap_or_default()),
+        AgentProfile::Cursor => format!(
+            "exec cursor-agent{}",
+            resume
+                .map(|id| format!(" --resume {id}"))
+                .unwrap_or_default()
+        ),
+        _ => return Err(PtyError::Spawn("mobile Provider unavailable".into())),
+    };
+    let command = PtyCommand::new("/bin/zsh").args(["-lic", &command]);
+    Ok(match hook {
+        Some(hook) => hook.apply_to_command(command),
+        None => command,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

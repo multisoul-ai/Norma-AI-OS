@@ -9,10 +9,6 @@ use runtime::{NodeResize, Runtime};
 use ui::Theme;
 
 use super::{Card, CardBodyContext};
-use crate::motion::breathing::{
-    CornerGlow, CORNER_GLOW_BOTTOM_LEFT, CORNER_GLOW_BOTTOM_RIGHT, CORNER_GLOW_TOP_LEFT,
-    CORNER_GLOW_TOP_RIGHT,
-};
 use crate::motion::{ResolvedNodeVisual, VisualPriority};
 
 pub const TITLE_BAR_H: f32 = 32.0;
@@ -117,18 +113,8 @@ pub fn render_task_badge(badge: CardChromeTaskBadge, zoom: f32, theme: Theme) ->
         .child(badge.label)
 }
 
-/// 四角光晕在屏幕上的最小可见尺寸（px）；卡片缩小到这个尺寸以下时跳过光晕绘制。
-pub const CORNER_GLOW_MIN_SCREEN_PX: f32 = 32.0;
-
-const CORNER_GLOW_OFFSET_PX: f32 = 6.0;
-const CORNER_GLOW_SPREAD_PX: f32 = -2.0;
-
-pub fn node_shadow(
-    visual: ResolvedNodeVisual,
-    zoom: f32,
-    corner_glow_visible: bool,
-) -> Vec<BoxShadow> {
-    let mut shadows = Vec::with_capacity(5);
+pub fn node_shadow(visual: ResolvedNodeVisual) -> Vec<BoxShadow> {
+    let mut shadows = Vec::with_capacity(2);
     shadows.push(BoxShadow {
         color: rgba(visual.shadow_color).into(),
         offset: point(px(0.0), px(visual.shadow_y)),
@@ -136,7 +122,7 @@ pub fn node_shadow(
         spread_radius: px(visual.shadow_spread),
     });
 
-    if visual.priority == VisualPriority::Focused {
+    if visual.priority == VisualPriority::Focused && !visual.breathing_border_active {
         shadows.push(BoxShadow {
             color: rgba(with_alpha(visual.stroke_color, 0x38)).into(),
             offset: point(px(0.0), px(0.0)),
@@ -145,39 +131,7 @@ pub fn node_shadow(
         });
     }
 
-    if corner_glow_visible {
-        if let Some(glow) = visual.corner_glow {
-            push_corner_glow(&mut shadows, glow, zoom);
-        }
-    }
-
     shadows
-}
-
-fn push_corner_glow(shadows: &mut Vec<BoxShadow>, glow: CornerGlow, zoom: f32) {
-    let offset = CORNER_GLOW_OFFSET_PX * zoom;
-    let blur = px(glow.blur * zoom);
-    let spread = px(CORNER_GLOW_SPREAD_PX * zoom);
-    let corners = [
-        (CORNER_GLOW_TOP_LEFT, -offset, -offset),
-        (CORNER_GLOW_TOP_RIGHT, offset, -offset),
-        (CORNER_GLOW_BOTTOM_LEFT, -offset, offset),
-        (CORNER_GLOW_BOTTOM_RIGHT, offset, offset),
-    ];
-    for (color, dx, dy) in corners {
-        shadows.push(BoxShadow {
-            color: rgba(with_glow_alpha(color, glow.alpha)).into(),
-            offset: point(px(dx), px(dy)),
-            blur_radius: blur,
-            spread_radius: spread,
-        });
-    }
-}
-
-fn with_glow_alpha(color: u32, intensity: f32) -> u32 {
-    let intensity = intensity.clamp(0.0, 1.0);
-    let base_alpha = (color & 0xff) as f32;
-    with_alpha(color, (base_alpha * intensity).round() as u8)
 }
 
 pub struct EmptyCard;
@@ -216,7 +170,7 @@ mod tests {
     use super::*;
     use crate::motion::working::WorkingSnake;
 
-    fn base_visual(corner_glow: Option<CornerGlow>) -> ResolvedNodeVisual {
+    fn base_visual(breathing_border_active: bool) -> ResolvedNodeVisual {
         ResolvedNodeVisual {
             priority: VisualPriority::Idle,
             rect: CanvasRect::new(0.0, 0.0, 100.0, 80.0),
@@ -231,101 +185,89 @@ mod tests {
             shadow_spread: -10.0,
             border_is_emphasized: false,
             opacity: 1.0,
-            corner_glow,
+            breathing_border_active,
+            border_glow: None,
             working_snake: None,
         }
     }
 
-    /// CS-1: corner_glow=Some 且 corner_glow_visible=true 时，node_shadow 应在基础阴影之外追加 4 个角光晕。
+    /// CS-1: 完成提示的呼吸色仅画在描边，不能用整卡阴影染亮卡片内容。
     ///
     /// 数据构造（含关键数值推导）：
-    ///   base_visual 的 priority=Idle（不触发 Focused 专属光晕），corner_glow.alpha=0.8、blur=10.0。
-    ///   zoom=1.0，故角光晕的 offset/blur 不被缩放，便于直接断言数值。
+    ///   base_visual 的 priority=Idle，breathing_border_active=true，基础阴影 blur=20px。
     ///
     /// 执行过程：
-    ///   1. 构造 corner_glow=Some(CornerGlow{blur:10.0, alpha:0.8})
-    ///   2. 调用 node_shadow(visual, 1.0, true)
+    ///   1. 构造正在呼吸的卡片视觉。
+    ///   2. 调用 node_shadow(visual)。
     ///
     /// 预期结果：
-    ///   - 正断言：返回的 Vec 长度为 5（1 个基础阴影 + 4 个角光晕）
-    ///   - 正断言：新增的 4 个 shadow 的 blur_radius 均为 10.0px
-    ///   - 负断言：返回长度不应是 1（说明角光晕确实被追加）
+    ///   - 正断言：仅返回 1 个基础阴影，模糊半径保持 20px
+    ///   - 负断言：不返回原先的 5 层阴影，避免霓虹色覆盖整卡
     #[test]
-    fn test_node_shadow_appends_four_corner_glows_when_visible() {
-        let visual = base_visual(Some(CornerGlow {
-            blur: 10.0,
-            alpha: 0.8,
-        }));
-
-        let shadows = node_shadow(visual, 1.0, true);
+    fn test_node_shadow_keeps_breathing_effect_on_border_only() {
+        let visual = base_visual(true);
+        let shadows = node_shadow(visual);
 
         assert_eq!(
             shadows.len(),
-            5,
-            "Idle 优先级 + 可见的四角光晕应产出 5 个 shadow（1 基础 + 4 角），实际为 {}",
+            1,
+            "完成态呼吸只应影响描边，阴影应只有基础层，实际为 {}",
             shadows.len()
         );
-        for glow_shadow in &shadows[1..] {
-            assert_eq!(
-                f32::from(glow_shadow.blur_radius),
-                10.0,
-                "四角光晕的 blur_radius 应等于 corner_glow.blur=10.0"
-            );
-        }
-        assert_ne!(shadows.len(), 1, "追加四角光晕后不应仍只有 1 个基础阴影");
+        assert_eq!(
+            f32::from(shadows[0].blur_radius),
+            20.0,
+            "基础阴影应保持 20px"
+        );
+        assert_ne!(shadows.len(), 5, "完成态不得叠加四层整卡彩色光晕");
     }
 
-    /// CS-2: corner_glow=None 或 corner_glow_visible=false 时，node_shadow 不应追加角光晕。
+    /// CS-2: 聚焦且正在呼吸的 Agent 不能产生随描边变色的整卡聚焦光晕。
     ///
     /// 数据构造（含关键数值推导）：
-    ///   场景 A：corner_glow=None（呼吸未激活）
-    ///   场景 B：corner_glow=Some(...) 但 corner_glow_visible=false（屏幕尺寸低于裁剪阈值）
+    ///   场景 A：Focused + breathing_border_active=true，基础阴影 1 层。
+    ///   场景 B：Focused + breathing_border_active=false，基础阴影 + 聚焦阴影 2 层。
     ///
     /// 执行过程：
-    ///   1. 场景 A：node_shadow(visual_without_glow, 1.0, true)
-    ///   2. 场景 B：node_shadow(visual_with_glow, 1.0, false)
+    ///   1. 分别解析聚焦的呼吸卡片和普通卡片阴影。
     ///
     /// 预期结果：
-    ///   - 正断言：两个场景返回长度都为 1（只有基础阴影）
-    ///   - 负断言：长度不应为 5（不应误触发角光晕）
+    ///   - 正断言：呼吸卡片 1 层、普通聚焦卡片 2 层。
+    ///   - 负断言：呼吸卡片不能带第二层彩色聚焦阴影。
     #[test]
-    fn test_node_shadow_skips_corner_glow_when_absent_or_culled() {
-        let without_glow = node_shadow(base_visual(None), 1.0, true);
-        let culled = node_shadow(
-            base_visual(Some(CornerGlow {
-                blur: 10.0,
-                alpha: 0.8,
-            })),
-            1.0,
-            false,
-        );
+    fn test_node_shadow_skips_focused_glow_while_border_breathes() {
+        let mut breathing = base_visual(true);
+        breathing.priority = VisualPriority::Focused;
+        let mut focused = base_visual(false);
+        focused.priority = VisualPriority::Focused;
+        let breathing_shadows = node_shadow(breathing);
+        let focused_shadows = node_shadow(focused);
 
         assert_eq!(
-            without_glow.len(),
+            breathing_shadows.len(),
             1,
-            "corner_glow=None 时应只有基础阴影，实际为 {}",
-            without_glow.len()
+            "聚焦的呼吸卡片应只有基础阴影，实际为 {}",
+            breathing_shadows.len()
         );
         assert_eq!(
-            culled.len(),
-            1,
-            "corner_glow_visible=false 时应只有基础阴影，实际为 {}",
-            culled.len()
+            focused_shadows.len(),
+            2,
+            "普通聚焦卡片应保留原有两层阴影，实际为 {}",
+            focused_shadows.len()
         );
-        assert_ne!(without_glow.len(), 5, "corner_glow=None 时不应误产出角光晕");
-        assert_ne!(culled.len(), 5, "裁剪命中时不应误产出角光晕");
+        assert_ne!(breathing_shadows.len(), 2, "呼吸卡片不得带整卡彩色聚焦光晕");
     }
 
     /// CS-3: working_snake 只由 canvas overlay 绘制，不应追加卡片外发光 shadow。
     ///
     /// 数据构造（含关键数值推导）：
-    ///   base_visual 的 priority=Idle（不触发 Focused 专属光晕），corner_glow=None。
+    ///   base_visual 的 priority=Idle（不触发 Focused 专属光晕），呼吸关闭。
     ///   working_snake.head_phase=0.25、tail_fraction=0.24 只用于表示 snake overlay 已存在。
     ///   基础阴影层数 = 1；若 working_snake 被错误用于卡片 chrome glow，则层数会变成 2。
     ///
     /// 执行过程：
     ///   1. 构造带 working_snake 的 Idle visual
-    ///   2. 调用 node_shadow(visual, 1.0, true)
+    ///   2. 调用 node_shadow(visual)
     ///
     /// 预期结果：
     ///   - 正断言：返回长度仍为 1，只保留基础阴影
@@ -333,7 +275,7 @@ mod tests {
     ///   - 负断言：返回长度不应为 2，避免 snake 额外增加卡片外发光
     #[test]
     fn test_node_shadow_ignores_working_snake_overlay() {
-        let mut visual = base_visual(None);
+        let mut visual = base_visual(false);
         visual.working_snake = Some(WorkingSnake {
             head_phase: 0.25,
             tail_fraction: 0.24,
@@ -344,7 +286,7 @@ mod tests {
             stroke_px: 3.0,
         });
 
-        let shadows = node_shadow(visual, 1.0, true);
+        let shadows = node_shadow(visual);
 
         assert_eq!(
             shadows.len(),

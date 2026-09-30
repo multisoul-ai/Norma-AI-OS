@@ -1,0 +1,80 @@
+{
+  "receipts": [
+    {
+      "status": "accepted",
+      "message": "已创建并打开 Agent Alan，AgentCard 已接收任务",
+      "node_id": 1,
+      "operation_id": "rt-b80fb5e69c6e680ed7b6901ad4cf7ba3f496a681ff12db83fc4ba698c1556239",
+      "task_id": 1
+    },
+    {
+      "status": "accepted",
+      "message": "Alan 的 AgentCard 已接收任务",
+      "node_id": 1,
+      "operation_id": "rt-1a6acad1806a393e88106c16ca0f66d6bfd5753af5cb6a7440e9f12818997357",
+      "task_id": 2
+    },
+    {
+      "status": "accepted",
+      "message": "Alan 的 AgentCard 已接收任务",
+      "node_id": 1,
+      "operation_id": "rt-5db205a7fe89517093d3af4692a3b512ba7233c9ce312a6fc36ad31ff77cbad1",
+      "task_id": 3
+    },
+    {
+      "status": "succeeded",
+      "message": "排队任务 #3 已取消",
+      "operation_id": "rt-3ca26307e5a8b235dca63afdf75227da0d0880da0cc9ae1a5b9984c03c113924",
+      "task_id": 3
+    },
+    {
+      "status": "succeeded",
+      "message": "找到 3 个 Agent 任务",
+      "tasks": [
+        {
+          "state": "cancelled",
+          "task": "创建 cancelled.txt",
+          "agent": "Alan",
+          "task_id": 3
+        },
+        {
+          "state": "succeeded",
+          "task": "添加 queue second 到 result.txt",
+          "agent": "Alan",
+          "task_id": 2
+        },
+        {
+          "state": "succeeded",
+          "task": "创建 result.txt，内容为 realtime complete",
+          "agent": "Alan",
+          "task_id": 1
+        }
+      ],
+      "operation_id": "rt-cdd76430fc03b79b2aafd649100b8ed45d9205b064dbe638b0f143ac862645a6"
+    }
+  ],
+  "speech": [
+    "可以先讨论，尚未派工。",
+    "任务已接收，尚未完成。",
+    "任务已接收，尚未完成。",
+    "任务已接收，尚未完成。",
+    "任务已接收，尚未完成。",
+    "2项执行完成，2项待你验收。",
+    "详情在成果记录中。",
+    "任务已接收，尚未完成。"
+  ],
+  "chats": 11,
+  "frames": 52,
+  "turns": [
+    {
+      "turn": "a0904945-d1d6-463e-9fa6-5562fea68cfb",
+      "prompt": "创建 result.txt，内容为 realtime complete"
+    },
+    {
+      "turn": "3e80fba6-f8c6-48fe-b518-15261f98667f",
+      "prompt": "添加 queue second 到 result.txt"
+    }
+  ],
+  "native_operation_recovery": "4 exact Doubao operations restored from disk into a fresh VoiceCall; original receipt retained",
+  "desktop_listener_stopped": true
+}

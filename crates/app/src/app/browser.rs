@@ -6,7 +6,7 @@ use crate::cards::browser::normalize_browser_url;
 use canvas::{CanvasNodeKind, NodeId};
 use gpui::{Action, AppContext as _, Context, Entity, Subscription, Window};
 use std::collections::HashSet;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 mod address_input;
 
@@ -19,7 +19,9 @@ mod chrome_auth_tests;
 #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
 mod cef_backend;
 mod engine;
+mod load_timeline;
 pub(crate) mod native;
+mod resource_timing;
 mod store;
 mod wry_backend;
 
@@ -71,6 +73,11 @@ pub(crate) enum BrowserEvent {
     },
     PageInteraction {
         node_id: NodeId,
+    },
+    PageLoad {
+        node_id: NodeId,
+        phase: load_timeline::BrowserLoadPhase,
+        at: Instant,
     },
     NavigateCurrentCard {
         node_id: NodeId,
@@ -165,6 +172,10 @@ impl MultisoulApp {
         .detach();
     }
 
+    pub(crate) fn warm_up_browser_engine(&mut self, window: &mut Window) {
+        self.browsers.warm_up(window);
+    }
+
     pub(crate) fn browser_address_input_for(
         &self,
         node_id: NodeId,
@@ -242,6 +253,7 @@ impl MultisoulApp {
                         changed = true;
                     }
                 }
+                BrowserEvent::PageLoad { .. } => {}
                 BrowserEvent::NavigateCurrentCard { node_id, url } => {
                     if self.set_browser_url(node_id, url.clone()) {
                         self.browsers.load_url(node_id, &url);
@@ -474,3 +486,7 @@ mod interaction_visual_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/browser_location_tests.rs"]
 mod location_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/browser_load_timeline_tests.rs"]
+mod load_timeline_tests;

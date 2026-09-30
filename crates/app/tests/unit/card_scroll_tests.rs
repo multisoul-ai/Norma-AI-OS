@@ -24,6 +24,7 @@ fn agent_kind(profile: AgentProfile) -> CanvasNodeKind {
         profile,
         alias: None,
         definition_id: None,
+        mobile_control: false,
     })
 }
 

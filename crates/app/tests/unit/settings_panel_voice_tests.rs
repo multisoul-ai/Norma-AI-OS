@@ -115,7 +115,7 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
     assert_anchor!("settings-agent-provider-api-key-clear");
     assert_anchor!("settings-agent-provider-api-key-visibility");
     assert_anchor!("*********");
-    assert_anchor!("Stored in macOS Keychain");
+    assert_anchor!("Stored in this Mac's local database");
     assert_anchor!("voice-setup-provider-connect");
     assert_anchor!("Base URL");
     assert_anchor!("API Key");

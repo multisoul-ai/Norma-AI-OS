@@ -20,6 +20,8 @@ enum Command {
     Forward {
         #[arg(long, value_parser = parse_source_arg)]
         source: HookSource,
+        #[arg(long)]
+        request_approval: bool,
     },
     Install {
         #[arg(long, value_parser = parse_target_arg)]
@@ -32,8 +34,11 @@ enum Command {
 pub fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     match args.command {
-        Command::Forward { source } => {
-            let _ = forward_from_stdin(source);
+        Command::Forward {
+            source,
+            request_approval,
+        } => {
+            let _ = forward_from_stdin(source, request_approval);
             Ok(())
         }
         Command::Install {
@@ -51,14 +56,42 @@ pub fn main() -> anyhow::Result<()> {
     }
 }
 
-fn forward_from_stdin(source: HookSource) -> super::HookForwardOutcome {
+fn forward_from_stdin(source: HookSource, request_approval: bool) -> super::HookForwardOutcome {
     let mut input = String::new();
-    if std::io::stdin().read_to_string(&mut input).is_err() {
+    if std::io::stdin()
+        .take(1_048_577)
+        .read_to_string(&mut input)
+        .is_err()
+        || input.len() > 1_048_576
+    {
         return super::HookForwardOutcome::Noop;
     }
-    let Ok(raw_json) = serde_json::from_str::<Value>(&input) else {
+    let Ok(mut raw_json) = serde_json::from_str::<Value>(&input) else {
         return super::HookForwardOutcome::Noop;
     };
+    if let Some(object) = raw_json.as_object_mut() {
+        object.remove("_norma_control_run_id");
+        if let Ok(run_id) = std::env::var(super::ENV_CONTROL_RUN_ID) {
+            object.insert("_norma_control_run_id".into(), Value::String(run_id));
+        }
+    }
+    if request_approval {
+        let Some(env) = hook_forward_env_from_process() else {
+            return super::HookForwardOutcome::Noop;
+        };
+        let Ok(run_id) = std::env::var(super::ENV_CONTROL_RUN_ID) else {
+            return super::HookForwardOutcome::Noop;
+        };
+        match super::forward_permission(source, raw_json, env, run_id) {
+            Ok(Some(output)) => println!("{output}"),
+            Ok(None) => {}
+            Err(error) => {
+                eprintln!("multisoul-agent-hook: permission bridge unavailable: {error}");
+                return super::HookForwardOutcome::FailedButIgnored;
+            }
+        }
+        return super::HookForwardOutcome::Posted;
+    }
     forward_hook(source, raw_json, hook_forward_env_from_process())
 }
 

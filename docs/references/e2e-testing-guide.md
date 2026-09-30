@@ -1,5 +1,11 @@
 # E2E Testing Guide
 
+> **已禁用（2026-09-30）**：旧 `crates/e2e` 后续需要删除与重构。后续需求不再新增、维护或运行这套测试，也不得将其结果作为验收依据。下文仅保留为历史参考，旧命令、CI 描述和新增用例要求均不再适用。
+>
+> Cargo 已关闭该 crate 的库测试、doctest 和集成测试自动发现，停用旧模块并移除测试依赖；即使显式指定 `--lib` / `--all-targets` 也不会执行旧测试。相关脚本不再调用该套件。零测试退出成功不代表验收通过。
+>
+> 当前使用受影响 crate 的单元/集成测试；要求真实程序的流程须操作真实 App 并检查最终结果。页面/样式仍须使用 Computer Use 验收。旧 L3 脚本仅作历史参考，不是后续需求的必跑项。
+
 `crates/e2e` 是 Multisoul Desktop 的端到端测试 crate。当前包含三类测试：
 
 - app/headless GPUI e2e：在 `TestAppContext` 中驱动真实 `MultisoulApp` 状态机，

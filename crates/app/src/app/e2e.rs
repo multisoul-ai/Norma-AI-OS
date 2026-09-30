@@ -223,8 +223,7 @@ impl MultisoulApp {
         cx.notify();
     }
 
-    /// 聚焦卡片当前是否应推进 terminal cursor 的运行中动画。Agent 卡片会同时考虑 PTY 生命周期
-    /// 与 Agent task 状态，普通 Terminal 则只考虑 PTY 生命周期。
+    /// 聚焦卡片当前是否应推进 terminal cursor 动画；Agent 与 Terminal 都按 PTY 存活判断。
     pub fn focused_terminal_cursor_animation_active_e2e(&self) -> bool {
         self.focused_terminal_cursor_animation_active()
     }
@@ -323,7 +322,7 @@ impl MultisoulApp {
             .voice_settings_inputs
             .rendered_text(crate::settings::voice::VoiceSettingsField::ApiKey, cx);
         let api_key_profile = self.voice_settings.values().active_provider_profile();
-        let runtime_tts = crate::app::dialogue::selected_tts_model();
+        let runtime_tts = self.dialogue.selected_tts_model.clone();
         SettingsE2eSnapshot {
             settings_open: self.settings_panel.open,
             active_section: self.settings_panel.active_section.title(),

@@ -1,23 +1,22 @@
 use super::MultisoulApp;
 use crate::app::frame_throttle::CURSOR_REPAINT_INTERVAL;
-use crate::cards::agent::card::agent_chase_intent;
 use crate::cards::term::cursor::advance_terminal_cursor_phase as advance_cursor_phase;
 use canvas::NodeType;
-use runtime::{AgentTaskState, InputMode, NodeRunState};
+use runtime::{InputMode, NodeRunState};
 use std::time::Duration;
 
 pub(super) fn focused_cursor_animation_active(
     window_active: bool,
     node_type: NodeType,
     node_run_state: Option<NodeRunState>,
-    agent_task_state: Option<AgentTaskState>,
 ) -> bool {
     if !window_active {
         return false;
     }
     match node_type {
-        NodeType::Term => matches!(node_run_state, Some(NodeRunState::Running)),
-        NodeType::Agent => agent_chase_intent(agent_task_state),
+        NodeType::Term | NodeType::Agent => {
+            matches!(node_run_state, Some(NodeRunState::Running))
+        }
         NodeType::Rect | NodeType::Preview | NodeType::Browser => false,
     }
 }
@@ -54,7 +53,6 @@ impl MultisoulApp {
             self.window_active,
             node.kind.node_type(),
             self.runtime.node_run_state(node_id),
-            self.runtime.agent_task_state(node_id),
         )
     }
 }

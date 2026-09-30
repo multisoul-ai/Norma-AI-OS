@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#101412">
+<link rel="icon" href="data:,">
+<title>Norma OS · 频道与实时对话｜交互原型</title>
+<link rel="stylesheet" href="norma-channel-prototype.css">
+</head>
+<body>
+<!-- Throwaway UI prototype. Share a direction with ?variant=A|B|C. All replies and tasks are simulated. -->
+<div id="root"></div>
+<script src="norma-channel-model.js"></script>
+<script>
+(() => {
+const {initialState,act,inboxItems,channelById}=window.NormaModel;
+const model=initialState();
+const portrait='../design-docs/assets/norma-realtime/cua-companion-larger-v54.png';
+const variants={A:'频道优先',B:'Norma 优先',C:'待办优先'};
+const requested=new URLSearchParams(location.search).get('variant');
+const ui={variant:variants[requested]?requested:'A',view:'home',channelId:'ios-handoff',taskId:null,sheet:null,filter:'all',notice:'',voiceLine:'你可以直接说话，我记得这个频道的上下文。',lastView:'channel'};
+const icons={
+  back:'<path d="m15 18-6-6 6-6"/>',plus:'<path d="M12 5v14M5 12h14"/>',search:'<circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/>',chevron:'<path d="m9 6 6 6-6 6"/>',down:'<path d="m6 9 6 6 6-6"/>',
+  grid:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+  inbox:'<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 13h5l2 3h4l2-3h5"/>',phone:'<path d="M6 3h3l1.2 4-2 1.4a15 15 0 0 0 6.4 6.4L16 13l4 1v3c0 1.4-1 2.5-2.5 2.5A15 15 0 0 1 4.5 6C4.5 4.3 5 3 6 3Z"/>',
+  mic:'<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4m-4 0h8"/>',mute:'<path d="M9 9v2a3 3 0 0 0 5 2M15 9V5a3 3 0 0 0-6 0M5 11a7 7 0 0 0 12 5M12 18v4m-4 0h8M3 3l18 18"/>',
+  send:'<path d="m5 12 14-8-4 16-3-6-7-2Z"/><path d="m12 14 7-10"/>',dots:'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
+  layers:'<path d="m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5M3 16l9 5 9-5"/>',check:'<path d="m4 12 5 5L20 6"/>',close:'<path d="M5 5l14 14M19 5 5 19"/>',
+  bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4"/>',archive:'<rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v12h14V8M10 13h4"/>',
+  pause:'<path d="M8 5v14M16 5v14"/>',info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/>'
+};
+function icon(name,size=20){return '<svg class="icon" width="'+size+'" height="'+size+'" viewBox="0 0 24 24" aria-hidden="true">'+icons[name]+'</svg>';}
+function esc(value){return String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));}
+function statusLabel(status){return ({idea:'尚未执行',idle:'待继续',running:'执行中',review:'待验收',accepted:'已验收',archived:'已归档',failed:'执行受阻'})[status]||status;}
+function current(){return channelById(model,ui.channelId)||model.channels[0];}
+function countActive(){return model.channels.filter(channel=>channel.status!=='archived').length;}
+function button(action,label,cls='',attrs=''){return '<button type="button" class="'+cls+'" data-action="'+action+'" '+attrs+'>'+label+'</button>';}
+function avatar(name){return '<span class="avatar-dot '+(name==='Codex'?'codex':name==='Design'?'design':name==='你'?'user':'')+'" aria-hidden="true">'+(name==='Codex'?'C':name==='Design'?'D':name==='你'?'我':'N')+'</span>';}
+function statusbar(){return '<div class="statusbar" aria-label="iPhone 状态栏"><span>9:41</span><span class="island"></span><span class="system-icons">●● ▰ <i></i></span></div>';}
+function nav(active){const item=(action,label,iconName,isActive)=>button(action,(iconName==='norma'?'<span class="norma-tab-mark">N</span>':icon(iconName))+'<span>'+label+'</span>','', 'aria-current="'+(isActive?'page':'false')+'" aria-label="'+label+'"');return '<nav class="tabbar" aria-label="主导航">'+item('nav-channels','频道','grid',active==='channels')+item('nav-persona','Norma','norma',active==='persona')+item('nav-inbox','收件箱','inbox',active==='inbox')+'</nav>';}
+function topbar(label,backAction='back-channel',right=''){return '<header class="subnav">'+button(backAction,icon('back')+esc(label),'back','aria-label="返回'+esc(label)+'"')+'<strong></strong><span class="right-slot">'+right+'</span></header>';}
+function cardStatus(channel){return '<span class="status-chip '+channel.status+'">'+statusLabel(channel.status)+'</span>';}
+function channelRow(channel,feature=false){const projectText=channel.projects.length?channel.projects.join(' · '):'尚未关联项目';return '<button type="button" class="'+(feature?'channel-card':'channel-row')+'" data-action="open-channel" data-id="'+esc(channel.id)+'" aria-label="打开频道：'+esc(channel.title)+'"><div class="card-top"><h'+(feature?'2':'3')+'>'+esc(channel.title)+'</h'+(feature?'2':'3')+'>'+cardStatus(channel)+'</div><p>'+esc(feature?channel.summary:projectText+' · '+channel.updated)+'</p>'+(feature?'<div class="card-divider"></div><div class="card-foot"><span>'+avatar('Norma')+' Norma 协调 '+channel.tasks.length+' 项任务</span>'+icon('chevron')+'</div>':'')+'</button>';}
+function channelsPage(){const all=model.channels.filter(channel=>ui.filter==='archived'?channel.status==='archived':ui.filter==='running'?channel.status==='running':ui.filter==='idea'?['idea','idle'].includes(channel.status):channel.status!=='archived');const [feature,...rest]=all;return '<main class="scroll page-pad" aria-label="频道列表"><div class="top-row">'+button('open-devices','已连接电脑','workspace-trigger','aria-label="已连接电脑"')+'<div class="top-action">'+button('open-search',icon('search'),'icon-button','aria-label="搜索频道"')+button('open-new',icon('plus'),'icon-button','aria-label="保存新想法"')+'</div></div><h1 class="large-title">频道</h1><p class="subtitle">一个频道，就是一处工作空间。</p>'+button('open-search',icon('search')+' 搜索频道、消息或成果','search')+'<div class="segmented" role="group" aria-label="频道筛选">'+[['all','全部'],['running','执行中'],['idea','构思中'],['archived','已归档']].map(([key,label])=>button('filter',label,'','data-filter="'+key+'" aria-pressed="'+(ui.filter===key)+'"')).join('')+'</div>'+(feature?channelRow(feature,true):'<p class="empty">这里还没有频道。保存一个想法即可开始。</p>')+(rest.length?'<h2 class="section-label">其他频道</h2>'+rest.map(item=>channelRow(item)).join(''):'')+'</main>'+nav('channels');}
+function personaPage(){const channel=current();return '<main class="presence-main" aria-label="Norma 实时陪伴"><div class="presence-header">'+button('open-channel-picker','<span>'+icon('layers',15)+'</span><span>'+esc(channel.title)+'</span>'+icon('down',13),'channel-selector','aria-label="切换当前频道"')+button('open-demo',icon('dots'),'icon-button','aria-label="打开演示操作"')+'</div><div class="presence-hero"><img class="portrait-image" src="'+portrait+'" alt="Norma 虚拟人形象"></div><div class="presence-copy"><div class="eyebrow">N O R M A</div><h1>把想法变成进展。</h1><p>告诉我你在想什么，接下来的协作我来安排。</p></div><div class="presence-actions">'+button('open-voice',icon('phone')+' 和 Norma 实时聊聊','primary full','aria-label="在当前频道与 Norma 实时对话"'+(channel.status==='archived'?' disabled':''))+'<div class="presence-preview"><b>当前频道 · '+esc(channel.title)+'</b>'+esc(channel.summary)+'</div>'+button('open-channel','查看频道对话与任务 →','quiet-button','data-id="'+esc(channel.id)+'"')+'</div></main>'+nav('persona');}
+function attentionCard(item){const typeLabel={review:'待验收',decision:'需要决定',failed:'执行失败'}[item.type];return '<button class="attention-card '+item.type+'" data-action="open-attention" data-id="'+esc(item.channelId)+'" data-type="'+item.type+'" aria-label="'+typeLabel+'：'+esc(item.title)+'"><span class="type">'+typeLabel+'</span><h2>'+esc(item.type==='review'?'成果已经准备好':item.detail)+'</h2><p>'+esc(item.title)+' · '+esc(item.detail)+'</p><span class="attention-footer"><span>'+(item.type==='review'?'查看成果并验收':item.type==='decision'?'查看判断依据':'查看原因与下一步')+'</span>'+icon('chevron',15)+'</span></button>';}
+function inboxPage(attentionFirst=false){const items=inboxItems(model);return '<main class="scroll page-pad" aria-label="收件箱"><div class="top-row"><span class="label">只处理需要你的事</span>'+button('open-demo',icon('dots'),'icon-button','aria-label="打开演示操作"')+'</div>'+(attentionFirst?'<div class="attention-kicker"><span class="eyebrow">YOUR ATTENTION</span><span class="label">今天</span></div><h1 class="attention-count">'+items.length.toString().padStart(2,'0')+'</h1><p class="attention-header">只有真正需要你处理的事，才来到这里。</p>':'<h1 class="large-title">收件箱</h1><p class="subtitle">决定、失败与待验收集中呈现。普通进展留在频道。</p>')+(items.length?items.map(attentionCard).join(''):'<div class="empty">目前没有需要你处理的事。<br>Norma 会继续跟进执行。</div>')+'<h2 class="section-label">继续关注</h2>'+model.channels.filter(channel=>channel.status==='running').slice(0,1).map(channelRow).join('')+'</main>'+nav('inbox');}
+function messageView(message){const mine=message.author==='你';return '<article class="message '+(mine?'mine':'')+'">'+avatar(message.author)+'<div class="message-body"><div class="message-head">'+esc(message.author)+'<time>'+esc(message.time)+'</time></div><p>'+esc(message.text)+'</p>'+(message.kind==='transcript'?'<span class="transcript-mark">◌ 实时对话转写</span>':'')+'</div></article>';}
+function taskCard(task){return '<button class="task-card" data-action="open-task" data-id="'+esc(task.id)+'" aria-label="查看 '+esc(task.agent)+' 的任务：'+esc(task.title)+'"><span class="mini">'+esc(task.agent)+' · '+(task.status==='done'?'已完成':task.status==='failed'?'执行受阻':'正在执行')+'</span><h3>'+esc(task.title)+'</h3><p>'+esc(task.detail)+'</p><div class="progress-line"><span style="width:'+task.progress+'%"></span></div></button>';}
+function channelPage(){const channel=current();const context='目标：'+channel.goal+' · '+channel.projects.length+' 个项目 · '+channel.hardRules.length+' 条禁令';const last=channel.messages.slice(-12);return topbar('频道','nav-channels',button('open-channel-menu',icon('dots'),'icon-button','aria-label="工作空间设置"'))+'<div class="scroll" id="channel-scroll" data-channel-id="'+esc(channel.id)+'" aria-label="频道内容"><div class="channel-intro"><h1>'+esc(channel.title)+'</h1><p class="subtitle">'+statusLabel(channel.status)+' · '+(channel.projects.length?esc(channel.projects.join(' + ')):'尚未关联项目')+'</p><div class="project-pills">'+(channel.projects.length?channel.projects.map(project=>'<span>'+esc(project)+'</span>').join(''):'<span>尚未关联项目</span>')+button('open-projects','添加已有项目','project-config','aria-label="在工作空间添加已有项目"'+(channel.status==='archived'?' disabled':''))+'</div><div class="members">'+channel.members.map(avatar).join('')+'<span>'+channel.members.map(esc).join('、')+'</span>'+button('open-voice','与 Norma 通话','voice-inline','aria-label="在此频道与 Norma 通话"'+(channel.status==='archived'?' disabled':''))+'</div></div><div class="stream">'+button('open-context','<span>'+icon('layers')+'</span><span><strong>工作简报</strong><small>'+esc(context)+'</small></span><span class="context-arrow">'+icon('chevron',16)+'</span>','pinned-context','aria-label="工作简报"')+'<div class="day-divider">频道记录 · 目标与关键变化可追溯</div>'+last.map(messageView).join('')+channel.tasks.map(taskCard).join('')+(channel.status==='idea'||channel.status==='idle'?'<div class="detail-panel" style="padding:15px;margin-top:14px"><p class="muted" style="font-size:11px">这个想法已经有自己的频道。讨论可以继续，Agent 还没有开工。</p>'+button('start-work','让 Norma 开始','primary full','style="margin-top:12px"')+'</div>':'')+(channel.status==='review'?button('open-artifact','查看成果并验收','primary full'):'')+(channel.status==='accepted'?button('archive','验收已完成 · 归档频道','secondary full'):'')+(channel.status==='archived'?button('reopen','重开频道','secondary full'):'')+'</div></div><div class="composer-wrap"><div class="mention-row" aria-label="快速提及 Agent">'+['Norma','Codex','Design'].map(name=>button('mention','@'+name,'','data-agent="'+name+'"'+(channel.status==='archived'?' disabled':''))).join('')+'</div><form id="message-form" class="composer"><label class="sr-only" for="message-input">频道消息</label><input id="message-input" name="message" placeholder="发消息，或 @ Agent…" autocomplete="off" maxlength="400" '+(channel.status==='archived'?'disabled':'')+'><button type="submit" aria-label="发送频道消息" '+(channel.status==='archived'?'disabled':'')+'>'+icon('send',17)+'</button></form></div>';
+}
+function contextPage(){
+  const channel=current();
+  return topbar('频道','back-channel')+`<main class="scroll page-pad brief-page" aria-label="频道工作简报">
+    <div class="brief-intro"><span class="eyebrow">${esc(channel.title)} · WORKSPACE BRIEF</span><h1>工作简报</h1><p>这就是当前工作空间的目标、项目和禁令。有误可以直接修改。</p></div>
+    <section class="brief-goal"><span class="brief-label">要达成</span><p>${esc(channel.goal)}</p></section>
+    <section class="brief-section"><div class="brief-section-head"><h2>在哪些项目做</h2>${button('open-projects','添加已有项目','brief-link',channel.status==='archived'?'disabled':'')}</div><div class="resource-list">${channel.projects.length?channel.projects.map(project=>'<span>'+esc(project)+'</span>').join(''):'<span>尚未关联项目</span>'}</div><p class="brief-hint">项目来自已连接的电脑。</p></section>
+    <section class="brief-section"><h2>不能越过的限制</h2>${channel.hardRules.length?channel.hardRules.map(rule=>'<p class="brief-rule">'+esc(rule)+'</p>').join(''):'<p class="brief-hint">你还没有设定必须遵守的禁令。</p>'}</section>
+    <section class="brief-section"><h2>目前采用的决定</h2>${channel.decisions.length?channel.decisions.map(decision=>'<p class="brief-decision">'+esc(decision)+'</p>').join(''):'<p class="brief-hint">还没有形成决定。讨论继续留在频道。</p>'}</section>
+    ${button('open-edit-brief','纠正目标与限制','primary full',channel.status==='archived'?'disabled':'')}
+    <p class="brief-footer">${channel.members.length} 位参与者按这份简报协作；修改记录会回到频道。</p>
+  </main>`;
+}
+function taskPage(){const channel=current(),task=channel.tasks.find(task=>task.id===ui.taskId);if(!task)return channelPage();return topbar('频道','back-channel')+'<main class="scroll page-pad detail-page" aria-label="Agent 任务详情"><span class="label">Agent Card · '+esc(channel.title)+'</span><h1 class="large-title" style="font-size:27px">'+esc(task.title)+'</h1><p class="subtitle">'+esc(task.agent)+' · '+esc(task.project)+'</p><div class="project-pills"><span>'+esc(task.status==='done'?'已完成':task.status==='failed'?'执行受阻':'执行中')+'</span><span>任务 #'+esc(task.id.replace(/\D/g,'').slice(-2)||'02')+'</span></div><section class="detail-panel blue"><span class="eyebrow" style="color:#bcd5fa">当前阶段</span><h2>'+esc(task.status==='done'?'等待频道验收':task.status==='failed'?'需要恢复验证':'实现与验证')+'</h2><p>'+esc(task.detail)+'</p><div class="progress-line"><span style="width:'+task.progress+'%"></span></div></section><h2>任务动态</h2><div class="timeline"><div>已接收任务<small>Agent 在频道中留下接收回执</small></div><div>'+esc(task.evidence[0]||task.detail)+'<small>任务过程持续记录</small></div><div>'+esc(task.status==='done'?'已提交成果与验证记录':'继续执行并回到频道汇报')+'<small>原卡片继续，不新建任务</small></div></div><section class="detail-panel"><p>你可以在频道里 @'+esc(task.agent)+' 继续追问或补充；消息会回到原任务。</p></section>'+button('back-channel','返回频道对话','secondary full','style="margin-top:20px"')+'</main>';
+}
+function artifactPage(){const channel=current(),artifact=channel.artifact;if(!artifact)return channelPage();return topbar('频道','back-channel')+'<main class="scroll page-pad detail-page" aria-label="成果验收"><span class="label">'+esc(channel.title)+' · 第 2 版</span><h1 class="large-title" style="font-size:29px">验收成果</h1><p class="subtitle">Agent 已完成任务；需要你查看后确认。</p><section class="artifact-card" style="padding:16px;margin-top:20px"><span class="eyebrow">手机预览</span><div class="artifact-preview"><div class="preview-device"><small style="font-size:6px">9:41</small><h3>从电脑继续<br>现在的工作</h3><p>任务状态和最近成果清楚呈现。</p><div class="preview-pill">改进 iOS 首屏交接<br>2 个 Agent 已完成</div></div></div></section><h2>交付与证据</h2><section class="detail-panel">'+artifact.evidence.map(item=>'<div class="review-evidence">'+esc(item)+'</div>').join('')+'<p style="margin-top:13px">验收只确认这次成果；频道可在验收后归档，之后仍可重开。</p></section><div class="action-pair">'+button('open-revise','退回修改','secondary')+button('accept','验收通过','primary')+'</div></main>';
+}
+function voicePage(){const channel=current(),voice=model.voice;return '<main class="voice-screen" aria-label="与 Norma 的频道实时对话"><header class="voice-header">'+button('end-call',icon('back'),'icon-button','aria-label="结束对话并返回频道"')+'<div class="channel-selector">'+icon('layers',15)+' <span>'+esc(channel.title)+'</span></div>'+button('toggle-captions',icon('info'),'icon-button','aria-label="查看语音说明"')+'</header><div class="voice-hero"><div class="voice-glow"></div><img class="portrait-image" src="'+portrait+'" alt="Norma 虚拟人形象"></div><section class="voice-copy"><div class="waveform" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><h1>Norma · '+(voice?.muted?'已静音':'正在聆听')+'</h1><p>'+esc(voice?.lastLine||ui.voiceLine)+'</p><div class="voice-transcript" role="status"><b>当前频道 · 实时转写</b>'+esc(ui.voiceLine)+'</div>'+button('voice-utterance','演示说一句：@Codex 继续检查 API','voice-demo')+'</section><div class="voice-controls">'+button('call-mute','<span class="round-control">'+icon(voice?.muted?'mute':'mic')+'</span><span>'+(voice?.muted?'取消静音':'静音')+'</span>','','aria-pressed="'+!!voice?.muted+'"')+button('call-interrupt','<span class="round-control">'+icon('pause')+'</span><span>打断</span>')+button('call-quiet','<span class="round-control">'+icon('bell')+'</span><span>'+(voice?.quiet?'恢复汇报':'稍后汇报')+'</span>','','aria-pressed="'+!!voice?.quiet+'"')+button('end-call','<span class="round-control">'+icon('close')+'</span><span>挂断</span>','hangup')+'</div><div class="demo-label">交互演示 · 不采集麦克风 · 挂断不取消任务</div></main>';
+}
+function sheetView(){
+  if(!ui.sheet)return '';
+  let title='',body='';
+  const channel=current();
+  if(ui.sheet==='new'){
+    title='保存一个想法';
+    body='<p>保存即建频道。你可以先讨论，决定开始时再让 Agent 开工。</p><form id="idea-form"><label class="sr-only" for="idea-input">你的想法</label><textarea id="idea-input" name="idea" placeholder="例如：让 iOS 首屏交接更清楚…" required maxlength="240"></textarea><button class="primary full" type="submit">保存为频道</button></form>';
+  }else if(ui.sheet==='picker'){
+    title='切换频道';
+    body=model.channels.filter(item=>item.status!=='archived').map(item=>button('pick-channel',esc(item.title)+'<small>'+statusLabel(item.status)+' · '+esc(item.projects.join(' + ')||'尚未关联项目')+'</small>','sheet-choice','data-id="'+esc(item.id)+'"')).join('');
+  }else if(ui.sheet==='menu'){
+    title='工作空间设置';
+    body='<p class="sheet-lead">'+esc(channel.title)+' · '+channel.projects.length+' 个关联项目</p>'+button('open-projects',channel.projects.length?'管理已关联项目':'添加已有项目','sheet-choice',channel.status==='archived'?'disabled':'')+button('open-context','工作简报','sheet-choice')+button('open-devices','已连接电脑','sheet-choice')+button('open-demo','打开演示操作','sheet-choice')+(channel.status==='archived'?button('reopen','重开频道','sheet-choice'):['accepted','idea','idle'].includes(channel.status)?button('archive',icon('archive')+' 归档频道','sheet-choice'):'<p>任务执行或成果验收期间，频道暂不能归档。</p>');
+  }else if(ui.sheet==='projects'){
+    title='工作空间项目';
+    body='<p class="sheet-lead">为「'+esc(channel.title)+'」添加已有项目。Agent 将在这些项目中工作。</p>'+(channel.projects.length?'<p class="selected-projects">已关联：'+esc(channel.projects.join(' · '))+'</p>':'<p class="selected-projects">尚未关联项目</p>')+model.machines.map(machine=>'<section class="machine-group"><div class="machine-heading"><strong>'+esc(machine.name)+'</strong><span>'+(machine.online?'在线':'离线')+'</span></div>'+(machine.projects.length?machine.projects.map(project=>{const selected=channel.projects.includes(project),busy=selected&&channel.tasks.some(task=>task.status==='running'&&task.project.split(' · ').includes(project));return button('toggle-project',(selected?'移除 ':'关联 ')+esc(project)+(selected?'<small>已关联 · '+esc(machine.name)+'</small>':'<small>来自 '+esc(machine.name)+'</small>'),'sheet-choice project-option'+(selected?' selected':''),'data-project="'+esc(project)+'" aria-pressed="'+selected+'"'+(busy?' disabled title="任务执行中，暂不能移除"':''));}).join(''):'<p class="empty-machine">尚无项目 · 请先在这台电脑的 Norma 中添加项目</p>')+'</section>').join('')+button('open-devices','管理已连接电脑','quiet-button full');
+  }else if(ui.sheet==='devices'){
+    title='已连接电脑';
+    body='<p class="sheet-lead">电脑注册后，已有项目才会出现在工作空间的项目列表。</p>'+model.machines.map(machine=>'<section class="device-row"><strong>'+esc(machine.name)+'</strong><span>'+(machine.online?'在线':'离线')+' · '+machine.projects.length+' 个项目</span><small>'+(machine.projects.length?esc(machine.projects.join(' · ')):'尚无项目 · 在电脑端 Norma 添加')+'</small></section>').join('')+button('open-scan','扫码添加电脑','primary full');
+  }else if(ui.sheet==='scan'){
+    title='扫码添加电脑';
+    body='<p class="sheet-lead">在电脑端 Norma 打开「添加手机」，用 iPhone 扫描配对码。</p><div class="scan-preview" aria-label="模拟扫码画面"><div class="scan-corners"><span>模拟扫码</span></div></div><p class="scan-note">交互演示：这里不会打开相机或连接真实电脑。</p>'+button('confirm-pair','确认注册 Studio Mini','primary full');
+  }else if(ui.sheet==='brief-edit'){
+    title='纠正工作简报';
+    body='<form id="brief-form"><label class="field-label" for="brief-goal">这件事的目标</label><textarea id="brief-goal" name="goal" required maxlength="400">'+esc(channel.goal)+'</textarea><label class="field-label" for="brief-rules">绝不能越过的限制</label><textarea id="brief-rules" name="rules" maxlength="500" placeholder="每行一条；没有则留空">'+esc(channel.hardRules.join('\n'))+'</textarea><p>保存后会更新当前频道，并留下 Norma 的同步回执。</p><button class="primary full" type="submit">保存工作简报</button></form>';
+  }else if(ui.sheet==='revise'){
+    title='退回修改';body='<p>修改意见会回到原 Agent 任务，不会新建卡片。</p><form id="revise-form"><label class="sr-only" for="revise-input">修改意见</label><textarea id="revise-input" name="revision" placeholder="例如：首屏状态再清楚一些…" required maxlength="300"></textarea><button class="primary full" type="submit">交回 Agent 继续修改</button></form>';
+  }else if(ui.sheet==='decision'){
+    title='需要你的决定';body='<p>测试环境缺少依赖。Norma 建议改用已缓存的依赖完成验证，频道的“禁止发布生产环境”仍生效。</p><section class="context-card rule-card"><span class="eyebrow">硬约束</span><p>禁止发布生产环境</p></section>'+button('resolve-decision','同意使用已缓存依赖','primary full');
+  }else if(ui.sheet==='failure'){
+    title='执行失败';body='<p>测试环境下载依赖失败。Codex 已停止这条验证路径，没有触碰生产环境。</p>'+button('open-channel','进入频道查看记录','secondary full','data-id="release-check"');
+  }else if(ui.sheet==='search'){
+    title='搜索频道';body='<p>按频道名称快速定位。完整消息搜索在正式产品中提供。</p><form id="search-form"><label class="sr-only" for="search-input">搜索频道</label><input id="search-input" name="query" placeholder="搜索频道名称…" autocomplete="off"><button class="primary full" type="submit">查找频道</button></form>';
+  }else if(ui.sheet==='demo'){
+    title='演示操作';body='<p>这些按钮只推动本地模拟状态，用来体验 Agent 回执、待验收和归档流程。</p>'+button('demo-complete','模拟当前频道完成任务','sheet-choice')+button('demo-reset','重置所有演示数据','sheet-choice');
+  }else if(ui.sheet==='voice-info'){
+    title='实时对话说明';body='<p>语音会绑定当前频道。此原型仅模拟转写、Agent 回执与汇报节奏，不采集麦克风，也不执行真实任务。</p>';
+  }
+  return '<button class="scrim" data-action="close-sheet" aria-label="关闭弹层"></button><section class="sheet" role="dialog" aria-modal="true" aria-label="'+esc(title)+'"><span class="sheet-handle"></span><header><h2>'+esc(title)+'</h2>'+button('close-sheet','完成','quiet-button')+'</header><div class="sheet-body">'+body+'</div></section>';
+}
+function phone(){let content,active=null;if(ui.view==='home'){if(ui.variant==='A'){content=channelsPage();active='channels';}else if(ui.variant==='B'){content=personaPage();active='persona';}else{content=inboxPage(true);active='inbox';}}else if(ui.view==='channels'){content=channelsPage();active='channels';}else if(ui.view==='persona'){content=personaPage();active='persona';}else if(ui.view==='inbox'){content=inboxPage(ui.variant==='C');active='inbox';}else if(ui.view==='channel')content=channelPage();else if(ui.view==='context')content=contextPage();else if(ui.view==='task')content=taskPage();else if(ui.view==='artifact')content=artifactPage();else if(ui.view==='voice')content=voicePage();else content=channelsPage();return '<section class="device variant-'+ui.variant.toLowerCase()+'" aria-label="Norma iPhone 高保真原型">'+statusbar()+'<div class="phone-surface">'+content+'</div><div class="home-indicator"></div>'+sheetView()+(ui.notice?'<div class="toast" role="status" aria-live="polite">'+esc(ui.notice)+'</div>':'')+'</section>';}
+function editorial(){const copy={A:['频道是工作的现场。','每个想法一建频道，讨论、共享事实、派工与成果都回到同一处。'],B:['Norma 始终在场。','先说出想法，再进入频道。实时对话记得当下的目标与约束。'],C:['注意力只给关键事。','决定、失败和成果验收集中出现；普通进展安静留在频道。']}[ui.variant];return '<aside class="editorial"><div class="wordmark">norma<span>•</span>os <span style="font-size:12px;letter-spacing:0">/ iOS</span></div><div class="eyebrow">ONE PERSON · MANY AGENTS</div><h1>'+copy[0]+'</h1><p>'+copy[1]+'</p><div class="logic">想法 → 频道 → 共享上下文<br>Norma 派工 → Agent 任务 → 成果验收</div><footer>独立交互原型 · 无真实执行或录音<br><a href="archive/2026-09-25-norma-realtime/norma-realtime.html">查看已归档的实时虚拟人旧版 ↗</a></footer></aside>';}
+function demoPanel(){return '<aside class="demo-panel" aria-label="原型演示控制"><div class="eyebrow">EXPLORE THE FLOW</div><h2>一件事，走到底。</h2><p>从频道开始，让 Norma 派工；让任务完成，再到收件箱验收。状态在三种方案间共享。</p>'+button('open-new','01 · 保存想法即建频道')+button('open-channel','02 · 查看跨项目频道','','data-id="ios-handoff"')+button('open-voice','03 · 进入当前频道语音')+button('demo-complete','04 · 模拟任务完成')+button('nav-inbox','05 · 处理收件箱')+button('demo-reset','重置演示')+'<p class="note">这里的“完成”和语音转写是模拟。每条真实产品回执应由实际 Agent 产生。</p></aside>';}
+function variantBar(){const index='ABC'.indexOf(ui.variant),label=ui.variant+' · '+variants[ui.variant];return '<nav class="variant-bar" aria-label="视觉方案切换">'+button('variant-prev','←','','aria-label="上一种视觉方案"')+'<strong>'+label+'</strong>'+button('variant-next','→','','aria-label="下一种视觉方案"')+'<span class="variant-status">'+esc(current().title)+' · '+statusLabel(current().status)+'</span></nav>';}
+function paint(){const before=document.getElementById('channel-scroll'),top=before?.scrollTop,nearBottom=before&&before.scrollHeight-before.clientHeight-top<24;document.getElementById('root').innerHTML='<div class="prototype">'+editorial()+'<div class="device-stage">'+phone()+'</div>'+demoPanel()+'</div>'+variantBar();const after=document.getElementById('channel-scroll');if(after&&before?.dataset.channelId===after.dataset.channelId)after.scrollTop=nearBottom?after.scrollHeight:top;}
+function render(animate=false){const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;if(animate&&document.startViewTransition&&!reduced)document.startViewTransition(paint);else paint();}
+function resizeDevice(){const scale=Math.max(.65,Math.min(1,(innerHeight-116)/844));document.documentElement.style.setProperty('--device-scale',scale.toFixed(3));}
+function flash(text){ui.notice=text;render();clearTimeout(flash.timer);flash.timer=setTimeout(()=>{if(ui.notice===text){ui.notice='';render();}},3200);}
+function navigate(view){ui.view=view;ui.sheet=null;ui.notice='';render(true);}
+function changeVariant(delta){const keys=['A','B','C'],index=(keys.indexOf(ui.variant)+delta+keys.length)%keys.length;ui.variant=keys[index];ui.view='home';ui.sheet=null;const url=new URL(location.href);url.searchParams.set('variant',ui.variant);history.replaceState(null,'',url);render();}
+function currentAction(type,extra={}){const result=act(model,{type,channelId:ui.channelId,...extra});ui.sheet=null;flash(result.message);return result;}
+function openChannel(id){ui.channelId=id||ui.channelId;ui.view='channel';ui.sheet=null;render(true);}
+function setSheet(name){ui.sheet=name;ui.notice='';render();requestAnimationFrame(()=>document.querySelector('.sheet input,.sheet textarea,.sheet button')?.focus());}
+function dismissSheet(){
+  const sheet=document.querySelector('.sheet'),name=ui.sheet;
+  if(!sheet||matchMedia('(prefers-reduced-motion: reduce)').matches){ui.sheet=null;render();return;}
+  const from=getComputedStyle(sheet).transform;
+  sheet.getAnimations().forEach(animation=>animation.cancel());
+  sheet.style.animation='none';
+  const exit=sheet.animate([{transform:from==='none'?'translateY(0)':from,opacity:1},{transform:'translateY(100%)',opacity:0}],{duration:220,easing:'cubic-bezier(.32,.72,0,1)',fill:'forwards'});
+  exit.onfinish=()=>{if(ui.sheet===name){ui.sheet=null;render();}};
+}
+let sheetDrag=null,backDrag=null;
+document.addEventListener('pointerdown',event=>{
+  const handle=event.target.closest('.sheet-handle');
+  if(handle&&ui.sheet){
+    const sheet=handle.closest('.sheet'),from=getComputedStyle(sheet).transform;
+    sheet.getAnimations().forEach(animation=>animation.cancel());
+    sheet.style.animation='none';
+    const base=from==='none'?0:new DOMMatrixReadOnly(from).m42;
+    sheet.style.transform='translateY('+base+'px)';
+    sheetDrag={handle,sheet,id:event.pointerId,startY:event.clientY,lastY:event.clientY,lastT:event.timeStamp,base,delta:0,velocity:0};
+    handle.setPointerCapture(event.pointerId);
+    return;
+  }
+  const device=event.target.closest('.device'),surface=device?.querySelector('.phone-surface');
+  if(ui.sheet||!surface||!['channel','context','task','artifact'].includes(ui.view)||event.clientX-device.getBoundingClientRect().left>28)return;
+  backDrag={surface,id:event.pointerId,startX:event.clientX,startY:event.clientY,lastX:event.clientX,lastT:event.timeStamp,delta:0,velocity:0,active:false};
+});
+document.addEventListener('pointermove',event=>{
+  if(sheetDrag?.id===event.pointerId){
+    const drag=sheetDrag;
+    drag.delta=Math.max(0,event.clientY-drag.startY);
+    drag.velocity=(event.clientY-drag.lastY)/Math.max(1,event.timeStamp-drag.lastT);
+    drag.lastY=event.clientY;drag.lastT=event.timeStamp;
+    drag.sheet.style.transform='translateY('+(drag.base+drag.delta)+'px)';
+    return;
+  }
+  if(backDrag?.id!==event.pointerId)return;
+  const drag=backDrag,dx=Math.max(0,event.clientX-drag.startX),dy=event.clientY-drag.startY;
+  if(!drag.active&&Math.abs(dy)>12&&Math.abs(dy)>dx){backDrag=null;return;}
+  if(!drag.active&&dx>10&&dx>Math.abs(dy)){drag.active=true;drag.surface.setPointerCapture(event.pointerId);}
+  if(!drag.active)return;
+  event.preventDefault();
+  drag.delta=Math.min(dx,drag.surface.getBoundingClientRect().width);
+  drag.velocity=(event.clientX-drag.lastX)/Math.max(1,event.timeStamp-drag.lastT);
+  drag.lastX=event.clientX;drag.lastT=event.timeStamp;
+  drag.surface.style.transform='translateX('+drag.delta+'px)';
+});
+function finishGesture(event){
+  if(sheetDrag?.id===event.pointerId){
+    const drag=sheetDrag;sheetDrag=null;
+    if(drag.delta>90||drag.velocity>.65){dismissSheet();return;}
+    if(matchMedia('(prefers-reduced-motion: reduce)').matches){drag.sheet.style.transform='';return;}
+    const from=getComputedStyle(drag.sheet).transform;
+    const settle=drag.sheet.animate([{transform:from},{transform:'translateY(0)'}],{duration:180,easing:'cubic-bezier(.23,1,.32,1)'});
+    settle.onfinish=()=>{drag.sheet.style.transform='';};
+    return;
+  }
+  if(backDrag?.id!==event.pointerId)return;
+  const drag=backDrag;backDrag=null;
+  if(!drag.active)return;
+  if(drag.delta>90||drag.velocity>.65){navigate(ui.view==='channel'?'channels':'channel');return;}
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches){drag.surface.style.transform='';return;}
+  const settle=drag.surface.animate([{transform:'translateX('+drag.delta+'px)'},{transform:'translateX(0)'}],{duration:180,easing:'cubic-bezier(.23,1,.32,1)'});
+  settle.onfinish=()=>{drag.surface.style.transform='';};
+}
+document.addEventListener('pointerup',finishGesture);
+document.addEventListener('pointercancel',finishGesture);
+function scrollToLatest(){requestAnimationFrame(()=>{const el=document.getElementById('channel-scroll');if(el)el.scrollTop=el.scrollHeight;});}
+document.addEventListener('click',event=>{const target=event.target.closest('button[data-action]');if(!target||target.disabled)return;const action=target.dataset.action,id=target.dataset.id;
+  if(action==='variant-prev'||action==='variant-next'){changeVariant(action==='variant-next'?1:-1);return;}
+  if(action==='open-channel'||action==='pick-channel'){openChannel(id||ui.channelId);return;}
+  if(action==='nav-channels'){navigate('channels');return;}
+  if(action==='nav-persona'){navigate('persona');return;}
+  if(action==='nav-inbox'){navigate('inbox');return;}
+  if(action==='back-channel'){navigate('channel');return;}
+  if(action==='open-context'){navigate('context');return;}
+  if(action==='open-task'){ui.taskId=id;navigate('task');return;}
+  if(action==='open-artifact'){navigate('artifact');return;}
+  if(action==='open-attention'){ui.channelId=id;if(target.dataset.type==='review')navigate('artifact');else setSheet(target.dataset.type==='decision'?'decision':'failure');return;}
+  if(action==='open-new'||action==='open-channel-picker'||action==='open-channel-menu'||action==='open-revise'||action==='open-search'||action==='open-demo'||action==='toggle-captions'||action==='open-devices'||action==='open-scan'||action==='open-projects'||action==='open-edit-brief'){setSheet(({ 'open-new':'new','open-channel-picker':'picker','open-channel-menu':'menu','open-revise':'revise','open-search':'search','open-demo':'demo','toggle-captions':'voice-info','open-devices':'devices','open-scan':'scan','open-projects':'projects','open-edit-brief':'brief-edit'})[action]);return;}
+  if(action==='close-sheet'){dismissSheet();return;}
+  if(action==='confirm-pair'){const result=act(model,{type:'pair-computer'});if(result.ok)ui.sheet='devices';flash(result.message);return;}
+  if(action==='toggle-project'){const result=act(model,{type:'toggle-project',channelId:ui.channelId,project:target.dataset.project});flash(result.message);return;}
+  if(action==='filter'){ui.filter=target.dataset.filter;render();return;}
+  if(action==='mention'){const input=document.getElementById('message-input');if(input){input.value=(input.value?input.value+' ':'')+'@'+target.dataset.agent+' ';input.focus();}return;}
+  if(action==='start-work'){const result=currentAction('start');if(result.ok)scrollToLatest();return;}
+  if(action==='open-voice'){const result=act(model,{type:'call-start',channelId:ui.channelId});if(result.ok){ui.view='voice';ui.sheet=null;ui.voiceLine='你可以直接说话，我记得这个频道的上下文。';ui.notice='';render(true);}else flash(result.message);return;}
+  if(action==='voice-utterance'){const result=act(model,{type:'call-utterance',channelId:ui.channelId});if(result.ok){ui.voiceLine='“@Codex 再核对一下 API 状态，接着原任务做。”';render();}else flash(result.message);return;}
+  if(action==='call-mute'||action==='call-quiet'){currentAction(action);return;}
+  if(action==='call-interrupt'){if(model.voice){model.voice.lastLine='我停下了，你可以接着说。';ui.voiceLine='已打断 Norma，正在听你说。';render();}return;}
+  if(action==='end-call'){const result=act(model,{type:'call-end',channelId:ui.channelId});ui.view='channel';ui.notice=result.message;render(true);scrollToLatest();return;}
+  if(action==='demo-complete'){const result=act(model,{type:'complete',channelId:ui.channelId});ui.sheet=null;if(result.ok){ui.view='inbox';ui.notice=result.message;render(true);}else flash(result.message);return;}
+  if(action==='demo-reset'){const fresh=initialState();Object.assign(model,fresh);ui.channelId='ios-handoff';ui.view='home';ui.sheet=null;ui.filter='all';flash('演示已重置');return;}
+  if(action==='accept'){const result=act(model,{type:'accept',channelId:ui.channelId});if(result.ok){ui.view='channel';ui.notice=result.message;render(true);scrollToLatest();}else flash(result.message);return;}
+  if(action==='resolve-decision'){const result=act(model,{type:'resolve-decision',channelId:ui.channelId});ui.sheet=null;ui.view='inbox';flash(result.message);return;}
+  if(action==='archive'||action==='reopen'){const result=act(model,{type:action,channelId:ui.channelId});ui.sheet=null;flash(result.message);return;}
+});
+document.addEventListener('submit',event=>{const form=event.target;if(!['idea-form','message-form','revise-form','search-form','brief-form'].includes(form.id))return;event.preventDefault();const data=new FormData(form);
+  if(form.id==='idea-form'){const result=act(model,{type:'save',text:data.get('idea')});if(result.ok){ui.channelId=result.channelId;ui.view='channel';ui.sheet=null;ui.notice=result.message;render(true);}else flash(result.message);}
+  if(form.id==='message-form'){const result=act(model,{type:'send',channelId:ui.channelId,text:data.get('message')});if(result.ok){ui.notice=result.message;render();scrollToLatest();}else flash(result.message);}
+  if(form.id==='revise-form'){const result=act(model,{type:'revise',channelId:ui.channelId,text:data.get('revision')});if(result.ok){ui.view='channel';ui.sheet=null;ui.notice=result.message;render(true);}else flash(result.message);}
+  if(form.id==='search-form'){const query=String(data.get('query')||'').trim();const found=model.channels.find(channel=>channel.title.includes(query));if(found&&query)openChannel(found.id);else flash('没有找到对应频道。');}
+  if(form.id==='brief-form'){const result=act(model,{type:'update-brief',channelId:ui.channelId,goal:data.get('goal'),hardRules:String(data.get('rules')||'').split('\n')});if(result.ok)ui.sheet=null;flash(result.message);}
+});
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&ui.sheet){dismissSheet();return;}if(!['ArrowLeft','ArrowRight'].includes(event.key)||event.altKey||event.metaKey||event.ctrlKey||/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName||'')||document.activeElement?.isContentEditable)return;event.preventDefault();changeVariant(event.key==='ArrowRight'?1:-1);});
+window.addEventListener('resize',resizeDevice);
+resizeDevice();render();
+})();
+</script>
+</body>
+</html>

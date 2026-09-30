@@ -122,3 +122,57 @@ fn test_option_enter_uses_csi_u_when_enhanced_keyboard_is_enabled() {
         "Option+Enter 不得退化为裸 CR，否则 TUI 会直接提交消息"
     );
 }
+
+/// Shift+Enter 在仅声明 bracketed paste 的 TUI 中插入换行，协议退出后恢复 legacy。
+///
+/// 数据构造（含关键数值推导）：
+///   80×24 为标准终端尺寸；session id=9 仅标识本测试。
+///   paste newline = begin(6) + LF(1) + end(6) = 13 bytes。
+///   Kitty Shift+Enter = ESC(1) + "[13;2u"(6) = 7 bytes；普通 Enter = CR(1)。
+/// 执行过程：
+///   1. 开启 bracketed paste，写 Shift+Enter 和 Enter，分别记录换行与提交。
+///   2. 同时开启 Kitty，Shift+Enter 应优先保留原始按键协议。
+///   3. 退出两个模式，再写 Shift+Enter，验证模式不会泄漏到 legacy shell。
+/// 预期结果：
+///   - 换行是单个 bracketed paste，不能成为裸 CR；普通 Enter 仍提交。
+///   - Kitty 返回 CSI-u；关闭协议后返回 legacy CR。
+#[test]
+fn test_shift_enter_falls_back_to_bracketed_newline() {
+    use crate::input::Key;
+    let (tx, rx) = unbounded();
+    let writes = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let backend = TestPtyBackend::recording(tx.clone(), writes.clone());
+    let mut session = TerminalSession::spawn_with_backend(9, 80, 24, Box::new(backend), rx);
+    let shift_enter = KeyInput {
+        key: Key::Enter,
+        ctrl: false,
+        alt: false,
+        shift: true,
+    };
+    tx.send(PtyEvent::Output(b"\x1b[?2004h".to_vec())).unwrap();
+    session.drain();
+    session.write_input(&shift_enter).unwrap();
+    session
+        .write_input(&KeyInput {
+            shift: false,
+            ..shift_enter
+        })
+        .unwrap();
+    tx.send(PtyEvent::Output(b"\x1b[>1u".to_vec())).unwrap();
+    session.drain();
+    session.write_input(&shift_enter).unwrap();
+    tx.send(PtyEvent::Output(b"\x1b[<u\x1b[?2004l".to_vec()))
+        .unwrap();
+    session.drain();
+    session.write_input(&shift_enter).unwrap();
+    let recorded = writes.lock().unwrap();
+    assert_eq!(recorded.len(), 4, "四次按键必须各写一次 PTY");
+    assert_eq!(
+        recorded[0], b"\x1b[200~\n\x1b[201~",
+        "legacy TUI 必须收到粘贴换行"
+    );
+    assert_ne!(recorded[0], b"\r", "Shift+Enter 不得提交");
+    assert_eq!(recorded[1], b"\r", "普通 Enter 必须保持提交");
+    assert_eq!(recorded[2], b"\x1b[13;2u", "Kitty 必须优先于粘贴兼容路径");
+    assert_eq!(recorded[3], b"\r", "关闭协议后必须恢复 legacy 编码");
+}

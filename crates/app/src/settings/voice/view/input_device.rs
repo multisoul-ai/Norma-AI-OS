@@ -43,6 +43,7 @@ pub(super) fn input_device_row(
                 .id(("settings-voice-input-device", index))
                 .debug_selector(move || format!("settings-voice-input-device-{index}"))
                 .on_click(cx.listener(move |app, _, _window, cx| {
+                    app.stop_doubao_voice(cx);
                     app.voice_settings.select_input_device(Some(id.clone()));
                     app.voice_settings.close_input_device_picker();
                     app.persist_voice_settings_in_background(cx);
@@ -111,6 +112,8 @@ pub(super) fn input_device_row(
         )
         .child(
             div()
+                .id("settings-voice-legacy-recognition-status")
+                .debug_selector(|| "settings-voice-legacy-recognition-status".to_string())
                 .text_size(px(11.0))
                 .font_weight(FontWeight::MEDIUM)
                 .text_color(rgba(theme.accent_green))

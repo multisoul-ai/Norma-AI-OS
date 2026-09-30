@@ -1,6 +1,5 @@
 use canvas::CanvasRect;
 
-use crate::motion::breathing::CornerGlow;
 use crate::motion::working::WorkingSnake;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -11,6 +10,12 @@ pub enum VisualPriority {
     Dragging,
     Selected,
     Focused,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BorderGlow {
+    pub intensity: f32,
+    pub flash: f32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -28,6 +33,7 @@ pub struct ResolvedNodeVisual {
     pub shadow_spread: f32,
     pub border_is_emphasized: bool,
     pub opacity: f32,
-    pub corner_glow: Option<CornerGlow>,
+    pub breathing_border_active: bool,
+    pub border_glow: Option<BorderGlow>,
     pub working_snake: Option<WorkingSnake>,
 }

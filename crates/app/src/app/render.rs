@@ -53,6 +53,7 @@ impl Render for MultisoulApp {
                 |root| {
                     root.on_action(cx.listener(Self::on_new_terminal))
                         .on_action(cx.listener(Self::on_preview_image_command))
+                        .on_action(cx.listener(Self::on_preview_edit_command))
                         .on_action(cx.listener(Self::on_new_browser))
                         .on_action(cx.listener(Self::on_new_ego))
                         .on_action(cx.listener(Self::on_new_claude_agent))
@@ -104,6 +105,9 @@ impl Render for MultisoulApp {
         }
         if self.clone_project.is_open() {
             root = root.child(self.render_clone_project_dialog(window, cx));
+        }
+        if let Some(dialogs) = ui::component::Root::render_dialog_layer(window, cx) {
+            root = root.child(dialogs);
         }
 
         root

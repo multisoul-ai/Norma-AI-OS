@@ -33,6 +33,9 @@ pub struct AgentSpec {
     pub alias: Option<String>,
     #[serde(default)]
     pub definition_id: Option<i64>,
+    /// Explicitly enabled for controlled companion cards; old snapshots stay desktop-only.
+    #[serde(default)]
+    pub mobile_control: bool,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
@@ -151,21 +154,25 @@ mod tests {
             profile: AgentProfile::Claude,
             alias: None,
             definition_id: None,
+            mobile_control: false,
         });
         let codex = NodeKind::Agent(AgentSpec {
             profile: AgentProfile::Codex,
             alias: None,
             definition_id: None,
+            mobile_control: false,
         });
         let opencode = NodeKind::Agent(AgentSpec {
             profile: AgentProfile::OpenCode,
             alias: None,
             definition_id: None,
+            mobile_control: false,
         });
         let cursor = NodeKind::Agent(AgentSpec {
             profile: AgentProfile::Cursor,
             alias: None,
             definition_id: None,
+            mobile_control: false,
         });
 
         assert_eq!(
@@ -255,6 +262,7 @@ mod tests {
             profile: AgentProfile::Codex,
             alias: Some("Alan".to_string()),
             definition_id: None,
+            mobile_control: false,
         });
 
         let NodeKind::Agent(legacy_spec) = &legacy else {

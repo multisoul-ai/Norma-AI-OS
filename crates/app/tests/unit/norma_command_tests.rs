@@ -227,6 +227,7 @@ fn test_norma_list_summary_includes_agent_alias() {
             profile: AgentProfile::Codex,
             alias: Some("Alan".to_string()),
             definition_id: None,
+            mobile_control: false,
         }),
         CanvasRect::new(0.0, 0.0, 640.0, 360.0),
     );
@@ -290,6 +291,7 @@ fn test_norma_list_summary_preserves_opencode_agent_profile() {
             profile: AgentProfile::OpenCode,
             alias: None,
             definition_id: None,
+            mobile_control: false,
         }),
         CanvasRect::new(0.0, 0.0, 640.0, 360.0),
     );

@@ -26,8 +26,11 @@ use super::agent_hook_ingress::{read_authorized_event, AgentHookHttpError};
 
 pub(crate) struct AgentHookServer {
     receiver: Receiver<AgentHookEvent>,
+    approvals: Receiver<norma::agent_hook::HookApproval>,
     #[cfg(feature = "e2e-test-support")]
     event_sender: Sender<AgentHookEvent>,
+    #[cfg(feature = "e2e-test-support")]
+    event_tap: Option<Sender<AgentHookEvent>>,
     endpoint: Option<String>,
     token: Option<String>,
 }
@@ -59,8 +62,11 @@ impl AgentHookServer {
         let registration = agent_hook_ingress::register(cx);
         Self {
             receiver: registration.receiver,
+            approvals: registration.approvals,
             #[cfg(feature = "e2e-test-support")]
             event_sender: registration.sender,
+            #[cfg(feature = "e2e-test-support")]
+            event_tap: None,
             endpoint: registration.endpoint,
             token: registration.token,
         }
@@ -77,6 +83,7 @@ impl AgentHookServer {
         self.unregister(cx);
         let registration = agent_hook_ingress::register(cx);
         self.receiver = registration.receiver;
+        self.approvals = registration.approvals;
         #[cfg(feature = "e2e-test-support")]
         {
             self.event_sender = registration.sender;
@@ -86,7 +93,7 @@ impl AgentHookServer {
     }
 
     pub(crate) fn has_pending(&self) -> bool {
-        !self.receiver.is_empty()
+        !self.receiver.is_empty() || !self.approvals.is_empty()
     }
 
     #[cfg(feature = "e2e-test-support")]
@@ -94,6 +101,14 @@ impl AgentHookServer {
         self.event_sender
             .send(event)
             .map_err(|_| "Agent Hook e2e event queue is closed".to_string())
+    }
+
+    #[cfg(feature = "e2e-test-support")]
+    pub(crate) fn observe_events_for_e2e(&mut self) -> Receiver<AgentHookEvent> {
+        // 256 events bounds one isolated probe; never steals events from the production receiver.
+        let (sender, receiver) = crossbeam_channel::bounded(256);
+        self.event_tap = Some(sender);
+        receiver
     }
 
     pub(crate) fn runtime_config(&self) -> Option<AgentHookRuntimeConfig> {
@@ -114,7 +129,16 @@ impl AgentHookServer {
 
     pub(crate) fn drain_into_runtime(&self, runtime: &mut Runtime) -> AgentHookDrainReport {
         let mut report = AgentHookDrainReport::default();
-        while let Ok(event) = self.receiver.try_recv() {
+        for event in self.receiver.try_iter() {
+            let previous_progress = runtime.mobile_task_progress(event.node_id);
+            if !runtime.observe_mobile_hook(&event) {
+                continue;
+            }
+            report.changed |= previous_progress != runtime.mobile_task_progress(event.node_id);
+            #[cfg(feature = "e2e-test-support")]
+            if let Some(tap) = &self.event_tap {
+                let _ = tap.try_send(event.clone());
+            }
             let node_id = event.node_id;
             let started_task =
                 (event.provider_event == "UserPromptSubmit").then(|| AgentHookStartedTask {
@@ -153,6 +177,17 @@ impl AgentHookServer {
                 }
             }
         }
+        // Lifecycle Hooks complete before the Provider enters its PermissionRequest Hook.
+        // Drain them first: a completed turn must reject an approval that arrived late.
+        while let Ok(approval) = self.approvals.try_recv() {
+            let mut event = approval.request().event.clone();
+            event.control_run_id = Some(approval.request().run_id.clone());
+            if runtime.accept_mobile_approval(approval) {
+                report.changed = true;
+                report.events.push(event.clone());
+                apply_agent_hook_event_with_outcome(runtime, event);
+            }
+        }
         report
     }
 }
@@ -187,6 +222,9 @@ fn apply_agent_hook_event_with_outcome(
     runtime: &mut Runtime,
     event: AgentHookEvent,
 ) -> AgentTaskUpdateOutcome {
+    if !runtime.accepts_mobile_hook(&event) {
+        return AgentTaskUpdateOutcome::default();
+    }
     let Some(to) = agent_task_state_from_hook_event(&event) else {
         tracing::debug!(provider_event = %event.provider_event, "ignored unmapped agent hook event");
         return AgentTaskUpdateOutcome::default();
@@ -260,6 +298,7 @@ mod tests {
                 profile: CanvasAgentProfile::Codex,
                 alias: None,
                 definition_id: None,
+                mobile_control: false,
             }),
             CanvasRect::new(0.0, 0.0, 640.0, 400.0),
         );
@@ -309,6 +348,7 @@ mod tests {
                 profile: CanvasAgentProfile::Codex,
                 alias: None,
                 definition_id: None,
+                mobile_control: false,
             }),
             CanvasRect::new(0.0, 0.0, 640.0, 400.0),
         );

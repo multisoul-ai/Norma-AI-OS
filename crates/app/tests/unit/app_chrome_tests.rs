@@ -262,73 +262,60 @@ fn test_top_toolbar_includes_settings_icon_entry() {
     );
 }
 
-/// 顶部画布滚动入口（第三步重设计后）：滚动开关由 ToolbarIcon::Scroll 图标渲染，旧 ↕ glyph 不再使用。
+/// Command Dock 不再提供 Select/Scroll 画布模式按钮，其余入口保持不变。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   source = include_str!("../../src/app/chrome/dock.rs")（检查 Command Dock 渲染源码）
-///   render_source = source 中 #[cfg(test)] 前的生产渲染区，避免测试注释误命中
-///   expected id        = "toolbar" + "-canvas-scroll"
-///   expected icon form = "ToolbarIcon::Scroll"（第三步起的 SVG 图标变体）
-///   expected handler   = "on_" + "toolbar" + "_canvas_scroll"
-///   existing ids       = toolbar-new-terminal、toolbar-settings
-///   forbidden glyph    = "\"↕\""（第三步前的 Unicode 箭头 glyph）
-///   forbidden button   = "chrome_button(theme, \"v\", false)"（更早的静态占位按钮）
-///   forbidden const    = "TOOLBAR_CANVAS_SCROLL_ICON"（第三步删除的常量）
+///   render_source = source 中 #[cfg(test)] 前的生产渲染区
+///   forbidden id       = "toolbar" + "-canvas-scroll"
+///   forbidden handler  = "on_" + "toolbar" + "_canvas_scroll"
+///   forbidden icons    = "ToolbarIcon::Scroll"、"ToolbarIcon::Cursor"（仅该按钮使用）
+///   forbidden tooltips = "Select mode"、"Scroll mode"
+///   existing ids       = toolbar-new-terminal、toolbar-settings、toolbar-layout
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 读取 app_chrome.rs 的生产渲染源码
-///   2. 确认画布滚动按钮 id、Scroll 图标变体、点击 handler 都存在
-///   3. 确认现有新终端、设置入口仍存在
-///   4. 搜索旧 ↕ glyph literal、旧静态 v 占位按钮、已删除的 TOOLBAR_CANVAS_SCROLL_ICON 常量
+///   1. 读取 dock.rs 的生产渲染源码
+///   2. 确认画布模式按钮 id、点击 handler、图标变体与 tooltip 文案均不存在
+///   3. 确认 New、Settings、Layout 入口仍存在
 ///
 /// 预期结果：
-///   - 正断言：顶部菜单存在 toolbar-canvas-scroll、Scroll 图标变体、toggle handler
-///   - 正断言：现有新终端与设置入口仍存在
-///   - 负断言：旧 ↕ glyph literal、旧静态 v 占位按钮、TOOLBAR_CANVAS_SCROLL_ICON 常量不应继续存在
+///   - 负断言：toolbar-canvas-scroll、on_toolbar_canvas_scroll、Scroll/Cursor 图标、Select/Scroll mode 文案不再出现
+///   - 正断言：New（ToolbarIcon::Plus）、Settings、Layout 入口仍存在
 #[test]
-fn test_top_toolbar_includes_canvas_scroll_icon_toggle() {
+fn test_command_dock_has_no_canvas_mode_toggle() {
     let source = include_str!("../../src/app/chrome/dock.rs");
     let render_source = source.split("#[cfg(test)]").next().unwrap_or(source);
     let scroll_id = concat!("toolbar", "-canvas-scroll");
     let scroll_handler = format!("{}{}{}", "on_", "toolbar", "_canvas_scroll");
-    let scroll_icon_variant = "ToolbarIcon::Scroll";
-    let terminal_icon_variant = "ToolbarIcon::Plus";
-    let settings_id = concat!("toolbar", "-settings");
-    let legacy_arrow_glyph = "\"↕\"";
-    let legacy_static_button = "chrome_button(theme, \"v\", false)";
-    let legacy_scroll_const = "TOOLBAR_CANVAS_SCROLL_ICON";
 
     assert!(
-        render_source.contains(scroll_id),
-        "顶部菜单应包含 toolbar-canvas-scroll 画布滚动 toggle"
+        !render_source.contains(scroll_id),
+        "Dock 不应再包含 toolbar-canvas-scroll 画布模式按钮"
     );
     assert!(
-        render_source.contains(scroll_icon_variant),
-        "画布滚动 toggle 应使用 ToolbarIcon::Scroll 图标变体表示可滚动"
+        !render_source.contains(&scroll_handler),
+        "Dock 不应再绑定 on_toolbar_canvas_scroll 点击 handler"
     );
     assert!(
-        render_source.contains(&scroll_handler),
-        "画布滚动 toggle 应绑定 on_toolbar_canvas_scroll 点击 handler"
+        !render_source.contains("ToolbarIcon::Scroll")
+            && !render_source.contains("ToolbarIcon::Cursor"),
+        "Dock 不应再使用仅服务于画布模式按钮的 Scroll/Cursor 图标变体"
     );
     assert!(
-        render_source.contains(terminal_icon_variant),
-        "新增画布滚动 toggle 不应移除顶部新终端按钮"
+        !render_source.contains("Select mode") && !render_source.contains("Scroll mode"),
+        "Dock 不应再出现 Select mode / Scroll mode 文案"
     );
     assert!(
-        render_source.contains(settings_id),
-        "新增画布滚动 toggle 不应移除顶部设置按钮"
+        render_source.contains("ToolbarIcon::Plus"),
+        "移除画布模式按钮不应移除 New 入口"
     );
     assert!(
-        !render_source.contains(legacy_arrow_glyph),
-        "第三步重设计后顶部不应继续使用 ↕ Unicode glyph literal"
+        render_source.contains(concat!("toolbar", "-settings")),
+        "移除画布模式按钮不应移除设置入口"
     );
     assert!(
-        !render_source.contains(legacy_static_button),
-        "旧的静态 v 占位按钮不应继续存在，否则无法反映画布滚动开关状态"
-    );
-    assert!(
-        !render_source.contains(legacy_scroll_const),
-        "第三步删除的 TOOLBAR_CANVAS_SCROLL_ICON 常量不应再出现"
+        render_source.contains(concat!("toolbar", "-layout")),
+        "移除画布模式按钮不应移除 Layout 入口"
     );
 }
 

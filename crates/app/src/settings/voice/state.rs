@@ -29,7 +29,7 @@ pub(crate) use asr_provider::resolve_builtin_asr_profile;
 use asr_provider::AzureCredentialWriteRollback;
 use credentials::CredentialWriteRollback;
 pub(crate) use field::VoiceSettingsField;
-pub(crate) use mode::{DictationTrigger, VoiceInteractionMode};
+pub(crate) use mode::{DesktopVoiceMode, DictationTrigger, VoiceInteractionMode};
 pub(crate) use model_selection::{resolve_available_asr_model, VoiceSetupDestination};
 pub(crate) use persistence::PendingVoiceSettingWrite;
 pub(crate) use provider_discovery::ProviderDiscoveryStatus;
@@ -41,8 +41,9 @@ pub(crate) use tts_picker::TtsActivationRollback;
 pub(crate) use tts_provider::MiniMaxConnectionFailureDisposition;
 pub(crate) use values::{EnvVoiceSettings, SavedVoiceSettings, VoiceSettingsValues};
 use values::{
-    KEY_ASR_MODEL_ID, KEY_INPUT_DEVICE_ID, KEY_INTERACTION_MODE, KEY_SINGLE_VOICE_COMMAND_TRIGGER,
-    KEY_TRACE_ENABLED, KEY_TTS_MODEL_ID, KEY_TTS_VOICE_ID, KEY_VOICE_SETUP_COMPLETED,
+    KEY_ASR_MODEL_ID, KEY_DESKTOP_MODE, KEY_INPUT_DEVICE_ID, KEY_INTERACTION_MODE,
+    KEY_SINGLE_VOICE_COMMAND_TRIGGER, KEY_TRACE_ENABLED, KEY_TTS_MODEL_ID, KEY_TTS_VOICE_ID,
+    KEY_VOICE_SETUP_COMPLETED,
 };
 use zipvoice_reference::ZipVoiceReferenceSettings;
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -69,6 +70,7 @@ pub(crate) struct VoiceSettingsState {
     minimax_credential_clear_rollback: Option<tts_provider::MiniMaxCredentialClearRollback>,
     minimax_validation_write_rollback: Option<tts_provider::MiniMaxValidationWriteRollback>,
     minimax_api_key_draft: Option<String>,
+    doubao_credential_previous: Option<Option<String>>,
     minimax_account_status: tts::RemoteAccountStatus,
     minimax_voice_catalog: tts::ProviderVoiceCatalog,
     minimax_validated_selection: Option<tts::TtsValidatedSelection>,
@@ -98,6 +100,10 @@ pub(crate) struct VoiceSettingsState {
     advanced_expanded: bool,
 }
 impl VoiceSettingsState {
+    pub(crate) fn credential_store(&self) -> Option<SettingsStore> {
+        self.storage.clone()
+    }
+
     pub(crate) fn load_from_store(store: SettingsStore) -> Self {
         match SavedVoiceSettings::load(&store) {
             Ok(saved) => {
@@ -165,6 +171,7 @@ impl VoiceSettingsState {
             minimax_credential_clear_rollback: None,
             minimax_validation_write_rollback: None,
             minimax_api_key_draft: None,
+            doubao_credential_previous: None,
             minimax_account_status: tts::RemoteAccountStatus::Unchecked,
             minimax_voice_catalog: tts::ProviderVoiceCatalog::default(),
             minimax_validated_selection,
@@ -230,6 +237,48 @@ impl VoiceSettingsState {
     pub(crate) fn select_interaction_mode(&mut self, mode: VoiceInteractionMode) {
         self.saved.interaction_mode = Some(mode);
         self.persist_string(KEY_INTERACTION_MODE, mode.as_str());
+        self.refresh_values();
+    }
+
+    pub(crate) fn select_desktop_mode(&mut self, mode: DesktopVoiceMode) {
+        if self.values.desktop_mode() != mode {
+            self.status = None;
+            #[cfg(feature = "e2e-test-support")]
+            {
+                self.readiness_override = None;
+            }
+        }
+        self.saved.desktop_mode = Some(mode);
+        self.persist_string(KEY_DESKTOP_MODE, mode.as_str());
+        self.refresh_values();
+    }
+
+    fn save_doubao_credential(&mut self, secret: String) {
+        const ACCOUNT: &str = "doubao-desktop";
+        let must_store_reference = self.saved.doubao_credential_ref.as_deref() != Some(ACCOUNT);
+        if self.doubao_credential_previous.is_none() {
+            self.doubao_credential_previous = Some(self.saved.doubao_credential_ref.clone());
+        }
+        self.queue_pending_write(PendingVoiceSettingWrite::StoreCredential {
+            store: self.storage.clone(),
+            account: ACCOUNT.to_string(),
+            secret,
+        });
+        self.saved.doubao_credential_ref = Some(ACCOUNT.to_string());
+        if must_store_reference {
+            self.persist_string(values::KEY_DOUBAO_CREDENTIAL_REF, ACCOUNT);
+        }
+        self.refresh_values();
+    }
+
+    pub(crate) fn clear_doubao_credential(&mut self) {
+        self.doubao_credential_previous = None;
+        self.saved.doubao_credential_ref = None;
+        self.delete_string(values::KEY_DOUBAO_CREDENTIAL_REF);
+        self.queue_pending_write(PendingVoiceSettingWrite::DeleteCredential {
+            store: self.storage.clone(),
+            account: "doubao-desktop".to_string(),
+        });
         self.refresh_values();
     }
 
@@ -380,6 +429,10 @@ fn error_status(message: impl Into<String>) -> VoiceSettingsStatus {
 #[cfg(test)]
 #[path = "../../../tests/unit/voice_settings_tests.rs"]
 mod voice_settings_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/voice_settings_doubao_tests.rs"]
+mod voice_settings_doubao_tests;
 
 #[cfg(test)]
 #[path = "../../../tests/unit/voice_settings_asr_tests.rs"]

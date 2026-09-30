@@ -38,6 +38,7 @@ fn two_run_snapshot() -> GridSnapshot {
         alternate_scroll: true,
         mouse_mode: false,
         sgr_mouse: false,
+        show_cursor: true,
     }
 }
 

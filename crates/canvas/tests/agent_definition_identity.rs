@@ -5,7 +5,7 @@ use canvas::{AgentProfile, AgentSpec, NodeKind};
 /// 数据构造（含关键数值推导）：
 ///   bound definition_id = 42，选取固定正整数模拟 SQLite 定义主键
 ///   legacy_json 字段数 = 2：profile + alias，缺少 definition_id
-///   新快照字段数 = 3：profile + alias + definition_id
+///   新快照字段数 = 4：profile + alias + definition_id + mobile_control
 ///
 /// 执行过程：
 ///   1. 构造 definition_id=42 的 AgentSpec 并序列化、反序列化
@@ -22,6 +22,7 @@ fn test_agent_definition_id_round_trips_and_legacy_snapshot_defaults_to_unbound(
         profile: AgentProfile::Codex,
         alias: Some("Alan".to_string()),
         definition_id: Some(42),
+        mobile_control: false,
     });
     let json = serde_json::to_string(&bound).expect("绑定 Agent 应可序列化到画布快照");
     let restored: NodeKind = serde_json::from_str(&json).expect("绑定 Agent 快照应可反序列化");

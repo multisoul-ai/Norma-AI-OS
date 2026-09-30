@@ -8,6 +8,7 @@ fn add_agent(runtime: &mut Runtime, profile: AgentProfile) -> u64 {
             profile,
             alias: None,
             definition_id: None,
+            mobile_control: false,
         }),
         CanvasRect::new(0.0, 0.0, 640.0, 400.0),
     )

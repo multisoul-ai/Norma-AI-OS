@@ -21,10 +21,10 @@ use crate::cards::agent::card::{agent_breathing_intent, agent_chase_intent};
 use crate::cards::agent::queue::{
     render_badge as render_agent_queue_badge, waiting_count as agent_waiting_count,
 };
+use crate::cards::border_glow::render_border_glow;
 use crate::cards::browser::card::BROWSER_TOOLBAR_H_PX;
 use crate::cards::chrome::{
-    card_title_background, node_shadow, render_card_title, render_task_badge,
-    CORNER_GLOW_MIN_SCREEN_PX, TITLE_BAR_H,
+    card_title_background, node_shadow, render_card_title, render_task_badge, TITLE_BAR_H,
 };
 use crate::cards::{card_for, CardBodyContext};
 #[cfg(test)]
@@ -62,7 +62,6 @@ pub fn render_canvas(
     let (win_w, win_h) = (f32::from(win.width), f32::from(win.height));
     let focus_mode = app.runtime.focus.mode();
 
-    // 先收集需要渲染的节点数据（避免借用冲突）。
     let swap_candidate = app.interaction.drag.as_ref().and_then(|d| d.swap_candidate);
     let hovered_terminal_link = app.interaction.hovered_terminal_link.clone();
     let mut node_elems: Vec<AnyElement> = Vec::new();
@@ -141,7 +140,6 @@ pub fn render_canvas(
             );
         }
 
-        // viewport culling：完全在窗口外的节点跳过。
         if !visible {
             continue;
         }
@@ -173,11 +171,7 @@ pub fn render_canvas(
             .h(px(h))
             .flex()
             .flex_col()
-            .shadow(node_shadow(
-                visual,
-                vp.zoom,
-                w >= CORNER_GLOW_MIN_SCREEN_PX && h >= CORNER_GLOW_MIN_SCREEN_PX,
-            ))
+            .shadow(node_shadow(visual))
             .border_color(rgba(stroke))
             .opacity(visual.opacity)
             .rounded(px(node_radius))
@@ -325,13 +319,11 @@ pub fn render_canvas(
             .relative()
             .child(title_bar);
 
-        // 内容
         let preview_image_viewer = app.previews.image_viewer_presentation(id);
         let preview_image_dragging = app
             .interaction
             .preview_pan
-            .map(|pan| pan.node_id == id)
-            .unwrap_or(false);
+            .is_some_and(|pan| pan.node_id == id);
         // 浏览器卡片：计算其内容区是否被底部弹出菜单遮挡。
         let occluded_by_overlay = matches!(node_type, NodeType::Browser) && {
             let browser_header_h = (TITLE_BAR_H + BROWSER_TOOLBAR_H_PX) * vp.zoom;
@@ -350,6 +342,7 @@ pub fn render_canvas(
                 runtime: &app.runtime,
                 terminal_render_cache: app.terminal_render_cache.clone(),
                 preview_state: app.previews.state_for(id),
+                preview_editor: app.previews.editor_for(id),
                 preview_image_viewer,
                 preview_image_dragging,
                 text_selection: app.interaction.active_text_selection,
@@ -359,6 +352,7 @@ pub fn render_canvas(
                 terminal_cursor_phase: app.terminal_cursor_phase,
                 browser_address_input: app.browser_address_input_for(id),
                 browser_auth_state: app.browser_chrome_auth_state_for(id),
+                browser_loading: app.browsers.is_loading(id),
                 ego_preview: app.ego_previews.frame_for(id),
                 #[cfg(all(target_os = "macos", not(feature = "e2e-test-support")))]
                 ego_live_preview: app.ego_previews.live_frame_for(id),
@@ -407,6 +401,12 @@ pub fn render_canvas(
             )
             .into_any_element(),
         );
+        node_elems.extend(render_border_glow(
+            CanvasRect::new(top_left.x, top_left.y, w, h),
+            node_radius,
+            vp.zoom,
+            visual,
+        ));
         node_div = node_div.child(title_layer).child(card_body);
         if is_agent && chase_active {
             snake_nodes += 1;

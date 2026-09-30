@@ -1,6 +1,8 @@
 //! Wry/WebKit backend for Browser cards.
 
 use super::chrome_auth::{BrowserCookie, SameSitePolicy};
+use super::load_timeline::{BrowserLoadPhase, CornerClipState};
+use super::resource_timing::{log_resource_timing, RESOURCE_TIMING_SCRIPT};
 use super::{BrowserEvent, BrowserViewBounds};
 use canvas::NodeId;
 use crossbeam_channel::Sender;
@@ -14,6 +16,7 @@ use objc2_foundation::{
 };
 use objc2_web_kit::WKWebViewConfiguration;
 use std::sync::OnceLock;
+use std::time::Instant;
 use wry::{WebViewBuilderExtMacos, WebViewExtMacOS};
 
 use super::native::CookieImportStatus;
@@ -28,9 +31,38 @@ const BROWSER_PAGE_INTERACTION_SCRIPT: &str = r#"
 })();
 "#;
 
+/// 隐藏的 1x1 预热视图：提前启动 WebContent / Networking 进程并常驻，
+/// 让第一张真实 Browser 卡片不再承担 WebKit 子进程冷启动成本。
+pub(crate) struct WarmWebView {
+    _webview: wry::WebView,
+}
+
+impl WarmWebView {
+    pub(crate) fn create(window: &mut Window) -> wry::Result<Self> {
+        let started = Instant::now();
+        let webview = with_safari_browser_identity(wry::WebViewBuilder::new())
+            .with_url("about:blank")
+            .with_visible(false)
+            .with_bounds(wry_rect(BrowserViewBounds {
+                x: 0.0,
+                y: 0.0,
+                width: 1.0,
+                height: 1.0,
+                bottom_corner_radius_px: 0.0,
+            }))
+            .build_as_child(window)?;
+        tracing::info!(
+            build_ms = started.elapsed().as_secs_f64() * 1000.0,
+            "browser_warmup_created"
+        );
+        Ok(Self { _webview: webview })
+    }
+}
+
 pub(crate) struct WryBrowserView {
     webview: wry::WebView,
     event_sender: Sender<BrowserEvent>,
+    corner_clip: CornerClipState,
 }
 
 impl WryBrowserView {
@@ -41,6 +73,7 @@ impl WryBrowserView {
         window: &mut Window,
         event_sender: Sender<BrowserEvent>,
     ) -> wry::Result<Self> {
+        let create_started = Instant::now();
         let browser_event_sender = event_sender.clone();
         let title_sender = event_sender.clone();
         let location_sender = event_sender.clone();
@@ -57,17 +90,39 @@ impl WryBrowserView {
             .with_document_title_changed_handler(move |title| {
                 let _ = title_sender.send(BrowserEvent::TitleChanged { node_id, title });
             })
-            .with_on_page_load_handler(move |_event, url| {
+            .with_on_page_load_handler(move |event, url| {
+                let phase = match event {
+                    wry::PageLoadEvent::Started => BrowserLoadPhase::Started,
+                    wry::PageLoadEvent::Finished => BrowserLoadPhase::Finished,
+                };
+                let _ = location_sender.send(BrowserEvent::PageLoad {
+                    node_id,
+                    phase,
+                    at: Instant::now(),
+                });
                 let _ = location_sender.send(BrowserEvent::LocationChanged { node_id, url });
             })
             .with_new_window_req_handler(move |url, _features| {
                 forward_new_window_to_current_card(&new_window_sender, node_id, url)
             })
             .build_as_child(window)?;
-        clip_native_webview_to_bottom_corners(&webview, bounds.bottom_corner_radius_px);
+        let build_ms = create_started.elapsed().as_secs_f64() * 1000.0;
+        let mut corner_clip = CornerClipState::default();
+        if corner_clip.needs_apply(bounds.bottom_corner_radius_px) {
+            clip_native_webview_to_bottom_corners(&webview, bounds.bottom_corner_radius_px);
+        }
+        tracing::info!(
+            node_id,
+            build_ms,
+            total_ms = create_started.elapsed().as_secs_f64() * 1000.0,
+            width = bounds.width,
+            height = bounds.height,
+            "browser_wry_created"
+        );
         Ok(Self {
             webview,
             event_sender: browser_event_sender,
+            corner_clip,
         })
     }
 
@@ -87,13 +142,30 @@ impl WryBrowserView {
         let _ = self.webview.reload();
     }
 
+    pub(crate) fn stop_loading(&self) {
+        let _ = self.webview.evaluate_script("window.stop()");
+    }
+
     pub(crate) fn set_bounds(&mut self, bounds: BrowserViewBounds) {
         let _ = self.webview.set_bounds(wry_rect(bounds));
-        clip_native_webview_to_bottom_corners(&self.webview, bounds.bottom_corner_radius_px);
+        if self.corner_clip.needs_apply(bounds.bottom_corner_radius_px) {
+            clip_native_webview_to_bottom_corners(&self.webview, bounds.bottom_corner_radius_px);
+        }
     }
 
     pub(crate) fn set_visible(&mut self, visible: bool) {
         let _ = self.webview.set_visible(visible);
+    }
+
+    pub(crate) fn report_resource_timing(&self, node_id: NodeId) {
+        let result = self
+            .webview
+            .evaluate_script_with_callback(RESOURCE_TIMING_SCRIPT, move |json| {
+                log_resource_timing(node_id, &json)
+            });
+        if let Err(error) = result {
+            tracing::debug!(node_id, %error, "browser resource timing script failed");
+        }
     }
 
     pub(crate) fn release_input(&mut self) {

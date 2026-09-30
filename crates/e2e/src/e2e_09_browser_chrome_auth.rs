@@ -3,9 +3,8 @@
 use app::NewBrowser;
 use canvas::{CanvasNodeKind, NodeId};
 use gpui::{Modifiers, TestAppContext, VisualTestContext};
-use std::time::Duration;
 
-use crate::harness::{echo_factory, enter_canvas, make_app, read_runtime};
+use crate::harness::{echo_factory, enter_canvas, make_app, read_runtime, runtime_drain_step};
 
 /// E2E-09b：点击 Chrome session 按钮后，卡片应从 Idle 进入 Ready 且保持当前 URL。
 ///
@@ -19,7 +18,7 @@ use crate::harness::{echo_factory, enter_canvas, make_app, read_runtime};
 ///   1. 启动 headless app、进入 Canvas、新建 Browser 卡片。
 ///   2. 在 Chrome 外部系统边界注入确定性的成功响应，不替换 app 内部状态机。
 ///   3. 点击真实 `browser-chrome-auth` toolbar hitbox。
-///   4. frame loop 排空 Browser event，应用导入结果并重绘 toolbar 状态。
+///   4. 按生产 runtime_drain_step 推进一帧，排空 Browser event，应用导入结果并重绘 toolbar 状态。
 ///
 /// 预期结果：
 ///   - 正断言：点击前状态精确为 `idle`，按钮 hitbox 真实存在。
@@ -53,7 +52,7 @@ fn e2e_09_browser_chrome_auth_button_imports_session_without_changing_url() {
     click_debug(cx, "browser-chrome-auth");
     cx.cx
         .background_executor
-        .advance_clock(Duration::from_millis(12));
+        .advance_clock(runtime_drain_step());
     cx.run_until_parked();
 
     let ready = app.update(cx, |app, _cx| app.browser_auth_state_for_e2e(browser_id));
@@ -76,12 +75,12 @@ fn e2e_09_browser_chrome_auth_button_imports_session_without_changing_url() {
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   Browser cards = 1；fake connector result = error；
-///   runtime drain tick = 12ms，与 app frame loop 固定周期一致；
+///   runtime drain tick = runtime_drain_step()，从生产帧周期读取，不复制毫秒常量；
 ///   recovery URL = `https://recovery.example.test/path`，与默认 URL 不同。
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 新建 Browser，注入 Chrome 外部边界失败并点击 session 按钮。
-///   2. 推进 12ms，让 Browser event queue 把状态置为 Failed。
+///   2. 推进生产帧周期，让 Browser event queue 把状态置为 Failed；再等待最多3帧完成重绘节流。
 ///   3. 点击真实地址栏，Cmd+A 后输入 recovery URL 并 Enter 提交。
 ///   4. 读取 Runtime 中同一 Browser node 的 URL 与 auth 状态。
 ///
@@ -105,7 +104,7 @@ fn e2e_09_browser_chrome_auth_failure_keeps_address_navigation_usable() {
     click_debug(cx, "browser-chrome-auth");
     cx.cx
         .background_executor
-        .advance_clock(Duration::from_millis(12));
+        .advance_clock(runtime_drain_step());
     cx.run_until_parked();
     let failed = app.update(cx, |app, _cx| app.browser_auth_state_for_e2e(browser_id));
     assert_eq!(
@@ -119,6 +118,17 @@ fn e2e_09_browser_chrome_auth_failure_keeps_address_navigation_usable() {
             .is_some_and(|message| message.contains("connector unavailable")),
         "Chrome connector 失败原因必须进入可见 workspace error banner"
     );
+    // State application and painting use separate production timers: 3×16ms=48ms covers
+    // the unfocused33ms repaint budget. Do not force a draw or assume one drain also paints.
+    for _ in 0..3 {
+        if cx.debug_bounds("workspace-error-banner").is_some() {
+            break;
+        }
+        cx.cx
+            .background_executor
+            .advance_clock(runtime_drain_step());
+        cx.run_until_parked();
+    }
     assert!(
         cx.debug_bounds("workspace-error-banner").is_some(),
         "Chrome connector 失败后必须渲染可关闭的 workspace error banner"

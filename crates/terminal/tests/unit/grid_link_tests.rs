@@ -1,5 +1,83 @@
 use super::TerminalGrid;
 
+/// OSC 8 文件链接：标签被 CLI 换行后，两行都应打开语义目标。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   URI = file:///tmp/docs/report.md；标签两行分别为 docs/ 和 report.md。
+///   grid = 20 cols × 4 lines；最长标签 9 cells < 20，CRLF 是主动换行。
+/// 执行过程：
+///   1. 写入 OSC 8 开始、两行标签与结束序列。
+///   2. 分别点击第 0 行与第 1 行的首字符。
+/// 预期结果：
+///   - 两行均返回完整 URI，不返回标签残段。
+#[test]
+fn test_preview_osc8_target_survives_label_newline() {
+    let uri = "file:///tmp/docs/report.md";
+    let mut grid = TerminalGrid::new(20, 4);
+    grid.advance(format!("\x1b]8;;{uri}\x1b\\docs/\r\nreport.md\x1b]8;;\x1b\\").as_bytes());
+    let snapshot = grid.snapshot();
+    assert_eq!(
+        snapshot.preview_path_at(0, 0).as_deref(),
+        Some(uri),
+        "首行标签应使用完整文件目标"
+    );
+    assert_eq!(
+        snapshot.preview_path_at(1, 0).as_deref(),
+        Some(uri),
+        "换行后的标签应使用同一文件目标"
+    );
+    assert_ne!(
+        snapshot.preview_path_at(1, 0).as_deref(),
+        Some("report.md"),
+        "标签不能替代链接目标"
+    );
+}
+
+/// CLI 主动折行路径：任一行命中均提供完整候选，不把普通相邻文件拼接。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   第一行 = 两格缩进 + /project/docs/（14 cells）= 16 cells。
+///   第二行 = 两格缩进 + quality/report.md（17 cells）= 19 cells。
+///   width = 30，完整首行需 16 + 17 = 33 > 30，因此 CLI 在目录后换行。
+/// 执行过程：
+///   1. 用 CRLF 写入两行，分别提取第一行、第二行候选。
+///   2. 写入两个完整独立文件，确认它们不被拼接。
+/// 预期结果：
+///   - 两个点击位置都含 /project/docs/quality/report.md。
+///   - 独立文件仍各自命中，候选中不存在错误拼接路径。
+#[test]
+fn test_preview_candidates_recover_cli_wrapped_path() {
+    let mut grid = TerminalGrid::new(30, 4);
+    grid.advance(b"  /project/docs/\r\n  quality/report.md");
+    let snapshot = grid.snapshot();
+    let full = "/project/docs/quality/report.md".to_string();
+    assert!(
+        snapshot.preview_path_candidates_at(0, 2).contains(&full),
+        "点击前半段应保留完整候选"
+    );
+    assert!(
+        snapshot.preview_path_candidates_at(1, 2).contains(&full),
+        "点击后半段应保留完整候选"
+    );
+    assert!(
+        !snapshot.rows[0][29].attrs.soft_wrap,
+        "本例必须覆盖 CLI 主动换行而非软折行"
+    );
+    let mut independent = TerminalGrid::new(30, 4);
+    independent.advance(b"  docs/first.md\r\n  docs/second.md");
+    let snapshot = independent.snapshot();
+    assert_eq!(
+        snapshot.preview_path_candidates_at(0, 2),
+        vec!["docs/first.md"],
+        "首文件不得吞并第二个文件"
+    );
+    assert_eq!(
+        snapshot.preview_path_candidates_at(1, 2),
+        vec!["docs/second.md"],
+        "次文件不得附加前一文件路径"
+    );
+}
+
 /// 自动折行的 Preview 路径：点击任一视觉行都应恢复同一个完整本机文件目标。
 ///
 /// 数据构造（含关键数值的推导过程）：
@@ -123,5 +201,58 @@ fn test_snapshot_does_not_join_preview_path_fragments_across_hard_newline() {
         snapshot.preview_path_at(0, 0).as_deref(),
         Some(full_path.as_str()),
         "路径命中不得跨真实换行拼接相邻文本"
+    );
+    assert!(
+        snapshot.preview_path_candidates_at(0, 0).is_empty(),
+        "文本原本放得下，不得生成折行候选"
+    );
+    assert!(
+        snapshot.preview_path_candidates_at(1, 0).is_empty(),
+        "真实换行的后半段不得被猜测为文件目标"
+    );
+}
+
+/// 三行路径与不支持的语义链接：完整路径可恢复，语义目标不能被标签覆盖。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   width = 20；两格缩进 + /project/docs/(14) + design-docs/(12) = 28 > 20；
+///   两格缩进 + design-docs/(12) + report-name.md(14) = 28 > 20，形成三行。
+///   对照标签为 docs/report.md，实际 OSC 8 目标为 ssh://host/private.md。
+/// 执行过程：
+///   1. 对三行路径的中间行和末行调用候选提取。
+///   2. 对 SSH 目标的文件形标签调用候选提取。
+/// 预期结果：
+///   - 中间行和末行都包含完整路径候选。
+///   - SSH 链接不能退回可打开的本机文件标签。
+#[test]
+fn test_preview_candidates_keep_multiline_paths_and_semantic_boundaries() {
+    let mut grid = TerminalGrid::new(20, 5);
+    grid.advance(b"  /project/docs/\r\n  design-docs/\r\n  report-name.md");
+    let snapshot = grid.snapshot();
+    let full = "/project/docs/design-docs/report-name.md".to_string();
+    assert!(
+        snapshot.preview_path_candidates_at(1, 2).contains(&full),
+        "中间片段应恢复完整目标"
+    );
+    assert!(
+        snapshot.preview_path_candidates_at(2, 2).contains(&full),
+        "末尾片段应恢复完整目标"
+    );
+    let mut semantic = TerminalGrid::new(20, 5);
+    semantic.advance(b"\x1b]8;;ssh://host/private.md\x1b\\docs/report.md\x1b]8;;\x1b\\");
+    let snapshot = semantic.snapshot();
+    assert_eq!(
+        snapshot.hyperlink_at(0, 0),
+        Some("ssh://host/private.md"),
+        "对照必须保留真实 SSH 目标"
+    );
+    assert!(
+        snapshot.preview_path_candidates_at(0, 0).is_empty(),
+        "不支持的目标不能用标签伪装成本机路径"
+    );
+    assert_eq!(
+        snapshot.preview_path_at(0, 0),
+        None,
+        "直接命中也不得绕过语义目标"
     );
 }

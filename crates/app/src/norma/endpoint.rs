@@ -2,7 +2,7 @@ use super::route::{WorkspaceRouteError, WorkspaceRouteIndex};
 use super::server::is_managed_agent_command;
 use super::transport::{NormaServerRequest, NormaSocketListener};
 use crate::app::MultisoulApp;
-use gpui::{AnyWindowHandle, App, Global, WeakEntity};
+use gpui::{App, Global, WeakEntity, Window};
 use norma::client::default_socket_path;
 use norma::protocol::{
     CardCommand, CardCommandResult, OrchestrationDoctorReport, WireResponse, WorkspaceSummary,
@@ -25,15 +25,43 @@ use routing::{
     validate_source,
 };
 use task_control::spawn_global_task_control;
+pub(crate) mod mobile_approval;
+pub(crate) mod mobile_command;
+pub(crate) mod mobile_conversation;
+mod mobile_plan;
+mod mobile_realtime;
+pub(crate) mod mobile_review;
+mod mobile_task_baseline;
+pub(crate) mod mobile_terminal;
 use task_dispatch::spawn_global_dispatch;
 
 const ENDPOINT_POLL_INTERVAL: Duration = Duration::from_millis(12);
 
 #[derive(Clone)]
 struct WorkspaceTarget {
-    window: AnyWindowHandle,
     app: WeakEntity<MultisoulApp>,
     summary: WorkspaceSummary,
+}
+
+impl WorkspaceTarget {
+    fn with_optional_window<R>(
+        &self,
+        cx: &mut App,
+        update: impl FnOnce(Option<&mut Window>, &mut App) -> R,
+    ) -> anyhow::Result<R> {
+        let app = self
+            .app
+            .upgrade()
+            .ok_or_else(|| anyhow::anyhow!("project released"))?;
+        let window = app
+            .read(cx)
+            .project_window
+            .filter(|window| cx.windows().contains(window));
+        match window {
+            Some(window) => window.update(cx, |_, window, cx| update(Some(window), cx)),
+            None => Ok(update(None, cx)),
+        }
+    }
 }
 
 struct RoutedTargets {
@@ -114,7 +142,6 @@ pub(crate) fn submit_for_e2e(
 pub(crate) struct WorkspaceRegistration<'a> {
     pub(crate) workspace_id: &'a str,
     pub(crate) route_id: &'a str,
-    pub(crate) window: AnyWindowHandle,
     pub(crate) app: WeakEntity<MultisoulApp>,
     pub(crate) display_name: String,
     pub(crate) canonical_root: PathBuf,
@@ -125,10 +152,10 @@ pub(crate) fn register_workspace(
     registration: WorkspaceRegistration<'_>,
     cx: &mut App,
 ) -> Result<(), WorkspaceRouteError> {
+    crate::mobile::project_events::changed();
     let WorkspaceRegistration {
         workspace_id,
         route_id,
-        window,
         app,
         display_name,
         canonical_root,
@@ -142,7 +169,6 @@ pub(crate) fn register_workspace(
         workspace_id,
         route_id,
         WorkspaceTarget {
-            window,
             app,
             summary: WorkspaceSummary {
                 workspace_id: workspace_id.to_owned(),
@@ -157,6 +183,7 @@ pub(crate) fn register_workspace(
 }
 
 pub(crate) fn unregister_workspace(workspace_id: &str, route_id: &str, cx: &mut App) -> bool {
+    crate::mobile::project_events::changed();
     if !cx.has_global::<NormaEndpointHost>() {
         return false;
     }
@@ -200,6 +227,61 @@ pub(crate) fn workspace_summaries(cx: &App) -> Vec<WorkspaceSummary> {
         .collect::<Vec<_>>();
     workspaces.sort_by(|left, right| left.display_name.cmp(&right.display_name));
     workspaces
+}
+
+/// Read only the authorized projects supplied by the mobile background owner. Reuse the exact
+/// desktop route and check installation + current workspace again; stale project entities fail closed.
+pub(crate) fn mobile_project_snapshots(
+    database: &std::path::Path,
+    mut projects: Vec<norma::mobile::ProjectSnapshot>,
+    include_cards: bool,
+    agents: Option<crossbeam_channel::Sender<Vec<agent::AgentRosterEntry>>>,
+    cx: &mut App,
+) -> Vec<norma::mobile::ProjectSnapshot> {
+    // A roster has one workspace owner. Catalog/multi-project reads cannot mix agent identities.
+    let mut agents = agents.filter(|_| projects.len() == 1);
+    for project in &mut projects {
+        let Some(host) = cx.try_global::<NormaEndpointHost>() else {
+            continue;
+        };
+        let target = host.routes.resolve_active(&project.workspace_id).cloned();
+        project.state = "closed".into();
+        let Ok(target) = target else {
+            continue;
+        };
+        let data = target
+            .app
+            .update(cx, |app, _| {
+                if app.database_paths.app_db_path() != database
+                    || app.workspace_id.as_deref() != Some(&project.workspace_id)
+                {
+                    return None;
+                }
+                let route = app.workspace_route_id.clone()?;
+                let count = app
+                    .runtime
+                    .document
+                    .nodes()
+                    .iter()
+                    .filter(|n| matches!(n.kind, canvas::CanvasNodeKind::Agent(_)))
+                    .count();
+                let cards = include_cards.then(|| app.mobile_card_snapshots());
+                let roster = agents.as_ref().map(|_| app.agent_roster_for_provider());
+                Some((route, count, cards, roster))
+            })
+            .ok()
+            .flatten();
+        if let Some((route, count, cards, roster)) = data {
+            project.state = "open".into();
+            project.route_id = Some(route);
+            project.card_count = Some(count);
+            project.cards = cards;
+            if let (Some(reply), Some(roster)) = (agents.take(), roster) {
+                let _ = reply.try_send(roster);
+            }
+        }
+    }
+    projects
 }
 
 pub(crate) fn doctor_report(client_version: Option<&str>, cx: &App) -> OrchestrationDoctorReport {

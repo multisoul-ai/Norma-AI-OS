@@ -1,0 +1,20 @@
+{
+  "name": "norma-cloud",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.mjs",
+    "test": "node check.mjs && node check-plan.mjs && node check-tasks.mjs && node check-text.mjs && node check-thread-plan.mjs && node check-relay.mjs && node check-paired-registration.mjs",
+    "test:relay": "node check-relay.mjs",
+    "test:native:text": "node check-text-native.mjs",
+    "test:native:thread-plan": "node check-thread-plan-native.mjs",
+    "test:cloud": "node check-cloud.mjs && NORMA_CLOUD_TOOLS_CHECK=1 node check-tasks.mjs",
+    "deploy:production": "npx --yes vercel@58.0.0 deploy --prod --yes"
+  },
+  "engines": {
+    "node": "22.x"
+  },
+  "dependencies": {
+    "ws": "8.18.3"
+  }
+}

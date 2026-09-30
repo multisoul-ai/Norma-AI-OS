@@ -1,0 +1,201 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+<title id="title">桌面工作空间：一屏十二张画布</title>
+<desc id="desc">紧凑工具栏与四列三行的工作空间画布缩略图。每张缩略图显示项目区域和少量 Agent 卡片；工作空间名称、最近活动和运行状态位于画布下方。</desc>
+<defs>
+<filter id="shadow" x="-20%" y="-25%" width="140%" height="160%"><feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#394c57" flood-opacity=".09"/></filter>
+<style>text{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","PingFang SC",sans-serif;fill:#22302d}.brand{font-size:14px;font-weight:700;letter-spacing:.6px;fill:#3f9c7e}.page{font-size:27px;font-weight:700}.tool{font-size:14px;fill:#667772}.tool-primary{font-size:14px;font-weight:650;fill:#fff}.section{font-size:17px;font-weight:650}.meta{font-size:13px;fill:#74817d}.name{font-size:17px;font-weight:650}.project{font-size:11px;font-weight:650}.agent{font-size:10px;fill:#63716d}.state{font-size:12px;fill:#647770}</style>
+</defs>
+<rect width="1600" height="1000" fill="#f7f8f9"/>
+<rect x="0" y="0" width="1600" height="104" fill="#fbfcfc"/>
+<path d="M56 103.5h1488" stroke="#e2e8e7"/>
+<rect x="56" y="38" width="34" height="34" rx="10" fill="#263a34"/>
+<circle cx="73" cy="55" r="8" fill="#ade3ca"/><circle cx="70" cy="53" r="1.4" fill="#263a34"/><circle cx="76" cy="53" r="1.4" fill="#263a34"/><path d="M70 59q3 2.5 6 0" fill="none" stroke="#263a34" stroke-width="1.3" stroke-linecap="round"/>
+<text class="brand" x="103" y="60">NORMA</text>
+<path d="M174 41v29" stroke="#dce3e1"/>
+<text class="page" x="193" y="65">工作空间</text>
+<rect x="1097" y="35" width="213" height="42" rx="12" fill="#f1f4f4"/>
+<circle cx="1118" cy="55" r="6" fill="none" stroke="#91a09b" stroke-width="1.8"/><path d="m1122 59 5 5" stroke="#91a09b" stroke-width="1.8" stroke-linecap="round"/>
+<text class="tool" x="1139" y="61">搜索工作空间</text>
+<rect x="1324" y="35" width="220" height="42" rx="12" fill="#263731"/>
+<text class="tool-primary" x="1351" y="61">＋ 新建工作空间</text>
+<text class="section" x="56" y="145">最近使用</text>
+<text class="meta" x="155" y="145">12 个工作空间</text>
+<text class="meta" x="1404" y="145">最近打开 ▾</text>
+<g transform="translate(56 170)">
+<rect x="12" y="0" width="326" height="167" rx="13" fill="#edf2f3" filter="url(#shadow)"/>
+<rect x="12" y="0" width="326" height="167" rx="13" fill="#edf2f3" stroke="#dfe7e7"/>
+<rect x="12" y="0" width="326" height="24" rx="13" fill="#e3e9e9"/><rect x="12" y="12" width="326" height="12" fill="#e3e9e9"/>
+<circle cx="27" cy="12" r="3.5" fill="#92a5a1"/><path d="M310 12h14" stroke="#a5b5b1" stroke-width="2" stroke-linecap="round"/>
+<rect x="24.0" y="32" width="147.0" height="123" rx="10" fill="#e5f3ed" stroke="#b8dcca"/>
+<text class="project" x="34.0" y="50" fill="#477760">项目 A</text>
+<rect x="33.0" y="59" width="129.0" height="24" rx="6" fill="#ffffff" stroke="#b8dcca"/>
+<text class="agent" x="41.0" y="75">Agent · 登录</text>
+<rect x="33.0" y="89" width="129.0" height="24" rx="6" fill="#ffffff" stroke="#b8dcca"/>
+<text class="agent" x="41.0" y="105">Agent · API</text>
+<rect x="179.0" y="32" width="147.0" height="123" rx="10" fill="#f7efe2" stroke="#e8d1b2"/>
+<text class="project" x="189.0" y="50" fill="#8d6e46">项目 B</text>
+<rect x="188.0" y="59" width="129.0" height="24" rx="6" fill="#ffffff" stroke="#e8d1b2"/>
+<text class="agent" x="196.0" y="75">Agent · 文档</text>
+<text class="name" x="20" y="199">日常开发</text>
+<text class="meta" x="20" y="222">2 个项目 · 刚刚</text>
+<circle cx="259" cy="193" r="4" fill="#46b887"/><text class="state" x="269" y="198">3 运行中</text>
+</g>
+<g transform="translate(438 170)">
+<rect x="12" y="0" width="326" height="167" rx="13" fill="#edf2f3" filter="url(#shadow)"/>
+<rect x="12" y="0" width="326" height="167" rx="13" fill="#edf2f3" stroke="#dfe7e7"/>
+<rect x="12" y="0" width="326" height="24" rx="13" fill="#e3e9e9"/><rect x="12" y="12" width="326" height="12" fill="#e3e9e9"/>
+<circle cx="27" cy="12" r="3.5" fill="#92a5a1"/><path d="M310 12h14" stroke="#a5b5b1" stroke-width="2" stroke-linecap="round"/>
+<rect x="24.0" y="32" width="302.0" height="123" rx="10" fill="#f7efe2" stroke="#e8d1b2"/>
+<text class="project" x="34.0" y="50" fill="#8d6e46">项目 A</text>
+<rect x="33.0" y="59" width="284.0" height="24" rx="6" fill="#ffffff" stroke="#e8d1b2"/>
+<text class="agent" x="41.0" y="75">Agent · 发布</text>
+<text class="name" x="20" y="199">版本发布</text>
+<text class="meta" x="20" y="222">1 个项目 · 2 小时前</text>
+<circle cx="259" cy="193" r="4" fill="#46b887"/><text class="state" x="269" y="198">1 运行中</text>
+</g>
+<g transform="translate(820 170)">
+<rect x="12" y="0" width="326" height="167" rx="13" fill="#edf2f3" filter="url(#shadow)"/>
+<rect x="12" y="0" width="326" height="167" rx="13" fill="#edf2f3" stroke="#dfe7e7"/>
+<rect x="12" y="0" width="326" height="24" rx="13" fill="#e3e9e9"/><rect x="12" y="12" width="326" height="12" fill="#e3e9e9"/>
+<circle cx="27" cy="12" r="3.5" fill="#92a5a1"/><path d="M310 12h14" stroke="#a5b5b1" stroke-width="2" stroke-linecap="round"/>
+<rect x="24.0" y="32" width="147.0" height="123" rx="10" fill="#efebf8" stroke="#d5caec"/>
+<text class="project" x="34.0" y="50" fill="#71638b">项目 C</text>
+<rect x="33.0" y="59" width="129.0" height="24" rx="6" fill="#ffffff" stroke="#d5caec"/>
+<text class="agent" x="41.0" y="75">Agent · 测试</text>
+<rect x="179.0" y="32" width="147.0" height="123" rx="10" fill="#e5f0f5" stroke="#bbdbe7"/>
+<text class="project" x="189.0" y="50" fill="#527d8e">项目 D</text>
+<rect x="188.0" y="59" width="129.0" height="24" rx="6" fill="#ffffff" stroke="#bbdbe7"/>
+<text class="agent" x="196.0" y="75">Agent · 主线</text>
+<text class="name" x="20" y="199">Agent 实验</text>
+<text class="meta" x="20" y="222">2 个项目 · 今天</text>
+<circle cx="259" cy="193" r="4" fill="#46b887"/><text class="state" x="269" y="198">2 运行中</text>
+</g>
+<g transform="translate(1202 170)">
+<rect x="12" y="0" width="326" height="167" rx="13" fill="#edf2f3" filter="url(#shadow)"/>
+<rect x="12" y="0" width="326" height="167" rx="13" fill="#edf2f3" stroke="#dfe7e7"/>
+<rect x="12" y="0" width="326" height="24" rx="13" fill="#e3e9e9"/><rect x="12" y="12" width="326" height="12" fill="#e3e9e9"/>
+<circle cx="27" cy="12" r="3.5" fill="#92a5a1"/><path d="M310 12h14" stroke="#a5b5b1" stroke-width="2" stroke-linecap="round"/>
+<rect x="24.0" y="32" width="302.0" height="123" rx="10" fill="#e5f0f5" stroke="#bbdbe7"/>
+<text class="project" x="34.0" y="50" fill="#527d8e">项目 B</text>
+<rect x="33.0" y="59" width="284.0" height="24" rx="6" fill="#ffffff" stroke="#bbdbe7"/>
+<text class="agent" x="41.0" y="75">Agent · 文档</text>
+<text class="name" x="20" y="199">文档更新</text>
+<text class="meta" x="20" y="222">1 个项目 · 昨天</text>
+<text class="state" x="294" y="198">空闲</text>
+</g>
+<g transform="translate(56 422)">
+<rect x="12" y="0" width="326" height="167" rx="13" fill="#edf2f3" filter="url(#shadow)"/>
+<rect x="12" y="0" width="326" height="167" rx="13" fill="#edf2f3" stroke="#dfe7e7"/>
+<rect x="12" y="0" width="326" height="24" rx="13" fill="#e3e9e9"/><rect x="12" y="12" width="326" height="12" fill="#e3e9e9"/>
+<circle cx="27" cy="12" r="3.5" fill="#92a5a1"/><path d="M310 12h14" stroke="#a5b5b1" stroke-width="2" stroke-linecap="round"/>
+<rect x="24.0" y="32" width="147.0" height="123" rx="10" fill="#f8eaf0" stroke="#e8cada"/>
+<text class="project" x="34.0" y="50" fill="#935e74">项目 D</text>
+<rect x="33.0" y="59" width="129.0" height="24" rx="6" fill="#ffffff" stroke="#e8cada"/>
+<text class="agent" x="41.0" y="75">Agent · 演示</text>
+<rect x="179.0" y="32" width="147.0" height="123" rx="10" fill="#e5f3ed" stroke="#b8dcca"/>
+<text class="project" x="189.0" y="50" fill="#477760">项目 C</text>
+<text class="name" x="20" y="199">客户演示</text>
+<text class="meta" x="20" y="222">2 个项目 · 2 天前</text>
+<circle cx="259" cy="193" r="4" fill="#46b887"/><text class="state" x="269" y="198">1 运行中</text>
+</g>
+<g transform="translate(438 422)">
+<rect x="12" y="0" width="326" height="167" rx="13" fill="#edf2f3" filter="url(#shadow)"/>
+<rect x="12" y="0" width="326" height="167" rx="13" fill="#edf2f3" stroke="#dfe7e7"/>
+<rect x="12" y="0" width="326" height="24" rx="13" fill="#e3e9e9"/><rect x="12" y="12" width="326" height="12" fill="#e3e9e9"/>
+<circle cx="27" cy="12" r="3.5" fill="#92a5a1"/><path d="M310 12h14" stroke="#a5b5b1" stroke-width="2" stroke-linecap="round"/>
+<rect x="24.0" y="32" width="302.0" height="123" rx="10" fill="#e5f3ed" stroke="#b8dcca"/>
+<text class="project" x="34.0" y="50" fill="#477760">项目 E</text>
+<rect x="33.0" y="59" width="284.0" height="24" rx="6" fill="#ffffff" stroke="#b8dcca"/>
+<text class="agent" x="41.0" y="75">Agent · 设计</text>
+<rect x="33.0" y="89" width="284.0" height="24" rx="6" fill="#ffffff" stroke="#b8dcca"/>
+<text class="agent" x="41.0" y="105">Agent · 评审</text>
+<text class="name" x="20" y="199">UI 迭代</text>
+<text class="meta" x="20" y="222">1 个项目 · 3 天前</text>
+<circle cx="259" cy="193" r="4" fill="#46b887"/><text class="state" x="269" y="198">2 运行中</text>
+</g>
+<g transform="translate(820 422)">
+<rect x="12" y="0" width="326" height="167" rx="13" fill="#edf2f3" filter="url(#shadow)"/>
+<rect x="12" y="0" width="326" height="167" rx="13" fill="#edf2f3" stroke="#dfe7e7"/>
+<rect x="12" y="0" width="326" height="24" rx="13" fill="#e3e9e9"/><rect x="12" y="12" width="326" height="12" fill="#e3e9e9"/>
+<circle cx="27" cy="12" r="3.5" fill="#92a5a1"/><path d="M310 12h14" stroke="#a5b5b1" stroke-width="2" stroke-linecap="round"/>
+<rect x="24.0" y="32" width="302.0" height="123" rx="10" fill="#f7efe2" stroke="#e8d1b2"/>
+<text class="project" x="34.0" y="50" fill="#8d6e46">项目 F</text>
+<rect x="33.0" y="59" width="284.0" height="24" rx="6" fill="#ffffff" stroke="#e8d1b2"/>
+<text class="agent" x="41.0" y="75">Agent · 性能</text>
+<text class="name" x="20" y="199">性能排查</text>
+<text class="meta" x="20" y="222">1 个项目 · 上周</text>
+<circle cx="259" cy="193" r="4" fill="#46b887"/><text class="state" x="269" y="198">1 运行中</text>
+</g>
+<g transform="translate(1202 422)">
+<rect x="12" y="0" width="326" height="167" rx="13" fill="#edf2f3" filter="url(#shadow)"/>
+<rect x="12" y="0" width="326" height="167" rx="13" fill="#edf2f3" stroke="#dfe7e7"/>
+<rect x="12" y="0" width="326" height="24" rx="13" fill="#e3e9e9"/><rect x="12" y="12" width="326" height="12" fill="#e3e9e9"/>
+<circle cx="27" cy="12" r="3.5" fill="#92a5a1"/><path d="M310 12h14" stroke="#a5b5b1" stroke-width="2" stroke-linecap="round"/>
+<rect x="24.0" y="32" width="302.0" height="123" rx="10" fill="#efebf8" stroke="#d5caec"/>
+<text class="project" x="34.0" y="50" fill="#71638b">项目 G</text>
+<text class="name" x="20" y="199">学习记录</text>
+<text class="meta" x="20" y="222">1 个项目 · 上周</text>
+<text class="state" x="294" y="198">空闲</text>
+</g>
+<g transform="translate(56 674)">
+<rect x="12" y="0" width="326" height="167" rx="13" fill="#edf2f3" filter="url(#shadow)"/>
+<rect x="12" y="0" width="326" height="167" rx="13" fill="#edf2f3" stroke="#dfe7e7"/>
+<rect x="12" y="0" width="326" height="24" rx="13" fill="#e3e9e9"/><rect x="12" y="12" width="326" height="12" fill="#e3e9e9"/>
+<circle cx="27" cy="12" r="3.5" fill="#92a5a1"/><path d="M310 12h14" stroke="#a5b5b1" stroke-width="2" stroke-linecap="round"/>
+<rect x="24.0" y="32" width="147.0" height="123" rx="10" fill="#e5f0f5" stroke="#bbdbe7"/>
+<text class="project" x="34.0" y="50" fill="#527d8e">项目 A</text>
+<rect x="33.0" y="59" width="129.0" height="24" rx="6" fill="#ffffff" stroke="#bbdbe7"/>
+<text class="agent" x="41.0" y="75">Agent · 清理</text>
+<rect x="179.0" y="32" width="147.0" height="123" rx="10" fill="#f8eaf0" stroke="#e8cada"/>
+<text class="project" x="189.0" y="50" fill="#935e74">项目 F</text>
+<text class="name" x="20" y="199">系统维护</text>
+<text class="meta" x="20" y="222">2 个项目 · 上周</text>
+<circle cx="259" cy="193" r="4" fill="#46b887"/><text class="state" x="269" y="198">1 运行中</text>
+</g>
+<g transform="translate(438 674)">
+<rect x="12" y="0" width="326" height="167" rx="13" fill="#edf2f3" filter="url(#shadow)"/>
+<rect x="12" y="0" width="326" height="167" rx="13" fill="#edf2f3" stroke="#dfe7e7"/>
+<rect x="12" y="0" width="326" height="24" rx="13" fill="#e3e9e9"/><rect x="12" y="12" width="326" height="12" fill="#e3e9e9"/>
+<circle cx="27" cy="12" r="3.5" fill="#92a5a1"/><path d="M310 12h14" stroke="#a5b5b1" stroke-width="2" stroke-linecap="round"/>
+<rect x="24.0" y="32" width="147.0" height="123" rx="10" fill="#f8eaf0" stroke="#e8cada"/>
+<text class="project" x="34.0" y="50" fill="#935e74">项目 C</text>
+<rect x="33.0" y="59" width="129.0" height="24" rx="6" fill="#ffffff" stroke="#e8cada"/>
+<text class="agent" x="41.0" y="75">Agent · 功能</text>
+<rect x="179.0" y="32" width="147.0" height="123" rx="10" fill="#e5f3ed" stroke="#b8dcca"/>
+<text class="project" x="189.0" y="50" fill="#477760">项目 E</text>
+<rect x="188.0" y="59" width="129.0" height="24" rx="6" fill="#ffffff" stroke="#b8dcca"/>
+<text class="agent" x="196.0" y="75">Agent · 界面</text>
+<text class="name" x="20" y="199">新功能验证</text>
+<text class="meta" x="20" y="222">2 个项目 · 上周</text>
+<circle cx="259" cy="193" r="4" fill="#46b887"/><text class="state" x="269" y="198">2 运行中</text>
+</g>
+<g transform="translate(820 674)">
+<rect x="12" y="0" width="326" height="167" rx="13" fill="#edf2f3" filter="url(#shadow)"/>
+<rect x="12" y="0" width="326" height="167" rx="13" fill="#edf2f3" stroke="#dfe7e7"/>
+<rect x="12" y="0" width="326" height="24" rx="13" fill="#e3e9e9"/><rect x="12" y="12" width="326" height="12" fill="#e3e9e9"/>
+<circle cx="27" cy="12" r="3.5" fill="#92a5a1"/><path d="M310 12h14" stroke="#a5b5b1" stroke-width="2" stroke-linecap="round"/>
+<rect x="24.0" y="32" width="147.0" height="123" rx="10" fill="#e5f3ed" stroke="#b8dcca"/>
+<text class="project" x="34.0" y="50" fill="#477760">项目 A</text>
+<rect x="33.0" y="59" width="129.0" height="24" rx="6" fill="#ffffff" stroke="#b8dcca"/>
+<text class="agent" x="41.0" y="75">Agent · 回归</text>
+<rect x="179.0" y="32" width="147.0" height="123" rx="10" fill="#f7efe2" stroke="#e8d1b2"/>
+<text class="project" x="189.0" y="50" fill="#8d6e46">项目 B</text>
+<text class="name" x="20" y="199">发布回归</text>
+<text class="meta" x="20" y="222">2 个项目 · 2 周前</text>
+<text class="state" x="294" y="198">空闲</text>
+</g>
+<g transform="translate(1202 674)">
+<rect x="12" y="0" width="326" height="167" rx="13" fill="#edf2f3" filter="url(#shadow)"/>
+<rect x="12" y="0" width="326" height="167" rx="13" fill="#edf2f3" stroke="#dfe7e7"/>
+<rect x="12" y="0" width="326" height="24" rx="13" fill="#e3e9e9"/><rect x="12" y="12" width="326" height="12" fill="#e3e9e9"/>
+<circle cx="27" cy="12" r="3.5" fill="#92a5a1"/><path d="M310 12h14" stroke="#a5b5b1" stroke-width="2" stroke-linecap="round"/>
+<rect x="24.0" y="32" width="302.0" height="123" rx="10" fill="#f7efe2" stroke="#e8d1b2"/>
+<text class="project" x="34.0" y="50" fill="#8d6e46">项目 H</text>
+<text class="name" x="20" y="199">灵感草稿</text>
+<text class="meta" x="20" y="222">1 个项目 · 2 周前</text>
+<text class="state" x="294" y="198">空闲</text>
+</g>
+<path d="M56 933h1488" stroke="#e2e8e7"/>
+<text class="meta" x="56" y="959">打开工作空间后，通过「添加项目」放入项目区域</text>
+<text class="meta" x="1474" y="959">12 / 12</text>
+</svg>

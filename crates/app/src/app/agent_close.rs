@@ -4,7 +4,11 @@ use runtime::AgentTaskState;
 use super::MultisoulApp;
 
 impl MultisoulApp {
-    pub(super) fn confirm_agent_close_if_needed(&mut self, node_id: NodeId) -> bool {
+    pub(super) fn confirm_agent_close_if_needed(
+        &mut self,
+        node_id: NodeId,
+        require_repeat: bool,
+    ) -> bool {
         let definition_id = self.runtime.document.node(node_id).and_then(|node| {
             let CanvasNodeKind::Agent(spec) = &node.kind else {
                 return None;
@@ -31,7 +35,7 @@ impl MultisoulApp {
                     || coordinator.queued_task_count(definition_id) > 0
             });
         if runtime_busy || coordinated_busy {
-            if self.pending_agent_close_confirmation != Some(node_id) {
+            if require_repeat && self.pending_agent_close_confirmation != Some(node_id) {
                 self.pending_agent_close_confirmation = Some(node_id);
                 self.workspace_state.error = Some(
                     "Agent is working or has queued tasks. Close it again to interrupt all tasks."

@@ -135,7 +135,7 @@ fn render_card(card: &CanvasCardContext) -> String {
     )
 }
 
-fn profile_name(profile: AgentProfile) -> &'static str {
+pub(crate) fn profile_name(profile: AgentProfile) -> &'static str {
     match profile {
         AgentProfile::Claude => "Claude",
         AgentProfile::Codex => "Codex",

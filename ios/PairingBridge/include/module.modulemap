@@ -1,0 +1,4 @@
+module NormaPairing {
+  header "NormaPairing.h"
+  export *
+}

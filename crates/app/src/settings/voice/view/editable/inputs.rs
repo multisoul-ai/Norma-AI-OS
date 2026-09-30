@@ -48,6 +48,7 @@ pub(crate) struct VoiceSettingsInputs {
     minimax_api_key: Entity<VoiceTextInput>,
     minimax_voice_id: Entity<VoiceTextInput>,
     minimax_voice_search: Entity<VoiceTextInput>,
+    doubao_api_key: Entity<VoiceTextInput>,
 }
 
 impl VoiceSettingsInputs {
@@ -160,8 +161,20 @@ impl VoiceSettingsInputs {
                 placeholder: "Search by name or Voice ID",
                 masked: false,
             },
-            app,
-            root_focus,
+            app.clone(),
+            root_focus.clone(),
+            state,
+            theme,
+            cx,
+        );
+        let doubao_api_key = create_input(
+            VoiceInputSpec {
+                field: VoiceSettingsField::DoubaoApiKey,
+                placeholder: status::input_placeholder(state, VoiceSettingsField::DoubaoApiKey),
+                masked: true,
+            },
+            app.clone(),
+            root_focus.clone(),
             state,
             theme,
             cx,
@@ -176,6 +189,7 @@ impl VoiceSettingsInputs {
             minimax_api_key,
             minimax_voice_id,
             minimax_voice_search,
+            doubao_api_key,
         }
     }
 
@@ -190,6 +204,7 @@ impl VoiceSettingsInputs {
             VoiceSettingsField::MiniMaxApiKey => self.minimax_api_key.clone(),
             VoiceSettingsField::MiniMaxVoiceId => self.minimax_voice_id.clone(),
             VoiceSettingsField::MiniMaxVoiceSearch => self.minimax_voice_search.clone(),
+            VoiceSettingsField::DoubaoApiKey => self.doubao_api_key.clone(),
         }
     }
 
@@ -208,6 +223,7 @@ impl VoiceSettingsInputs {
             VoiceSettingsField::MiniMaxApiKey,
             VoiceSettingsField::MiniMaxVoiceId,
             VoiceSettingsField::MiniMaxVoiceSearch,
+            VoiceSettingsField::DoubaoApiKey,
         ] {
             self.sync_field_from_state(field, state, cx);
         }
@@ -224,6 +240,7 @@ impl VoiceSettingsInputs {
             &self.minimax_api_key,
             &self.minimax_voice_id,
             &self.minimax_voice_search,
+            &self.doubao_api_key,
         ] {
             input.update(cx, |input, cx| input.set_theme(theme, cx));
         }
@@ -240,6 +257,7 @@ impl VoiceSettingsInputs {
             &self.minimax_api_key,
             &self.minimax_voice_id,
             &self.minimax_voice_search,
+            &self.doubao_api_key,
         ]
         .into_iter()
         .any(|input| input.read(cx).focus_handle.is_focused(window))

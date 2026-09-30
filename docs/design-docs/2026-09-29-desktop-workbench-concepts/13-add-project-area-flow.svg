@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="840" viewBox="0 0 1600 840" role="img" aria-labelledby="title desc">
+  <title id="title">在桌面工作空间中创建项目区域</title>
+  <desc id="desc">第一步，在工作空间点击添加项目。第二步，从最近项目中选择，或选择本地文件夹。第三步，项目区域自动加入画布并显示展开、新建 Agent 操作；不会自动创建 Agent。worktree 在新建 Agent 时选择。</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f9fafc"/>
+      <stop offset="1" stop-color="#edf1f7"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-30%" width="140%" height="170%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#263451" flood-opacity=".10"/>
+    </filter>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Microsoft YaHei", sans-serif; fill: #1b263b; }
+      .title { font-size: 33px; font-weight: 700; letter-spacing: -.5px; }
+      .sub { font-size: 18px; fill: #647187; }
+      .step { font-size: 19px; font-weight: 700; fill: #2b5fa9; }
+      .panel-title { font-size: 19px; font-weight: 700; }
+      .small { font-size: 15px; fill: #718096; }
+      .body { font-size: 17px; fill: #52627a; }
+      .action { font-size: 17px; font-weight: 700; fill: #ffffff; }
+      .item { font-size: 18px; font-weight: 600; }
+      .note { font-size: 18px; font-weight: 600; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="840" fill="url(#bg)"/>
+  <text class="title" x="56" y="72">创建项目区域：把现有项目加入当前工作空间</text>
+  <text class="sub" x="57" y="106">添加区域不会新建仓库、worktree 或 Agent；选定项目后，画布自动排列。</text>
+
+  <rect x="56" y="144" width="115" height="34" rx="17" fill="#dce7fa"/>
+  <text class="step" x="75" y="168">1  添加项目</text>
+  <rect x="566" y="144" width="115" height="34" rx="17" fill="#dce7fa"/>
+  <text class="step" x="585" y="168">2  选择项目</text>
+  <rect x="1076" y="144" width="137" height="34" rx="17" fill="#dce7fa"/>
+  <text class="step" x="1095" y="168">3  自动生成区域</text>
+
+  <g filter="url(#shadow)">
+    <rect x="56" y="198" width="468" height="465" rx="25" fill="#f4f7fc" stroke="#dce3ee"/>
+    <rect x="566" y="198" width="468" height="465" rx="25" fill="#ffffff" stroke="#dce3ee"/>
+    <rect x="1076" y="198" width="468" height="465" rx="25" fill="#f4f7fc" stroke="#dce3ee"/>
+  </g>
+
+  <circle cx="87" cy="237" r="6" fill="#8b9bb9"/>
+  <text class="panel-title" x="104" y="244">工作空间 · 发布准备</text>
+  <rect x="370" y="220" width="126" height="32" rx="16" fill="#ffffff" stroke="#c9d3e4"/>
+  <text x="384" y="242" font-size="15" font-weight="600" fill="#4d6387">＋ 添加项目</text>
+  <rect x="86" y="276" width="408" height="355" rx="20" fill="#edf2fa" stroke="#e0e6f0"/>
+  <circle cx="290" cy="401" r="33" fill="#dbe7f7"/>
+  <path d="M275 401h30m-15-15v30" stroke="#4d79b8" stroke-width="3" stroke-linecap="round"/>
+  <text class="panel-title" x="225" y="473">还没有项目</text>
+  <text class="small" x="165" y="507">添加项目后，这里会出现项目区域</text>
+
+  <text class="panel-title" x="597" y="245">选择要加入的项目</text>
+  <text class="small" x="597" y="283">最近项目</text>
+  <rect x="596" y="302" width="408" height="95" rx="17" fill="#e8f4f2" stroke="#72b9af" stroke-width="2"/>
+  <circle cx="625" cy="349" r="12" fill="#45a99b"/>
+  <text class="item" x="651" y="344">项目 A</text>
+  <text class="small" x="651" y="373">~/Code/project-a</text>
+  <text x="943" y="359" font-size="24" fill="#428e83">✓</text>
+  <rect x="596" y="408" width="408" height="82" rx="17" fill="#f6f8fb" stroke="#e2e7ef"/>
+  <circle cx="625" cy="449" r="12" fill="#b4a8d9"/>
+  <text class="item" x="651" y="449">项目 B</text>
+  <text class="small" x="651" y="473">~/Code/project-b</text>
+  <rect x="596" y="525" width="408" height="59" rx="16" fill="#ffffff" stroke="#c9d3e4"/>
+  <text class="item" x="685" y="562" fill="#4d6387">选择本地文件夹…</text>
+
+  <circle cx="1107" cy="237" r="6" fill="#8b9bb9"/>
+  <text class="panel-title" x="1124" y="244">工作空间 · 发布准备</text>
+  <rect x="1390" y="220" width="126" height="32" rx="16" fill="#ffffff" stroke="#c9d3e4"/>
+  <text x="1404" y="242" font-size="15" font-weight="600" fill="#4d6387">＋ 添加项目</text>
+  <rect x="1106" y="280" width="408" height="350" rx="21" fill="#e7f6f3" stroke="#8ecac2" stroke-width="2"/>
+  <text class="panel-title" x="1127" y="322">项目 A</text>
+  <text class="small" x="1127" y="349">~/Code/project-a</text>
+  <rect x="1415" y="298" width="78" height="34" rx="17" fill="#ffffff" stroke="#c9d3e4"/>
+  <text x="1430" y="321" font-size="15" font-weight="600" fill="#4d6387">↗ 展开</text>
+  <rect x="1128" y="382" width="364" height="215" rx="18" fill="#ffffff" stroke="#b8dcd7"/>
+  <circle cx="1310" cy="455" r="29" fill="#e5f5f1"/>
+  <path d="M1297 455h26m-13-13v26" stroke="#459d91" stroke-width="3" stroke-linecap="round"/>
+  <text class="body" x="1238" y="513">尚未创建 Agent</text>
+  <rect x="1216" y="530" width="189" height="43" rx="21" fill="#398f83"/>
+  <text class="action" x="1240" y="558">＋ 新建 Agent</text>
+
+  <path d="M534 405h20m-8-8 8 8-8 8" fill="none" stroke="#7892b9" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M1044 405h20m-8-8 8 8-8 8" fill="none" stroke="#7892b9" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <circle cx="72" cy="721" r="5" fill="#36a99b"/>
+  <text class="note" x="89" y="728">同一工作空间再次添加项目 A → 定位已有区域；在另一工作空间添加 → 创建独立区域。</text>
+  <circle cx="72" cy="765" r="5" fill="#36a99b"/>
+  <text class="note" x="89" y="772">Git worktree 在「新建 Agent」时选择；若文件选择器选中了 worktree 目录，先识别它所属的项目。</text>
+</svg>

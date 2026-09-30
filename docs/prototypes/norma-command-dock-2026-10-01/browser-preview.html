@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Norma OS · 画布指令 Dock</title>
+<link rel="stylesheet" href="dock.css">
+<div id="norma-command-prototype" data-theme="graphite" aria-label="Norma 画布命令原型">
+  <div class="n-window">
+    <header class="n-top">
+      <span class="n-proto">交互原型 · 模拟执行</span><span class="n-brand">Norma OS</span><span class="n-crumb">norma-ai-os</span><span class="n-save">Canvas saved</span>
+    </header>
+    <main class="n-canvas">
+      <div class="n-context"><span>工作画布</span><span class="n-selection">已选中「登录流程」</span></div>
+      <div class="n-board">
+        <button type="button" class="n-agent n-reference" aria-pressed="true" aria-label="选择或取消选择登录流程卡片">
+          <span class="n-agent-head"><span class="n-badge">AGENT</span> Alan <span class="n-task">— 登录流程与表单校验</span><small>Done</small></span>
+          <span class="n-agent-body">
+            <strong><span class="n-code-green">●</span> 登录流程已完成</strong>
+            <span class="n-code-blue">›</span> 检查登录页面与错误提示的交互体验
+            <span class="n-terminal-gap"></span>
+            <span class="n-code-green">✓</span> 邮箱与密码校验<br>
+            <span class="n-code-green">✓</span> 登录状态与加载反馈<br>
+            <span class="n-code-green">✓</span> 键盘导航与无障碍标签
+            <span class="n-terminal-gap"></span>
+            <span class="n-code-blue">Ran</span> cargo test -p app<br>
+            <span class="n-code-green">test result: ok.</span>
+            <span class="n-terminal-gap"></span>
+            页面已准备好，可以开始下一项任务。
+            <span class="n-terminal-gap"></span>
+            <span class="n-code-blue">› Ask Codex to do anything</span>
+          </span>
+          <span class="n-agent-foot"><span class="n-code-yellow">GPT-6-Astra · xhigh</span><span>~/Documents/norma-ai-os</span></span>
+        </button>
+        <div class="n-side" aria-label="其他 Agent 卡片">
+          <section class="n-agent"><div class="n-agent-head"><span class="n-badge">AGENT</span> 老马 <small class="n-thinking">Thinking</small></div><div class="n-agent-body"><span class="n-code-blue">● Working · 2m 28s</span><br>整理卡片内容与文件预览<br><br><span class="n-code-yellow">GPT-6-Astra · xhigh</span></div></section>
+          <section class="n-agent"><div class="n-agent-head"><span class="n-badge">AGENT</span> Bruno <small>Done</small></div><div class="n-agent-body">已验证：完整路径与软折行正常。<br><br><span class="n-code-blue">› Ask Codex to do anything</span></div></section>
+          <section class="n-agent"><div class="n-agent-head"><span class="n-badge">AGENT</span> Felix <small>Done</small></div><div class="n-agent-body"><span class="n-code-green">✓</span> 中断与继续操作已验证<br><br><span class="n-code-blue">› 等待下一步任务</span></div></section>
+        </div>
+      </div>
+      <div class="n-status" role="status" aria-live="polite"><span></span></div>
+      <div class="n-dock-wrap">
+        <section class="n-panel" aria-label="关联指令" hidden>
+          <div class="n-panel-head"><span class="n-group">画布指令</span><span class="n-count"></span></div>
+          <div id="norma-command-results" class="n-results" role="listbox" aria-label="指令候选"></div>
+        </section>
+        <section class="n-utility" data-menu="workspace" hidden><h3>工作空间</h3><p>norma-ai-os<br>~/Documents/mybook/norma-ai-os</p><button data-action="focus-canvas">返回当前画布</button></section>
+        <section class="n-utility" data-menu="layout" hidden><h3>画布布局</h3><button data-action="layout-focus">主卡片 + 侧栏</button><button data-action="layout-grid">网格排列</button></section>
+        <section class="n-utility" data-menu="voice" hidden><h3>Voice 语音输入</h3><p>体验一句话创建卡片的转写效果。此原型不采集麦克风音频。</p><button data-action="voice-example">填入「创建一个 Codex」</button></section>
+        <section class="n-utility" data-menu="settings" hidden><h3>设置</h3><p>外观与主题</p><button data-theme-choice="graphite">石墨 · 当前画布风格</button><button data-theme-choice="sapphire-night">Sapphire Night</button><button data-theme-choice="midnight-violet">Midnight Violet</button><button data-action="theme-command">查看全部主题指令 ↗</button></section>
+        <div class="n-dock">
+          <button class="n-tool" type="button" aria-label="工作空间" aria-expanded="false" data-open-menu="workspace" title="工作空间"><i data-icon="workspace"></i></button>
+          <button class="n-tool" type="button" aria-label="布局" aria-expanded="false" data-open-menu="layout" title="布局"><i data-icon="layout"></i></button>
+          <div class="n-split" aria-hidden="true"></div>
+          <div class="n-input-wrap">
+            <i data-icon="search"></i>
+            <input id="norma-command-input" role="combobox" aria-autocomplete="list" aria-controls="norma-command-results" aria-expanded="false" aria-label="输入指令或描述想做的事" placeholder="创建卡片、切换主题… 输入 / 查看指令" autocomplete="off" spellcheck="false">
+            <button class="n-clear" aria-label="清空输入" hidden>×</button><kbd class="n-keyhint" aria-hidden="true">/</kbd>
+          </div>
+          <div class="n-split" aria-hidden="true"></div>
+          <button class="n-tool n-voice" type="button" aria-label="Voice" aria-expanded="false" data-open-menu="voice" title="Voice ⌘E"><i data-icon="mic"></i>Voice<span>⌘E</span></button>
+          <button class="n-tool" type="button" aria-label="设置" aria-expanded="false" data-open-menu="settings" title="设置"><i data-icon="settings"></i></button>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+<script>
+(() => {
+/* MODEL START */
+const PROFILES = [
+  { id: 'codex', name: 'Codex', detail: '新建一个 Codex Agent 卡片' },
+  { id: 'claude', name: 'Claude', detail: '新建一个 Claude Agent 卡片' },
+  { id: 'opencode', name: 'OpenCode', detail: '新建一个 OpenCode Agent 卡片' }
+];
+const THEMES = [
+  { id: 'graphite', name: '石墨', alias: '默认 石墨', detail: '深色玻璃 · 青色强调色' },
+  { id: 'paper-blue', name: 'Paper Blue', alias: '浅色 纸白 白色', detail: '纸白背景 · 钴蓝强调色' },
+  { id: 'sapphire-night', name: 'Sapphire Night', alias: '深色 暗色 蓝色 夜间', detail: '深蓝背景 · 蓝色强调色' },
+  { id: 'midnight-violet', name: 'Midnight Violet', alias: '紫色 午夜 紫罗兰', detail: '午夜背景 · 紫色强调色' }
+];
+function profileChoices(filter) {
+  return PROFILES.filter(p => !filter || p.id.startsWith(filter)).map(p => ({
+    id: 'profile-' + p.id, label: '新建 ' + p.name, detail: p.detail,
+    icon: p.id, kind: 'create', profile: p.id, agentName: p.name,
+    command: '/new ' + p.id
+  }));
+}
+function themeChoices(filter) {
+  return THEMES.filter(t => !filter || (t.id + ' ' + t.name.toLowerCase() + ' ' + t.alias).includes(filter)).map(t => ({
+    id: 'theme-' + t.id, label: t.name, detail: t.detail + ' · 应用主题',
+    icon: 'palette', kind: 'theme', theme: t.id, command: '/theme ' + t.id
+  }));
+}
+function getSuggestions(raw) {
+  const q = raw.trim().toLowerCase();
+  const roots = [
+    { id: 'new', label: '新建 Agent', detail: '选择 Codex、Claude 或 OpenCode', icon: 'plus', command: '/new', next: '/new ', kind: 'choose' },
+    { id: 'terminal', label: '新建终端', detail: '在当前工作空间创建 Terminal 卡片', icon: 'terminal', command: '/terminal', kind: 'create', profile: 'terminal', agentName: 'Terminal' },
+    { id: 'browser', label: '新建浏览器', detail: '创建 Browser 卡片', icon: 'browser', command: '/browser', kind: 'create', profile: 'browser', agentName: 'Browser' },
+    { id: 'preview', label: '预览文件', detail: '打开示例 README.md 预览卡片', icon: 'preview', command: '/preview', kind: 'create', profile: 'preview', agentName: 'Preview' },
+    { id: 'theme', label: '切换主题', detail: '更改应用外观', icon: 'palette', command: '/theme', next: '/theme ', kind: 'choose' }
+  ];
+  if (!q || q === '/') return roots;
+  if (q.startsWith('/')) {
+    const words = q.split(/\s+/);
+    if (words[0] === '/new') {
+      return words.length < 3 ? profileChoices(words[1] || '') : [];
+    }
+    if (words[0] === '/theme') return words.length < 3 ? themeChoices(words[1] || '') : [];
+    return roots.filter(r => r.command.startsWith(q));
+  }
+  // ponytail: 仅模拟明确的中英文示例；生产版将自由表达交给 Norma 解析并校验。
+  if (/[不别勿]|删除|delete|remove|右|左|上方|下方|下面|right|left|above|below/.test(q)) return [];
+  if (/终端|terminal/.test(q)) return roots.filter(r => r.id === 'terminal');
+  if (/浏览器|browser/.test(q)) return roots.filter(r => r.id === 'browser');
+  if (/预览|preview/.test(q)) return roots.filter(r => r.id === 'preview');
+  const naturalProfile = PROFILES.find(p => q.includes(p.id));
+  if (naturalProfile && /创建|新建|create|new/.test(q)) {
+    return profileChoices(naturalProfile.id);
+  }
+  if (/主题|theme|深色|浅色|暗色|紫色/.test(q)) {
+    const direct = THEMES.find(t => q.includes(t.id) || q.includes(t.name.toLowerCase()));
+    if (direct) return themeChoices(direct.id);
+    const color = ['深色', '浅色', '暗色', '紫色'].find(word => q.includes(word));
+    return themeChoices(color || '');
+  }
+  if (/^(创建|新建|创建一个|新建一个|agent|new|create)$/.test(q)) return profileChoices('');
+  return profileChoices(q);
+}
+/* MODEL END */
+const root = document.getElementById('norma-command-prototype');
+const find = s => root.querySelector(s);
+const input = find('input');
+const panel = find('.n-panel');
+const results = find('.n-results');
+const referenceCard = find('.n-reference');
+let reference = '登录流程', selected = 0, items = [], open = false, composing = false, created = 0;
+function closeUtility() {
+  root.querySelectorAll('.n-utility').forEach(menu => { menu.hidden = true; });
+  root.querySelectorAll('[data-open-menu]').forEach(button => button.setAttribute('aria-expanded', 'false'));
+}
+function icon(name) {
+  const el = document.createElement('i');
+  el.dataset.icon = name;
+  el.textContent = ({ plus: '+', terminal: '›_', palette: '◐', search: '⌕' })[name] || '·';
+  el.setAttribute('aria-hidden', 'true');
+  return el;
+}
+function icons() {
+  const aliases = { palette: 'settings' };
+  const assets = ['workspace','layout','terminal','codex','claude','opencode','plus','browser','preview','mic','settings','search'];
+  root.querySelectorAll('i[data-icon]').forEach(el => {
+    const name = aliases[el.dataset.icon] || el.dataset.icon;
+    if (assets.includes(name)) {
+      el.textContent = ''; el.className = 'n-mask';
+      el.style.setProperty('--icon', 'url("assets/' + name + '.svg")');
+    } else el.textContent = icon(el.dataset.icon).textContent;
+  });
+}
+function setQuery(value) {
+  closeUtility();
+  input.value = value; selected = 0; open = true;
+  find('.n-status span').textContent = ''; render(); input.focus();
+}
+function render() {
+  items = getSuggestions(input.value);
+  selected = Math.max(0, Math.min(selected, items.length - 1));
+  results.replaceChildren();
+  items.forEach((item, index) => {
+    const row = document.createElement('button');
+    row.type = 'button'; row.className = 'n-option cursor-interaction'; row.id = 'norma-option-' + item.id;
+    row.setAttribute('role', 'option'); row.setAttribute('aria-selected', String(index === selected));
+    const badge = document.createElement('span'); badge.className = 'n-icon'; badge.append(icon(item.icon));
+    const text = document.createElement('span'); text.className = 'n-option-text';
+    const title = document.createElement('span'); title.className = 'n-option-title'; title.textContent = item.label;
+    const detail = document.createElement('span'); detail.className = 'n-option-sub'; detail.textContent = item.detail;
+    text.append(title, detail);
+    const right = document.createElement('span'); right.className = 'n-option-right';
+    const command = document.createElement('code'); command.textContent = item.command;
+    right.append(command);
+    row.append(badge, text, right);
+    row.addEventListener('click', () => { selected = index; activate(); });
+    row.addEventListener('pointermove', () => { if (selected !== index) { selected = index; syncSelection(); } });
+    results.append(row);
+  });
+  if (!items.length) {
+    const empty = document.createElement('div'); empty.className = 'n-empty';
+    empty.textContent = '原型暂未模拟这条表达。试试 /new、/theme，或“创建一个 Codex”。';
+    results.append(empty);
+  }
+  find('.n-group').textContent = items.length && items.every(i => i.kind === 'theme') ? '应用主题' :
+    /^\/new(?:\s|$)/.test(input.value) ? '新建 Agent' :
+    !input.value.trim() || input.value.trim() === '/' ? '快捷指令' : '关联指令';
+  find('.n-count').textContent = items.length + ' 个建议';
+  find('.n-clear').hidden = !input.value;
+  find('.n-keyhint').hidden = Boolean(input.value);
+  panel.hidden = !open; input.setAttribute('aria-expanded', String(open));
+  syncSelection(); icons();
+}
+function syncSelection() {
+  [...results.querySelectorAll('[role="option"]')].forEach((row, index) => row.setAttribute('aria-selected', String(index === selected)));
+  const item = items[selected];
+  if (open && item) input.setAttribute('aria-activedescendant', 'norma-option-' + item.id);
+  else input.removeAttribute('aria-activedescendant');
+}
+function activate() {
+  const item = items[selected];
+  if (!item) return;
+  if (item.kind === 'choose') { setQuery(item.next); return; }
+  if (item.kind === 'theme') {
+    root.dataset.theme = item.theme;
+    find('.n-status span').textContent = '已切换为 ' + item.label;
+  } else {
+    created++;
+    find('.n-board').dataset.fit = 'true';
+    const card = document.createElement('article'); card.className = 'n-agent';
+    const head = document.createElement('div'); head.className = 'n-agent-head'; head.append(icon(item.profile), document.createTextNode(item.agentName));
+    const body = document.createElement('div'); body.className = 'n-agent-body';
+    const name = document.createElement('strong'); name.textContent = item.agentName + ' · ' + created;
+    const content = item.profile === 'browser' ? '地址栏：about:blank（示例）' :
+      item.profile === 'preview' ? 'README.md（示例）\nNorma OS — Live Node on Infinite Canvas' :
+      item.profile === 'terminal' ? 'norma-ai-os % _' : '卡片已创建，等待输入任务。';
+    body.append(name, document.createTextNode(content));
+    card.append(head, body);
+    card.style.gridRow = String(created);
+    find('.n-board').append(card);
+    find('.n-status span').textContent = '已创建 ' + item.agentName;
+  }
+  input.value = ''; selected = 0; input.focus(); open = false; render();
+}
+input.addEventListener('input', () => { if (!composing) { closeUtility(); selected = 0; open = true; render(); } });
+input.addEventListener('compositionstart', () => { composing = true; });
+input.addEventListener('compositionend', () => { composing = false; selected = 0; open = true; render(); });
+input.addEventListener('focus', () => { closeUtility(); open = true; render(); });
+input.addEventListener('click', () => { closeUtility(); if (!open) { open = true; render(); } });
+input.addEventListener('keydown', event => {
+  if (event.isComposing || composing || event.keyCode === 229) return;
+  if (event.key === 'Escape') { event.preventDefault(); open = false; render(); return; }
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    if (!open) { open = true; render(); return; }
+    selected = (selected + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % Math.max(1, items.length); syncSelection();
+  }
+  if (event.key === 'Tab' && !event.shiftKey && open && items[selected] && input.value !== (items[selected].next || items[selected].command)) {
+    event.preventDefault(); setQuery(items[selected].next || items[selected].command);
+  }
+  if (event.key === 'Enter' && open) { event.preventDefault(); activate(); }
+});
+root.addEventListener('pointerdown', event => {
+  if (!event.target.closest('.n-dock-wrap') && !event.target.closest('.n-reference')) { open = false; closeUtility(); render(); }
+});
+referenceCard.addEventListener('click', () => {
+  reference = reference ? null : '登录流程';
+  referenceCard.setAttribute('aria-pressed', String(Boolean(reference)));
+  find('.n-selection').textContent = reference ? '已选中「登录流程」' : '未选择卡片';
+  render();
+});
+find('.n-clear').addEventListener('click', () => setQuery(''));
+root.querySelectorAll('[data-open-menu]').forEach(button => {
+  button.addEventListener('click', () => {
+    const menu = find('[data-menu="' + button.dataset.openMenu + '"]');
+    const show = menu.hidden;
+    closeUtility(); open = false; render();
+    menu.hidden = !show; button.setAttribute('aria-expanded', String(show));
+  });
+});
+root.querySelectorAll('[data-theme-choice]').forEach(button => button.addEventListener('click', () => {
+  root.dataset.theme = button.dataset.themeChoice; closeUtility();
+  find('.n-status span').textContent = '已切换为 ' + button.textContent;
+}));
+root.querySelectorAll('[data-action]').forEach(button => button.addEventListener('click', () => {
+  const action = button.dataset.action;
+  if (action === 'voice-example') setQuery('创建一个 Codex');
+  else if (action === 'theme-command') setQuery('/theme ');
+  else { closeUtility(); if (action.startsWith('layout-')) find('.n-board').classList.toggle('is-grid', action === 'layout-grid'); }
+}));
+root.addEventListener('keydown', event => {
+  if (event.key === 'Escape') closeUtility();
+  if (event.metaKey && event.key.toLowerCase() === 'e') { event.preventDefault(); find('[data-open-menu="voice"]').click(); }
+});
+render();
+})();
+</script>
+
+</html>

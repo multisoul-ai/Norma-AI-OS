@@ -192,7 +192,7 @@ fn picker(
                 .flex()
                 .gap(px(12.0))
                 .child(provider_list(theme, state, provider, cx))
-                .child(div().min_w(px(0.0)).flex_1().child(
+                .child(div().min_w(px(0.0)).flex_1().flex().flex_col().child(
                     if provider == tts::MINIMAX_TTS_PROVIDER_ID {
                         super::minimax_configuration(theme, state, inputs, cx)
                     } else {

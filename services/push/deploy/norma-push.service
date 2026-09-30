@@ -1,0 +1,32 @@
+[Unit]
+Description=Norma private APNs push relay
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists=/etc/norma-push/relay.env
+ConditionPathExists=/etc/norma-push/apns.p8
+ConditionPathExists=/etc/norma-push/relay.key
+
+[Service]
+Type=simple
+User=norma-push
+Group=norma-push
+WorkingDirectory=/opt/norma-push
+EnvironmentFile=/etc/norma-push/relay.env
+ExecStart=/usr/local/bin/node /opt/norma-push/relay.mjs
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=15s
+# Bound this private relay's share of the existing business server.
+CPUQuota=20%
+MemoryMax=128M
+TasksMax=32
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+RestrictSUIDSGID=true
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

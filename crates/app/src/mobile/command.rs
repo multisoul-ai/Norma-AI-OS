@@ -1,0 +1,413 @@
+use super::server::Shared;
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
+use std::{
+    sync::{
+        atomic::{AtomicBool, AtomicU8, Ordering},
+        Arc,
+    },
+    time::{Duration, Instant},
+};
+use storage::{MobileCommandReservation, MobileCommandStore, NewMobileCommand};
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct MobileCommandRequest {
+    pub operation_id: String,
+    pub workspace_id: String,
+    pub route_id: String,
+    pub grant_revision: u64,
+    pub command: MobileCommand,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PlanPriority {
+    pub plan_id: String,
+    pub todo_index: usize,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+pub enum MobileCommand {
+    // Recovered only from the durable thread queue, never accepted from ordinary phone commands.
+    #[serde(skip_deserializing)]
+    ThreadFollowup {
+        target: super::LiveTerminalTask,
+        expected: norma::mobile::CardSnapshot,
+        text: String,
+    },
+    #[serde(skip_deserializing)]
+    ThreadTerminal {
+        command: Box<super::ThreadTerminalCommand>,
+    },
+    // Only the authenticated thread endpoint may construct this after durable source validation.
+    #[serde(skip_deserializing)]
+    ThreadTask {
+        agent_definition_id: i64,
+        task: String,
+        context: String,
+    },
+    // Constructed only after Mac-side NormaToolRuntime parsing and intent checks. This must
+    // remain impossible to deserialize from a paired phone's ordinary command endpoint.
+    #[serde(skip_deserializing)]
+    RealtimeTool { command: agent::AdapterCommand },
+    TerminalInput {
+        expected: norma::mobile::CardSnapshot,
+        screen_signature: u64,
+        input_sequence: u64,
+        input: norma::mobile::TerminalInput,
+    },
+    FeedbackDelivery {
+        expected: norma::mobile::CardSnapshot,
+        feedback: storage::DeliveryFeedback,
+    },
+    AcceptDelivery {
+        key: storage::MobileTurnKey,
+        fingerprint: String,
+    },
+    DecidePlanTodo {
+        plan_id: String,
+        todo_index: usize,
+        choice: agent::PlanTodoChoice,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        retry_of: Option<storage::TodoDecisionRef>,
+    },
+    GeneratePlan {
+        direction: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        priority: Option<PlanPriority>,
+    },
+    CreateCard {
+        profile: MobileProvider,
+        title: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        definition_id: Option<i64>,
+    },
+    DeleteCard {
+        expected: norma::mobile::CardSnapshot,
+        confirm_busy: bool,
+    },
+    InterruptTurn {
+        expected: norma::mobile::CardSnapshot,
+    },
+    DecideApproval {
+        expected: norma::mobile::ApprovalTarget,
+        decision: norma::agent_hook::ApprovalDecision,
+    },
+    QueueMessage {
+        expected: norma::mobile::CardSnapshot,
+        text: String,
+    },
+    SendMessage {
+        expected: norma::mobile::CardSnapshot,
+        text: String,
+    },
+}
+
+impl MobileCommand {
+    pub(crate) fn revoke_terminal_claim(&self) {
+        if let Self::ThreadTerminal { command } = self {
+            if matches!(
+                command.operation,
+                super::ThreadTerminalOperation::Claim { .. }
+            ) {
+                command.lease.revoke();
+            }
+        }
+    }
+
+    pub(crate) fn message_target(&self) -> Option<&norma::mobile::CardSnapshot> {
+        match self {
+            Self::SendMessage { expected, .. }
+            | Self::FeedbackDelivery { expected, .. }
+            | Self::ThreadFollowup { expected, .. } => Some(expected),
+            _ => None,
+        }
+    }
+    pub(crate) fn validate_feedback_target(&self) -> Result<(), &'static str> {
+        if let Self::ThreadFollowup {
+            target, expected, ..
+        } = self
+        {
+            if target.key.validate().is_err()
+                || target.key.node_id != expected.node_id
+                || target.key.profile != expected.profile
+                || Some(&target.key.run_id) != expected.run_id.as_ref()
+                || Some(&target.key.session_id) != expected.session_id.as_ref()
+            {
+                return Err("session_changed");
+            }
+        }
+        if let Self::FeedbackDelivery { expected, feedback } = self {
+            feedback.validate().map_err(|_| "invalid_feedback")?;
+            let key = &feedback.key;
+            if expected.node_id != key.node_id
+                || expected.profile != key.profile
+                || expected.run_id.as_ref() != Some(&key.run_id)
+                || expected.session_id.as_ref() != Some(&key.session_id)
+            {
+                return Err("session_changed");
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Deserialize, Serialize)]
+pub enum MobileProvider {
+    Codex,
+    Claude,
+    Cursor,
+}
+
+/// A single dispatch claim; revoke/shutdown competes with begin without locking GPUI.
+pub struct CommandLease {
+    state: AtomicU8,
+    pub(super) operation_id: String,
+    pub(super) finished: AtomicBool,
+}
+impl CommandLease {
+    pub(super) fn new(operation: &str) -> Self {
+        Self {
+            state: AtomicU8::new(0),
+            operation_id: operation.into(),
+            finished: AtomicBool::new(false),
+        }
+    }
+    pub fn begin(&self) -> bool {
+        self.state
+            .compare_exchange(0, 1, Ordering::AcqRel, Ordering::Acquire)
+            .is_ok()
+    }
+    pub(super) fn cancel(&self) -> bool {
+        self.state
+            .compare_exchange(0, 2, Ordering::AcqRel, Ordering::Acquire)
+            .is_ok()
+    }
+}
+
+pub struct LiveCommandRequest {
+    pub source: NewMobileCommand,
+    pub request: MobileCommandRequest,
+    pub lease: Arc<CommandLease>,
+    pub deadline: Instant,
+    pub reply: crossbeam_channel::Sender<Result<Value, &'static str>>,
+}
+
+pub(super) fn submit(
+    shared: &Arc<Shared>,
+    machine: &str,
+    device: &str,
+    token: &str,
+    request: MobileCommandRequest,
+) -> Result<Value, &'static str> {
+    submit_or_lookup(shared, machine, device, token, request, false)
+}
+
+pub(super) fn submit_or_lookup(
+    shared: &Arc<Shared>,
+    machine: &str,
+    device: &str,
+    token: &str,
+    request: MobileCommandRequest,
+    lookup_only: bool,
+) -> Result<Value, &'static str> {
+    validate(&request)?;
+    shared.commands.as_ref().ok_or("unavailable")?;
+    let access = shared.access().map_err(|_| "unavailable")?;
+    let grant = access
+        .authenticate(machine, device, token)
+        .map_err(|_| "unauthorized")?
+        .ok_or("unauthorized")?;
+    if !grant.allows(&request.workspace_id, true) {
+        return Err("unauthorized");
+    }
+    if grant.revision != request.grant_revision {
+        return Err("grant_changed");
+    }
+    let store = MobileCommandStore::new(access.store.path().to_path_buf());
+    let mut fingerprint = serde_json::to_vec(&request).map_err(|_| "invalid_request")?;
+    if matches!(
+        request.command,
+        MobileCommand::RealtimeTool { .. } | MobileCommand::ThreadTerminal { .. }
+    ) {
+        // Current control authorization was just checked above. Its revision is not part
+        // of a media function's durable identity; all target/command fields remain bound.
+        let mut stable = serde_json::to_value(&request).map_err(|_| "invalid_request")?;
+        stable
+            .as_object_mut()
+            .ok_or("invalid_request")?
+            .remove("grant_revision");
+        fingerprint = serde_json::to_vec(&stable).map_err(|_| "invalid_request")?;
+    }
+    let record = NewMobileCommand {
+        device_id: device.into(),
+        operation_id: request.operation_id.clone(),
+        workspace_id: request.workspace_id.clone(),
+        route_id: request.route_id.clone(),
+        owner_id: shared.owner_id.clone(),
+        request_hash: hex::encode(Sha256::digest(fingerprint)),
+    };
+    if lookup_only {
+        return match store.lookup(&record).map_err(|_| "unavailable")? {
+            Some(MobileCommandReservation::Existing(receipt)) => {
+                Ok(receipt_response(shared, *receipt))
+            }
+            Some(MobileCommandReservation::Conflict) => Err("idempotency_conflict"),
+            _ => Err("not_found"),
+        };
+    }
+    if let Some(expected) = request.command.message_target() {
+        if let Some(run) = &expected.run_id {
+            if store
+                .has_pending_queued_message(&record, expected.node_id, run)
+                .map_err(|_| "unavailable")?
+                && store
+                    .get(
+                        device,
+                        &record.operation_id,
+                        &record.workspace_id,
+                        &shared.owner_id,
+                    )
+                    .map_err(|_| "unavailable")?
+                    .is_none()
+            {
+                return Err("queue_pending");
+            }
+        }
+    }
+    if matches!(request.command, MobileCommand::DecidePlanTodo { .. }) {
+        drop(access);
+        return super::todo::submit(shared, machine, device, token, request, record);
+    }
+    if matches!(request.command, MobileCommand::QueueMessage { .. }) {
+        drop(access);
+        return super::queue::enqueue(shared, machine, device, token, request, record);
+    }
+    // At most eight command completions/foreground waits exist across all phones.
+    let lease = shared.command_lease(device, &request.operation_id)?;
+    match store.reserve(&record).map_err(|_| "unavailable")? {
+        MobileCommandReservation::Conflict => return Err("idempotency_conflict"),
+        MobileCommandReservation::Existing(receipt) => {
+            // This lookup owns no execution. Do not count its temporary lease as pending work.
+            lease.finished.store(true, Ordering::Release);
+            return Ok(receipt_response(shared, *receipt));
+        }
+        MobileCommandReservation::New => {}
+    }
+    dispatch_reserved(shared, request, record, store, lease)
+}
+
+/// Both normal messages and confirmed Todos use this one bounded foreground dispatch/receipt path.
+pub(super) fn dispatch_reserved(
+    shared: &Arc<Shared>,
+    request: MobileCommandRequest,
+    record: NewMobileCommand,
+    store: MobileCommandStore,
+    lease: Arc<CommandLease>,
+) -> Result<Value, &'static str> {
+    let source = shared.commands.as_ref().ok_or("unavailable")?;
+    let (reply, outcome) = crossbeam_channel::bounded(1);
+    // Writes return an accepted receipt immediately; UI/persistence completion is queried separately.
+    // Sends add10s task baseline capture to25s Provider acknowledgement and5s receipt margin.
+    // Other commands keep30s; unknown outcomes are never replayed.
+    let deadline = Instant::now()
+        + Duration::from_secs(if request.command.message_target().is_some() {
+            40
+        } else {
+            30
+        });
+    if source
+        .try_send(LiveCommandRequest {
+            source: record.clone(),
+            request,
+            lease: Arc::clone(&lease),
+            deadline,
+            reply,
+        })
+        .is_err()
+    {
+        lease.cancel();
+        store
+            .finish(&record, Err("unavailable".into()))
+            .map_err(|_| "unavailable")?;
+    } else {
+        let completion_store = store.clone();
+        let completion_record = record.clone();
+        let cancel_on_failure = Arc::clone(&lease);
+        let worker = std::thread::Builder::new().name("norma-mobile-command".into()).spawn(move || {
+            let result = outcome.recv_timeout(deadline.saturating_duration_since(Instant::now())).unwrap_or_else(|_| {
+                if lease.cancel() { Err("expired") } else { Err("outcome_unknown") }
+            });
+            if let Err(error) = completion_store.finish(&completion_record, result.map_err(str::to_owned)) {
+                tracing::warn!(%error, operation_id=%completion_record.operation_id, "mobile command receipt persistence failed");
+            }
+            super::project_events::changed();
+            lease.finished.store(true, Ordering::Release);
+        });
+        if worker.is_err() {
+            cancel_on_failure.cancel();
+            cancel_on_failure.finished.store(true, Ordering::Release);
+            // Execution might already have begun; never turn this into a retryable fresh command.
+            store
+                .finish(&record, Err("outcome_unknown".into()))
+                .map_err(|_| "unavailable")?;
+        }
+    }
+    super::project_events::changed();
+    let receipt = store
+        .get(
+            &record.device_id,
+            &record.operation_id,
+            &record.workspace_id,
+            &shared.owner_id,
+        )
+        .map_err(|_| "unavailable")?
+        .ok_or("unavailable")?;
+    Ok(receipt_response(shared, receipt))
+}
+
+pub(super) fn receipt(
+    shared: &Shared,
+    machine: &str,
+    device: &str,
+    token: &str,
+    workspace: &str,
+    operation: &str,
+) -> Result<Value, &'static str> {
+    if !valid_id(workspace) || !valid_id(operation) {
+        return Err("invalid_request");
+    }
+    let access = shared.access().map_err(|_| "unavailable")?;
+    let grant = access
+        .authenticate(machine, device, token)
+        .map_err(|_| "unauthorized")?
+        .ok_or("unauthorized")?;
+    if !grant.allows(workspace, false) {
+        return Err("unauthorized");
+    }
+    let receipt = MobileCommandStore::new(access.store.path().to_path_buf())
+        .get(device, operation, workspace, &shared.owner_id)
+        .map_err(|_| "unavailable")?
+        .ok_or("not_found")?;
+    Ok(receipt_response(shared, receipt))
+}
+
+pub(super) fn receipt_response(
+    shared: &Shared,
+    mut receipt: storage::MobileCommandReceipt,
+) -> Value {
+    if receipt.state == "accepted"
+        && !shared.command_pending(&receipt.device_id, &receipt.operation_id)
+    {
+        receipt.state = "outcome_unknown".into();
+        receipt.error = Some("outcome_unknown".into());
+    }
+    json!({"status":"receipt","receipt":receipt})
+}
+
+mod validation;
+pub(super) use validation::valid_id;
+use validation::validate;

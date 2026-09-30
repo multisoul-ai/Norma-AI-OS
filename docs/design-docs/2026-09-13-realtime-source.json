@@ -1,0 +1,162 @@
+{
+  "source_repository": "/Users/alan/Documents/codes/yakami0129/yakami129/companion",
+  "revision": "d6c29a1fc84313ea375dab5ea5e66d70154f67f9",
+  "files": [
+    {
+      "source": "ios/Model/AvatarScene.swift",
+      "target": "ios/App/CommandCenter/AvatarScene.swift",
+      "source_sha256": "49fac9211deeb18bd28a90571cdb87660a9124432f427e7af8aabf002608878f"
+    },
+    {
+      "source": "ios/Model/AvatarMotion.swift",
+      "target": "ios/App/CommandCenter/AvatarMotion.swift",
+      "source_sha256": "602d553127b353600def8d28a4b15e2fc4c77cdf1b34b0baaa95d52d8d382123"
+    },
+    {
+      "source": "ios/Model/AvatarMaterials.swift",
+      "target": "ios/App/CommandCenter/AvatarMaterials.swift",
+      "source_sha256": "000a2d4e84a3f750b82acb8295cbe99acd7f0a9df12268a9d905a8f34afe1333"
+    },
+    {
+      "source": "ios/App/OpenAIRealtime.swift",
+      "target": "ios/App/CommandCenter/OpenAIRealtime.swift",
+      "source_sha256": "b277e1b1a220a3fcb1b915a042781488b6bd7a0cf690b8cfad38f8834201bb07"
+    },
+    {
+      "source": "ios/App/WebRTCAudio.swift",
+      "target": "ios/App/CommandCenter/WebRTCAudio.swift",
+      "source_sha256": "12d4548f9098903a0bb2e316a44e60ceb2db03ee83f1d3c711c807534580a38e"
+    },
+    {
+      "source": "ios/App/ServiceCredential.swift",
+      "target": "ios/App/CommandCenter/ServiceCredential.swift",
+      "source_sha256": "4e23461c14ab27d637030cadb374504c8e119cf6437537325515ecaf56c8457e"
+    },
+    {
+      "source": "ios/Resources/Avatar/Milltina.scn",
+      "target": "ios/Resources/Avatar/Milltina.scn",
+      "source_sha256": "b4bead802adc69dcd7e5bce583688e09bef9c0421dd7799040011c1159fc5b7d"
+    },
+    {
+      "source": "ios/Resources/Avatar/Milltina.scn.png",
+      "target": "ios/Resources/Avatar/Milltina.scn.png",
+      "source_sha256": "4679ec563b0d9b71e580b414668683c4b3062bd90d1e6e2af99e5fbf39ee1331"
+    },
+    {
+      "source": "ios/Resources/Motions/CC0.txt",
+      "target": "ios/Resources/Motions/CC0.txt",
+      "source_sha256": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499"
+    },
+    {
+      "source": "ios/Resources/Motions/CMU.txt",
+      "target": "ios/Resources/Motions/CMU.txt",
+      "source_sha256": "5aafc56bccab0ca03d10cce169e15c85804b402cd851f52b3940b4f371d70454"
+    },
+    {
+      "source": "ios/Resources/Motions/TWH.txt",
+      "target": "ios/Resources/Motions/TWH.txt",
+      "source_sha256": "faf3e013f09a6700a81314eeafee82fa36ad86d6b0a11cb6e1fbe84217ed2bb1"
+    },
+    {
+      "source": "ios/Resources/Motions/companion-motion.json",
+      "target": "ios/Resources/Motions/companion-motion.json",
+      "source_sha256": "4df722bfccfaf78a12b1ab178a6ebb4e21a2914d29ae67c91568b915f2884b73"
+    },
+    {
+      "source": "ios/App/VoiceCall.swift",
+      "target": "ios/App/CommandCenter/VoiceCall.swift",
+      "source_sha256": "64a1dbcb6138d59bf7d9c8e38496ae858201679401f9beba8039c56a7e3d02db"
+    },
+    {
+      "source": "ios/App/VoiceCall.swift",
+      "target": "ios/App/CommandCenter/VoiceCallEvents.swift",
+      "source_sha256": "64a1dbcb6138d59bf7d9c8e38496ae858201679401f9beba8039c56a7e3d02db"
+    },
+    {
+      "source": "ios/Resources/ThirdPartyNotices.txt",
+      "target": "ios/Resources/Companion-ThirdPartyNotices.txt",
+      "source_sha256": "7f595cfd66808d104e53d1b2d8ebf63df64de0c05178664c9aff5f700415c411"
+    },
+    {
+      "source": "reports/model-license.md",
+      "target": "ios/Resources/Milltina-license.md",
+      "source_sha256": "2134ca54a60b507fd54bfe5970c3f98cb0d4b6c3dd297ed8c8a514551598262c"
+    },
+    {
+      "source": "ios/App/AudioDuplex.swift",
+      "target": "ios/App/CommandCenter/AudioDuplex.swift",
+      "source_sha256": "baae17b74894e83b182bdb5b71b2d44fd7881e81c4d59be01a72668e7ba2a2cd"
+    },
+    {
+      "source": "ios/App/VoiceCall.swift",
+      "target": "ios/App/CommandCenter/VoiceCallDoubao.swift",
+      "source_sha256": "64a1dbcb6138d59bf7d9c8e38496ae858201679401f9beba8039c56a7e3d02db"
+    },
+    {
+      "source": "ios/App/VoiceCall.swift",
+      "target": "ios/App/CommandCenter/DoubaoSender.swift",
+      "source_sha256": "64a1dbcb6138d59bf7d9c8e38496ae858201679401f9beba8039c56a7e3d02db"
+    },
+    {
+      "source": "ios/Tests/RealtimeTests.swift",
+      "target": "ios/DeviceTests/ReportLocalPeer.swift",
+      "source_sha256": "5955135727eb672b02f195c021ca7ba0aef6d85995be2010bb97b7a66a538692",
+      "notes": "仅迁入原生本地 WebRTC/RTP/SCTP 测试 helper，适配 Swift 6；不迁入原测试 App，不参与生产构建。"
+    },
+    {
+      "source": "server/server.mjs",
+      "target": "services/voice/server.mjs",
+      "source_sha256": "389398678c378f3ea1ec6f0bc36ea976dd70a896f2b4aa2502829119cb1998b2"
+    },
+    {
+      "source": "server/plan.mjs",
+      "target": "services/voice/plan.mjs",
+      "source_sha256": "4f0fad20321fc3debd3a55e52f5371c2b46ac9a25dfd930e025ea12da1a80513"
+    },
+    {
+      "source": "server/doubao2.mjs",
+      "target": "services/voice/doubao2.mjs",
+      "source_sha256": "b26f24f21fe9b1809a5f3eb2be15ee914c0f24a7c814d0dc25454540eb130f66"
+    },
+    {
+      "source": "server/check.mjs",
+      "target": "services/voice/check.mjs",
+      "source_sha256": "7a8d0cb405ac01bf0567d07fc858959522609c0976f42bfcb757cd0280948c02"
+    },
+    {
+      "source": "server/check-plan.mjs",
+      "target": "services/voice/check-plan.mjs",
+      "source_sha256": "78e02212973b3372476b8351a6ba79cc4ff2df7d2dca92aef784be951aab1b1c"
+    },
+    {
+      "source": "server/cloud-sessions.mjs",
+      "target": "services/voice/cloud-sessions.mjs",
+      "source_sha256": "95116545480bbdc668f7f4faf6b8a9ea65eb2ce30fbe19589f8d59eaf21e80d1"
+    },
+    {
+      "source": "server/check-cloud.mjs",
+      "target": "services/voice/check-cloud.mjs",
+      "source_sha256": "29f8f5b741cb2ab7a1a506f008ea179154ff727af79ca5f5ed47f6f3e365342a"
+    },
+    {
+      "source": "server/probe-plan-call.mjs",
+      "target": "services/voice/probe-plan-call.mjs",
+      "source_sha256": "92bd006292ea097c76c31b15825c237f917087453adc319ce691cd6468027b52"
+    },
+    {
+      "source": "server/api/gateway.mjs",
+      "target": "services/voice/api/gateway.mjs",
+      "source_sha256": "e77e8a0b3b3c1b98bb89bd74d369e7af49a4dd551a947714aa50795d6c4b2f26"
+    },
+    {
+      "source": "server/vercel.json",
+      "target": "services/voice/vercel.json",
+      "source_sha256": "0d5f8ee2d87bb64b98e44b39955d7d92c3a9e2e98c414d30fd45c693bcab16b2"
+    }
+  ],
+  "webrtc": {
+    "url": "https://github.com/stasel/WebRTC.git",
+    "version": "152.0.0",
+    "revision": "1d04692697cb642bfebf6ad2dd99fe52649c3d6d"
+  }
+}

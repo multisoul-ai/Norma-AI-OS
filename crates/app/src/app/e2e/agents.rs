@@ -83,7 +83,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
         request: WireRequest,
     ) -> WireResponse {
-        self.execute_card_command(request, window, cx)
+        self.execute_card_command(request, Some(window), cx)
     }
 
     #[cfg(feature = "e2e-test-support")]
@@ -144,7 +144,23 @@ impl MultisoulApp {
     ) -> Result<agent::AdapterResult, String> {
         crate::app::agent_runtime::execute_norma_adapter_command_with_source(
             self,
-            window,
+            Some(window),
+            cx,
+            command,
+            agent::AgentInputSource::Voice,
+        )
+        .map_err(|error| error.to_string())
+    }
+
+    #[cfg(feature = "e2e-test-support")]
+    pub fn execute_background_norma_adapter_command_for_e2e(
+        &mut self,
+        cx: &mut Context<Self>,
+        command: agent::AdapterCommand,
+    ) -> Result<agent::AdapterResult, String> {
+        crate::app::agent_runtime::execute_norma_adapter_command_with_source(
+            self,
+            None,
             cx,
             command,
             agent::AgentInputSource::Voice,
@@ -158,6 +174,13 @@ impl MultisoulApp {
         event: norma::agent_hook::AgentHookEvent,
     ) -> Result<(), String> {
         self.agent_hook_server.enqueue_event_for_e2e(event)
+    }
+
+    #[cfg(feature = "e2e-test-support")]
+    pub fn observe_agent_hook_events_for_e2e(
+        &mut self,
+    ) -> crossbeam_channel::Receiver<norma::agent_hook::AgentHookEvent> {
+        self.agent_hook_server.observe_events_for_e2e()
     }
 
     #[cfg(feature = "e2e-test-support")]

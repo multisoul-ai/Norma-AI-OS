@@ -20,7 +20,11 @@ mod create_agent_command;
 mod delete_card;
 mod diagnostics;
 mod dispatch_effects;
+mod doubao_adapter;
 mod identity;
+mod mobile_control;
+mod mobile_delivery;
+mod mobile_message;
 mod orchestration_commands;
 pub(super) mod pending;
 mod reply_adapter;
@@ -31,10 +35,12 @@ pub(crate) use identity::{self_dispatch_forbidden_error, AgentIdentitySnapshot};
 pub(crate) use session_reply_queue::AgentSessionReplyQueue;
 
 pub(crate) use artifacts::artifacts_from_agent_events;
+#[cfg(any(test, feature = "e2e-test-support"))]
 pub(crate) use commands::execute_agent_card_command;
 use context_commands::contextualized_agent_commands;
 #[cfg(test)]
 use coordination::agent_completion_report;
+pub(crate) use doubao_adapter::start_doubao_adapter;
 pub(crate) use orchestration_commands::execute_high_level_agent_command;
 pub(crate) use orchestration_commands::execute_orchestration_agent_command;
 pub(crate) use orchestration_commands::execute_orchestration_agent_command_with_visual_origin;
@@ -204,7 +210,7 @@ impl Drop for ProjectAgentRuntime {
     }
 }
 
-fn shared_tokio_runtime() -> Result<&'static tokio::runtime::Runtime, String> {
+pub(crate) fn shared_tokio_runtime() -> Result<&'static tokio::runtime::Runtime, String> {
     TOKIO_RUNTIME
         .get_or_init(|| {
             tokio::runtime::Builder::new_multi_thread()

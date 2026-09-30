@@ -27,7 +27,7 @@ use crate::workspace::clone_project::CloneProjectUiState;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
 use canvas::{CanvasRect, NodeId, NodeType, Vec2};
-use gpui::{actions, div, prelude::*, px, ClickEvent, Context, FocusHandle, Focusable, Window};
+use gpui::{actions, div, prelude::*, px, Context, FocusHandle, Focusable, Window};
 use runtime::{route, InputEvent, Route, Runtime};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -40,12 +40,18 @@ mod agent_announcements;
 mod agent_close;
 mod agent_queue;
 mod agent_runtime;
+pub(crate) use agent_runtime::execute_norma_adapter_command_with_source;
+pub(crate) use agent_runtime::shared_tokio_runtime;
 pub(crate) use agent_runtime::{
-    execute_agent_card_command, execute_orchestration_agent_command,
+    execute_high_level_agent_command, execute_orchestration_agent_command,
     execute_orchestration_agent_command_with_visual_origin, self_dispatch_forbidden_error,
     AgentIdentitySnapshot,
 };
 mod bootstrap;
+pub(crate) use bootstrap::StoredBootstrap;
+pub(crate) mod background_project;
+#[cfg(test)]
+pub(crate) use agent_runtime::execute_agent_card_command;
 pub(crate) mod browser;
 mod node_removal;
 mod presentation;
@@ -60,6 +66,7 @@ mod cursor_animation;
 #[cfg(test)]
 use cursor_animation::focused_cursor_animation_active;
 pub(crate) mod dialogue;
+mod doubao;
 mod e2e;
 pub(crate) mod ego;
 #[cfg(all(target_os = "macos", any(test, not(feature = "e2e-test-support"))))]
@@ -178,6 +185,7 @@ pub struct MultisoulApp {
     pub(crate) feature_guide_primary_focused_for_e2e: bool,
     pub(crate) agent_definitions: AgentDefinitionsState,
     pub(crate) orchestration_settings: OrchestrationSettingsState,
+    pub(crate) mobile: gpui::Entity<crate::mobile::controller::MobileController>,
     pub(crate) voice_settings: VoiceSettingsState,
     pub(crate) voice_settings_inputs: VoiceSettingsInputs,
     pub(crate) shortcuts: ShortcutSettingsState,
@@ -193,6 +201,7 @@ pub struct MultisoulApp {
     pub(crate) clone_project: CloneProjectUiState,
     pub(crate) recent_project_context_path: Option<PathBuf>,
     pub(crate) voice: crate::app::voice::control::VoiceControlState,
+    pub(crate) doubao: doubao::DoubaoVoiceState,
     pub(crate) dialogue: crate::app::dialogue::DialogueControlState,
     pub(crate) tts_preview: crate::app::dialogue::TtsPreviewState,
     pub(crate) pending_tts_activation: Option<crate::app::dialogue::PendingTtsActivation>,
@@ -210,6 +219,7 @@ pub struct MultisoulApp {
     pub(crate) orchestration_authorizations: storage::OrchestrationAuthorizationCache,
     pub(crate) pending_agent_submissions: agent_runtime::pending::PendingAgentSubmissions,
     pub(crate) session_reply_queue: agent_runtime::AgentSessionReplyQueue,
+    pub(crate) pending_mobile_deliveries: HashMap<NodeId, storage::NewMobileCommand>,
     pub(crate) conversation_tail_memory: agent_runtime::ConversationTailMemory,
     pub(crate) conversation_tail_writer: Option<agent_runtime::ConversationTailWriter>,
     pub(crate) pending_agent_close_confirmation: Option<NodeId>,
@@ -233,6 +243,9 @@ pub struct MultisoulApp {
     animation_frame_pending: bool,
     animation_frame_cadence: Option<std::time::Duration>,
     pub(crate) window_active: bool,
+    pub(crate) project_window: Option<gpui::AnyWindowHandle>,
+    pub(crate) background_project: bool,
+    pub(crate) background_restore: Option<crate::workspace::flow::PendingLiveSessionRestore>,
     canvas_surface: gpui::Entity<canvas_surface::CanvasSurfaceView>,
     pub(crate) working_snake_views: HashMap<NodeId, gpui::Entity<WorkingSnakeView>>,
     voice_window_inset_events: voice_window_inset::VoiceWindowInsetEventBus,
@@ -380,6 +393,13 @@ impl MultisoulApp {
         node_id: NodeId,
         window: &mut Window,
     ) -> bool {
+        if self.previews.has_pending_edits(node_id) {
+            self.workspace_state.error = Some(
+                "You have unsaved changes. Save or cancel your edits before closing this card."
+                    .into(),
+            );
+            return false;
+        }
         if self.runtime.ego_task_state(node_id).is_some()
             && !self.runtime.can_close_ego_node(node_id)
         {
@@ -387,7 +407,7 @@ impl MultisoulApp {
                 Some("Ego 任务仍在进行中；请先完成任务或等待 Agent 结束后再关闭卡片。".to_string());
             return false;
         }
-        if !self.confirm_agent_close_if_needed(node_id) {
+        if !self.confirm_agent_close_if_needed(node_id, true) {
             return false;
         }
         self.release_all_browser_input();
@@ -429,16 +449,6 @@ impl MultisoulApp {
             self.last_reflow_window_size = Some(current);
             self.apply_layout_for_current_mode(window);
         }
-    }
-
-    fn on_toolbar_canvas_scroll(
-        &mut self,
-        _: &ClickEvent,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.interaction.canvas_scroll_enabled = !self.interaction.canvas_scroll_enabled;
-        cx.notify();
     }
 
     pub(crate) fn remove_recent_project(&mut self, path: &Path, cx: &mut Context<Self>) {

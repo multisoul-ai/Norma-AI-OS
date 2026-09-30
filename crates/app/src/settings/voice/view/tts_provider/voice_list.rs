@@ -42,6 +42,8 @@ pub(super) fn minimax_voice_catalog(
         .debug_selector(|| "settings-tts-minimax-voice-list".to_string())
         .w_full()
         .h(px(list_height))
+        .flex()
+        .flex_col()
         .rounded(px(9.0))
         .border_1()
         .border_color(rgba(with_alpha(theme.edge_highlight, 0x42)))

@@ -1,6 +1,8 @@
 use crate::app::{AppScreen, MultisoulApp};
+#[cfg(any(test, feature = "e2e-test-support"))]
+use gpui::Entity;
 use gpui::{
-    px, size, App, AppContext as _, Bounds, Context, Entity, Global, TitlebarOptions,
+    px, size, App, AppContext as _, Bounds, Context, Global, TitlebarOptions,
     WindowBackgroundAppearance, WindowBounds, WindowHandle, WindowOptions,
 };
 use std::collections::HashMap;
@@ -50,6 +52,7 @@ pub(crate) enum InitialWindowState {
 
 struct OpenedMultisoulWindow {
     root_handle: WindowHandle<Root>,
+    #[cfg(any(test, feature = "e2e-test-support"))]
     app: Entity<MultisoulApp>,
 }
 
@@ -64,33 +67,47 @@ fn open_multisoul_window(
     let (width, height) = initial_window_dimensions(visual_preview_name());
     let bounds = Bounds::centered(None, size(px(width), px(height)), cx);
     let mut app_entity = None;
+    let opening_workspace = !matches!(&state, InitialWindowState::Launchpad);
+    let existing = match &state {
+        InitialWindowState::Workspace(path) | InitialWindowState::ClonedWorkspace(path) => {
+            super::sessions::for_root(database_paths.app_db_path(), path, cx)
+        }
+        InitialWindowState::Launchpad => None,
+    };
     let root_handle = cx.open_window(window_options(title, bounds), |window, cx| {
-        let app = cx.new(|cx| {
-            let mut app = MultisoulApp::new_with_database_context(cx, database_paths, app_store);
-            app.test_database_guard = test_database_guard;
-            #[cfg(feature = "e2e-test-support")]
-            if visual_preview_name().as_deref() == Some("github-clone") {
-                app.open_clone_project_dialog(window, cx);
-            }
-            app.start_dialogue_turn_loop(window, cx);
-            app.start_cef_message_pump_loop(window, cx);
-            match state {
-                InitialWindowState::Launchpad => {}
-                InitialWindowState::Workspace(path) => {
-                    app.open_workspace_path(path, window, cx);
-                }
-                InitialWindowState::ClonedWorkspace(path) => {
-                    app.open_workspace_path_with_source(
-                        path,
-                        workspace::WorkspaceSource::Clone,
-                        window,
-                        cx,
-                    );
-                }
-            }
+        let app = if let Some(app) = existing {
+            app.update(cx, |app, cx| app.attach_project_window(window, cx));
             app
-        });
+        } else {
+            cx.new(|cx| {
+                let mut app =
+                    MultisoulApp::new_with_database_context(cx, database_paths, app_store);
+                app.test_database_guard = test_database_guard;
+                #[cfg(feature = "e2e-test-support")]
+                if visual_preview_name().as_deref() == Some("github-clone") {
+                    app.open_clone_project_dialog(window, cx);
+                }
+                app.start_dialogue_turn_loop(window, cx);
+                app.start_cef_message_pump_loop(window, cx);
+                match state {
+                    InitialWindowState::Launchpad => {}
+                    InitialWindowState::Workspace(path) => {
+                        app.open_workspace_path(path, window, cx);
+                    }
+                    InitialWindowState::ClonedWorkspace(path) => {
+                        app.open_workspace_path_with_source(
+                            path,
+                            workspace::WorkspaceSource::Clone,
+                            window,
+                            cx,
+                        );
+                    }
+                }
+                app
+            })
+        };
         app_entity = Some(app.clone());
+        MultisoulApp::guard_preview_window_close(&app, window, cx);
         window.focus(&app.read(cx).focus_handle);
         let root_focus = app.read(cx).focus_handle.clone();
         window.defer(cx, move |window, _cx| {
@@ -102,7 +119,21 @@ fn open_multisoul_window(
     let app = app_entity.ok_or_else(|| {
         anyhow::anyhow!("production window should create a nested MultisoulApp entity")
     })?;
-    Ok(OpenedMultisoulWindow { root_handle, app })
+    if opening_workspace && !matches!(app.read(cx).screen, AppScreen::Canvas) {
+        let error = app
+            .read(cx)
+            .workspace_state
+            .error
+            .clone()
+            .unwrap_or_else(|| "Could not initialize project window.".to_string());
+        root_handle.update(cx, |_, window, _| window.remove_window())?;
+        anyhow::bail!(error);
+    }
+    Ok(OpenedMultisoulWindow {
+        root_handle,
+        #[cfg(any(test, feature = "e2e-test-support"))]
+        app,
+    })
 }
 
 #[cfg(feature = "e2e-test-support")]
@@ -151,6 +182,18 @@ pub(crate) fn window_options(title: String, bounds: Bounds<gpui::Pixels>) -> Win
 }
 
 impl MultisoulApp {
+    #[cfg(feature = "e2e-test-support")]
+    pub fn reopen_project_window_for_e2e(
+        app: &Entity<Self>,
+        path: PathBuf,
+        cx: &mut App,
+    ) -> anyhow::Result<(Entity<MultisoulApp>, gpui::AnyWindowHandle)> {
+        let (paths, guard) = app.read_with(cx, |app, _| {
+            (app.database_paths.clone(), app.test_database_guard.clone())
+        });
+        let opened = open_multisoul_window(InitialWindowState::Workspace(path), paths, guard, cx)?;
+        Ok((opened.app, opened.root_handle.into()))
+    }
     pub(crate) fn unregister_workspace_window_if_needed(&mut self, cx: &mut App) {
         if let (Some(workspace_id), Some(route_id)) = (
             self.workspace_id.as_deref(),
@@ -161,8 +204,10 @@ impl MultisoulApp {
             self.runtime.set_agent_hook_config(None);
         }
         if let Some(root) = self.workspace_state.current_root.as_deref() {
-            cx.default_global::<WorkspaceWindowRegistry>()
-                .unregister(root);
+            let registry = cx.default_global::<WorkspaceWindowRegistry>();
+            if registry.window_for(root).map(Into::into) == self.project_window {
+                registry.unregister(root);
+            }
         }
     }
 
@@ -244,23 +289,10 @@ impl MultisoulApp {
                     elapsed_ms = open_start.elapsed().as_secs_f64() * 1000.0,
                     "workspace_open_timing"
                 );
-                let opened = opened_window
-                    .app
-                    .read(cx)
-                    .workspace_state
-                    .current_root
-                    .as_deref()
-                    == Some(root.as_path());
-                if opened {
-                    cx.default_global::<WorkspaceWindowRegistry>()
-                        .register(root, opened_window.root_handle);
-                    if close_current_launchpad && matches!(self.screen, AppScreen::Launchpad) {
-                        window.remove_window();
-                    }
-                } else {
-                    self.workspace_state.error =
-                        Some("Could not initialize project window.".to_string());
-                    cx.notify();
+                cx.default_global::<WorkspaceWindowRegistry>()
+                    .register(root, opened_window.root_handle);
+                if close_current_launchpad && matches!(self.screen, AppScreen::Launchpad) {
+                    window.remove_window();
                 }
             }
             Err(error) => {

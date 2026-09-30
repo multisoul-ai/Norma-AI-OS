@@ -1,0 +1,10 @@
+.build/
+DerivedData*/
+ReleaseBuild/
+DeviceBuild/
+ReleaseData/
+DeviceData/
+*.xcuserstate
+xcuserdata/
+Libraries/
+.pairing-build.*/

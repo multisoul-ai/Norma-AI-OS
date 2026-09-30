@@ -9,7 +9,7 @@ use super::synthesis::{
     SynthesizedAgentTerminalAnnouncement,
 };
 use super::AgentAnnouncement;
-use crate::app::dialogue::{create_tts_client_for_selection, selected_tts_model};
+use crate::app::dialogue::create_tts_client_for_selection;
 use crate::app::voice_window_inset::{PcmEnergyTimeline, TtsPlaybackEvent};
 use crate::app::MultisoulApp;
 use dialogue::DialoguePhase;
@@ -19,7 +19,9 @@ use std::time::SystemTime;
 
 impl MultisoulApp {
     pub(crate) fn start_next_agent_announcement(&mut self, cx: &mut Context<Self>) {
-        if !self.agent_announcement_playback.is_idle()
+        if self.voice_settings.values().desktop_mode()
+            == crate::settings::voice::DesktopVoiceMode::Doubao
+            || !self.agent_announcement_playback.is_idle()
             || matches!(
                 self.dialogue.phase(),
                 DialoguePhase::Thinking | DialoguePhase::Speaking
@@ -63,7 +65,7 @@ impl MultisoulApp {
             })
             .unwrap_or_default();
         let tts_runtime = self.dialogue.shared_tts_runtime.clone();
-        let selected = selected_tts_model();
+        let selected = self.dialogue.selected_tts_model.clone();
         let selected_for_create = selected.clone();
         self.agent_announcement_playback.phase =
             AgentAnnouncementPlaybackPhase::Synthesizing(announcement);

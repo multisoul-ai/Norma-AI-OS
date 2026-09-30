@@ -1,4 +1,4 @@
-use super::reply::{selected_tts_model, SelectedTtsModel, TtsClientBox};
+use super::reply::{SelectedTtsModel, TtsClientBox};
 use super::DialogueControlState;
 use crate::app::MultisoulApp;
 use gpui::Context;
@@ -77,12 +77,25 @@ impl SharedTtsRuntime {
 }
 
 impl DialogueControlState {
+    pub(crate) fn selected_tts_model_matches(
+        &self,
+        model_id: Option<&tts::TtsModelId>,
+        voice_id: Option<&tts::TtsVoiceId>,
+    ) -> bool {
+        let (Some(model_id), Some(voice_id)) = (model_id, voice_id) else {
+            return false;
+        };
+        self.selected_tts_model.as_ref().is_some_and(|selected| {
+            &selected.model_id == model_id && &selected.voice_id == voice_id
+        })
+    }
+
     pub(super) fn reply_tts_selection(&self) -> Option<SelectedTtsModel> {
         #[cfg(any(test, feature = "e2e-test-support"))]
         if let Some(selection) = self.reply_tts_selection_override.as_ref() {
             return Some(selection.clone());
         }
-        selected_tts_model()
+        self.selected_tts_model.clone()
     }
 }
 
