@@ -5,15 +5,12 @@ use gpui::{point, px, Pixels, Point};
 use runtime::InputEvent;
 
 pub(crate) fn node_card_radius_px(zoom: f32) -> f32 {
-    (22.0 * zoom).clamp(12.0, 28.0)
+    // Keep below half the 32px title height even when zoomed out.
+    (14.0 * zoom).clamp(0.0, 28.0)
 }
 
-pub(crate) fn node_title_radius_px(zoom: f32) -> f32 {
-    node_card_radius_px(zoom)
-}
-
-pub(crate) fn node_terminal_radius_px(zoom: f32) -> f32 {
-    node_card_radius_px(zoom)
+pub(crate) fn node_content_radius_px(zoom: f32, border_width: f32) -> f32 {
+    (node_card_radius_px(zoom) - border_width).max(0.0)
 }
 
 pub(crate) fn pt_to_vec(p: Point<Pixels>) -> Vec2 {

@@ -14,7 +14,7 @@ use crate::canvas::events::{should_focus_app_root_for_mouse_down, should_notify_
 use crate::canvas::geometry::terminal_content_local_position;
 #[cfg(test)]
 use crate::canvas::geometry::{apply_canvas_wheel_scroll, click_event_for_node, is_title_bar_hit};
-use crate::canvas::geometry::{node_card_radius_px, node_terminal_radius_px, node_title_radius_px};
+use crate::canvas::geometry::{node_card_radius_px, node_content_radius_px};
 #[cfg(test)]
 use crate::canvas::interaction::InteractionState;
 use crate::cards::agent::card::{agent_breathing_intent, agent_chase_intent};
@@ -24,7 +24,8 @@ use crate::cards::agent::queue::{
 use crate::cards::border_glow::render_border_glow;
 use crate::cards::browser::card::BROWSER_TOOLBAR_H_PX;
 use crate::cards::chrome::{
-    card_title_background, node_shadow, render_card_title, render_task_badge, TITLE_BAR_H,
+    card_background, card_title_background, node_shadow, render_card_title, render_task_badge,
+    TITLE_BAR_H,
 };
 use crate::cards::{card_for, CardBodyContext};
 #[cfg(test)]
@@ -157,6 +158,12 @@ pub fn render_canvas(
         let stroke = visual.stroke_color;
         let status = visual.status_color;
         let close_button_size = (18.0 * vp.zoom).clamp(16.0, 24.0);
+        let border_width = if visual.border_is_emphasized {
+            2.0
+        } else {
+            1.0
+        };
+        let content_radius = node_content_radius_px(vp.zoom, border_width);
 
         let mut node_div = div()
             .id(("node-card", id))
@@ -168,9 +175,11 @@ pub fn render_canvas(
             .flex()
             .flex_col()
             .shadow(node_shadow(visual))
+            .border(px(border_width))
             .border_color(rgba(stroke))
             .opacity(visual.opacity)
             .rounded(px(node_radius))
+            .bg(card_background(theme))
             .overflow_hidden()
             .on_hover(cx.listener(move |app, hovered: &bool, _window, cx| {
                 app.motion.set_hover(id, *hovered);
@@ -187,12 +196,6 @@ pub fn render_canvas(
         {
             node_div = node_div.cursor_pointer();
         }
-
-        node_div = if visual.border_is_emphasized {
-            node_div.border_2()
-        } else {
-            node_div.border_1()
-        };
 
         // 标题栏
         let mut title_actions = div()
@@ -254,7 +257,7 @@ pub fn render_canvas(
             .flex_row()
             .items_center()
             .justify_between()
-            .rounded_t(px(node_title_radius_px(vp.zoom)))
+            .rounded_t(px(content_radius))
             .border_b_1()
             .border_color(rgba(with_alpha(theme.edge_highlight, 0x70)))
             .bg(card_title_background(visual.title_bar_color, theme))
@@ -356,7 +359,7 @@ pub fn render_canvas(
                 occluded_by_overlay,
                 theme,
                 zoom: vp.zoom,
-                bottom_radius_px: node_terminal_radius_px(vp.zoom),
+                bottom_radius_px: content_radius,
             },
         );
         if matches!(node_type, NodeType::Browser) && native_browser_views_visible {
@@ -375,28 +378,16 @@ pub fn render_canvas(
                             f64::from(w),
                             f64::from(h),
                             f64::from(browser_header_h),
-                            f64::from(node_terminal_radius_px(vp.zoom)),
+                            f64::from(node_content_radius_px(
+                                vp.zoom,
+                                BROWSER_NATIVE_BORDER_INSET_PX as f32,
+                            )),
                         ),
                         window,
                     );
                 }
             }
         }
-        node_elems.push(
-            app.render_card_frosted_backdrop(
-                id,
-                crate::app::FrostedBackdropGeometry {
-                    left: top_left.x,
-                    top: top_left.y,
-                    width: w,
-                    height: h,
-                    radius: node_radius,
-                    viewport_width: win_w,
-                    viewport_height: win_h,
-                },
-            )
-            .into_any_element(),
-        );
         node_elems.extend(render_border_glow(
             CanvasRect::new(top_left.x, top_left.y, w, h),
             node_radius,

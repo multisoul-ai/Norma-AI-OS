@@ -13,9 +13,18 @@ use crate::motion::{ResolvedNodeVisual, VisualPriority};
 
 pub const TITLE_BAR_H: f32 = 32.0;
 
-/// A translucent cool-white gradient layered over the card shell. GPUI 0.2.2
-/// has no per-element backdrop blur, so the low-alpha shell, chromatic gradient,
-/// keyline and wallpaper beneath it cooperate to produce the frosted material.
+/// Paint the tint on the rounded shell itself. Rectangular wallpaper samples
+/// cannot follow its corners in GPUI 0.2.2 and leave visible material seams.
+/// ponytail: tint only; true blur needs a GPU backdrop with a rounded mask.
+pub fn card_background(theme: Theme) -> Background {
+    linear_gradient(
+        155.0,
+        linear_color_stop(rgba(with_alpha(theme.title_bar, 0x24)), 0.0),
+        linear_color_stop(rgba(with_alpha(theme.node_fill, 0x2e)), 1.0),
+    )
+}
+
+/// A translucent title gradient over the continuous rounded card material.
 pub fn card_title_background(title_color: u32, theme: Theme) -> Background {
     linear_gradient(
         165.0,

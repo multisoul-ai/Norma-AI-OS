@@ -413,59 +413,59 @@ fn test_title_bar_hit_scales_with_zoom() {
     assert!(!in_body, "y=165 > 100 + 32 * 2，应被识别为正文命中");
 }
 
-/// 卡片圆角 token 应统一用于外壳和标题栏。
+/// 紧凑卡片圆角随缩放变化，标题栏不会被 GPUI 高度限制截成另一条圆弧。
 ///
 /// 数据构造（含关键数值推导）：
-///   base radius = 22px
-///   zoom=0.25 → raw radius = 22 * 0.25 = 5.5px，clamp 到最小 12px
-///   zoom=1.00 → raw radius = 22 * 1.00 = 22px，保持 22px
-///   zoom=2.00 → raw radius = 22 * 2.00 = 44px，clamp 到最大 28px
+///   base radius = 14px；标题栏高 32px，GPUI 半径上限 = 32 / 2 = 16px。
+///   zoom=0.25 → radius = 14 × 0.25 = 3.5px，小于标题栏上限 8 / 2 = 4px。
+///   zoom=1.00 → radius = 14px；zoom=2.00 → radius = 28px。
 ///
 /// 执行过程：
 ///   1. 分别计算 zoom=0.25、1.0、2.0 的卡片圆角
-///   2. 计算 zoom=1.0 的标题栏圆角
+///   2. 将缩小后的半径交给 GPUI 的真实圆角限制函数。
 ///
 /// 预期结果：
-///   - 正断言：卡片圆角随 zoom 缩放并保持在 12..=28px
-///   - 正断言：标题栏圆角复用卡片圆角，避免顶部背景填平圆角
+///   - 正断言：半径为 3.5 / 14 / 28px，缩小后实际绘制半径仍为 3.5px。
+///   - 负断言：常规大小不再使用旧 22px，缩小时不再强行保留 12px。
 #[test]
 fn test_node_card_radius_tokens_keep_title_inside_rounded_shell() {
     let zoomed_out = node_card_radius_px(0.25);
     let normal = node_card_radius_px(1.0);
     let zoomed_in = node_card_radius_px(2.0);
-    let title_radius = node_title_radius_px(1.0);
+    let painted = gpui::Corners::all(px(zoomed_out))
+        .clamp_radii_for_quad_size(gpui::size(px(80.0), px(TITLE_BAR_H * 0.25)));
 
     assert_eq!(
-        zoomed_out, 12.0,
-        "zoom=0.25 时 raw=5.5px，应 clamp 到 12px 最小卡片圆角"
+        zoomed_out, 3.5,
+        "zoom=0.25 时半径应为 14×0.25=3.5px，不能大于标题栏可绘制半径"
     );
-    assert_eq!(normal, 22.0, "zoom=1.0 时 raw=22px，应保持默认卡片圆角");
+    assert_eq!(normal, 14.0, "zoom=1.0 应使用紧凑的 14px 圆角");
+    assert_eq!(zoomed_in, 28.0, "zoom=2.0 时半径应为 14×2=28px");
     assert_eq!(
-        zoomed_in, 28.0,
-        "zoom=2.0 时 raw=44px，应 clamp 到 28px 最大卡片圆角"
+        painted.top_left,
+        px(3.5),
+        "缩小时 GPUI 不得再次缩小标题圆角，否则内外圆弧会错位"
     );
-    assert_eq!(
-        title_radius, normal,
-        "标题栏顶部圆角必须复用卡片圆角，否则矩形标题栏会填平顶角"
-    );
+    assert_ne!(normal, 22.0, "默认圆角不得回退到旧的大圆角");
+    assert_ne!(zoomed_out, 12.0, "缩小卡片不得保留大于标题栏的 12px 半径");
 }
 
-/// 卡片外壳只负责圆角描边，背景填充必须交给各自拥有圆角的标题栏和正文。
+/// 卡片外壳自行绘制完整圆角背景，避免分区采样在顶角内部留下缺块。
 ///
 /// 数据构造（含关键数值推导）：
-///   GPUI 0.2.2 的 content mask = 矩形；card radius = 22px。
-///   外壳若绘制 100% 宽高背景，会覆盖四个 22×22px 角区并露出直角底色。
+///   GPUI 0.2.2 的子元素裁剪为矩形，自身 background 则遵循 corner_radii。
+///   card radius = 14px；旧采样跳过整个 radius×radius 方块，错误挖掉圆弧内部。
 ///
 /// 执行过程：
 ///   1. 截取 `node_div` 外壳构造链。
-///   2. 检查外壳保留 rounded/overflow 结构，但不再绘制全尺寸背景。
-///   3. 检查标题栏仍自行绘制顶部圆角与背景。
+///   2. 检查背景与圆角由同一个外壳绘制，标题栏使用内圈半径。
+///   3. 检查 Canvas 不再挂载矩形壁纸分区采样。
 ///
 /// 预期结果：
-///   - 正断言：外壳保留圆角，标题栏保留圆角背景。
-///   - 负断言：外壳不得包含 `.bg(...)`，否则圆角外会再次出现矩形色块。
+///   - 正断言：外壳保留连续圆角背景，标题栏保留内圈圆角背景。
+///   - 负断言：不得再挂载会挖空角落的分区采样层。
 #[test]
-fn test_node_card_shell_does_not_paint_behind_rounded_child_surfaces() {
+fn test_node_card_shell_paints_continuous_rounded_material() {
     let source = include_str!("../../src/canvas/view.rs");
     let shell = source
         .split("let mut node_div = div()")
@@ -475,15 +475,19 @@ fn test_node_card_shell_does_not_paint_behind_rounded_child_surfaces() {
 
     assert!(
         shell.contains(".rounded(px(node_radius))"),
-        "卡片外壳必须保留 22px 圆角描边结构"
+        "卡片外壳必须保留统一圆角轮廓"
     );
     assert!(
-        !shell.contains(".bg("),
-        "卡片外壳不得绘制全尺寸背景，否则 GPUI 会在圆角外留下矩形色块"
+        shell.contains(".bg(card_background(theme))"),
+        "背景必须由圆角外壳自身绘制，保证顶角与中间拥有相同材质"
     );
     assert!(
-        source.contains(".rounded_t(px(node_title_radius_px(vp.zoom)))")
+        source.contains(".rounded_t(px(content_radius))")
             && source.contains(".bg(card_title_background("),
         "标题栏必须同时保留顶部圆角与毛玻璃背景"
+    );
+    assert!(
+        !source.contains("render_card_frosted_backdrop"),
+        "不得再挂载挖空角落的采样层"
     );
 }

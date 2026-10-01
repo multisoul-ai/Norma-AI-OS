@@ -17,14 +17,6 @@ const BOTTOM_VOICE_BAR_VISIBLE: bool = true;
 pub(super) const WALLPAPER_IMAGE_OPACITY: f32 = 1.0;
 const WORKSPACE_ERROR_FOREGROUND: u32 = 0xfffffff5;
 const WORKSPACE_ERROR_MUTED: u32 = 0xffffffb8;
-const FROST_SAMPLE_OFFSETS: [(f32, f32); 5] = [
-    (0.0, 0.0),
-    (-5.0, -3.0),
-    (5.0, 3.0),
-    (-3.0, 5.0),
-    (3.0, -5.0),
-];
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct WorkspaceErrorBannerColors {
     background: u32,
@@ -38,67 +30,6 @@ fn workspace_error_banner_colors(theme: Theme) -> WorkspaceErrorBannerColors {
         foreground: WORKSPACE_ERROR_FOREGROUND,
         muted: WORKSPACE_ERROR_MUTED,
     }
-}
-
-/// Incremental source-over alpha that keeps every accumulated spatial sample
-/// equally weighted. Starting with an opaque first sample prevents the card's
-/// cool-white shell from replacing wallpaper energy; sample `n` then mixes at
-/// `1 / (n + 1)`, leaving all accumulated samples with the same final weight.
-fn frost_sample_opacity(sample_index: usize) -> f32 {
-    1.0 / (sample_index as f32 + 1.0)
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct FrostedBackdropRegion {
-    left: f32,
-    top: f32,
-    width: f32,
-    height: f32,
-}
-
-pub(crate) struct FrostedBackdropGeometry {
-    pub(crate) left: f32,
-    pub(crate) top: f32,
-    pub(crate) width: f32,
-    pub(crate) height: f32,
-    pub(crate) radius: f32,
-    pub(crate) viewport_width: f32,
-    pub(crate) viewport_height: f32,
-}
-
-/// GPUI 0.2.2 只能矩形裁剪子元素。将毛玻璃拆为中间横条与上下内缩横条，
-/// 让四个圆角方块继续显示底下同位置的原始壁纸，而不被矩形采样盖住。
-fn frosted_backdrop_regions(
-    card_width: f32,
-    card_height: f32,
-    card_radius: f32,
-) -> [FrostedBackdropRegion; 3] {
-    let width = card_width.max(0.0);
-    let height = card_height.max(0.0);
-    let radius = card_radius.max(0.0).min(width * 0.5).min(height * 0.5);
-    let inner_width = (width - radius * 2.0).max(0.0);
-    let inner_height = (height - radius * 2.0).max(0.0);
-
-    [
-        FrostedBackdropRegion {
-            left: radius,
-            top: 0.0,
-            width: inner_width,
-            height: radius,
-        },
-        FrostedBackdropRegion {
-            left: 0.0,
-            top: radius,
-            width,
-            height: inner_height,
-        },
-        FrostedBackdropRegion {
-            left: radius,
-            top: height - radius,
-            width: inner_width,
-            height: radius,
-        },
-    ]
 }
 
 impl MultisoulApp {
@@ -247,118 +178,6 @@ impl MultisoulApp {
             .size_full()
             .object_fit(ObjectFit::Cover)
             .opacity(WALLPAPER_IMAGE_OPACITY)
-    }
-
-    /// Crop the active wallpaper to a card's screen-space bounds and blend
-    /// five nearby samples with normalized incremental weights. This mirrors a
-    /// CSS backdrop blur's spatial mixing without reading pixels back to the
-    /// CPU, while keeping the blurred wallpaper fully present beneath the tint.
-    /// Static/GIF samples reuse GPUI's image cache; video samples reuse the
-    /// current 420f CVPixelBuffer surface.
-    pub(crate) fn render_card_frosted_backdrop(
-        &self,
-        node_id: canvas::NodeId,
-        geometry: FrostedBackdropGeometry,
-    ) -> Div {
-        let FrostedBackdropGeometry {
-            left,
-            top,
-            width,
-            height,
-            radius,
-            viewport_width,
-            viewport_height,
-        } = geometry;
-        let mut backdrop = div()
-            .absolute()
-            .top(px(top))
-            .left(px(left))
-            .w(px(width))
-            .h(px(height))
-            .overflow_hidden();
-
-        for region in frosted_backdrop_regions(width, height, radius) {
-            backdrop = backdrop.child(self.render_frosted_backdrop_region(
-                node_id,
-                left,
-                top,
-                region,
-                viewport_width,
-                viewport_height,
-            ));
-        }
-
-        backdrop
-    }
-
-    fn render_frosted_backdrop_region(
-        &self,
-        node_id: canvas::NodeId,
-        card_left: f32,
-        card_top: f32,
-        region: FrostedBackdropRegion,
-        viewport_width: f32,
-        viewport_height: f32,
-    ) -> Div {
-        let kind = self.wallpaper_settings.current_kind();
-        let source = self.wallpaper_settings.image_source_for_render();
-        let render_key = self.wallpaper_settings.render_id_key();
-        let mut patch = div()
-            .absolute()
-            .left(px(region.left))
-            .top(px(region.top))
-            .w(px(region.width))
-            .h(px(region.height))
-            .overflow_hidden();
-
-        for (sample_index, (dx, dy)) in FROST_SAMPLE_OFFSETS.into_iter().enumerate() {
-            let sample_left = -card_left + dx - region.left;
-            let sample_top = -card_top + dy - region.top;
-            let sample_opacity = frost_sample_opacity(sample_index);
-
-            #[cfg(target_os = "macos")]
-            if kind == WallpaperKind::Video {
-                if let Some(sample) = self.render_video_wallpaper_frost_sample(
-                    sample_left,
-                    sample_top,
-                    viewport_width,
-                    viewport_height,
-                    sample_opacity,
-                ) {
-                    patch = patch.child(sample);
-                    continue;
-                }
-            }
-
-            patch = patch.child(
-                img(source.clone())
-                    .id(gpui::SharedString::from(format!(
-                        "card-frost:{render_key}:{node_id}:{sample_index}:{}:{}",
-                        region.left, region.top
-                    )))
-                    .absolute()
-                    .left(px(sample_left))
-                    .top(px(sample_top))
-                    .w(px(viewport_width))
-                    .h(px(viewport_height))
-                    .object_fit(ObjectFit::Cover)
-                    .opacity(sample_opacity),
-            );
-        }
-
-        patch.child(
-            div()
-                .absolute()
-                .top(px(0.0))
-                .left(px(0.0))
-                .right(px(0.0))
-                .bottom(px(0.0))
-                .bg(linear_gradient(
-                    155.0,
-                    linear_color_stop(rgba(with_alpha(self.theme.title_bar, 0x24)), 0.0),
-                    linear_color_stop(rgba(with_alpha(self.theme.node_fill, 0x2e)), 1.0),
-                )),
-        )
     }
 
     pub(super) fn render_workspace_chrome(

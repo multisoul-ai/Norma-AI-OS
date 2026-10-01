@@ -59,9 +59,8 @@ pub(crate) use browser::{BrowserCommand, BrowserCommandKind};
 mod canvas_surface;
 pub(crate) mod cef_process;
 mod chrome;
-pub(crate) mod command_dock;
-pub(crate) use chrome::FrostedBackdropGeometry;
 mod clipboard_image;
+pub(crate) mod command_dock;
 mod cpu_benchmark;
 mod cursor_animation;
 #[cfg(test)]

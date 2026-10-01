@@ -340,34 +340,6 @@ impl MultisoulApp {
         video_wallpaper_surface(self.video_wallpaper.as_ref())
     }
 
-    /// Render one clipped card-backdrop sample from the same live 420f buffer.
-    /// Multiple calls only clone the CVPixelBuffer handle; no CPU RGBA frame is
-    /// allocated, keeping the video wallpaper on GPUI's low-copy surface path.
-    pub(super) fn render_video_wallpaper_frost_sample(
-        &self,
-        left: f32,
-        top: f32,
-        width: f32,
-        height: f32,
-        opacity: f32,
-    ) -> Option<Surface> {
-        let state = self.video_wallpaper.as_ref()?;
-        let frame = match state {
-            VideoWallpaperState::Active { frame, .. } => frame.as_ref()?,
-            VideoWallpaperState::Failed { .. } => return None,
-        };
-        Some(
-            surface(frame.buffer().clone())
-                .absolute()
-                .left(px(left))
-                .top(px(top))
-                .w(px(width))
-                .h(px(height))
-                .object_fit(ObjectFit::Cover)
-                .opacity(opacity),
-        )
-    }
-
     pub(crate) fn sync_video_wallpaper(
         &mut self,
         video_path: Option<&Path>,
