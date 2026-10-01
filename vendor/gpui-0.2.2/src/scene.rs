@@ -703,6 +703,7 @@ impl From<PolychromeSprite> for Primitive {
 
 #[derive(Clone, Debug)]
 pub(crate) struct PaintSurface {
+    pub opacity: f32,
     pub order: DrawOrder,
     pub bounds: Bounds<ScaledPixels>,
     pub content_mask: ContentMask<ScaledPixels>,

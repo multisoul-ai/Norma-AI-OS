@@ -203,7 +203,6 @@ impl MultisoulApp {
         self.start_dialogue_turn_loop(window, cx);
         self.start_cef_message_pump_loop(window, cx);
         self.reload_all_previews(cx);
-        self.last_reflow_window_size = None;
         self.wake_animation_frame_loop();
         cx.notify();
     }

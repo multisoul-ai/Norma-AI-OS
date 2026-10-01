@@ -23,6 +23,7 @@ pub fn scene(
         logical_size,
         child: child.into_any_element(),
         scale: 1.,
+        opacity: 1.,
         offset: Point::default(),
         transform: None,
     }
@@ -34,6 +35,7 @@ pub struct SceneElement {
     logical_size: Size<Pixels>,
     child: AnyElement,
     scale: f32,
+    opacity: f32,
     offset: Point<Pixels>,
     transform: Option<SceneTransform>,
 }
@@ -46,6 +48,13 @@ impl SceneElement {
             "scene scale must be finite and positive"
         );
         self.scale = scale;
+        self
+    }
+
+    /// Presentation opacity, applied when retained paint commands are replayed.
+    pub fn opacity(mut self, opacity: f32) -> Self {
+        assert!(opacity.is_finite() && (0.0..=1.0).contains(&opacity), "scene opacity must be between zero and one");
+        self.opacity = opacity;
         self
     }
 
@@ -109,6 +118,7 @@ impl Element for SceneElement {
                 bounds.origin + self.offset,
                 bounds.intersect(&window.content_mask().bounds),
             );
+            transform.set_opacity(self.opacity);
             window.with_scene_transform(
                 transform.clone(),
                 Bounds::new(Point::default(), self.logical_size),

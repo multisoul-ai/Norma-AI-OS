@@ -6,101 +6,6 @@ use ui::component::input::Input;
 use ui::component::{Disableable, StyledExt};
 
 impl MultisoulApp {
-    pub(crate) fn render_desktop_add_project(&mut self, cx: &mut Context<Self>) -> Stateful<Div> {
-        let theme = self.theme;
-        let recent: Vec<_> = self.workspace_state.recent.top(6).to_vec();
-        div()
-            .id("desktop-add-project-dialog")
-            .debug_selector(|| "desktop-add-project-dialog".to_string())
-            .absolute()
-            .inset_0()
-            .occlude()
-            .flex()
-            .items_center()
-            .justify_center()
-            .bg(rgba(0x00000091))
-            .child(
-                div()
-                    .w(px(480.0))
-                    .max_h(px(620.0))
-                    .flex()
-                    .flex_col()
-                    .gap(px(12.0))
-                    .p(px(22.0))
-                    .rounded(px(18.0))
-                    .bg(rgba(theme.panel_high))
-                    .child(
-                        div()
-                            .text_size(px(19.0))
-                            .font_semibold()
-                            .text_color(rgba(theme.text_primary))
-                            .child("Add Project"),
-                    )
-                    .child(
-                        Button::new("desktop-add-local")
-                            .debug_selector(|| "desktop-add-local".to_string())
-                            .label("Choose Local Folder…")
-                            .on_click(cx.listener(|app, _, window, cx| {
-                                app.close_desktop_add_project(cx);
-                                app.prompt_open_project(window, cx);
-                            })),
-                    )
-                    .child(
-                        Button::new("desktop-add-clone")
-                            .debug_selector(|| "desktop-add-clone".to_string())
-                            .label("Clone Repository…")
-                            .on_click(cx.listener(|app, _, window, cx| {
-                                app.close_desktop_add_project(cx);
-                                app.open_clone_project_dialog(window, cx);
-                            })),
-                    )
-                    .when(!recent.is_empty(), |this| {
-                        this.child(
-                            div()
-                                .pt(px(8.0))
-                                .text_size(px(12.0))
-                                .font_semibold()
-                                .text_color(rgba(theme.text_secondary))
-                                .child("Recent Projects"),
-                        )
-                    })
-                    .child(
-                        div()
-                            .id("desktop-add-recent-scroll")
-                            .flex_1()
-                            .min_h(px(0.0))
-                            .overflow_scroll()
-                            .flex()
-                            .flex_col()
-                            .gap(px(6.0))
-                            .children(recent.into_iter().enumerate().map(|(index, record)| {
-                                let path = record.path;
-                                Button::new(("desktop-add-recent", index))
-                                    .debug_selector(move || format!("desktop-add-recent-{index}"))
-                                    .label(record.display_name)
-                                    .on_click(cx.listener(move |app, _, window, cx| {
-                                        app.close_desktop_add_project(cx);
-                                        app.add_project_to_desktop_workspace(
-                                            path.clone(),
-                                            window,
-                                            cx,
-                                        );
-                                    }))
-                            })),
-                    )
-                    .child(
-                        div().flex().justify_end().child(
-                            Button::new("desktop-add-project-cancel")
-                                .debug_selector(|| "desktop-add-project-cancel".to_string())
-                                .label("Cancel")
-                                .on_click(
-                                    cx.listener(|app, _, _, cx| app.close_desktop_add_project(cx)),
-                                ),
-                        ),
-                    ),
-            )
-    }
-
     pub(crate) fn render_desktop_delete_confirmation(
         &mut self,
         cx: &mut Context<Self>,
@@ -155,6 +60,7 @@ impl MultisoulApp {
             .as_ref()
             .expect("project destination requires a path");
         let workspaces = self.desktop_workspace.workspaces.clone();
+        let busy = self.desktop_workspace.busy;
         div()
             .id("desktop-project-destination")
             .debug_selector(|| "desktop-project-destination".to_string())
@@ -205,6 +111,7 @@ impl MultisoulApp {
                                             format!("desktop-project-destination-{index}")
                                         })
                                         .label(workspace.name)
+                                        .disabled(busy)
                                         .on_click(cx.listener(move |app, _, window, cx| {
                                             app.choose_desktop_project_destination(
                                                 Some(id.clone()),
@@ -225,6 +132,7 @@ impl MultisoulApp {
                                         "desktop-project-destination-new".to_string()
                                     })
                                     .label("New Workspace")
+                                    .disabled(busy)
                                     .on_click(cx.listener(|app, _, window, cx| {
                                         app.choose_desktop_project_destination(None, window, cx)
                                     })),
@@ -235,6 +143,7 @@ impl MultisoulApp {
                                         "desktop-project-destination-cancel".to_string()
                                     })
                                     .label("Cancel")
+                                    .disabled(busy)
                                     .on_click(cx.listener(|app, _, _, cx| {
                                         app.cancel_desktop_project_destination(cx)
                                     })),

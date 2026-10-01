@@ -100,36 +100,24 @@ fn desktop_project_regions_use_responsive_canvas_layout() {
     );
 }
 
-/// 密集项目缩略图仍保留正尺寸，不能因固定内边距大于舞台而反向缩放。
-///
-/// 数据构造：600×600 窗口放10个项目，一列十行；可用高度473，
-///   项目高=(473-11×8)/10=38.5，标题20、底部10，舞台高8.5；节点400×300。
-/// 执行过程：响应式布局项目 → 取真实舞台 → 对节点执行缩略映射。
-/// 预期结果：真实节点仍有正尺寸且完全在舞台内，不产生负高度；零高舞台不绘制节点。
+/// 密集项目仍将完整画布等比放入极小内容区，不反向缩放。
+/// 数据构造：600×600放10项目；项目高38.5、标题20、底边10，可用高8.5；原画布572×473。
+/// 执行过程：计算项目网格 → 取得第一个项目的缩略内容矩形。
+/// 预期结果：缩略高8.5，宽572×8.5/473；仍在外壳内，不出现负高或变形。
 #[test]
 fn desktop_dense_project_previews_never_invert_card_geometry() {
-    use super::super::preview_canvas::{fitted_rects_at_scale, project_stage_rect};
-    use canvas::{CanvasNodeKind, CanvasNodeSnapshot, TermSpec};
-    let areas = project_area_layout(600.0, 600.0, 10);
-    let stage = project_stage_rect(areas[0].size, 1.0);
-    let node = CanvasNodeSnapshot {
-        id: 1,
-        kind: CanvasNodeKind::Term(TermSpec),
-        bounds: CanvasRect::new(0.0, 0.0, 400.0, 300.0),
-        z_index: 1,
-    };
-    let fitted = fitted_rects_at_scale(&[node.clone()], stage.size.x, stage.size.y, 1.0);
-    assert_eq!(fitted.len(), 1, "小舞台仍应映射真实节点");
+    use super::super::preview_canvas::project_canvas_rect;
+    let area = project_area_layout(600.0, 600.0, 10)[0];
+    let logical = super::super::desktop_scene_rect(600.0, 600.0).size;
+    let fitted = project_canvas_rect(area, logical, 1.0);
+    assert_eq!(fitted.size.y, 8.5, "应适配标题下方8.5px内容区");
     assert!(
-        fitted[0].size.x > 0.0 && fitted[0].size.y > 0.0,
-        "不能因边距产生负尺寸或消失"
+        (fitted.size.x - 572.0 * 8.5 / 473.0).abs() < 0.001,
+        "整个画布须等比缩小"
     );
+    assert!(fitted.size.x > 0.0 && fitted.size.y > 0.0, "不允许负尺寸");
     assert!(
-        fitted[0].origin.y >= 0.0 && fitted[0].max().y <= stage.size.y,
-        "缩略节点不能越出小舞台"
-    );
-    assert!(
-        fitted_rects_at_scale(&[node], stage.size.x, 0.0, 1.0).is_empty(),
-        "零高度舞台不得提交倒置节点"
+        fitted.origin.y >= area.origin.y && fitted.max().y < area.max().y,
+        "缩略内容不得越出外壳"
     );
 }

@@ -1,5 +1,5 @@
 use crate::app::MultisoulApp;
-use canvas::{CanvasNode, CanvasRect, Vec2, Viewport};
+use canvas::CanvasRect;
 use gpui::{Context, Window};
 use std::time::Duration;
 
@@ -23,51 +23,6 @@ pub(super) fn canvas_rect_from_bounds(bounds: gpui::Bounds<gpui::Pixels>) -> Can
         f32::from(bounds.size.width),
         f32::from(bounds.size.height),
     )
-}
-
-fn embedded_viewport(viewport: Viewport, full_w: f32, full_h: f32, frame: CanvasRect) -> Viewport {
-    let scale = (frame.size.x / full_w.max(1.0))
-        .min(frame.size.y / full_h.max(1.0))
-        .clamp(0.05, 1.0);
-    Viewport {
-        pan: Vec2::new(viewport.pan.x * scale, viewport.pan.y * scale),
-        zoom: viewport.zoom * scale,
-    }
-}
-
-fn project_preview_viewport(nodes: &[CanvasNode], card: CanvasRect) -> Option<Viewport> {
-    let stage = super::preview_canvas::project_stage_rect(card.size, 1.0);
-    let mut viewport = super::preview_canvas::fitted_viewport(
-        nodes.iter().map(|node| node.bounds),
-        stage.size.x,
-        stage.size.y,
-        1.0,
-    )?;
-    viewport.pan = viewport.pan + stage.origin;
-    Some(viewport)
-}
-
-fn project_transition_viewport(
-    viewport: Viewport,
-    card: CanvasRect,
-    frame: CanvasRect,
-    full_width: f32,
-    nodes: &[CanvasNode],
-) -> Option<Viewport> {
-    let preview = project_preview_viewport(nodes, card)?;
-    let target_width = (full_width - DESKTOP_SCENE_SIDE * 2.0).max(1.0);
-    let progress =
-        ((frame.size.x - card.size.x) / (target_width - card.size.x).max(1.0)).clamp(0.0, 1.0);
-    if progress == 1.0 {
-        return Some(viewport);
-    }
-    Some(Viewport {
-        pan: Vec2::new(
-            preview.pan.x + (viewport.pan.x - preview.pan.x) * progress,
-            preview.pan.y + (viewport.pan.y - preview.pan.y) * progress,
-        ),
-        zoom: preview.zoom + (viewport.zoom - preview.zoom) * progress,
-    })
 }
 
 #[derive(Clone, Debug)]
@@ -151,7 +106,8 @@ pub(super) enum DesktopCanvasSubject {
 #[derive(Clone, Debug)]
 pub(super) struct DesktopCanvasTransition {
     pub(super) subject: DesktopCanvasSubject,
-    camera: DesktopCamera,
+    pub(super) camera: DesktopCamera,
+    pub(super) projects: Option<super::project_switch::ProjectSwitch>,
 }
 
 impl DesktopCanvasTransition {
@@ -162,60 +118,52 @@ impl DesktopCanvasTransition {
     ) -> Self {
         let mut camera = DesktopCamera::new(source);
         camera.retarget(target, false);
-        Self { subject, camera }
+        Self {
+            subject,
+            camera,
+            projects: None,
+        }
     }
 
     pub(super) fn retarget(&mut self, subject: DesktopCanvasSubject, target: CanvasRect) {
+        let camera_target = if let (Some(projects), DesktopCanvasSubject::Project { area_id, .. }) =
+            (&mut self.projects, &subject)
+        {
+            if !matches!(&self.subject, DesktopCanvasSubject::Project { area_id: current, .. } if current == area_id)
+            {
+                projects.select(area_id);
+            }
+            projects.camera_target(area_id, target)
+        } else {
+            target
+        };
         self.subject = subject;
-        self.camera.retarget(target, false);
+        self.camera.retarget(camera_target, false);
     }
 
     pub(super) fn rect(&self) -> CanvasRect {
-        self.camera.rect()
+        if let (Some(projects), DesktopCanvasSubject::Project { area_id, .. }) =
+            (&self.projects, &self.subject)
+        {
+            projects.rect(area_id, self.camera.rect())
+        } else {
+            self.camera.rect()
+        }
     }
 
     pub(super) fn tick(&mut self, delta: Duration) -> bool {
+        if let Some(projects) = &mut self.projects {
+            projects.tick(delta);
+        }
         self.camera.tick(delta)
     }
 
     pub(super) fn is_active(&self) -> bool {
-        self.camera.is_active()
+        self.camera.is_active() || self.projects.as_ref().is_some_and(|p| p.is_active())
     }
 }
 
 impl MultisoulApp {
-    pub(crate) fn desktop_canvas_visual_geometry(
-        &self,
-        viewport: Viewport,
-        full_w: f32,
-        full_h: f32,
-        nodes: &[CanvasNode],
-    ) -> (Viewport, f32, f32) {
-        let size = desktop_scene_rect(full_w, full_h).size;
-        let Some(transition) = self.desktop_workspace.transition.as_ref() else {
-            return (viewport, size.x, size.y);
-        };
-        let DesktopCanvasSubject::Project {
-            workspace_id,
-            area_id,
-        } = &transition.subject
-        else {
-            return (viewport, size.x, size.y);
-        };
-        let frame = transition.rect();
-        let card = self
-            .desktop_workspace
-            .area_rects
-            .lock()
-            .expect("project bounds mutex poisoned")
-            .get(&(workspace_id.clone(), area_id.clone()))
-            .copied();
-        let visual_viewport = card
-            .and_then(|card| project_transition_viewport(viewport, card, frame, full_w, nodes))
-            .unwrap_or_else(|| embedded_viewport(viewport, size.x, size.y, frame));
-        (visual_viewport, frame.size.x, frame.size.y)
-    }
-
     pub(crate) fn desktop_workspace_zoom_active(&self) -> bool {
         matches!(
             self.desktop_workspace
@@ -298,6 +246,11 @@ impl MultisoulApp {
             .insert(workspace_id.to_owned(), card);
         let (source, target) = if reverse { (full, card) } else { (card, full) };
         self.begin_desktop_zoom(
+            if reverse {
+                "workspace_overview"
+            } else {
+                "workspace_expand"
+            },
             DesktopCanvasSubject::Workspace(workspace_id.to_owned()),
             source,
             target,
@@ -324,8 +277,14 @@ impl MultisoulApp {
             .get(&(workspace_id.to_owned(), area_id.to_owned()))
             .copied()
             .unwrap_or_else(|| centered_source_rect(full));
+        let card = super::preview_canvas::project_canvas_rect(card, full.size, 1.0);
         let (source, target) = if reverse { (full, card) } else { (card, full) };
         self.begin_desktop_zoom(
+            if reverse {
+                "project_overview"
+            } else {
+                "project_expand"
+            },
             DesktopCanvasSubject::Project {
                 workspace_id: workspace_id.to_owned(),
                 area_id: area_id.to_owned(),
@@ -339,20 +298,32 @@ impl MultisoulApp {
 
     fn begin_desktop_zoom(
         &mut self,
+        kind: &'static str,
         subject: DesktopCanvasSubject,
         source: CanvasRect,
         target: CanvasRect,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.desktop_workspace.start_motion_log(
+            kind,
+            &subject,
+            source,
+            target,
+            cx.background_executor().now(),
+        );
         // The headless harness opts out; a real .app built with e2e-test-support still animates.
         #[cfg(feature = "e2e-test-support")]
         if !self.desktop_workspace.animate_camera_for_e2e {
+            self.desktop_workspace
+                .finish_motion_log("headless_disabled", cx.background_executor().now());
             self.desktop_workspace.transition = None;
             cx.notify();
             return;
         }
         if self.motion.reduce_motion {
+            self.desktop_workspace
+                .finish_motion_log("reduced_motion", cx.background_executor().now());
             self.desktop_workspace.transition = None;
             cx.notify();
             return;
@@ -366,80 +337,6 @@ impl MultisoulApp {
         self.desktop_workspace.transition_last_tick = cx.background_executor().now();
         self.schedule_desktop_zoom_frame(window, cx);
         cx.notify();
-    }
-
-    fn schedule_desktop_zoom_frame(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.desktop_workspace.transition_frame_pending {
-            return;
-        }
-        self.desktop_workspace.transition_frame_pending = true;
-        cx.on_next_frame(window, |app, window, cx| {
-            app.desktop_workspace.transition_frame_pending = false;
-            let now = cx.background_executor().now();
-            let delta = now.saturating_duration_since(app.desktop_workspace.transition_last_tick);
-            app.desktop_workspace.transition_last_tick = now;
-            if let Some(transition) = app.desktop_workspace.transition.as_mut() {
-                transition.tick(delta);
-                if transition.is_active() {
-                    app.schedule_desktop_zoom_frame(window, cx);
-                } else {
-                    app.finish_desktop_zoom(window, cx);
-                }
-                if let Some(DesktopCanvasTransition {
-                    subject:
-                        DesktopCanvasSubject::Project {
-                            workspace_id,
-                            area_id,
-                        },
-                    ..
-                }) = app.desktop_workspace.transition.as_ref()
-                {
-                    if let Some(session) = app
-                        .desktop_workspace
-                        .sessions
-                        .get(&(workspace_id.clone(), area_id.clone()))
-                    {
-                        session.update(cx, |_, cx| cx.notify());
-                    }
-                }
-                cx.notify();
-            }
-        });
-    }
-
-    fn finish_desktop_zoom(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(finished) = self.desktop_workspace.transition.take() else {
-            return;
-        };
-        match finished.subject {
-            DesktopCanvasSubject::Workspace(workspace_id) => {
-                if self.desktop_workspace.pending_navigation.is_none()
-                    && matches!(self.screen, crate::app::AppScreen::DesktopWorkspace)
-                    && self.desktop_workspace.active_id.as_deref() == Some(&workspace_id)
-                {
-                    if let Some(area_id) = self.desktop_workspace.expanded_area_id.clone() {
-                        self.expand_desktop_project_area(area_id, window, cx);
-                    }
-                }
-            }
-            DesktopCanvasSubject::Project {
-                workspace_id,
-                area_id,
-            } => {
-                if let Some(session) = self
-                    .desktop_workspace
-                    .sessions
-                    .get(&(workspace_id, area_id.clone()))
-                {
-                    if self.desktop_workspace.expanded_area_id.as_deref() != Some(&area_id) {
-                        session.update(cx, |session, cx| session.detach_project_window(cx));
-                    } else {
-                        session.update(cx, |_, cx| cx.notify());
-                    }
-                }
-            }
-        }
-        self.finish_desktop_navigation(window, cx);
     }
 }
 

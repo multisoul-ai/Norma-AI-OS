@@ -3,7 +3,52 @@ use crate::app::{AppScreen, MultisoulApp};
 use gpui::{div, prelude::*, px, rgba, Context, Div, Focusable, Stateful, Window};
 use ui::component::button::{Button, ButtonVariants};
 use ui::component::input::{Input, InputEvent, InputState};
-use ui::component::StyledExt;
+use ui::component::{Disableable, StyledExt};
+
+pub(super) fn desktop_form_header(title: &'static str, subtitle: String, theme: ui::Theme) -> Div {
+    div()
+        .flex()
+        .items_center()
+        .gap(px(14.0))
+        .child(
+            div()
+                .flex_none()
+                .w(px(44.0))
+                .h(px(44.0))
+                .rounded(px(12.0))
+                .bg(rgba(ui::icons::with_alpha(theme.accent_blue, 0x18)))
+                .flex()
+                .items_center()
+                .justify_center()
+                .child(ui::icons::toolbar_icon(
+                    ui::icons::ToolbarIcon::Workspaces,
+                    theme.accent_blue,
+                    24.0,
+                )),
+        )
+        .child(
+            div()
+                .flex_1()
+                .min_w(px(0.0))
+                .flex()
+                .flex_col()
+                .gap(px(5.0))
+                .child(
+                    div()
+                        .text_size(px(20.0))
+                        .font_semibold()
+                        .text_color(rgba(theme.text_primary))
+                        .child(title),
+                )
+                .child(
+                    div()
+                        .text_size(px(12.0))
+                        .text_color(rgba(theme.text_secondary))
+                        .text_ellipsis()
+                        .child(subtitle),
+                ),
+        )
+}
 
 impl MultisoulApp {
     pub(crate) fn open_desktop_switcher(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -127,5 +172,15 @@ impl MultisoulApp {
                         .child(Input::new(&input).appearance(false).cleanable(true)),
                 )
             })
+            .child(
+                Button::new("desktop-workspace-switch-create")
+                    .debug_selector(|| "desktop-workspace-switch-create".into())
+                    .label("New Workspace")
+                    .custom(glass_button_variant(theme, cx))
+                    .disabled(self.desktop_workspace.busy)
+                    .on_click(
+                        cx.listener(|app, _, window, cx| app.create_desktop_workspace(window, cx)),
+                    ),
+            )
     }
 }

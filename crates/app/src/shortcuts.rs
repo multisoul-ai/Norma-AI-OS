@@ -14,6 +14,8 @@ const SHORTCUT_PREFS_KEY: &str = "keyboard.shortcuts.v1";
 #[serde(rename_all = "snake_case")]
 pub(crate) enum ShortcutCommandId {
     NewWindow,
+    NewWorkspace,
+    AddProject,
     SwitchWorkspace,
     PreviousWorkspace,
     NextWorkspace,

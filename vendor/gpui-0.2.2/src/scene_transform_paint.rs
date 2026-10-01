@@ -21,6 +21,7 @@ impl ScenePlacement {
     pub(crate) fn primitive(&self, primitive: &mut Primitive) {
         let transform = self.transform.resolve();
         let scale = transform.scale;
+        let opacity = transform.opacity;
         let offset = transform.offset.scale(self.scale_factor);
         let point = |point: Point<ScaledPixels>| point * scale + offset;
         let bounds = |bounds: Bounds<ScaledPixels>| {
@@ -31,23 +32,28 @@ impl ScenePlacement {
         };
         match primitive {
             Primitive::Quad(quad) => {
+                quad.background = quad.background.opacity(opacity);
+                quad.border_color = quad.border_color.opacity(opacity);
                 quad.bounds = bounds(quad.bounds);
                 quad.content_mask = mask(&quad.content_mask);
                 quad.corner_radii = quad.corner_radii.map(|v| *v * scale);
                 quad.border_widths = quad.border_widths.map(|v| *v * scale);
             }
             Primitive::Shadow(shadow) => {
+                shadow.color = shadow.color.opacity(opacity);
                 shadow.bounds = bounds(shadow.bounds);
                 shadow.content_mask = mask(&shadow.content_mask);
                 shadow.corner_radii = shadow.corner_radii.map(|v| *v * scale);
                 shadow.blur_radius *= scale;
             }
             Primitive::Underline(underline) => {
+                underline.color = underline.color.opacity(opacity);
                 underline.bounds = bounds(underline.bounds);
                 underline.content_mask = mask(&underline.content_mask);
                 underline.thickness *= scale;
             }
             Primitive::MonochromeSprite(sprite) => {
+                sprite.color = sprite.color.opacity(opacity);
                 sprite.bounds = bounds(sprite.bounds);
                 sprite.content_mask = mask(&sprite.content_mask);
                 // New bounds already contain A. Conjugate the glyph/SVG matrix T as
@@ -64,11 +70,13 @@ impl ScenePlacement {
                 ];
             }
             Primitive::PolychromeSprite(sprite) => {
+                sprite.opacity *= opacity;
                 sprite.bounds = bounds(sprite.bounds);
                 sprite.content_mask = mask(&sprite.content_mask);
                 sprite.corner_radii = sprite.corner_radii.map(|v| *v * scale);
             }
             Primitive::Path(path) => {
+                path.color = path.color.opacity(opacity);
                 path.bounds = bounds(path.bounds);
                 path.content_mask = mask(&path.content_mask);
                 for vertex in &mut path.vertices {
@@ -77,6 +85,7 @@ impl ScenePlacement {
                 }
             }
             Primitive::Surface(surface) => {
+                surface.opacity *= opacity;
                 surface.bounds = bounds(surface.bounds);
                 surface.content_mask = mask(&surface.content_mask);
             }

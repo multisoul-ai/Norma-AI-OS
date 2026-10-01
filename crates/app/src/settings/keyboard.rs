@@ -280,6 +280,8 @@ fn scope_badge(theme: Theme, label: &'static str) -> Div {
 
 fn shortcut_row_id(command: ShortcutCommandId) -> &'static str {
     match command {
+        ShortcutCommandId::NewWorkspace => "settings-shortcut-new-workspace",
+        ShortcutCommandId::AddProject => "settings-shortcut-add-project",
         ShortcutCommandId::NewWindow => "settings-shortcut-new-window",
         ShortcutCommandId::SwitchWorkspace => "settings-shortcut-switch-workspace",
         ShortcutCommandId::PreviousWorkspace => "settings-shortcut-previous-workspace",
@@ -309,6 +311,8 @@ fn shortcut_row_id(command: ShortcutCommandId) -> &'static str {
 
 fn shortcut_restore_id(command: ShortcutCommandId) -> &'static str {
     match command {
+        ShortcutCommandId::NewWorkspace => "settings-shortcut-restore-new-workspace",
+        ShortcutCommandId::AddProject => "settings-shortcut-restore-add-project",
         ShortcutCommandId::NewWindow => "settings-shortcut-restore-new-window",
         ShortcutCommandId::SwitchWorkspace => "settings-shortcut-restore-switch-workspace",
         ShortcutCommandId::PreviousWorkspace => "settings-shortcut-restore-previous-workspace",

@@ -1,7 +1,6 @@
 use super::GLASS_TEXT_SECONDARY;
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div, ScrollHandle, Stateful, Window};
-use std::sync::atomic::Ordering;
 
 impl MultisoulApp {
     pub(crate) fn render_desktop_workspace(
@@ -14,6 +13,20 @@ impl MultisoulApp {
                 && !self.desktop_workspace.switcher_open,
             cx,
         );
+        if self.desktop_workspace.expanded_area_id.is_some()
+            && self
+                .desktop_workspace
+                .transition
+                .as_ref()
+                .is_some_and(|t| t.projects.is_some())
+        {
+            return div()
+                .id("desktop-workspace-world")
+                .absolute()
+                .inset_0()
+                .child(self.render_workspace_backdrop())
+                .child(self.render_desktop_project_switch(cx));
+        }
         let theme = self.desktop_theme();
         #[cfg(target_os = "macos")]
         self.sync_canvas_video_wallpaper(cx);
@@ -80,7 +93,7 @@ impl MultisoulApp {
                                 session,
                                 workspace_name,
                                 None,
-                                cx,
+                                window,
                             )),
                     );
             }
@@ -93,19 +106,6 @@ impl MultisoulApp {
             .as_ref()
             .map(|(area_id, _)| area_id.clone());
         let capture_workspace_id = workspace_id.clone();
-        let selected_area_index = self.desktop_workspace.enlarged_agent.as_ref().and_then(
-            |(selected_workspace, selected_area, selected_node)| {
-                areas.iter().position(|area| {
-                    selected_workspace == &workspace_id
-                        && selected_area == &area.id
-                        && self
-                            .desktop_preview_nodes(&workspace_id, &area.id, cx)
-                            .iter()
-                            .any(|node| node.id == *selected_node)
-                })
-            },
-        );
-        let pending_reveal = self.desktop_workspace.pending_agent_reveal.clone();
         let initial_scroll_y = self
             .desktop_workspace
             .active()
@@ -124,6 +124,18 @@ impl MultisoulApp {
         // A moving camera scales the settled layout; its frame must never trigger a breakpoint.
         let width = f32::from(window.viewport_size().width);
         let height = f32::from(window.viewport_size().height);
+        let workspace_frame = workspace_frame.map(|frame| {
+            let full = canvas::CanvasRect::new(0.0, 0.0, width, height);
+            let source = self
+                .desktop_workspace
+                .workspace_motion_rects
+                .get(&workspace_id);
+            let chrome_scale = source.map_or(0.0, |source| {
+                (frame.size.x / source.size.x)
+                    * super::scene::overview_chrome_opacity(frame, *source, full)
+            });
+            super::scene::workspace_content_rect(frame, full.size, chrome_scale)
+        });
         let scene =
             self.desktop_scene_frame(canvas::CanvasRect::new(0.0, 0.0, width, height), false);
         let scale = workspace_frame
@@ -181,7 +193,6 @@ impl MultisoulApp {
                         )
                     })
                     .when(!is_empty, |this| {
-                        let scroll = overview_scroll.clone();
                         this.child(
                             div()
                                 .relative()
@@ -195,12 +206,9 @@ impl MultisoulApp {
                                             .top(px(rect.origin.y * scale))
                                             .w(px(rect.size.x * scale))
                                             .h(px(rect.size.y * scale));
-                                        let nodes =
-                                            self.desktop_preview_nodes(&workspace_id, &area.id, cx);
                                         slot.child(self.desktop_project_area_card(
                                             index,
                                             area,
-                                            nodes,
                                             &workspace_id,
                                             rect.size.x * scale,
                                             rect.size.y * scale,
@@ -211,7 +219,7 @@ impl MultisoulApp {
                                         .into_any_element()
                                     },
                                 ))
-                                .on_children_prepainted(move |children, window, _| {
+                                .on_children_prepainted(move |children, _, _| {
                                     if capture_project_bounds {
                                         let mut rects = area_rects
                                             .lock()
@@ -236,33 +244,6 @@ impl MultisoulApp {
                                             );
                                         }
                                     }
-                                    if !capture_bounds {
-                                        return;
-                                    }
-                                    let (Some(index), Some(pending)) =
-                                        (selected_area_index, pending_reveal.as_ref())
-                                    else {
-                                        return;
-                                    };
-                                    if !pending.load(Ordering::Relaxed) {
-                                        return;
-                                    }
-                                    let Some(target) = children.get(index) else {
-                                        return;
-                                    };
-                                    let viewport = scroll.bounds();
-                                    let current = scroll.offset();
-                                    let desired = (current.y + viewport.bottom()
-                                        - px(24.0)
-                                        - target.bottom())
-                                    .clamp(-scroll.max_offset().height, px(0.0));
-                                    if desired == current.y && target.bottom() > viewport.bottom() {
-                                        window.request_animation_frame();
-                                        return;
-                                    }
-                                    pending.store(false, Ordering::Relaxed);
-                                    scroll.set_offset(gpui::point(current.x, desired));
-                                    window.request_animation_frame();
                                 }),
                         )
                     }),
@@ -315,6 +296,7 @@ impl MultisoulApp {
                     workspace_name.clone(),
                     frame,
                     returning,
+                    window,
                     cx,
                 )
             });

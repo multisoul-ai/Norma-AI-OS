@@ -5,7 +5,7 @@ use gpui::Entity;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::PathBuf;
-use std::sync::{atomic::AtomicBool, Arc, Mutex};
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use storage::{DesktopAreaPreview, DesktopProjectArea, DesktopWorkspace, DesktopWorkspaceStore};
 use ui::component::button::ButtonCustomVariant;
@@ -29,24 +29,36 @@ mod agent;
 mod agent_preview;
 mod area;
 mod camera;
+mod camera_frames;
 mod controller;
+mod creation;
 mod dialogs;
 mod dialogs_other;
 mod dispatch;
 mod launchpad;
 mod layout;
 mod management;
+mod motion_log;
 mod navigation;
 mod preview_canvas;
 mod project_area;
+mod project_picker;
 pub(crate) use camera::desktop_scene_rect;
-mod project_node;
+mod project_switch;
 mod project_world;
 mod scene;
 pub(crate) mod sessions;
 mod shell;
 mod view;
 mod workspace_card;
+
+#[cfg(test)]
+#[path = "../../tests/unit/desktop_motion_log_tests.rs"]
+mod motion_log_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/desktop_project_picker_tests.rs"]
+mod project_picker_tests;
 
 use camera::DesktopCanvasTransition;
 
@@ -83,13 +95,12 @@ pub(crate) struct DesktopWorkspaceUiState {
     workspace_motion_rects: HashMap<String, canvas::CanvasRect>,
     pub(crate) area_rects: Arc<Mutex<HashMap<(String, String), canvas::CanvasRect>>>,
     transition: Option<DesktopCanvasTransition>,
+    motion_log: Option<motion_log::DesktopMotionLog>,
     pending_navigation: Option<scene::DesktopNavigation>,
     transition_frame_pending: bool,
     transition_last_tick: Instant,
     #[cfg(feature = "e2e-test-support")]
     animate_camera_for_e2e: bool,
-    pub(crate) enlarged_agent: Option<(String, String, canvas::NodeId)>,
-    pub(crate) pending_agent_reveal: Option<Arc<AtomicBool>>,
     pub(crate) loading_area_ids: HashSet<(String, String)>,
     pub(crate) discarded_area_loads: HashSet<(String, String)>,
     pub(crate) area_errors: HashMap<String, String>,
@@ -99,6 +110,7 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) busy: bool,
     pub(crate) rename_target: Option<String>,
     pub(crate) rename_input: Option<Entity<InputState>>,
+    pub(crate) create_input: Option<Entity<InputState>>,
     pub(crate) actions_workspace_id: Option<String>,
     pub(crate) actions_area_id: Option<String>,
     pub(crate) switcher_open: bool,
@@ -150,13 +162,12 @@ impl DesktopWorkspaceUiState {
             workspace_motion_rects: HashMap::new(),
             area_rects: Arc::new(Mutex::new(HashMap::new())),
             transition: None,
+            motion_log: None,
             pending_navigation: None,
             transition_frame_pending: false,
             transition_last_tick: Instant::now(),
             #[cfg(feature = "e2e-test-support")]
             animate_camera_for_e2e: true,
-            enlarged_agent: None,
-            pending_agent_reveal: None,
             loading_area_ids: HashSet::new(),
             discarded_area_loads: HashSet::new(),
             area_errors: HashMap::new(),
@@ -166,6 +177,7 @@ impl DesktopWorkspaceUiState {
             busy: false,
             rename_target: None,
             rename_input: None,
+            create_input: None,
             actions_workspace_id: None,
             actions_area_id: None,
             switcher_open: false,
@@ -216,7 +228,8 @@ impl MultisoulApp {
             || self.desktop_workspace.add_project_open
             || self.desktop_workspace.pending_project_path.is_some()
             || self.desktop_workspace.pending_delete.is_some()
-            || self.desktop_workspace.rename_target.is_some();
+            || self.desktop_workspace.rename_target.is_some()
+            || self.desktop_workspace.create_input.is_some();
         let id = if expanded || light_dialog_open || self.theme_id.is_dark() {
             self.theme_id
         } else {

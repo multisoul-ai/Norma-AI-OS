@@ -1,8 +1,5 @@
-use super::{
-    desktop_scene_rect, embedded_viewport, project_preview_viewport, project_transition_viewport,
-    DesktopCamera,
-};
-use canvas::{CanvasNode, CanvasNodeKind, CanvasRect, TermSpec, Vec2, Viewport};
+use super::{desktop_scene_rect, DesktopCamera};
+use canvas::CanvasRect;
 use std::time::Duration;
 
 /// 项目和工作空间返回总览时，外壳随镜头恢复，不能整个转场都隐藏。
@@ -122,109 +119,43 @@ fn desktop_camera_reduced_motion_snaps_to_target() {
     assert_ne!(camera.rect(), source, "减少动态效果时不得停在旧缩略区域");
 }
 
-/// 项目画布缩入区域时，卡片位置与尺寸随同一镜头缩放。
+/// 缩略与展开共用完整画布尺寸，镜头起止端保持相同比例。
 ///
-/// 数据构造（含关键数值的推导过程）：全窗 1920×1080，区域 480×270，比例均为 1/4；
-///   原 viewport zoom=1.2、pan=(60,-20)，缩后应为 zoom=0.3、pan=(15,-5)。
-/// 执行过程：按区域尺寸构造项目会话的视觉 viewport，再读取缩放后的坐标。
-/// 预期结果：正断言为 zoom/pan 均按 1/4 缩放；负断言为未保留全屏 viewport。
+/// 数据构造：原画布1200×600，外壳420×260；标题36.4、下边距10，舞台400×213.6；
+///   缩放=min(400/1200,213.6/600)=1/3，内容400×200；顶部=(213.6-200)/2+36.4=43.2。
+/// 执行过程：计算缩略内容 → 弹簧从内容推进至全屏 → 比较宽高比与精确终点。
+/// 预期结果：整个画布缩小、无节点适配重排；中间保持2:1，终点不留缩略偏移或比例。
 #[test]
-fn desktop_project_camera_scales_visual_viewport() {
-    let viewport = Viewport {
-        pan: Vec2::new(60.0, -20.0),
-        zoom: 1.2,
-    };
-    let frame = CanvasRect::new(100.0, 100.0, 480.0, 270.0);
-    let actual = embedded_viewport(viewport, 1920.0, 1080.0, frame);
-    assert_eq!(actual.zoom, 0.3, "卡片宽高应随镜头缩为四分之一");
+fn desktop_project_camera_scales_the_complete_canvas() {
+    use super::super::preview_canvas::project_canvas_rect;
+    let full = CanvasRect::new(14.0, 36.0, 1200.0, 600.0);
+    let card = CanvasRect::new(100.0, 150.0, 420.0, 260.0);
+    let preview = project_canvas_rect(card, full.size, 1.0);
     assert_eq!(
-        actual.pan,
-        Vec2::new(15.0, -5.0),
-        "卡片位置也应按同一比例缩放"
-    );
-    assert_ne!(actual, viewport, "缩略画布不得沿用全屏 viewport");
-}
-
-/// 项目镜头的起点应与总览中的真实卡片缩略位置一致。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   区域 400×300；标题高 = 300×0.14 = 42，内容区 = 380×248。
-///   卡片 640×400 位于画布 (100,50)；缩放 = min(364/640,232/400,1) = 0.56875。
-///   缩略卡片左上角 = (10+8,42+10.25) = (18,52.25)。
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 用区域和项目节点计算镜头起始 viewport。
-///   2. 投影原节点左上角，得到总览缩略卡片的位置。
-///
-/// 预期结果：
-///   - 正断言：起点坐标为 (18,52.25)，尺寸缩放为 0.56875。
-///   - 负断言：不能沿用全屏 viewport 或简单按区域宽度缩放。
-#[test]
-fn desktop_project_camera_starts_at_the_visible_preview_card() {
-    let node = CanvasNode {
-        id: 7,
-        kind: CanvasNodeKind::Term(TermSpec),
-        bounds: CanvasRect::new(100.0, 50.0, 640.0, 400.0),
-        z_index: 0,
-        selected: false,
-    };
-    let area = CanvasRect::new(80.0, 200.0, 400.0, 300.0);
-    let preview =
-        project_preview_viewport(&[node], area).expect("含卡片的项目区域应能计算缩略 viewport");
-    let projected = preview.canvas_to_screen(Vec2::new(100.0, 50.0));
-    assert!(
-        (projected.x - 18.0).abs() < 0.01,
-        "项目卡片起点应与总览缩略卡片的水平位置重合"
+        preview.size,
+        canvas::Vec2::new(400.0, 200.0),
+        "缩略必须缩小完整视区"
     );
     assert!(
-        (projected.y - 52.25).abs() < 0.01,
-        "项目卡片起点应与总览缩略卡片的垂直位置重合"
+        (preview.origin.y - 193.2).abs() < 0.001,
+        "画布应在标题下方等比居中"
     );
-    assert!(
-        (preview.zoom - 0.56875).abs() < 0.0001,
-        "项目卡片应按内容区适配比例缩小"
-    );
-    assert_ne!(
-        preview,
-        Viewport::default(),
-        "缩略 viewport 不得沿用全屏画布"
-    );
-    assert!(
-        (preview.zoom - 400.0 / 1200.0).abs() > 0.1,
-        "缩略 viewport 不能只按项目区域与全屏宽度比例计算"
-    );
-}
-
-/// 项目镜头最后一帧与动画结束后的真实画布完全重合。
-///
-/// 数据构造：窗口 1600×1000，实际画布宽 = 1600-14×2 = 1572；
-///   源区域宽 600，镜头移动距离 = 1572-600 = 972；viewport pan=(30,-10)、zoom=1.2。
-/// 执行过程：使用实际画布终点计算动画 viewport，再与静止 viewport 比较。
-/// 预期结果：正断言为 pan/zoom 精确到达原 viewport；负断言为不残留缩略图比例。
-#[test]
-fn desktop_project_camera_lands_on_the_live_viewport() {
-    let viewport = Viewport {
-        pan: Vec2::new(30.0, -10.0),
-        zoom: 1.2,
-    };
-    let node = CanvasNode {
-        id: 7,
-        kind: CanvasNodeKind::Term(TermSpec),
-        bounds: CanvasRect::new(100.0, 50.0, 640.0, 400.0),
-        z_index: 0,
-        selected: false,
-    };
-    let card = CanvasRect::new(40.0, 92.0, 600.0, 796.0);
-    let full = desktop_scene_rect(1600.0, 1000.0);
-    let actual = project_transition_viewport(viewport, card, full, 1600.0, &[node.clone()])
-        .expect("非空项目应有镜头 viewport");
+    assert_ne!(preview, card, "画布不能覆盖项目标题栏");
+    let mut camera = DesktopCamera::new(preview);
+    camera.retarget(full, false);
+    for _ in 0..100 {
+        // 100×16ms=1600ms，超过弹簧收敛时间。
+        camera.tick(Duration::from_millis(16));
+        let frame = camera.rect();
+        assert!(
+            (frame.size.x / frame.size.y - 2.0).abs() < 0.001,
+            "动画期间不得拉伸字体或改变原卡片布局"
+        );
+    }
     assert_eq!(
-        actual, viewport,
-        "移除动画层时卡片不能再次跳到不同的 pan/zoom"
+        camera.rect(),
+        full,
+        "落定时完整复用原画布，无 viewport 交接跳变"
     );
-    assert_ne!(
-        actual,
-        project_preview_viewport(&[node], card).unwrap(),
-        "终点不能仍是缩略 viewport"
-    );
+    assert!(!camera.is_active(), "落定后不应继续动画");
 }

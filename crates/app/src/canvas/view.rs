@@ -60,26 +60,26 @@ pub fn render_canvas(
     let theme = app.theme;
     let vp = app.runtime.document.viewport;
     let win = window.viewport_size();
-    let (vp, win_w, win_h) = app
-        .desktop_host
-        .as_ref()
-        .and_then(|host| host.upgrade())
-        .map(|host| {
-            host.read(cx).desktop_canvas_visual_geometry(
-                vp,
-                f32::from(win.width),
-                f32::from(win.height),
-                app.runtime.document.nodes(),
-            )
-        })
-        .unwrap_or((vp, f32::from(win.width), f32::from(win.height)));
+    let canvas_size = if app.desktop_host.is_some() {
+        crate::workspace::desktop::desktop_scene_rect(f32::from(win.width), f32::from(win.height))
+            .size
+    } else {
+        canvas::Vec2::new(f32::from(win.width), f32::from(win.height))
+    };
+    let (win_w, win_h) = (canvas_size.x, canvas_size.y);
     let focus_mode = app.runtime.focus.mode();
-
     let swap_candidate = app.interaction.drag.as_ref().and_then(|d| d.swap_candidate);
     let hovered_terminal_link = app.interaction.hovered_terminal_link.clone();
     let mut node_elems: Vec<AnyElement> = Vec::new();
     let mut visible_browser_nodes = HashSet::new();
-    let native_browser_views_visible = native_browser_views_visible(app.settings_panel.open);
+    // ponytail: hide native Browser during motion; G1 must add clipped native presentation.
+    let native_browser_views_visible = native_browser_views_visible(app.settings_panel.open)
+        && !app.background_project
+        && !app
+            .desktop_host
+            .as_ref()
+            .and_then(|host| host.upgrade())
+            .is_some_and(|host| host.read(cx).desktop_project_zoom_active());
     // 底部弹出菜单打开时计算屏幕矩形；关闭时为 None（不做遮挡过滤）。
     let layout_menu_rect = layout_menu_screen_rect(app.interaction.layout_menu_open, win_w, win_h);
     let new_menu_rect = new_menu_screen_rect(

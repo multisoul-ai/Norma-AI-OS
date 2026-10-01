@@ -52,15 +52,23 @@ const SELECT_AREA: &str =
                            FROM desktop_project_areas";
 
 impl DesktopWorkspaceStore {
+    /// Validate the name used by creation, rename and their UI; count Unicode characters, not bytes.
+    pub fn validate_name(name: &str) -> StorageResult<&str> {
+        let trimmed = name.trim();
+        if trimmed.is_empty() || trimmed.chars().count() > 80 {
+            return Err(StorageError::InvalidDesktopWorkspaceName(name.to_string()));
+        }
+        Ok(trimmed)
+    }
+
     pub fn new(path: PathBuf) -> Self {
         Self { path }
     }
 
     pub fn list(&self) -> StorageResult<Vec<DesktopWorkspace>> {
         let connection = open_app_connection(&self.path)?;
-        let mut statement = connection.prepare(&format!(
-            "{SELECT} ORDER BY last_opened_at_unix_ms DESC, id ASC"
-        ))?;
+        let mut statement =
+            connection.prepare(&format!("{SELECT} ORDER BY created_at_unix_ms ASC, id ASC"))?;
         let rows = statement
             .query_map([], read_workspace)?
             .collect::<Result<Vec<_>, _>>()
@@ -97,7 +105,7 @@ impl DesktopWorkspaceStore {
     }
 
     pub fn create(&self, name: &str) -> StorageResult<DesktopWorkspace> {
-        let name = validated_name(name)?;
+        let name = Self::validate_name(name)?;
         let connection = open_app_connection(&self.path)?;
         let id = random_workspace_id()?;
         let now = next_opened_at(&connection)?;
@@ -110,7 +118,7 @@ impl DesktopWorkspaceStore {
     }
 
     pub fn rename(&self, id: &str, name: &str) -> StorageResult<()> {
-        let name = validated_name(name)?;
+        let name = Self::validate_name(name)?;
         let connection = open_app_connection(&self.path)?;
         let changed = connection.execute(
             "UPDATE desktop_workspaces SET name=?1 WHERE id=?2",
@@ -268,14 +276,6 @@ impl DesktopWorkspaceStore {
         }
         Ok(())
     }
-}
-
-fn validated_name(name: &str) -> StorageResult<&str> {
-    let trimmed = name.trim();
-    if trimmed.is_empty() || trimmed.chars().count() > 80 {
-        return Err(StorageError::InvalidDesktopWorkspaceName(name.to_string()));
-    }
-    Ok(trimmed)
 }
 
 fn next_opened_at(connection: &Connection) -> StorageResult<i64> {

@@ -60,6 +60,16 @@ pub struct EmbeddedAssets;
 impl AssetSource for EmbeddedAssets {
     fn load(&self, path: &str) -> Result<Option<Cow<'static, [u8]>>> {
         match path {
+            // gpui-component's searchable list/input use these standard icon paths.
+            "icons/search.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/search.svg"
+            )))),
+            "icons/close.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/close.svg"
+            )))),
+            "icons/loader.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/loader.svg"
+            )))),
             APP_ICON_ASSET => Ok(Some(Cow::Borrowed(APP_ICON_BYTES))),
             APP_LOGO_ASSET => Ok(Some(Cow::Borrowed(APP_LOGO_BYTES))),
             TOOLBAR_SCROLL_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_SCROLL_BYTES))),

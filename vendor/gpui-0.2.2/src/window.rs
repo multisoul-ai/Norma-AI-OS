@@ -3233,6 +3233,7 @@ impl Window {
         let bounds = bounds.scale(scale_factor);
         let content_mask = self.content_mask().scale(scale_factor);
         self.next_frame.scene.insert_primitive(PaintSurface {
+            opacity: self.element_opacity,
             order: 0,
             bounds,
             content_mask,

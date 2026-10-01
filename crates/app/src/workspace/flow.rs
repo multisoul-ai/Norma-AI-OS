@@ -154,6 +154,8 @@ impl MultisoulApp {
         }
         self.background_restore = Some(pending.clone());
         let source_window = self.project_window;
+        // Desktop areas own live sessions in overview too; window attachment only changes presentation.
+        let desktop_restore = self.desktop_host.is_some();
         let root = pending.root.clone();
         let total_sessions = pending.len();
         tracing::info!(
@@ -167,8 +169,8 @@ impl MultisoulApp {
             loop {
                 if next_index >= pending.node_ids.len() {
                     let _ = this.update(cx, |app, _| {
-                        if !app.background_project
-                            && app.project_window == source_window
+                        if (!app.background_project || desktop_restore)
+                            && (desktop_restore || app.project_window == source_window)
                             && app.workspace_state.current_root.as_deref() == Some(root.as_path())
                         {
                             app.background_restore = None;
@@ -189,8 +191,8 @@ impl MultisoulApp {
                 next_index += 1;
                 let remaining = pending.node_ids.len().saturating_sub(next_index);
                 let discovery_profile = this.update(cx, |app, _cx| {
-                    if app.background_project
-                        || app.project_window != source_window
+                    if (!desktop_restore
+                        && (app.background_project || app.project_window != source_window))
                         || app.workspace_state.current_root.as_deref() != Some(root.as_path())
                     {
                         return None;
@@ -223,8 +225,8 @@ impl MultisoulApp {
                     None => None,
                 };
                 let update = this.update(cx, |app, cx| {
-                    if app.background_project
-                        || app.project_window != source_window
+                    if (!desktop_restore
+                        && (app.background_project || app.project_window != source_window))
                         || app.workspace_state.current_root.as_deref() != Some(root.as_path())
                     {
                         return false;

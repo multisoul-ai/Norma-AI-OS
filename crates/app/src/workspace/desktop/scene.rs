@@ -51,6 +51,28 @@ pub(super) fn directory_grid(width: f32, count: usize) -> (usize, f32, f32) {
     )
 }
 
+pub(super) const WORKSPACE_TITLE_HEIGHT: f32 = 40.0;
+
+/// Fit the same workspace canvas below its title, then release the inset as the shell fades.
+pub(super) fn workspace_content_rect(
+    frame: CanvasRect,
+    full: canvas::Vec2,
+    chrome_scale: f32,
+) -> CanvasRect {
+    let padding = 8.0 * chrome_scale;
+    let header = WORKSPACE_TITLE_HEIGHT * chrome_scale + padding;
+    let width = (frame.size.x - 2.0 * padding).max(1.0);
+    let height = (frame.size.y - header - padding).max(1.0);
+    let scale = (width / full.x).min(height / full.y);
+    let size = canvas::Vec2::new(full.x * scale, full.y * scale);
+    CanvasRect::new(
+        frame.origin.x + (frame.size.x - size.x) * 0.5,
+        frame.origin.y + header + (height - size.y) * 0.5,
+        size.x,
+        size.y,
+    )
+}
+
 /// Project every sibling from the same stable anchor; animated bounds are never layout inputs.
 pub(super) fn project_rect(source: CanvasRect, frame: CanvasRect, rect: CanvasRect) -> CanvasRect {
     let scale = frame.size.x / source.size.x.max(1.0);
@@ -104,8 +126,9 @@ impl MultisoulApp {
                     .px(px(16.0 * scale))
                     .rounded(px(6.0 * scale))
                     .when(interactive, |button| {
-                        button
-                            .on_click(cx.listener(|app, _, _, cx| app.open_desktop_add_project(cx)))
+                        button.on_click(cx.listener(|app, _, window, cx| {
+                            app.open_desktop_add_project(window, cx)
+                        }))
                     }),
             )
     }
@@ -201,7 +224,14 @@ impl MultisoulApp {
                 .lock()
                 .expect("project bounds mutex poisoned")
                 .get(&(workspace_id.clone(), area_id.clone()))
-                .copied(),
+                .copied()
+                .map(|card| {
+                    super::preview_canvas::project_canvas_rect(
+                        card,
+                        super::desktop_scene_rect(full.size.x, full.size.y).size,
+                        1.0,
+                    )
+                }),
             _ => None,
         };
         source

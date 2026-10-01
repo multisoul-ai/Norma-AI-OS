@@ -1,7 +1,7 @@
 use std::process::Command;
 use storage::{DatabasePaths, DesktopWorkspaceStore, ProjectStore};
 
-/// DWS-01：两个空桌面工作空间具有独立身份，改名和最近打开顺序在重新打开数据库后仍保留。
+/// DWS-01：两个空桌面工作空间具有独立身份，改名和固定创建顺序在重新打开数据库后仍保留。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   初始工作空间数 = 0；创建 Alpha 和 Beta 后 = 0 + 2 = 2。
@@ -9,7 +9,7 @@ use storage::{DatabasePaths, DesktopWorkspaceStore, ProjectStore};
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 创建 Alpha 和 Beta → 得到两个不同 ID，列表含两条空工作空间。
-///   2. 将 Alpha 改名为 Design，再次打开 Alpha → Alpha 排在最近列表首位。
+///   2. 将 Alpha 改名为 Design，再次打开 Beta → Beta 的最近打开时间更新，但不移到首位。
 ///   3. 用同一数据库路径创建新的 Store 并加载列表 → 名称、身份和顺序保持。
 ///
 /// 预期结果：
@@ -24,13 +24,14 @@ fn desktop_workspace_catalog_persists_independent_empty_workspaces() {
     let alpha = store.create("Alpha").expect("应创建 Alpha");
     let beta = store.create("Beta").expect("应创建 Beta");
     store.rename(&alpha.id, "Design").expect("应改名 Alpha");
-    store.touch(&alpha.id).expect("应更新 Alpha 最近打开时间");
+    store.touch(&beta.id).expect("应更新 Beta 最近打开时间");
 
     let reloaded = DesktopWorkspaceStore::new(path)
         .list()
         .expect("重启后应重新读取工作空间");
     assert_eq!(reloaded.len(), 2, "两个空工作空间必须都持久化");
-    assert_eq!(reloaded[0].id, alpha.id, "最近打开的 Alpha 应排在首位");
+    assert_eq!(reloaded[0].id, alpha.id, "先创建的 Alpha 应固定在首位");
+    assert_ne!(reloaded[0].id, beta.id, "最近打开的 Beta 不得移到首位");
     assert_eq!(reloaded[0].name, "Design", "Alpha 的新名称应持久化");
     assert_eq!(reloaded[1].id, beta.id, "Beta 身份应保持独立");
     assert_ne!(alpha.id, beta.id, "两个工作空间不得共享身份");

@@ -131,3 +131,31 @@ fn clipped_commands_reappear_after_camera_moves() {
     );
     assert_eq!(presented.len(), 0, "清理后不能保留上一场景的绘制命令");
 }
+
+/// 镜头淡出必须作用于缓存绘制命令，不能复用上一帧烘焙的透明度。
+///
+/// 数据构造：原 quad alpha=0.8，父 opacity=0.5，子 opacity=0.25；
+///   重放后的 alpha=0.8×0.5×0.25=0.1；恢复子 opacity=1 后 alpha=0.4。
+/// 执行过程：保留同一 quad → 改父子透明度 → 重放 → 恢复子透明度再重放。
+/// 预期结果：透明度分别为0.1和0.4；不得保持0.8或累乘上次已淡出的结果。
+#[test]
+fn retained_opacity_tracks_the_current_scene_without_compounding() {
+    let viewport = Bounds::new(point(px(0.), px(0.)), size(px(200.), px(100.)));
+    let parent = SceneTransform::new();
+    parent.update(None, 1., point(px(0.), px(0.)), viewport);
+    let child = SceneTransform::new();
+    child.update(Some(parent.clone()), 1., point(px(0.), px(0.)), viewport);
+    let mut original = Scene::default();
+    original.transform = Some(ScenePlacement { transform: child.clone(), scale_factor: 1. });
+    original.insert_primitive(Quad { bounds: viewport.scale(1.), content_mask: ContentMask { bounds: viewport.scale(1.) }, border_color: crate::hsla(0., 0., 1., 0.8), ..Default::default() });
+    parent.set_opacity(0.5);
+    child.set_opacity(0.25);
+    let mut faded = Scene::default();
+    faded.replay(0..original.len(), &original);
+    assert_eq!(faded.quads[0].border_color.a, 0.1, "缓存图元应使用当前父子透明度");
+    assert_ne!(faded.quads[0].border_color.a, 0.8, "不得沿用未淡出的缓存颜色");
+    child.set_opacity(1.);
+    let mut restored = Scene::default();
+    restored.replay(0..faded.len(), &faded);
+    assert_eq!(restored.quads[0].border_color.a, 0.4, "重放必须从原始颜色计算，不可累乘上次结果");
+}

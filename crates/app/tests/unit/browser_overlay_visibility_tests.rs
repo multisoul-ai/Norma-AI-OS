@@ -29,9 +29,7 @@ fn test_settings_overlay_hides_native_browser_views_until_closed() {
         "Settings 打开时 Browser 原生内容必须隐藏，否则 macOS child view 会穿透 GPUI 浮层"
     );
     assert!(
-        canvas_source.contains(
-            "let native_browser_views_visible = native_browser_views_visible(app.settings_panel.open);"
-        ),
+        canvas_source.contains("native_browser_views_visible(app.settings_panel.open)"),
         "render_canvas 必须读取 Settings 状态并计算原生 Browser 显示许可"
     );
     assert!(

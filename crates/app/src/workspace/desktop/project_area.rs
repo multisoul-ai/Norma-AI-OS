@@ -1,10 +1,9 @@
 use super::{
     glass_button_variant,
-    preview_canvas::{fitted_rects_at_scale, project_stage_rect, project_tone},
+    preview_canvas::{project_canvas_rect, project_stage_rect, project_tone},
     GLASS_TEXT, GLASS_TEXT_SECONDARY,
 };
 use crate::app::MultisoulApp;
-use canvas::CanvasNodeSnapshot;
 use gpui::{div, prelude::*, px, rgba, Context, Div, Stateful, Window};
 use storage::DesktopProjectArea;
 use ui::component::button::{Button, ButtonVariants};
@@ -16,7 +15,6 @@ impl MultisoulApp {
         &self,
         area_index: usize,
         area: DesktopProjectArea,
-        nodes: Vec<CanvasNodeSnapshot>,
         workspace_id: &str,
         card_width: f32,
         available_height: f32,
@@ -48,27 +46,28 @@ impl MultisoulApp {
             source.map_or(0.0, |source| {
                 super::scene::overview_chrome_opacity(
                     transition.rect(),
-                    source,
+                    project_canvas_rect(
+                        source,
+                        super::desktop_scene_rect(f32::from(size.width), f32::from(size.height))
+                            .size,
+                        1.0,
+                    ),
                     super::desktop_scene_rect(f32::from(size.width), f32::from(size.height)),
                 )
             })
         });
-        let selected_node_id = self.desktop_workspace.enlarged_agent.as_ref().and_then(
-            |(selected_workspace, selected_area, selected_node)| {
-                (selected_workspace == &workspace_id && selected_area == &area_id)
-                    .then_some(*selected_node)
-            },
-        );
         let card_height = available_height;
-        let stage = project_stage_rect(canvas::Vec2::new(card_width, card_height), scale);
-        let title_height = stage.origin.y;
-        let stage_width = stage.size.x;
-        let stage_height = stage.size.y;
-        let rects = fitted_rects_at_scale(&nodes, stage_width, stage_height, scale);
-        let mut positioned_nodes: Vec<_> = nodes.into_iter().zip(rects).enumerate().collect();
-        positioned_nodes.sort_by_key(|(_, (node, _))| Some(node.id) == selected_node_id);
+        let logical_size = super::desktop_scene_rect(
+            f32::from(window.viewport_size().width),
+            f32::from(window.viewport_size().height),
+        )
+        .size;
+        let title_height = project_stage_rect(canvas::Vec2::new(card_width, card_height), scale)
+            .origin
+            .y;
         let actions_open = self.desktop_workspace.actions_area_id.as_deref() == Some(&area_id);
         let click_area = area_id.clone();
+        let focus_area = area_id.clone();
         let mut card = div()
             .id(gpui::ElementId::Name(
                 format!("desktop-project-area-{area_index}").into(),
@@ -128,51 +127,20 @@ impl MultisoulApp {
             )
             .when(moving.is_none(), |this| {
                 this.child(
-                    div()
-                        .relative()
-                        .w(px(stage_width))
-                        .h(px(stage_height))
-                        .mx(px(10.0 * scale))
-                        .mb(px(10.0 * scale))
-                        .when(positioned_nodes.is_empty(), |this| {
-                            this.flex()
-                                .items_center()
-                                .justify_center()
-                                .text_size(px(12.0 * scale))
-                                .text_color(rgba(GLASS_TEXT_SECONDARY))
-                                .child(
-                                    div()
-                                        .debug_selector(move || {
-                                            format!("desktop-project-empty-title-{area_index}")
-                                        })
-                                        .child("No cards yet"),
-                                )
-                        })
-                        .children(positioned_nodes.into_iter().map(
-                            |(node_index, (node, rect))| {
-                                let is_selected = selected_node_id == Some(node.id);
-                                let (x, y, width, height) = if is_selected {
-                                    (0.0, 0.0, stage_width, stage_height)
-                                } else {
-                                    (rect.origin.x, rect.origin.y, rect.size.x, rect.size.y)
-                                };
-                                div().absolute().left(px(x)).top(px(y)).child(
-                                    self.desktop_project_area_node(
-                                        area_index,
-                                        node_index,
-                                        node,
-                                        &workspace_id,
-                                        &area_id,
-                                        &area.display_name,
-                                        width,
-                                        height,
-                                        is_selected,
-                                        window,
-                                        cx,
-                                    ),
-                                )
-                            },
-                        )),
+                    self.desktop_project_canvas_preview(
+                        &workspace_id,
+                        &area_id,
+                        canvas::Vec2::new(card_width, card_height),
+                        logical_size,
+                        scale,
+                        cx,
+                    )
+                    .id(("desktop-project-live", area_index))
+                    .on_click(cx.listener(move |app, _, _, cx| {
+                        app.desktop_workspace.active_area_id = Some(focus_area.clone());
+                        cx.stop_propagation();
+                        cx.notify();
+                    })),
                 )
             });
 
@@ -331,43 +299,5 @@ impl MultisoulApp {
             );
         }
         card
-    }
-}
-
-pub(super) fn project_identity_label(project: &str, worktree: Option<&str>) -> String {
-    match worktree {
-        Some(worktree) if worktree != project => format!("{project} / {worktree}"),
-        _ => project.to_owned(),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::project_identity_label;
-
-    /// 项目根目录作为 worktree 时不重复显示同一名称，独立 worktree 仍保留完整身份。
-    ///
-    /// 数据构造（含关键数值的推导过程）：
-    ///   1 个项目名称 + 2 个 worktree 名称；其中 1 个相同，另 1 个不同。
-    ///
-    /// 执行过程（逐步说明系统如何处理）：
-    ///   1. 将相同名称传入标签格式化 → 只显示项目名。
-    ///   2. 将不同名称传入标签格式化 → 显示项目与 worktree。
-    ///
-    /// 预期结果：
-    ///   - 正断言：不同 worktree 的完整名称存在。
-    ///   - 负断言：相同名称不重复占据卡片标题空间。
-    #[test]
-    fn project_label_avoids_duplicate_root_worktree() {
-        assert_eq!(
-            project_identity_label("project-b", Some("feature-nav")),
-            "project-b / feature-nav",
-            "独立 worktree 应保留完整项目和 worktree 身份"
-        );
-        assert_eq!(
-            project_identity_label("project-b", Some("project-b")),
-            "project-b",
-            "项目根目录作为 worktree 时不应重复显示项目名"
-        );
     }
 }

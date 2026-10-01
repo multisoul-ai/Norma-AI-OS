@@ -1,6 +1,8 @@
 use super::{ReadOnlyShortcutBehavior, ShortcutCommandId, ShortcutEntry};
 
 const DEFAULT_SHORTCUT_ENTRIES: &[ShortcutEntry] = &[
+        entry(ShortcutCommandId::NewWorkspace, "Workspace", "New Workspace", "Name and create an empty workspace in this window", Some("cmd-n")),
+        entry(ShortcutCommandId::AddProject, "Workspace", "Add Project", "Choose a recent project, local folder, or repository for the current workspace", Some("cmd-shift-a")),
         entry(ShortcutCommandId::NewWindow, "Workspace", "New Window", "Open a new project launcher window", Some("cmd-shift-n")),
         entry(ShortcutCommandId::SwitchWorkspace, "Workspace", "Switch Workspace", "Switch canvases in the current window", Some("cmd-shift-k")),
         entry(ShortcutCommandId::PreviousWorkspace, "Workspace", "Previous Workspace", "Switch to the previous workspace in creation order", Some("ctrl-cmd-left")),

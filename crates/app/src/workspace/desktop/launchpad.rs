@@ -96,7 +96,7 @@ impl MultisoulApp {
                             let slot = div()
                                 .absolute()
                                 .left(px(source.origin.x * scale))
-                                .top(px((source.origin.y - 60.0) * scale))
+                                .top(px(source.origin.y * scale))
                                 .w(px(source.size.x * scale));
                             let slot = slot.child(self.desktop_workspace_card(
                                 index,
@@ -247,8 +247,8 @@ impl MultisoulApp {
                                         .label("+ New Workspace")
                                         .custom(glass_button_variant(theme, cx))
                                         .disabled(self.desktop_workspace.busy)
-                                        .on_click(cx.listener(|app, _, _, cx| {
-                                            app.create_desktop_workspace(cx)
+                                        .on_click(cx.listener(|app, _, window, cx| {
+                                            app.create_desktop_workspace(window, cx)
                                         })),
                                 ),
                         ),

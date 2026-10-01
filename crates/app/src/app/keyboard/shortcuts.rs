@@ -9,8 +9,10 @@ impl MultisoulApp {
     ) {
         match command {
             ShortcutCommandId::NewWindow => self.on_new_window(&crate::app::NewWindow, window, cx),
-            ShortcutCommandId::SwitchWorkspace => self.open_desktop_switcher(window, cx),
-            ShortcutCommandId::PreviousWorkspace
+            ShortcutCommandId::NewWorkspace
+            | ShortcutCommandId::AddProject
+            | ShortcutCommandId::SwitchWorkspace
+            | ShortcutCommandId::PreviousWorkspace
             | ShortcutCommandId::NextWorkspace
             | ShortcutCommandId::PreviousProject
             | ShortcutCommandId::NextProject

@@ -79,3 +79,101 @@ fn desktop_shortcuts_defaults_record_and_restore() {
         "恢复后自定义键不得残留"
     );
 }
+
+/// 创建与添加入口有独立默认键位，可持久化重映射且恢复后旧自定义键失效。
+///
+/// 数据构造：默认命令表、两个新命令，创建改为Cmd+Shift+J，添加改为Cmd+Shift+H。
+/// 执行过程：查询默认键与可编辑项 → 检查重复分配 → 录制两个键 → JSON重载 → 全部恢复。
+/// 预期结果：Cmd+N/Shift+Cmd+A正确命中；不覆盖新窗口或打开目录；新键重载有效且恢复后无残留。
+#[test]
+fn desktop_creation_shortcuts_record_and_restore() {
+    let mut state = ShortcutSettingsState::default();
+    let command = |state: &ShortcutSettingsState, key| {
+        state.command_for_keystroke(&Keystroke::parse(key).expect("键位有效"))
+    };
+    let create = command(&state, "cmd-n").expect("创建工作空间必须有默认快捷键");
+    let add = command(&state, "cmd-shift-a").expect("添加项目必须有默认快捷键");
+    assert_eq!(
+        serde_json::to_string(&create).unwrap(),
+        "\"new_workspace\"",
+        "Cmd+N必须创建空间而非窗口"
+    );
+    assert_eq!(
+        serde_json::to_string(&add).unwrap(),
+        "\"add_project\"",
+        "添加键必须打开项目选择器"
+    );
+    assert_ne!(
+        create,
+        ShortcutCommandId::NewWindow,
+        "创建空间不能变成新窗口"
+    );
+    assert_ne!(
+        add,
+        ShortcutCommandId::OpenProject,
+        "添加项目不能跳过最近项目选择器"
+    );
+    assert!(
+        state
+            .effective
+            .iter()
+            .find(|e| e.command == create)
+            .unwrap()
+            .editable,
+        "创建键必须出现在可编辑设置中"
+    );
+    assert!(
+        state
+            .effective
+            .iter()
+            .find(|e| e.command == add)
+            .unwrap()
+            .editable,
+        "添加键必须出现在可编辑设置中"
+    );
+    assert!(
+        validate_shortcut_change(add, "cmd-n", &state.effective).is_err(),
+        "设置必须拦截与创建键冲突"
+    );
+    state.begin_recording(create);
+    assert!(
+        state.record_keystroke(&Keystroke::parse("cmd-shift-j").unwrap()),
+        "创建键应可录制"
+    );
+    state.begin_recording(add);
+    assert!(
+        state.record_keystroke(&Keystroke::parse("cmd-shift-h").unwrap()),
+        "添加键应可录制"
+    );
+    let mut loaded =
+        ShortcutSettingsState::new(ShortcutPreferences::from_json(&state.prefs.to_json()), None);
+    assert_eq!(
+        command(&loaded, "cmd-shift-j"),
+        Some(create),
+        "创建自定义键应持久化"
+    );
+    assert_eq!(
+        command(&loaded, "cmd-shift-h"),
+        Some(add),
+        "添加自定义键应持久化"
+    );
+    assert_eq!(command(&loaded, "cmd-n"), None, "重映射后默认创建键应失效");
+    assert_eq!(
+        command(&loaded, "cmd-shift-a"),
+        None,
+        "重映射后默认添加键应失效"
+    );
+    loaded.restore_all_defaults();
+    assert_eq!(command(&loaded, "cmd-n"), Some(create), "恢复默认创建键");
+    assert_eq!(command(&loaded, "cmd-shift-a"), Some(add), "恢复默认添加键");
+    assert_eq!(
+        command(&loaded, "cmd-shift-j"),
+        None,
+        "恢复后创建自定义键不能残留"
+    );
+    assert_eq!(
+        command(&loaded, "cmd-shift-h"),
+        None,
+        "恢复后添加自定义键不能残留"
+    );
+}

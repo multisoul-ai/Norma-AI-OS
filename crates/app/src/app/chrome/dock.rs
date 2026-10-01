@@ -243,7 +243,9 @@ impl MultisoulApp {
                             "toolbar-new-terminal",
                             "Add Project",
                         )
-                        .on_click(cx.listener(|app, _, _, cx| app.open_desktop_add_project(cx))),
+                        .on_click(cx.listener(|app, _, window, cx| {
+                            app.open_desktop_add_project(window, cx)
+                        })),
                     )
                     .child(
                         chrome_icon_button(

@@ -11,6 +11,18 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        let state = &self.desktop_workspace;
+        // Keep a form's input and destination stable until it is submitted or cancelled.
+        if self.settings_panel.open
+            || self.clone_project.is_open()
+            || state.create_input.is_some()
+            || state.add_project_open
+            || state.rename_target.is_some()
+            || state.pending_delete.is_some()
+            || state.pending_project_path.is_some()
+        {
+            return;
+        }
         if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
             // 先结束子项目当前的可变借用；导航可能马上分离或重新聚焦同一个项目。
             window.defer(cx, move |window, cx| {
@@ -22,6 +34,14 @@ impl MultisoulApp {
         }
         let state = &self.desktop_workspace;
         match command {
+            ShortcutCommandId::NewWorkspace => self.create_desktop_workspace(window, cx),
+            ShortcutCommandId::AddProject
+                if matches!(self.screen, AppScreen::DesktopWorkspace)
+                    && state.active_id.is_some() =>
+            {
+                self.open_desktop_add_project(window, cx);
+            }
+            ShortcutCommandId::SwitchWorkspace => self.open_desktop_switcher(window, cx),
             ShortcutCommandId::PreviousWorkspace | ShortcutCommandId::NextWorkspace => {
                 let current = match state.pending_navigation.as_ref() {
                     Some(DesktopNavigation::Workspace(id)) => Some(id.as_str()),
@@ -120,3 +140,7 @@ impl MultisoulApp {
         });
     }
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/desktop_navigation_shortcuts_tests.rs"]
+mod tests;

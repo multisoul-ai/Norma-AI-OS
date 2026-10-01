@@ -9,6 +9,7 @@ pub(crate) struct SceneTransform(Rc<RefCell<TransformState>>);
 struct TransformState {
     parent: Option<SceneTransform>,
     scale: f32,
+    opacity: f32,
     offset: Point<Pixels>,
     clip: Bounds<Pixels>,
 }
@@ -16,6 +17,7 @@ struct TransformState {
 #[derive(Clone, Copy)]
 pub(crate) struct ResolvedTransform {
     pub scale: f32,
+    pub opacity: f32,
     pub offset: Point<Pixels>,
     pub clip: Bounds<Pixels>,
 }
@@ -25,6 +27,7 @@ impl SceneTransform {
         Self(Rc::new(RefCell::new(TransformState {
             parent: None,
             scale: 1.,
+            opacity: 1.,
             offset: Point::default(),
             clip: Bounds::default(),
         })))
@@ -40,9 +43,14 @@ impl SceneTransform {
         *self.0.borrow_mut() = TransformState {
             parent,
             scale,
+            opacity: 1.,
             offset,
             clip,
         };
+    }
+
+    pub(crate) fn set_opacity(&self, opacity: f32) {
+        self.0.borrow_mut().opacity = opacity;
     }
 
     pub(crate) fn resolve(&self) -> ResolvedTransform {
@@ -51,12 +59,14 @@ impl SceneTransform {
             let parent = parent.resolve();
             ResolvedTransform {
                 scale: parent.scale * state.scale,
+                opacity: parent.opacity * state.opacity,
                 offset: parent.point(state.offset),
                 clip: parent.bounds(state.clip).intersect(&parent.clip),
             }
         } else {
             ResolvedTransform {
                 scale: state.scale,
+                opacity: state.opacity,
                 offset: state.offset,
                 clip: state.clip,
             }

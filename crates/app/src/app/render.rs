@@ -147,11 +147,11 @@ impl Render for MultisoulApp {
         if self.desktop_workspace.pending_project_path.is_some() {
             root = root.child(self.render_desktop_project_destination(cx));
         }
-        if self.desktop_workspace.add_project_open {
-            root = root.child(self.render_desktop_add_project(cx));
-        }
-        if let Some(dialogs) = ui::component::Root::render_dialog_layer(window, cx) {
-            root = root.child(dialogs);
+        // Project previews share this window's Root; only the host owns its modal layer.
+        if self.desktop_host.is_none() {
+            if let Some(dialogs) = ui::component::Root::render_dialog_layer(window, cx) {
+                root = root.child(dialogs);
+            }
         }
 
         root

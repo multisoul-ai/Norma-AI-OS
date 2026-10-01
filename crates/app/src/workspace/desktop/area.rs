@@ -72,14 +72,38 @@ impl MultisoulApp {
         self.desktop_workspace.active_area_id = Some(area_id.clone());
         let key = (workspace_id.clone(), area_id.clone());
         if let Some(session) = self.desktop_workspace.sessions.get(&key).cloned() {
-            if self.defer_desktop_navigation(
-                super::scene::DesktopNavigation::Project(area_id.clone()),
-                window,
-                cx,
-            ) {
-                return;
+            let previous = self
+                .desktop_workspace
+                .transition
+                .as_ref()
+                .and_then(|transition| match &transition.subject {
+                    super::camera::DesktopCanvasSubject::Project { area_id, .. } => {
+                        Some(area_id.clone())
+                    }
+                    _ => None,
+                })
+                .or_else(|| self.desktop_workspace.expanded_area_id.clone());
+            if let Some(previous) = previous.filter(|previous| previous != &area_id) {
+                self.begin_desktop_project_switch(&workspace_id, &previous, &area_id, window, cx);
+                if let Some(previous) = self
+                    .desktop_workspace
+                    .sessions
+                    .get(&(workspace_id.clone(), previous))
+                {
+                    previous.update(cx, |app, cx| app.detach_project_window(cx));
+                }
+            } else if self.desktop_workspace.expanded_area_id.as_deref() == Some(&area_id) {
+                self.desktop_workspace.pending_navigation = None;
+            } else {
+                if self.defer_desktop_navigation(
+                    super::scene::DesktopNavigation::Project(area_id.clone()),
+                    window,
+                    cx,
+                ) {
+                    return;
+                }
+                self.begin_desktop_project_zoom(&workspace_id, &area_id, false, window, cx);
             }
-            self.begin_desktop_project_zoom(&workspace_id, &area_id, false, window, cx);
             let wallpaper = self.wallpaper_settings.selection.clone();
             session.update(cx, |session, cx| {
                 session.wallpaper_settings.selection = wallpaper;
@@ -92,7 +116,13 @@ impl MultisoulApp {
             cx.notify();
             return;
         }
-        self.desktop_workspace.expanded_area_id = Some(area_id.clone());
+        if self.desktop_workspace.expanded_area_id.is_some() {
+            // Keep the current canvas visible until the requested project's session is ready.
+            self.desktop_workspace.pending_navigation =
+                Some(super::scene::DesktopNavigation::Project(area_id.clone()));
+        } else {
+            self.desktop_workspace.expanded_area_id = Some(area_id.clone());
+        }
         self.ensure_desktop_area_session(area_id, window, cx);
     }
 
@@ -145,8 +175,12 @@ impl MultisoulApp {
                             session.master_layout.chrome_in_parent = true;
                             session
                         });
-                        let requested =
-                            app.desktop_workspace.expanded_area_id.as_deref() == Some(&area_id);
+                        let requested = match &app.desktop_workspace.pending_navigation {
+                            Some(super::scene::DesktopNavigation::Project(id)) => id == &area_id,
+                            _ => {
+                                app.desktop_workspace.expanded_area_id.as_deref() == Some(&area_id)
+                            }
+                        };
                         let visible = app.desktop_workspace.active_id.as_deref()
                             == Some(&workspace_id)
                             && matches!(app.screen, crate::app::AppScreen::DesktopWorkspace);
@@ -165,6 +199,11 @@ impl MultisoulApp {
                         }
                     }
                     Err(error) => {
+                        if matches!(&app.desktop_workspace.pending_navigation,
+                            Some(super::scene::DesktopNavigation::Project(id)) if id == &area_id)
+                        {
+                            app.desktop_workspace.pending_navigation = None;
+                        }
                         app.desktop_workspace
                             .area_errors
                             .insert(area_id, error.clone());
@@ -184,6 +223,7 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.focus_handle.focus(window);
         self.desktop_workspace.pending_navigation = None;
         if let (Some(workspace_id), Some(area_id)) = (
             self.desktop_workspace.active_id.clone(),
