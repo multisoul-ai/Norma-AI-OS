@@ -2,6 +2,7 @@ use crate::shortcuts::ShortcutCommandId;
 
 pub(super) fn shortcut_command_name(command: ShortcutCommandId) -> &'static str {
     match command {
+        ShortcutCommandId::FocusCommandInput => "focus_command_input",
         ShortcutCommandId::NewWindow => "new_window",
         ShortcutCommandId::NewTerminal => "new_terminal",
         ShortcutCommandId::NewBrowser => "new_browser",

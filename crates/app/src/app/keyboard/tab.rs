@@ -30,6 +30,11 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.command_input_focused(window, cx) {
+            self.complete_command_input(window, cx);
+            cx.stop_propagation();
+            return;
+        }
         if self.feature_guide.is_visible() {
             window.focus_next();
             cx.stop_propagation();

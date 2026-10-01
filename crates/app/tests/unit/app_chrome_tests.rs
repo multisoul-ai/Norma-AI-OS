@@ -66,116 +66,36 @@ fn test_bottom_voice_bar_is_visible_with_sherpa_provider() {
     );
 }
 
-/// Product UI Dock：Codex 保留直达入口，其余 Agent 入口收纳到 New 菜单且能力不丢失。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   chrome source = Command Dock 生产渲染源码
-///   menu source = New 菜单生产渲染源码
-///   Dock 直达 Agent = Codex 1 个；菜单 Agent = Claude/Codex/Cursor/OpenCode 4 个
-///   forbidden_1 = "\"C" + "L\""（截图里的旧 Claude 缩写 literal）
-///   forbidden_2 = "\"C" + "X\""（截图里的旧 Codex 缩写 literal）
-///   forbidden_3 = "chrome_button(theme, \"Claude" + " Code\""（第三步前的文本按钮调用，现已被图标取代）
-///   forbidden_4 = "chrome_button(theme, \"Co" + "dex\""（第三步前的文本按钮调用，现已被图标取代）
-///   forbidden_5 = "toolbar" + "-reflow"（截图里 CX 后面的 [] 按钮 id）
-///   forbidden_6 = "chrome_button(theme, \"" + "*\", false)"（截图里最后一个星号占位按钮）
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 读取 app_chrome.rs 的生产渲染源码
-///   2. 确认 Codex 在 Dock 直达，Claude/Cursor/OpenCode 仍在 New 菜单
-///   3. 搜索旧缩写 literal、旧完整文本按钮与无用占位按钮
-///
-/// 预期结果：
-///   - 正断言：Codex 在 Dock，Claude/Cursor/OpenCode 在 New 菜单
-///   - 负断言：CL/CX 旧缩写不应继续出现在生产渲染源码中
-///   - 负断言：旧完整文本标签 "Claude Code" / "Codex" 不应继续作为 chrome_button 文案
-///   - 负断言：[] reflow 按钮和 * 占位按钮不应继续挂载
-#[test]
-fn test_top_toolbar_agent_entries_use_icon_variants_not_text_labels() {
-    let source = include_str!("../../src/app/chrome/dock.rs");
-    let render_source = source.split("#[cfg(test)]").next().unwrap_or(source);
-    let new_menu_source = include_str!("../../src/app/new_menu.rs");
-    let claude_icon_variant = "ToolbarIcon::Claude";
-    let codex_icon_variant = "ToolbarIcon::Codex";
-    let opencode_icon_variant = "ToolbarIcon::OpenCode";
-    let legacy_claude_literal = format!("\"{}{}\"", "C", "L");
-    let legacy_codex_literal = format!("\"{}{}\"", "C", "X");
-    let legacy_claude_label = format!("{}{}", "chrome_button(theme, \"Claude", " Code\"");
-    let legacy_codex_label = format!("{}{}", "chrome_button(theme, \"Co", "dex\"");
-    let trailing_reflow_id = format!("{}{}", "toolbar", "-reflow");
-    let trailing_star_button = format!("{}{}", "chrome_button(theme, \"", "*\", false)");
-
-    assert!(
-        new_menu_source.contains(claude_icon_variant),
-        "Claude agent 入口应保留在 New 菜单"
-    );
-    assert!(
-        render_source.contains(codex_icon_variant),
-        "顶部 Codex agent 入口应由 chrome_icon_button + ToolbarIcon::Codex 渲染"
-    );
-    assert!(
-        new_menu_source.contains(opencode_icon_variant),
-        "OpenCode agent 入口应保留在 New 菜单"
-    );
-    assert!(
-        new_menu_source.contains("ToolbarIcon::Cursor"),
-        "Cursor agent 入口应保留在 New 菜单"
-    );
-    assert!(
-        !render_source.contains(&legacy_claude_literal),
-        "顶部 Claude agent 按钮不应继续渲染 CL 缩写 literal"
-    );
-    assert!(
-        !render_source.contains(&legacy_codex_literal),
-        "顶部 Codex agent 按钮不应继续渲染 CX 缩写 literal"
-    );
-    assert!(
-        !render_source.contains(&legacy_claude_label),
-        "第三步重设计后顶部不应继续以 chrome_button(theme, \"Claude Code\", ...) 文本标签形式挂载"
-    );
-    assert!(
-        !render_source.contains(&legacy_codex_label),
-        "第三步重设计后顶部不应继续以 chrome_button(theme, \"Codex\", ...) 文本标签形式挂载"
-    );
-    assert!(
-        !render_source.contains(&trailing_reflow_id),
-        "顶部菜单不应继续挂载截图中 CX 后面的 [] reflow 按钮"
-    );
-    assert!(
-        !render_source.contains(&trailing_star_button),
-        "顶部菜单不应继续挂载截图中最后的星号占位按钮"
-    );
-}
-
 /// 右上角反馈入口：workspace chrome 不应再挂载反馈按钮。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   source = include_str!("../../src/app/chrome/dock.rs")（检查 Command Dock 源码）
 ///   render_source = source 中 #[cfg(test)] 前的生产渲染区，避免测试注释误命中
-///   toolbar id = "toolbar" + "-new-terminal"（应继续存在，证明顶部工具栏没有被误删）
+///   toolbar id = "toolbar" + "-settings"（应继续存在，证明顶部工具栏没有被误删）
 ///   forbidden label = "Feed" + "back"（用户要求删除的按钮文案）
 ///   forbidden id = "workspace-" + "feedback"（旧按钮命中 id）
 ///   forbidden handler = "on_" + "feedback" + "_click"（旧按钮点击处理入口）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取 app_chrome.rs 的生产渲染源码
-///   2. 确认 toolbar-new-terminal 仍存在 → chrome 基本结构仍在
+///   2. 确认 toolbar-settings 仍存在 → chrome 基本结构仍在
 ///   3. 搜索旧反馈按钮的文案、id、点击 handler
 ///
 /// 预期结果：
-///   - 正断言：顶部新终端按钮仍存在
+///   - 正断言：设置按钮仍存在
 ///   - 负断言：旧反馈文案、id、handler 不应继续出现在 chrome 渲染源码中
 #[test]
 fn test_workspace_chrome_omits_feedback_entry() {
     let source = include_str!("../../src/app/chrome/dock.rs");
     let render_source = source.split("#[cfg(test)]").next().unwrap_or(source);
-    let toolbar_new_terminal_id = concat!("toolbar", "-new-terminal");
+    let toolbar_new_terminal_id = concat!("toolbar", "-settings");
     let feedback_label = format!("{}{}", "Feed", "back");
     let feedback_id = format!("{}{}", "workspace-", "feedback");
     let feedback_handler = format!("{}{}{}", "on_", "feedback", "_click");
 
     assert!(
         render_source.contains(toolbar_new_terminal_id),
-        "workspace chrome 应保留顶部新终端按钮，避免测试因 chrome 被整体删除而误通过"
+        "workspace chrome 应保留设置按钮，避免测试因 chrome 被整体删除而误通过"
     );
     assert!(
         !render_source.contains(&feedback_label),
@@ -198,18 +118,15 @@ fn test_workspace_chrome_omits_feedback_entry() {
 ///   render_source = source 中 #[cfg(test)] 前的生产渲染区，避免测试注释误命中
 ///   expected id        = "toolbar" + "-settings"
 ///   expected icon form = "ToolbarIcon::Settings"（SVG 图标变体）
-///   existing icons     = ToolbarIcon::Plus/Terminal/Codex/Browser/Preview
 ///   forbidden glyph    = "\"⚙\""（第三步前使用的 Unicode 字符）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取 app_chrome.rs 的生产渲染源码
 ///   2. 确认 toolbar-settings 与 ToolbarIcon::Settings 出现在底部 Dock
-///   3. 确认其它核心入口仍以图标形式存在
-///   4. 搜索旧 ⚙ glyph literal，确认已被移除
+///   3. 搜索旧 ⚙ glyph literal，确认已被移除
 ///
 /// 预期结果：
 ///   - 正断言：设置按钮 id 与 Settings 图标变体同时存在
-///   - 正断言：现有三个入口的图标变体仍存在
 ///   - 负断言：旧 ⚙ glyph literal 不应继续出现
 #[test]
 fn test_top_toolbar_includes_settings_icon_entry() {
@@ -217,11 +134,6 @@ fn test_top_toolbar_includes_settings_icon_entry() {
     let render_source = source.split("#[cfg(test)]").next().unwrap_or(source);
     let settings_id = concat!("toolbar", "-settings");
     let settings_icon_variant = "ToolbarIcon::Settings";
-    let plus_icon_variant = "ToolbarIcon::Plus";
-    let terminal_icon_variant = "ToolbarIcon::Terminal";
-    let codex_icon_variant = "ToolbarIcon::Codex";
-    let browser_icon_variant = "ToolbarIcon::Browser";
-    let preview_icon_variant = "ToolbarIcon::Preview";
     let legacy_settings_glyph = "\"⚙\"";
 
     assert!(
@@ -231,26 +143,6 @@ fn test_top_toolbar_includes_settings_icon_entry() {
     assert!(
         render_source.contains(settings_icon_variant),
         "顶部菜单设置按钮应使用 ToolbarIcon::Settings 图标变体"
-    );
-    assert!(
-        render_source.contains(plus_icon_variant),
-        "新增设置入口不应移除顶部新终端按钮（ToolbarIcon::Plus）"
-    );
-    assert!(
-        render_source.contains(terminal_icon_variant),
-        "Settings 入口不应移除 Terminal 直达按钮"
-    );
-    assert!(
-        render_source.contains(codex_icon_variant),
-        "新增设置入口不应移除 Codex 图标按钮"
-    );
-    assert!(
-        render_source.contains(browser_icon_variant),
-        "Settings 入口不应移除 Browser 直达按钮"
-    );
-    assert!(
-        render_source.contains(preview_icon_variant),
-        "Settings 入口不应移除 Preview 直达按钮"
     );
     assert!(
         !render_source.contains(legacy_settings_glyph),
@@ -271,16 +163,16 @@ fn test_top_toolbar_includes_settings_icon_entry() {
 ///   forbidden handler  = "on_" + "toolbar" + "_canvas_scroll"
 ///   forbidden icons    = "ToolbarIcon::Scroll"、"ToolbarIcon::Cursor"（仅该按钮使用）
 ///   forbidden tooltips = "Select mode"、"Scroll mode"
-///   existing ids       = toolbar-new-terminal、toolbar-settings、toolbar-layout
+///   existing ids       = toolbar-settings、toolbar-settings、toolbar-layout
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取 dock.rs 的生产渲染源码
 ///   2. 确认画布模式按钮 id、点击 handler、图标变体与 tooltip 文案均不存在
-///   3. 确认 New、Settings、Layout 入口仍存在
+///   3. 确认指令输入、Settings、Layout 入口仍存在
 ///
 /// 预期结果：
 ///   - 负断言：toolbar-canvas-scroll、on_toolbar_canvas_scroll、Scroll/Cursor 图标、Select/Scroll mode 文案不再出现
-///   - 正断言：New（ToolbarIcon::Plus）、Settings、Layout 入口仍存在
+///   - 正断言：指令输入、Settings、Layout 入口仍存在
 #[test]
 fn test_command_dock_has_no_canvas_mode_toggle() {
     let source = include_str!("../../src/app/chrome/dock.rs");
@@ -306,8 +198,8 @@ fn test_command_dock_has_no_canvas_mode_toggle() {
         "Dock 不应再出现 Select mode / Scroll mode 文案"
     );
     assert!(
-        render_source.contains("ToolbarIcon::Plus"),
-        "移除画布模式按钮不应移除 New 入口"
+        render_source.contains("render_command_input"),
+        "Dock 应保留指令输入入口"
     );
     assert!(
         render_source.contains(concat!("toolbar", "-settings")),

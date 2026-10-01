@@ -5,7 +5,6 @@ mod top_bar;
 
 use super::MultisoulApp;
 use crate::app::wallpaper_resolvers::WallpaperKind;
-use crate::canvas::minimap::render_canvas_minimap;
 use gpui::{
     div, img, linear_color_stop, linear_gradient, point, prelude::*, px, rgba, BoxShadow, Context,
     Div, ObjectFit, Stateful, Window,
@@ -376,10 +375,13 @@ impl MultisoulApp {
             .left(px(0.0))
             .right(px(0.0))
             .bottom(px(0.0))
-            .child(render_canvas_minimap(&self.runtime, theme, window))
             .when_some(voice_caption, |chrome, caption| chrome.child(caption))
             .child(self.render_command_dock(window, cx))
             .child(self.render_workspace_top_bar(cx))
+            .when_some(
+                self.render_command_suggestions(window, cx),
+                |chrome, menu| chrome.child(menu),
+            )
             .when(self.voice_ready_notification_visible, |chrome| {
                 chrome.child(self.render_voice_ready_notification(cx))
             })
@@ -472,10 +474,6 @@ fn bottom_voice_bar_visible() -> bool {
 #[cfg(test)]
 #[path = "../../tests/unit/app_chrome_tests.rs"]
 mod app_chrome_tests;
-
-#[cfg(test)]
-#[path = "../../tests/unit/app_chrome_cursor_tests.rs"]
-mod app_chrome_cursor_tests;
 
 #[cfg(test)]
 #[path = "../../tests/unit/product_ui_chrome_tests.rs"]

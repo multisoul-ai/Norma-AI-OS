@@ -2,6 +2,7 @@
 
 use super::chrome::chrome_shadow;
 use super::MultisoulApp;
+use crate::effects::dispatch_receipt::{COMMAND_DOCK_BOTTOM_PX, COMMAND_DOCK_HEIGHT_PX};
 use canvas::{CanvasRect, GridCardSizing, GridFill};
 use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, MouseButton, Stateful, Window};
 use ui::icons::with_alpha;
@@ -9,8 +10,8 @@ use ui::Theme;
 
 /// 布局菜单面板宽度（与 render_layout_menu 的 w(px(294.0)) 一致）。
 pub(crate) const LAYOUT_MENU_WIDTH_PX: f32 = 294.0;
-/// 布局菜单底部距窗口底部的距离（与 bottom(px(82.0)) 一致）。
-pub(crate) const LAYOUT_MENU_BOTTOM_PX: f32 = 82.0;
+/// Dock 底部 22 + 高度 52 + 浮层间距 8 = 82px。
+pub(crate) const LAYOUT_MENU_BOTTOM_PX: f32 = COMMAND_DOCK_BOTTOM_PX + COMMAND_DOCK_HEIGHT_PX + 8.0;
 /// 布局菜单面板高度（内容推导：heading 20 + 填充块 49 + 轨道 26 + 尺寸块 49 + reflow 32 + gap×4=40 + padding×2=24）。
 pub(crate) const LAYOUT_MENU_HEIGHT_PX: f32 = 240.0;
 
@@ -130,7 +131,7 @@ impl MultisoulApp {
 
         div()
             .absolute()
-            .bottom(px(82.0))
+            .bottom(px(LAYOUT_MENU_BOTTOM_PX))
             .left(px(0.0))
             .right(px(0.0))
             .flex()

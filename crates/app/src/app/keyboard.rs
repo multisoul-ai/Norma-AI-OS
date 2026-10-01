@@ -257,6 +257,9 @@ impl MultisoulApp {
         if self.handle_feature_guide_key_down(ev, window, cx) {
             return;
         }
+        if self.command_input_focused(window, cx) {
+            return;
+        }
         if let Some(node_id) = self.previews.focused_editor(window, cx) {
             if self.shortcuts.command_for_keystroke(&ev.keystroke)
                 == Some(ShortcutCommandId::SavePreviewFile)

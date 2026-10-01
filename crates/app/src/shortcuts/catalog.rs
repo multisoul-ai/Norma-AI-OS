@@ -1,6 +1,7 @@
 use super::{ReadOnlyShortcutBehavior, ShortcutCommandId, ShortcutEntry};
 
 const DEFAULT_SHORTCUT_ENTRIES: &[ShortcutEntry] = &[
+        entry(ShortcutCommandId::FocusCommandInput, "Workspace", "Focus Command Input", "Find and run canvas commands", Some("cmd-k")),
         entry(ShortcutCommandId::SavePreviewFile, "Cards", "Save File", "Save edits in the active file card", Some("cmd-s")),
         entry(ShortcutCommandId::NewWindow, "Workspace", "New Window", "Open a new project launcher window", Some("cmd-shift-n")),
         entry(ShortcutCommandId::NewTerminal, "Workspace", "New Terminal", "Create a terminal card in the visible canvas", Some("cmd-1")),

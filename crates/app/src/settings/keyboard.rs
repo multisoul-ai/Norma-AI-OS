@@ -278,6 +278,7 @@ fn scope_badge(theme: Theme, label: &'static str) -> Div {
 
 fn shortcut_row_id(command: ShortcutCommandId) -> &'static str {
     match command {
+        ShortcutCommandId::FocusCommandInput => "settings-shortcut-command-input",
         ShortcutCommandId::NewWindow => "settings-shortcut-new-window",
         ShortcutCommandId::NewTerminal => "settings-shortcut-new-terminal",
         ShortcutCommandId::NewBrowser => "settings-shortcut-new-browser",
@@ -301,6 +302,7 @@ fn shortcut_row_id(command: ShortcutCommandId) -> &'static str {
 
 fn shortcut_restore_id(command: ShortcutCommandId) -> &'static str {
     match command {
+        ShortcutCommandId::FocusCommandInput => "settings-shortcut-restore-command-input",
         ShortcutCommandId::NewWindow => "settings-shortcut-restore-new-window",
         ShortcutCommandId::NewTerminal => "settings-shortcut-restore-new-terminal",
         ShortcutCommandId::NewBrowser => "settings-shortcut-restore-new-browser",

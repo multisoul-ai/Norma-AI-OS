@@ -14,7 +14,10 @@ const FIXED_CARD_WIDTH_SCREEN_PX: f32 = 360.0;
 const WORKSPACE_SAFE_LEFT_PX: f32 = 96.0;
 const WORKSPACE_SAFE_TOP_PX: f32 = 86.0;
 const WORKSPACE_SAFE_RIGHT_PX: f32 = 32.0;
-const WORKSPACE_SAFE_BOTTOM_PX: f32 = 84.0;
+// Dock 底部 + 高度 + 10px 间距，避免卡片与 Dock 相叠。
+const WORKSPACE_SAFE_BOTTOM_PX: f32 = crate::effects::dispatch_receipt::COMMAND_DOCK_BOTTOM_PX
+    + crate::effects::dispatch_receipt::COMMAND_DOCK_HEIGHT_PX
+    + 10.0;
 
 /// 底部布局菜单中的策略。新增卡片会与现有卡片共同缩放，以保持在当前视区内。
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

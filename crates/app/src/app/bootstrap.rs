@@ -166,6 +166,7 @@ impl MultisoulApp {
             ego: super::ego::EgoController::default(),
             ego_previews: super::ego_preview::EgoPreviewStore::default(),
             browser_address_edit: None,
+            command_dock: None,
             master_layout: MasterLayoutState::default(),
             layout_strategy: CanvasLayoutStrategy::default(),
             persistence: PersistenceScheduler::default(),

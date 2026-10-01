@@ -111,12 +111,17 @@ impl MultisoulApp {
 
     pub(in crate::app) fn animation_activity(&self) -> AnimationActivity {
         let motion_activity = self.motion.activity_summary();
+        let command_drawer_active = self
+            .command_dock
+            .as_ref()
+            .is_some_and(|state| state.drawer.is_active());
         AnimationActivity {
             // Voice window inset owns an independent child driver. Dock and caption share
             // the root waveform schedule because both render inside workspace chrome.
             voice_active: self.voice_caption_animation_active(),
-            canvas_motion_active: motion_activity.canvas_active,
-            canvas_frame_synced_active: motion_activity.frame_synced_active,
+            canvas_motion_active: motion_activity.canvas_active || command_drawer_active,
+            canvas_frame_synced_active: motion_activity.frame_synced_active
+                || command_drawer_active,
             canvas_ambient_active: motion_activity.ambient_active || self.browsers.any_loading(),
             cursor_active: self.focused_terminal_cursor_animation_active(),
             screen_is_canvas: matches!(self.screen, AppScreen::Canvas),
@@ -155,7 +160,12 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) -> AnimationFrameReport {
         let tick_started_at = Instant::now();
-        let motion_changed = self.motion.tick(animation_delta);
+        let mut motion_changed = self.motion.tick(animation_delta);
+        if let Some(state) = &mut self.command_dock {
+            motion_changed |= state
+                .drawer
+                .tick(animation_delta, self.motion.reduce_motion);
+        }
         let cursor_changed = self.advance_terminal_cursor_phase(animation_delta);
         let voice_caption_changed = self.advance_voice_caption_waveform(animation_delta);
         self.tts_preview.synchronize_external_cancellation();

@@ -13,6 +13,7 @@ impl Render for MultisoulApp {
             self.working_snake_views.clear();
         }
         self.sync_feature_guide_blockers(cx);
+        self.sync_command_drawer(window);
         self.voice_window_inset_window_visible = state::window_visible_for_voice_inset(window);
         self.sync_voice_window_inset_enabled();
         let performance_state = self.performance_state(cx);
@@ -31,6 +32,7 @@ impl Render for MultisoulApp {
         let mut root = div()
             .key_context("MultisoulApp")
             .track_focus(&self.focus_handle)
+            .capture_key_down(cx.listener(Self::capture_command_dock_key))
             .on_action(cx.listener(Self::on_open_feature_guide))
             .when(!feature_guide_visible, |root| {
                 root.on_action(cx.listener(Self::on_new_window))

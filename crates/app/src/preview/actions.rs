@@ -6,6 +6,7 @@ use crate::canvas::master_layout::{
     enter_master_layout_for_area, reapply_master_layout_for_area, switch_master_layout_for_area,
 };
 use canvas::{CanvasNodeKind, CanvasRect, NodeId, PreviewType};
+use futures::channel::oneshot;
 use gpui::{AppContext, Context, PathPromptOptions, Window};
 use std::path::PathBuf;
 
@@ -115,42 +116,85 @@ impl MultisoulApp {
     }
 
     pub(crate) fn prompt_preview_file(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let area = self.visible_canvas_rect(window);
-        let bounds = self.next_tiled_node_bounds(window);
-        let zoom = self.runtime.document.viewport.zoom;
+        self.prompt_preview_file_with_source(false, window, cx);
+    }
+
+    pub(crate) fn prompt_preview_file_from_command(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.prompt_preview_file_with_source(true, window, cx);
+    }
+
+    fn prompt_preview_file_with_source(
+        &mut self,
+        from_command: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let receiver = cx.prompt_for_paths(PathPromptOptions {
             files: true,
             directories: false,
             multiple: true,
             prompt: Some("Preview File or Images".into()),
         });
+        self.handle_preview_picker_receiver(receiver, from_command, window, cx);
+    }
 
-        cx.spawn(async move |this, cx| {
-            match receiver.await {
-                Ok(Ok(Some(paths))) => {
-                    if !paths.is_empty() {
-                        this.update(&mut *cx, |app, cx| {
-                            app.spawn_preview_from_paths(paths, None, bounds, area, zoom, cx);
-                        })?;
+    pub(crate) fn handle_preview_picker_receiver(
+        &mut self,
+        receiver: oneshot::Receiver<anyhow::Result<Option<Vec<PathBuf>>>>,
+        from_command: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let area = self.visible_canvas_rect(window);
+        let bounds = self.next_tiled_node_bounds(window);
+        let zoom = self.runtime.document.viewport.zoom;
+        let workspace = self.runtime.workspace_root().map(PathBuf::from);
+        cx.spawn_in(window, async move |this, cx| {
+            let result = receiver.await;
+            this.update_in(cx, |app, window, cx| {
+                if app.runtime.workspace_root() != workspace.as_deref() || !app.can_create_preview()
+                {
+                    if from_command {
+                        if let Some(state) = &mut app.command_dock {
+                            state.pending_preview = None;
+                        }
                     }
+                    cx.notify();
+                    return;
                 }
-                Ok(Ok(None)) => {}
-                Ok(Err(error)) => {
-                    this.update(&mut *cx, |app, cx| {
-                        app.workspace_state.error =
-                            Some(format!("Could not open preview picker: {error}"));
-                        cx.notify();
-                    })?;
-                }
-                Err(error) => {
-                    this.update(&mut *cx, |app, cx| {
-                        app.workspace_state.error = Some(format!(
+                let mut success = false;
+                let mut picker_error = None;
+                match result {
+                    Ok(Ok(Some(paths))) if !paths.is_empty() => {
+                        success = app
+                            .spawn_preview_from_paths(paths, None, bounds, area, zoom, cx)
+                            .is_some();
+                        if !success {
+                            picker_error = app.workspace_state.error.clone();
+                        }
+                    }
+                    Ok(Err(error)) => {
+                        picker_error = Some(format!("Could not open preview picker: {error}"))
+                    }
+                    Err(error) => {
+                        picker_error = Some(format!(
                             "Preview picker was cancelled unexpectedly: {error}"
-                        ));
-                        cx.notify();
-                    })?;
+                        ))
+                    }
+                    _ => {}
                 }
-            }
+                if let Some(error) = &picker_error {
+                    app.workspace_state.error = Some(error.clone());
+                }
+                if from_command {
+                    app.finish_command_preview(success, picker_error, window, cx);
+                }
+                cx.notify();
+            })?;
             Ok::<(), anyhow::Error>(())
         })
         .detach();

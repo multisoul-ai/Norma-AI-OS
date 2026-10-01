@@ -7,7 +7,7 @@ use super::{
 use crate::canvas::master_layout::term_grid_size_for_card;
 use crate::canvas::spawn_focus;
 use canvas::{AgentProfile, AgentSpec, NodeType};
-use gpui::{ClickEvent, Context, Window};
+use gpui::{Context, Window};
 use storage::AgentDefinition;
 
 pub(crate) fn agent_spec_from_definition(definition: &AgentDefinition) -> AgentSpec {
@@ -169,15 +169,6 @@ impl MultisoulApp {
             }
         }
         cx.notify();
-    }
-
-    pub(crate) fn on_toolbar_new_codex_agent(
-        &mut self,
-        _: &ClickEvent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.spawn_agent_card(AgentProfile::Codex, window, cx);
     }
 }
 

@@ -7,7 +7,7 @@ use super::working_snakes::{self, WorkingSnakeGeometry};
 use crate::app::browser::native::BROWSER_NATIVE_BORDER_INSET_PX;
 use crate::app::browser::{browser_native_view_bounds, native_browser_views_visible};
 use crate::app::layout_menu::{browser_content_occluded_by_overlay, layout_menu_screen_rect};
-use crate::app::{new_menu_screen_rect, MultisoulApp};
+use crate::app::MultisoulApp;
 #[cfg(test)]
 use crate::canvas::events::{should_focus_app_root_for_mouse_down, should_notify_motion_frame};
 #[cfg(test)]
@@ -69,11 +69,7 @@ pub fn render_canvas(
     let native_browser_views_visible = native_browser_views_visible(app.settings_panel.open);
     // 底部弹出菜单打开时计算屏幕矩形；关闭时为 None（不做遮挡过滤）。
     let layout_menu_rect = layout_menu_screen_rect(app.interaction.layout_menu_open, win_w, win_h);
-    let new_menu_rect = new_menu_screen_rect(
-        app.interaction.new_menu_open,
-        app.interaction.new_menu_activation_x,
-        win_h,
-    );
+    let command_menu_rect = app.command_panel_rect(win_w, win_h);
     let mut visible_nodes = 0usize;
     let mut snake_nodes = 0usize;
     let node_ids: Vec<NodeId> = app.runtime.document.nodes().iter().map(|n| n.id).collect();
@@ -334,7 +330,7 @@ pub fn render_canvas(
                 (h - browser_header_h - BROWSER_NATIVE_BORDER_INSET_PX as f32 * 2.0).max(0.0),
             );
             browser_content_occluded_by_overlay(content_rect, layout_menu_rect)
-                || browser_content_occluded_by_overlay(content_rect, new_menu_rect)
+                || browser_content_occluded_by_overlay(content_rect, command_menu_rect)
         };
         let card_body = card.body(
             &node,

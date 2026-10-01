@@ -59,6 +59,7 @@ pub(crate) use browser::{BrowserCommand, BrowserCommandKind};
 mod canvas_surface;
 pub(crate) mod cef_process;
 mod chrome;
+pub(crate) mod command_dock;
 pub(crate) use chrome::FrostedBackdropGeometry;
 mod clipboard_image;
 mod cpu_benchmark;
@@ -94,8 +95,6 @@ mod keyboard_settings;
 mod layout_actions;
 pub(crate) mod layout_menu;
 mod lifecycle;
-mod new_menu;
-pub(crate) use new_menu::new_menu_screen_rect;
 mod render;
 mod state;
 #[cfg(target_os = "macos")]
@@ -172,6 +171,7 @@ pub struct MultisoulApp {
     pub(crate) ego: ego::EgoController,
     pub(crate) ego_previews: ego_preview::EgoPreviewStore,
     pub(crate) browser_address_edit: Option<BrowserAddressEdit>,
+    pub(crate) command_dock: Option<command_dock::CommandDockState>,
     pub(crate) master_layout: MasterLayoutState,
     pub(crate) layout_strategy: CanvasLayoutStrategy,
     pub(crate) persistence: PersistenceScheduler,

@@ -6,7 +6,7 @@ use canvas::CanvasRect;
 /// 数据构造（含关键数值的推导过程）：
 ///   viewport = 1280×800（生产默认窗口，见 workspace/windowing.rs initial_window_dimensions）
 ///   LAYOUT_MENU_WIDTH_PX  = 294   （菜单面板宽度，与 layout_menu.rs render_layout_menu 的 w(294) 一致）
-///   LAYOUT_MENU_BOTTOM_PX = 82    （菜单底部距窗口底部，与 bottom(px(82.0)) 一致）
+///   LAYOUT_MENU_BOTTOM_PX = 82    （Dock 底边 22 + 高度 52 + 间距 8 = 82）
 ///   LAYOUT_MENU_HEIGHT_PX = 240   （面板内容推导：heading 20 + 填充块 49 + 轨道 26 + 尺寸块 49 + reflow 32 + gap×4=40 + padding×2=24）
 ///   menu_left = (1280 - 294) / 2 = 493
 ///   menu_top  = 800 - 82 - 240 = 478
