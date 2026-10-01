@@ -29,6 +29,7 @@
 | 检查 | 结果 | 本地日志 |
 | --- | --- | --- |
 | 合并版本 `cargo test --workspace --no-fail-fast -- --test-threads=1` | 1729 passed，31 ignored | `workspace-green.log` |
+| 最终代码 `cargo test --workspace --no-fail-fast -- --test-threads=1` | 1735 passed，31 ignored | `final-workspace-tests.log` |
 | 恢复后 `cargo test -p app --lib -- --test-threads=1` | 883 passed，7 ignored | `restored-app-tests.log` |
 | GPUI 独立 manifest 的 `scene_native` 单测 | 1 passed | `gpui-native-tests.log` |
 | `cargo check -p app` | 通过，34 warnings | `restored-check.log` |

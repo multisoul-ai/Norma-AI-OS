@@ -1,6 +1,6 @@
 # Goal：桌面统一场景、GPU 合成与连续画布重构
 
-状态：ACTIVE。2026-10-02 已将 `origin/dev@55ca6101` 合并为 `549eca74`，并恢复 Browser 原生视图场景接线、镜头起点、同级返回及项目直达目录改动。合并版本全仓测试 1729 passed / 31 ignored；恢复后全量 App 测试 883 passed / 7 ignored，GPUI 原生场景测试 1 passed。Computer Use 连接既有隔离 App 仍超时，未取得本轮真实窗口验收证据。跨工作空间直接转向、工作空间展开途中选择项目、Browser 真机交互及 S1–S4 性能仍待完成，G0–G5 均未通过。详见[本轮整合记录](2026-10-02-desktop-dev-merge.md)。
+状态：ACTIVE。2026-10-02 已将 `origin/dev@55ca6101` 合并为 `549eca74`，并恢复 Browser 原生视图场景接线、镜头起点、同级返回及项目直达目录改动。最终代码全仓测试 1735 passed / 31 ignored；恢复后全量 App 测试 883 passed / 7 ignored，GPUI 原生场景测试 1 passed；默认／Chromium 检查及 Release 构建通过。Computer Use 连接既有隔离 App 仍超时，未取得本轮真实窗口验收证据。跨工作空间直接转向、工作空间展开途中选择项目、Browser 真机交互及 S1–S4 性能仍待完成，G0–G5 均未通过。详见[本轮整合记录](2026-10-02-desktop-dev-merge.md)。
 
 **dev 整合决策（2026-10-02，用户确认）**：采用 dev 的紧凑 Command Dock，保留当前工作空间的项目编号和当前窗口导航；项目命令建议与键盘输入由对应项目持有。Agent 卡片材质采用 dev 的半透明渐变，移除多层壁纸采样，保留壁纸、圆角与描边。命令 Dock 用于项目指令，不新增跨工作空间派工入口。完成后普通推送并创建目标为 `dev` 的 PR；**不得合并 PR**。本修订覆盖下文关于保留旧 Dock/采样实现的历史描述。
 
