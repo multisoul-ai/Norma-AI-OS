@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1560 1030" role="img" aria-labelledby="title desc">
+  <title id="title">Norma iOS 原生替换开发路线</title>
+  <desc id="desc">A0 产品边界已确认，先确认 A1 云服务架构，再完成 S0 to-spec，随后按 T1 到 T9 依次交付想法、工作空间、线程、真实派工、跨端协作、收件箱、Norma 对话及最终切换。每一步先测试、实现、自动验收、真实 App 验收、清理旧代码。</desc>
+  <defs>
+    <linearGradient id="page" x2="1" y2="1">
+      <stop stop-color="#F5F8FF"/>
+      <stop offset="1" stop-color="#EFF4F7"/>
+    </linearGradient>
+    <linearGradient id="header" x2="1" y2="0">
+      <stop stop-color="#102542"/>
+      <stop offset="1" stop-color="#1B3B64"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-30%" width="140%" height="170%">
+      <feDropShadow dx="0" dy="9" stdDeviation="12" flood-color="#1B3351" flood-opacity="0.09"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M1 1 L10 6 L1 11" fill="none" stroke="#637C9E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", sans-serif; fill: #15243A; }
+      .eyebrow { font-size: 16px; font-weight: 700; letter-spacing: 2px; fill: #55708E; }
+      .heading { font-size: 36px; font-weight: 800; letter-spacing: -1px; fill: #fff; }
+      .subheading { font-size: 18px; fill: #D4E4FB; }
+      .section { font-size: 19px; font-weight: 700; fill: #47617F; }
+      .num { font-size: 16px; font-weight: 800; fill: #3767B2; }
+      .cardTitle { font-size: 25px; font-weight: 750; }
+      .cardText { font-size: 16px; fill: #52657C; }
+      .small { font-size: 15px; fill: #57708C; }
+      .arrow { fill: none; stroke: #637C9E; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect width="1560" height="1030" fill="url(#page)"/>
+  <rect x="34" y="28" width="1492" height="128" rx="31" fill="url(#header)"/>
+  <text x="70" y="77" class="heading">Norma iOS：从规格到原生替换</text>
+  <text x="70" y="117" class="subheading">保留现有配对、任务和历史数据；每一阶段交付真实可用的路径</text>
+  <rect x="1320" y="62" width="158" height="50" rx="25" fill="#FFFFFF" fill-opacity="0.13" stroke="#FFFFFF" stroke-opacity="0.25"/>
+  <text x="1399" y="94" text-anchor="middle" style="font-size:17px;font-weight:700;fill:#fff">A1 待确认</text>
+
+  <text x="58" y="205" class="section">① 定义与规格</text>
+  <rect x="58" y="226" width="340" height="108" rx="22" fill="#FFFFFF" stroke="#D9E3F0" filter="url(#shadow)"/>
+  <circle cx="92" cy="264" r="16" fill="#DDF5E9"/>
+  <path d="M85 264l5 5 10-11" fill="none" stroke="#19845D" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="121" y="268" class="cardTitle" style="font-size:21px">A0 · 产品边界</text>
+  <text x="83" y="306" class="cardText">身份、数据归属、权限与兼容边界</text>
+  <path d="M409 280 H454" class="arrow"/>
+  <rect x="466" y="226" width="454" height="108" rx="22" fill="#E7F0FF" stroke="#B8CEF2" filter="url(#shadow)"/>
+  <text x="492" y="264" class="num">A1 · 下一步</text>
+  <text x="492" y="301" class="cardTitle" style="font-size:22px">云服务、模块与依赖确认</text>
+  <path d="M931 280 H976" class="arrow"/>
+  <rect x="988" y="226" width="514" height="108" rx="22" fill="#FFFFFF" stroke="#D9E3F0" filter="url(#shadow)"/>
+  <text x="1014" y="264" class="num">S0 · to-spec</text>
+  <text x="1014" y="299" class="cardText">逐任务写清交互、数据、状态、权限和验收</text>
+
+  <text x="58" y="392" class="section">② 完成核心使用链路</text>
+  <path d="M290 485 H334" class="arrow"/>
+  <path d="M585 485 H629" class="arrow"/>
+  <path d="M880 485 H924" class="arrow"/>
+  <path d="M1175 485 H1219" class="arrow"/>
+
+  <g filter="url(#shadow)">
+    <rect x="58" y="414" width="232" height="154" rx="23" fill="#FFFFFF" stroke="#C6D8FA"/>
+    <rect x="353" y="414" width="232" height="154" rx="23" fill="#FFFFFF" stroke="#C6D8FA"/>
+    <rect x="648" y="414" width="232" height="154" rx="23" fill="#FFFFFF" stroke="#C3E0DF"/>
+    <rect x="943" y="414" width="232" height="154" rx="23" fill="#FFFFFF" stroke="#C3E0DF"/>
+    <rect x="1238" y="414" width="264" height="154" rx="23" fill="#FFFFFF" stroke="#CBBFF1"/>
+  </g>
+  <text x="82" y="449" class="num">T1</text><text x="82" y="482" class="cardTitle">文字想法</text>
+  <text x="82" y="512" class="cardText">离线保存、编辑、搜索</text><text x="82" y="539" class="small">旧入口继续可用</text>
+  <text x="377" y="449" class="num">T2</text><text x="377" y="482" class="cardTitle">语音想法</text>
+  <text x="377" y="512" class="cardText">iPhone Apple Speech</text><text x="377" y="539" class="small">失败保留原录音</text>
+  <text x="672" y="449" class="num">T3</text><text x="672" y="482" class="cardTitle">工作空间</text>
+  <text x="672" y="512" class="cardText">关联项目与 Agent</text><text x="672" y="539" class="small">逐台 Mac 授权</text>
+  <text x="967" y="449" class="num">T4</text><text x="967" y="482" class="cardTitle">工作线程</text>
+  <text x="967" y="512" class="cardText">引用想法、共享消息</text><text x="967" y="539" class="small">离线状态可追踪</text>
+  <text x="1262" y="449" class="num">T5 · 核心闭环</text><text x="1262" y="482" class="cardTitle">单 Mac 派工</text>
+  <text x="1262" y="512" class="cardText">云端 Norma → Agent</text><text x="1262" y="539" class="small">只认真实执行回执</text>
+
+  <path d="M1370 580 V622" class="arrow"/>
+  <text x="58" y="640" class="section">③ 扩展协作并正式切换</text>
+  <path d="M1238 733 H1194" class="arrow"/>
+  <path d="M943 733 H899" class="arrow"/>
+  <path d="M648 733 H604" class="arrow"/>
+  <path d="M353 733 H309" class="arrow"/>
+
+  <g filter="url(#shadow)">
+    <rect x="1238" y="663" width="264" height="153" rx="23" fill="#FFFFFF" stroke="#CBBFF1"/>
+    <rect x="943" y="663" width="232" height="153" rx="23" fill="#FFFFFF" stroke="#F0D9AD"/>
+    <rect x="648" y="663" width="232" height="153" rx="23" fill="#FFFFFF" stroke="#F0D9AD"/>
+    <rect x="353" y="663" width="232" height="153" rx="23" fill="#FFFFFF" stroke="#B9DEC9"/>
+    <rect x="58" y="663" width="232" height="153" rx="23" fill="#E4F5EB" stroke="#AFD6BE"/>
+  </g>
+  <text x="1262" y="698" class="num">T6</text><text x="1262" y="731" class="cardTitle">多 Mac 与桌面</text>
+  <text x="1262" y="761" class="cardText">离线建线程、重连同步</text><text x="1262" y="788" class="small">跨项目权限隔离</text>
+  <text x="967" y="698" class="num">T7</text><text x="967" y="731" class="cardTitle">收件箱与成果</text>
+  <text x="967" y="761" class="cardText">仅打断需要人的事项</text><text x="967" y="788" class="small">验收、退回、终端</text>
+  <text x="672" y="698" class="num">T8</text><text x="672" y="731" class="cardTitle">Norma 对话</text>
+  <text x="672" y="761" class="cardText">长期历史、实时虚拟人</text><text x="672" y="788" class="small">手机独立直连云端</text>
+  <text x="377" y="698" class="num">T9</text><text x="377" y="731" class="cardTitle">切换与清理</text>
+  <text x="377" y="761" class="cardText">新三项底栏、旧数据迁移</text><text x="377" y="788" class="small">删除无引用旧代码</text>
+  <text x="82" y="700" class="num" style="fill:#19845D">交付门槛</text>
+  <text x="82" y="739" class="cardTitle">真实 App 通过</text>
+  <text x="82" y="769" class="cardText">旧记录可回源</text>
+  <text x="82" y="795" class="small">无假回执、无数据丢失</text>
+
+  <rect x="58" y="863" width="1444" height="109" rx="24" fill="#173553"/>
+  <text x="85" y="899" style="font-size:17px;font-weight:700;fill:#C9DCF3">每个开发任务都走同一闭环</text>
+  <text x="85" y="940" style="font-size:20px;font-weight:700;fill:#FFFFFF">先写失败测试　→　完成最小真实路径　→　自动化验收　→　Computer Use 验收真实页面　→　清理被替换的代码</text>
+</svg>

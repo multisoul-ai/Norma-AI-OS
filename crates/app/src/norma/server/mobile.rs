@@ -10,6 +10,9 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) -> Result<NodeId, &'static str> {
         let node = expected.node_id;
+        if self.previews.has_pending_edits(node) {
+            return Err("state_not_ready");
+        }
         // Queued dispatch has its own lifecycle; do not drop tasks when closing a card.
         if self.mobile_node_has_pending_work(node) {
             return Err("state_not_ready");

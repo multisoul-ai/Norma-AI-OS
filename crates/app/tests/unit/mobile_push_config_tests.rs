@@ -121,6 +121,16 @@ fn saved_relay_is_isolated_validated_and_explicitly_disabled() {
     )
     .expect("合法输入");
     configuration::save(&a, Some(&config)).expect("保存");
+    let persisted = a
+        .settings_store()
+        .get_string("mobile.push.config")
+        .expect("应能读取 SQLite 推送配置");
+    assert!(
+        persisted
+            .as_deref()
+            .is_some_and(|value| value.contains(&key)),
+        "推送凭据必须写入隔离 app.sqlite"
+    );
     let loaded = configuration::load(&a)
         .expect("重读")
         .expect("已设置")
@@ -154,6 +164,19 @@ fn saved_relay_is_isolated_validated_and_explicitly_disabled() {
         "拒绝修改不删除原配置"
     );
     configuration::save(&a, None).expect("清除与停用");
+    let disabled = a
+        .settings_store()
+        .get_string("mobile.push.config")
+        .expect("应能读取 SQLite 停用标记");
+    assert_eq!(
+        disabled.as_deref(),
+        Some("null"),
+        "停用必须持久化明确的 null 标记"
+    );
+    assert!(
+        !disabled.as_deref().unwrap_or_default().contains(&key),
+        "停用后 SQLite 不得残留推送密钥"
+    );
     assert!(
         matches!(configuration::load(&a).expect("停用"), Some(None)),
         "停用必须显式保存，不能因环境变量复活"

@@ -6,6 +6,11 @@ use std::fmt;
 impl fmt::Debug for SavedVoiceSettings {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("SavedVoiceSettings")
+            .field("desktop_mode", &self.desktop_mode)
+            .field(
+                "doubao_credential_ref",
+                &self.doubao_credential_ref.as_ref().map(|_| "<opaque>"),
+            )
             .field("interaction_mode", &self.interaction_mode)
             .field("dictation_trigger", &self.dictation_trigger)
             .field("asr_model_id", &self.asr_model_id)
@@ -46,6 +51,11 @@ impl fmt::Debug for SavedVoiceSettings {
 impl fmt::Debug for VoiceSettingsValues {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("VoiceSettingsValues")
+            .field("desktop_mode", &self.desktop_mode)
+            .field(
+                "doubao_credential_ref",
+                &self.doubao_credential_ref.as_ref().map(|_| "<opaque>"),
+            )
             .field("interaction_mode", &self.interaction_mode)
             .field("dictation_trigger", &self.dictation_trigger)
             .field("asr_model_id", &self.asr_model_id)
@@ -80,6 +90,7 @@ impl fmt::Debug for VoiceSettingsState {
                 VoiceSettingsField::ApiKey
                     | VoiceSettingsField::AzureApiKey
                     | VoiceSettingsField::MiniMaxApiKey
+                    | VoiceSettingsField::DoubaoApiKey
             )
         ) {
             "<redacted>"

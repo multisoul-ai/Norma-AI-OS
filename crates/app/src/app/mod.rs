@@ -28,7 +28,7 @@ use crate::workspace::desktop::DesktopWorkspaceUiState;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
 use canvas::{CanvasRect, NodeId, NodeType, Vec2};
-use gpui::{actions, div, prelude::*, px, ClickEvent, Context, FocusHandle, Focusable, Window};
+use gpui::{actions, div, prelude::*, px, Context, FocusHandle, Focusable, Window};
 use runtime::{route, InputEvent, Route, Runtime};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -60,13 +60,14 @@ pub(crate) use browser::{BrowserCommand, BrowserCommandKind};
 mod canvas_surface;
 pub(crate) mod cef_process;
 mod chrome;
-pub(crate) use chrome::FrostedBackdropGeometry;
 mod clipboard_image;
+pub(crate) mod command_dock;
 mod cpu_benchmark;
 mod cursor_animation;
 #[cfg(test)]
 use cursor_animation::focused_cursor_animation_active;
 pub(crate) mod dialogue;
+mod doubao;
 mod e2e;
 pub(crate) mod ego;
 #[cfg(all(target_os = "macos", any(test, not(feature = "e2e-test-support"))))]
@@ -94,8 +95,6 @@ mod keyboard_settings;
 mod layout_actions;
 pub(crate) mod layout_menu;
 mod lifecycle;
-mod new_menu;
-pub(crate) use new_menu::new_menu_screen_rect;
 mod render;
 mod state;
 #[cfg(target_os = "macos")]
@@ -172,6 +171,7 @@ pub struct MultisoulApp {
     pub(crate) ego: ego::EgoController,
     pub(crate) ego_previews: ego_preview::EgoPreviewStore,
     pub(crate) browser_address_edit: Option<BrowserAddressEdit>,
+    pub(crate) command_dock: Option<command_dock::CommandDockState>,
     pub(crate) master_layout: MasterLayoutState,
     pub(crate) layout_strategy: CanvasLayoutStrategy,
     pub(crate) persistence: PersistenceScheduler,
@@ -202,6 +202,7 @@ pub struct MultisoulApp {
     pub(crate) clone_project: CloneProjectUiState,
     pub(crate) recent_project_context_path: Option<PathBuf>,
     pub(crate) voice: crate::app::voice::control::VoiceControlState,
+    pub(crate) doubao: doubao::DoubaoVoiceState,
     pub(crate) dialogue: crate::app::dialogue::DialogueControlState,
     pub(crate) tts_preview: crate::app::dialogue::TtsPreviewState,
     pub(crate) pending_tts_activation: Option<crate::app::dialogue::PendingTtsActivation>,
@@ -396,6 +397,13 @@ impl MultisoulApp {
         node_id: NodeId,
         window: &mut Window,
     ) -> bool {
+        if self.previews.has_pending_edits(node_id) {
+            self.workspace_state.error = Some(
+                "You have unsaved changes. Save or cancel your edits before closing this card."
+                    .into(),
+            );
+            return false;
+        }
         if self.runtime.ego_task_state(node_id).is_some()
             && !self.runtime.can_close_ego_node(node_id)
         {
@@ -403,7 +411,7 @@ impl MultisoulApp {
                 Some("Ego 任务仍在进行中；请先完成任务或等待 Agent 结束后再关闭卡片。".to_string());
             return false;
         }
-        if !self.confirm_agent_close_if_needed(node_id) {
+        if !self.confirm_agent_close_if_needed(node_id, true) {
             return false;
         }
         self.release_all_browser_input();
@@ -453,16 +461,6 @@ impl MultisoulApp {
             self.last_reflow_window_size = Some(current);
             self.apply_layout_for_current_mode(window);
         }
-    }
-
-    fn on_toolbar_canvas_scroll(
-        &mut self,
-        _: &ClickEvent,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.interaction.canvas_scroll_enabled = !self.interaction.canvas_scroll_enabled;
-        cx.notify();
     }
 
     pub(crate) fn remove_recent_project(&mut self, path: &Path, cx: &mut Context<Self>) {

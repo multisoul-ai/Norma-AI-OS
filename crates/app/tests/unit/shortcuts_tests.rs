@@ -1,5 +1,47 @@
 use super::*;
 
+/// 场景：指令输入快捷键默认 Cmd+K，支持录制、保存偏好和恢复。
+///
+/// 数据构造：空偏好使用 Cmd+K；替换为未占用的 Ctrl+Alt+K；Cmd+Shift+K留给工作空间切换。
+/// 执行过程：读取默认值，录制替代键，序列化并重新读取偏好，恢复默认。
+/// 预期结果：新键可找到聚焦指令；旧键录制后失效；恢复后新键失效、Cmd+K 生效。
+#[test]
+fn command_input_shortcut_can_be_changed_and_restored() {
+    let mut state = ShortcutSettingsState::default();
+    let original = Keystroke::parse("cmd-k").expect("有效默认快捷键");
+    let replacement = Keystroke::parse("ctrl-alt-k").expect("有效替代快捷键");
+    assert_eq!(
+        state.command_for_keystroke(&original),
+        Some(ShortcutCommandId::FocusCommandInput),
+        "Cmd+K 应聚焦指令框"
+    );
+    state.begin_recording(ShortcutCommandId::FocusCommandInput);
+    assert!(state.record_keystroke(&replacement), "快捷键录制应成功");
+    let persisted = ShortcutPreferences::from_json(&state.prefs.to_json());
+    let mut restored = ShortcutSettingsState::new(persisted, None);
+    assert_eq!(
+        restored.command_for_keystroke(&replacement),
+        Some(ShortcutCommandId::FocusCommandInput),
+        "替代快捷键应随偏好保存"
+    );
+    assert_eq!(
+        restored.command_for_keystroke(&original),
+        None,
+        "原默认键不应继续占用"
+    );
+    restored.restore_default(ShortcutCommandId::FocusCommandInput);
+    assert_eq!(
+        restored.command_for_keystroke(&original),
+        Some(ShortcutCommandId::FocusCommandInput),
+        "恢复默认后 Cmd+K 应生效"
+    );
+    assert_eq!(
+        restored.command_for_keystroke(&replacement),
+        None,
+        "恢复后替代键应释放"
+    );
+}
+
 /// Cards 快速创建默认键位：六类可运行卡片必须按产品顺序占用 Cmd+1 到 Cmd+6。
 ///
 /// 数据构造（含关键数值的推导过程）：

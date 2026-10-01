@@ -35,4 +35,68 @@ import XCTest
         do { try await reopened.save(a); XCTFail("损坏文件不能被新机器覆盖") } catch {}
         XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), "corrupt", "必须保留原始损坏数据供恢复")
     }
+
+    /// 电脑离线时只能显示上次真实同步的项目摘要，重新配对不能抹掉该时间与来源。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   1 台测试 Mac、1 个项目「iOS App」、成功同步时间 Unix 1000 秒；没有任何在线状态夹具。
+    ///
+    /// 执行过程：保存电脑 → 写入一次真实同步摘要 → 较早的迟到响应不能覆盖 → 重建 Store → 用同一二维码元数据再保存。
+    ///
+    /// 预期结果：同步时间和项目名跨重启及重新配对保留；未同步项目不会凭空出现。
+    func testLastSuccessfulProjectSyncSurvivesRestartAndPairingRefresh() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let hex = String(repeating: "a", count: 64)
+        let data = try JSONSerialization.data(withJSONObject: ["version": 1, "machine_id": "mac-" + hex,
+            "machine_name": "Alan Studio", "certificate_sha256": hex, "offer_id": hex, "secret": hex,
+            "endpoints": ["wss://127.0.0.1:9443/mobile"], "expires_in_seconds": 120])
+        let machine = PairedMachine(offer: try PairingOffer.decode(data))
+        let store = MachineStore(url: dir.appendingPathComponent("machines.json"))
+        try await store.save(machine)
+        let syncedAt = Date(timeIntervalSince1970: 1_000)
+        try await store.updateObservation(id: machine.id, projects: [KnownProject(id: "project-a", name: "iOS App")], at: syncedAt)
+        // 迟到响应 900 秒 < 已记录的 1000 秒，不能用过时项目替换最近真实目录。
+        try await store.updateObservation(id: machine.id, projects: [KnownProject(id: "project-b", name: "旧 API")],
+                                          at: Date(timeIntervalSince1970: 900))
+
+        let reopened = MachineStore(url: dir.appendingPathComponent("machines.json"))
+        let firstLoad = try await reopened.load()
+        let first = try XCTUnwrap(firstLoad.first)
+        XCTAssertEqual(first.lastSyncedAt, syncedAt, "最近成功同步时间必须跨重启保留")
+        XCTAssertEqual(first.knownProjects?.map(\.name), ["iOS App"], "离线页只可显示真实读取过的项目")
+        XCTAssertFalse(first.knownProjects?.contains(where: { $0.id == "project-b" }) == true, "未同步的项目不能出现在缓存中")
+
+        try await reopened.save(machine)
+        let refreshedLoad = try await reopened.load()
+        let refreshed = try XCTUnwrap(refreshedLoad.first)
+        XCTAssertEqual(refreshed.lastSyncedAt, syncedAt, "重新配对不能清空最近同步时间")
+        XCTAssertEqual(refreshed.knownProjects?.map(\.id), ["project-a"], "重新配对不能丢失已核验项目摘要")
+    }
+
+    /// 升级前电脑元数据缺少项目摘要字段时仍可加载，不能伪造同步结果。
+    ///
+    /// 数据构造（含关键数值的推导过程）：1 台旧版 Mac；64 位十六进制证书指纹对应 mac- 前缀 ID；
+    ///   旧 JSON 仅有 id、name、certificateSHA256 和 1 个 WSS 地址，不含新增的两个可选字段。
+    ///
+    /// 执行过程：直接写旧 JSON → 从 Store 加载 → 核对身份和未同步状态。
+    ///
+    /// 预期结果：旧电脑仍可使用；同步时间与目录均为空，不能显示原型夹具项目。
+    func testLegacyMachineRecordLoadsWithoutInventingProjects() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let hex = String(repeating: "c", count: 64)
+        let url = dir.appendingPathComponent("machines.json")
+        let old = [["id": "mac-" + hex, "name": "旧 Mac", "certificateSHA256": hex,
+                    "endpoints": ["wss://127.0.0.1:9443/mobile"]] as [String: Any]]
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try JSONSerialization.data(withJSONObject: old).write(to: url)
+
+        let loaded = try await MachineStore(url: url).load()
+        XCTAssertEqual(loaded.count, 1, "旧元数据须保留唯一电脑")
+        let machine = try XCTUnwrap(loaded.first)
+        XCTAssertEqual(machine.id, "mac-" + hex, "旧配对身份不得迁移成新 ID")
+        XCTAssertNil(machine.lastSyncedAt, "旧文件不能凭空产生成功同步时间")
+        XCTAssertNil(machine.knownProjects, "旧文件不能凭空显示项目")
+    }
 }

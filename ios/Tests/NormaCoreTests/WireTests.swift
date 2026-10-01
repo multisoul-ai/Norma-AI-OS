@@ -2,6 +2,28 @@ import XCTest
 @testable import NormaCore
 
 final class WireTests: XCTestCase {
+    /// 手机解码 Mac 的全项目授权来源，同时保持旧版逐项目 grant 的兼容边界。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   两份各含 1 个项目的 grant：旧版无模式字段，新版有 all_projects_access=control。
+    ///   反例把新版模式写成 control、项目权限写成 read，形成 1 处矛盾。
+    ///
+    /// 执行过程：分别解码旧版、新版和矛盾授权，再按设备身份校验。
+    ///
+    /// 预期结果：旧版保持逐项目；新版明确显示全项目控制；矛盾授权不得进入已连接状态。
+    func testDeviceGrantDecodesExplicitAllProjectScopeWithoutUpgradingLegacy() throws {
+        let old = try JSONDecoder().decode(DeviceGrant.self, from: Data(#"{"device_id":"phone-a","device_name":"iPhone","projects":[{"workspace_id":"project-a","access":"read"}],"revision":1,"revoked":false}"#.utf8))
+        XCTAssertNil(old.allProjectsAccess, "旧 Mac 没有模式字段时不得推断为全项目授权")
+        XCTAssertNoThrow(try old.validate(deviceID: "phone-a"), "旧逐项目授权仍须正常解码")
+
+        let current = try JSONDecoder().decode(DeviceGrant.self, from: Data(#"{"device_id":"phone-a","device_name":"iPhone","projects":[{"workspace_id":"project-a","access":"control"}],"all_projects_access":"control","revision":2,"revoked":false}"#.utf8))
+        XCTAssertEqual(current.allProjectsAccess, "control", "手机必须识别 Mac 明确授予的全项目控制模式")
+        XCTAssertNoThrow(try current.validate(deviceID: "phone-a"), "一致的全项目授权必须可使用")
+
+        let contradictory = try JSONDecoder().decode(DeviceGrant.self, from: Data(#"{"device_id":"phone-a","device_name":"iPhone","projects":[{"workspace_id":"project-a","access":"read"}],"all_projects_access":"control","revision":2,"revoked":false}"#.utf8))
+        XCTAssertThrowsError(try contradictory.validate(deviceID: "phone-a"), "模式与项目权限矛盾时不能显示为可信授权")
+    }
+
     /// 六位核对码在手机独立计算；拒绝错请求响应和扩大/损坏的授权。
     ///
     /// 数据构造：与 Rust 的 JSON tuple/SHA256 相同的固定 ASCII 字段，预期值由 Python hashlib 独立算出。

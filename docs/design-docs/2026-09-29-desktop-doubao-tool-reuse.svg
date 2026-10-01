@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1110" viewBox="0 0 1600 1110" role="img" aria-labelledby="title description">
+  <title id="title">Norma OS 桌面 Voice 的两种模式与共用工具执行链</title>
+  <desc id="description">现有模式由 ASR、Norma 模型和 TTS 串联；新增豆包模式由豆包负责双工语音及对话。两种模式复用 Norma 提示词和项目工具执行链，豆包工具请求先经过转写授权和 call_id 去重。</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#70809d" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="blue-arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#3973c4" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="purple-arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#8661c7" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #20304a; }
+      .title { font-size: 34px; font-weight: 750; }
+      .subtitle { font-size: 18px; fill: #60708a; }
+      .section { font-size: 23px; font-weight: 720; }
+      .label { font-size: 18px; font-weight: 660; }
+      .body { font-size: 16px; }
+      .small { font-size: 14px; fill: #61718a; }
+      .white { fill: #fff; }
+      .blue { fill: #356bb8; }
+      .purple { fill: #7852bd; }
+      .green { fill: #237f68; }
+      .line { fill: none; stroke: #70809d; stroke-width: 2.5; marker-end: url(#arrow); }
+      .blue-line { fill: none; stroke: #3973c4; stroke-width: 2.5; marker-end: url(#blue-arrow); }
+      .purple-line { fill: none; stroke: #8661c7; stroke-width: 2.5; marker-end: url(#purple-arrow); }
+    </style>
+  </defs>
+
+  <rect width="1600" height="1110" fill="#f7f9fd"/>
+  <text class="title" x="70" y="68">桌面 Voice：两种语音模式，共用一套项目工具</text>
+  <text class="subtitle" x="70" y="101">蓝色 = 已有执行链　　紫色 = 新增豆包连接与事件适配　　绿色 = 两种模式共用</text>
+
+  <rect x="70" y="130" width="280" height="100" rx="18" fill="#fff" stroke="#cbd5e5" stroke-width="2"/>
+  <text class="label" x="98" y="168">Voice Setup</text>
+  <text class="body" x="98" y="200">选择：现有模式 / 豆包双工</text>
+
+  <rect x="425" y="130" width="1105" height="100" rx="18" fill="#e8f5f0" stroke="#9dcebb" stroke-width="2"/>
+  <text class="label green" x="455" y="168">同一个提示词组装入口</text>
+  <text class="body" x="455" y="200">现有 Norma 人设 + 当前项目、Agent 名册与画布信息；分别交给 Norma 模型和豆包会话</text>
+  <path class="blue-line" d="M730 230 V265 H405 V300"/>
+  <path class="purple-line" d="M1190 230 V300"/>
+
+  <rect x="70" y="300" width="690" height="345" rx="22" fill="#edf4ff" stroke="#a9c4eb" stroke-width="2"/>
+  <text class="section blue" x="100" y="345">① 现有模式：原流程保留</text>
+  <text class="small" x="100" y="371">单次指令 / 连续监听仍走原有链路</text>
+  <rect x="100" y="405" width="112" height="84" rx="14" fill="#fff" stroke="#b7c8e3"/>
+  <text class="label" x="156" y="440" text-anchor="middle">麦克风</text>
+  <text class="small" x="156" y="465" text-anchor="middle">PCM 输入</text>
+  <rect x="235" y="405" width="110" height="84" rx="14" fill="#fff" stroke="#b7c8e3"/>
+  <text class="label" x="290" y="454" text-anchor="middle">ASR</text>
+  <rect x="369" y="405" width="148" height="84" rx="14" fill="#d9e8fc" stroke="#75a2dd" stroke-width="2"/>
+  <text class="label blue" x="443" y="438" text-anchor="middle">Norma 模型</text>
+  <text class="small" x="443" y="463" text-anchor="middle">理解与工具决策</text>
+  <rect x="541" y="405" width="92" height="84" rx="14" fill="#fff" stroke="#b7c8e3"/>
+  <text class="label" x="587" y="454" text-anchor="middle">TTS</text>
+  <rect x="656" y="405" width="75" height="84" rx="14" fill="#fff" stroke="#b7c8e3"/>
+  <text class="body" x="693" y="454" text-anchor="middle">扬声器</text>
+  <path class="blue-line" d="M212 447 H232"/>
+  <path class="blue-line" d="M345 447 H366"/>
+  <path class="blue-line" d="M517 447 H538"/>
+  <path class="blue-line" d="M633 447 H653"/>
+  <rect x="100" y="525" width="630" height="88" rx="14" fill="#fff" stroke="#c6d7ed"/>
+  <text class="body" x="125" y="559">Norma 模型决定调用工具时，进入下方现有工具执行链。</text>
+  <text class="small" x="125" y="588">工具回执返回 Norma 模型，由原 TTS 播报真实结果。</text>
+
+  <rect x="800" y="300" width="730" height="345" rx="22" fill="#f3edfc" stroke="#cab4ec" stroke-width="2"/>
+  <text class="section purple" x="830" y="345">② 豆包双工：新增独立会话</text>
+  <text class="small" x="830" y="371">豆包同时听与说；普通聊天不经过桌面第二个模型</text>
+  <rect x="830" y="405" width="115" height="84" rx="14" fill="#fff" stroke="#d5c4eb"/>
+  <text class="label" x="887" y="439" text-anchor="middle">麦克风</text>
+  <text class="small" x="887" y="464" text-anchor="middle">连续音频</text>
+  <rect x="988" y="405" width="294" height="84" rx="14" fill="#e7dafa" stroke="#a17ad8" stroke-width="2"/>
+  <text class="label purple" x="1135" y="439" text-anchor="middle">豆包 Realtime 会话</text>
+  <text class="small" x="1135" y="464" text-anchor="middle">语音理解、对话、语音输出</text>
+  <rect x="1325" y="405" width="175" height="84" rx="14" fill="#fff" stroke="#d5c4eb"/>
+  <text class="label" x="1412" y="455" text-anchor="middle">扬声器</text>
+  <path class="purple-line" d="M945 447 H985"/>
+  <path class="purple-line" d="M1282 447 H1322"/>
+  <rect x="830" y="525" width="670" height="88" rx="14" fill="#fff" stroke="#dacbec"/>
+  <text class="body" x="855" y="559">豆包发出 Function Calling：工具名、参数、call_id。</text>
+  <text class="small" x="855" y="588">校验后复用下方执行链；回执按原 call_id 返回，豆包继续说话。</text>
+
+  <text class="section" x="70" y="696">项目操作怎样复用现有代码</text>
+  <path class="blue-line" d="M443 613 V736 H302 V769"/>
+  <path class="purple-line" d="M1165 613 V724 H1075 V741"/>
+  <rect x="870" y="741" width="420" height="84" rx="16" fill="#f3edfc" stroke="#b69bdf" stroke-width="2"/>
+  <text class="label purple" x="1080" y="773" text-anchor="middle">新增：豆包事件适配与安全门</text>
+  <text class="small" x="1080" y="800" text-anchor="middle">转写授权 · call_id 去重 · 会话/项目校验</text>
+
+  <rect x="70" y="769" width="464" height="112" rx="18" fill="#e8f5f0" stroke="#9dcebb" stroke-width="2"/>
+  <text class="label green" x="302" y="808" text-anchor="middle">现有 NormaToolRuntime</text>
+  <text class="body" x="302" y="840" text-anchor="middle">工具定义、参数解析、删除目标校验</text>
+  <path class="purple-line" d="M870 783 H781 V824 H537"/>
+  <rect x="584" y="921" width="422" height="112" rx="18" fill="#e8f5f0" stroke="#9dcebb" stroke-width="2"/>
+  <text class="label green" x="795" y="961" text-anchor="middle">现有桌面 AgentCardAdapter</text>
+  <text class="body" x="795" y="992" text-anchor="middle">操作 AgentCard、任务、Terminal、Canvas</text>
+  <path class="line" d="M302 881 V975 H581"/>
+  <rect x="1060" y="921" width="470" height="112" rx="18" fill="#fff" stroke="#cbd5e5" stroke-width="2"/>
+  <text class="label" x="1295" y="961" text-anchor="middle">真实执行回执</text>
+  <text class="body" x="1295" y="992" text-anchor="middle">成功 / 已接收 / 未知；回给发起调用的模型</text>
+  <path class="line" d="M1006 977 H1057"/>
+
+  <text class="small" x="70" y="1078">边界：豆包会话独立；不把语音对话自动写入旧聊天历史；不保存原始音频；旧 ASR → Norma → TTS 路径保持原样。</text>
+</svg>

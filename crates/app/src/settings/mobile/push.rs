@@ -109,7 +109,7 @@ impl Render for PushSettings {
             .text_size(px(13.0)).text_color(rgba(self.theme.text_primary))
             .child(div().id(status_id).debug_selector(move || status_id.into()).child(state))
             .child(div().text_size(px(12.0)).text_color(rgba(self.theme.text_secondary))
-                .child("Settings are stored in this Mac’s Keychain and apply while mobile connection is on. Allow notifications on your iPhone and enable alerts for this Mac."));
+                .child("Settings are stored in this Mac's local database and apply while mobile connection is on. Allow notifications on your iPhone and enable alerts for this Mac."));
         if let Some(error) = &host.error {
             body = body.child(
                 div()

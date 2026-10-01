@@ -1,0 +1,132 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 1040" role="img" aria-labelledby="title desc">
+  <title id="title">Norma OS：iPhone、云服务和 Mac 架构</title>
+  <desc id="desc">iPhone 本地保存长期历史，向 Norma 云服务请求推理与远程派工。Mac 上的手机服务主动连到云端，云端在线转发加密任务封套。Mac 校验权限、执行 Agent 任务、保存事件，再经中继返回回执。云服务不直接执行 Mac 命令。</desc>
+  <defs>
+    <linearGradient id="background" x2="1" y2="1">
+      <stop stop-color="#F7F9FC"/>
+      <stop offset="1" stop-color="#EAF0F7"/>
+    </linearGradient>
+    <filter id="shadow" x="-15%" y="-20%" width="130%" height="145%">
+      <feDropShadow dx="0" dy="9" stdDeviation="14" flood-color="#18304A" flood-opacity="0.09"/>
+    </filter>
+    <marker id="arrowBlue" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M1 1 L10 6 L1 11" fill="none" stroke="#3678C7" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M1 1 L10 6 L1 11" fill="none" stroke="#258365" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", sans-serif; fill: #17304B; }
+      .title { font-size: 42px; font-weight: 780; letter-spacing: -1px; }
+      .subtitle { font-size: 21px; fill: #5D7188; }
+      .cardTitle { font-size: 30px; font-weight: 760; }
+      .cardSub { font-size: 17px; fill: #61758A; }
+      .module { font-size: 21px; font-weight: 700; }
+      .detail { font-size: 17px; fill: #536A83; }
+      .tag { font-size: 16px; font-weight: 700; }
+      .flow { font-size: 17px; font-weight: 700; }
+      .note { font-size: 18px; fill: #546B82; }
+    </style>
+  </defs>
+
+  <rect width="1800" height="1040" fill="url(#background)"/>
+  <text x="70" y="76" class="title">Norma OS · 服务与代码架构</text>
+  <text x="70" y="111" class="subtitle">云端推理 + 在线中继 · iPhone 保存可见历史 · Mac 掌握项目权限与真实执行</text>
+  <rect x="1565" y="52" width="165" height="44" rx="22" fill="#E8F0FB" stroke="#C9D9EC"/>
+  <text x="1647" y="80" text-anchor="middle" class="tag" fill="#3768A8">A1 讨论稿</text>
+
+  <rect x="62" y="155" width="510" height="638" rx="30" fill="#FFFFFF" stroke="#D6E0EC" filter="url(#shadow)"/>
+  <rect x="644" y="155" width="510" height="638" rx="30" fill="#FFFFFF" stroke="#D6E0EC" filter="url(#shadow)"/>
+  <rect x="1226" y="155" width="510" height="638" rx="30" fill="#FFFFFF" stroke="#D6E0EC" filter="url(#shadow)"/>
+
+  <rect x="62" y="155" width="510" height="88" rx="30" fill="#E8F1FF"/>
+  <rect x="62" y="215" width="510" height="28" fill="#E8F1FF"/>
+  <text x="91" y="198" class="cardTitle">iPhone</text>
+  <text x="91" y="225" class="cardSub">用户入口 · 长期可见历史 · 协作路由</text>
+
+  <rect x="644" y="155" width="510" height="88" rx="30" fill="#E9F4F1"/>
+  <rect x="644" y="215" width="510" height="28" fill="#E9F4F1"/>
+  <text x="673" y="198" class="cardTitle">Norma Cloud</text>
+  <text x="673" y="225" class="cardSub">services/norma-cloud · 一个 Node 进程</text>
+
+  <rect x="1226" y="155" width="510" height="88" rx="30" fill="#F0ECFA"/>
+  <rect x="1226" y="215" width="510" height="28" fill="#F0ECFA"/>
+  <text x="1255" y="198" class="cardTitle">Mac · Norma OS</text>
+  <text x="1255" y="225" class="cardSub">每台 Mac 独立授权、执行与落盘</text>
+
+  <rect x="87" y="267" width="460" height="78" rx="17" fill="#F5F8FD" stroke="#DCE7F5"/>
+  <text x="109" y="296" class="module">ios/App</text>
+  <text x="109" y="325" class="detail">SwiftUI · 系统语音 · 页面状态</text>
+  <path d="M317 348 V368" stroke="#83A3C8" stroke-width="2.5" marker-end="url(#arrowBlue)"/>
+  <rect x="87" y="374" width="460" height="150" rx="17" fill="#F5F8FD" stroke="#DCE7F5"/>
+  <text x="109" y="405" class="module">ios/Sources/NormaCore</text>
+  <text x="109" y="438" class="detail">本地领域数据 · 上下文选取 · 任务路由</text>
+  <text x="109" y="468" class="detail">云客户端　　Mac 客户端（并列）</text>
+  <text x="109" y="498" class="detail">复用 MobileClient / Keychain / 固定证书</text>
+  <path d="M317 526 V546" stroke="#83A3C8" stroke-width="2.5" marker-end="url(#arrowBlue)"/>
+  <rect x="87" y="552" width="460" height="141" rx="17" fill="#EAF3FF" stroke="#C9DEF5"/>
+  <text x="109" y="585" class="module">iPhone 本地库与文件</text>
+  <text x="109" y="616" class="detail">想法 · Workspace · 线程 · Norma 私聊</text>
+  <text x="109" y="646" class="detail">可见消息、待发操作与同步游标</text>
+  <text x="109" y="676" class="detail">长期保存；模型上下文按回合选取</text>
+  <rect x="87" y="714" width="460" height="50" rx="14" fill="#F6F9FD" stroke="#DCE7F5"/>
+  <text x="109" y="745" class="detail">Mac 离线：仍可云聊；任务显示「待发送」</text>
+
+  <rect x="669" y="267" width="460" height="78" rx="17" fill="#F5FAF8" stroke="#D3E8E0"/>
+  <text x="691" y="296" class="module">HTTP / WebSocket 入口</text>
+  <text x="691" y="325" class="detail">现有 server.mjs；保留旧语音路由</text>
+  <path d="M899 348 V368" stroke="#82B7A1" stroke-width="2.5" marker-end="url(#arrowGreen)"/>
+  <rect x="669" y="374" width="460" height="176" rx="17" fill="#F5FAF8" stroke="#D3E8E0"/>
+  <text x="691" y="405" class="module">逻辑模块</text>
+  <text x="691" y="437" class="detail">设备鉴别 / 在线中继　　　　计划新增</text>
+  <text x="691" y="467" class="detail">文字回合 / 候选动作　　　　计划新增</text>
+  <text x="691" y="497" class="detail">实时语音 / 媒体票据　　　　已有能力</text>
+  <text x="691" y="527" class="detail">供应商适配 / 服务端 Key　　已有能力</text>
+  <path d="M899 552 V572" stroke="#82B7A1" stroke-width="2.5" marker-end="url(#arrowGreen)"/>
+  <rect x="669" y="578" width="460" height="115" rx="17" fill="#EAF6F0" stroke="#C5E2D2"/>
+  <text x="691" y="611" class="module">外部模型 API · GPT / 豆包</text>
+  <text x="691" y="643" class="detail">只产生回复与候选派工意图</text>
+  <text x="691" y="673" class="detail">模型不签发 Mac 执行完成回执</text>
+  <rect x="669" y="714" width="460" height="50" rx="14" fill="#F6FAF8" stroke="#D3E8E0"/>
+  <text x="691" y="745" class="detail">任务封套仅在线转发，不长期存储正文</text>
+
+  <rect x="1251" y="267" width="460" height="78" rx="17" fill="#F9F7FD" stroke="#E4DCF3"/>
+  <text x="1273" y="296" class="module">crates/app/src/mobile</text>
+  <text x="1273" y="325" class="detail">连接、后台副作用、Agent 执行衔接</text>
+  <path d="M1481 348 V368" stroke="#AC96D2" stroke-width="2.5" marker-end="url(#arrowBlue)"/>
+  <rect x="1251" y="374" width="460" height="176" rx="17" fill="#F9F7FD" stroke="#E4DCF3"/>
+  <text x="1273" y="405" class="module">本机模块</text>
+  <text x="1273" y="438" class="detail">crates/norma/src/mobile　配对与协议</text>
+  <text x="1273" y="470" class="detail">crates/agent　　　　 Agent 与桌面 Norma</text>
+  <text x="1273" y="502" class="detail">crates/storage　　　 SQLite / 命令去重</text>
+  <text x="1273" y="532" class="detail">执行前重新校验本机设备与项目权限</text>
+  <path d="M1481 552 V572" stroke="#AC96D2" stroke-width="2.5" marker-end="url(#arrowBlue)"/>
+  <rect x="1251" y="578" width="460" height="115" rx="17" fill="#F1EBFB" stroke="#DED1F1"/>
+  <text x="1273" y="611" class="module">本机项目与执行记录</text>
+  <text x="1273" y="643" class="detail">仓库 · 终端 · Agent 任务 · 成果原件</text>
+  <text x="1273" y="673" class="detail">桌面先产生的线程事件先在 Mac 落盘</text>
+  <rect x="1251" y="714" width="460" height="50" rx="14" fill="#FAF9FC" stroke="#E4DCF3"/>
+  <text x="1273" y="745" class="detail">手机服务主动连云；Mac 间不直连</text>
+
+  <path d="M576 364 H630" fill="none" stroke="#3678C7" stroke-width="3" marker-end="url(#arrowBlue)"/>
+  <text x="603" y="350" text-anchor="middle" class="flow" fill="#3678C7">推理/派工</text>
+  <path d="M640 438 H586" fill="none" stroke="#258365" stroke-width="3" marker-end="url(#arrowGreen)"/>
+  <text x="613" y="465" text-anchor="middle" class="flow" fill="#258365">回复/意图</text>
+  <path d="M1220 364 H1160" fill="none" stroke="#258365" stroke-width="3" marker-end="url(#arrowGreen)"/>
+  <text x="1190" y="350" text-anchor="middle" class="tag" fill="#258365">出站 WSS</text>
+  <path d="M1160 438 H1220" fill="none" stroke="#3678C7" stroke-width="3" marker-end="url(#arrowBlue)"/>
+  <text x="1190" y="465" text-anchor="middle" class="tag" fill="#3678C7">任务封套</text>
+
+  <rect x="62" y="816" width="1674" height="150" rx="25" fill="#FFFFFF" stroke="#D4E1EE" filter="url(#shadow)"/>
+  <text x="94" y="852" class="module">远程任务路径</text>
+  <rect x="95" y="873" width="455" height="62" rx="16" fill="#EAF3FF" stroke="#C9DEF5"/>
+  <text x="322" y="911" text-anchor="middle" class="flow">① iPhone 保存并加密操作</text>
+  <path d="M562 904 H652" fill="none" stroke="#3678C7" stroke-width="3" marker-end="url(#arrowBlue)"/>
+  <rect x="665" y="873" width="455" height="62" rx="16" fill="#EAF6F0" stroke="#C5E2D2"/>
+  <text x="892" y="911" text-anchor="middle" class="flow">② 云端转发给在线 Mac</text>
+  <path d="M1132 904 H1222" fill="none" stroke="#3678C7" stroke-width="3" marker-end="url(#arrowBlue)"/>
+  <rect x="1235" y="873" width="455" height="62" rx="16" fill="#F1EBFB" stroke="#DED1F1"/>
+  <text x="1462" y="911" text-anchor="middle" class="flow">③ Mac 落盘并返回真实回执</text>
+
+  <text x="70" y="1005" class="note">依赖方向：iOS App → NormaCore → 云中继 → Mac app → {norma 协议、agent、storage}　｜　云端不访问仓库或终端</text>
+</svg>

@@ -6,6 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use thiserror::Error;
 
 mod delegation;
+mod delivery;
 mod lifecycle;
 
 pub const MAX_UNFINISHED_DESCENDANTS: usize = 32;
@@ -67,6 +68,7 @@ pub enum AgentTaskCancellation {
     Cancelled,
     CancelRequested,
     NotFound,
+    AlreadySubmitted,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -203,6 +205,7 @@ struct QueuedAgentTask {
     target_node_id: u64,
     task: String,
     cancel_requested: bool,
+    submitted: bool,
 }
 
 #[derive(Clone, Debug)]

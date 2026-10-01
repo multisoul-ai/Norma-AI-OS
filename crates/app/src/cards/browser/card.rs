@@ -3,6 +3,7 @@
 use crate::app::browser::BrowserAuthUiState;
 use crate::app::ego::{EgoCardCommand, EgoCardCommandKind};
 use crate::app::{BrowserCommand, BrowserCommandKind};
+use crate::cards::browser::load_bar::browser_load_bar;
 use crate::cards::browser::occluded::occluded_browser_body;
 use crate::cards::chrome::{CardChrome, CardChromeTaskBadge, CardChromeTaskTone};
 use crate::cards::{Card, CardBodyContext};
@@ -328,6 +329,7 @@ fn render_browser_body(node: &CanvasNode, context: CardBodyContext<'_>) -> AnyEl
     let url = browser_url(node);
     let browser_address_input = context.browser_address_input;
     let editing = browser_address_input.is_some();
+    let loading = context.browser_loading;
 
     div()
         .id(("browser-card", node_id))
@@ -351,7 +353,7 @@ fn render_browser_body(node: &CanvasNode, context: CardBodyContext<'_>) -> AnyEl
                     [
                         (BrowserCommandKind::Back, "‹"),
                         (BrowserCommandKind::Forward, "›"),
-                        (BrowserCommandKind::Reload, "R"),
+                        (BrowserCommandKind::Reload, if loading { "×" } else { "R" }),
                     ]
                     .into_iter()
                     .map(|(command, label)| toolbar_button(node_id, command, label, theme, zoom)),
@@ -405,6 +407,13 @@ fn render_browser_body(node: &CanvasNode, context: CardBodyContext<'_>) -> AnyEl
                         }),
                 ),
         )
+        .child(browser_load_bar(
+            node_id,
+            loading,
+            context.reduce_motion,
+            theme,
+            zoom,
+        ))
         .child(
             div()
                 .id(("browser-native-surface", node_id))

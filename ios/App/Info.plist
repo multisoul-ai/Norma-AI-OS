@@ -2,5 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
     <key>NormaAPNsEnvironment</key><string>$(APS_ENVIRONMENT)</string>
+    <key>NormaLocalGatewayOrigin</key><string>$(NORMA_LOCAL_GATEWAY_ORIGIN)</string>
+    <key>NormaLocalGatewayPin</key><string>$(NORMA_LOCAL_GATEWAY_PIN)</string>
+    <key>NormaLocalGatewayNamespace</key><string>$(NORMA_LOCAL_GATEWAY_NAMESPACE)</string>
+    <key>CFBundleURLTypes</key><array><dict>
+        <key>CFBundleURLName</key><string>com.norma-ai.os.ios.invite</string>
+        <key>CFBundleURLSchemes</key><array><string>norma</string></array>
+    </dict></array>
     <key>UIBackgroundModes</key><array><string>audio</string></array>
 </dict></plist>

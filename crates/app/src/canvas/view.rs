@@ -8,14 +8,14 @@ use super::working_snakes::{self, WorkingSnakeGeometry};
 use crate::app::browser::native::BROWSER_NATIVE_BORDER_INSET_PX;
 use crate::app::browser::{browser_native_view_bounds, native_browser_views_visible};
 use crate::app::layout_menu::{browser_content_occluded_by_overlay, layout_menu_screen_rect};
-use crate::app::{new_menu_screen_rect, MultisoulApp};
+use crate::app::MultisoulApp;
 #[cfg(test)]
 use crate::canvas::events::{should_focus_app_root_for_mouse_down, should_notify_motion_frame};
 #[cfg(test)]
 use crate::canvas::geometry::terminal_content_local_position;
 #[cfg(test)]
 use crate::canvas::geometry::{apply_canvas_wheel_scroll, click_event_for_node, is_title_bar_hit};
-use crate::canvas::geometry::{node_card_radius_px, node_terminal_radius_px, node_title_radius_px};
+use crate::canvas::geometry::{node_card_radius_px, node_content_radius_px};
 #[cfg(test)]
 use crate::canvas::interaction::InteractionState;
 use crate::cards::agent::card::{agent_breathing_intent, agent_chase_intent};
@@ -25,7 +25,8 @@ use crate::cards::agent::queue::{
 use crate::cards::border_glow::render_border_glow;
 use crate::cards::browser::card::BROWSER_TOOLBAR_H_PX;
 use crate::cards::chrome::{
-    card_title_background, node_shadow, render_card_title, render_task_badge, TITLE_BAR_H,
+    card_background, card_title_background, node_shadow, render_card_title, render_task_badge,
+    TITLE_BAR_H,
 };
 use crate::cards::{card_for, CardBodyContext};
 #[cfg(test)]
@@ -82,11 +83,7 @@ pub fn render_canvas(
             .is_some_and(|host| host.read(cx).desktop_project_zoom_active());
     // 底部弹出菜单打开时计算屏幕矩形；关闭时为 None（不做遮挡过滤）。
     let layout_menu_rect = layout_menu_screen_rect(app.interaction.layout_menu_open, win_w, win_h);
-    let new_menu_rect = new_menu_screen_rect(
-        app.interaction.new_menu_open,
-        app.interaction.new_menu_activation_x,
-        win_h,
-    );
+    let command_menu_rect = app.command_panel_rect(win_w, win_h);
     let mut visible_nodes = 0usize;
     let mut snake_nodes = 0usize;
     let node_ids: Vec<NodeId> = app.runtime.document.nodes().iter().map(|n| n.id).collect();
@@ -174,6 +171,12 @@ pub fn render_canvas(
         let stroke = visual.stroke_color;
         let status = visual.status_color;
         let close_button_size = (18.0 * vp.zoom).clamp(16.0, 24.0);
+        let border_width = if visual.border_is_emphasized {
+            2.0
+        } else {
+            1.0
+        };
+        let content_radius = node_content_radius_px(vp.zoom, border_width);
 
         let mut node_div = div()
             .id(("node-card", id))
@@ -185,9 +188,11 @@ pub fn render_canvas(
             .flex()
             .flex_col()
             .shadow(node_shadow(visual))
+            .border(px(border_width))
             .border_color(rgba(stroke))
             .opacity(visual.opacity)
             .rounded(px(node_radius))
+            .bg(card_background(theme))
             .overflow_hidden()
             .on_hover(cx.listener(move |app, hovered: &bool, _window, cx| {
                 app.motion.set_hover(id, *hovered);
@@ -204,12 +209,6 @@ pub fn render_canvas(
         {
             node_div = node_div.cursor_pointer();
         }
-
-        node_div = if visual.border_is_emphasized {
-            node_div.border_2()
-        } else {
-            node_div.border_1()
-        };
 
         // 标题栏
         let mut title_actions = div()
@@ -271,7 +270,7 @@ pub fn render_canvas(
             .flex_row()
             .items_center()
             .justify_between()
-            .rounded_t(px(node_title_radius_px(vp.zoom)))
+            .rounded_t(px(content_radius))
             .border_b_1()
             .border_color(rgba(with_alpha(theme.edge_highlight, 0x70)))
             .bg(card_title_background(visual.title_bar_color, theme))
@@ -336,8 +335,7 @@ pub fn render_canvas(
         let preview_image_dragging = app
             .interaction
             .preview_pan
-            .map(|pan| pan.node_id == id)
-            .unwrap_or(false);
+            .is_some_and(|pan| pan.node_id == id);
         // 浏览器卡片：计算其内容区是否被底部弹出菜单遮挡。
         let occluded_by_overlay = matches!(node_type, NodeType::Browser) && {
             let browser_header_h = (TITLE_BAR_H + BROWSER_TOOLBAR_H_PX) * vp.zoom;
@@ -348,7 +346,7 @@ pub fn render_canvas(
                 (h - browser_header_h - BROWSER_NATIVE_BORDER_INSET_PX as f32 * 2.0).max(0.0),
             );
             browser_content_occluded_by_overlay(content_rect, layout_menu_rect)
-                || browser_content_occluded_by_overlay(content_rect, new_menu_rect)
+                || browser_content_occluded_by_overlay(content_rect, command_menu_rect)
         };
         let card_body = card.body(
             &node,
@@ -356,6 +354,7 @@ pub fn render_canvas(
                 runtime: &app.runtime,
                 terminal_render_cache: app.terminal_render_cache.clone(),
                 preview_state: app.previews.state_for(id),
+                preview_editor: app.previews.editor_for(id),
                 preview_image_viewer,
                 preview_image_dragging,
                 text_selection: app.interaction.active_text_selection,
@@ -365,6 +364,7 @@ pub fn render_canvas(
                 terminal_cursor_phase: app.terminal_cursor_phase,
                 browser_address_input: app.browser_address_input_for(id),
                 browser_auth_state: app.browser_chrome_auth_state_for(id),
+                browser_loading: app.browsers.is_loading(id),
                 ego_preview: app.ego_previews.frame_for(id),
                 #[cfg(all(target_os = "macos", not(feature = "e2e-test-support")))]
                 ego_live_preview: app.ego_previews.live_frame_for(id),
@@ -372,7 +372,7 @@ pub fn render_canvas(
                 occluded_by_overlay,
                 theme,
                 zoom: vp.zoom,
-                bottom_radius_px: node_terminal_radius_px(vp.zoom),
+                bottom_radius_px: content_radius,
             },
         );
         if matches!(node_type, NodeType::Browser) && native_browser_views_visible {
@@ -391,28 +391,16 @@ pub fn render_canvas(
                             f64::from(w),
                             f64::from(h),
                             f64::from(browser_header_h),
-                            f64::from(node_terminal_radius_px(vp.zoom)),
+                            f64::from(node_content_radius_px(
+                                vp.zoom,
+                                BROWSER_NATIVE_BORDER_INSET_PX as f32,
+                            )),
                         ),
                         window,
                     );
                 }
             }
         }
-        node_elems.push(
-            app.render_card_frosted_backdrop(
-                id,
-                crate::app::FrostedBackdropGeometry {
-                    left: top_left.x,
-                    top: top_left.y,
-                    width: w,
-                    height: h,
-                    radius: node_radius,
-                    viewport_width: win_w,
-                    viewport_height: win_h,
-                },
-            )
-            .into_any_element(),
-        );
         node_elems.extend(render_border_glow(
             CanvasRect::new(top_left.x, top_left.y, w, h),
             node_radius,

@@ -51,7 +51,7 @@ asr -> {serde, sha2, tar, bzip2, tempfile, ureq, sherpa-onnx}
 
 零 GPUI/Storage/Keychain 的 ASR 领域层，统一负责 provider registry、能力描述、规范化识别事件、
 `RecognitionPipeline`、Local Sherpa、Cloud Azure，以及模型目录、安装清单、SHA-256、安全解压和原子安装。
-Settings、Keychain、下载进度与运行时副作用编排只存在于 `crates/app/`。
+Settings、SQLite 凭据、下载进度与运行时副作用编排只存在于 `crates/app/`。
 
 ### `crates/voice_input/`
 
@@ -67,7 +67,7 @@ Rig 类型不扩散到其他 crate；卡片激活、PTY 输入和 SQLite 审计�
 
 ### `crates/model_store/` 与 `crates/tts/`
 
-`model_store` 是零 GPUI/网络的共享本地模型安装原语，负责 archive SHA-256、manifest、安全解压与原子提升；不得承载具体 ASR/TTS 目录或引擎配置。`tts` 是零 GPUI/Storage/Sherpa 的供应商中立 TTS 能力层，负责稳定 Provider/model/Voice ID、内置 Provider 注册表、配置与就绪状态、回复级流生命周期、PCM 交付，以及本地模型的固定目录和安装验证。远程协议封装在 `tts::providers::<vendor>`；首个实现 MiniMax 使用账户 Voice 目录与单回复 WebSocket 任务。下载进度、凭据持久化、供应商激活和播放编排属于 `app`；API Key 只存 macOS Keychain；Sherpa OfflineTts 构建属于 `voice_sherpa`。
+`model_store` 是零 GPUI/网络的共享本地模型安装原语，负责 archive SHA-256、manifest、安全解压与原子提升；不得承载具体 ASR/TTS 目录或引擎配置。`tts` 是零 GPUI/Storage/Sherpa 的供应商中立 TTS 能力层，负责稳定 Provider/model/Voice ID、内置 Provider 注册表、配置与就绪状态、回复级流生命周期、PCM 交付，以及本地模型的固定目录和安装验证。远程协议封装在 `tts::providers::<vendor>`；首个实现 MiniMax 使用账户 Voice 目录与单回复 WebSocket 任务。下载进度、凭据持久化、供应商激活和播放编排属于 `app`；macOS API Key 保存在权限为 `0600` 的 AppDB；Sherpa OfflineTts 构建属于 `voice_sherpa`。
 
 ### `crates/canvas/`
 

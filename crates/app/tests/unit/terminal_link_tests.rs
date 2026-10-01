@@ -92,7 +92,7 @@ fn test_terminal_link_intent_routes_external_file_uri_to_preview() {
     assert_eq!(
         intent,
         TerminalLinkIntent::OpenPreviewCard {
-            path: uri.to_string()
+            paths: vec![uri.to_string()]
         },
         "工作区外图片 file URI 应进入 Preview 创建链路并保留完整目标"
     );
@@ -137,14 +137,14 @@ fn test_terminal_link_intent_accepts_local_paths_outside_workspace() {
     assert_eq!(
         absolute_intent,
         TerminalLinkIntent::OpenPreviewCard {
-            path: absolute_path.to_string()
+            paths: vec![absolute_path.to_string()]
         },
         "工作区外绝对路径应进入只读 Preview 创建链路"
     );
     assert_eq!(
         relative_intent,
         TerminalLinkIntent::OpenPreviewCard {
-            path: relative_outside_path.to_string()
+            paths: vec![relative_outside_path.to_string()]
         },
         "含 .. 的相对路径应保留原值，交给 app 基于 workspace root 解析"
     );

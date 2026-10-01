@@ -147,7 +147,7 @@ struct ProjectReviewView: View {
                              feedbackFor: selection.feedback ? selection.delivery : nil)
         }
         .navigationDestination(item: $selectedFile) { id in
-            if let file = response?.review.files.first(where: { $0.id == id }) { ReviewFileView(file: file, baselineName: delivery == nil ? "HEAD" : "任务起点", resultName: delivery == nil ? "工作副本" : "本次交付") }
+            if let file = response?.review.files.first(where: { $0.id == id }) { ReviewFileView(file: file, baselineName: delivery == nil ? "HEAD" : "任务起点", resultName: delivery == nil ? "工作副本" : "本次交付", showsIndex: delivery == nil) }
         }
         .task(id: "\(scenePhase)-\(retry)") {
             response = nil; checkedAt = nil; selectedFile = nil; error = nil; loading = false

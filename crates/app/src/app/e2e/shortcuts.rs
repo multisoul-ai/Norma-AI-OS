@@ -4,6 +4,7 @@ pub(super) fn shortcut_command_name(command: ShortcutCommandId) -> &'static str 
     match command {
         ShortcutCommandId::NewWorkspace => "new_workspace",
         ShortcutCommandId::AddProject => "add_project",
+        ShortcutCommandId::FocusCommandInput => "focus_command_input",
         ShortcutCommandId::NewWindow => "new_window",
         ShortcutCommandId::SwitchWorkspace => "switch_workspace",
         ShortcutCommandId::PreviousWorkspace => "previous_workspace",
@@ -17,6 +18,7 @@ pub(super) fn shortcut_command_name(command: ShortcutCommandId) -> &'static str 
         ShortcutCommandId::CopyCardContent => "copy_card_content",
         ShortcutCommandId::OpenProject => "open_project",
         ShortcutCommandId::OpenPreviewFile => "open_preview_file",
+        ShortcutCommandId::SavePreviewFile => "save_preview_file",
         ShortcutCommandId::NewClaudeAgent => "new_claude_agent",
         ShortcutCommandId::NewCodexAgent => "new_codex_agent",
         ShortcutCommandId::NewCursorAgent => "new_cursor_agent",

@@ -7,6 +7,8 @@ use std::time::Duration;
 
 #[derive(Default)]
 pub(crate) struct NativeInput {
+    pub(super) control: Option<super::terminal_control::TerminalInputControl>,
+    pub(super) controlled_draft: bool,
     pub(super) sequence: u64,
     submitted: Option<u64>,
     started: bool,
@@ -15,6 +17,12 @@ pub(crate) struct NativeInput {
     pub(super) resume: native_resume::ResumeInput,
 }
 impl NativeInput {
+    pub(crate) fn has_pending_input(&self) -> bool {
+        self.dirty || self.submitted.is_some()
+    }
+    pub(crate) fn has_controlled_draft(&self) -> bool {
+        self.controlled_draft && self.has_pending_input()
+    }
     pub(crate) fn observe(&mut self, input: &NodeInput, menu_navigation: bool) -> bool {
         if matches!(input, NodeInput::Text(s) | NodeInput::Paste(s) if s.is_empty()) {
             return false;
@@ -49,10 +57,12 @@ impl NativeInput {
         // A late Provider hook must not clear the next draft typed after Enter.
         if self.submitted.take() == Some(self.sequence) {
             self.dirty = false;
+            self.controlled_draft = false;
             self.resume.reset_command();
         }
     }
     pub(super) fn new_session(&mut self) {
+        self.control = None;
         self.started = false;
         self.approval_menu_open = false;
     }
@@ -198,6 +208,9 @@ impl Runtime {
         }
         if &current != expected {
             return Err("card_changed");
+        }
+        if self.mobile_terminal_is_controlled(expected.node_id) {
+            return Err("terminal_controlled");
         }
         if !matches!(
             current.state.as_str(),

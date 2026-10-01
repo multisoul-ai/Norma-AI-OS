@@ -83,7 +83,7 @@ final class ImageScrollView: UIScrollView, UIScrollViewDelegate {
 
     init() {
         super.init(frame: .zero)
-        backgroundColor = .black; delegate = self
+        backgroundColor = .systemBackground; delegate = self
         minimumZoomScale = 1; maximumZoomScale = 4
         picture.contentMode = .scaleAspectFit
         picture.isAccessibilityElement = true

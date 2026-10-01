@@ -56,7 +56,7 @@ ui -> {gpui, gpui-component}
 - **Rounded child surfaces need explicit ownership**: GPUI 0.2.2's `overflow_hidden()` uses a rectangular content mask. An opaque full-size `div`, `img`, or `surface` inside a rounded container must draw its exposed outer radii itself, or be partitioned away from the corner squares; protect the behavior with an automated test.
 - **New configurable app shortcuts must appear in Settings**: register them in `shortcuts.rs` and support recording/restoring them in Settings → Keyboard Shortcuts.
 - **旧 e2e 套件已禁用**：`crates/e2e` 后续需要删除与重构；后续需求不再新增、维护或运行这套测试，也不得将其结果作为验收依据。禁用说明见 [`docs/references/e2e-testing-guide.md`](docs/references/e2e-testing-guide.md)。
-- **真实 App 验收**：底层单元/集成测试验证逻辑；用户流程使用隔离的真实 App 并检查最终结果。headless 测试不能代替真实窗口验收。
+- **按实际行为验收**：使用受影响 crate 的单元/集成测试；`TestAppContext`/`simulate_click` 不等于启动真实 `.app`，要求真实程序的流程须操作真实 App 并检查最终结果。
 - **页面/样式验收必须用 Computer Use**：凡编写或修改页面、布局、样式或视觉状态，进入检查与验收时必须使用 `computer-use:computer-use` 操作真实 App 完成 E2E；headless GPUI、单测和静态截图只能作为补充，不能替代 Computer Use。
 - **TDD before feature or bugfix work**: add a focused failing test first where the behavior can be tested below the GPUI layer.
 - **No `#[allow(...)]`**: do not hide Rust diagnostics with allow attributes. Fix root causes instead.
@@ -94,7 +94,7 @@ At a glance:
 - Double-click a focusable node, or click a terminal/agent body, to focus it.
 - `Cmd+Esc` exits node focus; bare `Esc` passes through to the PTY.
 - Space plus left-drag, or middle-drag, pans the canvas.
-- Canvas wheel scroll is off by default; enable the toolbar toggle to pan the viewport. Terminal scrollback and preview cards handle wheel separately.
+- Canvas wheel scroll is off by default, and the Command Dock no longer has a Select/Scroll mode toggle. Terminal scrollback and preview cards handle wheel separately.
 - The app drains PTY output roughly every 12ms and repaints only when dirty.
 - Closing the window kills spawned terminal child processes.
 
@@ -122,7 +122,7 @@ cargo test --workspace
 cargo check -p app
 ```
 
-旧 `crates/e2e` 已禁用，后续删除与重构；不再运行该套件。改用受影响 crate 测试和真实 App 验收。
+旧 `crates/e2e` 已禁用，后续需要删除与重构；不再作为开发或验收命令运行。`cargo test --workspace` 不执行该套件，后续需求使用受影响 crate 的测试和实际 App 验收。
 
 iOS companion (requires Rust iOS targets, xcodegen, Xcode):
 
@@ -191,7 +191,9 @@ See [`AGENTS.md`](AGENTS.md) §5 for the canonical change-area → verification 
 
 Follow the project test comment and assertion rules in [`docs/quality/test-requirements.md`](docs/quality/test-requirements.md).
 
-处理验收标准时，映射到域层单元/集成测试、GPUI 底层测试或真实 App 证据。旧 `crates/e2e` 及其 L1/L2/L3 命令只作历史参考；页面和样式仍必须由 Computer Use 操作真实 App 验收。
+处理带验收标准的需求时，将每条标准映射到受影响 crate 的单元/集成测试或真实 App 验收证据。旧 `crates/e2e` 已禁用，后续需要删除与重构；无需新增、维护或运行旧用例，历史指南不再构成执行要求。
+
+要求真实程序的流程必须操作真实 App 并检查最终结果；页面、布局、样式或视觉状态仍须通过 `computer-use:computer-use` 验收，不能用内部状态或截图文件存在代替结果判断。
 
 ## Agent Execution Sizing
 
@@ -205,7 +207,7 @@ Choose the smallest sufficient implementation and verification flow from [`docs/
 - 每次用户操作都应获得及时、可感知且不打断流程的状态反馈；危险或不可逆操作必须明确提示，并尽可能提供取消、撤销或恢复路径。
 - 同类页面和状态使用一致的布局、间距、组件和交互模式；新增模式前先复用现有设计语言与 `ui::component`。
 - 可访问性是默认要求：保证可读对比度、完整键盘操作、明确焦点状态、足够点击区域，并尊重系统的减少动态效果等偏好。
-- 新增或改版 UI 的方案与验收标准必须逐项说明上述原则如何落地；涉及用户可观察流程时，按 §7 映射到单元/集成测试和真实 App 证据。
+- 新增或改版 UI 的方案与验收标准必须逐项说明上述原则如何落地；涉及用户可观察流程时，按 §7 映射到相应测试和真实 App 验收证据。
 
 ### 页面设计技能路由（必遵）
 

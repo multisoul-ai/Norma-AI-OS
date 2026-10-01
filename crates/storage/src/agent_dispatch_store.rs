@@ -34,7 +34,7 @@ pub struct NewAgentDispatchTask {
     pub tracking: AgentDispatchTracking,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct StoredAgentDispatchResult {
     pub text: Option<String>,
     pub truncated: bool,
@@ -166,7 +166,14 @@ impl AgentDispatchTaskStore {
         &self,
         task_ref: &str,
     ) -> StorageResult<Option<StoredAgentDispatchTask>> {
-        let connection = open_project_connection(&self.path)?;
+        // A recovery lookup must not create or migrate a missing/replaced project database.
+        if !self.path.try_exists()? {
+            return Ok(None);
+        }
+        let connection = rusqlite::Connection::open_with_flags(
+            &self.path,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+        )?;
         connection
             .query_row(
                 "SELECT id, runtime_instance_id, runtime_task_id, task_ref, root_task_ref,

@@ -67,7 +67,7 @@ fn api_key_persistence_uses_credential_store_and_keeps_sqlite_secret_free() {
         .get_string(KEY_AGENT_OPENAI_CREDENTIAL_REF)
         .expect("credential ref query should succeed")
         .expect("SQLite must persist a non-sensitive Keychain account reference");
-    let keychain_secret = VoiceSettingsState::load_credential(&credential_ref)
+    let keychain_secret = VoiceSettingsState::load_credential(&store, &credential_ref)
         .expect("test credential store lookup should succeed");
     assert_eq!(
         keychain_secret.as_deref(),
@@ -179,6 +179,7 @@ fn keychain_reference_wins_over_coexisting_plaintext_and_cleans_it_up() {
     let store = storage::SettingsStore::new(temp.path().join("app.sqlite"));
     let account = "openai-existing-account";
     super::super::PendingVoiceSettingWrite::StoreCredential {
+        store: Some(store.clone()),
         account: account.to_string(),
         secret: "sk-keychain-authoritative".to_string(),
     }

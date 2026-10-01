@@ -52,6 +52,17 @@ impl Runtime {
         )
     }
 
+    pub fn active_agent_definition_ids(&self) -> std::collections::HashSet<i64> {
+        self.document
+            .nodes()
+            .iter()
+            .filter_map(|node| match &node.kind {
+                CanvasNodeKind::Agent(spec) => spec.definition_id,
+                _ => None,
+            })
+            .collect()
+    }
+
     pub fn has_active_agent_definition(&self, definition_id: i64) -> bool {
         self.document.nodes().iter().any(|node| {
             matches!(

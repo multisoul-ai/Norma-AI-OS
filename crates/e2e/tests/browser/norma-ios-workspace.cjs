@@ -12,7 +12,7 @@ const {chromium} = require('../../../../spikes/norma-spatial-prototype/node_modu
   const page = await browser.newPage({viewport:{width:1280,height:900}});
   const errors=[];
   page.on('pageerror',error=>errors.push(error.message));
-  const pagePath=path.resolve(__dirname,'../../../../docs/prototypes/norma-ios-workspace.html');
+  const pagePath=path.resolve(__dirname,'../../../../docs/prototypes/archive/2026-09-28-norma-ios-workspace/norma-ios-workspace.html');
   try {
     await page.goto('file://'+pagePath);
     const image=page.locator('#reference-screen');
@@ -23,6 +23,17 @@ const {chromium} = require('../../../../spikes/norma-spatial-prototype/node_modu
     };
     const click=async label=>page.getByRole('button',{name:label,exact:true}).click();
     await expectScreen('W01-workspace-list.png','首页');
+    /// [参考图热点反馈]：鼠标经过图片热点不覆盖原型画面，键盘导航仍显示焦点。
+    /// 数据构造（含关键数值的推导过程）：首页 1 个“已连接电脑”热点；透明背景和无阴影各检查 1 项，键盘焦点检查 1 项。
+    /// 执行过程：1. 鼠标移入热点并读取样式；2. 按 Tab 聚焦第一个热点；3. 继续点击进入设备页。
+    /// 预期结果：鼠标悬停时没有蓝色覆盖或描边；键盘焦点仍可见；热点仍可点击。
+    const deviceSpot=page.getByRole('button',{name:'已连接电脑',exact:true});
+    await deviceSpot.hover();
+    const hovered=await deviceSpot.evaluate(element=>({background:getComputedStyle(element).backgroundColor,shadow:getComputedStyle(element).boxShadow}));
+    assert.equal(hovered.background,'rgba(0, 0, 0, 0)','鼠标悬停不应在参考图上叠加选中底色');
+    assert.equal(hovered.shadow,'none','鼠标悬停不应在参考图上绘制选中描边');
+    await page.keyboard.press('Tab');
+    assert.equal(await deviceSpot.evaluate(element=>getComputedStyle(element).outlineStyle),'solid','键盘导航仍应显示可见焦点');
     await click('已连接电脑');
     await expectScreen('W02-connected-computers.png','设备页');
     await click('返回工作空间列表');

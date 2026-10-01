@@ -113,6 +113,9 @@ impl VoiceSettingsState {
     }
 
     pub(crate) fn report_tts_status(&mut self, message: impl Into<String>, is_error: bool) {
+        if self.values.desktop_mode() == super::DesktopVoiceMode::Doubao {
+            return;
+        }
         self.status = Some(if is_error {
             super::error_status(message)
         } else {

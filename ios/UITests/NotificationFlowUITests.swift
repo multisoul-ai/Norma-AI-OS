@@ -13,6 +13,7 @@ final class NotificationFlowUITests: XCTestCase {
         guard app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "通知验收 Mac")).firstMatch.waitForExistence(timeout: 5) else {
             throw XCTSkip("需要先启动Rust notification-ui fixture；不能操作其他已配对电脑")
         }
+        app.buttons["computer-more-actions"].tap()
         app.buttons["notification-settings"].tap()
         XCTAssertTrue(app.staticTexts["通知验收 Mac"].waitForExistence(timeout: 5), "配置必须标明准确电脑")
         if app.buttons["enable-notifications"].exists {
@@ -41,7 +42,7 @@ extension NotificationFlowUITests {
     /// 关闭提醒后可从原生电脑列表移除自己的验收配对，不能误删其他电脑。
     ///
     /// 数据构造：唯一「通知验收 Mac」，已完成真实WSS订阅开关；5s原生导航预算。
-    /// 执行过程：识别准确电脑 → 左滑 → 忘记确认 → 等待Mac核验与Keychain/元数据删除。
+    /// 执行过程：识别准确电脑 → 打开管理菜单 → 忘记确认 → 等待Keychain/元数据删除。
     /// 预期结果：回到无电脑空态，原电脑行不再存在，没有留下连接错误。
     @MainActor func testForgetAcceptanceComputer() throws {
         guard ProcessInfo.processInfo.environment["NORMA_TEST_MODE"] == "notification-ui" else {
@@ -51,8 +52,8 @@ extension NotificationFlowUITests {
         app.buttons["manage-computers"].tap()
         let row = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "通知验收 Mac")).firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 5), "只操作自己的验收电脑")
-        row.swipeLeft()
-        app.buttons["忘记"].tap()
+        app.buttons["管理 通知验收 Mac"].tap()
+        app.buttons["忘记这台电脑"].tap()
         let confirm = app.buttons["忘记 通知验收 Mac"]
         XCTAssertTrue(confirm.waitForExistence(timeout: 5), "确认必须写明准确电脑")
         confirm.tap()
@@ -77,6 +78,7 @@ extension NotificationFlowUITests {
         app.launch()
         app.buttons["manage-computers"].tap()
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "通知验收 Mac")).firstMatch.waitForExistence(timeout: 5), "不能在用户其他电脑上验收")
+        app.buttons["computer-more-actions"].tap()
         app.buttons["notification-settings"].tap()
         if app.buttons["登记此 iPhone 的通知"].waitForExistence(timeout: 2) { app.buttons["登记此 iPhone 的通知"].tap() }
         XCTAssertTrue(app.staticTexts["iPhone 通知已就绪"].waitForExistence(timeout: 20), "需要系统实际登记")

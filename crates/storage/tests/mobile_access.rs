@@ -1,10 +1,187 @@
-use storage::{MobileAccessStore, MobilePermission, MobileProjectAccess};
+use storage::{MobileAccessStore, MobilePermission, MobileProjectAccess, WorkspaceIdentityStore};
 
 fn scope(project: &str, access: MobilePermission) -> MobileProjectAccess {
     MobileProjectAccess {
         workspace_id: project.into(),
         access,
     }
+}
+
+/// 旧数据库升级后仍保持逐项目授权，且新增全项目列不会反向扩权。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   旧版记录 1 条，只读项目 A 1 个；旧表 8 列，不含 all_projects_access。
+///   升级后再注册项目 B 1 个，总注册项目数 = 1 + 1 = 2。
+///
+/// 执行过程：
+///   1. 直接建立旧版 mobile_devices 表和手机授权记录。
+///   2. MobileAccessStore::list 触发迁移，读取旧授权。
+///   3. 注册项目 B 后再次读取旧授权。
+///
+/// 预期结果：旧设备只能读 A，不能控制 A，也不能读新增 B；模式为逐项目。
+#[test]
+fn legacy_mobile_grant_migrates_without_all_project_access() {
+    let dir = tempfile::tempdir().expect("隔离旧版授权数据库");
+    let path = dir.path().join("app.sqlite");
+    let db = rusqlite::Connection::open(&path).expect("创建旧版数据库");
+    db.execute_batch(
+        "CREATE TABLE mobile_devices (
+            device_id TEXT PRIMARY KEY NOT NULL,device_name TEXT NOT NULL,token_hash TEXT NOT NULL,
+            permissions_json TEXT NOT NULL,revision INTEGER NOT NULL CHECK(revision>0),
+            revoked INTEGER NOT NULL CHECK(revoked IN (0,1)),created_at_unix INTEGER NOT NULL,updated_at_unix INTEGER NOT NULL
+         );
+         INSERT INTO mobile_devices VALUES
+         ('old-phone','旧 iPhone','hash','[{\"workspace_id\":\"project-a\",\"access\":\"read\"}]',1,0,1,1);",
+    ).expect("写入旧版逐项目授权");
+    drop(db);
+
+    let store = MobileAccessStore::new(path.clone());
+    let before = store.list().expect("迁移并读取旧授权");
+    assert_eq!(before.len(), 1, "旧设备记录必须保留一条");
+    assert_eq!(
+        before[0].all_projects_access, None,
+        "旧记录不能自动获得全项目模式"
+    );
+    assert!(
+        before[0].allows("project-a", false),
+        "原项目 A 只读授权必须保留"
+    );
+    assert!(
+        !before[0].allows("project-a", true),
+        "原项目 A 不应被升级为控制权限"
+    );
+
+    let project_b = dir.path().join("project-b");
+    std::fs::create_dir(&project_b).expect("创建新项目 B 目录");
+    let b = WorkspaceIdentityStore::new(path)
+        .resolve_or_create(&project_b, "项目 B")
+        .expect("注册新项目 B");
+    let after = store.list().expect("升级后重新读取旧授权");
+    assert!(
+        !after[0].allows(&b.workspace_id, false),
+        "旧逐项目授权不能覆盖新项目 B"
+    );
+    assert_eq!(after[0].projects.len(), 1, "旧授权项目清单必须仍只有 A");
+}
+
+/// 用户在 Mac 明确授权本机所有当前及未来项目后，新项目即时可访问；旧配对仍只认原项目。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   2 个真实注册目录 = 首次授权前 1 个 + 授权后新增 1 个；2 台手机分别为全项目与旧逐项目模式。
+///   每个 64 字符 hex token = 32 字节设备凭据；初始 revision 1，改回逐项目后为 2。
+///
+/// 执行过程：
+///   1. 注册项目 A，并由 Mac 为新手机明确授予全项目控制；旧手机只授予 A。
+///   2. 注册项目 B 并重新鉴权 → 读取动态授权清单；尝试任意未注册项目。
+///   3. 把新手机改回逐项目只读 → 重新鉴权并撤销。
+///
+/// 预期结果：新手机可控制 A/B 但不能控制未注册 ID；旧手机不能看到 B；降权、撤销后均不能沿用旧权限。
+#[test]
+fn explicit_all_project_grant_includes_future_registered_projects_only() {
+    let dir = tempfile::tempdir().expect("隔离 Mac 授权数据库");
+    let path = dir.path().join("app.sqlite");
+    let identities = WorkspaceIdentityStore::new(path.clone());
+    let project_a = dir.path().join("project-a");
+    std::fs::create_dir(&project_a).expect("创建项目 A 目录");
+    let a = identities
+        .resolve_or_create(&project_a, "项目 A")
+        .expect("注册项目 A");
+    let store = MobileAccessStore::new(path);
+    let full_token = "a".repeat(64);
+    let legacy_token = "b".repeat(64);
+    let full = store
+        .register_all_projects(
+            "phone-full",
+            "新 iPhone",
+            &full_token,
+            MobilePermission::Control,
+        )
+        .expect("Mac 明确授权全项目控制");
+    let legacy = store
+        .register(
+            "phone-legacy",
+            "旧 iPhone",
+            &legacy_token,
+            &[scope(&a.workspace_id, MobilePermission::Read)],
+        )
+        .expect("旧设备保持逐项目授权");
+    assert_eq!(
+        full.all_projects_access,
+        Some(MobilePermission::Control),
+        "新授权必须明确记录全项目控制模式"
+    );
+    assert_eq!(legacy.all_projects_access, None, "旧逐项目授权不能静默升级");
+    assert!(
+        full.allows(&a.workspace_id, true),
+        "全项目授权应控制已注册项目 A"
+    );
+    assert!(
+        !full.allows("not-registered", true),
+        "全项目模式不能授权任意未注册字符串"
+    );
+
+    let project_b = dir.path().join("project-b");
+    std::fs::create_dir(&project_b).expect("创建项目 B 目录");
+    let b = identities
+        .resolve_or_create(&project_b, "项目 B")
+        .expect("授权后注册项目 B");
+    let current = store
+        .authenticate("phone-full", &full_token)
+        .expect("重新鉴权")
+        .expect("全项目手机有效");
+    let old = store
+        .authenticate("phone-legacy", &legacy_token)
+        .expect("旧设备鉴权")
+        .expect("旧设备有效");
+    assert!(
+        current.allows(&b.workspace_id, true),
+        "全项目授权应即时覆盖随后注册的项目 B"
+    );
+    assert_eq!(
+        current.projects.len(),
+        2,
+        "当前目录只有 A+B 两项，手机授权摘要也只能有两项"
+    );
+    assert!(
+        !old.allows(&b.workspace_id, false),
+        "旧逐项目手机不能自动读取新项目 B"
+    );
+
+    let downgraded = store
+        .replace_permissions(
+            "phone-full",
+            1,
+            &[scope(&a.workspace_id, MobilePermission::Read)],
+        )
+        .expect("Mac 明确改回逐项目只读");
+    assert_eq!(
+        downgraded.revision, 2,
+        "授权模式变化必须增加修订号，使旧排队命令失效"
+    );
+    assert_eq!(
+        downgraded.all_projects_access, None,
+        "改回逐项目后不能残留全项目模式"
+    );
+    assert!(
+        downgraded.allows(&a.workspace_id, false),
+        "保留的项目 A 仍可读取"
+    );
+    assert!(
+        !downgraded.allows(&a.workspace_id, true),
+        "降权后不能继续控制 A"
+    );
+    assert!(
+        !downgraded.allows(&b.workspace_id, false),
+        "改回逐项目后 B 不可见"
+    );
+    store.revoke("phone-full").expect("撤销新手机");
+    assert!(
+        store
+            .authenticate("phone-full", &full_token)
+            .expect("撤销后鉴权")
+            .is_none(),
+        "撤销后不能恢复旧全项目权限"
+    );
 }
 
 /// 读取手机授权不能写数据库，也不能等待无关写事务释放写锁。
@@ -285,37 +462,4 @@ fn invalid_or_corrupt_grants_fail_closed() {
         store.authenticate("phone-a", &token).is_err(),
         "未知权限不能默认成为可控制"
     );
-}
-
-/// 手机服务的 Keychain account 跟随 App 数据库，不随 IP、窗口或重新打开变化。
-///
-/// 数据构造：两个临时 app.sqlite，分别代表独立安装；只生成非秘密的 Keychain 定位名。
-/// 执行过程：A 创建账号 → 重新打开 A → B 创建账号 → 破坏 A 中的账号记录 → 再次读取。
-/// 预期结果：A 账号稳定、B 不相同；损坏值明确失败，不生成替代值掩盖旧机器身份丢失。
-#[test]
-fn keychain_account_is_stable_and_isolated_per_installation() {
-    let dir = tempfile::tempdir().expect("临时安装");
-    let a = MobileAccessStore::new(dir.path().join("a.sqlite"));
-    let account = a.keychain_account().expect("创建账号");
-    assert_eq!(
-        MobileAccessStore::new(dir.path().join("a.sqlite"))
-            .keychain_account()
-            .expect("重开"),
-        account,
-        "账号必须跨重启保持稳定"
-    );
-    assert_ne!(
-        MobileAccessStore::new(dir.path().join("b.sqlite"))
-            .keychain_account()
-            .expect("B"),
-        account,
-        "独立安装不能共享 Keychain 账号"
-    );
-    let db = rusqlite::Connection::open(dir.path().join("a.sqlite")).expect("测试数据库");
-    db.execute(
-        "UPDATE settings SET value='bad/account' WHERE key='mobile.keychain_account'",
-        [],
-    )
-    .expect("仅破坏测试值");
-    assert!(a.keychain_account().is_err(), "损坏账号不得被覆盖重建");
 }

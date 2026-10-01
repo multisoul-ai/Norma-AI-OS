@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760" role="img" aria-labelledby="title desc">
+  <title id="title">Norma OS Workspace 项目入口草图</title>
+  <desc id="desc">左侧工作空间对话页在标题下显示关联项目入口；点击后进入右侧工作空间设置，可添加已有项目。保存新想法时不强制选择项目。</desc>
+  <defs>
+    <style>
+      text{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;fill:#17233b}
+      .muted{fill:#718099}.blue{fill:#2869e8}.green{fill:#168563}.small{font-size:16px}.tiny{font-size:13px}.label{font-size:19px;font-weight:700}.title{font-size:29px;font-weight:750}.section{font-size:17px;font-weight:700}
+      .line{stroke:#e1e8f1;stroke-width:1.5}.phone{fill:#f8fafd;stroke:#d3dce9;stroke-width:3}.card{fill:#fff;stroke:#e3eaf4;stroke-width:1.5}.pill{fill:#eaf2ff}.glass{fill:#ffffffd9;stroke:#e2eaf7;stroke-width:1.5}
+    </style>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#6e83a3" flood-opacity="0.13"/></filter>
+  </defs>
+
+  <rect width="1200" height="760" fill="#f1f5fa"/>
+  <text x="70" y="66" class="title">Workspace 里直接看见项目，也能随时修改</text>
+  <text x="71" y="96" class="small muted">一件事一个 Workspace；项目是它可使用的执行范围。</text>
+
+  <!-- Workspace conversation -->
+  <g filter="url(#shadow)"><rect x="64" y="126" width="420" height="550" rx="38" class="phone"/></g>
+  <rect x="85" y="147" width="378" height="508" rx="26" fill="#f8fafd"/>
+  <text x="105" y="176" class="tiny" font-weight="700">9:41</text>
+  <rect x="245" y="157" width="60" height="16" rx="8" fill="#1b2433"/>
+  <text x="108" y="218" class="small blue">‹</text>
+  <text x="135" y="218" class="label">改进 iOS 首屏交接</text>
+  <text x="430" y="218" class="label">···</text>
+  <circle cx="139" cy="238" r="4" fill="#34bc83"/>
+  <text x="150" y="243" class="tiny muted">执行中 · Norma 正在协调 2 位 Agent</text>
+
+  <rect x="104" y="261" width="338" height="67" rx="18" fill="#eaf2ff" stroke="#9cc0ff" stroke-width="2.5"/>
+  <text x="124" y="286" class="tiny muted">关联项目 · 点击查看或修改</text>
+  <rect x="123" y="295" width="79" height="22" rx="11" fill="#fff"/>
+  <text x="135" y="310" class="tiny blue">iOS App</text>
+  <rect x="208" y="295" width="94" height="22" rx="11" fill="#fff"/>
+  <text x="218" y="310" class="tiny blue">Norma API</text>
+  <text x="416" y="307" class="small blue" font-weight="700">›</text>
+
+  <rect x="104" y="345" width="338" height="65" rx="17" class="card"/>
+  <text x="124" y="370" class="section">工作简报</text>
+  <text x="124" y="394" class="tiny muted">目标 · 1 条硬约束 · 2 条决定</text>
+  <text x="416" y="382" class="small muted">›</text>
+
+  <rect x="205" y="428" width="237" height="58" rx="18" fill="#4d86f0"/>
+  <text x="222" y="453" class="tiny" fill="#fff" style="fill:#fff">@Norma 开始处理首屏交接</text>
+  <text x="222" y="473" class="tiny" fill="#fff" style="fill:#fff">iOS 和 API 都看一下</text>
+  <circle cx="123" cy="517" r="19" fill="#dff7eb"/>
+  <text x="116" y="524" class="small green" font-weight="700">N</text>
+  <rect x="151" y="497" width="291" height="70" rx="18" class="card"/>
+  <text x="168" y="523" class="tiny" font-weight="700">Norma</text>
+  <text x="168" y="546" class="tiny muted">Codex 核对状态，Design 调整层级。</text>
+  <rect x="105" y="588" width="336" height="49" rx="25" class="glass"/>
+  <text x="124" y="618" class="small blue">＋</text>
+  <text x="162" y="618" class="small muted">发消息或 @Agent</text>
+  <text x="414" y="618" class="small muted">◉</text>
+  <text x="102" y="707" class="small muted">① 对话页：项目入口始终可见</text>
+
+  <!-- Connector -->
+  <path d="M496 294 C544 294 540 294 585 294" fill="none" stroke="#3d7bf0" stroke-width="3" stroke-dasharray="7 7"/>
+  <path d="M581 286 L593 294 L581 302" fill="none" stroke="#3d7bf0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="504" y="253" width="80" height="30" rx="15" fill="#eaf2ff"/>
+  <text x="519" y="273" class="tiny blue" font-weight="700">点这里</text>
+
+  <!-- Workspace settings -->
+  <g filter="url(#shadow)"><rect x="608" y="126" width="420" height="550" rx="38" class="phone"/></g>
+  <rect x="629" y="147" width="378" height="508" rx="26" fill="#f8fafd"/>
+  <text x="649" y="176" class="tiny" font-weight="700">9:41</text>
+  <rect x="789" y="157" width="60" height="16" rx="8" fill="#1b2433"/>
+  <text x="652" y="218" class="small blue">‹</text>
+  <text x="683" y="218" class="label">工作空间设置</text>
+  <text x="651" y="243" class="tiny muted">改进 iOS 首屏交接</text>
+
+  <text x="650" y="282" class="section">关联项目</text>
+  <text x="650" y="303" class="tiny muted">这些项目可供本 Workspace 的 Agent 操作</text>
+  <rect x="649" y="319" width="338" height="164" rx="18" class="card"/>
+  <text x="668" y="349" class="small" font-weight="650">iOS App</text>
+  <text x="668" y="369" class="tiny muted">Alan Studio · 在线</text>
+  <text x="956" y="356" class="small green">✓</text>
+  <line x1="668" y1="385" x2="968" y2="385" class="line"/>
+  <text x="668" y="413" class="small" font-weight="650">Norma API</text>
+  <text x="668" y="433" class="tiny muted">Alan Studio · 在线</text>
+  <text x="956" y="421" class="small green">✓</text>
+  <line x1="668" y1="449" x2="968" y2="449" class="line"/>
+  <text x="668" y="472" class="small blue" font-weight="700">＋ 添加已有项目</text>
+  <text x="956" y="472" class="small blue">›</text>
+
+  <text x="650" y="526" class="section">参与 Agent</text>
+  <rect x="649" y="541" width="338" height="58" rx="17" class="card"/>
+  <text x="668" y="575" class="small">Norma · Codex · Design</text>
+  <text x="956" y="575" class="small muted">›</text>
+  <text x="646" y="707" class="small muted">② 设置页：添加电脑上已有的项目</text>
+
+  <rect x="65" y="724" width="963" height="27" rx="13" fill="#e5edf8"/>
+  <text x="84" y="743" class="tiny muted">新想法：可先讨论，项目显示「尚未关联 · 添加已有项目」；用户下令开工时，Norma 也可自动关联并在频道留下回执。</text>
+</svg>

@@ -179,7 +179,29 @@ fn e2e_02_workspace_open_never_reuses_latest_session_for_multiple_unbound_agent_
         },
         Duration::from_secs(2),
     )
-    .expect("2 秒内两张 Agent 卡片都应启动 fake Claude");
+    .unwrap_or_else(|| {
+        let screens = app.read_with(cx, |app, _| {
+            [7, 8].map(|node| {
+                (
+                    node,
+                    app.runtime.node_view(node).map(|view| match view {
+                        runtime::NodeView::Term {
+                            snapshot, status, ..
+                        } => {
+                            let text = snapshot
+                                .rows
+                                .iter()
+                                .flatten()
+                                .map(|cell| cell.c)
+                                .collect::<String>();
+                            (status, text)
+                        }
+                    }),
+                )
+            })
+        });
+        panic!("2 秒内两张 Agent 卡片都应启动 fake Claude，实际终端：{screens:?}");
+    });
 
     assert!(
         !restored.0.contains("claude-history-session"),

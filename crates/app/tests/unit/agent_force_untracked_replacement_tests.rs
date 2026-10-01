@@ -1,4 +1,4 @@
-use super::execute_agent_card_command;
+use super::{execute_agent_card_command, execute_norma_adapter_command_with_source};
 use gpui::TestAppContext;
 use norma::protocol::{
     AgentProfile, AgentTaskAssignment, AgentTaskReceiptStatus, CardCommand, CardCommandResult,
@@ -162,5 +162,95 @@ fn test_force_untracked_clears_typed_pending_before_replacement() {
     assert!(
         !actual_writes.iter().any(|bytes| bytes == &[0x0d]),
         "force 替换窗口内旧 pending 不得晚到发送 Enter"
+    );
+}
+
+/// 豆包向忙碌的无 Hook AgentCard 派新任务：直接替换旧任务，无额外授权。
+///
+/// 数据构造（含关键数值的推导过程）：Alan 卡片 1 张；第一次任务 1 个；
+/// 第二次豆包派发 1 个，预期活跃任务仍只有 1 个，旧任务转 interrupted。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 关闭 Hook，创建并激活 Alan/Codex，使其处于 Untracked。
+///   2. 通过普通来源派发 first，再通过 DoubaoVoice 派发 second。
+///   3. 读取两个真实任务回执和 coordinator 状态。
+///
+/// 预期结果：第二次无需授权即可接收；first 被中断且 second 存在。
+#[test]
+fn test_doubao_replaces_busy_untracked_agent_without_authorization() {
+    let mut gpui = TestAppContext::single();
+    let workspace = tempfile::TempDir::new().expect("应创建豆包派工测试项目");
+    let (app, cx) = gpui.add_window_view(|_window, cx| {
+        crate::app::MultisoulApp::new_with_pty_factory(
+            cx,
+            Box::new(|_cmd, _cols, _rows, tx| {
+                Ok(Box::new(terminal::TestPtyBackend::echo(tx)) as Box<dyn PtyBackend>)
+            }),
+        )
+    });
+    app.update(cx, |app, cx| {
+        app.disable_agent_hook_for_test();
+        app.enter_canvas_for_test(workspace.path(), cx);
+    });
+    cx.update(|window, app_cx| {
+        app.update(app_cx, |app, _| {
+            execute_agent_card_command(
+                app,
+                window,
+                CardCommand::CreateAgent {
+                    name: Some("Alan".into()),
+                    profile: AgentProfile::Codex,
+                    activate: true,
+                },
+            )
+        })
+    })
+    .expect("应创建 Alan 卡片");
+    let dispatch =
+        |task: &str, source: agent::AgentInputSource, cx: &mut gpui::VisualTestContext| {
+            cx.update(|window, app_cx| {
+                app.update(app_cx, |app, cx| {
+                    execute_norma_adapter_command_with_source(
+                        app,
+                        Some(window),
+                        cx,
+                        agent::AdapterCommand::AssignAgentTask {
+                            agent: "Alan".into(),
+                            task: task.into(),
+                        },
+                        source,
+                    )
+                })
+            })
+        };
+    let first =
+        dispatch("first", agent::AgentInputSource::Other, cx).expect("首次任务应被 Alan 接收");
+    let second = dispatch("second", agent::AgentInputSource::DoubaoVoice, cx);
+    let tasks = app.read_with(cx, |app, _| {
+        app.agent_task_coordinator
+            .as_ref()
+            .expect("应存在任务协调器")
+            .tasks()
+    });
+    assert_eq!(first.status, "accepted", "首个任务应被接收");
+    assert!(
+        second.is_ok(),
+        "豆包第二次派工不应要求额外授权；实际：{second:?}"
+    );
+    let second = second.expect("成功已由上一断言确认");
+    assert_eq!(second.status, "accepted", "第二个任务应被接收");
+    assert!(
+        tasks.iter().any(
+            |task| task.task_id == first.task_id.expect("首项应有 task_id")
+                && task.state == "interrupted"
+        ),
+        "被替换的 first 必须转为 interrupted"
+    );
+    assert!(
+        tasks.iter().any(
+            |task| task.task_id == second.task_id.expect("次项应有 task_id")
+                && matches!(task.state, "queued" | "running")
+        ),
+        "第二项必须成为新的活跃任务"
     );
 }

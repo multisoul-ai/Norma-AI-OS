@@ -13,6 +13,9 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     TARGETED_DEVICE_FAMILY: "1"
+    NORMA_LOCAL_GATEWAY_ORIGIN: ""
+    NORMA_LOCAL_GATEWAY_PIN: ""
+    NORMA_LOCAL_GATEWAY_NAMESPACE: ""
 targets:
   Norma:
     type: application
@@ -38,14 +41,14 @@ targets:
         DEVELOPMENT_TEAM: 2BF8G9AN4L
         CODE_SIGN_STYLE: Automatic
         TARGETED_DEVICE_FAMILY: "1"
-        CURRENT_PROJECT_VERSION: "42"
+        CURRENT_PROJECT_VERSION: "45"
         MARKETING_VERSION: "0.1.0"
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_FILE: App/Info.plist
         INFOPLIST_KEY_CFBundleDisplayName: Norma
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
-        INFOPLIST_KEY_NSMicrophoneUsageDescription: 用于按住说话输入任务和实时语音对话；通话声音会发送到你配置的语音服务。
-        INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: 将按住说话的声音转成可编辑的任务文字，系统语音识别可能使用 Apple 的服务。
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: 用于在手机上记录语音想法、输入任务和实时语音对话；实时通话声音会发送到语音服务。
+        INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: 将语音想法和任务语音转成可编辑文字；系统语音识别可能使用 Apple 的服务。
         INFOPLIST_KEY_NSCameraUsageDescription: 扫描你电脑上的 Norma 二维码，安全配对此手机。
         INFOPLIST_KEY_NSLocalNetworkUsageDescription: 连接你授权的电脑，查看项目和控制 Agent。
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
@@ -96,3 +99,9 @@ schemes:
       environmentVariables:
         NORMA_TEST_QR: "$(NORMA_TEST_QR)"
         NORMA_TEST_MODE: "$(NORMA_TEST_MODE)"
+        NORMA_THREAD_REVIEW_FIXTURE: "$(NORMA_THREAD_REVIEW_FIXTURE)"
+        NORMA_THREAD_REAL_FIXTURE: "$(NORMA_THREAD_REAL_FIXTURE)"
+        NORMA_THREAD_PLAN_FIXTURE: "$(NORMA_THREAD_PLAN_FIXTURE)"
+        NORMA_EXECUTION_UI_NAMESPACE: "$(NORMA_EXECUTION_UI_NAMESPACE)"
+        NORMA_LOCAL_TLS_FIXTURE: "$(NORMA_LOCAL_TLS_FIXTURE)"
+        NORMA_REGISTRATION_FIXTURE: "$(NORMA_REGISTRATION_FIXTURE)"

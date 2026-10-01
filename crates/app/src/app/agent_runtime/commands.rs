@@ -281,41 +281,47 @@ pub(super) fn execute_coordinated_agent_command(
             let mut retry_safe_managed_failures = HashSet::<i64>::new();
             let mut retry_safe_untracked_failures = HashSet::<i64>::new();
             for receipt in &receipts {
-                if matches!(
-                    receipt.state,
-                    agent::AgentDispatchState::SubmittedManaged
-                        | agent::AgentDispatchState::SubmittedUntracked
-                ) {
-                    if app.pending_agent_submissions.should_wait(receipt.node_id) {
-                        app.pending_agent_submissions.enqueue(receipt.clone());
+                if app.runtime.agent_task_input_held(receipt.node_id)
+                    || receipt.state == agent::AgentDispatchState::Queued
+                    || matches!(
+                        app.runtime.agent_task_state(receipt.node_id),
+                        Some(runtime::AgentTaskState::WaitingApproval { .. })
+                    )
+                {
+                    app.pending_agent_submissions
+                        .enqueue_immediate(receipt.clone());
+                    waiting_tasks.insert(receipt.task_id);
+                    continue;
+                }
+                if app.pending_agent_submissions.should_wait(receipt.node_id) {
+                    app.pending_agent_submissions.enqueue(receipt.clone());
+                    waiting_tasks.insert(receipt.task_id);
+                    continue;
+                }
+                match type_agent_task(&mut app.runtime, receipt.node_id, &receipt.task) {
+                    Ok(()) => {
+                        app.pending_agent_submissions
+                            .schedule_enter(receipt.clone());
                         waiting_tasks.insert(receipt.task_id);
-                        continue;
                     }
-                    match type_agent_task(&mut app.runtime, receipt.node_id, &receipt.task) {
-                        Ok(()) => {
-                            app.pending_agent_submissions
-                                .schedule_enter(receipt.clone());
-                            waiting_tasks.insert(receipt.task_id);
+                    Err(error) => {
+                        tracing::error!(
+                            definition_id = receipt.definition_id,
+                            task_id = receipt.task_id,
+                            %error,
+                            "failed to type Agent task"
+                        );
+                        if receipt.state != agent::AgentDispatchState::SubmittedUntracked
+                            && error.retry_safe()
+                        {
+                            retry_safe_managed_failures.insert(receipt.definition_id);
                         }
-                        Err(error) => {
-                            tracing::error!(
-                                definition_id = receipt.definition_id,
-                                task_id = receipt.task_id,
-                                %error,
-                                "failed to type Agent task"
-                            );
-                            if receipt.state == agent::AgentDispatchState::SubmittedManaged
-                                && error.retry_safe()
-                            {
-                                retry_safe_managed_failures.insert(receipt.definition_id);
-                            }
-                            if receipt.state == agent::AgentDispatchState::SubmittedUntracked
-                                && error.retry_safe()
-                            {
-                                retry_safe_untracked_failures.insert(receipt.definition_id);
-                            }
-                            failed_tasks.insert(receipt.task_id, error);
+                        if receipt.state == agent::AgentDispatchState::SubmittedUntracked
+                            && error.retry_safe()
+                        {
+                            retry_safe_untracked_failures.insert(receipt.definition_id);
                         }
+                        failed_tasks.insert(receipt.task_id, error);
                     }
                 }
             }
@@ -331,6 +337,9 @@ pub(super) fn execute_coordinated_agent_command(
                     .collect::<Vec<_>>();
                 if let Some(coordinator) = app.agent_task_coordinator.as_mut() {
                     coordinator.reject_dispatch(definition_id, &task_ids);
+                }
+                for task_id in task_ids {
+                    app.pending_agent_submissions.remove_task(task_id);
                 }
             }
             retry_safe_untracked_failures.retain(|definition_id| {

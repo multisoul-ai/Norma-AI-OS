@@ -54,8 +54,10 @@ fn swift_native_client_pairs_authenticates_and_rejects_wrong_pin() {
             if let Ok(call) = receive_commands.try_recv() {
                 assert!(call.lease.begin(), "fixture 仅执行正式 gateway 授权的请求");
                 let node = match &call.request.command {
-                    app::MobileCommand::RealtimeTool { .. } => {
-                        panic!("手机网络不能构造 Mac 内部实时工具命令")
+                    app::MobileCommand::RealtimeTool { .. } | app::MobileCommand::ThreadTask { .. }
+                    | app::MobileCommand::ThreadTerminal { .. }
+                    | app::MobileCommand::ThreadFollowup { .. } => {
+                        panic!("普通配对命令入口不能构造 Mac 内部派工命令")
                     }
                     app::MobileCommand::TerminalInput { .. }
                     | app::MobileCommand::AcceptDelivery { .. }

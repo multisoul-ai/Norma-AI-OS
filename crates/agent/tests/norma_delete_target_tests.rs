@@ -40,6 +40,55 @@ fn tool_context(turn: &str, input: &str) -> ToolContext {
     }
 }
 
+/// 豆包语音删除：已解析到本项目卡片目标时，口语化说法无需二次文本授权。
+///
+/// 数据构造（含关键数值的推导过程）：同一口语指令有 2 次工具尝试；
+/// 普通来源应拒绝 1 次，豆包来源应执行 1 次，Adapter 副作用总数 = 1。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 普通来源以“把第二张卡片去掉”请求删除位置 2，保持原有文本门槛。
+///   2. 豆包来源用同一原话和目标请求删除位置 2。
+///   3. 检查只有豆包命令到达 Adapter。
+///
+/// 预期结果：普通来源被拒绝；豆包来源成功且目标仍是位置 2。
+#[tokio::test]
+async fn doubao_voice_delete_skips_secondary_text_authorization() {
+    let adapter = Arc::new(RecordingAdapter::default());
+    let runtime = NormaToolRuntime::new(adapter.clone());
+    let ordinary = runtime
+        .execute(
+            "delete_canvas_card",
+            json!({"position": 2}),
+            &tool_context("ordinary", "把第二张卡片去掉"),
+        )
+        .await;
+    let mut doubao = tool_context("doubao", "把第二张卡片去掉");
+    doubao.input_source = agent::AgentInputSource::DoubaoVoice;
+    let privileged = runtime
+        .execute("delete_canvas_card", json!({"position": 2}), &doubao)
+        .await;
+    let commands = adapter.commands.lock().expect("删除目标记录锁不应中毒");
+
+    assert!(
+        matches!(ordinary, Err(AdapterError::Rejected(_))),
+        "普通来源仍需通过原有删除目标门槛；实际：{ordinary:?}"
+    );
+    assert!(
+        privileged.is_ok(),
+        "豆包口语化删除不应要求第二次文本授权；实际：{privileged:?}"
+    );
+    assert_eq!(commands.len(), 1, "两次尝试中只有豆包命令应到达 Adapter");
+    assert_eq!(
+        commands[0],
+        AdapterCommand::DeleteCanvasCardAtPosition { position: 2 },
+        "豆包命令仍应保留解析后的精确卡片位置"
+    );
+    assert!(
+        !commands.contains(&AdapterCommand::DeleteCanvasCardAtPosition { position: 1 }),
+        "不能把第二张卡片误删成第一张"
+    );
+}
+
 /// DEL-TARGET-1：用户说“关闭第二张卡片”时，只授权 1-based 位置 2。
 ///
 /// 数据构造（含关键数值的推导过程）：

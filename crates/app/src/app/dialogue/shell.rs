@@ -9,6 +9,18 @@ impl MultisoulApp {
     }
 
     pub(crate) fn effective_voice_label(&self) -> String {
+        if self.voice_settings.values().desktop_mode()
+            == crate::settings::voice::DesktopVoiceMode::Doubao
+        {
+            return match &self.doubao.status {
+                crate::app::doubao::DoubaoStatus::Idle => "Voice".into(),
+                crate::app::doubao::DoubaoStatus::Connecting => "Connecting…".into(),
+                crate::app::doubao::DoubaoStatus::Connected => "Listening".into(),
+                crate::app::doubao::DoubaoStatus::Thinking => "Thinking…".into(),
+                crate::app::doubao::DoubaoStatus::Speaking => "Replying…".into(),
+                crate::app::doubao::DoubaoStatus::Disconnected(_) => "Voice disconnected".into(),
+            };
+        }
         if self.dialogue_voice_label().is_some() {
             self.dialogue.effective_voice_label(self.voice_label())
         } else {
@@ -17,10 +29,44 @@ impl MultisoulApp {
     }
 
     pub(crate) fn effective_voice_visual(&self) -> crate::app::voice::control::VoiceVisual {
+        if self.voice_settings.values().desktop_mode()
+            == crate::settings::voice::DesktopVoiceMode::Doubao
+        {
+            return match self.doubao.status {
+                crate::app::doubao::DoubaoStatus::Idle => {
+                    crate::app::voice::control::VoiceVisual::Idle
+                }
+                crate::app::doubao::DoubaoStatus::Connecting => {
+                    crate::app::voice::control::VoiceVisual::Processing
+                }
+                crate::app::doubao::DoubaoStatus::Connected => {
+                    crate::app::voice::control::VoiceVisual::Recording
+                }
+                crate::app::doubao::DoubaoStatus::Thinking
+                | crate::app::doubao::DoubaoStatus::Speaking => {
+                    crate::app::voice::control::VoiceVisual::Processing
+                }
+                crate::app::doubao::DoubaoStatus::Disconnected(_) => {
+                    crate::app::voice::control::VoiceVisual::Error
+                }
+            };
+        }
         self.dialogue.effective_voice_visual(self.voice.visual())
     }
 
     pub(crate) fn effective_voice_dock_label(&self) -> &'static str {
+        if self.voice_settings.values().desktop_mode()
+            == crate::settings::voice::DesktopVoiceMode::Doubao
+        {
+            return match self.doubao.status {
+                crate::app::doubao::DoubaoStatus::Idle => "Voice",
+                crate::app::doubao::DoubaoStatus::Connecting => "Connecting…",
+                crate::app::doubao::DoubaoStatus::Connected => "Listening",
+                crate::app::doubao::DoubaoStatus::Thinking => "Thinking…",
+                crate::app::doubao::DoubaoStatus::Speaking => "Replying…",
+                crate::app::doubao::DoubaoStatus::Disconnected(_) => "Voice disconnected",
+            };
+        }
         match self.dialogue.phase() {
             dialogue::DialoguePhase::Thinking => "Thinking…",
             dialogue::DialoguePhase::Speaking => "Replying...",
@@ -33,6 +79,10 @@ impl MultisoulApp {
     pub(crate) fn can_open_microphone_privacy_settings(&self) -> bool {
         self.voice.microphone_settings_recovery_available()
             || self.dialogue.microphone_settings_recovery_available()
+            || self
+                .voice_settings
+                .requirement_state(crate::settings::voice::VoiceRequirement::Microphone)
+                == crate::settings::voice::VoiceRequirementState::Failed
     }
 
     pub(crate) fn start_continuous_listening(&mut self, cx: &mut Context<Self>) {
@@ -41,6 +91,10 @@ impl MultisoulApp {
         self.voice.reset_caption_to_default();
         let values = self.voice_settings.values().clone();
         let model_root = self.voice_settings.model_root().to_path_buf();
+        let store = self
+            .voice_settings
+            .credential_store()
+            .expect("app voice settings need SQLite");
         let input_device_id = values.input_device_id().map(ToOwned::to_owned);
         let startup_attempt = self.dialogue.begin_startup_attempt();
         tracing::info!(
@@ -56,7 +110,7 @@ impl MultisoulApp {
         );
         let task = cx.spawn(async move |this, cx| {
             let runtime_task = cx.background_executor().spawn(async move {
-                start_dialogue_listening_runtime(values, model_root, input_device_id)
+                start_dialogue_listening_runtime(values, model_root, input_device_id, store)
             });
             let runtime = runtime_task.await;
             let _ = this.update(cx, |app, cx| {

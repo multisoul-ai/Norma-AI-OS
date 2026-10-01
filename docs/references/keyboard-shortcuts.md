@@ -2,7 +2,7 @@
 
 本文汇总 Norma OS 当前可配置快捷键与键盘/指针交互契约。macOS 上 `Cmd` 对应 GPUI 的 `platform` 修饰键（⌘）。
 
-最后对照源码：`crates/app/src/shortcuts.rs`、`crates/app/src/app/keyboard.rs`、`crates/app/src/settings/keyboard.rs`、`crates/app/src/canvas/view.rs`、`crates/app/src/app/new_menu.rs`（2026-07-15）。
+最后对照源码：`crates/app/src/shortcuts.rs`、`crates/app/src/app/keyboard.rs`、`crates/app/src/settings/keyboard.rs`、`crates/app/src/canvas/view.rs`、`crates/app/src/app/command_dock.rs`（2026-10-01）。
 
 ## 1. 注册机制
 
@@ -36,12 +36,14 @@ canvas/view.rs
 | --- | --- | --- | --- | --- |
 | `⌘N` | `NewWorkspace` | `navigate_desktop_shortcut` | 桌面主界面 | 打开创建工作空间命名表单 |
 | `⌘⇧A` | `AddProject` | `navigate_desktop_shortcut` | 工作空间／项目画布 | 打开当前空间的项目选择器 |
+| `⌘K` | `FocusCommandInput` | `focus_command_input` | Canvas | 聚焦底部指令输入框，支持录制及恢复 |
 | `⌘⇧N` | `NewWindow` | `on_new_window` | 全局 | 打开新的 Launchpad 窗口，不创建画布节点 |
 | `⌘1` | `NewTerminal` | `on_new_terminal` | Canvas | 在可见画布区域新建 Terminal 节点，激活选中并触发当前布局 reflow |
 | 未设置 | `NewBrowser` | `on_new_browser` | Canvas | 在可见画布区域创建 Browser 卡片 |
 | `⌘C` | `CopyCardContent` | `on_copy_card_content` | Canvas | 复制当前终端文本选区到剪贴板；无选区时不写入 |
 | `⌘O` | `OpenProject` | `on_open_project` | 全局 | 弹出目录选择器打开 workspace（Launchpad / Canvas 均可用） |
 | `⌘⇧O` | `OpenPreviewFile` | `on_open_preview_file` | Canvas | 弹出文件选择器，创建 Preview 卡片 |
+| `⌘S` | `SavePreviewFile` | `save_preview_edit` | 文本 / Markdown 卡片编辑中 | 保存当前编辑；检测到外部修改时保留草稿并提示冲突 |
 | `⌘2` | `NewClaudeAgent` | `on_new_claude_agent` | Canvas | 创建 Claude Code agent 卡片 |
 | `⌘3` | `NewCodexAgent` | `on_new_codex_agent` | Canvas | 创建 Codex agent 卡片 |
 | `⌘4` | `NewCursorAgent` | `on_new_cursor_agent` | Canvas | 创建 Cursor Agent CLI 卡片 |
@@ -55,6 +57,8 @@ canvas/view.rs
 | `⌘E` | `VoiceInteraction` | `activate_ready_voice` | 全局 | 按当前语音交互模式开始/停止单次语音指令或持续聆听；Hold 模式下松开结束输入 |
 
 ### 复制（`⌘C`）优先级
+
+文件卡片的编辑输入框聚焦时，复制、粘贴、撤销、方向键及文本选择由输入组件处理，不触发画布操作；`⌘S` 按配置保存文件。
 
 `on_copy_card_content` 的复制来源逻辑（`keyboard.rs`）：
 
@@ -112,7 +116,7 @@ Settings → Keyboard Shortcuts 支持内联录制、单项 Restore 和 Restore 
 
 ## 3. 原生菜单栏与创建命令
 
-`lib.rs` 注册 macOS 原生菜单栏；菜单点击、工具栏 ✚ 和可配置快捷键共用既有 Action/处理器，不复制创建逻辑。顶级层级固定为：
+`lib.rs` 注册 macOS 原生菜单栏；菜单点击、底部指令和可配置快捷键共用既有 Action/处理器，不复制创建逻辑。顶级层级固定为：
 
 ```text
 Norma OS: Settings… / Services / Quit Norma OS (Cmd+Q)
@@ -125,19 +129,24 @@ Layout:   Reflow Layout / Toggle Master Layout
 
 | 菜单项 | 默认快捷键 | Action | 处理器 | 等效入口 |
 | --- | --- | --- | --- | --- |
-| New Claude Agent | `⌘2` | `NewClaudeAgent` | `on_new_claude_agent` | 顶部工具栏 ✚ 菜单 → Claude |
-| New Codex Agent | `⌘3` | `NewCodexAgent` | `on_new_codex_agent` | 顶部工具栏 ✚ 菜单 → Codex |
-| New Cursor Agent | `⌘4` | `NewCursorAgent` | `on_new_cursor_agent` | 顶部工具栏 ✚ 菜单 → Cursor |
-| New OpenCode Agent | `⌘5` | `NewOpenCodeAgent` | `on_new_opencode_agent` | 顶部工具栏 ✚ 菜单 → OpenCode |
-| New Grok Agent | `⌘6` | `NewGrokAgent` | `on_new_grok_agent` | 顶部工具栏 ✚ 菜单 → Grok |
+| New Claude Agent | `⌘2` | `NewClaudeAgent` | `on_new_claude_agent` | `/new claude` |
+| New Codex Agent | `⌘3` | `NewCodexAgent` | `on_new_codex_agent` | `/new codex` |
+| New Cursor Agent | `⌘4` | `NewCursorAgent` | `on_new_cursor_agent` | `/new cursor` |
+| New OpenCode Agent | `⌘5` | `NewOpenCodeAgent` | `on_new_opencode_agent` | `/new opencode` |
+| New Grok Agent | `⌘6` | `NewGrokAgent` | `on_new_grok_agent` | `/new grok` |
 
 除固定的 `Cmd+Q` 外，原生菜单暂不显示快捷键提示：可配置按键的真值仍是 `ShortcutSettingsState`，避免菜单显示与用户 override 不同步。Launchpad 中 Canvas 专属菜单项按原生禁用状态显示；`New Window` 与 `Open Project…` 保持可用。
 
-顶部工具栏的 ✚（Plus）按钮不再是直接的新建终端入口，而是展开一个浮层菜单（Terminal / Claude / Codex / Cursor / Grok / OpenCode / Preview / Browser）。菜单展开后：
+底部 Dock 按「工作空间｜布局｜指令输入｜Voice｜设置」排列，布局、Voice 和设置沿用原有交互。创建按钮统一收纳到指令输入：
 
-- ✚ 按钮高亮（accent 橙填充），再次点击收起。
-- 选择任一项执行对应动作（Terminal → `on_new_terminal`、Claude/Codex/Cursor/Grok/OpenCode → `spawn_agent_card(profile)`、Preview → `on_open_preview_file`、Browser → `on_new_browser`）并自动收起菜单。
-- 裸 `Esc` 优先收起菜单（不退焦、不传 PTY）。画布任意鼠标按下也会收起菜单。判定函数：`should_close_new_menu_on_escape`（`keyboard.rs`）。
+- `/new` 显示五种 Agent；`/new codex` 等直接创建，不再选择位置。
+- `/terminal`、`/browser` 创建并激活对应卡片；`/preview` 复用文件选择器。
+- `/theme` 显示正式六主题；`/theme midnight-violet` 应用主题。
+- 支持有限中文表达，例如「创建一个 Codex 卡片」「打开终端」「切换深色主题」。未知、否定、多操作或额外参数不会执行。
+- 输入只过滤；↑/↓选择、Tab 补全、Enter/点击执行；Esc 收起并保留草稿。IME 组词期间不执行。
+- 仅非空白输入显示建议，空输入聚焦不展开。建议抽屉从底部向上展开，清空或失焦后收回；连续输入可中途反向，减少动态效果时只淡入淡出。
+
+成功清空输入；失败及文件选择取消保留草稿。输入框聚焦时文本编辑与方向键不会进入画布或 PTY。本版本不接入 Ego。
 
 ## 4. 键事件路由（非 Action）
 
@@ -250,7 +259,7 @@ Layout:   Reflow Layout / Toggle Master Layout
 **画布层滚轮**（`apply_canvas_wheel_scroll`）：
 
 - 默认**关闭**（`InteractionState.canvas_scroll_enabled = false`）。
-- 用户需点击顶部工具栏 `↕` 按钮开启后，滚轮才平移 `viewport.pan`。
+- Command Dock 已移除 Select/Scroll 模式按钮，目前没有 UI 入口可开启；开启后滚轮才会平移 `viewport.pan`。
 - 当前实现**不会**通过滚轮改变 `viewport.zoom`（旧 zoom 行为已移除，见 `canvas_view_tests.rs`）。
 
 ## 6. 输入模式速查

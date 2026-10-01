@@ -18,10 +18,12 @@ pub(crate) enum PendingVoiceSettingWrite {
         key: String,
     },
     StoreCredential {
+        store: Option<SettingsStore>,
         account: String,
         secret: String,
     },
     DeleteCredential {
+        store: Option<SettingsStore>,
         account: String,
     },
 }
@@ -33,6 +35,7 @@ pub(super) struct VoicePersistenceBatch {
     minimax_credential: bool,
     minimax_clear: bool,
     minimax_validation: bool,
+    doubao_credential: bool,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -52,11 +55,17 @@ impl PendingVoiceSettingWrite {
             Self::Delete { store, key } => {
                 store.delete_string(&key).map_err(|error| error.to_string())
             }
-            Self::StoreCredential { account, secret } => {
-                crate::settings::voice::credentials::store(&account, &secret)
+            Self::StoreCredential {
+                store,
+                account,
+                secret,
+            } => {
+                let store = store.ok_or("credential SQLite store unavailable")?;
+                crate::settings::voice::credentials::store(&store, &account, &secret)
             }
-            Self::DeleteCredential { account } => {
-                crate::settings::voice::credentials::delete(&account)
+            Self::DeleteCredential { store, account } => {
+                let store = store.ok_or("credential SQLite store unavailable")?;
+                crate::settings::voice::credentials::delete(&store, &account)
             }
         }
     }
@@ -99,7 +108,9 @@ impl PendingVoiceSettingWrite {
     pub(super) fn key(&self) -> &str {
         match self {
             Self::Set { key, .. } | Self::Delete { key, .. } => key,
-            Self::StoreCredential { account, .. } | Self::DeleteCredential { account } => account,
+            Self::StoreCredential { account, .. } | Self::DeleteCredential { account, .. } => {
+                account
+            }
         }
     }
 
@@ -113,7 +124,7 @@ impl PendingVoiceSettingWrite {
     fn deletes_credential(&self, expected_account: Option<&str>) -> bool {
         matches!(
             (self, expected_account),
-            (Self::DeleteCredential { account }, Some(expected)) if account == expected
+            (Self::DeleteCredential { account, .. }, Some(expected)) if account == expected
         )
     }
 
@@ -168,6 +179,11 @@ impl VoiceSettingsState {
                     .pending_writes
                     .iter()
                     .any(PendingVoiceSettingWrite::writes_minimax_validation),
+            doubao_credential: self.doubao_credential_previous.is_some()
+                && self
+                    .pending_writes
+                    .iter()
+                    .any(|write| write.stores_credential(Some("doubao-desktop"))),
         });
         std::mem::take(&mut self.pending_writes)
     }
@@ -193,10 +209,25 @@ impl VoiceSettingsState {
         if batch.minimax_validation {
             self.finish_minimax_validation_persistence(&result);
         }
-        self.status = Some(match result {
-            Ok(()) => ok_status("Saved"),
-            Err(error) => error_status(format!("Could not save setting: {error}")),
-        });
+        if batch.doubao_credential {
+            if result.is_err() {
+                self.saved.doubao_credential_ref = self.doubao_credential_previous.take().flatten();
+                self.refresh_values();
+            } else {
+                self.doubao_credential_previous = None;
+            }
+        }
+        match result {
+            Ok(())
+                if self
+                    .status
+                    .as_ref()
+                    .is_some_and(|status| !status.is_error && status.message != "Saving...") => {}
+            Ok(()) => self.status = Some(ok_status("Saved")),
+            Err(error) => {
+                self.status = Some(error_status(format!("Could not save setting: {error}")));
+            }
+        }
         VoicePersistenceCompletion {
             agent_credential: batch.agent_credential,
             minimax_credential: batch.minimax_credential,

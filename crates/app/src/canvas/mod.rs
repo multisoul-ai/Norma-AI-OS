@@ -3,7 +3,6 @@ pub mod geometry;
 pub mod interaction;
 pub(crate) mod layout_strategy;
 pub mod master_layout;
-pub mod minimap;
 mod node_label;
 pub(crate) mod overlays;
 pub mod scroll;

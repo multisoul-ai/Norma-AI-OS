@@ -1,4 +1,5 @@
 pub mod card;
+pub(crate) mod load_bar;
 pub(crate) mod occluded;
 
 pub const DEFAULT_BROWSER_URL: &str = norma::presentation::DEFAULT_BROWSER_URL;

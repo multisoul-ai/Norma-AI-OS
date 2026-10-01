@@ -72,8 +72,8 @@ extension PendingMobileCommand {
     }
 }
 
-public struct MobileTurnOutcome: Decodable, Sendable {
-    public enum State: String, Decodable, Sendable { case completed, failed, interrupted }
+public struct MobileTurnOutcome: Codable, Equatable, Sendable {
+    public enum State: String, Codable, Sendable { case completed, failed, interrupted }
     public struct Key: Codable, Sendable, Equatable {
         public let nodeID: UInt64
         public let profile: String

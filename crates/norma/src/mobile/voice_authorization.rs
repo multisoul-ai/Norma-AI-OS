@@ -1,6 +1,5 @@
 use super::ServerIdentity;
 use anyhow::{ensure, Result};
-use rustls::{pki_types::PrivatePkcs8KeyDer, SignatureScheme};
 use serde_json::{json, Value};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -23,15 +22,9 @@ impl ServerIdentity {
         let expires = issued + 24 * 60 * 60;
         let payload = serde_json::to_vec(&json!({"v":1,"iss":self.machine_id(),"sub":device,
             "aud":VOICE_GATEWAY_ORIGIN,"iat":issued,"exp":expires}))?;
-        let key = rustls::crypto::ring::sign::any_supported_type(
-            &PrivatePkcs8KeyDer::from(self.private_key.clone()).into(),
-        )?;
-        let signer = key
-            .choose_scheme(&[SignatureScheme::ECDSA_NISTP256_SHA256])
-            .ok_or_else(|| anyhow::anyhow!("unsupported mobile signing identity"))?;
         let mut message = b"Norma voice authorization v1\n".to_vec();
         message.extend_from_slice(&payload);
-        let signature = signer.sign(&message)?;
+        let signature = self.sign(&message)?;
         Ok(
             json!({"origin":VOICE_GATEWAY_ORIGIN,"device_id":device,"machine_id":self.machine_id(),
             "expires_at":expires,"token":format!("nva1.{}.{}",hex::encode(payload),hex::encode(signature))}),

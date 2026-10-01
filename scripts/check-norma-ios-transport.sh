@@ -14,5 +14,6 @@ root=$(cd "$(dirname "$0")/.." && pwd)
 exec xcodebuild -project "$root/ios/Norma.xcodeproj" -scheme Norma \
   -destination "platform=iOS Simulator,id=${NORMA_IOS_SIMULATOR:-AF8B48D2-975E-4F81-97AB-B5FB6F555618}" \
   -derivedDataPath "$root/ios/DerivedData" \
+  -packageCachePath "$root/target/xcode-packages" \
   NORMA_TEST_QR="$1" NORMA_TEST_MODE="$2" \
-  -only-testing:"$test_target" test
+  -only-testing:"$test_target" test 2>&1

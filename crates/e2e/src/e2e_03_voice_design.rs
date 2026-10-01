@@ -140,7 +140,7 @@ fn fresh_voice_setup_matches_the_approved_three_step_visual_structure() {
     assert!(
         cx.debug_bounds("settings-voice-field-azure-api-key")
             .is_some(),
-        "Azure configuration must keep the Keychain-backed credential control reachable"
+        "Azure configuration must keep the SQLite-backed credential control reachable"
     );
     assert_ne!(
         app.update(cx, |app, _cx| app.voice_e2e_snapshot().phase),

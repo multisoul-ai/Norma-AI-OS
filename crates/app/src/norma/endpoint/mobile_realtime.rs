@@ -3,7 +3,7 @@ use crate::app::MultisoulApp;
 use agent::{AdapterCommand, AgentInputSource};
 use gpui::{Context, Window};
 
-/// Execute only an already parsed Mac-side tool through the existing optional-window adapter.
+/// Execute a validated mobile command through the existing optional-window adapter.
 /// The mobile command owner reserves the operation before entering here and persists its result.
 pub(super) fn start(
     app: &mut MultisoulApp,
@@ -11,6 +11,7 @@ pub(super) fn start(
     cx: &mut Context<MultisoulApp>,
     command: AdapterCommand,
     source: storage::NewMobileCommand,
+    input_source: AgentInputSource,
 ) -> Result<Started, &'static str> {
     if let AdapterCommand::AssignAgentTask { agent, .. } = &command {
         // Resolve before entering the adapter: a missing target proves no card or task was created.
@@ -29,7 +30,7 @@ pub(super) fn start(
         window,
         cx,
         command,
-        AgentInputSource::Voice,
+        input_source,
     )
     // Creation + dispatch can fail after creating a card. Once the adapter starts, an error
     // cannot prove zero side effects; preserve the durable unknown receipt instead of retrying.
@@ -51,10 +52,15 @@ pub(super) fn start(
     if result.task_id.is_some() && task.is_none() {
         return Err("outcome_unknown");
     }
-    let value = serde_json::to_value(result).map_err(|_| "outcome_unknown")?;
+    let mut value = serde_json::to_value(result).map_err(|_| "outcome_unknown")?;
     let Some(task) = task else {
         return Ok(Started::Saved(value, None));
     };
+    // Runtime task_id can be reused after restart; the persisted reference cannot.
+    value
+        .as_object_mut()
+        .ok_or("outcome_unknown")?
+        .insert("task_ref".into(), task.task_ref.clone().into());
     if dispatch {
         app.pending_agent_submissions
             .track_realtime_delivery(&task, source);

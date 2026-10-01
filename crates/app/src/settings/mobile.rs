@@ -37,7 +37,9 @@ pub(super) fn settings(theme: Theme, entity: &Entity<MobileController>, cx: &mut
     }
 
     if let Some((device_id, revision)) = &state.editing {
-        body = body.child(editing_card(theme, entity, cx, device_id, *revision));
+        body = body.child(devices::editing_card(
+            theme, entity, cx, device_id, *revision,
+        ));
     }
 
     body.child(devices::devices_card(theme, entity, state))
@@ -304,6 +306,44 @@ fn pending_card(
                 .text_color(rgba(theme.text_secondary))
                 .child("Confirm that your iPhone shows the same code, then choose which projects it can access."),
         )
+        .child(
+            div()
+                .text_size(px(13.0))
+                .text_color(rgba(theme.text_secondary))
+                .child("One-time authorization for this iPhone: all projects registered on this Mac now and in the future."),
+        )
+        .child(
+            div()
+                .flex()
+                .gap(px(12.0))
+                .child(
+                    action(
+                        entity,
+                        "mobile-approve-all-read",
+                        "Approve All · Read Only",
+                        Command::ApproveAll {
+                            request_id: pending.request_id.clone(),
+                            access: MobilePermission::Read,
+                        },
+                        host.busy,
+                    )
+                    .outline(),
+                )
+                .child(
+                    action(
+                        entity,
+                        "mobile-approve-all-control",
+                        "Approve All · Control",
+                        Command::ApproveAll {
+                            request_id: pending.request_id.clone(),
+                            access: MobilePermission::Control,
+                        },
+                        host.busy,
+                    )
+                    .primary(),
+                ),
+        )
+        .child(section_title(theme, "Selected Projects", "Or grant access to individual projects only.".into()))
         .child(projects(theme, entity, cx))
         .child(
             div()
@@ -326,52 +366,6 @@ fn pending_card(
                     action(entity, "mobile-reject", "Reject", Command::CancelCode, host.busy)
                         .danger()
                         .outline(),
-                ),
-        )
-}
-
-fn editing_card(
-    theme: Theme,
-    entity: &Entity<MobileController>,
-    cx: &App,
-    device_id: &str,
-    revision: u64,
-) -> Div {
-    let host = entity.read(cx);
-    card(theme)
-        .child(section_title(
-            theme,
-            "Edit Project Access",
-            "Choose which projects this phone can reach.".into(),
-        ))
-        .child(projects(theme, entity, cx))
-        .child(
-            div()
-                .flex()
-                .gap(px(12.0))
-                .child(
-                    action(
-                        entity,
-                        "mobile-save-permissions",
-                        "Save Permissions",
-                        Command::Permissions {
-                            device_id: device_id.to_string(),
-                            revision,
-                            projects: host.chosen_projects(),
-                        },
-                        host.busy,
-                    )
-                    .primary(),
-                )
-                .child(
-                    action(
-                        entity,
-                        "mobile-cancel-permissions",
-                        "Cancel",
-                        Command::Reload,
-                        host.busy,
-                    )
-                    .ghost(),
                 ),
         )
 }

@@ -7,6 +7,7 @@ pub(crate) fn migrate_legacy_agent_cards(
     runtime: &mut Runtime,
     project_store: &ProjectStore,
 ) -> Result<usize, String> {
+    purge_leaked_quick_definitions(runtime, project_store);
     let legacy = runtime
         .document
         .nodes()
@@ -44,6 +45,27 @@ pub(crate) fn migrate_legacy_agent_cards(
         .save_canvas_snapshot(&project_store.canvas_store())
         .map_err(|error| format!("Could not save migrated Agent cards: {error}"))?;
     Ok(legacy.len())
+}
+
+/// 历史版本关闭 QuickCard 时清理可能因外键失败而遗留定义，占用内置名称。
+fn purge_leaked_quick_definitions(runtime: &Runtime, project_store: &ProjectStore) {
+    let live_ids = runtime
+        .document
+        .nodes()
+        .iter()
+        .filter_map(|node| match &node.kind {
+            CanvasNodeKind::Agent(spec) => spec.definition_id,
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    match project_store
+        .agent_definition_store()
+        .purge_quick_except(&live_ids)
+    {
+        Ok(0) => {}
+        Ok(purged) => tracing::info!(purged, "purged leaked quick Agent definitions"),
+        Err(error) => tracing::warn!(%error, "could not purge leaked quick Agent definitions"),
+    }
 }
 
 fn create_migrated_definition(
@@ -264,6 +286,56 @@ mod tests {
                 CanvasNodeKind::Agent(spec) if spec.alias.as_deref() == Some("Code Reviewer")
             )),
             "持久化快照不得残留非法旧 alias"
+        );
+    }
+
+    /// 打开项目时清理泄漏的 QuickCard 定义，保留仍有卡片绑定的定义，内置名称随之归还。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   QuickCard Alan 有卡片（live），QuickCard Bella 无卡片（泄漏）；初始 2 条，清理 1 条后剩 1 条。
+    ///
+    /// 执行过程：
+    ///   1. 创建两条 quick 定义，画布只放置绑定 Alan 的卡片。
+    ///   2. 执行 migrate_legacy_agent_cards（内部先清理泄漏定义）。
+    ///   3. 读取定义列表。
+    ///
+    /// 预期结果：
+    ///   - 正断言：Alan 保留且卡片绑定不变。
+    ///   - 负断言：Bella 被清理，不再占用内置名称。
+    #[test]
+    fn migration_purges_leaked_quick_definitions_but_keeps_bound_ones() {
+        let temp = tempfile::tempdir().expect("应创建隔离项目");
+        let store = ProjectStore::for_workspace(temp.path()).expect("应打开项目存储");
+        let definitions = store.agent_definition_store();
+        let new = |name: &str| NewAgentDefinition {
+            name: name.to_string(),
+            runtime_profile: AgentProfile::Codex,
+            workflow_description: String::new(),
+        };
+        let alan = definitions.create_quick(&new("Alan")).expect("应创建 Alan");
+        definitions
+            .create_quick(&new("Bella"))
+            .expect("应创建 Bella");
+        let mut runtime = Runtime::new();
+        runtime.document.add_node(
+            CanvasNodeKind::Agent(AgentSpec {
+                profile: AgentProfile::Codex,
+                alias: Some("Alan".into()),
+                definition_id: Some(alan.id),
+                mobile_control: false,
+            }),
+            CanvasRect::new(0.0, 0.0, 640.0, 400.0),
+        );
+
+        let migrated = migrate_legacy_agent_cards(&mut runtime, &store).expect("迁移应成功");
+        let remaining = definitions.list().expect("应列出定义");
+
+        assert_eq!(migrated, 0, "已绑定卡片不属于旧卡片迁移");
+        assert_eq!(remaining.len(), 1, "初始 2 条清理 1 条泄漏后应剩 1 条");
+        assert_eq!(remaining[0].name, "Alan", "有卡片绑定的 Alan 必须保留");
+        assert!(
+            remaining.iter().all(|d| d.name != "Bella"),
+            "泄漏的 Bella 必须被清理，归还内置名称"
         );
     }
 }

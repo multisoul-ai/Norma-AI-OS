@@ -3,6 +3,8 @@
 - 日期：2026-07-19
 - 状态：Accepted
 
+> macOS API Key 存储方式已由 [ADR-0028](0028-store-macos-credentials-in-app-db.md) 更新；本 ADR 的 ASR crate 边界继续有效。
+
 ## 背景
 
 旧边界把 ASR 模型元数据放在 `asr`，却把 Sherpa 识别器、麦克风采集、VAD 和识别事件适配都放在 `voice_sherpa`。当 Azure Speech 成为第二个 provider 时，这种按实现技术命名的分层会迫使云端识别继续进入 `voice_sherpa`，也会让 Settings 和业务流程感知各 provider 的细节。

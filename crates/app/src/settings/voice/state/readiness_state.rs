@@ -10,6 +10,22 @@ impl VoiceSettingsState {
         if let Some(readiness) = self.readiness_override {
             return readiness;
         }
+        if self.values.desktop_mode() == super::DesktopVoiceMode::Doubao {
+            return if self.microphone_requirement == VoiceRequirementState::Ready
+                && self.values.doubao_credential_ref().is_some()
+            {
+                VoiceEntryState::Ready
+            } else {
+                VoiceEntryState::Unavailable {
+                    first_incomplete: if self.microphone_requirement != VoiceRequirementState::Ready
+                    {
+                        VoiceRequirement::Microphone
+                    } else {
+                        VoiceRequirement::AgentProvider
+                    },
+                }
+            };
+        }
         evaluate_voice_readiness(VoiceReadinessInputs {
             microphone: self.microphone_requirement,
             speech_recognition: self.selected_asr_requirement(),

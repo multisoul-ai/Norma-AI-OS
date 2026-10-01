@@ -1,6 +1,17 @@
 # Norma iOS TestFlight发布记录
 
-更新时间：2026-09-16。当前状态：**0.1.0（42）已进入现有「Norma 内测」组，可安装**；Apple 回读确认 VALID / IN_BETA_TESTING、未过期，中文说明一致。构建 39、40 已上传并 VALID，但未在本文档单独记录。
+> 2026-09-30 单码注册更新：43 的额外邀请码步骤已被替代，44 已停止测试；45 发布与当前验收流程见 [单次扫码与派工验收](2026-09-30-norma-ios-testflight-dispatch.md)。真机验收及其余 Goal 项保持未完成。
+
+
+更新时间：2026-09-30。当前状态：**0.1.0（43）已进入现有「Norma 内测」组，可安装**；Apple 回读确认 VALID / IN_BETA_TESTING、未过期，中文说明一致。本次是同一 Wi-Fi 的本地派工验收包，需要配套 Mac 专用版，详见 [安装与验收步骤](2026-09-30-norma-ios-testflight-dispatch.md)。
+
+## 原生工作空间与真实 Mac 派工 · TestFlight 0.1.0（43）（2026-09-30）
+
+按用户「可以发布到 TestFlight 然后我来验收」授权，完成真实 Mac/Codex 派工与成果回传后发布。包含当前工作区原生想法库、Workspace/项目与 Agent 关联、工作线程、任务与成果页和交互动效。新增仅在构建时显式启用的固定证书私网 HTTPS/WSS；保持本地运行，不部署云端。物理手机由用户验收，`@Norma` 真实模型编排、语音与公网场景不在本包完成声明内。
+
+2026-09-30 12:06（北京时间）回读 `VALID / IN_BETA_TESTING`，Build/Delivery ID `b97f7208-83c6-4a47-81b0-1e7d54b7877a`；原「Norma 内测」组关联、未过期与中文说明通过。沿用既有加密声明；没有新增测试者、外部 Beta 或公开发布。185 项生产输入哈希前后一致，分发签名和 production entitlement、Apple 校验及单次上传通过。IPA 88,365,682 字节，SHA256 `99256e2fbbdee810609daad9fb4db8e2cbb845bfce7b928b251052c16aaabb6d`。
+
+验证：Swift Core 142 项、8 条按条件跳过、0 失败；真实 Mac/Codex 原生 L3 1/1、Computer Use 成果浏览、原生打包配置 HTTPS 邀请与 Keychain 恢复 1/1、中继与 TLS 边界通过。证据在 `target/norma-ios-testflight/local-dispatch/` 与 `target/norma-ios-evidence/physical-dispatch-20260930/`。未 commit/push；整体 Goal 仍 active。
 
 ## 原生删除确认 · TestFlight 0.1.0（42）（2026-09-16）
 

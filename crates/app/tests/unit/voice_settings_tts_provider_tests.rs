@@ -224,12 +224,12 @@ fn test_manual_voice_validation_persists_only_for_exact_tuple() {
     }
     state.record_persistence_result(Ok(()));
 
-    let mut reloaded = VoiceSettingsState::load_from_store(store);
+    let mut reloaded = VoiceSettingsState::load_from_store(store.clone());
     let account = reloaded
         .minimax_credential_ref_to_load()
         .expect("重启后必须从 SQLite 恢复非敏感 credential ref");
-    let secret =
-        crate::settings::voice::credentials::load(&account).expect("测试 Keychain 读取必须成功");
+    let secret = crate::settings::voice::credentials::load(&store, &account)
+        .expect("测试 SQLite 读取必须成功");
     assert!(
         reloaded.apply_loaded_minimax_credential(&account, Ok(secret)),
         "同一 credential ref 必须恢复对应测试 Keychain secret"

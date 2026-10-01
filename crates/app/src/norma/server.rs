@@ -64,6 +64,11 @@ impl MultisoulApp {
         let logged_command = managed_command.then(|| command.clone());
         let logged_authorization = authorization.clone();
         let result = match command {
+            CardCommand::Delete { node_id } if self.previews.has_pending_edits(node_id) => {
+                Err(CardCommandError::Unsupported {
+                    message: "You have unsaved changes. Save or cancel your edits before closing this card.".into(),
+                })
+            }
             CardCommand::Present { .. } | CardCommand::Focus { .. } if window.is_none() => {
                 Err(CardCommandError::Unsupported {
                     message: "This operation requires a visible project window.".into(),

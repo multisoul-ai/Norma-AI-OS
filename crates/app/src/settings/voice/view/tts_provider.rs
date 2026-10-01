@@ -70,7 +70,7 @@ pub(super) fn minimax_configuration(
                                     theme.text_tertiary
                                 }))
                                 .child(if connected {
-                                    "Account ready · Key stored in Keychain"
+                                    "Account ready · Key stored locally"
                                 } else {
                                     "Connect before choosing a cloud Voice"
                                 }),
@@ -98,7 +98,7 @@ pub(super) fn minimax_configuration(
                     inputs,
                     VoiceSettingsField::MiniMaxApiKey,
                     "MiniMax API Key",
-                    "Validated credentials are stored only in macOS Keychain",
+                    "Validated credentials are stored in this Mac's local database",
                     cx,
                 ))
                 .child(

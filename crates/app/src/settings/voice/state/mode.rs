@@ -1,4 +1,28 @@
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) enum DesktopVoiceMode {
+    #[default]
+    Legacy,
+    Doubao,
+}
+
+impl DesktopVoiceMode {
+    pub(crate) fn from_stored(value: &str) -> Option<Self> {
+        match value.trim() {
+            "legacy" => Some(Self::Legacy),
+            "doubao" => Some(Self::Doubao),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::Legacy => "legacy",
+            Self::Doubao => "doubao",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(crate) enum VoiceInteractionMode {
     #[default]
     SingleVoiceCommand,

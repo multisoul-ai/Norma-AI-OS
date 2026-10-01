@@ -28,7 +28,17 @@ impl MultisoulApp {
             });
         if let Some(project) = project {
             project.update(cx, |project, cx| {
-                project.render_command_dock(window, cx, switcher)
+                project.sync_command_drawer(window);
+                project.start_animation_frame_driver_if_needed(window, cx);
+                div()
+                    .absolute()
+                    .inset_0()
+                    .capture_key_down(cx.listener(Self::capture_command_dock_key))
+                    .child(project.render_command_dock(window, cx, switcher))
+                    .when_some(
+                        project.render_command_suggestions(window, cx),
+                        |dock, menu| dock.child(menu),
+                    )
             })
         } else {
             self.render_command_dock(window, cx, switcher)
@@ -188,3 +198,7 @@ fn project_switch_button(id: &str, selected: bool, theme: ui::Theme, cx: &gpui::
                 .active(rgba(with_alpha(theme.accent_cyan, 0x62)).into()),
         )
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/desktop_command_dock_tests.rs"]
+mod tests;

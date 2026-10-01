@@ -204,13 +204,18 @@ impl Runtime {
             "SessionStart" => run.native_input.acknowledge_start(),
             "PermissionRequest" => run.native_input.approval_menu_open = true,
             "UserPromptSubmit" => {
+                // A repeated old Hook must not acknowledge a later human Enter on this PTY.
+                let acknowledge_input = !run.native_input.controlled_draft
+                    || (event.turn_id.is_some() && run.latest_prompt_id != event.turn_id);
                 run.finish_terminal_interrupt(Err(
                     "native turn replaced before interrupt confirmation".into(),
                 ));
                 run.prompt_id = event.turn_id.clone();
                 run.latest_prompt_id = event.turn_id.clone();
                 run.accept_mobile_message(event);
-                run.native_input.acknowledge();
+                if acknowledge_input {
+                    run.native_input.acknowledge();
+                }
             }
             "Stop" | "StopFailure" if event.turn_id == run.prompt_id => {
                 let status = if event.provider_event == "Stop" {

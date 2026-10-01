@@ -228,6 +228,9 @@ impl Runtime {
         expected: &ApprovalTarget,
         decision: ApprovalDecision,
     ) -> Result<MobileNativeApproval, &'static str> {
+        if self.mobile_terminal_is_controlled(expected.node_id) {
+            return Err("terminal_controlled");
+        }
         let current = self
             .mobile_approval_snapshots(expected.node_id)?
             .into_iter()
@@ -307,6 +310,9 @@ impl Runtime {
         &mut self,
         request: &mut MobileNativeApproval,
     ) -> Result<(), String> {
+        if self.mobile_terminal_is_controlled(request.target.node_id) {
+            return Err("terminal_controlled".into());
+        }
         request.check()?;
         if request.sent || !request.prepared || !self.matches_native_approval(request) {
             return Err("approval_changed".into());

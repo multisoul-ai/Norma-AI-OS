@@ -4,7 +4,7 @@ use gpui::{Modifiers, TestAppContext};
 /// E2E-TTS-NETWORK-1：MiniMax 临时网络故障不得把已配置 Voice 送回 Setup。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   persisted credential = 1（credential ref + Keychain secret）
+///   persisted credential = 1（credential ref + SQLite secret）
 ///   configured Voice gates = 4 / 4
 ///   injected failures = 1（TemporarilyUnavailable）
 ///   Settings navigation clicks = 1（Voice section）
@@ -44,7 +44,7 @@ fn e2e_minimax_network_failure_preserves_configuration_without_reopening_setup()
     );
     assert!(
         settings.tts_provider.minimax_credential_configured,
-        "临时网络故障后 credential ref 与 Keychain secret 仍必须标记为已配置"
+        "临时网络故障后 credential ref 与 SQLite secret 仍必须标记为已配置"
     );
     assert!(
         cx.debug_bounds("voice-ready-banner").is_some(),

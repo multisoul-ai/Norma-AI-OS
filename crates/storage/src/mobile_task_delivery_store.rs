@@ -74,6 +74,54 @@ impl MobileTaskDeliveryStore {
         Self { path }
     }
 
+    /// The immutable pre-send binding identifies this operation's turn. Only metadata leaves SQLite;
+    /// neither baseline bytes nor delivery file bytes are loaded for foreground synchronization.
+    pub fn for_command(
+        &self,
+        device: &str,
+        operation: &str,
+        workspace: &str,
+    ) -> StorageResult<Option<TaskDeliverySummary>> {
+        let connection = open_app_connection(&self.path)?;
+        Self::for_command_on(&connection, device, operation, workspace)
+    }
+
+    pub(crate) fn for_command_on(
+        connection: &Connection,
+        device: &str,
+        operation: &str,
+        workspace: &str,
+    ) -> StorageResult<Option<TaskDeliverySummary>> {
+        for id in [device, operation, workspace] {
+            crate::mobile_access_store::validate_id(id)?;
+        }
+        let saved: Option<(String, String)> = connection.query_row(
+            "SELECT json_object('sequence',d.sequence,'workspace_id',d.workspace_id,
+              'outcome',json_extract(d.data_json,'$.outcome'),'fingerprint',json_extract(d.data_json,'$.fingerprint'),
+              'saved_at_unix',json_extract(d.data_json,'$.saved_at_unix'),
+              'status',coalesce(json_extract(d.data_json,'$.content.reason'),json_extract(d.data_json,'$.content.status')),
+              'file_count',coalesce(json_array_length(d.data_json,'$.content.review.files'),0)),
+              json_extract(b.data_json,'$.key')
+             FROM mobile_task_baselines b
+             JOIN mobile_commands c ON c.device_id=b.device_id AND c.operation_id=b.operation_id AND c.workspace_id=b.workspace_id
+             JOIN mobile_task_deliveries d ON d.workspace_id=b.workspace_id AND d.run_id=b.run_id AND d.turn_id=b.turn_id
+             WHERE b.device_id=?1 AND b.operation_id=?2 AND b.workspace_id=?3",
+            params![device, operation, workspace], |row| Ok((row.get(0)?, row.get(1)?)),
+        ).optional()?;
+        saved
+            .map(|(summary, baseline)| {
+                let summary: TaskDeliverySummary = serde_json::from_str(&summary)?;
+                let baseline: MobileTurnKey = serde_json::from_str(&baseline)?;
+                baseline.validate()?;
+                summary.outcome.key.validate()?;
+                if summary.workspace_id != workspace || summary.outcome.key != baseline {
+                    return Err(invalid("command delivery turn mismatch"));
+                }
+                Ok(summary)
+            })
+            .transpose()
+    }
+
     /// Snapshot terminal, phone-origin turns whose original route expired before capture.
     /// The caller must verify the current route AFTER this read, before freezing unavailable
     /// records: a route created later must never be mistaken for an expired one.

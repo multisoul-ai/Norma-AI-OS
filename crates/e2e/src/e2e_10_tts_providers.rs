@@ -299,7 +299,7 @@ fn e2e_minimax_manual_voice_validates_before_explicit_activation() {
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 打开 Voice → Spoken Replies，启用确定性的 e2e MiniMax 与 PCM transport。
 ///   2. 输入全新 API Key、Turbo 与手动 Voice ID，先点击 Preview，确认它不会代替 Connect。
-///   3. 显式点击 Connect，等待账户验证与 Keychain 保存完成。
+///   3. 显式点击 Connect，等待账户验证与 SQLite 保存完成。
 ///   4. 点击 Verify & Preview，等待合成与播放任务收束，再读取 readiness 与 PCM 计数。
 ///
 /// 预期结果：

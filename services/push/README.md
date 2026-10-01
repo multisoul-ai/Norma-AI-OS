@@ -136,7 +136,7 @@ JWT 每 50 分钟更新；HTTP/2 连接复用，最多一个 APNs 流，入口�
 
 ## Mac与iOS配置（v45）
 
-Mac 在「手机连接 → 任务提醒 → 配置服务」填写完整 HTTPS `/v1/notifications` 或 `/norma/v1/notifications` 地址、64位小写 hex 的 relay 访问凭据及应用环境。开发调试选 Sandbox，TestFlight/App Store 选 production；服务端环境须一致。每次保存都需重新填写凭据，输入始终遮蔽，提交后清空。地址、环境和凭据绑定为一个 Keychain 项，SQLite 只保存安装身份定位符。这里保存的是 relay 访问凭据，Apple `.p8` 只放服务器。
+Mac 在「手机连接 → 任务提醒 → 配置服务」填写完整 HTTPS `/v1/notifications` 或 `/norma/v1/notifications` 地址、64位小写 hex 的 relay 访问凭据及应用环境。开发调试选 Sandbox，TestFlight/App Store 选 production；服务端环境须一致。每次保存都需重新填写凭据，输入始终遮蔽，提交后清空。地址、环境和凭据保存在本机 AppDB；Apple `.p8` 只放服务器。
 
 保存、读取及应用配置全部在后台。运行中更换地址或凭据只切换通知发送端，保留手机连接、项目授权和 Agent；替换会等待已发出的请求结束，处理期间有禁用反馈。旧配置读取中的事件会被代次检查丢弃，新终态游标从当前水位开始；同一个服务生命周期中已尝试发送的审批不会因切换配置重发。关窗后的迟到配置不能重启服务。
 
@@ -162,13 +162,13 @@ Mac通知线程随手机连接服务启动、关窗停止。复用原有有界�
 独立模拟器已通过系统授权取得真实APNs token，并从原生通知设置完成Mac登记/关闭。冷启动点击用 `simctl push` 本地注入验证，未经过relay/Apple投递；它曾发现UIKit主线程崩溃，现已通过显式主线程completion修复。该轮验收时服务尚未部署，不能将token就绪或本地通知可点击等同于物理iPhone锁屏成功。
 
 
-## 正式Keychain跨进程验证（v49）
+## 正式 SQLite 跨进程验证
 
-已用独立构建的正式App库验证推送配置保存、重读、更换环境、停用、损坏拒绝和安装隔离；1项L3检查1.51秒通过，11个进程步骤使用临时安装与合成凭据，没有APNs请求，测试Keychain项已删除。Runner会拒绝测试存储分支；必须分别构建/运行，避免Cargo特性统一引入 `e2e-test-support`。
+独立进程测试验证推送配置保存、重读、更换环境、停用、损坏拒绝和安装隔离；使用临时 AppDB 与合成凭据，不发送 APNs 请求。Runner 会拒绝测试存储分支；须分别构建/运行，避免 Cargo 特性统一引入 `e2e-test-support`。
 
 ```sh
-cargo build -p app --features l3-test-support --bin norma-push-keychain-l3
-NORMA_PUSH_KEYCHAIN_PROBE="$PWD/target/debug/norma-push-keychain-l3" cargo test -p e2e --test mobile_push_keychain -- --ignored --nocapture
+cargo build -p app --features l3-test-support --bin norma-push-sqlite-l3
+NORMA_PUSH_SQLITE_PROBE="$PWD/target/debug/norma-push-sqlite-l3" cargo test -p e2e --test mobile_push_sqlite -- --ignored --nocapture
 ```
 
 此证据覆盖正式库的跨进程持久化，不包括正式App窗口重启或升级后的签名ACL兼容。该轮验收时尚缺服务部署和APNs密钥；当前部署状态见文首，仍需可用物理iPhone完成真实锁屏投递。

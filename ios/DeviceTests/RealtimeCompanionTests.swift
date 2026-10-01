@@ -6,16 +6,20 @@ import NormaCore
 @testable import Norma
 
 @MainActor final class RealtimeCompanionTests: XCTestCase {
-    /// 正式 App bundle 包含真实角色和校验通过的动作，背景适配陪伴原型的纯黑。
+    /// 正式 App bundle 包含真实角色和校验通过的动作，背景符合已确认的浅色 iOS 设计。
     /// 数据构造：实际 bundle 的 Milltina.scn 与 companion-motion.json，不使用测试替身。
     /// 执行过程：初始化角色 → 读取场景与动作 → 检查真实骨骼和材质背景。
-    /// 预期结果：角色载入无错误、头部骨骼存在、动作可解码，场景不是空替代物。
+    /// 预期结果：角色载入无错误、头部骨骼存在、动作可解码，场景不是空替代物或旧版黑底。
     func testBundledAvatarAndMotionAreReal() {
         let avatar = AvatarScene()
         XCTAssertNil(avatar.loadError, "迁入的真实模型必须可从正式 bundle 读取")
         XCTAssertNotNil(avatar.scene.rootNode.childNode(withName: "Head", recursively: true), "真实头部骨骼必须存在")
         XCTAssertNotNil(avatar.motion, "动作资源必须满足已有完整性校验")
-        XCTAssertEqual(avatar.scene.background.contents as? UIColor, .black, "角色背景必须与陪伴界面的纯黑一致")
+        // 现行浅色画布：RGB 归一化值 0.971 / 0.978 / 0.988，alpha = 1，不能回退旧版纯黑背景。
+        XCTAssertEqual(avatar.scene.background.contents as? UIColor,
+                       UIColor(red: 0.971, green: 0.978, blue: 0.988, alpha: 1),
+                       "角色背景必须与现行浅色画布一致")
+        XCTAssertNotEqual(avatar.scene.background.contents as? UIColor, .black, "旧版黑底不符合已确认的浅色设计")
         XCTAssertFalse(avatar.scene.rootNode.childNodes.isEmpty, "不能用空场景代替真实角色")
     }
 

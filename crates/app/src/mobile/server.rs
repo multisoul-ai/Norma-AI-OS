@@ -12,7 +12,10 @@ use std::{
 };
 use storage::{MobileDeviceGrant, MobileProjectAccess};
 
+mod command_leases;
 mod connection;
+mod relay;
+mod terminal_leases;
 
 /// App-owned endpoint. Construction and methods perform IO: call only on background workers.
 /// The process owns this handle until disabled or App quit; there is no independent daemon.
@@ -22,6 +25,7 @@ pub struct MobileServer {
 }
 
 pub(super) struct Shared {
+    relay: Mutex<Option<relay::Control>>,
     #[cfg(feature = "e2e-test-support")]
     realtime_test_server: Mutex<Option<SocketAddr>>,
     access: Mutex<MobileAccess>,
@@ -38,6 +42,7 @@ pub(super) struct Shared {
     pub(super) approvals: Option<async_channel::Sender<super::LiveApprovalRequest>>,
     pub(super) owner_id: String,
     command_leases: Mutex<HashMap<String, Vec<Weak<CommandLease>>>>,
+    terminal_leases: Mutex<HashMap<String, Vec<Weak<runtime::TerminalInputLease>>>>,
 }
 
 struct ActiveSocket {
@@ -180,6 +185,7 @@ impl MobileServer {
             .collect::<std::io::Result<Vec<_>>>()?;
         let server = Self {
             shared: Arc::new(Shared {
+                relay: Mutex::new(None),
                 #[cfg(feature = "e2e-test-support")]
                 realtime_test_server: Mutex::new(None),
                 access: Mutex::new(access),
@@ -196,6 +202,7 @@ impl MobileServer {
                 reviews,
                 owner_id: crate::norma::endpoint::new_workspace_route_id()?,
                 command_leases: Mutex::new(HashMap::new()),
+                terminal_leases: Mutex::new(HashMap::new()),
             }),
             addresses,
         };
@@ -209,6 +216,33 @@ impl MobileServer {
                     "machine_id": access.identity.machine_id(),
                     "certificate_der": access.identity.certificate_der(),
                 }))?,
+            )?;
+        }
+        #[cfg(feature = "e2e-test-support")]
+        if std::env::var("NORMA_THREAD_CODEX_REAL_L3").as_deref() == Ok("1") {
+            let root = std::path::PathBuf::from(
+                std::env::var_os("NORMA_TEST_DATA_ROOT")
+                    .ok_or_else(|| anyhow::anyhow!("real thread L3 requires isolated data"))?,
+            );
+            ensure!(
+                !cfg!(feature = "production-data")
+                    && root.is_absolute()
+                    && std::env::var("NORMA_MOBILE_L3_LOOPBACK").as_deref() == Ok("1")
+                    && server
+                        .addresses
+                        .iter()
+                        .all(|address| address.ip().is_loopback())
+                    && root.join("app.sqlite").canonicalize()?
+                        == server.shared.access()?.store.path().canonicalize()?,
+                "real thread L3 requires isolated loopback App"
+            );
+            let access = server.shared.access()?;
+            std::fs::write(
+                root.join("thread-real-public-identity.json"),
+                serde_json::to_vec(
+                    &serde_json::json!({"machine_id":access.identity.machine_id(),
+                    "certificate_der":access.identity.certificate_der(), "addresses":server.addresses}),
+                )?,
             )?;
         }
         for listener in listeners {
@@ -283,6 +317,16 @@ impl MobileServer {
             .approve(request_id, projects, Instant::now())
     }
 
+    pub fn approve_all_projects(
+        &self,
+        request_id: &str,
+        access: storage::MobilePermission,
+    ) -> Result<MobileDeviceGrant> {
+        self.shared
+            .access()?
+            .approve_all_projects(request_id, access, Instant::now())
+    }
+
     pub fn cancel_pairing(&self) -> Result<()> {
         self.shared.access()?.cancel_pairing();
         Ok(())
@@ -296,6 +340,18 @@ impl MobileServer {
     ) -> Result<MobileDeviceGrant> {
         let mut access = self.shared.access()?;
         let grant = access.replace_permissions(device, revision, projects)?;
+        self.shared.disconnect(device);
+        Ok(grant)
+    }
+
+    pub fn replace_with_all_projects(
+        &self,
+        device: &str,
+        revision: u64,
+        access: storage::MobilePermission,
+    ) -> Result<MobileDeviceGrant> {
+        let mut owner = self.shared.access()?;
+        let grant = owner.replace_with_all_projects(device, revision, access)?;
         self.shared.disconnect(device);
         Ok(grant)
     }
@@ -319,41 +375,6 @@ impl Drop for MobileServer {
 }
 
 impl Shared {
-    pub(super) fn command_lease(
-        &self,
-        device: &str,
-        operation: &str,
-    ) -> Result<Arc<CommandLease>, &'static str> {
-        let mut leases = self.command_leases.lock().map_err(|_| "unavailable")?;
-        leases.retain(|_, values| {
-            values.retain(|lease| lease.strong_count() > 0);
-            !values.is_empty()
-        });
-        if self.stopped.load(Ordering::Acquire) {
-            return Err("unavailable");
-        }
-        if leases.values().map(Vec::len).sum::<usize>() >= 8 {
-            return Err("busy");
-        }
-        let lease = Arc::new(CommandLease::new(operation));
-        leases
-            .entry(device.into())
-            .or_default()
-            .push(Arc::downgrade(&lease));
-        Ok(lease)
-    }
-    pub(super) fn command_pending(&self, device: &str, operation: &str) -> bool {
-        self.command_leases
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .get(device)
-            .is_some_and(|leases| {
-                leases.iter().filter_map(Weak::upgrade).any(|lease| {
-                    lease.operation_id == operation && !lease.finished.load(Ordering::Acquire)
-                })
-            })
-    }
-
     pub(super) fn access(&self) -> Result<MutexGuard<'_, MobileAccess>> {
         let guard = self
             .access
@@ -367,6 +388,17 @@ impl Shared {
     }
 
     fn disconnect(&self, device: &str) {
+        self.revoke_terminal_leases(Some(device));
+        // ponytail: permission edits reconnect this personal Mac's whole relay; split per-device
+        // cancellation only if several simultaneous phones make those rare resets disruptive.
+        if let Some(relay) = self
+            .relay
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+        {
+            relay.changed.notify_one();
+        }
         if let Some(leases) = self
             .command_leases
             .lock()
@@ -391,6 +423,15 @@ impl Shared {
 
     pub(super) fn stop(&self) {
         self.stopped.store(true, Ordering::Release);
+        self.revoke_terminal_leases(None);
+        if let Some(relay) = self
+            .relay
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+        {
+            relay.cancelled.cancel();
+        }
         super::project_events::changed();
         for (_, leases) in self
             .command_leases

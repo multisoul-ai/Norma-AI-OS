@@ -11,13 +11,16 @@ public struct DeviceGrant: Codable, Sendable {
     public let deviceID: String
     public let deviceName: String
     public let projects: [ProjectAccess]
+    public let allProjectsAccess: String?
     public let revision: UInt64
     public let revoked: Bool
-    enum CodingKeys: String, CodingKey { case deviceID = "device_id", deviceName = "device_name", projects, revision, revoked }
+    enum CodingKeys: String, CodingKey { case deviceID = "device_id", deviceName = "device_name", projects, allProjectsAccess = "all_projects_access", revision, revoked }
     func validate(deviceID: String) throws {
         guard self.deviceID == deviceID, !revoked, revision > 0, projects.count <= 256,
               Set(projects.map(\.id)).count == projects.count,
-              projects.allSatisfy({ validID($0.workspaceID) && ["read", "control"].contains($0.access) }) else {
+              projects.allSatisfy({ validID($0.workspaceID) && ["read", "control"].contains($0.access) }),
+              allProjectsAccess == nil || ["read", "control"].contains(allProjectsAccess),
+              allProjectsAccess == nil || projects.allSatisfy({ $0.access == allProjectsAccess }) else {
             throw MobileError.unauthorized
         }
     }
@@ -29,18 +32,31 @@ public struct PairingPending: Decodable, Sendable {
     public let verificationCode: String
     enum CodingKeys: String, CodingKey { case requestID = "request_id", deviceID = "device_id", deviceName = "device_name", verificationCode = "verification_code" }
 }
+public struct KnownProject: Codable, Sendable, Identifiable, Equatable {
+    public let id: String
+    public let name: String
+    public init(id: String, name: String) { self.id = id; self.name = name }
+}
 public struct PairedMachine: Codable, Sendable, Identifiable, Equatable {
     public let id: String
     public let name: String
     public let certificateSHA256: String
     public let endpoints: [URL]
+    public internal(set) var lastSyncedAt: Date?
+    public internal(set) var knownProjects: [KnownProject]?
     public init(offer: PairingOffer) {
         id = offer.machineID; name = offer.machineName
         certificateSHA256 = offer.certificateSHA256; endpoints = offer.endpoints
+        lastSyncedAt = nil; knownProjects = nil
     }
     func validate() throws {
         guard validHex(certificateSHA256), id == "mac-" + certificateSHA256, validName(name),
-              !endpoints.isEmpty, endpoints.count <= 4, endpoints.allSatisfy(validEndpoint) else { throw MobileError.invalidOffer }
+              !endpoints.isEmpty, endpoints.count <= 4, endpoints.allSatisfy(validEndpoint),
+              (lastSyncedAt == nil) == (knownProjects == nil),
+              knownProjects.map({ $0.count <= 256 && Set($0.map(\.id)).count == $0.count &&
+                  $0.allSatisfy { validID($0.id) && !$0.name.isEmpty && $0.name.count <= 256 } }) ?? true else {
+            throw MobileError.invalidOffer
+        }
     }
 }
 struct WireReply: Decodable, Sendable {
@@ -49,8 +65,15 @@ struct WireReply: Decodable, Sendable {
     let error: String?
     let result: ResultBody?
     struct ResultBody: Decodable, Sendable {
+        let registrationProof: String?
         let voiceAuthorization: VoiceAuthorization?
         let status: String
+        let capabilities: [String]?
+        let threadReceipt: ThreadMessageReceipt?
+        let threadEvents: [ThreadMessageReceipt]?
+        let threadTask: ThreadTaskReceipt?
+        let threadFollowup: ThreadFollowupReceipt?
+        let threadAcceptance: ThreadAcceptanceState?
         let image: UploadedChatImage?
         let imageOffset: Int?
         let subscription: PushSubscriptionState?
@@ -64,6 +87,8 @@ struct WireReply: Decodable, Sendable {
         let agents: [ProjectAgentDefinition]?
         let receipt: MobileCommandReceipt?
         let review: ProjectReviewResponse?
+        let threadReview: ThreadReviewChunk?
+        let threadTerminal: ThreadTaskTerminal?
         let deliveries: TaskDeliveryPage?
         let terminal: TerminalResponse?
         let terminalEvent: TerminalEvent?
@@ -77,7 +102,7 @@ struct WireReply: Decodable, Sendable {
         let approvalEvent: ApprovalFeedEvent?
         let planEvent: PlanFeedEvent?
         let deliveryEvent: DeliveryFeedEvent?
-        enum CodingKeys: String, CodingKey { case voiceAuthorization = "voice_authorization", image, imageOffset = "image_offset", terminal, terminalEvent = "terminal_event", status, subscription, review, deliveries, plans, plan, decisions, workspaceID = "workspace_id", pending, grant, projects, agents, receipt, conversation, archive, approvals, event, fragment, conversationEvent = "conversation_event", approvalEvent = "approval_event", planEvent = "plan_event", deliveryEvent = "delivery_event", queuedMessage = "queued_message" }
+        enum CodingKeys: String, CodingKey { case registrationProof = "registration_proof", voiceAuthorization = "voice_authorization", image, imageOffset = "image_offset", terminal, terminalEvent = "terminal_event", status, capabilities, threadReceipt = "thread_receipt", threadEvents = "thread_events", threadTask = "thread_task", threadFollowup = "thread_followup", threadAcceptance = "thread_acceptance", threadReview = "thread_review", threadTerminal = "thread_terminal", subscription, review, deliveries, plans, plan, decisions, workspaceID = "workspace_id", pending, grant, projects, agents, receipt, conversation, archive, approvals, event, fragment, conversationEvent = "conversation_event", approvalEvent = "approval_event", planEvent = "plan_event", deliveryEvent = "delivery_event", queuedMessage = "queued_message" }
     }
     enum CodingKeys: String, CodingKey { case version, requestID = "request_id", error, result }
     // Older servers reject unknown action fields before extracting request_id. This is used only
@@ -95,6 +120,11 @@ struct WireReply: Decodable, Sendable {
             case "invalid_image": throw ChatImageError.invalid
             case "image_storage_full": throw ChatImageError.storageFull
             case "image_storage_unavailable", "image_not_found", "image_timeout": throw ChatImageError.unavailable
+            case "source_message_missing": throw ThreadTaskError.sourceMissing
+            case "project_not_in_thread": throw ThreadTaskError.projectOutsideThread
+            case "terminal_control_expired": throw MobileError.terminalControlExpired
+            case "terminal_controlled": throw MobileError.terminalControlled
+            case "desktop_input_pending": throw MobileError.desktopInputPending
             case "terminal_changed": throw MobileError.terminalChanged
             case "terminal_unavailable": throw MobileError.terminalUnavailable
             case "push_subscription_changed": throw MobileError.pushSubscriptionChanged

@@ -28,7 +28,9 @@ impl StoredBootstrap {
             theme_id,
             theme,
             performance: PerformanceSettingsState::in_memory_default(),
-            voice: crate::settings::voice::VoiceSettingsState::in_memory_default(),
+            voice: crate::settings::voice::VoiceSettingsState::load_from_store(
+                store.settings_store(),
+            ),
             shortcuts: ShortcutSettingsState::default(),
             guide,
             guide_settings,

@@ -30,7 +30,7 @@ use support::*;
 ///   8. 注入 401，确认错误可见且不回退 Local；再以 Provider 切换使迟到结果失效
 ///
 /// 预期结果：
-///   - 正断言：验证与识别测试走真实按钮、后台任务、Keychain seam 和 Azure transport
+///   - 正断言：验证与识别测试走真实按钮、后台任务、SQLite 凭据与 Azure transport
 ///   - 正断言：Ready 后可往返切换 Local / Azure，Azure profile 保持可用
 ///   - 正断言：Single、Continuous 与 60 秒边界均产生各自具体 Final
 ///   - 正断言：Single 与 Continuous 的 Azure Final 都以默认全文投影到 Voice 字幕条

@@ -115,6 +115,48 @@ fn agent_card_tab_reaches_pty_through_component_root() {
     );
 }
 
+/// E2E-KEY-1：Codex Agent 的 Option+↑ 必须作为带修饰的方向键到达 PTY。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   xterm 方向键前缀 = ESC[1;；Option 修饰值 = 1(default) + 2(alt) = 3。
+///   Up 终止字节 = A，所以期望序列为 ESC[1;3A（6 字节）。
+///   普通 Up = ESC[A（3 字节），Codex 不会把它识别为“回答问题”。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 用 recording PTY 创建并聚焦 Codex Agent 卡片。
+///   2. 模拟真实的 `alt-up` 按键，经过 Root、Runtime 和 PTY。
+///   3. 读取 PTY 收到的完整写入。
+///
+/// 预期结果：
+///   - 正断言：唯一写入是 ESC[1;3A，Codex 能识别 Option+↑。
+///   - 负断言：不能退化为普通 Up 的 ESC[A。
+#[test]
+fn codex_agent_option_up_reaches_pty_with_modifier() {
+    let writes = Arc::new(Mutex::new(Vec::<Vec<u8>>::new()));
+    let mut test_cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut test_cx, recording_factory(writes.clone()));
+    let workspace = tempfile::TempDir::new().expect("Option+↑ e2e 应创建临时 workspace");
+    enter_canvas(&app, cx, workspace.path());
+    let _agent_id = create_codex_agent(&app, cx);
+
+    cx.simulate_keystrokes("alt-up");
+    cx.run_until_parked();
+
+    let actual_writes = writes.lock().expect("Agent PTY 写入记录锁不应中毒").clone();
+    assert_eq!(
+        actual_writes,
+        vec![b"\x1b[1;3A".to_vec()],
+        "Codex Agent 的 Option+↑ 应完整到达 PTY，实际写入: {actual_writes:?}"
+    );
+    assert_ne!(
+        actual_writes,
+        vec![b"\x1b[A".to_vec()],
+        "Option+↑ 不能被降级为普通 ↑"
+    );
+
+    app.update(cx, |app, _cx| app.runtime.kill_all());
+}
+
 /// E2E-AUTO-1：仅输入 `g`、尚未按 Tab 时，光标就应与灰色 autosuggestion 首字符占据同一 cell。
 ///
 /// 数据构造（含关键数值的推导过程）：

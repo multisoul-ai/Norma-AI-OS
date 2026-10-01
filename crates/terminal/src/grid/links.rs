@@ -70,10 +70,124 @@ impl GridSnapshot {
 
     /// 返回可预览的本机文件目标；具体路径解析与文件校验由 app 后台加载链路负责。
     pub fn preview_path_at(&self, row: usize, col: usize) -> Option<String> {
+        if let Some(target) = self.hyperlink_at(row, col) {
+            return (target.starts_with("file://") && is_preview_path_candidate(target))
+                .then(|| target.to_string());
+        }
         let token = wrapped_terminal_token_at(&self.rows, row, col)?;
         let path = trim_url_trailing_punctuation(&token);
         is_preview_path_candidate(path).then(|| path.to_string())
     }
+
+    /// 返回文件目标候选。OSC 8 为唯一权威目标；纯文本的 CLI 折行候选
+    /// 必须由调用方在后台验证文件存在且唯一，不能直接打开首个候选。
+    pub fn preview_path_candidates_at(&self, row: usize, col: usize) -> Vec<String> {
+        let mut candidates: Vec<_> = self.preview_path_at(row, col).into_iter().collect();
+        if self.hyperlink_at(row, col).is_some() {
+            return candidates;
+        }
+        let Some(cell) = self.rows.get(row).and_then(|cells| cells.get(col)) else {
+            return candidates;
+        };
+        if cell.c.is_whitespace() && !cell.attrs.wide_char_spacer {
+            return candidates;
+        }
+
+        // ponytail: 无语义目标时只恢复最多 8 个可见行；更长/离屏目标应由 CLI 提供 OSC 8。
+        const MAX_ROWS: usize = 8;
+        for first in row.saturating_sub(MAX_ROWS - 1)..=row {
+            let Some(mut previous) = path_row_token(&self.rows[first], true) else {
+                continue;
+            };
+            if (first == row && !(previous.start..previous.end).contains(&col))
+                || !previous.text.contains('/')
+                || (previous.text.contains("://") && !previous.text.starts_with("file://"))
+            {
+                continue;
+            }
+            let mut path = previous.text.clone();
+            for next_row in first + 1..(first + MAX_ROWS).min(self.rows.len()) {
+                if is_preview_path_candidate(trim_url_trailing_punctuation(&path)) {
+                    break;
+                }
+                let Some(next) = path_row_token(&self.rows[next_row], false) else {
+                    break;
+                };
+                let previous_cells = &self.rows[next_row - 1];
+                let soft = row_soft_wraps(previous_cells);
+                let wraps = if soft {
+                    previous.end == previous_cells.len() && next.start == 0
+                } else {
+                    // CLI 在目录/连字符边界换行，或在行末截断长文件名；
+                    // 下一片段原本放得下时，不把普通 CRLF 当成显示折行。
+                    (previous.text.ends_with(['/', '-', '_', '.'])
+                        || previous.end == previous_cells.len())
+                        && previous.end + (next.end - next.start) > previous_cells.len()
+                        && next.start <= previous.start
+                };
+                if !wraps
+                    || next.text.starts_with(['/', '~'])
+                    || next.text.starts_with("./")
+                    || next.text.starts_with("../")
+                    || next.text.contains("://")
+                    || (next_row == row && !(next.start..next.end).contains(&col))
+                {
+                    break;
+                }
+                path.push_str(&next.text);
+                // 4096 bytes 与常见 Unix PATH_MAX 同量级，限制每次命中的字符串工作量。
+                if path.len() > 4096 {
+                    break;
+                }
+                let target = trim_url_trailing_punctuation(&path);
+                if next_row >= row
+                    && is_preview_path_candidate(target)
+                    && !candidates.iter().any(|candidate| candidate == target)
+                {
+                    candidates.push(target.to_string());
+                }
+                if self.rows[next_row][next.end..]
+                    .iter()
+                    .any(|cell| !cell.c.is_whitespace())
+                {
+                    break;
+                }
+                previous = next;
+            }
+        }
+        candidates
+    }
+}
+
+struct PathRowToken {
+    start: usize,
+    end: usize,
+    text: String,
+}
+
+fn path_row_token(row: &[Cell], last: bool) -> Option<PathRowToken> {
+    let is_space = |cell: &Cell| cell.c.is_whitespace() && !cell.attrs.wide_char_spacer;
+    let (start, end) = if last {
+        let end = row.iter().rposition(|cell| !is_space(cell))? + 1;
+        let start = row[..end].iter().rposition(is_space).map_or(0, |i| i + 1);
+        (start, end)
+    } else {
+        let start = row.iter().position(|cell| !is_space(cell))?;
+        let end = row[start..]
+            .iter()
+            .position(is_space)
+            .map_or(row.len(), |i| start + i);
+        (start, end)
+    };
+    if row[start..end].iter().any(|cell| cell.hyperlink.is_some()) {
+        return None;
+    }
+    let text = row[start..end]
+        .iter()
+        .filter(|cell| !cell.attrs.wide_char_spacer)
+        .map(|cell| cell.c)
+        .collect();
+    Some(PathRowToken { start, end, text })
 }
 
 fn wrapped_terminal_token_at(

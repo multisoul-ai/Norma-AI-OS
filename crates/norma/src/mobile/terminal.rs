@@ -29,6 +29,13 @@ impl TerminalRequest {
     }
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct TerminalCursor {
+    /// Absolute scrollback row; independent of the desktop viewport.
+    pub line: usize,
+    pub column: usize,
+}
+
 /// The desktop's original terminal grid; each page copies at most120×512 cells.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct TerminalPage {
@@ -45,6 +52,8 @@ pub struct TerminalPage {
     /// Full-page wrap flags, even when rows contains only a delta. Empty for older senders.
     #[serde(default)]
     pub soft_wrapped: Vec<bool>,
+    #[serde(default)]
+    pub cursor: Option<TerminalCursor>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]

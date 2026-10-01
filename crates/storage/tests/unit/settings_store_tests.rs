@@ -1,5 +1,62 @@
 use super::*;
 
+/// S-4：安装身份首次写入后，后续候选值不能覆盖已持久化的身份。
+///
+/// 数据构造（含关键数值的推导过程）：一个 key、两个不同候选值，最终只能有一份值。
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 用 first 插入空数据库 → 返回 first。
+///   2. 用 second 对同一 key 再次插入 → 返回已有 first。
+///   3. 重新打开同一 SQLite 文件 → 仍读到 first。
+/// 预期结果：
+///   - 正断言：三个观察点均为 first。
+///   - 负断言：second 不得取代 first。
+#[test]
+fn test_settings_store_get_or_insert_preserves_first_identity() {
+    let temp = tempfile::tempdir().expect("测试应创建隔离数据库目录");
+    let path = temp.path().join("app.sqlite");
+    let store = SettingsStore::new(path.clone());
+    let first = store
+        .get_or_insert_string("mobile.server_identity", "first")
+        .expect("首次身份写入应成功");
+    let second = store
+        .get_or_insert_string("mobile.server_identity", "second")
+        .expect("重复身份写入应读取既有值");
+    let reloaded = SettingsStore::new(path)
+        .get_string("mobile.server_identity")
+        .expect("重启后应读回身份");
+    assert_eq!(first, "first", "首次插入必须使用第一个身份");
+    assert_eq!(second, "first", "重复插入必须保留第一个身份");
+    assert_eq!(
+        reloaded.as_deref(),
+        Some("first"),
+        "SQLite 重载必须保留首次身份"
+    );
+    assert_ne!(second, "second", "第二个候选身份不得覆盖安装身份");
+}
+
+/// S-5：含本机凭据的 AppDB 只允许当前系统用户读写。
+///
+/// 数据构造（含关键数值的推导过程）：一个隔离 app.sqlite、一条 synthetic 凭据。
+/// 执行过程（逐步说明系统如何处理）：通过 SettingsStore 写入后读取数据库文件权限。
+/// 预期结果：权限为 0o600；组与其他用户的读写执行位均不存在。
+#[cfg(unix)]
+#[test]
+fn test_settings_store_creates_private_database_file() {
+    use std::os::unix::fs::PermissionsExt;
+    let temp = tempfile::tempdir().expect("测试应创建隔离目录");
+    let path = temp.path().join("app.sqlite");
+    SettingsStore::new(path.clone())
+        .set_string("credential.agent-provider.test", "synthetic")
+        .expect("凭据应写入测试 SQLite");
+    let mode = std::fs::metadata(&path)
+        .expect("数据库文件应存在")
+        .permissions()
+        .mode()
+        & 0o777;
+    assert_eq!(mode, 0o600, "AppDB 文件必须只允许当前用户读写");
+    assert_eq!(mode & 0o077, 0, "组和其他用户不得读取凭据数据库");
+}
+
 /// S-1: SettingsStore 保存字符串配置后可覆盖并读回最新值。
 ///
 /// 数据构造（含关键数值的推导过程）：

@@ -14,6 +14,7 @@ impl VoiceSettingsState {
             if result.is_ok() {
                 if let Some(previous_account) = rollback.previous_account {
                     self.queue_pending_write(PendingVoiceSettingWrite::DeleteCredential {
+                        store: self.storage.clone(),
                         account: previous_account,
                     });
                 }
@@ -38,6 +39,7 @@ impl VoiceSettingsState {
                     None => self.delete_string(KEY_TTS_MINIMAX_CREDENTIAL_REF),
                 }
                 self.queue_pending_write(PendingVoiceSettingWrite::DeleteCredential {
+                    store: self.storage.clone(),
                     account: rollback.new_account,
                 });
                 self.restore_minimax_validation_persistence();

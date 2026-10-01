@@ -8,6 +8,12 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         match command {
+            ShortcutCommandId::FocusCommandInput => self.focus_command_input(window, cx),
+            ShortcutCommandId::SavePreviewFile => {
+                if let Some(node_id) = current_selection_node_id(&self.runtime) {
+                    self.save_preview_edit(node_id, cx);
+                }
+            }
             ShortcutCommandId::NewWindow => self.on_new_window(&crate::app::NewWindow, window, cx),
             ShortcutCommandId::NewWorkspace
             | ShortcutCommandId::AddProject

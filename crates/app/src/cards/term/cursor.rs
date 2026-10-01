@@ -7,14 +7,6 @@ use super::paint_style::TerminalGlassStyle;
 
 pub(crate) const TERMINAL_CURSOR_BREATH_PERIOD: Duration = Duration::from_millis(1200);
 
-/// PTY 与任务都处于运行态时，光标才使用运行中呼吸动画。
-///
-/// 普通 Terminal 没有上层任务，因此调用方传入 None；Agent 卡片则传入当前
-/// Agent task 的运行意图，以便任务结束后即使交互式 PTY 仍存活也立即静止。
-pub(crate) fn cursor_animation_running(terminal_running: bool, task_running: Option<bool>) -> bool {
-    terminal_running && task_running.unwrap_or(true)
-}
-
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct TerminalCursorAnimation {
     pub(crate) phase: f32,

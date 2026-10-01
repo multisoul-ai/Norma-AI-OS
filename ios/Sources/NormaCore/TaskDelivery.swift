@@ -41,7 +41,7 @@ public struct TaskDeliveryReference: Decodable, Sendable {
         }
     }
 }
-public struct TaskDeliverySummary: Decodable, Sendable, Identifiable {
+public struct TaskDeliverySummary: Codable, Equatable, Sendable, Identifiable {
     public let sequence: UInt64
     public let workspaceID: String
     public let outcome: MobileTurnOutcome
@@ -133,7 +133,7 @@ extension MobileClient {
     }
 }
 
-public struct DeliveryAcceptance: Decodable, Sendable {
+public struct DeliveryAcceptance: Codable, Equatable, Sendable {
     public let workspaceID: String
     public let routeID: String
     public let key: MobileTurnOutcome.Key

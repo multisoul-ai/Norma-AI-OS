@@ -105,45 +105,6 @@ fn test_working_state_does_not_mount_chase_border_layer() {
     );
 }
 
-/// 卡片壁纸毛玻璃必须位于圆角外壳之后，不能作为外壳的矩形子元素覆盖圆角。
-///
-/// 数据构造（含关键数值推导）：
-///   card radius = node_card_radius_px(1.0) = 22px。
-///   GPUI 0.2.2 的 ContentMask 仅支持矩形；当 100% 不透明的壁纸采样成为
-///   node_div 子元素时，会覆盖 22px 圆角范围内本应透明的像素。
-///
-/// 执行过程：
-///   1. 读取 canvas/view.rs 的节点元素构造顺序。
-///   2. 查找独立的 render_card_frosted_backdrop 元素入栈位置。
-///   3. 查找 node_div 入栈位置，并检查毛玻璃不再作为 node_div.child(...)。
-///
-/// 预期结果：
-///   - 正断言：毛玻璃先入栈、卡片外壳后入栈，外壳可用自身圆角决定可见边界。
-///   - 负断言：node_div 子树不应直接挂载毛玻璃，避免矩形采样遮住四个圆角。
-#[test]
-fn test_frosted_backdrop_is_behind_the_rounded_card_shell() {
-    let source = include_str!("../../src/canvas/view.rs");
-    let backdrop_push = "node_elems.push(\n            app.render_card_frosted_backdrop";
-    let shell_push = "node_elems.push(node_div.into_any_element());";
-    let child_backdrop = ".child(app.render_card_frosted_backdrop";
-
-    let backdrop_index = source
-        .find(backdrop_push)
-        .expect("毛玻璃必须作为独立画布元素入栈，供圆角外壳覆盖");
-    let shell_index = source
-        .find(shell_push)
-        .expect("卡片外壳必须作为独立元素入栈，供圆角样式生效");
-
-    assert!(
-        backdrop_index < shell_index,
-        "毛玻璃应先于圆角卡片外壳绘制，否则不透明采样会遮住四角"
-    );
-    assert!(
-        !source.contains(child_backdrop),
-        "毛玻璃不得继续作为 node_div 子元素；GPUI 的矩形裁剪会使四角变直"
-    );
-}
-
 /// 卡片顶部不应再绘制独立的白色高光线，避免玻璃标题栏上方出现突兀横线。
 ///
 /// 数据构造（含关键数值推导）：

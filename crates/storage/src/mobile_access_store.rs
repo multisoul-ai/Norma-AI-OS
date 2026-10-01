@@ -24,6 +24,8 @@ pub struct MobileDeviceGrant {
     pub device_id: String,
     pub device_name: String,
     pub projects: Vec<MobileProjectAccess>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub all_projects_access: Option<MobilePermission>,
     pub revision: u64,
     pub revoked: bool,
 }
@@ -52,33 +54,34 @@ impl MobileAccessStore {
         Self { path }
     }
 
-    /// A non-secret, stable locator for this installation's native Keychain identity.
-    /// SQLite chooses one value even if two windows initialize mobile access concurrently.
-    pub fn keychain_account(&self) -> StorageResult<String> {
-        let connection = open_app_connection(&self.path)?;
-        connection.execute(
-            "INSERT OR IGNORE INTO settings(key,value,updated_at_unix)
-             VALUES ('mobile.keychain_account','mobile-' || lower(hex(randomblob(16))),?1)",
-            [current_unix_timestamp()?],
-        )?;
-        let account: String = connection.query_row(
-            "SELECT value FROM settings WHERE key='mobile.keychain_account'",
-            [],
-            |row| row.get(0),
-        )?;
-        validate_id(&account)?;
-        if !account.starts_with("mobile-") || account.len() != 7 + 32 {
-            return Err(invalid("invalid mobile Keychain account"));
-        }
-        Ok(account)
-    }
-
     pub fn register(
         &self,
         device_id: &str,
         name: &str,
         token: &str,
         projects: &[MobileProjectAccess],
+    ) -> StorageResult<MobileDeviceGrant> {
+        self.register_scope(device_id, name, token, projects, None)
+    }
+
+    /// Only a desktop approval action may call this; the device cannot request its own scope.
+    pub fn register_all_projects(
+        &self,
+        device_id: &str,
+        name: &str,
+        token: &str,
+        access: MobilePermission,
+    ) -> StorageResult<MobileDeviceGrant> {
+        self.register_scope(device_id, name, token, &[], Some(access))
+    }
+
+    fn register_scope(
+        &self,
+        device_id: &str,
+        name: &str,
+        token: &str,
+        projects: &[MobileProjectAccess],
+        all_projects_access: Option<MobilePermission>,
     ) -> StorageResult<MobileDeviceGrant> {
         validate_id(device_id)?;
         validate_token(token)?;
@@ -91,8 +94,8 @@ impl MobileAccessStore {
         let tx = connection.transaction()?;
         let now = current_unix_timestamp()?;
         tx.execute("INSERT INTO mobile_devices
-            (device_id,device_name,token_hash,permissions_json,revision,revoked,created_at_unix,updated_at_unix)
-            VALUES (?1,?2,?3,?4,1,0,?5,?5)",params![device_id,name,hash_token(token),serde_json::to_string(projects)?,now])?;
+            (device_id,device_name,token_hash,permissions_json,all_projects_access,revision,revoked,created_at_unix,updated_at_unix)
+            VALUES (?1,?2,?3,?4,?5,1,0,?6,?6)",params![device_id,name,hash_token(token),serde_json::to_string(projects)?,all_projects_access.map(permission_name),now])?;
         let grant = read_grant(&tx, device_id)?
             .ok_or_else(|| invalid("device not found"))?
             .0;
@@ -125,6 +128,25 @@ impl MobileAccessStore {
         expected_revision: u64,
         projects: &[MobileProjectAccess],
     ) -> StorageResult<MobileDeviceGrant> {
+        self.replace_scope(device_id, expected_revision, projects, None)
+    }
+
+    pub fn replace_with_all_projects(
+        &self,
+        device_id: &str,
+        expected_revision: u64,
+        access: MobilePermission,
+    ) -> StorageResult<MobileDeviceGrant> {
+        self.replace_scope(device_id, expected_revision, &[], Some(access))
+    }
+
+    fn replace_scope(
+        &self,
+        device_id: &str,
+        expected_revision: u64,
+        projects: &[MobileProjectAccess],
+        all_projects_access: Option<MobilePermission>,
+    ) -> StorageResult<MobileDeviceGrant> {
         validate_id(device_id)?;
         validate_projects(projects)?;
         if expected_revision == 0 || expected_revision >= i64::MAX as u64 {
@@ -133,10 +155,11 @@ impl MobileAccessStore {
         let mut connection = open_app_connection(&self.path)?;
         let tx = connection.transaction()?;
         let changed = tx.execute(
-            "UPDATE mobile_devices SET permissions_json=?1,revision=revision+1,updated_at_unix=?2
-            WHERE device_id=?3 AND revision=?4 AND revoked=0",
+            "UPDATE mobile_devices SET permissions_json=?1,all_projects_access=?2,revision=revision+1,updated_at_unix=?3
+            WHERE device_id=?4 AND revision=?5 AND revoked=0",
             params![
                 serde_json::to_string(projects)?,
+                all_projects_access.map(permission_name),
                 current_unix_timestamp()?,
                 device_id,
                 expected_revision
@@ -195,19 +218,58 @@ fn read_grant(
     connection: &Connection,
     device_id: &str,
 ) -> StorageResult<Option<(MobileDeviceGrant, String)>> {
-    let row=connection.query_row("SELECT device_name,token_hash,permissions_json,revision,revoked FROM mobile_devices WHERE device_id=?1",[device_id],|row| {
-        Ok((row.get::<_,String>(0)?,row.get::<_,String>(1)?,row.get::<_,String>(2)?,row.get::<_,u64>(3)?,row.get::<_,bool>(4)?))
-    }).optional()?;
-    let Some((device_name, hash, projects, revision, revoked)) = row else {
+    let row = connection
+        .query_row(
+            "SELECT device_name,token_hash,permissions_json,all_projects_access,revision,revoked
+         FROM mobile_devices WHERE device_id=?1",
+            [device_id],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, Option<String>>(3)?,
+                    row.get::<_, u64>(4)?,
+                    row.get::<_, bool>(5)?,
+                ))
+            },
+        )
+        .optional()?;
+    let Some((device_name, hash, stored_projects, access, revision, revoked)) = row else {
         return Ok(None);
     };
-    let projects: Vec<MobileProjectAccess> = serde_json::from_str(&projects)?;
-    validate_projects(&projects)?;
+    let stored_projects: Vec<MobileProjectAccess> = serde_json::from_str(&stored_projects)?;
+    validate_projects(&stored_projects)?;
+    let all_projects_access = match access.as_deref() {
+        None => None,
+        Some("read") => Some(MobilePermission::Read),
+        Some("control") => Some(MobilePermission::Control),
+        _ => return Err(invalid("invalid all-projects access")),
+    };
+    if all_projects_access.is_some() && !stored_projects.is_empty() {
+        return Err(invalid("mixed project grant modes"));
+    }
+    let projects = if let Some(access) = all_projects_access {
+        let mut query = connection
+            .prepare("SELECT workspace_id FROM workspace_identities ORDER BY workspace_id")?;
+        let current_projects = query
+            .query_map([], |row| {
+                Ok(MobileProjectAccess {
+                    workspace_id: row.get(0)?,
+                    access,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        current_projects
+    } else {
+        stored_projects
+    };
     Ok(Some((
         MobileDeviceGrant {
             device_id: device_id.into(),
             device_name,
             projects,
+            all_projects_access,
             revision,
             revoked,
         },
@@ -251,6 +313,13 @@ fn validate_token(token: &str) -> StorageResult<()> {
     Ok(())
 }
 
+fn permission_name(access: MobilePermission) -> &'static str {
+    match access {
+        MobilePermission::Read => "read",
+        MobilePermission::Control => "control",
+    }
+}
+
 fn invalid(message: &str) -> StorageError {
     StorageError::InvalidMobileAccess(message.into())
 }
@@ -258,8 +327,16 @@ fn invalid(message: &str) -> StorageError {
 pub(crate) fn migrate(connection: &Connection) -> StorageResult<()> {
     connection.execute_batch("CREATE TABLE IF NOT EXISTS mobile_devices (
         device_id TEXT PRIMARY KEY NOT NULL,device_name TEXT NOT NULL,token_hash TEXT NOT NULL,
-        permissions_json TEXT NOT NULL,revision INTEGER NOT NULL CHECK(revision>0),
+        permissions_json TEXT NOT NULL,
+        all_projects_access TEXT CHECK(all_projects_access IN ('read','control')),
+        revision INTEGER NOT NULL CHECK(revision>0),
         revoked INTEGER NOT NULL CHECK(revoked IN (0,1)),created_at_unix INTEGER NOT NULL,updated_at_unix INTEGER NOT NULL
     );")?;
+    crate::migrations::ensure_column(
+        connection,
+        "mobile_devices",
+        "all_projects_access",
+        "all_projects_access TEXT CHECK(all_projects_access IN ('read','control'))",
+    )?;
     Ok(())
 }

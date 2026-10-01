@@ -282,6 +282,7 @@ fn shortcut_row_id(command: ShortcutCommandId) -> &'static str {
     match command {
         ShortcutCommandId::NewWorkspace => "settings-shortcut-new-workspace",
         ShortcutCommandId::AddProject => "settings-shortcut-add-project",
+        ShortcutCommandId::FocusCommandInput => "settings-shortcut-command-input",
         ShortcutCommandId::NewWindow => "settings-shortcut-new-window",
         ShortcutCommandId::SwitchWorkspace => "settings-shortcut-switch-workspace",
         ShortcutCommandId::PreviousWorkspace => "settings-shortcut-previous-workspace",
@@ -295,6 +296,7 @@ fn shortcut_row_id(command: ShortcutCommandId) -> &'static str {
         ShortcutCommandId::CopyCardContent => "settings-shortcut-copy-card-content",
         ShortcutCommandId::OpenProject => "settings-shortcut-open-project",
         ShortcutCommandId::OpenPreviewFile => "settings-shortcut-open-preview-file",
+        ShortcutCommandId::SavePreviewFile => "settings-shortcut-save-preview-file",
         ShortcutCommandId::NewClaudeAgent => "settings-shortcut-new-claude-agent",
         ShortcutCommandId::NewCodexAgent => "settings-shortcut-new-codex-agent",
         ShortcutCommandId::NewCursorAgent => "settings-shortcut-new-cursor-agent",
@@ -313,6 +315,7 @@ fn shortcut_restore_id(command: ShortcutCommandId) -> &'static str {
     match command {
         ShortcutCommandId::NewWorkspace => "settings-shortcut-restore-new-workspace",
         ShortcutCommandId::AddProject => "settings-shortcut-restore-add-project",
+        ShortcutCommandId::FocusCommandInput => "settings-shortcut-restore-command-input",
         ShortcutCommandId::NewWindow => "settings-shortcut-restore-new-window",
         ShortcutCommandId::SwitchWorkspace => "settings-shortcut-restore-switch-workspace",
         ShortcutCommandId::PreviousWorkspace => "settings-shortcut-restore-previous-workspace",
@@ -328,6 +331,7 @@ fn shortcut_restore_id(command: ShortcutCommandId) -> &'static str {
         ShortcutCommandId::CopyCardContent => "settings-shortcut-restore-copy-card-content",
         ShortcutCommandId::OpenProject => "settings-shortcut-restore-open-project",
         ShortcutCommandId::OpenPreviewFile => "settings-shortcut-restore-open-preview-file",
+        ShortcutCommandId::SavePreviewFile => "settings-shortcut-restore-save-preview-file",
         ShortcutCommandId::NewClaudeAgent => "settings-shortcut-restore-new-claude-agent",
         ShortcutCommandId::NewCodexAgent => "settings-shortcut-restore-new-codex-agent",
         ShortcutCommandId::NewCursorAgent => "settings-shortcut-restore-new-cursor-agent",

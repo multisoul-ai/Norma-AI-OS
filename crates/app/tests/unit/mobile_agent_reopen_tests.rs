@@ -4,7 +4,7 @@ use runtime::{AgentTaskState, AgentTaskUpdate};
 
 /// 正式 App 重开入口同时检查发送队列，不能只凭 Runtime 的 Done 中断排队消息。
 ///
-/// 数据构造：一个旧 Claude echo PTY，session-a；Thinking 时排队一条回复，再把任务报告为 Done。
+/// 数据构造：一个旧 Claude echo PTY，session-a；WaitingApproval 时暂存一条回复，再把任务报告为 Done。
 /// 执行过程：带排队回复重开失败 → 撤回回复 → 标记启动中再次失败 → 清理启动状态 → 错会话重开失败。
 /// 预期结果：回复不会丢失，所有拒绝都保留原 PTY 和旧模式；队列清空后准确进入会话校验，没有真实 CLI 启动。
 #[test]
@@ -21,7 +21,7 @@ fn mobile_reopen_preserves_queued_reply_and_pending_launch() {
         // 80×24 是标准 PTY 尺寸；definition=1 只用于此次排队回执身份。
         let id=app.runtime.spawn_agent(AgentProfile::Claude,canvas::CanvasRect::new(0.0,0.0,640.0,400.0),80,24).expect("旧卡");
         let report=|state|AgentTaskUpdate{node_id:id,profile:AgentProfile::Claude,provider_event:"Stop".into(),to:state,task_title:None,session_id:Some("session-a".into())};
-        app.runtime.apply_agent_task_update(report(AgentTaskState::Thinking));
+        app.runtime.apply_agent_task_update(report(AgentTaskState::WaitingApproval { tool_name: Some("Bash".into()) }));
         let reply=app.enqueue_or_send_session_reply(1,"Claude".into(),id,"session-a".into(),"尚未发送的方向调整".into()).expect("排队");
         app.runtime.apply_agent_task_update(report(AgentTaskState::Done));
         let error=app.reopen_mobile_agent(id,"session-a",cx).expect_err("仍有排队消息");

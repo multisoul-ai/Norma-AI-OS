@@ -62,11 +62,20 @@ pub(crate) enum Command {
         request_id: String,
         projects: Vec<MobileProjectAccess>,
     },
+    ApproveAll {
+        request_id: String,
+        access: storage::MobilePermission,
+    },
     Revoke(String),
     Permissions {
         device_id: String,
         revision: u64,
         projects: Vec<MobileProjectAccess>,
+    },
+    PermissionsAll {
+        device_id: String,
+        revision: u64,
+        access: storage::MobilePermission,
     },
 }
 
@@ -259,7 +268,12 @@ impl MobileController {
         if matches!(command, Command::NewCode | Command::Enable) {
             self.clear_pairing();
         }
-        if let Command::Approve { request_id, .. } = &command {
+        if let Some(request_id) = match &command {
+            Command::Approve { request_id, .. } | Command::ApproveAll { request_id, .. } => {
+                Some(request_id)
+            }
+            _ => None,
+        } {
             if self.pending.as_ref().map(|p| &p.request_id) != Some(request_id) {
                 self.error =
                     Some("The pairing request has changed. Please verify the code again.".into());

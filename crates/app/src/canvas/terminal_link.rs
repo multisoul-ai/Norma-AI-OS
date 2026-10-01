@@ -6,7 +6,7 @@ use terminal::GridSnapshot;
 pub(crate) enum TerminalLinkIntent {
     OpenBrowserCard { url: String },
     OpenDefaultBrowser { url: String },
-    OpenPreviewCard { path: String },
+    OpenPreviewCard { paths: Vec<String> },
     InvalidLink,
     BeginTextSelection,
     Ignore,
@@ -22,8 +22,9 @@ pub(crate) fn terminal_link_intent(
         return TerminalLinkIntent::Ignore;
     }
     let Some(url) = snapshot.link_at(point.row, point.col) else {
-        if let Some(path) = snapshot.preview_path_at(point.row, point.col) {
-            return TerminalLinkIntent::OpenPreviewCard { path };
+        let paths = snapshot.preview_path_candidates_at(point.row, point.col);
+        if !paths.is_empty() {
+            return TerminalLinkIntent::OpenPreviewCard { paths };
         }
         return if snapshot.has_link_candidate_at(point.row, point.col) {
             TerminalLinkIntent::InvalidLink

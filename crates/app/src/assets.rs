@@ -70,6 +70,9 @@ impl AssetSource for EmbeddedAssets {
             "icons/loader.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
                 "../assets/icons/loader.svg"
             )))),
+            "icons/command-workspace.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/command-workspace.svg"
+            )))),
             APP_ICON_ASSET => Ok(Some(Cow::Borrowed(APP_ICON_BYTES))),
             APP_LOGO_ASSET => Ok(Some(Cow::Borrowed(APP_LOGO_BYTES))),
             TOOLBAR_SCROLL_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_SCROLL_BYTES))),
@@ -100,6 +103,7 @@ impl AssetSource for EmbeddedAssets {
         match path {
             "" => Ok(vec![SharedString::from("icons")]),
             "icons" => Ok(vec![
+                SharedString::from("command-workspace.svg"),
                 SharedString::from("app-icon.png"),
                 SharedString::from("logo.png"),
                 SharedString::from("toolbar-scroll.svg"),

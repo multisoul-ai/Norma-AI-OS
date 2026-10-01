@@ -13,6 +13,7 @@ const SHORTCUT_PREFS_KEY: &str = "keyboard.shortcuts.v1";
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum ShortcutCommandId {
+    FocusCommandInput,
     NewWindow,
     NewWorkspace,
     AddProject,
@@ -28,6 +29,7 @@ pub(crate) enum ShortcutCommandId {
     CopyCardContent,
     OpenProject,
     OpenPreviewFile,
+    SavePreviewFile,
     NewClaudeAgent,
     NewCodexAgent,
     NewCursorAgent,

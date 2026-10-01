@@ -21,6 +21,7 @@ struct PendingAgentSubmission {
 enum PendingSubmissionStage {
     TypeTask,
     SubmitEnter,
+    RecoveryRequired,
 }
 
 #[derive(Debug, Default)]
@@ -36,6 +37,10 @@ pub(crate) struct RemovedPendingSubmission {
 }
 
 impl PendingAgentSubmissions {
+    pub(crate) fn input_in_progress(&self, node_id: NodeId) -> bool {
+        self.submissions.contains_key(&node_id)
+    }
+
     pub(crate) fn has_pending_for_node(&self, node_id: NodeId) -> bool {
         self.ready_after.contains_key(&node_id) || self.submissions.contains_key(&node_id)
     }
@@ -54,6 +59,9 @@ impl PendingAgentSubmissions {
     }
 
     fn should_wait_at(&mut self, node_id: NodeId, now: Instant) -> bool {
+        if self.submissions.contains_key(&node_id) {
+            return true;
+        }
         let Some(ready_after) = self.ready_after.get(&node_id).copied() else {
             return false;
         };
@@ -74,13 +82,12 @@ impl PendingAgentSubmissions {
     }
 
     pub(crate) fn enqueue(&mut self, receipt: AgentDispatchReceipt) {
-        self.submissions.insert(
-            receipt.node_id,
-            PendingAgentSubmission {
+        self.submissions
+            .entry(receipt.node_id)
+            .or_insert(PendingAgentSubmission {
                 receipt,
                 stage: PendingSubmissionStage::TypeTask,
-            },
-        );
+            });
     }
 
     pub(crate) fn schedule_enter(&mut self, receipt: AgentDispatchReceipt) {
@@ -101,6 +108,9 @@ impl PendingAgentSubmissions {
 
     pub(crate) fn enqueue_immediate(&mut self, receipt: AgentDispatchReceipt) {
         let node_id = receipt.node_id;
+        if self.submissions.contains_key(&node_id) {
+            return;
+        }
         self.enqueue(receipt);
         self.ready_after.insert(node_id, Instant::now());
     }
@@ -161,10 +171,8 @@ impl PendingAgentSubmissions {
 
     pub(crate) fn task_stage(&self, task_id: u64) -> Option<(NodeId, bool)> {
         self.submissions.iter().find_map(|(node_id, pending)| {
-            (pending.receipt.task_id == task_id).then_some((
-                *node_id,
-                pending.stage == PendingSubmissionStage::SubmitEnter,
-            ))
+            (pending.receipt.task_id == task_id)
+                .then_some((*node_id, pending.stage != PendingSubmissionStage::TypeTask))
         })
     }
 
@@ -192,6 +200,19 @@ impl MultisoulApp {
         node_id: NodeId,
         cx: &mut gpui::Context<Self>,
     ) -> bool {
+        if self.runtime.agent_task_input_held(node_id)
+            || matches!(
+                self.runtime.agent_task_state(node_id),
+                Some(runtime::AgentTaskState::WaitingApproval { .. })
+            )
+            || self
+                .pending_agent_submissions
+                .submissions
+                .get(&node_id)
+                .is_some_and(|pending| pending.stage == PendingSubmissionStage::RecoveryRequired)
+        {
+            return false;
+        }
         let Some(pending) = self.pending_agent_submissions.take_ready(node_id) else {
             return false;
         };
@@ -231,6 +252,12 @@ impl MultisoulApp {
         match submit_agent_enter(&mut self.runtime, receipt.node_id) {
             Ok(()) => {
                 self.realtime_submission_sent(receipt.task_id, cx);
+                if let Some(coordinator) = self.agent_task_coordinator.as_mut() {
+                    coordinator.mark_task_submitted(receipt.task_id);
+                    if let Some(next) = coordinator.next_unsubmitted(receipt.definition_id) {
+                        self.pending_agent_submissions.enqueue_immediate(next);
+                    }
+                }
                 if let Some(writer) = self.persistence.agent_dispatch_writer() {
                     writer.submit_next_queued(receipt.definition_id);
                 }
@@ -257,6 +284,14 @@ impl MultisoulApp {
                     if let Some(writer) = self.persistence.agent_dispatch_writer() {
                         writer.fail_next_queued(receipt.definition_id, message);
                     }
+                    // Unknown input contents block later delivery until the card is closed.
+                    self.pending_agent_submissions.submissions.insert(
+                        node_id,
+                        PendingAgentSubmission {
+                            receipt,
+                            stage: PendingSubmissionStage::RecoveryRequired,
+                        },
+                    );
                 }
                 false
             }

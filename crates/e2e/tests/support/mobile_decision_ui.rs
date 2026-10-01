@@ -172,6 +172,7 @@ impl Fixture {
                 },
                 running: true,
                 input_ready: false,
+                cursor: None,
                 soft_wrapped,
                 rows,
             }));
