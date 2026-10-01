@@ -1,5 +1,7 @@
 # 桌面多项目工作空间：实施拆分
 
+2026-09-30 更新：本文保留 #65–#71 的原始任务拆分；桌面渲染与动效施工改用[统一场景 Goal 计划](2026-09-30-desktop-unified-scene-goal.md)。对象归属与生命周期范围仍有效；任务 05 的独立 Norma 输入入口按新版规格保持待定。本次归档不自动关闭这些 Issue。
+
 依据：[桌面工作空间 SPEC](../product-specs/2026-09-29-SPEC-desktop-multi-project-workspaces.md) 与 [GitHub 主 Issue #65](https://github.com/multisoul-ai/Norma-AI-OS/issues/65)。六项任务已创建为 #66–#71，并设置 GitHub 原生阻塞关系。每一项都要形成可演示的桌面行为和自动化证据，按阻塞关系推进。
 
 ## 任务 01：可创建和打开空桌面工作空间

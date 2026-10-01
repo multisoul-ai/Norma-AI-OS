@@ -32,7 +32,12 @@ impl MultisoulApp {
             AppScreen::Launchpad | AppScreen::DesktopWorkspace
         ) || self.desktop_host.is_some()
         {
-            self.accept_project_for_desktop(path, window, cx);
+            self.accept_project_for_desktop_with_source(
+                path,
+                workspace::WorkspaceSource::Clone,
+                window,
+                cx,
+            );
             return;
         }
         self.open_workspace_in_project_window_with_state(

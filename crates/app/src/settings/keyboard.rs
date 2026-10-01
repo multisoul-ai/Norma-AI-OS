@@ -48,6 +48,7 @@ fn restore_all_row(theme: Theme, cx: &mut Context<MultisoulApp>) -> Div {
             .hover(move |style| style.bg(rgba(with_alpha(theme.panel_high, 0xa8))))
             .on_click(cx.listener(|app, _, _window, cx| {
                 app.shortcuts.restore_all_defaults();
+                app.sync_desktop_shortcuts(cx);
                 cx.notify();
             }))
             .child("Restore Defaults"),
@@ -150,6 +151,7 @@ fn restore_button(
         .hover(move |style| style.bg(rgba(with_alpha(theme.panel_high, 0x94))))
         .on_click(cx.listener(move |app, _, _window, cx| {
             app.shortcuts.restore_default(command);
+            app.sync_desktop_shortcuts(cx);
             cx.notify();
         }))
         .child("Restore")
@@ -280,6 +282,12 @@ fn shortcut_row_id(command: ShortcutCommandId) -> &'static str {
     match command {
         ShortcutCommandId::NewWindow => "settings-shortcut-new-window",
         ShortcutCommandId::SwitchWorkspace => "settings-shortcut-switch-workspace",
+        ShortcutCommandId::PreviousWorkspace => "settings-shortcut-previous-workspace",
+        ShortcutCommandId::NextWorkspace => "settings-shortcut-next-workspace",
+        ShortcutCommandId::PreviousProject => "settings-shortcut-previous-project",
+        ShortcutCommandId::NextProject => "settings-shortcut-next-project",
+        ShortcutCommandId::ShowProjectOverview => "settings-shortcut-show-project-overview",
+        ShortcutCommandId::ShowWorkspaceDirectory => "settings-shortcut-show-workspace-directory",
         ShortcutCommandId::NewTerminal => "settings-shortcut-new-terminal",
         ShortcutCommandId::NewBrowser => "settings-shortcut-new-browser",
         ShortcutCommandId::CopyCardContent => "settings-shortcut-copy-card-content",
@@ -303,6 +311,14 @@ fn shortcut_restore_id(command: ShortcutCommandId) -> &'static str {
     match command {
         ShortcutCommandId::NewWindow => "settings-shortcut-restore-new-window",
         ShortcutCommandId::SwitchWorkspace => "settings-shortcut-restore-switch-workspace",
+        ShortcutCommandId::PreviousWorkspace => "settings-shortcut-restore-previous-workspace",
+        ShortcutCommandId::NextWorkspace => "settings-shortcut-restore-next-workspace",
+        ShortcutCommandId::PreviousProject => "settings-shortcut-restore-previous-project",
+        ShortcutCommandId::NextProject => "settings-shortcut-restore-next-project",
+        ShortcutCommandId::ShowProjectOverview => "settings-shortcut-restore-show-project-overview",
+        ShortcutCommandId::ShowWorkspaceDirectory => {
+            "settings-shortcut-restore-show-workspace-directory"
+        }
         ShortcutCommandId::NewTerminal => "settings-shortcut-restore-new-terminal",
         ShortcutCommandId::NewBrowser => "settings-shortcut-restore-new-browser",
         ShortcutCommandId::CopyCardContent => "settings-shortcut-restore-copy-card-content",

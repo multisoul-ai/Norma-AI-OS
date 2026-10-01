@@ -22,6 +22,7 @@ const LAYOUT_MIN_COLUMN_SCREEN_PX: f32 = 320.0;
 #[derive(Debug, Default, Clone)]
 pub(crate) struct MasterLayoutState {
     active: Option<ActiveMasterLayout>,
+    pub(crate) chrome_in_parent: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -155,7 +156,9 @@ impl MasterLayoutState {
         let Some(active) = &self.active else {
             return false;
         };
-        apply_master_detail_for_area(runtime, motion, active.master_id, area, zoom)
+        let mut config = workspace_reflow_config_for_zoom(zoom);
+        config.safe_area = workspace_safe_area_for_zoom(zoom, self.chrome_in_parent);
+        apply_master_detail_for_area(runtime, motion, active.master_id, area, zoom, config)
     }
 }
 
@@ -166,7 +169,7 @@ pub(crate) fn workspace_reflow_config_for_zoom(zoom: f32) -> ResponsiveGridConfi
         min_column_width: LAYOUT_MIN_COLUMN_SCREEN_PX / zoom,
         aspect_ratio: DEFAULT_CARD_ASPECT_RATIO,
         gap_canvas: layout_gap_for_zoom(zoom),
-        safe_area: workspace_safe_area_for_zoom(zoom),
+        safe_area: workspace_safe_area_for_zoom(zoom, false),
     }
 }
 
@@ -368,6 +371,7 @@ fn apply_master_detail_for_area(
     master_id: NodeId,
     area: CanvasRect,
     zoom: f32,
+    config: ResponsiveGridConfig,
 ) -> bool {
     let ordered_ids: Vec<_> = runtime
         .document
@@ -375,12 +379,7 @@ fn apply_master_detail_for_area(
         .iter()
         .map(|node| node.id)
         .collect();
-    let assignments = compute_master_detail_layout(
-        &ordered_ids,
-        master_id,
-        area,
-        workspace_reflow_config_for_zoom(zoom),
-    );
+    let assignments = compute_master_detail_layout(&ordered_ids, master_id, area, config);
     if assignments.is_empty() {
         return false;
     }

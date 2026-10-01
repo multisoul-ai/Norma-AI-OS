@@ -247,6 +247,7 @@ impl MultisoulApp {
             desktop_host: None,
             desktop_switcher_subscription: None,
             background_restore: None,
+            desktop_overview_scroll: std::collections::HashMap::new(),
             canvas_surface,
             working_snake_views: std::collections::HashMap::new(),
             voice_window_inset_events,

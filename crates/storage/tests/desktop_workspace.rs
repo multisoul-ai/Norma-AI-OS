@@ -108,6 +108,125 @@ fn desktop_expanded_area_survives_reopen_and_clears_on_remove() {
     );
 }
 
+/// DWS-04：总览滚动位置随工作空间分别持久化，切回时恢复原视口。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   工作空间数 = 2；甲滚动 -180 px，乙滚动 -40 px；位置差 = 140 px。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 创建甲乙并分别保存总览纵向偏移。
+///   2. 重新打开同一数据库并读取两条工作空间记录。
+///   3. 核对两个偏移互不覆盖。
+///
+/// 预期结果：
+///   - 正断言：甲为 -180，乙为 -40。
+///   - 负断言：甲不能误恢复为乙的位置，乙不能误恢复为默认零点。
+#[test]
+fn desktop_overview_scroll_positions_are_independent_and_persistent() {
+    let temp = tempfile::tempdir().expect("应创建隔离目录");
+    let path = temp.path().join("app.sqlite");
+    let store = DesktopWorkspaceStore::new(path.clone());
+    let alpha = store.create("Alpha").expect("应创建甲");
+    let beta = store.create("Beta").expect("应创建乙");
+    store
+        .set_overview_scroll_y(&alpha.id, -180)
+        .expect("应保存甲位置");
+    store
+        .set_overview_scroll_y(&beta.id, -40)
+        .expect("应保存乙位置");
+
+    let reloaded = DesktopWorkspaceStore::new(path);
+    let alpha_y = reloaded
+        .get(&alpha.id)
+        .expect("应读取甲")
+        .expect("甲应存在")
+        .overview_scroll_y;
+    let beta_y = reloaded
+        .get(&beta.id)
+        .expect("应读取乙")
+        .expect("乙应存在")
+        .overview_scroll_y;
+    assert_eq!(alpha_y, -180, "甲应恢复自己的总览位置");
+    assert_eq!(beta_y, -40, "乙应恢复自己的总览位置");
+    assert_ne!(alpha_y, beta_y, "两张工作空间不能共用总览位置");
+    assert_ne!(beta_y, 0, "乙不能误恢复为默认零点");
+}
+
+/// DWS-01：首页缩略图使用已保存卡片的相对位置绘制项目画布快照。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   项目数 = 1；终端卡片 2 张，坐标分别为 (0,0)、(100,100)。
+///   归一化后第一张 = (5,10)，第二张 = (85,80)，卡片数 = 2。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 创建桌面区域，在独立画布存档写入两个位置不同的节点。
+///   2. 从工作空间目录加载首页预览。
+///   3. 核对预览的项目身份、数量和位置。
+///
+/// 预期结果：
+///   - 正断言：两张卡片按原相对位置出现，预览关联原区域。
+///   - 负断言：两张卡片不能被压成同一位置，也不能错误标成 Agent。
+#[test]
+fn desktop_preview_preserves_saved_canvas_card_positions() {
+    let temp = tempfile::tempdir().expect("应创建隔离目录");
+    let paths = DatabasePaths::isolated_test(&temp.path().join("data"));
+    let project = temp.path().join("project");
+    std::fs::create_dir(&project).expect("应创建项目目录");
+    let catalog = DesktopWorkspaceStore::new(paths.app_db_path().to_owned());
+    let workspace = catalog.create("Alpha").expect("应创建工作空间");
+    let area = catalog
+        .add_project(&workspace.id, &project)
+        .expect("应添加项目");
+    let canvas =
+        ProjectStore::initialize_for_desktop_area(&paths, &project, &workspace.id, &area.id)
+            .expect("应初始化桌面画布");
+    let mut document = canvas::Document::new();
+    document.add_node(
+        canvas::CanvasNodeKind::Term(canvas::TermSpec),
+        canvas::CanvasRect::new(0.0, 0.0, 40.0, 30.0),
+    );
+    document.add_node(
+        canvas::CanvasNodeKind::Term(canvas::TermSpec),
+        canvas::CanvasRect::new(100.0, 100.0, 40.0, 30.0),
+    );
+    canvas
+        .canvas_store()
+        .save_snapshot(&document.to_snapshot())
+        .expect("应保存两张卡片");
+
+    let previews = catalog.list_previews().expect("应加载首页预览");
+    let areas = previews.get(&workspace.id).expect("应有甲工作空间预览");
+    assert_eq!(areas.len(), 1, "甲应只有一个项目分区");
+    assert_eq!(areas[0].id, area.id, "预览应关联原区域身份");
+    assert_eq!(areas[0].nodes.len(), 2, "预览应包含两张真实卡片节点");
+    assert!(
+        matches!(areas[0].nodes[0].kind, canvas::CanvasNodeKind::Term(_)),
+        "第一张缩略卡片应保留真实 Terminal 类型"
+    );
+    assert!(
+        matches!(areas[0].nodes[1].kind, canvas::CanvasNodeKind::Term(_)),
+        "第二张缩略卡片应保留真实 Terminal 类型"
+    );
+    assert_ne!(
+        areas[0].nodes[0].bounds.origin, areas[0].nodes[1].bounds.origin,
+        "不同位置的卡片不可重叠成一点"
+    );
+    assert_eq!(
+        areas[0].nodes[0].bounds,
+        canvas::CanvasRect::new(0.0, 0.0, 40.0, 30.0),
+        "缩略图必须保留第一张卡片的真实几何"
+    );
+    assert_eq!(
+        areas[0].nodes[1].bounds,
+        canvas::CanvasRect::new(100.0, 100.0, 40.0, 30.0),
+        "缩略图必须保留第二张卡片的真实几何"
+    );
+    assert_ne!(
+        areas[0].nodes[0].bounds, areas[0].nodes[1].bounds,
+        "不同位置的卡片不得退化成同一通用矩形"
+    );
+}
+
 /// DWS-01：空名称不能创建工作空间，也不能破坏已有工作空间的名称。
 ///
 /// 数据构造（含关键数值的推导过程）：

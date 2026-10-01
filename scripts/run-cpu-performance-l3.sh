@@ -292,8 +292,8 @@ resolve_app_bundle_for_pid() {
   bundle_path=$(lsof -n -a -p "$process_pid" -d txt -Fn 2>/dev/null | \
     sed -n 's/^n//p' | \
     awk '
-      /\/Contents\/MacOS\/[^/]+$/ && !found {
-        sub(/\/Contents\/MacOS\/[^/]+$/, "")
+      /\/Contents\/MacOS\/[^\/]+$/ && !found {
+        sub(/\/Contents\/MacOS\/[^\/]+$/, "")
         print
         found = 1
       }
@@ -501,7 +501,7 @@ fi
 python3 "$gate_script" summarize \
   --app-csv "$app_cpu_csv" \
   --window-server-csv "$window_server_cpu_csv" \
-  "${perf_log_args[@]}" \
+  ${perf_log_args[@]+"${perf_log_args[@]}"} \
   --output "$summary_json" \
   --stage "$mode" \
   --scenario "$scenario" \

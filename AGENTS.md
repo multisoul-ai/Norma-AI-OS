@@ -69,8 +69,8 @@ Workspace 分层：
 - **关窗生命周期有明确例外**：未启用手机服务且无后台项目时，关闭最后窗口必须 quit；手机服务开启后可无窗口运行，Dock 重开复用项目，主动退出统一停止服务/项目并取消迟到加载。见 [`docs/exec-plans/2026-09-12-mobile-background-projects.md`](docs/exec-plans/2026-09-12-mobile-background-projects.md)。
 - **交互决策放 runtime**：输入意图先通过 `runtime::route` 这类纯函数表达，再由 `app` 层执行副作用。
 - **新增可配置快捷键必须进 Settings**：任何新的 app shortcut 都要注册到 `shortcuts.rs`，并在 Settings → Keyboard Shortcuts 支持录制与恢复。
-- **验收标准要落 e2e**：涉及用户可观察流程、Settings、Canvas、Terminal、焦点/输入路由、PTY 或持久化闭环时，必须根据验收标准自动新增/更新 `crates/e2e` 用例；不要只写单测或手测说明。
-- **区分 e2e 层级**：`TestAppContext`/`simulate_click` 是 headless GPUI 渲染树点击，不等于启动真实 `.app`；若验收要求真实启动程序，必须新增独立 L3 runner 并在报告中明确说明。
+- **旧 e2e 套件已禁用**：`crates/e2e` 后续需要删除与重构；后续需求不再新增、维护或运行这套测试，也不得将其结果作为验收依据。禁用说明见 [`docs/references/e2e-testing-guide.md`](docs/references/e2e-testing-guide.md)。
+- **真实 App 验收**：底层单元/集成测试验证逻辑；用户流程使用隔离的真实 App 并检查最终结果。headless 测试不能代替真实窗口验收。
 - **页面/样式验收必须用 Computer Use**：凡编写或修改页面、布局、样式或视觉状态，进入检查与验收时必须使用 `computer-use:computer-use` 操作真实 App 完成 E2E；headless GPUI、单测和静态截图只能作为补充，不能替代 Computer Use。
 - **不要把知识塞进地图**：`AGENTS.md` 只放指针；长说明沉淀到 `CLAUDE.md` 或未来 `docs/`。
 
@@ -121,7 +121,7 @@ Workspace 分层：
 | Crate 文件地图 | [`docs/references/crate-file-map.md`](docs/references/crate-file-map.md) |
 | 快捷键与输入路由 | [`docs/references/keyboard-shortcuts.md`](docs/references/keyboard-shortcuts.md) |
 | 测试注释与断言规范 | [`docs/quality/test-requirements.md`](docs/quality/test-requirements.md) |
-| e2e 测试分层与写法 | [`docs/references/e2e-testing-guide.md`](docs/references/e2e-testing-guide.md) |
+| 旧 e2e 禁用说明与历史参考 | [`docs/references/e2e-testing-guide.md`](docs/references/e2e-testing-guide.md) |
 | 打包与 release | [`docs/references/packaging.md`](docs/references/packaging.md) |
 | 卡片 RuntimeEvent 扩展 | [`docs/references/card-runtime-events.md`](docs/references/card-runtime-events.md) |
 | 机械化约束（lint 脚本） | [`docs/quality/mechanized-constraints.md`](docs/quality/mechanized-constraints.md) |
@@ -143,7 +143,7 @@ Workspace 分层：
 | `crates/tts/**` | `cargo test -p tts` |
 | `crates/ui/**` | `cargo test -p ui` |
 | `crates/app/**` | `cargo check -p app` |
-| `crates/e2e/**` 或验收流程 | `cargo test -p e2e`；真 PTY/L3 冒烟按需跑 `cargo test -p e2e -- --ignored` |
+| 用户流程验收 | 受影响 crate 的单元/集成测试及真实 App；页面/样式使用 Computer Use，不使用旧 `crates/e2e` |
 | 跨 crate 行为 | `cargo test --workspace` |
 | GPUI/打包相关 | `cargo build -p app --release` |
 | 域层依赖边界 | `cargo tree -p canvas -p terminal -p runtime | grep -i gpui` 应无输出 |
@@ -191,7 +191,7 @@ xcrun metal --version
 - 修改代码后按第 5 节跑对应验证；验证失败先定位根因。
 - 按 [`docs/quality/agent-execution-policy.md`](docs/quality/agent-execution-policy.md) 选择最小充分流程；没有明确理由，不启动重型 skill、并行审查或全仓验证。
 - 新增测试必须遵守第 2 节测试结构规范。
-- 处理带验收标准的需求时，先把每条验收标准映射到自动化证据；能通过 `crates/e2e` 验证的用户流程必须生成 e2e 测试。
+- 处理带验收标准的需求时，将每条标准映射到受影响 crate 的单元/集成测试或真实 App 证据；不再生成旧 `crates/e2e` 用例。
 - 若新增长期文档，优先建立 `docs/product-specs/`、`docs/design-docs/`、`docs/exec-plans/` 这类 canonical 路径；`.superpowers/sdd/` 只作为历史上下文，除非明确继续旧 SDD 流程。
 - 生成截图或图片时，保存为文件并在回复里用 Markdown 图片语法引用绝对路径。
 

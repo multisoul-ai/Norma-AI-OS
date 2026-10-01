@@ -25,6 +25,14 @@ impl MultisoulApp {
                 .sessions
                 .get(&(workspace_id.clone(), area.id.clone()))
             else {
+                targets.push((
+                    area.id.clone(),
+                    None,
+                    DesktopAgentTarget {
+                        project_name: area.display_name.clone(),
+                        agent_name: String::new(),
+                    },
+                ));
                 continue;
             };
             let session_app = session.read(cx);
@@ -34,7 +42,7 @@ impl MultisoulApp {
                 };
                 targets.push((
                     area.id.clone(),
-                    node.id,
+                    Some(node.id),
                     DesktopAgentTarget {
                         project_name: area.display_name.clone(),
                         agent_name: spec
@@ -62,6 +70,8 @@ impl MultisoulApp {
             let (area_id, node_id, target) = &targets[dispatch.target_index];
             let result = if self.desktop_workspace.area_errors.contains_key(area_id) {
                 Err("Project directory unavailable".to_string())
+            } else if node_id.is_none() {
+                Err("Agent session is still loading".to_string())
             } else if let Some(session) = self
                 .desktop_workspace
                 .sessions
@@ -69,7 +79,11 @@ impl MultisoulApp {
                 .cloned()
             {
                 session.update(cx, |session, cx| {
-                    session.submit_compact_agent_text(*node_id, &dispatch.instruction, cx)
+                    session.submit_compact_agent_text(
+                        node_id.expect("loaded Agent target has a node ID"),
+                        &dispatch.instruction,
+                        cx,
+                    )
                 })
             } else {
                 Err("Agent session is still loading".to_string())

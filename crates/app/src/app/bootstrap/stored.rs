@@ -22,7 +22,7 @@ impl StoredBootstrap {
         Self {
             wallpaper: WallpaperSettingsState::load_from_store(store.settings_store()),
             workspace: WorkspaceState::load_from_storage(store.recent_store()),
-            desktop: crate::workspace::desktop::DesktopWorkspaceUiState::load(
+            desktop: crate::workspace::desktop::DesktopWorkspaceUiState::empty(
                 store.desktop_workspace_store(),
             ),
             theme_id,
@@ -46,7 +46,7 @@ impl StoredBootstrap {
         Self {
             wallpaper: WallpaperSettingsState::load_from_store(settings.clone()),
             workspace,
-            desktop: crate::workspace::desktop::DesktopWorkspaceUiState::load(
+            desktop: crate::workspace::desktop::DesktopWorkspaceUiState::empty(
                 store.desktop_workspace_store(),
             ),
             theme_id,

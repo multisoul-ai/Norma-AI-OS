@@ -1,425 +1,351 @@
+use super::GLASS_TEXT_SECONDARY;
 use crate::app::MultisoulApp;
-use gpui::{
-    div, prelude::*, px, rgba, AnyView, Context, Div, Focusable, MouseButton, Stateful,
-    StyleRefinement, Subscription, Window,
-};
-use ui::component::button::{Button, ButtonVariants};
-use ui::component::input::{Input, InputEvent, InputState};
-use ui::component::{Disableable, StyledExt};
-
-struct SearchInput {
-    input: gpui::Entity<InputState>,
-    _subscription: Subscription,
-}
+use gpui::{div, prelude::*, px, rgba, Context, Div, ScrollHandle, Stateful, Window};
+use std::sync::atomic::Ordering;
 
 impl MultisoulApp {
-    pub(crate) fn render_desktop_launchpad(
-        &mut self,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> Stateful<Div> {
-        #[cfg(target_os = "macos")]
-        self.sync_video_wallpaper(None, cx);
-        let theme = self.theme;
-        let win = window.viewport_size();
-        let width = f32::from(win.width);
-        let columns = if width >= 1400.0 {
-            4
-        } else if width >= 940.0 {
-            3
-        } else if width >= 610.0 {
-            2
-        } else {
-            1
-        };
-        let app = cx.weak_entity();
-        let search = window.use_keyed_state("desktop-workspace-search", cx, move |window, cx| {
-            let input = cx.new(|cx| InputState::new(window, cx).placeholder("Search workspaces"));
-            let subscription = cx.subscribe(&input, move |_, input, event: &InputEvent, cx| {
-                if !matches!(event, InputEvent::Change) {
-                    return;
-                }
-                let query = input.read(cx).value().to_string();
-                if let Some(app) = app.upgrade() {
-                    app.update(cx, |app, cx| {
-                        app.desktop_workspace.search_query = query;
-                        cx.notify();
-                    });
-                }
-            });
-            SearchInput {
-                input,
-                _subscription: subscription,
-            }
-        });
-        let input = search.read(cx).input.clone();
-        let focus = input.focus_handle(cx);
-        let workspaces: Vec<_> = self
-            .desktop_workspace
-            .filtered()
-            .into_iter()
-            .cloned()
-            .collect();
-        let is_empty = workspaces.is_empty();
-        let has_any = !self.desktop_workspace.workspaces.is_empty();
-
-        div()
-            .id("desktop-workspace-launchpad")
-            .debug_selector(|| "desktop-workspace-launchpad".to_string())
-            .absolute()
-            .inset_0()
-            .flex()
-            .flex_col()
-            .bg(rgba(theme.canvas_from))
-            .child(
-                div()
-                    .flex()
-                    .items_end()
-                    .justify_between()
-                    .gap(px(20.0))
-                    .px(px(56.0))
-                    .pt(px(66.0))
-                    .pb(px(24.0))
-                    .child(
-                        div()
-                            .flex()
-                            .flex_col()
-                            .gap(px(7.0))
-                            .child(
-                                div()
-                                    .text_size(px(31.0))
-                                    .font_semibold()
-                                    .text_color(rgba(theme.text_primary))
-                                    .child("Workspaces"),
-                            )
-                            .child(
-                                div()
-                                    .text_size(px(13.0))
-                                    .text_color(rgba(theme.text_secondary))
-                                    .child(
-                                        "One canvas for the projects you are working on together.",
-                                    ),
-                            ),
-                    )
-                    .child(
-                        Button::new("desktop-workspace-create")
-                            .debug_selector(|| "desktop-workspace-create".to_string())
-                            .label("New Workspace")
-                            .primary()
-                            .disabled(self.desktop_workspace.busy)
-                            .on_click(
-                                cx.listener(|app, _, _, cx| app.create_desktop_workspace(cx)),
-                            ),
-                    ),
-            )
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap(px(12.0))
-                    .px(px(56.0))
-                    .pb(px(20.0))
-                    .child(
-                        div()
-                            .id("desktop-workspace-search")
-                            .debug_selector(|| "desktop-workspace-search".to_string())
-                            .w(px(280.0))
-                            .h(px(38.0))
-                            .flex()
-                            .items_center()
-                            .px(px(10.0))
-                            .rounded(px(10.0))
-                            .border_1()
-                            .border_color(rgba(theme.node_stroke))
-                            .bg(rgba(theme.panel_high))
-                            .on_mouse_down(MouseButton::Left, move |_, window, cx| {
-                                focus.focus(window);
-                                cx.stop_propagation();
-                            })
-                            .child(Input::new(&input).appearance(false).cleanable(true)),
-                    )
-                    .child(
-                        div()
-                            .text_size(px(12.0))
-                            .text_color(rgba(theme.text_tertiary))
-                            .child(format!(
-                                "{} workspaces",
-                                self.desktop_workspace.workspaces.len()
-                            )),
-                    ),
-            )
-            .child(
-                div()
-                    .id("desktop-workspace-scroll")
-                    .debug_selector(|| "desktop-workspace-scroll".to_string())
-                    .flex_1()
-                    .min_h(px(0.0))
-                    .overflow_scroll()
-                    .px(px(56.0))
-                    .pb(px(40.0))
-                    .when(is_empty, |this| {
-                        this.child(
-                            div()
-                                .py(px(92.0))
-                                .flex()
-                                .justify_center()
-                                .text_color(rgba(theme.text_secondary))
-                                .child(if has_any {
-                                    "No workspaces match your search."
-                                } else {
-                                    "Create a workspace to start with an empty canvas."
-                                }),
-                        )
-                    })
-                    .when(!is_empty, |this| {
-                        this.child(
-                            div().grid().grid_cols(columns).gap(px(16.0)).children(
-                                workspaces
-                                    .into_iter()
-                                    .enumerate()
-                                    .map(|(index, workspace)| {
-                                        self.desktop_workspace_card(index, workspace, cx)
-                                    }),
-                            ),
-                        )
-                    }),
-            )
-            .when_some(self.desktop_workspace.error.clone(), |this, error| {
-                this.child(
-                    div()
-                        .px(px(56.0))
-                        .pb(px(16.0))
-                        .text_color(rgba(theme.destructive))
-                        .child(error),
-                )
-            })
-    }
-
     pub(crate) fn render_desktop_workspace(
         &mut self,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
-        let theme = self.theme;
-        if let (Some(workspace_id), Some(area_id)) = (
-            self.desktop_workspace.active_id.as_deref(),
-            self.desktop_workspace.expanded_area_id.as_deref(),
-        ) {
-            if let Some(session) = self
-                .desktop_workspace
-                .sessions
-                .get(&(workspace_id.to_owned(), area_id.to_owned()))
-                .cloned()
-            {
+        self.sync_desktop_input_theme(
+            self.desktop_workspace.expanded_area_id.is_some()
+                && !self.desktop_workspace.switcher_open,
+            cx,
+        );
+        let theme = self.desktop_theme();
+        #[cfg(target_os = "macos")]
+        self.sync_canvas_video_wallpaper(cx);
+        let active_workspace = self.desktop_workspace.active_id.as_deref();
+        let workspace_frame = self
+            .desktop_workspace
+            .transition
+            .as_ref()
+            .and_then(|transition| match &transition.subject {
+                super::camera::DesktopCanvasSubject::Workspace(workspace_id)
+                    if Some(workspace_id.as_str()) == active_workspace =>
+                {
+                    Some(transition.rect())
+                }
+                _ => None,
+            });
+        let transition_project =
+            self.desktop_workspace
+                .transition
+                .as_ref()
+                .and_then(|transition| match &transition.subject {
+                    super::camera::DesktopCanvasSubject::Project {
+                        workspace_id,
+                        area_id,
+                    } if Some(workspace_id.as_str()) == active_workspace => {
+                        Some((area_id.clone(), transition.rect()))
+                    }
+                    _ => None,
+                });
+        let focus_area = transition_project
+            .as_ref()
+            .map(|(area_id, _)| area_id.as_str())
+            .or(self.desktop_workspace.expanded_area_id.as_deref());
+        let focus_session = active_workspace
+            .zip(focus_area)
+            .and_then(|(workspace_id, area_id)| {
+                self.desktop_workspace
+                    .sessions
+                    .get(&(workspace_id.to_owned(), area_id.to_owned()))
+                    .cloned()
+            });
+        let returning =
+            transition_project.is_some() && self.desktop_workspace.expanded_area_id.is_none();
+        let workspace_name = self
+            .desktop_workspace
+            .active()
+            .map(|workspace| workspace.name.clone())
+            .unwrap_or_else(|| "Workspace".to_string());
+        if transition_project.is_none() && workspace_frame.is_none() {
+            if let Some(session) = focus_session.clone() {
                 return div()
-                    .id("desktop-project-expanded")
-                    .debug_selector(|| "desktop-project-expanded".to_string())
+                    .id("desktop-workspace-world")
+                    .debug_selector(|| "desktop-workspace-world".to_string())
                     .absolute()
                     .inset_0()
+                    .child(self.render_workspace_backdrop())
                     .child(
-                        AnyView::from(session)
-                            .cached(StyleRefinement::default().absolute().size_full()),
-                    )
-                    .child(
-                        div().absolute().top(px(18.0)).left(px(82.0)).child(
-                            Button::new("desktop-project-back")
-                                .debug_selector(|| "desktop-project-back".to_string())
-                                .label("Workspace Overview")
-                                .on_click(cx.listener(|app, _, window, cx| {
-                                    app.collapse_desktop_project_area(window, cx)
-                                })),
-                        ),
+                        div()
+                            .id("desktop-project-expanded")
+                            .debug_selector(|| "desktop-project-expanded".to_string())
+                            .absolute()
+                            .inset_0()
+                            .child(self.render_desktop_project_world(
+                                session,
+                                workspace_name,
+                                None,
+                                cx,
+                            )),
                     );
             }
         }
-        let name = self
-            .desktop_workspace
-            .active()
-            .map(|item| item.name.clone())
-            .unwrap_or_else(|| "Workspace".to_string());
         let areas = self.desktop_workspace.areas.clone();
         let workspace_id = self.desktop_workspace.active_id.clone().unwrap_or_default();
+        let area_ids: Vec<_> = areas.iter().map(|area| area.id.clone()).collect();
+        let area_rects = self.desktop_workspace.area_rects.clone();
+        let zoomed_area_id = transition_project
+            .as_ref()
+            .map(|(area_id, _)| area_id.clone());
+        let capture_workspace_id = workspace_id.clone();
+        let selected_area_index = self.desktop_workspace.enlarged_agent.as_ref().and_then(
+            |(selected_workspace, selected_area, selected_node)| {
+                areas.iter().position(|area| {
+                    selected_workspace == &workspace_id
+                        && selected_area == &area.id
+                        && self
+                            .desktop_preview_nodes(&workspace_id, &area.id, cx)
+                            .iter()
+                            .any(|node| node.id == *selected_node)
+                })
+            },
+        );
+        let pending_reveal = self.desktop_workspace.pending_agent_reveal.clone();
+        let initial_scroll_y = self
+            .desktop_workspace
+            .active()
+            .map(|item| item.overview_scroll_y)
+            .unwrap_or_default();
+        let overview_scroll = self
+            .desktop_overview_scroll
+            .entry(workspace_id.clone())
+            .or_insert_with(|| {
+                let handle = ScrollHandle::new();
+                handle.set_offset(gpui::point(px(0.0), px(initial_scroll_y as f32)));
+                handle
+            })
+            .clone();
         let is_empty = areas.is_empty();
+        // A moving camera scales the settled layout; its frame must never trigger a breakpoint.
         let width = f32::from(window.viewport_size().width);
-        let columns = if width >= 1200.0 {
-            3
-        } else if width >= 730.0 {
-            2
+        let height = f32::from(window.viewport_size().height);
+        let scene =
+            self.desktop_scene_frame(canvas::CanvasRect::new(0.0, 0.0, width, height), false);
+        let scale = workspace_frame
+            .map(|frame| frame.size.x / width)
+            .unwrap_or(scene.size.x / width);
+        let capture_bounds = self.desktop_workspace.transition.is_none();
+        let capture_project_bounds = transition_project.is_none();
+        let visual_scroll = if capture_bounds {
+            overview_scroll.clone()
         } else {
-            1
+            let handle = ScrollHandle::new();
+            handle.set_offset(overview_scroll.offset() * scale);
+            handle
         };
-        let command_key =
-            gpui::ElementId::Name(format!("desktop-norma-input-{workspace_id}").into());
-        let command_input = window.use_keyed_state(command_key, cx, |window, cx| {
-            InputState::new(window, cx).placeholder("Tell Norma which project and Agent to work on")
-        });
-        let command_focus = command_input.focus_handle(cx);
+        let area_layout = super::layout::project_area_layout(width, height, areas.len());
         let receipts = self
             .desktop_workspace
             .dispatch_receipts
             .get(&workspace_id)
             .cloned()
             .unwrap_or_default();
-        div()
+        let overview = div()
             .id("desktop-workspace-overview")
             .debug_selector(|| "desktop-workspace-overview".to_string())
             .absolute()
-            .inset_0()
+            .left(px(scene.origin.x))
+            .top(px(scene.origin.y))
+            .w(px(width * scale))
+            .h(px(height * scale))
             .flex()
             .flex_col()
-            .bg(rgba(theme.canvas_from))
-            .child(
-                div()
-                    .h(px(74.0))
-                    .px(px(40.0))
-                    .flex()
-                    .items_center()
-                    .gap(px(18.0))
-                    .child(Button::new("desktop-workspace-back").debug_selector(|| "desktop-workspace-back".to_string()).label("All Workspaces").on_click(cx.listener(|app, _, _, cx| app.show_desktop_launchpad(cx))))
-                    .child(div().flex_1().text_size(px(21.0)).font_semibold().text_color(rgba(theme.text_primary)).child(name))
-                    .child(Button::new("desktop-workspace-add-project").debug_selector(|| "desktop-workspace-add-project".to_string()).label("Add Project").primary().disabled(self.desktop_workspace.busy).on_click(cx.listener(|app, _, window, cx| app.prompt_open_project(window, cx)))),
-            )
-            .child(div().px(px(40.0)).pb(px(12.0)).flex().items_center().gap(px(10.0))
-                .child(div().text_size(px(12.0)).font_semibold().text_color(rgba(theme.text_secondary)).child("Norma"))
-                .child(div().id("desktop-norma-input").debug_selector(|| "desktop-norma-input".to_string())
-                    .flex_1().min_w(px(0.0)).h(px(36.0)).px(px(8.0)).flex().items_center()
-                    .rounded(px(8.0)).border_1().border_color(rgba(theme.node_stroke))
-                    .on_mouse_down(MouseButton::Left, move |_, window, cx| {
-                        command_focus.focus(window);
-                        cx.stop_propagation();
-                    })
-                    .child(Input::new(&command_input).appearance(false)))
-                .child(Button::new("desktop-norma-send").debug_selector(|| "desktop-norma-send".to_string())
-                    .label("Dispatch").on_click(cx.listener(move |app, _, window, cx| {
-                        app.send_desktop_workspace_command(command_input.clone(), window, cx);
-                    }))))
-            .when(!receipts.is_empty(), |this| this.child(div().id("desktop-norma-receipts")
-                .px(px(40.0)).pb(px(12.0)).flex().gap(px(8.0)).overflow_scroll()
-                .children(receipts.into_iter().enumerate().map(|(index, receipt)| {
-                    div().id(("desktop-norma-receipt", index))
-                        .debug_selector(move || format!("desktop-norma-receipt-{index}"))
-                        .px(px(9.0)).py(px(5.0)).rounded(px(7.0))
-                        .bg(rgba(theme.panel_high))
-                        .text_size(px(11.0))
-                        .text_color(rgba(if receipt.submitted { theme.text_secondary } else { theme.destructive }))
-                        .child(format!("{} / {} · {}", receipt.project_name, receipt.agent_name, receipt.status))
-                }))))
+            .when(capture_bounds, |this| {
+                this.bg(rgba(theme.graphite)).child(
+                    div()
+                        .id("desktop-workspace-overview-wallpaper")
+                        .absolute()
+                        .inset_0()
+                        .child(self.render_workspace_backdrop()),
+                )
+            })
             .child(
                 div()
                     .id("desktop-project-area-scroll")
+                    .debug_selector(|| "desktop-project-area-scroll".to_string())
                     .flex_1()
                     .min_h(px(0.0))
                     .overflow_scroll()
-                    .p(px(40.0))
-                    .when(is_empty, |this| this.child(
-                        div().h(px(500.0)).flex().flex_col().items_center().justify_center().gap(px(15.0))
-                            .child(div().text_size(px(24.0)).font_semibold().text_color(rgba(theme.text_primary)).child("A canvas for your projects"))
-                            .child(div().text_size(px(13.0)).text_color(rgba(theme.text_secondary)).child("Add a project area to start working with its agents.")),
-                    ))
-                    .when(!is_empty, |this| this.child(
-                        div().grid().grid_cols(columns).gap(px(16.0)).children(areas.into_iter().enumerate().map(|(index, area)| {
-                            let area_id = area.id.clone();
-                            let open_area_id = area.id.clone();
-                            let remove_id = area.id.clone();
-                            let unavailable = self.desktop_workspace.area_errors.get(&area.id).cloned();
-                            let agents = self.desktop_agent_summaries(&workspace_id, &area.id, cx);
-                            let agent_rows = agents.into_iter().enumerate().map(|(agent_index, agent)| {
-                                let input_key = gpui::ElementId::Name(format!("desktop-agent-input-{}-{}-{}", workspace_id, area.id, agent.node_id).into());
-                                let input = window.use_keyed_state(input_key, cx, |window, cx| {
-                                    InputState::new(window, cx).placeholder("Message Agent")
-                                });
-                                let focus = input.focus_handle(cx);
-                                let target_workspace = workspace_id.clone();
-                                let target_area = area.id.clone();
-                                let node_id = agent.node_id;
-                                div().id(gpui::ElementId::Name(format!("desktop-agent-row-{index}-{agent_index}").into()))
-                                    .debug_selector(move || format!("desktop-agent-row-{index}-{agent_index}"))
-                                    .flex().flex_col().gap(px(5.0)).p(px(8.0)).rounded(px(9.0))
-                                    .bg(rgba(theme.canvas_to))
-                                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                                    .child(div().flex().justify_between()
-                                        .child(div().font_semibold().text_color(rgba(theme.text_primary)).child(agent.name))
-                                        .child(div().text_size(px(11.0)).text_color(rgba(theme.text_secondary)).child(agent.status)))
-                                    .child(div().text_size(px(10.0)).text_color(rgba(theme.text_secondary)).child(agent.location))
-                                    .child(div().text_size(px(11.0)).text_color(rgba(theme.text_tertiary))
-                                        .child(if agent.last_line.is_empty() { "Waiting for output".to_string() } else { agent.last_line }))
-                                    .child(div().flex().gap(px(6.0)).items_center()
-                                        .child(div().id(gpui::ElementId::Name(format!("desktop-agent-input-{index}-{agent_index}").into()))
-                                            .debug_selector(move || format!("desktop-agent-input-{index}-{agent_index}"))
-                                            .flex_1().min_w(px(0.0)).h(px(29.0)).px(px(6.0))
-                                            .flex().items_center().rounded(px(6.0)).border_1().border_color(rgba(theme.node_stroke))
-                                            .on_mouse_down(MouseButton::Left, move |_, window, cx| {
-                                                focus.focus(window);
-                                                cx.stop_propagation();
-                                            })
-                                            .child(Input::new(&input).appearance(false)))
-                                        .child(Button::new(gpui::ElementId::Name(format!("desktop-agent-send-{index}-{agent_index}").into()))
-                                            .debug_selector(move || format!("desktop-agent-send-{index}-{agent_index}"))
-                                            .label("Send").compact()
-                                            .on_click(cx.listener(move |app, _, window, cx| {
-                                                cx.stop_propagation();
-                                                app.send_desktop_agent_input(target_workspace.clone(), target_area.clone(), node_id, input.clone(), window, cx);
-                                            }))))
-                            }).collect::<Vec<_>>();
+                    .track_scroll(&visual_scroll)
+                    .when(is_empty, |this| {
+                        this.child(
                             div()
-                                .id(("desktop-project-area", index))
-                                .debug_selector(move || format!("desktop-project-area-{index}"))
-                                .h(px(320.0))
-                                .flex()
-                                .flex_col()
-                                .justify_between()
-                                .p(px(18.0))
-                                .rounded(px(16.0))
-                                .border_1()
-                                .border_color(rgba(theme.node_stroke))
-                                .bg(rgba(theme.panel_high))
-                                .cursor_pointer()
-                                .hover(move |style| style.border_color(rgba(theme.accent_blue)))
-                                .active(move |style| style.bg(rgba(theme.canvas_to)))
-                                .on_click(cx.listener(move |app, _, window, cx| app.expand_desktop_project_area(area_id.clone(), window, cx)))
-                                .child(div().flex().items_center().justify_between()
-                                    .child(div().text_size(px(17.0)).font_semibold().text_color(rgba(theme.text_primary)).child(area.display_name))
-                                    .child(div().flex().gap(px(5.0))
-                                    .child(Button::new(("desktop-project-open", index))
-                                        .debug_selector(move || format!("desktop-project-open-{index}"))
-                                        .label("Open").compact()
-                                        .on_click(cx.listener(move |app, _, window, cx| {
-                                            cx.stop_propagation();
-                                            app.expand_desktop_project_area(open_area_id.clone(), window, cx);
-                                        })))
-                                    .child(Button::new(("desktop-project-remove", index))
-                                        .debug_selector(move || format!("desktop-project-remove-{index}"))
-                                        .label("Remove")
-                                        .compact()
-                                        .on_click(cx.listener(move |app, _, _, cx| {
-                                            cx.stop_propagation();
-                                            app.begin_desktop_area_remove(remove_id.clone(), cx);
-                                        })))))
-                                .child(div().text_size(px(11.0)).text_color(rgba(theme.text_secondary)).child(area.root.display().to_string()))
-                                .child(div().id(("desktop-agent-list", index)).flex_1().min_h(px(0.0)).overflow_scroll()
-                                    .flex().flex_col().gap(px(7.0))
-                                    .when(agent_rows.is_empty(), |this| this.child(
-                                        div().py(px(34.0)).flex().justify_center().text_size(px(12.0))
-                                            .text_color(rgba(theme.text_tertiary)).child("No Agent cards yet. Open this project to add one."),
-                                    ))
-                                    .children(agent_rows))
-                                .when_some(unavailable, |this, error| this.child(
-                                    div().id(("desktop-project-unavailable", index))
-                                        .debug_selector(move || format!("desktop-project-unavailable-{index}"))
-                                        .text_size(px(12.0)).text_color(rgba(theme.destructive)).child(error),
+                                .pt(px(48.0 * scale))
+                                .px(px(40.0 * scale))
+                                .child(self.desktop_empty_canvas(scale, true, cx)),
+                        )
+                    })
+                    .when(!is_empty, |this| {
+                        let scroll = overview_scroll.clone();
+                        this.child(
+                            div()
+                                .relative()
+                                .w(px(width * scale))
+                                .h(px(height * scale))
+                                .children(areas.into_iter().zip(area_layout).enumerate().map(
+                                    |(index, (area, rect))| {
+                                        let slot = div()
+                                            .absolute()
+                                            .left(px(rect.origin.x * scale))
+                                            .top(px(rect.origin.y * scale))
+                                            .w(px(rect.size.x * scale))
+                                            .h(px(rect.size.y * scale));
+                                        let nodes =
+                                            self.desktop_preview_nodes(&workspace_id, &area.id, cx);
+                                        slot.child(self.desktop_project_area_card(
+                                            index,
+                                            area,
+                                            nodes,
+                                            &workspace_id,
+                                            rect.size.x * scale,
+                                            rect.size.y * scale,
+                                            scale,
+                                            window,
+                                            cx,
+                                        ))
+                                        .into_any_element()
+                                    },
                                 ))
-                        })),
-                    )),
+                                .on_children_prepainted(move |children, window, _| {
+                                    if capture_project_bounds {
+                                        let mut rects = area_rects
+                                            .lock()
+                                            .expect("project bounds mutex poisoned");
+                                        for (area_id, bounds) in
+                                            area_ids.iter().zip(children.iter())
+                                        {
+                                            let mut rect =
+                                                super::camera::canvas_rect_from_bounds(*bounds);
+                                            if let Some(frame) = workspace_frame {
+                                                rect = super::scene::project_rect(
+                                                    frame,
+                                                    canvas::CanvasRect::new(
+                                                        0.0, 0.0, width, height,
+                                                    ),
+                                                    rect,
+                                                );
+                                            }
+                                            rects.insert(
+                                                (capture_workspace_id.clone(), area_id.clone()),
+                                                rect,
+                                            );
+                                        }
+                                    }
+                                    if !capture_bounds {
+                                        return;
+                                    }
+                                    let (Some(index), Some(pending)) =
+                                        (selected_area_index, pending_reveal.as_ref())
+                                    else {
+                                        return;
+                                    };
+                                    if !pending.load(Ordering::Relaxed) {
+                                        return;
+                                    }
+                                    let Some(target) = children.get(index) else {
+                                        return;
+                                    };
+                                    let viewport = scroll.bounds();
+                                    let current = scroll.offset();
+                                    let desired = (current.y + viewport.bottom()
+                                        - px(24.0)
+                                        - target.bottom())
+                                    .clamp(-scroll.max_offset().height, px(0.0));
+                                    if desired == current.y && target.bottom() > viewport.bottom() {
+                                        window.request_animation_frame();
+                                        return;
+                                    }
+                                    pending.store(false, Ordering::Relaxed);
+                                    scroll.set_offset(gpui::point(current.x, desired));
+                                    window.request_animation_frame();
+                                }),
+                        )
+                    }),
             )
             .when_some(self.desktop_workspace.error.clone(), |this, error| {
-                this.child(div().px(px(40.0)).pb(px(12.0)).text_color(rgba(theme.destructive)).child(error))
+                this.child(
+                    div()
+                        .px(px(40.0))
+                        .pb(px(12.0))
+                        .text_color(rgba(theme.destructive))
+                        .child(error),
+                )
             })
-            .child(
-                div().absolute().bottom(px(22.0)).left(px(0.0)).right(px(0.0)).flex().justify_center()
-                    .child(Button::new("desktop-workspace-switch-button")
-                        .debug_selector(|| "desktop-workspace-switch-button".to_string())
-                        .label("Switch Workspace  ⌘⇧K")
-                        .on_click(cx.listener(|app, _, window, cx| app.open_desktop_switcher(window, cx)))),
-            )
+            .when(!receipts.is_empty(), |this| {
+                this.child(
+                    div()
+                        .id("desktop-norma-receipts")
+                        .px(px(40.0))
+                        .pb(px(8.0))
+                        .flex()
+                        .justify_center()
+                        .gap(px(8.0))
+                        .overflow_scroll()
+                        .children(receipts.into_iter().enumerate().map(|(index, receipt)| {
+                            div()
+                                .id(("desktop-norma-receipt", index))
+                                .debug_selector(move || format!("desktop-norma-receipt-{index}"))
+                                .px(px(9.0))
+                                .py(px(5.0))
+                                .rounded(px(7.0))
+                                .bg(rgba(theme.dock))
+                                .text_size(px(11.0))
+                                .text_color(rgba(if receipt.submitted {
+                                    GLASS_TEXT_SECONDARY
+                                } else {
+                                    theme.destructive
+                                }))
+                                .child(format!(
+                                    "{} / {} · {}",
+                                    receipt.project_name, receipt.agent_name, receipt.status
+                                ))
+                        })),
+                )
+            });
+        let project_layer = transition_project
+            .zip(focus_session)
+            .map(|((_, frame), session)| {
+                self.render_desktop_project_transition_layer(
+                    session,
+                    workspace_name.clone(),
+                    frame,
+                    returning,
+                    cx,
+                )
+            });
+        let mut world = div()
+            .id("desktop-workspace-world")
+            .debug_selector(|| "desktop-workspace-world".to_string())
+            .absolute();
+        if zoomed_area_id.is_some() {
+            world = world.child(
+                div()
+                    .id("desktop-project-receding-wallpaper")
+                    .debug_selector(|| "desktop-project-receding-wallpaper".to_string())
+                    .absolute()
+                    .inset_0()
+                    .child(self.render_workspace_backdrop()),
+            );
+        }
+        world = world.child(overview);
+        if let Some(layer) = project_layer {
+            world = world.child(layer);
+        }
+        world = if let Some(frame) = workspace_frame {
+            world
+                .left(px(frame.origin.x))
+                .top(px(frame.origin.y))
+                .w(px(frame.size.x))
+                .h(px(frame.size.y))
+                .overflow_hidden()
+        } else {
+            world.inset_0()
+        };
+        world
     }
 }

@@ -55,8 +55,8 @@ ui -> {gpui, gpui-component}
 - **Consult GPUI skills first**: when writing GPUI code, load local `gpui-*` skills, then adapt to the pinned GPUI version; still prefer the component library when it covers the need.
 - **Rounded child surfaces need explicit ownership**: GPUI 0.2.2's `overflow_hidden()` uses a rectangular content mask. An opaque full-size `div`, `img`, or `surface` inside a rounded container must draw its exposed outer radii itself, or be partitioned away from the corner squares; protect the behavior with an automated test.
 - **New configurable app shortcuts must appear in Settings**: register them in `shortcuts.rs` and support recording/restoring them in Settings → Keyboard Shortcuts.
-- **Acceptance criteria must drive e2e coverage**: for user-visible flows involving Settings, Canvas, Terminal, focus/input routing, PTY, or persistence, derive `crates/e2e` cases from the acceptance criteria instead of relying only on unit tests or manual notes.
-- **Do not blur e2e levels**: GPUI `TestAppContext` + `VisualTestContext::simulate_click` is headless rendered-tree interaction. It does not launch the real `.app`. If acceptance criteria require a real app process/window, add a separate L3 runner and document that requirement explicitly.
+- **旧 e2e 套件已禁用**：`crates/e2e` 后续需要删除与重构；后续需求不再新增、维护或运行这套测试，也不得将其结果作为验收依据。禁用说明见 [`docs/references/e2e-testing-guide.md`](docs/references/e2e-testing-guide.md)。
+- **真实 App 验收**：底层单元/集成测试验证逻辑；用户流程使用隔离的真实 App 并检查最终结果。headless 测试不能代替真实窗口验收。
 - **页面/样式验收必须用 Computer Use**：凡编写或修改页面、布局、样式或视觉状态，进入检查与验收时必须使用 `computer-use:computer-use` 操作真实 App 完成 E2E；headless GPUI、单测和静态截图只能作为补充，不能替代 Computer Use。
 - **TDD before feature or bugfix work**: add a focused failing test first where the behavior can be tested below the GPUI layer.
 - **No `#[allow(...)]`**: do not hide Rust diagnostics with allow attributes. Fix root causes instead.
@@ -122,12 +122,7 @@ cargo test --workspace
 cargo check -p app
 ```
 
-E2E tests:
-
-```bash
-cargo test -p e2e
-cargo test -p e2e -- --ignored
-```
+旧 `crates/e2e` 已禁用，后续删除与重构；不再运行该套件。改用受影响 crate 测试和真实 App 验收。
 
 iOS companion (requires Rust iOS targets, xcodegen, Xcode):
 
@@ -196,11 +191,7 @@ See [`AGENTS.md`](AGENTS.md) §5 for the canonical change-area → verification 
 
 Follow the project test comment and assertion rules in [`docs/quality/test-requirements.md`](docs/quality/test-requirements.md).
 
-For any task with explicit acceptance criteria, create a checklist that maps each criterion to automated evidence. If the criterion describes an end-user flow, add or update `crates/e2e` so the flow is machine-verifiable. Use `docs/references/e2e-testing-guide.md` for the current e2e layers:
-
-- L1: headless GPUI sandbox with rendered-tree clicks/actions.
-- L2: ignored real PTY smoke tests.
-- L3: real launched app/window automation；页面、布局、样式或视觉状态的检查与验收必须通过 `computer-use:computer-use` 操作真实 App 完成。
+处理验收标准时，映射到域层单元/集成测试、GPUI 底层测试或真实 App 证据。旧 `crates/e2e` 及其 L1/L2/L3 命令只作历史参考；页面和样式仍必须由 Computer Use 操作真实 App 验收。
 
 ## Agent Execution Sizing
 
@@ -214,7 +205,7 @@ Choose the smallest sufficient implementation and verification flow from [`docs/
 - 每次用户操作都应获得及时、可感知且不打断流程的状态反馈；危险或不可逆操作必须明确提示，并尽可能提供取消、撤销或恢复路径。
 - 同类页面和状态使用一致的布局、间距、组件和交互模式；新增模式前先复用现有设计语言与 `ui::component`。
 - 可访问性是默认要求：保证可读对比度、完整键盘操作、明确焦点状态、足够点击区域，并尊重系统的减少动态效果等偏好。
-- 新增或改版 UI 的方案与验收标准必须逐项说明上述原则如何落地；涉及用户可观察流程时，按 §7 映射到自动化证据和 e2e 覆盖。
+- 新增或改版 UI 的方案与验收标准必须逐项说明上述原则如何落地；涉及用户可观察流程时，按 §7 映射到单元/集成测试和真实 App 证据。
 
 ### 页面设计技能路由（必遵）
 

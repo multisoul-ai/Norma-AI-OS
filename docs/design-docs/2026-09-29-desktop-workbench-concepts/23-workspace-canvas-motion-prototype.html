@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>Norma OS · 工作空间画布动效原型</title>
+  <style>
+    :root { color-scheme: dark; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; overflow: hidden; color: #f4f8ff; background: #020a18 url("../../../crates/app/assets/wallpapers/desktop-earth.png") center center / cover no-repeat fixed; }
+    body::before { content: ""; position: fixed; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(0,6,17,.28), rgba(0,8,22,.12) 46%, rgba(0,5,15,.42)); }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { cursor: default; opacity: .42; }
+    button:focus-visible, input:focus-visible, .workspace:focus-visible, .project:focus-visible, .live-card:focus-visible { outline: 2px solid #72f8e9; outline-offset: 3px; }
+    .glass { background: rgba(10, 23, 40, .72); border: 1px solid rgba(185, 216, 255, .17); box-shadow: inset 0 1px rgba(255,255,255,.08), 0 14px 44px rgba(0,0,0,.22); backdrop-filter: blur(22px) saturate(145%); -webkit-backdrop-filter: blur(22px) saturate(145%); }
+    .topbar { position: fixed; z-index: 20; top: 12px; left: 18px; right: 18px; height: 54px; display: flex; align-items: center; gap: 12px; padding: 0 14px; border-radius: 15px; }
+    .traffic { display: flex; gap: 8px; margin-right: 10px; }
+    .traffic i { width: 12px; height: 12px; display: block; border-radius: 50%; background: #ff635d; }
+    .traffic i:nth-child(2) { background: #ffbe46; }.traffic i:nth-child(3) { background: #38c95a; }
+    .brand { font-size: 14px; font-weight: 720; white-space: nowrap; letter-spacing: -.015em; }
+    .divider { height: 22px; width: 1px; background: rgba(200,220,255,.18); }
+    .toolbar-button, .segmented button, .project-chip, .round-button { color: #dce9fc; border: 1px solid rgba(190,216,255,.15); background: rgba(230,243,255,.055); border-radius: 9px; min-height: 32px; transition: background .14s ease-out, border-color .14s ease-out, transform .1s ease-out; }
+    .toolbar-button { padding: 0 12px; font-size: 12px; white-space: nowrap; }
+    .toolbar-button:hover:not(:disabled), .segmented button:hover, .project-chip:hover, .round-button:hover { background: rgba(130,185,240,.18); border-color: rgba(160,220,255,.36); }
+    .toolbar-button:active:not(:disabled), .segmented button:active, .project-chip:active, .round-button:active { transform: scale(.96); }
+    .toolbar-button.active, .project-chip.active { color: #e8fffc; background: rgba(31,211,194,.19); border-color: rgba(66,241,218,.56); }
+    .top-title { min-width: 0; flex: 1; text-align: center; font-size: 13px; font-weight: 650; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .toolbar-right { display: flex; gap: 7px; align-items: center; }
+    .hint-key { border: 1px solid rgba(255,255,255,.2); border-radius: 5px; padding: 2px 5px; color: #aebdd2; font-size: 10px; }
+    .scene { position: fixed; inset: 74px 14px 91px; overflow: hidden; border-radius: 18px; }
+    body:not([data-view="overview"]) .scene { border-radius: 0; }
+    .world { position: absolute; top: 0; left: 0; width: 4720px; height: 1320px; transform-origin: 0 0; will-change: transform; }
+    .workspace { position: absolute; width: 1520px; height: 620px; padding: 0; overflow: hidden; border-radius: 25px; background: rgba(6,18,34,.59); border: 2px solid rgba(168,203,246,.26); box-shadow: inset 0 1px rgba(255,255,255,.07), 0 20px 70px rgba(0,0,0,.34); cursor: pointer; transition: height .35s ease-out, border-color .2s ease-out, box-shadow .2s ease-out, opacity .2s ease-out, background .2s ease-out; }
+    .workspace:hover { border-color: rgba(153,225,245,.6); }
+    .workspace.active { border-color: rgba(54,234,216,.88); box-shadow: 0 0 0 2px rgba(24,223,207,.2), 0 0 34px rgba(0,232,214,.21), 0 24px 72px rgba(0,0,0,.38); }
+    .workspace-header { position: absolute; left: 40px; right: 40px; top: 32px; display: flex; align-items: center; gap: 16px; }
+    .workspace-dot { width: 20px; height: 20px; border-radius: 50%; flex: none; background: var(--accent); box-shadow: 0 0 22px color-mix(in srgb, var(--accent) 60%, transparent); }
+    .workspace-name { font-size: 33px; font-weight: 700; letter-spacing: -.025em; }
+    .workspace-meta { color: #abc0dc; font-size: 17px; margin-top: 3px; }
+    .workspace-status { margin-left: auto; padding: 7px 12px; font-size: 15px; border-radius: 999px; color: #84e9d9; background: rgba(37,201,180,.1); border: 1px solid rgba(86,233,209,.19); }
+    .workspace-footer { position: absolute; left: 41px; right: 41px; bottom: 28px; height: 54px; display: flex; align-items: center; gap: 16px; color: #b5c8e3; font-size: 17px; }
+    .workspace-footer strong { font-weight: 600; color: #e7f7f5; }
+    .workspace-footer .line { flex: 1; height: 1px; background: rgba(180,215,255,.18); }
+    .project { position: absolute; top: 125px; width: 700px; height: 360px; border-radius: 19px; border: 1.5px solid rgba(172,211,255,.3); background: rgba(6,17,31,.8); box-shadow: inset 0 1px rgba(255,255,255,.08), 0 12px 38px rgba(0,0,0,.3); overflow: hidden; cursor: pointer; transition: top .35s ease-out, width .35s ease-out, height .35s ease-out, border-color .18s ease-out, box-shadow .18s ease-out, opacity .18s ease-out; }
+    .project[data-index="0"] { left: 40px; }.project[data-index="1"] { left: 780px; }
+    .project:hover { border-color: rgba(159,229,255,.72); }
+    .project.active { border-color: rgba(50,236,216,.95); box-shadow: 0 0 0 2px rgba(31,221,205,.14), 0 0 26px rgba(24,223,207,.19), 0 15px 44px rgba(0,0,0,.34); }
+    body:not([data-view="overview"]) .workspace:not(.active), body:not([data-view="overview"]) .new-workspace { opacity: 0; pointer-events: none; }
+    body:not([data-view="overview"]) .workspace.active { height: var(--focus-workspace-height); border: 0; border-radius: 0; box-shadow: none; }
+    body:not([data-view="overview"]) .workspace.active .workspace-header, body:not([data-view="overview"]) .workspace.active .workspace-footer { display: none; }
+    body[data-view="workspace"] .workspace.active .project, body[data-view="workspace"] .workspace.active .project-add { top: 40px; height: calc(var(--focus-workspace-height) - 80px); }
+    body[data-view="cards"] .workspace.active .project, body[data-view="cards"] .workspace.active .project-add { top: calc((var(--focus-workspace-height) - 360px) / 2); }
+    body[data-view="project"] .workspace.active { overflow: visible; border-color: transparent; background: transparent; box-shadow: none; }
+    body[data-view="project"] .workspace.active .project:not(.active), body[data-view="project"] .workspace.active .project-add { opacity: 0; pointer-events: none; }
+    body[data-view="project"] .workspace.active .project.active { top: calc((var(--focus-workspace-height) - var(--focus-project-height)) / 2); width: 870px; height: var(--focus-project-height); border: 0; border-radius: 0; box-shadow: none; }
+    body[data-view="project"] .workspace.active .project.active .project-head { display: none; }
+    .project-add { position: absolute; left: 40px; top: 125px; width: 700px; height: 360px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 18px; border: 2px dashed rgba(176,217,255,.4); border-radius: 19px; background: rgba(6,17,31,.42); }
+    .project-add[data-index="1"] { left: 780px; }
+    .project-add strong { font-size: 27px; }.project-add span { font-size: 15px; color: #aebfda; }
+    .project-add-options { display: flex; gap: 9px; }
+    .project-add-options button { padding: 11px 14px; color: #dff9f6; border: 1px solid rgba(111,222,214,.35); border-radius: 9px; background: rgba(20,105,108,.25); font-size: 14px; }
+    .project-add-options button:hover { background: rgba(40,192,181,.34); border-color: rgba(94,240,222,.8); }
+    .empty-project-cards { height: 100%; display: grid; place-content: center; text-align: center; gap: 7px; color: #a9c3dc; font: 16px -apple-system, sans-serif; }
+    .empty-project-cards strong { color: #e5f7f4; font-size: 23px; }
+    .project-head { position: absolute; top: 0; left: 0; right: 0; height: 48px; display: flex; align-items: center; padding: 0 14px; gap: 10px; background: rgba(255,255,255,.045); border-bottom: 1px solid rgba(175,206,245,.15); }
+    .project-dot { width: 14px; height: 14px; flex: none; border-radius: 50%; background: var(--project-color); }
+    .project-title { font-size: 18px; font-weight: 650; white-space: nowrap; }
+    .project-path { min-width: 0; font-size: 12px; color: #9db3cf; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .project-expand { margin-left: auto; width: 27px; height: 27px; display: grid; place-items: center; color: #dfebff; background: rgba(255,255,255,.07); border: 1px solid rgba(180,211,255,.22); border-radius: 7px; font-size: 16px; }
+    .project-expand:hover { background: rgba(90,210,229,.2); }
+    .card-stage { position: absolute; top: 58px; left: 17px; width: 666px; height: 290px; }
+    body[data-view="workspace"] .workspace.active .project .card-stage { height: calc(100% - 70px); }
+    body[data-view="workspace"] .workspace.active .project[data-card-count="3"] .live-card:first-child, body[data-view="workspace"] .workspace.active .project[data-card-count="2"] .live-card { height: 100%; }
+    body[data-view="workspace"] .workspace.active .project[data-card-count="3"] .live-card:nth-child(2), body[data-view="workspace"] .workspace.active .project[data-card-count="3"] .live-card:nth-child(3) { height: calc(50% - 6px); }
+    body[data-view="workspace"] .workspace.active .project[data-card-count="3"] .live-card:nth-child(3) { top: calc(50% + 6px); }
+    body[data-view="project"] .project.active .card-stage { top: 20px; left: 20px; width: calc(100% - 40px); height: calc(100% - 40px); }
+    body[data-view="project"] .project.active[data-card-count="3"] .live-card:first-child { left: 0; top: 0; width: 58%; height: 100%; }
+    body[data-view="project"] .project.active[data-card-count="3"] .live-card:nth-child(2) { left: calc(58% + 12px); top: 0; width: calc(42% - 12px); height: calc(50% - 6px); }
+    body[data-view="project"] .project.active[data-card-count="3"] .live-card:nth-child(3) { left: calc(58% + 12px); top: calc(50% + 6px); width: calc(42% - 12px); height: calc(50% - 6px); }
+    body[data-view="project"] .project.active[data-card-count="2"] .live-card:first-child { left: 0; top: 0; width: calc(50% - 6px); height: 100%; }
+    body[data-view="project"] .project.active[data-card-count="2"] .live-card:nth-child(2) { left: calc(50% + 6px); top: 0; width: calc(50% - 6px); height: 100%; }
+    body[data-view="project"] .project.active[data-card-count="1"] .live-card { left: 0; top: 0; width: 100%; height: 100%; }
+    .live-card { position: absolute; left: var(--x); top: var(--y); width: var(--w); height: var(--h); display: flex; flex-direction: column; border-radius: 12px; overflow: hidden; background: rgba(3,14,28,.94); border: 1px solid rgba(165,200,248,.22); box-shadow: 0 7px 20px rgba(0,0,0,.24); cursor: pointer; transition: left .33s cubic-bezier(.2,.8,.2,1), top .33s cubic-bezier(.2,.8,.2,1), width .33s cubic-bezier(.2,.8,.2,1), height .33s cubic-bezier(.2,.8,.2,1), border-color .15s ease-out, box-shadow .15s ease-out; }
+    .live-card:hover { border-color: rgba(130,227,246,.7); box-shadow: 0 0 0 1px rgba(110,218,240,.17), 0 10px 28px rgba(0,0,0,.34); }
+    .live-card.selected { border-color: #49efda; box-shadow: 0 0 0 2px rgba(39,232,208,.2), 0 0 23px rgba(27,210,191,.18); }
+    .card-head { height: 31px; flex: none; display: flex; align-items: center; gap: 7px; padding: 0 9px; background: rgba(230,240,255,.065); border-bottom: 1px solid rgba(180,207,245,.14); white-space: nowrap; }
+    .card-icon { width: 11px; height: 11px; flex: none; border-radius: 50%; background: var(--card-color); box-shadow: 0 0 10px color-mix(in srgb, var(--card-color) 40%, transparent); }
+    .card-title { color: #f5f9ff; font-size: 10px; font-weight: 700; }
+    .worktree { margin-left: 4px; max-width: 155px; overflow: hidden; text-overflow: ellipsis; border-radius: 999px; padding: 3px 8px; font-size: 9px; color: #d9c7ff; background: rgba(127,83,226,.25); }
+    .card-head .ellipsis { margin-left: auto; color: #9cb2ce; font-size: 15px; line-height: 1; }
+    .card-body { position: relative; min-height: 0; flex: 1; overflow: hidden; padding: 9px 10px; font: 9px/1.45 "SFMono-Regular", Menlo, Consolas, monospace; color: #bed1e9; }
+    .card-body p { margin: 0 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card-body .lead { color: #f1f6ff; font-weight: 700; }
+    .card-body .green { color: #54e9a1; }.card-body .blue { color: #74b7ff; }.card-body .muted { color: #91a4c0; }
+    .agent-prompt { display: flex; align-items: center; gap: 6px; position: absolute; left: 8px; right: 8px; bottom: 8px; height: 26px; border: 1px solid rgba(169,205,250,.3); background: rgba(14,28,47,.93); border-radius: 6px; padding: 0 7px; color: #74e8cb; }
+    .agent-prompt input { min-width: 0; width: 100%; border: 0; outline: 0; background: transparent; color: #effaff; font: inherit; }
+    .agent-prompt input::placeholder { color: #a6b6cc; }
+    .agent-prompt input:disabled { cursor: default; }
+    .term-rows { padding-bottom: 29px; }
+    .browser-chrome { display: flex; align-items: center; gap: 6px; height: 19px; margin: -2px -3px 7px; border-radius: 4px; background: rgba(223,237,255,.075); padding: 0 6px; color: #a8bddb; font: 8px -apple-system, sans-serif; }
+    .browser-chrome span:last-child { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .preview-page { height: calc(100% - 25px); border-radius: 5px; padding: 12px 13px; background: radial-gradient(ellipse at 75% 110%, rgba(18,101,215,.45), transparent 55%), linear-gradient(135deg,#061b35,#06101e 65%); overflow: hidden; }
+    .preview-page .page-nav { display: flex; justify-content: space-between; font: 7px -apple-system, sans-serif; color: #d8e8ff; }
+    .preview-page .page-hero { margin-top: 24px; font: 700 19px/1.08 -apple-system, sans-serif; letter-spacing: -.04em; color: white; }
+    .preview-page .page-hero em { font-style: normal; color: #5cd8ef; }
+    .preview-page .page-sub { margin-top: 8px; font: 8px -apple-system, sans-serif; color: #b5c5db; }
+    .data-bars { display: flex; align-items: end; gap: 7px; height: 75px; margin-top: 16px; }
+    .data-bars i { width: 16px; height: var(--bar); background: linear-gradient(#7fc6ff,#245fc1); border-radius: 3px 3px 0 0; }
+    .check-list { margin-top: 7px; display: grid; gap: 6px; }
+    .check-list div::before { content: "☑"; margin-right: 6px; color: #65c9ff; }
+    .workspace.show-all-cards .live-card { left: var(--ex); top: var(--ey); width: var(--ew); height: var(--eh); }
+    .workspace.show-all-cards .project { border-color: rgba(117,222,236,.74); }
+    .workspace.show-all-cards .live-card::after { content: attr(data-kind-label); position: absolute; right: 7px; bottom: 6px; padding: 2px 5px; font: 8px -apple-system, sans-serif; color: #d8faff; background: rgba(28,81,101,.78); border-radius: 4px; }
+    .new-workspace { position: absolute; left: 3200px; top: 700px; width: 1520px; height: 620px; border: 2px dashed rgba(199,224,255,.48); border-radius: 25px; display: grid; place-content: center; text-align: center; background: rgba(9,22,41,.34); color: #eef7ff; transition: background .16s, border-color .16s; }
+    .new-workspace:hover { background: rgba(18,48,70,.58); border-color: #71e9e0; }
+    .new-workspace .plus { display: block; margin: 0 auto 20px; width: 100px; height: 100px; border: 2px solid #c4e7f8; border-radius: 22px; font-size: 65px; line-height: 94px; font-weight: 200; }
+    .new-workspace strong { font-size: 34px; }.new-workspace small { margin-top: 13px; color: #b6c8df; font-size: 19px; }
+    .bottom { position: fixed; z-index: 20; bottom: 17px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 11px; min-width: min(900px, calc(100vw - 34px)); max-width: calc(100vw - 34px); height: 61px; padding: 0 14px; border-radius: 15px; }
+    .bottom .spark { font-size: 21px; color: #8df7e6; }
+    .bottom input { flex: 1; min-width: 80px; border: 0; outline: 0; color: #f3faff; background: transparent; font-size: 13px; }
+    .bottom input::placeholder { color: #b1c3db; }
+    .bottom .bottom-button { border: 1px solid rgba(170,215,255,.2); border-radius: 8px; background: rgba(221,241,255,.08); color: #d4e5fa; padding: 7px 10px; font-size: 11px; white-space: nowrap; }
+    .bottom .bottom-button:hover { background: rgba(124,205,231,.2); }
+    .project-strip { display: flex; gap: 5px; overflow-x: auto; max-width: 390px; scrollbar-width: none; }.project-strip:empty { display: none; }
+    .project-chip { min-height: 31px; padding: 0 9px; white-space: nowrap; font-size: 11px; }
+    .view-note { position: fixed; z-index: 10; top: 80px; left: 50%; transform: translateX(-50%); padding: 6px 12px; color: #c7d9ee; background: rgba(5,18,33,.63); border: 1px solid rgba(185,213,255,.12); border-radius: 999px; font-size: 11px; backdrop-filter: blur(10px); white-space: nowrap; }
+    body:not([data-view="overview"]) .view-note { display: none; }
+    .toast { position: fixed; z-index: 30; left: 50%; bottom: 91px; transform: translateX(-50%) translateY(12px); opacity: 0; pointer-events: none; background: rgba(7,27,43,.94); border: 1px solid rgba(69,225,207,.48); padding: 10px 14px; border-radius: 9px; color: #e7fbf7; font-size: 12px; transition: transform .2s, opacity .2s; }
+    .toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+    @media (max-width: 850px) { .brand, .divider, .hint-key, .bottom .bottom-button { display: none; } .topbar { left: 8px; right: 8px; gap: 6px; padding: 0 8px; } .toolbar-button { padding: 0 8px; font-size: 11px; } .top-title { font-size: 11px; } .bottom { bottom: 9px; } .project-strip { max-width: 180px; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+    @media (prefers-reduced-transparency: reduce) { .glass, .workspace, .project { backdrop-filter: none; -webkit-backdrop-filter: none; background-color: rgba(6,18,34,.96); } }
+    @media (prefers-contrast: more) { .glass, .workspace, .project, .live-card { border-color: #d4eaff; background-color: #07172a; } }
+  </style>
+</head>
+<body>
+  <header class="topbar glass" aria-label="画布导航">
+    <div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div class="brand">Norma OS</div><div class="divider"></div>
+    <button id="back" class="toolbar-button" type="button" title="返回上一级 (Esc)">← 返回</button>
+    <button id="overview" class="toolbar-button" type="button" title="显示所有工作空间">工作空间</button>
+    <div class="top-title" id="breadcrumb" aria-live="polite">所有工作空间</div>
+    <div class="toolbar-right">
+      <button id="previous" class="toolbar-button" type="button" title="上一个工作空间">‹</button>
+      <button id="next" class="toolbar-button" type="button" title="下一个工作空间">›</button>
+      <button id="cards" class="toolbar-button" type="button" title="像任务视图一样展开当前工作空间的所有卡片 (C)">显示所有卡片</button>
+      <span class="hint-key">Esc 返回</span>
+    </div>
+  </header>
+  <main class="scene" id="scene" aria-label="工作空间连续画布">
+    <div class="world" id="world"></div>
+  </main>
+  <div class="view-note" id="viewNote">点击工作空间，镜头会进入同一张画布</div>
+  <footer class="bottom glass">
+    <span class="spark" aria-hidden="true">✧</span>
+    <input id="normaInput" aria-label="向 Norma 跨项目派工" placeholder="向 Norma 跨项目派工（交互演示）…">
+    <div class="project-strip" id="projectStrip" aria-label="项目快速切换"></div>
+    <button class="bottom-button" id="shortcutHelp" type="button" title="显示快捷键">快捷键</button>
+  </footer>
+  <div class="toast" id="toast" role="status"></div>
+  <script>
+    const cards = {
+      agentA: { type: 'agent', title: 'Agent A', branch: 'feature/workspaces', engine: 'OpenAI Codex', lines: ['model: GPT-6-Sol xhigh', 'directory: ~/norma-ai-os', '✓ 读取工作空间上下文', '› 正在设计项目区域', '✓ 发现已有画布节点'] },
+      terminalA: { type: 'terminal', title: 'Terminal', lines: ['alan@MacBook-Pro ~/norma-ai-os', '(feature/workspaces) $ git status', 'On branch feature/workspaces', 'modified: crates/app/src/workspace', '✓ working tree ready'] },
+      browserA: { type: 'browser', title: 'Browser', url: 'http://localhost:3000', hero: 'A more capable you', sub: 'Multi-agent workspaces for real progress.' },
+      agentC: { type: 'agent', title: 'Agent C', branch: 'main', engine: 'Claude Code', lines: ['Working on ai-core…', '☑ Analyze current implementation', '☑ Design updated LLM runtime', '□ Add multi-provider support', '› Thinking…'] },
+      previewB: { type: 'preview', title: 'Preview', url: 'http://localhost:5173', hero: 'Open models.', sub: 'Real capabilities. Build, run and scale AI.' },
+      agentE: { type: 'agent', title: 'Agent E', branch: 'launch', engine: 'Codex', lines: ['Planning release v0.2…', '☑ Audit remaining tasks', '☑ Update changelog', '□ Run integration tests', '› Ready for review'] },
+      terminalE: { type: 'terminal', title: 'Terminal', lines: ['dev@MacBook-Pro ~/norma-ai-os', '(launch) $ pnpm run build', '✓ 142 modules transformed', '✓ dist built in 3.4s'] },
+      agentG: { type: 'agent', title: 'Agent G', branch: 'content', engine: 'Claude Code', lines: ['Generating content assets…', '☑ Create landing page copy', '☑ Generate hero images', '□ Review with team'] },
+      previewC: { type: 'preview', title: 'Preview', url: 'https://norma.dev', hero: 'Build the next generation', sub: 'A unified workspace for your agents.' },
+      agentD: { type: 'agent', title: 'Agent D', branch: 'release', engine: 'Codex', lines: ['Optimizing performance…', '☑ Lighthouse audit', '☑ Fix image optimization', '□ Deploy to production'] },
+      previewD: { type: 'preview', title: 'Preview', url: 'https://norma.dev', hero: 'AI workspaces', sub: 'For real work.' },
+      agentF: { type: 'agent', title: 'Agent F', branch: 'content', engine: 'Claude Code', lines: ['Updating content pipeline…', '☑ Process new blog posts', '□ Publish to production'] },
+      terminalF: { type: 'terminal', title: 'Terminal', lines: ['~/projects/content (main) $', 'npm run publish', '✓ 12 posts published', '✓ Sitemap updated'] },
+      agentH: { type: 'agent', title: 'Agent H', branch: 'research', engine: 'Codex', lines: ['Analyzing research papers…', '✓ Process 127 papers', '✓ Generate embeddings', '□ Create summaries'] },
+      dataH: { type: 'data', title: 'Data', lines: ['Embedding space (127 / 127)', '6 clusters · 3 outliers'] },
+      agentI: { type: 'agent', title: 'Agent I', branch: 'lab', engine: 'OpenCode', lines: ['Running experiments…', '✓ Train model variant', '□ Evaluate results', '□ Compare baseline'] },
+      notebookI: { type: 'notebook', title: 'Notebook', lines: ['Agent Behavior Analysis', 'baseline → experiment'] },
+      agentJ: { type: 'agent', title: 'Agent J', branch: 'notes', engine: 'Gemini', lines: ['Organizing notes…', '✓ Extract key ideas', '□ Build knowledge graph'] },
+      notesJ: { type: 'notes', title: 'Notes', lines: ['Ideas for Norma', 'Workspace overview', 'Agent memory', 'Cross-workspace search'] },
+      agentK: { type: 'agent', title: 'Agent K', branch: 'personal', engine: 'Claude Code', lines: ['Planning next trip…', '✓ Research destinations', '□ Book flights'] },
+      todoK: { type: 'todo', title: 'Todo', lines: ['Gym', 'Read', 'Plan Japan trip', 'Renew passport'] }
+    };
+    const workspaces = [
+      { id: 'w1', title: 'Norma OS', color: '#28decd', projects: [
+        { id: 'a', title: 'Project A', path: 'norma-ai-os', color: '#9868f4', cards: ['agentA','terminalA','browserA'] },
+        { id: 'b', title: 'Project B', path: 'ai-core', color: '#4edc82', cards: ['agentC','previewB'] }
+      ]},
+      { id: 'w2', title: 'Launch', color: '#438df5', projects: [
+        { id: 'a', title: 'Project A', path: 'norma-ai-os', color: '#9868f4', cards: ['agentE','terminalE'] },
+        { id: 'c', title: 'Project C', path: 'marketing-site', color: '#e6bd4c', cards: ['agentG','previewC'] }
+      ]},
+      { id: 'w3', title: 'Website Release', color: '#9763ef', projects: [
+        { id: 'd', title: 'Project Web', path: 'norma.dev', color: '#4edc82', cards: ['agentD','previewD'] },
+        { id: 'e', title: 'Project CMS', path: 'content', color: '#f5894d', cards: ['agentF','terminalF'] }
+      ]},
+      { id: 'w4', title: 'Research Lab', color: '#f0c84d', projects: [
+        { id: 'f', title: 'Project Papers', path: 'research', color: '#9868f4', cards: ['agentH','dataH'] },
+        { id: 'g', title: 'Project Experiments', path: 'lab', color: '#4edc82', cards: ['agentI','notebookI'] }
+      ]},
+      { id: 'w5', title: 'Personal', color: '#f37082', projects: [
+        { id: 'h', title: 'Project Notes', path: 'knowledge', color: '#62abff', cards: ['agentJ','notesJ'] },
+        { id: 'i', title: 'Project Life', path: 'personal', color: '#f5894d', cards: ['agentK','todoK'] }
+      ]}
+    ];
+    const scene = document.getElementById('scene');
+    const world = document.getElementById('world');
+    const note = document.getElementById('viewNote');
+    const toast = document.getElementById('toast');
+    const motionReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const camera = { x: 0, y: 0, s: 1, vx: 0, vy: 0, vs: 0, tx: 0, ty: 0, ts: 1, raf: 0, last: 0 };
+    const state = { mode: 'overview', workspace: 'w1', project: 'a', card: null, previousMode: 'project' };
+    let toastTimer;
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
+    }
+    function layoutFor(count, index) {
+      const base = count === 3 ? [
+        [0,0,380,290], [392,0,268,139], [392,151,268,139]
+      ] : count === 2 ? [
+        [0,0,324,290], [336,0,324,290]
+      ] : [[0,0,660,290]];
+      const expose = count === 3 ? [
+        [0,15,210,250], [225,15,210,250], [450,15,210,250]
+      ] : count === 2 ? [
+        [16,15,305,250], [339,15,305,250]
+      ] : [[95,15,470,250]];
+      const [x,y,w,h] = base[index];
+      const [ex,ey,ew,eh] = expose[index];
+      return `--x:${x}px;--y:${y}px;--w:${w}px;--h:${h}px;--ex:${ex}px;--ey:${ey}px;--ew:${ew}px;--eh:${eh}px`;
+    }
+    function cardBody(card) {
+      if (card.type === 'browser' || card.type === 'preview') {
+        const pageName = card.url.includes('localhost:5173') ? 'ai-core' : 'Norma';
+        return `<div class="browser-chrome"><span>‹ &nbsp; › &nbsp; ⟳</span><span>⌕ ${escapeHtml(card.url)}</span></div><div class="preview-page"><div class="page-nav"><b>${pageName}</b><span>Product &nbsp; Docs &nbsp; About</span></div><div class="page-hero">${escapeHtml(card.hero).replace(/capable|models|generation|workspaces/gi, match => `<em>${match}</em>`)}</div><div class="page-sub">${escapeHtml(card.sub)}</div></div>`;
+      }
+      if (card.type === 'data' || card.type === 'notebook') {
+        return `<p class="lead">${escapeHtml(card.lines[0])}</p><p class="muted">${escapeHtml(card.lines[1])}</p><div class="data-bars">${[32,47,40,65,53,72,85,64].map(n => `<i style="--bar:${n}px"></i>`).join('')}</div>`;
+      }
+      if (card.type === 'notes' || card.type === 'todo') {
+        return `<p class="lead">${escapeHtml(card.lines[0])}</p><div class="check-list">${card.lines.slice(1).map(line => `<div>${escapeHtml(line)}</div>`).join('')}</div>`;
+      }
+      const lines = card.type === 'agent' ? [card.engine, ...card.lines] : card.lines;
+      return `<div class="term-rows">${lines.map((line, index) => `<p class="${index === 0 ? 'lead' : line.includes('✓') || line.includes('☑') ? 'green' : line.includes('$') ? 'blue' : ''}">${escapeHtml(line)}</p>`).join('')}</div>${card.type === 'agent' ? `<label class="agent-prompt"><span>›</span><input aria-label="${escapeHtml(card.title)} TUI 输入" placeholder="直接在 Agent TUI 输入…" disabled></label>` : ''}`;
+    }
+    function renderCard(id, count, index) {
+      const card = cards[id];
+      const color = ({ agent:'#8d67ed',terminal:'#67a8ff',browser:'#f29a54',preview:'#f29a54',data:'#dd9465',notebook:'#af91f3',notes:'#6ba5f2',todo:'#ef9b62' })[card.type];
+      return `<article class="live-card" tabindex="0" data-card="${id}" data-kind-label="${escapeHtml(card.type.toUpperCase())}" style="${layoutFor(count,index)};--card-color:${color}"><div class="card-head"><i class="card-icon"></i><span class="card-title">${escapeHtml(card.title)}</span>${card.type === 'agent' ? `<span class="worktree">⌁ ${escapeHtml(card.branch)}</span>` : ''}<span class="ellipsis">···</span></div><div class="card-body">${cardBody(card)}</div></article>`;
+    }
+    function renderWorld() {
+      const sources = [workspaces[0].projects[0], workspaces[0].projects[1], workspaces[1].projects[1]];
+      world.innerHTML = workspaces.map((workspace, wi) => {
+        const projects = workspace.projects.map((project, pi) => {
+          const contents = project.cards.length
+            ? project.cards.map((id,ci) => renderCard(id,project.cards.length,ci)).join('')
+            : '<div class="empty-project-cards"><strong>空的项目画布</strong><span>此处的卡片与其他工作空间独立</span></div>';
+          return `<section class="project" role="button" aria-label="展开 ${escapeHtml(workspace.title)} 中的 ${escapeHtml(project.title)} 画布" tabindex="0" data-project="${project.id}" data-index="${pi}" data-card-count="${project.cards.length}" style="--project-color:${project.color}"><div class="project-head"><i class="project-dot"></i><span class="project-title">${escapeHtml(project.title)}</span><span class="project-path">${escapeHtml(project.path)}</span><button class="project-expand" type="button" aria-label="展开 ${escapeHtml(project.title)}" title="展开项目画布">⤢</button></div><div class="card-stage">${contents}</div></section>`;
+        }).join('');
+        const available = sources.filter(source => !workspace.projects.some(project => project.id === source.id));
+        const addProject = workspace.projects.length < 2
+          ? `<div class="project-add" data-index="${workspace.projects.length}"><strong>＋ 添加项目区域</strong><span>选择项目，建立这个工作空间专属的空画布</span><div class="project-add-options">${available.map(source => `<button type="button" data-add-project="${source.id}">${escapeHtml(source.title)} · ${escapeHtml(source.path)}</button>`).join('')}</div></div>`
+          : '';
+        return `<section class="workspace" role="button" aria-label="进入 W${wi+1} · ${escapeHtml(workspace.title)} 工作空间" tabindex="0" data-workspace="${workspace.id}" style="left:${(wi%3)*1600}px;top:${Math.floor(wi/3)*700}px;--accent:${workspace.color}"><div class="workspace-header"><i class="workspace-dot"></i><div><div class="workspace-name">W${wi+1} · ${escapeHtml(workspace.title)}</div><div class="workspace-meta">${workspace.projects.length} 个项目 · ${workspace.projects.reduce((n,p) => n+p.cards.length,0)} 张实时卡片</div></div><span class="workspace-status">${workspace.projects.length ? wi===0 ? '当前工作空间' : '运行中' : '空画布'}</span></div>${projects}${addProject}<div class="workspace-footer"><strong>一张工作空间画布</strong><span class="line"></span><span>项目区域固定排列 · 卡片保留原位</span></div></section>`;
+      }).join('') + (workspaces.length < 6 ? '<button type="button" class="new-workspace" id="newWorkspace"><span class="plus">+</span><strong>新建工作空间</strong><small>从空画布开始</small></button>' : '');
+    }
+    function workspaceData() { return workspaces.find(w => w.id === state.workspace); }
+    function workspaceElement() { return world.querySelector(`[data-workspace="${state.workspace}"]`); }
+    function projectElement() { return workspaceElement()?.querySelector(`[data-project="${state.project}"]`); }
+    function fit(rect, limit) {
+      const width = scene.clientWidth, height = scene.clientHeight;
+      const padding = state.mode === 'overview' ? 65 : 0;
+      const s = Math.min((width-padding*2)/rect.w, (height-padding*2)/rect.h, limit);
+      return { s, x: width/2-(rect.x+rect.w/2)*s, y: height/2-(rect.y+rect.h/2)*s };
+    }
+    function cameraTarget() {
+      if (state.mode === 'overview') return fit({x:0,y:0,w:4720,h:1320},1);
+      const ws = workspaceElement();
+      const wx = ws.offsetLeft, wy = ws.offsetTop;
+      if (state.mode !== 'project') return fit({x:wx,y:wy,w:ws.offsetWidth,h:parseFloat(document.body.style.getPropertyValue('--focus-workspace-height'))},Infinity);
+      const project = projectElement();
+      const workspaceHeight=parseFloat(document.body.style.getPropertyValue('--focus-workspace-height'));
+      const projectHeight=parseFloat(document.body.style.getPropertyValue('--focus-project-height'));
+      return fit({x:wx+project.offsetLeft,y:wy+(workspaceHeight-projectHeight)/2,w:870,h:projectHeight},Infinity);
+    }
+    function paintCamera() { world.style.transform = `translate3d(${camera.x}px,${camera.y}px,0) scale(${camera.s})`; }
+    function animateCamera(time) {
+      const dt = Math.min((time-(camera.last||time))/1000,.032);
+      camera.last = time;
+      const omega = 15;
+      for (const [value, velocity, target] of [['x','vx','tx'],['y','vy','ty'],['s','vs','ts']]) {
+        camera[velocity] += (omega*omega*(camera[target]-camera[value])-2*omega*camera[velocity])*dt;
+        camera[value] += camera[velocity]*dt;
+      }
+      paintCamera();
+      if (Math.abs(camera.x-camera.tx)+Math.abs(camera.y-camera.ty) < .2 && Math.abs(camera.s-camera.ts)<.0004 && Math.abs(camera.vx)+Math.abs(camera.vy)<2 && Math.abs(camera.vs)<.01) {
+        camera.x=camera.tx; camera.y=camera.ty; camera.s=camera.ts; camera.vx=camera.vy=camera.vs=0; camera.raf=0; paintCamera(); return;
+      }
+      camera.raf=requestAnimationFrame(animateCamera);
+    }
+    function aim(immediate=false) {
+      const target=cameraTarget(); camera.tx=target.x; camera.ty=target.y; camera.ts=target.s;
+      if (immediate || motionReduced.matches) {
+        if (camera.raf) cancelAnimationFrame(camera.raf);
+        Object.assign(camera,{x:target.x,y:target.y,s:target.s,vx:0,vy:0,vs:0,raf:0,last:0}); paintCamera(); return;
+      }
+      if (!camera.raf) { camera.last=0; camera.raf=requestAnimationFrame(animateCamera); }
+    }
+    function showToast(message) {
+      toast.textContent=message; toast.classList.add('visible'); clearTimeout(toastTimer);
+      toastTimer=setTimeout(()=>toast.classList.remove('visible'),2900);
+    }
+    function updateView(immediate=false) {
+      const ws=workspaceData(); const project=ws.projects.find(p=>p.id===state.project) || ws.projects[0];
+      if (!project && state.mode==='project') state.mode='workspace';
+      if (!ws.projects.some(p=>p.id===state.project)) state.project=project?.id || null;
+      document.body.style.setProperty('--focus-workspace-height',`${1520*scene.clientHeight/scene.clientWidth}px`);
+      document.body.style.setProperty('--focus-project-height',`${870*scene.clientHeight/scene.clientWidth}px`);
+      document.querySelectorAll('.workspace').forEach(el=>{
+        el.classList.toggle('active',el.dataset.workspace===state.workspace);
+        el.classList.toggle('show-all-cards',state.mode==='cards' && el.dataset.workspace===state.workspace);
+        el.inert=state.mode!=='overview' && el.dataset.workspace!==state.workspace;
+      });
+      document.querySelectorAll('.project').forEach(el=>{
+        const active=state.mode==='project' && el.closest('.workspace').dataset.workspace===state.workspace && el.dataset.project===state.project;
+        el.classList.toggle('active',active);
+        el.inert=state.mode==='project' && !active;
+      });
+      document.querySelectorAll('.project-add').forEach(el=>el.inert=state.mode==='project');
+      const newWorkspace=document.getElementById('newWorkspace');
+      if (newWorkspace) newWorkspace.inert=state.mode!=='overview';
+      document.querySelectorAll('.live-card').forEach(el=>el.classList.toggle('selected',state.mode==='project' && el.dataset.card===state.card && el.closest('.workspace').dataset.workspace===state.workspace));
+      document.querySelectorAll('.agent-prompt input').forEach(input=>input.disabled=state.mode!=='project' || input.closest('.workspace').dataset.workspace!==state.workspace || input.closest('.project').dataset.project!==state.project);
+      const names={overview:'所有工作空间',workspace:`${ws.title} · 工作空间画布`,project:`${ws.title} / ${project?.title} · ${project?.path}`,cards:`${ws.title} · 所有卡片`};
+      document.getElementById('breadcrumb').textContent=names[state.mode];
+      note.textContent=({overview:'点击工作空间，镜头会进入同一张画布',workspace:'点击项目区域展开；项目与卡片始终留在当前画布',project:'项目画布已展开 · Agent 在卡片内直接输入',cards:'所有卡片在各自项目区域内展开 · 点击卡片返回'})[state.mode];
+      document.getElementById('back').disabled=state.mode==='overview';
+      document.getElementById('cards').disabled=state.mode==='overview' || ws.projects.every(p=>p.cards.length===0);
+      document.getElementById('cards').classList.toggle('active',state.mode==='cards');
+      document.getElementById('overview').classList.toggle('active',state.mode==='overview');
+      document.getElementById('previous').disabled=state.mode==='overview' || workspaces.indexOf(ws)===0;
+      document.getElementById('next').disabled=state.mode==='overview' || workspaces.indexOf(ws)===workspaces.length-1;
+      document.getElementById('projectStrip').innerHTML=state.mode==='overview' ? '' : ws.projects.map(p=>`<button type="button" class="project-chip ${state.mode==='project' && state.project===p.id ? 'active':''}" data-quick-project="${p.id}">${escapeHtml(p.title)}</button>`).join('');
+      document.body.dataset.view=state.mode;
+      aim(immediate);
+    }
+    function openWorkspace(id) { state.workspace=id; state.project=workspaceData().projects[0]?.id || null; state.card=null; state.mode='workspace'; updateView(); }
+    function openProject(id, card=null) { state.project=id; state.card=card; state.mode='project'; updateView(); }
+    function showCards() {
+      if (state.mode==='overview' || workspaceData().projects.every(p=>p.cards.length===0)) return;
+      if (state.mode==='cards') { state.mode=state.previousMode; updateView(); return; }
+      state.previousMode=state.mode; state.mode='cards'; updateView();
+    }
+    function back() {
+      if (state.mode==='project') state.mode='workspace';
+      else if (state.mode==='cards') state.mode=state.previousMode;
+      else if (state.mode==='workspace') state.mode='overview';
+      updateView();
+    }
+    function stepWorkspace(delta) {
+      const next=workspaces.indexOf(workspaceData())+delta;
+      if (next>=0 && next<workspaces.length) openWorkspace(workspaces[next].id);
+    }
+    world.addEventListener('click', event=>{
+      if (event.target.closest('.agent-prompt')) return;
+      if (event.target.closest('#newWorkspace')) {
+        const id='w'+(workspaces.length+1);
+        workspaces.push({id,title:'新工作空间',color:'#91adca',projects:[]});
+        renderWorld(); openWorkspace(id); showToast('已创建空工作空间（仅原型内有效）'); return;
+      }
+      const wsEl=event.target.closest('.workspace'); if (!wsEl) return;
+      const addProject=event.target.closest('[data-add-project]');
+      if (addProject) {
+        const ws=workspaces.find(item=>item.id===wsEl.dataset.workspace);
+        const source=[workspaces[0].projects[0],workspaces[0].projects[1],workspaces[1].projects[1]].find(item=>item.id===addProject.dataset.addProject);
+        ws.projects.push({...source,cards:[]});
+        renderWorld(); openWorkspace(ws.id); showToast(`${source.title} 已加入；这是独立的空项目画布`); return;
+      }
+      const projectEl=event.target.closest('.project');
+      const cardEl=event.target.closest('.live-card');
+      const wsId=wsEl.dataset.workspace;
+      if (state.mode==='overview' || wsId!==state.workspace) { openWorkspace(wsId); return; }
+      if (state.mode==='cards' && cardEl) { openProject(projectEl.dataset.project,cardEl.dataset.card); return; }
+      if (projectEl && state.mode==='workspace') { openProject(projectEl.dataset.project,cardEl?.dataset.card||null); return; }
+      if (projectEl && state.mode==='project' && projectEl.dataset.project!==state.project) { openProject(projectEl.dataset.project,cardEl?.dataset.card||null); return; }
+      if (cardEl && state.mode==='project') { state.card=cardEl.dataset.card; updateView(); }
+    });
+    world.addEventListener('keydown',event=>{
+      if (event.key!=='Enter' && event.key!==' ') return;
+      if (event.target.matches('input')) return;
+      if (event.target.matches('.workspace,.project,.live-card')) { event.preventDefault(); event.target.click(); }
+    });
+    world.addEventListener('keydown',event=>{
+      if (!event.target.matches('.agent-prompt input') || event.key!=='Enter') return;
+      const value=event.target.value.trim(); if (!value) return;
+      const body=event.target.closest('.card-body').querySelector('.term-rows');
+      const line=document.createElement('p'); line.className='blue'; line.textContent='› '+value; body.append(line);
+      event.target.value=''; showToast('TUI 演示：输入已显示在当前 Agent 卡片中');
+    });
+    document.getElementById('back').addEventListener('click',back);
+    document.getElementById('overview').addEventListener('click',()=>{state.mode='overview';updateView();});
+    document.getElementById('cards').addEventListener('click',showCards);
+    document.getElementById('previous').addEventListener('click',()=>stepWorkspace(-1));
+    document.getElementById('next').addEventListener('click',()=>stepWorkspace(1));
+    document.getElementById('projectStrip').addEventListener('click',event=>{const button=event.target.closest('[data-quick-project]');if(button)openProject(button.dataset.quickProject);});
+    document.getElementById('shortcutHelp').addEventListener('click',()=>showToast('Esc 返回 · C 显示卡片 · 1–6 切换工作空间 · ← / → 切换相邻工作空间'));
+    document.getElementById('normaInput').addEventListener('keydown',event=>{
+      if(event.key!=='Enter'||!event.target.value.trim())return;
+      event.target.value=''; showToast('跨项目派工交互演示：没有连接真实 Agent');
+    });
+    document.addEventListener('keydown',event=>{
+      if(event.target.matches('input'))return;
+      if(event.key==='Escape'){back();return;}
+      if(event.key.toLowerCase()==='c'){showCards();return;}
+      if(event.key>='1'&&event.key<='6'){const ws=workspaces[Number(event.key)-1];if(ws)openWorkspace(ws.id);return;}
+      if(event.key==='ArrowLeft'&&state.mode!=='overview')stepWorkspace(-1);
+      if(event.key==='ArrowRight'&&state.mode!=='overview')stepWorkspace(1);
+      if((event.metaKey||event.ctrlKey)&&event.shiftKey&&event.key.toLowerCase()==='k'){event.preventDefault();state.mode='overview';updateView();}
+    });
+    window.addEventListener('resize',()=>updateView(true));
+    motionReduced.addEventListener('change',()=>aim(true));
+    renderWorld(); updateView(true);
+  </script>
+</body>
+</html>

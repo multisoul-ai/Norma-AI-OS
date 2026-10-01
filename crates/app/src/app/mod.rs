@@ -248,6 +248,7 @@ pub struct MultisoulApp {
     pub(crate) desktop_host: Option<gpui::WeakEntity<MultisoulApp>>,
     pub(crate) desktop_switcher_subscription: Option<gpui::Subscription>,
     pub(crate) background_restore: Option<crate::workspace::flow::PendingLiveSessionRestore>,
+    pub(crate) desktop_overview_scroll: HashMap<String, gpui::ScrollHandle>,
     canvas_surface: gpui::Entity<canvas_surface::CanvasSurfaceView>,
     pub(crate) working_snake_views: HashMap<NodeId, gpui::Entity<WorkingSnakeView>>,
     voice_window_inset_events: voice_window_inset::VoiceWindowInsetEventBus,
@@ -427,8 +428,16 @@ impl MultisoulApp {
         let vp = self.runtime.document.viewport;
         let win = window.viewport_size();
         let top_left = vp.screen_to_canvas(Vec2::ZERO);
-        let bottom_right =
-            vp.screen_to_canvas(Vec2::new(f32::from(win.width), f32::from(win.height)));
+        let size = if self.desktop_host.is_some() {
+            crate::workspace::desktop::desktop_scene_rect(
+                f32::from(win.width),
+                f32::from(win.height),
+            )
+            .size
+        } else {
+            Vec2::new(f32::from(win.width), f32::from(win.height))
+        };
+        let bottom_right = vp.screen_to_canvas(size);
         CanvasRect::new(
             top_left.x,
             top_left.y,

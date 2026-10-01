@@ -19,6 +19,7 @@ pub struct DesktopWorkspace {
     pub last_opened_at_unix_ms: i64,
     pub project_count: usize,
     pub expanded_area_id: Option<String>,
+    pub overview_scroll_y: i64,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -31,11 +32,11 @@ pub struct DesktopProjectArea {
     pub added_at_unix_ms: i64,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct DesktopAreaPreview {
+    pub id: String,
     pub name: String,
-    pub card_count: usize,
-    pub agent_count: usize,
+    pub nodes: Vec<canvas::CanvasNodeSnapshot>,
 }
 
 #[derive(Clone, Debug)]
@@ -45,7 +46,7 @@ pub struct DesktopWorkspaceStore {
 
 const SELECT: &str = "SELECT id, name, created_at_unix_ms, last_opened_at_unix_ms, \
                       (SELECT count(*) FROM desktop_project_areas a WHERE a.desktop_workspace_id=desktop_workspaces.id) \
-                      , expanded_area_id FROM desktop_workspaces";
+                      , expanded_area_id, overview_scroll_y FROM desktop_workspaces";
 const SELECT_AREA: &str =
     "SELECT id, desktop_workspace_id, project_key, root_path, display_name, added_at_unix_ms \
                            FROM desktop_project_areas";
@@ -83,21 +84,11 @@ impl DesktopWorkspaceStore {
                 } else {
                     None
                 };
-                let (card_count, agent_count) = snapshot
-                    .map(|snapshot| {
-                        let card_count = snapshot.nodes.len();
-                        let agent_count = snapshot
-                            .nodes
-                            .iter()
-                            .filter(|node| matches!(node.kind, canvas::CanvasNodeKind::Agent(_)))
-                            .count();
-                        (card_count, agent_count)
-                    })
-                    .unwrap_or_default();
+                let nodes = snapshot.map(|snapshot| snapshot.nodes).unwrap_or_default();
                 areas.push(DesktopAreaPreview {
+                    id: area.id,
                     name: area.display_name,
-                    card_count,
-                    agent_count,
+                    nodes,
                 });
             }
             previews.insert(workspace.id, areas);
@@ -161,16 +152,38 @@ impl DesktopWorkspaceStore {
         Ok(())
     }
 
+    pub fn set_overview_scroll_y(&self, workspace_id: &str, offset: i64) -> StorageResult<()> {
+        let connection = open_app_connection(&self.path)?;
+        let changed = connection.execute(
+            "UPDATE desktop_workspaces SET overview_scroll_y=?2 WHERE id=?1",
+            params![workspace_id, offset],
+        )?;
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows.into());
+        }
+        Ok(())
+    }
+
     pub fn delete(&self, id: &str) -> StorageResult<bool> {
-        let areas = self.list_projects(id)?;
+        let Some(area_ids) = self.delete_catalog(id)? else {
+            return Ok(false);
+        };
+        for area_id in area_ids {
+            self.remove_canvas_file(id, &area_id)?;
+        }
+        Ok(true)
+    }
+
+    /// Commit the catalog change before callers stop live sessions and remove their canvas files.
+    pub fn delete_catalog(&self, id: &str) -> StorageResult<Option<Vec<String>>> {
+        let area_ids = self
+            .list_projects(id)?
+            .into_iter()
+            .map(|area| area.id)
+            .collect();
         let connection = open_app_connection(&self.path)?;
         let removed = connection.execute("DELETE FROM desktop_workspaces WHERE id=?1", [id])? > 0;
-        if removed {
-            for area in areas {
-                self.remove_canvas_file(id, &area.id)?;
-            }
-        }
-        Ok(removed)
+        Ok(removed.then_some(area_ids))
     }
 
     pub fn list_projects(&self, workspace_id: &str) -> StorageResult<Vec<DesktopProjectArea>> {
@@ -218,19 +231,29 @@ impl DesktopWorkspaceStore {
     }
 
     pub fn remove_project(&self, workspace_id: &str, area_id: &str) -> StorageResult<bool> {
-        let connection = open_app_connection(&self.path)?;
-        let removed = connection.execute(
-            "DELETE FROM desktop_project_areas WHERE desktop_workspace_id=?1 AND id=?2",
-            params![workspace_id, area_id],
-        )? > 0;
+        let removed = self.remove_project_catalog(workspace_id, area_id)?;
         if removed {
-            connection.execute("UPDATE desktop_workspaces SET expanded_area_id=NULL WHERE id=?1 AND expanded_area_id=?2", params![workspace_id, area_id])?;
             self.remove_canvas_file(workspace_id, area_id)?;
         }
         Ok(removed)
     }
 
-    fn remove_canvas_file(&self, workspace_id: &str, area_id: &str) -> StorageResult<()> {
+    /// Commit the catalog change before callers stop the area's live session.
+    pub fn remove_project_catalog(&self, workspace_id: &str, area_id: &str) -> StorageResult<bool> {
+        let mut connection = open_app_connection(&self.path)?;
+        let transaction = connection.transaction()?;
+        let removed = transaction.execute(
+            "DELETE FROM desktop_project_areas WHERE desktop_workspace_id=?1 AND id=?2",
+            params![workspace_id, area_id],
+        )? > 0;
+        if removed {
+            transaction.execute("UPDATE desktop_workspaces SET expanded_area_id=NULL WHERE id=?1 AND expanded_area_id=?2", params![workspace_id, area_id])?;
+        }
+        transaction.commit()?;
+        Ok(removed)
+    }
+
+    pub fn remove_canvas_file(&self, workspace_id: &str, area_id: &str) -> StorageResult<()> {
         let path = desktop_canvas_path(&self.path, workspace_id, area_id)?;
         for candidate in [
             path.clone(),
@@ -280,6 +303,7 @@ fn read_workspace(row: &Row<'_>) -> rusqlite::Result<DesktopWorkspace> {
         last_opened_at_unix_ms: row.get(3)?,
         project_count: row.get(4)?,
         expanded_area_id: row.get(5)?,
+        overview_scroll_y: row.get(6)?,
     })
 }
 

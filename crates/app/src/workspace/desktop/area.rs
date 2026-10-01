@@ -3,6 +3,48 @@ use gpui::{AppContext as _, Context, Window};
 use std::path::PathBuf;
 
 impl MultisoulApp {
+    pub(super) fn retry_desktop_project_area(
+        &mut self,
+        area_id: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(workspace_id) = self.desktop_workspace.active_id.clone() else {
+            return;
+        };
+        let Some(root) = self
+            .desktop_workspace
+            .areas
+            .iter()
+            .find(|area| area.id == area_id)
+            .map(|area| area.root.clone())
+        else {
+            return;
+        };
+        let work = cx.background_executor().spawn(async move {
+            root.is_dir() && root.canonicalize().is_ok_and(|canonical| canonical == root)
+        });
+        cx.spawn_in(window, async move |this, cx| {
+            let available = work.await;
+            let _ = this.update_in(cx, |app, window, cx| {
+                if app.desktop_workspace.active_id.as_deref() != Some(&workspace_id) {
+                    return;
+                }
+                if available {
+                    app.desktop_workspace.area_errors.remove(&area_id);
+                    app.desktop_workspace.error = None;
+                    app.ensure_desktop_area_session(area_id, window, cx);
+                } else {
+                    app.desktop_workspace.error =
+                        Some("Project directory is still unavailable".to_string());
+                }
+                cx.notify();
+            });
+            Ok::<(), anyhow::Error>(())
+        })
+        .detach();
+    }
+
     pub(super) fn expand_desktop_project_area(
         &mut self,
         area_id: String,
@@ -27,10 +69,21 @@ impl MultisoulApp {
             cx.notify();
             return;
         }
+        self.desktop_workspace.active_area_id = Some(area_id.clone());
         let key = (workspace_id.clone(), area_id.clone());
-        if let Some(session) = self.desktop_workspace.sessions.get(&key) {
+        if let Some(session) = self.desktop_workspace.sessions.get(&key).cloned() {
+            if self.defer_desktop_navigation(
+                super::scene::DesktopNavigation::Project(area_id.clone()),
+                window,
+                cx,
+            ) {
+                return;
+            }
+            self.begin_desktop_project_zoom(&workspace_id, &area_id, false, window, cx);
+            let wallpaper = self.wallpaper_settings.selection.clone();
             session.update(cx, |session, cx| {
-                session.attach_desktop_area_window(window, cx)
+                session.wallpaper_settings.selection = wallpaper;
+                session.attach_desktop_area_window(window, cx);
             });
             window.focus(&session.read(cx).focus_handle);
             self.persist_desktop_view(workspace_id, Some(area_id.clone()), cx);
@@ -39,13 +92,13 @@ impl MultisoulApp {
             cx.notify();
             return;
         }
-        self.ensure_desktop_area_session(area_id, true, window, cx);
+        self.desktop_workspace.expanded_area_id = Some(area_id.clone());
+        self.ensure_desktop_area_session(area_id, window, cx);
     }
 
     pub(super) fn ensure_desktop_area_session(
         &mut self,
         area_id: String,
-        expand: bool,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -88,27 +141,28 @@ impl MultisoulApp {
                         let session = cx.new(|cx| {
                             let mut session = MultisoulApp::from_background_project(prepared, cx);
                             session.desktop_host = Some(host);
+                            session.layout_strategy.chrome_in_parent = true;
+                            session.master_layout.chrome_in_parent = true;
                             session
                         });
-                        if expand
-                            && app.desktop_workspace.active_id.as_deref() == Some(&workspace_id)
-                        {
-                            session.update(cx, |session, cx| {
-                                session.attach_desktop_area_window(window, cx)
-                            });
-                            window.focus(&session.read(cx).focus_handle);
-                            app.persist_desktop_view(
-                                workspace_id.clone(),
-                                Some(area_id.clone()),
-                                cx,
-                            );
-                            app.desktop_workspace.expanded_area_id = Some(area_id.clone());
-                        } else {
+                        let requested =
+                            app.desktop_workspace.expanded_area_id.as_deref() == Some(&area_id);
+                        let visible = app.desktop_workspace.active_id.as_deref()
+                            == Some(&workspace_id)
+                            && matches!(app.screen, crate::app::AppScreen::DesktopWorkspace);
+                        let expand_now =
+                            requested && visible && !app.desktop_workspace_zoom_active();
+                        if !expand_now {
                             session.update(cx, |session, cx| {
                                 session.activate_desktop_area_overview(cx)
                             });
                         }
                         app.desktop_workspace.sessions.insert(key, session);
+                        if expand_now {
+                            app.expand_desktop_project_area(area_id, window, cx);
+                        } else if requested && visible {
+                            app.desktop_workspace.expanded_area_id = Some(area_id);
+                        }
                     }
                     Err(error) => {
                         app.desktop_workspace
@@ -130,16 +184,22 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.desktop_workspace.pending_navigation = None;
         if let (Some(workspace_id), Some(area_id)) = (
-            self.desktop_workspace.active_id.as_deref(),
-            self.desktop_workspace.expanded_area_id.as_deref(),
+            self.desktop_workspace.active_id.clone(),
+            self.desktop_workspace.expanded_area_id.clone(),
         ) {
-            if let Some(session) = self
-                .desktop_workspace
-                .sessions
-                .get(&(workspace_id.to_owned(), area_id.to_owned()))
-            {
-                session.update(cx, |session, cx| session.detach_project_window(cx));
+            if !self.desktop_workspace_zoom_active() {
+                self.begin_desktop_project_zoom(&workspace_id, &area_id, true, window, cx);
+            }
+            if self.desktop_workspace.transition.is_none() {
+                if let Some(session) = self
+                    .desktop_workspace
+                    .sessions
+                    .get(&(workspace_id, area_id))
+                {
+                    session.update(cx, |session, cx| session.detach_project_window(cx));
+                }
             }
         }
         self.desktop_workspace.expanded_area_id = None;
@@ -156,6 +216,21 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.add_project_to_desktop_workspace_with_source(
+            path,
+            workspace::WorkspaceSource::Open,
+            window,
+            cx,
+        );
+    }
+
+    pub(crate) fn add_project_to_desktop_workspace_with_source(
+        &mut self,
+        path: PathBuf,
+        source: workspace::WorkspaceSource,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let Some(id) = self.desktop_workspace.active_id.clone() else {
             return;
         };
@@ -166,12 +241,14 @@ impl MultisoulApp {
         self.desktop_workspace.error = None;
         cx.notify();
         let store = self.desktop_workspace.store.clone();
+        let recent_store = storage::RecentStore::new(self.database_paths.app_db_path().to_owned());
         let store_id = id.clone();
         let work = cx.background_executor().spawn(async move {
             let area = store.add_project(&store_id, &path)?;
             let areas = store.list_projects(&store_id)?;
             let workspaces = store.list()?;
-            Ok::<_, storage::StorageError>((area, areas, workspaces))
+            let recent = recent_store.record_opened(&path, source).ok();
+            Ok::<_, storage::StorageError>((area, areas, workspaces, recent))
         });
         cx.spawn_in(window, async move |this, cx| {
             let result = work.await;
@@ -182,7 +259,10 @@ impl MultisoulApp {
                     return;
                 }
                 match result {
-                    Ok((area, areas, workspaces)) => {
+                    Ok((area, areas, workspaces, recent)) => {
+                        if let Some(recent) = recent {
+                            app.workspace_state.recent = recent;
+                        }
                         let existing = app
                             .desktop_workspace
                             .areas
@@ -193,6 +273,8 @@ impl MultisoulApp {
                         app.desktop_workspace.workspaces = workspaces;
                         if existing {
                             app.expand_desktop_project_area(area.id, window, cx);
+                        } else {
+                            app.ensure_desktop_area_session(area.id, window, cx);
                         }
                     }
                     Err(error) => {

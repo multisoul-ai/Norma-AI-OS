@@ -1,10 +1,7 @@
-//! E2E 测试 crate：在 headless GPUI `TestAppContext` 中驱动 `MultisoulApp`。
-//!
-//! 本 crate 隔离 headless GPUI 启动，避免污染域层的快速单测。`gpui` 的
-//! `test-support` feature 在此 crate 局部启用，生产 `cargo build -p app`
-//! 不受影响。跨 crate domain-level 验收测试放在 `tests/`。
+//! 旧 E2E 套件已按用户要求停用；源码保留供后续删除或重构。
+//! 不再新增、运行或作为验收依据，包括显式 --lib / --all-targets。
 
-#![cfg(test)]
+#![cfg(any())]
 
 use app::{AppScreen, MultisoulApp};
 use gpui::TestAppContext;

@@ -10,6 +10,14 @@ impl MultisoulApp {
         match command {
             ShortcutCommandId::NewWindow => self.on_new_window(&crate::app::NewWindow, window, cx),
             ShortcutCommandId::SwitchWorkspace => self.open_desktop_switcher(window, cx),
+            ShortcutCommandId::PreviousWorkspace
+            | ShortcutCommandId::NextWorkspace
+            | ShortcutCommandId::PreviousProject
+            | ShortcutCommandId::NextProject
+            | ShortcutCommandId::ShowProjectOverview
+            | ShortcutCommandId::ShowWorkspaceDirectory => {
+                self.navigate_desktop_shortcut(command, window, cx);
+            }
             ShortcutCommandId::NewTerminal => {
                 self.on_new_terminal(&crate::app::NewTerminal, window, cx)
             }

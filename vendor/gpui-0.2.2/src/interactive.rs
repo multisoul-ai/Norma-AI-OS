@@ -15,7 +15,22 @@ pub trait InputEvent: Sealed + 'static {
 pub trait KeyEvent: InputEvent {}
 
 /// A mouse event from the platform.
-pub trait MouseEvent: InputEvent {}
+pub trait MouseEvent: InputEvent {
+    /// Express a platform event in a fixed-layout scene's local coordinates.
+    fn to_local(&self, scale: f32, offset: Point<Pixels>) -> Self;
+}
+
+macro_rules! positioned_mouse_event {
+    ($event:ty) => {
+        impl MouseEvent for $event {
+            fn to_local(&self, scale: f32, offset: Point<Pixels>) -> Self {
+                let mut event = self.clone();
+                event.position = (event.position - offset) / scale;
+                event
+            }
+        }
+    };
+}
 
 /// The key down event equivalent for the platform.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -113,7 +128,7 @@ impl InputEvent for MouseDownEvent {
         PlatformInput::MouseDown(self)
     }
 }
-impl MouseEvent for MouseDownEvent {}
+positioned_mouse_event!(MouseDownEvent);
 
 /// A mouse up event from the platform
 #[derive(Clone, Debug, Default)]
@@ -137,7 +152,7 @@ impl InputEvent for MouseUpEvent {
         PlatformInput::MouseUp(self)
     }
 }
-impl MouseEvent for MouseUpEvent {}
+positioned_mouse_event!(MouseUpEvent);
 
 /// A click event, generated when a mouse button is pressed and released.
 #[derive(Clone, Debug, Default)]
@@ -349,7 +364,7 @@ impl InputEvent for MouseMoveEvent {
         PlatformInput::MouseMove(self)
     }
 }
-impl MouseEvent for MouseMoveEvent {}
+positioned_mouse_event!(MouseMoveEvent);
 
 impl MouseMoveEvent {
     /// Returns true if the left mouse button is currently held down.
@@ -380,7 +395,17 @@ impl InputEvent for ScrollWheelEvent {
         PlatformInput::ScrollWheel(self)
     }
 }
-impl MouseEvent for ScrollWheelEvent {}
+impl MouseEvent for ScrollWheelEvent {
+    fn to_local(&self, scale: f32, offset: Point<Pixels>) -> Self {
+        let mut event = self.clone();
+        event.position = (event.position - offset) / scale;
+        // Lines are semantic units, unlike physical pixel deltas.
+        if let ScrollDelta::Pixels(delta) = &mut event.delta {
+            *delta = *delta / scale;
+        }
+        event
+    }
+}
 
 impl Deref for ScrollWheelEvent {
     type Target = Modifiers;
@@ -482,7 +507,7 @@ impl InputEvent for MouseExitEvent {
         PlatformInput::MouseExited(self)
     }
 }
-impl MouseEvent for MouseExitEvent {}
+positioned_mouse_event!(MouseExitEvent);
 
 impl Deref for MouseExitEvent {
     type Target = Modifiers;
@@ -540,7 +565,20 @@ impl InputEvent for FileDropEvent {
         PlatformInput::FileDrop(self)
     }
 }
-impl MouseEvent for FileDropEvent {}
+impl MouseEvent for FileDropEvent {
+    fn to_local(&self, scale: f32, offset: Point<Pixels>) -> Self {
+        let mut event = self.clone();
+        match &mut event {
+            Self::Entered { position, .. }
+            | Self::Pending { position }
+            | Self::Submit { position } => {
+                *position = (*position - offset) / scale;
+            }
+            Self::Exited => {}
+        }
+        event
+    }
+}
 
 /// An enum corresponding to all kinds of platform input events.
 #[derive(Clone, Debug)]

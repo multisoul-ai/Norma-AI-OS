@@ -98,8 +98,9 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
+            let source = cx.entity().entity_id();
             host.update(cx, |host, cx| {
-                host.begin_desktop_agent_creation(profile, None, cx)
+                host.begin_desktop_agent_creation(source, profile, None, window, cx)
             });
             return;
         }
@@ -132,8 +133,9 @@ impl MultisoulApp {
                 return;
             };
             let profile = definition.runtime_profile;
+            let source = cx.entity().entity_id();
             host.update(cx, |host, cx| {
-                host.begin_desktop_agent_creation(profile, Some(definition_id), cx)
+                host.begin_desktop_agent_creation(source, profile, Some(definition_id), window, cx)
             });
             return;
         }
@@ -169,6 +171,8 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        // Desktop areas share the catalog, but keep independent loaded instances.
+        self.agent_definitions.reload();
         let definition = match definition_id {
             Some(id) => self
                 .agent_definitions

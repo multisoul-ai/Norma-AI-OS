@@ -3,6 +3,7 @@
 
 use super::events;
 use super::node_label::node_type_label;
+use super::overlays::swap_highlight_overlay;
 use super::working_snakes::{self, WorkingSnakeGeometry};
 use crate::app::browser::native::BROWSER_NATIVE_BORDER_INSET_PX;
 use crate::app::browser::{browser_native_view_bounds, native_browser_views_visible};
@@ -59,7 +60,19 @@ pub fn render_canvas(
     let theme = app.theme;
     let vp = app.runtime.document.viewport;
     let win = window.viewport_size();
-    let (win_w, win_h) = (f32::from(win.width), f32::from(win.height));
+    let (vp, win_w, win_h) = app
+        .desktop_host
+        .as_ref()
+        .and_then(|host| host.upgrade())
+        .map(|host| {
+            host.read(cx).desktop_canvas_visual_geometry(
+                vp,
+                f32::from(win.width),
+                f32::from(win.height),
+                app.runtime.document.nodes(),
+            )
+        })
+        .unwrap_or((vp, f32::from(win.width), f32::from(win.height)));
     let focus_mode = app.runtime.focus.mode();
 
     let swap_candidate = app.interaction.drag.as_ref().and_then(|d| d.swap_candidate);
@@ -466,26 +479,6 @@ pub fn render_canvas(
         .on_mouse_up(MouseButton::Left, cx.listener(events::on_mouse_up))
         .on_mouse_up(MouseButton::Middle, cx.listener(events::on_mouse_up))
         .children(node_elems)
-}
-
-fn swap_highlight_overlay(
-    x: f32,
-    y: f32,
-    w: f32,
-    h: f32,
-    radius_px: f32,
-    color: u32,
-) -> AnyElement {
-    div()
-        .absolute()
-        .left(px(x))
-        .top(px(y))
-        .w(px(w))
-        .h(px(h))
-        .border_2()
-        .border_color(rgba(color))
-        .rounded(px(radius_px))
-        .into_any_element()
 }
 
 #[cfg(test)]

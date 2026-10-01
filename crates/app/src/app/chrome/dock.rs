@@ -1,22 +1,27 @@
 //! Command Dock rendering and its local GPUI elements.
 
-use super::super::MultisoulApp;
+use super::super::{AppScreen, MultisoulApp};
 use super::bottom_voice_bar_visible;
 use crate::effects::dispatch_receipt::{COMMAND_DOCK_BOTTOM_PX, COMMAND_DOCK_HEIGHT_PX};
 use gpui::{
-    div, point, prelude::*, px, rgba, AnyView, App, BoxShadow, Context, Div, MouseButton, Stateful,
-    Window,
+    div, point, prelude::*, px, rgba, AnyElement, AnyView, App, BoxShadow, Context, Div,
+    MouseButton, Stateful, Window,
 };
 use ui::icons::{toolbar_icon, with_alpha, ToolbarIcon};
 use ui::Theme;
 
 impl MultisoulApp {
-    pub(super) fn render_command_dock(
+    pub(crate) fn render_command_dock(
         &mut self,
         window: &mut Window,
         cx: &mut Context<Self>,
+        project_switcher: Option<AnyElement>,
     ) -> Div {
         let theme = self.theme;
+        let project_active = matches!(self.screen, AppScreen::Canvas);
+        if !project_active {
+            return self.render_desktop_overview_dock(cx, project_switcher);
+        }
         let canvas_mode_icon = if self.interaction.canvas_scroll_enabled {
             ToolbarIcon::Scroll
         } else {
@@ -27,10 +32,8 @@ impl MultisoulApp {
         } else {
             "Select mode"
         };
-        let new_menu = self
-            .interaction
-            .new_menu_open
-            .then(|| self.render_new_menu(cx));
+        let new_menu =
+            (self.interaction.new_menu_open && project_active).then(|| self.render_new_menu(cx));
         div()
             .absolute()
             .left(px(0.0))
@@ -135,6 +138,7 @@ impl MultisoulApp {
                     .when(bottom_voice_bar_visible(), |dock| {
                         dock.child(self.render_voice_bar(window, cx))
                     })
+                    .children(project_switcher)
                     .when(self.desktop_host.is_some(), |dock| {
                         dock.child(
                             chrome_icon_button(
@@ -158,6 +162,132 @@ impl MultisoulApp {
                             "Settings",
                         )
                         .on_click(cx.listener(Self::on_toolbar_settings)),
+                    ),
+            )
+    }
+
+    fn render_desktop_overview_dock(
+        &self,
+        cx: &mut Context<Self>,
+        project_switcher: Option<AnyElement>,
+    ) -> Div {
+        let theme = self.theme;
+        div()
+            .absolute()
+            .left(px(0.0))
+            .right(px(0.0))
+            .bottom(px(COMMAND_DOCK_BOTTOM_PX))
+            .flex()
+            .justify_center()
+            .child(
+                div()
+                    .id("workspace-command-dock")
+                    .debug_selector(|| "workspace-command-dock".to_string())
+                    .h(px(COMMAND_DOCK_HEIGHT_PX))
+                    .flex()
+                    .items_center()
+                    .gap(px(3.0))
+                    .p(px(6.0))
+                    .rounded(px(18.0))
+                    .border_1()
+                    .border_color(rgba(theme.dock_line))
+                    .shadow(command_dock_shadow())
+                    .bg(rgba(theme.dock))
+                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .child(
+                        chrome_icon_button(
+                            theme,
+                            ToolbarIcon::Cursor,
+                            false,
+                            "toolbar-canvas-scroll",
+                            "Open a project first",
+                        )
+                        .opacity(0.42),
+                    )
+                    .child(
+                        chrome_icon_button(
+                            theme,
+                            ToolbarIcon::Layout,
+                            false,
+                            "toolbar-layout",
+                            "Open a project first",
+                        )
+                        .opacity(0.42),
+                    )
+                    .child(chrome_divider(theme))
+                    .child(
+                        chrome_icon_button(
+                            theme,
+                            ToolbarIcon::Terminal,
+                            false,
+                            "toolbar-terminal",
+                            "Open a project first",
+                        )
+                        .opacity(0.42),
+                    )
+                    .child(
+                        chrome_icon_button(
+                            theme,
+                            ToolbarIcon::Codex,
+                            false,
+                            "toolbar-new-codex-agent",
+                            "Open a project first",
+                        )
+                        .opacity(0.42),
+                    )
+                    .child(
+                        chrome_primary_icon_button(
+                            theme,
+                            ToolbarIcon::Plus,
+                            false,
+                            "toolbar-new-terminal",
+                            "Add Project",
+                        )
+                        .on_click(cx.listener(|app, _, _, cx| app.open_desktop_add_project(cx))),
+                    )
+                    .child(
+                        chrome_icon_button(
+                            theme,
+                            ToolbarIcon::Browser,
+                            false,
+                            "toolbar-new-browser",
+                            "Open a project first",
+                        )
+                        .opacity(0.42),
+                    )
+                    .child(
+                        chrome_icon_button(
+                            theme,
+                            ToolbarIcon::Preview,
+                            false,
+                            "toolbar-open-preview",
+                            "Open a project first",
+                        )
+                        .opacity(0.42),
+                    )
+                    .child(chrome_divider(theme))
+                    .children(project_switcher)
+                    .child(
+                        chrome_icon_button(
+                            theme,
+                            ToolbarIcon::Workspaces,
+                            false,
+                            "toolbar-switch-workspace",
+                            "Switch Workspace  ⌘⇧K",
+                        )
+                        .on_click(
+                            cx.listener(|app, _, window, cx| app.open_desktop_switcher(window, cx)),
+                        ),
+                    )
+                    .child(
+                        chrome_icon_button(
+                            theme,
+                            ToolbarIcon::Settings,
+                            false,
+                            "toolbar-settings",
+                            "Open a project first",
+                        )
+                        .opacity(0.42),
                     ),
             )
     }

@@ -1,6 +1,8 @@
 #!/bin/bash
 # Explicit isolated Provider check, authorized by the user. Never modifies global Hook settings.
 set -euo pipefail
+echo "Disabled: this legacy runner depends on retired crates/e2e; use crate tests and isolated real-App acceptance." >&2
+exit 2
 root=$(cd "$(dirname "$0")/.." && pwd)
 case "${1:-macos}" in
   macos) swift build --package-path "$root/ios" --product PairingProbe

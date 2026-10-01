@@ -136,74 +136,65 @@ impl MultisoulApp {
         if self.desktop_workspace.busy {
             return;
         }
-        let Some(target) = self.desktop_workspace.pending_delete.take() else {
+        let Some(target) = self.desktop_workspace.pending_delete.clone() else {
             return;
         };
-        let keys: Vec<_> = self
-            .desktop_workspace
-            .sessions
-            .keys()
-            .filter(|(workspace_id, area_id)| match &target {
-                DesktopDeleteTarget::Workspace { id, .. } => workspace_id == id,
-                DesktopDeleteTarget::Area {
-                    workspace_id: id,
-                    area_id: target_area,
-                    ..
-                } => workspace_id == id && area_id == target_area,
-            })
-            .cloned()
-            .collect();
-        match &target {
-            DesktopDeleteTarget::Workspace { id, .. } => {
-                self.desktop_workspace.discarded_area_loads.extend(
-                    self.desktop_workspace
-                        .loading_area_ids
-                        .iter()
-                        .filter(|(workspace_id, _)| workspace_id == id)
-                        .cloned(),
-                );
-            }
-            DesktopDeleteTarget::Area {
-                workspace_id,
-                area_id,
-                ..
-            } => {
-                self.desktop_workspace
-                    .discarded_area_loads
-                    .insert((workspace_id.clone(), area_id.clone()));
-            }
-        }
-        for key in keys {
-            if let Some(session) = self.desktop_workspace.sessions.remove(&key) {
-                session.update(cx, |session, cx| session.stop_project(cx));
-            }
-        }
         self.desktop_workspace.busy = true;
         self.desktop_workspace.error = None;
         cx.notify();
         let store = self.desktop_workspace.store.clone();
         let work = cx.background_executor().spawn(async move {
-            match &target {
-                DesktopDeleteTarget::Workspace { id, .. } => {
-                    store.delete(id)?;
-                }
+            let removed_areas = match &target {
+                DesktopDeleteTarget::Workspace { id, .. } => store
+                    .delete_catalog(id)?
+                    .ok_or_else(|| anyhow::anyhow!("workspace no longer exists"))?,
                 DesktopDeleteTarget::Area {
                     workspace_id,
                     area_id,
                     ..
                 } => {
-                    store.remove_project(workspace_id, area_id)?;
+                    if !store.remove_project_catalog(workspace_id, area_id)? {
+                        anyhow::bail!("project area no longer exists");
+                    }
+                    vec![area_id.clone()]
                 }
-            }
-            Ok::<_, storage::StorageError>((target, store.list()?))
+            };
+            Ok::<_, anyhow::Error>((target, removed_areas, store.list()))
         });
         cx.spawn(async move |this, cx| {
             let result = work.await;
             let _ = this.update(cx, |app, cx| {
                 app.desktop_workspace.busy = false;
                 match result {
-                    Ok((target, workspaces)) => {
-                        app.desktop_workspace.workspaces = workspaces;
+                    Ok((target, removed_areas, workspaces)) => {
+                        let keys: Vec<_> = app.desktop_workspace.sessions.keys()
+                            .filter(|(workspace_id, area_id)| match &target {
+                                DesktopDeleteTarget::Workspace { id, .. } => workspace_id == id,
+                                DesktopDeleteTarget::Area { workspace_id: id, area_id: target_area, .. } => workspace_id == id && area_id == target_area,
+                            }).cloned().collect();
+                        for key in keys {
+                            if let Some(session) = app.desktop_workspace.sessions.remove(&key) {
+                                session.update(cx, |session, cx| {
+                                    session.stop_project(cx);
+                                    session.persistence = Default::default();
+                                });
+                            }
+                        }
+                        let (deleted_workspace_id, deleted_area_id) = match &target {
+                            DesktopDeleteTarget::Workspace { id, .. } => (id.clone(), None),
+                            DesktopDeleteTarget::Area { workspace_id, area_id, .. } => (workspace_id.clone(), Some(area_id.clone())),
+                        };
+                        app.desktop_workspace.discarded_area_loads.extend(
+                            app.desktop_workspace.loading_area_ids.iter()
+                                .filter(|(workspace_id, area_id)| workspace_id == &deleted_workspace_id
+                                    && deleted_area_id.as_ref().is_none_or(|id| area_id == id))
+                                .cloned(),
+                        );
+                        app.desktop_workspace.pending_delete = None;
+                        match workspaces {
+                            Ok(workspaces) => app.desktop_workspace.workspaces = workspaces,
+                            Err(error) => app.desktop_workspace.error = Some(format!("Could not refresh workspaces: {error}")),
+                        }
                         match target {
                             DesktopDeleteTarget::Workspace { id, .. } => {
                                 app.desktop_workspace.expanded_by_workspace.remove(&id);
@@ -243,6 +234,14 @@ impl MultisoulApp {
                                 }
                             }
                         }
+                        let store = app.desktop_workspace.store.clone();
+                        cx.background_executor().spawn(async move {
+                            for area_id in removed_areas {
+                                if let Err(error) = store.remove_canvas_file(&deleted_workspace_id, &area_id) {
+                                    tracing::warn!(%error, workspace_id = %deleted_workspace_id, %area_id, "failed to clean deleted desktop canvas");
+                                }
+                            }
+                        }).detach();
                     }
                     Err(error) => {
                         app.desktop_workspace.error =

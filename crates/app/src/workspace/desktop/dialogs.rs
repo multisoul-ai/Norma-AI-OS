@@ -1,202 +1,131 @@
-use crate::app::MultisoulApp;
-use gpui::{div, prelude::*, px, rgba, Context, Div, KeyDownEvent, Stateful};
-use ui::component::button::Button;
-use ui::component::input::Input;
+use super::{glass_button_variant, scene::DesktopNavigation, GLASS_TEXT};
+use crate::app::{AppScreen, MultisoulApp};
+use gpui::{div, prelude::*, px, rgba, Context, Div, Focusable, Stateful, Window};
+use ui::component::button::{Button, ButtonVariants};
+use ui::component::input::{Input, InputEvent, InputState};
 use ui::component::StyledExt;
 
 impl MultisoulApp {
+    pub(crate) fn open_desktop_switcher(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
+            // Returning can detach this project; release its current borrow first.
+            window.defer(cx, move |window, cx| {
+                host.update(cx, |host, cx| host.open_desktop_switcher(window, cx));
+            });
+            return;
+        }
+        if self.desktop_workspace.switcher_open {
+            self.dismiss_desktop_switcher(window, cx);
+            return;
+        }
+        let return_to = matches!(self.screen, AppScreen::DesktopWorkspace)
+            .then(|| self.desktop_workspace.active_id.clone())
+            .flatten()
+            .map(|id| (id, self.desktop_workspace.expanded_area_id.clone()));
+        self.show_desktop_launchpad(window, cx);
+        let input = cx.new(|cx| InputState::new(window, cx).placeholder("Search workspaces"));
+        let subscription = cx.subscribe(&input, |app, input, event: &InputEvent, cx| {
+            if matches!(event, InputEvent::Change) {
+                let query = input.read(cx).value().to_string();
+                app.desktop_workspace.switcher_query = query.clone();
+                app.desktop_workspace.search_query = query;
+                cx.notify();
+            }
+        });
+        input.focus_handle(cx).focus(window);
+        self.desktop_workspace.switcher_input = Some(input);
+        self.desktop_switcher_subscription = Some(subscription);
+        self.desktop_workspace.search_query.clear();
+        self.desktop_workspace.switcher_query.clear();
+        self.desktop_workspace.switcher_return = return_to;
+        self.desktop_workspace.switcher_open = true;
+        cx.notify();
+    }
+
+    pub(crate) fn dismiss_desktop_switcher(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let return_to = self.desktop_workspace.switcher_return.take();
+        self.close_desktop_switcher(cx);
+        self.desktop_workspace.pending_navigation = None;
+        window.focus(&self.focus_handle);
+        if let Some((workspace_id, area_id)) = return_to {
+            self.screen = AppScreen::DesktopWorkspace;
+            if self.desktop_project_zoom_active() {
+                if let Some(area_id) = area_id {
+                    self.expand_desktop_project_area(area_id, window, cx);
+                }
+            } else {
+                self.begin_desktop_workspace_zoom(&workspace_id, false, window, cx);
+                if let Some(area_id) = area_id {
+                    if self.desktop_workspace.transition.is_some() {
+                        self.desktop_workspace.pending_navigation =
+                            Some(DesktopNavigation::Project(area_id));
+                    } else {
+                        self.expand_desktop_project_area(area_id, window, cx);
+                    }
+                }
+            }
+        }
+        cx.notify();
+    }
+
+    pub(crate) fn close_desktop_switcher(&mut self, cx: &mut Context<Self>) {
+        self.desktop_workspace.switcher_open = false;
+        self.desktop_workspace.switcher_return = None;
+        self.desktop_workspace.switcher_input = None;
+        self.desktop_switcher_subscription = None;
+        self.desktop_workspace.switcher_query.clear();
+        cx.notify();
+    }
+
+    // Only controls live here. The directory and its camera are rendered once by launchpad.
     pub(crate) fn render_desktop_switcher(&mut self, cx: &mut Context<Self>) -> Stateful<Div> {
-        let theme = self.theme;
-        let query = self.desktop_workspace.switcher_query.trim().to_lowercase();
-        let workspaces: Vec<_> = self
-            .desktop_workspace
-            .workspaces
-            .iter()
-            .filter(|workspace| query.is_empty() || workspace.name.to_lowercase().contains(&query))
-            .cloned()
-            .collect();
+        let theme = self.desktop_theme();
         let input = self.desktop_workspace.switcher_input.clone();
         div()
             .id("desktop-workspace-switcher")
             .debug_selector(|| "desktop-workspace-switcher".to_string())
             .absolute()
-            .inset_0()
-            .occlude()
+            .top(px(0.0))
+            .left(px(0.0))
+            .right(px(0.0))
             .flex()
             .items_center()
-            .justify_center()
-            .bg(rgba(0x00000091))
+            .h(px(62.0))
+            .gap(px(20.0))
+            .px(px(56.0))
+            .py(px(12.0))
             .child(
-                div()
-                    .w(px(760.0))
-                    .max_h(px(670.0))
-                    .flex()
-                    .flex_col()
-                    .p(px(22.0))
-                    .gap(px(16.0))
-                    .rounded(px(20.0))
-                    .border_1()
-                    .border_color(rgba(theme.node_stroke))
-                    .bg(rgba(theme.panel_high))
-                    .child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .justify_between()
-                            .child(
-                                div()
-                                    .text_size(px(20.0))
-                                    .font_semibold()
-                                    .text_color(rgba(theme.text_primary))
-                                    .child("Switch Workspace"),
-                            )
-                            .child(
-                                Button::new("desktop-workspace-switch-close")
-                                    .debug_selector(|| "desktop-workspace-switch-close".to_string())
-                                    .label("Close")
-                                    .on_click(
-                                        cx.listener(|app, _, _, cx| app.close_desktop_switcher(cx)),
-                                    ),
-                            ),
-                    )
-                    .when_some(input, |this, input| this.child(Input::new(&input)))
-                    .child(
-                        div()
-                            .id("desktop-workspace-switcher-scroll")
-                            .flex_1()
-                            .min_h(px(0.0))
-                            .overflow_scroll()
-                            .when(workspaces.is_empty(), |this| {
-                                this.child(
-                                    div()
-                                        .py(px(48.0))
-                                        .flex()
-                                        .justify_center()
-                                        .text_color(rgba(theme.text_secondary))
-                                        .child("No workspaces match your search."),
-                                )
-                            })
-                            .child(
-                                div().grid().grid_cols(3).gap(px(12.0)).children(
-                                    workspaces
-                                        .into_iter()
-                                        .enumerate()
-                                        .map(|(index, workspace)| {
-                                            let id = workspace.id.clone();
-                                            let key_id = id.clone();
-                                            let selected =
-                                                self.desktop_workspace.active_id.as_deref()
-                                                    == Some(id.as_str());
-                                            let preview = self
-                                                .desktop_workspace
-                                                .previews
-                                                .get(&id)
-                                                .cloned()
-                                                .unwrap_or_default();
-                                            let running = self
-                                                .desktop_workspace
-                                                .sessions
-                                                .iter()
-                                                .filter(|((workspace_id, _), _)| {
-                                                    workspace_id == &id
-                                                })
-                                                .map(|(_, session)| {
-                                                    session
-                                                        .read(cx)
-                                                        .runtime
-                                                        .running_terminal_count()
-                                                })
-                                                .sum::<usize>();
-                                            div()
-                                                .id(("desktop-workspace-switch", index))
-                                                .debug_selector(move || {
-                                                    format!("desktop-workspace-switch-{index}")
-                                                })
-                                                .h(px(156.0))
-                                                .flex()
-                                                .flex_col()
-                                                .justify_between()
-                                                .p(px(12.0))
-                                                .rounded(px(13.0))
-                                                .border_1()
-                                                .border_color(rgba(if selected {
-                                                    theme.accent_blue
-                                                } else {
-                                                    theme.node_stroke
-                                                }))
-                                                .bg(rgba(theme.canvas_to))
-                                                .cursor_pointer()
-                                                .hover(move |style| {
-                                                    style.border_color(rgba(theme.accent_blue))
-                                                })
-                                                .active(move |style| {
-                                                    style.bg(rgba(theme.panel_high))
-                                                })
-                                                .tab_index(0)
-                                                .focus(move |style| {
-                                                    style.border_color(rgba(theme.accent_blue))
-                                                })
-                                                .on_click(cx.listener(move |app, _, window, cx| {
-                                                    app.open_desktop_workspace(
-                                                        id.clone(),
-                                                        window,
-                                                        cx,
-                                                    )
-                                                }))
-                                                .on_key_down(cx.listener(
-                                                    move |app, event: &KeyDownEvent, window, cx| {
-                                                        if matches!(
-                                                            event.keystroke.key.as_str(),
-                                                            "enter" | "space"
-                                                        ) {
-                                                            app.open_desktop_workspace(
-                                                                key_id.clone(),
-                                                                window,
-                                                                cx,
-                                                            );
-                                                            cx.stop_propagation();
-                                                        }
-                                                    },
-                                                ))
-                                                .child(
-                                                    div()
-                                                        .flex_1()
-                                                        .grid()
-                                                        .grid_cols(2)
-                                                        .gap(px(4.0))
-                                                        .children(preview.into_iter().take(4).map(
-                                                            |area| {
-                                                                div()
-                                                                    .p(px(5.0))
-                                                                    .rounded(px(5.0))
-                                                                    .bg(rgba(theme.panel_high))
-                                                                    .text_size(px(10.0))
-                                                                    .text_color(rgba(
-                                                                        theme.text_secondary,
-                                                                    ))
-                                                                    .child(area.name)
-                                                            },
-                                                        )),
-                                                )
-                                                .child(
-                                                    div()
-                                                        .font_semibold()
-                                                        .text_color(rgba(theme.text_primary))
-                                                        .child(workspace.name),
-                                                )
-                                                .child(
-                                                    div()
-                                                        .text_size(px(10.0))
-                                                        .text_color(rgba(theme.text_tertiary))
-                                                        .child(format!(
-                                                            "{} projects · {} live",
-                                                            workspace.project_count, running
-                                                        )),
-                                                )
-                                        }),
-                                ),
-                            ),
+                Button::new("desktop-workspace-switch-close")
+                    .debug_selector(|| "desktop-workspace-switch-close".to_string())
+                    .label("Back to Canvas")
+                    .custom(glass_button_variant(theme, cx))
+                    .on_click(
+                        cx.listener(|app, _, window, cx| app.dismiss_desktop_switcher(window, cx)),
                     ),
             )
+            .child(
+                div()
+                    .text_size(px(16.0))
+                    .font_semibold()
+                    .text_color(rgba(GLASS_TEXT))
+                    .child("Workspaces"),
+            )
+            .child(div().flex_1())
+            .when_some(input, |this, input| {
+                this.child(
+                    div()
+                        .w(px(280.0))
+                        .h(px(38.0))
+                        .flex()
+                        .items_center()
+                        .px(px(10.0))
+                        .rounded(px(10.0))
+                        .border_1()
+                        .border_color(rgba(theme.dock_line))
+                        .bg(rgba(self.desktop_input_fill()))
+                        .text_color(rgba(GLASS_TEXT))
+                        .child(Input::new(&input).appearance(false).cleanable(true)),
+                )
+            })
     }
 }

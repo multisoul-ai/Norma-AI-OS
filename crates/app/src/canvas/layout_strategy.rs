@@ -22,6 +22,7 @@ pub(crate) struct CanvasLayoutStrategy {
     pub(crate) fill: GridFill,
     pub(crate) track_count: usize,
     pub(crate) sizing: GridCardSizing,
+    pub(crate) chrome_in_parent: bool,
 }
 
 impl Default for CanvasLayoutStrategy {
@@ -30,6 +31,7 @@ impl Default for CanvasLayoutStrategy {
             fill: GridFill::RowFirst,
             track_count: 3,
             sizing: GridCardSizing::FitViewport,
+            chrome_in_parent: false,
         }
     }
 }
@@ -51,7 +53,7 @@ impl CanvasLayoutStrategy {
             aspect_ratio: DEFAULT_CARD_ASPECT_RATIO,
             fixed_card_width: FIXED_CARD_WIDTH_SCREEN_PX / zoom,
             gap_canvas: LAYOUT_GAP_SCREEN_PX / zoom,
-            safe_area: workspace_safe_area_for_zoom(zoom),
+            safe_area: workspace_safe_area_for_zoom(zoom, self.chrome_in_parent),
         }
     }
 
@@ -68,7 +70,10 @@ pub(crate) fn layout_gap_for_zoom(zoom: f32) -> f32 {
     LAYOUT_GAP_SCREEN_PX / zoom.max(0.001)
 }
 
-pub(crate) fn workspace_safe_area_for_zoom(zoom: f32) -> LayoutInsets {
+pub(crate) fn workspace_safe_area_for_zoom(zoom: f32, chrome_in_parent: bool) -> LayoutInsets {
+    if chrome_in_parent {
+        return LayoutInsets::ZERO;
+    }
     LayoutInsets::new(
         WORKSPACE_SAFE_LEFT_PX / zoom,
         WORKSPACE_SAFE_TOP_PX / zoom,

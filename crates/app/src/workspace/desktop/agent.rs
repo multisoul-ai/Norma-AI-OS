@@ -1,148 +1,111 @@
-use super::DesktopAgentCreation;
+use super::DesktopDeleteTarget;
 use crate::app::MultisoulApp;
-use gpui::{Context, Window};
-use std::path::PathBuf;
+use gpui::{Context, EntityId, Window};
+use storage::DesktopProjectArea;
+
+fn validate_desktop_agent_root(area: &DesktopProjectArea) -> Result<(), String> {
+    if !area.root.is_dir() {
+        return Err("Project directory is unavailable".into());
+    }
+    let identity =
+        workspace::project::identify_project(&area.root).map_err(|error| error.to_string())?;
+    if identity.root != area.root || identity.key != area.project_key {
+        return Err("Project directory or repository identity changed".into());
+    }
+    Ok(())
+}
 
 impl MultisoulApp {
     pub(crate) fn begin_desktop_agent_creation(
         &mut self,
+        source: EntityId,
         profile: canvas::AgentProfile,
         definition_id: Option<i64>,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let (Some(workspace_id), Some(area_id)) = (
-            self.desktop_workspace.active_id.clone(),
-            self.desktop_workspace.expanded_area_id.clone(),
-        ) else {
+        let Some(area_id) = self
+            .desktop_workspace
+            .sessions
+            .iter()
+            .find(|((workspace_id, _), session)| {
+                self.desktop_workspace.active_id.as_ref() == Some(workspace_id)
+                    && session.entity_id() == source
+            })
+            .map(|((_, area_id), _)| area_id.clone())
+        else {
+            return;
+        };
+        self.begin_desktop_agent_creation_for_area(area_id, profile, definition_id, window, cx);
+    }
+
+    pub(super) fn begin_desktop_agent_creation_for_area(
+        &mut self,
+        area_id: String,
+        profile: canvas::AgentProfile,
+        definition_id: Option<i64>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(workspace_id) = self.desktop_workspace.active_id.clone() else {
             return;
         };
         let Some(area) = self
             .desktop_workspace
             .areas
             .iter()
-            .find(|area| area.id == area_id)
+            .find(|area| area.id == area_id && area.desktop_workspace_id == workspace_id)
             .cloned()
         else {
             return;
         };
-        if self.desktop_workspace.area_errors.contains_key(&area_id) {
-            return;
-        }
-        self.desktop_workspace.agent_creation = Some(DesktopAgentCreation {
-            workspace_id: workspace_id.clone(),
-            area_id: area_id.clone(),
-            profile,
-            definition_id,
-            choices: Vec::new(),
-            loading: true,
-        });
-        cx.notify();
-        let work = cx.background_executor().spawn(async move {
-            let identity = workspace::project::identify_project(&area.root)
-                .map_err(|error| error.to_string())?;
-            if identity.key != area.project_key {
-                return Err("Project repository identity changed".to_string());
-            }
-            workspace::project::project_worktrees(&identity).map_err(|error| error.to_string())
-        });
-        cx.spawn(async move |this, cx| {
-            let result = work.await;
-            let _ = this.update(cx, |app, cx| {
-                if let Some(pending) = app.desktop_workspace.agent_creation.as_mut() {
-                    if pending.workspace_id != workspace_id || pending.area_id != area_id {
-                        return;
-                    }
-                    pending.loading = false;
-                    match result {
-                        Ok(choices) => pending.choices = choices,
-                        Err(error) => {
-                            app.desktop_workspace.error =
-                                Some(format!("Could not list worktrees: {error}"))
-                        }
-                    }
-                    cx.notify();
-                }
-            });
-        })
-        .detach();
-    }
-
-    pub(super) fn cancel_desktop_agent_creation(&mut self, cx: &mut Context<Self>) {
-        self.desktop_workspace.agent_creation = None;
-        cx.notify();
-    }
-
-    pub(super) fn choose_desktop_agent_worktree(
-        &mut self,
-        worktree: PathBuf,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let Some(pending) = self.desktop_workspace.agent_creation.as_ref() else {
+        let key = (workspace_id, area_id);
+        let Some(session) = self.desktop_workspace.sessions.get(&key).cloned() else {
+            self.desktop_workspace.error =
+                Some("Project canvas is still loading. Try again.".into());
+            cx.notify();
             return;
         };
-        if pending.loading || !pending.choices.contains(&worktree) {
-            return;
-        }
-        let Some(area) = self
-            .desktop_workspace
-            .areas
-            .iter()
-            .find(|area| area.id == pending.area_id)
-        else {
-            return;
-        };
-        let project_key = area.project_key.clone();
-        let target = (pending.workspace_id.clone(), pending.area_id.clone());
-        let profile = pending.profile;
-        let definition_id = pending.definition_id;
-        let check_path = worktree.clone();
-        self.desktop_workspace
-            .agent_creation
-            .as_mut()
-            .expect("pending chooser exists")
-            .loading = true;
+        self.desktop_workspace.error = None;
         cx.notify();
-        let work = cx.background_executor().spawn(async move {
-            let identity = workspace::project::identify_project(&check_path)
-                .map_err(|error| error.to_string())?;
-            if identity.key != project_key {
-                return Err("Selected worktree no longer belongs to this project".to_string());
-            }
-            Ok::<_, String>(identity.root)
-        });
+        let checked_area = area.clone();
+        let work = cx
+            .background_executor()
+            .spawn(async move { validate_desktop_agent_root(&checked_area) });
         cx.spawn_in(window, async move |this, cx| {
             let result = work.await;
             let _ = this.update_in(cx, |app, window, cx| {
-                if app.desktop_workspace.active_id.as_deref() != Some(&target.0)
-                    || app.desktop_workspace.expanded_area_id.as_deref() != Some(&target.1)
-                {
-                    app.desktop_workspace.agent_creation = None;
-                    cx.notify();
-                    return;
-                }
-                match result {
-                    Ok(worktree) => {
-                        if let Some(session) = app.desktop_workspace.sessions.get(&target) {
-                            session.update(cx, |session, cx| {
-                                session.spawn_desktop_agent_at(
-                                    profile,
-                                    definition_id,
-                                    &worktree,
-                                    window,
-                                    cx,
-                                )
-                            });
-                            app.desktop_workspace.agent_creation = None;
-                        }
-                    }
-                    Err(error) => {
-                        if let Some(pending) = app.desktop_workspace.agent_creation.as_mut() {
-                            pending.loading = false;
-                        }
-                        app.desktop_workspace.error =
-                            Some(format!("Could not create Agent: {error}"));
-                    }
+                let state = &app.desktop_workspace;
+                let deleting = match &state.pending_delete {
+                    Some(DesktopDeleteTarget::Workspace { id, .. }) => id == &key.0,
+                    Some(DesktopDeleteTarget::Area {
+                        workspace_id,
+                        area_id,
+                        ..
+                    }) => workspace_id == &key.0 && area_id == &key.1,
+                    None => false,
+                };
+                // Bind completion to the original instance, even after navigation.
+                let current = state.sessions.get(&key) == Some(&session)
+                    && session.read(cx).runtime.workspace_root() == Some(area.root.as_path())
+                    && (state.active_id.as_ref() != Some(&key.0)
+                        || state.areas.iter().any(|current| current == &area));
+                if deleting || !current {
+                    app.desktop_workspace.error = Some(
+                        "Project changed or was removed. Select a project and try again.".into(),
+                    );
+                } else if let Err(error) = result {
+                    app.desktop_workspace.error = Some(format!("Could not create Agent: {error}"));
+                } else {
+                    session.update(cx, |session, cx| {
+                        session.spawn_desktop_agent_at(
+                            profile,
+                            definition_id,
+                            &area.root,
+                            window,
+                            cx,
+                        )
+                    });
                 }
                 cx.notify();
             });
@@ -151,3 +114,7 @@ impl MultisoulApp {
         .detach();
     }
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/desktop_agent_creation_tests.rs"]
+mod tests;

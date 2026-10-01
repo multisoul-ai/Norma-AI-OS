@@ -4,6 +4,12 @@ pub(super) fn shortcut_command_name(command: ShortcutCommandId) -> &'static str 
     match command {
         ShortcutCommandId::NewWindow => "new_window",
         ShortcutCommandId::SwitchWorkspace => "switch_workspace",
+        ShortcutCommandId::PreviousWorkspace => "previous_workspace",
+        ShortcutCommandId::NextWorkspace => "next_workspace",
+        ShortcutCommandId::PreviousProject => "previous_project",
+        ShortcutCommandId::NextProject => "next_project",
+        ShortcutCommandId::ShowProjectOverview => "show_project_overview",
+        ShortcutCommandId::ShowWorkspaceDirectory => "show_workspace_directory",
         ShortcutCommandId::NewTerminal => "new_terminal",
         ShortcutCommandId::NewBrowser => "new_browser",
         ShortcutCommandId::CopyCardContent => "copy_card_content",

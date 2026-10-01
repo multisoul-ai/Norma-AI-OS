@@ -26,3 +26,69 @@ Patched call sites:
 
 Verification belongs in the Norma OS L3 memory regression run: continuous
 foreground repaint must not cause the `CVDisplayLink` object count to grow.
+
+## Fixed-layout scene presentation (2026-09-30, feasibility work)
+
+`scene(id, logical_size, child)` fills a parent viewport and presents its child
+with positive uniform scale and translation. It keeps the child's layout and
+content mask in local coordinates. Cached views retain original paint commands;
+replay transforms GPU primitives and clipping without raster readback. This
+initial path transforms primitive geometry on the CPU before normal GPU drawing;
+its frame cost still needs the unified-scene plan's Release measurements.
+
+A stable transform reference shared by paint commands, hitboxes, debug selectors
+and mouse listeners keeps cached children aligned when their parent moves.
+Pixel scroll deltas are inverted with the scale; line deltas keep their semantic
+units. Deferred drawing retains its source scene and local clip. Normal elements
+outside a scene retain their existing coordinate and culling behavior.
+
+Focused verification (pure unit tests, not native UI acceptance):
+
+```sh
+cargo test --manifest-path vendor/gpui-0.2.2/Cargo.toml --locked --lib scene_ -- --nocapture
+```
+
+The vendored crate is excluded from the app workspace so this explicit command
+uses its own lockfile without adding upstream tests to app-wide test runs.
+Four unit tests check retained paint commands, parent camera movement, nested
+clips, submitted solid quads, mouse inverse mapping and re-entry after culling.
+Platform input handlers retain the same live transform: IME candidate bounds and
+selected bounds project to window coordinates, while character lookup uses the
+inverse mapping and rejects points beyond the clip. The input tests register
+through Window::handle_input, replay a cached child under a moving camera, and
+verify unchanged behavior for ordinary inputs. They use TestAppContext and do
+not establish real macOS IME behavior.
+The old `crates/e2e` suite is disabled at the user's request; its results are
+historical only. End-to-end acceptance uses Computer Use on an isolated real App.
+Deferred drawing and IME still need real-App evidence. Opacity (including video),
+native Browser composition, all primitive kinds, text sharpness, real card
+integration and performance are still required before adopting this path in the
+workbench. This patch is not a claim that G1 has passed.
+
+## Bounded Metal frame diagnostics (2026-10-01)
+
+Set `GPUI_FRAME_TIMINGS=1` and enable the existing logger's `gpui_frame` info
+target. Disabled by default; capture ends after 300 seconds or 36,000 submissions.
+No pixel readback, trace buffer, file writer, retained drawable, or extra GPU wait
+is added. CPU-only benchmark runs must leave this option disabled.
+
+Records are joined by process ID and submission ID. `submit` reports GPUI
+`Window::draw` wall time plus Metal encoding/submission wall time, pixel size and
+backing scale. The content build is consumed once: a replay of an unchanged
+scene reports `build_ms=None`, not the previous frame's work again. This CPU
+scope excludes earlier application update callbacks and is not input latency.
+`gpu` reads `GPUStartTime`/`GPUEndTime` from the completion handler; missing or
+invalid timestamps remain `None`. `present` uses the drawable's actual
+`presentedTime`, not the time the callback arrives. Zero/missing presentations
+must remain unverified. Callback ordering is unspecified.
+
+Do not count idle gaps as missed frames. Evaluate presentation intervals only
+over independently identified continuous animation intervals and keep capture
+and observer overhead visible in the report. The records alone do not establish
+application-attributable stalls, input latency, or completion of a performance gate.
+
+Focused arithmetic validation:
+
+```sh
+cargo test --manifest-path vendor/gpui-0.2.2/Cargo.toml --locked --lib frame_timing::tests -- --nocapture
+```

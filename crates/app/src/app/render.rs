@@ -28,6 +28,11 @@ impl Render for MultisoulApp {
             .collect();
         self.start_animation_frame_driver_if_needed(window, cx);
         let feature_guide_visible = self.feature_guide.is_visible();
+        let desktop_project_zoom = self
+            .desktop_host
+            .as_ref()
+            .and_then(|host| host.upgrade())
+            .is_some_and(|host| host.read(cx).desktop_project_zoom_active());
         let mut root = div()
             .key_context("MultisoulApp")
             .track_focus(&self.focus_handle)
@@ -46,7 +51,9 @@ impl Render for MultisoulApp {
             .on_modifiers_changed(cx.listener(Self::on_modifiers_changed))
             .size_full()
             .relative()
-            .bg(gpui::rgba(self.theme.graphite))
+            .when(self.desktop_host.is_none(), |root| {
+                root.bg(gpui::rgba(self.theme.graphite))
+            })
             .text_size(px(13.0))
             .when(
                 matches!(self.screen, AppScreen::Canvas) && !feature_guide_visible,
@@ -74,9 +81,19 @@ impl Render for MultisoulApp {
 
         match self.screen {
             AppScreen::Launchpad => {
+                if self.desktop_workspace_zoom_active() {
+                    root = root.child(self.render_workspace_backdrop());
+                }
                 root = root.child(self.render_desktop_launchpad(window, cx));
+                if self.desktop_workspace_zoom_active() {
+                    root = root.child(self.render_desktop_workspace(window, cx));
+                }
             }
             AppScreen::DesktopWorkspace => {
+                if self.desktop_workspace_zoom_active() {
+                    root = root.child(self.render_workspace_backdrop());
+                    root = root.child(self.render_desktop_launchpad(window, cx));
+                }
                 root = root.child(self.render_desktop_workspace(window, cx));
             }
             AppScreen::Canvas => {
@@ -85,24 +102,31 @@ impl Render for MultisoulApp {
                         gpui::AnyView::from(self.canvas_surface.clone())
                             .cached(gpui::StyleRefinement::default().absolute().size_full()),
                     )
-                    .children(ordered_snake_views)
-                    .child(render_canvas_overlays(self, window, cx))
-                    .when_some(
-                        crate::effects::dispatch_receipt::render(self, window),
-                        |root, effect| root.child(effect),
-                    )
-                    .child(self.render_workspace_chrome(window, cx));
-                if let Some(error_banner) = self.render_workspace_error_banner(cx) {
-                    root = root.child(error_banner);
+                    .children(ordered_snake_views);
+                if !desktop_project_zoom && self.desktop_host.is_none() {
+                    root = root
+                        .child(render_canvas_overlays(self, window, cx))
+                        .when_some(
+                            crate::effects::dispatch_receipt::render(self, window),
+                            |root, effect| root.child(effect),
+                        )
+                        .child(self.render_workspace_chrome(window, cx));
+                    if let Some(error_banner) = self.render_workspace_error_banner(cx) {
+                        root = root.child(error_banner);
+                    }
+                    root = root.child(self.voice_window_inset_view.clone());
                 }
-                root = root.child(self.voice_window_inset_view.clone());
             }
+        }
+
+        if matches!(self.screen, AppScreen::DesktopWorkspace) && !feature_guide_visible {
+            root = root.child(self.render_desktop_dock(window, cx));
         }
 
         if self.feature_guide.should_render() {
             root = root.child(self.render_feature_guide(window, cx));
         }
-        if matches!(self.screen, AppScreen::Canvas) && self.settings_panel.open {
+        if self.settings_panel.open {
             root = root.child(self.render_settings_panel(window, cx));
         }
         if self.clone_project.is_open() {
@@ -111,7 +135,10 @@ impl Render for MultisoulApp {
         if self.desktop_workspace.rename_target.is_some() {
             root = root.child(self.render_desktop_rename_dialog(cx));
         }
-        if self.desktop_workspace.switcher_open {
+        if self.desktop_workspace.switcher_open
+            && matches!(self.screen, AppScreen::Launchpad)
+            && !self.desktop_workspace_zoom_active()
+        {
             root = root.child(self.render_desktop_switcher(cx));
         }
         if self.desktop_workspace.pending_delete.is_some() {
@@ -120,8 +147,8 @@ impl Render for MultisoulApp {
         if self.desktop_workspace.pending_project_path.is_some() {
             root = root.child(self.render_desktop_project_destination(cx));
         }
-        if self.desktop_workspace.agent_creation.is_some() {
-            root = root.child(self.render_desktop_agent_worktree_picker(cx));
+        if self.desktop_workspace.add_project_open {
+            root = root.child(self.render_desktop_add_project(cx));
         }
         if let Some(dialogs) = ui::component::Root::render_dialog_layer(window, cx) {
             root = root.child(dialogs);
@@ -139,14 +166,18 @@ impl MultisoulApp {
     ) -> impl IntoElement {
         self.performance.record_render();
         #[cfg(target_os = "macos")]
-        self.sync_canvas_video_wallpaper(cx);
+        if self.desktop_host.is_none() {
+            self.sync_canvas_video_wallpaper(cx);
+        }
         self.reflow_if_window_size_changed(window);
         div()
             .id("canvas-surface")
             .debug_selector(|| "canvas-surface".to_string())
             .relative()
             .size_full()
-            .child(self.render_workspace_backdrop())
+            .when(self.desktop_host.is_none(), |this| {
+                this.child(self.render_workspace_backdrop())
+            })
             .child(render_canvas(self, window, cx))
     }
 

@@ -449,7 +449,7 @@ impl AgentDefinitionsState {
             .collect()
     }
 
-    fn reload(&mut self) {
+    pub(crate) fn reload(&mut self) {
         let Some(store) = self.store.as_ref() else {
             self.definitions.clear();
             return;

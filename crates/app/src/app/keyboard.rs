@@ -271,7 +271,7 @@ impl MultisoulApp {
             && ev.keystroke.key == "escape"
             && !ev.keystroke.modifiers.modified()
         {
-            self.close_desktop_switcher(cx);
+            self.dismiss_desktop_switcher(window, cx);
             cx.stop_propagation();
             return;
         }

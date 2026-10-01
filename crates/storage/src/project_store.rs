@@ -54,6 +54,26 @@ impl ProjectStore {
         Ok(store)
     }
 
+    pub fn initialize_for_desktop_definitions(
+        paths: &DatabasePaths,
+        project_key: &Path,
+    ) -> StorageResult<Self> {
+        let parent = paths
+            .app_db_path()
+            .parent()
+            .ok_or_else(|| StorageError::InvalidAppDatabasePath(paths.app_db_path().to_owned()))?;
+        let filename = format!(
+            "{:x}.sqlite",
+            Sha256::digest(project_key.to_string_lossy().as_bytes())
+        );
+        let path = parent.join("desktop-project-definitions").join(filename);
+        let store = Self::new(path.clone());
+        store
+            .migrate()
+            .map_err(|source| project_initialization_error(paths, path, source))?;
+        Ok(store)
+    }
+
     pub fn path(&self) -> &Path {
         &self.path
     }

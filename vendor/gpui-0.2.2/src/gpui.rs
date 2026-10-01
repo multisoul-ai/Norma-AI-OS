@@ -20,6 +20,8 @@ pub mod colors;
 mod element;
 mod elements;
 mod executor;
+#[cfg(all(target_os = "macos", not(feature = "macos-blade")))]
+mod frame_timing;
 mod geometry;
 mod global;
 mod input;
@@ -31,6 +33,8 @@ mod path_builder;
 mod platform;
 pub mod prelude;
 mod scene;
+mod scene_transform;
+mod scene_transform_paint;
 mod shared_string;
 mod shared_uri;
 mod style;

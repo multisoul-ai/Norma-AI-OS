@@ -9,7 +9,8 @@ pub(super) fn migrate(connection: &Connection) -> StorageResult<()> {
             name TEXT NOT NULL,
             created_at_unix_ms INTEGER NOT NULL,
             last_opened_at_unix_ms INTEGER NOT NULL,
-            expanded_area_id TEXT
+            expanded_area_id TEXT,
+            overview_scroll_y INTEGER NOT NULL DEFAULT 0
         );
 
         CREATE INDEX IF NOT EXISTS idx_desktop_workspaces_recent
@@ -33,6 +34,12 @@ pub(super) fn migrate(connection: &Connection) -> StorageResult<()> {
         "desktop_workspaces",
         "expanded_area_id",
         "expanded_area_id TEXT",
+    )?;
+    super::ensure_column(
+        connection,
+        "desktop_workspaces",
+        "overview_scroll_y",
+        "overview_scroll_y INTEGER NOT NULL DEFAULT 0",
     )?;
     Ok(())
 }

@@ -1798,10 +1798,11 @@ impl Interactivity {
 
                 #[cfg(any(feature = "test-support", test))]
                 if let Some(debug_selector) = &self.debug_selector {
-                    window
-                        .next_frame
-                        .debug_bounds
-                        .push((debug_selector.clone(), bounds));
+                    window.next_frame.debug_bounds.push((
+                        debug_selector.clone(),
+                        bounds,
+                        window.scene_transform.clone(),
+                    ));
                 }
 
                 self.paint_hover_group_handler(window, cx);

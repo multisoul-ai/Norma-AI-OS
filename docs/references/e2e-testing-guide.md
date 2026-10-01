@@ -1,5 +1,10 @@
 # E2E Testing Guide
 
+> **已禁用（2026-09-30，用户明确要求）**：旧 `crates/e2e` 不再新增、维护或运行，也不再作为验收依据；后续删除与重构。以下内容仅作历史参考。
+> Cargo 已关闭库测试、doctest 和集成测试发现，移除测试依赖，并停用源码入口；零测试成功不表示验收通过。
+> 改用受影响 crate 的单元/集成测试、GPUI 底层测试与隔离真实 App 验收。页面/样式使用 Computer Use；性能以真实呈现数据为准。
+
+
 `crates/e2e` 是 Multisoul Desktop 的端到端测试 crate。当前包含三类测试：
 
 - app/headless GPUI e2e：在 `TestAppContext` 中驱动真实 `MultisoulApp` 状态机，

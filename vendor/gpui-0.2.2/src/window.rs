@@ -524,6 +524,7 @@ impl HitboxId {
 /// See [Window::insert_hitbox] for more details.
 #[derive(Clone, Debug, Deref)]
 pub struct Hitbox {
+    pub(crate) scene_transform: Option<crate::scene_transform::SceneTransform>,
     /// A unique identifier for the hitbox.
     pub id: HitboxId,
     /// The bounds of the hitbox.
@@ -653,6 +654,7 @@ pub(crate) struct TooltipRequest {
 }
 
 pub(crate) struct DeferredDraw {
+    scene_scope: Option<(crate::scene_transform::SceneTransform, Bounds<Pixels>)>,
     current_view: EntityId,
     priority: usize,
     parent_node: DispatchNodeId,
@@ -680,7 +682,11 @@ pub(crate) struct Frame {
     pub(crate) cursor_styles: Vec<CursorStyleRequest>,
     // Paint order lets cached subtrees replay only their own selectors into a fresh frame.
     #[cfg(any(test, feature = "test-support"))]
-    pub(crate) debug_bounds: Vec<(String, Bounds<Pixels>)>,
+    pub(crate) debug_bounds: Vec<(
+        String,
+        Bounds<Pixels>,
+        Option<crate::scene_transform::SceneTransform>,
+    )>,
     #[cfg(any(feature = "inspector", debug_assertions))]
     pub(crate) next_inspector_instance_ids: FxHashMap<Rc<crate::InspectorElementPath>, usize>,
     #[cfg(any(feature = "inspector", debug_assertions))]
@@ -782,6 +788,10 @@ impl Frame {
         let mut hit_test = HitTest::default();
         for hitbox in self.hitboxes.iter().rev() {
             let bounds = hitbox.bounds.intersect(&hitbox.content_mask.bounds);
+            let bounds = hitbox.scene_transform.as_ref().map_or(bounds, |transform| {
+                let transform = transform.resolve();
+                transform.bounds(bounds).intersect(&transform.clip)
+            });
             if bounds.contains(&position) {
                 hit_test.ids.push(hitbox.id);
                 if !set_hover_hitbox_count
@@ -842,6 +852,7 @@ pub struct Window {
     pub(crate) text_style_stack: Vec<TextStyleRefinement>,
     pub(crate) rendered_entity_stack: Vec<EntityId>,
     pub(crate) element_offset_stack: Vec<Point<Pixels>>,
+    pub(crate) scene_transform: Option<crate::scene_transform::SceneTransform>,
     pub(crate) element_opacity: f32,
     pub(crate) content_mask_stack: Vec<ContentMask<Pixels>>,
     pub(crate) requested_autoscroll: Option<Bounds<Pixels>>,
@@ -1226,6 +1237,7 @@ impl Window {
             text_style_stack: Vec::new(),
             rendered_entity_stack: Vec::new(),
             element_offset_stack: Vec::new(),
+            scene_transform: None,
             content_mask_stack: Vec::new(),
             element_opacity: 1.0,
             requested_autoscroll: None,
@@ -1896,7 +1908,11 @@ impl Window {
 
     /// The position of the mouse relative to the window.
     pub fn mouse_position(&self) -> Point<Pixels> {
-        self.mouse_position
+        self.scene_transform
+            .as_ref()
+            .map_or(self.mouse_position, |transform| {
+                transform.resolve().inverse(self.mouse_position)
+            })
     }
 
     /// The current state of the keyboard's modifiers
@@ -1917,6 +1933,8 @@ impl Window {
     /// the contents of the new [`Scene`], use [`Self::present`].
     #[profiling::function]
     pub fn draw(&mut self, cx: &mut App) -> ArenaClearNeeded {
+        #[cfg(all(target_os = "macos", not(feature = "macos-blade")))]
+        let timing_started = crate::frame_timing::start();
         self.invalidate_entities();
         cx.entities.clear_accessed();
         debug_assert!(self.rendered_entity_stack.is_empty());
@@ -1981,6 +1999,12 @@ impl Window {
         self.refreshing = false;
         self.invalidator.set_phase(DrawPhase::None);
         self.needs_present.set(true);
+
+        #[cfg(all(target_os = "macos", not(feature = "macos-blade")))]
+        self.rendered_frame
+            .scene
+            .cpu_build_duration
+            .set(timing_started.map(|start| start.elapsed()));
 
         ArenaClearNeeded
     }
@@ -2175,11 +2199,14 @@ impl Window {
 
             let prepaint_start = self.prepaint_index();
             if let Some(element) = deferred_draw.element.as_mut() {
-                self.with_rendered_view(deferred_draw.current_view, |window| {
-                    window.with_absolute_element_offset(deferred_draw.absolute_offset, |window| {
-                        element.prepaint(window, cx)
-                    });
-                })
+                self.with_saved_scene(deferred_draw.scene_scope.as_ref(), |window| {
+                    window.with_rendered_view(deferred_draw.current_view, |window| {
+                        window.with_absolute_element_offset(
+                            deferred_draw.absolute_offset,
+                            |window| element.prepaint(window, cx),
+                        );
+                    })
+                });
             } else {
                 self.reuse_prepaint(deferred_draw.prepaint_range.clone());
             }
@@ -2210,9 +2237,11 @@ impl Window {
 
             let paint_start = self.paint_index();
             if let Some(element) = deferred_draw.element.as_mut() {
-                self.with_rendered_view(deferred_draw.current_view, |window| {
-                    element.paint(window, cx);
-                })
+                self.with_saved_scene(deferred_draw.scene_scope.as_ref(), |window| {
+                    window.with_rendered_view(deferred_draw.current_view, |window| {
+                        element.paint(window, cx);
+                    })
+                });
             } else {
                 self.reuse_paint(deferred_draw.paint_range.clone());
             }
@@ -2270,6 +2299,7 @@ impl Window {
                 [range.start.deferred_draws_index..range.end.deferred_draws_index]
                 .iter()
                 .map(|deferred_draw| DeferredDraw {
+                    scene_scope: deferred_draw.scene_scope.clone(),
                     current_view: deferred_draw.current_view,
                     parent_node: reused_subtree.refresh_node_id(deferred_draw.parent_node),
                     element_id_stack: deferred_draw.element_id_stack.clone(),
@@ -2774,6 +2804,10 @@ impl Window {
         self.invalidator.debug_assert_prepaint();
         let parent_node = self.next_frame.dispatch_tree.active_node_id().unwrap();
         self.next_frame.deferred_draws.push(DeferredDraw {
+            scene_scope: self
+                .scene_transform
+                .clone()
+                .map(|transform| (transform, self.content_mask().bounds)),
             current_view: self.current_view(),
             parent_node,
             element_id_stack: self.element_id_stack.clone(),
@@ -3321,6 +3355,7 @@ impl Window {
         let mut id = self.next_hitbox_id;
         self.next_hitbox_id = self.next_hitbox_id.next();
         let hitbox = Hitbox {
+            scene_transform: self.scene_transform.clone(),
             id,
             bounds,
             content_mask,
@@ -3421,7 +3456,11 @@ impl Window {
             let cx = self.to_async(cx);
             self.next_frame
                 .input_handlers
-                .push(Some(PlatformInputHandler::new(cx, Box::new(input_handler))));
+                .push(Some(PlatformInputHandler::new(
+                    cx,
+                    Box::new(input_handler),
+                    self.scene_transform.clone(),
+                )));
         }
     }
 
@@ -3435,11 +3474,19 @@ impl Window {
         mut handler: impl FnMut(&Event, DispatchPhase, &mut Window, &mut App) + 'static,
     ) {
         self.invalidator.debug_assert_paint();
-
+        let transform = self.scene_transform.clone();
         self.next_frame.mouse_listeners.push(Some(Box::new(
             move |event: &dyn Any, phase: DispatchPhase, window: &mut Window, cx: &mut App| {
-                if let Some(event) = event.downcast_ref() {
-                    handler(event, phase, window, cx)
+                if let Some(event) = event.downcast_ref::<Event>() {
+                    if let Some(transform) = &transform {
+                        let resolved = transform.resolve();
+                        let event = event.to_local(resolved.scale, resolved.offset);
+                        let previous = window.scene_transform.replace(transform.clone());
+                        handler(&event, phase, window, cx);
+                        window.scene_transform = previous;
+                    } else {
+                        handler(event, phase, window, cx);
+                    }
                 }
             },
         )));

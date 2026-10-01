@@ -307,7 +307,7 @@ pub(crate) fn poll_video_wallpaper(
 impl MultisoulApp {
     /// Sync Canvas video before rendering its backdrop so an outgoing
     /// Launchpad frame cannot appear during the screen transition.
-    pub(super) fn sync_canvas_video_wallpaper(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn sync_canvas_video_wallpaper(&mut self, cx: &mut Context<Self>) {
         let canvas_video = (self.wallpaper_settings.current_kind() == WallpaperKind::Video)
             .then(|| self.wallpaper_settings.resolve_path())
             .flatten();

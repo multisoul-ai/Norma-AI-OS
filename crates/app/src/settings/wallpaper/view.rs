@@ -140,7 +140,7 @@ fn builtin_cell(
         .cursor_pointer()
         .on_click(cx.listener(move |app, _: &ClickEvent, _window, cx| {
             app.wallpaper_settings.select_builtin(rel);
-            cx.notify();
+            app.wallpaper_selection_changed(cx);
         }))
         .child(thumbnail_box(
             ThumbnailBoxContent {
@@ -193,7 +193,7 @@ fn custom_cell(
         .cursor_pointer()
         .on_click(cx.listener(move |app, _: &ClickEvent, _window, cx| {
             app.wallpaper_settings.select_custom(filename_owned.clone());
-            cx.notify();
+            app.wallpaper_selection_changed(cx);
         }))
         .child(thumbnail_box(
             ThumbnailBoxContent {
@@ -333,7 +333,7 @@ fn delete_button(
         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
         .on_click(cx.listener(move |app, _: &ClickEvent, _window, cx| {
             app.wallpaper_settings.delete_custom(&filename);
-            cx.notify();
+            app.wallpaper_selection_changed(cx);
         }))
         .child("x")
 }

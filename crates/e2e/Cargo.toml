@@ -1,4 +1,5 @@
 [lib]
+test = false
 doctest = false
 
 [package]
@@ -6,30 +7,7 @@ name = "e2e"
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+autotests = false
 
-# 本 crate 全部是测试代码，依赖放在 [dependencies]（非 dev-dependencies），
-# 以便 `cargo test -p e2e` 默认编译。`gpui` 显式启用 `test-support` feature，
-# 该 feature 仅在 e2e crate 激活，不会影响 `cargo build -p app` 的生产构建。
-[dependencies]
-agent.workspace = true
-asr.workspace = true
-audio.workspace = true
-app = { path = "../app", features = ["e2e-test-support"] }
-dialogue.workspace = true
-runtime = { path = "../runtime", features = ["e2e-test-support"] }
-storage.workspace = true
-canvas = { path = "../canvas" }
-terminal = { path = "../terminal" }
-tts.workspace = true
-ui.workspace = true
-norma.workspace = true
-serde_json.workspace = true
-rusqlite.workspace = true
-rustls.workspace = true
-tungstenite.workspace = true
-workspace.workspace = true
-gpui = { workspace = true, features = ["test-support"] }
-crossbeam-channel = { workspace = true }
-async-channel.workspace = true
-tempfile = { workspace = true }
-tracing-subscriber.workspace = true
+# 旧 e2e 套件已禁用，源码仅保留供后续删除与重构。
+# 不再引入测试依赖或激活其他 crate 的 e2e-test-support feature。

@@ -2,6 +2,8 @@
 # Builds and opens an isolated real macOS app for Computer Use mobile pairing acceptance.
 # Uses an isolated Launchpad preview solely to skip reconciling users' global CLI installs.
 set -euo pipefail
+echo "Disabled: this legacy runner depends on retired crates/e2e; use crate tests and isolated real-App acceptance." >&2
+exit 2
 root=$(cd "$(dirname "$0")/.." && pwd)
 validation_preview=${NORMA_MOBILE_L3_PREVIEW:-launchpad}
 case "$validation_preview" in

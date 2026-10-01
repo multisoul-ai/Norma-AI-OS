@@ -9,6 +9,20 @@ use crate::app::MultisoulApp;
 use gpui::Context;
 
 impl MultisoulApp {
+    pub(crate) fn wallpaper_selection_changed(&mut self, cx: &mut Context<Self>) {
+        if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
+            let selection = self.wallpaper_settings.selection.clone();
+            host.update(cx, |host, cx| {
+                host.wallpaper_settings.selection = selection;
+                host.sync_canvas_video_wallpaper(cx);
+                cx.notify();
+            });
+        } else {
+            self.sync_canvas_video_wallpaper(cx);
+        }
+        cx.notify();
+    }
+
     /// Open the wallpaper file picker and, on a successful pick, import the
     /// chosen file as a custom wallpaper.
     ///
@@ -32,7 +46,7 @@ impl MultisoulApp {
                         tracing::warn!(?path, reason, "wallpaper import rejected");
                     }
                 }
-                cx.notify();
+                app.wallpaper_selection_changed(cx);
             })
             .ok();
         })

@@ -32,9 +32,6 @@ impl MultisoulApp {
     }
 
     pub(crate) fn toggle_settings_panel(&mut self, cx: &mut Context<Self>) {
-        if !matches!(self.screen, AppScreen::Canvas) {
-            return;
-        }
         let was_open = self.settings_panel.open;
         if was_open && self.agent_settings_blocks_close() {
             cx.notify();

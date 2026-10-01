@@ -1,19 +1,19 @@
-/// Product UI Command Dock：7 个图标按钮 + 2 个分隔符，并嵌入 Voice 状态单元。
+/// Product UI Command Dock：8 个图标按钮 + 2 个分隔符，并嵌入 Voice 状态单元。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   source = include_str!("../../src/app/chrome/dock.rs")
 ///   render_source = source 中 #[cfg(test)] 前的生产渲染区
 ///   dock_start = `fn render_command_dock`
-///   dock_end = `fn command_dock_shadow`
-///   分隔符调用次数 = 2；图标按钮调用次数 = 7
+///   dock_end = `fn render_desktop_overview_dock`（不把另一层级的 Dock 重复计数）
+///   分隔符调用次数 = 2；原有图标 7 + 工作空间切换 1 = 8
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 截取 Command Dock 函数区段。
-///   2. 确认 Dock 含 7 个 chrome_icon_button、2 个 chrome_divider 和稳定 selector。
+///   2. 确认 Dock 含 8 个 chrome_icon_button、2 个 chrome_divider 和稳定 selector。
 ///   3. 确认 Voice 嵌入 Dock，旧文字按钮与旧 glyph 不再出现。
 ///
 /// 预期结果：
-///   - 正断言：Dock 含 7 个图标按钮、2 个分隔符、Preview 与 Voice。
+///   - 正断言：Dock 含 8 个图标按钮、2 个分隔符、Preview 与 Voice。
 ///   - 负断言：Dock 不含旧 chrome_button、CANVAS、+、⚙ 或 ↕ 字面量。
 #[test]
 fn test_product_ui_command_dock_uses_grouped_icons_and_embedded_voice() {
@@ -23,15 +23,15 @@ fn test_product_ui_command_dock_uses_grouped_icons_and_embedded_voice() {
         .find("fn render_command_dock")
         .expect("Command Dock 应有独立渲染函数");
     let dock_end = render_source
-        .find("fn command_dock_shadow")
-        .expect("command_dock_shadow 应作为 Command Dock 区段的右界");
+        .find("fn render_desktop_overview_dock")
+        .expect("项目 Command Dock 区段应止于总览 Dock 函数之前");
     let dock = &render_source[dock_start..dock_end];
     let icon_button_calls = dock.matches("chrome_icon_button(").count();
     let divider_calls = dock.matches("chrome_divider(").count();
 
     assert_eq!(
-        icon_button_calls, 7,
-        "Dock 应恰好含 7 个图标按钮，actual={icon_button_calls}"
+        icon_button_calls, 8,
+        "Dock 应恰好含 8 个图标按钮，actual={icon_button_calls}"
     );
     assert_eq!(
         divider_calls, 2,
@@ -83,8 +83,8 @@ fn test_product_ui_command_dock_orders_canvas_creation_and_utility_as_three_grou
         .find("fn render_command_dock")
         .expect("Command Dock 应有独立渲染函数");
     let dock_end = render_source
-        .find("fn command_dock_shadow")
-        .expect("command_dock_shadow 应作为 Command Dock 区段的右界");
+        .find("fn render_desktop_overview_dock")
+        .expect("项目 Command Dock 区段应止于总览 Dock 函数之前");
     let dock = &render_source[dock_start..dock_end];
 
     let new_trigger = dock

@@ -172,7 +172,7 @@ impl MultisoulApp {
         )
     }
 
-    pub(super) fn render_workspace_backdrop(&self) -> Stateful<Div> {
+    pub(crate) fn render_workspace_backdrop(&self) -> Stateful<Div> {
         let theme = self.theme;
         let backdrop = div()
             .id("workspace-backdrop")
@@ -378,7 +378,7 @@ impl MultisoulApp {
             .bottom(px(0.0))
             .child(render_canvas_minimap(&self.runtime, theme, window))
             .when_some(voice_caption, |chrome, caption| chrome.child(caption))
-            .child(self.render_command_dock(window, cx))
+            .child(self.render_command_dock(window, cx, None))
             .child(self.render_workspace_top_bar(cx))
             .when(self.voice_ready_notification_visible, |chrome| {
                 chrome.child(self.render_voice_ready_notification(cx))

@@ -814,7 +814,13 @@ impl VisualTestContext {
                 .debug_bounds
                 .iter()
                 .rev()
-                .find_map(|(name, bounds)| (name == selector).then_some(*bounds))
+                .find_map(|(name, bounds, transform)| {
+                    (name == selector).then(|| {
+                        transform
+                            .as_ref()
+                            .map_or(*bounds, |transform| transform.resolve().bounds(*bounds))
+                    })
+                })
         })
     }
 
