@@ -51,6 +51,20 @@ pub(crate) enum NativeBrowserView {
 }
 
 impl NativeBrowserView {
+    pub(crate) fn present(
+        &mut self,
+        placement: gpui::ScenePresentation,
+        interactive: bool,
+        window: &Window,
+    ) {
+        match self {
+            #[cfg(target_os = "macos")]
+            Self::Wry(view) => view.present(placement, interactive, window),
+            #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
+            Self::Cef(view) => view.present(placement, interactive, window),
+        }
+    }
+
     pub(crate) fn create(
         engine: BrowserEngineKind,
         node_id: NodeId,

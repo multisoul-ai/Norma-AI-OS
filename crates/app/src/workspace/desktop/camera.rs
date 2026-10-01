@@ -108,6 +108,9 @@ pub(super) struct DesktopCanvasTransition {
     pub(super) subject: DesktopCanvasSubject,
     pub(super) camera: DesktopCamera,
     pub(super) projects: Option<super::project_switch::ProjectSwitch>,
+    /// The enclosing workspace's real content slot in the directory. A project camera
+    /// can target this nested slot directly without an intermediate workspace animation.
+    pub(super) directory_content: Option<CanvasRect>,
 }
 
 impl DesktopCanvasTransition {
@@ -122,6 +125,7 @@ impl DesktopCanvasTransition {
             subject,
             camera,
             projects: None,
+            directory_content: None,
         }
     }
 
@@ -129,10 +133,7 @@ impl DesktopCanvasTransition {
         let camera_target = if let (Some(projects), DesktopCanvasSubject::Project { area_id, .. }) =
             (&mut self.projects, &subject)
         {
-            if !matches!(&self.subject, DesktopCanvasSubject::Project { area_id: current, .. } if current == area_id)
-            {
-                projects.select(area_id);
-            }
+            projects.select(area_id);
             projects.camera_target(area_id, target)
         } else {
             target
@@ -164,6 +165,15 @@ impl DesktopCanvasTransition {
 }
 
 impl MultisoulApp {
+    pub(crate) fn desktop_directory_zoom_active(&self) -> bool {
+        self.desktop_workspace_zoom_active()
+            || self
+                .desktop_workspace
+                .transition
+                .as_ref()
+                .is_some_and(|t| t.directory_content.is_some())
+    }
+
     pub(crate) fn desktop_workspace_zoom_active(&self) -> bool {
         matches!(
             self.desktop_workspace
@@ -227,23 +237,9 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         let full = desktop_focus_rect(window);
-        if !self.desktop_workspace_zoom_active() {
-            self.desktop_workspace.workspace_motion_rects = self
-                .desktop_workspace
-                .workspace_rects
-                .lock()
-                .expect("workspace bounds mutex poisoned")
-                .clone();
-        }
-        let card = self
-            .desktop_workspace
-            .workspace_motion_rects
-            .get(workspace_id)
-            .copied()
-            .unwrap_or_else(|| centered_source_rect(full));
-        self.desktop_workspace
-            .workspace_motion_rects
-            .insert(workspace_id.to_owned(), card);
+        let Some(card) = self.desktop_workspace_directory_rect(workspace_id, window) else {
+            return;
+        };
         let (source, target) = if reverse { (full, card) } else { (card, full) };
         self.begin_desktop_zoom(
             if reverse {
@@ -259,6 +255,41 @@ impl MultisoulApp {
         );
     }
 
+    pub(super) fn desktop_workspace_directory_rect(
+        &mut self,
+        workspace_id: &str,
+        window: &Window,
+    ) -> Option<CanvasRect> {
+        let full = desktop_focus_rect(window);
+        if !self
+            .desktop_workspace
+            .filtered()
+            .iter()
+            .any(|item| item.id == workspace_id)
+        {
+            // A keyboard target can be outside the search results. Establish its real
+            // directory slot before zooming; a fabricated center rectangle has no source.
+            self.desktop_workspace.search_query.clear();
+            self.desktop_workspace.switcher_query.clear();
+        }
+        let workspaces = self.desktop_workspace.filtered();
+        let layout = super::layout::workspace_layout(full.size.x, full.size.y, workspaces.len());
+        let scroll = self.desktop_directory_scroll.offset();
+        self.desktop_workspace.workspace_motion_rects = workspaces
+            .into_iter()
+            .zip(layout)
+            .map(|(workspace, mut rect)| {
+                rect.origin.x += f32::from(scroll.x);
+                rect.origin.y += f32::from(scroll.y);
+                (workspace.id.clone(), rect)
+            })
+            .collect();
+        self.desktop_workspace
+            .workspace_motion_rects
+            .get(workspace_id)
+            .copied()
+    }
+
     pub(super) fn begin_desktop_project_zoom(
         &mut self,
         workspace_id: &str,
@@ -269,15 +300,9 @@ impl MultisoulApp {
     ) {
         let size = window.viewport_size();
         let full = desktop_scene_rect(f32::from(size.width), f32::from(size.height));
-        let card = self
-            .desktop_workspace
-            .area_rects
-            .lock()
-            .expect("project bounds mutex poisoned")
-            .get(&(workspace_id.to_owned(), area_id.to_owned()))
-            .copied()
-            .unwrap_or_else(|| centered_source_rect(full));
-        let card = super::preview_canvas::project_canvas_rect(card, full.size, 1.0);
+        let Some(card) = self.desktop_project_overview_rect(workspace_id, area_id, window) else {
+            return;
+        };
         let (source, target) = if reverse { (full, card) } else { (card, full) };
         self.begin_desktop_zoom(
             if reverse {
@@ -294,9 +319,70 @@ impl MultisoulApp {
             window,
             cx,
         );
+        if reverse {
+            if let Some(projects) = self
+                .desktop_workspace
+                .transition
+                .as_mut()
+                .and_then(|t| t.projects.as_mut())
+            {
+                projects.show_overview();
+            }
+        }
     }
 
-    fn begin_desktop_zoom(
+    pub(super) fn desktop_project_overview_rect(
+        &mut self,
+        workspace_id: &str,
+        area_id: &str,
+        window: &Window,
+    ) -> Option<CanvasRect> {
+        let size = window.viewport_size();
+        let full = desktop_scene_rect(f32::from(size.width), f32::from(size.height));
+        let index = self
+            .desktop_workspace
+            .areas
+            .iter()
+            .position(|area| area.id == area_id)?;
+        let layout = super::layout::project_area_layout(
+            f32::from(size.width),
+            f32::from(size.height),
+            self.desktop_workspace.areas.len(),
+        );
+        let scroll_y = self
+            .desktop_overview_scroll
+            .get(workspace_id)
+            .map(|scroll| f32::from(scroll.offset().y))
+            .unwrap_or_else(|| {
+                self.desktop_workspace
+                    .active()
+                    .map_or(0.0, |item| item.overview_scroll_y as f32)
+            });
+        let layout: Vec<_> = layout
+            .into_iter()
+            .map(|mut rect| {
+                rect.origin.y += scroll_y;
+                rect
+            })
+            .collect();
+        {
+            let mut rects = self
+                .desktop_workspace
+                .area_rects
+                .lock()
+                .expect("project bounds mutex poisoned");
+            for (area, rect) in self.desktop_workspace.areas.iter().zip(&layout) {
+                rects.insert((workspace_id.to_owned(), area.id.clone()), *rect);
+            }
+        }
+        Some(super::preview_canvas::project_canvas_rect(
+            layout[index],
+            full.size,
+            1.0,
+        ))
+    }
+
+    pub(super) fn begin_desktop_zoom(
         &mut self,
         kind: &'static str,
         subject: DesktopCanvasSubject,
@@ -345,17 +431,6 @@ fn desktop_focus_rect(window: &Window) -> CanvasRect {
     CanvasRect::new(0.0, 0.0, f32::from(size.width), f32::from(size.height))
 }
 
-fn centered_source_rect(full: CanvasRect) -> CanvasRect {
-    let width = full.size.x * 0.32;
-    let height = full.size.y * 0.42;
-    CanvasRect::new(
-        full.origin.x + (full.size.x - width) * 0.5,
-        full.origin.y + (full.size.y - height) * 0.5,
-        width,
-        height,
-    )
-}
-
 #[cfg(test)]
 #[path = "../../../tests/unit/desktop_camera_tests.rs"]
 mod tests;
@@ -371,3 +446,11 @@ mod switcher_motion_tests;
 #[cfg(test)]
 #[path = "../../../tests/unit/desktop_project_dock_tests.rs"]
 mod project_dock_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/desktop_camera_origins_tests.rs"]
+mod origins_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/desktop_direct_directory_tests.rs"]
+mod direct_directory_tests;

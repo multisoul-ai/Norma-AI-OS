@@ -34,8 +34,18 @@ impl MultisoulApp {
             .filter(|transition| {
                 matches!(&transition.subject, super::camera::DesktopCanvasSubject::Workspace(id)
                 if id == &workspace.id)
+                    || (transition.directory_content.is_some()
+                        && self.desktop_directory_workspace_id() == Some(workspace.id.as_str()))
             });
         let shell_opacity = moving.map_or(1.0, |transition| {
+            if let Some(content) = transition.directory_content {
+                let frame = self.desktop_scene_frame(
+                    canvas::CanvasRect::new(0.0, 0.0, full_width, full_height),
+                    false,
+                );
+                return ((full_width - frame.size.x) / (full_width - content.size.x).max(1.0))
+                    .clamp(0.0, 1.0);
+            }
             self.desktop_workspace
                 .workspace_motion_rects
                 .get(&workspace.id)

@@ -37,6 +37,7 @@ fn desktop_sibling_camera_retargets_without_dropping_visible_projects() {
         subject: subject("b"),
         camera,
         projects: Some(projects),
+        directory_content: None,
     };
     for _ in 0..5 {
         transition.tick(Duration::from_millis(16));

@@ -100,6 +100,12 @@ impl ProjectSwitch {
         }
     }
 
+    pub fn show_overview(&mut self) {
+        for layer in &mut self.layers {
+            layer.retarget(true);
+        }
+    }
+
     pub fn tick(&mut self, delta: Duration) {
         for layer in &mut self.layers {
             layer.tick(delta.as_secs_f32().min(0.1));
@@ -174,21 +180,22 @@ impl MultisoulApp {
                 .iter()
                 .position(|area| area.id == previous)
                 .unwrap_or(0);
-            let source = layout[index];
+            let content_rect =
+                |rect| super::preview_canvas::project_canvas_rect(rect, full.size, 1.0);
+            let source = content_rect(layout[index]);
             let layers = self
                 .desktop_workspace
                 .areas
                 .iter()
                 .zip(layout)
                 .map(|(area, rect)| {
+                    let rect = content_rect(rect);
                     let selected = area.id == previous;
                     ProjectLayer {
                         id: area.id.clone(),
                         anchor: Vec2::new(
-                            (rect.origin.x - source.origin.x) * INACTIVE_SCALE
-                                / source.size.x.max(1.0),
-                            (rect.origin.y - source.origin.y) * INACTIVE_SCALE
-                                / source.size.x.max(1.0),
+                            (rect.origin.x - source.origin.x) / source.size.x.max(1.0),
+                            (rect.origin.y - source.origin.y) / source.size.x.max(1.0),
                         ),
                         opacity: if selected { 1.0 } else { 0.0 },
                         scale: if selected { 1.0 } else { INACTIVE_SCALE },
@@ -204,10 +211,11 @@ impl MultisoulApp {
             };
             projects.select(target);
             // Reuse velocity as well as geometry when a sibling click interrupts a zoom.
-            let mut camera = self
-                .desktop_workspace
-                .transition
-                .take()
+            let previous_transition = self.desktop_workspace.transition.take();
+            let directory_content = previous_transition
+                .as_ref()
+                .and_then(|t| t.directory_content);
+            let mut camera = previous_transition
                 .map(|t| t.camera)
                 .unwrap_or_else(|| DesktopCamera::new(frame));
             camera.retarget(projects.camera_target(target, full), false);
@@ -215,6 +223,7 @@ impl MultisoulApp {
                 subject,
                 camera,
                 projects: Some(projects),
+                directory_content,
             });
         }
         self.desktop_workspace.transition_last_tick = cx.background_executor().now();
@@ -226,3 +235,7 @@ impl MultisoulApp {
 #[cfg(test)]
 #[path = "../../../tests/unit/desktop_project_switch_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/desktop_project_return_tests.rs"]
+mod return_tests;

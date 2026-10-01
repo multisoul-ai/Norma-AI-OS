@@ -65,6 +65,22 @@ native Browser composition, all primitive kinds, text sharpness, real card
 integration and performance are still required before adopting this path in the
 workbench. This patch is not a claim that G1 has passed.
 
+## Native view scene presentation (2026-10-01, pending real-App acceptance)
+
+`Window::on_scene_presentation` registers native content during paint. After the
+frame finishes, its callback receives the latest accumulated scene transform,
+clip, opacity and unchanged logical viewport. Cached paint replay retains these
+registrations; removing a registration delivers `None` once to hide its view.
+The App's Wry/CEF adapters use an AppKit clipping host to scale native content
+without resizing the web document on every camera frame. Desktop detachment
+preserves the webview and releases only its own native input responder.
+
+`scene_native` unit coverage checks parent camera updates without child repaint,
+clipping, opacity and removal notification. App tests exercise production scene
+registration and preserved Browser sessions. These tests do not establish native
+AppKit/Metal ordering, live web content scaling, menu occlusion or real input;
+those remain G1/G4 acceptance work.
+
 ## Bounded Metal frame diagnostics (2026-10-01)
 
 Set `GPUI_FRAME_TIMINGS=1` and enable the existing logger's `gpui_frame` info

@@ -62,17 +62,11 @@ impl MultisoulApp {
             .into_iter()
             .cloned()
             .collect();
-        let (columns, card_width, grid_width) =
-            super::scene::directory_grid(width, workspaces.len());
+        let layout =
+            super::layout::workspace_layout(width, f32::from(win.height), workspaces.len());
+        let content_height = layout.last().map_or(0.0, |rect| rect.max().y + 42.0);
         let workspace_ids: Vec<_> = workspaces.iter().map(|item| item.id.clone()).collect();
-        let zoomed_workspace_id =
-            self.desktop_workspace
-                .transition
-                .as_ref()
-                .and_then(|transition| match &transition.subject {
-                    super::camera::DesktopCanvasSubject::Workspace(id) => Some(id.clone()),
-                    _ => None,
-                });
+        let zoomed_workspace_id = self.desktop_directory_workspace_id();
         let workspace_rects = self.desktop_workspace.workspace_rects.clone();
         if zoomed_workspace_id.is_some() {
             return div()
@@ -138,11 +132,9 @@ impl MultisoulApp {
                     .flex_1()
                     .min_h(px(0.0))
                     .overflow_scroll()
-                    .px(px(56.0 * scale))
-                    .pt(px(118.0 * scale))
-                    .pb(px(42.0 * scale))
+                    .track_scroll(&self.desktop_directory_scroll)
                     .when(is_empty, |this| {
-                        this.child(
+                        this.px(px(56.0)).pt(px(118.0)).pb(px(42.0)).child(
                             div()
                                 .pt(px(36.0))
                                 .pb(px(92.0))
@@ -159,16 +151,25 @@ impl MultisoulApp {
                     .when(!is_empty, |this| {
                         this.child(
                             div()
-                                .w(px(grid_width))
-                                .mx_auto()
-                                .grid()
-                                .grid_cols(columns as u16)
-                                .gap(px(16.0 * scale))
-                                .children(workspaces.into_iter().enumerate().map(
-                                    |(index, workspace)| {
-                                        self.desktop_workspace_card(
-                                            index, workspace, card_width, win, scale, cx,
-                                        )
+                                .relative()
+                                .w(px(width))
+                                .h(px(content_height))
+                                .children(workspaces.into_iter().zip(layout).enumerate().map(
+                                    |(index, (workspace, rect))| {
+                                        div()
+                                            .absolute()
+                                            .left(px(rect.origin.x))
+                                            .top(px(rect.origin.y))
+                                            .w(px(rect.size.x))
+                                            .h(px(rect.size.y))
+                                            .child(self.desktop_workspace_card(
+                                                index,
+                                                workspace,
+                                                rect.size.x,
+                                                win,
+                                                scale,
+                                                cx,
+                                            ))
                                     },
                                 ))
                                 .on_children_prepainted(move |bounds, _, _| {

@@ -84,16 +84,16 @@ impl Render for MultisoulApp {
 
         match self.screen {
             AppScreen::Launchpad => {
-                if self.desktop_workspace_zoom_active() {
+                if self.desktop_directory_zoom_active() {
                     root = root.child(self.render_workspace_backdrop());
                 }
                 root = root.child(self.render_desktop_launchpad(window, cx));
-                if self.desktop_workspace_zoom_active() {
+                if self.desktop_directory_zoom_active() {
                     root = root.child(self.render_desktop_workspace(window, cx));
                 }
             }
             AppScreen::DesktopWorkspace => {
-                if self.desktop_workspace_zoom_active() {
+                if self.desktop_directory_zoom_active() {
                     root = root.child(self.render_workspace_backdrop());
                     root = root.child(self.render_desktop_launchpad(window, cx));
                 }
@@ -140,7 +140,7 @@ impl Render for MultisoulApp {
         }
         if self.desktop_workspace.switcher_open
             && matches!(self.screen, AppScreen::Launchpad)
-            && !self.desktop_workspace_zoom_active()
+            && !self.desktop_directory_zoom_active()
         {
             root = root.child(self.render_desktop_switcher(cx));
         }

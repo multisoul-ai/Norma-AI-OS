@@ -189,30 +189,31 @@ fn test_browser_native_view_bounds_clamps_tiny_cards_to_zero_size() {
 /// 数据构造（含关键数值的推导过程）：
 ///   source = app/node_removal.rs；remove_node_and_reflow 是标题栏关闭按钮和快捷键删除的共同路径；
 ///   WebView 是 macOS native first responder，Runtime::focus 不会自动清理 native first responder。
-///   Wry 通过 `focus_parent()` 把 first responder 还给宿主 NSView；CEF 通过
+///   Wry 通过 clipping host 把属于自身网页的 first responder 还给当前父 NSView；CEF 通过
 ///   `set_focus(0)` 取消 BrowserHost 焦点；两条后端路径都必须覆盖。
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 读取 Browser Store、Wry、CEF 与节点删除源码
+///   1. 读取 Browser Store、Wry、CEF、clipping host 与节点删除源码
 ///   2. 检查 Store 对外暴露原生焦点释放入口
-///   3. 检查 Wry/CEF 分别调用其原生后端的焦点释放 API
+///   3. 检查 Wry/CEF 的焦点释放 API，且 clipping host 只释放自身网页的输入
 ///   4. 检查删除路径在移除视图前调用释放入口和 GPUI root focus
 ///
 /// 预期结果：
 ///   - 正断言：Wry、CEF 和 Store 都有对应的原生焦点释放链路
 ///   - 正断言：删除路径先释放原生焦点，再聚焦 GPUI root，最后释放 WebView
 ///   - 负断言：不能只调用 GPUI FocusHandle；那不会移除 native first responder
+///   - 负断言：隐藏网页不能无条件抢走其他网页或 GPUI 输入控件的焦点
 #[test]
 fn test_browser_focus_handoff_releases_native_responder_before_view_removal() {
     let node_removal_source = include_str!("../../src/app/node_removal.rs");
     let store_source = include_str!("../../src/app/browser/store.rs");
     let wry_source = include_str!("../../src/app/browser/wry_backend.rs");
     let cef_source = include_str!("../../src/app/browser/cef_backend.rs");
+    let clip_source = include_str!("../../src/app/browser/scene_clip.rs");
     let start = node_removal_source
         .find("pub(crate) fn remove_node_and_reflow")
         .expect("app should keep remove_node_and_reflow as the shared node deletion path");
     let remove_block = &node_removal_source[start..];
-
     let release_pos = remove_block
         .find("self.release_browser_input(node_id)")
         .expect("Browser deletion must explicitly release the native WebView responder");
@@ -228,8 +229,14 @@ fn test_browser_focus_handoff_releases_native_responder_before_view_removal() {
         "BrowserStore 必须公开原生输入焦点释放入口，供地址变更和删除复用"
     );
     assert!(
-        wry_source.contains("focus_parent()"),
-        "Wry/WebKit 后端必须将 first responder 交回宿主 NSView"
+        wry_source.contains("self.scene_clip.release_input()"),
+        "Wry/WebKit 后端必须通过当前 clipping host 释放网页输入"
+    );
+    assert!(
+        clip_source.contains(".firstResponder()")
+            && clip_source.contains("if responder.isDescendantOf(&self.content)")
+            && clip_source.contains("window.makeFirstResponder(Some(&parent))"),
+        "clipping host 必须先确认 first responder 属于自身网页，再交回当前父 NSView"
     );
     assert!(
         cef_source.contains("host.set_focus(0)"),

@@ -36,7 +36,6 @@ use gpui::{div, prelude::*, px, rgba, AnyElement, Context, FontWeight, MouseButt
 use runtime::InputMode;
 #[cfg(test)]
 use runtime::{route, Route};
-use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 use ui::icons::with_alpha;
@@ -72,15 +71,7 @@ pub fn render_canvas(
     let swap_candidate = app.interaction.drag.as_ref().and_then(|d| d.swap_candidate);
     let hovered_terminal_link = app.interaction.hovered_terminal_link.clone();
     let mut node_elems: Vec<AnyElement> = Vec::new();
-    let mut visible_browser_nodes = HashSet::new();
-    // ponytail: hide native Browser during motion; G1 must add clipped native presentation.
-    let native_browser_views_visible = native_browser_views_visible(app.settings_panel.open)
-        && !app.background_project
-        && !app
-            .desktop_host
-            .as_ref()
-            .and_then(|host| host.upgrade())
-            .is_some_and(|host| host.read(cx).desktop_project_zoom_active());
+    let native_browser_views_visible = native_browser_views_visible(app.settings_panel.open);
     // 底部弹出菜单打开时计算屏幕矩形；关闭时为 None（不做遮挡过滤）。
     let layout_menu_rect = layout_menu_screen_rect(app.interaction.layout_menu_open, win_w, win_h);
     let command_menu_rect = app.command_panel_rect(win_w, win_h);
@@ -380,11 +371,10 @@ pub fn render_canvas(
                 if matches!(&spec.surface, canvas::BrowserSurfaceKind::Native)
                     && !occluded_by_overlay
                 {
-                    visible_browser_nodes.insert(id);
                     let browser_header_h = (TITLE_BAR_H + BROWSER_TOOLBAR_H_PX) * vp.zoom;
-                    app.sync_browser_view_for_node(
+                    node_elems.push(app.browser_scene_element(
                         id,
-                        &spec.url,
+                        spec.url.clone(),
                         browser_native_view_bounds(
                             f64::from(top_left.x),
                             f64::from(top_left.y),
@@ -396,8 +386,8 @@ pub fn render_canvas(
                                 BROWSER_NATIVE_BORDER_INSET_PX as f32,
                             )),
                         ),
-                        window,
-                    );
+                        cx,
+                    ));
                 }
             }
         }
@@ -448,7 +438,6 @@ pub fn render_canvas(
         elapsed: render_start.elapsed(),
     }
     .log_if_enabled();
-    app.finish_browser_view_sync(&visible_browser_nodes);
     if snake_view_set_changed {
         // Snake Entity 是 CanvasSurface 的兄弟叠层；集合变化时只需让根视图重新挂载
         // 一次。稳定动画帧只 notify Snake Entity，不会触发 CanvasSurface observer。

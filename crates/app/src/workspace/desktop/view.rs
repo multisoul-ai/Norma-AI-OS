@@ -20,12 +20,13 @@ impl MultisoulApp {
                 .as_ref()
                 .is_some_and(|t| t.projects.is_some())
         {
-            return div()
+            let world = div()
                 .id("desktop-workspace-world")
                 .absolute()
                 .inset_0()
                 .child(self.render_workspace_backdrop())
                 .child(self.render_desktop_project_switch(cx));
+            return self.clip_desktop_directory_workspace(world, window);
         }
         let theme = self.desktop_theme();
         #[cfg(target_os = "macos")]
@@ -328,6 +329,6 @@ impl MultisoulApp {
         } else {
             world.inset_0()
         };
-        world
+        self.clip_desktop_directory_workspace(world, window)
     }
 }

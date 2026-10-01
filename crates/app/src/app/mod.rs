@@ -250,6 +250,7 @@ pub struct MultisoulApp {
     pub(crate) desktop_switcher_subscription: Option<gpui::Subscription>,
     pub(crate) background_restore: Option<crate::workspace::flow::PendingLiveSessionRestore>,
     pub(crate) desktop_overview_scroll: HashMap<String, gpui::ScrollHandle>,
+    pub(crate) desktop_directory_scroll: gpui::ScrollHandle,
     canvas_surface: gpui::Entity<canvas_surface::CanvasSurfaceView>,
     pub(crate) working_snake_views: HashMap<NodeId, gpui::Entity<WorkingSnakeView>>,
     voice_window_inset_events: voice_window_inset::VoiceWindowInsetEventBus,

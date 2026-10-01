@@ -148,6 +148,15 @@ impl MultisoulApp {
         if self.desktop_workspace.switcher_open {
             self.desktop_workspace.search_query = self.desktop_workspace.switcher_query.clone();
         }
+        if self.desktop_workspace.active_id.as_deref() == Some(&id)
+            && (self.desktop_project_zoom_active()
+                || self.desktop_workspace.expanded_area_id.is_some())
+        {
+            self.screen = AppScreen::DesktopWorkspace;
+            self.collapse_desktop_project_area(window, cx);
+            self.close_desktop_switcher(cx);
+            return;
+        }
         if self.defer_desktop_navigation(
             super::scene::DesktopNavigation::Workspace(id.clone()),
             window,
@@ -251,10 +260,27 @@ impl MultisoulApp {
 
     pub(super) fn show_desktop_launchpad(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.focus_handle.focus(window);
-        if self.defer_desktop_navigation(super::scene::DesktopNavigation::Directory, window, cx) {
-            return;
-        }
-        if !matches!(self.screen, AppScreen::Launchpad) || self.desktop_workspace_zoom_active() {
+        let project = self
+            .desktop_workspace
+            .transition
+            .as_ref()
+            .and_then(|t| match &t.subject {
+                super::camera::DesktopCanvasSubject::Project { area_id, .. } => {
+                    Some(area_id.clone())
+                }
+                _ => None,
+            })
+            .or_else(|| self.desktop_workspace.expanded_area_id.clone());
+        self.desktop_workspace.pending_navigation = None;
+        if let (Some(workspace), Some(area)) = (self.desktop_workspace.active_id.clone(), project) {
+            self.begin_desktop_project_directory_zoom(&workspace, &area, true, window, cx);
+            if self.desktop_workspace.transition.is_none() {
+                self.detach_visible_desktop_area(cx);
+            }
+            self.desktop_workspace.expanded_area_id = None;
+        } else if !matches!(self.screen, AppScreen::Launchpad)
+            || self.desktop_workspace_zoom_active()
+        {
             if let Some(id) = self.desktop_workspace.active_id.clone() {
                 self.begin_desktop_workspace_zoom(&id, true, window, cx);
             }

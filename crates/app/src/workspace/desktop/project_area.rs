@@ -32,28 +32,35 @@ impl MultisoulApp {
             .filter(|transition| {
                 matches!(&transition.subject, super::camera::DesktopCanvasSubject::Project {
                 workspace_id: active_workspace, area_id: active_area,
-            } if active_workspace == &workspace_id && active_area == &area_id)
+            } if active_workspace == &workspace_id && (active_area == &area_id
+                || transition.projects.as_ref().is_some_and(|projects|
+                    projects.layers.iter().any(|layer| layer.id == area_id))))
             });
         let shell_opacity = moving.map_or(1.0, |transition| {
+            // Every moving project uses the same overview camera. Its live content is
+            // drawn once by the switch layer, while all shells return with that camera.
+            let source_area = match &transition.subject {
+                super::camera::DesktopCanvasSubject::Project { area_id, .. } => area_id,
+                _ => &area_id,
+            };
             let source = self
                 .desktop_workspace
                 .area_rects
                 .lock()
                 .expect("project bounds mutex poisoned")
-                .get(&(workspace_id.clone(), area_id.clone()))
+                .get(&(workspace_id.clone(), source_area.clone()))
                 .copied();
             let size = window.viewport_size();
             source.map_or(0.0, |source| {
-                super::scene::overview_chrome_opacity(
-                    transition.rect(),
-                    project_canvas_rect(
-                        source,
-                        super::desktop_scene_rect(f32::from(size.width), f32::from(size.height))
-                            .size,
-                        1.0,
-                    ),
-                    super::desktop_scene_rect(f32::from(size.width), f32::from(size.height)),
-                )
+                let full = super::desktop_scene_rect(f32::from(size.width), f32::from(size.height));
+                let mut source = project_canvas_rect(source, full.size, 1.0);
+                let mut frame = transition.rect();
+                if transition.projects.is_some() {
+                    // Sibling panning is not overview progress; only zoom restores the shells.
+                    frame.origin = full.origin;
+                    source.origin = full.origin;
+                }
+                super::scene::overview_chrome_opacity(frame, source, full)
             })
         });
         let card_height = available_height;
@@ -66,6 +73,11 @@ impl MultisoulApp {
             .origin
             .y;
         let actions_open = self.desktop_workspace.actions_area_id.as_deref() == Some(&area_id);
+        let moving_live_canvas = moving.is_some()
+            && self
+                .desktop_workspace
+                .sessions
+                .contains_key(&(workspace_id.clone(), area_id.clone()));
         let click_area = area_id.clone();
         let focus_area = area_id.clone();
         let mut card = div()
@@ -125,7 +137,7 @@ impl MultisoulApp {
                             .child(workspace::compact_path(&area.root)),
                     ),
             )
-            .when(moving.is_none(), |this| {
+            .when(!moving_live_canvas, |this| {
                 this.child(
                     self.desktop_project_canvas_preview(
                         &workspace_id,
@@ -136,6 +148,7 @@ impl MultisoulApp {
                         cx,
                     )
                     .id(("desktop-project-live", area_index))
+                    .debug_selector(move || format!("desktop-project-live-{area_index}"))
                     .on_click(cx.listener(move |app, _, _, cx| {
                         app.desktop_workspace.active_area_id = Some(focus_area.clone());
                         cx.stop_propagation();

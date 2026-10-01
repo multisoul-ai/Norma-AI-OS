@@ -208,7 +208,7 @@ fn test_browser_cef_backend_creates_child_browser_and_dispatches_lifecycle() {
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   cef_backend.rs = CEF 初始化配置与 do_message_loop_work 封装；
-///   browser/store.rs = BrowserView::sync 创建 native view 的错误边界；
+///   browser/store/view.rs = BrowserView::sync 创建 native view 的错误边界；
 ///   windowing.rs   = 每个 GPUI 窗口创建 MultisoulApp 后启动前台循环；
 ///   macOS CEF      = multi_threaded_message_loop 只支持 Windows/Linux，macOS 需 external pump。
 ///   root_cache_path = CEF 120+ 进程单例锁根目录，默认值会和其它 CEF app 共享。
@@ -220,7 +220,7 @@ fn test_browser_cef_backend_creates_child_browser_and_dispatches_lifecycle() {
 ///   4. 读取 cef_backend.rs，确认 root_cache_path 使用应用专属目录
 ///   5. 读取 cef_backend.rs，确认有 pump_cef_message_loop_if_initialized 包装 do_message_loop_work
 ///   6. 读取 windowing.rs，确认窗口创建时启动 CEF message pump loop
-///   7. 读取 browser/store.rs，确认 NativeBrowserView::create 的 Err 会被记录而不是 `.ok()` 吞掉
+///   7. 读取 browser/store/view.rs，确认 NativeBrowserView::create 的 Err 会被记录而不是 `.ok()` 吞掉
 ///
 /// 预期结果：
 ///   - 正断言：CEF settings 启用 external_message_pump
@@ -230,7 +230,7 @@ fn test_browser_cef_backend_creates_child_browser_and_dispatches_lifecycle() {
 #[test]
 fn test_browser_cef_backend_uses_gpui_message_pump_and_logs_create_errors() {
     let cef_backend = include_str!("../../src/app/browser/cef_backend.rs");
-    let browser = include_str!("../../src/app/browser/store.rs");
+    let browser = include_str!("../../src/app/browser/store/view.rs");
     let windowing = include_str!("../../src/workspace/windowing.rs");
 
     assert!(

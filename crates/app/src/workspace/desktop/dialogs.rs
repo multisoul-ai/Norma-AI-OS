@@ -1,4 +1,4 @@
-use super::{glass_button_variant, scene::DesktopNavigation, GLASS_TEXT};
+use super::{glass_button_variant, GLASS_TEXT};
 use crate::app::{AppScreen, MultisoulApp};
 use gpui::{div, prelude::*, px, rgba, Context, Div, Focusable, Stateful, Window};
 use ui::component::button::{Button, ButtonVariants};
@@ -93,22 +93,12 @@ impl MultisoulApp {
         self.desktop_workspace.pending_navigation = None;
         window.focus(&self.focus_handle);
         if let Some((workspace_id, area_id)) = return_to {
-            self.screen = AppScreen::DesktopWorkspace;
-            if self.desktop_project_zoom_active() {
-                if let Some(area_id) = area_id {
-                    self.expand_desktop_project_area(area_id, window, cx);
-                }
+            if let Some(area_id) = area_id {
+                self.expand_desktop_project_area(area_id, window, cx);
             } else {
                 self.begin_desktop_workspace_zoom(&workspace_id, false, window, cx);
-                if let Some(area_id) = area_id {
-                    if self.desktop_workspace.transition.is_some() {
-                        self.desktop_workspace.pending_navigation =
-                            Some(DesktopNavigation::Project(area_id));
-                    } else {
-                        self.expand_desktop_project_area(area_id, window, cx);
-                    }
-                }
             }
+            self.screen = AppScreen::DesktopWorkspace;
         }
         cx.notify();
     }

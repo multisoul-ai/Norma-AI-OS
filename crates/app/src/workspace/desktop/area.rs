@@ -94,6 +94,16 @@ impl MultisoulApp {
                 }
             } else if self.desktop_workspace.expanded_area_id.as_deref() == Some(&area_id) {
                 self.desktop_workspace.pending_navigation = None;
+            } else if matches!(self.screen, crate::app::AppScreen::Launchpad)
+                && self.desktop_workspace.transition.is_none()
+            {
+                self.begin_desktop_project_directory_zoom(
+                    &workspace_id,
+                    &area_id,
+                    false,
+                    window,
+                    cx,
+                );
             } else {
                 if self.defer_desktop_navigation(
                     super::scene::DesktopNavigation::Project(area_id.clone()),
@@ -112,6 +122,7 @@ impl MultisoulApp {
             window.focus(&session.read(cx).focus_handle);
             self.persist_desktop_view(workspace_id, Some(area_id.clone()), cx);
             self.desktop_workspace.expanded_area_id = Some(area_id);
+            self.screen = crate::app::AppScreen::DesktopWorkspace;
             self.desktop_workspace.error = None;
             cx.notify();
             return;
@@ -227,7 +238,17 @@ impl MultisoulApp {
         self.desktop_workspace.pending_navigation = None;
         if let (Some(workspace_id), Some(area_id)) = (
             self.desktop_workspace.active_id.clone(),
-            self.desktop_workspace.expanded_area_id.clone(),
+            self.desktop_workspace.expanded_area_id.clone().or_else(|| {
+                self.desktop_workspace
+                    .transition
+                    .as_ref()
+                    .and_then(|t| match &t.subject {
+                        super::camera::DesktopCanvasSubject::Project { area_id, .. } => {
+                            Some(area_id.clone())
+                        }
+                        _ => None,
+                    })
+            }),
         ) {
             if !self.desktop_workspace_zoom_active() {
                 self.begin_desktop_project_zoom(&workspace_id, &area_id, true, window, cx);

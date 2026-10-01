@@ -43,6 +43,14 @@ fn check_switcher_motion(expanded: bool, interrupt: bool) {
             app.desktop_workspace.expanded_area_id, None,
             "返回期间应退出项目展开状态"
         );
+        assert!(
+            matches!(app.screen, AppScreen::Launchpad),
+            "目标必须立即成为目录，不能先等待项目总览"
+        );
+        assert!(
+            app.desktop_workspace.pending_navigation.is_none(),
+            "目录返回只能有一个镜头目标，不能排队第二段动画"
+        );
         let transition = app.desktop_workspace.transition.as_mut().expect("应有动画");
         let start = transition.rect();
         // 80ms = 5 × 16ms，处在原型弹簧的运动中段，尚未落定。
@@ -52,13 +60,6 @@ fn check_switcher_motion(expanded: bool, interrupt: bool) {
         assert!(transition.is_active(), "80ms 时不能直接结束返回动画");
         if !interrupt {
             app.finish_desktop_zoom(window, cx);
-            if expanded {
-                assert!(
-                    app.desktop_workspace_zoom_active(),
-                    "项目缩回后应继续缩回工作空间目录"
-                );
-                app.finish_desktop_zoom(window, cx);
-            }
             assert!(
                 matches!(app.screen, AppScreen::Launchpad),
                 "落定应进入统一目录画布"
@@ -87,9 +88,10 @@ fn check_switcher_motion(expanded: bool, interrupt: bool) {
             assert_ne!(midway, start, "反向不得重置到原起点");
         }
         app.finish_desktop_zoom(window, cx);
-        if app.desktop_project_zoom_active() {
-            app.finish_desktop_zoom(window, cx);
-        }
+        assert!(
+            app.desktop_workspace.transition.is_none(),
+            "一次落定必须到达最终层级，不能再启动第二段动画"
+        );
         assert!(
             matches!(app.screen, AppScreen::DesktopWorkspace),
             "应回到原工作空间"
@@ -116,11 +118,11 @@ fn desktop_switcher_from_project_overview_animates_both_directions() {
     check_switcher_motion(false, false);
 }
 
-/// Agent 画布打开 Workspace：先缩回项目区域，再缩入工作空间目录，返回时恢复原项目。
+/// Agent 画布打开 Workspace：镜头直接缩入工作空间目录，返回时直接恢复原项目。
 ///
 /// 数据构造：1 个空间、1 个已加载并展开的项目、0 张卡片；目录/项目都使用真实入口。
-/// 执行过程：展开项目并落定 → 打开切换器 → 推进 80ms → 完成两级返回 → 再次切换。
-/// 预期结果：无瞬时全屏覆盖；返回后仅原项目展开，没有遗留导航。
+/// 执行过程：展开项目并落定 → 打开切换器 → 推进 80ms → 一次落定到目录 → 再次切换。
+/// 预期结果：无瞬时全屏覆盖或中间导航队列；一次返回后仅原项目展开，没有第二段动画。
 #[test]
 fn desktop_switcher_from_agent_canvas_animates_both_levels() {
     check_switcher_motion(true, false);

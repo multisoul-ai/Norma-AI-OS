@@ -1,6 +1,12 @@
 # Goal：桌面统一场景、GPU 合成与连续画布重构
 
-状态：ACTIVE。用户处理后，同一隔离 App（PID 69255）窗口与输入已恢复，启动阻塞不再成立；尚无冷启动根因修复结论。G0 已有八节点历史基线、两路输出与三轮 CPU 占用记录；真实有界诊断收到 7,268 组 CPU／GPU／呈现回调，其中 2,144 条 presentedTime 为零，不能据此判呈现达标。当前多一个空工作空间，总览仍复现 session gone，正式固定负载与连续动画证据待补。G0–G5 均未通过。更新：2026-10-01。
+状态：ACTIVE。2026-10-02 已将 `origin/dev@55ca6101` 合并为 `549eca74`，并恢复 Browser 原生视图场景接线、镜头起点、同级返回及项目直达目录改动。合并版本全仓测试 1729 passed / 31 ignored；恢复后全量 App 测试 883 passed / 7 ignored，GPUI 原生场景测试 1 passed。Computer Use 连接既有隔离 App 仍超时，未取得本轮真实窗口验收证据。跨工作空间直接转向、工作空间展开途中选择项目、Browser 真机交互及 S1–S4 性能仍待完成，G0–G5 均未通过。详见[本轮整合记录](2026-10-02-desktop-dev-merge.md)。
+
+**dev 整合决策（2026-10-02，用户确认）**：采用 dev 的紧凑 Command Dock，保留当前工作空间的项目编号和当前窗口导航；项目命令建议与键盘输入由对应项目持有。Agent 卡片材质采用 dev 的半透明渐变，移除多层壁纸采样，保留壁纸、圆角与描边。命令 Dock 用于项目指令，不新增跨工作空间派工入口。完成后普通推送并创建目标为 `dev` 的 PR；**不得合并 PR**。本修订覆盖下文关于保留旧 Dock/采样实现的历史描述。
+
+**验收分工修订（2026-10-01，最新用户指令）**：从 Agent 剩余任务中移除“独立原型还原验收”。原型的布局、材质和动效还原由用户亲自验收，不再安排 UI 验收 subagent，也不由 Agent 代判还原通过。23／24 号参考继续作为实施依据；Agent 负责功能开发、Computer Use 真实 App 功能／交互回归、性能测量及问题修复。用户验收反馈另行记录，未收到结论时注明“待用户验收”，其余开发与测试继续推进。本修订覆盖下文历史记录和旧 Goal 提示词中的独立 UI 审查要求。
+
+**提交与推送授权（2026-10-02，最新用户指令）**：用户要求“完成后提交代码，并且push”。完成本次重构实现与规定工程验证后，提交本 Goal 相关代码、测试和文档，并普通推送至 `origin/codex/desktop-multi-project-workspaces`；提交、推送无需再次请求确认。本授权覆盖旧 Goal 提示词中的“不要自动提交、推送”。提交前核对变更范围并通过仓库 hooks，推送后核对远端提交；不以提前提交替代剩余开发或验收，原型验收仍由用户负责。
 
 **用户修订（2026-10-01，外观仍待实施与验收）**：工作空间与项目总览窗口以 [24 号用户参考图](../design-docs/2026-09-29-desktop-workbench-concepts/24-overview-glass-windows-reference.png)作为最新外观基准；创建 Agent 直接使用所属项目区域已选定的目录，不再弹出 Git worktree 选择或确认。Agent 默认目录已完成代码修复、16 项桌面单测及三种入口的真实 App/cwd 检查，详见 G1 observations；其他外观和统一场景要求仍未完成。
 
@@ -11,7 +17,7 @@
 执行 Issue：[GitHub #73](https://github.com/multisoul-ai/Norma-AI-OS/issues/73)，标签 `ready-for-agent`，含此前发布的计划副本；2026-10-01 修订以本地文档为准，本次未同步远端 Issue。
 
 - 实施 worktree：`/Users/alan/Documents/mybook/norma-ai-os-desktop-workspaces`。
-- 分支：`codex/desktop-multi-project-workspaces`；计划核对时 HEAD：`b21b32a1`，存在大量未提交改动，HEAD 不代表全部现状。
+- 分支：`codex/desktop-multi-project-workspaces`；dev 合并提交：`549eca7480f2acd8988e7fff5763cef6fc6a613b`；Browser 场景与导航恢复改动纳入本轮整合提交。旧 e2e 与本地模型软链接保持本地未提交状态，原始 stash 与备份分支保留。
 - 产品规格：[统一场景 SPEC](../product-specs/2026-09-30-SPEC-desktop-unified-scene.md)；归属规则：[桌面工作空间 SPEC](../product-specs/2026-09-29-SPEC-desktop-multi-project-workspaces.md)。
 - 动效与空间关系基准：[23 号 HTML 原型](../design-docs/2026-09-29-desktop-workbench-concepts/23-workspace-canvas-motion-prototype.html)；窗口材质与外观基准：[24 号用户参考图](../design-docs/2026-09-29-desktop-workbench-concepts/24-overview-glass-windows-reference.png)。外观冲突按最新用户参考执行，连续动画要求仍然有效。
 - 被替代的计划：[旧画布重构计划归档](archive/2026-09-30-desktop-workspace-canvas-rebuild.md)。它的未通过项继续追踪，不继承任何“已完成”结论。
@@ -97,7 +103,7 @@
 - 场景动画不额外触发 Agent 启停；窗口不可见时暂停无意义绘制，恢复后正确收敛。
 - 尊重减少动态效果，直接切换并保留选中／焦点反馈。普通模式的动画是明确需求，不能为追求帧率删除。
 
-参考 `apple-design`、`emil-design-eng`、`improve-animations`，最终使用 `review-animations`；上述原型参数优先于技能中的通用默认值。写 GPUI 前加载对应 `gpui-*` 技能，并以当前钉死版本的代码为准。
+实现参考 `apple-design`、`emil-design-eng`、`improve-animations`；原型还原由用户验收，不另设 Agent 动效还原审查。上述原型参数优先于技能中的通用默认值。写 GPUI 前加载对应 `gpui-*` 技能，并以当前钉死版本的代码为准。
 
 ### 项目缩略内容与原始画布一致（2026-10-01，代码已实现，验收记录见文末）
 
@@ -152,7 +158,7 @@
 | G2 统一布局与导航 | TODO | G1 通过 | 同源布局，直接转向，取消旧分段交接；按 24 号参考统一两级窗口外观，工作空间标题收进卡片 |
 | G3 绘制与资源调度 | TODO | G2 | 可见性剔除、精确失效；按需纹理预算与回收；压力证据 |
 | G4 完整交互与回归 | TODO | G3 | 工作空间创建时命名；Agent 默认项目目录创建；所有卡片、IME、快捷键、持久化／删除／背景会话回归 |
-| G5 真实验收与清理 | TODO | G4 | Release、所需 crate 测试、性能对比、独立 UI 验收通过，移除旧链路 |
+| G5 功能／性能验收与清理 | TODO | G4 | Release、所需 crate 测试、真实 App 功能回归、性能对比，移除旧链路；原型还原另由用户验收 |
 
 ### G0：冻结可复现基线
 
@@ -213,13 +219,14 @@
 
 退出：USC-03、04、05、09、10、12、14 通过，替代测试及真实 App 无未解释失败。
 
-### G5：真实验收、删除旧链路并交付
+### G5：功能／性能验收、删除旧链路并交付
 
 1. 删除废弃预览绘制、过渡叠层、仅服务旧交接的导航队列和临时验证开关；保留有用的可选诊断。
 2. 完成第 8 节规定检查并构建最终 Release；更新隔离 App 二进制、签名和构建身份，不能验收旧产物。
-3. 用 Computer Use 完成第 6 节每条可见场景，记录连续画面和性能数据；用浏览器对照原型时按用户要求优先 Jev。
-4. 按此前用户要求启动一个只读 UI 验收 subagent，对照 23 号 HTML 的动效与 24 号参考的窗口外观独立审查；不要让多个 agent 同时操控真实 App。可以由主 agent 操作并提供连续证据，审查不足时安排串行复验。
-5. 有跳变、卡片替身、壁纸／Dock 回归、输入错位或大部分布局未还原，必须打回；修复后复验受影响路径。
+3. 用 Computer Use 完成第 6 节的真实 App 功能与交互回归，记录连续切换、输入、会话、壁纸／Dock 状态及性能数据；保留实际行为验收，不安排原型还原审查。
+4. 提供可运行 App 和工程验证报告供用户试用；原型布局、材质和动效还原由用户验收。用户提出问题后修复并复验受影响功能，不启动 UI 验收 subagent。
+5. 功能测试发现跳变、卡片替身、壁纸／Dock 回归或输入错位时继续修复；工程测试通过与用户的原型验收结论分别记录，不互相替代。
+6. 按2026-10-02用户授权，完成实现与规定工程验证后提交本 Goal 相关变更，运行仓库提交验证，再普通推送 `origin/codex/desktop-multi-project-workspaces`；记录commit SHA、推送结果与远端HEAD。保留既有无关变更；禁止跳过hooks或主动强制推送。
 
 退出：所有完成定义成立，用户可运行的产物及报告齐全；才能将新 Goal 标记 complete。
 
@@ -300,14 +307,15 @@ python3 scripts/check-video-wallpaper-performance.py
 
 - [ ] G0–G5 有实际产物、命令结果与构建身份；条件项写明省略依据。
 - [ ] USC-01 至 USC-14 全部有对应证据，输入／会话／归属正负断言通过。
-- [ ] 对照原型的连续画面通过，独立 UI 审查未留下阻断问题。
+- [ ] 用户负责：原型布局、材质和动效还原的验收结论已记录；未收到结论时标记待用户验收，Agent 不代判通过。
 - [ ] 性能目标有 Release 真 App 测量，缓存／内存有界，无 CPU 逐帧截图上传。
 - [ ] 替代测试与真实 App 的输入／恢复／生命周期回归通过；历史 E2E 结果不计入验收。
-- [ ] 原型动效、真实卡片、壁纸、半透明样式、Canvas Dock、IME 与 Browser 均验收。
-- [ ] 工作空间与项目总览窗口符合 24 号参考；工作空间名称与菜单入口完整位于卡片内部，标题不遮挡预览、不增加外部占位，长名和空／加载状态一致；展开无外围框或残留标题栏，返回全程外壳与真实内容连续恢复。
+- [ ] Agent 负责：真实卡片、壁纸、Canvas Dock、IME 与 Browser 的功能／交互回归通过；半透明样式与原型动效的还原效果交由用户验收。
+- [ ] 工作空间名称与菜单入口位于卡片内部，标题不遮挡预览、不增加外部占位，长名和空／加载状态一致；展开无外围框或残留标题栏，返回外壳与真实内容连续恢复。Agent 验证实际显示状态及交互；是否符合 24 号参考的外观效果由用户确认。
 - [ ] 所有 Agent 创建入口默认使用目标项目区域目录，无 worktree 选择或确认；真实 cwd、同目录并行、异步导航／删除的归属与失败路径均验收。
 - [ ] 所有新建工作空间入口支持创建时命名；合法名称持久化并一致显示，取消不创建，失败保留输入，USC-14／DWS-01 的边界与真实 App 验收通过。
 - [ ] 废弃渲染／导航链路已移除，iOS 与业务身份／存储没有意外变更。
+- [ ] 按用户授权提交本次变更并普通push当前功能分支，提交验证通过且远端HEAD已核对；记录commit SHA与推送结果。
 - [ ] 最终结果报告注明可运行 App 与证据路径；只有此时将新 Goal 标记 complete。
 
 ## 10. 可直接创建 Goal 的提示词
@@ -324,7 +332,7 @@ python3 scripts/check-video-wallpaper-performance.py
 
 目标：保留 Rust／GPUI，将工作空间、项目和真实卡片重构为统一场景、独立布局与 GPU 合成。允许较大范围重构 app、canvas 和现有 GPUI 本地补丁，复用数据结构、卡片内容绘制、Agent 与 PTY。只改桌面端，不改变 iOS 或手机协议。保留当前未提交改动。
 
-严格依计划 G0–G5 推进：先保存真实基线，再完成两项目真实卡片、输入、PTY、Browser、视频壁纸的纵向验证；通过性能和输入关卡后才整体迁移。纯镜头变化不触发全量内容重排或 PTY resize；直接切换和反向操作从当前视觉状态与速度继续。真实卡片统一渲染，复杂内容只在测量证明需要时加入有界 GPU 纹理缓存，不得使用假预览或每帧 CPU 截图读回。
+依计划 G0–G5 分解工作；按用户许可，可先完成各阶段功能开发，再集中进行真实 App 验收。基线、真实卡片、输入、PTY、Browser、视频壁纸及性能关卡仍须补齐，开发完成不等于验收通过。纯镜头变化不触发全量内容重排或 PTY resize；直接切换和反向操作从当前视觉状态与速度继续。真实卡片统一渲染，复杂内容只在测量证明需要时加入有界 GPU 纹理缓存，不得使用假预览或每帧 CPU 截图读回。
 
 保留原型的镜头弹簧和局部展开重排、壁纸、半透明样式、原 Canvas Dock；展开填满窗口安全边距与 Dock 之间，无外围边框和重复标题，不恢复额外 Norma 输入栏。工作空间切换发生在当前窗口；同项目跨空间独立卡片，同 worktree 允许并行，卡片不能跨项目或空间移动，后台 Agent 持续运行。
 
@@ -334,9 +342,9 @@ python3 scripts/check-video-wallpaper-performance.py
 
 按 AGENTS.md 先 TDD。用户已停用旧 crates/e2e，不得新增、维护、运行或以其结果验收。使用域层/GPUI 单元测试、真实 PTY 集成测试和隔离真实 App 覆盖 USC-01 至 USC-14；验证真实会话恢复，修复产品缺陷。按计划运行范围测试、最终跨 crate 测试、护栏和 Release 构建。
 
-必须使用 Computer Use 操作隔离的真实 App，验证中间帧、连续快速切换、输入法、Browser、背景输出、资源回收；独立 UI 验收 subagent 只读审查且不能与主 agent 同时控制 App。大部分布局／动效未还原必须打回。使用固定负载采集真实 CPU／GPU、呈现掉帧、缓存／内存和输入延迟，未测不能宣称高性能。
+必须使用 Computer Use 操作隔离的真实 App，验证连续快速切换、中途反向、输入法、Browser、背景输出、资源回收及实际显示状态。原型布局、材质和动效还原由用户亲自验收，不安排独立 UI 验收 subagent，不由 Agent 代判还原通过；交付可运行 App，记录并修复用户反馈。使用固定负载采集真实 CPU／GPU、呈现掉帧、缓存／内存和输入延迟，未测不能宣称高性能。
 
-持续更新该实施计划的阶段状态和证据路径。只有全部完成定义成立才能将 Goal 标记 complete；构建或 headless 通过不代表真实验收通过。不要自动提交、推送或替换用户常驻 App。
+持续更新该实施计划的阶段状态和证据路径。只有全部完成定义成立才能将 Goal 标记 complete；构建或 headless 通过不代表真实验收通过。用户于2026-10-02授权完成实现及规定工程验证后提交本Goal相关变更，并普通push到origin/codex/desktop-multi-project-workspaces，无需再次确认；保留既有无关修改，提交hooks不得跳过，推送后核对远端HEAD。不要替换用户常驻App。
 ```
 
 ## 11. 实时执行记录
@@ -499,3 +507,46 @@ python3 scripts/check-video-wallpaper-performance.py
 - 移除按最近打开时间倒序排列：存储统一按 created_at_unix_ms ASC、id ASC 读取，新建空间在内存列表末尾追加。选择、返回、搜索清空和重启不再将当前空间移到首位；最近打开时间仍记录，前后切换快捷键与列表采用相同创建顺序。Apple Design 的空间稳定性落实为保留条目位置，不引入额外排序设置。
 - TDD 分别复现数据库最近访问排序与新建 insert(0) 两处问题，证据 `g1/workspace-order-red.log`、`workspace-order-create-red.log`。回归覆盖打开 Beta 后 Alpha 仍在首位、搜索恢复、Gamma 追加末尾与数据库重载一致；桌面34项、storage112项通过。App check、Release、行数／禁止allow／存储边界／diff检查通过（32项既有warning）；未使用旧e2e。
 - 更新隔离验收包并通过 strict 验签。Computer Use 使用绝对路径启动及 bundle ID 重试均 timeoutReached，未取得新版窗口或截图，真实交互验收仍未通过。本轮仅结束自行启动的隔离进程 PID90907，未替换用户常驻App；不绕过先前Terminal安全拒绝。构建身份见 `g1/workspace-order-build.json`；整体G0–G5状态不变。
+
+
+### 2026-10-01：Browser 原生场景接线与试用包准备
+
+- GPUI 在整帧结束时把最新变换、裁剪、透明度与固定逻辑尺寸交给原生视图；缓存重放保留注册，离场通知隐藏。Wry／CEF 共用 AppKit clipping host，缩放容器、不逐帧重排网页；桌面项目离开展开态保留网页实例，释放焦点时只处理属于自身网页的 first responder。
+- 删除转场／后台项目隐藏 Browser 的临时 gate，接入真实 Canvas 的 scene 呈现路径。生命周期旧行为的失败证据为 `g1/native-browser-lifecycle-red.log`；App 单测 842 passed／7 ignored，记录 `g1/native-browser-app-tests.log`；GPUI 场景回归 6 passed，记录 `g1/native-scene-regression.log`。默认和 chromium-browser 编译、性能及视频壁纸护栏已通过。原生缩放、裁剪、输入、菜单遮挡和 Metal 图层时序尚无真实 App 证据，G1／G4 不勾选。
+- 独立源码复核仍发现三项阻断：跨层导航等待 pending_navigation 中间动画；同级切换途中返回总览可能同时呈现同一项目两次；缺失来源布局时使用居中猜测框。对应真实动画验收待补，不能用旧构建的静态截图判通过。
+- 按用户“先打一个包”要求暂缓继续扩展，使用 `scripts/release-local.sh` 生成 Developer ID 签名、未公证的本地试用包。日志 `g1/local-preview-package.log`；完成后记录准确产物与摘要。本轮不自动提交、推送或安装。
+
+- 试用包已生成：`build/Norma OS_0.1.71_aarch64.dmg`，195,635,574 bytes；App 为 `build/Norma OS.app`。版本 0.1.71，manifest 无版本变更；Developer ID 签名与 strict 验签、DMG 布局、hdiutil 校验通过，未公证。SHA-256：`04625603b4da018f93370d5a28c8bda500b2a194b9c05aa982b0e146671690d9`；完整构建身份见 `g1/local-preview-package.json`。首次打包因旧镜像挂载冲突失败，正常卸载旧镜像后重跑成功；未强制卸载。焦点护栏最终聚焦回归通过，记录 `g1/native-browser-focus-final.log`。本包包含未提交 Browser 改动，真实 UI／性能验收仍未完成。
+
+
+### 2026-10-01：原型验收移交用户
+
+- 用户取消剩余任务中的第 5 项独立原型还原验收，改为本人试用并反馈；移除未来 UI 验收 subagent 的安排。同步更新阶段表、G5、完成定义、可复用 Goal 提示词和统一场景规格的验收分工。此前源码审查记录保留为已发现缺陷的证据，不作为新的验收关卡。
+- Agent 剩余工作为连续导航、Browser 场景整合、输入／会话回归和 S1–S4 性能验收；继续负责 Computer Use 功能测试、构建和工程报告。原型仍为实现依据，用户反馈后修复；本次仅调整文档，不新增产品代码，不重跑构建或测试，Goal 保持 ACTIVE。
+
+
+### 2026-10-01：镜头起点与总览共用布局
+
+- 上轮为计划分工修订的实际进展；本轮继续功能开发，不恢复独立原型审查。移除 `centered_source_rect` 的 32%／42% 居中猜测框。目录卡片和镜头来源共用 `layout::workspace_layout`；项目镜头从现有响应式项目网格计算，展开期间调整窗口尺寸后，返回使用新网格而非旧 prepaint 缓存。
+- 目录保存实际滚动句柄，展开／返回采用同一滚动偏移。通过快捷导航选择搜索外的工作空间时先清空过滤，建立包含目标的真实目录布局；点击搜索结果内的目标保留过滤。不存在的项目／空间不伪造来源。布局计算仅在渲染布局与导航入口进行，不重排真实卡片或逐帧 resize PTY。
+- 聚焦失败证据 `g1/camera-origins-red.log`：冷布局起点实际使用 (435.2,232,409.6,336)，与真正绘制的 Beta 矩形 (450.5,118,379,236.5) 不符；搜索外目标未恢复布局。修复后测试比较实际 Window::draw，允许 1/backing-scale 的设备像素取整；另覆盖窄窗返回第二行、长目录滚动往返。桌面 37 项和 App 845 passed／7 ignored 通过，见 `g1/camera-origins-desktop-regression.log`、`camera-origins-app-tests.log`；App check 0 errors／32 项既有 warning，行数、禁止 allow、性能／视频壁纸护栏和 diff 检查通过。
+- Release 构建及隔离 App 的 ad-hoc strict 验签通过，构建身份为 `g1/camera-origins-build.json`。首次 Computer Use 连接超时；接续轮核实 PID 10083 仍存活后重连同一实例成功，未因观察超时重启。完成目录→Workspace 1 总览→快捷键展开 plain-project→返回项目总览→返回目录，四张 `g1/camera-origins-*.png` 保存最终功能状态。卡片实际内容在目录仍可见；这些静态画面不证明完整运动轨迹、搜索／滚动／缩窗、输入或性能通过。原型由用户验收，G0–G5 状态不变。
+
+### 2026-10-01：同级切换途中返回项目总览
+
+- 聚焦测试走真实导航入口和 Window::draw：A→B 推进32ms后返回，复现总览再次绘制A，以及动画末帧A透明度仍为0，证据 `g1/project-return-duplicate-red.log`、`project-return-red.log`。追加未加载C场景也复现占位丢失，证据 `project-return-placeholder-red.log`。
+- 项目镜头锚点统一取真实总览内容矩形，移除把700/870局部缩放重复用于空间间距的计算；该比例继续用于非选中项目的局部尺寸。返回时保留当前镜头／透明度／尺寸，把全部项目转向总览可见态；反向再展开仍可重新选中。总览只绘制外壳，由同级场景绘制每个真实画布一次，未加载项目保留占位。
+- 设计依据为 apple-design 的当前呈现值与空间连续性、emil-design-eng 的可中断变换；保留用户指定的225/30弹簧、180ms淡入、350ms局部缩放和快捷键动画，不采用技能中删除高频动效的通用建议。代码级 review-animations 检查保留减少动态效果及原始会话，无新增依赖／CPU截图路径；原型效果仍交用户验收。
+- 新回归比较返回瞬间真实标题、末帧与落定后的网格位置；具体断言A/B不重复、C占位存在、A/B末帧可见，且原viewport／80×24 PTY不变。最终桌面38项通过，App check、Release、行数／禁止allow／性能／视频壁纸护栏与diff检查通过；check／Release保留31项既有warning。日志前缀 `g1/project-return-`；构建身份 `project-return-build.json`，隔离App完成ad-hoc strict验签。未提交、推送或更新用户常驻App／试用DMG。
+- Computer Use 启动本次Release（PID40451），完成工作空间进入、项目展开及两次快速切换→返回总览；真实卡片与Dock终态正常。`project-return-motion.log`确认同级动画分别在22.26ms／50.83ms被返回打断，随后在933.44ms／932.26ms落定。两次首张截图均约1.1s才返回，`project-return-frames.json`与`project-return-motion.json`保留实际请求／返回时间，不能据此判断前半段动画还原。日志出现最高51.06ms的显示回调间隔，尚无应用归因及正式CPU/GPU/呈现采样，不判性能通过。
+- 下一步仍是删除跨层pending_navigation的分段等待，保留当前位置与速度直接转向；工作空间和项目之间的坐标转换必须覆盖真实绘制，不能仅删除等待条件造成跳帧。Browser原生交互、窗口尺寸变化中的同级镜头、输入／生命周期及S1–S4性能仍待验证。G0–G5状态不变，Goal保持ACTIVE；原型由用户验收。
+
+### 2026-10-02：项目画布直接往返目录与中途改目标
+
+- 项目返回目录不再先播放项目收起、再播放工作空间收起。将真实项目总览内容矩形投影到工作空间目录的内容区，现有弹簧直接以该嵌套矩形为目标；保持当前镜头位置、尺寸和速度。反向直接恢复原项目；返回途中选择当前工作空间直接改为项目总览，避免重载和隐式展开。
+- 目录与项目渲染使用同一投影来源；运动中的空间不另画一份真实卡片，真实项目层裁剪到所属空间内容区。中途改选同级项目保留目录坐标和已有镜头，不丢弃外围场景。不增加截图、纹理缓存、依赖或另一套动画时钟。
+- TDD：`g1/direct-directory-red.log` 记录原来的两段导航断言失败；`direct-directory-workspace-red.log` 记录中途选择当前空间仍排队；`direct-directory-sibling-red.log` 记录新目录投影在同级改目标时被丢失。均已修复。新增 Root／真实 Window::draw 测试检查真实终端标题首帧、中途、末帧位置（容差为一个设备像素），反向速度与惯性、无重复缩略／导航队列、同级改目标和原节点／viewport／80×24 PTY 保留。
+- 最新 `cargo test -p app --lib desktop_ -- --test-threads=1` 为 39 passed；`cargo check -p app` 通过（31项既有warning）。文件行数、禁止allow、性能护栏、视频壁纸护栏及diff检查通过。最新命令日志为 `g1/direct-directory-desktop.log` 和 `direct-directory-check.log`；旧e2e未运行，历史全量测试不计为本轮结果。
+- Release构建通过（31项既有warning）。通过Computer Use正常退出旧隔离PID40451后，确认进程已消失，再更新既有 `Norma Workspace Entry Review.app` 并通过ad-hoc strict验签；未替换用户常驻App或之前交付的DMG。构建身份见 `g1/direct-directory-build.json`，App主程序SHA256为 `58a32a652e222af75581d1d768a656379854c1bba89413314b52a152d82bd19e`。
+- 新隔离PID74757启动后，两次Computer Use连接分别在9.624秒、16.726秒超时；保留同一存活进程，未因观察超时重启。`g1/direct-directory-startup.sample.txt` 中主线程794个样本停在启动通知回调的 `open → __open`，本次未定位具体文件或最终权限原因。没有新版真实窗口、输入或动画证据，不用旧构建截图或本轮headless测试替代。下一轮先检查该PID是否恢复，同时可继续尚未完成的开发；本轮有实际代码／测试进展，Goal保持ACTIVE。
+- 余项：不同工作空间之间的导航，以及工作空间镜头运动中直接选择项目仍有旧排队逻辑；后续继续移除并验证坐标和速度转换。Browser、窗口改变期间的同级镜头、输入／生命周期、S1–S4性能仍未验收；本轮局部修复不改变G0–G5关卡状态。原型还原继续由用户验收。

@@ -151,7 +151,12 @@ impl MultisoulApp {
         self.dialogue.on_window_closed();
         self.voice.cancel_speech_task();
         self.voice.cancel_speech_session();
-        self.clear_browser_views();
+        if self.desktop_host.is_some() {
+            // Overview and expanded presentations own the same live Browser instance.
+            self.release_all_browser_input();
+        } else {
+            self.clear_browser_views();
+        }
         self.clear_ego_previews(cx);
         self.video_wallpaper = None;
         self.feature_guide_media = super::feature_guide::FeatureGuideMediaState::default();

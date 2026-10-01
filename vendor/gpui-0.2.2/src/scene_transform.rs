@@ -134,3 +134,7 @@ impl Window {
 #[cfg(test)]
 #[path = "../tests/unit/scene_transform.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/scene_native.rs"]
+mod native_tests;

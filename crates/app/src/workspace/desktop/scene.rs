@@ -8,7 +8,6 @@ use ui::component::{
 };
 
 pub(super) enum DesktopNavigation {
-    Directory,
     Workspace(String),
     Project(String),
 }
@@ -31,24 +30,6 @@ pub(super) fn overview_chrome_opacity(
         .fold(0.0_f32, f32::max)
     };
     (distance(frame) / distance(overview).max(1.0)).clamp(0.0, 1.0)
-}
-
-pub(super) fn directory_grid(width: f32, count: usize) -> (usize, f32, f32) {
-    let available = if width >= 940.0 {
-        3
-    } else if width >= 610.0 {
-        2
-    } else {
-        1
-    };
-    let columns = available.min(count.max(1));
-    let card =
-        ((width - 112.0 - 16.0 * (available - 1) as f32) / available as f32).clamp(280.0, 460.0);
-    (
-        columns,
-        card,
-        card * columns as f32 + 16.0 * (columns - 1) as f32,
-    )
 }
 
 pub(super) const WORKSPACE_TITLE_HEIGHT: f32 = 40.0;
@@ -85,6 +66,102 @@ pub(super) fn project_rect(source: CanvasRect, frame: CanvasRect, rect: CanvasRe
 }
 
 impl MultisoulApp {
+    pub(super) fn desktop_directory_workspace_id(&self) -> Option<&str> {
+        let transition = self.desktop_workspace.transition.as_ref()?;
+        match &transition.subject {
+            DesktopCanvasSubject::Workspace(id) => Some(id),
+            DesktopCanvasSubject::Project { workspace_id, .. }
+                if transition.directory_content.is_some() =>
+            {
+                Some(workspace_id)
+            }
+            _ => None,
+        }
+    }
+
+    pub(super) fn begin_desktop_project_directory_zoom(
+        &mut self,
+        workspace_id: &str,
+        area_id: &str,
+        reverse: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let size = window.viewport_size();
+        let full = CanvasRect::new(0.0, 0.0, f32::from(size.width), f32::from(size.height));
+        let Some(card) = self.desktop_workspace_directory_rect(workspace_id, window) else {
+            return;
+        };
+        let Some(project) = self.desktop_project_overview_rect(workspace_id, area_id, window)
+        else {
+            return;
+        };
+        let content = workspace_content_rect(card, full.size, 1.0);
+        let nested = project_rect(full, content, project);
+        let expanded = super::desktop_scene_rect(full.size.x, full.size.y);
+        let (source, target) = if reverse {
+            (expanded, nested)
+        } else {
+            (nested, expanded)
+        };
+        self.begin_desktop_zoom(
+            if reverse {
+                "project_to_directory"
+            } else {
+                "directory_to_project"
+            },
+            DesktopCanvasSubject::Project {
+                workspace_id: workspace_id.to_owned(),
+                area_id: area_id.to_owned(),
+            },
+            source,
+            target,
+            window,
+            cx,
+        );
+        if let Some(transition) = &mut self.desktop_workspace.transition {
+            transition.directory_content = Some(content);
+            if reverse {
+                if let Some(projects) = &mut transition.projects {
+                    projects.show_overview();
+                }
+            }
+        }
+    }
+
+    pub(super) fn clip_desktop_directory_workspace(
+        &self,
+        world: gpui::Stateful<Div>,
+        window: &Window,
+    ) -> gpui::Stateful<Div> {
+        if !self
+            .desktop_workspace
+            .transition
+            .as_ref()
+            .is_some_and(|t| t.directory_content.is_some())
+        {
+            return world;
+        }
+        let size = window.viewport_size();
+        let full = CanvasRect::new(0.0, 0.0, f32::from(size.width), f32::from(size.height));
+        let frame = self.desktop_scene_frame(full, false);
+        div()
+            .id("desktop-directory-workspace-clip")
+            .absolute()
+            .left(px(frame.origin.x))
+            .top(px(frame.origin.y))
+            .w(px(frame.size.x))
+            .h(px(frame.size.y))
+            .overflow_hidden()
+            .child(
+                world
+                    .left(px(-frame.origin.x))
+                    .top(px(-frame.origin.y))
+                    .w(size.width)
+                    .h(size.height),
+            )
+    }
+
     pub(super) fn desktop_empty_canvas(
         &self,
         scale: f32,
@@ -198,7 +275,6 @@ impl MultisoulApp {
             return false;
         };
         match destination {
-            DesktopNavigation::Directory => self.show_desktop_launchpad(window, cx),
             DesktopNavigation::Workspace(id) => self.open_desktop_workspace(id, window, cx),
             DesktopNavigation::Project(id) => self.expand_desktop_project_area(id, window, cx),
         }
@@ -218,7 +294,7 @@ impl MultisoulApp {
             DesktopCanvasSubject::Project {
                 workspace_id,
                 area_id,
-            } if !directory => self
+            } => self
                 .desktop_workspace
                 .area_rects
                 .lock()
@@ -234,8 +310,16 @@ impl MultisoulApp {
                 }),
             _ => None,
         };
-        source
+        let frame = source
             .map(|source| project_rect(source, transition.rect(), full))
-            .unwrap_or(full)
+            .unwrap_or(full);
+        if directory && matches!(transition.subject, DesktopCanvasSubject::Project { .. }) {
+            transition
+                .directory_content
+                .map(|source| project_rect(source, frame, full))
+                .unwrap_or(full)
+        } else {
+            frame
+        }
     }
 }
