@@ -1,6 +1,6 @@
 use super::{
     glass_button_variant,
-    preview_canvas::{project_canvas_rect, project_stage_rect, project_tone},
+    preview_canvas::{project_canvas_rect, project_chrome_scale, project_stage_rect, project_tone},
     GLASS_TEXT, GLASS_TEXT_SECONDARY,
 };
 use crate::app::MultisoulApp;
@@ -69,6 +69,7 @@ impl MultisoulApp {
             f32::from(window.viewport_size().height),
         )
         .size;
+        let chrome = project_chrome_scale(canvas::Vec2::new(card_width, card_height), scale);
         let title_height = project_stage_rect(canvas::Vec2::new(card_width, card_height), scale)
             .origin
             .y;
@@ -87,7 +88,7 @@ impl MultisoulApp {
             .debug_selector(move || format!("desktop-project-area-{area_index}"))
             .relative()
             .h(px(card_height))
-            .rounded(px(14.0 * scale))
+            .rounded(px(14.0 * chrome))
             .border_1()
             .border_color(rgba(theme.dock_line))
             .bg(rgba(with_alpha(theme.dock, 0x8c)))
@@ -103,15 +104,15 @@ impl MultisoulApp {
             .child(
                 div()
                     .h(px(title_height))
-                    .px(px(12.0 * scale))
-                    .pr(px(52.0 * scale))
+                    .px(px(8.0 * chrome))
+                    .pr(px(32.0 * chrome))
                     .flex()
                     .items_center()
-                    .gap(px(7.0 * scale))
+                    .gap(px(7.0 * chrome))
                     .text_color(rgba(GLASS_TEXT))
                     .child(
                         div()
-                            .size(px(6.0 * scale))
+                            .size(px(6.0 * chrome))
                             .flex_none()
                             .rounded_full()
                             .bg(rgba(project_tone(&area.display_name, theme))),
@@ -121,7 +122,7 @@ impl MultisoulApp {
                             .debug_selector(move || format!("desktop-project-title-{area_index}"))
                             .flex_none()
                             .max_w(px(180.0 * scale))
-                            .text_size(px(13.0 * scale))
+                            .text_size(px(13.0 * chrome))
                             .font_semibold()
                             .truncate()
                             .child(area.display_name.clone()),
@@ -166,16 +167,16 @@ impl MultisoulApp {
             card = card.child(
                 div()
                     .absolute()
-                    .top(px(8.0 * scale))
-                    .right(px(8.0 * scale))
+                    .top(px(4.0 * chrome))
+                    .right(px(8.0 * chrome))
                     .child(
                         Button::new(("desktop-project-actions", area_index))
                             .debug_selector(move || format!("desktop-project-actions-{area_index}"))
                             .label("⋯")
                             .compact()
-                            .w(px(28.0 * scale))
-                            .h(px(28.0 * scale))
-                            .text_size(px(14.0 * scale))
+                            .w(px(20.0 * chrome))
+                            .h(px(20.0 * chrome))
+                            .text_size(px(14.0 * chrome))
                             .custom(glass_button_variant(theme, cx))
                             .on_click(cx.listener(move |app, _, _, cx| {
                                 cx.stop_propagation();
@@ -196,7 +197,7 @@ impl MultisoulApp {
                     div()
                         .debug_selector(move || format!("desktop-project-menu-{area_index}"))
                         .absolute()
-                        .top(px(46.0))
+                        .top(px(title_height))
                         .right(px(8.0))
                         .w(px(116.0))
                         .p(px(5.0))

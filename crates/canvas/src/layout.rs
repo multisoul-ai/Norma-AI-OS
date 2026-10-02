@@ -82,6 +82,36 @@ pub struct LayoutAssignment {
     pub bounds: CanvasRect,
 }
 
+/// Desktop project regions reserve two rows and at least two columns, in catalog order.
+/// This presentation-only grid has no node IDs or Agent layout configuration.
+pub fn compute_project_region_layout(count: usize, area: CanvasRect, gap: f32) -> Vec<CanvasRect> {
+    if count == 0
+        || !area.size.x.is_finite()
+        || !area.size.y.is_finite()
+        || area.size.x <= 0.0
+        || area.size.y <= 0.0
+    {
+        return Vec::new();
+    }
+    let columns = count.div_ceil(2).max(2);
+    let gap = gap
+        .max(0.0)
+        .min(area.size.x / (2.0 * (columns as f32 + 1.0)))
+        .min(area.size.y / 6.0);
+    let width = (area.size.x - (columns as f32 + 1.0) * gap) / columns as f32;
+    let height = (area.size.y - 3.0 * gap) / 2.0;
+    (0..count)
+        .map(|index| {
+            CanvasRect::new(
+                area.origin.x + gap + (index % columns) as f32 * (width + gap),
+                area.origin.y + gap + (index / columns) as f32 * (height + gap),
+                width,
+                height,
+            )
+        })
+        .collect()
+}
+
 /// 按用户指定方向排列网格，并始终把全部卡片容纳在当前可视区域中。
 pub fn compute_configurable_grid_layout(
     ordered_ids: &[NodeId],

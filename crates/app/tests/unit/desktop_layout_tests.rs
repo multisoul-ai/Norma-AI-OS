@@ -57,67 +57,82 @@ fn desktop_embedded_layout_does_not_reserve_chrome_twice() {
     );
 }
 
-/// 项目区域复用响应式画布网格，按项目数和窗口宽度自动缩放、换行。
+/// 项目区域固定两行、至少两列，单项目只占左上四分之一。
 ///
-/// 数据构造：窗口 1280×800，内容 1252×673，gap=8；四项目最多三列、两行；
-///   三列宽=(1252-4×8)/3，行高=(673-3×8)/2=324.5；窄窗口宽 600 只能容纳一列。
-/// 执行过程：分别排列 1、2、4 个项目和窄窗的 2 项；检查行列变化和最后一个项目位置。
-/// 预期结果：单项目填满内容宽，两项目并列，四项目换行；所有项目留在 Dock 上方，无旧固定全高行。
+/// 数据构造：1280×800 扣安全区后为 (14,36,1252,673)；gap=8。
+///   每格宽=(1252-3×8)/2=614，高=(673-3×8)/2=324.5。
+/// 执行过程：分别排列 0、1、2、3、4 项与 600px 窄窗的 2 项。
+/// 预期结果：第一格 (22,44)，第三格换到左下；窄窗也不切单列，无虚构空项目。
 #[test]
-fn desktop_project_regions_use_responsive_canvas_layout() {
+fn desktop_project_regions_reserve_two_rows() {
     let one = project_area_layout(1280.0, 800.0, 1);
     assert_eq!(
-        one[0],
-        CanvasRect::new(22.0, 44.0, 1236.0, 657.0),
-        "一个项目应填满可用区域"
+        one,
+        vec![CanvasRect::new(22.0, 44.0, 614.0, 324.5)],
+        "单项目只占左上角"
     );
     let two = project_area_layout(1280.0, 800.0, 2);
     assert_eq!(
         two[1],
-        CanvasRect::new(644.0, 44.0, 614.0, 657.0),
-        "两个项目应均分宽度"
+        CanvasRect::new(644.0, 44.0, 614.0, 324.5),
+        "第二项仍在上排"
+    );
+    let three = project_area_layout(1280.0, 800.0, 3);
+    assert_eq!(
+        three[2],
+        CanvasRect::new(22.0, 376.5, 614.0, 324.5),
+        "第三项进入左下角"
     );
     let four = project_area_layout(1280.0, 800.0, 4);
     assert_eq!(
-        four[3].origin,
-        Vec2::new(22.0, 376.5),
-        "第四个项目应进入第二行"
-    );
-    assert_eq!(four[3].max().y, 701.0, "最后项目必须在底部安全区之前结束");
-    assert_ne!(
-        four[0].size.y, two[0].size.y,
-        "项目增加后不能保留旧的全高卡片"
+        four[3],
+        CanvasRect::new(644.0, 376.5, 614.0, 324.5),
+        "第四项填右下角"
     );
     let narrow = project_area_layout(600.0, 800.0, 2);
     assert_eq!(
-        narrow[1].origin,
-        Vec2::new(22.0, 376.5),
-        "窄窗两个项目应上下排列"
+        narrow[1],
+        CanvasRect::new(304.0, 44.0, 274.0, 324.5),
+        "窄窗依旧两列"
     );
+    assert_ne!(one[0].size.y, 657.0, "单项目总览不应铺满整个画布");
     assert!(
         project_area_layout(1280.0, 800.0, 0).is_empty(),
-        "空工作空间不得虚构项目"
+        "不绘制空项目占位"
     );
 }
 
-/// 密集项目仍将完整画布等比放入极小内容区，不反向缩放。
-/// 数据构造：600×600放10项目；项目高38.5、标题20、底边10，可用高8.5；原画布572×473。
-/// 执行过程：计算项目网格 → 取得第一个项目的缩略内容矩形。
-/// 预期结果：缩略高8.5，宽572×8.5/473；仍在外壳内，不出现负高或变形。
+/// 项目外壳使用紧凑标题和内边距，真实画布保持等比。
+///
+/// 数据构造：600×600、10项目，内容572×473，5列宽104.8，高224.5；
+///   标题28、内边距8，预览可用宽88.8、高188.5，实际画布高=473×88.8/572。
+/// 执行过程：取首项目的内容矩形，再测试 8×4 的极小外壳。
+/// 预期结果：标题与边距符合规范，画布完整缩小，极小外壳仍不溢出或产生负数。
 #[test]
 fn desktop_dense_project_previews_never_invert_card_geometry() {
-    use super::super::preview_canvas::project_canvas_rect;
+    use super::super::preview_canvas::{project_canvas_rect, project_stage_rect};
     let area = project_area_layout(600.0, 600.0, 10)[0];
     let logical = super::super::desktop_scene_rect(600.0, 600.0).size;
-    let fitted = project_canvas_rect(area, logical, 1.0);
-    assert_eq!(fitted.size.y, 8.5, "应适配标题下方8.5px内容区");
-    assert!(
-        (fitted.size.x - 572.0 * 8.5 / 473.0).abs() < 0.001,
-        "整个画布须等比缩小"
+    let stage = project_stage_rect(area.size, 1.0);
+    assert_eq!(
+        stage.origin,
+        Vec2::new(8.0, 28.0),
+        "项目标题固定28px，内边距8px"
     );
-    assert!(fitted.size.x > 0.0 && fitted.size.y > 0.0, "不允许负尺寸");
+    let fitted = project_canvas_rect(area, logical, 1.0);
+    assert!((fitted.size.x - 88.8).abs() < 0.001, "预览使用完整可用宽");
     assert!(
-        fitted.origin.y >= area.origin.y && fitted.max().y < area.max().y,
-        "缩略内容不得越出外壳"
+        (fitted.size.y - 473.0 * 88.8 / 572.0).abs() < 0.001,
+        "真实画布必须等比缩小"
+    );
+    let tiny = CanvasRect::new(0.0, 0.0, 8.0, 4.0);
+    let fitted = project_canvas_rect(tiny, logical, 1.0);
+    assert!(
+        fitted.size.x > 0.0 && fitted.size.y > 0.0,
+        "极小外壳不能倒转内容"
+    );
+    assert!(
+        fitted.origin.y > 0.0 && fitted.max().y < 4.0 && fitted.max().x < 8.0,
+        "标题与内容均留在小外壳内"
     );
 }

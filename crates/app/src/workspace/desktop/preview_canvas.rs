@@ -7,13 +7,21 @@ use storage::DesktopAreaPreview;
 use ui::component::StyledExt;
 use ui::icons::with_alpha;
 
-pub(super) fn project_stage_rect(size: canvas::Vec2, scale: f32) -> CanvasRect {
-    let title = (size.y * 0.14).clamp(20.0 * scale, 44.0 * scale);
+/// Keep chrome inside tiny thumbnails as well as full-size project regions.
+pub(super) fn project_chrome_scale(size: Vec2, scale: f32) -> f32 {
+    scale
+        .max(0.0)
+        .min(size.x.max(0.0) / 56.0)
+        .min(size.y.max(0.0) / 56.0)
+}
+
+pub(super) fn project_stage_rect(size: Vec2, scale: f32) -> CanvasRect {
+    let chrome = project_chrome_scale(size, scale);
     CanvasRect::new(
-        10.0 * scale,
-        title,
-        (size.x - 20.0 * scale).max(1.0),
-        (size.y - title - 10.0 * scale).max(1.0),
+        8.0 * chrome,
+        28.0 * chrome,
+        (size.x - 16.0 * chrome).max(0.0),
+        (size.y - 36.0 * chrome).max(0.0),
     )
 }
 
@@ -56,12 +64,13 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) -> Div {
         let stage = project_stage_rect(Vec2::new(width, height), scale);
+        let chrome = project_chrome_scale(Vec2::new(width, height), scale);
         let theme = self.desktop_theme();
         div()
             .relative()
             .w(px(width))
             .h(px(height))
-            .rounded(px(14.0 * scale))
+            .rounded(px(14.0 * chrome))
             .border_1()
             .border_color(rgba(theme.dock_line))
             .bg(rgba(with_alpha(theme.dock, 0x8c)))
@@ -72,13 +81,14 @@ impl MultisoulApp {
                     .left(px(0.0))
                     .right(px(0.0))
                     .h(px(stage.origin.y))
-                    .px(px(12.0 * scale))
+                    .px(px(8.0 * chrome))
                     .flex()
                     .items_center()
                     .font_semibold()
-                    .text_size(px(13.0 * scale))
+                    .text_size(px(13.0 * chrome))
                     .text_color(rgba(GLASS_TEXT))
-                    .child(area.name.clone()),
+                    .overflow_hidden()
+                    .child(div().min_w(px(0.0)).truncate().child(area.name.clone())),
             )
             .child(self.desktop_project_canvas_preview(
                 workspace_id,

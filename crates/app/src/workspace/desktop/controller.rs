@@ -315,10 +315,17 @@ impl MultisoulApp {
         let Some(id) = self.desktop_workspace.active_id.clone() else {
             return;
         };
-        let Some(handle) = self.desktop_overview_scroll.get(&id) else {
+        if let Some(handle) = self.desktop_overview_scroll.get(&id) {
+            handle.set_offset(gpui::point(gpui::px(0.0), gpui::px(0.0)));
+        }
+        if self
+            .desktop_workspace
+            .active()
+            .is_none_or(|workspace| workspace.overview_scroll_y == 0)
+        {
             return;
-        };
-        let offset = f32::from(handle.offset().y).round() as i64;
+        }
+        let offset = 0;
         if let Some(workspace) = self
             .desktop_workspace
             .workspaces

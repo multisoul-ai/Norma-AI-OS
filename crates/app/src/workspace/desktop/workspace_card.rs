@@ -57,11 +57,6 @@ impl MultisoulApp {
                     )
                 })
         });
-        let scroll_y = self
-            .desktop_overview_scroll
-            .get(&workspace.id)
-            .map(|scroll| f32::from(scroll.offset().y))
-            .unwrap_or(workspace.overview_scroll_y as f32);
         let open_id = workspace.id.clone();
         let keyboard_id = workspace.id.clone();
         let actions_id = workspace.id.clone();
@@ -76,8 +71,11 @@ impl MultisoulApp {
             .get(&workspace.id)
             .cloned()
             .unwrap_or_default();
-        let area_layout =
-            super::layout::project_area_layout(full_width, full_height, preview.len());
+        let area_layout = self.desktop_project_rects(
+            &workspace.id,
+            canvas::Vec2::new(full_width, full_height),
+            preview.iter().map(|area| area.id.as_str()),
+        );
         let recent_activity = preview
             .iter()
             .find_map(|area| self.desktop_recent_agent_activity(&workspace.id, &area.id, cx));
@@ -147,7 +145,7 @@ impl MultisoulApp {
                             this.child(
                                 div()
                                     .absolute()
-                                    .top(px((48.0 + scroll_y) * scale))
+                                    .top(px(48.0 * scale))
                                     .left(px(40.0 * scale))
                                     .right(px(40.0 * scale))
                                     .child(self.desktop_empty_canvas(scale, false, cx)),
@@ -164,7 +162,7 @@ impl MultisoulApp {
                                             .debug_selector(move || area_selector.clone())
                                             .absolute()
                                             .left(px(rect.origin.x * scale))
-                                            .top(px((rect.origin.y + scroll_y) * scale))
+                                            .top(px(rect.origin.y * scale))
                                             .w(px(rect.size.x * scale))
                                             .h(px(rect.size.y * scale))
                                             .rounded(px(5.0))

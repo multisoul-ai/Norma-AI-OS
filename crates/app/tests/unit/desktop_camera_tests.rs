@@ -121,8 +121,8 @@ fn desktop_camera_reduced_motion_snaps_to_target() {
 
 /// 缩略与展开共用完整画布尺寸，镜头起止端保持相同比例。
 ///
-/// 数据构造：原画布1200×600，外壳420×260；标题36.4、下边距10，舞台400×213.6；
-///   缩放=min(400/1200,213.6/600)=1/3，内容400×200；顶部=(213.6-200)/2+36.4=43.2。
+/// 数据构造：原画布1200×600，外壳420×260；标题28、下边距8，舞台404×224；
+///   缩放=min(404/1200,224/600)，内容404×202；顶部=(224-202)/2+28=39。
 /// 执行过程：计算缩略内容 → 弹簧从内容推进至全屏 → 比较宽高比与精确终点。
 /// 预期结果：整个画布缩小、无节点适配重排；中间保持2:1，终点不留缩略偏移或比例。
 #[test]
@@ -133,11 +133,11 @@ fn desktop_project_camera_scales_the_complete_canvas() {
     let preview = project_canvas_rect(card, full.size, 1.0);
     assert_eq!(
         preview.size,
-        canvas::Vec2::new(400.0, 200.0),
+        canvas::Vec2::new(404.0, 202.0),
         "缩略必须缩小完整视区"
     );
     assert!(
-        (preview.origin.y - 193.2).abs() < 0.001,
+        (preview.origin.y - 189.0).abs() < 0.001,
         "画布应在标题下方等比居中"
     );
     assert_ne!(preview, card, "画布不能覆盖项目标题栏");

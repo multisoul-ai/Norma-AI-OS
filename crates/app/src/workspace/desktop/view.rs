@@ -1,6 +1,6 @@
 use super::GLASS_TEXT_SECONDARY;
 use crate::app::MultisoulApp;
-use gpui::{div, prelude::*, px, rgba, Context, Div, ScrollHandle, Stateful, Window};
+use gpui::{div, prelude::*, px, rgba, Context, Div, Stateful, Window};
 
 impl MultisoulApp {
     pub(crate) fn render_desktop_workspace(
@@ -8,6 +8,7 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
+        self.sync_desktop_project_layout(window, cx);
         self.sync_desktop_input_theme(
             self.desktop_workspace.expanded_area_id.is_some()
                 && !self.desktop_workspace.switcher_open,
@@ -107,20 +108,9 @@ impl MultisoulApp {
             .as_ref()
             .map(|(area_id, _)| area_id.clone());
         let capture_workspace_id = workspace_id.clone();
-        let initial_scroll_y = self
-            .desktop_workspace
-            .active()
-            .map(|item| item.overview_scroll_y)
-            .unwrap_or_default();
-        let overview_scroll = self
-            .desktop_overview_scroll
-            .entry(workspace_id.clone())
-            .or_insert_with(|| {
-                let handle = ScrollHandle::new();
-                handle.set_offset(gpui::point(px(0.0), px(initial_scroll_y as f32)));
-                handle
-            })
-            .clone();
+        if let Some(scroll) = self.desktop_overview_scroll.get(&workspace_id) {
+            scroll.set_offset(gpui::point(px(0.0), px(0.0)));
+        }
         let is_empty = areas.is_empty();
         // A moving camera scales the settled layout; its frame must never trigger a breakpoint.
         let width = f32::from(window.viewport_size().width);
@@ -144,14 +134,11 @@ impl MultisoulApp {
             .unwrap_or(scene.size.x / width);
         let capture_bounds = self.desktop_workspace.transition.is_none();
         let capture_project_bounds = transition_project.is_none();
-        let visual_scroll = if capture_bounds {
-            overview_scroll.clone()
-        } else {
-            let handle = ScrollHandle::new();
-            handle.set_offset(overview_scroll.offset() * scale);
-            handle
-        };
-        let area_layout = super::layout::project_area_layout(width, height, areas.len());
+        let area_layout = self.desktop_project_rects(
+            &workspace_id,
+            canvas::Vec2::new(width, height),
+            areas.iter().map(|area| area.id.as_str()),
+        );
         let receipts = self
             .desktop_workspace
             .dispatch_receipts
@@ -183,8 +170,7 @@ impl MultisoulApp {
                     .debug_selector(|| "desktop-project-area-scroll".to_string())
                     .flex_1()
                     .min_h(px(0.0))
-                    .overflow_scroll()
-                    .track_scroll(&visual_scroll)
+                    .overflow_hidden()
                     .when(is_empty, |this| {
                         this.child(
                             div()

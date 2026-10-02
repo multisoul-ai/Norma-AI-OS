@@ -344,27 +344,14 @@ impl MultisoulApp {
             .areas
             .iter()
             .position(|area| area.id == area_id)?;
-        let layout = super::layout::project_area_layout(
-            f32::from(size.width),
-            f32::from(size.height),
-            self.desktop_workspace.areas.len(),
+        let layout = self.desktop_project_rects(
+            workspace_id,
+            canvas::Vec2::new(f32::from(size.width), f32::from(size.height)),
+            self.desktop_workspace
+                .areas
+                .iter()
+                .map(|area| area.id.as_str()),
         );
-        let scroll_y = self
-            .desktop_overview_scroll
-            .get(workspace_id)
-            .map(|scroll| f32::from(scroll.offset().y))
-            .unwrap_or_else(|| {
-                self.desktop_workspace
-                    .active()
-                    .map_or(0.0, |item| item.overview_scroll_y as f32)
-            });
-        let layout: Vec<_> = layout
-            .into_iter()
-            .map(|mut rect| {
-                rect.origin.y += scroll_y;
-                rect
-            })
-            .collect();
         {
             let mut rects = self
                 .desktop_workspace

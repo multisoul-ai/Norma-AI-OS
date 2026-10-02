@@ -169,10 +169,13 @@ impl MultisoulApp {
                 .as_ref()
                 .map(|t| t.rect())
                 .unwrap_or(full);
-            let layout = super::layout::project_area_layout(
-                f32::from(size.width),
-                f32::from(size.height),
-                self.desktop_workspace.areas.len(),
+            let layout = self.desktop_project_rects(
+                workspace_id,
+                Vec2::new(f32::from(size.width), f32::from(size.height)),
+                self.desktop_workspace
+                    .areas
+                    .iter()
+                    .map(|area| area.id.as_str()),
             );
             let index = self
                 .desktop_workspace

@@ -42,6 +42,7 @@ mod motion_log;
 mod navigation;
 mod preview_canvas;
 mod project_area;
+mod project_layout;
 mod project_picker;
 pub(crate) use camera::desktop_scene_rect;
 mod project_switch;
@@ -94,6 +95,7 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) workspace_rects: Arc<Mutex<HashMap<String, canvas::CanvasRect>>>,
     workspace_motion_rects: HashMap<String, canvas::CanvasRect>,
     pub(crate) area_rects: Arc<Mutex<HashMap<(String, String), canvas::CanvasRect>>>,
+    project_layout: project_layout::ProjectLayout,
     transition: Option<DesktopCanvasTransition>,
     motion_log: Option<motion_log::DesktopMotionLog>,
     pending_navigation: Option<scene::DesktopNavigation>,
@@ -161,6 +163,7 @@ impl DesktopWorkspaceUiState {
             workspace_rects: Arc::new(Mutex::new(HashMap::new())),
             workspace_motion_rects: HashMap::new(),
             area_rects: Arc::new(Mutex::new(HashMap::new())),
+            project_layout: project_layout::ProjectLayout::default(),
             transition: None,
             motion_log: None,
             pending_navigation: None,

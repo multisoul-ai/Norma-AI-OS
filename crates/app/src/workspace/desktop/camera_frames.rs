@@ -17,6 +17,13 @@ impl MultisoulApp {
             let now = cx.background_executor().now();
             let delta = now.saturating_duration_since(app.desktop_workspace.transition_last_tick);
             app.desktop_workspace.transition_last_tick = now;
+            if app.desktop_project_reflow_active() {
+                app.desktop_workspace.project_layout.tick(delta);
+                if app.desktop_project_reflow_active() {
+                    app.schedule_desktop_zoom_frame(window, cx);
+                }
+                cx.notify();
+            }
             if let Some(transition) = app.desktop_workspace.transition.as_mut() {
                 if let Some(log) = app.desktop_workspace.motion_log.as_mut() {
                     log.record_callback(now, delta);
@@ -73,5 +80,11 @@ impl MultisoulApp {
             }
         }
         self.finish_desktop_navigation(window, cx);
+        // The directory does not render the workspace again. Resume a paused reflow
+        // here as well, so its live thumbnail cannot remain at an intermediate layout.
+        if self.desktop_project_reflow_active() {
+            self.desktop_workspace.transition_last_tick = cx.background_executor().now();
+            self.schedule_desktop_zoom_frame(window, cx);
+        }
     }
 }

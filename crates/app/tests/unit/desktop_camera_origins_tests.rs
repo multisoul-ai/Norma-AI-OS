@@ -27,11 +27,11 @@ fn assert_drawn_origin(actual: CanvasRect, drawn: CanvasRect, window: &Window) {
 /// 数据构造：1280×800 窗口，3 个工作空间，Beta 含 2 个空项目；
 ///   workspace 卡片由真实 Window::draw 取得，项目内容从标题下方等比适配。
 ///   比较容差 = 1 / backing scale，仅容纳 GPUI 设备像素取整；错误居中框偏移数十像素。
-///   窄窗 600×800 时两项目上下排列，第二个区域为 (22,376.5,556,324.5)。
+///   窄窗 600×800 时两项目仍在上排，第二个区域为 (304,44,274,324.5)。
 ///   200×16ms=3.2 秒模拟推进大于弹簧收敛时间，不等待墙钟。
 /// 执行过程：绘制目录 → 清空来源缓存 → 打开 Beta → 绘制项目总览 → 清空来源缓存
 ///   → 展开第二项目 → 改为窄窗 → 返回并推进镜头。
-/// 预期结果：两个展开起点与真正绘制位置相同；返回落在新窗第二行，不用居中猜测框或旧列位置。
+/// 预期结果：两个展开起点与真正绘制位置相同；返回落在新窗右上角，不用居中猜测框或旧列位置。
 #[test]
 fn desktop_camera_origins_use_real_layout_without_prior_bounds() {
     let temp = tempfile::tempdir().expect("应创建隔离目录");
@@ -123,14 +123,14 @@ fn desktop_camera_origins_use_real_layout_without_prior_bounds() {
             transition.tick(Duration::from_millis(16));
         }
         let expected = super::super::preview_canvas::project_canvas_rect(
-            CanvasRect::new(22.0, 376.5, 556.0, 324.5),
+            CanvasRect::new(304.0, 44.0, 274.0, 324.5),
             desktop_scene_rect(600.0, 800.0).size,
             1.0,
         );
         assert_eq!(
             transition.rect(),
             expected,
-            "窄窗返回必须落在新网格第二行，不能沿用宽窗的右列缓存"
+            "窄窗返回必须落在新网格右上角，不能沿用宽窗缓存"
         );
         assert!(
             !transition.is_active(),
