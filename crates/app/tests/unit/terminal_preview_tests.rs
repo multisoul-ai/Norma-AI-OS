@@ -14,6 +14,7 @@ use terminal::TerminalGrid;
 ///   1. 通过真实 TerminalGrid 和点击意图取得完整/前半/后半三个目标。
 ///   2. 用与后台相同的 resolver 选择文件，再用实际 loader 读取。
 ///   3. 新建 quality/report.md，使残段与完整候选同时存在，再解析。
+///
 /// 预期结果：
 ///   - 三个点击均读取 recovered，残段文件不存在时不得报不存在。
 ///   - 两个不同文件都存在时明确报歧义，不任意打开其中一个。
@@ -77,6 +78,7 @@ fn terminal_preview_recovers_cli_wrap_and_rejects_ambiguity() {
 /// 执行过程：
 ///   1. 创建 raw 和 report.md 符号链接。
 ///   2. 使用 report.md 与 ./report.md 解析，再读取返回路径。
+///
 /// 预期结果：
 ///   - 两个别名不应报歧义，Markdown 后缀和原始内容均保留。
 ///   - 不得把无扩展名真实路径交给类型推断。

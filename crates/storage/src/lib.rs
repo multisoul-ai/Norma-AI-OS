@@ -21,6 +21,7 @@ pub mod background_agent_dispatch;
 pub mod background_conversation_tail;
 pub mod canvas_store;
 pub mod database_paths;
+pub mod desktop_workspace_store;
 pub mod error;
 pub mod layout_store;
 pub mod migrations;
@@ -74,6 +75,9 @@ pub use background_agent_dispatch::BackgroundAgentDispatchStore;
 pub use background_conversation_tail::BackgroundConversationTailStore;
 pub use canvas_store::CanvasStore;
 pub use database_paths::{DatabaseMode, DatabasePaths};
+pub use desktop_workspace_store::{
+    DesktopAreaPreview, DesktopProjectArea, DesktopWorkspace, DesktopWorkspaceStore,
+};
 pub use error::{StorageError, StorageResult};
 pub use layout_store::{LayoutMode, LayoutOriginalBounds, LayoutStateSnapshot, LayoutStore};
 pub use node_session_store::{NodeSession, NodeSessionKind, NodeSessionStore};

@@ -25,6 +25,7 @@ static CEF_INITIALIZED: OnceLock<Result<(), String>> = OnceLock::new();
 
 pub(crate) struct CefBrowserView {
     browser: Browser,
+    scene_clip: super::scene_clip::NativeSceneClip,
 }
 
 impl CefBrowserView {
@@ -52,7 +53,18 @@ impl CefBrowserView {
         )
         .ok_or_else(|| "CEF failed to create a browser host".to_string())?;
 
-        Ok(Self { browser })
+        let native = browser
+            .host()
+            .ok_or("CEF host missing")?
+            .window_handle()
+            .cast::<NSView>();
+        // SAFETY: the new CEF host owns a live AppKit NSView on this thread.
+        let native = unsafe { native.as_ref() }.ok_or("CEF native view missing")?;
+        let scene_clip = super::scene_clip::NativeSceneClip::new(native);
+        Ok(Self {
+            browser,
+            scene_clip,
+        })
     }
 
     pub(crate) fn load_url(&mut self, url: &str) {
@@ -92,9 +104,19 @@ impl CefBrowserView {
     }
 
     pub(crate) fn set_visible(&mut self, visible: bool) {
+        self.scene_clip.set_visible(visible);
         if let Some(host) = self.browser.host() {
             host.was_hidden((!visible) as i32);
         }
+    }
+
+    pub(crate) fn present(
+        &mut self,
+        placement: gpui::ScenePresentation,
+        interactive: bool,
+        window: &Window,
+    ) {
+        self.scene_clip.present(placement, interactive, window);
     }
 
     pub(crate) fn release_input(&mut self) {

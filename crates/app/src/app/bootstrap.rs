@@ -82,6 +82,7 @@ impl MultisoulApp {
         };
         let wallpaper_settings = prepared.wallpaper;
         let workspace_state = prepared.workspace;
+        let desktop_workspace = prepared.desktop;
         let (
             theme_id,
             theme_settings,
@@ -193,6 +194,7 @@ impl MultisoulApp {
                 super::agent_announcements::AgentAnnouncementAudioCache::default(),
             screen: AppScreen::Launchpad,
             workspace_state,
+            desktop_workspace,
             clone_project: crate::workspace::clone_project::CloneProjectUiState::default(),
             recent_project_context_path: None,
             voice: crate::app::voice::control::VoiceControlState::default(),
@@ -244,7 +246,11 @@ impl MultisoulApp {
             window_active: !background,
             project_window: None,
             background_project: background,
+            desktop_host: None,
+            desktop_switcher_subscription: None,
             background_restore: None,
+            desktop_overview_scroll: std::collections::HashMap::new(),
+            desktop_directory_scroll: gpui::ScrollHandle::new(),
             canvas_surface,
             working_snake_views: std::collections::HashMap::new(),
             voice_window_inset_events,
@@ -256,6 +262,7 @@ impl MultisoulApp {
         #[cfg(not(feature = "e2e-test-support"))]
         let visual_preview = false;
         if !background {
+            app.refresh_desktop_previews(cx);
             app.refresh_asr_model_states(cx);
             if !visual_preview {
                 app.refresh_tts_model_states(cx);

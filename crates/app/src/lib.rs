@@ -137,12 +137,14 @@ pub fn run_norma_os() {
 
         cx.on_window_closed(|cx| {
             let background = workspace::sessions::windows_closed(cx);
+            workspace::desktop::sessions::windows_closed(background, cx);
             if cx.windows().is_empty() && !background {
                 cx.quit();
             }
         })
         .detach();
         cx.on_app_quit(|cx| {
+            workspace::desktop::sessions::shutdown(cx);
             workspace::sessions::shutdown(cx);
             async {}
         })

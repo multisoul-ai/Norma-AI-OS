@@ -85,7 +85,7 @@ impl TerminalSession {
                 Ok(PtyEvent::Output(bytes)) => {
                     let replies = self.grid.advance(&bytes);
                     if !replies.is_empty() {
-                        let _ = self.pty.write(&replies);
+                        let _ = self.write_pty(&replies);
                     }
                     dirty = true;
                 }
@@ -121,11 +121,11 @@ impl TerminalSession {
             return self.write_paste("\n");
         }
         let bytes = encode_for_keyboard_mode(input, enhanced_keyboard);
-        self.pty.write(&bytes)
+        self.write_pty(&bytes)
     }
 
     pub fn write_bytes(&mut self, bytes: &[u8]) -> Result<(), PtyError> {
-        self.pty.write(bytes)
+        self.write_pty(bytes)
     }
 
     /// 按当前终端应用声明的 paste mode 写入一整段剪贴板文本。
@@ -134,7 +134,17 @@ impl TerminalSession {
     /// 使 TUI 将整段内容作为一次 paste 处理；普通模式继续使用终端显示所需的 CRLF。
     pub fn write_paste(&mut self, text: &str) -> Result<(), PtyError> {
         let bytes = encode_paste(text, self.grid.bracketed_paste_enabled());
-        self.pty.write(&bytes)
+        self.write_pty(&bytes)
+    }
+
+    fn write_pty(&mut self, bytes: &[u8]) -> Result<(), PtyError> {
+        if self.status != TerminalStatus::Running {
+            return Err(PtyError::Io(std::io::Error::new(
+                std::io::ErrorKind::BrokenPipe,
+                "terminal session has exited",
+            )));
+        }
+        self.pty.write(bytes)
     }
 
     pub fn bracketed_paste_enabled(&self) -> bool {
@@ -166,7 +176,7 @@ impl TerminalSession {
         match terminal_wheel_action(&self.grid.snapshot(), lines, row, col) {
             TerminalWheelAction::Scrollback(lines) => Ok(self.grid.scroll_display(lines)),
             TerminalWheelAction::WriteBytes(bytes) => {
-                self.pty.write(&bytes)?;
+                self.write_pty(&bytes)?;
                 Ok(false)
             }
         }
@@ -174,6 +184,9 @@ impl TerminalSession {
 
     pub fn kill(&mut self) {
         self.pty.kill();
+        if self.status == TerminalStatus::Running {
+            self.status = TerminalStatus::Exited { code: None };
+        }
     }
 
     pub fn child_pid(&self) -> Option<u32> {

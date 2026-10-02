@@ -14,7 +14,7 @@ use super::{
 use canvas::NodeId;
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use gpui::Window;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 pub(crate) struct BrowserStore {
@@ -34,6 +34,7 @@ struct BrowserView {
     visible: bool,
     native_view: Option<NativeBrowserView>,
     load_timeline: LoadTimeline,
+    presentation: Option<(gpui::ScenePresentation, bool, gpui::AnyWindowHandle)>,
 }
 
 impl Default for BrowserStore {
@@ -53,6 +54,32 @@ impl Default for BrowserStore {
 }
 
 impl BrowserStore {
+    pub(crate) fn present(
+        &mut self,
+        node_id: NodeId,
+        placement: gpui::ScenePresentation,
+        interactive: bool,
+        window: &Window,
+    ) {
+        if let Some(view) = self.views.get_mut(&node_id) {
+            let next = (placement, interactive, window.window_handle());
+            if view.presentation == Some(next) {
+                return;
+            }
+            if !interactive
+                && view
+                    .presentation
+                    .is_some_and(|(_, interactive, _)| interactive)
+            {
+                view.release_input();
+            }
+            view.presentation = Some(next);
+            if let Some(native) = &mut view.native_view {
+                native.present(placement, interactive, window);
+            }
+        }
+    }
+
     pub(crate) fn drain_events(&mut self) -> Vec<BrowserEvent> {
         let mut events = self.receiver.try_iter().collect::<Vec<_>>();
         events.extend(self.views.iter().filter_map(|(node_id, view)| {
@@ -144,6 +171,7 @@ impl BrowserStore {
             visible: false,
             native_view: None,
             load_timeline: LoadTimeline::default(),
+            presentation: None,
         });
         if self.native_views_enabled {
             view.sync(node_id, url, bounds, window, event_sender);
@@ -200,8 +228,11 @@ impl BrowserStore {
     }
 
     pub(crate) fn hide(&mut self, node_id: NodeId) {
-        self.release_input(node_id);
         if let Some(view) = self.views.get_mut(&node_id) {
+            if view.visible {
+                view.release_input();
+            }
+            view.presentation = None;
             view.set_visible(false);
         }
     }
@@ -223,19 +254,6 @@ impl BrowserStore {
     pub(crate) fn release_all_input(&mut self) {
         for view in self.views.values_mut() {
             view.release_input();
-        }
-    }
-
-    pub(crate) fn retain_visible(&mut self, visible: &HashSet<NodeId>) {
-        let hidden_nodes = self
-            .views
-            .iter()
-            .filter(|(node_id, view)| view.visible && !visible.contains(*node_id))
-            .map(|(node_id, _)| node_id)
-            .copied()
-            .collect::<Vec<_>>();
-        for node_id in hidden_nodes {
-            self.hide(node_id);
         }
     }
 
@@ -370,128 +388,8 @@ impl BrowserStore {
     }
 }
 
-impl BrowserView {
-    fn sync(
-        &mut self,
-        node_id: NodeId,
-        url: &str,
-        bounds: BrowserViewBounds,
-        window: &mut Window,
-        event_sender: Sender<BrowserEvent>,
-    ) {
-        if self.native_view.is_none() {
-            let configured = std::env::var("MULTISOUL_BROWSER_ENGINE").ok();
-            let engine = BrowserEngineKind::from_env_value(configured.as_deref());
-            let create_started = Instant::now();
-            match NativeBrowserView::create(engine, node_id, url, bounds, window, event_sender) {
-                Ok(native_view) => {
-                    self.native_view = Some(native_view);
-                    tracing::info!(
-                        node_id,
-                        create_ms = create_started.elapsed().as_secs_f64() * 1000.0,
-                        "browser_view_created"
-                    );
-                    self.load_timeline
-                        .begin(create_started, Some(create_started.elapsed()));
-                }
-                Err(error) => tracing::warn!(
-                    node_id,
-                    engine = ?engine,
-                    error = %error,
-                    "failed to create native Browser view"
-                ),
-            }
-        }
+mod view;
 
-        if self.bounds != bounds {
-            self.bounds = bounds;
-            self.load_timeline.note_resize();
-            self.set_bounds(bounds);
-        }
-        if self.url != url {
-            self.url = url.to_string();
-            self.load_url(url);
-        }
-        self.set_visible(true);
-    }
-
-    fn load_url(&mut self, url: &str) {
-        if let Some(native_view) = &mut self.native_view {
-            self.load_timeline.begin(Instant::now(), None);
-            native_view.load_url(url);
-        }
-    }
-
-    fn report_resource_timing(&self, node_id: NodeId) {
-        if let Some(native_view) = &self.native_view {
-            native_view.report_resource_timing(node_id);
-        }
-    }
-
-    fn current_url_for_polling(&self) -> Option<String> {
-        self.native_view
-            .as_ref()
-            .and_then(NativeBrowserView::current_url_for_polling)
-    }
-
-    fn go_back(&mut self) {
-        if let Some(native_view) = &mut self.native_view {
-            native_view.go_back();
-        }
-    }
-
-    fn go_forward(&mut self) {
-        if let Some(native_view) = &mut self.native_view {
-            native_view.go_forward();
-        }
-    }
-
-    fn reload(&mut self) {
-        if let Some(native_view) = &mut self.native_view {
-            self.load_timeline.begin(Instant::now(), None);
-            native_view.reload();
-        }
-    }
-
-    fn stop_loading(&mut self) {
-        self.load_timeline.cancel();
-        if let Some(native_view) = &self.native_view {
-            native_view.stop_loading();
-        }
-    }
-
-    fn set_bounds(&mut self, bounds: BrowserViewBounds) {
-        if let Some(native_view) = &mut self.native_view {
-            native_view.set_bounds(bounds);
-        }
-    }
-
-    fn set_visible(&mut self, visible: bool) {
-        if self.visible == visible {
-            return;
-        }
-        self.visible = visible;
-        if let Some(native_view) = &mut self.native_view {
-            native_view.set_visible(visible);
-        }
-    }
-
-    fn release_input(&mut self) {
-        if let Some(native_view) = &mut self.native_view {
-            native_view.release_input();
-        }
-    }
-
-    fn import_cookies(
-        &mut self,
-        node_id: NodeId,
-        source_url: &str,
-        cookies: &[super::chrome_auth::BrowserCookie],
-        skipped: usize,
-    ) -> Result<CookieImportStatus, String> {
-        self.native_view
-            .as_mut()
-            .ok_or_else(|| "Browser native view was unavailable for Cookie import".to_string())?
-            .import_cookies(node_id, source_url, cookies, skipped)
-    }
-}
+#[cfg(test)]
+#[path = "../../../tests/unit/browser_scene_tests.rs"]
+mod scene_tests;

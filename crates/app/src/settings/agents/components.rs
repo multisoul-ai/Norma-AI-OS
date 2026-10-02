@@ -181,55 +181,6 @@ pub(super) fn primary_button(
         .into_any_element()
 }
 
-/// 次级按钮：描边 + 透明底，hover / pressed 使用主文字色的低透明度叠层。
-pub(super) fn secondary_button(
-    theme: Theme,
-    id: &'static str,
-    label: &'static str,
-    on_activate: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
-) -> AnyElement {
-    let ink = theme.text_primary;
-    activatable(id, on_activate)
-        .px(px(14.0))
-        .py(px(7.0))
-        .rounded(px(8.0))
-        .border_1()
-        .border_color(rgba(with_alpha(ink, 0x38)))
-        .bg(rgba(with_alpha(ink, 0x00)))
-        .text_size(px(13.0))
-        .font_weight(FontWeight::MEDIUM)
-        .text_color(rgba(ink))
-        .hover(move |style| style.bg(rgba(with_alpha(ink, 0x12))))
-        .active(move |style| style.bg(rgba(with_alpha(ink, 0x24))))
-        .focus(move |style| style.border_color(rgba(theme.accent_orange)))
-        .child(label)
-        .into_any_element()
-}
-
-/// 危险文字按钮：无描边，仅用 destructive 颜色与 hover / pressed 底色表达。
-pub(super) fn destructive_text_button(
-    theme: Theme,
-    id: &'static str,
-    label: &'static str,
-    on_activate: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
-) -> AnyElement {
-    let color = theme.destructive;
-    activatable(id, on_activate)
-        .px(px(10.0))
-        .py(px(7.0))
-        .rounded(px(8.0))
-        .border_1()
-        .border_color(rgba(with_alpha(color, 0x00)))
-        .text_size(px(13.0))
-        .font_weight(FontWeight::MEDIUM)
-        .text_color(rgba(color))
-        .hover(move |style| style.bg(rgba(with_alpha(color, 0x18))))
-        .active(move |style| style.bg(rgba(with_alpha(color, 0x2c))))
-        .focus(move |style| style.border_color(rgba(color)))
-        .child(label)
-        .into_any_element()
-}
-
 fn activatable(
     id: &'static str,
     on_activate: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,

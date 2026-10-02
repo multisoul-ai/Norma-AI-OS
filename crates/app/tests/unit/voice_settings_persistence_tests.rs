@@ -4,6 +4,7 @@ use super::*;
 ///
 /// 数据构造：先选择 OpenAI 并取走首批写入，再在首批未完成时切回 Ollama。
 /// 执行过程：第二次尝试 drain 应为空；记录首批完成后再次 drain 并执行。
+///
 /// 预期结果：两批各一个写入且严格串行；数据库最终值为最后选择的 Ollama。
 #[test]
 fn test_voice_settings_persistence_serializes_consecutive_writes() {
@@ -49,6 +50,7 @@ fn test_voice_settings_persistence_serializes_consecutive_writes() {
 /// SettingsStore 隔离真实用户配置。
 /// 执行过程：进入 Model 编辑态后连续调用自动保存入口，取出待写队列、执行并记录成功，
 /// 再从同一个 store 创建新的 VoiceSettingsState。
+///
 /// 预期结果：待写队列只有一个写入；编辑态在自动保存时保持；重新加载值精确为 `abc`，
 /// 不得残留较早的 `a` 或 `ab`。
 #[test]
@@ -103,6 +105,7 @@ fn test_voice_settings_auto_save_coalesces_latest_value_and_reloads() {
 /// 数据构造：先记录默认有效 Model，再以空字符串调用自动保存；临时 SettingsStore 用于
 /// 观察是否错误地产生 SQLite 删除任务。
 /// 执行过程：进入 Model 编辑态，尝试自动保存空值，随后读取返回值、正式设置和待写队列。
+///
 /// 预期结果：自动保存返回 false，正式 Model 保持原值且队列为空；编辑态仍保留，允许用户
 /// 继续输入，不能把暂时空白当作有效配置写入数据库。
 #[test]
@@ -140,6 +143,7 @@ fn test_voice_settings_auto_save_rejects_empty_required_value() {
 /// AgentApiKey 编辑态；断言只检查 configured 状态，不输出密钥内容。
 /// 执行过程：以空字符串调用自动保存入口，检查返回值、正式 Provider 配置、待写队列，
 /// 最后从同一个 SQLite 重新加载状态，再调用明确的 Clear 并执行其待写任务。
+///
 /// 预期结果：空值被拒绝为隐式删除，当前与重载状态均保持 configured，且不得产生
 /// SQLite Delete；明确 Clear 后则产生一次 Delete，重载状态变为未配置。
 #[test]
@@ -215,6 +219,7 @@ fn test_voice_settings_auto_save_empty_api_key_preserves_saved_secret() {
 /// `editing=AgentApiKey` 或密钥草稿。
 /// 数据构造：使用 in-memory state 与测试草稿；断言只检查空值，不打印草稿内容。
 /// 执行过程：进入 API Key 编辑态、设置草稿、调用 clear，再读取编辑字段与草稿状态。
+///
 /// 预期结果：编辑态结束且草稿为空；当前 Provider 为未配置。
 #[test]
 fn test_voice_settings_clear_api_key_cancels_edit_and_draft() {
@@ -247,6 +252,7 @@ fn test_voice_settings_clear_api_key_cancels_edit_and_draft() {
 /// 不得通过 fallback 再次出现。
 /// 数据构造：临时 SQLite 只写 active=openai 与 legacy API Key，不写 canonical key。
 /// 执行过程：加载状态、调用 clear、执行全部待写任务，再从同一个 SQLite 重载。
+///
 /// 预期结果：canonical 与 legacy 两个存储键都不存在；重载后 API Key 为未配置。
 #[test]
 fn test_voice_settings_clear_api_key_removes_legacy_fallback() {
@@ -377,6 +383,7 @@ fn test_tts_model_and_voice_selection_persist_as_independent_ids() {
 ///   1. 在 Voice Settings 输入 Key，执行后台保存批次。
 ///   2. 从设置中的 credential ref 定位 SQLite 凭据，再用新 store 实例读取。
 ///   3. 清除凭据，执行删除批次并重读。
+///
 /// 预期结果：
 ///   - 正断言：重开数据库后能读回原 Key。
 ///   - 负断言：清除后数据库不再返回 Key。

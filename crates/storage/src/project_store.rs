@@ -3,6 +3,7 @@ use crate::{
     AgentDispatchTaskStore, CanvasStore, DatabasePaths, LayoutStore, NodeSessionStore,
     SessionStore, StorageError, StorageResult, VoiceHistoryStore,
 };
+use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug)]
@@ -32,6 +33,41 @@ impl ProjectStore {
         let path = paths.project_db_path(root);
         let store = Self::for_database_paths(paths, root)
             .map_err(|source| project_initialization_error(paths, path.clone(), source))?;
+        store
+            .migrate()
+            .map_err(|source| project_initialization_error(paths, path, source))?;
+        Ok(store)
+    }
+
+    pub fn initialize_for_desktop_area(
+        paths: &DatabasePaths,
+        root: &Path,
+        desktop_workspace_id: &str,
+        area_id: &str,
+    ) -> StorageResult<Self> {
+        require_workspace_dir(root)?;
+        let path = desktop_canvas_path(paths.app_db_path(), desktop_workspace_id, area_id)?;
+        let store = Self::new(path.clone());
+        store
+            .migrate()
+            .map_err(|source| project_initialization_error(paths, path, source))?;
+        Ok(store)
+    }
+
+    pub fn initialize_for_desktop_definitions(
+        paths: &DatabasePaths,
+        project_key: &Path,
+    ) -> StorageResult<Self> {
+        let parent = paths
+            .app_db_path()
+            .parent()
+            .ok_or_else(|| StorageError::InvalidAppDatabasePath(paths.app_db_path().to_owned()))?;
+        let filename = format!(
+            "{:x}.sqlite",
+            Sha256::digest(project_key.to_string_lossy().as_bytes())
+        );
+        let path = parent.join("desktop-project-definitions").join(filename);
+        let store = Self::new(path.clone());
         store
             .migrate()
             .map_err(|source| project_initialization_error(paths, path, source))?;
@@ -78,6 +114,20 @@ impl ProjectStore {
     pub fn agent_conversation_tail_store(&self) -> AgentConversationTailStore {
         AgentConversationTailStore::new(self.path.clone())
     }
+}
+
+pub(crate) fn desktop_canvas_path(
+    app_db_path: &Path,
+    desktop_workspace_id: &str,
+    area_id: &str,
+) -> StorageResult<PathBuf> {
+    let parent = app_db_path
+        .parent()
+        .ok_or_else(|| StorageError::InvalidAppDatabasePath(app_db_path.to_path_buf()))?;
+    // Hash IDs before constructing a path so a corrupted catalog cannot traverse directories.
+    let scope = format!("{desktop_workspace_id}:{area_id}");
+    let filename = format!("{:x}.sqlite", Sha256::digest(scope.as_bytes()));
+    Ok(parent.join("desktop-canvases").join(filename))
 }
 
 fn project_initialization_error(

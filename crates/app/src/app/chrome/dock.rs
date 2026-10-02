@@ -1,22 +1,26 @@
 //! Command Dock rendering and its local GPUI elements.
 
-use super::super::MultisoulApp;
+use super::super::{AppScreen, MultisoulApp};
 use super::bottom_voice_bar_visible;
 use crate::effects::dispatch_receipt::{COMMAND_DOCK_BOTTOM_PX, COMMAND_DOCK_HEIGHT_PX};
 use gpui::{
-    div, point, prelude::*, px, rgba, AnyView, App, BoxShadow, Context, Div, MouseButton, Stateful,
-    Window,
+    div, point, prelude::*, px, rgba, AnyElement, AnyView, App, BoxShadow, Context, Div,
+    MouseButton, Stateful, Window,
 };
 use ui::icons::{with_alpha, ToolbarIcon};
 use ui::Theme;
 
 impl MultisoulApp {
-    pub(super) fn render_command_dock(
+    pub(crate) fn render_command_dock(
         &mut self,
         window: &mut Window,
         cx: &mut Context<Self>,
+        project_switcher: Option<AnyElement>,
     ) -> Div {
         let theme = self.theme;
+        if !matches!(self.screen, AppScreen::Canvas) {
+            return self.render_desktop_overview_dock(cx, project_switcher);
+        }
         let input = self.render_command_input(window, cx);
         div()
             .absolute()
@@ -50,9 +54,9 @@ impl MultisoulApp {
                             "toolbar-workspace",
                             "工作空间",
                         )
-                        .on_click(cx.listener(|app, _, _, cx| {
+                        .on_click(cx.listener(|app, _, window, cx| {
                             app.hide_command_suggestions();
-                            app.open_new_launchpad_window(cx);
+                            app.open_desktop_switcher(window, cx);
                         })),
                     )
                     .child(
@@ -74,6 +78,7 @@ impl MultisoulApp {
                     .when(bottom_voice_bar_visible(), |dock| {
                         dock.child(self.render_voice_bar(window, cx))
                     })
+                    .children(project_switcher)
                     .child(
                         chrome_icon_button(
                             theme,
@@ -86,6 +91,73 @@ impl MultisoulApp {
                             app.hide_command_suggestions();
                             app.on_toolbar_settings(event, window, cx);
                         })),
+                    ),
+            )
+    }
+
+    fn render_desktop_overview_dock(
+        &self,
+        cx: &mut Context<Self>,
+        project_switcher: Option<AnyElement>,
+    ) -> Div {
+        let theme = self.theme;
+        div()
+            .absolute()
+            .left(px(0.0))
+            .right(px(0.0))
+            .bottom(px(COMMAND_DOCK_BOTTOM_PX))
+            .flex()
+            .justify_center()
+            .child(
+                div()
+                    .id("workspace-command-dock")
+                    .debug_selector(|| "workspace-command-dock".to_string())
+                    .h(px(COMMAND_DOCK_HEIGHT_PX))
+                    .flex()
+                    .items_center()
+                    .gap(px(3.0))
+                    .p(px(6.0))
+                    .rounded(px(18.0))
+                    .border_1()
+                    .border_color(rgba(theme.dock_line))
+                    .shadow(command_dock_shadow())
+                    .bg(rgba(theme.dock))
+                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .child(
+                        chrome_icon_button(
+                            theme,
+                            ToolbarIcon::Plus.asset_path(),
+                            false,
+                            "toolbar-new-terminal",
+                            "Add Project",
+                        )
+                        .on_click(cx.listener(|app, _, window, cx| {
+                            app.open_desktop_add_project(window, cx)
+                        })),
+                    )
+                    .child(chrome_divider(theme))
+                    .children(project_switcher)
+                    .child(
+                        chrome_icon_button(
+                            theme,
+                            "icons/command-workspace.svg",
+                            false,
+                            "toolbar-switch-workspace",
+                            "Switch Workspace  ⌘⇧K",
+                        )
+                        .on_click(
+                            cx.listener(|app, _, window, cx| app.open_desktop_switcher(window, cx)),
+                        ),
+                    )
+                    .child(
+                        chrome_icon_button(
+                            theme,
+                            ToolbarIcon::Settings.asset_path(),
+                            false,
+                            "toolbar-settings",
+                            "设置",
+                        )
+                        .on_click(cx.listener(|app, _, _, cx| app.toggle_settings_panel(cx))),
                     ),
             )
     }

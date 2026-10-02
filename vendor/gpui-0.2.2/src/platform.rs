@@ -853,6 +853,8 @@ impl From<TileId> for etagere::AllocId {
 pub(crate) struct PlatformInputHandler {
     cx: AsyncWindowContext,
     handler: Box<dyn InputHandler>,
+    // Cached handlers keep the live mapping, so parent camera moves need no content repaint.
+    scene_transform: Option<crate::scene_transform::SceneTransform>,
 }
 
 #[cfg_attr(
@@ -863,8 +865,16 @@ pub(crate) struct PlatformInputHandler {
     allow(dead_code)
 )]
 impl PlatformInputHandler {
-    pub fn new(cx: AsyncWindowContext, handler: Box<dyn InputHandler>) -> Self {
-        Self { cx, handler }
+    pub fn new(
+        cx: AsyncWindowContext,
+        handler: Box<dyn InputHandler>,
+        scene_transform: Option<crate::scene_transform::SceneTransform>,
+    ) -> Self {
+        Self {
+            cx,
+            handler,
+            scene_transform,
+        }
     }
 
     fn selected_text_range(&mut self, ignore_disabled_input: bool) -> Option<UTF16Selection> {
@@ -939,10 +949,16 @@ impl PlatformInputHandler {
     }
 
     fn bounds_for_range(&mut self, range_utf16: Range<usize>) -> Option<Bounds<Pixels>> {
-        self.cx
+        let bounds = self
+            .cx
             .update(|window, cx| self.handler.bounds_for_range(range_utf16, window, cx))
             .ok()
-            .flatten()
+            .flatten()?;
+        Some(
+            self.scene_transform
+                .as_ref()
+                .map_or(bounds, |transform| transform.resolve().bounds(bounds)),
+        )
     }
 
     #[allow(dead_code)]
@@ -956,7 +972,7 @@ impl PlatformInputHandler {
 
     pub fn selected_bounds(&mut self, window: &mut Window, cx: &mut App) -> Option<Bounds<Pixels>> {
         let selection = self.handler.selected_text_range(true, window, cx)?;
-        self.handler.bounds_for_range(
+        let bounds = self.handler.bounds_for_range(
             if selection.reversed {
                 selection.range.start..selection.range.start
             } else {
@@ -964,11 +980,25 @@ impl PlatformInputHandler {
             },
             window,
             cx,
+        )?;
+        Some(
+            self.scene_transform
+                .as_ref()
+                .map_or(bounds, |transform| transform.resolve().bounds(bounds)),
         )
     }
 
     #[allow(unused)]
     pub fn character_index_for_point(&mut self, point: Point<Pixels>) -> Option<usize> {
+        let point = if let Some(transform) = &self.scene_transform {
+            let transform = transform.resolve();
+            if !transform.clip.contains(&point) {
+                return None;
+            }
+            transform.inverse(point)
+        } else {
+            point
+        };
         self.cx
             .update(|window, cx| self.handler.character_index_for_point(point, window, cx))
             .ok()
@@ -1056,7 +1086,9 @@ pub trait InputHandler: 'static {
     /// Get the bounds of the given document range in screen coordinates
     /// Corresponds to [firstRect(forCharacterRange:actualRange:)](https://developer.apple.com/documentation/appkit/nstextinputclient/1438240-firstrect)
     ///
-    /// This is used for positioning the IME candidate window
+    /// This is used for positioning the IME candidate window.
+    /// Inside a [`crate::scene`], return scene-local logical bounds; the platform adapter
+    /// applies the current presentation transform, including changes to cached scenes.
     fn bounds_for_range(
         &mut self,
         range_utf16: Range<usize>,
@@ -1064,7 +1096,8 @@ pub trait InputHandler: 'static {
         cx: &mut App,
     ) -> Option<Bounds<Pixels>>;
 
-    /// Get the character offset for the given point in terms of UTF16 characters
+    /// Get the character offset for the given point in terms of UTF16 characters.
+    /// Inside a [`crate::scene`], the point is in that scene's logical coordinates.
     ///
     /// Corresponds to [characterIndexForPoint:](https://developer.apple.com/documentation/appkit/nstextinputclient/characterindex(for:))
     fn character_index_for_point(
@@ -1860,3 +1893,7 @@ impl From<String> for ClipboardString {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/unit/scene_input.rs"]
+mod scene_input_tests;

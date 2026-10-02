@@ -432,63 +432,7 @@ fn spawn_turn(
         });
 }
 
-impl MultisoulApp {
-    pub(crate) fn submit_project_agent(
-        &mut self,
-        command: AgentCommand,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> Result<async_channel::Receiver<Result<Vec<AgentEvent>, String>>, String> {
-        let config = self
-            .voice_settings
-            .values()
-            .agent_provider_config()
-            .map_err(|error| error.to_string())?;
-        let root = self
-            .workspace_state
-            .current_root
-            .as_ref()
-            .ok_or_else(|| "使用 Norma 前请先打开项目".to_string())?;
-        let project_id = root.display().to_string();
-        let must_replace = self
-            .agent_runtime
-            .as_ref()
-            .is_none_or(|runtime| !runtime.matches_project(&project_id));
-        if must_replace {
-            let (runtime, adapter, events) = ProjectAgentRuntime::spawn(project_id, config)?;
-            let runtime_id = runtime.id();
-            self.dialogue
-                .set_dialogue_stream_cancellation(runtime.dialogue_cancel_handle());
-            self.agent_runtime = Some(runtime);
-            start_adapter_pump(adapter, runtime_id, window, cx);
-            start_event_pump(events, runtime_id, cx);
-        } else if self
-            .agent_runtime
-            .as_ref()
-            .is_some_and(|runtime| !runtime.uses_config(&config))
-        {
-            let runtime = self
-                .agent_runtime
-                .as_ref()
-                .expect("Norma runtime should exist while switching models");
-            let _ = runtime.submit(AgentCommand::SwitchModel(config));
-        }
-        let roster = self.agent_roster_for_provider();
-        let canvas = self.current_canvas_context_for_provider();
-        let mut commands = contextualized_agent_commands(roster, canvas, command);
-        let requested = commands
-            .pop()
-            .expect("contextualized command batch should include the requested command");
-        let runtime = self
-            .agent_runtime
-            .as_ref()
-            .expect("Norma runtime should exist after initialization");
-        for context in commands {
-            let _ = runtime.submit(context);
-        }
-        Ok(runtime.submit(requested))
-    }
-}
+mod submit;
 
 include!("agent_runtime/adapter_pump.rs");
 

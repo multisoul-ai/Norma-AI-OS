@@ -23,6 +23,8 @@ pub(super) struct VoiceSettingsContent<'a> {
 }
 
 pub(super) struct SettingsContentContext<'a> {
+    pub(super) width: f32,
+    pub(super) height: f32,
     pub(super) theme: Theme,
     pub(super) theme_id: ThemeId,
     pub(super) panel: &'a SettingsPanelState,
@@ -46,6 +48,8 @@ pub(super) fn settings_content(
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     let SettingsContentContext {
+        width,
+        height,
         theme,
         theme_id,
         panel,
@@ -62,6 +66,8 @@ pub(super) fn settings_content(
         shortcuts,
         mobile,
     } = content;
+    let compact = width < 600.0 || height < 640.0;
+    let padding = if compact { 16.0 } else { 28.0 };
     div()
         .flex_1()
         .min_w(px(0.0))
@@ -74,6 +80,7 @@ pub(super) fn settings_content(
             theme,
             panel.active_section,
             &shortcuts.voice_interaction_label(),
+            compact,
             cx,
         ))
         .child({
@@ -91,11 +98,13 @@ pub(super) fn settings_content(
                 .when(!agents_section, |this| {
                     this.overflow_y_scroll().track_scroll(content_scroll)
                 })
-                .pl(px(29.0))
-                .pr(px(28.0))
-                .pb(px(40.0))
+                .px(px(padding))
+                .pt(px(16.0))
+                .pb(px(padding))
                 .child(match panel.active_section {
-                    SettingsSection::Themes => theme_appearance(theme_id, theme, cx),
+                    SettingsSection::Themes => {
+                        theme_appearance(theme_id, theme, width - padding * 2.0, cx)
+                    }
                     SettingsSection::Keyboard => keyboard_settings(theme, shortcuts, cx),
                     SettingsSection::Voice => voice_settings(
                         crate::settings::voice::VoiceSettingsView {
@@ -140,6 +149,7 @@ fn content_header(
     theme: Theme,
     section: SettingsSection,
     voice_shortcut_label: &str,
+    compact: bool,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     let subtitle = content_subtitle(section, voice_shortcut_label);
@@ -153,7 +163,7 @@ fn content_header(
             div()
                 .relative()
                 .top(px(2.0))
-                .text_size(px(24.0))
+                .text_size(px(if compact { 20.0 } else { 24.0 }))
                 .font_weight(FontWeight::BOLD)
                 .text_color(rgba(theme.text_primary))
                 .child(content_title(section)),
@@ -162,6 +172,7 @@ fn content_header(
         title_column = title_column.child(
             div()
                 .text_size(px(15.75))
+                .when(compact, |this| this.text_size(px(13.0)))
                 .text_color(rgba(theme.text_tertiary))
                 .child(subtitle),
         );
@@ -170,14 +181,14 @@ fn content_header(
     div()
         .min_h(px(119.0))
         .flex_none()
+        .when(compact, |this| this.min_h(px(88.0)))
         .flex()
         .flex_row()
         .items_start()
         .justify_between()
-        .pt(px(31.0))
-        .pl(px(29.0))
-        .pr(px(28.0))
-        .pb(px(18.0))
+        .gap(px(12.0))
+        .px(px(if compact { 16.0 } else { 28.0 }))
+        .py(px(if compact { 16.0 } else { 24.0 }))
         .border_b_1()
         .border_color(rgba(with_alpha(theme.edge_highlight, 0x24)))
         .child(title_column)
@@ -187,6 +198,7 @@ fn content_header(
                 .debug_selector(|| "settings-close".to_string())
                 .w(px(34.0))
                 .h(px(34.0))
+                .flex_none()
                 .flex()
                 .items_center()
                 .justify_center()
@@ -225,7 +237,7 @@ fn content_subtitle(section: SettingsSection, voice_shortcut_label: &str) -> Str
         SettingsSection::Mobile => {
             "Connect your iPhone over a local network or Tailscale".to_string()
         }
-        SettingsSection::Themes => "Choose one of the six reviewed Core UI V2 palettes".to_string(),
+        SettingsSection::Themes => "Choose the appearance of your workspace".to_string(),
         SettingsSection::Keyboard => {
             "Customize app commands and review system input behavior".to_string()
         }

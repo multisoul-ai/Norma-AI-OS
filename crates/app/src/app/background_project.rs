@@ -38,29 +38,71 @@ impl PreparedProject {
             );
             let project =
                 ProjectStore::initialize_for_database_paths(&paths, &identity.canonical_root)?;
-            let document = project.canvas_store().load_snapshot()?;
-            let layout = project.layout_store().load_state()?;
-            let sessions = project.node_session_store().load_sessions()?;
-            let checkpoints = project.session_store().load_checkpoints()?;
-            let mut definitions = crate::settings::agents::AgentDefinitionsState::default();
-            definitions.bind_project_store(project.agent_definition_store());
-            let tails = project.agent_conversation_tail_store().list()?;
-            let settings = StoredBootstrap::load(&store);
-            Ok(Self {
-                paths,
-                store,
-                identity,
-                project,
-                settings,
-                document,
-                layout,
-                sessions,
-                checkpoints,
-                definitions,
-                tails,
-            })
+            let definitions_store = project.agent_definition_store();
+            Self::finish_load(paths, store, identity, project, definitions_store)
         };
         load().map_err(|error| error.to_string())
+    }
+
+    pub(crate) fn load_for_desktop(
+        paths: DatabasePaths,
+        area: storage::DesktopProjectArea,
+    ) -> Result<Self, String> {
+        let load = || -> anyhow::Result<Self> {
+            anyhow::ensure!(area.root.is_dir(), "project directory unavailable");
+            anyhow::ensure!(
+                area.root.canonicalize()? == area.root,
+                "project directory changed"
+            );
+            let store = AppStore::new(paths.app_db_path().to_owned());
+            let mut identity = store
+                .workspace_identity_store()
+                .resolve_or_create(&area.root, &area.display_name)?;
+            // CLI routing belongs to this canvas, even when another canvas uses the same root.
+            // Keep the persisted project identity unchanged for legacy/mobile project lookup.
+            identity.workspace_id = format!("desktop:{}:{}", area.desktop_workspace_id, area.id);
+            let project = ProjectStore::initialize_for_desktop_area(
+                &paths,
+                &area.root,
+                &area.desktop_workspace_id,
+                &area.id,
+            )?;
+            let definitions_store =
+                ProjectStore::initialize_for_desktop_definitions(&paths, &area.project_key)?
+                    .agent_definition_store();
+            Self::finish_load(paths, store, identity, project, definitions_store)
+        };
+        load().map_err(|error| error.to_string())
+    }
+
+    fn finish_load(
+        paths: DatabasePaths,
+        store: AppStore,
+        identity: WorkspaceIdentity,
+        project: ProjectStore,
+        definitions_store: storage::AgentDefinitionStore,
+    ) -> anyhow::Result<Self> {
+        let document = project.canvas_store().load_snapshot()?;
+        let layout = project.layout_store().load_state()?;
+        let sessions = project.node_session_store().load_sessions()?;
+        let checkpoints = project.session_store().load_checkpoints()?;
+        let mut definitions = crate::settings::agents::AgentDefinitionsState::default();
+        definitions.bind_project_store(definitions_store);
+        let tails = project.agent_conversation_tail_store().list()?;
+        let settings = StoredBootstrap::load(&store);
+        Ok(Self {
+            paths,
+            store,
+            identity,
+            project,
+            settings,
+            document,
+            layout,
+            sessions,
+            checkpoints,
+            definitions,
+            tails,
+        })
     }
 }
 
@@ -112,7 +154,12 @@ impl MultisoulApp {
         self.dialogue.on_window_closed();
         self.voice.cancel_speech_task();
         self.voice.cancel_speech_session();
-        self.clear_browser_views();
+        if self.desktop_host.is_some() {
+            // Overview and expanded presentations own the same live Browser instance.
+            self.release_all_browser_input();
+        } else {
+            self.clear_browser_views();
+        }
         self.clear_ego_previews(cx);
         self.video_wallpaper = None;
         self.feature_guide_media = super::feature_guide::FeatureGuideMediaState::default();
@@ -148,5 +195,119 @@ impl MultisoulApp {
         self.last_reflow_window_size = None;
         self.wake_animation_frame_loop();
         cx.notify();
+    }
+
+    pub(crate) fn attach_desktop_area_window(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.project_window = Some(window.window_handle());
+        self.background_project = false;
+        self.window_active = true;
+        if let Some(pending) = self.background_restore.take() {
+            self.spawn_deferred_live_session_restore(pending, cx);
+        }
+        self.start_dialogue_turn_loop(window, cx);
+        self.start_cef_message_pump_loop(window, cx);
+        self.reload_all_previews(cx);
+        self.wake_animation_frame_loop();
+        cx.notify();
+    }
+
+    pub(crate) fn activate_desktop_area_overview(&mut self, cx: &mut Context<Self>) {
+        if let Some(pending) = self.background_restore.take() {
+            self.spawn_deferred_live_session_restore(pending, cx);
+        }
+    }
+}
+
+#[cfg(test)]
+mod desktop_project_tests {
+    use super::*;
+
+    /// DWS-08：删除桌面区域后，同一项目的 Agent 定义应由项目数据库保留。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   项目数 = 1；桌面区域数 = 2；定义数 = 1。
+    ///   删除区域甲后，存活区域数 = 2 - 1 = 1，定义数仍为 1。
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 在项目级数据库创建一条 Agent 定义。
+    ///   2. 分别加载甲、乙两个区域，核对两者均可读取同一定义。
+    ///   3. 删除甲区域后再加载乙，核对项目定义仍存在。
+    ///
+    /// 预期结果：
+    ///   - 正断言：乙和重新加载的乙均含该定义。
+    ///   - 负断言：甲区域已删除，不能继续出现在工作空间目录。
+    #[test]
+    fn desktop_area_removal_preserves_project_agent_definitions() {
+        let temp = tempfile::tempdir().expect("应创建隔离目录");
+        let paths = DatabasePaths::isolated_test(&temp.path().join("data"));
+        let project = temp.path().join("project");
+        std::fs::create_dir(&project).expect("应创建项目目录");
+        let catalog = storage::DesktopWorkspaceStore::new(paths.app_db_path().to_owned());
+        let alpha = catalog.create("Alpha").expect("应创建甲");
+        let beta = catalog.create("Beta").expect("应创建乙");
+        let area_a = catalog
+            .add_project(&alpha.id, &project)
+            .expect("甲应添加项目");
+        let area_b = catalog
+            .add_project(&beta.id, &project)
+            .expect("乙应添加项目");
+        let project_store =
+            ProjectStore::initialize_for_desktop_definitions(&paths, &area_a.project_key)
+                .expect("应初始化项目级定义数据库");
+        let definition = project_store
+            .agent_definition_store()
+            .create(&storage::NewAgentDefinition {
+                name: "SharedAgent".into(),
+                runtime_profile: canvas::AgentProfile::Codex,
+                workflow_description: "Shared across desktop workspaces".into(),
+            })
+            .expect("应保存项目级定义");
+
+        let loaded_a =
+            PreparedProject::load_for_desktop(paths.clone(), area_a.clone()).expect("甲区域应加载");
+        let loaded_b =
+            PreparedProject::load_for_desktop(paths.clone(), area_b.clone()).expect("乙区域应加载");
+        assert!(
+            loaded_a
+                .definitions
+                .definitions()
+                .iter()
+                .any(|item| item.id == definition.id),
+            "甲应读取项目级 Agent 定义"
+        );
+        assert!(
+            loaded_b
+                .definitions
+                .definitions()
+                .iter()
+                .any(|item| item.id == definition.id),
+            "乙应读取项目级 Agent 定义"
+        );
+
+        catalog
+            .remove_project(&alpha.id, &area_a.id)
+            .expect("应移除甲区域");
+        let reloaded_b =
+            PreparedProject::load_for_desktop(paths, area_b).expect("删除甲后乙区域应加载");
+        assert!(
+            reloaded_b
+                .definitions
+                .definitions()
+                .iter()
+                .any(|item| item.id == definition.id),
+            "删除甲后项目级 Agent 定义应保留"
+        );
+        assert!(
+            !catalog
+                .list_projects(&alpha.id)
+                .expect("应读取甲区域")
+                .iter()
+                .any(|item| item.id == area_a.id),
+            "删除后甲区域不得残留"
+        );
     }
 }

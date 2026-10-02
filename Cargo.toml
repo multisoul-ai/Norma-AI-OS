@@ -1,5 +1,7 @@
 [workspace]
 resolver = "2"
+# Run vendored GPUI unit tests explicitly via its manifest, outside app-wide tests.
+exclude = ["vendor/gpui-0.2.2"]
 members = [
   "crates/model_store",
   "crates/tts",

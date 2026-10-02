@@ -22,6 +22,9 @@ pub(crate) type DrawOrder = u32;
 
 #[derive(Default)]
 pub(crate) struct Scene {
+    #[cfg(all(target_os = "macos", not(feature = "macos-blade")))]
+    pub(crate) cpu_build_duration: std::cell::Cell<Option<std::time::Duration>>,
+    pub(crate) transform: Option<crate::scene_transform_paint::ScenePlacement>,
     pub(crate) paint_operations: Vec<PaintOperation>,
     primitive_bounds: BoundsTree<ScaledPixels>,
     layer_stack: Vec<DrawOrder>,
@@ -36,6 +39,9 @@ pub(crate) struct Scene {
 
 impl Scene {
     pub fn clear(&mut self) {
+        #[cfg(all(target_os = "macos", not(feature = "macos-blade")))]
+        self.cpu_build_duration.set(None);
+        self.transform = None;
         self.paint_operations.clear();
         self.primitive_bounds.clear();
         self.layer_stack.clear();
@@ -53,10 +59,21 @@ impl Scene {
     }
 
     pub fn push_layer(&mut self, bounds: Bounds<ScaledPixels>) {
-        let order = self.primitive_bounds.insert(bounds);
+        self.push_transformed_layer(bounds, self.transform.clone());
+    }
+
+    fn push_transformed_layer(
+        &mut self,
+        bounds: Bounds<ScaledPixels>,
+        transform: Option<crate::scene_transform_paint::ScenePlacement>,
+    ) {
+        let presented = transform
+            .as_ref()
+            .map_or(bounds, |transform| transform.bounds(bounds));
+        let order = self.primitive_bounds.insert(presented);
         self.layer_stack.push(order);
         self.paint_operations
-            .push(PaintOperation::StartLayer(bounds));
+            .push(PaintOperation::StartLayer(bounds, transform));
     }
 
     pub fn pop_layer(&mut self) {
@@ -65,7 +82,25 @@ impl Scene {
     }
 
     pub fn insert_primitive(&mut self, primitive: impl Into<Primitive>) {
-        let mut primitive = primitive.into();
+        self.insert_transformed_primitive(primitive.into(), self.transform.clone());
+    }
+
+    fn insert_transformed_primitive(
+        &mut self,
+        mut primitive: Primitive,
+        transform: Option<crate::scene_transform_paint::ScenePlacement>,
+    ) {
+        // Retain original local commands even when the current camera clips them out.
+        // A future cached replay may bring them back into view.
+        if transform.is_some() {
+            self.paint_operations.push(PaintOperation::Primitive(
+                primitive.clone(),
+                transform.clone(),
+            ));
+        }
+        if let Some(transform) = &transform {
+            transform.primitive(&mut primitive);
+        }
         let clipped_bounds = primitive
             .bounds()
             .intersect(&primitive.content_mask().bounds);
@@ -74,51 +109,58 @@ impl Scene {
             return;
         }
 
+        if transform.is_none() {
+            self.paint_operations
+                .push(PaintOperation::Primitive(primitive.clone(), None));
+        }
+
         let order = self
             .layer_stack
             .last()
             .copied()
             .unwrap_or_else(|| self.primitive_bounds.insert(clipped_bounds));
-        match &mut primitive {
-            Primitive::Shadow(shadow) => {
+        match primitive {
+            Primitive::Shadow(mut shadow) => {
                 shadow.order = order;
-                self.shadows.push(shadow.clone());
+                self.shadows.push(shadow);
             }
-            Primitive::Quad(quad) => {
+            Primitive::Quad(mut quad) => {
                 quad.order = order;
-                self.quads.push(quad.clone());
+                self.quads.push(quad);
             }
-            Primitive::Path(path) => {
+            Primitive::Path(mut path) => {
                 path.order = order;
                 path.id = PathId(self.paths.len());
-                self.paths.push(path.clone());
+                self.paths.push(path);
             }
-            Primitive::Underline(underline) => {
+            Primitive::Underline(mut underline) => {
                 underline.order = order;
-                self.underlines.push(underline.clone());
+                self.underlines.push(underline);
             }
-            Primitive::MonochromeSprite(sprite) => {
+            Primitive::MonochromeSprite(mut sprite) => {
                 sprite.order = order;
-                self.monochrome_sprites.push(sprite.clone());
+                self.monochrome_sprites.push(sprite);
             }
-            Primitive::PolychromeSprite(sprite) => {
+            Primitive::PolychromeSprite(mut sprite) => {
                 sprite.order = order;
-                self.polychrome_sprites.push(sprite.clone());
+                self.polychrome_sprites.push(sprite);
             }
-            Primitive::Surface(surface) => {
+            Primitive::Surface(mut surface) => {
                 surface.order = order;
-                self.surfaces.push(surface.clone());
+                self.surfaces.push(surface);
             }
         }
-        self.paint_operations
-            .push(PaintOperation::Primitive(primitive));
     }
 
     pub fn replay(&mut self, range: Range<usize>, prev_scene: &Scene) {
         for operation in &prev_scene.paint_operations[range] {
             match operation {
-                PaintOperation::Primitive(primitive) => self.insert_primitive(primitive.clone()),
-                PaintOperation::StartLayer(bounds) => self.push_layer(*bounds),
+                PaintOperation::Primitive(primitive, transform) => {
+                    self.insert_transformed_primitive(primitive.clone(), transform.clone())
+                }
+                PaintOperation::StartLayer(bounds, transform) => {
+                    self.push_transformed_layer(*bounds, transform.clone())
+                }
                 PaintOperation::EndLayer => self.pop_layer(),
             }
         }
@@ -190,8 +232,14 @@ pub(crate) enum PrimitiveKind {
 }
 
 pub(crate) enum PaintOperation {
-    Primitive(Primitive),
-    StartLayer(Bounds<ScaledPixels>),
+    Primitive(
+        Primitive,
+        Option<crate::scene_transform_paint::ScenePlacement>,
+    ),
+    StartLayer(
+        Bounds<ScaledPixels>,
+        Option<crate::scene_transform_paint::ScenePlacement>,
+    ),
     EndLayer,
 }
 
@@ -655,6 +703,7 @@ impl From<PolychromeSprite> for Primitive {
 
 #[derive(Clone, Debug)]
 pub(crate) struct PaintSurface {
+    pub opacity: f32,
     pub order: DrawOrder,
     pub bounds: Bounds<ScaledPixels>,
     pub content_mask: ContentMask<ScaledPixels>,

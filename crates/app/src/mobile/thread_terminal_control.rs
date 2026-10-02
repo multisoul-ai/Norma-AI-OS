@@ -15,7 +15,7 @@ pub enum ThreadTerminalOperation {
     Input {
         operation_id: String,
         claim_operation_id: String,
-        expected: norma::mobile::CardSnapshot,
+        expected: Box<norma::mobile::CardSnapshot>,
         screen_signature: u64,
         input_sequence: u64,
         input: norma::mobile::TerminalInput,
@@ -105,8 +105,7 @@ impl Drop for PendingDisconnect {
 pub(super) fn handle(
     shared: &Arc<Shared>,
     machine: &str,
-    device: &str,
-    token: &str,
+    (device, token): (&str, &str),
     origin: &original::Request,
     operation: &ThreadTerminalOperation,
     lookup_only: bool,

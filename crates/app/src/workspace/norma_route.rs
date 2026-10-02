@@ -99,11 +99,14 @@ impl MultisoulApp {
             config
         });
         self.runtime.set_agent_hook_config(runtime_config);
-        crate::workspace::sessions::register(
-            self.database_paths.app_db_path().to_owned(),
-            self.workspace_id.clone().expect("registered workspace"),
-            cx.entity(),
-            cx,
-        );
+        if self.desktop_host.is_none() {
+            // Desktop canvases are retained and stopped by their desktop host.
+            crate::workspace::sessions::register(
+                self.database_paths.app_db_path().to_owned(),
+                self.workspace_id.clone().expect("registered workspace"),
+                cx.entity(),
+                cx,
+            );
+        }
     }
 }

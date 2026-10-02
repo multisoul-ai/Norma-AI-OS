@@ -170,9 +170,7 @@ impl MultisoulApp {
                     database,
                     tools,
                     cancellation,
-                    events_tx.clone(),
-                    reports_rx,
-                    playback_events,
+                    (events_tx.clone(), reports_rx, playback_events),
                 )
                 .await;
                 tracing::info!(target: "norma_voice", generation,

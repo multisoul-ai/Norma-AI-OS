@@ -15,6 +15,9 @@ impl MultisoulApp {
             return false;
         }
         if self.shortcuts.recording.is_some() && self.shortcuts.record_keystroke(&ev.keystroke) {
+            if self.shortcuts.recording.is_none() && !self.shortcuts.status.is_error {
+                self.sync_desktop_shortcuts(cx);
+            }
             self.persist_voice_settings_in_background(cx);
             cx.stop_propagation();
             cx.notify();

@@ -4,7 +4,7 @@
 ///   source = include_str!("../../src/app/chrome/dock.rs")
 ///   render_source = source 中 #[cfg(test)] 前的生产渲染区
 ///   dock_start = `fn render_command_dock`
-///   dock_end = `fn command_dock_shadow`
+///   dock_end = `fn render_desktop_overview_dock`
 ///   分隔符调用次数 = 2；图标按钮调用次数 = Workspace + Layout + Settings = 3
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -24,8 +24,8 @@ fn test_product_ui_command_dock_uses_grouped_icons_and_embedded_voice() {
         .find("fn render_command_dock")
         .expect("Command Dock 应有独立渲染函数");
     let dock_end = render_source
-        .find("fn command_dock_shadow")
-        .expect("command_dock_shadow 应作为 Command Dock 区段的右界");
+        .find("fn render_desktop_overview_dock")
+        .expect("总览 Dock 应作为项目 Command Dock 区段的右界");
     let dock = &render_source[dock_start..dock_end];
     let icon_button_calls = dock.matches("chrome_icon_button(").count();
     let divider_calls = dock.matches("chrome_divider(").count();

@@ -5,7 +5,7 @@
 use super::MultisoulApp;
 use crate::app::video_decoder::{DecodedVideoFrame, VideoDecoder};
 use crate::app::wallpaper_resolvers::WallpaperKind;
-use gpui::{div, prelude::*, px, surface, Context, Div, ObjectFit, Surface};
+use gpui::{prelude::*, px, surface, Context, ObjectFit, Surface};
 use std::path::{Path, PathBuf};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -307,7 +307,7 @@ pub(crate) fn poll_video_wallpaper(
 impl MultisoulApp {
     /// Sync Canvas video before rendering its backdrop so an outgoing
     /// Launchpad frame cannot appear during the screen transition.
-    pub(super) fn sync_canvas_video_wallpaper(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn sync_canvas_video_wallpaper(&mut self, cx: &mut Context<Self>) {
         let canvas_video = (self.wallpaper_settings.current_kind() == WallpaperKind::Video)
             .then(|| self.wallpaper_settings.resolve_path())
             .flatten();
@@ -316,24 +316,6 @@ impl MultisoulApp {
             self.feature_guide.is_visible(),
         );
         self.sync_video_wallpaper(visible_video, cx);
-    }
-
-    /// Render the Launchpad-owned video layer. Its decoder path is chosen by
-    /// `render_launchpad`, independently from `WallpaperSettingsState`.
-    pub(crate) fn render_launchpad_video_layer(&self) -> Div {
-        let host = div()
-            .absolute()
-            .top(px(0.0))
-            .left(px(0.0))
-            .right(px(0.0))
-            .bottom(px(0.0))
-            .size_full()
-            .overflow_hidden();
-
-        match self.render_video_wallpaper_surface() {
-            Some(frame) => host.child(frame),
-            None => host,
-        }
     }
 
     pub(super) fn render_video_wallpaper_surface(&self) -> Option<Surface> {

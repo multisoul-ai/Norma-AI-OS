@@ -189,13 +189,22 @@ impl MultisoulApp {
             return;
         }
         let before = self.runtime.document.nodes().len();
+        let desktop_agent_pending = matches!(command, DockCommand::Agent(_))
+            && self
+                .desktop_host
+                .as_ref()
+                .and_then(|host| host.upgrade())
+                .is_some();
         match command {
             DockCommand::Agent(profile) => self.spawn_agent_card(profile, window, cx),
             DockCommand::Terminal => self.on_new_terminal(&NewTerminal, window, cx),
             DockCommand::Browser => self.on_new_browser(&NewBrowser, window, cx),
             DockCommand::Preview | DockCommand::Theme(_) => unreachable!(),
         }
-        if self.runtime.document.nodes().len() > before {
+        // Desktop Agent creation validates its directory asynchronously. Consume the
+        // accepted command now; a second Enter event must not submit it again.
+        // Validation/spawn failures are reported by the desktop host.
+        if desktop_agent_pending || self.runtime.document.nodes().len() > before {
             self.set_command_query(String::new(), false, window, cx);
             self.focus_handle.focus(window);
         } else if let Some(state) = &mut self.command_dock {

@@ -178,11 +178,22 @@ impl MultisoulApp {
             return;
         }
         if self.voice_settings_inputs.is_focused(window, cx) {
+            cx.stop_propagation();
             return;
         }
         if self.shortcuts.recording.is_some() {
             cx.stop_propagation();
+            return;
         }
+        if ev.keystroke.key == "escape" && !ev.keystroke.modifiers.modified() {
+            self.close_settings_panel(cx);
+        } else if self.shortcuts.command_for_keystroke(&ev.keystroke)
+            == Some(crate::shortcuts::ShortcutCommandId::ToggleSettings)
+        {
+            self.on_toggle_settings(&crate::app::ToggleSettings, window, cx);
+        }
+        // The panel may be rendered by a desktop host; do not route its keys to the canvas.
+        cx.stop_propagation();
     }
 
     pub(crate) fn render_settings_panel(
@@ -219,6 +230,8 @@ impl MultisoulApp {
         let agent_on_canvas_ids = self.runtime.active_agent_definition_ids();
         let content = settings_content(
             SettingsContentContext {
+                width: layout.content_width() - 2.0, // Exclude the panel border.
+                height: layout.content_height() - 2.0,
                 theme,
                 theme_id: self.theme_id,
                 panel: &self.settings_panel,
@@ -310,6 +323,11 @@ impl MultisoulApp {
                     .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .on_click(|_, _, cx| cx.stop_propagation())
                     .on_key_down(cx.listener(Self::on_settings_panel_key_down))
+                    .on_action(cx.listener(|app, _: &crate::app::ExitFocus, _, cx| {
+                        app.close_settings_panel(cx);
+                        cx.stop_propagation();
+                    }))
+                    .on_action(cx.listener(Self::on_toggle_settings))
                     .child(navigation)
                     .child(content),
             );

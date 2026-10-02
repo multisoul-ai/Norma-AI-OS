@@ -5,14 +5,15 @@ use ui::{Theme, ThemeId};
 pub(super) fn theme_appearance(
     active_theme: ThemeId,
     theme: Theme,
+    width: f32,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     div()
         .flex()
         .flex_col()
         .gap(px(30.0))
-        .child(theme_group("Light", false, active_theme, theme, cx))
-        .child(theme_group("Dark", true, active_theme, theme, cx))
+        .child(theme_group("Light", false, active_theme, theme, width, cx))
+        .child(theme_group("Dark", true, active_theme, theme, width, cx))
 }
 
 fn theme_group(
@@ -20,9 +21,15 @@ fn theme_group(
     dark: bool,
     active_theme: ThemeId,
     theme: Theme,
+    width: f32,
     cx: &mut Context<MultisoulApp>,
 ) -> Stateful<Div> {
     let group_index = usize::from(dark);
+    // Fit 190px cards plus 16px gaps, then distribute the available row width.
+    let columns = ((width + 16.0) / (190.0 + 16.0)).floor().clamp(1.0, 3.0);
+    let card_width = ((width - (columns - 1.0) * 16.0) / columns)
+        .max(1.0)
+        .floor();
     let selector = if dark {
         "settings-theme-group-dark"
     } else {
@@ -59,12 +66,18 @@ fn theme_group(
                 ),
         )
         .child(
-            div().w_full().flex().flex_row().gap(px(16.0)).children(
-                ThemeId::ALL
-                    .into_iter()
-                    .filter(move |id| id.is_dark() == dark)
-                    .map(|id| theme_card(id, active_theme, theme, cx)),
-            ),
+            div()
+                .w_full()
+                .flex()
+                .flex_row()
+                .flex_wrap()
+                .gap(px(16.0))
+                .children(
+                    ThemeId::ALL
+                        .into_iter()
+                        .filter(move |id| id.is_dark() == dark)
+                        .map(|id| theme_card(id, active_theme, theme, card_width, cx)),
+                ),
         )
 }
 
@@ -72,6 +85,7 @@ fn theme_card(
     id: ThemeId,
     active_theme: ThemeId,
     chrome_theme: Theme,
+    width: f32,
     cx: &mut Context<MultisoulApp>,
 ) -> Stateful<Div> {
     let preview = Theme::for_id(id);
@@ -81,7 +95,8 @@ fn theme_card(
         .id(("settings-theme", theme_index(id)))
         .debug_selector(move || selector.clone())
         .min_w(px(0.0))
-        .flex_1()
+        .flex_none()
+        .w(px(width))
         .h(px(214.0))
         .flex()
         .flex_col()

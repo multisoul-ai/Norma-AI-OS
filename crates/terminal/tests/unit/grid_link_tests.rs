@@ -8,6 +8,7 @@ use super::TerminalGrid;
 /// 执行过程：
 ///   1. 写入 OSC 8 开始、两行标签与结束序列。
 ///   2. 分别点击第 0 行与第 1 行的首字符。
+///
 /// 预期结果：
 ///   - 两行均返回完整 URI，不返回标签残段。
 #[test]
@@ -42,6 +43,7 @@ fn test_preview_osc8_target_survives_label_newline() {
 /// 执行过程：
 ///   1. 用 CRLF 写入两行，分别提取第一行、第二行候选。
 ///   2. 写入两个完整独立文件，确认它们不被拼接。
+///
 /// 预期结果：
 ///   - 两个点击位置都含 /project/docs/quality/report.md。
 ///   - 独立文件仍各自命中，候选中不存在错误拼接路径。
@@ -221,6 +223,7 @@ fn test_snapshot_does_not_join_preview_path_fragments_across_hard_newline() {
 /// 执行过程：
 ///   1. 对三行路径的中间行和末行调用候选提取。
 ///   2. 对 SSH 目标的文件形标签调用候选提取。
+///
 /// 预期结果：
 ///   - 中间行和末行都包含完整路径候选。
 ///   - SSH 链接不能退回可打开的本机文件标签。

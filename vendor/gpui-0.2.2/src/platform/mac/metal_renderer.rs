@@ -351,6 +351,7 @@ impl MetalRenderer {
     }
 
     pub fn draw(&mut self, scene: &Scene) {
+        let timing = super::metal_frame_timing::FrameProbe::start();
         let layer = self.layer.clone();
         let viewport_size = layer.drawable_size();
         let viewport_size: Size<DevicePixels> = size(
@@ -385,6 +386,10 @@ impl MetalRenderer {
                     let block = block.copy();
                     command_buffer.add_completed_handler(&block);
 
+                    if let Some(timing) = &timing {
+                        timing.attach(&command_buffer, drawable);
+                    }
+
                     if self.presents_with_transaction {
                         command_buffer.commit();
                         command_buffer.wait_until_scheduled();
@@ -392,6 +397,14 @@ impl MetalRenderer {
                     } else {
                         command_buffer.present_drawable(drawable);
                         command_buffer.commit();
+                    }
+                    if let Some(timing) = timing {
+                        timing.submitted(
+                            scene,
+                            viewport_size.width.0,
+                            viewport_size.height.0,
+                            layer.contents_scale(),
+                        );
                     }
                     return;
                 }
@@ -1143,6 +1156,7 @@ impl MetalRenderer {
                 ptr::write(
                     buffer_contents,
                     SurfaceBounds {
+                        opacity: surface.opacity,
                         bounds: surface.bounds,
                         content_mask: surface.content_mask.clone(),
                     },
@@ -1347,9 +1361,10 @@ pub struct PathSprite {
     pub bounds: Bounds<ScaledPixels>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[repr(C)]
 pub struct SurfaceBounds {
+    pub opacity: f32,
     pub bounds: Bounds<ScaledPixels>,
     pub content_mask: ContentMask<ScaledPixels>,
 }

@@ -199,6 +199,7 @@ impl LiveNode for TermLive {
 
     fn kill(&mut self) {
         self.session.kill();
+        self.refresh_cached_view();
     }
 
     fn child_pid(&self) -> Option<u32> {

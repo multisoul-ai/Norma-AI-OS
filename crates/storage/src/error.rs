@@ -5,6 +5,8 @@ pub type StorageResult<T> = Result<T, StorageError>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum StorageError {
+    #[error("invalid desktop workspace name: {0}")]
+    InvalidDesktopWorkspaceName(String),
     #[error("invalid project plan: {0}")]
     InvalidProjectPlan(String),
     #[error("invalid mobile command: {0}")]

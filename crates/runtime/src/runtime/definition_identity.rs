@@ -12,6 +12,25 @@ impl Runtime {
         cols: u16,
         rows: u16,
     ) -> Result<NodeId, PtyError> {
+        self.spawn_agent_for_definition_in_worktree(
+            profile,
+            definition_id,
+            alias,
+            bounds,
+            (cols, rows),
+            None,
+        )
+    }
+
+    pub fn spawn_agent_for_definition_in_worktree(
+        &mut self,
+        profile: AgentProfile,
+        definition_id: i64,
+        alias: String,
+        bounds: CanvasRect,
+        terminal_size: (u16, u16),
+        worktree: Option<&std::path::Path>,
+    ) -> Result<NodeId, PtyError> {
         if let Some(existing) = self.document.nodes().iter().find(|node| {
             matches!(
                 &node.kind,
@@ -20,13 +39,13 @@ impl Runtime {
         }) {
             return Ok(existing.id);
         }
-        self.spawn_agent_with_identity(
+        self.spawn_agent_with_identity_at(
             profile,
             Some(definition_id),
             Some(alias),
             bounds,
-            cols,
-            rows,
+            terminal_size,
+            worktree,
         )
     }
 

@@ -8,6 +8,7 @@ use crate::{
 use anyhow::Context as _;
 use smallvec::SmallVec;
 use std::{
+    borrow::Cow,
     cell::{Cell, RefCell},
     mem,
     ops::Range,
@@ -316,6 +317,7 @@ struct TextLayoutInner {
     lines: SmallVec<[WrappedLine; 1]>,
     line_height: Pixels,
     wrap_width: Option<Pixels>,
+    truncate_width: Option<Pixels>,
     size: Option<Size<Pixels>>,
     bounds: Option<Bounds<Pixels>>,
 }
@@ -334,7 +336,7 @@ impl TextLayout {
             .line_height
             .to_pixels(font_size.into(), window.rem_size());
 
-        let mut runs = if let Some(runs) = runs {
+        let runs = if let Some(runs) = runs {
             runs
         } else {
             vec![text_style.to_run(text.len())]
@@ -373,17 +375,20 @@ impl TextLayout {
                 if let Some(text_layout) = element_state.0.borrow().as_ref()
                     && text_layout.size.is_some()
                     && (wrap_width.is_none() || wrap_width == text_layout.wrap_width)
+                    && truncate_width == text_layout.truncate_width
                 {
                     return text_layout.size.unwrap();
                 }
 
                 let mut line_wrapper = cx.text_system().line_wrapper(text_style.font(), font_size);
+                // Every measurement starts from the original runs; a narrower pass may trim them.
+                let mut runs = Cow::Borrowed(runs.as_slice());
                 let text = if let Some(truncate_width) = truncate_width {
                     line_wrapper.truncate_line(
                         text.clone(),
                         truncate_width,
                         &truncation_suffix,
-                        &mut runs,
+                        runs.to_mut(),
                     )
                 } else {
                     text.clone()
@@ -406,6 +411,7 @@ impl TextLayout {
                         len: 0,
                         line_height,
                         wrap_width,
+                        truncate_width,
                         size: Some(Size::default()),
                         bounds: None,
                     });
@@ -424,6 +430,7 @@ impl TextLayout {
                     len,
                     line_height,
                     wrap_width,
+                    truncate_width,
                     size: Some(size),
                     bounds: None,
                 });
@@ -912,3 +919,7 @@ impl IntoElement for InteractiveText {
         self
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/text_layout.rs"]
+mod text_layout_tests;

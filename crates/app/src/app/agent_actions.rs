@@ -8,6 +8,7 @@ use crate::canvas::master_layout::term_grid_size_for_card;
 use crate::canvas::spawn_focus;
 use canvas::{AgentProfile, AgentSpec, NodeType};
 use gpui::{Context, Window};
+use std::path::Path;
 use storage::AgentDefinition;
 
 pub(crate) fn agent_spec_from_definition(definition: &AgentDefinition) -> AgentSpec {
@@ -96,6 +97,13 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
+            let source = cx.entity().entity_id();
+            host.update(cx, |host, cx| {
+                host.begin_desktop_agent_creation(source, profile, None, window, cx)
+            });
+            return;
+        }
         match self.agent_definitions.create_quick_definition(profile) {
             Ok(definition) => {
                 self.spawn_agent_card_from_spec(agent_spec_from_definition(&definition), window, cx)
@@ -113,6 +121,24 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
+            let Some(definition) = self
+                .agent_definitions
+                .definitions()
+                .iter()
+                .find(|definition| definition.id == definition_id)
+            else {
+                self.workspace_state.error = Some("Agent definition was not found.".to_string());
+                cx.notify();
+                return;
+            };
+            let profile = definition.runtime_profile;
+            let source = cx.entity().entity_id();
+            host.update(cx, |host, cx| {
+                host.begin_desktop_agent_creation(source, profile, Some(definition_id), window, cx)
+            });
+            return;
+        }
         let Some(definition) = self
             .agent_definitions
             .definitions()
@@ -134,22 +160,73 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.spawn_agent_card_from_spec_at(spec, None, window, cx);
+    }
+
+    pub(crate) fn spawn_desktop_agent_at(
+        &mut self,
+        profile: AgentProfile,
+        definition_id: Option<i64>,
+        worktree: &Path,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        // Desktop areas share the catalog, but keep independent loaded instances.
+        self.agent_definitions.reload();
+        let definition = match definition_id {
+            Some(id) => self
+                .agent_definitions
+                .definitions()
+                .iter()
+                .find(|definition| definition.id == id)
+                .cloned()
+                .ok_or_else(|| "Agent definition was not found.".to_string()),
+            None => self.agent_definitions.create_quick_definition(profile),
+        };
+        match definition {
+            Ok(definition) => self.spawn_agent_card_from_spec_at(
+                agent_spec_from_definition(&definition),
+                Some(worktree),
+                window,
+                cx,
+            ),
+            Err(error) => {
+                self.workspace_state.error = Some(error);
+                cx.notify();
+            }
+        }
+    }
+
+    fn spawn_agent_card_from_spec_at(
+        &mut self,
+        spec: AgentSpec,
+        worktree: Option<&Path>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let bounds = self.next_tiled_node_bounds(window);
         let (cols, rows) =
             term_grid_size_for_card(NodeType::Agent, bounds, self.runtime.document.viewport.zoom);
         let profile = spec.profile;
         let spawn = match (spec.definition_id, spec.alias) {
-            (Some(definition_id), Some(alias)) => self.runtime.spawn_agent_for_definition(
-                profile,
-                definition_id,
-                alias,
-                bounds,
-                cols,
-                rows,
-            ),
-            (_, alias) => self
-                .runtime
-                .spawn_agent_with_alias(profile, alias, bounds, cols, rows),
+            (Some(definition_id), Some(alias)) => {
+                self.runtime.spawn_agent_for_definition_in_worktree(
+                    profile,
+                    definition_id,
+                    alias,
+                    bounds,
+                    (cols, rows),
+                    worktree,
+                )
+            }
+            (_, alias) => match worktree {
+                Some(worktree) => self
+                    .runtime
+                    .spawn_agent_with_worktree(profile, alias, bounds, cols, rows, worktree),
+                None => self
+                    .runtime
+                    .spawn_agent_with_alias(profile, alias, bounds, cols, rows),
+            },
         };
         match spawn {
             Ok(node_id) => {

@@ -61,6 +61,7 @@ impl WarmWebView {
 
 pub(crate) struct WryBrowserView {
     webview: wry::WebView,
+    scene_clip: super::scene_clip::NativeSceneClip,
     event_sender: Sender<BrowserEvent>,
     corner_clip: CornerClipState,
 }
@@ -119,8 +120,10 @@ impl WryBrowserView {
             height = bounds.height,
             "browser_wry_created"
         );
+        let scene_clip = super::scene_clip::NativeSceneClip::new(&webview.webview());
         Ok(Self {
             webview,
+            scene_clip,
             event_sender: browser_event_sender,
             corner_clip,
         })
@@ -154,6 +157,7 @@ impl WryBrowserView {
     }
 
     pub(crate) fn set_visible(&mut self, visible: bool) {
+        self.scene_clip.set_visible(visible);
         let _ = self.webview.set_visible(visible);
     }
 
@@ -168,8 +172,17 @@ impl WryBrowserView {
         }
     }
 
+    pub(crate) fn present(
+        &mut self,
+        placement: gpui::ScenePresentation,
+        interactive: bool,
+        window: &Window,
+    ) {
+        self.scene_clip.present(placement, interactive, window);
+    }
+
     pub(crate) fn release_input(&mut self) {
-        let _ = self.webview.focus_parent();
+        self.scene_clip.release_input();
     }
 
     pub(crate) fn import_cookies(

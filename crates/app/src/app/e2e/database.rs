@@ -5,6 +5,26 @@ use runtime::Runtime;
 
 impl MultisoulApp {
     #[cfg(feature = "e2e-test-support")]
+    pub fn register_desktop_host_for_e2e(
+        app: &gpui::Entity<Self>,
+        window: gpui::AnyWindowHandle,
+        cx: &mut gpui::App,
+    ) {
+        let database = app.read(cx).database_paths.app_db_path().to_owned();
+        crate::workspace::desktop::sessions::register(database, window, app.clone(), cx);
+    }
+
+    #[cfg(feature = "e2e-test-support")]
+    pub fn desktop_windows_closed_for_e2e(retain_background: bool, cx: &mut gpui::App) {
+        crate::workspace::desktop::sessions::windows_closed(retain_background, cx);
+    }
+
+    #[cfg(feature = "e2e-test-support")]
+    pub fn stop_desktop_hosts_for_e2e(cx: &mut gpui::App) {
+        crate::workspace::desktop::sessions::shutdown(cx);
+    }
+
+    #[cfg(feature = "e2e-test-support")]
     pub fn retain_mobile_server_for_e2e(
         &self,
         server: std::sync::Arc<crate::MobileServer>,

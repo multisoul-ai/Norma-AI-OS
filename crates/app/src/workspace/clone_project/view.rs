@@ -62,7 +62,7 @@ impl MultisoulApp {
                     .flex_col()
                     .rounded(px(18.0))
                     .border_1()
-                    .border_color(rgba(super::super::launchpad::with_alpha(
+                    .border_color(rgba(ui::icons::with_alpha(
                         theme.node_stroke,
                         0xb8,
                     )))
@@ -182,7 +182,7 @@ impl MultisoulApp {
                                             .rounded(px(9.0))
                                             .border_1()
                                             .border_color(rgba(
-                                                super::super::launchpad::with_alpha(
+                                                ui::icons::with_alpha(
                                                     theme.node_stroke,
                                                     0x88,
                                                 ),
@@ -239,7 +239,7 @@ impl MultisoulApp {
                             .px(px(24.0))
                             .py(px(16.0))
                             .border_t_1()
-                            .border_color(rgba(super::super::launchpad::with_alpha(
+                            .border_color(rgba(ui::icons::with_alpha(
                                 theme.node_stroke,
                                 0x68,
                             )))
@@ -313,14 +313,8 @@ fn input_surface(theme: ui::Theme, selector: &'static str, input: Input) -> impl
         .h(px(40.0))
         .rounded(px(9.0))
         .border_1()
-        .border_color(rgba(super::super::launchpad::with_alpha(
-            theme.node_stroke,
-            0x88,
-        )))
-        .bg(rgba(super::super::launchpad::with_alpha(
-            theme.canvas_from,
-            0x88,
-        )))
+        .border_color(rgba(ui::icons::with_alpha(theme.node_stroke, 0x88)))
+        .bg(rgba(ui::icons::with_alpha(theme.canvas_from, 0x88)))
         .child(input)
 }
 
@@ -370,10 +364,7 @@ fn progress_view(
                 .h(px(5.0))
                 .w_full()
                 .rounded(px(3.0))
-                .bg(rgba(super::super::launchpad::with_alpha(
-                    theme.node_stroke,
-                    0x54,
-                )))
+                .bg(rgba(ui::icons::with_alpha(theme.node_stroke, 0x54)))
                 .child(
                     div()
                         .h_full()

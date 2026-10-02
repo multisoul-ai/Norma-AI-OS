@@ -29,9 +29,19 @@ impl Card for AgentCard {
                 .to_string(),
             _ => "Agent".to_string(),
         };
-        let title_detail = runtime
+        let task_title = runtime
             .agent_task_title(node.id)
             .and_then(|task_title| single_line_task_title(&task_title));
+        let location = runtime.agent_worktree(node.id).and_then(|worktree| {
+            let project = runtime.workspace_root()?.file_name()?.to_str()?;
+            let worktree = worktree.file_name()?.to_str()?;
+            Some(format!("{project} / {worktree}"))
+        });
+        let title_detail = match (location, task_title) {
+            (Some(location), Some(task)) => Some(format!("{location} · {task}")),
+            (Some(location), None) => Some(location),
+            (None, task) => task,
+        };
         let state = runtime.agent_task_state(node.id);
         CardChrome {
             title,

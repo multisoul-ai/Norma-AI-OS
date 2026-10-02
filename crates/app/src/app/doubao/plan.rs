@@ -33,9 +33,11 @@ pub(super) async fn run_session(
     database: PathBuf,
     tools: Option<NormaToolRuntime>,
     cancellation: CancellationToken,
-    events: Sender<DoubaoStatus>,
-    reports: Receiver<String>,
-    playback_events: VoiceWindowInsetEventSink,
+    (events, reports, playback_events): (
+        Sender<DoubaoStatus>,
+        Receiver<String>,
+        VoiceWindowInsetEventSink,
+    ),
 ) -> Result<(), String> {
     let credential_store = storage::SettingsStore::new(database.clone());
     let key = tokio::task::spawn_blocking(move || {

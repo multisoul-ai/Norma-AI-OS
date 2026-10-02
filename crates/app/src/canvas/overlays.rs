@@ -1,4 +1,4 @@
-use gpui::{div, prelude::*, Context, Window};
+use gpui::{div, prelude::*, px, rgba, AnyElement, Context, Window};
 
 use super::terminal_link::render_terminal_link_tooltip;
 use crate::app::MultisoulApp;
@@ -54,4 +54,24 @@ pub(crate) fn render_canvas_overlays(
         .absolute()
         .size_full()
         .children(overlays)
+}
+
+pub(super) fn swap_highlight_overlay(
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+    radius_px: f32,
+    color: u32,
+) -> AnyElement {
+    div()
+        .absolute()
+        .left(px(x))
+        .top(px(y))
+        .w(px(w))
+        .h(px(h))
+        .border_2()
+        .border_color(rgba(color))
+        .rounded(px(radius_px))
+        .into_any_element()
 }

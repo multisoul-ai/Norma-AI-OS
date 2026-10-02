@@ -2,6 +2,8 @@
 pub mod agent_hooks;
 mod agent_session_bindings;
 pub mod command;
+pub mod desktop_dispatch;
+pub mod desktop_navigation;
 pub mod ego;
 pub mod events;
 pub mod focus;

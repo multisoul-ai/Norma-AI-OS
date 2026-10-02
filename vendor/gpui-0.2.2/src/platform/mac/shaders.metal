@@ -835,12 +835,14 @@ fragment float4 path_sprite_fragment(
 }
 
 struct SurfaceVertexOutput {
+  float opacity;
   float4 position [[position]];
   float2 texture_position;
   float clip_distance [[clip_distance]][4];
 };
 
 struct SurfaceFragmentInput {
+  float opacity;
   float4 position [[position]];
   float2 texture_position;
 };
@@ -863,6 +865,7 @@ vertex SurfaceVertexOutput surface_vertex(
   // to the current vertex of the unit triangle.
   float2 texture_position = unit_vertex;
   return SurfaceVertexOutput{
+      surface.opacity,
       device_position,
       texture_position,
       {clip_distance.x, clip_distance.y, clip_distance.z, clip_distance.w}};
@@ -883,7 +886,9 @@ fragment float4 surface_fragment(SurfaceFragmentInput input [[stage_in]],
       y_texture.sample(texture_sampler, input.texture_position).r,
       cb_cr_texture.sample(texture_sampler, input.texture_position).rg, 1.0);
 
-  return ycbcrToRGBTransform * ycbcr;
+  float4 color = ycbcrToRGBTransform * ycbcr;
+  color.a *= input.opacity;
+  return color;
 }
 
 float4 hsla_to_rgba(Hsla hsla) {

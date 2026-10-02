@@ -7,6 +7,10 @@ use std::path::PathBuf;
 
 impl MultisoulApp {
     pub(crate) fn prompt_open_project(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
+            host.update(cx, |host, cx| host.prompt_open_project(window, cx));
+            return;
+        }
         let receiver = cx.prompt_for_paths(PathPromptOptions {
             files: false,
             directories: true,
@@ -27,7 +31,7 @@ impl MultisoulApp {
                 Ok(Ok(Some(paths))) => {
                     if let Some(path) = paths.into_iter().next() {
                         if let Err(error) = this.update_in(cx, |app, window, cx| {
-                            app.open_workspace_in_project_window(path, true, window, cx);
+                            app.accept_project_for_desktop(path, window, cx);
                         }) {
                             tracing::warn!(
                                 %error,

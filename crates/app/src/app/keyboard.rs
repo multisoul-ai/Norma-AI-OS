@@ -278,6 +278,15 @@ impl MultisoulApp {
             }
         }
 
+        if self.desktop_workspace.switcher_open
+            && ev.keystroke.key == "escape"
+            && !ev.keystroke.modifiers.modified()
+        {
+            self.dismiss_desktop_switcher(window, cx);
+            cx.stop_propagation();
+            return;
+        }
+
         if self.handle_configured_voice_key_down(&ev.keystroke, window, cx) {
             return;
         }

@@ -5,7 +5,6 @@ use crate::canvas::master_layout::{enter_master_layout_for_area, switch_master_l
 use crate::cards::browser::normalize_browser_url;
 use canvas::{CanvasNodeKind, NodeId};
 use gpui::{Action, AppContext as _, Context, Entity, Subscription, Window};
-use std::collections::HashSet;
 use std::time::{Duration, Instant};
 
 mod address_input;
@@ -21,7 +20,10 @@ mod cef_backend;
 mod engine;
 mod load_timeline;
 pub(crate) mod native;
+mod presentation;
 mod resource_timing;
+#[cfg(target_os = "macos")]
+mod scene_clip;
 mod store;
 mod wry_backend;
 
@@ -188,20 +190,6 @@ impl MultisoulApp {
 
     pub(crate) fn browser_chrome_auth_state_for(&self, node_id: NodeId) -> BrowserAuthUiState {
         self.browsers.chrome_auth_state(node_id)
-    }
-
-    pub(crate) fn sync_browser_view_for_node(
-        &mut self,
-        node_id: NodeId,
-        url: &str,
-        bounds: BrowserViewBounds,
-        window: &mut Window,
-    ) {
-        self.browsers.sync_view(node_id, url, bounds, window);
-    }
-
-    pub(crate) fn finish_browser_view_sync(&mut self, visible: &HashSet<NodeId>) {
-        self.browsers.retain_visible(visible);
     }
 
     pub(crate) fn remove_browser_view(&mut self, node_id: NodeId) {

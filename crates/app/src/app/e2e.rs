@@ -254,7 +254,7 @@ impl MultisoulApp {
 
     /// Launchpad 的固定背景资源；Canvas 的 Wallpaper 设置不会改变此值。
     pub fn launchpad_video_asset_e2e(&self) -> &'static str {
-        crate::workspace::launchpad::launchpad_default_video_asset()
+        "wallpapers/home.mp4"
     }
 
     pub fn enter_canvas_for_test(&mut self, root: &std::path::Path, cx: &mut Context<Self>) {

@@ -1,5 +1,52 @@
 use super::*;
 use canvas::{AgentProfile, AgentSpec, CanvasRect};
+
+/// DWS-05：Agent 卡片标题栏应同时显示项目和所选 worktree。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   项目目录 1 个、worktree 目录 1 个、Agent 卡片 1 张；显示位置 = 项目名 + worktree 名。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 以项目目录创建 Runtime，注入可控 PTY。
+///   2. 指定另一目录启动一张 Codex Agent 卡片并读取 chrome。
+///
+/// 预期结果：
+///   - 正断言：标题详情同时包含 project 与 linked。
+///   - 负断言：不会误显示为默认项目目录 worktree。
+#[test]
+fn agent_card_chrome_shows_project_and_selected_worktree() {
+    let temp = tempfile::tempdir().expect("测试应创建隔离目录");
+    let project = temp.path().join("project");
+    let linked = temp.path().join("linked");
+    std::fs::create_dir(&project).expect("应创建项目目录");
+    std::fs::create_dir(&linked).expect("应创建 worktree 目录");
+    let mut runtime = Runtime::new_for_workspace(project);
+    runtime.set_pty_factory(Box::new(|_, _, _, tx| {
+        Ok(Box::new(terminal::TestPtyBackend::echo(tx)) as Box<dyn terminal::PtyBackend>)
+    }));
+    let id = runtime
+        .spawn_agent_with_worktree(
+            AgentProfile::Codex,
+            None,
+            CanvasRect::new(0.0, 0.0, 400.0, 300.0),
+            80,
+            24,
+            &linked,
+        )
+        .expect("应启动可控 Agent 卡片");
+    let node = runtime.document.node(id).expect("卡片应存在");
+    let chrome = CARD.chrome(node, &runtime);
+    assert_eq!(
+        chrome.title_detail.as_deref(),
+        Some("project / linked"),
+        "卡片应标出项目和所选 worktree"
+    );
+    assert_ne!(
+        chrome.title_detail.as_deref(),
+        Some("project / project"),
+        "不能误显示默认 worktree"
+    );
+}
 /// 数据构造（含关键数值推导）：
 ///   Claude node: id=1, kind=Agent(profile=Claude)
 ///   Codex node:  id=2, kind=Agent(profile=Codex)

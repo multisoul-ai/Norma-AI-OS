@@ -1,9 +1,18 @@
 use super::{ReadOnlyShortcutBehavior, ShortcutCommandId, ShortcutEntry};
 
 const DEFAULT_SHORTCUT_ENTRIES: &[ShortcutEntry] = &[
+        entry(ShortcutCommandId::NewWorkspace, "Workspace", "New Workspace", "Name and create an empty workspace in this window", Some("cmd-n")),
+        entry(ShortcutCommandId::AddProject, "Workspace", "Add Project", "Choose a recent project, local folder, or repository for the current workspace", Some("cmd-shift-a")),
         entry(ShortcutCommandId::FocusCommandInput, "Workspace", "Focus Command Input", "Find and run canvas commands", Some("cmd-k")),
         entry(ShortcutCommandId::SavePreviewFile, "Cards", "Save File", "Save edits in the active file card", Some("cmd-s")),
         entry(ShortcutCommandId::NewWindow, "Workspace", "New Window", "Open a new project launcher window", Some("cmd-shift-n")),
+        entry(ShortcutCommandId::SwitchWorkspace, "Workspace", "Switch Workspace", "Switch canvases in the current window", Some("cmd-shift-k")),
+        entry(ShortcutCommandId::PreviousWorkspace, "Workspace", "Previous Workspace", "Switch to the previous workspace in creation order", Some("ctrl-cmd-left")),
+        entry(ShortcutCommandId::NextWorkspace, "Workspace", "Next Workspace", "Switch to the next workspace in creation order", Some("ctrl-cmd-right")),
+        entry(ShortcutCommandId::PreviousProject, "Workspace", "Previous Project", "Expand the previous project in this workspace", Some("alt-cmd-left")),
+        entry(ShortcutCommandId::NextProject, "Workspace", "Next Project", "Expand the next project in this workspace", Some("alt-cmd-right")),
+        entry(ShortcutCommandId::ShowProjectOverview, "Workspace", "Project Overview", "Show all project areas in the current workspace", Some("alt-cmd-up")),
+        entry(ShortcutCommandId::ShowWorkspaceDirectory, "Workspace", "All Workspaces", "Show the workspace directory in this window", Some("ctrl-cmd-up")),
         entry(ShortcutCommandId::NewTerminal, "Workspace", "New Terminal", "Create a terminal card in the visible canvas", Some("cmd-1")),
         entry(ShortcutCommandId::NewBrowser, "Workspace", "New Browser", "Create a lightweight browser card in the visible canvas", None),
         entry(ShortcutCommandId::OpenProject, "Workspace", "Open Project", "Choose a workspace folder", Some("cmd-o")),

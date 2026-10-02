@@ -24,13 +24,14 @@ use crate::settings::wallpaper::WallpaperSettingsState;
 use crate::settings::ThemeSettingsState;
 use crate::shortcuts::ShortcutSettingsState;
 use crate::workspace::clone_project::CloneProjectUiState;
+use crate::workspace::desktop::DesktopWorkspaceUiState;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
 use canvas::{CanvasRect, NodeId, NodeType, Vec2};
 use gpui::{actions, div, prelude::*, px, Context, FocusHandle, Focusable, Window};
 use runtime::{route, InputEvent, Route, Runtime};
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{atomic::AtomicBool, Arc};
 #[cfg(test)]
 use std::time::Duration;
@@ -197,6 +198,7 @@ pub struct MultisoulApp {
     agent_announcement_audio_cache: agent_announcements::AgentAnnouncementAudioCache,
     pub(crate) screen: AppScreen,
     pub(crate) workspace_state: WorkspaceState,
+    pub(crate) desktop_workspace: DesktopWorkspaceUiState,
     pub(crate) clone_project: CloneProjectUiState,
     pub(crate) recent_project_context_path: Option<PathBuf>,
     pub(crate) voice: crate::app::voice::control::VoiceControlState,
@@ -244,7 +246,11 @@ pub struct MultisoulApp {
     pub(crate) window_active: bool,
     pub(crate) project_window: Option<gpui::AnyWindowHandle>,
     pub(crate) background_project: bool,
+    pub(crate) desktop_host: Option<gpui::WeakEntity<MultisoulApp>>,
+    pub(crate) desktop_switcher_subscription: Option<gpui::Subscription>,
     pub(crate) background_restore: Option<crate::workspace::flow::PendingLiveSessionRestore>,
+    pub(crate) desktop_overview_scroll: HashMap<String, gpui::ScrollHandle>,
+    pub(crate) desktop_directory_scroll: gpui::ScrollHandle,
     canvas_surface: gpui::Entity<canvas_surface::CanvasSurfaceView>,
     pub(crate) working_snake_views: HashMap<NodeId, gpui::Entity<WorkingSnakeView>>,
     voice_window_inset_events: voice_window_inset::VoiceWindowInsetEventBus,
@@ -431,8 +437,16 @@ impl MultisoulApp {
         let vp = self.runtime.document.viewport;
         let win = window.viewport_size();
         let top_left = vp.screen_to_canvas(Vec2::ZERO);
-        let bottom_right =
-            vp.screen_to_canvas(Vec2::new(f32::from(win.width), f32::from(win.height)));
+        let size = if self.desktop_host.is_some() {
+            crate::workspace::desktop::desktop_scene_rect(
+                f32::from(win.width),
+                f32::from(win.height),
+            )
+            .size
+        } else {
+            Vec2::new(f32::from(win.width), f32::from(win.height))
+        };
+        let bottom_right = vp.screen_to_canvas(size);
         CanvasRect::new(
             top_left.x,
             top_left.y,
@@ -448,14 +462,6 @@ impl MultisoulApp {
             self.last_reflow_window_size = Some(current);
             self.apply_layout_for_current_mode(window);
         }
-    }
-
-    pub(crate) fn remove_recent_project(&mut self, path: &Path, cx: &mut Context<Self>) {
-        if let Err(error) = self.workspace_state.remove_recent_workspace(path) {
-            tracing::warn!(%error, path = %path.display(), "failed to remove recent project");
-        }
-        self.recent_project_context_path = None;
-        cx.notify();
     }
 }
 

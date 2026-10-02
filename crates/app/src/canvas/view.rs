@@ -3,6 +3,7 @@
 
 use super::events;
 use super::node_label::node_type_label;
+use super::overlays::swap_highlight_overlay;
 use super::working_snakes::{self, WorkingSnakeGeometry};
 use crate::app::browser::native::BROWSER_NATIVE_BORDER_INSET_PX;
 use crate::app::browser::{browser_native_view_bounds, native_browser_views_visible};
@@ -35,7 +36,6 @@ use gpui::{div, prelude::*, px, rgba, AnyElement, Context, FontWeight, MouseButt
 use runtime::InputMode;
 #[cfg(test)]
 use runtime::{route, Route};
-use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 use ui::icons::with_alpha;
@@ -60,13 +60,17 @@ pub fn render_canvas(
     let theme = app.theme;
     let vp = app.runtime.document.viewport;
     let win = window.viewport_size();
-    let (win_w, win_h) = (f32::from(win.width), f32::from(win.height));
+    let canvas_size = if app.desktop_host.is_some() {
+        crate::workspace::desktop::desktop_scene_rect(f32::from(win.width), f32::from(win.height))
+            .size
+    } else {
+        canvas::Vec2::new(f32::from(win.width), f32::from(win.height))
+    };
+    let (win_w, win_h) = (canvas_size.x, canvas_size.y);
     let focus_mode = app.runtime.focus.mode();
-
     let swap_candidate = app.interaction.drag.as_ref().and_then(|d| d.swap_candidate);
     let hovered_terminal_link = app.interaction.hovered_terminal_link.clone();
     let mut node_elems: Vec<AnyElement> = Vec::new();
-    let mut visible_browser_nodes = HashSet::new();
     let native_browser_views_visible = native_browser_views_visible(app.settings_panel.open);
     // 底部弹出菜单打开时计算屏幕矩形；关闭时为 None（不做遮挡过滤）。
     let layout_menu_rect = layout_menu_screen_rect(app.interaction.layout_menu_open, win_w, win_h);
@@ -367,11 +371,10 @@ pub fn render_canvas(
                 if matches!(&spec.surface, canvas::BrowserSurfaceKind::Native)
                     && !occluded_by_overlay
                 {
-                    visible_browser_nodes.insert(id);
                     let browser_header_h = (TITLE_BAR_H + BROWSER_TOOLBAR_H_PX) * vp.zoom;
-                    app.sync_browser_view_for_node(
+                    node_elems.push(app.browser_scene_element(
                         id,
-                        &spec.url,
+                        spec.url.clone(),
                         browser_native_view_bounds(
                             f64::from(top_left.x),
                             f64::from(top_left.y),
@@ -383,8 +386,8 @@ pub fn render_canvas(
                                 BROWSER_NATIVE_BORDER_INSET_PX as f32,
                             )),
                         ),
-                        window,
-                    );
+                        cx,
+                    ));
                 }
             }
         }
@@ -435,7 +438,6 @@ pub fn render_canvas(
         elapsed: render_start.elapsed(),
     }
     .log_if_enabled();
-    app.finish_browser_view_sync(&visible_browser_nodes);
     if snake_view_set_changed {
         // Snake Entity 是 CanvasSurface 的兄弟叠层；集合变化时只需让根视图重新挂载
         // 一次。稳定动画帧只 notify Snake Entity，不会触发 CanvasSurface observer。
@@ -454,26 +456,6 @@ pub fn render_canvas(
         .on_mouse_up(MouseButton::Left, cx.listener(events::on_mouse_up))
         .on_mouse_up(MouseButton::Middle, cx.listener(events::on_mouse_up))
         .children(node_elems)
-}
-
-fn swap_highlight_overlay(
-    x: f32,
-    y: f32,
-    w: f32,
-    h: f32,
-    radius_px: f32,
-    color: u32,
-) -> AnyElement {
-    div()
-        .absolute()
-        .left(px(x))
-        .top(px(y))
-        .w(px(w))
-        .h(px(h))
-        .border_2()
-        .border_color(rgba(color))
-        .rounded(px(radius_px))
-        .into_any_element()
 }
 
 #[cfg(test)]

@@ -15,6 +15,15 @@ const SHORTCUT_PREFS_KEY: &str = "keyboard.shortcuts.v1";
 pub(crate) enum ShortcutCommandId {
     FocusCommandInput,
     NewWindow,
+    NewWorkspace,
+    AddProject,
+    SwitchWorkspace,
+    PreviousWorkspace,
+    NextWorkspace,
+    PreviousProject,
+    NextProject,
+    ShowProjectOverview,
+    ShowWorkspaceDirectory,
     NewTerminal,
     NewBrowser,
     CopyCardContent,
@@ -365,3 +374,7 @@ fn reserved_behavior_for(normalized: &str) -> Option<&'static ReadOnlyShortcutBe
 #[cfg(test)]
 #[path = "../tests/unit/shortcuts_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/desktop_shortcuts_tests.rs"]
+mod desktop_tests;

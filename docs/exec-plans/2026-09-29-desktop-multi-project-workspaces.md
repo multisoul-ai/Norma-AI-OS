@@ -1,8 +1,12 @@
 # 桌面多项目工作空间：实施拆分
 
-依据：[桌面工作空间 SPEC](../product-specs/2026-09-29-SPEC-desktop-multi-project-workspaces.md)。本文件是本地实施任务草案，不代表已经创建 GitHub Issues。每一项都要形成可演示的桌面行为和自动化证据，按阻塞关系推进。
+2026-09-30 更新：本文保留 #65–#71 的原始任务拆分；桌面渲染与动效施工改用[统一场景 Goal 计划](2026-09-30-desktop-unified-scene-goal.md)。对象归属与生命周期范围仍有效；任务 05 的独立 Norma 输入入口按新版规格保持待定。本次归档不自动关闭这些 Issue。
+
+依据：[桌面工作空间 SPEC](../product-specs/2026-09-29-SPEC-desktop-multi-project-workspaces.md) 与 [GitHub 主 Issue #65](https://github.com/multisoul-ai/Norma-AI-OS/issues/65)。六项任务已创建为 #66–#71，并设置 GitHub 原生阻塞关系。每一项都要形成可演示的桌面行为和自动化证据，按阻塞关系推进。
 
 ## 任务 01：可创建和打开空桌面工作空间
+
+GitHub Issue：[#66](https://github.com/multisoul-ai/Norma-AI-OS/issues/66)。
 
 **阻塞：** 无。
 
@@ -14,6 +18,8 @@
 
 ## 任务 02：一个工作空间内添加并展开一个项目
 
+GitHub Issue：[#67](https://github.com/multisoul-ai/Norma-AI-OS/issues/67)。
+
 **阻塞：** 01。
 
 **交付：** 从最近项目、本地目录或克隆结果创建项目区域；区域可展开为独立项目画布，创建 Agent 时选择 worktree，保存并恢复卡片。再次添加同一项目只定位已有区域。
@@ -23,6 +29,8 @@
 **验收：** 打开项目目录与其 worktree 目录只形成一个区域；创建 Agent 后区域和卡片归属正确；重启恢复新画布，不读取旧桌面卡片存档；既有手机项目路由仍通过现有测试。
 
 ## 任务 03：一个工作空间同时操作多个项目
+
+GitHub Issue：[#68](https://github.com/multisoul-ai/Norma-AI-OS/issues/68)。
 
 **阻塞：** 02。
 
@@ -34,6 +42,8 @@
 
 ## 任务 04：当前窗口快速切换与同项目多工作空间
 
+GitHub Issue：[#69](https://github.com/multisoul-ai/Norma-AI-OS/issues/69)。
+
 **阻塞：** 03。
 
 **交付：** 在底部工具栏加入切换按钮；`⌘⇧K` 和按钮打开同一工作空间缩略图切换器。当前窗口内切换，原空间 Agent 继续运行；同一项目加入另一个工作空间后拥有独立卡片和画布，两个空间的 Agent 可同时选择同一个 worktree。
@@ -44,6 +54,8 @@
 
 ## 任务 05：当前工作空间内的 Norma 跨项目派工
 
+GitHub Issue：[#70](https://github.com/multisoul-ai/Norma-AI-OS/issues/70)。
+
 **阻塞：** 03、04。
 
 **交付：** Norma 从当前工作空间的一条指令识别多个明确项目／Agent 目标，分别派工并展示逐目标回执。卡片内回复仍只送目标卡片；目标含糊时提出一次最小澄清，不猜项目或触达其他工作空间。
@@ -53,6 +65,8 @@
 **验收：** A、B 各有 Agent 时，一条明确指令产生两个可追踪回执；A 失败、B 成功时如实分别呈现；只有“修一下”且多目标可选时先澄清；指定其他工作空间的 Agent 不会被当前工作空间隐式执行。
 
 ## 任务 06：移除项目区域与删除工作空间
+
+GitHub Issue：[#71](https://github.com/multisoul-ai/Norma-AI-OS/issues/71)。
 
 **阻塞：** 04。
 

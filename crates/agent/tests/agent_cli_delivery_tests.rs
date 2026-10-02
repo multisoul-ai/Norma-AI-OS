@@ -26,6 +26,7 @@ fn coordinator() -> AgentTaskCoordinator {
 ///   1. 首任务完成输入传输后立即取出 second，不等待 first 终态。
 ///   2. 记录 second 送达，尝试撤回 second，再完成 first。
 ///   3. 查询两个任务状态，完成 second 并确认无剩余输入。
+///
 /// 预期结果：
 ///   - second 的 task_id 保持不变；first 结束后 second 成为当前任务。
 ///   - 已送达消息不出现在 Norma 待发送队列，不能本地撤回，也不得重发。

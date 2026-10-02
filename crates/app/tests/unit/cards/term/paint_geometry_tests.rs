@@ -215,11 +215,6 @@ fn test_hidden_show_cursor_omits_cursor_paint_layer() {
         !layers.contains(&TerminalPaintLayer::Cursor),
         "隐藏硬件光标后不应绘制 Cursor 层，实际层为 {layers:?}"
     );
-    assert_ne!(
-        layers.contains(&TerminalPaintLayer::Cursor),
-        true,
-        "Codex 输入框左缘的停放光标不应被 Norma 玻璃光标画出来"
-    );
 }
 
 /// canvas 文本原点应在行框内保留垂直余量，避免首行贴边后被裁剪。

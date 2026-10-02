@@ -2,14 +2,14 @@ use super::*;
 
 /// 场景：指令输入快捷键默认 Cmd+K，支持录制、保存偏好和恢复。
 ///
-/// 数据构造：空偏好使用 Cmd+K；替换为未占用的 Cmd+Shift+K。
+/// 数据构造：空偏好使用 Cmd+K；替换为未占用的 Ctrl+Alt+K；Cmd+Shift+K留给工作空间切换。
 /// 执行过程：读取默认值，录制替代键，序列化并重新读取偏好，恢复默认。
 /// 预期结果：新键可找到聚焦指令；旧键录制后失效；恢复后新键失效、Cmd+K 生效。
 #[test]
 fn command_input_shortcut_can_be_changed_and_restored() {
     let mut state = ShortcutSettingsState::default();
     let original = Keystroke::parse("cmd-k").expect("有效默认快捷键");
-    let replacement = Keystroke::parse("cmd-shift-k").expect("有效替代快捷键");
+    let replacement = Keystroke::parse("ctrl-alt-k").expect("有效替代快捷键");
     assert_eq!(
         state.command_for_keystroke(&original),
         Some(ShortcutCommandId::FocusCommandInput),

@@ -6,6 +6,8 @@ from __future__ import annotations
 import importlib.util
 import io
 import json
+import shlex
+import subprocess
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -21,6 +23,64 @@ SPEC.loader.exec_module(GATE)
 
 
 class CpuPerformanceGateTests(unittest.TestCase):
+    def test_runner_resolves_bundle_with_system_awk(self) -> None:
+        """场景：现有 PID 采样使用系统 awk 正确识别带空格的 App 路径。
+
+        数据构造：一条 dylib 与一条 App 主程序记录，共 2 条 lsof 文本映射。
+        执行过程：提取生产脚本的解析函数，以可控 lsof 输出在 /bin/bash 执行。
+        预期结果：正断言为准确的 App 路径；负断言为不输出 dylib、不产生 awk 错误。
+        """
+        source = (SCRIPT_PATH.parent / "run-cpu-performance-l3.sh").read_text()
+        function = source.split("resolve_app_bundle_for_pid() {", 1)[1].split(
+            "\nrequested_app_path=", 1
+        )[0]
+        with tempfile.TemporaryDirectory(dir=SCRIPT_PATH.parent.parent / "artifacts") as temp:
+            bundle = Path(temp) / "Norma Layout Review.app"
+            (bundle / "Contents").mkdir(parents=True)
+            (bundle / "Contents/Info.plist").touch()
+            mappings = f"n/usr/lib/libSystem.B.dylib\nn{bundle}/Contents/MacOS/norma-os\n"
+            result = subprocess.run(
+                ["/bin/bash", "-c", "set -euo pipefail\n"
+                 + "lsof() { printf '%s' " + shlex.quote(mappings) + "; }\n"
+                 + "resolve_app_bundle_for_pid() {" + function
+                 + "\nresolve_app_bundle_for_pid 1"],
+                capture_output=True, text=True,
+            )
+            self.assertEqual(result.returncode, 0, f"系统 awk 应成功解析：{result.stderr}")
+            self.assertEqual(result.stdout.strip(), str(bundle), "应得到完整含空格 App 路径")
+            self.assertNotIn("libSystem", result.stdout, "不能将动态库当成 App 路径")
+            self.assertEqual(result.stderr, "", "合法路径不应触发 awk 语法错误")
+
+    def test_runner_summary_accepts_empty_optional_logs_on_system_bash(self) -> None:
+        """场景：已有 PID 没有独占日志时，系统 Bash 仍须执行汇总命令。
+
+        数据构造：可选日志参数 = 0 个；固定统计参数保留脚本原文。
+        执行过程：提取实际汇总命令，用参数捕获函数替代 python3，开启 nounset 执行。
+        预期结果：正断言为 summarize 和 --app-csv 仍到达；负断言为无 --perf-log、无空参数。
+        """
+        source = (SCRIPT_PATH.parent / "run-cpu-performance-l3.sh").read_text()
+        command = 'python3 "$gate_script" summarize' + source.split(
+            'python3 "$gate_script" summarize', 1
+        )[1].split("\n\n{", 1)[0]
+        with tempfile.TemporaryDirectory(dir=SCRIPT_PATH.parent.parent / "artifacts") as temp:
+            captured = Path(temp) / "args.txt"
+            result = subprocess.run(
+                ["/bin/bash", "-c", "set -euo pipefail\n"
+                 + "gate_script=gate.py; app_cpu_csv=app.csv; window_server_cpu_csv=ws.csv\n"
+                 + "summary_json=summary.json; mode=baseline; scenario=s1; sampled_commit=test\n"
+                 + "host_seed=test; duration_seconds=60; node_count=8\n"
+                 + "active_agent_count=0; active_terminal_count=2; perf_log_args=()\n"
+                 + "python3() { printf '%s\\n' \"$@\" > " + shlex.quote(str(captured)) + "; }\n"
+                 + command],
+                capture_output=True, text=True,
+            )
+            self.assertEqual(result.returncode, 0, f"空日志数组不能阻断汇总：{result.stderr}")
+            args = captured.read_text().splitlines()
+            self.assertIn("summarize", args, "必须实际调用汇总子命令")
+            self.assertIn("--app-csv", args, "必须传入真实 App CPU 数据")
+            self.assertNotIn("--perf-log", args, "已有 PID 未绑定日志时不得伪造日志参数")
+            self.assertNotIn("", args, "空数组不得变成一个空字符串参数")
+
     def test_norma_perf_summary_filters_state_and_applies_absolute_cpu_gate(self) -> None:
         """场景：L3 汇总只使用目标状态的 norma_perf 记录，并关联渲染与资源指标。
 
