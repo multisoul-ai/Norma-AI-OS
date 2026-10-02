@@ -7,6 +7,7 @@ use super::*;
 ///   1. 用 first 插入空数据库 → 返回 first。
 ///   2. 用 second 对同一 key 再次插入 → 返回已有 first。
 ///   3. 重新打开同一 SQLite 文件 → 仍读到 first。
+///
 /// 预期结果：
 ///   - 正断言：三个观察点均为 first。
 ///   - 负断言：second 不得取代 first。
@@ -38,6 +39,7 @@ fn test_settings_store_get_or_insert_preserves_first_identity() {
 ///
 /// 数据构造（含关键数值的推导过程）：一个隔离 app.sqlite、一条 synthetic 凭据。
 /// 执行过程（逐步说明系统如何处理）：通过 SettingsStore 写入后读取数据库文件权限。
+///
 /// 预期结果：权限为 0o600；组与其他用户的读写执行位均不存在。
 #[cfg(unix)]
 #[test]

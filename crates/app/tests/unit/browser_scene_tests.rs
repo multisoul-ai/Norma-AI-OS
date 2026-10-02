@@ -50,10 +50,10 @@ impl Render for BrowserSceneHost {
 /// 数据构造：窗口200×120，Browser逻辑框(40,20,80,60)，节点ID7；
 ///   首帧镜头1/2+(20,10) → (40,20,40,30)；末帧1+(150,50) → (190,70,80,60)。
 ///   原生创建在headless测试中禁用，只验证真实GPUI帧→BrowserStore分发与生命周期。
-/// 执行过程：绘制生产Browser元素 → 变更镜头 → 将项目detach为总览会话
+/// 执行过程：绘制生产Browser元素 → 展开当前项目 → 切到另一项目 → 变更镜头 → 将项目detach为总览会话
 ///   → 切到目录禁止原生输入 → 移出渲染树。
 /// 预期结果：逻辑尺寸一直80×60，呈现坐标跟随镜头；detach不删除Browser条目；
-///   目录不允许输入；离场标为不可见，不能残留可点击原生层。
+///   仅展开的当前项目允许输入；总览、其他项目和目录不允许输入；离场不能残留可点击原生层。
 #[test]
 fn browser_scene_preserves_document_and_detached_session() {
     let temp = tempfile::tempdir().expect("创建隔离目录");
@@ -62,7 +62,9 @@ fn browser_scene_preserves_document_and_detached_session() {
     let mut test = TestAppContext::single();
     let host =
         test.new(|cx| MultisoulApp::new_with_database_context(cx, paths.clone(), store.clone()));
-    let app = test.new(|cx| MultisoulApp::new_with_database_context(cx, paths, store));
+    let app =
+        test.new(|cx| MultisoulApp::new_with_database_context(cx, paths.clone(), store.clone()));
+    let other = test.new(|cx| MultisoulApp::new_with_database_context(cx, paths, store));
     host.update(&mut test, |host, _| {
         host.screen = AppScreen::DesktopWorkspace
     });
@@ -90,7 +92,34 @@ fn browser_scene_preserves_document_and_detached_session() {
             size(px(40.), px(30.)),
             "缩略画布必须整体缩小网页"
         );
-        assert!(interactive, "项目总览必须保留原生网页输入能力");
+        assert!(!interactive, "项目总览网页不得截获用于展开项目的点击");
+    });
+    host.update(cx, |host, _| {
+        host.desktop_workspace.active_id = Some("workspace".into());
+        host.desktop_workspace.expanded_area_id = Some("browser-project".into());
+        host.desktop_workspace
+            .sessions
+            .insert(("workspace".into(), "browser-project".into()), app.clone());
+        host.desktop_workspace
+            .sessions
+            .insert(("workspace".into(), "other-project".into()), other.clone());
+    });
+    cx.update(|window, cx| window.draw(cx).clear());
+    app.read_with(cx, |app, _| {
+        assert!(
+            app.browsers.views[&7].presentation.unwrap().1,
+            "展开的当前项目必须允许网页输入"
+        );
+    });
+    host.update(cx, |host, _| {
+        host.desktop_workspace.expanded_area_id = Some("other-project".into());
+    });
+    cx.update(|window, cx| window.draw(cx).clear());
+    app.read_with(cx, |app, _| {
+        assert!(
+            !app.browsers.views[&7].presentation.unwrap().1,
+            "展开其他项目不得解锁当前网页缩略图"
+        );
     });
     root.update(cx, |root, cx| {
         root.shifted = true;

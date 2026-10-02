@@ -17,8 +17,7 @@ impl Runtime {
             definition_id,
             alias,
             bounds,
-            cols,
-            rows,
+            (cols, rows),
             None,
         )
     }
@@ -29,8 +28,7 @@ impl Runtime {
         definition_id: i64,
         alias: String,
         bounds: CanvasRect,
-        cols: u16,
-        rows: u16,
+        terminal_size: (u16, u16),
         worktree: Option<&std::path::Path>,
     ) -> Result<NodeId, PtyError> {
         if let Some(existing) = self.document.nodes().iter().find(|node| {
@@ -46,8 +44,7 @@ impl Runtime {
             Some(definition_id),
             Some(alias),
             bounds,
-            cols,
-            rows,
+            terminal_size,
             worktree,
         )
     }

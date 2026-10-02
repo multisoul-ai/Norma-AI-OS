@@ -151,8 +151,7 @@ pub(in crate::mobile::server) fn handle(
             match crate::mobile::thread_terminal_control::handle(
                 shared,
                 &request.machine_id,
-                device,
-                token,
+                (device, token),
                 scope,
                 operation,
                 *lookup_only,

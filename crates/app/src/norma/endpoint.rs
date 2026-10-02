@@ -120,7 +120,7 @@ pub(crate) fn install(cx: &mut App) -> std::io::Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "e2e-test-support")]
+#[cfg(any(test, feature = "e2e-test-support"))]
 pub(crate) fn install_at_path(socket_path: PathBuf, cx: &mut App) -> std::io::Result<()> {
     if cx.has_global::<NormaEndpointHost>() {
         return Ok(());

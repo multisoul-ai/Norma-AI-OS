@@ -2,6 +2,10 @@ use crate::app::MultisoulApp;
 use gpui::{AppContext as _, Context, Window};
 use std::path::PathBuf;
 
+#[cfg(test)]
+#[path = "../../../tests/unit/desktop_agent_routing_tests.rs"]
+mod routing_tests;
+
 impl MultisoulApp {
     pub(super) fn retry_desktop_project_area(
         &mut self,
@@ -184,7 +188,11 @@ impl MultisoulApp {
                             session.desktop_host = Some(host);
                             session.layout_strategy.chrome_in_parent = true;
                             session.master_layout.chrome_in_parent = true;
+                            session.apply_theme(app.theme_id, cx);
                             session
+                        });
+                        session.update(cx, |session, cx| {
+                            session.register_loaded_project_route(None, cx);
                         });
                         // Keep window-level Settings live without redrawing the host for
                         // ordinary terminal output while the panel is closed.

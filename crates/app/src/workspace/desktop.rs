@@ -34,6 +34,7 @@ mod controller;
 mod creation;
 mod dialogs;
 mod dialogs_other;
+#[cfg(feature = "e2e-test-support")]
 mod dispatch;
 mod home;
 mod home_card;

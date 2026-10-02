@@ -223,22 +223,6 @@ impl MultisoulApp {
         }
     }
 
-    pub(crate) fn open_workspace_in_project_window(
-        &mut self,
-        path: PathBuf,
-        close_current_launchpad: bool,
-        window: &mut gpui::Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.open_workspace_in_project_window_with_state(
-            path,
-            close_current_launchpad,
-            false,
-            window,
-            cx,
-        );
-    }
-
     pub(super) fn open_workspace_in_project_window_with_state(
         &mut self,
         path: PathBuf,

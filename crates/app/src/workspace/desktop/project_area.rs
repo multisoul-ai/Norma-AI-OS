@@ -15,16 +15,14 @@ impl MultisoulApp {
         &self,
         area_index: usize,
         area: DesktopProjectArea,
-        workspace_id: &str,
-        card_width: f32,
-        available_height: f32,
+        card_size: canvas::Vec2,
         scale: f32,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
         let theme = self.desktop_theme();
         let area_id = area.id.clone();
-        let workspace_id = workspace_id.to_owned();
+        let workspace_id = area.desktop_workspace_id.clone();
         let moving = self
             .desktop_workspace
             .transition
@@ -63,16 +61,13 @@ impl MultisoulApp {
                 super::scene::overview_chrome_opacity(frame, source, full)
             })
         });
-        let card_height = available_height;
         let logical_size = super::desktop_scene_rect(
             f32::from(window.viewport_size().width),
             f32::from(window.viewport_size().height),
         )
         .size;
-        let chrome = project_chrome_scale(canvas::Vec2::new(card_width, card_height), scale);
-        let title_height = project_stage_rect(canvas::Vec2::new(card_width, card_height), scale)
-            .origin
-            .y;
+        let chrome = project_chrome_scale(card_size, scale);
+        let title_height = project_stage_rect(card_size, scale).origin.y;
         let actions_open = self.desktop_workspace.actions_area_id.as_deref() == Some(&area_id);
         let moving_live_canvas = moving.is_some()
             && self
@@ -87,7 +82,7 @@ impl MultisoulApp {
             ))
             .debug_selector(move || format!("desktop-project-area-{area_index}"))
             .relative()
-            .h(px(card_height))
+            .h(px(card_size.y))
             .rounded(px(14.0 * chrome))
             .border_1()
             .border_color(rgba(theme.dock_line))
@@ -133,7 +128,7 @@ impl MultisoulApp {
                     self.desktop_project_canvas_preview(
                         &workspace_id,
                         &area_id,
-                        canvas::Vec2::new(card_width, card_height),
+                        card_size,
                         logical_size,
                         scale,
                         cx,

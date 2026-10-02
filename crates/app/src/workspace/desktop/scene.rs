@@ -138,11 +138,11 @@ impl MultisoulApp {
         world: gpui::Stateful<Div>,
         window: &Window,
     ) -> gpui::Stateful<Div> {
-        if !self
+        if self
             .desktop_workspace
             .transition
             .as_ref()
-            .is_some_and(|t| t.directory_content.is_some())
+            .is_none_or(|t| t.directory_content.is_none())
         {
             return world;
         }
@@ -194,6 +194,7 @@ impl MultisoulApp {
             )
             .child(
                 Button::new("desktop-workspace-empty-add-project")
+                    .tab_stop(interactive)
                     .debug_selector(|| "desktop-workspace-empty-add-project".to_string())
                     .child(
                         div()

@@ -1,12 +1,12 @@
 use super::{
-    command_support, contextualized_agent_commands, start_adapter_pump, start_event_pump,
-    ProjectAgentRuntime,
+    contextualized_agent_commands, start_adapter_pump, start_event_pump, ProjectAgentRuntime,
 };
 use crate::app::MultisoulApp;
 use agent::{AgentCommand, AgentEvent};
 use gpui::{Context, Window};
 
 impl MultisoulApp {
+    #[cfg(feature = "e2e-test-support")]
     pub(crate) fn submit_compact_agent_text(
         &mut self,
         node_id: canvas::NodeId,
@@ -21,9 +21,9 @@ impl MultisoulApp {
         if !is_agent {
             return Err("Target Agent card no longer exists".to_string());
         }
-        command_support::type_agent_task(&mut self.runtime, node_id, text)
+        super::command_support::type_agent_task(&mut self.runtime, node_id, text)
             .map_err(|error| error.to_string())?;
-        command_support::submit_agent_enter(&mut self.runtime, node_id)
+        super::command_support::submit_agent_enter(&mut self.runtime, node_id)
             .map_err(|error| error.to_string())?;
         cx.notify();
         Ok(())

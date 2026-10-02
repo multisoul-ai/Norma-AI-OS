@@ -5,7 +5,7 @@
 use super::MultisoulApp;
 use crate::app::video_decoder::{DecodedVideoFrame, VideoDecoder};
 use crate::app::wallpaper_resolvers::WallpaperKind;
-use gpui::{div, prelude::*, px, surface, Context, Div, ObjectFit, Surface};
+use gpui::{prelude::*, px, surface, Context, ObjectFit, Surface};
 use std::path::{Path, PathBuf};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -316,24 +316,6 @@ impl MultisoulApp {
             self.feature_guide.is_visible(),
         );
         self.sync_video_wallpaper(visible_video, cx);
-    }
-
-    /// Render the Launchpad-owned video layer. Its decoder path is chosen by
-    /// `render_launchpad`, independently from `WallpaperSettingsState`.
-    pub(crate) fn render_launchpad_video_layer(&self) -> Div {
-        let host = div()
-            .absolute()
-            .top(px(0.0))
-            .left(px(0.0))
-            .right(px(0.0))
-            .bottom(px(0.0))
-            .size_full()
-            .overflow_hidden();
-
-        match self.render_video_wallpaper_surface() {
-            Some(frame) => host.child(frame),
-            None => host,
-        }
     }
 
     pub(super) fn render_video_wallpaper_surface(&self) -> Option<Surface> {

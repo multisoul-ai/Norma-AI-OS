@@ -14,6 +14,7 @@ use std::time::Duration;
 ///   1. 安装TRACE级局部日志收集器，开始A并推进三次回调。
 ///   2. 开始B以结束A，再推进并完成B；重复结束不得产生额外日志。
 ///   3. 开始并跳过C，读取六条开始／结束事件。
+///
 /// 预期结果：
 ///   - A明确以retargeted结束，B以completed结束，C以reduced_motion结束。
 ///   - A记录150ms而非相机截断后的100ms；B不继承A的慢回调计数。

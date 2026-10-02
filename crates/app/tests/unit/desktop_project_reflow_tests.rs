@@ -101,7 +101,7 @@ impl gpui::Render for ReflowHost {
 #[test]
 fn desktop_project_reflow_preserves_agents_and_camera_origin() {
     use canvas::{AgentProfile, AgentSpec, CanvasNodeKind};
-    use gpui::{prelude::*, px, size, AppContext as _, TestAppContext};
+    use gpui::{prelude::*, px, size, TestAppContext};
     let temp = tempfile::tempdir().expect("隔离临时数据");
     let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
     let store = storage::AppStore::initialize(&paths).expect("初始化隔离存储");

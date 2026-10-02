@@ -5,6 +5,10 @@ use ui::{Theme, ThemeId};
 
 const THEME_SETTING_KEY: &str = "appearance.theme.v1";
 
+#[cfg(test)]
+#[path = "../../tests/unit/desktop_theme_tests.rs"]
+mod desktop_tests;
+
 pub(crate) struct ThemeSettingsState {
     storage: Option<SettingsStore>,
     pending_theme: Option<ThemeId>,
@@ -73,11 +77,32 @@ impl ThemeSettingsState {
 impl MultisoulApp {
     pub(crate) fn set_theme(&mut self, id: ThemeId, cx: &mut Context<Self>) {
         self.apply_theme(id, cx);
-        self.theme_settings.queue(id);
-        self.persist_theme_setting_in_background(cx);
+        let sessions =
+            if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
+                host.update(cx, |host, cx| {
+                    host.apply_theme(id, cx);
+                    host.theme_settings.queue(id);
+                    host.persist_theme_setting_in_background(cx);
+                    host.desktop_workspace
+                        .sessions
+                        .values()
+                        .cloned()
+                        .collect::<Vec<_>>()
+                })
+            } else {
+                self.theme_settings.queue(id);
+                self.persist_theme_setting_in_background(cx);
+                self.desktop_workspace.sessions.values().cloned().collect()
+            };
+        // The initiating project is already borrowed; update its peers after releasing the host.
+        for session in sessions {
+            if session.entity_id() != cx.entity_id() {
+                session.update(cx, |session, cx| session.apply_theme(id, cx));
+            }
+        }
     }
 
-    fn apply_theme(&mut self, id: ThemeId, cx: &mut Context<Self>) {
+    pub(crate) fn apply_theme(&mut self, id: ThemeId, cx: &mut Context<Self>) {
         self.theme_id = id;
         self.theme = Theme::for_id(id);
         ui::sync_component_theme(id, cx);

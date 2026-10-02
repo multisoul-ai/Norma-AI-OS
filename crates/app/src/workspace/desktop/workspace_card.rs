@@ -1,6 +1,6 @@
 use super::{glass_button_variant, GLASS_TEXT, GLASS_TEXT_SECONDARY};
 use crate::app::MultisoulApp;
-use gpui::{div, prelude::*, px, rgba, Context, KeyDownEvent};
+use gpui::{div, prelude::*, px, rgba, Context};
 use ui::component::button::Button;
 use ui::component::button::ButtonVariants;
 use ui::component::tooltip::Tooltip;
@@ -57,7 +57,6 @@ impl MultisoulApp {
                 })
         });
         let open_id = workspace.id.clone();
-        let keyboard_id = workspace.id.clone();
         let actions_id = workspace.id.clone();
         let rename_id = workspace.id.clone();
         let delete_id = workspace.id.clone();
@@ -117,12 +116,6 @@ impl MultisoulApp {
             .focus(move |style| style.border_color(rgba(theme.focused_stroke)).shadow_lg())
             .on_click(cx.listener(move |app, _, window, cx| {
                 app.open_desktop_workspace(open_id.clone(), window, cx)
-            }))
-            .on_key_down(cx.listener(move |app, event: &KeyDownEvent, window, cx| {
-                if matches!(event.keystroke.key.as_str(), "enter" | "space") {
-                    app.open_desktop_workspace(keyboard_id.clone(), window, cx);
-                    cx.stop_propagation();
-                }
             }))
             .when(moving.is_none(), |this| {
                 this.child(self.desktop_workspace_preview(
@@ -303,16 +296,17 @@ impl MultisoulApp {
                         .w(px(rect.size.x * scale))
                         .h(px(rect.size.y * scale))
                         .overflow_hidden()
-                        .child(self.render_desktop_project_preview(
-                            &workspace.id,
-                            &area,
-                            rect.size.x * scale,
-                            rect.size.y * scale,
-                            scale,
-                            super::desktop_scene_rect(full.x, full.y).size,
-                            selector,
-                            cx,
-                        ))
+                        .child(
+                            self.render_desktop_project_preview(
+                                &workspace.id,
+                                &area,
+                                canvas::Vec2::new(rect.size.x * scale, rect.size.y * scale),
+                                scale,
+                                super::desktop_scene_rect(full.x, full.y).size,
+                                cx,
+                            )
+                            .debug_selector(move || selector.clone()),
+                        )
                 },
             ))
     }

@@ -34,6 +34,9 @@ impl MultisoulApp {
                         let interactive = !modal
                             && host.is_none_or(|host| {
                                 matches!(host.screen, crate::app::AppScreen::DesktopWorkspace)
+                                    && host.expanded_desktop_project().is_some_and(|project| {
+                                        project.entity_id() == cx.entity_id()
+                                    })
                                     && !host.desktop_project_zoom_active()
                                     && !host.desktop_workspace_zoom_active()
                             });

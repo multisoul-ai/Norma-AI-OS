@@ -215,8 +215,7 @@ impl MultisoulApp {
                     definition_id,
                     alias,
                     bounds,
-                    cols,
-                    rows,
+                    (cols, rows),
                     worktree,
                 )
             }

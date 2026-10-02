@@ -13,6 +13,156 @@ impl Render for DirectoryView {
     }
 }
 
+struct KeyboardCardView(Entity<MultisoulApp>, bool);
+
+impl Render for KeyboardCardView {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.0.update(cx, |app, cx| {
+            let workspace = app.desktop_workspace.workspaces[0].clone();
+            let card = if self.1 {
+                app.desktop_home_card(
+                    0,
+                    workspace,
+                    canvas::Vec2::new(400., 250.),
+                    canvas::Vec2::new(1280., 800.),
+                    1.,
+                    cx,
+                )
+                .into_any_element()
+            } else {
+                app.desktop_workspace_card(0, workspace, 400., size(px(1280.), px(800.)), 1., cx)
+                    .into_any_element()
+            };
+            div()
+                .id("keyboard-test-root")
+                .w(px(400.))
+                .h(px(250.))
+                .child(card)
+        })
+    }
+}
+
+/// 两套目录中的卡片与子菜单按钮分别响应键盘，子按钮不得触发父卡片导航。
+///
+/// 数据构造：每套目录各 1 个空工作空间；卡片400×250，保持1280/800宽高比；无运行进程。
+/// 执行过程：按 Tab 顺序聚焦菜单 → Enter 打开 → Space 关闭 → 聚焦父卡片 → Enter 打开空间。
+/// 预期结果：子按钮只切换菜单且不激活空间；父卡片仍能通过键盘进入正确空间。
+#[test]
+fn desktop_workspace_card_keyboard_does_not_open_from_child_buttons() {
+    for home in [false, true] {
+        let temp = tempfile::tempdir().expect("应创建隔离目录");
+        let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
+        let store = storage::AppStore::initialize(&paths).expect("应初始化存储");
+        let workspace = store
+            .desktop_workspace_store()
+            .create("Keyboard")
+            .expect("应创建空间");
+        let mut test = TestAppContext::single();
+        let (view, cx) = test.add_window_view(|_, cx| {
+            let app = cx.new(|cx| MultisoulApp::new_with_database_context(cx, paths, store));
+            app.update(cx, |app, _| {
+                app.desktop_workspace.workspaces = vec![workspace.clone()]
+            });
+            KeyboardCardView(app, home)
+        });
+        let host = view.update(cx, |view, _| view.0.clone());
+        cx.simulate_resize(size(px(1280.0), px(800.0)));
+        cx.run_until_parked();
+        host.update(cx, |app, cx| {
+            app.screen = AppScreen::Launchpad;
+            app.desktop_workspace.home_directory = home;
+            app.desktop_workspace.workspaces = vec![workspace.clone()];
+            app.motion.reduce_motion = true;
+            cx.notify();
+        });
+        cx.update(|window, cx| window.draw(cx).clear());
+        cx.update(|window, cx| {
+            window.blur();
+            window.focus_next(); // 父卡片。
+            window.focus_next(); // 子菜单按钮。
+            window.draw(cx).clear();
+        });
+        view.update(cx, |_, cx| cx.notify());
+        cx.update(|window, cx| window.draw(cx).clear());
+        cx.simulate_event(gpui::KeyDownEvent {
+            keystroke: gpui::Keystroke::parse("enter").expect("合法按键"),
+            is_held: false,
+        });
+        cx.simulate_event(gpui::KeyUpEvent {
+            keystroke: gpui::Keystroke::parse("enter").expect("合法按键"),
+        });
+        cx.run_until_parked();
+        host.read_with(cx, |app, _| {
+            assert_eq!(
+                app.screen,
+                AppScreen::Launchpad,
+                "子按钮 Enter 不得进入空间（home={home}）"
+            );
+            assert_eq!(
+                app.desktop_workspace.actions_workspace_id.as_deref(),
+                Some(workspace.id.as_str()),
+                "Enter 应打开菜单"
+            );
+            assert!(
+                app.desktop_workspace.active_id.is_none(),
+                "子按钮不得暗中激活空间"
+            );
+        });
+        view.update(cx, |_, cx| cx.notify());
+        cx.update(|window, cx| window.draw(cx).clear());
+        cx.simulate_event(gpui::KeyDownEvent {
+            keystroke: gpui::Keystroke::parse("space").expect("合法按键"),
+            is_held: false,
+        });
+        cx.simulate_event(gpui::KeyUpEvent {
+            keystroke: gpui::Keystroke::parse("space").expect("合法按键"),
+        });
+        cx.update(|window, cx| window.draw(cx).clear());
+        host.read_with(cx, |app, _| {
+            assert!(
+                app.desktop_workspace.actions_workspace_id.is_none(),
+                "Space 应关闭已打开的菜单"
+            );
+            assert_eq!(
+                app.screen,
+                AppScreen::Launchpad,
+                "菜单 Space 不得打开父卡片"
+            );
+        });
+        // 菜单按钮前一个可聚焦元素就是其父卡片，复用 GPUI 的 Tab 顺序。
+        cx.update(|window, cx| {
+            window.focus_prev();
+            window.draw(cx).clear();
+        });
+        view.update(cx, |_, cx| cx.notify());
+        cx.update(|window, cx| window.draw(cx).clear());
+        cx.simulate_event(gpui::KeyDownEvent {
+            keystroke: gpui::Keystroke::parse("enter").expect("合法按键"),
+            is_held: false,
+        });
+        cx.simulate_event(gpui::KeyUpEvent {
+            keystroke: gpui::Keystroke::parse("enter").expect("合法按键"),
+        });
+        cx.run_until_parked();
+        host.read_with(cx, |app, _| {
+            assert_eq!(
+                app.desktop_workspace.active_id.as_deref(),
+                Some(workspace.id.as_str()),
+                "父卡片必须仍可通过 Enter 打开"
+            );
+            assert_eq!(
+                app.screen,
+                AppScreen::DesktopWorkspace,
+                "父卡片应进入工作空间"
+            );
+            assert!(
+                app.desktop_workspace.expanded_area_id.is_none(),
+                "空空间不得自动展开项目"
+            );
+        });
+    }
+}
+
 /// 工作空间目录：长名称完全包含在卡片内，标题不挤占网格外间距，菜单不触发导航。
 ///
 /// 数据构造：4 个空空间，首项名称为 40 个中文字符；窗口 1280×800。
@@ -76,7 +226,7 @@ fn desktop_workspace_card_keeps_title_inside_and_menu_local() {
         "内容区应留在外壳内部，不能涂掉圆角或边框"
     );
     assert!(
-        (f32::from(content.size.width / content.size.height) - 1280.0 / 800.0).abs() < 0.01,
+        ((content.size.width / content.size.height) - 1280.0 / 800.0).abs() < 0.01,
         "画布必须保持原视口宽高比（允许布局像素取整）：{content:?}"
     );
     let next_row = cx

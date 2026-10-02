@@ -212,7 +212,14 @@ impl Runtime {
         rows: u16,
         worktree: &Path,
     ) -> Result<NodeId, PtyError> {
-        self.spawn_agent_with_identity_at(profile, None, alias, bounds, cols, rows, Some(worktree))
+        self.spawn_agent_with_identity_at(
+            profile,
+            None,
+            alias,
+            bounds,
+            (cols, rows),
+            Some(worktree),
+        )
     }
 
     fn spawn_agent_with_identity(
@@ -224,7 +231,7 @@ impl Runtime {
         cols: u16,
         rows: u16,
     ) -> Result<NodeId, PtyError> {
-        self.spawn_agent_with_identity_at(profile, definition_id, alias, bounds, cols, rows, None)
+        self.spawn_agent_with_identity_at(profile, definition_id, alias, bounds, (cols, rows), None)
     }
 
     fn spawn_agent_with_identity_at(
@@ -233,8 +240,7 @@ impl Runtime {
         definition_id: Option<i64>,
         alias: Option<String>,
         bounds: CanvasRect,
-        cols: u16,
-        rows: u16,
+        (cols, rows): (u16, u16),
         worktree: Option<&Path>,
     ) -> Result<NodeId, PtyError> {
         let node_id = self.add_agent_node(profile, definition_id, alias, bounds);

@@ -31,7 +31,7 @@ use canvas::{CanvasRect, NodeId, NodeType, Vec2};
 use gpui::{actions, div, prelude::*, px, Context, FocusHandle, Focusable, Window};
 use runtime::{route, InputEvent, Route, Runtime};
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{atomic::AtomicBool, Arc};
 #[cfg(test)]
 use std::time::Duration;
@@ -462,14 +462,6 @@ impl MultisoulApp {
             self.last_reflow_window_size = Some(current);
             self.apply_layout_for_current_mode(window);
         }
-    }
-
-    pub(crate) fn remove_recent_project(&mut self, path: &Path, cx: &mut Context<Self>) {
-        if let Err(error) = self.workspace_state.remove_recent_workspace(path) {
-            tracing::warn!(%error, path = %path.display(), "failed to remove recent project");
-        }
-        self.recent_project_context_path = None;
-        cx.notify();
     }
 }
 

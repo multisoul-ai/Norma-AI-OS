@@ -220,6 +220,7 @@ fn test_timeline_counts_resizes_per_navigation() {
 /// 预期结果：
 ///   - 正断言：begin 后 1s、29s 内 is_loading = true
 ///   - 负断言：从未 begin 时为 false；31s 超时后为 false；Finished 之后为 false
+///
 /// L-6：取消加载后进度线立即结束，且后续 Finished 不再产生报告
 ///
 /// 执行过程：

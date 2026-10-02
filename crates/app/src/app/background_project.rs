@@ -55,9 +55,12 @@ impl PreparedProject {
                 "project directory changed"
             );
             let store = AppStore::new(paths.app_db_path().to_owned());
-            let identity = store
+            let mut identity = store
                 .workspace_identity_store()
                 .resolve_or_create(&area.root, &area.display_name)?;
+            // CLI routing belongs to this canvas, even when another canvas uses the same root.
+            // Keep the persisted project identity unchanged for legacy/mobile project lookup.
+            identity.workspace_id = format!("desktop:{}:{}", area.desktop_workspace_id, area.id);
             let project = ProjectStore::initialize_for_desktop_area(
                 &paths,
                 &area.root,

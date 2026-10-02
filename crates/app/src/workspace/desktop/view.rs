@@ -199,9 +199,10 @@ impl MultisoulApp {
                                         slot.child(self.desktop_project_area_card(
                                             index,
                                             area,
-                                            &workspace_id,
-                                            rect.size.x * scale,
-                                            rect.size.y * scale,
+                                            canvas::Vec2::new(
+                                                rect.size.x * scale,
+                                                rect.size.y * scale,
+                                            ),
                                             scale,
                                             window,
                                             cx,

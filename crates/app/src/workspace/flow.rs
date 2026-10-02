@@ -172,8 +172,8 @@ impl MultisoulApp {
             loop {
                 if next_index >= pending.node_ids.len() {
                     let _ = this.update(cx, |app, _| {
-                        if (!app.background_project || desktop_restore)
-                            && (desktop_restore || app.project_window == source_window)
+                        if (desktop_restore
+                            || (!app.background_project && app.project_window == source_window))
                             && app.workspace_state.current_root.as_deref() == Some(root.as_path())
                         {
                             app.background_restore = None;

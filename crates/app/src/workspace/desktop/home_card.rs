@@ -1,9 +1,6 @@
 use crate::app::MultisoulApp;
 use canvas::{CanvasRect, Vec2};
-use gpui::{
-    div, linear_color_stop, linear_gradient, prelude::*, px, rgba, Context, Div, KeyDownEvent,
-    Stateful,
-};
+use gpui::{div, linear_color_stop, linear_gradient, prelude::*, px, rgba, Context, Div, Stateful};
 use ui::component::{
     button::{Button, ButtonCustomVariant, ButtonVariants},
     tooltip::Tooltip,
@@ -85,7 +82,6 @@ impl MultisoulApp {
             .filter(|((id, _), _)| id == &workspace.id)
             .any(|(_, session)| session.read(cx).runtime.running_terminal_count() > 0);
         let open_id = workspace.id.clone();
-        let keyboard_id = workspace.id.clone();
         let actions_id = workspace.id.clone();
         let rename_id = workspace.id.clone();
         let delete_id = workspace.id.clone();
@@ -123,12 +119,6 @@ impl MultisoulApp {
             .focus(move |s| s.border_color(rgba(theme.focused_stroke)).shadow_md())
             .on_click(cx.listener(move |app, _, window, cx| {
                 app.open_desktop_workspace(open_id.clone(), window, cx)
-            }))
-            .on_key_down(cx.listener(move |app, event: &KeyDownEvent, window, cx| {
-                if matches!(event.keystroke.key.as_str(), "enter" | "space") {
-                    cx.stop_propagation();
-                    app.open_desktop_workspace(keyboard_id.clone(), window, cx);
-                }
             }))
             .child(
                 div()

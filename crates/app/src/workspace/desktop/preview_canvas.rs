@@ -56,20 +56,18 @@ impl MultisoulApp {
         &self,
         workspace_id: &str,
         area: &DesktopAreaPreview,
-        width: f32,
-        height: f32,
+        size: Vec2,
         scale: f32,
         logical_size: Vec2,
-        selector: String,
         cx: &mut Context<Self>,
     ) -> Div {
-        let stage = project_stage_rect(Vec2::new(width, height), scale);
-        let chrome = project_chrome_scale(Vec2::new(width, height), scale);
+        let stage = project_stage_rect(size, scale);
+        let chrome = project_chrome_scale(size, scale);
         let theme = self.desktop_theme();
         div()
             .relative()
-            .w(px(width))
-            .h(px(height))
+            .w(px(size.x))
+            .h(px(size.y))
             .rounded(px(14.0 * chrome))
             .border_1()
             .border_color(rgba(theme.dock_line))
@@ -93,14 +91,13 @@ impl MultisoulApp {
             .child(self.desktop_project_canvas_preview(
                 workspace_id,
                 &area.id,
-                Vec2::new(width, height),
+                size,
                 logical_size,
                 scale,
                 cx,
             ))
             // The directory is navigation only: a tiny close button must not close a live node.
             .child(div().absolute().inset_0().occlude())
-            .debug_selector(move || selector.clone())
     }
 
     pub(super) fn desktop_project_canvas_preview(
