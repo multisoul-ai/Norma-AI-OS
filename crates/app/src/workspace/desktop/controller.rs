@@ -259,6 +259,20 @@ impl MultisoulApp {
     }
 
     pub(super) fn show_desktop_launchpad(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.show_desktop_directory(true, window, cx);
+    }
+
+    pub(super) fn show_desktop_directory(
+        &mut self,
+        home: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.desktop_workspace.home_directory != home {
+            self.desktop_directory_scroll
+                .set_offset(gpui::point(gpui::px(0.0), gpui::px(0.0)));
+        }
+        self.desktop_workspace.home_directory = home;
         self.focus_handle.focus(window);
         let project = self
             .desktop_workspace

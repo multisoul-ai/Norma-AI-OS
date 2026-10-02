@@ -140,7 +140,7 @@ impl MultisoulApp {
                     .child(
                         chrome_icon_button(
                             theme,
-                            ToolbarIcon::Workspaces.asset_path(),
+                            "icons/command-workspace.svg",
                             false,
                             "toolbar-switch-workspace",
                             "Switch Workspace  ⌘⇧K",

@@ -14,6 +14,9 @@ impl MultisoulApp {
         let state = &self.desktop_workspace;
         // Keep a form's input and destination stable until it is submitted or cancelled.
         if self.settings_panel.open
+            || self
+                .expanded_desktop_project()
+                .is_some_and(|project| project.read(cx).settings_panel.open)
             || self.clone_project.is_open()
             || state.create_input.is_some()
             || state.add_project_open

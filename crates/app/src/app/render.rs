@@ -129,8 +129,17 @@ impl Render for MultisoulApp {
         if self.feature_guide.should_render() {
             root = root.child(self.render_feature_guide(window, cx));
         }
-        if self.settings_panel.open {
-            root = root.child(self.render_settings_panel(window, cx));
+        // A project canvas is transformed and clipped; Settings belongs to the window.
+        if self.desktop_host.is_none() {
+            if self.settings_panel.open {
+                root = root.child(self.render_settings_panel(window, cx));
+            } else if let Some(project) = self.expanded_desktop_project() {
+                if project.read(cx).settings_panel.open {
+                    root = root.child(
+                        project.update(cx, |project, cx| project.render_settings_panel(window, cx)),
+                    );
+                }
+            }
         }
         if self.clone_project.is_open() {
             root = root.child(self.render_clone_project_dialog(window, cx));

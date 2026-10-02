@@ -5,11 +5,11 @@ use std::{
     path::{Path, PathBuf},
 };
 use ui::component::{
-    button::{Button, ButtonVariants},
-    list::{List, ListDelegate, ListEvent, ListState},
-    Disableable, IndexPath, Sizable, StyledExt, WindowExt,
+    button::Button,
+    list::{List, ListDelegate, ListEvent, ListItem, ListState},
+    tooltip::Tooltip,
+    Icon, IconName, IndexPath, StyledExt, WindowExt,
 };
-use ui::icons::{toolbar_icon, ToolbarIcon};
 use workspace::WorkspaceRecord;
 
 pub(super) struct ProjectPicker {
@@ -63,7 +63,7 @@ impl ProjectPicker {
 }
 
 impl ListDelegate for ProjectPicker {
-    type Item = Button;
+    type Item = ListItem;
 
     fn items_count(&self, _: usize, _: &App) -> usize {
         self.matching.len()
@@ -93,44 +93,59 @@ impl ListDelegate for ProjectPicker {
         ix: IndexPath,
         _: &mut Window,
         _: &mut Context<ListState<Self>>,
-    ) -> Option<Button> {
+    ) -> Option<ListItem> {
         let record = self.project_at(ix.row)?;
         let added = self.is_added(&record.path);
         let theme = self.theme;
         let index = self.matching[ix.row];
+        let path = record.path.display().to_string();
         Some(
-            Button::new(("desktop-add-recent", index))
-                .debug_selector(move || format!("desktop-add-recent-{index}"))
-                .ghost()
+            ListItem::new(("desktop-add-recent", index))
                 .w_full()
-                .h(px(56.0))
-                .px(px(10.0))
+                .p_0()
                 .rounded(px(8.0))
                 .disabled(added)
-                .tooltip(record.path.display().to_string())
                 .child(
                     div()
+                        .id(("desktop-add-row", index))
+                        .debug_selector(move || format!("desktop-add-recent-{index}"))
                         .flex()
                         .items_center()
                         .w_full()
+                        .h(px(48.0))
+                        .px(px(12.0))
+                        .rounded(px(8.0))
                         .gap(px(12.0))
-                        .child(toolbar_icon(
-                            ToolbarIcon::Workspaces,
-                            theme.text_secondary,
-                            20.0,
-                        ))
+                        .tooltip(move |window, cx| Tooltip::new(path.clone()).build(window, cx))
+                        .when(!added, |this| {
+                            this.cursor_pointer().active(move |style| {
+                                style.bg(rgba(ui::icons::with_alpha(theme.accent_blue, 0x28)))
+                            })
+                        })
+                        .child(
+                            Icon::new(IconName::Folder)
+                                .flex_none()
+                                .size(px(20.0))
+                                .text_color(rgba(if added {
+                                    theme.text_secondary
+                                } else {
+                                    theme.accent_blue
+                                })),
+                        )
                         .child(
                             div()
                                 .flex_1()
                                 .min_w(px(0.0))
                                 .flex()
                                 .flex_col()
-                                .gap(px(3.0))
+                                .gap(px(2.0))
                                 .text_left()
                                 .child(
                                     div()
+                                        .debug_selector(move || format!("desktop-add-name-{index}"))
                                         .text_size(px(13.0))
                                         .font_medium()
+                                        .text_color(rgba(theme.text_primary))
                                         .text_ellipsis()
                                         .child(record.display_name.clone()),
                                 )
@@ -145,9 +160,11 @@ impl ListDelegate for ProjectPicker {
                         .child(
                             div()
                                 .flex_none()
+                                .w(px(70.0))
+                                .text_right()
                                 .text_size(px(11.0))
                                 .text_color(rgba(theme.text_secondary))
-                                .child(if added { "Added" } else { "+" }),
+                                .child(if added { "✓ Added" } else { "+ Add" }),
                         ),
                 ),
         )
@@ -210,20 +227,23 @@ impl MultisoulApp {
         })
         .detach();
         let host = cx.weak_entity();
-        let form = cx.new(|_| ProjectPickerForm {
-            host: host.clone(),
-            list: list.clone(),
+        let form = cx.new(|cx| {
+            cx.observe(&list, |_, _, cx| cx.notify()).detach();
+            ProjectPickerForm {
+                host: host.clone(),
+                list: list.clone(),
+            }
         });
         let theme = self.theme;
         window.open_dialog(cx, move |dialog, window, _| {
             let host = host.clone();
             dialog
-                .width(px(560.0).min(window.viewport_size().width - px(40.0)))
+                .width(px(600.0).min(window.viewport_size().width - px(40.0)))
                 .margin_top(px(24.0))
                 .rounded(px(18.0))
                 .bg(rgba(ui::icons::with_alpha(theme.panel_high, 0xff)))
                 .border_color(rgba(theme.node_stroke))
-                .p(px(24.0))
+                .p(px(20.0))
                 .close_button(false)
                 .overlay_closable(false)
                 .on_close(move |_, _, cx| {
@@ -260,15 +280,17 @@ impl MultisoulApp {
             .active()
             .map(|workspace| workspace.name.as_str())
             .unwrap_or("this workspace");
-        let count = list.read(cx).delegate().records.len();
-        // Header/actions/footer use 278px; keep the list inside the remaining window height.
-        let list_height = (f32::from(window.viewport_size().height) - 340.0).clamp(100.0, 340.0);
+        let picker = list.read(cx).delegate();
+        let count = picker.records.len();
+        let matching = picker.matching.len();
+        // Reserve 290px for the dialog margins, header, actions, gaps and footer.
+        let list_height = (f32::from(window.viewport_size().height) - 290.0).clamp(100.0, 400.0);
         div()
             .id("desktop-add-project-dialog")
             .debug_selector(|| "desktop-add-project-dialog".into())
             .flex()
             .flex_col()
-            .gap(px(18.0))
+            .gap(px(14.0))
             .text_color(rgba(theme.text_primary))
             .child(super::dialogs::desktop_form_header(
                 "Add Project",
@@ -283,8 +305,8 @@ impl MultisoulApp {
                         Button::new("desktop-add-local")
                             .debug_selector(|| "desktop-add-local".into())
                             .flex_1()
-                            .h(px(54.0))
-                            .rounded(px(10.0))
+                            .h(px(36.0))
+                            .rounded(px(8.0))
                             .label("Choose Folder…")
                             .on_click(cx.listener(|app, _, window, cx| {
                                 app.close_desktop_add_project(window, cx);
@@ -295,8 +317,8 @@ impl MultisoulApp {
                         Button::new("desktop-add-clone")
                             .debug_selector(|| "desktop-add-clone".into())
                             .flex_1()
-                            .h(px(54.0))
-                            .rounded(px(10.0))
+                            .h(px(36.0))
+                            .rounded(px(8.0))
                             .label("Clone Repository…")
                             .on_click(cx.listener(|app, _, window, cx| {
                                 app.close_desktop_add_project(window, cx);
@@ -310,8 +332,12 @@ impl MultisoulApp {
                     .justify_between()
                     .text_size(px(11.0))
                     .text_color(rgba(theme.text_secondary))
-                    .child("RECENT PROJECTS")
-                    .child(format!("{count} projects")),
+                    .child("Recent Projects")
+                    .child(if matching == count {
+                        format!("{count} projects")
+                    } else {
+                        format!("{matching} of {count} projects")
+                    }),
             )
             .child(
                 div()
@@ -322,11 +348,7 @@ impl MultisoulApp {
                     .border_1()
                     .border_color(rgba(theme.node_stroke))
                     .rounded(px(10.0))
-                    .child(
-                        List::new(list)
-                            .search_placeholder("Search by name or folder…")
-                            .small(),
-                    ),
+                    .child(List::new(list).search_placeholder("Search by name or folder…")),
             )
             .child(
                 div()

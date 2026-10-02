@@ -68,7 +68,9 @@ fn desktop_direct_directory_preserves_real_card_and_reverses_without_queue() {
         cx.notify();
         node
     });
-    host.update_in(cx, |app, window, cx| app.show_desktop_launchpad(window, cx));
+    host.update_in(cx, |app, window, cx| {
+        app.show_desktop_directory(false, window, cx)
+    });
     cx.update(|window, cx| window.draw(cx).clear());
     let directory_title = cx.debug_bounds("card-titlebar").expect("目录应有真实A标题");
     host.update_in(cx, |app, window, cx| {

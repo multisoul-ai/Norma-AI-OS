@@ -26,7 +26,6 @@ impl MultisoulApp {
             canvas::Vec2::new(full_width, full_height),
             scene_scale,
         );
-        let scale = content.size.x / full_width;
         let moving = self
             .desktop_workspace
             .transition
@@ -71,11 +70,6 @@ impl MultisoulApp {
             .get(&workspace.id)
             .cloned()
             .unwrap_or_default();
-        let area_layout = self.desktop_project_rects(
-            &workspace.id,
-            canvas::Vec2::new(full_width, full_height),
-            preview.iter().map(|area| area.id.as_str()),
-        );
         let recent_activity = preview
             .iter()
             .find_map(|area| self.desktop_recent_agent_activity(&workspace.id, &area.id, cx));
@@ -131,65 +125,13 @@ impl MultisoulApp {
                 }
             }))
             .when(moving.is_none(), |this| {
-                this.child({
-                    // The preview and moving workspace share these content bounds.
-                    div()
-                        .debug_selector(move || format!("desktop-workspace-content-{index}"))
-                        .absolute()
-                        .left(px(content.origin.x - 1.0))
-                        .top(px(content.origin.y - 1.0))
-                        .w(px(content.size.x))
-                        .h(px(content.size.y))
-                        .overflow_hidden()
-                        .when(preview.is_empty(), |this| {
-                            this.child(
-                                div()
-                                    .absolute()
-                                    .top(px(48.0 * scale))
-                                    .left(px(40.0 * scale))
-                                    .right(px(40.0 * scale))
-                                    .child(self.desktop_empty_canvas(scale, false, cx)),
-                            )
-                        })
-                        .when(!preview.is_empty(), |this| {
-                            this.child(div().absolute().inset_0().children(
-                                preview.into_iter().zip(area_layout).enumerate().map(
-                                    |(area_index, (area, rect))| {
-                                        let area_selector = format!(
-                                            "desktop-workspace-preview-{index}-{area_index}"
-                                        );
-                                        div()
-                                            .debug_selector(move || area_selector.clone())
-                                            .absolute()
-                                            .left(px(rect.origin.x * scale))
-                                            .top(px(rect.origin.y * scale))
-                                            .w(px(rect.size.x * scale))
-                                            .h(px(rect.size.y * scale))
-                                            .rounded(px(5.0))
-                                            .overflow_hidden()
-                                            .child(
-                                                self.render_desktop_project_preview(
-                                                    &workspace.id,
-                                                    &area,
-                                                    rect.size.x * scale,
-                                                    rect.size.y * scale,
-                                                    scale,
-                                                    super::desktop_scene_rect(
-                                                        full_width,
-                                                        full_height,
-                                                    )
-                                                    .size,
-                                                    format!(
-                                                "desktop-workspace-preview-{index}-{area_index}"
-                                            ),
-                                                    cx,
-                                                ),
-                                            )
-                                    },
-                                ),
-                            ))
-                        })
-                })
+                this.child(self.desktop_workspace_preview(
+                    index,
+                    &workspace,
+                    content,
+                    canvas::Vec2::new(full_width, full_height),
+                    cx,
+                ))
             })
             .child(
                 div()
@@ -311,6 +253,68 @@ impl MultisoulApp {
                         ),
                 )
             })
+    }
+
+    pub(super) fn desktop_workspace_preview(
+        &self,
+        index: usize,
+        workspace: &storage::DesktopWorkspace,
+        content: canvas::CanvasRect,
+        full: canvas::Vec2,
+        cx: &mut Context<Self>,
+    ) -> gpui::Div {
+        let scale = content.size.x / full.x;
+        let preview = self
+            .desktop_workspace
+            .previews
+            .get(&workspace.id)
+            .cloned()
+            .unwrap_or_default();
+        let areas = self.desktop_project_rects(
+            &workspace.id,
+            full,
+            preview.iter().map(|area| area.id.as_str()),
+        );
+        div()
+            .debug_selector(move || format!("desktop-workspace-content-{index}"))
+            .absolute()
+            .left(px(content.origin.x - 1.0))
+            .top(px(content.origin.y - 1.0))
+            .w(px(content.size.x))
+            .h(px(content.size.y))
+            .overflow_hidden()
+            .when(preview.is_empty(), |this| {
+                this.child(
+                    div()
+                        .absolute()
+                        .top(px(48.0 * scale))
+                        .left(px(40.0 * scale))
+                        .right(px(40.0 * scale))
+                        .child(self.desktop_empty_canvas(scale, false, cx)),
+                )
+            })
+            .children(preview.into_iter().zip(areas).enumerate().map(
+                |(area_index, (area, rect))| {
+                    let selector = format!("desktop-workspace-preview-{index}-{area_index}");
+                    div()
+                        .absolute()
+                        .left(px(rect.origin.x * scale))
+                        .top(px(rect.origin.y * scale))
+                        .w(px(rect.size.x * scale))
+                        .h(px(rect.size.y * scale))
+                        .overflow_hidden()
+                        .child(self.render_desktop_project_preview(
+                            &workspace.id,
+                            &area,
+                            rect.size.x * scale,
+                            rect.size.y * scale,
+                            scale,
+                            super::desktop_scene_rect(full.x, full.y).size,
+                            selector,
+                            cx,
+                        ))
+                },
+            ))
     }
 }
 

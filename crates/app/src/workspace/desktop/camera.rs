@@ -273,7 +273,15 @@ impl MultisoulApp {
             self.desktop_workspace.switcher_query.clear();
         }
         let workspaces = self.desktop_workspace.filtered();
-        let layout = super::layout::workspace_layout(full.size.x, full.size.y, workspaces.len());
+        let layout = if self.desktop_workspace.home_directory {
+            super::layout::home_layout(full.size.x, full.size.y, workspaces.len())
+                .into_iter()
+                .enumerate()
+                .map(|(index, card)| super::layout::home_preview_rect(card, full.size, index == 0))
+                .collect()
+        } else {
+            super::layout::workspace_layout(full.size.x, full.size.y, workspaces.len())
+        };
         let scroll = self.desktop_directory_scroll.offset();
         self.desktop_workspace.workspace_motion_rects = workspaces
             .into_iter()

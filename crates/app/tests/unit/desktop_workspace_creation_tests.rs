@@ -3,6 +3,63 @@ use gpui::{point, prelude::*, px, size, EntityInputHandler, Focusable, Modifiers
 use ui::component::input::InputEvent;
 use ui::component::Root;
 
+/// 创建名称输入使用正文级字号，不能把控件高度当作文字大小。
+///
+/// 数据构造：1280×800窗口，输入20个ASCII字符“Workspace typography”。
+///   GPUI测试字体每字符宽0.6em，正文上限16px对应20×0.6×16=192px；
+///   错误的40px自定义尺寸会产生35px文字，总宽20×0.6×35=420px。
+/// 执行过程：打开真实创建表单 → 输入名称 → 绘制 → 通过IME公开接口获取文字范围宽度。
+/// 预期结果：文字可见且总宽不超过192px，不再以35px字号溢出输入框；未提交不创建空间。
+#[test]
+fn desktop_workspace_name_uses_body_sized_text() {
+    let temp = tempfile::tempdir().expect("应创建隔离目录");
+    let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
+    let store = storage::AppStore::initialize(&paths).expect("应初始化存储");
+    let catalog = store.desktop_workspace_store();
+    let mut test = TestAppContext::single();
+    let mut host = None;
+    let (_, cx) = test.add_window_view(|window, cx| {
+        let app = cx.new(|cx| MultisoulApp::new_with_database_context(cx, paths, store));
+        host = Some(app.clone());
+        Root::new(app, window, cx)
+    });
+    let host = host.expect("应创建宿主");
+    cx.simulate_resize(size(px(1280.0), px(800.0)));
+    cx.run_until_parked();
+    let input = host.update_in(cx, |app, window, cx| {
+        app.create_desktop_workspace(window, cx);
+        app.desktop_workspace
+            .create_input
+            .clone()
+            .expect("应显示名称输入")
+    });
+    cx.simulate_input("Workspace typography");
+    cx.update(|window, cx| window.draw(cx).clear());
+    let bounds = cx
+        .debug_bounds("desktop-workspace-create-name")
+        .expect("应绘制输入框");
+    let text = input.update_in(cx, |input, window, cx| {
+        assert_eq!(
+            input.value().as_ref(),
+            "Workspace typography",
+            "名称输入必须完整保留"
+        );
+        input
+            .bounds_for_range(0..20, bounds, window, cx)
+            .expect("应获得真实文本布局")
+    });
+    assert!(text.size.width > px(0.0), "输入文字必须可见");
+    assert!(
+        text.size.width <= px(192.0),
+        "输入文字不应超出正文级字号的192px宽度上限，实际为{:?}",
+        text.size.width
+    );
+    assert!(
+        catalog.list().expect("应读取工作空间").is_empty(),
+        "检查字号不能自动提交创建"
+    );
+}
+
 /// 窗口级创建表单只能绘制在宿主层，不能复制到每个真实项目缩略图内。
 ///
 /// 数据构造：一个Root窗口、一个宿主、一个带desktop_host的项目实例；窗口1280×800。

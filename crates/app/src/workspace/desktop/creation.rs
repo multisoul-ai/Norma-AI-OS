@@ -4,7 +4,7 @@ use storage::DesktopWorkspaceStore;
 use ui::component::{
     button::{Button, ButtonVariants},
     input::{Input, InputEvent, InputState},
-    Disableable, Sizable, StyledExt, WindowExt,
+    Disableable, StyledExt, WindowExt,
 };
 
 impl MultisoulApp {
@@ -109,7 +109,7 @@ impl MultisoulApp {
                 this.child(
                     div()
                         .debug_selector(|| "desktop-workspace-create-name".into())
-                        .child(Input::new(&input).with_size(px(40.0)).disabled(busy)),
+                        .child(Input::new(&input).disabled(busy)),
                 )
             })
             .child(

@@ -1,7 +1,7 @@
 use super::{
     glass_button_variant,
     preview_canvas::{project_canvas_rect, project_chrome_scale, project_stage_rect, project_tone},
-    GLASS_TEXT, GLASS_TEXT_SECONDARY,
+    GLASS_TEXT,
 };
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div, Stateful, Window};
@@ -80,7 +80,7 @@ impl MultisoulApp {
                 .sessions
                 .contains_key(&(workspace_id.clone(), area_id.clone()));
         let click_area = area_id.clone();
-        let focus_area = area_id.clone();
+        let preview_area = area_id.clone();
         let mut card = div()
             .id(gpui::ElementId::Name(
                 format!("desktop-project-area-{area_index}").into(),
@@ -120,22 +120,12 @@ impl MultisoulApp {
                     .child(
                         div()
                             .debug_selector(move || format!("desktop-project-title-{area_index}"))
-                            .flex_none()
-                            .max_w(px(180.0 * scale))
+                            .flex_1()
+                            .min_w(px(0.0))
                             .text_size(px(13.0 * chrome))
                             .font_semibold()
                             .truncate()
                             .child(area.display_name.clone()),
-                    )
-                    .child(
-                        div()
-                            .debug_selector(move || format!("desktop-project-path-{area_index}"))
-                            .flex_1()
-                            .min_w(px(0.0))
-                            .text_size(px(10.0 * scale))
-                            .text_color(rgba(GLASS_TEXT_SECONDARY))
-                            .truncate()
-                            .child(workspace::compact_path(&area.root)),
                     ),
             )
             .when(!moving_live_canvas, |this| {
@@ -150,11 +140,25 @@ impl MultisoulApp {
                     )
                     .id(("desktop-project-live", area_index))
                     .debug_selector(move || format!("desktop-project-live-{area_index}"))
-                    .on_click(cx.listener(move |app, _, _, cx| {
-                        app.desktop_workspace.active_area_id = Some(focus_area.clone());
-                        cx.stop_propagation();
-                        cx.notify();
-                    })),
+                    // Keep the live scene visible, but operate its controls only after expansion.
+                    .child(
+                        div()
+                            .id(("desktop-project-preview-open", area_index))
+                            .absolute()
+                            .inset_0()
+                            .occlude()
+                            .cursor_pointer()
+                            .hover(move |style| {
+                                style.bg(rgba(with_alpha(theme.focused_stroke, 0x18)))
+                            })
+                            .active(move |style| {
+                                style.bg(rgba(with_alpha(theme.focused_stroke, 0x30)))
+                            })
+                            .on_click(cx.listener(move |app, _, window, cx| {
+                                cx.stop_propagation();
+                                app.expand_desktop_project_area(preview_area.clone(), window, cx);
+                            })),
+                    ),
                 )
             });
 

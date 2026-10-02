@@ -116,6 +116,9 @@ impl MultisoulApp {
         let width = f32::from(window.viewport_size().width);
         let height = f32::from(window.viewport_size().height);
         let workspace_frame = workspace_frame.map(|frame| {
+            if self.desktop_workspace.home_directory {
+                return frame;
+            }
             let full = canvas::CanvasRect::new(0.0, 0.0, width, height);
             let source = self
                 .desktop_workspace

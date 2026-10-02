@@ -9,23 +9,25 @@ use ui::component::{
 use ui::icons::{toolbar_icon, with_alpha, ToolbarIcon};
 
 impl MultisoulApp {
+    pub(crate) fn expanded_desktop_project(&self) -> Option<gpui::Entity<Self>> {
+        if !matches!(self.screen, crate::app::AppScreen::DesktopWorkspace) {
+            return None;
+        }
+        let workspace = self.desktop_workspace.active_id.as_ref()?;
+        let area = self.desktop_workspace.expanded_area_id.as_ref()?;
+        self.desktop_workspace
+            .sessions
+            .get(&(workspace.clone(), area.clone()))
+            .cloned()
+    }
+
     pub(crate) fn render_desktop_dock(
         &mut self,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Div {
         let switcher = self.render_desktop_project_switcher(window, cx);
-        let project = self
-            .desktop_workspace
-            .active_id
-            .as_ref()
-            .zip(self.desktop_workspace.expanded_area_id.as_ref())
-            .and_then(|(workspace_id, area_id)| {
-                self.desktop_workspace
-                    .sessions
-                    .get(&(workspace_id.clone(), area_id.clone()))
-                    .cloned()
-            });
+        let project = self.expanded_desktop_project();
         if let Some(project) = project {
             project.update(cx, |project, cx| {
                 project.sync_command_drawer(window);
@@ -202,3 +204,7 @@ fn project_switch_button(id: &str, selected: bool, theme: ui::Theme, cx: &gpui::
 #[cfg(test)]
 #[path = "../../../tests/unit/desktop_command_dock_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/desktop_settings_overlay_tests.rs"]
+mod settings_tests;

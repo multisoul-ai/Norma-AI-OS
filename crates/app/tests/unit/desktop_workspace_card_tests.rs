@@ -46,6 +46,8 @@ fn desktop_workspace_card_keeps_title_inside_and_menu_local() {
     cx.run_until_parked();
     host.update(cx, |app, cx| {
         app.screen = AppScreen::Launchpad;
+        app.desktop_workspace.home_directory = false;
+        app.desktop_workspace.switcher_open = true;
         app.desktop_workspace.workspaces = workspaces;
         app.motion.reduce_motion = true;
         cx.notify();

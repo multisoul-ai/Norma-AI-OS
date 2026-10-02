@@ -186,6 +186,17 @@ impl MultisoulApp {
                             session.master_layout.chrome_in_parent = true;
                             session
                         });
+                        // Keep window-level Settings live without redrawing the host for
+                        // ordinary terminal output while the panel is closed.
+                        let mut settings_were_open = false;
+                        cx.observe(&session, move |_, session, cx| {
+                            let open = session.read(cx).settings_panel.open;
+                            if open || settings_were_open {
+                                cx.notify();
+                            }
+                            settings_were_open = open;
+                        })
+                        .detach();
                         let requested = match &app.desktop_workspace.pending_navigation {
                             Some(super::scene::DesktopNavigation::Project(id)) => id == &area_id,
                             _ => {

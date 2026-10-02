@@ -9,16 +9,185 @@ impl Render for PreviewHost {
     }
 }
 
+/// 空项目的缩略画布中央可点击展开，无需先创建卡片。
+///
+/// 数据构造：1 个工作空间、1 个普通目录项目、0 张卡片；窗口 1280×800，
+///   点击位置取已绘制的项目预览中心，确保命中内容区域而不是标题栏。
+/// 执行过程：打开工作空间 → 完成总览动画 → 绘制真实空项目 → 点击预览中心。
+/// 预期结果：展开被点击的项目并启动项目动画；复用原会话，不自动创建卡片或跳回目录。
+#[test]
+fn desktop_empty_project_preview_click_opens_its_canvas() {
+    let temp = tempfile::tempdir().expect("应创建隔离目录");
+    let root = temp.path().join("empty-project");
+    std::fs::create_dir(&root).expect("应创建空项目目录");
+    let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
+    let store = storage::AppStore::initialize(&paths).expect("应初始化隔离存储");
+    let catalog = store.desktop_workspace_store();
+    let workspace = catalog.create("Empty project").expect("应创建工作空间");
+    let area = catalog
+        .add_project(&workspace.id, &root)
+        .expect("应添加空项目");
+    let mut test = TestAppContext::single();
+    let (view, cx) = test.add_window_view(|_, cx| {
+        PreviewHost(cx.new(|cx| MultisoulApp::new_with_database_context(cx, paths, store)))
+    });
+    let host = view.update(cx, |view, _| view.0.clone());
+    cx.simulate_resize(size(px(1280.0), px(800.0)));
+    host.update_in(cx, |app, window, cx| {
+        app.motion.reduce_motion = false;
+        app.open_desktop_workspace(workspace.id.clone(), window, cx);
+    });
+    cx.run_until_parked();
+    let session = host.update_in(cx, |app, window, cx| {
+        app.finish_desktop_zoom(window, cx);
+        app.desktop_workspace.sessions[&(workspace.id.clone(), area.id.clone())].clone()
+    });
+    cx.update(|window, cx| window.draw(cx).clear());
+    let preview = cx
+        .debug_bounds("desktop-project-live-0")
+        .expect("应绘制空项目预览");
+    cx.simulate_click(preview.center(), Modifiers::none());
+    host.read_with(cx, |app, _| {
+        assert_eq!(app.desktop_workspace.expanded_area_id.as_deref(), Some(area.id.as_str()), "点击空项目正文应展开项目，不能只选中或吞掉点击");
+        assert_eq!(app.screen, crate::app::AppScreen::DesktopWorkspace, "点击项目必须留在当前工作空间");
+        assert!(matches!(app.desktop_workspace.transition.as_ref().map(|t| &t.subject), Some(super::super::camera::DesktopCanvasSubject::Project { area_id, .. }) if area_id == &area.id), "点击空项目也必须启动现有的项目展开动画");
+        assert_eq!(app.desktop_workspace.sessions[&(workspace.id.clone(), area.id.clone())].entity_id(), session.entity_id(), "展开必须复用原项目会话");
+    });
+    session.read_with(cx, |app, _| {
+        assert!(
+            app.runtime.document.nodes().is_empty(),
+            "打开空项目不能自动创建卡片"
+        );
+    });
+}
+
+/// 有卡片的项目点击留白或缩小的关闭按钮都展开项目，项目菜单保持独立。
+///
+/// 数据构造：1280×800 窗口、1 项目、1 个 300×200 终端；逻辑画布为1252×673，
+///   终端放在左上角，预览右下角向内5px位于明确留白内；80×24为测试PTY初始网格。
+/// 执行过程：打开项目菜单并关闭 → 点击预览留白 → 返回总览 → 点击缩小的关闭按钮。
+/// 预期结果：菜单不展开项目；其余两次点击都展开原项目；不关闭终端、不改节点几何或会话身份。
+#[test]
+fn desktop_populated_preview_click_opens_without_activating_nested_controls() {
+    let temp = tempfile::tempdir().expect("应创建隔离目录");
+    let root = temp.path().join("project");
+    std::fs::create_dir(&root).expect("应创建项目目录");
+    let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
+    let store = storage::AppStore::initialize(&paths).expect("应初始化隔离存储");
+    let catalog = store.desktop_workspace_store();
+    let workspace = catalog.create("Project clicks").expect("应创建工作空间");
+    let area = catalog
+        .add_project(&workspace.id, &root)
+        .expect("应添加项目");
+    let mut test = TestAppContext::single();
+    let (view, cx) = test.add_window_view(|_, cx| {
+        PreviewHost(cx.new(|cx| MultisoulApp::new_with_database_context(cx, paths, store)))
+    });
+    let host = view.update(cx, |view, _| view.0.clone());
+    cx.simulate_resize(size(px(1280.0), px(800.0)));
+    host.update_in(cx, |app, window, cx| {
+        app.motion.reduce_motion = true;
+        app.open_desktop_workspace(workspace.id.clone(), window, cx);
+    });
+    cx.run_until_parked();
+    let session = host.read_with(cx, |app, _| {
+        app.desktop_workspace.sessions[&(workspace.id.clone(), area.id.clone())].clone()
+    });
+    let node = session.update(cx, |app, cx| {
+        app.runtime.set_pty_factory(Box::new(|_, _, _, tx| {
+            Ok(Box::new(terminal::TestPtyBackend::echo(tx)))
+        }));
+        let node = app
+            .runtime
+            .spawn_terminal(CanvasRect::new(0.0, 0.0, 300.0, 200.0), "/bin/sh", 80, 24)
+            .expect("应创建测试终端");
+        cx.notify();
+        node
+    });
+    let before = session.read_with(cx, |app, _| app.runtime.document.to_snapshot());
+    cx.update(|window, cx| window.draw(cx).clear());
+    let menu = cx
+        .debug_bounds("desktop-project-actions-0")
+        .expect("应有项目菜单按钮");
+    cx.simulate_click(menu.center(), Modifiers::none());
+    host.read_with(cx, |app, _| {
+        assert_eq!(
+            app.desktop_workspace.actions_area_id.as_deref(),
+            Some(area.id.as_str()),
+            "更多按钮应打开本项目菜单"
+        );
+        assert!(
+            app.desktop_workspace.expanded_area_id.is_none(),
+            "菜单点击不能冒泡为项目展开"
+        );
+    });
+    cx.update(|window, cx| window.draw(cx).clear());
+    cx.simulate_click(menu.center(), Modifiers::none());
+    cx.update(|window, cx| window.draw(cx).clear());
+    let preview = cx
+        .debug_bounds("desktop-project-live-0")
+        .expect("应绘制项目预览");
+    cx.simulate_click(
+        gpui::point(preview.right() - px(5.0), preview.bottom() - px(5.0)),
+        Modifiers::none(),
+    );
+    host.read_with(cx, |app, _| {
+        assert_eq!(
+            app.desktop_workspace.expanded_area_id.as_deref(),
+            Some(area.id.as_str()),
+            "已有卡片的项目留白也必须展开，不能只选中"
+        );
+    });
+    host.update_in(cx, |app, window, cx| {
+        app.collapse_desktop_project_area(window, cx)
+    });
+    cx.update(|window, cx| window.draw(cx).clear());
+    let close = cx
+        .debug_bounds("node-close")
+        .expect("缩略图仍显示原卡片关闭按钮");
+    cx.simulate_click(close.center(), Modifiers::none());
+    host.read_with(cx, |app, _| {
+        assert_eq!(
+            app.desktop_workspace.expanded_area_id.as_deref(),
+            Some(area.id.as_str()),
+            "缩略控件上的点击应导航至项目画布"
+        );
+        assert_eq!(
+            app.desktop_workspace.sessions[&(workspace.id.clone(), area.id.clone())].entity_id(),
+            session.entity_id(),
+            "两次展开都必须复用原项目会话"
+        );
+    });
+    session.update(cx, |app, _| {
+        assert!(
+            app.runtime.document.node(node).is_some(),
+            "缩略点击不能穿透到关闭按钮而删除真实终端"
+        );
+        assert_eq!(
+            app.runtime.document.to_snapshot(),
+            before,
+            "导航点击不能改变节点排列和viewport"
+        );
+        assert_eq!(
+            app.runtime.running_terminal_count(),
+            1,
+            "导航不能终止原会话"
+        );
+        assert!(app.interaction.drag.is_none(), "导航不能开始内部卡片拖拽");
+        app.runtime.kill_all();
+    });
+}
+
 /// 项目缩略图、展开画布和目录中的二级缩略图复用真实卡片，所有 chrome 等比缩小。
 ///
 /// 数据构造：1280×800 窗口，项目逻辑画布为 (1280-28)×(800-127)=1252×673；
 ///   两个项目（一个空画布）、一张真实 /bin/sh 终端，初始网格80×24；原标题32px、关闭按钮18px。
 ///   几何容差1px来自 GPUI 布局取整；整个场景只变换显示，不能改变网格或重建会话。
 /// 执行过程：进入项目总览 → 取得真实标题/关闭按钮 → 展开项目 → 比较同一比例 → 返回总览
-///   → 点击缩小的终端正文 → 验证真实焦点且未展开 → 重放缓存帧后键入 printf 并回车
+///   → 点击缩小的终端正文 → 验证展开动画 → 点击展开后的终端 → 重放缓存帧后键入 printf 并回车
 ///   → 检查独立输出行（不能只匹配命令回显）→ 进入目录检查缩略 → 点击进入工作空间。
 /// 预期结果：三层均含真实 card-titlebar/node-close；大小比一致；没有旧 Message Agent 输入；
-///   缩略时命中原卡片，目录中的卡片不落入相邻项目；目录点击只打开工作空间，原 node/session 身份保留。
+///   缩略时点击进入项目，展开后输入原卡片；目录点击只打开工作空间，原 node/session 身份保留。
 #[test]
 fn desktop_live_preview_scales_the_original_canvas_and_routes_input() {
     let temp = tempfile::tempdir().expect("应创建隔离目录");
@@ -168,8 +337,42 @@ fn desktop_live_preview_scales_the_original_canvas_and_routes_input() {
         title, small_title,
         "返回必须落在原始缩略位置，不在末帧更换卡片"
     );
+    host.update(cx, |app, _| app.motion.reduce_motion = false);
     cx.simulate_click(
         gpui::point(title.center().x, title.bottom() + px(25.0)),
+        Modifiers::none(),
+    );
+    host.read_with(cx, |app, _| {
+        assert_eq!(
+            app.desktop_workspace.expanded_area_id.as_deref(),
+            Some(area.id.as_str()),
+            "点击项目内的卡片缩略图应进入该项目的 Agent 画布，不能只选中项目"
+        );
+        assert!(
+            matches!(app.desktop_workspace.transition.as_ref().map(|t| &t.subject),
+                Some(super::super::camera::DesktopCanvasSubject::Project { area_id, .. }) if area_id == &area.id),
+            "点击真实卡片缩略图必须启动项目放大动画"
+        );
+    });
+    session.read_with(cx, |app, _| {
+        assert!(
+            !matches!(app.runtime.focus.mode(), runtime::InputMode::NodeFocused(_)),
+            "导航点击不能穿透缩略图，提前进入终端输入模式"
+        );
+    });
+    host.update_in(cx, |app, window, cx| {
+        app.finish_desktop_zoom(window, cx);
+        app.motion.reduce_motion = true;
+    });
+    cx.update(|window, cx| window.draw(cx).clear());
+    let expanded_title = cx
+        .debug_bounds("card-titlebar")
+        .expect("展开后保留真实标题");
+    cx.simulate_click(
+        gpui::point(
+            expanded_title.center().x,
+            expanded_title.bottom() + px(25.0),
+        ),
         Modifiers::none(),
     );
     session.update_in(cx, |app, window, _| {
@@ -182,7 +385,7 @@ fn desktop_live_preview_scales_the_original_canvas_and_routes_input() {
         assert_eq!(
             app.runtime.focus.mode(),
             runtime::InputMode::NodeFocused(node),
-            "缩略正文应通过逆变换命中原终端"
+            "展开后的正文应命中原终端"
         )
     });
     cx.update(|window, cx| window.draw(cx).clear());
@@ -214,12 +417,13 @@ fn desktop_live_preview_scales_the_original_canvas_and_routes_input() {
     }
     assert!(
         text.lines().any(|line| line.trim() == "LIVE_PREVIEW_OK"),
-        "总览输入必须经原窗口IME/键盘路由到真实终端：{text}"
+        "展开后的输入必须经原窗口IME/键盘路由到真实终端：{text}"
     );
     host.update(cx, |app, _| {
-        assert!(
-            app.desktop_workspace.expanded_area_id.is_none(),
-            "操作总览卡片不能被项目外壳强行展开"
+        assert_eq!(
+            app.desktop_workspace.expanded_area_id.as_deref(),
+            Some(area.id.as_str()),
+            "输入应发生在已展开的项目内"
         )
     });
     host.update_in(cx, |app, window, cx| app.show_desktop_launchpad(window, cx));

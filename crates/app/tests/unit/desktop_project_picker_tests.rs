@@ -55,9 +55,11 @@ fn desktop_project_picker_searches_all_saved_projects() {
 /// 真实列表组件在小窗口保持有界，键盘可添加末尾项目，取消与已添加确认不产生重复记录。
 ///
 /// 数据构造：50个存在的目录（与历史容量一致），一个空工作空间，窗口800×600。
+///   前两条名称分别为1字符和32字符，验证长度不改变左对齐；行高上限52px=两行正文36px+上下留白16px。
 ///   项目49位于第50条；组件搜索防闪等待100ms，再留20ms调度余量。
-/// 执行过程：打开 → 检查列表与底栏 → 搜索末条并Enter → 重开并重复确认 → Escape。
-/// 预期结果：底栏在600px以内；只添加project-49且没有project-0；重复确认不关闭不添加；Escape关闭。
+/// 执行过程：打开 → 检查名称对齐、行高与底栏 → 搜索末条并Enter → 重开并点击已添加行 → Escape。
+///   最后重开搜索project-48并单击，验证更换行控件后鼠标仍能确认。
+/// 预期结果：名称左对齐；底栏在600px以内；仅加入project-49和project-48；重复操作不添加；Escape关闭。
 #[test]
 fn desktop_project_picker_routes_keyboard_and_bounds_long_lists() {
     use crate::app::{AppScreen, MultisoulApp};
@@ -69,13 +71,24 @@ fn desktop_project_picker_routes_keyboard_and_bounds_long_lists() {
     let store = storage::AppStore::initialize(&paths).expect("初始化存储");
     let catalog = store.desktop_workspace_store();
     let workspace = catalog.create("Picker review").expect("创建空空间");
-    let records: Vec<_> = (0..50)
+    let mut records: Vec<_> = (0..50)
         .map(|i| {
             let path = temp.path().join(format!("project-{i}"));
             std::fs::create_dir(&path).expect("创建项目目录");
-            WorkspaceRecord::new(path, 0, WorkspaceSource::Open)
+            WorkspaceRecord::new(
+                path.canonicalize().expect("规范项目路径"),
+                0,
+                WorkspaceSource::Open,
+            )
         })
         .collect();
+    records[0].display_name = "A".into();
+    records[1].display_name = "A project with a much longer name".into();
+    storage::RecentStore::new(paths.app_db_path().to_owned())
+        .save(&workspace::RecentWorkspaces {
+            records: records.clone(),
+        })
+        .expect("保存50条历史，添加项目刷新后仍可继续选择");
     let mut test = TestAppContext::single();
     let mut host = None;
     let (_, cx) = test.add_window_view(|window, cx| {
@@ -108,6 +121,20 @@ fn desktop_project_picker_routes_keyboard_and_bounds_long_lists() {
         cx.debug_bounds("desktop-add-recent-49").is_none(),
         "末条应由列表虚拟化，不在首屏绘制"
     );
+    let row = cx.debug_bounds("desktop-add-recent-0").expect("首行存在");
+    let short = cx.debug_bounds("desktop-add-name-0").expect("短名称存在");
+    let long = cx.debug_bounds("desktop-add-name-1").expect("长名称存在");
+    assert_eq!(
+        short.left(),
+        long.left(),
+        "不同长度的项目名称必须左对齐，不能各自居中"
+    );
+    // 名称左侧最多64px = 左留白12px + 图标容器32px + 间距12px + 容差8px。
+    assert!(
+        short.left() - row.left() <= px(64.0),
+        "项目名称不能漂浮在行中央"
+    );
+    assert!(row.size.height <= px(52.0), "紧凑列表应让更多项目同时可见");
     cx.simulate_input("project-49");
     cx.run_until_parked();
     std::thread::sleep(std::time::Duration::from_millis(120));
@@ -146,6 +173,11 @@ fn desktop_project_picker_routes_keyboard_and_bounds_long_lists() {
     std::thread::sleep(std::time::Duration::from_millis(120));
     cx.run_until_parked();
     cx.update(|window, cx| window.draw(cx).clear());
+    let added_row = cx
+        .debug_bounds("desktop-add-recent-0")
+        .expect("已添加行存在");
+    cx.simulate_click(added_row.center(), gpui::Modifiers::none());
+    cx.run_until_parked();
     cx.simulate_keystrokes("enter");
     cx.run_until_parked();
     assert_eq!(
@@ -162,5 +194,43 @@ fn desktop_project_picker_routes_keyboard_and_bounds_long_lists() {
     assert!(
         !cx.update(|_, cx| host.read(cx).desktop_workspace.add_project_open),
         "Escape必须关闭对话框并释放打开状态"
+    );
+    let mouse_index = cx.update(|_, cx| {
+        host.read(cx)
+            .workspace_state
+            .recent
+            .records
+            .iter()
+            .position(|record| record.path.ends_with("project-48"))
+            .expect("project-48仍在历史中")
+    });
+    host.update_in(cx, |app, window, cx| {
+        app.open_desktop_add_project(window, cx)
+    });
+    cx.update(|window, cx| window.draw(cx).clear());
+    cx.simulate_input("project-48");
+    cx.run_until_parked();
+    // 与上述搜索相同：组件防闪100ms + 调度余量20ms = 120ms。
+    std::thread::sleep(std::time::Duration::from_millis(120));
+    cx.run_until_parked();
+    cx.update(|window, cx| window.draw(cx).clear());
+    let available = cx
+        .debug_bounds(format!("desktop-add-recent-{mouse_index}").leak())
+        .expect("可添加行存在");
+    cx.simulate_click(available.center(), gpui::Modifiers::none());
+    cx.run_until_parked();
+    let areas = catalog.list_projects(&workspace.id).expect("读取添加结果");
+    assert_eq!(areas.len(), 2, "鼠标确认必须只新增project-48一次");
+    assert!(
+        areas.iter().any(|area| area.root.ends_with("project-48")),
+        "鼠标选中的project-48应已加入"
+    );
+    assert!(
+        areas.iter().any(|area| area.root.ends_with("project-49")),
+        "键盘添加的project-49应保留"
+    );
+    assert!(
+        !areas.iter().any(|area| area.root.ends_with("project-0")),
+        "不能误加未选中的project-0"
     );
 }

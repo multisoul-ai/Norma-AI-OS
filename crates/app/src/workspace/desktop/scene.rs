@@ -96,7 +96,11 @@ impl MultisoulApp {
         else {
             return;
         };
-        let content = workspace_content_rect(card, full.size, 1.0);
+        let content = if self.desktop_workspace.home_directory {
+            card
+        } else {
+            workspace_content_rect(card, full.size, 1.0)
+        };
         let nested = project_rect(full, content, project);
         let expanded = super::desktop_scene_rect(full.size.x, full.size.y);
         let (source, target) = if reverse {

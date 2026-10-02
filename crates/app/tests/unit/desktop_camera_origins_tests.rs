@@ -27,7 +27,7 @@ fn assert_drawn_origin(actual: CanvasRect, drawn: CanvasRect, window: &Window) {
 /// 数据构造：1280×800 窗口，3 个工作空间，Beta 含 2 个空项目；
 ///   workspace 卡片由真实 Window::draw 取得，项目内容从标题下方等比适配。
 ///   比较容差 = 1 / backing scale，仅容纳 GPUI 设备像素取整；错误居中框偏移数十像素。
-///   窄窗 600×800 时两项目仍在上排，第二个区域为 (304,44,274,324.5)。
+///   窄窗 600×800 时两项目仍在上排，第二个区域为 (307.5,207.28125,247.5,139.21875)，宽=(600×85%-15)/2，高=宽×9/16。
 ///   200×16ms=3.2 秒模拟推进大于弹簧收敛时间，不等待墙钟。
 /// 执行过程：绘制目录 → 清空来源缓存 → 打开 Beta → 绘制项目总览 → 清空来源缓存
 ///   → 展开第二项目 → 改为窄窗 → 返回并推进镜头。
@@ -61,12 +61,13 @@ fn desktop_camera_origins_use_real_layout_without_prior_bounds() {
     host.update(cx, |app, cx| {
         app.desktop_workspace.workspaces = catalog.list().expect("应读取目录");
         app.screen = AppScreen::Launchpad;
+        app.desktop_workspace.previews = catalog.list_previews().expect("应加载真实预览");
         app.motion.reduce_motion = false;
         cx.notify();
     });
     cx.update(|window, cx| window.draw(cx).clear());
     let workspace_bounds = cx
-        .debug_bounds("desktop-workspace-card-1")
+        .debug_bounds("desktop-workspace-content-1")
         .expect("应绘制 Beta");
     host.update_in(cx, |app, window, cx| {
         app.desktop_workspace
@@ -123,7 +124,7 @@ fn desktop_camera_origins_use_real_layout_without_prior_bounds() {
             transition.tick(Duration::from_millis(16));
         }
         let expected = super::super::preview_canvas::project_canvas_rect(
-            CanvasRect::new(304.0, 44.0, 274.0, 324.5),
+            CanvasRect::new(307.5, 207.28125, 247.5, 139.21875),
             desktop_scene_rect(600.0, 800.0).size,
             1.0,
         );
@@ -141,7 +142,7 @@ fn desktop_camera_origins_use_real_layout_without_prior_bounds() {
 
 /// 快捷导航选择被搜索隐藏的工作空间，先恢复包含目标的目录布局再开始动画。
 ///
-/// 数据构造：1280×800，Alpha/Beta 两空间；搜索 Alpha 后仅剩一张居中卡片。
+/// 数据构造：1280×800，Alpha/Beta 两空间；搜索 Alpha 后仅剩一张主预览卡片。
 ///   几何容差 = 1 / backing scale，覆盖 GPUI 的设备像素取整。
 /// 执行过程：记录未过滤 Beta 的真实位置 → 搜索 Alpha → 通过公共入口打开 Beta。
 /// 预期结果：目标恢复到未过滤布局的位置；清空过滤而非借用 Alpha 的来源或虚构中心框；不隐式展开项目。
@@ -163,12 +164,13 @@ fn desktop_camera_origins_reveal_filtered_keyboard_target() {
     host.update(cx, |app, cx| {
         app.desktop_workspace.workspaces = catalog.list().expect("应读取目录");
         app.screen = AppScreen::Launchpad;
+        app.desktop_workspace.previews = catalog.list_previews().expect("应加载真实预览");
         app.motion.reduce_motion = false;
         cx.notify();
     });
     cx.update(|window, cx| window.draw(cx).clear());
     let beta = cx
-        .debug_bounds("desktop-workspace-card-1")
+        .debug_bounds("desktop-workspace-content-1")
         .expect("应绘制 Beta");
     host.update(cx, |app, cx| {
         app.desktop_workspace.search_query = "Alpha".into();
@@ -176,7 +178,7 @@ fn desktop_camera_origins_reveal_filtered_keyboard_target() {
     });
     cx.update(|window, cx| window.draw(cx).clear());
     assert!(
-        cx.debug_bounds("desktop-workspace-card-1").is_none(),
+        cx.debug_bounds("desktop-workspace-content-1").is_none(),
         "过滤后 Beta 必须确实不可见"
     );
     host.update_in(cx, |app, window, cx| {
@@ -203,10 +205,10 @@ fn desktop_camera_origins_reveal_filtered_keyboard_target() {
 
 /// 目录滚动后展开和返回，镜头与实际可见卡片必须保留同一滚动偏移。
 ///
-/// 数据构造：1280×800、10 个空空间，3 列形成 4 行；卡片高约236.67，行距16。
-///   滚动 -200px 后第5张的 y≈118+236.67+16-200=170.67，仍在视口中。
+/// 数据构造：1280×800、12 个空空间，首页主预览和侧卡之后按2列排列；紧凑卡片高132，行距16。
+///   滚动 -500px 后第5张的缩略图位于约184px，仍在视口中。
 ///   几何容差为 1 / backing scale；200×16ms=3.2秒模拟推进用于弹簧收敛。
-/// 执行过程：真实绘制长目录 → 滚动200px → 打开第5个空间 → 返回目录并推进镜头 → 再绘制。
+/// 执行过程：真实绘制长目录 → 滚动500px → 打开第5个空间 → 返回目录并推进镜头 → 再绘制。
 /// 预期结果：起点和终点均等于滚动后的卡片位置；返回不重置到第一页，不虚构中心起点。
 #[test]
 fn desktop_camera_origins_preserve_directory_scroll() {
@@ -214,7 +216,7 @@ fn desktop_camera_origins_preserve_directory_scroll() {
     let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
     let store = storage::AppStore::initialize(&paths).expect("应初始化存储");
     let catalog = store.desktop_workspace_store();
-    for index in 0..10 {
+    for index in 0..12 {
         catalog
             .create(&format!("Space {index}"))
             .expect("应创建空间");
@@ -231,18 +233,19 @@ fn desktop_camera_origins_preserve_directory_scroll() {
     host.update(cx, |app, cx| {
         app.desktop_workspace.workspaces = workspaces;
         app.screen = AppScreen::Launchpad;
+        app.desktop_workspace.previews = catalog.list_previews().expect("应加载真实预览");
         app.motion.reduce_motion = false;
         cx.notify();
     });
     cx.update(|window, cx| window.draw(cx).clear());
     host.update(cx, |app, cx| {
         app.desktop_directory_scroll
-            .set_offset(gpui::point(px(0.0), px(-200.0)));
+            .set_offset(gpui::point(px(0.0), px(-500.0)));
         cx.notify();
     });
     cx.update(|window, cx| window.draw(cx).clear());
     let before = cx
-        .debug_bounds("desktop-workspace-card-4")
+        .debug_bounds("desktop-workspace-content-4")
         .expect("应看到第二行目标");
     assert!(
         f32::from(before.origin.y) < 200.0,
@@ -276,7 +279,7 @@ fn desktop_camera_origins_preserve_directory_scroll() {
     });
     cx.update(|window, cx| window.draw(cx).clear());
     assert_eq!(
-        cx.debug_bounds("desktop-workspace-card-4"),
+        cx.debug_bounds("desktop-workspace-content-4"),
         Some(before),
         "返回目录不能重置滚动位置造成末帧跳动"
     );

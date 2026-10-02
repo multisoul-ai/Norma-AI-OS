@@ -12,13 +12,17 @@ struct SearchInput {
     _subscription: Subscription,
 }
 
+#[cfg(test)]
+#[path = "../../../tests/unit/desktop_home_tests.rs"]
+mod home_tests;
+
 impl MultisoulApp {
     pub(crate) fn render_desktop_launchpad(
         &mut self,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
-        self.sync_desktop_input_theme(false, cx);
+        self.sync_desktop_input_theme(self.desktop_workspace.home_directory, cx);
         #[cfg(target_os = "macos")]
         self.sync_canvas_video_wallpaper(cx);
         let theme = self.desktop_theme();
@@ -56,6 +60,9 @@ impl MultisoulApp {
             input.update(cx, |input, cx| input.set_value(query, window, cx));
         }
         let focus = input.focus_handle(cx);
+        if self.desktop_workspace.home_directory {
+            return self.render_desktop_home(input, window, cx);
+        }
         let workspaces: Vec<_> = self
             .desktop_workspace
             .filtered()

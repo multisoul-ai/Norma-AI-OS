@@ -2,7 +2,7 @@ use super::*;
 
 /// 新增第五项目时从当前两列位置重排，反向删除保留真实中间帧。
 ///
-/// 数据构造：1280×800，4项每格614×324.5；5项宽406.6667；
+/// 数据构造：1280×800，4项每格528×297，列距32、行距64；5项宽(1088-64)/3≈341.3333；
 ///   先推进100ms，小于原型330ms，再移除中间B，剩余A/C/D/E。
 /// 执行过程：首次同步4项 → 增加E → 推進100ms → 移除B → 完成330ms。
 /// 预期结果：不直接跳目标、不按新索引借错起点；新项目真实存在、B不再占位，停止请求动画。
@@ -43,12 +43,12 @@ fn project_reflow_is_interruptible_and_keeps_project_identity() {
     );
     assert_eq!(
         layout.current[1],
-        CanvasRect::new(644.0, 44.0, 614.0, 324.5),
+        CanvasRect::new(656.0, 49.5, 528.0, 297.0),
         "C最终成为右上角项目"
     );
     assert_eq!(
         layout.current[3],
-        CanvasRect::new(644.0, 376.5, 614.0, 324.5),
+        CanvasRect::new(656.0, 410.5, 528.0, 297.0),
         "E最终填右下角"
     );
     assert!(!layout.is_active(), "330ms后不再重绘静止布局");
@@ -56,7 +56,7 @@ fn project_reflow_is_interruptible_and_keeps_project_identity() {
 
 /// 仅项目集合或窗口变化会重排；减少动态效果直接落到新位置。
 ///
-/// 数据构造：3个项目、1280×800；缩窄到600×800后格宽274。
+/// 数据构造：3个项目、1280×800；缩窄到600×800后，两侧45、列距15，格宽(510-15)/2=247.5，高139.21875。
 /// 执行过程：反复提交相同项目输入，再以减少动态效果提交窄窗口。
 /// 预期结果：重复同步返回false；窄窗同步返回true，但不产生动画，也不变更项目顺序。
 #[test]
@@ -75,7 +75,7 @@ fn project_layout_ignores_content_changes_and_respects_reduced_motion() {
     );
     assert_eq!(
         layout.current[1],
-        CanvasRect::new(304.0, 44.0, 274.0, 324.5),
+        CanvasRect::new(307.5, 207.28125, 247.5, 139.21875),
         "窄窗保持上排两列"
     );
     assert_eq!(layout.ids, ids, "窗口变化不改变项目顺序");
@@ -183,7 +183,7 @@ fn desktop_project_reflow_preserves_agents_and_camera_origin() {
     assert_eq!(initial.len(), 3, "0/1/7个Agent仍只分配三个项目区域");
     assert_eq!(
         initial[0],
-        CanvasRect::new(22.0, 44.0, 614.0, 324.5),
+        CanvasRect::new(96.0, 49.5, 528.0, 297.0),
         "空A保留左上槽位，旧偏移不能使其离屏"
     );
     c_session.update(cx, |app, cx| {

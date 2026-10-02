@@ -35,6 +35,8 @@ mod creation;
 mod dialogs;
 mod dialogs_other;
 mod dispatch;
+mod home;
+mod home_card;
 mod launchpad;
 mod layout;
 mod management;
@@ -116,6 +118,8 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) actions_workspace_id: Option<String>,
     pub(crate) actions_area_id: Option<String>,
     pub(crate) switcher_open: bool,
+    // Retain the directory presentation while its controls close during camera motion.
+    home_directory: bool,
     switcher_return: Option<(String, Option<String>)>,
     pub(crate) switcher_query: String,
     pub(crate) switcher_input: Option<Entity<InputState>>,
@@ -184,6 +188,7 @@ impl DesktopWorkspaceUiState {
             actions_workspace_id: None,
             actions_area_id: None,
             switcher_open: false,
+            home_directory: true,
             switcher_return: None,
             switcher_query: String::new(),
             switcher_input: None,

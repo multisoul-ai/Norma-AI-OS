@@ -67,7 +67,7 @@ impl MultisoulApp {
             .then(|| self.desktop_workspace.active_id.clone())
             .flatten()
             .map(|id| (id, self.desktop_workspace.expanded_area_id.clone()));
-        self.show_desktop_launchpad(window, cx);
+        self.show_desktop_directory(false, window, cx);
         let input = cx.new(|cx| InputState::new(window, cx).placeholder("Search workspaces"));
         let subscription = cx.subscribe(&input, |app, input, event: &InputEvent, cx| {
             if matches!(event, InputEvent::Change) {
@@ -129,22 +129,6 @@ impl MultisoulApp {
             .gap(px(20.0))
             .px(px(56.0))
             .py(px(12.0))
-            .child(
-                Button::new("desktop-workspace-switch-close")
-                    .debug_selector(|| "desktop-workspace-switch-close".to_string())
-                    .label("Back to Canvas")
-                    .custom(glass_button_variant(theme, cx))
-                    .on_click(
-                        cx.listener(|app, _, window, cx| app.dismiss_desktop_switcher(window, cx)),
-                    ),
-            )
-            .child(
-                div()
-                    .text_size(px(16.0))
-                    .font_semibold()
-                    .text_color(rgba(GLASS_TEXT))
-                    .child("Workspaces"),
-            )
             .child(div().flex_1())
             .when_some(input, |this, input| {
                 this.child(

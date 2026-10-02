@@ -69,7 +69,7 @@ fn check_switcher_motion(expanded: bool, interrupt: bool) {
                 "目录落定不得持续重复动画"
             );
         }
-        // 再次 ⌘⇧K 与 Back to Canvas 使用同一返回行为。
+        // 再次 ⌘⇧K 返回打开切换器前的画布。
         app.open_desktop_switcher(window, cx);
         assert!(
             !app.desktop_workspace.switcher_open,

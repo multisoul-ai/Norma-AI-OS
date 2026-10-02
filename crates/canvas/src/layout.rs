@@ -1,6 +1,6 @@
 //! 三列平铺布局：按节点顺序 row-major 排列，超过一行后向下延展。
 
-use crate::geometry::CanvasRect;
+use crate::geometry::{CanvasRect, Vec2};
 use crate::node::NodeId;
 
 const BASE_CARD_ASPECT_RATIO: f32 = 16.0 / 10.0;
@@ -83,8 +83,9 @@ pub struct LayoutAssignment {
 }
 
 /// Desktop project regions reserve two rows and at least two columns, in catalog order.
+/// Fit a centered grid of 16:9 canvases, retaining unoccupied slots for incomplete rows.
 /// This presentation-only grid has no node IDs or Agent layout configuration.
-pub fn compute_project_region_layout(count: usize, area: CanvasRect, gap: f32) -> Vec<CanvasRect> {
+pub fn compute_project_region_layout(count: usize, area: CanvasRect, gap: Vec2) -> Vec<CanvasRect> {
     if count == 0
         || !area.size.x.is_finite()
         || !area.size.y.is_finite()
@@ -94,17 +95,25 @@ pub fn compute_project_region_layout(count: usize, area: CanvasRect, gap: f32) -
         return Vec::new();
     }
     let columns = count.div_ceil(2).max(2);
-    let gap = gap
+    let gap_x = gap
+        .x
         .max(0.0)
-        .min(area.size.x / (2.0 * (columns as f32 + 1.0)))
-        .min(area.size.y / 6.0);
-    let width = (area.size.x - (columns as f32 + 1.0) * gap) / columns as f32;
-    let height = (area.size.y - 3.0 * gap) / 2.0;
+        .min(area.size.x / (2.0 * (columns - 1) as f32));
+    let gap_y = gap.y.max(0.0).min(area.size.y / 2.0);
+    let aspect_ratio = 16.0 / 9.0;
+    let width = ((area.size.x - (columns - 1) as f32 * gap_x) / columns as f32)
+        .min((area.size.y - gap_y) / 2.0 * aspect_ratio);
+    let height = width / aspect_ratio;
+    let origin = area.origin
+        + Vec2::new(
+            (area.size.x - columns as f32 * width - (columns - 1) as f32 * gap_x) / 2.0,
+            (area.size.y - 2.0 * height - gap_y) / 2.0,
+        );
     (0..count)
         .map(|index| {
             CanvasRect::new(
-                area.origin.x + gap + (index % columns) as f32 * (width + gap),
-                area.origin.y + gap + (index / columns) as f32 * (height + gap),
+                origin.x + (index % columns) as f32 * (width + gap_x),
+                origin.y + (index / columns) as f32 * (height + gap_y),
                 width,
                 height,
             )
