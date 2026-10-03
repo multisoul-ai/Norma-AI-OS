@@ -47,6 +47,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "ureq 3.3.0",
+ "uuid",
 ]
 
 [[package]]

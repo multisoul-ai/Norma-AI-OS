@@ -41,7 +41,7 @@ pub(crate) enum SettingsSection {
     Keyboard,
     #[cfg(test)]
     Runtime,
-    Voice,
+    Norma,
     Agents,
     #[cfg(test)]
     Skills,
@@ -85,11 +85,11 @@ impl SettingsSection {
                 index: 2,
                 debug_selector: "settings-section-runtime",
             },
-            Self::Voice => SettingsSectionMetadata {
-                title: "Voice",
+            Self::Norma => SettingsSectionMetadata {
+                title: "Norma",
                 icon_asset: Some("icons/settings-nav-voice.svg"),
                 index: 3,
-                debug_selector: "settings-section-voice",
+                debug_selector: "settings-section-norma",
             },
             Self::Agents => SettingsSectionMetadata {
                 title: "Agents",
@@ -137,8 +137,9 @@ const APPEARANCE_SECTIONS: &[SettingsSection] = &[
     SettingsSection::Wallpaper,
     SettingsSection::Performance,
 ];
-const INPUT_SECTIONS: &[SettingsSection] = &[SettingsSection::Keyboard, SettingsSection::Voice];
+const INPUT_SECTIONS: &[SettingsSection] = &[SettingsSection::Keyboard];
 const AUTOMATION_SECTIONS: &[SettingsSection] = &[
+    SettingsSection::Norma,
     SettingsSection::Agents,
     SettingsSection::Orchestration,
     SettingsSection::Mobile,
@@ -432,7 +433,7 @@ fn navigation_item(
                     host.request(crate::mobile::controller::Command::Reload, cx)
                 });
             }
-            if section == SettingsSection::Voice {
+            if section == SettingsSection::Norma {
                 app.refresh_asr_model_states(cx);
             }
             if section == SettingsSection::Orchestration {

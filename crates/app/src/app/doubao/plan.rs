@@ -57,6 +57,7 @@ pub(super) async fn run_session(
         key: key.clone(),
         prompt,
         history: Default::default(),
+        memory_epoch: Default::default(),
         tools: tools.map(Arc::new),
         project: project_id,
         database,

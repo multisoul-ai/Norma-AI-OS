@@ -111,6 +111,17 @@ impl MemoryStore {
         &self.root
     }
 
+    /// Only revisions reachable from CURRENT may be used to reconcile lost receipts.
+    pub fn published_snapshot(
+        &self,
+        scope: &MemoryScope,
+        target: MemoryRevision,
+    ) -> MemoryResult<MemorySnapshot> {
+        let directory = self.scope_directory(scope)?;
+        let current = self.load_current(scope, &directory)?;
+        self.published_revision(scope, &directory, &current, target)
+    }
+
     pub fn snapshot(&self, scope: &MemoryScope) -> MemoryResult<MemorySnapshot> {
         self.load_current(scope, &self.scope_directory(scope)?)
     }
@@ -124,6 +135,32 @@ impl MemoryStore {
             return Err(MemoryError::ForeignSnapshot);
         }
         Ok(snapshot.entries.get(id).cloned())
+    }
+
+    /// Validate an entire import against the live collection without publishing it.
+    pub fn preview_import(
+        &self,
+        snapshot: &MemorySnapshot,
+        documents: &[(String, String)],
+    ) -> MemoryResult<Vec<MemorySummary>> {
+        if snapshot.root != self.root {
+            return Err(MemoryError::ForeignSnapshot);
+        }
+        let mut candidate = snapshot.entries.clone();
+        let mut seen = BTreeSet::new();
+        let mut summaries = Vec::new();
+        for (id, markdown) in documents {
+            let id = MemoryEntryId::parse(id)
+                .map_err(|error| MemoryError::InvalidDocument(error.to_string()))?;
+            if !seen.insert(id.clone()) {
+                return Err(MemoryError::InvalidMutation);
+            }
+            let entry = document::document(id.clone(), markdown.clone(), vec![])?;
+            summaries.push(entry.summary.clone());
+            candidate.insert(id, entry);
+        }
+        document::catalog(&candidate)?;
+        Ok(summaries)
     }
 
     pub fn commit(

@@ -1,4 +1,5 @@
 use super::{canonical_navigation_item_height, canonical_sidebar_group_spacing};
+use crate::settings::panel::SettingsSection;
 
 /// Canonical Sidebar 组节奏：三组导航不得逐组累积偏离 golden。
 ///
@@ -61,5 +62,27 @@ fn sidebar_navigation_items_use_canonical_thirty_nine_pixel_height() {
     assert_ne!(
         height, 38.0,
         "旧 38px 行高会让 Orchestration 相对 golden 累计上移 5px"
+    );
+}
+
+/// Norma 是独立设置入口，Voice 内容收敛在其语音分区。
+///
+/// 数据构造：使用真实 SettingsSection 元数据，无模拟页面。
+/// 执行过程：取得 Norma 标题与所有侧栏分组。
+/// 预期结果：标题为 Norma；AI 分组包含 Norma，输入分组不含 Norma。
+#[test]
+fn norma_is_an_ai_settings_section() {
+    assert_eq!(
+        SettingsSection::Norma.title(),
+        "Norma",
+        "应显示独立 Norma 入口"
+    );
+    assert!(
+        super::AUTOMATION_SECTIONS.contains(&SettingsSection::Norma),
+        "Norma 应在 AI 分组"
+    );
+    assert!(
+        !super::INPUT_SECTIONS.contains(&SettingsSection::Norma),
+        "不能仍作为独立 Voice 输入设置"
     );
 }

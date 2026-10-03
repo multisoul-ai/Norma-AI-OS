@@ -1,3 +1,4 @@
+mod memory_session;
 use crate::master_history::{history_char_budget, is_human_user_message, protocol_history_chars};
 use crate::rig_tools::{
     AssignAgentTaskTool, CancelAgentReplyTool, CancelAgentTaskTool, CreateAgentTool,
@@ -95,6 +96,10 @@ pub struct NormaSession {
     canvas: CurrentCanvasContext,
     roster: Vec<AgentRosterEntry>,
     protocol_history: Vec<Message>,
+    session_id: String,
+    memory_enabled: bool,
+    memory_epoch: u64,
+    context_window_tokens: usize,
     history_char_budget: usize,
     next_turn_id: u64,
     active_turn: Arc<Mutex<CancellationToken>>,
@@ -121,6 +126,10 @@ impl NormaSession {
             tools: NormaToolRuntime::new(adapter),
             roster: Vec::new(),
             protocol_history: Vec::new(),
+            session_id: uuid::Uuid::new_v4().to_string(),
+            memory_enabled: false,
+            memory_epoch: 0,
+            context_window_tokens: config.context_window_tokens().unwrap_or(16_384),
             history_char_budget: history_char_budget(config),
             next_turn_id: 1,
             active_turn: Arc::new(Mutex::new(CancellationToken::new())),
@@ -154,6 +163,7 @@ impl NormaSession {
         let replacement = ModelFactory::create(config)?;
         self.cancel_handle().cancel();
         self.model = replacement;
+        self.context_window_tokens = config.context_window_tokens().unwrap_or(16_384);
         self.history_char_budget = history_char_budget(config);
         self.prune_protocol_history();
         Ok(())
@@ -185,9 +195,9 @@ impl NormaSession {
             return Err(NormaSessionError::EmptyInput);
         }
         let cancellation = self.begin_turn();
-        let turn_id = format!("turn-{}", self.next_turn_id);
+        let turn_id = format!("{}:turn-{}", self.session_id, self.next_turn_id);
         self.next_turn_id = self.next_turn_id.saturating_add(1);
-        let preamble = norma_system_prompt(&self.canvas, &self.roster);
+        let preamble = self.memory_preamble(input).await?;
         let contextual_delete_targets = self
             .canvas
             .cards
@@ -428,58 +438,7 @@ where
     }
 }
 
-struct ToolCallIdentityHook {
-    context: RigToolContext,
-}
-
-impl<M> AgentHook<M> for ToolCallIdentityHook
-where
-    M: CompletionModel,
-{
-    async fn on_event(&self, _context: &HookContext, event: StepEvent<'_, M>) -> Flow {
-        if let StepEvent::ToolCall {
-            tool_call_id,
-            internal_call_id,
-            ..
-        } = event
-        {
-            self.context
-                .record_tool_call(tool_call_id, internal_call_id);
-        }
-        Flow::cont()
-    }
-}
-
-fn build_agent<M>(
-    model: M,
-    preamble: &str,
-    tools: NormaToolRuntime,
-    rig_context: RigToolContext,
-) -> Agent<M>
-where
-    M: CompletionModel,
-{
-    AgentBuilder::new(model)
-        .name("Norma")
-        .description("Norma OS 的唯一 Master Agent")
-        .preamble(preamble)
-        .add_hook(ToolCallIdentityHook {
-            context: rig_context,
-        })
-        .tool(FindAgentTasksTool::new(tools.clone()))
-        .tool(CreateAgentTool::new(tools.clone()))
-        .tool(AssignAgentTaskTool::new(tools.clone()))
-        .tool(CancelAgentTaskTool::new(tools.clone()))
-        .tool(ReplyAgentTool::new(tools.clone()))
-        .tool(CancelAgentReplyTool::new(tools.clone()))
-        .tool(CreateTerminalTool::new(tools.clone()))
-        .tool(CreateBrowserTool::new(tools.clone()))
-        .tool(CreatePreviewTool::new(tools.clone()))
-        .tool(FocusCardTool::new(tools.clone()))
-        .tool(SendTerminalInputTool::new(tools.clone()))
-        .tool(DeleteCanvasCardTool::new(tools))
-        .build()
-}
+use memory_session::build_agent;
 
 #[cfg(test)]
 #[path = "../tests/unit/master_tests.rs"]

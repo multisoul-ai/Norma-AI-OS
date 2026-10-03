@@ -1,4 +1,5 @@
 //! Command Dock input state and adaptation to existing app actions.
+mod conversation;
 mod keys;
 mod motion;
 mod view;
@@ -21,6 +22,9 @@ pub(crate) struct CommandDockState {
     pub drawer: motion::CommandDrawer,
     pub pending_preview: Option<String>,
     pub error: Option<String>,
+    pub reply: Option<String>,
+    pub pending_reply: bool,
+    pub reply_generation: u64,
 }
 
 impl CommandDockState {
@@ -55,7 +59,8 @@ impl MultisoulApp {
         if self.command_dock.is_some() {
             return;
         }
-        let input = cx.new(|cx| InputState::new(window, cx).placeholder("Type / for commands"));
+        let input = cx
+            .new(|cx| InputState::new(window, cx).placeholder("与 Norma 交流，或输入 / 使用指令"));
         let subscription = cx.subscribe_in(&input, window, |app, input, event, window, cx| {
             match event {
                 InputEvent::Change => {
@@ -73,6 +78,9 @@ impl MultisoulApp {
                     app.interaction.layout_menu_open = false;
                     state.set_visible(true);
                     state.error = None;
+                    state.reply = None;
+                    state.pending_reply = false;
+                    state.reply_generation += 1;
                 }
                 InputEvent::Focus => {
                     app.release_all_browser_input();
@@ -103,12 +111,17 @@ impl MultisoulApp {
             drawer: motion::CommandDrawer::default(),
             pending_preview: None,
             error: None,
+            reply: None,
+            pending_reply: false,
+            reply_generation: 0,
         });
     }
 
     pub(crate) fn focus_command_input(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if !matches!(self.screen, AppScreen::Canvas)
-            || self.settings_panel.open
+        if !matches!(
+            self.screen,
+            AppScreen::Canvas | AppScreen::DesktopWorkspace | AppScreen::Launchpad
+        ) || self.settings_panel.open
             || self.feature_guide.is_visible()
         {
             return;
@@ -147,6 +160,9 @@ impl MultisoulApp {
         state.scroll.scroll_to_item(0);
         state.set_visible(visible);
         state.error = None;
+        state.reply = None;
+        state.pending_reply = false;
+        state.reply_generation += 1;
         state
             .input
             .update(cx, |input, cx| input.set_value(value, window, cx));
@@ -161,6 +177,9 @@ impl MultisoulApp {
             return;
         }
         let Some(candidate) = state.suggestions().get(state.selected).cloned() else {
+            if !state.draft.trim().starts_with('/') {
+                self.submit_dock_conversation(window, cx);
+            }
             return;
         };
         let Some(command) = candidate.command else {

@@ -122,7 +122,11 @@ impl Render for MultisoulApp {
             }
         }
 
-        if matches!(self.screen, AppScreen::DesktopWorkspace) && !feature_guide_visible {
+        if matches!(
+            self.screen,
+            AppScreen::DesktopWorkspace | AppScreen::Launchpad
+        ) && !feature_guide_visible
+        {
             root = root.child(self.render_desktop_dock(window, cx));
         }
 

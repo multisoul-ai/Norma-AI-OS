@@ -116,7 +116,7 @@ impl MemorySourceReference {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct MemorySummary {
     pub id: MemoryEntryId,
     pub name: String,

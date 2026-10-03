@@ -109,6 +109,9 @@ pub(super) fn parse_adapter_command(
     arguments: Value,
 ) -> Result<AdapterCommand, AdapterError> {
     match name {
+        "memory_list" | "memory_search" | "memory_read" | "memory_write" => {
+            crate::memory_access::parse_memory_command(name, arguments).map(AdapterCommand::Memory)
+        }
         "find_agent_tasks" => {
             let args: FindAgentTasksArgs = parse(arguments)?;
             Ok(AdapterCommand::FindAgentTasks {

@@ -106,6 +106,7 @@ pub(crate) struct HookInstallStatus {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct SettingsPanelState {
     pub(crate) open: bool,
+    pub(crate) norma_voice: bool,
     pub(crate) active_section: SettingsSection,
     pub(crate) codex_hook_status: HookInstallStatus,
     pub(crate) claude_hook_status: HookInstallStatus,
@@ -125,6 +126,7 @@ impl Default for SettingsPanelState {
     fn default() -> Self {
         Self {
             open: false,
+            norma_voice: false,
             active_section: SettingsSection::Themes,
             codex_hook_status: HookInstallStatus::default(),
             claude_hook_status: HookInstallStatus::default(),
@@ -201,6 +203,7 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        self.ensure_norma_memory(window, cx);
         let theme = self.theme;
         let win = window.viewport_size();
         let win_w = f32::from(win.width);
@@ -251,6 +254,11 @@ impl MultisoulApp {
                 wallpaper_previews: &mut self.wallpaper_previews,
                 shortcuts: &self.shortcuts,
                 mobile: self.mobile.clone(),
+                memory: self
+                    .norma_memory
+                    .as_ref()
+                    .expect("memory settings initialized")
+                    .clone(),
             },
             window,
             cx,

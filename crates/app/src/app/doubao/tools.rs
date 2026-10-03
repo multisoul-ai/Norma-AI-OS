@@ -25,6 +25,11 @@ fn unknown() -> AdapterResult {
     AdapterResult::unknown("执行结果待核对；不会重复派工")
 }
 
+pub(super) struct VoiceToolCall {
+    pub call: Value,
+    pub cancellation: CancellationToken,
+}
+
 pub(super) async fn execute_call(
     runtime: &NormaToolRuntime,
     database: &Path,
@@ -32,8 +37,9 @@ pub(super) async fn execute_call(
     session: &str,
     transcript: &str,
     turn: u64,
-    call: Value,
+    request_call: VoiceToolCall,
 ) -> Value {
+    let VoiceToolCall { call, cancellation } = request_call;
     let Some(call_id) = call["call_id"]
         .as_str()
         .filter(|id| !id.is_empty() && id.len() <= 128)
@@ -87,14 +93,18 @@ pub(super) async fn execute_call(
     }
     let context = ToolContext {
         project_id: project.into(),
-        turn_id: turn.to_string(),
+        turn_id: format!("{session}:turn-{turn}"),
         user_input: transcript.into(),
         input_source: agent::AgentInputSource::DoubaoVoice,
         contextual_delete_targets: Vec::new(),
         tool_call_id: call_id.into(),
         operation_id: Some(operation_id),
         // 插话或结束通话后，已提交的项目任务仍可完成。
-        cancellation: CancellationToken::new(),
+        cancellation: if name.starts_with("memory_") {
+            cancellation
+        } else {
+            CancellationToken::new()
+        },
     };
     let executed = runtime.execute(name, arguments, &context).await;
     let (result, durable_outcome) = match executed {

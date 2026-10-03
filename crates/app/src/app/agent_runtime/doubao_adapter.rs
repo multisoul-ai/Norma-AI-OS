@@ -3,12 +3,14 @@ use super::*;
 pub(crate) fn start_doubao_adapter(
     project_id: String,
     generation: u64,
+    paths: storage::DatabasePaths,
+    root: Option<std::path::PathBuf>,
     window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> Arc<dyn agent::AgentCardAdapter> {
     let (sender, requests) = async_channel::bounded(16);
     start_doubao_adapter_pump(project_id, generation, requests, window, cx);
-    Arc::new(ChannelAgentCardAdapter { sender })
+    super::super::memory::adapter(Arc::new(ChannelAgentCardAdapter { sender }), paths, root)
 }
 
 fn start_doubao_adapter_pump(

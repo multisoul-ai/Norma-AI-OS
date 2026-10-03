@@ -40,18 +40,18 @@ impl MultisoulApp {
             .values()
             .agent_provider_config()
             .map_err(|error| error.to_string())?;
-        let root = self
-            .workspace_state
-            .current_root
+        let root = self.workspace_state.current_root.clone();
+        let project_id = root
             .as_ref()
-            .ok_or_else(|| "使用 Norma 前请先打开项目".to_string())?;
-        let project_id = root.display().to_string();
+            .map(|root| root.display().to_string())
+            .unwrap_or_default();
         let must_replace = self
             .agent_runtime
             .as_ref()
             .is_none_or(|runtime| !runtime.matches_project(&project_id));
         if must_replace {
-            let (runtime, adapter, events) = ProjectAgentRuntime::spawn(project_id, config)?;
+            let (runtime, adapter, events) =
+                ProjectAgentRuntime::spawn(project_id, config, self.database_paths.clone(), root)?;
             let runtime_id = runtime.id();
             self.dialogue
                 .set_dialogue_stream_cancellation(runtime.dialogue_cancel_handle());

@@ -134,10 +134,15 @@ impl MultisoulApp {
         self.doubao.generation = self.doubao.generation.wrapping_add(1);
         let generation = self.doubao.generation;
         self.doubao.tracked_tasks.clear();
-        let tool_adapter = project_id.as_ref().map(|project| {
-            super::agent_runtime::start_doubao_adapter(project.clone(), generation, window, cx)
-        });
-        let tools = tool_adapter.map(agent::NormaToolRuntime::new);
+        let tool_adapter = super::agent_runtime::start_doubao_adapter(
+            project_id.clone().unwrap_or_default(),
+            generation,
+            self.database_paths.clone(),
+            self.workspace_state.current_root.clone(),
+            window,
+            cx,
+        );
+        let tools = Some(agent::NormaToolRuntime::new(tool_adapter));
         let database = self.database_paths.app_db_path().to_path_buf();
         let cancellation = CancellationToken::new();
         self.doubao.cancellation = Some(cancellation.clone());
@@ -251,3 +256,7 @@ mod tests;
 #[cfg(test)]
 #[path = "../../tests/unit/doubao_visual_tests.rs"]
 mod visual_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/doubao_memory_tests.rs"]
+mod memory_tests;

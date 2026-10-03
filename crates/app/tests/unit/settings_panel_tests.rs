@@ -302,10 +302,10 @@ fn test_settings_panel_selects_sections_without_closing() {
     );
     assert!(panel.open, "选择 Runtime 不应关闭设置弹窗");
 
-    panel.select(SettingsSection::Voice);
+    panel.select(SettingsSection::Norma);
     assert_eq!(
         panel.active_section,
-        SettingsSection::Voice,
+        SettingsSection::Norma,
         "选择 Voice 后右侧内容应切到 Voice 分组"
     );
     assert!(panel.open, "选择 Voice 不应关闭设置弹窗");
@@ -355,7 +355,7 @@ fn test_settings_sidebar_exposes_only_implemented_configuration_pages() {
     let visible_sections = [
         "SettingsSection::Themes",
         "SettingsSection::Keyboard",
-        "SettingsSection::Voice",
+        "SettingsSection::Norma",
         "SettingsSection::Agents",
         "SettingsSection::Orchestration",
         "SettingsSection::Wallpaper",

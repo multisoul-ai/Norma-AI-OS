@@ -124,7 +124,9 @@ impl MultisoulApp {
                 || command_drawer_active,
             canvas_ambient_active: motion_activity.ambient_active || self.browsers.any_loading(),
             cursor_active: self.focused_terminal_cursor_animation_active(),
-            screen_is_canvas: matches!(self.screen, AppScreen::Canvas),
+            // The shared Dock also animates on the personal/workspace overview.
+            // Once its transition settles, a non-Canvas screen returns to idle cadence.
+            screen_is_canvas: matches!(self.screen, AppScreen::Canvas) || command_drawer_active,
             window_active: self.window_active,
             settings_open: self.settings_panel.open,
             next_visual_boundary: motion_activity.next_visual_boundary,

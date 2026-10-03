@@ -122,3 +122,64 @@ fn desktop_command_dock_keeps_suggestions_and_keyboard_on_the_project() {
         assert_eq!(cx.windows().len(), 1, "工作空间入口不能另开窗口");
     });
 }
+
+/// 无项目时也有可见文本入口，个人记忆对话无需先配置语音或创建项目。
+///
+/// 数据构造：独立空数据根，无工作空间和项目；窗口 1280×800 为桌面基准尺寸。
+/// 执行过程：绘制 Launchpad → Cmd+K 聚焦 → 输入明确的记忆请求 → Enter。
+/// 预期结果：输入保留中文；Enter 必须尝试真实提交并反馈缺少模型的错误；
+///   没有伪造项目，配置失败也不能创建会话或假报记忆已保存。
+#[test]
+fn personal_memory_has_visible_text_entry_without_a_project() {
+    let temp = tempfile::tempdir().expect("应创建独立数据根");
+    let paths = storage::DatabasePaths::isolated_test(temp.path());
+    let store = storage::AppStore::initialize(&paths).expect("应初始化存储");
+    let mut test = TestAppContext::single();
+    let mut host = None;
+    let (_, cx) = test.add_window_view(|window, cx| {
+        let entity = cx.new(|cx| MultisoulApp::new_with_database_context(cx, paths, store));
+        host = Some(entity.clone());
+        ui::component::Root::new(entity, window, cx)
+    });
+    cx.simulate_resize(size(px(1280.0), px(800.0)));
+    cx.update(|window, cx| window.draw(cx).clear());
+    assert!(
+        cx.debug_bounds("command-dock-input").is_some(),
+        "无项目主页必须实际渲染文本输入，不能只放开聚焦代码"
+    );
+    let host = host.expect("应创建宿主");
+    host.update_in(cx, |app, window, _| app.focus_handle.focus(window));
+    cx.simulate_keystrokes("cmd-k");
+    cx.simulate_input("请记住：我喜欢简洁中文");
+    host.update(cx, |app, _| {
+        assert_eq!(
+            app.command_dock.as_ref().expect("应有文本入口").draft,
+            "请记住：我喜欢简洁中文",
+            "个人模式中文输入应归属宿主"
+        );
+        assert!(
+            app.workspace_state.current_root.is_none(),
+            "文本入口不能伪造项目路径"
+        );
+        assert!(
+            app.agent_runtime.is_none(),
+            "仅输入未提交，不应启动 LLM 会话"
+        );
+    });
+    cx.simulate_keystrokes("enter");
+    host.update(cx, |app, _| {
+        let state = app.command_dock.as_ref().expect("应有文本入口");
+        assert!(
+            state.error.is_some(),
+            "Enter 必须提交给 Norma 并显示配置错误，不能静默返回"
+        );
+        assert!(
+            app.agent_runtime.is_none(),
+            "无有效配置不能启动会话或声称已记住"
+        );
+        assert!(
+            app.workspace_state.current_root.is_none(),
+            "提交个人对话不能伪造项目"
+        );
+    });
+}

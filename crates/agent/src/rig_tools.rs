@@ -23,6 +23,10 @@ impl RigToolContext {
         }
     }
 
+    pub(crate) fn context_project_is_personal(&self) -> bool {
+        self.base.project_id.is_empty()
+    }
+
     pub(crate) fn unknown_seen(&self) -> bool {
         self.policy.unknown_seen()
     }
@@ -158,3 +162,8 @@ define_rig_tool!(CreatePreviewTool, "create_preview", 8);
 define_rig_tool!(FocusCardTool, "focus_card", 9);
 define_rig_tool!(SendTerminalInputTool, "send_terminal_input", 10);
 define_rig_tool!(DeleteCanvasCardTool, "delete_canvas_card", 11);
+
+define_rig_tool!(MemoryListTool, "memory_list", 12);
+define_rig_tool!(MemorySearchTool, "memory_search", 13);
+define_rig_tool!(MemoryReadTool, "memory_read", 14);
+define_rig_tool!(MemoryWriteTool, "memory_write", 15);

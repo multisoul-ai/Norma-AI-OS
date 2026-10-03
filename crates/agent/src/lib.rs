@@ -12,6 +12,7 @@ mod master;
 mod master_history;
 mod master_prompt;
 mod memory;
+mod memory_access;
 mod model;
 mod project_plan;
 mod protocol;
@@ -58,6 +59,10 @@ pub use master_prompt::norma_system_prompt;
 pub use memory::{
     MemoryCommitReceipt, MemoryEntry, MemoryEntryId, MemoryEntryIdError, MemoryKind,
     MemoryMutation, MemoryRevision, MemoryScope, MemorySourceReference, MemorySummary,
+};
+pub use memory_access::{
+    explicit_memory_write, memory_text_chunk, MemoryCommand, MemoryPreferences, MemoryScopeAlias,
+    MemorySessionContext, MemoryToolOutput, MEMORY_CATALOG_BYTES, MEMORY_TOOL_BYTES,
 };
 pub use model::{AgentCommand, AgentEvent, AgentInputSource, TaskId, TaskState};
 pub use project_plan::{

@@ -9,6 +9,7 @@ use crate::motion::{
 pub(crate) struct CommandDrawer {
     pub(super) draft: String,
     pub(super) error: Option<String>,
+    pub(super) reply: Option<String>,
     pub(super) content_height: f32,
     from_height: f32,
     target_height: f32,
@@ -21,6 +22,7 @@ impl Default for CommandDrawer {
         Self {
             draft: String::new(),
             error: None,
+            reply: None,
             content_height: 0.0,
             from_height: 0.0,
             target_height: 0.0,

@@ -41,6 +41,7 @@ mod agent_announcements;
 mod agent_close;
 mod agent_queue;
 mod agent_runtime;
+mod memory;
 pub(crate) use agent_runtime::execute_norma_adapter_command_with_source;
 pub(crate) use agent_runtime::shared_tokio_runtime;
 pub(crate) use agent_runtime::{
@@ -186,6 +187,11 @@ pub struct MultisoulApp {
     pub(crate) agent_definitions: AgentDefinitionsState,
     pub(crate) orchestration_settings: OrchestrationSettingsState,
     pub(crate) mobile: gpui::Entity<crate::mobile::controller::MobileController>,
+    pub(crate) norma_memory: Option<gpui::Entity<crate::settings::norma::MemoryView>>,
+    pub(crate) norma_memory_cache: std::collections::HashMap<
+        Option<std::path::PathBuf>,
+        gpui::Entity<crate::settings::norma::MemoryView>,
+    >,
     pub(crate) voice_settings: VoiceSettingsState,
     pub(crate) voice_settings_inputs: VoiceSettingsInputs,
     pub(crate) shortcuts: ShortcutSettingsState,

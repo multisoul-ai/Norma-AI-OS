@@ -19,7 +19,7 @@ impl MultisoulApp {
     ) -> Div {
         let theme = self.theme;
         if !matches!(self.screen, AppScreen::Canvas) {
-            return self.render_desktop_overview_dock(cx, project_switcher);
+            return self.render_desktop_overview_dock(window, cx, project_switcher);
         }
         let input = self.render_command_input(window, cx);
         div()
@@ -96,15 +96,17 @@ impl MultisoulApp {
     }
 
     fn render_desktop_overview_dock(
-        &self,
+        &mut self,
+        window: &mut Window,
         cx: &mut Context<Self>,
         project_switcher: Option<AnyElement>,
     ) -> Div {
         let theme = self.theme;
+        let input = self.render_command_input(window, cx);
         div()
             .absolute()
-            .left(px(0.0))
-            .right(px(0.0))
+            .left(px(18.0))
+            .right(px(18.0))
             .bottom(px(COMMAND_DOCK_BOTTOM_PX))
             .flex()
             .justify_center()
@@ -112,6 +114,8 @@ impl MultisoulApp {
                 div()
                     .id("workspace-command-dock")
                     .debug_selector(|| "workspace-command-dock".to_string())
+                    .w_full()
+                    .max_w(px(560.0))
                     .h(px(COMMAND_DOCK_HEIGHT_PX))
                     .flex()
                     .items_center()
@@ -135,6 +139,8 @@ impl MultisoulApp {
                             app.open_desktop_add_project(window, cx)
                         })),
                     )
+                    .child(chrome_divider(theme))
+                    .child(input)
                     .child(chrome_divider(theme))
                     .children(project_switcher)
                     .child(

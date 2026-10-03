@@ -2,6 +2,43 @@ use super::*;
 use gpui::{EntityInputHandler, KeyDownEvent, Keystroke, TestAppContext};
 use terminal::{PtyBackend, TestPtyBackend};
 
+/// 场景：无项目主页中的文字对话提示也需要显示，不能等待 Canvas 动画调度。
+///
+/// 数据构造：空数据根、Launchpad、活跃窗口；输入「交流偏好」没有指令候选。
+/// 执行过程：聚焦输入 → 输入非空中文 → 同步抽屉 → 查询动画调度。
+/// 预期结果：抽屉使用 NextFrame，不能退回 idle timer 使反馈始终透明；没有项目。
+#[test]
+fn personal_conversation_drawer_advances_without_a_canvas() {
+    let temp = tempfile::tempdir().expect("应创建隔离数据根");
+    let paths = storage::DatabasePaths::isolated_test(temp.path());
+    let store = storage::AppStore::initialize(&paths).expect("应初始化存储");
+    let mut test = TestAppContext::single();
+    let mut host = None;
+    let (_, cx) = test.add_window_view(|window, cx| {
+        let entity = cx.new(|cx| MultisoulApp::new_with_database_context(cx, paths, store));
+        host = Some(entity.clone());
+        ui::component::Root::new(entity, window, cx)
+    });
+    let host = host.expect("应创建宿主");
+    host.update_in(cx, |app, window, cx| {
+        app.window_active = true;
+        app.focus_command_input(window, cx);
+        app.set_command_query("交流偏好".into(), true, window, cx);
+        app.sync_command_drawer(window);
+        assert!(
+            matches!(
+                app.animation_next_wakeup(),
+                super::super::frame_schedule::AnimationWakeup::NextFrame(_)
+            ),
+            "主页必须推进抽屉动画，显示发送、等待、回复和错误状态"
+        );
+        assert!(
+            app.workspace_state.current_root.is_none(),
+            "个人入口不能创建伪项目"
+        );
+    });
+}
+
 /// 场景：App 帧循环驱动底部抽屉，清空输入时保留退出内容并在结束后释放遮挡。
 ///
 /// 数据构造：/terminal 对应 1 条建议，高度 = 40 + 54 + 8 = 102px。

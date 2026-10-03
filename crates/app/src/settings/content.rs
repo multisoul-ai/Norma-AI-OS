@@ -39,6 +39,7 @@ pub(super) struct SettingsContentContext<'a> {
     pub(super) wallpaper_state: &'a WallpaperSettingsState,
     pub(super) wallpaper_previews: &'a mut PreviewCache,
     pub(super) shortcuts: &'a ShortcutSettingsState,
+    pub(super) memory: gpui::Entity<crate::settings::norma::MemoryView>,
     pub(super) mobile: gpui::Entity<crate::mobile::controller::MobileController>,
 }
 
@@ -65,6 +66,7 @@ pub(super) fn settings_content(
         wallpaper_previews,
         shortcuts,
         mobile,
+        memory,
     } = content;
     let compact = width < 600.0 || height < 640.0;
     let padding = if compact { 16.0 } else { 28.0 };
@@ -84,7 +86,8 @@ pub(super) fn settings_content(
             cx,
         ))
         .child({
-            let agents_section = panel.active_section == SettingsSection::Agents;
+            let agents_section = panel.active_section == SettingsSection::Agents
+                || (panel.active_section == SettingsSection::Norma && !panel.norma_voice);
             div()
                 .id("settings-content-scroll")
                 .debug_selector(|| "settings-content-scroll".to_string())
@@ -106,18 +109,28 @@ pub(super) fn settings_content(
                         theme_appearance(theme_id, theme, width - padding * 2.0, cx)
                     }
                     SettingsSection::Keyboard => keyboard_settings(theme, shortcuts, cx),
-                    SettingsSection::Voice => voice_settings(
-                        crate::settings::voice::VoiceSettingsView {
-                            theme,
-                            state: voice.state,
-                            inputs: voice.inputs,
-                            content_scroll,
-                            setup_scroll_target: voice.setup_scroll_target,
-                            voice_shortcut_label: &shortcuts.voice_interaction_label(),
-                        },
-                        window,
-                        cx,
-                    ),
+                    SettingsSection::Norma => div()
+                        .when(!panel.norma_voice, |this| this.h_full().min_h(px(0.0)))
+                        .flex()
+                        .flex_col()
+                        .gap_4()
+                        .child(super::super::norma::tabs(theme, panel.norma_voice, cx))
+                        .child(if panel.norma_voice {
+                            voice_settings(
+                                crate::settings::voice::VoiceSettingsView {
+                                    theme,
+                                    state: voice.state,
+                                    inputs: voice.inputs,
+                                    content_scroll,
+                                    setup_scroll_target: voice.setup_scroll_target,
+                                    voice_shortcut_label: &shortcuts.voice_interaction_label(),
+                                },
+                                window,
+                                cx,
+                            )
+                        } else {
+                            div().flex_1().min_h(px(0.0)).child(memory)
+                        }),
                     SettingsSection::Agents => agents_settings(
                         theme,
                         agent_definitions,
@@ -221,7 +234,7 @@ fn content_title(section: SettingsSection) -> &'static str {
         SettingsSection::Keyboard => "Keyboard Shortcuts",
         #[cfg(test)]
         SettingsSection::Runtime => "Runtime",
-        SettingsSection::Voice => "Voice",
+        SettingsSection::Norma => "Norma",
         SettingsSection::Agents => "Agents",
         #[cfg(test)]
         SettingsSection::Skills => "Skills",
@@ -243,7 +256,7 @@ fn content_subtitle(section: SettingsSection, voice_shortcut_label: &str) -> Str
         }
         #[cfg(test)]
         SettingsSection::Runtime => "Configure shell behavior and live sessions".to_string(),
-        SettingsSection::Voice => format!("Use {voice_shortcut_label} to talk to Norma"),
+        SettingsSection::Norma => format!("记忆与语音 · {voice_shortcut_label} 与 Norma 语音交流"),
         SettingsSection::Agents => "Create, organize, and launch project agents".to_string(),
         #[cfg(test)]
         SettingsSection::Skills => "Manage installed skills and project skill sources".to_string(),
@@ -256,3 +269,7 @@ fn content_subtitle(section: SettingsSection, voice_shortcut_label: &str) -> Str
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/settings_norma_scroll_tests.rs"]
+mod norma_scroll_tests;

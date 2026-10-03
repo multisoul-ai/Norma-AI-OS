@@ -30,6 +30,7 @@ pub struct ToolContext {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub enum AdapterCommand {
+    Memory(crate::MemoryCommand),
     FindAgentTasks {
         task_id: Option<u64>,
         agent: Option<String>,
@@ -95,6 +96,8 @@ pub struct AdapterResult {
     pub reply_status: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tasks: Vec<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub memory: Option<crate::MemoryToolOutput>,
 }
 
 impl AdapterResult {
@@ -107,6 +110,7 @@ impl AdapterResult {
             reply_id: None,
             reply_status: None,
             tasks: Vec::new(),
+            memory: None,
         }
     }
 
@@ -119,6 +123,7 @@ impl AdapterResult {
             reply_id: None,
             reply_status: None,
             tasks: Vec::new(),
+            memory: None,
         }
     }
 
@@ -131,6 +136,7 @@ impl AdapterResult {
             reply_id: None,
             reply_status: None,
             tasks: Vec::new(),
+            memory: None,
         }
     }
 
@@ -170,9 +176,16 @@ pub enum AdapterError {
     Rejected(String),
     #[error("adapter execution failed: {0}")]
     Failed(String),
+    #[error("{0}")]
+    Unknown(String),
 }
 
 pub trait AgentCardAdapter: Send + Sync {
+    fn memory_context(
+        &self,
+    ) -> BoxFuture<'_, Result<Option<crate::MemorySessionContext>, AdapterError>> {
+        Box::pin(async { Ok(None) })
+    }
     fn execute<'a>(
         &'a self,
         command: AdapterCommand,
@@ -192,6 +205,12 @@ impl NormaToolRuntime {
             adapter,
             operation_receipts: Arc::new(Mutex::new(HashMap::new())),
         }
+    }
+
+    pub async fn memory_context(
+        &self,
+    ) -> Result<Option<crate::MemorySessionContext>, AdapterError> {
+        self.adapter.memory_context().await
     }
 
     pub async fn execute(
@@ -256,7 +275,7 @@ pub struct ToolDefinition {
 }
 
 pub fn norma_tool_definitions() -> Vec<ToolDefinition> {
-    vec![
+    let mut tools = vec![
         definition(
             "find_agent_tasks",
             "查询 AgentCard 任务；无筛选条件时返回最近的未结束任务。",
@@ -374,7 +393,9 @@ pub fn norma_tool_definitions() -> Vec<ToolDefinition> {
             "仅在用户明确要求删除或关闭指定卡片时使用；目标必须且只能是稳定 node_id、用户所说的 1-based 画布位置，或 Agent 呼叫名/语音别名之一。",
             delete_canvas_card_schema(),
         ),
-    ]
+    ];
+    tools.extend(crate::memory_access::definitions());
+    tools
 }
 
 fn delete_canvas_card_schema() -> Value {

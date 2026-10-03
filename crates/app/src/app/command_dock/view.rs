@@ -24,20 +24,28 @@ impl MultisoulApp {
             return;
         };
         let show = state.visible
-            && matches!(self.screen, AppScreen::Canvas)
+            && matches!(
+                self.screen,
+                AppScreen::Canvas | AppScreen::DesktopWorkspace | AppScreen::Launchpad
+            )
             && !self.settings_panel.open
             && !self.feature_guide.is_visible();
         let target = if show {
             state.drawer.draft.clone_from(&state.draft);
             state.drawer.error.clone_from(&state.error);
+            state.drawer.reply.clone_from(&state.reply);
             let rows = if state.error.is_some() {
                 1
             } else {
                 state.suggestions().len().max(1)
             };
             let bottom = COMMAND_DOCK_BOTTOM_PX + COMMAND_DOCK_HEIGHT_PX + GAP;
-            (HEADER + ROW * rows as f32 + INSET)
-                .min((f32::from(window.viewport_size().height) - bottom - 60.0).max(0.0))
+            (if state.reply.is_some() {
+                220.0
+            } else {
+                HEADER + ROW * rows as f32 + INSET
+            })
+            .min((f32::from(window.viewport_size().height) - bottom - 60.0).max(0.0))
         } else {
             0.0
         };
@@ -136,7 +144,10 @@ impl MultisoulApp {
         let state = self.command_dock.as_ref()?;
         let items = super::CommandDockState::suggestions_for(&state.drawer.draft);
         let theme = self.theme;
-        let heading = if state.drawer.draft.trim().starts_with("/new") {
+        let is_conversation = items.is_empty() && !state.drawer.draft.trim().starts_with('/');
+        let heading = if is_conversation {
+            "Norma"
+        } else if state.drawer.draft.trim().starts_with("/new") {
             "新建 Agent"
         } else if items
             .iter()
@@ -159,6 +170,30 @@ impl MultisoulApp {
                     .p(px(12.0))
                     .text_color(rgba(theme.destructive))
                     .child(error.clone()),
+            );
+        } else if let Some(reply) = &state.drawer.reply {
+            rows = rows.child(
+                div()
+                    .id("norma-dock-reply")
+                    .debug_selector(|| "norma-dock-reply".into())
+                    .p(px(12.0))
+                    .text_size(px(13.0))
+                    .whitespace_normal()
+                    .child(reply.clone()),
+            );
+        } else if is_conversation {
+            rows = rows.child(
+                div()
+                    .id("norma-dock-send")
+                    .p(px(12.0))
+                    .rounded(px(10.0))
+                    .cursor_pointer()
+                    .hover(move |s| s.bg(rgba(with_alpha(theme.accent_blue, 0x38))))
+                    .active(move |s| s.bg(rgba(with_alpha(theme.accent_blue, 0x55))))
+                    .on_click(
+                        cx.listener(|app, _, window, cx| app.submit_dock_conversation(window, cx)),
+                    )
+                    .child("发送给 Norma · 按回车发送"),
             );
         } else if items.is_empty() {
             rows = rows.child(
@@ -263,7 +298,11 @@ impl MultisoulApp {
                     .px(px(12.0))
                     .text_size(px(11.0))
                     .child(heading)
-                    .child(format!("{} 个建议", items.len())),
+                    .child(if is_conversation {
+                        "文字对话".into()
+                    } else {
+                        format!("{} 个建议", items.len())
+                    }),
             )
             .child(rows);
         Some(

@@ -28,6 +28,7 @@ fn open_connection(path: &Path) -> StorageResult<Connection> {
     Ok(connection)
 }
 pub fn migrate_app_db(connection: &Connection) -> StorageResult<()> {
+    crate::memory_access::journal::migrate(connection)?;
     crate::thread_message_store::migrate(connection)?;
     crate::mobile_session_store::migrate(connection)?;
     crate::mobile_turn_store::migrate(connection)?;

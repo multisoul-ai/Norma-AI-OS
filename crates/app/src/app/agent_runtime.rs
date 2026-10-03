@@ -115,6 +115,8 @@ impl ProjectAgentRuntime {
     fn spawn(
         project_id: String,
         config: agent::ProviderConfig,
+        paths: storage::DatabasePaths,
+        root: Option<std::path::PathBuf>,
     ) -> Result<
         (
             Self,
@@ -135,7 +137,11 @@ impl ProjectAgentRuntime {
         let session = agent::NormaSession::new(
             project_id.clone(),
             &config,
-            Arc::new(ChannelAgentCardAdapter { sender: adapter_tx }),
+            super::memory::adapter(
+                Arc::new(ChannelAgentCardAdapter { sender: adapter_tx }),
+                paths,
+                root,
+            ),
         )
         .map_err(|error| error.to_string())?;
         runtime.spawn(run_project_agent(

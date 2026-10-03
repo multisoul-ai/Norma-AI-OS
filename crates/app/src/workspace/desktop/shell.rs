@@ -43,7 +43,13 @@ impl MultisoulApp {
                     )
             })
         } else {
-            self.render_command_dock(window, cx, switcher)
+            div()
+                .absolute()
+                .inset_0()
+                .child(self.render_command_dock(window, cx, switcher))
+                .when_some(self.render_command_suggestions(window, cx), |dock, menu| {
+                    dock.child(menu)
+                })
         }
     }
 

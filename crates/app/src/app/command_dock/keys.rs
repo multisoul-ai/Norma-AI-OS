@@ -41,8 +41,14 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if !matches!(self.screen, AppScreen::Canvas)
-            || self.settings_panel.open
+        // The window host must not steal Cmd+K from its expanded project's Dock.
+        if self.expanded_desktop_project().is_some() {
+            return;
+        }
+        if !matches!(
+            self.screen,
+            AppScreen::Canvas | AppScreen::DesktopWorkspace | AppScreen::Launchpad
+        ) || self.settings_panel.open
             || self.feature_guide.is_visible()
         {
             return;

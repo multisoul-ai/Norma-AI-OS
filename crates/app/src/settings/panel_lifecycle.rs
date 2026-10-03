@@ -1,6 +1,6 @@
 use crate::app::{
-    AppScreen, FeatureGuidePresentation, FeatureGuideSettingsTransition, FeatureGuideTopic,
-    MultisoulApp, ToggleSettings,
+    FeatureGuidePresentation, FeatureGuideSettingsTransition, FeatureGuideTopic, MultisoulApp,
+    ToggleSettings,
 };
 use crate::settings::panel::SettingsSection;
 use crate::settings::voice::VoiceRequirementState;
@@ -33,7 +33,7 @@ impl MultisoulApp {
 
     pub(crate) fn toggle_settings_panel(&mut self, cx: &mut Context<Self>) {
         let was_open = self.settings_panel.open;
-        if was_open && self.agent_settings_blocks_close() {
+        if was_open && self.settings_blocks_close(cx) {
             cx.notify();
             return;
         }
@@ -56,7 +56,7 @@ impl MultisoulApp {
 
     pub(crate) fn close_settings_panel(&mut self, cx: &mut Context<Self>) {
         let was_open = self.settings_panel.open;
-        if was_open && self.agent_settings_blocks_close() {
+        if was_open && self.settings_blocks_close(cx) {
             cx.notify();
             return;
         }
@@ -91,7 +91,18 @@ impl MultisoulApp {
             && self.feature_guide.presentation == FeatureGuidePresentation::Suspended
     }
 
-    fn agent_settings_blocks_close(&mut self) -> bool {
+    fn settings_blocks_close(&mut self, cx: &mut Context<Self>) -> bool {
+        if let Some(memory) = &self.norma_memory {
+            if memory.read(cx).is_dirty(cx) {
+                self.settings_panel.select(SettingsSection::Norma);
+                self.settings_panel.norma_voice = false;
+                memory.update(cx, |memory, cx| {
+                    memory.close_prompt = true;
+                    cx.notify();
+                });
+                return true;
+            }
+        }
         if self.settings_panel.active_section != SettingsSection::Agents
             || !self.agent_definitions.is_dirty()
         {
@@ -103,12 +114,10 @@ impl MultisoulApp {
     }
 
     pub(crate) fn open_voice_settings(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if !matches!(self.screen, AppScreen::Canvas) {
-            return;
-        }
         self.settings_panel.open();
         self.sync_feature_guide_blockers(cx);
-        self.settings_panel.select(SettingsSection::Voice);
+        self.settings_panel.select(SettingsSection::Norma);
+        self.settings_panel.norma_voice = true;
         self.focus_handle.focus(window);
         self.refresh_asr_model_states(cx);
         self.refresh_tts_model_states(cx);

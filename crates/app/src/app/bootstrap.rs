@@ -172,6 +172,8 @@ impl MultisoulApp {
             layout_strategy: CanvasLayoutStrategy::default(),
             persistence: PersistenceScheduler::default(),
             settings_panel: SettingsPanelState::default(),
+            norma_memory: None,
+            norma_memory_cache: Default::default(),
             settings_viewport: SettingsViewportState::default(),
             feature_guide,
             feature_guide_settings,

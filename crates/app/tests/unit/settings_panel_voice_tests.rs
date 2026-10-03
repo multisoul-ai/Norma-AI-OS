@@ -63,7 +63,7 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
             );
         };
     }
-    assert_anchor!("SettingsSection::Voice");
+    assert_anchor!("SettingsSection::Norma");
     assert_anchor!("Voice");
     assert_anchor!("Speech Recognition");
     assert_anchor!("Recognition source");
