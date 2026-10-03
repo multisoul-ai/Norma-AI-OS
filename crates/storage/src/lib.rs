@@ -24,6 +24,8 @@ pub mod database_paths;
 pub mod desktop_workspace_store;
 pub mod error;
 pub mod layout_store;
+pub mod memory;
+pub use memory::{MemoryError, MemoryResult, MemorySnapshot, MemoryStore};
 pub mod migrations;
 pub mod mobile_access_store;
 mod mobile_push_store;

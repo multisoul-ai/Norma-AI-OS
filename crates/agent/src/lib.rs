@@ -11,6 +11,7 @@ mod identity;
 mod master;
 mod master_history;
 mod master_prompt;
+mod memory;
 mod model;
 mod project_plan;
 mod protocol;
@@ -54,6 +55,10 @@ pub use master::{
     NormaTurnResult,
 };
 pub use master_prompt::norma_system_prompt;
+pub use memory::{
+    MemoryCommitReceipt, MemoryEntry, MemoryEntryId, MemoryEntryIdError, MemoryKind,
+    MemoryMutation, MemoryRevision, MemoryScope, MemorySourceReference, MemorySummary,
+};
 pub use model::{AgentCommand, AgentEvent, AgentInputSource, TaskId, TaskState};
 pub use project_plan::{
     generate_project_plan, valid_plan_direction, PlanTodo, PlanTodoChoice, ProjectPlanDraft,
