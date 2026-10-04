@@ -340,3 +340,7 @@ fn installation_status(installation: &TtsModelInstallState) -> &'static str {
         TtsModelInstallState::Failed(_) => "Installation failed",
     }
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/voice_settings_tts_scan_tests.rs"]
+mod redesign_tests;

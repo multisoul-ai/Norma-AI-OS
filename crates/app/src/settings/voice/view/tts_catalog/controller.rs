@@ -56,19 +56,15 @@ impl MultisoulApp {
                         app.dialogue.selected_tts_model = Some(model)
                     }
                     Ok(Some(_)) => {}
-                    Ok(None) => {
-                        if local_active {
-                            app.dialogue.selected_tts_model = None;
-                        }
+                    Ok(None) if local_active => {
+                        app.dialogue.selected_tts_model = None;
                         app.voice_settings.report_tts_status(
                             "No Local TTS model is selected; replies will stay text-only.",
                             false,
                         );
                     }
-                    Err(error) => {
-                        if local_active {
-                            app.dialogue.selected_tts_model = None;
-                        }
+                    Err(error) if local_active => {
+                        app.dialogue.selected_tts_model = None;
                         app.voice_settings.report_tts_status(
                             format!(
                                 "Saved Local TTS selection is unavailable; replies will stay text-only: {error}"
@@ -76,6 +72,7 @@ impl MultisoulApp {
                             true,
                         );
                     }
+                    Ok(None) | Err(_) => {}
                 }
                 app.voice_settings.apply_zipvoice_reference_scan(reference);
                 app.start_next_agent_announcement(cx);

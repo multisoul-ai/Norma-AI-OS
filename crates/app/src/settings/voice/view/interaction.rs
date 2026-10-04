@@ -1,7 +1,9 @@
+use super::components::VoiceAction;
 use super::{settings_group, with_alpha};
 use crate::app::MultisoulApp;
 use crate::settings::voice::{DictationTrigger, VoiceInteractionMode, VoiceSettingsState};
 use gpui::{div, prelude::*, px, rgba, Context, Div};
+use ui::component::button::{Button, ButtonCustomVariant, ButtonVariants};
 use ui::Theme;
 
 pub(super) fn interaction_group(
@@ -19,16 +21,17 @@ pub(super) fn interaction_group(
             div()
                 .flex()
                 .flex_row()
+                .flex_wrap()
                 .gap(px(8.0))
                 .child(
                     mode_option(
                         theme,
+                        "settings-voice-mode-dictation",
                         "Single Voice Command",
                         mode == VoiceInteractionMode::SingleVoiceCommand,
+                        cx,
                     )
-                    .id("settings-voice-mode-dictation")
-                    .debug_selector(|| "settings-voice-mode-dictation".to_string())
-                    .on_click(cx.listener(|app, _, _, cx| {
+                    .on_activate(cx.listener(|app, _, _, cx| {
                         app.stop_continuous_listening(cx);
                         app.voice_settings
                             .select_interaction_mode(VoiceInteractionMode::SingleVoiceCommand);
@@ -39,12 +42,12 @@ pub(super) fn interaction_group(
                 .child(
                     mode_option(
                         theme,
+                        "settings-voice-mode-continuous",
                         "Continuous Listening",
                         mode == VoiceInteractionMode::ContinuousListening,
+                        cx,
                     )
-                    .id("settings-voice-mode-continuous")
-                    .debug_selector(|| "settings-voice-mode-continuous".to_string())
-                    .on_click(cx.listener(|app, _, _, cx| {
+                    .on_activate(cx.listener(|app, _, _, cx| {
                         app.voice.stop_for_model_switch();
                         app.voice_settings
                             .select_interaction_mode(VoiceInteractionMode::ContinuousListening);
@@ -79,26 +82,34 @@ fn dictation_trigger_row(
             .flex_row()
             .gap(px(8.0))
             .child(
-                mode_option(theme, "Hold", trigger == DictationTrigger::Hold)
-                    .id("settings-voice-trigger-hold")
-                    .debug_selector(|| "settings-voice-trigger-hold".to_string())
-                    .on_click(cx.listener(|app, _, _, cx| {
-                        app.voice_settings
-                            .select_dictation_trigger(DictationTrigger::Hold);
-                        app.persist_voice_settings_in_background(cx);
-                        cx.notify();
-                    })),
+                mode_option(
+                    theme,
+                    "settings-voice-trigger-hold",
+                    "Hold",
+                    trigger == DictationTrigger::Hold,
+                    cx,
+                )
+                .on_activate(cx.listener(|app, _, _, cx| {
+                    app.voice_settings
+                        .select_dictation_trigger(DictationTrigger::Hold);
+                    app.persist_voice_settings_in_background(cx);
+                    cx.notify();
+                })),
             )
             .child(
-                mode_option(theme, "Toggle", trigger == DictationTrigger::Toggle)
-                    .id("settings-voice-trigger-toggle")
-                    .debug_selector(|| "settings-voice-trigger-toggle".to_string())
-                    .on_click(cx.listener(|app, _, _, cx| {
-                        app.voice_settings
-                            .select_dictation_trigger(DictationTrigger::Toggle);
-                        app.persist_voice_settings_in_background(cx);
-                        cx.notify();
-                    })),
+                mode_option(
+                    theme,
+                    "settings-voice-trigger-toggle",
+                    "Toggle",
+                    trigger == DictationTrigger::Toggle,
+                    cx,
+                )
+                .on_activate(cx.listener(|app, _, _, cx| {
+                    app.voice_settings
+                        .select_dictation_trigger(DictationTrigger::Toggle);
+                    app.persist_voice_settings_in_background(cx);
+                    cx.notify();
+                })),
             ),
     )
 }
@@ -109,6 +120,7 @@ fn compact_interaction_row(theme: Theme, title: &'static str, hint: String, cont
         .min_w(px(0.0))
         .flex()
         .flex_row()
+        .flex_wrap()
         .items_center()
         .justify_between()
         .gap(px(16.0))
@@ -116,7 +128,7 @@ fn compact_interaction_row(theme: Theme, title: &'static str, hint: String, cont
         .child(
             div()
                 .flex_1()
-                .min_w(px(0.0))
+                .min_w(px(150.0))
                 .flex()
                 .flex_col()
                 .gap(px(3.0))
@@ -137,34 +149,49 @@ fn compact_interaction_row(theme: Theme, title: &'static str, hint: String, cont
         .child(control.flex_none())
 }
 
-/// This is a two-state segmented option, not a general button. The pinned component Button lacks
-/// the selected-state theme plus stable debug-selector seam required by the Settings e2e tests.
-pub(super) fn mode_option(theme: Theme, label: &'static str, selected: bool) -> Div {
-    let accent = if selected {
-        theme.accent_orange
-    } else {
-        theme.text_primary
-    };
-    div()
-        .px(px(14.0))
-        .py(px(9.0))
-        .rounded(px(8.0))
-        .border_1()
-        .border_color(rgba(with_alpha(accent, if selected { 0x90 } else { 0x50 })))
-        .bg(rgba(with_alpha(
-            if selected {
-                theme.accent_orange
+pub(super) fn mode_option(
+    theme: Theme,
+    selector: &'static str,
+    label: &'static str,
+    selected: bool,
+    cx: &Context<MultisoulApp>,
+) -> Button {
+    let variant = ButtonCustomVariant::new(cx)
+        .color(
+            rgba(with_alpha(
+                theme.accent_blue,
+                if selected { 0x18 } else { 0x06 },
+            ))
+            .into(),
+        )
+        .foreground(
+            rgba(if selected {
+                theme.accent_blue
             } else {
-                theme.text_primary
-            },
-            if selected { 0x20 } else { 0x06 },
-        )))
-        .text_color(rgba(if selected {
-            theme.accent_orange
+                theme.text_secondary
+            })
+            .into(),
+        )
+        .border(
+            rgba(with_alpha(
+                if selected {
+                    theme.accent_blue
+                } else {
+                    theme.text_secondary
+                },
+                if selected { 0x70 } else { 0x28 },
+            ))
+            .into(),
+        )
+        .hover(rgba(with_alpha(theme.accent_blue, 0x28)).into())
+        .active(rgba(with_alpha(theme.accent_blue, 0x38)).into());
+    Button::new(selector)
+        .debug_selector(move || selector.to_string())
+        .label(if selected {
+            format!("✓ {label}")
         } else {
-            theme.text_secondary
-        }))
-        .cursor_pointer()
-        .hover(move |style| style.bg(rgba(with_alpha(accent, 0x2b))))
-        .child(label)
+            label.to_string()
+        })
+        .compact()
+        .custom(variant)
 }

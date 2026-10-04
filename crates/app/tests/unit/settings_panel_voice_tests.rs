@@ -22,6 +22,7 @@
 #[test]
 fn test_voice_settings_panel_contains_voice_configuration_anchors() {
     let source = concat!(
+        include_str!("../../src/settings/voice/view/diagnostics.rs"),
         include_str!("../../src/settings/panel.rs"),
         include_str!("../../src/settings/content.rs"),
         include_str!("../../src/settings/voice.rs"),
@@ -77,7 +78,7 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
     assert_anchor!("Shortcut");
     assert_anchor!("Agent Provider");
     assert_anchor!("Spoken Replies");
-    assert_anchor!("Local TTS");
+    assert_anchor!("Local TTS Model");
     assert_anchor!("Current Voice");
     assert_anchor!("Use This Voice");
     assert_anchor!("Manage Models");
@@ -123,7 +124,7 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
     assert_anchor!("settings-agent-task-announcements-toggle");
     assert_anchor!("Agent task announcements");
     assert_anchor!("settings-voice-window-inset-toggle");
-    assert_anchor!("Voice-driven window inset");
+    assert_anchor!("Speech glow");
     assert_anchor!("on_mouse_down");
     assert_anchor!("begin_edit");
     assert!(

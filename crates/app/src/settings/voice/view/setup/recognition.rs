@@ -1,5 +1,5 @@
 use super::super::asr_provider::locale_catalog;
-use super::super::{action_button, setting_row, text_setting_row, VoiceSettingsInputs};
+use super::super::{setting_row, text_setting_row, with_alpha, VoiceSettingsInputs};
 use super::components::{compact_setup_row, setup_action_button, SetupButtonTone};
 use super::models::alternative_models_detail;
 use crate::app::MultisoulApp;
@@ -38,30 +38,37 @@ fn microphone_detail(
     state: VoiceRequirementState,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
-    compact_setup_row(
-        theme,
-        "Microphone permission",
-        "Required for voice input",
-        action_button(
+    let action = if state == VoiceRequirementState::Ready {
+        div()
+            .id("voice-setup-microphone-action")
+            .debug_selector(|| "voice-setup-microphone-action".to_string())
+            .px(px(12.0))
+            .py(px(8.0))
+            .rounded(px(8.0))
+            .bg(rgba(with_alpha(theme.accent_green, 0x18)))
+            .text_color(rgba(theme.text_primary))
+            .child("✓ Authorized")
+            .into_any_element()
+    } else {
+        setup_action_button(
             theme,
-            if state == VoiceRequirementState::Ready {
-                "Authorized"
-            } else if state == VoiceRequirementState::Failed {
+            "voice-setup-microphone-action",
+            if state == VoiceRequirementState::Failed {
                 "Open Microphone Settings"
             } else {
                 "Grant Access"
             },
-            if state == VoiceRequirementState::Ready {
-                theme.accent_green
-            } else {
-                theme.accent_blue
-            },
+            SetupButtonTone::Accent,
+            cx,
+            cx.listener(MultisoulApp::on_voice_setup_request_microphone),
         )
-        .id("voice-setup-microphone-action")
-        .debug_selector(|| "voice-setup-microphone-action".to_string())
-        .when(state != VoiceRequirementState::Ready, |button| {
-            button.on_click(cx.listener(MultisoulApp::on_voice_setup_request_microphone))
-        }),
+        .into_any_element()
+    };
+    compact_setup_row(
+        theme,
+        "Microphone permission",
+        "Required for voice input",
+        action,
     )
 }
 
@@ -77,7 +84,6 @@ fn source_selector(
         "Recognition source",
         "Choose where speech is processed",
         div()
-            .w(px(232.0))
             .flex_none()
             .flex()
             .gap(px(8.0))

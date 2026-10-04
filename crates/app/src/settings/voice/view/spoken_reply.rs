@@ -1,8 +1,10 @@
 use super::tts_provider::tts_provider_settings;
-use super::{setting_row, settings_group, with_alpha, VoiceSettingsInputs};
+use super::{setting_label, settings_group, VoiceSettingsInputs};
 use crate::app::MultisoulApp;
 use crate::settings::voice::VoiceSettingsState;
-use gpui::{div, prelude::*, px, rgba, Context, Div};
+use gpui::{div, prelude::*, px, rgba, Context, Div, KeyDownEvent};
+use std::rc::Rc;
+use ui::component::{switch::Switch, Sizable};
 use ui::Theme;
 
 pub(super) fn spoken_reply_group(
@@ -13,70 +15,82 @@ pub(super) fn spoken_reply_group(
 ) -> Div {
     settings_group(theme, "Spoken Replies")
         .child(tts_provider_settings(theme, state, inputs, cx))
+        .child(reply_preferences(theme, state, cx))
+}
+
+pub(super) fn reply_preferences(
+    theme: Theme,
+    state: &VoiceSettingsState,
+    cx: &mut Context<MultisoulApp>,
+) -> Div {
+    div()
+        .w_full()
+        .flex()
+        .flex_col()
+        .gap(px(12.0))
         .child(toggle_row(
             theme,
             "Agent task announcements",
-            "Speak the Agent name when a task completes or fails",
+            "Announce when an agent task finishes or needs attention",
             state.values().agent_task_announcements_enabled(),
             "settings-agent-task-announcements-toggle",
             cx.listener(MultisoulApp::on_voice_settings_toggle_agent_task_announcements),
         ))
         .child(toggle_row(
             theme,
-            "Voice-driven window inset",
-            "Show the shared PCM-synchronized light while speech is audible",
+            "Speech glow",
+            "Show a subtle window glow while Norma speaks",
             state.values().voice_window_inset_enabled(),
             "settings-voice-window-inset-toggle",
             cx.listener(MultisoulApp::on_voice_settings_toggle_window_inset),
         ))
 }
 
-fn toggle_row(
+pub(super) fn toggle_row(
     theme: Theme,
     title: &'static str,
     hint: &'static str,
     enabled: bool,
     selector: &'static str,
-    listener: impl Fn(&gpui::ClickEvent, &mut gpui::Window, &mut gpui::App) + 'static,
+    listener: impl Fn(&bool, &mut gpui::Window, &mut gpui::App) + 'static,
 ) -> Div {
-    setting_row(theme, title, hint).child(
-        div()
-            .id(selector)
-            .debug_selector(move || selector.to_string())
-            .w(px(54.0))
-            .h(px(30.0))
-            .rounded(px(15.0))
-            .border_1()
-            .border_color(rgba(with_alpha(
-                if enabled {
-                    theme.accent_orange
-                } else {
-                    theme.edge_highlight
-                },
-                0x70,
-            )))
-            .bg(rgba(with_alpha(
-                if enabled {
-                    theme.accent_orange
-                } else {
-                    theme.panel_high
-                },
-                if enabled { 0x44 } else { 0xa8 },
-            )))
-            .cursor_pointer()
-            .child(
-                div()
-                    .mt(px(3.0))
-                    .ml(px(if enabled { 27.0 } else { 3.0 }))
-                    .w(px(22.0))
-                    .h(px(22.0))
-                    .rounded(px(11.0))
-                    .bg(rgba(if enabled {
-                        theme.accent_orange
-                    } else {
-                        theme.text_secondary
-                    })),
-            )
-            .on_click(listener),
-    )
+    let listener = Rc::new(listener);
+    let mouse_listener = listener.clone();
+    div()
+        .w_full()
+        .flex()
+        .items_center()
+        .gap(px(16.0))
+        .py(px(6.0))
+        .child(
+            div()
+                .flex_1()
+                .min_w(px(0.0))
+                .child(setting_label(theme, title, hint)),
+        )
+        .child(
+            div()
+                .id(selector)
+                .debug_selector(move || selector.to_string())
+                .flex_none()
+                .tab_index(0)
+                .rounded(px(5.0))
+                .border_1()
+                .border_color(rgba(0x00000000))
+                .p(px(3.0))
+                .hover(move |style| style.bg(rgba(theme.panel_high)))
+                .focus(move |style| style.border_color(rgba(theme.accent_blue)))
+                .on_key_down(move |event: &KeyDownEvent, window, cx| {
+                    if matches!(event.keystroke.key.as_str(), "enter" | "space") {
+                        listener(&!enabled, window, cx);
+                        cx.stop_propagation();
+                    }
+                })
+                .child(
+                    Switch::new(selector)
+                        .small()
+                        .checked(enabled)
+                        .on_click(move |next, window, cx| mouse_listener(next, window, cx)),
+                ),
+        )
 }

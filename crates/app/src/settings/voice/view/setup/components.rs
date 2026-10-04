@@ -1,3 +1,4 @@
+use super::super::components::VoiceAction;
 use crate::app::MultisoulApp;
 use gpui::{
     div, prelude::*, px, rgba, App, ClickEvent, Context, Div, FontWeight, IntoElement,
@@ -32,7 +33,14 @@ pub(super) fn setup_action_button(
     };
     let variant = ButtonCustomVariant::new(cx)
         .color(rgba((accent & 0xffffff00) | 0x18).into())
-        .foreground(rgba(accent).into())
+        .foreground(
+            rgba(if matches!(tone, SetupButtonTone::Success) {
+                theme.text_primary
+            } else {
+                accent
+            })
+            .into(),
+        )
         .border(rgba((accent & 0xffffff00) | 0x70).into())
         .hover(rgba((accent & 0xffffff00) | 0x28).into())
         .active(rgba((accent & 0xffffff00) | 0x38).into());
@@ -41,7 +49,7 @@ pub(super) fn setup_action_button(
         .label(label)
         .compact()
         .custom(variant)
-        .on_click(handler);
+        .on_activate(handler);
     div().flex_none().child(button)
 }
 
@@ -57,6 +65,7 @@ pub(super) fn compact_setup_row(
         .w_full()
         .min_w(px(0.0))
         .flex()
+        .flex_wrap()
         .items_center()
         .justify_between()
         .gap(px(16.0))
@@ -64,7 +73,7 @@ pub(super) fn compact_setup_row(
         .child(
             div()
                 .flex_1()
-                .min_w(px(0.0))
+                .min_w(px(150.0))
                 .flex()
                 .flex_col()
                 .gap(px(3.0))

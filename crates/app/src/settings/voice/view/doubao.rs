@@ -1,10 +1,12 @@
-use super::{settings_group, VoiceSettingsInputs};
+use super::components::VoiceAction;
+use super::{settings_group, with_alpha, VoiceSettingsInputs};
 use crate::app::MultisoulApp;
 use crate::settings::voice::{
     DesktopVoiceMode, VoiceRequirement, VoiceRequirementState, VoiceSettingsField,
     VoiceSettingsState,
 };
-use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight};
+use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight, Stateful};
+use ui::component::button::{Button, ButtonCustomVariant, ButtonVariants};
 use ui::Theme;
 
 pub(super) fn desktop_mode_picker(
@@ -13,51 +15,138 @@ pub(super) fn desktop_mode_picker(
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     let mode = state.values().desktop_mode();
-    settings_group(theme, "Voice Mode").child(
-        div()
-            .flex()
-            .gap(px(8.0))
-            .child(
-                super::interaction::mode_option(
+    div()
+        .w_full()
+        .flex()
+        .flex_col()
+        .gap(px(10.0))
+        .child(
+            div()
+                .text_size(px(14.0))
+                .font_weight(FontWeight::SEMIBOLD)
+                .text_color(rgba(theme.text_primary))
+                .child("Conversation mode"),
+        )
+        .child(
+            div()
+                .w_full()
+                .flex()
+                .flex_wrap()
+                .gap(px(12.0))
+                .child(mode_card(
                     theme,
-                    "Voice Commands",
+                    DesktopVoiceMode::Legacy,
                     mode == DesktopVoiceMode::Legacy,
-                )
-                .id("settings-voice-desktop-mode-legacy")
-                .debug_selector(|| "settings-voice-desktop-mode-legacy".to_string())
-                .on_click(cx.listener(|app, _, _, cx| {
-                    app.stop_doubao_voice(cx);
-                    app.voice_settings
-                        .select_desktop_mode(DesktopVoiceMode::Legacy);
-                    app.persist_voice_settings_in_background(cx);
-                    cx.notify();
-                })),
-            )
-            .child(
-                super::interaction::mode_option(
+                    cx,
+                ))
+                .child(mode_card(
                     theme,
-                    "Doubao 2.0 Voice",
+                    DesktopVoiceMode::Doubao,
                     mode == DesktopVoiceMode::Doubao,
+                    cx,
+                )),
+        )
+}
+
+fn mode_card(
+    theme: Theme,
+    mode: DesktopVoiceMode,
+    selected: bool,
+    cx: &Context<MultisoulApp>,
+) -> Stateful<Div> {
+    let (selector, title, hint) = match mode {
+        DesktopVoiceMode::Legacy => (
+            "settings-voice-desktop-mode-legacy",
+            "Voice Commands",
+            "Give a voice command or listen continuously.",
+        ),
+        DesktopVoiceMode::Doubao => (
+            "settings-voice-desktop-mode-doubao",
+            "Doubao 2.0 Voice",
+            "Have a real-time conversation with Norma.",
+        ),
+    };
+    let variant = ButtonCustomVariant::new(cx)
+        .color(
+            rgba(if selected {
+                with_alpha(theme.accent_blue, 0x16)
+            } else {
+                theme.panel_high
+            })
+            .into(),
+        )
+        .foreground(rgba(theme.text_primary).into())
+        .border(
+            rgba(with_alpha(
+                if selected {
+                    theme.accent_blue
+                } else {
+                    theme.text_secondary
+                },
+                if selected { 0x80 } else { 0x25 },
+            ))
+            .into(),
+        )
+        .hover(rgba(with_alpha(theme.accent_blue, 0x25)).into())
+        .active(rgba(with_alpha(theme.accent_blue, 0x38)).into());
+    div()
+        .id(selector)
+        .debug_selector(move || selector.to_string())
+        .flex_1()
+        .min_w(px(230.0))
+        .child(
+            Button::new(selector)
+                .custom(variant)
+                .w_full()
+                .h(px(88.0))
+                .justify_start()
+                .child(
+                    div()
+                        .w_full()
+                        .flex()
+                        .flex_col()
+                        .gap(px(6.0))
+                        .child(
+                            div()
+                                .flex()
+                                .items_center()
+                                .justify_between()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child(title)
+                                .child(
+                                    div()
+                                        .text_color(rgba(theme.accent_blue))
+                                        .child(if selected { "✓" } else { "" }),
+                                ),
+                        )
+                        .child(
+                            div()
+                                .whitespace_normal()
+                                .text_size(px(12.0))
+                                .text_color(rgba(theme.text_secondary))
+                                .child(hint),
+                        ),
                 )
-                .id("settings-voice-desktop-mode-doubao")
-                .debug_selector(|| "settings-voice-desktop-mode-doubao".to_string())
-                .on_click(cx.listener(|app, _, _, cx| {
-                    app.stop_continuous_listening(cx);
-                    app.voice.stop_for_model_switch();
-                    app.cancel_agent_announcements();
-                    app.voice_settings
-                        .select_desktop_mode(DesktopVoiceMode::Doubao);
+                .on_activate(cx.listener(move |app, _, _, cx| {
+                    if mode == DesktopVoiceMode::Legacy {
+                        app.stop_doubao_voice(cx);
+                    } else {
+                        app.stop_continuous_listening(cx);
+                        app.voice.stop_for_model_switch();
+                        app.cancel_agent_announcements();
+                    }
+                    app.voice_settings.select_desktop_mode(mode);
                     app.persist_voice_settings_in_background(cx);
                     cx.notify();
                 })),
-            ),
-    )
+        )
 }
 
 pub(super) fn doubao_settings(
     theme: Theme,
     state: &VoiceSettingsState,
     inputs: &VoiceSettingsInputs,
+    voice_shortcut_label: &str,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     let configured = state.values().doubao_credential_ref().is_some();
@@ -171,7 +260,7 @@ pub(super) fn doubao_settings(
                         .text_size(px(12.0))
                         .font_weight(FontWeight::MEDIUM)
                         .text_color(rgba(theme.text_secondary))
-                        .child("Uses the macOS system input and output devices. Press ⌘E to start or end the call."),
+                        .child(format!("Uses macOS system input and output. Press {voice_shortcut_label} to start or end the call.")),
                 ),
         )
 }

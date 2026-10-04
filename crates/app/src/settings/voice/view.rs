@@ -1,3 +1,4 @@
+mod diagnostics;
 use self::asr_provider::asr_provider_group;
 use self::doubao::{desktop_mode_picker, doubao_settings};
 pub(crate) use self::editable::VoiceSettingsInputs;
@@ -5,12 +6,13 @@ use self::input_device::input_device_row;
 use self::interaction::interaction_group;
 use self::model_catalog::model_catalog_row;
 use self::provider::{agent_provider_advanced_rows, agent_provider_group};
-use self::ready::voice_ready_overview;
+use self::ready::{voice_ready_overview, voice_status_overview};
 use self::setup::voice_setup;
 use self::spoken_reply::spoken_reply_group;
 use self::status::status_message;
-use super::state::{VoiceSettingsField, VoiceSettingsState, VoiceSetupDestination};
+use super::state::{VoiceSettingsState, VoiceSetupDestination};
 use crate::app::MultisoulApp;
+use diagnostics::trace_row;
 use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, FontWeight, Window};
 use ui::Theme;
 
@@ -30,7 +32,7 @@ mod status;
 mod tts_catalog;
 mod tts_provider;
 
-pub(super) use components::action_button;
+pub(super) use components::{action_button, text_setting_row};
 pub(crate) use options::VoiceSettingsView;
 
 pub(crate) fn voice_settings(
@@ -46,24 +48,33 @@ pub(crate) fn voice_settings(
         setup_scroll_target,
         voice_shortcut_label,
     } = view;
-    let picker = desktop_mode_picker(theme, state, cx);
+    let page = div()
+        .w_full()
+        .max_w(px(920.0))
+        .min_w(px(0.0))
+        .flex()
+        .flex_col()
+        .gap(px(20.0))
+        .child(desktop_mode_picker(theme, state, cx))
+        .child(voice_status_overview(
+            theme,
+            state,
+            voice_shortcut_label,
+            cx,
+        ));
     if state.values().desktop_mode() == super::DesktopVoiceMode::Doubao {
-        return div()
-            .w_full()
-            .flex()
-            .flex_col()
-            .gap(px(20.0))
-            .child(picker)
-            .child(doubao_settings(theme, state, inputs, cx))
+        return page
+            .child(doubao_settings(
+                theme,
+                state,
+                inputs,
+                voice_shortcut_label,
+                cx,
+            ))
             .children(status_message(theme, state));
     }
     if !matches!(state.readiness(), super::VoiceEntryState::Ready) || state.reviewing_setup() {
-        return div()
-            .w_full()
-            .flex()
-            .flex_col()
-            .gap(px(20.0))
-            .child(picker)
+        return page
             .child(voice_setup(
                 theme,
                 state,
@@ -75,14 +86,7 @@ pub(crate) fn voice_settings(
             ))
             .children(status_message(theme, state));
     }
-    div()
-        .w_full()
-        .min_w(px(0.0))
-        .flex()
-        .flex_col()
-        .gap(px(20.0))
-        .child(picker)
-        .child(voice_ready_overview(theme, voice_shortcut_label, cx))
+    page.child(voice_ready_overview(theme, voice_shortcut_label, cx))
         .child(interaction_group(theme, state, voice_shortcut_label, cx))
         .child(settings_group(theme, "Input").child(input_device_row(theme, state, cx)))
         .child(spoken_reply_group(theme, state, inputs, cx))
@@ -227,7 +231,7 @@ impl MultisoulApp {
 
     pub(crate) fn on_voice_settings_toggle_agent_task_announcements(
         &mut self,
-        _: &ClickEvent,
+        _: &bool,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -245,7 +249,7 @@ impl MultisoulApp {
 
     pub(crate) fn on_voice_settings_toggle_window_inset(
         &mut self,
-        _: &ClickEvent,
+        _: &bool,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -385,79 +389,18 @@ pub(super) fn settings_group(theme: Theme, title: &'static str) -> Div {
         .flex()
         .flex_col()
         .gap(px(12.0))
-        .p(px(16.0))
-        .rounded(px(14.0))
+        .p(px(20.0))
+        .rounded(px(12.0))
         .border_1()
-        .border_color(rgba(with_alpha(theme.text_primary, 0x24)))
-        .bg(rgba(with_alpha(theme.text_primary, 0x08)))
+        .border_color(rgba(with_alpha(theme.text_primary, 0x18)))
+        .bg(rgba(theme.panel_high))
         .child(
             div()
-                .text_size(px(14.0))
-                .font_weight(FontWeight::BOLD)
+                .text_size(px(16.0))
+                .font_weight(FontWeight::SEMIBOLD)
                 .text_color(rgba(theme.text_primary))
                 .child(title),
         )
-}
-
-pub(super) fn text_setting_row(
-    theme: Theme,
-    inputs: &VoiceSettingsInputs,
-    field: VoiceSettingsField,
-    title: &'static str,
-    hint: &'static str,
-    cx: &mut Context<MultisoulApp>,
-) -> Div {
-    let _ = cx;
-    setting_row(theme, title, hint).child(inputs.input(field))
-}
-
-fn trace_row(theme: Theme, state: &VoiceSettingsState, cx: &mut Context<MultisoulApp>) -> Div {
-    let enabled = state.values().trace_enabled();
-    setting_row(
-        theme,
-        "Full prompt/response trace",
-        "Logs complete voice prompts and model responses; may include spoken content",
-    )
-    .child(
-        div()
-            .id("settings-voice-trace-toggle")
-            .debug_selector(|| "settings-voice-trace-toggle".to_string())
-            .w(px(54.0))
-            .h(px(30.0))
-            .rounded(px(15.0))
-            .border_1()
-            .border_color(rgba(with_alpha(
-                if enabled {
-                    theme.accent_orange
-                } else {
-                    theme.edge_highlight
-                },
-                0x70,
-            )))
-            .bg(rgba(with_alpha(
-                if enabled {
-                    theme.accent_orange
-                } else {
-                    theme.panel_high
-                },
-                if enabled { 0x44 } else { 0xa8 },
-            )))
-            .cursor_pointer()
-            .child(
-                div()
-                    .mt(px(3.0))
-                    .ml(px(if enabled { 27.0 } else { 3.0 }))
-                    .w(px(22.0))
-                    .h(px(22.0))
-                    .rounded(px(11.0))
-                    .bg(rgba(if enabled {
-                        theme.accent_orange
-                    } else {
-                        theme.text_secondary
-                    })),
-            )
-            .on_click(cx.listener(MultisoulApp::on_voice_settings_toggle_trace)),
-    )
 }
 
 pub(super) fn setting_row(theme: Theme, title: &'static str, hint: &'static str) -> Div {
@@ -482,7 +425,7 @@ pub(super) fn setting_label(theme: Theme, title: &'static str, hint: &'static st
         .child(
             div()
                 .text_size(px(14.0))
-                .font_weight(FontWeight::BOLD)
+                .font_weight(FontWeight::MEDIUM)
                 .text_color(rgba(theme.text_primary))
                 .child(title),
         )
