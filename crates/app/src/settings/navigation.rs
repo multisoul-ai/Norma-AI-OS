@@ -169,9 +169,9 @@ const AUTOMATION_SECTIONS: &[SettingsSection] = &[
 ];
 
 const NORMA_SECTIONS: &[SettingsSection] = &[
+    SettingsSection::NormaPersona,
     SettingsSection::NormaMemory,
     SettingsSection::NormaVoice,
-    SettingsSection::NormaPersona,
 ];
 
 const NAVIGATION_GROUPS: [(&str, &[SettingsSection]); 4] = [

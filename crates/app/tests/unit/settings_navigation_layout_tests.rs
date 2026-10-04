@@ -64,9 +64,9 @@ fn sidebar_navigation_items_use_canonical_thirty_nine_pixel_height() {
     );
 }
 
-/// Norma 位于设置最前面，记忆、语音、人设是可直接导航的三个页面。
+/// Norma 位于设置最前面，人设优先，记忆与语音随后且均可直接导航。
 ///
-/// 数据构造：读取生产导航分组；Norma 子页面数 = 记忆(1)+语音(1)+人设(1)=3。
+/// 数据构造：读取生产导航分组；Norma 子页面数 = 人设(1)+记忆(1)+语音(1)=3。
 /// 执行过程：取第一个分组及页面标题，再检查其他导航组。
 /// 预期结果：首组为 Norma 且顺序明确；AI 与输入分组没有重复的 Norma 入口。
 #[test]
@@ -78,8 +78,8 @@ fn norma_is_the_first_group_with_three_direct_destinations() {
             .iter()
             .map(|section| section.title())
             .collect::<Vec<_>>(),
-        ["Memory", "Voice", "Persona"],
-        "三个页面必须分别直达，不能继续在同一 Norma 页面内切标签"
+        ["Persona", "Memory", "Voice"],
+        "英文子菜单必须以 Persona 开始，随后是 Memory 与 Voice"
     );
     assert!(
         !super::AUTOMATION_SECTIONS

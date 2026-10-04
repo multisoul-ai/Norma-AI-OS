@@ -64,8 +64,8 @@ fn persona_settings_survive_reload_and_invalid_save_preserves_previous_value() {
 /// 三个 Norma 导航直接切页，切页保留人设草稿，关闭会返回草稿并阻止丢失。
 ///
 /// 数据构造：1280×800px 桌面窗口与隔离数据库；人设默认暖心，草稿改为专业。
-/// 执行过程：打开设置→点击人设→修改→点击记忆→尝试关闭→保存人设→关闭。
-/// 预期结果：页内旧标签不存在；导航直达；操作与关闭提示可见；保存前无法关闭，保存后允许关闭。
+/// 执行过程：打开默认人设→点击记忆→返回人设→修改→点击记忆→尝试关闭→保存人设→关闭。
+/// 预期结果：默认人设可见且记忆未渲染；页内旧标签不存在；导航直达；保存前无法关闭，保存后允许关闭。
 #[test]
 fn persona_navigation_preserves_draft_and_close_requires_resolution() {
     use crate::{app::MultisoulApp, settings::panel::SettingsSection};
@@ -87,12 +87,26 @@ fn persona_navigation_preserves_draft_and_close_requires_resolution() {
     cx.run_until_parked();
     cx.update(|window, cx| window.draw(cx).clear());
     assert!(
-        cx.debug_bounds("norma-memory").is_some(),
-        "默认必须直接展示记忆页面"
+        cx.debug_bounds("norma-persona").is_some(),
+        "默认必须直接展示排在最前的人设页面"
+    );
+    assert!(
+        cx.debug_bounds("norma-memory").is_none(),
+        "默认人设页不应同时渲染记忆内容"
     );
     assert!(
         cx.debug_bounds("norma-tab-false").is_none(),
         "不应继续保留页内记忆标签"
+    );
+    let memory_destination = cx
+        .debug_bounds("settings-section-norma-memory")
+        .expect("应显示独立记忆子菜单");
+    cx.simulate_click(memory_destination.center(), Modifiers::none());
+    cx.run_until_parked();
+    cx.update(|window, cx| window.draw(cx).clear());
+    assert!(
+        cx.debug_bounds("norma-memory").is_some(),
+        "点击 Memory 后应直接展示记忆内容"
     );
     let destination = cx
         .debug_bounds("settings-section-norma-persona")

@@ -125,7 +125,7 @@ impl Default for SettingsPanelState {
     fn default() -> Self {
         Self {
             open: false,
-            active_section: SettingsSection::NormaMemory,
+            active_section: SettingsSection::NormaPersona,
             codex_hook_status: HookInstallStatus::default(),
             claude_hook_status: HookInstallStatus::default(),
             cursor_hook_status: HookInstallStatus::default(),

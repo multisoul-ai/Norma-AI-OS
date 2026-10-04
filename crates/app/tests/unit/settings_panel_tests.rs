@@ -1,21 +1,21 @@
 use super::*;
 
-/// 设置面板默认态：新建状态应关闭，并把 NormaMemory 作为首次打开的可配置分组。
+/// 设置面板默认态：新建状态应关闭，并把 NormaPersona 作为首次打开的可配置分组。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   initial open = false（启动后不应遮挡画布）
 ///   visible section count = 10（Norma 3 项 + 外观 3 项 + 输入 1 项 + 智能体/连接 3 项）
 ///   hidden mock count = 2（Runtime / Skills，不应作为首次页面）
-///   default section = NormaMemory（Norma 中首个已实现的可配置页面）
+///   default section = NormaPersona（Norma 中排列最前的人设页面）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 调用 SettingsPanelState::default() 构造初始状态
 ///   2. 读取 open 与 active_section
-///   3. 确认默认分组不是 Wallpaper，证明记忆是首次打开的 Norma 入口
+///   3. 确认默认分组不是 NormaMemory 或 Wallpaper，证明人设是首次打开的 Norma 入口
 ///
 /// 预期结果：
-///   - 正断言：open 为 false，active_section 为 NormaMemory
-///   - 负断言：active_section 不应为 Wallpaper
+///   - 正断言：open 为 false，active_section 为 NormaPersona
+///   - 负断言：active_section 不应为 NormaMemory 或 Wallpaper
 #[test]
 fn test_settings_panel_defaults_closed_on_first_visible_section() {
     let panel = SettingsPanelState::default();
@@ -26,13 +26,18 @@ fn test_settings_panel_defaults_closed_on_first_visible_section() {
     );
     assert_eq!(
         panel.active_section,
+        SettingsSection::NormaPersona,
+        "设置面板首次打开必须展示排列最前的 Persona 页面"
+    );
+    assert_ne!(
+        panel.active_section,
         SettingsSection::NormaMemory,
-        "设置面板默认分组应是首个可配置的 NormaMemory 页面"
+        "人设排在最前后，首次打开不应继续落到 Memory"
     );
     assert_ne!(
         panel.active_section,
         SettingsSection::Wallpaper,
-        "NormaMemory 已实现后，首次打开不应继续落到 Wallpaper"
+        "Norma 位于最前时，首次打开不应落到 Wallpaper"
     );
 }
 

@@ -2,7 +2,7 @@
 
 ## 设计依据
 
-用户要求 Norma 位于设置最前面，记忆、语音、人设分别作为子菜单；设置导航与页面标题使用英文。
+用户要求 Norma 位于设置最前面，人设、记忆、语音分别作为子菜单；人设排在首位并作为首次打开的默认页，设置导航与页面标题使用英文。
 
 已阅读 Google 官方 [Ten things we know to be true](https://about.google/company-info/philosophy/)，主要采纳：
 
@@ -17,9 +17,9 @@
 ```text
 Settings
   Norma
+    Persona
     Memory
     Voice
-    Persona
   Appearance
     Themes / Wallpaper / Performance
   Input & Controls
@@ -32,7 +32,7 @@ Settings
 | --- | --- | --- |
 | Norma 混在 AI 分组里 | 首个独立 Norma 分组 | 核心伙伴配置首先可见 |
 | 右侧页内“记忆/语音”标签 | 三个独立导航目的地 | 减少二次选择，明确当前位置 |
-| 默认展示主题 | 默认展示记忆 | 首次打开直接进入最前面的核心板块 |
+| 默认展示主题 | 默认展示人设 | 首次打开直接进入最前面的核心板块 |
 | 侧栏边框与高亮线叠加 | 单一填充选中状态与语义图标 | 减少视觉噪声，保持清晰层级 |
 | 空白人设入口 | 交流风格、表达示例、补充说明与保存 | 可操作、可理解、可恢复 |
 
@@ -53,14 +53,16 @@ Sidebar 与 CompactSidebar 保持分组导航；极窄窗口保留现有可横�
 
 | 行为 | 自动验证 | 真实 App 验收 |
 | --- | --- | --- |
-| 首组为 Norma，顺序为记忆/语音/人设 | `settings_navigation_layout_tests` | 点击三个子菜单确认直达 |
-| 默认记忆与语音长页滚动 | panel default 与 `settings_norma_scroll_tests` | 语音页面滚动到声音配置 |
+| 首组为 Norma，顺序为人设/记忆/语音 | `settings_navigation_layout_tests` | 点击三个英文子菜单确认直达 |
+| 默认人设与语音长页滚动 | panel default、Persona 导航与 `settings_norma_scroll_tests` | 首次打开人设，语音页面滚动到声音配置 |
 | 人设保存后重载、非法输入不覆盖 | `settings_persona_tests` | 输入说明、保存、重启查看 |
 | 草稿跨页保留、关闭保护 | Persona 导航布局测试 | 改风格→切记忆→关闭→继续/放弃 |
 | 人设与记忆开关独立 | Agent 真实 HTTP 集成测试 | 配置保存状态与读取开关分别显示 |
 | 字符上限与表达边界 | `agent::persona` 单元测试 | 超限禁用保存与就近错误提示 |
 
 ## 实际验收记录
+
+以下为首次改版记录，当时顺序为 Memory / Voice / Persona；人设优先调整的验收另列于后，不以旧截图证明新顺序。
 
 2026-10-04，通过 `cua_repl` 操作真实 `Norma OS Dev.app`。使用隔离数据库 `/tmp/norma-settings-redesign-20261004`，不覆盖用户配置；窗口为 1280×800px，Retina 截图为 2560×1600px。
 
@@ -78,6 +80,15 @@ Sidebar 与 CompactSidebar 保持分组导航；极窄窗口保留现有可横�
 - `cargo test -p app --lib settings:: -- --test-threads=1`：191 通过。
 - `cargo check -p app`、受影响生产代码 Clippy、`cargo build -p app --release` 通过。
 - 最新 App 全量测试：890 通过、2 失败、7 忽略。失败位于其他桌面布局改动：`project_layout_ignores_content_changes_and_respects_reduced_motion`、`project_reflow_is_interruptible_and_keeps_project_identity`。未修改这两个测试所属的并发工作。
+
+### 人设优先调整
+
+2026-10-04，按用户最新要求把导航改为 Persona / Memory / Voice，首次打开默认进入 Persona。三个响应式导航模式共用同一排序，沿用现有清晰层级、选中反馈与直接操作，不新增控件或动画。
+
+- 先修改导航顺序测试，旧实现因 Memory / Voice / Persona 顺序失败，再修改共享导航数组与默认页。
+- `cargo test -p app --lib settings:: -- --test-threads=1`：191 通过；桌面设置遮罩聚焦测试：1 通过；`cargo check -p app`、`cargo build -p app --release` 与格式、行数、禁止 allow 和指南长度检查通过。
+- 通过 `cua_repl` 操作新启动的真实 Dev App，在已有 Workspace 1 展开 norma-ai-os，首次打开设置直接显示 Persona；点击 Memory、Voice 再返回 Persona，页面标题与选中菜单保持一致。
+- 新顺序截图：`/Users/alan/.codex/visualizations/2026/10/04/norma-settings-redesign/persona-first.png`。验收后 App 保持在 Persona 页面。
 
 ## 代码审查
 
