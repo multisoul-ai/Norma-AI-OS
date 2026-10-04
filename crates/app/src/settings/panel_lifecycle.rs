@@ -7,6 +7,42 @@ use crate::settings::voice::VoiceRequirementState;
 use gpui::{ClickEvent, Context, Window};
 
 impl MultisoulApp {
+    pub(crate) fn select_settings_section(
+        &mut self,
+        section: SettingsSection,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.settings_panel.active_section == SettingsSection::NormaVoice
+            && section != SettingsSection::NormaVoice
+        {
+            self.finish_voice_settings_inputs(cx);
+        }
+        self.settings_panel.select(section);
+        self.settings_viewport
+            .content_scroll
+            .set_offset(gpui::point(gpui::px(0.0), gpui::px(0.0)));
+        if section == SettingsSection::NormaVoice {
+            self.refresh_asr_model_states(cx);
+            self.refresh_tts_model_states(cx);
+            self.refresh_voice_microphone_requirement(cx);
+        }
+        if section == SettingsSection::Mobile {
+            self.mobile.update(cx, |host, cx| {
+                host.request(crate::mobile::controller::Command::Reload, cx)
+            });
+        }
+        if section == SettingsSection::Orchestration {
+            self.reconcile_orchestration_integrations(cx);
+        }
+        if section == SettingsSection::NormaMemory {
+            self.ensure_norma_memory(window, cx);
+        }
+        if section == SettingsSection::NormaPersona {
+            self.ensure_norma_persona(window, cx);
+        }
+        cx.notify();
+    }
     pub(crate) fn on_toolbar_settings(
         &mut self,
         _: &ClickEvent,
@@ -94,10 +130,22 @@ impl MultisoulApp {
     fn settings_blocks_close(&mut self, cx: &mut Context<Self>) -> bool {
         if let Some(memory) = &self.norma_memory {
             if memory.read(cx).is_dirty(cx) {
-                self.settings_panel.select(SettingsSection::Norma);
-                self.settings_panel.norma_voice = false;
+                self.settings_panel.select(SettingsSection::NormaMemory);
                 memory.update(cx, |memory, cx| {
                     memory.close_prompt = true;
+                    cx.notify();
+                });
+                return true;
+            }
+        }
+        if let Some(persona) = &self.norma_persona {
+            if persona.read(cx).is_dirty(cx) {
+                self.settings_panel.select(SettingsSection::NormaPersona);
+                self.settings_viewport
+                    .content_scroll
+                    .set_offset(gpui::point(gpui::px(0.0), gpui::px(0.0)));
+                persona.update(cx, |view, cx| {
+                    view.close_prompt = true;
                     cx.notify();
                 });
                 return true;
@@ -116,8 +164,7 @@ impl MultisoulApp {
     pub(crate) fn open_voice_settings(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.settings_panel.open();
         self.sync_feature_guide_blockers(cx);
-        self.settings_panel.select(SettingsSection::Norma);
-        self.settings_panel.norma_voice = true;
+        self.settings_panel.select(SettingsSection::NormaVoice);
         self.focus_handle.focus(window);
         self.refresh_asr_model_states(cx);
         self.refresh_tts_model_states(cx);

@@ -88,6 +88,7 @@ impl Default for MemoryPreferences {
 
 #[derive(Clone, Debug, Default)]
 pub struct MemorySessionContext {
+    pub persona: crate::NormaPersona,
     pub recall_epoch: u64,
     pub catalog: String,
     pub preferences: MemoryPreferences,

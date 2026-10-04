@@ -6,7 +6,7 @@ use crate::rig_tools::{
     FindAgentTasksTool, FocusCardTool, ReplyAgentTool, RigToolContext, SendTerminalInputTool,
 };
 use crate::{
-    norma_system_prompt, AgentCardAdapter, AgentRosterEntry, CurrentCanvasContext,
+    norma_system_prompt_base, AgentCardAdapter, AgentRosterEntry, CurrentCanvasContext,
     NormaToolRuntime, ProviderConfig, ProviderProtocol, ToolContext,
 };
 use futures::StreamExt;

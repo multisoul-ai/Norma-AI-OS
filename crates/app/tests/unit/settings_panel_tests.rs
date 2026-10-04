@@ -1,20 +1,20 @@
 use super::*;
 
-/// 设置面板默认态：新建状态应关闭，并把 Themes 作为首次打开的可配置分组。
+/// 设置面板默认态：新建状态应关闭，并把 NormaMemory 作为首次打开的可配置分组。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   initial open = false（启动后不应遮挡画布）
-///   visible section count = 7（Themes / Wallpaper / Performance / Keyboard / Voice / Agents / Orchestration）
+///   visible section count = 10（Norma 3 项 + 外观 3 项 + 输入 1 项 + 智能体/连接 3 项）
 ///   hidden mock count = 2（Runtime / Skills，不应作为首次页面）
-///   default section = Themes（Appearance 中首个已实现的可配置页面）
+///   default section = NormaMemory（Norma 中首个已实现的可配置页面）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 调用 SettingsPanelState::default() 构造初始状态
 ///   2. 读取 open 与 active_section
-///   3. 确认默认分组不是 Wallpaper，证明主题切换是首个 Appearance 入口
+///   3. 确认默认分组不是 Wallpaper，证明记忆是首次打开的 Norma 入口
 ///
 /// 预期结果：
-///   - 正断言：open 为 false，active_section 为 Themes
+///   - 正断言：open 为 false，active_section 为 NormaMemory
 ///   - 负断言：active_section 不应为 Wallpaper
 #[test]
 fn test_settings_panel_defaults_closed_on_first_visible_section() {
@@ -26,13 +26,13 @@ fn test_settings_panel_defaults_closed_on_first_visible_section() {
     );
     assert_eq!(
         panel.active_section,
-        SettingsSection::Themes,
-        "设置面板默认分组应是首个可配置的 Themes 页面"
+        SettingsSection::NormaMemory,
+        "设置面板默认分组应是首个可配置的 NormaMemory 页面"
     );
     assert_ne!(
         panel.active_section,
         SettingsSection::Wallpaper,
-        "Themes 已实现后，首次打开不应继续落到 Wallpaper"
+        "NormaMemory 已实现后，首次打开不应继续落到 Wallpaper"
     );
 }
 
@@ -302,10 +302,10 @@ fn test_settings_panel_selects_sections_without_closing() {
     );
     assert!(panel.open, "选择 Runtime 不应关闭设置弹窗");
 
-    panel.select(SettingsSection::Norma);
+    panel.select(SettingsSection::NormaMemory);
     assert_eq!(
         panel.active_section,
-        SettingsSection::Norma,
+        SettingsSection::NormaMemory,
         "选择 Voice 后右侧内容应切到 Voice 分组"
     );
     assert!(panel.open, "选择 Voice 不应关闭设置弹窗");
@@ -355,7 +355,7 @@ fn test_settings_sidebar_exposes_only_implemented_configuration_pages() {
     let visible_sections = [
         "SettingsSection::Themes",
         "SettingsSection::Keyboard",
-        "SettingsSection::Norma",
+        "SettingsSection::NormaMemory",
         "SettingsSection::Agents",
         "SettingsSection::Orchestration",
         "SettingsSection::Wallpaper",
@@ -391,9 +391,10 @@ fn test_settings_sidebar_exposes_only_implemented_configuration_pages() {
 #[test]
 fn test_settings_has_wallpaper_section() {
     let src = format!(
-        "{}{}{}",
+        "{}{}{}{}",
         include_str!("../../src/settings/panel.rs"),
         include_str!("../../src/settings/content.rs"),
+        include_str!("../../src/settings/navigation.rs"),
         include_str!("../../src/settings/wallpaper.rs")
     );
     let required = [
@@ -432,9 +433,10 @@ fn test_settings_has_wallpaper_section() {
 #[test]
 fn test_settings_footer_owns_the_only_update_entry() {
     let source = format!(
-        "{}{}{}",
+        "{}{}{}{}",
         include_str!("../../src/settings/mod.rs"),
         include_str!("../../src/settings/navigation.rs"),
+        include_str!("../../src/settings/navigation/brand.rs"),
         include_str!("../../src/settings/content.rs")
     );
 

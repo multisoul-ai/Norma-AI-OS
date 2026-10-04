@@ -1,5 +1,4 @@
 use super::{canonical_navigation_item_height, canonical_sidebar_group_spacing};
-use crate::settings::panel::SettingsSection;
 
 /// Canonical Sidebar 组节奏：三组导航不得逐组累积偏离 golden。
 ///
@@ -65,24 +64,33 @@ fn sidebar_navigation_items_use_canonical_thirty_nine_pixel_height() {
     );
 }
 
-/// Norma 是独立设置入口，Voice 内容收敛在其语音分区。
+/// Norma 位于设置最前面，记忆、语音、人设是可直接导航的三个页面。
 ///
-/// 数据构造：使用真实 SettingsSection 元数据，无模拟页面。
-/// 执行过程：取得 Norma 标题与所有侧栏分组。
-/// 预期结果：标题为 Norma；AI 分组包含 Norma，输入分组不含 Norma。
+/// 数据构造：读取生产导航分组；Norma 子页面数 = 记忆(1)+语音(1)+人设(1)=3。
+/// 执行过程：取第一个分组及页面标题，再检查其他导航组。
+/// 预期结果：首组为 Norma 且顺序明确；AI 与输入分组没有重复的 Norma 入口。
 #[test]
-fn norma_is_an_ai_settings_section() {
+fn norma_is_the_first_group_with_three_direct_destinations() {
+    let (title, sections) = super::NAVIGATION_GROUPS[0];
+    assert_eq!(title, "Norma", "首次查看设置时必须首先看到独立 Norma 板块");
     assert_eq!(
-        SettingsSection::Norma.title(),
-        "Norma",
-        "应显示独立 Norma 入口"
+        sections
+            .iter()
+            .map(|section| section.title())
+            .collect::<Vec<_>>(),
+        ["Memory", "Voice", "Persona"],
+        "三个页面必须分别直达，不能继续在同一 Norma 页面内切标签"
     );
     assert!(
-        super::AUTOMATION_SECTIONS.contains(&SettingsSection::Norma),
-        "Norma 应在 AI 分组"
+        !super::AUTOMATION_SECTIONS
+            .iter()
+            .any(|section| sections.contains(section)),
+        "Norma 不应继续混在 AI & Automation 分组中"
     );
     assert!(
-        !super::INPUT_SECTIONS.contains(&SettingsSection::Norma),
-        "不能仍作为独立 Voice 输入设置"
+        !super::INPUT_SECTIONS
+            .iter()
+            .any(|section| sections.contains(section)),
+        "语音入口必须仅属于 Norma，不能重复出现在输入分组"
     );
 }

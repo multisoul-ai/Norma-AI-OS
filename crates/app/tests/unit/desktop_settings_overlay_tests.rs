@@ -5,7 +5,7 @@ use gpui::{size, AppContext, Modifiers, TestAppContext};
 ///
 /// 数据构造：一个空间、一个空项目；窗口1280×800，设置外边距32px。
 ///   中窗口700×700、窄窗口420×520；主题卡片至少190px宽，避免文字和单选按钮拥挤。
-/// 执行过程：加载并展开项目 → 点击设置 → 检查窗口遮罩 → 缩窗 → 关闭 → 重新打开并Esc。
+/// 执行过程：加载并展开项目 → 打开默认记忆页 → 点击主题 → 检查窗口遮罩 → 缩窗 → 关闭。
 /// 预期结果：遮罩覆盖整个窗口、卡片按可用宽度换行；设置不会缩到项目画布或阻挡关闭。
 #[test]
 fn desktop_settings_overlay_fits_window_and_reflows_themes() {
@@ -54,6 +54,19 @@ fn desktop_settings_overlay_fits_window_and_reflows_themes() {
         size(px(1280.0), px(800.0)),
         "遮罩必须覆盖Dock和整个窗口，不能局限于项目画布"
     );
+    assert!(
+        cx.debug_bounds("norma-memory").is_some(),
+        "展开项目中的设置也必须默认展示Norma记忆"
+    );
+    assert!(
+        cx.debug_bounds("settings-theme-paper-blue").is_none(),
+        "主题不能再作为默认目的地"
+    );
+    let themes = cx
+        .debug_bounds("settings-section-themes")
+        .expect("主题应保留独立菜单");
+    cx.simulate_click(themes.center(), Modifiers::none());
+    cx.update(|window, cx| window.draw(cx).clear());
     let wide = cx
         .debug_bounds("settings-theme-paper-blue")
         .expect("应展示浅色主题");

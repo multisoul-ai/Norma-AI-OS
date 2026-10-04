@@ -173,6 +173,7 @@ impl MultisoulApp {
             persistence: PersistenceScheduler::default(),
             settings_panel: SettingsPanelState::default(),
             norma_memory: None,
+            norma_persona: None,
             norma_memory_cache: Default::default(),
             settings_viewport: SettingsViewportState::default(),
             feature_guide,

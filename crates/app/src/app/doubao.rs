@@ -130,7 +130,7 @@ impl MultisoulApp {
             .map(|root| root.display().to_string());
         let bound_project = project_id.clone();
         let roster = self.agent_roster_for_provider();
-        let prompt = agent::norma_system_prompt(&canvas, &roster);
+        let prompt = agent::norma_system_prompt_base(&canvas, &roster);
         self.doubao.generation = self.doubao.generation.wrapping_add(1);
         let generation = self.doubao.generation;
         self.doubao.tracked_tasks.clear();

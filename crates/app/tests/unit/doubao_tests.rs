@@ -435,15 +435,15 @@ fn test_doubao_task_report_requires_terminal_state() {
 
 /// DB-1：方舟 Chat 2.0 使用现有 Norma 人设和工具声明。
 ///
-/// 数据构造（含关键数值的推导过程）：一个项目上下文、一个用户消息；
+/// 数据构造（含关键数值的推导过程）：一个项目上下文、一个用户消息、简洁人设；
 /// 工具列表来自现有 Norma 工具定义，不能是空列表。
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 从现有提示词组装入口生成当前项目人设。
+///   1. 从共享固定提示词组装入口生成当前项目规则，再添加当前简洁人设。
 ///   2. 构造方舟 Chat 请求，并检查模型、上下文与工具。
 ///
 /// 预期结果：人设及项目进入 system 消息；工具按方舟函数格式声明；
-/// 请求中不包含已废弃的 Seeduplex 3.0 session.create 事件。
+/// 请求中不包含暖心格式禁令或已废弃的 Seeduplex 3.0 session.create 事件。
 #[test]
 fn test_doubao_plan_chat_reuses_norma_prompt_and_tools() {
     let context = agent::CurrentCanvasContext {
@@ -453,7 +453,14 @@ fn test_doubao_plan_chat_reuses_norma_prompt_and_tools() {
         cards: Vec::new(),
         conversation_tails: Vec::new(),
     };
-    let prompt = agent::norma_system_prompt(&context, &[]);
+    let mut prompt = agent::norma_system_prompt_base(&context, &[]);
+    prompt.push_str(
+        &agent::NormaPersona {
+            tone: agent::PersonaTone::Concise,
+            ..Default::default()
+        }
+        .prompt(),
+    );
     let body = plan::chat::request_body(&prompt, &[json!({"role":"user","content":"你好"})], true);
     assert_eq!(body["model"], "doubao-seed-2.0-mini", "应调用方舟 2.0 模型");
     assert!(
@@ -463,6 +470,18 @@ fn test_doubao_plan_chat_reuses_norma_prompt_and_tools() {
                 |text| text.contains("Norma Master Agent") && text.contains("spec-workspace")
             ),
         "应复用完整人设与项目上下文"
+    );
+    let system = body["messages"][0]["content"]
+        .as_str()
+        .expect("应有最终 system 提示词");
+    assert!(system.contains("简洁直接"), "方舟请求应使用当前简洁人设");
+    assert!(
+        !system.contains("语气柔软、自然、口语化"),
+        "方舟请求不应混入未选择的暖心人设"
+    );
+    assert!(
+        !system.contains("不使用 Markdown"),
+        "方舟请求不应保留暖心人设的格式禁令"
     );
     assert!(
         body["tools"].as_array().is_some_and(|items| items

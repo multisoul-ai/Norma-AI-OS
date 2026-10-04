@@ -40,6 +40,7 @@ impl Render for MemoryView {
         let theme = self.theme;
         div()
             .id("norma-memory")
+            .debug_selector(|| "norma-memory".into())
             .size_full()
             .min_h(px(0.0))
             .flex()
@@ -52,7 +53,9 @@ impl Render for MemoryView {
                     .flex()
                     .gap_6()
                     .flex_none()
-                    .py_2()
+                    .p_4()
+                    .rounded(px(12.0))
+                    .bg(rgba(theme.panel_high))
                     .child(self.preference(true, cx))
                     .child(self.preference(false, cx)),
             )
@@ -185,9 +188,9 @@ impl Render for MemoryView {
 impl MemoryView {
     fn preference(&self, recall: bool, cx: &mut Context<Self>) -> gpui::Div {
         let (label, description, checked) = if recall {
-            ("使用记忆", "按需读取相关内容", self.preferences.recall)
+            ("使用记忆", "交流时按需读取", self.preferences.recall)
         } else {
-            ("保存记忆", "仅在你明确要求时写入", self.preferences.save)
+            ("保存记忆", "你明确说“记住”时保存", self.preferences.save)
         };
         div()
             .flex_1()

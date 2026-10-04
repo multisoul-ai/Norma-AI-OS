@@ -10,6 +10,7 @@ use crate::settings::voice::{
 use crate::settings::wallpaper::{wallpaper_settings, PreviewCache, WallpaperSettingsState};
 use crate::shortcuts::ShortcutSettingsState;
 use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight, ScrollHandle, Window};
+use ui::component::StyledExt;
 use ui::{Theme, ThemeId};
 
 mod keyboard;
@@ -40,6 +41,7 @@ pub(super) struct SettingsContentContext<'a> {
     pub(super) wallpaper_previews: &'a mut PreviewCache,
     pub(super) shortcuts: &'a ShortcutSettingsState,
     pub(super) memory: gpui::Entity<crate::settings::norma::MemoryView>,
+    pub(super) persona: gpui::Entity<crate::settings::norma::persona::PersonaView>,
     pub(super) mobile: gpui::Entity<crate::mobile::controller::MobileController>,
 }
 
@@ -67,6 +69,7 @@ pub(super) fn settings_content(
         shortcuts,
         mobile,
         memory,
+        persona,
     } = content;
     let compact = width < 600.0 || height < 640.0;
     let padding = if compact { 16.0 } else { 28.0 };
@@ -77,7 +80,7 @@ pub(super) fn settings_content(
         .h_full()
         .flex()
         .flex_col()
-        .bg(rgba(with_alpha(theme.panel_high, 0xd4)))
+        .bg(rgba(theme.panel))
         .child(content_header(
             theme,
             panel.active_section,
@@ -87,7 +90,7 @@ pub(super) fn settings_content(
         ))
         .child({
             let agents_section = panel.active_section == SettingsSection::Agents
-                || (panel.active_section == SettingsSection::Norma && !panel.norma_voice);
+                || panel.active_section == SettingsSection::NormaMemory;
             div()
                 .id("settings-content-scroll")
                 .debug_selector(|| "settings-content-scroll".to_string())
@@ -109,28 +112,20 @@ pub(super) fn settings_content(
                         theme_appearance(theme_id, theme, width - padding * 2.0, cx)
                     }
                     SettingsSection::Keyboard => keyboard_settings(theme, shortcuts, cx),
-                    SettingsSection::Norma => div()
-                        .when(!panel.norma_voice, |this| this.h_full().min_h(px(0.0)))
-                        .flex()
-                        .flex_col()
-                        .gap_4()
-                        .child(super::super::norma::tabs(theme, panel.norma_voice, cx))
-                        .child(if panel.norma_voice {
-                            voice_settings(
-                                crate::settings::voice::VoiceSettingsView {
-                                    theme,
-                                    state: voice.state,
-                                    inputs: voice.inputs,
-                                    content_scroll,
-                                    setup_scroll_target: voice.setup_scroll_target,
-                                    voice_shortcut_label: &shortcuts.voice_interaction_label(),
-                                },
-                                window,
-                                cx,
-                            )
-                        } else {
-                            div().flex_1().min_h(px(0.0)).child(memory)
-                        }),
+                    SettingsSection::NormaMemory => div().h_full().min_h(px(0.0)).child(memory),
+                    SettingsSection::NormaPersona => div().child(persona),
+                    SettingsSection::NormaVoice => voice_settings(
+                        crate::settings::voice::VoiceSettingsView {
+                            theme,
+                            state: voice.state,
+                            inputs: voice.inputs,
+                            content_scroll,
+                            setup_scroll_target: voice.setup_scroll_target,
+                            voice_shortcut_label: &shortcuts.voice_interaction_label(),
+                        },
+                        window,
+                        cx,
+                    ),
                     SettingsSection::Agents => agents_settings(
                         theme,
                         agent_definitions,
@@ -172,12 +167,21 @@ fn content_header(
         .flex()
         .flex_col()
         .gap(px(3.0))
+        .when(section.is_norma(), |column| {
+            column.child(
+                div()
+                    .text_size(px(11.0))
+                    .font_medium()
+                    .text_color(rgba(theme.text_secondary))
+                    .child("Norma"),
+            )
+        })
         .child(
             div()
                 .relative()
                 .top(px(2.0))
                 .text_size(px(if compact { 20.0 } else { 24.0 }))
-                .font_weight(FontWeight::BOLD)
+                .font_weight(FontWeight::SEMIBOLD)
                 .text_color(rgba(theme.text_primary))
                 .child(content_title(section)),
         );
@@ -194,6 +198,7 @@ fn content_header(
     div()
         .min_h(px(119.0))
         .flex_none()
+        .when(section.is_norma(), |this| this.min_h(px(104.0)))
         .when(compact, |this| this.min_h(px(88.0)))
         .flex()
         .flex_row()
@@ -218,31 +223,21 @@ fn content_header(
                 .rounded(px(17.0))
                 .text_size(px(22.0))
                 .line_height(px(26.0))
-                .text_color(rgba(theme.text_secondary))
-                .cursor_pointer()
-                .hover(move |style| style.bg(rgba(with_alpha(theme.destructive, 0x10))))
-                .on_click(cx.listener(|app, _, _window, cx| {
-                    app.close_settings_panel(cx);
-                }))
-                .child("×"),
+                .child({
+                    use ui::component::button::{Button, ButtonVariants};
+                    Button::new("settings-close-button")
+                        .ghost()
+                        .w_full()
+                        .h_full()
+                        .tooltip("关闭设置")
+                        .child("×")
+                        .on_click(cx.listener(|app, _, _window, cx| app.close_settings_panel(cx)))
+                }),
         )
 }
 
 fn content_title(section: SettingsSection) -> &'static str {
-    match section {
-        SettingsSection::Themes => "Themes",
-        SettingsSection::Keyboard => "Keyboard Shortcuts",
-        #[cfg(test)]
-        SettingsSection::Runtime => "Runtime",
-        SettingsSection::Norma => "Norma",
-        SettingsSection::Agents => "Agents",
-        #[cfg(test)]
-        SettingsSection::Skills => "Skills",
-        SettingsSection::Orchestration => "Orchestration",
-        SettingsSection::Wallpaper => "Wallpaper",
-        SettingsSection::Performance => "Performance",
-        SettingsSection::Mobile => "Mobile Connection",
-    }
+    section.title()
 }
 
 fn content_subtitle(section: SettingsSection, voice_shortcut_label: &str) -> String {
@@ -256,7 +251,11 @@ fn content_subtitle(section: SettingsSection, voice_shortcut_label: &str) -> Str
         }
         #[cfg(test)]
         SettingsSection::Runtime => "Configure shell behavior and live sessions".to_string(),
-        SettingsSection::Norma => format!("记忆与语音 · {voice_shortcut_label} 与 Norma 语音交流"),
+        SettingsSection::NormaMemory => "查看、整理 Norma 记住的偏好与项目知识".into(),
+        SettingsSection::NormaVoice => {
+            format!("让 Norma 听见你，也回应你 · {voice_shortcut_label}")
+        }
+        SettingsSection::NormaPersona => "让每一次交流，都更合你的心意".into(),
         SettingsSection::Agents => "Create, organize, and launch project agents".to_string(),
         #[cfg(test)]
         SettingsSection::Skills => "Manage installed skills and project skill sources".to_string(),

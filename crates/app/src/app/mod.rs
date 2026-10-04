@@ -188,6 +188,7 @@ pub struct MultisoulApp {
     pub(crate) orchestration_settings: OrchestrationSettingsState,
     pub(crate) mobile: gpui::Entity<crate::mobile::controller::MobileController>,
     pub(crate) norma_memory: Option<gpui::Entity<crate::settings::norma::MemoryView>>,
+    pub(crate) norma_persona: Option<gpui::Entity<crate::settings::norma::persona::PersonaView>>,
     pub(crate) norma_memory_cache: std::collections::HashMap<
         Option<std::path::PathBuf>,
         gpui::Entity<crate::settings::norma::MemoryView>,

@@ -3,6 +3,7 @@ mod detail;
 mod document;
 mod import;
 mod library;
+pub(crate) mod persona;
 mod view;
 use agent::{MemoryPreferences, MemoryRevision, MemoryScopeAlias, MemorySummary};
 use gpui::{App, AppContext, Context, Entity, EventEmitter, Subscription, Window};
@@ -198,44 +199,4 @@ impl crate::app::MultisoulApp {
             });
         }
     }
-}
-
-pub(super) fn tabs(
-    _theme: ui::Theme,
-    voice: bool,
-    cx: &mut Context<crate::app::MultisoulApp>,
-) -> gpui::Div {
-    use gpui::{div, prelude::*};
-    use ui::component::{
-        button::{Button, ButtonVariants},
-        Selectable, Sizable,
-    };
-    div()
-        .flex()
-        .gap_2()
-        .children(
-            [(false, "记忆"), (true, "语音")]
-                .into_iter()
-                .map(|(is_voice, label)| {
-                    Button::new(gpui::ElementId::Name(
-                        format!("norma-tab-{is_voice}").into(),
-                    ))
-                    .label(label)
-                    .small()
-                    .ghost()
-                    .selected(voice == is_voice)
-                    .on_click(cx.listener(move |app, _, _, cx| {
-                        app.settings_panel.norma_voice = is_voice;
-                        app.settings_viewport
-                            .content_scroll
-                            .set_offset(gpui::point(gpui::px(0.0), gpui::px(0.0)));
-                        if is_voice {
-                            app.refresh_asr_model_states(cx);
-                            app.refresh_tts_model_states(cx);
-                            app.refresh_voice_microphone_requirement(cx);
-                        }
-                        cx.notify();
-                    }))
-                }),
-        )
 }

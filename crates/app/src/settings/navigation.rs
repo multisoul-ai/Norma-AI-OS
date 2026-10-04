@@ -12,6 +12,9 @@ use ui::{
 };
 
 use super::{with_alpha, TOP_BAR_NAV_HEIGHT};
+#[path = "navigation/brand.rs"]
+mod brand;
+use brand::settings_brand_footer;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub(super) enum SettingsNavigationMode {
@@ -41,7 +44,9 @@ pub(crate) enum SettingsSection {
     Keyboard,
     #[cfg(test)]
     Runtime,
-    Norma,
+    NormaMemory,
+    NormaVoice,
+    NormaPersona,
     Agents,
     #[cfg(test)]
     Skills,
@@ -62,6 +67,13 @@ struct SettingsSectionMetadata {
 impl SettingsSection {
     pub(crate) fn title(self) -> &'static str {
         self.metadata().title
+    }
+
+    pub(crate) fn is_norma(self) -> bool {
+        matches!(
+            self,
+            Self::NormaMemory | Self::NormaVoice | Self::NormaPersona
+        )
     }
 
     fn metadata(self) -> SettingsSectionMetadata {
@@ -85,11 +97,23 @@ impl SettingsSection {
                 index: 2,
                 debug_selector: "settings-section-runtime",
             },
-            Self::Norma => SettingsSectionMetadata {
-                title: "Norma",
-                icon_asset: Some("icons/settings-nav-voice.svg"),
+            Self::NormaMemory => SettingsSectionMetadata {
+                title: "Memory",
+                icon_asset: Some("icons/settings-nav-memory.svg"),
                 index: 3,
-                debug_selector: "settings-section-norma",
+                debug_selector: "settings-section-norma-memory",
+            },
+            Self::NormaVoice => SettingsSectionMetadata {
+                title: "Voice",
+                icon_asset: Some("icons/settings-nav-voice.svg"),
+                index: 10,
+                debug_selector: "settings-section-norma-voice",
+            },
+            Self::NormaPersona => SettingsSectionMetadata {
+                title: "Persona",
+                icon_asset: Some("icons/settings-nav-persona.svg"),
+                index: 11,
+                debug_selector: "settings-section-norma-persona",
             },
             Self::Agents => SettingsSectionMetadata {
                 title: "Agents",
@@ -139,13 +163,19 @@ const APPEARANCE_SECTIONS: &[SettingsSection] = &[
 ];
 const INPUT_SECTIONS: &[SettingsSection] = &[SettingsSection::Keyboard];
 const AUTOMATION_SECTIONS: &[SettingsSection] = &[
-    SettingsSection::Norma,
     SettingsSection::Agents,
     SettingsSection::Orchestration,
     SettingsSection::Mobile,
 ];
 
-const NAVIGATION_GROUPS: [(&str, &[SettingsSection]); 3] = [
+const NORMA_SECTIONS: &[SettingsSection] = &[
+    SettingsSection::NormaMemory,
+    SettingsSection::NormaVoice,
+    SettingsSection::NormaPersona,
+];
+
+const NAVIGATION_GROUPS: [(&str, &[SettingsSection]); 4] = [
+    ("Norma", NORMA_SECTIONS),
     ("Appearance", APPEARANCE_SECTIONS),
     ("Input & Controls", INPUT_SECTIONS),
     ("AI & Automation", AUTOMATION_SECTIONS),
@@ -204,7 +234,7 @@ fn sidebar_navigation(
         .py(px(if compact { 16.0 } else { 28.0 }))
         .border_r_1()
         .border_color(rgba(with_alpha(theme.edge_highlight, 0x24)))
-        .bg(rgba(with_alpha(theme.canvas_to, 0xc8)))
+        .bg(rgba(theme.panel_high))
         .child(
             div()
                 .mb(px(if compact { 2.0 } else { 6.0 }))
@@ -217,89 +247,6 @@ fn sidebar_navigation(
         )
         .child(groups)
         .child(settings_brand_footer(theme, compact))
-}
-
-fn settings_brand_footer(theme: Theme, compact: bool) -> Stateful<Div> {
-    let brand = settings_brand_metadata();
-    let icon_size = if compact { 36.0 } else { 40.0 };
-    let icon_radius = if compact { 10.0 } else { 12.0 };
-
-    div()
-        .id("settings-brand-footer")
-        .debug_selector(|| "settings-brand-footer".to_string())
-        .w_full()
-        .flex_none()
-        .mt(px(if compact { 10.0 } else { 16.0 }))
-        .pt(px(if compact { 10.0 } else { 14.0 }))
-        .border_t_1()
-        .border_color(rgba(with_alpha(theme.edge_highlight, 0x2e)))
-        .child(
-            div()
-                .w_full()
-                .flex()
-                .flex_row()
-                .items_center()
-                .gap(px(if compact { 8.0 } else { 11.0 }))
-                .p(px(if compact { 8.0 } else { 10.0 }))
-                .rounded(px(14.0))
-                .border_1()
-                .border_color(rgba(with_alpha(theme.node_stroke, 0x88)))
-                .bg(rgba(with_alpha(theme.panel_high, 0x78)))
-                .child(
-                    div()
-                        .id("settings-brand-icon")
-                        .debug_selector(|| "settings-brand-icon".to_string())
-                        .w(px(icon_size))
-                        .h(px(icon_size))
-                        .flex_none()
-                        .rounded(px(icon_radius))
-                        .border_1()
-                        .border_color(rgba(with_alpha(theme.edge_highlight, 0xa8)))
-                        .child(
-                            img(brand.icon_asset)
-                                .size_full()
-                                .object_fit(ObjectFit::Cover)
-                                .rounded(px(icon_radius)),
-                        ),
-                )
-                .child(
-                    div()
-                        .min_w(px(0.0))
-                        .flex_1()
-                        .flex()
-                        .flex_col()
-                        .gap(px(2.0))
-                        .child(
-                            div()
-                                .truncate()
-                                .text_size(px(if compact { 12.0 } else { 13.0 }))
-                                .font_weight(FontWeight::SEMIBOLD)
-                                .text_color(rgba(theme.text_primary))
-                                .child(brand.product_name),
-                        )
-                        .child(
-                            div()
-                                .id("settings-brand-version")
-                                .debug_selector(|| "settings-brand-version".to_string())
-                                .truncate()
-                                .text_size(px(if compact { 10.0 } else { 11.0 }))
-                                .font_family("Menlo")
-                                .text_color(rgba(theme.text_tertiary))
-                                .child(format!("Version {}", brand.version)),
-                        ),
-                )
-                .child(
-                    Button::new("settings-check-for-updates")
-                        .debug_selector(|| "settings-check-for-updates".to_string())
-                        .icon(Icon::default().path(SETTINGS_CHECK_UPDATES_ASSET))
-                        .ghost()
-                        .with_size(Size::Medium)
-                        .tooltip("Check for updates")
-                        .on_click(|_, _window, cx| {
-                            crate::updater::check_for_updates(cx);
-                        }),
-                ),
-        )
 }
 
 fn sidebar_group(
@@ -317,9 +264,19 @@ fn sidebar_group(
         .child(
             div()
                 .px(px(8.0))
-                .text_size(px(if compact { 10.0 } else { 11.0 }))
-                .font_weight(FontWeight::BOLD)
-                .text_color(rgba(theme.text_tertiary))
+                .text_size(px(if title == "Norma" {
+                    15.0
+                } else if compact {
+                    10.0
+                } else {
+                    11.0
+                }))
+                .font_weight(FontWeight::SEMIBOLD)
+                .text_color(rgba(if title == "Norma" {
+                    theme.text_primary
+                } else {
+                    theme.text_secondary
+                }))
                 .child(title),
         )
         .children(
@@ -389,78 +346,46 @@ fn navigation_item(
     cx: &mut Context<MultisoulApp>,
 ) -> Stateful<Div> {
     let metadata = section.metadata();
-    let is_active = section == active;
-    let background = if is_active {
-        with_alpha(theme.panel_high, 0xee)
-    } else {
-        0x00000000
-    };
-    let text = if is_active {
-        theme.text_primary
-    } else {
-        theme.text_secondary
-    };
-
+    let selected = section == active;
+    let variant = ui::component::button::ButtonCustomVariant::new(cx)
+        .color(
+            rgba(if selected {
+                with_alpha(theme.accent, 0x20)
+            } else {
+                0x00000000
+            })
+            .into(),
+        )
+        .foreground(
+            rgba(if selected {
+                theme.accent
+            } else {
+                theme.text_secondary
+            })
+            .into(),
+        )
+        .border(rgba(0x00000000).into())
+        .hover(rgba(with_alpha(theme.accent, 0x16)).into())
+        .active(rgba(with_alpha(theme.accent, 0x32)).into());
     div()
-        // gpui-component 0.5.1's Button does not expose GPUI's `debug_selector` seam.
-        // Keep this custom interactive wrapper so existing L2 click tests target the same
-        // public UI contract; the icon itself is the component library's Icon element.
         .id(("settings-section", metadata.index))
         .debug_selector(move || metadata.debug_selector.to_string())
         .h(px(NAVIGATION_ITEM_HEIGHT))
-        .when(compact, |item| item.flex_none().min_w(px(132.0)))
+        .when(compact, |item| item.flex_none().min_w(px(110.0)))
         .when(!compact, |item| item.w_full())
-        .flex()
-        .flex_row()
-        .items_center()
-        .gap(px(9.0))
-        .px(px(10.0))
-        .rounded(px(12.0))
-        .border_1()
-        .border_color(rgba(if is_active {
-            with_alpha(theme.node_stroke, 0xd8)
-        } else {
-            0x00000000
-        }))
-        .bg(rgba(background))
-        .text_color(rgba(text))
-        .cursor_pointer()
-        .hover(move |style| style.bg(rgba(with_alpha(theme.panel_high, 0xa6))))
-        .on_click(cx.listener(move |app, _, _window, cx| {
-            app.settings_panel.select(section);
-            if section == SettingsSection::Mobile {
-                app.mobile.update(cx, |host, cx| {
-                    host.request(crate::mobile::controller::Command::Reload, cx)
-                });
-            }
-            if section == SettingsSection::Norma {
-                app.refresh_asr_model_states(cx);
-            }
-            if section == SettingsSection::Orchestration {
-                app.reconcile_orchestration_integrations(cx);
-            }
-            cx.notify();
-        }))
         .child(
-            div()
-                .w(px(3.0))
-                .h(px(18.0))
-                .rounded(px(2.0))
-                .bg(rgba(if is_active {
-                    theme.accent_blue
-                } else {
-                    0x00000000
+            Button::new(("settings-destination", metadata.index))
+                .custom(variant)
+                .w_full()
+                .h_full()
+                .justify_start()
+                .rounded(px(10.0))
+                .px(px(12.0))
+                .icon(section_icon(theme, section, selected))
+                .label(section.title())
+                .on_click(cx.listener(move |app, _, window, cx| {
+                    app.select_settings_section(section, window, cx);
                 })),
-        )
-        .child(section_icon(theme, section, is_active))
-        .child(
-            div()
-                .min_w(px(0.0))
-                .overflow_hidden()
-                .truncate()
-                .text_size(px(14.0))
-                .font_weight(FontWeight::MEDIUM)
-                .child(section.title()),
         )
 }
 
@@ -473,7 +398,7 @@ fn section_icon(theme: Theme, section: SettingsSection, active: bool) -> Icon {
         .path(icon_asset)
         .with_size(px(16.0))
         .text_color(rgba(if active {
-            theme.accent_orange
+            theme.accent
         } else {
             theme.text_secondary
         }))

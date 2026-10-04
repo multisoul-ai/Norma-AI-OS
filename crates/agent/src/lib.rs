@@ -14,6 +14,7 @@ mod master_prompt;
 mod memory;
 mod memory_access;
 mod model;
+mod persona;
 mod project_plan;
 mod protocol;
 mod provider_catalog;
@@ -55,7 +56,7 @@ pub use master::{
     visible_norma_reply, ModelFactory, NormaCancelHandle, NormaSession, NormaSessionError,
     NormaTurnResult,
 };
-pub use master_prompt::norma_system_prompt;
+pub use master_prompt::{norma_system_prompt, norma_system_prompt_base};
 pub use memory::{
     MemoryCommitReceipt, MemoryEntry, MemoryEntryId, MemoryEntryIdError, MemoryKind,
     MemoryMutation, MemoryRevision, MemoryScope, MemorySourceReference, MemorySummary,
@@ -65,6 +66,7 @@ pub use memory_access::{
     MemorySessionContext, MemoryToolOutput, MEMORY_CATALOG_BYTES, MEMORY_TOOL_BYTES,
 };
 pub use model::{AgentCommand, AgentEvent, AgentInputSource, TaskId, TaskState};
+pub use persona::{NormaPersona, PersonaTone, MAX_PERSONA_INSTRUCTION_CHARS};
 pub use project_plan::{
     generate_project_plan, valid_plan_direction, PlanTodo, PlanTodoChoice, ProjectPlanDraft,
 };

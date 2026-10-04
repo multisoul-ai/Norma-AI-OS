@@ -110,6 +110,11 @@ impl ChatRuntime {
         } else {
             None
         };
+        let persona = memory
+            .as_ref()
+            .map(|context| context.persona.clone())
+            .unwrap_or_default();
+        prompt.push_str(&persona.prompt());
         let mut history = self.history.lock().await;
         if let Some(memory) = memory {
             let old = self

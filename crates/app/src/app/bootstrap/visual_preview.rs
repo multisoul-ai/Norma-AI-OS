@@ -114,8 +114,7 @@ pub(super) fn configure_from_env(app: &mut MultisoulApp, cx: &mut Context<Multis
     } else {
         app.screen = AppScreen::Canvas;
         app.settings_panel.open();
-        app.settings_panel.select(SettingsSection::Norma);
-        app.settings_panel.norma_voice = true;
+        app.settings_panel.select(SettingsSection::NormaVoice);
     }
     match preview {
         VisualPreview::WorkingSnake => {

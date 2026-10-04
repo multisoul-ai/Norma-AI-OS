@@ -16,6 +16,7 @@ struct MemoryState {
 struct MemoryAdapter {
     delegate: Arc<dyn AgentCardAdapter>,
     state: Arc<Mutex<MemoryState>>,
+    settings: storage::SettingsStore,
     personal: bool,
 }
 
@@ -26,6 +27,7 @@ pub(super) fn adapter(
 ) -> Arc<dyn AgentCardAdapter> {
     Arc::new(MemoryAdapter {
         delegate,
+        settings: storage::SettingsStore::new(paths.app_db_path().to_path_buf()),
         personal: root.is_none(),
         state: Arc::new(Mutex::new(MemoryState {
             access: storage::MemoryAccess::new(paths, root),
@@ -39,6 +41,7 @@ pub(super) fn adapter(
 impl AgentCardAdapter for MemoryAdapter {
     fn memory_context(&self) -> BoxFuture<'_, Result<Option<MemorySessionContext>, AdapterError>> {
         let state = self.state.clone();
+        let settings = self.settings.clone();
         Box::pin(async move {
             super::agent_runtime::shared_tokio_runtime()
                 .map_err(AdapterError::Failed)?
@@ -47,6 +50,8 @@ impl AgentCardAdapter for MemoryAdapter {
                         .lock()
                         .map_err(|_| AdapterError::Failed("记忆服务锁损坏".into()))?;
                     let (preferences, epoch) = state.access.recall_state()?;
+                    let persona = crate::settings::norma::persona::load_profile(&settings)
+                        .map_err(AdapterError::Failed)?;
                     if !preferences.recall || state.epoch != epoch {
                         state.catalog = None;
                     }
@@ -56,6 +61,7 @@ impl AgentCardAdapter for MemoryAdapter {
                     state.recalled = preferences.recall;
                     state.epoch = epoch;
                     Ok(Some(MemorySessionContext {
+                        persona,
                         catalog: state.catalog.clone().unwrap_or_default(),
                         preferences,
                         recall_epoch: epoch,

@@ -95,6 +95,12 @@ impl AssetSource for EmbeddedAssets {
             SETTINGS_NAV_WALLPAPER_ASSET => Ok(Some(Cow::Borrowed(SETTINGS_NAV_WALLPAPER_BYTES))),
             SETTINGS_NAV_KEYBOARD_ASSET => Ok(Some(Cow::Borrowed(SETTINGS_NAV_KEYBOARD_BYTES))),
             SETTINGS_NAV_VOICE_ASSET => Ok(Some(Cow::Borrowed(SETTINGS_NAV_VOICE_BYTES))),
+            "icons/settings-nav-memory.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/settings-nav-memory.svg"
+            )))),
+            "icons/settings-nav-persona.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/settings-nav-persona.svg"
+            )))),
             SETTINGS_NAV_AGENTS_ASSET => Ok(Some(Cow::Borrowed(SETTINGS_NAV_AGENTS_BYTES))),
             SETTINGS_NAV_HOOKS_ASSET => Ok(Some(Cow::Borrowed(SETTINGS_NAV_HOOKS_BYTES))),
             SETTINGS_CHECK_UPDATES_ASSET => Ok(Some(Cow::Borrowed(SETTINGS_CHECK_UPDATES_BYTES))),
@@ -127,6 +133,8 @@ impl AssetSource for EmbeddedAssets {
                 SharedString::from("settings-nav-wallpaper.svg"),
                 SharedString::from("settings-nav-keyboard.svg"),
                 SharedString::from("settings-nav-voice.svg"),
+                SharedString::from("settings-nav-memory.svg"),
+                SharedString::from("settings-nav-persona.svg"),
                 SharedString::from("settings-nav-agents.svg"),
                 SharedString::from("settings-nav-hooks.svg"),
                 SharedString::from("settings-check-updates.svg"),
