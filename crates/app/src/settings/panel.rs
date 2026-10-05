@@ -16,10 +16,9 @@ pub(crate) use self::navigation::SettingsSection;
 use self::navigation::{settings_navigation, SettingsNavigationMode};
 use self::panel_style::{settings_shadow, with_alpha};
 
-const PANEL_MIN_W: f32 = 860.0;
-const PANEL_MAX_W: f32 = 1280.0;
-const PANEL_MIN_H: f32 = 620.0;
-const PANEL_MAX_H: f32 = 820.0;
+const PANEL_MIN_W: f32 = 520.0;
+const PANEL_MIN_H: f32 = 400.0;
+const PANEL_VIEWPORT_FRACTION: f32 = 0.5;
 const SIDEBAR_MIN_W: f32 = 160.0;
 const SIDEBAR_MAX_W: f32 = 286.0;
 const COMPACT_SIDEBAR_MIN_W: f32 = 144.0;
@@ -47,12 +46,12 @@ impl SettingsPanelLayout {
         };
         let available_width = (width - margin * 2.0).max(1.0);
         let available_height = (height - margin * 2.0).max(1.0);
-        let panel_width = available_width
-            .min(PANEL_MAX_W)
-            .max(PANEL_MIN_W.min(available_width));
-        let panel_height = available_height
-            .min(PANEL_MAX_H)
-            .max(PANEL_MIN_H.min(available_height));
+        let panel_width = (width * PANEL_VIEWPORT_FRACTION)
+            .max(PANEL_MIN_W)
+            .min(available_width);
+        let panel_height = (height * PANEL_VIEWPORT_FRACTION)
+            .max(PANEL_MIN_H)
+            .min(available_height);
         let navigation_mode = if panel_width < TOP_BAR_BREAKPOINT {
             SettingsNavigationMode::TopBar
         } else if panel_width < COMPACT_SIDEBAR_BREAKPOINT {
