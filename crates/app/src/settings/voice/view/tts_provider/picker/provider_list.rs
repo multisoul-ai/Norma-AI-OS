@@ -21,15 +21,17 @@ pub(super) fn provider_list(
         )
     });
     let minimax_status = match state.minimax_account_status() {
-        tts::RemoteAccountStatus::Ready => "Connected account",
-        tts::RemoteAccountStatus::Checking => "Connecting…",
+        tts::RemoteAccountStatus::Ready => ui::i18n::text("voice.connected_account"),
+        tts::RemoteAccountStatus::Checking => ui::i18n::text("voice.connecting"),
         tts::RemoteAccountStatus::InvalidCredential
-        | tts::RemoteAccountStatus::TemporarilyUnavailable => "Needs attention",
+        | tts::RemoteAccountStatus::TemporarilyUnavailable => {
+            ui::i18n::text("guide.needs_attention")
+        }
         tts::RemoteAccountStatus::Unchecked => {
             if state.minimax_credential_configured() {
-                "Connect to verify"
+                ui::i18n::text("voice.connect_to_verify")
             } else {
-                "Not connected"
+                ui::i18n::text("voice.not_connected")
             }
         }
     };
@@ -44,15 +46,15 @@ pub(super) fn provider_list(
                 .text_size(px(11.0))
                 .font_weight(FontWeight::BOLD)
                 .text_color(rgba(theme.text_tertiary))
-                .child("PROVIDERS"),
+                .child(ui::i18n::text("voice.providers")),
         )
         .child(provider_button(
             theme,
-            "On-device",
+            ui::i18n::text("voice.on_device"),
             if local_ready {
-                "Ready offline"
+                ui::i18n::text("voice.ready_offline")
             } else {
-                "Models required"
+                ui::i18n::text("voice.models_required")
             },
             "settings-tts-picker-provider-local",
             selected_provider == tts::LOCAL_TTS_PROVIDER_ID,
@@ -116,7 +118,10 @@ fn provider_button(
                 .text_color(rgba(theme.text_primary))
                 .child(title)
                 .when(active, |row| {
-                    row.child(status_badge("CURRENT", theme.accent_green))
+                    row.child(status_badge(
+                        ui::i18n::text("voice.current"),
+                        theme.accent_green,
+                    ))
                 }),
         )
         .child(

@@ -82,9 +82,9 @@ impl Render for MemoryView {
                                 .ghost()
                                 .label(format!(
                                     "{}{}",
-                                    scope.label(),
+                                    super::scope_label(scope),
                                     if self.drafts.contains_key(&scope) {
-                                        " · 草稿"
+                                        ui::i18n::text("norma.draft")
                                     } else {
                                         ""
                                     }
@@ -106,7 +106,7 @@ impl Render for MemoryView {
                         Button::new("memory-reload")
                             .small()
                             .ghost()
-                            .label(if self.busy { "载入中…" } else { "刷新" })
+                            .label(if self.busy { ui::i18n::text("common.loading") } else { ui::i18n::text("norma.refresh") })
                             .disabled(self.busy)
                             .on_click(cx.listener(|view, _, window, cx| view.reload(window, cx))),
                     ),
@@ -116,7 +116,7 @@ impl Render for MemoryView {
                     div()
                         .text_size(px(11.0))
                         .text_color(rgba(theme.text_secondary))
-                        .child("个人记忆随你使用；打开项目后可管理项目与工作树记忆。"),
+                        .child(ui::i18n::text("norma.personal_memories_are_always_available_open_a_project_to_manage_project")),
                 )
             })
             .child(
@@ -141,7 +141,7 @@ impl Render for MemoryView {
                         } else {
                             theme.text_secondary
                         }))
-                        .child(self.status.clone()),
+                        .child(self.status.to_string()),
                 )
             })
             .when(self.close_prompt, |content| {
@@ -152,7 +152,7 @@ impl Render for MemoryView {
                         .rounded(px(8.0))
                         .bg(rgba(with_alpha(theme.accent_orange, 0x12)))
                         .child(div().text_size(px(12.0)).child(
-                            "有未保存的修改。返回标有“草稿”的范围保存，或选择放弃全部草稿。",
+                            ui::i18n::text("norma.you_have_unsaved_changes_return_to_a_scope_marked_draft_to"),
                         ))
                         .child(
                             div()
@@ -162,7 +162,7 @@ impl Render for MemoryView {
                                 .child(
                                     Button::new("memory-discard-all")
                                         .small()
-                                        .label("放弃全部草稿")
+                                        .label(ui::i18n::text("norma.discard_all_drafts"))
                                         .disabled(self.busy || self.pending_save.is_some())
                                         .on_click(cx.listener(|view, _, window, cx| {
                                             view.drafts.clear();
@@ -173,7 +173,7 @@ impl Render for MemoryView {
                                     Button::new("memory-continue-all")
                                         .small()
                                         .ghost()
-                                        .label("继续编辑")
+                                        .label(ui::i18n::text("norma.keep_editing"))
                                         .on_click(cx.listener(|view, _, _, cx| {
                                             view.close_prompt = false;
                                             cx.notify();
@@ -188,9 +188,17 @@ impl Render for MemoryView {
 impl MemoryView {
     fn preference(&self, recall: bool, cx: &mut Context<Self>) -> gpui::Div {
         let (label, description, checked) = if recall {
-            ("使用记忆", "交流时按需读取", self.preferences.recall)
+            (
+                ui::i18n::text("norma.use_memories"),
+                ui::i18n::text("norma.read_when_needed_during_conversations"),
+                self.preferences.recall,
+            )
         } else {
-            ("保存记忆", "你明确说“记住”时保存", self.preferences.save)
+            (
+                ui::i18n::text("norma.save_memories"),
+                ui::i18n::text("norma.save_when_you_explicitly_ask_to_remember"),
+                self.preferences.save,
+            )
         };
         div()
             .flex_1()

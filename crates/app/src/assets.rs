@@ -67,6 +67,15 @@ impl AssetSource for EmbeddedAssets {
             "icons/search.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
                 "../assets/icons/search.svg"
             )))),
+            "icons/chevron-down.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/chevron-down.svg"
+            )))),
+            "icons/chevron-up.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/chevron-up.svg"
+            )))),
+            "icons/check.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/check.svg"
+            )))),
             "icons/close.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
                 "../assets/icons/close.svg"
             )))),
@@ -112,6 +121,9 @@ impl AssetSource for EmbeddedAssets {
         match path {
             "" => Ok(vec![SharedString::from("icons")]),
             "icons" => Ok(vec![
+                SharedString::from("chevron-down.svg"),
+                SharedString::from("chevron-up.svg"),
+                SharedString::from("check.svg"),
                 SharedString::from("folder.svg"),
                 SharedString::from("command-workspace.svg"),
                 SharedString::from("app-icon.png"),

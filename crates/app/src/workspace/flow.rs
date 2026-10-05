@@ -1,4 +1,6 @@
 //! Workspace opening flow for the app shell.
+mod timing;
+use timing::log_workspace_open_timing;
 
 use crate::app::{AppScreen, MultisoulApp};
 use crate::canvas::view::mark_canvas_open_render_pending;
@@ -98,7 +100,7 @@ impl MultisoulApp {
             }
             Err(error) => {
                 tracing::warn!(%error, path = %path.display(), "failed to open workspace");
-                self.workspace_state.error = Some(error);
+                self.workspace_state.error = Some(error.into());
             }
         }
         self.last_reflow_window_size = None;
@@ -318,7 +320,12 @@ pub(crate) fn enter_workspace_for_path_with_source(
         total_start,
     );
     let project_store = ProjectStore::initialize_for_database_paths(database_paths, &root)
-        .map_err(|error| format!("Could not initialize project storage: {error}"))?;
+        .map_err(|error| {
+            ui::i18n::format(
+                "workspace.could_not_initialize_project_storage_error",
+                &[("error", (error).to_string())],
+            )
+        })?;
     log_workspace_open_timing(
         "workspace_open_project_store",
         &root,
@@ -345,7 +352,12 @@ pub(crate) fn enter_workspace_for_path_with_source(
     next_runtime.set_agent_hook_config(hook_config);
     next_runtime
         .load_canvas_snapshot(&project_store.canvas_store())
-        .map_err(|error| format!("Could not restore canvas snapshot: {error}"))?;
+        .map_err(|error| {
+            ui::i18n::format(
+                "workspace.could_not_restore_canvas_snapshot_error",
+                &[("error", (error).to_string())],
+            )
+        })?;
     crate::workspace::legacy_agent_migration::migrate_legacy_agent_cards(
         &mut next_runtime,
         &project_store,
@@ -361,7 +373,12 @@ pub(crate) fn enter_workspace_for_path_with_source(
             master_layout.restore_from_snapshot(layout_state, &next_runtime);
         }
         Ok(None) => master_layout.clear(),
-        Err(error) => return Err(format!("Could not restore layout state: {error}")),
+        Err(error) => {
+            return Err(ui::i18n::format(
+                "workspace.could_not_restore_layout_state_error",
+                &[("error", (error).to_string())],
+            ))
+        }
     }
     log_workspace_open_timing(
         "workspace_open_restore_layout",
@@ -372,7 +389,12 @@ pub(crate) fn enter_workspace_for_path_with_source(
     let checkpoints = project_store
         .session_store()
         .load_checkpoints()
-        .map_err(|error| format!("Could not load session checkpoints: {error}"))?;
+        .map_err(|error| {
+            ui::i18n::format(
+                "workspace.could_not_load_session_checkpoints_error",
+                &[("error", (error).to_string())],
+            )
+        })?;
     log_workspace_open_timing(
         "workspace_open_load_checkpoints",
         &root,
@@ -456,22 +478,6 @@ fn start_restored_card_initializations(runtime: &Runtime, motion: &mut MotionSto
             motion.start_initialization(node.id, kind);
         }
     }
-}
-
-fn log_workspace_open_timing(
-    stage: &'static str,
-    root: &Path,
-    stage_start: &mut Instant,
-    total_start: Instant,
-) {
-    tracing::info!(
-        stage,
-        path = %root.display(),
-        stage_ms = stage_start.elapsed().as_secs_f64() * 1000.0,
-        total_ms = total_start.elapsed().as_secs_f64() * 1000.0,
-        "workspace_open_timing"
-    );
-    *stage_start = Instant::now();
 }
 
 #[cfg(test)]

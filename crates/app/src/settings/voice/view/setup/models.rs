@@ -20,15 +20,15 @@ pub(super) fn alternative_models_detail(
         .gap(px(12.0))
         .child(compact_setup_row(
             theme,
-            "Recognition model",
+            ui::i18n::text("voice.recognition_model_3"),
             current,
             setup_action_button(
                 theme,
                 "voice-setup-alternative-models-toggle",
                 if expanded {
-                    "Hide Models"
+                    ui::i18n::text("voice.hide_models")
                 } else {
-                    "Choose Other Models"
+                    ui::i18n::text("voice.choose_other_models")
                 },
                 SetupButtonTone::Accent,
                 cx,
@@ -52,7 +52,7 @@ fn selected_model_summary(state: &VoiceSettingsState) -> String {
                 model.capabilities().languages().join(" + ").to_uppercase()
             )
         })
-        .unwrap_or_else(|| "No On-device model selected".to_string())
+        .unwrap_or_else(|| ui::i18n::text("voice.no_on_device_model_selected").to_string())
 }
 
 fn compact_model_catalog(
@@ -95,7 +95,9 @@ fn compact_model_catalog(
                 .pt(px(8.0))
                 .text_size(px(11.0))
                 .text_color(rgba(theme.text_tertiary))
-                .child("Downloads continue when Voice Setup is closed."),
+                .child(ui::i18n::text(
+                    "voice.downloads_continue_when_voice_setup_is_closed",
+                )),
         )
 }
 
@@ -117,12 +119,12 @@ fn compact_model_row(
         is_selected,
         ModelActionLabels {
             selected: if local_active {
-                "✓ Active"
+                ui::i18n::text("voice.active")
             } else {
-                "Selected"
+                ui::i18n::text("voice.selected")
             },
-            install: "Download",
-            use_model: "Use",
+            install: ui::i18n::text("voice.download"),
+            use_model: ui::i18n::text("voice.use"),
         },
         cx,
     );
@@ -223,7 +225,10 @@ pub(in crate::settings::voice::view) fn model_action_control(
                             div()
                                 .text_size(px(11.0))
                                 .text_color(rgba(theme.accent_cyan))
-                                .child(format!("Downloading {percent}%")),
+                                .child(ui::i18n::format(
+                                    "voice.downloading_percent",
+                                    &[("percent", (percent).to_string())],
+                                )),
                         )
                         .child(
                             div()
@@ -243,7 +248,7 @@ pub(in crate::settings::voice::view) fn model_action_control(
                 .child(setup_action_button(
                     theme,
                     format!("settings-asr-cancel-{index}"),
-                    "Cancel",
+                    ui::i18n::text("common.cancel"),
                     SetupButtonTone::Destructive,
                     cx,
                     cx.listener(move |app, _, _, cx| app.cancel_asr_install(id.clone(), cx)),
@@ -274,7 +279,7 @@ pub(in crate::settings::voice::view) fn model_action_control(
                 .child(setup_action_button(
                     theme,
                     format!("settings-asr-delete-{index}"),
-                    "Delete",
+                    ui::i18n::text("common.delete"),
                     SetupButtonTone::Destructive,
                     cx,
                     cx.listener(move |app, _, _, cx| app.delete_asr_model(delete_id.clone(), cx)),
@@ -285,7 +290,7 @@ pub(in crate::settings::voice::view) fn model_action_control(
             div().child(setup_action_button(
                 theme,
                 format!("settings-asr-retry-{index}"),
-                "Retry",
+                ui::i18n::text("common.retry"),
                 SetupButtonTone::Destructive,
                 cx,
                 cx.listener(move |app, _, _, cx| app.install_asr_model(id.clone(), cx)),
@@ -302,10 +307,16 @@ fn compact_install_status(state: &AsrModelInstallState, archive_bytes: u64) -> S
     };
     match state {
         AsrModelInstallState::NotInstalled => size,
-        AsrModelInstallState::Installing { downloaded, total } => {
-            format!("{} of {} MB", downloaded / 1_000_000, total / 1_000_000)
+        AsrModelInstallState::Installing { downloaded, total } => ui::i18n::format(
+            "voice.of_mb",
+            &[
+                ("arg0", (downloaded / 1_000_000).to_string()),
+                ("arg1", (total / 1_000_000).to_string()),
+            ],
+        ),
+        AsrModelInstallState::Ready => {
+            ui::i18n::format("voice.ready_size", &[("size", (size).to_string())])
         }
-        AsrModelInstallState::Ready => format!("Ready · {size}"),
-        AsrModelInstallState::Failed(_) => "Download failed".to_string(),
+        AsrModelInstallState::Failed(_) => ui::i18n::text("voice.download_failed").to_string(),
     }
 }

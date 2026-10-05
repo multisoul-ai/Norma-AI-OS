@@ -9,6 +9,8 @@ use ui::icons::with_alpha;
 
 fn caption(theme: ui::Theme, text: impl Into<gpui::SharedString>) -> gpui::Div {
     div()
+        .min_w(px(0.0))
+        .whitespace_normal()
         .text_size(px(12.0))
         .line_height(px(20.0))
         .text_color(rgba(theme.text_secondary))
@@ -19,7 +21,7 @@ impl Render for PersonaView {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = self.theme;
         let draft = self.draft(cx);
-        let validation = draft.validate().err();
+        let validation = persona_validation(&draft);
         let disabled = self.busy || !self.loaded;
         div()
             .id("norma-persona")
@@ -28,7 +30,7 @@ impl Render for PersonaView {
             .max_w(px(780.0))
             .flex()
             .flex_col()
-            .gap_4()
+            .gap_2()
             .text_color(rgba(theme.text_primary))
             .text_size(px(14.0))
             .when(self.close_prompt, |page| {
@@ -55,14 +57,16 @@ impl Render for PersonaView {
                     )
                     .child(
                         div()
+                            .flex_1()
+                            .min_w(px(0.0))
                             .flex()
                             .flex_col()
                             .gap_1()
                             .child(div().font_semibold().text_size(px(18.0)).child("Norma"))
                             .child(caption(
                                 theme,
-                                "你的 AI 伙伴 · 与你交流，帮你协调项目与智能体",
-                            )),
+                                ui::i18n::text("norma.your_ai_companion_talk_and_coordinate_projects_and_agents"),
+                            ).id("persona-summary").debug_selector(|| "persona-summary".into())),
                     ),
             )
             .child(
@@ -70,10 +74,10 @@ impl Render for PersonaView {
                     .flex()
                     .flex_col()
                     .gap_3()
-                    .child(div().font_semibold().child("交流风格"))
+                    .child(div().font_semibold().child(ui::i18n::text("norma.communication_style")))
                     .child(caption(
                         theme,
-                        "选择你喜欢的表达方式。所有个人对话与项目会话共用这份人设。",
+                        ui::i18n::text("norma.choose_your_preferred_style_this_persona_applies_to_personal_and_project"),
                     ))
                     .child(
                         div()
@@ -89,30 +93,30 @@ impl Render for PersonaView {
                 div()
                     .id("persona-example")
                     .debug_selector(|| "persona-example".into())
-                    .p_4()
+                    .p_3()
                     .rounded(px(12.0))
                     .bg(rgba(with_alpha(theme.accent, 0x0c)))
                     .flex()
                     .flex_col()
                     .gap_2()
-                    .child(caption(theme, "表达示例"))
-                    .child(div().line_height(px(23.0)).child(self.tone.example())),
+                    .child(caption(theme, ui::i18n::text("norma.example")))
+                    .child(div().line_height(px(23.0)).child(tone_text(self.tone, "example"))),
             )
             .child(
                 div()
                     .flex()
                     .flex_col()
                     .gap_2()
-                    .child(div().font_semibold().child("补充说明"))
+                    .child(div().font_semibold().child(ui::i18n::text("norma.additional_instructions")))
                     .child(caption(
                         theme,
-                        "告诉 Norma 你希望如何交流，例如语言、解释深度或称呼习惯。",
+                        ui::i18n::text("norma.tell_norma_how_you_prefer_to_communicate_such_as_language_detail"),
                     ))
                     .child(crate::settings::norma::view::editor(
                         "persona-instructions",
                         &self.instructions,
                         disabled,
-                        Some(110.0),
+                        Some(100.0),
                         cx,
                     ))
                     .child(
@@ -122,7 +126,7 @@ impl Render for PersonaView {
                             .gap_3()
                             .child(caption(
                                 theme,
-                                "人设影响交流方式，记忆由「记忆」页面独立管理。",
+                                ui::i18n::text("norma.persona_shapes_communication_manage_memories_separately_on_the_memory_page"),
                             ))
                             .child(caption(
                                 theme,
@@ -139,7 +143,7 @@ impl Render for PersonaView {
                     div()
                         .text_size(px(12.0))
                         .text_color(rgba(theme.destructive))
-                        .child(validation.unwrap_or_default()),
+                        .child(validation.unwrap_or_default().to_string()),
                 )
             })
             .when(!self.status.is_empty(), |page| {
@@ -153,14 +157,14 @@ impl Render for PersonaView {
                         } else {
                             theme.text_secondary
                         }))
-                        .child(self.status.clone()),
+                        .child(self.status.to_string()),
                 )
             })
             .when(!self.loaded && !self.busy, |page| {
                 page.child(
                     Button::new("persona-reload")
                         .small()
-                        .label("重新载入")
+                        .label(ui::i18n::text("norma.reload"))
                         .on_click(cx.listener(|view, _, window, cx| view.reload(window, cx))),
                 )
             })
@@ -180,11 +184,11 @@ impl Render for PersonaView {
                         Button::new("persona-reset")
                             .ghost()
                             .small()
-                            .label("恢复默认")
+                            .label(ui::i18n::text("norma.restore_defaults"))
                             .disabled(disabled)
                             .on_click(cx.listener(|view, _, window, cx| {
                                 view.replace(NormaPersona::default(), window, cx);
-                                view.status = "默认人设已填入，保存后生效".into();
+                                view.status = ui::i18n::LocalizedText::new("norma.default_persona_filled_in_save_to_apply").into();
                                 cx.notify();
                             })),
                     )
@@ -196,16 +200,16 @@ impl Render for PersonaView {
                             .child(caption(
                                 theme,
                                 if draft != self.saved {
-                                    "有未保存的修改"
+                                    ui::i18n::text("norma.unsaved_changes")
                                 } else {
-                                    "已保存"
+                                    ui::i18n::text("norma.saved")
                                 },
                             ))
                             .child(
                                 Button::new("persona-cancel")
                                     .ghost()
                                     .small()
-                                    .label("取消")
+                                    .label(ui::i18n::text("common.cancel"))
                                     .disabled(disabled || draft == self.saved)
                                     .on_click(
                                         cx.listener(|view, _, window, cx| view.discard(window, cx)),
@@ -216,9 +220,9 @@ impl Render for PersonaView {
                                     .primary()
                                     .small()
                                     .label(if self.busy && self.loaded {
-                                        "保存中…"
+                                        ui::i18n::text("norma.saving")
                                     } else {
-                                        "保存"
+                                        ui::i18n::text("common.save")
                                     })
                                     .disabled(
                                         disabled
@@ -240,7 +244,11 @@ impl PersonaView {
             .p_4()
             .rounded(px(12.0))
             .bg(rgba(with_alpha(self.theme.accent_orange, 0x12)))
-            .child(div().text_size(px(13.0)).child("人设还有未保存的修改。"))
+            .child(
+                div()
+                    .text_size(px(13.0))
+                    .child(ui::i18n::text("norma.your_persona_has_unsaved_changes")),
+            )
             .child(
                 div()
                     .mt_3()
@@ -249,7 +257,7 @@ impl PersonaView {
                     .child(
                         Button::new("persona-discard")
                             .small()
-                            .label("放弃修改")
+                            .label(ui::i18n::text("norma.discard_changes"))
                             .disabled(self.busy)
                             .on_click(cx.listener(|view, _, window, cx| view.discard(window, cx))),
                     )
@@ -257,7 +265,7 @@ impl PersonaView {
                         Button::new("persona-continue")
                             .ghost()
                             .small()
-                            .label("继续编辑")
+                            .label(ui::i18n::text("norma.keep_editing"))
                             .on_click(cx.listener(|view, _, _, cx| {
                                 view.close_prompt = false;
                                 cx.notify();
@@ -299,43 +307,60 @@ impl PersonaView {
                 format!("persona-tone-{tone:?}").into(),
             ))
             .debug_selector(move || format!("persona-tone-{tone:?}"))
+            .relative()
             .flex_1()
             .min_w(px(160.0))
+            .min_h(px(96.0))
             .child(
                 Button::new(gpui::ElementId::Name(
                     format!("persona-tone-button-{tone:?}").into(),
                 ))
+                .absolute()
+                .inset_0()
+                .size_full()
                 .custom(variant)
-                .w_full()
-                .h(px(76.0))
-                .justify_start()
                 .disabled(disabled)
-                .child(
-                    div()
-                        .w_full()
-                        .flex()
-                        .flex_col()
-                        .gap_2()
-                        .child(
-                            div()
-                                .flex()
-                                .items_center()
-                                .justify_between()
-                                .child(div().font_semibold().child(tone.label()))
-                                .child(div().text_color(rgba(theme.accent)).child(if selected {
-                                    "✓"
-                                } else {
-                                    ""
-                                })),
-                        )
-                        .child(caption(theme, tone.description())),
-                )
+                .tooltip(tone_text(tone, "label"))
                 .on_click(cx.listener(move |view, _, _, cx| {
                     view.tone = tone;
                     view.error = false;
                     view.status.clear();
                     cx.notify();
                 })),
+            )
+            .child(
+                // Keep wrapping content outside Button's intrinsic label row.
+                div()
+                    .relative()
+                    .p_3()
+                    .flex()
+                    .flex_col()
+                    .gap_2()
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .justify_between()
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .min_w(px(0.0))
+                                    .font_semibold()
+                                    .child(tone_text(tone, "label")),
+                            )
+                            .child(div().text_color(rgba(theme.accent)).child(if selected {
+                                "✓"
+                            } else {
+                                ""
+                            })),
+                    )
+                    .child(
+                        caption(theme, tone_text(tone, "description"))
+                            .id(gpui::ElementId::Name(
+                                format!("persona-tone-description-{tone:?}").into(),
+                            ))
+                            .debug_selector(move || format!("persona-tone-description-{tone:?}")),
+                    ),
             )
     }
 }

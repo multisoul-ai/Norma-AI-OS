@@ -23,7 +23,7 @@ pub(super) fn render_image_viewer(
 ) -> AnyElement {
     let Some(path) = paths.get(presentation.index).cloned() else {
         return viewer_message(
-            "No image available",
+            ui::i18n::text("cards.no_image_available"),
             theme.destructive,
             theme,
             bottom_radius_px,
@@ -80,7 +80,7 @@ pub(super) fn render_image_viewer(
                                 .items_center()
                                 .justify_center()
                                 .text_color(rgba(loading_theme.text_tertiary))
-                                .child("Loading image...")
+                                .child(ui::i18n::text("cards.loading_image"))
                                 .into_any_element()
                         })
                         .with_fallback(move || {
@@ -90,7 +90,7 @@ pub(super) fn render_image_viewer(
                                 .items_center()
                                 .justify_center()
                                 .text_color(rgba(fallback_theme.destructive))
-                                .child("Could not decode image")
+                                .child(ui::i18n::text("cards.could_not_decode_image"))
                                 .into_any_element()
                         }),
                 ),
@@ -139,7 +139,7 @@ fn render_toolbar(
                     "preview-image-previous",
                     node_id,
                     IconName::ChevronLeft,
-                    "Previous image",
+                    ui::i18n::text("cards.previous_image"),
                     PreviewImageCommandKind::Previous,
                     !presentation.can_go_previous,
                     button_size,
@@ -161,7 +161,7 @@ fn render_toolbar(
                     "preview-image-next",
                     node_id,
                     IconName::ChevronRight,
-                    "Next image",
+                    ui::i18n::text("cards.next_image"),
                     PreviewImageCommandKind::Next,
                     !presentation.can_go_next,
                     button_size,
@@ -177,7 +177,7 @@ fn render_toolbar(
             "preview-image-zoom-out",
             node_id,
             IconName::Minus,
-            "Zoom out",
+            ui::i18n::text("cards.zoom_out"),
             PreviewImageCommandKind::ZoomOut,
             !presentation.can_zoom_out,
             button_size,
@@ -186,7 +186,7 @@ fn render_toolbar(
             "preview-image-fit",
             node_id,
             zoom_percent,
-            "Fit image",
+            ui::i18n::text("cards.fit_image"),
             PreviewImageCommandKind::Fit,
             button_size,
         ))
@@ -194,7 +194,7 @@ fn render_toolbar(
             "preview-image-zoom-in",
             node_id,
             IconName::Plus,
-            "Zoom in",
+            ui::i18n::text("cards.zoom_in"),
             PreviewImageCommandKind::ZoomIn,
             presentation.zoom >= 8.0,
             button_size,

@@ -9,6 +9,7 @@ use super::{DesktopVoiceMode, DictationTrigger, VoiceInteractionMode};
 use asr::AsrModelId;
 use tts::{TtsModelId, TtsVoiceId};
 mod debug;
+mod doubao;
 mod load;
 pub(super) const KEY_OLLAMA_ENDPOINT: &str = "voice.ollama.endpoint";
 pub(super) const KEY_OLLAMA_MODEL: &str = "voice.ollama.model";
@@ -17,6 +18,7 @@ pub(super) const KEY_REFINE_MODEL: &str = "voice.refine.model";
 pub(super) const KEY_INTERACTION_MODE: &str = "voice.interaction.mode";
 pub(super) const KEY_DESKTOP_MODE: &str = "voice.desktop.mode";
 pub(super) const KEY_DOUBAO_CREDENTIAL_REF: &str = "voice.doubao.credential_ref";
+pub(super) const KEY_DOUBAO_SPEAKER: &str = "voice.doubao.speaker";
 pub(super) const KEY_SINGLE_VOICE_COMMAND_TRIGGER: &str = "voice.single_voice_command.trigger";
 pub(super) const LEGACY_KEY_DICTATION_TRIGGER: &str = "voice.dictation.trigger";
 pub(super) const KEY_ASR_MODEL_ID: &str = "voice.asr.model_id";
@@ -48,6 +50,7 @@ pub(super) const KEY_OPENAI_CARD_PLANNER_MODEL: &str = "voice.openai.card_planne
 pub(crate) struct SavedVoiceSettings {
     pub(crate) desktop_mode: Option<DesktopVoiceMode>,
     pub(crate) doubao_credential_ref: Option<String>,
+    pub(crate) doubao_speaker: Option<String>,
     pub(crate) interaction_mode: Option<VoiceInteractionMode>,
     pub(crate) dictation_trigger: Option<DictationTrigger>,
     pub(crate) asr_model_id: Option<AsrModelId>,
@@ -122,6 +125,7 @@ pub(crate) struct EnvVoiceSettings {
 pub(crate) struct VoiceSettingsValues {
     pub(crate) desktop_mode: DesktopVoiceMode,
     pub(crate) doubao_credential_ref: Option<String>,
+    doubao_voice: &'static tts::providers::doubao::DoubaoVoice,
     pub(crate) interaction_mode: VoiceInteractionMode,
     pub(crate) dictation_trigger: DictationTrigger,
     pub(crate) asr_model_id: Option<AsrModelId>,
@@ -284,6 +288,7 @@ impl VoiceSettingsValues {
         Self {
             desktop_mode,
             doubao_credential_ref: saved.doubao_credential_ref.clone(),
+            doubao_voice: doubao::resolve(saved.doubao_speaker.as_deref()),
             interaction_mode,
             dictation_trigger,
             asr_model_id,

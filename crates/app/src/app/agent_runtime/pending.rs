@@ -243,7 +243,7 @@ impl MultisoulApp {
                         "failed to type Agent task after CLI became ready"
                     );
                     self.workspace_state.error =
-                        Some("Agent 任务尚未输入，正在等待 CLI 就绪后自动重试".to_string());
+                        Some(ui::i18n::LocalizedText::new("agent.retry_typing"));
                     self.pending_agent_submissions.requeue(receipt);
                     false
                 }
@@ -272,7 +272,7 @@ impl MultisoulApp {
                 );
                 if error.retry_safe() {
                     self.workspace_state.error =
-                        Some("Agent 任务尚未提交，正在等待 CLI 就绪后自动重试".to_string());
+                        Some(ui::i18n::LocalizedText::new("agent.retry_submission"));
                     self.pending_agent_submissions.requeue(receipt);
                 } else {
                     let message = error.to_string();
@@ -299,10 +299,8 @@ impl MultisoulApp {
     }
 }
 
-pub(super) fn unsafe_submission_recovery_message(message: &str) -> String {
-    format!(
-        "Agent 任务提交失败：{message}。输入区状态不确定；请连续关闭两次此 Agent 卡片以中断并清空会话，再重新激活后派发任务"
-    )
+pub(super) fn unsafe_submission_recovery_message(message: &str) -> ui::i18n::LocalizedText {
+    ui::i18n::LocalizedText::new("agent.recover_submission").with_arg("reason", message)
 }
 
 #[cfg(test)]

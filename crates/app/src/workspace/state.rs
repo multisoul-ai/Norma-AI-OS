@@ -7,7 +7,7 @@ use workspace::{RecentWorkspaces, WorkspaceSource};
 pub struct WorkspaceState {
     pub recent: RecentWorkspaces,
     pub current_root: Option<PathBuf>,
-    pub error: Option<String>,
+    pub error: Option<ui::i18n::LocalizedText>,
     storage: RecentStore,
 }
 
@@ -23,7 +23,10 @@ impl WorkspaceState {
             Err(error) => WorkspaceState {
                 recent: RecentWorkspaces::default(),
                 current_root: None,
-                error: Some(format!("Could not load recent projects: {error}")),
+                error: Some(ui::i18n::message(
+                    "workspace.could_not_load_recent_projects_error",
+                    &[("error", (error).to_string())],
+                )),
                 storage,
             },
         }
@@ -35,25 +38,34 @@ impl WorkspaceState {
         source: WorkspaceSource,
     ) -> Result<PathBuf, String> {
         if !path.is_dir() {
-            let message = format!("Project folder does not exist: {}", path.display());
+            let message = ui::i18n::message(
+                "workspace.project_folder_does_not_exist",
+                &[("arg0", (path.display()).to_string())],
+            );
             self.error = Some(message.clone());
-            return Err(message);
+            return Err(message.to_string());
         }
 
         match self.storage.record_opened(path, source) {
             Ok(recent) => {
-                let root = path
-                    .canonicalize()
-                    .map_err(|error| format!("Could not resolve project path: {error}"))?;
+                let root = path.canonicalize().map_err(|error| {
+                    ui::i18n::format(
+                        "workspace.could_not_resolve_project_path_error",
+                        &[("error", (error).to_string())],
+                    )
+                })?;
                 self.recent = recent;
                 self.current_root = Some(root.clone());
                 self.error = None;
                 Ok(root)
             }
             Err(error) => {
-                let message = format!("Could not open project: {error}");
+                let message = ui::i18n::message(
+                    "workspace.could_not_open_project_error",
+                    &[("error", (error).to_string())],
+                );
                 self.error = Some(message.clone());
-                Err(message)
+                Err(message.to_string())
             }
         }
     }

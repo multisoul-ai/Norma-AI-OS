@@ -213,7 +213,7 @@ impl MultisoulApp {
                                 .debug_selector(move || {
                                     format!("desktop-project-open-{area_index}")
                                 })
-                                .label("Open")
+                                .label(ui::i18n::text("common.open"))
                                 .compact()
                                 .custom(glass_button_variant(theme, cx))
                                 .on_click(cx.listener(move |app, _, window, cx| {
@@ -227,7 +227,7 @@ impl MultisoulApp {
                                 .debug_selector(move || {
                                     format!("desktop-project-new-codex-{area_index}")
                                 })
-                                .label("New Codex")
+                                .label(ui::i18n::text("workspace.new_codex"))
                                 .compact()
                                 .custom(glass_button_variant(theme, cx))
                                 .on_click(cx.listener(move |app, _, window, cx| {
@@ -247,7 +247,7 @@ impl MultisoulApp {
                                 .debug_selector(move || {
                                     format!("desktop-project-new-claude-{area_index}")
                                 })
-                                .label("New Claude")
+                                .label(ui::i18n::text("workspace.new_claude"))
                                 .compact()
                                 .custom(glass_button_variant(theme, cx))
                                 .on_click(cx.listener(move |app, _, window, cx| {
@@ -267,7 +267,7 @@ impl MultisoulApp {
                                 .debug_selector(move || {
                                     format!("desktop-project-remove-{area_index}")
                                 })
-                                .label("Remove")
+                                .label(ui::i18n::text("common.remove"))
                                 .compact()
                                 .custom(glass_button_variant(theme, cx))
                                 .on_click(cx.listener(move |app, _, _, cx| {
@@ -301,7 +301,7 @@ impl MultisoulApp {
                     .child(
                         Button::new(("desktop-project-retry", area_index))
                             .debug_selector(move || format!("desktop-project-retry-{area_index}"))
-                            .label("Retry")
+                            .label(ui::i18n::text("common.retry"))
                             .compact()
                             .custom(glass_button_variant(theme, cx))
                             .on_click(cx.listener(move |app, _, window, cx| {

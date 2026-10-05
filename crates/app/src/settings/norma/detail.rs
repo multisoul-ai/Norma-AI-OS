@@ -14,13 +14,13 @@ fn source_time(timestamp: u64) -> String {
         .map_or(timestamp, |time| time.as_secs());
     let age = now.saturating_sub(timestamp);
     if age < 60 {
-        "刚刚".into()
+        ui::i18n::text("norma.just_now").into()
     } else if age < 3600 {
-        format!("{} 分钟前", age / 60)
+        ui::i18n::format("norma.minutes_ago", &[("arg0", (age / 60).to_string())])
     } else if age < 86400 {
-        format!("{} 小时前", age / 3600)
+        ui::i18n::format("norma.hours_ago", &[("arg0", (age / 3600).to_string())])
     } else {
-        format!("{} 天前", age / 86400)
+        ui::i18n::format("norma.days_ago", &[("arg0", (age / 86400).to_string())])
     }
 }
 
@@ -79,19 +79,21 @@ impl MemoryView {
                     div()
                         .text_size(px(18.0))
                         .font_medium()
-                        .child("让 Norma 更了解你"),
+                        .child(ui::i18n::text("norma.help_norma_get_to_know_you")),
                 )
                 .child(
                     div()
                         .text_size(px(12.0))
                         .text_color(rgba(theme.text_secondary))
                         .text_center()
-                        .child("选择一条记忆查看内容与来源，\n或写下希望她记住的偏好。"),
+                        .child(ui::i18n::text(
+                            "norma.select_a_memory_to_view_its_content_and_source_or_write",
+                        )),
                 )
                 .child(
                     Button::new("memory-empty-new")
                         .small()
-                        .label("新增记忆")
+                        .label(ui::i18n::text("norma.add_memory"))
                         .disabled(self.busy)
                         .on_click(cx.listener(|view, _, window, cx| view.new_entry(window, cx))),
                 );
@@ -112,7 +114,7 @@ impl MemoryView {
                         .gap_3()
                         .child(div().text_size(px(15.0)).font_semibold().child(
                             if self.selected.is_none() {
-                                "新增记忆".into()
+                                ui::i18n::text("norma.add_memory").into()
                             } else {
                                 title.clone()
                             },
@@ -122,9 +124,12 @@ impl MemoryView {
                                 .text_size(px(10.0))
                                 .text_color(rgba(theme.text_secondary))
                                 .child(if self.editing {
-                                    "未保存".into()
+                                    ui::i18n::text("norma.unsaved").into()
                                 } else {
-                                    format!("已保存 · 版本 {}", self.version.number())
+                                    ui::i18n::format(
+                                        "norma.saved_version",
+                                        &[("arg0", (self.version.number()).to_string())],
+                                    )
                                 }),
                         ),
                 )
@@ -133,7 +138,7 @@ impl MemoryView {
                         .mt_1()
                         .text_size(px(11.0))
                         .text_color(rgba(theme.text_secondary))
-                        .child(self.scope.label()),
+                        .child(super::scope_label(self.scope)),
                 ),
         );
         let mut body = div()
@@ -151,7 +156,7 @@ impl MemoryView {
                     div()
                         .text_size(px(11.0))
                         .text_color(rgba(theme.text_secondary))
-                        .child("名称"),
+                        .child(ui::i18n::text("norma.name")),
                 )
                 .child(super::view::editor(
                     "memory-title-input",
@@ -164,7 +169,7 @@ impl MemoryView {
                     div()
                         .text_size(px(11.0))
                         .text_color(rgba(theme.text_secondary))
-                        .child("何时使用（可选）"),
+                        .child(ui::i18n::text("norma.when_to_use_optional")),
                 )
                 .child(super::view::editor(
                     "memory-description-input",
@@ -177,7 +182,7 @@ impl MemoryView {
                     div()
                         .text_size(px(11.0))
                         .text_color(rgba(theme.text_secondary))
-                        .child("记忆内容 · 支持 Markdown"),
+                        .child(ui::i18n::text("norma.memory_content_markdown_supported")),
                 )
                 .child(super::view::editor(
                     "memory-body-input",
@@ -215,7 +220,10 @@ impl MemoryView {
                             div()
                                 .text_size(px(10.0))
                                 .text_color(rgba(theme.text_secondary))
-                                .child(format!("来源 · {}", source_time(source.recorded_at))),
+                                .child(ui::i18n::format(
+                                    "norma.source",
+                                    &[("arg0", (source_time(source.recorded_at)).to_string())],
+                                )),
                         )
                         .child(
                             div()
@@ -234,19 +242,19 @@ impl MemoryView {
                     .p_3()
                     .rounded(px(8.0))
                     .bg(rgba(with_alpha(theme.accent_orange, 0x14)))
-                    .child(div().font_medium().child("其他操作更新了这条记忆"))
                     .child(
                         div()
-                            .mt_2()
-                            .text_size(px(12.0))
-                            .child(format!("最新名称：{}", latest.summary.name)),
+                            .font_medium()
+                            .child(ui::i18n::text("norma.this_memory_was_updated_elsewhere")),
                     )
-                    .child(
-                        div()
-                            .mt_1()
-                            .text_size(px(12.0))
-                            .child(format!("最新用途：{}", latest.summary.description)),
-                    )
+                    .child(div().mt_2().text_size(px(12.0)).child(ui::i18n::format(
+                        "norma.latest_name",
+                        &[("arg0", (latest.summary.name).to_string())],
+                    )))
+                    .child(div().mt_1().text_size(px(12.0)).child(ui::i18n::format(
+                        "norma.latest_purpose",
+                        &[("arg0", (latest.summary.description).to_string())],
+                    )))
                     .child(
                         div()
                             .mt_2()
@@ -256,12 +264,17 @@ impl MemoryView {
                     .child(
                         Button::new("memory-rebase")
                             .small()
-                            .label("已比较，使用最新版本保存草稿")
+                            .label(ui::i18n::text(
+                                "norma.compared_save_draft_against_latest_version",
+                            ))
                             .disabled(self.busy || self.pending_save.is_some())
                             .on_click(cx.listener(move |view, _, _, cx| {
                                 view.version = version;
                                 view.latest = None;
-                                view.status = "保存基线已更新，草稿仍保留。".into();
+                                view.status = ui::i18n::LocalizedText::new(
+                                    "norma.save_baseline_updated_your_draft_is_preserved",
+                                )
+                                .into();
                                 cx.notify();
                             })),
                     ),
@@ -281,9 +294,13 @@ impl MemoryView {
                         .text_size(px(11.0))
                         .text_color(rgba(theme.text_secondary))
                         .child(if self.editing {
-                            "保存后，Norma 可在对话中按需读取。"
+                            ui::i18n::text(
+                                "norma.after_saving_norma_can_read_this_memory_when_needed",
+                            )
                         } else {
-                            "纠正会发布新版本，并保留历史。"
+                            ui::i18n::text(
+                                "norma.corrections_publish_a_new_version_and_preserve_history",
+                            )
                         }),
                 )
                 .child(
@@ -295,7 +312,7 @@ impl MemoryView {
                                 Button::new("memory-discard")
                                     .small()
                                     .ghost()
-                                    .label("取消")
+                                    .label(ui::i18n::text("common.cancel"))
                                     .disabled(self.busy || self.pending_save.is_some())
                                     .on_click(
                                         cx.listener(|view, _, window, cx| view.discard(window, cx)),
@@ -306,11 +323,11 @@ impl MemoryView {
                                     .small()
                                     .primary()
                                     .label(if !self.busy && self.pending_save.is_some() {
-                                        "核验保存结果"
+                                        ui::i18n::text("norma.verify_save_result")
                                     } else if self.saving {
-                                        "保存中…"
+                                        ui::i18n::text("norma.saving")
                                     } else {
-                                        "保存"
+                                        ui::i18n::text("common.save")
                                     })
                                     .disabled(
                                         self.busy
@@ -326,7 +343,7 @@ impl MemoryView {
                             row.child(
                                 Button::new("memory-edit")
                                     .small()
-                                    .label("编辑 / 纠正")
+                                    .label(ui::i18n::text("norma.edit_correct"))
                                     .disabled(self.busy)
                                     .on_click(cx.listener(|view, _, window, cx| {
                                         view.editing = true;
@@ -350,7 +367,10 @@ impl MemoryView {
                     .flex_none()
                     .p_4()
                     .font_semibold()
-                    .child(format!("导入预览 · {} 条", self.imports.len())),
+                    .child(ui::i18n::format(
+                        "norma.import_preview_items",
+                        &[("arg0", (self.imports.len()).to_string())],
+                    )),
             );
         let mut documents = div()
             .id("memory-import-documents")
@@ -367,9 +387,9 @@ impl MemoryView {
                     .child(div().font_medium().child(format!(
                         "{id} · {}",
                         if self.entries.iter().any(|entry| entry.id.as_str() == id) {
-                            "覆盖现有主题"
+                            ui::i18n::text("norma.replace_existing_topic")
                         } else {
-                            "新增主题"
+                            ui::i18n::text("norma.new_topic")
                         }
                     )))
                     .child(
@@ -392,7 +412,7 @@ impl MemoryView {
                     Button::new("memory-import-cancel")
                         .small()
                         .ghost()
-                        .label("取消")
+                        .label(ui::i18n::text("common.cancel"))
                         .disabled(self.busy || self.pending_save.is_some())
                         .on_click(cx.listener(|view, _, window, cx| view.discard(window, cx))),
                 )
@@ -401,9 +421,9 @@ impl MemoryView {
                         .small()
                         .primary()
                         .label(if self.pending_save.is_some() {
-                            "核验保存结果"
+                            ui::i18n::text("norma.verify_save_result")
                         } else {
-                            "确认导入全部"
+                            ui::i18n::text("norma.confirm_import_all")
                         })
                         .disabled(self.busy)
                         .on_click(cx.listener(|view, _, window, cx| view.save(window, cx))),

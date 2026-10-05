@@ -65,7 +65,7 @@ pub(crate) fn execute_norma_adapter_command_with_source(
     input_source: agent::AgentInputSource,
 ) -> Result<AdapterResult, AdapterError> {
     match command {
-        AdapterCommand::Memory(_) => Err(AdapterError::Rejected("记忆 IO 必须经过后台服务".into())),
+        AdapterCommand::Memory(_) | AdapterCommand::WorkspaceMemory { .. } => Err(AdapterError::Rejected("记忆 IO 必须经过后台服务".into())),
         AdapterCommand::FindAgentTasks {
             task_id,
             agent,

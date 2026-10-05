@@ -1,4 +1,6 @@
 //! Stable, primitive e2e projections that do not expose private settings models.
+mod api_key;
+use api_key::classify_api_key_display;
 
 use super::{AppScreen, MultisoulApp};
 use crate::shortcuts::ShortcutCommandId;
@@ -275,12 +277,12 @@ impl MultisoulApp {
         message: impl Into<String>,
         cx: &mut Context<Self>,
     ) {
-        self.workspace_state.error = Some(message.into());
+        self.workspace_state.error = Some(message.into().into());
         cx.notify();
     }
 
     pub fn workspace_error_for_e2e(&self) -> Option<String> {
-        self.workspace_state.error.clone()
+        self.workspace_state.error.as_ref().map(ToString::to_string)
     }
 
     /// 注入 TCC 拒绝错误供 L1 验证应用内恢复 UI；系统设置属于 L3，不能由 headless GPUI 修改。
@@ -341,7 +343,12 @@ impl MultisoulApp {
             voice_interaction_modified: voice_interaction
                 .map(|entry| entry.modified)
                 .unwrap_or(false),
-            status_message: self.shortcuts.status.message.clone(),
+            status_message: self
+                .shortcuts
+                .status
+                .message
+                .as_ref()
+                .map(ToString::to_string),
             agent_provider: self.voice_settings.values().agent_provider().as_str(),
             agent_base_url: self
                 .voice_settings
@@ -474,23 +481,5 @@ impl MultisoulApp {
             wallpaper_preview_cache_entries: self.wallpaper_previews.len(),
             wallpaper_preview_cache_bytes: self.wallpaper_previews.total_bytes(),
         }
-    }
-}
-
-fn classify_api_key_display(
-    text: Option<&str>,
-    revealed: bool,
-    expected_secret: Option<&str>,
-) -> ApiKeyDisplayState {
-    match text {
-        None => ApiKeyDisplayState::NotRendered,
-        Some(value) if revealed && expected_secret == Some(value) => ApiKeyDisplayState::Revealed,
-        Some(_) if revealed => ApiKeyDisplayState::Unsafe,
-        Some("Not configured") => ApiKeyDisplayState::NotConfigured,
-        Some("*********") => ApiKeyDisplayState::Configured,
-        Some(value) if !value.is_empty() && value.chars().all(|character| character == '•') => {
-            ApiKeyDisplayState::MaskedEditing
-        }
-        Some(_) => ApiKeyDisplayState::Unsafe,
     }
 }

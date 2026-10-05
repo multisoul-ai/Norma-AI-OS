@@ -1,4 +1,6 @@
 //! Browser card renderer.
+mod status;
+use status::{ego_badge, ego_status_text};
 
 use crate::app::browser::BrowserAuthUiState;
 use crate::app::ego::{EgoCardCommand, EgoCardCommandKind};
@@ -32,7 +34,10 @@ impl Card for BrowserCard {
             let (label, tone) = runtime
                 .ego_task_state(node.id)
                 .map(|state| ego_badge(state.phase))
-                .unwrap_or(("Ego 已断开", CardChromeTaskTone::Error));
+                .unwrap_or((
+                    ui::i18n::text("cards.ego_disconnected"),
+                    CardChromeTaskTone::Error,
+                ));
             return CardChrome {
                 title: "Ego".to_string(),
                 title_detail: None,
@@ -44,7 +49,7 @@ impl Card for BrowserCard {
             };
         }
         CardChrome {
-            title: node.kind.display_title(),
+            title: crate::cards::title::display_title(&node.kind),
             title_detail: None,
             refreshable: false,
             task_badge: None,
@@ -135,12 +140,12 @@ fn render_ego_body(node: &CanvasNode, context: CardBodyContext<'_>) -> AnyElemen
                         .gap(px(6.0 * zoom))
                         .text_size(px((11.0 * zoom).max(9.0)))
                         .text_color(rgba(theme.text_secondary))
-                        .child("画布预览 · 在 Ego 中交互"),
+                        .child(ui::i18n::text("cards.canvas_preview_interact_in_ego")),
                 )
                 .child(ego_toolbar_action(
                     node_id,
                     EgoCardCommandKind::Open,
-                    "打开 Ego",
+                    ui::i18n::text("cards.open_ego"),
                     zoom,
                 )),
         )
@@ -206,13 +211,13 @@ fn render_ego_body(node: &CanvasNode, context: CardBodyContext<'_>) -> AnyElemen
                                 .child(ego_primary_action(
                                     node_id,
                                     EgoCardCommandKind::SetMaster,
-                                    "设为 Master",
+                                    ui::i18n::text("cards.set_as_master"),
                                     zoom,
                                 ))
                                 .child(ego_primary_action(
                                     node_id,
                                     EgoCardCommandKind::Takeover,
-                                    "接管",
+                                    ui::i18n::text("cards.take_control"),
                                     zoom,
                                 ))
                         })
@@ -220,7 +225,7 @@ fn render_ego_body(node: &CanvasNode, context: CardBodyContext<'_>) -> AnyElemen
                             actions.child(ego_primary_action(
                                 node_id,
                                 EgoCardCommandKind::ReturnToAgent,
-                                "交还 AI",
+                                ui::i18n::text("cards.return_to_ai"),
                                 zoom,
                             ))
                         }),
@@ -282,36 +287,6 @@ fn ego_action_button(
         .child(button.on_click(move |_, window, cx| {
             window.dispatch_action(Box::new(EgoCardCommand { node_id, command }), cx);
         }))
-}
-
-fn ego_badge(phase: EgoCardPhase) -> (&'static str, CardChromeTaskTone) {
-    match phase {
-        EgoCardPhase::Creating => ("正在创建", CardChromeTaskTone::Active),
-        EgoCardPhase::ReadyForUser => ("可由用户操作", CardChromeTaskTone::Muted),
-        EgoCardPhase::PreparingAgent => ("Agent 正在准备", CardChromeTaskTone::Active),
-        EgoCardPhase::AgentWorking => ("Agent 正在浏览", CardChromeTaskTone::Active),
-        EgoCardPhase::AwaitingUser => ("请求你接管", CardChromeTaskTone::Warning),
-        EgoCardPhase::UserControlling => ("你正在控制", CardChromeTaskTone::Warning),
-        EgoCardPhase::ResumeRequested => ("等待 Agent 恢复", CardChromeTaskTone::Warning),
-        EgoCardPhase::Completed => ("任务已完成", CardChromeTaskTone::Muted),
-        EgoCardPhase::Failed => ("任务失败", CardChromeTaskTone::Error),
-        EgoCardPhase::Disconnected => ("Ego 已断开", CardChromeTaskTone::Error),
-    }
-}
-
-fn ego_status_text(phase: EgoCardPhase) -> &'static str {
-    match phase {
-        EgoCardPhase::Creating => "正在创建 Ego 空间",
-        EgoCardPhase::ReadyForUser => "可由用户操作",
-        EgoCardPhase::PreparingAgent => "Agent 正在准备",
-        EgoCardPhase::AgentWorking => "Agent 正在浏览",
-        EgoCardPhase::AwaitingUser => "Agent 请求你接管",
-        EgoCardPhase::UserControlling => "你正在控制 Ego",
-        EgoCardPhase::ResumeRequested => "已交还，等待 Agent 恢复",
-        EgoCardPhase::Completed => "任务已完成",
-        EgoCardPhase::Failed => "任务失败",
-        EgoCardPhase::Disconnected => "Ego 已断开",
-    }
 }
 
 fn is_ego_node(node: &CanvasNode) -> bool {
@@ -425,7 +400,7 @@ fn render_browser_body(node: &CanvasNode, context: CardBodyContext<'_>) -> AnyEl
                 .justify_center()
                 .text_size(px((12.0 * zoom).max(9.0)))
                 .text_color(rgba(theme.text_tertiary))
-                .child("Loading browser..."),
+                .child(ui::i18n::text("cards.loading_browser")),
         )
         .into_any_element()
 }
@@ -486,9 +461,9 @@ fn toolbar_button(
 fn chrome_auth_label(state: BrowserAuthUiState) -> &'static str {
     match state {
         BrowserAuthUiState::Idle => "Chrome",
-        BrowserAuthUiState::Waiting => "Sync…",
+        BrowserAuthUiState::Waiting => ui::i18n::text("cards.sync"),
         BrowserAuthUiState::Ready => "Chrome ✓",
-        BrowserAuthUiState::Failed => "Retry",
+        BrowserAuthUiState::Failed => ui::i18n::text("common.retry"),
     }
 }
 

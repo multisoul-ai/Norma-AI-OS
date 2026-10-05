@@ -3,7 +3,7 @@ use crate::app::MultisoulApp;
 use gpui::Context;
 
 pub(super) const CONFIGURED_API_KEY_PLACEHOLDER: &str = "*********";
-const UNCONFIGURED_API_KEY_PLACEHOLDER: &str = "Not configured";
+const UNCONFIGURED_API_KEY_PLACEHOLDER: &str = "voice.not_configured";
 
 pub(super) fn input_placeholder(
     state: &VoiceSettingsState,
@@ -11,7 +11,7 @@ pub(super) fn input_placeholder(
 ) -> &'static str {
     match field {
         VoiceSettingsField::BaseUrl => "https://api.example.com/v1",
-        VoiceSettingsField::Model => "Model name",
+        VoiceSettingsField::Model => ui::i18n::text("voice.model_name"),
         VoiceSettingsField::ApiKey
             if state
                 .values()
@@ -30,20 +30,23 @@ pub(super) fn input_placeholder(
             CONFIGURED_API_KEY_PLACEHOLDER
         }
         VoiceSettingsField::ApiKey | VoiceSettingsField::AzureApiKey => {
-            UNCONFIGURED_API_KEY_PLACEHOLDER
+            ui::i18n::text(UNCONFIGURED_API_KEY_PLACEHOLDER)
         }
         VoiceSettingsField::AzureRegion => "eastus",
         VoiceSettingsField::AzureLocale => "zh-CN",
         VoiceSettingsField::MiniMaxApiKey if state.minimax_credential_configured() => {
             CONFIGURED_API_KEY_PLACEHOLDER
         }
-        VoiceSettingsField::MiniMaxApiKey => UNCONFIGURED_API_KEY_PLACEHOLDER,
+        VoiceSettingsField::MiniMaxApiKey => ui::i18n::text(UNCONFIGURED_API_KEY_PLACEHOLDER),
         VoiceSettingsField::DoubaoApiKey if state.values().doubao_credential_ref().is_some() => {
             CONFIGURED_API_KEY_PLACEHOLDER
         }
-        VoiceSettingsField::DoubaoApiKey => UNCONFIGURED_API_KEY_PLACEHOLDER,
-        VoiceSettingsField::MiniMaxVoiceId => "Enter Voice ID",
-        VoiceSettingsField::MiniMaxVoiceSearch => "Search by name or Voice ID",
+        VoiceSettingsField::DoubaoApiKey => ui::i18n::text(UNCONFIGURED_API_KEY_PLACEHOLDER),
+        VoiceSettingsField::MiniMaxVoiceId => ui::i18n::text("voice.enter_voice_id"),
+        VoiceSettingsField::DoubaoVoiceSearch => ui::i18n::text("doubao.search_voices"),
+        VoiceSettingsField::MiniMaxVoiceSearch => {
+            ui::i18n::text("voice.search_by_name_or_voice_id")
+        }
     }
 }
 

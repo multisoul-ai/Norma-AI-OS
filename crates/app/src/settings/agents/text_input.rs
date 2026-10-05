@@ -96,10 +96,10 @@ fn native_input(
 ) -> (Input, FocusHandle) {
     let app = cx.weak_entity();
     let initial_value = state.edit_buffer().to_string();
-    let placeholder = match field {
-        AgentDefinitionField::Name => "Set the agent name.",
+    let placeholder_key = match field {
+        AgentDefinitionField::Name => "settings.set_the_agent_name",
         AgentDefinitionField::WorkflowDescription => {
-            "Describe the workflow this agent should follow."
+            "settings.describe_the_workflow_this_agent_should_follow"
         }
     };
     let field_state = window.use_keyed_state(
@@ -108,7 +108,7 @@ fn native_input(
         move |window, cx| {
             let input = cx.new(|cx| {
                 let input = InputState::new(window, cx)
-                    .placeholder(placeholder)
+                    .placeholder(ui::i18n::input_placeholder(placeholder_key, window, cx))
                     .default_value(initial_value);
                 if field == AgentDefinitionField::WorkflowDescription {
                     input.multi_line(true)

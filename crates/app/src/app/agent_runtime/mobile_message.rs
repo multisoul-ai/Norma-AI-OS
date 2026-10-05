@@ -31,11 +31,40 @@ impl MultisoulApp {
         text: String,
         cx: &mut Context<Self>,
     ) -> Result<async_channel::Receiver<Result<Value, String>>, &'static str> {
+        self.send_card_chat(expected, text, false, cx)
+    }
+
+    pub(crate) fn send_workspace_chat(
+        &mut self,
+        expected: &CardSnapshot,
+        text: String,
+        cx: &mut Context<Self>,
+    ) -> Result<async_channel::Receiver<Result<Value, String>>, &'static str> {
+        self.send_card_chat(expected, text, true, cx)
+    }
+
+    fn send_card_chat(
+        &mut self,
+        expected: &CardSnapshot,
+        text: String,
+        workspace_reply: bool,
+        cx: &mut Context<Self>,
+    ) -> Result<async_channel::Receiver<Result<Value, String>>, &'static str> {
         let node = expected.node_id;
-        if self.mobile_node_has_pending_work(node) || self.mobile_delivery_pending(node) {
+        if (if workspace_reply {
+            self.pending_agent_submissions.input_in_progress(node)
+                || self.session_reply_queue.has_pending_for_node(node)
+        } else {
+            self.mobile_node_has_pending_work(node)
+        }) || self.mobile_delivery_pending(node)
+        {
             return Err("state_not_ready");
         }
-        self.runtime.validate_mobile_message(expected, &text)?;
+        if workspace_reply {
+            self.runtime.validate_workspace_message(expected, &text)?;
+        } else {
+            self.runtime.validate_mobile_message(expected, &text)?;
+        }
         let cold = expected.run_id.is_none();
         let (run_id, startup) = if cold {
             // Only the requested original card starts, on the background executor.
@@ -58,15 +87,18 @@ impl MultisoulApp {
             None
         } else {
             Some(
-                self.runtime
-                    .send_mobile_message(expected, text.clone())
-                    .map_err(|error| {
-                        if error == "outcome_unknown" {
-                            "outcome_unknown"
-                        } else {
-                            "send_failed"
-                        }
-                    })?,
+                (if workspace_reply {
+                    self.runtime.send_workspace_message(expected, text.clone())
+                } else {
+                    self.runtime.send_mobile_message(expected, text.clone())
+                })
+                .map_err(|error| {
+                    if error == "outcome_unknown" {
+                        "outcome_unknown"
+                    } else {
+                        "send_failed"
+                    }
+                })?,
             )
         };
         let (reply, receipt) = async_channel::bounded(1);
@@ -122,7 +154,11 @@ impl MultisoulApp {
                             {
                                 return Ok(None);
                             }
-                            match app.runtime.send_mobile_message(&current, text.clone()) {
+                            match if workspace_reply {
+                                app.runtime.send_workspace_message(&current, text.clone())
+                            } else {
+                                app.runtime.send_mobile_message(&current, text.clone())
+                            } {
                                 Ok(receipt) => waiting = Some(receipt),
                                 Err(error) if error == "terminal_not_ready" => return Ok(None),
                                 Err(error) => return Err(error),

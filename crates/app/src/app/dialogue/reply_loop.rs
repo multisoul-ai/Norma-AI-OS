@@ -129,7 +129,10 @@ impl DialogueControlState {
                 Ok(Err(error)) => {
                     tracing::warn!(%error, "voice turn setup failed");
                     let _ = this.update(cx, |app, cx| {
-                        app.dialogue.error_message = Some(format!("Turn error: {error}"));
+                        app.dialogue.error_message = Some(
+                            ui::i18n::LocalizedText::new("chrome.turn_failed")
+                                .with_arg("reason", error),
+                        );
                         app.dialogue.reply_task = None;
                         cx.notify();
                     });
@@ -164,8 +167,10 @@ impl DialogueControlState {
                 Err(error) => {
                     tracing::warn!(%error, "voice turn failed");
                     let _ = this.update(cx, |app, cx| {
-                        app.dialogue
-                            .recover_reply_failure(format!("Turn error: {error}"));
+                        app.dialogue.recover_reply_failure(
+                            ui::i18n::LocalizedText::new("chrome.turn_failed")
+                                .with_arg("reason", error),
+                        );
                         cx.notify();
                     });
                 }

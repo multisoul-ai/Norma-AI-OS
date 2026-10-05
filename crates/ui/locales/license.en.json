@@ -1,0 +1,14 @@
+{
+  "license.enter_license_key": "Enter License Key",
+  "license.could_not_initialize_the_database_error": "Could not initialize the database: %{error}",
+  "license.enter_a_license_key": "Enter a License Key",
+  "license.could_not_locate_the_data_directory_err": "Could not locate the data directory: %{err}",
+  "license.could_not_save_the_activation_credential_err": "Could not save the activation credential: %{err}",
+  "license.activation_succeeded_but_local_verification_failed_the_public_key_does_not": "Activation succeeded, but local verification failed. The public key does not match the issuer; update embed/public_key.hex or NORMA_LICENSE_PUBKEY_HEX.",
+  "license.paste_your_key_and_choose_activate_while_online_expired_offline_credentials": "Paste your key and choose Activate while online. Expired offline credentials also require an online renewal.",
+  "license.activating": "Activating…",
+  "license.activate_norma_os": "Activate Norma OS",
+  "license.activate": "Activate",
+  "license.quit": "Quit",
+  "license.activation_failed": "Activation failed: %{reason}"
+}

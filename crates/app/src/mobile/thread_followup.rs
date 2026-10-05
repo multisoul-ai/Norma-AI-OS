@@ -1,9 +1,9 @@
-use super::{command, queue, server::Shared, terminal, thread_task_terminal as original};
+use super::{command, queue, server::Shared, thread_task_terminal as original};
 use norma::mobile::{ThreadFollowup, ThreadMessage};
 use serde_json::{json, Value};
 use storage::{
-    MobileCommandReservation, MobileCommandStore, MobileTaskDeliveryStore, MobileTurnStore,
-    NewMobileCommand, NewQueuedMessage, ThreadCommandBinding, ThreadMessageStore,
+    MobileCommandStore, MobileTaskDeliveryStore, MobileTurnStore, ThreadCommandBinding,
+    ThreadMessageStore,
 };
 
 /// Authentication and durable enqueue stay on the background transport owner. The existing queue
@@ -14,12 +14,8 @@ pub(super) fn handle(
     device: &str,
     token: &str,
     followup: &ThreadFollowup,
-    attempt: Option<(&str, u64)>,
 ) -> Result<Value, &'static str> {
     followup.validate().map_err(|_| "invalid_request")?;
-    if attempt.is_some_and(|(route, revision)| !command::valid_id(route) || revision == 0) {
-        return Err("invalid_request");
-    }
     let parent = original::Request {
         collaboration_workspace_id: followup.collaboration_workspace_id.clone(),
         thread_id: followup.thread_id.clone(),
@@ -46,14 +42,6 @@ pub(super) fn handle(
         access.store.path().to_path_buf()
     };
     let store = MobileCommandStore::new(path.clone());
-    let record = NewMobileCommand {
-        device_id: device.into(),
-        operation_id: followup.operation_id.clone(),
-        workspace_id: scope.workspace_id.clone(),
-        route_id: scope.route_id.clone(),
-        owner_id: shared.owner_id.clone(),
-        request_hash: fingerprint.clone(),
-    };
     let parent_source = store
         .thread_command(
             device,
@@ -87,25 +75,6 @@ pub(super) fn handle(
     {
         return Err("idempotency_conflict");
     }
-    if existing.is_none() {
-        if let Some((route, revision)) = attempt {
-            if shared.commands.is_none() || shared.snapshots.is_none() || shared.terminals.is_none()
-            {
-                return Err("unavailable");
-            }
-            if revision != resolved_revision {
-                return Err("grant_changed");
-            }
-            if route != scope.route_id {
-                return Err("route_expired");
-            }
-            // The foreground verifies task_ref, Agent definition and original run/session. Reading
-            // under terminal control is allowed: input waits in the shared queue until handed back.
-            let current =
-                continuation_target(&path, &store, &record, &binding, followup, target.clone())?;
-            terminal::read_task(shared, scope.clone(), Some(current))?;
-        }
-    }
     // Revoke/grant edits cannot race the enqueue transaction; a changed grant after the foreground
     // read invalidates the attempt, including permissions on the original task's shared projects.
     let access = shared.access().map_err(|_| "unavailable")?;
@@ -116,7 +85,7 @@ pub(super) fn handle(
     if grant.revision != resolved_revision {
         return Err("grant_changed");
     }
-    if !grant.allows(&scope.workspace_id, attempt.is_some()) {
+    if !grant.allows(&scope.workspace_id, false) {
         return Err("unauthorized");
     }
     let path = access.store.path();
@@ -150,29 +119,6 @@ pub(super) fn handle(
         .all(|project| grant.allows(project, false))
     {
         return Err("unauthorized");
-    }
-    if let Some((_, revision)) = attempt {
-        if revision != grant.revision {
-            return Err("grant_changed");
-        }
-        if existing.is_none() {
-            let message = NewQueuedMessage {
-                node_id: target.key.node_id,
-                profile: target.key.profile.clone(),
-                run_id: target.key.run_id.clone(),
-                session_id: target.key.session_id.clone(),
-                grant_revision: revision,
-                text: followup.text.clone(),
-            };
-            if matches!(
-                store
-                    .enqueue_thread_message(&record, &binding, &message)
-                    .map_err(|_| "queue_unavailable")?,
-                MobileCommandReservation::Conflict
-            ) {
-                return Err("idempotency_conflict");
-            }
-        }
     }
     let bound = store
         .thread_command(
@@ -254,127 +200,4 @@ pub(super) fn handle(
         return Err("result_too_large");
     }
     Ok(result)
-}
-
-/// Recover the immutable parent at each dequeue. The App must still validate this exact target
-/// immediately before input, because a new task may take the node during baseline capture.
-pub(super) fn queued_target(
-    path: &std::path::Path,
-    store: &MobileCommandStore,
-    entry: &storage::QueuedMessage,
-    grant: &storage::MobileDeviceGrant,
-) -> Result<Option<super::LiveTerminalTask>, &'static str> {
-    let Some(binding) = store
-        .queued_thread_binding(&entry.request)
-        .map_err(|_| "unavailable")?
-    else {
-        return Ok(None);
-    };
-    let followup = bound_followup(&entry.request, &binding)?;
-    let request = original::Request {
-        collaboration_workspace_id: followup.collaboration_workspace_id.clone(),
-        thread_id: followup.thread_id.clone(),
-        operation_id: followup.parent_operation_id.clone(),
-        task_ref: followup.task_ref.clone(),
-        before: None,
-        revision: None,
-    };
-    let (scope, target) = original::resolve_authorized(
-        path,
-        grant,
-        &binding.source_mac_id,
-        &entry.request.device_id,
-        &entry.request.owner_id,
-        &request,
-    )?;
-    if scope.workspace_id != entry.request.workspace_id
-        || scope.route_id != entry.request.route_id
-        || target.key.node_id != entry.message.node_id
-        || target.key.profile != entry.message.profile
-        || target.key.run_id != entry.message.run_id
-        || target.key.session_id != entry.message.session_id
-        || followup.text != entry.message.text
-    {
-        return Err("session_changed");
-    }
-    continuation_target(path, store, &entry.request, &binding, &followup, target).map(Some)
-}
-
-fn bound_followup(
-    record: &NewMobileCommand,
-    binding: &ThreadCommandBinding,
-) -> Result<ThreadFollowup, &'static str> {
-    let followup: ThreadFollowup =
-        serde_json::from_str(&binding.payload).map_err(|_| "unavailable")?;
-    if followup
-        .fingerprint(&binding.source_mac_id)
-        .map_err(|_| "unavailable")?
-        != record.request_hash
-        || followup.operation_id != record.operation_id
-        || followup.collaboration_workspace_id != binding.collaboration_workspace_id
-        || followup.thread_id != binding.thread_id
-        || followup.source_operation_id != binding.source_operation_id
-        || followup.source_message_id != binding.source_message_id
-    {
-        return Err("unavailable");
-    }
-    Ok(followup)
-}
-
-fn continuation_target(
-    path: &std::path::Path,
-    store: &MobileCommandStore,
-    record: &NewMobileCommand,
-    binding: &ThreadCommandBinding,
-    followup: &ThreadFollowup,
-    mut target: super::LiveTerminalTask,
-) -> Result<super::LiveTerminalTask, &'static str> {
-    let Some(previous) = store
-        .latest_thread_message(
-            record,
-            binding,
-            &followup.parent_operation_id,
-            &followup.task_ref,
-        )
-        .map_err(|_| "unavailable")?
-    else {
-        return Ok(target);
-    };
-    let previous_binding = store
-        .queued_thread_binding(&previous.request)
-        .map_err(|_| "unavailable")?
-        .ok_or("unavailable")?;
-    let previous_followup = bound_followup(&previous.request, &previous_binding)?;
-    let key = storage::MobileTaskBaselineStore::new(path.to_path_buf())
-        .turn_for_command(
-            &previous.request.device_id,
-            &previous.request.operation_id,
-            &previous.request.workspace_id,
-            &previous.request.route_id,
-        )
-        .map_err(|_| "unavailable")?
-        .ok_or("unavailable")?;
-    if previous_followup.parent_operation_id != followup.parent_operation_id
-        || previous_followup.task_ref != target.task_ref
-        || key.node_id != target.key.node_id
-        || key.profile != target.key.profile
-        || key.run_id != target.key.run_id
-        || key.session_id != target.key.session_id
-        || key.turn_id == target.key.turn_id
-        || previous.message.text != previous_followup.text
-        || previous.message.node_id != key.node_id
-        || previous.message.profile != key.profile
-        || previous.message.run_id != key.run_id
-        || previous.message.session_id != key.session_id
-        || previous.result.as_ref().is_none_or(|result| {
-            result["node_id"].as_u64() != Some(key.node_id)
-                || result["run_id"] != key.run_id
-                || result["session_id"] != key.session_id
-                || result["turn_id"] != key.turn_id
-        })
-    {
-        return Err("session_changed");
-    }
-    target.key = key;
-    Ok(target)
 }

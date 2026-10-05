@@ -37,6 +37,8 @@ mod dialogs_other;
 #[cfg(feature = "e2e-test-support")]
 mod dispatch;
 mod home;
+#[cfg(test)]
+pub(crate) use home::workspace_chrome_theme;
 mod home_card;
 mod launchpad;
 mod layout;
@@ -48,6 +50,7 @@ mod project_area;
 mod project_layout;
 mod project_picker;
 pub(crate) use camera::desktop_scene_rect;
+pub(crate) mod mobile;
 mod project_switch;
 mod project_world;
 mod scene;
@@ -108,10 +111,10 @@ pub(crate) struct DesktopWorkspaceUiState {
     animate_camera_for_e2e: bool,
     pub(crate) loading_area_ids: HashSet<(String, String)>,
     pub(crate) discarded_area_loads: HashSet<(String, String)>,
-    pub(crate) area_errors: HashMap<String, String>,
+    pub(crate) area_errors: HashMap<String, ui::i18n::LocalizedText>,
     pub(crate) sessions: HashMap<(String, String), Entity<MultisoulApp>>,
     pub(crate) search_query: String,
-    pub(crate) error: Option<String>,
+    pub(crate) error: Option<ui::i18n::LocalizedText>,
     pub(crate) busy: bool,
     pub(crate) rename_target: Option<String>,
     pub(crate) rename_input: Option<Entity<InputState>>,
@@ -146,7 +149,10 @@ impl DesktopWorkspaceUiState {
             Ok(workspaces) => (workspaces, None),
             Err(error) => (
                 Vec::new(),
-                Some(format!("Could not load workspaces: {error}")),
+                Some(ui::i18n::message(
+                    "workspace.could_not_load_workspaces_error",
+                    &[("error", (error).to_string())],
+                )),
             ),
         };
         Self::from_catalog(store, workspaces, error)
@@ -155,7 +161,7 @@ impl DesktopWorkspaceUiState {
     fn from_catalog(
         store: DesktopWorkspaceStore,
         workspaces: Vec<DesktopWorkspace>,
-        error: Option<String>,
+        error: Option<ui::i18n::LocalizedText>,
     ) -> Self {
         Self {
             store,
@@ -233,7 +239,8 @@ impl MultisoulApp {
     }
 
     pub(super) fn sync_desktop_input_theme(&self, expanded: bool, cx: &mut gpui::Context<Self>) {
-        let light_dialog_open = self.clone_project.is_open()
+        let light_dialog_open = self.settings_panel.open
+            || self.clone_project.is_open()
             || self.desktop_workspace.add_project_open
             || self.desktop_workspace.pending_project_path.is_some()
             || self.desktop_workspace.pending_delete.is_some()

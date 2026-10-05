@@ -42,8 +42,8 @@ impl Default for CanvasLayoutStrategy {
 impl CanvasLayoutStrategy {
     pub(crate) fn track_label(self) -> &'static str {
         match self.fill {
-            GridFill::RowFirst => "每行卡片数",
-            GridFill::ColumnFirst => "每列卡片数",
+            GridFill::RowFirst => ui::i18n::text("canvas.cards_per_row"),
+            GridFill::ColumnFirst => ui::i18n::text("canvas.cards_per_column"),
         }
     }
 

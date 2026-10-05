@@ -12,6 +12,23 @@ pub(crate) fn attach(store: AppStore, cx: &mut App) -> Entity<MobileController> 
     let path = store.path().to_path_buf();
     let entity = cx.new(|cx| {
         let mut host = MobileController::new(store);
+        let (sender, receiver) = async_channel::bounded::<crate::mobile::LiveWorkspaceRequest>(8);
+        host.workspaces = Some(sender);
+        let database = host.store.path().to_path_buf();
+        let recovery = database.clone();
+        host.workspace_task = Some(cx.spawn(async move |_, cx| {
+            let _ = cx
+                .background_executor()
+                .spawn(async move {
+                    storage::AgentCreationStore::new(recovery.clone()).reconcile_interrupted()?;
+                    storage::WorkspaceChatStore::new(recovery).reconcile_interrupted()
+                })
+                .await;
+            while let Ok(call) = receiver.recv().await {
+                let _ = cx
+                    .update(|cx| crate::mobile::workspace_live::start(database.clone(), call, cx));
+            }
+        }));
         let (sender, receiver) = async_channel::bounded::<crate::mobile::LiveSnapshotRequest>(8);
         host.snapshots = Some(sender);
         let database = host.store.path().to_path_buf();

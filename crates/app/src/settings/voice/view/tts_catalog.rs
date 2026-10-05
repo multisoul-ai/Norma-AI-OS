@@ -88,7 +88,10 @@ pub(super) fn tts_catalog_row(
                                 .gap(px(4.0))
                                 .child(div().text_color(rgba(theme.text_primary)).child(
                                     if descriptor.experimental() {
-                                        format!("{} · Experimental", descriptor.display_name())
+                                        ui::i18n::format(
+                                            "voice.experimental",
+                                            &[("arg0", (descriptor.display_name()).to_string())],
+                                        )
                                     } else {
                                         descriptor.display_name().to_string()
                                     },
@@ -131,8 +134,8 @@ pub(super) fn tts_catalog_row(
         .py(px(6.0))
         .child(setting_label(
             theme,
-            "Local TTS Model",
-            "Download, select and remove verified local voices",
+            ui::i18n::text("voice.local_tts_model"),
+            ui::i18n::text("voice.download_select_and_remove_verified_local_voices"),
         ))
         .child(list)
 }
@@ -147,7 +150,7 @@ fn model_action(item: &TtsCatalogItem<'_>, cx: &mut Context<MultisoulApp>) -> Di
     let index = item.model_index;
     match installation {
         TtsModelInstallState::NotInstalled => div().child(
-            action_button(theme, "Install", theme.accent_orange)
+            action_button(theme, ui::i18n::text("common.install"), theme.accent_orange)
                 .id(("settings-tts-install", index))
                 .debug_selector(move || format!("settings-tts-install-{index}"))
                 .on_click(cx.listener(move |app, _, _, cx| app.install_tts_model(id.clone(), cx))),
@@ -164,7 +167,7 @@ fn model_action(item: &TtsCatalogItem<'_>, cx: &mut Context<MultisoulApp>) -> Di
                         .child(format!("{}%", percentage(*downloaded, *total))),
                 )
                 .child(
-                    action_button(theme, "Cancel", theme.destructive)
+                    action_button(theme, ui::i18n::text("common.cancel"), theme.destructive)
                         .id(("settings-tts-cancel", index))
                         .debug_selector(move || format!("settings-tts-cancel-{index}"))
                         .on_click(cx.listener(move |app, _, _, cx| {
@@ -176,12 +179,12 @@ fn model_action(item: &TtsCatalogItem<'_>, cx: &mut Context<MultisoulApp>) -> Di
             .px(px(12.0))
             .py(px(8.0))
             .text_color(rgba(theme.text_tertiary))
-            .child("Cancelling…"),
+            .child(ui::i18n::text("voice.cancelling")),
         TtsModelInstallState::Ready if selected => div()
             .px(px(12.0))
             .py(px(8.0))
             .text_color(rgba(theme.accent_cyan))
-            .child("Selected"),
+            .child(ui::i18n::text("voice.selected")),
         TtsModelInstallState::Ready
             if descriptor.capabilities().requires_voice_reference()
                 && !zipvoice_reference_ready =>
@@ -197,10 +200,10 @@ fn model_action(item: &TtsCatalogItem<'_>, cx: &mut Context<MultisoulApp>) -> Di
                         .py(px(8.0))
                         .text_size(px(12.0))
                         .text_color(rgba(theme.text_tertiary))
-                        .child("Reference required"),
+                        .child(ui::i18n::text("voice.reference_required")),
                 )
                 .child(
-                    action_button(theme, "Delete", theme.destructive)
+                    action_button(theme, ui::i18n::text("common.delete"), theme.destructive)
                         .id(("settings-tts-delete", index))
                         .debug_selector(move || format!("settings-tts-delete-{index}"))
                         .on_click(cx.listener(move |app, _, _, cx| {
@@ -215,7 +218,7 @@ fn model_action(item: &TtsCatalogItem<'_>, cx: &mut Context<MultisoulApp>) -> Di
                 .flex()
                 .gap(px(6.0))
                 .child(
-                    action_button(theme, "Select", theme.accent_cyan)
+                    action_button(theme, ui::i18n::text("voice.select"), theme.accent_cyan)
                         .id(("settings-tts-select", index))
                         .debug_selector(move || format!("settings-tts-select-{index}"))
                         .on_click(cx.listener(move |app, _, _, cx| {
@@ -223,7 +226,7 @@ fn model_action(item: &TtsCatalogItem<'_>, cx: &mut Context<MultisoulApp>) -> Di
                         })),
                 )
                 .child(
-                    action_button(theme, "Delete", theme.destructive)
+                    action_button(theme, ui::i18n::text("common.delete"), theme.destructive)
                         .id(("settings-tts-delete", index))
                         .debug_selector(move || format!("settings-tts-delete-{index}"))
                         .on_click(cx.listener(move |app, _, _, cx| {
@@ -232,7 +235,7 @@ fn model_action(item: &TtsCatalogItem<'_>, cx: &mut Context<MultisoulApp>) -> Di
                 )
         }
         TtsModelInstallState::Failed(_) => div().child(
-            action_button(theme, "Retry", theme.destructive)
+            action_button(theme, ui::i18n::text("common.retry"), theme.destructive)
                 .id(("settings-tts-retry", index))
                 .debug_selector(move || format!("settings-tts-retry-{index}"))
                 .on_click(cx.listener(move |app, _, _, cx| app.install_tts_model(id.clone(), cx))),
@@ -265,9 +268,12 @@ fn voice_controls(item: &TtsCatalogItem<'_>, cx: &mut Context<MultisoulApp>) -> 
                 .gap(px(8.0))
                 .text_size(px(12.0))
                 .text_color(rgba(theme.text_tertiary))
-                .child(format!("Voice: {}", voice.display_name()))
+                .child(ui::i18n::format(
+                    "voice.voice",
+                    &[("arg0", (voice.display_name()).to_string())],
+                ))
                 .child(
-                    action_button(theme, "Preview", theme.accent_cyan)
+                    action_button(theme, ui::i18n::text("voice.preview"), theme.accent_cyan)
                         .id(("settings-tts-preview", model_index * 100))
                         .debug_selector(move || format!("settings-tts-preview-{model_index}-0"))
                         .on_click(cx.listener(move |app, _, _, cx| {
@@ -283,7 +289,7 @@ fn voice_controls(item: &TtsCatalogItem<'_>, cx: &mut Context<MultisoulApp>) -> 
         .gap(px(6.0))
         .text_size(px(12.0))
         .text_color(rgba(theme.text_tertiary))
-        .child("Voices:");
+        .child(ui::i18n::text("voice.voices"));
     for (voice_index, voice) in descriptor.voices().iter().enumerate() {
         let voice_is_selected = selected_model && selected_voice == Some(voice.id());
         let select_model = descriptor.id().clone();
@@ -296,7 +302,11 @@ fn voice_controls(item: &TtsCatalogItem<'_>, cx: &mut Context<MultisoulApp>) -> 
             .child(
                 action_button(
                     theme,
-                    if voice_is_selected { "Selected" } else { "Use" },
+                    if voice_is_selected {
+                        ui::i18n::text("voice.selected")
+                    } else {
+                        ui::i18n::text("voice.use")
+                    },
                     if voice_is_selected {
                         theme.accent_orange
                     } else {
@@ -310,7 +320,7 @@ fn voice_controls(item: &TtsCatalogItem<'_>, cx: &mut Context<MultisoulApp>) -> 
                 })),
             )
             .child(
-                action_button(theme, "Preview", theme.accent_cyan)
+                action_button(theme, ui::i18n::text("voice.preview"), theme.accent_cyan)
                     .id(("settings-tts-preview", control_id))
                     .debug_selector(move || {
                         format!("settings-tts-preview-{model_index}-{voice_index}")
@@ -333,14 +343,10 @@ fn percentage(downloaded: u64, total: u64) -> u64 {
 
 fn installation_status(installation: &TtsModelInstallState) -> &'static str {
     match installation {
-        TtsModelInstallState::NotInstalled => "Not installed",
-        TtsModelInstallState::Installing { .. } => "Installing",
-        TtsModelInstallState::Cancelling { .. } => "Cancelling",
-        TtsModelInstallState::Ready => "Ready",
-        TtsModelInstallState::Failed(_) => "Installation failed",
+        TtsModelInstallState::NotInstalled => ui::i18n::text("settings.not_installed"),
+        TtsModelInstallState::Installing { .. } => ui::i18n::text("settings.installing"),
+        TtsModelInstallState::Cancelling { .. } => ui::i18n::text("voice.cancelling_2"),
+        TtsModelInstallState::Ready => ui::i18n::text("common.ready"),
+        TtsModelInstallState::Failed(_) => ui::i18n::text("voice.installation_failed"),
     }
 }
-
-#[cfg(test)]
-#[path = "../../../../tests/unit/voice_settings_tts_scan_tests.rs"]
-mod redesign_tests;

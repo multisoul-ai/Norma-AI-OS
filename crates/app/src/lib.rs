@@ -61,8 +61,7 @@ pub use mobile::{
     CommandLease, LiveApprovalRequest, LiveCommandRequest, LiveConversationRequest,
     LiveReviewRequest, LiveSnapshotRequest, LiveTerminalRequest, LiveTerminalTask, MobileAccess,
     MobileCommand, MobileCommandRequest, MobileProvider, MobileServer, MobileSources,
-    ProjectReviewRequest, PushRelayConfig, ThreadTerminalCommand, ThreadTerminalOperation,
-    ThreadTerminalRequest,
+    ProjectReviewRequest, PushRelayConfig, ThreadTerminalRequest,
 };
 
 #[cfg(feature = "e2e-test-support")]
@@ -73,7 +72,7 @@ use gpui::{App, Application, KeyBinding};
 fn register_global_actions(cx: &mut App) {
     cx.on_action(|_: &QuitNormaOs, cx| {
         if workspace::sessions::can_quit(cx) {
-            cx.quit();
+            settings::general::quit_after_saving(cx);
         }
     });
     cx.on_action(|_: &OpenFeatureGuide, cx| open_feature_guide_in_active_window(cx));
@@ -107,6 +106,9 @@ pub fn run_norma_os() {
 
     let application = Application::new().with_assets(EmbeddedAssets);
     application.on_reopen(|cx| {
+        if !settings::general::is_ready(cx) {
+            return;
+        }
         if cx.windows().is_empty() {
             if let Err(error) = license_gate::open_gated_window(cx) {
                 tracing::warn!(%error, "failed to reopen Norma window");
@@ -139,7 +141,7 @@ pub fn run_norma_os() {
             let background = workspace::sessions::windows_closed(cx);
             workspace::desktop::sessions::windows_closed(background, cx);
             if cx.windows().is_empty() && !background {
-                cx.quit();
+                settings::general::quit_after_saving(cx);
             }
         })
         .detach();
@@ -152,7 +154,6 @@ pub fn run_norma_os() {
 
         // The opt-in `licenses` feature controls the hard gate (ADR 0015).
         // Default and packaged builds enter the workbench without a license.
-        license_gate::open_gated_window(cx).expect("failed to open window");
-        cx.activate(true);
+        settings::general::open_initial_window(cx);
     });
 }

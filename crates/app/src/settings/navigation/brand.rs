@@ -66,7 +66,10 @@ pub(super) fn settings_brand_footer(theme: Theme, compact: bool) -> Stateful<Div
                                 .text_size(px(if compact { 10.0 } else { 11.0 }))
                                 .font_family("Menlo")
                                 .text_color(rgba(theme.text_tertiary))
-                                .child(format!("Version {}", brand.version)),
+                                .child(ui::i18n::format(
+                                    "settings.version",
+                                    &[("arg0", (brand.version).to_string())],
+                                )),
                         ),
                 )
                 .child(
@@ -75,7 +78,7 @@ pub(super) fn settings_brand_footer(theme: Theme, compact: bool) -> Stateful<Div
                         .icon(Icon::default().path(SETTINGS_CHECK_UPDATES_ASSET))
                         .ghost()
                         .with_size(Size::Medium)
-                        .tooltip("Check for updates")
+                        .tooltip(ui::i18n::text("settings.check_for_updates"))
                         .on_click(|_, _window, cx| {
                             crate::updater::check_for_updates(cx);
                         }),

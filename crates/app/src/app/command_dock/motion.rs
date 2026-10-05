@@ -8,8 +8,8 @@ use crate::motion::{
 /// Retain the last visible content until the drawer has finished closing.
 pub(crate) struct CommandDrawer {
     pub(super) draft: String,
-    pub(super) error: Option<String>,
-    pub(super) reply: Option<String>,
+    pub(super) error: Option<ui::i18n::LocalizedText>,
+    pub(super) reply: Option<ui::i18n::LocalizedText>,
     pub(super) content_height: f32,
     from_height: f32,
     target_height: f32,

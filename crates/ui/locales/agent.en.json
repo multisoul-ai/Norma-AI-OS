@@ -1,0 +1,11 @@
+{
+  "agent.definition_missing": "Agent definition was not found.",
+  "agent.open_project_first": "Open a project before creating agents.",
+  "agent.close_running": "Agent is working or has queued tasks. Close it again to interrupt all tasks.",
+  "agent.queue_empty": "Queued task cannot be empty.",
+  "agent.card_missing": "Agent card was not found.",
+  "agent.waiting_only": "Only waiting tasks can be withdrawn.",
+  "agent.retry_typing": "Waiting for the CLI to become ready before retrying task input.",
+  "agent.retry_submission": "Waiting for the CLI to become ready before retrying task submission.",
+  "agent.recover_submission": "Agent task submission failed: %{reason}. The input state is uncertain. Close this Agent card twice to interrupt and clear its session, then reactivate it and dispatch the task again."
+}

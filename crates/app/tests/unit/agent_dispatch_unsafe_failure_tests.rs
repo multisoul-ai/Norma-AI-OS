@@ -204,11 +204,14 @@ fn test_pending_unsafe_failure_is_visible_and_does_not_release_busy() {
         "不安全提交失败后首项任务不得继续伪装为 Submitted"
     );
     assert!(
-        visible_error.as_deref().is_some_and(|message| {
-            message.contains("提交失败")
-                && message.contains("连续关闭两次")
-                && message.contains("重新激活")
-        }),
+        visible_error
+            .as_ref()
+            .map(|message| message.resolve_for(ui::i18n::Locale::ZhCn))
+            .is_some_and(|message| {
+                message.contains("提交失败")
+                    && message.contains("连续关闭两次")
+                    && message.contains("重新激活")
+            }),
         "不安全失败必须给出可执行的关闭、清空与重新激活恢复入口，实际：{visible_error:?}"
     );
     assert!(
@@ -326,9 +329,12 @@ fn test_cleanup_failure_keeps_agent_busy_and_prevents_immediate_retry() {
     );
     assert!(!submitted, "Enter 与清行同时失败时第二阶段必须报告未成功");
     assert!(
-        visible_error.as_deref().is_some_and(|message| {
-            message.contains("连续关闭两次") && message.contains("重新激活")
-        }),
+        visible_error
+            .as_ref()
+            .map(|message| message.resolve_for(ui::i18n::Locale::ZhCn))
+            .is_some_and(|message| {
+                message.contains("连续关闭两次") && message.contains("重新激活")
+            }),
         "立即提交的不安全失败也必须给出可执行的关闭与重建恢复入口，实际：{visible_error:?}"
     );
     assert!(

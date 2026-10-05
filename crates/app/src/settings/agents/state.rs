@@ -1,3 +1,4 @@
+mod editing;
 mod lifecycle;
 mod search;
 mod selection;
@@ -59,7 +60,7 @@ pub(crate) struct AgentDefinitionsState {
     edit_buffer: String,
     search_query: String,
     status_filter: AgentStatusFilter,
-    status: Option<String>,
+    status: Option<ui::i18n::LocalizedText>,
 }
 
 impl Default for AgentDefinitionsState {
@@ -209,11 +210,13 @@ impl AgentDefinitionsState {
         if let Err(message) =
             validate_agent_definition_text(&self.draft.name, &self.draft.workflow_description)
         {
-            self.status = Some(message);
+            self.status = Some(message.into());
             return false;
         }
         let Some(store) = self.store.as_ref() else {
-            self.status = Some("Open a project before editing Agents.".to_string());
+            self.status = Some(ui::i18n::LocalizedText::new(
+                "settings.open_a_project_before_editing_agents",
+            ));
             return false;
         };
 
@@ -265,7 +268,7 @@ impl AgentDefinitionsState {
                 true
             }
             Err(error) => {
-                self.status = Some(readable_agent_store_error(&error));
+                self.status = Some(readable_agent_store_error(&error).into());
                 false
             }
         }
@@ -278,7 +281,9 @@ impl AgentDefinitionsState {
 
     pub(crate) fn delete_definition(&mut self, id: i64) -> bool {
         let Some(store) = self.store.as_ref() else {
-            self.status = Some("Open a project before editing Agents.".to_string());
+            self.status = Some(ui::i18n::LocalizedText::new(
+                "settings.open_a_project_before_editing_agents",
+            ));
             return false;
         };
 
@@ -290,11 +295,16 @@ impl AgentDefinitionsState {
                 true
             }
             Ok(false) => {
-                self.status = Some("Could not delete that agent.".to_string());
+                self.status = Some(ui::i18n::LocalizedText::new(
+                    "settings.could_not_delete_that_agent",
+                ));
                 false
             }
             Err(error) => {
-                self.status = Some(format!("Could not delete project agent: {error}"));
+                self.status = Some(ui::i18n::message(
+                    "settings.could_not_delete_project_agent_error",
+                    &[("error", (error).to_string())],
+                ));
                 false
             }
         }
@@ -307,11 +317,15 @@ impl AgentDefinitionsState {
             .iter()
             .find(|definition| definition.id == id)
         else {
-            self.status = Some("Could not find that agent.".to_string());
+            self.status = Some(ui::i18n::LocalizedText::new(
+                "settings.could_not_find_that_agent",
+            ));
             return false;
         };
         let Some(store) = self.store.as_ref() else {
-            self.status = Some("Open a project before editing Agents.".to_string());
+            self.status = Some(ui::i18n::LocalizedText::new(
+                "settings.open_a_project_before_editing_agents",
+            ));
             return false;
         };
 
@@ -332,7 +346,10 @@ impl AgentDefinitionsState {
                 true
             }
             Err(error) => {
-                self.status = Some(format!("Could not update project agent: {error}"));
+                self.status = Some(ui::i18n::message(
+                    "settings.could_not_update_project_agent_error",
+                    &[("error", (error).to_string())],
+                ));
                 false
             }
         }
@@ -342,23 +359,14 @@ impl AgentDefinitionsState {
         self.status = None;
     }
 
-    pub(crate) fn set_status(&mut self, message: impl Into<String>) {
+    pub(crate) fn set_status(&mut self, message: impl Into<ui::i18n::LocalizedText>) {
         self.status = Some(message.into());
     }
 
     #[cfg(test)]
     pub(crate) fn validate_draft(&self) -> Result<(), String> {
         validate_agent_definition_text(&self.draft.name, &self.draft.workflow_description)
-    }
-
-    pub(crate) fn begin_edit(&mut self, field: AgentDefinitionField) {
-        if self.editing.is_some_and(|editing| editing != field) {
-            self.commit_pending_edit();
-        }
-        self.edit_buffer = self.field_value(field).to_string();
-        self.editing = Some(field);
-        self.status = None;
-        self.clear_delete_dialog();
+            .map_err(|message| message.to_string())
     }
 
     #[cfg(test)]
@@ -462,39 +470,11 @@ impl AgentDefinitionsState {
             }
             Err(error) => {
                 self.definitions.clear();
-                self.status = Some(format!("Could not load project agents: {error}"));
+                self.status = Some(ui::i18n::message(
+                    "settings.could_not_load_project_agents_error",
+                    &[("error", (error).to_string())],
+                ));
             }
-        }
-    }
-
-    fn cancel_edit(&mut self) {
-        self.editing = None;
-        self.edit_buffer.clear();
-        self.status = None;
-    }
-
-    fn commit_pending_edit(&mut self) {
-        if let Some(field) = self.editing {
-            self.commit_edit(field);
-        }
-    }
-
-    fn commit_edit(&mut self, field: AgentDefinitionField) {
-        match field {
-            AgentDefinitionField::Name => self.draft.name = self.edit_buffer.clone(),
-            AgentDefinitionField::WorkflowDescription => {
-                self.draft.workflow_description = self.edit_buffer.clone();
-            }
-        }
-        self.editing = None;
-        self.edit_buffer.clear();
-        self.status = None;
-    }
-
-    fn field_value(&self, field: AgentDefinitionField) -> &str {
-        match field {
-            AgentDefinitionField::Name => &self.draft.name,
-            AgentDefinitionField::WorkflowDescription => &self.draft.workflow_description,
         }
     }
 }

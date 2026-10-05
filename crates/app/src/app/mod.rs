@@ -44,6 +44,7 @@ mod agent_runtime;
 mod memory;
 pub(crate) use agent_runtime::execute_norma_adapter_command_with_source;
 pub(crate) use agent_runtime::shared_tokio_runtime;
+pub(crate) use agent_runtime::submit_workspace_turn;
 pub(crate) use agent_runtime::{
     execute_high_level_agent_command, execute_orchestration_agent_command,
     execute_orchestration_agent_command_with_visual_origin, self_dispatch_forbidden_error,
@@ -61,6 +62,7 @@ pub(crate) use browser::{BrowserCommand, BrowserCommandKind};
 mod canvas_surface;
 pub(crate) mod cef_process;
 mod chrome;
+pub(crate) use chrome::{top_bar_theme, TOP_BAR_HEIGHT};
 mod clipboard_image;
 pub(crate) mod command_dock;
 mod cpu_benchmark;
@@ -286,7 +288,8 @@ impl MultisoulApp {
 
     fn on_new_terminal(&mut self, _: &NewTerminal, window: &mut Window, cx: &mut Context<Self>) {
         if !matches!(self.screen, AppScreen::Canvas) {
-            self.workspace_state.error = Some("Open a project before creating terminals.".into());
+            self.workspace_state.error =
+                Some(ui::i18n::LocalizedText::new("chrome.open_terminals"));
             cx.notify();
             return;
         }
@@ -316,7 +319,7 @@ impl MultisoulApp {
 
     fn on_new_browser(&mut self, _: &NewBrowser, window: &mut Window, cx: &mut Context<Self>) {
         if !matches!(self.screen, AppScreen::Canvas) {
-            self.workspace_state.error = Some("Open a project before creating browsers.".into());
+            self.workspace_state.error = Some(ui::i18n::LocalizedText::new("chrome.open_browsers"));
             cx.notify();
             return;
         }
@@ -337,7 +340,7 @@ impl MultisoulApp {
 
     fn on_new_ego(&mut self, _: &NewEgo, window: &mut Window, cx: &mut Context<Self>) {
         if !matches!(self.screen, AppScreen::Canvas) {
-            self.workspace_state.error = Some("Open a project before creating Ego.".into());
+            self.workspace_state.error = Some(ui::i18n::LocalizedText::new("chrome.open_ego"));
             cx.notify();
             return;
         }
@@ -393,7 +396,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         if !self.can_create_preview() {
-            self.workspace_state.error = Some("Open a project before previewing files.".into());
+            self.workspace_state.error = Some(ui::i18n::LocalizedText::new("chrome.open_previews"));
             cx.notify();
             return;
         }
@@ -406,17 +409,15 @@ impl MultisoulApp {
         window: &mut Window,
     ) -> bool {
         if self.previews.has_pending_edits(node_id) {
-            self.workspace_state.error = Some(
-                "You have unsaved changes. Save or cancel your edits before closing this card."
-                    .into(),
-            );
+            self.workspace_state.error =
+                Some(ui::i18n::LocalizedText::new("preview.close_unsaved"));
             return false;
         }
         if self.runtime.ego_task_state(node_id).is_some()
             && !self.runtime.can_close_ego_node(node_id)
         {
             self.workspace_state.error =
-                Some("Ego 任务仍在进行中；请先完成任务或等待 Agent 结束后再关闭卡片。".to_string());
+                Some(ui::i18n::LocalizedText::new("chrome.ego_task_active"));
             return false;
         }
         if !self.confirm_agent_close_if_needed(node_id, true) {

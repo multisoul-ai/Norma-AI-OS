@@ -182,7 +182,10 @@ impl MultisoulApp {
                         store,
                     )
                 {
-                    self.workspace_state.error = Some(error);
+                    self.workspace_state.error = Some(
+                        ui::i18n::LocalizedText::new("common.operation_failed")
+                            .with_arg("reason", error),
+                    );
                 }
                 self.agent_definitions
                     .bind_project_store(store.agent_definition_store());

@@ -93,7 +93,8 @@ impl MultisoulApp {
                 .id("desktop-project-switcher")
                 .debug_selector(|| "desktop-project-switcher".to_string())
                 .flex()
-                .flex_none()
+                .flex_shrink()
+                .min_w(px(0.0))
                 .items_center()
                 .gap(px(6.0))
                 .px(px(6.0))
@@ -104,6 +105,7 @@ impl MultisoulApp {
                         .flex()
                         .items_center()
                         .gap(px(4.0))
+                        .min_w(px(0.0))
                         .max_w(px(numbers_width))
                         .overflow_x_scroll()
                         .track_scroll(&scroll)
@@ -158,7 +160,7 @@ impl MultisoulApp {
                         theme.accent_cyan,
                         14.0,
                     ))
-                    .tooltip("All projects")
+                    .tooltip(ui::i18n::text("workspace.all_projects"))
                     .disabled(disabled)
                     .on_click(cx.listener(|app, _, window, cx| {
                         cx.stop_propagation();
@@ -214,3 +216,11 @@ mod tests;
 #[cfg(test)]
 #[path = "../../../tests/unit/desktop_settings_overlay_tests.rs"]
 mod settings_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/desktop_top_bar_tests.rs"]
+mod top_bar_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/command_dock_width_tests.rs"]
+mod width_tests;

@@ -37,7 +37,7 @@ pub(super) fn query_minimax_voice_catalog(
         return Ok(tts::ProviderVoiceCatalog::new(vec![
             tts::ProviderVoiceDescriptor::new(
                 voice_id,
-                "System Narrator",
+                ui::i18n::text("voice.system_narrator"),
                 tts::TtsVoiceOrigin::System,
             ),
         ]));

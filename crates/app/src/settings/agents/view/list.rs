@@ -67,7 +67,7 @@ pub(super) fn agent_list(
                                 .text_size(px(20.0))
                                 .font_weight(FontWeight::BOLD)
                                 .text_color(rgba(theme.text_primary))
-                                .child("Agents"),
+                                .child(ui::i18n::text("settings.agents")),
                         )
                         .child(
                             div()
@@ -79,7 +79,7 @@ pub(super) fn agent_list(
                 .child(primary_button(
                     theme,
                     "settings-agent-new",
-                    "+ New Agent",
+                    ui::i18n::text("settings.new_agent_2"),
                     true,
                     cx.listener(MultisoulApp::on_agent_settings_new_definition),
                 )),
@@ -104,14 +104,14 @@ pub(super) fn agent_list(
                     this.child(empty_list_message(
                         theme,
                         if state.definitions().is_empty() {
-                            "No project agents saved yet."
+                            ui::i18n::text("settings.no_project_agents_saved_yet")
                         } else {
-                            "No agents match your search."
+                            ui::i18n::text("settings.no_agents_match_your_search")
                         },
                     ))
                 })
                 .when(!groups.on_canvas.is_empty(), |this| {
-                    this.child(section_label(theme, "ON CANVAS"))
+                    this.child(section_label(theme, ui::i18n::text("settings.on_canvas_3")))
                 })
                 .children(groups.on_canvas.into_iter().map(|definition| {
                     agent_list_row(
@@ -183,7 +183,7 @@ fn unsaved_agent_row(theme: Theme, name: &str) -> AnyElement {
                         .text_size(px(12.0))
                         .font_weight(FontWeight::MEDIUM)
                         .text_color(rgba(theme.accent_orange))
-                        .child("Unsaved · Codex"),
+                        .child(ui::i18n::text("settings.unsaved_codex")),
                 ),
         )
         .into_any_element()
@@ -207,7 +207,7 @@ fn agent_status_filter(
         .gap(px(2.0))
         .child(status_filter_button(
             theme,
-            "All",
+            ui::i18n::text("settings.all"),
             "settings-agent-filter-all",
             AgentStatusFilter::All,
             selected,
@@ -215,7 +215,7 @@ fn agent_status_filter(
         ))
         .child(status_filter_button(
             theme,
-            "Enabled",
+            ui::i18n::text("settings.enabled"),
             "settings-agent-filter-enabled",
             AgentStatusFilter::Enabled,
             selected,
@@ -223,7 +223,7 @@ fn agent_status_filter(
         ))
         .child(status_filter_button(
             theme,
-            "Disabled",
+            ui::i18n::text("settings.disabled"),
             "settings-agent-filter-disabled",
             AgentStatusFilter::Disabled,
             selected,
@@ -307,7 +307,11 @@ fn agent_search_input(
         window.use_keyed_state("settings-agent-search-state", cx, move |window, cx| {
             let input = cx.new(|cx| {
                 InputState::new(window, cx)
-                    .placeholder("Search agents")
+                    .placeholder(ui::i18n::input_placeholder(
+                        "settings.search_agents",
+                        window,
+                        cx,
+                    ))
                     .default_value(initial_value)
             });
             let subscription = cx.subscribe(&input, move |_, input, event: &InputEvent, cx| {
@@ -448,7 +452,7 @@ fn agent_list_row(
                                     .text_size(px(10.0))
                                     .font_weight(FontWeight::MEDIUM)
                                     .text_color(rgba(theme.text_secondary))
-                                    .child("Off"),
+                                    .child(ui::i18n::text("settings.off")),
                             )
                         }),
                 )
@@ -483,7 +487,7 @@ fn agent_list_row(
 fn workflow_summary(workflow: &str) -> String {
     let trimmed = workflow.trim();
     if trimmed.is_empty() {
-        "No workflow instructions".to_string()
+        ui::i18n::text("settings.no_workflow_instructions").to_string()
     } else if trimmed.chars().count() > 64 {
         format!("{}…", trimmed.chars().take(63).collect::<String>())
     } else {

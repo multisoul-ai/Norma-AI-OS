@@ -57,14 +57,14 @@ fn test_agents_settings_view_uses_library_and_unified_inspector_contract() {
         "Agent Library 应同时提供列表、搜索、三种状态筛选与 New Agent"
     );
     assert!(
-        inspector_source.contains("Delete Agent…")
+        inspector_source.contains("settings.delete_agent_2")
             && inspector_source.contains("settings-agent-delete")
             && view_source.contains("settings-agent-delete-dialog")
             && view_source.contains("settings-agent-delete-confirm"),
         "统一 Inspector 底部应显式显示 Delete Agent，并通过确认层完成破坏性操作"
     );
     assert!(
-        inspector_source.contains("\"Add to Canvas\"")
+        inspector_source.contains("\"settings.add_to_canvas\"")
             && inspector_source.contains("on_agent_settings_create_card")
             && actions_source.contains("fn on_agent_settings_create_card"),
         "统一 Inspector 必须保留 Add to Canvas 及独立 spawn handler"

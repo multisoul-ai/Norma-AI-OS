@@ -66,7 +66,7 @@ pub(crate) struct MemoryView {
     pending_save: Option<PendingSave>,
     generation: u64,
     drafts: std::collections::HashMap<MemoryScopeAlias, MemoryDraft>,
-    status: String,
+    status: ui::i18n::LocalizedText,
     error: bool,
     imports: Vec<(String, String)>,
     pub(crate) close_prompt: bool,
@@ -81,17 +81,42 @@ impl MemoryView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let search =
-            cx.new(|cx| InputState::new(window, cx).placeholder("搜索名称或正文（支持中文）"));
-        let id_input =
-            cx.new(|cx| InputState::new(window, cx).placeholder("主题 ID，例如 preferences"));
-        let title_input = cx.new(|cx| InputState::new(window, cx).placeholder("例如：交流偏好"));
-        let description_input =
-            cx.new(|cx| InputState::new(window, cx).placeholder("帮助 Norma 判断何时使用这条记忆"));
+        let search = cx.new(|cx| {
+            InputState::new(window, cx).placeholder(ui::i18n::input_placeholder(
+                "norma.search_names_or_content",
+                window,
+                cx,
+            ))
+        });
+        let id_input = cx.new(|cx| {
+            InputState::new(window, cx).placeholder(ui::i18n::input_placeholder(
+                "norma.topic_id_e_g_preferences",
+                window,
+                cx,
+            ))
+        });
+        let title_input = cx.new(|cx| {
+            InputState::new(window, cx).placeholder(ui::i18n::input_placeholder(
+                "norma.e_g_communication_preferences",
+                window,
+                cx,
+            ))
+        });
+        let description_input = cx.new(|cx| {
+            InputState::new(window, cx).placeholder(ui::i18n::input_placeholder(
+                "norma.help_norma_decide_when_to_use_this_memory",
+                window,
+                cx,
+            ))
+        });
         let body = cx.new(|cx| {
             InputState::new(window, cx)
                 .multi_line(true)
-                .placeholder("写下希望 Norma 记住的内容；支持 Markdown")
+                .placeholder(ui::i18n::input_placeholder(
+                    "norma.write_what_you_want_norma_to_remember_markdown_supported",
+                    window,
+                    cx,
+                ))
         });
         let subscriptions = [&search, &id_input, &title_input, &description_input, &body]
             .into_iter()
@@ -135,7 +160,7 @@ impl MemoryView {
             pending_save: None,
             generation: 0,
             drafts: Default::default(),
-            status: String::new(),
+            status: ui::i18n::LocalizedText::default(),
             error: false,
             imports: vec![],
             close_prompt: false,
@@ -199,4 +224,12 @@ impl crate::app::MultisoulApp {
             });
         }
     }
+}
+
+fn scope_label(scope: MemoryScopeAlias) -> &'static str {
+    ui::i18n::text(match scope {
+        MemoryScopeAlias::Personal => "norma.scope.personal",
+        MemoryScopeAlias::Project => "norma.scope.project",
+        MemoryScopeAlias::Worktree => "norma.scope.worktree",
+    })
 }

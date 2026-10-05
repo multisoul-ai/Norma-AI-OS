@@ -1,0 +1,16 @@
+{
+  "preview.open_project": "Open a project before previewing terminal file links.",
+  "preview.arrange_failed": "Could not arrange preview link card.",
+  "preview.picker_title": "Preview File or Images",
+  "preview.refresh_unsaved": "Save or cancel your edits before refreshing the file.",
+  "preview.leave_unsaved": "You have unsaved changes. Save or cancel your edits before leaving.",
+  "preview.save_failed": "Could not save file: %{reason}",
+  "preview.empty_selection": "Select at least one preview file",
+  "preview.not_found": "File does not exist",
+  "preview.not_file": "Path is not a file",
+  "preview.unsupported": "Unsupported preview type",
+  "preview.images_only": "Multiple selection supports image files only",
+  "preview.read_failed": "Could not read file: %{reason}",
+  "preview.invalid_uri": "Invalid local file URI",
+  "preview.close_unsaved": "You have unsaved changes. Save or cancel your edits before closing this card."
+}

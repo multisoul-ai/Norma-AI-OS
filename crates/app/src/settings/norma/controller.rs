@@ -14,7 +14,9 @@ impl MemoryView {
         let selected = self.selected.clone();
         let editing = self.editing || !self.imports.is_empty();
         let task = cx.background_executor().spawn(async move {
-            let mut service = service.lock().map_err(|_| "记忆服务不可用".to_string())?;
+            let mut service = service
+                .lock()
+                .map_err(|_| ui::i18n::text("norma.memory_service_unavailable").to_string())?;
             let snapshot = service
                 .settings_snapshot(scope)
                 .map_err(|e| e.to_string())?;
@@ -74,10 +76,10 @@ impl MemoryView {
                         view.entries = entries;
                         view.preferences = preferences;
                         view.error = false;
-                        view.status = "已载入记忆".into();
+                        view.status = ui::i18n::LocalizedText::new("norma.memories_loaded").into();
                     }
                     Err(error) => {
-                        view.status = error;
+                        view.status = error.into();
                         view.error = true;
                     }
                 }
@@ -157,7 +159,8 @@ impl MemoryView {
     }
     pub(super) fn select(&mut self, id: String, window: &mut Window, cx: &mut Context<Self>) {
         if self.current_is_dirty(cx) {
-            self.status = "请先保存或取消当前草稿。".into();
+            self.status =
+                ui::i18n::LocalizedText::new("norma.save_or_cancel_the_current_draft_first").into();
             self.error = true;
             cx.notify();
             return;
@@ -168,7 +171,9 @@ impl MemoryView {
         let service = self.service.clone();
         let scope = self.scope;
         let task = cx.background_executor().spawn(async move {
-            let mut access = service.lock().map_err(|_| "记忆服务不可用".to_string())?;
+            let mut access = service
+                .lock()
+                .map_err(|_| ui::i18n::text("norma.memory_service_unavailable").to_string())?;
             let (version, entry) = access
                 .settings_read(scope, &id)
                 .map_err(|e| e.to_string())?;
@@ -192,7 +197,7 @@ impl MemoryView {
                         view.status.clear();
                     }
                     Err(error) => {
-                        view.status = error;
+                        view.status = error.into();
                         view.error = true;
                     }
                 }
@@ -204,7 +209,8 @@ impl MemoryView {
     }
     pub(super) fn new_entry(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.current_is_dirty(cx) {
-            self.status = "请先保存或取消当前草稿。".into();
+            self.status =
+                ui::i18n::LocalizedText::new("norma.save_or_cancel_the_current_draft_first").into();
             cx.notify();
             return;
         }
@@ -246,7 +252,7 @@ impl MemoryView {
         self.imports.clear();
         self.close_prompt = false;
         self.error = false;
-        self.status = "草稿已放弃".into();
+        self.status = ui::i18n::LocalizedText::new("norma.draft_discarded").into();
         self.body.update(cx, |input, cx| {
             input.set_value(self.original.clone(), window, cx)
         });
@@ -318,12 +324,16 @@ impl MemoryView {
         self.pending_save = Some(submission.clone());
         self.busy = true;
         self.saving = true;
-        self.status = "正在保存…".into();
+        self.status = ui::i18n::LocalizedText::new("norma.saving").into();
         self.error = false;
         let task = cx.background_executor().spawn(async move {
             service
                 .lock()
-                .map_err(|_| agent::AdapterError::Failed("记忆服务不可用".into()))?
+                .map_err(|_| {
+                    agent::AdapterError::Failed(
+                        ui::i18n::text("norma.memory_service_unavailable").into(),
+                    )
+                })?
                 .settings_save(
                     scope,
                     submission.expected,
@@ -350,17 +360,17 @@ impl MemoryView {
                         view.close_prompt = false;
                         view.imports.clear();
                         view.error = false;
-                        view.status = "已保存".into();
+                        view.status = ui::i18n::LocalizedText::new("norma.saved").into();
                         view.reload(window, cx);
                     }
                     Err(error) => {
                         tracing::warn!(%error, "Norma settings memory save did not return a confirmed receipt");
                         view.error = true;
                         if was_uncertain || matches!(error, agent::AdapterError::Unknown(_)) {
-                            view.status = "保存结果尚未确认，草稿已保留。请点击“核验保存结果”；不会再次发布。".into();
+                            view.status = ui::i18n::LocalizedText::new("norma.save_result_is_unconfirmed_your_draft_is_preserved_select_verify_save").into();
                         } else {
                             view.pending_save = None;
-                            view.status = "保存失败，草稿已保留。请刷新并比较最新内容后再保存。".into();
+                            view.status = ui::i18n::LocalizedText::new("norma.save_failed_your_draft_is_preserved_refresh_and_compare_the_latest").into();
                         }
                     }
                 }
@@ -384,7 +394,9 @@ impl MemoryView {
         let service = self.service.clone();
         self.busy = true;
         let task = cx.background_executor().spawn(async move {
-            let mut access = service.lock().map_err(|_| "记忆服务不可用".to_string())?;
+            let mut access = service
+                .lock()
+                .map_err(|_| ui::i18n::text("norma.memory_service_unavailable").to_string())?;
             if recall {
                 access.set_recall_enabled(value)
             } else {
@@ -403,11 +415,11 @@ impl MemoryView {
                             cx.emit(MemoryRecallRevoked);
                         }
                         view.error = false;
-                        view.status = "设置已保存".into();
+                        view.status = ui::i18n::LocalizedText::new("norma.settings_saved").into();
                     }
                     Err(error) => {
                         view.preferences = previous;
-                        view.status = error;
+                        view.status = error.into();
                         view.error = true;
                     }
                 }

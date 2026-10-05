@@ -49,6 +49,7 @@ pub(crate) struct VoiceSettingsInputs {
     minimax_voice_id: Entity<VoiceTextInput>,
     minimax_voice_search: Entity<VoiceTextInput>,
     doubao_api_key: Entity<VoiceTextInput>,
+    doubao_voice_search: Entity<VoiceTextInput>,
 }
 
 impl VoiceSettingsInputs {
@@ -74,7 +75,7 @@ impl VoiceSettingsInputs {
         let model = create_input(
             VoiceInputSpec {
                 field: VoiceSettingsField::Model,
-                placeholder: "Model name",
+                placeholder: ui::i18n::text("voice.model_name"),
                 masked: false,
             },
             app.clone(),
@@ -146,7 +147,7 @@ impl VoiceSettingsInputs {
         let minimax_voice_id = create_input(
             VoiceInputSpec {
                 field: VoiceSettingsField::MiniMaxVoiceId,
-                placeholder: "Enter Voice ID",
+                placeholder: ui::i18n::text("voice.enter_voice_id"),
                 masked: false,
             },
             app.clone(),
@@ -158,7 +159,7 @@ impl VoiceSettingsInputs {
         let minimax_voice_search = create_input(
             VoiceInputSpec {
                 field: VoiceSettingsField::MiniMaxVoiceSearch,
-                placeholder: "Search by name or Voice ID",
+                placeholder: ui::i18n::text("voice.search_by_name_or_voice_id"),
                 masked: false,
             },
             app.clone(),
@@ -179,6 +180,18 @@ impl VoiceSettingsInputs {
             theme,
             cx,
         );
+        let doubao_voice_search = create_input(
+            VoiceInputSpec {
+                field: VoiceSettingsField::DoubaoVoiceSearch,
+                placeholder: ui::i18n::text("doubao.search_voices"),
+                masked: false,
+            },
+            app.clone(),
+            root_focus.clone(),
+            state,
+            theme,
+            cx,
+        );
         Self {
             base_url,
             model,
@@ -190,6 +203,7 @@ impl VoiceSettingsInputs {
             minimax_voice_id,
             minimax_voice_search,
             doubao_api_key,
+            doubao_voice_search,
         }
     }
 
@@ -205,6 +219,7 @@ impl VoiceSettingsInputs {
             VoiceSettingsField::MiniMaxVoiceId => self.minimax_voice_id.clone(),
             VoiceSettingsField::MiniMaxVoiceSearch => self.minimax_voice_search.clone(),
             VoiceSettingsField::DoubaoApiKey => self.doubao_api_key.clone(),
+            VoiceSettingsField::DoubaoVoiceSearch => self.doubao_voice_search.clone(),
         }
     }
 
@@ -224,6 +239,7 @@ impl VoiceSettingsInputs {
             VoiceSettingsField::MiniMaxVoiceId,
             VoiceSettingsField::MiniMaxVoiceSearch,
             VoiceSettingsField::DoubaoApiKey,
+            VoiceSettingsField::DoubaoVoiceSearch,
         ] {
             self.sync_field_from_state(field, state, cx);
         }
@@ -241,6 +257,7 @@ impl VoiceSettingsInputs {
             &self.minimax_voice_id,
             &self.minimax_voice_search,
             &self.doubao_api_key,
+            &self.doubao_voice_search,
         ] {
             input.update(cx, |input, cx| input.set_theme(theme, cx));
         }
@@ -258,6 +275,7 @@ impl VoiceSettingsInputs {
             &self.minimax_voice_id,
             &self.minimax_voice_search,
             &self.doubao_api_key,
+            &self.doubao_voice_search,
         ]
         .into_iter()
         .any(|input| input.read(cx).focus_handle.is_focused(window))

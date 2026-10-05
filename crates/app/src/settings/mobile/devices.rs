@@ -17,8 +17,8 @@ pub(super) fn devices_card(
 ) -> Div {
     let mut body = card(theme).child(section_title(
         theme,
-        "Paired Phones",
-        "Manage access for phones you've already paired.".into(),
+        ui::i18n::text("mobile.paired_phones"),
+        ui::i18n::text("mobile.manage_access_for_phones_you_ve_already_paired").into(),
     ));
     let active: Vec<_> = state
         .devices
@@ -30,7 +30,7 @@ pub(super) fn devices_card(
             div()
                 .text_size(px(12.0))
                 .text_color(rgba(theme.text_tertiary))
-                .child("No paired phones yet"),
+                .child(ui::i18n::text("mobile.no_paired_phones_yet")),
         );
     }
     for (index, device) in active.into_iter().enumerate() {
@@ -58,23 +58,31 @@ pub(super) fn devices_card(
                             div()
                                 .text_size(px(12.0))
                                 .text_color(rgba(theme.text_secondary))
-                                .child(format!(
-                                    "{} · {} projects · Permission version {}",
-                                    match device.all_projects_access {
-                                        Some(storage::MobilePermission::Control) =>
-                                            "All projects · Control",
-                                        Some(storage::MobilePermission::Read) =>
-                                            "All projects · Read Only",
-                                        None => "Selected projects",
-                                    },
-                                    device.projects.len(),
-                                    device.revision
+                                .child(ui::i18n::format(
+                                    "mobile.projects_permission_version",
+                                    &[
+                                        (
+                                            "arg0",
+                                            (match device.all_projects_access {
+                                                Some(storage::MobilePermission::Control) => {
+                                                    ui::i18n::text("mobile.all_projects_control")
+                                                }
+                                                Some(storage::MobilePermission::Read) => {
+                                                    ui::i18n::text("mobile.all_projects_read_only")
+                                                }
+                                                None => ui::i18n::text("mobile.selected_projects"),
+                                            })
+                                            .to_string(),
+                                        ),
+                                        ("arg1", (device.projects.len()).to_string()),
+                                        ("arg2", (device.revision).to_string()),
+                                    ],
                                 )),
                         ),
                 )
                 .child(
                     Button::new(("mobile-edit", index))
-                        .label("Permissions")
+                        .label(ui::i18n::text("mobile.permissions"))
                         .outline()
                         .disabled(state.busy || !state.enabled() || state.qr.is_some())
                         .on_click(move |_, _, cx| {
@@ -85,7 +93,7 @@ pub(super) fn devices_card(
                     action(
                         entity,
                         &format!("mobile-revoke-{index}"),
-                        "Unpair",
+                        ui::i18n::text("mobile.unpair"),
                         Command::Revoke(device.device_id.clone()),
                         state.busy,
                     )
@@ -113,8 +121,11 @@ pub(super) fn editing_card(
     card(theme)
         .child(section_title(
             theme,
-            "Edit Project Access",
-            "Choose access for this phone, including future projects if needed.".into(),
+            ui::i18n::text("mobile.edit_project_access"),
+            ui::i18n::text(
+                "mobile.choose_access_for_this_phone_including_future_projects_if_needed",
+            )
+            .into(),
         ))
         .child(
             div()
@@ -122,12 +133,12 @@ pub(super) fn editing_card(
                 .text_color(rgba(theme.text_secondary))
                 .child(match current_scope {
                     Some(MobilePermission::Control) => {
-                        "Current: all current and future projects · Control"
+                        ui::i18n::text("mobile.current_all_current_and_future_projects_control")
                     }
                     Some(MobilePermission::Read) => {
-                        "Current: all current and future projects · Read Only"
+                        ui::i18n::text("mobile.current_all_current_and_future_projects_read_only")
                     }
-                    None => "Current: selected projects only",
+                    None => ui::i18n::text("mobile.current_selected_projects_only"),
                 }),
         )
         .child(
@@ -137,7 +148,7 @@ pub(super) fn editing_card(
                 .child(action(
                     entity,
                     "mobile-all-read",
-                    "All Projects · Read Only",
+                    ui::i18n::text("mobile.all_projects_read_only_2"),
                     Command::PermissionsAll {
                         device_id: device_id.to_string(),
                         revision,
@@ -149,7 +160,7 @@ pub(super) fn editing_card(
                     action(
                         entity,
                         "mobile-all-control",
-                        "All Projects · Control",
+                        ui::i18n::text("mobile.all_projects_control_2"),
                         Command::PermissionsAll {
                             device_id: device_id.to_string(),
                             revision,
@@ -162,8 +173,8 @@ pub(super) fn editing_card(
         )
         .child(section_title(
             theme,
-            "Selected Projects",
-            "Saving this list ends access to future projects.".into(),
+            ui::i18n::text("mobile.selected_projects"),
+            ui::i18n::text("mobile.saving_this_list_ends_access_to_future_projects").into(),
         ))
         .child(projects(theme, entity, cx))
         .child(
@@ -174,7 +185,7 @@ pub(super) fn editing_card(
                     action(
                         entity,
                         "mobile-save-permissions",
-                        "Save Permissions",
+                        ui::i18n::text("mobile.save_permissions"),
                         Command::Permissions {
                             device_id: device_id.to_string(),
                             revision,
@@ -188,7 +199,7 @@ pub(super) fn editing_card(
                     action(
                         entity,
                         "mobile-cancel-permissions",
-                        "Cancel",
+                        ui::i18n::text("common.cancel"),
                         Command::Reload,
                         host.busy,
                     )

@@ -44,8 +44,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         let Some(root) = self.runtime.workspace_root() else {
-            self.workspace_state.error =
-                Some("Open a project before previewing terminal file links.".into());
+            self.workspace_state.error = Some(ui::i18n::LocalizedText::new("preview.open_project"));
             return;
         };
         let root = root.to_path_buf();
@@ -68,7 +67,12 @@ impl MultisoulApp {
                         app.workspace_state.error = None;
                         app.open_resolved_terminal_preview(path, window, cx);
                     }
-                    Err(error) => app.workspace_state.error = Some(error),
+                    Err(error) => {
+                        app.workspace_state.error = Some(
+                            ui::i18n::LocalizedText::new("common.operation_failed")
+                                .with_arg("reason", error),
+                        )
+                    }
                 }
                 cx.notify();
             })?;
@@ -111,7 +115,8 @@ impl MultisoulApp {
             self.mark_canvas_dirty();
             self.load_preview_node(node_id, cx);
         } else {
-            self.workspace_state.error = Some("Could not arrange preview link card.".into());
+            self.workspace_state.error =
+                Some(ui::i18n::LocalizedText::new("preview.arrange_failed"));
         }
     }
 
@@ -137,7 +142,7 @@ impl MultisoulApp {
             files: true,
             directories: false,
             multiple: true,
-            prompt: Some("Preview File or Images".into()),
+            prompt: Some(ui::i18n::text("preview.picker_title").into()),
         });
         self.handle_preview_picker_receiver(receiver, from_command, window, cx);
     }
@@ -178,12 +183,16 @@ impl MultisoulApp {
                         }
                     }
                     Ok(Err(error)) => {
-                        picker_error = Some(format!("Could not open preview picker: {error}"))
+                        picker_error = Some(
+                            ui::i18n::LocalizedText::new("cards.preview_picker_failed")
+                                .with_arg("error", error),
+                        )
                     }
                     Err(error) => {
-                        picker_error = Some(format!(
-                            "Preview picker was cancelled unexpectedly: {error}"
-                        ))
+                        picker_error = Some(
+                            ui::i18n::LocalizedText::new("cards.preview_picker_cancelled")
+                                .with_arg("error", error),
+                        )
                     }
                     _ => {}
                 }
@@ -230,7 +239,10 @@ impl MultisoulApp {
         {
             Ok(node_id) => node_id,
             Err(error) => {
-                self.workspace_state.error = Some(error.to_string());
+                self.workspace_state.error = Some(
+                    ui::i18n::LocalizedText::new("common.operation_failed")
+                        .with_arg("reason", error),
+                );
                 cx.notify();
                 return None;
             }
@@ -278,7 +290,7 @@ impl MultisoulApp {
     fn load_preview_node(&mut self, node_id: NodeId, cx: &mut Context<Self>) {
         if self.previews.has_pending_edits(node_id) {
             if let Some(editor) = self.previews.editors.get_mut(&node_id) {
-                editor.error = Some("Save or cancel your edits before refreshing the file.".into());
+                editor.error = Some(ui::i18n::LocalizedText::new("preview.refresh_unsaved"));
             }
             cx.notify();
             return;

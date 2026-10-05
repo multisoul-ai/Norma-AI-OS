@@ -32,6 +32,7 @@ where
     M: CompletionModel,
 {
     let personal = rig_context.context_project_is_personal();
+    let workspace = rig_context.is_mobile_workspace();
     let builder = AgentBuilder::new(model)
         .name("Norma")
         .description("Norma OS 的唯一 Master Agent")
@@ -43,6 +44,11 @@ where
         .tool(crate::rig_tools::MemorySearchTool::new(tools.clone()))
         .tool(crate::rig_tools::MemoryReadTool::new(tools.clone()))
         .tool(crate::rig_tools::MemoryWriteTool::new(tools.clone()));
+    let builder = if workspace {
+        builder.tool(crate::rig_tools::WorkspaceMemoryTool::new(tools.clone()))
+    } else {
+        builder
+    };
     if personal {
         return builder.build();
     }

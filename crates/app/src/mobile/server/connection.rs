@@ -1,13 +1,15 @@
-use super::{ActiveSocket, Shared};
-use norma::mobile::accept_mobile_websocket;
+use super::Shared;
 use serde::Deserialize;
 use serde_json::{json, Value};
-use std::{
-    net::TcpStream,
-    sync::{atomic::Ordering, Arc},
-    time::{Duration, Instant},
-};
-use tungstenite::Message;
+use std::{sync::Arc, time::Instant};
+mod listener;
+#[cfg(test)]
+#[path = "../../../tests/unit/mobile_legacy_retirement_tests.rs"]
+mod mobile_legacy_retirement_tests;
+#[cfg(test)]
+#[path = "../../../tests/unit/workspace_terminal_tests.rs"]
+mod workspace_terminal_tests;
+pub(super) use listener::spawn;
 mod approval_watch;
 mod archive;
 mod conversation;
@@ -29,162 +31,15 @@ struct Request {
     action: Action,
 }
 mod action;
-use action::Action;
+mod legacy;
+mod workspace;
+pub(in crate::mobile) use action::Action;
+use workspace::workspace_credentials;
 mod image;
 mod terminal;
 
-struct SocketGuard {
-    shared: Arc<Shared>,
-    id: u64,
-}
-impl Drop for SocketGuard {
-    fn drop(&mut self) {
-        self.shared
-            .sockets
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .remove(&self.id);
-    }
-}
-
-pub(super) fn spawn(socket: TcpStream, tls: Arc<rustls::ServerConfig>, shared: Arc<Shared>) {
-    let id = shared.next_socket.fetch_add(1, Ordering::Relaxed);
-    {
-        let mut sockets = shared.sockets.lock().unwrap_or_else(|e| e.into_inner());
-        // Eight simultaneous handshakes/connections across ALL interfaces; unauthenticated peers
-        // get the same limit. Each handshake has 3s and each message (including idle) has 30s.
-        if shared.stopped.load(Ordering::Acquire) || sockets.len() >= 8 {
-            return;
-        }
-        let Ok(stream) = socket.try_clone() else {
-            return;
-        };
-        sockets.insert(
-            id,
-            ActiveSocket {
-                stream,
-                device_id: None,
-                realtime: None,
-            },
-        );
-    }
-    let guard = SocketGuard {
-        shared: Arc::clone(&shared),
-        id,
-    };
-    let _ = std::thread::Builder::new()
-        .name("norma-mobile-peer".into())
-        .spawn(move || {
-            let _guard = guard;
-            let Ok(mut ws) =
-                accept_mobile_websocket(socket, tls, Instant::now() + Duration::from_secs(3))
-            else {
-                return;
-            };
-            // Pings and invalid requests cannot occupy an unauthenticated slot forever.
-            // Pairing may outlive this connection; the phone reconnects with its saved token.
-            let auth_deadline = Instant::now() + Duration::from_secs(10);
-            while !shared.stopped.load(Ordering::Acquire) {
-                let authenticated = shared
-                    .sockets
-                    .lock()
-                    .unwrap_or_else(|e| e.into_inner())
-                    .get(&id)
-                    .is_some_and(|socket| socket.device_id.is_some());
-                let deadline = if authenticated {
-                    Instant::now() + Duration::from_secs(30)
-                } else {
-                    auth_deadline
-                };
-                if Instant::now() >= deadline {
-                    break;
-                }
-                ws.get_mut().sock.set_deadline(deadline);
-                let Ok(message) = ws.read() else {
-                    break;
-                };
-                let reply = match message {
-                    Message::Text(text) => match decode(&text) {
-                        Ok(request) if matches!(request.action, Action::BindRealtime { .. }) => {
-                            realtime::serve(&mut ws, &shared, id, request);
-                            break;
-                        }
-                        Ok(request)
-                            if matches!(
-                                request.action,
-                                Action::UploadImage { .. } | Action::ChatImage { .. }
-                            ) =>
-                        {
-                            image::serve(&mut ws, &shared, id, request);
-                            break;
-                        }
-                        Ok(request) if matches!(request.action, Action::Terminal { .. }) => {
-                            terminal::serve(&mut ws, &shared, id, request);
-                            break;
-                        }
-                        Ok(request)
-                            if matches!(
-                                request.action,
-                                Action::WatchPlan { .. }
-                                    | Action::TaskDeliveries { watch: true, .. }
-                            ) =>
-                        {
-                            record_watch::serve(&mut ws, &shared, id, request);
-                            break;
-                        }
-                        Ok(request) if matches!(request.action, Action::WatchApprovals { .. }) => {
-                            approval_watch::serve(&mut ws, &shared, id, request);
-                            break;
-                        }
-                        Ok(request) if matches!(request.action, Action::WatchProject { .. }) => {
-                            stream::serve(&mut ws, &shared, id, request);
-                            break;
-                        }
-                        Ok(request)
-                            if matches!(request.action, Action::WatchConversation { .. }) =>
-                        {
-                            conversation_watch::serve(&mut ws, &shared, id, request);
-                            break;
-                        }
-                        Ok(request) if matches!(request.action, Action::ProjectReview { .. }) => {
-                            review::serve(&mut ws, &shared, id, request);
-                            break;
-                        }
-                        Ok(request)
-                            if matches!(
-                                request.action,
-                                Action::Conversation { .. } | Action::ArchivedConversation { .. }
-                            ) =>
-                        {
-                            conversation::serve(&mut ws, &shared, id, request);
-                            break;
-                        }
-                        Ok(request) => handle(request, &shared, id),
-                        Err(reply) => reply,
-                    },
-                    Message::Ping(_) => {
-                        if ws.flush().is_err() {
-                            break;
-                        }
-                        continue;
-                    }
-                    Message::Pong(_) => continue,
-                    _ => break,
-                };
-                if shared.stopped.load(Ordering::Acquire) {
-                    break;
-                }
-                ws.get_mut()
-                    .sock
-                    .set_deadline(Instant::now() + Duration::from_secs(3));
-                if ws.send(Message::text(reply.to_string())).is_err() {
-                    break;
-                }
-            }
-        });
-}
-
 fn decode(text: &str) -> Result<Request, Value> {
+    legacy::reject_mutation(text)?;
     let Ok(request) = serde_json::from_str::<Request>(text) else {
         return Err(failure("", "invalid_request"));
     };
@@ -205,18 +60,41 @@ fn decode(text: &str) -> Result<Request, Value> {
 
 fn handle(request: Request, shared: &Arc<Shared>, socket_id: u64) -> Value {
     let id = &request.request_id;
+    if let Some((device, token)) = workspace_credentials(&request.action) {
+        return match crate::mobile::workspace_chat::handle(
+            shared,
+            &request.machine_id,
+            device,
+            token,
+            &request.action,
+        ) {
+            Ok(result) => success(id, result),
+            Err(code) => failure(id, code),
+        };
+    }
+    if let Some((device, token)) = legacy::credentials(&request.action) {
+        return match legacy::read(shared, &request, device, token) {
+            Ok(result) => success(id, result),
+            Err(code) => failure(id, code),
+        };
+    }
     if matches!(
         request.action,
-        Action::ThreadMessage { .. }
+        Action::WorkspaceActivity { .. }
+            | Action::WorkspaceTerminal { .. }
+            | Action::WorkspaceAgentCreate { .. }
+            | Action::WorkspaceAgentCreationReceipt { .. }
+            | Action::WorkspaceCatalog { .. }
+            | Action::WorkspaceMessage { .. }
+            | Action::WorkspaceReceipt { .. }
+            | Action::WorkspaceEvents { .. }
+            | Action::WorkspaceConfigure { .. }
             | Action::ThreadReceipt { .. }
             | Action::ThreadEvents { .. }
-            | Action::ThreadTask { .. }
             | Action::ThreadTaskReceipt { .. }
             | Action::ThreadTaskReview { .. }
-            | Action::ThreadTaskAccept { .. }
             | Action::ThreadTaskAcceptance { .. }
             | Action::ThreadTaskTerminal { .. }
-            | Action::ThreadTaskTerminalControl { .. }
     ) {
         return failure(id, "unsupported_transport");
     }
@@ -378,6 +256,17 @@ fn handle(request: Request, shared: &Arc<Shared>, socket_id: u64) -> Value {
         return failure(id, "unauthorized");
     }
     match request.action {
+        Action::WorkspaceActivity { .. }
+        | Action::WorkspaceTerminal { .. }
+        | Action::WorkspaceAgentCreate { .. }
+        | Action::WorkspaceAgentCreationReceipt { .. }
+        | Action::WorkspaceCatalog { .. }
+        | Action::WorkspaceMessage { .. }
+        | Action::WorkspaceReceipt { .. }
+        | Action::WorkspaceEvents { .. }
+        | Action::WorkspaceConfigure { .. } => {
+            unreachable!("workspace actions handled before authorization lock")
+        }
         Action::CloudRegistration {
             device_id,
             token,
@@ -431,15 +320,10 @@ fn handle(request: Request, shared: &Arc<Shared>, socket_id: u64) -> Value {
                 Err(_) => failure(id, "unavailable"),
             }
         }
-        Action::ThreadMessage { .. }
-        | Action::ThreadTaskFollowup { .. }
-        | Action::ThreadTaskFollowupReceipt { .. }
-        | Action::ThreadTask { .. }
+        Action::ThreadTaskFollowupReceipt { .. }
         | Action::ThreadTaskReceipt { .. }
         | Action::ThreadTaskReview { .. }
         | Action::ThreadTaskTerminal { .. }
-        | Action::ThreadTaskTerminalControl { .. }
-        | Action::ThreadTaskAccept { .. }
         | Action::ThreadTaskAcceptance { .. }
         | Action::ThreadReceipt { .. }
         | Action::ThreadEvents { .. }
@@ -484,7 +368,15 @@ fn handle(request: Request, shared: &Arc<Shared>, socket_id: u64) -> Value {
                         return failure(id, "unavailable");
                     };
                     socket.device_id = Some(device_id);
-                    success(id, json!({"status":"authorized","grant":grant}))
+                    let capabilities: Vec<&str> = if shared.workspaces.is_some() {
+                        vec!["workspace_terminal_v1"]
+                    } else {
+                        Vec::new()
+                    };
+                    success(
+                        id,
+                        json!({"status":"authorized","grant":grant,"capabilities":capabilities}),
+                    )
                 }
                 _ => failure(id, "unauthorized"),
             }

@@ -22,7 +22,9 @@ impl MultisoulApp {
         match final_voice_text_action(self.voice_settings.values().interaction_mode()) {
             FinalVoiceTextAction::StartAgentTurn => {
                 match self.dialogue.begin_single_voice_command(&transcript) {
-                    Ok(()) => self.voice.set_executed("Voice command sent"),
+                    Ok(()) => self
+                        .voice
+                        .set_executed(ui::i18n::text("chrome.voice_command_sent")),
                     Err(error) => self.voice.set_speech_error(&error),
                 }
             }

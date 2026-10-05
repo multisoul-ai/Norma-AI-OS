@@ -76,7 +76,7 @@ impl MultisoulApp {
             .desktop_workspace
             .active()
             .map(|workspace| workspace.name.clone())
-            .unwrap_or_else(|| "Workspace".to_string());
+            .unwrap_or_else(|| ui::i18n::text("common.workspace").to_string());
         if transition_project.is_none() && workspace_frame.is_none() {
             if let Some(session) = focus_session.clone() {
                 return div()

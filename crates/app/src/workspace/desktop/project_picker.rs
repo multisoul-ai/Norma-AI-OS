@@ -164,7 +164,11 @@ impl ListDelegate for ProjectPicker {
                                 .text_right()
                                 .text_size(px(11.0))
                                 .text_color(rgba(theme.text_secondary))
-                                .child(if added { "✓ Added" } else { "+ Add" }),
+                                .child(if added {
+                                    ui::i18n::text("workspace.added")
+                                } else {
+                                    ui::i18n::text("workspace.add")
+                                }),
                         ),
                 ),
         )
@@ -185,15 +189,13 @@ impl ListDelegate for ProjectPicker {
             .text_color(rgba(self.theme.text_secondary))
             .text_size(px(13.0))
             .child(if self.records.is_empty() {
-                "No recent projects yet"
+                ui::i18n::text("workspace.no_recent_projects_yet")
             } else {
-                "No matching projects"
+                ui::i18n::text("workspace.no_matching_projects")
             })
-            .child(
-                div()
-                    .text_size(px(11.0))
-                    .child("Choose a folder or clone a repository above."),
-            )
+            .child(div().text_size(px(11.0)).child(ui::i18n::text(
+                "workspace.choose_a_folder_or_clone_a_repository_above",
+            )))
     }
 }
 
@@ -279,7 +281,7 @@ impl MultisoulApp {
             .desktop_workspace
             .active()
             .map(|workspace| workspace.name.as_str())
-            .unwrap_or("this workspace");
+            .unwrap_or(ui::i18n::text("workspace.this_workspace"));
         let picker = list.read(cx).delegate();
         let count = picker.records.len();
         let matching = picker.matching.len();
@@ -293,8 +295,8 @@ impl MultisoulApp {
             .gap(px(14.0))
             .text_color(rgba(theme.text_primary))
             .child(super::dialogs::desktop_form_header(
-                "Add Project",
-                format!("Add to {name}"),
+                ui::i18n::text("shortcuts.add_project"),
+                ui::i18n::format("workspace.add_to_name", &[("name", (name).to_string())]),
                 theme,
             ))
             .child(
@@ -307,7 +309,7 @@ impl MultisoulApp {
                             .flex_1()
                             .h(px(36.0))
                             .rounded(px(8.0))
-                            .label("Choose Folder…")
+                            .label(ui::i18n::text("workspace.choose_folder"))
                             .on_click(cx.listener(|app, _, window, cx| {
                                 app.close_desktop_add_project(window, cx);
                                 app.prompt_open_project(window, cx);
@@ -319,7 +321,7 @@ impl MultisoulApp {
                             .flex_1()
                             .h(px(36.0))
                             .rounded(px(8.0))
-                            .label("Clone Repository…")
+                            .label(ui::i18n::text("workspace.clone_repository"))
                             .on_click(cx.listener(|app, _, window, cx| {
                                 app.close_desktop_add_project(window, cx);
                                 app.open_clone_project_dialog(window, cx);
@@ -332,11 +334,20 @@ impl MultisoulApp {
                     .justify_between()
                     .text_size(px(11.0))
                     .text_color(rgba(theme.text_secondary))
-                    .child("Recent Projects")
+                    .child(ui::i18n::text("workspace.recent_projects"))
                     .child(if matching == count {
-                        format!("{count} projects")
+                        ui::i18n::format(
+                            "workspace.count_projects",
+                            &[("count", (count).to_string())],
+                        )
                     } else {
-                        format!("{matching} of {count} projects")
+                        ui::i18n::format(
+                            "workspace.matching_of_count_projects",
+                            &[
+                                ("matching", (matching).to_string()),
+                                ("count", (count).to_string()),
+                            ],
+                        )
                     }),
             )
             .child(
@@ -348,7 +359,11 @@ impl MultisoulApp {
                     .border_1()
                     .border_color(rgba(theme.node_stroke))
                     .rounded(px(10.0))
-                    .child(List::new(list).search_placeholder("Search by name or folder…")),
+                    .child(
+                        List::new(list).search_placeholder(ui::i18n::text(
+                            "workspace.search_by_name_or_folder",
+                        )),
+                    ),
             )
             .child(
                 div()
@@ -360,12 +375,12 @@ impl MultisoulApp {
                         div()
                             .text_size(px(11.0))
                             .text_color(rgba(theme.text_secondary))
-                            .child("↑ ↓ Select    ↵ Add    Esc Close"),
+                            .child(ui::i18n::text("workspace.select_add_esc_close")),
                     )
                     .child(
                         Button::new("desktop-add-project-cancel")
                             .debug_selector(|| "desktop-add-project-cancel".into())
-                            .label("Cancel")
+                            .label(ui::i18n::text("common.cancel"))
                             .on_click(cx.listener(|app, _, window, cx| {
                                 app.close_desktop_add_project(window, cx)
                             })),

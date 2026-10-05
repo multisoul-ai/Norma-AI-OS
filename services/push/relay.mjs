@@ -3,20 +3,22 @@ import { createServer } from 'node:http';
 import * as http2 from 'node:http2';
 import { readFileSync, statSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
+import { validateActivity, activityPayload } from './activity.mjs';
 
 const digest = value => createHash('sha256').update(value).digest();
 const result = (status, error) => ({ status, body: { error } });
 const unknown = () => result(502, 'delivery_unknown');
 const identifier = (value, limit = 128) => typeof value === 'string' && value.length <= limit && /^[A-Za-z0-9_.:-]+$/.test(value);
-const fields = ['event_id', 'token', 'expires_at', 'kind', 'machine_id', 'workspace_id', 'route_id', 'node_id', 'run_id', 'session_id', 'turn_id', 'request_id', 'preview'];
+const fields = ['event_id', 'token', 'expires_at', 'kind', 'machine_id', 'workspace_id', 'route_id', 'node_id', 'run_id', 'session_id', 'turn_id', 'request_id', 'preview', 'desktop_workspace_id', 'area_id'];
 
 function validate(input, now) {
+  if (input?.kind === 'activity') return validateActivity(input, now);
   if (!input || Array.isArray(input) || typeof input !== 'object'
       || Object.keys(input).some(key => !fields.includes(key))
       || typeof input.event_id !== 'string' || !/^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(input.event_id)
       || typeof input.token !== 'string' || !/^(?:[a-f0-9]{2}){16,256}$/.test(input.token)
       || !Number.isSafeInteger(input.expires_at) || input.expires_at <= now || input.expires_at > now + 300
-      || !['approval', 'completed', 'failed'].includes(input.kind)
+      || !['approval', 'completed', 'failed', 'review'].includes(input.kind)
       || typeof input.machine_id !== 'string' || !/^mac-[a-f0-9]{64}$/.test(input.machine_id)
       || !['workspace_id', 'route_id', 'run_id', 'session_id', 'turn_id'].every(key => identifier(input[key]))
       || typeof input.node_id !== 'string' || !/^[1-9][0-9]{0,19}$/.test(input.node_id)
@@ -24,6 +26,9 @@ function validate(input, now) {
       || (input.kind === 'approval' ? !identifier(input.request_id, 256) : input.request_id !== undefined)) {
     throw result(400, 'invalid_event');
   }
+  if ((input.desktop_workspace_id !== undefined || input.area_id !== undefined)
+      && (![input.desktop_workspace_id,input.area_id].every(v=>identifier(v))
+          || input.workspace_id !== `desktop:${input.desktop_workspace_id}:${input.area_id}`)) throw result(400,'invalid_event');
   if (input.preview !== undefined) {
     const p = input.preview;
     if (!p || Array.isArray(p) || typeof p !== 'object'
@@ -106,9 +111,10 @@ export function createRelay({ key, deliver, now = Date.now }) {
 }
 
 function payload(event) {
+  if (event.kind === 'activity') return activityPayload(event);
   const { token, expires_at, preview, ...target } = event;
-  const messages = { approval: '有一项操作需要你确认', completed: 'Agent 的任务已完成', failed: 'Agent 的任务遇到问题' };
-  const states = { approval: '待确认', completed: '已完成', failed: '遇到问题' };
+  const messages = { approval: '有一项操作需要你确认', completed: 'Agent 的任务已完成', failed: 'Agent 的任务遇到问题', review: '有一份成果可验收' };
+  const states = { approval: '待确认', completed: '已完成', failed: '遇到问题', review: '待验收' };
   const alert = preview ? { title: `${preview.card} · ${states[event.kind]}`, subtitle: preview.project, body: preview.summary }
     : { title: 'Norma', body: messages[event.kind] };
   return JSON.stringify({ aps: { alert, sound: 'default' }, norma: { version: 1, ...target } });
@@ -156,8 +162,9 @@ export function createAPNs({ privateKey, teamID, keyID, environment, topic }, { 
         const chunks = [];
         const stream = connection.request({
           ':method': 'POST', ':path': `/3/device/${event.token}`, authorization: authorization(),
-          'apns-topic': topic, 'apns-push-type': 'alert', 'apns-id': event.event_id,
-          'apns-expiration': String(event.expires_at), 'apns-priority': event.kind === 'approval' ? '10' : '5',
+          'apns-topic': event.kind === 'activity' ? `${topic}.push-type.liveactivity` : topic,
+          'apns-push-type': event.kind === 'activity' ? 'liveactivity' : 'alert', 'apns-id': event.event_id,
+          'apns-expiration': String(event.expires_at), 'apns-priority': event.kind === 'activity' ? String(event.priority) : event.kind === 'approval' ? '10' : '5',
           [http2.sensitiveHeaders]: ['authorization', ':path'],
         });
         const finish = outcome => { if (!finished) { finished = true; clearTimeout(timer); resolve(outcome); } };

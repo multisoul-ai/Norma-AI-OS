@@ -87,7 +87,7 @@ pub(crate) struct ReadOnlyShortcutBehavior {
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(crate) struct ShortcutStatus {
-    pub(crate) message: Option<String>,
+    pub(crate) message: Option<ui::i18n::LocalizedText>,
     pub(crate) is_error: bool,
 }
 
@@ -172,19 +172,23 @@ impl ShortcutSettingsState {
     pub(crate) fn begin_recording(&mut self, command: ShortcutCommandId) {
         self.recording = Some(command);
         self.status = ShortcutStatus {
-            message: Some("Type a new shortcut".to_string()),
+            message: Some(ui::i18n::LocalizedText::new(
+                "shortcuts.type_a_new_shortcut",
+            )),
             is_error: false,
         };
     }
 
     pub(crate) fn restore_default(&mut self, command: ShortcutCommandId) {
         self.prefs.restore_default(command);
-        self.refresh_and_save("Shortcut restored");
+        self.refresh_and_save(ui::i18n::LocalizedText::new("shortcuts.shortcut_restored"));
     }
 
     pub(crate) fn restore_all_defaults(&mut self) {
         self.prefs.restore_all_defaults();
-        self.refresh_and_save("Keyboard shortcuts restored");
+        self.refresh_and_save(ui::i18n::LocalizedText::new(
+            "shortcuts.keyboard_shortcuts_restored",
+        ));
     }
 
     pub(crate) fn command_for_keystroke(&self, keystroke: &Keystroke) -> Option<ShortcutCommandId> {
@@ -223,7 +227,9 @@ impl ShortcutSettingsState {
         {
             self.recording = None;
             self.status = ShortcutStatus {
-                message: Some("Recording cancelled".to_string()),
+                message: Some(ui::i18n::LocalizedText::new(
+                    "shortcuts.recording_cancelled",
+                )),
                 is_error: false,
             };
             return true;
@@ -234,11 +240,11 @@ impl ShortcutSettingsState {
             Ok(()) => {
                 self.prefs.set_override(command, source);
                 self.recording = None;
-                self.refresh_and_save("Shortcut saved");
+                self.refresh_and_save(ui::i18n::LocalizedText::new("shortcuts.shortcut_saved"));
             }
             Err(error) => {
                 self.status = ShortcutStatus {
-                    message: Some(error.to_string()),
+                    message: Some(error.to_string().into()),
                     is_error: true,
                 };
             }
@@ -246,7 +252,7 @@ impl ShortcutSettingsState {
         true
     }
 
-    fn refresh_and_save(&mut self, success_message: &str) {
+    fn refresh_and_save(&mut self, success_message: ui::i18n::LocalizedText) {
         self.effective = effective_shortcuts(&self.prefs);
         match self
             .store
@@ -255,13 +261,16 @@ impl ShortcutSettingsState {
         {
             Some(Err(error)) => {
                 self.status = ShortcutStatus {
-                    message: Some(format!("Could not save shortcuts: {error}")),
+                    message: Some(ui::i18n::message(
+                        "shortcuts.could_not_save_shortcuts_error",
+                        &[("error", (error).to_string())],
+                    )),
                     is_error: true,
                 };
             }
             _ => {
                 self.status = ShortcutStatus {
-                    message: Some(success_message.to_string()),
+                    message: Some(success_message),
                     is_error: false,
                 };
             }
@@ -340,7 +349,7 @@ pub(crate) fn keystroke_label(source: Option<&str>) -> String {
         Some(source) => Keystroke::parse(source)
             .map(|keystroke| keystroke.to_string())
             .unwrap_or_else(|_| source.to_string()),
-        None => "Not Set".to_string(),
+        None => ui::i18n::text("shortcuts.not_set").to_string(),
     }
 }
 
@@ -366,7 +375,7 @@ fn is_bare_printable(keystroke: &Keystroke) -> bool {
 fn reserved_behavior_for(normalized: &str) -> Option<&'static ReadOnlyShortcutBehavior> {
     read_only_behaviors().iter().find(|behavior| {
         behavior.keystroke == normalized
-            || (behavior.title == "Arrow Navigation"
+            || (behavior.title == "shortcuts.arrow_navigation"
                 && matches!(normalized, "up" | "down" | "left" | "right"))
     })
 }

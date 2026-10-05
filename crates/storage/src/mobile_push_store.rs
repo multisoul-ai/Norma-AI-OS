@@ -123,7 +123,10 @@ impl MobilePushStore {
     }
 }
 
-fn current_grant(connection: &Connection, grant: &MobileDeviceGrant) -> StorageResult<bool> {
+pub(crate) fn current_grant(
+    connection: &Connection,
+    grant: &MobileDeviceGrant,
+) -> StorageResult<bool> {
     if grant.revoked {
         return Ok(false);
     }

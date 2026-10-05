@@ -36,6 +36,7 @@ pub(crate) fn shutdown(cx: &mut App) {
         controller.update(cx, |host, cx| {
             host.disable(cx);
             host.snapshot_task = None;
+            host.workspace_task = None;
             host.command_task = None;
             host.terminal_task = None;
             host.conversation_task = None;
@@ -80,6 +81,8 @@ pub(crate) enum Command {
 }
 
 pub(crate) struct MobileController {
+    workspaces: Option<async_channel::Sender<super::LiveWorkspaceRequest>>,
+    workspace_task: Option<Task<()>>,
     store: AppStore,
     server: Option<Arc<MobileServer>>,
     cancelled: Arc<AtomicBool>,
@@ -99,7 +102,7 @@ pub(crate) struct MobileController {
     approvals: Option<async_channel::Sender<super::LiveApprovalRequest>>,
     approval_task: Option<Task<()>>,
     pub(crate) busy: bool,
-    pub(crate) error: Option<String>,
+    pub(crate) error: Option<ui::i18n::LocalizedText>,
     pub(crate) push: Option<super::push::configuration::Summary>,
     pub(crate) projects: Vec<WorkspaceIdentity>,
     pub(crate) devices: Vec<MobileDeviceGrant>,
@@ -120,6 +123,8 @@ impl MobileController {
     }
     fn new(store: AppStore) -> Self {
         Self {
+            workspaces: None,
+            workspace_task: None,
             store,
             server: None,
             cancelled: Arc::new(AtomicBool::new(false)),
@@ -275,8 +280,7 @@ impl MobileController {
             _ => None,
         } {
             if self.pending.as_ref().map(|p| &p.request_id) != Some(request_id) {
-                self.error =
-                    Some("The pairing request has changed. Please verify the code again.".into());
+                self.error = Some(ui::i18n::LocalizedText::new("mobile.pairing_changed"));
                 cx.notify();
                 return;
             }
@@ -289,6 +293,7 @@ impl MobileController {
         let server = self.server.clone();
         let cancelled = self.cancelled.clone();
         let sources = super::MobileSources {
+            workspaces: self.workspaces.clone(),
             terminals: self.terminal_source(),
             snapshots: self.snapshot_source(),
             commands: self.command_source(),
@@ -330,7 +335,13 @@ impl MobileController {
                         host.devices = devices;
                         host.editing = None;
                     }
-                    Err(error) => host.error = Some(error.to_string()),
+                    Err(error) => {
+                        tracing::warn!(error = %format!("{error:#}"), "Mobile operation failed");
+                        host.error = Some(
+                            ui::i18n::LocalizedText::new("mobile.operation_failed")
+                                .with_arg("reason", format!("{error:#}")),
+                        )
+                    }
                 }
                 cx.notify();
             });
@@ -351,7 +362,7 @@ impl MobileController {
         self.seconds_left = expires.saturating_duration_since(Instant::now()).as_secs();
         self.polling = Some(cx.spawn(async move |this, cx| {
             loop {
-                // Only an active two-minute QR needs polling; no idle service/UI timer.
+                // Poll only until the QR expires or a phone claims it.
                 cx.background_executor().timer(Duration::from_secs(1)).await;
                 let Ok(Some((server, generation))) = this.update(cx, |host, _| {
                     host.qr.as_ref()?;
@@ -375,15 +386,23 @@ impl MobileController {
                         .unwrap_or_else(Instant::now)
                         .saturating_duration_since(Instant::now())
                         .as_secs();
-                    if host.seconds_left == 0 {
-                        host.clear_pairing();
-                    } else {
-                        match pending {
-                            Ok(pending) => host.pending = pending,
-                            Err(error) => {
-                                host.error = Some(error.to_string());
-                                host.clear_pairing();
-                            }
+                    match pending {
+                        Ok(Some(pending)) => {
+                            // The offer is consumed. Keep this exact phone until approval/cancel;
+                            // neither the QR countdown nor an idle polling task is needed now.
+                            host.pending = Some(pending);
+                            host.expires = None;
+                            cx.notify();
+                            return false;
+                        }
+                        Ok(None) if host.seconds_left == 0 => host.clear_pairing(),
+                        Ok(None) => host.pending = None,
+                        Err(error) => {
+                            host.error = Some(
+                                ui::i18n::LocalizedText::new("mobile.operation_failed")
+                                    .with_arg("reason", error),
+                            );
+                            host.clear_pairing();
                         }
                     }
                     cx.notify();
@@ -409,3 +428,7 @@ impl Drop for MobileController {
 #[cfg(all(test, feature = "e2e-test-support"))]
 #[path = "../../tests/unit/mobile_desktop_tests.rs"]
 mod tests;
+
+#[cfg(all(test, feature = "e2e-test-support"))]
+#[path = "../../tests/unit/mobile_repairing_tests.rs"]
+mod repairing_tests;

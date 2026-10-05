@@ -94,6 +94,11 @@
       </CommandLineArguments>
       <EnvironmentVariables>
          <EnvironmentVariable
+            key = "NORMA_ACTIVITY_VISUAL"
+            value = "$(NORMA_ACTIVITY_VISUAL)"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
             key = "NORMA_EXECUTION_UI_NAMESPACE"
             value = "$(NORMA_EXECUTION_UI_NAMESPACE)"
             isEnabled = "YES">
@@ -119,18 +124,13 @@
             isEnabled = "YES">
          </EnvironmentVariable>
          <EnvironmentVariable
-            key = "NORMA_THREAD_PLAN_FIXTURE"
-            value = "$(NORMA_THREAD_PLAN_FIXTURE)"
+            key = "NORMA_WORKSPACE_FIXTURE"
+            value = "$(NORMA_WORKSPACE_FIXTURE)"
             isEnabled = "YES">
          </EnvironmentVariable>
          <EnvironmentVariable
-            key = "NORMA_THREAD_REAL_FIXTURE"
-            value = "$(NORMA_THREAD_REAL_FIXTURE)"
-            isEnabled = "YES">
-         </EnvironmentVariable>
-         <EnvironmentVariable
-            key = "NORMA_THREAD_REVIEW_FIXTURE"
-            value = "$(NORMA_THREAD_REVIEW_FIXTURE)"
+            key = "NORMA_WORKSPACE_TEST_NAMESPACE"
+            value = "$(NORMA_WORKSPACE_TEST_NAMESPACE)"
             isEnabled = "YES">
          </EnvironmentVariable>
       </EnvironmentVariables>

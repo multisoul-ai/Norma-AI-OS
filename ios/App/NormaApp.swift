@@ -4,7 +4,7 @@ import NormaCore
 
 @main struct NormaApp: App {
     @UIApplicationDelegateAdaptor(PushNotifications.self) private var notifications
-    @State private var model = ComputerModel()
+    private var model:ComputerModel {notifications.computers}
     @StateObject private var call = VoiceCall()
     @Environment(\.scenePhase) private var scenePhase
 

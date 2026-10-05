@@ -85,18 +85,14 @@ public struct ThreadAcceptanceState: Codable, Equatable, Sendable {
 }
 
 extension CollaborationRelayConnection {
-    public func threadTaskAcceptance(for operation: ThreadTaskOutboxOperation,
-                                     routeID: String? = nil, grantRevision: UInt64? = nil) async throws -> ThreadAcceptanceState {
+    public func threadTaskAcceptance(for operation: ThreadTaskOutboxOperation) async throws -> ThreadAcceptanceState {
         guard capabilities.contains("thread_task_acceptance_v1") else { throw ThreadTaskError.acceptanceRequiresUpgrade }
         guard let grant, let state = operation.acceptance, operation.machineID == machineID,
               operation.deviceID == grant.deviceID else { throw MobileError.invalidCredential }
         try state.validate(for: operation)
-        guard (routeID == nil) == (grantRevision == nil), routeID.map(validID) ?? true,
-              grantRevision.map({ $0 > 0 }) ?? true else { throw MobileError.invalidResponse }
-        var fields: [String: Any] = ["decision": try JSONSerialization.jsonObject(with: JSONEncoder().encode(state.decision))]
-        if let routeID, let grantRevision { fields["route_id"] = routeID; fields["grant_revision"] = grantRevision }
+        let fields: [String: Any] = ["decision": try JSONSerialization.jsonObject(with: JSONEncoder().encode(state.decision))]
         do {
-            let reply = try await exchange(type: routeID == nil ? "thread_task_acceptance" : "thread_task_accept", fields: fields)
+            let reply = try await exchange(type: "thread_task_acceptance", fields: fields)
             guard reply.result?.status == "thread_task_acceptance", let result = reply.result?.threadAcceptance,
                   result.decision == state.decision else { throw MobileError.invalidResponse }
             try result.validate(for: operation)

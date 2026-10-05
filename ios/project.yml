@@ -35,13 +35,14 @@ targets:
     dependencies:
       - package: NormaCore
       - package: WebRTC
+      - target: NormaActivity
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.norma-ai.os.ios
         DEVELOPMENT_TEAM: 2BF8G9AN4L
         CODE_SIGN_STYLE: Automatic
         TARGETED_DEVICE_FAMILY: "1"
-        CURRENT_PROJECT_VERSION: "45"
+        CURRENT_PROJECT_VERSION: "50"
         MARKETING_VERSION: "0.1.0"
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_FILE: App/Info.plist
@@ -77,6 +78,24 @@ targets:
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) NATIVE_TEST"
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Norma.app/Norma"
         BUNDLE_LOADER: "$(TEST_HOST)"
+  NormaActivity:
+    type: app-extension
+    platform: iOS
+    sources: [Widget]
+    dependencies:
+      - package: NormaCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.norma-ai.os.ios.activity
+        DEVELOPMENT_TEAM: 2BF8G9AN4L
+        CODE_SIGN_STYLE: Automatic
+        INFOPLIST_FILE: Widget/Info.plist
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Norma Activity
+        CURRENT_PROJECT_VERSION: "50"
+        MARKETING_VERSION: "0.1.0"
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
   NormaUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -97,11 +116,11 @@ schemes:
     test:
       targets: [NormaUITests, NormaDeviceTests]
       environmentVariables:
+        NORMA_ACTIVITY_VISUAL: "$(NORMA_ACTIVITY_VISUAL)"
         NORMA_TEST_QR: "$(NORMA_TEST_QR)"
         NORMA_TEST_MODE: "$(NORMA_TEST_MODE)"
-        NORMA_THREAD_REVIEW_FIXTURE: "$(NORMA_THREAD_REVIEW_FIXTURE)"
-        NORMA_THREAD_REAL_FIXTURE: "$(NORMA_THREAD_REAL_FIXTURE)"
-        NORMA_THREAD_PLAN_FIXTURE: "$(NORMA_THREAD_PLAN_FIXTURE)"
+        NORMA_WORKSPACE_FIXTURE: "$(NORMA_WORKSPACE_FIXTURE)"
+        NORMA_WORKSPACE_TEST_NAMESPACE: "$(NORMA_WORKSPACE_TEST_NAMESPACE)"
         NORMA_EXECUTION_UI_NAMESPACE: "$(NORMA_EXECUTION_UI_NAMESPACE)"
         NORMA_LOCAL_TLS_FIXTURE: "$(NORMA_LOCAL_TLS_FIXTURE)"
         NORMA_REGISTRATION_FIXTURE: "$(NORMA_REGISTRATION_FIXTURE)"

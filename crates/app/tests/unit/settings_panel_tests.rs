@@ -139,8 +139,8 @@ fn test_keyboard_shortcuts_settings_page_contains_editable_and_read_only_rows() 
     );
     let required = [
         "SettingsSection::Keyboard",
-        "Keyboard Shortcuts",
-        "Customize app commands and review system input behavior",
+        "settings.keyboard_shortcuts",
+        "settings.customize_app_commands_and_review_system_input_behavior",
         "settings-shortcut-new-terminal",
         "settings-shortcut-toggle-settings",
         "settings-shortcut-delete-card",
@@ -152,13 +152,13 @@ fn test_keyboard_shortcuts_settings_page_contains_editable_and_read_only_rows() 
         "settings-shortcut-voice-interaction",
         "settings-shortcut-restore-voice-interaction",
         "settings-shortcuts-restore-all",
-        "Paste",
-        "Voice Interaction",
-        "Arrow Navigation",
-        "Space Pan",
-        "Terminal Input",
-        "Modified",
-        "Restore",
+        "common.paste",
+        "shortcuts.voice_interaction",
+        "shortcuts.arrow_navigation",
+        "shortcuts.space_pan",
+        "shortcuts.terminal_input",
+        "settings.modified",
+        "common.restore",
     ];
 
     for anchor in required {
@@ -190,7 +190,8 @@ fn test_keyboard_shortcuts_settings_page_contains_editable_and_read_only_rows() 
 #[test]
 fn test_orchestration_settings_panel_contains_provider_components_and_actions() {
     let source = format!(
-        "{}{}{}{}",
+        "{}{}{}{}{}",
+        include_str!("../../src/settings/orchestration/status.rs"),
         include_str!("../../src/settings/panel.rs"),
         include_str!("../../src/settings/navigation.rs"),
         include_str!("../../src/settings/content.rs"),
@@ -198,7 +199,7 @@ fn test_orchestration_settings_panel_contains_provider_components_and_actions() 
     );
     let anchors = [
         "SettingsSection::Orchestration",
-        "Orchestration",
+        "settings.orchestration",
         "settings-orchestration-codex-action",
         "settings-orchestration-claude-action",
         "settings-orchestration-cursor-action",
@@ -206,11 +207,11 @@ fn test_orchestration_settings_panel_contains_provider_components_and_actions() 
         "Skill",
         "Norma CLI",
         "Agent Hook",
-        "Authorization",
-        "Install",
-        "Repair",
-        "Uninstall",
-        "Unavailable",
+        "settings.authorization",
+        "common.install",
+        "settings.repair",
+        "common.uninstall",
+        "settings.unavailable",
     ];
 
     for anchor in anchors {
@@ -220,11 +221,11 @@ fn test_orchestration_settings_panel_contains_provider_components_and_actions() 
         );
     }
     assert!(
-        source.contains("Restart existing agent sessions after installation."),
+        source.contains("settings.restart_existing_agent_sessions_after_installation"),
         "Orchestration 页面必须固定提示重启已有 Agent 会话"
     );
     assert!(
-        source.contains("Orchestration is not supported in the first release"),
+        source.contains("settings.orchestration_is_not_supported_in_the_first_release"),
         "Grok 行必须明确说明首版不支持编排"
     );
     assert!(
@@ -390,13 +391,14 @@ fn test_settings_sidebar_exposes_only_implemented_configuration_pages() {
 ///
 /// 预期结果：
 ///   - "SettingsSection::Wallpaper"：枚举新增 Wallpaper 变体
-///   - "\"Wallpaper\""：title()/content_title() 返回 Wallpaper
+///   - "\"settings.wallpaper\""：title()/content_title() 返回 Wallpaper
 ///   - "wallpaper_settings"：app 字段 / 渲染 fn 名已接线
 ///   - "wallpaper_state"：settings_content 签名新增该参数
 #[test]
 fn test_settings_has_wallpaper_section() {
     let src = format!(
-        "{}{}{}{}",
+        "{}{}{}{}{}",
+        include_str!("../../src/settings/orchestration/status.rs"),
         include_str!("../../src/settings/panel.rs"),
         include_str!("../../src/settings/content.rs"),
         include_str!("../../src/settings/navigation.rs"),
@@ -404,9 +406,9 @@ fn test_settings_has_wallpaper_section() {
     );
     let required = [
         "SettingsSection::Wallpaper",
-        "\"Wallpaper\"",      // title
-        "wallpaper_settings", // toolbar/state field wired
-        "wallpaper_state",    // param
+        "\"settings.wallpaper\"", // title
+        "wallpaper_settings",     // toolbar/state field wired
+        "wallpaper_state",        // param
     ];
     for anchor in required {
         assert!(
@@ -454,7 +456,7 @@ fn test_settings_footer_owns_the_only_update_entry() {
     );
     assert!(
         source.contains("Icon::default().path(SETTINGS_CHECK_UPDATES_ASSET)")
-            && source.contains("Check for updates")
+            && source.contains("settings.check_for_updates")
             && source.contains(".tooltip("),
         "检查更新按钮必须使用生产环境可加载的循环箭头图标，并通过 tooltip 明确说明用途"
     );

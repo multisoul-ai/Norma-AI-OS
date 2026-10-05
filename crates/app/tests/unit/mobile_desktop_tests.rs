@@ -8,6 +8,115 @@ use std::{
 };
 use storage::AppStore;
 
+/// Mac 的二维码倒计时结束后仍保留已认领手机，点击允许能完成真实持久化。
+///
+/// 数据构造：隔离 SQLite、一个已注册项目与回环服务；issued=now-(120+1)s，
+///   claimed=issued+(120-1)s，UI expires=issued+120s 已过期；
+///   1s 为生产轮询间隔，通过 GPUI 虚拟时钟推进；1×1 图片只占据二维码状态位。
+/// 执行过程：到期前认领 → 安装已过期的 UI 倒计时 → 执行一次生产轮询
+///   → 选中项目只读并点击允许配对 → 读取持久化设备并核对权限。
+/// 预期结果：倒计时不得清除待审批或核对码；成功授权准确手机；
+///   不产生错误、不保留已完成申请，也不能误授 control。
+#[test]
+fn claimed_phone_survives_desktop_countdown_and_approval() {
+    let dir = tempfile::tempdir().expect("隔离目录");
+    let store = AppStore::new(dir.path().join("app.sqlite"));
+    let project = store
+        .workspace_identity_store()
+        .resolve_or_create(dir.path(), "Pairing Project")
+        .expect("注册隔离项目");
+    let mut access = crate::mobile::MobileAccess::with_identity_for_e2e(
+        store.clone(),
+        norma::mobile::ServerIdentity::generate().expect("测试 TLS 身份"),
+    );
+    // 121=120+1：UI 倒计时已经到期；119=120-1：手机认领仍在有效窗口内。
+    let issued = std::time::Instant::now() - Duration::from_secs(121);
+    let qr = access
+        .begin_pairing("Mac", vec!["wss://127.0.0.1:9443/mobile".into()], issued)
+        .expect("生成二维码");
+    let offer: serde_json::Value =
+        serde_json::from_str(&qr.to_json().expect("二维码 JSON")).expect("解析二维码");
+    let pending = access.claim(serde_json::from_value(serde_json::json!({
+        "offer_id": offer["offer_id"], "secret": offer["secret"],
+        "device_id": "phone-wait", "device_name": "Waiting iPhone", "device_token": "a".repeat(64)
+    })).expect("手机申请"), issued + Duration::from_secs(119)).expect("到期前认领");
+    let server = Arc::new(
+        crate::mobile::MobileServer::start(
+            access,
+            vec!["127.0.0.1:0".parse().expect("动态回环端口")],
+        )
+        .expect("真实回环服务"),
+    );
+    let image = Arc::new(gpui::RenderImage::new(vec![image::Frame::new(
+        image::RgbaImage::new(1, 1),
+    )]));
+    let mut cx = TestAppContext::single();
+    let owner = cx.update(|cx| attach(store.clone(), cx));
+    owner.update(&mut cx, |host, cx| {
+        host.server = Some(server.clone());
+        host.install_code(
+            image,
+            qr.pairing_code().into(),
+            issued + Duration::from_secs(120),
+            cx,
+        );
+        host.projects = vec![project.clone()];
+        host.selected.insert(
+            project.workspace_id.clone(),
+            storage::MobilePermission::Read,
+        );
+    });
+    cx.run_until_parked();
+    cx.background_executor.advance_clock(Duration::from_secs(1));
+    cx.run_until_parked();
+    owner.update(&mut cx, |host, cx| {
+        let visible = host.pending.as_ref().expect("倒计时到期不得删除已认领手机");
+        assert_eq!(
+            visible.request_id, pending.request_id,
+            "必须保留准确待审批申请"
+        );
+        assert_eq!(
+            visible.verification_code, pending.verification_code,
+            "核对码不能变化"
+        );
+        assert!(host.error.is_none(), "等待人工核对不得产生过期错误");
+        host.request(
+            Command::Approve {
+                request_id: pending.request_id,
+                projects: host.chosen_projects(),
+            },
+            cx,
+        );
+    });
+    cx.run_until_parked();
+    owner.read_with(&cx, |host, _| {
+        assert!(!host.busy, "批准完成后必须解除忙碌状态");
+        assert!(host.error.is_none(), "点击允许不能报二维码过期");
+        assert!(host.pending.is_none(), "成功后必须清除待审批申请");
+        assert!(host.qr.is_none(), "成功后不能残留二维码");
+    });
+    let grants = store.mobile_access_store().list().expect("读取持久化设备");
+    assert_eq!(grants.len(), 1, "只能登记一台手机");
+    assert_eq!(grants[0].device_id, "phone-wait", "只能授权已核对手机");
+    assert_eq!(grants[0].projects.len(), 1, "只能授权已选中的一个项目");
+    assert_eq!(
+        grants[0].projects[0].workspace_id, project.workspace_id,
+        "授权必须对应准确项目"
+    );
+    assert!(
+        grants[0].all_projects_access.is_none(),
+        "逐项目配对不能扩大为全部项目授权"
+    );
+    assert!(
+        grants[0].allows(&project.workspace_id, false),
+        "已选项目的只读权限应生效"
+    );
+    assert!(
+        !grants[0].allows(&project.workspace_id, true),
+        "只读授权不能变为控制权限"
+    );
+}
+
 /// 验证码与二维码共享同一临时凭据，取消或过期后不能继续复制。
 ///
 /// 数据构造：隔离数据库、随机TLS身份与回环服务；120s沿用生产配对有效期，

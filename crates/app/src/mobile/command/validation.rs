@@ -67,9 +67,7 @@ pub(super) fn validate(request: &MobileCommandRequest) -> Result<(), &'static st
         {
             Err("invalid_request")
         }
-        MobileCommand::ThreadFollowup { text, .. }
-        | MobileCommand::SendMessage { text, .. }
-        | MobileCommand::QueueMessage { text, .. }
+        MobileCommand::SendMessage { text, .. } | MobileCommand::QueueMessage { text, .. }
             if text.trim().is_empty()
                 || text.len() > 32 * 1024
                 || text
@@ -79,7 +77,6 @@ pub(super) fn validate(request: &MobileCommandRequest) -> Result<(), &'static st
             Err("invalid_message")
         }
         MobileCommand::DeleteCard { expected, .. }
-        | MobileCommand::ThreadFollowup { expected, .. }
         | MobileCommand::FeedbackDelivery { expected, .. }
         | MobileCommand::SendMessage { expected, .. }
         | MobileCommand::QueueMessage { expected, .. }

@@ -26,7 +26,7 @@ impl Card for PreviewCard {
 
     fn chrome(&self, node: &CanvasNode, _runtime: &Runtime) -> CardChrome {
         CardChrome {
-            title: node.kind.display_title(),
+            title: crate::cards::title::display_title(&node.kind),
             title_detail: None,
             refreshable: true,
             task_badge: None,
@@ -110,7 +110,7 @@ fn render_preview_state(
             bottom_radius_px,
         ),
         Some(PreviewLoadState::Error(error)) => render_message(
-            "Preview error",
+            ui::i18n::text("cards.preview_error"),
             &error.message,
             node_id,
             theme,
@@ -119,8 +119,8 @@ fn render_preview_state(
             true,
         ),
         Some(PreviewLoadState::Loading) | None => render_message(
-            "Loading preview",
-            "Reading file...",
+            ui::i18n::text("cards.loading_preview"),
+            ui::i18n::text("cards.reading_file"),
             node_id,
             theme,
             zoom,
@@ -246,8 +246,8 @@ fn render_loaded_images(
 ) -> AnyElement {
     let Some(image_viewer) = image_viewer else {
         return render_message(
-            "Loading image",
-            "Preparing viewer...",
+            ui::i18n::text("cards.loading_image_2"),
+            ui::i18n::text("cards.preparing_viewer"),
             node_id,
             theme,
             zoom,

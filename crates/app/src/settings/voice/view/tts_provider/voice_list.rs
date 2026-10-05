@@ -156,7 +156,7 @@ fn voice_row(
                                 .text_size(px(9.0))
                                 .font_weight(FontWeight::BOLD)
                                 .text_color(rgba(theme.accent_blue))
-                                .child("DRAFT"),
+                                .child(ui::i18n::text("voice.draft")),
                         )
                     }),
             )
@@ -168,9 +168,9 @@ fn voice_row(
 
 fn origin_label(origin: tts::TtsVoiceOrigin) -> &'static str {
     match origin {
-        tts::TtsVoiceOrigin::System => "SYSTEM",
-        tts::TtsVoiceOrigin::Cloned => "CLONED",
-        tts::TtsVoiceOrigin::Generated => "GENERATED",
+        tts::TtsVoiceOrigin::System => ui::i18n::text("voice.origin.system"),
+        tts::TtsVoiceOrigin::Cloned => ui::i18n::text("voice.origin.cloned"),
+        tts::TtsVoiceOrigin::Generated => ui::i18n::text("voice.origin.generated"),
     }
 }
 

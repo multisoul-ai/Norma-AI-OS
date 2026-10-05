@@ -93,9 +93,22 @@ impl MobileAccessStore {
         let mut connection = open_app_connection(&self.path)?;
         let tx = connection.transaction()?;
         let now = current_unix_timestamp()?;
-        tx.execute("INSERT INTO mobile_devices
-            (device_id,device_name,token_hash,permissions_json,all_projects_access,revision,revoked,created_at_unix,updated_at_unix)
-            VALUES (?1,?2,?3,?4,?5,1,0,?6,?6)",params![device_id,name,hash_token(token),serde_json::to_string(projects)?,all_projects_access.map(permission_name),now])?;
+        // Only explicit desktop approval can revive a revoked ID. Advance its revision so
+        // queued commands and permission edits cannot reuse the authorization from before revoke.
+        let changed = tx.execute(
+            "INSERT INTO mobile_devices
+             (device_id,device_name,token_hash,permissions_json,all_projects_access,revision,revoked,created_at_unix,updated_at_unix)
+             VALUES (?1,?2,?3,?4,?5,1,0,?6,?6)
+             ON CONFLICT(device_id) DO UPDATE SET
+             device_name=excluded.device_name,token_hash=excluded.token_hash,
+             permissions_json=excluded.permissions_json,all_projects_access=excluded.all_projects_access,
+             revision=mobile_devices.revision+1,revoked=0,updated_at_unix=excluded.updated_at_unix
+             WHERE mobile_devices.revoked=1 AND mobile_devices.revision < 9223372036854775807",
+            params![device_id,name,hash_token(token),serde_json::to_string(projects)?,all_projects_access.map(permission_name),now],
+        )?;
+        if changed != 1 {
+            return Err(invalid("device already paired or grant revision exhausted"));
+        }
         let grant = read_grant(&tx, device_id)?
             .ok_or_else(|| invalid("device not found"))?
             .0;

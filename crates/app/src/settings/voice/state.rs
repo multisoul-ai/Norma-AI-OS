@@ -9,6 +9,7 @@ mod announcements;
 mod asr_provider;
 mod builders;
 mod credentials;
+mod doubao_voice;
 #[cfg(feature = "e2e-test-support")]
 mod e2e;
 mod editing;
@@ -48,7 +49,7 @@ use values::{
 use zipvoice_reference::ZipVoiceReferenceSettings;
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct VoiceSettingsStatus {
-    message: String,
+    message: ui::i18n::LocalizedText,
     is_error: bool,
 }
 #[derive(Clone)]
@@ -71,6 +72,7 @@ pub(crate) struct VoiceSettingsState {
     minimax_validation_write_rollback: Option<tts_provider::MiniMaxValidationWriteRollback>,
     minimax_api_key_draft: Option<String>,
     doubao_credential_previous: Option<Option<String>>,
+    doubao_voice_search: String,
     minimax_account_status: tts::RemoteAccountStatus,
     minimax_voice_catalog: tts::ProviderVoiceCatalog,
     minimax_validated_selection: Option<tts::TtsValidatedSelection>,
@@ -117,8 +119,9 @@ impl VoiceSettingsState {
                 let mut state =
                     Self::from_sources(SavedVoiceSettings::default(), EnvVoiceSettings::from_env());
                 state.storage = Some(store);
-                state.status = Some(error_status(format!(
-                    "Could not load voice settings: {error}"
+                state.status = Some(error_status(ui::i18n::message(
+                    "voice.could_not_load_voice_settings_error",
+                    &[("error", (error).to_string())],
                 )));
                 state
             }
@@ -172,6 +175,7 @@ impl VoiceSettingsState {
             minimax_validation_write_rollback: None,
             minimax_api_key_draft: None,
             doubao_credential_previous: None,
+            doubao_voice_search: String::new(),
             minimax_account_status: tts::RemoteAccountStatus::Unchecked,
             minimax_voice_catalog: tts::ProviderVoiceCatalog::default(),
             minimax_validated_selection,
@@ -339,11 +343,14 @@ impl VoiceSettingsState {
         match result {
             Ok(devices) => {
                 self.input_devices = devices;
-                self.status = Some(ok_status("Input devices refreshed"));
+                self.status = Some(ok_status(ui::i18n::LocalizedText::new(
+                    "voice.input_devices_refreshed",
+                )));
             }
             Err(error) => {
-                self.status = Some(error_status(format!(
-                    "Could not refresh input devices: {error}"
+                self.status = Some(error_status(ui::i18n::message(
+                    "voice.could_not_refresh_input_devices_error",
+                    &[("error", (error).to_string())],
                 )));
             }
         }
@@ -383,9 +390,11 @@ impl VoiceSettingsState {
                 key: key.to_string(),
                 value: value.to_string(),
             });
-            self.status = Some(ok_status("Saving..."));
+            self.status = Some(ok_status(ui::i18n::LocalizedText::new("voice.saving")));
         } else {
-            self.status = Some(ok_status("Saved for this session"));
+            self.status = Some(ok_status(ui::i18n::LocalizedText::new(
+                "voice.saved_for_this_session",
+            )));
         }
     }
 
@@ -395,9 +404,11 @@ impl VoiceSettingsState {
                 store,
                 key: key.to_string(),
             });
-            self.status = Some(ok_status("Saving..."));
+            self.status = Some(ok_status(ui::i18n::LocalizedText::new("voice.saving")));
         } else {
-            self.status = Some(ok_status("Using default for this session"));
+            self.status = Some(ok_status(ui::i18n::LocalizedText::new(
+                "voice.using_default_for_this_session",
+            )));
         }
     }
 
@@ -412,14 +423,14 @@ impl VoiceSettingsState {
     }
 }
 
-fn ok_status(message: impl Into<String>) -> VoiceSettingsStatus {
+fn ok_status(message: impl Into<ui::i18n::LocalizedText>) -> VoiceSettingsStatus {
     VoiceSettingsStatus {
         message: message.into(),
         is_error: false,
     }
 }
 
-fn error_status(message: impl Into<String>) -> VoiceSettingsStatus {
+fn error_status(message: impl Into<ui::i18n::LocalizedText>) -> VoiceSettingsStatus {
     VoiceSettingsStatus {
         message: message.into(),
         is_error: true,

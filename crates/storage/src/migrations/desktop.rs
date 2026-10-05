@@ -41,5 +41,42 @@ pub(super) fn migrate(connection: &Connection) -> StorageResult<()> {
         "overview_scroll_y",
         "overview_scroll_y INTEGER NOT NULL DEFAULT 0",
     )?;
+    migrate_wallpapers(connection)?;
+    Ok(())
+}
+
+fn migrate_wallpapers(connection: &Connection) -> StorageResult<()> {
+    // Columns and backfill commit together; the marker prevents future global changes
+    // from overwriting independent selections, including intentionally empty values.
+    let transaction = connection.unchecked_transaction()?;
+    super::ensure_column(
+        &transaction,
+        "desktop_workspaces",
+        "wallpaper_json",
+        "wallpaper_json TEXT",
+    )?;
+    super::ensure_column(
+        &transaction,
+        "desktop_project_areas",
+        "wallpaper_json",
+        "wallpaper_json TEXT",
+    )?;
+    let migrated: bool = transaction.query_row(
+        "SELECT EXISTS(SELECT 1 FROM settings WHERE key='wallpaper.desktop_migrated.v1')",
+        [],
+        |row| row.get(0),
+    )?;
+    if !migrated {
+        if let Some(reference) =
+            crate::desktop_workspace_store::wallpaper::legacy_reference(&transaction)?
+        {
+            transaction.execute(
+                "UPDATE desktop_workspaces SET wallpaper_json=?1 WHERE wallpaper_json IS NULL",
+                [serde_json::to_string(&reference)?],
+            )?;
+        }
+        transaction.execute("INSERT INTO settings(key,value,updated_at_unix) VALUES('wallpaper.desktop_migrated.v1','1',0)", [])?;
+    }
+    transaction.commit()?;
     Ok(())
 }

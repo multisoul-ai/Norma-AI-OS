@@ -79,12 +79,12 @@ impl MultisoulApp {
     ) {
         let task = task.trim();
         if task.is_empty() {
-            self.workspace_state.error = Some("队列任务不能为空".to_string());
+            self.workspace_state.error = Some(ui::i18n::LocalizedText::new("agent.queue_empty"));
             cx.notify();
             return;
         }
         let Some(agent_name) = self.agent_name_for_queue_node(node_id) else {
-            self.workspace_state.error = Some("未找到 Agent 卡片".to_string());
+            self.workspace_state.error = Some(ui::i18n::LocalizedText::new("agent.card_missing"));
             cx.notify();
             return;
         };
@@ -109,7 +109,12 @@ impl MultisoulApp {
                 self.workspace_state.error = None;
                 self.agent_queue_ui.finish_add_task();
             }
-            Err(error) => self.workspace_state.error = Some(error.to_string()),
+            Err(error) => {
+                self.workspace_state.error = Some(
+                    ui::i18n::LocalizedText::new("common.operation_failed")
+                        .with_arg("reason", error),
+                )
+            }
         }
         cx.notify();
     }
@@ -135,7 +140,7 @@ impl MultisoulApp {
                     .any(|task| task.task_ref == task_ref)
             });
         if !is_waiting {
-            self.workspace_state.error = Some("只能撤回仍在等待的任务".to_string());
+            self.workspace_state.error = Some(ui::i18n::LocalizedText::new("agent.waiting_only"));
             cx.notify();
             return;
         }
@@ -156,7 +161,12 @@ impl MultisoulApp {
                 self.workspace_state.error = None;
                 self.agent_queue_ui.finish_withdraw(&task_ref);
             }
-            Err(error) => self.workspace_state.error = Some(error.to_string()),
+            Err(error) => {
+                self.workspace_state.error = Some(
+                    ui::i18n::LocalizedText::new("common.operation_failed")
+                        .with_arg("reason", error),
+                )
+            }
         }
         cx.notify();
     }

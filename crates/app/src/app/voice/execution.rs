@@ -26,7 +26,10 @@ impl MultisoulApp {
                 .agent_definitions
                 .cleanup_quick_definition(definition_id)
             {
-                self.workspace_state.error = Some(message);
+                self.workspace_state.error = Some(
+                    ui::i18n::LocalizedText::new("common.operation_failed")
+                        .with_arg("reason", message),
+                );
             }
         }
     }

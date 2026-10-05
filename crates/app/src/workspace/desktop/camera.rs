@@ -4,7 +4,8 @@ use gpui::{Context, Window};
 use std::time::Duration;
 
 pub(super) const DESKTOP_SCENE_SIDE: f32 = 14.0;
-pub(super) const DESKTOP_SCENE_TOP: f32 = 36.0;
+// Share the fixed title bar's height, with 12px of space below it for project cards.
+pub(super) const DESKTOP_SCENE_TOP: f32 = crate::app::TOP_BAR_HEIGHT + 12.0;
 pub(super) const DESKTOP_SCENE_BOTTOM: f32 = 91.0;
 
 pub(crate) fn desktop_scene_rect(width: f32, height: f32) -> CanvasRect {

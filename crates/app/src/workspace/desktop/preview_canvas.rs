@@ -147,9 +147,9 @@ impl MultisoulApp {
                 .text_size(px(12.0 * scale))
                 .text_color(rgba(GLASS_TEXT_MUTED))
                 .child(if loading {
-                    "Loading canvas…"
+                    ui::i18n::text("workspace.loading_canvas")
                 } else {
-                    "Open workspace to load canvas"
+                    ui::i18n::text("workspace.open_workspace_to_load_canvas")
                 });
         }
         content

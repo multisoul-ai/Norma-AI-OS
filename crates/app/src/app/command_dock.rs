@@ -21,8 +21,8 @@ pub(crate) struct CommandDockState {
     pub visible: bool,
     pub drawer: motion::CommandDrawer,
     pub pending_preview: Option<String>,
-    pub error: Option<String>,
-    pub reply: Option<String>,
+    pub error: Option<ui::i18n::LocalizedText>,
+    pub reply: Option<ui::i18n::LocalizedText>,
     pub pending_reply: bool,
     pub reply_generation: u64,
 }
@@ -59,8 +59,13 @@ impl MultisoulApp {
         if self.command_dock.is_some() {
             return;
         }
-        let input = cx
-            .new(|cx| InputState::new(window, cx).placeholder("与 Norma 交流，或输入 / 使用指令"));
+        let input = cx.new(|cx| {
+            InputState::new(window, cx).placeholder(ui::i18n::input_placeholder(
+                "chrome.talk_to_norma_or_type_for_commands",
+                window,
+                cx,
+            ))
+        });
         let subscription = cx.subscribe_in(&input, window, |app, input, event, window, cx| {
             match event {
                 InputEvent::Change => {
@@ -190,7 +195,12 @@ impl MultisoulApp {
             if let Some(state) = &mut self.command_dock {
                 // The native picker is asynchronous; only another preview must wait for it.
                 if state.pending_preview.is_some() {
-                    state.error = Some("请先完成或取消已打开的文件选择窗口".into());
+                    state.error = Some(
+                        ui::i18n::LocalizedText::new(
+                            "chrome.finish_or_cancel_the_open_file_picker_first",
+                        )
+                        .into(),
+                    );
                     cx.notify();
                     return;
                 }
@@ -227,12 +237,12 @@ impl MultisoulApp {
             self.set_command_query(String::new(), false, window, cx);
             self.focus_handle.focus(window);
         } else if let Some(state) = &mut self.command_dock {
-            state.error = Some(
-                self.workspace_state
-                    .error
-                    .clone()
-                    .unwrap_or_else(|| "创建失败，请检查运行环境后重试".into()),
-            );
+            state.error = Some(self.workspace_state.error.clone().unwrap_or_else(|| {
+                ui::i18n::LocalizedText::new(
+                    "chrome.could_not_create_the_card_check_the_runtime_environment_and_try",
+                )
+                .into()
+            }));
             cx.notify();
         }
     }
@@ -240,7 +250,7 @@ impl MultisoulApp {
     pub(crate) fn finish_command_preview(
         &mut self,
         success: bool,
-        error: Option<String>,
+        error: Option<ui::i18n::LocalizedText>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {

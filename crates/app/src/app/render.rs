@@ -128,6 +128,11 @@ impl Render for MultisoulApp {
         ) && !feature_guide_visible
         {
             root = root.child(self.render_desktop_dock(window, cx));
+            if matches!(self.screen, AppScreen::DesktopWorkspace)
+                && !self.desktop_directory_zoom_active()
+            {
+                root = root.child(self.render_desktop_workspace_top_bar(window, cx));
+            }
         }
 
         if self.feature_guide.should_render() {

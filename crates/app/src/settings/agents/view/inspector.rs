@@ -45,7 +45,7 @@ pub(super) fn agent_inspector(
                     theme,
                     state,
                     AgentDefinitionField::Name,
-                    "Name",
+                    ui::i18n::text("settings.name"),
                     window,
                     cx,
                 ))
@@ -54,7 +54,7 @@ pub(super) fn agent_inspector(
                     theme,
                     state,
                     AgentDefinitionField::WorkflowDescription,
-                    "Workflow Instructions",
+                    ui::i18n::text("settings.workflow_instructions"),
                     window,
                     cx,
                 ))
@@ -65,7 +65,10 @@ pub(super) fn agent_inspector(
                     div()
                         .text_size(px(12.0))
                         .text_color(rgba(theme.text_tertiary))
-                        .child(format!("Used when {} receives a task.", draft.name)),
+                        .child(ui::i18n::format(
+                            "settings.used_when_receives_a_task",
+                            &[("arg0", (draft.name).to_string())],
+                        )),
                 ),
         )
         .child(inspector_footer(theme, state, dirty, creating, cx))
@@ -104,16 +107,16 @@ fn canvas_status(
                         .text_size(px(12.0))
                         .font_weight(FontWeight::MEDIUM)
                         .text_color(rgba(theme.text_secondary))
-                        .child("On Canvas"),
+                        .child(ui::i18n::text("settings.on_canvas")),
                 )
                 .child(
                     div()
                         .text_size(px(11.0))
                         .text_color(rgba(theme.text_tertiary))
                         .child(if on_canvas {
-                            "1 active card"
+                            ui::i18n::text("settings.1_active_card")
                         } else {
-                            "Not added"
+                            ui::i18n::text("settings.not_added")
                         }),
                 ),
         )
@@ -121,7 +124,7 @@ fn canvas_status(
             this.child(action_button(
                 theme,
                 "settings-agent-show-on-canvas",
-                "Show on Canvas",
+                ui::i18n::text("settings.show_on_canvas"),
                 theme.text_secondary,
                 cx.listener(move |app, event, window, cx| {
                     app.on_agent_settings_show_on_canvas(id, event, window, cx);
@@ -145,7 +148,7 @@ fn inspector_header(
             .text_size(px(18.0))
             .font_weight(FontWeight::BOLD)
             .text_color(rgba(theme.text_primary))
-            .child("New Agent")
+            .child(ui::i18n::text("settings.new_agent"))
     } else {
         agent_identity(theme, &draft.name, draft.runtime_profile)
     };
@@ -179,7 +182,11 @@ fn inspector_header(
                             div()
                                 .text_size(px(12.0))
                                 .text_color(rgba(theme.text_secondary))
-                                .child(if draft.enabled { "Enabled" } else { "Disabled" }),
+                                .child(if draft.enabled {
+                                    ui::i18n::text("settings.enabled")
+                                } else {
+                                    ui::i18n::text("settings.disabled")
+                                }),
                         )
                         .child(
                             div()
@@ -205,7 +212,9 @@ fn inspector_header(
                                     Switch::new("settings-agent-toggle-enabled-switch")
                                         .checked(draft.enabled)
                                         .with_size(Size::Medium)
-                                        .tooltip("Include this Agent in project routing")
+                                        .tooltip(ui::i18n::text(
+                                            "settings.include_this_agent_in_project_routing",
+                                        ))
                                         .on_click(move |_checked, _window, app_cx| {
                                             let _ = app.update(app_cx, |app, cx| {
                                                 app.agent_definitions.toggle_draft_enabled();
@@ -223,7 +232,7 @@ fn inspector_header(
                         this.child(action_button(
                             theme,
                             "settings-agent-add-to-canvas",
-                            "Add to Canvas",
+                            ui::i18n::text("settings.add_to_canvas"),
                             theme.accent_orange,
                             cx.listener(move |app, event, window, cx| {
                                 app.on_agent_settings_create_card(id, event, window, cx);
@@ -239,13 +248,15 @@ fn inspector_header(
                                 .child(disabled_action_button(
                                     theme,
                                     "settings-agent-add-to-canvas-disabled",
-                                    "Add to Canvas",
+                                    ui::i18n::text("settings.add_to_canvas"),
                                 ))
                                 .child(
                                     div()
                                         .text_size(px(10.0))
                                         .text_color(rgba(theme.text_tertiary))
-                                        .child("Enable before adding to Canvas"),
+                                        .child(ui::i18n::text(
+                                            "settings.enable_before_adding_to_canvas",
+                                        )),
                                 ),
                         )
                     }
@@ -266,7 +277,7 @@ fn canvas_presence_indicator(theme: Theme) -> AnyElement {
         .text_size(px(13.0))
         .font_weight(FontWeight::MEDIUM)
         .text_color(rgba(theme.accent_cyan))
-        .child("✓ On Canvas")
+        .child(ui::i18n::text("settings.on_canvas_2"))
         .into_any_element()
 }
 
@@ -293,7 +304,7 @@ fn inspector_footer(
             this.child(action_button(
                 theme,
                 "settings-agent-delete",
-                "Delete Agent…",
+                ui::i18n::text("settings.delete_agent_2"),
                 theme.destructive,
                 cx.listener(move |app, event, window, cx| {
                     app.on_agent_settings_request_delete_definition(id, event, window, cx);
@@ -313,12 +324,16 @@ fn inspector_footer(
                             .mr(px(4.0))
                             .text_size(px(12.0))
                             .text_color(rgba(theme.text_tertiary))
-                            .child("Unsaved changes"),
+                            .child(ui::i18n::text("cards.unsaved_changes")),
                     )
                     .child(action_button(
                         theme,
                         "settings-agent-discard",
-                        if creating { "Cancel" } else { "Discard" },
+                        if creating {
+                            ui::i18n::text("common.cancel")
+                        } else {
+                            ui::i18n::text("settings.discard")
+                        },
                         theme.text_secondary,
                         cx.listener(MultisoulApp::on_agent_settings_cancel_card_edit),
                     ))
@@ -326,9 +341,9 @@ fn inspector_footer(
                         theme,
                         "settings-agent-save",
                         if creating {
-                            "Create Agent"
+                            ui::i18n::text("settings.create_agent")
                         } else {
-                            "Save Changes"
+                            ui::i18n::text("settings.save_changes")
                         },
                         theme.accent_orange,
                         cx.listener(MultisoulApp::on_agent_settings_save),
@@ -392,7 +407,7 @@ fn profile_buttons(theme: Theme, selected: AgentProfile, cx: &mut Context<Multis
                 .text_size(px(13.0))
                 .font_weight(FontWeight::MEDIUM)
                 .text_color(rgba(theme.text_secondary))
-                .child("Runtime Profile"),
+                .child(ui::i18n::text("settings.runtime_profile")),
         )
         .child(
             div().flex().flex_row().flex_wrap().gap(px(8.0)).children(
@@ -454,12 +469,10 @@ fn empty_inspector(theme: Theme) -> AnyElement {
             div()
                 .text_size(px(15.0))
                 .font_weight(FontWeight::MEDIUM)
-                .child("Create your first project Agent"),
+                .child(ui::i18n::text("settings.create_your_first_project_agent")),
         )
-        .child(
-            div()
-                .text_size(px(12.0))
-                .child("Agents can be configured once and added to Canvas when needed."),
-        )
+        .child(div().text_size(px(12.0)).child(ui::i18n::text(
+            "settings.agents_can_be_configured_once_and_added_to_canvas_when_needed",
+        )))
         .into_any_element()
 }

@@ -14,8 +14,12 @@ impl MultisoulApp {
             Some(tts::MINIMAX_TTS_PROVIDER_ID) => self.apply_minimax_tts_picker(cx),
             Some(tts::LOCAL_TTS_PROVIDER_ID) => self.apply_local_tts_picker(cx),
             _ => {
-                self.voice_settings
-                    .report_tts_status("Choose a TTS Provider before applying a voice.", true);
+                self.voice_settings.report_tts_status(
+                    ui::i18n::LocalizedText::new(
+                        "voice.choose_a_tts_provider_before_applying_a_voice",
+                    ),
+                    true,
+                );
                 cx.notify();
             }
         }
@@ -28,7 +32,9 @@ impl MultisoulApp {
         }
         if self.voice_settings.tts_picker_minimax_readiness() != tts::RemoteTtsReadiness::Ready {
             self.voice_settings.report_tts_status(
-                "Connect MiniMax and choose a verified Voice before applying.",
+                ui::i18n::LocalizedText::new(
+                    "voice.connect_minimax_and_choose_a_verified_voice_before_applying",
+                ),
                 true,
             );
             cx.notify();
@@ -37,9 +43,10 @@ impl MultisoulApp {
         let rollback = self.voice_settings.capture_tts_activation_rollback();
         self.voice_settings.begin_tts_picker_apply();
         if !self.voice_settings.commit_tts_picker_minimax_profile() {
-            self.voice_settings.fail_tts_picker_apply(
-                "Connect MiniMax and choose a verified Voice before applying.",
-            );
+            self.voice_settings
+                .fail_tts_picker_apply(ui::i18n::LocalizedText::new(
+                    "voice.connect_minimax_and_choose_a_verified_voice_before_applying",
+                ));
             cx.notify();
             return;
         }
@@ -55,8 +62,12 @@ impl MultisoulApp {
             self.voice_settings.tts_picker_local_model_id().cloned(),
             self.voice_settings.tts_picker_local_voice_id().cloned(),
         ) else {
-            self.voice_settings
-                .report_tts_status("Choose a ready On-device Voice before applying.", true);
+            self.voice_settings.report_tts_status(
+                ui::i18n::LocalizedText::new(
+                    "voice.choose_a_ready_on_device_voice_before_applying",
+                ),
+                true,
+            );
             cx.notify();
             return;
         };
@@ -66,7 +77,9 @@ impl MultisoulApp {
 
     fn report_tts_activation_save_wait(&mut self, cx: &mut Context<Self>) {
         self.voice_settings.report_tts_status(
-            "Wait for the current settings save to finish before applying this Voice.",
+            ui::i18n::LocalizedText::new(
+                "voice.wait_for_the_current_settings_save_to_finish_before_applying_this",
+            ),
             false,
         );
         cx.notify();
@@ -80,7 +93,9 @@ impl MultisoulApp {
         let Some(selected) = selected_minimax_tts(&self.voice_settings) else {
             self.voice_settings.restore_tts_activation(rollback);
             self.voice_settings
-                .fail_tts_picker_apply("MiniMax configuration is incomplete.");
+                .fail_tts_picker_apply(ui::i18n::LocalizedText::new(
+                    "voice.minimax_configuration_is_incomplete",
+                ));
             cx.notify();
             return;
         };

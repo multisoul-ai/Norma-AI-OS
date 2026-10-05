@@ -53,11 +53,15 @@ pub(crate) enum WallpaperSelection {
 pub(crate) struct WallpaperSettingsState {
     pub(crate) selection: WallpaperSelection,
     storage: Option<SettingsStore>,
+    pub(crate) scoped: super::scoped::ScopedWallpaperState,
 }
 
 impl WallpaperSettingsState {
     pub(crate) fn load_from_store(store: SettingsStore) -> Self {
-        Self::load_from(Some(store))
+        let mut state = Self::load_from(Some(store));
+        state.scoped.customs = state.list_custom();
+        state.scoped.global = state.selection.clone();
+        state
     }
 
     /// Reconstruct state from an optional SettingsStore. When `store` is None
@@ -70,6 +74,10 @@ impl WallpaperSettingsState {
         match saved {
             Some(loaded) if selection_resolves(&loaded.selection) => {
                 let mut state = Self {
+                    scoped: super::scoped::ScopedWallpaperState::new(
+                        loaded.selection.clone(),
+                        Vec::new(),
+                    ),
                     selection: loaded.selection,
                     storage: store,
                 };
@@ -97,11 +105,16 @@ impl WallpaperSettingsState {
                 rel: DEFAULT_WALLPAPER_ASSET,
             },
             storage,
+            scoped: super::scoped::ScopedWallpaperState::new(
+                WallpaperSelection::default(),
+                Vec::new(),
+            ),
         }
     }
 
     /// Select a builtin wallpaper by its static rel path and persist.
     /// Caller must invoke `cx.notify()` to refresh the view.
+    #[cfg(test)]
     pub(crate) fn select_builtin(&mut self, rel: &'static str) {
         self.selection = WallpaperSelection::Builtin { rel };
         self.persist();
@@ -109,6 +122,7 @@ impl WallpaperSettingsState {
 
     /// Select a custom wallpaper by filename (basename under the custom dir)
     /// and persist. Caller must invoke `cx.notify()` to refresh the view.
+    #[cfg(test)]
     pub(crate) fn select_custom(&mut self, filename: String) {
         self.selection = WallpaperSelection::Custom { filename };
         self.persist();
@@ -231,6 +245,7 @@ impl WallpaperSettingsState {
     /// Delete a custom wallpaper file from disk. If the deleted file was the
     /// current selection, reset to the default builtin and persist the change.
     /// Caller must invoke `cx.notify()` to refresh the view.
+    #[cfg(test)]
     pub(crate) fn delete_custom(&mut self, filename: &str) {
         if let Some(dir) = custom_wallpapers_dir() {
             let path = dir.join(filename);
@@ -267,7 +282,16 @@ impl WallpaperSettingsState {
     ///    return [`ImportResult::Imported`] carrying the final filename.
     ///
     /// The caller must invoke `cx.notify()` to refresh the view.
+    #[cfg(test)]
     pub(crate) fn import_custom(&mut self, src: &Path) -> ImportResult {
+        let result = Self::copy_custom(src);
+        if let ImportResult::Imported(filename) = &result {
+            self.select_custom(filename.clone());
+        }
+        result
+    }
+
+    pub(crate) fn copy_custom(src: &Path) -> ImportResult {
         let Some(ext) = src.extension().and_then(|e| e.to_str()) else {
             return ImportResult::Rejected("file has no extension".into());
         };
@@ -295,7 +319,6 @@ impl WallpaperSettingsState {
             .and_then(|n| n.to_str())
             .map(str::to_owned)
             .unwrap_or_else(|| "imported".to_string());
-        self.select_custom(filename.clone());
         ImportResult::Imported(filename)
     }
 
@@ -400,5 +423,24 @@ fn selection_resolves(sel: &WallpaperSelection) -> bool {
         WallpaperSelection::Custom { filename } => custom_wallpapers_dir()
             .map(|d| d.join(filename).is_file())
             .unwrap_or(false),
+    }
+}
+
+impl Default for WallpaperSelection {
+    fn default() -> Self {
+        Self::Builtin {
+            rel: DEFAULT_WALLPAPER_ASSET,
+        }
+    }
+}
+
+impl WallpaperSelection {
+    pub(crate) fn reference(&self) -> storage::WallpaperReference {
+        match self {
+            Self::Builtin { rel } => storage::WallpaperReference::Builtin { rel: (*rel).into() },
+            Self::Custom { filename } => storage::WallpaperReference::Custom {
+                filename: filename.clone(),
+            },
+        }
     }
 }

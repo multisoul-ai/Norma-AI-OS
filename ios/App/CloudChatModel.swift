@@ -111,17 +111,6 @@ import NormaCore
         try? await pending.remove()
     }
 
-    /// Thread reasoning shares admission only; private chat history never enters its request or store.
-    func planThread(_ request: ThreadPlanRequest) async throws -> ThreadPlanResponse {
-        await load()
-        guard loaded else { throw CloudTextError.credentialUnavailable }
-        guard !enrolling, !sending else { throw CloudTextError.busy }
-        guard let credential else { throw CloudTextError.unauthorized }
-        sending = true
-        defer { sending = false }
-        return try await client.planThread(request, token: credential.token)
-    }
-
     func send() async {
         guard loaded, !enrolling, !sending, let credential else { return }
         let text = draft

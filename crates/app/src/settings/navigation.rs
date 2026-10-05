@@ -40,6 +40,7 @@ fn settings_brand_metadata() -> SettingsBrandMetadata {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub(crate) enum SettingsSection {
+    General,
     Themes,
     Keyboard,
     #[cfg(test)]
@@ -78,76 +79,82 @@ impl SettingsSection {
 
     fn metadata(self) -> SettingsSectionMetadata {
         match self {
+            Self::General => SettingsSectionMetadata {
+                title: ui::i18n::text("general.title"),
+                icon_asset: Some(TOOLBAR_SETTINGS_ASSET),
+                index: 12,
+                debug_selector: "settings-section-general",
+            },
             Self::Themes => SettingsSectionMetadata {
-                title: "Themes",
+                title: ui::i18n::text("settings.themes"),
                 icon_asset: Some(SETTINGS_NAV_THEMES_ASSET),
                 index: 0,
                 debug_selector: "settings-section-themes",
             },
             Self::Keyboard => SettingsSectionMetadata {
-                title: "Keyboard Shortcuts",
+                title: ui::i18n::text("settings.keyboard_shortcuts"),
                 icon_asset: Some("icons/settings-nav-keyboard.svg"),
                 index: 1,
                 debug_selector: "settings-section-keyboard",
             },
             #[cfg(test)]
             Self::Runtime => SettingsSectionMetadata {
-                title: "Runtime",
+                title: ui::i18n::text("settings.runtime"),
                 icon_asset: None,
                 index: 2,
                 debug_selector: "settings-section-runtime",
             },
             Self::NormaMemory => SettingsSectionMetadata {
-                title: "Memory",
+                title: ui::i18n::text("settings.memory"),
                 icon_asset: Some("icons/settings-nav-memory.svg"),
                 index: 3,
                 debug_selector: "settings-section-norma-memory",
             },
             Self::NormaVoice => SettingsSectionMetadata {
-                title: "Voice",
+                title: ui::i18n::text("common.voice"),
                 icon_asset: Some("icons/settings-nav-voice.svg"),
                 index: 10,
                 debug_selector: "settings-section-norma-voice",
             },
             Self::NormaPersona => SettingsSectionMetadata {
-                title: "Persona",
+                title: ui::i18n::text("settings.persona"),
                 icon_asset: Some("icons/settings-nav-persona.svg"),
                 index: 11,
                 debug_selector: "settings-section-norma-persona",
             },
             Self::Agents => SettingsSectionMetadata {
-                title: "Agents",
+                title: ui::i18n::text("settings.agents"),
                 icon_asset: Some("icons/settings-nav-agents.svg"),
                 index: 4,
                 debug_selector: "settings-section-agents",
             },
             #[cfg(test)]
             Self::Skills => SettingsSectionMetadata {
-                title: "Skills",
+                title: ui::i18n::text("settings.skills"),
                 icon_asset: None,
                 index: 5,
                 debug_selector: "settings-section-skills",
             },
             Self::Orchestration => SettingsSectionMetadata {
-                title: "Orchestration",
+                title: ui::i18n::text("settings.orchestration"),
                 icon_asset: Some("icons/settings-nav-hooks.svg"),
                 index: 6,
                 debug_selector: "settings-section-orchestration",
             },
             Self::Wallpaper => SettingsSectionMetadata {
-                title: "Wallpaper",
+                title: ui::i18n::text("settings.wallpaper"),
                 icon_asset: Some("icons/settings-nav-wallpaper.svg"),
                 index: 7,
                 debug_selector: "settings-section-wallpaper",
             },
             Self::Mobile => SettingsSectionMetadata {
-                title: "Mobile Connection",
+                title: ui::i18n::text("settings.mobile_connection"),
                 icon_asset: Some("icons/settings-nav-mobile.svg"),
                 index: 9,
                 debug_selector: "settings-section-mobile",
             },
             Self::Performance => SettingsSectionMetadata {
-                title: "Performance",
+                title: ui::i18n::text("settings.performance"),
                 icon_asset: Some(TOOLBAR_SETTINGS_ASSET),
                 index: 8,
                 debug_selector: "settings-section-performance",
@@ -174,12 +181,21 @@ const NORMA_SECTIONS: &[SettingsSection] = &[
     SettingsSection::NormaVoice,
 ];
 
-const NAVIGATION_GROUPS: [(&str, &[SettingsSection]); 4] = [
+const NAVIGATION_GROUPS: [(&str, &[SettingsSection]); 5] = [
+    ("", &[SettingsSection::General]),
     ("Norma", NORMA_SECTIONS),
-    ("Appearance", APPEARANCE_SECTIONS),
-    ("Input & Controls", INPUT_SECTIONS),
-    ("AI & Automation", AUTOMATION_SECTIONS),
+    ("settings.appearance", APPEARANCE_SECTIONS),
+    ("settings.input_controls", INPUT_SECTIONS),
+    ("settings.ai_automation", AUTOMATION_SECTIONS),
 ];
+
+fn group_label(key: &'static str) -> &'static str {
+    if key.is_empty() || key == "Norma" {
+        key
+    } else {
+        ui::i18n::text(key)
+    }
+}
 
 const SIDEBAR_GROUP_SPACING: f32 = 23.5;
 const NAVIGATION_ITEM_HEIGHT: f32 = 39.0;
@@ -220,7 +236,14 @@ fn sidebar_navigation(
         .mt(px(if compact { 14.0 } else { SIDEBAR_GROUP_SPACING }));
 
     for (group, sections) in NAVIGATION_GROUPS {
-        groups = groups.child(sidebar_group(theme, group, sections, active, compact, cx));
+        groups = groups.child(sidebar_group(
+            theme,
+            group_label(group),
+            sections,
+            active,
+            compact,
+            cx,
+        ));
     }
 
     div()
@@ -243,7 +266,7 @@ fn sidebar_navigation(
                 .text_size(px(if compact { 20.0 } else { 24.0 }))
                 .font_weight(FontWeight::BOLD)
                 .text_color(rgba(theme.text_primary))
-                .child("Settings"),
+                .child(ui::i18n::text("common.settings")),
         )
         .child(groups)
         .child(settings_brand_footer(theme, compact))
@@ -261,24 +284,26 @@ fn sidebar_group(
         .flex()
         .flex_col()
         .gap(px(5.0))
-        .child(
-            div()
-                .px(px(8.0))
-                .text_size(px(if title == "Norma" {
-                    15.0
-                } else if compact {
-                    10.0
-                } else {
-                    11.0
-                }))
-                .font_weight(FontWeight::SEMIBOLD)
-                .text_color(rgba(if title == "Norma" {
-                    theme.text_primary
-                } else {
-                    theme.text_secondary
-                }))
-                .child(title),
-        )
+        .when(!title.is_empty(), |view| {
+            view.child(
+                div()
+                    .px(px(8.0))
+                    .text_size(px(if title == "Norma" {
+                        15.0
+                    } else if compact {
+                        10.0
+                    } else {
+                        11.0
+                    }))
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_color(rgba(if title == "Norma" {
+                        theme.text_primary
+                    } else {
+                        theme.text_secondary
+                    }))
+                    .child(title),
+            )
+        })
         .children(
             sections
                 .iter()
@@ -323,7 +348,7 @@ fn top_bar_navigation(
                         .text_size(px(10.0))
                         .font_weight(FontWeight::BOLD)
                         .text_color(rgba(theme.text_tertiary))
-                        .child(group),
+                        .child(group_label(group)),
                 )
                 .child(
                     div().flex().flex_row().gap(px(5.0)).children(

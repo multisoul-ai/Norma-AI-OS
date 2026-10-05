@@ -20,9 +20,7 @@ pub(super) fn voice_ready_overview(
             div()
                 .text_size(px(12.0))
                 .text_color(rgba(theme.text_secondary))
-                .child(format!(
-                    "Press {voice_shortcut_label} to talk. Changes below are saved automatically."
-                )),
+                .child(ui::i18n::format("voice.press_voice_shortcut_label_to_talk_changes_below_are_saved_automatically", &[("voice_shortcut_label", (voice_shortcut_label).to_string())])),
         )
         .child(ready_summary(theme, cx))
 }
@@ -69,34 +67,51 @@ pub(super) fn voice_status_overview(
     let (title, hint) = if ready {
         (
             if doubao {
-                "Ready to connect"
+                ui::i18n::text("voice.ready_to_connect")
             } else {
-                "Ready to talk"
+                ui::i18n::text("voice.ready_to_talk")
             }
             .to_string(),
-            format!(
-                "Press {voice_shortcut_label} to {arg0}.",
-                arg0 = if doubao {
-                    "start a conversation"
-                } else {
-                    "give Norma a voice command"
-                }
+            ui::i18n::format(
+                "voice.press_voice_shortcut_label_to",
+                &[
+                    ("voice_shortcut_label", (voice_shortcut_label).to_string()),
+                    (
+                        "arg0",
+                        (if doubao {
+                            ui::i18n::text("voice.start_a_conversation")
+                        } else {
+                            ui::i18n::text("voice.give_norma_a_voice_command")
+                        })
+                        .to_string(),
+                    ),
+                ],
             ),
         )
     } else if let VoiceEntryState::SettingUp { percent } = state.readiness() {
         (
-            format!("Preparing voice · {percent}%"),
-            "Downloads continue in the background. You can keep working.".to_string(),
+            ui::i18n::format(
+                "voice.preparing_voice_percent",
+                &[("percent", (percent).to_string())],
+            ),
+            ui::i18n::text("voice.downloads_continue_in_the_background_you_can_keep_working")
+                .to_string(),
         )
     } else {
         (
             if failed {
-                "Voice needs attention"
+                ui::i18n::text("voice.voice_needs_attention")
             } else {
-                "Finish setting up voice"
+                ui::i18n::text("voice.finish_setting_up_voice")
             }
             .to_string(),
-            format!("{completed} of {arg0} requirements ready. Configure the sections below to get started.", arg0 = requirements.len()),
+            ui::i18n::format(
+                "voice.completed_of_requirements_ready_configure_the_sections_below_to_get_started",
+                &[
+                    ("completed", (completed).to_string()),
+                    ("arg0", (requirements.len()).to_string()),
+                ],
+            ),
         )
     };
     div()
@@ -168,28 +183,28 @@ fn next_setup_action(
         VoiceRequirement::Microphone => component_action(
             theme,
             "voice-status-next",
-            "Grant Access",
+            ui::i18n::text("voice.grant_access"),
             cx,
             cx.listener(MultisoulApp::on_voice_setup_request_microphone),
         ),
         VoiceRequirement::SpeechRecognition => component_action(
             theme,
             "voice-status-next",
-            "Configure Recognition",
+            ui::i18n::text("voice.configure_recognition"),
             cx,
             cx.listener(MultisoulApp::on_voice_manage_asr_models),
         ),
         VoiceRequirement::AgentProvider => component_action(
             theme,
             "voice-status-next",
-            "Connect AI",
+            ui::i18n::text("voice.connect_ai"),
             cx,
             cx.listener(MultisoulApp::on_voice_manage_provider),
         ),
         VoiceRequirement::SpokenReplies => component_action(
             theme,
             "voice-status-next",
-            "Choose Voice",
+            ui::i18n::text("voice.choose_voice"),
             cx,
             cx.listener(MultisoulApp::on_voice_manage_tts_models),
         ),
@@ -200,21 +215,21 @@ fn ready_summary(theme: Theme, cx: &mut Context<MultisoulApp>) -> Stateful<Div> 
     let change_asr = component_action(
         theme,
         "voice-ready-change-asr",
-        "Configure",
+        ui::i18n::text("mobile.configure"),
         cx,
         cx.listener(MultisoulApp::on_voice_manage_asr_models),
     );
     let change_tts = component_action(
         theme,
         "voice-ready-change-tts",
-        "Change Voice",
+        ui::i18n::text("voice.change_voice"),
         cx,
         cx.listener(MultisoulApp::on_voice_manage_tts_models),
     );
     let change_provider = component_action(
         theme,
         "voice-ready-change-provider",
-        "Configure",
+        ui::i18n::text("mobile.configure"),
         cx,
         cx.listener(MultisoulApp::on_voice_manage_provider),
     );
@@ -233,24 +248,24 @@ fn ready_summary(theme: Theme, cx: &mut Context<MultisoulApp>) -> Stateful<Div> 
         .child(summary_row(
             theme,
             "voice-ready-summary-recognition",
-            "Speech Recognition",
-            "●  Ready",
+            ui::i18n::text("voice.speech_recognition"),
+            ui::i18n::text("voice.ready"),
             theme.accent_green,
             Some(change_asr),
         ))
         .child(summary_row(
             theme,
             "voice-ready-summary-provider",
-            "AI Connection",
-            "●  Connected",
+            ui::i18n::text("voice.ai_connection"),
+            ui::i18n::text("voice.connected"),
             theme.accent_green,
             Some(change_provider),
         ))
         .child(summary_row(
             theme,
             "voice-ready-summary-replies",
-            "Spoken Replies",
-            "●  Ready",
+            ui::i18n::text("voice.spoken_replies"),
+            ui::i18n::text("voice.ready"),
             theme.accent_green,
             Some(change_tts),
         ))
@@ -258,7 +273,7 @@ fn ready_summary(theme: Theme, cx: &mut Context<MultisoulApp>) -> Stateful<Div> 
             component_action(
                 theme,
                 "voice-review-setup",
-                "Review Setup",
+                ui::i18n::text("voice.review_setup"),
                 cx,
                 cx.listener(MultisoulApp::on_voice_review_setup),
             )

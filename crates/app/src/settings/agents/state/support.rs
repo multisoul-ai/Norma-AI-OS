@@ -7,15 +7,17 @@ use storage::AgentDefinition;
 pub(crate) fn validate_agent_definition_text(
     name: &str,
     workflow_description: &str,
-) -> Result<(), String> {
+) -> Result<(), ui::i18n::LocalizedText> {
     let name = name.trim();
     let workflow = workflow_description.trim();
 
     agent::AgentName::parse(name).map_err(|_| {
-        "Agent name must be 2–16 English letters or 2–8 Chinese characters".to_string()
+        ui::i18n::LocalizedText::new("settings.agent_name_must_be_2_16_english_letters_or_2_8")
     })?;
     if workflow.chars().count() > MAX_WORKFLOW_DESCRIPTION_CHARS {
-        return Err("Workflow description must be 2000 characters or fewer".to_string());
+        return Err(ui::i18n::LocalizedText::new(
+            "settings.workflow_description_must_be_2000_characters_or_fewer",
+        ));
     }
 
     Ok(())
@@ -25,9 +27,10 @@ pub(super) fn display_value(field: AgentDefinitionField, value: &str) -> String 
     let trimmed = value.trim();
     if trimmed.is_empty() {
         match field {
-            AgentDefinitionField::Name => "Set the agent name.".to_string(),
+            AgentDefinitionField::Name => ui::i18n::text("settings.set_the_agent_name").to_string(),
             AgentDefinitionField::WorkflowDescription => {
-                "Describe the workflow this agent should follow.".to_string()
+                ui::i18n::text("settings.describe_the_workflow_this_agent_should_follow")
+                    .to_string()
             }
         }
     } else {
@@ -35,17 +38,20 @@ pub(super) fn display_value(field: AgentDefinitionField, value: &str) -> String 
     }
 }
 
-pub(super) fn readable_agent_store_error(error: &storage::StorageError) -> String {
+pub(super) fn readable_agent_store_error(error: &storage::StorageError) -> ui::i18n::LocalizedText {
     if matches!(error, storage::StorageError::AgentNameConflict { .. }) {
-        return "Agent name already exists in this project".to_string();
+        return ui::i18n::LocalizedText::new("settings.agent_name_already_exists_in_this_project");
     }
     let message = error.to_string();
     if message.contains("idx_agent_definitions_name_nocase")
         || message.contains("UNIQUE constraint failed")
     {
-        "Agent name already exists in this project".to_string()
+        ui::i18n::LocalizedText::new("settings.agent_name_already_exists_in_this_project")
     } else {
-        format!("Could not save project agent: {error}")
+        ui::i18n::message(
+            "settings.could_not_save_project_agent_error",
+            &[("error", (error).to_string())],
+        )
     }
 }
 

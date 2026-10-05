@@ -1,0 +1,14 @@
+{
+  "license.enter_license_key": "输入 License Key",
+  "license.could_not_initialize_the_database_error": "无法初始化数据库: %{error}",
+  "license.enter_a_license_key": "请输入 License Key",
+  "license.could_not_locate_the_data_directory_err": "无法定位数据目录: %{err}",
+  "license.could_not_save_the_activation_credential_err": "无法保存激活凭证: %{err}",
+  "license.activation_succeeded_but_local_verification_failed_the_public_key_does_not": "激活成功但本地校验失败（公钥与签发服务不匹配；请更新 embed/public_key.hex 或 NORMA_LICENSE_PUBKEY_HEX）",
+  "license.paste_your_key_and_choose_activate_while_online_expired_offline_credentials": "粘贴 Key 后点击激活（需联网）。离线凭证过期时也需重新联网续签。",
+  "license.activating": "激活中…",
+  "license.activate_norma_os": "激活 Norma OS",
+  "license.activate": "激活",
+  "license.quit": "退出",
+  "license.activation_failed": "激活失败：%{reason}"
+}

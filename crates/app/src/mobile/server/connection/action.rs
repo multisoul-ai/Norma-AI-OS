@@ -4,44 +4,71 @@ use serde::Deserialize;
 
 #[derive(Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
-pub(super) enum Action {
+pub(in crate::mobile) enum Action {
+    WorkspaceActivity {
+        device_id: String,
+        token: String,
+        request: Box<crate::mobile::activity::Request>,
+    },
+    WorkspaceTerminal {
+        device_id: String,
+        token: String,
+        request: Box<norma::mobile::WorkspaceTerminalRequest>,
+    },
+    WorkspaceAgentCreate {
+        device_id: String,
+        token: String,
+        request: Box<norma::mobile::WorkspaceAgentCreateRequest>,
+    },
+    WorkspaceAgentCreationReceipt {
+        device_id: String,
+        token: String,
+        desktop_workspace_id: String,
+        operation_id: String,
+    },
+    WorkspaceCatalog {
+        device_id: String,
+        token: String,
+    },
+    WorkspaceMessage {
+        device_id: String,
+        token: String,
+        message: Box<norma::mobile::WorkspaceChatMessage>,
+    },
+    WorkspaceReceipt {
+        device_id: String,
+        token: String,
+        desktop_workspace_id: String,
+        operation_id: String,
+    },
+    WorkspaceEvents {
+        device_id: String,
+        token: String,
+        desktop_workspace_id: String,
+        after: u64,
+    },
+    WorkspaceConfigure {
+        device_id: String,
+        token: String,
+        desktop_workspace_id: String,
+        expected_revision: u64,
+        change: norma::mobile::WorkspaceConfigurationChange,
+    },
     CloudRegistration {
         device_id: String,
         token: String,
         cloud_device_id: String,
         token_hash: String,
     },
-    ThreadTaskFollowup {
-        device_id: String,
-        token: String,
-        followup: Box<norma::mobile::ThreadFollowup>,
-        route_id: String,
-        grant_revision: u64,
-    },
     ThreadTaskFollowupReceipt {
         device_id: String,
         token: String,
         followup: Box<norma::mobile::ThreadFollowup>,
     },
-    ThreadTaskTerminalControl {
-        device_id: String,
-        token: String,
-        request: crate::mobile::ThreadTerminalRequest,
-        operation: crate::mobile::ThreadTerminalOperation,
-        #[serde(default)]
-        lookup_only: bool,
-    },
     ThreadTaskTerminal {
         device_id: String,
         token: String,
         request: crate::mobile::thread_task_terminal::Request,
-    },
-    ThreadTaskAccept {
-        device_id: String,
-        token: String,
-        decision: crate::mobile::thread_task_acceptance::Decision,
-        route_id: String,
-        grant_revision: u64,
     },
     ThreadTaskAcceptance {
         device_id: String,
@@ -53,24 +80,12 @@ pub(super) enum Action {
         token: String,
         request: crate::mobile::thread_task_review::Request,
     },
-    ThreadTask {
-        device_id: String,
-        token: String,
-        task: Box<norma::mobile::ThreadTask>,
-        route_id: String,
-        grant_revision: u64,
-    },
     ThreadTaskReceipt {
         device_id: String,
         token: String,
         collaboration_workspace_id: String,
         thread_id: String,
         operation_id: String,
-    },
-    ThreadMessage {
-        device_id: String,
-        token: String,
-        message: Box<norma::mobile::ThreadMessage>,
     },
     ThreadReceipt {
         device_id: String,

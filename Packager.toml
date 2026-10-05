@@ -8,6 +8,8 @@ identifier = "com.norma.os"
 authors = ["multisoul"]
 formats = ["app", "dmg"]
 resources = [
+  { src = "packaging/macos/en.lproj", target = "en.lproj" },
+  { src = "packaging/macos/zh-CN.lproj", target = "zh-CN.lproj" },
   "crates/app/assets/wallpapers",
   "crates/app/assets/feature-guide",
   "crates/app/assets/browser-auth-extension",

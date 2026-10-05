@@ -80,7 +80,11 @@ impl MultisoulApp {
         });
         let folder_input = cx.new(|cx| {
             InputState::new(window, cx)
-                .placeholder("Use repository name")
+                .placeholder(ui::i18n::input_placeholder(
+                    "workspace.use_repository_name",
+                    window,
+                    cx,
+                ))
                 .multi_line(false)
         });
         let remote_subscription =
@@ -130,7 +134,7 @@ impl MultisoulApp {
             files: false,
             directories: true,
             multiple: false,
-            prompt: Some("Choose Clone Destination".into()),
+            prompt: Some(ui::i18n::text("workspace.choose_clone_destination").into()),
         });
         self.handle_clone_parent_receiver(receiver, window, cx);
     }
@@ -157,16 +161,18 @@ impl MultisoulApp {
                 Ok(Ok(None)) => {}
                 Ok(Err(error)) => {
                     let _ = this.update(&mut *cx, |app, cx| {
-                        app.set_clone_failure(format!(
-                            "Could not choose a clone destination: {error}"
+                        app.set_clone_failure(ui::i18n::format(
+                            "workspace.could_not_choose_a_clone_destination_error",
+                            &[("error", (error).to_string())],
                         ));
                         cx.notify();
                     });
                 }
                 Err(error) => {
                     let _ = this.update(&mut *cx, |app, cx| {
-                        app.set_clone_failure(format!(
-                            "Clone destination picker was cancelled unexpectedly: {error}"
+                        app.set_clone_failure(ui::i18n::format(
+                            "workspace.clone_destination_picker_was_cancelled_unexpectedly_error",
+                            &[("error", (error).to_string())],
                         ));
                         cx.notify();
                     });
@@ -200,8 +206,10 @@ impl MultisoulApp {
             .is_some_and(|running| running.load(Ordering::Acquire));
         if another_task_running {
             self.set_clone_failure(
-                "Another repository is already being cloned. Wait for it to finish or cancel it."
-                    .to_string(),
+                ui::i18n::text(
+                    "workspace.another_repository_is_already_being_cloned_wait_for_it_to_finish",
+                )
+                .to_string(),
             );
             cx.notify();
             return;
@@ -309,9 +317,15 @@ impl MultisoulApp {
             Err(error) => {
                 let target_preserved = error.target_preserved();
                 let message = if target_preserved {
-                    format!("{error} Files were kept at {}.", error.target().display())
+                    ui::i18n::message(
+                        "workspace.error_files_were_kept_at",
+                        &[
+                            ("error", (error).to_string()),
+                            ("arg0", (error.target().display()).to_string()),
+                        ],
+                    )
                 } else {
-                    error.to_string()
+                    ui::i18n::LocalizedText::new("clone.failed").with_arg("reason", error)
                 };
                 if let Some(dialog) = self.clone_project.dialog_mut() {
                     dialog.phase = CloneProjectPhase::Failed {
@@ -325,10 +339,10 @@ impl MultisoulApp {
         }
     }
 
-    fn set_clone_failure(&mut self, message: String) {
+    fn set_clone_failure(&mut self, message: impl Into<ui::i18n::LocalizedText>) {
         if let Some(dialog) = self.clone_project.dialog_mut() {
             dialog.phase = CloneProjectPhase::Failed {
-                message,
+                message: message.into(),
                 target_preserved: false,
             };
             dialog.cancellation = None;

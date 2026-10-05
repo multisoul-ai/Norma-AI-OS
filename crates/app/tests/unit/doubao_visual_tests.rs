@@ -183,7 +183,8 @@ fn test_doubao_missing_audio_completion_reports_error() {
         std::thread::sleep(Duration::from_millis(2));
     };
     assert_eq!(
-        error, "豆包音频播放完成回调丢失",
+        error.resolve_for(ui::i18n::Locale::ZhCn),
+        "豆包音频播放完成回调丢失",
         "后端无完成回调不得被当作已播完"
     );
     let deadline = std::time::Instant::now() + Duration::from_secs(2);
@@ -260,7 +261,11 @@ fn test_doubao_stalled_audio_completion_times_out() {
         );
         std::thread::sleep(Duration::from_millis(10));
     };
-    assert_eq!(error, "豆包音频播放完成回调超时", "应明确报告硬件回调超时");
+    assert_eq!(
+        error.resolve_for(ui::i18n::Locale::ZhCn),
+        "豆包音频播放完成回调超时",
+        "应明确报告硬件回调超时"
+    );
     let visual_deadline = std::time::Instant::now() + Duration::from_secs(2);
     let mut visual_events = Vec::new();
     while !visual_events

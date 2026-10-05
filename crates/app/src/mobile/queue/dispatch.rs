@@ -157,34 +157,21 @@ fn dispatch(
             && g.revision == entry.message.grant_revision
             && g.allows(&entry.request.workspace_id, true)
     });
-    let Some(grant) = grant else {
+    let Some(_) = grant else {
         store
             .cancel_queued_message(&entry.request)
             .map_err(|e| e.to_string())?;
         crate::mobile::project_events::changed();
         return Ok(None);
     };
-    let target = match crate::mobile::thread_followup::queued_target(
-        access.store.path(),
-        store,
-        &entry,
-        grant,
-    ) {
-        Ok(target) => target,
-        Err("unavailable") => return Ok(None),
-        Err(error) => {
-            if store
-                .claim_queued_message(&entry.request)
-                .map_err(|e| e.to_string())?
-            {
-                store
-                    .finish_queued_message(&entry.request, Err(error.into()))
-                    .map_err(|e| e.to_string())?;
-                crate::mobile::project_events::changed();
-            }
-            return Ok(None);
-        }
-    };
+    // Old thread queues are retained for receipt review, never automatically resumed.
+    if store
+        .queued_thread_binding(&entry.request)
+        .map_err(|e| e.to_string())?
+        .is_some()
+    {
+        return Ok(None);
+    }
     let lease = match shared.command_lease(&entry.request.device_id, &entry.request.operation_id) {
         Ok(lease) => lease,
         Err("busy") => return Ok(None),
@@ -205,17 +192,9 @@ fn dispatch(
         workspace_id: entry.request.workspace_id.clone(),
         route_id: entry.request.route_id.clone(),
         grant_revision: entry.message.grant_revision,
-        command: if let Some(target) = target {
-            MobileCommand::ThreadFollowup {
-                target,
-                expected: card,
-                text: entry.message.text.clone(),
-            }
-        } else {
-            MobileCommand::SendMessage {
-                expected: card,
-                text: entry.message.text.clone(),
-            }
+        command: MobileCommand::SendMessage {
+            expected: card,
+            text: entry.message.text.clone(),
         },
     };
     if shared

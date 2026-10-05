@@ -27,7 +27,9 @@ impl MultisoulApp {
     ) {
         if self.pending_tts_activation.is_some() {
             self.voice_settings.report_tts_status(
-                "Wait for the selected Voice to finish saving before closing.",
+                ui::i18n::LocalizedText::new(
+                    "voice.wait_for_the_selected_voice_to_finish_saving_before_closing",
+                ),
                 false,
             );
             cx.notify();
@@ -195,8 +197,10 @@ impl MultisoulApp {
             .or_else(|| self.voice_settings.values().minimax_tts_model_id())
             .cloned()
         else {
-            self.voice_settings
-                .report_tts_status("Choose a MiniMax model before Preview.", true);
+            self.voice_settings.report_tts_status(
+                ui::i18n::LocalizedText::new("voice.choose_a_minimax_model_before_preview"),
+                true,
+            );
             cx.notify();
             return;
         };
@@ -210,8 +214,10 @@ impl MultisoulApp {
                 .minimax_tts_api_key()
                 .map(ToOwned::to_owned),
         ) else {
-            self.voice_settings
-                .report_tts_status("Connect MiniMax before Preview.", true);
+            self.voice_settings.report_tts_status(
+                ui::i18n::LocalizedText::new("voice.connect_minimax_before_preview"),
+                true,
+            );
             cx.notify();
             return;
         };
@@ -236,7 +242,9 @@ impl MultisoulApp {
             || self.voice_settings.minimax_persistence_blocks_preview()
         {
             self.voice_settings.report_tts_status(
-                "Wait for the current MiniMax credential or validation proof to finish saving.",
+                ui::i18n::LocalizedText::new(
+                    "voice.wait_for_the_current_minimax_credential_or_validation_proof_to_finish",
+                ),
                 false,
             );
             cx.notify();
@@ -253,7 +261,9 @@ impl MultisoulApp {
         if needs_connection {
             self.pending_minimax_preview_after_validation = None;
             self.voice_settings.report_tts_status(
-                "Connect MiniMax before Preview. Preview never saves credentials.",
+                ui::i18n::LocalizedText::new(
+                    "voice.connect_minimax_before_preview_preview_never_saves_credentials",
+                ),
                 true,
             );
             cx.notify();
@@ -265,7 +275,9 @@ impl MultisoulApp {
     pub(crate) fn start_minimax_tts_preview(&mut self, cx: &mut Context<Self>) {
         let Some(selected) = selected_minimax_tts(&self.voice_settings) else {
             self.voice_settings.report_tts_status(
-                "Connect MiniMax, choose a model and enter a Voice ID before Preview.",
+                ui::i18n::LocalizedText::new(
+                    "voice.connect_minimax_choose_a_model_and_enter_a_voice_id_before",
+                ),
                 true,
             );
             cx.notify();
@@ -363,7 +375,7 @@ impl MultisoulApp {
                         let disposition = app.voice_settings.record_minimax_connection_failure(
                             generation,
                             error.kind(),
-                            format!("MiniMax connection failed: {error}"),
+                            ui::i18n::format("voice.minimax_connection_failed_error", &[("error", (error).to_string())]),
                         );
                         if disposition
                             == crate::settings::voice::state::MiniMaxConnectionFailureDisposition::Stale

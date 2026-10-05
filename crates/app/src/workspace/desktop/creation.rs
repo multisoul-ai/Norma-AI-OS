@@ -12,7 +12,13 @@ impl MultisoulApp {
         if self.desktop_workspace.busy || self.desktop_workspace.create_input.is_some() {
             return;
         }
-        let input = cx.new(|cx| InputState::new(window, cx).placeholder("e.g. Website redesign"));
+        let input = cx.new(|cx| {
+            InputState::new(window, cx).placeholder(ui::i18n::input_placeholder(
+                "workspace.e_g_website_redesign",
+                window,
+                cx,
+            ))
+        });
         cx.subscribe_in(&input, window, |app, _, event, window, cx| match event {
             InputEvent::PressEnter { .. } => app.submit_desktop_workspace_name(window, cx),
             InputEvent::Change => {
@@ -79,8 +85,8 @@ impl MultisoulApp {
                 }
             }))
             .child(super::dialogs::desktop_form_header(
-                "New Workspace",
-                "Keep related projects and agents together.".into(),
+                ui::i18n::text("shortcuts.new_workspace"),
+                ui::i18n::text("workspace.keep_related_projects_and_agents_together").into(),
                 theme,
             ))
             .child(
@@ -92,7 +98,7 @@ impl MultisoulApp {
                         div()
                             .text_size(px(12.0))
                             .font_medium()
-                            .child("Workspace name"),
+                            .child(ui::i18n::text("workspace.workspace_name")),
                     )
                     .child(
                         div()
@@ -117,9 +123,9 @@ impl MultisoulApp {
                     .text_size(px(12.0))
                     .text_color(rgba(theme.text_secondary))
                     .child(if count > 80 {
-                        "Use 80 characters or fewer."
+                        ui::i18n::text("workspace.use_80_characters_or_fewer")
                     } else {
-                        "Start with an empty canvas. Add projects whenever you’re ready."
+                        ui::i18n::text("workspace.start_with_an_empty_canvas_add_projects_whenever_you_re_ready")
                     }),
             )
             .when_some(self.desktop_workspace.error.clone(), |this, error| {
@@ -139,7 +145,7 @@ impl MultisoulApp {
                     .child(
                         Button::new("desktop-workspace-create-cancel")
                             .debug_selector(|| "desktop-workspace-create-cancel".into())
-                            .label("Cancel")
+                            .label(ui::i18n::text("common.cancel"))
                             .disabled(busy)
                             .on_click(cx.listener(|app, _, window, cx| {
                                 app.cancel_desktop_workspace_creation(window, cx)
@@ -149,9 +155,9 @@ impl MultisoulApp {
                         Button::new("desktop-workspace-create-confirm")
                             .debug_selector(|| "desktop-workspace-create-confirm".into())
                             .label(if busy {
-                                "Creating…"
+                                ui::i18n::text("workspace.creating")
                             } else {
-                                "Create Workspace"
+                                ui::i18n::text("workspace.create_workspace")
                             })
                             .primary()
                             .disabled(busy || !valid)
@@ -202,9 +208,15 @@ impl MultisoulApp {
         self.desktop_workspace.error = None;
         cx.notify();
         let store = self.desktop_workspace.store.clone();
+        let wallpaper = if self.wallpaper_settings.scoped.context.is_some() {
+            self.wallpaper_settings.scoped.workspace_selection()
+        } else {
+            self.wallpaper_settings.scoped.global.clone()
+        }
+        .reference();
         let work = cx
             .background_executor()
-            .spawn(async move { store.create(&name) });
+            .spawn(async move { store.create_with_wallpaper(&name, &wallpaper) });
         cx.spawn_in(window, async move |this, cx| {
             let result = work.await;
             this.update_in(cx, |app, window, cx| {
@@ -231,12 +243,15 @@ impl MultisoulApp {
                             app.desktop_workspace.active_area_id = None;
                             app.desktop_workspace.expanded_area_id = None;
                             app.screen = AppScreen::DesktopWorkspace;
+                            app.bind_desktop_wallpaper(cx);
                             app.start_desktop_status_refresh(cx);
                         }
                     }
                     Err(error) => {
-                        app.desktop_workspace.error =
-                            Some(format!("Could not create workspace: {error}"))
+                        app.desktop_workspace.error = Some(ui::i18n::message(
+                            "workspace.could_not_create_workspace_error",
+                            &[("error", (error).to_string())],
+                        ))
                     }
                 }
                 cx.notify();

@@ -25,6 +25,14 @@ impl RigToolContext {
 
     pub(crate) fn context_project_is_personal(&self) -> bool {
         self.base.project_id.is_empty()
+            && self.base.input_source != crate::AgentInputSource::MobileExecution
+    }
+
+    pub(crate) fn is_mobile_workspace(&self) -> bool {
+        matches!(
+            self.base.input_source,
+            crate::AgentInputSource::MobileDiscussion | crate::AgentInputSource::MobileExecution
+        )
     }
 
     pub(crate) fn unknown_seen(&self) -> bool {
@@ -167,3 +175,5 @@ define_rig_tool!(MemoryListTool, "memory_list", 12);
 define_rig_tool!(MemorySearchTool, "memory_search", 13);
 define_rig_tool!(MemoryReadTool, "memory_read", 14);
 define_rig_tool!(MemoryWriteTool, "memory_write", 15);
+
+define_rig_tool!(WorkspaceMemoryTool, "workspace_memory", 16);

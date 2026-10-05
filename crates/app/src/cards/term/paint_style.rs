@@ -3,7 +3,7 @@ use terminal::{Cell, TerminalColor, TerminalNamedColor};
 use ui::Theme;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub(super) struct TerminalPalette {
+pub(crate) struct TerminalPalette {
     pub(super) ansi_colors: [Hsla; 16],
     pub(super) extended_colors: [Hsla; 256],
     pub(super) foreground: Hsla,
@@ -12,7 +12,7 @@ pub(super) struct TerminalPalette {
 }
 
 impl TerminalPalette {
-    pub(super) fn from_theme(theme: Theme) -> Self {
+    pub(crate) fn from_theme(theme: Theme) -> Self {
         let ansi_colors = [
             rgb_to_hsla(0x00, 0x00, 0x00),
             rgb_to_hsla(0xcc, 0x00, 0x00),
@@ -134,9 +134,9 @@ impl TerminalGlassStyle {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub(super) struct ResolvedCellStyle {
-    pub(super) fg: Hsla,
-    pub(super) bg: Hsla,
+pub(crate) struct ResolvedCellStyle {
+    pub(crate) fg: Hsla,
+    pub(crate) bg: Hsla,
     pub(super) bold: bool,
     pub(super) italic: bool,
     pub(super) underline: bool,
@@ -168,7 +168,7 @@ pub(super) struct TerminalTextStyle {
     pub(super) strikeout: bool,
 }
 
-pub(super) fn resolve_cell_style(cell: &Cell, palette: TerminalPalette) -> ResolvedCellStyle {
+pub(crate) fn resolve_cell_style(cell: &Cell, palette: TerminalPalette) -> ResolvedCellStyle {
     let mut fg = palette.resolve(cell.fg);
     let mut bg = palette.resolve(cell.bg);
 

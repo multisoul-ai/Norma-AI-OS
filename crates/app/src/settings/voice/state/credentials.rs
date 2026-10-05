@@ -78,7 +78,7 @@ impl VoiceSettingsState {
         self.values.active_provider_profile().api_key().is_some()
     }
 
-    pub(crate) fn report_credential_error(&mut self, error: impl Into<String>) {
+    pub(crate) fn report_credential_error(&mut self, error: impl Into<ui::i18n::LocalizedText>) {
         self.status = Some(super::error_status(error));
     }
 

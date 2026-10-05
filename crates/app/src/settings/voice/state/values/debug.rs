@@ -7,6 +7,7 @@ impl fmt::Debug for SavedVoiceSettings {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("SavedVoiceSettings")
             .field("desktop_mode", &self.desktop_mode)
+            .field("doubao_speaker", &self.doubao_speaker)
             .field(
                 "doubao_credential_ref",
                 &self.doubao_credential_ref.as_ref().map(|_| "<opaque>"),
@@ -52,6 +53,7 @@ impl fmt::Debug for VoiceSettingsValues {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("VoiceSettingsValues")
             .field("desktop_mode", &self.desktop_mode)
+            .field("doubao_voice", &self.doubao_voice)
             .field(
                 "doubao_credential_ref",
                 &self.doubao_credential_ref.as_ref().map(|_| "<opaque>"),

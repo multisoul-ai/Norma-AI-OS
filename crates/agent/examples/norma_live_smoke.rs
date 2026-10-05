@@ -21,7 +21,7 @@ impl AgentCardAdapter for LiveSmokeAdapter {
     ) -> BoxFuture<'a, Result<AdapterResult, AdapterError>> {
         Box::pin(async move {
             let result = match &command {
-                AdapterCommand::Memory(_) => {
+                AdapterCommand::Memory(_) | AdapterCommand::WorkspaceMemory { .. } => {
                     return Err(AdapterError::Rejected("示例未连接持久记忆宿主".into()))
                 }
                 AdapterCommand::AssignAgentTask { agent, .. } => {

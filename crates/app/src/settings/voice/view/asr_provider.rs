@@ -13,12 +13,12 @@ pub(super) fn asr_provider_group(
     let profile = state.values().azure_asr_profile();
     let azure_active = state.values().asr_provider() == asr::AsrProviderId::CloudAzure;
     let credential_configured = profile.credential_ref().is_some();
-    settings_group(theme, "Speech Recognition Provider")
+    settings_group(theme, ui::i18n::text("voice.speech_recognition_provider"))
         .child(
             setting_row(
                 theme,
-                "Active provider",
-                "Local Sherpa remains the default; Azure is activated only after validation.",
+                ui::i18n::text("voice.active_provider"),
+                ui::i18n::text("voice.local_sherpa_remains_the_default_azure_is_activated_only_after_validation"),
             )
             .child(
                 div()
@@ -29,9 +29,9 @@ pub(super) fn asr_provider_group(
                         action_button(
                             theme,
                             if azure_active {
-                                "Use Local Sherpa"
+                                ui::i18n::text("voice.use_local_sherpa")
                             } else {
-                                "✓ Local Sherpa"
+                                ui::i18n::text("voice.local_sherpa")
                             },
                             if azure_active {
                                 theme.text_secondary
@@ -47,11 +47,11 @@ pub(super) fn asr_provider_group(
                         action_button(
                             theme,
                             if azure_active {
-                                "✓ Azure Speech"
+                                ui::i18n::text("voice.azure_speech")
                             } else if profile.is_ready() {
-                                "Activate Azure"
+                                ui::i18n::text("voice.activate_azure")
                             } else {
-                                "Azure not ready"
+                                ui::i18n::text("voice.azure_not_ready")
                             },
                             if azure_active || profile.is_ready() {
                                 theme.accent_blue
@@ -76,11 +76,11 @@ pub(super) fn asr_provider_group(
             group.child(
                 setting_row(
                     theme,
-                    "Test recognition",
-                    "Records three seconds from the selected microphone without changing the active provider.",
+                    ui::i18n::text("voice.test_recognition"),
+                    ui::i18n::text("voice.records_three_seconds_from_the_selected_microphone_without_changing_the_active"),
                 )
                 .child(
-                    action_button(theme, "Test Azure (3 sec)", theme.accent_blue)
+                    action_button(theme, ui::i18n::text("voice.test_azure_3_sec"), theme.accent_blue)
                         .id("settings-asr-azure-test-recognition")
                         .debug_selector(|| {
                             "settings-asr-azure-test-recognition".to_string()
@@ -95,8 +95,8 @@ pub(super) fn asr_provider_group(
             theme,
             inputs,
             VoiceSettingsField::AzureRegion,
-            "Azure region",
-            "Standard public Azure region, for example eastus",
+            ui::i18n::text("voice.azure_region"),
+            ui::i18n::text("voice.standard_public_azure_region_for_example_eastus"),
             cx,
         ))
         .child(locale_catalog(theme, state, cx))
@@ -104,15 +104,15 @@ pub(super) fn asr_provider_group(
             theme,
             inputs,
             VoiceSettingsField::AzureLocale,
-            "Recognition language",
-            "Choose a supported Azure locale; zh-CN is the default",
+            ui::i18n::text("voice.recognition_language"),
+            ui::i18n::text("voice.choose_a_supported_azure_locale_zh_cn_is_the_default"),
             cx,
         ))
         .child(
             setting_row(
                 theme,
-                "Azure API Key",
-                "Stored in this Mac's local database; never written to logs",
+                ui::i18n::text("voice.azure_api_key"),
+                ui::i18n::text("voice.stored_in_this_mac_s_local_database_never_written_to_logs"),
             )
             .child(
                 div()
@@ -124,7 +124,7 @@ pub(super) fn asr_provider_group(
                     .child(inputs.input(VoiceSettingsField::AzureApiKey))
                     .when(credential_configured, |row| {
                         row.child(
-                            action_button(theme, "Remove", theme.destructive)
+                            action_button(theme, ui::i18n::text("common.remove"), theme.destructive)
                                 .id("settings-asr-azure-key-remove")
                                 .debug_selector(|| "settings-asr-azure-key-remove".to_string())
                                 .on_click(
@@ -137,16 +137,16 @@ pub(super) fn asr_provider_group(
         .child(
             setting_row(
                 theme,
-                "Validate configuration",
-                "Checks region and credentials without changing the active provider.",
+                ui::i18n::text("voice.validate_configuration"),
+                ui::i18n::text("voice.checks_region_and_credentials_without_changing_the_active_provider"),
             )
             .child(
                 action_button(
                     theme,
                     if profile.is_ready() {
-                        "✓ Azure Ready"
+                        ui::i18n::text("voice.azure_ready")
                     } else {
-                        "Validate Azure"
+                        ui::i18n::text("voice.validate_azure")
                     },
                     if profile.is_ready() {
                         theme.accent_green
@@ -165,7 +165,7 @@ pub(super) fn asr_provider_group(
                     .text_size(px(12.0))
                     .text_color(rgba(theme.accent_blue))
                     .child(
-                        "Azure Speech is active for Single Voice Command and Continuous Listening.",
+                        ui::i18n::text("voice.azure_speech_is_active_for_single_voice_command_and_continuous_listening"),
                     ),
             )
         })
@@ -280,12 +280,14 @@ impl MultisoulApp {
         let work = cx.background_executor().spawn(async move {
             let store = credential_store
                 .as_ref()
-                .ok_or("SQLite settings unavailable")?;
+                .ok_or(ui::i18n::text("voice.sqlite_settings_unavailable"))?;
             let account = profile
                 .credential_ref()
-                .ok_or_else(|| "add an API Key first".to_string())?;
-            let secret = VoiceSettingsState::load_azure_asr_secret(store, account)?
-                .ok_or_else(|| "API Key is missing from SQLite".to_string())?;
+                .ok_or_else(|| ui::i18n::text("voice.add_an_api_key_first").to_string())?;
+            let secret =
+                VoiceSettingsState::load_azure_asr_secret(store, account)?.ok_or_else(|| {
+                    ui::i18n::text("voice.api_key_is_missing_from_sqlite").to_string()
+                })?;
             let config = asr::AzureSpeechConfig::new(
                 profile.region(),
                 profile.locale(),
@@ -336,12 +338,14 @@ impl MultisoulApp {
         let work = cx.background_executor().spawn(async move {
             let store = credential_store
                 .as_ref()
-                .ok_or("SQLite settings unavailable")?;
+                .ok_or(ui::i18n::text("voice.sqlite_settings_unavailable"))?;
             let account = profile
                 .credential_ref()
-                .ok_or_else(|| "API Key is not configured".to_string())?;
-            let secret = VoiceSettingsState::load_azure_asr_secret(store, account)?
-                .ok_or_else(|| "API Key is missing from SQLite".to_string())?;
+                .ok_or_else(|| ui::i18n::text("voice.api_key_is_not_configured").to_string())?;
+            let secret =
+                VoiceSettingsState::load_azure_asr_secret(store, account)?.ok_or_else(|| {
+                    ui::i18n::text("voice.api_key_is_missing_from_sqlite").to_string()
+                })?;
             let config = asr::AzureSpeechConfig::new(
                 profile.region(),
                 profile.locale(),
@@ -399,5 +403,5 @@ fn run_deterministic_azure_recognition_test(
             | asr::RecognitionEvent::Empty => {}
         }
     }
-    Err("Azure test completed without recognized speech".to_string())
+    Err(ui::i18n::text("voice.azure_test_completed_without_recognized_speech").to_string())
 }

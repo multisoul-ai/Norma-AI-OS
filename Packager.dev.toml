@@ -11,6 +11,8 @@ icons = ["assets/AppIcon.icns"]
 out-dir = "build/dev"
 binaries-dir = "."
 resources = [
+  { src = "packaging/macos/en.lproj", target = "en.lproj" },
+  { src = "packaging/macos/zh-CN.lproj", target = "zh-CN.lproj" },
   "crates/app/assets/wallpapers",
   "crates/app/assets/feature-guide",
   "sidecars/openai-card-planner/openai-card-planner.mjs",

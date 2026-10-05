@@ -12,14 +12,7 @@ impl MultisoulApp {
         if self.voice_settings.values().desktop_mode()
             == crate::settings::voice::DesktopVoiceMode::Doubao
         {
-            return match &self.doubao.status {
-                crate::app::doubao::DoubaoStatus::Idle => "Voice".into(),
-                crate::app::doubao::DoubaoStatus::Connecting => "Connecting…".into(),
-                crate::app::doubao::DoubaoStatus::Connected => "Listening".into(),
-                crate::app::doubao::DoubaoStatus::Thinking => "Thinking…".into(),
-                crate::app::doubao::DoubaoStatus::Speaking => "Replying…".into(),
-                crate::app::doubao::DoubaoStatus::Disconnected(_) => "Voice disconnected".into(),
-            };
+            return self.doubao.status.label().into();
         }
         if self.dialogue_voice_label().is_some() {
             self.dialogue.effective_voice_label(self.voice_label())
@@ -58,18 +51,11 @@ impl MultisoulApp {
         if self.voice_settings.values().desktop_mode()
             == crate::settings::voice::DesktopVoiceMode::Doubao
         {
-            return match self.doubao.status {
-                crate::app::doubao::DoubaoStatus::Idle => "Voice",
-                crate::app::doubao::DoubaoStatus::Connecting => "Connecting…",
-                crate::app::doubao::DoubaoStatus::Connected => "Listening",
-                crate::app::doubao::DoubaoStatus::Thinking => "Thinking…",
-                crate::app::doubao::DoubaoStatus::Speaking => "Replying…",
-                crate::app::doubao::DoubaoStatus::Disconnected(_) => "Voice disconnected",
-            };
+            return self.doubao.status.label();
         }
         match self.dialogue.phase() {
-            dialogue::DialoguePhase::Thinking => "Thinking…",
-            dialogue::DialoguePhase::Speaking => "Replying...",
+            dialogue::DialoguePhase::Thinking => ui::i18n::text("doubao.thinking"),
+            dialogue::DialoguePhase::Speaking => ui::i18n::text("chrome.replying_continuous"),
             dialogue::DialoguePhase::Idle | dialogue::DialoguePhase::Listening => {
                 self.effective_voice_visual().dock_label()
             }

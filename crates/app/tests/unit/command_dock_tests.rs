@@ -251,7 +251,7 @@ fn command_dock_pending_preview_does_not_block_new_commands() {
     app.read_with(cx, |app, _| {
         assert_eq!(
             app.command_dock.as_ref().unwrap().error.as_deref(),
-            Some("请先完成或取消已打开的文件选择窗口"),
+            Some("Finish or cancel the open file picker first"),
             "重复预览必须解释等待原因"
         );
         assert_eq!(

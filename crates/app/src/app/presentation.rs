@@ -93,15 +93,19 @@ impl MultisoulApp {
                     .flex()
                     .flex_col()
                     .gap(px(2.0))
-                    .child(format!(
-                        "{} presented {} {item_label}",
-                        notification.source_name, notification.count
+                    .child(ui::i18n::format(
+                        "chrome.presented_item_label",
+                        &[
+                            ("arg0", (notification.source_name).to_string()),
+                            ("arg1", (notification.count).to_string()),
+                            ("item_label", (item_label).to_string()),
+                        ],
                     ))
                     .child(
                         div()
                             .text_size(px(11.0))
                             .text_color(rgba(theme.text_secondary))
-                            .child("Shown in Master Layout."),
+                            .child(ui::i18n::text("chrome.shown_in_master_layout")),
                     ),
             )
             .child(

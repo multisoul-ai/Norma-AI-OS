@@ -60,7 +60,7 @@ impl MultisoulApp {
         let dispatches = match route_desktop_command(&text, &names) {
             Ok(dispatches) => dispatches,
             Err(clarification) => {
-                self.desktop_workspace.error = Some(format!("Norma: {clarification}"));
+                self.desktop_workspace.error = Some(format!("Norma: {clarification}").into());
                 cx.notify();
                 return;
             }
@@ -69,9 +69,9 @@ impl MultisoulApp {
         for dispatch in dispatches {
             let (area_id, node_id, target) = &targets[dispatch.target_index];
             let result = if self.desktop_workspace.area_errors.contains_key(area_id) {
-                Err("Project directory unavailable".to_string())
+                Err(ui::i18n::text("workspace.project_directory_unavailable").to_string())
             } else if node_id.is_none() {
-                Err("Agent session is still loading".to_string())
+                Err(ui::i18n::text("workspace.agent_session_is_still_loading").to_string())
             } else if let Some(session) = self
                 .desktop_workspace
                 .sessions
@@ -86,15 +86,18 @@ impl MultisoulApp {
                     )
                 })
             } else {
-                Err("Agent session is still loading".to_string())
+                Err(ui::i18n::text("workspace.agent_session_is_still_loading").to_string())
             };
             receipts.push(DesktopDispatchReceipt {
                 project_name: target.project_name.clone(),
                 agent_name: target.agent_name.clone(),
                 submitted: result.is_ok(),
                 status: match result {
-                    Ok(()) => "Submitted".to_string(),
-                    Err(error) => format!("Failed: {error}"),
+                    Ok(()) => ui::i18n::text("workspace.submitted").to_string(),
+                    Err(error) => ui::i18n::format(
+                        "workspace.failed_error",
+                        &[("error", (error).to_string())],
+                    ),
                 },
             });
         }

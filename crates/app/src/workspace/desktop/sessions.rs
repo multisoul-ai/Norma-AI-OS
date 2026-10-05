@@ -12,6 +12,19 @@ struct DesktopHost {
 struct DesktopHosts(Vec<DesktopHost>);
 impl Global for DesktopHosts {}
 
+pub(crate) fn hosts(database: &Path, cx: &App) -> Vec<Entity<MultisoulApp>> {
+    cx.try_global::<DesktopHosts>()
+        .map(|hosts| {
+            hosts
+                .0
+                .iter()
+                .filter(|host| host.database == database)
+                .map(|host| host.app.clone())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 pub(crate) fn detached(database: &Path, cx: &App) -> Option<Entity<MultisoulApp>> {
     cx.try_global::<DesktopHosts>()?
         .0

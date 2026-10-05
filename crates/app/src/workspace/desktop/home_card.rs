@@ -1,14 +1,14 @@
 use crate::app::MultisoulApp;
 use canvas::{CanvasRect, Vec2};
-use gpui::{div, linear_color_stop, linear_gradient, prelude::*, px, rgba, Context, Div, Stateful};
+use gpui::{div, prelude::*, px, rgba, Context, Div, Stateful};
 use ui::component::{
-    button::{Button, ButtonCustomVariant, ButtonVariants},
+    button::{Button, ButtonVariants},
     tooltip::Tooltip,
     StyledExt,
 };
 use ui::icons::{toolbar_icon, with_alpha, ToolbarIcon};
 
-use super::home::SURFACE_ALPHA;
+use super::home::{home_primary_button, home_secondary_button, home_theme, POPOVER_ALPHA};
 
 impl MultisoulApp {
     pub(super) fn desktop_home_card(
@@ -20,7 +20,7 @@ impl MultisoulApp {
         scale: f32,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
-        let theme = self.theme;
+        let theme = home_theme(self.theme_id);
         let featured = index == 0;
         let inline_meta = featured && size.x >= 600.0;
         let panel = super::layout::home_preview_panel_rect(
@@ -89,33 +89,30 @@ impl MultisoulApp {
         let actions_open =
             self.desktop_workspace.actions_workspace_id.as_deref() == Some(&workspace.id);
         let meta_left = if featured { 18.0 } else { panel.max().x + 20.0 };
-        let border = with_alpha(theme.edge_highlight, 0x80);
+        let border = theme.node_stroke;
         let card = div()
             .id(("desktop-home-card", index))
             .debug_selector(move || format!("desktop-home-card-{index}"))
             .relative()
             .size_full()
-            .rounded(px(9.0 * scale))
+            .rounded(px(14.0 * scale))
             .border_1()
             .border_color(rgba(if featured {
-                with_alpha(theme.accent, 0x90)
+                theme.edge_highlight
             } else {
                 border
             }))
-            .bg(linear_gradient(
-                165.0,
-                linear_color_stop(rgba(with_alpha(theme.panel_high, SURFACE_ALPHA)), 0.0),
-                linear_color_stop(rgba(with_alpha(theme.canvas_to, SURFACE_ALPHA)), 1.0),
-            ))
+            .bg(rgba(theme.panel))
+            .text_color(rgba(theme.text_primary))
             .shadow_md()
             .opacity(opacity)
             .cursor_pointer()
             .tab_index(0)
             .hover(move |s| {
-                s.bg(rgba(with_alpha(theme.panel_high, SURFACE_ALPHA)))
-                    .border_color(rgba(theme.accent))
+                s.bg(rgba(theme.panel_high))
+                    .border_color(rgba(theme.edge_highlight))
             })
-            .active(move |s| s.bg(rgba(with_alpha(theme.panel, SURFACE_ALPHA))))
+            .active(move |s| s.bg(rgba(theme.node_fill)))
             .focus(move |s| s.border_color(rgba(theme.focused_stroke)).shadow_md())
             .on_click(cx.listener(move |app, _, window, cx| {
                 app.open_desktop_workspace(open_id.clone(), window, cx)
@@ -131,7 +128,7 @@ impl MultisoulApp {
                     .rounded(px(6.0 * scale))
                     .border_1()
                     .border_color(rgba(with_alpha(theme.edge_highlight, 0x24)))
-                    .bg(rgba(with_alpha(theme.canvas_from, 0x28))),
+                    .bg(rgba(theme.canvas_to)),
             )
             .when(!moving, |card| {
                 if workspace.project_count == 0 {
@@ -275,7 +272,7 @@ impl MultisoulApp {
                                                 .rounded_full()
                                                 .bg(rgba(theme.success)),
                                         )
-                                        .child("Running"),
+                                        .child(ui::i18n::text("workspace.running")),
                                 )
                             })
                             .child(
@@ -290,7 +287,10 @@ impl MultisoulApp {
                                             )))
                                             .pl(px(16.0 * scale))
                                     })
-                                    .child(format!("{} projects", workspace.project_count)),
+                                    .child(ui::i18n::format(
+                                        "workspace.project_count",
+                                        &[("count", workspace.project_count.to_string())],
+                                    )),
                             ),
                     )
                     .when(workspace.project_count == 0 && !featured, |meta| {
@@ -298,7 +298,7 @@ impl MultisoulApp {
                             div()
                                 .text_size(px(12.0 * scale))
                                 .text_color(rgba(theme.text_tertiary))
-                                .child("No projects yet"),
+                                .child(ui::i18n::text("workspace.no_projects_yet")),
                         )
                     }),
             )
@@ -317,10 +317,10 @@ impl MultisoulApp {
                                     format!("desktop-workspace-actions-{index}")
                                 })
                                 .label("⋯")
-                                .ghost()
+                                .custom(home_secondary_button(theme, cx))
                                 .compact()
                                 .w(px(28.0))
-                                .tooltip("Workspace actions")
+                                .tooltip(ui::i18n::text("workspace.workspace_actions"))
                                 .on_click(cx.listener(move |app, _, _, cx| {
                                     cx.stop_propagation();
                                     app.desktop_workspace.actions_workspace_id = if actions_open {
@@ -334,23 +334,8 @@ impl MultisoulApp {
                         .when(featured && size.x >= 500.0, |row| {
                             row.child(
                                 Button::new("desktop-home-open")
-                                    .label("Open")
-                                    .custom(
-                                        ButtonCustomVariant::new(cx)
-                                            .color(
-                                                rgba(with_alpha(theme.panel_high, SURFACE_ALPHA))
-                                                    .into(),
-                                            )
-                                            .foreground(rgba(theme.text_primary).into())
-                                            .border(rgba(theme.edge_highlight).into())
-                                            .hover(
-                                                rgba(with_alpha(theme.panel, SURFACE_ALPHA)).into(),
-                                            )
-                                            .active(
-                                                rgba(with_alpha(theme.accent, SURFACE_ALPHA))
-                                                    .into(),
-                                            ),
-                                    )
+                                    .label(ui::i18n::text("common.open"))
+                                    .custom(home_primary_button(theme, cx))
                                     .w(px(88.0))
                                     .h(px(36.0))
                                     .on_click(cx.listener(move |app, _, window, cx| {
@@ -376,7 +361,7 @@ impl MultisoulApp {
                         .w(px(140.0))
                         .p(px(6.0))
                         .rounded(px(10.0))
-                        .bg(rgba(with_alpha(theme.panel_high, SURFACE_ALPHA)))
+                        .bg(rgba(with_alpha(theme.panel_high, POPOVER_ALPHA)))
                         .border_1()
                         .border_color(rgba(border))
                         .shadow_lg()
@@ -385,8 +370,8 @@ impl MultisoulApp {
                         .flex_col()
                         .child(
                             Button::new(("desktop-workspace-rename", index))
-                                .label("Rename")
-                                .ghost()
+                                .label(ui::i18n::text("common.rename"))
+                                .custom(home_secondary_button(theme, cx))
                                 .on_click(cx.listener(move |app, _, window, cx| {
                                     cx.stop_propagation();
                                     app.desktop_workspace.actions_workspace_id = None;
@@ -395,8 +380,8 @@ impl MultisoulApp {
                         )
                         .child(
                             Button::new(("desktop-workspace-delete", index))
-                                .label("Delete")
-                                .ghost()
+                                .label(ui::i18n::text("common.delete"))
+                                .custom(home_secondary_button(theme, cx))
                                 .on_click(cx.listener(move |app, _, _, cx| {
                                     cx.stop_propagation();
                                     app.desktop_workspace.actions_workspace_id = None;

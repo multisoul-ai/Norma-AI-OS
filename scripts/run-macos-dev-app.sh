@@ -158,6 +158,8 @@ if [ "$binary_name" = "norma-os" ]; then
     exit 1
   fi
   mkdir -p "$bundle_resources"
+  cp -R "$repo_root/packaging/macos/en.lproj" "$bundle_resources/"
+  cp -R "$repo_root/packaging/macos/zh-CN.lproj" "$bundle_resources/"
   cp -R "$wallpaper_resources" "$bundle_resources/"
   if [ ! -f "$feature_guide_resources/demo-live-node-shortcuts.mp4" ]; then
     echo "Feature Guide resources are missing: $feature_guide_resources" >&2

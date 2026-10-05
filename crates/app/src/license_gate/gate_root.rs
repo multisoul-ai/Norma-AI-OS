@@ -37,8 +37,10 @@ const INTERNAL_BETA_LICENSE_KEY: &str = "KG-WACEHBCB-2ZL4AM23-JBJQJZBG-YVT55VDN"
 enum ShellStatus {
     Idle,
     Activating,
-    Error(SharedString),
+    Error(ui::i18n::LocalizedText),
 }
+
+mod workbench;
 
 pub struct GateRoot {
     phase: BootPhase,
@@ -58,7 +60,11 @@ impl GateRoot {
         let license_input = cx.new(|cx| {
             InputState::new(window, cx)
                 .default_value(INTERNAL_BETA_LICENSE_KEY)
-                .placeholder("输入 License Key")
+                .placeholder(ui::i18n::input_placeholder(
+                    "license.enter_license_key",
+                    window,
+                    cx,
+                ))
         });
         let mut root = Self {
             phase,
@@ -77,46 +83,14 @@ impl GateRoot {
         root
     }
 
-    fn mount_workbench(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        #[cfg(target_os = "macos")]
-        {
-            self.license_video_wallpaper = None;
-        }
-        let (database_paths, app_store) = match crate::database::default_database_context() {
-            Ok(context) => context,
-            Err(error) => {
-                self.status = ShellStatus::Error(format!("无法初始化数据库: {error}").into());
-                self.enter_workbench = false;
-                cx.notify();
-                return;
-            }
-        };
-        let workbench = cx.new(|cx| {
-            let mut app = MultisoulApp::new_with_database_context(cx, database_paths, app_store);
-            app.start_dialogue_turn_loop(window, cx);
-            app.start_cef_message_pump_loop(window, cx);
-            app.warm_up_browser_engine(window);
-            app.configure_cpu_benchmark_from_environment(window, cx);
-            #[cfg(feature = "e2e-test-support")]
-            if crate::workspace::windowing::visual_preview_name().as_deref() == Some("github-clone")
-            {
-                app.open_clone_project_dialog(window, cx);
-            }
-            app
-        });
-        self.workbench = Some(workbench);
-        self.phase = BootPhase::Workbench;
-        self.enter_workbench = false;
-        cx.notify();
-    }
-
     fn start_activation(&mut self, cx: &mut Context<Self>) {
         if matches!(self.status, ShellStatus::Activating) {
             return;
         }
         let key = self.license_input.read(cx).value().trim().to_string();
         if key.is_empty() {
-            self.status = ShellStatus::Error("请输入 License Key".into());
+            self.status =
+                ShellStatus::Error(ui::i18n::LocalizedText::new("license.enter_a_license_key"));
             cx.notify();
             return;
         }
@@ -130,16 +104,16 @@ impl GateRoot {
         let work = cx.background_executor().spawn(async move {
             let machine_id = current_machine_id();
             let token_path =
-                default_token_path().map_err(|err| format!("无法定位数据目录: {err}"))?;
+                default_token_path().map_err(|err| ui::i18n::message("license.could_not_locate_the_data_directory_err", &[("err", (err).to_string())]))?;
             let request = ActivateLicenseRequest {
                 license_key: key,
                 identifier: machine_id.clone(),
                 identifier_type: "device".into(),
                 label: "norma-os-desktop".into(),
             };
-            let data = activate_license(&base_url, &request).map_err(|err| err.to_string())?;
+            let data = activate_license(&base_url, &request).map_err(|err| ui::i18n::LocalizedText::new("license.activation_failed").with_arg("reason", err))?;
             write_token(&token_path, &data.token)
-                .map_err(|err| format!("无法保存激活凭证: {err}"))?;
+                .map_err(|err| ui::i18n::message("license.could_not_save_the_activation_credential_err", &[("err", (err).to_string())]))?;
             let now = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_secs() as i64)
@@ -152,8 +126,7 @@ impl GateRoot {
             );
             if !matches!(status, license::LocalLicenseStatus::Activated { .. }) {
                 return Err(
-                    "激活成功但本地校验失败（公钥与签发服务不匹配；请更新 embed/public_key.hex 或 NORMA_LICENSE_PUBKEY_HEX）"
-                        .to_string(),
+                    ui::i18n::LocalizedText::new("license.activation_succeeded_but_local_verification_failed_the_public_key_does_not"),
                 );
             }
             Ok(())
@@ -283,10 +256,10 @@ impl Render for GateRoot {
 
         let status_text = match &self.status {
             ShellStatus::Idle => SharedString::from(
-                "粘贴 Key 后点击激活（需联网）。离线凭证过期时也需重新联网续签。",
+                ui::i18n::text("license.paste_your_key_and_choose_activate_while_online_expired_offline_credentials"),
             ),
-            ShellStatus::Activating => SharedString::from("正在激活…"),
-            ShellStatus::Error(msg) => msg.clone(),
+            ShellStatus::Activating => SharedString::from(ui::i18n::text("license.activating")),
+            ShellStatus::Error(msg) => msg.to_string().into(),
         };
         let activating = matches!(self.status, ShellStatus::Activating);
         let theme = self.theme;
@@ -309,7 +282,7 @@ impl Render for GateRoot {
                 div()
                     .text_size(px(28.0))
                     .font_weight(gpui::FontWeight::SEMIBOLD)
-                    .child("激活 Norma OS"),
+                    .child(ui::i18n::text("license.activate_norma_os")),
             )
             .child(
                 div()
@@ -342,7 +315,11 @@ impl Render for GateRoot {
                     .bg(gpui::rgba(0x05090b52))
                     .child(shell_button(
                         "license-activate-button",
-                        if activating { "激活中…" } else { "激活" },
+                        if activating {
+                            ui::i18n::text("license.activating")
+                        } else {
+                            ui::i18n::text("license.activate")
+                        },
                         LicenseActionStyle::Primary,
                         theme,
                         cx.listener(move |this, _e, _w, cx| {
@@ -353,10 +330,12 @@ impl Render for GateRoot {
                     ))
                     .child(shell_button(
                         "license-exit-button",
-                        "退出",
+                        ui::i18n::text("license.quit"),
                         LicenseActionStyle::Ghost,
                         theme,
-                        cx.listener(|_this, _e, _w, cx| cx.quit()),
+                        cx.listener(|_this, _e, _w, cx| {
+                            crate::settings::general::quit_after_saving(cx)
+                        }),
                     )),
             );
 
@@ -380,7 +359,9 @@ impl Render for GateRoot {
                     .bg(gpui::rgba(0x07110d8f)),
             )
             .child(content)
-            .on_action(cx.listener(|_this, _: &QuitNormaOs, _w, cx| cx.quit()))
+            .on_action(cx.listener(|_this, _: &QuitNormaOs, _w, cx| {
+                crate::settings::general::quit_after_saving(cx)
+            }))
             .into_any_element()
     }
 }

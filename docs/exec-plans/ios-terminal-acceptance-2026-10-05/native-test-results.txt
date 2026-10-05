@@ -1,0 +1,53 @@
+native-final.log
+Test Suite 'Selected tests' started at 2026-10-05 18:29:09.537.
+Test Suite 'NormaUITests.xctest' started at 2026-10-05 18:29:09.538.
+Test Suite 'WorkspaceTerminalFlowTests' started at 2026-10-05 18:29:09.538.
+Test Case '-[NormaUITests.WorkspaceTerminalFlowTests testOldResultRetainsOriginalSessionAndReadableBody]' started.
+Test Case '-[NormaUITests.WorkspaceTerminalFlowTests testOldResultRetainsOriginalSessionAndReadableBody]' passed (18.146 seconds).
+Test Case '-[NormaUITests.WorkspaceTerminalFlowTests testOpenExecutionSheetWithLongMessages]' started.
+Test Case '-[NormaUITests.WorkspaceTerminalFlowTests testOpenExecutionSheetWithLongMessages]' passed (14.223 seconds).
+Test Case '-[NormaUITests.WorkspaceTerminalFlowTests testTerminalSheetReadingAndChatState]' started.
+Test Case '-[NormaUITests.WorkspaceTerminalFlowTests testTerminalSheetReadingAndChatState]' passed (36.407 seconds).
+Test Suite 'WorkspaceTerminalFlowTests' passed at 2026-10-05 18:30:18.316.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 68.776 (68.778) seconds
+Test Suite 'NormaUITests.xctest' passed at 2026-10-05 18:30:18.316.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 68.776 (68.779) seconds
+Test Suite 'Selected tests' passed at 2026-10-05 18:30:18.317.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 68.776 (68.780) seconds
+Test Suite 'Selected tests' started at 2026-10-05 18:30:20.721.
+Test Suite 'NormaDeviceTests.xctest' started at 2026-10-05 18:30:20.721.
+Test Suite 'WorkspaceTerminalGridTests' started at 2026-10-05 18:30:20.721.
+Test Case '-[NormaDeviceTests.WorkspaceTerminalGridTests testChatReadingAnchorSurvivesMessageRelayout]' started.
+Test Case '-[NormaDeviceTests.WorkspaceTerminalGridTests testChatReadingAnchorSurvivesMessageRelayout]' passed (0.002 seconds).
+Test Case '-[NormaDeviceTests.WorkspaceTerminalGridTests testFontScalingPreservesPausedReadingAndReturnsToLatest]' started.
+Test Case '-[NormaDeviceTests.WorkspaceTerminalGridTests testFontScalingPreservesPausedReadingAndReturnsToLatest]' passed (0.006 seconds).
+Test Case '-[NormaDeviceTests.WorkspaceTerminalGridTests testProgressColorAndCursorInvalidateFixedRows]' started.
+Test Case '-[NormaDeviceTests.WorkspaceTerminalGridTests testProgressColorAndCursorInvalidateFixedRows]' passed (0.001 seconds).
+Test Case '-[NormaDeviceTests.WorkspaceTerminalGridTests testRecreatingTerminalTabRestoresReadingPosition]' started.
+Test Case '-[NormaDeviceTests.WorkspaceTerminalGridTests testRecreatingTerminalTabRestoresReadingPosition]' passed (0.002 seconds).
+Test Suite 'WorkspaceTerminalGridTests' passed at 2026-10-05 18:30:20.733.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.010 (0.012) seconds
+Test Suite 'WorkspaceTerminalModelTests' started at 2026-10-05 18:30:20.733.
+Test Case '-[NormaDeviceTests.WorkspaceTerminalModelTests testReturnToLivePreservesStoppedConnectionNotice]' started.
+Test Case '-[NormaDeviceTests.WorkspaceTerminalModelTests testReturnToLivePreservesStoppedConnectionNotice]' passed (0.012 seconds).
+Test Suite 'WorkspaceTerminalModelTests' passed at 2026-10-05 18:30:20.746.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.012 (0.013) seconds
+Test Suite 'NormaDeviceTests.xctest' passed at 2026-10-05 18:30:20.746.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.023 (0.025) seconds
+Test Suite 'Selected tests' passed at 2026-10-05 18:30:20.746.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.023 (0.025) seconds
+** TEST SUCCEEDED **
+
+history.log
+Test Suite 'Selected tests' started at 2026-10-05 18:27:52.752.
+Test Suite 'NormaDeviceTests.xctest' started at 2026-10-05 18:27:52.753.
+Test Suite 'WorkspaceTerminalLocalTests' started at 2026-10-05 18:27:52.753.
+Test Case '-[NormaDeviceTests.WorkspaceTerminalLocalTests testLiveHistoryPagingPreservesOriginalSession]' started.
+Test Case '-[NormaDeviceTests.WorkspaceTerminalLocalTests testLiveHistoryPagingPreservesOriginalSession]' passed (0.348 seconds).
+Test Suite 'WorkspaceTerminalLocalTests' passed at 2026-10-05 18:27:53.102.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.348 (0.349) seconds
+Test Suite 'NormaDeviceTests.xctest' passed at 2026-10-05 18:27:53.102.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.348 (0.349) seconds
+Test Suite 'Selected tests' passed at 2026-10-05 18:27:53.102.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.348 (0.349) seconds
+** TEST SUCCEEDED **

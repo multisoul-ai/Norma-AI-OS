@@ -1,4 +1,5 @@
 mod desktop;
+pub(crate) mod desktop_canvas;
 use crate::{error::StorageError, StorageResult};
 use rusqlite::Connection;
 use std::path::Path;
@@ -28,6 +29,8 @@ fn open_connection(path: &Path) -> StorageResult<Connection> {
     Ok(connection)
 }
 pub fn migrate_app_db(connection: &Connection) -> StorageResult<()> {
+    crate::workspace_chat_store::migrate(connection)?;
+    crate::agent_creation_store::migrate(connection)?;
     crate::memory_access::journal::migrate(connection)?;
     crate::thread_message_store::migrate(connection)?;
     crate::mobile_session_store::migrate(connection)?;
@@ -116,6 +119,7 @@ pub fn migrate_app_db(connection: &Connection) -> StorageResult<()> {
         "#,
     )?;
     desktop::migrate(connection)?;
+    crate::desktop_workspace_store::mobile_configuration::migrate(connection)?;
     ensure_column(
         connection,
         "orchestration_task_routes",
@@ -163,6 +167,7 @@ pub fn migrate_app_db(connection: &Connection) -> StorageResult<()> {
     }
     crate::mobile_access_store::migrate(connection)?;
     crate::mobile_push_store::migrate(connection)?;
+    crate::mobile_activity_store::migrate(connection)?;
     crate::project_plan_store::migrate(connection)?;
     crate::mobile_task_baseline_store::migrate(connection)?;
     crate::mobile_task_delivery_store::migrate(connection)?;

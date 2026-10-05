@@ -1,7 +1,9 @@
 //! storage — SQLite-backed persistence for app and project state.
 
 pub mod agent_conversation_tail_store;
+mod agent_creation_store;
 pub mod agent_definition_store;
+pub use agent_creation_store::{AgentCreationReceipt, AgentCreationStore};
 pub mod agent_dispatch_store;
 pub mod app_store;
 pub mod approval_audit;
@@ -30,12 +32,17 @@ pub use memory::{MemoryError, MemoryResult, MemorySnapshot, MemoryStore};
 pub use memory_access::{MemoryAccess, MemorySourceDetail};
 pub mod migrations;
 pub mod mobile_access_store;
+mod mobile_activity_store;
 mod mobile_push_store;
+pub use mobile_activity_store::{
+    ActivityJournal, MobileActivityRegistration, MobileActivityState, MobileActivityStore,
+};
 pub use mobile_push_store::{
     MobilePushRegistration, MobilePushState, MobilePushStore, PushEnvironment,
 };
 pub mod mobile_command_store;
 mod thread_message_store;
+mod workspace_chat_store;
 pub use mobile_access_store::{
     MobileAccessStore, MobileDeviceGrant, MobilePermission, MobileProjectAccess,
 };
@@ -50,6 +57,7 @@ pub use mobile_command_store::{
 pub use thread_message_store::{
     NewThreadMessage, StoredThreadMessage, ThreadMessageStore, ThreadReceipt,
 };
+pub use workspace_chat_store::{WorkspaceChatEvent, WorkspaceChatReceipt, WorkspaceChatStore};
 pub mod node_session_store;
 pub mod orchestration_authorization_store;
 pub mod orchestration_task_route_store;
@@ -81,6 +89,7 @@ pub use canvas_store::CanvasStore;
 pub use database_paths::{DatabaseMode, DatabasePaths};
 pub use desktop_workspace_store::{
     DesktopAreaPreview, DesktopProjectArea, DesktopWorkspace, DesktopWorkspaceStore,
+    WallpaperReference, WallpaperUsage,
 };
 pub use error::{StorageError, StorageResult};
 pub use layout_store::{LayoutMode, LayoutOriginalBounds, LayoutStateSnapshot, LayoutStore};

@@ -96,6 +96,11 @@ fn relay_preserves_known_rejections_without_exposing_response_contents() {
         "非 accepted 回执不能报成功"
     );
     assert_eq!(
+        send(422, r#"{"error":"token_invalid"}"#),
+        Ok(Some(0)),
+        "错误topic/token必须失效准确订阅，不能继续投递"
+    );
+    assert_eq!(
         send(200, r#"{"status":"accepted"}"#),
         Ok(None),
         "合法 APNs 接受回执必须保持成功"

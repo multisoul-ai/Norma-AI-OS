@@ -1,5 +1,186 @@
 use super::*;
 
+/// 音色搜索支持中文名称、大小写不敏感的 ID 与语言，清空后恢复完整列表。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   查询“小何”与大写 XIAOHE 应命中同一官方音色；“阿拉伯”命中外语列表。
+///   不存在的名称为空结果；没有预算或阈值参数。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 在搜索字段输入中文名称、ID、语言 → 分别读取过滤后的可选音色。
+///   2. 输入未知名称 → 没有结果；清空字段 → 恢复音色目录。
+///
+/// 预期结果：小何存在而 Vivi 不匹配；外语音色可发现；清空不报错且不改当前选择。
+#[test]
+fn test_doubao_voice_search_finds_name_id_and_language() {
+    let mut state = VoiceSettingsState::from_sources(
+        SavedVoiceSettings::default(),
+        EnvVoiceSettings::default(),
+    );
+    state.begin_edit(VoiceSettingsField::DoubaoVoiceSearch);
+    state.auto_save_edit_value(VoiceSettingsField::DoubaoVoiceSearch, "小何".into());
+    assert!(
+        state
+            .filtered_doubao_voices()
+            .iter()
+            .any(|voice| voice.id == "zh_female_xiaohe_uranus_bigtts"),
+        "名称搜索应找到小何"
+    );
+    assert!(
+        !state
+            .filtered_doubao_voices()
+            .iter()
+            .any(|voice| voice.id == "zh_female_vv_uranus_bigtts"),
+        "小何搜索不能混入 Vivi"
+    );
+    state.auto_save_edit_value(VoiceSettingsField::DoubaoVoiceSearch, "XIAOHE".into());
+    assert!(
+        state
+            .filtered_doubao_voices()
+            .iter()
+            .any(|voice| voice.id == "zh_female_xiaohe_uranus_bigtts"),
+        "音色 ID 搜索应忽略大小写"
+    );
+    state.auto_save_edit_value(VoiceSettingsField::DoubaoVoiceSearch, "阿拉伯".into());
+    assert!(
+        state
+            .filtered_doubao_voices()
+            .iter()
+            .any(|voice| voice.id == "ar_female_dina_uranus_bigtts"),
+        "应能按语言找到 Dina"
+    );
+    state.auto_save_edit_value(
+        VoiceSettingsField::DoubaoVoiceSearch,
+        "no-such-voice".into(),
+    );
+    assert!(
+        state.filtered_doubao_voices().is_empty(),
+        "未知名称不能伪造搜索结果"
+    );
+    assert_eq!(
+        state
+            .auto_save_edit_value(VoiceSettingsField::DoubaoVoiceSearch, String::new())
+            .as_deref(),
+        Some(""),
+        "清空搜索必须被接受"
+    );
+    assert!(
+        state
+            .filtered_doubao_voices()
+            .iter()
+            .any(|voice| voice.id == "zh_female_vv_uranus_bigtts"),
+        "清空后应恢复 Vivi"
+    );
+    assert_eq!(
+        state.values().doubao_voice().id,
+        "zh_female_vv_uranus_bigtts",
+        "搜索不能隐式切换当前音色"
+    );
+}
+
+/// 无效的旧存储值不能成为实际请求中的音色。
+///
+/// 数据构造（含关键数值的推导过程）：保存一个目录外 speaker；没有预算或阈值参数。
+/// 执行过程：加载存储投影 → 校验音色目录 → 恢复原默认 Vivi。
+/// 预期结果：默认 Vivi 存在；目录外 speaker 不进入可运行配置。
+#[test]
+fn test_doubao_invalid_saved_voice_restores_vivi() {
+    let saved = SavedVoiceSettings {
+        doubao_speaker: Some("unknown-speaker".into()),
+        ..Default::default()
+    };
+    let values = VoiceSettingsValues::resolve(&saved, &EnvVoiceSettings::default());
+    assert_eq!(
+        values.doubao_voice().id,
+        "zh_female_vv_uranus_bigtts",
+        "无法识别的存储值应恢复原默认 Vivi"
+    );
+    assert_ne!(
+        values.doubao_voice().id,
+        "unknown-speaker",
+        "未知存储值不能进入实际 TTS 配置"
+    );
+}
+
+/// 豆包音色选择：后台保存后重载音色，并保留原语音链路的独立设置。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   空 SQLite 设置使用现有默认 VV；选择官方 2.0 音色小何。
+///   旧链路音色使用独立 ID legacy-voice；没有预算或阈值参数。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 加载设置 → 读取默认 VV；选择小何 → 更新界面并排队保存。
+///   2. 执行后台写入并切换模式 → 重新从 SQLite 加载设置。
+///   3. 尝试选择不兼容的 1.0 音色 → 拒绝修改当前选择。
+///
+/// 预期结果：
+///   - 小何被保存并恢复，默认 VV 不再被选中；前台选择不直接写库。
+///   - 旧链路音色保留；目录外音色不能覆盖小何。
+#[test]
+fn test_doubao_voice_selection_persists_without_overwriting_legacy_voice() {
+    let temp = tempfile::tempdir().expect("应创建隔离设置目录");
+    let store = storage::SettingsStore::new(temp.path().join("app.sqlite"));
+    store
+        .set_string(values::KEY_TTS_VOICE_ID, "legacy-voice")
+        .expect("应保存旧链路音色");
+    let mut state = VoiceSettingsState::load_from_store(store.clone());
+    assert_eq!(
+        state.values().doubao_voice().id,
+        "zh_female_vv_uranus_bigtts",
+        "升级默认应保留 VV"
+    );
+    assert!(
+        state.select_doubao_voice("zh_female_xiaohe_uranus_bigtts"),
+        "官方 2.0 小何音色应可选择"
+    );
+    assert_eq!(
+        state.values().doubao_voice().id,
+        "zh_female_xiaohe_uranus_bigtts",
+        "界面应立即反映小何选择"
+    );
+    assert!(
+        store
+            .get_string("voice.doubao.speaker")
+            .expect("应可读取保存前设置")
+            .is_none(),
+        "前台选择不能同步写库"
+    );
+    for write in state.take_pending_writes() {
+        write.execute().expect("后台音色写入应成功");
+    }
+    state.record_persistence_result(Ok(()));
+    let mut reloaded = VoiceSettingsState::load_from_store(store);
+    reloaded.select_desktop_mode(DesktopVoiceMode::Legacy);
+    reloaded.select_desktop_mode(DesktopVoiceMode::Doubao);
+    assert_eq!(
+        reloaded.values().doubao_voice().id,
+        "zh_female_xiaohe_uranus_bigtts",
+        "重载与模式切换应保留小何"
+    );
+    assert_ne!(
+        reloaded.values().doubao_voice().id,
+        "zh_female_vv_uranus_bigtts",
+        "重载不能恢复为硬编码 VV"
+    );
+    assert_eq!(
+        reloaded
+            .values()
+            .tts_voice_id()
+            .map(tts::TtsVoiceId::as_str),
+        Some("legacy-voice"),
+        "豆包选择不能覆盖旧链路音色"
+    );
+    assert!(
+        !reloaded.select_doubao_voice("zh_female_shuangkuaisisi_moon_bigtts"),
+        "1.0 音色不能用于固定 2.0 资源"
+    );
+    assert_eq!(
+        reloaded.values().doubao_voice().id,
+        "zh_female_xiaohe_uranus_bigtts",
+        "无效选择不能改变已选音色"
+    );
+}
+
 /// VS-D1：升级后仍选择原语音链路，单次／连续模式不被豆包选择覆盖。
 ///
 /// 数据构造（含关键数值的推导过程）：空设置代表升级前没有顶层模式键；

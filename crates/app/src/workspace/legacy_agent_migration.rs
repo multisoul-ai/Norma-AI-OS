@@ -29,13 +29,16 @@ pub(crate) fn migrate_legacy_agent_cards(
     for (node_id, profile, legacy_alias) in &legacy {
         let definition =
             create_migrated_definition(&definition_store, *profile, legacy_alias.as_deref())?;
-        let node = runtime
-            .document
-            .node_mut(*node_id)
-            .ok_or_else(|| format!("Legacy Agent card #{node_id} disappeared during migration"))?;
+        let node = runtime.document.node_mut(*node_id).ok_or_else(|| {
+            ui::i18n::format(
+                "workspace.legacy_agent_card_node_id_disappeared_during_migration",
+                &[("node_id", (node_id).to_string())],
+            )
+        })?;
         let CanvasNodeKind::Agent(spec) = &mut node.kind else {
-            return Err(format!(
-                "Legacy Agent card #{node_id} changed kind during migration"
+            return Err(ui::i18n::format(
+                "workspace.legacy_agent_card_node_id_changed_kind_during_migration",
+                &[("node_id", (node_id).to_string())],
             ));
         };
         spec.definition_id = Some(definition.id);
@@ -43,7 +46,12 @@ pub(crate) fn migrate_legacy_agent_cards(
     }
     runtime
         .save_canvas_snapshot(&project_store.canvas_store())
-        .map_err(|error| format!("Could not save migrated Agent cards: {error}"))?;
+        .map_err(|error| {
+            ui::i18n::format(
+                "workspace.could_not_save_migrated_agent_cards_error",
+                &[("error", (error).to_string())],
+            )
+        })?;
     Ok(legacy.len())
 }
 
@@ -81,26 +89,46 @@ fn create_migrated_definition(
         }) {
             Ok(definition) => return Ok(definition),
             Err(StorageError::AgentNameConflict { .. }) => {}
-            Err(error) => return Err(format!("Could not migrate legacy Agent name: {error}")),
+            Err(error) => {
+                return Err(ui::i18n::format(
+                    "workspace.could_not_migrate_legacy_agent_name_error",
+                    &[("error", (error).to_string())],
+                ))
+            }
         }
     }
 
-    let existing = store
-        .list()
-        .map_err(|error| format!("Could not list Agent names during migration: {error}"))?;
-    let registry =
-        AgentNameRegistry::from_names(existing.iter().map(|definition| &definition.name))
-            .map_err(|error| format!("Could not build Agent name registry: {error}"))?;
-    let name = registry
-        .next_available_name()
-        .ok_or_else(|| "Could not allocate a unique name for a legacy Agent card".to_string())?;
+    let existing = store.list().map_err(|error| {
+        ui::i18n::format(
+            "workspace.could_not_list_agent_names_during_migration_error",
+            &[("error", (error).to_string())],
+        )
+    })?;
+    let registry = AgentNameRegistry::from_names(
+        existing.iter().map(|definition| &definition.name),
+    )
+    .map_err(|error| {
+        ui::i18n::format(
+            "workspace.could_not_build_agent_name_registry_error",
+            &[("error", (error).to_string())],
+        )
+    })?;
+    let name = registry.next_available_name().ok_or_else(|| {
+        ui::i18n::text("workspace.could_not_allocate_a_unique_name_for_a_legacy_agent_card")
+            .to_string()
+    })?;
     store
         .create(&NewAgentDefinition {
             name,
             runtime_profile: profile,
             workflow_description: String::new(),
         })
-        .map_err(|error| format!("Could not allocate a name for a legacy Agent card: {error}"))
+        .map_err(|error| {
+            ui::i18n::format(
+                "workspace.could_not_allocate_a_name_for_a_legacy_agent_card_error",
+                &[("error", (error).to_string())],
+            )
+        })
 }
 
 #[cfg(test)]

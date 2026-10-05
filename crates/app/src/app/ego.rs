@@ -221,7 +221,7 @@ impl MultisoulApp {
             EgoCardCommandKind::Takeover => {
                 if self.master_layout.master_id() != Some(action.node_id) {
                     self.workspace_state.error =
-                        Some("请先将 Ego 卡片设为 Master，再接管浏览器。".to_string());
+                        Some(ui::i18n::LocalizedText::new("chrome.ego_master_first"));
                     cx.notify();
                     return;
                 }
@@ -233,7 +233,12 @@ impl MultisoulApp {
                         self.open_ego_lite();
                         self.mark_canvas_dirty();
                     }
-                    Err(error) => self.workspace_state.error = Some(error.to_string()),
+                    Err(error) => {
+                        self.workspace_state.error = Some(
+                            ui::i18n::LocalizedText::new("common.operation_failed")
+                                .with_arg("reason", error),
+                        )
+                    }
                 }
             }
             EgoCardCommandKind::ReturnToAgent => {
@@ -251,7 +256,12 @@ impl MultisoulApp {
                             self.notify_ego_returned_agent(action.node_id, agent_node_id);
                         }
                     }
-                    Err(error) => self.workspace_state.error = Some(error.to_string()),
+                    Err(error) => {
+                        self.workspace_state.error = Some(
+                            ui::i18n::LocalizedText::new("common.operation_failed")
+                                .with_arg("reason", error),
+                        )
+                    }
                 }
             }
         }

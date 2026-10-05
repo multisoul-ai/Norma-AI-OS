@@ -53,7 +53,8 @@ Workspace 分层：
 - **版本钉死需审慎**：`gpui =0.2.2`、`gpui-component =0.5.1`、`alacritty_terminal =0.26`，升级前先验证 API。
 - **GUI 优先 gpui-component**：`crates/app`/`crates/ui` 写控件时优先用 `ui::component`（Longbridge），非必要不造轮子；细节见 [`docs/references/gpui-component.md`](docs/references/gpui-component.md)。
 - **交互元素必须有状态反馈**：菜单项、按钮、可点击列表行等必须覆盖适用的 hover、pressed、keyboard focus、selected/toggled 与 disabled 状态；hover 在全部主题下必须清晰可辨，完整规范见 [`docs/quality/ui-interaction-feedback.md`](docs/quality/ui-interaction-feedback.md)。
-- **页面与交互遵循 Apple 设计语言**：以 Apple Human Interface Guidelines 和 macOS 原生体验为设计基线，优先清晰层级、内容优先、直接操作、即时反馈、一致性与可访问性；新建或改版用户可见页面、布局、样式或交互前，必须先加载 `.agents/skills/apple-design`，涉及动效、手势或视觉打磨时按 [`CLAUDE.md`](CLAUDE.md) §8 选择相关本地设计 skill。方案和验收标准须说明技能如何落地；skill 中的 Web 示例仅作原则参考，GPUI 实现仍须以钉死版本和现有代码为准。
+- **菜单与选择器优先 Google Material 设计哲学**：采用清晰层级、紧凑密度、统一间距、柔和语义色与明确状态反馈；长列表使用紧凑触发器和可搜索浮层，已选值与键盘浏览状态分开，避免常驻大卡片和重复说明。保留 macOS 键盘习惯，浅色/深色均须真实 App 验收；细则见 [`docs/design-docs/material-menus.md`](docs/design-docs/material-menus.md)。
+- **其余页面与交互遵循 Apple 设计语言**：以 Apple Human Interface Guidelines 和 macOS 原生体验为设计基线，优先清晰层级、内容优先、直接操作、即时反馈、一致性与可访问性；新建或改版用户可见页面、布局、样式或交互前，必须先加载 `.agents/skills/apple-design`，涉及动效、手势或视觉打磨时按 [`CLAUDE.md`](CLAUDE.md) §8 选择相关本地设计 skill。方案和验收标准须说明技能如何落地；skill 中的 Web 示例仅作原则参考，GPUI 实现仍须以钉死版本和现有代码为准。
 - **iOS 样式规范**：新建或改版 iOS 原生页面、组件、布局与动效时，先读 [`docs/design-docs/norma-ios-style-guide.md`](docs/design-docs/norma-ios-style-guide.md)；W 系列原型只作视觉参考，现行产品结构与逐屏冲突以该规范所列来源为准。
 - **GPUI 代码先查 skills**：编写 GPUI 时先查 `gpui-*` skills，再落到钉死版本与现有写法；有现成组件时仍优先组件库。
 - **GPUI 圆角子层不可只靠 overflow**：GPUI 0.2.2 的 `overflow_hidden()` 仅矩形裁剪；圆角容器内的全尺寸不透明 `div`/`img`/`surface` 必须自身绘制外侧圆角，或避开四角分区渲染，并用自动化测试守住。
@@ -118,6 +119,7 @@ Workspace 分层：
 | iOS 原生页面、组件、色彩与动效样式规范 | [`docs/design-docs/norma-ios-style-guide.md`](docs/design-docs/norma-ios-style-guide.md)；[HTML 视觉速览](docs/design-docs/norma-ios-style-guide.html) |
 | GUI 组件库（优先使用） | [`docs/references/gpui-component.md`](docs/references/gpui-component.md) |
 | UI 菜单/按钮 hover、focus、pressed、selected 规范 | [`docs/quality/ui-interaction-feedback.md`](docs/quality/ui-interaction-feedback.md) |
+| Google Material 菜单与选择器设计偏好 | [`docs/design-docs/material-menus.md`](docs/design-docs/material-menus.md) |
 | GPUI app shell、画布/cards 渲染 | [`crates/app/src/`](crates/app/src/) |
 | 源码组织 | [`CLAUDE.md`](CLAUDE.md) §3；展开见 [`docs/references/crate-file-map.md`](docs/references/crate-file-map.md) |
 | Crate 文件地图 | [`docs/references/crate-file-map.md`](docs/references/crate-file-map.md) |

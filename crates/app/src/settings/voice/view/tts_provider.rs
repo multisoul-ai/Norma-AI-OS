@@ -56,9 +56,9 @@ pub(super) fn minimax_configuration(
                                 .font_weight(FontWeight::BOLD)
                                 .text_color(rgba(theme.text_primary))
                                 .child(if connected {
-                                    "MiniMax · Connected"
+                                    ui::i18n::text("voice.minimax_connected")
                                 } else {
-                                    "Connect MiniMax"
+                                    ui::i18n::text("voice.connect_minimax")
                                 }),
                         )
                         .child(
@@ -70,9 +70,9 @@ pub(super) fn minimax_configuration(
                                     theme.text_tertiary
                                 }))
                                 .child(if connected {
-                                    "Account ready · Key stored locally"
+                                    ui::i18n::text("voice.account_ready_key_stored_locally")
                                 } else {
-                                    "Connect before choosing a cloud Voice"
+                                    ui::i18n::text("voice.connect_before_choosing_a_cloud_voice")
                                 }),
                         ),
                 )
@@ -82,7 +82,7 @@ pub(super) fn minimax_configuration(
                         if connection_expanded {
                             "Done"
                         } else {
-                            "Manage…"
+                            ui::i18n::text("voice.manage")
                         },
                         theme.accent_blue,
                     )
@@ -97,8 +97,10 @@ pub(super) fn minimax_configuration(
                     theme,
                     inputs,
                     VoiceSettingsField::MiniMaxApiKey,
-                    "MiniMax API Key",
-                    "Validated credentials are stored in this Mac's local database",
+                    ui::i18n::text("voice.minimax_api_key"),
+                    ui::i18n::text(
+                        "voice.validated_credentials_are_stored_in_this_mac_s_local_database",
+                    ),
                     cx,
                 ))
                 .child(
@@ -112,9 +114,9 @@ pub(super) fn minimax_configuration(
                                 if state.minimax_account_status()
                                     == tts::RemoteAccountStatus::Checking
                                 {
-                                    "Connecting…"
+                                    ui::i18n::text("voice.connecting")
                                 } else {
-                                    "Connect"
+                                    ui::i18n::text("voice.connect")
                                 },
                                 theme.accent_blue,
                             )
@@ -124,14 +126,20 @@ pub(super) fn minimax_configuration(
                         )
                         .when(state.minimax_credential_configured(), |actions| {
                             actions.child(
-                                action_button(theme, "Clear", theme.destructive)
-                                    .id("settings-tts-minimax-clear-credential")
-                                    .debug_selector(|| {
-                                        "settings-tts-minimax-clear-credential".to_string()
-                                    })
-                                    .on_click(cx.listener(
+                                action_button(
+                                    theme,
+                                    ui::i18n::text("voice.clear"),
+                                    theme.destructive,
+                                )
+                                .id("settings-tts-minimax-clear-credential")
+                                .debug_selector(|| {
+                                    "settings-tts-minimax-clear-credential".to_string()
+                                })
+                                .on_click(
+                                    cx.listener(
                                         MultisoulApp::on_voice_clear_minimax_tts_credential,
-                                    )),
+                                    ),
+                                ),
                             )
                         }),
                 )
@@ -147,8 +155,8 @@ pub(super) fn minimax_configuration(
                             theme,
                             inputs,
                             VoiceSettingsField::MiniMaxVoiceSearch,
-                            "Search Voices",
-                            "Search this account by name or Voice ID",
+                            ui::i18n::text("voice.search_voices"),
+                            ui::i18n::text("voice.search_this_account_by_name_or_voice_id"),
                             cx,
                         ))
                         .child(voice_list::minimax_voice_catalog(theme, state, cx))
@@ -168,13 +176,15 @@ pub(super) fn minimax_configuration(
                         div()
                             .font_weight(FontWeight::BOLD)
                             .text_color(rgba(theme.text_primary))
-                            .child("Use a Voice ID"),
+                            .child(ui::i18n::text("voice.use_a_voice_id")),
                     )
                     .child(
                         div()
                             .text_size(px(10.0))
                             .text_color(rgba(theme.text_tertiary))
-                            .child("Enter a known Voice ID that is not listed above."),
+                            .child(ui::i18n::text(
+                                "voice.enter_a_known_voice_id_that_is_not_listed_above",
+                            )),
                     )
                     .child(inputs.input(VoiceSettingsField::MiniMaxVoiceId)),
             )
@@ -194,11 +204,11 @@ pub(super) fn minimax_configuration(
                 action_button(
                     theme,
                     if state.minimax_preview_in_progress() {
-                        "Previewing…"
+                        ui::i18n::text("voice.previewing")
                     } else if manual {
-                        "Verify & Preview"
+                        ui::i18n::text("voice.verify_preview")
                     } else {
-                        "Preview"
+                        ui::i18n::text("voice.preview")
                     },
                     theme.accent_blue,
                 )
@@ -221,8 +231,8 @@ fn minimax_model_selector(
         .map(tts::TtsModelId::as_str);
     setting_row(
         theme,
-        "Model",
-        "Turbo is recommended for interactive replies; HD prioritizes quality",
+        ui::i18n::text("voice.model"),
+        ui::i18n::text("voice.turbo_is_recommended_for_interactive_replies_hd_prioritizes_quality"),
     )
     .child(
         div()
@@ -232,7 +242,7 @@ fn minimax_model_selector(
                 action_button(
                     theme,
                     if selected == Some(tts::MINIMAX_SPEECH_TURBO_MODEL_ID) {
-                        "Speech 2.8 Turbo · Selected"
+                        ui::i18n::text("voice.speech_2_8_turbo_selected")
                     } else {
                         "Speech 2.8 Turbo"
                     },
@@ -246,7 +256,7 @@ fn minimax_model_selector(
                 action_button(
                     theme,
                     if selected == Some(tts::MINIMAX_SPEECH_HD_MODEL_ID) {
-                        "Speech 2.8 HD · Selected"
+                        ui::i18n::text("voice.speech_2_8_hd_selected")
                     } else {
                         "Speech 2.8 HD"
                     },
@@ -262,22 +272,28 @@ fn minimax_model_selector(
 fn readiness_label(readiness: tts::RemoteTtsReadiness) -> &'static str {
     match readiness {
         tts::RemoteTtsReadiness::Unconfigured => {
-            "Add credentials, choose a model and enter a Voice ID."
+            ui::i18n::text("voice.add_credentials_choose_a_model_and_enter_a_voice_id")
         }
-        tts::RemoteTtsReadiness::Configured => "Configured; connect to verify this account.",
-        tts::RemoteTtsReadiness::Checking => "Checking MiniMax in the background…",
-        tts::RemoteTtsReadiness::Ready => "Ready to activate. Preview is recommended.",
+        tts::RemoteTtsReadiness::Configured => {
+            ui::i18n::text("voice.configured_connect_to_verify_this_account")
+        }
+        tts::RemoteTtsReadiness::Checking => {
+            ui::i18n::text("voice.checking_minimax_in_the_background")
+        }
+        tts::RemoteTtsReadiness::Ready => {
+            ui::i18n::text("voice.ready_to_activate_preview_is_recommended")
+        }
         tts::RemoteTtsReadiness::TemporarilyUnavailable => {
-            "Temporarily unavailable; configuration was preserved."
+            ui::i18n::text("voice.temporarily_unavailable_configuration_was_preserved")
         }
         tts::RemoteTtsReadiness::InvalidCredential => {
-            "Credential rejected; correct the API Key and reconnect."
+            ui::i18n::text("voice.credential_rejected_correct_the_api_key_and_reconnect")
         }
         tts::RemoteTtsReadiness::VoiceUnavailable => {
-            "The selected catalog Voice is no longer available."
+            ui::i18n::text("voice.the_selected_catalog_voice_is_no_longer_available")
         }
         tts::RemoteTtsReadiness::VoiceValidationRequired => {
-            "Manual Voice ID requires Verify & Preview before it can be used."
+            ui::i18n::text("voice.manual_voice_id_requires_verify_preview_before_it_can_be_used")
         }
     }
 }

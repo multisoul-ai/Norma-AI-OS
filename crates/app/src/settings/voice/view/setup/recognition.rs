@@ -47,16 +47,16 @@ fn microphone_detail(
             .rounded(px(8.0))
             .bg(rgba(with_alpha(theme.accent_green, 0x18)))
             .text_color(rgba(theme.text_primary))
-            .child("✓ Authorized")
+            .child(ui::i18n::text("voice.authorized"))
             .into_any_element()
     } else {
         setup_action_button(
             theme,
             "voice-setup-microphone-action",
             if state == VoiceRequirementState::Failed {
-                "Open Microphone Settings"
+                ui::i18n::text("chrome.open_microphone_settings")
             } else {
-                "Grant Access"
+                ui::i18n::text("voice.grant_access")
             },
             SetupButtonTone::Accent,
             cx,
@@ -66,8 +66,8 @@ fn microphone_detail(
     };
     compact_setup_row(
         theme,
-        "Microphone permission",
-        "Required for voice input",
+        ui::i18n::text("voice.microphone_permission"),
+        ui::i18n::text("voice.required_for_voice_input"),
         action,
     )
 }
@@ -81,8 +81,8 @@ fn source_selector(
     let active = state.values().asr_provider();
     compact_setup_row(
         theme,
-        "Recognition source",
-        "Choose where speech is processed",
+        ui::i18n::text("voice.recognition_source"),
+        ui::i18n::text("voice.choose_where_speech_is_processed"),
         div()
             .flex_none()
             .flex()
@@ -91,9 +91,9 @@ fn source_selector(
                 theme,
                 "voice-setup-asr-source-local",
                 if active == asr::AsrProviderId::LocalSherpa {
-                    "✓ On-device"
+                    ui::i18n::text("voice.on_device_selected")
                 } else {
-                    "On-device"
+                    ui::i18n::text("voice.on_device")
                 },
                 source_tone(
                     active == asr::AsrProviderId::LocalSherpa,
@@ -106,7 +106,7 @@ fn source_selector(
                 theme,
                 "voice-setup-asr-source-azure",
                 if active == asr::AsrProviderId::CloudAzure {
-                    "✓ Azure Speech"
+                    ui::i18n::text("voice.azure_speech")
                 } else {
                     "Azure Speech"
                 },
@@ -152,12 +152,12 @@ fn local_detail(
         .when(local_ready && !local_active, |detail| {
             detail.child(compact_setup_row(
                 theme,
-                "Use On-device",
-                "Switch only after a local model is ready",
+                ui::i18n::text("voice.use_on_device"),
+                ui::i18n::text("voice.switch_only_after_a_local_model_is_ready"),
                 setup_action_button(
                     theme,
                     "voice-setup-asr-use-local",
-                    "Use On-device",
+                    ui::i18n::text("voice.use_on_device"),
                     SetupButtonTone::Accent,
                     cx,
                     cx.listener(MultisoulApp::on_voice_settings_activate_local_asr),
@@ -186,24 +186,24 @@ fn azure_detail(
             theme,
             inputs,
             VoiceSettingsField::AzureRegion,
-            "Azure region",
-            "Where your Speech resource is hosted, for example eastus",
+            ui::i18n::text("voice.azure_region"),
+            ui::i18n::text("voice.where_your_speech_resource_is_hosted_for_example_eastus"),
             cx,
         ))
         .child(text_setting_row(
             theme,
             inputs,
             VoiceSettingsField::AzureLocale,
-            "Recognition language",
-            "Use a supported Azure locale; zh-CN is the default",
+            ui::i18n::text("voice.recognition_language"),
+            ui::i18n::text("voice.use_a_supported_azure_locale_zh_cn_is_the_default"),
             cx,
         ))
         .child(locale_catalog(theme, state, cx))
         .child(
             setting_row(
                 theme,
-                "Azure API Key",
-                "Stored in this Mac's local database; never written to logs",
+                ui::i18n::text("voice.azure_api_key"),
+                ui::i18n::text("voice.stored_in_this_mac_s_local_database_never_written_to_logs"),
             )
             .child(
                 div()
@@ -217,7 +217,7 @@ fn azure_detail(
                         row.child(setup_action_button(
                             theme,
                             "settings-asr-azure-key-remove",
-                            "Remove",
+                            ui::i18n::text("common.remove"),
                             SetupButtonTone::Destructive,
                             cx,
                             cx.listener(MultisoulApp::on_voice_settings_remove_azure_key),
@@ -227,15 +227,17 @@ fn azure_detail(
         )
         .child(compact_setup_row(
             theme,
-            "Validate configuration",
-            "Checks the current region and credential without switching providers",
+            ui::i18n::text("voice.validate_configuration"),
+            ui::i18n::text(
+                "voice.checks_the_current_region_and_credential_without_switching_providers",
+            ),
             setup_action_button(
                 theme,
                 "settings-asr-azure-validate",
                 if profile.is_ready() {
-                    "✓ Azure Ready"
+                    ui::i18n::text("voice.azure_ready")
                 } else {
-                    "Validate Azure"
+                    ui::i18n::text("voice.validate_azure")
                 },
                 if profile.is_ready() {
                     SetupButtonTone::Success
@@ -249,12 +251,14 @@ fn azure_detail(
         .when(profile.is_ready(), |detail| {
             detail.child(compact_setup_row(
                 theme,
-                "Test recognition",
-                "Speak after the tone; testing never changes the active source",
+                ui::i18n::text("voice.test_recognition"),
+                ui::i18n::text(
+                    "voice.speak_after_the_tone_testing_never_changes_the_active_source",
+                ),
                 setup_action_button(
                     theme,
                     "settings-asr-azure-test-recognition",
-                    "Test Azure (3 sec)",
+                    ui::i18n::text("voice.test_azure_3_sec"),
                     SetupButtonTone::Accent,
                     cx,
                     cx.listener(MultisoulApp::on_voice_settings_test_azure_recognition),
@@ -266,7 +270,7 @@ fn azure_detail(
                 setup_action_button(
                     theme,
                     "voice-setup-asr-use-azure",
-                    "Use Azure Speech",
+                    ui::i18n::text("voice.use_azure_speech"),
                     SetupButtonTone::Success,
                     cx,
                     cx.listener(MultisoulApp::on_voice_settings_activate_azure_asr),
@@ -281,7 +285,9 @@ fn azure_detail(
                 div()
                     .text_size(px(12.0))
                     .text_color(rgba(theme.accent_green))
-                    .child("Azure Speech is the active recognition source."),
+                    .child(ui::i18n::text(
+                        "voice.azure_speech_is_the_active_recognition_source",
+                    )),
             )
         })
 }

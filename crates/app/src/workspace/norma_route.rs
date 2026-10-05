@@ -23,7 +23,7 @@ impl MultisoulApp {
             .file_name()
             .and_then(|name| name.to_str())
             .filter(|name| !name.is_empty())
-            .unwrap_or("Workspace");
+            .unwrap_or(ui::i18n::text("common.workspace"));
         let identity = match self
             .workspace_identity_store
             .resolve_or_create(workspace_root, display_name)
@@ -56,7 +56,7 @@ impl MultisoulApp {
         let display_name = root
             .file_name()
             .and_then(|name| name.to_str())
-            .unwrap_or("Workspace")
+            .unwrap_or(ui::i18n::text("common.workspace"))
             .to_owned();
         let route_id = match crate::norma::endpoint::new_workspace_route_id() {
             Ok(route_id) => route_id,

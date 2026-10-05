@@ -19,7 +19,7 @@ pub(super) fn api_key_row(
     setting_row(
         theme,
         "API Key",
-        "Stored in this Mac's local database; hidden by default and never written to logs",
+        ui::i18n::text("voice.stored_in_this_mac_s_local_database_hidden_by_default_and"),
     )
     .child(
         div()
@@ -34,7 +34,7 @@ pub(super) fn api_key_row(
                 row.child(visibility_button(theme, revealed, cx))
             })
             .child(
-                action_button(theme, "Remove", theme.destructive)
+                action_button(theme, ui::i18n::text("common.remove"), theme.destructive)
                     .id("settings-agent-provider-api-key-clear")
                     .debug_selector(|| "settings-agent-provider-api-key-clear".to_string())
                     .on_click(cx.listener(MultisoulApp::on_voice_settings_clear_api_key)),

@@ -298,6 +298,7 @@ fn desktop_agent_creation_rejects_unavailable_or_changed_directory() {
     std::fs::create_dir(&root).expect("应创建目录");
     let root = root.canonicalize().expect("目录应可规范化");
     let mut area = DesktopProjectArea {
+        wallpaper: None,
         id: "area".into(),
         desktop_workspace_id: "workspace".into(),
         project_key: root.clone(),

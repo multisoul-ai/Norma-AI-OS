@@ -125,13 +125,13 @@ pub(super) fn execute(
         } => {
             server
                 .approve(&request_id, &projects)
-                .context("Pairing was not approved. Check whether the code has expired.")?;
+                .context("Unable to approve pairing")?;
             Ok(Completion::Approved(server.devices()?))
         }
         Command::ApproveAll { request_id, access } => {
             server
                 .approve_all_projects(&request_id, access)
-                .context("Pairing was not approved. Check whether the code has expired.")?;
+                .context("Unable to approve pairing")?;
             Ok(Completion::Approved(server.devices()?))
         }
         Command::Revoke(device) => {

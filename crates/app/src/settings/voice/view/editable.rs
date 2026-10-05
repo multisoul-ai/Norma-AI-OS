@@ -52,6 +52,15 @@ impl VoiceTextInput {
         root_focus: FocusHandle,
         cx: &mut Context<Self>,
     ) -> Self {
+        cx.observe_global::<ui::i18n::LocaleState>(|input, cx| {
+            if let Some(app) = input.app.upgrade() {
+                input.placeholder =
+                    status::input_placeholder(&app.read(cx).voice_settings, input.field).into();
+                input.last_layout = None;
+                cx.notify();
+            }
+        })
+        .detach();
         let cursor = config.value.len();
         let content: SharedString = config.value.into();
         Self {
@@ -356,3 +365,7 @@ fn utf8_offset_from_utf16(text: &str, offset: usize) -> usize {
 #[cfg(test)]
 #[path = "../../../../tests/unit/voice_text_input_tests.rs"]
 mod voice_text_input_tests;
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/voice_language_tests.rs"]
+mod voice_language_tests;

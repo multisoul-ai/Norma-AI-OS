@@ -60,7 +60,7 @@ impl MultisoulApp {
         (
             host.enabled(),
             host.push.as_ref().and_then(|s| s.endpoint.clone()),
-            host.error.clone(),
+            host.error.as_ref().map(ToString::to_string),
         )
     }
     pub fn new_with_pty_factory(cx: &mut Context<Self>, factory: runtime::PtyFactory) -> Self {

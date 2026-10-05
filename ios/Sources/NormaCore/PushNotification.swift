@@ -2,7 +2,7 @@ import Foundation
 
 /// Untrusted routing hint only. It carries no endpoint, credential or executable action.
 public struct PushNotificationTarget: Decodable, Sendable, Identifiable, Hashable {
-    public enum Kind: String, Decodable, Sendable { case approval, completed, failed }
+    public enum Kind: String, Decodable, Sendable { case approval, completed, failed, review }
     public let version: Int
     public let eventID: String
     public let kind: Kind
@@ -14,10 +14,16 @@ public struct PushNotificationTarget: Decodable, Sendable, Identifiable, Hashabl
     public let sessionID: String
     public let turnID: String
     public let requestID: String?
+    public let desktopWorkspaceID: String?
+    public let areaID: String?
+    public var activityLink: WorkspaceActivityLink? {
+        guard let desktopWorkspaceID,let areaID else {return nil}
+        return WorkspaceActivityLink(machineID:machineID,workspaceID:desktopWorkspaceID,areaID:areaID)
+    }
     public var id: String { eventID }
     enum CodingKeys: String, CodingKey, CaseIterable {
         case version, eventID = "event_id", kind, machineID = "machine_id", workspaceID = "workspace_id",
-             routeID = "route_id", nodeID = "node_id", runID = "run_id", sessionID = "session_id", turnID = "turn_id", requestID = "request_id"
+             routeID = "route_id", nodeID = "node_id", runID = "run_id", sessionID = "session_id", turnID = "turn_id", requestID = "request_id", desktopWorkspaceID = "desktop_workspace_id", areaID = "area_id"
     }
     public static func decode(_ data: Data) throws -> Self {
         guard data.count <= 4096, let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -25,8 +31,11 @@ public struct PushNotificationTarget: Decodable, Sendable, Identifiable, Hashabl
         let target = try JSONDecoder().decode(Self.self, from: data)
         guard target.version == 1, UUID(uuidString: target.eventID) != nil,
               target.machineID.hasPrefix("mac-"), validHex(String(target.machineID.dropFirst(4))),
-              [target.workspaceID, target.routeID, target.runID, target.sessionID, target.turnID].allSatisfy(validID),
+              [target.routeID, target.runID, target.sessionID, target.turnID].allSatisfy(validID),
               let node = UInt64(target.nodeID), node > 0, String(node) == target.nodeID else { throw MobileError.invalidResponse }
+        if let workspace=target.desktopWorkspaceID,let area=target.areaID {
+            guard validID(workspace),validID(area),target.workspaceID=="desktop:\(workspace):\(area)" else {throw MobileError.invalidResponse}
+        } else {guard target.desktopWorkspaceID==nil,target.areaID==nil,validID(target.workspaceID) else {throw MobileError.invalidResponse}}
         if target.kind == .approval {
             guard let request = target.requestID, !request.isEmpty, request.utf8.count <= 256,
                   request.utf8.allSatisfy({ (48...57).contains($0) || (65...90).contains($0) || (97...122).contains($0) || [45, 95, 58].contains($0) }) else { throw MobileError.invalidResponse }

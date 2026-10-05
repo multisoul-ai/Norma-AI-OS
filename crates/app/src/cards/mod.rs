@@ -8,6 +8,11 @@ pub(crate) mod intro;
 pub mod preview;
 pub(crate) mod snake;
 pub mod term;
+mod title;
+
+#[cfg(test)]
+#[path = "../../tests/unit/card_title_language_tests.rs"]
+mod language_tests;
 
 use crate::app::browser::{BrowserAddressInput, BrowserAuthUiState};
 use crate::canvas::text_selection::TextSelection;

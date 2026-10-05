@@ -44,7 +44,7 @@ pub(super) enum CloneProjectPhase {
     Running(CloneProgress),
     Cancelling,
     Failed {
-        message: String,
+        message: ui::i18n::LocalizedText,
         target_preserved: bool,
     },
 }
@@ -106,16 +106,16 @@ impl CloneProjectUiState {
         self.dialog = None;
     }
 
-    pub(super) fn prepare(&self) -> Result<PreparedClone, String> {
+    pub(super) fn prepare(&self) -> Result<PreparedClone, ui::i18n::LocalizedText> {
         let dialog = self
             .dialog
             .as_ref()
-            .ok_or_else(|| "Clone dialog is not open.".to_string())?;
+            .ok_or_else(|| ui::i18n::LocalizedText::new("workspace.clone_dialog_is_not_open"))?;
         let remote =
-            GitHubRemote::parse(&dialog.remote_draft).map_err(|error| error.to_string())?;
+            GitHubRemote::parse(&dialog.remote_draft).map_err(super::localization::remote_error)?;
         let folder = effective_folder_name(&remote, &dialog.folder_draft);
         let destination = validate_clone_destination(&dialog.parent, folder)
-            .map_err(|error| error.to_string())?;
+            .map_err(super::localization::destination_error)?;
         Ok(PreparedClone {
             remote,
             transport: dialog.transport,
@@ -192,7 +192,7 @@ impl CloneProjectUiState {
             validation_error: if dialog.remote_draft.trim().is_empty() {
                 None
             } else {
-                self.prepare().err()
+                self.prepare().err().map(|error| error.to_string())
             },
         }
     }

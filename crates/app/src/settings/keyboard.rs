@@ -8,7 +8,13 @@ use ui::Theme;
 
 use super::super::with_alpha;
 
-const COMMAND_CATEGORIES: &[&str] = &["Workspace", "Cards", "Layout", "Settings", "Voice"];
+const COMMAND_CATEGORIES: &[&str] = &[
+    "common.workspace",
+    "common.cards",
+    "settings.layout",
+    "common.settings",
+    "common.voice",
+];
 
 pub(super) fn keyboard_settings(
     theme: Theme,
@@ -51,7 +57,7 @@ fn restore_all_row(theme: Theme, cx: &mut Context<MultisoulApp>) -> Div {
                 app.sync_desktop_shortcuts(cx);
                 cx.notify();
             }))
-            .child("Restore Defaults"),
+            .child(ui::i18n::text("settings.restore_defaults")),
     )
 }
 
@@ -66,7 +72,7 @@ fn command_group(
         .flex()
         .flex_col()
         .gap(px(10.0))
-        .child(group_title(theme, category))
+        .child(group_title(theme, ui::i18n::text(category)))
         .children(
             shortcuts
                 .effective
@@ -81,17 +87,24 @@ fn read_only_group(theme: Theme) -> Div {
         .flex()
         .flex_col()
         .gap(px(10.0))
-        .child(group_title(theme, "Input Behavior"))
+        .child(group_title(
+            theme,
+            ui::i18n::text("settings.input_behavior"),
+        ))
         .children(read_only_behaviors().iter().map(|behavior| {
             row_shell(theme)
-                .child(label_block(theme, behavior.title, behavior.hint))
+                .child(label_block(
+                    theme,
+                    ui::i18n::text(behavior.title),
+                    ui::i18n::text(behavior.hint),
+                ))
                 .child(
                     div()
                         .flex()
                         .flex_row()
                         .items_center()
                         .gap(px(10.0))
-                        .child(scope_badge(theme, behavior.scope))
+                        .child(scope_badge(theme, ui::i18n::text(behavior.scope)))
                         .child(keycap(theme, &keystroke_label(Some(behavior.keystroke)))),
                 )
         }))
@@ -105,7 +118,7 @@ fn command_row(
 ) -> Div {
     let command = entry.command;
     let label = if recording == Some(command) {
-        "Type shortcut".to_string()
+        ui::i18n::text("settings.type_shortcut").to_string()
     } else {
         keystroke_label(entry.current_keystroke.as_deref())
     };
@@ -128,7 +141,11 @@ fn command_row(
     }
 
     row_shell(theme)
-        .child(label_block(theme, entry.title, entry.hint))
+        .child(label_block(
+            theme,
+            ui::i18n::text(entry.title),
+            ui::i18n::text(entry.hint),
+        ))
         .child(controls)
 }
 
@@ -154,7 +171,7 @@ fn restore_button(
             app.sync_desktop_shortcuts(cx);
             cx.notify();
         }))
-        .child("Restore")
+        .child(ui::i18n::text("common.restore"))
 }
 
 fn status_message(theme: Theme, shortcuts: &ShortcutSettingsState) -> Div {
@@ -264,7 +281,7 @@ fn modified_badge(theme: Theme) -> Div {
         .bg(rgba(with_alpha(theme.accent_orange, 0x18)))
         .text_size(px(12.0))
         .text_color(rgba(theme.accent_orange))
-        .child("Modified")
+        .child(ui::i18n::text("settings.modified"))
 }
 
 fn scope_badge(theme: Theme, label: &'static str) -> Div {

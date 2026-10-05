@@ -219,13 +219,16 @@ impl VoiceSettingsState {
         }
         match result {
             Ok(())
-                if self
-                    .status
-                    .as_ref()
-                    .is_some_and(|status| !status.is_error && status.message != "Saving...") => {}
-            Ok(()) => self.status = Some(ok_status("Saved")),
+                if self.status.as_ref().is_some_and(|status| {
+                    !status.is_error
+                        && status.message != ui::i18n::LocalizedText::new("voice.saving")
+                }) => {}
+            Ok(()) => self.status = Some(ok_status(ui::i18n::LocalizedText::new("cards.saved"))),
             Err(error) => {
-                self.status = Some(error_status(format!("Could not save setting: {error}")));
+                self.status = Some(error_status(ui::i18n::message(
+                    "voice.could_not_save_setting_error",
+                    &[("error", (error).to_string())],
+                )));
             }
         }
         VoicePersistenceCompletion {

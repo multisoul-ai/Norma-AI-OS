@@ -18,14 +18,14 @@ pub(super) fn agent_provider_group(
     inputs: &VoiceSettingsInputs,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
-    settings_group(theme, "Agent Provider")
+    settings_group(theme, ui::i18n::text("voice.agent_provider"))
         .child(provider_selector(theme, state, cx))
         .child(text_setting_row(
             theme,
             inputs,
             VoiceSettingsField::Model,
-            "Model",
-            "Model used by Dialogue and Card Subagent",
+            ui::i18n::text("voice.model"),
+            ui::i18n::text("voice.model_used_by_dialogue_and_card_subagent"),
             cx,
         ))
 }
@@ -45,8 +45,8 @@ pub(super) fn agent_provider_advanced_rows(
             theme,
             inputs,
             VoiceSettingsField::BaseUrl,
-            "Base URL",
-            "Base URL for the selected Ollama or OpenAI-compatible provider",
+            ui::i18n::text("voice.base_url"),
+            ui::i18n::text("voice.base_url_for_the_selected_ollama_or_openai_compatible_provider"),
             cx,
         ))
         .child(api_key_row(theme, state, inputs, cx))
@@ -68,16 +68,16 @@ pub(super) fn agent_provider_setup_group(
             theme,
             inputs,
             VoiceSettingsField::BaseUrl,
-            "Base URL",
-            "OpenAI-compatible defaults to https://api.openai.com/v1",
+            ui::i18n::text("voice.base_url"),
+            ui::i18n::text("voice.openai_compatible_defaults_to_https_api_openai_com_v1"),
             cx,
         ))
         .child(api_key_row(theme, state, inputs, cx))
         .child(
             setting_row(
                 theme,
-                "Connect",
-                "Verify this endpoint and load its available model list.",
+                ui::i18n::text("voice.connect"),
+                ui::i18n::text("voice.verify_this_endpoint_and_load_its_available_model_list"),
             )
             .child(
                 action_button(
@@ -86,14 +86,14 @@ pub(super) fn agent_provider_setup_group(
                         state.provider_discovery(),
                         ProviderDiscoveryStatus::Connecting
                     ) {
-                        "Connecting…"
+                        ui::i18n::text("voice.connecting")
                     } else if matches!(
                         state.provider_discovery(),
                         ProviderDiscoveryStatus::ManualRequired(_)
                     ) {
-                        "Validate Manual Model"
+                        ui::i18n::text("voice.validate_manual_model")
                     } else {
-                        "Connect & Load Models"
+                        ui::i18n::text("voice.connect_load_models")
                     },
                     theme.accent_blue,
                 )
@@ -117,15 +117,18 @@ pub(super) fn agent_provider_setup_group(
                 theme,
                 inputs,
                 VoiceSettingsField::Model,
-                "Model",
-                "Model list unavailable; enter the exact model id manually",
+                ui::i18n::text("voice.model"),
+                ui::i18n::text("voice.model_list_unavailable_enter_the_exact_model_id_manually"),
                 cx,
             )),
         ProviderDiscoveryStatus::ManualValidated(model) => group.child(
             div()
                 .text_size(px(12.0))
                 .text_color(rgba(theme.accent_green))
-                .child(format!("Validated model: {model}")),
+                .child(ui::i18n::format(
+                    "voice.validated_model_model",
+                    &[("model", (model).to_string())],
+                )),
         ),
         ProviderDiscoveryStatus::Failed(error) => group.child(
             div()
@@ -166,8 +169,9 @@ impl MultisoulApp {
             )
             .map_err(ProviderConnectionError::Catalog)?;
             if !models.iter().any(|available| available == &model) {
-                return Err(ProviderConnectionError::Validation(format!(
-                    "Saved model `{model}` is not available from this provider."
+                return Err(ProviderConnectionError::Validation(ui::i18n::message(
+                    "voice.saved_model_model_is_not_available_from_this_provider",
+                    &[("model", (model).to_string())],
                 )));
             }
             agent::validate_provider_model(agent::ProviderConfig::new(
@@ -176,7 +180,7 @@ impl MultisoulApp {
                 model.clone(),
                 api_key,
             ))
-            .map_err(ProviderConnectionError::Validation)?;
+            .map_err(|error| ProviderConnectionError::Validation(error.into()))?;
             Ok((models, model))
         });
         cx.spawn(async move |this, cx| {
@@ -235,16 +239,18 @@ impl MultisoulApp {
             .active_provider_profile()
             .clone();
         if provider == AgentProviderKind::OpenAiCompatible && profile.api_key().is_none() {
-            self.voice_settings.record_provider_discovery_failure(
-                "Add an API Key before connecting to an OpenAI-compatible provider.",
-            );
+            self.voice_settings
+                .record_provider_discovery_failure(ui::i18n::LocalizedText::new(
+                    "voice.add_an_api_key_before_connecting_to_an_openai_compatible_provider",
+                ));
             cx.notify();
             return;
         }
         if self.voice_settings.credential_persistence_pending() {
-            self.voice_settings.record_provider_discovery_failure(
-                "Wait for the API Key to finish saving before connecting.",
-            );
+            self.voice_settings
+                .record_provider_discovery_failure(ui::i18n::LocalizedText::new(
+                    "voice.wait_for_the_api_key_to_finish_saving_before_connecting",
+                ));
             cx.notify();
             return;
         }
@@ -255,7 +261,8 @@ impl MultisoulApp {
         if manual_validation && profile.model().trim().is_empty() {
             self.voice_settings.record_provider_catalog_error(
                 agent::ProviderCatalogError::ModelListUnavailable(
-                    "Enter the exact model id before validating it.".to_string(),
+                    ui::i18n::text("voice.enter_the_exact_model_id_before_validating_it")
+                        .to_string(),
                 ),
             );
             cx.notify();
@@ -274,7 +281,7 @@ impl MultisoulApp {
                     api_key,
                 ))
                 .map(|()| ProviderConnectionResult::ManualValidated(model))
-                .map_err(ProviderConnectionError::Validation)
+                .map_err(|error| ProviderConnectionError::Validation(error.into()))
             } else {
                 agent::discover_provider_models(
                     provider_protocol(provider),
@@ -397,8 +404,8 @@ fn provider_model_choices(
     }
     setting_row(
         theme,
-        "Model",
-        "Select a model returned by this provider connection.",
+        ui::i18n::text("voice.model"),
+        ui::i18n::text("voice.select_a_model_returned_by_this_provider_connection"),
     )
     .child(choices)
 }
@@ -410,7 +417,7 @@ enum ProviderConnectionResult {
 
 enum ProviderConnectionError {
     Catalog(agent::ProviderCatalogError),
-    Validation(String),
+    Validation(ui::i18n::LocalizedText),
 }
 
 fn provider_protocol(provider: AgentProviderKind) -> agent::ProviderProtocol {
@@ -428,8 +435,8 @@ fn provider_selector(
     let active = state.values().agent_provider();
     setting_row(
         theme,
-        "Provider",
-        "One shared provider is used by Dialogue and Card Subagent",
+        ui::i18n::text("voice.provider"),
+        ui::i18n::text("voice.one_shared_provider_is_used_by_dialogue_and_card_subagent"),
     )
     .child(
         div()
@@ -447,7 +454,7 @@ fn provider_selector(
             .child(
                 provider_button(
                     theme,
-                    "OpenAI-compatible",
+                    ui::i18n::text("voice.openai_compatible"),
                     active == AgentProviderKind::OpenAiCompatible,
                 )
                 .id("settings-agent-provider-openai")

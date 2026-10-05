@@ -130,7 +130,6 @@ struct Peer {
     opened: Instant,
     cipher: Option<RelaySession>,
     device: Option<String>,
-    terminal: crate::mobile::thread_terminal_control::Connection,
 }
 
 async fn connected(shared: Arc<Shared>, audience: &str) -> Result<()> {
@@ -213,7 +212,6 @@ async fn connected(shared: Arc<Shared>, audience: &str) -> Result<()> {
                         opened: Instant::now(),
                         cipher: None,
                         device: None,
-                        terminal: Default::default(),
                     },
                 );
             }
@@ -223,13 +221,9 @@ async fn connected(shared: Arc<Shared>, audience: &str) -> Result<()> {
                 };
                 let id = stream_id.clone();
                 let owner = shared.clone();
-                let mut pending = crate::mobile::thread_terminal_control::PendingDisconnect(Some(
-                    peer.terminal.scope.clone(),
-                ));
                 // SQLite/auth and request handling run off both GPUI and the async network executor.
                 let result =
                     tokio::task::spawn_blocking(move || respond(&owner, &id, peer, &data)).await?;
-                pending.0 = None;
                 match result {
                     Ok((peer, bytes)) => {
                         peers.insert(stream_id.clone(), peer);
@@ -265,7 +259,6 @@ fn respond(shared: &Arc<Shared>, id: &str, mut peer: Peer, data: &str) -> Result
             std::str::from_utf8(&plain)?,
             shared,
             &mut peer.device,
-            &mut peer.terminal,
         )?;
         cipher.seal(&reply)?
     } else {

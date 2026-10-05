@@ -1,8 +1,11 @@
 //! ui — 壳层（依赖 gpui）：可复用组件与主题。
 //!
 //! GUI 控件优先使用 [`component`]（`gpui-component`），非必要不要用 `div()` 重复造轮子。
+pub mod i18n;
 pub mod icons;
 pub mod theme;
+
+rust_i18n::i18n!("locales", fallback = "en");
 
 pub use theme::{Theme, ThemeId};
 

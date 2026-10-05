@@ -31,24 +31,6 @@ pub struct PlanPriority {
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum MobileCommand {
-    // Recovered only from the durable thread queue, never accepted from ordinary phone commands.
-    #[serde(skip_deserializing)]
-    ThreadFollowup {
-        target: super::LiveTerminalTask,
-        expected: norma::mobile::CardSnapshot,
-        text: String,
-    },
-    #[serde(skip_deserializing)]
-    ThreadTerminal {
-        command: Box<super::ThreadTerminalCommand>,
-    },
-    // Only the authenticated thread endpoint may construct this after durable source validation.
-    #[serde(skip_deserializing)]
-    ThreadTask {
-        agent_definition_id: i64,
-        task: String,
-        context: String,
-    },
     // Constructed only after Mac-side NormaToolRuntime parsing and intent checks. This must
     // remain impossible to deserialize from a paired phone's ordinary command endpoint.
     #[serde(skip_deserializing)]
@@ -107,39 +89,15 @@ pub enum MobileCommand {
 }
 
 impl MobileCommand {
-    pub(crate) fn revoke_terminal_claim(&self) {
-        if let Self::ThreadTerminal { command } = self {
-            if matches!(
-                command.operation,
-                super::ThreadTerminalOperation::Claim { .. }
-            ) {
-                command.lease.revoke();
-            }
-        }
-    }
-
     pub(crate) fn message_target(&self) -> Option<&norma::mobile::CardSnapshot> {
         match self {
-            Self::SendMessage { expected, .. }
-            | Self::FeedbackDelivery { expected, .. }
-            | Self::ThreadFollowup { expected, .. } => Some(expected),
+            Self::SendMessage { expected, .. } | Self::FeedbackDelivery { expected, .. } => {
+                Some(expected)
+            }
             _ => None,
         }
     }
     pub(crate) fn validate_feedback_target(&self) -> Result<(), &'static str> {
-        if let Self::ThreadFollowup {
-            target, expected, ..
-        } = self
-        {
-            if target.key.validate().is_err()
-                || target.key.node_id != expected.node_id
-                || target.key.profile != expected.profile
-                || Some(&target.key.run_id) != expected.run_id.as_ref()
-                || Some(&target.key.session_id) != expected.session_id.as_ref()
-            {
-                return Err("session_changed");
-            }
-        }
         if let Self::FeedbackDelivery { expected, feedback } = self {
             feedback.validate().map_err(|_| "invalid_feedback")?;
             let key = &feedback.key;
@@ -229,10 +187,7 @@ pub(super) fn submit_or_lookup(
     }
     let store = MobileCommandStore::new(access.store.path().to_path_buf());
     let mut fingerprint = serde_json::to_vec(&request).map_err(|_| "invalid_request")?;
-    if matches!(
-        request.command,
-        MobileCommand::RealtimeTool { .. } | MobileCommand::ThreadTerminal { .. }
-    ) {
+    if matches!(request.command, MobileCommand::RealtimeTool { .. }) {
         // Current control authorization was just checked above. Its revision is not part
         // of a media function's durable identity; all target/command fields remain bound.
         let mut stable = serde_json::to_value(&request).map_err(|_| "invalid_request")?;

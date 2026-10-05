@@ -23,7 +23,7 @@ pub(crate) struct PreviewEditor {
     pub(crate) dirty: bool,
     pub(crate) saving: bool,
     pub(crate) saved: bool,
-    pub(crate) error: Option<String>,
+    pub(crate) error: Option<ui::i18n::LocalizedText>,
     pub(super) _subscription: Subscription,
 }
 

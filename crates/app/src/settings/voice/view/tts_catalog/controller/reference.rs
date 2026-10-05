@@ -30,7 +30,9 @@ impl MultisoulApp {
         let model_root = self.voice_settings.tts_model_root();
         let work = cx.background_executor().spawn(async move {
             if path.trim().is_empty() {
-                return Err("choose a local WAV file or enter its path".to_string());
+                return Err(
+                    ui::i18n::text("voice.choose_a_local_wav_file_or_enter_its_path").to_string(),
+                );
             }
             tts::import_zipvoice_reference(&PathBuf::from(path.trim()), &transcript, &model_root)
                 .map_err(|error| error.to_string())

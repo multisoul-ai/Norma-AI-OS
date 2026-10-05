@@ -22,9 +22,9 @@ impl DialogueControlState {
             .iter()
             .any(|characters| *characters > dialogue::MAX_SPEECH_SEGMENT_CHARS)
         {
-            self.recover_reply_failure(
-                "Speech error: dialogue produced an oversized speech segment",
-            );
+            self.recover_reply_failure(ui::i18n::LocalizedText::new(
+                "chrome.reply_segment_too_large",
+            ));
             return;
         }
         match self.speech_backlog.accept_batch(segments) {
@@ -50,7 +50,10 @@ impl DialogueControlState {
                 dialogue::SpeechBacklogError::InputClosed | dialogue::SpeechBacklogError::Cancelled,
             ) => return,
             Err(error) => {
-                self.recover_reply_failure(format!("Speech error: {error}"));
+                self.recover_reply_failure(
+                    ui::i18n::LocalizedText::new("chrome.speech_error_error")
+                        .with_arg("error", error),
+                );
                 return;
             }
         }
@@ -98,7 +101,9 @@ impl DialogueControlState {
             self.start_speech_worker(cx);
         }
         if let Err(error) = self.flush_speech_commands() {
-            self.recover_reply_failure(format!("Speech error: {error}"));
+            self.recover_reply_failure(
+                ui::i18n::LocalizedText::new("chrome.speech_error_error").with_arg("error", error),
+            );
         }
     }
 

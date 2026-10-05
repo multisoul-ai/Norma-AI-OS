@@ -46,7 +46,8 @@ fn voice_redesign_cloud_voice_ignores_missing_local_model_status() {
         Some(cloud),
         "本地扫描不能替换云端 Provider"
     );
-    let missing = "No Local TTS model is selected; replies will stay text-only.";
+    let missing =
+        ui::i18n::text("voice.no_local_tts_model_is_selected_replies_will_stay_text_only");
     assert_ne!(
         status.as_deref(),
         Some(missing),

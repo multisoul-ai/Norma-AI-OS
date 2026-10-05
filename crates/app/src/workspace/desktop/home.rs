@@ -5,14 +5,60 @@ use gpui::{
     Window, WindowControlArea,
 };
 use ui::component::{
-    button::{Button, ButtonVariants},
+    button::{Button, ButtonCustomVariant, ButtonVariants},
     input::{Input, InputState},
     Disableable, Icon, IconName, StyledExt,
 };
 use ui::icons::{toolbar_icon, with_alpha, ToolbarIcon};
 
-// 80% transparency: 255 × (1 - 0.8) = 51. Text and live previews stay clear.
-pub(super) const SURFACE_ALPHA: u8 = 51;
+// Popovers need a denser reading surface: 255 × 0.94 ≈ 240.
+pub(super) const POPOVER_ALPHA: u8 = 240;
+
+pub(crate) fn home_theme(id: ui::ThemeId) -> ui::Theme {
+    let mut theme = crate::app::top_bar_theme(ui::Theme::for_id(id));
+    theme.panel = theme.dock;
+    // Hover adds 20/255 ≈ 8% opacity; press uses 240/255 ≈ 94%.
+    theme.panel_high = with_alpha(theme.dock, (theme.dock as u8).saturating_add(20));
+    theme.node_fill = with_alpha(theme.dock, 240);
+    theme.canvas_from = theme.dock;
+    // Only a 36/255 ≈ 14% inset tint; do not stack an opaque preview on the card.
+    theme.canvas_to = with_alpha(theme.dock, 0x24);
+    theme.node_stroke = theme.dock_line;
+    theme.edge_highlight = with_alpha(theme.dock_line, 0x80);
+    theme.accent = 0x0969daff;
+    theme
+}
+
+pub(crate) fn workspace_chrome_theme(id: ui::ThemeId) -> ui::Theme {
+    crate::app::top_bar_theme(home_theme(id))
+}
+
+pub(crate) fn home_primary_button(theme: ui::Theme, cx: &gpui::App) -> ButtonCustomVariant {
+    let accent = rgba(theme.accent);
+    ButtonCustomVariant::new(cx)
+        .color(accent.into())
+        .foreground(rgba(0xffffffff).into())
+        .border(rgba(with_alpha(theme.text_primary, 0x18)).into())
+        .hover(accent.blend(rgba(0x00000018)).into())
+        .active(accent.blend(rgba(0x00000038)).into())
+}
+
+pub(super) fn home_secondary_button(theme: ui::Theme, cx: &gpui::App) -> ButtonCustomVariant {
+    ButtonCustomVariant::new(cx)
+        .color(rgba(0x00000000).into())
+        .foreground(rgba(theme.text_primary).into())
+        .border(rgba(0x00000000).into())
+        .hover(rgba(with_alpha(theme.text_primary, 0x24)).into())
+        .active(rgba(with_alpha(theme.text_primary, 0x33)).into())
+}
+
+#[cfg(test)]
+#[path = "../../../tests/unit/desktop_home_material_tests.rs"]
+mod material_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/desktop_home_background_tests.rs"]
+mod background_tests;
 
 impl MultisoulApp {
     pub(super) fn render_desktop_home(
@@ -21,7 +67,7 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
-        let theme = self.theme;
+        let theme = home_theme(self.theme_id);
         let viewport = window.viewport_size();
         let full = CanvasRect::new(0.0, 0.0, viewport.width.into(), viewport.height.into());
         let first_workspace = self.desktop_workspace.workspaces.is_empty();
@@ -64,33 +110,68 @@ impl MultisoulApp {
                 .text_color(rgba(color))
                 .font_semibold()
                 .when(size >= 30.0, |heading| heading.font_bold())
+                .when(y >= heading_y + 86.0, |heading| {
+                    heading
+                        .px(px(8.0 * scale))
+                        .py(px(2.0 * scale))
+                        .rounded(px(5.0 * scale))
+                        .bg(rgba(theme.panel))
+                })
                 .child(text)
         };
         let mut content = div()
             .relative()
             .w(px(full.size.x * scale))
             .h(px(content_height * scale))
-            .child(heading(
-                "Workspaces".into(),
-                heading_y,
-                38.0,
-                theme.text_primary,
-            ))
+            .when(!first_workspace, |content| {
+                content.child(
+                    div()
+                        .debug_selector(|| "desktop-home-heading-surface".to_string())
+                        .absolute()
+                        .left(px((left - 12.0) * scale))
+                        .top(px((heading_y - 12.0) * scale))
+                        .max_w(px((full.size.x - 2.0 * left + 24.0) * scale))
+                        .flex()
+                        .flex_col()
+                        .gap(px(2.0 * scale))
+                        .p(px(12.0 * scale))
+                        .rounded(px(12.0 * scale))
+                        .bg(rgba(theme.panel))
+                        .child(
+                            div()
+                                .text_size(px(38.0 * scale))
+                                .line_height(px(41.8 * scale))
+                                .font_bold()
+                                .child(ui::i18n::text("workspace.workspaces")),
+                        )
+                        .child(
+                            div()
+                                .text_size(px(18.0 * scale))
+                                .line_height(px(23.4 * scale))
+                                .font_semibold()
+                                .text_color(rgba(theme.text_secondary))
+                                .child(if query {
+                                    ui::i18n::format(
+                                        "workspace.of_count_workspaces",
+                                        &[
+                                            ("arg0", (workspaces.len()).to_string()),
+                                            ("count", (count).to_string()),
+                                        ],
+                                    )
+                                } else {
+                                    ui::i18n::format(
+                                        "workspace.count_workspaces",
+                                        &[("count", (count).to_string())],
+                                    )
+                                }),
+                        ),
+                )
+            })
             .child(heading(
                 if query {
-                    format!("{} of {count} workspaces", workspaces.len())
+                    ui::i18n::text("workspace.search_results")
                 } else {
-                    format!("{count} workspaces")
-                },
-                heading_y + 44.0,
-                18.0,
-                theme.text_secondary,
-            ))
-            .child(heading(
-                if query {
-                    "Search results"
-                } else {
-                    "Continue working"
+                    ui::i18n::text("workspace.continue_working")
                 }
                 .into(),
                 heading_y + 86.0,
@@ -99,7 +180,7 @@ impl MultisoulApp {
             ));
         if let Some(other) = layout.get(3) {
             content = content.child(heading(
-                "Other workspaces".into(),
+                ui::i18n::text("workspace.other_workspaces").into(),
                 other.origin.y - 32.0,
                 16.0,
                 theme.text_secondary,
@@ -112,9 +193,12 @@ impl MultisoulApp {
                     .top(px((heading_y + 150.0) * scale))
                     .left(px(left * scale))
                     .right(px(left * scale))
+                    .p(px(12.0 * scale))
+                    .rounded(px(8.0 * scale))
+                    .bg(rgba(theme.panel))
                     .text_size(px(15.0 * scale))
                     .text_color(rgba(theme.text_secondary))
-                    .child("No workspaces match your search."),
+                    .child(ui::i18n::text("workspace.no_workspaces_match_your_search")),
             );
         }
         content = content.children(workspaces.into_iter().zip(layout).enumerate().map(
@@ -185,7 +269,7 @@ impl MultisoulApp {
                     .right(px(left))
                     .p(px(12.0))
                     .rounded(px(8.0))
-                    .bg(rgba(with_alpha(theme.panel_high, SURFACE_ALPHA)))
+                    .bg(rgba(with_alpha(theme.panel_high, POPOVER_ALPHA)))
                     .text_size(px(13.0))
                     .text_color(rgba(theme.destructive))
                     .child(error),
@@ -204,13 +288,6 @@ impl MultisoulApp {
                         .debug_selector(|| "desktop-home-wallpaper".to_string())
                         .child(self.render_workspace_backdrop()),
                 )
-            })
-            // The empty welcome page has no catalog text to protect with a full-window scrim.
-            .when(!first_workspace, |root| {
-                root.child(div().absolute().inset_0().bg(rgba(with_alpha(
-                    theme.canvas_from,
-                    (chrome_opacity * if self.theme_id.is_dark() { 36.0 } else { 128.0 }) as u8,
-                ))))
             })
             .child(page.opacity(chrome_opacity))
     }
@@ -273,7 +350,7 @@ impl MultisoulApp {
                             .line_height(px(if compact { 28.0 } else { 32.0 }))
                             .font_semibold()
                             .text_color(rgba(theme.text_primary))
-                            .child("Create your first workspace"),
+                            .child(ui::i18n::text("workspace.create_your_first_workspace")),
                     )
                     .child(
                         div()
@@ -282,12 +359,14 @@ impl MultisoulApp {
                             .text_size(px(14.0))
                             .line_height(px(22.0))
                             .text_color(rgba(theme.text_primary))
-                            .child("Bring your projects and agents together on one canvas."),
+                            .child(ui::i18n::text(
+                                "workspace.bring_your_projects_and_agents_together_on_one_canvas",
+                            )),
                     )
                     .child(
                         Button::new("desktop-workspace-create")
                             .debug_selector(|| "desktop-workspace-create".into())
-                            .label("Create Workspace")
+                            .label(ui::i18n::text("workspace.create_workspace"))
                             .text_size(px(14.0))
                             .h(px(40.0))
                             .primary()
@@ -305,7 +384,8 @@ impl MultisoulApp {
         width: f32,
         cx: &mut Context<Self>,
     ) -> Div {
-        let theme = self.theme;
+        let theme = workspace_chrome_theme(self.theme_id);
+        let input_theme = ui::Theme::for_id(self.theme_id);
         let has_workspaces = !self.desktop_workspace.workspaces.is_empty();
         let narrow = width < 640.0 && has_workspaces;
         let search = || {
@@ -323,27 +403,23 @@ impl MultisoulApp {
                 .items_center()
                 .rounded(px(8.0))
                 .border_1()
-                .border_color(rgba(with_alpha(theme.text_primary, 0x28)))
-                .bg(rgba(with_alpha(theme.panel, SURFACE_ALPHA)))
-                .child(
-                    Input::new(&input)
-                        .appearance(false)
-                        .cleanable(true)
-                        .prefix(Icon::new(IconName::Search).text_color(rgba(theme.text_secondary))),
-                )
+                .border_color(rgba(with_alpha(input_theme.text_primary, 0x28)))
+                .bg(rgba(input_theme.canvas_to))
+                .child(Input::new(&input).appearance(false).cleanable(true).prefix(
+                    Icon::new(IconName::Search).text_color(rgba(input_theme.text_secondary)),
+                ))
         };
         div()
+            .debug_selector(|| "desktop-home-toolbar".to_string())
             .absolute()
             .top(px(0.0))
             .left(px(0.0))
             .right(px(0.0))
             .h(px(if narrow { 104.0 } else { 52.0 }))
-            .bg(rgba(with_alpha(
-                theme.panel_high,
-                if has_workspaces { SURFACE_ALPHA } else { 0x18 },
-            )))
+            .bg(rgba(theme.dock))
+            .text_color(rgba(theme.text_primary))
             .border_b_1()
-            .border_color(rgba(with_alpha(theme.text_primary, 0x16)))
+            .border_color(rgba(theme.dock_line))
             .child(
                 div()
                     .absolute()
@@ -365,12 +441,10 @@ impl MultisoulApp {
                         row.child(
                             Button::new("desktop-workspace-create")
                                 .debug_selector(|| "desktop-workspace-create".to_string())
-                                .label("+ New Workspace")
+                                .label(ui::i18n::text("workspace.new_workspace"))
                                 .text_size(px(14.0))
                                 .h(px(36.0))
-                                .primary()
-                                .bg(rgba(with_alpha(theme.accent, SURFACE_ALPHA)))
-                                .text_color(rgba(theme.text_primary))
+                                .custom(home_primary_button(theme, cx))
                                 .disabled(self.desktop_workspace.busy)
                                 .on_click(cx.listener(|app, _, window, cx| {
                                     app.create_desktop_workspace(window, cx)

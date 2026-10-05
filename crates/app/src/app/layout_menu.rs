@@ -151,27 +151,27 @@ impl MultisoulApp {
                     .shadow(chrome_shadow(theme))
                     .bg(rgba(with_alpha(theme.panel, 0xf2)))
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                    .child(menu_heading(theme, "布局"))
+                    .child(menu_heading(theme, ui::i18n::text("chrome.layout")))
                     .child(
                         div()
                             .flex()
                             .flex_col()
                             .gap_1()
-                            .child(menu_label(theme, "填充方式"))
+                            .child(menu_label(theme, ui::i18n::text("chrome.fill_direction")))
                             .child(
                                 div()
                                     .flex()
                                     .gap_1()
                                     .child(segmented_button(
                                         theme,
-                                        "按行向下",
+                                        ui::i18n::text("chrome.rows_down"),
                                         "layout-menu-fill-row",
                                         strategy.fill == GridFill::RowFirst,
                                         cx.listener(Self::on_layout_fill_row),
                                     ))
                                     .child(segmented_button(
                                         theme,
-                                        "按列向右",
+                                        ui::i18n::text("chrome.columns_right"),
                                         "layout-menu-fill-column",
                                         strategy.fill == GridFill::ColumnFirst,
                                         cx.listener(Self::on_layout_fill_column),
@@ -221,21 +221,21 @@ impl MultisoulApp {
                             .flex()
                             .flex_col()
                             .gap_1()
-                            .child(menu_label(theme, "卡片尺寸"))
+                            .child(menu_label(theme, ui::i18n::text("chrome.card_size")))
                             .child(
                                 div()
                                     .flex()
                                     .gap_1()
                                     .child(segmented_button(
                                         theme,
-                                        "固定尺寸",
+                                        ui::i18n::text("chrome.fixed_size"),
                                         "layout-menu-size-fixed",
                                         strategy.sizing == GridCardSizing::Fixed,
                                         cx.listener(Self::on_layout_fixed_size),
                                     ))
                                     .child(segmented_button(
                                         theme,
-                                        "适应可视区域",
+                                        ui::i18n::text("chrome.fit_visible_area"),
                                         "layout-menu-size-fit",
                                         strategy.sizing == GridCardSizing::FitViewport,
                                         cx.listener(Self::on_layout_fit_viewport),
@@ -256,7 +256,7 @@ impl MultisoulApp {
                             .text_color(rgba(theme.text_primary))
                             .text_size(px(12.0))
                             .font_weight(gpui::FontWeight::MEDIUM)
-                            .child("重新整理当前卡片")
+                            .child(ui::i18n::text("chrome.reflow_the_current_cards"))
                             .hover(move |style| style.bg(rgba(with_alpha(theme.accent_blue, 0x98))))
                             .on_click(cx.listener(Self::on_layout_reflow)),
                     ),

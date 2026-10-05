@@ -1,0 +1,1006 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%230a131d'/%3E%3Cpath d='M10 6 16 12 22 6 26 10 20 16 26 22 22 26 16 20 10 26 6 22 12 16 6 10Z' fill='%23fff'/%3E%3C/svg%3E">
+<title>Norma · 助手模式</title>
+<style>
+:root{color-scheme:dark;--bg:#000;--panel:#151619;--text:#f4f5f7;--muted:#a3a6ad;--faint:#81858e;--blue:#c1dfff;--border:#ffffff12;--ease:cubic-bezier(.23,1,.32,1);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","PingFang SC",sans-serif;font-synthesis:none}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-size:14px;-webkit-font-smoothing:antialiased}button,input,a{-webkit-tap-highlight-color:transparent}button,input{font:inherit}button,a{touch-action:manipulation}button{cursor:pointer;color:inherit;border:0;background:none}button:disabled{opacity:.35;cursor:default}button:active:not(:disabled):not(.orb-button){transform:scale(.97)}button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(--blue);outline-offset:5px}button{transition:transform 120ms var(--ease),background-color 160ms ease,color 160ms ease}a{color:inherit;text-decoration:none}svg{display:block;width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}h1,h2,h3,p{margin:0}button svg{pointer-events:none}[hidden]{display:none!important}
+.app{isolation:isolate;min-height:100svh;display:grid;grid-template-rows:76px minmax(405px,1fr) auto 36px;position:relative;overflow:hidden;background:radial-gradient(ellipse at 50% 41%,#12334b20 0,transparent 49%),radial-gradient(ellipse at 50% 104%,#09202c30 0,transparent 55%)}
+.app:before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:.14;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Cpath fill='%23ffffff' filter='url(%23n)' opacity='.23' d='M0 0h200v200H0z'/%3E%3C/svg%3E")}
+.topbar{padding:0 38px;display:flex;align-items:center;justify-content:space-between;gap:20px}.brand{display:flex;align-items:center;gap:15px}.brand-mark{width:23px;height:27px;stroke:#b9e8ff;stroke-width:1.45}.wordmark{font-size:25px;letter-spacing:-1.2px;font-weight:510}.mode{font-family:"SF Mono",Menlo,monospace;font-size:10px;letter-spacing:2px;color:var(--muted);border-left:1px solid #ffffff18;padding-left:17px;margin-left:4px}.top-actions{display:flex;align-items:center;gap:12px}.prototype-label{font-size:10px;letter-spacing:1px;color:var(--faint);margin-right:8px}.quiet-button{height:35px;display:flex;align-items:center;gap:8px;font-size:12px;color:#a4b3c5;padding:0 13px;border:1px solid #ffffff14;border-radius:9px;background:#ffffff03}.quiet-button:hover{background:#ffffff0c;color:var(--text);border-color:#ffffff28}.quiet-button[aria-pressed=true]{color:var(--blue);background:#70cfff10;border-color:#70cfff30}.icon-button{width:35px;height:35px;border-radius:9px;display:grid;place-items:center;color:#9daabd}.icon-button:hover{background:#ffffff0d;color:#e8f1ff}
+.stage{position:relative;min-height:405px}.greeting{position:absolute;top:24px;left:42px}.greeting p{color:#aab7c8;font-size:13px;letter-spacing:.3px}.greeting span{display:block;color:var(--faint);font-size:11px;margin-top:7px}.session-marker{position:absolute;right:42px;top:28px;display:flex;gap:7px;align-items:center;color:var(--faint);font:10px "SF Mono",Menlo,monospace;letter-spacing:1px}.tiny-dot{width:4px;height:4px;border-radius:50%;background:#75b1be;box-shadow:0 0 9px #9fecff35}.orb-zone{position:absolute;left:50%;top:48%;transform:translate(-50%,-50%);width:440px;text-align:center;z-index:2;pointer-events:none}.orb-button{position:relative;pointer-events:auto;width:330px;height:330px;display:block;padding:0;margin:-10px auto -29px;border-radius:50%;outline-offset:-30px!important}.orb-button:active .orb-surface{transform:scale(.988)}.orb-canvas{width:100%;height:100%;position:absolute;inset:0;pointer-events:none}.orb-fallback{display:none;position:absolute;width:220px;height:220px;left:55px;top:55px;border-radius:50%;background:radial-gradient(ellipse at 28% 25%,#d6faff 0,#5bd4ff40 13%,transparent 47%),radial-gradient(ellipse at 65% 73%,#65cfff80,transparent 52%),radial-gradient(circle,#14253a 40%,#42739f 67%,#9ddcff 72%,#102438 74%);box-shadow:0 0 60px #52bfff20,inset 0 0 35px #9be7ff50}.orb-button:hover .orb-fallback{box-shadow:0 0 70px #52bfff30,inset 0 0 35px #9be7ff50}.orb-state{display:flex;justify-content:center;align-items:center;gap:9px;font:9px "SF Mono",Menlo,monospace;letter-spacing:2.4px;color:#86bdcf;min-height:18px}.signal{height:11px;display:flex;gap:2px;align-items:center}.signal i{width:2px;height:3px;background:#9fdfff;border-radius:2px}.signal i:nth-child(2),.signal i:nth-child(4){height:6px}.signal i:nth-child(3){height:10px}.orb-zone h1{font-size:27px;font-weight:420;letter-spacing:1.2px;margin-top:15px;line-height:1.5}.orb-reply{font-size:12px;line-height:1.9;color:#8c9db1;max-width:360px;margin:8px auto 0;min-height:42px}.user-line{font-size:11px;color:#647a90;margin:12px auto 0;min-height:18px;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.user-line:empty{opacity:0}.user-line:before{content:"“"}.user-line:after{content:"”"}
+.deck{position:absolute;inset:94px 38px 10px;pointer-events:none;z-index:3}.rail{position:absolute;top:0;bottom:0;width:clamp(240px,24vw,310px);overflow:auto;scrollbar-width:thin;scrollbar-color:#ffffff17 transparent;pointer-events:none;padding:0 3px 20px}.rail-left{left:0}.rail-right{right:0}.card{pointer-events:auto;border:1px solid #a4c5eb19;border-radius:15px;margin-bottom:15px;background:linear-gradient(135deg,#161d27e8,#0e141deb);backdrop-filter:blur(16px);box-shadow:0 14px 40px #00000022;overflow:hidden;transition:border-color 160ms ease;transform-origin:center;opacity:1;transform:translateX(0) scale(1)}.card-slot{position:relative;display:flow-root;align-self:start;transform-origin:top left}.exiting-slot{pointer-events:none;z-index:1}.exiting-slot .card{pointer-events:none}.card:hover{border-color:#a4c5eb36}.card.pinned{border-color:#81c9e640}.card-header{height:47px;padding:0 15px;display:flex;align-items:center;gap:8px;color:#a7b6c9;font-size:10px;letter-spacing:.3px}.card-header>svg{width:14px;height:14px;color:#75c2e3}.card-kicker{flex:1}.card-actions{display:flex;gap:2px}.card-action{width:25px;height:27px;border-radius:6px;display:grid;place-items:center;color:#8190a4}.card-action svg{width:13px;height:13px}.card-action:hover{background:#ffffff10;color:#e0f2ff}.card-action[aria-pressed=true]{color:#9fdfff}.card-body{padding:0 18px 17px}.card h2{font-size:17px;font-weight:500;letter-spacing:-.3px}.card-description{font-size:11px;color:#8d9caf;margin-top:7px;line-height:1.7}.card-footer{border-top:1px solid #ffffff0b;display:flex;align-items:center;justify-content:space-between;padding:11px 16px;font-size:10px;color:#8597ac}.card-footer button,.card-footer a{display:flex;align-items:center;gap:5px;color:#a3cada;border-radius:5px;padding:3px 2px}.card-footer button:hover,.card-footer a:hover{color:#def6ff}.card-footer svg{width:12px;height:12px}.sample-label{font-size:9px;color:#8795a8;border:1px solid #ffffff12;padding:2px 5px;border-radius:4px;white-space:nowrap}
+.project-line{display:flex;align-items:center;justify-content:space-between}.progress-value{font:25px "SF Mono",Menlo,monospace;font-weight:300;letter-spacing:-1.4px;color:#d4edfa}.progress-value span{font-size:12px;color:#7d93a7;margin-left:2px}.progress-track{height:3px;background:#ffffff0c;border-radius:4px;margin-top:16px;overflow:hidden}.progress-fill{height:100%;width:72%;background:linear-gradient(90deg,#367ea1,#96eaff);box-shadow:0 0 12px #71d3ff55}.task-list{display:grid;gap:12px;margin-top:18px}.task-row{display:flex;align-items:center;gap:9px;color:#8f9eb0;font-size:11px}.task-row svg{width:13px;height:13px;color:#789aab}.task-row.current{color:#d0e4f3}.task-row.current .activity{width:6px;height:6px;border-radius:50%;background:#97dfff;margin:0 3px;box-shadow:0 0 8px #80d3ff45}.task-row .tag{margin-left:auto;font-size:9px;color:#659cb4;border:1px solid #7ac9ef21;background:#7ac9ef08;padding:2px 5px;border-radius:4px}.task-row.pending{color:#718094}.task-row .empty-circle{width:9px;height:9px;border:1px solid #506175;border-radius:50%;margin:0 2px}
+.web-visual{height:104px;position:relative;overflow:hidden;margin:0 15px 13px;border-radius:8px;background:#c7cee0;color:#1a2246;display:grid;place-items:center}.web-visual:before{content:"";position:absolute;inset:-40%;background:radial-gradient(ellipse at 23% 72%,#95b7fd,transparent 34%),radial-gradient(ellipse at 64% 17%,#ffc5c3,transparent 38%),radial-gradient(ellipse at 76% 90%,#b297e3,transparent 40%),#e2e7f1;transform:rotate(-12deg)}.web-visual span{position:relative;font-size:23px;font-weight:600;letter-spacing:-1.1px}.web-domain{display:flex;align-items:center;gap:6px;font-size:10px;color:#93a2b6;margin-bottom:8px}.web-domain svg{width:11px;height:11px}.web-card h2{font-size:14px;line-height:1.6}.web-card .card-body{padding-bottom:14px}
+.file-list{display:grid;gap:2px;padding:0 9px 9px}.file-row{display:flex;width:100%;align-items:center;gap:10px;padding:10px 8px;text-align:left;border-radius:8px;min-height:52px}.file-row:hover{background:#ffffff08}.file-icon{width:30px;height:35px;display:grid;place-items:center;background:#91b7dc0a;border:1px solid #91b7dc17;border-radius:6px;color:#b4c6dc;font:8px "SF Mono",Menlo,monospace}.file-name{flex:1;min-width:0}.file-name strong{display:block;font-size:11px;font-weight:450;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.file-name span{display:block;font-size:9px;color:#73869d;margin-top:4px}.file-arrow{width:12px;height:12px;color:#6c8198}.media-card .card-header{height:42px}.artwork{display:block;width:100%;height:auto}.media-view{position:relative;margin:0 12px 12px;overflow:hidden;border-radius:8px;background:#09131e}.image-view{padding:0;display:block;width:calc(100% - 24px)}.image-view:after{content:"查看大图 ↗";position:absolute;bottom:10px;right:10px;background:#071017ad;backdrop-filter:blur(8px);padding:5px 8px;border-radius:5px;font-size:9px;color:#cae6f5;opacity:0;transition:opacity 150ms ease}.image-view:focus-visible:after{opacity:1}.media-title{font-size:11px;font-weight:450}.media-meta{font-size:9px;color:#71879c;margin-top:4px}.video-preview{width:100%;display:block;aspect-ratio:16/9}.video-overlay{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}.play-video{pointer-events:auto;width:42px;height:42px;border:1px solid #c8e5ff3d;background:#1827339c;border-radius:50%;display:grid;place-items:center;backdrop-filter:blur(8px);color:#e1f4ff}.play-video:hover{background:#38566ca6}.play-video svg{margin-left:2px;width:16px;height:16px}.video-running .video-overlay{opacity:0}.video-running:hover .video-overlay,.video-running:focus-within .video-overlay{opacity:1}.video-controls{position:absolute;left:12px;right:12px;bottom:9px;display:flex;gap:8px;align-items:center}.video-time{font:8px "SF Mono",Menlo,monospace;color:#c4dbea;min-width:30px}.video-controls input{appearance:none;height:2px;width:100%;accent-color:#bbeaff;cursor:pointer;background:#b2d4ef40;border-radius:4px}.video-controls input::-webkit-slider-thumb{appearance:none;width:6px;height:6px;border-radius:50%;background:#bbebff}
+.composer-area{position:relative;z-index:5;padding:7px 24px 20px;display:grid;justify-items:center;gap:18px}.suggestions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}.suggestion{display:flex;align-items:center;gap:7px;font-size:11px;color:#9aaabd;border-radius:8px;border:1px solid #ffffff11;background:#ffffff03;padding:9px 11px;min-height:35px}.suggestion svg{width:13px;height:13px;color:#83a2b7}.suggestion:hover{color:#d3eaf7;background:#8bbddb0b;border-color:#8bbddb30}.suggestion[aria-pressed=true]{color:#a5d9ef;border-color:#8bbddb38;background:#8bbddb0b}.composer{width:min(590px,100%);display:flex;align-items:center;gap:12px;padding:9px 10px 9px 17px;background:linear-gradient(110deg,#17212cc7,#111920d9);border:1px solid #b7d4ee1f;border-radius:15px;box-shadow:0 10px 45px #00000030,inset 0 1px #ffffff04;backdrop-filter:blur(16px)}.composer:focus-within{border-color:#82caec60}.composer>svg{width:18px;height:18px;color:#92c4db}.composer input{color:#d8e6f2;background:transparent;flex:1;width:0;outline:none!important;border:0;height:32px;font-size:12px;letter-spacing:.2px}.composer input::placeholder{color:#7790a7}.composer .divider{width:1px;height:18px;background:#ffffff13}.mic-button{height:34px;width:34px;display:grid;place-items:center;border-radius:9px;color:#9ec3d5}.mic-button:hover{color:#d9f5ff;background:#8dd5ed13}.mic-button[aria-pressed=true]{color:#a9eaff;background:#6ac9fc21;box-shadow:0 0 16px #70cfff18}.send-button{height:32px;width:32px;background:#a6d2e91a;border:1px solid #a6d2e916;color:#bbe3f4;display:grid;place-items:center;border-radius:9px}.send-button:hover:not(:disabled){background:#a6d2e933}.send-button svg{width:15px;height:15px}.composer-hint{font-size:9px;color:#65778c;letter-spacing:.4px;display:flex;align-items:center;gap:6px}.composer-hint kbd{font:9px "SF Mono",Menlo,monospace;color:#8b9fb4;border:1px solid #ffffff12;padding:2px 4px;border-radius:4px}.bottom-bar{display:flex;align-items:center;justify-content:space-between;margin:0 40px;color:#66798f;font-size:9px;letter-spacing:.4px}.bottom-left{display:flex;align-items:center;gap:14px}.clear-button{font-size:9px;color:#91a4bb;padding:6px;border-radius:5px}.clear-button:hover{background:#ffffff08;color:#c6deef}.bottom-right{display:flex;align-items:center;gap:7px;font:8px "SF Mono",Menlo,monospace;letter-spacing:1.8px}.toast{position:fixed;bottom:24px;left:50%;transform:translate(-50%,10px);opacity:0;pointer-events:none;max-width:min(480px,calc(100% - 40px));padding:12px 17px;background:#233241f2;border:1px solid #ffffff22;border-radius:10px;color:#d8e9f5;font-size:12px;z-index:30;box-shadow:0 8px 35px #0008;transition:opacity 160ms ease,transform 180ms var(--ease)}.toast.visible{opacity:1;transform:translate(-50%,0)}
+dialog{width:min(660px,calc(100% - 32px));max-height:85svh;margin:auto;padding:0;background:#101823;color:var(--text);border:1px solid #c0daff2a;border-radius:20px;box-shadow:0 30px 100px #0009}dialog::backdrop{background:#02070bbb;backdrop-filter:blur(8px)}.dialog-header{position:sticky;top:0;display:flex;align-items:center;justify-content:space-between;padding:20px 25px;background:#101823f2;border-bottom:1px solid #ffffff0c;z-index:2}.dialog-header h2{font-size:16px;font-weight:500}.dialog-body{padding:25px;line-height:1.85;color:#a8b9cc;font-size:13px}.dialog-body h3{color:#e5effa;font-size:19px;font-weight:500;margin-bottom:12px;letter-spacing:-.4px}.dialog-body p+p{margin-top:13px}.dialog-body .artwork{border-radius:10px;margin-bottom:16px}.dialog-body .note{font-size:11px;color:#7c91a9;margin-top:18px;border-top:1px solid #ffffff12;padding-top:15px}.dialog-body ul{padding-left:18px}.dialog-body a{color:#9ed7f0;text-decoration:underline;text-underline-offset:4px}.dialog-body .number-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}.number-grid>div{background:#ffffff04;border:1px solid #ffffff10;border-radius:10px;padding:16px}.number-grid strong{display:block;font:24px "SF Mono",Menlo,monospace;color:#cbe9fa}.number-grid span{font-size:10px;color:#7d94ac}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(min-height:900px) and (min-width:1000px){.app{grid-template-rows:92px minmax(540px,1fr) auto 44px}.orb-zone{top:47%}.orb-button{width:420px;height:420px;margin:-15px auto -12px}.orb-fallback{width:270px;height:270px;left:75px;top:75px}.deck{inset:123px 54px 28px}.greeting{left:58px;top:36px}.session-marker{right:58px;top:40px}.topbar{padding:0 54px}.composer-area{padding-bottom:25px;gap:20px}.bottom-bar{margin:0 55px}}
+@media(max-width:1120px) and (min-width:921px){.rail{width:238px}.deck{left:25px;right:25px}.orb-zone{width:380px}.orb-button{width:330px;height:330px}.orb-zone h1{font-size:24px}.orb-reply{max-width:300px}.orb-fallback{width:210px;height:210px;left:60px;top:60px}}
+@media(max-width:920px){.app{grid-template-rows:72px 1fr auto 42px;overflow:visible}.topbar{padding:0 23px}.mode{font-size:8px;letter-spacing:1.5px}.prototype-label{display:none}.stage{padding:0 22px 25px;min-height:520px}.greeting{left:26px;top:14px}.session-marker{right:26px;top:17px;font-size:8px}.orb-zone{position:relative;left:auto;top:auto;transform:none;margin:48px auto 5px;width:min(420px,100%)}.orb-button{width:320px;height:320px;margin:0 auto -16px}.orb-fallback{width:210px;height:210px;left:55px;top:55px}.orb-zone h1{font-size:25px}.deck{position:relative;inset:auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:22px auto 0;max-width:680px}.rail{display:contents}.card{margin:0;align-self:start}.composer-area{padding-top:0}.bottom-bar{margin:0 24px}.orb-reply{min-height:30px}}
+@media(max-width:520px){.topbar{padding:0 18px;gap:5px}.brand{gap:9px}.wordmark{font-size:23px}.mode{font-size:7px;padding-left:11px;margin-left:0}.top-actions{gap:3px}.quiet-button{padding:0 8px;font-size:10px;height:33px}.quiet-button svg{width:12px;height:12px}.top-actions .icon-button{width:31px}.top-actions #voice-toggle{display:none}.greeting{left:22px}.greeting p{font-size:11px}.greeting span{font-size:9px}.session-marker{font-size:7px;right:22px}.orb-button{width:300px;height:300px}.orb-fallback{width:195px;height:195px;left:52.5px;top:52.5px}.orb-zone h1{font-size:23px}.orb-reply{font-size:11px;max-width:290px}.orb-zone{margin-top:55px}.stage{padding:0 17px 20px;min-height:495px}.deck{grid-template-columns:1fr;max-width:340px}.suggestions{gap:7px;max-width:355px}.suggestion{font-size:10px;padding:8px 10px}.composer-area{padding:0 17px 18px;gap:15px}.composer{padding-left:13px;gap:9px}.composer input{font-size:11px}.composer-hint{font-size:8px}.bottom-bar{margin:0 20px}.bottom-right{font-size:6px;letter-spacing:1px}.number-grid>div{padding:10px}.number-grid strong{font-size:20px}}
+@media(hover:hover) and (pointer:fine){.image-view:hover:after{opacity:1}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important}.card,.toast{transition:opacity 120ms ease!important}.card.entering,.card.leaving,.rail-left .card.entering,.rail-left .card.leaving{transform:none}.orb-button:active,button:active:not(:disabled){transform:none!important}}
+body[data-input="keyboard"] button:active{transform:none!important}body[data-input="keyboard"] .toast{transition:none;transform:translate(-50%,0)}
+@media(prefers-reduced-transparency:reduce){.card,.composer{background:#141d28;backdrop-filter:none}dialog::backdrop{backdrop-filter:none;background:#030810ed}}
+@media(prefers-contrast:more){:root{--muted:#b9c9dd;--faint:#a2b7d0;--border:#ffffff65}.card,.composer,.quiet-button,.suggestion{border-color:#99c4e970}.card-description,.orb-reply,.file-name span,.composer-hint,.bottom-bar{color:#b5c9dd}}
+.orb-button{transform-origin:top left}.presentation{position:fixed;inset:0 0 86px;z-index:8;display:grid;grid-template-rows:52px minmax(0,1fr);background:#0b111a}
+.viewer-toolbar{display:flex;align-items:center;gap:18px;padding:0 23px;background:#0b111af5;border-bottom:1px solid #ffffff12;min-width:0}
+.viewer-back{height:32px;display:flex;align-items:center;gap:7px;padding:0 10px;border-radius:7px;background:#ffffff04;color:#adbecf;font-size:11px;white-space:nowrap}.viewer-back:hover{background:#ffffff0d;color:#e7f3ff}.viewer-back svg{width:14px;height:14px;transform:rotate(180deg)}
+.viewer-context{display:flex;align-items:center;gap:9px;min-width:0;flex:1}.viewer-context svg{width:13px;height:13px;color:#8faac3}.viewer-context h2{font-size:11px;font-weight:450;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.viewer-badge{font-size:8px;letter-spacing:.5px;color:#718ba3;border:1px solid #ffffff12;border-radius:4px;padding:3px 5px;white-space:nowrap}.viewer-actions{display:flex;align-items:center;gap:13px;margin-left:auto;font-size:10px;color:#90a9c0}.viewer-actions a{display:flex;align-items:center;gap:5px;padding:5px;border-radius:4px}.viewer-actions a:hover{color:#d4edff;background:#ffffff08}.viewer-actions svg{width:12px;height:12px}.viewer-escape{color:#647c92;font:9px Menlo,monospace}
+.viewer-content{overflow:auto;overscroll-behavior:contain;min-height:0;scrollbar-width:thin;scrollbar-color:#68839b40 transparent}.viewer-content:focus{outline:none}.artwork{stroke:none}.viewer-content[data-kind=web],.viewer-content[data-kind=files]{background:#f7f8fb;color:#252934}
+.app[data-view=content]{height:100svh;min-height:0;overflow:hidden}
+.app[data-view=content] .orb-zone{position:fixed;left:14px;bottom:0;top:auto;transform:none;margin:0;width:340px;height:86px;display:grid;grid-template-columns:91px minmax(0,1fr);grid-template-rows:19px 20px 19px;align-content:center;text-align:left;z-index:11}
+.app[data-view=content] .orb-button{width:100px;height:100px;margin:-7px 0;grid-column:1;grid-row:1/4;align-self:center;outline-offset:-10px!important}.app[data-view=content] .orb-fallback{width:68px;height:68px;left:16px;top:16px}
+.app[data-view=content] .orb-state{grid-column:2;grid-row:1;justify-content:flex-start;font-size:7px;letter-spacing:1px;gap:6px;min-height:0}.app[data-view=content] .signal{transform:scale(.8);transform-origin:left center;margin-right:-2px}
+.app[data-view=content] .orb-zone h1{grid-column:2;grid-row:2;font-size:13px;letter-spacing:.2px;line-height:20px;margin:0;font-weight:450}.app[data-view=content] .orb-reply{grid-column:2;grid-row:3;margin:2px 0 0;max-width:230px;min-height:0;font-size:9px;line-height:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#8fa5ba}.app[data-view=content] .user-line{display:none}
+.app[data-view=content] .composer-area{position:fixed;z-index:11;right:24px;bottom:17px;width:min(530px,calc(100vw - 395px));padding:0;display:block}.app[data-view=content] .suggestions,.app[data-view=content] .composer-hint{display:none}.app[data-view=content] .composer{width:100%;border-radius:12px;padding:7px 9px 7px 14px}.app[data-view=content] .composer input{font-size:11px}.app[data-view=content]:after{content:"";position:fixed;inset:auto 0 0;height:86px;background:#080e16;border-top:1px solid #b0d8ef16;z-index:9;pointer-events:none}
+.web-page{background:#fbfbfd;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}.web-navigation{height:49px;border-bottom:1px solid #282b3412;display:flex;align-items:center;justify-content:space-between;gap:20px;padding:0 max(30px,calc((100% - 980px)/2));color:#454955;background:#ffffffad}.web-navigation strong{font-size:16px;font-weight:600;letter-spacing:-.4px;white-space:nowrap}.web-nav-links{display:flex;gap:25px}.web-nav-links button{font-size:11px;color:#606574;border-radius:4px;padding:6px}.web-nav-links button:hover{color:#111b2a;background:#14223907}
+.web-hero{position:relative;min-height:440px;padding:65px 25px 78px;text-align:center;overflow:hidden;background:radial-gradient(ellipse at 22% 44%,#c7e3ff80,transparent 48%),radial-gradient(ellipse at 78% 10%,#f8d5dc8f,transparent 45%),radial-gradient(ellipse at 78% 99%,#dfd5f678,transparent 55%),#f7f8fc}
+.web-eyebrow{font-size:18px;font-weight:600;letter-spacing:-.5px;color:#626679}.web-hero h1{font-size:clamp(43px,5.8vw,78px);line-height:1.16;letter-spacing:-2.5px;font-weight:650;margin:22px 0;color:#252c3a}.web-hero h1 span{background:linear-gradient(100deg,#4485b6,#8575bd 53%,#bb8594);background-clip:text;-webkit-background-clip:text;color:transparent}.web-hero>p:last-child{font-size:15px;line-height:1.9;color:#6f7586;max-width:520px;margin:0 auto}.web-story{max-width:1060px;margin:0 auto;padding:60px 38px 64px}.web-section-heading{font-size:30px;font-weight:600;letter-spacing:-1px;line-height:1.5;color:#252c3a}.web-story>p{font-size:14px;color:#7b8090;line-height:1.9;margin:12px 0 27px}.web-feature-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.web-feature{border:1px solid #2939550d;border-radius:18px;background:#fff;padding:25px 23px 28px;box-shadow:0 4px 20px #22395903}.web-feature>svg{width:23px;height:23px;color:#708ab6;margin-bottom:20px}.web-feature h3{font-size:17px;font-weight:600;letter-spacing:-.4px;margin-bottom:11px}.web-feature p{font-size:12px;line-height:1.85;color:#7d8494}.web-privacy{background:#eff2f8;padding:62px max(38px,calc((100% - 984px)/2)) 75px}.web-privacy .web-eyebrow{font:9px Menlo,monospace;letter-spacing:2.5px;color:#7990ad}.web-privacy h2{margin-top:17px}.web-privacy>p:last-child{font-size:14px;color:#788499;line-height:1.95;max-width:620px;margin-top:15px}.web-bottom-note{font-size:10px;color:#8d95a4;text-align:center;padding:23px 20px;border-top:1px solid #2239590b}
+.document-shell{display:grid;grid-template-columns:210px minmax(0,1fr);gap:65px;max-width:1090px;margin:0 auto;padding:45px 40px 70px}.document-sidebar{align-self:start;position:sticky;top:35px}.document-sidebar>p{font-size:10px;color:#939aaa;margin:0 10px 17px}.document-sidebar button{width:100%;display:flex;align-items:center;gap:8px;text-align:left;padding:12px 10px;border-radius:7px;font-size:11px;color:#7d8799;margin:3px 0}.document-sidebar button svg{width:13px;height:13px}.document-sidebar button:hover{background:#20375d06;color:#3a5075}.document-sidebar button[aria-current=true]{color:#3e5e8b;background:#3761950b}.document-content{min-width:0}.document-content .file-meta{font:9px Menlo,monospace;color:#8a97aa;letter-spacing:1px;margin-bottom:17px}.document-content>h1{font-size:31px;font-weight:600;letter-spacing:-1px;line-height:1.5;margin-bottom:25px}.document-text{font-size:15px;color:#626f83;line-height:2}.document-text h3{font-size:21px;font-weight:550;color:#36435b;margin:25px 0 12px;letter-spacing:-.5px}.document-text p+p{margin-top:19px}.document-text ul{padding-left:20px}.document-note{margin-top:34px;padding-top:17px;border-top:1px solid #21385212;color:#95a0af;font-size:10px}.document-end{margin-top:34px;width:30px;height:2px;background:#93a8c4}
+.full-image{height:100%;display:grid;grid-template-rows:minmax(0,1fr) 23px;gap:15px;padding:23px 35px 20px;background:radial-gradient(ellipse at center,#1a304438,#050a13 70%)}.full-image-stage{min-height:0;display:flex;align-items:center;justify-content:center}.full-image-stage .artwork{width:100%;height:100%;max-width:1100px}.full-image p{text-align:center;font-size:10px;letter-spacing:.7px;color:#8ba6c0}
+.viewer-content[data-kind=video]{overflow:hidden;background:#030710}.viewer-content .cinema-frame{width:100%;height:100%;margin:0;border-radius:0;display:flex;align-items:center;justify-content:center;background:#030710}.cinema-frame .video-preview{width:100%;height:100%;object-fit:contain;aspect-ratio:auto}.cinema-frame .play-video{width:62px;height:62px}.cinema-frame .play-video svg{width:22px;height:22px}.cinema-frame .video-controls{bottom:22px;left:32px;right:32px;gap:15px}.cinema-frame .video-time{font-size:10px;min-width:36px}.cinema-frame .video-controls input{height:3px}.cinema-frame .video-controls input::-webkit-slider-thumb{width:9px;height:9px}
+.full-progress{max-width:1030px;margin:0 auto;padding:55px 45px 70px}.full-progress .viewer-badge{display:inline-block}.full-progress h1{font-size:36px;letter-spacing:-1px;margin:22px 0 12px;font-weight:500}.full-progress>p{font-size:13px;color:#8c9fb6;line-height:1.9}.full-progress .number-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin:30px 0}.full-progress .number-grid>div{padding:27px;background:#1220338a}.full-progress .number-grid strong{font-size:32px}.full-progress .task-list{margin-top:30px;gap:0}.full-progress .task-row{font-size:13px;padding:19px 0;border-bottom:1px solid #a1c7ff12}.full-progress h2{font-size:17px;font-weight:500;margin-top:32px}.full-progress .progress-track{height:4px}
+@media(max-width:650px){.presentation{bottom:116px;grid-template-rows:48px minmax(0,1fr)}.viewer-toolbar{gap:9px;padding:0 11px}.viewer-badge,.viewer-escape{display:none}.viewer-back{font-size:10px;padding:0 8px}.viewer-context{gap:6px}.viewer-context h2{font-size:10px}.viewer-actions{gap:5px;font-size:9px}.app[data-view=content]:after{height:116px}.app[data-view=content] .orb-zone{left:8px;bottom:57px;width:calc(100% - 20px);height:59px;grid-template-columns:64px 1fr;grid-template-rows:16px 18px 15px}.app[data-view=content] .orb-button{width:75px;height:75px;margin:0}.app[data-view=content] .orb-fallback{width:50px;height:50px;left:12.5px;top:12.5px}.app[data-view=content] .orb-reply{max-width:calc(100vw - 105px)}.app[data-view=content] .composer-area{left:17px;right:17px;bottom:10px;width:auto}.app[data-view=content] .composer{padding:3px 7px 3px 12px}.web-navigation{padding:0 18px}.web-navigation strong{font-size:13px}.web-nav-links{gap:3px}.web-nav-links button{font-size:9px;padding:5px}.web-hero{min-height:390px;padding:54px 22px}.web-hero h1{letter-spacing:-1.5px}.web-hero>p:last-child{font-size:12px}.web-story{padding:35px 22px}.web-section-heading{font-size:23px}.web-feature-grid{grid-template-columns:1fr}.web-privacy{padding:37px 22px}.document-shell{grid-template-columns:1fr;gap:23px;padding:25px 22px 50px}.document-sidebar{position:static;display:flex;flex-wrap:wrap;gap:5px}.document-sidebar>p{display:none}.document-sidebar button{width:auto;font-size:9px;padding:8px;margin:0}.document-content>h1{font-size:26px}.document-text{font-size:13px}.full-image{padding:15px;gap:10px}.full-image p{font-size:8px}.full-progress{padding:30px 22px}.full-progress h1{font-size:29px}.full-progress .number-grid>div{padding:15px}.full-progress .number-grid strong{font-size:25px}.cinema-frame .video-controls{left:18px;right:18px}}
+@media(prefers-reduced-transparency:reduce){.viewer-toolbar{background:#0b111a}.web-navigation{background:#fff}}
+
+/* 内容和助手共享一次连续转换；阅读区本身只做轻微位移与淡入。 */
+.orb-zone{z-index:12}.orb-button{transform-origin:top left;transition:none}.orb-surface{display:block;position:absolute;inset:0;border-radius:50%;transition:transform 120ms var(--ease)}
+.orb-copy{width:100%}.app[data-view=content] .orb-copy{grid-column:2;grid-row:1/4;align-self:center}.composer{transform-origin:top left}
+.overview-node{transition:opacity 220ms var(--ease),visibility 0s linear}.app[data-view=content] .overview-node{opacity:0;visibility:hidden;pointer-events:none;transition:opacity 220ms var(--ease),visibility 0s linear 220ms}
+.presentation{opacity:0;visibility:hidden;pointer-events:none;transform:translateY(12px) scale(.985);transform-origin:50% 100%;transition:opacity 240ms var(--ease),transform 280ms var(--ease),visibility 0s linear 280ms;will-change:transform,opacity}
+.app[data-view=content] .presentation{opacity:1;visibility:visible;pointer-events:auto;transform:none;transition:opacity 280ms var(--ease) 60ms,transform 280ms var(--ease) 60ms,visibility 0s linear}
+.app[data-view=content]:after{content:none}.assistant-dock{position:fixed;inset:auto 0 0;height:86px;z-index:9;pointer-events:none;opacity:0;background:linear-gradient(110deg,#0b1520,#080e16 70%);border-top:1px solid #b0d8ef16;transition:opacity 240ms var(--ease)}
+.assistant-dock:before{content:"";position:absolute;top:-1px;left:0;width:360px;height:1px;background:linear-gradient(90deg,transparent,#85dfff45 23%,#85dfff18 55%,transparent)}.app[data-view=content] .assistant-dock{opacity:1}
+
+.motion-ghost{pointer-events:none!important;overflow:hidden}.orb-copy .orb-state,.orb-copy h1,.orb-copy .orb-reply{backface-visibility:hidden}
+.app.motion-instant .presentation,.app.motion-instant .overview-node,.app.motion-instant .assistant-dock{transition:none}
+@keyframes signal-flow{from{transform:scaleY(.5);opacity:.55}to{transform:scaleY(1.15);opacity:1}}
+.app[data-state=listening] .signal i,.app[data-state=speaking] .signal i{animation:signal-flow 900ms ease-in-out infinite alternate}.signal i:nth-child(2){animation-delay:-180ms!important}.signal i:nth-child(3){animation-delay:-360ms!important}.signal i:nth-child(4){animation-delay:-540ms!important}.signal i:nth-child(5){animation-delay:-720ms!important}
+body[data-input=keyboard] .orb-button:active .orb-surface{transform:none}
+@media(max-width:650px){.assistant-dock{height:116px}.assistant-dock:before{width:230px}}
+@media(prefers-reduced-motion:reduce){.presentation,.app[data-view=content] .presentation{transform:none;transition:opacity 120ms ease}.overview-node,.assistant-dock{transition:opacity 120ms ease}.orb-surface{transition:none}.orb-button:active .orb-surface{transform:none}.app .signal i{animation:none}}
+
+
+/* 黑色玻璃：通过材质重量、边缘反光和清晰文字表达层级。 */
+.app{background:#000}.app:before{content:none}.rail{overflow-x:hidden}.topbar{padding-inline:38px}.brand{gap:12px}.brand-mark{stroke:#e8edf4}.wordmark{font-size:27px;letter-spacing:-1px;font-weight:500}.top-actions{gap:10px}
+.quiet-button,.top-actions .icon-button{background:linear-gradient(145deg,#ffffff0d,#ffffff03);border:1px solid #ffffff17;box-shadow:inset 0 1px #ffffff09;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);color:#bbbfc7;border-radius:999px}
+.quiet-button{height:36px;padding-inline:14px;font-size:11px}.top-actions .icon-button{width:36px;height:36px}.top-actions .icon-button svg{width:16px;height:16px}
+.quiet-button:hover,.top-actions .icon-button:hover{background:#ffffff13;border-color:#ffffff30;color:#fff}.quiet-button[aria-pressed=true]{background:#ffffff15;border-color:#ffffff34;color:#fff}
+.orb-zone h1{font-size:32px;font-weight:500;letter-spacing:-.8px;line-height:1.45;margin-top:17px;color:#f5f6f8}.orb-reply{font-size:14px;line-height:1.9;color:#a3a7b0;margin-top:12px;min-height:30px}.user-line{color:#8b909a;font-size:11px}
+.orb-state{font:11px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;letter-spacing:.2px;color:#afb9c9;min-height:18px}.app:not([data-state]) .orb-state,.app[data-state=idle] .orb-state{visibility:hidden}
+.composer-area{gap:18px;padding-bottom:22px}.suggestions{gap:10px}.suggestion{border-radius:999px;border-color:#ffffff1c;background:linear-gradient(150deg,#ffffff0b,#ffffff03);box-shadow:inset 0 1px #ffffff05;color:#adb1ba;padding:10px 16px;font-size:12px;min-height:37px;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}.suggestion svg{color:#abb5c4}
+.suggestion:hover{background:#ffffff12;border-color:#ffffff3d;color:#f8f9fb}.suggestion[aria-pressed=true]{background:#ffffff13;border-color:#ffffff35;color:#edf3fc}
+.composer{width:min(620px,100%);padding:11px 11px 11px 23px;gap:10px;border-radius:999px;border-color:#ffffff26;background:radial-gradient(ellipse at 18% 0,#dce7ff0c,transparent 63%),linear-gradient(145deg,#ffffff13,#ffffff05 48%,#ffffff08);box-shadow:inset 0 1px #ffffff1d,inset 0 -1px #ffffff04,0 12px 45px #0009;backdrop-filter:blur(26px) saturate(140%);-webkit-backdrop-filter:blur(26px) saturate(140%)}
+.composer:focus-within{border-color:#d1e4ff70;box-shadow:inset 0 1px #ffffff28,0 0 0 3px #a3c5ef08,0 12px 45px #0009}.composer input{font-size:14px;height:36px;letter-spacing:0;color:#f3f4f6}.composer input::placeholder{color:#a0a4ad}
+.mic-button,.send-button{width:36px;height:36px;border-radius:50%;color:#c9ced7}.mic-button:hover{background:#ffffff12;color:#fff}.send-button{background:#ffffff17;border-color:#ffffff16}.send-button:hover:not(:disabled){background:#ffffff29;color:#fff}.send-button:disabled{opacity:.25}.mic-button[aria-pressed=true]{background:#c9ddff18;color:#dfedff;box-shadow:0 0 16px #b9d5ff12}
+.composer-hint{font-size:11px;letter-spacing:0;color:#8a8e97}.bottom-bar{justify-content:center;font-size:11px;color:#91969f}.bottom-left{gap:12px}.clear-button{font-size:11px;color:#bac0c9;padding:5px 8px}.app:not([data-has-cards=true]) .bottom-bar{visibility:hidden}
+.card{border-radius:22px;border-color:#ffffff22;background:radial-gradient(ellipse at 12% 0,#ffffff0a,transparent 64%),linear-gradient(145deg,#ffffff12,#ffffff03 45%,#ffffff06),#11131899;box-shadow:inset 0 1px #ffffff15,inset 0 -1px #ffffff03,0 18px 60px #0006;backdrop-filter:blur(26px) saturate(130%);-webkit-backdrop-filter:blur(26px) saturate(130%)}
+.card:hover{border-color:#ffffff40}.card.pinned{border-color:#c4d9f267}.card-header{color:#b3b7c0}.card-header>svg{color:#bac5d5}.card h2{color:#f2f4f7}.card-description{color:#a6abb6}.card-footer{color:#999fab;border-color:#ffffff0d}.card-footer button,.card-footer a{color:#c1ccdc}.card-footer button:hover,.card-footer a:hover{color:#fff}.card-action:hover{background:#ffffff15;color:#fff}.sample-label{color:#9ca3ae}
+.file-icon{background:#ffffff08;border-color:#ffffff16;color:#c6ccd7}.file-name strong{color:#e3e7ed}.file-name span{color:#969eaa}.file-row:hover{background:#ffffff0c}.task-row{color:#a5adba}.task-row.current{color:#e4ecf7}.task-row.pending{color:#929ba9}.media-meta{color:#929ba9}
+.web-visual{background:#101319;color:#eef3fc}.web-visual:before{background:radial-gradient(ellipse at 27% 65%,#344f7680,transparent 46%),radial-gradient(ellipse at 83% 17%,#58647460,transparent 48%),#11151d}.web-visual span{font-size:21px;letter-spacing:-.7px}
+.presentation{background:#000}.viewer-content[data-kind=web],.viewer-content[data-kind=files]{background:#050607;color:#eff1f5}.viewer-content{scrollbar-color:#ffffff24 transparent}
+.viewer-toolbar{background:#111215a6;backdrop-filter:blur(26px) saturate(130%);-webkit-backdrop-filter:blur(26px) saturate(130%);border-color:#ffffff10}.viewer-back{border-radius:999px;background:#ffffff08;border:1px solid #ffffff13;color:#c1c6cf}.viewer-back:hover{background:#ffffff14;color:#fff}.viewer-context h2{color:#cdd1d9}.viewer-badge{color:#989da6}.viewer-escape{color:#8c919a}.viewer-actions a{color:#bac4d3}
+.assistant-dock{background:linear-gradient(110deg,#0c0d10b8,#030405df);border-color:#ffffff14;backdrop-filter:blur(26px);-webkit-backdrop-filter:blur(26px)}.assistant-dock:before{background:linear-gradient(90deg,transparent,#e0eaff35 23%,#e0eaff0a 55%,transparent)}
+.app[data-view=content] .composer{border-radius:999px;padding:7px 9px 7px 18px}.app[data-view=content] .composer input{font-size:12px}.app[data-view=content] .orb-zone h1{font-size:13px;letter-spacing:0;color:#f1f3f6}.app[data-view=content] .orb-reply{color:#a2a8b2}.app[data-view=content] .orb-state{font-size:9px;letter-spacing:0}
+.web-page{background:#050607;color:#f1f3f7}.web-navigation{position:sticky;top:0;z-index:2;background:#111216b3;color:#d5d9e1;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-color:#ffffff0d}.web-nav-links button{color:#acb2bd}.web-nav-links button:hover{color:#fff;background:#ffffff0d}
+.web-hero{background:radial-gradient(ellipse at 50% 78%,#26374730,transparent 58%),#050607}.web-eyebrow{color:#aeb6c5}.web-hero h1{color:#f5f6f8;font-weight:600}.web-hero h1 span{background-image:linear-gradient(105deg,#f1f5fa,#9fb8dc)}.web-hero>p:last-child{color:#a3aab7}.web-section-heading{color:#f1f3f7}.web-story>p{color:#a1a9b6}
+.web-feature{background:linear-gradient(145deg,#ffffff0c,#ffffff03);border-color:#ffffff18;box-shadow:inset 0 1px #ffffff0b;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:22px}.web-feature>svg{color:#afc1da}.web-feature p{color:#a2abb9}.web-privacy{background:#101216}.web-privacy .web-eyebrow{color:#9ba9bd}.web-privacy>p:last-child{color:#a5adbb}.web-bottom-note{color:#8d95a1;border-color:#ffffff0c}
+.document-sidebar{padding:10px 8px;border:1px solid #ffffff16;border-radius:18px;background:linear-gradient(145deg,#ffffff0c,#ffffff03);box-shadow:inset 0 1px #ffffff09;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}.document-sidebar>p{color:#979fae}.document-sidebar button{color:#acb4c2;border-radius:10px}.document-sidebar button:hover{background:#ffffff0b;color:#f2f5fa}.document-sidebar button[aria-current=true]{background:#ffffff12;color:#e1eaf7}
+.document-content .file-meta,.document-end{display:none}.document-content>h1{color:#f2f4f7}.document-text{color:#b1b9c7}.document-text h3{color:#e8edf5}.document-note{border-color:#ffffff12;color:#9ba4b2}
+.full-image{background:#020304}.viewer-content[data-kind=video],.viewer-content .cinema-frame{background:#020304}.full-progress .number-grid>div{background:linear-gradient(145deg,#ffffff0e,#ffffff03);border-color:#ffffff17;box-shadow:inset 0 1px #ffffff0a;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:20px}.full-progress>p{color:#a7b0bd}.full-progress .task-row{border-color:#ffffff10}.full-progress .viewer-badge{display:none}
+.toast,dialog{background:#15171cd9;border-color:#ffffff25;box-shadow:inset 0 1px #ffffff12,0 24px 90px #000a;backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px)}dialog{border-radius:24px}.dialog-header{background:#15171cd9;border-color:#ffffff0d;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)}.dialog-body{color:#b6bdca}.dialog-body h3{color:#f1f3f7}.dialog-body .note{color:#99a3b3}
+@media(min-height:900px) and (min-width:1000px){.topbar{padding-inline:48px}.orb-zone h1{font-size:36px}.composer-area{padding-bottom:26px}}
+@media(max-width:920px){.topbar{padding-inline:24px}.orb-zone h1{font-size:30px}.stage{min-height:460px}.orb-zone{margin-top:18px}}
+@media(max-width:520px){.topbar{padding-inline:20px}.wordmark{font-size:25px}.top-actions{gap:7px}.top-actions .icon-button{width:32px;height:32px}.quiet-button{height:32px;font-size:10px;padding-inline:11px}.orb-zone h1{font-size:27px}.orb-reply{font-size:13px}.suggestions{gap:8px}.suggestion{font-size:11px;padding:9px 12px}.composer{padding:9px 9px 9px 18px}.composer input{font-size:13px}.composer-hint{font-size:10px}.document-sidebar{gap:2px;padding:7px}.app[data-view=content] .composer{padding:4px 7px 4px 15px}}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.card,.composer,.viewer-toolbar,.document-sidebar,dialog,.toast{background:#17191e}}
+@media(prefers-reduced-transparency:reduce){.card,.composer,.suggestion,.quiet-button,.top-actions .icon-button,.viewer-toolbar,.web-navigation,.document-sidebar,.web-feature,dialog,.dialog-header,.toast,.assistant-dock,.full-progress .number-grid>div{background:#16181d;backdrop-filter:none;-webkit-backdrop-filter:none}}
+@media(prefers-contrast:more){.card,.composer,.suggestion,.quiet-button,.top-actions .icon-button,.document-sidebar,.web-feature{border-color:#dbe3ed80;background:#111318}.orb-reply,.composer-hint,.card-description,.file-name span,.document-text,.web-feature p{color:#c5cdd9}}
+
+
+/* 保留第一款极光，新增透明玻璃和液态银。 */
+.brand-mark{width:22px;height:22px;color:#f7f5f2}
+.appearance-control{position:absolute;top:27px;left:50%;transform:translateX(-50%);z-index:15}
+.appearance-options{display:flex;gap:3px;align-items:center;padding:3px;border:1px solid #ffffff12;border-radius:999px;background:linear-gradient(150deg,#ffffff07,#ffffff02),#070708;box-shadow:inset 0 1px #ffffff06;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+.appearance-option{display:flex;align-items:center;justify-content:center;min-height:30px;padding:0 22px;border-radius:999px;color:#83868c;font-size:11px;white-space:nowrap;transition:background-color 160ms ease,color 160ms ease,transform 120ms var(--ease)}
+.appearance-option:hover{background:#ffffff0b;color:#fff}.appearance-option[aria-checked=true]{background:linear-gradient(145deg,#ffffff15,#ffffff07);color:#e3e6eb;box-shadow:inset 0 1px #ffffff0d}.appearance-option:focus-visible{outline-offset:1px}
+.appearance-trigger{display:none;align-items:center;gap:5px;height:30px;padding:0 10px;border:1px solid #ffffff22;border-radius:999px;background:#ffffff08;color:#bbc0c8;font-size:10px}.appearance-trigger svg{width:10px;height:10px;transform:rotate(-90deg)}.appearance-trigger:hover,.appearance-trigger[aria-expanded=true]{background:#ffffff16;color:#fff}
+.orb-fallback{inset:14%;width:auto!important;height:auto!important;border-radius:50%;left:14%!important;top:14%!important;background:radial-gradient(ellipse at 30% 18%,#fff9,transparent 26%),radial-gradient(ellipse at 66% 80%,#a6d7dc30,transparent 48%),#131a1b70;border:1px solid #ddeefa70;box-shadow:inset 3px 5px 16px #f4fcff24,inset -3px -4px 12px #c0eaff30}
+.app[data-appearance=mercury] .orb-fallback{background:radial-gradient(ellipse at 26% 20%,#f1f4f6,#9ba8b2 22%,#1b252c 45%,#647781 66%,#e3edf0 81%,#121920);box-shadow:inset -8px -12px 22px #0008}
+.app[data-appearance=aurora] .orb-fallback{background:radial-gradient(circle,transparent 55%,#29357570 59%,#b9e7ff 64%,#6f47e798 68%,transparent 72%);border:0;box-shadow:none}
+.orb-canvas{opacity:.94;transition:opacity 120ms ease}
+@media(hover:hover) and (pointer:fine){.orb-button:hover .orb-canvas{opacity:1}}.orb-zone h1{font-size:29px;font-weight:450;letter-spacing:-.6px}.orb-reply{color:#85858f;font-size:13px}
+.orb-button{width:340px;height:340px;margin:-10px auto -20px}.orb-zone{top:46%}.orb-copy{position:relative}
+.suggestion{border-color:#ffffff15;background:#ffffff03;color:#999ba5;box-shadow:none;padding:9px 15px}.suggestion svg{width:12px;height:12px;color:#8c8e98}
+.composer{background:radial-gradient(ellipse at 18% 0,#eef0ff0b,transparent 63%),linear-gradient(145deg,#ffffff12,#ffffff04 55%,#ffffff07);border-color:#ffffff22}
+@media(min-height:900px) and (min-width:1000px){.orb-button{width:360px;height:360px;margin:-15px auto -20px}.orb-zone{top:46%}}
+@media(max-width:920px){.orb-button{width:350px;height:350px;margin:0 auto -30px}}
+@media(max-width:520px){.orb-button{width:min(310px,100%);height:auto;aspect-ratio:1}.orb-zone h1{font-size:26px}.appearance-option{padding-inline:18px}}
+.app[data-view=content] .appearance-control{position:fixed;top:auto;left:343px;bottom:24px;transform:none}
+.app[data-view=content] .appearance-trigger{display:flex}.app[data-view=content] .appearance-options{display:none;position:absolute;bottom:calc(100% + 12px);left:0;background:#151619eb;box-shadow:inset 0 1px #ffffff18,0 15px 40px #000a;backdrop-filter:blur(26px);-webkit-backdrop-filter:blur(26px)}.app[data-view=content] .appearance-control[data-open=true] .appearance-options{display:flex}
+@media(min-height:900px) and (min-width:1000px){.appearance-control{top:27px}}
+@media(max-width:920px){.appearance-control{top:80px}.orb-zone{margin-top:55px}.app[data-view=content] .appearance-control{left:330px}}
+@media(max-width:650px){.app[data-view=content] .appearance-control{left:auto;right:18px;bottom:72px}.app[data-view=content] .appearance-options{left:auto;right:0}.app[data-view=content] .orb-reply{max-width:calc(100vw - 175px)}}
+@media(max-width:520px){.appearance-control{top:76px}.appearance-option{padding:0 12px;font-size:10px;min-height:33px}.orb-zone{margin-top:65px}}
+@media(prefers-reduced-transparency:reduce){.appearance-options,.appearance-trigger{background:#181a1f;backdrop-filter:none;-webkit-backdrop-filter:none}}
+@media(prefers-contrast:more){.appearance-options,.appearance-trigger{border-color:#dbe3ed80;background:#111318}.appearance-option{color:#c5cdd9}.appearance-option[aria-checked=true]{background:#ffffff24}}
+
+</style>
+</head>
+<body>
+<div class="app" id="app" data-appearance="aurora">
+  <div class="assistant-dock" aria-hidden="true"></div>
+  <section id="presentation" class="presentation" aria-label="全屏内容" hidden>
+    <header class="viewer-toolbar"><button class="viewer-back" id="viewer-back"><span data-icon="arrow-right"></span>返回对话</button><div class="viewer-context"><span id="viewer-icon"></span><h2 id="viewer-title"></h2><span class="viewer-badge" id="viewer-badge">示例内容</span></div><div class="viewer-actions"><a id="viewer-source" href="https://www.apple.com/apple-intelligence/" target="_blank" rel="noopener noreferrer" hidden>打开原网页<span data-icon="arrow-diagonal"></span></a><span class="viewer-escape">ESC 返回</span></div></header>
+    <div class="viewer-content" id="viewer-content" tabindex="-1"></div>
+  </section>
+  <header class="topbar">
+    <div class="brand"><svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3 12 7 16 3 21 8 17 12 21 16 16 21 12 17 8 21 3 16 7 12 3 8Z" fill="currentColor" stroke="none"/></svg><span class="wordmark">norma</span></div>
+    <div class="top-actions"><button id="demo-button" class="quiet-button"><span data-icon="play"></span><span id="demo-label">演示一下</span></button><button id="voice-toggle" class="icon-button" aria-label="开启语音播报" aria-pressed="false" title="开启语音播报"><span data-icon="volume-off"></span></button><button id="help-button" class="icon-button" aria-label="使用说明" title="使用说明"><span data-icon="help"></span></button></div>
+  </header>
+
+  <div class="appearance-control" id="appearance-control">
+    <button class="appearance-trigger" id="appearance-trigger" aria-label="切换助手形态" aria-expanded="false" aria-controls="appearance-options">外观<span data-icon="chevron"></span></button>
+    <div class="appearance-options" id="appearance-options" role="radiogroup" aria-label="助手形态">
+      <button class="appearance-option" role="radio" aria-checked="true" tabindex="0" data-appearance="aurora" title="极光 · 保留的柔和环形光流"><span>极光</span></button>
+      <button class="appearance-option" role="radio" aria-checked="false" tabindex="-1" data-appearance="glass" title="玻璃 · 透明光学体与流动高光"><span>玻璃</span></button>
+      <button class="appearance-option" role="radio" aria-checked="false" tabindex="-1" data-appearance="mercury" title="水银 · 液态银与连续反射"><span>水银</span></button>
+    </div>
+    <span id="appearance-status" class="sr-only" role="status"></span>
+  </div>
+  <main class="stage" id="stage">
+    <section class="orb-zone" aria-label="Norma 对话助手">
+      <button id="orb-button" class="orb-button" aria-label="点击 Norma，开始语音对话" title="点击开始语音输入"><span class="orb-surface"><span class="orb-fallback" id="orb-fallback" aria-hidden="true"></span><canvas id="orb-canvas" class="orb-canvas" aria-hidden="true"></canvas></span></button>
+      <div class="orb-copy" id="orb-copy">
+      <div class="orb-state"><span class="signal" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span id="state-label">随时为你</span></div>
+      <h1 id="orb-title">我在，随时开口。</h1>
+      <p class="orb-reply" id="orb-reply" aria-live="polite">有什么想一起做的？</p>
+      <p class="user-line" id="user-line"></p>
+      </div>
+    </section>
+    <section class="deck" id="deck" aria-label="对话调出的信息卡片"><div class="rail rail-left" id="rail-left"></div><div class="rail rail-right" id="rail-right"></div></section>
+  </main>
+  <section class="composer-area" aria-label="对话输入">
+    <div class="suggestions">
+      <button class="suggestion" data-command="看看项目进度" data-kind="progress" aria-pressed="false"><span data-icon="activity"></span>查看进度</button>
+      <button class="suggestion" data-command="打开 Apple Intelligence 网页" data-kind="web" aria-pressed="false"><span data-icon="globe"></span>打开网页</button>
+      <button class="suggestion" data-command="找一下设计文件" data-kind="files" aria-pressed="false"><span data-icon="file"></span>浏览文件</button>
+      <button class="suggestion" data-command="看看图片和视频" data-kind="image" aria-pressed="false"><span data-icon="image"></span>图片与视频</button>
+    </div>
+    <form class="composer" id="composer" autocomplete="off"><label class="sr-only" for="command-input">向 Norma 说一句话</label><input id="command-input" placeholder="说说你的想法…" maxlength="500"><button id="mic-button" class="mic-button" type="button" aria-label="开始语音输入" aria-pressed="false" title="开始语音输入"><span data-icon="mic"></span></button><button id="send-button" class="send-button" type="submit" aria-label="发送指令" disabled><span data-icon="arrow-up"></span></button></form>
+    <p class="composer-hint">点击 Norma 说话，或输入你的想法</p>
+  </section>
+  <footer class="bottom-bar"><div class="bottom-left"><span id="card-count">等待你的第一个想法</span><button id="clear-button" class="clear-button" hidden>收起卡片</button></div></footer>
+</div>
+<dialog id="detail-dialog"><header class="dialog-header"><h2 id="dialog-title"></h2><button id="close-dialog" class="icon-button" aria-label="关闭预览"><span data-icon="close"></span></button></header><div id="dialog-body" class="dialog-body"></div></dialog>
+<div class="toast" id="toast" role="status"></div>
+<script id="assistant-core">
+var AssistantCore = (() => {
+  const kinds = [
+    ['progress', /进度|项目|任务|构建|progress/i],
+    ['web', /网页|网站|浏览|apple|搜索|新闻|web/i],
+    ['files', /文件|文档|设计稿|需求稿|readme|file/i],
+    ['image', /图片|图像|壁纸|照片|image/i],
+    ['video', /视频|影片|短片|video/i],
+  ];
+  const labels = {progress:'项目进度',web:'网页',files:'文件',image:'图片',video:'视频'};
+  function plan(text) {
+    const value = text.trim();
+    const matches = kinds.filter(([, pattern]) => pattern.test(value)).map(([kind]) => kind);
+    if (/退出全屏|返回对话|回到对话|回到助手|退出阅读|收起内容/.test(value)) return {type:'overview',kinds:[],reply:'回来了。刚才的卡片还在，你可以继续说。'};
+    if (/清空|纯净|收起全部|收起所有|关闭全部|关闭所有|收起卡片|全部收起/.test(value)) return {type:'clear',kinds:[],reply:'好了，卡片已经收起。现在，只留你和我。'};
+    if (/关闭|收起|移除|不要/.test(value) && matches.length) return {type:'remove',kinds:matches,reply:`已收起${matches.map(k => labels[k]).join('和')}卡片。`};
+    if (matches.length && (/全屏|放大|展开内容/.test(value) || (matches.length===1 && matches[0]==='web' && !/摘要|卡片/.test(value)))) return {type:'present',kinds:[matches[0]],reply:`已展开${labels[matches[0]]}。我在左下角，你可以继续说。`};
+    if (matches.length) return {type:'show',kinds:matches,reply:`已为你调出${matches.map(k => labels[k]).join('、')}。展示的是原型示例内容。`};
+    return {type:'help',kinds:[],reply:'这版原型可以调出进度、网页、文件、图片或视频。试着说：“看看项目进度”。'};
+  }
+  function applyCards(current, action) {
+    if (action.type === 'clear') return [];
+    if (action.type === 'remove') return current.filter(kind => !action.kinds.includes(kind));
+    if (action.type === 'show' || action.type === 'present') return [...new Set([...current, ...action.kinds])];
+    return [...current];
+  }
+  function applyPresentation(current, action) {
+    if (action.type==='present') return {kind:action.kinds[0],file:action.file||null};
+    if (action.type==='overview'||action.type==='clear'||action.type==='show') return null;
+    if (action.type==='remove' && current && action.kinds.includes(current.kind)) return null;
+    return current;
+  }
+  return {plan, applyCards, applyPresentation};
+})();
+</script>
+<!--
+React Bits Orb adapted for the retained Aurora appearance.
+Plasma, Iridescence, Prism and Silk are historical attributions for previous prototypes.
+MIT + Commons Clause License Condition v1.0
+
+Copyright (c) 2026 David Haz
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, and distribute the Software **as part of an application, website, or product**, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+## Commons Clause Restriction
+
+You may use this Software, including for any commercial purpose, **so long as you do not sell, sublicense, or redistribute the components themselves-whether alone, in a bundle, or as a ported version.**
+
+## No Warranty
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-->
+<script id="assistant-appearance">
+var AssistantAppearance = (() => {
+  const styles = Object.freeze(['aurora', 'glass', 'mercury']);
+  const key = 'norma.assistant.appearance';
+  function normalize(value) { return styles.includes(value) ? value : 'aurora'; }
+  function read(storage) { try { return normalize(storage.getItem(key)); } catch { return 'aurora'; } }
+  function write(storage, value) {
+    const next = normalize(value);
+    try { storage.setItem(key, next); } catch { /* 禁止存储时保持当次选择。 */ }
+    return next;
+  }
+  return { styles, normalize, read, write };
+})();
+</script>
+<script id="assistant-motion">
+var AssistantMotion = (() => {
+  // Apple 移动弹簧：response=0.4 s、damping=1，分别积分位置与速度。
+  // 临界阻尼解析解不依赖帧率，也不会在重新指定目标时丢失当前速度。
+  function advanceSpring(current, target, seconds, response = 0.4) {
+    const omega = 2 * Math.PI / response;
+    const offset = current.position - target;
+    const momentum = current.velocity + omega * offset;
+    const decay = Math.exp(-omega * seconds);
+    return {
+      position: target + (offset + momentum * seconds) * decay,
+      velocity: (current.velocity - omega * momentum * seconds) * decay,
+    };
+  }
+  function damp(current, target, seconds, response = 0.2) {
+    return target + (current - target) * Math.exp(-seconds / response);
+  }
+  function advancePresence(current, mode, seconds, reduced = false) {
+    const target = { idle: .1, listening: .8, thinking: .45, speaking: .65 }[mode] ?? .1;
+    // 20 Hz 的一帧 = 1/20 = 0.05 s；后台恢复不补播不可见的形变。
+    const step = Math.min(.05, Math.max(0, seconds));
+    return {
+      time: reduced ? current.time : current.time + step,
+      energy: reduced ? target : step === 0 ? current.energy : damp(current.energy, target, step, .18),
+    };
+  }
+  function advanceAppearance(current, target, seconds, reduced = false) {
+    // 指数响应 0.065 s；0.3/0.065≈4.62，旧光场仅剩 exp(-4.62)≈0.99%。
+    const step = Math.min(.05, Math.max(0, seconds));
+    return current.map((weight, index) => reduced ? Number(index === target) : damp(weight, Number(index === target), step, .065));
+  }
+  // 多工作空间 DesktopCamera: k=225=15²，c=30=2×15，临界阻尼 ω=15。
+  const cardResponse = 2 * Math.PI / 15;
+  function createCardMotion(direction, visible = false) {
+    const axis = position => ({ position, velocity: 0 });
+    return { direction, x: axis(visible ? 0 : direction * 6), y: axis(visible ? 0 : 12),
+      scale: axis(visible ? 1 : .92), opacity: visible ? 1 : 0 };
+  }
+  function advanceCardMotion(current, visible, seconds, reduced = false) {
+    const target = createCardMotion(current.direction, visible);
+    if (reduced) return target;
+    const step = Math.min(.05, Math.max(0, seconds));
+    if (step === 0) return current;
+    return { direction: current.direction,
+      x: advanceSpring(current.x, target.x.position, step, cardResponse),
+      y: advanceSpring(current.y, target.y.position, step, cardResponse),
+      scale: advanceSpring(current.scale, target.scale.position, step, cardResponse),
+      opacity: damp(current.opacity, target.opacity, step, .055) };
+  }
+  function cardMotionSettled(current, visible) {
+    const target = createCardMotion(current.direction, visible);
+    // 位移低于 0.15 CSS px，缩放残差低于 0.1%，透明度残差低于 0.5% 时收口。
+    return Math.abs(current.x.position-target.x.position)<.15 && Math.abs(current.y.position-target.y.position)<.15
+      && Math.abs(current.scale.position-target.scale.position)<.001
+      && Math.abs(current.x.velocity)<1.5 && Math.abs(current.y.velocity)<1.5
+      && Math.abs(current.scale.velocity)<.015 && Math.abs(current.opacity-target.opacity)<.005;
+  }
+  return { advanceSpring, damp, advancePresence, advanceAppearance,
+    cardResponse, createCardMotion, advanceCardMotion, cardMotionSettled };
+})();
+</script>
+<script id="assistant-audio">
+var AssistantAudio = (() => {
+  const clamp = value => Math.max(0, Math.min(1, value));
+  const silence = () => ({ rms:0, level:0, pitchHz:0, confidence:0, centroidHz:0, low:0, mid:0, high:0 });
+  function estimatePitch(samples, sampleRate, mean) {
+    // 降至约 12 kHz；基频窗口 70..650 Hz，每次计算约 20 万次差值，30 Hz 更新。
+    const stride = Math.max(1, Math.floor(sampleRate / 12000)), rate = sampleRate / stride;
+    const data = new Float32Array(Math.floor(samples.length / stride));
+    for (let i=0; i<data.length; i++) { let sum=0;for(let j=0;j<stride;j++)sum+=samples[i*stride+j]-mean;data[i]=sum/stride; }
+    const minimum=Math.ceil(rate/650), maximum=Math.min(Math.floor(rate/70),Math.floor(data.length/2));
+    const window=data.length-maximum, difference=new Float64Array(maximum+1);
+    let accumulated=0;
+    for(let lag=1;lag<=maximum;lag++) {
+      let distance=0;for(let i=0;i<window;i++){const delta=data[i]-data[i+lag];distance+=delta*delta;}
+      accumulated+=distance;difference[lag]=accumulated ? distance*lag/accumulated : 1;
+    }
+    // YIN 累积均值归一化差分：取首个可信谷值，避免把噪声或倍频当作基频。
+    for(let lag=minimum;lag<maximum;lag++)if(difference[lag]<.18) {
+      while(lag+1<maximum&&difference[lag+1]<difference[lag])lag++;
+      const left=difference[lag-1],center=difference[lag],right=difference[lag+1];
+      const denominator=2*(2*center-left-right), shift=denominator ? (right-left)/denominator : 0;
+      return { pitchHz:rate/(lag+Math.max(-.5,Math.min(.5,shift))), confidence:1-center };
+    }
+    return { pitchHz:0, confidence:0 };
+  }
+  function analyze(samples, spectrum, sampleRate) {
+    let mean=0;for(const sample of samples)mean+=sample;mean/=samples.length;
+    let squared=0;for(const sample of samples)squared+=(sample-mean)**2;
+    const rms=Math.sqrt(squared/samples.length);
+    if(rms<.004)return silence(); // 约 -48 dBFS 的静音门限；停顿不产生虚构节奏。
+    let total=0,moment=0,low=0,mid=0,high=0;
+    const binWidth=sampleRate/samples.length;
+    for(let i=1;i<spectrum.length;i++) {
+      const hz=i*binWidth;if(hz<70||hz>6000||spectrum[i]<-90)continue;
+      const power=10**(spectrum[i]/10);total+=power;moment+=power*hz;
+      if(hz<350)low+=power;else if(hz<1800)mid+=power;else high+=power;
+    }
+    return { rms, level:clamp((20*Math.log10(rms)+54)/36), ...estimatePitch(samples,sampleRate,mean),
+      centroidHz:total?moment/total:0, low:total?low/total:0, mid:total?mid/total:0, high:total?high/total:0 };
+  }
+  function smooth(current, features, seconds, reduced=false) {
+    const step=Math.min(.05,Math.max(0,seconds));
+    const pitch=features.pitchHz>0?clamp(Math.log2(features.pitchHz/80)/Math.log2(600/80)):(current.pitch??.35);
+    // 音量决定主要幅度；音高和高频份额只在安全范围内增加细节，不直接以几百 Hz 震动。
+    const target=features.level*(.60+.18*pitch+.22*features.high);
+    const blend=(value,next,response)=>reduced?next:next+(value-next)*Math.exp(-step/response);
+    const nextPitch=blend(current.pitch??.35,pitch,.12),timbre=blend(current.timbre??0,clamp(features.centroidHz/3500),.12);
+    return { time:reduced?current.time:current.time+step*(.70+.55*nextPitch+.40*timbre),
+      level:blend(current.level,target,target>current.level?.075:.105),timbre,
+      pitch:nextPitch,bass:blend(current.bass??0,features.low,.12),treble:blend(current.treble??0,features.high,.12) };
+  }
+  return { analyze, smooth, silence };
+})();
+</script>
+<script id="assistant-voice">
+var AssistantVoice = (() => {
+  function transition(current, event, generation = current.generation) {
+    if (event === 'request' || event === 'cancel') {
+      return { generation: current.generation + 1, status: event === 'request' ? 'pending' : 'idle' };
+    }
+    if (generation !== current.generation || current.status === 'idle') return current;
+    const status = { start: 'playing', resume: 'playing', pause: 'paused', end: 'idle', error: 'idle' }[event];
+    return status ? { generation, status } : current;
+  }
+  return { transition };
+})();
+</script>
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const icons = {
+  play:'<path d="m7 4 12 8-12 8Z"/>',pause:'<path d="M8 5v14M16 5v14"/>',close:'<path d="m6 6 12 12M18 6 6 18"/>',pin:'<path d="m9 3 6 0-1 7 4 4H6l4-4ZM12 14v7"/>',expand:'<path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5"/>',mic:'<rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/>',sparkles:'<path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5ZM20 2v4M18 4h4"/>',activity:'<path d="M3 12h4l3-8 4 16 3-8h4"/>',globe:'<circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/>',file:'<path d="M14 3H5v18h14V8ZM14 3v5h5M8 12h8M8 16h6"/>',image:'<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.4"/><path d="m3 17 6-6 4 4 3-3 5 5"/>',video:'<rect x="3" y="5" width="14" height="14" rx="3"/><path d="m17 9 5-3v12l-5-3"/>',check:'<path d="m5 12 4 4 10-10"/>','arrow-up':'<path d="M12 20V4M5 11l7-7 7 7"/>','arrow-right':'<path d="M4 12h16M14 6l6 6-6 6"/>','arrow-diagonal':'<path d="M6 18 18 6M6 6h12v12"/>','chevron':'<path d="m9 5 7 7-7 7"/>',help:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4 2c-1 .6-1.5 1.2-1.5 2.5M12 17h.01"/>','volume-off':'<path d="m11 4-6 5H2v6h3l6 5ZM16 9l6 6M22 9l-6 6"/>',volume:'<path d="m11 4-6 5H2v6h3l6 5ZM15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',link:'<path d="m10 14 4-4M8 16l-2 2a4 4 0 0 1-6-6l5-5a4 4 0 0 1 6 0M16 8l2-2a4 4 0 0 1 6 6l-5 5a4 4 0 0 1-6 0" transform="translate(1 0) scale(.9)"/>'
+};
+const icon = name => `<svg viewBox="0 0 24 24" aria-hidden="true">${icons[name] || icons.sparkles}</svg>`;
+function hydrate(scope = document) { scope.querySelectorAll('[data-icon]').forEach(el => {el.innerHTML = icon(el.dataset.icon);}); }
+hydrate();
+const names = {progress:'项目进度',web:'网页信息',files:'文件',image:'图片',video:'视频'};
+const state = {cards:[],pinned:new Set(),mode:'idle',voice:false,playback:{generation:0,status:'idle'},audioSource:null,audioRequest:null,speechTimer:null,recognition:null,responseTimer:null,demoTimer:null,demo:false,turn:0,videoFrame:null,videoTime:0,videoPlaying:false,presentation:null,focusOrigin:null,overviewScroll:0,presentationCleanup:null,copyFade:null,sceneFade:null};
+let preferenceStorage;
+try { preferenceStorage=window.localStorage; } catch { preferenceStorage=null; }
+let appearance=AssistantAppearance.read(preferenceStorage);
+const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+let audioEngine=null;
+const motions = new Map(), ghosts = new Set(), cardExits = new Map(), cardMotions = new Map(), cardFades = new Map();
+const overviewNodes = [...document.querySelectorAll('.topbar,.greeting,.session-marker,.deck,.bottom-bar')];
+overviewNodes.forEach(node=>node.classList.add('overview-node'));
+let ghostSequence = 0;
+let inputMethod = 'pointer';
+document.addEventListener('pointerdown',() => {inputMethod = 'pointer';document.body.dataset.input='pointer';});
+document.addEventListener('keydown',() => {inputMethod = 'keyboard';document.body.dataset.input='keyboard';});
+let toastTimer;
+function toast(message) { $('toast').textContent = message; $('toast').classList.add('visible'); clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').classList.remove('visible'),4300); }
+function setMode(mode) {
+  state.mode = mode; $('app').dataset.state = mode;
+  const labels = {idle:'随时为你',listening:'正在倾听',thinking:'正在思考',speaking:'正在回应'};
+  $('state-label').textContent = mode==='speaking'&&state.playback.status==='playing' ? '正在播报' : labels[mode];
+  $('mic-button').setAttribute('aria-pressed',String(mode === 'listening'));
+  $('mic-button').setAttribute('aria-label',mode === 'listening' ? '停止语音输入' : '开始语音输入');
+  $('orb-button').setAttribute('aria-label',mode === 'listening' ? '停止语音输入' : '点击 Norma，开始语音对话');
+  if (mode === 'listening') {$('orb-title').textContent = '我在听，你说。'; $('orb-reply').textContent = '说出你想看的内容，或者想做的事情。';}
+  if (mode === 'thinking') {$('orb-title').textContent = '交给我。'; $('orb-reply').textContent = '正在整理你需要的信息…';}
+  if (mode === 'speaking') $('orb-title').textContent = '都在这里了。';
+  if (mode === 'idle') $('orb-title').textContent = state.presentation ? '阅读时，我也在。' : state.cards.length ? '我在，继续说。' : '我在，随时开口。';
+  if (reduced.matches) renderOrb(performance.now());
+}
+function stopDemo() {clearTimeout(state.demoTimer);state.demo=false;$('demo-label').textContent='演示一下';$('demo-button').setAttribute('aria-pressed','false');}
+function stopVoiceInput() {
+  if (state.recognition) {state.recognition.onend=null;state.recognition.abort();state.recognition=null;}
+  if (state.mode === 'listening') {setMode('idle');$('orb-reply').textContent='语音输入已停止。也可以在下方打字。';}
+}
+function interrupt() {
+  state.turn++; clearTimeout(state.responseTimer); stopDemo(); stopVoiceInput();
+  cancelSpeech();
+  setMode('idle');
+}
+function setPlayback(event,generation) {
+  state.playback=AssistantVoice.transition(state.playback,event,generation);
+  $('app').dataset.playback=state.playback.status;
+  if(state.playback.status!=='playing'){const target=$('orb-canvas');target.dataset.audioRms='0.0000';target.dataset.audioPitch='0.0';target.dataset.audioCentroid='0';}
+  if(reduced.matches)renderOrb(performance.now());
+}
+async function prepareAudio() {
+  if(!audioEngine) {
+    const Context=window.AudioContext||window.webkitAudioContext;
+    if(!Context)throw new Error('Audio unavailable');
+    const context=new Context({latencyHint:'interactive'}),analyser=context.createAnalyser();
+    // 保留约 85 ms 的声学窗口：48 kHz 用 4096 点、24 kHz 用 2048 点。
+    analyser.fftSize=context.sampleRate>=40000?4096:2048;analyser.smoothingTimeConstant=.45;
+    analyser.minDecibels=-90;analyser.maxDecibels=-10;analyser.connect(context.destination);
+    audioEngine={context,analyser,wave:new Float32Array(analyser.fftSize),spectrum:new Float32Array(analyser.frequencyBinCount),features:AssistantAudio.silence(),lastAnalysis:0,lastMetrics:0};
+  }
+  if(audioEngine.context.state==='suspended')await audioEngine.context.resume();
+  return audioEngine;
+}
+function sampleAudio(now) {
+  if(!audioEngine||state.playback.status!=='playing')return AssistantAudio.silence();
+  // 30 Hz 的频谱/基频估计；视觉仍在每个显示帧平滑推进，不重复重活。
+  if(now-audioEngine.lastAnalysis>=1000/30) {
+    const engine=audioEngine;engine.analyser.getFloatTimeDomainData(engine.wave);engine.analyser.getFloatFrequencyData(engine.spectrum);
+    engine.features=AssistantAudio.analyze(engine.wave,engine.spectrum,engine.context.sampleRate);engine.lastAnalysis=now;
+    if(now-engine.lastMetrics>=100){engine.lastMetrics=now;const target=$('orb-canvas');target.dataset.audioRms=engine.features.rms.toFixed(4);target.dataset.audioPitch=engine.features.pitchHz.toFixed(1);target.dataset.audioCentroid=engine.features.centroidHz.toFixed(0);}
+  }
+  return audioEngine.features;
+}
+function cancelSpeech() {
+  clearTimeout(state.speechTimer);state.speechTimer=null;
+  state.audioRequest?.abort();state.audioRequest=null;
+  if(state.audioSource){state.audioSource.onended=null;try{state.audioSource.stop();}catch{}state.audioSource.disconnect();state.audioSource=null;}
+  if(audioEngine)audioEngine.features=AssistantAudio.silence();
+  setPlayback('cancel');$('app').dataset.audioSource='none';
+}
+function speak(reply,turn) {
+  if(!state.voice)return false;
+  cancelSpeech();setPlayback('request');const generation=state.playback.generation;
+  const request=new AbortController();state.audioRequest=request;
+  const current=()=>state.turn===turn&&state.playback.generation===generation&&state.voice&&!request.signal.aborted;
+  const finish=event=>{if(!current())return;clearTimeout(state.speechTimer);state.speechTimer=null;state.audioSource?.disconnect();state.audioSource=null;state.audioRequest=null;setPlayback(event,generation);$('app').dataset.audioSource='none';setMode('idle');};
+  // 最多等待 20 s 供本地合成引擎初始化；实际播放长度由 Buffer 的结束事件决定。
+  state.speechTimer=setTimeout(()=>{if(current()&&state.playback.status==='pending'){cancelSpeech();setMode('idle');toast('语音未能开始播放，请再试一次。');}},20000);
+  (async()=>{
+    try {
+      const engine=await prepareAudio();
+      const response=await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:reply}),signal:request.signal});
+      if(!response.ok)throw new Error('Speech unavailable');
+      const bytes=await response.arrayBuffer(),buffer=await engine.context.decodeAudioData(bytes);
+      if(!current())return;
+      const source=engine.context.createBufferSource();source.buffer=buffer;source.connect(engine.analyser);state.audioSource=source;
+      source.onended=()=>finish('end');clearTimeout(state.speechTimer);state.speechTimer=null;
+      engine.lastAnalysis=0;engine.features=AssistantAudio.silence();source.start();
+      $('app').dataset.audioSource='pcm';setPlayback('start',generation);setMode('speaking');
+    } catch(error) {
+      if(error.name==='AbortError'||!current())return;finish('error');
+      toast(location.protocol==='file:'?'请从本地预览打开语音体验。':'本地语音暂时不可用，文字内容仍可查看。');
+    }
+  })();
+  return true;
+}
+function submit(text,{demo=false}={}) {
+  const value=text.trim();if(!value)return;
+  if (!demo) stopDemo();stopVoiceInput();clearTimeout(state.responseTimer);
+  cancelSpeech();
+  const turn=++state.turn;const action=AssistantCore.plan(value);$('user-line').textContent=value;
+  $('command-input').value='';$('send-button').disabled=true;
+  if(action.type==='clear'||action.type==='remove'||action.type==='overview') {applyAction(action);$('orb-reply').textContent=action.reply;setMode('idle');return;}
+  setMode('thinking');
+  // 600 ms 仅模拟原型的思考反馈；即时响应已经在 setMode 中完成。
+  state.responseTimer=setTimeout(()=>{if(turn!==state.turn)return;applyAction(action);setMode('speaking');$('orb-reply').textContent=action.reply;if(!speak(action.reply,turn))state.responseTimer=setTimeout(()=>{if(turn===state.turn)setMode('idle');},1700);},600);
+}
+function applyAction(action) {
+  const previousRects=captureCardRects();
+  const next=AssistantCore.applyCards(state.cards,action);
+  state.cards.filter(kind=>!next.includes(kind)).forEach(removeCard);
+  next.filter(kind=>!state.cards.includes(kind)).forEach((kind,index)=>addCard(kind,index));
+  state.cards=next;reflowCards(previousRects);
+  setPresentation(AssistantCore.applyPresentation(state.presentation,action));
+  if(action.type==='show')action.kinds.forEach(kind=>{const card=$(`card-${kind}`);if(card)card.scrollIntoView({block:'nearest',behavior:'instant'});});
+  refreshCardCount();
+}
+function refreshCardCount() {
+  $('app').dataset.hasCards=String(Boolean(state.cards.length));$('card-count').textContent=state.cards.length ? `${state.cards.length} 项内容` : '';$('clear-button').hidden=!state.cards.length;
+  document.querySelectorAll('.suggestion').forEach(button=>button.setAttribute('aria-pressed',String(state.cards.includes(button.dataset.kind))));
+}
+function cardHeader(kind,subtitle) {return `<header class="card-header">${icon(kind==='files'?'file':kind==='progress'?'activity':kind==='web'?'globe':kind)}<span class="card-kicker">${subtitle}</span><div class="card-actions"><button class="card-action" data-action="expand" data-kind="${kind}" aria-label="全屏显示${names[kind]}" title="全屏显示">${icon('expand')}</button><button class="card-action" data-action="pin" data-kind="${kind}" aria-label="固定${names[kind]}卡片" aria-pressed="false" title="固定卡片">${icon('pin')}</button><button class="card-action" data-action="close" data-kind="${kind}" aria-label="关闭${names[kind]}卡片" title="关闭卡片">${icon('close')}</button></div></header>`;}
+function foot(kind,text,button) {return `<footer class="card-footer"><span>${text}</span><button data-action="expand" data-kind="${kind}">${button}${icon('arrow-diagonal')}</button></footer>`;}
+function landscape(prefix='art') {
+  return `<svg class="artwork" viewBox="0 0 900 530" role="img" aria-label="示例图片：蓝色星球升起于冰川群山之上" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="${prefix}-sky" x2=".2" y2="1"><stop stop-color="#050b16"/><stop offset=".63" stop-color="#142e43"/><stop offset="1" stop-color="#89adbb"/></linearGradient><radialGradient id="${prefix}-planet" cx=".24" cy=".18"><stop stop-color="#c7f4ff"/><stop offset=".35" stop-color="#72b8d6"/><stop offset=".72" stop-color="#28607e"/><stop offset="1" stop-color="#0c2239"/></radialGradient><linearGradient id="${prefix}-ice" x2="1" y2="1"><stop stop-color="#8dbacb"/><stop offset=".4" stop-color="#274c68"/><stop offset="1" stop-color="#0a1a2c"/></linearGradient><radialGradient id="${prefix}-glow"><stop stop-color="#8dcfe148"/><stop offset="1" stop-color="#8dcfe100"/></radialGradient></defs><path fill="url(#${prefix}-sky)" d="M0 0h900v530H0z"/><ellipse cx="425" cy="226" rx="250" ry="235" fill="url(#${prefix}-glow)"/><g fill="#d7eeff" opacity=".6"><circle cx="94" cy="65" r="1"/><circle cx="223" cy="121" r="1.3"/><circle cx="739" cy="67" r="1.2"/><circle cx="622" cy="127" r="1"/><circle cx="156" cy="231" r=".8"/><circle cx="839" cy="212" r="1.4"/><circle cx="71" cy="159" r=".7"/><circle cx="807" cy="99" r=".8"/><circle cx="603" cy="37" r=".9"/></g><circle cx="440" cy="175" r="110" fill="url(#${prefix}-planet)"/><path d="M333 149c34-63 137-99 207-39" fill="none" stroke="#e0faff" stroke-width="1.5" opacity=".5"/><path d="M-50 180 950 315" stroke="#9fcfdf" stroke-width="1" opacity=".08"/><path fill="#40647a" d="m0 387 109-131 66 39 82-75 79 119 109-22 97 74 105-106 79 65 87-136 87 115v201H0Z"/><path fill="url(#${prefix}-ice)" d="m0 427 120-68 70 42 136-174 66 65 62 136 111-17 106-83 59 47 87-101 83 135v121H0Z"/><path fill="#a9cfda" opacity=".7" d="m326 227-39 109 40-38 31 20-15-67 49 41Z"/><path fill="#152c43" d="m326 227 44 176 85 25-63-136Z"/><path fill="#a0c2d0" opacity=".5" d="m817 274-42 90 39-29 41 9Z"/><path fill="#0b1b2c" d="m0 475 176-38 89 31 142-21 92 33 121-20 113 34 97-37 70 17v56H0Z"/><path d="M0 510 245 483 414 502 655 485 900 515" fill="none" stroke="#8ab5c533"/><path d="M333 380 362 445M312 386l-16 72M827 356l17 112" stroke="#97bdcf" opacity=".13"/></svg>`;
+}
+const templates={
+progress:()=>`${cardHeader('progress','正在推进')}<div class="card-body"><div class="project-line"><h2>Norma 助手模式</h2><div class="progress-value">72<span>%</span></div></div><p class="card-description">从一个想法，到触手可及的伙伴。</p><div class="progress-track" role="progressbar" aria-label="示例项目完成进度" aria-valuenow="72" aria-valuemin="0" aria-valuemax="100"><div class="progress-fill"></div></div><div class="task-list"><div class="task-row">${icon('check')}<span>对话界面与圆球动效</span></div><div class="task-row current"><span class="activity"></span><span>语音与卡片调度</span><span class="tag">进行中</span></div><div class="task-row pending"><span class="empty-circle"></span><span>真实服务接入与验收</span></div></div></div>${foot('progress','示例项目 · 2 个 Agent','查看进度')}`,
+web:()=>`${cardHeader('web','为你打开')}<div class="web-visual"><span>Apple Intelligence.</span></div><div class="card-body"><div class="web-domain">${icon('globe')}apple.com<span class="sample-label" style="margin-left:auto">示例摘要</span></div><h2>更懂你的个人智能系统。</h2><p class="card-description">融入日常体验，让表达、创作和行动<br>变得更加自然。</p></div>${foot('web','网页信息卡片','全屏浏览')}`,
+files:()=>`${cardHeader('files','找到这些文件')}<div class="file-list"><button class="file-row" data-action="file" data-file="design"><span class="file-icon">MD</span><span class="file-name"><strong>助手模式设计.md</strong><span>设计方案 · 8.2 KB</span></span>${icon('chevron')}</button><button class="file-row" data-action="file" data-file="spec"><span class="file-icon">MD</span><span class="file-name"><strong>实时对话需求.md</strong><span>产品需求 · 5.6 KB</span></span>${icon('chevron')}</button><button class="file-row" data-action="file" data-file="notes"><span class="file-icon">TXT</span><span class="file-name"><strong>今天的灵感.txt</strong><span>想法记录 · 1.3 KB</span></span>${icon('chevron')}</button></div>${foot('files','3 份示例文件','查看全部')}`,
+image:()=>`${cardHeader('image','你眼前的世界')}<button class="media-view image-view" data-action="expand" data-kind="image" aria-label="放大蓝色星球示例图片">${landscape('thumb')}</button><div class="card-body" style="padding-bottom:14px"><p class="media-title">遥远的蓝色，近在眼前。</p><p class="media-meta">星球与冰川 · SVG 原创示例图片</p></div>`,
+video:()=>`${cardHeader('video','让画面开始流动')}<div class="media-view" id="video-view"><canvas class="video-preview" id="video-preview" width="600" height="338" aria-label="星际航行动态示例"></canvas><div class="video-overlay"><button class="play-video" id="play-video" aria-label="播放视频动效示例">${icon('play')}</button></div><div class="video-controls"><span class="video-time" id="video-time">00:00</span><input id="video-seek" type="range" min="0" max="30" step=".1" value="0" aria-label="动态预览播放进度"><span class="video-time">00:30</span></div></div><div class="card-body" style="padding-bottom:14px"><p class="media-title">穿过星海</p><p class="media-meta">30 秒 · Canvas 动态示例</p></div>`,
+};
+function captureCardRects() {
+  return new Map([...$('deck').querySelectorAll('.card-slot:not(.exiting-slot)')].map(slot=>[slot,slot.getBoundingClientRect()]));
+}
+function reflowCards(previous) {
+  // 外壳承担补位，内部卡片承担进入；两个 transform 不互相覆盖。
+  for(const [slot,from] of previous)if(slot.isConnected&&!slot.classList.contains('exiting-slot'))
+    moveContinuously(slot,from,!reduced.matches,AssistantMotion.cardResponse);
+}
+function paintCard(card,motion) {
+  card.style.transform=`translate3d(${motion.x.position}px,${motion.y.position}px,0) scale(${motion.scale.position})`;
+  card.style.opacity=String(motion.opacity);
+}
+function settleCard(card) {
+  cardMotions.delete(card);card.style.transform='';card.style.opacity='';card.style.willChange='';card.dataset.motion='settled';
+}
+function finishCardExit(kind,slot) {
+  const pending=cardExits.get(kind);if(pending?.slot!==slot)return;
+  clearTimeout(pending.timer);cardExits.delete(kind);cardMotions.delete(pending.card);
+  const fade=cardFades.get(pending.card);cardFades.delete(pending.card);fade?.cancel();
+  clearMotion(slot);slot.remove();
+}
+function retargetCard(card,visible,index=0) {
+  const previous=cardMotions.get(card);
+  const direction=card.dataset.side==='left'?1:-1;
+  const current=previous?.value||AssistantMotion.createCardMotion(direction,!visible);
+  const from=previous?.value.opacity??Number(getComputedStyle(card).opacity);
+  const oldFade=cardFades.get(card);cardFades.delete(card);oldFade?.cancel();
+  card.dataset.motion=visible?'entering':'leaving';
+  if(reduced.matches){
+    cardMotions.delete(card);card.style.transform='';card.style.willChange='opacity';
+    const fade=card.animate([{opacity:from},{opacity:visible?1:0}],{duration:120,easing:'ease',fill:'forwards'});
+    cardFades.set(card,fade);
+    fade.finished.then(()=>{
+      if(cardFades.get(card)!==fade)return;cardFades.delete(card);fade.cancel();
+      if(visible)settleCard(card);else finishCardExit(card.dataset.kind,card.parentElement);
+    },()=>{});return;
+  }
+  // 同一批相邻卡片错开 50 ms；召回正在退场的卡片不再延迟。
+  cardMotions.set(card,{value:current,visible,last:performance.now(),delay:previous?0:index*.05});
+  card.style.willChange='transform, opacity';paintCard(card,current);
+}
+function advanceCardMotions(now) {
+  for(const [card,motion] of cardMotions){
+    const seconds=Math.min(.05,Math.max(0,(now-motion.last)/1000));motion.last=now;
+    const delayed=Math.min(motion.delay,seconds);motion.delay-=delayed;
+    motion.value=AssistantMotion.advanceCardMotion(motion.value,motion.visible,seconds-delayed);
+    paintCard(card,motion.value);
+    if(!motion.delay&&AssistantMotion.cardMotionSettled(motion.value,motion.visible)){
+      if(motion.visible)settleCard(card);else finishCardExit(card.dataset.kind,card.parentElement);
+    }
+  }
+}
+function settleCardTransitions() {
+  for(const [card,fade] of cardFades){cardFades.delete(card);fade.cancel();if(!cardExits.has(card.dataset.kind))settleCard(card);}
+  for(const card of cardMotions.keys())if(!cardExits.has(card.dataset.kind))settleCard(card);
+  for(const [kind,pending] of cardExits)finishCardExit(kind,pending.slot);
+}
+function addCard(kind,index=0) {
+  const side=kind==='progress'||kind==='files'?'left':'right',rail=$(`rail-${side}`);
+  const pending=cardExits.get(kind);
+  if(pending){
+    // 退场中召回同一个元素，保留内部缩放/透明度速度；外壳从当前位置归位。
+    const from=pending.slot.getBoundingClientRect();clearTimeout(pending.timer);cardExits.delete(kind);
+    pending.slot.classList.remove('exiting-slot');pending.slot.style.cssText='';rail.append(pending.slot);
+    pending.card.inert=false;pending.card.removeAttribute('aria-hidden');pending.card.classList.remove('pinned');
+    const pin=pending.card.querySelector('[data-action=pin]');pin.setAttribute('aria-pressed','false');pin.setAttribute('aria-label',`固定${names[kind]}卡片`);
+    moveContinuously(pending.slot,from,!reduced.matches,AssistantMotion.cardResponse);
+    retargetCard(pending.card,true);return;
+  }
+  const slot=document.createElement('div');slot.className='card-slot';
+  const card=document.createElement('article');card.id=`card-${kind}`;card.className=`card ${kind}-card`;card.dataset.kind=kind;card.dataset.side=side;
+  card.setAttribute('aria-label',`${names[kind]}卡片`);card.innerHTML=templates[kind]();
+  slot.append(card);rail.append(slot);
+  card.style.opacity='0';retargetCard(card,true,index);
+  if(kind==='video')setupVideo();
+}
+function removeCard(kind) {
+  const card=$(`card-${kind}`);if(!card||cardExits.has(kind))return;state.pinned.delete(kind);
+  if(kind==='video')stopVideo();
+  if(card.contains(document.activeElement))$('command-input').focus({preventScroll:true});
+  const slot=card.parentElement,from=slot.getBoundingClientRect(),deck=$('deck').getBoundingClientRect();
+  clearMotion(slot);slot.classList.add('exiting-slot');
+  // 离开文档流但继续绘制原卡片；其余卡片立即得到真实新布局并平滑补位。
+  Object.assign(slot.style,{position:'absolute',left:`${from.left-deck.left}px`,top:`${from.top-deck.top}px`,width:`${from.width}px`,height:`${from.height}px`,margin:'0'});
+  $('deck').append(slot);card.inert=true;card.setAttribute('aria-hidden','true');
+  cardExits.set(kind,{card,slot,timer:null});retargetCard(card,false);
+}
+function closeCard(kind) {interrupt();applyAction({type:'remove',kinds:[kind]});$('orb-reply').textContent=`已收起${names[kind]}卡片。`;}
+const files={design:{title:'助手模式设计.md',body:'<h3>让信息围绕对话展开</h3><p>对话时，圆球居中，承载助手的存在感。阅读时，圆球移动到左下角，把完整的主区域交给网页、文件或媒体。空闲时安静呼吸，倾听与回应时通过光与状态文案给出反馈。</p><p>卡片只在需要时出现。进度和文件位于左侧，网页与媒体位于右侧。用户可以打开、固定、关闭或再次召回，始终掌握页面。</p><p>科幻感来自光、深度与材质；阅读内容保持清晰，减少无意义的控制面板与装饰。</p>'},spec:{title:'实时对话需求.md',body:'<h3>说一句话，看到一个结果</h3><p>用户通过语音或文字表达意图。助手即时显示倾听状态，识别请求后调出对应的信息卡片，同时保留简短回应。</p><ul><li>支持项目进度、网页、文件、图片和视频五类信息。</li><li>支持复合指令，例如“看看进度，再找一下文件”。</li><li>完整内容在全屏区域展示，助手停靠左下角并保持对话可用。</li><li>允许随时打断、关闭卡片或返回对话，原有卡片继续保留。</li><li>真实服务需接入 Norma 的 ASR、Agent Runtime 与卡片能力。</li></ul>'},notes:{title:'今天的灵感.txt',body:'<h3>如果助手是一种存在，而不是一个工具栏？</h3><p>打开时，不需要告诉我系统有多少功能。</p><p>只需要让我知道：它在这里，可以听我说。</p><p>我问起进度，进度就来到眼前。我想看一张图片，图片就展开。说完以后，世界重新安静。</p>'}};
+function showDialog(title,body) {$('dialog-title').textContent=title;$('dialog-body').innerHTML=body;if(!$('detail-dialog').open)$('detail-dialog').showModal();}
+function webPage() {
+  return `<article class="web-page"><nav class="web-navigation" aria-label="示例网页导航"><strong>Apple Intelligence</strong><div class="web-nav-links"><button data-section="web-overview">概览</button><button data-section="web-features">表达与创作</button><button data-section="web-privacy">隐私</button></div></nav><section class="web-hero" id="web-overview"><p class="web-eyebrow">Apple Intelligence</p><h1>个人智能，<br><span>为你而来。</span></h1><p>把灵感写下来，让想法看得见。<br>以更自然的方式表达、创作，完成你想做的事。</p></section><section class="web-story" id="web-features"><h2 class="web-section-heading">理解你的意图，<br>也理解你的日常。</h2><p>智能融入日常的工具，让每一个想法都更接近行动。</p><div class="web-feature-grid"><article class="web-feature">${icon('file')}<h3>让表达更流畅。</h3><p>整理文字、提炼要点，找到适合当下的表达方式。从一个草稿开始，把想说的话讲清楚。</p></article><article class="web-feature">${icon('image')}<h3>让想象成为画面。</h3><p>把一句描述变成可见的创意，在画面中探索想法，并让灵感有一个可以分享的形状。</p></article><article class="web-feature">${icon('sparkles')}<h3>让行动更自然。</h3><p>用一句话提出请求，让助手理解你眼前的内容，帮助你连接信息和接下来的行动。</p></article></div></section><section class="web-privacy" id="web-privacy"><p class="web-eyebrow">PRIVATE BY DESIGN</p><h2 class="web-section-heading">你的个人智能，<br>也应尊重你的个人空间。</h2><p>好的智能体验，始于清晰的边界。让使用者知道正在展示什么、信息来自哪里，以及如何随时接管或退出。</p></section><footer class="web-bottom-note">完整网页布局示例 · 内置演示文案，非 Apple 官网实时内容 · 可通过顶部入口打开原网页</footer></article>`;
+}
+function documentPage(id='design') {
+  const file=files[id];
+  return `<div class="document-shell"><nav class="document-sidebar" aria-label="示例文件列表"><p>设计工作集 · 3 份文件</p>${Object.entries(files).map(([key,item])=>`<button data-view-file="${key}" aria-current="${key===id}">${icon('file')}${item.title}</button>`).join('')}</nav><article class="document-content"><p class="file-meta">NORMA / DOCUMENT / ${id.toUpperCase()}</p><h1>${file.title}</h1><div class="document-text">${file.body}</div><div class="document-end"></div><p class="document-note">全文展示 · 原型内置示例文件，未读取你的实际文件</p></article></div>`;
+}
+function progressPage() {
+  return `<article class="full-progress"><span class="viewer-badge">PROJECT OVERVIEW</span><h1>Norma 助手模式</h1><p>从一个想法，到随时在场的伙伴。<br>下面的数据用于体验项目进度的完整展示。</p><div class="number-grid"><div><strong>72%</strong><span>示例完成度</span></div><div><strong>2</strong><span>示例协作 Agent</span></div><div><strong>3</strong><span>阶段任务</span></div></div><div class="progress-track" role="progressbar" aria-label="全屏示例项目进度" aria-valuenow="72" aria-valuemin="0" aria-valuemax="100"><div class="progress-fill"></div></div><h2>正在推进的事情</h2><div class="task-list"><div class="task-row">${icon('check')}<span>对话界面与圆球动效</span><span class="tag">已完成</span></div><div class="task-row current"><span class="activity"></span><span>语音与卡片调度</span><span class="tag">进行中</span></div><div class="task-row pending"><span class="empty-circle"></span><span>真实服务接入与验收</span><span class="tag">待开始</span></div></div><p style="margin-top:26px;font-size:10px">示例项目数据 · 非当前仓库的实际任务状态</p></article>`;
+}
+function restoreVideoCard() {
+  const video=$('video-view');if(!video||!video.classList.contains('cinema-frame'))return;
+  stopVideo();video.classList.remove('cinema-frame');const card=$('card-video');
+  if(card){card.querySelector('.card-header').after(video);$('video-preview').width=600;$('video-preview').height=338;paintVideo(state.videoTime);}else video.remove();
+}
+function renderPresentation(content) {
+  restoreVideoCard();const {kind}=content;const body=$('viewer-content');body.dataset.kind=kind;
+  $('viewer-icon').innerHTML=icon(kind==='web'?'globe':kind==='files'?'file':kind==='progress'?'activity':kind);
+  $('viewer-source').hidden=kind!=='web';
+  $('viewer-title').textContent=kind==='web'?'apple.com · Apple Intelligence':kind==='files'?files[content.file||'design'].title:kind==='image'?'遥远的蓝色，近在眼前。':kind==='video'?'穿过星海':'Norma 助手模式 · 项目进度';
+  $('viewer-badge').textContent=kind==='web'?'网页示例':kind==='files'?'文件示例':kind==='video'?'动态示例':'示例内容';
+  if(kind==='web')body.innerHTML=webPage();
+  if(kind==='files')body.innerHTML=documentPage(content.file||'design');
+  if(kind==='progress')body.innerHTML=progressPage();
+  if(kind==='image')body.innerHTML=`<figure class="full-image" style="margin:0"><div class="full-image-stage">${landscape('full')}</div><figcaption><p>遥远的蓝色，近在眼前。 · SVG 原创示例图片</p></figcaption></figure>`;
+  if(kind==='video'){body.innerHTML='';const video=$('video-view');video.classList.add('cinema-frame');body.append(video);$('video-preview').width=1600;$('video-preview').height=900;paintVideo(state.videoTime);}
+  body.scrollTop=0;
+}
+function clearMotion(element) {
+  motions.delete(element);element.style.transform='';element.style.willChange='';
+}
+function moveContinuously(element, from, animate, response=.4) {
+  const ongoing=motions.get(element);
+  // 只在切换时测量布局；每帧仅写入 transform。重定向保留每个轴当下的速度。
+  element.style.transform='';
+  const basis=element.getBoundingClientRect();
+  if(!animate){clearMotion(element);return;}
+  const axes={};
+  for(const key of ['left','top','width','height']) {
+    axes[key]=ongoing?.axes[key]||{position:from[key],velocity:0};
+  }
+  const motion={axes,basis,last:performance.now(),response};
+  motions.set(element,motion);element.style.willChange='transform';paintMotion(element,motion);
+  if(element.id==='orb-button')resizeOrb(Math.max(axes.width.position,basis.width));
+}
+function paintMotion(element,{axes,basis}) {
+  element.style.transform=`translate3d(${axes.left.position-basis.left}px,${axes.top.position-basis.top}px,0) scale(${axes.width.position/basis.width},${axes.height.position/basis.height})`;
+}
+function advanceMotions(now) {
+  advanceCardMotions(now);
+  for(const [element,motion] of motions) {
+    const seconds=Math.max(0,(now-motion.last)/1000);motion.last=now;let settled=true;
+    for(const key of ['left','top','width','height']) {
+      motion.axes[key]=AssistantMotion.advanceSpring(motion.axes[key],motion.basis[key],seconds,motion.response);
+      // 半个 CSS 像素内且速度低于 10 px/s 时收口，省去不可见的弹簧尾帧。
+      if(Math.abs(motion.axes[key].position-motion.basis[key])>.5||Math.abs(motion.axes[key].velocity)>10)settled=false;
+    }
+    if(settled){clearMotion(element);if(element.id==='orb-button')resizeOrb();}
+    else paintMotion(element,motion);
+  }
+}
+function snapshotForFade(element,copyTypography=false) {
+  const rect=element.getBoundingClientRect(),clone=element.cloneNode(true),prefix=`motion-${++ghostSequence}-`;
+  const originals=[element,...element.querySelectorAll('*')],copies=[clone,...clone.querySelectorAll('*')];
+  const typography=['font','letter-spacing','line-height','text-align','color','margin','display','gap','align-items','justify-content','min-height','max-width','white-space'];
+  originals.forEach((original,index)=>{
+    const copy=copies[index];
+    if(copyTypography){const style=getComputedStyle(original);typography.forEach(property=>copy.style.setProperty(property,style.getPropertyValue(property)));}
+    if(copy.id)copy.id=prefix+copy.id;
+    if(original instanceof HTMLCanvasElement){copy.width=original.width;copy.height=original.height;copy.getContext('2d').drawImage(original,0,0);}
+  });
+  // SVG 的渐变引用随快照 id 一起重命名，不产生重复 id 或破坏图片填色。
+  copies.forEach(copy=>['fill','stroke','filter','clip-path','href'].forEach(name=>{const value=copy.getAttribute(name);if(value?.includes('url(#'))copy.setAttribute(name,value.replaceAll('url(#',`url(#${prefix}`));else if(name==='href'&&value?.startsWith('#'))copy.setAttribute(name,'#'+prefix+value.slice(1));}));
+  clone.classList.add('motion-ghost');clone.inert=true;clone.setAttribute('aria-hidden','true');
+  Object.assign(clone.style,{position:'fixed',left:`${rect.left}px`,top:`${rect.top}px`,width:`${rect.width}px`,height:`${rect.height}px`,margin:'0',transform:'none',zIndex:copyTypography?'12':'9',opacity:getComputedStyle(element).opacity});
+  if(!copyTypography)clone.style.opacity=String(Number(clone.style.opacity)*Number(getComputedStyle($('presentation')).opacity));
+  $('app').append(clone);clone.scrollTop=element.scrollTop;ghosts.add(clone);
+  const fade=clone.animate([{opacity:Number(clone.style.opacity)},{opacity:0}],{duration:160,easing:'cubic-bezier(.23,1,.32,1)',fill:'forwards'});
+  const remove=()=>{clone.remove();ghosts.delete(clone);};fade.finished.then(remove,remove);
+}
+function revealCopy() {
+  state.copyFade?.cancel();
+  state.copyFade=$('orb-copy').animate([{opacity:0,transform:'translateY(4px)'},{opacity:1,transform:'none'}],{duration:200,delay:80,easing:'cubic-bezier(.23,1,.32,1)',fill:'backwards'});
+}
+function setPresentation(next) {
+  const previous=state.presentation;
+  if(next===previous||(next&&previous&&next.kind===previous.kind&&next.file===previous.file))return;
+  const changedLayout=Boolean(previous)!==Boolean(next),animate=!reduced.matches&&inputMethod!=='keyboard';
+  const orbFrom=$('orb-button').getBoundingClientRect(),composerFrom=$('composer').getBoundingClientRect();
+  if(animate&&changedLayout)snapshotForFade($('orb-copy'),true);
+  if(animate&&previous&&next)snapshotForFade($('viewer-content'));
+  state.sceneFade?.cancel();clearTimeout(state.presentationCleanup);
+  if(!animate){state.copyFade?.cancel();ghosts.forEach(ghost=>ghost.remove());ghosts.clear();}
+  if(!previous&&next){state.focusOrigin=document.activeElement;state.overviewScroll=window.scrollY;}
+  // 先把待展示层放入渲染树，再变更目标，让 CSS 连续衔接当前可见的透明度。
+  if(next){$('presentation').hidden=false;$('presentation').getBoundingClientRect();}
+  state.presentation=next;$('app').classList.toggle('motion-instant',!animate);$('app').dataset.view=next?'content':'overview';
+  overviewNodes.forEach(node=>{node.inert=Boolean(next);node.setAttribute('aria-hidden',String(Boolean(next)));});
+  $('presentation').inert=!next;$('presentation').setAttribute('aria-hidden',String(!next));
+  $('command-input').placeholder=next?'继续和 Norma 对话…':'说说你的想法…';
+  if(next){
+    renderPresentation(next);$('viewer-content').focus({preventScroll:true});
+    if(animate&&previous)state.sceneFade=$('viewer-content').animate([{opacity:0,transform:'translateY(8px)'},{opacity:1,transform:'none'}],{duration:240,easing:'cubic-bezier(.23,1,.32,1)'});
+  }else{
+    restoreVideoCard();window.scrollTo({top:state.overviewScroll,behavior:'instant'});
+    if(state.focusOrigin?.isConnected&&state.focusOrigin.getClientRects().length)state.focusOrigin.focus({preventScroll:true});else $('command-input').focus({preventScroll:true});
+    const cleanup=()=>{if(!state.presentation){$('presentation').hidden=true;$('viewer-content').replaceChildren();}};
+    // 退出层保留到淡出完成，避免白色正文瞬间消失；新指令可立即接管。
+    if(animate)state.presentationCleanup=setTimeout(cleanup,280);else cleanup();
+  }
+  if(changedLayout){
+    moveContinuously($('orb-button'),orbFrom,animate);moveContinuously($('composer'),composerFrom,animate);
+    if(animate)revealCopy();else resizeOrb();
+  }
+  if(reduced.matches)renderOrb(performance.now());
+}
+function openPresentation(kind,file=null) {interrupt();applyAction({type:'present',kinds:[kind],file});setMode('idle');$('orb-reply').textContent='内容已经展开。我在这里，随时继续。';}
+function returnToConversation() {interrupt();applyAction({type:'overview',kinds:[]});setMode('idle');$('orb-reply').textContent='回来了。刚才的卡片还在。';}
+function expand(kind) {openPresentation(kind);}
+$('deck').addEventListener('click',event=>{
+  const button=event.target.closest('button[data-action]');if(!button)return;const {action,kind,file}=button.dataset;
+  if(action==='close')closeCard(kind);
+  if(action==='expand')expand(kind);
+  if(action==='file')openPresentation('files',file);
+  if(action==='pin'){const pinned=state.pinned.has(kind);pinned?state.pinned.delete(kind):state.pinned.add(kind);$(`card-${kind}`).classList.toggle('pinned',!pinned);button.setAttribute('aria-pressed',String(!pinned));button.setAttribute('aria-label',`${pinned?'固定':'取消固定'}${names[kind]}卡片`);toast(pinned?'已取消固定':`已固定${names[kind]}卡片，仍可手动关闭。`);}
+});
+$('dialog-body').addEventListener('click',event=>{const button=event.target.closest('[data-action="file"]');if(button){const file=files[button.dataset.file];showDialog(file.title,file.body+'<p class="note">原型内置文件 · 未读取你的实际文件。</p>');}});
+$('viewer-back').addEventListener('click',returnToConversation);
+$('viewer-content').addEventListener('click',event=>{const file=event.target.closest('[data-view-file]');if(file)openPresentation('files',file.dataset.viewFile);const section=event.target.closest('[data-section]');if(section)$(section.dataset.section).scrollIntoView({block:'start',behavior:'instant'});});
+document.querySelectorAll('.suggestion').forEach(button=>button.addEventListener('click',()=>submit(button.dataset.command)));
+$('composer').addEventListener('submit',event=>{event.preventDefault();submit($('command-input').value);});
+$('command-input').addEventListener('input',()=>$('send-button').disabled=!$('command-input').value.trim());
+$('clear-button').addEventListener('click',()=>submit('收起所有卡片'));
+$('close-dialog').addEventListener('click',()=>$('detail-dialog').close());
+$('detail-dialog').addEventListener('click',event=>{if(event.target===$('detail-dialog')){const rect=$('detail-dialog').getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)$('detail-dialog').close();}});
+$('help-button').addEventListener('click',()=>showDialog('与 Norma 说一句话','<h3>一个安静、随时在场的伙伴。</h3><p>点击下方建议，或输入：“看看项目进度”“打开网页”“找一下文件”“看看图片和视频”。你也可以说：“关闭网页”或“收起所有卡片”。</p><p>点击圆球或麦克风开始语音输入。若浏览器不支持识别或没有麦克风权限，继续用文字体验。语音识别由浏览器提供，可能使用其在线识别服务。</p><p>点击右上角的扬声器开启本地语音播报，光场随声音起伏。打开网页时会自动全屏；卡片的全屏按钮可展开文件或媒体。内容展示时，圆球在左下角，输入框仍可用。按 Esc 或“返回对话”回到卡片；普通对话中 Esc 打断回应。</p><p class="note">这是视觉与交互原型。对话路由、项目进度、网页摘要和文件均为内置示例；图片为原创 SVG，视频卡片为 Canvas 动态预览。尚未接入 Norma 实时对话和真实数据。</p>'));
+$('voice-toggle').addEventListener('click',()=>{if(!(window.AudioContext||window.webkitAudioContext)){toast('当前浏览器不支持语音播放。');return;}state.voice=!state.voice;const button=$('voice-toggle');button.setAttribute('aria-pressed',String(state.voice));button.setAttribute('aria-label',state.voice?'关闭语音播报':'开启语音播报');button.title=state.voice?'关闭语音播报':'开启语音播报';button.innerHTML=icon(state.voice?'volume':'volume-off');if(!state.voice){cancelSpeech();if(state.mode==='speaking')setMode('idle');}else{prepareAudio().catch(()=>toast('声音播放未能启动，请再试一次。'));}toast(state.voice?'语音播报已开启':'语音播报已关闭');});
+function startVoiceInput() {
+  if(state.mode==='listening'){stopVoiceInput();return;}interrupt();
+  const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!Recognition){toast('此浏览器暂不支持语音识别，请在下方输入。');$('command-input').focus();return;}
+  const recognition=new Recognition();state.recognition=recognition;recognition.lang='zh-CN';recognition.continuous=false;recognition.interimResults=true;
+  recognition.onstart=()=>setMode('listening');
+  recognition.onresult=event=>{let text='';let final=false;for(let i=event.resultIndex;i<event.results.length;i++){text+=event.results[i][0].transcript;if(event.results[i].isFinal)final=true;}$('user-line').textContent=text;if(final)submit(text);};
+  recognition.onerror=event=>{if(event.error==='aborted')return;state.recognition=null;setMode('idle');const messages={'not-allowed':'麦克风权限未开启，请允许后重试，或在下方打字。','no-speech':'没有听到声音，再说一次，或者用文字输入。','audio-capture':'没有可用的麦克风，请用文字输入。',network:'浏览器语音服务暂时不可用，请用文字输入。'};$('orb-reply').textContent=messages[event.error]||'语音输入暂时不可用，请用文字输入。';toast($('orb-reply').textContent);};
+  recognition.onend=()=>{if(state.recognition===recognition){state.recognition=null;if(state.mode==='listening'){setMode('idle');$('orb-reply').textContent='这次没有收到完整指令。可以再说一次。';}}};
+  try{recognition.start();}catch{state.recognition=null;setMode('idle');toast('语音输入启动失败，请在下方打字。');}
+}
+$('orb-button').addEventListener('click',startVoiceInput);$('mic-button').addEventListener('click',startVoiceInput);
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!$('detail-dialog').open){if(state.presentation){returnToConversation();return;}interrupt();$('orb-reply').textContent='已打断。你可以继续说，或者输入新的想法。';}});
+$('demo-button').addEventListener('click',()=>{
+  if(state.demo){interrupt();$('orb-reply').textContent='演示已停止。现在，你来试试。';return;}
+  interrupt();applyAction({type:'clear',kinds:[]});state.demo=true;$('demo-label').textContent='停止演示';$('demo-button').setAttribute('aria-pressed','true');
+  const sequence=['看看项目进度','打开 Apple Intelligence 网页','找一下设计文件','看看图片和视频'];let index=0;
+  const next=()=>{if(!state.demo)return;submit(sequence[index++],{demo:true});if(index<sequence.length)state.demoTimer=setTimeout(next,2900);else state.demoTimer=setTimeout(()=>{stopDemo();if(state.playback.status!=='playing')setMode('idle');$('orb-reply').textContent='信息随对话展开。试试“收起所有卡片”，回到只有你和我的空间。';},2600);};next();
+});
+// 局部 Canvas 示例；没有外部媒体、字体或脚本依赖。
+function paintVideo(time) {
+  const canvas=$('video-preview');if(!canvas)return;const ctx=canvas.getContext('2d'),w=600,h=338;ctx.setTransform(canvas.width/w,0,0,canvas.height/h,0,0);
+  const sky=ctx.createRadialGradient(w*.52,h*.46,0,w*.52,h*.46,w*.7);sky.addColorStop(0,'#17465f');sky.addColorStop(.35,'#09202f');sky.addColorStop(1,'#030a13');ctx.fillStyle=sky;ctx.fillRect(0,0,w,h);
+  for(let i=0;i<125;i++){const angle=i*2.39996;const distance=((i*19.7+time*27)%330)+6;const x=w*.52+Math.cos(angle)*distance*1.7;const y=h*.46+Math.sin(angle)*distance;const alpha=Math.min(.8,distance/280);ctx.strokeStyle=`rgba(181,224,249,${alpha})`;ctx.lineWidth=i%11===0?1.5:.65;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+Math.cos(angle)*distance*.026,y+Math.sin(angle)*distance*.026);ctx.stroke();}
+  const planet=ctx.createRadialGradient(130,246,1,180,305,140);planet.addColorStop(0,'#75a8b6');planet.addColorStop(.27,'#305d6c');planet.addColorStop(.66,'#0d283c');planet.addColorStop(1,'#040c16');ctx.fillStyle=planet;ctx.beginPath();ctx.arc(173,319,146,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#67bed46a';ctx.lineWidth=1;ctx.stroke();
+  ctx.fillStyle='#b9d9ed9c';ctx.font='9px Menlo,monospace';ctx.fillText('BEYOND THE VISIBLE',20,25);ctx.fillStyle='#93bac86f';ctx.font='7px Menlo,monospace';ctx.fillText('CANVAS MOTION STUDY / 001',20,40);
+}
+function stopVideo(){state.videoPlaying=false;cancelAnimationFrame(state.videoFrame);state.videoFrame=null;const play=$('play-video');if(play){play.innerHTML=icon('play');play.setAttribute('aria-label','播放视频动效示例');$('video-view').classList.remove('video-running');}}
+function setupVideo() {
+  state.videoTime=0;paintVideo(0);const play=$('play-video');let last=0;
+  const sync=()=>{$('video-time').textContent=`00:${String(Math.floor(state.videoTime)).padStart(2,'0')}`;$('video-seek').value=String(state.videoTime);};
+  const tick=now=>{if(!state.videoPlaying||!$('video-preview'))return;if(!document.hidden&&last)state.videoTime+=(now-last)/1000;last=now;if(state.videoTime>=30){state.videoTime=30;stopVideo();$('video-view').classList.remove('video-running');play.innerHTML=icon('play');play.setAttribute('aria-label','重新播放视频动效示例');}paintVideo(state.videoTime);sync();if(state.videoPlaying)state.videoFrame=requestAnimationFrame(tick);};
+  play.addEventListener('click',()=>{state.videoPlaying=!state.videoPlaying;$('video-view').classList.toggle('video-running',state.videoPlaying);play.innerHTML=icon(state.videoPlaying?'pause':'play');play.setAttribute('aria-label',state.videoPlaying?'暂停视频动效示例':'播放视频动效示例');if(state.videoPlaying){if(state.videoTime>=30)state.videoTime=0;last=0;state.videoFrame=requestAnimationFrame(tick);}else{cancelAnimationFrame(state.videoFrame);state.videoFrame=null;}});
+  $('video-seek').addEventListener('input',event=>{state.videoTime=Number(event.target.value);paintVideo(state.videoTime);sync();});
+}
+// 光学体独立绘制，位移与形变共用连续时钟，不在状态变化时重播。
+const canvas=$('orb-canvas');
+let gl,program,timeLocation,energyLocation,resolutionLocation,appearanceWeightsLocation,voiceTimeLocation,voiceLevelLocation,voiceMotionLocation,voicePitchLocation,voiceBassLocation,voiceTrebleLocation,orbFrame,lastOrb=0;
+let presence={time:7,energy:.1},voiceMotion={time:0,level:0,pitch:.35,bass:0,treble:0};
+let appearanceWeights=AssistantAppearance.styles.map(value=>Number(value===appearance));
+const appearanceUniforms=new Float32Array(AssistantAppearance.styles.length);
+function compile(type,source){
+  const shader=gl.createShader(type);gl.shaderSource(shader,source);gl.compileShader(shader);
+  if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS)){gl.deleteShader(shader);throw new Error('shader unavailable');}return shader;
+}
+function initOrb() {
+  try {
+    gl=canvas.getContext('webgl',{alpha:true,antialias:false,powerPreference:'low-power'});if(!gl)throw new Error('WebGL unavailable');
+    const vertex=compile(gl.VERTEX_SHADER,'attribute vec2 position;void main(){gl_Position=vec4(position,0.0,1.0);}');
+    const fragment=compile(gl.FRAGMENT_SHADER,`
+      precision highp float;
+      uniform vec2 resolution;
+      uniform float time,energy,voiceTime,voiceLevel,voiceMotion,voicePitch,voiceBass,voiceTreble;
+      uniform float appearanceWeights[3];
+      const float PI=3.14159265;
+      // New glass and mercury materials use original analytic optics without image textures.
+      // The studio lights move slowly; speech only changes their width and surface response.
+      float gaussian(float x,float width){return exp(-x*x/(width*width));}
+      // Retained original first appearance: React Bits Orb adaptation.
+      // Copyright (c) 2026 David Haz; full MIT + Commons Clause notice below.
+      vec3 hash33(vec3 p3){
+        p3=fract(p3*vec3(.1031,.11369,.13787));p3+=dot(p3,p3.yxz+19.19);
+        return -1.+2.*fract(vec3(p3.x+p3.y,p3.x+p3.z,p3.y+p3.z)*p3.zyx);
+      }
+      float noise(vec3 p){
+        const float K1=.333333333,K2=.166666667;
+        vec3 i=floor(p+(p.x+p.y+p.z)*K1);
+        vec3 d0=p-(i-(i.x+i.y+i.z)*K2);
+        vec3 e=step(vec3(0.),d0-d0.yzx),i1=e*(1.-e.zxy),i2=1.-e.zxy*(1.-e);
+        vec3 d1=d0-(i1-K2),d2=d0-(i2-K1),d3=d0-.5;
+        vec4 h=max(.6-vec4(dot(d0,d0),dot(d1,d1),dot(d2,d2),dot(d3,d3)),0.);
+        vec4 n=h*h*h*h*vec4(dot(d0,hash33(i)),dot(d1,hash33(i+i1)),dot(d2,hash33(i+i2)),dot(d3,hash33(i+1.)));
+        return dot(vec4(31.316),n);
+      }
+      vec3 aurora(vec2 uv,float t){
+        float angle=atan(uv.y,uv.x);
+        float expansion=.015+.019*voiceBass+.006*voicePitch;
+        float wave=(.014+.016*voiceBass)*sin(angle*2.+voiceTime*2.)
+                  +(.006+.008*voiceTreble)*sin(angle*3.-voiceTime*2.5);
+        uv/=1.+voiceMotion*(expansion+wave);
+        vec2 p=uv/.84;float r=length(p);angle=atan(p.y,p.x);
+        float n=noise(vec3(p*.65,t*.5))*.5+.5;
+        float radius=mix(.75,.83,n),dist=abs(r-radius);
+        float body=1./(1.+dist*10.);
+        body*=1.-smoothstep(radius,radius*1.05,r);
+        body*=smoothstep(radius*.80,radius*.95,r);
+        vec2 point=vec2(cos(-t),sin(-t))*radius;
+        float light=1.5/(1.+dot(p-point,p-point)*5.)/(1.+dist*50.);
+        float outer=1.-smoothstep(mix(.6,1.,n*.5),1.,r);
+        float inner=smoothstep(.6,.8,r);
+        vec3 color=mix(vec3(.45,.20,.95),vec3(.23,.67,.92),.5+.5*cos(angle+t*2.));
+        vec3 result=(mix(vec3(.025,.04,.31),color,body)+light)*outer*inner;
+        float mist=pow(max(0.,1.-r),3.)*(.05+energy*.10);
+        result+=vec3(.16,.26,.65)*mist;
+        return result*(.78+energy*.22);
+      }
+      vec3 studio(vec3 ray,float t,float liquid){
+        // Analytic rectangular area lights: sharp falloff and curved reflections, not texture.
+        vec3 light=normalize(vec3(-.65,.75,.6));
+        vec3 tangent=normalize(cross(light,vec3(0.,1.,0.)));
+        vec3 bitangent=cross(tangent,light);
+        float u=dot(ray,tangent),v=dot(ray,bitangent);
+        u+=.028*sin(t*.32);
+        float panel=exp(-pow(abs(u)/.38,4.)-pow(abs(v)/(.09+.025*voiceLevel),4.));
+        panel*=smoothstep(.3,.7,dot(ray,light));
+        float sweep=ray.y+.35*ray.x+.20*sin(ray.x*1.7+t*.18);
+        float ribbon=gaussian(sweep+.42,.033+.012*voiceLevel);
+        ribbon*=smoothstep(-.95,-.35,ray.x)*(1.-smoothstep(.55,.92,ray.x));
+        float ambient=pow(max(0.,ray.y*.5+.5),3.);
+        float fill=pow(max(0.,dot(ray,normalize(vec3(.6,-.8,.3)))),18.);
+        vec3 col=vec3(.012,.019,.025)+vec3(.11,.14,.17)*ambient;
+        col+=vec3(.92,.97,1.)*panel*.92;
+        col+=vec3(.65,.82,.88)*ribbon*.32;
+        col+=vec3(.46,.64,.72)*fill*.17;
+        return col;
+      }
+      vec3 opticalBody(vec2 uv,float t,float liquid){
+        float angle=atan(uv.y,uv.x);
+        float slow=sin(t*.72);
+        float shape=1.+.003*slow+liquid*.013*sin(angle*3.+t*.35);
+        // Envelope, low/high bands and integrated pitch drive a continuous, bounded surface.
+        shape+=voiceMotion*((.014+.018*voiceBass)+(.008+.009*voiceBass)*sin(angle*2.+voiceTime*.75)
+               +(.003+.006*voiceTreble)*sin(angle*3.-voiceTime*.9));
+        vec2 p=uv/(.72*shape);
+        float r=length(p);
+        float aa=3.0/resolution.x;
+        if(r>1.+aa)return vec3(0.);
+        float z=sqrt(max(0.,1.-dot(p,p)));
+        float surfaceFlow=(.009+liquid*.055)*sin(p.y*3.+t*.25)*sin(p.x*2.-t*.18);
+        surfaceFlow+=voiceMotion*(.012+.012*voicePitch)*sin(p.x*2.8+p.y*1.8+voiceTime*.8);
+        vec3 normal=normalize(vec3(p.x+surfaceFlow,p.y+surfaceFlow*.55,z));
+        vec3 reflection=reflect(vec3(0.,0.,-1.),normal);
+        vec3 transmission=refract(vec3(0.,0.,-1.),normal,1./1.46);
+        float fresnel=.04+.96*pow(1.-z,5.);
+        vec3 reflected=studio(reflection,t,liquid);
+        // Refracted light crosses the lower lens, rather than being painted on the sphere.
+        vec2 lens=p+transmission.xy*z*.55;
+        float caustic=gaussian(lens.y+.56+.32*lens.x*lens.x+.03*slow,.13);
+        caustic*=smoothstep(-.98,-.45,lens.x)*(1.-smoothstep(.35,.95,lens.x));
+        vec3 glass=vec3(.012,.02,.026)+vec3(.09,.14,.16)*pow(z,.6)*.35;
+        glass+=reflected*(.78+fresnel*.45);
+        glass+=vec3(.56,.77,.8)*caustic*(.14+.12*voiceLevel)*(1.-fresnel);
+        // A narrow, directional edge gives a readable transparent silhouette on true black.
+        float rim=gaussian(r-.987,.006+aa*.5);
+        float edgeLight=.16+.78*pow(max(0.,dot(normal.xy,normalize(vec2(-.65,.76)))),3.)
+                       +.32*pow(max(0.,dot(normal.xy,normalize(vec2(.48,-.88)))),5.);
+        glass+=vec3(.8,.91,.98)*rim*edgeLight;
+        vec3 silver=reflected*(1.15+.12*voiceLevel)+vec3(.045,.056,.067)*z;
+        float broad=gaussian(reflection.y+.1+reflection.x*.45,.30);
+        silver+=vec3(.48,.57,.64)*broad*(.58+.12*voiceLevel);
+        silver+=vec3(.65,.76,.82)*rim*.16;
+        vec3 col=mix(glass,silver,liquid);
+        col*=1.+.05*energy+.1*voiceLevel;
+        return col*(1.-smoothstep(1.-aa,1.+aa,r));
+      }
+      void main(){
+        vec2 uv=(gl_FragCoord.xy/resolution-.5)*2.;
+        float t=time;
+        vec3 col=vec3(0.);
+        if(appearanceWeights[0]>.001)col+=aurora(uv,t*.28)*appearanceWeights[0];
+        if(appearanceWeights[1]>.001)col+=opticalBody(uv,t,0.)*appearanceWeights[1];
+        if(appearanceWeights[2]>.001)col+=opticalBody(uv,t,1.)*appearanceWeights[2];
+        // Emissive premultiplied output keeps empty pixels transparent over the dock.
+        col=clamp(col,0.,1.);
+        float alpha=clamp(max(col.r,max(col.g,col.b))*8.,0.,1.);
+        gl_FragColor=vec4(col,alpha);
+      }
+
+`);
+    program=gl.createProgram();gl.attachShader(program,vertex);gl.attachShader(program,fragment);gl.linkProgram(program);
+    if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw new Error('program unavailable');gl.useProgram(program);
+    const buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
+    const position=gl.getAttribLocation(program,'position');gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0);
+    timeLocation=gl.getUniformLocation(program,'time');energyLocation=gl.getUniformLocation(program,'energy');resolutionLocation=gl.getUniformLocation(program,'resolution');appearanceWeightsLocation=gl.getUniformLocation(program,'appearanceWeights[0]');voiceTimeLocation=gl.getUniformLocation(program,'voiceTime');voiceLevelLocation=gl.getUniformLocation(program,'voiceLevel');voiceMotionLocation=gl.getUniformLocation(program,'voiceMotion');voicePitchLocation=gl.getUniformLocation(program,'voicePitch');voiceBassLocation=gl.getUniformLocation(program,'voiceBass');voiceTrebleLocation=gl.getUniformLocation(program,'voiceTreble');
+    resizeOrb();renderOrb(performance.now(),0);
+  } catch {gl=null;canvas.hidden=true;$('orb-fallback').style.display='block';}
+}
+function resizeOrb(visibleWidth=$('orb-button').clientWidth){
+  // 绘制缓冲区上限 540 px；大范围迁移时保留最大端分辨率，停靠后才缩小。
+  const size=Math.max(1,Math.min(540,Math.round(visibleWidth*Math.min(window.devicePixelRatio||1,1.5))));
+  if(gl&&canvas.width!==size){canvas.width=size;canvas.height=size;gl.viewport(0,0,size,size);}
+}
+function renderOrb(now,seconds=0){
+  presence=AssistantMotion.advancePresence(presence,state.mode,seconds,reduced.matches);
+  voiceMotion=AssistantAudio.smooth(voiceMotion,sampleAudio(now),seconds,reduced.matches);
+  if(!gl)$('orb-fallback').style.transform=reduced.matches?'none':`scale(${1+voiceMotion.level*.025})`;
+  appearanceWeights=AssistantMotion.advanceAppearance(appearanceWeights,AssistantAppearance.styles.indexOf(appearance),seconds,reduced.matches);
+  if(!gl||!program)return;
+  gl.uniform2f(resolutionLocation,canvas.width,canvas.height);gl.uniform1f(timeLocation,presence.time);
+  gl.uniform1f(voiceTimeLocation,voiceMotion.time);gl.uniform1f(voiceLevelLocation,voiceMotion.level);gl.uniform1f(voiceMotionLocation,reduced.matches?0:voiceMotion.level);gl.uniform1f(voicePitchLocation,voiceMotion.pitch);gl.uniform1f(voiceBassLocation,voiceMotion.bass);gl.uniform1f(voiceTrebleLocation,voiceMotion.treble);
+  gl.uniform1f(energyLocation,presence.energy);appearanceUniforms.set(appearanceWeights);gl.uniform1fv(appearanceWeightsLocation,appearanceUniforms);gl.drawArrays(gl.TRIANGLES,0,6);
+}
+
+function orbLoop(now){
+  const seconds=lastOrb?Math.max(0,(now-lastOrb)/1000):1/60;lastOrb=now;
+  if(!document.hidden){advanceMotions(now);renderOrb(now,seconds);}
+  orbFrame=requestAnimationFrame(orbLoop);
+}
+window.addEventListener('resize',()=>{[...motions.keys()].forEach(clearMotion);resizeOrb();renderOrb(performance.now());});
+reduced.addEventListener('change',()=>{
+  cancelAnimationFrame(orbFrame);settleCardTransitions();[...motions.keys()].forEach(clearMotion);state.copyFade?.cancel();state.sceneFade?.cancel();ghosts.forEach(ghost=>ghost.remove());ghosts.clear();
+  resizeOrb();renderOrb(performance.now());lastOrb=0;if(!reduced.matches)orbFrame=requestAnimationFrame(orbLoop);
+});
+canvas.addEventListener('webglcontextlost',event=>{event.preventDefault();gl=null;canvas.hidden=true;chooseAppearance(appearance,false);});
+window.addEventListener('pagehide',()=>{interrupt();stopVideo();cancelAnimationFrame(orbFrame);});
+
+const appearanceLabels={aurora:'极光',glass:'玻璃',mercury:'水银'};
+const appearanceOptions=[...document.querySelectorAll('.appearance-option')];
+function closeAppearancePicker(){ $('appearance-control').dataset.open='false';$('appearance-trigger').setAttribute('aria-expanded','false'); }
+function chooseAppearance(value,announce=true,keepOpen=false){
+  appearance=AssistantAppearance.write(preferenceStorage,value);
+  $('app').dataset.appearance=appearance;
+  appearanceOptions.forEach(button=>{const selected=button.dataset.appearance===appearance;button.setAttribute('aria-checked',String(selected));button.tabIndex=selected?0:-1;});
+  canvas.hidden=!gl;
+  $('orb-fallback').hidden=!!gl;$('orb-fallback').style.display=gl?'none':'block';
+  if(announce)$('appearance-status').textContent=`助手形态已切换为${appearanceLabels[appearance]}`;
+  if(!keepOpen)closeAppearancePicker();
+  // 三种外观共享同一 Canvas；切换时保留形变相位、状态和正在阅读的内容。
+  resizeOrb(Math.max(canvas.clientWidth, $('orb-button').getBoundingClientRect().width));renderOrb(performance.now());
+}
+appearanceOptions.forEach((button,index)=>{
+  button.addEventListener('click',()=>{chooseAppearance(button.dataset.appearance);if(state.presentation)$('appearance-trigger').focus();});
+  button.addEventListener('keydown',event=>{
+    const direction={ArrowLeft:-1,ArrowUp:-1,ArrowRight:1,ArrowDown:1}[event.key];
+    if(direction===undefined&&event.key!=='Home'&&event.key!=='End')return;
+    event.preventDefault();
+    const next=event.key==='Home'?0:event.key==='End'?appearanceOptions.length-1:(index+direction+appearanceOptions.length)%appearanceOptions.length;
+    chooseAppearance(appearanceOptions[next].dataset.appearance,true,true);appearanceOptions[next].focus();
+  });
+});
+$('appearance-trigger').addEventListener('click',()=>{
+  const open=$('appearance-control').dataset.open!=='true';$('appearance-control').dataset.open=String(open);$('appearance-trigger').setAttribute('aria-expanded',String(open));
+  if(open)appearanceOptions.find(button=>button.dataset.appearance===appearance).focus();
+});
+document.addEventListener('pointerdown',event=>{if(!$('appearance-control').contains(event.target))closeAppearancePicker();});
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&$('appearance-control').dataset.open==='true'){event.preventDefault();event.stopImmediatePropagation();closeAppearancePicker();$('appearance-trigger').focus();}},true);
+chooseAppearance(appearance,false);
+
+initOrb();chooseAppearance(appearance,false);if(!reduced.matches)orbFrame=requestAnimationFrame(orbLoop);
+})();
+</script>
+</body>
+</html>

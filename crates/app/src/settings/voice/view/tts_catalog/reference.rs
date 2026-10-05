@@ -79,7 +79,9 @@ pub(super) fn zipvoice_reference_controls(
                     .pt(px(8.0))
                     .text_size(px(12.0))
                     .text_color(rgba(theme.text_secondary))
-                    .child("Clone reference · 16 kHz mono PCM WAV · 3–15 seconds"),
+                    .child(ui::i18n::text(
+                        "voice.clone_reference_16_khz_mono_pcm_wav_3_15_seconds",
+                    )),
             )
             .child(
                 div()
@@ -87,7 +89,10 @@ pub(super) fn zipvoice_reference_controls(
                     .flex()
                     .flex_col()
                     .gap(px(4.0))
-                    .child(reference_field_label(theme, "Reference WAV"))
+                    .child(reference_field_label(
+                        theme,
+                        ui::i18n::text("voice.reference_wav"),
+                    ))
                     .child(
                         div()
                             .id("settings-zipvoice-reference-path")
@@ -110,7 +115,10 @@ pub(super) fn zipvoice_reference_controls(
                     .flex()
                     .flex_col()
                     .gap(px(4.0))
-                    .child(reference_field_label(theme, "Exact transcript"))
+                    .child(reference_field_label(
+                        theme,
+                        ui::i18n::text("voice.exact_transcript"),
+                    ))
                     .child(
                         div()
                             .id("settings-zipvoice-reference-transcript")
@@ -141,7 +149,9 @@ pub(super) fn zipvoice_reference_controls(
                                 })
                                 .text_size(px(11.0))
                                 .text_color(rgba(theme.destructive))
-                                .child("Required — enter the exact words spoken in the WAV."),
+                                .child(ui::i18n::text(
+                                    "voice.required_enter_the_exact_words_spoken_in_the_wav",
+                                )),
                         )
                     }),
             )
@@ -152,7 +162,7 @@ pub(super) fn zipvoice_reference_controls(
                     .items_center()
                     .gap(px(6.0))
                     .child(
-                        action_button(theme, "Choose WAV…", theme.accent_blue)
+                        action_button(theme, ui::i18n::text("voice.choose_wav"), theme.accent_blue)
                             .id("settings-zipvoice-reference-browse")
                             .debug_selector(|| "settings-zipvoice-reference-browse".to_string())
                             .when(!busy, |button| {
@@ -165,11 +175,11 @@ pub(super) fn zipvoice_reference_controls(
                         action_button(
                             theme,
                             if importing {
-                                "Importing…"
+                                ui::i18n::text("voice.importing")
                             } else if ready {
-                                "Replace"
+                                ui::i18n::text("voice.replace")
                             } else {
-                                "Import"
+                                ui::i18n::text("voice.import")
                             },
                             theme.accent_blue,
                         )
@@ -191,9 +201,9 @@ pub(super) fn zipvoice_reference_controls(
                 .gap(px(8.0))
                 .text_size(px(12.0))
                 .text_color(rgba(theme.accent_green))
-                .child("Reference ready")
+                .child(ui::i18n::text("voice.reference_ready"))
                 .child(
-                    action_button(theme, "Remove", theme.destructive)
+                    action_button(theme, ui::i18n::text("common.remove"), theme.destructive)
                         .id("settings-zipvoice-reference-remove")
                         .debug_selector(|| "settings-zipvoice-reference-remove".to_string())
                         .when(!busy, |button| {
@@ -215,7 +225,11 @@ fn reference_field_label(theme: Theme, label: &'static str) -> Div {
         .text_size(px(11.0))
         .text_color(rgba(theme.text_secondary))
         .child(label)
-        .child(div().text_color(rgba(theme.destructive)).child("Required"))
+        .child(
+            div()
+                .text_color(rgba(theme.destructive))
+                .child(ui::i18n::text("voice.required")),
+        )
 }
 
 fn reference_input(
@@ -237,13 +251,13 @@ fn reference_input(
         ("settings-zipvoice-reference-input", key),
         cx,
         move |window, cx| {
-            let placeholder = match field {
-                ReferenceField::Path => "/path/to/reference.wav",
-                ReferenceField::Transcript => "Exact transcript of the reference audio",
+            let placeholder_key = match field {
+                ReferenceField::Path => "voice.reference_path",
+                ReferenceField::Transcript => "voice.exact_transcript_of_the_reference_audio",
             };
             let input = cx.new(|cx| {
                 InputState::new(window, cx)
-                    .placeholder(placeholder)
+                    .placeholder(ui::i18n::input_placeholder(placeholder_key, window, cx))
                     .multi_line(false)
                     .default_value(initial_value)
             });

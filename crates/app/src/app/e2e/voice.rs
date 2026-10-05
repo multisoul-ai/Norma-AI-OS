@@ -147,10 +147,10 @@ impl MultisoulApp {
             .dialogue
             .begin_single_voice_command("e2e failed voice turn");
         self.voice.set_executed("Voice command sent");
-        self.dialogue.recover_reply_failure(message);
+        self.dialogue.recover_reply_failure(message.into());
     }
 
     pub fn show_continuous_voice_turn_error_for_e2e(&mut self, message: impl Into<String>) {
-        self.dialogue.recover_reply_failure(message);
+        self.dialogue.recover_reply_failure(message.into());
     }
 }

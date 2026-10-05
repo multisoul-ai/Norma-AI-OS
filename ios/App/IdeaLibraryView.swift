@@ -17,7 +17,7 @@ private enum IdeaRoute: Identifiable {
 
 struct IdeaLibraryView: View {
     @Bindable var model: IdeaLibraryModel
-    @Bindable var workspaces: WorkspaceLibraryModel
+    @Bindable var workspaces: WorkspaceChatModel
     let navigateToTab: (Int) -> Void
     let openComputers: () -> Void
     let openSettings: () -> Void
@@ -31,8 +31,9 @@ struct IdeaLibraryView: View {
     @State private var savedFeedback = false
     @State private var feedbackTask: Task<Void, Never>?
     @State private var advancing: Idea?
-    @State private var createdThread: WorkThread?
-    @State private var openedThread: WorkThread?
+    @State private var selectedWorkspaceID: String?
+    @Environment(ComputerModel.self) private var computers
+    @Environment(CloudChatModel.self) private var cloud
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -145,19 +146,27 @@ struct IdeaLibraryView: View {
             }
         }
         .sheet(isPresented: $showingDrawer) { moduleDrawer.presentationDetents([.medium]) }
-        .sheet(item: $advancing, onDismiss: { openedThread = createdThread; createdThread = nil }) { idea in
-            NewWorkThreadView(library: workspaces, source: idea) { createdThread = $0 }
-        }
-        .fullScreenCover(item: $openedThread) { thread in
+        .sheet(item: $advancing) { idea in
             NavigationStack {
-                WorkThreadView(library: workspaces, thread: thread)
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button { openedThread = nil } label: { Image(systemName: "chevron.left") }
-                                .accessibilityLabel("返回想法库").accessibilityIdentifier("thread-back-to-ideas")
-                        }
+                List {
+                    Section { Text("引用想法到工作空间，原始想法仍独立保存。引用后不会自动执行。").font(.subheadline) }
+                    ForEach(workspaces.workspaces) { workspace in
+                        Button(workspace.name) {
+                            var draft = workspaces.drafts[workspace.id] ?? .init()
+                            draft.ideaID = idea.id
+                            if draft.text.isEmpty { draft.text = idea.body }
+                            workspaces.updateDraft(draft, workspaceID: workspace.id)
+                            advancing = nil
+                            selectedWorkspaceID = workspace.id
+                        }.frame(minHeight: 44)
                     }
-            }.tint(IdeaPalette.blue).preferredColorScheme(.light)
+                    if workspaces.workspaces.isEmpty { Text("连接 Mac 后选择一个工作空间。") }
+                }.navigationTitle("引用到工作空间").navigationBarTitleDisplayMode(.inline)
+                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("取消") { advancing = nil } } }
+            }.presentationDetents([.medium, .large]).presentationDragIndicator(.visible)
+        }
+        .navigationDestination(item: $selectedWorkspaceID) { id in
+            WorkspaceGroupChatView(model: workspaces, computers: computers, cloud: cloud, workspaceID: id)
         }
         .alert("想法库", isPresented: Binding(get: { model.error != nil && route == nil }, set: { if !$0 { model.error = nil } })) {
             Button("好") { model.error = nil }

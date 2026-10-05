@@ -1,5 +1,7 @@
+mod pairing;
 use crate::mobile::controller::{Command, MobileController};
 use gpui::{div, img, prelude::*, px, rgba, App, Div, Entity, FontWeight, SharedString};
+use pairing::{pair_prompt_card, pending_card, qr_card};
 use storage::MobilePermission;
 use ui::{
     component::{
@@ -93,11 +95,17 @@ fn connection_card(
     state: &MobileController,
 ) -> Div {
     let (dot, status) = if state.busy {
-        (theme.text_tertiary, "Working…")
+        (theme.text_tertiary, ui::i18n::text("mobile.working"))
     } else if state.enabled() {
-        (theme.success, "Mobile connection is on")
+        (
+            theme.success,
+            ui::i18n::text("mobile.mobile_connection_is_on"),
+        )
     } else {
-        (theme.text_tertiary, "Mobile connection is off")
+        (
+            theme.text_tertiary,
+            ui::i18n::text("mobile.mobile_connection_is_off"),
+        )
     };
     let mut row = div()
         .flex()
@@ -110,7 +118,7 @@ fn connection_card(
         row.child(
             Button::new("mobile-disable")
                 .debug_selector(|| "mobile-disable".into())
-                .label("Disable")
+                .label(ui::i18n::text("common.disable"))
                 .danger()
                 .outline()
                 .disabled(state.busy)
@@ -121,7 +129,7 @@ fn connection_card(
             action(
                 entity,
                 "mobile-enable",
-                "Enable",
+                ui::i18n::text("common.enable"),
                 Command::Enable,
                 state.busy,
             )
@@ -132,8 +140,8 @@ fn connection_card(
     let mut body = card(theme)
         .child(section_title(
             theme,
-            "Connection",
-            "Pair your iPhone to run Norma from anywhere.".into(),
+            ui::i18n::text("mobile.connection"),
+            ui::i18n::text("mobile.pair_your_iphone_to_run_norma_from_anywhere").into(),
         ))
         .child(row);
     if state.enabled() {
@@ -154,7 +162,9 @@ fn connection_card(
         div()
             .text_size(px(12.0))
             .text_color(rgba(theme.text_tertiary))
-            .child("Projects and agents keep running after windows close while this is on. Quit Norma to stop them; disconnecting your phone does not."),
+            .child(ui::i18n::text(
+                "mobile.projects_and_agents_keep_running_after_windows_close_while_this_is",
+            )),
     )
 }
 
@@ -182,194 +192,6 @@ fn with_alpha(color: u32, alpha: u8) -> u32 {
     (color & 0xffffff00) | u32::from(alpha)
 }
 
-fn pair_prompt_card(entity: &Entity<MobileController>, busy: bool) -> Div {
-    div()
-        .flex()
-        .items_center()
-        .justify_center()
-        .py(px(22.0))
-        .child(
-            action(
-                entity,
-                "mobile-new-code",
-                "Pair a Phone",
-                Command::NewCode,
-                busy,
-            )
-            .primary(),
-        )
-}
-
-fn qr_card(
-    theme: Theme,
-    entity: &Entity<MobileController>,
-    state: &MobileController,
-    image: &std::sync::Arc<gpui::RenderImage>,
-) -> Div {
-    card(theme)
-        .child(section_title(theme, "Pair a Phone", "In Norma on your iPhone, choose Add Computer, then enter the code or scan the QR code.".into()))
-        .child(
-            div()
-                .flex()
-                .items_start()
-                .gap(px(24.0))
-                .child(
-                    div()
-                        .flex_1()
-                        .flex()
-                        .flex_col()
-                        .gap(px(10.0))
-                        .child(
-                            div()
-                                .text_size(px(12.0))
-                                .text_color(rgba(theme.text_tertiary))
-                                .child("Pairing Code"),
-                        )
-                        .child(
-                            div()
-                                .id("mobile-code")
-                                .debug_selector(|| "mobile-code".into())
-                                .text_size(px(32.0))
-                                .font_weight(FontWeight::BOLD)
-                                .child(state.pairing_code.clone().unwrap_or_default()),
-                        )
-                        .child(
-                            div()
-                                .text_size(px(12.0))
-                                .text_color(rgba(theme.text_tertiary))
-                                .child("Enter the Mac address above and the 6-digit code on your iPhone. Each code allows up to 3 attempts."),
-                        )
-                        .child(format!("Expires in {} seconds", state.seconds_left))
-                        .child(
-                            Button::new("mobile-copy-code")
-                                .icon(if state.code_copied {
-                                    IconName::Check
-                                } else {
-                                    IconName::Copy
-                                })
-                                .label(if state.code_copied {
-                                    "Code Copied"
-                                } else {
-                                    "Copy Code"
-                                })
-                                .outline()
-                                .disabled(state.busy || state.seconds_left == 0)
-                                .on_click({
-                                    let target = entity.clone();
-                                    move |_, _, cx| {
-                                        target.update(cx, |host, cx| host.copy_pairing_code(cx))
-                                    }
-                                }),
-                        ),
-                )
-                .child(
-                    div()
-                        .id("mobile-qr")
-                        .debug_selector(|| "mobile-qr".into())
-                        .flex_none()
-                        .rounded(px(10.0))
-                        .bg(gpui::white())
-                        .p(px(8.0))
-                        .child(img(image.clone()).w(px(144.0)).h(px(144.0))),
-                ),
-        )
-        .child(
-            div()
-                .flex()
-                .gap(px(12.0))
-                .child(action(entity, "mobile-new-code", "New Code", Command::NewCode, state.busy))
-                .child(
-                    action(entity, "mobile-cancel-code", "Cancel Pairing", Command::CancelCode, state.busy)
-                        .ghost(),
-                ),
-        )
-}
-
-fn pending_card(
-    theme: Theme,
-    entity: &Entity<MobileController>,
-    cx: &App,
-    pending: &norma::mobile::PairingPending,
-) -> Div {
-    let host = entity.read(cx);
-    card(theme)
-        .border_color(rgba(with_alpha(theme.accent_orange, 0x60)))
-        .child(section_title(theme, "Pairing Request", format!("{} wants to pair", pending.device_name).into()))
-        .child(
-            div()
-                .text_size(px(30.0))
-                .font_weight(FontWeight::BOLD)
-                .child(pending.verification_code.clone()),
-        )
-        .child(
-            div()
-                .text_color(rgba(theme.text_secondary))
-                .child("Confirm that your iPhone shows the same code, then choose which projects it can access."),
-        )
-        .child(
-            div()
-                .text_size(px(13.0))
-                .text_color(rgba(theme.text_secondary))
-                .child("One-time authorization for this iPhone: all projects registered on this Mac now and in the future."),
-        )
-        .child(
-            div()
-                .flex()
-                .gap(px(12.0))
-                .child(
-                    action(
-                        entity,
-                        "mobile-approve-all-read",
-                        "Approve All · Read Only",
-                        Command::ApproveAll {
-                            request_id: pending.request_id.clone(),
-                            access: MobilePermission::Read,
-                        },
-                        host.busy,
-                    )
-                    .outline(),
-                )
-                .child(
-                    action(
-                        entity,
-                        "mobile-approve-all-control",
-                        "Approve All · Control",
-                        Command::ApproveAll {
-                            request_id: pending.request_id.clone(),
-                            access: MobilePermission::Control,
-                        },
-                        host.busy,
-                    )
-                    .primary(),
-                ),
-        )
-        .child(section_title(theme, "Selected Projects", "Or grant access to individual projects only.".into()))
-        .child(projects(theme, entity, cx))
-        .child(
-            div()
-                .flex()
-                .gap(px(12.0))
-                .child(
-                    action(
-                        entity,
-                        "mobile-approve",
-                        "Approve Pairing",
-                        Command::Approve {
-                            request_id: pending.request_id.clone(),
-                            projects: host.chosen_projects(),
-                        },
-                        host.busy,
-                    )
-                    .primary(),
-                )
-                .child(
-                    action(entity, "mobile-reject", "Reject", Command::CancelCode, host.busy)
-                        .danger()
-                        .outline(),
-                ),
-        )
-}
-
 fn action(
     entity: &Entity<MobileController>,
     id: &str,
@@ -393,9 +215,15 @@ fn projects(theme: Theme, entity: &Entity<MobileController>, cx: &App) -> Div {
     for project in &host.projects {
         let mut choices = div().flex().gap(px(6.0));
         for (index, (label, access)) in [
-            ("No Access", None),
-            ("Read Only", Some(MobilePermission::Read)),
-            ("Control", Some(MobilePermission::Control)),
+            (ui::i18n::text("mobile.no_access"), None),
+            (
+                ui::i18n::text("mobile.read_only"),
+                Some(MobilePermission::Read),
+            ),
+            (
+                ui::i18n::text("mobile.control"),
+                Some(MobilePermission::Control),
+            ),
         ]
         .into_iter()
         .enumerate()
@@ -441,8 +269,8 @@ fn projects(theme: Theme, entity: &Entity<MobileController>, cx: &App) -> Div {
         div()
             .text_size(px(12.0))
             .text_color(rgba(theme.text_secondary))
-            .child(
-                "If no projects are selected, your phone will pair without access to any projects.",
-            ),
+            .child(ui::i18n::text(
+                "mobile.if_no_projects_are_selected_your_phone_will_pair_without_access",
+            )),
     )
 }

@@ -130,3 +130,6 @@ block2 = "0.6"
 raw-window-handle = "0.6"
 wry = { version = "0.55.1", default-features = false, features = ["protocol"] }
 cef = { version = "149.3.0", optional = true, default-features = false }
+
+[dev-dependencies]
+rusqlite.workspace = true

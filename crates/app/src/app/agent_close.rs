@@ -37,10 +37,8 @@ impl MultisoulApp {
         if runtime_busy || coordinated_busy {
             if require_repeat && self.pending_agent_close_confirmation != Some(node_id) {
                 self.pending_agent_close_confirmation = Some(node_id);
-                self.workspace_state.error = Some(
-                    "Agent is working or has queued tasks. Close it again to interrupt all tasks."
-                        .to_string(),
-                );
+                self.workspace_state.error =
+                    Some(ui::i18n::LocalizedText::new("agent.close_running"));
                 return false;
             }
             if let Some(coordinator) = self.agent_task_coordinator.as_mut() {

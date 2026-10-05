@@ -125,6 +125,23 @@ impl ProjectAgentRuntime {
         ),
         String,
     > {
+        Self::spawn_scoped(project_id, config, paths, root, false)
+    }
+
+    fn spawn_scoped(
+        project_id: String,
+        config: agent::ProviderConfig,
+        paths: storage::DatabasePaths,
+        root: Option<std::path::PathBuf>,
+        workspace: bool,
+    ) -> Result<
+        (
+            Self,
+            async_channel::Receiver<NormaAdapterRequest>,
+            async_channel::Receiver<AgentEvent>,
+        ),
+        String,
+    > {
         let runtime = shared_tokio_runtime()?;
         let id = NEXT_RUNTIME_ID.fetch_add(1, Ordering::Relaxed);
         diagnostics::runtime_spawn(id, &config, true);
@@ -134,16 +151,15 @@ impl ProjectAgentRuntime {
         let cancelled = Arc::new(AtomicBool::new(false));
         let dialogue_cancelled = Arc::new(AtomicBool::new(false));
         let active_config = Arc::new(Mutex::new(config.clone()));
-        let session = agent::NormaSession::new(
-            project_id.clone(),
-            &config,
-            super::memory::adapter(
-                Arc::new(ChannelAgentCardAdapter { sender: adapter_tx }),
-                paths,
-                root,
-            ),
-        )
-        .map_err(|error| error.to_string())?;
+        let delegate: Arc<dyn agent::AgentCardAdapter> =
+            Arc::new(ChannelAgentCardAdapter { sender: adapter_tx });
+        let adapter = if workspace {
+            super::memory::workspace_adapter(delegate, paths)
+        } else {
+            super::memory::adapter(delegate, paths, root)
+        };
+        let session = agent::NormaSession::new(project_id.clone(), &config, adapter)
+            .map_err(|error| error.to_string())?;
         runtime.spawn(run_project_agent(
             session,
             request_rx,
@@ -439,6 +455,8 @@ fn spawn_turn(
 }
 
 mod submit;
+mod workspace;
+pub(crate) use workspace::submit_workspace_turn;
 
 include!("agent_runtime/adapter_pump.rs");
 

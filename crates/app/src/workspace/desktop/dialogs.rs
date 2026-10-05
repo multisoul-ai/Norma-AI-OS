@@ -68,7 +68,13 @@ impl MultisoulApp {
             .flatten()
             .map(|id| (id, self.desktop_workspace.expanded_area_id.clone()));
         self.show_desktop_directory(false, window, cx);
-        let input = cx.new(|cx| InputState::new(window, cx).placeholder("Search workspaces"));
+        let input = cx.new(|cx| {
+            InputState::new(window, cx).placeholder(ui::i18n::input_placeholder(
+                "workspace.search_workspaces",
+                window,
+                cx,
+            ))
+        });
         let subscription = cx.subscribe(&input, |app, input, event: &InputEvent, cx| {
             if matches!(event, InputEvent::Change) {
                 let query = input.read(cx).value().to_string();
@@ -149,7 +155,7 @@ impl MultisoulApp {
             .child(
                 Button::new("desktop-workspace-switch-create")
                     .debug_selector(|| "desktop-workspace-switch-create".into())
-                    .label("New Workspace")
+                    .label(ui::i18n::text("shortcuts.new_workspace"))
                     .custom(glass_button_variant(theme, cx))
                     .disabled(self.desktop_workspace.busy)
                     .on_click(

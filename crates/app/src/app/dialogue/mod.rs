@@ -1,6 +1,7 @@
 //! App-layer shell state for Continuous Listening local voice dialogue.
 mod artifacts;
 mod chat;
+mod presentation;
 pub(crate) use chat::resolve_asr_recognizer_factory;
 mod error;
 mod error_state;
@@ -40,8 +41,8 @@ use voice_sherpa::{PcmStreamSession, SpeechError};
 type MicPermissionCheck = fn() -> Result<(), SpeechError>;
 
 static MIC_PERMISSION_CHECK: Mutex<Option<MicPermissionCheck>> = Mutex::new(None);
-pub(crate) fn spoken_reply_capacity_message(capacity_chars: usize) -> String {
-    format!("Spoken reply stopped after the speech backlog reached {capacity_chars} characters. The complete reply remains visible.")
+pub(crate) fn spoken_reply_capacity_message(capacity_chars: usize) -> ui::i18n::LocalizedText {
+    ui::i18n::LocalizedText::new("chrome.spoken_backlog").with_arg("capacity", capacity_chars)
 }
 
 pub(crate) fn default_mic_permission_check() -> Result<(), SpeechError> {
@@ -83,7 +84,7 @@ pub(crate) struct DialogueControlState {
     pub(super) speech_task: Option<Task<()>>,
     next_startup_attempt: u64,
     pending_startup_attempt: Option<u64>,
-    error_message: Option<String>,
+    error_message: Option<ui::i18n::LocalizedText>,
     microphone_settings_recovery_available: bool,
     queued_template_reports: Vec<reply_loop::QueuedAgentReport>,
     pub(super) last_reply_text: Option<String>,
@@ -227,28 +228,6 @@ impl DialogueControlState {
         self.pending_startup_attempt.is_some() || self.phase() != DialoguePhase::Idle
     }
 
-    pub(crate) fn dialogue_voice_label(&self) -> Option<String> {
-        if let Some(message) = self.error_message.as_ref() {
-            return Some(message.clone());
-        }
-        match self.session.phase() {
-            DialoguePhase::Idle => None,
-            DialoguePhase::Listening => Some("Continuous Listening".to_string()),
-            DialoguePhase::Thinking => self
-                .session
-                .pending_transcript()
-                .filter(|transcript| !transcript.trim().is_empty())
-                .map(ToOwned::to_owned)
-                .or_else(|| Some("Thinking...".to_string())),
-            DialoguePhase::Speaking => Some("Replying...".to_string()),
-        }
-    }
-
-    pub(crate) fn effective_voice_label(&self, fallback: impl Into<String>) -> String {
-        self.dialogue_voice_label()
-            .unwrap_or_else(|| fallback.into())
-    }
-
     pub(crate) fn dialogue_voice_visual(&self) -> Option<VoiceVisual> {
         if self.error_message.is_some() {
             return Some(VoiceVisual::Error);
@@ -337,7 +316,7 @@ impl DialogueControlState {
         Ok(())
     }
 
-    pub(crate) fn recover_reply_failure(&mut self, message: impl Into<String>) {
+    pub(crate) fn recover_reply_failure(&mut self, message: impl Into<ui::i18n::LocalizedText>) {
         self.abort_reply_stream(false);
         self.session
             .on_playback_finished_or_interrupted(self.reply_keeps_listening);

@@ -10,6 +10,7 @@ pub(crate) enum VoiceSettingsField {
     MiniMaxVoiceId,
     MiniMaxVoiceSearch,
     DoubaoApiKey,
+    DoubaoVoiceSearch,
 }
 
 impl VoiceSettingsField {
@@ -25,6 +26,7 @@ impl VoiceSettingsField {
             Self::MiniMaxVoiceId => "tts_minimax_voice_id",
             Self::MiniMaxVoiceSearch => "tts_minimax_voice_search",
             Self::DoubaoApiKey => "doubao_api_key",
+            Self::DoubaoVoiceSearch => "doubao_voice_search",
         }
     }
 
@@ -40,6 +42,7 @@ impl VoiceSettingsField {
             Self::MiniMaxVoiceId => 7,
             Self::MiniMaxVoiceSearch => 8,
             Self::DoubaoApiKey => 9,
+            Self::DoubaoVoiceSearch => 10,
         }
     }
 }

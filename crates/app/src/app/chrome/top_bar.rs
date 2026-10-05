@@ -1,19 +1,30 @@
-//! Full-width workspace title bar aligned with the reviewed Product UI canvas chrome.
+//! Full-width workspace title bar sharing the Command Dock's material.
 
 use crate::app::MultisoulApp;
+use crate::shortcuts::ShortcutCommandId;
 use crate::workspace::persistence::PersistenceSaveState;
-use gpui::{
-    div, point, prelude::*, px, rgba, BoxShadow, Context, Div, Stateful, WindowControlArea,
-};
+use gpui::{div, prelude::*, px, rgba, Context, Div, Stateful, Window, WindowControlArea};
 use std::path::Path;
-use ui::component::StyledExt;
+use ui::component::{
+    button::{Button, ButtonCustomVariant, ButtonVariants},
+    Disableable, StyledExt,
+};
+use ui::icons::{toolbar_icon, with_alpha, ToolbarIcon};
 use workspace::display_name_for_path;
 
-pub(super) const TOP_BAR_HEIGHT: f32 = 54.0;
-pub(super) const TOP_BAR_FILL: u32 = 0x0d131f4d;
-pub(super) const TOP_BAR_BORDER: u32 = 0xffffff29;
-const TOP_BAR_FOREGROUND: u32 = 0xffffffe6;
-const TOP_BAR_MUTED: u32 = 0xffffff7a;
+pub(crate) const TOP_BAR_HEIGHT: f32 = 52.0;
+
+pub(crate) fn top_bar_theme(mut theme: ui::Theme) -> ui::Theme {
+    // The Dock remains dark in light themes, so its chrome needs light foregrounds.
+    theme.title_bar = theme.dock;
+    theme.text_primary = 0xffffffff;
+    theme.text_secondary = 0xffffffe6;
+    // 214/255 opacity keeps even the divider above 4.5:1 over white wallpaper.
+    theme.text_tertiary = 0xffffffd6;
+    theme.panel_high = 0xffffff24;
+    theme.node_fill = 0xffffff33;
+    theme
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) struct CanvasSaveVisual {
@@ -24,17 +35,17 @@ pub(super) struct CanvasSaveVisual {
 pub(super) fn canvas_save_visual(pending: bool, failed: bool) -> CanvasSaveVisual {
     if failed {
         CanvasSaveVisual {
-            label: "Save issue",
+            label: ui::i18n::text("chrome.save_issue"),
             dot: 0xff6b7aff,
         }
     } else if pending {
         CanvasSaveVisual {
-            label: "Saving…",
+            label: ui::i18n::text("cards.saving"),
             dot: 0xd6ff3bff,
         }
     } else {
         CanvasSaveVisual {
-            label: "Canvas saved",
+            label: ui::i18n::text("chrome.canvas_saved"),
             dot: 0x64e0b5ff,
         }
     }
@@ -42,34 +53,115 @@ pub(super) fn canvas_save_visual(pending: bool, failed: bool) -> CanvasSaveVisua
 
 impl MultisoulApp {
     pub(super) fn render_workspace_top_bar(&mut self, cx: &mut Context<Self>) -> Stateful<Div> {
+        let theme = top_bar_theme(self.theme);
         let project_name = workspace_top_bar_title(self.workspace_state.current_root.as_deref());
-        let save = match self.persistence.save_state() {
-            PersistenceSaveState::Clean => canvas_save_visual(false, false),
-            PersistenceSaveState::Pending => canvas_save_visual(true, false),
-            PersistenceSaveState::Failed => canvas_save_visual(false, true),
-        };
+        let save = save_visual(self.persistence.save_state());
 
-        div()
-            .id("workspace-top-bar")
-            .debug_selector(|| "workspace-top-bar".to_string())
-            .absolute()
-            .top(px(0.0))
-            .left(px(0.0))
-            .right(px(0.0))
-            .h(px(TOP_BAR_HEIGHT))
-            .flex()
-            .items_center()
-            .justify_center()
-            .border_b_1()
-            .border_color(rgba(TOP_BAR_BORDER))
-            .bg(rgba(TOP_BAR_FILL))
-            .shadow(top_bar_shadow())
-            .window_control_area(WindowControlArea::Drag)
-            .child(workspace_title(project_name))
-            .child(self.workspace_top_bar_actions(save, cx))
+        top_bar_frame("workspace-top-bar", theme)
+            .child(workspace_title(project_name, theme))
+            .child(self.workspace_top_bar_actions(save, theme, cx))
     }
 
-    fn workspace_top_bar_actions(&mut self, save: CanvasSaveVisual, cx: &mut Context<Self>) -> Div {
+    pub(crate) fn render_desktop_workspace_top_bar(
+        &mut self,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> Stateful<Div> {
+        let theme = top_bar_theme(self.theme);
+        let width = f32::from(window.viewport_size().width);
+        let wide = width >= 780.0;
+        let workspace = self
+            .desktop_workspace
+            .active()
+            .map(|item| item.name.clone())
+            .unwrap_or_default();
+        let project = self
+            .desktop_workspace
+            .expanded_area_id
+            .as_deref()
+            .and_then(|id| {
+                self.desktop_workspace
+                    .areas
+                    .iter()
+                    .find(|area| area.id == id)
+            })
+            .map(|area| area.display_name.clone());
+        let save = self
+            .expanded_desktop_project()
+            .map(|project| save_visual(project.read(cx).persistence.save_state()));
+        // Symmetric reserves keep the breadcrumb at the window center, independent of actions.
+        let reserve = if wide { 220.0 } else { 104.0 };
+        let title_width = (width - reserve * 2.0).max(1.0);
+        let title = desktop_top_bar_title(workspace, project, title_width, theme);
+        top_bar_frame("desktop-workspace-top-bar", theme)
+            .when(wide, |bar| {
+                bar.child(
+                    div()
+                        .absolute()
+                        .left(px(108.0))
+                        .h(px(TOP_BAR_HEIGHT))
+                        .flex()
+                        .items_center()
+                        .text_size(px(17.0))
+                        .font_semibold()
+                        .text_color(rgba(theme.text_primary))
+                        .child("Norma"),
+                )
+            })
+            .child(title)
+            .child(
+                div()
+                    .absolute()
+                    .right(px(if wide { 24.0 } else { 12.0 }))
+                    .h(px(TOP_BAR_HEIGHT))
+                    .flex()
+                    .items_center()
+                    .gap(px(8.0))
+                    .child(
+                        launchpad_button(theme, cx)
+                            .tooltip(ui::i18n::text("chrome.all_workspaces"))
+                            .disabled(self.desktop_workspace.busy)
+                            .on_click(cx.listener(|app, _, window, cx| {
+                                cx.stop_propagation();
+                                app.navigate_desktop_shortcut(
+                                    ShortcutCommandId::ShowWorkspaceDirectory,
+                                    window,
+                                    cx,
+                                );
+                            })),
+                    )
+                    .when_some(save.filter(|_| wide), |row, save| {
+                        row.child(save_status(save, theme))
+                    })
+                    .when(self.desktop_workspace.expanded_area_id.is_none(), |row| {
+                        row.child(
+                            Button::new("desktop-topbar-add-project")
+                                .debug_selector(|| "desktop-topbar-add-project".to_string())
+                                .child(toolbar_icon(ToolbarIcon::Plus, 0xffffffff, 14.0))
+                                .when(wide, |button| {
+                                    button.label(ui::i18n::text("shortcuts.add_project"))
+                                })
+                                .when(!wide, |button| button.w(px(36.0)).p(px(0.0)))
+                                .h(px(36.0))
+                                .rounded(px(12.0))
+                                .custom(top_bar_button(theme, cx))
+                                .tooltip(ui::i18n::text("shortcuts.add_project"))
+                                .disabled(self.desktop_workspace.busy)
+                                .on_click(cx.listener(|app, _, window, cx| {
+                                    cx.stop_propagation();
+                                    app.open_desktop_add_project(window, cx);
+                                })),
+                        )
+                    }),
+            )
+    }
+
+    fn workspace_top_bar_actions(
+        &mut self,
+        save: CanvasSaveVisual,
+        theme: ui::Theme,
+        cx: &mut Context<Self>,
+    ) -> Div {
         div()
             .absolute()
             .top(px(0.0))
@@ -79,19 +171,107 @@ impl MultisoulApp {
             .items_center()
             .gap(px(8.0))
             .child(
-                launchpad_button().on_click(cx.listener(|app, _, _window, cx| {
-                    app.open_new_launchpad_window(cx);
-                })),
+                launchpad_button(theme, cx)
+                    .tooltip(ui::i18n::text("chrome.all_workspaces"))
+                    .on_click(cx.listener(|app, _, _window, cx| {
+                        cx.stop_propagation();
+                        app.open_new_launchpad_window(cx);
+                    })),
             )
-            .child(save_status(save))
+            .child(save_status(save, theme))
     }
+}
+
+fn save_visual(state: PersistenceSaveState) -> CanvasSaveVisual {
+    match state {
+        PersistenceSaveState::Clean => canvas_save_visual(false, false),
+        PersistenceSaveState::Pending => canvas_save_visual(true, false),
+        PersistenceSaveState::Failed => canvas_save_visual(false, true),
+    }
+}
+
+fn top_bar_frame(id: &'static str, theme: ui::Theme) -> Stateful<Div> {
+    div()
+        .id(id)
+        .debug_selector(move || id.to_string())
+        .absolute()
+        .top(px(0.0))
+        .left(px(0.0))
+        .right(px(0.0))
+        .h(px(TOP_BAR_HEIGHT))
+        .flex()
+        .items_center()
+        .justify_center()
+        .border_b_1()
+        .border_color(rgba(theme.dock_line))
+        .bg(rgba(theme.dock))
+        .text_color(rgba(theme.text_primary))
+        .child(
+            div()
+                .absolute()
+                .inset_0()
+                .window_control_area(WindowControlArea::Drag),
+        )
+}
+
+fn desktop_top_bar_title(
+    workspace: String,
+    project: Option<String>,
+    max_width: f32,
+    theme: ui::Theme,
+) -> Stateful<Div> {
+    let workspace_selector = format!("workspace-topbar-workspace-{workspace}");
+    let project_selector = project
+        .as_ref()
+        .map(|name| format!("workspace-topbar-project-{name}"));
+    // 16px divider plus two 10px gaps = 36px; each label gets half the remaining width.
+    let label_width = ((max_width - 36.0) * 0.5).max(1.0);
+    div()
+        .id("workspace-topbar-title")
+        .debug_selector(|| "workspace-topbar-title".to_string())
+        .max_w(px(max_width))
+        .flex()
+        .items_center()
+        .gap(px(10.0))
+        .text_size(px(14.0))
+        .child(
+            div()
+                .debug_selector(move || workspace_selector.clone())
+                .max_w(px(label_width))
+                .truncate()
+                .text_color(rgba(theme.text_secondary))
+                .child(workspace),
+        )
+        .child(
+            div()
+                .w(px(16.0))
+                .flex_none()
+                .text_center()
+                .text_color(rgba(theme.text_tertiary))
+                .child("/"),
+        )
+        .child(
+            div()
+                .debug_selector(move || {
+                    project_selector
+                        .clone()
+                        .unwrap_or_else(|| "workspace-topbar-projects".to_string())
+                })
+                .max_w(px(label_width))
+                .truncate()
+                .font_semibold()
+                .text_color(rgba(theme.text_primary))
+                .child(
+                    project.unwrap_or_else(|| ui::i18n::text("workspace.all_projects").to_string()),
+                ),
+        )
 }
 
 fn workspace_top_bar_title(path: Option<&Path>) -> String {
     path.map(display_name_for_path).unwrap_or_default()
 }
 
-fn workspace_title(path: String) -> Div {
+fn workspace_title(path: String, theme: ui::Theme) -> Div {
     div()
         .flex()
         .items_center()
@@ -100,7 +280,7 @@ fn workspace_title(path: String) -> Div {
         .child(
             div()
                 .font_semibold()
-                .text_color(rgba(TOP_BAR_FOREGROUND))
+                .text_color(rgba(theme.text_primary))
                 .child("Norma OS"),
         )
         .child(
@@ -110,46 +290,40 @@ fn workspace_title(path: String) -> Div {
                 .truncate()
                 .font_family("Menlo")
                 .text_size(px(9.0))
-                .text_color(rgba(TOP_BAR_MUTED))
+                .text_color(rgba(theme.text_secondary))
                 .child(path),
         )
 }
 
-fn launchpad_button() -> Stateful<Div> {
-    div()
-        .id("workspace-launchpad-button")
+fn launchpad_button(theme: ui::Theme, cx: &gpui::App) -> Button {
+    Button::new("workspace-launchpad-button")
         .debug_selector(|| "workspace-launchpad-button".to_string())
-        .w(px(38.0))
-        .h(px(38.0))
-        .flex()
-        .items_center()
-        .justify_center()
+        .w(px(36.0))
+        .h(px(36.0))
         .rounded(px(12.0))
-        .border_1()
-        .border_color(rgba(0xffffff2e))
-        .bg(rgba(0xffffff1a))
-        .cursor_pointer()
-        .hover(|style| style.bg(rgba(0xffffff29)))
-        .active(|style| style.bg(rgba(0xffffff38)))
-        .child(launchpad_grid_glyph())
+        .custom(top_bar_button(theme, cx))
+        .child(launchpad_grid_glyph(theme.text_primary))
 }
 
-fn launchpad_grid_glyph() -> Div {
+fn top_bar_button(theme: ui::Theme, cx: &gpui::App) -> ButtonCustomVariant {
+    ButtonCustomVariant::new(cx)
+        .color(rgba(with_alpha(theme.text_primary, 0x0c)).into())
+        .foreground(rgba(theme.text_primary).into())
+        .border(rgba(with_alpha(theme.text_primary, 0x20)).into())
+        .hover(rgba(theme.panel_high).into())
+        .active(rgba(theme.node_fill).into())
+}
+
+fn launchpad_grid_glyph(color: u32) -> Div {
     div()
         .grid()
         .grid_cols(3)
         .grid_rows(3)
         .gap(px(2.0))
-        .children((0..9).map(|_| {
-            div()
-                .w(px(2.0))
-                .h(px(2.0))
-                .rounded(px(1.0))
-                .bg(rgba(0xffffffd6))
-        }))
+        .children((0..9).map(|_| div().w(px(2.0)).h(px(2.0)).rounded(px(1.0)).bg(rgba(color))))
 }
 
-fn save_status(save: CanvasSaveVisual) -> Stateful<Div> {
+fn save_status(save: CanvasSaveVisual, theme: ui::Theme) -> Stateful<Div> {
     div()
         .id("workspace-save-status")
         .debug_selector(|| "workspace-save-status".to_string())
@@ -159,8 +333,8 @@ fn save_status(save: CanvasSaveVisual) -> Stateful<Div> {
         .gap(px(7.0))
         .px(px(10.0))
         .rounded(px(14.0))
-        .bg(rgba(0xffffff1f))
-        .text_color(rgba(0xffffffbd))
+        .bg(rgba(with_alpha(theme.text_primary, 0x0c)))
+        .text_color(rgba(theme.text_secondary))
         .text_size(px(10.0))
         .font_semibold()
         .child(
@@ -171,15 +345,6 @@ fn save_status(save: CanvasSaveVisual) -> Stateful<Div> {
                 .bg(rgba(save.dot)),
         )
         .child(save.label)
-}
-
-fn top_bar_shadow() -> Vec<BoxShadow> {
-    vec![BoxShadow {
-        color: rgba(0x050a1414).into(),
-        offset: point(px(0.0), px(8.0)),
-        blur_radius: px(30.0),
-        spread_radius: px(0.0),
-    }]
 }
 
 #[cfg(test)]

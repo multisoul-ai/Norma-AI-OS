@@ -5,12 +5,14 @@ use storage::DesktopProjectArea;
 
 fn validate_desktop_agent_root(area: &DesktopProjectArea) -> Result<(), String> {
     if !area.root.is_dir() {
-        return Err("Project directory is unavailable".into());
+        return Err(ui::i18n::text("workspace.project_directory_is_unavailable").into());
     }
     let identity =
         workspace::project::identify_project(&area.root).map_err(|error| error.to_string())?;
     if identity.root != area.root || identity.key != area.project_key {
-        return Err("Project directory or repository identity changed".into());
+        return Err(
+            ui::i18n::text("workspace.project_directory_or_repository_identity_changed").into(),
+        );
     }
     Ok(())
 }
@@ -61,8 +63,10 @@ impl MultisoulApp {
         };
         let key = (workspace_id, area_id);
         let Some(session) = self.desktop_workspace.sessions.get(&key).cloned() else {
-            self.desktop_workspace.error =
-                Some("Project canvas is still loading. Try again.".into());
+            self.desktop_workspace.error = Some(
+                ui::i18n::LocalizedText::new("workspace.project_canvas_is_still_loading_try_again")
+                    .into(),
+            );
             cx.notify();
             return;
         };
@@ -92,10 +96,10 @@ impl MultisoulApp {
                         || state.areas.iter().any(|current| current == &area));
                 if deleting || !current {
                     app.desktop_workspace.error = Some(
-                        "Project changed or was removed. Select a project and try again.".into(),
+                        ui::i18n::LocalizedText::new("workspace.project_changed_or_was_removed_select_a_project_and_try_again").into(),
                     );
                 } else if let Err(error) = result {
-                    app.desktop_workspace.error = Some(format!("Could not create Agent: {error}"));
+                    app.desktop_workspace.error = Some(ui::i18n::message("workspace.could_not_create_agent_error", &[("error", (error).to_string())]));
                 } else {
                     session.update(cx, |session, cx| {
                         session.spawn_desktop_agent_at(

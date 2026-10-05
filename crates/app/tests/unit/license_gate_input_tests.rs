@@ -38,7 +38,7 @@ fn test_license_gate_uses_editable_input_without_redundant_paste_or_skip_copy() 
         "License Key 不得继续使用无法键盘输入的 key_preview 静态伪输入框"
     );
     assert!(
-        source.contains("ShellStatus::Error(\"请输入 License Key\".into())"),
+        source.contains("license.enter_a_license_key"),
         "空值校验应提示用户输入 License Key，不应假设只能粘贴"
     );
     assert!(

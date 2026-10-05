@@ -293,7 +293,11 @@ fn caption_divider(theme: Theme) -> Div {
 }
 
 fn caption_expand_control(expanded: bool, theme: Theme, cx: &mut Context<MultisoulApp>) -> Button {
-    let label = if expanded { "收起" } else { "全文" };
+    let label = if expanded {
+        ui::i18n::text("chrome.collapse")
+    } else {
+        ui::i18n::text("chrome.full_text")
+    };
     let chevron = if expanded {
         IconName::ChevronDown
     } else {
@@ -309,9 +313,9 @@ fn caption_expand_control(expanded: bool, theme: Theme, cx: &mut Context<Multiso
     Button::new("voice-caption-expand")
         .debug_selector(|| "voice-caption-expand".to_string())
         .tooltip(if expanded {
-            "Collapse full voice transcript"
+            ui::i18n::text("chrome.collapse_full_voice_transcript")
         } else {
-            "Show the full voice transcript"
+            ui::i18n::text("chrome.show_the_full_voice_transcript")
         })
         .custom(variant)
         .with_size(Size::XSmall)

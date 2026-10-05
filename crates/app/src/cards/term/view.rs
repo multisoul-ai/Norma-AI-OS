@@ -91,12 +91,16 @@ fn composited_alpha(bottom: u32, top: u32) -> u8 {
 }
 
 fn process_exit_label(code: Option<i32>) -> String {
-    format!(
-        "[process exited{}]",
-        match code {
-            Some(c) => format!(" code={c}"),
-            None => String::new(),
-        }
+    ui::i18n::format(
+        "cards.process_exited",
+        &[(
+            "arg0",
+            (match code {
+                Some(c) => format!(" code={c}"),
+                None => String::new(),
+            })
+            .to_string(),
+        )],
     )
 }
 

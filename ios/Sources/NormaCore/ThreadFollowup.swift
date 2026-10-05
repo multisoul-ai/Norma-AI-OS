@@ -125,36 +125,3 @@ public struct ThreadFollowupReceipt: Codable, Equatable, Sendable {
         }
     }
 }
-
-extension CollaborationRelayConnection {
-    public func submitThreadFollowup(_ operation: ThreadFollowupOperation, parent: ThreadTaskOutboxOperation,
-        originalKey: MobileTurnOutcome.Key? = nil, routeID: String, grantRevision: UInt64) async throws -> ThreadFollowupReceipt {
-        guard validID(routeID), grantRevision > 0 else { throw ThreadTaskError.invalidTask }
-        let receipt = try await followupExchange(operation, parent: parent, originalKey: originalKey,
-            submission: ["route_id": routeID, "grant_revision": grantRevision])
-        guard let receipt else { close(); throw ThreadTaskError.invalidReceipt }
-        return receipt
-    }
-
-    /// Read-only recovery: an absent receipt never creates a queue or sends input.
-    public func threadFollowupReceipt(for operation: ThreadFollowupOperation, parent: ThreadTaskOutboxOperation,
-        originalKey: MobileTurnOutcome.Key? = nil) async throws -> ThreadFollowupReceipt? {
-        try await followupExchange(operation, parent: parent, originalKey: originalKey, submission: nil)
-    }
-
-    private func followupExchange(_ operation: ThreadFollowupOperation, parent: ThreadTaskOutboxOperation,
-        originalKey: MobileTurnOutcome.Key?, submission: [String: Any]?) async throws -> ThreadFollowupReceipt? {
-        guard capabilities.contains("thread_task_followup_v1") else { throw ThreadTaskError.followupRequiresUpgrade }
-        guard let grant, parent.machineID == machineID, parent.deviceID == grant.deviceID else { throw MobileError.invalidCredential }
-        try operation.validate(parent: parent, originalKey: originalKey)
-        do {
-            var fields = submission ?? [:]
-            fields["followup"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(operation))
-            let reply = try await exchange(type: submission == nil ? "thread_task_followup_receipt" : "thread_task_followup", fields: fields)
-            guard reply.result?.status == "thread_followup_receipt" else { throw ThreadTaskError.invalidReceipt }
-            let received = reply.result?.threadFollowup
-            try received?.validate(operation: operation, parent: parent, originalKey: originalKey)
-            return received
-        } catch { close(); throw error }
-    }
-}

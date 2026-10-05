@@ -108,6 +108,9 @@ pub(super) fn settings_content(
                 .pt(px(16.0))
                 .pb(px(padding))
                 .child(match panel.active_section {
+                    SettingsSection::General => {
+                        crate::settings::general::general_settings(theme, cx)
+                    }
                     SettingsSection::Themes => {
                         theme_appearance(theme_id, theme, width - padding * 2.0, cx)
                     }
@@ -138,9 +141,13 @@ pub(super) fn settings_content(
                     SettingsSection::Orchestration => {
                         orchestration_settings(theme, orchestration, cx)
                     }
-                    SettingsSection::Wallpaper => {
-                        wallpaper_settings(theme, wallpaper_state, wallpaper_previews, cx)
-                    }
+                    SettingsSection::Wallpaper => wallpaper_settings(
+                        theme,
+                        wallpaper_state,
+                        wallpaper_previews,
+                        width - padding * 2.0,
+                        cx,
+                    ),
                     SettingsSection::Performance => performance_settings(theme, performance, cx),
                     SettingsSection::Mobile => {
                         crate::settings::mobile::settings(theme, &mobile, cx)
@@ -207,6 +214,9 @@ fn content_header(
         .gap(px(12.0))
         .px(px(if compact { 16.0 } else { 28.0 }))
         .py(px(if compact { 16.0 } else { 24.0 }))
+        .when(section == SettingsSection::Wallpaper, |header| {
+            header.min_h(px(84.0)).py(px(18.0))
+        })
         .border_b_1()
         .border_color(rgba(with_alpha(theme.edge_highlight, 0x24)))
         .child(title_column)
@@ -229,7 +239,7 @@ fn content_header(
                         .ghost()
                         .w_full()
                         .h_full()
-                        .tooltip("关闭设置")
+                        .tooltip(ui::i18n::text("settings.close_settings"))
                         .child("×")
                         .on_click(cx.listener(|app, _, _window, cx| app.close_settings_panel(cx)))
                 }),
@@ -242,29 +252,48 @@ fn content_title(section: SettingsSection) -> &'static str {
 
 fn content_subtitle(section: SettingsSection, voice_shortcut_label: &str) -> String {
     match section {
+        SettingsSection::General => ui::i18n::text("general.subtitle").into(),
         SettingsSection::Mobile => {
-            "Connect your iPhone over a local network or Tailscale".to_string()
+            ui::i18n::text("settings.connect_your_iphone_over_a_local_network_or_tailscale")
+                .to_string()
         }
-        SettingsSection::Themes => "Choose the appearance of your workspace".to_string(),
+        SettingsSection::Themes => {
+            ui::i18n::text("settings.choose_the_appearance_of_your_workspace").to_string()
+        }
         SettingsSection::Keyboard => {
-            "Customize app commands and review system input behavior".to_string()
+            ui::i18n::text("settings.customize_app_commands_and_review_system_input_behavior")
+                .to_string()
         }
         #[cfg(test)]
-        SettingsSection::Runtime => "Configure shell behavior and live sessions".to_string(),
-        SettingsSection::NormaMemory => "查看、整理 Norma 记住的偏好与项目知识".into(),
-        SettingsSection::NormaVoice => {
-            format!("让 Norma 听见你，也回应你 · {voice_shortcut_label}")
+        SettingsSection::Runtime => {
+            ui::i18n::text("settings.configure_shell_behavior_and_live_sessions").to_string()
         }
-        SettingsSection::NormaPersona => "让每一次交流，都更合你的心意".into(),
-        SettingsSection::Agents => "Create, organize, and launch project agents".to_string(),
+        SettingsSection::NormaMemory => ui::i18n::text(
+            "settings.review_and_organize_the_preferences_and_project_knowledge_norma_remembers",
+        )
+        .into(),
+        SettingsSection::NormaVoice => ui::i18n::format(
+            "settings.let_norma_hear_you_and_respond_voice_shortcut_label",
+            &[("voice_shortcut_label", (voice_shortcut_label).to_string())],
+        ),
+        SettingsSection::NormaPersona => {
+            ui::i18n::text("settings.make_every_conversation_feel_more_like_you").into()
+        }
+        SettingsSection::Agents => {
+            ui::i18n::text("settings.create_organize_and_launch_project_agents").to_string()
+        }
         #[cfg(test)]
-        SettingsSection::Skills => "Manage installed skills and project skill sources".to_string(),
-        SettingsSection::Orchestration => {
-            "Install Skill + CLI so agents can delegate tasks through Norma OS".to_string()
+        SettingsSection::Skills => {
+            ui::i18n::text("settings.manage_installed_skills_and_project_skill_sources").to_string()
         }
-        SettingsSection::Wallpaper => "Choose a background".to_string(),
+        SettingsSection::Orchestration => ui::i18n::text(
+            "settings.install_skill_cli_so_agents_can_delegate_tasks_through_norma_os",
+        )
+        .to_string(),
+        SettingsSection::Wallpaper => String::new(),
         SettingsSection::Performance => {
-            "Balance animation responsiveness and idle energy use".to_string()
+            ui::i18n::text("settings.balance_animation_responsiveness_and_idle_energy_use")
+                .to_string()
         }
     }
 }

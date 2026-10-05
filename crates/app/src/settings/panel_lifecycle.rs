@@ -27,6 +27,15 @@ impl MultisoulApp {
             self.refresh_tts_model_states(cx);
             self.refresh_voice_microphone_requirement(cx);
         }
+        if section == SettingsSection::Wallpaper {
+            self.wallpaper_settings.scoped.edit_project = self
+                .wallpaper_settings
+                .scoped
+                .context
+                .as_ref()
+                .is_some_and(|context| context.area.is_some());
+            self.refresh_wallpaper_library(cx);
+        }
         if section == SettingsSection::Mobile {
             self.mobile.update(cx, |host, cx| {
                 host.request(crate::mobile::controller::Command::Reload, cx)
@@ -81,6 +90,15 @@ impl MultisoulApp {
             return;
         }
         self.settings_panel.toggle();
+        if !was_open && self.settings_panel.active_section == SettingsSection::Wallpaper {
+            self.wallpaper_settings.scoped.edit_project = self
+                .wallpaper_settings
+                .scoped
+                .context
+                .as_ref()
+                .is_some_and(|context| context.area.is_some());
+            self.refresh_wallpaper_library(cx);
+        }
         if was_open {
             self.shortcuts.recording = None;
             self.finish_voice_settings_inputs(cx);
@@ -157,7 +175,9 @@ impl MultisoulApp {
             return false;
         }
         self.agent_definitions
-            .set_status("Save or discard changes before closing Settings.");
+            .set_status(ui::i18n::LocalizedText::new(
+                "settings.save_or_discard_changes_before_closing_settings",
+            ));
         true
     }
 

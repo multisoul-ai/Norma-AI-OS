@@ -184,13 +184,15 @@ impl MultisoulApp {
                     .text_size(px(24.0 * scale))
                     .font_semibold()
                     .text_color(rgba(super::GLASS_TEXT))
-                    .child("A canvas for your projects"),
+                    .child(ui::i18n::text("workspace.a_canvas_for_your_projects")),
             )
             .child(
                 div()
                     .text_size(px(13.0 * scale))
                     .text_color(rgba(super::GLASS_TEXT_SECONDARY))
-                    .child("Add a project area to start working with its agents."),
+                    .child(ui::i18n::text(
+                        "workspace.add_a_project_area_to_start_working_with_its_agents",
+                    )),
             )
             .child(
                 Button::new("desktop-workspace-empty-add-project")
@@ -200,7 +202,7 @@ impl MultisoulApp {
                         div()
                             .text_size(px(16.0 * scale))
                             .line_height(px(20.0 * scale))
-                            .child("Add Project"),
+                            .child(ui::i18n::text("shortcuts.add_project")),
                     )
                     .primary()
                     .with_size(px(32.0 * scale))
@@ -261,6 +263,7 @@ impl MultisoulApp {
                     self.desktop_workspace.pending_navigation = Some(destination);
                     self.begin_desktop_workspace_zoom(&current, true, window, cx);
                     self.screen = crate::app::AppScreen::Launchpad;
+                    self.bind_desktop_wallpaper(cx);
                     self.close_desktop_switcher(cx);
                     return true;
                 }

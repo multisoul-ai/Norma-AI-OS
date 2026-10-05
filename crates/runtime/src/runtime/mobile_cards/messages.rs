@@ -88,6 +88,7 @@ enum Stage {
     Codex(Receiver<Result<Value, String>>),
 }
 pub(crate) struct Submission {
+    workspace_reply: bool,
     stage: Stage,
     deadline: Instant,
     reply: Option<Sender<Result<Value, String>>>,
@@ -189,6 +190,24 @@ impl Runtime {
         expected: &norma::mobile::CardSnapshot,
         text: &str,
     ) -> Result<(), &'static str> {
+        self.validate_message(expected, text, false)
+    }
+
+    /// Authenticated workspace replies follow the existing native desktop input rules.
+    pub fn validate_workspace_message(
+        &mut self,
+        expected: &norma::mobile::CardSnapshot,
+        text: &str,
+    ) -> Result<(), &'static str> {
+        self.validate_message(expected, text, true)
+    }
+
+    fn validate_message(
+        &mut self,
+        expected: &norma::mobile::CardSnapshot,
+        text: &str,
+        workspace_reply: bool,
+    ) -> Result<(), &'static str> {
         if text.trim().is_empty()
             || text.len() > 32 * 1024
             || text
@@ -215,7 +234,13 @@ impl Runtime {
         if !matches!(
             current.state.as_str(),
             "idle" | "ready" | "done" | "ended" | "failed"
-        ) {
+        ) && !(workspace_reply
+            && matches!(current.state.as_str(), "thinking" | "running_tool")
+            && self
+                .mobile_runs
+                .get(&expected.node_id)
+                .is_none_or(|run| run.is_native()))
+        {
             return Err("state_not_ready");
         }
         if let Some(run) = self.mobile_runs.get(&expected.node_id) {
@@ -248,7 +273,25 @@ impl Runtime {
         expected: &norma::mobile::CardSnapshot,
         text: String,
     ) -> Result<Receiver<Result<Value, String>>, String> {
-        self.validate_mobile_message(expected, &text)
+        self.send_message(expected, text, false)
+    }
+
+    /// Uses the same provider acknowledgement seam, with native desktop reply readiness.
+    pub fn send_workspace_message(
+        &mut self,
+        expected: &norma::mobile::CardSnapshot,
+        text: String,
+    ) -> Result<Receiver<Result<Value, String>>, String> {
+        self.send_message(expected, text, true)
+    }
+
+    fn send_message(
+        &mut self,
+        expected: &norma::mobile::CardSnapshot,
+        text: String,
+        workspace_reply: bool,
+    ) -> Result<Receiver<Result<Value, String>>, String> {
+        self.validate_message(expected, &text, workspace_reply)
             .map_err(str::to_owned)?;
         let node = expected.node_id;
         let run = self
@@ -277,7 +320,7 @@ impl Runtime {
                 .native_input
                 .dirty = true;
             Stage::Codex(request)
-        } else if run.prompt_id.is_none() {
+        } else if run.prompt_id.is_none() || workspace_reply {
             // Bypass public input only for this reserved paste; desktop input is locked until Provider acknowledgement.
             self.mobile_runs
                 .get_mut(&node)
@@ -306,6 +349,7 @@ impl Runtime {
         };
         let (reply, receipt) = bounded(1);
         self.mobile_runs.get_mut(&node).expect("run").message = Some(Submission {
+            workspace_reply,
             stage,
             deadline: now + Duration::from_secs(30),
             reply: Some(reply),
@@ -352,7 +396,7 @@ impl Runtime {
                         // after the first render and the native Enter delay; later redraws cannot starve it.
                         if !*painted || now < *enter_at { continue; }
                     } else if now < *enter_at { continue; }
-                    if run.prompt_id.is_some() || !(matches!(self.events.agent_task_state(*node), Some(AgentTaskState::Ready | AgentTaskState::Done | AgentTaskState::Ended | AgentTaskState::Failed { .. })) || (native && self.events.agent_task_state(*node).is_none())) {
+                    if (!submission.workspace_reply && run.prompt_id.is_some()) || !(matches!(self.events.agent_task_state(*node), Some(AgentTaskState::Ready | AgentTaskState::Done | AgentTaskState::Ended | AgentTaskState::Failed { .. })) || (native && self.events.agent_task_state(*node).is_none()) || (submission.workspace_reply && native && matches!(self.events.agent_task_state(*node),Some(AgentTaskState::Thinking | AgentTaskState::RunningTool { .. })))) {
                         Some(Err("outcome_unknown".into()))
                     } else {
                         *entered = true;

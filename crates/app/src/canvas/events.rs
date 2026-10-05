@@ -172,9 +172,9 @@ pub(super) fn on_mouse_down(
                         app.runtime.selection.select_only(id);
                         app.mark_node_viewed_if_needed(id);
                         app.interaction.begin_text_selection(id, abs_point);
-                        app.workspace_state.error = Some(
-                            "Only valid http(s) links can be opened from the terminal.".to_string(),
-                        );
+                        app.workspace_state.error = Some(ui::i18n::LocalizedText::new(
+                            "canvas.only_valid_http_s_links_can_be_opened_from_the_terminal",
+                        ));
                     }
                     TerminalLinkIntent::Ignore => {}
                 }

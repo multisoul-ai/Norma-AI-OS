@@ -18,9 +18,18 @@ pub(super) fn group_definitions<'a>(
 
 pub(super) fn roster_summary(total: usize, on_canvas: usize) -> String {
     match total {
-        0 => "No agents yet".to_string(),
-        1 => format!("1 agent · {on_canvas} on Canvas"),
-        n => format!("{n} agents · {on_canvas} on Canvas"),
+        0 => ui::i18n::text("settings.no_agents_yet").to_string(),
+        1 => ui::i18n::format(
+            "settings.1_agent_on_canvas_on_canvas",
+            &[("on_canvas", (on_canvas).to_string())],
+        ),
+        n => ui::i18n::format(
+            "settings.n_agents_on_canvas_on_canvas",
+            &[
+                ("n", (n).to_string()),
+                ("on_canvas", (on_canvas).to_string()),
+            ],
+        ),
     }
 }
 

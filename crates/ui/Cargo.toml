@@ -7,6 +7,10 @@ license.workspace = true
 [dependencies]
 gpui.workspace = true
 gpui-component.workspace = true
+rust-i18n.workspace = true
+
+[build-dependencies]
+serde_json.workspace = true
 
 [dev-dependencies]
 gpui = { workspace = true, features = ["test-support"] }

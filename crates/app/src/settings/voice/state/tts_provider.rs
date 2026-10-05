@@ -96,7 +96,9 @@ impl VoiceSettingsState {
 
     pub(crate) fn begin_minimax_preview(&mut self, generation: u64) {
         self.minimax_preview_generation = Some(generation);
-        self.status = Some(super::ok_status("Generating MiniMax preview…"));
+        self.status = Some(super::ok_status(ui::i18n::LocalizedText::new(
+            "voice.generating_minimax_preview",
+        )));
     }
 
     pub(crate) fn finish_minimax_preview(&mut self, generation: u64) {
@@ -230,9 +232,9 @@ impl VoiceSettingsState {
         if self.minimax_credential_write_rollback.is_some()
             || self.minimax_credential_clear_rollback.is_some()
         {
-            self.status = Some(super::error_status(
-                "Wait for the current MiniMax credential operation to finish.",
-            ));
+            self.status = Some(super::error_status(ui::i18n::LocalizedText::new(
+                "voice.wait_for_the_current_minimax_credential_operation_to_finish",
+            )));
             return;
         }
         self.minimax_connection_generation = self.minimax_connection_generation.wrapping_add(1);
@@ -260,13 +262,18 @@ impl VoiceSettingsState {
         if self.minimax_credential_write_rollback.is_some()
             || self.minimax_credential_clear_rollback.is_some()
         {
-            return Err("Wait for the current MiniMax credential operation to finish.".to_string());
+            return Err(ui::i18n::text(
+                "voice.wait_for_the_current_minimax_credential_operation_to_finish",
+            )
+            .to_string());
         }
         let api_key = self
             .minimax_api_key_draft
             .clone()
             .or_else(|| self.saved.minimax_tts_api_key.clone())
-            .ok_or_else(|| "Add a MiniMax API Key before connecting.".to_string())?;
+            .ok_or_else(|| {
+                ui::i18n::text("voice.add_a_minimax_api_key_before_connecting").to_string()
+            })?;
         if self.minimax_account_status != RemoteAccountStatus::Checking {
             self.minimax_connection_previous_status = self.minimax_account_status;
         }
@@ -298,7 +305,7 @@ impl VoiceSettingsState {
         &mut self,
         generation: u64,
         kind: tts::TtsErrorKind,
-        message: impl Into<String>,
+        message: impl Into<ui::i18n::LocalizedText>,
     ) -> MiniMaxConnectionFailureDisposition {
         if generation != self.minimax_connection_generation {
             return MiniMaxConnectionFailureDisposition::Stale;

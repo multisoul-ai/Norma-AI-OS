@@ -6,6 +6,7 @@ use std::io::{Read, Write};
 use std::time::Instant;
 use tokio_tungstenite::tungstenite::{client::IntoClientRequest, http::HeaderValue, Message};
 use tokio_util::sync::CancellationToken;
+use ui::i18n::LocalizedText;
 
 use super::{plan_url, request_id};
 
@@ -15,7 +16,7 @@ pub(super) enum SpeechEvent {
     Final(String),
 }
 
-pub(crate) fn encode_start() -> Result<Vec<u8>, String> {
+pub(crate) fn encode_start() -> Result<Vec<u8>, LocalizedText> {
     encode(
         0x11,
         1,
@@ -24,22 +25,23 @@ pub(crate) fn encode_start() -> Result<Vec<u8>, String> {
             "request":{"model_name":"bigmodel","show_utterances":true,
                 "enable_nonstream":true,"result_type":"single","end_window_size":500}
         }))
-        .map_err(|_| "无法编码 ASR 配置".to_string())?,
+        .map_err(|_| LocalizedText::new("doubao.asr_config_encode"))?,
     )
 }
 
-pub(crate) fn encode_audio(sequence: i32, pcm: &[u8]) -> Result<Vec<u8>, String> {
+pub(crate) fn encode_audio(sequence: i32, pcm: &[u8]) -> Result<Vec<u8>, LocalizedText> {
     encode(0x21, sequence, pcm)
 }
 
-fn encode(kind: u8, sequence: i32, data: &[u8]) -> Result<Vec<u8>, String> {
+fn encode(kind: u8, sequence: i32, data: &[u8]) -> Result<Vec<u8>, LocalizedText> {
     let mut gzip = GzEncoder::new(Vec::new(), Compression::fast());
     gzip.write_all(data)
-        .map_err(|_| "无法压缩 ASR 音频".to_string())?;
+        .map_err(|_| LocalizedText::new("doubao.asr_compress"))?;
     let payload = gzip
         .finish()
-        .map_err(|_| "无法完成 ASR 音频帧".to_string())?;
-    let size = u32::try_from(payload.len()).map_err(|_| "ASR 帧过大".to_string())?;
+        .map_err(|_| LocalizedText::new("doubao.asr_frame_finish"))?;
+    let size =
+        u32::try_from(payload.len()).map_err(|_| LocalizedText::new("doubao.asr_frame_large"))?;
     let mut frame = Vec::with_capacity(12 + payload.len());
     frame.extend_from_slice(&[0x11, if sequence < 0 { kind | 2 } else { kind }, 0x11, 0]);
     frame.extend_from_slice(&sequence.to_be_bytes());
@@ -48,13 +50,13 @@ fn encode(kind: u8, sequence: i32, data: &[u8]) -> Result<Vec<u8>, String> {
     Ok(frame)
 }
 
-pub(crate) fn decode(raw: &[u8]) -> Result<Value, String> {
+pub(crate) fn decode(raw: &[u8]) -> Result<Value, LocalizedText> {
     if raw.len() < 12 || raw[0] >> 4 != 1 || raw[2] >> 4 != 1 {
-        return Err("ASR 返回了无效帧头".into());
+        return Err(LocalizedText::new("doubao.asr_header_invalid"));
     }
     let kind = raw[1] >> 4;
     if kind != 9 && kind != 15 {
-        return Err("ASR 返回了未知帧类型".into());
+        return Err(LocalizedText::new("doubao.asr_type_unknown"));
     }
     let flags = raw[1] & 15;
     let mut offset = usize::from(raw[0] & 15) * 4;
@@ -69,7 +71,7 @@ pub(crate) fn decode(raw: &[u8]) -> Result<Value, String> {
             .get(offset..offset + 4)
             .and_then(|part| <[u8; 4]>::try_from(part).ok())
             .map(u32::from_be_bytes)
-            .ok_or_else(|| "ASR 错误帧缺少错误码".to_string())?;
+            .ok_or_else(|| LocalizedText::new("doubao.asr_code_missing"))?;
         offset += 4;
         Some(code)
     } else {
@@ -79,10 +81,10 @@ pub(crate) fn decode(raw: &[u8]) -> Result<Value, String> {
         .get(offset..offset + 4)
         .and_then(|part| <[u8; 4]>::try_from(part).ok())
         .map(u32::from_be_bytes)
-        .ok_or_else(|| "ASR 帧长度缺失".to_string())? as usize;
+        .ok_or_else(|| LocalizedText::new("doubao.asr_length_missing"))? as usize;
     offset += 4;
     if len > 2 * 1024 * 1024 || raw.len() != offset + len {
-        return Err("ASR 响应长度无效".into());
+        return Err(LocalizedText::new("doubao.asr_length_invalid"));
     }
     let mut payload = Vec::new();
     match raw[2] & 15 {
@@ -91,26 +93,24 @@ pub(crate) fn decode(raw: &[u8]) -> Result<Value, String> {
             GzDecoder::new(&raw[offset..])
                 .take(2 * 1024 * 1024 + 1)
                 .read_to_end(&mut payload)
-                .map_err(|_| "ASR 响应解压失败".to_string())?;
+                .map_err(|_| LocalizedText::new("doubao.asr_decompress"))?;
         }
-        _ => return Err("ASR 响应压缩格式无效".into()),
+        _ => return Err(LocalizedText::new("doubao.asr_compression_invalid")),
     }
     if payload.len() > 2 * 1024 * 1024 {
-        return Err("ASR 响应过大".into());
+        return Err(LocalizedText::new("doubao.asr_response_large"));
     }
-    let value: Value =
-        serde_json::from_slice(&payload).map_err(|_| "ASR 响应 JSON 无效".to_string())?;
+    let value: Value = serde_json::from_slice(&payload)
+        .map_err(|_| LocalizedText::new("doubao.asr_json_invalid"))?;
     if let Some(code) = error_code {
-        return Err(format!("ASR 2.0 服务拒绝了请求（错误码 {code}）"));
+        return Err(LocalizedText::new("doubao.asr_rejected").with_arg("code", code));
     }
     if value["code"]
         .as_i64()
         .is_some_and(|code| code != 0 && code != 1000 && code != 20_000_000)
     {
-        return Err(format!(
-            "ASR 2.0 服务拒绝了请求（错误码 {}）",
-            value["code"].as_i64().unwrap_or_default()
-        ));
+        return Err(LocalizedText::new("doubao.asr_rejected")
+            .with_arg("code", value["code"].as_i64().unwrap_or_default()));
     }
     Ok(value)
 }
@@ -119,7 +119,7 @@ pub(super) async fn run(
     key: String,
     events: Sender<SpeechEvent>,
     cancellation: CancellationToken,
-) -> Result<(), String> {
+) -> Result<(), LocalizedText> {
     let started_at = Instant::now();
     let request_id = request_id();
     let url = plan_url(
@@ -128,19 +128,21 @@ pub(super) async fn run(
     );
     let mut request = url
         .into_client_request()
-        .map_err(|_| "ASR 连接地址无效".to_string())?;
+        .map_err(|_| LocalizedText::new("doubao.asr_url_invalid"))?;
     for (name, value) in [
         ("X-Api-Key", key.as_str()),
         ("X-Api-Resource-Id", "volc.seedasr.sauc.duration"),
     ] {
         request.headers_mut().insert(
             name,
-            HeaderValue::from_str(value).map_err(|_| "ASR 鉴权字段无效".to_string())?,
+            HeaderValue::from_str(value)
+                .map_err(|_| LocalizedText::new("doubao.asr_auth_invalid"))?,
         );
     }
     request.headers_mut().insert(
         "X-Api-Request-Id",
-        HeaderValue::from_str(&request_id).map_err(|_| "ASR 请求 ID 无效".to_string())?,
+        HeaderValue::from_str(&request_id)
+            .map_err(|_| LocalizedText::new("doubao.asr_id_invalid"))?,
     );
     tracing::info!(target: "norma_voice", %request_id, "ASR WebSocket connecting");
     let connection = tokio::select! {
@@ -157,7 +159,7 @@ pub(super) async fn run(
     let (mut socket, response) = match connection {
         Ok(Ok(connected)) => connected,
         Ok(Err(error)) => {
-            let reason = super::super::connect_failure_message(&error).to_string();
+            let reason = super::super::connect_failure_message(&error);
             tracing::warn!(target: "norma_voice", %request_id,
                 elapsed_ms = started_at.elapsed().as_millis(), %reason,
                 "ASR WebSocket connection failed");
@@ -166,7 +168,7 @@ pub(super) async fn run(
         Err(_) => {
             tracing::warn!(target: "norma_voice", %request_id,
                 elapsed_ms = started_at.elapsed().as_millis(), "ASR WebSocket connection timed out");
-            return Err("ASR 连接超时".to_string());
+            return Err(LocalizedText::new("doubao.asr_connect_timeout"));
         }
     };
     let provider_logid = response
@@ -180,7 +182,7 @@ pub(super) async fn run(
     socket
         .send(Message::Binary(encode_start()?.into()))
         .await
-        .map_err(|_| "ASR 配置发送失败".to_string())?;
+        .map_err(|_| LocalizedText::new("doubao.asr_config_send"))?;
     let mut capture = None;
     let mut pcm_rx: Option<async_channel::Receiver<audio::PcmAudioChunk>> = None;
     let mut pcm_buffer = Vec::new();
@@ -196,10 +198,10 @@ pub(super) async fn run(
         loop {
             tokio::select! {
                 _ = cancellation.cancelled() => break Ok(()),
-                _ = &mut handshake_deadline, if !ready => break Err("ASR 2.0 配置确认超时".into()),
+                _ = &mut handshake_deadline, if !ready => break Err(LocalizedText::new("doubao.asr_config_timeout")),
                 received = socket.next() => {
-                    let Some(received) = received else { break Err("ASR 连接已断开".into()); };
-                    let message = received.map_err(|_| "ASR 连接已断开".to_string())?;
+                    let Some(received) = received else { break Err(LocalizedText::new("doubao.asr_disconnected")); };
+                    let message = received.map_err(|_| LocalizedText::new("doubao.asr_disconnected"))?;
                     let Message::Binary(raw) = message else { continue; };
                     let payload = decode(&raw).map_err(|error| {
                         tracing::warn!(target: "norma_voice", %request_id, %provider_logid,
@@ -210,8 +212,8 @@ pub(super) async fn run(
                     if !ready {
                         ready = true;
                         let (session, chunks) = tokio::task::spawn_blocking(|| voice_input::start_duplex_pcm_stream(None))
-                            .await.map_err(|_| "麦克风启动失败".to_string())?
-                            .map_err(|error| format!("麦克风启动失败：{error}"))?;
+                            .await.map_err(|_| LocalizedText::new("doubao.microphone_start"))?
+                            .map_err(|error| LocalizedText::new("doubao.microphone_start_reason").with_arg("reason", error))?;
                         capture = Some(session);
                         pcm_rx = Some(chunks);
                         tracing::info!(target: "norma_voice", %request_id, %provider_logid,
@@ -219,7 +221,7 @@ pub(super) async fn run(
                         let _ = events.send(SpeechEvent::Ready).await;
                     }
                     let Some(utterances) = payload["result"]["utterances"].as_array() else { continue; };
-                    if utterances.len() > 128 { break Err("ASR 返回过多分句".into()); }
+                    if utterances.len() > 128 { break Err(LocalizedText::new("doubao.asr_utterances_large")); }
                     let mut committed = String::new();
                     let mut interim = String::new();
                     for utterance in utterances {
@@ -238,20 +240,20 @@ pub(super) async fn run(
                         let _ = events.send(SpeechEvent::Started).await;
                     }
                     final_text.push_str(&committed);
-                    if final_text.len() + interim.len() > 2_000 { break Err("ASR 转写过长".into()); }
+                    if final_text.len() + interim.len() > 2_000 { break Err(LocalizedText::new("doubao.asr_transcript_large")); }
                     if interim.is_empty() && !final_text.is_empty() {
                         speaking = false;
                         let _ = events.send(SpeechEvent::Final(std::mem::take(&mut final_text))).await;
                     }
                 }
                 chunk = async { pcm_rx.as_ref().expect("ready capture").recv().await }, if pcm_rx.is_some() => {
-                    let Ok(chunk) = chunk else { break Err("麦克风采集已停止".into()); };
+                    let Ok(chunk) = chunk else { break Err(LocalizedText::new("doubao.microphone_stopped")); };
                     pcm_buffer.extend_from_slice(&chunk.bytes);
                     // 5 × 20 ms × 16 kHz × 2 B = 3,200 B：低延迟且落在官方 100–200 ms 建议范围。
                     while pcm_buffer.len() >= 3_200 {
                         let frame: Vec<u8> = pcm_buffer.drain(..3_200).collect();
                         socket.send(Message::Binary(encode_audio(sequence, &frame)?.into())).await
-                            .map_err(|_| "ASR 音频上传中断".to_string())?;
+                            .map_err(|_| LocalizedText::new("doubao.asr_upload_interrupted"))?;
                         if sequence == 2 {
                             tracing::info!(target: "norma_voice", %request_id, %provider_logid,
                                 first_audio_ms = started_at.elapsed().as_millis(),
@@ -294,7 +296,7 @@ pub(super) async fn run(
     }
     tracing::info!(target: "norma_voice", %request_id, %provider_logid,
         audio_frames = sequence - 2, last_frame_sent, cancelled = cancellation.is_cancelled(),
-        close_wait_timed_out, reason = result.as_ref().err().map(String::as_str).unwrap_or("normal"),
+        close_wait_timed_out, reason = result.as_ref().err().map(LocalizedText::as_str).unwrap_or("normal"),
         elapsed_ms = started_at.elapsed().as_millis(), "ASR session ended");
     result
 }

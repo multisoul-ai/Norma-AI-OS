@@ -161,7 +161,7 @@ fn test_shortcut_registry_contains_defaults_and_read_only_behaviors() {
     );
     let voice_entry = entry_for(&effective, ShortcutCommandId::VoiceInteraction);
     assert_eq!(
-        voice_entry.category, "Voice",
+        voice_entry.category, "common.voice",
         "Voice Interaction 应归类在 Voice，Settings 才会出现在语音命令分组"
     );
     assert!(
@@ -171,16 +171,16 @@ fn test_shortcut_registry_contains_defaults_and_read_only_behaviors() {
     assert!(
         !read_only_behaviors()
             .iter()
-            .any(|behavior| behavior.title == "Voice Interaction"),
+            .any(|behavior| behavior.title == "shortcuts.voice_interaction"),
         "Voice Interaction 已可配置，不应继续出现在只读行为列表"
     );
     let delete_entry = entry_for(&effective, ShortcutCommandId::DeleteCard);
     assert_eq!(
-        delete_entry.category, "Cards",
+        delete_entry.category, "common.cards",
         "Delete Card 应归类在 Cards，Settings 才会出现在卡片命令分组"
     );
     assert_eq!(
-        delete_entry.title, "Delete Card",
+        delete_entry.title, "shortcuts.delete_card",
         "Delete Card 应使用明确标题，避免和复制/关闭等命令混淆"
     );
     assert!(
@@ -215,7 +215,7 @@ fn test_shortcut_registry_contains_defaults_and_read_only_behaviors() {
     assert!(
         read_only_behaviors()
             .iter()
-            .any(|behavior| behavior.keystroke == "cmd-v" && behavior.title == "Paste"),
+            .any(|behavior| behavior.keystroke == "cmd-v" && behavior.title == "common.paste"),
         "Cmd+V 应作为只读 Paste 行为展示"
     );
     assert!(

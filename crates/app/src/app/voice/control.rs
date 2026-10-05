@@ -33,11 +33,11 @@ pub(crate) enum VoiceVisual {
 impl VoiceVisual {
     pub(crate) fn dock_label(self) -> &'static str {
         match self {
-            Self::Idle => "Voice",
-            Self::Recording => "Listening",
-            Self::Processing => "Thinking…",
-            Self::Success => "Ready",
-            Self::Error => "Needs attention",
+            Self::Idle => ui::i18n::text("common.voice"),
+            Self::Recording => ui::i18n::text("chrome.listening"),
+            Self::Processing => ui::i18n::text("chrome.thinking"),
+            Self::Success => ui::i18n::text("common.ready"),
+            Self::Error => ui::i18n::text("guide.needs_attention"),
         }
     }
 }
@@ -49,7 +49,7 @@ pub(crate) enum VoicePhase {
     Transcribing,
     Executed { message: String },
     TranscriptOnly { transcript: String, reason: String },
-    Error { message: String },
+    Error { message: ui::i18n::LocalizedText },
 }
 
 pub(crate) struct VoiceControlState {
@@ -64,8 +64,8 @@ pub(crate) struct VoiceControlState {
     partials_task: Option<Task<()>>,
     duration_limit_task: Option<Task<()>>,
     pub(crate) partial_text: String,
-    transcribing_message: Option<String>,
-    last_duration_limit_feedback: Option<String>,
+    transcribing_message: Option<ui::i18n::LocalizedText>,
+    last_duration_limit_feedback: Option<ui::i18n::LocalizedText>,
     #[cfg(feature = "e2e-test-support")]
     result_application_delay: Option<std::time::Duration>,
     next_recording_generation: u64,
@@ -149,7 +149,8 @@ impl VoiceControlState {
         if matches!(self.phase, VoicePhase::Recording { .. }) {
             self.active_recording_generation = None;
             self.phase = VoicePhase::Transcribing;
-            let message = "Azure 60-second limit reached · Transcribing…".to_string();
+            let message =
+                ui::i18n::LocalizedText::new("chrome.azure_60_second_limit_reached_transcribing");
             self.transcribing_message = Some(message.clone());
             self.last_duration_limit_feedback = Some(message);
             true
@@ -180,7 +181,7 @@ impl VoiceControlState {
         };
     }
 
-    pub(crate) fn set_error(&mut self, message: impl Into<String>) {
+    pub(crate) fn set_error(&mut self, message: impl Into<ui::i18n::LocalizedText>) {
         self.active_recording_generation = None;
         self.microphone_settings_recovery_available = false;
         self.phase = VoicePhase::Error {
@@ -293,21 +294,22 @@ impl VoiceControlState {
     }
     pub(crate) fn label(&self) -> String {
         match &self.phase {
-            VoicePhase::Idle => "Voice".to_string(),
+            VoicePhase::Idle => ui::i18n::text("common.voice").to_string(),
             VoicePhase::Recording { .. } => {
                 if self.partial_text.is_empty() {
-                    "Listening…".to_string()
+                    ui::i18n::text("chrome.listening_2").to_string()
                 } else {
                     self.partial_text.clone()
                 }
             }
             VoicePhase::Transcribing => self
                 .transcribing_message
-                .clone()
-                .unwrap_or_else(|| "Transcribing...".to_string()),
+                .as_ref()
+                .map(ToString::to_string)
+                .unwrap_or_else(|| ui::i18n::text("chrome.transcribing").to_string()),
             VoicePhase::Executed { message } => message.clone(),
             VoicePhase::TranscriptOnly { transcript, .. } => transcript.clone(),
-            VoicePhase::Error { message } => message.clone(),
+            VoicePhase::Error { message } => message.to_string(),
         }
     }
 }

@@ -129,7 +129,7 @@ fn persona_navigation_preserves_draft_and_close_requires_resolution() {
     let actions = cx.debug_bounds("persona-actions").expect("应有保存操作");
     assert!(
         actions.bottom() <= viewport.bottom(),
-        "桌面基准高度应直接显示保存操作，不能默认藏在屏幕下方"
+        "桌面基准高度应直接显示保存操作，不能默认藏在屏幕下方：actions={actions:?}, viewport={viewport:?}"
     );
     assert!(
         cx.debug_bounds("persona-unsaved-prompt").is_none(),

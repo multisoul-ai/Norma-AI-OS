@@ -6,9 +6,9 @@ pub(crate) enum ProviderDiscoveryStatus {
     Idle,
     Connecting,
     Models(Vec<String>),
-    ManualRequired(String),
+    ManualRequired(ui::i18n::LocalizedText),
     ManualValidated(String),
-    Failed(String),
+    Failed(ui::i18n::LocalizedText),
 }
 
 impl VoiceSettingsState {
@@ -35,16 +35,19 @@ impl VoiceSettingsState {
         models.sort();
         models.dedup();
         if models.is_empty() {
-            self.record_provider_discovery_failure(
-                "Provider returned no selectable models; enter a model manually.",
-            );
+            self.record_provider_discovery_failure(ui::i18n::LocalizedText::new(
+                "voice.provider_returned_no_selectable_models_enter_a_model_manually",
+            ));
             return;
         }
         self.provider_requirement = VoiceRequirementState::Missing;
         self.provider_discovery = ProviderDiscoveryStatus::Models(models);
     }
 
-    pub(crate) fn record_provider_discovery_failure(&mut self, error: impl Into<String>) {
+    pub(crate) fn record_provider_discovery_failure(
+        &mut self,
+        error: impl Into<ui::i18n::LocalizedText>,
+    ) {
         self.provider_discovery = ProviderDiscoveryStatus::Failed(error.into());
         self.provider_requirement = VoiceRequirementState::Failed;
     }
@@ -53,7 +56,16 @@ impl VoiceSettingsState {
         let allows_manual = error.allows_manual_model();
         let preserve_completed_configuration =
             error.is_temporary() && self.completed_agent_provider_configuration_is_present();
-        let message = error.to_string();
+        let key = match &error {
+            agent::ProviderCatalogError::Connection(_) => "voice.provider_connection_failed",
+            agent::ProviderCatalogError::Authentication(_) => {
+                "voice.provider_authentication_failed"
+            }
+            agent::ProviderCatalogError::ModelListUnavailable(_) => {
+                "voice.provider_model_list_unavailable"
+            }
+        };
+        let message = ui::i18n::LocalizedText::new(key).with_arg("reason", error);
         self.provider_discovery = if allows_manual {
             ProviderDiscoveryStatus::ManualRequired(message)
         } else {

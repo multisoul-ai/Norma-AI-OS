@@ -185,10 +185,10 @@ fn recover(receipt: &mut MobileCommandReceipt, owner: &str, current: &str) {
 }
 
 fn validate(request: &NewMobileCommand) -> StorageResult<()> {
+    crate::mobile_turn_store::validate_workspace_scope(&request.workspace_id)?;
     for id in [
         &request.device_id,
         &request.operation_id,
-        &request.workspace_id,
         &request.route_id,
         &request.owner_id,
     ] {

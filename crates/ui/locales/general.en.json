@@ -1,0 +1,9 @@
+{
+  "general.title": "General",
+  "general.subtitle": "Choose your preferred interface language",
+  "general.interface_language": "Interface Language",
+  "general.follow_system": "Follow System",
+  "general.language_hint": "Applies immediately to all windows. AI replies keep their current language behavior.",
+  "general.save_failed": "Could not save language settings (%{path}): %{reason}",
+  "general.storage_unavailable": "Language changed, but settings storage is unavailable. This choice may not survive restarting Norma."
+}

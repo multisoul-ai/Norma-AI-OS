@@ -13,7 +13,7 @@ pub(super) fn spoken_reply_group(
     inputs: &VoiceSettingsInputs,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
-    settings_group(theme, "Spoken Replies")
+    settings_group(theme, ui::i18n::text("voice.spoken_replies"))
         .child(tts_provider_settings(theme, state, inputs, cx))
         .child(reply_preferences(theme, state, cx))
 }
@@ -30,16 +30,16 @@ pub(super) fn reply_preferences(
         .gap(px(12.0))
         .child(toggle_row(
             theme,
-            "Agent task announcements",
-            "Announce when an agent task finishes or needs attention",
+            ui::i18n::text("voice.agent_task_announcements"),
+            ui::i18n::text("voice.announce_when_an_agent_task_finishes_or_needs_attention"),
             state.values().agent_task_announcements_enabled(),
             "settings-agent-task-announcements-toggle",
             cx.listener(MultisoulApp::on_voice_settings_toggle_agent_task_announcements),
         ))
         .child(toggle_row(
             theme,
-            "Speech glow",
-            "Show a subtle window glow while Norma speaks",
+            ui::i18n::text("voice.speech_glow"),
+            ui::i18n::text("voice.show_a_subtle_window_glow_while_norma_speaks"),
             state.values().voice_window_inset_enabled(),
             "settings-voice-window-inset-toggle",
             cx.listener(MultisoulApp::on_voice_settings_toggle_window_inset),

@@ -20,6 +20,7 @@ impl SavedVoiceSettings {
                 .as_deref()
                 .and_then(DesktopVoiceMode::from_stored),
             doubao_credential_ref: non_empty_option(store.get_string(KEY_DOUBAO_CREDENTIAL_REF)?),
+            doubao_speaker: non_empty_option(store.get_string(KEY_DOUBAO_SPEAKER)?),
             interaction_mode: store
                 .get_string(KEY_INTERACTION_MODE)?
                 .as_deref()

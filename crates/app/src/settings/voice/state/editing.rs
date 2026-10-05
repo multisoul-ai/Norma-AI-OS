@@ -75,25 +75,25 @@ impl VoiceSettingsState {
             {
                 "*********".to_string()
             } else {
-                "Not configured".to_string()
+                ui::i18n::text("voice.not_configured").to_string()
             }
         } else if field == VoiceSettingsField::AzureApiKey {
             if self.values.azure_asr_profile().credential_ref().is_some() {
                 "*********".to_string()
             } else {
-                "Not configured".to_string()
+                ui::i18n::text("voice.not_configured").to_string()
             }
         } else if field == VoiceSettingsField::MiniMaxApiKey {
             if self.minimax_credential_configured() {
                 "*********".to_string()
             } else {
-                "Not configured".to_string()
+                ui::i18n::text("voice.not_configured").to_string()
             }
         } else if field == VoiceSettingsField::DoubaoApiKey {
             if self.values.doubao_credential_ref().is_some() {
                 "*********".to_string()
             } else {
-                "Not configured".to_string()
+                ui::i18n::text("voice.not_configured").to_string()
             }
         } else {
             self.field_value(field)
@@ -113,6 +113,11 @@ impl VoiceSettingsState {
             self.finish_editing_if_requested(finish_editing);
             return Some(value);
         }
+        if field == VoiceSettingsField::DoubaoVoiceSearch {
+            self.doubao_voice_search = value.clone();
+            self.finish_editing_if_requested(finish_editing);
+            return Some(value);
+        }
         if value.is_empty() {
             if matches!(
                 field,
@@ -125,9 +130,13 @@ impl VoiceSettingsState {
                     self.editing = None;
                     self.draft.clear();
                 }
-                self.status = Some(ok_status("API Key unchanged; use Clear to remove it"));
+                self.status = Some(ok_status(ui::i18n::LocalizedText::new(
+                    "voice.api_key_unchanged_use_clear_to_remove_it",
+                )));
             } else {
-                self.status = Some(error_status("Value cannot be empty"));
+                self.status = Some(error_status(ui::i18n::LocalizedText::new(
+                    "voice.value_cannot_be_empty",
+                )));
             }
             return None;
         }
@@ -172,7 +181,9 @@ impl VoiceSettingsState {
                 let voice_id = match TtsVoiceId::parse(value.clone()) {
                     Ok(voice_id) => voice_id,
                     Err(_) => {
-                        self.status = Some(error_status("Voice ID cannot be empty"));
+                        self.status = Some(error_status(ui::i18n::LocalizedText::new(
+                            "voice.voice_id_cannot_be_empty",
+                        )));
                         return None;
                     }
                 };
@@ -200,8 +211,8 @@ impl VoiceSettingsState {
                 self.finish_editing_if_requested(finish_editing);
                 return Some(value);
             }
-            VoiceSettingsField::MiniMaxVoiceSearch => {
-                unreachable!("MiniMax Voice search is handled before persistent setting validation")
+            VoiceSettingsField::MiniMaxVoiceSearch | VoiceSettingsField::DoubaoVoiceSearch => {
+                unreachable!("Voice search is handled before persistent setting validation")
             }
             VoiceSettingsField::AzureRegion => {
                 let locale = self.values.azure_asr_profile().locale().to_string();
@@ -216,7 +227,9 @@ impl VoiceSettingsState {
             }
             VoiceSettingsField::AzureLocale => {
                 if asr::validate_azure_speech_locale(&value).is_err() {
-                    self.status = Some(error_status("Choose a supported Azure Speech locale"));
+                    self.status = Some(error_status(ui::i18n::LocalizedText::new(
+                        "voice.choose_a_supported_azure_speech_locale",
+                    )));
                     return None;
                 }
                 let region = self.values.azure_asr_profile().region().to_string();
@@ -269,6 +282,7 @@ impl VoiceSettingsState {
                 .unwrap_or_default()
                 .to_string(),
             VoiceSettingsField::MiniMaxVoiceSearch => self.minimax_voice_search.clone(),
+            VoiceSettingsField::DoubaoVoiceSearch => self.doubao_voice_search.clone(),
         }
     }
 

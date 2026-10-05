@@ -59,7 +59,7 @@ impl PreviewStore {
                 PreviewLoadState::Ready(content)
             }
             Err(error) => PreviewLoadState::Error(PreviewError {
-                message: error.to_string(),
+                message: error.localized(),
             }),
         };
         self.states.insert(node_id, state);
@@ -129,7 +129,7 @@ pub(crate) enum MarkdownBlock {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct PreviewError {
-    pub(crate) message: String,
+    pub(crate) message: ui::i18n::LocalizedText,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -151,6 +151,22 @@ impl std::fmt::Display for PreviewPathError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::InvalidFileUri => write!(f, "Invalid local file URI"),
+        }
+    }
+}
+
+impl PreviewReadError {
+    pub(crate) fn localized(&self) -> ui::i18n::LocalizedText {
+        use ui::i18n::LocalizedText;
+        match self {
+            Self::EmptySelection => LocalizedText::new("preview.empty_selection"),
+            Self::NotFound => LocalizedText::new("preview.not_found"),
+            Self::NotAFile => LocalizedText::new("preview.not_file"),
+            Self::UnsupportedType => LocalizedText::new("preview.unsupported"),
+            Self::MultipleSelectionRequiresImages => LocalizedText::new("preview.images_only"),
+            Self::ReadFailed(reason) => {
+                LocalizedText::new("preview.read_failed").with_arg("reason", reason)
+            }
         }
     }
 }

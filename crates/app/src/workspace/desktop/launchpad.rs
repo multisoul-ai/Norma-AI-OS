@@ -36,7 +36,13 @@ impl MultisoulApp {
         let capture_bounds = self.desktop_workspace.transition.is_none();
         let app = cx.weak_entity();
         let search = window.use_keyed_state("desktop-workspace-search", cx, move |window, cx| {
-            let input = cx.new(|cx| InputState::new(window, cx).placeholder("Search workspaces"));
+            let input = cx.new(|cx| {
+                InputState::new(window, cx).placeholder(ui::i18n::input_placeholder(
+                    "workspace.search_workspaces",
+                    window,
+                    cx,
+                ))
+            });
             let subscription = cx.subscribe(&input, move |_, input, event: &InputEvent, cx| {
                 if !matches!(event, InputEvent::Change) {
                     return;
@@ -149,9 +155,9 @@ impl MultisoulApp {
                                 .justify_center()
                                 .text_color(rgba(GLASS_TEXT_SECONDARY))
                                 .child(if has_any {
-                                    "No workspaces match your search."
+                                    ui::i18n::text("workspace.no_workspaces_match_your_search")
                                 } else {
-                                    "Create a workspace to start with an empty canvas."
+                                    ui::i18n::text("workspace.create_a_workspace_to_start_with_an_empty_canvas")
                                 }),
                         )
                     })
@@ -243,16 +249,13 @@ impl MultisoulApp {
                                     div()
                                         .text_size(px(11.0))
                                         .text_color(rgba(GLASS_TEXT_SECONDARY))
-                                        .child(format!(
-                                            "{} workspaces",
-                                            self.desktop_workspace.workspaces.len()
-                                        )),
+                                        .child(ui::i18n::format("workspace.workspace_count", &[("count", self.desktop_workspace.workspaces.len().to_string())])),
                                 )
                                 .child(div().flex_1())
                                 .child(
                                     Button::new("desktop-workspace-create")
                                         .debug_selector(|| "desktop-workspace-create".to_string())
-                                        .label("+ New Workspace")
+                                        .label(ui::i18n::text("workspace.new_workspace"))
                                         .custom(glass_button_variant(theme, cx))
                                         .disabled(self.desktop_workspace.busy)
                                         .on_click(cx.listener(|app, _, window, cx| {

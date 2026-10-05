@@ -1,3 +1,5 @@
+mod status;
+use status::{component_error_detail, component_status, provider_description};
 mod controller;
 pub(crate) mod health;
 mod tokens;
@@ -51,12 +53,9 @@ pub(super) fn orchestration_settings(
                         .text_size(px(11.0))
                         .child("i"),
                 )
-                .child(
-                    div()
-                        .relative()
-                        .top(px(5.0))
-                        .child("Restart existing agent sessions after installation."),
-                ),
+                .child(div().relative().top(px(5.0)).child(ui::i18n::text(
+                    "settings.restart_existing_agent_sessions_after_installation",
+                ))),
         )
         .children(
             OrchestrationProvider::ALL
@@ -96,13 +95,14 @@ fn provider_row(
     let (status, status_color) = visible_status(theme, state, integration);
     let pending_confirmation = state.pending_uninstall == Some(provider);
     let description = if pending_confirmation {
-        "Only Norma-managed files will be removed. Click Confirm.".to_string()
+        ui::i18n::text("settings.only_norma_managed_files_will_be_removed_click_confirm")
+            .to_string()
     } else if let Some((_, error)) = state
         .operation_error
         .as_ref()
         .filter(|(candidate, _)| *candidate == provider)
     {
-        error.clone()
+        error.to_string()
     } else {
         provider_description(provider, integration.aggregate_status).to_string()
     };
@@ -166,25 +166,39 @@ fn provider_action(
     let (label, tone, enabled) = if busy {
         (
             match state.busy {
-                Some((_, OrchestrationOperation::Uninstall)) => "Uninstalling",
-                _ => "Installing",
+                Some((_, OrchestrationOperation::Uninstall)) => {
+                    ui::i18n::text("settings.uninstalling")
+                }
+                _ => ui::i18n::text("settings.installing"),
             },
             theme.text_tertiary,
             false,
         )
     } else if pending_confirmation {
-        ("Confirm", theme.destructive, true)
+        (ui::i18n::text("common.confirm"), theme.destructive, true)
     } else {
         match integration.aggregate_status {
-            AggregateStatus::Ready => ("Uninstall", theme.text_secondary, true),
-            AggregateStatus::NotInstalled => ("Install", theme.accent_blue, true),
-            AggregateStatus::Unsupported => ("Unavailable", theme.text_tertiary, false),
+            AggregateStatus::Ready => (
+                ui::i18n::text("common.uninstall"),
+                theme.text_secondary,
+                true,
+            ),
+            AggregateStatus::NotInstalled => {
+                (ui::i18n::text("common.install"), theme.accent_blue, true)
+            }
+            AggregateStatus::Unsupported => (
+                ui::i18n::text("settings.unavailable"),
+                theme.text_tertiary,
+                false,
+            ),
             AggregateStatus::NeedsRepair | AggregateStatus::InstallFailed => {
-                ("Repair", theme.accent_blue, true)
+                (ui::i18n::text("settings.repair"), theme.accent_blue, true)
             }
-            AggregateStatus::Installing | AggregateStatus::Uninstalling => {
-                ("Installing", theme.text_tertiary, false)
-            }
+            AggregateStatus::Installing | AggregateStatus::Uninstalling => (
+                ui::i18n::text("settings.installing"),
+                theme.text_tertiary,
+                false,
+            ),
         }
     };
     let selector = action_selector(provider);
@@ -254,9 +268,15 @@ fn disclosure(
     let selector = disclosure_selector(provider);
     let label = if expanded { "⌃" } else { "⌄" };
     let tooltip = if expanded {
-        format!("Collapse {} component details", provider.display_name())
+        ui::i18n::format(
+            "settings.collapse_component_details",
+            &[("arg0", (provider.display_name()).to_string())],
+        )
     } else {
-        format!("Expand {} component details", provider.display_name())
+        ui::i18n::format(
+            "settings.expand_component_details",
+            &[("arg0", (provider.display_name()).to_string())],
+        )
     };
     let variant = ButtonCustomVariant::new(cx)
         .color(rgba(0x00000000).into())
@@ -312,7 +332,7 @@ fn component_details(theme: Theme, integration: &ProviderIntegration) -> Div {
             component_row(theme, "Agent Hook", &integration.hook_component, true),
             component_row(
                 theme,
-                "Authorization",
+                ui::i18n::text("settings.authorization"),
                 &integration.authorization_component,
                 true,
             ),
@@ -359,18 +379,6 @@ fn component_row(
         )
 }
 
-fn provider_description(provider: OrchestrationProvider, status: AggregateStatus) -> &'static str {
-    match (provider, status) {
-        (OrchestrationProvider::Claude, AggregateStatus::NotInstalled) => {
-            "Install Skill, CLI, hooks, and authorization"
-        }
-        (OrchestrationProvider::Cursor, AggregateStatus::NeedsRepair)
-        | (_, AggregateStatus::InstallFailed) => "One component needs attention",
-        (OrchestrationProvider::Grok, _) => "Orchestration is not supported in the first release",
-        _ => "Delegate tasks through Norma OS",
-    }
-}
-
 pub(crate) fn visible_status(
     theme: Theme,
     state: &OrchestrationSettingsState,
@@ -381,57 +389,42 @@ pub(crate) fn visible_status(
         .as_ref()
         .is_some_and(|(provider, _)| *provider == integration.provider)
     {
-        return ("Install failed", theme.destructive);
+        return (ui::i18n::text("settings.install_failed"), theme.destructive);
     }
     if let Some((provider, operation)) = state.busy {
         if provider == integration.provider {
             return match operation {
-                OrchestrationOperation::InstallOrRepair => ("Installing", theme.text_tertiary),
-                OrchestrationOperation::Uninstall => ("Uninstalling", theme.text_tertiary),
+                OrchestrationOperation::InstallOrRepair => {
+                    (ui::i18n::text("settings.installing"), theme.text_tertiary)
+                }
+                OrchestrationOperation::Uninstall => {
+                    (ui::i18n::text("settings.uninstalling"), theme.text_tertiary)
+                }
             };
         }
     }
     match integration.aggregate_status {
-        AggregateStatus::Ready => ("Ready", theme.accent_green),
-        AggregateStatus::NotInstalled => ("Not installed", theme.text_secondary),
-        AggregateStatus::NeedsRepair => ("Needs repair", warning_status_color()),
-        AggregateStatus::InstallFailed => ("Install failed", theme.destructive),
-        AggregateStatus::Unsupported => ("Not supported", theme.text_secondary),
-        AggregateStatus::Installing => ("Installing", theme.text_tertiary),
-        AggregateStatus::Uninstalling => ("Uninstalling", theme.text_tertiary),
-    }
-}
-
-fn component_status(theme: Theme, component: &ComponentState) -> (&'static str, u32) {
-    match component {
-        ComponentState::Ready { .. } => ("Ready", theme.accent_green),
-        ComponentState::Missing => ("Needs repair", warning_status_color()),
-        ComponentState::Outdated { .. } => ("Outdated", warning_status_color()),
-        ComponentState::Conflict { .. } => ("Conflict", theme.destructive),
-        ComponentState::Failed { .. } => ("Failed", theme.destructive),
-        ComponentState::Installing => ("Installing", theme.text_tertiary),
-        ComponentState::Unsupported { .. } => ("Unavailable", theme.text_tertiary),
-    }
-}
-
-fn component_error_detail(integration: &ProviderIntegration) -> Option<String> {
-    [
-        ("Skill", &integration.skill_component),
-        ("Norma CLI", &integration.cli_component),
-        ("Agent Hook", &integration.hook_component),
-        ("Authorization", &integration.authorization_component),
-    ]
-    .into_iter()
-    .find_map(|(label, component)| match component {
-        ComponentState::Conflict { path, reason } => Some(format!(
-            "{label}: {reason} Resolve the conflict at {} and choose Repair.",
-            path.display()
-        )),
-        ComponentState::Failed { message, .. } => {
-            Some(format!("{label}: {message} Choose Repair to try again."))
+        AggregateStatus::Ready => (ui::i18n::text("common.ready"), theme.accent_green),
+        AggregateStatus::NotInstalled => (
+            ui::i18n::text("settings.not_installed"),
+            theme.text_secondary,
+        ),
+        AggregateStatus::NeedsRepair => (
+            ui::i18n::text("settings.needs_repair"),
+            warning_status_color(),
+        ),
+        AggregateStatus::InstallFailed => {
+            (ui::i18n::text("settings.install_failed"), theme.destructive)
         }
-        _ => None,
-    })
+        AggregateStatus::Unsupported => (
+            ui::i18n::text("settings.not_supported"),
+            theme.text_secondary,
+        ),
+        AggregateStatus::Installing => (ui::i18n::text("settings.installing"), theme.text_tertiary),
+        AggregateStatus::Uninstalling => {
+            (ui::i18n::text("settings.uninstalling"), theme.text_tertiary)
+        }
+    }
 }
 
 fn provider_index(provider: OrchestrationProvider) -> usize {

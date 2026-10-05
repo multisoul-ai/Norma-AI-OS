@@ -10,9 +10,10 @@ impl MultisoulApp {
         let close_picker = self.voice_settings.tts_picker_apply_pending();
         if close_picker {
             if self.voice_settings.settings_persistence_pending() {
-                self.voice_settings.fail_tts_picker_apply(
-                    "Wait for the current settings save to finish before applying this Voice.",
-                );
+                self.voice_settings
+                    .fail_tts_picker_apply(ui::i18n::LocalizedText::new(
+                        "voice.wait_for_the_current_settings_save_to_finish_before_applying_this",
+                    ));
                 cx.notify();
                 return;
             }

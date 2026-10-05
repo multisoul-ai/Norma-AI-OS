@@ -65,6 +65,12 @@ struct WireReply: Decodable, Sendable {
     let error: String?
     let result: ResultBody?
     struct ResultBody: Decodable, Sendable {
+        let workspaceActivity: WorkspaceActivityResponse?
+        let workspaceTerminal: WorkspaceTerminalResponse?
+        let agentCreationReceipt: AgentCreationReceipt?
+        let workspaceCatalog: WorkspaceCatalog?
+        let workspaceReceipt: WorkspaceChatReceipt?
+        let workspaceEvents: [WorkspaceChatEvent]?
         let registrationProof: String?
         let voiceAuthorization: VoiceAuthorization?
         let status: String
@@ -102,7 +108,7 @@ struct WireReply: Decodable, Sendable {
         let approvalEvent: ApprovalFeedEvent?
         let planEvent: PlanFeedEvent?
         let deliveryEvent: DeliveryFeedEvent?
-        enum CodingKeys: String, CodingKey { case registrationProof = "registration_proof", voiceAuthorization = "voice_authorization", image, imageOffset = "image_offset", terminal, terminalEvent = "terminal_event", status, capabilities, threadReceipt = "thread_receipt", threadEvents = "thread_events", threadTask = "thread_task", threadFollowup = "thread_followup", threadAcceptance = "thread_acceptance", threadReview = "thread_review", threadTerminal = "thread_terminal", subscription, review, deliveries, plans, plan, decisions, workspaceID = "workspace_id", pending, grant, projects, agents, receipt, conversation, archive, approvals, event, fragment, conversationEvent = "conversation_event", approvalEvent = "approval_event", planEvent = "plan_event", deliveryEvent = "delivery_event", queuedMessage = "queued_message" }
+        enum CodingKeys: String, CodingKey { case workspaceActivity = "workspace_activity", workspaceTerminal = "workspace_terminal", agentCreationReceipt = "agent_creation_receipt", workspaceCatalog = "workspace_catalog", workspaceReceipt = "workspace_receipt", workspaceEvents = "workspace_events", registrationProof = "registration_proof", voiceAuthorization = "voice_authorization", image, imageOffset = "image_offset", terminal, terminalEvent = "terminal_event", status, capabilities, threadReceipt = "thread_receipt", threadEvents = "thread_events", threadTask = "thread_task", threadFollowup = "thread_followup", threadAcceptance = "thread_acceptance", threadReview = "thread_review", threadTerminal = "thread_terminal", subscription, review, deliveries, plans, plan, decisions, workspaceID = "workspace_id", pending, grant, projects, agents, receipt, conversation, archive, approvals, event, fragment, conversationEvent = "conversation_event", approvalEvent = "approval_event", planEvent = "plan_event", deliveryEvent = "delivery_event", queuedMessage = "queued_message" }
     }
     enum CodingKeys: String, CodingKey { case version, requestID = "request_id", error, result }
     // Older servers reject unknown action fields before extracting request_id. This is used only
@@ -117,6 +123,9 @@ struct WireReply: Decodable, Sendable {
               (reply.error == nil) != (reply.result == nil) else { throw MobileError.invalidResponse }
         if let error = reply.error {
             switch error {
+            case "configuration_conflict": throw WorkspaceChatError.conflict
+            case "configuration_changed", "target_missing", "target_ambiguous", "task_expired", "task_target_changed": throw WorkspaceChatError.targetChanged
+            case "workspace_missing", "project_missing", "project_unavailable", "agent_missing", "agent_disabled", "desktop_host_unavailable": throw WorkspaceChatError.server(error)
             case "invalid_image": throw ChatImageError.invalid
             case "image_storage_full": throw ChatImageError.storageFull
             case "image_storage_unavailable", "image_not_found", "image_timeout": throw ChatImageError.unavailable

@@ -64,15 +64,25 @@ fn sidebar_navigation_items_use_canonical_thirty_nine_pixel_height() {
     );
 }
 
-/// Norma 位于设置最前面，人设优先，记忆与语音随后且均可直接导航。
+/// 通用位于顶部；Norma 作为第二组，人设、记忆与语音均可直接导航。
 ///
-/// 数据构造：读取生产导航分组；Norma 子页面数 = 人设(1)+记忆(1)+语音(1)=3。
+/// 数据构造：顶部通用 1 项；读取第二个生产导航分组；Norma 子页面数 = 人设(1)+记忆(1)+语音(1)=3。
 /// 执行过程：取第一个分组及页面标题，再检查其他导航组。
 /// 预期结果：首组为 Norma 且顺序明确；AI 与输入分组没有重复的 Norma 入口。
 #[test]
-fn norma_is_the_first_group_with_three_direct_destinations() {
-    let (title, sections) = super::NAVIGATION_GROUPS[0];
-    assert_eq!(title, "Norma", "首次查看设置时必须首先看到独立 Norma 板块");
+fn general_precedes_norma_with_three_direct_destinations() {
+    let (_, general) = super::NAVIGATION_GROUPS[0];
+    assert_eq!(
+        general,
+        &[super::SettingsSection::General],
+        "通用必须为首个设置入口"
+    );
+    assert!(
+        !general.contains(&super::SettingsSection::NormaVoice),
+        "语音仍属于 Norma 分组"
+    );
+    let (title, sections) = super::NAVIGATION_GROUPS[1];
+    assert_eq!(title, "Norma", "通用之后必须保留独立 Norma 板块");
     assert_eq!(
         sections
             .iter()

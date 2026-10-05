@@ -109,6 +109,43 @@ pub(super) fn parse_adapter_command(
     arguments: Value,
 ) -> Result<AdapterCommand, AdapterError> {
     match name {
+        "workspace_memory" => {
+            let mut fields = arguments
+                .as_object()
+                .cloned()
+                .ok_or_else(|| AdapterError::InvalidArguments("invalid workspace memory".into()))?;
+            let area_id = fields
+                .remove("area_id")
+                .and_then(|v| v.as_str().map(str::to_owned))
+                .ok_or_else(|| AdapterError::InvalidArguments("area_id required".into()))?;
+            if area_id.is_empty()
+                || area_id.len() > 128
+                || !area_id
+                    .bytes()
+                    .all(|c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
+            {
+                return Err(AdapterError::InvalidArguments("invalid area_id".into()));
+            }
+            let action = fields
+                .remove("action")
+                .and_then(|v| v.as_str().map(str::to_owned))
+                .ok_or_else(|| AdapterError::InvalidArguments("action required".into()))?;
+            if !matches!(action.as_str(), "list" | "search" | "read")
+                || !matches!(
+                    fields.get("scope").and_then(Value::as_str),
+                    Some("project" | "worktree")
+                )
+            {
+                return Err(AdapterError::InvalidArguments(
+                    "read-only project/worktree scope required".into(),
+                ));
+            }
+            let command = crate::memory_access::parse_memory_command(
+                &format!("memory_{action}"),
+                Value::Object(fields),
+            )?;
+            Ok(AdapterCommand::WorkspaceMemory { area_id, command })
+        }
         "memory_list" | "memory_search" | "memory_read" | "memory_write" => {
             crate::memory_access::parse_memory_command(name, arguments).map(AdapterCommand::Memory)
         }

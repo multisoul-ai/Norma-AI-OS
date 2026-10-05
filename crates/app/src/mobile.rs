@@ -1,20 +1,22 @@
 //! Background mobile pairing owner. Never routes raw local IPC commands from the network.
+mod activity;
 mod approval;
 pub use approval::LiveApprovalRequest;
 mod command;
+mod workspace_chat;
+pub(crate) mod workspace_live;
+mod workspace_terminal;
+pub use workspace_chat::{LiveWorkspaceRequest, WorkspaceArea};
 mod thread_followup;
 mod thread_task;
 mod thread_task_execution;
 mod thread_task_terminal;
-mod thread_terminal_control;
 pub use thread_task_terminal::Request as ThreadTerminalRequest;
-pub use thread_terminal_control::{ThreadTerminalCommand, ThreadTerminalOperation};
-mod thread_task_acceptance;
-mod thread_task_review;
-pub(crate) use thread_task::instruction as thread_task_instruction;
 pub(crate) mod controller;
 mod conversation;
 mod terminal;
+mod thread_task_acceptance;
+mod thread_task_review;
 pub use terminal::{LiveTerminalRequest, LiveTerminalTask};
 mod review;
 pub use review::{LiveReviewRequest, ProjectReviewRequest};
@@ -225,6 +227,7 @@ impl MobileAccess {
 /// Bounded in-process sources owned by the desktop controller; no network/Provider handles here.
 #[derive(Default)]
 pub struct MobileSources {
+    pub workspaces: Option<async_channel::Sender<LiveWorkspaceRequest>>,
     pub terminals: Option<async_channel::Sender<LiveTerminalRequest>>,
     pub reviews: Option<async_channel::Sender<LiveReviewRequest>>,
     pub snapshots: Option<async_channel::Sender<LiveSnapshotRequest>>,

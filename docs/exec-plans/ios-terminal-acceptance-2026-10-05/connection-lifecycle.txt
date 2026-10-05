@@ -1,0 +1,10 @@
+Terminal visible
+COMMAND   PID USER   FD   TYPE            DEVICE SIZE/OFF NODE NAME
+Norma   69279 alan    5u  IPv4 0xe7039b91592e49d      0t0  TCP 127.0.0.1:51604->127.0.0.1:59518 (ESTABLISHED)
+
+App background
+No connection to isolated mobile service
+
+App foreground restored
+COMMAND   PID USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
+Norma   69279 alan    8u  IPv4 0x11dd55145b44c464      0t0  TCP 127.0.0.1:50714->127.0.0.1:59518 (ESTABLISHED)

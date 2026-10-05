@@ -93,12 +93,18 @@ impl VoiceSettingsState {
                 self.zipvoice_reference.draft_transcript = reference.transcript().to_string();
                 self.zipvoice_reference.input_generation =
                     self.zipvoice_reference.input_generation.wrapping_add(1);
-                self.report_tts_status("ZipVoice reference voice imported.", false);
+                self.report_tts_status(
+                    ui::i18n::LocalizedText::new("voice.zipvoice_reference_voice_imported"),
+                    false,
+                );
                 true
             }
             Err(error) => {
                 self.report_tts_status(
-                    format!("Could not import ZipVoice reference voice: {error}"),
+                    ui::i18n::message(
+                        "voice.could_not_import_zipvoice_reference_voice_error",
+                        &[("error", (error).to_string())],
+                    ),
                     true,
                 );
                 false
@@ -155,12 +161,18 @@ impl VoiceSettingsState {
                 let operation_generation = self.zipvoice_reference.operation_generation;
                 self.zipvoice_reference = ZipVoiceReferenceSettings::default();
                 self.zipvoice_reference.operation_generation = operation_generation;
-                self.report_tts_status("ZipVoice reference voice removed.", false);
+                self.report_tts_status(
+                    ui::i18n::LocalizedText::new("voice.zipvoice_reference_voice_removed"),
+                    false,
+                );
                 true
             }
             Err(error) => {
                 self.report_tts_status(
-                    format!("Could not remove ZipVoice reference voice: {error}"),
+                    ui::i18n::message(
+                        "voice.could_not_remove_zipvoice_reference_voice_error",
+                        &[("error", (error).to_string())],
+                    ),
                     true,
                 );
                 false

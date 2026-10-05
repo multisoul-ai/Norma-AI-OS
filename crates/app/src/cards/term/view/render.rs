@@ -93,7 +93,7 @@ pub(crate) fn render_terminal_node(
                 .rounded_b(px(bottom_radius_px))
                 .opacity(content_opacity)
                 .overflow_hidden()
-                .child("(session gone)")
+                .child(ui::i18n::text("cards.session_gone"))
                 .into_any_element(),
         })
     } else {

@@ -428,28 +428,28 @@ fn test_import_custom_rejects_unknown_extension() {
     );
 }
 
-/// T-W9: wallpaper view 模块必须包含缩略图网格锚点、Import 按钮，且不依赖运行时。
+/// T-W9: 壁纸页保留素材网格、导入入口及自定义素材删除入口。
 ///
-/// 锚点：view.rs 源文件内必须出现
-///   - "wallpaper-thumb"        （内置缩略格 cell id 前缀）
-///   - "Import"                  （Import 按钮文案）
-///   - "wallpaper-import"        （Import 按钮 id）
-///   - "wallpaper-delete"        （custom cell 删除按钮 id 前缀）
-///   - Task 11 视频占位注释
+/// 数据构造：view.rs + cells.rs 两个源文件，构成完整页面与缩略图控件。
+/// 执行过程：检查网格、导入、删除标识，以及单帧缓存渲染约定。
+/// 预期结果：上述入口保持存在；缩略图不会改为逐帧动画渲染。
 ///
 /// 这是结构性的源码锚点测试，避免 view 被误重构时丢失关键交互元素。
 /// T-W10（render_id_key 契约）见 wallpaper_render_id_tests.rs，独立文件以守住 500 行上限。
 
 #[test]
 fn test_wallpaper_view_has_grid_import_and_builtin_nodelete() {
-    let src = include_str!("../../src/settings/wallpaper/view.rs");
+    let src = concat!(
+        include_str!("../../src/settings/wallpaper/view.rs"),
+        include_str!("../../src/settings/wallpaper/cells.rs")
+    );
     assert!(
         src.contains("wallpaper-thumb"),
         "view must define builtin thumbnail cell anchors (id \"wallpaper-thumb\")"
     );
     assert!(
-        src.contains("Import"),
-        "view must render an Import button label"
+        src.contains("settings.import_formats"),
+        "view must retain the localized import description"
     );
     assert!(
         src.contains("wallpaper-import"),
@@ -460,7 +460,7 @@ fn test_wallpaper_view_has_grid_import_and_builtin_nodelete() {
         "view must define a per-cell delete affordance id (wallpaper-delete)"
     );
     assert!(
-        src.contains("Task 11"),
-        "video placeholder must reference the Task 11 first-frame follow-up"
+        src.contains("single-frame cache"),
+        "library previews must retain the bounded single-frame rendering contract"
     );
 }

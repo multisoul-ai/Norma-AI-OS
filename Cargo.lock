@@ -220,6 +220,7 @@ dependencies = [
  "reqwest",
  "rfd",
  "runtime",
+ "rusqlite",
  "rustls",
  "screencapturekit",
  "serde",
@@ -8266,6 +8267,8 @@ version = "0.1.71"
 dependencies = [
  "gpui",
  "gpui-component",
+ "rust-i18n",
+ "serde_json",
 ]
 
 [[package]]

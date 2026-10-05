@@ -1,5 +1,17 @@
 # Norma 推送服务
 
+## 工作空间实时活动（2026-10-05，待真机验收后发布）
+
+源码已新增 `activity.mjs`，由 `relay.mjs` 导入；部署时须同时复制两个文件。现有线上服务尚未在本轮发布这条通道。实现与真机发布门槛见 `docs/exec-plans/2026-10-05-ios-workspace-live-activity.md`。
+
+`/v1/notifications` 复用原授权与 APNs 连接，新增 `kind: activity` 的 `start/update/end`：专用 topic 为 `com.norma-ai.os.ios.push-type.liveactivity`，类型为 `liveactivity`。start 使用 `WorkspaceActivityAttributes` 并带一次 alert；普通 update 使用 priority 5 且无 alert/sound，关键更新使用 priority 10；end 的 dismissal-date 为 timestamp + 600 秒。stale-date 与有效期为 timestamp + 120 秒，正文限制 4 KiB，不接受控制指令。
+
+普通工作空间事项新增 `review`、`desktop_workspace_id` 与 `area_id`，三者必须与复合 workspace scope 一致；点击仍只回源查看。Mac 用同一持久事项账本为新旧通知入口去重，不为普通进度或无冻结成果的完成卡片发提醒。实时活动开关和普通通知开关互相独立。
+
+```sh
+node --test services/push/activity.test.mjs services/push/relay.test.mjs
+```
+
 状态（2026-09-14）：已按用户授权将支持 `preview` 的 relay 直接部署到 `47.251.242.24`，公网 URL 与 Mac 凭据保持不变，Nginx `/norma/` 改为转发至本机 `127.0.0.1:8788`。真实已登记的 production iPhone 诊断请求携带项目、卡片、摘要，经公网返回 `200 {"status":"accepted"}`；Apple 已接受，尚未观察到手机展示或点击结果。
 
 根因：安装中的 Mac 已发送 `preview`，旧线上 relay 严格拒绝该字段并返回 `400 invalid_event`。切换前通过 47 的 SSH 2222 端口登录，线上 `nginx -T` 确认其 `/norma/` 原来转发至 `118.31.118.73`，47 尚无本机 relay；本轮未登录或修改 118。Mac 已补充固定错误码分类，协议拒绝和 APNs 配置错误不会再统称 `delivery_unknown`，仍不重发未知请求。

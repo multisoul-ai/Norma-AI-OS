@@ -117,6 +117,7 @@ pub(super) fn home_preview_rect(
 pub(super) fn project_area_layout(width: f32, height: f32, count: usize) -> Vec<CanvasRect> {
     let scene = super::desktop_scene_rect(width, height);
     let side = (width * 0.075).max(scene.origin.x);
+    // Overview and expanded projects share the title bar's safe boundary.
     let top = (height * 0.06).max(scene.origin.y);
     let bottom = (height * 0.10).max(super::camera::DESKTOP_SCENE_BOTTOM);
     // At 1280×800: 96px side margins, 32px column gap and 64px row gap.

@@ -62,8 +62,10 @@ impl MultisoulApp {
                         app.desktop_workspace.error = None;
                     }
                     Err(error) => {
-                        app.desktop_workspace.error =
-                            Some(format!("Could not rename workspace: {error}"))
+                        app.desktop_workspace.error = Some(ui::i18n::message(
+                            "workspace.could_not_rename_workspace_error",
+                            &[("error", (error).to_string())],
+                        ))
                     }
                 }
                 cx.notify();
@@ -145,16 +147,18 @@ impl MultisoulApp {
         let store = self.desktop_workspace.store.clone();
         let work = cx.background_executor().spawn(async move {
             let removed_areas = match &target {
-                DesktopDeleteTarget::Workspace { id, .. } => store
-                    .delete_catalog(id)?
-                    .ok_or_else(|| anyhow::anyhow!("workspace no longer exists"))?,
+                DesktopDeleteTarget::Workspace { id, .. } => {
+                    store.delete_catalog(id)?.ok_or_else(|| {
+                        anyhow::anyhow!(ui::i18n::text("workspace.workspace_no_longer_exists"))
+                    })?
+                }
                 DesktopDeleteTarget::Area {
                     workspace_id,
                     area_id,
                     ..
                 } => {
                     if !store.remove_project_catalog(workspace_id, area_id)? {
-                        anyhow::bail!("project area no longer exists");
+                        anyhow::bail!(ui::i18n::text("workspace.project_area_no_longer_exists"));
                     }
                     vec![area_id.clone()]
                 }
@@ -193,7 +197,7 @@ impl MultisoulApp {
                         app.desktop_workspace.pending_delete = None;
                         match workspaces {
                             Ok(workspaces) => app.desktop_workspace.workspaces = workspaces,
-                            Err(error) => app.desktop_workspace.error = Some(format!("Could not refresh workspaces: {error}")),
+                            Err(error) => app.desktop_workspace.error = Some(ui::i18n::message("workspace.could_not_refresh_workspaces_error", &[("error", (error).to_string())])),
                         }
                         match target {
                             DesktopDeleteTarget::Workspace { id, .. } => {
@@ -245,7 +249,7 @@ impl MultisoulApp {
                     }
                     Err(error) => {
                         app.desktop_workspace.error =
-                            Some(format!("Could not delete desktop canvas: {error}"))
+                            Some(ui::i18n::message("workspace.could_not_delete_desktop_canvas_error", &[("error", (error).to_string())]))
                     }
                 }
                 cx.notify();

@@ -168,16 +168,6 @@ public struct ThreadTaskReceipt: Codable, Equatable, Sendable {
 }
 
 extension CollaborationRelayConnection {
-    /// The caller saves the immutable task first; a lost response is recovered by threadTaskReceipt.
-    public func submitThreadTask(_ task: ThreadTaskOperation, routeID: String, grantRevision: UInt64) async throws -> ThreadTaskReceipt {
-        try requireThreadTask(task)
-        guard validID(routeID), grantRevision > 0 else { throw ThreadTaskError.invalidTask }
-        let value = try JSONSerialization.jsonObject(with: JSONEncoder().encode(task))
-        let reply = try await exchange(type: "thread_task", fields: ["task": value, "route_id": routeID, "grant_revision": grantRevision])
-        guard let receipt = try validatedTaskReply(reply, task: task) else { close(); throw ThreadTaskError.invalidReceipt }
-        return receipt
-    }
-
     public func threadTaskReceipt(for task: ThreadTaskOperation) async throws -> ThreadTaskReceipt? {
         try requireThreadTask(task)
         let reply = try await exchange(type: "thread_task_receipt", fields: ["collaboration_workspace_id": task.collaborationWorkspaceID,

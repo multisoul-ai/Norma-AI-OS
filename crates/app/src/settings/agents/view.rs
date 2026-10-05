@@ -24,7 +24,7 @@ pub(crate) fn agents_settings(
             .pt(px(8.0))
             .child(div().id("settings-agent-empty-project").child(status_block(
                 theme,
-                "Open a project to configure project Agents.",
+                ui::i18n::text("settings.open_a_project_to_configure_project_agents"),
                 false,
             )));
     }
@@ -47,7 +47,7 @@ pub(crate) fn agents_settings(
             cx,
         ))
         .when_some(state.status(), |this, status| {
-            this.child(status_block(theme, status, status.starts_with("Could not")))
+            this.child(status_block(theme, status, true))
         })
         .when_some(state.delete_dialog(), |this, dialog| {
             this.child(delete_agent_dialog(theme, dialog, cx))
@@ -62,14 +62,21 @@ fn delete_agent_dialog(
     let (id, title, message, blocked) = match dialog {
         AgentDeleteDialog::Confirm { id, name } => (
             *id,
-            format!("Delete {name}?"),
-            "This removes the project Agent definition. This can’t be undone.",
+            ui::i18n::format("settings.delete_name", &[("name", (name).to_string())]),
+            ui::i18n::text(
+                "settings.this_removes_the_project_agent_definition_this_can_t_be_undone",
+            ),
             false,
         ),
         AgentDeleteDialog::Blocked { id, name } => (
             *id,
-            format!("Cannot delete {name}"),
-            "Close the active Agent card on Canvas before deleting this Agent.",
+            ui::i18n::format(
+                "settings.cannot_delete_name",
+                &[("name", (name).to_string())],
+            ),
+            ui::i18n::text(
+                "settings.close_the_active_agent_card_on_canvas_before_deleting_this_agent",
+            ),
             true,
         ),
     };
@@ -125,7 +132,11 @@ fn delete_agent_dialog(
                         .child(action_button(
                             theme,
                             "settings-agent-delete-cancel",
-                            if blocked { "OK" } else { "Cancel" },
+                            if blocked {
+                                ui::i18n::text("common.ok")
+                            } else {
+                                ui::i18n::text("common.cancel")
+                            },
                             theme.text_secondary,
                             cx.listener(MultisoulApp::on_agent_settings_cancel_delete),
                         ))
@@ -133,7 +144,7 @@ fn delete_agent_dialog(
                             this.child(action_button(
                                 theme,
                                 "settings-agent-delete-confirm",
-                                "Delete Agent",
+                                ui::i18n::text("settings.delete_agent"),
                                 theme.destructive,
                                 cx.listener(move |app, event, window, cx| {
                                     app.on_agent_settings_confirm_delete(id, event, window, cx);

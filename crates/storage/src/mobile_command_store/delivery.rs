@@ -17,12 +17,8 @@ pub struct DeliveryAcceptance {
 impl DeliveryAcceptance {
     pub(crate) fn validate(&self) -> StorageResult<()> {
         self.key.validate()?;
-        for id in [
-            &self.workspace_id,
-            &self.route_id,
-            &self.device_id,
-            &self.operation_id,
-        ] {
+        crate::mobile_turn_store::validate_workspace_scope(&self.workspace_id)?;
+        for id in [&self.route_id, &self.device_id, &self.operation_id] {
             crate::mobile_access_store::validate_id(id)?;
         }
         if self.accepted_at_unix == 0
@@ -105,7 +101,7 @@ impl MobileCommandStore {
         workspace: &str,
         key: &MobileTurnKey,
     ) -> StorageResult<Option<DeliveryAcceptance>> {
-        crate::mobile_access_store::validate_id(workspace)?;
+        crate::mobile_turn_store::validate_workspace_scope(workspace)?;
         key.validate()?;
         let connection = open_app_connection(&self.path)?;
         Ok(read_acceptance(&connection, workspace, key)?.filter(|a| a.key == *key))

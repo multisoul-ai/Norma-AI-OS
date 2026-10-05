@@ -230,17 +230,20 @@ fn voice_content(
         VoiceVisual::Idle => {
             let shortcut = app.shortcuts.voice_interaction_label();
             let label = match app.voice_settings.readiness() {
-                crate::settings::voice::VoiceEntryState::SetUp { .. } => {
-                    format!("Set up Voice  {shortcut}")
-                }
-                crate::settings::voice::VoiceEntryState::SettingUp { percent } => {
-                    format!("Setting up Voice · {percent}%")
-                }
-                crate::settings::voice::VoiceEntryState::Ready => {
-                    format!("Voice  {shortcut}")
-                }
+                crate::settings::voice::VoiceEntryState::SetUp { .. } => ui::i18n::format(
+                    "chrome.set_up_voice_shortcut",
+                    &[("shortcut", (shortcut).to_string())],
+                ),
+                crate::settings::voice::VoiceEntryState::SettingUp { percent } => ui::i18n::format(
+                    "chrome.setting_up_voice_percent",
+                    &[("percent", (percent).to_string())],
+                ),
+                crate::settings::voice::VoiceEntryState::Ready => ui::i18n::format(
+                    "chrome.voice_shortcut",
+                    &[("shortcut", (shortcut).to_string())],
+                ),
                 crate::settings::voice::VoiceEntryState::Unavailable { .. } => {
-                    "Voice unavailable".to_string()
+                    ui::i18n::text("chrome.voice_unavailable").to_string()
                 }
             };
             div()
@@ -349,15 +352,23 @@ impl MultisoulApp {
                     .flex()
                     .flex_col()
                     .gap(px(2.0))
-                    .child("Voice is ready")
+                    .child(ui::i18n::text("chrome.voice_is_ready"))
                     .child(
                         div()
                             .text_size(px(11.0))
                             .text_color(rgba(theme.text_secondary))
-                            .child(format!(
-                                "Press {} to start {}.",
-                                self.shortcuts.voice_interaction_label(),
-                                "a voice conversation"
+                            .child(ui::i18n::format(
+                                "chrome.press_to_start",
+                                &[
+                                    (
+                                        "arg0",
+                                        (self.shortcuts.voice_interaction_label()).to_string(),
+                                    ),
+                                    (
+                                        "arg1",
+                                        (ui::i18n::text("chrome.a_voice_conversation")).to_string(),
+                                    ),
+                                ],
                             )),
                     ),
             )
@@ -391,7 +402,7 @@ fn microphone_settings_button(theme: Theme, cx: &mut Context<MultisoulApp>) -> i
         .text_color(rgba(0xffffffff))
         .cursor_pointer()
         .on_click(cx.listener(MultisoulApp::on_voice_open_microphone_privacy_settings))
-        .child("Open Microphone Settings")
+        .child(ui::i18n::text("chrome.open_microphone_settings"))
 }
 
 struct VoicePalette {

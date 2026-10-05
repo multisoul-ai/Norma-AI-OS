@@ -2,6 +2,48 @@ use super::{apply_layout_for_new_node_or_master, resolve_bounds, MultisoulApp, N
 use gpui::{Context, Window};
 
 impl MultisoulApp {
+    /// Foreground only reserves metadata and layout; the caller must spawn the returned launch in background.
+    pub(crate) fn prepare_quick_mobile_card(
+        &mut self,
+        definition: &storage::AgentDefinition,
+        cx: &mut Context<Self>,
+    ) -> Result<(NodeId, runtime::runtime::NativeAgentLaunch), terminal::PtyError> {
+        let area = self.mobile_canvas_area(None);
+        let zoom = self.runtime.document.viewport.zoom;
+        let bounds = resolve_bounds(
+            Placement::VisibleArea,
+            area,
+            zoom,
+            self.layout_strategy,
+            self.runtime.document.nodes().len(),
+        );
+        let node = self.runtime.create_mobile_agent_card(
+            definition.runtime_profile,
+            Some(definition.id),
+            Some(definition.name.clone()),
+            bounds,
+        )?;
+        let launch = match self.runtime.prepare_native_agent_terminal(node, 80, 24) {
+            Ok(launch) => launch,
+            Err(error) => {
+                self.runtime.remove_node(node);
+                return Err(error);
+            }
+        };
+        apply_layout_for_new_node_or_master(
+            &mut self.master_layout,
+            &mut self.runtime,
+            &mut self.motion,
+            node,
+            area,
+            zoom,
+            self.layout_strategy,
+        );
+        self.mark_canvas_dirty();
+        self.mark_session_dirty();
+        cx.notify();
+        Ok((node, launch))
+    }
     pub(crate) fn delete_mobile_card_in_canvas(
         &mut self,
         expected: &norma::mobile::CardSnapshot,

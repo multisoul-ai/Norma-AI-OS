@@ -1,0 +1,13 @@
+{
+  "persona.warm.label": "温暖自然",
+  "persona.professional.label": "专业清晰",
+  "persona.concise.label": "简洁直接",
+  "persona.warm.description": "自然亲切，像熟悉的伙伴",
+  "persona.professional.description": "结构清晰，准确解释与建议",
+  "persona.concise.description": "结论优先，尽量简短",
+  "persona.warm.example": "好呀，我们先把最重要的一步做好，再一起往前走。",
+  "persona.professional.example": "建议先完成核心流程，再验证结果，最后补齐细节。",
+  "persona.concise.example": "先完成核心流程，再验证。",
+  "persona.instructions_too_long": "补充说明最多 %{limit} 个字符",
+  "persona.instructions_control": "补充说明含有不支持的控制字符"
+}

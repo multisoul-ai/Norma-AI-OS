@@ -18,13 +18,15 @@ impl MultisoulApp {
             .expect("confirmation target must exist")
         {
             DesktopDeleteTarget::Workspace { name, .. } => (
-                "Delete Workspace",
+                ui::i18n::text("workspace.delete_workspace"),
                 name.as_str(),
-                "its project areas and cards",
+                ui::i18n::text("workspace.its_project_areas_and_cards"),
             ),
-            DesktopDeleteTarget::Area { name, .. } => {
-                ("Remove Project Area", name.as_str(), "its canvas and cards")
-            }
+            DesktopDeleteTarget::Area { name, .. } => (
+                ui::i18n::text("workspace.remove_project_area"),
+                name.as_str(),
+                ui::i18n::text("workspace.its_canvas_and_cards"),
+            ),
         };
         let running = self.desktop_delete_running_count(cx);
         div().id("desktop-delete-confirmation")
@@ -33,18 +35,18 @@ impl MultisoulApp {
             .child(div().w(px(450.0)).flex().flex_col().gap(px(16.0)).p(px(24.0))
                 .rounded(px(16.0)).bg(rgba(theme.panel_high))
                 .child(div().text_size(px(19.0)).font_semibold().text_color(rgba(theme.text_primary)).child(title))
-                .child(div().text_color(rgba(theme.text_secondary)).child(format!("Remove {name} and {scope}? The project folder and Git worktrees stay on disk.")))
+                .child(div().text_color(rgba(theme.text_secondary)).child(ui::i18n::format("workspace.remove_name_and_scope_the_project_folder_and_git_worktrees_stay", &[("name", (name).to_string()), ("scope", (scope).to_string())])))
                 .child(div().text_color(rgba(if running > 0 { theme.destructive } else { theme.text_tertiary }))
-                    .child(format!("{running} running Agent / terminal sessions will stop.")))
+                    .child(ui::i18n::format("workspace.running_running_agent_terminal_sessions_will_stop", &[("running", (running).to_string())])))
                 .when_some(self.desktop_workspace.error.clone(), |this, error| this.child(
                     div().text_size(px(12.0)).text_color(rgba(theme.destructive)).child(error)
                 ))
                 .child(div().flex().justify_end().gap(px(8.0))
                     .child(Button::new("desktop-delete-cancel")
-                        .debug_selector(|| "desktop-delete-cancel".to_string()).label("Cancel")
+                        .debug_selector(|| "desktop-delete-cancel".to_string()).label(ui::i18n::text("common.cancel"))
                         .on_click(cx.listener(|app, _, _, cx| app.cancel_desktop_delete(cx))))
                     .child(Button::new("desktop-delete-confirm")
-                        .debug_selector(|| "desktop-delete-confirm".to_string()).label("Delete")
+                        .debug_selector(|| "desktop-delete-confirm".to_string()).label(ui::i18n::text("common.delete"))
                         .disabled(self.desktop_workspace.busy)
                         .on_click(cx.listener(|app, _, _, cx| app.confirm_desktop_delete(cx))))))
     }
@@ -86,7 +88,7 @@ impl MultisoulApp {
                             .text_size(px(19.0))
                             .font_semibold()
                             .text_color(rgba(theme.text_primary))
-                            .child("Add Project to Workspace"),
+                            .child(ui::i18n::text("workspace.add_project_to_workspace")),
                     )
                     .child(
                         div()
@@ -131,7 +133,7 @@ impl MultisoulApp {
                                     .debug_selector(|| {
                                         "desktop-project-destination-new".to_string()
                                     })
-                                    .label("New Workspace")
+                                    .label(ui::i18n::text("shortcuts.new_workspace"))
                                     .disabled(busy)
                                     .on_click(cx.listener(|app, _, window, cx| {
                                         app.choose_desktop_project_destination(None, window, cx)
@@ -142,7 +144,7 @@ impl MultisoulApp {
                                     .debug_selector(|| {
                                         "desktop-project-destination-cancel".to_string()
                                     })
-                                    .label("Cancel")
+                                    .label(ui::i18n::text("common.cancel"))
                                     .disabled(busy)
                                     .on_click(cx.listener(|app, _, _, cx| {
                                         app.cancel_desktop_project_destination(cx)
@@ -178,7 +180,7 @@ impl MultisoulApp {
                         div()
                             .text_size(px(18.0))
                             .font_semibold()
-                            .child("Rename Workspace"),
+                            .child(ui::i18n::text("workspace.rename_workspace")),
                     )
                     .when_some(input, |this, input| this.child(Input::new(&input)))
                     .child(
@@ -191,7 +193,7 @@ impl MultisoulApp {
                                     .debug_selector(|| {
                                         "desktop-workspace-rename-cancel".to_string()
                                     })
-                                    .label("Cancel")
+                                    .label(ui::i18n::text("common.cancel"))
                                     .on_click(
                                         cx.listener(|app, _, _, cx| app.cancel_desktop_rename(cx)),
                                     ),
@@ -199,7 +201,7 @@ impl MultisoulApp {
                             .child(
                                 Button::new("desktop-workspace-rename-save")
                                     .debug_selector(|| "desktop-workspace-rename-save".to_string())
-                                    .label("Save")
+                                    .label(ui::i18n::text("common.save"))
                                     .primary()
                                     .disabled(self.desktop_workspace.busy)
                                     .on_click(

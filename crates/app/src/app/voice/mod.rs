@@ -55,7 +55,9 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         if !matches!(self.screen, AppScreen::Canvas) {
-            self.voice.set_error("Open a project before using voice.");
+            self.voice.set_error(ui::i18n::LocalizedText::new(
+                "chrome.open_a_project_before_using_voice",
+            ));
             cx.notify();
             return;
         }
@@ -260,9 +262,10 @@ impl MultisoulApp {
                         app.handle_final_voice_text(transcript.trim().to_string(), window, cx)
                     }
                     Ok(_) => app.record_empty_voice_transcript(),
-                    Err(error) => app
-                        .voice
-                        .set_error(format!("Speech recognition failed: {error}")),
+                    Err(error) => app.voice.set_error(ui::i18n::message(
+                        "chrome.speech_recognition_failed_error",
+                        &[("error", (error).to_string())],
+                    )),
                 }
             });
         });

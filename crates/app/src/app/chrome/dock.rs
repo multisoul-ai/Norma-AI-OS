@@ -33,8 +33,7 @@ impl MultisoulApp {
                 div()
                     .id("workspace-command-dock")
                     .debug_selector(|| "workspace-command-dock".into())
-                    .w_full()
-                    .max_w(px(560.0))
+                    .max_w(px(720.0))
                     .h(px(COMMAND_DOCK_HEIGHT_PX))
                     .flex()
                     .items_center()
@@ -52,7 +51,7 @@ impl MultisoulApp {
                             "icons/command-workspace.svg",
                             false,
                             "toolbar-workspace",
-                            "工作空间",
+                            ui::i18n::text("chrome.workspaces"),
                         )
                         .on_click(cx.listener(|app, _, window, cx| {
                             app.hide_command_suggestions();
@@ -65,7 +64,7 @@ impl MultisoulApp {
                             ToolbarIcon::Layout.asset_path(),
                             self.interaction.layout_menu_open,
                             "toolbar-layout",
-                            "布局",
+                            ui::i18n::text("chrome.layout"),
                         )
                         .on_click(cx.listener(|app, event, window, cx| {
                             app.hide_command_suggestions();
@@ -85,7 +84,7 @@ impl MultisoulApp {
                             ToolbarIcon::Settings.asset_path(),
                             self.settings_panel.open,
                             "toolbar-settings",
-                            "设置",
+                            ui::i18n::text("common.settings"),
                         )
                         .on_click(cx.listener(|app, event, window, cx| {
                             app.hide_command_suggestions();
@@ -114,8 +113,7 @@ impl MultisoulApp {
                 div()
                     .id("workspace-command-dock")
                     .debug_selector(|| "workspace-command-dock".to_string())
-                    .w_full()
-                    .max_w(px(560.0))
+                    .max_w(px(720.0))
                     .h(px(COMMAND_DOCK_HEIGHT_PX))
                     .flex()
                     .items_center()
@@ -133,7 +131,7 @@ impl MultisoulApp {
                             ToolbarIcon::Plus.asset_path(),
                             false,
                             "toolbar-new-terminal",
-                            "Add Project",
+                            ui::i18n::text("shortcuts.add_project"),
                         )
                         .on_click(cx.listener(|app, _, window, cx| {
                             app.open_desktop_add_project(window, cx)
@@ -149,7 +147,7 @@ impl MultisoulApp {
                             "icons/command-workspace.svg",
                             false,
                             "toolbar-switch-workspace",
-                            "Switch Workspace  ⌘⇧K",
+                            ui::i18n::text("chrome.switch_workspace_k"),
                         )
                         .on_click(
                             cx.listener(|app, _, window, cx| app.open_desktop_switcher(window, cx)),
@@ -161,7 +159,7 @@ impl MultisoulApp {
                             ToolbarIcon::Settings.asset_path(),
                             false,
                             "toolbar-settings",
-                            "设置",
+                            ui::i18n::text("common.settings"),
                         )
                         .on_click(cx.listener(|app, _, _, cx| app.toggle_settings_panel(cx))),
                     ),

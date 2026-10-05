@@ -10,20 +10,31 @@ mod creation_tests;
 impl MultisoulApp {
     pub(crate) fn refresh_desktop_previews(&mut self, cx: &mut Context<Self>) {
         let store = self.desktop_workspace.store.clone();
+        let wallpaper_revision = self.wallpaper_settings.scoped.revision;
         let work = cx.background_executor().spawn(async move {
             Ok::<_, storage::StorageError>((store.list()?, store.list_previews()?))
         });
         cx.spawn(async move |this, cx| {
             let result = work.await;
             let _ = this.update(cx, |app, cx| match result {
-                Ok((workspaces, previews)) => {
+                Ok((mut workspaces, previews)) => {
+                    app.preserve_wallpaper_snapshot(
+                        &mut workspaces,
+                        &mut [],
+                        wallpaper_revision,
+                        cx,
+                    );
                     app.desktop_workspace.workspaces = workspaces;
                     app.desktop_workspace.previews = previews;
+                    app.bind_desktop_wallpaper(cx);
+                    app.broadcast_wallpaper_state(None, cx);
                     cx.notify();
                 }
                 Err(error) => {
-                    app.desktop_workspace.error =
-                        Some(format!("Could not load workspace previews: {error}"));
+                    app.desktop_workspace.error = Some(ui::i18n::message(
+                        "workspace.could_not_load_workspace_previews_error",
+                        &[("error", (error).to_string())],
+                    ));
                     cx.notify();
                 }
             });
@@ -120,8 +131,10 @@ impl MultisoulApp {
                         app.open_desktop_workspace(id, window, cx);
                     }
                     Err(error) => {
-                        app.desktop_workspace.error =
-                            Some(format!("Could not add project: {error}"))
+                        app.desktop_workspace.error = Some(ui::i18n::message(
+                            "workspace.could_not_add_project_error",
+                            &[("error", (error).to_string())],
+                        ))
                     }
                 }
                 cx.notify();
@@ -176,9 +189,12 @@ impl MultisoulApp {
         self.desktop_workspace.busy = true;
         self.screen = AppScreen::DesktopWorkspace;
         self.desktop_workspace.error = None;
+        self.bind_desktop_wallpaper(cx);
+        self.refresh_wallpaper_library(cx);
         cx.notify();
         let store = self.desktop_workspace.store.clone();
         let load_id = id.clone();
+        let wallpaper_revision = self.wallpaper_settings.scoped.revision;
         let work = cx.background_executor().spawn(async move {
             store.touch(&load_id)?;
             let areas = store.list_projects(&load_id)?;
@@ -187,8 +203,12 @@ impl MultisoulApp {
                 .filter_map(|area| {
                     let available = area.root.is_dir()
                         && area.root.canonicalize().is_ok_and(|root| root == area.root);
-                    (!available)
-                        .then(|| (area.id.clone(), "Project directory unavailable".to_string()))
+                    (!available).then(|| {
+                        (
+                            area.id.clone(),
+                            ui::i18n::LocalizedText::new("workspace.project_directory_unavailable"),
+                        )
+                    })
                 })
                 .collect();
             Ok::<_, storage::StorageError>((store.list()?, areas, unavailable))
@@ -200,10 +220,18 @@ impl MultisoulApp {
                     return;
                 }
                 match result {
-                    Ok((workspaces, areas, unavailable)) => {
+                    Ok((mut workspaces, mut areas, unavailable)) => {
+                        app.preserve_wallpaper_snapshot(
+                            &mut workspaces,
+                            &mut areas,
+                            wallpaper_revision,
+                            cx,
+                        );
                         app.desktop_workspace.workspaces = workspaces;
                         app.desktop_workspace.areas = areas;
                         app.desktop_workspace.area_errors = unavailable;
+                        app.bind_desktop_wallpaper(cx);
+                        app.broadcast_wallpaper_state(None, cx);
                         // Workspace navigation lands in overview. Only an explicit project
                         // action may request expansion, including while these areas load.
                         let area_ids: Vec<_> = app
@@ -217,8 +245,10 @@ impl MultisoulApp {
                         }
                     }
                     Err(error) => {
-                        app.desktop_workspace.error =
-                            Some(format!("Could not open workspace: {error}"))
+                        app.desktop_workspace.error = Some(ui::i18n::message(
+                            "workspace.could_not_open_workspace_error",
+                            &[("error", (error).to_string())],
+                        ))
                     }
                 }
                 app.desktop_workspace.busy = false;
@@ -302,6 +332,7 @@ impl MultisoulApp {
         self.save_desktop_overview_scroll(cx);
         self.desktop_workspace.actions_area_id = None;
         self.screen = AppScreen::Launchpad;
+        self.bind_desktop_wallpaper(cx);
         self.refresh_desktop_previews(cx);
         cx.notify();
     }
@@ -360,8 +391,10 @@ impl MultisoulApp {
                 .await;
             let _ = this.update(cx, |app, cx| {
                 if let Err(error) = result {
-                    app.desktop_workspace.error =
-                        Some(format!("Could not save workspace position: {error}"));
+                    app.desktop_workspace.error = Some(ui::i18n::message(
+                        "workspace.could_not_save_workspace_position_error",
+                        &[("error", (error).to_string())],
+                    ));
                     cx.notify();
                 }
             });
@@ -389,8 +422,10 @@ impl MultisoulApp {
             let result = work.await;
             let _ = this.update(cx, |app, cx| {
                 if let Err(error) = result {
-                    app.desktop_workspace.error =
-                        Some(format!("Could not save workspace view: {error}"));
+                    app.desktop_workspace.error = Some(ui::i18n::message(
+                        "workspace.could_not_save_workspace_view_error",
+                        &[("error", (error).to_string())],
+                    ));
                     cx.notify();
                 }
             });

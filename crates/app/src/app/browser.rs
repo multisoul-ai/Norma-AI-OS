@@ -133,7 +133,8 @@ impl MultisoulApp {
         if arranged {
             self.mark_canvas_dirty();
         } else {
-            self.workspace_state.error = Some("Could not arrange browser link card.".to_string());
+            self.workspace_state.error =
+                Some(ui::i18n::LocalizedText::new("cards.arrange_browser_failed"));
         }
     }
 
@@ -151,7 +152,7 @@ impl MultisoulApp {
         #[cfg(not(target_os = "macos"))]
         {
             self.workspace_state.error =
-                Some("Opening terminal links externally is only available on macOS.".to_string());
+                Some(ui::i18n::LocalizedText::new("cards.external_links_macos"));
         }
     }
 
@@ -291,7 +292,9 @@ impl MultisoulApp {
 
     fn report_chrome_auth_failure(&mut self, node_id: NodeId, message: &str) {
         self.browsers.fail_chrome_auth(node_id, message);
-        self.workspace_state.error = Some(format!("Chrome session sync failed: {message}"));
+        self.workspace_state.error = Some(
+            ui::i18n::LocalizedText::new("cards.chrome_sync_failed").with_arg("message", message),
+        );
     }
 
     pub(crate) fn on_browser_command(

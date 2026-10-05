@@ -4,7 +4,8 @@ use gpui::PathPromptOptions;
 impl MemoryView {
     pub(super) fn import(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.current_is_dirty(cx) {
-            self.status = "请先保存或取消当前草稿。".into();
+            self.status =
+                ui::i18n::LocalizedText::new("norma.save_or_cancel_the_current_draft_first").into();
             cx.notify();
             return;
         }
@@ -12,7 +13,7 @@ impl MemoryView {
             files: true,
             directories: false,
             multiple: true,
-            prompt: Some("导入 Markdown 记忆".into()),
+            prompt: Some(ui::i18n::text("norma.import_markdown_memories").into()),
         });
         let paths = self.paths.clone();
         let root = self.root.clone();
@@ -30,18 +31,18 @@ impl MemoryView {
                             if path.extension().and_then(|extension| extension.to_str())
                                 != Some("md")
                             {
-                                return Err("请选择 .md 文件".to_string());
+                                return Err(ui::i18n::text("norma.choose_a_md_file").to_string());
                             }
                             let meta = std::fs::metadata(&path).map_err(|e| e.to_string())?;
                             if !meta.is_file()
                                 || meta.len() > storage::memory::MAX_TOPIC_BYTES as u64
                             {
-                                return Err("导入文件超过主题容量或不是普通文件".into());
+                                return Err(ui::i18n::text("norma.the_file_exceeds_the_topic_size_limit_or_is_not_a").into());
                             }
                             let id = path
                                 .file_stem()
                                 .and_then(|s| s.to_str())
-                                .ok_or_else(|| "无效文件名".to_string())?
+                                .ok_or_else(|| ui::i18n::text("norma.invalid_filename").to_string())?
                                 .to_string();
                             let markdown =
                                 std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
@@ -70,12 +71,12 @@ impl MemoryView {
                         view.imports = entries;
                         view.error = false;
                         view.status =
-                            "请检查导入预览；同 ID 将覆盖当前主题，确认后一次保存全部文件。".into();
+                            ui::i18n::LocalizedText::new("norma.review_the_import_preview_matching_ids_replace_existing_topics_confirm_to").into();
                     }
                     Ok(None) => {}
                     Err(error) => {
                         view.error = true;
-                        view.status = error;
+                        view.status = error.into();
                     }
                 }
                 cx.notify();

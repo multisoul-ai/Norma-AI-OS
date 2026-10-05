@@ -13,9 +13,8 @@ use std::{
 use storage::{MobileDeviceGrant, MobileProjectAccess};
 
 mod command_leases;
-mod connection;
+pub(super) mod connection;
 mod relay;
-mod terminal_leases;
 
 /// App-owned endpoint. Construction and methods perform IO: call only on background workers.
 /// The process owns this handle until disabled or App quit; there is no independent daemon.
@@ -25,6 +24,8 @@ pub struct MobileServer {
 }
 
 pub(super) struct Shared {
+    pub(super) terminal_captures: Mutex<super::workspace_terminal::CaptureCache>,
+    pub(super) workspaces: Option<async_channel::Sender<super::LiveWorkspaceRequest>>,
     relay: Mutex<Option<relay::Control>>,
     #[cfg(feature = "e2e-test-support")]
     realtime_test_server: Mutex<Option<SocketAddr>>,
@@ -42,7 +43,6 @@ pub(super) struct Shared {
     pub(super) approvals: Option<async_channel::Sender<super::LiveApprovalRequest>>,
     pub(super) owner_id: String,
     command_leases: Mutex<HashMap<String, Vec<Weak<CommandLease>>>>,
-    terminal_leases: Mutex<HashMap<String, Vec<Weak<runtime::TerminalInputLease>>>>,
 }
 
 struct ActiveSocket {
@@ -108,6 +108,7 @@ impl MobileServer {
             access,
             addresses,
             super::MobileSources {
+                workspaces: None,
                 terminals: None,
                 snapshots,
                 commands,
@@ -124,6 +125,7 @@ impl MobileServer {
         sources: super::MobileSources,
     ) -> Result<Self> {
         let super::MobileSources {
+            workspaces,
             terminals,
             snapshots,
             commands,
@@ -185,6 +187,8 @@ impl MobileServer {
             .collect::<std::io::Result<Vec<_>>>()?;
         let server = Self {
             shared: Arc::new(Shared {
+                terminal_captures: Mutex::new(super::workspace_terminal::CaptureCache::default()),
+                workspaces,
                 relay: Mutex::new(None),
                 #[cfg(feature = "e2e-test-support")]
                 realtime_test_server: Mutex::new(None),
@@ -202,7 +206,6 @@ impl MobileServer {
                 reviews,
                 owner_id: crate::norma::endpoint::new_workspace_route_id()?,
                 command_leases: Mutex::new(HashMap::new()),
-                terminal_leases: Mutex::new(HashMap::new()),
             }),
             addresses,
         };
@@ -388,7 +391,6 @@ impl Shared {
     }
 
     fn disconnect(&self, device: &str) {
-        self.revoke_terminal_leases(Some(device));
         // ponytail: permission edits reconnect this personal Mac's whole relay; split per-device
         // cancellation only if several simultaneous phones make those rare resets disruptive.
         if let Some(relay) = self
@@ -423,7 +425,6 @@ impl Shared {
 
     pub(super) fn stop(&self) {
         self.stopped.store(true, Ordering::Release);
-        self.revoke_terminal_leases(None);
         if let Some(relay) = self
             .relay
             .lock()

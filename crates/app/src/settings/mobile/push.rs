@@ -26,19 +26,21 @@ pub(super) fn entry(theme: Theme, mobile: &Entity<MobileController>, busy: bool)
                 .child(
                     div()
                         .font_weight(FontWeight::SEMIBOLD)
-                        .child("Task Notifications"),
+                        .child(ui::i18n::text("mobile.task_notifications")),
                 )
                 .child(
                     div()
                         .text_size(px(12.0))
                         .text_color(rgba(theme.text_tertiary))
-                        .child("Set up notifications for your iPhone"),
+                        .child(ui::i18n::text(
+                            "mobile.set_up_notifications_for_your_iphone",
+                        )),
                 ),
         )
         .child(
             Button::new("mobile-push-settings")
                 .debug_selector(|| "mobile-push-settings".into())
-                .label("Configure")
+                .label(ui::i18n::text("mobile.configure"))
                 .outline()
                 .disabled(busy)
                 .on_click(move |_, window, cx| open(mobile.clone(), theme, window, cx)),
@@ -55,7 +57,11 @@ fn open(mobile: Entity<MobileController>, theme: Theme, window: &mut Window, cx:
         let key = cx.new(|cx| {
             InputState::new(window, cx)
                 .masked(true)
-                .placeholder("64-character service access token")
+                .placeholder(ui::i18n::input_placeholder(
+                    "mobile.64_character_service_access_token",
+                    window,
+                    cx,
+                ))
         });
         cx.observe(&endpoint, |_, _, cx| cx.notify()).detach();
         cx.observe(&key, |_, _, cx| cx.notify()).detach();
@@ -70,7 +76,7 @@ fn open(mobile: Entity<MobileController>, theme: Theme, window: &mut Window, cx:
     let width = (f32::from(window.viewport_size().width) - 48.0).clamp(260.0, 540.0);
     window.open_dialog(cx, move |dialog, window, _| {
         dialog
-            .title("Notification Service")
+            .title(ui::i18n::text("mobile.notification_service"))
             .width(px(width))
             .max_h(window.viewport_size().height * 0.8)
             .child(view.clone())
@@ -90,14 +96,21 @@ impl Render for PushSettings {
         let busy = host.busy;
         let summary = host.push.as_ref();
         let state = if busy {
-            "Working…".to_string()
+            ui::i18n::text("mobile.working").to_string()
         } else {
             match summary.and_then(|s| s.endpoint.as_ref()) {
-                Some(endpoint) => format!(
-                    "Configured · {}\n{endpoint}",
-                    environment_name(summary.expect("configured").environment)
+                Some(endpoint) => ui::i18n::format(
+                    "mobile.configured_endpoint",
+                    &[
+                        (
+                            "arg0",
+                            (environment_name(summary.expect("configured").environment))
+                                .to_string(),
+                        ),
+                        ("endpoint", (endpoint).to_string()),
+                    ],
                 ),
-                None => "Notification service is not configured".into(),
+                None => ui::i18n::text("mobile.notification_service_is_not_configured").into(),
             }
         };
         let status_id = if summary.and_then(|s| s.endpoint.as_ref()).is_some() {
@@ -105,11 +118,27 @@ impl Render for PushSettings {
         } else {
             "mobile-push-status"
         };
-        let mut body = div().flex().flex_col().gap(px(14.0)).py(px(12.0))
-            .text_size(px(13.0)).text_color(rgba(self.theme.text_primary))
-            .child(div().id(status_id).debug_selector(move || status_id.into()).child(state))
-            .child(div().text_size(px(12.0)).text_color(rgba(self.theme.text_secondary))
-                .child("Settings are stored in this Mac's local database and apply while mobile connection is on. Allow notifications on your iPhone and enable alerts for this Mac."));
+        let mut body = div()
+            .flex()
+            .flex_col()
+            .gap(px(14.0))
+            .py(px(12.0))
+            .text_size(px(13.0))
+            .text_color(rgba(self.theme.text_primary))
+            .child(
+                div()
+                    .id(status_id)
+                    .debug_selector(move || status_id.into())
+                    .child(state),
+            )
+            .child(
+                div()
+                    .text_size(px(12.0))
+                    .text_color(rgba(self.theme.text_secondary))
+                    .child(ui::i18n::text(
+                        "mobile.settings_are_stored_in_this_mac_s_local_database_and_apply",
+                    )),
+            );
         if let Some(error) = &host.error {
             body = body.child(
                 div()
@@ -122,14 +151,14 @@ impl Render for PushSettings {
         let can_save = !busy
             && !self.endpoint.read(cx).value().trim().is_empty()
             && !self.key.read(cx).value().trim().is_empty();
-        body.child("Service URL")
+        body.child(ui::i18n::text("mobile.service_url"))
             .child(
                 div()
                     .id("mobile-push-url")
                     .debug_selector(|| "mobile-push-url".into())
                     .child(Input::new(&self.endpoint).disabled(busy)),
             )
-            .child("Service Access Token")
+            .child(ui::i18n::text("mobile.service_access_token"))
             .child(
                 div()
                     .id("mobile-push-key")
@@ -140,9 +169,9 @@ impl Render for PushSettings {
                 div()
                     .text_size(px(12.0))
                     .text_color(rgba(self.theme.text_secondary))
-                    .child("Enter the service token each time you save. Keep the Apple .p8 key on the notification server only."),
+                    .child(ui::i18n::text("mobile.enter_the_service_token_each_time_you_save_keep_the_apple")),
             )
-            .child("App Environment")
+            .child(ui::i18n::text("mobile.app_environment"))
             .child(
                 div()
                     .flex()
@@ -169,7 +198,7 @@ impl Render for PushSettings {
                     .child(
                         Button::new("mobile-push-save")
                             .debug_selector(|| "mobile-push-save".into())
-                            .label("Save")
+                            .label(ui::i18n::text("common.save"))
                             .primary()
                             .disabled(!can_save)
                             .on_click(cx.listener(|this, _, window, cx| {
@@ -186,7 +215,7 @@ impl Render for PushSettings {
                     .child(
                         Button::new("mobile-push-clear")
                             .debug_selector(|| "mobile-push-clear".into())
-                            .label("Clear and Disable")
+                            .label(ui::i18n::text("mobile.clear_and_disable"))
                             .disabled(busy)
                             .on_click(cx.listener(|this, _, window, cx| {
                                 this.mobile
@@ -200,7 +229,7 @@ impl Render for PushSettings {
                 div()
                     .text_size(px(12.0))
                     .text_color(rgba(self.theme.text_secondary))
-                    .child("Saving does not send a test notification. Notifications already sent to Apple cannot be recalled."),
+                    .child(ui::i18n::text("mobile.saving_does_not_send_a_test_notification_notifications_already_sent_to")),
             )
     }
 }
@@ -224,7 +253,7 @@ impl PushSettings {
 }
 fn environment_name(environment: PushEnvironment) -> &'static str {
     match environment {
-        PushEnvironment::Sandbox => "Development · Sandbox",
-        PushEnvironment::Production => "TestFlight / App Store",
+        PushEnvironment::Sandbox => ui::i18n::text("mobile.development_sandbox"),
+        PushEnvironment::Production => ui::i18n::text("mobile.testflight_app_store"),
     }
 }

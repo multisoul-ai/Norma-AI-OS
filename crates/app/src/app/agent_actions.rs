@@ -28,7 +28,8 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         if !matches!(self.screen, AppScreen::Canvas) {
-            self.workspace_state.error = Some("Open a project before creating agents.".into());
+            self.workspace_state.error =
+                Some(ui::i18n::LocalizedText::new("agent.open_project_first"));
             cx.notify();
             return;
         }
@@ -42,7 +43,8 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         if !matches!(self.screen, AppScreen::Canvas) {
-            self.workspace_state.error = Some("Open a project before creating agents.".into());
+            self.workspace_state.error =
+                Some(ui::i18n::LocalizedText::new("agent.open_project_first"));
             cx.notify();
             return;
         }
@@ -56,7 +58,8 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         if !matches!(self.screen, AppScreen::Canvas) {
-            self.workspace_state.error = Some("Open a project before creating agents.".into());
+            self.workspace_state.error =
+                Some(ui::i18n::LocalizedText::new("agent.open_project_first"));
             cx.notify();
             return;
         }
@@ -70,7 +73,8 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         if !matches!(self.screen, AppScreen::Canvas) {
-            self.workspace_state.error = Some("Open a project before creating agents.".into());
+            self.workspace_state.error =
+                Some(ui::i18n::LocalizedText::new("agent.open_project_first"));
             cx.notify();
             return;
         }
@@ -84,7 +88,8 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         if !matches!(self.screen, AppScreen::Canvas) {
-            self.workspace_state.error = Some("Open a project before creating agents.".into());
+            self.workspace_state.error =
+                Some(ui::i18n::LocalizedText::new("agent.open_project_first"));
             cx.notify();
             return;
         }
@@ -109,7 +114,10 @@ impl MultisoulApp {
                 self.spawn_agent_card_from_spec(agent_spec_from_definition(&definition), window, cx)
             }
             Err(message) => {
-                self.workspace_state.error = Some(message);
+                self.workspace_state.error = Some(
+                    ui::i18n::LocalizedText::new("common.operation_failed")
+                        .with_arg("reason", message),
+                );
                 cx.notify();
             }
         }
@@ -128,7 +136,8 @@ impl MultisoulApp {
                 .iter()
                 .find(|definition| definition.id == definition_id)
             else {
-                self.workspace_state.error = Some("Agent definition was not found.".to_string());
+                self.workspace_state.error =
+                    Some(ui::i18n::LocalizedText::new("agent.definition_missing"));
                 cx.notify();
                 return;
             };
@@ -146,7 +155,8 @@ impl MultisoulApp {
             .find(|definition| definition.id == definition_id)
             .cloned()
         else {
-            self.workspace_state.error = Some("Agent definition was not found.".to_string());
+            self.workspace_state.error =
+                Some(ui::i18n::LocalizedText::new("agent.definition_missing"));
             cx.notify();
             return;
         };
@@ -180,7 +190,7 @@ impl MultisoulApp {
                 .iter()
                 .find(|definition| definition.id == id)
                 .cloned()
-                .ok_or_else(|| "Agent definition was not found.".to_string()),
+                .ok_or_else(|| ui::i18n::text("agent.definition_missing").to_string()),
             None => self.agent_definitions.create_quick_definition(profile),
         };
         match definition {
@@ -191,7 +201,10 @@ impl MultisoulApp {
                 cx,
             ),
             Err(error) => {
-                self.workspace_state.error = Some(error);
+                self.workspace_state.error = Some(
+                    ui::i18n::LocalizedText::new("common.operation_failed")
+                        .with_arg("reason", error),
+                );
                 cx.notify();
             }
         }

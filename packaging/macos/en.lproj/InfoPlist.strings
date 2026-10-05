@@ -1,0 +1,2 @@
+"NSSpeechRecognitionUsageDescription" = "Norma OS uses speech recognition to turn spoken commands into card actions.";
+"NSMicrophoneUsageDescription" = "Norma OS uses the microphone while voice input or a voice conversation is active.";

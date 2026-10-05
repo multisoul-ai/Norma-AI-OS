@@ -12,7 +12,10 @@ impl VoiceControlState {
     }
 
     pub(crate) fn set_speech_error(&mut self, error: &SpeechError) {
-        self.set_error(format!("Speech recognition failed: {error}"));
+        self.set_error(ui::i18n::message(
+            "chrome.speech_recognition_failed_error",
+            &[("error", (error).to_string())],
+        ));
         self.microphone_settings_recovery_available =
             super::super::microphone_permission_recovery_url(error).is_some();
     }

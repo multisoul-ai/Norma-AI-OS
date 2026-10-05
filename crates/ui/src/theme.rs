@@ -33,25 +33,25 @@ impl ThemeId {
         }
     }
 
-    pub const fn display_name(self) -> &'static str {
+    pub fn display_name(self) -> &'static str {
         match self {
-            Self::PaperBlue => "Paper Blue",
-            Self::LinenSage => "Linen Sage",
-            Self::SilverViolet => "Silver Violet",
-            Self::SapphireNight => "Sapphire Night",
-            Self::MidnightViolet => "Midnight Violet",
-            Self::ForestMint => "Forest Mint",
+            Self::PaperBlue => crate::i18n::text("theme.paper_blue"),
+            Self::LinenSage => crate::i18n::text("theme.linen_sage"),
+            Self::SilverViolet => crate::i18n::text("theme.silver_violet"),
+            Self::SapphireNight => crate::i18n::text("theme.sapphire_night"),
+            Self::MidnightViolet => crate::i18n::text("theme.midnight_violet"),
+            Self::ForestMint => crate::i18n::text("theme.forest_mint"),
         }
     }
 
-    pub const fn description(self) -> &'static str {
+    pub fn description(self) -> &'static str {
         match self {
-            Self::PaperBlue => "Paper white · cobalt",
-            Self::LinenSage => "Linen · sage · mint",
-            Self::SilverViolet => "Silver · graphite · violet",
-            Self::SapphireNight => "Sapphire · cobalt",
-            Self::MidnightViolet => "Midnight · violet",
-            Self::ForestMint => "Deep sage · mint",
+            Self::PaperBlue => crate::i18n::text("theme.paper_white_cobalt"),
+            Self::LinenSage => crate::i18n::text("theme.linen_sage_mint"),
+            Self::SilverViolet => crate::i18n::text("theme.silver_graphite_violet"),
+            Self::SapphireNight => crate::i18n::text("theme.sapphire_cobalt"),
+            Self::MidnightViolet => crate::i18n::text("theme.midnight_violet_description"),
+            Self::ForestMint => crate::i18n::text("theme.deep_sage_mint"),
         }
     }
 

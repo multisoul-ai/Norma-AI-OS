@@ -39,18 +39,18 @@ pub(super) fn model_catalog_row(
             entry.installation(),
             is_selected,
             ModelActionLabels {
-                selected: "Selected",
-                install: "Install",
-                use_model: "Select",
+                selected: ui::i18n::text("voice.selected"),
+                install: ui::i18n::text("common.install"),
+                use_model: ui::i18n::text("voice.select"),
             },
             cx,
         );
         let status =
             install_state_label(entry.installation(), descriptor.artifact().archive_bytes());
         let recommendation = if descriptor.recommended() {
-            "Recommended"
+            ui::i18n::text("voice.recommended")
         } else {
-            "Recommendation pending"
+            ui::i18n::text("voice.recommendation_pending")
         };
         list = list.child(
             div()
@@ -92,13 +92,21 @@ pub(super) fn model_catalog_row(
                             div()
                                 .text_size(px(12.0))
                                 .text_color(rgba(theme.text_tertiary))
-                                .child(format!(
-                                    "{} · Streaming · {status} · {recommendation}",
-                                    descriptor
-                                        .capabilities()
-                                        .languages()
-                                        .join(" + ")
-                                        .to_uppercase()
+                                .child(ui::i18n::format(
+                                    "voice.streaming_status_recommendation",
+                                    &[
+                                        (
+                                            "arg0",
+                                            (descriptor
+                                                .capabilities()
+                                                .languages()
+                                                .join(" + ")
+                                                .to_uppercase())
+                                            .to_string(),
+                                        ),
+                                        ("status", (status).to_string()),
+                                        ("recommendation", (recommendation).to_string()),
+                                    ],
                                 )),
                         )
                         .when_some(failure_message(entry.installation()), |element, message| {
@@ -121,24 +129,30 @@ pub(super) fn model_catalog_row(
         .py(px(6.0))
         .child(setting_label(
             theme,
-            "Recognition Model",
-            "Installed and validated models are shared by both voice modes",
+            ui::i18n::text("voice.recognition_model"),
+            ui::i18n::text("voice.installed_and_validated_models_are_shared_by_both_voice_modes"),
         ))
         .child(list)
 }
 
 fn install_state_label(state: &AsrModelInstallState, archive_bytes: u64) -> String {
     match state {
-        AsrModelInstallState::NotInstalled => {
-            format!("Not installed · {} MB", archive_bytes / 1_000_000)
-        }
-        AsrModelInstallState::Installing { downloaded, total } => format!(
-            "Installing · {} / {} MB",
-            downloaded / 1_000_000,
-            total / 1_000_000
+        AsrModelInstallState::NotInstalled => ui::i18n::format(
+            "voice.not_installed_mb",
+            &[("arg0", (archive_bytes / 1_000_000).to_string())],
         ),
-        AsrModelInstallState::Ready => format!("Ready · {} MB", archive_bytes / 1_000_000),
-        AsrModelInstallState::Failed(_) => "Installation failed".to_string(),
+        AsrModelInstallState::Installing { downloaded, total } => ui::i18n::format(
+            "voice.installing_mb",
+            &[
+                ("arg0", (downloaded / 1_000_000).to_string()),
+                ("arg1", (total / 1_000_000).to_string()),
+            ],
+        ),
+        AsrModelInstallState::Ready => ui::i18n::format(
+            "voice.ready_mb",
+            &[("arg0", (archive_bytes / 1_000_000).to_string())],
+        ),
+        AsrModelInstallState::Failed(_) => ui::i18n::text("voice.installation_failed").to_string(),
     }
 }
 

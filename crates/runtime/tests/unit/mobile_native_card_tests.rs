@@ -465,3 +465,6 @@ fn native_session_change_preserves_terminal_control() {
     assert_ne!(current.run_id, run_id, "旧运行身份必须失效");
     assert_eq!(runtime.live_len(), 1, "只能保留一个原终端");
 }
+
+#[path = "mobile_workspace_message_tests.rs"]
+mod workspace_messages;

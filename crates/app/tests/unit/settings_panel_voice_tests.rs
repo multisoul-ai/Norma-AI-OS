@@ -22,7 +22,9 @@
 #[test]
 fn test_voice_settings_panel_contains_voice_configuration_anchors() {
     let source = concat!(
+        include_str!("../../src/settings/navigation.rs"),
         include_str!("../../src/settings/voice/view/diagnostics.rs"),
+        include_str!("../../src/settings/voice/view/tts_provider/picker/provider_list.rs"),
         include_str!("../../src/settings/panel.rs"),
         include_str!("../../src/settings/content.rs"),
         include_str!("../../src/settings/voice.rs"),
@@ -65,24 +67,24 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
         };
     }
     assert_anchor!("SettingsSection::NormaVoice");
-    assert_anchor!("Voice");
-    assert_anchor!("Speech Recognition");
-    assert_anchor!("Recognition source");
+    assert_anchor!("common.voice");
+    assert_anchor!("voice.speech_recognition");
+    assert_anchor!("voice.recognition_source");
     assert_anchor!("voice-setup-asr-source-local");
     assert_anchor!("voice-setup-asr-source-azure");
-    assert_anchor!("Use Azure Speech");
-    assert_anchor!("Download");
-    assert_anchor!("Voice Interaction");
-    assert_anchor!("Single Voice Command");
-    assert_anchor!("Continuous Listening");
-    assert_anchor!("Shortcut");
-    assert_anchor!("Agent Provider");
-    assert_anchor!("Spoken Replies");
-    assert_anchor!("Local TTS Model");
-    assert_anchor!("Current Voice");
-    assert_anchor!("Use This Voice");
-    assert_anchor!("Manage Models");
-    assert_anchor!("Advanced");
+    assert_anchor!("voice.use_azure_speech");
+    assert_anchor!("voice.download");
+    assert_anchor!("shortcuts.voice_interaction");
+    assert_anchor!("voice.single_voice_command");
+    assert_anchor!("voice.continuous_listening");
+    assert_anchor!("voice.shortcut");
+    assert_anchor!("voice.agent_provider");
+    assert_anchor!("voice.spoken_replies");
+    assert_anchor!("voice.local_tts_model");
+    assert_anchor!("voice.current_voice");
+    assert_anchor!("voice.use_this_voice");
+    assert_anchor!("voice.manage_models");
+    assert_anchor!("voice.advanced_settings");
     assert_anchor!("voice.ollama.endpoint");
     assert_anchor!("voice.ollama.model");
     assert_anchor!("voice.dialogue.model");
@@ -100,7 +102,7 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
     assert_anchor!("Zipformer Bilingual");
     assert_anchor!("Zipformer Streaming ZH");
     assert_anchor!("Zipformer Streaming CTC ZH");
-    assert_anchor!("Recommendation pending");
+    assert_anchor!("voice.recommendation_pending");
     assert_anchor!("settings-voice-input-device-default");
     assert_anchor!("settings-voice-input-device-refresh");
     assert_anchor!("settings-voice-input-device-clear");
@@ -116,15 +118,15 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
     assert_anchor!("settings-agent-provider-api-key-clear");
     assert_anchor!("settings-agent-provider-api-key-visibility");
     assert_anchor!("*********");
-    assert_anchor!("Stored in this Mac's local database");
+    assert_anchor!("voice.stored_in_this_mac_s_local_database_hidden_by_default_and");
     assert_anchor!("voice-setup-provider-connect");
-    assert_anchor!("Base URL");
+    assert_anchor!("voice.base_url");
     assert_anchor!("API Key");
     assert_anchor!("settings-voice-trace-toggle");
     assert_anchor!("settings-agent-task-announcements-toggle");
-    assert_anchor!("Agent task announcements");
+    assert_anchor!("voice.agent_task_announcements");
     assert_anchor!("settings-voice-window-inset-toggle");
-    assert_anchor!("Speech glow");
+    assert_anchor!("voice.speech_glow");
     assert_anchor!("on_mouse_down");
     assert_anchor!("begin_edit");
     assert!(

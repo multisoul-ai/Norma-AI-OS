@@ -1,6 +1,10 @@
 use super::*;
 use gpui::Context;
+use sha2::{Digest, Sha256};
 use storage::{MobileTaskBaselineStore, NewMobileCommand, TaskBaseline};
+#[cfg(test)]
+#[path = "../../../../tests/unit/desktop_delivery_source_tests.rs"]
+mod tests;
 
 #[derive(Debug)]
 pub(super) struct Delivery {
@@ -40,6 +44,33 @@ impl MultisoulApp {
         task: u64,
         cx: &mut Context<Self>,
     ) -> bool {
+        if !self.pending_agent_submissions.realtime.contains_key(&task)
+            && self
+                .agent_task_coordinator
+                .as_ref()
+                .and_then(|c| c.tasks().into_iter().find(|t| t.task_id == task))
+                .is_some_and(|t| {
+                    self.runtime
+                        .mobile_card_snapshots()
+                        .iter()
+                        .any(|c| c.node_id == t.target_node_id && c.mobile_control)
+                })
+        {
+            let coordinated = self
+                .agent_task_coordinator
+                .as_ref()
+                .and_then(|c| c.tasks().into_iter().find(|t| t.task_id == task));
+            if let (Some(workspace), Some(route), Some(coordinated)) =
+                (&self.workspace_id, &self.workspace_route_id, coordinated)
+            {
+                if let Some(source) =
+                    desktop_delivery_source(workspace, route, &coordinated.task_ref)
+                {
+                    self.pending_agent_submissions
+                        .track_realtime_delivery(&coordinated, source);
+                }
+            }
+        }
         let Some(item) = self.pending_agent_submissions.realtime.get_mut(&task) else {
             return true;
         };
@@ -61,7 +92,19 @@ impl MultisoulApp {
             .runtime
             .workspace_root()
             .map(std::path::Path::to_path_buf);
+        let database = self.database_paths.app_db_path().to_owned();
+        let capture_source = source.clone();
         let capture = cx.background_executor().spawn(async move {
+            let source = capture_source;
+            // Desktop-coordinated tasks use this same ledger and binding pipeline; reserve off GPUI.
+            let reserved = storage::MobileCommandStore::new(database)
+                .reserve(&source)
+                .is_ok_and(|r| !matches!(r, storage::MobileCommandReservation::Conflict));
+            if !reserved {
+                return TaskBaseline::Unavailable {
+                    reason: workspace::review::ReviewError::Unavailable,
+                };
+            }
             // Same 10s bounded Git capture as the existing mobile message baseline.
             match root.and_then(|root| {
                 workspace::review::capture(&root, Instant::now() + Duration::from_secs(10)).ok()
@@ -185,4 +228,23 @@ impl MultisoulApp {
         })
         .detach();
     }
+}
+
+fn desktop_delivery_source(
+    workspace: &str,
+    route: &str,
+    task_ref: &str,
+) -> Option<NewMobileCommand> {
+    if !workspace.starts_with("desktop:") {
+        return None;
+    }
+    let hash = hex::encode(Sha256::digest(format!("{workspace}:{task_ref}").as_bytes()));
+    Some(NewMobileCommand {
+        device_id: "desktop-delivery".into(),
+        operation_id: format!("delivery-{hash}"),
+        workspace_id: workspace.into(),
+        route_id: route.into(),
+        owner_id: "desktop-delivery".into(),
+        request_hash: hash,
+    })
 }

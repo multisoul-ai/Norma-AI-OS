@@ -33,7 +33,7 @@ fn manual_provider_model_requires_explicit_validation_before_ready() {
         matches!(
             state.provider_discovery(),
             ProviderDiscoveryStatus::ManualRequired(message)
-                if message == "model endpoint unavailable"
+                if message.contains("model endpoint unavailable")
         ),
         "model-list-specific failure must expose the manual model fallback"
     );
@@ -190,7 +190,7 @@ fn completed_provider_configuration_survives_temporary_catalog_network_failure()
         matches!(
             state.provider_discovery(),
             ProviderDiscoveryStatus::Failed(message)
-                if message == "simulated provider network outage"
+                if message.contains("simulated provider network outage")
         ),
         "临时网络错误详情必须保留，不能静默吞掉重试原因"
     );

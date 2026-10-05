@@ -79,14 +79,25 @@ impl MultisoulApp {
             .filter(|((workspace_id, _), _)| workspace_id == &workspace.id)
             .map(|(_, session)| session.read(cx).runtime.running_terminal_count())
             .sum::<usize>();
-        let title_tooltip = format!(
-            "{} · {project_count} projects · {}",
-            workspace.name,
-            if running > 0 {
-                format!("{running} live")
-            } else {
-                recent_activity.unwrap_or_else(|| "Idle".to_string())
-            }
+        let title_tooltip = ui::i18n::format(
+            "workspace.project_count_projects",
+            &[
+                ("arg0", (workspace.name).to_string()),
+                ("project_count", (project_count).to_string()),
+                (
+                    "arg1",
+                    (if running > 0 {
+                        ui::i18n::format(
+                            "workspace.running_live",
+                            &[("running", (running).to_string())],
+                        )
+                    } else {
+                        recent_activity
+                            .unwrap_or_else(|| ui::i18n::text("workspace.idle").to_string())
+                    })
+                    .to_string(),
+                ),
+            ],
         );
         let show_count = card_width / scene_scale >= 360.0 && workspace.name.chars().count() <= 18;
         div()
@@ -163,7 +174,10 @@ impl MultisoulApp {
                                 .flex_shrink_0()
                                 .text_size(px(11.0 * scene_scale))
                                 .text_color(rgba(GLASS_TEXT_SECONDARY))
-                                .child(format!("{project_count} projects")),
+                                .child(ui::i18n::format(
+                                    "workspace.project_count_projects_2",
+                                    &[("project_count", (project_count).to_string())],
+                                )),
                         )
                     })
                     .when(running > 0, |this| {
@@ -223,7 +237,7 @@ impl MultisoulApp {
                         .child(
                             Button::new(("desktop-workspace-rename", index))
                                 .debug_selector(move || format!("desktop-workspace-rename-{index}"))
-                                .label("Rename")
+                                .label(ui::i18n::text("common.rename"))
                                 .compact()
                                 .custom(glass_button_variant(theme, cx))
                                 .on_click(cx.listener(move |app, _, window, cx| {
@@ -235,7 +249,7 @@ impl MultisoulApp {
                         .child(
                             Button::new(("desktop-workspace-delete", index))
                                 .debug_selector(move || format!("desktop-workspace-delete-{index}"))
-                                .label("Delete")
+                                .label(ui::i18n::text("common.delete"))
                                 .compact()
                                 .custom(glass_button_variant(theme, cx))
                                 .on_click(cx.listener(move |app, _, _, cx| {

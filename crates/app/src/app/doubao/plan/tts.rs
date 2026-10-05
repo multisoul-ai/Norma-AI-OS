@@ -1,23 +1,46 @@
 use base64::Engine as _;
 use reqwest::Client;
-use serde_json::{json, Value};
+use serde_json::Value;
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
+use ui::i18n::LocalizedText;
 
 use super::{plan_url, request_id};
 use crate::app::doubao::playback::PlaybackQueue;
 use audio::{PcmAudioChunk, PcmFormat};
+use tts::providers::doubao::{request_body, DoubaoVoice, RESOURCE_ID};
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/doubao_tts_voice_tests.rs"]
+mod voice_tests;
 
 // 24 kHz mono PCM16 × 100 ms; small network fragments share one playback buffer.
 const MIN_PLAYBACK_CHUNK_BYTES: usize = 24_000 * 2 / 10;
+
+fn build_request(
+    client: &Client,
+    key: &str,
+    text: &str,
+    voice: &DoubaoVoice,
+    url: &str,
+) -> Result<reqwest::Request, reqwest::Error> {
+    client
+        .post(url)
+        .header("X-Api-Key", key)
+        .header("X-Api-Resource-Id", RESOURCE_ID)
+        .header("X-Api-Request-Id", request_id())
+        .json(&request_body(text, voice))
+        .build()
+}
 
 pub(super) async fn speak(
     client: &Client,
     key: &str,
     text: &str,
+    voice: &DoubaoVoice,
     playback: &Arc<PlaybackQueue>,
     cancellation: &CancellationToken,
-) -> Result<(), String> {
+) -> Result<(), LocalizedText> {
     if text.trim().is_empty() || cancellation.is_cancelled() {
         return Ok(());
     }
@@ -26,21 +49,14 @@ pub(super) async fn speak(
         "NORMA_DOUBAO_TTS_URL",
         "https://openspeech.bytedance.com/api/v3/plan/tts/unidirectional",
     );
-    let request = client
-        .post(url)
-        .header("X-Api-Key", key)
-        .header("X-Api-Resource-Id", "seed-tts-2.0")
-        .header("X-Api-Request-Id", request_id())
-        .json(&json!({"req_params":{
-            "text":text,"speaker":"zh_female_vv_uranus_bigtts",
-            "audio_params":{"format":"pcm","sample_rate":24000}
-        }}));
+    let request = build_request(client, key, text, voice, &url)
+        .map_err(|_| LocalizedText::new("doubao.tts_request"))?;
     let mut response = tokio::select! {
         _ = cancellation.cancelled() => return Ok(()),
-        result = request.send() => result.map_err(|_| "豆包 TTS 请求失败".to_string())?,
+        result = client.execute(request) => result.map_err(|_| LocalizedText::new("doubao.tts_request"))?,
     };
     if !response.status().is_success() {
-        return Err("豆包 TTS 2.0 拒绝了请求；请检查方舟 Key 与资源权限".into());
+        return Err(LocalizedText::new("doubao.tts_denied"));
     }
     let mut buffer = Vec::new();
     let mut ended = false;
@@ -49,14 +65,14 @@ pub(super) async fn speak(
     loop {
         let chunk = tokio::select! {
             _ = cancellation.cancelled() => return Ok(()),
-            result = response.chunk() => result.map_err(|_| "豆包 TTS 流中断".to_string())?,
+            result = response.chunk() => result.map_err(|_| LocalizedText::new("doubao.tts_interrupted"))?,
         };
         let Some(chunk) = chunk else {
             break;
         };
         buffer.extend_from_slice(&chunk);
         if buffer.len() > 3 * 1024 * 1024 {
-            return Err("豆包 TTS 响应过大".into());
+            return Err(LocalizedText::new("doubao.tts_response_large"));
         }
         while let Some(index) = buffer.iter().position(|byte| *byte == b'\n') {
             let line: Vec<u8> = buffer.drain(..=index).collect();
@@ -84,7 +100,7 @@ pub(super) async fn speak(
         )?;
     }
     if !ended || bytes == 0 {
-        return Err("豆包 TTS 未返回完整音频".into());
+        return Err(LocalizedText::new("doubao.tts_incomplete"));
     }
     if !pending_pcm.is_empty() {
         enqueue_pcm(playback, generation, pending_pcm)?;
@@ -92,7 +108,7 @@ pub(super) async fn speak(
     let finished = playback.finish_for(generation)?;
     tokio::select! {
         _ = cancellation.cancelled() => Ok(()),
-        result = finished.recv() => result.map_err(|_| "豆包音频播放中断".to_string()),
+        result = finished.recv() => result.map_err(|_| LocalizedText::new("doubao.playback_interrupted")),
     }
 }
 
@@ -103,31 +119,31 @@ fn process_line(
     pending_pcm: &mut Vec<u8>,
     playback: &PlaybackQueue,
     generation: u64,
-) -> Result<(), String> {
+) -> Result<(), LocalizedText> {
     if *ended {
-        return Err("豆包 TTS 终态后仍有数据".into());
+        return Err(LocalizedText::new("doubao.tts_after_end"));
     }
     let record: Value =
-        serde_json::from_slice(line).map_err(|_| "豆包 TTS 数据无效".to_string())?;
+        serde_json::from_slice(line).map_err(|_| LocalizedText::new("doubao.tts_data_invalid"))?;
     if record["code"] == 20_000_000 {
         *ended = true;
         return Ok(());
     }
     if record["code"] != 0 {
-        return Err("豆包 TTS 合成失败".into());
+        return Err(LocalizedText::new("doubao.tts_synthesis_failed"));
     }
     let Some(encoded) = record["data"].as_str() else {
         return Ok(());
     };
     let pcm = base64::engine::general_purpose::STANDARD
         .decode(encoded)
-        .map_err(|_| "豆包 TTS 音频编码无效".to_string())?;
+        .map_err(|_| LocalizedText::new("doubao.tts_encoding_invalid"))?;
     if pcm.is_empty() || pcm.len() % 2 != 0 {
-        return Err("豆包 TTS PCM 格式无效".into());
+        return Err(LocalizedText::new("doubao.tts_pcm_format"));
     }
     *total_bytes += pcm.len();
     if *total_bytes > 1_440_000 {
-        return Err("豆包 TTS 音频超出 30 秒上限".into());
+        return Err(LocalizedText::new("doubao.tts_duration_limit"));
     }
     if pending_pcm.is_empty() && pcm.len() >= MIN_PLAYBACK_CHUNK_BYTES {
         return enqueue_pcm(playback, generation, pcm);
@@ -139,8 +155,12 @@ fn process_line(
     Ok(())
 }
 
-fn enqueue_pcm(playback: &PlaybackQueue, generation: u64, pcm: Vec<u8>) -> Result<(), String> {
+fn enqueue_pcm(
+    playback: &PlaybackQueue,
+    generation: u64,
+    pcm: Vec<u8>,
+) -> Result<(), LocalizedText> {
     let chunk = PcmAudioChunk::new(PcmFormat::Pcm16, 24_000, 1, pcm)
-        .map_err(|_| "豆包 TTS PCM 无效".to_string())?;
+        .map_err(|_| LocalizedText::new("doubao.tts_pcm_invalid"))?;
     playback.enqueue_for(generation, chunk)
 }

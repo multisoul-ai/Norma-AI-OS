@@ -51,56 +51,116 @@ pub(crate) enum MenuAction {
 
 /// 返回产品层的菜单树，供单测锁定语义分组，也供 `menu_bar` 统一转换为原生菜单。
 pub(crate) fn menu_bar_spec() -> Vec<MenuSpec> {
+    menu_bar_spec_for(ui::i18n::Locale::current())
+}
+
+pub(crate) fn menu_bar_spec_for(locale: ui::i18n::Locale) -> Vec<MenuSpec> {
     vec![
         MenuSpec {
             label: "Norma OS",
             items: vec![
-                action("Check for Updates…", MenuAction::CheckForUpdates),
-                action("Settings…", MenuAction::ToggleSettings),
+                action(
+                    ui::i18n::text_for(locale, "menu.check_for_updates"),
+                    MenuAction::CheckForUpdates,
+                ),
+                action(
+                    ui::i18n::text_for(locale, "menu.settings"),
+                    MenuAction::ToggleSettings,
+                ),
                 MenuItemSpec::Separator,
-                MenuItemSpec::System { label: "Services" },
+                MenuItemSpec::System {
+                    label: ui::i18n::text_for(locale, "menu.services"),
+                },
                 MenuItemSpec::Separator,
-                action("Quit Norma OS", MenuAction::QuitNormaOs),
+                action(
+                    ui::i18n::text_for(locale, "menu.quit_norma_os"),
+                    MenuAction::QuitNormaOs,
+                ),
             ],
         },
         MenuSpec {
-            label: "File",
+            label: ui::i18n::text_for(locale, "menu.file"),
             items: vec![
                 MenuItemSpec::Submenu {
-                    label: "New",
+                    label: ui::i18n::text_for(locale, "menu.new"),
                     items: vec![
-                        action("New Window", MenuAction::NewWindow),
+                        action(
+                            ui::i18n::text_for(locale, "menu.new_window"),
+                            MenuAction::NewWindow,
+                        ),
                         MenuItemSpec::Separator,
-                        action("New Terminal", MenuAction::NewTerminal),
-                        action("New Browser", MenuAction::NewBrowser),
-                        action("Preview File…", MenuAction::OpenPreviewFile),
+                        action(
+                            ui::i18n::text_for(locale, "menu.new_terminal"),
+                            MenuAction::NewTerminal,
+                        ),
+                        action(
+                            ui::i18n::text_for(locale, "menu.new_browser"),
+                            MenuAction::NewBrowser,
+                        ),
+                        action(
+                            ui::i18n::text_for(locale, "menu.preview_file"),
+                            MenuAction::OpenPreviewFile,
+                        ),
                         MenuItemSpec::Separator,
-                        action("New Claude Agent", MenuAction::NewClaudeAgent),
-                        action("New Codex Agent", MenuAction::NewCodexAgent),
-                        action("New Cursor Agent", MenuAction::NewCursorAgent),
-                        action("New Grok Agent", MenuAction::NewGrokAgent),
-                        action("New OpenCode Agent", MenuAction::NewOpenCodeAgent),
+                        action(
+                            ui::i18n::text_for(locale, "menu.new_claude_agent"),
+                            MenuAction::NewClaudeAgent,
+                        ),
+                        action(
+                            ui::i18n::text_for(locale, "menu.new_codex_agent"),
+                            MenuAction::NewCodexAgent,
+                        ),
+                        action(
+                            ui::i18n::text_for(locale, "menu.new_cursor_agent"),
+                            MenuAction::NewCursorAgent,
+                        ),
+                        action(
+                            ui::i18n::text_for(locale, "menu.new_grok_agent"),
+                            MenuAction::NewGrokAgent,
+                        ),
+                        action(
+                            ui::i18n::text_for(locale, "menu.new_opencode_agent"),
+                            MenuAction::NewOpenCodeAgent,
+                        ),
                     ],
                 },
                 MenuItemSpec::Separator,
-                action("Open Project…", MenuAction::OpenProject),
-                action("Clone GitHub Repository…", MenuAction::CloneProject),
+                action(
+                    ui::i18n::text_for(locale, "menu.open_project"),
+                    MenuAction::OpenProject,
+                ),
+                action(
+                    ui::i18n::text_for(locale, "menu.clone_github_repository"),
+                    MenuAction::CloneProject,
+                ),
             ],
         },
         MenuSpec {
-            label: "Edit",
-            items: vec![action("Copy", MenuAction::CopyCardContent)],
+            label: ui::i18n::text_for(locale, "menu.edit"),
+            items: vec![action(
+                ui::i18n::text_for(locale, "menu.copy"),
+                MenuAction::CopyCardContent,
+            )],
         },
         MenuSpec {
-            label: "Layout",
+            label: ui::i18n::text_for(locale, "menu.layout"),
             items: vec![
-                action("Reflow Layout", MenuAction::ReflowLayout),
-                action("Toggle Master Layout", MenuAction::ToggleMasterLayout),
+                action(
+                    ui::i18n::text_for(locale, "menu.reflow_layout"),
+                    MenuAction::ReflowLayout,
+                ),
+                action(
+                    ui::i18n::text_for(locale, "menu.toggle_master_layout"),
+                    MenuAction::ToggleMasterLayout,
+                ),
             ],
         },
         MenuSpec {
-            label: "Help",
-            items: vec![action("Feature Guide…", MenuAction::OpenFeatureGuide)],
+            label: ui::i18n::text_for(locale, "menu.help"),
+            items: vec![action(
+                ui::i18n::text_for(locale, "menu.feature_guide"),
+                MenuAction::OpenFeatureGuide,
+            )],
         },
     ]
 }
@@ -154,3 +214,7 @@ fn action_item(label: &'static str, action: MenuAction) -> MenuItem {
         MenuAction::OpenFeatureGuide => MenuItem::action(label, OpenFeatureGuide),
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/unit/menu_bar_language_tests.rs"]
+mod language_tests;

@@ -200,6 +200,8 @@ mkdir -p "$fixture_bin" "$fixture_root/scripts" "$fixture_root/packaging/macos" 
   "$(dirname "$fixture_auth_extension_manifest")"
 cp "$runner" "$fixture_runner"
 cp "$dev_plist" "$fixture_root/packaging/macos/DevInfo.plist"
+cp -R "$repo_root/packaging/macos/en.lproj" "$fixture_root/packaging/macos/"
+cp -R "$repo_root/packaging/macos/zh-CN.lproj" "$fixture_root/packaging/macos/"
 cp "$entitlements" "$fixture_root/packaging/macos/NormaOS.entitlements"
 printf 'fixture bundle wallpaper\n' >"$fixture_wallpaper_source"
 printf 'fixture feature guide video\n' >"$fixture_feature_guide_source"
@@ -301,7 +303,9 @@ PATH="$fixture_bin:$PATH" OPEN_APP_PID_FILE="$app_pid_file" \
   "$fixture_runner" "$fixture_input" >"$tmp_dir/runner.log" 2>&1 &
 runner_pid=$!
 
-for _ in {1..50}; do
+# startup budget = 200 polls × 0.1s = 20s, including bundle preparation and signing.
+# The previous 50 × 0.1s = 5s budget can expire while a busy host is still signing.
+for _ in {1..200}; do
   if [ -s "$app_pid_file" ]; then
     app_pid=$(cat "$app_pid_file")
     if kill -0 "$app_pid" >/dev/null 2>&1; then
@@ -391,6 +395,14 @@ if [ ! -f "$bundle_feature_guide" ]; then
   cat "$tmp_dir/runner.log" >&2
   fail "cargo run development bundle must include Feature Guide media outside the Documents source checkout"
 fi
+
+# 语言资源：每种语言有一个 InfoPlist.strings；构建时必须按原目录名复制。
+# 执行：读取两份资源 → 与源码逐一比较；预期不能缺失任一种语言。
+for locale in en zh-CN; do
+  if ! cmp -s "$repo_root/packaging/macos/$locale.lproj/InfoPlist.strings" "$tmp_dir/Norma OS Dev.app/Contents/Resources/$locale.lproj/InfoPlist.strings"; then
+    fail "development bundle must preserve $locale permission descriptions"
+  fi
+done
 
 if ! cmp -s "$fixture_feature_guide_source" "$bundle_feature_guide"; then
   fail "development bundle Feature Guide media must match the website-derived source fixture"

@@ -15,9 +15,9 @@ pub(super) struct AzureCredentialWriteRollback {
 
 impl VoiceSettingsState {
     pub(crate) fn begin_azure_asr_recognition_test(&mut self) {
-        self.status = Some(super::ok_status(
-            "Testing Azure Speech for 3 seconds… Speak now.",
-        ));
+        self.status = Some(super::ok_status(ui::i18n::LocalizedText::new(
+            "voice.testing_azure_speech_for_3_seconds_speak_now",
+        )));
     }
 
     pub(crate) fn record_azure_asr_recognition_test_result(
@@ -29,11 +29,17 @@ impl VoiceSettingsState {
             return false;
         }
         self.status = Some(match result {
-            Ok(text) if !text.trim().is_empty() => {
-                super::ok_status(format!("Azure test recognized: {}", text.trim()))
-            }
-            Ok(_) => super::error_status("Azure test completed without recognized speech"),
-            Err(error) => super::error_status(format!("Azure test failed: {error}")),
+            Ok(text) if !text.trim().is_empty() => super::ok_status(ui::i18n::message(
+                "voice.azure_test_recognized",
+                &[("arg0", (text.trim()).to_string())],
+            )),
+            Ok(_) => super::error_status(ui::i18n::LocalizedText::new(
+                "voice.azure_test_completed_without_recognized_speech",
+            )),
+            Err(error) => super::error_status(ui::i18n::message(
+                "voice.azure_test_failed_error",
+                &[("error", (error).to_string())],
+            )),
         });
         true
     }
@@ -49,12 +55,15 @@ impl VoiceSettingsState {
         match result {
             Ok(()) => {
                 self.mark_azure_asr_ready(true);
-                self.status = Some(super::ok_status("Azure Speech is ready to activate"));
+                self.status = Some(super::ok_status(ui::i18n::LocalizedText::new(
+                    "voice.azure_speech_is_ready_to_activate",
+                )));
             }
             Err(error) => {
                 self.mark_azure_asr_ready(false);
-                self.status = Some(super::error_status(format!(
-                    "Could not validate Azure Speech: {error}"
+                self.status = Some(super::error_status(ui::i18n::message(
+                    "voice.could_not_validate_azure_speech_error",
+                    &[("error", (error).to_string())],
                 )));
             }
         }
@@ -207,11 +216,11 @@ pub(crate) fn resolve_builtin_asr_profile(
         asr::AsrProviderId::CloudAzure => {
             let profile = values.azure_asr_profile();
             if !profile.is_ready() {
-                return Err("Azure Speech is not validated".to_string());
+                return Err(ui::i18n::text("voice.azure_speech_is_not_validated").to_string());
             }
-            let credential_ref = profile
-                .credential_ref()
-                .ok_or_else(|| "Azure Speech API Key is not configured".to_string())?;
+            let credential_ref = profile.credential_ref().ok_or_else(|| {
+                ui::i18n::text("voice.azure_speech_api_key_is_not_configured").to_string()
+            })?;
             Ok(asr::BuiltinAsrProfile::CloudAzure(
                 asr::AzureSpeechProfile {
                     region: profile.region().to_string(),

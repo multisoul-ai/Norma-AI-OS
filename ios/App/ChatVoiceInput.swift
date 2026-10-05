@@ -31,7 +31,8 @@ struct ChatVoiceInput<Keyboard: View>: View {
                 } label: {
                     Image(systemName: voiceMode ? "keyboard" : "waveform")
                         .font(.system(size: 20)).frame(width: 44, height: 44)
-                        .background(WorkspaceStyle.surface, in: Circle())
+                        .foregroundStyle(IdeaPalette.ink)
+                        .background(IdeaPalette.softGray, in: Circle())
                 }
                 .buttonStyle(WorkspacePressStyle()).hoverEffect(.highlight)
                 .disabled(disabled)
@@ -76,11 +77,11 @@ struct ChatVoiceInput<Keyboard: View>: View {
         let unavailable = disabled || call.isCalling || voice.authorizing || voice.state.phase == .transcribing
         return Text(label)
             .font(.subheadline.weight(.medium)).multilineTextAlignment(.center)
-            .foregroundStyle(holding ? .black : .white)
+            .foregroundStyle(IdeaPalette.ink)
             .frame(maxWidth: .infinity, minHeight: 44).padding(.horizontal, 8)
-            .background(holding ? (cancelOnRelease ? Color.orange : .white) : WorkspaceStyle.surface,
+            .background(holding ? (cancelOnRelease ? Color.orange.opacity(0.2) : .white) : IdeaPalette.softGray,
                         in: RoundedRectangle(cornerRadius: 22))
-            .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(WorkspaceStyle.line, lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(IdeaPalette.secondary.opacity(0.2), lineWidth: 1))
             .contentShape(RoundedRectangle(cornerRadius: 22))
             .opacity(unavailable ? 0.4 : 1).hoverEffect(.highlight)
             .disabled(unavailable)

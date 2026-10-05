@@ -1,0 +1,13 @@
+{
+  "persona.warm.label": "Warm & Natural",
+  "persona.professional.label": "Professional & Clear",
+  "persona.concise.label": "Concise & Direct",
+  "persona.warm.description": "Friendly and natural, like a familiar companion",
+  "persona.professional.description": "Clear structure with accurate explanations and advice",
+  "persona.concise.description": "Lead with the conclusion and keep it brief",
+  "persona.warm.example": "Sure, let’s take care of the most important step first, then move forward together.",
+  "persona.professional.example": "Complete the core flow first, verify the result, then fill in the details.",
+  "persona.concise.example": "Complete the core flow, then verify.",
+  "persona.instructions_too_long": "Additional instructions must be %{limit} characters or fewer",
+  "persona.instructions_control": "Additional instructions contain unsupported control characters"
+}

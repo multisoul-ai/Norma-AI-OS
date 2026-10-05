@@ -2,7 +2,6 @@
 use super::server::Shared;
 use anyhow::{ensure, Result};
 use serde_json::{json, Value};
-use sha2::{Digest, Sha256};
 use std::{
     collections::{HashMap, HashSet},
     sync::{atomic::Ordering, Arc},
@@ -13,6 +12,7 @@ use storage::{
     MobileTurnStore,
 };
 
+mod activity;
 pub(crate) mod configuration;
 mod preview;
 mod relay;
@@ -40,30 +40,16 @@ impl Notice {
         let identity = json!([
             machine,
             self.workspace,
-            self.route,
+            self.kind,
             self.key.node_id,
+            self.key.profile,
             self.key.run_id,
             self.key.session_id,
             self.key.turn_id,
             self.request,
-            self.kind
+            Option::<String>::None
         ]);
-        let mut hash = Sha256::digest(identity.to_string().as_bytes());
-        // UUID layout, deterministic within this exact event identity; token is never an identity/log key.
-        hash[6] = (hash[6] & 0x0f) | 0x50;
-        hash[8] = (hash[8] & 0x3f) | 0x80;
-        let hex = hash[..16]
-            .iter()
-            .map(|b| format!("{b:02x}"))
-            .collect::<String>();
-        let event_id = format!(
-            "{}-{}-{}-{}-{}",
-            &hex[..8],
-            &hex[8..12],
-            &hex[12..16],
-            &hex[16..20],
-            &hex[20..]
-        );
+        let event_id = activity::uuid_from(&identity.to_string());
         let mut value = json!({"event_id":event_id,"token":token,"expires_at":self.created.saturating_add(300),
             "kind":self.kind,"machine_id":machine,"workspace_id":self.workspace,"route_id":self.route,
             "node_id":self.key.node_id.to_string(),"run_id":self.key.run_id,"session_id":self.key.session_id,"turn_id":self.key.turn_id});
@@ -140,6 +126,9 @@ fn run(shared: &Shared) -> Result<()> {
             std::thread::sleep(Duration::from_secs(1));
             continue;
         };
+        if let Err(error) = activity::tick(shared, &path, &machine, generation, environment) {
+            tracing::warn!(%error,"workspace activity tick failed");
+        }
         let subscribers = {
             let access = shared.access()?;
             access
@@ -228,7 +217,7 @@ fn run(shared: &Shared) -> Result<()> {
                     for record in turns.after(*cursor, 64)? {
                         *cursor = record.sequence;
                         let kind = match record.outcome.state {
-                            MobileTurnState::Completed => "completed",
+                            MobileTurnState::Completed => continue,
                             MobileTurnState::Failed => "failed",
                             MobileTurnState::Interrupted => continue,
                         };
@@ -311,7 +300,19 @@ fn run(shared: &Shared) -> Result<()> {
                             if notice.request.is_some() {
                                 attempted.insert(identity);
                             }
+                            if !activity::reserve_alert(
+                                &path,
+                                grant,
+                                event["event_id"]
+                                    .as_str()
+                                    .ok_or_else(|| anyhow::anyhow!("invalid alert identity"))?,
+                            )? {
+                                continue;
+                            }
                             match relay.send(&event) {
+                                Ok(Some(0)) => {
+                                    store.replace(&grant, subscription.revision, None)?;
+                                }
                                 Ok(Some(time)) => {
                                     store.invalidate(
                                         &grant.device_id,

@@ -2,6 +2,7 @@ use crate::app::MultisoulApp;
 use gpui::{Context, Window};
 use std::collections::HashSet;
 use tokio_util::sync::CancellationToken;
+use ui::i18n::LocalizedText;
 
 mod plan;
 mod playback;
@@ -9,15 +10,15 @@ mod tools;
 
 use plan::run_session;
 
-fn connect_failure_message(error: &tokio_tungstenite::tungstenite::Error) -> &'static str {
+fn connect_failure_message(error: &tokio_tungstenite::tungstenite::Error) -> LocalizedText {
     match error {
         tokio_tungstenite::tungstenite::Error::Http(response) if response.status() == 401 => {
-            "方舟 API Key 未通过 ASR 2.0 鉴权；请检查 Key 与资源权限"
+            LocalizedText::new("doubao.auth_failed")
         }
         tokio_tungstenite::tungstenite::Error::Http(response) if response.status() == 403 => {
-            "方舟账号尚未获得 ASR 2.0 资源权限"
+            LocalizedText::new("doubao.resource_denied")
         }
-        _ => "豆包 ASR 2.0 连接失败，请检查网络和资源权限",
+        _ => LocalizedText::new("doubao.connection_failed"),
     }
 }
 
@@ -28,7 +29,20 @@ pub(crate) enum DoubaoStatus {
     Connected,
     Thinking,
     Speaking,
-    Disconnected(String),
+    Disconnected(LocalizedText),
+}
+
+impl DoubaoStatus {
+    pub(crate) fn label(&self) -> &'static str {
+        ui::i18n::text(match self {
+            Self::Idle => "doubao.voice",
+            Self::Connecting => "voice.connecting",
+            Self::Connected => "chrome.listening",
+            Self::Thinking => "doubao.thinking",
+            Self::Speaking => "doubao.replying",
+            Self::Disconnected(_) => "doubao.disconnected",
+        })
+    }
 }
 
 pub(crate) struct DoubaoVoiceState {
@@ -111,7 +125,7 @@ impl MultisoulApp {
             .map(str::to_owned)
         else {
             self.doubao.status =
-                DoubaoStatus::Disconnected("请在 Voice Setup 保存豆包 API Key".into());
+                DoubaoStatus::Disconnected(LocalizedText::new("doubao.key_required"));
             cx.notify();
             return;
         };
@@ -144,6 +158,7 @@ impl MultisoulApp {
         );
         let tools = Some(agent::NormaToolRuntime::new(tool_adapter));
         let database = self.database_paths.app_db_path().to_path_buf();
+        let selected_voice = self.voice_settings.values().doubao_voice();
         let cancellation = CancellationToken::new();
         self.doubao.cancellation = Some(cancellation.clone());
         self.doubao.status = DoubaoStatus::Connecting;
@@ -169,7 +184,7 @@ impl MultisoulApp {
                     return;
                 }
                 let result = run_session(
-                    account,
+                    (account, selected_voice),
                     prompt,
                     project_id,
                     database,
@@ -179,17 +194,20 @@ impl MultisoulApp {
                 )
                 .await;
                 tracing::info!(target: "norma_voice", generation,
-                    reason = result.as_ref().err().map(String::as_str).unwrap_or("normal"),
+                    reason = result.as_ref().err().map(LocalizedText::as_str).unwrap_or("normal"),
                     "Doubao session task finished");
                 let _ = events_tx
                     .send(DoubaoStatus::Disconnected(
-                        result.err().unwrap_or_else(|| "通话已结束".into()),
+                        result
+                            .err()
+                            .unwrap_or_else(|| LocalizedText::new("doubao.call_ended")),
                     ))
                     .await;
             }));
         } else {
             self.doubao.stop();
-            self.doubao.status = DoubaoStatus::Disconnected("无法启动语音网络运行时".into());
+            self.doubao.status =
+                DoubaoStatus::Disconnected(LocalizedText::new("doubao.runtime_unavailable"));
             cx.notify();
             return;
         }
@@ -260,3 +278,7 @@ mod visual_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/doubao_memory_tests.rs"]
 mod memory_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/doubao_language_tests.rs"]
+mod language_tests;

@@ -8,6 +8,7 @@ struct NotificationPresenter: UIViewControllerRepresentable {
     @ObservedObject var notifications: PushNotifications
     let call: VoiceCall
     let cloudChat: CloudChatModel
+    let workspaces: WorkspaceChatModel
     @Environment(\.scenePhase) private var phase
 
     func makeUIViewController(context: Context) -> Controller { Controller() }
@@ -16,6 +17,7 @@ struct NotificationPresenter: UIViewControllerRepresentable {
         controller.model = model
         controller.call = call
         controller.cloudChat = cloudChat
+        controller.workspaces = workspaces
         controller.notifications = notifications
         controller.phase = phase
         controller.showPending()
@@ -26,6 +28,7 @@ struct NotificationPresenter: UIViewControllerRepresentable {
         var call: VoiceCall?
         var cloudChat: CloudChatModel?
         var notifications: PushNotifications?
+        var workspaces: WorkspaceChatModel?
         var phase: ScenePhase = .inactive
         private var destination: UIHostingController<AnyView>?
 
@@ -36,8 +39,12 @@ struct NotificationPresenter: UIViewControllerRepresentable {
 
         func showPending() {
             guard let model, let call, let cloudChat, let target = notifications?.target else { return }
-            let content = AnyView(NotificationDestinationView(target: target, model: model, call: call, cloudChat: cloudChat, close: { [weak self] in self?.close() })
-                .id(target).environmentObject(call).environment(\.scenePhase, phase))
+            let content:AnyView
+            if let link=target.activityLink,let workspaces {
+                content=AnyView(WorkspaceActivityDetailView(link:link,workspaces:workspaces,computers:model,cloud:cloudChat,onClose:{[weak self] in self?.close()}).id(target))
+            } else {
+                content=AnyView(NotificationDestinationView(target:target,model:model,call:call,cloudChat:cloudChat,close:{[weak self] in self?.close()}).id(target).environmentObject(call).environment(\.scenePhase,phase))
+            }
             if let destination {
                 if !destination.isBeingDismissed { destination.rootView = content }
                 return
@@ -56,7 +63,7 @@ struct NotificationPresenter: UIViewControllerRepresentable {
             }
             let host = UIHostingController(rootView: content)
             host.modalPresentationStyle = .overFullScreen
-            host.overrideUserInterfaceStyle = .dark
+            host.overrideUserInterfaceStyle = target.activityLink==nil ? .dark:.light
             host.view.accessibilityViewIsModal = true
             destination = host
             presenter.present(host, animated: true)

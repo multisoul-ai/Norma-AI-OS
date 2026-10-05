@@ -52,8 +52,8 @@ pub(super) fn voice_setup(
             theme,
             1,
             "voice-setup-requirement-asr",
-            "Speech Recognition",
-            "Let Norma hear you using your preferred recognition source.",
+            ui::i18n::text("voice.speech_recognition"),
+            ui::i18n::text("voice.let_norma_hear_you_using_your_preferred_recognition_source"),
             recognition,
             recognition_detail(theme, microphone, state, inputs, cx),
         ))
@@ -61,8 +61,10 @@ pub(super) fn voice_setup(
             theme,
             2,
             "voice-setup-requirement-provider",
-            "AI Connection",
-            "Connect the OpenAI-compatible model that understands your request.",
+            ui::i18n::text("voice.ai_connection"),
+            ui::i18n::text(
+                "voice.connect_the_openai_compatible_model_that_understands_your_request",
+            ),
             provider,
             setup_detail_with_scroll_focus(
                 agent_provider_setup_group(theme, state, inputs, cx),
@@ -74,8 +76,8 @@ pub(super) fn voice_setup(
             theme,
             3,
             "voice-setup-requirement-tts",
-            "Spoken Replies",
-            "Choose an On-device or cloud voice so Norma can reply out loud.",
+            ui::i18n::text("voice.spoken_replies"),
+            ui::i18n::text("voice.choose_an_on_device_or_cloud_voice_so_norma_can_reply"),
             tts,
             spoken_replies_detail(
                 theme,
@@ -217,17 +219,21 @@ fn finish_setup_button(theme: Theme, cx: &mut Context<MultisoulApp>) -> Div {
         Button::new("voice-review-setup-done")
             .debug_selector(|| "voice-review-setup-done".to_string())
             .custom(variant)
-            .label("Done Reviewing")
+            .label(ui::i18n::text("voice.done_reviewing"))
             .on_activate(cx.listener(MultisoulApp::on_voice_finish_review_setup)),
     )
 }
 
 fn status_badge(theme: Theme, state: VoiceRequirementState) -> Div {
     let (label, color) = match state {
-        VoiceRequirementState::Ready => ("Ready", theme.accent_green),
-        VoiceRequirementState::Installing { .. } => ("In progress", theme.accent_blue),
-        VoiceRequirementState::Failed => ("Needs attention", theme.destructive),
-        VoiceRequirementState::Missing => ("Required", theme.accent_orange),
+        VoiceRequirementState::Ready => (ui::i18n::text("common.ready"), theme.accent_green),
+        VoiceRequirementState::Installing { .. } => {
+            (ui::i18n::text("voice.in_progress"), theme.accent_blue)
+        }
+        VoiceRequirementState::Failed => {
+            (ui::i18n::text("guide.needs_attention"), theme.destructive)
+        }
+        VoiceRequirementState::Missing => (ui::i18n::text("voice.required"), theme.accent_orange),
     };
     div()
         .flex_none()

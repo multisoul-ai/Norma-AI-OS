@@ -51,7 +51,8 @@ impl MobileTaskBaselineStore {
         workspace: &str,
         route: &str,
     ) -> StorageResult<Option<MobileTurnKey>> {
-        for id in [device, operation, workspace, route] {
+        crate::mobile_turn_store::validate_workspace_scope(workspace)?;
+        for id in [device, operation, route] {
             crate::mobile_access_store::validate_id(id)?;
         }
         let connection = open_app_connection(&self.path)?;
@@ -94,13 +95,9 @@ impl MobileTaskBaselineStore {
         baseline: &TaskBaseline,
     ) -> StorageResult<StoredTaskBaseline> {
         key.validate()?;
+        crate::mobile_turn_store::validate_workspace_scope(&source.workspace_id)?;
         baseline.validate()?;
-        for id in [
-            &source.device_id,
-            &source.operation_id,
-            &source.workspace_id,
-            &source.route_id,
-        ] {
+        for id in [&source.device_id, &source.operation_id, &source.route_id] {
             crate::mobile_access_store::validate_id(id)?;
         }
         let mut connection = open_app_connection(&self.path)?;
@@ -144,7 +141,7 @@ impl MobileTaskBaselineStore {
         workspace: &str,
         key: &MobileTurnKey,
     ) -> StorageResult<Option<StoredTaskBaseline>> {
-        crate::mobile_access_store::validate_id(workspace)?;
+        crate::mobile_turn_store::validate_workspace_scope(workspace)?;
         key.validate()?;
         let connection = open_app_connection(&self.path)?;
         Ok(read(&connection, workspace, key)?.filter(|saved| saved.key == *key))

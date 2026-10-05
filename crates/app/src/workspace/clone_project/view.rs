@@ -81,7 +81,7 @@ impl MultisoulApp {
                                     .text_size(px(20.0))
                                     .font_weight(FontWeight::BOLD)
                                     .text_color(rgba(theme.text_primary))
-                                    .child("Clone GitHub Repository"),
+                                    .child(ui::i18n::text("workspace.clone_github_repository")),
                             )
                             .child(
                                 div()
@@ -89,7 +89,7 @@ impl MultisoulApp {
                                     .line_height(px(19.0))
                                     .text_color(rgba(theme.text_secondary))
                                     .child(
-                                        "Paste an HTTPS or SSH repository URL. Norma will clone it without running project setup scripts.",
+                                        ui::i18n::text("workspace.paste_an_https_or_ssh_repository_url_norma_will_clone_it"),
                                     ),
                             ),
                     )
@@ -100,7 +100,7 @@ impl MultisoulApp {
                             .gap(px(16.0))
                             .px(px(24.0))
                             .pb(px(20.0))
-                            .child(field_label(theme, "Repository URL"))
+                            .child(field_label(theme, ui::i18n::text("workspace.repository_url")))
                             .child(input_surface(
                                 theme,
                                 "clone-project-remote-input",
@@ -153,7 +153,7 @@ impl MultisoulApp {
                                             })),
                                     ),
                             )
-                            .child(field_label(theme, "Local folder name (optional)"))
+                            .child(field_label(theme, ui::i18n::text("workspace.local_folder_name_optional")))
                             .child(input_surface(
                                 theme,
                                 "clone-project-folder-input",
@@ -162,7 +162,7 @@ impl MultisoulApp {
                                     .disabled(busy)
                                     .h(px(38.0)),
                             ))
-                            .child(field_label(theme, "Clone into"))
+                            .child(field_label(theme, ui::i18n::text("workspace.clone_into")))
                             .child(
                                 div()
                                     .flex()
@@ -197,7 +197,7 @@ impl MultisoulApp {
                                             .debug_selector(|| {
                                                 "clone-project-choose-parent".to_string()
                                             })
-                                            .label("Choose…")
+                                            .label(ui::i18n::text("workspace.choose"))
                                             .disabled(busy)
                                             .on_click(cx.listener(|app, _, window, cx| {
                                                 app.choose_clone_parent(window, cx);
@@ -213,11 +213,11 @@ impl MultisoulApp {
                                         })
                                         .text_size(px(12.0))
                                         .text_color(rgba(theme.text_secondary))
-                                        .child(format!("Project will be created at {target}")),
+                                        .child(ui::i18n::format("workspace.project_will_be_created_at_target", &[("target", (target).to_string())])),
                                 )
                             })
                             .when_some(validation_error, |container, error| {
-                                container.child(status_message(theme, error, false))
+                                container.child(status_message(theme, error.to_string(), false))
                             })
                             .when_some(phase_status(&phase), |container, status| {
                                 container.child(status_message(
@@ -246,7 +246,7 @@ impl MultisoulApp {
                             .child(
                                 Button::new("clone-project-cancel")
                                     .debug_selector(|| "clone-project-cancel".to_string())
-                                    .label(if busy { "Cancel Clone" } else { "Cancel" })
+                                    .label(if busy { ui::i18n::text("workspace.cancel_clone") } else { ui::i18n::text("common.cancel") })
                                     .on_click(cx.listener(|app, _, _, cx| {
                                         app.cancel_or_close_clone_project(cx);
                                     })),
@@ -254,7 +254,7 @@ impl MultisoulApp {
                             .child(
                                 Button::new("clone-project-submit")
                                     .debug_selector(|| "clone-project-submit".to_string())
-                                    .label(if busy { "Cloning…" } else { "Clone" })
+                                    .label(if busy { ui::i18n::text("workspace.cloning") } else { ui::i18n::text("workspace.clone") })
                                     .primary()
                                     .disabled(!can_clone)
                                     .on_click(cx.listener(|app, _, window, cx| {
@@ -276,14 +276,15 @@ fn phase_status(phase: &CloneProjectPhase) -> Option<PhaseStatus> {
     match phase {
         CloneProjectPhase::Editing | CloneProjectPhase::Running(_) => None,
         CloneProjectPhase::Cancelling => Some(PhaseStatus {
-            message: "Stopping Git and cleaning the incomplete clone…".to_string(),
+            message: ui::i18n::text("workspace.stopping_git_and_cleaning_the_incomplete_clone")
+                .to_string(),
             warning: false,
         }),
         CloneProjectPhase::Failed {
             message,
             target_preserved,
         } => Some(PhaseStatus {
-            message: message.clone(),
+            message: message.to_string(),
             warning: *target_preserved,
         }),
     }
@@ -354,7 +355,7 @@ fn progress_view(
                 .justify_between()
                 .text_size(px(12.0))
                 .text_color(rgba(theme.text_secondary))
-                .child(progress.stage.label())
+                .child(super::localization::stage_label(progress.stage))
                 .when_some(progress.percent, |row, percent| {
                     row.child(format!("{percent}%"))
                 }),

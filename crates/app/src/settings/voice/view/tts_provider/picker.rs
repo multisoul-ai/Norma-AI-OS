@@ -42,7 +42,7 @@ fn current_voice(
     let (provider, voice, detail) = active_voice_summary(state);
     let mut preview = action_button(
         theme,
-        "Preview",
+        ui::i18n::text("voice.preview"),
         if configured {
             theme.accent_blue
         } else {
@@ -85,13 +85,13 @@ fn current_voice(
                     div()
                         .font_weight(FontWeight::BOLD)
                         .text_color(rgba(theme.text_primary))
-                        .child("Current Voice"),
+                        .child(ui::i18n::text("voice.current_voice")),
                 )
                 .child(status_badge(
                     if configured {
                         "ACTIVE"
                     } else {
-                        "NOT CONFIGURED"
+                        ui::i18n::text("voice.not_configured_2")
                     },
                     if configured {
                         theme.accent_green
@@ -137,10 +137,14 @@ fn current_voice(
         )
         .child(
             div().w_full().flex().justify_end().child(
-                action_button(theme, "Change Voice…", theme.accent_blue)
-                    .id("settings-tts-change-voice")
-                    .debug_selector(|| "settings-tts-change-voice".to_string())
-                    .on_click(cx.listener(MultisoulApp::on_voice_open_tts_picker)),
+                action_button(
+                    theme,
+                    ui::i18n::text("voice.change_voice_2"),
+                    theme.accent_blue,
+                )
+                .id("settings-tts-change-voice")
+                .debug_selector(|| "settings-tts-change-voice".to_string())
+                .on_click(cx.listener(MultisoulApp::on_voice_open_tts_picker)),
             ),
         )
 }
@@ -171,7 +175,7 @@ fn picker(
                 .text_size(px(15.0))
                 .font_weight(FontWeight::BOLD)
                 .text_color(rgba(theme.text_primary))
-                .child("Choose a Voice"),
+                .child(ui::i18n::text("voice.choose_a_voice")),
         )
         .child(
             div()
@@ -184,7 +188,9 @@ fn picker(
                 .bg(rgba(with_alpha(theme.accent_blue, 0x12)))
                 .text_size(px(12.0))
                 .text_color(rgba(theme.text_secondary))
-                .child("Your current voice stays active until you choose Use This Voice."),
+                .child(ui::i18n::text(
+                    "voice.your_current_voice_stays_active_until_you_choose_use_this_voice",
+                )),
         )
         .child(
             div()
@@ -208,7 +214,7 @@ fn picker(
                 .justify_end()
                 .gap(px(8.0))
                 .child(
-                    action_button(theme, "Cancel", theme.text_secondary)
+                    action_button(theme, ui::i18n::text("common.cancel"), theme.text_secondary)
                         .id("settings-tts-picker-cancel")
                         .debug_selector(|| "settings-tts-picker-cancel".to_string())
                         .on_click(cx.listener(MultisoulApp::on_voice_cancel_tts_picker)),
@@ -218,9 +224,9 @@ fn picker(
                     action_button(
                         theme,
                         if ready {
-                            "Use This Voice"
+                            ui::i18n::text("voice.use_this_voice")
                         } else {
-                            "Choose a Ready Voice"
+                            ui::i18n::text("voice.choose_a_ready_voice")
                         },
                         if ready {
                             theme.accent_blue
@@ -322,7 +328,10 @@ fn local_voice_picker(
                             ),
                     )
                     .when(selected, |row| {
-                        row.child(status_badge("DRAFT", theme.accent_blue))
+                        row.child(status_badge(
+                            ui::i18n::text("voice.draft"),
+                            theme.accent_blue,
+                        ))
                     })
                     .on_click(cx.listener(move |app, _, _, cx| {
                         app.on_voice_pick_local_tts_voice(model_id.clone(), voice_id.clone(), cx)
@@ -339,7 +348,9 @@ fn local_voice_picker(
                 .bg(rgba(with_alpha(theme.text_primary, 0x08)))
                 .text_size(px(12.0))
                 .text_color(rgba(theme.text_secondary))
-                .child("No On-device voice is ready. Download a model to continue."),
+                .child(ui::i18n::text(
+                    "voice.no_on_device_voice_is_ready_download_a_model_to_continue",
+                )),
         );
     }
     div()
@@ -349,15 +360,19 @@ fn local_voice_picker(
         .gap(px(10.0))
         .child(setting_row(
             theme,
-            "On-device",
-            "Synthesized locally and available offline",
+            ui::i18n::text("voice.on_device"),
+            ui::i18n::text("voice.synthesized_locally_and_available_offline"),
         ))
         .child(voices)
         .child(
-            action_button(theme, "Manage Models…", theme.accent_blue)
-                .id("settings-tts-picker-manage-models")
-                .debug_selector(|| "settings-tts-picker-manage-models".to_string())
-                .on_click(cx.listener(MultisoulApp::on_voice_expand_tts_models)),
+            action_button(
+                theme,
+                ui::i18n::text("voice.manage_models"),
+                theme.accent_blue,
+            )
+            .id("settings-tts-picker-manage-models")
+            .debug_selector(|| "settings-tts-picker-manage-models".to_string())
+            .on_click(cx.listener(MultisoulApp::on_voice_expand_tts_models)),
         )
 }
 
@@ -388,31 +403,42 @@ fn active_voice_summary(state: &VoiceSettingsState) -> (&'static str, String, St
             let voice = model
                 .and_then(|model| state.values().tts_voice_id().and_then(|id| model.voice(id)))
                 .map(tts::TtsVoiceDescriptor::display_name)
-                .unwrap_or("No voice selected")
+                .unwrap_or(ui::i18n::text("voice.no_voice_selected"))
                 .to_string();
             let detail = model
-                .map(|model| format!("{} · Available offline", model.display_name()))
-                .unwrap_or_else(|| "Install an On-device model to enable speech".to_string());
-            ("On-device", voice, detail)
+                .map(|model| {
+                    ui::i18n::format(
+                        "voice.available_offline",
+                        &[("arg0", (model.display_name()).to_string())],
+                    )
+                })
+                .unwrap_or_else(|| {
+                    ui::i18n::text("voice.install_an_on_device_model_to_enable_speech").to_string()
+                });
+            (ui::i18n::text("voice.on_device"), voice, detail)
         }
         Some(tts::MINIMAX_TTS_PROVIDER_ID) => {
             let voice = state
                 .values()
                 .minimax_tts_voice_id()
                 .map(tts::TtsVoiceId::as_str)
-                .unwrap_or("No voice selected")
+                .unwrap_or(ui::i18n::text("voice.no_voice_selected"))
                 .to_string();
             let model = state
                 .values()
                 .minimax_tts_model_id()
                 .map(tts::TtsModelId::as_str)
-                .unwrap_or("No model selected");
-            ("MiniMax", voice, format!("{model} · Cloud voice"))
+                .unwrap_or(ui::i18n::text("voice.no_model_selected"));
+            (
+                "MiniMax",
+                voice,
+                ui::i18n::format("voice.model_cloud_voice", &[("model", (model).to_string())]),
+            )
         }
         _ => (
-            "Not configured",
-            "No voice selected".to_string(),
-            "Choose an On-device or cloud voice".to_string(),
+            ui::i18n::text("voice.not_configured"),
+            ui::i18n::text("voice.no_voice_selected").to_string(),
+            ui::i18n::text("voice.choose_an_on_device_or_cloud_voice").to_string(),
         ),
     }
 }

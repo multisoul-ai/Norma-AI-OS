@@ -54,7 +54,14 @@ public struct ProjectReviewResponse: Decodable, Sendable {
                 guard acceptance.workspaceID == expected.workspaceID, !review.conflicted else { throw MobileError.invalidResponse }
             }
         } else if delivery != nil { throw MobileError.invalidResponse }
-        guard request == expected, review.files.count <= 128,
+        guard request == expected else { throw MobileError.invalidResponse }
+        try review.validateContent()
+    }
+}
+extension ProjectReview {
+    public func validateContent() throws {
+        let review = self
+        guard review.files.count <= 128,
               Set(review.files.map(\.path)).count == review.files.count,
               review.conflicted == review.files.contains(where: \.isConflicted) else { throw MobileError.invalidResponse }
         if let hash = review.baseCommit {

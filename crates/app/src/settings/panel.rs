@@ -99,7 +99,7 @@ impl SettingsPanelLayout {
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct HookInstallStatus {
-    pub(crate) message: Option<String>,
+    pub(crate) message: Option<ui::i18n::LocalizedText>,
     pub(crate) is_error: bool,
 }
 

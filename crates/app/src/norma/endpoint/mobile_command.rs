@@ -42,7 +42,6 @@ pub(super) fn execute_now(database: PathBuf, call: LiveCommandRequest, cx: &mut 
         })
         .cloned();
     let Some(target) = target else {
-        call.request.command.revoke_terminal_claim();
         let _ = call.reply.try_send(Err("route_expired"));
         return;
     };
@@ -61,30 +60,12 @@ pub(super) fn execute_now(database: PathBuf, call: LiveCommandRequest, cx: &mut 
                 if Instant::now() >= call.deadline {
                     return Err("expired");
                 }
-                if let MobileCommand::ThreadFollowup { target, .. } = &call.request.command {
-                    // Recheck after background baseline capture, in the same update as the PTY write.
-                    super::mobile_terminal::validate_task(app, target, true)?;
-                }
                 if !call.lease.begin() {
                     return Err("unauthorized");
                 }
                 match &call.request.command {
-                    MobileCommand::ThreadTerminal { command } => {
-                        let result = super::mobile_terminal::control(app, command)?;
-                        cx.notify();
-                        Ok(Started::Immediate(result))
-                    }
                     MobileCommand::RealtimeTool { command } => {
                         super::mobile_realtime::start(app, window.as_deref_mut(), cx, command.clone(), call.source.clone(), agent::AgentInputSource::Voice)
-                    }
-                    MobileCommand::ThreadTask { agent_definition_id, task, context } => {
-                        let definition = app.agent_definitions.definitions().iter()
-                            .find(|definition| definition.id == *agent_definition_id)
-                            .ok_or("agent_not_found")?;
-                        if !definition.enabled { return Err("agent_disabled"); }
-                        let instruction = crate::mobile::thread_task_instruction(task, context);
-                        let command = agent::AdapterCommand::AssignAgentTask { agent: definition.name.clone(), task: instruction };
-                        super::mobile_realtime::start(app, window.as_deref_mut(), cx, command, call.source.clone(), agent::AgentInputSource::Other)
                     }
                     MobileCommand::TerminalInput { expected, screen_signature, input_sequence, input } => {
                         app.runtime.send_mobile_terminal_input(expected, *screen_signature, *input_sequence, input)?;
@@ -177,11 +158,10 @@ pub(super) fn execute_now(database: PathBuf, call: LiveCommandRequest, cx: &mut 
                     MobileCommand::QueueMessage { .. } | MobileCommand::DecidePlanTodo { .. } => {
                         Err("invalid_request")
                     }
-                    MobileCommand::ThreadFollowup { expected, .. }
-                    | MobileCommand::SendMessage { expected, .. }
+                    MobileCommand::SendMessage { expected, .. }
                     | MobileCommand::FeedbackDelivery { expected, .. } => {
                         let text = match &call.request.command {
-                            MobileCommand::SendMessage { text, .. } | MobileCommand::ThreadFollowup { text, .. } => text.clone(),
+                            MobileCommand::SendMessage { text, .. } => text.clone(),
                             MobileCommand::FeedbackDelivery { feedback, .. } => feedback.message(),
                             _ => unreachable!("matched message"),
                         };
@@ -223,7 +203,6 @@ pub(super) fn execute_now(database: PathBuf, call: LiveCommandRequest, cx: &mut 
             return;
         }
         Err(code) => {
-            call.request.command.revoke_terminal_claim();
             let _ = call.reply.try_send(Err(code));
             return;
         }

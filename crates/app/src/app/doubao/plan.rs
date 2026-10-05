@@ -5,6 +5,7 @@ use async_channel::{Receiver, Sender};
 use reqwest::Client;
 use std::{path::PathBuf, sync::Arc};
 use tokio_util::sync::CancellationToken;
+use ui::i18n::LocalizedText;
 
 pub(super) mod asr;
 pub(super) mod chat;
@@ -27,7 +28,7 @@ fn request_id() -> String {
 }
 
 pub(super) async fn run_session(
-    account: String,
+    (account, voice): (String, &'static ::tts::providers::doubao::DoubaoVoice),
     prompt: String,
     project_id: Option<String>,
     database: PathBuf,
@@ -38,23 +39,24 @@ pub(super) async fn run_session(
         Receiver<String>,
         VoiceWindowInsetEventSink,
     ),
-) -> Result<(), String> {
+) -> Result<(), LocalizedText> {
     let credential_store = storage::SettingsStore::new(database.clone());
     let key = tokio::task::spawn_blocking(move || {
         crate::settings::voice::VoiceSettingsState::load_credential(&credential_store, &account)
     })
     .await
-    .map_err(|_| "无法读取方舟凭据".to_string())??
-    .ok_or_else(|| "方舟 API Key 已丢失，请重新保存".to_string())?;
+    .map_err(|_| LocalizedText::new("doubao.credential_unavailable"))??
+    .ok_or_else(|| LocalizedText::new("doubao.credential_missing"))?;
     let client = Client::builder()
         .connect_timeout(std::time::Duration::from_secs(10))
         .timeout(std::time::Duration::from_secs(30))
         .build()
-        .map_err(|_| "无法初始化方舟网络客户端".to_string())?;
+        .map_err(|_| LocalizedText::new("doubao.client_unavailable"))?;
     let playback = Arc::new(start_playback(playback_events));
     let chat = Arc::new(chat::ChatRuntime {
         client,
         key: key.clone(),
+        voice,
         prompt,
         history: Default::default(),
         memory_epoch: Default::default(),
@@ -66,7 +68,7 @@ pub(super) async fn run_session(
     });
     let (speech_tx, speech_rx) = async_channel::bounded(32);
     let mut asr_task = tokio::spawn(asr::run(key, speech_tx, cancellation.clone()));
-    let (done_tx, done_rx) = async_channel::unbounded::<(u64, Result<(), String>)>();
+    let (done_tx, done_rx) = async_channel::unbounded::<(u64, Result<(), LocalizedText>)>();
     let mut reply_token: Option<CancellationToken> = None;
     let mut reply_active = false;
     let mut reply_id = 0_u64;
@@ -75,10 +77,10 @@ pub(super) async fn run_session(
         tokio::select! {
             _ = cancellation.cancelled() => break Ok(()),
             asr_result = &mut asr_task => {
-                break asr_result.map_err(|_| "ASR 任务中断".to_string())?;
+                break asr_result.map_err(|_| LocalizedText::new("doubao.asr_interrupted"))?;
             }
             playback_error = playback.errors.recv() => {
-                break Err(format!("豆包音频播放失败：{}", playback_error.unwrap_or_else(|_| "输出设备不可用".into())));
+                break Err(playback_error.unwrap_or_else(|_| LocalizedText::new("doubao.output_unavailable")));
             }
             event = speech_rx.recv() => {
                 match event {
@@ -105,7 +107,7 @@ pub(super) async fn run_session(
                             let _ = done.send((id, result)).await;
                         });
                     }
-                    Err(_) => break (&mut asr_task).await.map_err(|_| "ASR 任务中断".to_string())?,
+                    Err(_) => break (&mut asr_task).await.map_err(|_| LocalizedText::new("doubao.asr_interrupted"))?,
                 }
             }
             report = reports.recv(), if !reply_active => {
@@ -119,7 +121,7 @@ pub(super) async fn run_session(
                     let chat = Arc::clone(&chat);
                     let done = done_tx.clone();
                     tokio::spawn(async move {
-                        let result = tts::speak(&chat.client, &chat.key, &report, &chat.playback, &token).await;
+                        let result = tts::speak(&chat.client, &chat.key, &report, chat.voice, &chat.playback, &token).await;
                         let _ = done.send((id, result)).await;
                     });
                 }

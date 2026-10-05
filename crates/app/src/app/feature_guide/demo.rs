@@ -28,11 +28,11 @@ pub(super) fn render_demo(demo: FeatureGuideDemo) -> AnyElement {
     } = demo;
     let has_poster = poster_path.is_some();
     let status = if reduce_motion {
-        "Static Poster"
+        ui::i18n::text("guide.static_poster")
     } else if playing {
-        "Playing"
+        ui::i18n::text("guide.playing")
     } else {
-        "Paused"
+        ui::i18n::text("guide.paused")
     };
     let media = div()
         .id("feature-guide-demo-media")
@@ -56,12 +56,16 @@ pub(super) fn render_demo(demo: FeatureGuideDemo) -> AnyElement {
                     .size_full()
                     .object_fit(ObjectFit::Contain)
                     .with_fallback(move || {
-                        demo_placeholder("Demo poster unavailable", palette).into_any_element()
+                        demo_placeholder(ui::i18n::text("guide.demo_poster_unavailable"), palette)
+                            .into_any_element()
                     }),
             )
         })
         .when(!has_poster, |media| {
-            media.child(demo_placeholder("Demo unavailable", palette))
+            media.child(demo_placeholder(
+                ui::i18n::text("guide.demo_unavailable"),
+                palette,
+            ))
         })
         .when_some(
             (!reduce_motion).then_some(video_surface).flatten(),
@@ -89,7 +93,7 @@ pub(super) fn render_demo(demo: FeatureGuideDemo) -> AnyElement {
                 .bg(rgba(0x080b10c2))
                 .text_size(px(10.0))
                 .text_color(rgba(0xf4f7fbef))
-                .child("REAL PRODUCT DEMO"),
+                .child(ui::i18n::text("guide.real_product_demo")),
         )
         .child(
             div()

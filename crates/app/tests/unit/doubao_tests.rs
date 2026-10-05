@@ -363,8 +363,8 @@ fn test_doubao_handshake_error_identifies_voice_key() {
             .body(None)
             .expect("403 response should be constructible"),
     ));
-    let key_message = connect_failure_message(&unauthorized);
-    let access_message = connect_failure_message(&forbidden);
+    let key_message = connect_failure_message(&unauthorized).resolve_for(ui::i18n::Locale::ZhCn);
+    let access_message = connect_failure_message(&forbidden).resolve_for(ui::i18n::Locale::ZhCn);
     assert!(
         key_message.contains("方舟 API Key"),
         "401 应指向方舟 Key 的 ASR 2.0 权限"

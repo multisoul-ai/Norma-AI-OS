@@ -222,7 +222,10 @@ impl DialogueControlState {
             }
             SpeechWorkerEvent::SegmentConsumed(receipt) => {
                 if let Err(error) = self.speech_backlog.acknowledge_consumed(receipt) {
-                    self.recover_reply_failure(format!("Speech error: {error}"));
+                    self.recover_reply_failure(
+                        ui::i18n::LocalizedText::new("chrome.speech_error_error")
+                            .with_arg("error", error),
+                    );
                     return false;
                 }
                 self.drive_speech_stream(cx);
@@ -245,7 +248,10 @@ impl DialogueControlState {
                 let final_chunks = self.playback_buffer.finish();
                 self.schedule_audio_chunks(final_chunks, generation, cx);
                 if let Err(error) = result {
-                    self.recover_reply_failure(format!("Speech error: {error}"));
+                    self.recover_reply_failure(
+                        ui::i18n::LocalizedText::new("chrome.speech_error_error")
+                            .with_arg("error", error),
+                    );
                     return false;
                 }
                 self.finish_reply_stream_if_ready();
@@ -265,11 +271,13 @@ impl DialogueControlState {
             if self.session.phase() == DialoguePhase::Thinking
                 && self.session.on_reply_ready().is_err()
             {
-                self.recover_reply_failure("Speech error: invalid reply phase".to_string());
+                self.recover_reply_failure(ui::i18n::LocalizedText::new(
+                    "chrome.invalid_reply_phase",
+                ));
                 return;
             }
             if self.session.phase() != DialoguePhase::Speaking {
-                self.recover_reply_failure("Speech error: reply is no longer active".to_string());
+                self.recover_reply_failure(ui::i18n::LocalizedText::new("chrome.reply_inactive"));
                 return;
             }
             let (playback_started_tx, playback_started_rx) = async_channel::bounded(1);
@@ -279,7 +287,10 @@ impl DialogueControlState {
                 playback_started_tx,
                 completion_tx,
             ) {
-                self.recover_reply_failure(format!("Speech error: {error}"));
+                self.recover_reply_failure(
+                    ui::i18n::LocalizedText::new("chrome.speech_error_error")
+                        .with_arg("error", error),
+                );
                 return;
             }
             self.pcm_capture.append(&chunk.pcm);

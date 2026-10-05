@@ -120,9 +120,9 @@ pub(super) fn performance_settings(
     let enabled = state.idle_animation_throttling_enabled();
     let app = cx.weak_entity();
     let status = if enabled {
-        "Energy Saver"
+        ui::i18n::text("settings.energy_saver")
     } else {
-        "Smoothest Response"
+        ui::i18n::text("settings.smoothest_response")
     };
     div()
         .w_full()
@@ -139,13 +139,13 @@ pub(super) fn performance_settings(
                         .text_size(px(15.0))
                         .font_weight(FontWeight::BOLD)
                         .text_color(rgba(theme.text_primary))
-                        .child("Animation & Energy"),
+                        .child(ui::i18n::text("settings.animation_energy")),
                 )
                 .child(
                     div()
                         .text_size(px(12.0))
                         .text_color(rgba(theme.text_tertiary))
-                        .child("Choose between immediate animation response and lower idle work."),
+                        .child(ui::i18n::text("settings.choose_between_immediate_animation_response_and_lower_idle_work")),
                 ),
         )
         .child(
@@ -180,7 +180,7 @@ pub(super) fn performance_settings(
                                         .text_size(px(14.0))
                                         .font_weight(FontWeight::SEMIBOLD)
                                         .text_color(rgba(theme.text_primary))
-                                        .child("Reduce animation updates while idle"),
+                                        .child(ui::i18n::text("settings.reduce_animation_updates_while_idle")),
                                 )
                                 .child(
                                     div()
@@ -201,7 +201,7 @@ pub(super) fn performance_settings(
                                 .line_height(px(18.0))
                                 .text_color(rgba(theme.text_tertiary))
                                 .child(
-                                    "Checks for new Canvas animations every 250 ms while idle. Leave off for the smoothest animation response.",
+                                    ui::i18n::text("settings.checks_for_new_canvas_animations_every_250_ms_while_idle_leave"),
                                 ),
                         ),
                 )
@@ -221,7 +221,7 @@ pub(super) fn performance_settings(
                             Switch::new("settings-idle-animation-throttling-switch")
                                 .checked(enabled)
                                 .with_size(Size::Medium)
-                                .tooltip("Reduce animation updates while the workspace is idle")
+                                .tooltip(ui::i18n::text("settings.reduce_animation_updates_while_the_workspace_is_idle"))
                                 .on_click(move |checked, _window, cx| {
                                     let _ = app.update(cx, |app, cx| {
                                         app.set_idle_animation_throttling(*checked, cx);

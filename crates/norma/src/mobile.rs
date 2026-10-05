@@ -15,7 +15,20 @@ mod identity;
 mod relay;
 mod relay_session;
 mod thread_message;
+mod workspace_chat;
+mod workspace_terminal;
+pub use workspace_terminal::{
+    WorkspaceTerminalCell, WorkspaceTerminalFragment, WorkspaceTerminalFrame,
+    WorkspaceTerminalRequest, WorkspaceTerminalUpdate,
+};
+mod agent_creation;
+pub use agent_creation::WorkspaceAgentCreateRequest;
 pub use thread_message::ThreadMessage;
+pub use workspace_chat::{
+    DesktopChatAgent, DesktopChatDefinition, DesktopChatProject, DesktopChatWorkspace,
+    WorkspaceAgentTarget, WorkspaceChatMessage, WorkspaceConfigurationChange,
+    WorkspaceMessageIntent,
+};
 mod thread_task;
 pub use thread_task::ThreadTask;
 mod thread_followup;
@@ -27,7 +40,9 @@ pub use voice_authorization::VOICE_GATEWAY_ORIGIN;
 mod pairing;
 mod project_events;
 mod snapshot;
+mod workspace_activity;
 pub use project_events::{ProjectChange, ProjectEvent, ProjectProjection};
+pub use workspace_activity::*;
 mod terminal;
 mod transport;
 pub use terminal::{

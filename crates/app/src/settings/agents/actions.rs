@@ -65,9 +65,10 @@ impl MultisoulApp {
                     || definition.enabled != draft.enabled
             });
             if active && changes_runtime {
-                self.agent_definitions.set_status(
-                    "Close the active Agent card before changing its profile or enabled state.",
-                );
+                self.agent_definitions
+                    .set_status(ui::i18n::LocalizedText::new(
+                    "settings.close_the_active_agent_card_before_changing_its_profile_or_enabled",
+                ));
                 return false;
             }
         }
@@ -149,7 +150,9 @@ impl MultisoulApp {
         });
         let Some(node_id) = node_id else {
             self.agent_definitions
-                .set_status("That Agent is no longer on Canvas.");
+                .set_status(ui::i18n::LocalizedText::new(
+                    "settings.that_agent_is_no_longer_on_canvas",
+                ));
             cx.notify();
             return;
         };

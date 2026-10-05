@@ -438,7 +438,7 @@ fn test_agents_settings_content_routes_agents_section_to_agents_view() {
 ///   3. 断言 handler 内部最终调用 spawn_agent_card_from_definition(id, window, cx)
 ///
 /// 预期结果：
-///   - 正断言：Settings 统一 Inspector 暴露 "Add to Canvas" 文案
+///   - 正断言：Settings 统一 Inspector 暴露 "settings.add_to_canvas" 文案
 ///   - 正断言：按钮暴露稳定 id settings-agent-add-to-canvas
 ///   - 正断言：handler 存在且调用 spawn_agent_card_from_definition
 ///   - 负断言：主操作不应退回含糊的 "Create card" 旧文案
@@ -448,7 +448,7 @@ fn test_agents_settings_detail_exposes_add_to_canvas_action_and_wires_spawn_hand
     let actions_source = include_str!("../../src/settings/agents/actions.rs");
 
     assert!(
-        inspector_source.contains("\"Add to Canvas\""),
+        inspector_source.contains("\"settings.add_to_canvas\""),
         "Agents settings detail should expose a visible Add to Canvas action for saved project definitions"
     );
     assert!(

@@ -255,28 +255,6 @@ public struct CloudTextClient: Sendable {
         return stream.text
     }
 
-    public func planThread(_ plan: ThreadPlanRequest, token: String) async throws -> ThreadPlanResponse {
-        try plan.validate()
-        guard token.range(of: "^[A-Za-z0-9_-]{43}$", options: .regularExpression) != nil else {
-            throw CloudTextError.unauthorized
-        }
-        var req = request("v1/threads/plan", body: try JSONEncoder().encode(plan))
-        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        req.timeoutInterval = 40 // Server inference deadline 30s + HTTP transfer margin 10s.
-        let (bytes, response) = try await session.bytes(for: req)
-        guard let http = response as? HTTPURLResponse,
-              http.value(forHTTPHeaderField: "Content-Type")?.hasPrefix("application/json") == true else {
-            throw CloudTextError.invalidResponse
-        }
-        var data = Data()
-        for try await byte in bytes {
-            data.append(byte)
-            // Candidate 32 KiB + source identities fits 64 KiB; error objects must fit 4 KiB.
-            guard data.count <= (http.statusCode == 200 ? 65536 : 4096) else { throw CloudTextError.invalidResponse }
-        }
-        guard http.statusCode == 200 else { throw try error(from: data) }
-        return try ThreadPlanResponse.decode(data, for: plan)
-    }
 
     private func request(_ path: String, body: Data) -> URLRequest {
         var request = URLRequest(url: origin.appending(path: path), timeoutInterval: 15)

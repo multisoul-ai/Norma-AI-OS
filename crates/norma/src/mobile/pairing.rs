@@ -8,7 +8,7 @@ use std::{
 };
 use subtle::ConstantTimeEq;
 
-// A QR remains usable for two minutes, including the desktop confirmation step.
+// Unclaimed QR/code entry expires after two minutes; an immutable claimant waits for local approval.
 const PAIRING_TTL: Duration = Duration::from_secs(120);
 
 pub struct PairingQr {
@@ -239,7 +239,7 @@ impl PairingSession {
     }
 
     fn check_live(&mut self, now: Instant) -> Result<()> {
-        if now >= self.expires {
+        if self.pending.is_none() && now >= self.expires {
             self.cancel();
             bail!("pairing offer expired");
         }

@@ -149,13 +149,13 @@ struct PairComputerView: View {
                     try await finishPairing(offer, grant: grant); return
                 case .pending(let request): pending = request
                 }
-                // Host owns QR expiry. Local monotonic deadline only bounds UI polling.
-                let deadline = ContinuousClock.now.advanced(by: .seconds(120))
-                while ContinuousClock.now < deadline {
+                // The QR is consumed; wait for explicit Mac approval until cancelled.
+                // Individual network exchanges still have their transport timeout.
+                while true {
+                    try Task.checkCancellation()
                     do { try await authenticate(offer); return }
                     catch MobileError.unauthorized { try await Task.sleep(for: .seconds(2)) }
                 }
-                throw MobileError.timedOut
             } catch {
                 guard !Task.isCancelled else { return }
                 self.error = error.localizedDescription; busy = false

@@ -1,29 +1,33 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
-  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleDevelopmentRegion</key>
-  <string>en</string>
-  <key>CFBundleExecutable</key>
-  <string>norma-os</string>
-  <key>CFBundleIdentifier</key>
-  <string>com.norma.os.dev</string>
-  <key>CFBundleInfoDictionaryVersion</key>
-  <string>6.0</string>
-  <key>CFBundleDisplayName</key>
-  <string>Norma OS Dev</string>
-  <key>CFBundleName</key>
-  <string>Norma OS Dev</string>
-  <key>CFBundlePackageType</key>
-  <string>APPL</string>
-  <key>CFBundleShortVersionString</key>
-  <string>0.1.0</string>
-  <key>CFBundleVersion</key>
-  <string>0.1.0</string>
-  <key>NSSpeechRecognitionUsageDescription</key>
-  <string>Norma OS uses speech recognition to turn spoken commands into card actions.</string>
-  <key>NSMicrophoneUsageDescription</key>
-  <string>Norma OS uses the microphone while voice input or a voice conversation is active.</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleExecutable</key>
+	<string>norma-os</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.norma.os.dev</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleDisplayName</key>
+	<string>Norma OS Dev</string>
+	<key>CFBundleName</key>
+	<string>Norma OS Dev</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>CFBundleVersion</key>
+	<string>0.1.0</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Norma OS uses speech recognition to turn spoken commands into card actions.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Norma OS uses the microphone while voice input or a voice conversation is active.</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>zh-CN</string>
+	</array>
 </dict>
 </plist>

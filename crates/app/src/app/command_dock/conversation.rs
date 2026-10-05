@@ -25,8 +25,9 @@ impl MultisoulApp {
             Ok(response) => response,
             Err(error) => {
                 if let Some(state) = &mut self.command_dock {
-                    state.error = Some(format!(
-                        "请在 Norma → 语音 → AI Connection 中完成模型配置：{error}"
+                    state.error = Some(ui::i18n::message(
+                        "chrome.configure_the_model_in_norma_voice_ai_connection_error",
+                        &[("error", (error).to_string())],
                     ));
                 }
                 cx.notify();
@@ -40,15 +41,17 @@ impl MultisoulApp {
         state.reply_generation += 1;
         let generation = state.reply_generation;
         state.pending_reply = true;
-        state.reply = Some("Norma 正在思考…".into());
+        state.reply = Some(ui::i18n::LocalizedText::new("chrome.norma_is_thinking"));
         state.error = None;
         let root = self.workspace_state.current_root.clone();
         cx.spawn(async move |this, cx| {
             let result = response
                 .recv()
                 .await
-                .map_err(|_| "Norma 回复已中断，请重试".to_owned())
-                .and_then(|result| result)
+                .map_err(|_| {
+                    ui::i18n::LocalizedText::new("chrome.norma_s_reply_was_interrupted_try_again")
+                })
+                .and_then(|result| result.map_err(Into::into))
                 .map(|events| artifacts_from_agent_events(events).reply_text);
             let _ = this.update(cx, |app, cx| {
                 if app.workspace_state.current_root != root {
@@ -63,7 +66,7 @@ impl MultisoulApp {
                 };
                 state.pending_reply = false;
                 match result {
-                    Ok(reply) => state.reply = Some(reply),
+                    Ok(reply) => state.reply = Some(reply.into()),
                     Err(error) => {
                         state.reply = None;
                         state.error = Some(error);

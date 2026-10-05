@@ -1,0 +1,10 @@
+{
+  "canvas.only_valid_http_s_links_can_be_opened_from_the_terminal": "Only valid http(s) links can be opened from the terminal.",
+  "canvas.cards_per_row": "Cards per row",
+  "canvas.cards_per_column": "Cards per column",
+  "canvas.type_terminal": "TERMINAL",
+  "canvas.type_agent": "AGENT",
+  "canvas.type_preview": "PREVIEW",
+  "canvas.type_browser": "BROWSER",
+  "canvas.type_node": "NODE"
+}

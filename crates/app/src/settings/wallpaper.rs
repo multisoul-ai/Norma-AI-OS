@@ -4,11 +4,34 @@
 //! the import flow; `view.rs` holds the settings-panel grid. Tests covering
 //! both live in `crates/app/tests/unit/wallpaper_settings_tests.rs`.
 
-mod dirs;
+mod action;
+mod cells;
+mod current;
+pub(crate) mod delete_dialog;
+pub(crate) mod dirs;
 mod import;
+mod layout;
 pub(crate) mod preview;
-mod state;
+mod scope_view;
+pub(crate) mod scoped;
+pub(crate) mod state;
 mod view;
+
+#[cfg(test)]
+#[path = "../../tests/unit/wallpaper_layout_tests.rs"]
+mod layout_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/wallpaper_scope_tests.rs"]
+mod scope_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/wallpaper_actions_tests.rs"]
+mod actions_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/wallpaper_keyboard_tests.rs"]
+mod keyboard_tests;
 
 pub(crate) use import::ImportResult;
 pub(crate) use preview::PreviewCache;

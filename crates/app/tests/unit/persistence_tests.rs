@@ -11,7 +11,7 @@ use storage::{NodeSession, NodeSessionKind, ProjectStore};
 ///   runtime document 添加 Rect 节点，node_id=1
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. set_project_store(project.sqlite)
+///   1. 初始化 schema 后 set_project_store(project.sqlite)，避免后台 writer 与首个 flush 并发迁移。
 ///   2. mark_canvas_dirty()
 ///   3. tick(12ms) → dirty 未达到 debounce，load_snapshot 应为 None
 ///   4. tick(360ms) → flush_now 写入 canvas snapshot
@@ -27,6 +27,9 @@ fn test_scheduler_debounces_canvas_snapshot_flush() {
     std::fs::create_dir(&workspace_root).expect("test should create workspace dir");
     let project_store =
         ProjectStore::for_workspace(&workspace_root).expect("project store should open");
+    project_store
+        .migrate()
+        .expect("initialize schema before the background writer starts");
     let canvas_store = project_store.canvas_store();
     let layout_store = project_store.layout_store();
     let mut scheduler = PersistenceScheduler::default();

@@ -138,7 +138,9 @@ fn open_multisoul_window(
             .workspace_state
             .error
             .clone()
-            .unwrap_or_else(|| "Could not initialize project window.".to_string());
+            .unwrap_or_else(|| {
+                ui::i18n::LocalizedText::new("workspace.could_not_initialize_project_window")
+            });
         root_handle.update(cx, |_, window, _| window.remove_window())?;
         anyhow::bail!(error);
     }
@@ -175,7 +177,7 @@ pub(crate) fn title_for_initial_state(state: &InitialWindowState) -> String {
                 .file_name()
                 .and_then(|name| name.to_str())
                 .filter(|name| !name.is_empty())
-                .unwrap_or("Workspace");
+                .unwrap_or(ui::i18n::text("common.workspace"));
             format!("{name} - {APP_DISPLAY_NAME}")
         }
     }
@@ -282,8 +284,10 @@ impl MultisoulApp {
             }
             Err(error) => {
                 tracing::warn!(%error, "failed to open workspace window");
-                self.workspace_state.error =
-                    Some(format!("Could not open project window: {error}"));
+                self.workspace_state.error = Some(ui::i18n::message(
+                    "workspace.could_not_open_project_window_error",
+                    &[("error", (error).to_string())],
+                ));
                 cx.notify();
             }
         }
@@ -329,9 +333,15 @@ mod visual_acceptance_tests {
     }
 }
 
-fn canonical_workspace_root(path: &Path, error_slot: &mut Option<String>) -> Option<PathBuf> {
+fn canonical_workspace_root(
+    path: &Path,
+    error_slot: &mut Option<ui::i18n::LocalizedText>,
+) -> Option<PathBuf> {
     if !path.is_dir() {
-        let message = format!("Project folder does not exist: {}", path.display());
+        let message = ui::i18n::message(
+            "workspace.project_folder_does_not_exist",
+            &[("arg0", (path.display()).to_string())],
+        );
         *error_slot = Some(message);
         return None;
     }
@@ -342,7 +352,10 @@ fn canonical_workspace_root(path: &Path, error_slot: &mut Option<String>) -> Opt
             Some(root)
         }
         Err(error) => {
-            *error_slot = Some(format!("Could not resolve project path: {error}"));
+            *error_slot = Some(ui::i18n::message(
+                "workspace.could_not_resolve_project_path_error",
+                &[("error", (error).to_string())],
+            ));
             None
         }
     }

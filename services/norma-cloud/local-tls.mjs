@@ -3,7 +3,7 @@ import {createServer} from 'node:https';
 // Local acceptance front door. Administrative routes and Mac registration stay on loopback.
 export function makeLocalTLSGateway({gateway, key, cert}) {
   const allowed = new Set(['GET /health', 'POST /v1/devices/claim', 'POST /v1/devices/register',
-    'POST /v1/text/turn', 'POST /v1/threads/plan']);
+    'POST /v1/text/turn']);
   const server = createServer({key, cert, minVersion: 'TLSv1.3'}, (req, res) => {
     if (allowed.has(`${req.method} ${req.url}`)) return gateway.emit('request', req, res);
     res.writeHead(404, {'Content-Type': 'application/json', 'Cache-Control': 'no-store'});

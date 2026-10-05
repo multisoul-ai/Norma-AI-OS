@@ -8,8 +8,10 @@ pub(super) fn trace_row(
     let enabled = state.values().trace_enabled();
     setting_row(
         theme,
-        "Full prompt/response trace",
-        "Logs complete voice prompts and model responses; may include spoken content",
+        ui::i18n::text("voice.full_prompt_response_trace"),
+        ui::i18n::text(
+            "voice.logs_complete_voice_prompts_and_model_responses_may_include_spoken_content",
+        ),
     )
     .child(
         div()

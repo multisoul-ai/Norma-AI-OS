@@ -1,0 +1,147 @@
+//! The current choice uses the same bounded still-frame cache as the library.
+
+use super::{cells::preview_thumbnail, layout::WallpaperLayout, state::WallpaperSelection};
+use super::{preview::PreviewCache, state::WallpaperSettingsState};
+use crate::app::{
+    wallpaper_resolvers::{builtin_wallpapers, resolve_builtin_asset, WallpaperKind},
+    MultisoulApp,
+};
+use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight};
+use ui::Theme;
+
+pub(super) fn current_wallpaper(
+    theme: Theme,
+    state: &WallpaperSettingsState,
+    previews: &mut PreviewCache,
+    layout: &WallpaperLayout,
+    cx: &mut Context<MultisoulApp>,
+) -> Div {
+    let (name, kind, path) = match &state.selection {
+        WallpaperSelection::Builtin { rel } => {
+            let (_, name, kind) = builtin_wallpapers()
+                .iter()
+                .find(|(key, _, _)| key == rel)
+                .copied()
+                .unwrap_or((
+                    rel,
+                    ui::i18n::text("settings.wallpaper_default"),
+                    WallpaperKind::Static,
+                ));
+            (
+                super::cells::builtin_name(name).to_string(),
+                kind,
+                resolve_builtin_asset(rel),
+            )
+        }
+        WallpaperSelection::Custom { filename } => {
+            let path = super::dirs::custom_wallpapers_dir().map(|dir| dir.join(filename));
+            let kind = std::path::Path::new(filename)
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .and_then(WallpaperKind::from_extension)
+                .unwrap_or(WallpaperKind::Static);
+            (filename.clone(), kind, path)
+        }
+    };
+    let project = state.scoped.edit_project
+        && state
+            .scoped
+            .context
+            .as_ref()
+            .is_some_and(|ctx| ctx.area.is_some());
+    let preview_width = if layout.stacked_preview {
+        layout.width - 34.0
+    } else {
+        272.0
+    };
+    let description = if project {
+        if state.scoped.follows_workspace() {
+            ui::i18n::text("settings.workspace_changes")
+        } else {
+            ui::i18n::text("settings.project_only")
+        }
+    } else if state.scoped.context.is_some() {
+        ui::i18n::text("settings.workspace_projects")
+    } else {
+        ui::i18n::text("settings.directory_background_description")
+    };
+    div()
+        .flex()
+        .items_center()
+        .gap(px(20.0))
+        .p(px(16.0))
+        .when(layout.stacked_preview, |card| card.flex_col().items_start())
+        .rounded(px(16.0))
+        .border_1()
+        .border_color(rgba((theme.node_stroke & 0xffffff00) | 0x60))
+        .bg(rgba(theme.panel_high))
+        .child(
+            div()
+                .flex_none()
+                .w(px(preview_width))
+                .h(px(preview_width * 9.0 / 16.0))
+                .rounded(px(12.0))
+                .bg(rgba(theme.panel))
+                .child(preview_thumbnail(kind, path, previews, 12.0, cx)),
+        )
+        .child(
+            div()
+                .flex_1()
+                .min_w(px(0.0))
+                .when(layout.stacked_preview, |info| info.w_full())
+                .flex()
+                .flex_col()
+                .gap(px(6.0))
+                .child(
+                    div()
+                        .text_size(px(11.0))
+                        .line_height(px(14.0))
+                        .text_color(rgba(theme.text_secondary))
+                        .child(ui::i18n::text("settings.current_wallpaper")),
+                )
+                .child(
+                    div()
+                        .text_size(px(20.0))
+                        .line_height(px(26.0))
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .truncate()
+                        .child(name),
+                )
+                .child(
+                    div()
+                        .text_size(px(12.0))
+                        .line_height(px(18.0))
+                        .text_color(rgba(theme.text_secondary))
+                        .child(match kind {
+                            WallpaperKind::Static => ui::i18n::text("settings.still_image"),
+                            WallpaperKind::Gif | WallpaperKind::Video => {
+                                ui::i18n::text("settings.animated_wallpaper")
+                            }
+                        }),
+                )
+                .when(project, |info| {
+                    info.child(super::scope_view::follow_control(theme, &state.scoped, cx))
+                })
+                .child(
+                    div()
+                        .text_size(px(12.0))
+                        .line_height(px(18.0))
+                        .text_color(rgba(theme.text_secondary))
+                        .child(description),
+                )
+                .child(
+                    div()
+                        .min_h(px(18.0))
+                        .text_size(px(11.0))
+                        .line_height(px(14.0))
+                        .text_color(rgba(theme.text_secondary))
+                        .child(
+                            state
+                                .scoped
+                                .status
+                                .clone()
+                                .unwrap_or_else(|| ui::i18n::text("settings.auto_save").into()),
+                        ),
+                ),
+        )
+}

@@ -37,7 +37,7 @@ pub(super) fn operations(
 
 #[derive(Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
-pub(super) struct Binding {
+pub(in crate::mobile) struct Binding {
     pub call_id: String,
     pub workspace_id: String,
     pub generation: u64,
@@ -45,7 +45,7 @@ pub(super) struct Binding {
 
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct Gateway {
+pub(in crate::mobile) struct Gateway {
     url: String,
     token: String,
     expires_at: u64,

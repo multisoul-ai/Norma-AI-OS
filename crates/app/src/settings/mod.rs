@@ -2,6 +2,7 @@ pub(crate) mod agent_hook_ingress;
 pub(crate) mod agent_hooks;
 pub(crate) mod agents;
 mod appearance;
+pub(crate) mod general;
 pub(crate) mod orchestration;
 pub(crate) mod panel;
 mod panel_lifecycle;

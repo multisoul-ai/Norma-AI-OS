@@ -36,9 +36,11 @@ impl MemoryView {
                     .text_size(px(12.0))
                     .text_color(rgba(theme.text_secondary))
                     .child(if query.is_empty() {
-                        "还没有记忆。\n从一条偏好或项目约定开始。"
+                        ui::i18n::text(
+                            "norma.no_memories_yet_start_with_a_preference_or_project_convention",
+                        )
                     } else {
-                        "没有匹配的记忆。\n试试其他关键词。"
+                        ui::i18n::text("norma.no_matching_memories_try_another_keyword")
                     }),
             );
         }
@@ -85,7 +87,7 @@ impl MemoryView {
                                     .text_color(rgba(theme.text_secondary))
                                     .text_ellipsis()
                                     .child(if entry.description.is_empty() {
-                                        "长期记忆".into()
+                                        ui::i18n::text("norma.long_term_memory").into()
                                     } else {
                                         entry.description.clone()
                                     }),
@@ -131,7 +133,7 @@ impl MemoryView {
                                 Button::new("memory-new")
                                     .small()
                                     .ghost()
-                                    .label("＋ 新增")
+                                    .label(ui::i18n::text("norma.add"))
                                     .disabled(self.busy)
                                     .on_click(cx.listener(|view, _, window, cx| {
                                         view.new_entry(window, cx)
@@ -141,7 +143,7 @@ impl MemoryView {
                                 Button::new("memory-import")
                                     .small()
                                     .ghost()
-                                    .label("导入…")
+                                    .label(ui::i18n::text("norma.import"))
                                     .disabled(self.busy)
                                     .on_click(
                                         cx.listener(|view, _, window, cx| view.import(window, cx)),
@@ -153,10 +155,12 @@ impl MemoryView {
                             .mt_2()
                             .text_size(px(10.0))
                             .text_color(rgba(theme.text_secondary))
-                            .child(format!(
-                                "{} 条记忆 · {}",
-                                self.entries.len(),
-                                self.scope.label()
+                            .child(ui::i18n::format(
+                                "norma.memories",
+                                &[
+                                    ("arg0", (self.entries.len()).to_string()),
+                                    ("arg1", (super::scope_label(self.scope)).to_string()),
+                                ],
                             )),
                     ),
             )

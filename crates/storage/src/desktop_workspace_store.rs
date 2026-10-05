@@ -2,6 +2,10 @@ use crate::{
     migrations::open_app_connection, project_store::desktop_canvas_path,
     workspace_identity_store::random_workspace_id,
 };
+pub(crate) mod mobile_configuration;
+pub(crate) mod wallpaper;
+pub use wallpaper::{WallpaperReference, WallpaperUsage};
+
 use crate::{StorageError, StorageResult};
 use rusqlite::{params, Connection, OptionalExtension, Row};
 use std::collections::HashMap;
@@ -20,6 +24,7 @@ pub struct DesktopWorkspace {
     pub project_count: usize,
     pub expanded_area_id: Option<String>,
     pub overview_scroll_y: i64,
+    pub wallpaper: Option<WallpaperReference>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -30,6 +35,7 @@ pub struct DesktopProjectArea {
     pub root: PathBuf,
     pub display_name: String,
     pub added_at_unix_ms: i64,
+    pub wallpaper: Option<WallpaperReference>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -46,9 +52,9 @@ pub struct DesktopWorkspaceStore {
 
 const SELECT: &str = "SELECT id, name, created_at_unix_ms, last_opened_at_unix_ms, \
                       (SELECT count(*) FROM desktop_project_areas a WHERE a.desktop_workspace_id=desktop_workspaces.id) \
-                      , expanded_area_id, overview_scroll_y FROM desktop_workspaces";
+                      , expanded_area_id, overview_scroll_y, wallpaper_json FROM desktop_workspaces";
 const SELECT_AREA: &str =
-    "SELECT id, desktop_workspace_id, project_key, root_path, display_name, added_at_unix_ms \
+    "SELECT id, desktop_workspace_id, project_key, root_path, display_name, added_at_unix_ms, wallpaper_json \
                            FROM desktop_project_areas";
 
 impl DesktopWorkspaceStore {
@@ -105,16 +111,12 @@ impl DesktopWorkspaceStore {
     }
 
     pub fn create(&self, name: &str) -> StorageResult<DesktopWorkspace> {
-        let name = Self::validate_name(name)?;
-        let connection = open_app_connection(&self.path)?;
-        let id = random_workspace_id()?;
-        let now = next_opened_at(&connection)?;
-        connection.execute(
-            "INSERT INTO desktop_workspaces(id, name, created_at_unix_ms, last_opened_at_unix_ms)
-             VALUES(?1, ?2, ?3, ?3)",
-            params![id, name, now],
-        )?;
-        select(&connection, &id)?.ok_or_else(|| rusqlite::Error::QueryReturnedNoRows.into())
+        let mut connection = open_app_connection(&self.path)?;
+        let transaction = connection.transaction()?;
+        let wallpaper = wallpaper::legacy_reference(&transaction)?;
+        let created = self.create_on_connection(&transaction, name, wallpaper.as_ref())?;
+        transaction.commit()?;
+        Ok(created)
     }
 
     pub fn rename(&self, id: &str, name: &str) -> StorageResult<()> {
@@ -304,6 +306,7 @@ fn read_workspace(row: &Row<'_>) -> rusqlite::Result<DesktopWorkspace> {
         project_count: row.get(4)?,
         expanded_area_id: row.get(5)?,
         overview_scroll_y: row.get(6)?,
+        wallpaper: wallpaper::decode(row.get(7)?),
     })
 }
 
@@ -315,5 +318,6 @@ fn read_area(row: &Row<'_>) -> rusqlite::Result<DesktopProjectArea> {
         root: PathBuf::from(row.get::<_, String>(3)?),
         display_name: row.get(4)?,
         added_at_unix_ms: row.get(5)?,
+        wallpaper: wallpaper::decode(row.get(6)?),
     })
 }

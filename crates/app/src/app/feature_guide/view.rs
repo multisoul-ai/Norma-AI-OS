@@ -1,3 +1,4 @@
+mod header;
 use super::controls::{guide_button, is_unmodified_activation, GuideButtonKind};
 use super::demo::{render_demo, FeatureGuideDemo};
 use super::orchestration::{guide_navigation_badge, render_orchestration_setup};
@@ -131,74 +132,6 @@ impl MultisoulApp {
                 .into_any_element(),
             FeatureGuideSettingsTransition::None => overlay.into_any_element(),
         }
-    }
-
-    fn render_feature_guide_header(
-        &self,
-        theme: Theme,
-        palette: FeatureGuidePalette,
-        cx: &mut Context<Self>,
-    ) -> Div {
-        div()
-            .h(px(72.0))
-            .flex_none()
-            .flex()
-            .items_center()
-            .justify_between()
-            .px(px(26.0))
-            .border_b_1()
-            .border_color(rgba(with_alpha(theme.node_stroke, 0x80)))
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap(px(12.0))
-                    .child(
-                        div()
-                            .w(px(34.0))
-                            .h(px(34.0))
-                            .rounded(px(11.0))
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .bg(rgba(with_alpha(theme.accent_blue, 0x22)))
-                            .text_color(rgba(palette.accent_text))
-                            .font_weight(FontWeight::BOLD)
-                            .child("N"),
-                    )
-                    .child(
-                        div()
-                            .flex()
-                            .flex_col()
-                            .gap(px(2.0))
-                            .child(
-                                div()
-                                    .text_size(px(16.0))
-                                    .font_weight(FontWeight::BOLD)
-                                    .text_color(rgba(palette.primary_text))
-                                    .child("Feature Guide"),
-                            )
-                            .child(
-                                div()
-                                    .debug_selector(|| "feature-guide-progress".to_string())
-                                    .text_size(px(11.0))
-                                    .text_color(rgba(palette.metadata_text))
-                                    .child(format!(
-                                        "{} / {}",
-                                        self.feature_guide.topic_position(),
-                                        FeatureGuideTopic::ALL.len()
-                                    )),
-                            ),
-                    ),
-            )
-            .child(guide_button(
-                GuideButtonKind::Close,
-                "Close  Esc",
-                theme,
-                palette,
-                cx,
-                |app, cx| app.close_feature_guide_for_session(cx),
-            ))
     }
 
     fn render_feature_guide_navigation(
@@ -413,7 +346,11 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) -> Div {
         let is_last = topic == FeatureGuideTopic::AgentNotifications;
-        let action_label = if is_last { "Get Started" } else { "Next  →" };
+        let action_label = if is_last {
+            ui::i18n::text("guide.get_started")
+        } else {
+            ui::i18n::text("guide.next")
+        };
         div()
             .h(px(68.0))
             .flex_none()
@@ -425,7 +362,7 @@ impl MultisoulApp {
             .border_color(rgba(with_alpha(theme.node_stroke, 0x80)))
             .child(guide_button(
                 GuideButtonKind::Skip,
-                "Skip Guide",
+                ui::i18n::text("guide.skip_guide"),
                 theme,
                 palette,
                 cx,
@@ -443,9 +380,9 @@ impl MultisoulApp {
                             actions.child(guide_button(
                                 GuideButtonKind::Playback,
                                 if self.feature_guide_media.playing {
-                                    "Pause Demo"
+                                    ui::i18n::text("guide.pause_demo")
                                 } else {
-                                    "Play Demo"
+                                    ui::i18n::text("guide.play_demo")
                                 },
                                 theme,
                                 palette,
@@ -463,7 +400,7 @@ impl MultisoulApp {
                                     .px(px(10.0))
                                     .text_size(px(11.0))
                                     .text_color(rgba(palette.metadata_text))
-                                    .child("Reduced Motion"),
+                                    .child(ui::i18n::text("guide.reduced_motion")),
                             )
                         },
                     )

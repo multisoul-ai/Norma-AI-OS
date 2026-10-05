@@ -18,18 +18,25 @@ impl fmt::Display for DialogueStartError {
 
 impl std::error::Error for DialogueStartError {}
 
-pub(super) fn start_error_label(error: &DialogueStartError) -> String {
+pub(super) fn start_error_label(error: &DialogueStartError) -> ui::i18n::LocalizedText {
     match error {
         DialogueStartError::Speech(SpeechError::MicrophoneDenied) => {
-            "Microphone permission denied".to_string()
+            ui::i18n::LocalizedText::new("chrome.microphone_permission_denied")
         }
         DialogueStartError::Speech(SpeechError::MicrophoneRestricted) => {
-            "Microphone permission restricted".to_string()
+            ui::i18n::LocalizedText::new("chrome.microphone_permission_restricted")
         }
-        DialogueStartError::Speech(SpeechError::ModelNotFound(path)) => {
-            format!("Speech model not found: {path}")
-        }
-        DialogueStartError::Speech(error) => format!("Speech error: {error}"),
-        DialogueStartError::Provider(message) => format!("Agent provider unavailable: {message}"),
+        DialogueStartError::Speech(SpeechError::ModelNotFound(path)) => ui::i18n::message(
+            "chrome.speech_model_not_found_path",
+            &[("path", (path).to_string())],
+        ),
+        DialogueStartError::Speech(error) => ui::i18n::message(
+            "chrome.speech_error_error",
+            &[("error", (error).to_string())],
+        ),
+        DialogueStartError::Provider(message) => ui::i18n::message(
+            "chrome.agent_provider_unavailable_message",
+            &[("message", (message).to_string())],
+        ),
     }
 }

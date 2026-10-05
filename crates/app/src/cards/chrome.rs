@@ -154,7 +154,7 @@ impl Card for EmptyCard {
 
     fn chrome(&self, node: &CanvasNode, _runtime: &Runtime) -> CardChrome {
         CardChrome {
-            title: node.kind.display_title(),
+            title: super::title::display_title(&node.kind),
             title_detail: None,
             refreshable: false,
             task_badge: None,

@@ -27,7 +27,7 @@ impl Card for AgentCard {
                 .as_deref()
                 .unwrap_or_else(|| agent.profile.display_title())
                 .to_string(),
-            _ => "Agent".to_string(),
+            _ => ui::i18n::text("cards.agent").to_string(),
         };
         let task_title = runtime
             .agent_task_title(node.id)
@@ -101,13 +101,20 @@ fn single_line_task_title(title: &str) -> Option<String> {
 fn agent_task_badge(state: Option<AgentTaskState>) -> Option<CardChromeTaskBadge> {
     let state = state?;
     let (label, tone) = match state {
-        AgentTaskState::Ready => ("Ready", CardChromeTaskTone::Muted),
-        AgentTaskState::Thinking => ("Thinking", CardChromeTaskTone::Active),
-        AgentTaskState::RunningTool { .. } => ("Tool", CardChromeTaskTone::Active),
-        AgentTaskState::WaitingApproval { .. } => ("Approval", CardChromeTaskTone::Warning),
+        AgentTaskState::Ready => (ui::i18n::text("common.ready"), CardChromeTaskTone::Muted),
+        AgentTaskState::Thinking => (ui::i18n::text("cards.thinking"), CardChromeTaskTone::Active),
+        AgentTaskState::RunningTool { .. } => {
+            (ui::i18n::text("cards.tool"), CardChromeTaskTone::Active)
+        }
+        AgentTaskState::WaitingApproval { .. } => (
+            ui::i18n::text("cards.approval"),
+            CardChromeTaskTone::Warning,
+        ),
         AgentTaskState::Done => ("Done", CardChromeTaskTone::Muted),
-        AgentTaskState::Failed { .. } => ("Failed", CardChromeTaskTone::Error),
-        AgentTaskState::Ended => ("Ended", CardChromeTaskTone::Muted),
+        AgentTaskState::Failed { .. } => {
+            (ui::i18n::text("common.failed"), CardChromeTaskTone::Error)
+        }
+        AgentTaskState::Ended => (ui::i18n::text("cards.ended"), CardChromeTaskTone::Muted),
     };
     Some(CardChromeTaskBadge {
         label: label.to_string(),

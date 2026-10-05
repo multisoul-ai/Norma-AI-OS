@@ -69,6 +69,7 @@ pub(crate) fn voice_settings(
                 state,
                 inputs,
                 voice_shortcut_label,
+                window,
                 cx,
             ))
             .children(status_message(theme, state));
@@ -88,7 +89,10 @@ pub(crate) fn voice_settings(
     }
     page.child(voice_ready_overview(theme, voice_shortcut_label, cx))
         .child(interaction_group(theme, state, voice_shortcut_label, cx))
-        .child(settings_group(theme, "Input").child(input_device_row(theme, state, cx)))
+        .child(
+            settings_group(theme, ui::i18n::text("voice.input"))
+                .child(input_device_row(theme, state, cx)),
+        )
         .child(spoken_reply_group(theme, state, inputs, cx))
         .child(asr_provider_group(theme, state, inputs, cx))
         .child(advanced_group(theme, state, inputs, cx))
@@ -315,18 +319,21 @@ impl MultisoulApp {
                 }
                 if let Some(activation) = app.pending_tts_activation.take() {
                     let selected = &activation.selected;
-                    let picker_accepts_activation = app.voice_settings.tts_picker_accepts_activation(
-                        &selected.provider_id,
-                        &selected.model_id,
-                        &selected.voice_id,
-                    );
+                    let picker_accepts_activation =
+                        app.voice_settings.tts_picker_accepts_activation(
+                            &selected.provider_id,
+                            &selected.model_id,
+                            &selected.voice_id,
+                        );
                     if credential_succeeded && tts_activation_batch && picker_accepts_activation {
                         app.complete_tts_activation(activation, cx);
                     } else {
-                        app.voice_settings.restore_tts_activation(activation.rollback);
-                        app.voice_settings.fail_tts_picker_apply(
-                            "Could not save the selected Voice. The previous Voice is still active.",
-                        );
+                        app.voice_settings
+                            .restore_tts_activation(activation.rollback);
+                        app.voice_settings
+                            .fail_tts_picker_apply(ui::i18n::LocalizedText::new(
+                            "voice.could_not_save_the_selected_voice_the_previous_voice_is_still",
+                        ));
                     }
                 }
                 app.persist_voice_settings_in_background(cx);
@@ -355,17 +362,23 @@ fn advanced_group(
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     let expanded = state.advanced_expanded();
-    settings_group(theme, "Advanced Settings")
+    settings_group(theme, ui::i18n::text("voice.advanced_settings"))
         .child(
             setting_row(
                 theme,
-                "Recognition models, provider & diagnostics",
-                "Manage the ASR catalog, connection details and troubleshooting",
+                ui::i18n::text("voice.recognition_models_provider_diagnostics"),
+                ui::i18n::text(
+                    "voice.manage_the_asr_catalog_connection_details_and_troubleshooting",
+                ),
             )
             .child(
                 action_button(
                     theme,
-                    if expanded { "Hide" } else { "Show" },
+                    if expanded {
+                        ui::i18n::text("voice.hide")
+                    } else {
+                        ui::i18n::text("voice.show")
+                    },
                     theme.accent_cyan,
                 )
                 .id("settings-voice-advanced-toggle")

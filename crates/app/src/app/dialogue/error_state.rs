@@ -21,7 +21,10 @@ impl DialogueControlState {
         self.stop_pcm_stream();
         self.session.on_listening_stopped();
         self.microphone_settings_recovery_available = false;
-        self.error_message = Some(format!("Speech recognition failed: {}", message.into()));
+        self.error_message = Some(ui::i18n::message(
+            "chrome.speech_recognition_failed",
+            &[("arg0", (message.into()).to_string())],
+        ));
     }
 
     pub(super) fn record_start_error(&mut self, error: &DialogueStartError) {

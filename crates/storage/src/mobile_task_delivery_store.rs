@@ -92,7 +92,8 @@ impl MobileTaskDeliveryStore {
         operation: &str,
         workspace: &str,
     ) -> StorageResult<Option<TaskDeliverySummary>> {
-        for id in [device, operation, workspace] {
+        crate::mobile_turn_store::validate_workspace_scope(workspace)?;
+        for id in [device, operation] {
             crate::mobile_access_store::validate_id(id)?;
         }
         let saved: Option<(String, String)> = connection.query_row(
@@ -130,7 +131,7 @@ impl MobileTaskDeliveryStore {
         workspace: &str,
         current_route: &str,
     ) -> StorageResult<Vec<MobileTurnKey>> {
-        crate::mobile_access_store::validate_id(workspace)?;
+        crate::mobile_turn_store::validate_workspace_scope(workspace)?;
         crate::mobile_access_store::validate_id(current_route)?;
         let connection = open_app_connection(&self.path)?;
         // Filter by the command's indexed identity before extracting any baseline metadata.
@@ -167,7 +168,7 @@ impl MobileTaskDeliveryStore {
         key: &MobileTurnKey,
         content: &TaskDeliveryContent,
     ) -> StorageResult<StoredTaskDelivery> {
-        crate::mobile_access_store::validate_id(workspace)?;
+        crate::mobile_turn_store::validate_workspace_scope(workspace)?;
         key.validate()?;
         content.validate()?;
         let mut connection = open_app_connection(&self.path)?;
@@ -215,7 +216,7 @@ impl MobileTaskDeliveryStore {
         before: Option<u64>,
         pending_only: bool,
     ) -> StorageResult<(Vec<TaskDeliverySummary>, u64)> {
-        crate::mobile_access_store::validate_id(workspace)?;
+        crate::mobile_turn_store::validate_workspace_scope(workspace)?;
         if node.is_some_and(|n| n == 0 || n > i64::MAX as u64)
             || before.is_some_and(|n| n == 0 || n > i64::MAX as u64)
         {
@@ -285,7 +286,7 @@ impl MobileTaskDeliveryStore {
         workspace: &str,
         key: &MobileTurnKey,
     ) -> StorageResult<Option<StoredTaskDelivery>> {
-        crate::mobile_access_store::validate_id(workspace)?;
+        crate::mobile_turn_store::validate_workspace_scope(workspace)?;
         key.validate()?;
         let connection = open_app_connection(&self.path)?;
         Ok(read(&connection, workspace, key)?.filter(|saved| saved.outcome.key == *key))

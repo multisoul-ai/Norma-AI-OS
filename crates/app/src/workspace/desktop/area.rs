@@ -39,8 +39,9 @@ impl MultisoulApp {
                     app.desktop_workspace.error = None;
                     app.ensure_desktop_area_session(area_id, window, cx);
                 } else {
-                    app.desktop_workspace.error =
-                        Some("Project directory is still unavailable".to_string());
+                    app.desktop_workspace.error = Some(ui::i18n::LocalizedText::new(
+                        "workspace.project_directory_is_still_unavailable",
+                    ));
                 }
                 cx.notify();
             });
@@ -68,8 +69,13 @@ impl MultisoulApp {
             return;
         };
         if let Some(error) = self.desktop_workspace.area_errors.get(&area_id) {
-            self.desktop_workspace.error =
-                Some(format!("Could not open {}: {error}", area.display_name));
+            self.desktop_workspace.error = Some(ui::i18n::message(
+                "workspace.could_not_open_error",
+                &[
+                    ("arg0", (area.display_name).to_string()),
+                    ("error", (error).to_string()),
+                ],
+            ));
             cx.notify();
             return;
         }
@@ -118,9 +124,7 @@ impl MultisoulApp {
                 }
                 self.begin_desktop_project_zoom(&workspace_id, &area_id, false, window, cx);
             }
-            let wallpaper = self.wallpaper_settings.selection.clone();
             session.update(cx, |session, cx| {
-                session.wallpaper_settings.selection = wallpaper;
                 session.attach_desktop_area_window(window, cx);
             });
             window.focus(&session.read(cx).focus_handle);
@@ -128,6 +132,8 @@ impl MultisoulApp {
             self.desktop_workspace.expanded_area_id = Some(area_id);
             self.screen = crate::app::AppScreen::DesktopWorkspace;
             self.desktop_workspace.error = None;
+            self.bind_desktop_wallpaper(cx);
+            self.broadcast_wallpaper_state(None, cx);
             cx.notify();
             return;
         }
@@ -139,6 +145,7 @@ impl MultisoulApp {
             self.desktop_workspace.expanded_area_id = Some(area_id.clone());
         }
         self.ensure_desktop_area_session(area_id, window, cx);
+        self.bind_desktop_wallpaper(cx);
     }
 
     pub(super) fn ensure_desktop_area_session(
@@ -169,6 +176,7 @@ impl MultisoulApp {
         self.desktop_workspace.loading_area_ids.insert(key.clone());
         cx.notify();
         let paths = self.database_paths.clone();
+        let context_area = area.clone();
         let work = cx.background_executor().spawn(async move {
             crate::app::background_project::PreparedProject::load_for_desktop(paths, area)
         });
@@ -183,9 +191,42 @@ impl MultisoulApp {
                 match prepared {
                     Ok(prepared) => {
                         let host = cx.weak_entity();
+                        let wallpaper_context = app
+                            .desktop_workspace
+                            .workspaces
+                            .iter()
+                            .find(|workspace| workspace.id == workspace_id)
+                            .cloned()
+                            .map(|workspace| {
+                                crate::settings::wallpaper::scoped::WallpaperContext {
+                                    workspace,
+                                    area: Some(
+                                        app.desktop_workspace
+                                            .areas
+                                            .iter()
+                                            .find(|area| {
+                                                area.id == context_area.id
+                                                    && area.desktop_workspace_id == workspace_id
+                                            })
+                                            .cloned()
+                                            .unwrap_or(context_area),
+                                    ),
+                                }
+                            });
                         let session = cx.new(|cx| {
                             let mut session = MultisoulApp::from_background_project(prepared, cx);
                             session.desktop_host = Some(host);
+                            session.wallpaper_settings.scoped.bind(wallpaper_context);
+                            session.wallpaper_settings.scoped.busy =
+                                app.wallpaper_settings.scoped.busy;
+                            session.wallpaper_settings.scoped.delete_prompt =
+                                app.wallpaper_settings.scoped.delete_prompt.clone();
+                            session.wallpaper_settings.scoped.global =
+                                app.wallpaper_settings.scoped.global.clone();
+                            session.wallpaper_settings.scoped.customs =
+                                app.wallpaper_settings.scoped.customs.clone();
+                            session.wallpaper_settings.selection =
+                                session.wallpaper_settings.scoped.effective_selection();
                             session.layout_strategy.chrome_in_parent = true;
                             session.master_layout.chrome_in_parent = true;
                             session.apply_theme(app.theme_id, cx);
@@ -226,6 +267,7 @@ impl MultisoulApp {
                             app.expand_desktop_project_area(area_id, window, cx);
                         } else if requested && visible {
                             app.desktop_workspace.expanded_area_id = Some(area_id);
+                            app.bind_desktop_wallpaper(cx);
                         }
                     }
                     Err(error) => {
@@ -234,11 +276,17 @@ impl MultisoulApp {
                         {
                             app.desktop_workspace.pending_navigation = None;
                         }
-                        app.desktop_workspace
-                            .area_errors
-                            .insert(area_id, error.clone());
-                        app.desktop_workspace.error =
-                            Some(format!("Could not open project canvas: {error}"));
+                        app.desktop_workspace.area_errors.insert(
+                            area_id,
+                            ui::i18n::LocalizedText::new(
+                                "workspace.could_not_open_project_canvas_error",
+                            )
+                            .with_arg("error", &error),
+                        );
+                        app.desktop_workspace.error = Some(ui::i18n::message(
+                            "workspace.could_not_open_project_canvas_error",
+                            &[("error", (error).to_string())],
+                        ));
                     }
                 }
                 cx.notify();
@@ -283,6 +331,7 @@ impl MultisoulApp {
             }
         }
         self.desktop_workspace.expanded_area_id = None;
+        self.bind_desktop_wallpaper(cx);
         if let Some(workspace_id) = self.desktop_workspace.active_id.clone() {
             self.persist_desktop_view(workspace_id, None, cx);
         }
@@ -358,8 +407,10 @@ impl MultisoulApp {
                         }
                     }
                     Err(error) => {
-                        app.desktop_workspace.error =
-                            Some(format!("Could not add project: {error}"))
+                        app.desktop_workspace.error = Some(ui::i18n::message(
+                            "workspace.could_not_add_project_error",
+                            &[("error", (error).to_string())],
+                        ))
                     }
                 }
                 cx.notify();

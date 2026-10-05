@@ -101,8 +101,8 @@ impl MultisoulApp {
         div()
             .id("command-dock-input")
             .debug_selector(|| "command-dock-input".into())
-            .flex_1()
-            .min_w(px(0.0))
+            .w(px(240.0))
+            .flex_none()
             .h(px(34.0))
             .flex()
             .items_center()
@@ -148,15 +148,15 @@ impl MultisoulApp {
         let heading = if is_conversation {
             "Norma"
         } else if state.drawer.draft.trim().starts_with("/new") {
-            "新建 Agent"
+            ui::i18n::text("chrome.new_agent")
         } else if items
             .iter()
             .all(|s| matches!(s.command, Some(DockCommand::Theme(_))))
             && !items.is_empty()
         {
-            "应用主题"
+            ui::i18n::text("chrome.apply_theme")
         } else {
-            "快捷指令"
+            ui::i18n::text("chrome.commands")
         };
         let mut rows = div()
             .id("command-dock-results")
@@ -193,14 +193,16 @@ impl MultisoulApp {
                     .on_click(
                         cx.listener(|app, _, window, cx| app.submit_dock_conversation(window, cx)),
                     )
-                    .child("发送给 Norma · 按回车发送"),
+                    .child(ui::i18n::text("chrome.message_norma_press_return_to_send")),
             );
         } else if items.is_empty() {
             rows = rows.child(
                 div()
                     .p(px(12.0))
                     .text_color(rgba(theme.text_secondary))
-                    .child("未找到指令，输入 / 查看支持的操作"),
+                    .child(ui::i18n::text(
+                        "chrome.no_commands_found_type_to_see_available_actions",
+                    )),
             );
         } else {
             for (index, item) in items.iter().enumerate() {
@@ -226,9 +228,9 @@ impl MultisoulApp {
                         .find(|theme| theme.as_str() == id)
                         .map(ThemeId::description)
                         .unwrap_or(""),
-                    Some(DockCommand::Preview) => "选择要预览的文件",
-                    Some(_) => "在当前工作空间创建卡片",
-                    None => "选择具体操作",
+                    Some(DockCommand::Preview) => ui::i18n::text("chrome.choose_a_file_to_preview"),
+                    Some(_) => ui::i18n::text("chrome.create_a_card_in_this_workspace"),
+                    None => ui::i18n::text("chrome.choose_an_action"),
                 };
                 rows = rows.child(
                     div()
@@ -267,7 +269,7 @@ impl MultisoulApp {
                             div()
                                 .flex_1()
                                 .min_w(px(0.0))
-                                .child(div().text_size(px(13.0)).child(item.title.clone()))
+                                .child(div().text_size(px(13.0)).child(suggestion_title(item)))
                                 .child(
                                     div()
                                         .text_size(px(11.0))
@@ -299,9 +301,12 @@ impl MultisoulApp {
                     .text_size(px(11.0))
                     .child(heading)
                     .child(if is_conversation {
-                        "文字对话".into()
+                        ui::i18n::text("chrome.chat").into()
                     } else {
-                        format!("{} 个建议", items.len())
+                        ui::i18n::format(
+                            "chrome.suggestions",
+                            &[("arg0", (items.len()).to_string())],
+                        )
                     }),
             )
             .child(rows);
@@ -340,5 +345,20 @@ impl MultisoulApp {
                         .child(content),
                 ),
         )
+    }
+}
+
+fn suggestion_title(item: &runtime::command::CommandSuggestion) -> String {
+    match &item.command {
+        Some(DockCommand::Agent(profile)) => ui::i18n::format(
+            "chrome.command.new_agent",
+            &[("profile", profile.display_title().to_string())],
+        ),
+        Some(DockCommand::Terminal) => ui::i18n::text("chrome.command.terminal").into(),
+        Some(DockCommand::Browser) => ui::i18n::text("chrome.command.browser").into(),
+        Some(DockCommand::Preview) => ui::i18n::text("chrome.command.preview").into(),
+        Some(DockCommand::Theme(_)) => item.title.clone(),
+        None if item.completion.starts_with("/new") => ui::i18n::text("chrome.new_agent").into(),
+        None => ui::i18n::text("chrome.command.theme").into(),
     }
 }

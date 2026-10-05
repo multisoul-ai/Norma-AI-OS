@@ -27,7 +27,7 @@ pub(crate) struct OrchestrationSettingsState {
     pub(super) expanded_provider: Option<OrchestrationProvider>,
     pub(super) busy: Option<(OrchestrationProvider, OrchestrationOperation)>,
     pub(super) pending_uninstall: Option<OrchestrationProvider>,
-    pub(super) operation_error: Option<(OrchestrationProvider, String)>,
+    pub(super) operation_error: Option<(OrchestrationProvider, ui::i18n::LocalizedText)>,
     refresh_generation: u64,
 }
 
@@ -98,9 +98,21 @@ impl OrchestrationSettingsState {
         match result {
             Ok((integrations, operation_error)) => {
                 self.integrations = integrations;
-                self.operation_error = operation_error.map(|error| (provider, error));
+                self.operation_error = operation_error.map(|error| {
+                    (
+                        provider,
+                        ui::i18n::LocalizedText::new("settings.orchestration_failed")
+                            .with_arg("reason", error),
+                    )
+                });
             }
-            Err(error) => self.operation_error = Some((provider, error)),
+            Err(error) => {
+                self.operation_error = Some((
+                    provider,
+                    ui::i18n::LocalizedText::new("settings.orchestration_failed")
+                        .with_arg("reason", error),
+                ))
+            }
         }
     }
 

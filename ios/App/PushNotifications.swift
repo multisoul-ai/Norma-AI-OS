@@ -4,6 +4,10 @@ import UserNotifications
 import NormaCore
 
 @MainActor final class PushNotifications: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, ObservableObject {
+    let computers = ComputerModel()
+    let activityWorkspaces = WorkspaceChatModel()
+    let activityCloud = CloudChatModel()
+    let activities = WorkspaceActivityManager()
     @Published var authorization: UNAuthorizationStatus = .notDetermined
     @Published var registration: APNsRegistration?
     @Published var registering = false
@@ -20,6 +24,8 @@ import NormaCore
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        // ActivityKit can wake the process without a SwiftUI scene. Install token observers here.
+        activities.attach(workspaces:activityWorkspaces,computers:computers,cloud:activityCloud)
         return true
     }
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {

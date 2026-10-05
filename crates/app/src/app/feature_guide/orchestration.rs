@@ -22,16 +22,16 @@ pub(super) fn guide_badge_label(
     authorized_attention: bool,
 ) -> Option<&'static str> {
     if checking {
-        return Some("Checking");
+        return Some(ui::i18n::text("guide.checking"));
     }
     if authorized_attention {
-        return Some("Needs attention");
+        return Some(ui::i18n::text("guide.needs_attention"));
     }
     if statuses
         .iter()
         .all(|status| *status != AggregateStatus::Ready)
     {
-        return Some("Set up");
+        return Some(ui::i18n::text("guide.set_up"));
     }
     None
 }
@@ -49,13 +49,16 @@ pub(super) fn guide_navigation_badge(
         matches!(
             integration.authorization_component,
             ComponentState::Ready { .. }
-        ) && matches!(
-            visible_status(theme, state, &integration).0,
-            "Needs repair" | "Install failed"
-        )
+        ) && [
+            ui::i18n::text("settings.needs_repair"),
+            ui::i18n::text("settings.install_failed"),
+        ]
+        .contains(&visible_status(theme, state, &integration).0)
     });
     let label = guide_badge_label(checking, statuses, authorized_attention)?;
-    let color = if label == "Needs attention" || label == "Set up" {
+    let color = if label == ui::i18n::text("guide.needs_attention")
+        || label == ui::i18n::text("guide.set_up")
+    {
         theme.accent_orange
     } else {
         palette.metadata_text
@@ -151,7 +154,7 @@ pub(super) fn render_orchestration_setup(
                         .text_color(rgba(palette.accent_text))
                         .child("i"),
                 )
-                .child("Restart existing agent sessions after installation."),
+                .child(ui::i18n::text("settings.restart_existing_agent_sessions_after_installation")),
         )
         .when(expanded, |content| {
             content.child(
@@ -166,7 +169,7 @@ pub(super) fn render_orchestration_setup(
                     .bg(rgba(with_alpha(theme.graphite, 0x0b)))
                     .text_size(px(10.5))
                     .text_color(rgba(palette.metadata_text))
-                    .child("The Skill teaches delegation, Norma CLI routes work, Agent Hook reports lifecycle events, and authorization keeps access scoped to this device."),
+                    .child(ui::i18n::text("guide.the_skill_teaches_delegation_norma_cli_routes_work_agent_hook_reports")),
             )
         })
         .child(
@@ -178,7 +181,7 @@ pub(super) fn render_orchestration_setup(
                 .when(compact, |actions| actions.flex_col().items_start())
                 .child(guide_button(
                     GuideButtonKind::OrchestrationSettings,
-                    "Open Orchestration Settings",
+                    ui::i18n::text("guide.open_orchestration_settings"),
                     theme,
                     palette,
                     cx,
@@ -274,9 +277,9 @@ fn details_button(
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     let label = if expanded {
-        "Hide component details"
+        ui::i18n::text("guide.hide_component_details")
     } else {
-        "Why are these components needed?"
+        ui::i18n::text("guide.why_are_these_components_needed")
     };
     let interaction = details_button_interaction(theme, palette);
     let variant = ButtonCustomVariant::new(cx)

@@ -25,10 +25,26 @@ pub(super) fn adapter(
     paths: storage::DatabasePaths,
     root: Option<PathBuf>,
 ) -> Arc<dyn AgentCardAdapter> {
+    build_adapter(delegate, paths, root, false)
+}
+
+pub(super) fn workspace_adapter(
+    delegate: Arc<dyn AgentCardAdapter>,
+    paths: storage::DatabasePaths,
+) -> Arc<dyn AgentCardAdapter> {
+    build_adapter(delegate, paths, None, true)
+}
+
+fn build_adapter(
+    delegate: Arc<dyn AgentCardAdapter>,
+    paths: storage::DatabasePaths,
+    root: Option<PathBuf>,
+    workspace: bool,
+) -> Arc<dyn AgentCardAdapter> {
     Arc::new(MemoryAdapter {
         delegate,
         settings: storage::SettingsStore::new(paths.app_db_path().to_path_buf()),
-        personal: root.is_none(),
+        personal: root.is_none() && !workspace,
         state: Arc::new(Mutex::new(MemoryState {
             access: storage::MemoryAccess::new(paths, root),
             catalog: None,

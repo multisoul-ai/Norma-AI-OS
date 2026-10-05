@@ -28,7 +28,7 @@ impl MultisoulApp {
             .any(|id| self.previews.has_pending_edits(*id))
         {
             self.workspace_state.error =
-                Some("You have unsaved changes. Save or cancel your edits before leaving.".into());
+                Some(ui::i18n::LocalizedText::new("preview.leave_unsaved"));
             cx.notify();
             return false;
         }
@@ -169,7 +169,12 @@ impl MultisoulApp {
                             .states
                             .insert(node_id, PreviewLoadState::Ready(content));
                     }
-                    Err(error) => editor.error = Some(error),
+                    Err(error) => {
+                        editor.error = Some(
+                            ui::i18n::LocalizedText::new("preview.save_failed")
+                                .with_arg("reason", error),
+                        )
+                    }
                 }
                 cx.notify();
             })?;

@@ -13,11 +13,14 @@ pub(super) fn interaction_group(
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     let mode = state.values().interaction_mode();
-    settings_group(theme, "Voice Interaction")
+    settings_group(theme, ui::i18n::text("shortcuts.voice_interaction"))
         .child(compact_interaction_row(
             theme,
-            "Mode",
-            format!("Choose how {voice_shortcut_label} starts Voice"),
+            ui::i18n::text("voice.mode"),
+            ui::i18n::format(
+                "voice.choose_how_voice_shortcut_label_starts_voice",
+                &[("voice_shortcut_label", (voice_shortcut_label).to_string())],
+            ),
             div()
                 .flex()
                 .flex_row()
@@ -27,7 +30,7 @@ pub(super) fn interaction_group(
                     mode_option(
                         theme,
                         "settings-voice-mode-dictation",
-                        "Single Voice Command",
+                        ui::i18n::text("voice.single_voice_command"),
                         mode == VoiceInteractionMode::SingleVoiceCommand,
                         cx,
                     )
@@ -43,7 +46,7 @@ pub(super) fn interaction_group(
                     mode_option(
                         theme,
                         "settings-voice-mode-continuous",
-                        "Continuous Listening",
+                        ui::i18n::text("voice.continuous_listening"),
                         mode == VoiceInteractionMode::ContinuousListening,
                         cx,
                     )
@@ -75,8 +78,11 @@ fn dictation_trigger_row(
     let trigger = state.values().dictation_trigger();
     compact_interaction_row(
         theme,
-        "Shortcut",
-        format!("{shortcut} · Hold or toggle"),
+        ui::i18n::text("voice.shortcut"),
+        ui::i18n::format(
+            "voice.shortcut_hold_or_toggle",
+            &[("shortcut", (shortcut).to_string())],
+        ),
         div()
             .flex()
             .flex_row()
@@ -85,7 +91,7 @@ fn dictation_trigger_row(
                 mode_option(
                     theme,
                     "settings-voice-trigger-hold",
-                    "Hold",
+                    ui::i18n::text("voice.hold"),
                     trigger == DictationTrigger::Hold,
                     cx,
                 )
@@ -100,7 +106,7 @@ fn dictation_trigger_row(
                 mode_option(
                     theme,
                     "settings-voice-trigger-toggle",
-                    "Toggle",
+                    ui::i18n::text("voice.toggle"),
                     trigger == DictationTrigger::Toggle,
                     cx,
                 )

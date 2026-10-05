@@ -1,0 +1,16 @@
+{
+  "preview.open_project": "请先打开项目，再预览终端中的文件链接。",
+  "preview.arrange_failed": "无法排列预览链接卡片。",
+  "preview.picker_title": "预览文件或图片",
+  "preview.refresh_unsaved": "刷新文件前，请保存或取消编辑。",
+  "preview.leave_unsaved": "仍有未保存的修改，离开前请保存或取消编辑。",
+  "preview.save_failed": "无法保存文件：%{reason}",
+  "preview.empty_selection": "请至少选择一个预览文件",
+  "preview.not_found": "文件不存在",
+  "preview.not_file": "此路径不是文件",
+  "preview.unsupported": "不支持此预览类型",
+  "preview.images_only": "多选仅支持图片文件",
+  "preview.read_failed": "无法读取文件：%{reason}",
+  "preview.invalid_uri": "本地文件 URI 无效",
+  "preview.close_unsaved": "仍有未保存的修改，关闭卡片前请保存或取消编辑。"
+}

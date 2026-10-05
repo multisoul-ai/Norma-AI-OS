@@ -28,7 +28,7 @@ pub(super) fn hooks_settings(
             theme,
             &HookProviderRowSpec {
                 title: "Codex",
-                hint: "Manage lifecycle hooks in ~/.codex/hooks.json",
+                hint: ui::i18n::text("settings.manage_lifecycle_hooks_in_codex_hooks_json"),
                 config_path: paths.codex_hooks.display().to_string(),
                 installed: codex_installed,
                 status: &panel.codex_hook_status,
@@ -41,7 +41,7 @@ pub(super) fn hooks_settings(
             theme,
             &HookProviderRowSpec {
                 title: "Claude Code",
-                hint: "Manage lifecycle hooks in ~/.claude/settings.json",
+                hint: ui::i18n::text("settings.manage_lifecycle_hooks_in_claude_settings_json"),
                 config_path: paths.claude_settings.display().to_string(),
                 installed: claude_installed,
                 status: &panel.claude_hook_status,
@@ -54,7 +54,7 @@ pub(super) fn hooks_settings(
             theme,
             &HookProviderRowSpec {
                 title: "Cursor Agent CLI",
-                hint: "Manage lifecycle hooks in ~/.cursor/hooks.json",
+                hint: ui::i18n::text("settings.manage_lifecycle_hooks_in_cursor_hooks_json"),
                 config_path: paths.cursor_hooks.display().to_string(),
                 installed: cursor_installed,
                 status: &panel.cursor_hook_status,
@@ -67,7 +67,7 @@ pub(super) fn hooks_settings(
             theme,
             &HookProviderRowSpec {
                 title: "Grok Build",
-                hint: "Manage lifecycle hooks in ~/.grok/hooks",
+                hint: ui::i18n::text("settings.manage_lifecycle_hooks_in_grok_hooks"),
                 config_path: paths.grok_hooks.display().to_string(),
                 installed: grok_installed,
                 status: &panel.grok_hook_status,
@@ -80,7 +80,7 @@ pub(super) fn hooks_settings(
             theme,
             &HookProviderRowSpec {
                 title: "OpenCode",
-                hint: "Manage lifecycle hooks in ~/.config/opencode/plugins",
+                hint: ui::i18n::text("settings.manage_lifecycle_hooks_in_config_opencode_plugins"),
                 config_path: paths.opencode_plugin.display().to_string(),
                 installed: opencode_installed,
                 status: &panel.opencode_hook_status,
@@ -171,35 +171,43 @@ fn install_status_for(target: HookTarget) -> HookInstallStatus {
             is_error: false,
         },
         Err(error) => HookInstallStatus {
-            message: Some(error.to_string()),
+            message: Some(error.to_string().into()),
             is_error: true,
         },
     }
 }
 
-fn hook_install_success_message(target: HookTarget, command_path: &std::path::Path) -> String {
+fn hook_install_success_message(
+    target: HookTarget,
+    command_path: &std::path::Path,
+) -> ui::i18n::LocalizedText {
     let provider = match target {
         HookTarget::Claude => "Claude Code",
         HookTarget::Codex => "Codex",
         HookTarget::Cursor => "Cursor Agent CLI",
         HookTarget::Grok => "Grok Build",
         HookTarget::OpenCode => "OpenCode",
-        HookTarget::All => "agent providers",
+        HookTarget::All => ui::i18n::text("settings.agent_providers"),
     };
-    format!(
-        "Installed using {}. {provider} reads hooks when a session starts; restart existing Agent cards or create a new Agent card to activate lifecycle status updates.",
-        command_path.display()
+    ui::i18n::message(
+        "settings.installed_using_provider_reads_hooks_when_a_session_starts_restart_existing",
+        &[
+            ("arg0", (command_path.display()).to_string()),
+            ("provider", (provider).to_string()),
+        ],
     )
 }
 
 fn uninstall_status_for(target: HookTarget) -> HookInstallStatus {
     match uninstall_agent_hooks(target) {
         Ok(()) => HookInstallStatus {
-            message: Some("Norma OS hooks removed".to_string()),
+            message: Some(ui::i18n::LocalizedText::new(
+                "settings.norma_os_hooks_removed",
+            )),
             is_error: false,
         },
         Err(error) => HookInstallStatus {
-            message: Some(error.to_string()),
+            message: Some(error.to_string().into()),
             is_error: true,
         },
     }
@@ -220,9 +228,15 @@ fn hook_provider_row(
         button_id,
     } = *spec;
     let (button_label, accent) = if installed {
-        ("Uninstall hooks", theme.destructive)
+        (
+            ui::i18n::text("settings.uninstall_hooks"),
+            theme.destructive,
+        )
     } else {
-        ("Install hooks", theme.accent_orange)
+        (
+            ui::i18n::text("settings.install_hooks"),
+            theme.accent_orange,
+        )
     };
 
     div()
@@ -265,7 +279,10 @@ fn hook_provider_row(
                                     theme.text_secondary
                                 }))
                                 .child(if installed {
-                                    format!("Installed · {config_path}")
+                                    ui::i18n::format(
+                                        "settings.installed_config_path",
+                                        &[("config_path", (config_path).to_string())],
+                                    )
                                 } else {
                                     config_path.as_str().to_owned()
                                 }),

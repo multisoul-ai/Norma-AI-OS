@@ -3,6 +3,8 @@
 mod dock;
 mod top_bar;
 
+pub(crate) use top_bar::{top_bar_theme, TOP_BAR_HEIGHT};
+
 use super::MultisoulApp;
 use crate::app::wallpaper_resolvers::WallpaperKind;
 use gpui::{

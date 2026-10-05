@@ -259,7 +259,7 @@ impl VoiceSettingsState {
         }
     }
 
-    pub(crate) fn fail_tts_picker_apply(&mut self, message: impl Into<String>) {
+    pub(crate) fn fail_tts_picker_apply(&mut self, message: impl Into<ui::i18n::LocalizedText>) {
         if let Some(draft) = self.tts_picker.as_mut() {
             draft.applying = false;
         }

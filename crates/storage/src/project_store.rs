@@ -12,6 +12,39 @@ pub struct ProjectStore {
 }
 
 impl ProjectStore {
+    /// Background-only persisted member lookup. Does not open a Runtime or create missing canvases.
+    pub fn desktop_activity_members(
+        app_db: &Path,
+        area: &crate::DesktopProjectArea,
+    ) -> StorageResult<Vec<(canvas::CanvasNodeSnapshot, crate::AgentDefinition)>> {
+        let canvas = desktop_canvas_path(app_db, &area.desktop_workspace_id, &area.id)?;
+        let parent = app_db
+            .parent()
+            .ok_or_else(|| StorageError::InvalidAppDatabasePath(app_db.to_owned()))?;
+        let definitions = parent.join("desktop-project-definitions").join(format!(
+            "{:x}.sqlite",
+            Sha256::digest(area.project_key.to_string_lossy().as_bytes())
+        ));
+        if !canvas.is_file() || !definitions.is_file() {
+            return Ok(Vec::new());
+        }
+        let members = crate::AgentDefinitionStore::new(definitions).list()?;
+        let document = crate::CanvasStore::new(canvas).load_snapshot()?;
+        Ok(document
+            .into_iter()
+            .flat_map(|d| d.nodes)
+            .filter_map(|node| {
+                let canvas::CanvasNodeKind::Agent(spec) = &node.kind else {
+                    return None;
+                };
+                let definition = members
+                    .iter()
+                    .find(|d| Some(d.id) == spec.definition_id)?
+                    .clone();
+                Some((node, definition))
+            })
+            .collect())
+    }
     pub fn new(path: PathBuf) -> Self {
         ProjectStore { path }
     }
@@ -50,6 +83,9 @@ impl ProjectStore {
         let store = Self::new(path.clone());
         store
             .migrate()
+            .map_err(|source| project_initialization_error(paths, path.clone(), source))?;
+        let connection = crate::migrations::open_project_connection(&path)?;
+        crate::migrations::desktop_canvas::migrate(&connection)
             .map_err(|source| project_initialization_error(paths, path, source))?;
         Ok(store)
     }

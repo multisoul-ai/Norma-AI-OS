@@ -1,7 +1,7 @@
 use super::{Action, Request, Shared};
 use norma::mobile::ThreadMessage;
 use serde_json::{json, Value};
-use storage::{MobileDeviceGrant, NewThreadMessage, StoredThreadMessage, ThreadMessageStore};
+use storage::{MobileDeviceGrant, StoredThreadMessage, ThreadMessageStore};
 
 pub(super) fn handle(
     shared: &Shared,
@@ -17,26 +17,6 @@ pub(super) fn handle(
         .ok_or("unauthorized")?;
     let store = ThreadMessageStore::new(access.store.path().to_path_buf());
     match &request.action {
-        Action::ThreadMessage { message, .. } => {
-            message.validate().map_err(|_| "invalid_request")?;
-            authorize(message, &grant)?;
-            let receipt = store
-                .receive(&NewThreadMessage {
-                    device_id: device.into(),
-                    source_mac_id: request.machine_id.clone(),
-                    collaboration_workspace_id: message.collaboration_workspace_id.clone(),
-                    thread_id: message.thread_id.clone(),
-                    operation_id: message.operation_id.clone(),
-                    message_id: message.message_id.clone(),
-                    origin_device_id: message.origin_device_id.clone(),
-                    fingerprint: message
-                        .fingerprint(&request.machine_id)
-                        .map_err(|_| "invalid_request")?,
-                    payload: serde_json::to_string(message).map_err(|_| "invalid_request")?,
-                })
-                .map_err(store_error)?;
-            Ok(json!({"status":"thread_receipt", "thread_receipt":receipt}))
-        }
         Action::ThreadReceipt {
             collaboration_workspace_id,
             thread_id,

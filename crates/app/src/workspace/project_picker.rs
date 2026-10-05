@@ -15,7 +15,7 @@ impl MultisoulApp {
             files: false,
             directories: true,
             multiple: false,
-            prompt: Some("Open Project".into()),
+            prompt: Some(ui::i18n::text("workspace.open_project").into()),
         });
         self.handle_project_picker_receiver(receiver, window, cx);
     }
@@ -43,15 +43,18 @@ impl MultisoulApp {
                 Ok(Ok(None)) => {}
                 Ok(Err(error)) => {
                     let _ = this.update(&mut *cx, |app, cx| {
-                        app.workspace_state.error =
-                            Some(format!("Could not open project picker: {error}"));
+                        app.workspace_state.error = Some(ui::i18n::message(
+                            "workspace.could_not_open_project_picker_error",
+                            &[("error", (error).to_string())],
+                        ));
                         cx.notify();
                     });
                 }
                 Err(error) => {
                     let _ = this.update(&mut *cx, |app, cx| {
-                        app.workspace_state.error = Some(format!(
-                            "Project picker was cancelled unexpectedly: {error}"
+                        app.workspace_state.error = Some(ui::i18n::message(
+                            "workspace.project_picker_was_cancelled_unexpectedly_error",
+                            &[("error", (error).to_string())],
                         ));
                         cx.notify();
                     });

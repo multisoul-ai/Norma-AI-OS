@@ -1,4 +1,6 @@
 //! Agent card task queue badge and anchored sidecar.
+mod task;
+use task::{source_pill, task_detail, task_summary};
 
 use crate::app::MultisoulApp;
 use agent::{AgentQueueTask, AgentQueueTaskSource};
@@ -51,8 +53,14 @@ pub(crate) fn render_badge(
         .child(
             Button::new(("agent-queue-badge", node_id))
                 .debug_selector(move || selector.clone())
-                .label(format!("QUEUE {count}"))
-                .tooltip(format!("{count} 个等待任务"))
+                .label(ui::i18n::format(
+                    "cards.queue_count",
+                    &[("count", (count).to_string())],
+                ))
+                .tooltip(ui::i18n::format(
+                    "cards.count_queued_tasks",
+                    &[("count", (count).to_string())],
+                ))
                 .compact()
                 .custom(variant)
                 .h(px((20.0 * zoom).clamp(18.0, 24.0)))
@@ -90,7 +98,7 @@ pub(crate) fn render_panel(
         .iter()
         .find(|definition| definition.id == definition_id)
         .map(|definition| definition.name.clone())
-        .unwrap_or_else(|| "Agent".to_string());
+        .unwrap_or_else(|| ui::i18n::text("cards.agent").to_string());
     let waiting_count = snapshot.waiting.len();
     let running_count = usize::from(snapshot.current.is_some());
     let selected_task_ref = app.agent_queue_ui.selected_task_ref().map(str::to_string);
@@ -174,16 +182,17 @@ pub(crate) fn render_panel(
                     .overflow_y_scroll()
                     .when_some(current, |body, current| body.child(current))
                     .when(!waiting.is_empty(), |body| {
-                        body.child(section_label("接下来", theme)).child(
-                            div()
-                                .flex()
-                                .flex_col()
-                                .rounded(px(10.0))
-                                .border_1()
-                                .border_color(rgba(with_alpha(theme.edge_highlight, 0x54)))
-                                .overflow_hidden()
-                                .children(waiting),
-                        )
+                        body.child(section_label(ui::i18n::text("cards.up_next"), theme))
+                            .child(
+                                div()
+                                    .flex()
+                                    .flex_col()
+                                    .rounded(px(10.0))
+                                    .border_1()
+                                    .border_color(rgba(with_alpha(theme.edge_highlight, 0x54)))
+                                    .overflow_hidden()
+                                    .children(waiting),
+                            )
                     })
                     .when(
                         snapshot.current.is_none() && snapshot.waiting.is_empty(),
@@ -194,7 +203,7 @@ pub(crate) fn render_panel(
                                     .text_center()
                                     .text_size(px(12.0))
                                     .text_color(rgba(theme.text_tertiary))
-                                    .child("暂无任务"),
+                                    .child(ui::i18n::text("cards.no_tasks")),
                             )
                         },
                     ),
@@ -235,20 +244,29 @@ fn render_header(
                     div()
                         .text_size(px(15.0))
                         .font_weight(FontWeight::BOLD)
-                        .child(format!("{agent_name} 的任务队列")),
+                        .child(ui::i18n::format(
+                            "cards.agent_name_s_task_queue",
+                            &[("agent_name", (agent_name).to_string())],
+                        )),
                 )
                 .child(
                     div()
                         .text_size(px(11.0))
                         .text_color(rgba(theme.text_tertiary))
-                        .child(format!("{running_count} 个进行中 · {waiting_count} 个等待")),
+                        .child(ui::i18n::format(
+                            "cards.running_count_running_waiting_count_queued",
+                            &[
+                                ("running_count", (running_count).to_string()),
+                                ("waiting_count", (waiting_count).to_string()),
+                            ],
+                        )),
                 ),
         )
         .child(
             Button::new(("agent-queue-close", node_id))
                 .debug_selector(|| "agent-queue-close".to_string())
                 .label("×")
-                .tooltip("关闭任务队列")
+                .tooltip(ui::i18n::text("cards.close_task_queue"))
                 .ghost()
                 .compact()
                 .on_click(cx.listener(|app, _, _window, cx| {
@@ -271,7 +289,7 @@ fn render_current(
         .flex()
         .flex_col()
         .gap(px(7.0))
-        .child(section_label("正在执行", theme))
+        .child(section_label(ui::i18n::text("cards.running"), theme))
         .child(
             div()
                 .id(("agent-queue-current", node_id))
@@ -381,7 +399,7 @@ fn render_waiting_row(
                             Button::new(("agent-queue-cancel", task.task_id))
                                 .debug_selector(move || format!("agent-queue-cancel-{index}"))
                                 .label("×")
-                                .tooltip("撤回这条等待任务")
+                                .tooltip(ui::i18n::text("cards.withdraw_queued_task"))
                                 .ghost()
                                 .compact()
                                 .text_color(rgba(theme.destructive))
@@ -404,77 +422,6 @@ fn render_waiting_row(
                     .child(task_detail(task, theme)),
             )
         })
-}
-
-fn task_summary(task: &str, theme: Theme) -> Div {
-    div()
-        .flex_1()
-        .min_w(px(0.0))
-        .overflow_hidden()
-        .truncate()
-        .text_size(px(12.0))
-        .text_color(rgba(theme.text_primary))
-        .child(task.to_string())
-}
-
-fn task_detail(task: &AgentQueueTask, theme: Theme) -> Div {
-    div()
-        .mx(px(10.0))
-        .mb(px(10.0))
-        .p(px(10.0))
-        .flex()
-        .flex_col()
-        .gap(px(6.0))
-        .rounded(px(8.0))
-        .bg(rgba(with_alpha(theme.panel_high, 0x78)))
-        .text_size(px(11.0))
-        .text_color(rgba(theme.text_secondary))
-        .child(task.task.clone())
-        .child(
-            div()
-                .text_size(px(9.0))
-                .text_color(rgba(theme.text_tertiary))
-                .child(format!("任务引用 · {}", task.task_ref)),
-        )
-}
-
-fn source_pill(
-    app: &MultisoulApp,
-    task_id: u64,
-    waiting_index: Option<usize>,
-    source: AgentQueueTaskSource,
-    theme: Theme,
-) -> impl IntoElement {
-    let (label, slug) = match source {
-        AgentQueueTaskSource::Norma => ("Norma".to_string(), "norma".to_string()),
-        AgentQueueTaskSource::Manual => ("手动".to_string(), "manual".to_string()),
-        AgentQueueTaskSource::Agent { definition_id } => {
-            let name = app
-                .agent_definitions
-                .definitions()
-                .iter()
-                .find(|definition| definition.id == definition_id)
-                .map(|definition| definition.name.clone())
-                .unwrap_or_else(|| "Agent".to_string());
-            (name, "agent".to_string())
-        }
-    };
-    let selector = waiting_index.map(|index| format!("agent-queue-source-{index}-{slug}"));
-    div()
-        .id(("agent-queue-source", task_id))
-        .when_some(selector, |pill, selector| {
-            pill.debug_selector(move || selector.clone())
-        })
-        .flex_none()
-        .px(px(7.0))
-        .h(px(22.0))
-        .flex()
-        .items_center()
-        .rounded(px(11.0))
-        .bg(rgba(with_alpha(theme.panel_high, 0x88)))
-        .text_size(px(9.0))
-        .text_color(rgba(theme.text_tertiary))
-        .child(label)
 }
 
 fn section_label(label: &'static str, theme: Theme) -> Div {

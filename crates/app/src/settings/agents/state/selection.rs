@@ -25,7 +25,9 @@ impl AgentDefinitionsState {
             self.status = None;
             true
         } else {
-            self.status = Some("Could not load that agent.".to_string());
+            self.status = Some(ui::i18n::LocalizedText::new(
+                "settings.could_not_load_that_agent",
+            ));
             false
         }
     }
@@ -46,7 +48,9 @@ impl AgentDefinitionsState {
             return false;
         }
         if self.store.is_none() {
-            self.status = Some("Open a project before editing Agents.".to_string());
+            self.status = Some(ui::i18n::LocalizedText::new(
+                "settings.open_a_project_before_editing_agents",
+            ));
             return false;
         }
         self.prepare_new_draft();
@@ -61,7 +65,9 @@ impl AgentDefinitionsState {
                     self.status = None;
                     true
                 } else {
-                    self.status = Some("Could not revert that agent.".to_string());
+                    self.status = Some(ui::i18n::LocalizedText::new(
+                        "settings.could_not_revert_that_agent",
+                    ));
                     false
                 }
             }
@@ -87,7 +93,9 @@ impl AgentDefinitionsState {
 
     pub(crate) fn open_delete_dialog(&mut self, id: i64, blocked: bool) -> bool {
         if self.is_dirty() {
-            self.status = Some("Save or discard changes before deleting this Agent.".to_string());
+            self.status = Some(ui::i18n::LocalizedText::new(
+                "settings.save_or_discard_changes_before_deleting_this_agent",
+            ));
             return false;
         }
         let Some(definition) = self
@@ -95,7 +103,9 @@ impl AgentDefinitionsState {
             .iter()
             .find(|definition| definition.id == id)
         else {
-            self.status = Some("Could not find that Agent.".to_string());
+            self.status = Some(ui::i18n::LocalizedText::new(
+                "settings.could_not_find_that_agent_2",
+            ));
             return false;
         };
         self.delete_dialog = Some(if blocked {
@@ -129,7 +139,9 @@ impl AgentDefinitionsState {
                 ..
             }) if pending_id == id
         ) {
-            self.status = Some("Delete confirmation is no longer active.".to_string());
+            self.status = Some(ui::i18n::LocalizedText::new(
+                "settings.delete_confirmation_is_no_longer_active",
+            ));
             return false;
         }
         self.delete_dialog = None;
@@ -138,8 +150,9 @@ impl AgentDefinitionsState {
 
     pub(crate) fn prepare_create_card_from_definition(&mut self, id: i64) -> bool {
         if self.is_dirty() {
-            self.status =
-                Some("Save or discard the current Agent before creating a card.".to_string());
+            self.status = Some(ui::i18n::LocalizedText::new(
+                "settings.save_or_discard_the_current_agent_before_creating_a_card",
+            ));
             return false;
         }
         self.select_definition(id)
@@ -147,7 +160,9 @@ impl AgentDefinitionsState {
 
     pub(super) fn ensure_clean_for_navigation(&mut self) -> bool {
         if self.is_dirty() {
-            self.status = Some("Save or discard the current Agent before switching.".to_string());
+            self.status = Some(ui::i18n::LocalizedText::new(
+                "settings.save_or_discard_the_current_agent_before_switching",
+            ));
             false
         } else {
             true
@@ -215,8 +230,12 @@ impl AgentDefinitionsState {
         let previous_selection = self.selected_definition_id;
         self.reset_draft();
         if name.is_empty() {
-            self.status =
-                Some("All 30 built-in Agent names are in use; enter a custom name.".into());
+            self.status = Some(
+                ui::i18n::LocalizedText::new(
+                    "settings.all_30_built_in_agent_names_are_in_use_enter_a",
+                )
+                .into(),
+            );
             return;
         }
         self.draft = AgentDefinitionDraft {

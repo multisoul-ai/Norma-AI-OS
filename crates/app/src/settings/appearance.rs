@@ -12,8 +12,22 @@ pub(super) fn theme_appearance(
         .flex()
         .flex_col()
         .gap(px(30.0))
-        .child(theme_group("Light", false, active_theme, theme, width, cx))
-        .child(theme_group("Dark", true, active_theme, theme, width, cx))
+        .child(theme_group(
+            ui::i18n::text("settings.light"),
+            false,
+            active_theme,
+            theme,
+            width,
+            cx,
+        ))
+        .child(theme_group(
+            ui::i18n::text("settings.dark"),
+            true,
+            active_theme,
+            theme,
+            width,
+            cx,
+        ))
 }
 
 fn theme_group(
@@ -36,9 +50,9 @@ fn theme_group(
         "settings-theme-group-light"
     };
     let subtitle = if dark {
-        "Focused palettes for low-light work"
+        ui::i18n::text("settings.focused_palettes_for_low_light_work")
     } else {
-        "Bright palettes for everyday work"
+        ui::i18n::text("settings.bright_palettes_for_everyday_work")
     };
     div()
         .id(("settings-theme-group", group_index))

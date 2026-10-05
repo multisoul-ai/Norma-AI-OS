@@ -7,6 +7,7 @@ use std::sync::{
     Arc,
 };
 use std::time::{Duration, Instant};
+use ui::i18n::LocalizedText;
 
 // TTS admits at most 30 s of PCM; 100 ms coalescing produces at most 301 buffers.
 const MAX_PENDING_COMPLETIONS: usize = 512;
@@ -30,7 +31,7 @@ pub(super) struct PlaybackQueue {
     audio: crossbeam_channel::Sender<(u64, PcmAudioChunk)>,
     control: crossbeam_channel::Sender<PlaybackControl>,
     epoch: Arc<AtomicU64>,
-    pub(super) errors: async_channel::Receiver<String>,
+    pub(super) errors: async_channel::Receiver<LocalizedText>,
 }
 
 impl PlaybackQueue {
@@ -38,23 +39,27 @@ impl PlaybackQueue {
         self.epoch.load(Ordering::Acquire)
     }
 
-    pub(super) fn enqueue_for(&self, generation: u64, pcm: PcmAudioChunk) -> Result<(), String> {
+    pub(super) fn enqueue_for(
+        &self,
+        generation: u64,
+        pcm: PcmAudioChunk,
+    ) -> Result<(), LocalizedText> {
         if generation != self.generation() {
             return Ok(());
         }
         self.audio
             .try_send((generation, pcm))
-            .map_err(|_| "豆包音频播放跟不上实时语速，请检查输出设备".to_string())
+            .map_err(|_| LocalizedText::new("doubao.playback_overflow"))
     }
 
     pub(super) fn finish_for(
         &self,
         generation: u64,
-    ) -> Result<async_channel::Receiver<()>, String> {
+    ) -> Result<async_channel::Receiver<()>, LocalizedText> {
         let (done, receiver) = async_channel::bounded(1);
         self.control
             .send(PlaybackControl::Finish { generation, done })
-            .map_err(|_| "豆包音频播放器已结束".to_string())?;
+            .map_err(|_| LocalizedText::new("doubao.playback_ended"))?;
         Ok(receiver)
     }
 
@@ -133,7 +138,7 @@ pub(super) fn start_playback_with(
                         ) {
                             Ok(duration) => duration,
                             Err(error) => {
-                                let _ = error_tx.try_send(error);
+                                let _ = error_tx.try_send(LocalizedText::new("doubao.playback_failed").with_arg("reason", error));
                                 break;
                             }
                         };
@@ -171,11 +176,11 @@ pub(super) fn start_playback_with(
                         }
                     });
                     if callback_lost {
-                        let _ = error_tx.try_send("豆包音频播放完成回调丢失".to_string());
+                        let _ = error_tx.try_send(LocalizedText::new("doubao.playback_callback_lost"));
                         break;
                     }
                     if callback_timed_out {
-                        let _ = error_tx.try_send("豆包音频播放完成回调超时".to_string());
+                        let _ = error_tx.try_send(LocalizedText::new("doubao.playback_callback_timeout"));
                         break;
                     }
                 },

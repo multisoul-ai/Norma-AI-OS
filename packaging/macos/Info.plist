@@ -1,15 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
-  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>NSSpeechRecognitionUsageDescription</key>
-  <string>Norma OS uses speech recognition to turn spoken commands into card actions.</string>
-  <key>NSMicrophoneUsageDescription</key>
-  <string>Norma OS uses the microphone while voice input or a voice conversation is active.</string>
-  <key>LSMinimumSystemVersion</key>
-  <string>12.0</string>
-  <key>LSApplicationCategoryType</key>
-  <string>public.app-category.developer-tools</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Norma OS uses speech recognition to turn spoken commands into card actions.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Norma OS uses the microphone while voice input or a voice conversation is active.</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>12.0</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.developer-tools</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>zh-CN</string>
+	</array>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
 </dict>
 </plist>

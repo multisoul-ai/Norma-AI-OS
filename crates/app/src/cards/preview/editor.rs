@@ -36,7 +36,7 @@ pub(super) fn render_reading(
                 .child(command_button(
                     node_id,
                     "preview-edit",
-                    "Edit",
+                    ui::i18n::text("cards.edit"),
                     PreviewEditCommandKind::Edit,
                 )),
         )
@@ -52,13 +52,13 @@ pub(super) fn render_editor(
     radius: f32,
 ) -> AnyElement {
     let status = if editor.saving {
-        "Saving…"
+        ui::i18n::text("cards.saving")
     } else if editor.dirty {
-        "Unsaved changes"
+        ui::i18n::text("cards.unsaved_changes")
     } else if editor.saved {
-        "Saved"
+        ui::i18n::text("cards.saved")
     } else {
-        "Editing file"
+        ui::i18n::text("cards.editing_file")
     };
     div()
         .id(("preview-editor", node_id))
@@ -91,7 +91,11 @@ pub(super) fn render_editor(
                     command_button(
                         node_id,
                         "preview-cancel",
-                        if editor.dirty { "Cancel" } else { "Done" },
+                        if editor.dirty {
+                            ui::i18n::text("common.cancel")
+                        } else {
+                            "Done"
+                        },
                         PreviewEditCommandKind::Cancel,
                     )
                     .disabled(editor.saving),
@@ -100,7 +104,7 @@ pub(super) fn render_editor(
                     command_button(
                         node_id,
                         "preview-save",
-                        "Save",
+                        ui::i18n::text("common.save"),
                         PreviewEditCommandKind::Save,
                     )
                     .primary()

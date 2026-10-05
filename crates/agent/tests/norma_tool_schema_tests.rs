@@ -1,13 +1,13 @@
 use agent::norma_tool_definitions;
 use serde_json::json;
 
-/// TOOL-1：Norma 只向模型暴露十六个窄工具及其精确必填参数。
+/// TOOL-1：Norma 只向模型暴露十七个窄工具及其精确必填参数。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   Existing tools = 10（查询、创建 Agent、派发、取消任务、建 Terminal/Browser/Preview、聚焦、输入、删除）
 ///   Session reply tools = 2（reply_agent + cancel_agent_reply）
 ///   Memory tools = 4（目录、搜索、读取、写入）
-///   Expected tools = 10 + 2 + 4 = 16
+///   Expected tools = 10 + 2 + 4 + 1 = 17（额外只读 workspace_memory）
 ///   `assign_agent_task` required fields = 2（agent + task）
 ///   `reply_agent` required fields = 2（agent + message）
 ///   `create_browser` required fields = 0（无 URL 时使用产品默认首页）
@@ -20,11 +20,11 @@ use serde_json::json;
 ///   3. 检查 `assign_agent_task`、`reply_agent` 和 `create_agent` 的 JSON Schema
 ///
 /// 预期结果：
-///   - 正断言：十六个工具全部存在且名称准确
+///   - 正断言：十七个工具全部存在且名称准确
 ///   - 正断言：派发工具仅要求 agent 与 task，创建 Agent 工具允许 Grok profile
 ///   - 负断言：不再暴露 `open_agent`，模型也不能提供 name/activate 或未知 profile
 #[test]
-fn norma_exposes_exactly_sixteen_narrow_tool_schemas() {
+fn norma_exposes_exactly_seventeen_narrow_tool_schemas() {
     let definitions = norma_tool_definitions();
     let names = definitions
         .iter()
@@ -47,11 +47,12 @@ fn norma_exposes_exactly_sixteen_narrow_tool_schemas() {
         "memory_search",
         "memory_read",
         "memory_write",
+        "workspace_memory",
     ];
 
     assert_eq!(
         names, expected,
-        "Norma should expose only the sixteen supported narrow tools in deterministic order"
+        "Norma should expose only the seventeen supported narrow tools in deterministic order"
     );
     assert!(
         !names.contains(&"open_agent"),

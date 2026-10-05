@@ -31,6 +31,10 @@ pub struct ToolContext {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub enum AdapterCommand {
     Memory(crate::MemoryCommand),
+    WorkspaceMemory {
+        area_id: String,
+        command: crate::MemoryCommand,
+    },
     FindAgentTasks {
         task_id: Option<u64>,
         agent: Option<String>,
@@ -235,6 +239,18 @@ impl NormaToolRuntime {
         }
 
         let command = parse_adapter_command(tool_name, arguments)?;
+        if context.input_source == crate::AgentInputSource::MobileDiscussion
+            && !matches!(
+                command,
+                AdapterCommand::Memory(_)
+                    | AdapterCommand::WorkspaceMemory { .. }
+                    | AdapterCommand::FindAgentTasks { .. }
+            )
+        {
+            return Err(AdapterError::Rejected(
+                "这条群聊消息仅供讨论，用户尚未要求执行".into(),
+            ));
+        }
         let delete_authorized = match &command {
             AdapterCommand::DeleteCanvasCard { node_id } => Some(has_explicit_delete_intent(
                 &context.user_input,
@@ -395,6 +411,7 @@ pub fn norma_tool_definitions() -> Vec<ToolDefinition> {
         ),
     ];
     tools.extend(crate::memory_access::definitions());
+    tools.push(definition("workspace_memory", "只读指定工作空间项目区域的项目或工作树记忆。area_id 必须来自目录；不接受路径。action 为 list/search/read，需要正文时使用 read。",object_schema(json!({"area_id":{"type":"string"},"action":{"type":"string","enum":["list","search","read"]},"scope":{"type":"string","enum":["project","worktree"]},"id":{"type":"string"},"query":{"type":"string"},"offset":{"type":"integer","minimum":0}}),&["area_id","action","scope"])));
     tools
 }
 

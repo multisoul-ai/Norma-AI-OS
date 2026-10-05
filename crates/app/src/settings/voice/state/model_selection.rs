@@ -112,7 +112,11 @@ impl VoiceSettingsState {
         self.tts_model_manager = manager;
     }
 
-    pub(crate) fn report_tts_status(&mut self, message: impl Into<String>, is_error: bool) {
+    pub(crate) fn report_tts_status(
+        &mut self,
+        message: impl Into<ui::i18n::LocalizedText>,
+        is_error: bool,
+    ) {
         if self.values.desktop_mode() == super::DesktopVoiceMode::Doubao {
             return;
         }

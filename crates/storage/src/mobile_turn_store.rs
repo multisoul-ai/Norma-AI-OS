@@ -80,9 +80,7 @@ impl MobileTurnStore {
     }
     pub(crate) fn connection(&self) -> StorageResult<Connection> {
         if let Some(id) = &self.workspace_id {
-            if id.is_empty() || id.len() > 128 {
-                return Err(invalid("invalid workspace scope"));
-            }
+            validate_workspace_scope(id)?;
             crate::migrations::open_app_connection(&self.path)
         } else {
             open_project_connection(&self.path)
@@ -192,4 +190,17 @@ pub(crate) fn record(
 }
 fn invalid(message: &str) -> StorageError {
     io::Error::new(io::ErrorKind::InvalidData, message).into()
+}
+
+/// Runtime scope is distinct from the flat project IDs used in device grants.
+pub(crate) fn validate_workspace_scope(scope: &str) -> StorageResult<()> {
+    if let Some(rest) = scope.strip_prefix("desktop:") {
+        let (workspace, area) = rest
+            .split_once(':')
+            .ok_or_else(|| invalid("invalid desktop scope"))?;
+        crate::mobile_access_store::validate_id(workspace)?;
+        crate::mobile_access_store::validate_id(area)
+    } else {
+        crate::mobile_access_store::validate_id(scope)
+    }
 }

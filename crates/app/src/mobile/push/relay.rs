@@ -128,7 +128,7 @@ impl Relay {
             .send(body)
             .map_err(|_| "delivery_unknown")?;
         let status = response.status().as_u16();
-        if matches!(status, 401 | 403 | 422) {
+        if matches!(status, 401 | 403) {
             return Err("push_configuration_error");
         }
         let body: Value = response
@@ -140,6 +140,8 @@ impl Relay {
         // Only fixed protocol codes may reach the log; never echo a response body or credential.
         match (status, body["error"].as_str()) {
             (200, _) if body["status"] == "accepted" => Ok(None),
+            (422, Some("token_invalid")) => Ok(Some(0)),
+            (422, _) => Err("push_configuration_error"),
             (410, Some("token_unregistered")) => body["invalidated_at"]
                 .as_u64()
                 .filter(|time| *time <= i64::MAX as u64)

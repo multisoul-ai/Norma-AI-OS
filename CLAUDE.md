@@ -51,7 +51,8 @@ ui -> {gpui, gpui-component}
 - **Pinned libraries require verification**: `gpui =0.2.2`, `gpui-component =0.5.1`, and `alacritty_terminal =0.26` are pinned. Upgrade only after checking API compatibility.
 - **Prefer gpui-component for GUI**: in `crates/app` / `crates/ui`, use `ui::component` (Longbridge) before hand-rolling controls with bare `div()`; see [`docs/references/gpui-component.md`](docs/references/gpui-component.md). Call `ui::init_components(cx)` at app entry (already done in `run_norma_os` / `MultisoulApp::build`).
 - **Interactive controls require visible states**: menus, buttons, clickable rows, and similar controls must implement every applicable hover, pressed, keyboard-focus, selected/toggled, and disabled state. Hover must remain visibly distinct across all themes; follow [`docs/quality/ui-interaction-feedback.md`](docs/quality/ui-interaction-feedback.md).
-- **页面与交互遵循 Apple 设计哲学**：以 Apple Human Interface Guidelines 和 macOS 原生体验为设计基线，优先清晰层级、内容优先、直接操作、即时反馈、一致性与可访问性；新增或改版 UI 时须在方案和验收标准中说明这些原则如何落地，具体要求见 §8。
+- **菜单与选择器优先 Google Material 设计哲学**：清晰层级、紧凑触发器、可搜索浮层、柔和语义色；区分已选值与键盘浏览，保留 macOS 键盘习惯。浅色/深色均须真实 App 验收；见 [`docs/design-docs/material-menus.md`](docs/design-docs/material-menus.md)。
+- **其余页面与交互遵循 Apple 设计哲学**：以 Apple Human Interface Guidelines 和 macOS 原生体验为设计基线，优先清晰层级、内容优先、直接操作、即时反馈、一致性与可访问性；新增或改版 UI 时须在方案和验收标准中说明这些原则如何落地，具体要求见 §8。
 - **Consult GPUI skills first**: when writing GPUI code, load local `gpui-*` skills, then adapt to the pinned GPUI version; still prefer the component library when it covers the need.
 - **Rounded child surfaces need explicit ownership**: GPUI 0.2.2's `overflow_hidden()` uses a rectangular content mask. An opaque full-size `div`, `img`, or `surface` inside a rounded container must draw its exposed outer radii itself, or be partitioned away from the corner squares; protect the behavior with an automated test.
 - **New configurable app shortcuts must appear in Settings**: register them in `shortcuts.rs` and support recording/restoring them in Settings → Keyboard Shortcuts.
@@ -201,7 +202,7 @@ Choose the smallest sufficient implementation and verification flow from [`docs/
 
 ## 8. UI And Interaction Notes
 
-- 页面设计与交互必须参考 Apple Human Interface Guidelines，并以“像一个原生 macOS 应用”为体验基准，而非只模仿视觉样式。
+- 菜单与选择器按用户偏好优先 Google Material，具体原则见 [`material-menus.md`](docs/design-docs/material-menus.md)；其余页面参考 Apple Human Interface Guidelines。菜单仍保持 macOS 的快捷键、焦点和窗口行为。
 - 信息层级保持清晰，内容优先于装饰；使用克制的颜色、材质、阴影和动效，避免无功能价值的视觉噪音。
 - 优先直接操作与符合平台习惯的行为；控件、术语、菜单、快捷键、焦点和窗口行为应与 macOS 约定一致，偏离时必须有明确的产品理由。
 - 每次用户操作都应获得及时、可感知且不打断流程的状态反馈；危险或不可逆操作必须明确提示，并尽可能提供取消、撤销或恢复路径。

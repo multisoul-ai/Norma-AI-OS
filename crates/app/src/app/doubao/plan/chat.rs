@@ -5,6 +5,7 @@ use serde_json::{json, Value};
 use std::{path::PathBuf, sync::Arc};
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
+use ui::i18n::LocalizedText;
 
 use super::{plan_url, tts};
 use crate::app::doubao::{playback::PlaybackQueue, tools, DoubaoStatus};
@@ -12,6 +13,7 @@ use crate::app::doubao::{playback::PlaybackQueue, tools, DoubaoStatus};
 pub(super) struct ChatRuntime {
     pub(super) client: Client,
     pub(super) key: String,
+    pub(super) voice: &'static ::tts::providers::doubao::DoubaoVoice,
     pub(super) prompt: String,
     pub(super) history: Mutex<Vec<Value>>,
     pub(super) memory_epoch: std::sync::atomic::AtomicU64,
@@ -57,7 +59,7 @@ pub(crate) fn bounded_request(
     history: &mut Vec<Value>,
     include_tools: bool,
     personal: bool,
-) -> Result<Value, String> {
+) -> Result<Value, LocalizedText> {
     // Use a conservative 16K-token context ceiling for the fixed voice model.
     // Serialized 2 bytes/token; reserve reply(1024 tokens) + memory tools(8192 bytes).
     let budget = 16_384 * 2 - 1024 * 2 - agent::MEMORY_TOOL_BYTES;
@@ -85,7 +87,7 @@ pub(crate) fn bounded_request(
         if let Some(next) = next {
             history.drain(..next);
         } else {
-            return Err("本回合内容超过上下文预算，请分成较小的请求。".into());
+            return Err(LocalizedText::new("doubao.context_budget"));
         }
     }
 }
@@ -97,7 +99,7 @@ impl ChatRuntime {
         turn: u64,
         cancellation: CancellationToken,
         status: Sender<DoubaoStatus>,
-    ) -> Result<(), String> {
+    ) -> Result<(), LocalizedText> {
         if transcript.trim().is_empty() {
             return Ok(());
         }
@@ -156,33 +158,33 @@ impl ChatRuntime {
             let request = self.client.post(url).bearer_auth(&self.key).json(&body);
             let response = tokio::select! {
                 _ = cancellation.cancelled() => return Ok(()),
-                result = request.send() => result.map_err(|_| "方舟对话请求失败".to_string())?,
+                result = request.send() => result.map_err(|_| LocalizedText::new("doubao.chat_request"))?,
             };
             if !response.status().is_success() {
-                return Err("方舟对话模型拒绝了请求；请检查 API Key 与模型权限".into());
+                return Err(LocalizedText::new("doubao.chat_denied"));
             }
             let value: Value = tokio::select! {
                 _ = cancellation.cancelled() => return Ok(()),
-                result = response.json() => result.map_err(|_| "方舟对话响应无效".to_string())?,
+                result = response.json() => result.map_err(|_| LocalizedText::new("doubao.chat_response"))?,
             };
             let choice = &value["choices"][0];
             let message = &choice["message"];
             if choice["finish_reason"] != "tool_calls" {
                 if choice["finish_reason"] != "stop" {
-                    return Err("方舟对话未完成".into());
+                    return Err(LocalizedText::new("doubao.chat_incomplete"));
                 }
                 let text = message["content"]
                     .as_str()
                     .map(str::trim)
                     .filter(|text| !text.is_empty() && text.chars().count() <= 600)
-                    .ok_or_else(|| "方舟回复内容无效".to_string())?;
+                    .ok_or_else(|| LocalizedText::new("doubao.chat_content"))?;
                 break text.to_string();
             }
             let calls = message["tool_calls"]
                 .as_array()
-                .ok_or_else(|| "方舟工具调用无效".to_string())?;
+                .ok_or_else(|| LocalizedText::new("doubao.tool_call_invalid"))?;
             if calls.is_empty() || calls.len() > 20 || tool_count + calls.len() > 20 {
-                return Err("方舟工具调用超出上限".into());
+                return Err(LocalizedText::new("doubao.tool_call_limit"));
             }
             tool_count += calls.len();
             messages.push(message.clone());
@@ -193,13 +195,13 @@ impl ChatRuntime {
                 let id = call["id"]
                     .as_str()
                     .filter(|id| !id.is_empty() && id.len() <= 128)
-                    .ok_or_else(|| "方舟工具调用 ID 无效".to_string())?;
+                    .ok_or_else(|| LocalizedText::new("doubao.tool_id_invalid"))?;
                 let name = call["function"]["name"]
                     .as_str()
-                    .ok_or_else(|| "方舟工具名无效".to_string())?;
+                    .ok_or_else(|| LocalizedText::new("doubao.tool_name_invalid"))?;
                 let arguments = call["function"]["arguments"]
                     .as_str()
-                    .ok_or_else(|| "方舟工具参数无效".to_string())?;
+                    .ok_or_else(|| LocalizedText::new("doubao.tool_arguments_invalid"))?;
                 let output = if let Some(runtime) = &self.tools {
                     // 工具一经提交便独立运行；插话只取消本轮播报，不中止已接受的项目操作。
                     let runtime = Arc::clone(runtime);
@@ -226,15 +228,13 @@ impl ChatRuntime {
                     });
                     tokio::select! {
                         _ = cancellation.cancelled() => return Ok(()),
-                        result = task => result.map_err(|_| "项目工具执行中断".to_string())?,
+                        result = task => result.map_err(|_| LocalizedText::new("doubao.tool_interrupted"))?,
                     }
                 } else {
                     json!({"status":"rejected","message":"请先打开项目"})
                 };
                 if output["status"] == "unknown" {
-                    return Err(
-                        "工具保存结果无法确认，已停止本轮；请在 Norma 设置中核验后继续。".into(),
-                    );
+                    return Err(LocalizedText::new("doubao.tool_result_unknown"));
                 }
                 messages
                     .push(json!({"role":"tool","tool_call_id":id,"content":output.to_string()}));
@@ -253,6 +253,7 @@ impl ChatRuntime {
             &self.client,
             &self.key,
             &reply,
+            self.voice,
             &self.playback,
             &cancellation,
         )

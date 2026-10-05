@@ -1,0 +1,11 @@
+{
+  "agent.definition_missing": "未找到 Agent 定义。",
+  "agent.open_project_first": "请先打开项目，再创建 Agent。",
+  "agent.close_running": "Agent 正在执行或仍有排队任务。再次关闭将中断全部任务。",
+  "agent.queue_empty": "队列任务不能为空。",
+  "agent.card_missing": "未找到 Agent 卡片。",
+  "agent.waiting_only": "只能撤回仍在等待的任务。",
+  "agent.retry_typing": "Agent 任务尚未输入，正在等待 CLI 就绪后自动重试。",
+  "agent.retry_submission": "Agent 任务尚未提交，正在等待 CLI 就绪后自动重试。",
+  "agent.recover_submission": "Agent 任务提交失败：%{reason}。输入区状态不确定；请连续关闭两次此 Agent 卡片以中断并清空会话，再重新激活后派发任务。"
+}

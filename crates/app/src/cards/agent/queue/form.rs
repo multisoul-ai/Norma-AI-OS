@@ -23,7 +23,7 @@ pub(super) fn render_footer(node_id: NodeId, theme: Theme, cx: &mut Context<Mult
         .child(
             Button::new(("agent-queue-add", node_id))
                 .debug_selector(|| "agent-queue-add".to_string())
-                .label("添加任务")
+                .label(ui::i18n::text("cards.add_task"))
                 .custom(variant)
                 .h(px(34.0))
                 .on_click(cx.listener(move |app, _, _window, cx| {
@@ -49,7 +49,11 @@ pub(super) fn render_add_task_form(
         |window, cx| {
             let input = cx.new(|cx| {
                 InputState::new(window, cx)
-                    .placeholder("描述要排队的任务")
+                    .placeholder(ui::i18n::input_placeholder(
+                        "cards.describe_the_task_to_queue",
+                        window,
+                        cx,
+                    ))
                     .multi_line(false)
             });
             let focus = input.focus_handle(cx);
@@ -82,7 +86,7 @@ pub(super) fn render_add_task_form(
         )
         .child(
             Button::new(("agent-queue-add-cancel", node_id))
-                .label("取消")
+                .label(ui::i18n::text("common.cancel"))
                 .ghost()
                 .compact()
                 .on_click(cx.listener(|app, _, _window, cx| {
@@ -93,7 +97,7 @@ pub(super) fn render_add_task_form(
         .child(
             Button::new(("agent-queue-add-submit", node_id))
                 .debug_selector(|| "agent-queue-add-submit".to_string())
-                .label("加入队列")
+                .label(ui::i18n::text("cards.add_to_queue"))
                 .custom(primary_variant(theme, cx))
                 .h(px(34.0))
                 .on_click(cx.listener(move |app, _, window, cx| {
