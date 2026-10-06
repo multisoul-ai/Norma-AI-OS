@@ -143,10 +143,8 @@ impl MemoryAccess {
         }
         let preferences = self.preferences()?;
         if matches!(command, MemoryCommand::Write { .. }) {
-            if !preferences.save || !agent::explicit_memory_write(&context.user_input) {
-                return Err(AdapterError::Rejected(
-                    "仅在允许保存且用户明确要求记住或纠正时写入".into(),
-                ));
+            if !preferences.save {
+                return Err(AdapterError::Rejected("长期记忆保存已关闭".into()));
             }
         } else if !preferences.recall {
             return Err(AdapterError::Rejected("长期记忆读取已关闭".into()));

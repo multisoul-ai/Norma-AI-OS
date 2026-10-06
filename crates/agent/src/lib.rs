@@ -62,8 +62,8 @@ pub use memory::{
     MemoryMutation, MemoryRevision, MemoryScope, MemorySourceReference, MemorySummary,
 };
 pub use memory_access::{
-    explicit_memory_write, memory_text_chunk, MemoryCommand, MemoryPreferences, MemoryScopeAlias,
-    MemorySessionContext, MemoryToolOutput, MEMORY_CATALOG_BYTES, MEMORY_TOOL_BYTES,
+    memory_text_chunk, MemoryCommand, MemoryPreferences, MemoryScopeAlias, MemorySessionContext,
+    MemoryToolOutput, MEMORY_CATALOG_BYTES, MEMORY_TOOL_BYTES,
 };
 pub use model::{AgentCommand, AgentEvent, AgentInputSource, TaskId, TaskState};
 pub use persona::{NormaPersona, PersonaTone, MAX_PERSONA_INSTRUCTION_CHARS};

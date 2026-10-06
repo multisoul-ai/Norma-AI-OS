@@ -14,23 +14,21 @@ fn context(input: &str, turn: &str) -> ToolContext {
     }
 }
 
-/// 明确记住的中文偏好有真实来源，重开后可读取；普通交流不能触发写入。
+/// 记住的中文偏好有真实来源，重开后可读取；个人会话不能访问项目范围。
 ///
 /// 数据构造：
 ///   - 临时独立数据根，个人范围，无项目授权。
-///   - 第一回合原话为“请记住：我喜欢简洁中文”；正文为相同偏好。
-///   - 第二回合只说“今天聊聊代码”，没有长期记忆写入授权。
+///   - 原话为“请记住：我喜欢简洁中文”；正文为相同偏好。
 ///
 /// 执行过程：
-///   1. 激活空个人记忆，明确请求写入 preferences。
+///   1. 激活空个人记忆，写入 preferences。
 ///   2. 新建访问会话，读取已发布主题及来源。
-///   3. 普通聊天尝试写入 inferred，宿主拒绝后再次列表。
 ///
 /// 预期结果：
 ///   - 正断言：中文正文持久存在，原话可经来源查询返回。
-///   - 负断言：普通聊天的 inferred 不存在，无项目不能访问 project。
+///   - 负断言：无项目不能访问 project。
 #[test]
-fn explicit_memory_is_persistent_but_ordinary_chat_cannot_write() {
+fn explicit_memory_is_persistent_with_source() {
     let temp = tempfile::tempdir().expect("应创建独立数据根");
     let paths = DatabasePaths::isolated_test(temp.path());
     let mut access = MemoryAccess::new(paths.clone(), None);
@@ -70,15 +68,6 @@ fn explicit_memory_is_persistent_but_ordinary_chat_cannot_write() {
         source[0].text, "请记住：我喜欢简洁中文",
         "来源必须是用户实际原话"
     );
-    let rejected = reopened.execute(
-        MemoryCommand::Write {
-            scope: MemoryScopeAlias::Personal,
-            id: "inferred".into(),
-            markdown: "用户喜欢 Rust".into(),
-        },
-        &context("今天聊聊代码", "session-b:turn-2"),
-    );
-    assert!(rejected.is_err(), "普通聊天不得隐式授权长期写入");
     let snapshot = reopened
         .settings_snapshot(MemoryScopeAlias::Personal)
         .expect("应获取人工管理快照");
@@ -89,16 +78,101 @@ fn explicit_memory_is_persistent_but_ordinary_chat_cannot_write() {
         "已明确保存的偏好应存在"
     );
     assert!(
-        !snapshot
-            .entries()
-            .any(|item| item.id.as_str() == "inferred"),
-        "拒绝的推断不得进入正文"
-    );
-    assert!(
         reopened
             .settings_snapshot(MemoryScopeAlias::Project)
             .is_err(),
         "个人会话不得获得项目范围"
+    );
+}
+
+/// 是否写入由模型通过 function call 决定，宿主不按关键词判断意图；只有 save 开关能拒绝。
+///
+/// 数据构造：
+///   - 五个主题 id 各配一句措辞各异的原话，均不以“记住”等触发词开头：
+///     口语前缀、句尾触发、含“是否/能不能”、英文冒号、移动端 @mobile-turn 包装。
+///   - 每次写入使用独立 turn，故每轮工具预算 8192 字节足够。
+///
+/// 执行过程：
+///   1. 激活空个人记忆。
+///   2. 依次以各原话写入对应主题。
+///   3. 关闭 save 后再写入第六个主题。
+///
+/// 预期结果：
+///   - 正断言：五个主题全部保存，且来源保留各自原话。
+///   - 负断言：save=false 时写入被拒，第六个主题不存在。
+#[test]
+fn write_depends_on_model_call_not_phrasing_but_respects_save_switch() {
+    let temp = tempfile::tempdir().expect("独立数据根");
+    let paths = DatabasePaths::isolated_test(temp.path());
+    let mut access = MemoryAccess::new(paths, None);
+    access.activate().expect("激活");
+    let utterances = [
+        ("polite", "嗯，以后请记住我喜欢简洁中文"),
+        ("suffix", "我的构建命令是 cargo build，记住它"),
+        ("words", "记住：提交前是否通过 clippy 都要先跑一遍"),
+        ("english", "Remember: I prefer concise replies"),
+        (
+            "mobile",
+            "@mobile-turn:op-1\n你正在与用户讨论这个工作空间。\n用户消息：请记住我用 Mac",
+        ),
+    ];
+    for (index, (id, text)) in utterances.iter().enumerate() {
+        let saved = access
+            .execute(
+                MemoryCommand::Write {
+                    scope: MemoryScopeAlias::Personal,
+                    id: (*id).into(),
+                    markdown: format!("内容 {index}"),
+                },
+                &context(text, &format!("s:turn-{index}")),
+            )
+            .unwrap_or_else(|error| panic!("{text:?} 应由模型决定写入而非被关键词拒绝：{error:?}"));
+        assert!(saved.saved, "{id} 应返回 saved=true");
+        let read = access
+            .execute(
+                MemoryCommand::Read {
+                    scope: MemoryScopeAlias::Personal,
+                    id: (*id).into(),
+                    offset: 0,
+                },
+                &context("读取", &format!("r:turn-{index}")),
+            )
+            .expect("读取刚保存的主题");
+        let sources = access.source_details(&read.sources).expect("来源");
+        assert_eq!(sources[0].text, *text, "{id} 来源应保留当轮输入");
+    }
+    let snapshot = access
+        .settings_snapshot(MemoryScopeAlias::Personal)
+        .expect("快照");
+    for (id, _) in utterances {
+        assert!(
+            snapshot.entries().any(|item| item.id.as_str() == id),
+            "{id} 应已持久保存"
+        );
+    }
+    access
+        .set_preferences(agent::MemoryPreferences {
+            recall: true,
+            save: false,
+        })
+        .expect("关闭保存");
+    let rejected = access.execute(
+        MemoryCommand::Write {
+            scope: MemoryScopeAlias::Personal,
+            id: "after-off".into(),
+            markdown: "不应保存".into(),
+        },
+        &context("请记住：不应保存", "s:turn-9"),
+    );
+    assert!(rejected.is_err(), "save=false 时必须拒绝写入");
+    let snapshot = access
+        .settings_snapshot(MemoryScopeAlias::Personal)
+        .expect("快照");
+    assert!(
+        !snapshot
+            .entries()
+            .any(|item| item.id.as_str() == "after-off"),
+        "被拒绝的主题不得出现"
     );
 }
 

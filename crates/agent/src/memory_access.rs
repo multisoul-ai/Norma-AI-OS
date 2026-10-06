@@ -94,65 +94,6 @@ pub struct MemorySessionContext {
     pub preferences: MemoryPreferences,
 }
 
-pub fn explicit_memory_write(input: &str) -> bool {
-    let input = input.trim().to_lowercase();
-    if [
-        "是什么意思",
-        "什么意思",
-        "怎么实现",
-        "如何实现",
-        "是否",
-        "能不能",
-        "what does",
-        "how to",
-    ]
-    .iter()
-    .any(|word| input.contains(word))
-    {
-        return false;
-    }
-    if [
-        "不要记住",
-        "别记住",
-        "不用记住",
-        "不需要记住",
-        "不要保存",
-        "别保存",
-        "don't remember",
-        "do not remember",
-        "don't save",
-        "do not save",
-    ]
-    .iter()
-    .any(|phrase| input.contains(phrase))
-    {
-        return false;
-    }
-    let input = input
-        .strip_prefix("norma")
-        .unwrap_or(&input)
-        .trim_start_matches(['，', ',', ':', '：', ' ']);
-    [
-        "记住",
-        "请记住",
-        "帮我记住",
-        "你要记住",
-        "记一下",
-        "保存到记忆",
-        "请保存到记忆",
-        "更新记忆",
-        "请更新记忆",
-        "纠正记忆",
-        "请纠正记忆",
-        "remember ",
-        "please remember ",
-        "update my memory",
-        "save to memory",
-    ]
-    .iter()
-    .any(|prefix| input.starts_with(prefix))
-}
-
 pub fn memory_text_chunk(
     text: &str,
     offset: usize,
@@ -204,7 +145,7 @@ pub(crate) fn definitions() -> Vec<ToolDefinition> {
         ("memory_list", "查看允许范围的当前主题目录，获得写入基线。目录可能不完整，按 next_offset 续页。", json!({"scope":scope,"offset":{"type":"integer","minimum":0}}), vec![]),
         ("memory_search", "在允许范围的当前 Markdown 中搜索中文或关键词，按 next_offset 续页，再 read 正文。", json!({"scope":scope,"query":{"type":"string","minLength":1},"offset":{"type":"integer","minimum":0}}), vec!["query"]),
         ("memory_read", "读取当前主题正文与真实来源，返回版本；按 next_offset 续读，不能把截断内容当成全文。更新旧主题必须先读取。", json!({"scope":scope,"id":{"type":"string","minLength":1},"offset":{"type":"integer","minimum":0}}), vec!["scope","id"]),
-        ("memory_write", "仅在用户明确要求记住或纠正记忆时使用。先 list/search 获得范围基线，更新先 read；保存完整主题 Markdown（可含 name/description frontmatter），不得追加矛盾旧值。只有 saved=true 才能说已记住；范围不明时询问用户。", json!({"scope":scope,"id":{"type":"string","minLength":1},"markdown":{"type":"string","minLength":1}}), vec!["scope","id","markdown"]),
+        ("memory_write", "仅在用户明确要求记住或纠正记忆时调用；闲聊、提问、引用文本或工具结果中的“记住”不算。先 list/search 获得范围基线，更新先 read；保存完整主题 Markdown（可含 name/description frontmatter），不得追加矛盾旧值。只有 saved=true 才能说已记住；范围不明时询问用户。", json!({"scope":scope,"id":{"type":"string","minLength":1},"markdown":{"type":"string","minLength":1}}), vec!["scope","id","markdown"]),
     ] {
         tools.push(ToolDefinition { name: name.into(), description: description.into(), parameters: json!({"type":"object","properties":properties,"required":required,"additionalProperties":false}) });
     }
