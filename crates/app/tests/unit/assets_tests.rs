@@ -1,5 +1,58 @@
 use super::*;
 
+/// 手机连接设置：导航与组件图标必须实际嵌入，不能留下空白图标槽。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   可见路径 = 1 个手机导航 + 8 个操作/反馈图标 = 9 个 SVG。
+///   负样本 = icons/mobile-missing.svg，未被任何设置控件引用。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 从生产 EmbeddedAssets 分别加载九条实际图标路径。
+///   2. 检查手机导航被 icons 目录枚举。
+///   3. 查询未知路径，确认不会错误返回其他图标。
+///
+/// 预期结果：九个图标各自存在且有 SVG 内容，未知图标不存在。
+#[test]
+fn mobile_settings_icons_are_embedded() {
+    let assets = EmbeddedAssets;
+    let has_svg = |path: &str| {
+        assets
+            .load(path)
+            .expect("图标加载不能出错")
+            .is_some_and(|bytes| bytes.starts_with(b"<svg"))
+    };
+    assert!(
+        has_svg("icons/settings-nav-mobile.svg"),
+        "手机连接导航图标必须实际嵌入"
+    );
+    assert!(has_svg("icons/bell.svg"), "通知配置的铃铛图标必须实际嵌入");
+    assert!(has_svg("icons/circle-x.svg"), "停用图标必须实际嵌入");
+    assert!(has_svg("icons/delete.svg"), "撤销授权图标必须实际嵌入");
+    assert!(has_svg("icons/eye.svg"), "只读权限图标必须实际嵌入");
+    assert!(has_svg("icons/settings-2.svg"), "权限设置图标必须实际嵌入");
+    assert!(has_svg("icons/copy.svg"), "复制配对码图标必须实际嵌入");
+    assert!(
+        has_svg("icons/triangle-alert.svg"),
+        "错误提示图标必须实际嵌入"
+    );
+    assert!(has_svg("icons/check.svg"), "保存和批准图标必须实际嵌入");
+    assert!(
+        assets
+            .list("icons")
+            .expect("图标目录必须可枚举")
+            .iter()
+            .any(|name| name.as_ref() == "settings-nav-mobile.svg"),
+        "手机导航图标必须被资源目录枚举"
+    );
+    assert!(
+        assets
+            .load("icons/mobile-missing.svg")
+            .expect("未知路径加载不能出错")
+            .is_none(),
+        "未知图标不得返回其他设置图标"
+    );
+}
+
 /// 内置产品 Logo 资产：workspace 启动页品牌图应读取独立 logo PNG，而不是复用 App icon。
 ///
 /// 数据构造（含关键数值的推导过程）：

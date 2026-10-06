@@ -252,18 +252,19 @@ impl Runtime {
     }
 
     pub(super) fn end_mobile_run(&mut self, node_id: NodeId) {
-        if self
-            .mobile_runs
-            .remove(&node_id)
-            .is_some_and(|run| !run.native)
+        use crate::{AgentTaskState, NodeRunState};
+        if self.mobile_runs.remove(&node_id).is_some()
             && !matches!(
                 self.agent_task_state(node_id),
-                Some(crate::AgentTaskState::Done | crate::AgentTaskState::Failed { .. })
+                Some(AgentTaskState::Done | AgentTaskState::Failed { .. })
             )
         {
             self.events.update_agent_task_state(
                 node_id,
-                crate::AgentTaskState::Ended,
+                match self.node_run_state(node_id) {
+                    Some(NodeRunState::Error { message }) => AgentTaskState::Failed { message },
+                    _ => AgentTaskState::Ended,
+                },
                 "controlled/sessionClosed".into(),
             );
         }

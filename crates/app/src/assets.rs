@@ -85,6 +85,30 @@ impl AssetSource for EmbeddedAssets {
             "icons/command-workspace.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
                 "../assets/icons/command-workspace.svg"
             )))),
+            "icons/settings-nav-mobile.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/settings-nav-mobile.svg"
+            )))),
+            "icons/bell.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/bell.svg"
+            )))),
+            "icons/circle-x.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/circle-x.svg"
+            )))),
+            "icons/delete.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/delete.svg"
+            )))),
+            "icons/eye.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/eye.svg"
+            )))),
+            "icons/settings-2.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/settings-2.svg"
+            )))),
+            "icons/copy.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/copy.svg"
+            )))),
+            "icons/triangle-alert.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/triangle-alert.svg"
+            )))),
             APP_ICON_ASSET => Ok(Some(Cow::Borrowed(APP_ICON_BYTES))),
             APP_LOGO_ASSET => Ok(Some(Cow::Borrowed(APP_LOGO_BYTES))),
             TOOLBAR_SCROLL_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_SCROLL_BYTES))),
@@ -126,6 +150,14 @@ impl AssetSource for EmbeddedAssets {
                 SharedString::from("check.svg"),
                 SharedString::from("folder.svg"),
                 SharedString::from("command-workspace.svg"),
+                SharedString::from("settings-nav-mobile.svg"),
+                SharedString::from("bell.svg"),
+                SharedString::from("circle-x.svg"),
+                SharedString::from("delete.svg"),
+                SharedString::from("eye.svg"),
+                SharedString::from("settings-2.svg"),
+                SharedString::from("copy.svg"),
+                SharedString::from("triangle-alert.svg"),
                 SharedString::from("app-icon.png"),
                 SharedString::from("logo.png"),
                 SharedString::from("toolbar-scroll.svg"),

@@ -1,6 +1,6 @@
 use super::*;
 use crate::live::{NodeInput, NodeResize, NodeScroll};
-use crate::{NodeRunState, RuntimeEvent};
+use crate::{AgentTaskState, NodeRunState, RuntimeEvent};
 use canvas::{geometry::CanvasRect, AgentProfile, NodeType};
 use std::time::{Duration, Instant};
 use terminal::PtyCommand;
@@ -105,7 +105,7 @@ fn test_spawn_terminal_records_running_state_and_registered_event() {
 ///
 /// 预期结果：
 ///   - 正断言：最终状态为 Finished{Some(0)}
-///   - 正断言：只产生 1 条 Running→Finished 状态变化事件
+///   - 正断言：产生 1 条 Running→Finished 和 1 条 Agent→Ended 状态变化事件
 ///   - 负断言：重复 drain 后不应再产生 NodeRunStateChanged
 #[test]
 fn test_exit_zero_transitions_to_finished_once() {
@@ -127,7 +127,11 @@ fn test_exit_zero_transitions_to_finished_once() {
         "exit 0 应映射为 Finished{{code:Some(0)}}"
     );
     let events = runtime.take_events();
-    assert_eq!(events.len(), 1, "exit 0 应只产生 1 条状态变化事件");
+    assert_eq!(
+        events.len(),
+        2,
+        "exit 0 应同步发布进程和 Agent 的两条状态变化事件"
+    );
     assert_eq!(
         events[0],
         RuntimeEvent::NodeRunStateChanged {
@@ -136,6 +140,10 @@ fn test_exit_zero_transitions_to_finished_once() {
             to: NodeRunState::Finished { code: Some(0) },
         },
         "状态变化应精确表达 Running→Finished(Some(0))"
+    );
+    assert!(
+        matches!(&events[1], RuntimeEvent::AgentTaskStateChanged { node_id: id, to: AgentTaskState::Ended, .. } if *id == node_id),
+        "正常退出的 Agent 应发布 Ended，而非继续就绪"
     );
 
     runtime.drain_all();
@@ -163,7 +171,7 @@ fn test_exit_zero_transitions_to_finished_once() {
 ///
 /// 预期结果：
 ///   - 正断言：最终状态是 Error 且 message 包含 "2"
-///   - 正断言：事件 from=Running，to=Error
+///   - 正断言：进程事件 from=Running，to=Error；Agent 同步发布 Failed
 ///   - 负断言：非零退出不应映射为 Finished
 #[test]
 fn test_non_zero_exit_transitions_to_error() {
@@ -193,7 +201,11 @@ fn test_non_zero_exit_transitions_to_error() {
     );
 
     let events = runtime.take_events();
-    assert_eq!(events.len(), 1, "exit 2 应只产生 1 条状态变化事件");
+    assert_eq!(
+        events.len(),
+        2,
+        "exit 2 应同步发布进程和 Agent 的两条状态变化事件"
+    );
     assert!(
         matches!(
             &events[0],
@@ -205,6 +217,10 @@ fn test_non_zero_exit_transitions_to_error() {
         ),
         "状态变化事件应精确表达 Running→Error(message contains 2)，实际: {:?}",
         events
+    );
+    assert!(
+        matches!(&events[1], RuntimeEvent::AgentTaskStateChanged { node_id: id, to: AgentTaskState::Failed { message }, .. } if *id == node_id && message.contains('2')),
+        "异常退出的 Agent 应保留退出码并发布 Failed"
     );
 
     runtime.kill_all();

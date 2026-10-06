@@ -142,6 +142,7 @@ pub(crate) fn attach(store: AppStore, cx: &mut App) -> Entity<MobileController> 
                 });
             }
         }));
+        host.request(Command::Enable, cx);
         host
     });
     cx.global_mut::<Controllers>()

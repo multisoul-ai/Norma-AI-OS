@@ -7,7 +7,7 @@ use ui::{
     component::{
         button::{Button, ButtonVariants},
         input::{Input, InputState},
-        Disableable, Selectable, WindowExt,
+        Disableable, IconName, Selectable, WindowExt,
     },
     Theme,
 };
@@ -40,6 +40,7 @@ pub(super) fn entry(theme: Theme, mobile: &Entity<MobileController>, busy: bool)
         .child(
             Button::new("mobile-push-settings")
                 .debug_selector(|| "mobile-push-settings".into())
+                .icon(IconName::Bell)
                 .child(control_label(ui::i18n::text("mobile.configure")))
                 .outline()
                 .disabled(busy)
@@ -221,6 +222,7 @@ impl Render for PushSettings {
                 .child(
                     Button::new("mobile-push-save")
                         .debug_selector(|| "mobile-push-save".into())
+                        .icon(IconName::Check)
                         .child(control_label(ui::i18n::text("common.save")))
                         .primary()
                         .disabled(!can_save)
@@ -238,6 +240,7 @@ impl Render for PushSettings {
                 .child(
                     Button::new("mobile-push-clear")
                         .debug_selector(|| "mobile-push-clear".into())
+                        .icon(IconName::CircleX)
                         .child(control_label(ui::i18n::text("mobile.clear_and_disable")))
                         .disabled(busy)
                         .on_click(cx.listener(|this, _, window, cx| {

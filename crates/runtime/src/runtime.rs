@@ -392,10 +392,10 @@ impl Runtime {
             }
         }
         for (node_id, status) in statuses {
+            self.events.update_from_terminal_status(node_id, status);
             if matches!(status, terminal::TerminalStatus::Exited { .. }) {
                 self.end_mobile_run(node_id);
             }
-            self.events.update_from_terminal_status(node_id, status);
             dirty |= self.finish_native_resume(node_id);
         }
         dirty

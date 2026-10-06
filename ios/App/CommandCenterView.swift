@@ -151,11 +151,11 @@ struct CommandCenterView: View {
                     }
                 }
                 if project != nil {
-                    Button("方向与计划记录") { showingPlans = true }.accessibilityIdentifier("command-project-plans")
+                    Button("方向与计划记录", systemImage: "list.bullet.clipboard") { showingPlans = true }.accessibilityIdentifier("command-project-plans")
                 }
-                Button("讨论草稿") { showingDiscussions = true }.accessibilityIdentifier("realtime-discussions")
-                Button("任务操作记录") { showingOperations = true }.accessibilityIdentifier("realtime-operations")
-                Button("切换或管理电脑", action: manageComputers)
+                Button("讨论草稿", systemImage: "note.text") { showingDiscussions = true }.accessibilityIdentifier("realtime-discussions")
+                Button("任务操作记录", systemImage: "clock.arrow.circlepath") { showingOperations = true }.accessibilityIdentifier("realtime-operations")
+                Button("切换或管理电脑", systemImage: "laptopcomputer", action: manageComputers)
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: typing || project == nil ? "person.crop.circle" : "laptopcomputer")
