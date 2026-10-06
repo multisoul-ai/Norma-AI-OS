@@ -92,7 +92,7 @@ async fn invalid_preference_falls_back_and_writer_reports_failure() {
         result.result.is_err(),
         "目录不能作为 SQLite 数据库，必须回报失败"
     );
-    assert!(!result.result.is_ok(), "不能把未保存的偏好报告为成功");
+    assert!(result.result.is_err(), "不能把未保存的偏好报告为成功");
     writer.shutdown().await;
 }
 

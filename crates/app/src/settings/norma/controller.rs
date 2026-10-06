@@ -76,7 +76,7 @@ impl MemoryView {
                         view.entries = entries;
                         view.preferences = preferences;
                         view.error = false;
-                        view.status = ui::i18n::LocalizedText::new("norma.memories_loaded").into();
+                        view.status = ui::i18n::LocalizedText::new("norma.memories_loaded");
                     }
                     Err(error) => {
                         view.status = error.into();
@@ -160,7 +160,7 @@ impl MemoryView {
     pub(super) fn select(&mut self, id: String, window: &mut Window, cx: &mut Context<Self>) {
         if self.current_is_dirty(cx) {
             self.status =
-                ui::i18n::LocalizedText::new("norma.save_or_cancel_the_current_draft_first").into();
+                ui::i18n::LocalizedText::new("norma.save_or_cancel_the_current_draft_first");
             self.error = true;
             cx.notify();
             return;
@@ -210,7 +210,7 @@ impl MemoryView {
     pub(super) fn new_entry(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.current_is_dirty(cx) {
             self.status =
-                ui::i18n::LocalizedText::new("norma.save_or_cancel_the_current_draft_first").into();
+                ui::i18n::LocalizedText::new("norma.save_or_cancel_the_current_draft_first");
             cx.notify();
             return;
         }
@@ -252,7 +252,7 @@ impl MemoryView {
         self.imports.clear();
         self.close_prompt = false;
         self.error = false;
-        self.status = ui::i18n::LocalizedText::new("norma.draft_discarded").into();
+        self.status = ui::i18n::LocalizedText::new("norma.draft_discarded");
         self.body.update(cx, |input, cx| {
             input.set_value(self.original.clone(), window, cx)
         });
@@ -324,7 +324,7 @@ impl MemoryView {
         self.pending_save = Some(submission.clone());
         self.busy = true;
         self.saving = true;
-        self.status = ui::i18n::LocalizedText::new("norma.saving").into();
+        self.status = ui::i18n::LocalizedText::new("norma.saving");
         self.error = false;
         let task = cx.background_executor().spawn(async move {
             service
@@ -360,17 +360,17 @@ impl MemoryView {
                         view.close_prompt = false;
                         view.imports.clear();
                         view.error = false;
-                        view.status = ui::i18n::LocalizedText::new("norma.saved").into();
+                        view.status = ui::i18n::LocalizedText::new("norma.saved");
                         view.reload(window, cx);
                     }
                     Err(error) => {
                         tracing::warn!(%error, "Norma settings memory save did not return a confirmed receipt");
                         view.error = true;
                         if was_uncertain || matches!(error, agent::AdapterError::Unknown(_)) {
-                            view.status = ui::i18n::LocalizedText::new("norma.save_result_is_unconfirmed_your_draft_is_preserved_select_verify_save").into();
+                            view.status = ui::i18n::LocalizedText::new("norma.save_result_is_unconfirmed_your_draft_is_preserved_select_verify_save");
                         } else {
                             view.pending_save = None;
-                            view.status = ui::i18n::LocalizedText::new("norma.save_failed_your_draft_is_preserved_refresh_and_compare_the_latest").into();
+                            view.status = ui::i18n::LocalizedText::new("norma.save_failed_your_draft_is_preserved_refresh_and_compare_the_latest");
                         }
                     }
                 }
@@ -415,7 +415,7 @@ impl MemoryView {
                             cx.emit(MemoryRecallRevoked);
                         }
                         view.error = false;
-                        view.status = ui::i18n::LocalizedText::new("norma.settings_saved").into();
+                        view.status = ui::i18n::LocalizedText::new("norma.settings_saved");
                     }
                     Err(error) => {
                         view.preferences = previous;

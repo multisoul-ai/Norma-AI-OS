@@ -141,7 +141,7 @@ impl GateRoot {
                     cx.notify();
                 }
                 Err(err) => {
-                    this.status = ShellStatus::Error(err.into());
+                    this.status = ShellStatus::Error(err);
                     cx.notify();
                 }
             })
