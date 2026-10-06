@@ -12,7 +12,7 @@ fn workspace_terminal_read_uses_shared_authentication_and_rejects_input() {
         "request":{"desktop_workspace_id":"space-a","target":{"area_id":"area-a",
         "definition_id":1,"node_id":2,"run_id":"run-a","session_id":"session-a","task_ref":null},
         "known_version":null,"before":null,"history_version":null,"snapshot_id":null,"offset":null}}});
-    let decoded = decode(&wire.to_string()).ok().expect("只读终端必须能解码");
+    let decoded = decode(&wire.to_string()).expect("只读终端必须能解码");
     assert_eq!(
         workspace_credentials(&decoded.action),
         Some(("phone-a", "fixture-only")),

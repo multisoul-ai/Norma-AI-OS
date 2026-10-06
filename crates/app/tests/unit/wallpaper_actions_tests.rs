@@ -180,6 +180,7 @@ fn failed_save_restores_original_scope_without_touching_new_workspace() {
 ///   1. 请求删除素材，后台查询两个工作空间的引用。
 ///   2. 查询完成后检查窗口的对话框层与受影响范围。
 ///   3. 取消确认，等待前台状态同步，再读取两个工作空间。
+///
 /// 预期结果：
 ///   - 正断言：窗口有活动确认对话框，Alpha/Beta 均列为受影响范围。
 ///   - 负断言：取消后对话框和 pending prompt 均消失，两个引用均不得改变。

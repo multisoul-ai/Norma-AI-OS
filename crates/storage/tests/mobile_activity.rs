@@ -166,10 +166,9 @@ fn activity_start_reservation_and_token_recovery_are_durable() {
         "新周期不能继承上次结束标记"
     );
     assert!(
-        store
+        !store
             .invalidate(&grant, next.revision, "c".repeat(64).as_str())
-            .unwrap()
-            == false,
+            .unwrap(),
         "旧token失效不能清除新token"
     );
     assert_eq!(

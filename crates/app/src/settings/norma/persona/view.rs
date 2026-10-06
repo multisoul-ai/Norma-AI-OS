@@ -188,7 +188,7 @@ impl Render for PersonaView {
                             .disabled(disabled)
                             .on_click(cx.listener(|view, _, window, cx| {
                                 view.replace(NormaPersona::default(), window, cx);
-                                view.status = ui::i18n::LocalizedText::new("norma.default_persona_filled_in_save_to_apply").into();
+                                view.status = ui::i18n::LocalizedText::new("norma.default_persona_filled_in_save_to_apply");
                                 cx.notify();
                             })),
                     )

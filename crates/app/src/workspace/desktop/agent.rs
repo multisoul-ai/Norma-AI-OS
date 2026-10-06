@@ -63,10 +63,9 @@ impl MultisoulApp {
         };
         let key = (workspace_id, area_id);
         let Some(session) = self.desktop_workspace.sessions.get(&key).cloned() else {
-            self.desktop_workspace.error = Some(
-                ui::i18n::LocalizedText::new("workspace.project_canvas_is_still_loading_try_again")
-                    .into(),
-            );
+            self.desktop_workspace.error = Some(ui::i18n::LocalizedText::new(
+                "workspace.project_canvas_is_still_loading_try_again",
+            ));
             cx.notify();
             return;
         };
@@ -95,11 +94,14 @@ impl MultisoulApp {
                     && (state.active_id.as_ref() != Some(&key.0)
                         || state.areas.iter().any(|current| current == &area));
                 if deleting || !current {
-                    app.desktop_workspace.error = Some(
-                        ui::i18n::LocalizedText::new("workspace.project_changed_or_was_removed_select_a_project_and_try_again").into(),
-                    );
+                    app.desktop_workspace.error = Some(ui::i18n::LocalizedText::new(
+                        "workspace.project_changed_or_was_removed_select_a_project_and_try_again",
+                    ));
                 } else if let Err(error) = result {
-                    app.desktop_workspace.error = Some(ui::i18n::message("workspace.could_not_create_agent_error", &[("error", (error).to_string())]));
+                    app.desktop_workspace.error = Some(ui::i18n::message(
+                        "workspace.could_not_create_agent_error",
+                        &[("error", (error).to_string())],
+                    ));
                 } else {
                     session.update(cx, |session, cx| {
                         session.spawn_desktop_agent_at(

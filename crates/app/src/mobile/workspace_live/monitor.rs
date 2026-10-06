@@ -74,7 +74,7 @@ pub(super) fn monitor_result(
         let event_store=store.clone();let event_device=device.clone();let event_op=operation.clone();let event=initial.to_string();
         let verify_writer=writer.clone();let verify_project=project.clone();let verify_task=task.task_ref.clone();let node=target.node_id;
         let verified=cx.background_executor().spawn(async move {
-            if verify_writer.flush().is_err() || !verify_project.agent_dispatch_task_store().get_by_task_ref(&verify_task).ok().flatten().is_some_and(|t|t.node_id==node) {return false;}
+            if verify_writer.flush().is_err() || verify_project.agent_dispatch_task_store().get_by_task_ref(&verify_task).ok().flatten().is_none_or(|t| t.node_id != node) {return false;}
             event_store.record_event(&event_device,&event_op,"submitted",&event).is_ok()
         }).await;
         if !verified {let _=reply.try_send(Err("outcome_unknown".into()));return;}

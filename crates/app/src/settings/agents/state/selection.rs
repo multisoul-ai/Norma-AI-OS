@@ -230,12 +230,9 @@ impl AgentDefinitionsState {
         let previous_selection = self.selected_definition_id;
         self.reset_draft();
         if name.is_empty() {
-            self.status = Some(
-                ui::i18n::LocalizedText::new(
-                    "settings.all_30_built_in_agent_names_are_in_use_enter_a",
-                )
-                .into(),
-            );
+            self.status = Some(ui::i18n::LocalizedText::new(
+                "settings.all_30_built_in_agent_names_are_in_use_enter_a",
+            ));
             return;
         }
         self.draft = AgentDefinitionDraft {

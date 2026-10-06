@@ -273,8 +273,7 @@ impl MemoryView {
                                 view.latest = None;
                                 view.status = ui::i18n::LocalizedText::new(
                                     "norma.save_baseline_updated_your_draft_is_preserved",
-                                )
-                                .into();
+                                );
                                 cx.notify();
                             })),
                     ),

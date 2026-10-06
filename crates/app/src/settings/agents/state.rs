@@ -210,7 +210,7 @@ impl AgentDefinitionsState {
         if let Err(message) =
             validate_agent_definition_text(&self.draft.name, &self.draft.workflow_description)
         {
-            self.status = Some(message.into());
+            self.status = Some(message);
             return false;
         }
         let Some(store) = self.store.as_ref() else {
@@ -268,7 +268,7 @@ impl AgentDefinitionsState {
                 true
             }
             Err(error) => {
-                self.status = Some(readable_agent_store_error(&error).into());
+                self.status = Some(readable_agent_store_error(&error));
                 false
             }
         }
