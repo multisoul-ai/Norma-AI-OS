@@ -2,6 +2,7 @@ use super::{
     action_button, setting_row, settings_group, text_setting_row, with_alpha, VoiceSettingsInputs,
 };
 use crate::app::MultisoulApp;
+use crate::settings::typography::{SettingsText, TextRole};
 use crate::settings::voice::state::{AgentProviderKind, VoiceSettingsField, VoiceSettingsState};
 use crate::settings::voice::ProviderDiscoveryStatus;
 use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, Window};
@@ -109,7 +110,7 @@ pub(super) fn agent_provider_setup_group(
         ProviderDiscoveryStatus::ManualRequired(error) => group
             .child(
                 div()
-                    .text_size(px(12.0))
+                    .settings_font(TextRole::Helper)
                     .text_color(rgba(theme.destructive))
                     .child(error.clone()),
             )
@@ -123,7 +124,7 @@ pub(super) fn agent_provider_setup_group(
             )),
         ProviderDiscoveryStatus::ManualValidated(model) => group.child(
             div()
-                .text_size(px(12.0))
+                .settings_font(TextRole::Helper)
                 .text_color(rgba(theme.accent_green))
                 .child(ui::i18n::format(
                     "voice.validated_model_model",
@@ -132,7 +133,7 @@ pub(super) fn agent_provider_setup_group(
         ),
         ProviderDiscoveryStatus::Failed(error) => group.child(
             div()
-                .text_size(px(12.0))
+                .settings_font(TextRole::Helper)
                 .text_color(rgba(theme.destructive))
                 .child(error.clone()),
         ),

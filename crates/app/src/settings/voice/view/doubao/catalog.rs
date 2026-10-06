@@ -1,6 +1,7 @@
 use super::item::VoiceMenuItem;
+use crate::settings::typography::{SettingsText, TextRole};
 use crate::settings::voice::VoiceSettingsState;
-use gpui::{div, prelude::*, px, rgba, App, Context, Task, Window};
+use gpui::{div, prelude::*, px, App, Context, Task, Window};
 use tts::providers::doubao::{voices, DoubaoVoice};
 use ui::component::{
     list::{ListDelegate, ListState},
@@ -87,8 +88,7 @@ impl ListDelegate for VoiceCatalog {
             .py(px(32.0))
             .w_full()
             .text_center()
-            .text_size(px(13.0))
-            .text_color(rgba(self.theme.text_secondary))
+            .settings_text(TextRole::Helper, self.theme)
             .child(ui::i18n::text("doubao.no_matching_voices"))
     }
 }

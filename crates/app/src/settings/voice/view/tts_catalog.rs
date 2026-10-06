@@ -1,5 +1,6 @@
 use super::{action_button, setting_label, with_alpha};
 use crate::app::MultisoulApp;
+use crate::settings::typography::{SettingsText, TextRole};
 use crate::settings::voice::TtsModelInstallState;
 use gpui::{div, prelude::*, px, rgba, Context, Div, Window};
 use ui::Theme;
@@ -96,11 +97,8 @@ pub(super) fn tts_catalog_row(
                                         descriptor.display_name().to_string()
                                     },
                                 ))
-                                .child(
-                                    div()
-                                        .text_size(px(12.0))
-                                        .text_color(rgba(theme.text_tertiary))
-                                        .child(format!(
+                                .child(div().settings_text(TextRole::Helper, theme).child(
+                                    format!(
                                             "{} · {} MB · {}",
                                             descriptor
                                                 .capabilities()
@@ -109,8 +107,8 @@ pub(super) fn tts_catalog_row(
                                                 .to_uppercase(),
                                             descriptor.package().download_bytes() / 1_000_000,
                                             installation_status(entry.installation())
-                                        )),
-                                ),
+                                        ),
+                                )),
                         )
                         .child(model_action(&item, cx)),
                 )
@@ -198,8 +196,7 @@ fn model_action(item: &TtsCatalogItem<'_>, cx: &mut Context<MultisoulApp>) -> Di
                     div()
                         .px(px(10.0))
                         .py(px(8.0))
-                        .text_size(px(12.0))
-                        .text_color(rgba(theme.text_tertiary))
+                        .settings_text(TextRole::Helper, theme)
                         .child(ui::i18n::text("voice.reference_required")),
                 )
                 .child(
@@ -266,8 +263,7 @@ fn voice_controls(item: &TtsCatalogItem<'_>, cx: &mut Context<MultisoulApp>) -> 
                 .flex()
                 .items_center()
                 .gap(px(8.0))
-                .text_size(px(12.0))
-                .text_color(rgba(theme.text_tertiary))
+                .settings_text(TextRole::Helper, theme)
                 .child(ui::i18n::format(
                     "voice.voice",
                     &[("arg0", (voice.display_name()).to_string())],
@@ -287,8 +283,7 @@ fn voice_controls(item: &TtsCatalogItem<'_>, cx: &mut Context<MultisoulApp>) -> 
         .flex_wrap()
         .items_center()
         .gap(px(6.0))
-        .text_size(px(12.0))
-        .text_color(rgba(theme.text_tertiary))
+        .settings_text(TextRole::Helper, theme)
         .child(ui::i18n::text("voice.voices"));
     for (voice_index, voice) in descriptor.voices().iter().enumerate() {
         let voice_is_selected = selected_model && selected_voice == Some(voice.id());

@@ -1,6 +1,7 @@
+use crate::settings::typography::{control_label, SettingsText, TextRole};
 mod pairing;
 use crate::mobile::controller::{Command, MobileController};
-use gpui::{div, img, prelude::*, px, rgba, App, Div, Entity, FontWeight, SharedString};
+use gpui::{div, img, prelude::*, px, rgba, App, Div, Entity, SharedString};
 use pairing::{pair_prompt_card, pending_card, qr_card};
 use storage::MobilePermission;
 use ui::{
@@ -21,7 +22,7 @@ pub(super) fn settings(theme: Theme, entity: &Entity<MobileController>, cx: &mut
         .flex_col()
         .gap(px(20.0))
         .py(px(24.0))
-        .text_size(px(14.0))
+        .settings_font(TextRole::Body)
         .text_color(rgba(theme.text_primary));
 
     body = body.child(connection_card(theme, entity, state));
@@ -65,19 +66,8 @@ fn section_title(theme: Theme, title: &'static str, subtitle: SharedString) -> D
         .flex()
         .flex_col()
         .gap(px(3.0))
-        .child(
-            div()
-                .text_size(px(15.0))
-                .font_weight(FontWeight::SEMIBOLD)
-                .text_color(rgba(theme.text_primary))
-                .child(title),
-        )
-        .child(
-            div()
-                .text_size(px(12.0))
-                .text_color(rgba(theme.text_tertiary))
-                .child(subtitle),
-        )
+        .child(div().settings_text(TextRole::Headline, theme).child(title))
+        .child(div().settings_text(TextRole::Helper, theme).child(subtitle))
 }
 
 fn status_dot(color: u32) -> Div {
@@ -112,13 +102,18 @@ fn connection_card(
         .items_center()
         .gap(px(10.0))
         .child(status_dot(dot))
-        .child(div().flex_1().font_weight(FontWeight::MEDIUM).child(status));
+        .child(
+            div()
+                .flex_1()
+                .settings_font(TextRole::RowTitle)
+                .child(status),
+        );
     row = if state.enabled() {
         let target = entity.clone();
         row.child(
             Button::new("mobile-disable")
                 .debug_selector(|| "mobile-disable".into())
-                .label(ui::i18n::text("common.disable"))
+                .child(control_label(ui::i18n::text("common.disable")))
                 .danger()
                 .outline()
                 .disabled(state.busy)
@@ -152,16 +147,14 @@ fn connection_card(
                     .py(px(3.0))
                     .rounded(px(8.0))
                     .bg(rgba(theme.panel))
-                    .text_size(px(11.0))
-                    .text_color(rgba(theme.text_secondary))
+                    .settings_text(TextRole::Caption, theme)
                     .child(address)
             }),
         ));
     }
     body.child(
         div()
-            .text_size(px(12.0))
-            .text_color(rgba(theme.text_tertiary))
+            .settings_text(TextRole::Helper, theme)
             .child(ui::i18n::text(
                 "mobile.projects_and_agents_keep_running_after_windows_close_while_this_is",
             )),
@@ -182,7 +175,7 @@ fn error_banner(theme: Theme, error: &str) -> Div {
         .child(
             div()
                 .flex_1()
-                .text_size(px(13.0))
+                .settings_font(TextRole::Helper)
                 .text_color(rgba(theme.destructive))
                 .child(error.to_string()),
         )
@@ -203,7 +196,7 @@ fn action(
     let selector = id.to_string();
     Button::new(SharedString::from(id.to_string()))
         .debug_selector(move || selector.clone())
-        .label(title.to_string())
+        .child(control_label(title.to_string()))
         .outline()
         .disabled(disabled)
         .on_click(move |_, _, cx| target.update(cx, |host, cx| host.request(command.clone(), cx)))
@@ -234,7 +227,7 @@ fn projects(theme: Theme, entity: &Entity<MobileController>, cx: &App) -> Div {
                 Button::new(SharedString::from(format!(
                     "mobile-project-{project_id}-{index}"
                 )))
-                .label(label)
+                .child(control_label(label))
                 .selected(host.selected.get(&project_id).copied() == access)
                 .disabled(host.busy)
                 .on_click(move |_, _, cx| {
@@ -255,11 +248,14 @@ fn projects(theme: Theme, entity: &Entity<MobileController>, cx: &App) -> Div {
                 .flex_col()
                 .gap(px(6.0))
                 .py(px(8.0))
-                .child(project.display_name.clone())
                 .child(
                     div()
-                        .text_size(px(12.0))
-                        .text_color(rgba(theme.text_secondary))
+                        .settings_text(TextRole::RowTitle, theme)
+                        .child(project.display_name.clone()),
+                )
+                .child(
+                    div()
+                        .settings_text(TextRole::Helper, theme)
                         .child(project.canonical_root.display().to_string()),
                 )
                 .child(choices),
@@ -267,8 +263,7 @@ fn projects(theme: Theme, entity: &Entity<MobileController>, cx: &App) -> Div {
     }
     list.child(
         div()
-            .text_size(px(12.0))
-            .text_color(rgba(theme.text_secondary))
+            .settings_text(TextRole::Helper, theme)
             .child(ui::i18n::text(
                 "mobile.if_no_projects_are_selected_your_phone_will_pair_without_access",
             )),

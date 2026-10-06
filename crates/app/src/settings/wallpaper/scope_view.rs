@@ -1,11 +1,12 @@
 use super::action::WallpaperAction;
 use super::{scoped::ScopedWallpaperState, state::WallpaperSelection};
 use crate::app::MultisoulApp;
+use crate::settings::typography::{control_label, SettingsText, TextRole};
 use gpui::{div, prelude::*, px, rgba, Context, Div, Stateful};
 use ui::component::{
     button::{Button, ButtonGroup},
     switch::Switch,
-    Disableable, Selectable, StyledExt,
+    Disableable, Selectable,
 };
 use ui::Theme;
 
@@ -41,14 +42,12 @@ pub(super) fn scope_controls(
                     .gap(px(4.0))
                     .child(
                         div()
-                            .text_size(px(11.0))
-                            .text_color(rgba(theme.text_secondary))
+                            .settings_text(TextRole::Eyebrow, theme)
                             .child(ui::i18n::text("settings.personalize")),
                     )
                     .child(
                         div()
-                            .text_size(px(15.0))
-                            .font_medium()
+                            .settings_font(TextRole::Headline)
                             .truncate()
                             .child(label),
                     ),
@@ -58,11 +57,11 @@ pub(super) fn scope_controls(
                     Button::new("wallpaper-scope-workspace")
                         .w(px(122.0))
                         .rounded(px(18.0))
-                        .label(if !state.edit_project {
+                        .child(control_label(if !state.edit_project {
                             ui::i18n::text("settings.workspace_selected")
                         } else {
                             ui::i18n::text("common.workspace")
-                        })
+                        }))
                         .selected(!state.edit_project)
                         .disabled(state.busy || state.delete_prompt.is_some())
                         .on_wallpaper_activate(
@@ -76,11 +75,11 @@ pub(super) fn scope_controls(
                     Button::new("wallpaper-scope-project")
                         .w(px(108.0))
                         .rounded(px(18.0))
-                        .label(if state.edit_project {
+                        .child(control_label(if state.edit_project {
                             ui::i18n::text("settings.project_selected")
                         } else {
                             ui::i18n::text("settings.project")
-                        })
+                        }))
                         .selected(state.edit_project)
                         .disabled(
                             state.busy || context.area.is_none() || state.delete_prompt.is_some(),
@@ -103,8 +102,7 @@ pub(super) fn scope_controls(
     } else {
         content = content.child(
             div()
-                .text_size(px(13.0))
-                .text_color(rgba(theme.text_secondary))
+                .settings_text(TextRole::Helper, theme)
                 .child(ui::i18n::text("settings.directory_hint")),
         );
     }
@@ -140,8 +138,7 @@ pub(super) fn follow_control(
         })
         .child(
             div()
-                .text_size(px(13.0))
-                .line_height(px(18.0))
+                .settings_font(TextRole::Body)
                 .child(ui::i18n::text("settings.follow_workspace")),
         )
         .child(
@@ -170,7 +167,7 @@ pub(super) fn notices(theme: Theme, state: &ScopedWallpaperState) -> Div {
         .when(state.has_missing_selection(), |content| {
             content.child(
                 div()
-                    .text_size(px(13.0))
+                    .settings_font(TextRole::Helper)
                     .text_color(rgba(theme.destructive))
                     .child(ui::i18n::text("settings.missing_selection")),
             )

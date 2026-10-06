@@ -1,5 +1,6 @@
 use super::{action_button, setting_row, settings_group, text_setting_row, VoiceSettingsInputs};
 use crate::app::MultisoulApp;
+use crate::settings::typography::{SettingsText, TextRole};
 use crate::settings::voice::state::{VoiceSettingsField, VoiceSettingsState};
 use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, Stateful, Window};
 use ui::Theme;
@@ -162,7 +163,7 @@ pub(super) fn asr_provider_group(
         .when(azure_active, |group| {
             group.child(
                 div()
-                    .text_size(px(12.0))
+                    .settings_font(TextRole::Helper)
                     .text_color(rgba(theme.accent_blue))
                     .child(
                         ui::i18n::text("voice.azure_speech_is_active_for_single_voice_command_and_continuous_listening"),

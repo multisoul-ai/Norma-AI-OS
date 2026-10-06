@@ -1,7 +1,8 @@
 use super::{action_button, with_alpha};
 use crate::app::MultisoulApp;
+use crate::settings::typography::{SettingsText, TextRole};
 use crate::settings::voice::VoiceSettingsState;
-use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight};
+use gpui::{div, prelude::*, px, rgba, Context, Div};
 use ui::Theme;
 
 pub(super) fn input_device_row(
@@ -72,8 +73,7 @@ pub(super) fn input_device_row(
         .border_1()
         .border_color(rgba(with_alpha(theme.text_primary, 0x2e)))
         .bg(rgba(with_alpha(theme.panel_high, 0xb8)))
-        .text_size(px(12.0))
-        .text_color(rgba(theme.text_primary))
+        .settings_text(TextRole::Body, theme)
         .cursor_pointer()
         .on_click(cx.listener(MultisoulApp::on_voice_settings_toggle_input_device_picker))
         .child(selected_label)
@@ -100,15 +100,12 @@ pub(super) fn input_device_row(
                         .gap(px(3.0))
                         .child(
                             div()
-                                .text_size(px(13.0))
-                                .font_weight(FontWeight::BOLD)
-                                .text_color(rgba(theme.text_primary))
+                                .settings_text(TextRole::RowTitle, theme)
                                 .child(ui::i18n::text("voice.microphone")),
                         )
                         .child(
                             div()
-                                .text_size(px(11.0))
-                                .text_color(rgba(theme.text_tertiary))
+                                .settings_text(TextRole::Helper, theme)
                                 .child(ui::i18n::text("voice.input_used_for_speech_recognition")),
                         ),
                 )
@@ -118,8 +115,7 @@ pub(super) fn input_device_row(
             div()
                 .id("settings-voice-legacy-recognition-status")
                 .debug_selector(|| "settings-voice-legacy-recognition-status".to_string())
-                .text_size(px(11.0))
-                .font_weight(FontWeight::MEDIUM)
+                .settings_font(TextRole::Label)
                 .text_color(rgba(theme.accent_green))
                 .child(ui::i18n::text("voice.speech_recognition_ready")),
         )
@@ -183,7 +179,7 @@ fn input_device_option(theme: Theme, label: String, selected: bool) -> Div {
         .border_1()
         .border_color(rgba(with_alpha(accent, if selected { 0x90 } else { 0x28 })))
         .bg(rgba(with_alpha(accent, if selected { 0x18 } else { 0x06 })))
-        .text_size(px(13.0))
+        .settings_font(TextRole::Body)
         .text_color(rgba(if selected {
             theme.accent_orange
         } else {

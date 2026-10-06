@@ -1,6 +1,7 @@
 use super::super::with_alpha;
 use super::components::{compact_setup_row, setup_action_button, SetupButtonTone};
 use crate::app::MultisoulApp;
+use crate::settings::typography::{SettingsText, TextRole};
 use crate::settings::voice::{AsrModelInstallState, VoiceSettingsState};
 use asr::{AsrModelDescriptor, AsrModelId};
 use gpui::{div, prelude::*, px, relative, rgba, Context, Div, Stateful};
@@ -93,8 +94,7 @@ fn compact_model_catalog(
         .child(
             div()
                 .pt(px(8.0))
-                .text_size(px(11.0))
-                .text_color(rgba(theme.text_tertiary))
+                .settings_text(TextRole::Helper, theme)
                 .child(ui::i18n::text(
                     "voice.downloads_continue_when_voice_setup_is_closed",
                 )),
@@ -151,23 +151,17 @@ fn compact_model_row(
                 .gap(px(3.0))
                 .child(
                     div()
-                        .text_size(px(13.0))
-                        .text_color(rgba(theme.text_primary))
+                        .settings_text(TextRole::Body, theme)
                         .child(descriptor.display_name().to_string()),
                 )
-                .child(
-                    div()
-                        .text_size(px(11.0))
-                        .text_color(rgba(theme.text_tertiary))
-                        .child(format!(
+                .child(div().settings_text(TextRole::Caption, theme).child(format!(
                             "{} · {status}",
                             descriptor
                                 .capabilities()
                                 .languages()
                                 .join(" + ")
                                 .to_uppercase()
-                        )),
-                ),
+                        ))),
         )
         .child(action)
 }
@@ -223,7 +217,7 @@ pub(in crate::settings::voice::view) fn model_action_control(
                         .gap(px(4.0))
                         .child(
                             div()
-                                .text_size(px(11.0))
+                                .settings_font(TextRole::Caption)
                                 .text_color(rgba(theme.accent_cyan))
                                 .child(ui::i18n::format(
                                     "voice.downloading_percent",
@@ -257,7 +251,7 @@ pub(in crate::settings::voice::view) fn model_action_control(
         AsrModelInstallState::Ready if is_selected => div()
             .px(px(10.0))
             .py(px(7.0))
-            .text_size(px(12.0))
+            .settings_font(TextRole::Helper)
             .text_color(rgba(theme.accent_green))
             .child(selected_label),
         AsrModelInstallState::Ready => {

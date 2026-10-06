@@ -1,6 +1,6 @@
 use super::*;
+use crate::settings::typography::{control_label, SettingsText, TextRole};
 use gpui::{div, prelude::*, px, rgba};
-use ui::component::StyledExt;
 use ui::component::{
     button::{Button, ButtonCustomVariant, ButtonVariants},
     Disableable, Sizable,
@@ -30,19 +30,15 @@ impl MemoryView {
             .gap_1()
             .p_2();
         if filtered.is_empty() {
-            list = list.child(
-                div()
-                    .p_4()
-                    .text_size(px(12.0))
-                    .text_color(rgba(theme.text_secondary))
-                    .child(if query.is_empty() {
-                        ui::i18n::text(
-                            "norma.no_memories_yet_start_with_a_preference_or_project_convention",
-                        )
-                    } else {
-                        ui::i18n::text("norma.no_matching_memories_try_another_keyword")
-                    }),
-            );
+            list = list.child(div().p_4().settings_text(TextRole::Helper, theme).child(
+                if query.is_empty() {
+                    ui::i18n::text(
+                        "norma.no_memories_yet_start_with_a_preference_or_project_convention",
+                    )
+                } else {
+                    ui::i18n::text("norma.no_matching_memories_try_another_keyword")
+                },
+            ));
         }
         for entry in filtered {
             let id = entry.id.as_str().to_string();
@@ -76,15 +72,13 @@ impl MemoryView {
                             .items_start()
                             .child(
                                 div()
-                                    .text_size(px(13.0))
-                                    .font_medium()
+                                    .settings_font(TextRole::RowTitle)
                                     .text_ellipsis()
                                     .child(entry.name.clone()),
                             )
                             .child(
                                 div()
-                                    .text_size(px(11.0))
-                                    .text_color(rgba(theme.text_secondary))
+                                    .settings_text(TextRole::Caption, theme)
                                     .text_ellipsis()
                                     .child(if entry.description.is_empty() {
                                         ui::i18n::text("norma.long_term_memory").into()
@@ -133,7 +127,7 @@ impl MemoryView {
                                 Button::new("memory-new")
                                     .small()
                                     .ghost()
-                                    .label(ui::i18n::text("norma.add"))
+                                    .child(control_label(ui::i18n::text("norma.add")))
                                     .disabled(self.busy)
                                     .on_click(cx.listener(|view, _, window, cx| {
                                         view.new_entry(window, cx)
@@ -143,26 +137,22 @@ impl MemoryView {
                                 Button::new("memory-import")
                                     .small()
                                     .ghost()
-                                    .label(ui::i18n::text("norma.import"))
+                                    .child(control_label(ui::i18n::text("norma.import")))
                                     .disabled(self.busy)
                                     .on_click(
                                         cx.listener(|view, _, window, cx| view.import(window, cx)),
                                     ),
                             ),
                     )
-                    .child(
-                        div()
-                            .mt_2()
-                            .text_size(px(10.0))
-                            .text_color(rgba(theme.text_secondary))
-                            .child(ui::i18n::format(
-                                "norma.memories",
-                                &[
-                                    ("arg0", (self.entries.len()).to_string()),
-                                    ("arg1", (super::scope_label(self.scope)).to_string()),
-                                ],
-                            )),
-                    ),
+                    .child(div().mt_2().settings_text(TextRole::Caption, theme).child(
+                        ui::i18n::format(
+                            "norma.memories",
+                            &[
+                                ("arg0", (self.entries.len()).to_string()),
+                                ("arg1", (super::scope_label(self.scope)).to_string()),
+                            ],
+                        ),
+                    )),
             )
     }
 }

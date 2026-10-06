@@ -1,4 +1,5 @@
 //! Destructive library actions live in the window's dialog layer, outside the scrolled page.
+use crate::settings::typography::{control_label, SettingsText, TextRole};
 
 use super::{action::WallpaperAction, scoped::WallpaperDeletePrompt};
 use crate::app::MultisoulApp;
@@ -29,10 +30,14 @@ pub(crate) fn open(
         let cancel = host.clone();
         let confirm = host.clone();
         dialog
-            .title(ui::i18n::format(
-                "settings.delete_name",
-                &[("name", prompt.filename.clone())],
-            ))
+            .title(
+                div()
+                    .settings_font(TextRole::Headline)
+                    .child(ui::i18n::format(
+                        "settings.delete_name",
+                        &[("name", prompt.filename.clone())],
+                    )),
+            )
             .width(px(480.0).min(window.viewport_size().width - px(48.0)))
             .margin_top((window.viewport_size().height / 2.0 - px(150.0)).max(px(24.0)))
             .max_h(window.viewport_size().height - px(48.0))
@@ -57,7 +62,7 @@ pub(crate) fn open(
                     .flex()
                     .flex_col()
                     .gap(px(12.0))
-                    .text_size(px(13.0))
+                    .settings_font(TextRole::Body)
                     .child(ui::i18n::text("settings.removes_shared_file"))
                     .when(!scopes.is_empty(), |body| {
                         body.child(
@@ -84,7 +89,7 @@ pub(crate) fn open(
                 vec![
                     Button::new("wallpaper-delete-cancel")
                         .debug_selector(|| "wallpaper-delete-cancel".into())
-                        .label(ui::i18n::text("common.cancel"))
+                        .child(control_label(ui::i18n::text("common.cancel")))
                         .on_wallpaper_activate(true, move |_, window, cx| {
                             cancel.update(cx, |app, cx| app.finish_wallpaper_delete(false, cx));
                             window.close_dialog(cx);
@@ -92,7 +97,9 @@ pub(crate) fn open(
                     Button::new("wallpaper-delete-confirm")
                         .debug_selector(|| "wallpaper-delete-confirm".into())
                         .danger()
-                        .label(ui::i18n::text("settings.delete_from_library"))
+                        .child(control_label(ui::i18n::text(
+                            "settings.delete_from_library",
+                        )))
                         .on_wallpaper_activate(true, move |_, window, cx| {
                             confirm.update(cx, |app, cx| app.finish_wallpaper_delete(true, cx));
                             window.close_dialog(cx);

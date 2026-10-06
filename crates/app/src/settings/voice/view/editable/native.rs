@@ -1,4 +1,5 @@
 use super::{single_line, utf8_offset_from_utf16, VoiceTextInput};
+use crate::settings::typography::{SettingsText, TextRole};
 use gpui::{
     div, fill, point, prelude::*, px, relative, rgba, size, App, Bounds, Context, CursorStyle,
     Element, ElementId, ElementInputHandler, Entity, EntityInputHandler, FocusHandle, Focusable,
@@ -410,7 +411,7 @@ impl Render for VoiceTextInput {
                     | if focused { 0x90 } else { 0x60 },
             ))
             .bg(rgba((self.theme.panel_high & 0xffffff00) | 0xb8))
-            .text_size(px(13.0))
+            .settings_font(TextRole::Body)
             .text_color(rgba(if self.content.is_empty() {
                 self.theme.text_tertiary
             } else {

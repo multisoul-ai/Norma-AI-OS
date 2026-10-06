@@ -1,11 +1,12 @@
 use super::components::VoiceAction;
 use super::{settings_group, with_alpha, VoiceSettingsInputs};
 use crate::app::MultisoulApp;
+use crate::settings::typography::{SettingsText, TextRole};
 use crate::settings::voice::{
     DesktopVoiceMode, VoiceRequirement, VoiceRequirementState, VoiceSettingsField,
     VoiceSettingsState,
 };
-use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight, Stateful, Window};
+use gpui::{div, prelude::*, px, rgba, Context, Div, Stateful, Window};
 use ui::component::button::{Button, ButtonCustomVariant, ButtonVariants};
 use ui::Theme;
 mod catalog;
@@ -26,9 +27,7 @@ pub(super) fn desktop_mode_picker(
         .gap(px(10.0))
         .child(
             div()
-                .text_size(px(14.0))
-                .font_weight(FontWeight::SEMIBOLD)
-                .text_color(rgba(theme.text_primary))
+                .settings_text(TextRole::Headline, theme)
                 .child(ui::i18n::text("voice.conversation_mode")),
         )
         .child(
@@ -115,7 +114,7 @@ fn mode_card(
                                 .flex()
                                 .items_center()
                                 .justify_between()
-                                .font_weight(FontWeight::SEMIBOLD)
+                                .settings_font(TextRole::RowTitle)
                                 .child(title)
                                 .child(
                                     div()
@@ -126,8 +125,7 @@ fn mode_card(
                         .child(
                             div()
                                 .whitespace_normal()
-                                .text_size(px(12.0))
-                                .text_color(rgba(theme.text_secondary))
+                                .settings_text(TextRole::Helper, theme)
                                 .child(hint),
                         ),
                 )
@@ -168,8 +166,7 @@ pub(super) fn doubao_settings(
                     div()
                         .id("settings-voice-doubao-readiness")
                         .debug_selector(|| "settings-voice-doubao-readiness".to_string())
-                        .text_size(px(12.0))
-                        .font_weight(FontWeight::MEDIUM)
+                        .settings_font(TextRole::Label)
                         .text_color(rgba(if configured && microphone_ready {
                             theme.accent_green
                         } else {
@@ -185,12 +182,13 @@ pub(super) fn doubao_settings(
                 )
                 .child(
                     div()
-                        .text_size(px(12.0))
-                        .text_color(rgba(theme.text_secondary))
+                        .settings_text(TextRole::Helper, theme)
                         .child(if configured {
                             ui::i18n::text("voice.api_key_saved_in_this_mac_s_local_database")
                         } else {
-                            ui::i18n::text("voice.enter_your_volcengine_ark_api_key_for_asr_2_0_chat")
+                            ui::i18n::text(
+                                "voice.enter_your_volcengine_ark_api_key_for_asr_2_0_chat",
+                            )
                         }),
                 )
                 .child(
@@ -201,15 +199,21 @@ pub(super) fn doubao_settings(
                         .child(inputs.input(VoiceSettingsField::DoubaoApiKey))
                         .when(configured, |row| {
                             row.child(
-                                super::action_button(theme, ui::i18n::text("common.remove"), theme.destructive)
-                                    .id("settings-doubao-api-key-clear")
-                                    .debug_selector(|| "settings-doubao-api-key-clear".to_string())
-                                    .on_click(cx.listener(|app, _, _, cx| {
+                                super::action_button(
+                                    theme,
+                                    ui::i18n::text("common.remove"),
+                                    theme.destructive,
+                                )
+                                .id("settings-doubao-api-key-clear")
+                                .debug_selector(|| "settings-doubao-api-key-clear".to_string())
+                                .on_click(cx.listener(
+                                    |app, _, _, cx| {
                                         app.stop_doubao_voice(cx);
                                         app.voice_settings.clear_doubao_credential();
                                         app.persist_voice_settings_in_background(cx);
                                         cx.notify();
-                                    })),
+                                    },
+                                )),
                             )
                         }),
                 ),
@@ -220,16 +224,14 @@ pub(super) fn doubao_settings(
                     div()
                         .id("settings-voice-doubao-system-input")
                         .debug_selector(|| "settings-voice-doubao-system-input".to_string())
-                        .text_size(px(13.0))
-                        .text_color(rgba(theme.text_primary))
+                        .settings_text(TextRole::Body, theme)
                         .child(ui::i18n::text("voice.microphone_macos_system_default")),
                 )
                 .child(
                     div()
                         .id("settings-voice-doubao-microphone-status")
                         .debug_selector(|| "settings-voice-doubao-microphone-status".to_string())
-                        .text_size(px(11.0))
-                        .font_weight(FontWeight::MEDIUM)
+                        .settings_font(TextRole::Label)
                         .text_color(rgba(if microphone_ready {
                             theme.accent_green
                         } else {
@@ -242,7 +244,10 @@ pub(super) fn doubao_settings(
                         }),
                 )
                 .when(
-                    matches!(microphone, VoiceRequirementState::Missing | VoiceRequirementState::Failed),
+                    matches!(
+                        microphone,
+                        VoiceRequirementState::Missing | VoiceRequirementState::Failed
+                    ),
                     |group| {
                         group.child(
                             super::action_button(
@@ -255,17 +260,20 @@ pub(super) fn doubao_settings(
                                 theme.accent_blue,
                             )
                             .id("settings-voice-doubao-microphone-action")
-                            .debug_selector(|| "settings-voice-doubao-microphone-action".to_string())
+                            .debug_selector(|| {
+                                "settings-voice-doubao-microphone-action".to_string()
+                            })
                             .on_click(cx.listener(MultisoulApp::on_voice_setup_request_microphone)),
                         )
                     },
                 )
                 .child(
                     div()
-                        .text_size(px(12.0))
-                        .font_weight(FontWeight::MEDIUM)
-                        .text_color(rgba(theme.text_secondary))
-                        .child(ui::i18n::format("voice.uses_macos_system_input_and_output_press_voice_shortcut_label_to", &[("voice_shortcut_label", (voice_shortcut_label).to_string())])),
+                        .settings_text(TextRole::Helper, theme)
+                        .child(ui::i18n::format(
+                        "voice.uses_macos_system_input_and_output_press_voice_shortcut_label_to",
+                        &[("voice_shortcut_label", (voice_shortcut_label).to_string())],
+                    )),
                 ),
         )
         .child(voices::voice_picker(theme, state, window, cx))

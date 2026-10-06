@@ -2,9 +2,10 @@ use super::super::components::{avatar, empty_list_message, primary_button, with_
 use super::super::grouping::{group_definitions, roster_summary};
 use super::super::{AgentDefinitionsState, AgentStatusFilter};
 use crate::app::MultisoulApp;
+use crate::settings::typography::{SettingsText, TextRole};
 use canvas::AgentProfile;
 use gpui::{
-    div, prelude::*, px, rgba, AnyElement, AppContext, Context, Div, Entity, Focusable, FontWeight,
+    div, prelude::*, px, rgba, AnyElement, AppContext, Context, Div, Entity, Focusable,
     KeyDownEvent, MouseButton, MouseDownEvent, ScrollHandle, Subscription, Window,
 };
 use std::collections::HashSet;
@@ -64,17 +65,10 @@ pub(super) fn agent_list(
                         .gap(px(2.0))
                         .child(
                             div()
-                                .text_size(px(20.0))
-                                .font_weight(FontWeight::BOLD)
-                                .text_color(rgba(theme.text_primary))
+                                .settings_text(TextRole::Headline, theme)
                                 .child(ui::i18n::text("settings.agents")),
                         )
-                        .child(
-                            div()
-                                .text_size(px(12.0))
-                                .text_color(rgba(theme.text_secondary))
-                                .child(summary),
-                        ),
+                        .child(div().settings_text(TextRole::Helper, theme).child(summary)),
                 )
                 .child(primary_button(
                     theme,
@@ -142,9 +136,7 @@ fn section_label(theme: Theme, label: &'static str) -> AnyElement {
         .pt(px(8.0))
         .pb(px(4.0))
         .px(px(8.0))
-        .text_size(px(11.0))
-        .font_weight(FontWeight::SEMIBOLD)
-        .text_color(rgba(theme.text_secondary))
+        .settings_text(TextRole::Eyebrow, theme)
         .child(label)
         .into_any_element()
 }
@@ -173,15 +165,12 @@ fn unsaved_agent_row(theme: Theme, name: &str) -> AnyElement {
                 .child(
                     div()
                         .truncate()
-                        .text_size(px(14.0))
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .text_color(rgba(theme.text_primary))
+                        .settings_text(TextRole::RowTitle, theme)
                         .child(name.to_string()),
                 )
                 .child(
                     div()
-                        .text_size(px(12.0))
-                        .font_weight(FontWeight::MEDIUM)
+                        .settings_font(TextRole::Label)
                         .text_color(rgba(theme.accent_orange))
                         .child(ui::i18n::text("settings.unsaved_codex")),
                 ),
@@ -258,12 +247,7 @@ fn status_filter_button(
             with_alpha(theme.panel_high, 0x00)
         }))
         .when(is_selected, |this| this.shadow_sm())
-        .text_size(px(12.0))
-        .font_weight(if is_selected {
-            FontWeight::SEMIBOLD
-        } else {
-            FontWeight::NORMAL
-        })
+        .settings_font(TextRole::Control)
         .text_color(rgba(if is_selected {
             theme.text_primary
         } else {
@@ -349,14 +333,14 @@ fn agent_search_input(
         .border_1()
         .border_color(rgba(theme.text_secondary))
         .bg(rgba(with_alpha(theme.panel_high, 0x96)))
-        .text_size(px(12.0))
-        .text_color(rgba(theme.text_primary))
+        .settings_text(TextRole::Body, theme)
         .on_mouse_down(MouseButton::Left, move |_, window, cx| {
             focus.focus(window);
             cx.stop_propagation();
         })
         .child(
             Input::new(&input)
+                .settings_font(TextRole::Body)
                 .appearance(false)
                 .cleanable(true)
                 .prefix(Icon::new(IconName::Search).text_color(rgba(theme.text_secondary))),
@@ -437,9 +421,7 @@ fn agent_list_row(
                             div()
                                 .min_w(px(0.0))
                                 .truncate()
-                                .text_size(px(14.0))
-                                .font_weight(FontWeight::SEMIBOLD)
-                                .text_color(rgba(theme.text_primary))
+                                .settings_text(TextRole::RowTitle, theme)
                                 .child(definition.name.clone()),
                         )
                         .when(!definition.enabled, |this| {
@@ -449,9 +431,7 @@ fn agent_list_row(
                                     .px(px(6.0))
                                     .rounded(px(8.0))
                                     .bg(rgba(with_alpha(theme.text_primary, 0x14)))
-                                    .text_size(px(10.0))
-                                    .font_weight(FontWeight::MEDIUM)
-                                    .text_color(rgba(theme.text_secondary))
+                                    .settings_text(TextRole::Badge, theme)
                                     .child(ui::i18n::text("settings.off")),
                             )
                         }),
@@ -461,7 +441,8 @@ fn agent_list_row(
                         .id(("settings-agent-list-runtime-profile", id as u64))
                         .debug_selector(|| "settings-agent-list-runtime-profile".to_string())
                         .truncate()
-                        .text_size(px(12.0))
+                        .settings_font(TextRole::Helper)
+                        // Keeps the pre-unification tone: text_secondary fails 4.5:1 on light themes.
                         .text_color(rgba(with_alpha(theme.text_primary, 0xc0)))
                         .child(format!(
                             "{} · {}",

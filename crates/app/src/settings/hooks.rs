@@ -1,5 +1,6 @@
 use crate::app::MultisoulApp;
-use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, FontWeight, Window};
+use crate::settings::typography::{SettingsText, TextRole};
+use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, Window};
 use norma::agent_hook::{
     agent_hooks_installed, default_install_paths, install_agent_hooks, uninstall_agent_hooks,
     HookTarget,
@@ -258,21 +259,15 @@ fn hook_provider_row(
                         .gap(px(4.0))
                         .child(
                             div()
-                                .text_size(px(18.0))
-                                .font_weight(FontWeight::BOLD)
+                                .settings_font(TextRole::Headline)
                                 .text_color(rgba(theme.text_primary))
                                 .child(title),
                         )
-                        .child(
-                            div()
-                                .text_size(px(16.0))
-                                .text_color(rgba(theme.text_tertiary))
-                                .child(hint),
-                        )
+                        .child(div().settings_text(TextRole::Helper, theme).child(hint))
                         .child(
                             div()
                                 .mt(px(6.0))
-                                .text_size(px(13.0))
+                                .settings_font(TextRole::Helper)
                                 .text_color(rgba(if installed {
                                     theme.accent_cyan
                                 } else {
@@ -298,8 +293,7 @@ fn hook_provider_row(
                         .border_1()
                         .border_color(rgba(with_alpha(accent, 0x70)))
                         .bg(rgba(with_alpha(accent, 0x18)))
-                        .text_size(px(14.0))
-                        .font_weight(FontWeight::MEDIUM)
+                        .settings_font(TextRole::Control)
                         .text_color(rgba(accent))
                         .cursor_pointer()
                         .hover(move |style| style.bg(rgba(with_alpha(accent, 0x28))))
@@ -315,7 +309,7 @@ fn status_message(theme: Theme, status: &HookInstallStatus) -> Vec<Div> {
     };
     vec![div()
         .mt(px(8.0))
-        .text_size(px(13.0))
+        .settings_font(TextRole::Helper)
         .text_color(rgba(if status.is_error {
             theme.destructive
         } else {

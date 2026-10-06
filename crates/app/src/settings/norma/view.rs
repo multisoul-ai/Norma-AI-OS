@@ -1,6 +1,6 @@
 use super::*;
+use crate::settings::typography::{control_label, SettingsText, TextRole};
 use gpui::{div, prelude::*, px, rgba, Focusable, MouseButton, Render};
-use ui::component::StyledExt;
 use ui::component::{
     button::{Button, ButtonVariants},
     input::Input,
@@ -17,7 +17,10 @@ pub(super) fn editor(
     cx: &App,
 ) -> gpui::Stateful<gpui::Div> {
     let focus = input.focus_handle(cx);
-    let field = Input::new(input).disabled(disabled).small();
+    let field = Input::new(input)
+        .settings_font(TextRole::Body)
+        .disabled(disabled)
+        .small();
     let field = if let Some(height) = height {
         field.h(px(height))
     } else {
@@ -46,8 +49,7 @@ impl Render for MemoryView {
             .flex()
             .flex_col()
             .gap_3()
-            .text_color(rgba(theme.text_primary))
-            .text_size(px(13.0))
+            .settings_text(TextRole::Body, theme)
             .child(
                 div()
                     .flex()
@@ -80,7 +82,7 @@ impl Render for MemoryView {
                                 ))
                                 .small()
                                 .ghost()
-                                .label(format!(
+                                .child(control_label(format!(
                                     "{}{}",
                                     super::scope_label(scope),
                                     if self.drafts.contains_key(&scope) {
@@ -88,7 +90,7 @@ impl Render for MemoryView {
                                     } else {
                                         ""
                                     }
-                                ))
+                                )))
                                 .selected(self.scope == scope)
                                 .disabled(
                                     self.busy
@@ -106,7 +108,7 @@ impl Render for MemoryView {
                         Button::new("memory-reload")
                             .small()
                             .ghost()
-                            .label(if self.busy { ui::i18n::text("common.loading") } else { ui::i18n::text("norma.refresh") })
+                            .child(control_label(if self.busy { ui::i18n::text("common.loading") } else { ui::i18n::text("norma.refresh") }))
                             .disabled(self.busy)
                             .on_click(cx.listener(|view, _, window, cx| view.reload(window, cx))),
                     ),
@@ -114,8 +116,7 @@ impl Render for MemoryView {
             .when(self.root.is_none(), |content| {
                 content.child(
                     div()
-                        .text_size(px(11.0))
-                        .text_color(rgba(theme.text_secondary))
+                        .settings_text(TextRole::Helper, theme)
                         .child(ui::i18n::text("norma.personal_memories_are_always_available_open_a_project_to_manage_project")),
                 )
             })
@@ -135,7 +136,7 @@ impl Render for MemoryView {
                 content.child(
                     div()
                         .flex_none()
-                        .text_size(px(11.0))
+                        .settings_text(TextRole::Helper, self.theme)
                         .text_color(rgba(if self.error {
                             theme.destructive
                         } else {
@@ -151,7 +152,7 @@ impl Render for MemoryView {
                         .p_3()
                         .rounded(px(8.0))
                         .bg(rgba(with_alpha(theme.accent_orange, 0x12)))
-                        .child(div().text_size(px(12.0)).child(
+                        .child(div().settings_text(TextRole::Helper, self.theme).child(
                             ui::i18n::text("norma.you_have_unsaved_changes_return_to_a_scope_marked_draft_to"),
                         ))
                         .child(
@@ -162,7 +163,7 @@ impl Render for MemoryView {
                                 .child(
                                     Button::new("memory-discard-all")
                                         .small()
-                                        .label(ui::i18n::text("norma.discard_all_drafts"))
+                                        .child(control_label(ui::i18n::text("norma.discard_all_drafts")))
                                         .disabled(self.busy || self.pending_save.is_some())
                                         .on_click(cx.listener(|view, _, window, cx| {
                                             view.drafts.clear();
@@ -173,7 +174,7 @@ impl Render for MemoryView {
                                     Button::new("memory-continue-all")
                                         .small()
                                         .ghost()
-                                        .label(ui::i18n::text("norma.keep_editing"))
+                                        .child(control_label(ui::i18n::text("norma.keep_editing")))
                                         .on_click(cx.listener(|view, _, _, cx| {
                                             view.close_prompt = false;
                                             cx.notify();
@@ -212,11 +213,10 @@ impl MemoryView {
                     .flex()
                     .flex_col()
                     .gap_1()
-                    .child(div().font_medium().child(label))
+                    .child(div().settings_font(TextRole::RowTitle).child(label))
                     .child(
                         div()
-                            .text_size(px(11.0))
-                            .text_color(rgba(self.theme.text_secondary))
+                            .settings_text(TextRole::Helper, self.theme)
                             .child(description),
                     ),
             )

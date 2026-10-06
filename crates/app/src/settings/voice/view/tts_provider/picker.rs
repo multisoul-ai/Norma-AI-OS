@@ -1,7 +1,8 @@
 use super::super::{action_button, setting_row, with_alpha, VoiceSettingsInputs};
 use crate::app::MultisoulApp;
+use crate::settings::typography::{SettingsText, TextRole};
 use crate::settings::voice::VoiceSettingsState;
-use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight, Stateful};
+use gpui::{div, prelude::*, px, rgba, Context, Div, Stateful};
 use ui::Theme;
 
 mod provider_list;
@@ -83,8 +84,7 @@ fn current_voice(
                 .justify_between()
                 .child(
                     div()
-                        .font_weight(FontWeight::BOLD)
-                        .text_color(rgba(theme.text_primary))
+                        .settings_text(TextRole::RowTitle, theme)
                         .child(ui::i18n::text("voice.current_voice")),
                 )
                 .child(status_badge(
@@ -116,22 +116,12 @@ fn current_voice(
                         .gap(px(4.0))
                         .child(
                             div()
-                                .text_size(px(12.0))
+                                .settings_font(TextRole::Label)
                                 .text_color(rgba(theme.accent_orange))
                                 .child(provider),
                         )
-                        .child(
-                            div()
-                                .font_weight(FontWeight::BOLD)
-                                .text_color(rgba(theme.text_primary))
-                                .child(voice),
-                        )
-                        .child(
-                            div()
-                                .text_size(px(12.0))
-                                .text_color(rgba(theme.text_secondary))
-                                .child(detail),
-                        ),
+                        .child(div().settings_text(TextRole::RowTitle, theme).child(voice))
+                        .child(div().settings_text(TextRole::Helper, theme).child(detail)),
                 )
                 .child(preview),
         )
@@ -172,9 +162,7 @@ fn picker(
         .bg(rgba(with_alpha(theme.panel_high, 0xb8)))
         .child(
             div()
-                .text_size(px(15.0))
-                .font_weight(FontWeight::BOLD)
-                .text_color(rgba(theme.text_primary))
+                .settings_text(TextRole::Headline, theme)
                 .child(ui::i18n::text("voice.choose_a_voice")),
         )
         .child(
@@ -186,8 +174,7 @@ fn picker(
                 .py(px(8.0))
                 .rounded(px(8.0))
                 .bg(rgba(with_alpha(theme.accent_blue, 0x12)))
-                .text_size(px(12.0))
-                .text_color(rgba(theme.text_secondary))
+                .settings_text(TextRole::Helper, theme)
                 .child(ui::i18n::text(
                     "voice.your_current_voice_stays_active_until_you_choose_use_this_voice",
                 )),
@@ -316,14 +303,12 @@ fn local_voice_picker(
                             .gap(px(2.0))
                             .child(
                                 div()
-                                    .font_weight(FontWeight::BOLD)
-                                    .text_color(rgba(theme.text_primary))
+                                    .settings_text(TextRole::RowTitle, theme)
                                     .child(voice.display_name().to_string()),
                             )
                             .child(
                                 div()
-                                    .text_size(px(10.0))
-                                    .text_color(rgba(theme.text_tertiary))
+                                    .settings_text(TextRole::Caption, theme)
                                     .child(entry.descriptor().display_name().to_string()),
                             ),
                     )
@@ -346,8 +331,7 @@ fn local_voice_picker(
                 .p(px(12.0))
                 .rounded(px(8.0))
                 .bg(rgba(with_alpha(theme.text_primary, 0x08)))
-                .text_size(px(12.0))
-                .text_color(rgba(theme.text_secondary))
+                .settings_text(TextRole::Helper, theme)
                 .child(ui::i18n::text(
                     "voice.no_on_device_voice_is_ready_download_a_model_to_continue",
                 )),
@@ -382,8 +366,7 @@ pub(super) fn status_badge(label: &'static str, color: u32) -> Div {
         .py(px(3.0))
         .rounded(px(6.0))
         .bg(rgba(with_alpha(color, 0x20)))
-        .text_size(px(9.0))
-        .font_weight(FontWeight::BOLD)
+        .settings_font(TextRole::Badge)
         .text_color(rgba(color))
         .child(label)
 }

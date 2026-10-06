@@ -1,4 +1,5 @@
 use super::with_alpha;
+use crate::settings::typography::{SettingsText, TextRole};
 use crate::settings::voice::state::VoiceSettingsState;
 use gpui::{div, prelude::*, px, rgba, Div};
 use ui::Theme;
@@ -17,7 +18,7 @@ pub(super) fn status_message(theme: Theme, state: &VoiceSettingsState) -> Vec<Di
         .p(px(12.0))
         .rounded(px(10.0))
         .bg(rgba(with_alpha(color, 0x12)))
-        .text_size(px(13.0))
+        .settings_font(TextRole::Helper)
         .text_color(rgba(color))
         .child(message.to_string())]
 }

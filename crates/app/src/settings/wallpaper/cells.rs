@@ -1,4 +1,5 @@
 //! Wallpaper library tiles: static previews, selection feedback and shared-asset deletion.
+use crate::settings::typography::{SettingsText, TextRole};
 
 use super::action::WallpaperAction;
 use super::dirs::custom_wallpapers_dir;
@@ -7,8 +8,8 @@ use super::state::WallpaperSettingsState;
 use crate::app::wallpaper_resolvers::{builtin_wallpapers, resolve_builtin_asset, WallpaperKind};
 use crate::app::MultisoulApp;
 use gpui::{
-    div, img, prelude::*, px, rgba, ClickEvent, Context, Div, FontWeight, ImageSource, MouseButton,
-    ObjectFit, Stateful,
+    div, img, prelude::*, px, rgba, ClickEvent, Context, Div, ImageSource, MouseButton, ObjectFit,
+    Stateful,
 };
 use std::path::PathBuf;
 use ui::component::{
@@ -316,9 +317,7 @@ fn wallpaper_badge(
         .border_1()
         .border_color(rgba(0xffffff38))
         .bg(rgba(0x151515c2))
-        .text_size(px(10.0))
-        .line_height(px(12.0))
-        .font_weight(FontWeight::MEDIUM)
+        .settings_font(TextRole::Badge)
         .text_color(rgba(0xffffffff))
         .child(
             div()
@@ -376,12 +375,7 @@ fn delete_button(
 /// The label row under a cell: highlighted when selected.
 fn thumbnail_label(theme: Theme, text: &str, selected: bool) -> Div {
     div()
-        .text_size(px(13.0))
-        .font_weight(if selected {
-            FontWeight::BOLD
-        } else {
-            FontWeight::NORMAL
-        })
+        .settings_font(TextRole::Label)
         .text_color(rgba(if selected {
             theme.text_primary
         } else {

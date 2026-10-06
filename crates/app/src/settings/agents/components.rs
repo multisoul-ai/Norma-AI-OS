@@ -1,3 +1,5 @@
+use crate::settings::spacing::CARD_PADDING_COMPACT;
+use crate::settings::typography::{SettingsText, TextRole};
 use gpui::{
     div, prelude::*, px, rgba, AnyElement, App, ClickEvent, Div, FontWeight, KeyDownEvent, Window,
 };
@@ -23,8 +25,7 @@ pub(super) fn action_button(
         .border_1()
         .border_color(rgba(with_alpha(accent, 0x70)))
         .bg(rgba(with_alpha(accent, 0x18)))
-        .text_size(px(13.0))
-        .font_weight(FontWeight::MEDIUM)
+        .settings_font(TextRole::Control)
         .text_color(rgba(accent))
         .cursor_pointer()
         .hover(move |style| style.bg(rgba(with_alpha(accent, 0x28))))
@@ -60,8 +61,7 @@ pub(super) fn disabled_action_button(
         .border_1()
         .border_color(rgba(with_alpha(theme.edge_highlight, 0x38)))
         .bg(rgba(with_alpha(theme.panel_high, 0x38)))
-        .text_size(px(13.0))
-        .font_weight(FontWeight::MEDIUM)
+        .settings_font(TextRole::Control)
         .text_color(rgba(with_alpha(theme.text_secondary, 0x70)))
         .child(label)
         .into_any_element()
@@ -87,10 +87,9 @@ pub(super) fn status_block(theme: Theme, message: &str, is_error: bool) -> Div {
             },
             0x16,
         )))
-        .px(px(14.0))
-        .py(px(12.0))
-        .text_size(px(13.0))
-        .line_height(px(20.0))
+        .px(px(CARD_PADDING_COMPACT))
+        .py(px(CARD_PADDING_COMPACT))
+        .settings_font(TextRole::Body)
         .text_color(rgba(if is_error {
             theme.destructive
         } else {
@@ -105,10 +104,9 @@ pub(super) fn empty_list_message(theme: Theme, message: &'static str) -> Div {
         .border_1()
         .border_color(rgba(with_alpha(theme.edge_highlight, 0x24)))
         .bg(rgba(with_alpha(theme.panel_high, 0x60)))
-        .px(px(14.0))
-        .py(px(12.0))
-        .text_size(px(13.0))
-        .text_color(rgba(theme.text_tertiary))
+        .px(px(CARD_PADDING_COMPACT))
+        .py(px(CARD_PADDING_COMPACT))
+        .settings_text(TextRole::Helper, theme)
         .child(message)
 }
 
@@ -171,8 +169,7 @@ pub(super) fn primary_button(
         .border_1()
         .border_color(rgba(accent))
         .bg(rgba(accent))
-        .text_size(px(if compact { 12.0 } else { 13.0 }))
-        .font_weight(FontWeight::SEMIBOLD)
+        .settings_font(TextRole::Control)
         .text_color(rgba(0xffffffff))
         .hover(move |style| style.bg(rgba(hover)).border_color(rgba(hover)))
         .active(move |style| style.bg(rgba(pressed)).border_color(rgba(pressed)))

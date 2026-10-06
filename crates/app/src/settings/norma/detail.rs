@@ -1,7 +1,7 @@
 use super::document::body_text;
 use super::*;
+use crate::settings::typography::{control_label, SettingsText, TextRole};
 use gpui::{div, prelude::*, px, rgba, Focusable};
-use ui::component::StyledExt;
 use ui::component::{
     button::{Button, ButtonVariants},
     Disableable, Sizable,
@@ -77,14 +77,12 @@ impl MemoryView {
                 .p_6()
                 .child(
                     div()
-                        .text_size(px(18.0))
-                        .font_medium()
+                        .settings_text(TextRole::Headline, self.theme)
                         .child(ui::i18n::text("norma.help_norma_get_to_know_you")),
                 )
                 .child(
                     div()
-                        .text_size(px(12.0))
-                        .text_color(rgba(theme.text_secondary))
+                        .settings_text(TextRole::Helper, theme)
                         .text_center()
                         .child(ui::i18n::text(
                             "norma.select_a_memory_to_view_its_content_and_source_or_write",
@@ -93,7 +91,7 @@ impl MemoryView {
                 .child(
                     Button::new("memory-empty-new")
                         .small()
-                        .label(ui::i18n::text("norma.add_memory"))
+                        .child(control_label(ui::i18n::text("norma.add_memory")))
                         .disabled(self.busy)
                         .on_click(cx.listener(|view, _, window, cx| view.new_entry(window, cx))),
                 );
@@ -112,32 +110,28 @@ impl MemoryView {
                         .items_center()
                         .justify_between()
                         .gap_3()
-                        .child(div().text_size(px(15.0)).font_semibold().child(
+                        .child(div().settings_text(TextRole::Headline, self.theme).child(
                             if self.selected.is_none() {
                                 ui::i18n::text("norma.add_memory").into()
                             } else {
                                 title.clone()
                             },
                         ))
-                        .child(
-                            div()
-                                .text_size(px(10.0))
-                                .text_color(rgba(theme.text_secondary))
-                                .child(if self.editing {
-                                    ui::i18n::text("norma.unsaved").into()
-                                } else {
-                                    ui::i18n::format(
-                                        "norma.saved_version",
-                                        &[("arg0", (self.version.number()).to_string())],
-                                    )
-                                }),
-                        ),
+                        .child(div().settings_text(TextRole::Caption, theme).child(
+                            if self.editing {
+                                ui::i18n::text("norma.unsaved").into()
+                            } else {
+                                ui::i18n::format(
+                                    "norma.saved_version",
+                                    &[("arg0", (self.version.number()).to_string())],
+                                )
+                            },
+                        )),
                 )
                 .child(
                     div()
                         .mt_1()
-                        .text_size(px(11.0))
-                        .text_color(rgba(theme.text_secondary))
+                        .settings_text(TextRole::Caption, theme)
                         .child(super::scope_label(self.scope)),
                 ),
         );
@@ -154,8 +148,7 @@ impl MemoryView {
             body = body
                 .child(
                     div()
-                        .text_size(px(11.0))
-                        .text_color(rgba(theme.text_secondary))
+                        .settings_text(TextRole::Label, theme)
                         .child(ui::i18n::text("norma.name")),
                 )
                 .child(super::view::editor(
@@ -167,8 +160,7 @@ impl MemoryView {
                 ))
                 .child(
                     div()
-                        .text_size(px(11.0))
-                        .text_color(rgba(theme.text_secondary))
+                        .settings_text(TextRole::Label, theme)
                         .child(ui::i18n::text("norma.when_to_use_optional")),
                 )
                 .child(super::view::editor(
@@ -180,8 +172,7 @@ impl MemoryView {
                 ))
                 .child(
                     div()
-                        .text_size(px(11.0))
-                        .text_color(rgba(theme.text_secondary))
+                        .settings_text(TextRole::Label, theme)
                         .child(ui::i18n::text("norma.memory_content_markdown_supported")),
                 )
                 .child(super::view::editor(
@@ -197,16 +188,14 @@ impl MemoryView {
                 .when(!description.is_empty(), |body| {
                     body.child(
                         div()
-                            .text_size(px(12.0))
-                            .text_color(rgba(theme.text_secondary))
+                            .settings_text(TextRole::Helper, theme)
                             .child(description),
                     )
                 })
                 .child(
                     div()
-                        .text_size(px(14.0))
+                        .settings_text(TextRole::Reading, self.theme)
                         .whitespace_normal()
-                        .line_height(px(24.0))
                         .child(self.body.read(cx).value().to_string()),
                 );
             for source in &self.sources {
@@ -216,19 +205,16 @@ impl MemoryView {
                         .pt_3()
                         .border_t_1()
                         .border_color(rgba(with_alpha(theme.text_secondary, 0x20)))
-                        .child(
-                            div()
-                                .text_size(px(10.0))
-                                .text_color(rgba(theme.text_secondary))
-                                .child(ui::i18n::format(
-                                    "norma.source",
-                                    &[("arg0", (source_time(source.recorded_at)).to_string())],
-                                )),
-                        )
+                        .child(div().settings_text(TextRole::Caption, theme).child(
+                            ui::i18n::format(
+                                "norma.source",
+                                &[("arg0", (source_time(source.recorded_at)).to_string())],
+                            ),
+                        ))
                         .child(
                             div()
                                 .mt_2()
-                                .text_size(px(12.0))
+                                .settings_text(TextRole::Helper, self.theme)
                                 .whitespace_normal()
                                 .child(source.text.clone()),
                         ),
@@ -244,29 +230,39 @@ impl MemoryView {
                     .bg(rgba(with_alpha(theme.accent_orange, 0x14)))
                     .child(
                         div()
-                            .font_medium()
+                            .settings_text(TextRole::RowTitle, self.theme)
                             .child(ui::i18n::text("norma.this_memory_was_updated_elsewhere")),
                     )
-                    .child(div().mt_2().text_size(px(12.0)).child(ui::i18n::format(
-                        "norma.latest_name",
-                        &[("arg0", (latest.summary.name).to_string())],
-                    )))
-                    .child(div().mt_1().text_size(px(12.0)).child(ui::i18n::format(
-                        "norma.latest_purpose",
-                        &[("arg0", (latest.summary.description).to_string())],
-                    )))
                     .child(
                         div()
                             .mt_2()
-                            .text_size(px(12.0))
+                            .settings_text(TextRole::Helper, self.theme)
+                            .child(ui::i18n::format(
+                                "norma.latest_name",
+                                &[("arg0", (latest.summary.name).to_string())],
+                            )),
+                    )
+                    .child(
+                        div()
+                            .mt_1()
+                            .settings_text(TextRole::Helper, self.theme)
+                            .child(ui::i18n::format(
+                                "norma.latest_purpose",
+                                &[("arg0", (latest.summary.description).to_string())],
+                            )),
+                    )
+                    .child(
+                        div()
+                            .mt_2()
+                            .settings_text(TextRole::Helper, self.theme)
                             .child(body_text(&latest.markdown)),
                     )
                     .child(
                         Button::new("memory-rebase")
                             .small()
-                            .label(ui::i18n::text(
+                            .child(control_label(ui::i18n::text(
                                 "norma.compared_save_draft_against_latest_version",
-                            ))
+                            )))
                             .disabled(self.busy || self.pending_save.is_some())
                             .on_click(cx.listener(move |view, _, _, cx| {
                                 view.version = version;
@@ -290,8 +286,7 @@ impl MemoryView {
                 .justify_between()
                 .child(
                     div()
-                        .text_size(px(11.0))
-                        .text_color(rgba(theme.text_secondary))
+                        .settings_text(TextRole::Helper, theme)
                         .child(if self.editing {
                             ui::i18n::text(
                                 "norma.after_saving_norma_can_read_this_memory_when_needed",
@@ -311,7 +306,7 @@ impl MemoryView {
                                 Button::new("memory-discard")
                                     .small()
                                     .ghost()
-                                    .label(ui::i18n::text("common.cancel"))
+                                    .child(control_label(ui::i18n::text("common.cancel")))
                                     .disabled(self.busy || self.pending_save.is_some())
                                     .on_click(
                                         cx.listener(|view, _, window, cx| view.discard(window, cx)),
@@ -321,13 +316,15 @@ impl MemoryView {
                                 Button::new("memory-commit")
                                     .small()
                                     .primary()
-                                    .label(if !self.busy && self.pending_save.is_some() {
-                                        ui::i18n::text("norma.verify_save_result")
-                                    } else if self.saving {
-                                        ui::i18n::text("norma.saving")
-                                    } else {
-                                        ui::i18n::text("common.save")
-                                    })
+                                    .child(control_label(
+                                        if !self.busy && self.pending_save.is_some() {
+                                            ui::i18n::text("norma.verify_save_result")
+                                        } else if self.saving {
+                                            ui::i18n::text("norma.saving")
+                                        } else {
+                                            ui::i18n::text("common.save")
+                                        },
+                                    ))
                                     .disabled(
                                         self.busy
                                             || title.trim().is_empty()
@@ -342,7 +339,7 @@ impl MemoryView {
                             row.child(
                                 Button::new("memory-edit")
                                     .small()
-                                    .label(ui::i18n::text("norma.edit_correct"))
+                                    .child(control_label(ui::i18n::text("norma.edit_correct")))
                                     .disabled(self.busy)
                                     .on_click(cx.listener(|view, _, window, cx| {
                                         view.editing = true;
@@ -365,7 +362,7 @@ impl MemoryView {
                 div()
                     .flex_none()
                     .p_4()
-                    .font_semibold()
+                    .settings_text(TextRole::Headline, self.theme)
                     .child(ui::i18n::format(
                         "norma.import_preview_items",
                         &[("arg0", (self.imports.len()).to_string())],
@@ -383,18 +380,22 @@ impl MemoryView {
         for (id, markdown) in &self.imports {
             documents = documents.child(
                 div()
-                    .child(div().font_medium().child(format!(
-                        "{id} · {}",
-                        if self.entries.iter().any(|entry| entry.id.as_str() == id) {
-                            ui::i18n::text("norma.replace_existing_topic")
-                        } else {
-                            ui::i18n::text("norma.new_topic")
-                        }
-                    )))
+                    .child(
+                        div()
+                            .settings_text(TextRole::RowTitle, self.theme)
+                            .child(format!(
+                                "{id} · {}",
+                                if self.entries.iter().any(|entry| entry.id.as_str() == id) {
+                                    ui::i18n::text("norma.replace_existing_topic")
+                                } else {
+                                    ui::i18n::text("norma.new_topic")
+                                }
+                            )),
+                    )
                     .child(
                         div()
                             .mt_2()
-                            .text_size(px(12.0))
+                            .settings_text(TextRole::Helper, self.theme)
                             .whitespace_normal()
                             .child(markdown.clone()),
                     ),
@@ -411,7 +412,7 @@ impl MemoryView {
                     Button::new("memory-import-cancel")
                         .small()
                         .ghost()
-                        .label(ui::i18n::text("common.cancel"))
+                        .child(control_label(ui::i18n::text("common.cancel")))
                         .disabled(self.busy || self.pending_save.is_some())
                         .on_click(cx.listener(|view, _, window, cx| view.discard(window, cx))),
                 )
@@ -419,11 +420,11 @@ impl MemoryView {
                     Button::new("memory-import-commit")
                         .small()
                         .primary()
-                        .label(if self.pending_save.is_some() {
+                        .child(control_label(if self.pending_save.is_some() {
                             ui::i18n::text("norma.verify_save_result")
                         } else {
                             ui::i18n::text("norma.confirm_import_all")
-                        })
+                        }))
                         .disabled(self.busy)
                         .on_click(cx.listener(|view, _, window, cx| view.save(window, cx))),
                 ),

@@ -1,4 +1,5 @@
 use super::*;
+use crate::settings::typography::{SettingsText, TextRole};
 
 pub(super) fn settings_brand_footer(theme: Theme, compact: bool) -> Stateful<Div> {
     let brand = settings_brand_metadata();
@@ -52,19 +53,16 @@ pub(super) fn settings_brand_footer(theme: Theme, compact: bool) -> Stateful<Div
                         .gap(px(2.0))
                         .child(
                             div()
-                                .truncate()
-                                .text_size(px(if compact { 12.0 } else { 13.0 }))
-                                .font_weight(FontWeight::SEMIBOLD)
-                                .text_color(rgba(theme.text_primary))
+                                .whitespace_normal()
+                                .settings_text(TextRole::RowTitle, theme)
                                 .child(brand.product_name),
                         )
                         .child(
                             div()
                                 .id("settings-brand-version")
                                 .debug_selector(|| "settings-brand-version".to_string())
-                                .truncate()
-                                .text_size(px(if compact { 10.0 } else { 11.0 }))
-                                .font_family("Menlo")
+                                .whitespace_normal()
+                                .settings_font(TextRole::Caption)
                                 .text_color(rgba(theme.text_tertiary))
                                 .child(ui::i18n::format(
                                     "settings.version",

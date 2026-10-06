@@ -21,10 +21,11 @@
 #[test]
 fn test_settings_panel_and_theme_previews_use_tokens_not_hardcoded_palette() {
     let source = format!(
-        "{}{}{}",
+        "{}{}{}{}",
         include_str!("../../src/settings/panel.rs"),
         include_str!("../../src/settings/content.rs"),
-        include_str!("../../src/settings/appearance.rs")
+        include_str!("../../src/settings/appearance.rs"),
+        include_str!("../../src/settings/typography.rs")
     );
     assert!(
         source.contains("theme.panel") && source.contains("theme.panel_high"),

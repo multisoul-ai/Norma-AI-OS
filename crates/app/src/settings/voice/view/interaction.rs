@@ -1,6 +1,7 @@
 use super::components::VoiceAction;
 use super::{settings_group, with_alpha};
 use crate::app::MultisoulApp;
+use crate::settings::typography::{control_label, SettingsText, TextRole};
 use crate::settings::voice::{DictationTrigger, VoiceInteractionMode, VoiceSettingsState};
 use gpui::{div, prelude::*, px, rgba, Context, Div};
 use ui::component::button::{Button, ButtonCustomVariant, ButtonVariants};
@@ -138,19 +139,8 @@ fn compact_interaction_row(theme: Theme, title: &'static str, hint: String, cont
                 .flex()
                 .flex_col()
                 .gap(px(3.0))
-                .child(
-                    div()
-                        .text_size(px(13.0))
-                        .font_weight(gpui::FontWeight::BOLD)
-                        .text_color(rgba(theme.text_primary))
-                        .child(title),
-                )
-                .child(
-                    div()
-                        .text_size(px(11.0))
-                        .text_color(rgba(theme.text_tertiary))
-                        .child(hint),
-                ),
+                .child(div().settings_text(TextRole::RowTitle, theme).child(title))
+                .child(div().settings_text(TextRole::Helper, theme).child(hint)),
         )
         .child(control.flex_none())
 }
@@ -193,11 +183,11 @@ pub(super) fn mode_option(
         .active(rgba(with_alpha(theme.accent_blue, 0x38)).into());
     Button::new(selector)
         .debug_selector(move || selector.to_string())
-        .label(if selected {
+        .child(control_label(if selected {
             format!("✓ {label}")
         } else {
             label.to_string()
-        })
+        }))
         .compact()
         .custom(variant)
 }

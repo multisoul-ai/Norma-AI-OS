@@ -1,9 +1,10 @@
 use super::{components::component_action, with_alpha};
 use crate::app::MultisoulApp;
+use crate::settings::typography::{SettingsText, TextRole};
 use crate::settings::voice::{
     DesktopVoiceMode, VoiceEntryState, VoiceRequirement, VoiceRequirementState, VoiceSettingsState,
 };
-use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight, Stateful};
+use gpui::{div, prelude::*, px, rgba, Context, Div, Stateful};
 use ui::Theme;
 
 pub(super) fn voice_ready_overview(
@@ -18,9 +19,11 @@ pub(super) fn voice_ready_overview(
         .gap(px(14.0))
         .child(
             div()
-                .text_size(px(12.0))
-                .text_color(rgba(theme.text_secondary))
-                .child(ui::i18n::format("voice.press_voice_shortcut_label_to_talk_changes_below_are_saved_automatically", &[("voice_shortcut_label", (voice_shortcut_label).to_string())])),
+                .settings_text(TextRole::Helper, theme)
+                .child(ui::i18n::format(
+                "voice.press_voice_shortcut_label_to_talk_changes_below_are_saved_automatically",
+                &[("voice_shortcut_label", (voice_shortcut_label).to_string())],
+            )),
         )
         .child(ready_summary(theme, cx))
 }
@@ -150,18 +153,8 @@ pub(super) fn voice_status_overview(
                 .flex()
                 .flex_col()
                 .gap(px(3.0))
-                .child(
-                    div()
-                        .font_weight(FontWeight::BOLD)
-                        .text_color(rgba(theme.text_primary))
-                        .child(title),
-                )
-                .child(
-                    div()
-                        .text_size(px(12.0))
-                        .text_color(rgba(theme.text_secondary))
-                        .child(hint),
-                ),
+                .child(div().settings_text(TextRole::RowTitle, theme).child(title))
+                .child(div().settings_text(TextRole::Helper, theme).child(hint)),
         )
         .children(next_setup_action(theme, state, cx))
 }
@@ -305,12 +298,7 @@ fn summary_row(
         .py(px(10.0))
         .border_b_1()
         .border_color(rgba(with_alpha(theme.edge_highlight, 0x24)))
-        .child(
-            div()
-                .text_size(px(13.0))
-                .text_color(rgba(theme.text_primary))
-                .child(label),
-        )
+        .child(div().settings_text(TextRole::Body, theme).child(label))
         .child(
             div()
                 .flex()
@@ -318,8 +306,7 @@ fn summary_row(
                 .gap(px(10.0))
                 .child(
                     div()
-                        .text_size(px(12.0))
-                        .font_weight(FontWeight::MEDIUM)
+                        .settings_font(TextRole::Label)
                         .text_color(rgba(status_color))
                         .child(status),
                 )

@@ -1,7 +1,8 @@
 use super::{action_button, setting_row, text_setting_row, with_alpha, VoiceSettingsInputs};
 use crate::app::MultisoulApp;
+use crate::settings::typography::{SettingsText, TextRole};
 use crate::settings::voice::{VoiceSettingsField, VoiceSettingsState};
-use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight};
+use gpui::{div, prelude::*, px, rgba, Context, Div};
 use ui::Theme;
 
 mod controller;
@@ -27,123 +28,121 @@ pub(super) fn minimax_configuration(
     let connected = state.minimax_account_status() == tts::RemoteAccountStatus::Ready;
     let connection_expanded = state.tts_picker_connection_expanded();
     let manual = state.tts_picker_minimax_provenance() == tts::VoiceSelectionProvenance::Manual;
-    let mut content = div()
-        .w_full()
-        .flex()
-        .flex_col()
-        .gap(px(10.0))
-        .child(
-            div()
-                .w_full()
-                .flex()
-                .items_center()
-                .justify_between()
-                .gap(px(8.0))
-                .px(px(10.0))
-                .py(px(9.0))
-                .rounded(px(9.0))
-                .border_1()
-                .border_color(rgba(with_alpha(theme.edge_highlight, 0x42)))
-                .child(
-                    div()
-                        .min_w(px(0.0))
-                        .flex_1()
-                        .flex()
-                        .flex_col()
-                        .gap(px(2.0))
-                        .child(
-                            div()
-                                .font_weight(FontWeight::BOLD)
-                                .text_color(rgba(theme.text_primary))
-                                .child(if connected {
+    let mut content =
+        div()
+            .w_full()
+            .flex()
+            .flex_col()
+            .gap(px(10.0))
+            .child(
+                div()
+                    .w_full()
+                    .flex()
+                    .items_center()
+                    .justify_between()
+                    .gap(px(8.0))
+                    .px(px(10.0))
+                    .py(px(9.0))
+                    .rounded(px(9.0))
+                    .border_1()
+                    .border_color(rgba(with_alpha(theme.edge_highlight, 0x42)))
+                    .child(
+                        div()
+                            .min_w(px(0.0))
+                            .flex_1()
+                            .flex()
+                            .flex_col()
+                            .gap(px(2.0))
+                            .child(div().settings_text(TextRole::RowTitle, theme).child(
+                                if connected {
                                     ui::i18n::text("voice.minimax_connected")
                                 } else {
                                     ui::i18n::text("voice.connect_minimax")
-                                }),
-                        )
-                        .child(
-                            div()
-                                .text_size(px(10.0))
-                                .text_color(rgba(if connected {
-                                    theme.accent_green
-                                } else {
-                                    theme.text_tertiary
-                                }))
-                                .child(if connected {
-                                    ui::i18n::text("voice.account_ready_key_stored_locally")
-                                } else {
-                                    ui::i18n::text("voice.connect_before_choosing_a_cloud_voice")
-                                }),
-                        ),
-                )
-                .child(
-                    action_button(
-                        theme,
-                        if connection_expanded {
-                            "Done"
-                        } else {
-                            ui::i18n::text("voice.manage")
-                        },
-                        theme.accent_blue,
-                    )
-                    .id("settings-tts-minimax-manage-connection")
-                    .debug_selector(|| "settings-tts-minimax-manage-connection".to_string())
-                    .on_click(cx.listener(MultisoulApp::on_voice_toggle_minimax_connection)),
-                ),
-        )
-        .when(connection_expanded, |content| {
-            content
-                .child(text_setting_row(
-                    theme,
-                    inputs,
-                    VoiceSettingsField::MiniMaxApiKey,
-                    ui::i18n::text("voice.minimax_api_key"),
-                    ui::i18n::text(
-                        "voice.validated_credentials_are_stored_in_this_mac_s_local_database",
-                    ),
-                    cx,
-                ))
-                .child(
-                    div()
-                        .flex()
-                        .items_center()
-                        .gap(px(8.0))
-                        .child(
-                            action_button(
-                                theme,
-                                if state.minimax_account_status()
-                                    == tts::RemoteAccountStatus::Checking
-                                {
-                                    ui::i18n::text("voice.connecting")
-                                } else {
-                                    ui::i18n::text("voice.connect")
                                 },
-                                theme.accent_blue,
-                            )
-                            .id("settings-tts-minimax-connect")
-                            .debug_selector(|| "settings-tts-minimax-connect".to_string())
-                            .on_click(cx.listener(MultisoulApp::on_voice_connect_minimax_tts)),
+                            ))
+                            .child(
+                                div()
+                                    .settings_font(TextRole::Caption)
+                                    .text_color(rgba(if connected {
+                                        theme.accent_green
+                                    } else {
+                                        theme.text_tertiary
+                                    }))
+                                    .child(if connected {
+                                        ui::i18n::text("voice.account_ready_key_stored_locally")
+                                    } else {
+                                        ui::i18n::text(
+                                            "voice.connect_before_choosing_a_cloud_voice",
+                                        )
+                                    }),
+                            ),
+                    )
+                    .child(
+                        action_button(
+                            theme,
+                            if connection_expanded {
+                                "Done"
+                            } else {
+                                ui::i18n::text("voice.manage")
+                            },
+                            theme.accent_blue,
                         )
-                        .when(state.minimax_credential_configured(), |actions| {
-                            actions.child(
+                        .id("settings-tts-minimax-manage-connection")
+                        .debug_selector(|| "settings-tts-minimax-manage-connection".to_string())
+                        .on_click(cx.listener(MultisoulApp::on_voice_toggle_minimax_connection)),
+                    ),
+            )
+            .when(connection_expanded, |content| {
+                content
+                    .child(text_setting_row(
+                        theme,
+                        inputs,
+                        VoiceSettingsField::MiniMaxApiKey,
+                        ui::i18n::text("voice.minimax_api_key"),
+                        ui::i18n::text(
+                            "voice.validated_credentials_are_stored_in_this_mac_s_local_database",
+                        ),
+                        cx,
+                    ))
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap(px(8.0))
+                            .child(
                                 action_button(
                                     theme,
-                                    ui::i18n::text("voice.clear"),
-                                    theme.destructive,
+                                    if state.minimax_account_status()
+                                        == tts::RemoteAccountStatus::Checking
+                                    {
+                                        ui::i18n::text("voice.connecting")
+                                    } else {
+                                        ui::i18n::text("voice.connect")
+                                    },
+                                    theme.accent_blue,
                                 )
-                                .id("settings-tts-minimax-clear-credential")
-                                .debug_selector(|| {
-                                    "settings-tts-minimax-clear-credential".to_string()
-                                })
-                                .on_click(
-                                    cx.listener(
-                                        MultisoulApp::on_voice_clear_minimax_tts_credential,
-                                    ),
-                                ),
+                                .id("settings-tts-minimax-connect")
+                                .debug_selector(|| "settings-tts-minimax-connect".to_string())
+                                .on_click(cx.listener(MultisoulApp::on_voice_connect_minimax_tts)),
                             )
-                        }),
-                )
-        });
+                            .when(state.minimax_credential_configured(), |actions| {
+                                actions.child(
+                                    action_button(
+                                        theme,
+                                        ui::i18n::text("voice.clear"),
+                                        theme.destructive,
+                                    )
+                                    .id("settings-tts-minimax-clear-credential")
+                                    .debug_selector(|| {
+                                        "settings-tts-minimax-clear-credential".to_string()
+                                    })
+                                    .on_click(cx.listener(
+                                        MultisoulApp::on_voice_clear_minimax_tts_credential,
+                                    )),
+                                )
+                            }),
+                    )
+            });
     if state.minimax_credential_configured() {
         content = content
             .child(minimax_model_selector(theme, state, cx))
@@ -174,14 +173,12 @@ pub(super) fn minimax_configuration(
                     .border_color(rgba(with_alpha(theme.edge_highlight, 0x42)))
                     .child(
                         div()
-                            .font_weight(FontWeight::BOLD)
-                            .text_color(rgba(theme.text_primary))
+                            .settings_text(TextRole::RowTitle, theme)
                             .child(ui::i18n::text("voice.use_a_voice_id")),
                     )
                     .child(
                         div()
-                            .text_size(px(10.0))
-                            .text_color(rgba(theme.text_tertiary))
+                            .settings_text(TextRole::Helper, theme)
                             .child(ui::i18n::text(
                                 "voice.enter_a_known_voice_id_that_is_not_listed_above",
                             )),
@@ -190,7 +187,7 @@ pub(super) fn minimax_configuration(
             )
             .child(
                 div()
-                    .text_size(px(11.0))
+                    .settings_font(TextRole::Label)
                     .text_color(rgba(match readiness {
                         tts::RemoteTtsReadiness::Ready => theme.accent_green,
                         tts::RemoteTtsReadiness::TemporarilyUnavailable

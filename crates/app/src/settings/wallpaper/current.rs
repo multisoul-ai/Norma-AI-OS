@@ -1,4 +1,5 @@
 //! The current choice uses the same bounded still-frame cache as the library.
+use crate::settings::typography::{SettingsText, TextRole};
 
 use super::{cells::preview_thumbnail, layout::WallpaperLayout, state::WallpaperSelection};
 use super::{preview::PreviewCache, state::WallpaperSettingsState};
@@ -6,7 +7,7 @@ use crate::app::{
     wallpaper_resolvers::{builtin_wallpapers, resolve_builtin_asset, WallpaperKind},
     MultisoulApp,
 };
-use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight};
+use gpui::{div, prelude::*, px, rgba, Context, Div};
 use ui::Theme;
 
 pub(super) fn current_wallpaper(
@@ -94,24 +95,18 @@ pub(super) fn current_wallpaper(
                 .gap(px(6.0))
                 .child(
                     div()
-                        .text_size(px(11.0))
-                        .line_height(px(14.0))
-                        .text_color(rgba(theme.text_secondary))
+                        .settings_text(TextRole::Eyebrow, theme)
                         .child(ui::i18n::text("settings.current_wallpaper")),
                 )
                 .child(
                     div()
-                        .text_size(px(20.0))
-                        .line_height(px(26.0))
-                        .font_weight(FontWeight::SEMIBOLD)
+                        .settings_font(TextRole::Headline)
                         .truncate()
                         .child(name),
                 )
                 .child(
                     div()
-                        .text_size(px(12.0))
-                        .line_height(px(18.0))
-                        .text_color(rgba(theme.text_secondary))
+                        .settings_text(TextRole::Helper, theme)
                         .child(match kind {
                             WallpaperKind::Static => ui::i18n::text("settings.still_image"),
                             WallpaperKind::Gif | WallpaperKind::Video => {
@@ -124,17 +119,13 @@ pub(super) fn current_wallpaper(
                 })
                 .child(
                     div()
-                        .text_size(px(12.0))
-                        .line_height(px(18.0))
-                        .text_color(rgba(theme.text_secondary))
+                        .settings_text(TextRole::Helper, theme)
                         .child(description),
                 )
                 .child(
                     div()
                         .min_h(px(18.0))
-                        .text_size(px(11.0))
-                        .line_height(px(14.0))
-                        .text_color(rgba(theme.text_secondary))
+                        .settings_text(TextRole::Caption, theme)
                         .child(
                             state
                                 .scoped

@@ -10,6 +10,8 @@ pub(crate) mod performance;
 mod theme_selection;
 pub(crate) use theme_selection::ThemeSettingsState;
 pub(crate) mod mobile;
+pub(crate) mod spacing;
+pub(crate) mod typography;
 pub(crate) mod voice;
 pub(crate) mod wallpaper;
 

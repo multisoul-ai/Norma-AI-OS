@@ -19,7 +19,7 @@ use crate::harness::{echo_factory, enter_canvas, make_app};
 ///
 /// 数据构造（含关键数值推导过程）：
 ///   toolbar-settings              = 30px × 30px（`chrome_icon_button` 固定尺寸）
-///   settings-panel                >= 860px × 620px（`PANEL_MIN_W/H`）
+///   settings-panel                >= 520px × 400px（`PANEL_MIN_W/H`，视口足够时）
 ///   settings-section-keyboard     = 42px 高（settings sidebar section button）
 ///   settings-shortcut-new-terminal = 88px min-width × 32px 高（keycap）
 ///   New Terminal 默认快捷键       = `cmd-1`

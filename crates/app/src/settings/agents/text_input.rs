@@ -1,9 +1,10 @@
 use super::components::with_alpha;
 use super::{AgentDefinitionField, AgentDefinitionsState};
 use crate::app::MultisoulApp;
+use crate::settings::typography::{SettingsText, TextRole};
 use gpui::{
     div, prelude::*, px, rgba, AppContext, Context, CursorStyle, Entity, FocusHandle, Focusable,
-    FontWeight, KeyDownEvent, MouseButton, Subscription, Window,
+    KeyDownEvent, MouseButton, Subscription, Window,
 };
 use ui::component::input::{Input, InputEvent, InputState};
 use ui::Theme;
@@ -37,13 +38,12 @@ pub(super) fn editable_field(
             theme.text_secondary
         }))
         .bg(rgba(with_alpha(theme.panel_high, 0xb8)))
-        .text_size(px(13.0))
+        .settings_font(TextRole::Body)
         .text_color(rgba(if editing {
             theme.accent_orange
         } else {
             theme.text_primary
-        }))
-        .line_height(px(20.0));
+        }));
 
     if editing {
         let (input, input_focus) = native_input(state, field, min_height, window, cx);
@@ -77,13 +77,7 @@ pub(super) fn editable_field(
         .flex()
         .flex_col()
         .gap(px(8.0))
-        .child(
-            div()
-                .text_size(px(13.0))
-                .font_weight(FontWeight::MEDIUM)
-                .text_color(rgba(theme.text_secondary))
-                .child(label),
-        )
+        .child(div().settings_text(TextRole::Label, theme).child(label))
         .child(surface)
 }
 
@@ -152,7 +146,9 @@ fn native_input(
     );
     let input = field_state.read(cx).input.clone();
     let focus = input.focus_handle(cx);
-    let editor = Input::new(&input).appearance(false);
+    let editor = Input::new(&input)
+        .settings_font(TextRole::Body)
+        .appearance(false);
     let editor = if field == AgentDefinitionField::WorkflowDescription {
         editor.h(px((min_height - 24.0).max(20.0)))
     } else {

@@ -1,6 +1,7 @@
 use super::card;
 use crate::mobile::controller::{Command, MobileController};
-use gpui::{div, prelude::*, px, rgba, App, Context, Div, Entity, FontWeight, Window};
+use crate::settings::typography::{control_label, SettingsText, TextRole};
+use gpui::{div, prelude::*, px, rgba, App, Context, Div, Entity, Window};
 use storage::PushEnvironment;
 use ui::{
     component::{
@@ -25,13 +26,12 @@ pub(super) fn entry(theme: Theme, mobile: &Entity<MobileController>, busy: bool)
                 .gap(px(3.0))
                 .child(
                     div()
-                        .font_weight(FontWeight::SEMIBOLD)
+                        .settings_font(TextRole::Headline)
                         .child(ui::i18n::text("mobile.task_notifications")),
                 )
                 .child(
                     div()
-                        .text_size(px(12.0))
-                        .text_color(rgba(theme.text_tertiary))
+                        .settings_text(TextRole::Helper, theme)
                         .child(ui::i18n::text(
                             "mobile.set_up_notifications_for_your_iphone",
                         )),
@@ -40,7 +40,7 @@ pub(super) fn entry(theme: Theme, mobile: &Entity<MobileController>, busy: bool)
         .child(
             Button::new("mobile-push-settings")
                 .debug_selector(|| "mobile-push-settings".into())
-                .label(ui::i18n::text("mobile.configure"))
+                .child(control_label(ui::i18n::text("mobile.configure")))
                 .outline()
                 .disabled(busy)
                 .on_click(move |_, window, cx| open(mobile.clone(), theme, window, cx)),
@@ -76,7 +76,11 @@ fn open(mobile: Entity<MobileController>, theme: Theme, window: &mut Window, cx:
     let width = (f32::from(window.viewport_size().width) - 48.0).clamp(260.0, 540.0);
     window.open_dialog(cx, move |dialog, window, _| {
         dialog
-            .title(ui::i18n::text("mobile.notification_service"))
+            .title(
+                div()
+                    .settings_font(TextRole::Headline)
+                    .child(ui::i18n::text("mobile.notification_service")),
+            )
             .width(px(width))
             .max_h(window.viewport_size().height * 0.8)
             .child(view.clone())
@@ -123,8 +127,7 @@ impl Render for PushSettings {
             .flex_col()
             .gap(px(14.0))
             .py(px(12.0))
-            .text_size(px(13.0))
-            .text_color(rgba(self.theme.text_primary))
+            .settings_text(TextRole::Body, self.theme)
             .child(
                 div()
                     .id(status_id)
@@ -133,8 +136,7 @@ impl Render for PushSettings {
             )
             .child(
                 div()
-                    .text_size(px(12.0))
-                    .text_color(rgba(self.theme.text_secondary))
+                    .settings_text(TextRole::Helper, self.theme)
                     .child(ui::i18n::text(
                         "mobile.settings_are_stored_in_this_mac_s_local_database_and_apply",
                     )),
@@ -151,86 +153,108 @@ impl Render for PushSettings {
         let can_save = !busy
             && !self.endpoint.read(cx).value().trim().is_empty()
             && !self.key.read(cx).value().trim().is_empty();
-        body.child(ui::i18n::text("mobile.service_url"))
-            .child(
-                div()
-                    .id("mobile-push-url")
-                    .debug_selector(|| "mobile-push-url".into())
-                    .child(Input::new(&self.endpoint).disabled(busy)),
-            )
-            .child(ui::i18n::text("mobile.service_access_token"))
-            .child(
-                div()
-                    .id("mobile-push-key")
-                    .debug_selector(|| "mobile-push-key".into())
-                    .child(Input::new(&self.key).disabled(busy)),
-            )
-            .child(
-                div()
-                    .text_size(px(12.0))
-                    .text_color(rgba(self.theme.text_secondary))
-                    .child(ui::i18n::text("mobile.enter_the_service_token_each_time_you_save_keep_the_apple")),
-            )
-            .child(ui::i18n::text("mobile.app_environment"))
-            .child(
-                div()
-                    .flex()
-                    .flex_wrap()
-                    .gap(px(8.0))
-                    .child(self.environment_button(
-                        "mobile-push-sandbox",
-                        PushEnvironment::Sandbox,
-                        busy,
-                        cx,
-                    ))
-                    .child(self.environment_button(
-                        "mobile-push-production",
-                        PushEnvironment::Production,
-                        busy,
-                        cx,
-                    )),
-            )
-            .child(
-                div()
-                    .flex()
-                    .flex_wrap()
-                    .gap(px(10.0))
-                    .child(
-                        Button::new("mobile-push-save")
-                            .debug_selector(|| "mobile-push-save".into())
-                            .label(ui::i18n::text("common.save"))
-                            .primary()
-                            .disabled(!can_save)
-                            .on_click(cx.listener(|this, _, window, cx| {
-                                let command = Command::SavePush {
-                                    endpoint: this.endpoint.read(cx).value().to_string(),
-                                    key: this.key.read(cx).value().to_string(),
-                                    environment: this.environment,
-                                };
-                                this.mobile.update(cx, |host, cx| host.request(command, cx));
-                                this.key
-                                    .update(cx, |input, cx| input.set_value("", window, cx));
-                            })),
-                    )
-                    .child(
-                        Button::new("mobile-push-clear")
-                            .debug_selector(|| "mobile-push-clear".into())
-                            .label(ui::i18n::text("mobile.clear_and_disable"))
-                            .disabled(busy)
-                            .on_click(cx.listener(|this, _, window, cx| {
-                                this.mobile
-                                    .update(cx, |host, cx| host.request(Command::ClearPush, cx));
-                                this.key
-                                    .update(cx, |input, cx| input.set_value("", window, cx));
-                            })),
-                    ),
-            )
-            .child(
-                div()
-                    .text_size(px(12.0))
-                    .text_color(rgba(self.theme.text_secondary))
-                    .child(ui::i18n::text("mobile.saving_does_not_send_a_test_notification_notifications_already_sent_to")),
-            )
+        body.child(
+            div()
+                .settings_text(TextRole::Label, self.theme)
+                .child(ui::i18n::text("mobile.service_url")),
+        )
+        .child(
+            div()
+                .id("mobile-push-url")
+                .debug_selector(|| "mobile-push-url".into())
+                .child(
+                    Input::new(&self.endpoint)
+                        .settings_font(TextRole::Body)
+                        .disabled(busy),
+                ),
+        )
+        .child(
+            div()
+                .settings_text(TextRole::Label, self.theme)
+                .child(ui::i18n::text("mobile.service_access_token")),
+        )
+        .child(
+            div()
+                .id("mobile-push-key")
+                .debug_selector(|| "mobile-push-key".into())
+                .child(
+                    Input::new(&self.key)
+                        .settings_font(TextRole::Body)
+                        .disabled(busy),
+                ),
+        )
+        .child(
+            div()
+                .settings_text(TextRole::Helper, self.theme)
+                .child(ui::i18n::text(
+                    "mobile.enter_the_service_token_each_time_you_save_keep_the_apple",
+                )),
+        )
+        .child(
+            div()
+                .settings_text(TextRole::Label, self.theme)
+                .child(ui::i18n::text("mobile.app_environment")),
+        )
+        .child(
+            div()
+                .flex()
+                .flex_wrap()
+                .gap(px(8.0))
+                .child(self.environment_button(
+                    "mobile-push-sandbox",
+                    PushEnvironment::Sandbox,
+                    busy,
+                    cx,
+                ))
+                .child(self.environment_button(
+                    "mobile-push-production",
+                    PushEnvironment::Production,
+                    busy,
+                    cx,
+                )),
+        )
+        .child(
+            div()
+                .flex()
+                .flex_wrap()
+                .gap(px(10.0))
+                .child(
+                    Button::new("mobile-push-save")
+                        .debug_selector(|| "mobile-push-save".into())
+                        .child(control_label(ui::i18n::text("common.save")))
+                        .primary()
+                        .disabled(!can_save)
+                        .on_click(cx.listener(|this, _, window, cx| {
+                            let command = Command::SavePush {
+                                endpoint: this.endpoint.read(cx).value().to_string(),
+                                key: this.key.read(cx).value().to_string(),
+                                environment: this.environment,
+                            };
+                            this.mobile.update(cx, |host, cx| host.request(command, cx));
+                            this.key
+                                .update(cx, |input, cx| input.set_value("", window, cx));
+                        })),
+                )
+                .child(
+                    Button::new("mobile-push-clear")
+                        .debug_selector(|| "mobile-push-clear".into())
+                        .child(control_label(ui::i18n::text("mobile.clear_and_disable")))
+                        .disabled(busy)
+                        .on_click(cx.listener(|this, _, window, cx| {
+                            this.mobile
+                                .update(cx, |host, cx| host.request(Command::ClearPush, cx));
+                            this.key
+                                .update(cx, |input, cx| input.set_value("", window, cx));
+                        })),
+                ),
+        )
+        .child(
+            div()
+                .settings_text(TextRole::Helper, self.theme)
+                .child(ui::i18n::text(
+                    "mobile.saving_does_not_send_a_test_notification_notifications_already_sent_to",
+                )),
+        )
     }
 }
 impl PushSettings {
@@ -242,7 +266,7 @@ impl PushSettings {
         cx: &Context<Self>,
     ) -> Button {
         Button::new(id)
-            .label(environment_name(environment))
+            .child(control_label(environment_name(environment)))
             .selected(self.environment == environment)
             .disabled(busy)
             .on_click(cx.listener(move |this, _, _, cx| {

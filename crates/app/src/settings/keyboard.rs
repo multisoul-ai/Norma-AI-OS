@@ -1,9 +1,11 @@
 use crate::app::MultisoulApp;
+use crate::settings::spacing::{CARD_PADDING_COMPACT, ROW_GAP, ROW_PADDING_Y, SECTION_GAP};
+use crate::settings::typography::{SettingsText, TextRole};
 use crate::shortcuts::{
     keystroke_label, read_only_behaviors, EffectiveShortcutEntry, ShortcutCommandId,
     ShortcutSettingsState,
 };
-use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight};
+use gpui::{div, prelude::*, px, rgba, Context, Div};
 use ui::Theme;
 
 use super::super::with_alpha;
@@ -25,7 +27,7 @@ pub(super) fn keyboard_settings(
         .w_full()
         .flex()
         .flex_col()
-        .gap(px(18.0))
+        .gap(px(SECTION_GAP))
         .child(status_message(theme, shortcuts))
         .child(restore_all_row(theme, cx))
         .children(
@@ -47,9 +49,7 @@ fn restore_all_row(theme: Theme, cx: &mut Context<MultisoulApp>) -> Div {
             .border_1()
             .border_color(rgba(with_alpha(theme.edge_highlight, 0x32)))
             .bg(rgba(with_alpha(theme.panel_high, 0x7a)))
-            .text_size(px(13.0))
-            .font_weight(FontWeight::MEDIUM)
-            .text_color(rgba(theme.text_secondary))
+            .settings_text(TextRole::Control, theme)
             .cursor_pointer()
             .hover(move |style| style.bg(rgba(with_alpha(theme.panel_high, 0xa8))))
             .on_click(cx.listener(|app, _, _window, cx| {
@@ -71,7 +71,7 @@ fn command_group(
         .w_full()
         .flex()
         .flex_col()
-        .gap(px(10.0))
+        .gap(px(ROW_GAP))
         .child(group_title(theme, ui::i18n::text(category)))
         .children(
             shortcuts
@@ -86,7 +86,7 @@ fn read_only_group(theme: Theme) -> Div {
     div()
         .flex()
         .flex_col()
-        .gap(px(10.0))
+        .gap(px(ROW_GAP))
         .child(group_title(
             theme,
             ui::i18n::text("settings.input_behavior"),
@@ -100,10 +100,12 @@ fn read_only_group(theme: Theme) -> Div {
                 ))
                 .child(
                     div()
+                        .flex_none()
                         .flex()
                         .flex_row()
                         .items_center()
-                        .gap(px(10.0))
+                        .justify_end()
+                        .gap(px(ROW_GAP))
                         .child(scope_badge(theme, ui::i18n::text(behavior.scope)))
                         .child(keycap(theme, &keystroke_label(Some(behavior.keystroke)))),
                 )
@@ -122,17 +124,22 @@ fn command_row(
     } else {
         keystroke_label(entry.current_keystroke.as_deref())
     };
-    let mut controls = div().flex().flex_row().items_center().gap(px(10.0)).child(
-        keycap(theme, &label)
-            .id(shortcut_row_id(command))
-            .debug_selector(move || shortcut_row_id(command).to_string())
-            .cursor_pointer()
-            .hover(move |style| style.bg(rgba(with_alpha(theme.accent_orange, 0x1e))))
-            .on_click(cx.listener(move |app, _, _window, cx| {
-                app.shortcuts.begin_recording(command);
-                cx.notify();
-            })),
-    );
+    let shortcut = keycap(theme, &label)
+        .id(shortcut_row_id(command))
+        .debug_selector(move || shortcut_row_id(command).to_string())
+        .cursor_pointer()
+        .hover(move |style| style.bg(rgba(with_alpha(theme.accent_orange, 0x1e))))
+        .on_click(cx.listener(move |app, _, _window, cx| {
+            app.shortcuts.begin_recording(command);
+            cx.notify();
+        }));
+    let mut controls = div()
+        .flex_none()
+        .flex()
+        .flex_row()
+        .items_center()
+        .justify_end()
+        .gap(px(ROW_GAP));
 
     if entry.modified {
         controls = controls
@@ -146,7 +153,7 @@ fn command_row(
             ui::i18n::text(entry.title),
             ui::i18n::text(entry.hint),
         ))
-        .child(controls)
+        .child(controls.child(shortcut))
 }
 
 fn restore_button(
@@ -162,8 +169,7 @@ fn restore_button(
         .rounded(px(7.0))
         .border_1()
         .border_color(rgba(with_alpha(theme.edge_highlight, 0x2c)))
-        .text_size(px(12.0))
-        .text_color(rgba(theme.text_secondary))
+        .settings_text(TextRole::Control, theme)
         .cursor_pointer()
         .hover(move |style| style.bg(rgba(with_alpha(theme.panel_high, 0x94))))
         .on_click(cx.listener(move |app, _, _window, cx| {
@@ -199,7 +205,7 @@ fn status_message(theme: Theme, shortcuts: &ShortcutSettingsState) -> Div {
             },
             0x12,
         )))
-        .text_size(px(13.0))
+        .settings_font(TextRole::Helper)
         .text_color(rgba(if shortcuts.status.is_error {
             theme.destructive
         } else {
@@ -210,26 +216,25 @@ fn status_message(theme: Theme, shortcuts: &ShortcutSettingsState) -> Div {
 
 fn group_title(theme: Theme, title: &'static str) -> Div {
     div()
-        .pt(px(18.0))
+        .pt(px(SECTION_GAP))
         .border_t_1()
         .border_color(rgba(with_alpha(theme.edge_highlight, 0x24)))
-        .text_size(px(14.0))
-        .font_weight(FontWeight::BOLD)
-        .text_color(rgba(theme.text_tertiary))
+        .settings_text(TextRole::Eyebrow, theme)
         .child(title)
 }
 
 fn row_shell(theme: Theme) -> Div {
     div()
         .w_full()
+        .min_w(px(0.0))
         .min_h(px(58.0))
         .flex()
         .flex_row()
         .items_center()
         .justify_between()
         .gap(px(20.0))
-        .px(px(14.0))
-        .py(px(10.0))
+        .px(px(CARD_PADDING_COMPACT))
+        .py(px(ROW_PADDING_Y))
         .rounded(px(8.0))
         .bg(rgba(with_alpha(theme.panel_high, 0x54)))
 }
@@ -237,27 +242,20 @@ fn row_shell(theme: Theme) -> Div {
 fn label_block(theme: Theme, title: &'static str, hint: &'static str) -> Div {
     div()
         .flex_1()
+        .min_w(px(0.0))
+        .whitespace_normal()
         .flex()
         .flex_col()
         .gap(px(4.0))
-        .child(
-            div()
-                .text_size(px(15.0))
-                .font_weight(FontWeight::BOLD)
-                .text_color(rgba(theme.text_primary))
-                .child(title),
-        )
-        .child(
-            div()
-                .text_size(px(13.0))
-                .text_color(rgba(theme.text_tertiary))
-                .child(hint),
-        )
+        .child(div().settings_text(TextRole::RowTitle, theme).child(title))
+        .child(div().settings_text(TextRole::Helper, theme).child(hint))
 }
 
 fn keycap(theme: Theme, label: &str) -> Div {
     div()
         .min_w(px(88.0))
+        .flex_none()
+        .whitespace_nowrap()
         .h(px(32.0))
         .flex()
         .items_center()
@@ -267,9 +265,7 @@ fn keycap(theme: Theme, label: &str) -> Div {
         .border_1()
         .border_color(rgba(with_alpha(theme.edge_highlight, 0x40)))
         .bg(rgba(with_alpha(theme.node_fill, 0xc6)))
-        .text_size(px(13.0))
-        .font_weight(FontWeight::MEDIUM)
-        .text_color(rgba(theme.text_primary))
+        .settings_text(TextRole::Control, theme)
         .child(label.to_string())
 }
 
@@ -279,7 +275,7 @@ fn modified_badge(theme: Theme) -> Div {
         .py(px(5.0))
         .rounded(px(6.0))
         .bg(rgba(with_alpha(theme.accent_orange, 0x18)))
-        .text_size(px(12.0))
+        .settings_font(TextRole::Label)
         .text_color(rgba(theme.accent_orange))
         .child(ui::i18n::text("settings.modified"))
 }
@@ -290,7 +286,7 @@ fn scope_badge(theme: Theme, label: &'static str) -> Div {
         .py(px(5.0))
         .rounded(px(6.0))
         .bg(rgba(with_alpha(theme.accent_cyan, 0x14)))
-        .text_size(px(12.0))
+        .settings_font(TextRole::Label)
         .text_color(rgba(theme.accent_cyan))
         .child(label)
 }
@@ -362,3 +358,7 @@ fn shortcut_restore_id(command: ShortcutCommandId) -> &'static str {
         ShortcutCommandId::VoiceInteraction => "settings-shortcut-restore-voice-interaction",
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/settings_keyboard_layout_tests.rs"]
+mod settings_keyboard_layout_tests;

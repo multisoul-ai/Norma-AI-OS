@@ -63,9 +63,11 @@ fn persona_settings_survive_reload_and_invalid_save_preserves_previous_value() {
 
 /// 三个 Norma 导航直接切页，切页保留人设草稿，关闭会返回草稿并阻止丢失。
 ///
-/// 数据构造：1280×800px 桌面窗口与隔离数据库；人设默认暖心，草稿改为专业。
-/// 执行过程：打开默认人设→点击记忆→返回人设→修改→点击记忆→尝试关闭→保存人设→关闭。
-/// 预期结果：默认人设可见且记忆未渲染；页内旧标签不存在；导航直达；保存前无法关闭，保存后允许关闭。
+/// 数据构造：1280×800px 桌面窗口与隔离数据库；面板高度 = 800×0.7 = 560px；
+///   人设默认暖心，草稿改为专业；300px 滚动覆盖表单底部超出视口的约 100px。
+/// 执行过程：打开默认人设→点击记忆→返回人设→滚动表单→修改→点击记忆→尝试关闭→保存人设→关闭。
+/// 预期结果：默认人设可见且记忆未渲染；表单可滚动而保存行始终可见；
+///   页内旧标签不存在；导航直达；保存前无法关闭，保存后允许关闭。
 #[test]
 fn persona_navigation_preserves_draft_and_close_requires_resolution() {
     use crate::{app::MultisoulApp, settings::panel::SettingsSection};
@@ -131,6 +133,26 @@ fn persona_navigation_preserves_draft_and_close_requires_resolution() {
         actions.bottom() <= viewport.bottom(),
         "桌面基准高度应直接显示保存操作，不能默认藏在屏幕下方：actions={actions:?}, viewport={viewport:?}"
     );
+    let body = cx
+        .debug_bounds("persona-content-scroll")
+        .expect("缩小后的面板必须提供独立表单滚动区域");
+    let example_before = cx.debug_bounds("persona-example").expect("应有示例");
+    cx.simulate_event(gpui::ScrollWheelEvent {
+        position: body.center(),
+        delta: gpui::ScrollDelta::Pixels(gpui::point(px(0.0), px(-300.0))),
+        modifiers: Modifiers::none(),
+        touch_phase: gpui::TouchPhase::Moved,
+    });
+    cx.update(|window, cx| window.draw(cx).clear());
+    let example_after = cx.debug_bounds("persona-example").expect("滚动后仍有示例");
+    let actions_after = cx
+        .debug_bounds("persona-actions")
+        .expect("滚动后仍有保存行");
+    assert!(
+        example_after.top() < example_before.top(),
+        "滚轮必须移动表单内容，不能仅裁掉超出的内容"
+    );
+    assert_eq!(actions_after, actions, "滚动表单不得移动底部保存行");
     assert!(
         cx.debug_bounds("persona-unsaved-prompt").is_none(),
         "没有尝试关闭时不应显示草稿警告"

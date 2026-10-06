@@ -1,3 +1,4 @@
+use crate::settings::typography::{SettingsText, TextRole};
 mod inspector;
 mod list;
 
@@ -6,7 +7,7 @@ use self::list::agent_list;
 use super::components::{action_button, status_block, with_alpha};
 use super::{AgentDefinitionsState, AgentDeleteDialog};
 use crate::app::MultisoulApp;
-use gpui::{div, prelude::*, px, rgba, AnyElement, Context, Div, FontWeight, ScrollHandle, Window};
+use gpui::{div, prelude::*, px, rgba, AnyElement, Context, Div, ScrollHandle, Window};
 use std::collections::HashSet;
 use ui::Theme;
 
@@ -107,20 +108,8 @@ fn delete_agent_dialog(
                 .flex()
                 .flex_col()
                 .gap(px(12.0))
-                .child(
-                    div()
-                        .text_size(px(18.0))
-                        .font_weight(FontWeight::BOLD)
-                        .text_color(rgba(theme.text_primary))
-                        .child(title),
-                )
-                .child(
-                    div()
-                        .text_size(px(13.0))
-                        .line_height(px(20.0))
-                        .text_color(rgba(theme.text_secondary))
-                        .child(message),
-                )
+                .child(div().settings_text(TextRole::Headline, theme).child(title))
+                .child(div().settings_text(TextRole::Helper, theme).child(message))
                 .child(
                     div()
                         .pt(px(8.0))
