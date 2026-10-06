@@ -2,26 +2,71 @@ import XCTest
 import UIKit
 
 final class ConnectedComputersFlowTests: XCTestCase {
-    /// 单码注册页跨两层 Sheet 仍能读取共享云注册状态，不能因环境未注入而闪退。
+    /// Mac 授予控制权限后，即使云端注册不可用，也能完成电脑配对。
+    ///
+    /// 数据构造：独立模拟器、真实二维码图片与证书 pin 的回环 TLS 替身；
+    ///   Mac 授权为 control、revision=1；cloud_registration 返回 unavailable，云端端口 1 不提供服务。
+    ///   8 秒 = 5 秒传输上限 + 3 秒原生扫码与界面调度余量。
+    /// 执行过程：图片扫码 → 连接电脑 → 收到 Mac 授权 → 完成 → 进入后台并恢复 → 再次打开电脑列表。
+    /// 预期结果：完成按钮立即可用；没有注册重试或暂停提示；保留电脑，且从未请求云端注册证明。
+    @MainActor func testPairingFinishesWithoutCloud() throws {
+        let env = ProcessInfo.processInfo.environment
+        guard env["NORMA_TEST_MODE"] == "pairing-direct-ui", let path = env["NORMA_TEST_QR"] else {
+            throw XCTSkip("需要 pairing-direct.mjs 和导入二维码图片的独立模拟器")
+        }
+        continueAfterFailure = false
+        let requestsURL = URL(fileURLWithPath: path).deletingLastPathComponent().appendingPathComponent("requests.json")
+        let previousCount = try JSONDecoder().decode([String].self, from: Data(contentsOf: requestsURL)).count
+        let app = XCUIApplication()
+        app.launchEnvironment["NORMA_CLOUD_LOCAL_PORT"] = "1"
+        app.launchEnvironment["NORMA_CLOUD_TEST_NAMESPACE"] = UUID().uuidString
+        app.launch()
+        XCTAssertTrue(app.buttons["idea-more-modules"].waitForExistence(timeout: 8), "真实 App 主页面必须可达")
+        app.buttons["idea-more-modules"].tap(); app.buttons["已连接电脑"].tap()
+        app.buttons["add-computer"].tap(); app.buttons["scan-qr"].tap()
+        XCTAssertTrue(app.buttons["scan-qr-photo"].waitForExistence(timeout: 8), "必须通过生产图片扫码入口")
+        app.buttons["scan-qr-photo"].tap()
+        let photo = app.images.matching(NSPredicate(format: "label BEGINSWITH 'Photo,' OR label BEGINSWITH '照片,'")).firstMatch
+        XCTAssertTrue(photo.waitForExistence(timeout: 8), "独立图库必须有真实二维码图片")
+        // PhotosPicker 的远程图片 AX 不提供 hittable，点击已定位图片的实际中心。
+        photo.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertTrue(app.buttons["连接电脑"].waitForExistence(timeout: 8), "二维码必须经过实际解码并展示电脑身份")
+        app.buttons["连接电脑"].tap()
+        let done = app.buttons["pairing-done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 8), "Mac 授权后必须完成配对，云端失败不能阻断")
+        XCTAssertTrue(done.isEnabled, "云端不可用时完成仍须可点击")
+        XCTAssertTrue(app.staticTexts["已连接，可以派工"].exists, "控制权限必须明确显示为连接成功")
+        XCTAssertFalse(app.buttons["pairing-registration-retry"].exists, "配对页不能要求补做云端注册")
+        XCUIDevice.shared.press(.home); app.activate()
+        XCTAssertTrue(done.waitForExistence(timeout: 8), "后台恢复不得撤销已完成配对")
+        XCTAssertFalse(app.staticTexts["注册已暂停。返回后点击重试完成注册。"].exists, "已配对电脑不能被云端状态标为暂停")
+        done.tap()
+        XCTAssertTrue(app.staticTexts["直连配对验收 Mac"].waitForExistence(timeout: 8), "完成后电脑记录必须保存")
+        let requests = try JSONDecoder().decode([String].self, from: Data(contentsOf: requestsURL)).dropFirst(previousCount)
+        XCTAssertTrue(requests.contains("authenticate"), "配对必须取得真实 TLS 授权响应")
+        XCTAssertFalse(requests.contains("cloud_registration"), "电脑配对不得发起云端注册")
+    }
+
+    /// 配对引导跨两层 Sheet 仍能正常进入，且明确以 Mac 授权完成电脑连接。
     /// 数据构造：真实 App 启动，不预注入云凭据；5秒=启动和系统转场余量，不等待网络。
     /// 执行过程：更多模块→已连接电脑→添加电脑→扫码图片入口→取消→返回电脑页。
-    /// 预期结果：出现自动注册说明且页面存活；取消不显示注册成功，也不要求第二张邀请码。
-    @MainActor func testSingleScanRegistrationGuideRemainsAlive() {
+    /// 预期结果：出现 Mac 授权说明且页面存活；取消不显示配对成功，不要求云端注册。
+    @MainActor func testPairingGuideDoesNotRequireCloudRegistration() {
         continueAfterFailure = false
         let app = XCUIApplication(); app.launch()
         XCTAssertTrue(app.buttons["idea-more-modules"].waitForExistence(timeout: 5), "需要进入真实主页面")
         app.buttons["idea-more-modules"].tap(); app.buttons["已连接电脑"].tap()
         XCTAssertTrue(app.buttons["add-computer"].waitForExistence(timeout: 5), "电脑列表必须可达")
         app.buttons["add-computer"].tap()
-        XCTAssertTrue(app.buttons["scan-qr"].waitForExistence(timeout: 5), "共享注册模型必须穿过全屏页与配对Sheet，不能闪退")
-        XCTAssertTrue(app.staticTexts["在 Mac 确认授权后，自动完成手机注册。"].exists, "必须清楚说明一张 Mac 二维码即可注册")
-        XCTAssertFalse(app.staticTexts["已连接，可以派工"].exists, "未配对不能伪造注册成功")
+        XCTAssertTrue(app.buttons["scan-qr"].waitForExistence(timeout: 5), "配对页面必须穿过全屏页与Sheet，不能闪退")
+        XCTAssertTrue(app.staticTexts["在 Mac 确认授权后，即可连接电脑。"].exists, "配对引导必须以 Mac 授权为完成条件")
+        XCTAssertFalse(app.staticTexts["已连接，可以派工"].exists, "未配对不能伪造连接成功")
         let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "single-scan-guide"; shot.lifetime = .keepAlways; add(shot)
         app.buttons["scan-qr"].tap()
         XCTAssertTrue(app.buttons["scan-qr-photo"].waitForExistence(timeout: 5), "无相机的模拟器也能选择真实二维码图片")
         app.buttons["scanner-close"].tap(); app.buttons["pairing-cancel"].tap()
         XCTAssertTrue(app.buttons["add-computer"].waitForExistence(timeout: 5), "取消必须返回电脑列表")
-        XCTAssertFalse(app.buttons["pairing-done"].exists, "取消不能显示已注册完成")
+        XCTAssertFalse(app.buttons["pairing-done"].exists, "取消不能显示已配对完成")
     }
 
     /// W02 是浅色全屏页面，状态栏背后不能露出旧深色项目页。

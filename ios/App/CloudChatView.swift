@@ -85,15 +85,15 @@ struct CloudChatView: View {
 
     private var invitationCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(model.enrolling ? "正在完成注册…" : computers.machines.isEmpty ? "连接你的电脑" : "手机注册尚未完成")
+            Text(model.enrolling ? "正在启用云端聊天…" : computers.machines.isEmpty ? "连接你的电脑" : "启用云端聊天")
                 .font(.title2.bold()).accessibilityAddTraits(.isHeader)
             Text(computers.machines.isEmpty
-                 ? "在 Norma 的「已连接电脑」中扫描 Mac 二维码，电脑确认授权后会自动完成手机注册。无需设置模型或密钥。"
-                 : "电脑已配对。请保持 Mac 在线，完成手机注册后即可继续。")
+                 ? "先在「已连接电脑」中与 Mac 配对，再回到这里启用云端聊天。无需设置模型或密钥。"
+                 : "电脑配对已完成。保持 Mac 在线，启用云端聊天后即可在这里与 Norma 对话。")
                 .font(.body).foregroundStyle(IdeaPalette.secondary)
-            if model.enrolling { ProgressView().accessibilityLabel("正在完成注册") }
+            if model.enrolling { ProgressView().accessibilityLabel("正在启用云端聊天") }
             else if let machine = computers.selected ?? computers.machines.first {
-                Button("重试完成注册") {
+                Button("启用云端聊天") {
                     Task {
                         do { try await model.register(on: machine, using: computers.client) }
                         catch { model.error = error.localizedDescription }
