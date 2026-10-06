@@ -1,5 +1,6 @@
 use super::{action_button, with_alpha};
 use crate::app::MultisoulApp;
+use crate::settings::typography::{SettingsText, TextRole};
 use crate::settings::voice::{TtsModelInstallState, VoiceSettingsState};
 use gpui::{
     div, prelude::*, px, rgba, AppContext, Context, Div, Entity, Focusable, Subscription, Window,
@@ -77,8 +78,7 @@ pub(super) fn zipvoice_reference_controls(
             .child(
                 div()
                     .pt(px(8.0))
-                    .text_size(px(12.0))
-                    .text_color(rgba(theme.text_secondary))
+                    .settings_text(TextRole::Helper, theme)
                     .child(ui::i18n::text(
                         "voice.clone_reference_16_khz_mono_pcm_wav_3_15_seconds",
                     )),
@@ -106,7 +106,12 @@ pub(super) fn zipvoice_reference_controls(
                             .border_color(rgba(with_alpha(theme.edge_highlight, 0x58)))
                             .bg(rgba(with_alpha(theme.panel_high, 0xb8)))
                             .on_click(cx.listener(move |_, _, window, _| path_focus.focus(window)))
-                            .child(Input::new(&path).appearance(false).cleanable(true)),
+                            .child(
+                                Input::new(&path)
+                                    .settings_font(TextRole::Body)
+                                    .appearance(false)
+                                    .cleanable(true),
+                            ),
                     ),
             )
             .child(
@@ -138,7 +143,12 @@ pub(super) fn zipvoice_reference_controls(
                             .on_click(
                                 cx.listener(move |_, _, window, _| transcript_focus.focus(window)),
                             )
-                            .child(Input::new(&transcript).appearance(false).cleanable(true)),
+                            .child(
+                                Input::new(&transcript)
+                                    .settings_font(TextRole::Body)
+                                    .appearance(false)
+                                    .cleanable(true),
+                            ),
                     )
                     .when(transcript_required, |field| {
                         field.child(
@@ -147,7 +157,7 @@ pub(super) fn zipvoice_reference_controls(
                                 .debug_selector(|| {
                                     "settings-zipvoice-reference-transcript-required".to_string()
                                 })
-                                .text_size(px(11.0))
+                                .settings_font(TextRole::Helper)
                                 .text_color(rgba(theme.destructive))
                                 .child(ui::i18n::text(
                                     "voice.required_enter_the_exact_words_spoken_in_the_wav",
@@ -199,7 +209,7 @@ pub(super) fn zipvoice_reference_controls(
                 .flex()
                 .items_center()
                 .gap(px(8.0))
-                .text_size(px(12.0))
+                .settings_font(TextRole::Helper)
                 .text_color(rgba(theme.accent_green))
                 .child(ui::i18n::text("voice.reference_ready"))
                 .child(
@@ -222,8 +232,7 @@ fn reference_field_label(theme: Theme, label: &'static str) -> Div {
         .flex()
         .items_center()
         .gap(px(5.0))
-        .text_size(px(11.0))
-        .text_color(rgba(theme.text_secondary))
+        .settings_text(TextRole::Label, theme)
         .child(label)
         .child(
             div()

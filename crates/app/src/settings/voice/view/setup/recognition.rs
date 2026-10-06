@@ -3,6 +3,7 @@ use super::super::{setting_row, text_setting_row, with_alpha, VoiceSettingsInput
 use super::components::{compact_setup_row, setup_action_button, SetupButtonTone};
 use super::models::alternative_models_detail;
 use crate::app::MultisoulApp;
+use crate::settings::typography::{SettingsText, TextRole};
 use crate::settings::voice::{
     AsrModelInstallState, VoiceRequirementState, VoiceSettingsField, VoiceSettingsState,
     VoiceSetupDestination,
@@ -283,7 +284,7 @@ fn azure_detail(
         .when(azure_active, |detail| {
             detail.child(
                 div()
-                    .text_size(px(12.0))
+                    .settings_font(TextRole::Helper)
                     .text_color(rgba(theme.accent_green))
                     .child(ui::i18n::text(
                         "voice.azure_speech_is_the_active_recognition_source",

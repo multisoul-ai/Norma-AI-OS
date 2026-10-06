@@ -1,3 +1,5 @@
+use crate::settings::spacing::{CARD_PADDING, FORM_ROW_PADDING_Y, ROW_GAP, SECTION_GAP};
+use crate::settings::typography::{SettingsText, TextRole};
 mod diagnostics;
 use self::asr_provider::asr_provider_group;
 use self::doubao::{desktop_mode_picker, doubao_settings};
@@ -13,7 +15,7 @@ use self::status::status_message;
 use super::state::{VoiceSettingsState, VoiceSetupDestination};
 use crate::app::MultisoulApp;
 use diagnostics::trace_row;
-use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, FontWeight, Window};
+use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, Window};
 use ui::Theme;
 
 mod asr_provider;
@@ -54,7 +56,7 @@ pub(crate) fn voice_settings(
         .min_w(px(0.0))
         .flex()
         .flex_col()
-        .gap(px(20.0))
+        .gap(px(SECTION_GAP))
         .child(desktop_mode_picker(theme, state, cx))
         .child(voice_status_overview(
             theme,
@@ -401,19 +403,13 @@ pub(super) fn settings_group(theme: Theme, title: &'static str) -> Div {
         .min_w(px(0.0))
         .flex()
         .flex_col()
-        .gap(px(12.0))
-        .p(px(20.0))
+        .gap(px(ROW_GAP))
+        .p(px(CARD_PADDING))
         .rounded(px(12.0))
         .border_1()
         .border_color(rgba(with_alpha(theme.text_primary, 0x18)))
         .bg(rgba(theme.panel_high))
-        .child(
-            div()
-                .text_size(px(16.0))
-                .font_weight(FontWeight::SEMIBOLD)
-                .text_color(rgba(theme.text_primary))
-                .child(title),
-        )
+        .child(div().settings_text(TextRole::Headline, theme).child(title))
 }
 
 pub(super) fn setting_row(theme: Theme, title: &'static str, hint: &'static str) -> Div {
@@ -424,7 +420,7 @@ pub(super) fn setting_row(theme: Theme, title: &'static str, hint: &'static str)
         .flex_col()
         .items_start()
         .gap(px(10.0))
-        .py(px(6.0))
+        .py(px(FORM_ROW_PADDING_Y))
         .child(setting_label(theme, title, hint))
 }
 
@@ -435,19 +431,8 @@ pub(super) fn setting_label(theme: Theme, title: &'static str, hint: &'static st
         .flex()
         .flex_col()
         .gap(px(4.0))
-        .child(
-            div()
-                .text_size(px(14.0))
-                .font_weight(FontWeight::MEDIUM)
-                .text_color(rgba(theme.text_primary))
-                .child(title),
-        )
-        .child(
-            div()
-                .text_size(px(12.0))
-                .text_color(rgba(theme.text_tertiary))
-                .child(hint),
-        )
+        .child(div().settings_text(TextRole::RowTitle, theme).child(title))
+        .child(div().settings_text(TextRole::Helper, theme).child(hint))
 }
 
 pub(super) fn with_alpha(color: u32, alpha: u8) -> u32 {

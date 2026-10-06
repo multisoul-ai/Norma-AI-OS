@@ -1,3 +1,4 @@
+use crate::settings::typography::{control_label, SettingsText, TextRole};
 mod status;
 use status::{component_error_detail, component_status, provider_description};
 mod controller;
@@ -11,7 +12,7 @@ pub(crate) use controller::OrchestrationSettingsState;
 use tokens::*;
 
 use crate::app::MultisoulApp;
-use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight, Window};
+use gpui::{div, prelude::*, px, rgba, Context, Div, Window};
 use norma::orchestration::{
     AggregateStatus, ComponentState, OrchestrationProvider, ProviderIntegration,
 };
@@ -36,8 +37,7 @@ pub(super) fn orchestration_settings(
                 .gap(px(10.0))
                 .border_b_1()
                 .border_color(rgba(with_alpha(theme.edge_highlight, 0x24)))
-                .text_size(px(NOTICE_TEXT_SIZE))
-                .text_color(rgba(theme.text_tertiary))
+                .settings_text(TextRole::Helper, theme)
                 .child(
                     div()
                         .w(px(18.0))
@@ -50,7 +50,7 @@ pub(super) fn orchestration_settings(
                         .rounded(px(9.0))
                         .border_1()
                         .border_color(rgba(theme.text_tertiary))
-                        .text_size(px(11.0))
+                        .settings_font(TextRole::Caption)
                         .child("i"),
                 )
                 .child(div().relative().top(px(5.0)).child(ui::i18n::text(
@@ -121,9 +121,7 @@ fn provider_row(
                 .gap(px(PROVIDER_TEXT_GAP))
                 .child(
                     div()
-                        .text_size(px(PROVIDER_TITLE_SIZE))
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .text_color(rgba(theme.text_primary))
+                        .settings_text(TextRole::RowTitle, theme)
                         .when(provider == OrchestrationProvider::Cursor, |title| {
                             title.relative().top(px(1.0))
                         })
@@ -132,8 +130,7 @@ fn provider_row(
                 .child(
                     div()
                         .truncate()
-                        .text_size(px(PROVIDER_BODY_SIZE))
-                        .text_color(rgba(theme.text_tertiary))
+                        .settings_text(TextRole::Helper, theme)
                         .child(description),
                 ),
         )
@@ -143,8 +140,7 @@ fn provider_row(
                 .flex_none()
                 .relative()
                 .left(px(2.0))
-                .font_weight(FontWeight::MEDIUM)
-                .text_size(px(PROVIDER_STATUS_SIZE))
+                .settings_font(TextRole::Label)
                 .text_color(rgba(status_color))
                 .child(status),
         )
@@ -213,7 +209,7 @@ fn provider_action(
         .active(rgba(with_alpha(tone, 0x2c)).into());
     let button = Button::new(("settings-orchestration-action", provider_index(provider)))
         .debug_selector(move || selector.to_string())
-        .label(label)
+        .child(control_label(label))
         .custom(variant)
         .w_full()
         .h(px(40.0))
@@ -253,7 +249,7 @@ fn disabled_action(
                 .rounded(px(9.0))
                 .border_1()
                 .border_color(rgba(with_alpha(theme.text_tertiary, 0x42)))
-                .text_size(px(PROVIDER_STATUS_SIZE))
+                .settings_font(TextRole::Control)
                 .text_color(rgba(theme.text_tertiary))
                 .child(label),
         )
@@ -297,14 +293,14 @@ fn disclosure(
                 provider_index(provider),
             ))
             .debug_selector(move || selector.to_string())
-            .label(label)
+            .child(control_label(label))
             .tooltip(tooltip)
             .custom(variant)
             .w(px(18.0))
             .h(px(32.0))
             .p_0()
             .border_0()
-            .text_size(px(15.0))
+            .settings_font(TextRole::Control)
             .on_click(cx.listener(move |app, _, _window: &mut Window, cx| {
                 app.orchestration_settings.expanded_provider =
                     if app.orchestration_settings.expanded_provider == Some(provider) {
@@ -344,7 +340,7 @@ fn component_details(theme: Theme, integration: &ProviderIntegration) -> Div {
                     .border_color(rgba(with_alpha(theme.edge_highlight, 0x24)))
                     .px(px(18.0))
                     .py(px(12.0))
-                    .text_size(px(12.0))
+                    .settings_font(TextRole::Helper)
                     .text_color(rgba(theme.destructive))
                     .child(message),
             )
@@ -368,12 +364,11 @@ fn component_row(
             row.border_t_1()
                 .border_color(rgba(with_alpha(theme.edge_highlight, 0x24)))
         })
-        .text_size(px(COMPONENT_TEXT_SIZE))
-        .text_color(rgba(theme.text_secondary))
+        .settings_text(TextRole::Helper, theme)
         .child(div().w(px(COMPONENT_LABEL_WIDTH)).flex_none().child(title))
         .child(
             div()
-                .font_weight(FontWeight::MEDIUM)
+                .settings_font(TextRole::Label)
                 .text_color(rgba(color))
                 .child(label),
         )

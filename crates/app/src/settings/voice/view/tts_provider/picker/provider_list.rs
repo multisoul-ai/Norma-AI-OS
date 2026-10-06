@@ -1,7 +1,8 @@
 use super::{status_badge, with_alpha};
 use crate::app::MultisoulApp;
+use crate::settings::typography::{SettingsText, TextRole};
 use crate::settings::voice::VoiceSettingsState;
-use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight, Stateful};
+use gpui::{div, prelude::*, px, rgba, Context, Div, Stateful};
 use ui::Theme;
 
 pub(super) fn provider_list(
@@ -43,9 +44,7 @@ pub(super) fn provider_list(
         .gap(px(8.0))
         .child(
             div()
-                .text_size(px(11.0))
-                .font_weight(FontWeight::BOLD)
-                .text_color(rgba(theme.text_tertiary))
+                .settings_text(TextRole::Eyebrow, theme)
                 .child(ui::i18n::text("voice.providers")),
         )
         .child(provider_button(
@@ -113,9 +112,7 @@ fn provider_button(
                 .flex()
                 .items_center()
                 .justify_between()
-                .text_size(px(12.0))
-                .font_weight(FontWeight::BOLD)
-                .text_color(rgba(theme.text_primary))
+                .settings_text(TextRole::RowTitle, theme)
                 .child(title)
                 .when(active, |row| {
                     row.child(status_badge(
@@ -124,11 +121,6 @@ fn provider_button(
                     ))
                 }),
         )
-        .child(
-            div()
-                .text_size(px(10.0))
-                .text_color(rgba(theme.text_tertiary))
-                .child(detail),
-        )
+        .child(div().settings_text(TextRole::Caption, theme).child(detail))
         .on_click(listener)
 }

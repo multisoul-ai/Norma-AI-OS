@@ -1,9 +1,11 @@
 use super::{setting_label, with_alpha, VoiceSettingsInputs};
 use crate::app::MultisoulApp;
+use crate::settings::spacing::{FORM_ROW_PADDING_Y, SECTION_GAP};
+use crate::settings::typography::{control_label, SettingsText, TextRole};
 use crate::settings::voice::VoiceSettingsField;
 use gpui::{
-    div, prelude::*, px, rgba, App, ClickEvent, Context, Div, FontWeight, KeyDownEvent,
-    SharedString, Stateful, Window,
+    div, prelude::*, px, rgba, App, ClickEvent, Context, Div, KeyDownEvent, SharedString, Stateful,
+    Window,
 };
 use std::rc::Rc;
 use ui::component::button::{Button, ButtonCustomVariant, ButtonVariants};
@@ -40,8 +42,7 @@ pub(crate) fn action_button(_theme: Theme, label: impl Into<SharedString>, accen
         .border_1()
         .border_color(rgba(with_alpha(accent, 0x70)))
         .bg(rgba(with_alpha(accent, 0x18)))
-        .text_size(px(13.0))
-        .font_weight(FontWeight::MEDIUM)
+        .settings_font(TextRole::Control)
         .text_color(rgba(accent))
         .cursor_pointer()
         .hover(move |style| style.bg(rgba(with_alpha(accent, 0x28))))
@@ -62,8 +63,8 @@ pub(in crate::settings::voice) fn text_setting_row(
         .flex()
         .flex_wrap()
         .items_center()
-        .gap(px(16.0))
-        .py(px(6.0))
+        .gap(px(SECTION_GAP))
+        .py(px(FORM_ROW_PADDING_Y))
         .child(
             div()
                 .flex_1()
@@ -92,7 +93,7 @@ pub(super) fn component_action(
         .flex_none()
         .child(
             Button::new(selector)
-                .label(label)
+                .child(control_label(label))
                 .compact()
                 .custom(variant)
                 .on_activate(handler),

@@ -2,7 +2,8 @@ use crate::app::MultisoulApp;
 use crate::assets::{
     APP_ICON_ASSET, SETTINGS_CHECK_UPDATES_ASSET, SETTINGS_NAV_THEMES_ASSET, TOOLBAR_SETTINGS_ASSET,
 };
-use gpui::{div, img, prelude::*, px, rgba, Context, Div, FontWeight, ObjectFit, Stateful, Styled};
+use crate::settings::typography::{control_label, SettingsText, TextRole};
+use gpui::{div, img, prelude::*, px, rgba, Context, Div, ObjectFit, Stateful, Styled};
 use ui::{
     component::{
         button::{Button, ButtonVariants as _},
@@ -241,7 +242,6 @@ fn sidebar_navigation(
             group_label(group),
             sections,
             active,
-            compact,
             cx,
         ));
     }
@@ -263,9 +263,7 @@ fn sidebar_navigation(
                 .mb(px(if compact { 2.0 } else { 6.0 }))
                 .relative()
                 .top(px(if compact { 0.0 } else { 1.0 }))
-                .text_size(px(if compact { 20.0 } else { 24.0 }))
-                .font_weight(FontWeight::BOLD)
-                .text_color(rgba(theme.text_primary))
+                .settings_text(TextRole::Title, theme)
                 .child(ui::i18n::text("common.settings")),
         )
         .child(groups)
@@ -277,7 +275,6 @@ fn sidebar_group(
     title: &'static str,
     sections: &[SettingsSection],
     active: SettingsSection,
-    compact: bool,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     div()
@@ -288,19 +285,7 @@ fn sidebar_group(
             view.child(
                 div()
                     .px(px(8.0))
-                    .text_size(px(if title == "Norma" {
-                        15.0
-                    } else if compact {
-                        10.0
-                    } else {
-                        11.0
-                    }))
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .text_color(rgba(if title == "Norma" {
-                        theme.text_primary
-                    } else {
-                        theme.text_secondary
-                    }))
+                    .settings_text(TextRole::Eyebrow, theme)
                     .child(title),
             )
         })
@@ -345,9 +330,7 @@ fn top_bar_navigation(
                 .child(
                     div()
                         .px(px(6.0))
-                        .text_size(px(10.0))
-                        .font_weight(FontWeight::BOLD)
-                        .text_color(rgba(theme.text_tertiary))
+                        .settings_text(TextRole::Eyebrow, theme)
                         .child(group_label(group)),
                 )
                 .child(
@@ -407,7 +390,7 @@ fn navigation_item(
                 .rounded(px(10.0))
                 .px(px(12.0))
                 .icon(section_icon(theme, section, selected))
-                .label(section.title())
+                .child(control_label(section.title()))
                 .on_click(cx.listener(move |app, _, window, cx| {
                     app.select_settings_section(section, window, cx);
                 })),

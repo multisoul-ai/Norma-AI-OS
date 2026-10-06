@@ -1,11 +1,12 @@
 //! Wallpaper page: target → current preview → shared library.
+use crate::settings::typography::{control_label, SettingsText, TextRole};
 
 use super::action::WallpaperAction;
 use super::{cells, layout::WallpaperLayout, preview::PreviewCache, state::WallpaperSettingsState};
 use crate::app::{wallpaper_resolvers::builtin_wallpapers, MultisoulApp};
 use gpui::{div, prelude::*, px, rgba, Context, Div};
 use ui::{
-    component::{button::Button, Disableable, StyledExt},
+    component::{button::Button, Disableable},
     Theme,
 };
 
@@ -48,13 +49,12 @@ pub(crate) fn wallpaper_settings(
                 .gap(px(12.0))
                 .child(
                     div()
-                        .text_size(px(16.0))
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .settings_font(TextRole::Headline)
                         .child(ui::i18n::text("settings.wallpaper_library")),
                 )
                 .child(
                     Button::new("wallpaper-import")
-                        .label(ui::i18n::text("settings.add_wallpaper"))
+                        .child(control_label(ui::i18n::text("settings.add_wallpaper")))
                         .tooltip(ui::i18n::text("settings.import_formats"))
                         .disabled(busy)
                         .on_wallpaper_activate(
@@ -125,9 +125,7 @@ pub(crate) fn wallpaper_settings(
 
 fn section_label(theme: Theme, label: &str) -> Div {
     div()
-        .text_size(px(12.0))
-        .font_medium()
-        .text_color(rgba(theme.text_secondary))
+        .settings_text(TextRole::Eyebrow, theme)
         .mb(px(-12.0))
         .child(label.to_owned())
 }

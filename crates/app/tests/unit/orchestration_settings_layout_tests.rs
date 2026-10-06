@@ -99,34 +99,22 @@ fn settings_content_header_preserves_canonical_height_under_flex_pressure() {
     );
 }
 
-/// Canonical Provider 排版：正文与状态必须补偿验收截图缩放并落到 golden 字面尺寸。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   provider title = 18.5px；旧值 18px，补偿量 = 18.5 - 18 = 0.5px。
-///   body = 15.5px；旧值 15px，补偿量 = 15.5 - 15 = 0.5px。
-///   status/component = 16px；旧值 15px，补偿量 = 16 - 15 = 1px。
-///   notice = 14px；旧值 13px，补偿量 = 14 - 13 = 1px。
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 读取 Provider 标题、正文、状态、组件与提示行的排版 token。
-///   2. 分别与 golden 的固定字号比较。
-///
-/// 预期结果：
-///   - 正断言：五类文字使用 18.5/15.5/16/16/14px 的 canonical 尺寸。
-///   - 负断言：不得恢复 18/15px 的仍偏小排版。
+/// 场景：Orchestration 与所有 Settings 页面共用紧凑字级，不再按旧 golden 自造近似值。
+/// 数据构造：行标题 = 12px；说明/状态/组件/提示 = 11px，来自统一 RowTitle/Helper/Label。
+/// 执行过程：读取生产代码使用的五类文字角色，比较字号。
+/// 预期结果：正断言为 12/11/11/11/11；负断言不保留 18.5/15.5/16/16/14 的旧字号。
 #[test]
-fn provider_typography_matches_canonical_golden_scale() {
-    let (title, body, status, component, notice) = canonical_provider_typography();
-
-    assert_eq!(title, 18.5, "Provider 标题必须使用 18.5px canonical 字号");
-    assert_eq!(body, 15.5, "Provider 说明必须使用 15.5px canonical 字号");
-    assert_eq!(status, 16.0, "Provider 状态必须使用 16px canonical 字号");
-    assert_eq!(component, 16.0, "组件详情必须使用 16px canonical 字号");
-    assert_eq!(notice, 14.0, "顶部提示必须使用 14px canonical 字号");
+fn provider_typography_uses_shared_settings_scale() {
+    let actual = canonical_provider_typography();
+    assert_eq!(
+        actual,
+        (12.0, 11.0, 11.0, 11.0, 11.0),
+        "Provider 排版使用共享 Settings 字级"
+    );
     assert_ne!(
-        (title, body, status, component, notice),
-        (18.0, 15.0, 15.0, 15.0, 14.0),
-        "Orchestration 排版不得退回仍会产生双字边的上一组 token"
+        actual,
+        (18.5, 15.5, 16.0, 16.0, 14.0),
+        "不得恢复旧的独立 Provider 排版"
     );
 }
 
@@ -221,7 +209,7 @@ fn provider_rows_follow_canonical_golden_vertical_rhythm() {
 /// Canonical 文字对齐：副标题、组件内边距与状态字重必须消除最后可见双边。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   subtitle = 15.75px；旧值 15.5px，宽度补偿约 7px。
+///   subtitle = 13px，统一由 Subtitle 角色控制。
 ///   component left padding = 20px；旧值 18px，位置补偿 = 20 - 18 = 2px。
 ///   provider/component status weight = MEDIUM，原型中语义色不以细字重呈现。
 ///   Cursor title raster offset = 1px；修正前上缘偏差 3px，修正后 = 3 - 1 = 2px。
@@ -231,7 +219,7 @@ fn provider_rows_follow_canonical_golden_vertical_rhythm() {
 ///   2. 检查副标题字号、组件左内边距和两处状态字重。
 ///
 /// 预期结果：
-///   - 正断言：15.75px、20px 和两处 MEDIUM 约束都存在。
+///   - 正断言：Subtitle 角色、20px 和两处 Label 角色约束都存在。
 ///   - 正断言：Cursor 标题存在 1px 光栅补偿。
 ///   - 负断言：不得保留 15.5px 副标题或对称 18px 组件内边距。
 #[test]
@@ -239,13 +227,13 @@ fn canonical_text_alignment_removes_final_visible_double_edges() {
     let content_source = include_str!("../../src/settings/content.rs");
     let orchestration_source = include_str!("../../src/settings/orchestration.rs");
     let medium_status_count = orchestration_source
-        .matches(".font_weight(FontWeight::MEDIUM)")
+        .matches(".settings_font(TextRole::Label)")
         .count();
     let symmetric_eighteen_padding_count = orchestration_source.matches(".px(px(18.0))").count();
 
     assert!(
-        content_source.contains(".text_size(px(15.75))"),
-        "Settings 副标题必须使用 15.75px 以匹配 golden 宽度"
+        content_source.contains(".settings_text(TextRole::Subtitle, theme)"),
+        "Settings 副标题必须使用共享 Subtitle 角色"
     );
     assert!(
         orchestration_source.contains(".pl(px(20.0))\n        .pr(px(18.0))"),

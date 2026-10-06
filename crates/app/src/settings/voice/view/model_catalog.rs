@@ -1,6 +1,7 @@
 use super::setup::models::{model_action_control, ModelActionLabels};
 use super::{setting_label, with_alpha};
 use crate::app::MultisoulApp;
+use crate::settings::typography::{SettingsText, TextRole};
 use crate::settings::voice::{
     AsrModelInstallState, AsrModelManagerState, VoiceRequirementState, VoiceSettingsState,
 };
@@ -90,8 +91,7 @@ pub(super) fn model_catalog_row(
                         )
                         .child(
                             div()
-                                .text_size(px(12.0))
-                                .text_color(rgba(theme.text_tertiary))
+                                .settings_text(TextRole::Helper, theme)
                                 .child(ui::i18n::format(
                                     "voice.streaming_status_recommendation",
                                     &[
@@ -112,7 +112,7 @@ pub(super) fn model_catalog_row(
                         .when_some(failure_message(entry.installation()), |element, message| {
                             element.child(
                                 div()
-                                    .text_size(px(12.0))
+                                    .settings_font(TextRole::Helper)
                                     .text_color(rgba(theme.destructive))
                                     .child(message),
                             )

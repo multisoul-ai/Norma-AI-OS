@@ -1,5 +1,6 @@
 use super::{action, card, projects, section_title};
 use crate::mobile::controller::{Command, MobileController};
+use crate::settings::typography::{control_label, SettingsText, TextRole};
 use gpui::{div, prelude::*, px, rgba, App, Div, Entity};
 use storage::MobilePermission;
 use ui::{
@@ -28,8 +29,7 @@ pub(super) fn devices_card(
     if active.is_empty() {
         return body.child(
             div()
-                .text_size(px(12.0))
-                .text_color(rgba(theme.text_tertiary))
+                .settings_text(TextRole::Helper, theme)
                 .child(ui::i18n::text("mobile.no_paired_phones_yet")),
         );
     }
@@ -53,11 +53,14 @@ pub(super) fn devices_card(
                         .flex()
                         .flex_col()
                         .gap(px(4.0))
-                        .child(device.device_name.clone())
                         .child(
                             div()
-                                .text_size(px(12.0))
-                                .text_color(rgba(theme.text_secondary))
+                                .settings_text(TextRole::RowTitle, theme)
+                                .child(device.device_name.clone()),
+                        )
+                        .child(
+                            div()
+                                .settings_text(TextRole::Helper, theme)
                                 .child(ui::i18n::format(
                                     "mobile.projects_permission_version",
                                     &[
@@ -82,7 +85,7 @@ pub(super) fn devices_card(
                 )
                 .child(
                     Button::new(("mobile-edit", index))
-                        .label(ui::i18n::text("mobile.permissions"))
+                        .child(control_label(ui::i18n::text("mobile.permissions")))
                         .outline()
                         .disabled(state.busy || !state.enabled() || state.qr.is_some())
                         .on_click(move |_, _, cx| {
@@ -129,8 +132,7 @@ pub(super) fn editing_card(
         ))
         .child(
             div()
-                .text_size(px(13.0))
-                .text_color(rgba(theme.text_secondary))
+                .settings_text(TextRole::Helper, theme)
                 .child(match current_scope {
                     Some(MobilePermission::Control) => {
                         ui::i18n::text("mobile.current_all_current_and_future_projects_control")

@@ -1,4 +1,5 @@
 use super::*;
+use crate::settings::typography::{control_label, SettingsText, TextRole};
 
 pub(super) fn pair_prompt_card(entity: &Entity<MobileController>, busy: bool) -> Div {
     div()
@@ -44,22 +45,19 @@ pub(super) fn qr_card(
                         .gap(px(10.0))
                         .child(
                             div()
-                                .text_size(px(12.0))
-                                .text_color(rgba(theme.text_tertiary))
+                                .settings_text(TextRole::Label, theme)
                                 .child(ui::i18n::text("mobile.pairing_code")),
                         )
                         .child(
                             div()
                                 .id("mobile-code")
                                 .debug_selector(|| "mobile-code".into())
-                                .text_size(px(32.0))
-                                .font_weight(FontWeight::BOLD)
+                                .settings_font(TextRole::Code)
                                 .child(state.pairing_code.clone().unwrap_or_default()),
                         )
                         .child(
                             div()
-                                .text_size(px(12.0))
-                                .text_color(rgba(theme.text_tertiary))
+                                .settings_text(TextRole::Helper, theme)
                                 .child(ui::i18n::text(
                                     "mobile.enter_the_mac_address_above_and_the_6_digit_code_on",
                                 )),
@@ -75,11 +73,11 @@ pub(super) fn qr_card(
                                 } else {
                                     IconName::Copy
                                 })
-                                .label(if state.code_copied {
+                                .child(control_label(if state.code_copied {
                                     ui::i18n::text("mobile.code_copied")
                                 } else {
                                     ui::i18n::text("mobile.copy_code")
-                                })
+                                }))
                                 .outline()
                                 .disabled(state.busy || state.seconds_left == 0)
                                 .on_click({
@@ -145,8 +143,7 @@ pub(super) fn pending_card(
         ))
         .child(
             div()
-                .text_size(px(30.0))
-                .font_weight(FontWeight::BOLD)
+                .settings_font(TextRole::Code)
                 .child(pending.verification_code.clone()),
         )
         .child(
@@ -158,8 +155,7 @@ pub(super) fn pending_card(
         )
         .child(
             div()
-                .text_size(px(13.0))
-                .text_color(rgba(theme.text_secondary))
+                .settings_text(TextRole::Helper, theme)
                 .child(ui::i18n::text(
                     "mobile.one_time_authorization_for_this_iphone_all_projects_registered_on_this",
                 )),

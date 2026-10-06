@@ -1,5 +1,6 @@
 use crate::app::MultisoulApp;
-use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight, Stateful};
+use crate::settings::typography::{SettingsText, TextRole};
+use gpui::{div, prelude::*, px, rgba, Context, Div, Stateful};
 use ui::{Theme, ThemeId};
 
 pub(super) fn theme_appearance(
@@ -65,19 +66,8 @@ fn theme_group(
                 .flex()
                 .flex_col()
                 .gap(px(3.0))
-                .child(
-                    div()
-                        .text_size(px(15.0))
-                        .font_weight(FontWeight::BOLD)
-                        .text_color(rgba(theme.text_primary))
-                        .child(label),
-                )
-                .child(
-                    div()
-                        .text_size(px(12.0))
-                        .text_color(rgba(theme.text_tertiary))
-                        .child(subtitle),
-                ),
+                .child(div().settings_text(TextRole::Headline, theme).child(label))
+                .child(div().settings_text(TextRole::Helper, theme).child(subtitle)),
         )
         .child(
             div()
@@ -277,8 +267,7 @@ fn theme_choice_row(
             div()
                 .min_w(px(0.0))
                 .truncate()
-                .text_size(px(14.0))
-                .font_weight(FontWeight::MEDIUM)
+                .settings_font(TextRole::RowTitle)
                 .text_color(rgba(chrome_theme.text_primary))
                 .child(id.display_name()),
         )

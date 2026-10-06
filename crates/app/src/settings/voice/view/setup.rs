@@ -4,12 +4,11 @@ use super::tts_catalog::tts_catalog_row;
 use super::tts_provider::tts_provider_settings;
 use super::{with_alpha, VoiceSettingsInputs};
 use crate::app::MultisoulApp;
+use crate::settings::typography::{control_label, SettingsText, TextRole};
 use crate::settings::voice::{
     VoiceRequirement, VoiceRequirementState, VoiceSettingsState, VoiceSetupDestination,
 };
-use gpui::{
-    div, point, prelude::*, px, rgba, Context, Div, FontWeight, ScrollHandle, Stateful, Window,
-};
+use gpui::{div, point, prelude::*, px, rgba, Context, Div, ScrollHandle, Stateful, Window};
 use ui::component::button::{Button, ButtonCustomVariant, ButtonVariants};
 use ui::Theme;
 
@@ -136,19 +135,8 @@ fn setup_step(
                                 .flex()
                                 .flex_col()
                                 .gap(px(4.0))
-                                .child(
-                                    div()
-                                        .text_size(px(16.0))
-                                        .font_weight(FontWeight::SEMIBOLD)
-                                        .text_color(rgba(theme.text_primary))
-                                        .child(title),
-                                )
-                                .child(
-                                    div()
-                                        .text_size(px(12.0))
-                                        .text_color(rgba(theme.text_secondary))
-                                        .child(hint),
-                                ),
+                                .child(div().settings_text(TextRole::Headline, theme).child(title))
+                                .child(div().settings_text(TextRole::Helper, theme).child(hint)),
                         )
                         .child(status_badge(theme, requirement)),
                 )
@@ -219,7 +207,7 @@ fn finish_setup_button(theme: Theme, cx: &mut Context<MultisoulApp>) -> Div {
         Button::new("voice-review-setup-done")
             .debug_selector(|| "voice-review-setup-done".to_string())
             .custom(variant)
-            .label(ui::i18n::text("voice.done_reviewing"))
+            .child(control_label(ui::i18n::text("voice.done_reviewing")))
             .on_activate(cx.listener(MultisoulApp::on_voice_finish_review_setup)),
     )
 }
@@ -243,7 +231,7 @@ fn status_badge(theme: Theme, state: VoiceRequirementState) -> Div {
         .border_1()
         .border_color(rgba(with_alpha(color, 0x78)))
         .bg(rgba(with_alpha(color, 0x18)))
-        .text_size(px(11.0))
+        .settings_font(TextRole::Label)
         .text_color(rgba(if state == VoiceRequirementState::Ready {
             theme.text_primary
         } else {

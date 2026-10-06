@@ -4,13 +4,14 @@ use crate::settings::agents::{agents_settings, AgentDefinitionsState};
 use crate::settings::appearance::theme_appearance;
 use crate::settings::orchestration::{orchestration_settings, OrchestrationSettingsState};
 use crate::settings::performance::{performance_settings, PerformanceSettingsState};
+use crate::settings::spacing::{PAGE_PADDING, PAGE_PADDING_COMPACT, SECTION_GAP};
+use crate::settings::typography::{SettingsText, TextRole};
 use crate::settings::voice::{
     voice_settings, VoiceSettingsInputs, VoiceSettingsState, VoiceSetupDestination,
 };
 use crate::settings::wallpaper::{wallpaper_settings, PreviewCache, WallpaperSettingsState};
 use crate::shortcuts::ShortcutSettingsState;
-use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight, ScrollHandle, Window};
-use ui::component::StyledExt;
+use gpui::{div, prelude::*, px, rgba, Context, Div, ScrollHandle, Window};
 use ui::{Theme, ThemeId};
 
 mod keyboard;
@@ -72,7 +73,11 @@ pub(super) fn settings_content(
         persona,
     } = content;
     let compact = width < 600.0 || height < 640.0;
-    let padding = if compact { 16.0 } else { 28.0 };
+    let padding = if compact {
+        PAGE_PADDING_COMPACT
+    } else {
+        PAGE_PADDING
+    };
     div()
         .flex_1()
         .min_w(px(0.0))
@@ -81,6 +86,7 @@ pub(super) fn settings_content(
         .flex()
         .flex_col()
         .bg(rgba(theme.panel))
+        .settings_text(TextRole::Body, theme)
         .child(content_header(
             theme,
             panel.active_section,
@@ -89,8 +95,12 @@ pub(super) fn settings_content(
             cx,
         ))
         .child({
-            let agents_section = panel.active_section == SettingsSection::Agents
-                || panel.active_section == SettingsSection::NormaMemory;
+            let fixed_height_section = matches!(
+                panel.active_section,
+                SettingsSection::Agents
+                    | SettingsSection::NormaMemory
+                    | SettingsSection::NormaPersona
+            );
             div()
                 .id("settings-content-scroll")
                 .debug_selector(|| "settings-content-scroll".to_string())
@@ -98,14 +108,14 @@ pub(super) fn settings_content(
                 .min_w(px(0.0))
                 .min_h(px(0.0))
                 .overflow_x_hidden()
-                .when(agents_section, |this| {
+                .when(fixed_height_section, |this| {
                     this.flex().flex_col().overflow_y_hidden()
                 })
-                .when(!agents_section, |this| {
+                .when(!fixed_height_section, |this| {
                     this.overflow_y_scroll().track_scroll(content_scroll)
                 })
                 .px(px(padding))
-                .pt(px(16.0))
+                .pt(px(SECTION_GAP))
                 .pb(px(padding))
                 .child(match panel.active_section {
                     SettingsSection::General => {
@@ -116,7 +126,7 @@ pub(super) fn settings_content(
                     }
                     SettingsSection::Keyboard => keyboard_settings(theme, shortcuts, cx),
                     SettingsSection::NormaMemory => div().h_full().min_h(px(0.0)).child(memory),
-                    SettingsSection::NormaPersona => div().child(persona),
+                    SettingsSection::NormaPersona => div().h_full().min_h(px(0.0)).child(persona),
                     SettingsSection::NormaVoice => voice_settings(
                         crate::settings::voice::VoiceSettingsView {
                             theme,
@@ -175,29 +185,19 @@ fn content_header(
         .flex_col()
         .gap(px(3.0))
         .when(section.is_norma(), |column| {
-            column.child(
-                div()
-                    .text_size(px(11.0))
-                    .font_medium()
-                    .text_color(rgba(theme.text_secondary))
-                    .child("Norma"),
-            )
+            column.child(div().settings_text(TextRole::Eyebrow, theme).child("Norma"))
         })
         .child(
             div()
                 .relative()
                 .top(px(2.0))
-                .text_size(px(if compact { 20.0 } else { 24.0 }))
-                .font_weight(FontWeight::SEMIBOLD)
-                .text_color(rgba(theme.text_primary))
+                .settings_text(TextRole::Title, theme)
                 .child(content_title(section)),
         );
     if !subtitle.is_empty() {
         title_column = title_column.child(
             div()
-                .text_size(px(15.75))
-                .when(compact, |this| this.text_size(px(13.0)))
-                .text_color(rgba(theme.text_tertiary))
+                .settings_text(TextRole::Subtitle, theme)
                 .child(subtitle),
         );
     }
@@ -212,10 +212,14 @@ fn content_header(
         .items_start()
         .justify_between()
         .gap(px(12.0))
-        .px(px(if compact { 16.0 } else { 28.0 }))
-        .py(px(if compact { 16.0 } else { 24.0 }))
+        .px(px(if compact {
+            PAGE_PADDING_COMPACT
+        } else {
+            PAGE_PADDING
+        }))
+        .py(px(if compact { PAGE_PADDING_COMPACT } else { 28.0 }))
         .when(section == SettingsSection::Wallpaper, |header| {
-            header.min_h(px(84.0)).py(px(18.0))
+            header.min_h(px(84.0)).py(px(SECTION_GAP))
         })
         .border_b_1()
         .border_color(rgba(with_alpha(theme.edge_highlight, 0x24)))

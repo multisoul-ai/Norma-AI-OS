@@ -2,6 +2,7 @@ use super::super::components::{action_button, disabled_action_button, with_alpha
 use super::super::text_input::editable_field;
 use super::super::{AgentDefinitionField, AgentDefinitionsState};
 use crate::app::MultisoulApp;
+use crate::settings::typography::{SettingsText, TextRole};
 use canvas::AgentProfile;
 use gpui::{div, prelude::*, px, rgba, AnyElement, Context, Div, FontWeight, KeyDownEvent, Window};
 use ui::component::{switch::Switch, Sizable, Size};
@@ -63,8 +64,7 @@ pub(super) fn agent_inspector(
                 })
                 .child(
                     div()
-                        .text_size(px(12.0))
-                        .text_color(rgba(theme.text_tertiary))
+                        .settings_text(TextRole::Helper, theme)
                         .child(ui::i18n::format(
                             "settings.used_when_receives_a_task",
                             &[("arg0", (draft.name).to_string())],
@@ -104,15 +104,12 @@ fn canvas_status(
                 .gap(px(2.0))
                 .child(
                     div()
-                        .text_size(px(12.0))
-                        .font_weight(FontWeight::MEDIUM)
-                        .text_color(rgba(theme.text_secondary))
+                        .settings_text(TextRole::Label, theme)
                         .child(ui::i18n::text("settings.on_canvas")),
                 )
                 .child(
                     div()
-                        .text_size(px(11.0))
-                        .text_color(rgba(theme.text_tertiary))
+                        .settings_text(TextRole::Caption, theme)
                         .child(if on_canvas {
                             ui::i18n::text("settings.1_active_card")
                         } else {
@@ -145,9 +142,7 @@ fn inspector_header(
     let app_for_keyboard = app.clone();
     let identity = if state.is_creating_new() {
         div()
-            .text_size(px(18.0))
-            .font_weight(FontWeight::BOLD)
-            .text_color(rgba(theme.text_primary))
+            .settings_text(TextRole::Headline, theme)
             .child(ui::i18n::text("settings.new_agent"))
     } else {
         agent_identity(theme, &draft.name, draft.runtime_profile)
@@ -178,16 +173,13 @@ fn inspector_header(
                         .flex_row()
                         .items_center()
                         .gap(px(7.0))
-                        .child(
-                            div()
-                                .text_size(px(12.0))
-                                .text_color(rgba(theme.text_secondary))
-                                .child(if draft.enabled {
-                                    ui::i18n::text("settings.enabled")
-                                } else {
-                                    ui::i18n::text("settings.disabled")
-                                }),
-                        )
+                        .child(div().settings_text(TextRole::Label, theme).child(
+                            if draft.enabled {
+                                ui::i18n::text("settings.enabled")
+                            } else {
+                                ui::i18n::text("settings.disabled")
+                            },
+                        ))
                         .child(
                             div()
                                 .id("settings-agent-toggle-enabled-control")
@@ -250,14 +242,9 @@ fn inspector_header(
                                     "settings-agent-add-to-canvas-disabled",
                                     ui::i18n::text("settings.add_to_canvas"),
                                 ))
-                                .child(
-                                    div()
-                                        .text_size(px(10.0))
-                                        .text_color(rgba(theme.text_tertiary))
-                                        .child(ui::i18n::text(
-                                            "settings.enable_before_adding_to_canvas",
-                                        )),
-                                ),
+                                .child(div().settings_text(TextRole::Helper, theme).child(
+                                    ui::i18n::text("settings.enable_before_adding_to_canvas"),
+                                )),
                         )
                     }
                 }),
@@ -274,8 +261,7 @@ fn canvas_presence_indicator(theme: Theme) -> AnyElement {
         .border_1()
         .border_color(rgba(with_alpha(theme.accent_cyan, 0x62)))
         .bg(rgba(with_alpha(theme.accent_cyan, 0x16)))
-        .text_size(px(13.0))
-        .font_weight(FontWeight::MEDIUM)
+        .settings_font(TextRole::Label)
         .text_color(rgba(theme.accent_cyan))
         .child(ui::i18n::text("settings.on_canvas_2"))
         .into_any_element()
@@ -322,8 +308,7 @@ fn inspector_footer(
                     .child(
                         div()
                             .mr(px(4.0))
-                            .text_size(px(12.0))
-                            .text_color(rgba(theme.text_tertiary))
+                            .settings_text(TextRole::Helper, theme)
                             .child(ui::i18n::text("cards.unsaved_changes")),
                     )
                     .child(action_button(
@@ -383,15 +368,13 @@ fn agent_identity(theme: Theme, name: &str, profile: AgentProfile) -> Div {
                 .gap(px(3.0))
                 .child(
                     div()
-                        .text_size(px(18.0))
-                        .font_weight(FontWeight::BOLD)
-                        .text_color(rgba(theme.text_primary))
+                        .settings_text(TextRole::Headline, theme)
                         .child(name.to_string()),
                 )
                 .child(
                     div()
-                        .text_size(px(12.0))
-                        .text_color(rgba(with_alpha(theme.text_primary, 0xc0)))
+                        .settings_font(TextRole::Helper)
+                        .text_color(rgba(theme.text_secondary))
                         .child(profile.display_title().to_string()),
                 ),
         )
@@ -404,9 +387,7 @@ fn profile_buttons(theme: Theme, selected: AgentProfile, cx: &mut Context<Multis
         .gap(px(8.0))
         .child(
             div()
-                .text_size(px(13.0))
-                .font_weight(FontWeight::MEDIUM)
-                .text_color(rgba(theme.text_secondary))
+                .settings_text(TextRole::Label, theme)
                 .child(ui::i18n::text("settings.runtime_profile")),
         )
         .child(
@@ -467,12 +448,15 @@ fn empty_inspector(theme: Theme) -> AnyElement {
         .text_color(rgba(theme.text_tertiary))
         .child(
             div()
-                .text_size(px(15.0))
-                .font_weight(FontWeight::MEDIUM)
+                .settings_text(TextRole::Headline, theme)
                 .child(ui::i18n::text("settings.create_your_first_project_agent")),
         )
-        .child(div().text_size(px(12.0)).child(ui::i18n::text(
-            "settings.agents_can_be_configured_once_and_added_to_canvas_when_needed",
-        )))
+        .child(
+            div()
+                .settings_text(TextRole::Helper, theme)
+                .child(ui::i18n::text(
+                    "settings.agents_can_be_configured_once_and_added_to_canvas_when_needed",
+                )),
+        )
         .into_any_element()
 }

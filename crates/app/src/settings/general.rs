@@ -1,4 +1,5 @@
 //! App-wide interface language. SQLite work is confined to the background writer.
+use crate::settings::typography::{control_label, SettingsText, TextRole};
 use gpui::{div, prelude::*, px, rgba, App, Context, Div, Global};
 use storage::SettingsStore;
 use ui::i18n::{text, LanguagePreference, Locale, LocalizedText};
@@ -235,9 +236,7 @@ pub(super) fn general_settings(theme: Theme, cx: &mut Context<crate::app::Multis
         .gap(px(16.0))
         .child(
             div()
-                .text_size(px(15.0))
-                .font_weight(gpui::FontWeight::SEMIBOLD)
-                .text_color(rgba(theme.text_primary))
+                .settings_text(TextRole::Headline, theme)
                 .child(text("general.interface_language")),
         )
         .child(
@@ -247,7 +246,7 @@ pub(super) fn general_settings(theme: Theme, cx: &mut Context<crate::app::Multis
                     .enumerate()
                     .map(|(index, value)| {
                         Radio::new(("settings-interface-language", index))
-                            .label(value.label())
+                            .child(control_label(value.label()))
                             .checked(value == preference)
                             .w_full()
                             .p(px(12.0))
@@ -269,14 +268,13 @@ pub(super) fn general_settings(theme: Theme, cx: &mut Context<crate::app::Multis
         )
         .child(
             div()
-                .text_size(px(13.0))
-                .text_color(rgba(theme.text_secondary))
+                .settings_text(TextRole::Helper, theme)
                 .child(text("general.language_hint")),
         )
         .when_some(error, |view, error| {
             view.child(
                 div()
-                    .text_size(px(13.0))
+                    .settings_font(TextRole::Helper)
                     .text_color(rgba(theme.destructive))
                     .child(error.to_string()),
             )

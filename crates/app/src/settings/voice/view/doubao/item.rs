@@ -1,5 +1,6 @@
 use super::super::with_alpha;
-use gpui::{div, prelude::*, px, rgba, App, FontWeight, RenderOnce, SharedString, Window};
+use crate::settings::typography::{SettingsText, TextRole};
+use gpui::{div, prelude::*, px, rgba, App, RenderOnce, SharedString, Window};
 use tts::providers::doubao::DoubaoVoice;
 use ui::component::{Icon, IconName, Selectable};
 use ui::Theme;
@@ -79,16 +80,13 @@ impl RenderOnce for VoiceMenuItem {
                     .flex_col()
                     .child(
                         div()
-                            .text_size(px(13.0))
-                            .font_weight(FontWeight::MEDIUM)
-                            .text_color(rgba(theme.text_primary))
+                            .settings_text(TextRole::RowTitle, theme)
                             .text_ellipsis()
                             .child(voice.name.clone()),
                     )
                     .child(
                         div()
-                            .text_size(px(11.0))
-                            .text_color(rgba(theme.text_secondary))
+                            .settings_text(TextRole::Caption, theme)
                             .text_ellipsis()
                             .child(voice.language.clone()),
                     ),

@@ -1,7 +1,8 @@
 use super::{action_button, with_alpha};
 use crate::app::MultisoulApp;
+use crate::settings::typography::{SettingsText, TextRole};
 use crate::settings::voice::VoiceSettingsState;
-use gpui::{div, prelude::*, px, rgba, uniform_list, Context, Div, FontWeight, IntoElement};
+use gpui::{div, prelude::*, px, rgba, uniform_list, Context, Div, IntoElement};
 use std::ops::Range;
 use ui::Theme;
 
@@ -126,14 +127,12 @@ fn voice_row(
                     .gap(px(2.0))
                     .child(
                         div()
-                            .font_weight(FontWeight::BOLD)
-                            .text_color(rgba(theme.text_primary))
+                            .settings_text(TextRole::RowTitle, theme)
                             .child(display_name),
                     )
                     .child(
                         div()
-                            .text_size(px(10.0))
-                            .text_color(rgba(theme.text_tertiary))
+                            .settings_text(TextRole::Caption, theme)
                             .child(voice_id_label),
                     ),
             )
@@ -145,16 +144,13 @@ fn voice_row(
                     .gap(px(2.0))
                     .child(
                         div()
-                            .text_size(px(9.0))
-                            .font_weight(FontWeight::BOLD)
-                            .text_color(rgba(theme.text_tertiary))
+                            .settings_text(TextRole::Badge, theme)
                             .child(origin_label(origin)),
                     )
                     .when(selected_here, |status| {
                         status.child(
                             div()
-                                .text_size(px(9.0))
-                                .font_weight(FontWeight::BOLD)
+                                .settings_font(TextRole::Badge)
                                 .text_color(rgba(theme.accent_blue))
                                 .child(ui::i18n::text("voice.draft")),
                         )

@@ -1,8 +1,9 @@
 use super::super::components::VoiceAction;
 use crate::app::MultisoulApp;
+use crate::settings::spacing::{SECTION_GAP, SETUP_ROW_PADDING_Y};
+use crate::settings::typography::{control_label, SettingsText, TextRole};
 use gpui::{
-    div, prelude::*, px, rgba, App, ClickEvent, Context, Div, FontWeight, IntoElement,
-    SharedString, Window,
+    div, prelude::*, px, rgba, App, ClickEvent, Context, Div, IntoElement, SharedString, Window,
 };
 use ui::component::button::{Button, ButtonCustomVariant, ButtonVariants};
 use ui::Theme;
@@ -46,7 +47,7 @@ pub(super) fn setup_action_button(
         .active(rgba((accent & 0xffffff00) | 0x38).into());
     let button = Button::new(selector)
         .debug_selector(move || debug_selector.to_string())
-        .label(label)
+        .child(control_label(label))
         .compact()
         .custom(variant)
         .on_activate(handler);
@@ -68,8 +69,8 @@ pub(super) fn compact_setup_row(
         .flex_wrap()
         .items_center()
         .justify_between()
-        .gap(px(16.0))
-        .py(px(4.0))
+        .gap(px(SECTION_GAP))
+        .py(px(SETUP_ROW_PADDING_Y))
         .child(
             div()
                 .flex_1()
@@ -77,19 +78,8 @@ pub(super) fn compact_setup_row(
                 .flex()
                 .flex_col()
                 .gap(px(3.0))
-                .child(
-                    div()
-                        .text_size(px(13.0))
-                        .font_weight(FontWeight::BOLD)
-                        .text_color(rgba(theme.text_primary))
-                        .child(title),
-                )
-                .child(
-                    div()
-                        .text_size(px(11.0))
-                        .text_color(rgba(theme.text_tertiary))
-                        .child(hint),
-                ),
+                .child(div().settings_text(TextRole::RowTitle, theme).child(title))
+                .child(div().settings_text(TextRole::Helper, theme).child(hint)),
         )
         .child(div().flex_none().child(action))
 }

@@ -2,19 +2,14 @@ use norma::orchestration::OrchestrationProvider;
 use ui::Theme;
 
 pub(super) const NOTICE_HEIGHT: f32 = 47.0;
-pub(super) const NOTICE_TEXT_SIZE: f32 = 14.0;
 pub(super) const PROVIDER_ROW_MIN_HEIGHT: f32 = 85.0;
 pub(super) const PROVIDER_ROW_GAP: f32 = 6.0;
 pub(super) const PROVIDER_TEXT_GAP: f32 = 0.0;
-pub(super) const PROVIDER_TITLE_SIZE: f32 = 18.5;
-pub(super) const PROVIDER_BODY_SIZE: f32 = 15.5;
-pub(super) const PROVIDER_STATUS_SIZE: f32 = 16.0;
 pub(super) const PROVIDER_STATUS_WIDTH: f32 = 259.0;
 pub(super) const PROVIDER_ACTION_WIDTH: f32 = 112.0;
 pub(super) const PROVIDER_SECTION_RIGHT_INSET: f32 = 7.0;
 pub(super) const PROVIDER_ROW_RIGHT_OUTDENT: f32 = 23.0;
 pub(super) const COMPONENT_ROW_HEIGHT: f32 = 44.0;
-pub(super) const COMPONENT_TEXT_SIZE: f32 = 16.0;
 pub(super) const COMPONENT_LABEL_WIDTH: f32 = 152.0;
 pub(super) const COMPONENT_DETAILS_BOTTOM_MARGIN: f32 = 14.0;
 
@@ -50,11 +45,11 @@ pub(super) fn canonical_expanded_content_height() -> f32 {
 #[cfg(test)]
 pub(super) fn canonical_provider_typography() -> (f32, f32, f32, f32, f32) {
     (
-        PROVIDER_TITLE_SIZE,
-        PROVIDER_BODY_SIZE,
-        PROVIDER_STATUS_SIZE,
-        COMPONENT_TEXT_SIZE,
-        NOTICE_TEXT_SIZE,
+        crate::settings::typography::TextRole::RowTitle.spec().size,
+        crate::settings::typography::TextRole::Helper.spec().size,
+        crate::settings::typography::TextRole::Label.spec().size,
+        crate::settings::typography::TextRole::Helper.spec().size,
+        crate::settings::typography::TextRole::Helper.spec().size,
     )
 }
 

@@ -1,5 +1,6 @@
 use crate::app::MultisoulApp;
-use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight};
+use crate::settings::typography::{SettingsText, TextRole};
+use gpui::{div, prelude::*, px, rgba, Context, Div};
 use storage::SettingsStore;
 use ui::component::switch::Switch;
 use ui::component::{Sizable as _, Size};
@@ -136,15 +137,12 @@ pub(super) fn performance_settings(
                 .gap(px(3.0))
                 .child(
                     div()
-                        .text_size(px(15.0))
-                        .font_weight(FontWeight::BOLD)
-                        .text_color(rgba(theme.text_primary))
+                        .settings_text(TextRole::Headline, theme)
                         .child(ui::i18n::text("settings.animation_energy")),
                 )
                 .child(
                     div()
-                        .text_size(px(12.0))
-                        .text_color(rgba(theme.text_tertiary))
+                        .settings_text(TextRole::Helper, theme)
                         .child(ui::i18n::text("settings.choose_between_immediate_animation_response_and_lower_idle_work")),
                 ),
         )
@@ -177,9 +175,7 @@ pub(super) fn performance_settings(
                                 .gap(px(9.0))
                                 .child(
                                     div()
-                                        .text_size(px(14.0))
-                                        .font_weight(FontWeight::SEMIBOLD)
-                                        .text_color(rgba(theme.text_primary))
+                                        .settings_text(TextRole::RowTitle, theme)
                                         .child(ui::i18n::text("settings.reduce_animation_updates_while_idle")),
                                 )
                                 .child(
@@ -188,18 +184,14 @@ pub(super) fn performance_settings(
                                         .py(px(3.0))
                                         .rounded(px(9.0))
                                         .bg(rgba(theme.panel))
-                                        .text_size(px(10.0))
-                                        .font_weight(FontWeight::MEDIUM)
-                                        .text_color(rgba(theme.text_secondary))
+                                        .settings_text(TextRole::Badge, theme)
                                         .child(status),
                                 ),
                         )
                         .child(
                             div()
                                 .max_w(px(570.0))
-                                .text_size(px(12.0))
-                                .line_height(px(18.0))
-                                .text_color(rgba(theme.text_tertiary))
+                                .settings_text(TextRole::Helper, theme)
                                 .child(
                                     ui::i18n::text("settings.checks_for_new_canvas_animations_every_250_ms_while_idle_leave"),
                                 ),

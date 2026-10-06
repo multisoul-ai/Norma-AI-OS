@@ -1,10 +1,10 @@
 use super::super::with_alpha;
 use super::menu_state::VoiceMenuState;
 use crate::app::MultisoulApp;
+use crate::settings::typography::{SettingsText, TextRole};
 use crate::settings::voice::VoiceSettingsState;
 use gpui::{
-    div, prelude::*, px, rgba, App, Context, Corner, Div, FontWeight, KeyDownEvent, RenderOnce,
-    Window,
+    div, prelude::*, px, rgba, App, Context, Corner, Div, KeyDownEvent, RenderOnce, Window,
 };
 use ui::component::{
     button::{Button, ButtonCustomVariant, ButtonVariants},
@@ -61,15 +61,12 @@ pub(super) fn voice_picker(
                         .gap(px(4.0))
                         .child(
                             div()
-                                .text_size(px(14.0))
-                                .font_weight(FontWeight::SEMIBOLD)
-                                .text_color(rgba(theme.text_primary))
+                                .settings_text(TextRole::Headline, theme)
                                 .child(ui::i18n::text("doubao.voice_selection")),
                         )
                         .child(
                             div()
-                                .text_size(px(12.0))
-                                .text_color(rgba(theme.text_secondary))
+                                .settings_text(TextRole::Helper, theme)
                                 .child(ui::i18n::text("doubao.voice_applies_next_call")),
                         ),
                 )
@@ -135,14 +132,13 @@ pub(super) fn voice_picker(
                                                         .flex_col()
                                                         .child(
                                                             div()
-                                                                .text_size(px(13.0))
-                                                                .font_weight(FontWeight::MEDIUM)
+                                                                .settings_font(TextRole::RowTitle)
                                                                 .text_ellipsis()
                                                                 .child(selected.name.clone()),
                                                         )
                                                         .child(
                                                             div()
-                                                                .text_size(px(11.0))
+                                                                .settings_font(TextRole::Caption)
                                                                 .text_color(rgba(
                                                                     theme.text_secondary,
                                                                 ))
@@ -165,8 +161,7 @@ pub(super) fn voice_picker(
         )
         .child(
             div()
-                .text_size(px(11.0))
-                .text_color(rgba(theme.text_tertiary))
+                .settings_text(TextRole::Caption, theme)
                 .child(ui::i18n::text("doubao.voice_catalog_permissions")),
         )
 }
