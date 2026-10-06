@@ -5,7 +5,7 @@ use super::*;
 /// 数据构造：6 个导航动作 = 工作空间前后 2 + 项目前后 2 + 两级总览 2；
 ///   使用空偏好与 Cmd+Shift+J 自定义键位，不涉及时间或 token 预算。
 /// 执行过程：逐一分派默认键位；将下一个项目录制为自定义键并序列化重载；恢复默认。
-/// 预期结果：六个动作正确分派，裸方向键和 Ctrl+Right 不命中；恢复后自定义键失效。
+/// 预期结果：六个动作正确分派（项目 Cmd+←/→/↑，工作空间 Cmd+Shift+←/→/↑），裸方向键、Ctrl+Right 与旧的 Ctrl/Alt+Cmd 键位均不命中；恢复后自定义键失效。
 #[test]
 fn desktop_shortcuts_defaults_record_and_restore() {
     let mut state = ShortcutSettingsState::default();
@@ -14,32 +14,32 @@ fn desktop_shortcuts_defaults_record_and_restore() {
     };
     let name = |key| command(&state, key).map(|id| serde_json::to_string(&id).unwrap());
     assert_eq!(
-        name("ctrl-cmd-left").as_deref(),
+        name("cmd-shift-left").as_deref(),
         Some("\"previous_workspace\""),
         "左键切上一个工作空间"
     );
     assert_eq!(
-        name("ctrl-cmd-right").as_deref(),
+        name("cmd-shift-right").as_deref(),
         Some("\"next_workspace\""),
         "右键切下一个工作空间"
     );
     assert_eq!(
-        name("alt-cmd-left").as_deref(),
+        name("cmd-left").as_deref(),
         Some("\"previous_project\""),
         "左键切上一个项目"
     );
     assert_eq!(
-        name("alt-cmd-right").as_deref(),
+        name("cmd-right").as_deref(),
         Some("\"next_project\""),
         "右键切下一个项目"
     );
     assert_eq!(
-        name("alt-cmd-up").as_deref(),
+        name("cmd-up").as_deref(),
         Some("\"show_project_overview\""),
         "向上返回项目总览"
     );
     assert_eq!(
-        name("ctrl-cmd-up").as_deref(),
+        name("cmd-shift-up").as_deref(),
         Some("\"show_workspace_directory\""),
         "向上返回空间目录"
     );
@@ -49,7 +49,21 @@ fn desktop_shortcuts_defaults_record_and_restore() {
         None,
         "不能抢占终端 Ctrl+Right"
     );
-    let next = command(&state, "alt-cmd-right").expect("下一个项目命令已注册");
+    for old in [
+        "ctrl-cmd-left",
+        "ctrl-cmd-right",
+        "alt-cmd-left",
+        "alt-cmd-right",
+        "alt-cmd-up",
+        "ctrl-cmd-up",
+    ] {
+        assert_eq!(
+            command(&state, old),
+            None,
+            "旧键位 {old} 不应再命中任何命令"
+        );
+    }
+    let next = command(&state, "cmd-right").expect("下一个项目命令已注册");
     state.begin_recording(next);
     assert!(
         state.record_keystroke(&Keystroke::parse("cmd-shift-j").unwrap()),
@@ -62,14 +76,10 @@ fn desktop_shortcuts_defaults_record_and_restore() {
         Some(next),
         "序列化重载应保留自定义键"
     );
-    assert_eq!(
-        command(&restored, "alt-cmd-right"),
-        None,
-        "自定义后旧键应失效"
-    );
+    assert_eq!(command(&restored, "cmd-right"), None, "自定义后旧键应失效");
     restored.restore_default(next);
     assert_eq!(
-        command(&restored, "alt-cmd-right"),
+        command(&restored, "cmd-right"),
         Some(next),
         "恢复后默认键应生效"
     );

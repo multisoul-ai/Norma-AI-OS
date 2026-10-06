@@ -102,7 +102,7 @@ fn desktop_navigation_shortcuts_work_from_project_focus() {
             "不能在子项目创建第二个选择器"
         );
     });
-    cx.simulate_keystrokes("alt-cmd-right");
+    cx.simulate_keystrokes("cmd-right");
     cx.run_until_parked();
     host.update(cx, |app, _| {
         assert_eq!(
@@ -126,7 +126,7 @@ fn desktop_navigation_shortcuts_work_from_project_focus() {
             "子项目不能持有命名表单"
         );
     });
-    cx.simulate_keystrokes("ctrl-cmd-up");
+    cx.simulate_keystrokes("cmd-shift-up");
     cx.run_until_parked();
     host.update(cx, |app, _| {
         assert!(
@@ -136,7 +136,7 @@ fn desktop_navigation_shortcuts_work_from_project_focus() {
     });
     cx.simulate_keystrokes("escape");
     cx.run_until_parked();
-    cx.simulate_keystrokes("alt-cmd-right");
+    cx.simulate_keystrokes("cmd-right");
     cx.run_until_parked();
     host.update_in(cx, |app, window, cx| {
         assert_eq!(
@@ -154,7 +154,7 @@ fn desktop_navigation_shortcuts_work_from_project_focus() {
         );
         app.finish_desktop_zoom(window, cx);
     });
-    cx.simulate_keystrokes("alt-cmd-right");
+    cx.simulate_keystrokes("cmd-right");
     cx.run_until_parked();
     host.update_in(cx, |app, window, cx| {
         assert_eq!(
@@ -164,7 +164,7 @@ fn desktop_navigation_shortcuts_work_from_project_focus() {
         );
         app.finish_desktop_zoom(window, cx);
     });
-    cx.simulate_keystrokes("alt-cmd-left");
+    cx.simulate_keystrokes("cmd-left");
     cx.run_until_parked();
     host.update_in(cx, |app, window, cx| {
         assert_eq!(
@@ -179,7 +179,7 @@ fn desktop_navigation_shortcuts_work_from_project_focus() {
         );
         app.finish_desktop_zoom(window, cx);
     });
-    cx.simulate_keystrokes("alt-cmd-up");
+    cx.simulate_keystrokes("cmd-up");
     cx.run_until_parked();
     host.update_in(cx, |app, window, cx| {
         assert!(
@@ -196,7 +196,7 @@ fn desktop_navigation_shortcuts_work_from_project_focus() {
             "项目列表仍在当前空间"
         );
     });
-    cx.simulate_keystrokes("ctrl-cmd-up");
+    cx.simulate_keystrokes("cmd-shift-up");
     cx.run_until_parked();
     host.update_in(cx, |app, window, cx| {
         assert!(
@@ -213,4 +213,77 @@ fn desktop_navigation_shortcuts_work_from_project_focus() {
             "列表不能残留展开项目"
         );
     });
+}
+
+/// 项目内命令输入框聚焦时，⌘←/→ 属于文本编辑（行首/行尾），不得切换项目或工作空间。
+///
+/// 数据构造：一个空间、两个项目A/B（加入顺序0/1），窗口1280×800，A 已展开并聚焦其命令输入框。
+/// 执行过程：在输入框聚焦下依次按 cmd-right、cmd-shift-right、cmd-up、cmd-shift-up。
+/// 预期结果：
+///   - 正断言：输入框仍保持聚焦（按键留给文本编辑）。
+///   - 负断言：展开项目仍为 A、仍在桌面工作空间屏、没有发起 transition，说明没有任何导航被触发。
+#[test]
+fn desktop_navigation_shortcuts_yield_to_focused_command_input() {
+    let temp = tempfile::tempdir().expect("创建隔离目录");
+    let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
+    let store = storage::AppStore::initialize(&paths).expect("初始化存储");
+    let catalog = store.desktop_workspace_store();
+    let workspace = catalog.create("Input focus").expect("创建空间");
+    let a_root = temp.path().join("a");
+    let b_root = temp.path().join("b");
+    std::fs::create_dir(&a_root).unwrap();
+    std::fs::create_dir(&b_root).unwrap();
+    let a = catalog.add_project(&workspace.id, &a_root).unwrap();
+    catalog.add_project(&workspace.id, &b_root).unwrap();
+    let mut test = TestAppContext::single();
+    let mut host = None;
+    let (_, cx) = test.add_window_view(|window, cx| {
+        let app = cx.new(|cx| MultisoulApp::new_with_database_context(cx, paths, store));
+        host = Some(app.clone());
+        Root::new(app, window, cx)
+    });
+    let host = host.unwrap();
+    cx.simulate_resize(size(px(1280.0), px(800.0)));
+    cx.run_until_parked();
+    host.update_in(cx, |app, window, cx| {
+        app.motion.reduce_motion = true;
+        app.open_desktop_workspace(workspace.id.clone(), window, cx);
+    });
+    cx.run_until_parked();
+    host.update_in(cx, |app, window, cx| {
+        app.finish_desktop_zoom(window, cx);
+        for area in &mut app.desktop_workspace.areas {
+            area.added_at_unix_ms = if area.id == a.id { 0 } else { 1 };
+        }
+        app.expand_desktop_project_area(a.id.clone(), window, cx);
+        app.finish_desktop_zoom(window, cx);
+    });
+    let session = host.update(cx, |app, _| {
+        app.desktop_workspace.sessions[&(workspace.id.clone(), a.id.clone())].clone()
+    });
+    session.update_in(cx, |app, window, cx| app.focus_command_input(window, cx));
+    cx.update(|window, cx| window.draw(cx).clear());
+    let focused = session.update_in(cx, |app, window, cx| app.command_input_focused(window, cx));
+    assert!(focused, "前置条件：子项目命令输入框必须已聚焦");
+    for key in ["cmd-right", "cmd-shift-right", "cmd-up", "cmd-shift-up"] {
+        cx.simulate_keystrokes(key);
+        cx.run_until_parked();
+    }
+    host.update(cx, |app, _| {
+        assert_eq!(
+            app.desktop_workspace.expanded_area_id.as_ref(),
+            Some(&a.id),
+            "输入框聚焦时 ⌘+方向键不得切换项目"
+        );
+        assert!(
+            matches!(app.screen, AppScreen::DesktopWorkspace),
+            "输入框聚焦时 ⌘⇧↑ 不得回到工作空间目录"
+        );
+        assert!(
+            app.desktop_workspace.transition.is_none(),
+            "输入框聚焦时不得发起任何导航动画"
+        );
+    });
+    let still = session.update_in(cx, |app, window, cx| app.command_input_focused(window, cx));
+    assert!(still, "按键应留给输入框编辑，焦点不应丢失");
 }

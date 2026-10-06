@@ -2,7 +2,7 @@
 
 本文汇总 Norma OS 当前可配置快捷键与键盘/指针交互契约。macOS 上 `Cmd` 对应 GPUI 的 `platform` 修饰键（⌘）。
 
-最后对照源码：`crates/app/src/shortcuts.rs`、`crates/app/src/app/keyboard.rs`、`crates/app/src/settings/keyboard.rs`、`crates/app/src/canvas/view.rs`、`crates/app/src/app/command_dock.rs`（2026-10-01）。
+最后对照源码：`crates/app/src/shortcuts.rs`、`crates/app/src/app/keyboard.rs`、`crates/app/src/settings/keyboard.rs`、`crates/app/src/canvas/view.rs`、`crates/app/src/app/command_dock.rs`（2026-10-06）。
 
 ## 1. 注册机制
 
@@ -100,10 +100,10 @@ Settings → Keyboard Shortcuts 支持内联录制、单项 Restore 和 Restore 
 | --- | --- |
 | ⌘N | 创建工作空间：打开名称表单，确认后创建空空间 |
 | ⇧⌘A | 在当前工作空间添加项目：打开最近项目／文件夹／克隆选择器 |
-| ⌃⌘← / ⌃⌘→ | 上一个 / 下一个工作空间 |
-| ⌥⌘← / ⌥⌘→ | 展开当前工作空间的上一个 / 下一个项目 |
-| ⌥⌘↑ | 返回当前工作空间的项目总览 |
-| ⌃⌘↑ | 返回全部工作空间目录 |
+| ⌘← / ⌘→ | 展开当前工作空间的上一个 / 下一个项目（内层，高频） |
+| ⇧⌘← / ⇧⌘→ | 上一个 / 下一个工作空间（外层，多一个 Shift） |
+| ⌘↑ | 返回当前工作空间的项目总览 |
+| ⇧⌘↑ | 返回全部工作空间目录 |
 | ⇧⌘K | 工作空间快速切换器（已有） |
 
 工作空间按创建顺序、项目按加入顺序循环；同时间戳按 ID 排序。工作空间列表与键盘顺序一致，新建追加末尾，最近访问不再重排列表。
@@ -113,6 +113,9 @@ Settings → Keyboard Shortcuts 支持内联录制、单项 Restore 和 Restore 
 连按以最新待切换目标为基准。嵌入项目的输入交由窗口宿主导航；后台 Agent 保持运行。
 所有键位可在 Settings → Keyboard Shortcuts 中录制、恢复；同一窗口中所有项目立即同步。
 桌面目录和项目总览也支持 ⌘, 打开设置。裸方向键、Ctrl+方向键与 Cmd+1…6 保持原行为。
+键位规律：⌘+方向键作用于项目，加 Shift 上升一层作用于工作空间；←/→ 同级切换，↑ 逐级返回。
+⌘←/→ 在命令输入框、文件编辑器与 Settings 文本框聚焦时仍是行首/行尾，不触发导航；终端聚焦时 ⌘ 组合本就不进入 PTY，由导航消费。
+2026-10-06 起旧键位（⌃⌘←/→/↑、⌥⌘←/→/↑）不再生效；已在 Settings 中自行录制的键位不受影响，未改动的项目随默认值更新。
 
 ## 3. 原生菜单栏与创建命令
 
