@@ -85,6 +85,7 @@ pub(super) fn devices_card(
                 )
                 .child(
                     Button::new(("mobile-edit", index))
+                        .icon(IconName::Settings2)
                         .child(control_label(ui::i18n::text("mobile.permissions")))
                         .outline()
                         .disabled(state.busy || !state.enabled() || state.qr.is_some())

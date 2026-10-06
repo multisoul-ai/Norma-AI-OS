@@ -142,6 +142,11 @@ impl RuntimeEvents {
     }
 
     pub(crate) fn register(&mut self, node_id: NodeId, node_type: NodeType) {
+        if node_type == NodeType::Agent {
+            self.agent_task_states.remove(&node_id);
+            self.agent_task_titles.remove(&node_id);
+            self.card_attention.remove(&node_id);
+        }
         let state = NodeRunState::Running;
         self.states.insert(node_id, state.clone());
         self.push(RuntimeEvent::NodeRegistered {

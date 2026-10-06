@@ -8,7 +8,7 @@
 - 电脑 ID 为 `mac-` + 证书 DER 的 SHA-256。App 数据库保存稳定、非秘密的 Keychain account；证书和私钥保存在本机 Keychain。并发初始化使用 SQLite insert-if-absent 与 Keychain SecItemAdd，不覆盖已存在身份；Keychain 拒绝或损坏明确失败。更换证书后手机必须重新核对和配对，不能凭同名或同 IP 自动信任。
 - TLS 1.3，禁用 early data；用 rcgen 生成证书，复用 ring/rustls 后端。仅监听明确的局域网、Tailscale 或测试回环地址，拒绝通配地址和公网地址；最多四个监听地址。WSS 只接受 `/mobile`，拒绝 query 与浏览器 Origin。
 - 连接数跨接口合计最多八个，握手整体最多三秒，未认证连接整体最多十秒，普通认证连接每次读取（含空闲）最多三十秒；项目 watch 持续发送经重新读取确认的事件/心跳。未认证 Ping 不续期。输入帧和消息最多 256 KiB，响应缓冲最多 512 KiB。
-- 同一 App 数据库的窗口共享 `MobileController`；全局注册表只保留 weak 引用，最后窗口释放时显式 shutdown，即使后台仍持有 server Arc 也停止连接。后台 listener 最多二十毫秒内观察停止；启动中的取消由 generation 和共享原子标志阻止迟到结果。未开启桌面功能前，不自动监听端口。
+- 同一 App 数据库在进程内共享 `MobileController`；App 启动时默认在后台开启手机连接，手动停用后本次运行保持关闭。关窗保留服务与项目，主动退出统一停止；后台 listener 最多二十毫秒内观察停止，启动中的取消由 generation 和共享原子标志阻止迟到结果。手机仍须在 Mac 核对并授权配对。
 - 桌面通过原生 `getifaddrs` 发现最多四个已启用私网地址，优先 Tailscale / IPv4，固定端口 9443 让保存的地址跨重启复用；不使用 shell、通配监听或无 scope 的 IPv6 link-local。接口变化仍需重新开启连接并扫码更新地址，尚无 Bonjour 自动发现。
 
 ## 桌面配对入口（v15）

@@ -1,6 +1,76 @@
 use super::*;
 use crate::NodeInput;
 
+/// Codex 0.160 的大写模型页脚可接收手机首条消息，加载画面和菜单仍不可输入。
+///
+/// 数据构造：80×24 原生终端；真实首屏为 5 行，5 < 24，且没有旧版 model: 头部。
+///   页脚为 GPT-6.1-Sol xhigh · /tmp；bracketed paste 已开启，不伪造 Provider 会话。
+/// 执行过程：PTY 输出加载占位 → 校验拒绝 → 清屏输出真实首屏 → 校验接受 → 清屏显示菜单。
+/// 预期结果：加载与菜单状态 unknown 且拒绝消息；真实首屏 ready 且接受消息，始终只有原卡。
+#[test]
+fn native_codex_display_model_footer_accepts_workspace_message() {
+    let mut runtime = Runtime::new_for_workspace("/tmp");
+    let (capture, output) = crossbeam_channel::bounded(1);
+    runtime.set_pty_factory(Box::new(move |_, _, _, tx| {
+        capture.send(tx.clone()).expect("记录原 PTY 输出入口");
+        Ok(Box::new(terminal::TestPtyBackend::echo(tx)))
+    }));
+    let node = runtime
+        .spawn_mobile_agent_card(
+            AgentProfile::Codex,
+            None,
+            CanvasRect::new(0., 0., 640., 400.),
+            80,
+            24,
+        )
+        .expect("手机原生卡");
+    let output = output.try_recv().expect("原 PTY sender");
+    output
+        .send(terminal::PtyEvent::Output(
+            b"\x1b[?2004hmodel: loading\r\n".to_vec(),
+        ))
+        .expect("加载输出");
+    runtime.drain_all();
+    let loading = runtime.mobile_card_snapshots().remove(0);
+    assert_eq!(loading.state, "unknown", "加载中不能提前显示就绪");
+    assert_eq!(
+        runtime.validate_workspace_message(&loading, "hi"),
+        Err("state_not_ready"),
+        "加载中不能接收手机消息"
+    );
+    output
+        .send(terminal::PtyEvent::Output(
+            "\x1b[2J\x1b[H\r\n› Ask Codex to do anything\r\n\r\nGPT-6.1-Sol xhigh · /tmp\r\n"
+                .as_bytes()
+                .to_vec(),
+        ))
+        .expect("Codex 0.160 首屏输出");
+    runtime.drain_all();
+    let ready = runtime.mobile_card_snapshots().remove(0);
+    assert_eq!(ready.state, "ready", "大写显示名必须识别为已加载模型");
+    assert_eq!(
+        runtime.validate_workspace_message(&ready, "hi"),
+        Ok(()),
+        "真实 Codex 首屏必须接受手机消息"
+    );
+    assert!(ready.session_id.is_none(), "首条消息前不能伪造会话");
+    output
+        .send(terminal::PtyEvent::Output(
+            b"\x1b[2J\x1b[HUpdate menu\r\n".to_vec(),
+        ))
+        .expect("菜单输出");
+    runtime.drain_all();
+    let menu = runtime.mobile_card_snapshots().remove(0);
+    assert_eq!(menu.state, "unknown", "菜单不能借用历史提示符成为就绪");
+    assert_eq!(
+        runtime.validate_workspace_message(&menu, "hi"),
+        Err("state_not_ready"),
+        "手机消息不能输入更新菜单"
+    );
+    assert_eq!(runtime.live_len(), 1, "就绪判断不能启动另一张卡");
+    assert_eq!(ready.node_id, node, "就绪快照必须属于原卡");
+}
+
 /// 手机 Codex 新建和恢复均默认完全访问，同时避免启动升级菜单。
 ///
 /// 数据构造：新建与 session-a 恢复各 1 条命令，共 2 条；参数仅影响当前 CLI 进程。

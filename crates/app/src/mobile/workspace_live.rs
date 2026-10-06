@@ -46,19 +46,21 @@ pub(super) fn start(database: PathBuf, call: LiveWorkspaceRequest, cx: &mut App)
             let area = bound.area.clone();
             let task = cx.update(|cx|crate::workspace::desktop::mobile::ensure(&database,area,cx));
             let loaded = match task {
-                Ok(task)=>match task.await {Ok(_)=>true,Err(error)=>{tracing::warn!(%error,area_id=%bound.area.id,"mobile workspace project could not load");false}},
-                Err(error)=>{tracing::warn!(%error,"mobile workspace bridge unavailable");false}
+                Ok(task)=>task.await,
+                Err(error)=>Err(error.to_string())
             };
-            if !loaded {
+            if let Err(error) = loaded {
+                tracing::warn!(%error,area_id=%bound.area.id,"mobile workspace project could not load");
+                let code = if error == "desktop_host_unavailable" { "desktop_host_unavailable" } else { "project_unavailable" };
                 if let LiveWorkspaceAction::Message {device,message,..}=&call.action {
                     let store=storage::WorkspaceChatStore::new(database.clone());
                     let device=device.clone();let operation=message.operation_id.clone();
                     let _=cx.background_executor().spawn(async move {
-                        if store.claim(&device,&operation)? {store.finish(&device,&operation,"failed",&json!({"sender":"Norma","error":"project_unavailable","text":"关联项目无法加载；请在 Mac 检查项目路径。"}).to_string())?;}
+                        if store.claim(&device,&operation)? {store.finish(&device,&operation,"failed",&json!({"sender":"Norma","error":code,"text":"消息未能完成，请查看错误后重试。"}).to_string())?;}
                         Ok::<_,storage::StorageError>(())
                     }).await;
                 }
-                let _ = call.reply.try_send(Err("project_unavailable".into()));
+                let _ = call.reply.try_send(Err(code.into()));
                 return;
             }
         }

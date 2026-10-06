@@ -28,22 +28,30 @@ impl GateRoot {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let workbench = cx.new(|cx| {
-            let mut app = MultisoulApp::new_with_database_context(cx, database_paths, app_store);
-            #[cfg(test)]
-            app.browsers.disable_native_views();
-            app.start_dialogue_turn_loop(window, cx);
-            app.start_cef_message_pump_loop(window, cx);
-            app.warm_up_browser_engine(window);
-            app.configure_cpu_benchmark_from_environment(window, cx);
-            #[cfg(feature = "e2e-test-support")]
-            if crate::workspace::windowing::visual_preview_name().as_deref() == Some("github-clone")
-            {
-                app.open_clone_project_dialog(window, cx);
-            }
-            app
-        });
-        let database = workbench.read(cx).database_paths.app_db_path().to_owned();
+        let database = database_paths.app_db_path().to_owned();
+        let workbench =
+            if let Some(retained) = crate::workspace::desktop::sessions::detached(&database, cx) {
+                retained.update(cx, |app, cx| app.attach_desktop_host_window(window, cx));
+                retained
+            } else {
+                cx.new(|cx| {
+                    let mut app =
+                        MultisoulApp::new_with_database_context(cx, database_paths, app_store);
+                    #[cfg(test)]
+                    app.browsers.disable_native_views();
+                    app.start_dialogue_turn_loop(window, cx);
+                    app.start_cef_message_pump_loop(window, cx);
+                    app.warm_up_browser_engine(window);
+                    app.configure_cpu_benchmark_from_environment(window, cx);
+                    #[cfg(feature = "e2e-test-support")]
+                    if crate::workspace::windowing::visual_preview_name().as_deref()
+                        == Some("github-clone")
+                    {
+                        app.open_clone_project_dialog(window, cx);
+                    }
+                    app
+                })
+            };
         crate::workspace::desktop::sessions::register(
             database,
             window.window_handle(),

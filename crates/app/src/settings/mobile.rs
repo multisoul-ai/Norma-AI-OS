@@ -113,6 +113,7 @@ fn connection_card(
         row.child(
             Button::new("mobile-disable")
                 .debug_selector(|| "mobile-disable".into())
+                .icon(IconName::CircleX)
                 .child(control_label(ui::i18n::text("common.disable")))
                 .danger()
                 .outline()
@@ -194,8 +195,23 @@ fn action(
 ) -> Button {
     let target = entity.clone();
     let selector = id.to_string();
+    let icon = match &command {
+        Command::Enable | Command::NewCode => Icon::empty().path("icons/settings-nav-mobile.svg"),
+        Command::Reload | Command::CancelCode => Icon::new(IconName::Close),
+        Command::Revoke(_) => Icon::new(IconName::Delete),
+        Command::ApproveAll {
+            access: MobilePermission::Read,
+            ..
+        }
+        | Command::PermissionsAll {
+            access: MobilePermission::Read,
+            ..
+        } => Icon::new(IconName::Eye),
+        _ => Icon::new(IconName::Check),
+    };
     Button::new(SharedString::from(id.to_string()))
         .debug_selector(move || selector.clone())
+        .icon(icon)
         .child(control_label(title.to_string()))
         .outline()
         .disabled(disabled)

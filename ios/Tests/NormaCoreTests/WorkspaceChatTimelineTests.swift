@@ -26,6 +26,23 @@ import Testing
     #expect(!WorkspaceChatError.server("outcome_unknown").localizedDescription.contains("已完成"), "未知结果不得伪装完成")
 }
 
+/// 场景：Agent 输入尚未就绪、桌面草稿和启动失败应提供不同的恢复指引。
+/// 数据构造：state_not_ready、terminal_not_ready、desktop_input_pending、start_failed 四个正式错误码。
+/// 执行过程：将服务错误转换为手机文案 → 核对初始化、桌面草稿和启动连接的处理方式。
+/// 预期结果：用户能找到对应恢复操作；不能把失败称为完成，也不能暗示消息已自动重发。
+@Test func nativeAgentMessageFailuresExplainReadinessAndStartup() {
+    let readiness = WorkspaceChatError.server("state_not_ready").localizedDescription
+    let terminal = WorkspaceChatError.server("terminal_not_ready").localizedDescription
+    let draft = WorkspaceChatError.server("desktop_input_pending").localizedDescription
+    let startup = WorkspaceChatError.server("start_failed").localizedDescription
+    #expect(readiness.contains("初始化") && readiness.contains("原文已保留"), "未就绪应提示等待初始化并保留原文")
+    #expect(terminal.contains("输入") && terminal.contains("就绪"), "终端输入未准备好应明确说明")
+    #expect(draft.contains("草稿") && draft.contains("Mac"), "桌面未提交输入应指向 Mac 草稿")
+    #expect(startup.contains("启动失败") && startup.contains("连接"), "启动失败应指向 Agent 连接检查")
+    #expect(!startup.contains("已完成"), "启动失败不能伪装任务完成")
+    #expect(!readiness.contains("自动重发"), "未就绪不能暗示自动重新提交用户消息")
+}
+
 /// 场景：两个操作交错执行时，迟到成果应在时间线尾部，完成信封不能重复展示同一成果。
 /// 数据构造：游标1=A接收，2=B接收，3=A成果，4=A完成信封；数组输入故意乱序。
 /// 执行过程：解析事件 → 生成显示时间线 → 核对顺序与重复事件。

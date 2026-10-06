@@ -62,3 +62,58 @@ fn explicit_card_message_contains_shared_workspace_facts() {
         "empty history must not add unused context"
     );
 }
+
+/// 场景：桌面宿主尚不可定位时，手机目录请求保留真实原因，不误报项目路径损坏。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   隔离数据库中的一个真实工作空间及项目目录；GPUI 中没有注册宿主。
+///   请求数 = 1，回执数 = 1，因此回复通道容量 = 1。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 向局域网和中继共用的正式 GPUI 桥接入口提交目录请求。
+///   2. 项目会话定位发现宿主数为 0，返回 desktop_host_unavailable。
+///   3. 从实际回复通道读取返回的错误码。
+///
+/// 预期结果：
+///   - 正断言：返回 desktop_host_unavailable，使手机能显示工作空间未就绪。
+///   - 负断言：不能把有效项目目录误报为 project_unavailable。
+#[test]
+fn workspace_catalog_preserves_desktop_host_failure() {
+    let dir = tempfile::tempdir().expect("应创建隔离项目目录");
+    let paths = storage::DatabasePaths::isolated_test(&dir.path().join("data"));
+    let store = storage::AppStore::initialize(&paths).expect("应初始化隔离数据库");
+    let catalog = store.desktop_workspace_store();
+    let workspace = catalog.create("Mobile").expect("应创建工作空间");
+    let area = catalog
+        .add_project(&workspace.id, dir.path())
+        .expect("应关联有效项目目录");
+    // 一个目录请求只产生一份回复，容量 = 1。
+    let (reply, result) = crossbeam_channel::bounded(1);
+    let mut cx = gpui::TestAppContext::single();
+    cx.update(|cx| {
+        super::start(
+            paths.app_db_path().to_owned(),
+            super::LiveWorkspaceRequest {
+                areas: vec![super::WorkspaceArea {
+                    area,
+                    project_id: "project".into(),
+                }],
+                action: super::LiveWorkspaceAction::Catalog,
+                reply,
+            },
+            cx,
+        )
+    });
+    cx.run_until_parked();
+    let outcome = result.try_recv().expect("正式桥接入口应返回目录请求的回复");
+    assert_eq!(
+        outcome,
+        Err("desktop_host_unavailable".into()),
+        "宿主不可定位的真实错误码必须保留到手机回复"
+    );
+    assert_ne!(
+        outcome,
+        Err("project_unavailable".into()),
+        "有效项目目录不能被误报为路径不可用"
+    );
+}

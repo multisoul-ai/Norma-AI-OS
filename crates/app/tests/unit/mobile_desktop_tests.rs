@@ -1,5 +1,5 @@
 use super::{attach, Command, MobileController};
-use gpui::TestAppContext;
+use gpui::{AppContext, TestAppContext};
 use std::{
     io::Read,
     net::TcpStream,
@@ -51,7 +51,7 @@ fn claimed_phone_survives_desktop_countdown_and_approval() {
         image::RgbaImage::new(1, 1),
     )]));
     let mut cx = TestAppContext::single();
-    let owner = cx.update(|cx| attach(store.clone(), cx));
+    let owner = cx.new(|_| MobileController::new(store.clone()));
     owner.update(&mut cx, |host, cx| {
         host.server = Some(server.clone());
         host.install_code(
@@ -149,7 +149,7 @@ fn pairing_code_copy_preserves_pairing_and_expiry() {
         "生成验证码不能直接授权手机"
     );
     let mut cx = TestAppContext::single();
-    let owner = cx.update(|cx| attach(store, cx));
+    let owner = cx.new(|_| MobileController::new(store));
     owner.update(&mut cx, |host, cx| {
         host.install_code(image, code.clone(), expires, cx);
         host.copy_pairing_code(cx);
@@ -202,9 +202,10 @@ fn shared_desktop_owner_survives_windows_until_app_quit() {
         "另一 App 数据库不得串入服务"
     );
     assert!(
-        !first.read_with(&cx, |host: &MobileController, _| host.enabled()),
-        "启动 App 不应默认监听网络"
+        first.read_with(&cx, |host, _| host.busy),
+        "首次附着应安排默认启动"
     );
+    other.update(&mut cx, |host, cx| host.disable(cx));
     let server = Arc::new(
         crate::mobile::MobileServer::start(
             crate::mobile::MobileAccess::with_identity_for_e2e(
@@ -216,7 +217,11 @@ fn shared_desktop_owner_survives_windows_until_app_quit() {
         .expect("真实测试服务"),
     );
     let address = server.addresses()[0];
-    first.update(&mut cx, |host, _| host.server = Some(server.clone()));
+    first.update(&mut cx, |host, cx| {
+        host.disable(cx);
+        host.cancelled = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        host.server = Some(server.clone());
+    });
     let cancelled = first.read_with(&cx, |host, _| host.cancelled.clone());
     let weak = first.downgrade();
     drop(first);
@@ -284,7 +289,7 @@ fn reload_cancels_permission_draft_and_uses_current_revision() {
         )
         .expect("初始只读授权");
     let mut cx = TestAppContext::single();
-    let owner = cx.update(|cx| attach(store.clone(), cx));
+    let owner = cx.new(|_| MobileController::new(store.clone()));
     owner.update(&mut cx, |host, cx| {
         host.edit(&grant, cx);
         host.selected

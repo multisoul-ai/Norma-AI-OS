@@ -1,5 +1,5 @@
-use super::{attach, Command};
-use gpui::TestAppContext;
+use super::{Command, MobileController};
+use gpui::{AppContext, TestAppContext};
 use std::{sync::Arc, time::Instant};
 use storage::{AppStore, MobilePermission, MobileProjectAccess};
 
@@ -56,7 +56,7 @@ fn reapproval_reports_real_errors_and_approves_revoked_phone() {
             .expect("启动真实服务"),
     );
     let mut cx = TestAppContext::single();
-    let owner = cx.update(|cx| attach(store.clone(), cx));
+    let owner = cx.new(|_| MobileController::new(store.clone()));
     owner.update(&mut cx, |host, cx| {
         host.server = Some(server.clone());
         host.pending = Some(pending.clone());

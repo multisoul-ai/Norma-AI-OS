@@ -425,6 +425,10 @@ impl Drop for MobileController {
     }
 }
 
+#[cfg(test)]
+#[path = "../../tests/unit/mobile_startup_tests.rs"]
+mod startup_tests;
+
 #[cfg(all(test, feature = "e2e-test-support"))]
 #[path = "../../tests/unit/mobile_desktop_tests.rs"]
 mod tests;

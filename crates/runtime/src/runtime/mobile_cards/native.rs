@@ -12,7 +12,7 @@ impl Runtime {
         if !self
             .mobile_runs
             .get(&node)
-            .is_some_and(|run| run.is_native() && run.session_id.is_none())
+            .is_some_and(MobileRun::is_native)
             || !matches!(self.document.node(node).map(|node| &node.kind), Some(CanvasNodeKind::Agent(spec)) if spec.profile == AgentProfile::Codex)
             || !self.live.get(&node).is_some_and(|live| {
                 live.terminal_status() == Some(TerminalStatus::Running)
@@ -65,6 +65,7 @@ impl Runtime {
             let Some(effort) = fields.next() else {
                 return false;
             };
+            let name = name.to_ascii_lowercase();
             (name.starts_with("gpt-") || name.starts_with("o3") || name.starts_with("o4"))
                 && matches!(
                     effort,

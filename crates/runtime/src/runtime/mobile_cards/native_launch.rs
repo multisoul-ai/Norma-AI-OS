@@ -149,7 +149,10 @@ impl Runtime {
         cols: u16,
         rows: u16,
     ) -> Result<NativeAgentLaunch, PtyError> {
-        if self.live.contains_key(&node) || self.mobile_runs.contains_key(&node) {
+        if self.live.get(&node).is_some_and(|live| {
+            !matches!(live.terminal_status(), Some(TerminalStatus::Exited { .. }))
+        }) || self.mobile_runs.contains_key(&node)
+        {
             return Err(control_error("terminal already exists"));
         }
         let Some(CanvasNodeKind::Agent(spec)) = self.document.node(node).map(|node| &node.kind)
@@ -180,6 +183,9 @@ impl Runtime {
             crate::nodes::agent::agent_command(profile, hook.as_ref())
                 .with_cwd(self.workspace_root())
         };
+        if let Some(mut exited) = self.live.remove(&node) {
+            exited.kill();
+        }
         self.reserve_native_run(node);
         let run = self
             .mobile_runs

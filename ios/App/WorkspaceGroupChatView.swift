@@ -218,8 +218,8 @@ struct WorkspaceGroupChatView: View {
             }
             HStack(alignment: .bottom, spacing: 6) {
                 Menu {
-                    Button("讨论，不派工") { setIntent(.discuss) }
-                    Button("请执行，允许派工") { setIntent(.execute) }
+                    Button("讨论，不派工", systemImage: "bubble.left.and.bubble.right") { setIntent(.discuss) }
+                    Button("请执行，允许派工", systemImage: "play") { setIntent(.execute) }
                 } label: { Image(systemName: "plus").font(.title2).frame(width: 44, height: 44) }.accessibilityLabel("消息模式：\(draft.intent == .discuss ? "讨论" : "请执行")").accessibilityIdentifier("group-message-mode")
                 ChatVoiceInput(text: text, recording: $recording, disabled: false, focus: { typing = $0 }) {
                 TextField(draft.intent == .discuss ? "发消息或 @Agent" : "描述要执行的任务", text: text, axis: .vertical)
