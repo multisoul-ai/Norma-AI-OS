@@ -311,7 +311,7 @@ fn run(shared: &Shared) -> Result<()> {
                             }
                             match relay.send(&event) {
                                 Ok(Some(0)) => {
-                                    store.replace(&grant, subscription.revision, None)?;
+                                    store.replace(grant, subscription.revision, None)?;
                                 }
                                 Ok(Some(time)) => {
                                     store.invalidate(

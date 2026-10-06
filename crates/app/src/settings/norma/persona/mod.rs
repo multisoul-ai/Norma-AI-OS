@@ -107,7 +107,7 @@ impl PersonaView {
             return;
         }
         self.busy = true;
-        self.status = ui::i18n::LocalizedText::new("common.loading").into();
+        self.status = ui::i18n::LocalizedText::new("common.loading");
         let store = self.store.clone();
         let task = cx
             .background_executor()
@@ -148,7 +148,7 @@ impl PersonaView {
             return;
         }
         self.busy = true;
-        self.status = ui::i18n::LocalizedText::new("norma.saving").into();
+        self.status = ui::i18n::LocalizedText::new("norma.saving");
         let store = self.store.clone();
         let task = cx.background_executor().spawn(async move {
             save_profile(&store, &profile)?;
@@ -165,8 +165,7 @@ impl PersonaView {
                         view.error = false;
                         view.status = ui::i18n::LocalizedText::new(
                             "norma.saved_applies_to_the_next_conversation_turn",
-                        )
-                        .into();
+                        );
                     }
                     Err(error) => {
                         view.error = true;

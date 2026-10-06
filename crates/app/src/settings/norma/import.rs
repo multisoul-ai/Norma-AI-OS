@@ -5,7 +5,7 @@ impl MemoryView {
     pub(super) fn import(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.current_is_dirty(cx) {
             self.status =
-                ui::i18n::LocalizedText::new("norma.save_or_cancel_the_current_draft_first").into();
+                ui::i18n::LocalizedText::new("norma.save_or_cancel_the_current_draft_first");
             cx.notify();
             return;
         }
@@ -71,7 +71,7 @@ impl MemoryView {
                         view.imports = entries;
                         view.error = false;
                         view.status =
-                            ui::i18n::LocalizedText::new("norma.review_the_import_preview_matching_ids_replace_existing_topics_confirm_to").into();
+                            ui::i18n::LocalizedText::new("norma.review_the_import_preview_matching_ids_replace_existing_topics_confirm_to");
                     }
                     Ok(None) => {}
                     Err(error) => {

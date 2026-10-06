@@ -231,10 +231,10 @@ impl Runtime {
         if self.mobile_terminal_is_controlled(expected.node_id) {
             return Err("terminal_controlled");
         }
-        if !matches!(
+        if !(matches!(
             current.state.as_str(),
             "idle" | "ready" | "done" | "ended" | "failed"
-        ) && !(workspace_reply
+        ) || workspace_reply
             && matches!(current.state.as_str(), "thinking" | "running_tool")
             && self
                 .mobile_runs

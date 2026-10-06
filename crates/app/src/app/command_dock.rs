@@ -195,12 +195,9 @@ impl MultisoulApp {
             if let Some(state) = &mut self.command_dock {
                 // The native picker is asynchronous; only another preview must wait for it.
                 if state.pending_preview.is_some() {
-                    state.error = Some(
-                        ui::i18n::LocalizedText::new(
-                            "chrome.finish_or_cancel_the_open_file_picker_first",
-                        )
-                        .into(),
-                    );
+                    state.error = Some(ui::i18n::LocalizedText::new(
+                        "chrome.finish_or_cancel_the_open_file_picker_first",
+                    ));
                     cx.notify();
                     return;
                 }
@@ -241,7 +238,6 @@ impl MultisoulApp {
                 ui::i18n::LocalizedText::new(
                     "chrome.could_not_create_the_card_check_the_runtime_environment_and_try",
                 )
-                .into()
             }));
             cx.notify();
         }

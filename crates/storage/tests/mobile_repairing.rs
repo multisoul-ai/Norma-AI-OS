@@ -9,6 +9,7 @@ use storage::{MobileAccessStore, MobilePermission, MobileProjectAccess};
 ///   1. 注册全项目控制设备并撤销，确认旧 token 无效。
 ///   2. Mac 用同一设备 ID、新 token 和项目 A 只读范围重新批准。
 ///   3. 重开数据库，用两种 token 鉴权，尝试旧修订号更新及覆盖有效设备。
+///
 /// 预期结果：只保留一个 revision=3 的有效设备；新 token 可读 A，旧 token、
 ///   控制权限、全项目模式、迟到更新和未经撤销的覆盖注册均不可用。
 #[test]
