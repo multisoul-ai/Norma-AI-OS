@@ -3,6 +3,9 @@ use super::{ApprovalSnapshot, DesktopChatWorkspace, TaskProgress};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
+mod inbox_key;
+pub use inbox_key::inbox_item_key;
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ActivityApprovalFact {
     pub area_id: String,

@@ -47,9 +47,9 @@ pub use mobile_access_store::{
     MobileAccessStore, MobileDeviceGrant, MobilePermission, MobileProjectAccess,
 };
 pub use mobile_command_store::{
-    DeliveryAcceptance, DeliveryFeedback, MobileCommandReceipt, MobileCommandReservation,
-    MobileCommandStore, NewMobileCommand, NewQueuedMessage, PlanTodoReservation, QueuedMessage,
-    StoredTodoDecision, TodoDecisionRef,
+    DeliveryAcceptance, DeliveryFeedback, InboxDismissal, InboxItemKind, MobileCommandReceipt,
+    MobileCommandReservation, MobileCommandStore, NewMobileCommand, NewQueuedMessage,
+    PlanTodoReservation, QueuedMessage, StoredTodoDecision, TodoDecisionRef,
 };
 pub use mobile_command_store::{
     StoredThreadCommand, ThreadCommandBinding, ThreadTaskExecution, ThreadTaskExecutionEvent,

@@ -1,6 +1,71 @@
 use norma::mobile::{DesktopChatWorkspace, WorkspaceActivityFacts, WorkspaceActivitySummary};
 use serde_json::json;
 
+/// 场景：事项键按项目去重身份生成，与工作空间绑定和展示文案无关。
+/// 数据构造：project-1/area-1/node=7/Codex/run-1/session-1/turn-1；指纹为64个a。
+/// 执行过程：与独立Python hashlib计算的规范JSON摘要比较，再逐一改变身份字段。
+/// 预期结果：摘要稳定且为64位小写hex；新run/turn不隐藏；成果只看项目/指纹，所有类型忽略区域；审批看request。
+#[test]
+fn inbox_keys_are_stable_and_match_deduplication_identity() {
+    use norma::mobile::{inbox_item_key, WorkspaceActivityTarget};
+    let target: WorkspaceActivityTarget = serde_json::from_value(json!({
+        "area_id":"area-1","node_id":7,"profile":"Codex","run_id":"run-1",
+        "session_id":"session-1","turn_id":"turn-1","request_id":"request-1",
+        "fingerprint":"a".repeat(64)
+    }))
+    .expect("完整事项目标");
+    let examples = [
+        (
+            "review",
+            "835fde005855fb506cc37b3c3537d25f2de78465f1fd2e6e1e68136c923b3542",
+        ),
+        (
+            "approval",
+            "39ceed9bda1f342e5d523a9f1a7068e4de4ae53b2af34e6d3a6522b92602777b",
+        ),
+        (
+            "failed",
+            "50b8f1cebfd10ff9a4e30d9ed9c82e88daf482363fdb8340be851a4a760e1f77",
+        ),
+    ];
+    for (kind, expected) in examples {
+        assert_eq!(
+            inbox_item_key(kind, "project-1", &target),
+            expected,
+            "规范JSON摘要必须稳定：{kind}"
+        );
+        for field in [
+            "node_id",
+            "run_id",
+            "turn_id",
+            "request_id",
+            "fingerprint",
+            "session_id",
+            "profile",
+            "area_id",
+        ] {
+            let mut changed = serde_json::to_value(&target).expect("序列化目标");
+            changed[field] = if field == "node_id" {
+                json!(8)
+            } else {
+                json!("new-value")
+            };
+            let changed = serde_json::from_value(changed).expect("改动目标");
+            let ignores = match kind {
+                "review" => field != "fingerprint",
+                "approval" => matches!(field, "fingerprint" | "area_id"),
+                _ => matches!(field, "request_id" | "fingerprint" | "area_id"),
+            };
+            let actual = inbox_item_key(kind, "project-1", &changed);
+            if ignores {
+                assert_eq!(actual, expected, "{kind}必须忽略{field}");
+            } else {
+                assert_ne!(actual, expected, "{kind}必须区分{field}");
+            }
+        }
+    }
+}
+
 /// 场景：重复运行投影去重时，第二个工作空间独有的旧交付仍可验收。
 ///
 /// 数据构造：两个空间各有同一项目/节点/run/session/turn 的执行投影；

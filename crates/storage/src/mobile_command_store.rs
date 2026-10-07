@@ -5,9 +5,11 @@ use serde_json::Value;
 use std::path::PathBuf;
 
 mod delivery;
+mod dismissal;
 mod feedback;
 pub(crate) use delivery::migrate as migrate_delivery_acceptances;
 pub use delivery::DeliveryAcceptance;
+pub use dismissal::{InboxDismissal, InboxItemKind};
 pub(crate) use feedback::migrate as migrate_delivery_feedback;
 pub use feedback::DeliveryFeedback;
 mod execution;
@@ -279,6 +281,7 @@ pub(crate) fn migrate(connection: &Connection) -> StorageResult<()> {
     migrate_mobile_message_queue_profiles(connection)?;
     thread::migrate(connection)?;
     execution::migrate(connection)?;
+    dismissal::migrate(connection)?;
     Ok(())
 }
 
