@@ -45,11 +45,11 @@ import Testing
     #expect(try await reopened.events(macID: "mac", workspaceID: "a").isEmpty, "错误消息不能进入长期历史")
 }
 
-/// 场景：Mac 删除工作空间后，手机仍能查看长期历史，但不会自动恢复已删除配置。
+/// 场景：Mac 删除工作空间后，手机保留消息和草稿，但不会自动恢复已删除配置。
 /// 数据构造：目录先包含 A 与 B，随后只包含 B；A 留有一条消息和未提交草稿。
-/// 执行过程：保存旧目录 → 记录 A → 保存新目录 → 重开存储读取历史空间。
-/// 预期结果：当前目录没有 A；历史入口保留 A 和原消息；B 不重复成两个空间。
-@Test func removedWorkspaceRetainsReadOnlyHistory() async throws {
+/// 执行过程：保存旧目录 → 记录 A → 保存新目录 → 重开存储读取目录、消息和草稿。
+/// 预期结果：当前目录只有 B；A 的原消息和未提交草稿保留。
+@Test func removedWorkspaceRetainsOutboxAndDraft() async throws {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }
     let url = directory.appendingPathComponent("chat.sqlite")
@@ -63,7 +63,6 @@ import Testing
     try await store.saveCatalog(after)
     let reopened = WorkspaceChatStore(databaseURL: url)
     #expect(try await reopened.catalog(macID: "mac")?.workspaces.map(\.id) == ["b"], "已删除空间不能成为可执行目录")
-    #expect(try await reopened.historicalWorkspaces(macID: "mac").map(\.id).sorted() == ["a", "b"], "历史入口应保留所有已同步空间")
     #expect(try await reopened.outbox(macID: "mac", workspaceID: "a").first?.message.text == "历史消息", "删除配置不能删除聊天原文")
     #expect(try await reopened.draft(macID: "mac", workspaceID: "a") == "未提交文字", "历史空间的未提交输入必须保留")
 }

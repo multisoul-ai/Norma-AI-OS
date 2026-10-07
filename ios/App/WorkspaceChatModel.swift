@@ -17,7 +17,6 @@ import NormaCore
     private var clients: [String: WorkspaceChatClient] = [:]
     private var clientMachines: [String: PairedMachine] = [:]
     private var pendingIndex = 0
-    private(set) var historyWorkspaces: [DesktopChatWorkspace] = []
     private var loadedMacID: String?
     private var lastCatalogRead = Date.distantPast
     private var draftWrites: [String: Task<Void, Never>] = [:]
@@ -33,8 +32,7 @@ import NormaCore
         catch { self.error = error.localizedDescription }
     }
     var workspaces: [DesktopChatWorkspace] { catalog?.workspaces ?? [] }
-    var unavailableWorkspaces: [DesktopChatWorkspace] { historyWorkspaces.filter { old in !workspaces.contains { $0.id == old.id } } }
-    func workspace(_ id: String) -> DesktopChatWorkspace? { workspaces.first { $0.id == id } ?? historyWorkspaces.first { $0.id == id } }
+    func workspace(_ id: String) -> DesktopChatWorkspace? { workspaces.first { $0.id == id } }
     func isAvailable(_ id: String) -> Bool { workspaces.contains { $0.id == id } }
     func messages(_ id: String) -> [WorkspaceOutboxEntry] { outbox.filter { $0.message.workspaceID == id } }
 
@@ -44,8 +42,7 @@ import NormaCore
             events = [:]; drafts = [:]; loaded = true; online = false; lastCatalogRead = .distantPast
         }
         outbox = try await store.outbox(macID: macID)
-        historyWorkspaces = try await store.historicalWorkspaces(macID: macID)
-        for workspace in historyWorkspaces {
+        for workspace in workspaces {
             events[workspace.id] = try await store.events(macID: macID, workspaceID: workspace.id)
             if drafts[workspace.id] == nil { drafts[workspace.id] = try await store.draftState(macID: macID, workspaceID: workspace.id) }
         }

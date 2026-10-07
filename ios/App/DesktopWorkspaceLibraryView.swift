@@ -52,12 +52,6 @@ struct DesktopWorkspaceLibraryView: View {
                             }.accessibilityLabel("配置 \(workspace.name) 的项目与 Agent").accessibilityIdentifier("workspace-configure-\(workspace.id)").padding(18)
                         }
                 }
-                if !model.unavailableWorkspaces.isEmpty {
-                    Text("已不可用的空间 · 只读历史").font(.headline)
-                    ForEach(model.unavailableWorkspaces) { space in
-                        Button { selectedID = space.id } label: { Label(space.name, systemImage: "clock.arrow.circlepath").frame(minHeight: 44) }
-                    }
-                }
                 if let error = model.error {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(error).font(.footnote).foregroundStyle(IdeaPalette.secondary)

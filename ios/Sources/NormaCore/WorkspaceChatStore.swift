@@ -32,10 +32,6 @@ public actor WorkspaceChatStore {
         }
     }
 
-    public func historicalWorkspaces(macID: String) throws -> [DesktopChatWorkspace] {
-        try withDatabase { try read(DesktopChatWorkspace.self, kind: "workspace", macID: macID, db: $0) }
-    }
-
     public func enqueue(_ message: WorkspaceChatMessage, macID: String) throws {
         try message.validate()
         guard validID(macID) else { throw WorkspaceChatError.invalid }
