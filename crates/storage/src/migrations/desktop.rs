@@ -21,8 +21,7 @@ pub(super) fn migrate(connection: &Connection) -> StorageResult<()> {
             project_key TEXT NOT NULL,
             root_path TEXT NOT NULL,
             display_name TEXT NOT NULL,
-            added_at_unix_ms INTEGER NOT NULL,
-            UNIQUE(desktop_workspace_id, project_key)
+            added_at_unix_ms INTEGER NOT NULL
         );
 
         CREATE INDEX IF NOT EXISTS idx_desktop_project_areas_workspace
@@ -42,7 +41,57 @@ pub(super) fn migrate(connection: &Connection) -> StorageResult<()> {
         "overview_scroll_y INTEGER NOT NULL DEFAULT 0",
     )?;
     migrate_wallpapers(connection)?;
+    migrate_project_instances(connection)?;
     Ok(())
+}
+
+fn migrate_project_instances(connection: &Connection) -> StorageResult<()> {
+    if !has_unique_project(connection)? {
+        return Ok(());
+    }
+    let transaction =
+        rusqlite::Transaction::new_unchecked(connection, rusqlite::TransactionBehavior::Immediate)?;
+    // Another background reader may have upgraded this catalog while we waited for the lock.
+    if !has_unique_project(&transaction)? {
+        return Ok(());
+    }
+    // Copy before dropping the catalog; IDs keep canvas files and expanded views intact.
+    // Recreate the existing indexes/triggers only after copying, so revisions do not advance.
+    let schema_objects = transaction
+        .prepare("SELECT sql FROM sqlite_master WHERE tbl_name='desktop_project_areas' AND type IN ('index','trigger') AND sql IS NOT NULL")?
+        .query_map([], |row| row.get::<_, String>(0))?
+        .collect::<Result<Vec<_>, _>>()?;
+    transaction.execute_batch(
+        "CREATE TABLE desktop_project_areas_instances (
+            id TEXT PRIMARY KEY NOT NULL,
+            desktop_workspace_id TEXT NOT NULL REFERENCES desktop_workspaces(id) ON DELETE CASCADE,
+            project_key TEXT NOT NULL,
+            root_path TEXT NOT NULL,
+            display_name TEXT NOT NULL,
+            added_at_unix_ms INTEGER NOT NULL,
+            wallpaper_json TEXT
+        );
+        INSERT INTO desktop_project_areas_instances
+            SELECT id,desktop_workspace_id,project_key,root_path,display_name,added_at_unix_ms,wallpaper_json
+            FROM desktop_project_areas;
+        DROP TABLE desktop_project_areas;
+        ALTER TABLE desktop_project_areas_instances RENAME TO desktop_project_areas;",
+    )?;
+    for sql in schema_objects {
+        transaction.execute_batch(&sql)?;
+    }
+    transaction.commit()?;
+    Ok(())
+}
+
+fn has_unique_project(connection: &Connection) -> StorageResult<bool> {
+    connection.query_row(
+        "SELECT EXISTS(SELECT 1 FROM pragma_index_list('desktop_project_areas') AS i
+         WHERE i.\"unique\"=1 AND
+         (SELECT group_concat(name, ',') FROM pragma_index_info(i.name))='desktop_workspace_id,project_key')",
+        [],
+        |row| row.get(0),
+    ).map_err(Into::into)
 }
 
 fn migrate_wallpapers(connection: &Connection) -> StorageResult<()> {

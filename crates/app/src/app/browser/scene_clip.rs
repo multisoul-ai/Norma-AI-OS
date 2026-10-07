@@ -3,7 +3,7 @@ use gpui::{ScenePresentation, Window};
 use objc2::{
     define_class, msg_send, rc::Retained, DefinedClass, MainThreadMarker, MainThreadOnly, Message,
 };
-use objc2_app_kit::NSView;
+use objc2_app_kit::{NSView, NSWindow};
 use objc2_foundation::{NSPoint, NSRect, NSSize};
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use std::cell::Cell;
@@ -103,6 +103,9 @@ impl NativeSceneClip {
     }
 
     pub fn set_visible(&self, visible: bool) {
+        if !visible {
+            self.release_input();
+        }
         self.container.setHidden(!visible);
         if !visible {
             self.container.ivars().set(false);
@@ -110,19 +113,21 @@ impl NativeSceneClip {
     }
 
     pub fn release_input(&self) {
-        let Some(window) = self.content.window() else {
+        // Wry can detach its content before this clipping host is dropped.
+        let Some(window) = self.container.window() else {
             return;
         };
-        let Some(responder) = window
-            .firstResponder()
-            .and_then(|view| view.downcast::<NSView>().ok())
-        else {
-            return;
-        };
-        if responder.isDescendantOf(&self.content) {
+        let responder = window.firstResponder();
+        let should_release = responder.as_deref().is_none_or(|responder| {
+            responder.downcast_ref::<NSWindow>().is_some()
+                || responder
+                    .downcast_ref::<NSView>()
+                    .is_some_and(|view| view.isDescendantOf(&self.content))
+        });
+        if should_release {
             // SAFETY: both views belong to the same live window on the AppKit thread.
             if let Some(parent) = unsafe { self.container.superview() } {
-                window.makeFirstResponder(Some(&parent));
+                crate::app::native_input::focus_host(&parent, "browser_release");
             }
         }
     }
@@ -130,6 +135,7 @@ impl NativeSceneClip {
 
 impl Drop for NativeSceneClip {
     fn drop(&mut self) {
+        self.release_input();
         self.container.removeFromSuperview();
     }
 }

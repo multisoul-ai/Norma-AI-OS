@@ -57,7 +57,7 @@ impl PreparedProject {
             let store = AppStore::new(paths.app_db_path().to_owned());
             let mut identity = store
                 .workspace_identity_store()
-                .resolve_or_create(&area.root, &area.display_name)?;
+                .resolve_or_create(&area.root, &workspace::display_name_for_path(&area.root))?;
             // CLI routing belongs to this canvas, even when another canvas uses the same root.
             // Keep the persisted project identity unchanged for legacy/mobile project lookup.
             identity.workspace_id = format!("desktop:{}:{}", area.desktop_workspace_id, area.id);
@@ -148,6 +148,7 @@ impl MultisoulApp {
     }
 
     pub(crate) fn detach_project_window(&mut self, cx: &mut Context<Self>) {
+        self.stop_doubao_voice(cx);
         self.project_window = None;
         self.background_project = true;
         self.window_active = false;
@@ -195,6 +196,7 @@ impl MultisoulApp {
         self.start_dialogue_turn_loop(window, cx);
         self.start_cef_message_pump_loop(window, cx);
         self.reload_all_previews(cx);
+        self.resync_voice_settings(true, cx);
         self.last_reflow_window_size = None;
         self.wake_animation_frame_loop();
         cx.notify();
@@ -214,6 +216,7 @@ impl MultisoulApp {
         self.start_dialogue_turn_loop(window, cx);
         self.start_cef_message_pump_loop(window, cx);
         self.reload_all_previews(cx);
+        self.resync_voice_settings(true, cx);
         self.wake_animation_frame_loop();
         cx.notify();
     }
@@ -222,6 +225,7 @@ impl MultisoulApp {
         if let Some(pending) = self.background_restore.take() {
             self.spawn_deferred_live_session_restore(pending, cx);
         }
+        self.resync_voice_settings(true, cx);
     }
 }
 
@@ -311,6 +315,96 @@ mod desktop_project_tests {
                 .iter()
                 .any(|item| item.id == area_a.id),
             "删除后甲区域不得残留"
+        );
+    }
+
+    /// 画布名称隔离：加载同目录的不同画布时不能把画布名称写入共享项目身份。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   根目录 project 1 个；同空间画布 2 张，第一张改名 Release canvas。
+    ///   共享身份数始终为 1，其项目名称应来自目录 project，而不是任一画布标题。
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 创建共享项目身份和两张画布，重命名第一张。
+    ///   2. 用生产 PreparedProject 接口加载改名画布，再加载另一张画布。
+    ///   3. 读取身份和画布目录，检查两种名称的作用域。
+    ///
+    /// 预期结果：
+    ///   - 正断言：两次加载的项目名和存储身份名均为 project，第一张画布保持新标题。
+    ///   - 负断言：共享项目名不能变为 Release canvas，第二张标题不能被覆盖。
+    #[test]
+    fn desktop_canvas_rename_does_not_change_project_identity() {
+        let temp = tempfile::tempdir().expect("应创建隔离目录");
+        let paths = DatabasePaths::isolated_test(&temp.path().join("data"));
+        let project = temp.path().join("project");
+        std::fs::create_dir(&project).expect("应创建项目目录");
+        let catalog = storage::DesktopWorkspaceStore::new(paths.app_db_path().to_owned());
+        let workspace = catalog.create("Workspace").expect("应创建空间");
+        let first = catalog
+            .add_project(&workspace.id, &project)
+            .expect("应添加第一张画布");
+        let second = catalog
+            .add_project(&workspace.id, &project)
+            .expect("应添加第二张画布");
+        let identities = storage::WorkspaceIdentityStore::new(paths.app_db_path().to_owned());
+        let shared = identities
+            .resolve_or_create(&project, "project")
+            .expect("应创建共享身份");
+        catalog
+            .rename_project(&workspace.id, &first.id, "Release canvas")
+            .expect("应改名第一张画布");
+        let areas = catalog
+            .list_projects(&workspace.id)
+            .expect("应读取画布目录");
+        let renamed = areas
+            .iter()
+            .find(|area| area.id == first.id)
+            .expect("应有改名画布")
+            .clone();
+
+        let loaded =
+            PreparedProject::load_for_desktop(paths.clone(), renamed).expect("改名画布应可加载");
+        assert_eq!(
+            loaded.identity.display_name, "project",
+            "画布加载必须使用项目名称注册身份"
+        );
+        let stored = identities
+            .get(&shared.workspace_id)
+            .expect("应读取共享身份")
+            .expect("身份应保留");
+        assert_ne!(
+            stored.display_name, "Release canvas",
+            "画布标题不能写入共享项目身份"
+        );
+        let sibling =
+            PreparedProject::load_for_desktop(paths, second.clone()).expect("另一张画布应可加载");
+        assert_eq!(
+            sibling.identity.display_name, "project",
+            "另一张画布必须读取相同的项目名称"
+        );
+        let stored = identities
+            .get(&shared.workspace_id)
+            .expect("应重新读取共享身份")
+            .expect("身份应保留");
+        assert_eq!(stored.display_name, "project", "共享项目名称应保持稳定");
+        let areas = catalog
+            .list_projects(&workspace.id)
+            .expect("应重新读取画布目录");
+        let renamed = areas
+            .iter()
+            .find(|area| area.id == first.id)
+            .expect("应有改名画布");
+        let sibling = areas
+            .iter()
+            .find(|area| area.id == second.id)
+            .expect("应有另一张画布");
+        assert_eq!(
+            renamed.display_name, "Release canvas",
+            "独立画布标题应保留改名结果"
+        );
+        assert_eq!(
+            sibling.display_name, "project",
+            "另一张画布标题不能被改名覆盖"
         );
     }
 }

@@ -123,6 +123,7 @@ impl CefBrowserView {
         if let Some(host) = self.browser.host() {
             host.set_focus(0);
         }
+        self.scene_clip.release_input();
     }
 
     pub(crate) fn import_cookies(

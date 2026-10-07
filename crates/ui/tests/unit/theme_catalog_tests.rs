@@ -8,15 +8,18 @@ use super::{Theme, ThemeId};
 ///   total        = 3 + 3 = 6
 ///   每套主题的 Base / Text / Accent / Signal 均直接取自
 ///   `docs/design-docs/core-ui-v2/README.md`，不由实现代码重新计算。
+///   默认主题 = Sapphire Night（用户指定）；默认 token 分别由 id 与 Theme 构造。
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取 `ThemeId::ALL`，逐项检查稳定 id 与显示名称。
 ///   2. 对每个 id 调用 `Theme::for_id`，检查 Base、Text、Accent 与 Signal。
-///   3. 检查三浅三深分组，并确认默认主题固定为 Paper Blue。
+///   3. 检查三浅三深分组，并确认两个默认入口均使用 Sapphire Night。
 ///
 /// 预期结果：
 ///   - 正断言：六个主题按设计文档顺序完整存在，关键字面量逐一匹配。
-///   - 正断言：Paper Blue 是默认主题，前三项为浅色、后三项为深色。
+///   - 正断言：Sapphire Night 是默认主题，默认配色包含深蓝底、浅色文字与蓝色强调色。
+///   - 正断言：前三项为浅色、后三项为深色。
+///   - 负断言：默认主题不得继续使用 Paper Blue 的浅色画布。
 ///   - 负断言：不得继续暴露已淘汰的 `ceramic-mist` 等旧主题 id。
 #[test]
 fn test_core_ui_v2_catalog_matches_reviewed_theme_literals() {
@@ -34,8 +37,25 @@ fn test_core_ui_v2_catalog_matches_reviewed_theme_literals() {
     );
     assert_eq!(
         ThemeId::default(),
-        ThemeId::PaperBlue,
-        "默认主题必须是设计文档指定的 Paper Blue"
+        ThemeId::SapphireNight,
+        "默认主题必须是用户指定的 Sapphire Night"
+    );
+    let default_theme = Theme::default();
+    assert_eq!(
+        default_theme.canvas_from, 0x071324ff,
+        "Theme 默认入口必须使用 Sapphire Night 的深蓝画布"
+    );
+    assert_eq!(
+        default_theme.text_primary, 0xeff7ffff,
+        "Theme 默认入口必须使用 Sapphire Night 的浅色文字"
+    );
+    assert_eq!(
+        default_theme.accent, 0x54a2ffff,
+        "Theme 默认入口必须使用 Sapphire Night 的蓝色强调色"
+    );
+    assert_ne!(
+        default_theme.canvas_from, 0xfffefbff,
+        "默认画布不得继续使用 Paper Blue 的浅色底"
     );
 
     assert_theme(ThemeExpectation {

@@ -62,26 +62,26 @@ fn test_product_ui_command_dock_uses_grouped_icons_and_embedded_voice() {
     );
 }
 
-/// Product UI 启动主题：应用必须恢复已保存主题，并在没有保存值时回退到 Paper Blue。
+/// Product UI 启动主题：应用必须恢复已保存主题，并在没有保存值时使用默认主题。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   bootstrap source = `app/bootstrap.rs` + `app/bootstrap/stored.rs`
 ///   selection source = `settings/theme_selection.rs`
 ///   主题 id 初始化数 = 1；该 id 会同时影响 Launchpad、Canvas 卡片与 Settings
-///   持久化优先级 = 已保存合法 ThemeId > `ThemeId::default()`（Paper Blue）
+///   持久化优先级 = 已保存合法 ThemeId > `ThemeId::default()`
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取生产 bootstrap 源码。
 ///   2. 检查启动时通过共享 `SettingsStore` 调用
 ///      `ThemeSettingsState::load_from_store()`，同时恢复主题与持久化状态。
-///   3. 检查无合法保存值时使用 `unwrap_or_default()` 回退 Paper Blue。
+///   3. 检查无合法保存值时使用 `unwrap_or_default()` 回退默认主题。
 ///   4. 排除 `Theme::dark()`，避免主题选择被硬编码暗色覆盖。
 ///
 /// 预期结果：
-///   - 正断言：bootstrap 使用恢复出的主题 id 构造主题，缺省值仍为 Paper Blue。
+///   - 正断言：bootstrap 使用恢复出的主题 id 构造主题，缺省值跟随默认主题。
 ///   - 负断言：bootstrap 不得硬编码 `Theme::dark()` 或跳过持久化恢复。
 #[test]
-fn test_product_ui_bootstrap_activates_light_glass_theme() {
+fn test_product_ui_bootstrap_restores_saved_theme_or_uses_default() {
     let bootstrap = include_str!("../../src/app/bootstrap.rs");
     let stored = include_str!("../../src/app/bootstrap/stored.rs");
     let selection = include_str!("../../src/settings/theme_selection.rs");
@@ -98,11 +98,11 @@ fn test_product_ui_bootstrap_activates_light_glass_theme() {
     );
     assert!(
         selection.contains(".unwrap_or_default();"),
-        "没有合法保存值时必须回退 ThemeId::default() 对应的 Paper Blue"
+        "没有合法保存值时必须回退 ThemeId::default()"
     );
     assert!(
         !bootstrap.contains("let theme = Theme::dark();") && !stored.contains("Theme::dark()"),
-        "bootstrap 不得硬编码旧暗色主题，否则保存的选择与 Paper Blue 缺省值都不会生效"
+        "bootstrap 不得硬编码旧暗色主题，否则保存的选择与默认主题都不会生效"
     );
 }
 

@@ -19,9 +19,21 @@ use std::time::SystemTime;
 
 impl MultisoulApp {
     pub(crate) fn start_next_agent_announcement(&mut self, cx: &mut Context<Self>) {
+        if !self
+            .voice_settings
+            .values()
+            .agent_task_announcements_enabled()
+        {
+            self.cancel_agent_announcements();
+            return;
+        }
         if self.voice_settings.values().desktop_mode()
             == crate::settings::voice::DesktopVoiceMode::Doubao
-            || !self.agent_announcement_playback.is_idle()
+        {
+            self.start_next_doubao_agent_announcement(cx);
+            return;
+        }
+        if !self.agent_announcement_playback.is_idle()
             || matches!(
                 self.dialogue.phase(),
                 DialoguePhase::Thinking | DialoguePhase::Speaking
@@ -234,3 +246,7 @@ impl MultisoulApp {
         .detach();
     }
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/agent_announcement_settings_sync_tests.rs"]
+mod settings_sync_tests;

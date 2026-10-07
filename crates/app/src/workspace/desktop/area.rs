@@ -6,6 +6,10 @@ use std::path::PathBuf;
 #[path = "../../../tests/unit/desktop_agent_routing_tests.rs"]
 mod routing_tests;
 
+#[cfg(test)]
+#[path = "../../../tests/unit/desktop_voice_lifecycle_tests.rs"]
+mod voice_lifecycle_tests;
+
 impl MultisoulApp {
     pub(super) fn retry_desktop_project_area(
         &mut self,
@@ -80,6 +84,7 @@ impl MultisoulApp {
             return;
         }
         self.desktop_workspace.active_area_id = Some(area_id.clone());
+        self.desktop_workspace.selected_area_id = None;
         let key = (workspace_id.clone(), area_id.clone());
         if let Some(session) = self.desktop_workspace.sessions.get(&key).cloned() {
             let previous = self
@@ -397,19 +402,10 @@ impl MultisoulApp {
                         if let Some(recent) = recent {
                             app.workspace_state.recent = recent;
                         }
-                        let existing = app
-                            .desktop_workspace
-                            .areas
-                            .iter()
-                            .any(|item| item.id == area.id);
                         app.desktop_workspace.active_area_id = Some(area.id.clone());
                         app.desktop_workspace.areas = areas;
                         app.desktop_workspace.workspaces = workspaces;
-                        if existing {
-                            app.expand_desktop_project_area(area.id, window, cx);
-                        } else {
-                            app.ensure_desktop_area_session(area.id, window, cx);
-                        }
+                        app.ensure_desktop_area_session(area.id, window, cx);
                     }
                     Err(error) => {
                         app.desktop_workspace.error = Some(ui::i18n::message(

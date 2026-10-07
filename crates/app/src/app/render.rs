@@ -12,6 +12,7 @@ impl Render for MultisoulApp {
             // 生命周期结束，不能在 Launchpad 后台继续唤醒。
             self.working_snake_views.clear();
         }
+        self.restore_root_focus_if_unfocused(window, cx);
         self.sync_feature_guide_blockers(cx);
         self.sync_command_drawer(window);
         self.voice_window_inset_window_visible = state::window_visible_for_voice_inset(window);
@@ -55,6 +56,7 @@ impl Render for MultisoulApp {
             .relative()
             .when(self.desktop_host.is_none(), |root| {
                 root.bg(gpui::rgba(self.theme.graphite))
+                    .child(native_input::mouse_focus_guard())
             })
             .text_size(px(13.0))
             .when(

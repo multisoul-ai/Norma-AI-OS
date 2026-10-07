@@ -249,6 +249,7 @@ impl MultisoulApp {
             window_active: !background,
             project_window: None,
             background_project: background,
+            voice_runtime_checked: !background,
             desktop_host: None,
             desktop_switcher_subscription: None,
             background_restore: None,

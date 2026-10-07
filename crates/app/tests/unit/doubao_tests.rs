@@ -383,56 +383,6 @@ fn test_doubao_handshake_error_identifies_voice_key() {
     );
 }
 
-/// DB-5：任务接收后只在协调器出现真实终态时生成豆包播报。
-///
-/// 数据构造（含关键数值的推导过程）：单个 Codex 任务 task_id=17；
-/// queued/running 为 2 个非终态，succeeded/failed 为 2 个终态。
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 对同一任务依次代入排队、运行、完成与失败状态。
-///   2. 读取拟发送给豆包的语音文本。
-///
-/// 预期结果：接收和运行时不能说已完成；完成或失败必须含真实 task_id 和结果。
-#[test]
-fn test_doubao_task_report_requires_terminal_state() {
-    let mut task = agent::AgentCoordinatedTask {
-        task_id: 17,
-        task_ref: "runtime:17".into(),
-        root_task_ref: "runtime:17".into(),
-        parent_task_ref: None,
-        source_definition_id: None,
-        source_node_id: None,
-        definition_id: 1,
-        target_node_id: 9,
-        agent: "Codex".into(),
-        task: "检查项目".into(),
-        state: "queued",
-        tracking: agent::AgentTrackingMode::Managed,
-        result: None,
-    };
-    assert!(
-        task_completion_message(&task).is_none(),
-        "排队回执不得冒充完成播报"
-    );
-    task.state = "running";
-    assert!(
-        task_completion_message(&task).is_none(),
-        "运行状态不得冒充完成播报"
-    );
-    task.state = "succeeded";
-    assert_eq!(
-        task_completion_message(&task).as_deref(),
-        Some("Codex 的任务 #17 已完成。"),
-        "真实完成才允许播报完成"
-    );
-    task.state = "failed";
-    assert_eq!(
-        task_completion_message(&task).as_deref(),
-        Some("Codex 的任务 #17 失败。"),
-        "真实失败必须播报失败而非成功"
-    );
-}
-
 /// DB-1：方舟 Chat 2.0 使用现有 Norma 人设和工具声明。
 ///
 /// 数据构造（含关键数值的推导过程）：一个项目上下文、一个用户消息、简洁人设；

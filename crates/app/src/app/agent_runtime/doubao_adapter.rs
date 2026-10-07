@@ -38,21 +38,13 @@ fn start_doubao_adapter_pump(
                             "豆包通话已结束，工具调用已拒绝".into(),
                         ));
                     }
-                    let result = execute_norma_adapter_command_with_source(
+                    execute_norma_adapter_command_with_source(
                         app,
                         Some(window),
                         cx,
                         request.command.clone(),
                         request.context.input_source,
-                    );
-                    if let Ok(receipt) = &result {
-                        if receipt.status == "accepted" {
-                            if let Some(task_id) = receipt.task_id {
-                                app.doubao.tracked_tasks.insert(task_id);
-                            }
-                        }
-                    }
-                    result
+                    )
                 })
                 .unwrap_or_else(|_| {
                     Err(AdapterError::Failed("豆包工具无法访问 App 上下文".into()))

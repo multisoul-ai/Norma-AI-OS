@@ -234,9 +234,9 @@ fn test_browser_focus_handoff_releases_native_responder_before_view_removal() {
     );
     assert!(
         clip_source.contains(".firstResponder()")
-            && clip_source.contains("if responder.isDescendantOf(&self.content)")
-            && clip_source.contains("window.makeFirstResponder(Some(&parent))"),
-        "clipping host 必须先确认 first responder 属于自身网页，再交回当前父 NSView"
+            && clip_source.contains(".is_some_and(|view| view.isDescendantOf(&self.content))")
+            && clip_source.contains("crate::app::native_input::focus_host(&parent, \"browser_release\")"),
+        "clipping host 必须确认自身网页拥有 first responder，再通过共享助手交回父 NSView；行为由 native_input_focus 验证"
     );
     assert!(
         cef_source.contains("host.set_focus(0)"),

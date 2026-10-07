@@ -166,13 +166,25 @@ fn failure_message(state: &AsrModelInstallState) -> Option<String> {
 impl MultisoulApp {
     pub(crate) fn refresh_asr_model_states(&mut self, cx: &mut Context<Self>) {
         self.refresh_vad_requirement(cx);
+        let generation = self.voice_settings.begin_asr_model_scan();
         let model_root = self.voice_settings.model_root().to_path_buf();
         let work = cx.background_executor().spawn(async move {
             AsrModelManagerState::scan(&asr::builtin_model_catalog(), &model_root)
         });
         cx.spawn(async move |this, cx| {
-            let manager = work.await;
+            let mut manager = work.await;
             let _ = this.update(cx, |app, cx| {
+                if !app.voice_settings.accepts_asr_model_scan(generation) {
+                    return;
+                }
+                // 磁盘扫描不能覆盖本会话仍在进行的下载及最新进度。
+                for id in app.asr_download_cancellations.keys() {
+                    if let Some(AsrModelInstallState::Installing { downloaded, total }) =
+                        app.voice_settings.model_manager().installation(id)
+                    {
+                        manager.update_progress(id, *downloaded, *total);
+                    }
+                }
                 app.voice_settings.replace_model_manager(manager);
                 app.complete_voice_setup_if_ready(cx);
                 cx.notify();
@@ -228,6 +240,7 @@ impl MultisoulApp {
             return;
         };
         let model_root = self.voice_settings.model_root().to_path_buf();
+        self.voice_settings.begin_asr_model_scan();
         self.voice_settings
             .model_manager_mut()
             .begin_install(&id, descriptor.artifact().archive_bytes());
@@ -270,16 +283,14 @@ impl MultisoulApp {
                             app.refresh_vad_requirement(cx);
                             app.complete_voice_setup_if_ready(cx);
                             app.persist_voice_settings_in_background(cx);
+                            app.broadcast_voice_settings_changed(true, cx);
                         }
                         ModelInstallEvent::Finished(ModelInstallOutcome::Cancelled) => {
                             app.asr_download_cancellations.remove(&id);
                             app.refresh_asr_model_states(cx);
                         }
                         ModelInstallEvent::Finished(ModelInstallOutcome::Failed(error)) => {
-                            app.asr_download_cancellations.remove(&id);
-                            app.voice_settings
-                                .model_manager_mut()
-                                .mark_failed(&id, error);
+                            app.fail_asr_model_install(&id, error);
                         }
                     }
                     cx.notify();
@@ -299,6 +310,14 @@ impl MultisoulApp {
         };
         cancelled.store(true, Ordering::Release);
         cx.notify();
+    }
+
+    fn fail_asr_model_install(&mut self, id: &AsrModelId, error: String) {
+        self.voice_settings.begin_asr_model_scan();
+        self.asr_download_cancellations.remove(id);
+        self.voice_settings
+            .model_manager_mut()
+            .mark_failed(id, error);
     }
 
     pub(crate) fn select_ready_asr_model(&mut self, id: AsrModelId, cx: &mut Context<Self>) {
@@ -368,10 +387,12 @@ impl MultisoulApp {
             let result = work.await;
             let _ = this.update(cx, |app, cx| {
                 match result {
-                    Ok(()) => app
-                        .voice_settings
-                        .model_manager_mut()
-                        .mark_not_installed(&id),
+                    Ok(()) => {
+                        app.voice_settings
+                            .model_manager_mut()
+                            .mark_not_installed(&id);
+                        app.broadcast_voice_settings_changed(true, cx);
+                    }
                     Err(error) => app
                         .voice_settings
                         .model_manager_mut()
@@ -383,6 +404,10 @@ impl MultisoulApp {
         .detach();
     }
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/asr_model_scan_race_tests.rs"]
+mod scan_race_tests;
 
 fn install_or_revalidate(
     descriptor: &AsrModelDescriptor,

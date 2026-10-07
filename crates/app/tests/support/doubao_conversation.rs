@@ -1,4 +1,5 @@
 use super::{Reply, SpeechEvent};
+use crate::app::doubao::DoubaoReport;
 use crate::app::doubao::{playback::start_playback_with, DoubaoStatus};
 use crate::app::voice::playback::RecordingAssistantAudioSink;
 use crate::app::voice_window_inset::{TtsPlaybackSource, VoiceWindowInsetEventBus};
@@ -20,7 +21,7 @@ pub(super) struct PendingReply {
 
 pub(super) struct Conversation {
     pub speech: Sender<SpeechEvent>,
-    pub reports: Sender<String>,
+    pub reports: Sender<DoubaoReport>,
     pub statuses: Receiver<DoubaoStatus>,
     pub replies: Receiver<PendingReply>,
     pub playback: Arc<crate::app::doubao::playback::PlaybackQueue>,
@@ -106,4 +107,8 @@ impl Drop for Conversation {
     fn drop(&mut self) {
         self.cancellation.cancel();
     }
+}
+
+pub(super) fn report(text: &str) -> DoubaoReport {
+    DoubaoReport::new(text.into()).0
 }

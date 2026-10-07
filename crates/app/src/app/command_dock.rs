@@ -90,6 +90,7 @@ impl MultisoulApp {
                 }
                 InputEvent::Focus => {
                     app.release_all_browser_input();
+                    super::native_input::focus_gpui(window, "command_input_focus");
                     app.runtime.focus.exit_to_canvas();
                     app.interaction.space_held = false;
                     app.interaction.layout_menu_open = false;
@@ -134,6 +135,7 @@ impl MultisoulApp {
         }
         self.ensure_command_input(window, cx);
         self.release_all_browser_input();
+        super::native_input::focus_gpui(window, "command_input_shortcut");
         self.runtime.focus.exit_to_canvas();
         self.interaction.space_held = false;
         self.interaction.layout_menu_open = false;
@@ -273,3 +275,7 @@ impl MultisoulApp {
 #[cfg(test)]
 #[path = "../../tests/unit/command_dock_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/command_panel_theme_tests.rs"]
+mod panel_theme_tests;

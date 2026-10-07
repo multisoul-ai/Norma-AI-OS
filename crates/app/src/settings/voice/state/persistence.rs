@@ -152,6 +152,7 @@ impl VoiceSettingsState {
             return Vec::new();
         }
         self.persistence_running = true;
+        self.persistence_epoch = self.persistence_epoch.wrapping_add(1);
         let agent_account = self.agent_credential_write_account();
         let azure_account = self.azure_credential_write_account();
         let minimax_account = self.minimax_credential_write_account();
@@ -193,6 +194,7 @@ impl VoiceSettingsState {
         result: Result<(), String>,
     ) -> VoicePersistenceCompletion {
         self.persistence_running = false;
+        self.persistence_epoch = self.persistence_epoch.wrapping_add(1);
         let batch = self.active_persistence_batch.take().unwrap_or_default();
         if batch.agent_credential {
             self.finish_credential_persistence(&result);

@@ -21,6 +21,8 @@ mod persistence;
 mod provider_discovery;
 mod provider_values;
 mod readiness_state;
+mod resync;
+pub(crate) use resync::{provider_configuration_differs, tts_configuration_differs};
 mod tts_picker;
 mod tts_provider;
 mod tts_provider_persistence;
@@ -64,6 +66,8 @@ pub(crate) struct VoiceSettingsState {
     status: Option<VoiceSettingsStatus>,
     pending_writes: Vec<PendingVoiceSettingWrite>,
     persistence_running: bool,
+    persistence_epoch: u64,
+    resync_generation: u64,
     active_persistence_batch: Option<persistence::VoicePersistenceBatch>,
     credential_write_rollback: Option<CredentialWriteRollback>,
     azure_credential_write_rollback: Option<AzureCredentialWriteRollback>,
@@ -85,6 +89,7 @@ pub(crate) struct VoiceSettingsState {
     model_root: PathBuf,
     model_manager: AsrModelManagerState,
     asr_model_selection_generation: u64,
+    asr_model_scan_generation: u64,
     vad_requirement: super::VoiceRequirementState,
     vad_validation_generation: u64,
     tts_model_manager: TtsModelManagerState,
@@ -137,22 +142,7 @@ impl VoiceSettingsState {
         model_root: PathBuf,
     ) -> Self {
         let values = VoiceSettingsValues::resolve(&saved, &env);
-        let minimax_validated_selection = saved
-            .minimax_validated_credential_ref
-            .as_deref()
-            .zip(saved.minimax_validated_model_id.as_ref())
-            .zip(saved.minimax_validated_voice_id.as_ref())
-            .map(|((credential_ref, model_id), voice_id)| {
-                let provider_id = tts::TtsProviderId::parse(tts::MINIMAX_TTS_PROVIDER_ID)
-                    .expect("built-in MiniMax TTS Provider ID must be valid");
-                let profile = tts::TtsProviderProfile::new(
-                    provider_id,
-                    model_id.clone(),
-                    voice_id.clone(),
-                    tts::VoiceSelectionProvenance::Manual,
-                );
-                tts::TtsValidatedSelection::from_profile(credential_ref, &profile)
-            });
+        let minimax_validated_selection = resync::minimax_validated_selection(&saved);
         let setup_was_completed = saved.setup_completed.unwrap_or(false);
         let model_manager = AsrModelManagerState::unscanned(&asr::builtin_model_catalog());
         let tts_model_manager = TtsModelManagerState::unscanned(&tts::builtin_model_catalog());
@@ -167,6 +157,8 @@ impl VoiceSettingsState {
             status: None,
             pending_writes: Vec::new(),
             persistence_running: false,
+            persistence_epoch: 0,
+            resync_generation: 0,
             active_persistence_batch: None,
             credential_write_rollback: None,
             azure_credential_write_rollback: None,
@@ -188,6 +180,7 @@ impl VoiceSettingsState {
             model_root,
             model_manager,
             asr_model_selection_generation: 0,
+            asr_model_scan_generation: 0,
             vad_requirement: super::VoiceRequirementState::Missing,
             vad_validation_generation: 0,
             tts_model_manager,
@@ -480,3 +473,11 @@ mod voice_settings_tts_credential_tests;
 #[cfg(test)]
 #[path = "../../../tests/unit/voice_settings_tts_persistence_tests.rs"]
 mod voice_settings_tts_persistence_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/voice_settings_resync_tests.rs"]
+mod voice_settings_resync_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/voice_settings_runtime_sync_tests.rs"]
+mod runtime_sync_tests;

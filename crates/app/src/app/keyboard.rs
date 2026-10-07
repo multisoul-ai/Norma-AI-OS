@@ -16,6 +16,7 @@ use terminal::{Cell, GridSnapshot};
 use terminal::{Key, KeyInput};
 
 mod agent_interrupt;
+mod host_voice;
 mod shortcuts;
 mod tab;
 mod voice;
@@ -165,6 +166,24 @@ fn should_auto_focus_keyboard_selection(keystroke: &Keystroke) -> bool {
 }
 
 impl MultisoulApp {
+    /// 窗口没有任何焦点时按键分发路径不经过根节点，所有快捷键（含语音）都会被丢弃；
+    /// 在下一帧把焦点还给根句柄，保证快捷键一次配置、任意状态可用。
+    pub(crate) fn restore_root_focus_if_unfocused(
+        &self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.desktop_host.is_some() || window.focused(cx).is_some() {
+            return;
+        }
+        let root_focus = self.focus_handle.clone();
+        window.defer(cx, move |window, cx| {
+            if window.focused(cx).is_none() {
+                root_focus.focus(window);
+            }
+        });
+    }
+
     fn paste_clipboard_to_node(&mut self, node_id: NodeId, cx: &mut Context<Self>) -> bool {
         let item = cx.read_from_clipboard();
         if let Some(mode) = clipboard_image::clipboard_image_paste_mode(&self.runtime, node_id) {
@@ -296,6 +315,9 @@ impl MultisoulApp {
             cx.stop_propagation();
             return;
         }
+        if self.forward_voice_key_down_to_expanded_project(&ev.keystroke, window, cx) {
+            return;
+        }
         if self.handle_configured_voice_key_down(&ev.keystroke, window, cx) {
             return;
         }
@@ -327,6 +349,15 @@ impl MultisoulApp {
                 return;
             }
             self.dispatch_shortcut_command(command, window, cx);
+            cx.stop_propagation();
+            return;
+        }
+
+        if matches!(self.screen, AppScreen::DesktopWorkspace)
+            && !ev.keystroke.modifiers.modified()
+            && matches!(ev.keystroke.key.as_str(), "left" | "right")
+            && self.move_desktop_overview_selection(ev.keystroke.key == "left", cx)
+        {
             cx.stop_propagation();
             return;
         }
@@ -428,6 +459,9 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.forward_voice_key_up_to_expanded_project(&ev.keystroke, window, cx) {
+            return;
+        }
         if self.handle_configured_voice_hold_release(&ev.keystroke, window, cx) {
             return;
         }
@@ -448,6 +482,7 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.forward_voice_modifiers_to_expanded_project(&ev.modifiers, window, cx);
         self.handle_configured_voice_modifier_release(&ev.modifiers, window, cx);
     }
 }
@@ -459,3 +494,7 @@ mod tests;
 #[cfg(test)]
 #[path = "../../tests/unit/app_keyboard_delete_tests.rs"]
 mod delete_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/app_keyboard_focus_tests.rs"]
+mod focus_tests;

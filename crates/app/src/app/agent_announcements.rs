@@ -7,13 +7,15 @@ use super::MultisoulApp;
 use canvas::{CanvasNodeKind, NodeId};
 use gpui::Context;
 use runtime::{AgentTaskState, RuntimeEvent};
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::time::SystemTime;
 
 mod availability;
 mod cache;
 mod dispatch;
+mod doubao;
 mod playback;
+mod queue;
 mod synthesis;
 pub(super) use cache::AgentAnnouncementAudioCache;
 pub(crate) use playback::AgentAnnouncementPlayback;
@@ -78,13 +80,15 @@ pub(super) struct AgentAnnouncement {
 enum AgentAnnouncementOutcome {
     Done,
     Failed,
+    Cancelled,
+    Interrupted,
 }
 
 impl AgentAnnouncementOutcome {
     fn from_task_event(to: &AgentTaskState, source_event: &str) -> Option<Self> {
         match (to, source_event) {
-            (AgentTaskState::Done, "Stop") => Some(Self::Done),
-            (AgentTaskState::Failed { .. }, "StopFailure") => Some(Self::Failed),
+            (AgentTaskState::Done, "Stop" | "turn/completed") => Some(Self::Done),
+            (AgentTaskState::Failed { .. }, "StopFailure" | "turn/completed") => Some(Self::Failed),
             _ => None,
         }
     }
@@ -93,6 +97,8 @@ impl AgentAnnouncementOutcome {
         match self {
             Self::Done => "Done",
             Self::Failed => "Failed",
+            Self::Cancelled => "Cancelled",
+            Self::Interrupted => "Interrupted",
         }
     }
 }
@@ -112,6 +118,7 @@ struct PendingAgentAnnouncement {
 pub(super) struct AgentAnnouncements {
     rounds: HashMap<NodeId, AgentTaskRound>,
     pending: VecDeque<PendingAgentAnnouncement>,
+    reported_tasks: HashSet<u64>,
 }
 
 impl AgentAnnouncements {
@@ -132,7 +139,7 @@ impl AgentAnnouncements {
                 node_id,
                 source_event,
                 ..
-            } if source_event == "UserPromptSubmit" => {
+            } if matches!(source_event.as_str(), "UserPromptSubmit" | "turn/started") => {
                 self.rounds.insert(*node_id, AgentTaskRound::default());
                 tracing::debug!(node_id, "agent announcement task round opened");
                 return;
@@ -195,53 +202,7 @@ impl AgentAnnouncements {
             return;
         }
         round.terminal_claimed = true;
-        if !eligibility.enabled {
-            tracing::info!(
-                node_id,
-                outcome = outcome.spoken_word(),
-                reason = "disabled",
-                "agent announcement skipped"
-            );
-            return;
-        }
-        if eligibility.tts_availability == AgentAnnouncementTtsAvailability::Unavailable {
-            tracing::info!(
-                node_id,
-                outcome = outcome.spoken_word(),
-                reason = "tts_unavailable",
-                "agent announcement skipped"
-            );
-            return;
-        }
-        let Some(agent_name) = agent_name.map(str::trim).filter(|name| !name.is_empty()) else {
-            tracing::warn!(
-                node_id,
-                outcome = outcome.spoken_word(),
-                reason = "missing_agent_name",
-                "agent announcement skipped"
-            );
-            return;
-        };
-        if self.pending.len() == MAX_PENDING_ANNOUNCEMENTS {
-            let dropped = self.pending.pop_front();
-            tracing::warn!(
-                dropped_node_id = ?dropped.map(|pending| pending.announcement.node_id),
-                "agent announcement queue is full; dropped the oldest pending announcement"
-            );
-        }
-        let waiting_for_tts =
-            eligibility.tts_availability == AgentAnnouncementTtsAvailability::Waiting;
-        self.pending.push_back(PendingAgentAnnouncement {
-            announcement: AgentAnnouncement::terminal(node_id, agent_name, outcome),
-            waiting_for_tts,
-        });
-        tracing::info!(
-            node_id,
-            outcome = outcome.spoken_word(),
-            waiting_for_tts,
-            pending_count = self.pending.len(),
-            "agent announcement queued"
-        );
+        self.enqueue_terminal(node_id, agent_name, outcome, eligibility);
     }
 
     fn take_next_ready(&mut self) -> Option<AgentAnnouncement> {
@@ -260,6 +221,7 @@ impl AgentAnnouncements {
     fn reset(&mut self) {
         self.rounds.clear();
         self.pending.clear();
+        self.reported_tasks.clear();
     }
 }
 
@@ -269,12 +231,6 @@ impl MultisoulApp {
         events: &[RuntimeEvent],
         cx: &mut Context<Self>,
     ) {
-        self.queue_doubao_terminal_reports();
-        if self.voice_settings.values().desktop_mode()
-            == crate::settings::voice::DesktopVoiceMode::Doubao
-        {
-            return;
-        }
         let tts_availability = self.agent_announcement_tts_availability();
         let eligibility = AnnouncementEligibility::with_tts_availability(
             self.voice_settings
@@ -282,8 +238,31 @@ impl MultisoulApp {
                 .agent_task_announcements_enabled(),
             tts_availability,
         );
+        let doubao = self.voice_settings.values().desktop_mode()
+            == crate::settings::voice::DesktopVoiceMode::Doubao;
+        let tasks = self
+            .agent_task_coordinator
+            .as_ref()
+            .map(|coordinator| coordinator.tasks())
+            .unwrap_or_default();
         for event in events {
             let node_id = runtime_event_node_id(event);
+            if doubao
+                && matches!(
+                    event,
+                    RuntimeEvent::AgentTaskStateChanged {
+                        to: AgentTaskState::Done
+                            | AgentTaskState::Failed { .. }
+                            | AgentTaskState::Ended,
+                        ..
+                    }
+                )
+                && self
+                    .agent_announcements
+                    .handle_coordinated_terminal(event, &tasks, eligibility)
+            {
+                continue;
+            }
             let agent_name = node_id.and_then(|node_id| self.agent_announcement_name(node_id));
             self.agent_announcements.handle_runtime_event(
                 event,
@@ -296,6 +275,8 @@ impl MultisoulApp {
                 self.agent_announcement_playback.cancel_active();
             }
         }
+        self.agent_announcements
+            .queue_coordinated_results(&tasks, events, eligibility, doubao);
         self.start_next_agent_announcement(cx);
     }
 
@@ -456,3 +437,11 @@ impl MultisoulApp {
 #[cfg(test)]
 #[path = "../../tests/unit/agent_announcements_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/doubao_announcements_tests.rs"]
+mod doubao_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/doubao_task_results_tests.rs"]
+mod task_results_tests;

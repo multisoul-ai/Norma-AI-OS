@@ -1,5 +1,5 @@
 use super::{Reply, SpeechEvent};
-use crate::app::doubao::DoubaoStatus;
+use crate::app::doubao::{DoubaoReport, DoubaoStatus};
 use ui::i18n::LocalizedText;
 
 use super::support;
@@ -71,8 +71,9 @@ async fn interrupted_reply_late_error_keeps_listening() {
 /// 执行过程：
 ///   1. Started 进入用户说话阶段，再提交任务通知。
 ///   2. Final 发起用户回复，用户回复完成之前通知继续排队。
-///   3. 用户回复完成后，通知开始播报。
-/// 预期结果：通知在说话阶段存在于队列且没有发声；用户回复优先，通知最终可播。
+///   3. 用户回复完成后，通知开始播报；开始播放仍没有完成回执。
+///   4. 通知播放成功结束 → 才发送完成回执并恢复聆听。
+/// 预期结果：通知不抢播；未播完无回执；实际播完才确认消费。
 #[tokio::test]
 async fn notification_waits_for_user_speech_and_reply() {
     let mut call = Conversation::start();
@@ -85,8 +86,9 @@ async fn notification_waits_for_user_speech_and_reply() {
         DoubaoStatus::Connected,
         "用户说话时应保持聆听"
     );
+    let (notification, mut completed) = DoubaoReport::new("任务完成".into());
     call.reports
-        .send("任务完成".into())
+        .send(notification)
         .await
         .expect("应提交真实任务通知");
     assert!(
@@ -129,24 +131,42 @@ async fn notification_waits_for_user_speech_and_reply() {
         "通知内容必须保持原始任务结果"
     );
     assert_eq!(call.reports.len(), 0, "已开始的通知不应重复留队");
-    assert!(call.stop().await.is_ok(), "用户结束应正常退出");
+    assert_eq!(
+        completed.try_recv(),
+        Err(tokio::sync::oneshot::error::TryRecvError::Empty),
+        "只开始播放不能确认通知已消费"
+    );
     report.complete.send(Ok(())).expect("应释放通知请求");
+    assert!(
+        tokio::time::timeout(support::WAIT, completed)
+            .await
+            .expect("播完后应及时确认")
+            .is_ok(),
+        "通知实际播完必须发送完成回执"
+    );
+    assert_eq!(
+        call.status().await,
+        DoubaoStatus::Connected,
+        "播完应恢复聆听"
+    );
+    assert!(call.stop().await.is_ok(), "用户结束应正常退出");
 }
 
-/// Final 直接到达时也必须取消旧通知，并隔离旧通知的迟到失败。
+/// Final 直接到达时也必须取消旧通知，迟到成功不能确认已播完或影响新回复。
 ///
 /// 数据构造（含关键数值的推导过程）：一条正在播放的通知和一条新用户 Final；
 ///   没有 Started，播放代际由初始 0 经一次中断变为 1；观察窗为 50 ms。
 /// 执行过程：
 ///   1. 先启动任务通知，保留旧 TTS 请求与其代际。
 ///   2. 直接发送用户 Final，启动新回复。
-///   3. 旧通知返回错误，新回复随后成功完成。
-/// 预期结果：旧通知 token 已取消且代际失效；新回复未取消，也不因旧失败断开。
+///   3. 旧通知迟到返回成功 → 回执关闭而非确认；新回复随后成功完成。
+/// 预期结果：旧通知 token 已取消且无成功回执；新回复未取消，音频代际保持有效。
 #[tokio::test]
 async fn final_replaces_and_cancels_active_notification() {
     let mut call = Conversation::start();
+    let (notification, completed) = DoubaoReport::new("旧通知".into());
     call.reports
-        .send("旧通知".into())
+        .send(notification)
         .await
         .expect("应提交任务通知");
     assert_eq!(
@@ -182,18 +202,28 @@ async fn final_replaces_and_cancels_active_notification() {
         "通知不得占用用户回合编号或覆盖用户内容"
     );
     assert!(!new.token.is_cancelled(), "新用户回合必须保持活跃");
-    old.complete
-        .send(Err(LocalizedText::new("doubao.tts_interrupted")))
-        .expect("应注入旧通知失败");
+    old.complete.send(Ok(())).expect("应注入取消后的迟到成功");
+    assert!(
+        tokio::time::timeout(support::WAIT, completed)
+            .await
+            .expect("取消报告应释放回执")
+            .is_err(),
+        "已取消通知即使请求成功也不能确认为播完"
+    );
     assert!(
         tokio::time::timeout(OBSERVE, &mut call.task).await.is_err(),
-        "被替换通知的迟到失败不能结束新回合"
+        "被替换通知的迟到成功不能结束新回合"
     );
     assert!(
         call.statuses.try_recv().is_err(),
         "旧通知完成不得重置新回合状态"
     );
-    assert!(!new.token.is_cancelled(), "旧通知失败不得取消新请求");
+    assert!(!new.token.is_cancelled(), "旧通知完成不得取消新请求");
+    assert_eq!(
+        call.playback.generation(),
+        1,
+        "旧通知迟到完成不得再次中断新音频"
+    );
     new.complete.send(Ok(())).expect("应完成新用户回复");
     assert_eq!(
         call.status().await,
@@ -205,6 +235,81 @@ async fn final_replaces_and_cancels_active_notification() {
         "已被打断的通知不得自动重播"
     );
     assert!(call.stop().await.is_ok(), "用户主动结束应正常退出");
+}
+
+/// 删除卡片或关闭通知取消当前报告时，不得把正常取消升级为整通电话失败。
+///
+/// 数据构造（含关键数值的推导过程）：一条报告及其 App 共享取消 token；
+///   初始播放代际 0，取消当前音频后应为 0 + 1 = 1；正向等待上限 2 s = 40 × 50 ms。
+/// 执行过程：
+///   1. 启动报告，App 侧取消 token，TTS 返回取消错误。
+///   2. 报告无成功回执，控制循环应清理音频并回到 Connected。
+///   3. 再发送一条用户 Final，验证新请求仍可启动且没有被取消。
+/// 预期结果：已取消报告不确认播完；电话继续聆听，后续用户回复正常执行。
+#[tokio::test]
+async fn externally_cancelled_notification_keeps_call_connected() {
+    let mut call = Conversation::start();
+    let (notification, completed) = DoubaoReport::new("将删除的卡片通知".into());
+    let cancellation = notification.cancellation.clone();
+    call.reports.send(notification).await.expect("应提交通知");
+    assert_eq!(
+        call.status().await,
+        DoubaoStatus::Speaking,
+        "报告应确实开始播放"
+    );
+    let report = call.reply().await;
+    cancellation.cancel();
+    assert!(
+        report.token.is_cancelled(),
+        "App 取消必须传递给真实报告请求"
+    );
+    report
+        .complete
+        .send(Err(LocalizedText::new("doubao.tts_interrupted")))
+        .expect("应返回取消错误");
+    assert!(
+        tokio::time::timeout(support::WAIT, completed)
+            .await
+            .expect("取消应释放回执")
+            .is_err(),
+        "取消错误不能发送播完确认"
+    );
+    assert_eq!(
+        call.status().await,
+        DoubaoStatus::Connected,
+        "取消报告不能断开电话"
+    );
+    assert_eq!(
+        call.playback.generation(),
+        1,
+        "当前被取消的音频必须中断一次"
+    );
+    assert!(
+        !call.cancellation.is_cancelled(),
+        "取消通知不能取消 ASR 会话"
+    );
+    call.speech
+        .send(SpeechEvent::Final("继续对话".into()))
+        .await
+        .expect("应提交后续输入");
+    assert_eq!(
+        call.status().await,
+        DoubaoStatus::Thinking,
+        "取消通知后应继续接受用户输入"
+    );
+    let user = call.reply().await;
+    assert!(
+        matches!(user.reply, Reply::User { ref transcript, turn: 1 } if transcript == "继续对话"),
+        "新回复必须来自后续用户输入"
+    );
+    assert!(!user.token.is_cancelled(), "后续用户回复不能被旧通知取消");
+    user.complete.send(Ok(())).expect("应完成后续回复");
+    assert_eq!(
+        call.status().await,
+        DoubaoStatus::Connected,
+        "后续回复完成应恢复聆听"
+    );
+    assert!(call.stop().await.is_ok(), "结束通话应正常退出");
 }
 
 /// 插话后旧回复的迟到成功也不能改变说话状态或放行通知。
@@ -247,7 +352,7 @@ async fn interrupted_reply_late_success_does_not_release_notification() {
     );
     assert!(old.token.is_cancelled(), "旧服务成功返回不能撤销插话取消");
     call.reports
-        .send("仍需排队".into())
+        .send(super::support::report("仍需排队"))
         .await
         .expect("应提交任务通知");
     assert!(
@@ -320,7 +425,7 @@ async fn current_reply_failure_is_reported_and_cleans_up() {
 async fn queued_speech_takes_priority_over_notification() {
     let mut call = Conversation::start();
     call.reports
-        .try_send("同时到达的通知".into())
+        .try_send(super::support::report("同时到达的通知"))
         .expect("应同步排入通知");
     call.speech
         .try_send(SpeechEvent::Started)

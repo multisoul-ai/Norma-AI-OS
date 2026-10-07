@@ -11,19 +11,7 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let state = &self.desktop_workspace;
-        // Keep a form's input and destination stable until it is submitted or cancelled.
-        if self.settings_panel.open
-            || self
-                .expanded_desktop_project()
-                .is_some_and(|project| project.read(cx).settings_panel.open)
-            || self.clone_project.is_open()
-            || state.create_input.is_some()
-            || state.add_project_open
-            || state.rename_target.is_some()
-            || state.pending_delete.is_some()
-            || state.pending_project_path.is_some()
-        {
+        if self.desktop_navigation_blocked(cx) {
             return;
         }
         if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
@@ -77,6 +65,11 @@ impl MultisoulApp {
                         Some(DesktopNavigation::Workspace(_))
                     ) =>
             {
+                if let Some(id) = self.desktop_overview_selection() {
+                    self.close_desktop_switcher(cx);
+                    self.expand_desktop_project_area(id, window, cx);
+                    return;
+                }
                 let current = match state.pending_navigation.as_ref() {
                     Some(DesktopNavigation::Project(id)) => Some(id.as_str()),
                     _ => state
@@ -113,6 +106,72 @@ impl MultisoulApp {
         }
     }
 
+    /// 表单、Settings 与确认弹窗期间，桌面导航和总览选择都保持静止。
+    fn desktop_navigation_blocked(&self, cx: &Context<Self>) -> bool {
+        let state = &self.desktop_workspace;
+        self.settings_panel.open
+            || self
+                .expanded_desktop_project()
+                .is_some_and(|project| project.read(cx).settings_panel.open)
+            || self.clone_project.is_open()
+            || state.create_input.is_some()
+            || state.add_project_open
+            || state.rename_target.is_some()
+            || state.pending_delete.is_some()
+            || state.pending_project_path.is_some()
+    }
+
+    fn desktop_overview_active(&self) -> bool {
+        let state = &self.desktop_workspace;
+        matches!(self.screen, AppScreen::DesktopWorkspace)
+            && state.expanded_area_id.is_none()
+            && state.transition.is_none()
+            && state.pending_navigation.is_none()
+            && !state.busy
+            && !state.switcher_open
+    }
+
+    /// 项目总览中仍存在的键盘选中项目；展开项目内或选中项已被删除时为 None。
+    pub(crate) fn desktop_overview_selection(&self) -> Option<String> {
+        let state = &self.desktop_workspace;
+        if !self.desktop_overview_active() {
+            return None;
+        }
+        let selected = state.selected_area_id.as_deref()?;
+        state
+            .areas
+            .iter()
+            .any(|area| area.id == selected)
+            .then(|| selected.to_owned())
+    }
+
+    /// 总览中裸 ←/→ 在项目间循环移动选中态；返回是否已消费该按键。
+    pub(crate) fn move_desktop_overview_selection(
+        &mut self,
+        previous: bool,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        if !self.desktop_overview_active()
+            || self.desktop_navigation_blocked(cx)
+            || self.desktop_workspace.areas.is_empty()
+        {
+            return false;
+        }
+        let current = self.desktop_overview_selection();
+        let target = adjacent_target(
+            self.desktop_workspace
+                .areas
+                .iter()
+                .map(|item| (item.added_at_unix_ms, item.id.as_str())),
+            current.as_deref(),
+            previous,
+        )
+        .map(str::to_owned);
+        self.desktop_workspace.selected_area_id = target;
+        cx.notify();
+        true
+    }
+
     /// Settings 在任一项目中修改后，同一窗口的宿主和后台项目使用相同键位。
     pub(crate) fn sync_desktop_shortcuts(&self, cx: &mut Context<Self>) {
         let prefs = self.shortcuts.prefs.clone();
@@ -147,3 +206,7 @@ impl MultisoulApp {
 #[cfg(test)]
 #[path = "../../../tests/unit/desktop_navigation_shortcuts_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/desktop_overview_selection_tests.rs"]
+mod overview_selection_tests;

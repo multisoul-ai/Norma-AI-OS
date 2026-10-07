@@ -188,6 +188,8 @@ impl MultisoulApp {
         if !self.focus_handle.is_focused(window)
             && crate::app::should_defer_keystroke_to_ime(&ev.keystroke)
         {
+            tracing::debug!(target: "norma::input", route = "platform_text",
+                "settings editor deferred character input");
             return;
         }
         if self.voice_settings_inputs.is_focused(window, cx) {
@@ -202,6 +204,9 @@ impl MultisoulApp {
             self.on_toggle_settings(&crate::app::ToggleSettings, window, cx);
         }
         // The panel may be rendered by a desktop host; do not route its keys to the canvas.
+        tracing::debug!(target: "norma::input", route = "settings_consumed",
+            panel_focused = self.focus_handle.is_focused(window),
+            "settings key routing completed");
         cx.stop_propagation();
     }
 

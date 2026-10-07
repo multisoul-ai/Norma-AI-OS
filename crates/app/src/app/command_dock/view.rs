@@ -18,6 +18,11 @@ const ROW: f32 = 54.0;
 const INSET: f32 = 8.0;
 pub(crate) const DOCK_RADIUS: f32 = 18.0;
 
+/// The suggestion panel sits on the Dock material, which stays dark in light themes.
+pub(crate) fn command_panel_theme(theme: ui::Theme) -> ui::Theme {
+    crate::app::top_bar_theme(theme)
+}
+
 impl MultisoulApp {
     pub(crate) fn sync_command_drawer(&mut self, window: &Window) {
         let Some(state) = &mut self.command_dock else {
@@ -159,7 +164,7 @@ impl MultisoulApp {
         let radius = px(DOCK_RADIUS);
         let state = self.command_dock.as_ref()?;
         let items = super::CommandDockState::suggestions_for(&state.drawer.draft);
-        let theme = self.theme;
+        let theme = command_panel_theme(self.theme);
         let is_conversation = items.is_empty() && !state.drawer.draft.trim().starts_with('/');
         let heading = if is_conversation {
             "Norma"

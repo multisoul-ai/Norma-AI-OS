@@ -25,7 +25,7 @@ pub(in crate::mobile) fn areas(
         {
             let id = app
                 .workspace_identity_store()
-                .resolve_or_create(&area.root, &area.display_name)
+                .resolve_or_create(&area.root, &workspace::display_name_for_path(&area.root))
                 .map_err(|_| "configuration_changed")?;
             if grant.allows(&id.workspace_id, control) {
                 result.push(WorkspaceArea {

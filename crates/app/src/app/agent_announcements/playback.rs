@@ -92,6 +92,10 @@ impl AgentAnnouncementAudioControl {
 
 pub(super) enum AgentAnnouncementPlaybackPhase {
     Idle,
+    Reporting {
+        announcement: AgentAnnouncement,
+        cancellation: tokio_util::sync::CancellationToken,
+    },
     Synthesizing(AgentAnnouncement),
     Playing {
         announcement: AgentAnnouncement,
@@ -152,6 +156,7 @@ impl AgentAnnouncementPlayback {
         match &self.phase {
             AgentAnnouncementPlaybackPhase::Idle => None,
             AgentAnnouncementPlaybackPhase::Synthesizing(announcement)
+            | AgentAnnouncementPlaybackPhase::Reporting { announcement, .. }
             | AgentAnnouncementPlaybackPhase::Playing { announcement, .. } => {
                 Some(announcement.node_id)
             }
@@ -167,6 +172,9 @@ impl AgentAnnouncementPlayback {
         );
         if let Some(control) = self.control.take() {
             control.cancel();
+        }
+        if let AgentAnnouncementPlaybackPhase::Reporting { cancellation, .. } = &self.phase {
+            cancellation.cancel();
         }
         self.playback_events.retain(|event| {
             !matches!(
