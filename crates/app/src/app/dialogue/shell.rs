@@ -12,7 +12,7 @@ impl MultisoulApp {
         if self.voice_settings.values().desktop_mode()
             == crate::settings::voice::DesktopVoiceMode::Doubao
         {
-            return self.doubao.status.label().into();
+            return self.doubao.label().into();
         }
         if self.dialogue_voice_label().is_some() {
             self.dialogue.effective_voice_label(self.voice_label())
@@ -33,9 +33,14 @@ impl MultisoulApp {
                     crate::app::voice::control::VoiceVisual::Processing
                 }
                 crate::app::doubao::DoubaoStatus::Connected => {
-                    crate::app::voice::control::VoiceVisual::Recording
+                    if self.doubao.waiting_for_input() {
+                        crate::app::voice::control::VoiceVisual::Idle
+                    } else {
+                        crate::app::voice::control::VoiceVisual::Recording
+                    }
                 }
                 crate::app::doubao::DoubaoStatus::Thinking
+                | crate::app::doubao::DoubaoStatus::RecordingResolved(_)
                 | crate::app::doubao::DoubaoStatus::Speaking => {
                     crate::app::voice::control::VoiceVisual::Processing
                 }
@@ -51,7 +56,7 @@ impl MultisoulApp {
         if self.voice_settings.values().desktop_mode()
             == crate::settings::voice::DesktopVoiceMode::Doubao
         {
-            return self.doubao.status.label();
+            return self.doubao.label();
         }
         match self.dialogue.phase() {
             dialogue::DialoguePhase::Thinking => ui::i18n::text("doubao.thinking"),

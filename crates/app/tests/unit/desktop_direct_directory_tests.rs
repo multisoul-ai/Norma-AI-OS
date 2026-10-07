@@ -24,7 +24,8 @@ fn assert_same_title(a: gpui::Bounds<gpui::Pixels>, b: gpui::Bounds<gpui::Pixels
 ///   → 返回A → 退往目录途中选择同一工作空间，一次到达项目总览。
 /// 预期结果：每次改目标真实标题均不跳；速度不重置、反向首帧保持惯性；目录末帧和
 ///   普通目录的位置一致，无第二份缩略或二次导航；换项目不丢失目录坐标，点击空间不隐式
-///   展开A；同一节点、viewport、PTY尺寸始终不变。
+///   展开A；壁纸始终覆盖1280×800窗口，不在缩略区域重复绘制；同一节点、viewport、
+///   PTY尺寸始终不变。
 #[test]
 fn desktop_direct_directory_preserves_real_card_and_reverses_without_queue() {
     let temp = tempfile::tempdir().expect("应创建隔离目录");
@@ -103,6 +104,18 @@ fn desktop_direct_directory_preserves_real_card_and_reverses_without_queue() {
         cx.debug_bounds("desktop-workspace-content-1").is_none(),
         "目录不能另外绘制第二份正在移动的真实A"
     );
+    assert!(
+        cx.debug_bounds("desktop-project-receding-wallpaper")
+            .is_none(),
+        "项目直接退往目录时不能把壁纸缩进工作空间卡片，形成矩形背景补丁"
+    );
+    assert_eq!(
+        cx.debug_bounds("workspace-backdrop")
+            .expect("目录转场必须保留窗口壁纸")
+            .size,
+        size(px(1280.0), px(800.0)),
+        "目录转场的壁纸必须保持窗口大小，不能跟随内容镜头缩放"
+    );
     host.update(cx, |app, cx| {
         app.desktop_workspace
             .transition
@@ -144,6 +157,13 @@ fn desktop_direct_directory_preserves_real_card_and_reverses_without_queue() {
         cx.debug_bounds("card-titlebar").expect("反向首帧应有A"),
         midway,
         pixel,
+    );
+    assert_eq!(
+        cx.debug_bounds("workspace-backdrop")
+            .expect("反向展开也必须保留窗口壁纸")
+            .size,
+        size(px(1280.0), px(800.0)),
+        "目录转场反向后不能重新挂载缩略区域内的壁纸"
     );
     host.update_in(cx, |app, window, cx| {
         app.expand_desktop_project_area(other_area.id.clone(), window, cx);

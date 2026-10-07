@@ -269,13 +269,13 @@ impl MultisoulApp {
             }
             return;
         }
-        if self.settings_panel.open {
-            if self.handle_settings_text_key_down(ev, cx) {
-                return;
-            }
-            if self.voice_settings_inputs.is_focused(window, cx) {
-                return;
-            }
+        if self.settings_panel.open
+            || self
+                .expanded_desktop_project()
+                .is_some_and(|project| project.read(cx).settings_panel.open)
+        {
+            self.handle_settings_text_key_down(ev, cx);
+            return;
         }
 
         if self.desktop_workspace.switcher_open
@@ -287,6 +287,15 @@ impl MultisoulApp {
             return;
         }
 
+        if ev.is_held
+            && crate::app::voice::control::matches_configured_voice_shortcut(
+                &ev.keystroke,
+                self.shortcuts.voice_interaction_keystroke().as_ref(),
+            )
+        {
+            cx.stop_propagation();
+            return;
+        }
         if self.handle_configured_voice_key_down(&ev.keystroke, window, cx) {
             return;
         }

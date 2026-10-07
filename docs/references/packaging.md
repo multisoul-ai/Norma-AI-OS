@@ -121,24 +121,34 @@ AppleScript；背景文件虽然仍被复制进镜像，但用户打开后只会
 
 ## macOS app icon
 
+macOS 26 及以后使用 `assets/NormaIcon.icon`：现有品牌图案以不透明的
+1024×1024 图片铺满画布，由系统处理圆角与显示尺寸。`CFBundleIconName = NormaIcon`
+选择 `scripts/prepare-app-icon.sh` 编译出的 `build/icons/Assets.car`；release 和 dev
+打包均包含该资源。不要给原生图案再加透明边距，否则系统会把旧图标缩进底板，
+产生叠加留白。满幅母版是 `assets/app-icon-ios-source.png`，由
+`render-app-icon.sh` 重建原生图案；关闭图案层的玻璃和透明效果以保持识别度。
+
 `assets/app-icon-source.png` is the tightly cropped brand artwork used by
 product surfaces and the DMG header. It is not packaged directly as the Dock
-icon. macOS needs additional transparent optical padding: the generated
+icon. The legacy macOS ICNS retains transparent optical padding: the generated
 `assets/app-icon-macos.png` keeps the visible artwork at approximately
 824×769 px on a 1024×1024 canvas, then `assets/AppIcon.icns` supplies the
 standard 16–1024 px representations consumed by `cargo-packager`.
 
-Regenerate both macOS assets after changing the brand artwork:
+Regenerate the macOS assets after changing the brand artwork:
 
 ```bash
 bash scripts/render-app-icon.sh
+bash scripts/prepare-app-icon.sh
 bash scripts/test-packager-config.sh
+bash scripts/test-modern-app-icon.sh
 ```
 
 The packaging test checks the safe-area dimensions, centering, and pixel-level
 agreement between the reviewable 1024 px PNG and the largest ICNS entry. This
 prevents a tightly cropped source from making the Dock icon appear larger than
-neighboring apps.
+neighboring apps on older macOS. The native icon test compiles the real CAR and
+checks the full-bleed opaque artwork, native stack, and both packaging paths.
 
 Codesigning 配置见 `packaging/macos/NormaOS.entitlements` 与
 `Packager.toml` 的 `[macos]` 段；notarization 只通过

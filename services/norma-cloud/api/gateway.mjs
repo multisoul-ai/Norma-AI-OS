@@ -3,8 +3,8 @@ import {setDefaultResultOrder} from 'node:dns';
 // Prefer the IPv4 route used by the verified cloud speech/model connections.
 setDefaultResultOrder('ipv4first');
 import {makeGateway} from '../server.mjs';
-import {fetchPlan} from '../plan.mjs';
-import {createCloudSessions} from '../cloud-sessions.mjs';
+import {fetchPlan} from '../voice/plan.mjs';
+import {createCloudSessions} from '../cloud/sessions.mjs';
 
 // Log only protocol/status codes. Credentials, transcripts and provider response bodies stay private.
 const upstreamFactory=(url,options)=>{

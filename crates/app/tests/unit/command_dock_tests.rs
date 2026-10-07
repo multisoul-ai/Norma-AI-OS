@@ -43,7 +43,7 @@ fn personal_conversation_drawer_advances_without_a_canvas() {
 ///
 /// 数据构造：/terminal 对应 1 条建议，高度 = 40 + 54 + 8 = 102px。
 ///   展开 220ms 的半程为 110ms；关闭 160ms 的半程为 80ms。
-///   底边 = 视口高度 - Dock 底部距离 - Dock 高度 - 12px 间隔。
+///   底边 = 视口高度 - Dock 底部距离 - Dock 高度（面板紧贴 Dock，无间隔）。
 /// 执行过程：设置查询 → 同步展示 → App 推进半程、结束 → 清空 → 推进退出半程、结束。
 /// 预期结果：帧调度进入活动状态；底边不移动；退出保留原建议且禁止执行；结束释放面板和帧调度。
 #[test]
@@ -91,7 +91,7 @@ fn command_dock_drawer_uses_frame_driver_and_releases_overlay() {
             let opening = app
                 .command_panel_rect(width, height)
                 .expect("展开中应存在面板");
-            let bottom = height - COMMAND_DOCK_BOTTOM_PX - COMMAND_DOCK_HEIGHT_PX - 12.0;
+            let bottom = height - COMMAND_DOCK_BOTTOM_PX - COMMAND_DOCK_HEIGHT_PX;
             assert_eq!(
                 opening.origin.y + opening.size.y,
                 bottom,
@@ -419,4 +419,58 @@ fn command_dock_input_ime_execution_and_cancel() {
             "Tab 补全不得执行创建"
         );
     });
+}
+
+/// 场景：快捷指令面板从底部 Dock 顶边直接向上展开，与 Dock 融合为同一块表面。
+///
+/// 数据构造：/terminal 对应 1 条建议；展开 220ms，推进 220ms 后完全展开（高度 102px）。
+/// 执行过程：聚焦输入 → 输入 /terminal → 推进到完全展开 → 绘制 → 读取 Dock 与面板边界。
+///
+/// 预期结果：
+///   - 面板左右边界与 Dock 外边界相同：融合后不能比 Dock 窄或偏移。
+///   - 面板底边等于 Dock 顶边：两者之间不能留出缝隙。
+///   - 面板位于 Dock 之上，且高度大于 0。
+#[test]
+fn command_panel_grows_flush_from_the_dock_top() {
+    use std::time::Duration;
+
+    let workspace = tempfile::tempdir().expect("临时 workspace 应可创建");
+    let mut test_cx = TestAppContext::single();
+    let mut app = None;
+    let (_, cx) = test_cx.add_window_view(|window, cx| {
+        let entity = cx.new(|cx| {
+            MultisoulApp::new_with_pty_factory(
+                cx,
+                Box::new(|_, _, _, tx| {
+                    Ok(Box::new(TestPtyBackend::echo(tx)) as Box<dyn PtyBackend>)
+                }),
+            )
+        });
+        app = Some(entity.clone());
+        ui::component::Root::new(entity, window, cx)
+    });
+    let app = app.expect("App entity 应创建");
+    app.update(cx, |app, cx| {
+        app.enter_canvas_for_test(workspace.path(), cx)
+    });
+    cx.update(|window, cx| {
+        app.update(cx, |app, cx| {
+            app.motion = crate::motion::MotionStore::new(false);
+            app.focus_command_input(window, cx);
+            app.set_command_query("/terminal".into(), true, window, cx);
+            app.sync_command_drawer(window);
+            app.advance_animation_frame(Duration::from_millis(220), cx);
+        })
+    });
+    cx.update(|window, cx| window.draw(cx).clear());
+    let dock = cx
+        .debug_bounds("workspace-command-dock")
+        .expect("应显示底栏");
+    let panel = cx
+        .debug_bounds("command-dock-suggestions")
+        .expect("展开后应显示快捷指令面板");
+    assert_eq!(panel.left(), dock.left(), "面板左边界必须与 Dock 对齐");
+    assert_eq!(panel.right(), dock.right(), "面板右边界必须与 Dock 对齐");
+    assert_eq!(panel.bottom(), dock.top(), "面板底边必须紧贴 Dock 顶边");
+    assert!(panel.size.height > gpui::px(0.0), "面板应有可见高度");
 }

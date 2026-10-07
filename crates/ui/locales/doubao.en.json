@@ -78,5 +78,8 @@
   "doubao.search_voices": "Search by name, ID, or language",
   "doubao.no_matching_voices": "No matching voices",
   "doubao.voice_catalog_permissions": "Official Speech 2.0 voices. Availability depends on account permissions.",
-  "doubao.voice_selected": "Selected"
+  "doubao.voice_selected": "Selected",
+  "doubao.asr_final_timeout": "Speech recognition timed out after recording ended. Try again.",
+  "doubao.recording_too_long": "Recording exceeded five minutes. Use shorter messages.",
+  "doubao.asr_ended_before_release": "Speech recognition ended before you released the shortcut. Try again."
 }

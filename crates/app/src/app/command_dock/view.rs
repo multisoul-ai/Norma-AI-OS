@@ -16,7 +16,7 @@ use ui::{
 const HEADER: f32 = 40.0;
 const ROW: f32 = 54.0;
 const INSET: f32 = 8.0;
-const GAP: f32 = 12.0;
+pub(crate) const DOCK_RADIUS: f32 = 18.0;
 
 impl MultisoulApp {
     pub(crate) fn sync_command_drawer(&mut self, window: &Window) {
@@ -39,7 +39,7 @@ impl MultisoulApp {
             } else {
                 state.suggestions().len().max(1)
             };
-            let bottom = COMMAND_DOCK_BOTTOM_PX + COMMAND_DOCK_HEIGHT_PX + GAP;
+            let bottom = COMMAND_DOCK_BOTTOM_PX + COMMAND_DOCK_HEIGHT_PX;
             (if state.reply.is_some() {
                 220.0
             } else {
@@ -52,6 +52,16 @@ impl MultisoulApp {
         state.drawer.retarget(target);
     }
 
+    pub(crate) fn dock_top_radius(&self) -> f32 {
+        self.command_dock.as_ref().map_or(DOCK_RADIUS, |state| {
+            if self.settings_panel.open || self.feature_guide.is_visible() {
+                DOCK_RADIUS
+            } else {
+                state.drawer.dock_top_radius(DOCK_RADIUS)
+            }
+        })
+    }
+
     pub(crate) fn command_panel_rect(&self, width: f32, height: f32) -> Option<CanvasRect> {
         let state = self.command_dock.as_ref()?;
         if state.drawer.opacity() <= 0.0
@@ -60,8 +70,8 @@ impl MultisoulApp {
         {
             return None;
         }
-        let panel_width = 560.0_f32.min((width - 36.0).max(0.0));
-        let bottom = COMMAND_DOCK_BOTTOM_PX + COMMAND_DOCK_HEIGHT_PX + GAP;
+        let panel_width = 840.0_f32.min((width - 36.0).max(0.0));
+        let bottom = COMMAND_DOCK_BOTTOM_PX + COMMAND_DOCK_HEIGHT_PX;
         let panel_height = state
             .drawer
             .height(self.motion.reduce_motion)
@@ -101,8 +111,13 @@ impl MultisoulApp {
         div()
             .id("command-dock-input")
             .debug_selector(|| "command-dock-input".into())
-            .w(px(240.0))
+            .w(px(360.0))
+            .min_w(px(240.0))
             .flex_none()
+            // Dock max width 840px + two 18px window insets = 876px.
+            .when(window.viewport_size().width < px(876.0), |input| {
+                input.flex_shrink()
+            })
             .h(px(34.0))
             .flex()
             .items_center()
@@ -141,6 +156,7 @@ impl MultisoulApp {
         let viewport = window.viewport_size();
         let rect =
             self.command_panel_rect(f32::from(viewport.width), f32::from(viewport.height))?;
+        let radius = px(DOCK_RADIUS);
         let state = self.command_dock.as_ref()?;
         let items = super::CommandDockState::suggestions_for(&state.drawer.draft);
         let theme = self.theme;
@@ -314,19 +330,24 @@ impl MultisoulApp {
             div()
                 .id("command-dock-suggestions")
                 .debug_selector(|| "command-dock-suggestions".into())
+                // Anchored to the dock's top edge; -1px insets cover the dock border so both
+                // surfaces share one outer edge.
                 .absolute()
-                .left(px(rect.origin.x))
-                .top(px(rect.origin.y))
-                .w(px(rect.size.x))
+                .left(px(-1.0))
+                .right(px(-1.0))
+                // Padding box is dock height - 2×1px border; 51px lifts the panel's bottom
+                // to the dock's outer top edge, leaving its top border as the divider.
+                .bottom(px(COMMAND_DOCK_HEIGHT_PX - 1.0))
                 .h(px(rect.size.y))
                 .overflow_hidden()
                 .opacity(state.drawer.opacity())
-                .rounded(px(16.0))
+                .rounded_tl(radius)
+                .rounded_tr(radius)
                 .border_1()
+                .border_b_0()
                 .border_color(rgba(theme.dock_line))
-                .bg(rgba(with_alpha(theme.panel, 0xfa)))
+                .bg(rgba(theme.dock))
                 .text_color(rgba(theme.text_primary))
-                .shadow(super::super::chrome::chrome_shadow(theme))
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .on_mouse_down_out(cx.listener(|app, _, _, cx| {
                     app.hide_command_suggestions();

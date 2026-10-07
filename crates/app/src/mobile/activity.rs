@@ -13,6 +13,7 @@ use storage::{
     DesktopWorkspaceStore, MobileActivityRegistration, MobileActivityStore, MobileDeviceGrant,
 };
 mod detail;
+pub(super) mod overview;
 #[cfg(test)]
 #[path = "../../tests/unit/workspace_activity_api_tests.rs"]
 mod tests;
@@ -26,11 +27,12 @@ pub struct Request {
 impl<'de> Deserialize<'de> for Request {
     fn deserialize<D: serde::Deserializer<'de>>(decoder: D) -> Result<Self, D::Error> {
         let mut fields = serde_json::Map::<String, Value>::deserialize(decoder)?;
-        let workspace = fields
+        let desktop_workspace_id: String = fields
             .remove("desktop_workspace_id")
-            .ok_or_else(|| serde::de::Error::missing_field("desktop_workspace_id"))?;
-        let desktop_workspace_id =
-            serde_json::from_value(workspace).map_err(serde::de::Error::custom)?;
+            .map(serde_json::from_value)
+            .transpose()
+            .map_err(serde::de::Error::custom)?
+            .unwrap_or_default();
         let operation: Operation = serde_json::from_value(Value::Object(fields.clone()))
             .map_err(serde::de::Error::custom)?;
         let allowed: &[&str] = match &operation {
@@ -43,6 +45,14 @@ impl<'de> Deserialize<'de> for Request {
         };
         if fields.keys().any(|key| !allowed.contains(&key.as_str())) {
             return Err(serde::de::Error::custom("unknown activity field"));
+        }
+        if desktop_workspace_id.is_empty()
+            && !matches!(
+                operation,
+                Operation::Summary | Operation::Subscription | Operation::SetSubscription { .. }
+            )
+        {
+            return Err(serde::de::Error::missing_field("desktop_workspace_id"));
         }
         Ok(Self {
             desktop_workspace_id,
@@ -93,28 +103,7 @@ pub(super) fn areas(
     grant: &MobileDeviceGrant,
     control: bool,
 ) -> Result<Vec<WorkspaceArea>, &'static str> {
-    let app = storage::AppStore::new(path.to_owned());
-    let catalog = DesktopWorkspaceStore::new(path.to_owned());
-    if catalog.get(workspace).map_err(|_| "unavailable")?.is_none() {
-        return Err("workspace_missing");
-    }
-    let mut result = Vec::new();
-    for area in catalog
-        .list_projects(workspace)
-        .map_err(|_| "unavailable")?
-    {
-        let id = app
-            .workspace_identity_store()
-            .resolve_or_create(&area.root, &area.display_name)
-            .map_err(|_| "configuration_changed")?;
-        if !grant.allows(&id.workspace_id, control) {
-            return Err("unauthorized");
-        }
-        result.push(WorkspaceArea {
-            area,
-            project_id: id.workspace_id,
-        });
-    }
+    let result = overview::areas(path, Some(workspace), grant, control)?;
     if result.is_empty()
         && !matches!(
             grant.all_projects_access,
@@ -133,7 +122,9 @@ pub(super) fn handle(
     token: &str,
     request: &Request,
 ) -> Result<Value, &'static str> {
-    if !super::command::valid_id(&request.desktop_workspace_id) {
+    if !request.desktop_workspace_id.is_empty()
+        && !super::command::valid_id(&request.desktop_workspace_id)
+    {
         return Err("invalid_request");
     }
     let access = shared.access().map_err(|_| "unavailable")?;
@@ -146,12 +137,29 @@ pub(super) fn handle(
         request.operation,
         Operation::Decide { .. } | Operation::Accept { .. }
     );
-    let authorized = areas(&path, &request.desktop_workspace_id, &grant, control)?;
+    let subscription = matches!(
+        request.operation,
+        Operation::Subscription | Operation::SetSubscription { .. }
+    );
+    let workspace =
+        (!request.desktop_workspace_id.is_empty()).then_some(request.desktop_workspace_id.as_str());
+    let authorized = if subscription {
+        vec![]
+    } else if let Some(workspace) = workspace {
+        areas(&path, workspace, &grant, control)?
+    } else {
+        overview::areas(&path, None, &grant, control)?
+    };
     drop(access);
     let store = MobileActivityStore::new(path.clone());
     let result = match &request.operation {
         Operation::Summary => {
-            json!({"summary":summary(shared,&path,machine,&request.desktop_workspace_id,&authorized)?})
+            let summary = if let Some(workspace) = workspace {
+                summary(shared, &path, machine, workspace, &authorized)?
+            } else {
+                overview::summary(shared, &path, machine, &authorized)?
+            };
+            json!({"summary":summary})
         }
         Operation::Subscription => {
             json!({"subscription":store.get(&grant).map_err(|_|"unavailable")?.ok_or("unauthorized")?})
@@ -162,7 +170,8 @@ pub(super) fn handle(
         } => {
             if registration
                 .as_ref()
-                .is_some_and(|r| r.desktop_workspace_id != request.desktop_workspace_id)
+                .and_then(|r| r.desktop_workspace_id.as_deref())
+                .is_some_and(|id| Some(id) != workspace)
             {
                 return Err("invalid_request");
             }
@@ -180,15 +189,7 @@ pub(super) fn handle(
         .authenticate(machine, device, token)
         .map_err(|_| "unauthorized")?
         .is_none_or(|g| g.revision != grant.revision)
-        || !DesktopWorkspaceStore::new(path)
-            .mobile_scope_current(
-                &request.desktop_workspace_id,
-                &authorized
-                    .iter()
-                    .map(|a| a.area.clone())
-                    .collect::<Vec<_>>(),
-            )
-            .unwrap_or(false)
+        || (!subscription && !overview::current(&path, workspace, &grant, control, &authorized))
     {
         return Err("unauthorized");
     }
@@ -211,6 +212,18 @@ pub(super) fn summary(
     workspace: &str,
     authorized: &[WorkspaceArea],
 ) -> Result<WorkspaceActivitySummary, &'static str> {
+    Ok(WorkspaceActivitySummary::from_facts(
+        machine,
+        facts(shared, path, workspace, authorized)?,
+        overview::now()?,
+    ))
+}
+pub(super) fn facts(
+    shared: &Shared,
+    path: &Path,
+    workspace: &str,
+    authorized: &[WorkspaceArea],
+) -> Result<WorkspaceActivityFacts, &'static str> {
     let value = capture(shared, authorized)?;
     let catalog = DesktopWorkspaceStore::new(path.to_owned());
     let space = catalog
@@ -289,26 +302,19 @@ pub(super) fn summary(
         }
         projects.push(project);
     }
-    Ok(WorkspaceActivitySummary::from_facts(
-        machine,
-        WorkspaceActivityFacts {
-            workspace: DesktopChatWorkspace {
-                id: space.id,
-                name: space.name,
-                revision: catalog
-                    .configuration_revision(workspace)
-                    .map_err(|_| "unavailable")?,
-                projects,
-            },
-            observed: true,
-            approvals,
-            reviews,
+    Ok(WorkspaceActivityFacts {
+        workspace: DesktopChatWorkspace {
+            id: space.id,
+            name: space.name,
+            revision: catalog
+                .configuration_revision(workspace)
+                .map_err(|_| "unavailable")?,
+            projects,
         },
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_err(|_| "unavailable")?
-            .as_secs(),
-    ))
+        observed: true,
+        approvals,
+        reviews,
+    })
 }
 pub(super) fn scope(workspace: &str, area: &str) -> String {
     format!("desktop:{workspace}:{area}")

@@ -4,11 +4,16 @@ use std::collections::HashSet;
 use tokio_util::sync::CancellationToken;
 use ui::i18n::LocalizedText;
 
+mod input;
 mod plan;
 mod playback;
 mod tools;
 
 use plan::run_session;
+
+pub(super) type ContextRequests = async_channel::Sender<
+    tokio::sync::oneshot::Sender<(agent::CurrentCanvasContext, Vec<agent::AgentRosterEntry>)>,
+>;
 
 fn connect_failure_message(error: &tokio_tungstenite::tungstenite::Error) -> LocalizedText {
     match error {
@@ -29,6 +34,7 @@ pub(crate) enum DoubaoStatus {
     Connected,
     Thinking,
     Speaking,
+    RecordingResolved(u64),
     Disconnected(LocalizedText),
 }
 
@@ -40,6 +46,7 @@ impl DoubaoStatus {
             Self::Connected => "chrome.listening",
             Self::Thinking => "doubao.thinking",
             Self::Speaking => "doubao.replying",
+            Self::RecordingResolved(_) => "voice.push_to_talk",
             Self::Disconnected(_) => "doubao.disconnected",
         })
     }
@@ -49,6 +56,13 @@ pub(crate) struct DoubaoVoiceState {
     pub(crate) status: DoubaoStatus,
     pub(crate) generation: u64,
     pub(crate) cancellation: Option<CancellationToken>,
+    pub(crate) recording: Option<CancellationToken>,
+    pub(crate) recording_from_shortcut: bool,
+    recording_id: u64,
+    awaiting_transcript: bool,
+    recordings: Option<async_channel::Sender<input::RecordingInput>>,
+    speech: Option<async_channel::Sender<plan::asr::SpeechEvent>>,
+    activation: Option<gpui::Subscription>,
     session_task: Option<tokio::task::JoinHandle<()>>,
     pub(crate) reports: Option<async_channel::Sender<String>>,
     pub(crate) tracked_tasks: HashSet<u64>,
@@ -60,6 +74,13 @@ impl Default for DoubaoVoiceState {
             status: DoubaoStatus::Idle,
             generation: 0,
             cancellation: None,
+            recording: None,
+            recording_from_shortcut: false,
+            recording_id: 0,
+            awaiting_transcript: false,
+            recordings: None,
+            speech: None,
+            activation: None,
             session_task: None,
             reports: None,
             tracked_tasks: HashSet::new(),
@@ -68,6 +89,23 @@ impl Default for DoubaoVoiceState {
 }
 
 impl DoubaoVoiceState {
+    pub(crate) fn apply_status(&mut self, status: DoubaoStatus) {
+        if let DoubaoStatus::RecordingResolved(id) = status {
+            if id == self.recording_id {
+                self.awaiting_transcript = false;
+            }
+            return;
+        }
+        self.status =
+            if self.recording.is_some() && !matches!(status, DoubaoStatus::Disconnected(_)) {
+                DoubaoStatus::Connected
+            } else if self.awaiting_transcript && !matches!(status, DoubaoStatus::Disconnected(_)) {
+                DoubaoStatus::Thinking
+            } else {
+                status
+            };
+    }
+
     pub(crate) fn stop(&mut self) {
         if self.is_active() {
             tracing::info!(target: "norma_voice", generation = self.generation,
@@ -78,6 +116,14 @@ impl DoubaoVoiceState {
             cancellation.cancel();
         }
         self.reports = None;
+        if let Some(recording) = self.recording.take() {
+            recording.cancel();
+        }
+        self.recording_from_shortcut = false;
+        self.awaiting_transcript = false;
+        self.recordings = None;
+        self.speech = None;
+        self.activation = None;
         self.tracked_tasks.clear();
         self.status = DoubaoStatus::Idle;
     }
@@ -85,9 +131,65 @@ impl DoubaoVoiceState {
     pub(crate) fn is_active(&self) -> bool {
         self.cancellation.is_some()
     }
+
+    pub(crate) fn waiting_for_input(&self) -> bool {
+        self.status == DoubaoStatus::Connected
+            && self.recordings.is_some()
+            && self.recording.is_none()
+    }
+
+    pub(crate) fn label(&self) -> &'static str {
+        if self.waiting_for_input() {
+            ui::i18n::text("voice.push_to_talk")
+        } else {
+            self.status.label()
+        }
+    }
 }
 
 impl MultisoulApp {
+    fn start_doubao_context_requests(
+        &self,
+        generation: u64,
+        project_id: Option<String>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> ContextRequests {
+        let (requests, incoming): (ContextRequests, _) = async_channel::bounded(1);
+        cx.spawn_in(window, async move |this, cx| {
+            while let Ok(response) = incoming.recv().await {
+                let context = this
+                    .update_in(cx, |app, _, _| {
+                        let current_project = app
+                            .runtime
+                            .workspace_root()
+                            .map(|root| root.display().to_string());
+                        if app.doubao.generation != generation || current_project != project_id {
+                            return None;
+                        }
+                        let canvas =
+                            app.current_canvas_context_for_provider()
+                                .unwrap_or_else(|| agent::CurrentCanvasContext {
+                                    project_name: "未打开项目".into(),
+                                    workspace_root: "未打开项目；项目操作不可用".into(),
+                                    total_cards: 0,
+                                    cards: Vec::new(),
+                                    conversation_tails: Vec::new(),
+                                });
+                        Some((canvas, app.agent_roster_for_provider()))
+                    })
+                    .ok()
+                    .flatten();
+                let Some(context) = context else {
+                    break;
+                };
+                let _ = response.send(context);
+            }
+        })
+        .detach();
+        requests
+    }
+
     pub(crate) fn queue_doubao_terminal_reports(&mut self) {
         let (Some(sender), Some(coordinator)) = (
             self.doubao.reports.as_ref(),
@@ -129,22 +231,11 @@ impl MultisoulApp {
             cx.notify();
             return;
         };
-        let canvas = self
-            .current_canvas_context_for_provider()
-            .unwrap_or_else(|| agent::CurrentCanvasContext {
-                project_name: "未打开项目".into(),
-                workspace_root: "未打开项目；项目操作不可用".into(),
-                total_cards: 0,
-                cards: Vec::new(),
-                conversation_tails: Vec::new(),
-            });
         let project_id = self
             .runtime
             .workspace_root()
             .map(|root| root.display().to_string());
         let bound_project = project_id.clone();
-        let roster = self.agent_roster_for_provider();
-        let prompt = agent::norma_system_prompt_base(&canvas, &roster);
         self.doubao.generation = self.doubao.generation.wrapping_add(1);
         let generation = self.doubao.generation;
         self.doubao.tracked_tasks.clear();
@@ -165,12 +256,36 @@ impl MultisoulApp {
         tracing::info!(target: "norma_voice", generation,
             "Doubao session start requested");
         let (events_tx, events_rx) = async_channel::bounded(32);
+        let (speech_tx, speech_rx) = async_channel::unbounded();
+        self.doubao.speech = Some(speech_tx.clone());
         let (reports_tx, reports_rx) = async_channel::unbounded();
+        let recordings = if self.voice_settings.values().doubao_interaction_mode()
+            == crate::settings::voice::VoiceInteractionMode::SingleVoiceCommand
+        {
+            let (sender, receiver) = async_channel::unbounded();
+            self.doubao.recordings = Some(sender);
+            Some(receiver)
+        } else {
+            None
+        };
+        let input = input::SessionInput {
+            events: speech_tx,
+            speech: speech_rx,
+            recordings,
+        };
+        self.doubao.activation = Some(cx.observe_window_activation(window, |app, window, cx| {
+            if !window.is_window_active() && app.doubao.recording.is_some() {
+                // 失活时可能收不到松键事件；结束采集后仍须完成当前转写和回复。
+                app.end_doubao_recording(cx);
+            }
+        }));
         self.doubao.reports = Some(reports_tx);
         let playback_events = self
             .voice_window_inset_events
             .sink(crate::app::voice_window_inset::TtsPlaybackSource::Doubao);
         if let Ok(runtime) = super::shared_tokio_runtime() {
+            let context =
+                self.start_doubao_context_requests(generation, project_id.clone(), window, cx);
             let previous_task = self.doubao.session_task.take();
             self.doubao.session_task = Some(runtime.spawn(async move {
                 if let Some(previous_task) = previous_task {
@@ -185,12 +300,12 @@ impl MultisoulApp {
                 }
                 let result = run_session(
                     (account, selected_voice),
-                    prompt,
+                    context,
                     project_id,
                     database,
                     tools,
                     cancellation,
-                    (events_tx.clone(), reports_rx, playback_events),
+                    (events_tx.clone(), reports_rx, playback_events, input),
                 )
                 .await;
                 tracing::info!(target: "norma_voice", generation,
@@ -233,8 +348,14 @@ impl MultisoulApp {
                         if let DoubaoStatus::Disconnected(message) = &status {
                             tracing::info!(target: "norma_voice", reason = %message, "voice conversation ended");
                         }
-                        app.doubao.status = status;
+                        app.doubao.apply_status(status);
                         if ended {
+                            if let Some(recording) = app.doubao.recording.take() { recording.cancel(); }
+                            app.doubao.recording_from_shortcut = false;
+                            app.doubao.awaiting_transcript = false;
+                            app.doubao.recordings = None;
+                            app.doubao.speech = None;
+                            app.doubao.activation = None;
                             app.doubao.cancellation = None;
                             app.doubao.reports = None;
                             app.doubao.tracked_tasks.clear();
@@ -282,3 +403,11 @@ mod memory_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/doubao_language_tests.rs"]
 mod language_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/doubao_context_tests.rs"]
+mod context_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/doubao_budget_tests.rs"]
+mod budget_tests;

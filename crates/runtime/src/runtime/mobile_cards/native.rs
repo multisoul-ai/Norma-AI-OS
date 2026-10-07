@@ -71,6 +71,9 @@ impl Runtime {
                     effort,
                     "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "default"
                 )
+                // Codex also displays its optional fast service tier after the reasoning level.
+                // Accept only this known marker; unrelated menu/footer text remains unready.
+                && matches!(fields.next(), None | Some("fast"))
                 && fields.next().is_none()
                 && !directory.is_empty()
         }) {

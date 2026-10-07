@@ -331,7 +331,7 @@ v41构建收尾：Mac Release（2m28s）、模拟器双架构Release、未签名
 
 用户已确认当前桌面与iOS成功配对；保留当前运行实例。新构建修复了普通VPN地址误推荐和验证码超时提示，尚未覆盖已连接实例。双独立本地WSS服务的同名项目/相同ID隔离通过，不能代替物理双Mac验收。
 
-[APNs私有relay](../services/push/README.md)已完成本地HTTP/2和签名验证。用户有开发者账号，服务尚未部署；Mac/iOS通知注册、撤销、真实事件投递与点击回源仍待接入，当前App没有锁屏推送能力。配置步骤及真实验证缺口见该说明。
+[APNs私有relay](../services/norma-cloud/push/README.md)已完成本地HTTP/2和签名验证。用户有开发者账号，服务尚未部署；Mac/iOS通知注册、撤销、真实事件投递与点击回源仍待接入，当前App没有锁屏推送能力。配置步骤及真实验证缺口见该说明。
 
 ## 通知订阅接口（v43）
 
@@ -344,14 +344,14 @@ NormaCore新增pushSubscription/updatePushSubscription，经原有证书pin和�
 
 电脑页新增黑色原生「任务提醒」：用户先允许系统通知，再对每台Mac单独开启/关闭；系统登记和Mac订阅分别展示。新token仅续登记用户之前启用且Mac仍保留的订阅；关闭失败不冒充成功。v114起，忘记电脑立即移除本地连接和Keychain凭据，不依赖联网；停止本机提醒续登记，并尝试在后台关闭电脑端提醒。离线时需在Mac上关闭提醒或撤销授权，手机不保留凭据进行重试。列表右侧菜单与红色左滑操作均可进入原生确认框。
 
-通知只携带目标身份。点击后等待本机电脑列表加载，经证书pin回源检查项目/窗口/运行/会话/回合和具体审批；旧目标显示过期，不自动执行决定。真实来源匹配后可进入现有聊天或定位指挥台。部署、签名、Debug/Release环境和已知投递边界见[推送配置](../services/push/README.md#mac与ios配置v44)。
+通知只携带目标身份。点击后等待本机电脑列表加载，经证书pin回源检查项目/窗口/运行/会话/回合和具体审批；旧目标显示过期，不自动执行决定。真实来源匹配后可进入现有聊天或定位指挥台。部署、签名、Debug/Release环境和已知投递边界见[推送配置](../services/norma-cloud/push/README.md#mac与ios配置v44)。
 
 本轮Swift35项通过；5项原生导航通过；新增系统回调与通知目标的模拟器检查通过。Computer Use已实际点击独立验收模拟器的提醒入口和空态；已连接电脑的提醒开关和通知中心点击尚待完整验收。用户现有v41桌面/模拟器保持运行，未覆盖；没有真实APNs或物理iPhone证据。
 
 签名账号已按桌面Packager.toml沿用公司Team `2BF8G9AN4L`。原通配描述文件缺少推送能力；Xcode自动更新已成功生成专用描述文件与已签名Debug构建，签名校验及实际aps-environment=development检查通过。没有进行App Store/TestFlight上传。当前登记的物理iPhone 11不可用，锁屏验收仍待连接设备和APNs服务配置。
 
 
-Mac通知服务现可从「手机连接 → 任务提醒 → 配置服务」填写HTTPS入口、relay访问凭据与环境；Debug选Sandbox，TestFlight/App Store选production。保存配置后仍需在iPhone内允许系统通知并开启对应电脑的提醒。保存不是APNs送达验证；Apple签名密钥只保留在服务器。细节见 `../services/push/README.md`（v45）。
+Mac通知服务现可从「手机连接 → 任务提醒 → 配置服务」填写HTTPS入口、relay访问凭据与环境；Debug选Sandbox，TestFlight/App Store选production。保存配置后仍需在iPhone内允许系统通知并开启对应电脑的提醒。保存不是APNs送达验证；Apple签名密钥只保留在服务器。细节见 `../services/norma-cloud/push/README.md`（v45）。
 
 
 ## 已配对通知与点击验收（v46）

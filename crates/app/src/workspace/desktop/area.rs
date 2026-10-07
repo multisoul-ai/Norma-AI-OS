@@ -235,15 +235,20 @@ impl MultisoulApp {
                         session.update(cx, |session, cx| {
                             session.register_loaded_project_route(None, cx);
                         });
-                        // Keep window-level Settings live without redrawing the host for
-                        // ordinary terminal output while the panel is closed.
-                        let mut settings_were_open = false;
-                        cx.observe(&session, move |_, session, cx| {
-                            let open = session.read(cx).settings_panel.open;
-                            if open || settings_were_open {
+                        // Window overlays repaint only while Settings or a dispatch
+                        // receipt is visible, including the frame that removes them.
+                        let mut overlays_were_visible = false;
+                        cx.observe(&session, move |app, session, cx| {
+                            let receipt_visible = app.expanded_desktop_project().as_ref()
+                                == Some(&session)
+                                && !app.desktop_project_zoom_active();
+                            let session = session.read(cx);
+                            let visible = session.settings_panel.open
+                                || (receipt_visible && session.motion.has_dispatch_receipts());
+                            if visible || overlays_were_visible {
                                 cx.notify();
                             }
-                            settings_were_open = open;
+                            overlays_were_visible = visible;
                         })
                         .detach();
                         let requested = match &app.desktop_workspace.pending_navigation {

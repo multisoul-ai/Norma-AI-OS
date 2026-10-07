@@ -1,5 +1,59 @@
 use super::*;
 
+/// 豆包按住说话可独立保存，升级默认仍为实时对话。
+///
+/// 数据构造（含关键数值的推导过程）：空 SQLite 为升级配置；旧链路使用 Toggle。
+/// 执行过程：加载默认 → 选择豆包单次语音 → 后台保存 → 重载 → 切换顶层模式。
+/// 预期结果：豆包单次模式保存且实时模式未被误选；旧链路模式和 Toggle 不变。
+#[test]
+fn test_doubao_hold_mode_persists_independently() {
+    let temp = tempfile::tempdir().expect("应创建隔离设置目录");
+    let store = storage::SettingsStore::new(temp.path().join("app.sqlite"));
+    store
+        .set_string("voice.single_voice_command.trigger", "toggle")
+        .expect("应保存旧链路触发方式");
+    let mut state = VoiceSettingsState::load_from_store(store.clone());
+    assert_eq!(
+        state.values().doubao_interaction_mode(),
+        VoiceInteractionMode::ContinuousListening,
+        "升级后豆包仍默认实时对话"
+    );
+    state.select_doubao_interaction_mode(VoiceInteractionMode::SingleVoiceCommand);
+    assert!(
+        store
+            .get_string("voice.doubao.interaction_mode")
+            .expect("应读取设置")
+            .is_none(),
+        "前台选择不能同步写库"
+    );
+    for write in state.take_pending_writes() {
+        write.execute().expect("后台写入应成功");
+    }
+    let mut restored = VoiceSettingsState::load_from_store(store);
+    restored.select_desktop_mode(DesktopVoiceMode::Doubao);
+    restored.select_desktop_mode(DesktopVoiceMode::Legacy);
+    assert_eq!(
+        restored.values().doubao_interaction_mode(),
+        VoiceInteractionMode::SingleVoiceCommand,
+        "重载与模式切换应保留按住说话"
+    );
+    assert_ne!(
+        restored.values().doubao_interaction_mode(),
+        VoiceInteractionMode::ContinuousListening,
+        "重载不能恢复实时对话"
+    );
+    assert_eq!(
+        restored.values().interaction_mode(),
+        VoiceInteractionMode::SingleVoiceCommand,
+        "豆包不能覆盖旧链路模式"
+    );
+    assert_eq!(
+        restored.values().dictation_trigger(),
+        DictationTrigger::Toggle,
+        "豆包按住说话不能覆盖旧链路 Toggle"
+    );
+}
+
 /// 音色搜索支持中文名称、大小写不敏感的 ID 与语言，清空后恢复完整列表。
 ///
 /// 数据构造（含关键数值的推导过程）：

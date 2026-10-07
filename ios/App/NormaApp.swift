@@ -42,6 +42,7 @@ import NormaCore
 @MainActor @Observable final class ComputerModel {
     var loaded = false
     var machines: [PairedMachine] = []
+    var pairedMachinesChanged: (() -> Void)?
     var onlineMachineIDs: Set<String> = []
     var checkedMachineIDs: Set<String> = []
     var selectedID: String? = UserDefaults.standard.string(forKey: "selected-machine")
@@ -87,6 +88,7 @@ import NormaCore
             if selected == nil { select(machines.first?.id, reportErrors: false) }
             else { refresh(reportErrors: false) }
         } catch { self.error = "无法读取电脑列表。原始记录已保留。" }
+        pairedMachinesChanged?()
     }
     func reloadCommands() async throws { pendingCommands = try await commandStore.load() }
     func confirmQueue(_ pending: PendingMobileCommand, receipt: MobileCommandReceipt) async throws {
@@ -189,11 +191,14 @@ import NormaCore
     func remember(_ machine: PairedMachine) async throws {
         try await store.save(machine)
         machines = try await store.load()
+        pairedMachinesChanged?()
     }
     func forget(_ machine: PairedMachine, notifications: PushNotifications? = nil) async {
         do {
             if selectedID == machine.id { disconnect(); error = nil }
             let cleanup = notifications == nil ? nil : try? await client.preparePushSubscriptionRemoval(machine)
+            let activityCleanup = notifications == nil ? nil : try? await client.prepareWorkspaceActivityRemoval(machine)
+            await notifications?.activities.forget(machine.id,cleanup:activityCleanup)
             try await vault.remove(machineID: machine.id)
             try await store.remove(id: machine.id)
             notifications?.forget(machine.id, cleanup: cleanup)
@@ -201,6 +206,7 @@ import NormaCore
             onlineMachineIDs.remove(machine.id)
             checkedMachineIDs.remove(machine.id)
             machines = try await store.load()
+            pairedMachinesChanged?()
             if selectedID == machine.id { select(machines.first?.id, reportErrors: false) }
         } catch { self.error = error.localizedDescription }
     }

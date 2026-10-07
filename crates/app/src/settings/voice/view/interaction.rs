@@ -70,6 +70,71 @@ pub(super) fn interaction_group(
         })
 }
 
+pub(super) fn doubao_shortcut_hint(state: &VoiceSettingsState, shortcut: &str) -> String {
+    ui::i18n::format(
+        if state.values().doubao_interaction_mode() == VoiceInteractionMode::ContinuousListening {
+            "voice.doubao_realtime_shortcut"
+        } else {
+            "voice.doubao_hold_shortcut"
+        },
+        &[("shortcut", shortcut.to_string())],
+    )
+}
+
+pub(super) fn doubao_interaction_group(
+    theme: Theme,
+    state: &VoiceSettingsState,
+    shortcut: &str,
+    cx: &mut Context<MultisoulApp>,
+) -> Div {
+    let mode = state.values().doubao_interaction_mode();
+    settings_group(theme, ui::i18n::text("shortcuts.voice_interaction")).child(
+        compact_interaction_row(
+            theme,
+            ui::i18n::text("voice.mode"),
+            doubao_shortcut_hint(state, shortcut),
+            div()
+                .flex()
+                .flex_wrap()
+                .gap(px(8.0))
+                .child(
+                    mode_option(
+                        theme,
+                        "settings-doubao-mode-realtime",
+                        ui::i18n::text("voice.realtime_conversation"),
+                        mode == VoiceInteractionMode::ContinuousListening,
+                        cx,
+                    )
+                    .on_activate(cx.listener(|app, _, _, cx| {
+                        app.stop_doubao_voice(cx);
+                        app.voice_settings.select_doubao_interaction_mode(
+                            VoiceInteractionMode::ContinuousListening,
+                        );
+                        app.persist_voice_settings_in_background(cx);
+                        cx.notify();
+                    })),
+                )
+                .child(
+                    mode_option(
+                        theme,
+                        "settings-doubao-mode-hold",
+                        ui::i18n::text("voice.push_to_talk"),
+                        mode == VoiceInteractionMode::SingleVoiceCommand,
+                        cx,
+                    )
+                    .on_activate(cx.listener(|app, _, _, cx| {
+                        app.stop_doubao_voice(cx);
+                        app.voice_settings.select_doubao_interaction_mode(
+                            VoiceInteractionMode::SingleVoiceCommand,
+                        );
+                        app.persist_voice_settings_in_background(cx);
+                        cx.notify();
+                    })),
+                ),
+        ),
+    )
+}
+
 fn dictation_trigger_row(
     theme: Theme,
     state: &VoiceSettingsState,

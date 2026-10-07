@@ -2,6 +2,12 @@ use super::{values::KEY_DOUBAO_SPEAKER, VoiceSettingsState};
 use tts::providers::doubao::{find_voice, voices, DoubaoVoice};
 
 impl VoiceSettingsState {
+    pub(crate) fn select_doubao_interaction_mode(&mut self, mode: super::VoiceInteractionMode) {
+        self.saved.doubao_interaction_mode = Some(mode);
+        self.persist_string(super::values::KEY_DOUBAO_INTERACTION_MODE, mode.as_str());
+        self.refresh_values();
+    }
+
     pub(crate) fn select_doubao_voice(&mut self, id: &str) -> bool {
         let Some(voice) = find_voice(id) else {
             return false;

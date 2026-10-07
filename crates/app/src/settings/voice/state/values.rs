@@ -19,6 +19,7 @@ pub(super) const KEY_INTERACTION_MODE: &str = "voice.interaction.mode";
 pub(super) const KEY_DESKTOP_MODE: &str = "voice.desktop.mode";
 pub(super) const KEY_DOUBAO_CREDENTIAL_REF: &str = "voice.doubao.credential_ref";
 pub(super) const KEY_DOUBAO_SPEAKER: &str = "voice.doubao.speaker";
+pub(super) const KEY_DOUBAO_INTERACTION_MODE: &str = "voice.doubao.interaction_mode";
 pub(super) const KEY_SINGLE_VOICE_COMMAND_TRIGGER: &str = "voice.single_voice_command.trigger";
 pub(super) const LEGACY_KEY_DICTATION_TRIGGER: &str = "voice.dictation.trigger";
 pub(super) const KEY_ASR_MODEL_ID: &str = "voice.asr.model_id";
@@ -51,6 +52,7 @@ pub(crate) struct SavedVoiceSettings {
     pub(crate) desktop_mode: Option<DesktopVoiceMode>,
     pub(crate) doubao_credential_ref: Option<String>,
     pub(crate) doubao_speaker: Option<String>,
+    pub(crate) doubao_interaction_mode: Option<VoiceInteractionMode>,
     pub(crate) interaction_mode: Option<VoiceInteractionMode>,
     pub(crate) dictation_trigger: Option<DictationTrigger>,
     pub(crate) asr_model_id: Option<AsrModelId>,
@@ -126,6 +128,7 @@ pub(crate) struct VoiceSettingsValues {
     pub(crate) desktop_mode: DesktopVoiceMode,
     pub(crate) doubao_credential_ref: Option<String>,
     doubao_voice: &'static tts::providers::doubao::DoubaoVoice,
+    pub(super) doubao_interaction_mode: VoiceInteractionMode,
     pub(crate) interaction_mode: VoiceInteractionMode,
     pub(crate) dictation_trigger: DictationTrigger,
     pub(crate) asr_model_id: Option<AsrModelId>,
@@ -289,6 +292,9 @@ impl VoiceSettingsValues {
             desktop_mode,
             doubao_credential_ref: saved.doubao_credential_ref.clone(),
             doubao_voice: doubao::resolve(saved.doubao_speaker.as_deref()),
+            doubao_interaction_mode: saved
+                .doubao_interaction_mode
+                .unwrap_or(VoiceInteractionMode::ContinuousListening),
             interaction_mode,
             dictation_trigger,
             asr_model_id,
@@ -324,14 +330,6 @@ impl VoiceSettingsValues {
 
     pub(crate) fn interaction_mode(&self) -> VoiceInteractionMode {
         self.interaction_mode
-    }
-
-    pub(crate) fn desktop_mode(&self) -> DesktopVoiceMode {
-        self.desktop_mode
-    }
-
-    pub(crate) fn doubao_credential_ref(&self) -> Option<&str> {
-        self.doubao_credential_ref.as_deref()
     }
 
     pub(crate) fn dictation_trigger(&self) -> DictationTrigger {

@@ -39,6 +39,7 @@ fn explicit_memory_is_persistent_with_source() {
                 scope: MemoryScopeAlias::Personal,
                 id: "preferences".into(),
                 markdown: "请用简洁中文交流。".into(),
+                supersedes: vec![],
             },
             &context("请记住：我喜欢简洁中文", "session-a:turn-1"),
         )
@@ -123,6 +124,7 @@ fn write_depends_on_model_call_not_phrasing_but_respects_save_switch() {
                     scope: MemoryScopeAlias::Personal,
                     id: (*id).into(),
                     markdown: format!("内容 {index}"),
+                    supersedes: vec![],
                 },
                 &context(text, &format!("s:turn-{index}")),
             )
@@ -161,6 +163,7 @@ fn write_depends_on_model_call_not_phrasing_but_respects_save_switch() {
             scope: MemoryScopeAlias::Personal,
             id: "after-off".into(),
             markdown: "不应保存".into(),
+            supersedes: vec![],
         },
         &context("请记住：不应保存", "s:turn-9"),
     );
@@ -205,6 +208,7 @@ fn stale_dialogue_cannot_overwrite_manual_correction() {
         scope: MemoryScopeAlias::Personal,
         id: "language".into(),
         markdown: "法文".into(),
+        supersedes: vec![],
     };
     assert!(
         dialogue
@@ -352,7 +356,8 @@ fn refreshing_catalog_does_not_authorize_stale_topic_overwrite() {
             MemoryCommand::Write {
                 scope: MemoryScopeAlias::Personal,
                 id: "notes".into(),
-                markdown: "简洁中文".into()
+                markdown: "简洁中文".into(),
+                supersedes: vec![],
             },
             &context("请记住：简洁中文", "t:4")
         )
@@ -411,7 +416,8 @@ fn cancelled_write_and_versioned_long_read() {
                 MemoryCommand::Write {
                     scope: MemoryScopeAlias::Personal,
                     id: "ghost".into(),
-                    markdown: "不存在".into()
+                    markdown: "不存在".into(),
+                    supersedes: vec![],
                 },
                 &cancelled
             )

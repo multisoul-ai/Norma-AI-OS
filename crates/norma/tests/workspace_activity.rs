@@ -1,6 +1,68 @@
 use norma::mobile::{DesktopChatWorkspace, WorkspaceActivityFacts, WorkspaceActivitySummary};
 use serde_json::json;
 
+/// 场景：重复运行投影去重时，第二个工作空间独有的旧交付仍可验收。
+///
+/// 数据构造：两个空间各有同一项目/节点/run/session/turn 的执行投影；
+///   唯一执行 = 2 - 1 = 1；空间 B 有 1 份旧 turn 交付，文件数 = 1。
+///   观察时刻 100 秒仅作为固定输入，不触发生命周期计时。
+/// 执行过程：创建空间 A 执行事实 → 克隆为 B 并添加旧交付 → 合并总览。
+/// 预期结果：运行数仍为 1；B 的待验收和旧交付目标保留；不能生成 A 的验收项。
+#[test]
+fn duplicate_run_keeps_other_workspaces_pending_delivery() {
+    let mut a = WorkspaceActivityFacts {
+        workspace: workspace(),
+        observed: true,
+        approvals: vec![],
+        reviews: vec![],
+    };
+    a.workspace.projects.truncate(1);
+    let mut b = a.clone();
+    b.workspace.id = "space-2".into();
+    b.workspace.projects[0].area_id = "area-b".into();
+    b.reviews.push(norma::mobile::ActivityReviewFact {
+        area_id: "area-b".into(),
+        node_id: 1,
+        profile: "Codex".into(),
+        run_id: "old-run".into(),
+        session_id: "old-session".into(),
+        turn_id: "old-turn".into(),
+        fingerprint: "a".repeat(64),
+        completed: true,
+        available: true,
+        conflicted: false,
+        accepted: false,
+        file_count: 1,
+    });
+    let summary = WorkspaceActivitySummary::from_workspaces("mac", vec![a, b], 100);
+    assert_eq!(summary.running_count, 1, "重复投影不能重复计数执行");
+    assert_eq!(summary.review_count, 1, "空间 B 的旧交付不能被运行去重删除");
+    assert_eq!(
+        summary.projects[0].desktop_workspace_id, "space-2",
+        "待验收必须仍属于空间 B"
+    );
+    assert_eq!(
+        summary.projects[0].area_id, "area-b",
+        "待验收深链必须保留原区域"
+    );
+    assert_eq!(
+        summary.attention[0].target.run_id, "old-run",
+        "交付目标必须使用旧运行身份"
+    );
+    assert_eq!(
+        summary.attention[0].target.turn_id, "old-turn",
+        "交付目标不能改成当前 turn"
+    );
+    assert!(summary.active, "存在执行或待验收时总览应保活");
+    assert!(
+        !summary
+            .attention
+            .iter()
+            .any(|a| a.target.area_id == "area-0"),
+        "不能在空间 A 合成不存在的验收项"
+    );
+}
+
 fn workspace() -> DesktopChatWorkspace {
     let projects = ["running", "review", "failed", "approval"].into_iter().enumerate().map(|(i, state)| {
         json!({"area_id":format!("area-{i}"),"project_id":format!("project-{i}"),"name":state,"root":"/local",
@@ -14,6 +76,56 @@ fn workspace() -> DesktopChatWorkspace {
         json!({"id":"space-1","name":"我的工作空间","revision":1,"projects":projects}),
     )
     .unwrap()
+}
+
+/// Mac 自动总览：跨工作空间合并事实后排序，重复投影不能重复计数同一次执行。
+/// 数据构造：空间A有审批/失败/验收/执行各1；空间B复用A的执行并新增1次执行。
+///   唯一项目=4+2-1=5，运行Agent=1+2-1=2；三行预算使隐藏项目=5-3=2。
+/// 执行过程：合并两个空间的原始事实→按运行身份去重→全量计数→稳定排序→截取三行。
+/// 预期结果：审批、失败、验收属于空间A；空间B执行仍计数；重复执行不占新行且计数不翻倍。
+#[test]
+fn automatic_overview_merges_workspaces_before_selecting_three_projects() {
+    let a: WorkspaceActivityFacts = serde_json::from_value(json!({"workspace":workspace(),"observed":true,
+        "approvals":[{"area_id":"area-3","approval":{"target":{"node_id":4,"profile":"Codex","run_id":"run-1","session_id":"session-1","turn_id":"turn-1","request_id":"req-1"},"card_title":"Agent","tool":"Bash","details":{},"decisions":["allow","deny"]}}],
+        "reviews":[{"area_id":"area-1","node_id":2,"profile":"Codex","run_id":"run-1","session_id":"session-1","turn_id":"turn-1","fingerprint":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","completed":true,"available":true,"conflicted":false,"accepted":false,"file_count":2}]})).expect("空间A事实");
+    let mut b = a.clone();
+    b.workspace.id = "space-2".into();
+    b.workspace.name = "另一空间".into();
+    b.workspace.projects.truncate(1);
+    let mut extra = b.workspace.projects[0].clone();
+    extra.project_id = "new-project".into();
+    extra.area_id = "new-area".into();
+    extra.agents[0].card.run_id = Some("run-new".into());
+    b.workspace.projects.push(extra);
+    b.approvals.clear();
+    b.reviews.clear();
+    let summary = WorkspaceActivitySummary::from_workspaces("mac", vec![a, b], 100);
+    assert_eq!(
+        summary.running_count, 2,
+        "同一真实运行的多个投影只能计数一次"
+    );
+    assert_eq!(summary.approval_count, 1, "真实审批应保留");
+    assert_eq!(summary.review_count, 1, "真实验收应保留");
+    assert_eq!(summary.hidden_projects, 2, "仅两项普通执行藏在三行之外");
+    assert_eq!(summary.projects[0].area_id, "area-3", "全Mac审批仍排第一");
+    assert_eq!(summary.projects[1].area_id, "area-2", "失败优先于验收");
+    assert_eq!(summary.projects[2].area_id, "area-1", "验收保留第三行");
+    assert_eq!(
+        summary.projects[0].desktop_workspace_id, "space-1",
+        "深链必须保留实际所属空间"
+    );
+    assert_eq!(
+        summary.projects[0].workspace_name, "我的工作空间",
+        "同名项目必须可辨来源"
+    );
+    assert!(
+        !summary.projects.iter().any(|p| p.area_id == "new-area"),
+        "普通执行不能挤掉待处理项"
+    );
+    assert!(
+        summary.desktop_workspace_id.is_empty(),
+        "自动总览不绑定一个指定空间"
+    );
 }
 
 /// 三项目筛选：真实审批、失败和待验收优先于普通执行，隐藏项目仍进入总数。

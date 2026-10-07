@@ -75,21 +75,25 @@ pub(super) fn voice_status_overview(
                 ui::i18n::text("voice.ready_to_talk")
             }
             .to_string(),
-            ui::i18n::format(
-                "voice.press_voice_shortcut_label_to",
-                &[
-                    ("voice_shortcut_label", (voice_shortcut_label).to_string()),
-                    (
-                        "arg0",
-                        (if doubao {
-                            ui::i18n::text("voice.start_a_conversation")
-                        } else {
-                            ui::i18n::text("voice.give_norma_a_voice_command")
-                        })
-                        .to_string(),
-                    ),
-                ],
-            ),
+            if doubao {
+                super::interaction::doubao_shortcut_hint(state, voice_shortcut_label)
+            } else {
+                ui::i18n::format(
+                    "voice.press_voice_shortcut_label_to",
+                    &[
+                        ("voice_shortcut_label", (voice_shortcut_label).to_string()),
+                        (
+                            "arg0",
+                            (if doubao {
+                                ui::i18n::text("voice.start_a_conversation")
+                            } else {
+                                ui::i18n::text("voice.give_norma_a_voice_command")
+                            })
+                            .to_string(),
+                        ),
+                    ],
+                )
+            },
         )
     } else if let VoiceEntryState::SettingUp { percent } = state.readiness() {
         (

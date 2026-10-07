@@ -157,15 +157,13 @@ pub(super) fn handle(
                 .authenticate(&access.machine_id(), device, token)
                 .map_err(|_| "unauthorized")?;
             if current.is_none_or(|g| g.revision != grant.revision)
-                || !DesktopWorkspaceStore::new(path.to_owned())
-                    .mobile_scope_current(
-                        &request.desktop_workspace_id,
-                        &authorized
-                            .iter()
-                            .map(|a| a.area.clone())
-                            .collect::<Vec<_>>(),
-                    )
-                    .unwrap_or(false)
+                || !super::overview::current(
+                    path,
+                    Some(&request.desktop_workspace_id),
+                    grant,
+                    true,
+                    authorized,
+                )
                 || !lease.begin()
             {
                 Err("unauthorized".into())

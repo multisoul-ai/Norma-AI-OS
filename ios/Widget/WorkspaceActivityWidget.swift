@@ -21,20 +21,20 @@ struct WorkspaceActivityWidget: Widget {
                     Label("\(context.state.reviewCount) 验收",systemImage:"checkmark.circle")
                 }.font(.caption.weight(.semibold)).accessibilityElement(children:.combine)
                 ForEach(context.state.projects) {project in
-                    Link(destination:WorkspaceActivityLink(machineID:context.attributes.machineID,workspaceID:context.attributes.workspaceID,areaID:project.areaID).url) {
+                    Link(destination:projectURL(project,attributes:context.attributes)) {
                         HStack(alignment:.top,spacing:8) {
                             Text(project.statusLabel).font(.caption.weight(.semibold)).foregroundStyle(color(project.status)).frame(width:48,alignment:.leading)
                             VStack(alignment:.leading,spacing:1) {
                                 Text(project.name + " · " + project.agents.map(\.name).joined(separator:" / ")).font(.caption.weight(.semibold)).lineLimit(1)
-                                Text(detail(project)).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                                Text([project.workspaceName,detail(project)].compactMap {$0}.filter {!$0.isEmpty}.joined(separator:" · ")).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                             }
                             Spacer(minLength:0);Image(systemName:"chevron.right").font(.caption2)
                         }.accessibilityElement(children:.combine)
                     }.foregroundStyle(.primary)
                 }
-                if !context.state.active && context.state.projects.isEmpty {Text("本次跟踪已结束 · 待处理事项继续在收件箱展示").font(.caption2).foregroundStyle(.secondary)}
+                if !context.state.active && context.state.projects.isEmpty {Text("本轮工作已结束 · 待处理事项继续在收件箱展示").font(.caption2).foregroundStyle(.secondary)}
             }.padding(12).activityBackgroundTint(Color.black.opacity(0.06))
-                .widgetURL(WorkspaceActivityLink(machineID:context.attributes.machineID,workspaceID:context.attributes.workspaceID).url)
+                .widgetURL(URL(string:"norma://inbox")!)
         } dynamicIsland: {context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {Label("\(context.state.runningCount)",systemImage:"person.2")}
@@ -42,7 +42,7 @@ struct WorkspaceActivityWidget: Widget {
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(alignment:.leading,spacing:4) {
                         Text(context.state.name).font(.headline)
-                        if !context.state.active {Text("跟踪已结束 · 打开收件箱").font(.caption)}
+                        if !context.state.active {Text("本轮工作已结束 · 打开收件箱").font(.caption)}
                         else if context.isStale {Text("状态已过期，打开 App 核验").font(.caption)}
                         else {Text(context.state.projects.first?.reason ?? "打开工作空间").font(.caption).lineLimit(2)}
                     }
@@ -50,8 +50,12 @@ struct WorkspaceActivityWidget: Widget {
             } compactLeading: {Image(systemName:"person.2.fill")}
               compactTrailing: {Text("\(context.state.approvalCount+context.state.reviewCount)").monospacedDigit()}
               minimal: {Text("\(context.state.approvalCount+context.state.reviewCount)").monospacedDigit()}
-                .widgetURL(WorkspaceActivityLink(machineID:context.attributes.machineID,workspaceID:context.attributes.workspaceID).url)
+                .widgetURL(URL(string:"norma://inbox")!)
         }
+    }
+    private func projectURL(_ project:WorkspaceActivityContent.Project,attributes:WorkspaceActivityAttributes) -> URL {
+        guard let workspace=project.workspaceID ?? attributes.workspaceID else {return URL(string:"norma://inbox")!}
+        return WorkspaceActivityLink(machineID:attributes.machineID,workspaceID:workspace,areaID:project.areaID).url
     }
     private func color(_ status:String) -> Color {switch status {case "approval":.orange;case "failed":.red;case "review":.green;default:.secondary}}
     private func detail(_ project:WorkspaceActivityContent.Project) -> String {

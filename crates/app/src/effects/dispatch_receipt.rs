@@ -56,6 +56,14 @@ pub(crate) fn command_dock_center(viewport: Size<Pixels>) -> Point<Pixels> {
 }
 
 pub(crate) fn render(app: &MultisoulApp, window: &mut Window) -> Option<AnyElement> {
+    render_with_canvas_offset(app, window, Point::default())
+}
+
+pub(crate) fn render_with_canvas_offset(
+    app: &MultisoulApp,
+    window: &mut Window,
+    canvas_offset: Point<Pixels>,
+) -> Option<AnyElement> {
     let viewport = app.runtime.document.viewport;
     let dock_origin = command_dock_center(window.viewport_size());
     let frames = app
@@ -71,7 +79,7 @@ pub(crate) fn render(app: &MultisoulApp, window: &mut Window) -> Option<AnyEleme
             let screen_origin = viewport.canvas_to_screen(rect.origin);
             let screen_size = Vec2::new(rect.size.x * viewport.zoom, rect.size.y * viewport.zoom);
             let target_bounds = Bounds {
-                origin: point(px(screen_origin.x), px(screen_origin.y)),
+                origin: point(px(screen_origin.x), px(screen_origin.y)) + canvas_offset,
                 size: Size {
                     width: px(screen_size.x),
                     height: px(screen_size.y),
@@ -91,7 +99,9 @@ pub(crate) fn render(app: &MultisoulApp, window: &mut Window) -> Option<AnyEleme
                     if !matches!(source_node.kind, CanvasNodeKind::Agent(_)) {
                         return None;
                     }
-                    let source_bounds = node_screen_bounds(app, source_node.id, source_node.bounds);
+                    let mut source_bounds =
+                        node_screen_bounds(app, source_node.id, source_node.bounds);
+                    source_bounds.origin += canvas_offset;
                     let source_center = bounds_center(source_bounds);
                     if !screen_point_visible(source_center, window.viewport_size()) {
                         return None;

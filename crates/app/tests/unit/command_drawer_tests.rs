@@ -94,3 +94,39 @@ fn reduced_motion_keeps_drawer_geometry_still() {
     assert_eq!(drawer.opacity(), 0.0, "退出结束应完全透明");
     assert!(!drawer.is_active(), "减少动态效果完成后不能持续重绘");
 }
+
+/// 场景：抽屉展开时 Dock 顶部圆角收为 0，收起后恢复，二者拼成一个连续轮廓。
+///
+/// 数据构造：Dock 圆角基准 18px；展开 220ms，半程 110ms，cubic-out(0.5) = 0.875。
+/// 执行过程：未展开 → 展开半程 → 展开完成 → 收回完成。
+///
+/// 预期结果：
+///   - 未展开：圆角 = 18px（Dock 独立存在）。
+///   - 半程：圆角 = 18 × (1 - 0.875) = 2.25px（随展开进度连续收小，不能跳变）。
+///   - 完全展开：圆角 = 0（与上方面板严丝合缝）。
+///   - 收回完成：圆角恢复 18px。
+#[test]
+fn dock_top_radius_follows_drawer_progress() {
+    let mut drawer = CommandDrawer::default();
+    assert_eq!(
+        drawer.dock_top_radius(18.0),
+        18.0,
+        "未展开时 Dock 保持原圆角"
+    );
+    drawer.retarget(102.0);
+    drawer.tick(Duration::from_millis(110), false);
+    assert_eq!(
+        drawer.dock_top_radius(18.0),
+        18.0 * (1.0 - 0.875),
+        "展开半程圆角应随进度连续收小"
+    );
+    drawer.tick(Duration::from_millis(220), false);
+    assert_eq!(
+        drawer.dock_top_radius(18.0),
+        0.0,
+        "完全展开时 Dock 顶部必须是直角"
+    );
+    drawer.retarget(0.0);
+    drawer.tick(Duration::from_millis(160), false);
+    assert_eq!(drawer.dock_top_radius(18.0), 18.0, "收回完成后恢复圆角");
+}

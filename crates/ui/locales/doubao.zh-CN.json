@@ -78,5 +78,8 @@
   "doubao.search_voices": "搜索音色名称、ID 或语言",
   "doubao.no_matching_voices": "没有匹配的音色",
   "doubao.voice_catalog_permissions": "官方语音 2.0 音色；实际可用范围取决于账号权限。",
-  "doubao.voice_selected": "已选"
+  "doubao.voice_selected": "已选",
+  "doubao.asr_final_timeout": "录音结束后语音识别超时，请重试。",
+  "doubao.recording_too_long": "录音超过五分钟，请分段发送。",
+  "doubao.asr_ended_before_release": "语音识别在松键前提前结束，请重试。"
 }

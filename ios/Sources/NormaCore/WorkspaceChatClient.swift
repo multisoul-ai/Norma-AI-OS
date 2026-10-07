@@ -45,7 +45,7 @@ public actor WorkspaceChatClient {
         let created = try await relayFactory(); relay = created; connectionName = "远程中继"; return created
     }
     public func activity(_ request: WorkspaceActivityRequest) async throws -> WorkspaceActivityResponse {
-        guard validID(request.workspaceID) else { throw MobileError.invalidResponse }
+        guard validID(request.workspaceID) || (request.workspaceID.isEmpty && ["summary","subscription","set_subscription"].contains(request.kind)) else { throw MobileError.invalidResponse }
         try request.target?.validate();try request.registration?.validate()
         if request.isMutation {
             let api:any WorkspaceChatAPI
@@ -204,6 +204,33 @@ private func check(_ receipt: WorkspaceChatReceipt?, message: WorkspaceChatMessa
 }
 
 private struct ActivityQuery:Encodable {let request:WorkspaceActivityRequest}
+extension MobileClient {
+    /// Capture the existing credential in memory before forgetting; clear after any in-flight enrollment.
+    public func prepareWorkspaceActivityRemoval(_ machine:PairedMachine) async throws -> @Sendable () async throws -> Void {
+        try machine.validate()
+        guard let credential=try await vault.load(machineID:machine.id) else {throw MobileError.invalidCredential}
+        return {
+            func query(_ request:WorkspaceActivityRequest) async throws -> WorkspaceActivitySubscription {
+                let fields=try JSONSerialization.jsonObject(with:JSONEncoder().encode(request))
+                let reply=try await exchange(machine,action:["type":"workspace_activity","device_id":credential.deviceID,"token":credential.token,"request":fields])
+                guard let state=try activityResponse(reply,request:request,machine:machine.id).subscription else {throw MobileError.invalidResponse}
+                return state
+            }
+            let state=try await query(.init(kind:"subscription"))
+            if state.registration != nil {
+                guard state.revision<Int64.max else {throw MobileError.invalidResponse}
+                var removal=WorkspaceActivityRequest(kind:"set_subscription");removal.expectedRevision=state.revision
+                do {
+                    let cleared=try await query(removal)
+                    guard cleared.registration==nil,cleared.revision==state.revision+1 else {throw MobileError.invalidResponse}
+                } catch {
+                    let original=error
+                    guard let cleared=try? await query(.init(kind:"subscription")),cleared.registration==nil,cleared.revision==state.revision+1 else {throw original}
+                }
+            }
+        }
+    }
+}
 extension DirectWorkspaceChatAPI {
     public func activity(_ request:WorkspaceActivityRequest) async throws -> WorkspaceActivityResponse {
         let reply=try await client.workspaceRPC(machine,type:"workspace_activity",fields:JSONEncoder().encode(ActivityQuery(request:request)))
@@ -222,7 +249,10 @@ private func activityResponse(_ reply:WireReply,request:WorkspaceActivityRequest
         guard summary.machineID==machine,summary.workspaceID==request.workspaceID,summary.attention.count<=4096 else {throw MobileError.invalidResponse}
         try summary.content.validate();for item in summary.attention {try item.target.validate()}
     }
-    if let subscription=response.subscription {try subscription.registration?.validate()}
+    if let subscription=response.subscription {
+        guard subscription.revision<=Int64.max else {throw MobileError.invalidResponse}
+        try subscription.registration?.validate()
+    }
     if request.kind=="detail" {
         guard response.target==request.target else {throw MobileError.invalidResponse}
         if let approval=response.approval {try approval.validate();guard request.target?.matches(approval.target)==true else {throw MobileError.invalidResponse}}

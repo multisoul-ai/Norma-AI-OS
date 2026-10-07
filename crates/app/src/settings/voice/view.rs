@@ -5,7 +5,7 @@ use self::asr_provider::asr_provider_group;
 use self::doubao::{desktop_mode_picker, doubao_settings};
 pub(crate) use self::editable::VoiceSettingsInputs;
 use self::input_device::input_device_row;
-use self::interaction::interaction_group;
+use self::interaction::{doubao_interaction_group, interaction_group};
 use self::model_catalog::model_catalog_row;
 use self::provider::{agent_provider_advanced_rows, agent_provider_group};
 use self::ready::{voice_ready_overview, voice_status_overview};
@@ -66,14 +66,13 @@ pub(crate) fn voice_settings(
         ));
     if state.values().desktop_mode() == super::DesktopVoiceMode::Doubao {
         return page
-            .child(doubao_settings(
+            .child(doubao_interaction_group(
                 theme,
                 state,
-                inputs,
                 voice_shortcut_label,
-                window,
                 cx,
             ))
+            .child(doubao_settings(theme, state, inputs, window, cx))
             .children(status_message(theme, state));
     }
     if !matches!(state.readiness(), super::VoiceEntryState::Ready) || state.reviewing_setup() {

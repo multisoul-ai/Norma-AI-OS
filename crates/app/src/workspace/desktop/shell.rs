@@ -1,7 +1,7 @@
 use super::scene::DesktopNavigation;
 use crate::app::MultisoulApp;
 use crate::shortcuts::ShortcutCommandId;
-use gpui::{div, prelude::*, px, rgba, AnyElement, Context, Div, ScrollHandle, Window};
+use gpui::{div, point, prelude::*, px, rgba, AnyElement, Context, Div, ScrollHandle, Window};
 use ui::component::{
     button::{Button, ButtonCustomVariant, ButtonVariants},
     Disableable, Sizable, StyledExt,
@@ -28,28 +28,40 @@ impl MultisoulApp {
     ) -> Div {
         let switcher = self.render_desktop_project_switcher(window, cx);
         let project = self.expanded_desktop_project();
+        let project_zoom_active = self.desktop_project_zoom_active();
         if let Some(project) = project {
             project.update(cx, |project, cx| {
                 project.sync_command_drawer(window);
                 project.start_animation_frame_driver_if_needed(window, cx);
+                // The shared Dock is outside the clipped project Scene. Paint receipts
+                // in window coordinates so launch and impact remain on their real endpoints.
+                let effect = if project_zoom_active {
+                    None
+                } else {
+                    let size = window.viewport_size();
+                    let frame =
+                        super::desktop_scene_rect(f32::from(size.width), f32::from(size.height));
+                    crate::effects::dispatch_receipt::render_with_canvas_offset(
+                        project,
+                        window,
+                        point(px(frame.origin.x), px(frame.origin.y)),
+                    )
+                };
                 div()
                     .absolute()
                     .inset_0()
                     .capture_key_down(cx.listener(Self::capture_command_dock_key))
+                    .children(effect)
                     .child(project.render_command_dock(window, cx, switcher))
-                    .when_some(
-                        project.render_command_suggestions(window, cx),
-                        |dock, menu| dock.child(menu),
-                    )
+                    .when(project.interaction.layout_menu_open, |dock| {
+                        dock.child(project.render_layout_menu(cx))
+                    })
             })
         } else {
             div()
                 .absolute()
                 .inset_0()
                 .child(self.render_command_dock(window, cx, switcher))
-                .when_some(self.render_command_suggestions(window, cx), |dock, menu| {
-                    dock.child(menu)
-                })
         }
     }
 
@@ -224,3 +236,11 @@ mod top_bar_tests;
 #[cfg(test)]
 #[path = "../../../tests/unit/command_dock_width_tests.rs"]
 mod width_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/desktop_dispatch_receipt_tests.rs"]
+mod dispatch_receipt_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/desktop_layout_menu_tests.rs"]
+mod layout_menu_tests;

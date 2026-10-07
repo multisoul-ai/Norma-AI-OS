@@ -211,6 +211,10 @@ impl crate::app::MultisoulApp {
 #[path = "../../../../tests/unit/settings_persona_tests.rs"]
 mod tests;
 
+#[cfg(test)]
+#[path = "../../../../tests/unit/settings_input_routing_tests.rs"]
+mod input_routing_tests;
+
 fn tone_text(tone: PersonaTone, field: &str) -> &'static str {
     let key = match (tone, field) {
         (PersonaTone::Warm, "label") => "persona.warm.label",

@@ -6,7 +6,6 @@ struct DesktopWorkspaceSettingsView: View {
     let computers: ComputerModel
     let cloud: CloudChatModel
     let workspaceID: String
-    @Environment(WorkspaceActivityManager.self) private var activities
     @Environment(\.dismiss) private var dismiss
     @State private var addingProject = false
     @State private var addingAgent = false
@@ -21,15 +20,6 @@ struct DesktopWorkspaceSettingsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     if let workspace {
-                        section(title:"锁屏总览",subtitle:"跟踪此 Mac 工作空间，与普通通知独立",icon:"lock.rectangle") {
-                            Toggle("锁屏跟踪",isOn:Binding(get:{activities.tracks(machine:model.catalog?.macID ?? "",workspace:workspaceID)},set:{value in
-                                guard let machine=model.catalog?.macID else {return}
-                                Task {await activities.setTracking(value,machine:machine,workspace:workspaceID)}
-                            })).disabled(activities.busy || !activities.enabled || !model.online).accessibilityIdentifier("workspace-activity-toggle")
-                            Text("iOS 17.2 起可在后台自动出现；17.0/17.1 需先在前台开启。点击卡片后核验并处理。").font(.footnote).foregroundStyle(IdeaPalette.secondary)
-                            if !activities.enabled {Text("请在系统设置中允许 Norma 实时活动。").font(.footnote).foregroundStyle(.secondary)}
-                            if let error=activities.error {Text(error).font(.footnote).foregroundStyle(.red)}
-                        }
                         section(title: "关联项目", subtitle: "工作空间可使用的已有项目", icon: "doc.text") {
                             ForEach(workspace.projects) { project in
                                 HStack(spacing: 12) {

@@ -11,7 +11,8 @@ use std::{fmt, io, path::PathBuf};
 #[derive(Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct MobileActivityRegistration {
-    pub desktop_workspace_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub desktop_workspace_id: Option<String>,
     pub generation: String,
     pub environment: PushEnvironment,
     pub auto_start: bool,
@@ -30,7 +31,11 @@ impl fmt::Debug for MobileActivityRegistration {
 }
 impl MobileActivityRegistration {
     pub fn validate(&self) -> StorageResult<()> {
-        for id in [&self.desktop_workspace_id, &self.generation] {
+        for id in self
+            .desktop_workspace_id
+            .iter()
+            .chain(std::iter::once(&self.generation))
+        {
             crate::mobile_access_store::validate_id(id)?;
         }
         for id in [&self.activity_id, &self.cycle_id].into_iter().flatten() {
@@ -160,6 +165,38 @@ impl MobileActivityStore {
         save(&tx, &grant.device_id, &next)?;
         tx.commit()?;
         Ok(Some(next))
+    }
+    /// Real idle clears dismissal and the previous update token, permitting the next work cycle.
+    pub fn observe_idle(
+        &self,
+        grant: &MobileDeviceGrant,
+        expected: u64,
+        at: u64,
+    ) -> StorageResult<Option<MobileActivityState>> {
+        if expected >= i64::MAX as u64 {
+            return Err(invalid("activity revision exhausted"));
+        }
+        let mut connection = open_app_connection(&self.path)?;
+        let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if !crate::mobile_push_store::current_grant(&tx, grant)? {
+            return Ok(None);
+        }
+        let mut state = read(&tx, &grant.device_id)?;
+        if state.revision != expected {
+            return Ok(None);
+        }
+        state.revision += 1;
+        state.journal.ended_at = state.journal.ended_at.or(Some(at));
+        state.journal.quiet_seen = true;
+        if let Some(r) = &mut state.registration {
+            r.dismissed = false;
+            r.activity_token = None;
+            r.activity_id = None;
+            r.cycle_id = None;
+        }
+        save(&tx, &grant.device_id, &state)?;
+        tx.commit()?;
+        Ok(Some(state))
     }
     /// Reserve a start before HTTP. A crash or unknown APNs result never replays that start.
     pub fn update_journal(

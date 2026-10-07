@@ -3,6 +3,7 @@ mod conversation;
 mod keys;
 mod motion;
 mod view;
+pub(crate) use view::DOCK_RADIUS;
 
 use super::{AppScreen, MultisoulApp, NewBrowser, NewTerminal};
 use gpui::{App, AppContext, Context, Entity, Focusable, ScrollHandle, Subscription, Window};

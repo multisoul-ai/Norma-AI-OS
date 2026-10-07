@@ -7,11 +7,16 @@ use futures::future::BoxFuture;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
+#[cfg(test)]
+#[path = "../../tests/unit/norma_memory_adapter_tests.rs"]
+mod tests;
+
 struct MemoryState {
     access: storage::MemoryAccess,
     catalog: Option<String>,
     recalled: bool,
     epoch: u64,
+    catalog_epoch: u64,
 }
 struct MemoryAdapter {
     delegate: Arc<dyn AgentCardAdapter>,
@@ -50,6 +55,7 @@ fn build_adapter(
             catalog: None,
             recalled: false,
             epoch: 0,
+            catalog_epoch: 0,
         })),
     })
 }
@@ -66,9 +72,13 @@ impl AgentCardAdapter for MemoryAdapter {
                         .lock()
                         .map_err(|_| AdapterError::Failed("记忆服务锁损坏".into()))?;
                     let (preferences, epoch) = state.access.recall_state()?;
+                    let catalog_epoch = state.access.catalog_epoch()?;
                     let persona = crate::settings::norma::persona::load_profile(&settings)
                         .map_err(AdapterError::Failed)?;
-                    if !preferences.recall || state.epoch != epoch {
+                    if !preferences.recall
+                        || state.epoch != epoch
+                        || state.catalog_epoch != catalog_epoch
+                    {
                         state.catalog = None;
                     }
                     if preferences.recall && (!state.recalled || state.catalog.is_none()) {
@@ -76,6 +86,7 @@ impl AgentCardAdapter for MemoryAdapter {
                     }
                     state.recalled = preferences.recall;
                     state.epoch = epoch;
+                    state.catalog_epoch = catalog_epoch;
                     Ok(Some(MemorySessionContext {
                         persona,
                         catalog: state.catalog.clone().unwrap_or_default(),
@@ -99,11 +110,15 @@ impl AgentCardAdapter for MemoryAdapter {
                 return super::agent_runtime::shared_tokio_runtime()
                     .map_err(AdapterError::Failed)?
                     .spawn_blocking(move || {
-                        let executed = state
+                        let mut state = state
                             .lock()
-                            .map_err(|_| AdapterError::Failed("记忆服务锁损坏".into()))?
-                            .access
-                            .execute(command, &context);
+                            .map_err(|_| AdapterError::Failed("记忆服务锁损坏".into()))?;
+                        let executed = state.access.execute(command, &context);
+                        if executed.as_ref().is_ok_and(|output| output.saved)
+                            || matches!(&executed, Err(AdapterError::Unknown(_)))
+                        {
+                            state.catalog = None;
+                        }
                         let output = match executed {
                             Ok(output) => output,
                             Err(error @ AdapterError::Unknown(_)) => {

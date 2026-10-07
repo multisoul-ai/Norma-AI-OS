@@ -1,0 +1,14 @@
+{
+  "time": "2026-10-06T12:23:32.534Z",
+  "base": "https://soulvoiceai.com/norma/voice",
+  "ip": "47.251.242.24",
+  "checks": {
+    "health": 200,
+    "anonymous_registration": 401,
+    "anonymous_voice": 401,
+    "public_admin_blocked": 404,
+    "anonymous_phone": 401,
+    "mac_challenge": 101,
+    "invalid_mac_rejected": 1008
+  }
+}

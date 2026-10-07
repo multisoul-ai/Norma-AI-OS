@@ -286,5 +286,9 @@
   "voice.on_device_selected": "✓ On-device",
   "voice.provider_connection_failed": "Could not connect to provider: %{reason}",
   "voice.provider_authentication_failed": "Provider authentication failed: %{reason}",
-  "voice.provider_model_list_unavailable": "Model list unavailable: %{reason}"
+  "voice.provider_model_list_unavailable": "Model list unavailable: %{reason}",
+  "voice.realtime_conversation": "Real-time conversation",
+  "voice.push_to_talk": "Push to talk",
+  "voice.doubao_realtime_shortcut": "Press %{shortcut} to start or end the conversation. Pause to send; speak to interrupt.",
+  "voice.doubao_hold_shortcut": "Hold %{shortcut} to record; release to send to Doubao. Click the voice button to start or send a recording."
 }

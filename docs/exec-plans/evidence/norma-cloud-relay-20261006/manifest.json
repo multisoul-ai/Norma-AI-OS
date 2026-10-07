@@ -1,0 +1,13 @@
+{
+  "doubao2.mjs": "b26f24f21fe9b1809a5f3eb2be15ee914c0f24a7c814d0dc25454540eb130f66",
+  "device-admin.mjs": "1313530bb9f2e5ba5749b21af478cf608ea88956bac7f036f4bd16933bd7c400",
+  "paired-registration.mjs": "ea8f9122bfbb005c4ec39c66a7ad7fff0f95b2357e457968b1494e944d4d6907",
+  "plan.mjs": "95a9997eb7e21e25e44ff10e30cd1f204e1c1982c7464bbebdf17fec232ab70f",
+  "collaboration-relay.mjs": "7fb97695ccdbc451b9e9afcc92289bddfb116f5fb4df368c728cf562e2ef5ddc",
+  "voice-authorization.mjs": "d35054950d87c6ac659f806d4d56dcee597318f208b59ce48281c407cf2d94c4",
+  "package-lock.json": "16dc69318501b0cc18955a70a273e74e214d509f46f3a9246d20acc6a47d4e51",
+  "package.json": "8db823081dad4f6608690dcea04be2d17b461ad0eb4018c838f8299c3c6869ae",
+  "server.mjs": "fc82b1156c97f9b181443d17ad0cefc90c379df4391544279ebf57aee79b5c99",
+  "mobile-text.mjs": "5d402b55a86e47ea65f1fefc7d69cca6c403434f86bd5333e4a5408019508057",
+  "nginx-front.conf": "8d310309d29c8fcf45531648ac419380455735a14a68ab47aa905bccc6b30013"
+}

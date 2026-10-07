@@ -85,7 +85,7 @@ At a glance:
 - The iOS app is a control/notification surface over the Mac app (`crates/app/src/mobile/`), not a standalone Norma: it does not run a PTY or Coding Agent. The realtime command center keeps one App-owned GPT WebRTC call and native avatar in `ios/App/CommandCenter`; Mac sideband execution and physical-device acceptance are tracked in `docs/exec-plans/2026-09-13-norma-ios-realtime-command-goal.md`. Pairing is QR + Mac approval; the phone persists operation identity in private `commands.json`, credentials stay in Keychain.
 - `PairingProbe` and `NormaDeviceTests` are test-only targets and must never be linked into the shipping app.
 - Simulator runs use Xcode local signing; do not set `CODE_SIGNING_ALLOWED=NO` while running Keychain tests (Security returns `errSecMissingEntitlement`).
-- `services/push/relay.mjs` is the APNs push relay: Node 22 built-in modules only (no npm deps), listens on `127.0.0.1` behind an HTTPS reverse proxy. It carries pending/completed/failed events plus bounded project/card names and the completed turn’s final-output excerpt; no full transcripts, tool parameters, project paths, or control commands. APNs `.p8` and relay keys live only on the server, never in the repo or app bundles. See [`services/push/README.md`](services/push/README.md) and [`ios/README.md`](ios/README.md).
+- `services/norma-cloud/push/relay.mjs` is the APNs push relay: Node 22 built-in modules only (no npm deps), runs as a module of the single `services/norma-cloud/server.mjs` listener behind an HTTPS reverse proxy. It carries pending/completed/failed events plus bounded project/card names and the completed turn’s final-output excerpt; no full transcripts, tool parameters, project paths, or control commands. APNs `.p8` and relay keys live only on the server, never in the repo or app bundles. See [`services/norma-cloud/push/README.md`](services/norma-cloud/push/README.md) and [`ios/README.md`](ios/README.md).
 
 ## 4. Current User-Facing Behavior
 
@@ -138,8 +138,8 @@ xcodebuild -project ios/Norma.xcodeproj -scheme Norma \
 Push relay service:
 
 ```bash
-node services/push/relay.mjs
-node --test services/push/relay.test.mjs
+npm --prefix services/norma-cloud start
+npm --prefix services/norma-cloud test
 ```
 
 Mechanized constraints:
@@ -199,6 +199,8 @@ Follow the project test comment and assertion rules in [`docs/quality/test-requi
 ## Agent Execution Sizing
 
 Choose the smallest sufficient implementation and verification flow from [`docs/quality/agent-execution-policy.md`](docs/quality/agent-execution-policy.md). In particular, do not automatically invoke implementation/review skills that require full-suite validation or parallel review for a focused single-crate change. Escalate only for cross-crate behaviour, explicit acceptance criteria, or high-risk boundaries.
+
+代码 review 必须使用独立 subagent 做对抗式审查：主动寻找反例、遗漏和测试假阳性，主 Agent 核验发现及证据；具体流程见 [`docs/quality/agent-execution-policy.md`](docs/quality/agent-execution-policy.md)。
 
 ## 8. UI And Interaction Notes
 

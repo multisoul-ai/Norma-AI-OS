@@ -194,6 +194,7 @@ xcrun metal --version
 - 涉及 GPUI API、元素、样式、actions、async、testing 或 troubleshooting 时，先加载对应 `gpui-*` skill；若 skill 与 `gpui =0.2.2` 或现有代码冲突，以本仓库验证结果为准。
 - 修改代码后按第 5 节跑对应验证；验证失败先定位根因。
 - 按 [`docs/quality/agent-execution-policy.md`](docs/quality/agent-execution-policy.md) 选择最小充分流程；没有明确理由，不启动重型 skill、并行审查或全仓验证。
+- **代码 review 必须使用独立 subagent 做对抗式审查**：主动寻找反例、遗漏和测试假阳性，主 Agent 核验发现及证据；具体流程见 [`docs/quality/agent-execution-policy.md`](docs/quality/agent-execution-policy.md)。
 - 新增测试必须遵守第 2 节测试结构规范。
 - 处理带验收标准的需求时，先把每条验收标准映射到相应的单元/集成测试或真实 App 验收证据；不再要求生成旧 `crates/e2e` 用例。
 - 若新增长期文档，优先建立 `docs/product-specs/`、`docs/design-docs/`、`docs/exec-plans/` 这类 canonical 路径；`.superpowers/sdd/` 只作为历史上下文，除非明确继续旧 SDD 流程。

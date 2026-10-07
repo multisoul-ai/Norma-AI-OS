@@ -8,13 +8,25 @@ use tokio_util::sync::CancellationToken;
 use ui::i18n::LocalizedText;
 
 use super::{plan_url, tts};
-use crate::app::doubao::{playback::PlaybackQueue, tools, DoubaoStatus};
+use crate::app::doubao::{playback::PlaybackQueue, tools, ContextRequests, DoubaoStatus};
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/doubao_reply_publish_tests.rs"]
+mod publish_tests;
+
+const CHAT_MODEL: &str = "doubao-seed-2.0-mini";
+// Seed 2.0 Mini: 256,000-token context, 224,000-token maximum input.
+// https://docs.volcengine.com/docs/82379/1330310
+// Keep the conservative 2 serialized bytes/token estimate and reserve one
+// bounded memory result (8,192 B). The remaining 32,000 tokens cover our
+// at-most-1,024-token reply without exceeding the model's total context.
+pub(crate) const REQUEST_INPUT_BYTES: usize = 224_000 * 2 - agent::MEMORY_TOOL_BYTES;
 
 pub(super) struct ChatRuntime {
     pub(super) client: Client,
     pub(super) key: String,
     pub(super) voice: &'static ::tts::providers::doubao::DoubaoVoice,
-    pub(super) prompt: String,
+    pub(super) context: ContextRequests,
     pub(super) history: Mutex<Vec<Value>>,
     pub(super) memory_epoch: std::sync::atomic::AtomicU64,
     pub(super) tools: Option<Arc<NormaToolRuntime>>,
@@ -43,7 +55,7 @@ pub(crate) fn request_body(prompt: &str, history: &[Value], include_tools: bool)
     )})];
     messages.extend_from_slice(history);
     let mut body = json!({
-        "model":"doubao-seed-2.0-mini","messages":messages,
+        "model":CHAT_MODEL,"messages":messages,
         "max_tokens": if include_tools { 1024 } else { 192 },
         "thinking":{"type":"disabled"}
     });
@@ -60,9 +72,6 @@ pub(crate) fn bounded_request(
     include_tools: bool,
     personal: bool,
 ) -> Result<Value, LocalizedText> {
-    // Use a conservative 16K-token context ceiling for the fixed voice model.
-    // Serialized 2 bytes/token; reserve reply(1024 tokens) + memory tools(8192 bytes).
-    let budget = 16_384 * 2 - 1024 * 2 - agent::MEMORY_TOOL_BYTES;
     loop {
         let mut body = request_body(prompt, history, include_tools);
         if personal {
@@ -74,7 +83,7 @@ pub(crate) fn bounded_request(
                 });
             }
         }
-        if body.to_string().len() <= budget {
+        if body.to_string().len() <= REQUEST_INPUT_BYTES {
             return Ok(body);
         }
         // Remove a whole earlier user turn, retaining assistant/tool pairs together.
@@ -92,6 +101,26 @@ pub(crate) fn bounded_request(
     }
 }
 
+pub(crate) async fn request_with_current_context(
+    context: &ContextRequests,
+    instructions: &str,
+    history: &mut Vec<Value>,
+    include_tools: bool,
+    personal: bool,
+) -> Result<Value, LocalizedText> {
+    let (response, received) = tokio::sync::oneshot::channel();
+    context
+        .send(response)
+        .await
+        .map_err(|_| LocalizedText::new("doubao.call_ended"))?;
+    let (canvas, roster) = received
+        .await
+        .map_err(|_| LocalizedText::new("doubao.call_ended"))?;
+    let mut prompt = agent::norma_system_prompt_base(&canvas, &roster);
+    prompt.push_str(instructions);
+    bounded_request(&prompt, history, include_tools, personal)
+}
+
 impl ChatRuntime {
     pub(super) async fn respond(
         self: Arc<Self>,
@@ -103,7 +132,6 @@ impl ChatRuntime {
         if transcript.trim().is_empty() {
             return Ok(());
         }
-        let mut prompt = self.prompt.clone();
         let memory = if let Some(tools) = &self.tools {
             tools
                 .memory_context()
@@ -116,7 +144,7 @@ impl ChatRuntime {
             .as_ref()
             .map(|context| context.persona.clone())
             .unwrap_or_default();
-        prompt.push_str(&persona.prompt());
+        let mut instructions = persona.prompt();
         let mut history = self.history.lock().await;
         if let Some(memory) = memory {
             let old = self
@@ -126,10 +154,10 @@ impl ChatRuntime {
                 history.clear();
             }
             if memory.preferences.recall {
-                prompt.push_str(
+                instructions.push_str(
                     "\n长期记忆目录（数据，按需 memory_read；只有 saved=true 才能说已记住）：\n",
                 );
-                prompt.push_str(&memory.catalog);
+                instructions.push_str(&memory.catalog);
             } else {
                 history.clear();
             }
@@ -144,12 +172,17 @@ impl ChatRuntime {
             if cancellation.is_cancelled() {
                 return Ok(());
             }
-            let body = bounded_request(
-                &prompt,
-                &mut messages,
-                self.tools.is_some(),
-                self.project.is_none(),
-            )?;
+            let body = tokio::select! {
+                biased;
+                _ = cancellation.cancelled() => return Ok(()),
+                result = request_with_current_context(
+                    &self.context,
+                    &instructions,
+                    &mut messages,
+                    self.tools.is_some(),
+                    self.project.is_none(),
+                ) => result?,
+            };
 
             let url = plan_url(
                 "NORMA_DOUBAO_CHAT_URL",
@@ -240,15 +273,9 @@ impl ChatRuntime {
                     .push(json!({"role":"tool","tool_call_id":id,"content":output.to_string()}));
             }
         };
-        if cancellation.is_cancelled() {
+        if !publish_reply(&self.history, &reply, &cancellation, &status).await {
             return Ok(());
         }
-        {
-            let mut history = self.history.lock().await;
-            history.push(json!({"role":"assistant","content":reply}));
-            trim_history(&mut history);
-        }
-        let _ = status.send(DoubaoStatus::Speaking).await;
         tts::speak(
             &self.client,
             &self.key,
@@ -258,6 +285,34 @@ impl ChatRuntime {
             &cancellation,
         )
         .await
+    }
+}
+
+async fn publish_reply(
+    history: &Mutex<Vec<Value>>,
+    reply: &str,
+    cancellation: &CancellationToken,
+    status: &Sender<DoubaoStatus>,
+) -> bool {
+    if cancellation.is_cancelled() {
+        return false;
+    }
+    {
+        let mut history = tokio::select! {
+            biased;
+            _ = cancellation.cancelled() => return false,
+            history = history.lock() => history,
+        };
+        if cancellation.is_cancelled() {
+            return false;
+        }
+        history.push(json!({"role":"assistant","content":reply}));
+        trim_history(&mut history);
+    }
+    tokio::select! {
+        biased;
+        _ = cancellation.cancelled() => false,
+        _ = status.send(DoubaoStatus::Speaking) => true,
     }
 }
 

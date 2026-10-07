@@ -1,6 +1,114 @@
 use super::*;
 use crate::NodeInput;
 
+/// 恢复 Codex 原卡时，带 fast 服务标记的真实页脚必须允许 iOS 消息提交并取得准确回执。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   1 张桌面原卡保存 session-fast；80×24 是原生终端默认网格。
+///   首屏 5 行 < 24 行，只有 GPT-6-Sol xhigh fast · /tmp 页脚，没有 model: 头部。
+///   正文为“连接测试”；绘制后的 Enter 间隔为 100ms，推进 101ms = 100ms + 1ms。
+///
+/// 执行过程：
+///   1. 恢复原卡与保存的会话，启动 echo PTY，不发送 SessionStart Hook。
+///   2. 加载中的原卡拒收消息；输出带 fast 页脚的已加载首屏后应变为 ready。
+///   3. 经 send_workspace_message 提交正文，绘制粘贴后推进 Enter。
+///   4. 仅在准确 UserPromptSubmit Hook 到达后取得原卡、原会话、原运行的回执。
+///
+/// 预期结果：
+///   - 正断言：fast 首屏就绪，原卡接受消息，回执对应 session-fast / turn-fast。
+///   - 负断言：加载中不能接收；粘贴或 Enter 不能伪造成功；不得另建 PTY 或旋转身份。
+#[test]
+fn native_codex_fast_footer_resumed_card_confirms_workspace_message() {
+    let mut runtime = Runtime::new_for_workspace("/tmp");
+    let node = runtime.document.add_node(
+        CanvasNodeKind::Agent(AgentSpec {
+            profile: AgentProfile::Codex,
+            alias: None,
+            definition_id: None,
+            mobile_control: false,
+        }),
+        CanvasRect::new(0., 0., 640., 400.),
+    );
+    runtime.hydrate_agent_session_bindings(&[storage::NodeSession {
+        node_id: node,
+        kind: storage::NodeSessionKind::Agent,
+        cwd: None,
+        session_id: Some("session-fast".into()),
+    }]);
+    let (capture, output) = crossbeam_channel::bounded(1);
+    runtime.set_pty_factory(Box::new(move |_, _, _, tx| {
+        capture.send(tx.clone()).expect("原卡 PTY 输出入口");
+        Ok(Box::new(terminal::TestPtyBackend::echo(tx)))
+    }));
+    runtime
+        .start_native_agent_terminal(node, 80, 24)
+        .expect("恢复原 Codex 卡片");
+    let loading = runtime.mobile_card_snapshots().remove(0);
+    assert_eq!(loading.state, "unknown", "未绘制首屏时不能提前就绪");
+    assert_eq!(
+        runtime.validate_workspace_message(&loading, "连接测试"),
+        Err("state_not_ready"),
+        "加载中必须拒收，不能把消息输入启动菜单"
+    );
+    output
+        .try_recv()
+        .expect("原 PTY sender")
+        .send(terminal::PtyEvent::Output(
+            "\x1b[?2004h\r\n› Ask Codex to do anything\r\n\r\nGPT-6-Sol xhigh fast · /tmp\r\n"
+                .as_bytes()
+                .to_vec(),
+        ))
+        .expect("现场 Codex fast 首屏");
+    runtime.drain_all();
+    let ready = runtime.mobile_card_snapshots().remove(0);
+    assert_eq!(
+        ready.state, "ready",
+        "fast 服务标记不能使已加载的原卡停在 unknown"
+    );
+    assert_eq!(ready.run_id, loading.run_id, "识别页脚不能改变原运行身份");
+    let receipt = runtime
+        .send_workspace_message(&ready, "连接测试".into())
+        .expect("iOS 消息必须能提交给恢复后的原卡");
+    assert!(
+        receipt.try_recv().is_err(),
+        "粘贴不能冒充 Provider 接收回执"
+    );
+    runtime.live.get_mut(&node).expect("原 echo PTY").drain();
+    let painted = Instant::now();
+    runtime.advance_mobile_messages(painted);
+    // Enter guard = 100ms；101ms = 100ms + 1ms，确保跨过绘制后的提交边界。
+    runtime.advance_mobile_messages(painted + std::time::Duration::from_millis(101));
+    assert!(
+        receipt.try_recv().is_err(),
+        "Enter 成功仍不能伪造 Provider 回执"
+    );
+    let prompt = norma::agent_hook::parse_hook_event(
+        norma::agent_hook::HookSource::Codex,
+        node,
+        serde_json::json!({"hook_event_name":"UserPromptSubmit","session_id":"session-fast","turn_id":"turn-fast","prompt":"连接测试"}),
+    )
+    .expect("准确 Codex 提交 Hook");
+    assert!(
+        runtime.observe_mobile_hook(&prompt),
+        "原会话的准确 Hook 必须被接受"
+    );
+    let result = receipt
+        .try_recv()
+        .expect("收到确认")
+        .expect("Provider 已确认提交");
+    assert_eq!(result["node_id"], node, "回执必须属于原卡");
+    assert_eq!(result["session_id"], "session-fast", "不能替换保存的原会话");
+    assert_eq!(result["turn_id"], "turn-fast", "不能借用旧回合确认新消息");
+    assert_eq!(
+        result["run_id"].as_str(),
+        ready.run_id.as_deref(),
+        "回执必须保留原运行身份"
+    );
+    assert_eq!(runtime.live_len(), 1, "手机发送不能另建 PTY");
+    assert!(receipt.try_recv().is_err(), "准确提交只能完成一次回执");
+    runtime.kill_all();
+}
+
 /// Codex 0.160 的大写模型页脚可接收手机首条消息，加载画面和菜单仍不可输入。
 ///
 /// 数据构造：80×24 原生终端；真实首屏为 5 行，5 < 24，且没有旧版 model: 头部。

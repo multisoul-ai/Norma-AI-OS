@@ -67,6 +67,11 @@ impl CommandDrawer {
         )
     }
 
+    /// Dock top corners flatten as the drawer opens so the two surfaces read as one.
+    pub(crate) fn dock_top_radius(&self, base: f32) -> f32 {
+        base * (1.0 - self.opacity())
+    }
+
     pub(crate) fn is_active(&self) -> bool {
         self.progress.value < 1.0
     }

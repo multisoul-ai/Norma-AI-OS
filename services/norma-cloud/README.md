@@ -1,6 +1,43 @@
-# Norma 云服务（现有语音网关）
+# Norma 统一云服务
 
-源码目录已从 `services/voice` 改为 `services/norma-cloud`。当前线上公网路径 `/norma/voice`、systemd 单元 `norma-voice` 和运行目录 `/opt/norma-voice/current` 仍沿用原名称；本次只调整仓库目录，不迁移线上部署。
+`push` 已合并到本目录；`server.mjs` 是唯一启动入口，推送、实时语音、文字和协作中继共用一个 Node.js 进程与监听端口。生产目标为 `47.251.242.24` 的 `norma-cloud.service`，Nginx 保留原客户端地址；当前部署与回退信息见[统一服务部署记录](../../docs/exec-plans/2026-10-06-norma-cloud-unified-deployment.md)。
+
+## 模块
+
+```text
+norma-cloud/
+├── server.mjs          # 统一 HTTP / WebSocket 装配与生命周期
+├── push/               # APNs、普通通知、ActivityKit 与去重
+├── voice/              # 实时语音、豆包协议、Plan ASR/Chat/TTS
+├── text/               # 设备准入、文字流与配对登记
+├── collaboration/      # Mac / iPhone 在线字节中继
+├── cloud/              # Vercel Redis 会话与工具通道
+├── api/                # 现有 Vercel 入口
+├── deploy/             # 一个 systemd 单元与统一 Nginx 配置
+├── scripts/            # 管理工具与人工验收探针
+└── tests/              # 模块与单端口集成检查
+```
+
+`npm test` 同时运行推送、统一入口和原云端回归；`npm run test:push` 可聚焦 APNs 模块。
+推送模块沿用独立 relay key，不接受云端管理员/手机凭据。未设置任何 APNs 配置时只启动云端能力；一旦设置任一推送配置，缺失、损坏或权限错误的凭据必须阻止启动。
+推送协议和历史交付证据见 [push/README.md](push/README.md)。
+
+## 常驻部署
+
+统一 systemd 单元为 `deploy/norma-cloud.service`，运行目录 `/opt/norma-cloud/current`，账号为 `norma-cloud`；Node 22.23.2 放在 `/opt/norma-cloud/node-v22.23.2-linux-x64/bin/node`。
+主环境文件 `/etc/norma-cloud/gateway.env` 配置 `HOST=127.0.0.1`、`PORT=8789`、`PUBLIC_ORIGIN=https://soulvoiceai.com/norma/voice` 及原云端配置。可选 `/etc/norma-cloud/push.env` 使用 `deploy/push.env.example` 的五个推送字段；不再使用 `NORMA_PUSH_PORT`。
+`.p8` 与 relay key 必须归 `norma-cloud` 所有且权限 0600；环境文件归 root 所有、0600。设备状态继续使用 `/var/lib/norma-cloud/devices.json`，迁移时保留内容并调整账号权限，不清空准入表。
+
+| 公网入口 | 统一后端路由 |
+|---|---|
+| `/norma/v1/notifications` | `127.0.0.1:8789/v1/notifications` |
+| `/norma/healthz` | `127.0.0.1:8789/healthz` |
+| `/norma/voice/*` | `127.0.0.1:8789/*` |
+
+Nginx 只引入 `deploy/nginx-front.conf` 一次，并移除旧 push/voice 片段的 include，避免重复 location。`/norma/` 只放行推送及其健康路径，禁止通过它访问云端管理接口；`/norma/voice/v1/admin/` 仍返回 404。推送请求限制保持 4 KiB / 12 秒，文字请求保持 32 KiB / 流式不缓冲。
+部署前在目标主机创建服务账号、准备 Node 与配置，安装完整目录并运行 `npm ci --omit=dev`；先用独立回环端口验证候选，再安装新单元、执行 `systemctl daemon-reload`，启动 `norma-cloud`。Nginx 片段安装为 `/etc/nginx/norma-cloud-front.conf`，`nginx -t` 成功后 reload。统一服务迁移时停用旧 `norma-push`、`norma-voice` 单元；SFOA 保持关闭，保留备份供回退。
+
+以下为各能力协议与历史交付记录。
 
 从 companion 的 `server/` 迁入，源仓库保持只读，文件来源与 SHA-256 见
 [`2026-09-13-realtime-source.json`](../../docs/design-docs/2026-09-13-realtime-source.json)。
@@ -10,7 +47,7 @@ Node.js 22+；仅依赖既有 `ws`。生产地址为 `https://soulvoiceai.com/no
 cd services/norma-cloud
 npm ci
 cp .env.example .env
-# 编辑 .env，填入你自己的访问口令和豆包 Plan API Key。
+# 编辑 .env，填入访问口令和豆包 Plan API Key；本地运行改用回环 PUBLIC_ORIGIN/PORT，删除设备状态路径或改为本地可写文件。
 npm test
 npm start
 ```
@@ -22,18 +59,18 @@ npm start
 `DOUBAO_PROTOCOL=plan` 开启 ASR → 豆包 Chat → TTS，并支持 Mac 工具和成果播报。
 `2` / `3` 保留原语音协议，仅提供聊天和角色行为。
 自定义网关地址与 `PUBLIC_ORIGIN` 必须相同，可包含挂载前缀；真机使用 HTTPS/WSS，HTTP 只允许回环开发。
-当前生产由 Nginx 将 `/norma/voice/` 转发到 `127.0.0.1:8789/` 并剥离前缀，媒体与工具票据保留公网前缀。部署配置见 `deploy/`。
-`norma-voice.service` 使用独立 Node 22 常驻单实例，内存维护一次性票据；不需要 Redis，不受 Vercel 300 秒执行上限影响，单次通话仍受现有 35 分钟上限约束。
+统一部署由 Nginx 将 `/norma/voice/` 转发到 `127.0.0.1:8789/` 并剥离前缀，媒体与工具票据保留公网前缀。部署配置见 `deploy/`。
+`norma-cloud.service` 使用 Node 22 常驻单实例，内存维护一次性票据；不需要 Redis，不受 Vercel 300 秒执行上限影响，单次通话仍受现有 35 分钟上限约束。
 新版 iOS 自动迁移两个旧默认地址，保留自定义部署；新服务器只为此次迁移兼容旧 Norma audience 的有效 Mac 签名，证书登记、设备绑定和到期规则不变。Mac 工具通道的子路径支持需要更新 Mac。
 
-旧 Vercel 入口仍保留以下独立部署方式：
+旧 Vercel 入口仍保留以下部署方式；它不配置 APNs，推送模块只用于常驻单实例：
 Vercel 使用现有 Redis 集成与独立 `norma-voice:<管理口令SHA256前24位>:` 命名空间：跨实例一次性票据、45秒独占租约及设备隔离的已播历史。
 媒体与Mac工具连接可落到不同实例，控制消息由有界Redis队列转发；音频仍只走WebSocket。云端供应商请求使用Node原生HTTPS，保留流式响应、取消与禁止跳转。每个私有部署同时仅一通电话，240秒空闲轮换，280秒强制结束以避开300秒平台上限。超过3秒音频突发仍限流，但以可重试错误交给手机恢复；正常挂断在上游结束及云端租约释放后确认。
 
 常驻生产环境设置 `COMPANION_ACCESS_TOKEN`、`DOUBAO_PROTOCOL=plan`、`DOUBAO_SPEECH_API_KEY`、`PUBLIC_ORIGIN` 和 `NORMA_VOICE_TRUSTED_CERTIFICATES`；只有 Vercel 入口额外需要 `KV_REST_API_URL`、`KV_REST_API_TOKEN`。
 最后一项是受信任 Mac 的 DER 公开证书 base64 字符串数组；当前仅登记此用户正式 Mac 安装，最多8个。新安装由服务管理员登记公开证书，私钥不离开Mac。不要使用已脱敏的环境导出值作为供应商Key。
 
-`npm run deploy:production` 使用 Vercel CLI 58.0.0，仅上传本目录运行文件；`.vercelignore` 排除环境、测试和探针。`npm run test:cloud` 需要真实Redis环境变量，随机命名空间不触碰正式会话。
+`npm run deploy:vercel` 使用 Vercel CLI 58.0.0，仅上传本目录运行文件；`.vercelignore` 排除环境、测试和探针。当前 Nginx 生产部署使用上面的常驻单元；`npm run test:cloud` 需要真实Redis环境变量，随机命名空间不触碰正式会话。
 
 手机从 `/v1/session` 领取一次性媒体票据。Plan 的 `session.created` 声明
 `doubao_…` 媒体身份及 `task_tools` / `reports` 能力；旧网关不声明能力时，App 保持聊天模式。
@@ -57,9 +94,9 @@ PCM、插话、回执续答和逐字成果播报；不使用云端 Key，不代�
 管理员在**服务器本机**运行以下命令，令牌只存在服务器环境变量中：
 
 ```sh
-node device-admin.mjs invite
-node device-admin.mjs list
-node device-admin.mjs revoke <device-id>
+node scripts/device-admin.mjs invite
+node scripts/device-admin.mjs list
+node scripts/device-admin.mjs revoke <device-id>
 ```
 
 `invite` 打印 7 天有效、只能兑换一次的 `norma://invite?code=…` 链接。App 使用
@@ -72,11 +109,9 @@ node device-admin.mjs revoke <device-id>
 
 本地 Swift 客户端与正式网关 HTTP 联调：`npm --prefix services/norma-cloud run test:native:text`。它自动启动回环服务并运行 `CloudTextNetworkTests`，使用临时设备状态和确定的测试供应商，覆盖中文增量、完整结束、历史恢复、重复请求、中断及撤销；完成后清理服务与临时凭据，不访问生产环境。该检查运行 macOS 上的共享 Swift 核心，不等同于 iOS 页面、Keychain 或真实模型验收。
 
-## 协作中继（#57 / #59 本地实施中）
+## 协作中继（#57 / #59）
 
-线程编排使用 `POST /v1/threads/plan`：与文字回合共用受邀手机准入、额度、并发与去重，调用同一豆包文字模型并完整验证结构化候选。只返回 Norma 回复与具名任务建议，不调用 Mac、不产生执行回执；来源由请求回填，拒绝未知/重复成员、额外执行字段、截断和超预算候选，生成期间撤权则丢弃候选。请求上限 64 KiB；每项任务与冻结快照合计不超过 Mac 协议的 32 KiB。契约见 [#59 规格](../../docs/product-specs/2026-09-29-norma-ios-issue-59-single-mac.md)。
-
-`node check-thread-plan.mjs` 已加入 `npm test`，通过回环 HTTP 检查上述边界，供应商是测试替身。当前只完成服务端；手机原子保存/派工入口及真实模型验收待接入，`@Norma` 尚不可用。本阶段不部署；未来启用公网入口前需同步代理的请求大小配置。
+旧 `POST /v1/threads/plan` 已退役，返回 404；`tests/check-thread-retirement.mjs` 已进入 `npm test`。当前工作空间聊天和任务执行由 Mac 承担，手机直连与云中继进入相同的 Mac 协议处理器；云中继只负责在线转发。
 
 常驻网关增加 `/v1/relay/mac` 与 `/v1/relay/phone`。Mac 复用安装证书签署一次性挑战，
 服务端通过 `NORMA_RELAY_TRUSTED_CERTIFICATES`（DER 公开证书 base64 数组）限制可上线的 Mac；
@@ -86,13 +121,13 @@ node device-admin.mjs revoke <device-id>
 
 `npm run test:relay` 使用临时 P-256 证书、真实邀请准入与本机 WebSocket，覆盖签名重放、重复 Mac、
 双向转发、跨连接隔离、撤销、断线、重启和限额；无真实模型调用。它已进入 `npm test`。
-当前只是中继基础能力，端到端加密会话、原生客户端、线程持久回执与真实执行仍待接入；
-不得把该网络测试当作 iPhone 到 Mac 的完整任务验收。未部署线上，旧 Vercel 入口不承载此常驻中继。
+双端已接入中继与端到端加密会话，Mac 负责持久回执及执行。2026-10-06 的服务器候选验证与公网 HTTPS/WSS 路由、鉴权检查已通过；
+真实 iPhone 蜂窝网络任务与断线恢复尚未验收，不得把服务端网络检查当作完整任务验收。旧 Vercel 入口不承载此常驻中继。
 
-线上音频验收使用 `probe-plan-call.mjs`（源自 companion 同名探针），显式指定 `NORMA_PROBE_PCM`（PCM16/16kHz/单声道）、`NORMA_PROBE_OUTPUT`（已存在目录）及服务端管理口令，再运行：
+线上音频验收使用 `scripts/probe-plan-call.mjs`（源自 companion 同名探针），显式指定 `NORMA_PROBE_PCM`（PCM16/16kHz/单声道）、`NORMA_PROBE_OUTPUT`（已存在目录）及服务端管理口令，再运行：
 
 ```sh
-node probe-plan-call.mjs --gateway=https://soulvoiceai.com/norma/voice --deployment
+node scripts/probe-plan-call.mjs --gateway=https://soulvoiceai.com/norma/voice --deployment
 ```
 
 探针只上传预生成语音，检查匿名拒绝、真实ASR/Chat/PCM、工具通道和独立TTS，不采集现场麦克风。输出PCM是接收证据，不等同于手机实际扬声器播放。使用HTTP代理的本机需 Node.js 24.5+ 和 `NODE_USE_ENV_PROXY=1`。

@@ -1,5 +1,6 @@
 //! Command Dock rendering and its local GPUI elements.
 
+use super::super::command_dock::DOCK_RADIUS;
 use super::super::{AppScreen, MultisoulApp};
 use super::bottom_voice_bar_visible;
 use crate::effects::dispatch_receipt::{COMMAND_DOCK_BOTTOM_PX, COMMAND_DOCK_HEIGHT_PX};
@@ -22,6 +23,8 @@ impl MultisoulApp {
             return self.render_desktop_overview_dock(window, cx, project_switcher);
         }
         let input = self.render_command_input(window, cx);
+        let suggestions = self.render_command_suggestions(window, cx);
+        let top_radius = self.dock_top_radius();
         div()
             .absolute()
             .left(px(18.0))
@@ -33,18 +36,24 @@ impl MultisoulApp {
                 div()
                     .id("workspace-command-dock")
                     .debug_selector(|| "workspace-command-dock".into())
-                    .max_w(px(720.0))
+                    .min_w(px(0.0))
+                    .max_w(px(840.0))
                     .h(px(COMMAND_DOCK_HEIGHT_PX))
                     .flex()
                     .items_center()
                     .gap(px(3.0))
                     .p(px(6.0))
-                    .rounded(px(18.0))
+                    .relative()
+                    .rounded_tl(px(top_radius))
+                    .rounded_tr(px(top_radius))
+                    .rounded_bl(px(DOCK_RADIUS))
+                    .rounded_br(px(DOCK_RADIUS))
                     .border_1()
                     .border_color(rgba(theme.dock_line))
                     .shadow(command_dock_shadow())
                     .bg(rgba(theme.dock))
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .children(suggestions)
                     .child(
                         chrome_icon_button(
                             theme,
@@ -102,6 +111,8 @@ impl MultisoulApp {
     ) -> Div {
         let theme = self.theme;
         let input = self.render_command_input(window, cx);
+        let suggestions = self.render_command_suggestions(window, cx);
+        let top_radius = self.dock_top_radius();
         div()
             .absolute()
             .left(px(18.0))
@@ -113,18 +124,24 @@ impl MultisoulApp {
                 div()
                     .id("workspace-command-dock")
                     .debug_selector(|| "workspace-command-dock".to_string())
-                    .max_w(px(720.0))
+                    .min_w(px(0.0))
+                    .max_w(px(840.0))
                     .h(px(COMMAND_DOCK_HEIGHT_PX))
                     .flex()
                     .items_center()
                     .gap(px(3.0))
                     .p(px(6.0))
-                    .rounded(px(18.0))
+                    .relative()
+                    .rounded_tl(px(top_radius))
+                    .rounded_tr(px(top_radius))
+                    .rounded_bl(px(DOCK_RADIUS))
+                    .rounded_br(px(DOCK_RADIUS))
                     .border_1()
                     .border_color(rgba(theme.dock_line))
                     .shadow(command_dock_shadow())
                     .bg(rgba(theme.dock))
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .children(suggestions)
                     .child(
                         chrome_icon_button(
                             theme,

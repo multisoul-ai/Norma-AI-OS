@@ -4,11 +4,12 @@
   "type": "module",
   "scripts": {
     "start": "node --env-file-if-exists=.env server.mjs",
-    "test": "node check.mjs && node check-plan.mjs && node check-tasks.mjs && node check-text.mjs && node check-thread-retirement.mjs && node check-relay.mjs && node check-paired-registration.mjs",
-    "test:relay": "node check-relay.mjs",
-    "test:native:text": "node check-text-native.mjs",
-    "test:cloud": "node check-cloud.mjs && NORMA_CLOUD_TOOLS_CHECK=1 node check-tasks.mjs",
-    "deploy:production": "npx --yes vercel@58.0.0 deploy --prod --yes"
+    "test": "node --test tests/*.test.mjs && node tests/check.mjs && node tests/check-plan.mjs && node tests/check-tasks.mjs && node tests/check-text.mjs && node tests/check-thread-retirement.mjs && node tests/check-relay.mjs && node tests/check-paired-registration.mjs",
+    "test:push": "node --test tests/push-*.test.mjs",
+    "test:relay": "node tests/check-relay.mjs",
+    "test:native:text": "node tests/check-text-native.mjs",
+    "test:cloud": "node tests/check-cloud.mjs && NORMA_CLOUD_TOOLS_CHECK=1 node tests/check-tasks.mjs",
+    "deploy:vercel": "npx --yes vercel@58.0.0 deploy --prod --yes"
   },
   "engines": {
     "node": "22.x"

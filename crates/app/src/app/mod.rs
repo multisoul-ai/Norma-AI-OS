@@ -92,6 +92,7 @@ pub(crate) use feature_guide::{
 };
 use feature_guide::{FeatureGuideMediaState, FeatureGuideSettingsState, FeatureGuideState};
 mod ime;
+pub(crate) use ime::should_defer_keystroke_to_ime;
 mod ime_geometry;
 mod keyboard;
 mod keyboard_settings;

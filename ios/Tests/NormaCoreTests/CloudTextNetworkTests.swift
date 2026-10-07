@@ -11,7 +11,7 @@ final class CloudTextNetworkTests: XCTestCase {
     /// 预期结果：成功正文和增量一致，重启可搜索；失败只有原文，撤销后的令牌不能再获得回复。
     @MainActor func testInvitedClientStreamsThroughLocalGateway() async throws {
         guard let fixturePath = ProcessInfo.processInfo.environment["NORMA_CLOUD_TEXT_FIXTURE"] else {
-            throw XCTSkip("由 services/norma-cloud/check-text-native.mjs 启动隔离本机网关后运行")
+            throw XCTSkip("由 services/norma-cloud/tests/check-text-native.mjs 启动隔离本机网关后运行")
         }
         struct Fixture: Decodable { let origin: URL; let admin: String }
         let fixture = try JSONDecoder().decode(Fixture.self, from: Data(contentsOf: URL(fileURLWithPath: fixturePath)))

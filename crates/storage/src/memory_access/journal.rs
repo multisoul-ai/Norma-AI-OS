@@ -97,28 +97,30 @@ pub(super) fn reserve(
     operation: &str,
     fingerprint: &str,
     record: &str,
+    validate: impl FnOnce() -> Result<(), AdapterError>,
 ) -> Result<Option<Result<MemoryToolOutput, agent::MemoryRevision>>, AdapterError> {
-    let connection = open_app_connection(path).map_err(failure)?;
-    let inserted = connection
-        .execute(
-            "INSERT OR IGNORE INTO memory_operations (operation_id,fingerprint,receipt,recorded_at,record_json) VALUES (?1,?2,NULL,?3,?4)",
-            params![
-                operation,
-                fingerprint,
-                crate::current_unix_timestamp().map_err(failure)?,record
-            ],
-        )
+    let mut database = open_app_connection(path).map_err(failure)?;
+    let connection = database
+        .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
         .map_err(failure)?;
-    if inserted == 1 {
-        return Ok(None);
-    }
-    let (old, receipt, record): (String, Option<String>, String) = connection
+    let reserved: Option<(String, Option<String>, String)> = connection
         .query_row(
             "SELECT fingerprint,receipt,record_json FROM memory_operations WHERE operation_id=?1",
             [operation],
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
         )
+        .optional()
         .map_err(failure)?;
+    let Some((old, receipt, record)) = reserved else {
+        validate()?;
+        connection.execute(
+            "INSERT INTO memory_operations (operation_id,fingerprint,receipt,recorded_at,record_json) VALUES (?1,?2,NULL,?3,?4)",
+            params![operation, fingerprint, crate::current_unix_timestamp().map_err(failure)?, record],
+        ).map_err(failure)?;
+        connection.commit().map_err(failure)?;
+        return Ok(None);
+    };
+    connection.commit().map_err(failure)?;
     if old != fingerprint {
         return Err(AdapterError::Rejected("操作身份重复且候选内容不同".into()));
     }
@@ -135,13 +137,22 @@ pub(super) fn finish(
     path: &Path,
     operation: &str,
     output: &MemoryToolOutput,
+    invalidate_catalog: bool,
 ) -> Result<(), AdapterError> {
-    let connection = open_app_connection(path).map_err(failure)?;
-    connection
+    let mut database = open_app_connection(path).map_err(failure)?;
+    let connection = database
+        .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+        .map_err(failure)?;
+    let finished = connection
         .execute(
-            "UPDATE memory_operations SET receipt=?2 WHERE operation_id=?1",
+            "UPDATE memory_operations SET receipt=?2 WHERE operation_id=?1 AND receipt IS NULL",
             params![operation, serde_json::to_string(output).map_err(failure)?],
         )
         .map_err(failure)?;
+    if finished > 0 && invalidate_catalog {
+        // ponytail: one global catalog epoch; use scope epochs if refreshing unrelated catalogs becomes costly.
+        super::preferences::invalidate_catalog(&connection)?;
+    }
+    connection.commit().map_err(failure)?;
     Ok(())
 }

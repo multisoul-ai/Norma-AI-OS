@@ -25,7 +25,9 @@ impl MultisoulApp {
                 .id("desktop-workspace-world")
                 .absolute()
                 .inset_0()
-                .child(self.render_workspace_backdrop())
+                .when(!self.desktop_directory_zoom_active(), |world| {
+                    world.child(self.render_workspace_backdrop())
+                })
                 .child(self.render_desktop_project_switch(cx));
             return self.clip_desktop_directory_workspace(world, window);
         }
@@ -295,7 +297,8 @@ impl MultisoulApp {
             .id("desktop-workspace-world")
             .debug_selector(|| "desktop-workspace-world".to_string())
             .absolute();
-        if zoomed_area_id.is_some() {
+        // Directory transitions already paint a fixed window backdrop in the host.
+        if zoomed_area_id.is_some() && !self.desktop_directory_zoom_active() {
             world = world.child(
                 div()
                     .id("desktop-project-receding-wallpaper")

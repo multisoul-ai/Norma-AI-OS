@@ -50,6 +50,7 @@ struct RootView: View {
             if phase == .background { Task { await workspaces.flushDrafts() } }
         }
         .onOpenURL { url in
+            if url.scheme=="norma",url.host=="inbox",url.query==nil {navigate(2);return}
             if let link=WorkspaceActivityLink(url:url) {activityLink=link;return}
             guard let code = CloudInvitationLink.code(from: url) else { return }
             showComputers = false

@@ -31,10 +31,41 @@ fn workspace_activity_request_is_typed_and_rejects_extra_controls() {
     );
 }
 
-/// 汇总授权覆盖全空间：只读授权可查一个项目但不能泄漏另一个区域，配置修改使捕获失效。
+/// 设备自动登记与总览无需选空间，具体决策仍必须定位原空间。
+/// 数据构造：summary/subscription/set_subscription三种设备操作；一个缺空间的decide。
+/// 执行过程：解析设备操作→读取空范围标识→解析缺范围决策→拒绝。
+/// 预期结果：设备级操作可解析，决策不能借默认范围控制任意项目。
+#[test]
+fn workspace_activity_device_scope_is_automatic_but_never_authorizes_decisions() {
+    let read: Request = serde_json::from_value(json!({"kind":"summary"})).expect("自动Mac总览");
+    assert!(
+        read.desktop_workspace_id.is_empty(),
+        "自动总览不要求指定工作空间"
+    );
+    assert!(
+        serde_json::from_value::<Request>(json!({"kind":"subscription"})).is_ok(),
+        "配对后可直接读登记"
+    );
+    assert!(
+        serde_json::from_value::<Request>(
+            json!({"kind":"set_subscription","expected_revision":0,"registration":null})
+        )
+        .is_ok(),
+        "设备级登记不要求工作空间目录"
+    );
+    assert!(
+        serde_json::from_value::<Request>(
+            json!({"kind":"receipt","area_id":"area","operation_id":"op"})
+        )
+        .is_err(),
+        "原回执仍必须定位工作空间"
+    );
+}
+
+/// 自动总览按项目过滤：只读授权可查一个项目但不能泄漏另一个区域，配置修改使捕获失效。
 /// 数据构造：隔离AppDB，1空间/2非Git项目；仅授权A，随后改为全部只读。
-/// 执行过程：A单独授权→请求全空间拒绝→全部只读成功→控制请求拒绝→删除B→旧范围不再匹配。
-/// 预期结果：全空间读取需全部项目权限；只读不授予决策；配置变化必须拦截迟到数据。
+/// 执行过程：A单独授权→汇总只返回A→全部只读成功→控制请求拒绝→删除B→旧范围不再匹配。
+/// 预期结果：仅返回获授权项目；只读不授予决策；配置变化必须拦截迟到数据。
 #[test]
 fn workspace_activity_authorization_never_expands_project_permissions() {
     let dir = tempfile::tempdir().expect("隔离目录");
@@ -63,12 +94,12 @@ fn workspace_activity_authorization_never_expands_project_permissions() {
             }],
         )
         .expect("仅授权A");
+    let visible = areas(app.path(), &space.id, &grant, false).expect("项目A可读");
+    assert_eq!(visible.len(), 1, "局部授权应只呈现一个项目");
+    assert_eq!(visible[0].area.id, area_a.id, "获授权的A必须可见");
     assert!(
-        matches!(
-            areas(app.path(), &space.id, &grant, false),
-            Err("unauthorized")
-        ),
-        "项目A的读取权限不能泄漏项目B"
+        !visible.iter().any(|a| a.area.id == area_b.id),
+        "B不能泄漏到默认总览"
     );
     let grant = access
         .replace_with_all_projects("phone", grant.revision, storage::MobilePermission::Read)

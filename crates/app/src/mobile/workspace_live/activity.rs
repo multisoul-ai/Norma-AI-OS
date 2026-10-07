@@ -99,18 +99,15 @@ fn decide(
                     .flatten()
                     .is_some_and(|g| {
                         g.revision == revision
-                            && auth_areas.iter().all(|a| g.allows(&a.project_id, true))
-                    })
-                    && auth_areas.first().is_some_and(|a| {
-                        storage::DesktopWorkspaceStore::new(path)
-                            .mobile_scope_current(
-                                &a.area.desktop_workspace_id,
-                                &auth_areas
-                                    .iter()
-                                    .map(|a| a.area.clone())
-                                    .collect::<Vec<_>>(),
-                            )
-                            .unwrap_or(false)
+                            && auth_areas.first().is_some_and(|a| {
+                                crate::mobile::activity::overview::current(
+                                    &path,
+                                    Some(&a.area.desktop_workspace_id),
+                                    &g,
+                                    true,
+                                    &auth_areas,
+                                )
+                            })
                     })
             })
             .await;

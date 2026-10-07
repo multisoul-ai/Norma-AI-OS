@@ -1,4 +1,4 @@
-use super::{playback::start_playback, DoubaoStatus};
+use super::{playback::start_playback, ContextRequests, DoubaoStatus};
 use crate::app::voice_window_inset::VoiceWindowInsetEventSink;
 use agent::NormaToolRuntime;
 use async_channel::{Receiver, Sender};
@@ -9,7 +9,12 @@ use ui::i18n::LocalizedText;
 
 pub(super) mod asr;
 pub(super) mod chat;
+mod conversation;
 mod tts;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/doubao_hold_real_pipeline_tests.rs"]
+mod hold_real_tests;
 
 fn plan_url(env: &str, production: &str) -> String {
     #[cfg(feature = "e2e-test-support")]
@@ -29,15 +34,16 @@ fn request_id() -> String {
 
 pub(super) async fn run_session(
     (account, voice): (String, &'static ::tts::providers::doubao::DoubaoVoice),
-    prompt: String,
+    context: ContextRequests,
     project_id: Option<String>,
     database: PathBuf,
     tools: Option<NormaToolRuntime>,
     cancellation: CancellationToken,
-    (events, reports, playback_events): (
+    (events, reports, playback_events, input): (
         Sender<DoubaoStatus>,
         Receiver<String>,
         VoiceWindowInsetEventSink,
+        super::input::SessionInput,
     ),
 ) -> Result<(), LocalizedText> {
     let credential_store = storage::SettingsStore::new(database.clone());
@@ -57,7 +63,7 @@ pub(super) async fn run_session(
         client,
         key: key.clone(),
         voice,
-        prompt,
+        context,
         history: Default::default(),
         memory_epoch: Default::default(),
         tools: tools.map(Arc::new),
@@ -66,85 +72,46 @@ pub(super) async fn run_session(
         session: request_id(),
         playback: Arc::clone(&playback),
     });
-    let (speech_tx, speech_rx) = async_channel::bounded(32);
-    let mut asr_task = tokio::spawn(asr::run(key, speech_tx, cancellation.clone()));
-    let (done_tx, done_rx) = async_channel::unbounded::<(u64, Result<(), LocalizedText>)>();
-    let mut reply_token: Option<CancellationToken> = None;
-    let mut reply_active = false;
-    let mut reply_id = 0_u64;
-    let mut turn = 0_u64;
-    let result = loop {
-        tokio::select! {
-            _ = cancellation.cancelled() => break Ok(()),
-            asr_result = &mut asr_task => {
-                break asr_result.map_err(|_| LocalizedText::new("doubao.asr_interrupted"))?;
-            }
-            playback_error = playback.errors.recv() => {
-                break Err(playback_error.unwrap_or_else(|_| LocalizedText::new("doubao.output_unavailable")));
-            }
-            event = speech_rx.recv() => {
-                match event {
-                    Ok(asr::SpeechEvent::Ready) => { let _ = events.send(DoubaoStatus::Connected).await; }
-                    Ok(asr::SpeechEvent::Started) => {
-                        if let Some(token) = reply_token.take() { token.cancel(); }
-                        playback.interrupt();
-                        reply_active = false;
-                        let _ = events.send(DoubaoStatus::Connected).await;
-                    }
-                    Ok(asr::SpeechEvent::Final(transcript)) => {
-                        turn = turn.wrapping_add(1);
-                        reply_id = reply_id.wrapping_add(1);
-                        reply_active = true;
-                        let _ = events.send(DoubaoStatus::Thinking).await;
-                        let id = reply_id;
-                        let token = CancellationToken::new();
-                        reply_token = Some(token.clone());
-                        let chat = Arc::clone(&chat);
-                        let done = done_tx.clone();
-                        let status = events.clone();
-                        tokio::spawn(async move {
-                            let result = chat.respond(transcript, turn, token, status).await;
-                            let _ = done.send((id, result)).await;
-                        });
-                    }
-                    Err(_) => break (&mut asr_task).await.map_err(|_| LocalizedText::new("doubao.asr_interrupted"))?,
-                }
-            }
-            report = reports.recv(), if !reply_active => {
-                if let Ok(report) = report {
-                    reply_id = reply_id.wrapping_add(1);
-                    reply_active = true;
-                    let _ = events.send(DoubaoStatus::Speaking).await;
-                    let id = reply_id;
-                    let token = CancellationToken::new();
-                    reply_token = Some(token.clone());
-                    let chat = Arc::clone(&chat);
-                    let done = done_tx.clone();
-                    tokio::spawn(async move {
-                        let result = tts::speak(&chat.client, &chat.key, &report, chat.voice, &chat.playback, &token).await;
-                        let _ = done.send((id, result)).await;
-                    });
-                }
-            }
-            done = done_rx.recv() => {
-                if let Ok((id, outcome)) = done {
-                    if id == reply_id {
-                        reply_active = false;
-                        reply_token = None;
-                        if let Err(error) = outcome { break Err(error); }
-                        let _ = events.send(DoubaoStatus::Connected).await;
-                    }
-                }
-            }
+    let speech_tx = input.events;
+    let speech_rx = input.speech;
+    let asr_cancellation = cancellation.clone();
+    let asr_task = tokio::spawn(async move {
+        if let Some(recordings) = input.recordings {
+            asr::listen_recordings(key, speech_tx, asr_cancellation, recordings).await
+        } else {
+            asr::run(key, speech_tx, asr_cancellation, None).await
         }
-    };
-    if let Some(token) = reply_token {
-        token.cancel();
-    }
-    cancellation.cancel();
-    if !asr_task.is_finished() {
-        let _ = asr_task.await;
-    }
-    playback.end();
-    result
+    });
+    let status = events.clone();
+    conversation::run(
+        move |reply, token| {
+            let chat = Arc::clone(&chat);
+            let status = status.clone();
+            async move {
+                match reply {
+                    conversation::Reply::User { transcript, turn } => {
+                        chat.respond(transcript, turn, token, status).await
+                    }
+                    conversation::Reply::Report(report) => {
+                        tts::speak(
+                            &chat.client,
+                            &chat.key,
+                            &report,
+                            chat.voice,
+                            &chat.playback,
+                            &token,
+                        )
+                        .await
+                    }
+                }
+            }
+        },
+        playback,
+        asr_task,
+        cancellation,
+        events,
+        speech_rx,
+        reports,
+    )
+    .await
 }

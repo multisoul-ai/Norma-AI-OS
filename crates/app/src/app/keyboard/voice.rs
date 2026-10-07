@@ -32,7 +32,15 @@ impl MultisoulApp {
         if self.voice_settings.values().desktop_mode()
             == crate::settings::voice::DesktopVoiceMode::Doubao
         {
-            self.toggle_doubao_voice(window, cx);
+            if self.voice_settings.values().doubao_interaction_mode()
+                == crate::settings::voice::VoiceInteractionMode::ContinuousListening
+            {
+                self.toggle_doubao_voice(window, cx);
+            } else if pointer_toggle && self.doubao.recording.is_some() {
+                self.end_doubao_recording(cx);
+            } else {
+                self.begin_doubao_recording(!pointer_toggle, window, cx);
+            }
             return;
         }
         let continuous = self.voice_settings.values().interaction_mode()
@@ -110,6 +118,12 @@ impl MultisoulApp {
         if self.voice_settings.values().desktop_mode()
             == crate::settings::voice::DesktopVoiceMode::Doubao
         {
+            if self.doubao.recording_from_shortcut
+                && is_voice_hold_release(keystroke, voice_shortcut.as_ref())
+            {
+                self.end_doubao_recording(cx);
+                return true;
+            }
             return false;
         }
         if self.voice_settings.values().dictation_trigger()
@@ -133,6 +147,11 @@ impl MultisoulApp {
         if self.voice_settings.values().desktop_mode()
             == crate::settings::voice::DesktopVoiceMode::Doubao
         {
+            if self.doubao.recording_from_shortcut
+                && is_voice_hold_modifier_release(modifiers, voice_shortcut.as_ref())
+            {
+                self.end_doubao_recording(cx);
+            }
             return;
         }
         if self.voice_settings.values().dictation_trigger()
@@ -148,3 +167,7 @@ impl MultisoulApp {
 #[cfg(test)]
 #[path = "../../../tests/unit/app_keyboard_voice_tests.rs"]
 mod voice_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/doubao_hold_keyboard_tests.rs"]
+mod doubao_hold_tests;

@@ -179,11 +179,18 @@ impl MultisoulApp {
         if self.handle_settings_text_key_down(ev, cx) {
             return;
         }
-        if self.voice_settings_inputs.is_focused(window, cx) {
+        if self.shortcuts.recording.is_some() {
             cx.stop_propagation();
             return;
         }
-        if self.shortcuts.recording.is_some() {
+        // macOS skips text submission when KeyDown is marked handled. Let focused
+        // child editors reach the platform text channel; the app skips canvas routing.
+        if !self.focus_handle.is_focused(window)
+            && crate::app::should_defer_keystroke_to_ime(&ev.keystroke)
+        {
+            return;
+        }
+        if self.voice_settings_inputs.is_focused(window, cx) {
             cx.stop_propagation();
             return;
         }

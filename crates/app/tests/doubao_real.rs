@@ -5,6 +5,19 @@ use futures::{SinkExt, StreamExt};
 use serde_json::{json, Value};
 use std::{io::Write, time::Duration};
 use tokio_tungstenite::tungstenite::{client::IntoClientRequest, http::HeaderValue, Message};
+use ui::i18n::LocalizedText;
+
+#[path = "unit/doubao_real_ack_tests.rs"]
+mod ack_tests;
+#[path = "../src/app/doubao/plan/asr/protocol.rs"]
+mod asr_protocol;
+
+fn validate_asr_ack(message: &Message) -> Result<(), LocalizedText> {
+    match message {
+        Message::Binary(raw) => asr_protocol::decode(raw).map(|_| ()),
+        _ => Err(LocalizedText::new("doubao.asr_header_invalid")),
+    }
+}
 
 /// L3：同一把本机方舟 Key 应通过 ASR 2.0、方舟 Chat 2.0 与 TTS 2.0 的真实服务。
 ///
@@ -13,7 +26,7 @@ use tokio_tungstenite::tungstenite::{client::IntoClientRequest, http::HeaderValu
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 从本机 AppDB 读取用户在 Voice Setup 保存的方舟 Key，不写入日志。
-///   2. 与 ASR 2.0 WebSocket 握手并收取配置确认。
+///   2. 与 ASR 2.0 WebSocket 握手，以生产解码器验证配置确认，拒绝协议或 JSON 错误码。
 ///   3. 调用方舟 Chat 2.0 获取短回复，再请求 TTS 2.0 的音频流。
 ///
 /// 预期结果：三个真实服务均接受同一凭据；不再依赖 Seeduplex 3.0 鉴权。
@@ -74,14 +87,7 @@ async fn doubao_real_ark_2_services() {
         .expect("ASR 配置不应超时")
         .expect("ASR 应回复配置")
         .expect("ASR 帧应有效");
-    assert!(
-        matches!(ack, Message::Binary(_)),
-        "ASR 2.0 应返回二进制确认帧"
-    );
-    assert!(
-        !matches!(ack, Message::Text(_)),
-        "不应收到 Seeduplex JSON 控制事件"
-    );
+    validate_asr_ack(&ack).expect("ASR 2.0 应返回成功的配置确认帧");
     drop(socket);
 
     let client = reqwest::Client::builder()

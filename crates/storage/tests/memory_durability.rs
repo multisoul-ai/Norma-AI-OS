@@ -60,11 +60,11 @@ fn lost_receipt_reconciles_without_republishing() {
     assert!(!entry.markdown.contains("英文"), "核验不能产生其他候选");
 }
 
-/// 只读取长文首块不足以授权覆盖，伪造跳过剩余正文也不能获得完整读取资格。
+/// 只读取长文首块不足以授权覆盖或合并删除，伪造跳过剩余正文也不能获得完整读取资格。
 ///
 /// 数据构造：“中文”重复2000次=2字×3字节×2000=12000字节，超过8192字节回合工具预算。
-/// 执行过程：保存长文→首块read→明确纠正write→跳到最后字节读取。
-/// 预期结果：两个请求均拒绝；原12000字节正文保留，没有“覆盖”正文。
+/// 执行过程：保存长文→首块read→明确纠正write→合并删除长文→跳到最后字节读取。
+/// 预期结果：三个请求均拒绝；原12000字节正文保留，没有“覆盖”正文或新合并主题。
 #[test]
 fn partial_read_cannot_authorize_overwriting_unseen_text() {
     let temp = tempfile::tempdir().expect("独立根");
@@ -109,12 +109,27 @@ fn partial_read_cannot_authorize_overwriting_unseen_text() {
                 MemoryCommand::Write {
                     scope: MemoryScopeAlias::Personal,
                     id: "long".into(),
-                    markdown: "覆盖".into()
+                    markdown: "覆盖".into(),
+                    supersedes: vec![],
                 },
                 &context("s:2")
             )
             .is_err(),
         "未读完不能覆盖"
+    );
+    assert!(
+        access
+            .execute(
+                MemoryCommand::Write {
+                    scope: MemoryScopeAlias::Personal,
+                    id: "merged".into(),
+                    markdown: "覆盖".into(),
+                    supersedes: vec!["long".into()],
+                },
+                &context("s:merge"),
+            )
+            .is_err(),
+        "未读完的长文不能通过合并被删除"
     );
     assert!(
         access
@@ -134,4 +149,10 @@ fn partial_read_cannot_authorize_overwriting_unseen_text() {
         .expect("读取最终正文");
     assert_eq!(entry.markdown, markdown, "失败后原文应保留");
     assert_ne!(entry.markdown, "覆盖", "不应有未授权覆盖");
+    assert!(
+        access
+            .settings_read(MemoryScopeAlias::Personal, "merged")
+            .is_err(),
+        "未授权合并不能部分创建新主题"
+    );
 }

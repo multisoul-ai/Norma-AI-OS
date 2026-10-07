@@ -199,10 +199,6 @@ impl MultisoulApp {
             .when_some(voice_caption, |chrome, caption| chrome.child(caption))
             .child(self.render_command_dock(window, cx, None))
             .child(self.render_workspace_top_bar(cx))
-            .when_some(
-                self.render_command_suggestions(window, cx),
-                |chrome, menu| chrome.child(menu),
-            )
             .when(self.voice_ready_notification_visible, |chrome| {
                 chrome.child(self.render_voice_ready_notification(cx))
             })

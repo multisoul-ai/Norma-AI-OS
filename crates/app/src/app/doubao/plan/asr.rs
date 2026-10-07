@@ -1,8 +1,8 @@
 use async_channel::Sender;
-use flate2::{read::GzDecoder, write::GzEncoder, Compression};
+use flate2::{write::GzEncoder, Compression};
 use futures::{SinkExt, StreamExt};
-use serde_json::{json, Value};
-use std::io::{Read, Write};
+use serde_json::json;
+use std::io::Write;
 use std::time::Instant;
 use tokio_tungstenite::tungstenite::{client::IntoClientRequest, http::HeaderValue, Message};
 use tokio_util::sync::CancellationToken;
@@ -10,20 +10,33 @@ use ui::i18n::LocalizedText;
 
 use super::{plan_url, request_id};
 
-pub(super) enum SpeechEvent {
+#[cfg(test)]
+#[path = "../../../../tests/unit/doubao_hold_asr_tests.rs"]
+mod hold_tests;
+mod protocol;
+pub(crate) use protocol::decode;
+
+pub(in crate::app::doubao) enum SpeechEvent {
     Ready,
     Started,
+    HeldStarted(u64),
+    HeldReady(u64),
+    HeldFinal(u64, String),
     Final(String),
 }
 
 pub(crate) fn encode_start() -> Result<Vec<u8>, LocalizedText> {
+    encode_start_for(false)
+}
+
+fn encode_start_for(held: bool) -> Result<Vec<u8>, LocalizedText> {
     encode(
         0x11,
         1,
         &serde_json::to_vec(&json!({
             "audio":{"format":"pcm","codec":"raw","rate":16000,"bits":16,"channel":1},
             "request":{"model_name":"bigmodel","show_utterances":true,
-                "enable_nonstream":true,"result_type":"single","end_window_size":500}
+                "enable_nonstream":true,"result_type":if held { "full" } else { "single" },"end_window_size":500}
         }))
         .map_err(|_| LocalizedText::new("doubao.asr_config_encode"))?,
     )
@@ -50,82 +63,94 @@ fn encode(kind: u8, sequence: i32, data: &[u8]) -> Result<Vec<u8>, LocalizedText
     Ok(frame)
 }
 
-pub(crate) fn decode(raw: &[u8]) -> Result<Value, LocalizedText> {
-    if raw.len() < 12 || raw[0] >> 4 != 1 || raw[2] >> 4 != 1 {
-        return Err(LocalizedText::new("doubao.asr_header_invalid"));
-    }
-    let kind = raw[1] >> 4;
-    if kind != 9 && kind != 15 {
-        return Err(LocalizedText::new("doubao.asr_type_unknown"));
-    }
-    let flags = raw[1] & 15;
-    let mut offset = usize::from(raw[0] & 15) * 4;
-    if flags & 1 != 0 {
-        offset += 4;
-    }
-    if flags & 4 != 0 {
-        offset += 4;
-    }
-    let error_code = if kind == 15 {
-        let code = raw
-            .get(offset..offset + 4)
-            .and_then(|part| <[u8; 4]>::try_from(part).ok())
-            .map(u32::from_be_bytes)
-            .ok_or_else(|| LocalizedText::new("doubao.asr_code_missing"))?;
-        offset += 4;
-        Some(code)
-    } else {
-        None
-    };
-    let len = raw
-        .get(offset..offset + 4)
-        .and_then(|part| <[u8; 4]>::try_from(part).ok())
-        .map(u32::from_be_bytes)
-        .ok_or_else(|| LocalizedText::new("doubao.asr_length_missing"))? as usize;
-    offset += 4;
-    if len > 2 * 1024 * 1024 || raw.len() != offset + len {
-        return Err(LocalizedText::new("doubao.asr_length_invalid"));
-    }
-    let mut payload = Vec::new();
-    match raw[2] & 15 {
-        0 => payload.extend_from_slice(&raw[offset..]),
-        1 => {
-            GzDecoder::new(&raw[offset..])
-                .take(2 * 1024 * 1024 + 1)
-                .read_to_end(&mut payload)
-                .map_err(|_| LocalizedText::new("doubao.asr_decompress"))?;
-        }
-        _ => return Err(LocalizedText::new("doubao.asr_compression_invalid")),
-    }
-    if payload.len() > 2 * 1024 * 1024 {
-        return Err(LocalizedText::new("doubao.asr_response_large"));
-    }
-    let value: Value = serde_json::from_slice(&payload)
-        .map_err(|_| LocalizedText::new("doubao.asr_json_invalid"))?;
-    if let Some(code) = error_code {
-        return Err(LocalizedText::new("doubao.asr_rejected").with_arg("code", code));
-    }
-    if value["code"]
-        .as_i64()
-        .is_some_and(|code| code != 0 && code != 1000 && code != 20_000_000)
-    {
-        return Err(LocalizedText::new("doubao.asr_rejected")
-            .with_arg("code", value["code"].as_i64().unwrap_or_default()));
-    }
-    Ok(value)
-}
-
 pub(super) async fn run(
     key: String,
     events: Sender<SpeechEvent>,
     cancellation: CancellationToken,
+    input: Option<super::super::input::RecordingInput>,
 ) -> Result<(), LocalizedText> {
-    let started_at = Instant::now();
-    let request_id = request_id();
     let url = plan_url(
         "NORMA_DOUBAO_ASR_URL",
         "wss://openspeech.bytedance.com/api/v3/plan/sauc/bigmodel_async",
     );
+    run_at(url, key, events, cancellation, input).await
+}
+
+pub(super) async fn listen_recordings(
+    key: String,
+    events: Sender<SpeechEvent>,
+    cancellation: CancellationToken,
+    recordings: async_channel::Receiver<super::super::input::RecordingInput>,
+) -> Result<(), LocalizedText> {
+    let url = plan_url(
+        "NORMA_DOUBAO_ASR_URL",
+        "wss://openspeech.bytedance.com/api/v3/plan/sauc/bigmodel_async",
+    );
+    listen_recordings_at(url, key, events, cancellation, recordings).await
+}
+
+async fn listen_recordings_at(
+    url: String,
+    key: String,
+    events: Sender<SpeechEvent>,
+    cancellation: CancellationToken,
+    recordings: async_channel::Receiver<super::super::input::RecordingInput>,
+) -> Result<(), LocalizedText> {
+    let mut next = None;
+    loop {
+        let input = if let Some(input) = next.take() {
+            input
+        } else {
+            tokio::select! {
+                biased;
+                _ = cancellation.cancelled() => return Ok(()),
+                input = recordings.recv() => match input { Ok(input) => input, Err(_) => return Ok(()) },
+            }
+        };
+        let token = cancellation.child_token();
+        let request = run_at(
+            url.clone(),
+            key.clone(),
+            events.clone(),
+            token.clone(),
+            Some(input),
+        );
+        tokio::pin!(request);
+        next = tokio::select! {
+            // 新输入优先于旧请求完成，旧连接错误不能终止已开始的新录音。
+            biased;
+            _ = cancellation.cancelled() => {
+                token.cancel();
+                let _ = request.await;
+                return Ok(());
+            },
+            input = recordings.recv() => {
+                token.cancel();
+                let _ = request.await;
+                match input { Ok(input) => Some(input), Err(_) => return Ok(()) }
+            },
+            result = &mut request => {
+                result?;
+                None
+            },
+        };
+    }
+}
+
+async fn run_at(
+    url: String,
+    key: String,
+    events: Sender<SpeechEvent>,
+    cancellation: CancellationToken,
+    input: Option<super::super::input::RecordingInput>,
+) -> Result<(), LocalizedText> {
+    let held = input.is_some();
+    let (recording_id, mut input) = match input {
+        Some((id, input)) => (id, Some(input)),
+        None => (0, None),
+    };
+    let started_at = Instant::now();
+    let request_id = request_id();
     let mut request = url
         .into_client_request()
         .map_err(|_| LocalizedText::new("doubao.asr_url_invalid"))?;
@@ -180,7 +205,14 @@ pub(super) async fn run(
     tracing::info!(target: "norma_voice", %request_id, %provider_logid,
         connect_ms = started_at.elapsed().as_millis(), "ASR WebSocket connected");
     socket
-        .send(Message::Binary(encode_start()?.into()))
+        .send(Message::Binary(
+            if held {
+                encode_start_for(true)?
+            } else {
+                encode_start()?
+            }
+            .into(),
+        ))
         .await
         .map_err(|_| LocalizedText::new("doubao.asr_config_send"))?;
     let mut capture = None;
@@ -192,12 +224,14 @@ pub(super) async fn run(
     let mut speaking = false;
     let mut last_final = -1_i64;
     let mut final_text = String::new();
+    let mut final_deadline = None;
     let handshake_deadline = tokio::time::sleep(std::time::Duration::from_secs(10));
     tokio::pin!(handshake_deadline);
     let result = async {
         loop {
             tokio::select! {
                 _ = cancellation.cancelled() => break Ok(()),
+                _ = async { tokio::time::sleep_until(final_deadline.expect("结束帧已发送")).await }, if final_deadline.is_some() => break Err(LocalizedText::new("doubao.asr_final_timeout")),
                 _ = &mut handshake_deadline, if !ready => break Err(LocalizedText::new("doubao.asr_config_timeout")),
                 received = socket.next() => {
                     let Some(received) = received else { break Err(LocalizedText::new("doubao.asr_disconnected")); };
@@ -211,14 +245,36 @@ pub(super) async fn run(
                     })?;
                     if !ready {
                         ready = true;
-                        let (session, chunks) = tokio::task::spawn_blocking(|| voice_input::start_duplex_pcm_stream(None))
+                        if !held {
+                            let (session, chunks) = tokio::task::spawn_blocking(|| voice_input::start_duplex_pcm_stream(None))
                             .await.map_err(|_| LocalizedText::new("doubao.microphone_start"))?
                             .map_err(|error| LocalizedText::new("doubao.microphone_start_reason").with_arg("reason", error))?;
-                        capture = Some(session);
-                        pcm_rx = Some(chunks);
+                            capture = Some(session);
+                            pcm_rx = Some(chunks);
+                        }
                         tracing::info!(target: "norma_voice", %request_id, %provider_logid,
                             ready_ms = started_at.elapsed().as_millis(), "ASR configuration accepted and microphone ready");
-                        let _ = events.send(SpeechEvent::Ready).await;
+                        if !held { let _ = events.send(SpeechEvent::Ready).await; }
+                    }
+                    if held && raw[1] & 2 != 0 {
+                        if !last_frame_sent { break Err(LocalizedText::new("doubao.asr_ended_before_release")); }
+                        // 上游最终结果的 text 是整段转写，包含松键时尚未 definite 的尾音。
+                        if let Some(text) = payload["result"]["text"].as_str().filter(|text| !text.trim().is_empty()) {
+                            final_text = text.to_owned();
+                        } else if let Some(utterances) = payload["result"]["utterances"].as_array() {
+                            for utterance in utterances {
+                                if utterance["end_time"].as_i64().is_some_and(|end| end > last_final) {
+                                    if let Some(text) = utterance["text"].as_str() { final_text.push_str(text); }
+                                }
+                            }
+                        }
+                        if final_text.len() > 2_000 { break Err(LocalizedText::new("doubao.asr_transcript_large")); }
+                        if final_text.trim().is_empty() {
+                            let _ = events.send(SpeechEvent::HeldReady(recording_id)).await;
+                        } else {
+                            let _ = events.send(SpeechEvent::HeldFinal(recording_id, std::mem::take(&mut final_text))).await;
+                        }
+                        break Ok(());
                     }
                     let Some(utterances) = payload["result"]["utterances"].as_array() else { continue; };
                     if utterances.len() > 128 { break Err(LocalizedText::new("doubao.asr_utterances_large")); }
@@ -235,15 +291,38 @@ pub(super) async fn run(
                         }
                     }
                     if committed.is_empty() && interim.is_empty() { continue; }
-                    if !speaking {
+                    if !held && !speaking {
                         speaking = true;
                         let _ = events.send(SpeechEvent::Started).await;
                     }
                     final_text.push_str(&committed);
                     if final_text.len() + interim.len() > 2_000 { break Err(LocalizedText::new("doubao.asr_transcript_large")); }
-                    if interim.is_empty() && !final_text.is_empty() {
+                    if !held && interim.is_empty() && !final_text.is_empty() {
                         speaking = false;
                         let _ = events.send(SpeechEvent::Final(std::mem::take(&mut final_text))).await;
+                    }
+                }
+                chunk = async { input.as_ref().expect("按住录音输入").recv().await }, if ready && input.is_some() => {
+                    match chunk {
+                        Ok(Ok(chunk)) => pcm_buffer.extend_from_slice(&chunk.bytes),
+                        Ok(Err(error)) => break Err(error),
+                        Err(_) => {
+                            input = None;
+                            if pcm_buffer.is_empty() { pcm_buffer.resize(3_200, 0); }
+                            socket.send(Message::Binary(encode_audio(-sequence, &pcm_buffer)?.into())).await
+                                .map_err(|_| LocalizedText::new("doubao.asr_upload_interrupted"))?;
+                            pcm_buffer.clear();
+                            last_frame_sent = true;
+                            // 与握手相同的 10 s 上限，避免松键后永久等待最终结果。
+                            final_deadline = Some(tokio::time::Instant::now() + std::time::Duration::from_secs(10));
+                            continue;
+                        }
+                    }
+                    while pcm_buffer.len() >= 3_200 {
+                        let frame: Vec<u8> = pcm_buffer.drain(..3_200).collect();
+                        socket.send(Message::Binary(encode_audio(sequence, &frame)?.into())).await
+                            .map_err(|_| LocalizedText::new("doubao.asr_upload_interrupted"))?;
+                        sequence += 1;
                     }
                 }
                 chunk = async { pcm_rx.as_ref().expect("ready capture").recv().await }, if pcm_rx.is_some() => {
@@ -272,7 +351,7 @@ pub(super) async fn run(
     }
     let mut close_wait_timed_out = false;
     if cancellation.is_cancelled() {
-        if ready {
+        if ready && !last_frame_sent {
             // 最后一帧用负序号通知 ASR 释放会话；没有余音时发 100 ms 静音。
             if pcm_buffer.is_empty() {
                 pcm_buffer.resize(3_200, 0);

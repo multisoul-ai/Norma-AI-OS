@@ -1,5 +1,19 @@
 import XCTest
+import Testing
 @testable import NormaCore
+
+/// 自动登记无需用户选空间，项目身份仍保留所属空间。
+/// 数据构造：64位hex启动token，设备级登记省略desktop_workspace_id；两个区域同名但不同空间。
+/// 执行过程：解码并校验自动登记→解码两个项目→校验它们不是同一个深链目标。
+/// 预期结果：默认登记合法；跨空间的同名区域不被误合并。
+@Test func automaticActivityRegistrationAndScopedProjects() throws {
+    let raw=#"{"generation":"auto","environment":"sandbox","auto_start":true,"push_to_start_token":"TOKEN","dismissed":false}"#.replacingOccurrences(of:"TOKEN",with:String(repeating:"b",count:64))
+    let registration=try JSONDecoder().decode(WorkspaceActivityRegistration.self,from:Data(raw.utf8))
+    try registration.validate()
+    let a=try JSONDecoder().decode(WorkspaceActivityContent.Project.self,from:Data(#"{"desktop_workspace_id":"space-a","workspace_name":"A","area_id":"area","name":"项目","status":"running","reason":"执行","agents":[],"other_agents":0}"#.utf8))
+    let b=try JSONDecoder().decode(WorkspaceActivityContent.Project.self,from:Data(#"{"desktop_workspace_id":"space-b","workspace_name":"B","area_id":"area","name":"项目","status":"running","reason":"执行","agents":[],"other_agents":0}"#.utf8))
+    #expect(a.id != b.id,"同名区域在不同工作空间必须有不同展示身份")
+}
 
 final class WorkspaceActivityTests: XCTestCase {
     /// 活动跳转与过期：链接只定位工作空间，不授权操作；120秒为新鲜度边界。
@@ -74,11 +88,29 @@ extension WorkspaceActivityTests {
     func testUncertainActivityMutationNeverReplays() async throws {
         let direct=ActivityTransportProbe();let relay=ActivityTransportProbe()
         let client=WorkspaceChatClient(direct:ActivityTransport(probe:direct),relay:{ActivityTransport(probe:relay)})
-        var request=WorkspaceActivityRequest(kind:"set_subscription",workspaceID:"space");request.expectedRevision=0
+        var request=WorkspaceActivityRequest(kind:"set_subscription");request.expectedRevision=0
         do {_=try await client.activity(request);XCTFail("未知写入不能报成功")}
         catch {XCTAssertEqual(error as? MobileError,.timedOut,"应保留原未知写入错误")}
         let sent=await direct.writes;let replayed=await relay.writes
         XCTAssertEqual(sent,1,"直连写入仅提交一次")
         XCTAssertEqual(replayed,0,"未知写入不得在中继重放")
     }
+}
+
+/// 设备级读取经过实际客户端路由，决策仍必须指定工作空间。
+/// 数据构造：summary/subscription各独立运行；直连与中继模拟超时并记录调用次数。
+/// 执行过程：无空间detail在本地拒绝→默认读取到直连→超时切到中继一次。
+/// 预期结果：detail不发送；读取到达两个传输边界，最终保留超时而非非法scope错误。
+@Test(arguments:["summary","subscription"])
+func automaticActivityRequestsReachTransport(kind:String) async throws {
+    let direct=ActivityTransportProbe(),relay=ActivityTransportProbe()
+    let client=WorkspaceChatClient(direct:ActivityTransport(probe:direct),relay:{ActivityTransport(probe:relay)})
+    do {_=try await client.activity(.init(kind:"detail"));Issue.record("没有工作空间的详情应拒绝")}
+    catch {#expect(error as? MobileError == .invalidResponse,"详情必须明确定位工作空间")}
+    #expect(await direct.writes == 0,"非法详情不能到达直连")
+    #expect(await relay.writes == 0,"非法详情不能到达中继")
+    do {_=try await client.activity(.init(kind:kind));Issue.record("模拟超时不应返回成功")}
+    catch {#expect(error as? MobileError == .timedOut,"默认总览读取必须进入传输层")}
+    #expect(await direct.writes == 1,"默认读取应到达直连一次")
+    #expect(await relay.writes == 1,"只读超时可切中继一次")
 }

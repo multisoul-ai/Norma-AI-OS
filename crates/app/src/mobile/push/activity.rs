@@ -32,7 +32,11 @@ pub(super) fn tick(
         if registration.is_none() && ordinary.is_none() {
             continue;
         }
-        let spaces = if ordinary.is_some() {
+        let spaces = if ordinary.is_some()
+            || registration
+                .as_ref()
+                .is_some_and(|r| r.desktop_workspace_id.is_none())
+        {
             catalog
                 .list()?
                 .into_iter()
@@ -41,13 +45,22 @@ pub(super) fn tick(
         } else {
             registration
                 .iter()
-                .map(|r| r.desktop_workspace_id.clone())
+                .filter_map(|r| r.desktop_workspace_id.clone())
                 .collect()
         };
+        let mut all_facts = vec![];
+        let mut all_areas = vec![];
+        let mut complete = true;
         for workspace in spaces {
-            let Ok(areas) = crate::mobile::activity::areas(path, &workspace, &grant, false) else {
+            let Ok(areas) =
+                crate::mobile::activity::overview::areas(path, Some(&workspace), &grant, false)
+            else {
+                complete = false;
                 continue;
             };
+            if areas.is_empty() {
+                continue;
+            }
             let cache_key = serde_json::to_string(
                 &areas
                     .iter()
@@ -63,16 +76,25 @@ pub(super) fn tick(
                     })
                     .collect::<Vec<_>>(),
             )?;
-            let summary = if let Some(value) = captured.get(&cache_key) {
+            let facts = if let Some(value) = captured.get(&cache_key) {
                 value
             } else {
-                let Ok(value) =
-                    crate::mobile::activity::summary(shared, path, machine, &workspace, &areas)
+                let Ok(value) = crate::mobile::activity::facts(shared, path, &workspace, &areas)
                 else {
+                    complete = false;
                     continue;
                 };
                 captured.entry(cache_key).or_insert(value)
             };
+            let summary = WorkspaceActivitySummary::from_facts(machine, facts.clone(), now()?);
+            all_facts.push(facts.clone());
+            if registration.as_ref().is_some_and(|r| {
+                r.desktop_workspace_id
+                    .as_ref()
+                    .is_none_or(|id| id == &workspace)
+            }) {
+                all_areas.extend(areas.clone());
+            }
             if let Some(ordinary) = ordinary {
                 for attention in &summary.attention {
                     let target = &attention.target;
@@ -120,10 +142,13 @@ pub(super) fn tick(
                             .as_ref()
                             .and_then(|s| s.registration.as_ref())
                             != Some(ordinary)
-                        || !catalog.mobile_scope_current(
-                            &workspace,
-                            &areas.iter().map(|a| a.area.clone()).collect::<Vec<_>>(),
-                        )?
+                        || !crate::mobile::activity::overview::current(
+                            path,
+                            Some(&workspace),
+                            &grant,
+                            false,
+                            &areas,
+                        )
                     {
                         continue;
                     }
@@ -140,102 +165,119 @@ pub(super) fn tick(
                     }
                 }
             }
-            let Some(registration) = registration
-                .as_ref()
-                .filter(|r| r.desktop_workspace_id == workspace)
+        }
+        if !complete {
+            continue;
+        }
+        let Some(registration) = registration.as_ref() else {
+            continue;
+        };
+        let summary = if registration.desktop_workspace_id.is_some() {
+            let Some(facts) = all_facts
+                .into_iter()
+                .find(|f| Some(&f.workspace.id) == registration.desktop_workspace_id.as_ref())
             else {
                 continue;
             };
-            if registration.dismissed {
-                continue;
+            WorkspaceActivitySummary::from_facts(machine, facts, now()?)
+        } else {
+            WorkspaceActivitySummary::from_workspaces(machine, all_facts, now()?)
+        };
+        if !summary.active
+            && (registration.dismissed
+                || (state.journal.ended_at.is_some() && !state.journal.quiet_seen))
+        {
+            activities.observe_idle(&grant, state.revision, now()?)?;
+            continue;
+        }
+        if registration.dismissed {
+            continue;
+        }
+        let previous = state
+            .journal
+            .summary
+            .clone()
+            .and_then(|v| serde_json::from_value::<WorkspaceActivitySummary>(v).ok());
+        let event = activity_event(
+            &summary,
+            previous.as_ref(),
+            state.journal.started_at,
+            state.journal.ended_at,
+            state.journal.last_sent_at,
+            state.journal.quiet_seen,
+        );
+        let Some(event) = event else {
+            continue;
+        };
+        let token = match event {
+            ActivityEvent::Start if registration.auto_start => {
+                registration.push_to_start_token.as_ref()
             }
-            if state.journal.ended_at.is_some() && !summary.active && !state.journal.quiet_seen {
-                state.journal.quiet_seen = true;
-                activities.update_journal(&grant, state.revision, &state.journal)?;
-            }
-            let previous = state
-                .journal
-                .summary
-                .clone()
-                .and_then(|v| serde_json::from_value::<WorkspaceActivitySummary>(v).ok());
-            let event = activity_event(
-                summary,
-                previous.as_ref(),
-                state.journal.started_at,
-                state.journal.ended_at,
-                state.journal.last_sent_at,
-                state.journal.quiet_seen,
-            );
-            let Some(event) = event else {
-                continue;
-            };
-            let token = match event {
-                ActivityEvent::Start if registration.auto_start => {
-                    registration.push_to_start_token.as_ref()
-                }
-                ActivityEvent::Start => None,
-                _ => registration
-                    .activity_token
-                    .as_ref()
-                    .filter(|_| registration.cycle_id == state.journal.cycle_id),
-            };
-            // Start reserves its cycle even when APNs outcome is unknown. Updates can repair stale state.
-            if event == ActivityEvent::Start && token.is_none() {
-                continue;
-            }
-            let timestamp = now()?.max(state.journal.last_sent_at.saturating_add(1));
-            let cycle = if event == ActivityEvent::Start {
-                uuid::Uuid::new_v4().to_string()
+            ActivityEvent::Start => None,
+            _ => registration
+                .activity_token
+                .as_ref()
+                .filter(|_| registration.cycle_id == state.journal.cycle_id),
+        };
+        // Start reserves its cycle even when APNs outcome is unknown. Updates can repair stale state.
+        if event == ActivityEvent::Start && token.is_none() {
+            continue;
+        }
+        let timestamp = now()?.max(state.journal.last_sent_at.saturating_add(1));
+        let cycle = if event == ActivityEvent::Start {
+            uuid::Uuid::new_v4().to_string()
+        } else {
+            state.journal.cycle_id.clone().unwrap_or_default()
+        };
+        let mut payload = json!({"kind":"activity","event":match event {ActivityEvent::Start=>"start",ActivityEvent::Update=>"update",ActivityEvent::End=>"end"},
+                "event_id":uuid_from(&format!("{machine}:{cycle}:{timestamp}")),"token":token,"timestamp":timestamp,"stale_date":timestamp.saturating_add(120),
+                "expires_at":timestamp.saturating_add(120),"priority":if event==ActivityEvent::Update && previous.as_ref().is_some_and(|p|p.attention==summary.attention){5}else{10},"content_state":content(&summary,timestamp)});
+        if event == ActivityEvent::Start {
+            payload["attributes"] = json!({"machine_id":machine,"desktop_workspace_id":registration.desktop_workspace_id,"generation":registration.generation,"cycle_id":cycle,"started_at":timestamp});
+        }
+        if event == ActivityEvent::End {
+            payload["dismissal_date"] = json!(timestamp.saturating_add(600));
+            payload["content_state"]["active"] = json!(false);
+        }
+        if serde_json::to_vec(&payload)?.len() > 4096 {
+            tracing::warn!("workspace activity payload exceeds APNs budget");
+            continue;
+        }
+        state.journal = ActivityJournal {
+            cycle_id: Some(cycle),
+            started_at: if event == ActivityEvent::Start {
+                Some(timestamp)
             } else {
-                state.journal.cycle_id.clone().unwrap_or_default()
-            };
-            let mut payload = json!({"kind":"activity","event":match event {ActivityEvent::Start=>"start",ActivityEvent::Update=>"update",ActivityEvent::End=>"end"},
-                "event_id":uuid_from(&format!("{machine}:{workspace}:{cycle}:{timestamp}")),"token":token,"timestamp":timestamp,"stale_date":timestamp.saturating_add(120),
-                "expires_at":timestamp.saturating_add(120),"priority":if event==ActivityEvent::Update && previous.as_ref().is_some_and(|p|p.attention==summary.attention){5}else{10},"content_state":content(summary,timestamp)});
-            if event == ActivityEvent::Start {
-                payload["attributes"] = json!({"machine_id":machine,"desktop_workspace_id":workspace,"generation":registration.generation,"cycle_id":cycle,"started_at":timestamp});
-            }
-            if event == ActivityEvent::End {
-                payload["dismissal_date"] = json!(timestamp.saturating_add(600));
-                payload["content_state"]["active"] = json!(false);
-            }
-            if serde_json::to_vec(&payload)?.len() > 4096 {
-                tracing::warn!("workspace activity payload exceeds APNs budget");
+                state.journal.started_at
+            },
+            ended_at: if event == ActivityEvent::End {
+                Some(timestamp)
+            } else {
+                None
+            },
+            last_sent_at: timestamp,
+            quiet_seen: false,
+            summary: Some(serde_json::to_value(&summary)?),
+            alerted: state.journal.alerted.clone(),
+        };
+        if !activities.update_journal(&grant, state.revision, &state.journal)? {
+            continue;
+        }
+        if let Some(token) = token {
+            // Recheck both permission and token revision after capture and before HTTP.
+            if activities.get(&grant)?.is_none_or(|s| {
+                s.revision != state.revision || s.registration.as_ref() != Some(registration)
+            }) || !crate::mobile::activity::overview::current(
+                path,
+                registration.desktop_workspace_id.as_deref(),
+                &grant,
+                false,
+                &all_areas,
+            ) {
                 continue;
             }
-            state.journal = ActivityJournal {
-                cycle_id: Some(cycle),
-                started_at: if event == ActivityEvent::Start {
-                    Some(timestamp)
-                } else {
-                    state.journal.started_at
-                },
-                ended_at: if event == ActivityEvent::End {
-                    Some(timestamp)
-                } else {
-                    None
-                },
-                last_sent_at: timestamp,
-                quiet_seen: false,
-                summary: Some(serde_json::to_value(summary)?),
-                alerted: state.journal.alerted.clone(),
-            };
-            if !activities.update_journal(&grant, state.revision, &state.journal)? {
-                continue;
-            }
-            if let Some(token) = token {
-                // Recheck both permission and token revision after capture and before HTTP.
-                if activities.get(&grant)?.is_none_or(|s| {
-                    s.revision != state.revision || s.registration.as_ref() != Some(registration)
-                }) || !catalog.mobile_scope_current(
-                    &workspace,
-                    &areas.iter().map(|a| a.area.clone()).collect::<Vec<_>>(),
-                )? {
-                    continue;
-                }
-                if send(shared, generation, &payload)?.is_some() {
-                    activities.invalidate(&grant, state.revision, token)?;
-                }
+            if send(shared, generation, &payload)?.is_some() {
+                activities.invalidate(&grant, state.revision, token)?;
             }
         }
     }
@@ -243,7 +285,7 @@ pub(super) fn tick(
 }
 fn content(summary: &WorkspaceActivitySummary, timestamp: u64) -> Value {
     json!({"name":summary.name,"updated_at":timestamp,"active":summary.active,"running_count":summary.running_count,"approval_count":summary.approval_count,"review_count":summary.review_count,"failure_count":summary.failure_count,"hidden_projects":summary.hidden_projects,
-        "projects":summary.projects.iter().map(|p|json!({"area_id":p.area_id,"name":p.name,"status":p.status,"reason":p.reason,"other_agents":p.other_agents,
+        "projects":summary.projects.iter().map(|p|json!({"area_id":p.area_id,"desktop_workspace_id":p.desktop_workspace_id,"workspace_name":p.workspace_name,"name":p.name,"status":p.status,"reason":p.reason,"other_agents":p.other_agents,
             "agents":p.agents.iter().map(|a|json!({"name":a.name,"action":a.action})).collect::<Vec<_>>()})).collect::<Vec<_>>()})
 }
 pub(super) fn uuid_from(identity: &str) -> String {

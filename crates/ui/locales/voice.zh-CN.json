@@ -286,5 +286,9 @@
   "voice.on_device_selected": "✓ 本机",
   "voice.provider_connection_failed": "无法连接服务商：%{reason}",
   "voice.provider_authentication_failed": "服务商身份验证失败：%{reason}",
-  "voice.provider_model_list_unavailable": "模型列表不可用：%{reason}"
+  "voice.provider_model_list_unavailable": "模型列表不可用：%{reason}",
+  "voice.realtime_conversation": "实时对话",
+  "voice.push_to_talk": "按住说话",
+  "voice.doubao_realtime_shortcut": "按 %{shortcut} 开始或结束对话；停顿后自动发送，说话可打断播报。",
+  "voice.doubao_hold_shortcut": "按住 %{shortcut} 录音，松开自动发送给豆包；点击语音按钮可开始或发送录音。"
 }

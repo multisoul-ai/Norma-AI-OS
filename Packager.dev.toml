@@ -10,7 +10,9 @@ formats = ["app", "dmg"]
 icons = ["assets/AppIcon.icns"]
 out-dir = "build/dev"
 binaries-dir = "."
+before-packaging-command = "scripts/prepare-app-icon.sh"
 resources = [
+  "build/icons/Assets.car",
   { src = "packaging/macos/en.lproj", target = "en.lproj" },
   { src = "packaging/macos/zh-CN.lproj", target = "zh-CN.lproj" },
   "crates/app/assets/wallpapers",

@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 # Render the tightly cropped Norma artwork into the transparent macOS icon
-# safe area, then build the ICNS consumed by cargo-packager.
+# safe area, then build the ICNS consumed by cargo-packager. Also regenerate
+# the full-bleed artwork used by Icon Composer on macOS 26+.
 
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 artwork_source="$repo_root/assets/app-icon-source.png"
+full_bleed_source="$repo_root/assets/app-icon-ios-source.png"
+native_artwork="$repo_root/assets/NormaIcon.icon/Assets/Artwork.png"
 macos_icon="$repo_root/assets/app-icon-macos.png"
 output_icns="$repo_root/assets/AppIcon.icns"
 
@@ -29,6 +32,7 @@ trap 'rm -rf "$iconset_root"' EXIT
 iconset_dir="$iconset_root/AppIcon.iconset"
 temporary_macos_icon="$iconset_root/app-icon-macos.png"
 temporary_icns="$iconset_root/AppIcon.icns"
+temporary_native_artwork="$iconset_root/Artwork.png"
 mkdir -p "$iconset_dir"
 
 # Apple-style macOS icon canvas:
@@ -72,8 +76,17 @@ render_icon_size 512 icon_512x512.png
 cp "$temporary_macos_icon" "$iconset_dir/icon_512x512@2x.png"
 
 iconutil -c icns "$iconset_dir" -o "$temporary_icns"
+
+# The shared full-bleed source is square and opaque. Only downsample it to the
+# native 1024px canvas: system rendering owns the corner mask and optical inset.
+"$magick_bin" "$full_bleed_source" \
+  -filter Lanczos -resize 1024x1024 \
+  -define png:exclude-chunks=date,time PNG24:"$temporary_native_artwork"
+mkdir -p "$(dirname "$native_artwork")"
 mv "$temporary_macos_icon" "$macos_icon"
 mv "$temporary_icns" "$output_icns"
+mv "$temporary_native_artwork" "$native_artwork"
 
 echo "Rendered $macos_icon"
 echo "Rendered $output_icns"
+echo "Rendered $native_artwork"

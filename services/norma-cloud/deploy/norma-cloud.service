@@ -1,0 +1,32 @@
+[Unit]
+Description=Norma cloud gateway and APNs push
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists=/etc/norma-cloud/gateway.env
+
+[Service]
+Type=simple
+User=norma-cloud
+Group=norma-cloud
+WorkingDirectory=/opt/norma-cloud/current
+EnvironmentFile=/etc/norma-cloud/gateway.env
+EnvironmentFile=-/etc/norma-cloud/push.env
+ExecStart=/opt/norma-cloud/node-v22.23.2-linux-x64/bin/node --dns-result-order=ipv4first server.mjs
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=15s
+CPUQuota=40%
+MemoryMax=256M
+TasksMax=32
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+StateDirectory=norma-cloud
+StateDirectoryMode=0700
+ProtectHome=true
+RestrictSUIDSGID=true
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

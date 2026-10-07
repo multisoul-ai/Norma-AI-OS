@@ -25,3 +25,45 @@ fn controlled_tools_and_utf8_budget() {
     assert_eq!(first, "甲", "不能截断半个汉字");
     assert_eq!(next, Some(3), "续读位置必须位于字边界");
 }
+
+/// 记忆写入可指定同范围的重复主题，旧写入参数保持兼容，且模型不能传入删除路径。
+///
+/// 数据构造：旧调用仅含 scope/id/markdown，新调用另含 supersedes=[old-preferences]。
+/// 执行过程：1. 查询生产 memory_write schema。2. 解析旧参数。3. 解析新增合并参数。
+/// 预期结果：supersedes 是可选去重数组；旧调用解析为空列表；未知路径字段仍拒绝。
+#[test]
+fn write_schema_exposes_optional_atomic_merge_without_paths() {
+    use agent::MemoryCommand;
+    use serde_json::json;
+    let write = norma_tool_definitions()
+        .into_iter()
+        .find(|tool| tool.name == "memory_write")
+        .expect("写入工具");
+    assert_eq!(
+        write.parameters["properties"]["supersedes"]["type"], "array",
+        "合并应接收主题 ID 列表"
+    );
+    assert_eq!(
+        write.parameters["properties"]["supersedes"]["uniqueItems"], true,
+        "删除目标不能重复"
+    );
+    assert_eq!(
+        write.parameters["required"],
+        json!(["scope", "id", "markdown"]),
+        "旧调用不能被迫指定删除目标"
+    );
+    let old: MemoryCommand = serde_json::from_value(
+        json!({"action":"write", "scope":"personal", "id":"preferences", "markdown":"中文"}),
+    )
+    .expect("旧格式兼容");
+    assert!(
+        matches!(old, MemoryCommand::Write { supersedes, .. } if supersedes.is_empty()),
+        "省略 supersedes 时只能正常写入"
+    );
+    let new: MemoryCommand = serde_json::from_value(json!({"action":"write", "scope":"personal", "id":"preferences", "markdown":"中文", "supersedes":["old-preferences"]})).expect("新格式可解析");
+    assert!(
+        matches!(new, MemoryCommand::Write { supersedes, .. } if supersedes == ["old-preferences"]),
+        "重复主题 ID 必须传递给宿主"
+    );
+    assert!(serde_json::from_value::<MemoryCommand>(json!({"action":"write", "scope":"personal", "id":"preferences", "markdown":"中文", "path":"/tmp/other"})).is_err(), "模型不得通过额外路径绕过范围授权");
+}

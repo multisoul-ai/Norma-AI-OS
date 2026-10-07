@@ -64,6 +64,10 @@ pub struct WorkspaceActivityAgent {
 }
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct WorkspaceActivityProject {
+    #[serde(default)]
+    pub desktop_workspace_id: String,
+    #[serde(default)]
+    pub workspace_name: String,
     pub area_id: String,
     pub project_id: String,
     pub name: String,
@@ -100,6 +104,84 @@ pub struct WorkspaceActivityAttention {
 }
 impl WorkspaceActivitySummary {
     pub fn from_facts(machine: &str, facts: WorkspaceActivityFacts, now: u64) -> Self {
+        let mut result = Self::from_facts_unbounded(machine, facts, now);
+        result.limit_projects();
+        result
+    }
+    pub fn from_workspaces(machine: &str, facts: Vec<WorkspaceActivityFacts>, now: u64) -> Self {
+        let mut result = Self::from_facts_unbounded(
+            machine,
+            WorkspaceActivityFacts {
+                workspace: DesktopChatWorkspace {
+                    id: String::new(),
+                    name: "Mac 工作总览".into(),
+                    revision: 0,
+                    projects: vec![],
+                },
+                observed: true,
+                approvals: vec![],
+                reviews: vec![],
+            },
+            now,
+        );
+        let mut seen = HashSet::new();
+        for mut facts in facts {
+            for project in &mut facts.workspace.projects {
+                project.agents.retain_mut(|a| {
+                    if a.card.run_id.is_none()
+                        || seen.insert((
+                            project.project_id.clone(),
+                            a.card.node_id,
+                            a.card.profile.clone(),
+                            a.card.run_id.clone(),
+                            a.card.session_id.clone(),
+                            a.card.turn_id.clone(),
+                        ))
+                    {
+                        return true;
+                    }
+                    let pending = facts.reviews.iter().any(|r| {
+                        r.area_id == project.area_id
+                            && r.node_id == a.card.node_id
+                            && r.profile == a.card.profile
+                            && r.completed
+                            && r.available
+                            && !r.conflicted
+                            && !r.accepted
+                    });
+                    if pending {
+                        // Keep the scoped delivery without counting the shared live run twice.
+                        a.card.state = "delivered".into();
+                        a.card.run_id = None;
+                    }
+                    pending
+                });
+            }
+            let space = Self::from_facts_unbounded(machine, facts, now);
+            result.observed &= space.observed;
+            result.active |= space.active;
+            result.running_count += space.running_count;
+            result.approval_count += space.approval_count;
+            result.review_count += space.review_count;
+            result.failure_count += space.failure_count;
+            result.attention.extend(space.attention);
+            result.projects.extend(
+                space
+                    .projects
+                    .into_iter()
+                    .filter(|p| p.status != WorkspaceActivityStatus::Idle),
+            );
+        }
+        result.projects.sort_by_key(|p| p.status);
+        result.limit_projects();
+        result
+    }
+    fn limit_projects(&mut self) {
+        self.hidden_projects = self.projects.len().saturating_sub(3);
+        self.projects.truncate(3);
+    }
+    fn from_facts_unbounded(machine: &str, facts: WorkspaceActivityFacts, now: u64) -> Self {
+        let workspace_name = excerpt(&facts.workspace.name, 60);
         let mut result = Self {
             machine_id: machine.into(),
             desktop_workspace_id: facts.workspace.id,
@@ -119,6 +201,8 @@ impl WorkspaceActivitySummary {
         let mut seen_reviews = HashSet::new();
         for project in facts.workspace.projects {
             let mut row = WorkspaceActivityProject {
+                desktop_workspace_id: result.desktop_workspace_id.clone(),
+                workspace_name: workspace_name.clone(),
                 area_id: project.area_id.clone(),
                 project_id: project.project_id,
                 name: excerpt(&project.name, 48),
@@ -324,8 +408,6 @@ impl WorkspaceActivitySummary {
         }
         result.active |= result.approval_count + result.review_count + result.failure_count > 0;
         result.projects.sort_by_key(|p| p.status);
-        result.hidden_projects = result.projects.len().saturating_sub(3);
-        result.projects.truncate(3);
         result
     }
     pub fn same_display(&self, other: &Self) -> bool {

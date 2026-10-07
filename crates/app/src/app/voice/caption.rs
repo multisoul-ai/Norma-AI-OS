@@ -67,7 +67,9 @@ impl MultisoulApp {
             == crate::settings::voice::DesktopVoiceMode::Doubao
         {
             return match self.doubao.status {
-                crate::app::doubao::DoubaoStatus::Connected => Some(VoiceWaveformState::Listening),
+                crate::app::doubao::DoubaoStatus::Connected if !self.doubao.waiting_for_input() => {
+                    Some(VoiceWaveformState::Listening)
+                }
                 crate::app::doubao::DoubaoStatus::Thinking => Some(VoiceWaveformState::Thinking),
                 crate::app::doubao::DoubaoStatus::Speaking => Some(VoiceWaveformState::Replying),
                 _ => None,

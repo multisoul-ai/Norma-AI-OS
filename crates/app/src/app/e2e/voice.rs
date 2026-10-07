@@ -31,7 +31,8 @@ impl MultisoulApp {
             doubao_status: match self.doubao.status {
                 crate::app::doubao::DoubaoStatus::Idle => "idle",
                 crate::app::doubao::DoubaoStatus::Connecting => "connecting",
-                crate::app::doubao::DoubaoStatus::Connected => "connected",
+                crate::app::doubao::DoubaoStatus::Connected
+                | crate::app::doubao::DoubaoStatus::RecordingResolved(_) => "connected",
                 crate::app::doubao::DoubaoStatus::Thinking => "thinking",
                 crate::app::doubao::DoubaoStatus::Speaking => "speaking",
                 crate::app::doubao::DoubaoStatus::Disconnected(_) => "disconnected",

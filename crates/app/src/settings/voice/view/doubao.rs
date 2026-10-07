@@ -148,7 +148,6 @@ pub(super) fn doubao_settings(
     theme: Theme,
     state: &VoiceSettingsState,
     inputs: &VoiceSettingsInputs,
-    voice_shortcut_label: &str,
     window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
@@ -266,14 +265,6 @@ pub(super) fn doubao_settings(
                             .on_click(cx.listener(MultisoulApp::on_voice_setup_request_microphone)),
                         )
                     },
-                )
-                .child(
-                    div()
-                        .settings_text(TextRole::Helper, theme)
-                        .child(ui::i18n::format(
-                        "voice.uses_macos_system_input_and_output_press_voice_shortcut_label_to",
-                        &[("voice_shortcut_label", (voice_shortcut_label).to_string())],
-                    )),
                 ),
         )
         .child(voices::voice_picker(theme, state, window, cx))

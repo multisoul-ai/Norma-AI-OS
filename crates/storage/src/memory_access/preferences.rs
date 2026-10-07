@@ -5,6 +5,7 @@ use rusqlite::{params, OptionalExtension, TransactionBehavior};
 
 const PREFERENCES: &str = "norma.memory.preferences";
 const EPOCH: &str = "norma.memory.recall_epoch";
+const CATALOG_EPOCH: &str = "norma.memory.catalog_epoch";
 
 fn state(connection: &rusqlite::Connection) -> Result<(MemoryPreferences, u64), AdapterError> {
     let value = |key| {
@@ -26,7 +27,36 @@ fn state(connection: &rusqlite::Connection) -> Result<(MemoryPreferences, u64), 
     Ok((preferences, epoch))
 }
 
+fn catalog_epoch(connection: &rusqlite::Connection) -> Result<u64, AdapterError> {
+    let epoch: Option<String> = connection
+        .query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            [CATALOG_EPOCH],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(failure)?;
+    epoch
+        .map(|text| text.parse::<u64>().map_err(failure))
+        .transpose()
+        .map(|epoch| epoch.unwrap_or(0))
+}
+
+pub(super) fn invalidate_catalog(connection: &rusqlite::Connection) -> Result<(), AdapterError> {
+    let epoch = catalog_epoch(connection)?
+        .checked_add(1)
+        .ok_or_else(|| failure("记忆目录代次已达上限"))?;
+    connection.execute(
+        "INSERT INTO settings(key, value, updated_at_unix) VALUES(?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at_unix = excluded.updated_at_unix",
+        params![CATALOG_EPOCH, epoch.to_string(), crate::current_unix_timestamp().map_err(failure)?],
+    ).map_err(failure)?;
+    Ok(())
+}
+
 impl MemoryAccess {
+    pub fn catalog_epoch(&self) -> Result<u64, AdapterError> {
+        catalog_epoch(&open_app_connection(self.paths.app_db_path()).map_err(failure)?)
+    }
     pub fn recall_state(&self) -> Result<(MemoryPreferences, u64), AdapterError> {
         let mut connection = open_app_connection(self.paths.app_db_path()).map_err(failure)?;
         let transaction = connection.transaction().map_err(failure)?;
