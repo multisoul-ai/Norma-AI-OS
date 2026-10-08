@@ -42,6 +42,7 @@ pub(super) struct CodexHost {
     pub(super) turn_id: Option<String>,
     pub(super) initial_turn_id: Option<String>,
     pub(super) latest_turn_id: Option<String>,
+    pub(super) retry_task: super::retry::RetryTask,
     approvals: CodexApprovals,
     external_approvals: hooks::ExternalApprovals,
     audit: audit::CodexAudit,
@@ -214,7 +215,10 @@ impl CodexHost {
         } else {
             None
         };
+        let mut retry_task = super::retry::RetryTask::default();
+        retry_task.record(turn_id.as_deref(), task);
         let host = Self {
+            retry_task,
             task_clock: super::timing::TaskClock::default(),
             task_summary: super::summary::TaskSummary::default(),
             connection,
@@ -306,6 +310,15 @@ impl CodexHost {
             let params = &event["params"];
             if params["threadId"] != self.thread_id {
                 continue;
+            }
+            if matches!(method, "item/started" | "item/completed")
+                && params["item"]["type"] == "userMessage"
+            {
+                let content = params["item"]["content"].as_array();
+                let text = content
+                    .filter(|items| items.len() == 1 && items[0]["type"] == "text")
+                    .and_then(|items| items[0]["text"].as_str());
+                self.retry_task.record(params["turnId"].as_str(), text);
             }
             display_changed |= self.task_summary.observe_codex(method, params);
             let state = match method {

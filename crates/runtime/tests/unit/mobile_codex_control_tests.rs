@@ -121,6 +121,7 @@ pub(in crate::runtime::mobile_cards) fn setup() -> (
         turn_id: Some("turn-a".into()),
         initial_turn_id: Some("turn-a".into()),
         latest_turn_id: Some("turn-a".into()),
+        retry_task: super::super::retry::RetryTask::default(),
         approvals: CodexApprovals::new("run-a".into(), "thread-a".into(), Some("turn-a".into())),
         control,
         audit: audit::CodexAudit::new(

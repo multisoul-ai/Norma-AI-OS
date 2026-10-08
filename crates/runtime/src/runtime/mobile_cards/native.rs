@@ -124,6 +124,7 @@ impl Runtime {
                 session_id: self.agent_session_id(node),
                 prompt_id: None,
                 latest_prompt_id: None,
+                retry_task: retry::RetryTask::default(),
                 claude: None,
                 interrupt: None,
                 control: Arc::new(launch::LaunchControl::default()),
@@ -216,6 +217,7 @@ impl Runtime {
                 ));
                 run.prompt_id = event.turn_id.clone();
                 run.latest_prompt_id = event.turn_id.clone();
+                run.retry_task.observe_hook(event);
                 run.accept_mobile_message(event);
                 if acknowledge_input {
                     run.native_input.acknowledge();

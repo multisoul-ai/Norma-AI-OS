@@ -196,3 +196,53 @@ fn codex_turn_outcomes_capture_each_provider_turn_before_state_changes() {
         "不能根据卡片Done推断未知回合"
     );
 }
+
+/// 场景：Codex失败重试原文必须绑定Provider的实际turn，不能复用旧turn或丢失内容。
+/// 数据构造：正式私有WS fixture，turn-a含完整文本userMessage后失败；turn-b缺原文。
+/// 执行过程：接收a输入和失败→读取精确原文→启动/失败b→读取a旧目标及b新目标。
+/// 预期结果：a完整原文可重发；a过期被拒绝；b不能猜测使用a原文。
+#[test]
+fn codex_failed_retry_uses_confirmed_full_input_and_never_guesses_a_new_turn() {
+    let (mut runtime, node, _directory, server) = super::tests::setup();
+    let text = "原始任务正文保持格式".repeat(20);
+    super::tests::advance(
+        &runtime,
+        node,
+        vec![
+            json!({"method":"item/completed","params":{"threadId":"thread-a","turnId":"turn-a","item":{"type":"userMessage","content":[{"type":"text","text":text}]}}}),
+            json!({"method":"turn/completed","params":{"threadId":"thread-a","turn":{"id":"turn-a","status":"failed","error":{"message":"失败"}}}}),
+        ],
+    );
+    runtime.drain_all();
+    let old = runtime.mobile_card_snapshots().remove(0);
+    assert_eq!(
+        runtime.mobile_retry_text(&old),
+        Ok(text),
+        "原输入不得被截断成摘要"
+    );
+    super::tests::advance(
+        &runtime,
+        node,
+        vec![
+            json!({"method":"turn/started","params":{"threadId":"thread-a","turn":{"id":"turn-b"}}}),
+            json!({"method":"turn/completed","params":{"threadId":"thread-a","turn":{"id":"turn-b","status":"failed","error":{"message":"新任务失败"}}}}),
+        ],
+    );
+    runtime.drain_all();
+    assert_eq!(
+        runtime.mobile_retry_text(&old),
+        Err("target_missing"),
+        "旧turn不能控制新失败任务"
+    );
+    let new = runtime.mobile_card_snapshots().remove(0);
+    assert_eq!(
+        runtime.mobile_retry_text(&new),
+        Err("original_task_unavailable"),
+        "缺少新turn原文时不得猜测"
+    );
+    runtime.kill_all();
+    assert!(
+        server.join().expect("关闭Provider").is_empty(),
+        "读取重试原文不应自动派发"
+    );
+}

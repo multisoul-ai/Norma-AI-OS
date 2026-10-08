@@ -13,6 +13,10 @@ use storage::{
     DesktopWorkspaceStore, MobileActivityRegistration, MobileActivityStore, MobileDeviceGrant,
 };
 mod detail;
+mod inbox;
+#[cfg(test)]
+#[path = "../../tests/unit/workspace_inbox_action_tests.rs"]
+mod inbox_tests;
 pub(super) mod overview;
 #[cfg(test)]
 #[path = "../../tests/unit/workspace_activity_api_tests.rs"]
@@ -40,7 +44,10 @@ impl<'de> Deserialize<'de> for Request {
             Operation::SetSubscription { .. } => &["kind", "expected_revision", "registration"],
             Operation::Detail { .. } => &["kind", "target", "offset"],
             Operation::Decide { .. } => &["kind", "target", "operation_id", "decision"],
-            Operation::Accept { .. } => &["kind", "target", "operation_id"],
+            Operation::Accept { .. } | Operation::Retry { .. } | Operation::Dismiss { .. } => {
+                &["kind", "target", "operation_id"]
+            }
+            Operation::ReturnForChanges { .. } => &["kind", "target", "operation_id", "text"],
             Operation::Receipt { .. } => &["kind", "area_id", "operation_id"],
         };
         if fields.keys().any(|key| !allowed.contains(&key.as_str())) {
@@ -83,10 +90,35 @@ pub enum Operation {
         target: WorkspaceActivityTarget,
         operation_id: String,
     },
+    Retry {
+        target: WorkspaceActivityTarget,
+        operation_id: String,
+    },
+    Dismiss {
+        target: WorkspaceActivityTarget,
+        operation_id: String,
+    },
+    ReturnForChanges {
+        target: WorkspaceActivityTarget,
+        operation_id: String,
+        text: String,
+    },
     Receipt {
         area_id: String,
         operation_id: String,
     },
+}
+impl Operation {
+    fn requires_control(&self) -> bool {
+        matches!(
+            self,
+            Self::Decide { .. }
+                | Self::Accept { .. }
+                | Self::Retry { .. }
+                | Self::Dismiss { .. }
+                | Self::ReturnForChanges { .. }
+        )
+    }
 }
 pub struct DecisionCall {
     pub target: WorkspaceActivityTarget,
@@ -133,10 +165,7 @@ pub(super) fn handle(
         .map_err(|_| "unauthorized")?
         .ok_or("unauthorized")?;
     let path = access.store.path().to_owned();
-    let control = matches!(
-        request.operation,
-        Operation::Decide { .. } | Operation::Accept { .. }
-    );
+    let control = request.operation.requires_control();
     let subscription = matches!(
         request.operation,
         Operation::Subscription | Operation::SetSubscription { .. }
@@ -180,6 +209,11 @@ pub(super) fn handle(
                 .map_err(|_| "invalid_request")?
                 .ok_or("subscription_changed")?;
             json!({"subscription":next})
+        }
+        Operation::Retry { .. }
+        | Operation::Dismiss { .. }
+        | Operation::ReturnForChanges { .. } => {
+            inbox::handle(shared, &path, device, token, &grant, request, &authorized)?
         }
         _ => detail::handle(shared, &path, device, token, &grant, request, &authorized)?,
     };

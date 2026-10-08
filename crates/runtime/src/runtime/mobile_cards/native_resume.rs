@@ -87,6 +87,7 @@ impl MobileRun {
         self.session_id = None;
         self.prompt_id = None;
         self.latest_prompt_id = None;
+        self.retry_task = Default::default();
         self.transcript_path = None;
         self.native_approvals = Default::default();
         self.task_clock = Default::default();

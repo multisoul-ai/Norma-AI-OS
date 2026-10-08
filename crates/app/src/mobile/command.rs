@@ -41,6 +41,11 @@ pub enum MobileCommand {
         input_sequence: u64,
         input: norma::mobile::TerminalInput,
     },
+    // Only the authenticated activity API may construct a retry of the exact original task.
+    #[serde(skip_deserializing)]
+    RetryFailed {
+        expected: norma::mobile::CardSnapshot,
+    },
     FeedbackDelivery {
         expected: norma::mobile::CardSnapshot,
         feedback: storage::DeliveryFeedback,
@@ -91,9 +96,9 @@ pub enum MobileCommand {
 impl MobileCommand {
     pub(crate) fn message_target(&self) -> Option<&norma::mobile::CardSnapshot> {
         match self {
-            Self::SendMessage { expected, .. } | Self::FeedbackDelivery { expected, .. } => {
-                Some(expected)
-            }
+            Self::SendMessage { expected, .. }
+            | Self::FeedbackDelivery { expected, .. }
+            | Self::RetryFailed { expected } => Some(expected),
             _ => None,
         }
     }
@@ -257,7 +262,7 @@ pub(super) fn submit_or_lookup(
 
 /// Both normal messages and confirmed Todos use this one bounded foreground dispatch/receipt path.
 pub(super) fn dispatch_reserved(
-    shared: &Arc<Shared>,
+    shared: &Shared,
     request: MobileCommandRequest,
     record: NewMobileCommand,
     store: MobileCommandStore,

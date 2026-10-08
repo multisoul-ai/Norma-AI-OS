@@ -278,6 +278,7 @@ impl Runtime {
                 ));
                 run.prompt_id = event.turn_id.clone();
                 run.latest_prompt_id = event.turn_id.clone();
+                run.retry_task.observe_hook(event);
                 run.accept_mobile_message(event);
                 run.native_input.acknowledge();
             }

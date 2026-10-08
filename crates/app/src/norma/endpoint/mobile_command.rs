@@ -158,9 +158,11 @@ pub(super) fn execute_now(database: PathBuf, call: LiveCommandRequest, cx: &mut 
                     MobileCommand::QueueMessage { .. } | MobileCommand::DecidePlanTodo { .. } => {
                         Err("invalid_request")
                     }
-                    MobileCommand::SendMessage { expected, .. }
+                    MobileCommand::RetryFailed { expected }
+                    | MobileCommand::SendMessage { expected, .. }
                     | MobileCommand::FeedbackDelivery { expected, .. } => {
                         let text = match &call.request.command {
+                            MobileCommand::RetryFailed { expected } => app.runtime.mobile_retry_text(expected)?,
                             MobileCommand::SendMessage { text, .. } => text.clone(),
                             MobileCommand::FeedbackDelivery { feedback, .. } => feedback.message(),
                             _ => unreachable!("matched message"),

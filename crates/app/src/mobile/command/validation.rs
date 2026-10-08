@@ -76,7 +76,8 @@ pub(super) fn validate(request: &MobileCommandRequest) -> Result<(), &'static st
         {
             Err("invalid_message")
         }
-        MobileCommand::DeleteCard { expected, .. }
+        MobileCommand::RetryFailed { expected }
+        | MobileCommand::DeleteCard { expected, .. }
         | MobileCommand::FeedbackDelivery { expected, .. }
         | MobileCommand::SendMessage { expected, .. }
         | MobileCommand::QueueMessage { expected, .. }

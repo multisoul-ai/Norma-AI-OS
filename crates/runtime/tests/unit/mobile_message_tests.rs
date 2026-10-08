@@ -345,3 +345,34 @@ fn delivery_requires_exact_quiescent_claude_turn() {
         "关闭后无法再证实本地工作树归属于该回合"
     );
 }
+
+/// 场景：失败任务重试必须使用完整原文，并拒绝已替换的回合。
+/// 数据构造：Claude session-a/run-a，原输入含超过60字的正文和换行，turn-a失败。
+/// 执行过程：观察原始提交→标记失败→读取重试原文→修改目标turn→再次读取。
+/// 预期结果：原文逐字保留；旧目标不能被用于重试新任务；不发送任何输入。
+#[test]
+fn failed_retry_keeps_exact_original_input_and_rejects_stale_turn() {
+    let (mut runtime, node, _directory) = claude();
+    let text = format!("{}\n保留原始格式", "原任务正文".repeat(40));
+    runtime.observe_mobile_hook(&prompt(node, "turn-a", &text));
+    runtime.events.update_agent_task_state(
+        node,
+        AgentTaskState::Failed {
+            message: "失败".into(),
+        },
+        "test".into(),
+    );
+    let mut expected = runtime.mobile_card_snapshots().remove(0);
+    assert_eq!(
+        runtime.mobile_retry_text(&expected),
+        Ok(text),
+        "重试不能使用截断的任务标题"
+    );
+    expected.turn_id = Some("old-turn".into());
+    assert_eq!(
+        runtime.mobile_retry_text(&expected),
+        Err("target_missing"),
+        "旧turn不得重试当前任务"
+    );
+    runtime.kill_all();
+}

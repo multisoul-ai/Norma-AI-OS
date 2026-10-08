@@ -130,3 +130,29 @@ fn workspace_activity_authorization_never_expands_project_permissions() {
         "配置变化后不能发送旧范围"
     );
 }
+
+/// 场景：三种收件箱操作有明确的wire种类和控制权限，不能混入未知字段。
+/// 数据构造：一个完整失败target，retry/dismiss，以及带fingerprint和text的return_for_changes。
+/// 执行过程：解析三种请求→检查控制权限→增加任意输入字段→检查拒绝。
+/// 预期结果：合法wire可解析；每种操作都需要Control；额外字段均拒绝。
+#[test]
+fn inbox_actions_have_typed_wire_and_require_control() {
+    for kind in ["retry", "dismiss", "return_for_changes"] {
+        let mut wire = json!({"desktop_workspace_id":"space","kind":kind,"operation_id":"op",
+            "target":{"area_id":"area","node_id":1,"profile":"Claude","run_id":"run","session_id":"session","turn_id":"turn"}});
+        if kind == "return_for_changes" {
+            wire["text"] = json!("请补充测试");
+            wire["target"]["fingerprint"] = json!("a".repeat(64));
+        }
+        let request: Request = serde_json::from_value(wire.clone()).expect("新操作必须可以解码");
+        assert!(
+            request.operation.requires_control(),
+            "收件箱操作必须要求Control权限"
+        );
+        wire["input"] = json!("arbitrary input");
+        assert!(
+            serde_json::from_value::<Request>(wire).is_err(),
+            "未知控制字段必须拒绝"
+        );
+    }
+}

@@ -42,6 +42,7 @@ mod messages;
 mod native;
 mod native_launch;
 mod native_resume;
+mod retry;
 pub use native_launch::NativeAgentLaunch;
 mod native_approval;
 mod native_approval_action;
@@ -96,6 +97,7 @@ pub(crate) struct MobileRun {
     session_id: Option<String>,
     prompt_id: Option<String>,
     latest_prompt_id: Option<String>,
+    retry_task: retry::RetryTask,
     claude: Option<claude::ClaudeApprovals>,
     interrupt: Option<terminal_interrupt::InterruptRequest>,
     control: Arc<launch::LaunchControl>,
@@ -235,12 +237,8 @@ impl Runtime {
                     state: state.into(),
                     run_id: self.mobile_agent_run_id(node.id).map(str::to_owned),
                     session_id: self.agent_session_id(node.id),
-                    turn_id: self.mobile_runs.get(&node.id).and_then(|run| {
-                        run.codex
-                            .as_ref()
-                            .and_then(|host| host.turn_id.clone())
-                            .or_else(|| run.prompt_id.clone())
-                    }),
+                    // Completed/failed cards retain the confirmed identity after active input clears.
+                    turn_id: self.mobile_latest_turn_key(node.id).map(|key| key.turn_id),
                     task_title: self
                         .agent_task_title(node.id)
                         .map(|s| s.chars().take(1024).collect()),
@@ -347,6 +345,7 @@ impl Runtime {
                 session_id: None,
                 prompt_id: None,
                 latest_prompt_id: None,
+                retry_task: retry::RetryTask::default(),
                 claude: None,
                 interrupt: None,
                 control: control.clone(),

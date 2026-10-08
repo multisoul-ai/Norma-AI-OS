@@ -19,7 +19,7 @@ mod relay;
 /// App-owned endpoint. Construction and methods perform IO: call only on background workers.
 /// The process owns this handle until disabled or App quit; there is no independent daemon.
 pub struct MobileServer {
-    shared: Arc<Shared>,
+    pub(super) shared: Arc<Shared>,
     addresses: Vec<SocketAddr>,
 }
 

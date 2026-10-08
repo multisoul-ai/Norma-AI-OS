@@ -85,7 +85,10 @@ enum Stage {
         entered: bool,
         render: Option<(u64, bool)>,
     },
-    Codex(Receiver<Result<Value, String>>),
+    Codex {
+        receiver: Receiver<Result<Value, String>>,
+        text: String,
+    },
 }
 pub(crate) struct Submission {
     workspace_reply: bool,
@@ -149,14 +152,17 @@ impl Runtime {
     pub fn mobile_latest_turn_key(&self, node: NodeId) -> Option<storage::MobileTurnKey> {
         let run = self.mobile_runs.get(&node)?;
         let (profile, turn) = if let Some(host) = &run.codex {
-            ("Codex", host.latest_turn_id.as_ref()?)
+            (
+                "Codex",
+                host.turn_id.as_ref().or(host.latest_turn_id.as_ref())?,
+            )
         } else {
             (
                 match self.document.node(node).map(|node| &node.kind) {
                     Some(CanvasNodeKind::Agent(spec)) => spec.profile.display_title(),
                     _ => return None,
                 },
-                run.latest_prompt_id.as_ref()?,
+                run.prompt_id.as_ref().or(run.latest_prompt_id.as_ref())?,
             )
         };
         Some(storage::MobileTurnKey {
@@ -319,7 +325,10 @@ impl Runtime {
                 .expect("run")
                 .native_input
                 .dirty = true;
-            Stage::Codex(request)
+            Stage::Codex {
+                receiver: request,
+                text,
+            }
         } else if run.prompt_id.is_none() || workspace_reply {
             // Bypass public input only for this reserved paste; desktop input is locked until Provider acknowledgement.
             self.mobile_runs
@@ -381,35 +390,84 @@ impl Runtime {
                 Some(Err("outcome_unknown".into()))
             } else {
                 match &mut submission.stage {
-                Stage::Codex(receiver) => match receiver.try_recv() {
-                    Ok(Ok(value)) => Some(value["turn"]["id"].as_str().filter(|id| !id.is_empty()).map(|turn| json!({"node_id":node,"run_id":run.run_id,"session_id":run.session_id,"turn_id":turn})).ok_or_else(|| "outcome_unknown".into())),
-                    Ok(Err(_)) => Some(Err("outcome_unknown".into())),
-                    Err(TryRecvError::Disconnected) => Some(Err("outcome_unknown".into())),
-                    Err(TryRecvError::Empty) => None,
-                },
-                Stage::Terminal { enter_at, entered, render, .. } if !*entered => {
-                    if let Some((revision, painted)) = render {
-                        if let Some(crate::NodeView::Term { revision: current, .. }) = self.live.get(node).and_then(|live| live.view()) {
-                            if !*painted && *revision != current { *revision = current; *painted = true; *enter_at = now + Duration::from_millis(100); }
+                    Stage::Codex { receiver, text } => match receiver.try_recv() {
+                        Ok(Ok(value)) => {
+                            if let Some(host) = &mut run.codex {
+                                host.retry_task
+                                    .record(value["turn"]["id"].as_str(), Some(text));
+                            }
+                            Some(value["turn"]["id"].as_str().filter(|id| !id.is_empty()).map(|turn| json!({"node_id":node,"run_id":run.run_id,"session_id":run.session_id,"turn_id":turn})).ok_or_else(|| "outcome_unknown".into()))
                         }
-                        // Both native CLIs can paint the pasted draft after 100ms under load. Submit once,
-                        // after the first render and the native Enter delay; later redraws cannot starve it.
-                        if !*painted || now < *enter_at { continue; }
-                    } else if now < *enter_at { continue; }
-                    if (!submission.workspace_reply && run.prompt_id.is_some()) || !(matches!(self.events.agent_task_state(*node), Some(AgentTaskState::Ready | AgentTaskState::Done | AgentTaskState::Ended | AgentTaskState::Failed { .. })) || (native && self.events.agent_task_state(*node).is_none()) || (submission.workspace_reply && native && matches!(self.events.agent_task_state(*node),Some(AgentTaskState::Thinking | AgentTaskState::RunningTool { .. })))) {
-                        Some(Err("outcome_unknown".into()))
-                    } else {
-                        *entered = true;
-                        let input = NodeInput::Key(terminal::KeyInput { key: terminal::Key::Enter, ctrl: false, alt: false, shift: false });
-                        run.native_input.advance();
-                        match self.live.get_mut(node).map(|live| live.input(input)) {
-                            Some(Ok(())) => { changed = true; None },
-                            _ => Some(Err("outcome_unknown".into())),
+                        Ok(Err(_)) => Some(Err("outcome_unknown".into())),
+                        Err(TryRecvError::Disconnected) => Some(Err("outcome_unknown".into())),
+                        Err(TryRecvError::Empty) => None,
+                    },
+                    Stage::Terminal {
+                        enter_at,
+                        entered,
+                        render,
+                        ..
+                    } if !*entered => {
+                        if let Some((revision, painted)) = render {
+                            if let Some(crate::NodeView::Term {
+                                revision: current, ..
+                            }) = self.live.get(node).and_then(|live| live.view())
+                            {
+                                if !*painted && *revision != current {
+                                    *revision = current;
+                                    *painted = true;
+                                    *enter_at = now + Duration::from_millis(100);
+                                }
+                            }
+                            // Both native CLIs can paint the pasted draft after 100ms under load. Submit once,
+                            // after the first render and the native Enter delay; later redraws cannot starve it.
+                            if !*painted || now < *enter_at {
+                                continue;
+                            }
+                        } else if now < *enter_at {
+                            continue;
+                        }
+                        if (!submission.workspace_reply && run.prompt_id.is_some())
+                            || !(matches!(
+                                self.events.agent_task_state(*node),
+                                Some(
+                                    AgentTaskState::Ready
+                                        | AgentTaskState::Done
+                                        | AgentTaskState::Ended
+                                        | AgentTaskState::Failed { .. }
+                                )
+                            ) || (native && self.events.agent_task_state(*node).is_none())
+                                || (submission.workspace_reply
+                                    && native
+                                    && matches!(
+                                        self.events.agent_task_state(*node),
+                                        Some(
+                                            AgentTaskState::Thinking
+                                                | AgentTaskState::RunningTool { .. }
+                                        )
+                                    )))
+                        {
+                            Some(Err("outcome_unknown".into()))
+                        } else {
+                            *entered = true;
+                            let input = NodeInput::Key(terminal::KeyInput {
+                                key: terminal::Key::Enter,
+                                ctrl: false,
+                                alt: false,
+                                shift: false,
+                            });
+                            run.native_input.advance();
+                            match self.live.get_mut(node).map(|live| live.input(input)) {
+                                Some(Ok(())) => {
+                                    changed = true;
+                                    None
+                                }
+                                _ => Some(Err("outcome_unknown".into())),
+                            }
                         }
                     }
+                    _ => None,
                 }
-                _ => None,
-            }
             };
             if let Some(result) = result {
                 if result.is_ok() {
