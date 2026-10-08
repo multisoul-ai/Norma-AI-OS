@@ -1,6 +1,5 @@
 use crate::app::MultisoulApp;
 use gpui::{Context, Window};
-use std::collections::HashSet;
 use tokio_util::sync::CancellationToken;
 use ui::i18n::LocalizedText;
 
@@ -10,6 +9,26 @@ mod playback;
 mod tools;
 
 use plan::run_session;
+
+pub(crate) struct DoubaoReport {
+    pub(crate) text: String,
+    pub(crate) cancellation: CancellationToken,
+    pub(crate) completed: tokio::sync::oneshot::Sender<()>,
+}
+
+impl DoubaoReport {
+    pub(crate) fn new(text: String) -> (Self, tokio::sync::oneshot::Receiver<()>) {
+        let (completed, completion) = tokio::sync::oneshot::channel();
+        (
+            Self {
+                text,
+                cancellation: CancellationToken::new(),
+                completed,
+            },
+            completion,
+        )
+    }
+}
 
 pub(super) type ContextRequests = async_channel::Sender<
     tokio::sync::oneshot::Sender<(agent::CurrentCanvasContext, Vec<agent::AgentRosterEntry>)>,
@@ -64,8 +83,7 @@ pub(crate) struct DoubaoVoiceState {
     speech: Option<async_channel::Sender<plan::asr::SpeechEvent>>,
     activation: Option<gpui::Subscription>,
     session_task: Option<tokio::task::JoinHandle<()>>,
-    pub(crate) reports: Option<async_channel::Sender<String>>,
-    pub(crate) tracked_tasks: HashSet<u64>,
+    pub(crate) reports: Option<async_channel::Sender<DoubaoReport>>,
 }
 
 impl Default for DoubaoVoiceState {
@@ -83,7 +101,6 @@ impl Default for DoubaoVoiceState {
             activation: None,
             session_task: None,
             reports: None,
-            tracked_tasks: HashSet::new(),
         }
     }
 }
@@ -124,7 +141,6 @@ impl DoubaoVoiceState {
         self.recordings = None;
         self.speech = None;
         self.activation = None;
-        self.tracked_tasks.clear();
         self.status = DoubaoStatus::Idle;
     }
 
@@ -190,26 +206,6 @@ impl MultisoulApp {
         requests
     }
 
-    pub(crate) fn queue_doubao_terminal_reports(&mut self) {
-        let (Some(sender), Some(coordinator)) = (
-            self.doubao.reports.as_ref(),
-            self.agent_task_coordinator.as_ref(),
-        ) else {
-            return;
-        };
-        for task in coordinator.tasks() {
-            if !self.doubao.tracked_tasks.contains(&task.task_id) {
-                continue;
-            }
-            let Some(report) = task_completion_message(&task) else {
-                continue;
-            };
-            if sender.try_send(report).is_ok() {
-                self.doubao.tracked_tasks.remove(&task.task_id);
-            }
-        }
-    }
-
     pub(crate) fn stop_doubao_voice(&mut self, cx: &mut Context<Self>) {
         self.doubao.stop();
         cx.notify();
@@ -238,7 +234,6 @@ impl MultisoulApp {
         let bound_project = project_id.clone();
         self.doubao.generation = self.doubao.generation.wrapping_add(1);
         let generation = self.doubao.generation;
-        self.doubao.tracked_tasks.clear();
         let tool_adapter = super::agent_runtime::start_doubao_adapter(
             project_id.clone().unwrap_or_default(),
             generation,
@@ -358,7 +353,6 @@ impl MultisoulApp {
                             app.doubao.activation = None;
                             app.doubao.cancellation = None;
                             app.doubao.reports = None;
-                            app.doubao.tracked_tasks.clear();
                         }
                         cx.notify();
                     }
@@ -372,20 +366,6 @@ impl MultisoulApp {
         .detach();
         cx.notify();
     }
-}
-
-fn task_completion_message(task: &agent::AgentCoordinatedTask) -> Option<String> {
-    let outcome = match task.state {
-        "succeeded" => "已完成",
-        "failed" => "失败",
-        "cancelled" => "已取消",
-        "interrupted" => "已中断",
-        _ => return None,
-    };
-    Some(format!(
-        "{} 的任务 #{} {}。",
-        task.agent, task.task_id, outcome
-    ))
 }
 
 #[cfg(test)]

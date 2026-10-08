@@ -1,4 +1,4 @@
-use super::DesktopDeleteTarget;
+use super::{DesktopDeleteTarget, DesktopRenameTarget};
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div, Stateful};
 use ui::component::button::{Button, ButtonVariants};
@@ -157,6 +157,10 @@ impl MultisoulApp {
     pub(crate) fn render_desktop_rename_dialog(&mut self, cx: &mut Context<Self>) -> Stateful<Div> {
         let theme = self.theme;
         let input = self.desktop_workspace.rename_input.clone();
+        let area = matches!(
+            self.desktop_workspace.rename_target,
+            Some(DesktopRenameTarget::Area { .. })
+        );
         div()
             .id("desktop-workspace-rename-dialog")
             .debug_selector(|| "desktop-workspace-rename-dialog".to_string())
@@ -167,6 +171,15 @@ impl MultisoulApp {
             .justify_center()
             .occlude()
             .bg(rgba(0x00000080))
+            .on_action(cx.listener(|app, _: &ui::component::input::Enter, _, cx| {
+                app.save_desktop_rename(cx);
+            }))
+            .on_key_down(cx.listener(|app, event: &gpui::KeyDownEvent, _, cx| {
+                if event.keystroke.key == "escape" {
+                    app.cancel_desktop_rename(cx);
+                    cx.stop_propagation();
+                }
+            }))
             .child(
                 div()
                     .w(px(420.0))
@@ -176,13 +189,26 @@ impl MultisoulApp {
                     .p(px(22.0))
                     .rounded(px(16.0))
                     .bg(rgba(theme.panel_high))
+                    .text_color(rgba(theme.text_primary))
                     .child(
                         div()
                             .text_size(px(18.0))
                             .font_semibold()
-                            .child(ui::i18n::text("workspace.rename_workspace")),
+                            .child(ui::i18n::text(if area {
+                                "workspace.rename_canvas"
+                            } else {
+                                "workspace.rename_workspace"
+                            })),
                     )
                     .when_some(input, |this, input| this.child(Input::new(&input)))
+                    .when_some(self.desktop_workspace.error.clone(), |this, error| {
+                        this.child(
+                            div()
+                                .text_size(px(12.0))
+                                .text_color(rgba(theme.destructive))
+                                .child(error),
+                        )
+                    })
                     .child(
                         div()
                             .flex()
@@ -194,6 +220,7 @@ impl MultisoulApp {
                                         "desktop-workspace-rename-cancel".to_string()
                                     })
                                     .label(ui::i18n::text("common.cancel"))
+                                    .disabled(self.desktop_workspace.busy)
                                     .on_click(
                                         cx.listener(|app, _, _, cx| app.cancel_desktop_rename(cx)),
                                     ),

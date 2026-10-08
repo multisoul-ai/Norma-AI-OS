@@ -41,7 +41,7 @@ pub(super) async fn run_session(
     cancellation: CancellationToken,
     (events, reports, playback_events, input): (
         Sender<DoubaoStatus>,
-        Receiver<String>,
+        Receiver<super::DoubaoReport>,
         VoiceWindowInsetEventSink,
         super::input::SessionInput,
     ),

@@ -35,7 +35,7 @@ Norma OS 是面向 vibe coding 的 macOS AI 伙伴；空间工作台是伙伴协
 
 | 主题 | Base | Environment | Text | Accent | Signal | 适用场景 |
 |---|---|---|---|---|---|---|
-| **Paper Blue** | `#FFFEFB` / `#F5F4F1` | `#D4EAF7` | `#313D44` | Cobalt `#2F80ED` | Mint `#64E0B5` | 默认主题，长时间开发与日常工作 |
+| **Paper Blue** | `#FFFEFB` / `#F5F4F1` | `#D4EAF7` | `#313D44` | Cobalt `#2F80ED` | Mint `#64E0B5` | 浅色主题，长时间开发与日常工作 |
 | **Linen Sage** | `#F9F8F3` / `#EBEDE6` | `#CDD8CE` | `#1D231F` | Sage `#3D9978` | Mint `#64E0B5` | 更自然、低刺激的工作环境 |
 | **Silver Violet** | `#FAFAF9` / `#F0F0F2` | `#DCDDE1` | `#232328` | Violet `#6A5CFF` | Mint `#64E0B5` | 精密工具感与冷静的视觉层级 |
 
@@ -43,7 +43,7 @@ Norma OS 是面向 vibe coding 的 macOS AI 伙伴；空间工作台是伙伴协
 
 | 主题 | Base | Raised glass | Text | Accent | Signal | 适用场景 |
 |---|---|---|---|---|---|---|
-| **Sapphire Night** | `#071324` | `#0E2338` | `#EFF7FF` | `#54A2FF` | Mint `#64E0B5` | 深色默认候选，蓝色信息密度高 |
+| **Sapphire Night** | `#071324` | `#0E2338` | `#EFF7FF` | `#54A2FF` | Mint `#64E0B5` | 默认主题，蓝色信息密度高 |
 | **Midnight Violet** | `#0C0C1B` | `#231F3C` | `#F8F5FF` | `#8B7CFF` | Mint `#64E0B5` | Agent 与自动化场景更突出 |
 | **Forest Mint** | `#091716` | `#112D27` | `#F1FCF8` | Mint `#64E0B5` | Acid `#D6FF3B` | 低光环境与持续运行状态 |
 

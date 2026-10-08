@@ -31,6 +31,8 @@
   "workspace.running_running_agent_terminal_sessions_will_stop": "%{running} running Agent / terminal sessions will stop.",
   "workspace.add_project_to_workspace": "Add Project to Workspace",
   "workspace.rename_workspace": "Rename Workspace",
+  "workspace.rename_canvas": "Rename Canvas",
+  "workspace.could_not_rename_canvas_error": "Could not rename: %{error}",
   "workspace.running": "Running",
   "workspace.no_projects_yet": "No projects yet",
   "workspace.workspace_actions": "Workspace actions",

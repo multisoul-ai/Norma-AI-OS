@@ -8,6 +8,7 @@ mod execution;
 mod history;
 pub(crate) mod playback;
 pub(crate) mod recognition;
+mod sync;
 
 use crate::app::voice::control::{VoicePhase, VoiceTrigger};
 use crate::app::{AppScreen, MultisoulApp};

@@ -7,7 +7,7 @@ use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div, Stateful, Window};
 use storage::DesktopProjectArea;
 use ui::component::button::{Button, ButtonVariants};
-use ui::component::StyledExt;
+use ui::component::{Disableable, StyledExt};
 use ui::icons::with_alpha;
 
 impl MultisoulApp {
@@ -68,6 +68,7 @@ impl MultisoulApp {
         .size;
         let chrome = project_chrome_scale(card_size, scale);
         let title_height = project_stage_rect(card_size, scale).origin.y;
+        let selected = self.desktop_overview_selection().as_deref() == Some(&area_id);
         let actions_open = self.desktop_workspace.actions_area_id.as_deref() == Some(&area_id);
         let moving_live_canvas = moving.is_some()
             && self
@@ -85,8 +86,16 @@ impl MultisoulApp {
             .h(px(card_size.y))
             .rounded(px(14.0 * chrome))
             .border_1()
-            .border_color(rgba(theme.dock_line))
-            .bg(rgba(with_alpha(theme.dock, 0x8c)))
+            .border_color(rgba(if selected {
+                theme.focused_stroke
+            } else {
+                theme.dock_line
+            }))
+            .bg(rgba(with_alpha(
+                theme.dock,
+                if selected { 0xb0 } else { 0x8c },
+            )))
+            .when(selected, |this| this.shadow_lg())
             .opacity(shell_opacity)
             .cursor_pointer()
             .hover(move |style| style.border_color(rgba(theme.focused_stroke)))
@@ -162,6 +171,7 @@ impl MultisoulApp {
             let codex_id = area_id.clone();
             let claude_id = area_id.clone();
             let remove_id = area_id.clone();
+            let rename_id = area_id.clone();
             let actions_id = area_id.clone();
             card = card.child(
                 div()
@@ -208,6 +218,21 @@ impl MultisoulApp {
                         .border_color(rgba(theme.dock_line))
                         .bg(rgba(theme.dock))
                         .shadow_lg()
+                        .child(
+                            Button::new(("desktop-project-rename", area_index))
+                                .debug_selector(move || {
+                                    format!("desktop-project-rename-{area_index}")
+                                })
+                                .label(ui::i18n::text("common.rename"))
+                                .compact()
+                                .custom(glass_button_variant(theme, cx))
+                                .disabled(self.desktop_workspace.busy)
+                                .on_click(cx.listener(move |app, _, window, cx| {
+                                    cx.stop_propagation();
+                                    app.desktop_workspace.actions_area_id = None;
+                                    app.begin_desktop_rename(rename_id.clone(), window, cx);
+                                })),
+                        )
                         .child(
                             Button::new(("desktop-project-open", area_index))
                                 .debug_selector(move || {

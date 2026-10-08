@@ -41,6 +41,10 @@ name = "norma-push-sqlite-l3"
 path = "src/bin/norma_push_sqlite_l3.rs"
 required-features = ["l3-test-support"]
 
+[[test]]
+name = "native_input_focus"
+harness = false
+
 [dependencies]
 gpui = { workspace = true, features = ["test-support"] }
 ui.workspace = true

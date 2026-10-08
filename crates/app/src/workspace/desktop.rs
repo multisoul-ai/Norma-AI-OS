@@ -43,6 +43,7 @@ mod home_card;
 mod launchpad;
 mod layout;
 mod management;
+use management::DesktopRenameTarget;
 mod motion_log;
 mod navigation;
 mod preview_canvas;
@@ -97,6 +98,7 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) active_id: Option<String>,
     pub(crate) areas: Vec<DesktopProjectArea>,
     pub(crate) active_area_id: Option<String>,
+    pub(crate) selected_area_id: Option<String>,
     pub(crate) expanded_area_id: Option<String>,
     pub(crate) workspace_rects: Arc<Mutex<HashMap<String, canvas::CanvasRect>>>,
     workspace_motion_rects: HashMap<String, canvas::CanvasRect>,
@@ -116,7 +118,7 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) search_query: String,
     pub(crate) error: Option<ui::i18n::LocalizedText>,
     pub(crate) busy: bool,
-    pub(crate) rename_target: Option<String>,
+    pub(crate) rename_target: Option<DesktopRenameTarget>,
     pub(crate) rename_input: Option<Entity<InputState>>,
     pub(crate) create_input: Option<Entity<InputState>>,
     pub(crate) actions_workspace_id: Option<String>,
@@ -170,6 +172,7 @@ impl DesktopWorkspaceUiState {
             active_id: None,
             areas: Vec::new(),
             active_area_id: None,
+            selected_area_id: None,
             expanded_area_id: None,
             workspace_rects: Arc::new(Mutex::new(HashMap::new())),
             workspace_motion_rects: HashMap::new(),

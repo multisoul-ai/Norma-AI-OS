@@ -60,6 +60,7 @@ impl MultisoulApp {
     ) {
         self.toggle_settings_panel(cx);
         if self.settings_panel.open {
+            crate::app::native_input::focus_gpui(window, "settings_open");
             self.focus_handle.focus(window);
         }
     }
@@ -72,6 +73,7 @@ impl MultisoulApp {
     ) {
         self.toggle_settings_panel(cx);
         if self.settings_panel.open {
+            crate::app::native_input::focus_gpui(window, "settings_shortcut");
             self.focus_handle.focus(window);
         }
     }
@@ -90,6 +92,8 @@ impl MultisoulApp {
             return;
         }
         self.settings_panel.toggle();
+        tracing::info!(target: "norma::input", open = self.settings_panel.open,
+            "settings input scope changed");
         if !was_open && self.settings_panel.active_section == SettingsSection::Wallpaper {
             self.wallpaper_settings.scoped.edit_project = self
                 .wallpaper_settings
@@ -130,6 +134,7 @@ impl MultisoulApp {
     ) {
         let was_open = self.settings_panel.open;
         self.settings_panel.close();
+        tracing::info!(target: "norma::input", open = false, "settings input scope changed");
         self.shortcuts.recording = None;
         self.finish_voice_settings_inputs(cx);
         if was_open {
@@ -183,6 +188,7 @@ impl MultisoulApp {
 
     pub(crate) fn open_voice_settings(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.settings_panel.open();
+        crate::app::native_input::focus_gpui(window, "voice_settings_open");
         self.sync_feature_guide_blockers(cx);
         self.settings_panel.select(SettingsSection::NormaVoice);
         self.focus_handle.focus(window);

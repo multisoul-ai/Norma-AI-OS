@@ -75,7 +75,7 @@ pub(super) fn handle(
             let mut result = Vec::new();
             for area in areas {
                 let id = identities
-                    .resolve_or_create(&area.root, &area.display_name)
+                    .resolve_or_create(&area.root, &workspace::display_name_for_path(&area.root))
                     .map_err(|_| "configuration_changed")?;
                 if !all_projects(&grant, control) && !grant.allows(&id.workspace_id, control) {
                     return Err("unauthorized");

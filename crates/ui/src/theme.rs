@@ -3,10 +3,10 @@
 /// 用户可选的稳定主题标识。
 #[derive(Debug, Clone, Copy, Default, Eq, Hash, PartialEq)]
 pub enum ThemeId {
-    #[default]
     PaperBlue,
     LinenSage,
     SilverViolet,
+    #[default]
     SapphireNight,
     MidnightViolet,
     ForestMint,
@@ -405,7 +405,7 @@ impl Theme {
 
 impl Default for Theme {
     fn default() -> Self {
-        Self::paper_blue()
+        Self::for_id(ThemeId::default())
     }
 }
 

@@ -1,9 +1,5 @@
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, App, Context, Entity, Task, Window};
-use std::{
-    collections::HashSet,
-    path::{Path, PathBuf},
-};
 use ui::component::{
     button::Button,
     list::{List, ListDelegate, ListEvent, ListItem, ListState},
@@ -15,20 +11,14 @@ use workspace::WorkspaceRecord;
 pub(super) struct ProjectPicker {
     records: Vec<WorkspaceRecord>,
     pub(super) matching: Vec<usize>,
-    added: HashSet<PathBuf>,
     theme: ui::Theme,
 }
 
 impl ProjectPicker {
-    pub(super) fn new(
-        records: Vec<WorkspaceRecord>,
-        added: HashSet<PathBuf>,
-        theme: ui::Theme,
-    ) -> Self {
+    pub(super) fn new(records: Vec<WorkspaceRecord>, theme: ui::Theme) -> Self {
         Self {
             matching: (0..records.len()).collect(),
             records,
-            added,
             theme,
         }
     }
@@ -55,10 +45,6 @@ impl ProjectPicker {
         self.matching
             .get(row)
             .and_then(|&index| self.records.get(index))
-    }
-
-    pub(super) fn is_added(&self, path: &Path) -> bool {
-        self.added.contains(path)
     }
 }
 
@@ -95,7 +81,6 @@ impl ListDelegate for ProjectPicker {
         _: &mut Context<ListState<Self>>,
     ) -> Option<ListItem> {
         let record = self.project_at(ix.row)?;
-        let added = self.is_added(&record.path);
         let theme = self.theme;
         let index = self.matching[ix.row];
         let path = record.path.display().to_string();
@@ -104,7 +89,6 @@ impl ListDelegate for ProjectPicker {
                 .w_full()
                 .p_0()
                 .rounded(px(8.0))
-                .disabled(added)
                 .child(
                     div()
                         .id(("desktop-add-row", index))
@@ -117,20 +101,15 @@ impl ListDelegate for ProjectPicker {
                         .rounded(px(8.0))
                         .gap(px(12.0))
                         .tooltip(move |window, cx| Tooltip::new(path.clone()).build(window, cx))
-                        .when(!added, |this| {
-                            this.cursor_pointer().active(move |style| {
-                                style.bg(rgba(ui::icons::with_alpha(theme.accent_blue, 0x28)))
-                            })
+                        .cursor_pointer()
+                        .active(move |style| {
+                            style.bg(rgba(ui::icons::with_alpha(theme.accent_blue, 0x28)))
                         })
                         .child(
                             Icon::new(IconName::Folder)
                                 .flex_none()
                                 .size(px(20.0))
-                                .text_color(rgba(if added {
-                                    theme.text_secondary
-                                } else {
-                                    theme.accent_blue
-                                })),
+                                .text_color(rgba(theme.accent_blue)),
                         )
                         .child(
                             div()
@@ -164,11 +143,7 @@ impl ListDelegate for ProjectPicker {
                                 .text_right()
                                 .text_size(px(11.0))
                                 .text_color(rgba(theme.text_secondary))
-                                .child(if added {
-                                    ui::i18n::text("workspace.added")
-                                } else {
-                                    ui::i18n::text("workspace.add")
-                                }),
+                                .child(ui::i18n::text("workspace.add")),
                         ),
                 ),
         )
@@ -206,21 +181,12 @@ impl MultisoulApp {
         }
         self.desktop_workspace.add_project_open = true;
         let records = self.workspace_state.recent.records.clone();
-        let added = self
-            .desktop_workspace
-            .areas
-            .iter()
-            .map(|area| area.root.clone())
-            .collect();
-        let delegate = ProjectPicker::new(records, added, self.theme);
+        let delegate = ProjectPicker::new(records, self.theme);
         let list = cx.new(|cx| ListState::new(delegate, window, cx).searchable(true));
         cx.subscribe_in(&list, window, |app, list, event, window, cx| {
             if let ListEvent::Confirm(ix) = event {
                 let picker = list.read(cx).delegate();
-                let record = picker
-                    .project_at(ix.row)
-                    .filter(|record| !picker.is_added(&record.path))
-                    .cloned();
+                let record = picker.project_at(ix.row).cloned();
                 if let Some(record) = record {
                     app.close_desktop_add_project(window, cx);
                     app.add_project_to_desktop_workspace(record.path, window, cx);

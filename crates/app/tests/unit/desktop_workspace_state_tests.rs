@@ -45,3 +45,127 @@ fn desktop_workspace_search_excludes_legacy_recent_projects() {
         "不匹配的 Operations 不得进入搜索结果"
     );
 }
+
+/// 项目画布重命名复用弹窗，保存仅更新目标画布，取消不改名。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   1 个“Workspace”空间；同项目添加 1 + 1 = 2 张画布，默认名称均为“project”。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 打开首张重命名 → 创建目标状态和名称输入框。
+///   2. 输入“发布验收”并保存 → 后台更新存储，刷新宿主名称并关闭弹窗。
+///   3. 读取存储 → 首张新名称已持久化；打开第二张重命名并取消 → 清除目标状态。
+///
+/// 预期结果：
+///   - 正断言：首张显示并保存“发布验收”，保存和取消后弹窗均关闭。
+///   - 负断言：第二张不被同步改名，空间名称不被画布重命名修改。
+#[test]
+fn desktop_project_canvas_rename_updates_only_target_and_can_cancel() {
+    use gpui::{AppContext, TestAppContext};
+    use ui::component::Root;
+    let temp = tempfile::tempdir().expect("应创建隔离目录");
+    let project = temp.path().join("project");
+    std::fs::create_dir(&project).expect("应创建项目目录");
+    let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
+    let store = storage::AppStore::initialize(&paths).expect("应初始化存储");
+    let catalog = store.desktop_workspace_store();
+    let workspace = catalog.create("Workspace").expect("应创建空间");
+    let first = catalog
+        .add_project(&workspace.id, &project)
+        .expect("应创建首张");
+    let second = catalog
+        .add_project(&workspace.id, &project)
+        .expect("应创建第二张");
+    let mut test = TestAppContext::single();
+    let mut host = None;
+    let (_, cx) = test.add_window_view(|window, cx| {
+        let app = cx.new(|cx| MultisoulApp::new_with_database_context(cx, paths, store));
+        host = Some(app.clone());
+        Root::new(cx.new(|_| gpui::EmptyView), window, cx)
+    });
+    let host = host.expect("宿主应存在");
+    cx.run_until_parked();
+    host.update_in(cx, |app, window, cx| {
+        app.desktop_workspace.active_id = Some(workspace.id.clone());
+        app.desktop_workspace.areas = catalog.list_projects(&workspace.id).expect("应加载画布");
+        app.begin_desktop_rename(first.id.clone(), window, cx);
+        assert!(
+            app.desktop_workspace.rename_target.is_some(),
+            "画布应能打开重命名弹窗"
+        );
+        let input = app
+            .desktop_workspace
+            .rename_input
+            .clone()
+            .expect("应有名称输入框");
+        input.update(cx, |input, cx| input.set_value("发布验收", window, cx));
+        app.save_desktop_rename(cx);
+    });
+    cx.run_until_parked();
+    cx.update(|_, cx| {
+        let app = host.read(cx);
+        assert_eq!(
+            app.desktop_workspace
+                .areas
+                .iter()
+                .find(|area| area.id == first.id)
+                .expect("首张应存在")
+                .display_name,
+            "发布验收",
+            "宿主应立即显示保存后的画布名"
+        );
+        assert_eq!(
+            app.desktop_workspace
+                .areas
+                .iter()
+                .find(|area| area.id == second.id)
+                .expect("第二张应存在")
+                .display_name,
+            "project",
+            "同项目第二张名称不得同步修改"
+        );
+        assert!(
+            app.desktop_workspace.rename_target.is_none(),
+            "保存成功应关闭弹窗"
+        );
+    });
+    assert_eq!(
+        catalog
+            .list_projects(&workspace.id)
+            .expect("应读取目录")
+            .iter()
+            .find(|area| area.id == first.id)
+            .expect("首张应存在")
+            .display_name,
+        "发布验收",
+        "画布名必须持久化"
+    );
+    host.update_in(cx, |app, window, cx| {
+        app.begin_desktop_rename(second.id.clone(), window, cx);
+        app.cancel_desktop_rename(cx);
+        assert!(
+            app.desktop_workspace.rename_target.is_none(),
+            "取消应关闭弹窗"
+        );
+    });
+    assert_eq!(
+        catalog
+            .list_projects(&workspace.id)
+            .expect("应读取目录")
+            .iter()
+            .find(|area| area.id == second.id)
+            .expect("第二张应存在")
+            .display_name,
+        "project",
+        "取消不得修改第二张名称"
+    );
+    assert_eq!(
+        catalog
+            .get(&workspace.id)
+            .expect("应读取空间")
+            .expect("空间应存在")
+            .name,
+        "Workspace",
+        "画布重命名不得修改空间名称"
+    );
+}

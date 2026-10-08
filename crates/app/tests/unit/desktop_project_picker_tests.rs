@@ -2,12 +2,27 @@ use super::project_picker::ProjectPicker;
 use std::path::PathBuf;
 use workspace::{WorkspaceRecord, WorkspaceSource};
 
-/// 添加项目可搜索全部已保存历史，同名项目按路径区分，已添加状态不会混淆。
+struct PickerTestView;
+
+impl gpui::Render for PickerTestView {
+    fn render(
+        &mut self,
+        window: &mut gpui::Window,
+        cx: &mut gpui::Context<Self>,
+    ) -> impl gpui::IntoElement {
+        use gpui::prelude::*;
+        gpui::div()
+            .size_full()
+            .children(ui::component::Root::render_dialog_layer(window, cx))
+    }
+}
+
+/// 添加项目可搜索全部已保存历史，同名项目按路径区分。
 ///
 /// 数据构造：50条记录=存储的历史容量；前48条为普通路径，末两条同名“官网”，
-///   路径分别为/team-a/官网与/team-b/官网；只有team-a已加入当前空间。
+///   路径分别为/team-a/官网与/team-b/官网。
 /// 执行过程：默认列表 → 按中文名称搜索 → 按大写路径搜索 → 无结果 → 清空。
-/// 预期结果：不截断为6条；同名显示两条；路径搜索只命中team-b；已添加只标记team-a。
+/// 预期结果：不截断为6条；同名显示两条；路径搜索只命中team-b，无结果不能确认旧项目。
 #[test]
 fn desktop_project_picker_searches_all_saved_projects() {
     let mut records: Vec<_> = (0..48)
@@ -23,7 +38,7 @@ fn desktop_project_picker_searches_all_saved_projects() {
     let b = PathBuf::from("/team-b/官网");
     records.push(WorkspaceRecord::new(a.clone(), 0, WorkspaceSource::Open));
     records.push(WorkspaceRecord::new(b.clone(), 0, WorkspaceSource::Open));
-    let mut picker = ProjectPicker::new(records, [a.clone()].into(), ui::Theme::sapphire_night());
+    let mut picker = ProjectPicker::new(records, ui::Theme::sapphire_night());
     assert_eq!(picker.matching.len(), 50, "添加项目不能只显示前6条历史");
     picker.search(" 官网 ");
     assert_eq!(picker.matching.len(), 2, "同名项目应保留不同路径");
@@ -37,8 +52,6 @@ fn desktop_project_picker_searches_all_saved_projects() {
         b,
         "不能因同名去重另一目录"
     );
-    assert!(picker.is_added(&a), "当前空间已有team-a，必须显示已添加");
-    assert!(!picker.is_added(&b), "同名team-b不能被误判已添加");
     picker.search("TEAM-B");
     assert_eq!(picker.matching.len(), 1, "路径搜索应忽略大小写");
     assert_eq!(
@@ -52,14 +65,22 @@ fn desktop_project_picker_searches_all_saved_projects() {
     assert_eq!(picker.matching.len(), 50, "清空搜索应恢复全部历史");
 }
 
-/// 真实列表组件在小窗口保持有界，键盘可添加末尾项目，取消与已添加确认不产生重复记录。
+/// 列表组件在小窗口保持有界，键盘与鼠标可重复添加同项目，取消不添加记录。
 ///
 /// 数据构造：50个存在的目录（与历史容量一致），一个空工作空间，窗口800×600。
 ///   前两条名称分别为1字符和32字符，验证长度不改变左对齐；行高上限52px=两行正文36px+上下留白16px。
 ///   项目49位于第50条；组件搜索防闪等待100ms，再留20ms调度余量。
-/// 执行过程：打开 → 检查名称对齐、行高与底栏 → 搜索末条并Enter → 重开并点击已添加行 → Escape。
-///   最后重开搜索project-48并单击，验证更换行控件后鼠标仍能确认。
-/// 预期结果：名称左对齐；底栏在600px以内；仅加入project-49和project-48；重复操作不添加；Escape关闭。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 打开列表 → 绘制首屏并检查名称左对齐、行高和取消按钮位置。
+///   2. 搜索末条并按 Enter → 添加 project-49，关闭选择器。
+///   3. 重开并点击已添加的 project-49 → 创建第二张独立画布，关闭选择器。
+///   4. 重开并按 Escape → 只关闭选择器，不添加画布。
+///   5. 重开搜索 project-48 并单击 → 添加另一项目，验证鼠标确认仍有效。
+///
+/// 预期结果：
+///   - 正断言：名称左对齐，底栏在 600px 内；project-49 有两张独立画布，project-48 有一张。
+///   - 负断言：末条不在首屏绘制，不误加 project-0；Escape 不增加画布。
 #[test]
 fn desktop_project_picker_routes_keyboard_and_bounds_long_lists() {
     use crate::app::{AppScreen, MultisoulApp};
@@ -94,7 +115,8 @@ fn desktop_project_picker_routes_keyboard_and_bounds_long_lists() {
     let (_, cx) = test.add_window_view(|window, cx| {
         let app = cx.new(|cx| MultisoulApp::new_with_database_context(cx, paths, store));
         host = Some(app.clone());
-        Root::new(app, window, cx)
+        // Native AppKit focus belongs to real App acceptance; this harness renders only the picker.
+        Root::new(cx.new(|_| PickerTestView), window, cx)
     });
     let host = host.expect("宿主存在");
     cx.simulate_resize(size(px(800.0), px(600.0)));
@@ -178,22 +200,36 @@ fn desktop_project_picker_routes_keyboard_and_bounds_long_lists() {
         .expect("已添加行存在");
     cx.simulate_click(added_row.center(), gpui::Modifiers::none());
     cx.run_until_parked();
-    cx.simulate_keystrokes("enter");
-    cx.run_until_parked();
+    let repeated = catalog
+        .list_projects(&workspace.id)
+        .expect("读取重复添加结果");
+    assert_eq!(repeated.len(), 2, "已添加项目必须仍能重复加入");
+    assert_ne!(repeated[0].id, repeated[1].id, "重复添加必须有两个独立画布");
     assert_eq!(
-        catalog.list_projects(&workspace.id).unwrap().len(),
-        1,
-        "已添加项目不能重复加入"
+        repeated[0].root, repeated[1].root,
+        "重复添加应保持项目目录一致"
     );
     assert!(
-        cx.update(|_, cx| host.read(cx).desktop_workspace.add_project_open),
-        "确认禁用项不能关闭选择器"
+        !cx.update(|_, cx| host.read(cx).desktop_workspace.add_project_open),
+        "重复添加成功后应关闭选择器"
     );
+    host.update_in(cx, |app, window, cx| {
+        app.open_desktop_add_project(window, cx)
+    });
+    cx.update(|window, cx| window.draw(cx).clear());
     cx.simulate_keystrokes("escape");
     cx.run_until_parked();
     assert!(
         !cx.update(|_, cx| host.read(cx).desktop_workspace.add_project_open),
         "Escape必须关闭对话框并释放打开状态"
+    );
+    assert_eq!(
+        catalog
+            .list_projects(&workspace.id)
+            .expect("读取取消后目录")
+            .len(),
+        2,
+        "取消不得新增第三张画布"
     );
     let mouse_index = cx.update(|_, cx| {
         host.read(cx)
@@ -220,7 +256,11 @@ fn desktop_project_picker_routes_keyboard_and_bounds_long_lists() {
     cx.simulate_click(available.center(), gpui::Modifiers::none());
     cx.run_until_parked();
     let areas = catalog.list_projects(&workspace.id).expect("读取添加结果");
-    assert_eq!(areas.len(), 2, "鼠标确认必须只新增project-48一次");
+    assert_eq!(
+        areas.len(),
+        3,
+        "鼠标确认必须在两张project-49之外新增project-48一次"
+    );
     assert!(
         areas.iter().any(|area| area.root.ends_with("project-48")),
         "鼠标选中的project-48应已加入"

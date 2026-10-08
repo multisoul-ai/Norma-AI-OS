@@ -31,6 +31,8 @@
   "workspace.running_running_agent_terminal_sessions_will_stop": "将停止 %{running} 个运行中的 Agent 或终端会话。",
   "workspace.add_project_to_workspace": "添加项目到工作空间",
   "workspace.rename_workspace": "重命名工作空间",
+  "workspace.rename_canvas": "重命名画布",
+  "workspace.could_not_rename_canvas_error": "无法重命名：%{error}",
   "workspace.running": "运行中",
   "workspace.no_projects_yet": "暂无项目",
   "workspace.workspace_actions": "工作空间操作",

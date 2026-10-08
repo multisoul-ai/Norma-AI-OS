@@ -87,6 +87,19 @@ pub(crate) fn find(database: &Path, workspace: &str, cx: &App) -> Option<Entity<
         .cloned()
 }
 
+pub(crate) fn for_database(database: &Path, cx: &App) -> Vec<Entity<MultisoulApp>> {
+    cx.try_global::<Sessions>()
+        .map(|sessions| {
+            sessions
+                .projects
+                .iter()
+                .filter(|((db, _), _)| db == database)
+                .map(|(_, app)| app.clone())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 pub(crate) fn for_root(database: &Path, root: &Path, cx: &App) -> Option<Entity<MultisoulApp>> {
     cx.try_global::<Sessions>()?
         .projects

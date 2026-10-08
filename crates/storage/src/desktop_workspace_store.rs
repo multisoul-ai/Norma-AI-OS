@@ -220,8 +220,7 @@ impl DesktopWorkspaceStore {
         connection.execute(
             "INSERT INTO desktop_project_areas
              (id, desktop_workspace_id, project_key, root_path, display_name, added_at_unix_ms)
-             VALUES(?1, ?2, ?3, ?4, ?5, ?6)
-             ON CONFLICT(desktop_workspace_id, project_key) DO NOTHING",
+             VALUES(?1, ?2, ?3, ?4, ?5, ?6)",
             params![
                 id,
                 workspace_id,
@@ -232,11 +231,7 @@ impl DesktopWorkspaceStore {
             ],
         )?;
         connection
-            .query_row(
-                &format!("{SELECT_AREA} WHERE desktop_workspace_id=?1 AND project_key=?2"),
-                params![workspace_id, project_key],
-                read_area,
-            )
+            .query_row(&format!("{SELECT_AREA} WHERE id=?1"), [id], read_area)
             .map_err(Into::into)
     }
 
@@ -246,6 +241,24 @@ impl DesktopWorkspaceStore {
             self.remove_canvas_file(workspace_id, area_id)?;
         }
         Ok(removed)
+    }
+
+    pub fn rename_project(
+        &self,
+        workspace_id: &str,
+        area_id: &str,
+        name: &str,
+    ) -> StorageResult<()> {
+        let name = Self::validate_name(name)?;
+        let connection = open_app_connection(&self.path)?;
+        let changed = connection.execute(
+            "UPDATE desktop_project_areas SET display_name=?3 WHERE desktop_workspace_id=?1 AND id=?2",
+            params![workspace_id, area_id, name],
+        )?;
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows.into());
+        }
+        Ok(())
     }
 
     /// Commit the catalog change before callers stop the area's live session.

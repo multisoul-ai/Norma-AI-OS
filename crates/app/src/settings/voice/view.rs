@@ -338,6 +338,9 @@ impl MultisoulApp {
                     }
                 }
                 app.persist_voice_settings_in_background(cx);
+                if credential_succeeded {
+                    app.broadcast_voice_settings_changed(false, cx);
+                }
                 if completion.agent_credential && credential_succeeded {
                     app.validate_saved_voice_provider(cx);
                 }

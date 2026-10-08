@@ -38,6 +38,27 @@ impl AgentAnnouncements {
 
 impl MultisoulApp {
     pub(super) fn agent_announcement_tts_availability(&self) -> AgentAnnouncementTtsAvailability {
+        if self.voice_settings.values().desktop_mode()
+            == crate::settings::voice::DesktopVoiceMode::Doubao
+        {
+            return if self
+                .doubao
+                .reports
+                .as_ref()
+                .is_some_and(|sender| !sender.is_closed())
+            {
+                AgentAnnouncementTtsAvailability::Ready
+            } else if self
+                .voice_settings
+                .values()
+                .doubao_credential_ref()
+                .is_some()
+            {
+                AgentAnnouncementTtsAvailability::Waiting
+            } else {
+                AgentAnnouncementTtsAvailability::Unavailable
+            };
+        }
         #[cfg(feature = "e2e-test-support")]
         if self.agent_announcement_playback.e2e_enabled {
             return if self.agent_announcement_playback.e2e_tts_ready {

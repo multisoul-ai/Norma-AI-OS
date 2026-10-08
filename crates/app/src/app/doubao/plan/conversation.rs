@@ -29,7 +29,7 @@ pub(super) async fn run<F, Fut>(
     cancellation: CancellationToken,
     events: Sender<DoubaoStatus>,
     speech_rx: Receiver<SpeechEvent>,
-    reports: Receiver<String>,
+    reports: Receiver<super::super::DoubaoReport>,
 ) -> Result<(), LocalizedText>
 where
     F: Fn(Reply, CancellationToken) -> Fut + Send + Sync + 'static,
@@ -109,16 +109,20 @@ where
             }
             report = reports.recv(), if reports_open && !user_speaking && !reply_active => {
                 if let Ok(report) = report {
+                    if report.cancellation.is_cancelled() { continue; }
                     reply_id = reply_id.wrapping_add(1);
                     reply_active = true;
                     let _ = events.send(DoubaoStatus::Speaking).await;
                     let id = reply_id;
-                    let token = CancellationToken::new();
+                    let token = report.cancellation;
                     reply_token = Some(token.clone());
                     let reply = Arc::clone(&reply);
                     let done = done_tx.clone();
                     tokio::spawn(async move {
-                        let result = reply(Reply::Report(report), token).await;
+                        let result = reply(Reply::Report(report.text), token.clone()).await;
+                        if result.is_ok() && !token.is_cancelled() {
+                            let _ = report.completed.send(());
+                        }
                         let _ = done.send((id, result)).await;
                     });
                 } else {
@@ -130,8 +134,10 @@ where
                 if let Ok((id, outcome)) = done {
                     if id == reply_id {
                         reply_active = false;
-                        reply_token = None;
-                        if let Err(error) = outcome { break Err(error); }
+                        // This loop owns interruption: a retired reply cannot stop newer audio.
+                        if reply_token.take().is_some_and(|token| token.is_cancelled()) {
+                            playback.interrupt();
+                        } else if let Err(error) = outcome { break Err(error); }
                         let _ = events.send(DoubaoStatus::Connected).await;
                     }
                 }

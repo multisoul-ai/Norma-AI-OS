@@ -99,6 +99,15 @@ impl VoiceSettingsState {
         self.asr_model_selection_generation == generation
     }
 
+    pub(crate) fn begin_asr_model_scan(&mut self) -> u64 {
+        self.asr_model_scan_generation = self.asr_model_scan_generation.wrapping_add(1);
+        self.asr_model_scan_generation
+    }
+
+    pub(crate) fn accepts_asr_model_scan(&self, generation: u64) -> bool {
+        self.asr_model_scan_generation == generation
+    }
+
     pub(crate) fn tts_model_root(&self) -> std::path::PathBuf {
         self.model_root.join("tts")
     }

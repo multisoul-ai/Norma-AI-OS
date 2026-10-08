@@ -1,7 +1,16 @@
 use super::DesktopDeleteTarget;
 use crate::app::{AppScreen, MultisoulApp};
 use gpui::{AppContext as _, Context, Focusable, Window};
-use ui::component::input::InputState;
+use ui::component::input::{InputEvent, InputState};
+
+#[derive(Clone)]
+pub(crate) enum DesktopRenameTarget {
+    Workspace(String),
+    Area {
+        workspace_id: String,
+        area_id: String,
+    },
+}
 
 impl MultisoulApp {
     pub(super) fn begin_desktop_rename(
@@ -10,25 +19,56 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(workspace) = self
+        if self.desktop_workspace.busy {
+            return;
+        }
+        let (target, name) = if let Some(workspace) = self
             .desktop_workspace
             .workspaces
             .iter()
             .find(|item| item.id == id)
-        else {
+        {
+            (DesktopRenameTarget::Workspace(id), workspace.name.clone())
+        } else if let Some(area) = self
+            .desktop_workspace
+            .areas
+            .iter()
+            .find(|area| area.id == id)
+        {
+            (
+                DesktopRenameTarget::Area {
+                    workspace_id: area.desktop_workspace_id.clone(),
+                    area_id: id,
+                },
+                area.display_name.clone(),
+            )
+        } else {
             return;
         };
-        let name = workspace.name.clone();
         let input = cx.new(|cx| InputState::new(window, cx).default_value(name));
+        cx.subscribe(&input, |app, _, event, cx| match event {
+            InputEvent::PressEnter { .. } => app.save_desktop_rename(cx),
+            InputEvent::Change => {
+                app.desktop_workspace.error = None;
+                cx.notify();
+            }
+            _ => {}
+        })
+        .detach();
         input.focus_handle(cx).focus(window);
-        self.desktop_workspace.rename_target = Some(id);
+        self.desktop_workspace.rename_target = Some(target);
         self.desktop_workspace.rename_input = Some(input);
+        self.desktop_workspace.error = None;
         cx.notify();
     }
 
     pub(super) fn cancel_desktop_rename(&mut self, cx: &mut Context<Self>) {
+        if self.desktop_workspace.busy {
+            return;
+        }
         self.desktop_workspace.rename_target = None;
         self.desktop_workspace.rename_input = None;
+        self.desktop_workspace.error = None;
         cx.notify();
     }
 
@@ -36,34 +76,73 @@ impl MultisoulApp {
         if self.desktop_workspace.busy {
             return;
         }
-        let (Some(id), Some(input)) = (
+        let (Some(target), Some(input)) = (
             self.desktop_workspace.rename_target.clone(),
             self.desktop_workspace.rename_input.as_ref(),
         ) else {
             return;
         };
         let name = input.read(cx).value().to_string();
+        let name = match storage::DesktopWorkspaceStore::validate_name(&name) {
+            Ok(name) => name.to_owned(),
+            Err(error) => {
+                self.desktop_workspace.error = Some(ui::i18n::message(
+                    "workspace.could_not_rename_canvas_error",
+                    &[("error", error.to_string())],
+                ));
+                cx.notify();
+                return;
+            }
+        };
         let store = self.desktop_workspace.store.clone();
         self.desktop_workspace.busy = true;
         cx.notify();
         let work = cx.background_executor().spawn(async move {
-            store.rename(&id, &name)?;
-            store.list()
+            let areas = match &target {
+                DesktopRenameTarget::Workspace(id) => {
+                    store.rename(id, &name)?;
+                    None
+                }
+                DesktopRenameTarget::Area {
+                    workspace_id,
+                    area_id,
+                } => {
+                    store.rename_project(workspace_id, area_id, &name)?;
+                    Some((workspace_id.clone(), store.list_projects(workspace_id)?))
+                }
+            };
+            Ok::<_, storage::StorageError>((store.list()?, areas))
         });
         cx.spawn(async move |this, cx| {
             let result = work.await;
             let _ = this.update(cx, |app, cx| {
                 app.desktop_workspace.busy = false;
                 match result {
-                    Ok(workspaces) => {
+                    Ok((workspaces, areas)) => {
                         app.desktop_workspace.workspaces = workspaces;
+                        if let Some((workspace_id, areas)) = areas {
+                            if let Some(previews) =
+                                app.desktop_workspace.previews.get_mut(&workspace_id)
+                            {
+                                for preview in previews {
+                                    if let Some(area) =
+                                        areas.iter().find(|area| area.id == preview.id)
+                                    {
+                                        preview.name = area.display_name.clone();
+                                    }
+                                }
+                            }
+                            if app.desktop_workspace.active_id.as_deref() == Some(&workspace_id) {
+                                app.desktop_workspace.areas = areas;
+                            }
+                        }
                         app.desktop_workspace.rename_target = None;
                         app.desktop_workspace.rename_input = None;
                         app.desktop_workspace.error = None;
                     }
                     Err(error) => {
                         app.desktop_workspace.error = Some(ui::i18n::message(
-                            "workspace.could_not_rename_workspace_error",
+                            "workspace.could_not_rename_canvas_error",
                             &[("error", (error).to_string())],
                         ))
                     }

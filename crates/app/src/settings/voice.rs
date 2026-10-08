@@ -24,6 +24,9 @@ pub(crate) use state::{
 pub(crate) use tts_models::{TtsModelInstallState, TtsModelManagerState};
 pub(crate) use view::{VoiceSettingsInputs, VoiceSettingsView};
 
+pub(crate) use state::{
+    provider_configuration_differs, tts_configuration_differs, SavedVoiceSettings,
+};
 #[cfg(test)]
-pub(crate) use state::{AgentProviderKind, EnvVoiceSettings, SavedVoiceSettings};
+pub(crate) use state::{AgentProviderKind, EnvVoiceSettings};
 pub(crate) use view::voice_settings;

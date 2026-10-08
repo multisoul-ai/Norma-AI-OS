@@ -71,7 +71,7 @@ impl DesktopWorkspaceStore {
         let area = random_workspace_id()?;
         let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis() as i64;
         self.edit_at_revision(id, expected, |tx| {
-            tx.execute("INSERT INTO desktop_project_areas(id,desktop_workspace_id,project_key,root_path,display_name,added_at_unix_ms) VALUES(?1,?2,?3,?4,?5,?6) ON CONFLICT(desktop_workspace_id,project_key) DO NOTHING",params![area,id,project.key.to_string_lossy(),project.root.to_string_lossy(),workspace::display_name_for_path(&project.root),now])?;
+            tx.execute("INSERT INTO desktop_project_areas(id,desktop_workspace_id,project_key,root_path,display_name,added_at_unix_ms) VALUES(?1,?2,?3,?4,?5,?6)",params![area,id,project.key.to_string_lossy(),project.root.to_string_lossy(),workspace::display_name_for_path(&project.root),now])?;
             Ok(())
         })
     }

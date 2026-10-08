@@ -183,6 +183,7 @@ impl MultisoulApp {
         self.desktop_workspace.active_id = Some(id.clone());
         self.desktop_workspace.areas.clear();
         self.desktop_workspace.active_area_id = None;
+        self.desktop_workspace.selected_area_id = None;
         self.desktop_workspace.expanded_area_id = None;
         self.desktop_workspace.actions_area_id = None;
         self.close_desktop_switcher(cx);

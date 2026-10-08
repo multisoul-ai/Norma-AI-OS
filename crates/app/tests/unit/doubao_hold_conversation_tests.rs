@@ -87,7 +87,7 @@ async fn doubao_hold_empty_recording_releases_queued_reports() {
         .await
         .expect("应开始录音");
     call.reports
-        .send("任务完成".into())
+        .send(super::support::report("任务完成"))
         .await
         .expect("应排入任务通知");
     assert!(
