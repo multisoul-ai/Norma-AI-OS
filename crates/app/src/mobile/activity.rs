@@ -36,7 +36,7 @@ impl<'de> Deserialize<'de> for Request {
         let operation: Operation = serde_json::from_value(Value::Object(fields.clone()))
             .map_err(serde::de::Error::custom)?;
         let allowed: &[&str] = match &operation {
-            Operation::Summary | Operation::Subscription => &["kind"],
+            Operation::Summary | Operation::Pending | Operation::Subscription => &["kind"],
             Operation::SetSubscription { .. } => &["kind", "expected_revision", "registration"],
             Operation::Detail { .. } => &["kind", "target", "offset"],
             Operation::Decide { .. } => &["kind", "target", "operation_id", "decision"],
@@ -49,7 +49,10 @@ impl<'de> Deserialize<'de> for Request {
         if desktop_workspace_id.is_empty()
             && !matches!(
                 operation,
-                Operation::Summary | Operation::Subscription | Operation::SetSubscription { .. }
+                Operation::Summary
+                    | Operation::Pending
+                    | Operation::Subscription
+                    | Operation::SetSubscription { .. }
             )
         {
             return Err(serde::de::Error::missing_field("desktop_workspace_id"));
@@ -64,6 +67,7 @@ impl<'de> Deserialize<'de> for Request {
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Operation {
     Summary,
+    Pending,
     Subscription,
     SetSubscription {
         expected_revision: u64,
@@ -160,6 +164,10 @@ pub(super) fn handle(
                 overview::summary(shared, &path, machine, &authorized)?
             };
             json!({"summary":summary})
+        }
+        Operation::Pending => {
+            let items = overview::pending(shared, &path, machine, &authorized)?;
+            json!({"pending":{"machine_id":machine,"items":items}})
         }
         Operation::Subscription => {
             json!({"subscription":store.get(&grant).map_err(|_|"unavailable")?.ok_or("unauthorized")?})
@@ -278,6 +286,7 @@ pub(super) fn facts(
                     });
                 }
                 reviews.push(ActivityReviewFact {
+                    saved_at_unix: row.saved_at_unix,
                     area_id: project.area_id.clone(),
                     node_id: k.node_id,
                     profile: k.profile.clone(),

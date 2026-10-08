@@ -58,6 +58,38 @@ pub(super) fn summary(
     machine: &str,
     areas: &[WorkspaceArea],
 ) -> Result<WorkspaceActivitySummary, &'static str> {
+    Ok(WorkspaceActivitySummary::from_workspaces(
+        machine,
+        collect_facts(shared, path, areas)?,
+        now()?,
+    ))
+}
+pub(super) fn pending(
+    shared: &Shared,
+    path: &Path,
+    machine: &str,
+    areas: &[WorkspaceArea],
+) -> Result<Vec<InboxPendingItem>, &'static str> {
+    let facts = collect_facts(shared, path, areas)?;
+    let commands = storage::MobileCommandStore::new(path.to_owned());
+    let mut projects = std::collections::HashSet::new();
+    let mut dismissed = std::collections::HashSet::new();
+    for area in areas {
+        if projects.insert(&area.project_id) {
+            dismissed.extend(
+                commands
+                    .inbox_dismissed_keys(&area.project_id)
+                    .map_err(|_| "unavailable")?,
+            );
+        }
+    }
+    Ok(pending_items(machine, facts, &dismissed))
+}
+fn collect_facts(
+    shared: &Shared,
+    path: &Path,
+    areas: &[WorkspaceArea],
+) -> Result<Vec<WorkspaceActivityFacts>, &'static str> {
     let mut facts = vec![];
     let mut index = 0;
     while index < areas.len() {
@@ -70,11 +102,7 @@ pub(super) fn summary(
         facts.push(super::facts(shared, path, space, &areas[index..end])?);
         index = end;
     }
-    Ok(WorkspaceActivitySummary::from_workspaces(
-        machine,
-        facts,
-        now()?,
-    ))
+    Ok(facts)
 }
 pub(super) fn now() -> Result<u64, &'static str> {
     std::time::SystemTime::now()

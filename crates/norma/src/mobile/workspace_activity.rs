@@ -1,38 +1,14 @@
-//! Bounded display projection. The caller supplies authorized facts; no storage or UI dependency.
-use super::{ApprovalSnapshot, DesktopChatWorkspace, TaskProgress};
+//! Activity projections. The caller supplies authorized facts; no storage or UI dependency.
+use super::{DesktopChatWorkspace, TaskProgress};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 mod inbox_key;
 pub use inbox_key::inbox_item_key;
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct ActivityApprovalFact {
-    pub area_id: String,
-    pub approval: ApprovalSnapshot,
-}
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct ActivityReviewFact {
-    pub area_id: String,
-    pub node_id: u64,
-    pub profile: String,
-    pub run_id: String,
-    pub session_id: String,
-    pub turn_id: String,
-    pub fingerprint: String,
-    pub completed: bool,
-    pub available: bool,
-    pub conflicted: bool,
-    pub accepted: bool,
-    pub file_count: usize,
-}
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct WorkspaceActivityFacts {
-    pub workspace: DesktopChatWorkspace,
-    pub observed: bool,
-    pub approvals: Vec<ActivityApprovalFact>,
-    pub reviews: Vec<ActivityReviewFact>,
-}
+mod pending;
+pub use pending::{pending_items, InboxPendingItem};
+mod facts;
+pub use facts::{ActivityApprovalFact, ActivityReviewFact, WorkspaceActivityFacts};
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(rename_all = "snake_case")]
 pub enum WorkspaceActivityStatus {
@@ -147,10 +123,7 @@ impl WorkspaceActivitySummary {
                         r.area_id == project.area_id
                             && r.node_id == a.card.node_id
                             && r.profile == a.card.profile
-                            && r.completed
-                            && r.available
-                            && !r.conflicted
-                            && !r.accepted
+                            && r.is_pending()
                     });
                     if pending {
                         // Keep the scoped delivery without counting the shared live run twice.
@@ -317,10 +290,7 @@ impl WorkspaceActivitySummary {
                         && r.node_id == card.node_id
                         && r.profile == card.profile
                 }) {
-                    if review.completed
-                        && review.available
-                        && !review.conflicted
-                        && !review.accepted
+                    if review.is_pending()
                         && seen_reviews
                             .insert((project.area_id.clone(), review.fingerprint.clone()))
                     {

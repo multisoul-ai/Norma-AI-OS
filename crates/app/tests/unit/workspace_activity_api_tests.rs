@@ -1,5 +1,31 @@
 use super::*;
 
+/// 场景：统一收件箱是设备级只读操作，允许无需工作空间的请求。
+/// 数据构造：pending请求及夹带input/limit/target的三个非法版本。
+/// 执行过程：解析最小请求，再分别加入控制参数、截断参数与目标。
+/// 预期结果：pending走只读分支且无默认空间；拒绝所有未声明字段。
+#[test]
+fn pending_request_is_workspace_less_and_cannot_truncate_or_control() {
+    let request: Request =
+        serde_json::from_value(json!({"kind":"pending"})).expect("完整Mac收件箱");
+    assert!(
+        matches!(request.operation, Operation::Pending),
+        "pending必须进入只读投影"
+    );
+    assert!(
+        request.desktop_workspace_id.is_empty(),
+        "不要求选择桌面空间"
+    );
+    for field in ["input", "limit", "target"] {
+        let mut value = json!({"kind":"pending"});
+        value[field] = json!("unexpected");
+        assert!(
+            serde_json::from_value::<Request>(value).is_err(),
+            "pending必须拒绝{field}"
+        );
+    }
+}
+
 /// 工作空间活动 RPC：结构化工具审批与只读汇总共用身份，未知字段不能变成新权限。
 /// 数据构造：1 个区域/卡片/回合/审批，决策只 allow/deny；32字节token编码64位hex。
 /// 执行过程：解析汇总与审批请求 → 注入终端输入 → 查询旧版缺少的kind。

@@ -7,6 +7,9 @@ mod listener;
 #[path = "../../../tests/unit/mobile_legacy_retirement_tests.rs"]
 mod mobile_legacy_retirement_tests;
 #[cfg(test)]
+#[path = "../../../tests/unit/workspace_inbox_api_tests.rs"]
+mod workspace_inbox_api_tests;
+#[cfg(test)]
 #[path = "../../../tests/unit/workspace_terminal_tests.rs"]
 mod workspace_terminal_tests;
 pub(super) use listener::spawn;

@@ -86,6 +86,7 @@ fn duplicate_run_keeps_other_workspaces_pending_delivery() {
     b.workspace.id = "space-2".into();
     b.workspace.projects[0].area_id = "area-b".into();
     b.reviews.push(norma::mobile::ActivityReviewFact {
+        saved_at_unix: 0,
         area_id: "area-b".into(),
         node_id: 1,
         profile: "Codex".into(),
@@ -408,6 +409,7 @@ fn counts_only_frozen_reviewable_unaccepted_delivery() {
     let mut space = workspace();
     space.projects = vec![space.projects.remove(1)];
     let fact = norma::mobile::ActivityReviewFact {
+        saved_at_unix: 0,
         area_id: "area-1".into(),
         node_id: 2,
         profile: "Codex".into(),

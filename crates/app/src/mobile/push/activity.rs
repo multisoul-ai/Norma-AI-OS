@@ -3,6 +3,9 @@ use norma::mobile::{activity_event, ActivityEvent, WorkspaceActivitySummary};
 use sha2::{Digest, Sha256};
 use std::path::Path;
 use storage::{ActivityJournal, MobileActivityStore, PushEnvironment};
+#[cfg(test)]
+#[path = "../../../tests/unit/workspace_inbox_push_tests.rs"]
+mod tests;
 
 pub(super) fn tick(
     shared: &Shared,
@@ -128,14 +131,14 @@ pub(super) fn tick(
                     if !activities.update_journal(&grant, state.revision, &state.journal)? {
                         break;
                     }
-                    let event = json!({"kind":attention.kind,"event_id":event_id,"token":ordinary.token,"expires_at":now()?.saturating_add(300),
-                        "machine_id":machine,"workspace_id":crate::mobile::activity::scope(&workspace,&target.area_id),"desktop_workspace_id":workspace,"area_id":target.area_id,
-                        "route_id":"workspace","node_id":target.node_id.to_string(),"run_id":target.run_id,"session_id":target.session_id,"turn_id":target.turn_id,
-                        "preview":{"project":attention.project,"card":attention.agent,"summary":attention.reason}});
-                    let mut event = event;
-                    if let Some(request) = &target.request_id {
-                        event["request_id"] = json!(request);
-                    }
+                    let event = attention_event(
+                        machine,
+                        &workspace,
+                        &ordinary.token,
+                        &event_id,
+                        now()?.saturating_add(300),
+                        attention,
+                    );
                     if activities.get(&grant)?.is_none()
                         || notifications
                             .get(&grant)?
@@ -287,6 +290,27 @@ fn content(summary: &WorkspaceActivitySummary, timestamp: u64) -> Value {
     json!({"name":summary.name,"updated_at":timestamp,"active":summary.active,"running_count":summary.running_count,"approval_count":summary.approval_count,"review_count":summary.review_count,"failure_count":summary.failure_count,"hidden_projects":summary.hidden_projects,
         "projects":summary.projects.iter().map(|p|json!({"area_id":p.area_id,"desktop_workspace_id":p.desktop_workspace_id,"workspace_name":p.workspace_name,"name":p.name,"status":p.status,"reason":p.reason,"other_agents":p.other_agents,
             "agents":p.agents.iter().map(|a|json!({"name":a.name,"action":a.action})).collect::<Vec<_>>()})).collect::<Vec<_>>()})
+}
+fn attention_event(
+    machine: &str,
+    workspace: &str,
+    token: &str,
+    event_id: &str,
+    expires_at: u64,
+    attention: &norma::mobile::WorkspaceActivityAttention,
+) -> Value {
+    let target = &attention.target;
+    let mut event = json!({"kind":attention.kind,"event_id":event_id,"token":token,"expires_at":expires_at,
+        "machine_id":machine,"workspace_id":crate::mobile::activity::scope(workspace,&target.area_id),"desktop_workspace_id":workspace,"area_id":target.area_id,
+        "route_id":"workspace","node_id":target.node_id.to_string(),"run_id":target.run_id,"session_id":target.session_id,"turn_id":target.turn_id,
+        "preview":{"project":attention.project,"card":attention.agent,"summary":attention.reason}});
+    if let Some(request) = &target.request_id {
+        event["request_id"] = json!(request);
+    }
+    if let Some(fingerprint) = &target.fingerprint {
+        event["fingerprint"] = json!(fingerprint);
+    }
+    event
 }
 pub(super) fn uuid_from(identity: &str) -> String {
     let mut bytes: [u8; 16] = Sha256::digest(identity.as_bytes())[..16]
