@@ -1,6 +1,6 @@
 # 工作空间智能体卡片派工与进度汇报：开发任务拆分
 
-日期：2026-10-10。实施更新：2026-10-11。状态：实施中；T01 已合入，T02／T05 可开始，其余任务未完成。
+日期：2026-10-10。实施更新：2026-10-11。状态：实施中；T01 已合入，T09 纯聚合合同部分完成，正式进度查询仍待接入；其余任务未完成。
 
 实施合同以已发布的 [GitHub Issue #96](https://github.com/multisoul-ai/Norma-AI-OS/issues/96)及其[本地规格副本](../product-specs/2026-10-10-workspace-agent-task-dispatch.md)为准，Issue 标记 `ready-for-agent`。源码事实、两张运行流程图与完整验收矩阵见[派工方案](../design-docs/2026-10-09-workspace-agent-task-dispatch.md)；术语见[CONTEXT.md](../../CONTEXT.md)。本计划记录本地任务依赖，不作工期承诺。
 
@@ -45,13 +45,19 @@
 | T06 | 未完成 | 等待 T04／T05 的生产接口 |
 | T07 | 未完成 | 等待通用操作与跨区域投递；Dock 真实 App 闭环尚未验收 |
 | T08 | 未完成 | 等待工作空间入口；回执、重试与恢复尚未验收 |
-| T09 | 未完成 | 可先开发纯聚合合同，正式全空间查询与真实 App 验收仍依赖前置任务 |
+| T09 | 部分完成：纯聚合合同已合入（实施提交 `4a823afc`、`1b598e9b`） | 统计／证据规则与有界分页已验证；只读事实接入、typed tool、Dock 呈现／导航与真实 App 验收仍待完成 |
 
 T01 的验收对应 [`workspace_card_target.rs`](../../crates/norma/tests/workspace_card_target.rs)、[`workspace_card_identity.rs`](../../crates/runtime/tests/workspace_card_identity.rs)与[`card_instance_identity.rs`](../../crates/storage/tests/card_instance_identity.rs)：同卡恢复／改名保持身份，删除后相同 node_id 重建拒绝旧目标；同目录多区域独立，两个后台回填事务只发布一份身份；Runtime、route、PTY、run／session 变化拒绝旧指纹，记录型 PTY 验证零输入。普通 OpenCode PTY 也有可冻结的 terminal session。
 
 实施者已完成 `cargo test --quiet -p canvas -p norma -p runtime -p storage`、`cargo check --workspace`、fmt、存储／性能边界及行数／no-allow／指南护栏，域层依赖树无 GPUI。合入无冲突、无其他任务改动；集成分支另运行三个新增集成测试验证公共接口。T01 的存储恢复调用在后台执行；严格只读汇报仍须 T09 新建 readonly reader，不能调用 `load_snapshot_with_card_identity()` 或默认确保 schema 的 reader。
 
 真实 Provider 完成证据、派工 UI 与全空间汇报尚未验证，不能由 T01 测试推定后续任务完成。
+
+T09 纯核心提供 [`norma::workspace_progress`](../../crates/norma/src/workspace_progress.rs) 的 `aggregate_workspace_progress()`。其 15 条公开接口场景分别验证稳定任务／显式 turn 关联去重、角色与未关联活动分列、最新尝试阶段和旧异常保留、可信终态与迟到快照／同名新卡隔离、24 小时边界及指定窗口、不截断总计的分页、授权区域过滤、目录／证据缺口和无可靠卡片身份的历史记录。没有任务／卡片身份的旧称呼记录独立待核对，不绑定同名现存角色；缺失观察时间保留未知。
+
+对应测试为 [`workspace_progress.rs`](../../crates/norma/tests/workspace_progress.rs)、[`workspace_progress_activity.rs`](../../crates/norma/tests/workspace_progress_activity.rs)、[`workspace_progress_evidence.rs`](../../crates/norma/tests/workspace_progress_evidence.rs)、[`workspace_progress_history.rs`](../../crates/norma/tests/workspace_progress_history.rs)、[`workspace_progress_scope.rs`](../../crates/norma/tests/workspace_progress_scope.rs)与[`workspace_progress_time.rs`](../../crates/norma/tests/workspace_progress_time.rs)。实施者已完成完整 `cargo test -p norma` 与正常提交 hook；合入时保留 `workspace_dispatch`／`workspace_progress` 两个模块并再次运行上述六组聚焦测试及目标协议测试。
+
+该核心没有存储、Runtime、PTY 或派工副作用，但不能替代生产查询服务的零副作用验收。readonly AppDB／区域 DB reader、持久活动及结果事实、查询前后权限／目录代次复核、Mac 时区自然语言窗口、入口与实际结果导航仍待接入；T09 不标为完成。
 
 ## 实施里程碑
 
