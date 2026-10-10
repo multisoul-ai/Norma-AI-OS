@@ -1,6 +1,6 @@
 # 工作空间智能体卡片派工与进度汇报：开发任务拆分
 
-日期：2026-10-10。状态：待实施；已完成方案讨论与本地任务拆分，尚未修改生产代码。
+日期：2026-10-10。实施更新：2026-10-11。状态：实施中；T01 已合入，T02／T05 可开始，其余任务未完成。
 
 实施合同以已发布的 [GitHub Issue #96](https://github.com/multisoul-ai/Norma-AI-OS/issues/96)及其[本地规格副本](../product-specs/2026-10-10-workspace-agent-task-dispatch.md)为准，Issue 标记 `ready-for-agent`。源码事实、两张运行流程图与完整验收矩阵见[派工方案](../design-docs/2026-10-09-workspace-agent-task-dispatch.md)；术语见[CONTEXT.md](../../CONTEXT.md)。本计划记录本地任务依赖，不作工期承诺。
 
@@ -19,7 +19,7 @@
 
 ## 任务与依赖
 
-以下全部为待办。代码落点表示职责范围，具体文件拆分以施工时源码与单文件 500 行约束为准。
+当前状态与验证证据见下节。代码落点表示职责范围，具体文件拆分以施工时源码与单文件 500 行约束为准。
 
 | 编号 | 任务与代码落点 | 前置任务 | 完成条件与先写的失败场景 |
 | --- | --- | --- | --- |
@@ -32,6 +32,26 @@
 | T07 | 工作空间 Norma 与桌面 Dock 接入；`agent` bounded workspace context／typed tools，`app` command_dock 与手机共享适配 | T04、T06 | 总览与展开项目均能给另一项目指定卡片派工；发送时冻结来源空间，切换视图不改归属；讨论不派工；首个跨项目流程真实执行并显示接收回执，所有非目标卡片零输入 |
 | T08 | 回执、导航、手动安全重试与恢复闭环；`app` Dock 状态投影／结果查询，`storage` 结果快照与尝试关联 | T06、T07 | 每项进度由证据更新，终态有摘要和结果入口；后台结果不抢焦点；点击才导航且不打开同名新卡片；失败重试复核原身份，成功项不重发；未知先核对；区域移除后已知历史仍可查看 |
 | T09 | 全空间进度汇报；`norma` 只读查询 DTO、`agent` query typed tool、`app` 共享事实聚合与 Dock 回复、`storage` 持久任务／结果／活动快照读取 | T03、T05、T07、T08 | 展开 A 查询仍覆盖 B 后台与 C 未加载／停用角色；直接卡片工作与未关联活动可见，稳定任务引用去重、状态／步骤分列；全部当前未结束任务不按创建时间过滤，24 小时成果窗口与指定时间可核对；部分读取失败、缺失计划和旧快照不猜完成；手机先授权再聚合；零 assignment 创建、零卡片输入、零 PTY 启动，无自动审批／重试／订阅，查询与点击导航均不串空间 |
+
+## 实施状态与证据
+
+| 编号 | 状态 | 已有证据／下一步 |
+| --- | --- | --- |
+| T01 | 完成，已合入 `228e751f`（实施提交 `f247ac4f`） | 持久卡片身份、冻结目标协议与 Runtime 纯校验已进入生产恢复路径；下述聚焦和受影响 crate 验证通过 |
+| T02 | 可开始 | 基于已合入的 `WorkspaceCardRef` 实现角色与呼叫键登记 |
+| T03 | 未完成 | 等待 T02；后台登记必须先持久回填旧快照身份 |
+| T04 | 未完成 | 等待完整名称登记与目录修复 |
+| T05 | 可开始 | 基于已合入的 `WorkspaceCardTarget` 实现实例协调与输入传输 |
+| T06 | 未完成 | 等待 T04／T05 的生产接口 |
+| T07 | 未完成 | 等待通用操作与跨区域投递；Dock 真实 App 闭环尚未验收 |
+| T08 | 未完成 | 等待工作空间入口；回执、重试与恢复尚未验收 |
+| T09 | 未完成 | 可先开发纯聚合合同，正式全空间查询与真实 App 验收仍依赖前置任务 |
+
+T01 的验收对应 [`workspace_card_target.rs`](../../crates/norma/tests/workspace_card_target.rs)、[`workspace_card_identity.rs`](../../crates/runtime/tests/workspace_card_identity.rs)与[`card_instance_identity.rs`](../../crates/storage/tests/card_instance_identity.rs)：同卡恢复／改名保持身份，删除后相同 node_id 重建拒绝旧目标；同目录多区域独立，两个后台回填事务只发布一份身份；Runtime、route、PTY、run／session 变化拒绝旧指纹，记录型 PTY 验证零输入。普通 OpenCode PTY 也有可冻结的 terminal session。
+
+实施者已完成 `cargo test --quiet -p canvas -p norma -p runtime -p storage`、`cargo check --workspace`、fmt、存储／性能边界及行数／no-allow／指南护栏，域层依赖树无 GPUI。合入无冲突、无其他任务改动；集成分支另运行三个新增集成测试验证公共接口。T01 的存储恢复调用在后台执行；严格只读汇报仍须 T09 新建 readonly reader，不能调用 `load_snapshot_with_card_identity()` 或默认确保 schema 的 reader。
+
+真实 Provider 完成证据、派工 UI 与全空间汇报尚未验证，不能由 T01 测试推定后续任务完成。
 
 ## 实施里程碑
 
