@@ -13,3 +13,4 @@ pub mod orchestration;
 pub mod presentation;
 pub mod protocol;
 pub mod workspace_dispatch;
+pub mod workspace_progress;
