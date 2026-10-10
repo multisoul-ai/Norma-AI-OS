@@ -50,6 +50,10 @@ pub enum StorageError {
     InvalidConversationAvailability(String),
     #[error("agent name {requested:?} conflicts with existing agent {existing:?}")]
     AgentNameConflict { requested: String, existing: String },
+    #[error("invalid workspace agent role: {0}")]
+    InvalidWorkspaceAgentRole(String),
+    #[error("workspace agent card is already registered: {0}")]
+    WorkspaceAgentCardConflict(String),
     #[error("invalid node session kind: {0}")]
     InvalidNodeSessionKind(String),
     #[error("invalid layout mode stored in sqlite: {0}")]

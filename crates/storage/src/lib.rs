@@ -68,7 +68,12 @@ pub mod recent_store;
 pub mod session_store;
 pub mod settings_store;
 pub mod voice_history_store;
+mod workspace_agent_role_store;
 pub mod workspace_identity_store;
+pub use workspace_agent_role_store::{
+    WorkspaceAgentRole, WorkspaceAgentRoleStore, WorkspaceCallKey, WorkspaceCallKeyKind,
+    WorkspaceCallKeyState, WorkspaceCallResolution, WorkspaceRoleSnapshot,
+};
 
 pub use agent_conversation_tail_store::{
     AgentConversationTailStore, StoredAgentConversationTail, StoredConversationAvailability,

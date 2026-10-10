@@ -143,6 +143,7 @@ fn fallback_agent_name(mut index: usize) -> Option<String> {
 
 impl AgentName {
     pub fn parse(input: &str) -> Result<Self, AgentNameError> {
+        let input = input.trim();
         if input.eq_ignore_ascii_case("Norma") {
             return Err(AgentNameError::ReservedMasterIdentity);
         }
@@ -174,6 +175,10 @@ impl AgentName {
 
     pub fn match_key(&self) -> &str {
         &self.match_key
+    }
+
+    pub fn speech_alias(&self) -> Option<&'static str> {
+        builtin_for_canonical_key(self.match_key()).map(BuiltinAgentName::speech_alias)
     }
 }
 

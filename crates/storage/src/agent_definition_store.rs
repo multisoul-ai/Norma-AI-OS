@@ -91,7 +91,7 @@ impl AgentDefinitionStore {
              (name, name_key, speech_alias, runtime_profile, workflow_description, enabled, sort_order, origin, created_at_unix, updated_at_unix) \
              VALUES (?1, ?2, ?3, ?4, ?5, 1, 0, ?6, ?7, ?7)",
             params![
-                input.name,
+                input.name.trim(),
                 name_key,
                 speech_alias,
                 encode_agent_profile(input.runtime_profile),
@@ -157,7 +157,7 @@ impl AgentDefinitionStore {
              workflow_description = ?5, enabled = ?6, sort_order = ?7, updated_at_unix = ?8 \
              WHERE id = ?9",
             params![
-                input.name,
+                input.name.trim(),
                 name_key,
                 speech_alias,
                 encode_agent_profile(input.runtime_profile),
@@ -307,15 +307,12 @@ impl AgentDefinitionStore {
 }
 
 fn agent_name_metadata(name: &str) -> StorageResult<(String, Option<String>)> {
-    let name_key = AgentName::parse(name)
-        .map_err(|_| StorageError::InvalidAgentName(name.to_string()))?
-        .match_key()
-        .to_string();
-    let speech_alias = agent::builtin_agent_names()
-        .iter()
-        .find(|builtin| builtin.name().eq_ignore_ascii_case(&name_key))
-        .map(|builtin| builtin.speech_alias().to_string());
-    Ok((name_key, speech_alias))
+    let name =
+        AgentName::parse(name).map_err(|_| StorageError::InvalidAgentName(name.to_string()))?;
+    Ok((
+        name.match_key().to_string(),
+        name.speech_alias().map(str::to_string),
+    ))
 }
 
 fn reject_name_conflict(
