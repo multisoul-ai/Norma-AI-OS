@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Norma · 工作空间派工与进度汇报方案</title>
+  <style>
+    :root{color-scheme:light;--bg:#f5f4f1;--surface:#fffefb;--card:#fff;--ink:#313d44;--muted:#65717b;--line:#dce2e7;--accent:#2f80ed;--soft:#edf4ff;--green:#16756b;--green-bg:#edf8f4;--red:#a3434f;--red-bg:#fff1f3;--amber:#936015;--amber-bg:#fff7e8;--hover:#e5edf5;--shadow:0 8px 28px #313d4408}
+    [data-theme="dark"]{color-scheme:dark;--bg:#0e151d;--surface:#151f2b;--card:#192635;--ink:#e7edf5;--muted:#a4b3c2;--line:#334355;--accent:#83b6ff;--soft:#203750;--green:#86d8c6;--green-bg:#183a35;--red:#ff9cab;--red-bg:#402532;--amber:#edc486;--amber-bg:#3a3022;--hover:#2d4055;--shadow:none}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.65 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}button,input,select{font:inherit}button,a,input,select,summary{touch-action:manipulation}button,a,summary{ -webkit-tap-highlight-color:transparent }button{cursor:pointer}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid var(--accent);outline-offset:4px}button:active{filter:brightness(.93)}a{color:var(--accent);text-underline-offset:4px}button:disabled{opacity:.5;cursor:not-allowed}[hidden]{display:none!important}
+    .shell{max-width:1240px;margin:auto;padding:28px 36px 52px}.masthead{display:flex;align-items:center;justify-content:space-between;gap:20px}.brand{font-size:24px;font-weight:750;letter-spacing:-.8px}.brand small{font-size:11px;letter-spacing:1.8px;font-weight:550;margin-left:14px;color:var(--muted)}.utility{display:flex;gap:14px;align-items:center}.theme{border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink);padding:7px 12px}.theme:hover{background:var(--hover)}.status{font-size:12px;color:var(--muted)}
+    header{margin:30px 0 22px}h1{font-size:clamp(26px,3.2vw,40px);line-height:1.3;letter-spacing:-.7px;margin:0 0 12px;font-weight:700}h1 span{color:var(--accent)}.lead{font-size:16px;max-width:830px;color:var(--muted);margin:0}.principles{display:flex;flex-wrap:wrap;gap:9px;margin-top:20px}.chip{padding:4px 12px;border-radius:20px;background:var(--surface);border:1px solid var(--line);font-size:12px}.chip b{color:var(--green);font-weight:600}
+    .tabs{display:flex;gap:5px;border-bottom:1px solid var(--line);margin:27px 0 24px;padding-bottom:10px}.tabs button{border:0;background:transparent;color:var(--muted);padding:10px 18px;border-radius:9px;white-space:nowrap;font-weight:600}.tabs button:hover{background:var(--hover);color:var(--ink)}.tabs button[aria-selected="true"]{color:var(--accent);background:var(--soft)}.panel{min-height:540px}.sectionhead{display:flex;gap:22px;align-items:flex-start;justify-content:space-between;margin-bottom:20px}.sectionhead h2{font-size:21px;letter-spacing:-.2px;margin:0 0 4px}.sectionhead p{margin:0;color:var(--muted);font-size:14px}.label{font-size:11px;letter-spacing:1.2px;color:var(--muted);font-weight:650}
+    .compare{display:grid;grid-template-columns:1fr 1fr;gap:22px}.lane{padding:23px;border:1px solid var(--line);border-radius:15px;background:var(--surface);box-shadow:var(--shadow)}.lane.optimized{border-top:3px solid var(--green);padding-top:21px}.lane h3{font-size:19px;margin:5px 0 4px}.lane .sub{color:var(--muted);font-size:13px;margin:0 0 20px}.flow{padding:0;list-style:none;margin:0}.flow li{position:relative;display:flex;gap:13px;align-items:flex-start;padding:12px 0}.flow li+li:before{content:"";width:1px;height:22px;background:var(--line);position:absolute;top:-9px;left:14px}.number{background:var(--soft);color:var(--accent);width:29px;height:29px;border-radius:50%;display:grid;place-items:center;flex:none;font-size:12px;font-weight:700}.optimized .number{background:var(--green-bg);color:var(--green)}.flow strong{display:block;line-height:1.5;font-weight:600}.flow p{margin:3px 0 0;color:var(--muted);font-size:13px}.branch{border-left:2px solid var(--green);padding-left:12px;margin-top:8px;color:var(--green);font-size:13px}.notice{margin-top:20px;border-radius:10px;background:var(--soft);padding:14px 17px;color:var(--accent);font-size:13px}.notice.green{background:var(--green-bg);color:var(--green)}.notice.warn{background:var(--amber-bg);color:var(--amber)}.notice.red{background:var(--red-bg);color:var(--red)}
+    details{margin-top:22px;border-top:1px solid var(--line);padding-top:15px}summary{cursor:pointer;color:var(--accent);font-size:14px}summary:hover{text-decoration:underline}.diagrams{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:20px}.diagrams figure{margin:0}.diagrams img{width:100%;height:auto;border:1px solid var(--line);border-radius:12px;background:white}.diagrams figcaption{margin-bottom:10px;font-size:13px;color:var(--muted)}
+    .demo-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:22px}.box{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px;box-shadow:var(--shadow)}.box h3{margin:0 0 12px;font-size:18px}.formfield{display:grid;gap:8px;margin-bottom:20px}.formfield label{font-size:13px;font-weight:600}select,input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;color:var(--ink);background:var(--card)}.inputrow{display:flex;gap:10px}.primary{background:var(--accent);color:#fff;border:1px solid transparent;border-radius:8px;padding:9px 15px;white-space:nowrap;font-weight:600}.primary:hover{filter:brightness(.9)}[data-theme="dark"] .primary{color:#0e151d}.secondary{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 14px;color:var(--ink)}.secondary:hover{background:var(--hover)}.explain{font-size:13px;color:var(--muted);margin:0 0 18px}.roster{display:grid;gap:10px}.agent{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:10px;padding:13px;background:var(--card)}.avatar{display:grid;place-items:center;width:37px;height:37px;background:var(--soft);color:var(--accent);font-weight:700;border-radius:10px;flex:none}.agent strong{font-size:14px}.agent p{font-size:12px;color:var(--muted);margin:1px 0}.agent .tag{margin-left:auto;font-size:11px;color:var(--muted);white-space:nowrap}.tag.retired{color:var(--red)}.result{min-height:108px;border-radius:11px;background:var(--soft);padding:17px;color:var(--accent);margin-bottom:16px}.result[data-kind="error"]{background:var(--red-bg);color:var(--red)}.result[data-kind="success"]{background:var(--green-bg);color:var(--green)}.result strong{display:block;margin-bottom:5px}.result p{margin:0;font-size:13px}.rulelist{padding:0;list-style:none;margin:0}.rulelist li{padding:12px 0;border-top:1px solid var(--line);font-size:13px}.rulelist b{display:block;margin-bottom:2px;font-size:14px}.rulelist span{color:var(--muted)}
+    .report-actions{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:15px}.report-layout{display:grid;grid-template-columns:1.2fr .8fr;gap:22px}.report-head{display:flex;align-items:center;gap:12px}.norma-avatar{width:36px;height:36px;display:grid;place-items:center;background:var(--soft);color:var(--accent);border-radius:50%;font-weight:750}.report-head p{margin:0;font-size:12px;color:var(--muted)}.report-head h3{margin:0;font-size:16px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:20px 0}.stat{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:11px 12px}.stat strong{font-size:25px;font-weight:650}.stat span{display:block;font-size:12px;color:var(--muted)}.distribution{font-size:13px;color:var(--muted);margin:0 0 16px}.attention{background:var(--amber-bg);color:var(--amber);padding:13px 15px;border-radius:9px;margin-bottom:20px;font-size:13px}.attention b{display:block;margin-bottom:4px}.project{padding:15px 0;border-top:1px solid var(--line)}.project h4{margin:0 0 9px;font-size:14px;display:flex;justify-content:space-between;gap:15px}.project h4 span{color:var(--muted);font-weight:400;font-size:12px}.task{margin:10px 0;display:grid;grid-template-columns:9px 1fr;gap:10px}.dot{width:7px;height:7px;border-radius:50%;background:var(--accent);margin-top:9px}.dot.warn{background:var(--amber)}.dot.unknown{background:var(--muted)}.task p{margin:0;font-size:13px}.task small{color:var(--muted);display:block;font-size:12px;margin-top:3px}.outcomes{background:var(--green-bg);color:var(--green);padding:13px 15px;border-radius:9px;font-size:13px}.outcomes ul{margin:6px 0 0;padding-left:18px}.mini-flow{margin:18px 0;padding:0;list-style:none}.mini-flow li{padding:12px 0;border-top:1px solid var(--line);font-size:13px}.mini-flow strong{display:block;color:var(--accent);margin-bottom:3px}.mini-flow p{color:var(--muted);margin:0}.footnote{font-size:12px;color:var(--muted);margin:14px 0 0}.sources{margin-top:30px;padding-top:20px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px 20px;font-size:12px;align-items:center;color:var(--muted)}.sources .pending{margin-right:auto}footer{font-size:12px;color:var(--muted);margin-top:15px}
+    @media(max-width:840px){.shell{padding:20px 20px 35px}.compare,.demo-grid,.report-layout{grid-template-columns:1fr}.sectionhead{display:block}.sectionhead .label{display:block;margin-top:10px}.diagrams{grid-template-columns:1fr}.tabs{overflow-x:auto}.tabs button{padding:10px 13px}.brand small{display:none}.stats{gap:6px}.stat{padding:9px}.report-layout .box:last-child{margin-top:0}}
+    @media(max-width:420px){.shell{padding:16px}.status{display:none}.inputrow{flex-direction:column}.lane,.box{padding:17px}.stats strong{font-size:23px}.tabs{gap:0}.tabs button{font-size:13px;padding:9px 10px}}
+    @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+    @media print{.utility,.tabs,.report-actions,.formfield{display:none}body{background:white}.panel[hidden]{display:block!important}.panel{margin:30px 0;min-height:0}.box,.lane{break-inside:avoid}.shell{padding:0}.diagrams{display:none}}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="masthead"><div class="brand">norma<small>WORKSPACE · DESIGN</small></div><div class="utility"><span class="status">方案演示 · 待实施</span><button class="theme" id="theme" aria-label="切换为深色主题">深色</button></div></div>
+    <header>
+      <h1>一个工作空间，<span>精准派工与完整汇报。</span></h1>
+      <p class="lead">展开项目提供上下文。Norma 面向整个当前工作空间，点名具体卡片执行，也能汇报全部已知工作的进展。</p>
+      <div class="principles"><span class="chip"><b>一名一卡</b> · 全空间查重</span><span class="chip"><b>旧称呼失效</b> · 保留占用</span><span class="chip"><b>按证据反馈</b> · 点击才导航</span><span class="chip"><b>进度查询只读</b> · 不触发派工</span></div>
+    </header>
+    <nav class="tabs" role="tablist" aria-label="方案视图">
+      <button id="tab-flow" role="tab" aria-selected="true" aria-controls="flow" tabindex="0">01 流程对比</button>
+      <button id="tab-names" role="tab" aria-selected="false" aria-controls="names" tabindex="-1">02 名称与投递</button>
+      <button id="tab-report" role="tab" aria-selected="false" aria-controls="report" tabindex="-1">03 全空间进度</button>
+    </nav>
+
+    <section class="panel" id="flow" role="tabpanel" aria-labelledby="tab-flow" tabindex="0">
+      <div class="sectionhead"><div><h2>执行目标从“项目内定义”变为“空间内唯一卡片”</h2><p>全空间进度汇报走独立查询分支，复用派工形成的任务事实。</p></div><span class="label">当前生产逻辑 → 待实施方案</span></div>
+      <div class="compare">
+        <article class="lane"><span class="label">CURRENT · 正式桌面 Dock</span><h3>当前：以项目为边界</h3><p class="sub">此处展示常规桌面入口；手机已有独立的区域寻址与活动汇总。</p>
+          <ol class="flow">
+            <li><span class="number">1</span><div><strong>用户在 Dock 发送指令</strong><p>使用当前项目的名单与画布上下文。</p></div></li>
+            <li><span class="number">2</span><div><strong>解析项目内名称或语音别名</strong><p>找到 Agent 定义；空间内跨项目名称尚未统一查重。</p></div></li>
+            <li><span class="number">3</span><div><strong>复用或激活定义对应的卡片</strong><p>以定义关联本画布会话，不能完整表达跨区域实例。</p></div></li>
+            <li><span class="number">4</span><div><strong>协调器接收，等待 CLI 提交条件</strong><p>启动、审批与用户输入占用决定何时提交。</p></div></li>
+            <li><span class="number">5</span><div><strong>写入正文并发送 Enter</strong><p>CLI 管理自己的消息队列；提交不代表完成。</p></div></li>
+            <li><span class="number">6</span><div><strong>可信事件更新本项目任务与界面</strong><p>普通文本回复或 CLI 静默不作为完成证据。</p></div></li>
+          </ol><div class="notice">缺口：常规 Dock 缺少统一的全空间寻址、实例级协调与主动进度汇报。</div>
+        </article>
+        <article class="lane optimized"><span class="label">PROPOSED · 当前工作空间</span><h3>优化：一名一卡，身份贯穿执行</h3><p class="sub">目录包含全部项目、画布、后台、未加载和仍保留的角色。</p>
+          <ol class="flow">
+            <li><span class="number">1</span><div><strong>固定来源工作空间，区分意图</strong><p>讨论只回复；进度查询只读；派工或续聊进入执行路径。</p><div class="branch">汇报进度 → 聚合现有事实 → 返回带时间与范围的快照</div></div></li>
+            <li><span class="number">2</span><div><strong>有效主名称／别名指向唯一卡片</strong><p>旧称呼失效占用；仅指定项目则统计完整候选。</p></div></li>
+            <li><span class="number">3</span><div><strong>绑定稳定身份，按需加载并复核</strong><p>改名不换目标；删除或会话替换不能改投同名卡片。</p></div></li>
+            <li><span class="number">4</span><div><strong>整组预检、原子接收、逐项投递</strong><p>沿用 CLI 队列；多目标各自保留状态与结果。</p></div></li>
+            <li><span class="number">5</span><div><strong>同一任务的可信事件回流来源空间</strong><p>区分已接收、等待提交、已提交、运行与终态。</p></div></li>
+            <li><span class="number">6</span><div><strong>Dock 显示摘要与结果入口</strong><p>点击才导航；安全失败手动重试，未知先核对。</p></div></li>
+          </ol><div class="notice green">精准性来自两层：唯一名称确定卡片，稳定身份确保执行与结果始终归原目标。</div>
+        </article>
+      </div>
+      <details><summary>查看两张完整运行流程图</summary><div class="diagrams"><figure><figcaption>当前任务指派逻辑 · <a href="current-dispatch.svg" target="_blank" rel="noopener">打开原图</a></figcaption><img src="current-dispatch.svg" alt="当前正式桌面 Dock 的单项目派工流程" loading="lazy"></figure><figure><figcaption>优化后的逻辑，含 Q 汇报分支 · <a href="optimized-dispatch.svg" target="_blank" rel="noopener">打开原图</a></figcaption><img src="optimized-dispatch.svg" alt="优化后的全空间精准派工与只读进度汇报流程" loading="lazy"></figure></div></details>
+    </section>
+
+    <section class="panel" id="names" role="tabpanel" aria-labelledby="tab-names" tabindex="0" hidden>
+      <div class="sectionhead"><div><h2>试一试：一个称呼，只命中一张卡片</h2><p>选择典型场景，再输入主名称或中文语音别名。这里的解析与卡片均为本地示例。</p></div><span class="label">演示不会投递真实任务</span></div>
+      <div class="demo-grid">
+        <article class="box">
+          <div class="formfield"><label for="scenario">场景</label><select id="scenario"><option value="named">跨项目点名：正在查看 Web，点名 API 的 Betty</option><option value="repair">历史重名：Web 和 API 原来都叫 Alan</option><option value="rename">改名后：Web 的 Alan 改为 Bella</option><option value="reuse">彻底删除后：新卡片复用 Alan</option><option value="single">仅指定项目：Web 只有一张有效卡片</option><option value="multiple">仅指定项目：Web 有当前与后台两张卡片</option><option value="empty">仅指定项目：Web 没有有效卡片</option></select></div>
+          <p class="explain" id="scenario-description"></p><div class="roster" id="roster" aria-label="当前场景的示例卡片"></div><div id="retired"></div>
+        </article>
+        <article class="box"><h3>名称解析与目标确定</h3><form id="resolve-form"><div class="formfield"><label for="target-input" id="target-label">主名称或语音别名</label><div class="inputrow"><input id="target-input" autocomplete="off" value="Betty" maxlength="40"><button class="primary" type="submit">解析（演示）</button></div></div></form>
+          <div class="result" id="resolve-result" role="status" aria-live="polite"></div>
+          <ul class="rulelist"><li><b>主名称与中文语音别名共同查重</b><span>Alan／艾伦对应同一卡片；英文忽略大小写，Norma 保留。</span></li><li><b>改名让历次旧称呼失效并保留占用</b><span>原角色仍存在时，其他角色不能复用；彻底删除成功后才释放。</span></li><li><b>无有效称呼时，保留任务并补全</b><span>选择前零接收、零创建、零提交；不猜名字，不自动找替代。</span></li><li><b>只指定项目时，统计完整候选</b><span>一张自动选中，多张由用户选，零张提示补全；后台与未加载都计入。</span></li></ul>
+        </article>
+      </div><div class="notice green">同职责、模型和技能可以复用。具名角色与卡片身份不能共用；旧任务也不会转投同名新角色。</div>
+    </section>
+
+    <section class="panel" id="report" role="tabpanel" aria-labelledby="tab-report" tabindex="0" hidden>
+      <div class="sectionhead"><div><h2>“汇报整个工作空间的进度”</h2><p>正在查看 Web，也能看到 API 与工具项目。示例同时包含后台任务、未加载快照和未关联活动。</p></div><span class="label">示例数据 · 非实时工作状态</span></div>
+      <div class="report-actions"><button class="primary" id="report-all">查询整个工作空间（示例）</button><button class="secondary" id="report-api">只查询 API 项目</button><button class="secondary" id="report-refresh">模拟新运行证据，再查询</button></div>
+      <div class="report-layout"><article class="box" id="report-content" aria-live="polite"></article>
+        <aside class="box"><h3>汇报如何形成</h3><ol class="mini-flow"><li><strong>1 · 固定空间、范围与查询时点</strong><p>展开项目不改变范围；手机仅查询授权项目。</p></li><li><strong>2 · 读取全部已知工作事实</strong><p>已加载用运行状态和任务账本；未加载读取持久快照。</p></li><li><strong>3 · 按稳定任务引用合并去重</strong><p>续聊、重试、内部步骤不能膨胀逻辑任务总数。</p></li><li><strong>4 · 汇报概况、成果与待处理事项</strong><p>当前全部未结束任务与已知异常；近期成果建议默认 24 小时，可指定时间范围。</p></li></ol><div class="notice warn">过时、未知与覆盖缺口必须说明。没有完整可信计划，就不生成完成百分比。</div><div class="notice green">查询不创建任务、不写卡片输入、不启动 PTY，也不自动审批、催办或重试。</div><p class="footnote">一次查询形成一次快照。再次询问获取新事实；旧汇报保留原时间。结果入口点击后才导航。</p></aside>
+      </div>
+    </section>
+
+    <div class="sources"><span class="pending">实施：身份与名称 → 精准派工 → 回执恢复 → 全空间汇报（T09）</span><a href="../../../product-specs/2026-10-10-workspace-agent-task-dispatch.md" target="_blank" rel="noopener">正式规格</a><a href="../../../exec-plans/2026-10-10-workspace-agent-task-dispatch.md" target="_blank" rel="noopener">九项开发任务</a><a href="https://github.com/multisoul-ai/Norma-AI-OS/issues/96" target="_blank" rel="noopener">Issue #96 ↗</a></div>
+    <footer>基于已确认方案与新增进度汇报要求 · 2026-10-10 · 24 小时成果窗口为实施建议 · 本页为方案说明，功能尚未实施。</footer>
+  </div>
+  <script>
+    const $ = selector => document.querySelector(selector);
+    const escapeHTML = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const tabs = [...document.querySelectorAll('[role="tab"]')];
+    function selectTab(tab, focus=false){
+      for(const item of tabs){const selected=item===tab;item.setAttribute('aria-selected',String(selected));item.tabIndex=selected?0:-1;$('#'+item.getAttribute('aria-controls')).hidden=!selected;}
+      if(focus)tab.focus();
+    }
+    for(const tab of tabs){
+      tab.addEventListener('click',()=>selectTab(tab));
+      tab.addEventListener('keydown',event=>{let index=tabs.indexOf(tab);if(event.key==='ArrowRight')index=(index+1)%tabs.length;else if(event.key==='ArrowLeft')index=(index+tabs.length-1)%tabs.length;else if(event.key==='Home')index=0;else if(event.key==='End')index=tabs.length-1;else return;event.preventDefault();selectTab(tabs[index],true);});
+    }
+    $('#theme').addEventListener('click',()=>{const dark=document.documentElement.dataset.theme!=='dark';document.documentElement.dataset.theme=dark?'dark':'light';$('#theme').textContent=dark?'浅色':'深色';$('#theme').setAttribute('aria-label',dark?'切换为浅色主题':'切换为深色主题');});
+    const scenarios={
+      named:{description:'正在查看 Web；Betty 的唯一卡片属于 API。视图只提供上下文，点名按整个空间解析。',input:'Betty',cards:[{name:'Alan',alias:'艾伦',project:'Web',identity:'原卡片 A',status:'当前画布'},{name:'Betty',alias:'贝蒂',project:'API',identity:'原卡片 B',status:'后台'}]},
+      repair:{description:'历史重名按固定身份排序，Web 保留 Alan，API 自动改为 Bella。API 已有任务仍归原卡片 B。',input:'Alan',cards:[{name:'Alan',alias:'艾伦',project:'Web',identity:'原卡片 A',status:'保留原名'},{name:'Bella',alias:'贝拉',project:'API',identity:'原卡片 B',status:'原名 Alan'}]},
+      rename:{description:'Web 的 Alan／艾伦改为 Bella／贝拉，原卡片 A 和已有任务都不变。试试旧称呼 Alan，再试新称呼 Bella。',input:'Alan',retired:['Alan','艾伦'],cards:[{name:'Bella',alias:'贝拉',project:'Web',identity:'原卡片 A',status:'改名成功'},{name:'Betty',alias:'贝蒂',project:'API',identity:'原卡片 B',status:'后台'}]},
+      reuse:{description:'原角色已彻底删除成功，当前及历次旧称呼已释放。新的 Alan 使用新卡片 C；旧任务仍归已删除的卡片 A。',input:'Alan',cards:[{name:'Alan',alias:'艾伦',project:'API',identity:'新卡片 C',status:'新身份'},{name:'Betty',alias:'贝蒂',project:'Web',identity:'原卡片 B',status:'当前画布'}]},
+      single:{description:'只指定明确项目时，需要查完全部画布。Web 只有一张有效候选，可自动绑定 Alan。',input:'Web',projectOnly:true,cards:[{name:'Alan',alias:'艾伦',project:'Web',identity:'原卡片 A',status:'唯一有效候选'},{name:'Betty',alias:'贝蒂',project:'API',identity:'原卡片 B',status:'其他项目'}]},
+      multiple:{description:'Web 当前画布有 Alan，后台还有 Clara。完整范围有两张候选，不能因当前只看到一张就自动选中。',input:'Web',projectOnly:true,cards:[{name:'Alan',alias:'艾伦',project:'Web',identity:'原卡片 A',status:'当前画布'},{name:'Clara',alias:'克拉拉',project:'Web',identity:'原卡片 D',status:'后台'}]},
+      empty:{description:'Web 没有有效候选。保留任务并提示补全；不能创建卡片或改投 API 的 Betty。',input:'Web',projectOnly:true,cards:[{name:'Betty',alias:'贝蒂',project:'API',identity:'原卡片 B',status:'其他项目'}]}
+    };
+    function showResult(kind,title,body){const result=$('#resolve-result');result.dataset.kind=kind;result.innerHTML=`<strong>${escapeHTML(title)}</strong><p>${escapeHTML(body)}</p>`;}
+    function resolve(){
+      const scenario=scenarios[$('#scenario').value],name=$('#target-input').value.trim();
+      if(!name){showResult('error','请补全目标','保留原任务；目标补全前不接收或投递。');return;}
+      if(scenario.projectOnly){
+        if(!['Web','API'].includes(name)){showResult('error','项目不明确','选择前零接收、零创建、零提交。');return;}
+        const candidates=scenario.cards.filter(card=>card.project===name);
+        if(candidates.length===0)showResult('error','零候选：保留任务，提示补全','没有可用卡片；不自动创建，不换项目。');
+        else if(candidates.length===1)showResult('success','唯一候选：自动绑定 '+candidates[0].name,`${candidates[0].project} · ${candidates[0].identity}。之后仍须复核身份与可用状态，再接收任务。`);
+        else showResult('','多候选：等待用户选择',candidates.map(card=>card.name+'（'+card.status+'）').join('、')+'。选择前零接收、零提交。');
+        return;
+      }
+      const matches=scenario.cards.filter(card=>[card.name,card.alias].some(alias=>alias.toLowerCase()===name.toLowerCase()));
+      if(matches.length===1){const card=matches[0];showResult('success','唯一命中：'+card.name,`${card.project} · ${card.identity}。任务将绑定此身份；当前展开项目与以后改名不会改变归属。`);}
+      else if(scenario.retired?.some(alias=>alias.toLowerCase()===name.toLowerCase()))showResult('error','旧称呼已失效：不投递','该称呼仍保留占用。保留任务，选择有效的已有卡片；不从改名历史自动找人。');
+      else showResult('error','没有有效匹配：保留任务','不按相似名称猜目标，不创建替代卡片；先选择有效卡片。');
+    }
+    function renderScenario(){
+      const scenario=scenarios[$('#scenario').value];
+      $('#scenario-description').textContent=scenario.description;
+      $('#target-label').textContent=scenario.projectOnly?'明确项目名称（示例：Web／API）':'主名称或语音别名';
+      $('#target-input').value=scenario.input;
+      $('#roster').innerHTML=scenario.cards.map(card=>`<div class="agent"><span class="avatar">${escapeHTML(card.name[0])}</span><div><strong>${escapeHTML(card.name)} <span class="explain">／${escapeHTML(card.alias)}</span></strong><p>${escapeHTML(card.project)} · ${escapeHTML(card.identity)}</p></div><span class="tag">${escapeHTML(card.status)}</span></div>`).join('');
+      $('#retired').innerHTML=scenario.retired?`<div class="notice red">失效占用：${scenario.retired.map(escapeHTML).join('／')}。原角色仍存在，其他角色不能复用。</div>`:'';
+      showResult('','准备解析：'+scenario.input,'点击“解析（演示）”查看该场景下的目标确定结果。');
+    }
+    $('#scenario').addEventListener('change',renderScenario);$('#resolve-form').addEventListener('submit',event=>{event.preventDefault();resolve();});renderScenario();
+    let fresh=false;
+    function renderReport(scope='all'){
+      const full=scope==='all',time=fresh?'10:31':'10:30';
+      const unfinished=full?3:1,projects=full?3:1,cards=full?4:2;
+      const distribution=full?(fresh?'执行 2 · 等待审批 1':'执行 1 · 等待提交 1 · 等待审批 1'):'等待审批 1';
+      const web=`<div class="project"><h4>Web <span>当前画布 · 实时采样</span></h4><div class="task"><span class="dot"></span><div><p><b>Alan</b> · 修复登录 · 正在执行</p><small>最新证据 10:29；有同任务运行事件。</small></div></div></div>`;
+      const api=`<div class="project"><h4>API <span>后台任务与持久快照</span></h4><div class="task"><span class="dot warn"></span><div><p><b>Betty</b> · 补兼容测试 · 等待审批</p><small>最新证据 10:28；需要用户处理工具审批。</small></div></div><div class="task"><span class="dot unknown"></span><div><p><b>Bella</b> · 当前进度无法核实</p><small>仅有昨天 18:00 的持久活动快照；未关联任务，不计入任务数。</small></div></div></div>`;
+      const tool=`<div class="project"><h4>工具项目 <span>后台 · 实时采样</span></h4><div class="task"><span class="dot ${fresh?'':'warn'}"></span><div><p><b>Clara</b> · 更新构建脚本 · ${fresh?'正在执行':'等待提交'}</p><small>${fresh?'10:31 新的同任务运行证据；任务数未增加。':'最新证据 10:30；尚未提交给 CLI，不称为正在执行。'}</small></div></div></div>`;
+      $('#report-content').innerHTML=`<div class="report-head"><span class="norma-avatar">N</span><div><h3>${full?'产品开发空间 · 全空间汇报':'API 项目 · 查询汇报'}</h3><p>示例查询时间：${time} · 成果窗口：最近 24 小时</p></div></div><div class="stats"><div class="stat"><strong>${projects}</strong><span>覆盖项目</span></div><div class="stat"><strong>${cards}</strong><span>角色／卡片</span></div><div class="stat"><strong>${unfinished}</strong><span>已知未结束任务</span></div></div><p class="distribution">任务分布：${distribution}。另有 1 张卡片只有旧快照，当前状态待核实。</p><div class="attention"><b>需要你处理</b>Betty 等待工具审批；Bella 的活动快照需核对。汇报本身不会执行审批或催办。</div>${full?web:''}${api}${full?tool:''}<div class="outcomes"><b>近期成果 · ${full?'2':'1'} 项可信完成任务（示例）</b><ul>${full?'<li>Web：修复路由类型检查</li>':''}<li>API：补齐接口错误用例</li></ul></div><p class="footnote">以上均为示例事实；成果计数与当前未结束任务数分别统计。没有完整项目计划，因此不提供空间完成百分比。</p>`;
+    }
+    $('#report-all').addEventListener('click',()=>renderReport('all'));$('#report-api').addEventListener('click',()=>renderReport('api'));$('#report-refresh').addEventListener('click',()=>{fresh=true;renderReport('all');$('#report-refresh').disabled=true;$('#report-refresh').textContent='示例证据已更新至 10:31';});renderReport();
+  </script>
+</body>
+</html>
