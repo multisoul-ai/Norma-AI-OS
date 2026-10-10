@@ -5,6 +5,7 @@ use ui::i18n::Locale;
 
 fn title(kind: NodeKind) -> String {
     let node = CanvasNode {
+        card_instance_id: canvas::new_card_instance_id(),
         id: 1, // 单节点，无 session 或其他节点；id 只用于 Card trait 路由。
         kind,
         bounds: CanvasRect::new(0.0, 0.0, 300.0, 200.0), // 300×200 不参与标题选择。

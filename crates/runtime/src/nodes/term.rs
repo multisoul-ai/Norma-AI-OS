@@ -133,6 +133,10 @@ impl LiveNode for TermLive {
         Caps::TERM
     }
 
+    fn terminal_session_id(&self) -> Option<TerminalSessionId> {
+        Some(self.session.id)
+    }
+
     fn drain(&mut self) -> bool {
         let dirty = self.session.drain();
         if dirty {

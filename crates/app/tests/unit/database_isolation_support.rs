@@ -5,6 +5,7 @@ use canvas::{
 pub(super) fn rect_snapshot(node_id: u64, color: u32) -> DocumentSnapshot {
     DocumentSnapshot {
         nodes: vec![CanvasNodeSnapshot {
+            card_instance_id: canvas::new_card_instance_id(),
             id: node_id,
             kind: CanvasNodeKind::Rect(RectNode { color }),
             bounds: CanvasRect::new(10.0, 20.0, 100.0, 80.0),

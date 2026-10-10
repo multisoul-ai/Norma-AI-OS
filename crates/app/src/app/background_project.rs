@@ -82,7 +82,7 @@ impl PreparedProject {
         project: ProjectStore,
         definitions_store: storage::AgentDefinitionStore,
     ) -> anyhow::Result<Self> {
-        let document = project.canvas_store().load_snapshot()?;
+        let document = project.canvas_store().load_snapshot_with_card_identity()?;
         let layout = project.layout_store().load_state()?;
         let sessions = project.node_session_store().load_sessions()?;
         let checkpoints = project.session_store().load_checkpoints()?;

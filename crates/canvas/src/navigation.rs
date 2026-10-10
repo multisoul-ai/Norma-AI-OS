@@ -82,6 +82,7 @@ mod tests {
 
     fn node(id: NodeId, x: f32, y: f32) -> CanvasNode {
         CanvasNode {
+            card_instance_id: crate::new_card_instance_id(),
             id,
             kind: CanvasNodeKind::Rect(RectNode { color: 0x4080ff }),
             bounds: CanvasRect::new(x, y, 100.0, 80.0),

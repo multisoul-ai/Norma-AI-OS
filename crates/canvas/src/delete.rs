@@ -37,6 +37,7 @@ mod tests {
         ids.iter()
             .enumerate()
             .map(|(i, &id)| CanvasNode {
+                card_instance_id: crate::new_card_instance_id(),
                 id,
                 kind: CanvasNodeKind::Rect(RectNode { color: 0x808080 }),
                 bounds: CanvasRect::new(i as f32 * 200.0, 0.0, 100.0, 80.0),

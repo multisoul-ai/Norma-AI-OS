@@ -89,6 +89,7 @@ fn test_runtime_load_canvas_snapshot_restores_document_without_live_nodes() {
     let store = CanvasStore::new(temp.path().join("project.sqlite"));
     let snapshot = DocumentSnapshot {
         nodes: vec![CanvasNodeSnapshot {
+            card_instance_id: canvas::new_card_instance_id(),
             id: 8,
             kind: CanvasNodeKind::Rect(RectNode { color: 0x35d07f }),
             bounds: CanvasRect::new(1.0, 2.0, 300.0, 200.0),
@@ -209,6 +210,7 @@ fn test_runtime_restore_live_sessions_rebinds_terminal_to_existing_node_id() {
     let store = CanvasStore::new(temp.path().join("project.sqlite"));
     let snapshot = DocumentSnapshot {
         nodes: vec![CanvasNodeSnapshot {
+            card_instance_id: canvas::new_card_instance_id(),
             id: 8,
             kind: CanvasNodeKind::Term(canvas::TermSpec),
             bounds: CanvasRect::new(1.0, 2.0, 300.0, 200.0),
@@ -296,6 +298,7 @@ fn test_runtime_restore_live_sessions_rebinds_terminal_to_existing_node_id() {
 fn test_runtime_restore_live_sessions_skips_missing_checkpoint_node() {
     let snapshot = DocumentSnapshot {
         nodes: vec![CanvasNodeSnapshot {
+            card_instance_id: canvas::new_card_instance_id(),
             id: 8,
             kind: CanvasNodeKind::Rect(RectNode { color: 0x35d07f }),
             bounds: CanvasRect::new(1.0, 2.0, 300.0, 200.0),
@@ -363,6 +366,7 @@ fn test_runtime_restore_live_sessions_skips_missing_checkpoint_node() {
 fn test_runtime_restore_live_sessions_uses_default_for_legacy_terminal_without_checkpoint() {
     let snapshot = DocumentSnapshot {
         nodes: vec![CanvasNodeSnapshot {
+            card_instance_id: canvas::new_card_instance_id(),
             id: 4,
             kind: CanvasNodeKind::Term(canvas::TermSpec),
             bounds: CanvasRect::new(1.0, 2.0, 300.0, 200.0),

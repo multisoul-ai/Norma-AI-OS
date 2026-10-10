@@ -144,6 +144,7 @@ fn test_set_node_bounds_updates_target_and_leaves_other_node_unchanged() {
 fn test_from_snapshot_restores_document_and_allocates_next_id_after_max() {
     let snapshot = DocumentSnapshot {
         nodes: vec![CanvasNodeSnapshot {
+            card_instance_id: crate::new_card_instance_id(),
             id: 4,
             kind: CanvasNodeKind::Rect(RectNode { color: 0x4080ff }),
             bounds: CanvasRect::new(10.0, 20.0, 300.0, 200.0),

@@ -27,6 +27,7 @@ mod definition_identity;
 mod input;
 mod mobile_cards;
 mod restore;
+mod workspace_identity;
 pub use mobile_cards::{
     CodexExternalApproval, MobileAgentLaunch, MobileArchiveRead, MobileClaudeHistoryRead,
     MobileNativeApproval, MobileTerminalInterrupt, NativeAgentLaunch, PreparedMobileAgent,
@@ -54,6 +55,7 @@ pub struct Runtime {
     #[cfg(test)]
     test_agent_spawn_command: Option<PtyCommand>,
     next_session_id: TerminalSessionId,
+    runtime_instance_id: String,
     workspace_root: Option<PathBuf>,
     pty_factory: Option<PtyFactory>,
 }
@@ -83,6 +85,7 @@ impl Runtime {
             #[cfg(test)]
             test_agent_spawn_command: None,
             next_session_id: 1,
+            runtime_instance_id: canvas::new_card_instance_id(),
             workspace_root: None,
             pty_factory: None,
         }
@@ -122,6 +125,7 @@ impl Runtime {
 
     pub fn restore_canvas_snapshot(&mut self, snapshot: DocumentSnapshot) {
         self.kill_all();
+        self.runtime_instance_id = canvas::new_card_instance_id();
         self.events.remove_all();
         self.document = Document::from_snapshot(snapshot);
         self.selection.clear();

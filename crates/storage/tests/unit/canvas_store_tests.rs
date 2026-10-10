@@ -26,6 +26,7 @@ fn test_canvas_snapshot_round_trips_and_preserves_next_node_id() {
     let store = CanvasStore::new(temp.path().join("project.sqlite"));
     let snapshot = DocumentSnapshot {
         nodes: vec![CanvasNodeSnapshot {
+            card_instance_id: canvas::new_card_instance_id(),
             id: 9,
             kind: NodeKind::Rect(RectNode { color: 0x35d07f }),
             bounds: CanvasRect::new(10.0, 20.0, 300.0, 200.0),

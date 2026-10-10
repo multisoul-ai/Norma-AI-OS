@@ -84,6 +84,10 @@ impl From<PtyError> for NodeError {
 pub trait LiveNode {
     fn caps(&self) -> Caps;
     fn drain(&mut self) -> bool;
+    /// Memory-only session identity; unlike Provider IDs it also exists for plain CLI cards.
+    fn terminal_session_id(&self) -> Option<terminal::TerminalSessionId> {
+        None
+    }
     fn terminal_status(&self) -> Option<TerminalStatus> {
         None
     }

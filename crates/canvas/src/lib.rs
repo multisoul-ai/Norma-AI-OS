@@ -5,6 +5,7 @@ pub mod document;
 pub mod geometry;
 pub mod history;
 pub mod hit_test;
+mod identity;
 pub mod layout;
 pub mod navigation;
 pub mod node;
@@ -14,6 +15,7 @@ pub use delete::next_neighbor_after_delete;
 pub use document::{CanvasNodeSnapshot, Document, DocumentSnapshot};
 pub use geometry::{CanvasRect, Transform2D, Vec2, Viewport};
 pub use hit_test::hit_test;
+pub use identity::new_card_instance_id;
 pub use layout::{
     compute_configurable_grid_layout, compute_master_detail_layout, compute_responsive_grid_layout,
     compute_tiled_grid_layout, configurable_grid_cell_bounds, ConfigurableGridConfig,

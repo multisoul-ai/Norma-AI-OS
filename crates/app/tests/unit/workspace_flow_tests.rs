@@ -38,6 +38,7 @@ fn test_enter_workspace_defers_live_terminal_restore_for_saved_card() {
         ProjectStore::for_workspace(&workspace_path).expect("project store should open");
     let snapshot = DocumentSnapshot {
         nodes: vec![CanvasNodeSnapshot {
+            card_instance_id: canvas::new_card_instance_id(),
             id: 6,
             kind: CanvasNodeKind::Term(TermSpec),
             bounds: CanvasRect::new(10.0, 20.0, 640.0, 360.0),
@@ -172,12 +173,14 @@ fn test_enter_workspace_starts_profile_specific_intro_for_restored_live_cards() 
     let snapshot = DocumentSnapshot {
         nodes: vec![
             CanvasNodeSnapshot {
+                card_instance_id: canvas::new_card_instance_id(),
                 id: 6,
                 kind: CanvasNodeKind::Term(TermSpec),
                 bounds: CanvasRect::new(10.0, 20.0, 640.0, 360.0),
                 z_index: 1,
             },
             CanvasNodeSnapshot {
+                card_instance_id: canvas::new_card_instance_id(),
                 id: 7,
                 kind: CanvasNodeKind::Agent(AgentSpec {
                     profile: AgentProfile::Codex,
@@ -189,6 +192,7 @@ fn test_enter_workspace_starts_profile_specific_intro_for_restored_live_cards() 
                 z_index: 2,
             },
             CanvasNodeSnapshot {
+                card_instance_id: canvas::new_card_instance_id(),
                 id: 8,
                 kind: CanvasNodeKind::Agent(AgentSpec {
                     profile: AgentProfile::Claude,
@@ -339,12 +343,14 @@ fn test_enter_workspace_restores_saved_master_layout_state() {
     let snapshot = DocumentSnapshot {
         nodes: vec![
             CanvasNodeSnapshot {
+                card_instance_id: canvas::new_card_instance_id(),
                 id: 1,
                 kind: CanvasNodeKind::Rect(canvas::RectNode { color: 0x4080ff }),
                 bounds: a_bounds,
                 z_index: 1,
             },
             CanvasNodeSnapshot {
+                card_instance_id: canvas::new_card_instance_id(),
                 id: 2,
                 kind: CanvasNodeKind::Rect(canvas::RectNode { color: 0xff8040 }),
                 bounds: b_bounds,

@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct CanvasNodeSnapshot {
     pub id: NodeId,
+    #[serde(default)]
+    pub card_instance_id: String,
     pub kind: CanvasNodeKind,
     pub bounds: CanvasRect,
     pub z_index: i32,
@@ -16,6 +18,20 @@ pub struct CanvasNodeSnapshot {
 pub struct DocumentSnapshot {
     pub nodes: Vec<CanvasNodeSnapshot>,
     pub viewport: Viewport,
+}
+
+impl DocumentSnapshot {
+    /// Backfill legacy cards before publishing a directory; storage persists this once.
+    pub fn assign_missing_card_instance_ids(&mut self) -> bool {
+        let mut changed = false;
+        for node in &mut self.nodes {
+            if node.card_instance_id.is_empty() {
+                node.card_instance_id = crate::new_card_instance_id();
+                changed = true;
+            }
+        }
+        changed
+    }
 }
 
 #[derive(Debug)]
@@ -49,6 +65,7 @@ impl Document {
                 .iter()
                 .map(|node| CanvasNodeSnapshot {
                     id: node.id,
+                    card_instance_id: node.card_instance_id.clone(),
                     kind: node.kind.clone(),
                     bounds: node.bounds,
                     z_index: node.z_index,
@@ -58,7 +75,8 @@ impl Document {
         }
     }
 
-    pub fn from_snapshot(snapshot: DocumentSnapshot) -> Self {
+    pub fn from_snapshot(mut snapshot: DocumentSnapshot) -> Self {
+        snapshot.assign_missing_card_instance_ids();
         let mut next_id = 1;
         let mut max_z = 0;
         let nodes = snapshot
@@ -69,6 +87,7 @@ impl Document {
                 max_z = max_z.max(node.z_index);
                 CanvasNode {
                     id: node.id,
+                    card_instance_id: node.card_instance_id,
                     kind: node.kind,
                     bounds: node.bounds,
                     z_index: node.z_index,
@@ -92,6 +111,7 @@ impl Document {
         self.max_z += 1;
         self.nodes.push(CanvasNode {
             id,
+            card_instance_id: crate::new_card_instance_id(),
             kind,
             bounds,
             z_index: self.max_z,

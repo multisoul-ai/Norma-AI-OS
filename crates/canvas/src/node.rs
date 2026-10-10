@@ -118,6 +118,9 @@ fn preview_title(path: &str) -> String {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct CanvasNode {
     pub id: NodeId,
+    /// Persistent card identity; local node IDs may be reused after deletion/restoration.
+    #[serde(default)]
+    pub card_instance_id: String,
     pub kind: CanvasNodeKind,
     pub bounds: CanvasRect,
     pub z_index: i32,

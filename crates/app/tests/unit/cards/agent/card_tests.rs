@@ -64,6 +64,7 @@ fn agent_card_chrome_shows_project_and_selected_worktree() {
 fn test_agent_card_chrome_uses_profile_title() {
     let runtime = Runtime::new();
     let claude = CanvasNode {
+        card_instance_id: canvas::new_card_instance_id(),
         id: 1,
         kind: CanvasNodeKind::Agent(AgentSpec {
             profile: AgentProfile::Claude,
@@ -76,6 +77,7 @@ fn test_agent_card_chrome_uses_profile_title() {
         selected: false,
     };
     let codex = CanvasNode {
+        card_instance_id: canvas::new_card_instance_id(),
         id: 2,
         kind: CanvasNodeKind::Agent(AgentSpec {
             profile: AgentProfile::Codex,
@@ -88,6 +90,7 @@ fn test_agent_card_chrome_uses_profile_title() {
         selected: false,
     };
     let opencode = CanvasNode {
+        card_instance_id: canvas::new_card_instance_id(),
         id: 3,
         kind: CanvasNodeKind::Agent(AgentSpec {
             profile: AgentProfile::OpenCode,
@@ -144,6 +147,7 @@ fn test_agent_card_chrome_uses_profile_title() {
 fn test_agent_card_chrome_prefers_alias_over_profile_title() {
     let runtime = Runtime::new();
     let node = CanvasNode {
+        card_instance_id: canvas::new_card_instance_id(),
         id: 3,
         kind: CanvasNodeKind::Agent(AgentSpec {
             profile: AgentProfile::Codex,
@@ -287,6 +291,7 @@ fn test_agent_card_chrome_uses_task_title_when_set() {
 fn test_agent_card_chrome_falls_back_to_profile_when_no_task_title() {
     let runtime = Runtime::new();
     let node = CanvasNode {
+        card_instance_id: canvas::new_card_instance_id(),
         id: 99,
         kind: CanvasNodeKind::Agent(AgentSpec {
             profile: AgentProfile::Codex,
