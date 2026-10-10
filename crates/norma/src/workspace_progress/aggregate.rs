@@ -73,6 +73,8 @@ pub fn aggregate_workspace_progress(
         facts.coverage,
     );
     let coverage_complete = coverage.iter().all(|c| c.state == CoverageState::Complete);
+    let unresolved_history =
+        history::scoped_history(&facts.scope.workspace_id, &areas, facts.unresolved_history)?;
     let readable = |card: &ProgressCardRef| {
         card.workspace_id == facts.scope.workspace_id && areas.contains_key(&card.area_id)
     };
@@ -121,6 +123,7 @@ pub fn aggregate_workspace_progress(
                 tasks: vec![],
                 activities: vec![],
                 recent_outcomes: vec![],
+                unresolved_history: vec![],
                 totals: ProgressTotals::default(),
             })
             .areas
@@ -148,6 +151,11 @@ pub fn aggregate_workspace_progress(
         }
         project.activities.push(summary);
     }
+    for record in unresolved_history {
+        project_for(&mut projects, &record.area_id)
+            .unresolved_history
+            .push(record);
+    }
     let mut totals = ProgressTotals {
         project_count: projects
             .values()
@@ -167,6 +175,7 @@ pub fn aggregate_workspace_progress(
         project.totals.project_count = usize::from(project.project_identity_known);
         project.totals.area_count = project.areas.len();
         project.totals.role_count = project.roles.len();
+        project.totals.unresolved_historical_record_count = project.unresolved_history.len();
         project.totals.all_known_logical_task_count = project.tasks.len();
         project.totals.unfinished_task_count = project
             .tasks
@@ -241,6 +250,8 @@ pub fn aggregate_workspace_progress(
         totals.default_report_activity_count += project.totals.default_report_activity_count;
         totals.unfinished_activity_count += project.totals.unfinished_activity_count;
         totals.attention_activity_count += project.totals.attention_activity_count;
+        totals.unresolved_historical_record_count +=
+            project.totals.unresolved_historical_record_count;
         for (phase, count) in &project.totals.all_known_task_phases {
             *totals.all_known_task_phases.entry(*phase).or_default() += count;
         }

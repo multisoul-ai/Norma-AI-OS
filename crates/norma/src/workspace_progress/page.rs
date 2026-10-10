@@ -84,6 +84,14 @@ impl ProgressProjectSummary {
     ) -> ProgressDetailPage<ProgressRecentOutcome> {
         page(&self.recent_outcomes, &self.totals, offset, limit)
     }
+    /// All unresolved identities remain visible regardless of the recent-outcome window.
+    pub fn unresolved_history_page(
+        &self,
+        offset: usize,
+        limit: usize,
+    ) -> ProgressDetailPage<UnresolvedHistoricalRecord> {
+        page(&self.unresolved_history, &self.totals, offset, limit)
+    }
 }
 fn page<T: Clone>(
     rows: &[T],

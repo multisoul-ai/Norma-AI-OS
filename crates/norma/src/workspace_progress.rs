@@ -8,6 +8,7 @@ mod aggregate;
 mod coverage;
 mod display;
 mod facts;
+mod history;
 mod link;
 mod page;
 mod reconcile;
@@ -15,6 +16,9 @@ mod snapshot;
 pub use aggregate::aggregate_workspace_progress;
 pub use coverage::*;
 pub use facts::*;
+pub use history::{
+    UnresolvedHistoricalEvidence, UnresolvedHistoricalFact, UnresolvedHistoricalRecord,
+};
 pub use page::*;
 use serde::{Deserialize, Serialize};
 pub use snapshot::*;
@@ -54,6 +58,8 @@ pub struct AuthorizedProgressFacts {
     pub cards: Vec<ProgressCardFact>,
     pub tasks: Vec<TaskProgressFact>,
     pub activities: Vec<CardActivityFact>,
+    /// Legacy evidence with no proven card/task identity; never manufacture card references.
+    pub unresolved_history: Vec<UnresolvedHistoricalFact>,
     pub coverage: Vec<ProgressCoverageFact>,
 }
 impl AuthorizedProgressFacts {
@@ -65,6 +71,7 @@ impl AuthorizedProgressFacts {
             cards: vec![],
             tasks: vec![],
             activities: vec![],
+            unresolved_history: vec![],
             coverage: vec![],
         }
     }

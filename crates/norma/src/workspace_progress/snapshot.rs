@@ -24,6 +24,8 @@ pub struct ProgressTotals {
     pub default_report_activity_count: usize,
     pub unfinished_activity_count: usize,
     pub attention_activity_count: usize,
+    /// Unproven historical identities are separate from roles, tracked tasks, and activities.
+    pub unresolved_historical_record_count: usize,
 }
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -71,6 +73,8 @@ pub struct ProgressProjectSummary {
     pub tasks: Vec<TaskProgressSummary>,
     pub activities: Vec<ActivityProgressSummary>,
     pub recent_outcomes: Vec<ProgressRecentOutcome>,
+    /// Always visible for verification; contains no executable card/navigation target.
+    pub unresolved_history: Vec<UnresolvedHistoricalRecord>,
     pub totals: ProgressTotals,
 }
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
