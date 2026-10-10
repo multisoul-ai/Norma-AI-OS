@@ -21,8 +21,10 @@ use std::io::Write;
 use std::net::{TcpListener, TcpStream};
 
 use super::agent_hook_ingress;
+mod accepted;
 #[cfg(test)]
 use super::agent_hook_ingress::{read_authorized_event, AgentHookHttpError};
+pub(crate) use accepted::{AcceptedAgentHookEvent, AgentHookTaskIdentity};
 
 pub(crate) struct AgentHookServer {
     receiver: Receiver<AgentHookEvent>,
@@ -42,22 +44,38 @@ pub(crate) struct AgentHookDrainReport {
     pub(crate) started_tasks: Vec<AgentHookStartedTask>,
     pub(crate) ready_node_ids: Vec<u64>,
     pub(crate) terminal_tasks: Vec<AgentHookTerminalTask>,
-    pub(crate) events: Vec<AgentHookEvent>,
+    pub(crate) events: Vec<AcceptedAgentHookEvent>,
 }
 
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) struct AgentHookStartedTask {
+    pub(crate) identity: AgentHookTaskIdentity,
     pub(crate) node_id: u64,
     pub(crate) task_title: Option<String>,
 }
 
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) struct AgentHookTerminalTask {
+    pub(crate) identity: AgentHookTaskIdentity,
     pub(crate) node_id: u64,
     pub(crate) result: AgentTaskResult,
 }
 
 impl AgentHookServer {
+    #[cfg(test)]
+    pub(crate) fn for_test_events(receiver: Receiver<AgentHookEvent>) -> Self {
+        Self {
+            receiver,
+            approvals: crossbeam_channel::bounded(1).1,
+            #[cfg(feature = "e2e-test-support")]
+            event_sender: crossbeam_channel::unbounded().0,
+            #[cfg(feature = "e2e-test-support")]
+            event_tap: None,
+            endpoint: None,
+            token: None,
+        }
+    }
+
     pub(crate) fn start(cx: &mut App) -> Self {
         let registration = agent_hook_ingress::register(cx);
         Self {
@@ -142,6 +160,7 @@ impl AgentHookServer {
             let node_id = event.node_id;
             let started_task =
                 (event.provider_event == "UserPromptSubmit").then(|| AgentHookStartedTask {
+                    identity: AgentHookTaskIdentity::from(&event),
                     node_id,
                     task_title: extract_prompt_text(&event.raw_json),
                 });
@@ -154,11 +173,14 @@ impl AgentHookServer {
                 Some(AgentTaskState::Done | AgentTaskState::Failed { .. } | AgentTaskState::Ended)
             );
             let terminal_task = is_terminal.then(|| AgentHookTerminalTask {
+                identity: AgentHookTaskIdentity::from(&event),
                 node_id,
                 result: task_result_from_hook_event(&event),
             });
-            report.events.push(event.clone());
-            let outcome = apply_agent_hook_event_with_outcome(runtime, event);
+            let outcome = apply_agent_hook_event_with_outcome(runtime, event.clone());
+            report
+                .events
+                .push(AcceptedAgentHookEvent::capture(runtime, event));
             if outcome.changed() {
                 report.changed = true;
                 if outcome.session_binding_changed {
@@ -184,8 +206,10 @@ impl AgentHookServer {
             event.control_run_id = Some(approval.request().run_id.clone());
             if runtime.accept_mobile_approval(approval) {
                 report.changed = true;
-                report.events.push(event.clone());
-                apply_agent_hook_event_with_outcome(runtime, event);
+                apply_agent_hook_event_with_outcome(runtime, event.clone());
+                report
+                    .events
+                    .push(AcceptedAgentHookEvent::capture(runtime, event));
             }
         }
         report

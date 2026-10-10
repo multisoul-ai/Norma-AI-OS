@@ -27,12 +27,15 @@ mod definition_identity;
 mod input;
 mod mobile_cards;
 mod restore;
+mod workspace_hooks;
 mod workspace_identity;
+mod workspace_input;
 pub use mobile_cards::{
     CodexExternalApproval, MobileAgentLaunch, MobileArchiveRead, MobileClaudeHistoryRead,
     MobileNativeApproval, MobileTerminalInterrupt, NativeAgentLaunch, PreparedMobileAgent,
     TerminalInputLease,
 };
+pub use workspace_input::WorkspaceCardInputError;
 
 pub const DEFAULT_TERMINAL_SHELL: &str = "/bin/zsh";
 pub(crate) const DEFAULT_SESSION_COLS: u16 = 80;
@@ -45,6 +48,8 @@ pub struct Runtime {
     live: HashMap<NodeId, Box<dyn LiveNode>>,
     mobile_runs: HashMap<NodeId, mobile_cards::MobileRun>,
     archive_reads: mobile_cards::ArchiveReads,
+    workspace_inputs: workspace_input::WorkspaceInputs,
+    workspace_hooks: workspace_hooks::WorkspaceHookHistory,
     pub(crate) events: RuntimeEvents,
     pub(crate) agent_hook_config: Option<crate::agent_hooks::AgentHookRuntimeConfig>,
     terminal_shells: HashMap<NodeId, String>,
@@ -75,6 +80,8 @@ impl Runtime {
             live: HashMap::new(),
             mobile_runs: HashMap::new(),
             archive_reads: mobile_cards::ArchiveReads::default(),
+            workspace_inputs: workspace_input::WorkspaceInputs::default(),
+            workspace_hooks: workspace_hooks::WorkspaceHookHistory::default(),
             events: RuntimeEvents::default(),
             agent_hook_config: None,
             terminal_shells: HashMap::new(),
@@ -412,6 +419,7 @@ impl Runtime {
         }
 
         self.mobile_runs.remove(&node_id);
+        self.workspace_inputs.remove(node_id);
         if let Some(mut node) = self.live.remove(&node_id) {
             node.kill();
         }
@@ -431,6 +439,7 @@ impl Runtime {
 
     /// 窗口关闭时杀掉所有子进程（SPEC §8）。
     pub fn kill_all(&mut self) {
+        self.workspace_inputs.clear();
         self.archive_reads.cancel();
         self.end_all_mobile_runs();
         for node in self.live.values_mut() {

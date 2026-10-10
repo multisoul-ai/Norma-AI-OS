@@ -145,6 +145,24 @@ impl MobileRun {
 }
 
 impl Runtime {
+    pub(crate) fn workspace_card_provider_input_inflight(&self, node: NodeId) -> bool {
+        self.mobile_runs.get(&node).is_some_and(|run| {
+            run.native_input.has_pending_input() || run.message.is_some() || run.interrupt.is_some()
+        })
+    }
+    pub fn workspace_card_uses_rpc(&self, node: NodeId) -> bool {
+        self.mobile_runs
+            .get(&node)
+            .is_some_and(|run| run.codex.is_some())
+    }
+    pub fn workspace_card_provider_input_pending(&self, node: NodeId) -> bool {
+        self.mobile_runs
+            .get(&node)
+            .is_some_and(|run| run.message.is_some())
+    }
+}
+
+impl Runtime {
     /// Retain the last observed identity after completion clears the active prompt. Never infer success.
     pub fn mobile_latest_turn_key(&self, node: NodeId) -> Option<storage::MobileTurnKey> {
         let run = self.mobile_runs.get(&node)?;
@@ -215,6 +233,9 @@ impl Runtime {
                 .any(|c| c.is_control() && c != '\n' && c != '\t')
         {
             return Err("invalid_message");
+        }
+        if self.workspace_card_input_held(expected.node_id) {
+            return Err("workspace_input_pending");
         }
         self.drain_mobile_codex();
         let current = self

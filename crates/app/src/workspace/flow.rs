@@ -84,6 +84,7 @@ impl MultisoulApp {
             Ok(opened) => {
                 self.register_norma_workspace_route(&path, window, cx);
                 self.terminal_render_cache.borrow_mut().clear();
+                self.interrupt_card_instance_tasks();
                 self.agent_task_coordinator = None;
                 self.pending_agent_submissions.clear();
                 let _ = self.session_reply_queue.interrupt_all();
@@ -131,6 +132,7 @@ impl MultisoulApp {
             path,
         )?;
         self.terminal_render_cache.borrow_mut().clear();
+        self.interrupt_card_instance_tasks();
         self.agent_task_coordinator = None;
         self.pending_agent_submissions.clear();
         let _ = self.session_reply_queue.interrupt_all();

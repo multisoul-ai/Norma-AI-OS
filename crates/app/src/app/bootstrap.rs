@@ -43,6 +43,25 @@ pub(super) enum OrchestrationBootstrap {
 }
 
 impl MultisoulApp {
+    pub(crate) fn new_with_database_context(
+        cx: &mut Context<Self>,
+        database_paths: storage::DatabasePaths,
+        app_store: storage::AppStore,
+    ) -> Self {
+        let agent_hook_server = AgentHookServer::start(cx);
+        let mut runtime = Runtime::new();
+        runtime.set_agent_hook_config(agent_hook_server.runtime_config());
+        Self::build(
+            cx,
+            runtime,
+            agent_hook_server,
+            database_paths,
+            app_store,
+            BootstrapSettingsSource::Stored,
+            OrchestrationBootstrap::CurrentProcess,
+        )
+    }
+
     pub(super) fn build(
         cx: &mut Context<Self>,
         runtime: Runtime,
@@ -220,6 +239,7 @@ impl MultisoulApp {
             pending_agent_submissions:
                 super::agent_runtime::pending::PendingAgentSubmissions::default(),
             session_reply_queue: super::agent_runtime::AgentSessionReplyQueue::default(),
+            card_instance_tasks: super::agent_runtime::CardInstanceTasks::default(),
             pending_mobile_deliveries: std::collections::HashMap::new(),
             conversation_tail_memory: super::agent_runtime::ConversationTailMemory::default(),
             conversation_tail_writer: None,

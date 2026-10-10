@@ -46,6 +46,7 @@ pub(crate) mod native_input;
 pub(crate) use agent_runtime::execute_norma_adapter_command_with_source;
 pub(crate) use agent_runtime::shared_tokio_runtime;
 pub(crate) use agent_runtime::submit_workspace_turn;
+pub use agent_runtime::CardInstanceDeliveryError;
 pub(crate) use agent_runtime::{
     execute_high_level_agent_command, execute_orchestration_agent_command,
     execute_orchestration_agent_command_with_visual_origin, self_dispatch_forbidden_error,
@@ -231,6 +232,7 @@ pub struct MultisoulApp {
     pub(crate) orchestration_authorizations: storage::OrchestrationAuthorizationCache,
     pub(crate) pending_agent_submissions: agent_runtime::pending::PendingAgentSubmissions,
     pub(crate) session_reply_queue: agent_runtime::AgentSessionReplyQueue,
+    pub(crate) card_instance_tasks: agent_runtime::CardInstanceTasks,
     pub(crate) pending_mobile_deliveries: HashMap<NodeId, storage::NewMobileCommand>,
     pub(crate) conversation_tail_memory: agent_runtime::ConversationTailMemory,
     pub(crate) conversation_tail_writer: Option<agent_runtime::ConversationTailWriter>,
@@ -270,25 +272,6 @@ pub struct MultisoulApp {
     voice_window_inset_window_visible: bool,
 }
 impl MultisoulApp {
-    pub(crate) fn new_with_database_context(
-        cx: &mut Context<Self>,
-        database_paths: storage::DatabasePaths,
-        app_store: storage::AppStore,
-    ) -> Self {
-        let agent_hook_server = AgentHookServer::start(cx);
-        let mut runtime = Runtime::new();
-        runtime.set_agent_hook_config(agent_hook_server.runtime_config());
-        Self::build(
-            cx,
-            runtime,
-            agent_hook_server,
-            database_paths,
-            app_store,
-            bootstrap::BootstrapSettingsSource::Stored,
-            bootstrap::OrchestrationBootstrap::CurrentProcess,
-        )
-    }
-
     fn on_new_terminal(&mut self, _: &NewTerminal, window: &mut Window, cx: &mut Context<Self>) {
         if !matches!(self.screen, AppScreen::Canvas) {
             self.workspace_state.error =

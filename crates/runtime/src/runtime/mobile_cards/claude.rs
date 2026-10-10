@@ -241,7 +241,10 @@ impl Runtime {
     }
 
     /// Claude 2.1.196+ supplies prompt_id. Never attach a permission to the next turn.
-    pub fn observe_mobile_hook(&mut self, event: &norma::agent_hook::AgentHookEvent) -> bool {
+    pub(in crate::runtime) fn observe_mobile_hook_once(
+        &mut self,
+        event: &norma::agent_hook::AgentHookEvent,
+    ) -> bool {
         if !self.accepts_mobile_hook(event) {
             return false;
         }

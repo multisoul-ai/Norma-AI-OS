@@ -11,6 +11,7 @@ impl MultisoulApp {
         self.project_window = None;
         self.background_project = false;
         self.background_restore = None;
+        self.interrupt_card_instance_tasks();
         self.pending_agent_submissions.clear();
         let _ = self.session_reply_queue.interrupt_all();
         self.agent_task_coordinator = None;

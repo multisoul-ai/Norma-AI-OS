@@ -46,7 +46,13 @@ fn fixture(path: &Path) -> (Runtime, NodeId) {
 }
 
 fn observe(r: &mut Runtime, node: NodeId, name: &str, input: Value, id: &str) {
-    let mut data = json!({"hook_event_name":name,"session_id":"session-a","turn_id":"turn-a","tool_name":"Bash","tool_input":input});
+    // New rounds use distinct Provider turn IDs; tool events retain the current round's identity.
+    let turn = match r.mobile_latest_turn_key(node) {
+        Some(key) if name == "UserPromptSubmit" => format!("{}-next", key.turn_id),
+        Some(key) => key.turn_id,
+        None => "turn-a".into(),
+    };
+    let mut data = json!({"hook_event_name":name,"session_id":"session-a","turn_id":turn,"tool_name":"Bash","tool_input":input});
     if name != "PermissionRequest" {
         data["tool_use_id"] = json!(id);
     }

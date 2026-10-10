@@ -357,8 +357,8 @@ fn native_task_timing_tracks_exact_turn_without_snapshot_polling() {
         .expect("真实起点");
     assert!(first.completed_elapsed_ms.is_none(), "开始不等于完成");
     assert!(
-        runtime.observe_mobile_hook(&hook("UserPromptSubmit", "turn-a")),
-        "保留现有重复Hook行为"
+        !runtime.observe_mobile_hook(&hook("UserPromptSubmit", "turn-a")),
+        "重复已观察的回合必须在改写最新身份前拒绝"
     );
     assert_eq!(
         runtime.mobile_card_snapshots()[0].task_timing.as_ref(),

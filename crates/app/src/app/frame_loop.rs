@@ -223,11 +223,12 @@ impl MultisoulApp {
                         app.performance.note_terminal_activity();
                     }
                     let browser_changed = app.drain_browser_events();
-                    let agent_hook_report =
+                    let mut agent_hook_report =
                         app.agent_hook_server.drain_into_runtime(&mut app.runtime);
                     if agent_hook_report.session_binding_changed {
                         app.mark_session_dirty();
                     }
+                    let mut queue_changed = false;
                     for event in &agent_hook_report.events {
                         app.ingest_hook_conversation_observation(event);
                         app.record_native_mobile_event(event, cx);
@@ -236,7 +237,8 @@ impl MultisoulApp {
                             app.clear_conversation_tail_for_node(event.node_id);
                         }
                     }
-                    let mut queue_changed = false;
+                    queue_changed |=
+                        app.reconcile_card_instance_hook_report(&mut agent_hook_report);
                     for started in agent_hook_report.started_tasks {
                         queue_changed |=
                             app.register_external_agent_root(started.node_id, started.task_title);
@@ -246,6 +248,7 @@ impl MultisoulApp {
                     }
                     queue_changed |= app.submit_due_pending_agent_tasks(Instant::now(), cx);
                     app.advance_session_reply_queue();
+                    queue_changed |= app.advance_card_instance_tasks_at(Instant::now());
                     let speak_agent_completions = app.dialogue.is_active()
                         && app.voice_settings.values().interaction_mode()
                             == crate::settings::voice::VoiceInteractionMode::ContinuousListening;

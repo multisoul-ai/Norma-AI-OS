@@ -9,6 +9,9 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
 mod adapter_task;
+mod card_instance;
+pub use card_instance::CardInstanceDeliveryError;
+pub(crate) use card_instance::CardInstanceTasks;
 mod artifacts;
 mod command_protocol;
 mod command_support;

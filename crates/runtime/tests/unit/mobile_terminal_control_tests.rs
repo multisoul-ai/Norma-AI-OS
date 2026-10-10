@@ -411,8 +411,8 @@ fn terminal_control_late_hook_does_not_acknowledge_new_human_input() {
         json!({"hook_event_name":"UserPromptSubmit","session_id":key.session_id,"turn_id":turn})).expect("Hook")
     };
     assert!(
-        runtime.observe_mobile_hook(&hook("turn-a")),
-        "重复旧Hook仍可被已有观察路径处理"
+        !runtime.observe_mobile_hook(&hook("turn-a")),
+        "重复旧Hook必须在输入确认和状态更新前拒绝"
     );
     assert!(
         runtime.agent_task_input_held(node),

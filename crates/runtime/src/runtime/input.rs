@@ -2,7 +2,8 @@ use super::*;
 
 impl Runtime {
     pub fn agent_task_input_held(&self, node_id: NodeId) -> bool {
-        self.mobile_terminal_is_controlled(node_id)
+        self.workspace_card_input_held(node_id)
+            || self.mobile_terminal_is_controlled(node_id)
             || self
                 .mobile_runs
                 .get(&node_id)
@@ -11,10 +12,11 @@ impl Runtime {
 
     /// Automatic task paste must not overwrite a human draft after control returns or expires.
     pub fn send_agent_task_text(&mut self, node_id: NodeId, text: &str) -> Result<(), NodeError> {
-        if self
-            .mobile_runs
-            .get(&node_id)
-            .is_some_and(|run| run.native_input.has_controlled_draft())
+        if self.workspace_card_input_held(node_id)
+            || self
+                .mobile_runs
+                .get(&node_id)
+                .is_some_and(|run| run.native_input.has_controlled_draft())
         {
             return self.fail_node_operation(
                 Some(node_id),
@@ -28,6 +30,15 @@ impl Runtime {
     }
 
     pub fn send_node_input(&mut self, node_id: NodeId, input: NodeInput) -> Result<(), NodeError> {
+        if self.workspace_inputs.blocks_human(node_id) {
+            return self.fail_node_operation(
+                Some(node_id),
+                "input",
+                NodeError::Pty(terminal::PtyError::Io(std::io::Error::other(
+                    "工作空间任务正在提交，请稍候输入",
+                ))),
+            );
+        }
         self.track_native_agent(node_id);
         if self.mobile_terminal_is_controlled(node_id) {
             return self.fail_node_operation(
@@ -38,7 +49,10 @@ impl Runtime {
                 ))),
             );
         }
-        self.write_node_input(node_id, input)
+        let result = self.write_node_input(node_id, input.clone());
+        self.workspace_inputs
+            .observe_user_input(node_id, &input, result.is_ok());
+        result
     }
 
     // Only the ordinary input guard and the validated exclusive-owner path may call this seam.

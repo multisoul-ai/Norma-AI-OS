@@ -77,6 +77,9 @@ impl Runtime {
         key: &MobileTurnKey,
         lease: &Arc<TerminalInputLease>,
     ) -> Result<(), &'static str> {
+        if self.workspace_card_input_held(key.node_id) {
+            return Err("workspace_input_pending");
+        }
         if lease.key != *key {
             return Err("session_changed");
         }
@@ -183,6 +186,9 @@ impl Runtime {
         key: &MobileTurnKey,
         lease: &Arc<TerminalInputLease>,
     ) -> Result<(), &'static str> {
+        if self.workspace_card_input_held(key.node_id) {
+            return Err("workspace_input_pending");
+        }
         if lease.revoked.load(Ordering::Acquire) {
             return Err("terminal_control_expired");
         }

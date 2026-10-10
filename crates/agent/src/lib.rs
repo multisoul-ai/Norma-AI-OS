@@ -1,6 +1,7 @@
 //! Rig-based, GPUI-free Norma Master Agent runtime.
 
 mod adapter;
+pub mod card_instance;
 mod conversation_tail;
 mod coordination;
 mod current_context;
