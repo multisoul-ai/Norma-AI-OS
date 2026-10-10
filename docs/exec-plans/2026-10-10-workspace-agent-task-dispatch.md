@@ -1,6 +1,6 @@
 # 工作空间智能体卡片派工与进度汇报：开发任务拆分
 
-日期：2026-10-10。实施更新：2026-10-11。状态：实施中；T01 已合入，T09 纯聚合合同部分完成，正式进度查询仍待接入；其余任务未完成。
+日期：2026-10-10。实施更新：2026-10-11。状态：实施中；T01／T02 已合入，T03 可开始，T09 纯聚合合同部分完成，正式进度查询仍待接入；其余任务未完成。
 
 实施合同以已发布的 [GitHub Issue #96](https://github.com/multisoul-ai/Norma-AI-OS/issues/96)及其[本地规格副本](../product-specs/2026-10-10-workspace-agent-task-dispatch.md)为准，Issue 标记 `ready-for-agent`。源码事实、两张运行流程图与完整验收矩阵见[派工方案](../design-docs/2026-10-09-workspace-agent-task-dispatch.md)；术语见[CONTEXT.md](../../CONTEXT.md)。本计划记录本地任务依赖，不作工期承诺。
 
@@ -38,8 +38,8 @@
 | 编号 | 状态 | 已有证据／下一步 |
 | --- | --- | --- |
 | T01 | 完成，已合入 `228e751f`（实施提交 `f247ac4f`） | 持久卡片身份、冻结目标协议与 Runtime 纯校验已进入生产恢复路径；下述聚焦和受影响 crate 验证通过 |
-| T02 | 可开始 | 基于已合入的 `WorkspaceCardRef` 实现角色与呼叫键登记 |
-| T03 | 未完成 | 等待 T02；后台登记必须先持久回填旧快照身份 |
+| T02 | 完成，已合入 `3e10d43d`（实施提交 `a84e20ec`） | 工作空间角色／有效与失效呼叫键事务及严格只读快照已验证；App 生命周期接入属于 T03 |
+| T03 | 可开始 | 完整登记／自动修复／标题与生命周期接入；后台登记必须先持久回填旧快照身份 |
 | T04 | 未完成 | 等待完整名称登记与目录修复 |
 | T05 | 可开始 | 基于已合入的 `WorkspaceCardTarget` 实现实例协调与输入传输 |
 | T06 | 未完成 | 等待 T04／T05 的生产接口 |
@@ -52,6 +52,12 @@ T01 的验收对应 [`workspace_card_target.rs`](../../crates/norma/tests/worksp
 实施者已完成 `cargo test --quiet -p canvas -p norma -p runtime -p storage`、`cargo check --workspace`、fmt、存储／性能边界及行数／no-allow／指南护栏，域层依赖树无 GPUI。合入无冲突、无其他任务改动；集成分支另运行三个新增集成测试验证公共接口。T01 的存储恢复调用在后台执行；严格只读汇报仍须 T09 新建 readonly reader，不能调用 `load_snapshot_with_card_identity()` 或默认确保 schema 的 reader。
 
 真实 Provider 完成证据、派工 UI 与全空间汇报尚未验证，不能由 T01 测试推定后续任务完成。
+
+T02 提供 [`WorkspaceAgentRoleStore`](../../crates/storage/src/workspace_agent_role_store.rs) 的创建、改名、启停、彻底删除后的释放、解析及完整快照接口。主名称与内置中文别名共用 `(workspace_id, normalized_key)` 唯一键，有效／失效状态共同占用；立即写事务确保并发同名仅一项成功。改名失败保留原称呼与 revision，历次旧键在停用／重开后仍失效占用，自身也不得复活；精确原卡确认删除成功才释放。`snapshot()`／`resolve()` 使用只读连接，缺文件或 schema 明确返回缺口，零创建／迁移；`schema_present` 不表示全空间登记完成。
+
+验收对应 [`workspace_agent_roles.rs`](../../crates/storage/tests/workspace_agent_roles.rs)、[`workspace_agent_role_readonly.rs`](../../crates/storage/tests/workspace_agent_role_readonly.rs)与[`agent_definition_name_normalization.rs`](../../crates/storage/tests/agent_definition_name_normalization.rs)，共 9 条公开接口场景，覆盖跨空间独立、主名／别名交叉冲突、连续改名、错误目标／存储失败不释放、并发抢名、非法名称及目录只读。名称统一 trim 的项目定义兼容回归也通过。实施者完成完整 `cargo test --quiet -p agent -p storage`、正常提交 hook 的 workspace check／fmt 及存储／性能／行数护栏；集成合入无冲突、无无关改动，另运行上述三组聚焦测试。
+
+T02 没有自动登记旧卡片或更改共享定义的具名身份；这些由 T03 接通并展示变更记录。创建／改名／删除的 App 路径尚不能由本模块测试推定已接入。
 
 T09 纯核心提供 [`norma::workspace_progress`](../../crates/norma/src/workspace_progress.rs) 的 `aggregate_workspace_progress()`。其 15 条公开接口场景分别验证稳定任务／显式 turn 关联去重、角色与未关联活动分列、最新尝试阶段和旧异常保留、可信终态与迟到快照／同名新卡隔离、24 小时边界及指定窗口、不截断总计的分页、授权区域过滤、目录／证据缺口和无可靠卡片身份的历史记录。没有任务／卡片身份的旧称呼记录独立待核对，不绑定同名现存角色；缺失观察时间保留未知。
 
