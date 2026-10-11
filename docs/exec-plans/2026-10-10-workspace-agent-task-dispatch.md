@@ -1,6 +1,6 @@
 # 工作空间智能体卡片派工与进度汇报：开发任务拆分
 
-日期：2026-10-10。实施更新：2026-10-11。状态：实施中；T01／T02／T03／T05 已合入，T04／T06／T07 实施中，T09 纯聚合合同部分完成；正式派工与进度查询闭环仍未完成。
+日期：2026-10-10。实施更新：2026-10-11。状态：实施中；T01／T02／T03／T05 已合入，T06 账本核心与 T09 纯聚合合同部分完成，T04／T07 实施中；正式派工与进度查询闭环仍未完成。
 
 实施合同以已发布的 [GitHub Issue #96](https://github.com/multisoul-ai/Norma-AI-OS/issues/96)及其[本地规格副本](../product-specs/2026-10-10-workspace-agent-task-dispatch.md)为准，Issue 标记 `ready-for-agent`。源码事实、两张运行流程图与完整验收矩阵见[派工方案](../design-docs/2026-10-09-workspace-agent-task-dispatch.md)；术语见[CONTEXT.md](../../CONTEXT.md)。本计划记录本地任务依赖，不作工期承诺。
 
@@ -42,7 +42,7 @@
 | T03 | 实现与自动验证完成，已合入 `e899a580`（实施提交 `751ff5c5`） | 完整登记／自动修复／两阶段创建／标题编辑／持久删除凭据已接入；真实 App 视觉与流程验收留在整体集成阶段 |
 | T04 | 实施中，未完成 | 纯解析合同与目标 manifest 已开始；生产目录接入仍依赖 T03 |
 | T05 | 完成，已合入 `2ef7854d`（实施提交 `24cc5fa8`） | 实例协调、独占输入传输与 exact Hook 证据关联已验证；共享派工入口由 T06 接通 |
-| T06 | 实施中，未完成 | 通用操作账本与持久输入屏障先行；正式 App 服务仍等待 T04 完整目标合同 |
+| T06 | 部分完成：账本核心已合入 `8acb39e5`（实施提交 `631478b1`） | 来源／持久原子接收／Armed 屏障／可靠 journal／只读与 exact 证据已验证；正式 App facade、frame writer、实时权限 gate 与 PTY 反例待完成 |
 | T07 | 实施中，未完成 | 整组规划与来源入口开始；生产接线依赖 T04／T06，Dock 真实 App 闭环尚未验收 |
 | T08 | 未完成 | 等待工作空间入口；回执、重试与恢复尚未验收 |
 | T09 | 部分完成：纯聚合合同已合入（实施提交 `4a823afc`、`1b598e9b`） | 统计／证据规则与有界分页已验证；只读事实接入、typed tool、Dock 呈现／导航与真实 App 验收仍待完成 |
@@ -74,6 +74,16 @@ T05 实施及证据见[卡片实例级派工验收记录](2026-10-11-card-instan
 T06 必须在持久整组接收前调用预检并检查组内冲突，接收使用 authority gate，在后台持久化事件；冷启动准备后才捕获指纹，不刷新已接收目标。Task／Reply 含义由账本保存，T05 输入 seam 不自行判定。T08 必须用可信原 run／session／turn 的 RPC 结果核对终态；未绑定的 Unknown 不按正文猜归属，不安全输入隔离不会因摘要或结果回执自动释放。严格核对后释放隔离的恢复接口仍需后续设计与验收。
 
 以上测试仅证明实例寻址、输入与事件规则；真实 Provider 完成、正式跨区域入口、Dock／回执 UI 和导航尚待 T06–T08 验收，不将录制 PTY 当作真实任务完成。
+
+T06 核心提供共享 `WorkspaceOperationSource`、`WorkspaceOperationStore` 与后台 `BackgroundWorkspaceOperationJournal`。来源空间、主体、消息和操作保留原文；原请求 fingerprint 由私有入口生成，模型不能赋予来源／mode／force。整组单事务接收且同操作只有一个投递 winner，同键改空间／参数／attempt 则冲突；Task／Reply／Retry 保留 canonical 逻辑任务与精确父 turn，不复用其他任务引用。历史名称／项目／区域／执行身份不随当前视图或改名刷新。
+
+`arm_input()` 在后台复核角色、项目与手机 Control grant 后持久 commit Armed，只有首次成功才可装入输入队列；重复 Armed 不重放。事件整批原子保存、去重且不回退状态，正文和 Enter 分列；未绑定 Unknown 不接受伪 turn 终态，原 exact 终态仅允许一次同 turn 的结果补充。重启只注释中断／待核对，不恢复队列。Journal 写失败保留原 batch 并关闭 watched authority，恢复不自动复活旧权限；sender 失败返回原事件给调用者，不在前台降级 SQLite。
+
+原请求／计划 lookup、回执、事件和手机认证使用严格只读连接，缺 DB／schema 零创建／迁移。历史事实 API 本身不认证；公共查询须先按当前授权过滤后返回。等待原因改变产生新证据，未改变不重复刷事件；已经可能写输入的取消不能伪造零输入成功。
+
+公开验收对应 [`workspace_operation.rs`](../../crates/norma/tests/workspace_operation.rs) 1 条、[`card_instance_waiting.rs`](../../crates/agent/tests/card_instance_waiting.rs) 3 条，以及 Storage 的 [`workspace_operations.rs`](../../crates/storage/tests/workspace_operations.rs) 9 条、[`workspace_operation_evidence.rs`](../../crates/storage/tests/workspace_operation_evidence.rs) 4 条、[`workspace_operation_lineage.rs`](../../crates/storage/tests/workspace_operation_lineage.rs) 5 条、[`workspace_operation_journal.rs`](../../crates/storage/tests/workspace_operation_journal.rs) 1 条、[`workspace_operation_results.rs`](../../crates/storage/tests/workspace_operation_results.rs) 1 条、[`mobile_access_readonly.rs`](../../crates/storage/tests/mobile_access_readonly.rs) 1 条。实施者完整 norma／agent／storage 测试 484 passed、1 ignored 与正常提交 hook 均通过；新增错 turn、组内引用、原请求 hash、BodyWritten 后取消和改空间重发反例已实际修复。集成保留 T03 导出／migration 与 T05／T09 模块，并另跑上述 25 条新增公开核心测试。
+
+这是 T06 第一阶段，未接生产 frame writer 或共享投递服务。第二阶段仍须用不可变原 manifest／首次 code resolution 绑定整组目标，在每个 await 后复核范围，先查幂等再只准备必要区域、捕获冷卡真实指纹、持久 Armed 后 guarded 接收，并可靠保留事件。Query／Discussion 不走加载全区域的旧桥；实时停用／删除／撤权、公开 PTY／DB 反例、独立审查和真实 App／Provider 验收仍待完成，T06 不标为全部完成。
 
 T09 纯核心提供 [`norma::workspace_progress`](../../crates/norma/src/workspace_progress.rs) 的 `aggregate_workspace_progress()`。其 15 条公开接口场景分别验证稳定任务／显式 turn 关联去重、角色与未关联活动分列、最新尝试阶段和旧异常保留、可信终态与迟到快照／同名新卡隔离、24 小时边界及指定窗口、不截断总计的分页、授权区域过滤、目录／证据缺口和无可靠卡片身份的历史记录。没有任务／卡片身份的旧称呼记录独立待核对，不绑定同名现存角色；缺失观察时间保留未知。
 
