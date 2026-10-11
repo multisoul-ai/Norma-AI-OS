@@ -116,11 +116,12 @@ pub(super) fn home_preview_rect(
 // Use the settled window size for both the overview and its thumbnail; camera motion only scales it.
 pub(super) fn project_area_layout(width: f32, height: f32, count: usize) -> Vec<CanvasRect> {
     let scene = super::desktop_scene_rect(width, height);
-    let side = (width * 0.075).max(scene.origin.x);
+    let side = 24.0_f32.max(scene.origin.x);
     // Overview and expanded projects share the title bar's safe boundary.
     let top = (height * 0.06).max(scene.origin.y);
     let bottom = (height * 0.10).max(super::camera::DESKTOP_SCENE_BOTTOM);
-    // At 1280×800: 96px side margins, 32px column gap and 64px row gap.
+    // Compact spacing leaves more room for the live previews: 24px sides,
+    // 16px between columns and 24px between rows, with canvas proportions intact.
     // Only overview geometry changes; the expanded canvas keeps its original safe area.
     compute_project_region_layout(
         count,
@@ -130,7 +131,7 @@ pub(super) fn project_area_layout(width: f32, height: f32, count: usize) -> Vec<
             (width - 2.0 * side).max(1.0),
             (height - top - bottom).max(1.0),
         ),
-        Vec2::new(width * 0.025, height * 0.08),
+        Vec2::new(16.0, 24.0),
     )
 }
 

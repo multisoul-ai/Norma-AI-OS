@@ -10,6 +10,37 @@ use ui::component::button::{Button, ButtonVariants};
 use ui::component::{Disableable, StyledExt};
 use ui::icons::with_alpha;
 
+fn project_area_open_target(
+    area_index: usize,
+    card_size: canvas::Vec2,
+    radius: f32,
+    selected: bool,
+    theme: ui::Theme,
+) -> Stateful<Div> {
+    div()
+        .id(("desktop-project-preview-open", area_index))
+        .absolute()
+        // Paint over the shell's fixed 1px border without changing its content layout.
+        .left(px(-1.0))
+        .top(px(-1.0))
+        .w(px(card_size.x))
+        .h(px(card_size.y))
+        .rounded(px(radius))
+        .border_1()
+        .border_color(rgba(if selected {
+            theme.focused_stroke
+        } else {
+            0x00000000
+        }))
+        .when(selected, |this| this.border_2())
+        .occlude()
+        .cursor_pointer()
+        .hover(move |style| style.border_color(rgba(theme.focused_stroke)))
+        .active(move |style| style.border_3().border_color(rgba(theme.focused_stroke)))
+        .tab_index(0)
+        .focus(move |style| style.border_2().border_color(rgba(theme.focused_stroke)))
+}
+
 impl MultisoulApp {
     pub(super) fn desktop_project_area_card(
         &self,
@@ -76,7 +107,6 @@ impl MultisoulApp {
                 .sessions
                 .contains_key(&(workspace_id.clone(), area_id.clone()));
         let click_area = area_id.clone();
-        let preview_area = area_id.clone();
         let mut card = div()
             .id(gpui::ElementId::Name(
                 format!("desktop-project-area-{area_index}").into(),
@@ -86,25 +116,9 @@ impl MultisoulApp {
             .h(px(card_size.y))
             .rounded(px(14.0 * chrome))
             .border_1()
-            .border_color(rgba(if selected {
-                theme.focused_stroke
-            } else {
-                theme.dock_line
-            }))
-            .bg(rgba(with_alpha(
-                theme.dock,
-                if selected { 0xb0 } else { 0x8c },
-            )))
-            .when(selected, |this| this.shadow_lg())
+            .border_color(rgba(theme.dock_line))
+            .bg(rgba(with_alpha(theme.dock, 0x8c)))
             .opacity(shell_opacity)
-            .cursor_pointer()
-            .hover(move |style| style.border_color(rgba(theme.focused_stroke)))
-            .active(move |style| style.bg(rgba(with_alpha(theme.dock, 0xb0))))
-            .tab_index(0)
-            .focus(move |style| style.border_color(rgba(theme.focused_stroke)))
-            .on_click(cx.listener(move |app, _, window, cx| {
-                app.expand_desktop_project_area(click_area.clone(), window, cx);
-            }))
             .child(
                 div()
                     .h(px(title_height))
@@ -143,28 +157,17 @@ impl MultisoulApp {
                         cx,
                     )
                     .id(("desktop-project-live", area_index))
-                    .debug_selector(move || format!("desktop-project-live-{area_index}"))
-                    // Keep the live scene visible, but operate its controls only after expansion.
-                    .child(
-                        div()
-                            .id(("desktop-project-preview-open", area_index))
-                            .absolute()
-                            .inset_0()
-                            .occlude()
-                            .cursor_pointer()
-                            .hover(move |style| {
-                                style.bg(rgba(with_alpha(theme.focused_stroke, 0x18)))
-                            })
-                            .active(move |style| {
-                                style.bg(rgba(with_alpha(theme.focused_stroke, 0x30)))
-                            })
-                            .on_click(cx.listener(move |app, _, window, cx| {
-                                cx.stop_propagation();
-                                app.expand_desktop_project_area(preview_area.clone(), window, cx);
-                            })),
-                    ),
+                    .debug_selector(move || format!("desktop-project-live-{area_index}")),
                 )
-            });
+            })
+            // One transparent hitbox covers the entire card and protects the live controls.
+            .child(
+                project_area_open_target(area_index, card_size, 14.0 * chrome, selected, theme)
+                    .on_click(cx.listener(move |app, _, window, cx| {
+                        cx.stop_propagation();
+                        app.expand_desktop_project_area(click_area.clone(), window, cx);
+                    })),
+            );
 
         if self.desktop_workspace.transition.is_none() {
             let open_id = area_id.clone();
@@ -339,3 +342,7 @@ impl MultisoulApp {
         card
     }
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/desktop_project_area_style_tests.rs"]
+mod style_tests;

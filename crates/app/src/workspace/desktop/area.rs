@@ -313,6 +313,9 @@ impl MultisoulApp {
     ) {
         self.focus_handle.focus(window);
         self.desktop_workspace.pending_navigation = None;
+        if let Some(area_id) = self.desktop_workspace.expanded_area_id.as_ref() {
+            self.desktop_workspace.selected_area_id = Some(area_id.clone());
+        }
         if let (Some(workspace_id), Some(area_id)) = (
             self.desktop_workspace.active_id.clone(),
             self.desktop_workspace.expanded_area_id.clone().or_else(|| {

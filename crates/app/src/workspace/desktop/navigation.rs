@@ -144,7 +144,12 @@ impl MultisoulApp {
         let state = &self.desktop_workspace;
         matches!(self.screen, AppScreen::DesktopWorkspace)
             && state.expanded_area_id.is_none()
-            && state.transition.is_none()
+            // 返回总览后立即接收方向键；空间切换与返回目录仍保持隔离。
+            && state.transition.as_ref().is_none_or(|transition| {
+                matches!(&transition.subject,
+                    super::camera::DesktopCanvasSubject::Project { workspace_id, .. }
+                    if state.active_id.as_ref() == Some(workspace_id))
+            })
             && state.pending_navigation.is_none()
             && !state.busy
             && !state.switcher_open
@@ -216,7 +221,7 @@ impl MultisoulApp {
         true
     }
 
-    /// 总览键盘选中态可移动：总览处于静止状态、无阻断表单且存在项目。
+    /// 总览键盘选中态可移动：已返回总览、无阻断表单且存在项目，允许返回动画中浏览。
     fn desktop_overview_selection_movable(&self, cx: &Context<Self>) -> bool {
         self.desktop_overview_active()
             && !self.desktop_navigation_blocked(cx)
