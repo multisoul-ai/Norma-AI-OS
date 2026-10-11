@@ -1,6 +1,7 @@
 use super::scene::DesktopNavigation;
 use crate::app::{AppScreen, MultisoulApp};
 use crate::shortcuts::ShortcutCommandId;
+use canvas::layout::overview_row_target;
 use gpui::{Context, Window};
 use runtime::desktop_navigation::adjacent_target;
 
@@ -91,6 +92,24 @@ impl MultisoulApp {
                     self.expand_desktop_project_area(id, window, cx);
                 }
             }
+            ShortcutCommandId::ExpandSelectedProject
+                if matches!(self.screen, AppScreen::DesktopWorkspace)
+                    && !state.busy
+                    && !matches!(
+                        state.pending_navigation,
+                        Some(DesktopNavigation::Workspace(_))
+                    ) =>
+            {
+                // 优先展开键盘选中项；无选中时回退当前项目，再回退首个项目。
+                let target = self
+                    .desktop_overview_selection()
+                    .or_else(|| state.active_area_id.clone())
+                    .or_else(|| state.areas.first().map(|area| area.id.clone()));
+                if let Some(id) = target {
+                    self.close_desktop_switcher(cx);
+                    self.expand_desktop_project_area(id, window, cx);
+                }
+            }
             ShortcutCommandId::ShowProjectOverview
                 if matches!(self.screen, AppScreen::DesktopWorkspace) =>
             {
@@ -145,16 +164,23 @@ impl MultisoulApp {
             .then(|| selected.to_owned())
     }
 
-    /// 总览中裸 ←/→ 在项目间循环移动选中态；返回是否已消费该按键。
-    pub(crate) fn move_desktop_overview_selection(
+    /// 总览中裸方向键移动键盘选中态；返回是否已消费该按键。
+    /// ←/→ 按加入顺序循环；↑/↓ 在两行网格中同列换行。非方向键不消费。
+    pub(crate) fn move_desktop_overview_selection_for_key(
         &mut self,
-        previous: bool,
+        key: &str,
         cx: &mut Context<Self>,
     ) -> bool {
-        if !self.desktop_overview_active()
-            || self.desktop_navigation_blocked(cx)
-            || self.desktop_workspace.areas.is_empty()
-        {
+        match key {
+            "left" | "right" => self.move_desktop_overview_selection(key == "left", cx),
+            "up" | "down" => self.move_desktop_overview_selection_row(key == "up", cx),
+            _ => false,
+        }
+    }
+
+    /// 总览中裸 ←/→ 在项目间循环移动选中态；返回是否已消费该按键。
+    fn move_desktop_overview_selection(&mut self, previous: bool, cx: &mut Context<Self>) -> bool {
+        if !self.desktop_overview_selection_movable(cx) {
             return false;
         }
         let current = self.desktop_overview_selection();
@@ -170,6 +196,31 @@ impl MultisoulApp {
         self.desktop_workspace.selected_area_id = target;
         cx.notify();
         true
+    }
+
+    /// 总览中裸 ↑/↓ 在两行网格间同列移动选中态；返回是否已消费该按键。
+    fn move_desktop_overview_selection_row(&mut self, up: bool, cx: &mut Context<Self>) -> bool {
+        if !self.desktop_overview_selection_movable(cx) {
+            return false;
+        }
+        let areas = &self.desktop_workspace.areas;
+        let current = self
+            .desktop_overview_selection()
+            .and_then(|id| areas.iter().position(|area| area.id == id));
+        let Some(index) = overview_row_target(areas.len(), current, up) else {
+            return false;
+        };
+        let target = areas[index].id.clone();
+        self.desktop_workspace.selected_area_id = Some(target);
+        cx.notify();
+        true
+    }
+
+    /// 总览键盘选中态可移动：总览处于静止状态、无阻断表单且存在项目。
+    fn desktop_overview_selection_movable(&self, cx: &Context<Self>) -> bool {
+        self.desktop_overview_active()
+            && !self.desktop_navigation_blocked(cx)
+            && !self.desktop_workspace.areas.is_empty()
     }
 
     /// Settings 在任一项目中修改后，同一窗口的宿主和后台项目使用相同键位。

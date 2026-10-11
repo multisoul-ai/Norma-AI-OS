@@ -353,10 +353,8 @@ impl MultisoulApp {
             return;
         }
 
-        if matches!(self.screen, AppScreen::DesktopWorkspace)
-            && !ev.keystroke.modifiers.modified()
-            && matches!(ev.keystroke.key.as_str(), "left" | "right")
-            && self.move_desktop_overview_selection(ev.keystroke.key == "left", cx)
+        if !ev.keystroke.modifiers.modified()
+            && self.move_desktop_overview_selection_for_key(&ev.keystroke.key, cx)
         {
             cx.stop_propagation();
             return;

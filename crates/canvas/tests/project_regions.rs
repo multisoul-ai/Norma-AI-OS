@@ -98,6 +98,92 @@ fn project_regions_fit_tiny_and_invalid_viewports() {
     );
 }
 
+/// 总览两行网格的纵向移动目标：同列换行、底行缺格吸附、行边界不环绕。
+///
+/// 数据构造：5 项 → 3 列（行 0 为索引 0/1/2，行 1 为 3/4）；4 项 → 2 列；
+///   2 项与 1 项都在单行（columns ≥ count 时没有第二行）；0 项为空集。
+/// 执行过程：从行 0 各列 down、行 1 各项 up、行边界双向、无选中双向、越界索引。
+/// 预期结果：down 落到同列底行（底行缺格时吸附到末项），up 回到同列顶行；
+///   顶行 up 与底行 down 不环绕；无选中时 down→首项、up→末项；单行/空集/越界无目标。
+#[test]
+fn overview_row_target_swaps_rows_in_the_same_column() {
+    use canvas::layout::overview_row_target;
+    // 5 项：行 0 = 0,1,2；行 1 = 3,4（3 列）。
+    assert_eq!(
+        overview_row_target(5, Some(0), false),
+        Some(3),
+        "down 应回到同列底行首项"
+    );
+    assert_eq!(
+        overview_row_target(5, Some(1), false),
+        Some(4),
+        "down 应回到同列底行末项"
+    );
+    assert_eq!(
+        overview_row_target(5, Some(2), false),
+        Some(4),
+        "底行缺格时应吸附到末项而不是虚构格子"
+    );
+    assert_eq!(
+        overview_row_target(5, Some(3), true),
+        Some(0),
+        "up 应回到同列顶行"
+    );
+    assert_eq!(
+        overview_row_target(5, Some(4), true),
+        Some(1),
+        "up 应回到同列顶行"
+    );
+    assert_eq!(
+        overview_row_target(5, Some(0), true),
+        None,
+        "顶行 up 不环绕到底行"
+    );
+    assert_eq!(
+        overview_row_target(5, Some(4), false),
+        None,
+        "底行 down 不环绕回顶行"
+    );
+    assert_eq!(
+        overview_row_target(5, None, false),
+        Some(0),
+        "无选中时 down 从首项开始"
+    );
+    assert_eq!(
+        overview_row_target(5, None, true),
+        Some(4),
+        "无选中时 up 从末项开始"
+    );
+    // 4 项：2 列，两行各 2 项。
+    assert_eq!(
+        overview_row_target(4, Some(1), false),
+        Some(3),
+        "4 项 down 同列换行"
+    );
+    assert_eq!(
+        overview_row_target(4, Some(3), true),
+        Some(1),
+        "4 项 up 同列换行"
+    );
+    // 单行布局（columns ≥ count）、空集与越界索引都没有纵向目标。
+    assert_eq!(
+        overview_row_target(2, Some(0), false),
+        None,
+        "两项并排单行时没有可换的行"
+    );
+    assert_eq!(overview_row_target(1, None, true), None, "单项没有纵向目标");
+    assert_eq!(
+        overview_row_target(0, Some(0), false),
+        None,
+        "空集不能产生虚构目标"
+    );
+    assert_eq!(
+        overview_row_target(5, Some(9), false),
+        None,
+        "越界索引没有目标"
+    );
+}
+
 /// 矮宽窗口按高度等比缩小整组项目，单项目仍保留完整网格的左上槽位。
 ///
 /// 数据构造：1024×352区域，列距32、行距64；每行高=(352-64)/2=144，宽=144×16/9=256；

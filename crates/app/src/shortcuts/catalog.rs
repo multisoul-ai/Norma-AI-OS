@@ -72,6 +72,13 @@ const DEFAULT_SHORTCUT_ENTRIES: &[ShortcutEntry] = &[
         Some("cmd-right"),
     ),
     entry(
+        ShortcutCommandId::ExpandSelectedProject,
+        "common.workspace",
+        "shortcuts.expand_selected_project",
+        "shortcuts.expand_the_selected_project_in_the_overview",
+        Some("cmd-down"),
+    ),
+    entry(
         ShortcutCommandId::ShowProjectOverview,
         "common.workspace",
         "shortcuts.project_overview",
