@@ -73,12 +73,7 @@ impl MultisoulApp {
             }
         }
         let saved = self.agent_definitions.save_draft();
-        if saved {
-            let draft = self.agent_definitions.draft();
-            if let Some(id) = draft.id {
-                let _ = self.runtime.sync_agent_definition_name(id, &draft.name);
-            }
-        }
+        // Configuration labels never rename card roles. Roles have their own exact-instance editor.
         saved
     }
 

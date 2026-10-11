@@ -28,6 +28,19 @@ pub(crate) fn migrate(connection: &Connection) -> StorageResult<()> {
                 REFERENCES workspace_agent_roles(workspace_id,card_instance_id)
                 ON DELETE CASCADE
         );
+        CREATE TABLE IF NOT EXISTS workspace_agent_role_creation (
+            workspace_id TEXT NOT NULL, card_instance_id TEXT NOT NULL, owner_pid INTEGER NOT NULL,
+            PRIMARY KEY(workspace_id,card_instance_id),
+            FOREIGN KEY(workspace_id,card_instance_id)
+                REFERENCES workspace_agent_roles(workspace_id,card_instance_id) ON DELETE CASCADE
+        );
+        CREATE TABLE IF NOT EXISTS workspace_agent_role_repairs (
+            workspace_id TEXT NOT NULL, card_instance_id TEXT NOT NULL,
+            previous_name TEXT, name TEXT NOT NULL, repaired_at_unix INTEGER NOT NULL,
+            PRIMARY KEY(workspace_id,card_instance_id),
+            FOREIGN KEY(workspace_id,card_instance_id)
+                REFERENCES workspace_agent_roles(workspace_id,card_instance_id) ON DELETE CASCADE
+        );
         CREATE TABLE IF NOT EXISTS workspace_agent_role_revisions (
             workspace_id TEXT PRIMARY KEY NOT NULL,
             revision INTEGER NOT NULL CHECK(revision > 0)

@@ -5,9 +5,9 @@ use std::sync::{Arc, Mutex};
 
 /// 桌面创建 Agent：已选择普通项目目录后直接启动，不等待 worktree 确认。
 ///
-/// 数据构造：1 个桌面工作空间、1 个非 Git 项目、0 张旧卡片；快速 Codex + 自定义 Claude = 2 张。
-/// 执行过程：建立隔离实例 → 快速创建 → 校验 PTY 参数 → 从自定义 Agent 定义创建 → 再次校验。
-/// 预期结果：两个入口直接得到对应 Agent；cwd 是所选目录，不能退回父目录或停在选择器。
+/// 数据构造：2 个桌面工作空间、1 个非 Git 项目、0 张旧卡片；快速 Codex + 自定义 Claude = 2 张。
+/// 执行过程：从借用中的 session 快速创建并立即切换空间 → 校验原目标 → 返回后从自定义定义创建。
+/// 预期结果：无重复借用，defer 前冻结原空间；两个入口直接得到对应 Agent，cwd 是所选目录。
 #[test]
 fn desktop_agent_creation_uses_area_root_without_confirmation() {
     let temp = tempfile::tempdir().expect("应创建隔离测试目录");
@@ -18,6 +18,7 @@ fn desktop_agent_creation_uses_area_root_without_confirmation() {
     let store = storage::AppStore::initialize(&paths).expect("应初始化隔离数据库");
     let catalog = store.desktop_workspace_store();
     let workspace = catalog.create("Test").expect("应创建工作空间");
+    let other_workspace = catalog.create("Other").expect("应创建导航目标空间");
     let area = catalog
         .add_project(&workspace.id, &root)
         .expect("应添加普通项目");
@@ -43,7 +44,7 @@ fn desktop_agent_creation_uses_area_root_without_confirmation() {
         app
     });
     host.update(cx, |app, _| {
-        app.desktop_workspace.workspaces = vec![workspace.clone()];
+        app.desktop_workspace.workspaces = vec![workspace.clone(), other_workspace.clone()];
         app.desktop_workspace.active_id = Some(workspace.id.clone());
         app.desktop_workspace.areas = vec![area.clone()];
         app.desktop_workspace.expanded_area_id = Some(area.id.clone());
@@ -53,6 +54,10 @@ fn desktop_agent_creation_uses_area_root_without_confirmation() {
     });
     session.update_in(cx, |app, window, cx| {
         app.spawn_agent_card(canvas::AgentProfile::Codex, window, cx);
+        host.update(cx, |host, _| {
+            host.desktop_workspace.active_id = Some(other_workspace.id.clone());
+            host.desktop_workspace.areas.clear();
+        });
     });
     cx.run_until_parked();
 
@@ -77,6 +82,15 @@ fn desktop_agent_creation_uses_area_root_without_confirmation() {
         assert_eq!(app.runtime.document.nodes().len(), 1, "目标项目必须出现一张真实 Agent 卡片");
         assert!(matches!(&app.runtime.document.nodes()[0].kind, canvas::CanvasNodeKind::Agent(spec) if spec.profile == canvas::AgentProfile::Codex), "新卡片应为用户选择的 Codex");
         assert!(!app.runtime.document.nodes().iter().any(|node| matches!(&node.kind, canvas::CanvasNodeKind::Term(_))), "不得用 Terminal 假卡片代替 Agent");
+    });
+    host.update(cx, |host, _| {
+        assert_eq!(
+            host.desktop_workspace.active_id.as_deref(),
+            Some(other_workspace.id.as_str()),
+            "迟到创建不能把用户导航强制切回原空间"
+        );
+        host.desktop_workspace.active_id = Some(workspace.id.clone());
+        host.desktop_workspace.areas = vec![area.clone()];
     });
     let custom = session.update(cx, |app, _| {
         app.agent_definitions
@@ -123,7 +137,7 @@ fn git(root: &std::path::Path, args: &[&str]) {
 /// 数据构造：1 个 Git 主目录 + 1 个 linked worktree；2 个空间各有 1 个区域，均选择 linked。
 ///   前两次请求分别创建 Codex / Claude，预期 1 + 1 = 2 次 PTY 启动；第三次移除目标，新增数为 0。
 /// 执行过程：A 请求后立即导航 B → 推进校验 → 在 B 再创建 → A 再请求但移除 session → 推进校验。
-/// 预期结果：A、B 各一张指定类型的卡片，cwd 均是 linked；无主目录回退、无导航串卡、无移除后启动。
+/// 预期结果：A、B 各一张运行卡片，cwd 均是 linked；拒绝安装的新卡仍持久占名并提示重新打开恢复。
 #[test]
 fn desktop_agent_creation_preserves_worktree_and_origin_across_navigation() {
     let temp = tempfile::tempdir().expect("应创建隔离 Git fixture");
@@ -276,10 +290,70 @@ fn desktop_agent_creation_preserves_worktree_and_origin_across_navigation() {
             app.desktop_workspace
                 .error
                 .as_deref()
-                .is_some_and(|message| message.contains("try again")),
-            "失效目标应给出可重试错误"
+                .is_some_and(|message| message.contains("重新打开项目")),
+            "已持久发布但无法安装时应提示重新打开恢复，不能盲目重试"
         );
     });
+    let (project, roles, original_card_id) = session_a.update(cx, |app, _| {
+        assert_eq!(
+            app.runtime.document.nodes().len(),
+            1,
+            "过期 session 不得安装第二张卡"
+        );
+        let original_card_id = app.runtime.document.nodes()[0].card_instance_id.clone();
+        app.persistence.mark_canvas_dirty();
+        app.persistence
+            .flush_now(&app.runtime, &app.master_layout)
+            .expect("尝试旧 Document 脏保存时不能报持久化错误");
+        assert_eq!(
+            app.persistence.save_state(),
+            crate::workspace::persistence::PersistenceSaveState::Pending,
+            "未恢复的持久创建必须阻止旧 Document 覆盖"
+        );
+        (
+            app.persistence
+                .project_store()
+                .expect("A 原持久 store")
+                .clone(),
+            storage::WorkspaceAgentRoleStore::new(app.database_paths.app_db_path().to_owned()),
+            original_card_id,
+        )
+    });
+    let persisted = project
+        .canvas_store()
+        .load_snapshot()
+        .expect("重读真实 A Canvas")
+        .expect("A Canvas 必须存在");
+    assert_eq!(
+        persisted.nodes.len(),
+        2,
+        "旧 Document 脏保存后仍须保留两张已发布卡片"
+    );
+    let retained = persisted
+        .nodes
+        .iter()
+        .find(|node| node.card_instance_id != original_card_id)
+        .expect("未安装的新卡仍持久保留");
+    let card = agent::workspace_dispatch::WorkspaceCardRef {
+        workspace_id: workspace_a.id.clone(),
+        area_id: area_a.id.clone(),
+        node_id: retained.id,
+        card_instance_id: retained.card_instance_id.clone(),
+    };
+    let role = roles
+        .get(&card)
+        .expect("读取原 UUID 的角色")
+        .expect("未安装不等于永久删除");
+    assert!(role.enabled, "完成持久发布的角色仍已启用并占名");
+    assert!(
+        matches!(roles.resolve(&workspace_a.id, &role.name).expect("核验唯一称呼占用"), storage::WorkspaceCallResolution::Active(current) if current.card == card),
+        "称呼仍精确占用原持久卡片，不能补偿释放"
+    );
+    assert_eq!(
+        roles.list(&workspace_a.id).expect("重读 A 角色目录").len(),
+        2,
+        "A 原卡及待恢复卡均保留登记"
+    );
     assert!(
         !linked.join(".git").is_dir(),
         "所选目录必须仍是 linked worktree，不能被重建为新仓库"

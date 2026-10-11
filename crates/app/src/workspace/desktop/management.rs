@@ -318,10 +318,13 @@ impl MultisoulApp {
                             }
                         }
                         let store = app.desktop_workspace.store.clone();
+                        let roles=storage::WorkspaceAgentRoleStore::new(app.database_paths.app_db_path().to_owned());
                         cx.background_executor().spawn(async move {
                             for area_id in removed_areas {
                                 if let Err(error) = store.remove_canvas_file(&deleted_workspace_id, &area_id) {
                                     tracing::warn!(%error, workspace_id = %deleted_workspace_id, %area_id, "failed to clean deleted desktop canvas");
+                                } else if let Err(error)=roles.delete_after_area_removed(&deleted_workspace_id,&area_id) {
+                                    tracing::warn!(%error,"failed to release deleted area role names");
                                 }
                             }
                         }).detach();

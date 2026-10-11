@@ -178,3 +178,44 @@ fn revoked_creation_preserves_reason_and_never_spawns() {
     );
     assert_eq!(calls.get(), 1, "权限撤销后不得实际启动第二次");
 }
+
+/// 场景：快捷创建在后台登记期间，同一区域的 Runtime 被替换。
+/// 数据构造：原 Runtime 预留一张无 PTY 卡，另建同区域的新 Runtime。
+/// 执行过程：先向替换实例安装旧预留，再向原实例安装同一身份。
+/// 预期结果：替换实例保持空画布；原实例安装成功且保留原 card UUID。
+#[test]
+fn delayed_creation_never_installs_into_replacement_runtime() {
+    let mut original = runtime::Runtime::new();
+    let expected = original.runtime_instance_id().to_owned();
+    let reserved = original.document.reserve_node(
+        canvas::CanvasNodeKind::Agent(canvas::AgentSpec {
+            profile: canvas::AgentProfile::Codex,
+            alias: Some("Alan".into()),
+            definition_id: None,
+            mobile_control: true,
+        }),
+        canvas::CanvasRect::new(0.0, 0.0, 400.0, 300.0),
+    );
+    let mut replacement = runtime::Runtime::new();
+    assert!(
+        !super::install_in_original_runtime(&mut replacement, &expected, reserved.clone()),
+        "迟到创建不得安装到同区域的替换 Runtime"
+    );
+    assert!(
+        replacement.document.nodes().is_empty(),
+        "替换画布不得增加旧卡"
+    );
+    assert!(
+        super::install_in_original_runtime(&mut original, &expected, reserved.clone()),
+        "原 Runtime 可以安装已持久化的卡"
+    );
+    assert_eq!(
+        original
+            .document
+            .node(reserved.id)
+            .unwrap()
+            .card_instance_id,
+        reserved.card_instance_id,
+        "安装必须保留原预留卡片身份"
+    );
+}

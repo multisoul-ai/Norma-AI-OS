@@ -38,6 +38,7 @@ use runtime::InputMode;
 use runtime::{route, Route};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
+use ui::component::Sizable;
 use ui::icons::with_alpha;
 static CANVAS_OPEN_RENDER_PENDING: AtomicBool = AtomicBool::new(false);
 pub(crate) fn mark_canvas_open_render_pending() {
@@ -207,6 +208,24 @@ pub fn render_canvas(
             .flex_row()
             .items_center()
             .gap(px(4.0 * vp.zoom));
+        if is_agent && app.workspace_card_ref(id).is_some() {
+            title_actions = title_actions.child(
+                div()
+                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .child(
+                        ui::component::button::Button::new(("role-edit", id))
+                            .label("⋯")
+                            .tooltip("角色名称与启停")
+                            .small()
+                            .w(px(close_button_size))
+                            .h(px(close_button_size))
+                            .on_click(cx.listener(move |app, _, window, cx| {
+                                cx.stop_propagation();
+                                app.open_workspace_role_editor(id, window, cx);
+                            })),
+                    ),
+            );
+        }
         if refreshable {
             title_actions = title_actions.child(
                 div()

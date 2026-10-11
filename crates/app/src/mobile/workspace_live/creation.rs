@@ -2,6 +2,8 @@
 use super::*;
 use crate::workspace::persistence::PersistenceSaveState;
 use storage::{AgentCreationStore, AgentDefinition, AgentDefinitionStore};
+mod cleanup;
+use cleanup::cleanup;
 
 #[cfg(test)]
 #[path = "../../../tests/unit/workspace_agent_creation_tests.rs"]
@@ -111,6 +113,15 @@ fn launch_checked<T>(
     spawn().map_err(|_| "agent_start_failed".to_owned())
 }
 
+fn install_in_original_runtime(
+    runtime: &mut runtime::Runtime,
+    expected_instance: &str,
+    snapshot: canvas::CanvasNodeSnapshot,
+) -> bool {
+    runtime.runtime_instance_id() == expected_instance
+        && runtime.document.install_reserved_node(snapshot)
+}
+
 fn quick_definition(
     store: &AgentDefinitionStore,
     profile: canvas::AgentProfile,
@@ -157,6 +168,9 @@ async fn create(
         .update(|cx| crate::workspace::desktop::mobile::ensure(database, area.clone(), cx))
         .map_err(|_| "desktop_host_unavailable")?;
     let session = load.await?;
+    let runtime_instance = session
+        .read_with(cx, |app, _| app.runtime.runtime_instance_id().to_owned())
+        .map_err(|_| "project_unavailable")?;
     let store = session
         .read_with(cx, |app, _| app.agent_definitions.creation_store())
         .map_err(|_| "project_unavailable")?
@@ -197,33 +211,132 @@ async fn create(
         })
         .await;
     if bound.is_err() {
-        cleanup(&session, None, &definition, &store, cx).await;
+        cleanup(&session, &runtime_instance, None, &definition, &store, cx).await;
         return Err("outcome_unknown".into());
     }
-    let prepared = cx
+    let reserved = cx
         .update(|cx| {
             if crate::workspace::desktop::mobile::session(database, &area, cx).as_ref()
                 != Some(&session)
             {
                 return Err("configuration_changed".to_owned());
             }
-            session.update(cx, |app, cx| {
-                if app.runtime.workspace_root() != Some(area.root.as_path()) {
+            session.update(cx, |app, _| {
+                if app.runtime.runtime_instance_id() != runtime_instance
+                    || app.runtime.workspace_root() != Some(area.root.as_path())
+                {
                     return Err("configuration_changed".to_owned());
                 }
                 app.agent_definitions
                     .install_created_definition(definition.clone());
-                app.prepare_quick_mobile_card(&definition, cx)
-                    .map_err(|_| "create_failed".to_owned())
+                let bounds = app.next_tiled_node_bounds_for_area(
+                    app.mobile_canvas_area(None),
+                    app.runtime.document.viewport.zoom,
+                );
+                let node = app.runtime.document.reserve_node(
+                    canvas::CanvasNodeKind::Agent(canvas::AgentSpec {
+                        profile: definition.runtime_profile,
+                        alias: Some(definition.name.clone()),
+                        definition_id: Some(definition.id),
+                        mobile_control: true,
+                    }),
+                    bounds,
+                );
+                let canvas = app
+                    .persistence
+                    .project_store()
+                    .ok_or("project_unavailable")?
+                    .canvas_store();
+                let publication = app.persistence.begin_card_publication();
+                Ok((node, canvas, publication))
             })
         })
-        .map_err(|_| "project_unavailable".to_owned())
-        .and_then(|r| r);
+        .map_err(|_| "project_unavailable".to_owned())??;
+    let (mut snapshot, canvas, publication) = reserved;
+    let card = agent::workspace_dispatch::WorkspaceCardRef {
+        workspace_id: area.desktop_workspace_id.clone(),
+        area_id: area.id.clone(),
+        node_id: snapshot.id,
+        card_instance_id: snapshot.card_instance_id.clone(),
+    };
+    let roles = storage::WorkspaceAgentRoleStore::new(database.to_owned());
+    let db = database.to_owned();
+    let bounds = areas.to_vec();
+    let phone = device.to_owned();
+    let credential = token.to_owned();
+    let original = request.clone();
+    let (materialized, absent) = cx
+        .background_executor()
+        .spawn(async move {
+            let node_id = snapshot.id;
+            let identity = snapshot.card_instance_id.clone();
+            let result = (|| {
+                check_scope(&db, &bounds, &phone, &credential, &original, false)?;
+                roles
+                    .register_workspace(&card.workspace_id)
+                    .map_err(|_| "name_unavailable")?;
+                let role = roles
+                    .materialize_workspace_card(&card, &canvas, &snapshot, false)
+                    .map_err(|_| "create_failed")?;
+                if let canvas::CanvasNodeKind::Agent(spec) = &mut snapshot.kind {
+                    spec.alias = Some(role.name);
+                }
+                Ok::<_, String>(snapshot)
+            })();
+            let absent = matches!(canvas.contains_card_instance(node_id, &identity), Ok(false));
+            (result, absent)
+        })
+        .await;
+    let role_name = materialized.as_ref().ok().and_then(|s| match &s.kind {
+        canvas::CanvasNodeKind::Agent(spec) => spec.alias.clone(),
+        _ => None,
+    });
+    let session_current = cx
+        .update(|cx| {
+            crate::workspace::desktop::mobile::session(database, &area, cx).as_ref()
+                == Some(&session)
+        })
+        .unwrap_or(false);
+    let prepared = session
+        .update(cx, |app, cx| {
+            let snapshot = match materialized {
+                Ok(snapshot) => snapshot,
+                Err(error) => {
+                    app.persistence
+                        .finish_card_publication(&publication, false, absent);
+                    return Err(error);
+                }
+            };
+            let node = snapshot.id;
+            let installed = session_current
+                && app.workspace_role_scope()
+                    == Some((area.desktop_workspace_id.as_str(), area.id.as_str()))
+                && install_in_original_runtime(&mut app.runtime, &runtime_instance, snapshot);
+            app.persistence
+                .finish_card_publication(&publication, installed, absent);
+            if !installed {
+                return Err(if absent {
+                    "configuration_changed"
+                } else {
+                    "outcome_unknown"
+                }
+                .into());
+            }
+            let launch = app
+                .runtime
+                .prepare_native_agent_terminal(node, 80, 24)
+                .map_err(|_| "create_failed".to_owned())?;
+            app.mark_canvas_dirty();
+            app.mark_session_dirty();
+            cx.notify();
+            Ok((node, launch))
+        })
+        .map_err(|_| "project_unavailable".to_owned())?;
     let (node, launch) = match prepared {
         Ok(value) => value,
         Err(error) => {
-            cleanup(&session, None, &definition, &store, cx).await;
-            return Err(error.to_string());
+            cleanup(&session, &runtime_instance, None, &definition, &store, cx).await;
+            return Err(error);
         }
     };
     let run = launch.run_id().to_owned();
@@ -239,7 +352,15 @@ async fn create(
         .await
         .is_err()
     {
-        cleanup(&session, Some(node), &definition, &store, cx).await;
+        cleanup(
+            &session,
+            &runtime_instance,
+            Some(node),
+            &definition,
+            &store,
+            cx,
+        )
+        .await;
         return Err("outcome_unknown".into());
     }
     let run = receipt_run;
@@ -259,12 +380,29 @@ async fn create(
     let prepared = match spawned {
         Ok(prepared) => prepared,
         Err(code) => {
-            cleanup(&session, Some(node), &definition, &store, cx).await;
+            cleanup(
+                &session,
+                &runtime_instance,
+                Some(node),
+                &definition,
+                &store,
+                cx,
+            )
+            .await;
             return Err(code);
         }
     };
     let live = prepared.into_live();
+    let session_current = cx
+        .update(|cx| {
+            crate::workspace::desktop::mobile::session(database, &area, cx).as_ref()
+                == Some(&session)
+        })
+        .unwrap_or(false);
     let completed = session.update(cx, |app, cx| {
+        if !session_current || app.runtime.runtime_instance_id() != runtime_instance {
+            return Err(terminal::PtyError::Spawn("configuration_changed".into()));
+        }
         let result = app.runtime.complete_native_agent_terminal(node, &run, live);
         app.mark_canvas_dirty();
         app.mark_session_dirty();
@@ -272,7 +410,15 @@ async fn create(
         result
     });
     if !matches!(completed, Ok(Ok(()))) {
-        cleanup(&session, Some(node), &definition, &store, cx).await;
+        cleanup(
+            &session,
+            &runtime_instance,
+            Some(node),
+            &definition,
+            &store,
+            cx,
+        )
+        .await;
         return Err("agent_start_failed".into());
     }
     // Normal desktop writer owns snapshots. 20 seconds covers its 360ms debounce and disk retries.
@@ -303,10 +449,18 @@ async fn create(
         .map_err(|_| "outcome_unknown")?
         .ok_or("target_missing")?;
     if matches!(card.state.as_str(), "failed" | "ended") {
-        cleanup(&session, Some(node), &definition, &store, cx).await;
+        cleanup(
+            &session,
+            &runtime_instance,
+            Some(node),
+            &definition,
+            &store,
+            cx,
+        )
+        .await;
         return Err("agent_start_failed".into());
     }
-    let member = json!({"area_id":area.id,"definition_id":definition.id,"name":definition.name,"profile":request.profile,"card":card});
+    let member = json!({"area_id":area.id,"definition_id":definition.id,"name":role_name,"profile":request.profile,"card":card});
     let record = ledger.clone();
     let phone = device.to_owned();
     let operation = request.operation_id.clone();
@@ -315,33 +469,4 @@ async fn create(
         .await
         .map_err(|_| "outcome_unknown".to_owned())?;
     Ok(())
-}
-
-async fn cleanup(
-    session: &Entity<MultisoulApp>,
-    node: Option<u64>,
-    definition: &AgentDefinition,
-    store: &AgentDefinitionStore,
-    cx: &mut gpui::AsyncApp,
-) {
-    let id = definition.id;
-    if let Some(node) = node {
-        let _=session.update(cx,|app,cx| {
-            if matches!(app.runtime.document.node(node).map(|n|&n.kind),Some(canvas::CanvasNodeKind::Agent(s)) if s.definition_id==Some(id)) {
-                app.runtime.remove_node(node);app.mark_canvas_dirty();app.mark_session_dirty();cx.notify();
-            }
-        });
-    }
-    let store = store.clone();
-    if cx
-        .background_executor()
-        .spawn(async move { store.delete_if_quick(id) })
-        .await
-        .is_ok()
-    {
-        let _ = session.update(cx, |app, cx| {
-            app.agent_definitions.forget_created_definition(id);
-            cx.notify();
-        });
-    }
 }

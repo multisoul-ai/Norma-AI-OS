@@ -122,7 +122,16 @@ pub(super) fn execute_now(database: PathBuf, call: LiveCommandRequest, cx: &mut 
                         profile,
                         title,
                         definition_id,
-                    } => app
+                    } if app.workspace_role_scope().is_some() => {
+                        let spec=canvas::AgentSpec {profile:match profile {
+                            MobileProvider::Codex=>canvas::AgentProfile::Codex,MobileProvider::Claude=>canvas::AgentProfile::Claude,MobileProvider::Cursor=>canvas::AgentProfile::Cursor,
+                        },alias:title.clone(),definition_id:*definition_id,mobile_control:true};
+                        let task=app.begin_registered_card_creation(spec,window.as_deref_mut(),cx);
+                        let (sender,receiver)=async_channel::bounded(1);
+                        cx.spawn(async move |_,_| {let result=task.await.map(|node|serde_json::json!({"node_id":node}));let _=sender.try_send(result);}).detach();
+                        Ok(Started::Async(receiver))
+                    }
+                    MobileCommand::CreateCard {profile,title,definition_id} => app
                         .create_mobile_card_in_canvas(
                             match profile {
                                 MobileProvider::Codex => canvas::AgentProfile::Codex,

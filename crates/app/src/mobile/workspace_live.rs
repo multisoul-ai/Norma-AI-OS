@@ -106,16 +106,16 @@ pub(super) fn start(database: PathBuf, call: LiveWorkspaceRequest, cx: &mut App)
                 let check_space=workspace.clone();let check_store=store.clone();
                 let check = cx.background_executor().spawn(async move {check_store.observe_agent_configuration(&check_space,&fingerprint)}).await;
                 if !matches!(check,Ok(value) if value==revision) {let _=call.reply.try_send(Err("configuration_conflict".into()));return;}
-                let result=cx.update(|cx|configure_agents(&database,&call.areas,change,cx)).map_err(|e|e.to_string()).and_then(|r|r);
+                let result=configure_agents(&database,&call.areas,change,cx).await;
                 if result.is_err() {let _=call.reply.try_send(result);return;}
-                let snapshots=cx.update(|cx|call.areas.iter().filter_map(|a| {
-                    let session=crate::workspace::desktop::mobile::session(&database,&a.area,cx)?;let app=session.read(cx);
-                    Some((app.persistence.project_store()?.clone(),app.runtime.collect_canvas_snapshot()))
-                }).collect::<Vec<_>>()).unwrap_or_default();
-                let saved=cx.background_executor().spawn(async move {
-                    for (project,snapshot) in snapshots {project.canvas_store().save_snapshot(&snapshot)?;}
-                    store.bump_configuration_if_revision(&workspace,revision)
-                }).await;
+                let deadline=std::time::Instant::now()+Duration::from_secs(20);
+                let persisted=loop {
+                    let states=cx.update(|cx|call.areas.iter().filter_map(|a|crate::workspace::desktop::mobile::session(&database,&a.area,cx).map(|s|s.read(cx).persistence.save_state())).collect::<Vec<_>>()).unwrap_or_default();
+                    if states.iter().all(|s|*s==crate::workspace::persistence::PersistenceSaveState::Clean){break true;}
+                    if states.contains(&crate::workspace::persistence::PersistenceSaveState::Failed) || std::time::Instant::now()>=deadline {break false;}
+                    cx.background_executor().timer(Duration::from_millis(50)).await;
+                };
+                let saved=cx.background_executor().spawn(async move {if persisted {store.bump_configuration_if_revision(&workspace,revision)}else{Err(storage::StorageError::InvalidWorkspaceAgentRole("outcome_unknown".into()))}}).await;
                 let _=call.reply.try_send(if saved.is_ok(){result}else{Err("outcome_unknown".into())});
             }
             LiveWorkspaceAction::Recover{mac,workspace}=> {

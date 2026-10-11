@@ -1,6 +1,12 @@
 //! Workspace role names and their retired call keys are one persistent namespace.
 //! Run these SQLite operations off the GPUI foreground and PTY input/output paths.
+mod creation;
+mod directory;
 mod mutation;
+mod reconciliation;
+pub use reconciliation::{
+    WorkspaceRoleCandidate, WorkspaceRoleReconciliation, WorkspaceRoleRename,
+};
 mod schema;
 mod snapshot;
 pub(crate) use schema::migrate;

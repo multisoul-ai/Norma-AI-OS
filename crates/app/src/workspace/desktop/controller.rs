@@ -195,10 +195,13 @@ impl MultisoulApp {
         cx.notify();
         let store = self.desktop_workspace.store.clone();
         let load_id = id.clone();
+        let roles =
+            storage::WorkspaceAgentRoleStore::new(self.database_paths.app_db_path().to_owned());
         let wallpaper_revision = self.wallpaper_settings.scoped.revision;
         let work = cx.background_executor().spawn(async move {
             store.touch(&load_id)?;
             let areas = store.list_projects(&load_id)?;
+            let registration = roles.register_workspace(&load_id)?;
             let unavailable = areas
                 .iter()
                 .filter_map(|area| {
@@ -212,7 +215,7 @@ impl MultisoulApp {
                     })
                 })
                 .collect();
-            Ok::<_, storage::StorageError>((store.list()?, areas, unavailable))
+            Ok::<_, storage::StorageError>((store.list()?, areas, unavailable, registration))
         });
         cx.spawn_in(window, async move |this, cx| {
             let result = work.await;
@@ -221,7 +224,8 @@ impl MultisoulApp {
                     return;
                 }
                 match result {
-                    Ok((mut workspaces, mut areas, unavailable)) => {
+                    Ok((mut workspaces, mut areas, unavailable, registration)) => {
+                        app.project_workspace_role_titles(&registration.roles, cx);
                         app.preserve_wallpaper_snapshot(
                             &mut workspaces,
                             &mut areas,

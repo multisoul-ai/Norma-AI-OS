@@ -104,6 +104,44 @@ impl Document {
         }
     }
 
+    /// Reserve identity only; background persistence/naming completes before publication.
+    pub fn reserve_node(&mut self, kind: CanvasNodeKind, bounds: CanvasRect) -> CanvasNodeSnapshot {
+        let id = self.next_id;
+        self.next_id += 1;
+        self.max_z += 1;
+        CanvasNodeSnapshot {
+            id,
+            card_instance_id: crate::new_card_instance_id(),
+            kind,
+            bounds,
+            z_index: self.max_z,
+        }
+    }
+
+    pub fn install_reserved_node(&mut self, node: CanvasNodeSnapshot) -> bool {
+        if node.id == 0
+            || node.card_instance_id.is_empty()
+            || self.node(node.id).is_some()
+            || self
+                .nodes
+                .iter()
+                .any(|n| n.card_instance_id == node.card_instance_id)
+        {
+            return false;
+        }
+        self.next_id = self.next_id.max(node.id.saturating_add(1));
+        self.max_z = self.max_z.max(node.z_index);
+        self.nodes.push(CanvasNode {
+            id: node.id,
+            card_instance_id: node.card_instance_id,
+            kind: node.kind,
+            bounds: node.bounds,
+            z_index: node.z_index,
+            selected: false,
+        });
+        true
+    }
+
     /// 添加节点：分配递增 id，z_index 抬到当前最高层 +1。
     pub fn add_node(&mut self, kind: CanvasNodeKind, bounds: CanvasRect) -> NodeId {
         let id = self.next_id;

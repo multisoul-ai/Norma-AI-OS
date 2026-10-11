@@ -5,6 +5,7 @@ use gpui::Window;
 
 impl MultisoulApp {
     pub(crate) fn remove_node_and_reflow(&mut self, node_id: NodeId, window: &mut Window) -> bool {
+        let removed_role = self.workspace_card_ref(node_id);
         let area = self.visible_canvas_rect(window);
         let zoom = self.runtime.document.viewport.zoom;
         let removed_agent_definition_id = self.runtime.document.node(node_id).and_then(|node| {
@@ -36,6 +37,14 @@ impl MultisoulApp {
             self.layout_strategy,
         );
         if changed {
+            if let Some(card) = removed_role {
+                self.persistence.queue_role_removal(
+                    storage::WorkspaceAgentRoleStore::new(
+                        self.database_paths.app_db_path().to_owned(),
+                    ),
+                    card,
+                );
+            }
             if self.agent_queue_ui.open_node_id() == Some(node_id) {
                 self.agent_queue_ui.close();
             }
@@ -51,7 +60,9 @@ impl MultisoulApp {
             }
             self.mark_canvas_dirty();
             self.mark_session_dirty();
-            if let Some(definition_id) = removed_agent_definition_id {
+            if let Some(definition_id) =
+                removed_agent_definition_id.filter(|_| self.workspace_role_scope().is_none())
+            {
                 if let Err(message) = self
                     .agent_definitions
                     .cleanup_quick_definition(definition_id)

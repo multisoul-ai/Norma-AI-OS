@@ -173,43 +173,6 @@ impl MultisoulApp {
         self.spawn_agent_card_from_spec_at(spec, None, window, cx);
     }
 
-    pub(crate) fn spawn_desktop_agent_at(
-        &mut self,
-        profile: AgentProfile,
-        definition_id: Option<i64>,
-        worktree: &Path,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        // Desktop areas share the catalog, but keep independent loaded instances.
-        self.agent_definitions.reload();
-        let definition = match definition_id {
-            Some(id) => self
-                .agent_definitions
-                .definitions()
-                .iter()
-                .find(|definition| definition.id == id)
-                .cloned()
-                .ok_or_else(|| ui::i18n::text("agent.definition_missing").to_string()),
-            None => self.agent_definitions.create_quick_definition(profile),
-        };
-        match definition {
-            Ok(definition) => self.spawn_agent_card_from_spec_at(
-                agent_spec_from_definition(&definition),
-                Some(worktree),
-                window,
-                cx,
-            ),
-            Err(error) => {
-                self.workspace_state.error = Some(
-                    ui::i18n::LocalizedText::new("common.operation_failed")
-                        .with_arg("reason", error),
-                );
-                cx.notify();
-            }
-        }
-    }
-
     fn spawn_agent_card_from_spec_at(
         &mut self,
         spec: AgentSpec,

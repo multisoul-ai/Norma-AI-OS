@@ -12,6 +12,11 @@ pub(super) fn create_or_reuse_agent(
     area: canvas::CanvasRect,
     zoom: f32,
 ) -> Result<CardCommandResult, CardCommandError> {
+    if app.workspace_role_scope().is_some() && activate {
+        return Err(internal_agent_error(
+            "工作空间卡片创建须通过异步角色登记入口；同步配置工具不可启动未登记卡片".into(),
+        ));
+    }
     if let Some(requested_name) = name.as_deref() {
         if let Some(existing) = app
             .agent_definitions

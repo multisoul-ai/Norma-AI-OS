@@ -92,6 +92,9 @@ pub(super) fn activate_definition(
     area: canvas::CanvasRect,
     zoom: f32,
 ) -> Result<(u64, bool), String> {
+    if app.workspace_role_scope().is_some() {
+        return Err("workspace_agent_requires_exact_registered_card".into());
+    }
     if let Some(node_id) = app.runtime.document.nodes().iter().find_map(|node| {
         let canvas::CanvasNodeKind::Agent(spec) = &node.kind else {
             return None;

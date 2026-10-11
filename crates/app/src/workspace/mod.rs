@@ -8,3 +8,5 @@ pub(crate) mod project_picker;
 pub(crate) mod sessions;
 pub mod state;
 pub mod windowing;
+
+pub(crate) mod roles;

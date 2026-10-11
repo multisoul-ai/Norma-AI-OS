@@ -149,6 +149,41 @@ impl Runtime {
         cols: u16,
         rows: u16,
     ) -> Result<NativeAgentLaunch, PtyError> {
+        self.prepare_card_terminal(node, cols, rows, false)
+    }
+
+    /// Existing registered desktop cards may use any CLI profile; spawning stays in background.
+    pub fn prepare_registered_agent_terminal(
+        &mut self,
+        node: NodeId,
+        cols: u16,
+        rows: u16,
+    ) -> Result<NativeAgentLaunch, PtyError> {
+        self.prepare_card_terminal(node, cols, rows, true)
+    }
+
+    /// Preserve the existing injected fake-PTY seam. Production returns the launch for background IO.
+    pub fn complete_registered_launch_with_factory(
+        &mut self,
+        node: NodeId,
+        launch: NativeAgentLaunch,
+    ) -> Result<Option<NativeAgentLaunch>, PtyError> {
+        if self.pty_factory.is_none() {
+            return Ok(Some(launch));
+        }
+        let run = launch.run_id().to_owned();
+        let result = launch.spawn_with_factory(self.pty_factory.as_ref());
+        self.complete_native_agent_terminal(node, &run, result)?;
+        Ok(None)
+    }
+
+    fn prepare_card_terminal(
+        &mut self,
+        node: NodeId,
+        cols: u16,
+        rows: u16,
+        all_desktop_profiles: bool,
+    ) -> Result<NativeAgentLaunch, PtyError> {
         if self.live.get(&node).is_some_and(|live| {
             !matches!(live.terminal_status(), Some(TerminalStatus::Exited { .. }))
         }) || self.mobile_runs.contains_key(&node)
@@ -159,10 +194,12 @@ impl Runtime {
         else {
             return Err(control_error("agent missing"));
         };
-        if !matches!(
-            spec.profile,
-            AgentProfile::Codex | AgentProfile::Claude | AgentProfile::Cursor
-        ) {
+        if !(all_desktop_profiles && !spec.mobile_control)
+            && !matches!(
+                spec.profile,
+                AgentProfile::Codex | AgentProfile::Claude | AgentProfile::Cursor
+            )
+        {
             return Err(control_error("mobile Provider unavailable"));
         }
         let profile = spec.profile;

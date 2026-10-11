@@ -67,6 +67,8 @@ impl PreparedProject {
                 &area.desktop_workspace_id,
                 &area.id,
             )?;
+            storage::WorkspaceAgentRoleStore::new(paths.app_db_path().to_owned())
+                .register_workspace(&area.desktop_workspace_id)?;
             let definitions_store =
                 ProjectStore::initialize_for_desktop_definitions(&paths, &area.project_key)?
                     .agent_definition_store();
@@ -82,7 +84,27 @@ impl PreparedProject {
         project: ProjectStore,
         definitions_store: storage::AgentDefinitionStore,
     ) -> anyhow::Result<Self> {
-        let document = project.canvas_store().load_snapshot_with_card_identity()?;
+        let mut document = project.canvas_store().load_snapshot_with_card_identity()?;
+        if let Some((workspace, area)) = identity
+            .workspace_id
+            .strip_prefix("desktop:")
+            .and_then(|s| s.split_once(':'))
+        {
+            let roles = storage::WorkspaceAgentRoleStore::new(paths.app_db_path().to_owned())
+                .list(workspace)?;
+            if let Some(document) = &mut document {
+                for role in roles.into_iter().filter(|r| r.card.area_id == area) {
+                    if let Some(node) = document.nodes.iter_mut().find(|n| {
+                        n.id == role.card.node_id
+                            && n.card_instance_id == role.card.card_instance_id
+                    }) {
+                        if let canvas::CanvasNodeKind::Agent(spec) = &mut node.kind {
+                            spec.alias = Some(role.name);
+                        }
+                    }
+                }
+            }
+        }
         let layout = project.layout_store().load_state()?;
         let sessions = project.node_session_store().load_sessions()?;
         let checkpoints = project.session_store().load_checkpoints()?;
@@ -176,7 +198,11 @@ impl MultisoulApp {
         self.window_active = true;
         if let Some(pending) = self.background_restore.take() {
             // User explicitly opened this project: restore its remaining desktop cards normally.
-            if let Some(store) = self.persistence.project_store() {
+            if let Some(store) = self
+                .persistence
+                .project_store()
+                .filter(|_| self.desktop_host.is_none())
+            {
                 if let Err(error) =
                     crate::workspace::legacy_agent_migration::migrate_legacy_agent_cards(
                         &mut self.runtime,
