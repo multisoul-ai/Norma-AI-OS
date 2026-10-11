@@ -1,6 +1,6 @@
 # 工作空间智能体卡片派工与进度汇报：开发任务拆分
 
-日期：2026-10-10。实施更新：2026-10-11。状态：实施中；T01／T02／T05 已合入，T03／T04 实施中，T09 纯聚合合同部分完成，正式进度查询仍待接入；其余任务未完成。
+日期：2026-10-10。实施更新：2026-10-11。状态：实施中；T01／T02／T03／T05 已合入，T04／T06／T07 实施中，T09 纯聚合合同部分完成；正式派工与进度查询闭环仍未完成。
 
 实施合同以已发布的 [GitHub Issue #96](https://github.com/multisoul-ai/Norma-AI-OS/issues/96)及其[本地规格副本](../product-specs/2026-10-10-workspace-agent-task-dispatch.md)为准，Issue 标记 `ready-for-agent`。源码事实、两张运行流程图与完整验收矩阵见[派工方案](../design-docs/2026-10-09-workspace-agent-task-dispatch.md)；术语见[CONTEXT.md](../../CONTEXT.md)。本计划记录本地任务依赖，不作工期承诺。
 
@@ -39,11 +39,11 @@
 | --- | --- | --- |
 | T01 | 完成，已合入 `228e751f`（实施提交 `f247ac4f`） | 持久卡片身份、冻结目标协议与 Runtime 纯校验已进入生产恢复路径；下述聚焦和受影响 crate 验证通过 |
 | T02 | 完成，已合入 `3e10d43d`（实施提交 `a84e20ec`） | 工作空间角色／有效与失效呼叫键事务及严格只读快照已验证；App 生命周期接入属于 T03 |
-| T03 | 实施中，未完成 | 完整登记／自动修复／标题与生命周期接入；缺失旧 session 的最终证据正在补收，尚未提交验收完成 |
+| T03 | 实现与自动验证完成，已合入 `e899a580`（实施提交 `751ff5c5`） | 完整登记／自动修复／两阶段创建／标题编辑／持久删除凭据已接入；真实 App 视觉与流程验收留在整体集成阶段 |
 | T04 | 实施中，未完成 | 纯解析合同与目标 manifest 已开始；生产目录接入仍依赖 T03 |
 | T05 | 完成，已合入 `2ef7854d`（实施提交 `24cc5fa8`） | 实例协调、独占输入传输与 exact Hook 证据关联已验证；共享派工入口由 T06 接通 |
-| T06 | 未完成 | 等待 T04／T05 的生产接口 |
-| T07 | 未完成 | 等待通用操作与跨区域投递；Dock 真实 App 闭环尚未验收 |
+| T06 | 实施中，未完成 | 通用操作账本与持久输入屏障先行；正式 App 服务仍等待 T04 完整目标合同 |
+| T07 | 实施中，未完成 | 整组规划与来源入口开始；生产接线依赖 T04／T06，Dock 真实 App 闭环尚未验收 |
 | T08 | 未完成 | 等待工作空间入口；回执、重试与恢复尚未验收 |
 | T09 | 部分完成：纯聚合合同已合入（实施提交 `4a823afc`、`1b598e9b`） | 统计／证据规则与有界分页已验证；只读事实接入、typed tool、Dock 呈现／导航与真实 App 验收仍待完成 |
 
@@ -57,7 +57,15 @@ T02 提供 [`WorkspaceAgentRoleStore`](../../crates/storage/src/workspace_agent_
 
 验收对应 [`workspace_agent_roles.rs`](../../crates/storage/tests/workspace_agent_roles.rs)、[`workspace_agent_role_readonly.rs`](../../crates/storage/tests/workspace_agent_role_readonly.rs)与[`agent_definition_name_normalization.rs`](../../crates/storage/tests/agent_definition_name_normalization.rs)，共 9 条公开接口场景，覆盖跨空间独立、主名／别名交叉冲突、连续改名、错误目标／存储失败不释放、并发抢名、非法名称及目录只读。名称统一 trim 的项目定义兼容回归也通过。实施者完成完整 `cargo test --quiet -p agent -p storage`、正常提交 hook 的 workspace check／fmt 及存储／性能／行数护栏；集成合入无冲突、无无关改动，另运行上述三组聚焦测试。
 
-T02 没有自动登记旧卡片或更改共享定义的具名身份；这些由 T03 接通并展示变更记录。创建／改名／删除的 App 路径尚不能由本模块测试推定已接入。
+T02 自身不自动登记旧卡片或更改共享定义的具名身份；生产接线和变更记录的证据见 T03，不能只由 T02 模块测试推定 App 路径完成。
+
+T03 的 `register_workspace()` 扫描全部持久区域，后台持久回填 UUID 后以单个 AppDB 事务固定排序登记和修复，最后精确补当前 Canvas 的角色标题。已有登记优先，未加载、无定义与停用卡片参与，重复恢复不再次改名；共享旧键不会重复变成失效占用。两阶段创建先登记名称与 disabled 意图，再精确追加原 node／UUID，最后启用；未知发布仍保留占用及 publication barrier。永久删卡凭据和新 Canvas 在同个事务保存，确认删除后才释放名称；缺文件／缺节点但没有删除凭据仍保留占用。
+
+卡片标题的角色编辑按原 UUID 改名／启停并显示修复记录，原位投影标题不替换 Runtime 或冻结指纹，冲突保留输入；共享配置定义改名不再同步空间角色。桌面和手机创建均异步登记、精确复核原区域／session／Runtime，再安装原身份并后台启动 PTY。迟到回调、同 CanvasDB 重绑或读取未知不能解除发布保护，旧脏 Document 不得覆盖后台已发布卡片。
+
+公开验收对应 [`workspace_role_reconciliation.rs`](../../crates/storage/tests/workspace_role_reconciliation.rs) 3 条、[`workspace_role_creation.rs`](../../crates/storage/tests/workspace_role_creation.rs) 3 条、[`workspace_role_directory.rs`](../../crates/storage/tests/workspace_role_directory.rs) 4 条、[`reserved_card_identity.rs`](../../crates/canvas/tests/reserved_card_identity.rs) 1 条、[`registered_agent_launch.rs`](../../crates/runtime/tests/registered_agent_launch.rs) 1 条。实施者已完成 agent／canvas／runtime／storage 完整测试，App role publication 3、desktop creation 3、mobile creation 4 与 App／workspace check、正常提交 hook 和护栏；最终重读真实 Canvas 和名称占用，不只检查 publication 计数。集成合入无冲突，保留 T05 bootstrap／frame／Accepted Hook 状态，另跑上述 12 条公开测试与 App check。
+
+T03 引入的角色编辑遵循 Apple 直接操作、即时错误反馈与键盘可访问性，使用现有 Input／Button／Dialog；主题、hover／pressed／focus／disabled 和真实创建／改名／删除仍须 Computer Use 验收。旧同步 definition-first Create／Activate 等兼容入口目前明确拒绝未登记启动，只是过渡保护；T07 必须接共享注册服务恢复显式创建，不能以永久拒绝宣称完整规格完成。
 
 T05 实施及证据见[卡片实例级派工验收记录](2026-10-11-card-instance-dispatch-evidence.md)。`agent::card_instance` 保存完整冻结目标，`MultisoulApp` 提供纯预检、受授权 gate 保护的接收、逐项回执／事件、提交前取消和精确终态核对。正文／Enter 的传输互斥，不等待前任务完成；B 只有自身可信 start 才运行，迟到 A 不结束 B。普通无定义卡片可传输，无可靠跟踪则保持 Untracked。重复旧 Hook 在 Runtime 状态更新前拒绝，App 按事件接收时的私有卡片／执行身份核对同批事件。停止／替换项目废弃输入队列，历史不自动重放。
 
