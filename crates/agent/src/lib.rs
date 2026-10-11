@@ -23,6 +23,7 @@ mod realtime_intent;
 mod reply_visibility;
 mod rig_tools;
 mod tool_policy;
+pub mod workspace_plan;
 
 pub use norma::{workspace_dispatch, workspace_operation};
 pub use realtime_intent::realtime_command_authorized;

@@ -1,6 +1,10 @@
 //! Entry-independent card addresses. Names and definition IDs are never routing identity.
 use serde::{Deserialize, Serialize};
 use std::fmt;
+mod directory;
+mod resolution;
+pub use directory::*;
+pub use resolution::*;
 
 /// Durable address; a restored card keeps this reference after its Runtime is replaced.
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]

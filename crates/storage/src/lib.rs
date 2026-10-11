@@ -80,6 +80,8 @@ pub mod session_store;
 pub mod settings_store;
 pub mod voice_history_store;
 mod workspace_agent_role_store;
+mod workspace_directory_store;
+pub use workspace_directory_store::WorkspaceDirectoryStore;
 pub mod workspace_identity_store;
 pub use workspace_agent_role_store::{
     WorkspaceAgentRole, WorkspaceAgentRoleStore, WorkspaceCallKey, WorkspaceCallKeyKind,
