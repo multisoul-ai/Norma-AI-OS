@@ -24,7 +24,7 @@ mod reply_visibility;
 mod rig_tools;
 mod tool_policy;
 
-pub use norma::workspace_dispatch;
+pub use norma::{workspace_dispatch, workspace_operation};
 pub use realtime_intent::realtime_command_authorized;
 pub use tool_policy::{ToolCallBudget, ToolCallPolicy, MAX_TOOL_CALLS_PER_TURN};
 

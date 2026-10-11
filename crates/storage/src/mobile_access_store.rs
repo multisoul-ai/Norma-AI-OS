@@ -135,6 +135,35 @@ impl MobileAccessStore {
         Ok(Some(grant))
     }
 
+    /// Authentication for readonly query/dispatch preflight. Missing databases/schema remain
+    /// missing; credentials are compared privately and never returned in the grant snapshot.
+    pub fn authenticate_readonly(
+        &self,
+        device_id: &str,
+        token: &str,
+    ) -> StorageResult<Option<MobileDeviceGrant>> {
+        validate_id(device_id)?;
+        validate_token(token)?;
+        if !self.path.try_exists()? {
+            return Ok(None);
+        }
+        let connection =
+            Connection::open_with_flags(&self.path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+        let present: bool = connection.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='mobile_devices')",[],|r|r.get(0))?;
+        if !present {
+            return Ok(None);
+        }
+        let Some((grant, stored_hash)) = read_grant(&connection, device_id)? else {
+            return Ok(None);
+        };
+        if grant.revoked
+            || !constant_time_equal(stored_hash.as_bytes(), hash_token(token).as_bytes())
+        {
+            return Ok(None);
+        }
+        Ok(Some(grant))
+    }
+
     pub fn replace_permissions(
         &self,
         device_id: &str,

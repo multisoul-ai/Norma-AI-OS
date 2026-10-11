@@ -67,6 +67,8 @@ pub struct CardInstanceReceipt {
     pub tracking: CardInstanceTracking,
     pub bound_turn: Option<CardInstanceTurn>,
     pub cancel_requested: bool,
+    #[serde(default)]
+    pub waiting_reason: Option<String>,
     pub result: Option<AgentTaskResult>,
     pub failure: Option<CardInstanceFailure>,
 }
@@ -184,6 +186,7 @@ impl CardInstanceCoordinator {
             tracking: assignment.tracking,
             bound_turn: None,
             cancel_requested: false,
+            waiting_reason: None,
             result: None,
             failure: None,
         };
@@ -243,8 +246,11 @@ impl CardInstanceCoordinator {
         ) {
             return Err(CardInstanceError::InvalidTransition);
         }
-        if receipt.stage != CardInstanceStage::WaitingInput {
+        if receipt.stage != CardInstanceStage::WaitingInput
+            || receipt.waiting_reason.as_deref() != Some(reason)
+        {
             receipt.stage = CardInstanceStage::WaitingInput;
+            receipt.waiting_reason = Some(reason.into());
             self.record(id, reason);
         }
         Ok(())
@@ -261,6 +267,7 @@ impl CardInstanceCoordinator {
             return Err(CardInstanceError::InvalidTransition);
         }
         receipt.stage = CardInstanceStage::Submitted;
+        receipt.waiting_reason = None;
         self.pending.retain(|key| key != id);
         self.record(id, "enter_confirmed");
         Ok(())
@@ -288,6 +295,7 @@ impl CardInstanceCoordinator {
         } else {
             CardInstanceStage::OutcomeUnknown
         };
+        receipt.waiting_reason = None;
         receipt.failure = Some(CardInstanceFailure {
             code: code.into(),
             retry_safe: zero_input_proven,
@@ -309,6 +317,7 @@ impl CardInstanceCoordinator {
             return Err(CardInstanceError::InvalidTransition);
         }
         receipt.stage = CardInstanceStage::Cancelled;
+        receipt.waiting_reason = None;
         self.pending.retain(|key| key != id);
         self.record(id, "cancelled_before_input");
         Ok(())
@@ -334,8 +343,21 @@ impl CardInstanceCoordinator {
             if self.receipts.get(&id).is_some_and(|r| {
                 !r.stage.is_terminal() && r.stage != CardInstanceStage::OutcomeUnknown
             }) {
-                self.receipts.get_mut(&id).expect("receipt exists").stage =
-                    CardInstanceStage::Interrupted;
+                let receipt = self.receipts.get_mut(&id).expect("receipt exists");
+                let zero = matches!(
+                    receipt.stage,
+                    CardInstanceStage::Accepted | CardInstanceStage::WaitingInput
+                );
+                receipt.stage = if zero {
+                    CardInstanceStage::Interrupted
+                } else {
+                    CardInstanceStage::OutcomeUnknown
+                };
+                receipt.waiting_reason = None;
+                receipt.failure = Some(CardInstanceFailure {
+                    code: "runtime_stopped_no_replay".into(),
+                    retry_safe: zero,
+                });
                 self.record(&id, "runtime_stopped_no_replay");
             }
         }

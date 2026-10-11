@@ -20,6 +20,10 @@ pub use mobile_turn_store::{
     MobileTurnKey, MobileTurnOutcome, MobileTurnState, MobileTurnStore, RecordedMobileTurn,
 };
 pub mod background_agent_dispatch;
+mod background_workspace_operation;
+pub use background_workspace_operation::{
+    BackgroundWorkspaceOperationJournal, WorkspaceJournalStatus,
+};
 pub mod background_conversation_tail;
 pub mod canvas_store;
 pub mod database_paths;
@@ -43,6 +47,7 @@ pub use mobile_push_store::{
 pub mod mobile_command_store;
 mod thread_message_store;
 mod workspace_chat_store;
+mod workspace_operation_store;
 pub use mobile_access_store::{
     MobileAccessStore, MobileDeviceGrant, MobilePermission, MobileProjectAccess,
 };
@@ -58,6 +63,12 @@ pub use thread_message_store::{
     NewThreadMessage, StoredThreadMessage, ThreadMessageStore, ThreadReceipt,
 };
 pub use workspace_chat_store::{WorkspaceChatEvent, WorkspaceChatReceipt, WorkspaceChatStore};
+pub use workspace_operation_store::{
+    workspace_operation_fingerprint, NewWorkspaceOperation, StoredWorkspaceAssignment,
+    WorkspaceAssignmentKind, WorkspaceInputPhase, WorkspaceOperationAcceptance,
+    WorkspaceOperationAssignment, WorkspaceOperationAuthorization, WorkspaceOperationEvent,
+    WorkspaceOperationReceipt, WorkspaceOperationStore,
+};
 pub mod node_session_store;
 pub mod orchestration_authorization_store;
 pub mod orchestration_task_route_store;

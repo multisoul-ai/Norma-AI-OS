@@ -5,6 +5,8 @@ pub type StorageResult<T> = Result<T, StorageError>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum StorageError {
+    #[error("invalid workspace operation: {0}")]
+    InvalidWorkspaceOperation(String),
     #[error("invalid wallpaper reference")]
     InvalidWallpaperReference,
     #[error("invalid desktop workspace name: {0}")]

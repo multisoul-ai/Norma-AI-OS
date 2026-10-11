@@ -35,6 +35,7 @@ impl CardInstanceCoordinator {
         };
         let receipt = self.receipts.get_mut(id).expect("candidate exists");
         receipt.stage = CardInstanceStage::Running;
+        receipt.waiting_reason = None;
         receipt.bound_turn = Some(turn);
         self.record(id, "provider_turn_started");
         true
@@ -64,10 +65,10 @@ impl CardInstanceCoordinator {
             .find(|id| {
                 let r = &self.receipts[*id];
                 r.target == *target
-                    && matches!(
+                    && (matches!(
                         r.stage,
                         CardInstanceStage::Running | CardInstanceStage::OutcomeUnknown
-                    )
+                    ) || r.stage == stage && r.result.is_none() && result.is_some())
                     && r.bound_turn.as_ref() == Some(turn)
             })
             .cloned()
@@ -75,10 +76,21 @@ impl CardInstanceCoordinator {
             return false;
         };
         let receipt = self.receipts.get_mut(&id).expect("bound receipt exists");
-        receipt.stage = stage;
+        let enrichment = receipt.stage.is_terminal();
+        if !enrichment {
+            receipt.stage = stage;
+            receipt.waiting_reason = None;
+            receipt.failure = None;
+        }
         receipt.result = result;
-        receipt.failure = None;
-        self.record(&id, "provider_turn_terminal");
+        self.record(
+            &id,
+            if enrichment {
+                "provider_result_snapshot"
+            } else {
+                "provider_turn_terminal"
+            },
+        );
         true
     }
 }

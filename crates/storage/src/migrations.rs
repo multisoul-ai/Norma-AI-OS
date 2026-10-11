@@ -31,6 +31,7 @@ fn open_connection(path: &Path) -> StorageResult<Connection> {
 pub fn migrate_app_db(connection: &Connection) -> StorageResult<()> {
     crate::workspace_agent_role_store::migrate(connection)?;
     crate::workspace_chat_store::migrate(connection)?;
+    crate::workspace_operation_store::migrate(connection)?;
     crate::agent_creation_store::migrate(connection)?;
     crate::memory_access::journal::migrate(connection)?;
     crate::thread_message_store::migrate(connection)?;
