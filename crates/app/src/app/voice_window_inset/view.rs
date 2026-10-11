@@ -181,3 +181,7 @@ impl gpui::Render for VoiceWindowInsetView {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/desktop_voice_inset_tests.rs"]
+mod desktop_tests;
