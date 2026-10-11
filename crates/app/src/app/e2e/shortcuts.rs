@@ -11,6 +11,7 @@ pub(super) fn shortcut_command_name(command: ShortcutCommandId) -> &'static str 
         ShortcutCommandId::NextWorkspace => "next_workspace",
         ShortcutCommandId::PreviousProject => "previous_project",
         ShortcutCommandId::NextProject => "next_project",
+        ShortcutCommandId::ExpandSelectedProject => "expand_selected_project",
         ShortcutCommandId::ShowProjectOverview => "show_project_overview",
         ShortcutCommandId::ShowWorkspaceDirectory => "show_workspace_directory",
         ShortcutCommandId::NewTerminal => "new_terminal",

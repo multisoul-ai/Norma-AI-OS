@@ -22,6 +22,7 @@ impl MultisoulApp {
             | ShortcutCommandId::NextWorkspace
             | ShortcutCommandId::PreviousProject
             | ShortcutCommandId::NextProject
+            | ShortcutCommandId::ExpandSelectedProject
             | ShortcutCommandId::ShowProjectOverview
             | ShortcutCommandId::ShowWorkspaceDirectory => {
                 self.navigate_desktop_shortcut(command, window, cx);
