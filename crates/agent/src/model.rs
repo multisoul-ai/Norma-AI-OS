@@ -5,12 +5,20 @@ pub enum AgentInputSource {
     Voice,
     /// Only the local desktop Doubao session may use this source.
     DoubaoVoice,
+    /// Entry-neutral workspace discussion is read-only regardless of the text.
+    WorkspaceDiscussion,
     /// Workspace discussion cannot dispatch mutable desktop tools.
     MobileDiscussion,
     /// The phone has expressed an explicit execution intent.
     MobileExecution,
     #[default]
     Other,
+}
+
+impl AgentInputSource {
+    pub const fn is_workspace_discussion(self) -> bool {
+        matches!(self, Self::WorkspaceDiscussion | Self::MobileDiscussion)
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

@@ -28,10 +28,16 @@ impl RigToolContext {
             && self.base.input_source != crate::AgentInputSource::MobileExecution
     }
 
-    pub(crate) fn is_mobile_workspace(&self) -> bool {
+    pub(crate) fn is_workspace_discussion(&self) -> bool {
+        self.base.input_source.is_workspace_discussion()
+    }
+
+    pub(crate) fn is_workspace(&self) -> bool {
         matches!(
             self.base.input_source,
-            crate::AgentInputSource::MobileDiscussion | crate::AgentInputSource::MobileExecution
+            crate::AgentInputSource::WorkspaceDiscussion
+                | crate::AgentInputSource::MobileDiscussion
+                | crate::AgentInputSource::MobileExecution
         )
     }
 

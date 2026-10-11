@@ -13,6 +13,9 @@ pub(crate) async fn maybe_handle_direct_address(
     input: &str,
     roster: &[crate::AgentRosterEntry],
 ) -> Result<Option<String>, NormaSessionError> {
+    if context.input_source.is_workspace_discussion() {
+        return Ok(None);
+    }
     match parse_direct_address(input, roster) {
         DirectAddressIntent::NoSideEffect => Ok(None),
         DirectAddressIntent::RejectContextDependent { agents, reason, .. } => {

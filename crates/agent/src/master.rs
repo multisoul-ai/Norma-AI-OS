@@ -197,7 +197,7 @@ impl NormaSession {
         let cancellation = self.begin_turn();
         let turn_id = format!("{}:turn-{}", self.session_id, self.next_turn_id);
         self.next_turn_id = self.next_turn_id.saturating_add(1);
-        let preamble = self.memory_preamble(input).await?;
+        let preamble = self.memory_preamble(input, input_source).await?;
         let contextual_delete_targets = self
             .canvas
             .cards

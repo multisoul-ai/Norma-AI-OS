@@ -226,6 +226,27 @@ impl NormaToolRuntime {
         if context.cancellation.is_cancelled() {
             return Err(AdapterError::Cancelled);
         }
+        let command = parse_adapter_command(tool_name, arguments)?;
+        if context.input_source.is_workspace_discussion()
+            && !matches!(
+                command,
+                AdapterCommand::Memory(
+                    crate::MemoryCommand::List { .. }
+                        | crate::MemoryCommand::Search { .. }
+                        | crate::MemoryCommand::Read { .. }
+                ) | AdapterCommand::WorkspaceMemory { .. }
+                    | AdapterCommand::FindAgentTasks { .. }
+            )
+        {
+            return Err(AdapterError::Rejected(
+                "这条工作空间消息仅供讨论，不能修改任务、卡片或记忆".into(),
+            ));
+        }
+        if context.input_source.is_workspace_discussion() {
+            // Every read must reach the host's current authorization. Mutation receipts
+            // are neither readable via another tool name nor a cache of workspace facts.
+            return self.adapter.execute(command, context).await;
+        }
         if let Some(operation_id) = context.operation_id.as_deref() {
             if let Some(receipt) = self
                 .operation_receipts
@@ -238,19 +259,6 @@ impl NormaToolRuntime {
             }
         }
 
-        let command = parse_adapter_command(tool_name, arguments)?;
-        if context.input_source == crate::AgentInputSource::MobileDiscussion
-            && !matches!(
-                command,
-                AdapterCommand::Memory(_)
-                    | AdapterCommand::WorkspaceMemory { .. }
-                    | AdapterCommand::FindAgentTasks { .. }
-            )
-        {
-            return Err(AdapterError::Rejected(
-                "这条群聊消息仅供讨论，用户尚未要求执行".into(),
-            ));
-        }
         let delete_authorized = match &command {
             AdapterCommand::DeleteCanvasCard { node_id } => Some(has_explicit_delete_intent(
                 &context.user_input,

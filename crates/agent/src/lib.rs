@@ -24,6 +24,7 @@ mod reply_visibility;
 mod rig_tools;
 mod tool_policy;
 pub mod workspace_plan;
+mod workspace_planning;
 
 pub use norma::{workspace_dispatch, workspace_operation};
 pub use realtime_intent::realtime_command_authorized;
@@ -77,4 +78,8 @@ pub use protocol::{ProviderConfig, ProviderError, ProviderProtocol, RedactedProv
 pub use provider_catalog::{
     discover_provider_models, normalize_provider_models, validate_provider_model,
     ProviderCatalogError,
+};
+
+pub use workspace_planning::{
+    generate_workspace_task_plan, WorkspacePlannedTask, WorkspacePlanningError, WorkspaceTaskPlan,
 };
