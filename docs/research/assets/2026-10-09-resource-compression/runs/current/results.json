@@ -1,0 +1,3314 @@
+{
+  "environment": {
+    "time_utc": "2026-10-09T16:44:00.515191+00:00",
+    "platform": "macOS-27.0.1-arm64-arm-64bit",
+    "python": "3.9.6 (default, May 22 2026, 11:13:45) \n[Clang 21.0.0 (clang-2100.1.1.101)]",
+    "cpu": "Apple M1",
+    "memory_bytes": "8589934592",
+    "cpu_count": "8",
+    "git_revision": "2ae94d1bf811e894bdfc6e776c983bce43dc9468",
+    "git_status": "M ../../../../CONTEXT.md\n M ../../../../assets/AppIcon.icns\n M ../../../../assets/app-icon-macos.png\n M ../../../../assets/app-icon-source.png\n M ../../../../assets/dmg-background.png\n M ../../../../docs/references/packaging.md\n M ../../../../scripts/render-app-icon.sh\n M ../../../../scripts/render-dmg-background.sh\n M ../../../../scripts/test-packager-config.sh\n?? ../../../../assets/brand-v2/\n?? ../../../../docs/design-docs/2026-09-20-norma-command-rethink.md\n?? ../../../../docs/design-docs/2026-10-09-workspace-agent-task-dispatch.md\n?? ../../../../docs/design-docs/assets/norma-command/\n?? ../../../../docs/design-docs/assets/workspace-agent-dispatch/\n?? ../../../../docs/exec-plans/2026-10-09-lossless-resource-compression-goal.md\n?? ../../../../docs/prototypes/norma-wheel-prototype.html\n?? ../../../../docs/prototypes/norma-wheel-prototype/\n?? ../../../../docs/prototypes/norma-workbench-prototype.html\n?? ../../../../docs/prototypes/norma-workbench-prototype/\n?? ../../../../docs/research/2026-10-09-lossless-resource-compression-report.md\n?? ../../../../docs/research/2026-10-09-moshi-desktop-disconnected-reconnect.md\n?? ../../../../docs/research/assets/\n?? ../../../../scripts/benchmark-resource-compression-dmg.py\n?? ../../../../scripts/benchmark-resource-compression.py\n?? ../../../../scripts/support/\n?? ../../../../scripts/test-app-icon-rendering.sh\n?? ../../../../scripts/test-resource-compression-benchmark.py\n?? ../../../../scripts/test-resource-compression-dmg.py",
+    "tools": {
+      "7zz": {
+        "path": "/opt/homebrew/bin/7zz",
+        "version": "7-Zip (z) 26.04 (arm64) : Copyright (c) 1999-2026 Igor Pavlov : 2026-10-05\n 64-bit arm_v:8.5-A locale=C.UTF-8 Threads:8 OPEN_MAX:1048575, ASM\n\nUsage: 7zz <command> [<switches>...] <archive_name> [<file_names>...] [@listfile]\n\n<Commands>\n  a : Add files to archive\n  b : Benchmark\n  d : Delete files from archive\n  e : Extract files from archive (without using directory names)\n  h : Calculate hash values for files\n  i : Show information about supported formats\n  l : List contents of archive\n  rn : Rename files in archive\n  t : Test integrity of archive\n  u : Update files to archive\n  x : eXtract files with full paths\n\n<Switches>\n  -- : Stop switches and @listfile parsing\n  -ai[r[-|0]][m[-|2]][w[-]]{@listfile|!wildcard} : Include archives\n  -ax[r[-|0]][m[-|2]][w[-]]{@listfile|!wildcard} : eXclude archives\n  -ao{a|s|t|u} : set Overwrite mode\n  -an : disable archive_name field\n  -bb[0-3] : set output log level\n  -bd : disable progress indicator\n  -bs{o|e|p}{0|1|2} : set output stream for output/error/progress line\n  -bt : show execution time statistics\n  -i[r[-|0]][m[-|2]][w[-]]{@listfile|!wildcard} : Include filenames\n  -m{Parameters} : set compression Method\n    -mmt[N] : set number of CPU threads\n    -mx[N] : set compression level: -mx1 (fastest) ... -mx9 (ultra)\n  -o{Directory} : set Output directory\n  -p{Password} : set Password\n  -r[-|0] : Recurse subdirectories for name search\n  -sa{a|e|s} : set Archive name mode\n  -scc{UTF-8|WIN|DOS} : set charset for console input/output\n  -scs{UTF-8|UTF-16LE|UTF-16BE|WIN|DOS|{id}} : set charset for list files\n  -scrc[CRC32|CRC64|SHA256|SHA1|XXH64|BLAKE2SP|*] : set hash function for x, e, h commands\n  -sdel : delete files after compression\n  -seml[.] : send archive by email\n  -sfx[{name}] : Create SFX archive\n  -si[{name}] : read data from stdin\n  -slp : set Large Pages mode\n  -slt : show technical information for l (List) command\n  -snh : store hard links as links\n  -snl : store symbolic links as links\n  -sni : store NT security"
+      },
+      "brotli": {
+        "path": "/opt/homebrew/bin/brotli",
+        "version": "brotli 1.2.0"
+      },
+      "bzip2": {
+        "path": "/usr/bin/bzip2",
+        "version": "bzip2, a block-sorting file compressor.  Version 1.0.8, 13-Jul-2019.\n\n   usage: bzip2 [flags and input files in any order]\n\n   -h --help           print this message\n   -d --decompress     force decompression\n   -z --compress       force compression\n   -k --keep           keep (don't delete) input files\n   -f --force          overwrite existing output files\n   -t --test           test compressed file integrity\n   -c --stdout         output to standard out\n   -q --quiet          suppress noncritical error messages\n   -v --verbose        be verbose (a 2nd -v gives more)\n   -L --license        display software version & license\n   -V --version        display software version & license\n   -s --small          use less memory (at most 2500k)\n   -1 .. -9            set block size to 100k .. 900k\n   --fast              alias for -1\n   --best              alias for -9\n\n   If invoked as `bzip2', default action is to compress.\n              as `bunzip2',  default action is to decompress.\n              as `bzcat', default action is to decompress to stdout.\n\n   If no file names are given, bzip2 compresses or decompresses\n   from standard input to standard output.  You can combine\n   short flags, so `-v -4' means the same as -v4 or -4v, &c."
+      },
+      "cp": {
+        "path": "/bin/cp",
+        "version": "usage: cp [-R [-H | -L | -P]] [-fi | -n] [-aclpSsvXx] source_file target_file\n       cp [-R [-H | -L | -P]] [-fi | -n] [-aclpSsvXx] source_file ... target_directory"
+      },
+      "gzip": {
+        "path": "/usr/bin/gzip",
+        "version": "Apple gzip 487.0.1"
+      },
+      "xz": {
+        "path": "/opt/homebrew/bin/xz",
+        "version": "xz (XZ Utils) 5.8.3\nliblzma 5.8.3"
+      },
+      "zpaq": {
+        "path": "/opt/homebrew/bin/zpaq",
+        "version": "zpaq v7.15 journaling archiver, compiled Aug 17 2016\nUsage: zpaq command archive[.zpaq] files... -options...\nFiles... may be directory trees. Default is the whole archive.\nUse * or ???? in archive name for multi-part or \"\" for empty.\nCommands:\n   a  add         Append files to archive if dates have changed.\n   x  extract     Extract most recent versions of files.\n   l  list        List or compare external files to archive by dates.\nOptions:\n  -all [N]        Extract/list versions in N [4] digit directories.\n  -f -force       Add: append files if contents have changed.\n                  Extract: overwrite existing output files.\n                  List: compare file contents instead of dates.\n  -index F        Extract: create index F for archive.\n                  Add: create suffix for archive indexed by F, update F.\n  -key X          Create or access encrypted archive with password X.\n  -mN  -method N  Compress level N (0..5 = faster..better, default 1).\n  -noattributes   Ignore/don't save file attributes or permissions.\n  -not files...   Exclude. * and ? match any string or char.\n       =[+-#^?]   List: exclude by comparison result.\n  -only files...  Include only matches (default: *).\n  -repack F [X]   Extract to new archive F with key X (default: none).\n  -sN -summary N  List: show top N sorted by size. -1: show frag IDs.\n                  Add/Extract: if N > 0 show brief progress.\n  -test           Extract: verify but do not write files.\n  -tN -threads N  Use N threads (default: 0 = 8 cores).\n  -to out...      Rename files... to out... or all to out/all.\n  -until N        Roll back archive to N'th update or -N from end.\n  -until 2026-10-09 16:44:00  Set date, roll back (UT, default time: 235959)."
+      },
+      "zstd": {
+        "path": "/opt/homebrew/bin/zstd",
+        "version": "*** Zstandard CLI (64-bit) v1.5.7, by Yann Collet ***"
+      }
+    }
+  },
+  "manifest": [
+    {
+      "path": "crates/app/assets/feature-guide/README.md",
+      "bytes": 1317,
+      "sha256": "d71c0349bfa78fc624b20a468c2f232e4a220bb470188fc61409f517a90c29fd"
+    },
+    {
+      "path": "crates/app/assets/feature-guide/demo-agent-collaboration.mp4",
+      "bytes": 5370854,
+      "sha256": "ba2bc6caf719b28e7abe4edc5c00d36a4274d544ff14e68e96f7d11c7fd07e57"
+    },
+    {
+      "path": "crates/app/assets/feature-guide/demo-agent-collaboration.webp",
+      "bytes": 156990,
+      "sha256": "992ddc2c9e0b574f1d65b4d64f99031304ee3fee1cac62fb81422922fd4be35d"
+    },
+    {
+      "path": "crates/app/assets/feature-guide/demo-agent-notifications.mp4",
+      "bytes": 1996272,
+      "sha256": "b634f931877b8fe31a0fe5071642094623d15feb09b31e1bf3d13ae3d13e1ae7"
+    },
+    {
+      "path": "crates/app/assets/feature-guide/demo-agent-notifications.webp",
+      "bytes": 173272,
+      "sha256": "fbe406c6620a26b8d44b4b96f1a814eb28c433a9294187d71fc5b8026367751d"
+    },
+    {
+      "path": "crates/app/assets/feature-guide/demo-layout-command-m.mp4",
+      "bytes": 1641819,
+      "sha256": "ac0c5cfd59b7af969ccaddda37a7b35dea6e68d2ac79d2c969606f3f12d4f3eb"
+    },
+    {
+      "path": "crates/app/assets/feature-guide/demo-layout-command-m.webp",
+      "bytes": 81096,
+      "sha256": "8958d10468f222a17339adf89d55dbb19eec0661ec958d92921b684f3a9e1be0"
+    },
+    {
+      "path": "crates/app/assets/feature-guide/demo-live-node-shortcuts.mp4",
+      "bytes": 2112348,
+      "sha256": "735eb71edcc2f645fb5636be9b35c606980c88376a4a0d07521bd671d4d6b1ac"
+    },
+    {
+      "path": "crates/app/assets/feature-guide/demo-live-node-shortcuts.webp",
+      "bytes": 157970,
+      "sha256": "e0a728bc112a355b40ac375e6453d9a8a6984fed8923dbdbe209253246d275e1"
+    },
+    {
+      "path": "crates/app/assets/feature-guide/demo-voice-command.mp4",
+      "bytes": 10936433,
+      "sha256": "2e4512c2576cb6ea608b17066b85f7b66a5c94f26e0763129f4cb4695e678f04"
+    },
+    {
+      "path": "crates/app/assets/feature-guide/demo-voice-command.webp",
+      "bytes": 193862,
+      "sha256": "bb4d5620ac83a183d3a9b64952f7190b3763af0b66c584ab00b517002bc259e5"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/1331865.webp",
+      "bytes": 3478288,
+      "sha256": "eb54e390f1b46efd47d4d3f370a2e93172368de0ec1a016964b0fb880a5de8e3"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/1350954.webp",
+      "bytes": 5139970,
+      "sha256": "c6fc2f58d349bee9ffa6699c596db5196b87e9a5e44d080898a108c7408578db"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/1358524.webp",
+      "bytes": 1732514,
+      "sha256": "9c99500efc79530802aa4bb98af60533b232b6035ace5d1ca9f4052e7c7c877c"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/1403512.mp4",
+      "bytes": 8650397,
+      "sha256": "3a5b89c7f19ee6c63d66d0642462617304cb97fca653af3d56cbedebb9758270"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/1404942.mp4",
+      "bytes": 30393068,
+      "sha256": "d07f32caefce35141a25baca81b5505ba612d797b0d82546a8b81658ed4456dc"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/1406443.mp4",
+      "bytes": 30692231,
+      "sha256": "583eaaf83235682507902bd40d0cbc5d695321d3fe22d422f66b86c2b203e3c1"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/1406489.mp4",
+      "bytes": 19802073,
+      "sha256": "e9f236dbc476d073b575ea2049dc6f746979eab57d013741cb64bbec3bec1af0"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/1407174.mp4",
+      "bytes": 9453907,
+      "sha256": "27405254f8039c138add0fadb7a1269a2fcea32feda231a1f1b3d9fba33c9abc"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/1411385.webp",
+      "bytes": 1922586,
+      "sha256": "f05289db7f99037c731fda8d729cb622c2fb4b771757ca8217793d106206bf01"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/1411492.webp",
+      "bytes": 2461410,
+      "sha256": "8039a30309c1bb7517d9c2cec1c3b1b74aad040aef9a424ee993d6161c668432"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/215824.gif",
+      "bytes": 387460,
+      "sha256": "ee63081b8bf50c6153c63135992f41327b47a8666e9837b8af7c3f79166be10a"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/220240.gif",
+      "bytes": 14344748,
+      "sha256": "73b4a0c7c3bed95ef29fc41bef54f3ee22562df0b0b4b426f81e8a83836b0c8a"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/379352.jpg",
+      "bytes": 3715893,
+      "sha256": "74e188096c10e7b501e3288bb5e167f63837fd2ea0dc9fec1eb911f50d1ba010"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/718916.jpg",
+      "bytes": 1156841,
+      "sha256": "02bb7ef2de2dcc9aeacdadc23e58a3fae85e271d3bfc9f61b61296626efdb796"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/74174.webp",
+      "bytes": 274948,
+      "sha256": "4c2119330d5d73172e765305f684af564e15fafda36e50e7c3c07fffcd8f7b44"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/74176.jpg",
+      "bytes": 347492,
+      "sha256": "2e7d7c7909d1128d35e9d52ff3f607a0bc3895bba4f57d252830620e884c736a"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/desktop-earth.png",
+      "bytes": 2172915,
+      "sha256": "816fe65bbda8e442d24616d36516a8fc6df8f5b26114180789d2276176d7b09f"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/home.mp4",
+      "bytes": 5152500,
+      "sha256": "ad2a3810dc43c8a536dcf9b8a64cfb0904677280504aef26fa8d3dddd274b55d"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/license-gate.mp4",
+      "bytes": 3211049,
+      "sha256": "fb5cbbe7bcffb63eff9e0909c65ccde49dd07bd5aa75ffbaaee7a2d75a21f090"
+    }
+  ],
+  "configuration": {
+    "algorithms": [
+      "store",
+      "gzip-9",
+      "bzip2-9",
+      "xz-9e",
+      "zstd-3",
+      "zstd-19",
+      "zstd-22",
+      "brotli-6",
+      "brotli-11",
+      "7z-lzma2-9",
+      "7z-ppmd-9",
+      "zpaq-5"
+    ],
+    "repeats": 3,
+    "timeout_seconds": 300.0,
+    "threads": 1
+  },
+  "datasets": {
+    "images": {
+      "file_count": 17,
+      "source_bytes": 37898255,
+      "tar_bytes": 37918720,
+      "tar_sha256": "4b809aec9fc7bd2ca3b4f76e7d7493eb849d74992788c57482d3cc50ba6494ca"
+    },
+    "resources": {
+      "file_count": 30,
+      "source_bytes": 167312523,
+      "tar_bytes": 167342080,
+      "tar_sha256": "038a63660ef13a8f4d1ea28fd35c4842b75e12f6ea1e7295e926d7c2db66abfc"
+    }
+  },
+  "results": [
+    {
+      "algorithm": "store",
+      "dataset": "images",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.041540042000000055,
+        "max_rss_bytes": 2113536,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "/bin/cp",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images/payload.tar",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/store-8bnp2mt4/compressed.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/store/1/compress.log"
+      },
+      "compressed_bytes": 37918720,
+      "compressed_sha256": "4b809aec9fc7bd2ca3b4f76e7d7493eb849d74992788c57482d3cc50ba6494ca",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.04049470799999999,
+        "max_rss_bytes": 2113536,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "/bin/cp",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/store-8bnp2mt4/compressed.tar",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/store-8bnp2mt4/restored/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/store/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.1034655000000001
+    },
+    {
+      "algorithm": "gzip-9",
+      "dataset": "images",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.815373375,
+        "max_rss_bytes": 1507328,
+        "user_seconds": 0.77,
+        "system_seconds": 0.01,
+        "argv": [
+          "/usr/bin/gzip",
+          "-9",
+          "-n",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/gzip-9/1/compress.log"
+      },
+      "compressed_bytes": 37031307,
+      "compressed_sha256": "ad847fe70d3e137b5e8387fda98b77a9a48ef433e1215c008ca6bf8b9065bede",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.08339566599999992,
+        "max_rss_bytes": 1261568,
+        "user_seconds": 0.04,
+        "system_seconds": 0.01,
+        "argv": [
+          "/usr/bin/gzip",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/gzip-9-ldkz2g3g/compressed.gz"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/gzip-9/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.14164900000000014
+    },
+    {
+      "algorithm": "bzip2-9",
+      "dataset": "images",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 2.9973975829999997,
+        "max_rss_bytes": 7815168,
+        "user_seconds": 2.9,
+        "system_seconds": 0.04,
+        "argv": [
+          "/usr/bin/bzip2",
+          "-9",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/bzip2-9/1/compress.log"
+      },
+      "compressed_bytes": 37066252,
+      "compressed_sha256": "a5de24d4e311a80a2556969c1cec433d6ef5639c3b7f1a953356e0a294d7d137",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 1.5061131249999997,
+        "max_rss_bytes": 4800512,
+        "user_seconds": 1.38,
+        "system_seconds": 0.05,
+        "argv": [
+          "/usr/bin/bzip2",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/bzip2-9-63zbz0zn/compressed.bz2"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/bzip2-9/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 1.5657922080000004
+    },
+    {
+      "algorithm": "xz-9e",
+      "dataset": "images",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 10.189269499999998,
+        "max_rss_bytes": 411041792,
+        "user_seconds": 9.98,
+        "system_seconds": 0.16,
+        "argv": [
+          "/opt/homebrew/bin/xz",
+          "-9e",
+          "-T1",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/xz-9e/1/compress.log"
+      },
+      "compressed_bytes": 36888124,
+      "compressed_sha256": "cf2f526781f4620e3830aca84fccb765892d6620029cce748dd46bc1de09499d",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.7686860419999988,
+        "max_rss_bytes": 39960576,
+        "user_seconds": 0.68,
+        "system_seconds": 0.03,
+        "argv": [
+          "/opt/homebrew/bin/xz",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/xz-9e-k0ftzost/compressed.xz"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/xz-9e/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.827608957999999
+    },
+    {
+      "algorithm": "zstd-3",
+      "dataset": "images",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.08027087500000007,
+        "max_rss_bytes": 8192000,
+        "user_seconds": 0.04,
+        "system_seconds": 0.01,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "--single-thread",
+          "-q",
+          "-3",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/zstd-3/1/compress.log"
+      },
+      "compressed_bytes": 37146562,
+      "compressed_sha256": "e9aaf954ed868a520d6ff2b4d27679a0d9196c31a2158c62e301e2726da39666",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.03838012500000332,
+        "max_rss_bytes": 7438336,
+        "user_seconds": 0.0,
+        "system_seconds": 0.01,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "-q",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/zstd-3-jh6udh2r/compressed.zst"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/zstd-3/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.09711462499999968
+    },
+    {
+      "algorithm": "zstd-19",
+      "dataset": "images",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 5.556126457999998,
+        "max_rss_bytes": 97107968,
+        "user_seconds": 5.45,
+        "system_seconds": 0.06,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "--single-thread",
+          "-q",
+          "-19",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/zstd-19/1/compress.log"
+      },
+      "compressed_bytes": 36834042,
+      "compressed_sha256": "d64cc1b3d64232abbeafaa2f301ad5e101499689d49c62805b07332dc6692855",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.04870391699999743,
+        "max_rss_bytes": 13746176,
+        "user_seconds": 0.02,
+        "system_seconds": 0.01,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "-q",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/zstd-19-tzxs2ozm/compressed.zst"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/zstd-19/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.10747470800000158
+    },
+    {
+      "algorithm": "zstd-22",
+      "dataset": "images",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 3.810650542000001,
+        "max_rss_bytes": 712097792,
+        "user_seconds": 3.61,
+        "system_seconds": 0.14,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "--ultra",
+          "--single-thread",
+          "-q",
+          "-22",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/zstd-22/1/compress.log"
+      },
+      "compressed_bytes": 36833562,
+      "compressed_sha256": "93f046365a855c787260f221e6294ea98880090a61ec829c76e7d1babb9caf72",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.047596916999999905,
+        "max_rss_bytes": 43024384,
+        "user_seconds": 0.02,
+        "system_seconds": 0.01,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "-q",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/zstd-22-unl7coza/compressed.zst"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/zstd-22/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.10637383400000289
+    },
+    {
+      "algorithm": "brotli-6",
+      "dataset": "images",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.25543474999999916,
+        "max_rss_bytes": 51871744,
+        "user_seconds": 0.22,
+        "system_seconds": 0.01,
+        "argv": [
+          "/opt/homebrew/bin/brotli",
+          "-q",
+          "6",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/brotli-6/1/compress.log"
+      },
+      "compressed_bytes": 36856478,
+      "compressed_sha256": "f36f580acce76f6d8507c6266c9858243c2f64616d07e56b5253b6da44433f11",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.1360543750000005,
+        "max_rss_bytes": 31506432,
+        "user_seconds": 0.09,
+        "system_seconds": 0.01,
+        "argv": [
+          "/opt/homebrew/bin/brotli",
+          "-d",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/brotli-6-bahhv4z1/compressed.br"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/brotli-6/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.19450233299999908
+    },
+    {
+      "algorithm": "brotli-11",
+      "dataset": "images",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 76.65801441699999,
+        "max_rss_bytes": 245104640,
+        "user_seconds": 76.16,
+        "system_seconds": 0.3,
+        "argv": [
+          "/opt/homebrew/bin/brotli",
+          "-q",
+          "11",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/brotli-11/1/compress.log"
+      },
+      "compressed_bytes": 36695582,
+      "compressed_sha256": "59117617e6eb4fbcc1f2ed0cac4d11e03f193a9fd826f35e0e36fd849cc8eab1",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.24757925000000114,
+        "max_rss_bytes": 29622272,
+        "user_seconds": 0.17,
+        "system_seconds": 0.01,
+        "argv": [
+          "/opt/homebrew/bin/brotli",
+          "-d",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/brotli-11-1vzf48mv/compressed.br"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/brotli-11/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.30746324999999786
+    },
+    {
+      "algorithm": "7z-lzma2-9",
+      "dataset": "images",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 8.042197124999987,
+        "max_rss_bytes": 412336128,
+        "user_seconds": 7.86,
+        "system_seconds": 0.13,
+        "argv": [
+          "/opt/homebrew/bin/7zz",
+          "a",
+          "-t7z",
+          "-m0=LZMA2",
+          "-mx=9",
+          "-mmt=1",
+          "-y",
+          "-bd",
+          "-bb0",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/7z-lzma2-9-oqm5g4t5/compressed.7z",
+          "payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/7z-lzma2-9/1/compress.log"
+      },
+      "compressed_bytes": 36892261,
+      "compressed_sha256": "891a8ae3c0edd8a2a007016f6b8f433e322216387c395b528a17a81502b1576f",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.5423751250000066,
+        "max_rss_bytes": 80691200,
+        "user_seconds": 0.48,
+        "system_seconds": 0.01,
+        "argv": [
+          "/opt/homebrew/bin/7zz",
+          "x",
+          "-so",
+          "-y",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/7z-lzma2-9-oqm5g4t5/compressed.7z"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/7z-lzma2-9/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.602544666
+    },
+    {
+      "algorithm": "7z-ppmd-9",
+      "dataset": "images",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 18.320339667,
+        "max_rss_bytes": 273858560,
+        "user_seconds": 18.15,
+        "system_seconds": 0.11,
+        "argv": [
+          "/opt/homebrew/bin/7zz",
+          "a",
+          "-t7z",
+          "-m0=PPMd",
+          "-mx=9",
+          "-mmt=1",
+          "-y",
+          "-bd",
+          "-bb0",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/7z-ppmd-9-d3kpvtal/compressed.7z",
+          "payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/7z-ppmd-9/1/compress.log"
+      },
+      "compressed_bytes": 37268394,
+      "compressed_sha256": "1e35666f8923039216d934c3ad3afb2dd996a882425ce4d34222930c2ec80374",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 19.638962709000026,
+        "max_rss_bytes": 272924672,
+        "user_seconds": 19.43,
+        "system_seconds": 0.14,
+        "argv": [
+          "/opt/homebrew/bin/7zz",
+          "x",
+          "-so",
+          "-y",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/7z-ppmd-9-d3kpvtal/compressed.7z"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/7z-ppmd-9/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 19.697886832999984
+    },
+    {
+      "algorithm": "zpaq-5",
+      "dataset": "images",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 132.41768429200002,
+        "max_rss_bytes": 805748736,
+        "user_seconds": 130.85,
+        "system_seconds": 1.09,
+        "argv": [
+          "/opt/homebrew/bin/zpaq",
+          "add",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/zpaq-5-xtekmvpp/compressed.zpaq",
+          "payload.tar",
+          "-method",
+          "5",
+          "-threads",
+          "1"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/zpaq-5/1/compress.log"
+      },
+      "compressed_bytes": 36402344,
+      "compressed_sha256": "a6830873b39847c920d2e77ff95dbc4b666111988a05f57ea027e43ac4202095",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 136.77112766699997,
+        "max_rss_bytes": 805748736,
+        "user_seconds": 135.29,
+        "system_seconds": 0.92,
+        "argv": [
+          "/opt/homebrew/bin/zpaq",
+          "extract",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/zpaq-5-xtekmvpp/compressed.zpaq",
+          "-to",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/zpaq-5-xtekmvpp/restored",
+          "-threads",
+          "1"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/zpaq-5/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 136.832823959
+    },
+    {
+      "algorithm": "store",
+      "dataset": "resources",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.1907052500000077,
+        "max_rss_bytes": 2113536,
+        "user_seconds": 0.0,
+        "system_seconds": 0.01,
+        "argv": [
+          "/bin/cp",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources/payload.tar",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/store-0o10crge/compressed.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/store/1/compress.log"
+      },
+      "compressed_bytes": 167342080,
+      "compressed_sha256": "038a63660ef13a8f4d1ea28fd35c4842b75e12f6ea1e7295e926d7c2db66abfc",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.08517316699999355,
+        "max_rss_bytes": 2113536,
+        "user_seconds": 0.0,
+        "system_seconds": 0.01,
+        "argv": [
+          "/bin/cp",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/store-0o10crge/compressed.tar",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/store-0o10crge/restored/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/store/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.3484161659999927
+    },
+    {
+      "algorithm": "gzip-9",
+      "dataset": "resources",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 3.124769334000007,
+        "max_rss_bytes": 1507328,
+        "user_seconds": 3.02,
+        "system_seconds": 0.05,
+        "argv": [
+          "/usr/bin/gzip",
+          "-9",
+          "-n",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/gzip-9/1/compress.log"
+      },
+      "compressed_bytes": 166360668,
+      "compressed_sha256": "c37c69236c20df08fb2628e2ce2146b1a128f1425c042483b1d6a4c9e69ce10e",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.13885808300000235,
+        "max_rss_bytes": 1261568,
+        "user_seconds": 0.06,
+        "system_seconds": 0.04,
+        "argv": [
+          "/usr/bin/gzip",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/gzip-9-0vxp0cpk/compressed.gz"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/gzip-9/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.388153917000011
+    },
+    {
+      "algorithm": "bzip2-9",
+      "dataset": "resources",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 13.622054874999947,
+        "max_rss_bytes": 7815168,
+        "user_seconds": 13.39,
+        "system_seconds": 0.19,
+        "argv": [
+          "/usr/bin/bzip2",
+          "-9",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/bzip2-9/1/compress.log"
+      },
+      "compressed_bytes": 166960408,
+      "compressed_sha256": "efa50db8710933216301f84c3ba7c516db928c783b9b6e3b250e260de8bb1887",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 6.515403165999999,
+        "max_rss_bytes": 4800512,
+        "user_seconds": 6.26,
+        "system_seconds": 0.2,
+        "argv": [
+          "/usr/bin/bzip2",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/bzip2-9-bhkeg8oo/compressed.bz2"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/bzip2-9/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 6.764627292
+    },
+    {
+      "algorithm": "xz-9e",
+      "dataset": "resources",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 70.57297733299998,
+        "max_rss_bytes": 707182592,
+        "user_seconds": 69.76,
+        "system_seconds": 0.67,
+        "argv": [
+          "/opt/homebrew/bin/xz",
+          "-9e",
+          "-T1",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/xz-9e/1/compress.log"
+      },
+      "compressed_bytes": 166173008,
+      "compressed_sha256": "b68a5aa2de1a3028737cda86f31e01771b736f4521573136055d668fa62a3a3d",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 1.1964037090000375,
+        "max_rss_bytes": 69156864,
+        "user_seconds": 0.94,
+        "system_seconds": 0.15,
+        "argv": [
+          "/opt/homebrew/bin/xz",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/xz-9e-mwus548h/compressed.xz"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/xz-9e/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 1.4507099579999476
+    },
+    {
+      "algorithm": "zstd-3",
+      "dataset": "resources",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.1386318749999873,
+        "max_rss_bytes": 8192000,
+        "user_seconds": 0.11,
+        "system_seconds": 0.06,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "--single-thread",
+          "-q",
+          "-3",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/zstd-3/1/compress.log"
+      },
+      "compressed_bytes": 166492331,
+      "compressed_sha256": "b5441947223b14e54529c5451261761a3ba0532c2a5538cfab9f7f98e37998b7",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.08510937500000182,
+        "max_rss_bytes": 7421952,
+        "user_seconds": 0.02,
+        "system_seconds": 0.05,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "-q",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/zstd-3-vbho71hr/compressed.zst"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/zstd-3/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.33663829099998566
+    },
+    {
+      "algorithm": "zstd-19",
+      "dataset": "resources",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 25.202717666000012,
+        "max_rss_bytes": 97107968,
+        "user_seconds": 25.05,
+        "system_seconds": 0.23,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "--single-thread",
+          "-q",
+          "-19",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/zstd-19/1/compress.log"
+      },
+      "compressed_bytes": 166097286,
+      "compressed_sha256": "14f57742f3e4274bbda5bcf453242f835b5dd5321b37effa453e0353e31d271c",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.0847435000000587,
+        "max_rss_bytes": 13762560,
+        "user_seconds": 0.04,
+        "system_seconds": 0.07,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "-q",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/zstd-19-8ro6kqi8/compressed.zst"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/zstd-19/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.34065895799994905
+    },
+    {
+      "algorithm": "zstd-22",
+      "dataset": "resources",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 31.998503166999967,
+        "max_rss_bytes": 876838912,
+        "user_seconds": 31.49,
+        "system_seconds": 0.48,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "--ultra",
+          "--single-thread",
+          "-q",
+          "-22",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/zstd-22/1/compress.log"
+      },
+      "compressed_bytes": 166091741,
+      "compressed_sha256": "4c41a9e75651c0db2a627f77652c9ed3334ffa7480ee3236b867901a57658f4d",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.09088274999999157,
+        "max_rss_bytes": 139476992,
+        "user_seconds": 0.04,
+        "system_seconds": 0.06,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "-q",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/zstd-22-k6ed9ww_/compressed.zst"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/zstd-22/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.3402280000000246
+    },
+    {
+      "algorithm": "brotli-6",
+      "dataset": "resources",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.5499861670000428,
+        "max_rss_bytes": 57720832,
+        "user_seconds": 0.45,
+        "system_seconds": 0.04,
+        "argv": [
+          "/opt/homebrew/bin/brotli",
+          "-q",
+          "6",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/brotli-6/1/compress.log"
+      },
+      "compressed_bytes": 166246011,
+      "compressed_sha256": "0e84132aa0a0332bdc50f84eab09db1237af516438555613d5c538877dcf68e1",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.20061325000006036,
+        "max_rss_bytes": 28835840,
+        "user_seconds": 0.11,
+        "system_seconds": 0.03,
+        "argv": [
+          "/opt/homebrew/bin/brotli",
+          "-d",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/brotli-6-aensu8qj/compressed.br"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/brotli-6/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.4516557910000074
+    },
+    {
+      "algorithm": "brotli-11",
+      "dataset": "resources",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 260.04350554200005,
+        "max_rss_bytes": 250888192,
+        "user_seconds": 258.54,
+        "system_seconds": 0.95,
+        "argv": [
+          "/opt/homebrew/bin/brotli",
+          "-q",
+          "11",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/brotli-11/1/compress.log"
+      },
+      "compressed_bytes": 166072291,
+      "compressed_sha256": "004f8f11a4cfbd29b7ffecd233d257ff4ebcd1e77580da12f952c3f344a46a7e",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.3139324999999644,
+        "max_rss_bytes": 29671424,
+        "user_seconds": 0.21,
+        "system_seconds": 0.03,
+        "argv": [
+          "/opt/homebrew/bin/brotli",
+          "-d",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/brotli-11-m5noo_qx/compressed.br"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/brotli-11/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.5685045000000173
+    },
+    {
+      "algorithm": "7z-lzma2-9",
+      "dataset": "resources",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 55.023974209000016,
+        "max_rss_bytes": 1740849152,
+        "user_seconds": 40.58,
+        "system_seconds": 11.24,
+        "argv": [
+          "/opt/homebrew/bin/7zz",
+          "a",
+          "-t7z",
+          "-m0=LZMA2",
+          "-mx=9",
+          "-mmt=1",
+          "-y",
+          "-bd",
+          "-bb0",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/7z-lzma2-9-vgsgh8_b/compressed.7z",
+          "payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/7z-lzma2-9/1/compress.log"
+      },
+      "compressed_bytes": 166172180,
+      "compressed_sha256": "db3527e8ba0fcba18689a1294c3374d2ce53c90e2d733eb34e3ef5f1046bd131",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.6434715829999504,
+        "max_rss_bytes": 347996160,
+        "user_seconds": 0.54,
+        "system_seconds": 0.05,
+        "argv": [
+          "/opt/homebrew/bin/7zz",
+          "x",
+          "-so",
+          "-y",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/7z-lzma2-9-vgsgh8_b/compressed.7z"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/7z-lzma2-9/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.9025947080000378
+    },
+    {
+      "algorithm": "7z-ppmd-9",
+      "dataset": "resources",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 121.933944666,
+        "max_rss_bytes": 272777216,
+        "user_seconds": 120.47,
+        "system_seconds": 0.56,
+        "argv": [
+          "/opt/homebrew/bin/7zz",
+          "a",
+          "-t7z",
+          "-m0=PPMd",
+          "-mx=9",
+          "-mmt=1",
+          "-y",
+          "-bd",
+          "-bb0",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/7z-ppmd-9-01zc3qyo/compressed.7z",
+          "payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/7z-ppmd-9/1/compress.log"
+      },
+      "compressed_bytes": 169175545,
+      "compressed_sha256": "688bf36f041e19acada7f268f30db7fcf96ab625079cff0b240d0b850ca91ff3",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 126.7526374580001,
+        "max_rss_bytes": 272875520,
+        "user_seconds": 125.61,
+        "system_seconds": 0.64,
+        "argv": [
+          "/opt/homebrew/bin/7zz",
+          "x",
+          "-so",
+          "-y",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/7z-ppmd-9-01zc3qyo/compressed.7z"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/7z-ppmd-9/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 127.02401041699989
+    },
+    {
+      "algorithm": "zpaq-5",
+      "dataset": "resources",
+      "iteration": 1,
+      "status": "timeout",
+      "verified_files": 0,
+      "compress": {
+        "status": "timeout",
+        "exit_code": -9,
+        "seconds": 300.007184542,
+        "max_rss_bytes": null,
+        "user_seconds": null,
+        "system_seconds": null,
+        "argv": [
+          "/opt/homebrew/bin/zpaq",
+          "add",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/zpaq-5-56suc755/compressed.zpaq",
+          "payload.tar",
+          "-method",
+          "5",
+          "-threads",
+          "1"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/zpaq-5/1/compress.log"
+      },
+      "reason": "压缩未完成"
+    },
+    {
+      "algorithm": "gzip-9",
+      "dataset": "images",
+      "iteration": 2,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.8116581249998944,
+        "max_rss_bytes": 1507328,
+        "user_seconds": 0.77,
+        "system_seconds": 0.01,
+        "argv": [
+          "/usr/bin/gzip",
+          "-9",
+          "-n",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/gzip-9/2/compress.log"
+      },
+      "compressed_bytes": 37031307,
+      "compressed_sha256": "ad847fe70d3e137b5e8387fda98b77a9a48ef433e1215c008ca6bf8b9065bede",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.08432791700010966,
+        "max_rss_bytes": 1261568,
+        "user_seconds": 0.04,
+        "system_seconds": 0.01,
+        "argv": [
+          "/usr/bin/gzip",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/gzip-9-6exajhko/compressed.gz"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/gzip-9/2/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.14336279200006175
+    },
+    {
+      "algorithm": "bzip2-9",
+      "dataset": "images",
+      "iteration": 2,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 2.9954642080001577,
+        "max_rss_bytes": 7815168,
+        "user_seconds": 2.93,
+        "system_seconds": 0.04,
+        "argv": [
+          "/usr/bin/bzip2",
+          "-9",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/bzip2-9/2/compress.log"
+      },
+      "compressed_bytes": 37066252,
+      "compressed_sha256": "a5de24d4e311a80a2556969c1cec433d6ef5639c3b7f1a953356e0a294d7d137",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 1.4690136669998992,
+        "max_rss_bytes": 4800512,
+        "user_seconds": 1.38,
+        "system_seconds": 0.05,
+        "argv": [
+          "/usr/bin/bzip2",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/bzip2-9-bnaktewr/compressed.bz2"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/bzip2-9/2/decompress.log"
+      },
+      "decompress_and_verify_seconds": 1.5281340409999302
+    },
+    {
+      "algorithm": "xz-9e",
+      "dataset": "images",
+      "iteration": 2,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 10.281840500000044,
+        "max_rss_bytes": 411058176,
+        "user_seconds": 10.09,
+        "system_seconds": 0.13,
+        "argv": [
+          "/opt/homebrew/bin/xz",
+          "-9e",
+          "-T1",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/xz-9e/2/compress.log"
+      },
+      "compressed_bytes": 36888124,
+      "compressed_sha256": "cf2f526781f4620e3830aca84fccb765892d6620029cce748dd46bc1de09499d",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.7604077080000025,
+        "max_rss_bytes": 39960576,
+        "user_seconds": 0.69,
+        "system_seconds": 0.03,
+        "argv": [
+          "/opt/homebrew/bin/xz",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/xz-9e-9bswkvwk/compressed.xz"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/xz-9e/2/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.8195380409999871
+    },
+    {
+      "algorithm": "zstd-3",
+      "dataset": "images",
+      "iteration": 2,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.08909799999992174,
+        "max_rss_bytes": 7602176,
+        "user_seconds": 0.04,
+        "system_seconds": 0.01,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "--single-thread",
+          "-q",
+          "-3",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/zstd-3/2/compress.log"
+      },
+      "compressed_bytes": 37146562,
+      "compressed_sha256": "e9aaf954ed868a520d6ff2b4d27679a0d9196c31a2158c62e301e2726da39666",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.024374458000011145,
+        "max_rss_bytes": 7438336,
+        "user_seconds": 0.0,
+        "system_seconds": 0.01,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "-q",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/zstd-3-5al5wrmu/compressed.zst"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/zstd-3/2/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.08381475000010141
+    },
+    {
+      "algorithm": "zstd-19",
+      "dataset": "images",
+      "iteration": 2,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 5.5554081660000065,
+        "max_rss_bytes": 97107968,
+        "user_seconds": 5.48,
+        "system_seconds": 0.05,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "--single-thread",
+          "-q",
+          "-19",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/zstd-19/2/compress.log"
+      },
+      "compressed_bytes": 36834042,
+      "compressed_sha256": "d64cc1b3d64232abbeafaa2f301ad5e101499689d49c62805b07332dc6692855",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.03729425000005904,
+        "max_rss_bytes": 13746176,
+        "user_seconds": 0.02,
+        "system_seconds": 0.01,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "-q",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/zstd-19-cltcoo2k/compressed.zst"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/zstd-19/2/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.09954199999992852
+    },
+    {
+      "algorithm": "zstd-22",
+      "dataset": "images",
+      "iteration": 2,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 3.8489617079999334,
+        "max_rss_bytes": 667992064,
+        "user_seconds": 3.64,
+        "system_seconds": 0.15,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "--ultra",
+          "--single-thread",
+          "-q",
+          "-22",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/zstd-22/2/compress.log"
+      },
+      "compressed_bytes": 36833562,
+      "compressed_sha256": "93f046365a855c787260f221e6294ea98880090a61ec829c76e7d1babb9caf72",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.04838087500002075,
+        "max_rss_bytes": 43024384,
+        "user_seconds": 0.02,
+        "system_seconds": 0.01,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "-q",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/zstd-22-9bcnw7b5/compressed.zst"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/zstd-22/2/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.10865775000002031
+    },
+    {
+      "algorithm": "brotli-6",
+      "dataset": "images",
+      "iteration": 2,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.26237366700001985,
+        "max_rss_bytes": 51871744,
+        "user_seconds": 0.22,
+        "system_seconds": 0.01,
+        "argv": [
+          "/opt/homebrew/bin/brotli",
+          "-q",
+          "6",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/brotli-6/2/compress.log"
+      },
+      "compressed_bytes": 36856478,
+      "compressed_sha256": "f36f580acce76f6d8507c6266c9858243c2f64616d07e56b5253b6da44433f11",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.13786399999980858,
+        "max_rss_bytes": 31506432,
+        "user_seconds": 0.09,
+        "system_seconds": 0.01,
+        "argv": [
+          "/opt/homebrew/bin/brotli",
+          "-d",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/brotli-6-s9579_qh/compressed.br"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/brotli-6/2/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.19710249999980078
+    },
+    {
+      "algorithm": "brotli-11",
+      "dataset": "images",
+      "iteration": 2,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 77.39623095799993,
+        "max_rss_bytes": 232357888,
+        "user_seconds": 76.79,
+        "system_seconds": 0.34,
+        "argv": [
+          "/opt/homebrew/bin/brotli",
+          "-q",
+          "11",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/brotli-11/2/compress.log"
+      },
+      "compressed_bytes": 36695582,
+      "compressed_sha256": "59117617e6eb4fbcc1f2ed0cac4d11e03f193a9fd826f35e0e36fd849cc8eab1",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.23701154199989105,
+        "max_rss_bytes": 29622272,
+        "user_seconds": 0.17,
+        "system_seconds": 0.01,
+        "argv": [
+          "/opt/homebrew/bin/brotli",
+          "-d",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/brotli-11-rb58i5gu/compressed.br"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/brotli-11/2/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.29646808300003613
+    },
+    {
+      "algorithm": "7z-lzma2-9",
+      "dataset": "images",
+      "iteration": 2,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 8.217116833000091,
+        "max_rss_bytes": 411762688,
+        "user_seconds": 7.99,
+        "system_seconds": 0.13,
+        "argv": [
+          "/opt/homebrew/bin/7zz",
+          "a",
+          "-t7z",
+          "-m0=LZMA2",
+          "-mx=9",
+          "-mmt=1",
+          "-y",
+          "-bd",
+          "-bb0",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/7z-lzma2-9-eioelduy/compressed.7z",
+          "payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/7z-lzma2-9/2/compress.log"
+      },
+      "compressed_bytes": 36892261,
+      "compressed_sha256": "891a8ae3c0edd8a2a007016f6b8f433e322216387c395b528a17a81502b1576f",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.5295305409999855,
+        "max_rss_bytes": 80707584,
+        "user_seconds": 0.48,
+        "system_seconds": 0.01,
+        "argv": [
+          "/opt/homebrew/bin/7zz",
+          "x",
+          "-so",
+          "-y",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/7z-lzma2-9-eioelduy/compressed.7z"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/7z-lzma2-9/2/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.5887253329999567
+    },
+    {
+      "algorithm": "7z-ppmd-9",
+      "dataset": "images",
+      "iteration": 2,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 18.555203665999898,
+        "max_rss_bytes": 273842176,
+        "user_seconds": 18.39,
+        "system_seconds": 0.11,
+        "argv": [
+          "/opt/homebrew/bin/7zz",
+          "a",
+          "-t7z",
+          "-m0=PPMd",
+          "-mx=9",
+          "-mmt=1",
+          "-y",
+          "-bd",
+          "-bb0",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/7z-ppmd-9-slzydqft/compressed.7z",
+          "payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/7z-ppmd-9/2/compress.log"
+      },
+      "compressed_bytes": 37268394,
+      "compressed_sha256": "1e35666f8923039216d934c3ad3afb2dd996a882425ce4d34222930c2ec80374",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 19.79613712499986,
+        "max_rss_bytes": 272908288,
+        "user_seconds": 19.61,
+        "system_seconds": 0.13,
+        "argv": [
+          "/opt/homebrew/bin/7zz",
+          "x",
+          "-so",
+          "-y",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/7z-ppmd-9-slzydqft/compressed.7z"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/7z-ppmd-9/2/decompress.log"
+      },
+      "decompress_and_verify_seconds": 19.859468791999916
+    },
+    {
+      "algorithm": "zpaq-5",
+      "dataset": "images",
+      "iteration": 2,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 134.12137566700017,
+        "max_rss_bytes": 779304960,
+        "user_seconds": 132.59,
+        "system_seconds": 1.1,
+        "argv": [
+          "/opt/homebrew/bin/zpaq",
+          "add",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/zpaq-5-0nyy3gjo/compressed.zpaq",
+          "payload.tar",
+          "-method",
+          "5",
+          "-threads",
+          "1"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/zpaq-5/2/compress.log"
+      },
+      "compressed_bytes": 36402344,
+      "compressed_sha256": "b6e984055faf4f762c5f04bd68a10d1439c8f0482e3462015590db1a637eb8d5",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 137.975651125,
+        "max_rss_bytes": 805306368,
+        "user_seconds": 136.77,
+        "system_seconds": 0.93,
+        "argv": [
+          "/opt/homebrew/bin/zpaq",
+          "extract",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/zpaq-5-0nyy3gjo/compressed.zpaq",
+          "-to",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/zpaq-5-0nyy3gjo/restored",
+          "-threads",
+          "1"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/zpaq-5/2/decompress.log"
+      },
+      "decompress_and_verify_seconds": 138.03962754100007
+    },
+    {
+      "algorithm": "store",
+      "dataset": "images",
+      "iteration": 2,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.04513904200007346,
+        "max_rss_bytes": 2113536,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "/bin/cp",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images/payload.tar",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/store-5fusw_eo/compressed.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/store/2/compress.log"
+      },
+      "compressed_bytes": 37918720,
+      "compressed_sha256": "4b809aec9fc7bd2ca3b4f76e7d7493eb849d74992788c57482d3cc50ba6494ca",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.045014832999868304,
+        "max_rss_bytes": 2113536,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "/bin/cp",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/store-5fusw_eo/compressed.tar",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/store-5fusw_eo/restored/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/store/2/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.10524037499999395
+    },
+    {
+      "algorithm": "gzip-9",
+      "dataset": "resources",
+      "iteration": 2,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 3.1295317500000692,
+        "max_rss_bytes": 1490944,
+        "user_seconds": 3.02,
+        "system_seconds": 0.06,
+        "argv": [
+          "/usr/bin/gzip",
+          "-9",
+          "-n",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/gzip-9/2/compress.log"
+      },
+      "compressed_bytes": 166360668,
+      "compressed_sha256": "c37c69236c20df08fb2628e2ce2146b1a128f1425c042483b1d6a4c9e69ce10e",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.13546741699997256,
+        "max_rss_bytes": 1261568,
+        "user_seconds": 0.06,
+        "system_seconds": 0.04,
+        "argv": [
+          "/usr/bin/gzip",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/gzip-9-ws80dz_g/compressed.gz"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/gzip-9/2/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.3851666660000319
+    },
+    {
+      "algorithm": "bzip2-9",
+      "dataset": "resources",
+      "iteration": 2,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 13.682275375000017,
+        "max_rss_bytes": 7815168,
+        "user_seconds": 13.4,
+        "system_seconds": 0.19,
+        "argv": [
+          "/usr/bin/bzip2",
+          "-9",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/bzip2-9/2/compress.log"
+      },
+      "compressed_bytes": 166960408,
+      "compressed_sha256": "efa50db8710933216301f84c3ba7c516db928c783b9b6e3b250e260de8bb1887",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 6.53970712499995,
+        "max_rss_bytes": 4800512,
+        "user_seconds": 6.26,
+        "system_seconds": 0.2,
+        "argv": [
+          "/usr/bin/bzip2",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/bzip2-9-7m8t05ou/compressed.bz2"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/bzip2-9/2/decompress.log"
+      },
+      "decompress_and_verify_seconds": 6.792515832999925
+    },
+    {
+      "algorithm": "xz-9e",
+      "dataset": "resources",
+      "iteration": 2,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 70.81124458299996,
+        "max_rss_bytes": 706838528,
+        "user_seconds": 69.86,
+        "system_seconds": 0.72,
+        "argv": [
+          "/opt/homebrew/bin/xz",
+          "-9e",
+          "-T1",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/xz-9e/2/compress.log"
+      },
+      "compressed_bytes": 166173008,
+      "compressed_sha256": "b68a5aa2de1a3028737cda86f31e01771b736f4521573136055d668fa62a3a3d",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 1.0774236669999482,
+        "max_rss_bytes": 69173248,
+        "user_seconds": 0.9,
+        "system_seconds": 0.13,
+        "argv": [
+          "/opt/homebrew/bin/xz",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/xz-9e-9s0a8p1v/compressed.xz"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/xz-9e/2/decompress.log"
+      },
+      "decompress_and_verify_seconds": 1.3306337920000715
+    },
+    {
+      "algorithm": "zstd-3",
+      "dataset": "resources",
+      "iteration": 2,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.13712666700007503,
+        "max_rss_bytes": 8192000,
+        "user_seconds": 0.11,
+        "system_seconds": 0.05,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "--single-thread",
+          "-q",
+          "-3",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/zstd-3/2/compress.log"
+      },
+      "compressed_bytes": 166492331,
+      "compressed_sha256": "b5441947223b14e54529c5451261761a3ba0532c2a5538cfab9f7f98e37998b7",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.08843241699992177,
+        "max_rss_bytes": 7421952,
+        "user_seconds": 0.02,
+        "system_seconds": 0.05,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "-q",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/zstd-3-r2sktcbw/compressed.zst"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/zstd-3/2/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.33924675000002935
+    },
+    {
+      "algorithm": "zstd-19",
+      "dataset": "resources",
+      "iteration": 2,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 25.154008417000114,
+        "max_rss_bytes": 97107968,
+        "user_seconds": 24.98,
+        "system_seconds": 0.22,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "--single-thread",
+          "-q",
+          "-19",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/zstd-19/2/compress.log"
+      },
+      "compressed_bytes": 166097286,
+      "compressed_sha256": "14f57742f3e4274bbda5bcf453242f835b5dd5321b37effa453e0353e31d271c",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.07689600000003338,
+        "max_rss_bytes": 13762560,
+        "user_seconds": 0.04,
+        "system_seconds": 0.05,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "-q",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/zstd-19-smfdq8l5/compressed.zst"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/zstd-19/2/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.3295690420000028
+    },
+    {
+      "algorithm": "zstd-22",
+      "dataset": "resources",
+      "iteration": 2,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 32.205863000000136,
+        "max_rss_bytes": 876544000,
+        "user_seconds": 31.58,
+        "system_seconds": 0.55,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "--ultra",
+          "--single-thread",
+          "-q",
+          "-22",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/zstd-22/2/compress.log"
+      },
+      "compressed_bytes": 166091741,
+      "compressed_sha256": "4c41a9e75651c0db2a627f77652c9ed3334ffa7480ee3236b867901a57658f4d",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.08836750000000393,
+        "max_rss_bytes": 139476992,
+        "user_seconds": 0.04,
+        "system_seconds": 0.08,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "-q",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/zstd-22-_enaevw1/compressed.zst"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/zstd-22/2/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.3518835830000171
+    },
+    {
+      "algorithm": "brotli-6",
+      "dataset": "resources",
+      "iteration": 2,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.5330782089999957,
+        "max_rss_bytes": 57720832,
+        "user_seconds": 0.44,
+        "system_seconds": 0.04,
+        "argv": [
+          "/opt/homebrew/bin/brotli",
+          "-q",
+          "6",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/brotli-6/2/compress.log"
+      },
+      "compressed_bytes": 166246011,
+      "compressed_sha256": "0e84132aa0a0332bdc50f84eab09db1237af516438555613d5c538877dcf68e1",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.1962972080000327,
+        "max_rss_bytes": 28835840,
+        "user_seconds": 0.11,
+        "system_seconds": 0.03,
+        "argv": [
+          "/opt/homebrew/bin/brotli",
+          "-d",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/brotli-6-3ss4wd90/compressed.br"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/brotli-6/2/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.4487910830000601
+    },
+    {
+      "algorithm": "brotli-11",
+      "dataset": "resources",
+      "iteration": 2,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 260.656963875,
+        "max_rss_bytes": 220479488,
+        "user_seconds": 258.93,
+        "system_seconds": 1.0,
+        "argv": [
+          "/opt/homebrew/bin/brotli",
+          "-q",
+          "11",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/brotli-11/2/compress.log"
+      },
+      "compressed_bytes": 166072291,
+      "compressed_sha256": "004f8f11a4cfbd29b7ffecd233d257ff4ebcd1e77580da12f952c3f344a46a7e",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.3092817090000608,
+        "max_rss_bytes": 29655040,
+        "user_seconds": 0.21,
+        "system_seconds": 0.03,
+        "argv": [
+          "/opt/homebrew/bin/brotli",
+          "-d",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/brotli-11-38yhxge5/compressed.br"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/brotli-11/2/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.5663509169999088
+    },
+    {
+      "algorithm": "7z-lzma2-9",
+      "dataset": "resources",
+      "iteration": 2,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 85.27601712500018,
+        "max_rss_bytes": 1663926272,
+        "user_seconds": 43.24,
+        "system_seconds": 31.11,
+        "argv": [
+          "/opt/homebrew/bin/7zz",
+          "a",
+          "-t7z",
+          "-m0=LZMA2",
+          "-mx=9",
+          "-mmt=1",
+          "-y",
+          "-bd",
+          "-bb0",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/7z-lzma2-9-e5o4t0c3/compressed.7z",
+          "payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/7z-lzma2-9/2/compress.log"
+      },
+      "compressed_bytes": 166172180,
+      "compressed_sha256": "db3527e8ba0fcba18689a1294c3374d2ce53c90e2d733eb34e3ef5f1046bd131",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.6533510409999508,
+        "max_rss_bytes": 347979776,
+        "user_seconds": 0.55,
+        "system_seconds": 0.05,
+        "argv": [
+          "/opt/homebrew/bin/7zz",
+          "x",
+          "-so",
+          "-y",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/7z-lzma2-9-e5o4t0c3/compressed.7z"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/7z-lzma2-9/2/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.9202767499996298
+    },
+    {
+      "algorithm": "7z-ppmd-9",
+      "dataset": "resources",
+      "iteration": 2,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 120.30773595900018,
+        "max_rss_bytes": 273825792,
+        "user_seconds": 119.56,
+        "system_seconds": 0.44,
+        "argv": [
+          "/opt/homebrew/bin/7zz",
+          "a",
+          "-t7z",
+          "-m0=PPMd",
+          "-mx=9",
+          "-mmt=1",
+          "-y",
+          "-bd",
+          "-bb0",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/7z-ppmd-9-38syckln/compressed.7z",
+          "payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/7z-ppmd-9/2/compress.log"
+      },
+      "compressed_bytes": 169175545,
+      "compressed_sha256": "688bf36f041e19acada7f268f30db7fcf96ab625079cff0b240d0b850ca91ff3",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 125.42478149999988,
+        "max_rss_bytes": 272859136,
+        "user_seconds": 124.6,
+        "system_seconds": 0.59,
+        "argv": [
+          "/opt/homebrew/bin/7zz",
+          "x",
+          "-so",
+          "-y",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/7z-ppmd-9-38syckln/compressed.7z"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/7z-ppmd-9/2/decompress.log"
+      },
+      "decompress_and_verify_seconds": 125.68607212500001
+    },
+    {
+      "algorithm": "store",
+      "dataset": "resources",
+      "iteration": 2,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.08642091699994126,
+        "max_rss_bytes": 2113536,
+        "user_seconds": 0.0,
+        "system_seconds": 0.01,
+        "argv": [
+          "/bin/cp",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources/payload.tar",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/store-y5w5v97j/compressed.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/store/2/compress.log"
+      },
+      "compressed_bytes": 167342080,
+      "compressed_sha256": "038a63660ef13a8f4d1ea28fd35c4842b75e12f6ea1e7295e926d7c2db66abfc",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.07740108299958592,
+        "max_rss_bytes": 2113536,
+        "user_seconds": 0.0,
+        "system_seconds": 0.01,
+        "argv": [
+          "/bin/cp",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/store-y5w5v97j/compressed.tar",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/store-y5w5v97j/restored/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/store/2/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.3329593749999731
+    },
+    {
+      "algorithm": "bzip2-9",
+      "dataset": "images",
+      "iteration": 3,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 2.9954765829997996,
+        "max_rss_bytes": 7815168,
+        "user_seconds": 2.93,
+        "system_seconds": 0.04,
+        "argv": [
+          "/usr/bin/bzip2",
+          "-9",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/bzip2-9/3/compress.log"
+      },
+      "compressed_bytes": 37066252,
+      "compressed_sha256": "a5de24d4e311a80a2556969c1cec433d6ef5639c3b7f1a953356e0a294d7d137",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 1.5203782090002278,
+        "max_rss_bytes": 4800512,
+        "user_seconds": 1.41,
+        "system_seconds": 0.05,
+        "argv": [
+          "/usr/bin/bzip2",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/bzip2-9-iu90men_/compressed.bz2"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/bzip2-9/3/decompress.log"
+      },
+      "decompress_and_verify_seconds": 1.587149416000102
+    },
+    {
+      "algorithm": "xz-9e",
+      "dataset": "images",
+      "iteration": 3,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 10.595298208000258,
+        "max_rss_bytes": 410353664,
+        "user_seconds": 10.29,
+        "system_seconds": 0.17,
+        "argv": [
+          "/opt/homebrew/bin/xz",
+          "-9e",
+          "-T1",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/xz-9e/3/compress.log"
+      },
+      "compressed_bytes": 36888124,
+      "compressed_sha256": "cf2f526781f4620e3830aca84fccb765892d6620029cce748dd46bc1de09499d",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.7517120830002568,
+        "max_rss_bytes": 39960576,
+        "user_seconds": 0.69,
+        "system_seconds": 0.04,
+        "argv": [
+          "/opt/homebrew/bin/xz",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/xz-9e-inux79jj/compressed.xz"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/xz-9e/3/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.8109753749999982
+    },
+    {
+      "algorithm": "zstd-3",
+      "dataset": "images",
+      "iteration": 3,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.08721650000006775,
+        "max_rss_bytes": 7749632,
+        "user_seconds": 0.04,
+        "system_seconds": 0.01,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "--single-thread",
+          "-q",
+          "-3",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/zstd-3/3/compress.log"
+      },
+      "compressed_bytes": 37146562,
+      "compressed_sha256": "e9aaf954ed868a520d6ff2b4d27679a0d9196c31a2158c62e301e2726da39666",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.02443920799987609,
+        "max_rss_bytes": 7438336,
+        "user_seconds": 0.0,
+        "system_seconds": 0.01,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "-q",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/zstd-3-u9u6syey/compressed.zst"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/zstd-3/3/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.08299987500004136
+    },
+    {
+      "algorithm": "zstd-19",
+      "dataset": "images",
+      "iteration": 3,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 5.5699843330003205,
+        "max_rss_bytes": 97107968,
+        "user_seconds": 5.49,
+        "system_seconds": 0.05,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "--single-thread",
+          "-q",
+          "-19",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/zstd-19/3/compress.log"
+      },
+      "compressed_bytes": 36834042,
+      "compressed_sha256": "d64cc1b3d64232abbeafaa2f301ad5e101499689d49c62805b07332dc6692855",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.03996254100002261,
+        "max_rss_bytes": 13746176,
+        "user_seconds": 0.02,
+        "system_seconds": 0.01,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "-q",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/zstd-19-z2zokd9m/compressed.zst"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/zstd-19/3/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.0989167089996954
+    },
+    {
+      "algorithm": "zstd-22",
+      "dataset": "images",
+      "iteration": 3,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 3.894527540999661,
+        "max_rss_bytes": 696385536,
+        "user_seconds": 3.64,
+        "system_seconds": 0.14,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "--ultra",
+          "--single-thread",
+          "-q",
+          "-22",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/zstd-22/3/compress.log"
+      },
+      "compressed_bytes": 36833562,
+      "compressed_sha256": "93f046365a855c787260f221e6294ea98880090a61ec829c76e7d1babb9caf72",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.04862491699987004,
+        "max_rss_bytes": 43024384,
+        "user_seconds": 0.02,
+        "system_seconds": 0.01,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "-q",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/zstd-22-_hktosom/compressed.zst"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/zstd-22/3/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.10761804200001279
+    },
+    {
+      "algorithm": "brotli-6",
+      "dataset": "images",
+      "iteration": 3,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.25490808399990783,
+        "max_rss_bytes": 51871744,
+        "user_seconds": 0.22,
+        "system_seconds": 0.01,
+        "argv": [
+          "/opt/homebrew/bin/brotli",
+          "-q",
+          "6",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/brotli-6/3/compress.log"
+      },
+      "compressed_bytes": 36856478,
+      "compressed_sha256": "f36f580acce76f6d8507c6266c9858243c2f64616d07e56b5253b6da44433f11",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.13615908400015542,
+        "max_rss_bytes": 31506432,
+        "user_seconds": 0.09,
+        "system_seconds": 0.01,
+        "argv": [
+          "/opt/homebrew/bin/brotli",
+          "-d",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/brotli-6-hq424rli/compressed.br"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/brotli-6/3/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.19555462500011345
+    },
+    {
+      "algorithm": "brotli-11",
+      "dataset": "images",
+      "iteration": 3,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 77.06949541699987,
+        "max_rss_bytes": 252297216,
+        "user_seconds": 76.66,
+        "system_seconds": 0.3,
+        "argv": [
+          "/opt/homebrew/bin/brotli",
+          "-q",
+          "11",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/brotli-11/3/compress.log"
+      },
+      "compressed_bytes": 36695582,
+      "compressed_sha256": "59117617e6eb4fbcc1f2ed0cac4d11e03f193a9fd826f35e0e36fd849cc8eab1",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.20533525000018926,
+        "max_rss_bytes": 29622272,
+        "user_seconds": 0.18,
+        "system_seconds": 0.01,
+        "argv": [
+          "/opt/homebrew/bin/brotli",
+          "-d",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/brotli-11-q3rw75im/compressed.br"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/brotli-11/3/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.263746084000104
+    },
+    {
+      "algorithm": "7z-lzma2-9",
+      "dataset": "images",
+      "iteration": 3,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 8.323763291999967,
+        "max_rss_bytes": 411779072,
+        "user_seconds": 8.05,
+        "system_seconds": 0.13,
+        "argv": [
+          "/opt/homebrew/bin/7zz",
+          "a",
+          "-t7z",
+          "-m0=LZMA2",
+          "-mx=9",
+          "-mmt=1",
+          "-y",
+          "-bd",
+          "-bb0",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/7z-lzma2-9-2w0j7mmk/compressed.7z",
+          "payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/7z-lzma2-9/3/compress.log"
+      },
+      "compressed_bytes": 36892261,
+      "compressed_sha256": "891a8ae3c0edd8a2a007016f6b8f433e322216387c395b528a17a81502b1576f",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.5309071249998851,
+        "max_rss_bytes": 80674816,
+        "user_seconds": 0.48,
+        "system_seconds": 0.01,
+        "argv": [
+          "/opt/homebrew/bin/7zz",
+          "x",
+          "-so",
+          "-y",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/7z-lzma2-9-2w0j7mmk/compressed.7z"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/7z-lzma2-9/3/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.5908319589998428
+    },
+    {
+      "algorithm": "7z-ppmd-9",
+      "dataset": "images",
+      "iteration": 3,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 18.82418937500006,
+        "max_rss_bytes": 273285120,
+        "user_seconds": 18.55,
+        "system_seconds": 0.13,
+        "argv": [
+          "/opt/homebrew/bin/7zz",
+          "a",
+          "-t7z",
+          "-m0=PPMd",
+          "-mx=9",
+          "-mmt=1",
+          "-y",
+          "-bd",
+          "-bb0",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/7z-ppmd-9-ks642xer/compressed.7z",
+          "payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/7z-ppmd-9/3/compress.log"
+      },
+      "compressed_bytes": 37268394,
+      "compressed_sha256": "1e35666f8923039216d934c3ad3afb2dd996a882425ce4d34222930c2ec80374",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 19.88743145799981,
+        "max_rss_bytes": 272859136,
+        "user_seconds": 19.68,
+        "system_seconds": 0.15,
+        "argv": [
+          "/opt/homebrew/bin/7zz",
+          "x",
+          "-so",
+          "-y",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/7z-ppmd-9-ks642xer/compressed.7z"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/7z-ppmd-9/3/decompress.log"
+      },
+      "decompress_and_verify_seconds": 19.950714916999914
+    },
+    {
+      "algorithm": "zpaq-5",
+      "dataset": "images",
+      "iteration": 3,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 133.964225875,
+        "max_rss_bytes": 800194560,
+        "user_seconds": 132.72,
+        "system_seconds": 0.97,
+        "argv": [
+          "/opt/homebrew/bin/zpaq",
+          "add",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/zpaq-5-djok9rgm/compressed.zpaq",
+          "payload.tar",
+          "-method",
+          "5",
+          "-threads",
+          "1"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/zpaq-5/3/compress.log"
+      },
+      "compressed_bytes": 36402344,
+      "compressed_sha256": "f575b778788cf61763cd51a01d735e41052482dfc6aa086fbe620824bf1d92a6",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 137.79962133300023,
+        "max_rss_bytes": 802537472,
+        "user_seconds": 136.51,
+        "system_seconds": 0.93,
+        "argv": [
+          "/opt/homebrew/bin/zpaq",
+          "extract",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/zpaq-5-djok9rgm/compressed.zpaq",
+          "-to",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/zpaq-5-djok9rgm/restored",
+          "-threads",
+          "1"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/zpaq-5/3/decompress.log"
+      },
+      "decompress_and_verify_seconds": 137.86518054199996
+    },
+    {
+      "algorithm": "store",
+      "dataset": "images",
+      "iteration": 3,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.03728420900006313,
+        "max_rss_bytes": 2113536,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "/bin/cp",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images/payload.tar",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/store-6_415d5e/compressed.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/store/3/compress.log"
+      },
+      "compressed_bytes": 37918720,
+      "compressed_sha256": "4b809aec9fc7bd2ca3b4f76e7d7493eb849d74992788c57482d3cc50ba6494ca",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.04605337500015594,
+        "max_rss_bytes": 2113536,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "/bin/cp",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/store-6_415d5e/compressed.tar",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/store-6_415d5e/restored/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/store/3/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.1062309170001754
+    },
+    {
+      "algorithm": "gzip-9",
+      "dataset": "images",
+      "iteration": 3,
+      "status": "ok",
+      "verified_files": 17,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.8314940830000523,
+        "max_rss_bytes": 1507328,
+        "user_seconds": 0.77,
+        "system_seconds": 0.01,
+        "argv": [
+          "/usr/bin/gzip",
+          "-9",
+          "-n",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/gzip-9/3/compress.log"
+      },
+      "compressed_bytes": 37031307,
+      "compressed_sha256": "ad847fe70d3e137b5e8387fda98b77a9a48ef433e1215c008ca6bf8b9065bede",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.08927479200019661,
+        "max_rss_bytes": 1261568,
+        "user_seconds": 0.04,
+        "system_seconds": 0.01,
+        "argv": [
+          "/usr/bin/gzip",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/gzip-9-y3rst56i/compressed.gz"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/images",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/images/gzip-9/3/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.14813595800023904
+    },
+    {
+      "algorithm": "bzip2-9",
+      "dataset": "resources",
+      "iteration": 3,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 13.662647666999874,
+        "max_rss_bytes": 7815168,
+        "user_seconds": 13.4,
+        "system_seconds": 0.2,
+        "argv": [
+          "/usr/bin/bzip2",
+          "-9",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/bzip2-9/3/compress.log"
+      },
+      "compressed_bytes": 166960408,
+      "compressed_sha256": "efa50db8710933216301f84c3ba7c516db928c783b9b6e3b250e260de8bb1887",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 6.489389667000069,
+        "max_rss_bytes": 4800512,
+        "user_seconds": 6.26,
+        "system_seconds": 0.2,
+        "argv": [
+          "/usr/bin/bzip2",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/bzip2-9-yoy5vvc6/compressed.bz2"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/bzip2-9/3/decompress.log"
+      },
+      "decompress_and_verify_seconds": 6.737274291999711
+    },
+    {
+      "algorithm": "xz-9e",
+      "dataset": "resources",
+      "iteration": 3,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 70.83779479099985,
+        "max_rss_bytes": 707166208,
+        "user_seconds": 69.9,
+        "system_seconds": 0.69,
+        "argv": [
+          "/opt/homebrew/bin/xz",
+          "-9e",
+          "-T1",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/xz-9e/3/compress.log"
+      },
+      "compressed_bytes": 166173008,
+      "compressed_sha256": "b68a5aa2de1a3028737cda86f31e01771b736f4521573136055d668fa62a3a3d",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 1.0667136659999414,
+        "max_rss_bytes": 69156864,
+        "user_seconds": 0.91,
+        "system_seconds": 0.13,
+        "argv": [
+          "/opt/homebrew/bin/xz",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/xz-9e-y0iz3lis/compressed.xz"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/xz-9e/3/decompress.log"
+      },
+      "decompress_and_verify_seconds": 1.3183080419998987
+    },
+    {
+      "algorithm": "zstd-3",
+      "dataset": "resources",
+      "iteration": 3,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.13947641600043426,
+        "max_rss_bytes": 8192000,
+        "user_seconds": 0.11,
+        "system_seconds": 0.06,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "--single-thread",
+          "-q",
+          "-3",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/zstd-3/3/compress.log"
+      },
+      "compressed_bytes": 166492331,
+      "compressed_sha256": "b5441947223b14e54529c5451261761a3ba0532c2a5538cfab9f7f98e37998b7",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.09063595799989344,
+        "max_rss_bytes": 7421952,
+        "user_seconds": 0.02,
+        "system_seconds": 0.05,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "-q",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/zstd-3-xaghg2gj/compressed.zst"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/zstd-3/3/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.34751825000012104
+    },
+    {
+      "algorithm": "zstd-19",
+      "dataset": "resources",
+      "iteration": 3,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 25.373244417000024,
+        "max_rss_bytes": 97107968,
+        "user_seconds": 25.24,
+        "system_seconds": 0.22,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "--single-thread",
+          "-q",
+          "-19",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/zstd-19/3/compress.log"
+      },
+      "compressed_bytes": 166097286,
+      "compressed_sha256": "14f57742f3e4274bbda5bcf453242f835b5dd5321b37effa453e0353e31d271c",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.08812524999984817,
+        "max_rss_bytes": 13762560,
+        "user_seconds": 0.04,
+        "system_seconds": 0.07,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "-q",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/zstd-19-15mzszdj/compressed.zst"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/zstd-19/3/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.3442157919998863
+    },
+    {
+      "algorithm": "zstd-22",
+      "dataset": "resources",
+      "iteration": 3,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 32.07937237499982,
+        "max_rss_bytes": 876838912,
+        "user_seconds": 31.54,
+        "system_seconds": 0.49,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "--ultra",
+          "--single-thread",
+          "-q",
+          "-22",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/zstd-22/3/compress.log"
+      },
+      "compressed_bytes": 166091741,
+      "compressed_sha256": "4c41a9e75651c0db2a627f77652c9ed3334ffa7480ee3236b867901a57658f4d",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.14133479200017973,
+        "max_rss_bytes": 139476992,
+        "user_seconds": 0.04,
+        "system_seconds": 0.06,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "-q",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/zstd-22-z9nyz83u/compressed.zst"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/zstd-22/3/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.3996888330002548
+    },
+    {
+      "algorithm": "brotli-6",
+      "dataset": "resources",
+      "iteration": 3,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.5497366660001717,
+        "max_rss_bytes": 57720832,
+        "user_seconds": 0.45,
+        "system_seconds": 0.04,
+        "argv": [
+          "/opt/homebrew/bin/brotli",
+          "-q",
+          "6",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/brotli-6/3/compress.log"
+      },
+      "compressed_bytes": 166246011,
+      "compressed_sha256": "0e84132aa0a0332bdc50f84eab09db1237af516438555613d5c538877dcf68e1",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.2012475420001465,
+        "max_rss_bytes": 28835840,
+        "user_seconds": 0.11,
+        "system_seconds": 0.03,
+        "argv": [
+          "/opt/homebrew/bin/brotli",
+          "-d",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/brotli-6-0gpjem49/compressed.br"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/brotli-6/3/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.4517046249998202
+    },
+    {
+      "algorithm": "brotli-11",
+      "dataset": "resources",
+      "iteration": 3,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 264.55227324999987,
+        "max_rss_bytes": 215498752,
+        "user_seconds": 261.78,
+        "system_seconds": 1.14,
+        "argv": [
+          "/opt/homebrew/bin/brotli",
+          "-q",
+          "11",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/brotli-11/3/compress.log"
+      },
+      "compressed_bytes": 166072291,
+      "compressed_sha256": "004f8f11a4cfbd29b7ffecd233d257ff4ebcd1e77580da12f952c3f344a46a7e",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.30106920899970646,
+        "max_rss_bytes": 29671424,
+        "user_seconds": 0.21,
+        "system_seconds": 0.04,
+        "argv": [
+          "/opt/homebrew/bin/brotli",
+          "-d",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/brotli-11-3vqk_esh/compressed.br"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/brotli-11/3/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.5714352079999117
+    },
+    {
+      "algorithm": "7z-lzma2-9",
+      "dataset": "resources",
+      "iteration": 3,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 82.87088350000022,
+        "max_rss_bytes": 1736687616,
+        "user_seconds": 43.38,
+        "system_seconds": 29.76,
+        "argv": [
+          "/opt/homebrew/bin/7zz",
+          "a",
+          "-t7z",
+          "-m0=LZMA2",
+          "-mx=9",
+          "-mmt=1",
+          "-y",
+          "-bd",
+          "-bb0",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/7z-lzma2-9-ry_p6lgj/compressed.7z",
+          "payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/7z-lzma2-9/3/compress.log"
+      },
+      "compressed_bytes": 166172180,
+      "compressed_sha256": "db3527e8ba0fcba18689a1294c3374d2ce53c90e2d733eb34e3ef5f1046bd131",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.6548980419997861,
+        "max_rss_bytes": 347979776,
+        "user_seconds": 0.54,
+        "system_seconds": 0.06,
+        "argv": [
+          "/opt/homebrew/bin/7zz",
+          "x",
+          "-so",
+          "-y",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/7z-lzma2-9-ry_p6lgj/compressed.7z"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/7z-lzma2-9/3/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.9159485000000132
+    },
+    {
+      "algorithm": "7z-ppmd-9",
+      "dataset": "resources",
+      "iteration": 3,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 120.04342670799997,
+        "max_rss_bytes": 273858560,
+        "user_seconds": 119.32,
+        "system_seconds": 0.49,
+        "argv": [
+          "/opt/homebrew/bin/7zz",
+          "a",
+          "-t7z",
+          "-m0=PPMd",
+          "-mx=9",
+          "-mmt=1",
+          "-y",
+          "-bd",
+          "-bb0",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/7z-ppmd-9-86kqcj7f/compressed.7z",
+          "payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/7z-ppmd-9/3/compress.log"
+      },
+      "compressed_bytes": 169175545,
+      "compressed_sha256": "688bf36f041e19acada7f268f30db7fcf96ab625079cff0b240d0b850ca91ff3",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 125.72393933400008,
+        "max_rss_bytes": 272891904,
+        "user_seconds": 124.84,
+        "system_seconds": 0.62,
+        "argv": [
+          "/opt/homebrew/bin/7zz",
+          "x",
+          "-so",
+          "-y",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/7z-ppmd-9-86kqcj7f/compressed.7z"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/7z-ppmd-9/3/decompress.log"
+      },
+      "decompress_and_verify_seconds": 125.98519595800008
+    },
+    {
+      "algorithm": "store",
+      "dataset": "resources",
+      "iteration": 3,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.07720791600013399,
+        "max_rss_bytes": 2113536,
+        "user_seconds": 0.0,
+        "system_seconds": 0.01,
+        "argv": [
+          "/bin/cp",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources/payload.tar",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/store-kqlydrps/compressed.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/store/3/compress.log"
+      },
+      "compressed_bytes": 167342080,
+      "compressed_sha256": "038a63660ef13a8f4d1ea28fd35c4842b75e12f6ea1e7295e926d7c2db66abfc",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.08319133400027567,
+        "max_rss_bytes": 2113536,
+        "user_seconds": 0.0,
+        "system_seconds": 0.01,
+        "argv": [
+          "/bin/cp",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/store-kqlydrps/compressed.tar",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/store-kqlydrps/restored/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/store/3/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.33783641700028966
+    },
+    {
+      "algorithm": "gzip-9",
+      "dataset": "resources",
+      "iteration": 3,
+      "status": "ok",
+      "verified_files": 30,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 3.131907292000051,
+        "max_rss_bytes": 1507328,
+        "user_seconds": 3.02,
+        "system_seconds": 0.05,
+        "argv": [
+          "/usr/bin/gzip",
+          "-9",
+          "-n",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources/payload.tar"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/gzip-9/3/compress.log"
+      },
+      "compressed_bytes": 166360668,
+      "compressed_sha256": "c37c69236c20df08fb2628e2ce2146b1a128f1425c042483b1d6a4c9e69ce10e",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.13636479199976748,
+        "max_rss_bytes": 1261568,
+        "user_seconds": 0.06,
+        "system_seconds": 0.04,
+        "argv": [
+          "/usr/bin/gzip",
+          "-dc",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/gzip-9-c9ej00no/compressed.gz"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/payloads-_2kjjcpw/resources",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-run2/logs/resources/gzip-9/3/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.39382812500025466
+    }
+  ],
+  "source_unchanged": true,
+  "finished_utc": "2026-10-09T17:47:15.194230+00:00"
+}

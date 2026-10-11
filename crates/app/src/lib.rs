@@ -13,6 +13,7 @@ mod effects;
 mod frame_diagnostics;
 mod license_gate;
 mod logging;
+mod media;
 mod menu_bar;
 mod mobile;
 mod motion;
@@ -146,6 +147,7 @@ pub fn run_norma_os() {
         })
         .detach();
         cx.on_app_quit(|cx| {
+            media::shutdown(cx);
             workspace::desktop::sessions::shutdown(cx);
             workspace::sessions::shutdown(cx);
             async {}

@@ -1,0 +1,10 @@
+{
+  "crates/app/src/media/mod.rs": "fbfeadf4494892db0bf66facf70b13003f31045ccce781d906c2be9b6ccc3bb9",
+  "crates/app/src/media/view.rs": "5faf16ed39fcd3b16dc721f84c3e2ae87b6e610ac691238e6582cbb84e028a2a",
+  "crates/app/src/settings/wallpaper/cells.rs": "8236e5a0e447b15afda2f68941bc7b445de041993deaecf9e408cd3d74a19163",
+  "crates/app/src/settings/wallpaper/current.rs": "ca7e4ad2eff509fe016a5d2088a2290416a41bbb4fef9d92f0c40676f6889348",
+  "crates/app/src/settings/wallpaper/view.rs": "5717a5794c7db99406178b5ec5fa134288debc7d94a2fb28ec230982932aec4c",
+  "crates/app/tests/unit/wallpaper_media_feedback_tests.rs": "eb4f5d1a2392b50cba8a3d56b79a140ec83efc388ca23a334d0d0965b1a814e9",
+  "crates/ui/locales/media.en.json": "0f4bf6c9fad44eb9087de307a22b42cdf7679e2d6e0d60f0da3b3f85073ce08b",
+  "crates/ui/locales/media.zh-CN.json": "557fd8ea7dc5fd878a0845c16aef20fab237068821ad15bce1b4679d94072ee0"
+}

@@ -17,6 +17,21 @@ pub(super) fn current_wallpaper(
     layout: &WallpaperLayout,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
+    let pending = match &state.selection {
+        WallpaperSelection::Builtin { rel } => crate::media::view::wallpaper_pending(rel, cx),
+        WallpaperSelection::Custom { .. } => false,
+    };
+    let footer = state
+        .scoped
+        .status
+        .as_deref()
+        .map(|status| match status {
+            "Saved" if pending => ui::i18n::text("media.wallpaper_selection_saved").to_owned(),
+            "Saved" => ui::i18n::text("norma.saved").to_owned(),
+            "Saving…" => ui::i18n::text("norma.saving").to_owned(),
+            message => message.to_owned(),
+        })
+        .or_else(|| (!pending).then(|| ui::i18n::text("settings.auto_save").to_owned()));
     let (name, kind, path) = match &state.selection {
         WallpaperSelection::Builtin { rel } => {
             let (_, name, kind) = builtin_wallpapers()
@@ -31,7 +46,8 @@ pub(super) fn current_wallpaper(
             (
                 super::cells::builtin_name(name).to_string(),
                 kind,
-                resolve_builtin_asset(rel),
+                resolve_builtin_asset(rel)
+                    .or_else(|| crate::app::wallpaper_resolvers::builtin_preview_asset(rel)),
             )
         }
         WallpaperSelection::Custom { filename } => {
@@ -96,8 +112,21 @@ pub(super) fn current_wallpaper(
                 .child(
                     div()
                         .settings_text(TextRole::Eyebrow, theme)
-                        .child(ui::i18n::text("settings.current_wallpaper")),
+                        .child(ui::i18n::text(if pending {
+                            "media.wallpaper_pending"
+                        } else {
+                            "settings.current_wallpaper"
+                        })),
                 )
+                .when(pending, |info| {
+                    info.child(
+                        div()
+                            .id("wallpaper-pending-selection")
+                            .debug_selector(|| "wallpaper-pending-selection".into())
+                            .settings_text(TextRole::Helper, theme)
+                            .child(ui::i18n::text("media.wallpaper_auto_apply")),
+                    )
+                })
                 .child(
                     div()
                         .settings_font(TextRole::Headline)
@@ -122,17 +151,24 @@ pub(super) fn current_wallpaper(
                         .settings_text(TextRole::Helper, theme)
                         .child(description),
                 )
-                .child(
-                    div()
-                        .min_h(px(18.0))
-                        .settings_text(TextRole::Caption, theme)
-                        .child(
-                            state
-                                .scoped
-                                .status
-                                .clone()
-                                .unwrap_or_else(|| ui::i18n::text("settings.auto_save").into()),
-                        ),
-                ),
+                .when_some(
+                    match &state.selection {
+                        WallpaperSelection::Builtin { rel } => {
+                            crate::media::view::status(rel, theme, cx)
+                        }
+                        WallpaperSelection::Custom { .. } => None,
+                    },
+                    |info, status| info.child(status),
+                )
+                .when_some(footer, |info, message| {
+                    info.child(
+                        div()
+                            .id("wallpaper-save-feedback")
+                            .debug_selector(|| "wallpaper-save-feedback".into())
+                            .min_h(px(18.0))
+                            .settings_text(TextRole::Caption, theme)
+                            .child(message),
+                    )
+                }),
         )
 }

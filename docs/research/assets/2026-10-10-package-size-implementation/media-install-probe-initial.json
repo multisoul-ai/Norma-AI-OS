@@ -1,0 +1,182 @@
+{
+  "checked_at_utc": "2026-10-10T04:14:38.747477+00:00",
+  "source": {
+    "path": "wallpapers/1406443.mp4",
+    "policy": "dynamic-wallpaper",
+    "bytes": 30692231,
+    "sha256": "583eaaf83235682507902bd40d0cbc5d695321d3fe22d422f66b86c2b203e3c1"
+  },
+  "probe": "media_store public API linked from verified debug clean-target rlib",
+  "scope": "filesystem installer only; excludes HTTP, GPUI and production release performance",
+  "cache_condition": "isolated empty cache per run; warm OS source cache; no network",
+  "measurement": "Darwin /usr/bin/time -l peak RSS; median of three runs; maximum measured RSS",
+  "sdk": "26.5",
+  "run_directory": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/media-install-probe-runs-20261010T041435Z",
+  "probe_sha256": "b378ad792ee4bd6d983546de27f10975c6ffd58b7de7cb17c5a53e4d356bf5e1",
+  "summary": {
+    "install": {
+      "successful_runs": 3,
+      "source_bytes": 30692231,
+      "median_install_seconds": 0.110409333,
+      "median_verify_seconds": 0.092055417,
+      "median_repair_seconds": 0,
+      "peak_rss_bytes": 2375680,
+      "max_read_buffer_bytes": 65536
+    },
+    "repair": {
+      "successful_runs": 3,
+      "source_bytes": 30692231,
+      "median_install_seconds": 0.108445666,
+      "median_verify_seconds": 0.092682291,
+      "median_repair_seconds": 0.199067542,
+      "peak_rss_bytes": 2375680,
+      "max_read_buffer_bytes": 65536
+    },
+    "cancel": {
+      "successful_runs": 3,
+      "source_bytes": 30692231,
+      "median_install_seconds": 0.0040705,
+      "median_verify_seconds": 0,
+      "median_repair_seconds": 0,
+      "peak_rss_bytes": 2375680,
+      "max_read_buffer_bytes": 65536
+    }
+  },
+  "runs": [
+    {
+      "mode": "install",
+      "source_bytes": 30692231,
+      "received_bytes": 30692231,
+      "install_seconds": 0.123593541,
+      "repair_seconds": 0,
+      "verify_seconds": 0.095227667,
+      "max_read_buffer_bytes": 65536,
+      "byte_identical": true,
+      "remaining_files": 1,
+      "repeat": 1,
+      "wall_seconds": 1.3021051250000002,
+      "peak_rss_bytes": 2375680,
+      "exit_code": 0
+    },
+    {
+      "mode": "install",
+      "source_bytes": 30692231,
+      "received_bytes": 30692231,
+      "install_seconds": 0.110409333,
+      "repair_seconds": 0,
+      "verify_seconds": 0.092055417,
+      "max_read_buffer_bytes": 65536,
+      "byte_identical": true,
+      "remaining_files": 1,
+      "repeat": 2,
+      "wall_seconds": 0.216310875,
+      "peak_rss_bytes": 2375680,
+      "exit_code": 0
+    },
+    {
+      "mode": "install",
+      "source_bytes": 30692231,
+      "received_bytes": 30692231,
+      "install_seconds": 0.1087225,
+      "repair_seconds": 0,
+      "verify_seconds": 0.09150575,
+      "max_read_buffer_bytes": 65536,
+      "byte_identical": true,
+      "remaining_files": 1,
+      "repeat": 3,
+      "wall_seconds": 0.21214133400000001,
+      "peak_rss_bytes": 2375680,
+      "exit_code": 0
+    },
+    {
+      "mode": "repair",
+      "source_bytes": 30692231,
+      "received_bytes": 30692231,
+      "install_seconds": 0.108633208,
+      "repair_seconds": 0.200853833,
+      "verify_seconds": 0.094635834,
+      "max_read_buffer_bytes": 65536,
+      "byte_identical": true,
+      "remaining_files": 1,
+      "repeat": 1,
+      "wall_seconds": 0.5084017079999998,
+      "peak_rss_bytes": 2375680,
+      "exit_code": 0
+    },
+    {
+      "mode": "repair",
+      "source_bytes": 30692231,
+      "received_bytes": 30692231,
+      "install_seconds": 0.108445666,
+      "repair_seconds": 0.199067542,
+      "verify_seconds": 0.091409625,
+      "max_read_buffer_bytes": 65536,
+      "byte_identical": true,
+      "remaining_files": 1,
+      "repeat": 2,
+      "wall_seconds": 0.5018097080000001,
+      "peak_rss_bytes": 2375680,
+      "exit_code": 0
+    },
+    {
+      "mode": "repair",
+      "source_bytes": 30692231,
+      "received_bytes": 30692231,
+      "install_seconds": 0.105771209,
+      "repair_seconds": 0.197963667,
+      "verify_seconds": 0.092682291,
+      "max_read_buffer_bytes": 65536,
+      "byte_identical": true,
+      "remaining_files": 1,
+      "repeat": 3,
+      "wall_seconds": 0.5023196670000001,
+      "peak_rss_bytes": 2375680,
+      "exit_code": 0
+    },
+    {
+      "mode": "cancel",
+      "source_bytes": 30692231,
+      "received_bytes": 1048576,
+      "install_seconds": 0.004409459,
+      "max_read_buffer_bytes": 65536,
+      "remaining_files": 0,
+      "repeat": 1,
+      "wall_seconds": 0.011024583000000199,
+      "peak_rss_bytes": 2375680,
+      "exit_code": 0
+    },
+    {
+      "mode": "cancel",
+      "source_bytes": 30692231,
+      "received_bytes": 1048576,
+      "install_seconds": 0.004054959,
+      "max_read_buffer_bytes": 65536,
+      "remaining_files": 0,
+      "repeat": 2,
+      "wall_seconds": 0.01001012499999998,
+      "peak_rss_bytes": 2375680,
+      "exit_code": 0
+    },
+    {
+      "mode": "cancel",
+      "source_bytes": 30692231,
+      "received_bytes": 1048576,
+      "install_seconds": 0.0040705,
+      "max_read_buffer_bytes": 65536,
+      "remaining_files": 0,
+      "repeat": 3,
+      "wall_seconds": 0.010057207999999651,
+      "peak_rss_bytes": 2375680,
+      "exit_code": 0
+    }
+  ],
+  "library_sha256": "ccc593ae65278692640ba523d2a8a98dedb67923f654ecf677755b0dc3747168",
+  "probe_source_sha256": "ae1dfaeb6840c7f15a4ccc590b6cd4d1d52be5c4aa13c2d1dbd75b30657eb7d8",
+  "media_store_source_sha256": {
+    "crates/media_store/src/artifact.rs": "bcce6cc8681ae051aff2a3366e87a781daa1b883f3fb7a584b0df937140b2580",
+    "crates/media_store/src/catalog.rs": "d278059ce0c1b2df2e68d5a7c5d39864b6c84144dea0573407a22de20031a36b",
+    "crates/media_store/src/installation.rs": "cec7c1edd912a1e486b06c4e9fd42b8438ce17fab9efeb5dc1f90f531d514ec6",
+    "crates/media_store/src/lib.rs": "aac750421a16a3efdced26df5f9776984e7886d07d28251120a8c53794542645",
+    "crates/media_store/src/transfers.rs": "ca36d716a430bd5248567955b8b0904ac615a4be0f654e76f5569ed1a7b7f3e6"
+  }
+}

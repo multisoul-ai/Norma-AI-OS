@@ -1,0 +1,627 @@
+{
+  "environment": {
+    "time_utc": "2026-10-09T14:47:37.719558+00:00",
+    "platform": "macOS-27.0.1-arm64-arm-64bit",
+    "python": "3.9.6 (default, May 22 2026, 11:13:45) \n[Clang 21.0.0 (clang-2100.1.1.101)]",
+    "cpu": "Apple M1",
+    "memory_bytes": "8589934592",
+    "cpu_count": "8",
+    "git_revision": "fatal: not a git repository (or any of the parent directories): .git",
+    "git_status": "fatal: not a git repository (or any of the parent directories): .git",
+    "tools": {
+      "7zz": {
+        "path": "/opt/homebrew/bin/7zz",
+        "version": "7-Zip (z) 26.04 (arm64) : Copyright (c) 1999-2026 Igor Pavlov : 2026-10-05\n 64-bit arm_v:8.5-A locale=C.UTF-8 Threads:8 OPEN_MAX:1048575, ASM\n\nUsage: 7zz <command> [<switches>...] <archive_name> [<file_names>...] [@listfile]\n\n<Commands>\n  a : Add files to archive\n  b : Benchmark\n  d : Delete files from archive\n  e : Extract files from archive (without using directory names)\n  h : Calculate hash values for files\n  i : Show information about supported formats\n  l : List contents of archive\n  rn : Rename files in archive\n  t : Test integrity of archive\n  u : Update files to archive\n  x : eXtract files with full paths\n\n<Switches>\n  -- : Stop switches and @listfile parsing\n  -ai[r[-|0]][m[-|2]][w[-]]{@listfile|!wildcard} : Include archives\n  -ax[r[-|0]][m[-|2]][w[-]]{@listfile|!wildcard} : eXclude archives\n  -ao{a|s|t|u} : set Overwrite mode\n  -an : disable archive_name field\n  -bb[0-3] : set output log level\n  -bd : disable progress indicator\n  -bs{o|e|p}{0|1|2} : set output stream for output/error/progress line\n  -bt : show execution time statistics\n  -i[r[-|0]][m[-|2]][w[-]]{@listfile|!wildcard} : Include filenames\n  -m{Parameters} : set compression Method\n    -mmt[N] : set number of CPU threads\n    -mx[N] : set compression level: -mx1 (fastest) ... -mx9 (ultra)\n  -o{Directory} : set Output directory\n  -p{Password} : set Password\n  -r[-|0] : Recurse subdirectories for name search\n  -sa{a|e|s} : set Archive name mode\n  -scc{UTF-8|WIN|DOS} : set charset for console input/output\n  -scs{UTF-8|UTF-16LE|UTF-16BE|WIN|DOS|{id}} : set charset for list files\n  -scrc[CRC32|CRC64|SHA256|SHA1|XXH64|BLAKE2SP|*] : set hash function for x, e, h commands\n  -sdel : delete files after compression\n  -seml[.] : send archive by email\n  -sfx[{name}] : Create SFX archive\n  -si[{name}] : read data from stdin\n  -slp : set Large Pages mode\n  -slt : show technical information for l (List) command\n  -snh : store hard links as links\n  -snl : store symbolic links as links\n  -sni : store NT security"
+      },
+      "brotli": {
+        "path": "/opt/homebrew/bin/brotli",
+        "version": "brotli 1.2.0"
+      },
+      "bzip2": {
+        "path": "/usr/bin/bzip2",
+        "version": "bzip2, a block-sorting file compressor.  Version 1.0.8, 13-Jul-2019.\n\n   usage: bzip2 [flags and input files in any order]\n\n   -h --help           print this message\n   -d --decompress     force decompression\n   -z --compress       force compression\n   -k --keep           keep (don't delete) input files\n   -f --force          overwrite existing output files\n   -t --test           test compressed file integrity\n   -c --stdout         output to standard out\n   -q --quiet          suppress noncritical error messages\n   -v --verbose        be verbose (a 2nd -v gives more)\n   -L --license        display software version & license\n   -V --version        display software version & license\n   -s --small          use less memory (at most 2500k)\n   -1 .. -9            set block size to 100k .. 900k\n   --fast              alias for -1\n   --best              alias for -9\n\n   If invoked as `bzip2', default action is to compress.\n              as `bunzip2',  default action is to decompress.\n              as `bzcat', default action is to decompress to stdout.\n\n   If no file names are given, bzip2 compresses or decompresses\n   from standard input to standard output.  You can combine\n   short flags, so `-v -4' means the same as -v4 or -4v, &c."
+      },
+      "cp": {
+        "path": "/bin/cp",
+        "version": "usage: cp [-R [-H | -L | -P]] [-fi | -n] [-aclpSsvXx] source_file target_file\n       cp [-R [-H | -L | -P]] [-fi | -n] [-aclpSsvXx] source_file ... target_directory"
+      },
+      "gzip": {
+        "path": "/usr/bin/gzip",
+        "version": "Apple gzip 487.0.1"
+      },
+      "xz": {
+        "path": "/opt/homebrew/bin/xz",
+        "version": "xz (XZ Utils) 5.8.3\nliblzma 5.8.3"
+      },
+      "zpaq": {
+        "path": "/opt/homebrew/bin/zpaq",
+        "version": "zpaq v7.15 journaling archiver, compiled Aug 17 2016\nUsage: zpaq command archive[.zpaq] files... -options...\nFiles... may be directory trees. Default is the whole archive.\nUse * or ???? in archive name for multi-part or \"\" for empty.\nCommands:\n   a  add         Append files to archive if dates have changed.\n   x  extract     Extract most recent versions of files.\n   l  list        List or compare external files to archive by dates.\nOptions:\n  -all [N]        Extract/list versions in N [4] digit directories.\n  -f -force       Add: append files if contents have changed.\n                  Extract: overwrite existing output files.\n                  List: compare file contents instead of dates.\n  -index F        Extract: create index F for archive.\n                  Add: create suffix for archive indexed by F, update F.\n  -key X          Create or access encrypted archive with password X.\n  -mN  -method N  Compress level N (0..5 = faster..better, default 1).\n  -noattributes   Ignore/don't save file attributes or permissions.\n  -not files...   Exclude. * and ? match any string or char.\n       =[+-#^?]   List: exclude by comparison result.\n  -only files...  Include only matches (default: *).\n  -repack F [X]   Extract to new archive F with key X (default: none).\n  -sN -summary N  List: show top N sorted by size. -1: show frag IDs.\n                  Add/Extract: if N > 0 show brief progress.\n  -test           Extract: verify but do not write files.\n  -tN -threads N  Use N threads (default: 0 = 8 cores).\n  -to out...      Rename files... to out... or all to out/all.\n  -until N        Roll back archive to N'th update or -N from end.\n  -until 2026-10-09 14:47:37  Set date, roll back (UT, default time: 235959)."
+      },
+      "zstd": {
+        "path": "/opt/homebrew/bin/zstd",
+        "version": "*** Zstandard CLI (64-bit) v1.5.7, by Yann Collet ***"
+      }
+    }
+  },
+  "manifest": [
+    {
+      "path": "crates/app/assets/feature-guide/README.md",
+      "bytes": 5,
+      "sha256": "83ca68be6227af2feb15f227485ed18aff8ecae99416a4bd6df3be1b5e8059b4"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/a.gif",
+      "bytes": 500,
+      "sha256": "78d698fbd4f43a213dc0f32f21fd685ed2f13493e49771963239f690327caf4d"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/a.mp4",
+      "bytes": 500,
+      "sha256": "edc7087649e56281a4e8e74c28b80175e7d7170697b6999b9c63b15cddd2a17e"
+    }
+  ],
+  "configuration": {
+    "algorithms": [
+      "store",
+      "gzip-9",
+      "bzip2-9",
+      "xz-9e",
+      "zstd-3",
+      "zstd-19",
+      "zstd-22",
+      "brotli-6",
+      "brotli-11",
+      "7z-lzma2-9",
+      "7z-ppmd-9",
+      "zpaq-5"
+    ],
+    "repeats": 1,
+    "timeout_seconds": 20.0,
+    "threads": 1
+  },
+  "datasets": {
+    "images": {
+      "file_count": 1,
+      "source_bytes": 500,
+      "tar_bytes": 10240,
+      "tar_sha256": "b0712d5366d00d674015bb3b1f61d5ce746e234b5c74054602d3d544d905b3e2"
+    }
+  },
+  "results": [
+    {
+      "algorithm": "store",
+      "dataset": "images",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 1,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.010405999999999999,
+        "max_rss_bytes": 1064960,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "/bin/cp",
+          "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images/payload.tar",
+          "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/store-3fv1jzyv/compressed.tar"
+        ],
+        "cwd": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images",
+        "log": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/logs/images/store/1/compress.log"
+      },
+      "compressed_bytes": 10240,
+      "compressed_sha256": "b0712d5366d00d674015bb3b1f61d5ce746e234b5c74054602d3d544d905b3e2",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.009979249999999995,
+        "max_rss_bytes": 1064960,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "/bin/cp",
+          "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/store-3fv1jzyv/compressed.tar",
+          "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/store-3fv1jzyv/restored/payload.tar"
+        ],
+        "cwd": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images",
+        "log": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/logs/images/store/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.010620416999999993
+    },
+    {
+      "algorithm": "gzip-9",
+      "dataset": "images",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 1,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.010296749999999993,
+        "max_rss_bytes": 1294336,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "/usr/bin/gzip",
+          "-9",
+          "-n",
+          "-c",
+          "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images/payload.tar"
+        ],
+        "cwd": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images",
+        "log": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/logs/images/gzip-9/1/compress.log"
+      },
+      "compressed_bytes": 127,
+      "compressed_sha256": "a2205d393b0f008e572c80686ec6da7192930fc9acb69871f1ec93ce477d0c6a",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.005266166999999988,
+        "max_rss_bytes": 1130496,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "/usr/bin/gzip",
+          "-dc",
+          "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/gzip-9-2hwu9qkw/compressed.gz"
+        ],
+        "cwd": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images",
+        "log": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/logs/images/gzip-9/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.005871542000000007
+    },
+    {
+      "algorithm": "bzip2-9",
+      "dataset": "images",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 1,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.010589249999999995,
+        "max_rss_bytes": 1261568,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "/usr/bin/bzip2",
+          "-9",
+          "-c",
+          "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images/payload.tar"
+        ],
+        "cwd": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images",
+        "log": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/logs/images/bzip2-9/1/compress.log"
+      },
+      "compressed_bytes": 137,
+      "compressed_sha256": "e4ee8c11694eee073bfe6700976dbaf7e3878b02247844454890f145256263fb",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.010518,
+        "max_rss_bytes": 1212416,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "/usr/bin/bzip2",
+          "-dc",
+          "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/bzip2-9-4_xocvzn/compressed.bz2"
+        ],
+        "cwd": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images",
+        "log": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/logs/images/bzip2-9/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.01111820799999999
+    },
+    {
+      "algorithm": "xz-9e",
+      "dataset": "images",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 1,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.010562875,
+        "max_rss_bytes": 3735552,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "/opt/homebrew/bin/xz",
+          "-9e",
+          "-T1",
+          "-c",
+          "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images/payload.tar"
+        ],
+        "cwd": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images",
+        "log": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/logs/images/xz-9e/1/compress.log"
+      },
+      "compressed_bytes": 184,
+      "compressed_sha256": "71fd78794652f194c250db037742db84945dd583ccf5ed0d4ac586bb44b6c3dd",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.010381458999999982,
+        "max_rss_bytes": 2048000,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "/opt/homebrew/bin/xz",
+          "-dc",
+          "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/xz-9e-aa4gs0lx/compressed.xz"
+        ],
+        "cwd": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images",
+        "log": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/logs/images/xz-9e/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.011059666999999995
+    },
+    {
+      "algorithm": "zstd-3",
+      "dataset": "images",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 1,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.010360750000000002,
+        "max_rss_bytes": 2392064,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "--single-thread",
+          "-q",
+          "-3",
+          "-c",
+          "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images/payload.tar"
+        ],
+        "cwd": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images",
+        "log": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/logs/images/zstd-3/1/compress.log"
+      },
+      "compressed_bytes": 109,
+      "compressed_sha256": "4cbb5699afb50f305e64d27f802fb94215ffc9e41a782ab4f23708e01a81c574",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.010324959000000022,
+        "max_rss_bytes": 2146304,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "-q",
+          "-dc",
+          "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/zstd-3-aojvo8bt/compressed.zst"
+        ],
+        "cwd": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images",
+        "log": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/logs/images/zstd-3/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.010966459000000012
+    },
+    {
+      "algorithm": "zstd-19",
+      "dataset": "images",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 1,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.010439625000000008,
+        "max_rss_bytes": 2588672,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "--single-thread",
+          "-q",
+          "-19",
+          "-c",
+          "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images/payload.tar"
+        ],
+        "cwd": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images",
+        "log": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/logs/images/zstd-19/1/compress.log"
+      },
+      "compressed_bytes": 99,
+      "compressed_sha256": "c8f8a3d4769de5f90d770bb7bd652b9c889f5f5ba664dc9828e3105a9c1466f9",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.010324709000000043,
+        "max_rss_bytes": 2146304,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "-q",
+          "-dc",
+          "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/zstd-19-uivv0ljj/compressed.zst"
+        ],
+        "cwd": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images",
+        "log": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/logs/images/zstd-19/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.010899374999999989
+    },
+    {
+      "algorithm": "zstd-22",
+      "dataset": "images",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 1,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.009724457999999991,
+        "max_rss_bytes": 2588672,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "--ultra",
+          "--single-thread",
+          "-q",
+          "-22",
+          "-c",
+          "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images/payload.tar"
+        ],
+        "cwd": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images",
+        "log": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/logs/images/zstd-22/1/compress.log"
+      },
+      "compressed_bytes": 99,
+      "compressed_sha256": "c8f8a3d4769de5f90d770bb7bd652b9c889f5f5ba664dc9828e3105a9c1466f9",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.010534833999999993,
+        "max_rss_bytes": 2146304,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "/opt/homebrew/bin/zstd",
+          "-q",
+          "-dc",
+          "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/zstd-22-3uqfo9je/compressed.zst"
+        ],
+        "cwd": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images",
+        "log": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/logs/images/zstd-22/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.011206292000000007
+    },
+    {
+      "algorithm": "brotli-6",
+      "dataset": "images",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 1,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.010429124999999984,
+        "max_rss_bytes": 2523136,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "/opt/homebrew/bin/brotli",
+          "-q",
+          "6",
+          "-c",
+          "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images/payload.tar"
+        ],
+        "cwd": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images",
+        "log": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/logs/images/brotli-6/1/compress.log"
+      },
+      "compressed_bytes": 100,
+      "compressed_sha256": "9452c76c26ce61ef6c248fc1d7098471ab698c348f8948df8bfd4a39e2a05a44",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.010613209000000012,
+        "max_rss_bytes": 1966080,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "/opt/homebrew/bin/brotli",
+          "-d",
+          "-c",
+          "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/brotli-6-sl860_ac/compressed.br"
+        ],
+        "cwd": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images",
+        "log": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/logs/images/brotli-6/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.011259041999999997
+    },
+    {
+      "algorithm": "brotli-11",
+      "dataset": "images",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 1,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.010287207999999992,
+        "max_rss_bytes": 3473408,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "/opt/homebrew/bin/brotli",
+          "-q",
+          "11",
+          "-c",
+          "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images/payload.tar"
+        ],
+        "cwd": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images",
+        "log": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/logs/images/brotli-11/1/compress.log"
+      },
+      "compressed_bytes": 92,
+      "compressed_sha256": "cb87e0a8390dfba2c5582b405011621724097cd65f05a2e40283295a48e2cb17",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.01047366700000002,
+        "max_rss_bytes": 1966080,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "/opt/homebrew/bin/brotli",
+          "-d",
+          "-c",
+          "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/brotli-11-j_jhwm22/compressed.br"
+        ],
+        "cwd": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images",
+        "log": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/logs/images/brotli-11/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.011077458999999956
+    },
+    {
+      "algorithm": "7z-lzma2-9",
+      "dataset": "images",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 1,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.010378500000000013,
+        "max_rss_bytes": 4210688,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "/opt/homebrew/bin/7zz",
+          "a",
+          "-t7z",
+          "-m0=LZMA2",
+          "-mx=9",
+          "-mmt=1",
+          "-y",
+          "-bd",
+          "-bb0",
+          "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/7z-lzma2-9-s2w38ha5/compressed.7z",
+          "payload.tar"
+        ],
+        "cwd": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images",
+        "log": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/logs/images/7z-lzma2-9/1/compress.log"
+      },
+      "compressed_bytes": 259,
+      "compressed_sha256": "3785d7c1ede047ba9fdc52ada21a989b2bdbd3dd90af188a432babf8ab32762d",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.010353416999999976,
+        "max_rss_bytes": 3407872,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "/opt/homebrew/bin/7zz",
+          "x",
+          "-so",
+          "-y",
+          "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/7z-lzma2-9-s2w38ha5/compressed.7z"
+        ],
+        "cwd": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images",
+        "log": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/logs/images/7z-lzma2-9/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.010956416000000024
+    },
+    {
+      "algorithm": "7z-ppmd-9",
+      "dataset": "images",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 1,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.009763750000000015,
+        "max_rss_bytes": 3391488,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "/opt/homebrew/bin/7zz",
+          "a",
+          "-t7z",
+          "-m0=PPMd",
+          "-mx=9",
+          "-mmt=1",
+          "-y",
+          "-bd",
+          "-bb0",
+          "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/7z-ppmd-9-36iyyjyj/compressed.7z",
+          "payload.tar"
+        ],
+        "cwd": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images",
+        "log": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/logs/images/7z-ppmd-9/1/compress.log"
+      },
+      "compressed_bytes": 212,
+      "compressed_sha256": "b1bcf77fb303549ac860d2e2f2a856664e4554ea06f5d90258bc03ca9f29b7cf",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.009494667000000012,
+        "max_rss_bytes": 3391488,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "/opt/homebrew/bin/7zz",
+          "x",
+          "-so",
+          "-y",
+          "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/7z-ppmd-9-36iyyjyj/compressed.7z"
+        ],
+        "cwd": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images",
+        "log": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/logs/images/7z-ppmd-9/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.010263292000000035
+    },
+    {
+      "algorithm": "zpaq-5",
+      "dataset": "images",
+      "iteration": 1,
+      "status": "ok",
+      "verified_files": 1,
+      "compress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.07664025000000002,
+        "max_rss_bytes": 89899008,
+        "user_seconds": 0.03,
+        "system_seconds": 0.0,
+        "argv": [
+          "/opt/homebrew/bin/zpaq",
+          "add",
+          "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/zpaq-5-5b7jtpmo/compressed.zpaq",
+          "payload.tar",
+          "-method",
+          "5",
+          "-threads",
+          "1"
+        ],
+        "cwd": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images",
+        "log": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/logs/images/zpaq-5/1/compress.log"
+      },
+      "compressed_bytes": 1140,
+      "compressed_sha256": "042a0e9189e1d6c9c6a64e5e3d9b8193d3f2361670301012b42c44246a2c20e9",
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.07049074999999994,
+        "max_rss_bytes": 89718784,
+        "user_seconds": 0.03,
+        "system_seconds": 0.0,
+        "argv": [
+          "/opt/homebrew/bin/zpaq",
+          "extract",
+          "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/zpaq-5-5b7jtpmo/compressed.zpaq",
+          "-to",
+          "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/zpaq-5-5b7jtpmo/restored",
+          "-threads",
+          "1"
+        ],
+        "cwd": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/images",
+        "log": "/private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/logs/images/zpaq-5/1/decompress.log"
+      },
+      "decompress_and_verify_seconds": 0.07119666600000008
+    }
+  ],
+  "source_unchanged": true,
+  "finished_utc": "2026-10-09T14:47:38.167048+00:00"
+}

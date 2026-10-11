@@ -1,0 +1,17 @@
+{
+  "started_at": "2026-10-11T00:07:45.718458+00:00",
+  "repo": "multisoul-ai/norma-os-releases",
+  "tag": "media-v1",
+  "target_commit": "05b4e4a73ed1da6ac97cfb2fbacd9c2238ee9732",
+  "previous_latest": {
+    "html_url": "https://github.com/multisoul-ai/norma-os-releases/releases/tag/v0.1.73",
+    "id": 406760540,
+    "tag_name": "v0.1.73"
+  },
+  "source_manifest_sha256": "e3cc16c8474aff7bbc1fa114d45fd60a54b8fc6b13df5c934383322f59e055ac",
+  "delivered_catalog_sha256": "055ea853a13cd5b624fa84a107035e6701ff2864bd183a75be88233f49f96ed5",
+  "media_count": 12,
+  "media_bytes": 135781610,
+  "asset_count": 16,
+  "staging_checks_passed": true
+}

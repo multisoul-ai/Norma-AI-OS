@@ -1,0 +1,110 @@
+[
+  {
+    "variant": "3-thin",
+    "opt_level": "3",
+    "lto": "thin",
+    "build_seconds": 479.400655292,
+    "exit_code": 0,
+    "source_sha256": "1732d7bb7533346eb4066f63015ce926d61b7cb4122cf6dce60d18210928b026",
+    "features": [
+      "production-data"
+    ],
+    "cache": "APFS clone of default release cache; build times are not cold-build comparisons",
+    "app_bytes": null,
+    "dmg_bytes": null,
+    "performance_status": "pending real-App acceptance",
+    "binary_bytes": 58079520,
+    "binary_sha256": "39acf65eac1da07fbec5605c7161cf71f0b3003995a5031b4a5700a20a62f1d7",
+    "cargo_executable": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/compiler-matrix-xcode-26.5/target-3-thin/release/norma-os"
+  },
+  {
+    "variant": "3-fat",
+    "opt_level": "3",
+    "lto": "fat",
+    "build_seconds": 1314.1913892910002,
+    "exit_code": 0,
+    "source_sha256": "1732d7bb7533346eb4066f63015ce926d61b7cb4122cf6dce60d18210928b026",
+    "features": [
+      "production-data"
+    ],
+    "cache": "APFS clone of default release cache; build times are not cold-build comparisons",
+    "app_bytes": null,
+    "dmg_bytes": null,
+    "performance_status": "pending real-App acceptance",
+    "binary_bytes": 55236624,
+    "binary_sha256": "e1aa2277ef7b388ffb57ec91dcda7b5cf1b686bb5856d4041ea3ab895f4eb7f1",
+    "cargo_executable": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/compiler-matrix-xcode-26.5/target-3-fat/release/norma-os"
+  },
+  {
+    "variant": "s-thin",
+    "opt_level": "s",
+    "lto": "thin",
+    "build_seconds": 849.2488920830001,
+    "exit_code": 0,
+    "source_sha256": "1732d7bb7533346eb4066f63015ce926d61b7cb4122cf6dce60d18210928b026",
+    "features": [
+      "production-data"
+    ],
+    "cache": "APFS clone of default release cache; build times are not cold-build comparisons",
+    "app_bytes": null,
+    "dmg_bytes": null,
+    "performance_status": "pending real-App acceptance",
+    "binary_bytes": 52737568,
+    "binary_sha256": "9d13223946e326de60de40cd977c5abc88d518183029bd97f3d66d56b2cb490c",
+    "cargo_executable": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/compiler-matrix-xcode-26.5/target-s-thin/release/norma-os"
+  },
+  {
+    "variant": "s-fat",
+    "opt_level": "s",
+    "lto": "fat",
+    "build_seconds": 1014.1169796670001,
+    "exit_code": 0,
+    "source_sha256": "1732d7bb7533346eb4066f63015ce926d61b7cb4122cf6dce60d18210928b026",
+    "features": [
+      "production-data"
+    ],
+    "cache": "APFS clone of default release cache; build times are not cold-build comparisons",
+    "app_bytes": null,
+    "dmg_bytes": null,
+    "performance_status": "pending real-App acceptance",
+    "binary_bytes": 46685520,
+    "binary_sha256": "306384c562df223ab897a3695a80d316ea7a85f5627a59679bd9f2d4aa9c189a",
+    "cargo_executable": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/compiler-matrix-xcode-26.5/target-s-fat/release/norma-os"
+  },
+  {
+    "variant": "z-thin",
+    "opt_level": "z",
+    "lto": "thin",
+    "build_seconds": 770.8517102079995,
+    "exit_code": 0,
+    "source_sha256": "1732d7bb7533346eb4066f63015ce926d61b7cb4122cf6dce60d18210928b026",
+    "features": [
+      "production-data"
+    ],
+    "cache": "APFS clone of default release cache; build times are not cold-build comparisons",
+    "app_bytes": null,
+    "dmg_bytes": null,
+    "performance_status": "pending real-App acceptance",
+    "binary_bytes": 45073824,
+    "binary_sha256": "016101a3ef99216414c312c3a816ce0c932494eeddf449f4a2dfc3988b087fc6",
+    "cargo_executable": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/compiler-matrix-xcode-26.5/target-z-thin/release/norma-os"
+  },
+  {
+    "variant": "z-fat",
+    "opt_level": "z",
+    "lto": "fat",
+    "build_seconds": 952.5163601250006,
+    "exit_code": 0,
+    "source_sha256": "1732d7bb7533346eb4066f63015ce926d61b7cb4122cf6dce60d18210928b026",
+    "features": [
+      "production-data"
+    ],
+    "cache": "APFS clone of default release cache; build times are not cold-build comparisons",
+    "app_bytes": null,
+    "dmg_bytes": null,
+    "performance_status": "pending real-App acceptance",
+    "binary_bytes": 39205408,
+    "binary_sha256": "9230bc659adbf0f770a70a2bb9aa5eb7e29e7e6797780bd9ea48e7f1a3a0dfff",
+    "cargo_executable": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/compiler-matrix-xcode-26.5/target-z-fat/release/norma-os"
+  }
+]

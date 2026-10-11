@@ -1,0 +1,12 @@
+{
+  "mounted_app_file_and_symlink_count": 102,
+  "mounted_app_matches_staged": true,
+  "bundled_media_verified": 18,
+  "excluded_optional_media": 12,
+  "preview_count": 7,
+  "dmg_applications_link": true,
+  "finder_layout_present": true,
+  "background_present": true,
+  "version": "0.1.73",
+  "bundle_id": "com.norma.os"
+}

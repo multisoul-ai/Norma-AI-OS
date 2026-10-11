@@ -19,8 +19,7 @@ impl MultisoulApp {
             });
         self.wallpaper_settings.scoped.bind(context);
         self.wallpaper_settings.selection = self.wallpaper_settings.scoped.effective_selection();
-        #[cfg(target_os = "macos")]
-        self.sync_canvas_video_wallpaper(cx);
+        self.refresh_optional_media(cx);
     }
 
     pub(super) fn publish_wallpaper(
@@ -118,6 +117,7 @@ impl MultisoulApp {
                     }
                 }
                 session.wallpaper_settings.selection = scoped.effective_selection();
+                session.refresh_optional_media(cx);
                 cx.notify();
             });
         }

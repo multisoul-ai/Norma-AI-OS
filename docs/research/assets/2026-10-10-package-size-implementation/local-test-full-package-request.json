@@ -1,0 +1,9 @@
+{
+  "started_at_utc": "2026-10-10T14:20:03.730605+00:00",
+  "command": "./scripts/release-local.sh --ad-hoc",
+  "media_profile": "full",
+  "public_key_source_plist_sha256": "0971c32293f238f8faedc0448280139a11f0389c69a9ee1300f9d7ae0a5c2cb0",
+  "public_key_sha256": "7273f3c60c47d2679c43e67a6fb7308ea8e699acbb39e4c68533a55744c86ad4",
+  "mode": "local ad-hoc, not notarized",
+  "explicit_local_test_request_received": true
+}

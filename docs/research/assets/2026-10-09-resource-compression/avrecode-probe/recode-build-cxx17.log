@@ -1,0 +1,110 @@
+g++ -D__STDC_CONSTANT_MACROS -fsanitize=address -std=c++17 -Wall -g -I. -I./ffmpeg -I/opt/homebrew/Cellar/protobuf/36.2/include -DPROTOBUF_USE_DLLS -I/opt/homebrew/Cellar/abseil/20260817.0/include -Wno-float-conversion -Wno-implicit-float-conversion -Wno-implicit-int-float-conversion -Wno-unknown-warning-option -Wno-unused-command-line-argument -DNOMINMAX -D_ISOC99_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -DPIC -DZLIB_CONST  -c -o recode.o recode.cpp
+g++ -D__STDC_CONSTANT_MACROS -fsanitize=address -std=c++17 -Wall -g -I. -I./ffmpeg -I/opt/homebrew/Cellar/protobuf/36.2/include -DPROTOBUF_USE_DLLS -I/opt/homebrew/Cellar/abseil/20260817.0/include -Wno-float-conversion -Wno-implicit-float-conversion -Wno-implicit-int-float-conversion -Wno-unknown-warning-option -Wno-unused-command-line-argument -DNOMINMAX -D_ISOC99_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -DPIC -DZLIB_CONST  -c -o recode.pb.o recode.pb.cc
+gcc -Wl,-dynamic,-search_paths_first -Qunused-arguments  recode.o recode.pb.o ffmpeg/libavcodec/libavcodec.a  -fsanitize=address  -L./ffmpeg/libavdevice -lavdevice -L./ffmpeg/libavformat -lavformat -L./ffmpeg/libavfilter -lavfilter -L./ffmpeg/libavcodec -lavcodec -L./ffmpeg/libswresample -lswresample -L./ffmpeg/libswscale -lswscale -L./ffmpeg/libavutil -lavutil -framework CoreFoundation -framework VideoToolbox -framework CoreMedia -framework QuartzCore -framework CoreVideo -framework CoreFoundation -framework VideoDecodeAcceleration -framework QuartzCore -liconv -L/opt/homebrew/Cellar/libxcb/1.17.0/lib -lxcb -L/opt/homebrew/Cellar/libxcb/1.17.0/lib -lxcb-shm -L/opt/homebrew/Cellar/libxcb/1.17.0/lib -lxcb-xfixes -L/opt/homebrew/Cellar/libxcb/1.17.0/lib -lxcb-shape -Wl,-framework,CoreFoundation -Wl,-framework,Security -lm -lbz2 -lz -pthread -framework CoreServices  -L/opt/homebrew/Cellar/protobuf/36.2/lib -lprotobuf -L/opt/homebrew/Cellar/abseil/20260817.0/lib -labsl_log_internal_check_op -labsl_die_if_null -labsl_log_internal_conditions -labsl_log_internal_message -labsl_examine_stack -labsl_log_internal_format -labsl_log_internal_nullguard -labsl_log_internal_structured_proto -labsl_log_internal_log_sink_set -labsl_log_sink -labsl_log_entry -labsl_log_internal_proto -labsl_flags_internal -labsl_flags_marshalling -labsl_flags_reflection -labsl_flags_private_handle_accessor -labsl_flags_commandlineflag -labsl_flags_commandlineflag_internal -labsl_flags_config -labsl_flags_program_name -labsl_log_initialize -labsl_log_internal_globals -labsl_log_globals -labsl_vlog_config_internal -labsl_log_internal_fnmatch -labsl_raw_hash_set -labsl_hashtablez_sampler -labsl_random_distributions -labsl_random_seed_sequences -labsl_random_internal_entropy_pool -labsl_random_internal_randen -labsl_random_internal_randen_hwaes -labsl_random_internal_randen_hwaes_impl -labsl_random_internal_randen_slow -labsl_random_internal_platform -labsl_random_internal_seed_material -labsl_random_seed_gen_exception -labsl_statusor -labsl_status -labsl_cord -labsl_cordz_info -labsl_cord_internal -labsl_hash -labsl_city -labsl_cordz_functions -labsl_exponential_biased -labsl_cordz_handle -labsl_crc_cord_state -labsl_crc32c -labsl_crc_internal -labsl_base_cpu_detect -labsl_leak_check -labsl_strerror -labsl_str_format_internal -labsl_synchronization -labsl_graphcycles_internal -labsl_kernel_timeout_internal -labsl_stacktrace -labsl_symbolize -labsl_debugging_internal -labsl_demangle_internal -labsl_demangle_rust -labsl_decode_rust_punycode -labsl_utf8_for_code_point -labsl_malloc_internal -labsl_tracing_internal -labsl_time -labsl_civil_time -labsl_time_zone -lutf8_validity -lutf8_range -labsl_strings -labsl_strings_internal -labsl_hardening -labsl_int128 -labsl_base -labsl_spinlock_wait -labsl_source_location -labsl_throw_delegate -labsl_raw_logging_internal -labsl_log_severity -lc++ -o recode
+In file included from recode.cpp:24:
+./framebuffer.h:23:16: warning: first argument in call to 'memset' is a pointer to non-trivially copyable type 'FrameBuffer' [-Wnontrivial-memcall]
+   23 |         memset(this, 0, sizeof(*this));
+      |                ^
+./framebuffer.h:23:16: note: explicitly cast the pointer to silence this warning
+   23 |         memset(this, 0, sizeof(*this));
+      |                ^
+      |                (void*)
+recode.cpp:1331:5: warning: ignoring return value of function declared with 'nodiscard' attribute [-Wunused-result]
+ 1331 |     in.ParseFromArray(bytes, size);
+      |     ^~~~~~~~~~~~~~~~~ ~~~~~~~~~~~
+recode.cpp:1335:5: warning: ignoring return value of function declared with 'nodiscard' attribute [-Wunused-result]
+ 1335 |     in.ParseFromString(in_bytes);
+      |     ^~~~~~~~~~~~~~~~~~ ~~~~~~~~
+recode.cpp:1609:5: warning: ignoring return value of function declared with 'nodiscard' attribute [-Wunused-result]
+ 1609 |     compressed_proto.ParseFromString(compressed.str());
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~~~
+In file included from recode.cpp:24:
+./framebuffer.h:13:14: warning: private field 'mb_types_' is not used [-Wunused-private-field]
+   13 |     uint8_t *mb_types_;
+      |              ^
+./framebuffer.h:14:15: warning: private field 'cbp_' is not used [-Wunused-private-field]
+   14 |     uint16_t *cbp_;
+      |               ^
+6 warnings generated.
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/protobuf/lib/libprotobuf.36.2.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_log_internal_check_op.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_die_if_null.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_log_internal_conditions.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_log_internal_message.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_examine_stack.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_log_internal_format.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_log_internal_nullguard.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_log_internal_structured_proto.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_log_internal_log_sink_set.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_log_sink.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_log_entry.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_log_internal_proto.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_flags_internal.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_flags_marshalling.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_flags_reflection.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_flags_private_handle_accessor.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_flags_commandlineflag.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_flags_commandlineflag_internal.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_flags_config.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_flags_program_name.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_log_initialize.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_log_internal_globals.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_log_globals.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_vlog_config_internal.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_log_internal_fnmatch.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_raw_hash_set.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_hashtablez_sampler.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_random_distributions.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_random_seed_sequences.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_random_internal_entropy_pool.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_random_internal_randen.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_random_internal_randen_hwaes.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_random_internal_randen_hwaes_impl.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_random_internal_randen_slow.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_random_internal_platform.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_random_internal_seed_material.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_random_seed_gen_exception.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_statusor.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_status.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_cord.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_cordz_info.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_cord_internal.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_hash.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_city.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_cordz_functions.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_exponential_biased.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_cordz_handle.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_crc_cord_state.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_crc32c.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_crc_internal.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_base_cpu_detect.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_leak_check.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_strerror.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_str_format_internal.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_synchronization.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_graphcycles_internal.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_kernel_timeout_internal.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_stacktrace.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_symbolize.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_debugging_internal.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_demangle_internal.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_demangle_rust.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_decode_rust_punycode.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_utf8_for_code_point.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_malloc_internal.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_tracing_internal.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_time.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_civil_time.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_time_zone.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/protobuf/lib/libutf8_validity.36.2.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/protobuf/lib/libutf8_range.36.2.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_strings.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_strings_internal.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_hardening.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_int128.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_base.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_spinlock_wait.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_source_location.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_throw_delegate.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_raw_logging_internal.2608.0.0.dylib' which was built for newer version 27.0
+ld: warning: building for macOS-26.5, but linking with dylib '/opt/homebrew/opt/abseil/lib/libabsl_log_severity.2608.0.0.dylib' which was built for newer version 27.0

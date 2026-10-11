@@ -1,0 +1,18 @@
+{
+  "checked_at_utc": "2026-10-10T05:49:36.255152+00:00",
+  "scope": "Computer Use refresh of implementation HTML report; not Norma App acceptance",
+  "report": "docs/research/2026-10-10-package-size-implementation-report.html",
+  "report_sha256": "73383f0a253d72e6263f19e6d99a86b057ae78d37f079a70eb7b62ee9d332b64",
+  "browser_ax": "compiler-matrix-browser-ax.txt",
+  "browser_ax_sha256": "283e8ef93532b8156b2ed62163e0e25d61dacc276c6df02f3db771b5d2654448",
+  "visible_variants": [
+    "3-thin",
+    "3-fat",
+    "s-thin",
+    "s-fat",
+    "z-thin",
+    "z-fat"
+  ],
+  "current_smallest_completed_variant": "z-fat",
+  "performance_status": "pending real-App acceptance"
+}

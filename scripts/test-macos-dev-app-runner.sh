@@ -207,6 +207,20 @@ printf 'fixture bundle wallpaper\n' >"$fixture_wallpaper_source"
 printf 'fixture feature guide video\n' >"$fixture_feature_guide_source"
 printf '{"name":"fixture-browser-auth-extension"}\n' >"$fixture_auth_extension_manifest"
 
+# 场景：runner 使用签名前的同一 staging 契约。此 fixture 只模拟准备器输出，
+# 真正的 hash、profile 与事务行为由 test-prepare-release-media.py 覆盖。
+cat >"$fixture_root/scripts/prepare-release-media.sh" <<'MEDIA'
+#!/usr/bin/env bash
+set -euo pipefail
+[ "${1:-}" = --local-test ]
+mkdir -p build/release-media/wallpaper-previews
+cp -R crates/app/assets/wallpapers build/release-media/
+cp -R crates/app/assets/feature-guide build/release-media/
+printf 'trusted fixture catalog\n' >build/release-media/media-catalog.json
+printf 'static fixture preview\n' >build/release-media/wallpaper-previews/optional.webp
+MEDIA
+chmod +x "$fixture_root/scripts/prepare-release-media.sh"
+
 cat >"$fixture_input" <<'APP'
 #!/usr/bin/env bash
 trap 'exit 0' TERM
@@ -381,6 +395,12 @@ if ! cmp -s "$fixture_auth_extension_manifest" "$bundle_auth_extension_manifest"
 fi
 
 bundle_wallpaper="$tmp_dir/Norma OS Dev.app/Contents/Resources/wallpapers/1407174.mp4"
+if ! cmp -s "$fixture_root/build/release-media/media-catalog.json" "$tmp_dir/Norma OS Dev.app/Contents/Resources/media-catalog.json"; then
+  fail "development bundle must carry the prepared trusted catalog before signing"
+fi
+if ! cmp -s "$fixture_root/build/release-media/wallpaper-previews/optional.webp" "$tmp_dir/Norma OS Dev.app/Contents/Resources/wallpaper-previews/optional.webp"; then
+  fail "development bundle must carry the prepared static preview"
+fi
 if [ ! -f "$bundle_wallpaper" ]; then
   cat "$tmp_dir/runner.log" >&2
   fail "cargo run development bundle must include built-in wallpaper resources outside the Documents source checkout"

@@ -1,0 +1,26 @@
+{
+  "checked_at_utc": "2026-10-10T14:23:41.807851+00:00",
+  "profile": "full",
+  "version": "0.1.73",
+  "architecture": "arm64",
+  "mode": "ad-hoc, not notarized",
+  "source_wrapper_log": "build/package-size-reduction/local-test-full-package.log",
+  "dmg": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/package-size-tests-20261010-142336/Norma-OS_0.1.73_full_aarch64.dmg",
+  "dmg_bytes": 200662810,
+  "dmg_sha256": "fba72e3236ae5ec0fa51a001cc53bcdf65dde5b8b034c8ed462c83119f967de1",
+  "app": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/package-size-tests-20261010-142336/full/Norma OS.app",
+  "app_regular_file_bytes": 236370857,
+  "app_regular_file_count": 108,
+  "media_catalog_sha256": "b99798de97a175e2abc4a96fbc95d34c7201567db18f1fc8832933cdd2c47bfe",
+  "original_bundled_count": 30,
+  "original_unbundled_count": 0,
+  "original_bundled_bytes": 167312523,
+  "verify": {
+    "wrapper_completed": true,
+    "codesign_deep_strict": true,
+    "hdiutil_verify": true,
+    "finder_layout": true,
+    "bundled_original_bytes_and_sha": true
+  },
+  "snapshot_note": "Moved newly verified artifacts into a unique snapshot folder, preserving metadata and leaving a clean output path for the next profile"
+}

@@ -1,0 +1,877 @@
+{
+  "checked_at_utc": "2026-10-10T05:33:18.146876+00:00",
+  "scope": "static on-disk Mach-O segment/section sizes; not runtime RSS or App/DMG",
+  "method": "xcrun otool -l; reconcile segment filesize against whole artifact bytes; virtual/zerofill excluded from disk totals",
+  "variants": [
+    {
+      "variant": "3-thin",
+      "binary_bytes": 58079520,
+      "binary_sha256": "39acf65eac1da07fbec5605c7161cf71f0b3003995a5031b4a5700a20a62f1d7",
+      "source_sha256": "1732d7bb7533346eb4066f63015ce926d61b7cb4122cf6dce60d18210928b026",
+      "segments": [
+        {
+          "name": "__PAGEZERO",
+          "file_bytes": 0,
+          "file_offset": 0,
+          "virtual_bytes": 4294967296
+        },
+        {
+          "name": "__TEXT",
+          "file_bytes": 54706176,
+          "file_offset": 0,
+          "virtual_bytes": 54706176
+        },
+        {
+          "name": "__DATA_CONST",
+          "file_bytes": 2064384,
+          "file_offset": 54706176,
+          "virtual_bytes": 2064384
+        },
+        {
+          "name": "__DATA",
+          "file_bytes": 65536,
+          "file_offset": 56770560,
+          "virtual_bytes": 212992
+        },
+        {
+          "name": "__LINKEDIT",
+          "file_bytes": 1243424,
+          "file_offset": 56836096,
+          "virtual_bytes": 1245184
+        }
+      ],
+      "sections": [
+        {
+          "segment": "__TEXT",
+          "name": "__text",
+          "bytes": 43698064
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__stubs",
+          "bytes": 9120
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__stub_helper",
+          "bytes": 8832
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__cstring",
+          "bytes": 1110974
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__const",
+          "bytes": 4495688
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__gcc_except_tab",
+          "bytes": 2230928
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__info_plist",
+          "bytes": 1107
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__unwind_info",
+          "bytes": 649160
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__eh_frame",
+          "bytes": 2483764
+        },
+        {
+          "segment": "__DATA_CONST",
+          "name": "__got",
+          "bytes": 1208
+        },
+        {
+          "segment": "__DATA_CONST",
+          "name": "__mod_init_func",
+          "bytes": 952
+        },
+        {
+          "segment": "__DATA_CONST",
+          "name": "__const",
+          "bytes": 2053560
+        },
+        {
+          "segment": "__DATA_CONST",
+          "name": "__cfstring",
+          "bytes": 32
+        },
+        {
+          "segment": "__DATA_CONST",
+          "name": "__objc_imageinfo",
+          "bytes": 8
+        },
+        {
+          "segment": "__DATA",
+          "name": "__la_symbol_ptr",
+          "bytes": 5872
+        },
+        {
+          "segment": "__DATA",
+          "name": "__data",
+          "bytes": 53328
+        },
+        {
+          "segment": "__DATA",
+          "name": "__thread_vars",
+          "bytes": 1536
+        },
+        {
+          "segment": "__DATA",
+          "name": "__thread_data",
+          "bytes": 264
+        },
+        {
+          "segment": "__DATA",
+          "name": "__thread_bss",
+          "bytes": 4184
+        },
+        {
+          "segment": "__DATA",
+          "name": "__common",
+          "bytes": 81663
+        },
+        {
+          "segment": "__DATA",
+          "name": "__bss",
+          "bytes": 56152
+        }
+      ]
+    },
+    {
+      "variant": "3-fat",
+      "binary_bytes": 55236624,
+      "binary_sha256": "e1aa2277ef7b388ffb57ec91dcda7b5cf1b686bb5856d4041ea3ab895f4eb7f1",
+      "source_sha256": "1732d7bb7533346eb4066f63015ce926d61b7cb4122cf6dce60d18210928b026",
+      "segments": [
+        {
+          "name": "__PAGEZERO",
+          "file_bytes": 0,
+          "file_offset": 0,
+          "virtual_bytes": 4294967296
+        },
+        {
+          "name": "__TEXT",
+          "file_bytes": 52494336,
+          "file_offset": 0,
+          "virtual_bytes": 52494336
+        },
+        {
+          "name": "__DATA_CONST",
+          "file_bytes": 1933312,
+          "file_offset": 52494336,
+          "virtual_bytes": 1933312
+        },
+        {
+          "name": "__DATA",
+          "file_bytes": 65536,
+          "file_offset": 54427648,
+          "virtual_bytes": 212992
+        },
+        {
+          "name": "__LINKEDIT",
+          "file_bytes": 743440,
+          "file_offset": 54493184,
+          "virtual_bytes": 753664
+        }
+      ],
+      "sections": [
+        {
+          "segment": "__TEXT",
+          "name": "__text",
+          "bytes": 42224972
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__stubs",
+          "bytes": 9156
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__stub_helper",
+          "bytes": 8868
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__gcc_except_tab",
+          "bytes": 2131500
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__const",
+          "bytes": 4286792
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__cstring",
+          "bytes": 1083852
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__info_plist",
+          "bytes": 1107
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__unwind_info",
+          "bytes": 589336
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__eh_frame",
+          "bytes": 2137936
+        },
+        {
+          "segment": "__DATA_CONST",
+          "name": "__got",
+          "bytes": 1208
+        },
+        {
+          "segment": "__DATA_CONST",
+          "name": "__mod_init_func",
+          "bytes": 952
+        },
+        {
+          "segment": "__DATA_CONST",
+          "name": "__const",
+          "bytes": 1915352
+        },
+        {
+          "segment": "__DATA_CONST",
+          "name": "__cfstring",
+          "bytes": 32
+        },
+        {
+          "segment": "__DATA_CONST",
+          "name": "__objc_imageinfo",
+          "bytes": 8
+        },
+        {
+          "segment": "__DATA",
+          "name": "__la_symbol_ptr",
+          "bytes": 5896
+        },
+        {
+          "segment": "__DATA",
+          "name": "__data",
+          "bytes": 50216
+        },
+        {
+          "segment": "__DATA",
+          "name": "__thread_vars",
+          "bytes": 1464
+        },
+        {
+          "segment": "__DATA",
+          "name": "__thread_data",
+          "bytes": 208
+        },
+        {
+          "segment": "__DATA",
+          "name": "__thread_bss",
+          "bytes": 4184
+        },
+        {
+          "segment": "__DATA",
+          "name": "__bss",
+          "bytes": 68760
+        },
+        {
+          "segment": "__DATA",
+          "name": "__common",
+          "bytes": 69119
+        }
+      ]
+    },
+    {
+      "variant": "s-thin",
+      "binary_bytes": 52737568,
+      "binary_sha256": "9d13223946e326de60de40cd977c5abc88d518183029bd97f3d66d56b2cb490c",
+      "source_sha256": "1732d7bb7533346eb4066f63015ce926d61b7cb4122cf6dce60d18210928b026",
+      "segments": [
+        {
+          "name": "__PAGEZERO",
+          "file_bytes": 0,
+          "file_offset": 0,
+          "virtual_bytes": 4294967296
+        },
+        {
+          "name": "__TEXT",
+          "file_bytes": 47890432,
+          "file_offset": 0,
+          "virtual_bytes": 47890432
+        },
+        {
+          "name": "__DATA_CONST",
+          "file_bytes": 2129920,
+          "file_offset": 47890432,
+          "virtual_bytes": 2129920
+        },
+        {
+          "name": "__DATA",
+          "file_bytes": 65536,
+          "file_offset": 50020352,
+          "virtual_bytes": 212992
+        },
+        {
+          "name": "__LINKEDIT",
+          "file_bytes": 2651680,
+          "file_offset": 50085888,
+          "virtual_bytes": 2654208
+        }
+      ],
+      "sections": [
+        {
+          "segment": "__TEXT",
+          "name": "__text",
+          "bytes": 35863804
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__stubs",
+          "bytes": 9156
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__stub_helper",
+          "bytes": 8868
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__cstring",
+          "bytes": 1151692
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__gcc_except_tab",
+          "bytes": 2031280
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__const",
+          "bytes": 4393288
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__info_plist",
+          "bytes": 1107
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__unwind_info",
+          "bytes": 873336
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__eh_frame",
+          "bytes": 3549128
+        },
+        {
+          "segment": "__DATA_CONST",
+          "name": "__got",
+          "bytes": 1208
+        },
+        {
+          "segment": "__DATA_CONST",
+          "name": "__mod_init_func",
+          "bytes": 952
+        },
+        {
+          "segment": "__DATA_CONST",
+          "name": "__const",
+          "bytes": 2117984
+        },
+        {
+          "segment": "__DATA_CONST",
+          "name": "__cfstring",
+          "bytes": 32
+        },
+        {
+          "segment": "__DATA_CONST",
+          "name": "__objc_imageinfo",
+          "bytes": 8
+        },
+        {
+          "segment": "__DATA",
+          "name": "__la_symbol_ptr",
+          "bytes": 5896
+        },
+        {
+          "segment": "__DATA",
+          "name": "__data",
+          "bytes": 50248
+        },
+        {
+          "segment": "__DATA",
+          "name": "__thread_vars",
+          "bytes": 1536
+        },
+        {
+          "segment": "__DATA",
+          "name": "__thread_data",
+          "bytes": 264
+        },
+        {
+          "segment": "__DATA",
+          "name": "__thread_bss",
+          "bytes": 4184
+        },
+        {
+          "segment": "__DATA",
+          "name": "__common",
+          "bytes": 82687
+        },
+        {
+          "segment": "__DATA",
+          "name": "__bss",
+          "bytes": 55424
+        }
+      ]
+    },
+    {
+      "variant": "s-fat",
+      "binary_bytes": 46685520,
+      "binary_sha256": "306384c562df223ab897a3695a80d316ea7a85f5627a59679bd9f2d4aa9c189a",
+      "source_sha256": "1732d7bb7533346eb4066f63015ce926d61b7cb4122cf6dce60d18210928b026",
+      "segments": [
+        {
+          "name": "__PAGEZERO",
+          "file_bytes": 0,
+          "file_offset": 0,
+          "virtual_bytes": 4294967296
+        },
+        {
+          "name": "__TEXT",
+          "file_bytes": 44023808,
+          "file_offset": 0,
+          "virtual_bytes": 44023808
+        },
+        {
+          "name": "__DATA_CONST",
+          "file_bytes": 1916928,
+          "file_offset": 44023808,
+          "virtual_bytes": 1916928
+        },
+        {
+          "name": "__DATA",
+          "file_bytes": 65536,
+          "file_offset": 45940736,
+          "virtual_bytes": 212992
+        },
+        {
+          "name": "__LINKEDIT",
+          "file_bytes": 679248,
+          "file_offset": 46006272,
+          "virtual_bytes": 688128
+        }
+      ],
+      "sections": [
+        {
+          "segment": "__TEXT",
+          "name": "__text",
+          "bytes": 34149208
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__stubs",
+          "bytes": 9156
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__stub_helper",
+          "bytes": 8868
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__gcc_except_tab",
+          "bytes": 1871328
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__const",
+          "bytes": 4213064
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__cstring",
+          "bytes": 1088386
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__info_plist",
+          "bytes": 1107
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__unwind_info",
+          "bytes": 603104
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__eh_frame",
+          "bytes": 2063976
+        },
+        {
+          "segment": "__DATA_CONST",
+          "name": "__got",
+          "bytes": 1208
+        },
+        {
+          "segment": "__DATA_CONST",
+          "name": "__mod_init_func",
+          "bytes": 952
+        },
+        {
+          "segment": "__DATA_CONST",
+          "name": "__const",
+          "bytes": 1903648
+        },
+        {
+          "segment": "__DATA_CONST",
+          "name": "__cfstring",
+          "bytes": 32
+        },
+        {
+          "segment": "__DATA_CONST",
+          "name": "__objc_imageinfo",
+          "bytes": 8
+        },
+        {
+          "segment": "__DATA",
+          "name": "__la_symbol_ptr",
+          "bytes": 5896
+        },
+        {
+          "segment": "__DATA",
+          "name": "__data",
+          "bytes": 49976
+        },
+        {
+          "segment": "__DATA",
+          "name": "__thread_vars",
+          "bytes": 1464
+        },
+        {
+          "segment": "__DATA",
+          "name": "__thread_data",
+          "bytes": 208
+        },
+        {
+          "segment": "__DATA",
+          "name": "__thread_bss",
+          "bytes": 4184
+        },
+        {
+          "segment": "__DATA",
+          "name": "__bss",
+          "bytes": 68800
+        },
+        {
+          "segment": "__DATA",
+          "name": "__common",
+          "bytes": 69119
+        }
+      ]
+    },
+    {
+      "variant": "z-thin",
+      "binary_bytes": 45073824,
+      "binary_sha256": "016101a3ef99216414c312c3a816ce0c932494eeddf449f4a2dfc3988b087fc6",
+      "source_sha256": "1732d7bb7533346eb4066f63015ce926d61b7cb4122cf6dce60d18210928b026",
+      "segments": [
+        {
+          "name": "__PAGEZERO",
+          "file_bytes": 0,
+          "file_offset": 0,
+          "virtual_bytes": 4294967296
+        },
+        {
+          "name": "__TEXT",
+          "file_bytes": 39469056,
+          "file_offset": 0,
+          "virtual_bytes": 39469056
+        },
+        {
+          "name": "__DATA_CONST",
+          "file_bytes": 2244608,
+          "file_offset": 39469056,
+          "virtual_bytes": 2244608
+        },
+        {
+          "name": "__DATA",
+          "file_bytes": 65536,
+          "file_offset": 41713664,
+          "virtual_bytes": 212992
+        },
+        {
+          "name": "__LINKEDIT",
+          "file_bytes": 3294624,
+          "file_offset": 41779200,
+          "virtual_bytes": 3309568
+        }
+      ],
+      "sections": [
+        {
+          "segment": "__TEXT",
+          "name": "__text",
+          "bytes": 29166600
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__stubs",
+          "bytes": 9180
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__stub_helper",
+          "bytes": 8892
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__cstring",
+          "bytes": 1170932
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__gcc_except_tab",
+          "bytes": 2278396
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__const",
+          "bytes": 4430152
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__info_plist",
+          "bytes": 1107
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__unwind_info",
+          "bytes": 848336
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__eh_frame",
+          "bytes": 1532724
+        },
+        {
+          "segment": "__DATA_CONST",
+          "name": "__got",
+          "bytes": 1208
+        },
+        {
+          "segment": "__DATA_CONST",
+          "name": "__mod_init_func",
+          "bytes": 952
+        },
+        {
+          "segment": "__DATA_CONST",
+          "name": "__const",
+          "bytes": 2239832
+        },
+        {
+          "segment": "__DATA_CONST",
+          "name": "__cfstring",
+          "bytes": 32
+        },
+        {
+          "segment": "__DATA_CONST",
+          "name": "__objc_imageinfo",
+          "bytes": 8
+        },
+        {
+          "segment": "__DATA",
+          "name": "__la_symbol_ptr",
+          "bytes": 5912
+        },
+        {
+          "segment": "__DATA",
+          "name": "__data",
+          "bytes": 50272
+        },
+        {
+          "segment": "__DATA",
+          "name": "__thread_vars",
+          "bytes": 1536
+        },
+        {
+          "segment": "__DATA",
+          "name": "__thread_data",
+          "bytes": 264
+        },
+        {
+          "segment": "__DATA",
+          "name": "__thread_bss",
+          "bytes": 4184
+        },
+        {
+          "segment": "__DATA",
+          "name": "__common",
+          "bytes": 82687
+        },
+        {
+          "segment": "__DATA",
+          "name": "__bss",
+          "bytes": 55536
+        }
+      ]
+    },
+    {
+      "variant": "z-fat",
+      "binary_bytes": 39205408,
+      "binary_sha256": "9230bc659adbf0f770a70a2bb9aa5eb7e29e7e6797780bd9ea48e7f1a3a0dfff",
+      "source_sha256": "1732d7bb7533346eb4066f63015ce926d61b7cb4122cf6dce60d18210928b026",
+      "segments": [
+        {
+          "name": "__PAGEZERO",
+          "file_bytes": 0,
+          "file_offset": 0,
+          "virtual_bytes": 4294967296
+        },
+        {
+          "name": "__TEXT",
+          "file_bytes": 36487168,
+          "file_offset": 0,
+          "virtual_bytes": 36487168
+        },
+        {
+          "name": "__DATA_CONST",
+          "file_bytes": 1966080,
+          "file_offset": 36487168,
+          "virtual_bytes": 1966080
+        },
+        {
+          "name": "__DATA",
+          "file_bytes": 65536,
+          "file_offset": 38453248,
+          "virtual_bytes": 212992
+        },
+        {
+          "name": "__LINKEDIT",
+          "file_bytes": 686624,
+          "file_offset": 38518784,
+          "virtual_bytes": 688128
+        }
+      ],
+      "sections": [
+        {
+          "segment": "__TEXT",
+          "name": "__text",
+          "bytes": 27365128
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__stubs",
+          "bytes": 9180
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__stub_helper",
+          "bytes": 8892
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__gcc_except_tab",
+          "bytes": 2276344
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__const",
+          "bytes": 4233544
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__cstring",
+          "bytes": 1095906
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__info_plist",
+          "bytes": 1107
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__unwind_info",
+          "bytes": 595032
+        },
+        {
+          "segment": "__TEXT",
+          "name": "__eh_frame",
+          "bytes": 878624
+        },
+        {
+          "segment": "__DATA_CONST",
+          "name": "__got",
+          "bytes": 1208
+        },
+        {
+          "segment": "__DATA_CONST",
+          "name": "__mod_init_func",
+          "bytes": 952
+        },
+        {
+          "segment": "__DATA_CONST",
+          "name": "__const",
+          "bytes": 1955584
+        },
+        {
+          "segment": "__DATA_CONST",
+          "name": "__cfstring",
+          "bytes": 32
+        },
+        {
+          "segment": "__DATA_CONST",
+          "name": "__objc_imageinfo",
+          "bytes": 8
+        },
+        {
+          "segment": "__DATA",
+          "name": "__la_symbol_ptr",
+          "bytes": 5912
+        },
+        {
+          "segment": "__DATA",
+          "name": "__data",
+          "bytes": 50176
+        },
+        {
+          "segment": "__DATA",
+          "name": "__thread_vars",
+          "bytes": 1464
+        },
+        {
+          "segment": "__DATA",
+          "name": "__thread_data",
+          "bytes": 208
+        },
+        {
+          "segment": "__DATA",
+          "name": "__thread_bss",
+          "bytes": 4184
+        },
+        {
+          "segment": "__DATA",
+          "name": "__bss",
+          "bytes": 68848
+        },
+        {
+          "segment": "__DATA",
+          "name": "__common",
+          "bytes": 69119
+        }
+      ]
+    }
+  ]
+}

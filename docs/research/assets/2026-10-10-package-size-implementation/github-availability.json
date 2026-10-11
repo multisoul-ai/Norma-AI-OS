@@ -1,0 +1,66 @@
+{
+  "checked_at_utc": "2026-10-10T02:28:24.185654+00:00",
+  "all_available": false,
+  "resources": [
+    {
+      "path": "wallpapers/1403512.mp4",
+      "url": "https://github.com/multisoul-ai/norma-os-releases/releases/download/media-v1/3a5b89c7f19ee6c63d66d0642462617304cb97fca653af3d56cbedebb9758270.mp4",
+      "status": 404
+    },
+    {
+      "path": "wallpapers/1404942.mp4",
+      "url": "https://github.com/multisoul-ai/norma-os-releases/releases/download/media-v1/d07f32caefce35141a25baca81b5505ba612d797b0d82546a8b81658ed4456dc.mp4",
+      "status": 404
+    },
+    {
+      "path": "wallpapers/1406443.mp4",
+      "url": "https://github.com/multisoul-ai/norma-os-releases/releases/download/media-v1/583eaaf83235682507902bd40d0cbc5d695321d3fe22d422f66b86c2b203e3c1.mp4",
+      "status": 404
+    },
+    {
+      "path": "wallpapers/1406489.mp4",
+      "url": "https://github.com/multisoul-ai/norma-os-releases/releases/download/media-v1/e9f236dbc476d073b575ea2049dc6f746979eab57d013741cb64bbec3bec1af0.mp4",
+      "status": 404
+    },
+    {
+      "path": "wallpapers/1407174.mp4",
+      "url": "https://github.com/multisoul-ai/norma-os-releases/releases/download/media-v1/27405254f8039c138add0fadb7a1269a2fcea32feda231a1f1b3d9fba33c9abc.mp4",
+      "status": 404
+    },
+    {
+      "path": "wallpapers/215824.gif",
+      "url": "https://github.com/multisoul-ai/norma-os-releases/releases/download/media-v1/ee63081b8bf50c6153c63135992f41327b47a8666e9837b8af7c3f79166be10a.gif",
+      "status": 404
+    },
+    {
+      "path": "wallpapers/220240.gif",
+      "url": "https://github.com/multisoul-ai/norma-os-releases/releases/download/media-v1/73b4a0c7c3bed95ef29fc41bef54f3ee22562df0b0b4b426f81e8a83836b0c8a.gif",
+      "status": 404
+    },
+    {
+      "path": "feature-guide/demo-agent-collaboration.mp4",
+      "url": "https://github.com/multisoul-ai/norma-os-releases/releases/download/media-v1/ba2bc6caf719b28e7abe4edc5c00d36a4274d544ff14e68e96f7d11c7fd07e57.mp4",
+      "status": 404
+    },
+    {
+      "path": "feature-guide/demo-agent-notifications.mp4",
+      "url": "https://github.com/multisoul-ai/norma-os-releases/releases/download/media-v1/b634f931877b8fe31a0fe5071642094623d15feb09b31e1bf3d13ae3d13e1ae7.mp4",
+      "status": 404
+    },
+    {
+      "path": "feature-guide/demo-layout-command-m.mp4",
+      "url": "https://github.com/multisoul-ai/norma-os-releases/releases/download/media-v1/ac0c5cfd59b7af969ccaddda37a7b35dea6e68d2ac79d2c969606f3f12d4f3eb.mp4",
+      "status": 404
+    },
+    {
+      "path": "feature-guide/demo-live-node-shortcuts.mp4",
+      "url": "https://github.com/multisoul-ai/norma-os-releases/releases/download/media-v1/735eb71edcc2f645fb5636be9b35c606980c88376a4a0d07521bd671d4d6b1ac.mp4",
+      "status": 404
+    },
+    {
+      "path": "feature-guide/demo-voice-command.mp4",
+      "url": "https://github.com/multisoul-ai/norma-os-releases/releases/download/media-v1/2e4512c2576cb6ea608b17066b85f7b66a5c94f26e0763129f4cb4695e678f04.mp4",
+      "status": 404
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "scope": "report-only extra-evidence tests; no source changes while compiler matrix is running",
+  "test_source": "build/package-size-reduction/test-report-extra-evidence.py",
+  "test_source_sha256": "685a12d9df888f6ac0d613c93ddbe1be0bdcdeaf6a840105b74248f0cf84f757",
+  "command": "python3 build/package-size-reduction/test-report-extra-evidence.py",
+  "exit_code": 1,
+  "tests_run": 4,
+  "expected_failures": [
+    "test_framework_probe_remains_a_static_candidate",
+    "test_local_probe_uses_repair_time_and_keeps_its_scope",
+    "test_sample_and_source_distribution_do_not_replace_new_package_baseline"
+  ],
+  "log": "build/package-size-reduction/report-extra-red.log",
+  "log_sha256": "03dc2c3bae78857ab3b9d1d6628677144879ce94f4d15db4623310cb78ace879"
+}

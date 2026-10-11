@@ -1,0 +1,33 @@
+
+7-Zip (z) 26.04 (arm64) : Copyright (c) 1999-2026 Igor Pavlov : 2026-10-05
+ 64-bit arm_v:8.5-A locale=C.UTF-8 Threads:8 OPEN_MAX:1048575, ASM
+
+Scanning the drive:
+1 file, 10240 bytes (10 KiB)
+
+Creating archive: /private/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-compression-cli-smoke-qseen1xd/results/payloads-uto3kfjv/7z-lzma2-9-s2w38ha5/compressed.7z
+
+Add new data to archive: 1 file, 10240 bytes (10 KiB)
+
+
+Files read from disk: 1
+Archive size: 259 bytes (1 KiB)
+Everything is Ok
+        0.00 real         0.00 user         0.00 sys
+             4210688  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+                 407  page reclaims
+                  25  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                   0  voluntary context switches
+                  22  involuntary context switches
+            30354880  instructions retired
+            10465333  cycles elapsed
+             2457960  peak memory footprint

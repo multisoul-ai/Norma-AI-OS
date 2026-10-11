@@ -1,0 +1,605 @@
+/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/compiler-matrix-xcode-26.5/norma-os-z-thin:
+Load command 0
+      cmd LC_SEGMENT_64
+  cmdsize 72
+  segname __PAGEZERO
+   vmaddr 0x0000000000000000
+   vmsize 0x0000000100000000
+  fileoff 0
+ filesize 0
+  maxprot 0x00000000
+ initprot 0x00000000
+   nsects 0
+    flags 0x0
+Load command 1
+      cmd LC_SEGMENT_64
+  cmdsize 792
+  segname __TEXT
+   vmaddr 0x0000000100000000
+   vmsize 0x00000000025a4000
+  fileoff 0
+ filesize 39469056
+  maxprot 0x00000005
+ initprot 0x00000005
+   nsects 9
+    flags 0x0
+Section
+  sectname __text
+   segname __TEXT
+      addr 0x0000000100001500
+      size 0x0000000001bd0c08
+    offset 5376
+     align 2^8 (256)
+    reloff 0
+    nreloc 0
+     flags 0x80000400
+ reserved1 0
+ reserved2 0
+Section
+  sectname __stubs
+   segname __TEXT
+      addr 0x0000000101bd2108
+      size 0x00000000000023dc
+    offset 29171976
+     align 2^2 (4)
+    reloff 0
+    nreloc 0
+     flags 0x80000408
+ reserved1 0 (index into indirect symbol table)
+ reserved2 12 (size of stubs)
+Section
+  sectname __stub_helper
+   segname __TEXT
+      addr 0x0000000101bd44e4
+      size 0x00000000000022bc
+    offset 29181156
+     align 2^2 (4)
+    reloff 0
+    nreloc 0
+     flags 0x80000400
+ reserved1 0
+ reserved2 0
+Section
+  sectname __cstring
+   segname __TEXT
+      addr 0x0000000101bd67a0
+      size 0x000000000011ddf4
+    offset 29190048
+     align 2^3 (8)
+    reloff 0
+    nreloc 0
+     flags 0x00000002
+ reserved1 0
+ reserved2 0
+Section
+  sectname __gcc_except_tab
+   segname __TEXT
+      addr 0x0000000101cf4594
+      size 0x000000000022c3fc
+    offset 30360980
+     align 2^2 (4)
+    reloff 0
+    nreloc 0
+     flags 0x00000000
+ reserved1 0
+ reserved2 0
+Section
+  sectname __const
+   segname __TEXT
+      addr 0x0000000101f21000
+      size 0x0000000000439948
+    offset 32641024
+     align 2^12 (4096)
+    reloff 0
+    nreloc 0
+     flags 0x00000000
+ reserved1 0
+ reserved2 0
+Section
+  sectname __info_plist
+   segname __TEXT
+      addr 0x000000010235a948
+      size 0x0000000000000453
+    offset 37071176
+     align 2^0 (1)
+    reloff 0
+    nreloc 0
+     flags 0x00000000
+ reserved1 0
+ reserved2 0
+Section
+  sectname __unwind_info
+   segname __TEXT
+      addr 0x000000010235ad9c
+      size 0x00000000000cf1d0
+    offset 37072284
+     align 2^2 (4)
+    reloff 0
+    nreloc 0
+     flags 0x00000000
+ reserved1 0
+ reserved2 0
+Section
+  sectname __eh_frame
+   segname __TEXT
+      addr 0x0000000102429f70
+      size 0x0000000000176334
+    offset 37920624
+     align 2^3 (8)
+    reloff 0
+    nreloc 0
+     flags 0x6800000b
+ reserved1 0
+ reserved2 0
+Load command 2
+      cmd LC_SEGMENT_64
+  cmdsize 472
+  segname __DATA_CONST
+   vmaddr 0x00000001025a4000
+   vmsize 0x0000000000224000
+  fileoff 39469056
+ filesize 2244608
+  maxprot 0x00000003
+ initprot 0x00000003
+   nsects 5
+    flags 0x10
+Section
+  sectname __got
+   segname __DATA_CONST
+      addr 0x00000001025a4000
+      size 0x00000000000004b8
+    offset 39469056
+     align 2^3 (8)
+    reloff 0
+    nreloc 0
+     flags 0x00000006
+ reserved1 765 (index into indirect symbol table)
+ reserved2 0
+Section
+  sectname __mod_init_func
+   segname __DATA_CONST
+      addr 0x00000001025a44b8
+      size 0x00000000000003b8
+    offset 39470264
+     align 2^3 (8)
+    reloff 0
+    nreloc 0
+     flags 0x00000009
+ reserved1 0
+ reserved2 0
+Section
+  sectname __const
+   segname __DATA_CONST
+      addr 0x00000001025a4870
+      size 0x0000000000222d58
+    offset 39471216
+     align 2^3 (8)
+    reloff 0
+    nreloc 0
+     flags 0x00000000
+ reserved1 0
+ reserved2 0
+Section
+  sectname __cfstring
+   segname __DATA_CONST
+      addr 0x00000001027c75c8
+      size 0x0000000000000020
+    offset 41711048
+     align 2^3 (8)
+    reloff 0
+    nreloc 0
+     flags 0x00000000
+ reserved1 0
+ reserved2 0
+Section
+  sectname __objc_imageinfo
+   segname __DATA_CONST
+      addr 0x00000001027c75e8
+      size 0x0000000000000008
+    offset 41711080
+     align 2^2 (4)
+    reloff 0
+    nreloc 0
+     flags 0x00000000
+ reserved1 0
+ reserved2 0
+Load command 3
+      cmd LC_SEGMENT_64
+  cmdsize 632
+  segname __DATA
+   vmaddr 0x00000001027c8000
+   vmsize 0x0000000000034000
+  fileoff 41713664
+ filesize 65536
+  maxprot 0x00000003
+ initprot 0x00000003
+   nsects 7
+    flags 0x0
+Section
+  sectname __la_symbol_ptr
+   segname __DATA
+      addr 0x00000001027c8000
+      size 0x0000000000001718
+    offset 41713664
+     align 2^3 (8)
+    reloff 0
+    nreloc 0
+     flags 0x00000007
+ reserved1 916 (index into indirect symbol table)
+ reserved2 0
+Section
+  sectname __data
+   segname __DATA
+      addr 0x00000001027c9780
+      size 0x000000000000c460
+    offset 41719680
+     align 2^7 (128)
+    reloff 0
+    nreloc 0
+     flags 0x00000000
+ reserved1 0
+ reserved2 0
+Section
+  sectname __thread_vars
+   segname __DATA
+      addr 0x00000001027d5be0
+      size 0x0000000000000600
+    offset 41769952
+     align 2^3 (8)
+    reloff 0
+    nreloc 0
+     flags 0x00000013
+ reserved1 0
+ reserved2 0
+Section
+  sectname __thread_data
+   segname __DATA
+      addr 0x00000001027d6200
+      size 0x0000000000000108
+    offset 41771520
+     align 2^6 (64)
+    reloff 0
+    nreloc 0
+     flags 0x00000011
+ reserved1 0
+ reserved2 0
+Section
+  sectname __thread_bss
+   segname __DATA
+      addr 0x00000001027d6340
+      size 0x0000000000001058
+    offset 0
+     align 2^6 (64)
+    reloff 0
+    nreloc 0
+     flags 0x00000012
+ reserved1 0
+ reserved2 0
+Section
+  sectname __common
+   segname __DATA
+      addr 0x00000001027d7400
+      size 0x00000000000142ff
+    offset 0
+     align 2^8 (256)
+    reloff 0
+    nreloc 0
+     flags 0x00000001
+ reserved1 0
+ reserved2 0
+Section
+  sectname __bss
+   segname __DATA
+      addr 0x00000001027eb700
+      size 0x000000000000d8f0
+    offset 0
+     align 2^6 (64)
+    reloff 0
+    nreloc 0
+     flags 0x00000001
+ reserved1 0
+ reserved2 0
+Load command 4
+      cmd LC_SEGMENT_64
+  cmdsize 72
+  segname __LINKEDIT
+   vmaddr 0x00000001027fc000
+   vmsize 0x0000000000328000
+  fileoff 41779200
+ filesize 3294624
+  maxprot 0x00000001
+ initprot 0x00000001
+   nsects 0
+    flags 0x0
+Load command 5
+            cmd LC_DYLD_INFO_ONLY
+        cmdsize 48
+     rebase_off 41779200
+    rebase_size 48824
+       bind_off 41828024
+      bind_size 8632
+  weak_bind_off 41836656
+ weak_bind_size 2112
+  lazy_bind_off 41838768
+ lazy_bind_size 23696
+     export_off 41862464
+    export_size 2578408
+Load command 6
+     cmd LC_SYMTAB
+ cmdsize 24
+  symoff 44680960
+   nsyms 872
+  stroff 44701532
+ strsize 22696
+Load command 7
+            cmd LC_DYSYMTAB
+        cmdsize 80
+      ilocalsym 0
+      nlocalsym 0
+     iextdefsym 0
+     nextdefsym 27
+      iundefsym 27
+      nundefsym 845
+         tocoff 0
+           ntoc 0
+      modtaboff 0
+        nmodtab 0
+   extrefsymoff 0
+    nextrefsyms 0
+ indirectsymoff 44694912
+  nindirectsyms 1655
+      extreloff 0
+        nextrel 0
+      locreloff 0
+        nlocrel 0
+Load command 8
+          cmd LC_LOAD_DYLINKER
+      cmdsize 32
+         name /usr/lib/dyld (offset 12)
+Load command 9
+     cmd LC_UUID
+ cmdsize 24
+    uuid D44D6EF5-9004-3365-B1BD-1D6992C22376
+Load command 10
+      cmd LC_BUILD_VERSION
+  cmdsize 32
+ platform 1
+    minos 11.0
+      sdk 26.5
+   ntools 1
+     tool 3
+  version 1267.0
+Load command 11
+      cmd LC_SOURCE_VERSION
+  cmdsize 16
+  version 0.0
+Load command 12
+       cmd LC_MAIN
+   cmdsize 24
+  entryoff 8396412
+ stacksize 0
+Load command 13
+          cmd LC_LOAD_DYLIB
+      cmdsize 88
+         name /System/Library/Frameworks/AppKit.framework/Versions/C/AppKit (offset 24)
+   time stamp 2 Thu Jan  1 08:00:02 1970
+      current version 2685.60.104
+compatibility version 45.0.0
+Load command 14
+          cmd LC_LOAD_DYLIB
+      cmdsize 104
+         name /System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation (offset 24)
+   time stamp 2 Thu Jan  1 08:00:02 1970
+      current version 5026.5.4
+compatibility version 150.0.0
+Load command 15
+          cmd LC_LOAD_DYLIB
+      cmdsize 96
+         name /System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia (offset 24)
+   time stamp 2 Thu Jan  1 08:00:02 1970
+      current version 3320.8.5
+compatibility version 1.0.0
+Load command 16
+          cmd LC_LOAD_DYLIB
+      cmdsize 96
+         name /System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo (offset 24)
+   time stamp 2 Thu Jan  1 08:00:02 1970
+      current version 734.4.0
+compatibility version 1.2.0
+Load command 17
+          cmd LC_LOAD_DYLIB
+      cmdsize 96
+         name /System/Library/Frameworks/Foundation.framework/Versions/C/Foundation (offset 24)
+   time stamp 2 Thu Jan  1 08:00:02 1970
+      current version 5026.5.4
+compatibility version 300.0.0
+Load command 18
+          cmd LC_LOAD_DYLIB
+      cmdsize 104
+         name /System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics (offset 24)
+   time stamp 2 Thu Jan  1 08:00:02 1970
+      current version 1965.5.1
+compatibility version 64.0.0
+Load command 19
+          cmd LC_LOAD_DYLIB
+      cmdsize 96
+         name /System/Library/Frameworks/CoreImage.framework/Versions/A/CoreImage (offset 24)
+   time stamp 2 Thu Jan  1 08:00:02 1970
+      current version 7.0.0
+compatibility version 1.0.1
+Load command 20
+          cmd LC_LOAD_DYLIB
+      cmdsize 88
+         name /System/Library/Frameworks/ImageIO.framework/Versions/A/ImageIO (offset 24)
+   time stamp 2 Thu Jan  1 08:00:02 1970
+      current version 1.0.0
+compatibility version 1.0.0
+Load command 21
+          cmd LC_LOAD_DYLIB
+      cmdsize 112
+         name /System/Library/Frameworks/ScreenCaptureKit.framework/Versions/A/ScreenCaptureKit (offset 24)
+   time stamp 2 Thu Jan  1 08:00:02 1970
+      current version 1.0.0
+compatibility version 1.0.0
+Load command 22
+          cmd LC_LOAD_DYLIB
+      cmdsize 56
+         name /usr/lib/libSystem.B.dylib (offset 24)
+   time stamp 2 Thu Jan  1 08:00:02 1970
+      current version 1356.0.0
+compatibility version 1.0.0
+Load command 23
+          cmd LC_LOAD_DYLIB
+      cmdsize 56
+         name /usr/lib/libbz2.1.0.dylib (offset 24)
+   time stamp 2 Thu Jan  1 08:00:02 1970
+      current version 1.0.8
+compatibility version 1.0.0
+Load command 24
+          cmd LC_LOAD_DYLIB
+      cmdsize 88
+         name /System/Library/Frameworks/WebKit.framework/Versions/A/WebKit (offset 24)
+   time stamp 2 Thu Jan  1 08:00:02 1970
+      current version 624.2.5
+compatibility version 1.0.0
+Load command 25
+          cmd LC_LOAD_DYLIB
+      cmdsize 96
+         name /System/Library/Frameworks/CoreData.framework/Versions/A/CoreData (offset 24)
+   time stamp 2 Thu Jan  1 08:00:02 1970
+      current version 1526.0.0
+compatibility version 1.0.0
+Load command 26
+          cmd LC_LOAD_DYLIB
+      cmdsize 96
+         name /System/Library/Frameworks/CoreText.framework/Versions/A/CoreText (offset 24)
+   time stamp 2 Thu Jan  1 08:00:02 1970
+      current version 877.4.0
+compatibility version 1.0.0
+Load command 27
+          cmd LC_LOAD_DYLIB
+      cmdsize 96
+         name /System/Library/Frameworks/CloudKit.framework/Versions/A/CloudKit (offset 24)
+   time stamp 2 Thu Jan  1 08:00:02 1970
+      current version 2360.120.2
+compatibility version 1.0.0
+Load command 28
+          cmd LC_LOAD_DYLIB
+      cmdsize 48
+         name /usr/lib/libc++.1.dylib (offset 24)
+   time stamp 2 Thu Jan  1 08:00:02 1970
+      current version 2100.43.0
+compatibility version 1.0.0
+Load command 29
+          cmd LC_LOAD_DYLIB
+      cmdsize 104
+         name /System/Library/Frameworks/AVFoundation.framework/Versions/A/AVFoundation (offset 24)
+   time stamp 2 Thu Jan  1 08:00:02 1970
+      current version 2.0.0
+compatibility version 1.0.0
+Load command 30
+          cmd LC_LOAD_DYLIB
+      cmdsize 96
+         name /System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore (offset 24)
+   time stamp 2 Thu Jan  1 08:00:02 1970
+      current version 1195.14.4
+compatibility version 1.2.0
+Load command 31
+          cmd LC_LOAD_DYLIB
+      cmdsize 88
+         name /System/Library/Frameworks/Metal.framework/Versions/A/Metal (offset 24)
+   time stamp 2 Thu Jan  1 08:00:02 1970
+      current version 373.2.0
+compatibility version 1.0.0
+Load command 32
+          cmd LC_LOAD_DYLIB
+      cmdsize 104
+         name /System/Library/Frameworks/MediaToolbox.framework/Versions/A/MediaToolbox (offset 24)
+   time stamp 2 Thu Jan  1 08:00:02 1970
+      current version 3320.8.5
+compatibility version 1.0.0
+Load command 33
+          cmd LC_LOAD_DYLIB
+      cmdsize 104
+         name /System/Library/Frameworks/AudioToolbox.framework/Versions/A/AudioToolbox (offset 24)
+   time stamp 2 Thu Jan  1 08:00:02 1970
+      current version 1000.0.0
+compatibility version 1.0.0
+Load command 34
+          cmd LC_LOAD_DYLIB
+      cmdsize 56
+         name /usr/lib/libobjc.A.dylib (offset 24)
+   time stamp 2 Thu Jan  1 08:00:02 1970
+      current version 228.0.0
+compatibility version 1.0.0
+Load command 35
+          cmd LC_LOAD_DYLIB
+      cmdsize 104
+         name /System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices (offset 24)
+   time stamp 2 Thu Jan  1 08:00:02 1970
+      current version 1226.0.0
+compatibility version 1.0.0
+Load command 36
+          cmd LC_LOAD_DYLIB
+      cmdsize 112
+         name /System/Library/Frameworks/ApplicationServices.framework/Versions/A/ApplicationServices (offset 24)
+   time stamp 2 Thu Jan  1 08:00:02 1970
+      current version 66.0.0
+compatibility version 1.0.0
+Load command 37
+          cmd LC_LOAD_DYLIB
+      cmdsize 88
+         name /System/Library/Frameworks/Carbon.framework/Versions/A/Carbon (offset 24)
+   time stamp 2 Thu Jan  1 08:00:02 1970
+      current version 170.0.0
+compatibility version 2.0.0
+Load command 38
+          cmd LC_LOAD_DYLIB
+      cmdsize 96
+         name /System/Library/Frameworks/Security.framework/Versions/A/Security (offset 24)
+   time stamp 2 Thu Jan  1 08:00:02 1970
+      current version 61901.120.67
+compatibility version 1.0.0
+Load command 39
+          cmd LC_LOAD_DYLIB
+      cmdsize 88
+         name /System/Library/Frameworks/OpenGL.framework/Versions/A/OpenGL (offset 24)
+   time stamp 2 Thu Jan  1 08:00:02 1970
+      current version 1.0.0
+compatibility version 1.0.0
+Load command 40
+          cmd LC_LOAD_DYLIB
+      cmdsize 112
+         name /System/Library/Frameworks/SystemConfiguration.framework/Versions/A/SystemConfiguration (offset 24)
+   time stamp 2 Thu Jan  1 08:00:02 1970
+      current version 1405.120.5
+compatibility version 1.0.0
+Load command 41
+          cmd LC_LOAD_DYLIB
+      cmdsize 56
+         name /usr/lib/libiconv.2.dylib (offset 24)
+   time stamp 2 Thu Jan  1 08:00:02 1970
+      current version 7.0.0
+compatibility version 7.0.0
+Load command 42
+          cmd LC_LOAD_DYLIB
+      cmdsize 96
+         name /System/Library/Frameworks/ColorSync.framework/Versions/A/ColorSync (offset 24)
+   time stamp 2 Thu Jan  1 08:00:02 1970
+      current version 3813.5.1
+compatibility version 1.0.0
+Load command 43
+      cmd LC_FUNCTION_STARTS
+  cmdsize 16
+  dataoff 44440872
+ datasize 240088
+Load command 44
+      cmd LC_DATA_IN_CODE
+  cmdsize 16
+  dataoff 44680960
+ datasize 0
+Load command 45
+      cmd LC_CODE_SIGNATURE
+  cmdsize 16
+  dataoff 44724240
+ datasize 349584

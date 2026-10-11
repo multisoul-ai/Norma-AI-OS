@@ -1,0 +1,28 @@
+[
+  {
+    "command": [
+      "cargo",
+      "build",
+      "--release",
+      "-p",
+      "app",
+      "--no-default-features",
+      "--features",
+      "production-data"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 2.587
+  },
+  {
+    "command": [
+      "cargo",
+      "build",
+      "--release",
+      "-p",
+      "norma",
+      "--bins"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 0.704
+  }
+]

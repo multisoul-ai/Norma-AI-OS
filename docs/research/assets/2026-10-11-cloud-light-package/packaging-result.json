@@ -1,0 +1,6 @@
+{
+  "command": "./scripts/release-local.sh --ad-hoc",
+  "profile": "light",
+  "exit_code": 0,
+  "elapsed_seconds": 71.062
+}

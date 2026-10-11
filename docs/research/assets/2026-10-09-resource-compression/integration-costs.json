@@ -1,0 +1,21 @@
+{
+  "description": "Homebrew arm64 shared library file sizes; not measured App integration deltas",
+  "libraries": {
+    "libzstd": {
+      "bytes": 649648,
+      "path": "/opt/homebrew/Cellar/zstd/1.5.7_1/lib/libzstd.1.5.7.dylib"
+    },
+    "libbrotlidec": {
+      "bytes": 70128,
+      "path": "/opt/homebrew/Cellar/brotli/1.2.0/lib/libbrotlidec.1.2.0.dylib"
+    },
+    "libbrotlicommon": {
+      "bytes": 150128,
+      "path": "/opt/homebrew/Cellar/brotli/1.2.0/lib/libbrotlicommon.1.2.0.dylib"
+    },
+    "liblzma": {
+      "bytes": 184512,
+      "path": "/opt/homebrew/Cellar/xz/5.8.3/lib/liblzma.5.dylib"
+    }
+  }
+}
