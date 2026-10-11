@@ -1,0 +1,407 @@
+protoc --cpp_out=. recode.proto
+protoc --cpp_out=. recode.proto
+g++ -D__STDC_CONSTANT_MACROS -fsanitize=address -std=c++1y -Wall -g -I. -I./ffmpeg -I/opt/homebrew/Cellar/protobuf/36.2/include -DPROTOBUF_USE_DLLS -I/opt/homebrew/Cellar/abseil/20260817.0/include -Wno-float-conversion -Wno-implicit-float-conversion -Wno-implicit-int-float-conversion -Wno-unknown-warning-option -Wno-unused-command-line-argument -DNOMINMAX -D_ISOC99_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -DPIC -DZLIB_CONST  -c -o recode.o recode.cpp
+g++ -D__STDC_CONSTANT_MACROS -fsanitize=address -std=c++1y -Wall -g -I. -I./ffmpeg -I/opt/homebrew/Cellar/protobuf/36.2/include -DPROTOBUF_USE_DLLS -I/opt/homebrew/Cellar/abseil/20260817.0/include -Wno-float-conversion -Wno-implicit-float-conversion -Wno-implicit-int-float-conversion -Wno-unknown-warning-option -Wno-unused-command-line-argument -DNOMINMAX -D_ISOC99_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -DPIC -DZLIB_CONST  -c -o recode.pb.o recode.pb.cc
+In file included from recode.pb.cc:6:
+In file included from ./recode.pb.h:21:
+In file included from /opt/homebrew/Cellar/protobuf/36.2/include/google/protobuf/io/coded_stream.h:101:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/base/optimization.h:41:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/base/config.h:92:
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/base/policy_checks.h:81:2: error: "C++ versions less than C++17 are not supported."
+   81 | #error "C++ versions less than C++17 are not supported."
+      |  ^
+In file included from recode.pb.cc:6:
+In file included from ./recode.pb.h:21:
+In file included from /opt/homebrew/Cellar/protobuf/36.2/include/google/protobuf/io/coded_stream.h:109:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/absl_log.h:36:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_impl.h:20:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/absl_vlog_is_on.h:63:
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/vlog_config.h:123:20: error: no template named 'is_trivially_destructible_v' in namespace 'std'; did you mean 'is_trivially_destructible'?
+  123 | static_assert(std::is_trivially_destructible_v<VLogSite>,
+      |               ~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |                    is_trivially_destructible
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_trivially_destructible.h:25:35: note: 'is_trivially_destructible' declared here
+   25 | struct _LIBCPP_NO_SPECIALIZATIONS is_trivially_destructible
+      |                                   ^
+In file included from recode.pb.cc:6:
+In file included from ./recode.pb.h:21:
+In file included from /opt/homebrew/Cellar/protobuf/36.2/include/google/protobuf/io/coded_stream.h:109:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/absl_log.h:36:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_impl.h:20:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/absl_vlog_is_on.h:63:
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/vlog_config.h:123:57: error: expected '(' for function-style cast or type construction
+  123 | static_assert(std::is_trivially_destructible_v<VLogSite>,
+      |               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+In file included from recode.pb.cc:6:
+In file included from ./recode.pb.h:21:
+In file included from /opt/homebrew/Cellar/protobuf/36.2/include/google/protobuf/io/coded_stream.h:109:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/absl_log.h:36:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_impl.h:22:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_message.h:47:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/structured_proto.h:27:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/proto.h:31:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/base/casts.h:48:
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:152:54: error: no template named 'conjunction' in namespace 'std'
+  152 | using conjunction ABSL_DEPRECATE_AND_INLINE() = std::conjunction<T...>;
+      |                                                 ~~~~~^
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:163:54: error: no template named 'disjunction' in namespace 'std'; did you mean 'is_function'?
+  163 | using disjunction ABSL_DEPRECATE_AND_INLINE() = std::disjunction<T...>;
+      |                                                 ~~~~~^~~~~~~~~~~
+      |                                                      is_function
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_function.h:22:35: note: 'is_function' declared here
+   22 | struct _LIBCPP_NO_SPECIALIZATIONS is_function : integral_constant<bool, __is_function(_Tp)> {};
+      |                                   ^
+In file included from recode.pb.cc:6:
+In file included from ./recode.pb.h:21:
+In file included from /opt/homebrew/Cellar/protobuf/36.2/include/google/protobuf/io/coded_stream.h:109:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/absl_log.h:36:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_impl.h:22:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_message.h:47:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/structured_proto.h:27:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/proto.h:31:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/base/casts.h:48:
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:207:51: error: no template named 'negation' in namespace 'std'
+  207 | using negation ABSL_DEPRECATE_AND_INLINE() = std::negation<T>;
+      |                                              ~~~~~^
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:304:27: error: no template named 'is_convertible_v' in namespace 'std'; did you mean 'is_convertible'?
+  304 |     std::enable_if_t<std::is_convertible_v<
+      |                      ~~~~~^~~~~~~~~~~~~~~~
+      |                           is_convertible
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_convertible.h:22:35: note: 'is_convertible' declared here
+   22 | struct _LIBCPP_NO_SPECIALIZATIONS is_convertible : integral_constant<bool, __is_convertible(_T1, _T2)> {};
+      |                                   ^
+In file included from recode.pb.cc:6:
+In file included from ./recode.pb.h:21:
+In file included from /opt/homebrew/Cellar/protobuf/36.2/include/google/protobuf/io/coded_stream.h:109:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/absl_log.h:36:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_impl.h:22:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_message.h:47:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/structured_proto.h:27:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/proto.h:31:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/base/casts.h:48:
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:304:22: error: template argument for non-type template parameter must be an expression
+  304 |     std::enable_if_t<std::is_convertible_v<
+      |                      ^~~~~~~~~~~~~~~~~~~~~~
+  305 |         decltype(std::declval<std::hash<Key>&>()(std::declval<Key const&>())),
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  306 |         std::size_t>>> : std::true_type {};
+      |         ~~~~~~~~~~~~
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/enable_if.h:37:16: note: template parameter is declared here
+   37 | template <bool _Bp, class _Tp = void>
+      |                ^
+In file included from recode.cpp:23:
+In file included from ./recode.pb.h:21:
+In file included from /opt/homebrew/Cellar/protobuf/36.2/include/google/protobuf/io/coded_stream.h:101:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/base/optimization.h:41:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/base/config.h:92:
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/base/policy_checks.h:81:2: error: "C++ versions less than C++17 are not supported."
+   81 | #error "C++ versions less than C++17 are not supported."
+      |  ^
+In file included from recode.pb.cc:6:
+In file included from ./recode.pb.h:21:
+In file included from /opt/homebrew/Cellar/protobuf/36.2/include/google/protobuf/io/coded_stream.h:109:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/absl_log.h:36:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_impl.h:22:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_message.h:47:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/structured_proto.h:27:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/proto.h:31:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/base/casts.h:48:
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:324:14: error: no template named 'is_default_constructible_v' in namespace 'std'; did you mean 'is_default_constructible'?
+  324 |         std::is_default_constructible_v<std::hash<Key>>,
+      |         ~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~
+      |              is_default_constructible
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_constructible.h:49:35: note: 'is_default_constructible' declared here
+   49 | struct _LIBCPP_NO_SPECIALIZATIONS is_default_constructible : integral_constant<bool, __is_constructible(_Tp)> {};
+      |                                   ^
+In file included from recode.pb.cc:6:
+In file included from ./recode.pb.h:21:
+In file included from /opt/homebrew/Cellar/protobuf/36.2/include/google/protobuf/io/coded_stream.h:109:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/absl_log.h:36:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_impl.h:22:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_message.h:47:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/structured_proto.h:27:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/proto.h:31:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/base/casts.h:48:
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:324:56: error: expected '(' for function-style cast or type construction
+  324 |         std::is_default_constructible_v<std::hash<Key>>,
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:327:14: error: no template named 'is_copy_constructible_v' in namespace 'std'; did you mean 'is_copy_constructible'?
+  327 |         std::is_copy_constructible_v<std::hash<Key>>,
+      |         ~~~~~^~~~~~~~~~~~~~~~~~~~~~~
+      |              is_copy_constructible
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_constructible.h:31:35: note: 'is_copy_constructible' declared here
+   31 | struct _LIBCPP_NO_SPECIALIZATIONS is_copy_constructible
+      |                                   ^
+In file included from recode.pb.cc:6:
+In file included from ./recode.pb.h:21:
+In file included from /opt/homebrew/Cellar/protobuf/36.2/include/google/protobuf/io/coded_stream.h:109:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/absl_log.h:36:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_impl.h:22:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_message.h:47:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/structured_proto.h:27:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/proto.h:31:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/base/casts.h:48:
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:327:53: error: expected '(' for function-style cast or type construction
+  327 |         std::is_copy_constructible_v<std::hash<Key>>,
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+In file included from recode.cpp:23:
+In file included from ./recode.pb.h:21:
+In file included from /opt/homebrew/Cellar/protobuf/36.2/include/google/protobuf/io/coded_stream.h:109:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/absl_log.h:36:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_impl.h:20:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/absl_vlog_is_on.h:63:
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/vlog_config.h:123:20: error: no template named 'is_trivially_destructible_v' in namespace 'std'; did you mean 'is_trivially_destructible'?
+  123 | static_assert(std::is_trivially_destructible_v<VLogSite>,
+      |               ~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |                    is_trivially_destructible
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_trivially_destructible.h:25:35: note: 'is_trivially_destructible' declared here
+   25 | struct _LIBCPP_NO_SPECIALIZATIONS is_trivially_destructible
+      |                                   ^
+In file included from recode.cpp:23:
+In file included from ./recode.pb.h:21:
+In file included from /opt/homebrew/Cellar/protobuf/36.2/include/google/protobuf/io/coded_stream.h:109:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/absl_log.h:36:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_impl.h:20:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/absl_vlog_is_on.h:63:
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/vlog_config.h:123:57: error: expected '(' for function-style cast or type construction
+  123 | static_assert(std::is_trivially_destructible_v<VLogSite>,
+      |               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:329:24: error: no template named 'is_copy_assignable_v' in namespace 'std'; did you mean 'is_copy_assignable'?
+  329 |     static_assert(std::is_copy_assignable_v<std::hash<Key>>,
+      |                   ~~~~~^~~~~~~~~~~~~~~~~~~~
+      |                        is_copy_assignable
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_assignable.h:31:35: note: 'is_copy_assignable' declared here
+   31 | struct _LIBCPP_NO_SPECIALIZATIONS is_copy_assignable
+      |                                   ^
+In file included from recode.pb.cc:6:
+In file included from ./recode.pb.h:21:
+In file included from /opt/homebrew/Cellar/protobuf/36.2/include/google/protobuf/io/coded_stream.h:109:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/absl_log.h:36:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_impl.h:22:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_message.h:47:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/structured_proto.h:27:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/proto.h:31:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/base/casts.h:48:
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:329:60: error: expected '(' for function-style cast or type construction
+  329 |     static_assert(std::is_copy_assignable_v<std::hash<Key>>,
+      |                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:335:14: error: no template named 'is_same_v' in namespace 'std'; did you mean 'is_same'?
+  335 |         std::is_same_v<ReturnType, NAT> || std::is_same_v<ReturnType, size_t>,
+      |         ~~~~~^~~~~~~~~
+      |              is_same
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_same.h:22:35: note: 'is_same' declared here
+   22 | struct _LIBCPP_NO_SPECIALIZATIONS is_same : _BoolConstant<__is_same(_Tp, _Up)> {};
+      |                                   ^
+In file included from recode.pb.cc:6:
+In file included from ./recode.pb.h:21:
+In file included from /opt/homebrew/Cellar/protobuf/36.2/include/google/protobuf/io/coded_stream.h:109:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/absl_log.h:36:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_impl.h:22:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_message.h:47:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/structured_proto.h:27:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/proto.h:31:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/base/casts.h:48:
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:335:41: error: expected '(' for function-style cast or type construction
+  335 |         std::is_same_v<ReturnType, NAT> || std::is_same_v<ReturnType, size_t>,
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ^
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:335:49: error: no template named 'is_same_v' in namespace 'std'; did you mean 'is_same'?
+  335 |         std::is_same_v<ReturnType, NAT> || std::is_same_v<ReturnType, size_t>,
+      |                                            ~~~~~^~~~~~~~~
+      |                                                 is_same
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_same.h:22:35: note: 'is_same' declared here
+   22 | struct _LIBCPP_NO_SPECIALIZATIONS is_same : _BoolConstant<__is_same(_Tp, _Up)> {};
+      |                                   ^
+In file included from recode.pb.cc:6:
+In file included from ./recode.pb.h:21:
+In file included from /opt/homebrew/Cellar/protobuf/36.2/include/google/protobuf/io/coded_stream.h:109:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/absl_log.h:36:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_impl.h:22:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_message.h:47:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/structured_proto.h:27:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/proto.h:31:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/base/casts.h:48:
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:335:78: error: expected '(' for function-style cast or type construction
+  335 |         std::is_same_v<ReturnType, NAT> || std::is_same_v<ReturnType, size_t>,
+      |                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+In file included from recode.cpp:23:
+In file included from ./recode.pb.h:21:
+In file included from /opt/homebrew/Cellar/protobuf/36.2/include/google/protobuf/io/coded_stream.h:109:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/absl_log.h:36:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_impl.h:22:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_message.h:47:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/structured_proto.h:27:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/proto.h:31:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/base/casts.h:48:
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:152:54: error: no template named 'conjunction' in namespace 'std'
+  152 | using conjunction ABSL_DEPRECATE_AND_INLINE() = std::conjunction<T...>;
+      |                                                 ~~~~~^
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:163:54: error: no template named 'disjunction' in namespace 'std'; did you mean 'is_function'?
+  163 | using disjunction ABSL_DEPRECATE_AND_INLINE() = std::disjunction<T...>;
+      |                                                 ~~~~~^~~~~~~~~~~
+      |                                                      is_function
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_function.h:22:35: note: 'is_function' declared here
+   22 | struct _LIBCPP_NO_SPECIALIZATIONS is_function : integral_constant<bool, __is_function(_Tp)> {};
+      |                                   ^
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:367:44: error: no template named 'bool_constant' in namespace 'std'; did you mean '_BoolConstant'?
+  367 | template <class T, class IsNoexcept = std::bool_constant<noexcept(
+      |                                       ~~~~~^~~~~~~~~~~~~
+      |                                            _BoolConstant
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/integral_constant.h:35:1: note: '_BoolConstant' declared here
+   35 | using _BoolConstant _LIBCPP_NODEBUG = integral_constant<bool, _Val>;
+      | ^
+In file included from recode.cpp:23:
+In file included from ./recode.pb.h:21:
+In file included from /opt/homebrew/Cellar/protobuf/36.2/include/google/protobuf/io/coded_stream.h:109:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/absl_log.h:36:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_impl.h:22:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_message.h:47:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/structured_proto.h:27:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/proto.h:31:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/base/casts.h:48:
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:207:51: error: no template named 'negation' in namespace 'std'
+  207 | using negation ABSL_DEPRECATE_AND_INLINE() = std::negation<T>;
+      |                                              ~~~~~^
+fatal error: too many errors emitted, stopping now [-ferror-limit=]
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:304:27: error: no template named 'is_convertible_v' in namespace 'std'; did you mean 'is_convertible'?
+  304 |     std::enable_if_t<std::is_convertible_v<
+      |                      ~~~~~^~~~~~~~~~~~~~~~
+      |                           is_convertible
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_convertible.h:22:35: note: 'is_convertible' declared here
+   22 | struct _LIBCPP_NO_SPECIALIZATIONS is_convertible : integral_constant<bool, __is_convertible(_T1, _T2)> {};
+      |                                   ^
+In file included from recode.cpp:23:
+In file included from ./recode.pb.h:21:
+In file included from /opt/homebrew/Cellar/protobuf/36.2/include/google/protobuf/io/coded_stream.h:109:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/absl_log.h:36:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_impl.h:22:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_message.h:47:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/structured_proto.h:27:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/proto.h:31:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/base/casts.h:48:
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:304:22: error: template argument for non-type template parameter must be an expression
+  304 |     std::enable_if_t<std::is_convertible_v<
+      |                      ^~~~~~~~~~~~~~~~~~~~~~
+  305 |         decltype(std::declval<std::hash<Key>&>()(std::declval<Key const&>())),
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  306 |         std::size_t>>> : std::true_type {};
+      |         ~~~~~~~~~~~~
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/enable_if.h:37:16: note: template parameter is declared here
+   37 | template <bool _Bp, class _Tp = void>
+      |                ^
+In file included from recode.cpp:23:
+In file included from ./recode.pb.h:21:
+In file included from /opt/homebrew/Cellar/protobuf/36.2/include/google/protobuf/io/coded_stream.h:109:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/absl_log.h:36:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_impl.h:22:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_message.h:47:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/structured_proto.h:27:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/proto.h:31:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/base/casts.h:48:
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:324:14: error: no template named 'is_default_constructible_v' in namespace 'std'; did you mean 'is_default_constructible'?
+  324 |         std::is_default_constructible_v<std::hash<Key>>,
+      |         ~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~
+      |              is_default_constructible
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_constructible.h:49:35: note: 'is_default_constructible' declared here
+   49 | struct _LIBCPP_NO_SPECIALIZATIONS is_default_constructible : integral_constant<bool, __is_constructible(_Tp)> {};
+      |                                   ^
+In file included from recode.cpp:23:
+In file included from ./recode.pb.h:21:
+In file included from /opt/homebrew/Cellar/protobuf/36.2/include/google/protobuf/io/coded_stream.h:109:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/absl_log.h:36:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_impl.h:22:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_message.h:47:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/structured_proto.h:27:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/proto.h:31:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/base/casts.h:48:
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:324:56: error: expected '(' for function-style cast or type construction
+  324 |         std::is_default_constructible_v<std::hash<Key>>,
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:327:14: error: no template named 'is_copy_constructible_v' in namespace 'std'; did you mean 'is_copy_constructible'?
+  327 |         std::is_copy_constructible_v<std::hash<Key>>,
+      |         ~~~~~^~~~~~~~~~~~~~~~~~~~~~~
+      |              is_copy_constructible
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_constructible.h:31:35: note: 'is_copy_constructible' declared here
+   31 | struct _LIBCPP_NO_SPECIALIZATIONS is_copy_constructible
+      |                                   ^
+In file included from recode.cpp:23:
+In file included from ./recode.pb.h:21:
+In file included from /opt/homebrew/Cellar/protobuf/36.2/include/google/protobuf/io/coded_stream.h:109:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/absl_log.h:36:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_impl.h:22:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_message.h:47:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/structured_proto.h:27:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/proto.h:31:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/base/casts.h:48:
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:327:53: error: expected '(' for function-style cast or type construction
+  327 |         std::is_copy_constructible_v<std::hash<Key>>,
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:329:24: error: no template named 'is_copy_assignable_v' in namespace 'std'; did you mean 'is_copy_assignable'?
+  329 |     static_assert(std::is_copy_assignable_v<std::hash<Key>>,
+      |                   ~~~~~^~~~~~~~~~~~~~~~~~~~
+      |                        is_copy_assignable
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_assignable.h:31:35: note: 'is_copy_assignable' declared here
+   31 | struct _LIBCPP_NO_SPECIALIZATIONS is_copy_assignable
+      |                                   ^
+In file included from recode.cpp:23:
+In file included from ./recode.pb.h:21:
+In file included from /opt/homebrew/Cellar/protobuf/36.2/include/google/protobuf/io/coded_stream.h:109:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/absl_log.h:36:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_impl.h:22:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_message.h:47:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/structured_proto.h:27:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/proto.h:31:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/base/casts.h:48:
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:329:60: error: expected '(' for function-style cast or type construction
+  329 |     static_assert(std::is_copy_assignable_v<std::hash<Key>>,
+      |                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:335:14: error: no template named 'is_same_v' in namespace 'std'; did you mean 'is_same'?
+  335 |         std::is_same_v<ReturnType, NAT> || std::is_same_v<ReturnType, size_t>,
+      |         ~~~~~^~~~~~~~~
+      |              is_same
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_same.h:22:35: note: 'is_same' declared here
+   22 | struct _LIBCPP_NO_SPECIALIZATIONS is_same : _BoolConstant<__is_same(_Tp, _Up)> {};
+      |                                   ^
+In file included from recode.cpp:23:
+In file included from ./recode.pb.h:21:
+In file included from /opt/homebrew/Cellar/protobuf/36.2/include/google/protobuf/io/coded_stream.h:109:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/absl_log.h:36:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_impl.h:22:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_message.h:47:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/structured_proto.h:27:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/proto.h:31:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/base/casts.h:48:
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:335:41: error: expected '(' for function-style cast or type construction
+  335 |         std::is_same_v<ReturnType, NAT> || std::is_same_v<ReturnType, size_t>,
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ^
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:335:49: error: no template named 'is_same_v' in namespace 'std'; did you mean 'is_same'?
+  335 |         std::is_same_v<ReturnType, NAT> || std::is_same_v<ReturnType, size_t>,
+      |                                            ~~~~~^~~~~~~~~
+      |                                                 is_same
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_same.h:22:35: note: 'is_same' declared here
+   22 | struct _LIBCPP_NO_SPECIALIZATIONS is_same : _BoolConstant<__is_same(_Tp, _Up)> {};
+      |                                   ^
+In file included from recode.cpp:23:
+In file included from ./recode.pb.h:21:
+In file included from /opt/homebrew/Cellar/protobuf/36.2/include/google/protobuf/io/coded_stream.h:109:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/absl_log.h:36:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_impl.h:22:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/log_message.h:47:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/structured_proto.h:27:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/log/internal/proto.h:31:
+In file included from /opt/homebrew/Cellar/abseil/20260817.0/include/absl/base/casts.h:48:
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:335:78: error: expected '(' for function-style cast or type construction
+  335 |         std::is_same_v<ReturnType, NAT> || std::is_same_v<ReturnType, size_t>,
+      |                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+/opt/homebrew/Cellar/abseil/20260817.0/include/absl/meta/type_traits.h:367:44: error: no template named 'bool_constant' in namespace 'std'; did you mean '_BoolConstant'?
+  367 | template <class T, class IsNoexcept = std::bool_constant<noexcept(
+      |                                       ~~~~~^~~~~~~~~~~~~
+      |                                            _BoolConstant
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/integral_constant.h:35:1: note: '_BoolConstant' declared here
+   35 | using _BoolConstant _LIBCPP_NODEBUG = integral_constant<bool, _Val>;
+      | ^
+fatal error: too many errors emitted, stopping now [-ferror-limit=]
+20 errors generated.
+make: *** [recode.o] Error 1
+make: *** Waiting for unfinished jobs....
+20 errors generated.
+make: *** [recode.pb.o] Error 1

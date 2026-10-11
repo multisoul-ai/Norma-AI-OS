@@ -1,0 +1,3 @@
+﻿profile,version,architecture,mode,app_regular_file_bytes,dmg_bytes,dmg_sha256,original_bundled_count,original_unbundled_count,dmg
+full,0.1.73,arm64,"ad-hoc, not notarized",236370857,200662810,fba72e3236ae5ec0fa51a001cc53bcdf65dde5b8b034c8ed462c83119f967de1,30,0,/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/package-size-tests-20261010-142336/Norma-OS_0.1.73_full_aarch64.dmg
+light,0.1.73,arm64,"ad-hoc, not notarized",100586081,64847177,24815dd11bc164b7feeb5ee5726023247810cc4cb1cc0122823e1222498f25ea,18,12,/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/package-size-tests-20261010-142336/Norma-OS_0.1.73_light_aarch64.dmg

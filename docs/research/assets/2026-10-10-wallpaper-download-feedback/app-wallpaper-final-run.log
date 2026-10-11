@@ -1,0 +1,66 @@
+     Running unittests src/lib.rs (target/debug/deps/app-6dbd540237b5ebcb)
+
+running 60 tests
+test app::chrome::app_chrome_tests::test_wallpaper_img_has_source_derived_id ... ok
+test app::chrome::workspace_backdrop_tests::test_workspace_backdrop_keeps_wallpaper_untinted_without_decorative_lines ... ok
+test app::video_wallpaper::tests::test_feature_guide_releases_shared_video_wallpaper_path ... ok
+test app::tests::test_wallpaper_renders_fully_opaque_without_theme_overlay ... ok
+test app::video_wallpaper::tests::test_failed_slot_same_path_does_not_restart ... ok
+test app::video_wallpaper::tests::test_failed_slot_different_path_restarts ... ok
+test app::video_wallpaper::tests::test_failed_slot_cleared_when_kind_not_video ... ok
+test app::video_wallpaper::tests::test_none_slot_non_video_keeps ... ok
+test app::chrome::app_chrome_tests::test_video_wallpaper_branch_uses_surface_not_render_images ... ok
+test app::video_wallpaper::tests::test_none_slot_unresolvable_path_keeps ... ok
+test app::video_wallpaper::tests::test_none_slot_video_kind_restarts ... ok
+test app::video_wallpaper::tests::test_slot_path_matches_different_path ... ok
+test app::video_wallpaper::tests::test_slot_path_matches_same_path ... ok
+test app::video_wallpaper::tests::test_video_wallpaper_repaint_pauses_while_settings_occludes_canvas ... ok
+test app::video_wallpaper::tests::test_video_wallpaper_worker_uses_frame_pts_instead_of_fixed_sleep ... ok
+test app::video_wallpaper::tests::test_video_frame_delay_tracks_pts_without_adding_decode_time ... ok
+test app::video_wallpaper::tests::test_same_path_restart_rejects_stale_video_poll_owner ... ok
+test app::wallpaper_resolvers::tests::test_builtin_wallpapers_all_have_nonempty_display_names ... ok
+test app::wallpaper_resolvers::tests::test_bundle_resources_dir_is_none_in_dev_build ... ok
+test app::wallpaper_resolvers::tests::test_builtin_wallpapers_kind_matches_extension ... ok
+test app::wallpaper_resolvers::packaging_assets_tests::test_legacy_png_sources_are_absent_after_webp_migration ... ok
+test app::wallpaper_resolvers::tests::test_kind_from_extension_classifies_three_types_and_rejects_unknown ... ok
+test app::wallpaper_resolvers::tests::test_builtin_wallpapers_contains_mut_v2_defaults_with_correct_kinds ... ok
+test app::wallpaper_resolvers::tests::test_legacy_png_builtin_paths_migrate_to_canonical_webp ... ok
+test app::wallpaper_resolvers::tests::test_wallpaper_badge_labels_distinguish_static_and_dynamic_media ... ok
+test assets::assets_tests::benchmark_static_wallpaper_decode_matrix ... ignored, HD 实验：需要 NORMA_HD_BENCHMARK_IMAGE 与预期尺寸环境变量
+test app::wallpaper_resolvers::tests::test_resolve_builtin_asset_returns_none_for_missing_file ... ok
+test assets::tests::test_embedded_assets_do_not_duplicate_packaged_wallpaper_bytes ... ok
+test app::wallpaper_resolvers::tests::test_builtin_wallpapers_paths_are_unique ... ok
+test settings::panel::settings_panel_tests::test_settings_has_wallpaper_section ... ok
+test app::wallpaper_resolvers::on_demand_tests::packaged_missing_optional_media_never_falls_back_to_source_checkout ... ok
+test app::wallpaper_resolvers::tests::test_resolve_builtin_asset_prefers_bundle_resources_over_development_source ... ok
+test settings::wallpaper::dirs_tests::test_custom_wallpapers_dir_migrates_legacy_wallpapers_without_deleting_them ... ok
+test settings::wallpaper::layout_tests::wallpaper_layout_adapts_without_horizontal_overflow ... ok
+test settings::wallpaper::keyboard_tests::wallpaper_actions_activate_once_and_respect_disabled_state ... ok
+test settings::wallpaper::preview_tests::wallpaper_gif_preview_decodes_only_first_frame ... ok
+test settings::wallpaper::preview_tests::wallpaper_preview_cache_clear_rejects_stale_background_completion ... ok
+test settings::wallpaper::preview_tests::wallpaper_preview_cache_evicts_least_recently_used_image_by_byte_budget ... ok
+test settings::wallpaper::preview_tests::wallpaper_preview_downscales_to_one_bounded_frame ... ok
+test settings::wallpaper::builtin_migration_tests::test_legacy_builtin_png_selection_migrates_and_persists_webp_path ... ok
+test settings::wallpaper::render_id_tests::test_wallpaper_selection_variants_are_distinct ... ok
+test settings::wallpaper::scope_tests::effective_wallpaper_resolves_override_then_workspace_without_erasing_missing_choice ... ok
+test settings::wallpaper::render_id_tests::test_render_id_key_changes_with_selection ... ok
+test settings::wallpaper::tests::test_builtin_selection_round_trips_through_persistence ... ok
+test settings::wallpaper::tests::test_custom_selection_round_trips_through_persistence ... ok
+test settings::wallpaper::tests::test_delete_custom_falls_back_to_default_and_removes_file ... ok
+test settings::wallpaper::tests::test_import_custom_copies_and_selects ... ok
+test settings::wallpaper::tests::test_import_custom_rejects_unknown_extension ... ok
+test settings::wallpaper::tests::test_list_custom_filters_and_delete_non_current_keeps_selection ... ok
+test settings::wallpaper::tests::test_load_default_falls_back_to_default_wallpaper ... ok
+test settings::wallpaper::tests::test_wallpaper_view_has_grid_import_and_builtin_nodelete ... ok
+test workspace::desktop::launchpad::home_tests::desktop_home_card_text_remains_readable_over_wallpaper ... ok
+test workspace::desktop::launchpad::home_tests::desktop_top_bar_translucent_text_remains_readable_over_wallpaper ... ok
+test settings::wallpaper::tests::test_resolve_path_uses_disk_resources_for_builtin_and_custom_wallpapers ... ok
+test settings::wallpaper::actions_tests::wallpaper_delete_confirmation_is_window_scoped_and_cancel_preserves_references ... ok
+test settings::wallpaper::optional_choice_tests::saved_optional_wallpaper_survives_missing_packaged_media ... ok
+test settings::wallpaper::actions_tests::failed_save_restores_original_scope_without_touching_new_workspace ... ok
+test settings::wallpaper::actions_tests::deferred_project_save_stays_with_original_workspace_after_navigation ... ok
+test app::wallpaper_resolvers::packaging_assets_tests::test_optimized_builtin_webps_decode_at_original_dimensions_within_budgets ... ok
+test media::wallpaper_feedback_tests::wallpaper_library_exposes_download_before_selection ... ok
+
+test result: ok. 59 passed; 0 failed; 1 ignored; 0 measured; 986 filtered out; finished in 13.80s
+

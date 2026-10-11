@@ -22,6 +22,10 @@ use std::sync::Arc;
 const CANVAS_READY_DELAY: Duration = Duration::from_millis(16);
 const PENDING_RETRY_INTERVAL: Duration = Duration::from_millis(250);
 
+#[cfg(test)]
+#[path = "../../../tests/unit/feature_guide_optional_media_tests.rs"]
+mod optional_media_tests;
+
 impl MultisoulApp {
     pub(crate) fn handle_feature_guide_key_down(
         &mut self,
@@ -71,6 +75,7 @@ impl MultisoulApp {
             .sync_blockers(self.feature_guide_blockers());
         self.feature_guide_media.manually_paused = false;
         self.queue_feature_guide_persistence(cx);
+        self.revalidate_feature_guide_media(cx);
         self.sync_feature_guide_media(cx);
         if self.feature_guide.is_visible() {
             self.focus_handle.focus(window);
@@ -163,6 +168,7 @@ impl MultisoulApp {
     ) {
         self.feature_guide.select_topic(topic);
         self.queue_feature_guide_persistence(cx);
+        self.revalidate_feature_guide_media(cx);
         self.sync_feature_guide_media(cx);
         cx.notify();
     }
@@ -189,6 +195,7 @@ impl MultisoulApp {
             self.pause_feature_guide_media(true, cx);
         } else {
             self.feature_guide_media.manually_paused = false;
+            self.revalidate_feature_guide_media(cx);
             self.sync_feature_guide_media(cx);
         }
         cx.notify();
@@ -249,9 +256,22 @@ impl MultisoulApp {
         }
     }
 
+    fn revalidate_feature_guide_media(&self, cx: &mut Context<Self>) {
+        if should_play_feature_guide_media(
+            self.feature_guide.is_visible(),
+            self.motion.reduce_motion,
+            self.feature_guide_media.manually_paused,
+        ) {
+            if let Some(rel) = self.feature_guide.topic.video_asset() {
+                crate::media::request(rel, true, cx);
+            }
+        }
+    }
+
     pub(in crate::app) fn sync_feature_guide_media(&mut self, cx: &mut Context<Self>) {
         let topic = self.feature_guide.topic;
-        if self.feature_guide_media.topic != Some(topic) {
+        let topic_changed = self.feature_guide_media.topic != Some(topic);
+        if topic_changed {
             self.feature_guide_media.clear_playback();
             self.feature_guide_media.topic = Some(topic);
             self.feature_guide_media.video_path =
@@ -270,7 +290,16 @@ impl MultisoulApp {
             return;
         }
 
+        if topic_changed {
+            if let Some(rel) = topic.video_asset() {
+                crate::media::request(rel, true, cx);
+            }
+        }
+        self.feature_guide_media.video_path = topic.video_asset().and_then(resolve_builtin_asset);
         if self.feature_guide_media.video_path.is_none() {
+            if let Some(rel) = topic.video_asset() {
+                crate::media::request(rel, false, cx);
+            }
             self.pause_feature_guide_media(false, cx);
             return;
         }

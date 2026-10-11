@@ -1,0 +1,24 @@
+zpaq v7.15 journaling archiver, compiled Aug 17 2016
+/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-09-run1/payloads-0zmn03vr/zpaq-5-d2mwsgo0/compressed.zpaq: 1 versions, 1 files, 498 fragments, 34.266315 MB
+Extracting 35.747840 MB in 1 files -threads 1
+[1..498] -> 35749840
+> /Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-09-run1/payloads-0zmn03vr/zpaq-5-d2mwsgo0/restored/payload.tar
+129.631 seconds (all OK)
+      129.59 real       128.44 user         0.82 sys
+           790560768  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+               74385  page reclaims
+                  10  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                  38  voluntary context switches
+               26636  involuntary context switches
+        995085819331  instructions retired
+        402603464548  cycles elapsed
+           830915568  peak memory footprint

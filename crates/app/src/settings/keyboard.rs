@@ -302,6 +302,7 @@ fn shortcut_row_id(command: ShortcutCommandId) -> &'static str {
         ShortcutCommandId::NextWorkspace => "settings-shortcut-next-workspace",
         ShortcutCommandId::PreviousProject => "settings-shortcut-previous-project",
         ShortcutCommandId::NextProject => "settings-shortcut-next-project",
+        ShortcutCommandId::ExpandSelectedProject => "settings-shortcut-expand-selected-project",
         ShortcutCommandId::ShowProjectOverview => "settings-shortcut-show-project-overview",
         ShortcutCommandId::ShowWorkspaceDirectory => "settings-shortcut-show-workspace-directory",
         ShortcutCommandId::NewTerminal => "settings-shortcut-new-terminal",
@@ -335,6 +336,9 @@ fn shortcut_restore_id(command: ShortcutCommandId) -> &'static str {
         ShortcutCommandId::NextWorkspace => "settings-shortcut-restore-next-workspace",
         ShortcutCommandId::PreviousProject => "settings-shortcut-restore-previous-project",
         ShortcutCommandId::NextProject => "settings-shortcut-restore-next-project",
+        ShortcutCommandId::ExpandSelectedProject => {
+            "settings-shortcut-restore-expand-selected-project"
+        }
         ShortcutCommandId::ShowProjectOverview => "settings-shortcut-restore-show-project-overview",
         ShortcutCommandId::ShowWorkspaceDirectory => {
             "settings-shortcut-restore-show-workspace-directory"

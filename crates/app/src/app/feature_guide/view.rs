@@ -335,6 +335,12 @@ impl MultisoulApp {
                     palette,
                 })
             })
+            .when_some(
+                topic
+                    .video_asset()
+                    .and_then(|rel| crate::media::view::status(rel, theme, cx)),
+                |content, status| content.child(status),
+            )
     }
 
     fn render_feature_guide_footer(

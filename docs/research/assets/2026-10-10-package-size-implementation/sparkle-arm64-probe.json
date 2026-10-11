@@ -1,0 +1,65 @@
+{
+  "checked_at_utc": "2026-10-10T04:35:23.739912+00:00",
+  "scope": "static file-size experiment on a separate framework copy; not adopted in packaging, no updater/App/DMG performance acceptance",
+  "sparkle_version": "2.9.5",
+  "official_archive_sha256": "015336b601493e05c237964954bff6191370003d94edefe663724c88840d73cc",
+  "source_directory": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/sparkle/Sparkle.framework",
+  "candidate_directory": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/sparkle-arm64-probe-071fjdfs/Sparkle.framework",
+  "original_framework_bytes": 2777894,
+  "arm64_framework_bytes": 1532710,
+  "saved_bytes": 1245184,
+  "saved_percent": 44.8247485325214,
+  "macho": [
+    {
+      "path": "Versions/B/Autoupdate",
+      "before_bytes": 726096,
+      "after_bytes": 349264,
+      "architecture": "arm64",
+      "source_sha256": "770717958735a634ff089035bde329368835a1feb0431b75e9edb8383ebcdbb5",
+      "candidate_sha256": "8bb6ce428c211099c9024620de72f8d644c9c37826d7171083bd074470bdc46d"
+    },
+    {
+      "path": "Versions/B/Sparkle",
+      "before_bytes": 977616,
+      "after_bytes": 469712,
+      "architecture": "arm64",
+      "source_sha256": "d9b561d8c6dd933239da4d447c5051b5f46d36868d0410bc6501a95a857cf010",
+      "candidate_sha256": "f03f46017dd26871899ec2182295eef19e6db22c097d36af69fb3a0286e3d97b"
+    },
+    {
+      "path": "Versions/B/Updater.app/Contents/MacOS/Updater",
+      "before_bytes": 290560,
+      "after_bytes": 143104,
+      "architecture": "arm64",
+      "source_sha256": "8c6d3d492e0c2fab86f581e097ecb29961a373c6eafd93b15e27a2bd6b99948d",
+      "candidate_sha256": "f2150ec9a2f6a6b26c0d3ad9526a50104fc50c455edae0e0a55e615724abdc20"
+    },
+    {
+      "path": "Versions/B/XPCServices/Downloader.xpc/Contents/MacOS/Downloader",
+      "before_bytes": 188672,
+      "after_bytes": 90368,
+      "architecture": "arm64",
+      "source_sha256": "a9ee5ae0de449676a6b6b4878b4a1c7092afbb4d9a4bdec64cf28a07aa77beec",
+      "candidate_sha256": "8fe4cb32e2d482739b614e3a7a483f59cc9c4f9ac27a59eb9ed425f00b8dca23"
+    },
+    {
+      "path": "Versions/B/XPCServices/Installer.xpc/Contents/MacOS/Installer",
+      "before_bytes": 223472,
+      "after_bytes": 108784,
+      "architecture": "arm64",
+      "source_sha256": "64bf82733a51321885518718ba3798c8b385ba575ef430144947fcc5b72a0efb",
+      "candidate_sha256": "1777b7a27ff895692f7a05efb0d3f3126ef6f0cedc25801f012f03f8866820b4"
+    }
+  ],
+  "codesign_checks": {
+    "official": {
+      "exit_code": 0,
+      "output": "--prepared:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/sparkle/Sparkle.framework/Versions/Current/Autoupdate\n--prepared:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/sparkle/Sparkle.framework/Versions/Current/Updater.app\n--validated:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/sparkle/Sparkle.framework/Versions/Current/Autoupdate\n--validated:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/sparkle/Sparkle.framework/Versions/Current/Updater.app\n--prepared:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/sparkle/Sparkle.framework/Versions/Current/XPCServices/Downloader.xpc\n--prepared:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/sparkle/Sparkle.framework/Versions/Current/XPCServices/Installer.xpc\n--validated:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/sparkle/Sparkle.framework/Versions/Current/XPCServices/Downloader.xpc\n--validated:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/sparkle/Sparkle.framework/Versions/Current/XPCServices/Installer.xpc\n/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/sparkle/Sparkle.framework: valid on disk\n/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/sparkle/Sparkle.framework: satisfies its Designated Requirement\n"
+    },
+    "arm64_probe": {
+      "exit_code": 0,
+      "output": "--prepared:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/sparkle-arm64-probe-071fjdfs/Sparkle.framework/Versions/Current/Autoupdate\n--validated:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/sparkle-arm64-probe-071fjdfs/Sparkle.framework/Versions/Current/Autoupdate\n--prepared:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/sparkle-arm64-probe-071fjdfs/Sparkle.framework/Versions/Current/XPCServices/Downloader.xpc\n--prepared:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/sparkle-arm64-probe-071fjdfs/Sparkle.framework/Versions/Current/Updater.app\n--prepared:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/sparkle-arm64-probe-071fjdfs/Sparkle.framework/Versions/Current/XPCServices/Installer.xpc\n--validated:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/sparkle-arm64-probe-071fjdfs/Sparkle.framework/Versions/Current/XPCServices/Downloader.xpc\n--validated:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/sparkle-arm64-probe-071fjdfs/Sparkle.framework/Versions/Current/Updater.app\n--validated:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/sparkle-arm64-probe-071fjdfs/Sparkle.framework/Versions/Current/XPCServices/Installer.xpc\n/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/sparkle-arm64-probe-071fjdfs/Sparkle.framework: valid on disk\n/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/sparkle-arm64-probe-071fjdfs/Sparkle.framework: satisfies its Designated Requirement\n"
+    }
+  },
+  "runtime_status": "pending real-App updater acceptance; original universal framework retained for both packaging baselines"
+}

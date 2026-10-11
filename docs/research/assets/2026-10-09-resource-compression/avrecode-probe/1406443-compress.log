@@ -1,0 +1,41 @@
+AddressSanitizer:DEADLYSIGNAL
+=================================================================
+==12996==ERROR: AddressSanitizer: SEGV on unknown address 0x000000000040 (pc 0x000100eb3450 bp 0x00016efbd970 sp 0x00016efbcf80 T0)
+==12996==The signal is caused by a READ memory access.
+==12996==Hint: address points to the zero page.
+    #0 0x000100eb3450 in decode_cabac_residual_dc_internal h264_cabac.c:1789
+    #1 0x000100e46cbc in compressor::run() recode.cpp:1118
+    #2 0x000100e48b84 in main recode.cpp:1645
+    #3 0x000192827e7c in start+0x1a1c (dyld:arm64e+0x31e7c)
+
+==12996==Register values:
+ x[0] = 0x0000000101c2c800   x[1] = 0x0000000000000000   x[2] = 0x0000000000000030   x[3] = 0x0000000000000010  
+ x[4] = 0x0000000000000000   x[5] = 0x000062f00000b774   x[6] = 0x000000016e7c4000   x[7] = 0x0000000000000000  
+ x[8] = 0x0000000000000000   x[9] = 0x0000000101f0480a  x[10] = 0x0000000003470000  x[11] = 0x0000000101f04808  
+x[12] = 0x000000000000e659  x[13] = 0x00000000ffff0001  x[14] = 0x000062f00000cb10  x[15] = 0x0000000000000040  
+x[16] = 0x000000000000135f  x[17] = 0x0000000000000000  x[18] = 0x0000000000000000  x[19] = 0x0000000101c2c800  
+x[20] = 0x0000000101c2c800  x[21] = 0x0000000000000000  x[22] = 0x000062f00000cb10  x[23] = 0x000062f00000cb80  
+x[24] = 0x0000000000000000  x[25] = 0x000062f000000400  x[26] = 0x000062f000005bd8  x[27] = 0x0000000101c5faa8  
+x[28] = 0x0000000101c33ae4     fp = 0x000000016efbd970     lr = 0x0000000100eb1174     sp = 0x000000016efbcf80  
+AddressSanitizer can not provide additional info.
+SUMMARY: AddressSanitizer: SEGV h264_cabac.c:1789 in decode_cabac_residual_dc_internal
+==12996==ABORTING
+time: command terminated abnormally
+        0.26 real         0.09 user         0.04 sys
+            63012864  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+                5242  page reclaims
+                  14  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                  20  messages sent
+                   0  messages received
+                   1  signals received
+                   5  voluntary context switches
+                 406  involuntary context switches
+          1516220648  instructions retired
+           428537660  cycles elapsed
+            55694856  peak memory footprint

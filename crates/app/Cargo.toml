@@ -12,7 +12,10 @@ chromium-browser = ["dep:cef"]
 # while normal development and release packages bypass the startup gate.
 licenses = []
 production-data = []
+# Loopback transport for isolated real-App media acceptance; excluded from normal releases.
+media-download-qa = []
 e2e-test-support = [
+    "gpui/test-support",
     "asr/test-support",
     "voice_input/test-support",
     "voice_sherpa/test-support",
@@ -46,11 +49,12 @@ name = "native_input_focus"
 harness = false
 
 [dependencies]
-gpui = { workspace = true, features = ["test-support"] }
+gpui.workspace = true
 ui.workspace = true
 runtime.workspace = true
 canvas.workspace = true
 storage.workspace = true
+media_store.workspace = true
 terminal.workspace = true
 workspace.workspace = true
 norma.workspace = true
@@ -82,7 +86,7 @@ ureq.workspace = true
 rustls.workspace = true
 tungstenite.workspace = true
 tokio-tungstenite.workspace = true
-reqwest = { workspace = true, features = ["stream"] }
+reqwest = { workspace = true, features = ["stream", "socks"] }
 flate2 = "1"
 uuid = { version = "1", features = ["v4"] }
 hound = "3.5"
@@ -136,4 +140,5 @@ wry = { version = "0.55.1", default-features = false, features = ["protocol"] }
 cef = { version = "149.3.0", optional = true, default-features = false }
 
 [dev-dependencies]
+gpui = { workspace = true, features = ["test-support"] }
 rusqlite.workspace = true

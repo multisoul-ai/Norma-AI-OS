@@ -1,0 +1,29 @@
+{
+  "checked_at_utc": "2026-10-10T05:33:18.146876+00:00",
+  "variants": {
+    "3-thin": {
+      "vtool_show_build": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/compiler-matrix-xcode-26.5/norma-os-3-thin:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 11.0\n      sdk 26.5\n   ntools 1\n     tool LD\n  version 1267.0\n",
+      "file": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/compiler-matrix-xcode-26.5/norma-os-3-thin: Mach-O 64-bit executable arm64\n"
+    },
+    "3-fat": {
+      "vtool_show_build": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/compiler-matrix-xcode-26.5/norma-os-3-fat:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 11.0\n      sdk 26.5\n   ntools 1\n     tool LD\n  version 1267.0\n",
+      "file": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/compiler-matrix-xcode-26.5/norma-os-3-fat: Mach-O 64-bit executable arm64\n"
+    },
+    "s-thin": {
+      "vtool_show_build": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/compiler-matrix-xcode-26.5/norma-os-s-thin:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 11.0\n      sdk 26.5\n   ntools 1\n     tool LD\n  version 1267.0\n",
+      "file": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/compiler-matrix-xcode-26.5/norma-os-s-thin: Mach-O 64-bit executable arm64\n"
+    },
+    "s-fat": {
+      "vtool_show_build": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/compiler-matrix-xcode-26.5/norma-os-s-fat:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 11.0\n      sdk 26.5\n   ntools 1\n     tool LD\n  version 1267.0\n",
+      "file": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/compiler-matrix-xcode-26.5/norma-os-s-fat: Mach-O 64-bit executable arm64\n"
+    },
+    "z-thin": {
+      "vtool_show_build": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/compiler-matrix-xcode-26.5/norma-os-z-thin:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 11.0\n      sdk 26.5\n   ntools 1\n     tool LD\n  version 1267.0\n",
+      "file": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/compiler-matrix-xcode-26.5/norma-os-z-thin: Mach-O 64-bit executable arm64\n"
+    },
+    "z-fat": {
+      "vtool_show_build": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/compiler-matrix-xcode-26.5/norma-os-z-fat:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 11.0\n      sdk 26.5\n   ntools 1\n     tool LD\n  version 1267.0\n",
+      "file": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/compiler-matrix-xcode-26.5/norma-os-z-fat: Mach-O 64-bit executable arm64\n"
+    }
+  }
+}

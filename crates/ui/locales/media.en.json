@@ -1,0 +1,16 @@
+{
+  "media.waiting": "Download once to use offline",
+  "media.download": "Download",
+  "media.progress": "Downloading %{percent}%",
+  "media.failed": "Download unavailable. You can retry.",
+  "media.cancelled": "Download cancelled",
+  "media.wallpaper_needs_download": "↓ Download · %{size}",
+  "media.downloaded": "✓ Downloaded",
+  "media.wallpaper_failed": "Failed · Click to retry",
+  "media.preparing": "Preparing…",
+  "media.verifying": "Verifying…",
+  "media.wallpaper_pending": "Selected wallpaper · Pending",
+  "media.wallpaper_selection_saved": "Selection saved · Applies after download",
+  "media.wallpaper_auto_apply": "Applies automatically after download. You can cancel or retry.",
+  "media.wallpaper_library_hint": "Wallpapers marked Download come from the cloud. Select to download and apply; downloaded wallpapers work offline."
+}

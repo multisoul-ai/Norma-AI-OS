@@ -1,0 +1,181 @@
+{
+  "checked_at_utc": "2026-10-10T05:55:24.810351+00:00",
+  "scope": "Declared packaging inputs checked after explicit candidate builds and baseline CLI build; not an App/DMG",
+  "config": "Packager.toml",
+  "config_sha256": "3e7200151509dc18cef77a7d59ef37084d2fa6347e63216450ae9092a7342444",
+  "method": "inspect current literal resource and binary declarations; reject unsupported expressions; not a generic TOML parser",
+  "profile_note": "current staged contents are counted directly; light production availability remains gated",
+  "directory_counting": "regular files only; symlink aliases excluded from byte totals",
+  "inputs": [
+    {
+      "source": "build/icons/Assets.car",
+      "kind": "resource",
+      "target": null,
+      "exists": true,
+      "bytes": 2861624,
+      "sha256": "71ab5845526cd36f2ef2a5bed044c7b3100e7cfd7df611a7712f6bac57288372",
+      "regular_files": 1,
+      "symlinks": 0
+    },
+    {
+      "source": "packaging/macos/en.lproj",
+      "kind": "resource",
+      "target": "en.lproj",
+      "exists": true,
+      "bytes": 237,
+      "regular_files": 1,
+      "symlinks": 0
+    },
+    {
+      "source": "packaging/macos/zh-CN.lproj",
+      "kind": "resource",
+      "target": "zh-CN.lproj",
+      "exists": true,
+      "bytes": 213,
+      "regular_files": 1,
+      "symlinks": 0
+    },
+    {
+      "source": "build/release-media/wallpapers",
+      "kind": "resource",
+      "target": "wallpapers",
+      "exists": true,
+      "bytes": 144490290,
+      "regular_files": 19,
+      "symlinks": 0
+    },
+    {
+      "source": "build/release-media/feature-guide",
+      "kind": "resource",
+      "target": "feature-guide",
+      "exists": true,
+      "bytes": 22822233,
+      "regular_files": 11,
+      "symlinks": 0
+    },
+    {
+      "source": "build/release-media/wallpaper-previews",
+      "kind": "resource",
+      "target": "wallpaper-previews",
+      "exists": true,
+      "bytes": 1086490,
+      "regular_files": 7,
+      "symlinks": 0
+    },
+    {
+      "source": "build/release-media/media-catalog.json",
+      "kind": "resource",
+      "target": null,
+      "exists": true,
+      "bytes": 13127,
+      "sha256": "b99798de97a175e2abc4a96fbc95d34c7201567db18f1fc8832933cdd2c47bfe",
+      "regular_files": 1,
+      "symlinks": 0
+    },
+    {
+      "source": "crates/app/assets/browser-auth-extension",
+      "kind": "resource",
+      "target": null,
+      "exists": true,
+      "bytes": 3423,
+      "regular_files": 3,
+      "symlinks": 0
+    },
+    {
+      "source": "sidecars/openai-card-planner/openai-card-planner.mjs",
+      "kind": "resource",
+      "target": null,
+      "exists": true,
+      "bytes": 4512,
+      "sha256": "4aa58d0f42aebf62df429b9c6ea2cc869257c86b86b4bbfdc347a13e7ae94a53",
+      "regular_files": 1,
+      "symlinks": 0
+    },
+    {
+      "source": "assets/AppIcon.icns",
+      "kind": "icon",
+      "target": null,
+      "exists": true,
+      "bytes": 1323012,
+      "sha256": "35dc56b09a38a0d6a861d24f8fa3c019fea61fec5dc58da3b79ab40c577bed96",
+      "regular_files": 1,
+      "symlinks": 0
+    },
+    {
+      "source": "build/sparkle/Sparkle.framework",
+      "kind": "framework",
+      "target": null,
+      "exists": true,
+      "bytes": 2777894,
+      "regular_files": 56,
+      "symlinks": 6
+    },
+    {
+      "source": "build/packaging/Info.plist",
+      "kind": "info_plist",
+      "target": null,
+      "exists": true,
+      "bytes": 1053,
+      "sha256": "9ec8d1937f1e4f86b6e069eb04a5583c988852e4ea1c07efefb61b5678af2390",
+      "regular_files": 1,
+      "symlinks": 0
+    },
+    {
+      "source": "packaging/macos/NormaOS.entitlements",
+      "kind": "entitlements",
+      "target": null,
+      "exists": true,
+      "bytes": 474,
+      "sha256": "a56d2f6f255147d99caf9a484b40d2845fa02ec962764e3fde1e2223ebb9ece5",
+      "regular_files": 1,
+      "symlinks": 0
+    },
+    {
+      "source": "target/release/norma-os",
+      "kind": "main_binary",
+      "target": null,
+      "exists": true,
+      "bytes": 58079520,
+      "sha256": "549dd90ce4839e15aa463f9b59f0f089dc6c42dde4b0499d6e4fb9e9474c9a04",
+      "regular_files": 1,
+      "symlinks": 0
+    },
+    {
+      "source": "target/release/multisoul-agent-hook",
+      "kind": "companion_binary",
+      "target": null,
+      "exists": true,
+      "bytes": 1093920,
+      "sha256": "ef25593f9fb8a2c60df8f2e0a9eaa3ee4068feb633552b157695bfb608178669",
+      "regular_files": 1,
+      "symlinks": 0
+    },
+    {
+      "source": "target/release/norma",
+      "kind": "companion_binary",
+      "target": null,
+      "exists": true,
+      "bytes": 1378112,
+      "sha256": "99bd044ac99230ab732645b1513d8227baaa3e5f880c4649c4ed20097b7c10d0",
+      "regular_files": 1,
+      "symlinks": 0
+    },
+    {
+      "source": "target/release/norma-browser-auth-host",
+      "kind": "companion_binary",
+      "target": null,
+      "exists": true,
+      "bytes": 959968,
+      "sha256": "4b5c951f29814577ac3d8e0331801529b6016c1b7b5c0160d788119f56969ecf",
+      "regular_files": 1,
+      "symlinks": 0
+    }
+  ],
+  "missing_sources": [],
+  "baseline_cli_path": "build/package-size-reduction/baseline-target/release/norma",
+  "baseline_cli_present": true,
+  "previous_snapshot": "packaging-input-preflight.json",
+  "binary_provenance": "candidate-packaging-build.json",
+  "baseline_cli_provenance": "baseline-companions-build.json",
+  "remaining": "Developer ID unavailable; full baseline package and true App/DMG/runtime validation remain pending"
+}

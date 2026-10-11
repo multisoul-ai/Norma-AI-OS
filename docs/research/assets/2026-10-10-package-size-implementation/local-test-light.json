@@ -1,0 +1,28 @@
+{
+  "checked_at_utc": "2026-10-10T14:26:43.883852+00:00",
+  "profile": "light",
+  "version": "0.1.73",
+  "architecture": "arm64",
+  "mode": "ad-hoc, not notarized",
+  "source_wrapper_log": "build/package-size-reduction/local-test-light-package.log",
+  "dmg": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/package-size-tests-20261010-142336/Norma-OS_0.1.73_light_aarch64.dmg",
+  "dmg_bytes": 64847177,
+  "dmg_sha256": "24815dd11bc164b7feeb5ee5726023247810cc4cb1cc0122823e1222498f25ea",
+  "app": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/package-size-tests-20261010-142336/light/Norma OS.app",
+  "app_regular_file_bytes": 100586081,
+  "app_regular_file_count": 96,
+  "media_catalog_sha256": "055ea853a13cd5b624fa84a107035e6701ff2864bd183a75be88233f49f96ed5",
+  "original_bundled_count": 18,
+  "original_unbundled_count": 12,
+  "original_bundled_bytes": 31530913,
+  "preview_count": 7,
+  "verify": {
+    "wrapper_completed": true,
+    "codesign_deep_strict": true,
+    "hdiutil_verify": true,
+    "finder_layout": true,
+    "bundled_original_bytes_and_sha": true,
+    "omitted_originals_absent": true
+  },
+  "availability_note": "Optional videos / GIFs are not published in GitHub Releases yet; light package download happy path is not available"
+}

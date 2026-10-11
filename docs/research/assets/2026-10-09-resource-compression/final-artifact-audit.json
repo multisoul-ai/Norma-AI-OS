@@ -1,0 +1,10 @@
+{
+  "workbook": "/Users/cengwei/Documents/code/Norma-AI-OS/outputs/01a120ef-resource-compression/Norma-无损压缩算法选型.xlsx",
+  "workbook_sha256": "a77d78fcf649c9ad89f4a2bb8584082505f1a67051e3a9307deac523cbbc5d61",
+  "verified_comparison_rows": 36,
+  "verified_observation_rows": 104,
+  "verified_dmg_rows": 4,
+  "source_files": 30,
+  "live_source_matches_snapshot": true,
+  "checks_passed": true
+}

@@ -1,0 +1,48 @@
+{
+  "checked_at_utc": "2026-10-10T05:51:48.141090+00:00",
+  "scope": "Explicit release --locked --offline norma --bins from frozen baseline source; not an App or DMG",
+  "baseline_revision": "2ae94d1bf811e894bdfc6e776c983bce43dc9468",
+  "command": "cargo build --manifest-path build/package-size-reduction/baseline-source/Cargo.toml --release --locked --offline -p norma --bins --message-format=json-render-diagnostics",
+  "sdk": "26.5",
+  "jobs": 1,
+  "log": "build/package-size-reduction/baseline-companions-build.log",
+  "log_sha256": "224672c428045c75f9b5764d20d7f1b1f8a3076c0f599d9829a3bdc8cbddb5e5",
+  "build_finished_success": true,
+  "artifacts": [
+    {
+      "target": "multisoul-agent-hook",
+      "package_id": "path+file:///Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/baseline-source/crates/norma#0.1.73",
+      "artifact": "build/package-size-reduction/baseline-target/release/multisoul-agent-hook",
+      "fresh": false,
+      "features": [],
+      "profile": {
+        "opt_level": "3",
+        "debuginfo": 0,
+        "debug_assertions": false,
+        "overflow_checks": false,
+        "test": false
+      },
+      "bytes": 1093920,
+      "sha256": "57a843b1919dea6ec207c95231d7f45d664fc5b8f6234f74afedc80142acb69f",
+      "macho_build_version": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/baseline-target/release/multisoul-agent-hook:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 11.0\n      sdk 26.5\n   ntools 1\n     tool LD\n  version 1267.0\n"
+    },
+    {
+      "target": "norma",
+      "package_id": "path+file:///Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/baseline-source/crates/norma#0.1.73",
+      "artifact": "build/package-size-reduction/baseline-target/release/norma",
+      "fresh": false,
+      "features": [],
+      "profile": {
+        "opt_level": "3",
+        "debuginfo": 0,
+        "debug_assertions": false,
+        "overflow_checks": false,
+        "test": false
+      },
+      "bytes": 1378112,
+      "sha256": "f591af96138532aa2210a25e05877291b899d7a456156219072333ea01db766e",
+      "macho_build_version": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/baseline-target/release/norma:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 11.0\n      sdk 26.5\n   ntools 1\n     tool LD\n  version 1267.0\n"
+    }
+  ],
+  "other_baseline_bins": "Main and browser auth host remain from previous frozen baseline build; original build receipt retained; packaging wrapper will rebuild/check as needed"
+}

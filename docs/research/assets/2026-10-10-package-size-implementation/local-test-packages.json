@@ -1,0 +1,92 @@
+{
+  "checked_at_utc": "2026-10-10T14:26:43.883852+00:00",
+  "scope": "Current implementation full versus light under the same version / default release binaries / core resources / ad-hoc signing and DMG format; not the original frozen-source M0 baseline",
+  "version": "0.1.73",
+  "release_profile": "3-thin; not switched to the smallest z-fat candidate",
+  "original_m0_baseline_app_dmg": "still unmeasured",
+  "profiles": [
+    {
+      "checked_at_utc": "2026-10-10T14:23:41.807851+00:00",
+      "profile": "full",
+      "version": "0.1.73",
+      "architecture": "arm64",
+      "mode": "ad-hoc, not notarized",
+      "source_wrapper_log": "build/package-size-reduction/local-test-full-package.log",
+      "dmg": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/package-size-tests-20261010-142336/Norma-OS_0.1.73_full_aarch64.dmg",
+      "dmg_bytes": 200662810,
+      "dmg_sha256": "fba72e3236ae5ec0fa51a001cc53bcdf65dde5b8b034c8ed462c83119f967de1",
+      "app": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/package-size-tests-20261010-142336/full/Norma OS.app",
+      "app_regular_file_bytes": 236370857,
+      "app_regular_file_count": 108,
+      "media_catalog_sha256": "b99798de97a175e2abc4a96fbc95d34c7201567db18f1fc8832933cdd2c47bfe",
+      "original_bundled_count": 30,
+      "original_unbundled_count": 0,
+      "original_bundled_bytes": 167312523,
+      "verify": {
+        "wrapper_completed": true,
+        "codesign_deep_strict": true,
+        "hdiutil_verify": true,
+        "finder_layout": true,
+        "bundled_original_bytes_and_sha": true
+      },
+      "snapshot_note": "Moved newly verified artifacts into a unique snapshot folder, preserving metadata and leaving a clean output path for the next profile"
+    },
+    {
+      "checked_at_utc": "2026-10-10T14:26:43.883852+00:00",
+      "profile": "light",
+      "version": "0.1.73",
+      "architecture": "arm64",
+      "mode": "ad-hoc, not notarized",
+      "source_wrapper_log": "build/package-size-reduction/local-test-light-package.log",
+      "dmg": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/package-size-tests-20261010-142336/Norma-OS_0.1.73_light_aarch64.dmg",
+      "dmg_bytes": 64847177,
+      "dmg_sha256": "24815dd11bc164b7feeb5ee5726023247810cc4cb1cc0122823e1222498f25ea",
+      "app": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/package-size-tests-20261010-142336/light/Norma OS.app",
+      "app_regular_file_bytes": 100586081,
+      "app_regular_file_count": 96,
+      "media_catalog_sha256": "055ea853a13cd5b624fa84a107035e6701ff2864bd183a75be88233f49f96ed5",
+      "original_bundled_count": 18,
+      "original_unbundled_count": 12,
+      "original_bundled_bytes": 31530913,
+      "preview_count": 7,
+      "verify": {
+        "wrapper_completed": true,
+        "codesign_deep_strict": true,
+        "hdiutil_verify": true,
+        "finder_layout": true,
+        "bundled_original_bytes_and_sha": true,
+        "omitted_originals_absent": true
+      },
+      "availability_note": "Optional videos / GIFs are not published in GitHub Releases yet; light package download happy path is not available"
+    }
+  ],
+  "dmg_saved_bytes": 135815633,
+  "dmg_saved_percent": 67.68350996380445,
+  "app_regular_file_saved_bytes": 135784776,
+  "app_regular_file_saved_percent": 57.445650332435015,
+  "remote_publication_performed": false,
+  "actual_app_user_flow_verified": false,
+  "read_only_dmg_verification": {
+    "checked_at_utc": "2026-10-10T14:28:06.197266+00:00",
+    "scope": "Read-only mounted new DMGs; signatures, byte-for-byte app inventory and same DMG format; no actual App launch or user-data writes",
+    "results": [
+      {
+        "profile": "full",
+        "dmg_format": "UDZO",
+        "dmg_sha256_verified": true,
+        "mounted_app_deep_strict_signature": true,
+        "mounted_app_regular_files_match_snapshot": true,
+        "finder_metadata_and_applications_link": true
+      },
+      {
+        "profile": "light",
+        "dmg_format": "UDZO",
+        "dmg_sha256_verified": true,
+        "mounted_app_deep_strict_signature": true,
+        "mounted_app_regular_files_match_snapshot": true,
+        "finder_metadata_and_applications_link": true
+      }
+    ],
+    "original_release_binary_inputs_unchanged": true
+  }
+}

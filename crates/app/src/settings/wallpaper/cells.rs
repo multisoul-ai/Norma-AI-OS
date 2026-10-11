@@ -107,7 +107,14 @@ pub(super) fn builtin_cell(
                 kind,
                 selected,
                 width,
-                thumbnail: preview_thumbnail(kind, resolve_builtin_asset(rel), previews, 7.0, cx),
+                thumbnail: preview_thumbnail(
+                    kind,
+                    resolve_builtin_asset(rel)
+                        .or_else(|| crate::app::wallpaper_resolvers::builtin_preview_asset(rel)),
+                    previews,
+                    7.0,
+                    cx,
+                ),
                 badge_id: idx,
                 badge_selector: format!(
                     "settings-wallpaper-badge-{idx}-{}",
@@ -118,6 +125,10 @@ pub(super) fn builtin_cell(
             cx,
         ))
         .child(thumbnail_label(theme, name, selected))
+        .child(div().min_h(px(22.0)).when_some(
+            crate::media::view::wallpaper_status(rel, theme, cx),
+            |row, status| row.child(status),
+        ))
 }
 
 /// One grid cell for a custom wallpaper. Custom cells expose a hover-only
@@ -397,6 +408,14 @@ pub(super) fn preview_thumbnail(
 ) -> Div {
     let Some(path) = path else {
         return preview_placeholder(kind);
+    };
+    let kind = if path
+        .extension()
+        .is_some_and(|extension| extension == "webp")
+    {
+        WallpaperKind::Static
+    } else {
+        kind
     };
     if let Some(image) = previews.get(&path) {
         return div().size_full().child(

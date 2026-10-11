@@ -1,0 +1,85 @@
+OK: codesign readiness check passed
+[0;32m[release-local][0m git lfs pull
+[0;32m[release-local][0m ad-hoc 打包（不 notarize）
+ INFO Running beforePackageCommand `scripts/prepare-release-media.sh --local-test && scripts/prepare-sparkle.sh && scripts/prepare-app-icon.sh && scripts/prepare-release-info-plist.sh`
+{"schema_version": 1, "profile": "light", "source_bytes": 167312523, "source_count": 30, "bundled_bytes": 31530913, "bundled_count": 18, "external_bytes": 135781610, "external_count": 12, "saved_percent": 81.15448118608552, "preview_bytes": 1086490, "catalog_bytes": 13139, "media_payload_bytes": 32630542}
+prepared Sparkle 2.9.5 in /Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/sparkle
+/* com.apple.actool.compilation-results */
+/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-native-icon.Ab4dzH/Assets.car
+/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-native-icon.Ab4dzH/NormaIcon.icns
+/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-native-icon.Ab4dzH/icon-info.plist
+
+Prepared /Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/icons/Assets.car
+generated release Info.plist at /Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/packaging/Info.plist
+ INFO Packaging Norma OS.app (/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app)
+ INFO Codesigning /Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc/Contents/MacOS/Installer with identity "-"
+ INFO Codesigning /Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc/Contents/MacOS/Downloader with identity "-"
+ INFO Codesigning /Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app/Contents/MacOS/Updater with identity "-"
+ INFO Codesigning /Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/Frameworks/Sparkle.framework/Versions/B/Sparkle with identity "-"
+ INFO Codesigning /Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate with identity "-"
+ INFO Codesigning /Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/Frameworks/Sparkle.framework/Autoupdate with identity "-"
+ INFO Codesigning /Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/Frameworks/Sparkle.framework/Sparkle with identity "-"
+ INFO Codesigning /Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/MacOS/multisoul-agent-hook with identity "-"
+ INFO Codesigning /Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/MacOS/norma with identity "-"
+ INFO Codesigning /Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/MacOS/norma-browser-auth-host with identity "-"
+ INFO Codesigning /Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/MacOS/norma-os with identity "-"
+ INFO Codesigning /Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/Frameworks/Sparkle.framework with identity "-"
+ INFO Codesigning /Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app with identity "-"
+ WARN Skipping app notarization, Could not find APPLE_ID & APPLE_PASSWORD & APPLE_TEAM_ID or APPLE_API_KEY & APPLE_API_ISSUER & APPLE_API_KEY_PATH environment variables found
+ INFO Packaging Norma OS_0.1.73_aarch64.dmg (/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS_0.1.73_aarch64.dmg)
+ INFO Codesigning /Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS_0.1.73_aarch64.dmg with identity "-"
+ INFO Finished packaging 2 packages at:
+        /Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app
+        /Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS_0.1.73_aarch64.dmg
+
+[0;32m[release-local][0m 验证 build/dev/Norma OS.app
+--prepared:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/MacOS/norma-browser-auth-host
+--validated:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/MacOS/norma-browser-auth-host
+--prepared:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/MacOS/multisoul-agent-hook
+--validated:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/MacOS/multisoul-agent-hook
+--prepared:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/MacOS/norma
+--validated:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/MacOS/norma
+--prepared:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/Frameworks/Sparkle.framework/Versions/Current/.
+--prepared:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Autoupdate
+--validated:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Autoupdate
+--prepared:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Updater.app
+--validated:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Updater.app
+--prepared:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Downloader.xpc
+--prepared:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Installer.xpc
+--validated:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Downloader.xpc
+--validated:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Installer.xpc
+--validated:/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app/Contents/Frameworks/Sparkle.framework/Versions/Current/.
+build/dev/Norma OS.app: valid on disk
+build/dev/Norma OS.app: satisfies its Designated Requirement
+build/dev/Norma OS.app: rejected
+[1;33m[release-local][0m spctl 在未公证/ad-hoc 下可能失败，--notarize 后应 accepted
+Processing: /Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/Norma OS.app
+Norma OS.app does not have a ticket stapled to it.
+[1;33m[release-local][0m stapler 在未公证/ad-hoc 下无票据
+hdiutil: WARNING: 'hdiutil attach -nobrowse -readonly -mountpoint ...' is deprecated. Please use 'diskutil image attach --mountOptions nobrowse --readOnly --mountPoint ...' instead.
+verified customized Finder DMG layout: build/dev/Norma OS_0.1.73_aarch64.dmg
+[0;32m[release-local][0m 验证 build/dev/Norma OS_0.1.73_aarch64.dmg
+正在检查“Protective Master Boot Record（MBR：0）”的校验和…
+Protective Master Boot Record（MBR：0）：已验证CRC32 $4859C710
+正在检查“GPT Header（Primary GPT Header：1）”的校验和…
+    GPT Header（Primary GPT Header：1）：已验证CRC32 $BE3A9999
+正在检查“GPT Partition Data（Primary GPT Table：2）”的校验和…
+GPT Partition Data（Primary GPT Table：已验证CRC32 $4A6B3CEB
+正在检查“（Apple_Free：3）”的校验和…
+                      （Apple_Free：3）：已验证CRC32 $00000000
+正在检查“disk image（Apple_HFS：4）”的校验和…
+             disk image（Apple_HFS：4）：已验证CRC32 $EF3EEC14
+正在检查“（Apple_Free：5）”的校验和…
+                      （Apple_Free：5）：已验证CRC32 $00000000
+正在检查“GPT Partition Data（Backup GPT Table：6）”的校验和…
+GPT Partition Data（Backup GPT Table：：已验证CRC32 $4A6B3CEB
+正在检查“GPT Header（Backup GPT Header：7）”的校验和…
+     GPT Header（Backup GPT Header：7）：已验证CRC32 $F45C0D0C
+已验证CRC32 $F89193AC
+hdiutil: verify: checksum of "build/dev/Norma OS_0.1.73_aarch64.dmg" is VALID
+[0;32m[release-local][0m Done
+[0;32m[release-local][0m App: build/dev/Norma OS.app
+[0;32m[release-local][0m DMG: build/dev/Norma OS_0.1.73_aarch64.dmg
+[0;32m[release-local][0m Size: 64847177 bytes
+[0;32m[release-local][0m SHA-256: 24815dd11bc164b7feeb5ee5726023247810cc4cb1cc0122823e1222498f25ea
+[0;32m[release-local][0m Checksum: build/dev/Norma OS_0.1.73_aarch64.dmg.sha256

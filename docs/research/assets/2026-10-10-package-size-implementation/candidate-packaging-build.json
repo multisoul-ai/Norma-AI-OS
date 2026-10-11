@@ -1,0 +1,162 @@
+{
+  "checked_at_utc": "2026-10-10T05:55:24.810351+00:00",
+  "scope": "Explicit candidate release packaging-input builds; not a signed App, DMG or runtime performance measurement",
+  "revision": "2ae94d1bf811e894bdfc6e776c983bce43dc9468",
+  "jobs": 1,
+  "sdk": "26.5",
+  "release_profile": {
+    "opt_level": 3,
+    "lto": "thin",
+    "codegen_units": 1,
+    "strip": "symbols"
+  },
+  "environment": {
+    "RUSTFLAGS": null,
+    "CARGO_ENCODED_RUSTFLAGS": null,
+    "CARGO_PROFILE_RELEASE_OPT_LEVEL": null,
+    "CARGO_PROFILE_RELEASE_LTO": null
+  },
+  "stages": [
+    {
+      "command": "cargo build --release --locked --offline -p app --no-default-features --features production-data --message-format=json-render-diagnostics",
+      "log": "build/package-size-reduction/candidate-packaging-build.log",
+      "log_sha256": "d417729df86c331fd1d4acfbc094401d88e4b36f2ad4ae0db3a11424ba88e7a6",
+      "build_finished_success": true,
+      "artifact_metadata": [
+        {
+          "package_id": "path+file:///Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/crates/app#0.1.73",
+          "executable": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/target/release/multisoul-agent-hook",
+          "fresh": false,
+          "features": [
+            "production-data"
+          ],
+          "profile": {
+            "opt_level": "3",
+            "debuginfo": 0,
+            "debug_assertions": false,
+            "overflow_checks": false,
+            "test": false
+          },
+          "target": "multisoul-agent-hook"
+        },
+        {
+          "package_id": "path+file:///Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/crates/app#0.1.73",
+          "executable": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/target/release/norma-os",
+          "fresh": false,
+          "features": [
+            "production-data"
+          ],
+          "profile": {
+            "opt_level": "3",
+            "debuginfo": 0,
+            "debug_assertions": false,
+            "overflow_checks": false,
+            "test": false
+          },
+          "target": "norma-os"
+        },
+        {
+          "package_id": "path+file:///Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/crates/app#0.1.73",
+          "executable": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/target/release/norma-browser-auth-host",
+          "fresh": false,
+          "features": [
+            "production-data"
+          ],
+          "profile": {
+            "opt_level": "3",
+            "debuginfo": 0,
+            "debug_assertions": false,
+            "overflow_checks": false,
+            "test": false
+          },
+          "target": "norma-browser-auth-host"
+        }
+      ]
+    },
+    {
+      "command": "cargo build --release --locked --offline -p norma --bins --message-format=json-render-diagnostics",
+      "log": "build/package-size-reduction/candidate-companions-build.log",
+      "log_sha256": "ce5eff6f326e695607a9a0086529e73978fb778850d60733bf9e76c0189c9e56",
+      "build_finished_success": true,
+      "artifact_metadata": [
+        {
+          "package_id": "path+file:///Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/crates/norma#0.1.73",
+          "executable": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/target/release/multisoul-agent-hook",
+          "fresh": false,
+          "features": [],
+          "profile": {
+            "opt_level": "3",
+            "debuginfo": 0,
+            "debug_assertions": false,
+            "overflow_checks": false,
+            "test": false
+          },
+          "target": "multisoul-agent-hook"
+        },
+        {
+          "package_id": "path+file:///Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/crates/norma#0.1.73",
+          "executable": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/target/release/norma",
+          "fresh": false,
+          "features": [],
+          "profile": {
+            "opt_level": "3",
+            "debuginfo": 0,
+            "debug_assertions": false,
+            "overflow_checks": false,
+            "test": false
+          },
+          "target": "norma"
+        }
+      ]
+    }
+  ],
+  "final_binaries": [
+    {
+      "target": "multisoul-agent-hook",
+      "final_producer_log": "candidate-companions-build.log",
+      "artifact": "target/release/multisoul-agent-hook",
+      "bytes": 1093920,
+      "sha256": "ef25593f9fb8a2c60df8f2e0a9eaa3ee4068feb633552b157695bfb608178669",
+      "features": [],
+      "fresh": false,
+      "macho_build_version": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/target/release/multisoul-agent-hook:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 11.0\n      sdk 26.5\n   ntools 1\n     tool LD\n  version 1267.0\n"
+    },
+    {
+      "target": "norma",
+      "final_producer_log": "candidate-companions-build.log",
+      "artifact": "target/release/norma",
+      "bytes": 1378112,
+      "sha256": "99bd044ac99230ab732645b1513d8227baaa3e5f880c4649c4ed20097b7c10d0",
+      "features": [],
+      "fresh": false,
+      "macho_build_version": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/target/release/norma:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 11.0\n      sdk 26.5\n   ntools 1\n     tool LD\n  version 1267.0\n"
+    },
+    {
+      "target": "norma-browser-auth-host",
+      "final_producer_log": "candidate-packaging-build.log",
+      "artifact": "target/release/norma-browser-auth-host",
+      "bytes": 959968,
+      "sha256": "4b5c951f29814577ac3d8e0331801529b6016c1b7b5c0160d788119f56969ecf",
+      "features": [
+        "production-data"
+      ],
+      "fresh": false,
+      "macho_build_version": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/target/release/norma-browser-auth-host:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 11.0\n      sdk 26.5\n   ntools 1\n     tool LD\n  version 1267.0\n"
+    },
+    {
+      "target": "norma-os",
+      "final_producer_log": "candidate-packaging-build.log",
+      "artifact": "target/release/norma-os",
+      "bytes": 58079520,
+      "sha256": "549dd90ce4839e15aa463f9b59f0f089dc6c42dde4b0499d6e4fb9e9474c9a04",
+      "features": [
+        "production-data"
+      ],
+      "fresh": false,
+      "macho_build_version": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/target/release/norma-os:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 11.0\n      sdk 26.5\n   ntools 1\n     tool LD\n  version 1267.0\n"
+    }
+  ],
+  "hook_note": "Both packages emit multisoul-agent-hook; the later norma --bins invocation is the final producer, matching the packaging hook order",
+  "comparison_note": "Compiler matrix and earlier candidate snapshots retain their own hashes; matching file sizes do not mean matching artifact hashes",
+  "source_note": "Rust/Cargo inputs were unchanged during these builds; report scripts and documents changed after the six-group matrix ended"
+}

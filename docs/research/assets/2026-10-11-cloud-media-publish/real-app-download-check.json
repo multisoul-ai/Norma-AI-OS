@@ -1,0 +1,16 @@
+{
+  "checked_at": "2026-10-11T00:15:52.196658+00:00",
+  "source": "GitHub Releases public HTTPS, no transport override",
+  "data_root": "/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-cloud-media-check-wmexg09u/data",
+  "cache_file": "/var/folders/4l/v2fz2yr96lg2w8wvxw26h95m0000gn/T/norma-cloud-media-check-wmexg09u/data/media/media-v1/3a5b89c7f19ee6c63d66d0642462617304cb97fca653af3d56cbedebb9758270.mp4",
+  "bytes": 8650397,
+  "sha256": "3a5b89c7f19ee6c63d66d0642462617304cb97fca653af3d56cbedebb9758270",
+  "matches_trusted_catalog": true,
+  "ui_observed": [
+    "needs download",
+    "preparing download",
+    "downloaded",
+    "selected dynamic background automatically applied"
+  ],
+  "app": "/private/tmp/norma-wallpaper-qa-pr5lqnrg/Norma Wallpaper QA.app"
+}

@@ -1,0 +1,577 @@
+{
+  "checked_at_utc": "2026-10-10T05:13:38.964376+00:00",
+  "scope": "read-only existing installed App sample; not the fresh baseline, new candidate or DMG",
+  "path": "/Applications/Norma OS.app",
+  "version": "0.1.73",
+  "bundle_identifier": "com.norma.os",
+  "signature_verification_exit_code": 0,
+  "info_plist_sha256": "0971c32293f238f8faedc0448280139a11f0389c69a9ee1300f9d7ae0a5c2cb0",
+  "main_binary_sha256": "cb11bd5e19bd574d91c34e20461cf56739a372a7e8fed60de7ebc1933acb1389",
+  "counting": "sum regular file lengths, excluding symlink aliases; not APFS allocated blocks or runtime memory",
+  "regular_file_bytes": 236229548,
+  "regular_files": 101,
+  "symlinks_excluded": 6,
+  "groups": [
+    {
+      "group": "app_signature_metadata",
+      "files": 1,
+      "bytes": 14033,
+      "share_percent": 0.005940408436966573
+    },
+    {
+      "group": "companion_binaries",
+      "files": 3,
+      "bytes": 3967408,
+      "share_percent": 1.679471528261147
+    },
+    {
+      "group": "frameworks",
+      "files": 56,
+      "bytes": 2780763,
+      "share_percent": 1.177144444267404
+    },
+    {
+      "group": "icons",
+      "files": 2,
+      "bytes": 4184636,
+      "share_percent": 1.771427848644912
+    },
+    {
+      "group": "main_binary",
+      "files": 1,
+      "bytes": 57958160,
+      "share_percent": 24.534678447592
+    },
+    {
+      "group": "other_bundle_metadata",
+      "files": 2,
+      "bytes": 3640,
+      "share_percent": 0.0015408741331545872
+    },
+    {
+      "group": "other_resources",
+      "files": 6,
+      "bytes": 8385,
+      "share_percent": 0.0035495136281596743
+    },
+    {
+      "group": "tutorial_resources",
+      "files": 11,
+      "bytes": 22822233,
+      "share_percent": 9.66104079410083
+    },
+    {
+      "group": "wallpaper_resources",
+      "files": 19,
+      "bytes": 144490290,
+      "share_percent": 61.165206140935425
+    }
+  ],
+  "files": [
+    {
+      "path": "Contents/CodeResources",
+      "bytes": 1926,
+      "group": "other_bundle_metadata"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate",
+      "bytes": 726432,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/Base.lproj/Sparkle.strings",
+      "bytes": 6249,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/Info.plist",
+      "bytes": 1341,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/ReleaseNotesColorStyle.css",
+      "bytes": 231,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/SUStatus.nib",
+      "bytes": 13016,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/SUUpdateAlert.nib",
+      "bytes": 18490,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/SUUpdatePermissionPrompt.nib/keyedobjects-101300.nib",
+      "bytes": 25413,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/SUUpdatePermissionPrompt.nib/keyedobjects-110000.nib",
+      "bytes": 25401,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/ar.lproj/Sparkle.strings",
+      "bytes": 3554,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/ca.lproj/Sparkle.strings",
+      "bytes": 3501,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/cs.lproj/Sparkle.strings",
+      "bytes": 10774,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/da.lproj/Sparkle.strings",
+      "bytes": 4882,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/de.lproj/Sparkle.strings",
+      "bytes": 11559,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/el.lproj/Sparkle.strings",
+      "bytes": 5934,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/es.lproj/Sparkle.strings",
+      "bytes": 7026,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/fa.lproj/Sparkle.strings",
+      "bytes": 5716,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/fi.lproj/Sparkle.strings",
+      "bytes": 3252,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/fr.lproj/Sparkle.strings",
+      "bytes": 7855,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/he.lproj/Sparkle.strings",
+      "bytes": 9657,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/hr.lproj/Sparkle.strings",
+      "bytes": 6367,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/hu.lproj/Sparkle.strings",
+      "bytes": 4449,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/is.lproj/Sparkle.strings",
+      "bytes": 3954,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/it.lproj/Sparkle.strings",
+      "bytes": 10956,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/ja.lproj/Sparkle.strings",
+      "bytes": 8697,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/ko.lproj/Sparkle.strings",
+      "bytes": 7797,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/nb.lproj/Sparkle.strings",
+      "bytes": 5539,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/nl.lproj/Sparkle.strings",
+      "bytes": 9574,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/nn.lproj/Sparkle.strings",
+      "bytes": 5671,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/pl.lproj/Sparkle.strings",
+      "bytes": 5453,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/pt-BR.lproj/Sparkle.strings",
+      "bytes": 9976,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/pt-PT.lproj/Sparkle.strings",
+      "bytes": 5984,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/ro.lproj/Sparkle.strings",
+      "bytes": 6115,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/ru.lproj/Sparkle.strings",
+      "bytes": 5784,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/sk.lproj/Sparkle.strings",
+      "bytes": 5675,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/sl.lproj/Sparkle.strings",
+      "bytes": 5646,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/sv.lproj/Sparkle.strings",
+      "bytes": 5160,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/th.lproj/Sparkle.strings",
+      "bytes": 5339,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/tr.lproj/Sparkle.strings",
+      "bytes": 6183,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/uk.lproj/Sparkle.strings",
+      "bytes": 5842,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/vi.lproj/Sparkle.strings",
+      "bytes": 12418,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/zh_CN.lproj/Sparkle.strings",
+      "bytes": 7475,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/zh_HK.lproj/Sparkle.strings",
+      "bytes": 6469,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Resources/zh_TW.lproj/Sparkle.strings",
+      "bytes": 7625,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Sparkle",
+      "bytes": 977808,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app/Contents/Info.plist",
+      "bytes": 2400,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app/Contents/MacOS/Updater",
+      "bytes": 291152,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app/Contents/PkgInfo",
+      "bytes": 8,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app/Contents/Resources/SUStatus.nib",
+      "bytes": 13016,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app/Contents/_CodeSignature/CodeResources",
+      "bytes": 2446,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc/Contents/Info.plist",
+      "bytes": 1717,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc/Contents/MacOS/Downloader",
+      "bytes": 189264,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc/Contents/_CodeSignature/CodeResources",
+      "bytes": 2200,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc/Contents/Info.plist",
+      "bytes": 1605,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc/Contents/MacOS/Installer",
+      "bytes": 224064,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc/Contents/_CodeSignature/CodeResources",
+      "bytes": 2200,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Frameworks/Sparkle.framework/Versions/B/_CodeSignature/CodeResources",
+      "bytes": 18452,
+      "group": "frameworks"
+    },
+    {
+      "path": "Contents/Info.plist",
+      "bytes": 1714,
+      "group": "other_bundle_metadata"
+    },
+    {
+      "path": "Contents/MacOS/multisoul-agent-hook",
+      "bytes": 1106608,
+      "group": "companion_binaries"
+    },
+    {
+      "path": "Contents/MacOS/norma",
+      "bytes": 1389136,
+      "group": "companion_binaries"
+    },
+    {
+      "path": "Contents/MacOS/norma-browser-auth-host",
+      "bytes": 1471664,
+      "group": "companion_binaries"
+    },
+    {
+      "path": "Contents/MacOS/norma-os",
+      "bytes": 57958160,
+      "group": "main_binary"
+    },
+    {
+      "path": "Contents/Resources/AppIcon.icns",
+      "bytes": 1323012,
+      "group": "icons"
+    },
+    {
+      "path": "Contents/Resources/Assets.car",
+      "bytes": 2861624,
+      "group": "icons"
+    },
+    {
+      "path": "Contents/Resources/browser-auth-extension/README.md",
+      "bytes": 889,
+      "group": "other_resources"
+    },
+    {
+      "path": "Contents/Resources/browser-auth-extension/manifest.json",
+      "bytes": 920,
+      "group": "other_resources"
+    },
+    {
+      "path": "Contents/Resources/browser-auth-extension/service_worker.js",
+      "bytes": 1614,
+      "group": "other_resources"
+    },
+    {
+      "path": "Contents/Resources/en.lproj/InfoPlist.strings",
+      "bytes": 237,
+      "group": "other_resources"
+    },
+    {
+      "path": "Contents/Resources/feature-guide/README.md",
+      "bytes": 1317,
+      "group": "tutorial_resources"
+    },
+    {
+      "path": "Contents/Resources/feature-guide/demo-agent-collaboration.mp4",
+      "bytes": 5370854,
+      "group": "tutorial_resources"
+    },
+    {
+      "path": "Contents/Resources/feature-guide/demo-agent-collaboration.webp",
+      "bytes": 156990,
+      "group": "tutorial_resources"
+    },
+    {
+      "path": "Contents/Resources/feature-guide/demo-agent-notifications.mp4",
+      "bytes": 1996272,
+      "group": "tutorial_resources"
+    },
+    {
+      "path": "Contents/Resources/feature-guide/demo-agent-notifications.webp",
+      "bytes": 173272,
+      "group": "tutorial_resources"
+    },
+    {
+      "path": "Contents/Resources/feature-guide/demo-layout-command-m.mp4",
+      "bytes": 1641819,
+      "group": "tutorial_resources"
+    },
+    {
+      "path": "Contents/Resources/feature-guide/demo-layout-command-m.webp",
+      "bytes": 81096,
+      "group": "tutorial_resources"
+    },
+    {
+      "path": "Contents/Resources/feature-guide/demo-live-node-shortcuts.mp4",
+      "bytes": 2112348,
+      "group": "tutorial_resources"
+    },
+    {
+      "path": "Contents/Resources/feature-guide/demo-live-node-shortcuts.webp",
+      "bytes": 157970,
+      "group": "tutorial_resources"
+    },
+    {
+      "path": "Contents/Resources/feature-guide/demo-voice-command.mp4",
+      "bytes": 10936433,
+      "group": "tutorial_resources"
+    },
+    {
+      "path": "Contents/Resources/feature-guide/demo-voice-command.webp",
+      "bytes": 193862,
+      "group": "tutorial_resources"
+    },
+    {
+      "path": "Contents/Resources/openai-card-planner.mjs",
+      "bytes": 4512,
+      "group": "other_resources"
+    },
+    {
+      "path": "Contents/Resources/wallpapers/1331865.webp",
+      "bytes": 3478288,
+      "group": "wallpaper_resources"
+    },
+    {
+      "path": "Contents/Resources/wallpapers/1350954.webp",
+      "bytes": 5139970,
+      "group": "wallpaper_resources"
+    },
+    {
+      "path": "Contents/Resources/wallpapers/1358524.webp",
+      "bytes": 1732514,
+      "group": "wallpaper_resources"
+    },
+    {
+      "path": "Contents/Resources/wallpapers/1403512.mp4",
+      "bytes": 8650397,
+      "group": "wallpaper_resources"
+    },
+    {
+      "path": "Contents/Resources/wallpapers/1404942.mp4",
+      "bytes": 30393068,
+      "group": "wallpaper_resources"
+    },
+    {
+      "path": "Contents/Resources/wallpapers/1406443.mp4",
+      "bytes": 30692231,
+      "group": "wallpaper_resources"
+    },
+    {
+      "path": "Contents/Resources/wallpapers/1406489.mp4",
+      "bytes": 19802073,
+      "group": "wallpaper_resources"
+    },
+    {
+      "path": "Contents/Resources/wallpapers/1407174.mp4",
+      "bytes": 9453907,
+      "group": "wallpaper_resources"
+    },
+    {
+      "path": "Contents/Resources/wallpapers/1411385.webp",
+      "bytes": 1922586,
+      "group": "wallpaper_resources"
+    },
+    {
+      "path": "Contents/Resources/wallpapers/1411492.webp",
+      "bytes": 2461410,
+      "group": "wallpaper_resources"
+    },
+    {
+      "path": "Contents/Resources/wallpapers/215824.gif",
+      "bytes": 387460,
+      "group": "wallpaper_resources"
+    },
+    {
+      "path": "Contents/Resources/wallpapers/220240.gif",
+      "bytes": 14344748,
+      "group": "wallpaper_resources"
+    },
+    {
+      "path": "Contents/Resources/wallpapers/379352.jpg",
+      "bytes": 3715893,
+      "group": "wallpaper_resources"
+    },
+    {
+      "path": "Contents/Resources/wallpapers/718916.jpg",
+      "bytes": 1156841,
+      "group": "wallpaper_resources"
+    },
+    {
+      "path": "Contents/Resources/wallpapers/74174.webp",
+      "bytes": 274948,
+      "group": "wallpaper_resources"
+    },
+    {
+      "path": "Contents/Resources/wallpapers/74176.jpg",
+      "bytes": 347492,
+      "group": "wallpaper_resources"
+    },
+    {
+      "path": "Contents/Resources/wallpapers/desktop-earth.png",
+      "bytes": 2172915,
+      "group": "wallpaper_resources"
+    },
+    {
+      "path": "Contents/Resources/wallpapers/home.mp4",
+      "bytes": 5152500,
+      "group": "wallpaper_resources"
+    },
+    {
+      "path": "Contents/Resources/wallpapers/license-gate.mp4",
+      "bytes": 3211049,
+      "group": "wallpaper_resources"
+    },
+    {
+      "path": "Contents/Resources/zh-CN.lproj/InfoPlist.strings",
+      "bytes": 213,
+      "group": "other_resources"
+    },
+    {
+      "path": "Contents/_CodeSignature/CodeResources",
+      "bytes": 14033,
+      "group": "app_signature_metadata"
+    }
+  ]
+}

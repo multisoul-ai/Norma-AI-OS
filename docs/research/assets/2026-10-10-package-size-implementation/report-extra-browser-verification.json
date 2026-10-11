@@ -1,0 +1,29 @@
+{
+  "checked_at_utc": "2026-10-10T05:49:36.246990+00:00",
+  "scope": "Computer Use in Chrome; verifies report display, not real Norma App or package performance",
+  "report_sha256": "73383f0a253d72e6263f19e6d99a86b057ae78d37f079a70eb7b62ee9d332b64",
+  "artifacts": [
+    {
+      "file": "report-complete-browser-ax.txt",
+      "sha256": "d20c83862f542547b71648e4a8cc0530c2ec98d53302c02a7d05e2186665a230"
+    },
+    {
+      "file": "report-source-distribution-browser.png",
+      "sha256": "291ee0bf45542a9c84110cca2b7dd8aa782671973e163ac829b2ebc7d079dcd9"
+    },
+    {
+      "file": "report-install-and-framework-browser.png",
+      "sha256": "d50da3e427a5c73c6bd352a2ca7f0b5952bca485ee316c8e001d9f2fd8870e7d"
+    },
+    {
+      "file": "report-six-variants-browser.png",
+      "sha256": "1822b01c5ef07cdba84bae9a953d8a4df7007c4f9b8d6040d37d74688a4785b6"
+    }
+  ],
+  "observed": [
+    "6 compiler variants including z-fat minimum with performance pending",
+    "source resource groups and installed reference sample distinguished from new baseline",
+    "install / repair / cancel median times, 2.30 MiB probe RSS and 64 KiB reads",
+    "Sparkle static slice not adopted; new App / DMG unmeasured"
+  ]
+}

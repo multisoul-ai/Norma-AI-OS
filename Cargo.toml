@@ -3,6 +3,7 @@ resolver = "2"
 # Run vendored GPUI unit tests explicitly via its manifest, outside app-wide tests.
 exclude = ["vendor/gpui-0.2.2"]
 members = [
+  "crates/media_store",
   "crates/model_store",
   "crates/tts",
   "crates/asr",
@@ -70,6 +71,7 @@ tokio-tungstenite = { version = "0.28", default-features = false, features = ["c
 audio = { path = "crates/audio" }
 voice_input = { path = "crates/voice_input" }
 model_store = { path = "crates/model_store" }
+media_store = { path = "crates/media_store" }
 tts = { path = "crates/tts" }
 asr = { path = "crates/asr" }
 license = { path = "crates/license" }

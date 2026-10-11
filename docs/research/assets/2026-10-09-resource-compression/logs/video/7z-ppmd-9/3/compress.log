@@ -1,0 +1,33 @@
+
+7-Zip (z) 26.04 (arm64) : Copyright (c) 1999-2026 Igor Pavlov : 2026-10-05
+ 64-bit arm_v:8.5-A locale=C.UTF-8 Threads:8 OPEN_MAX:1048575, ASM
+
+Scanning the drive:
+1 file, 129423360 bytes (124 MiB)
+
+Creating archive: /Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-09-run1/payloads-0zmn03vr/7z-ppmd-9-37s412k2/compressed.7z
+
+Add new data to archive: 1 file, 129423360 bytes (124 MiB)
+
+
+Files read from disk: 1
+Archive size: 131841824 bytes (126 MiB)
+Everything is Ok
+      103.19 real       102.19 user         0.46 sys
+           273842176  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+               17617  page reclaims
+                  37  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                  47  voluntary context switches
+               25758  involuntary context switches
+        411869115965  instructions retired
+        319089285856  cycles elapsed
+           272269864  peak memory footprint

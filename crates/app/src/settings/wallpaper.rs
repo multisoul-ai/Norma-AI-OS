@@ -55,5 +55,9 @@ mod builtin_migration_tests;
 mod dirs_tests;
 
 #[cfg(test)]
+#[path = "../../tests/unit/wallpaper_optional_choice_tests.rs"]
+mod optional_choice_tests;
+
+#[cfg(test)]
 #[path = "../../tests/unit/wallpaper_preview_tests.rs"]
 mod preview_tests;

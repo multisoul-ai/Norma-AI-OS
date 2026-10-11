@@ -1,0 +1,41 @@
+{
+  "checked_at_utc": "2026-10-10T05:59:11.484944+00:00",
+  "scope": "Local execution readiness and remaining acceptance; not a release or successful App/DMG",
+  "workflow_state": "waiting_for_signing",
+  "default_wrapper_attempt": {
+    "log": "build/package-size-reduction/baseline-package.log",
+    "sha256": "f379e6b87beb8a4ffc9683de7692d32d9961262d3e8207f60b5fba58e0a879a4",
+    "result": "Developer ID Application identity unavailable"
+  },
+  "latest_signing_check": {
+    "log": "build/package-size-reduction/codesigning-identities-latest.log",
+    "sha256": "0ad30eb1563c325d77f4dc564c5d96851d5a39205307f5cdd7d762b59688f87a",
+    "valid_identities": 0
+  },
+  "ad_hoc_explicit_authorization_received": false,
+  "mode_rule": ".agents/skills/release-dmg/SKILL.md:44-45",
+  "completed_independent_work": [
+    "resource inventory and lossless compression evidence",
+    "three staging profiles, static previews, release media material",
+    "background download and verified installation implementation",
+    "affected tests and independent adversarial reviews",
+    "all six compiler size variants and static Mach-O reconciliation",
+    "baseline CLI and candidate main / companion builds",
+    "HTML report, six report tests and Computer Use display verification"
+  ],
+  "remaining_acceptance": [
+    "same-conditions baseline and candidate App/DMG via release wrapper",
+    "isolated non-production QA App download / cancellation / repair / selection / offline / theme checks",
+    "real App cold start, Terminal, audio/video and exit comparisons before selecting release profile"
+  ],
+  "latest_preflight": "packaging-input-preflight-latest.json",
+  "binary_receipts": [
+    "baseline-companions-build.json",
+    "candidate-packaging-build.json"
+  ],
+  "final_binary_receipts_independently_reviewed": true,
+  "matrix_fingerprint_retained": true,
+  "report_sha256": "73383f0a253d72e6263f19e6d99a86b057ae78d37f079a70eb7b62ee9d332b64",
+  "remote_media_upload_performed": false,
+  "formal_release_performed": false
+}

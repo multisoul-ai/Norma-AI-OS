@@ -22,6 +22,7 @@ pub(crate) enum ShortcutCommandId {
     NextWorkspace,
     PreviousProject,
     NextProject,
+    ExpandSelectedProject,
     ShowProjectOverview,
     ShowWorkspaceDirectory,
     NewTerminal,

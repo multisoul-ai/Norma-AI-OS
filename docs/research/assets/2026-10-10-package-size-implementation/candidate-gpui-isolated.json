@@ -1,0 +1,18 @@
+{
+  "variant": "candidate-gpui-isolated",
+  "binary_bytes": 58079520,
+  "binary_sha256": "94385a85cf90998235046b87c9740d8a1425781b269e97c23817fa45e3e3ee4e",
+  "features": [
+    "production-data"
+  ],
+  "gpui_test_support": false,
+  "build_status": "passed",
+  "cargo_finish": "    Finished `release` profile [optimized] target(s) in 10m 03s",
+  "artifact_kind": "standalone Mach-O; App and DMG not yet packaged",
+  "rust_source_matches_before_isolation": true,
+  "comparison_scope": "same Rust source, app Cargo.toml GPUI normal/dev dependency configuration changed",
+  "macho_sdk": "26.5",
+  "macho_linker": "1267.0",
+  "macho_minimum_os": "11.0",
+  "sdk_evidence": "xcrun vtool -show-build of saved artifact"
+}

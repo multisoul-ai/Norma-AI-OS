@@ -121,6 +121,34 @@ pub fn compute_project_region_layout(count: usize, area: CanvasRect, gap: Vec2) 
         .collect()
 }
 
+/// 项目总览固定两行网格中的纵向移动目标（row-major，列规则与
+/// `compute_project_region_layout` 一致：columns = ceil(count/2)，至少 2 列）。
+/// 同列换行；底行缺格时吸附到该行末项；行边界不环绕；单行布局没有纵向目标。
+/// 无选中项时与 `runtime::desktop_navigation::adjacent_target` 对齐：向下从首项开始，向上从末项开始。
+pub fn overview_row_target(count: usize, current: Option<usize>, up: bool) -> Option<usize> {
+    if count == 0 {
+        return None;
+    }
+    let columns = count.div_ceil(2).max(2);
+    let bottom_row = count.saturating_sub(columns);
+    if bottom_row == 0 {
+        // 顶行已容纳全部项目（count ≤ columns）：没有可换的行。
+        return None;
+    }
+    let index = match current {
+        Some(index) if index < count => index,
+        None => return Some(if up { count - 1 } else { 0 }),
+        Some(_) => return None,
+    };
+    let row = index / columns;
+    let column = index % columns;
+    match (row, up) {
+        (0, false) => Some(columns + column.min(bottom_row - 1)),
+        (1, true) => Some(column),
+        _ => None,
+    }
+}
+
 /// 按用户指定方向排列网格，并始终把全部卡片容纳在当前可视区域中。
 pub fn compute_configurable_grid_layout(
     ordered_ids: &[NodeId],

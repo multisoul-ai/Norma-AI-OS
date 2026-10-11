@@ -116,8 +116,8 @@ for resource_config in "$config" "$dev_config"; do
   if ! grep -Fq '"sidecars/openai-card-planner/openai-card-planner.mjs"' "$resource_config"; then
     fail "$(basename "$resource_config") must package the OpenAI card planner helper resource"
   fi
-  if ! grep -Fq '"crates/app/assets/feature-guide"' "$resource_config"; then
-    fail "$(basename "$resource_config") must package the website-derived Feature Guide media"
+  if ! grep -Fq '{ src = "build/release-media/feature-guide", target = "feature-guide" }' "$resource_config"; then
+    fail "$(basename "$resource_config") must package verified Feature Guide staging media"
   fi
 done
 

@@ -1,0 +1,14 @@
+{
+  "built_at": "2026-10-10T16:22:39.018386+00:00",
+  "features": [
+    "production-data"
+  ],
+  "no_default_features": true,
+  "qa_feature": false,
+  "binaries": {
+    "norma-os": "e8fc1ba93aceca646ba802b11f47a645e8c7050c58aabc84a671046d1998dc20",
+    "multisoul-agent-hook": "0044cfcfe0d802f4e39e18c7a35d5fbfec918538ca3a49d2d554d2f75b2441ab",
+    "norma": "99bd044ac99230ab732645b1513d8227baaa3e5f880c4649c4ed20097b7c10d0",
+    "norma-browser-auth-host": "4b5c951f29814577ac3d8e0331801529b6016c1b7b5c0160d788119f56969ecf"
+  }
+}

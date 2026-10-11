@@ -414,12 +414,12 @@ fn selection_kind(sel: &WallpaperSelection) -> WallpaperKind {
 }
 
 /// Whether the selection can be resolved to a real on-disk asset right now.
-/// Builtin entries need [`resolve_builtin_asset`] to succeed; custom entries
-/// need the file present in the custom dir. Used at load time to discard
+/// Registered builtin choices remain valid while optional media is offline;
+/// custom entries need the file present in the custom dir. Used at load time to discard
 /// stale persisted selections (e.g. user deleted a custom file out of band).
 fn selection_resolves(sel: &WallpaperSelection) -> bool {
     match sel {
-        WallpaperSelection::Builtin { rel } => resolve_builtin_asset(rel).is_some(),
+        WallpaperSelection::Builtin { rel } => canonical_builtin_wallpaper(rel).is_some(),
         WallpaperSelection::Custom { filename } => custom_wallpapers_dir()
             .map(|d| d.join(filename).is_file())
             .unwrap_or(false),

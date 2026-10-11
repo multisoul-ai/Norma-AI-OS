@@ -1,0 +1,29 @@
+[
+  {
+    "profile": "full",
+    "original_bytes": 167312523,
+    "originals_bundled_bytes": 167312523,
+    "preview_bytes": 1086490,
+    "catalog_bytes": 13127,
+    "payload_bytes": 168412140,
+    "net_saved_percent": -0.6572233687492717
+  },
+  {
+    "profile": "wallpapers-on-demand",
+    "original_bytes": 167312523,
+    "originals_bundled_bytes": 53588639,
+    "preview_bytes": 1086490,
+    "catalog_bytes": 13134,
+    "payload_bytes": 54688263,
+    "net_saved_percent": 67.31370609957271
+  },
+  {
+    "profile": "light",
+    "original_bytes": 167312523,
+    "originals_bundled_bytes": 31530913,
+    "preview_bytes": 1086490,
+    "catalog_bytes": 13139,
+    "payload_bytes": 32630542,
+    "net_saved_percent": 80.49725064512954
+  }
+]

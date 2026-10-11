@@ -1,0 +1,49 @@
+{
+  "checked_at_utc": "2026-10-10T04:43:39.186362+00:00",
+  "scope": "prepared core resource files only; not App/DMG measurements",
+  "sparkle": {
+    "version": "2.9.5",
+    "archive_sha256": "015336b601493e05c237964954bff6191370003d94edefe663724c88840d73cc",
+    "archive_bytes": 15557500,
+    "framework_regular_file_bytes": 2777894,
+    "regular_file_count": 56,
+    "symlink_count": 6,
+    "mach_o": [
+      {
+        "path": "Versions/B/Autoupdate",
+        "bytes": 726096,
+        "architectures": "x86_64 arm64"
+      },
+      {
+        "path": "Versions/B/Sparkle",
+        "bytes": 977616,
+        "architectures": "x86_64 arm64"
+      },
+      {
+        "path": "Versions/B/Updater.app/Contents/MacOS/Updater",
+        "bytes": 290560,
+        "architectures": "x86_64 arm64"
+      },
+      {
+        "path": "Versions/B/XPCServices/Downloader.xpc/Contents/MacOS/Downloader",
+        "bytes": 188672,
+        "architectures": "x86_64 arm64"
+      },
+      {
+        "path": "Versions/B/XPCServices/Installer.xpc/Contents/MacOS/Installer",
+        "bytes": 223472,
+        "architectures": "x86_64 arm64"
+      }
+    ]
+  },
+  "icon": {
+    "assets_car_bytes": 2861624,
+    "assets_car_sha256": "71ab5845526cd36f2ef2a5bed044c7b3100e7cfd7df611a7712f6bac57288372"
+  },
+  "release_public_key_available": true,
+  "release_info_plist_prepared": true,
+  "release_public_key_source": "installed-public-key-source.json",
+  "release_info_plist_bytes": 1053,
+  "release_info_plist_sha256": "9ec8d1937f1e4f86b6e069eb04a5583c988852e4ea1c07efefb61b5678af2390",
+  "private_signing_identity_available": false
+}

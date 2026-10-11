@@ -1,0 +1,159 @@
+{
+  "completed_utc": "2026-10-09T18:18:44.698668+00:00",
+  "scope": "完整30文件冻结资源输入；视频等价复用，图像与完整包全量补测",
+  "observations": 104,
+  "successful_roundtrips": 102,
+  "compression_timeouts": 2,
+  "focused_tests_passed": 21,
+  "best_volume_algorithms": {
+    "resources": {
+      "algorithm": "brotli-11",
+      "compressed_bytes": 166072291,
+      "saving_percent": 0.7412666892842257
+    },
+    "video": {
+      "algorithm": "zstd-22",
+      "compressed_bytes": 129261860,
+      "saving_percent": 0.11675106612784036
+    },
+    "images": {
+      "algorithm": "zpaq-5",
+      "compressed_bytes": 36402344,
+      "saving_percent": 3.947176459707713
+    }
+  },
+  "goal_50_percent_met": false,
+  "independent_review": "已核验并修复挂载异常清理、失败标签与50%判定边界；版本缺失占位已补齐",
+  "visual_review": {
+    "sheets": [
+      "选型表",
+      "逐轮数据"
+    ],
+    "ranges": [
+      "选型表!A1:K27",
+      "选型表!A27:L50",
+      "选型表!A53:H62",
+      "逐轮数据!A1:N17"
+    ],
+    "fonts_and_headers_readable": true,
+    "adjacent_numbers_and_labels_separated": true,
+    "best_volume_highlighted": true
+  },
+  "workbook_sha256": "a77d78fcf649c9ad89f4a2bb8584082505f1a67051e3a9307deac523cbbc5d61",
+  "requirements": [
+    {
+      "requirement": "当前视频、壁纸与完整媒体范围",
+      "evidence": [
+        "results.json:manifest/datasets/source_snapshot",
+        "input-snapshot-provenance.json",
+        "cleanup-verification.json"
+      ],
+      "verified": true
+    },
+    {
+      "requirement": "固定输入、工具版本、参数与三轮协议",
+      "evidence": [
+        "results.json:configuration/environment/dataset_provenance",
+        "runs/initial/results.json",
+        "runs/current/results.json",
+        "source/sha256.json"
+      ],
+      "verified": true
+    },
+    {
+      "requirement": "还原原文件内容、路径、数量和长度",
+      "evidence": [
+        "results.json:102 successful observations with verified_files",
+        "logs/",
+        "source/test-resource-compression-benchmark.py"
+      ],
+      "verified": true
+    },
+    {
+      "requirement": "算法体积、压缩/解压耗时、两阶段峰值内存",
+      "evidence": [
+        "summary.json",
+        "summary.csv",
+        "final-artifact-audit.json:36 comparison rows/104 observations"
+      ],
+      "verified": true
+    },
+    {
+      "requirement": "最优标注与50%目标",
+      "evidence": [
+        "final-artifact-audit.json:rank/formula-cache checks",
+        "presentation-source/report-metrics.test.mjs.log",
+        "2026-10-09-lossless-resource-compression-report.md"
+      ],
+      "verified": true
+    },
+    {
+      "requirement": "超时、失败与不适用项不冒充成功",
+      "evidence": [
+        "results.json:2 compression timeouts",
+        "avrecode-probe/probe.json",
+        "avrecode-probe/*-compress.log",
+        "report specialized format-support section"
+      ],
+      "verified": true
+    },
+    {
+      "requirement": "可查看的中文报告与可筛选排序Excel",
+      "evidence": [
+        "2026-10-09-lossless-resource-compression-report.md",
+        "Norma-无损压缩算法选型.xlsx",
+        "final-artifact-audit.json:native filters/frozen panes",
+        "visually inspected selection/video-images/dmg/observations PNGs"
+      ],
+      "verified": true
+    },
+    {
+      "requirement": "DMG实际收益与模拟载荷范围明确",
+      "evidence": [
+        "dmg/results.json:4 verified images",
+        "dmg/*.log",
+        "report DMG scope and hdiutil RSS limitation"
+      ],
+      "verified": true
+    },
+    {
+      "requirement": "集成成本和选择限制",
+      "evidence": [
+        "integration-costs.json",
+        "report library/cache/installation-cost section",
+        "ULMO macOS12 compatibility explicitly untested"
+      ],
+      "verified": true
+    },
+    {
+      "requirement": "可复现入口、源码与完整原始证据",
+      "evidence": [
+        "source/",
+        "presentation-source/",
+        "runs/",
+        "logs/",
+        "avrecode-probe/README.md",
+        "report reproduction commands"
+      ],
+      "verified": true
+    },
+    {
+      "requirement": "未修改原资源、正式打包配置和发布流程",
+      "evidence": [
+        "cleanup-verification.json",
+        "original program SHA-256 comparison",
+        "targeted git status inspection; only new standalone scripts/reports"
+      ],
+      "verified": true
+    },
+    {
+      "requirement": "临时大文件、构建副本和模拟挂载清理",
+      "evidence": [
+        "cleanup-verification.json",
+        "hdiutil info filtered for fixture paths"
+      ],
+      "verified": true
+    }
+  ],
+  "all_requirements_verified": true
+}

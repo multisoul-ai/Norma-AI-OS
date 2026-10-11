@@ -1,0 +1,24 @@
+{
+  "scope": "read-only signature and selected public metadata of existing installed App; no launch or user-data changes",
+  "path": "/Applications/Norma OS.app",
+  "verification_exit_code": 0,
+  "verification_output": "--prepared:/Applications/Norma OS.app/Contents/MacOS/multisoul-agent-hook\n--validated:/Applications/Norma OS.app/Contents/MacOS/multisoul-agent-hook\n--prepared:/Applications/Norma OS.app/Contents/MacOS/norma-browser-auth-host\n--validated:/Applications/Norma OS.app/Contents/MacOS/norma-browser-auth-host\n--prepared:/Applications/Norma OS.app/Contents/MacOS/norma\n--validated:/Applications/Norma OS.app/Contents/MacOS/norma\n--prepared:/Applications/Norma OS.app/Contents/Frameworks/Sparkle.framework/Versions/Current/.\n--prepared:/Applications/Norma OS.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Autoupdate\n--validated:/Applications/Norma OS.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Autoupdate\n--prepared:/Applications/Norma OS.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Updater.app\n--validated:/Applications/Norma OS.app/Contents/Frameworks/Sparkle.framework/Versions/Current/Updater.app\n--prepared:/Applications/Norma OS.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Downloader.xpc\n--prepared:/Applications/Norma OS.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Installer.xpc\n--validated:/Applications/Norma OS.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Downloader.xpc\n--validated:/Applications/Norma OS.app/Contents/Frameworks/Sparkle.framework/Versions/Current/XPCServices/Installer.xpc\n--validated:/Applications/Norma OS.app/Contents/Frameworks/Sparkle.framework/Versions/Current/.\n/Applications/Norma OS.app: valid on disk\n/Applications/Norma OS.app: satisfies its Designated Requirement\n",
+  "signer_metadata": [
+    "Identifier=com.norma.os",
+    "Authority=Developer ID Application: Shanghai Jieyu Future Intelligent Network Technology Co., Ltd (2BF8G9AN4L)",
+    "Authority=Developer ID Certification Authority",
+    "Authority=Apple Root CA",
+    "TeamIdentifier=2BF8G9AN4L"
+  ],
+  "checked_at_utc": "2026-10-10T04:43:39.186362+00:00",
+  "installed_version": "0.1.73",
+  "installed_info_plist_sha256": "0971c32293f238f8faedc0448280139a11f0389c69a9ee1300f9d7ae0a5c2cb0",
+  "bundle_identifier": "com.norma.os",
+  "feed_url": "https://github.com/multisoul-ai/norma-os-releases/releases/latest/download/appcast.xml",
+  "public_key_sha256": "7273f3c60c47d2679c43e67a6fb7308ea8e699acbb39e4c68533a55744c86ad4",
+  "public_key_decode_bytes": 32,
+  "use": "existing signed public update key forwarded only to preparation subprocess; no private signing key recovered or created",
+  "output": "build/packaging/Info.plist",
+  "output_sha256": "9ec8d1937f1e4f86b6e069eb04a5583c988852e4ea1c07efefb61b5678af2390",
+  "preparation_exit_code": 0
+}

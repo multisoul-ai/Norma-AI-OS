@@ -155,7 +155,7 @@ pub(crate) fn canonical_builtin_wallpaper(rel: &str) -> Option<&'static str> {
 /// 2. **未打包开发态**：`CARGO_MANIFEST_DIR/assets/<rel>` —— `cargo test` 或直接运行
 ///    目标二进制时 ManifestDir 即 `crates/app`，对应 `crates/app/assets/wallpapers/<rel>`。
 ///
-/// 任一来源命中且 `is_file()` 为真即返回；均不命中返回 None。
+/// 打包态缺少资源时不读取源码 checkout；可选媒体由下载缓存补足。
 /// 调用方应对 None 回退到默认壁纸（`DEFAULT_WALLPAPER_ASSET`）。
 pub(crate) fn resolve_builtin_asset(rel: &str) -> Option<PathBuf> {
     let dev_assets =
@@ -165,22 +165,27 @@ pub(crate) fn resolve_builtin_asset(rel: &str) -> Option<PathBuf> {
         bundle_resources_dir().as_deref(),
         dev_assets.as_deref(),
     )
+    .or_else(|| crate::media::cached_asset(rel))
+}
+
+/// Small, signed stills keep the full library visible without downloading clips.
+pub(crate) fn builtin_preview_asset(rel: &str) -> Option<PathBuf> {
+    let registered = canonical_builtin_wallpaper(rel)?;
+    let stem = Path::new(registered).file_stem()?.to_str()?;
+    resolve_builtin_asset(&format!("wallpaper-previews/{stem}.webp"))
 }
 
 /// 根据已知的 bundle 与未打包开发资源根目录解析一个内置壁纸。
 ///
 /// 这个边界接受显式根目录，便于在不启动 macOS App 的情况下验证优先级：bundle
-/// 资源始终高于源码资源；仅当 bundle 不存在或缺文件时，才允许回退到源码。
+/// 资源始终高于源码资源；仅当不存在 bundle 时，才允许读取开发源码资源。
 pub(crate) fn resolve_builtin_asset_from_paths(
     rel: &str,
     bundle_resources: Option<&Path>,
     dev_assets: Option<&Path>,
 ) -> Option<PathBuf> {
-    bundle_resources
-        .into_iter()
-        .chain(dev_assets)
-        .map(|root| root.join(rel))
-        .find(|candidate| candidate.is_file())
+    let candidate = bundle_resources.or(dev_assets)?.join(rel);
+    candidate.is_file().then_some(candidate)
 }
 
 #[cfg(test)]
@@ -190,3 +195,7 @@ mod tests;
 #[cfg(test)]
 #[path = "../../tests/unit/wallpaper_packaging_assets_tests.rs"]
 mod packaging_assets_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/wallpaper_on_demand_tests.rs"]
+mod on_demand_tests;
