@@ -307,19 +307,51 @@ contains 9 static images, 2 GIFs, and 5 MP4s; `home.mp4` and
 **git-lfs** (see root `.gitattributes`); `git lfs pull` materializes the real
 bytes before `release-local.sh` packages them.
 
-`Packager.toml` / `Packager.dev.toml` 的 `resources` glob 在签名前把 wallpapers 目录拷进 app bundle 的
-`Contents/Resources/wallpapers/`，并把 realtime card planner helper 拷进
-`Contents/Resources/openai-card-planner.mjs`：
+`Packager.toml` / `Packager.dev.toml` 在签名前从可信清单生成的 staging 目录复制媒体，
+并保留 realtime card planner helper：
 
 ```toml
 resources = [
-  "crates/app/assets/wallpapers",
+  { src = "build/release-media/wallpapers", target = "wallpapers" },
+  { src = "build/release-media/feature-guide", target = "feature-guide" },
+  { src = "build/release-media/wallpaper-previews", target = "wallpaper-previews" },
+  "build/release-media/media-catalog.json",
   "sidecars/openai-card-planner/openai-card-planner.mjs",
 ]
 ```
 
 不再需要手动 `copy-wallpaper-resources.sh`——`resources` glob 在 cargo-packager
 签名 pass 之前执行，确保 wallpapers 和 card planner helper 进入已签名 bundle。
+
+### 按需媒体与轻量包
+
+`NORMA_MEDIA_PROFILE` 支持 `full`（默认，全部内置）、`wallpapers-on-demand`
+（动态壁纸按需下载）和 `light`（动态壁纸与教程视频均按需下载）。清单
+`packaging/media/resources.json` 固定原始文件大小、SHA-256、分类与资源版本。
+`light` 保留 18 项核心媒体、7 份动态壁纸静态预览和可信目录；12 项可选媒体
+下载后经长度、SHA-256 校验及原子提升进入用户缓存，不转码原文件。
+
+`media-v1` 已在现有公开 [GitHub Releases](https://github.com/multisoul-ai/norma-os-releases/releases/tag/media-v1)
+发布。普通轻量发布在 staging 之前会通过匿名 HTTPS 完整下载并核验所需原文件，
+地址不可用或字节不符时拒绝打包，不能仅用 HEAD 或本机 fixture 替代：
+
+```bash
+NORMA_MEDIA_PROFILE=light SPARKLE_PUBLIC_ED_KEY='<现有 Sparkle 公钥>' ./scripts/release-local.sh
+```
+
+本地 ad-hoc 测试保留相同核心 helper、Sparkle 和浏览器扩展。先构建全部输入；
+同样须提供现有 Sparkle 公钥，不能创建替代更新密钥。`--ad-hoc` 不构建 Rust：
+
+```bash
+cargo build --release -p app --no-default-features --features production-data
+cargo build --release -p norma --bins
+NORMA_MEDIA_PROFILE=light SPARKLE_PUBLIC_ED_KEY='<现有 Sparkle 公钥>' ./scripts/release-local.sh --ad-hoc
+```
+
+ad-hoc 的 `--local-test` 只跳过远端可用性 gate，仍执行原始资源、预览和白名单
+校验。普通 production-data 构建不启用 `media-download-qa` 传输覆盖。
+壁纸页逐项显示需下载、进度、校验、已下载、取消或失败重试状态；完成后仅应用
+当前仍选中的壁纸。发布证据见 [云端媒体验收](../exec-plans/2026-10-11-cloud-media-publish.md)。
 
 Static/GIF wallpapers are loaded from their resolved files under
 `Contents/Resources/wallpapers/`; they must not also be served by

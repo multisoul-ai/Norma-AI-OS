@@ -1,0 +1,16 @@
+{
+  "media.waiting": "下载一次后即可离线使用",
+  "media.download": "下载",
+  "media.progress": "正在下载 %{percent}%",
+  "media.failed": "暂时无法下载，可稍后重试",
+  "media.cancelled": "下载已取消",
+  "media.wallpaper_needs_download": "↓ 需下载 · %{size}",
+  "media.downloaded": "✓ 已下载",
+  "media.wallpaper_failed": "下载失败 · 点按重试",
+  "media.preparing": "准备下载…",
+  "media.verifying": "正在校验…",
+  "media.wallpaper_pending": "所选壁纸 · 待应用",
+  "media.wallpaper_selection_saved": "已保存选择 · 下载后生效",
+  "media.wallpaper_auto_apply": "下载完成后自动应用，可取消或重试。",
+  "media.wallpaper_library_hint": "标有「需下载」的壁纸来自云端，选中后自动下载；已下载的壁纸可离线使用。"
+}

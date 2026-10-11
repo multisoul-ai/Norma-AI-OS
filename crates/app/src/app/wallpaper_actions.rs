@@ -14,6 +14,9 @@ impl MultisoulApp {
         selection: WallpaperSelection,
         cx: &mut Context<Self>,
     ) {
+        if let WallpaperSelection::Builtin { rel } = &selection {
+            crate::media::request(rel, true, cx);
+        }
         let target = self.wallpaper_settings.scoped.target();
         let previous = self.wallpaper_settings.scoped.saved_reference();
         self.queue_wallpaper_save(target, previous, Some(selection.reference()), cx);

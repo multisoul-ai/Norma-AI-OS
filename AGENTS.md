@@ -19,11 +19,12 @@ Workspace 分层：
 - `crates/asr/` - 零 GPUI/Storage/Keychain ASR 领域层：provider、识别协议、Local Sherpa、Cloud Azure、模型安装与完整性。
 - `crates/voice_input/` - provider 中立的音频输入层：权限、设备、采集、重采样、PCM 流与共享 VAD。
 - `crates/model_store/` - 零 GPUI/网络的共享本地模型安装原语：受控解压、哈希、manifest 与原子提升。
+- `crates/media_store/` - 零 GPUI/网络的媒体域层：可信目录、流式校验、原子缓存与下载状态机。
 - `crates/tts/` - 零 GPUI/Storage/Sherpa TTS 能力层：供应商注册表、回复级流接口、本地模型策略与内置远程 Providers。
 - `crates/ui/` - GPUI 主题与共享 UI 基础。
 - `crates/app/` - GPUI/Metal 壳层：窗口、菜单、快捷键、画布与 cards 渲染。
 
-依赖方向：`app -> {ui, runtime, canvas, terminal, storage, asr, voice_input, tts, voice_sherpa}`，`voice_sherpa -> {asr, voice_input, tts, dialogue, audio}`，`dialogue -> voice_input`，`tts -> {model_store, audio}`，`runtime -> {canvas, terminal, storage}`，`storage -> {agent, canvas, workspace}`；`asr/model_store/tts/agent/voice_input` 不得依赖 `app/runtime/storage/ui`，且 `tts` 不得依赖 Sherpa；`tts` 的网络协议只能位于 `tts::providers`；`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。
+依赖方向：`app -> {ui, runtime, canvas, terminal, storage, asr, voice_input, tts, voice_sherpa, media_store}`，`voice_sherpa -> {asr, voice_input, tts, dialogue, audio}`，`dialogue -> voice_input`，`tts -> {model_store, audio}`，`runtime -> {canvas, terminal, storage}`，`storage -> {agent, canvas, workspace}`；`asr/model_store/tts/agent/voice_input` 不得依赖 `app/runtime/storage/ui`，且 `tts` 不得依赖 Sherpa；`tts` 的网络协议只能位于 `tts::providers`；`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。
 
 ### 源码组织
 
@@ -112,6 +113,7 @@ Workspace 分层：
 | App 故障日志与快速检索 | 当前日志：`~/.norma/logs/norma-os.$(date +%F).log`；实时查看：`tail -f ~/.norma/logs/norma-os.$(date +%F).log`；错误检索：`rg -i "error\|warn\|failed" ~/.norma/logs/norma-os.$(date +%F).log`；`cargo run -p app` 同时查看启动终端 |
 | ASR Hotword 加载、扩展与调优 | [`docs/references/asr-hotwords.md`](docs/references/asr-hotwords.md) |
 | 通用本地模型安装原语 | [`crates/model_store/src/`](crates/model_store/src/) |
+| 按需媒体目录、缓存与下载状态 | [`crates/media_store/src/`](crates/media_store/src/)，网络与 GPUI 适配在 `crates/app/src/media/` |
 | TTS Provider、流接口、模型/Voice 与安装验证 | [`crates/tts/src/`](crates/tts/src/) |
 | SQLite store、migration、持久化边界 | [`crates/storage/src/`](crates/storage/src/) |
 | Workspace 元数据、路径展示 | [`crates/workspace/src/`](crates/workspace/src/) |
@@ -142,6 +144,7 @@ Workspace 分层：
 | `crates/runtime/**` | `cargo test -p runtime` |
 | `crates/storage/**` | `cargo test -p storage` |
 | `crates/model_store/**` | `cargo test -p model_store` |
+| `crates/media_store/**` | `cargo test -p media_store` |
 | `crates/asr/**` | `cargo test -p asr`；真实 Azure L3 按需跑 `cargo test -p asr --test azure_real -- --ignored --nocapture` |
 | `crates/voice_input/**` | `cargo test -p voice_input` |
 | `crates/tts/**` | `cargo test -p tts` |

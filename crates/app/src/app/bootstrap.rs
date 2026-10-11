@@ -282,6 +282,7 @@ impl MultisoulApp {
         let _ = &orchestration_bootstrap;
         #[cfg(not(test))]
         {
+            crate::media::register_window(cx.weak_entity(), cx);
             let shared =
                 crate::settings::orchestration::health::register_window(cx.weak_entity(), cx);
             if let Some(shared) = shared {

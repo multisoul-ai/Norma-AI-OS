@@ -19,6 +19,7 @@ Workspace crates:
 - `asr` - GPUI/Storage/Keychain-free provider registry, recognition protocol, Local Sherpa, Cloud Azure, model installation, and integrity.
 - `voice_input` - provider-neutral microphone permission/device/capture/resampling/PCM/VAD primitives.
 - `model_store` - GPUI/network-free shared local-model archive, manifest, integrity, and atomic-install primitives.
+- `media_store` - GPUI/network-free media catalog, streaming integrity checks, atomic cache installs, and transfer state.
 - `tts` - GPUI/Storage/Sherpa-free TTS capability: built-in provider registry, reply-level streaming, local model policy, and remote provider protocols.
 - `ui` - GPUI-facing shared UI: theme, icons, and `gpui-component` re-export (`ui::component`).
 - `app` - GPUI/Metal shell: window boot, menus, key bindings, canvas interaction, and terminal rendering.
@@ -27,7 +28,7 @@ Core Cargo dependency direction is:
 
 ```text
 agent -> norma
-app -> {ui, runtime, canvas, terminal, storage, asr, voice_input, tts, voice_sherpa}
+app -> {ui, runtime, canvas, terminal, storage, asr, voice_input, tts, voice_sherpa, media_store}
 voice_sherpa -> {asr, voice_input, tts, dialogue, audio}
 dialogue -> voice_input
 tts -> {model_store, audio}

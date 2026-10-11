@@ -63,6 +63,11 @@ pub(crate) fn wallpaper_settings(
                         ),
                 ),
         )
+        .child(
+            div()
+                .settings_text(TextRole::Helper, theme)
+                .child(ui::i18n::text("media.wallpaper_library_hint")),
+        )
         .child(section_label(theme, ui::i18n::text("settings.built_in")))
         .child(
             div()
