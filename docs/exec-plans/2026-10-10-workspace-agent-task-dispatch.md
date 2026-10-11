@@ -1,6 +1,6 @@
 # 工作空间智能体卡片派工与进度汇报：开发任务拆分
 
-日期：2026-10-10。实施更新：2026-10-11。状态：实施中；T01／T02／T03／T05 已合入，T06 账本核心与 T09 纯聚合合同部分完成，T04／T07 实施中；正式派工与进度查询闭环仍未完成。
+日期：2026-10-10。实施更新：2026-10-11。状态：实施中；T01／T02／T03／T04／T05 实现与范围内自动验证已合入，T06 账本核心与 T09 纯聚合合同部分完成，T07 实施中；正式派工与进度查询闭环仍未完成。
 
 实施合同以已发布的 [GitHub Issue #96](https://github.com/multisoul-ai/Norma-AI-OS/issues/96)及其[本地规格副本](../product-specs/2026-10-10-workspace-agent-task-dispatch.md)为准，Issue 标记 `ready-for-agent`。源码事实、两张运行流程图与完整验收矩阵见[派工方案](../design-docs/2026-10-09-workspace-agent-task-dispatch.md)；术语见[CONTEXT.md](../../CONTEXT.md)。本计划记录本地任务依赖，不作工期承诺。
 
@@ -40,7 +40,7 @@
 | T01 | 完成，已合入 `228e751f`（实施提交 `f247ac4f`） | 持久卡片身份、冻结目标协议与 Runtime 纯校验已进入生产恢复路径；下述聚焦和受影响 crate 验证通过 |
 | T02 | 完成，已合入 `3e10d43d`（实施提交 `a84e20ec`） | 工作空间角色／有效与失效呼叫键事务及严格只读快照已验证；App 生命周期接入属于 T03 |
 | T03 | 实现与自动验证完成，已合入 `e899a580`（实施提交 `751ff5c5`） | 完整登记／自动修复／两阶段创建／标题编辑／持久删除凭据已接入；真实 App 视觉与流程验收留在整体集成阶段 |
-| T04 | 实施中，未完成 | 纯解析合同与目标 manifest 已开始；生产目录接入仍依赖 T03 |
+| T04 | 实现与范围内自动验证完成，已合入 `d88858bb`（实施提交 `52249f9f`） | 完整授权目录、原文目标 manifest、纯解析与可信选卡补全，以及生产 App 只读目录投影已验证；正式接收／投递与 Dock 闭环仍由 T06–T09 完成 |
 | T05 | 完成，已合入 `2ef7854d`（实施提交 `24cc5fa8`） | 实例协调、独占输入传输与 exact Hook 证据关联已验证；共享派工入口由 T06 接通 |
 | T06 | 部分完成：账本核心已合入 `8acb39e5`（实施提交 `631478b1`） | 来源／持久原子接收／Armed 屏障／可靠 journal／只读与 exact 证据已验证；正式 App facade、frame writer、实时权限 gate 与 PTY 反例待完成 |
 | T07 | 实施中，未完成 | 整组规划与来源入口开始；生产接线依赖 T04／T06，Dock 真实 App 闭环尚未验收 |
@@ -66,6 +66,16 @@ T03 的 `register_workspace()` 扫描全部持久区域，后台持久回填 UUI
 公开验收对应 [`workspace_role_reconciliation.rs`](../../crates/storage/tests/workspace_role_reconciliation.rs) 3 条、[`workspace_role_creation.rs`](../../crates/storage/tests/workspace_role_creation.rs) 3 条、[`workspace_role_directory.rs`](../../crates/storage/tests/workspace_role_directory.rs) 4 条、[`reserved_card_identity.rs`](../../crates/canvas/tests/reserved_card_identity.rs) 1 条、[`registered_agent_launch.rs`](../../crates/runtime/tests/registered_agent_launch.rs) 1 条。实施者已完成 agent／canvas／runtime／storage 完整测试，App role publication 3、desktop creation 3、mobile creation 4 与 App／workspace check、正常提交 hook 和护栏；最终重读真实 Canvas 和名称占用，不只检查 publication 计数。集成合入无冲突，保留 T05 bootstrap／frame／Accepted Hook 状态，另跑上述 12 条公开测试与 App check。
 
 T03 引入的角色编辑遵循 Apple 直接操作、即时错误反馈与键盘可访问性，使用现有 Input／Button／Dialog；主题、hover／pressed／focus／disabled 和真实创建／改名／删除仍须 Computer Use 验收。旧同步 definition-first Create／Activate 等兼容入口目前明确拒绝未登记启动，只是过渡保护；T07 必须接共享注册服务恢复显式创建，不能以永久拒绝宣称完整规格完成。
+
+T04 的实现及完整范围证据见[工作空间目录与目标解析验收记录](2026-10-11-workspace-target-resolution-evidence.md)。`WorkspaceDirectoryStore` 只读覆盖全部授权区域，缺数据库／schema／画布快照／身份／登记或启停证据明确报告缺口，零创建／迁移／PTY 启动。生产 App reader 显式冻结来源空间，后台读持久目录，仅投影该来源空间 retained sessions 内已有 PTY 的真实执行指纹；读取 A 后切到 B 不改变归属或导航，Document-only 卡保持 `execution=None`。
+
+`resolve_workspace_targets()` 只解析有效呼叫键，失效／未知称呼不回退到唯一候选；明确项目按全部授权区域计算零／一／多候选，目录不完整或项目同名不能猜目标。首次冻结持久卡片与项目后，只复核原绑定；改名不改目标，删除重建／停用／项目或执行身份变化拒绝。`build_original_target_manifest()` 从不可变原文构造整组目标证据，模型不能通过 Execute 分类升级讨论、假设、否定、问题或普通寒暄。完整规划成功后校验全部目标，不能逐工具提前投递。
+
+可信选卡补全 token 无 serde／Clone，深绑定代码发送 scope、原 manifest 与目标索引；可补全旧／未知称呼及项目多候选／同名歧义，保留原文审计和其他目标。选卡不恢复旧称呼，不解除讨论或无法证明目标全集的门控；用户可编辑成新的明确执行命令继续。
+
+公开验收对应 [`workspace_directory.rs`](../../crates/norma/tests/workspace_directory.rs) 1 条、[`workspace_resolution.rs`](../../crates/runtime/tests/workspace_resolution.rs) 7 条、[`workspace_target_manifest.rs`](../../crates/agent/tests/workspace_target_manifest.rs) 11 条、[`workspace_target_completion.rs`](../../crates/agent/tests/workspace_target_completion.rs) 7 条与[`workspace_directory_readonly.rs`](../../crates/storage/tests/workspace_directory_readonly.rs) 7 条。实施者完整 norma／agent／runtime／storage 测试 732 passed、4 个原有 ignored、0 failed，生产 App 目录投影 4 条、App check 和正常提交 hook 均通过；集成无冲突保留 T05 实例协调、T06 账本与 T09 纯聚合模块，另运行上述 33 条公开测试与 App check，真实 exit 0。
+
+T04 不新增页面或样式，生产目录投影测试仍不能替代真实 `.app`／Computer Use 验收。通用 App facade、持久 Armed 后副作用、Dock／手机共享入口、回执／恢复与全空间进度查询仍待 T06–T09 完成；不能由 T04 标记整体规格已上线。
 
 T05 实施及证据见[卡片实例级派工验收记录](2026-10-11-card-instance-dispatch-evidence.md)。`agent::card_instance` 保存完整冻结目标，`MultisoulApp` 提供纯预检、受授权 gate 保护的接收、逐项回执／事件、提交前取消和精确终态核对。正文／Enter 的传输互斥，不等待前任务完成；B 只有自身可信 start 才运行，迟到 A 不结束 B。普通无定义卡片可传输，无可靠跟踪则保持 Untracked。重复旧 Hook 在 Runtime 状态更新前拒绝，App 按事件接收时的私有卡片／执行身份核对同批事件。停止／替换项目废弃输入队列，历史不自动重放。
 
