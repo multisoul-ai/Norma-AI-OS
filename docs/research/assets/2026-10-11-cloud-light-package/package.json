@@ -1,0 +1,26 @@
+{
+  "created_at": "2026-10-11T00:28:26.070024+00:00",
+  "dmg": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/light-cloud-20261011/Norma-OS_0.1.73_light_aarch64.dmg",
+  "bytes": 64868153,
+  "decimal_mb": 64.87,
+  "sha256": "355c1e2e256dbbceb863ef8d703d422fd7c282a2dd1669544bdc1cc2bb9189c0",
+  "version": "0.1.73",
+  "version_changed": false,
+  "architecture": "aarch64",
+  "profile": "light",
+  "signing": "ad-hoc",
+  "notarized": false,
+  "codesign_deep_strict_passed": true,
+  "hdiutil_verified_by_release_script": true,
+  "finder_layout_verified_by_release_script": true,
+  "mounted_contents_match_archived_app": true,
+  "source_worktree_unchanged": true,
+  "cloud_download_verification": {
+    "command": "python3 scripts/verify-release-media.py --profile light",
+    "exit_code": 0,
+    "verified_original_media": 12,
+    "anonymous_https": true,
+    "size_and_sha256_verified": true,
+    "completed_at": "2026-10-11T00:29:58.200556+00:00"
+  }
+}

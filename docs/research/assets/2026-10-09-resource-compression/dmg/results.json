@@ -1,0 +1,563 @@
+{
+  "kind": "synthetic_fixed_payload_not_release",
+  "resource_algorithm": "brotli-11",
+  "program": {
+    "source": "/Users/cengwei/Documents/code/Norma-AI-OS/target/release/norma-os",
+    "bytes": 53031344,
+    "sha256": "4fe57f29f2630c8826a478bedc3a11cbf3be93189b0e44c3309db36417aa3469",
+    "mtime_utc": "2026-09-19T15:40:07.671007+00:00"
+  },
+  "manifest": [
+    {
+      "path": "crates/app/assets/feature-guide/README.md",
+      "bytes": 1317,
+      "sha256": "d71c0349bfa78fc624b20a468c2f232e4a220bb470188fc61409f517a90c29fd"
+    },
+    {
+      "path": "crates/app/assets/feature-guide/demo-agent-collaboration.mp4",
+      "bytes": 5370854,
+      "sha256": "ba2bc6caf719b28e7abe4edc5c00d36a4274d544ff14e68e96f7d11c7fd07e57"
+    },
+    {
+      "path": "crates/app/assets/feature-guide/demo-agent-collaboration.webp",
+      "bytes": 156990,
+      "sha256": "992ddc2c9e0b574f1d65b4d64f99031304ee3fee1cac62fb81422922fd4be35d"
+    },
+    {
+      "path": "crates/app/assets/feature-guide/demo-agent-notifications.mp4",
+      "bytes": 1996272,
+      "sha256": "b634f931877b8fe31a0fe5071642094623d15feb09b31e1bf3d13ae3d13e1ae7"
+    },
+    {
+      "path": "crates/app/assets/feature-guide/demo-agent-notifications.webp",
+      "bytes": 173272,
+      "sha256": "fbe406c6620a26b8d44b4b96f1a814eb28c433a9294187d71fc5b8026367751d"
+    },
+    {
+      "path": "crates/app/assets/feature-guide/demo-layout-command-m.mp4",
+      "bytes": 1641819,
+      "sha256": "ac0c5cfd59b7af969ccaddda37a7b35dea6e68d2ac79d2c969606f3f12d4f3eb"
+    },
+    {
+      "path": "crates/app/assets/feature-guide/demo-layout-command-m.webp",
+      "bytes": 81096,
+      "sha256": "8958d10468f222a17339adf89d55dbb19eec0661ec958d92921b684f3a9e1be0"
+    },
+    {
+      "path": "crates/app/assets/feature-guide/demo-live-node-shortcuts.mp4",
+      "bytes": 2112348,
+      "sha256": "735eb71edcc2f645fb5636be9b35c606980c88376a4a0d07521bd671d4d6b1ac"
+    },
+    {
+      "path": "crates/app/assets/feature-guide/demo-live-node-shortcuts.webp",
+      "bytes": 157970,
+      "sha256": "e0a728bc112a355b40ac375e6453d9a8a6984fed8923dbdbe209253246d275e1"
+    },
+    {
+      "path": "crates/app/assets/feature-guide/demo-voice-command.mp4",
+      "bytes": 10936433,
+      "sha256": "2e4512c2576cb6ea608b17066b85f7b66a5c94f26e0763129f4cb4695e678f04"
+    },
+    {
+      "path": "crates/app/assets/feature-guide/demo-voice-command.webp",
+      "bytes": 193862,
+      "sha256": "bb4d5620ac83a183d3a9b64952f7190b3763af0b66c584ab00b517002bc259e5"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/1331865.webp",
+      "bytes": 3478288,
+      "sha256": "eb54e390f1b46efd47d4d3f370a2e93172368de0ec1a016964b0fb880a5de8e3"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/1350954.webp",
+      "bytes": 5139970,
+      "sha256": "c6fc2f58d349bee9ffa6699c596db5196b87e9a5e44d080898a108c7408578db"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/1358524.webp",
+      "bytes": 1732514,
+      "sha256": "9c99500efc79530802aa4bb98af60533b232b6035ace5d1ca9f4052e7c7c877c"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/1403512.mp4",
+      "bytes": 8650397,
+      "sha256": "3a5b89c7f19ee6c63d66d0642462617304cb97fca653af3d56cbedebb9758270"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/1404942.mp4",
+      "bytes": 30393068,
+      "sha256": "d07f32caefce35141a25baca81b5505ba612d797b0d82546a8b81658ed4456dc"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/1406443.mp4",
+      "bytes": 30692231,
+      "sha256": "583eaaf83235682507902bd40d0cbc5d695321d3fe22d422f66b86c2b203e3c1"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/1406489.mp4",
+      "bytes": 19802073,
+      "sha256": "e9f236dbc476d073b575ea2049dc6f746979eab57d013741cb64bbec3bec1af0"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/1407174.mp4",
+      "bytes": 9453907,
+      "sha256": "27405254f8039c138add0fadb7a1269a2fcea32feda231a1f1b3d9fba33c9abc"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/1411385.webp",
+      "bytes": 1922586,
+      "sha256": "f05289db7f99037c731fda8d729cb622c2fb4b771757ca8217793d106206bf01"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/1411492.webp",
+      "bytes": 2461410,
+      "sha256": "8039a30309c1bb7517d9c2cec1c3b1b74aad040aef9a424ee993d6161c668432"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/215824.gif",
+      "bytes": 387460,
+      "sha256": "ee63081b8bf50c6153c63135992f41327b47a8666e9837b8af7c3f79166be10a"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/220240.gif",
+      "bytes": 14344748,
+      "sha256": "73b4a0c7c3bed95ef29fc41bef54f3ee22562df0b0b4b426f81e8a83836b0c8a"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/379352.jpg",
+      "bytes": 3715893,
+      "sha256": "74e188096c10e7b501e3288bb5e167f63837fd2ea0dc9fec1eb911f50d1ba010"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/718916.jpg",
+      "bytes": 1156841,
+      "sha256": "02bb7ef2de2dcc9aeacdadc23e58a3fae85e271d3bfc9f61b61296626efdb796"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/74174.webp",
+      "bytes": 274948,
+      "sha256": "4c2119330d5d73172e765305f684af564e15fafda36e50e7c3c07fffcd8f7b44"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/74176.jpg",
+      "bytes": 347492,
+      "sha256": "2e7d7c7909d1128d35e9d52ff3f607a0bc3895bba4f57d252830620e884c736a"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/desktop-earth.png",
+      "bytes": 2172915,
+      "sha256": "816fe65bbda8e442d24616d36516a8fc6df8f5b26114180789d2276176d7b09f"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/home.mp4",
+      "bytes": 5152500,
+      "sha256": "ad2a3810dc43c8a536dcf9b8a64cfb0904677280504aef26fa8d3dddd274b55d"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/license-gate.mp4",
+      "bytes": 3211049,
+      "sha256": "fb5cbbe7bcffb63eff9e0909c65ccde49dd07bd5aa75ffbaaee7a2d75a21f090"
+    }
+  ],
+  "results": [
+    {
+      "payload": "plain",
+      "format": "UDZO",
+      "create": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 22.25244266599998,
+        "max_rss_bytes": 4161536,
+        "user_seconds": 0.01,
+        "system_seconds": 0.01,
+        "argv": [
+          "hdiutil",
+          "create",
+          "-quiet",
+          "-srcfolder",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp/plain",
+          "-fs",
+          "HFS+",
+          "-volname",
+          "Norma Compression Fixture",
+          "-format",
+          "UDZO",
+          "-nospotlight",
+          "-imagekey",
+          "zlib-level=9",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp/plain-UDZO.dmg"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/plain-UDZO-create.log"
+      },
+      "bytes": 190751686,
+      "sha256": "405a1fb16a5791125fe918b937d8329ce9de049ee9ed8893fe23c7ed64b7ba5a",
+      "verify": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 3.1151705409999977,
+        "max_rss_bytes": 14565376,
+        "user_seconds": 0.13,
+        "system_seconds": 0.02,
+        "argv": [
+          "hdiutil",
+          "verify",
+          "-quiet",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp/plain-UDZO.dmg"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/plain-UDZO-verify.log"
+      },
+      "attach": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.25006462499999316,
+        "max_rss_bytes": 4210688,
+        "user_seconds": 0.01,
+        "system_seconds": 0.01,
+        "argv": [
+          "hdiutil",
+          "attach",
+          "-readonly",
+          "-nobrowse",
+          "-mountpoint",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp/plain-UDZO-mount",
+          "-quiet",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp/plain-UDZO.dmg"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/plain-UDZO-attach.log"
+      },
+      "payload_sha256_matches": true,
+      "verified_resource_files": 30,
+      "detach": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.0799092089999931,
+        "max_rss_bytes": 3932160,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "hdiutil",
+          "detach",
+          "-quiet",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp/plain-UDZO-mount"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/plain-UDZO-detach.log"
+      }
+    },
+    {
+      "payload": "compressed",
+      "format": "UDZO",
+      "create": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 10.12205775000001,
+        "max_rss_bytes": 4292608,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "hdiutil",
+          "create",
+          "-quiet",
+          "-srcfolder",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp/compressed",
+          "-fs",
+          "HFS+",
+          "-volname",
+          "Norma Compression Fixture",
+          "-format",
+          "UDZO",
+          "-nospotlight",
+          "-imagekey",
+          "zlib-level=9",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp/compressed-UDZO.dmg"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/compressed-UDZO-create.log"
+      },
+      "bytes": 190143814,
+      "sha256": "778dcdd53ad2332e8216f5ad558d00146b1cc210c606b58bc04fbe00c8285470",
+      "verify": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 2.1256146250000256,
+        "max_rss_bytes": 14581760,
+        "user_seconds": 0.11,
+        "system_seconds": 0.03,
+        "argv": [
+          "hdiutil",
+          "verify",
+          "-quiet",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp/compressed-UDZO.dmg"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/compressed-UDZO-verify.log"
+      },
+      "attach": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.1880342079999764,
+        "max_rss_bytes": 4259840,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "hdiutil",
+          "attach",
+          "-readonly",
+          "-nobrowse",
+          "-mountpoint",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp/compressed-UDZO-mount",
+          "-quiet",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp/compressed-UDZO.dmg"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/compressed-UDZO-attach.log"
+      },
+      "payload_sha256_matches": true,
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.35159158300001536,
+        "max_rss_bytes": 29655040,
+        "user_seconds": 0.22,
+        "system_seconds": 0.04,
+        "argv": [
+          "/opt/homebrew/bin/brotli",
+          "-d",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp/compressed-UDZO-mount/Norma Compression Fixture.app/Contents/Resources/resources.tar.br"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/compressed-UDZO-decompress.log"
+      },
+      "tar_sha256_matches": true,
+      "verified_resource_files": 30,
+      "detach": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.1369777920000388,
+        "max_rss_bytes": 3948544,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "hdiutil",
+          "detach",
+          "-quiet",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp/compressed-UDZO-mount"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/compressed-UDZO-detach.log"
+      }
+    },
+    {
+      "payload": "plain",
+      "format": "ULMO",
+      "create": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 36.32286341600002,
+        "max_rss_bytes": 4243456,
+        "user_seconds": 0.01,
+        "system_seconds": 0.0,
+        "argv": [
+          "hdiutil",
+          "create",
+          "-quiet",
+          "-srcfolder",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp/plain",
+          "-fs",
+          "HFS+",
+          "-volname",
+          "Norma Compression Fixture",
+          "-format",
+          "ULMO",
+          "-nospotlight",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp/plain-ULMO.dmg"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/plain-ULMO-create.log"
+      },
+      "bytes": 183576328,
+      "sha256": "550a93eebfd38621ce9318bf7fa283e96ff38d2e8564533e4a48ffd7c404f6c6",
+      "verify": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 2.1397168330000227,
+        "max_rss_bytes": 14761984,
+        "user_seconds": 1.36,
+        "system_seconds": 0.03,
+        "argv": [
+          "hdiutil",
+          "verify",
+          "-quiet",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp/plain-ULMO.dmg"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/plain-ULMO-verify.log"
+      },
+      "attach": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.2619616250000263,
+        "max_rss_bytes": 4243456,
+        "user_seconds": 0.01,
+        "system_seconds": 0.01,
+        "argv": [
+          "hdiutil",
+          "attach",
+          "-readonly",
+          "-nobrowse",
+          "-mountpoint",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp/plain-ULMO-mount",
+          "-quiet",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp/plain-ULMO.dmg"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/plain-ULMO-attach.log"
+      },
+      "payload_sha256_matches": true,
+      "verified_resource_files": 30,
+      "detach": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.08186970799999926,
+        "max_rss_bytes": 3932160,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "hdiutil",
+          "detach",
+          "-quiet",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp/plain-ULMO-mount"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/plain-ULMO-detach.log"
+      }
+    },
+    {
+      "payload": "compressed",
+      "format": "ULMO",
+      "create": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 34.34996512499998,
+        "max_rss_bytes": 4259840,
+        "user_seconds": 0.01,
+        "system_seconds": 0.0,
+        "argv": [
+          "hdiutil",
+          "create",
+          "-quiet",
+          "-srcfolder",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp/compressed",
+          "-fs",
+          "HFS+",
+          "-volname",
+          "Norma Compression Fixture",
+          "-format",
+          "ULMO",
+          "-nospotlight",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp/compressed-ULMO.dmg"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/compressed-ULMO-create.log"
+      },
+      "bytes": 183308698,
+      "sha256": "03bd3b26df46d53ba6877525834ec5851ea3b3b5f6ee95409219265b5e37f4e2",
+      "verify": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 1.395464000000004,
+        "max_rss_bytes": 15761408,
+        "user_seconds": 0.74,
+        "system_seconds": 0.03,
+        "argv": [
+          "hdiutil",
+          "verify",
+          "-quiet",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp/compressed-ULMO.dmg"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/compressed-ULMO-verify.log"
+      },
+      "attach": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.19548379200000454,
+        "max_rss_bytes": 4210688,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "hdiutil",
+          "attach",
+          "-readonly",
+          "-nobrowse",
+          "-mountpoint",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp/compressed-ULMO-mount",
+          "-quiet",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp/compressed-ULMO.dmg"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/compressed-ULMO-attach.log"
+      },
+      "payload_sha256_matches": true,
+      "decompress": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.30655583300000444,
+        "max_rss_bytes": 29671424,
+        "user_seconds": 0.21,
+        "system_seconds": 0.04,
+        "argv": [
+          "/opt/homebrew/bin/brotli",
+          "-d",
+          "-c",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp/compressed-ULMO-mount/Norma Compression Fixture.app/Contents/Resources/resources.tar.br"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/compressed-ULMO-decompress.log"
+      },
+      "tar_sha256_matches": true,
+      "verified_resource_files": 30,
+      "detach": {
+        "status": "ok",
+        "exit_code": 0,
+        "seconds": 0.08708745899997439,
+        "max_rss_bytes": 3948544,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "argv": [
+          "hdiutil",
+          "detach",
+          "-quiet",
+          "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp/compressed-ULMO-mount"
+        ],
+        "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp",
+        "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/compressed-ULMO-detach.log"
+      }
+    }
+  ],
+  "compress": {
+    "status": "ok",
+    "exit_code": 0,
+    "seconds": 261.477349834,
+    "max_rss_bytes": 218775552,
+    "user_seconds": 259.74,
+    "system_seconds": 1.0,
+    "argv": [
+      "/opt/homebrew/bin/brotli",
+      "-q",
+      "11",
+      "-c",
+      "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp/payload.tar"
+    ],
+    "cwd": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/dmg-payloads-1r4380vp",
+    "log": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/dmg-current/resource-compress.log"
+  },
+  "compressed_bytes": 166072291,
+  "compressed_sha256": "004f8f11a4cfbd29b7ffecd233d257ff4ebcd1e77580da12f952c3f344a46a7e",
+  "source_unchanged": true,
+  "finished_utc": "2026-10-09T17:53:46.026621+00:00"
+}

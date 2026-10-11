@@ -1,0 +1,17 @@
+[
+  {
+    "variant": "3-thin",
+    "opt_level": "3",
+    "lto": "thin",
+    "build_seconds": 480.20147066699997,
+    "exit_code": 101,
+    "source_sha256": "814026d69f6cb296bc5971c83439ec79de9ca6abafe7ce04aeb58db1423bc14d",
+    "features": [
+      "production-data"
+    ],
+    "cache": "APFS clone of default release cache; build times are not cold-build comparisons",
+    "app_bytes": null,
+    "dmg_bytes": null,
+    "performance_status": "pending real-App acceptance"
+  }
+]

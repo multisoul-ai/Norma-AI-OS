@@ -1,0 +1,11 @@
+{
+  "checked_at": "2026-10-11T00:16:22.265592+00:00",
+  "command": "python3 scripts/verify-release-media.py --profile light",
+  "exit_code": 0,
+  "verified_media_files": 12,
+  "media_bytes": 135781610,
+  "anonymous_public_https": true,
+  "original_size_and_sha256_verified": true,
+  "script_sha256": "8c1751faab7d65ab7b9aa0a67c4651e696988308b753bbd1109fa9b13d70df36",
+  "real_app_quit": true
+}

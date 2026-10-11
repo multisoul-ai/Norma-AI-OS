@@ -1,0 +1,5 @@
+COMMAND: cargo build --release -p app --no-default-features --features production-data
+    Blocking waiting for file lock on package cache
+    Finished `release` profile [optimized] target(s) in 2.40s
+COMMAND: cargo build --release -p norma --bins
+    Finished `release` profile [optimized] target(s) in 0.58s

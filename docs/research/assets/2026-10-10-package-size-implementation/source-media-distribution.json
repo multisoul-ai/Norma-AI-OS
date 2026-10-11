@@ -1,0 +1,93 @@
+{
+  "checked_at_utc": "2026-10-10T05:08:34.481785+00:00",
+  "scope": "30 original resource files: 29 media plus one README; excludes new previews/catalog, binaries, App and DMG",
+  "source_integrity_evidence": "source-integrity.json",
+  "source_integrity_sha256": "69356dd063db5eceb99f7c1f390fd7d693135dd19072ab4f6e7e5df39b6b4e3d",
+  "source_integrity_checked_at_utc": "2026-10-10T03:45:29.818885+00:00",
+  "total_bytes": 167312523,
+  "total_files": 30,
+  "groups": [
+    {
+      "scope": "feature-guide",
+      "extension": ".md",
+      "files": 1,
+      "bytes": 1317,
+      "share_percent": 0.0007871496863387805
+    },
+    {
+      "scope": "feature-guide",
+      "extension": ".mp4",
+      "files": 5,
+      "bytes": 22057726,
+      "share_percent": 13.18354753397628
+    },
+    {
+      "scope": "feature-guide",
+      "extension": ".webp",
+      "files": 5,
+      "bytes": 763190,
+      "share_percent": 0.45614636986856033
+    },
+    {
+      "scope": "wallpapers",
+      "extension": ".gif",
+      "files": 2,
+      "bytes": 14732208,
+      "share_percent": 8.805203421623139
+    },
+    {
+      "scope": "wallpapers",
+      "extension": ".jpg",
+      "files": 3,
+      "bytes": 5220226,
+      "share_percent": 3.1200449950778637
+    },
+    {
+      "scope": "wallpapers",
+      "extension": ".mp4",
+      "files": 7,
+      "bytes": 107355225,
+      "share_percent": 64.16448875138892
+    },
+    {
+      "scope": "wallpapers",
+      "extension": ".png",
+      "files": 1,
+      "bytes": 2172915,
+      "share_percent": 1.298716295133509
+    },
+    {
+      "scope": "wallpapers",
+      "extension": ".webp",
+      "files": 6,
+      "bytes": 15009716,
+      "share_percent": 8.971065483245386
+    }
+  ],
+  "identical_file_groups": [],
+  "policies": [
+    {
+      "policy": "core",
+      "files": 18,
+      "bytes": 31530913,
+      "share_percent": 18.845518813914484
+    },
+    {
+      "policy": "dynamic-wallpaper",
+      "files": 7,
+      "bytes": 113723884,
+      "share_percent": 67.97093365210924
+    },
+    {
+      "policy": "tutorial-video",
+      "files": 5,
+      "bytes": 22057726,
+      "share_percent": 13.18354753397628
+    }
+  ],
+  "dynamic_files": 14,
+  "dynamic_bytes": 144145159,
+  "dynamic_share_percent": 86.15323970698834,
+  "original_media_files": 29,
+  "original_document_files": 1
+}

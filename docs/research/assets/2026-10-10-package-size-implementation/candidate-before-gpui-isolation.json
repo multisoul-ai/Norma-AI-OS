@@ -1,0 +1,16 @@
+{
+  "variant": "candidate-before-gpui-isolation",
+  "binary_bytes": 58429552,
+  "binary_sha256": "916175e28c5516aa43222b1a6d7ce530d890b45c33d0210bae89e7474232e8ee",
+  "features": [
+    "production-data"
+  ],
+  "gpui_test_support": true,
+  "build_seconds": 1056,
+  "build_status": "passed",
+  "artifact_kind": "standalone Mach-O; App and DMG not yet packaged",
+  "macho_sdk": "26.5",
+  "macho_linker": "1267.0",
+  "macho_minimum_os": "11.0",
+  "sdk_evidence": "xcrun vtool -show-build of saved artifact"
+}

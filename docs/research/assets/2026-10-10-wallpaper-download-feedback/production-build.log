@@ -1,0 +1,9 @@
+    Blocking waiting for file lock on build directory
+   Compiling sherpa-onnx-sys v1.13.3 (/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/vendor/sherpa-onnx-sys-1.13.3)
+   Compiling sherpa-onnx v1.13.3
+   Compiling voice_input v0.1.73 (/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/crates/voice_input)
+   Compiling dialogue v0.1.73 (/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/crates/dialogue)
+   Compiling asr v0.1.73 (/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/crates/asr)
+   Compiling voice_sherpa v0.1.73 (/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/crates/voice_sherpa)
+   Compiling app v0.1.73 (/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/crates/app)
+    Finished `release` profile [optimized] target(s) in 47m 39s

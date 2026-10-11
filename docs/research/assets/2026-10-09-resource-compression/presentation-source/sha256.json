@@ -1,0 +1,9 @@
+{
+  "build-final-report.py": "776d98d6aaa6324f96e237e6b219288de17d314f76627450e7905da0ef3d9d04",
+  "build-workbook.mjs": "247efade2fd98590849b80c0a1e1031748ab00d765b86b6ce5e94c297738c9cc",
+  "report_helpers.py": "84bc21cdba4c475d5c3a5d931655612655036845b4ae1b49643066d6c3ab710a",
+  "test-report-helpers.py": "cd8b4ee854f1d85d26bff751ebe3eec6b0aa9fc88683ef3ab6b53ba6f5d90bad",
+  "report-metrics.mjs": "283720aae2925a75b9d3c31b8f4784b9d1a9363e12ffd98cf394e8f578f83303",
+  "report-metrics.test.mjs": "edbf245541be553f65e88f036df12d40bb7af53fd8fd5bb56bf31308dccdd896",
+  "audit-final-artifacts.py": "febd75b58de087e298c02786d9bb35e0749943df72d630331351d91f9ccafc6d"
+}

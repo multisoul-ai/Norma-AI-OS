@@ -1,0 +1,60 @@
+install prefix            /usr/local
+source path               .
+C compiler                gcc
+C library                 
+ARCH                      c (generic)
+big-endian                no
+runtime cpu detection     yes
+debug symbols             yes
+strip symbols             yes
+optimize for size         no
+optimizations             yes
+static                    yes
+shared                    no
+postprocessing support    no
+new filter support        yes
+network support           no
+threading support         pthreads
+safe bitstream reader     yes
+SDL support               no
+opencl enabled            no
+texi2html enabled         no
+perl enabled              yes
+pod2man enabled           yes
+makeinfo enabled          no
+makeinfo supports HTML    no
+
+Enabled programs:
+
+External libraries:
+iconv			libxcb_shm		zlib
+libxcb			libxcb_xfixes
+libxcb_shape		securetransport
+
+Enabled decoders:
+h264
+
+Enabled encoders:
+
+Enabled hwaccels:
+
+Enabled parsers:
+
+Enabled demuxers:
+mov
+
+Enabled muxers:
+
+Enabled protocols:
+file
+
+Enabled filters:
+
+Enabled bsfs:
+
+Enabled indevs:
+
+Enabled outdevs:
+
+License: LGPL version 2.1 or later
+Creating config.mak, config.h, and doc/config.texi...

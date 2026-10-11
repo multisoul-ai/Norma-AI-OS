@@ -1,0 +1,161 @@
+{
+  "captured_utc": "2026-10-09T16:44:00.199348+00:00",
+  "source_root": "/Users/cengwei/Documents/code/Norma-AI-OS",
+  "snapshot_root": "/Users/cengwei/Documents/code/Norma-AI-OS/build/compression-benchmark/2026-10-10-input-snapshot/source",
+  "git_revision": "2ae94d1bf811e894bdfc6e776c983bce43dc9468",
+  "manifest": [
+    {
+      "path": "crates/app/assets/feature-guide/README.md",
+      "bytes": 1317,
+      "sha256": "d71c0349bfa78fc624b20a468c2f232e4a220bb470188fc61409f517a90c29fd"
+    },
+    {
+      "path": "crates/app/assets/feature-guide/demo-agent-collaboration.mp4",
+      "bytes": 5370854,
+      "sha256": "ba2bc6caf719b28e7abe4edc5c00d36a4274d544ff14e68e96f7d11c7fd07e57"
+    },
+    {
+      "path": "crates/app/assets/feature-guide/demo-agent-collaboration.webp",
+      "bytes": 156990,
+      "sha256": "992ddc2c9e0b574f1d65b4d64f99031304ee3fee1cac62fb81422922fd4be35d"
+    },
+    {
+      "path": "crates/app/assets/feature-guide/demo-agent-notifications.mp4",
+      "bytes": 1996272,
+      "sha256": "b634f931877b8fe31a0fe5071642094623d15feb09b31e1bf3d13ae3d13e1ae7"
+    },
+    {
+      "path": "crates/app/assets/feature-guide/demo-agent-notifications.webp",
+      "bytes": 173272,
+      "sha256": "fbe406c6620a26b8d44b4b96f1a814eb28c433a9294187d71fc5b8026367751d"
+    },
+    {
+      "path": "crates/app/assets/feature-guide/demo-layout-command-m.mp4",
+      "bytes": 1641819,
+      "sha256": "ac0c5cfd59b7af969ccaddda37a7b35dea6e68d2ac79d2c969606f3f12d4f3eb"
+    },
+    {
+      "path": "crates/app/assets/feature-guide/demo-layout-command-m.webp",
+      "bytes": 81096,
+      "sha256": "8958d10468f222a17339adf89d55dbb19eec0661ec958d92921b684f3a9e1be0"
+    },
+    {
+      "path": "crates/app/assets/feature-guide/demo-live-node-shortcuts.mp4",
+      "bytes": 2112348,
+      "sha256": "735eb71edcc2f645fb5636be9b35c606980c88376a4a0d07521bd671d4d6b1ac"
+    },
+    {
+      "path": "crates/app/assets/feature-guide/demo-live-node-shortcuts.webp",
+      "bytes": 157970,
+      "sha256": "e0a728bc112a355b40ac375e6453d9a8a6984fed8923dbdbe209253246d275e1"
+    },
+    {
+      "path": "crates/app/assets/feature-guide/demo-voice-command.mp4",
+      "bytes": 10936433,
+      "sha256": "2e4512c2576cb6ea608b17066b85f7b66a5c94f26e0763129f4cb4695e678f04"
+    },
+    {
+      "path": "crates/app/assets/feature-guide/demo-voice-command.webp",
+      "bytes": 193862,
+      "sha256": "bb4d5620ac83a183d3a9b64952f7190b3763af0b66c584ab00b517002bc259e5"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/1331865.webp",
+      "bytes": 3478288,
+      "sha256": "eb54e390f1b46efd47d4d3f370a2e93172368de0ec1a016964b0fb880a5de8e3"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/1350954.webp",
+      "bytes": 5139970,
+      "sha256": "c6fc2f58d349bee9ffa6699c596db5196b87e9a5e44d080898a108c7408578db"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/1358524.webp",
+      "bytes": 1732514,
+      "sha256": "9c99500efc79530802aa4bb98af60533b232b6035ace5d1ca9f4052e7c7c877c"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/1403512.mp4",
+      "bytes": 8650397,
+      "sha256": "3a5b89c7f19ee6c63d66d0642462617304cb97fca653af3d56cbedebb9758270"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/1404942.mp4",
+      "bytes": 30393068,
+      "sha256": "d07f32caefce35141a25baca81b5505ba612d797b0d82546a8b81658ed4456dc"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/1406443.mp4",
+      "bytes": 30692231,
+      "sha256": "583eaaf83235682507902bd40d0cbc5d695321d3fe22d422f66b86c2b203e3c1"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/1406489.mp4",
+      "bytes": 19802073,
+      "sha256": "e9f236dbc476d073b575ea2049dc6f746979eab57d013741cb64bbec3bec1af0"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/1407174.mp4",
+      "bytes": 9453907,
+      "sha256": "27405254f8039c138add0fadb7a1269a2fcea32feda231a1f1b3d9fba33c9abc"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/1411385.webp",
+      "bytes": 1922586,
+      "sha256": "f05289db7f99037c731fda8d729cb622c2fb4b771757ca8217793d106206bf01"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/1411492.webp",
+      "bytes": 2461410,
+      "sha256": "8039a30309c1bb7517d9c2cec1c3b1b74aad040aef9a424ee993d6161c668432"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/215824.gif",
+      "bytes": 387460,
+      "sha256": "ee63081b8bf50c6153c63135992f41327b47a8666e9837b8af7c3f79166be10a"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/220240.gif",
+      "bytes": 14344748,
+      "sha256": "73b4a0c7c3bed95ef29fc41bef54f3ee22562df0b0b4b426f81e8a83836b0c8a"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/379352.jpg",
+      "bytes": 3715893,
+      "sha256": "74e188096c10e7b501e3288bb5e167f63837fd2ea0dc9fec1eb911f50d1ba010"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/718916.jpg",
+      "bytes": 1156841,
+      "sha256": "02bb7ef2de2dcc9aeacdadc23e58a3fae85e271d3bfc9f61b61296626efdb796"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/74174.webp",
+      "bytes": 274948,
+      "sha256": "4c2119330d5d73172e765305f684af564e15fafda36e50e7c3c07fffcd8f7b44"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/74176.jpg",
+      "bytes": 347492,
+      "sha256": "2e7d7c7909d1128d35e9d52ff3f607a0bc3895bba4f57d252830620e884c736a"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/desktop-earth.png",
+      "bytes": 2172915,
+      "sha256": "816fe65bbda8e442d24616d36516a8fc6df8f5b26114180789d2276176d7b09f"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/home.mp4",
+      "bytes": 5152500,
+      "sha256": "ad2a3810dc43c8a536dcf9b8a64cfb0904677280504aef26fa8d3dddd274b55d"
+    },
+    {
+      "path": "crates/app/assets/wallpapers/license-gate.mp4",
+      "bytes": 3211049,
+      "sha256": "fb5cbbe7bcffb63eff9e0909c65ccde49dd07bd5aa75ffbaaee7a2d75a21f090"
+    }
+  ],
+  "copied_files_verified": 30,
+  "reused_video_tar_sha256": "e6b806b3833b55647983afe8d694b5d817cf68d0d7d19a69c7a44ad29c3313c3",
+  "video_matches_previous_run": true
+}

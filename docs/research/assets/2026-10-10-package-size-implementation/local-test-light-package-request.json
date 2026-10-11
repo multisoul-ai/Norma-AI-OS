@@ -1,0 +1,8 @@
+{
+  "started_at_utc": "2026-10-10T14:23:43.408332+00:00",
+  "command": "./scripts/release-local.sh --ad-hoc",
+  "media_profile": "light",
+  "mode": "local ad-hoc, not notarized",
+  "explicit_local_test_request_received": true,
+  "availability_note": "12 optional original media assets are omitted; GitHub release assets have not been published; unavailable downloads must not be represented as working"
+}

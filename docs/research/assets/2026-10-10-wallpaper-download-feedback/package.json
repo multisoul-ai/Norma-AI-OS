@@ -1,0 +1,15 @@
+{
+  "dmg": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/wallpaper-feedback-20261011/Norma-OS_0.1.73_wallpaper-feedback_light_aarch64.dmg",
+  "app": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/dev/wallpaper-feedback-20261011/Norma OS.app",
+  "bytes": 64867254,
+  "sha256": "d2debeed7f0b3eb60a90fdcf071d5b600722d83c0fee8ac3fc9e5e7134a46b47",
+  "version": "0.1.73",
+  "media_profile": "light",
+  "signing": "ad-hoc",
+  "notarized": false,
+  "features": [
+    "production-data"
+  ],
+  "qa_feature": false,
+  "production_main_uuid": "457C42D6-BEED-3CE1-B52E-2D22FBB08A58"
+}

@@ -1,0 +1,14 @@
+{
+  "checked_at": "2026-10-11T00:15:19.128165+00:00",
+  "release_id": 409282524,
+  "url": "https://github.com/multisoul-ai/norma-os-releases/releases/tag/media-v1",
+  "published_at": "2026-10-11T00:11:45Z",
+  "draft": false,
+  "prerelease": false,
+  "verified_attachments": 16,
+  "latest_app_release": {
+    "id": 406760540,
+    "tag": "v0.1.73"
+  },
+  "latest_app_unchanged": true
+}

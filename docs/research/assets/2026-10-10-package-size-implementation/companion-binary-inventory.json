@@ -1,0 +1,48 @@
+{
+  "checked_at_utc": "2026-10-10T04:21:48.473711+00:00",
+  "scope": "Read-only inventory of existing companion artifacts; not packaging success or confirmation of Cargo provenance",
+  "groups": {
+    "baseline": {
+      "multisoul-agent-hook": {
+        "bytes": 1128992,
+        "sha256": "9fe2f87dfb91bb82c24910c949c29a90e500cf0758e54f7499db6d21e8aa71e8",
+        "path": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/baseline-target/release/multisoul-agent-hook",
+        "macho": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/baseline-target/release/multisoul-agent-hook:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 11.0\n      sdk 26.5\n   ntools 1\n     tool LD\n  version 1267.0\n",
+        "status": "present; provenance must be tied to packaging build"
+      },
+      "norma-browser-auth-host": {
+        "bytes": 1461104,
+        "sha256": "39797a416d04dc0602a5d5e85f51ba571fe3195239d42fd3ba2241711f735349",
+        "path": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/baseline-target/release/norma-browser-auth-host",
+        "macho": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/build/package-size-reduction/baseline-target/release/norma-browser-auth-host:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 11.0\n      sdk 26.5\n   ntools 1\n     tool LD\n  version 1267.0\n",
+        "status": "present; provenance must be tied to packaging build"
+      },
+      "norma": {
+        "status": "missing; requires explicit build before packaging"
+      }
+    },
+    "candidate": {
+      "multisoul-agent-hook": {
+        "bytes": 1128992,
+        "sha256": "9285df7d5ab8007ac232d5be49ec93a3f86703acdacec8869736a87a7b3c648e",
+        "path": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/target/release/multisoul-agent-hook",
+        "macho": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/target/release/multisoul-agent-hook:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 11.0\n      sdk 26.5\n   ntools 1\n     tool LD\n  version 1267.0\n",
+        "status": "present; provenance must be tied to packaging build"
+      },
+      "norma-browser-auth-host": {
+        "bytes": 1461104,
+        "sha256": "e138be57392d9511823edac813e312ecd5633822a79a65073e175260bddbf3fa",
+        "path": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/target/release/norma-browser-auth-host",
+        "macho": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/target/release/norma-browser-auth-host:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 11.0\n      sdk 26.5\n   ntools 1\n     tool LD\n  version 1267.0\n",
+        "status": "present; provenance must be tied to packaging build"
+      },
+      "norma": {
+        "bytes": 1395296,
+        "sha256": "7100dc9ce63d8fc9082875ff8be7a21812a35dadf346e1a6f2cb6b1532f89a28",
+        "path": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/target/release/norma",
+        "macho": "/Users/cengwei/Documents/code/Norma-AI-OS-worktrees/package-size-reduction/target/release/norma:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 11.0\n      sdk 26.5\n   ntools 1\n     tool LD\n  version 1267.0\n",
+        "status": "present; provenance must be tied to packaging build"
+      }
+    }
+  }
+}

@@ -1,0 +1,14 @@
+[
+  {
+    "script": "test-resource-compression-benchmark.py",
+    "exit_code": 0
+  },
+  {
+    "script": "test-resource-compression-dmg.py",
+    "exit_code": 0
+  },
+  {
+    "script": "test-merge-resource-compression-results.py",
+    "exit_code": 0
+  }
+]
