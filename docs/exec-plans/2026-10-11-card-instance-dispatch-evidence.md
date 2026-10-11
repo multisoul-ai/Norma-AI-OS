@@ -51,3 +51,9 @@ B 在自身可信 Provider start 前保持 Submitted；无可靠 Hook 时保持 
 本任务未改页面或样式；真实 App、真实 Provider、Dock 回执/导航、跨项目加载闭环由 T07/T08 集成验收。
 自然 RPC 终态需 T08 用可信原 run/session/turn 结果回调核对接口；不以卡片 Done 完成下一任务。
 不安全输入隔离不因一条结果摘要而释放，未知正文不自动重放。未从历史账本恢复旧输入队列。
+
+## 集成分支复核
+
+实施提交 `24cc5fa8` 无冲突合入为 `2ef7854d`，保留既有 T02 名称登记／协议 re-export 与 T09 纯聚合模块；没有其他任务改动。
+
+集成目录再次通过 13 条领域公开接口场景（Agent coordination 5、untracked 1、Runtime input 6、Hook identity 1），以及 App `card_instance` 10 条、`agent_hook` 11 条，全部 exit 0。使用同一隔离构建缓存串行运行，避免跨 worktree 并发混用产物；不重复完整工作区测试。这里只复核 T05 接口与受影响 App 路径，正式工作空间入口和真实 Provider／UI 验收仍未完成。
