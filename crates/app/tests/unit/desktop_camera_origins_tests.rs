@@ -27,8 +27,8 @@ fn assert_drawn_origin(actual: CanvasRect, drawn: CanvasRect, window: &Window) {
 /// 数据构造：1280×800 窗口，3 个工作空间，Beta 含 2 个空项目；
 ///   workspace 卡片由真实 Window::draw 取得，项目内容从标题下方等比适配。
 ///   比较容差 = 1 / backing scale，仅容纳 GPUI 设备像素取整；错误居中框偏移数十像素。
-///   窄窗 600×800 时两项目仍在上排，第二个区域为 (307.5,215.28125,247.5,139.21875)，宽=(600×85%-15)/2，高=宽×9/16。
-///   顶部避让 = 52px 工具栏 + 12px 间距 = 64px；首行 y=64+(645-342.4375)/2=215.28125。
+///   窄窗600×800时两项目仍在上排，第二个区域为(308,223.75,268,150.75)，宽=(600-2×24-16)/2，高=宽×9/16。
+///   顶部避让=52px工具栏+12px间距=64px；首行y=64+(645-2×150.75-24)/2=223.75。
 ///   200×16ms=3.2 秒模拟推进大于弹簧收敛时间，不等待墙钟。
 /// 执行过程：绘制目录 → 清空来源缓存 → 打开 Beta → 绘制项目总览 → 清空来源缓存
 ///   → 展开第二项目 → 改为窄窗 → 返回并推进镜头。
@@ -125,7 +125,7 @@ fn desktop_camera_origins_use_real_layout_without_prior_bounds() {
             transition.tick(Duration::from_millis(16));
         }
         let expected = super::super::preview_canvas::project_canvas_rect(
-            CanvasRect::new(307.5, 215.28125, 247.5, 139.21875),
+            CanvasRect::new(308.0, 223.75, 268.0, 150.75),
             desktop_scene_rect(600.0, 800.0).size,
             1.0,
         );
