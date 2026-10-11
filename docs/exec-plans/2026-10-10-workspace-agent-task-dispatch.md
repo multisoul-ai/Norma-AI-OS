@@ -1,6 +1,6 @@
 # 工作空间智能体卡片派工与进度汇报：开发任务拆分
 
-日期：2026-10-10。实施更新：2026-10-11。状态：实施中；T01／T02／T03／T04／T05 实现与范围内自动验证已合入，T06 账本核心、T07 纯规划／讨论门控与 T09 纯聚合合同部分完成；正式派工与进度查询闭环仍未完成。
+日期：2026-10-10。实施更新：2026-10-11。状态：实施中；T01／T02／T03／T04／T05 实现与范围内自动验证已合入，T06 账本核心与桌面共享投递基础、T07 纯规划／讨论门控与 T09 纯聚合合同部分完成；正式派工与进度查询闭环仍未完成。
 
 实施合同以已发布的 [GitHub Issue #96](https://github.com/multisoul-ai/Norma-AI-OS/issues/96)及其[本地规格副本](../product-specs/2026-10-10-workspace-agent-task-dispatch.md)为准，Issue 标记 `ready-for-agent`。源码事实、两张运行流程图与完整验收矩阵见[派工方案](../design-docs/2026-10-09-workspace-agent-task-dispatch.md)；术语见[CONTEXT.md](../../CONTEXT.md)。本计划记录本地任务依赖，不作工期承诺。
 
@@ -42,7 +42,7 @@
 | T03 | 实现与自动验证完成，已合入 `e899a580`（实施提交 `751ff5c5`） | 完整登记／自动修复／两阶段创建／标题编辑／持久删除凭据已接入；真实 App 视觉与流程验收留在整体集成阶段 |
 | T04 | 实现与范围内自动验证完成，已合入 `d88858bb`（实施提交 `52249f9f`） | 完整授权目录、原文目标 manifest、纯解析与可信选卡补全，以及生产 App 只读目录投影已验证；正式接收／投递与 Dock 闭环仍由 T06–T09 完成 |
 | T05 | 完成，已合入 `2ef7854d`（实施提交 `24cc5fa8`） | 实例协调、独占输入传输与 exact Hook 证据关联已验证；共享派工入口由 T06 接通 |
-| T06 | 部分完成：账本核心已合入 `8acb39e5`（实施提交 `631478b1`） | 来源／持久原子接收／Armed 屏障／可靠 journal／只读与 exact 证据已验证；正式 App facade、frame writer、实时权限 gate 与 PTY 反例待完成 |
+| T06 | 部分完成：账本核心已合入 `8acb39e5`（实施提交 `631478b1`）；桌面共享投递基础本轮接入 | 冻结原文／整组预检／后台 Armed／guarded 输入／frame journal 与停用、删除、退出撤权已验证；手机认证及实时 grant、正式入口和真实 Provider 验收待完成 |
 | T07 | 部分完成：纯规划与讨论门控已合入 `6fd71ead`（实施提交 `e696dcc1`） | 完整规划器、取消／超时／截断拒绝与只读讨论权限已验证；正式 Dock／手机入口、来源与 audience 会话隔离、整组共享接收、补全和真实 App 闭环尚未完成 |
 | T08 | 未完成 | 等待工作空间入口；回执、重试与恢复尚未验收 |
 | T09 | 部分完成：纯聚合合同已合入（实施提交 `4a823afc`、`1b598e9b`） | 统计／证据规则与有界分页已验证；只读事实接入、typed tool、Dock 呈现／导航与真实 App 验收仍待完成 |
@@ -93,7 +93,26 @@ T06 核心提供共享 `WorkspaceOperationSource`、`WorkspaceOperationStore` �
 
 公开验收对应 [`workspace_operation.rs`](../../crates/norma/tests/workspace_operation.rs) 1 条、[`card_instance_waiting.rs`](../../crates/agent/tests/card_instance_waiting.rs) 3 条，以及 Storage 的 [`workspace_operations.rs`](../../crates/storage/tests/workspace_operations.rs) 9 条、[`workspace_operation_evidence.rs`](../../crates/storage/tests/workspace_operation_evidence.rs) 4 条、[`workspace_operation_lineage.rs`](../../crates/storage/tests/workspace_operation_lineage.rs) 5 条、[`workspace_operation_journal.rs`](../../crates/storage/tests/workspace_operation_journal.rs) 1 条、[`workspace_operation_results.rs`](../../crates/storage/tests/workspace_operation_results.rs) 1 条、[`mobile_access_readonly.rs`](../../crates/storage/tests/mobile_access_readonly.rs) 1 条。实施者完整 norma／agent／storage 测试 484 passed、1 ignored 与正常提交 hook 均通过；新增错 turn、组内引用、原请求 hash、BodyWritten 后取消和改空间重发反例已实际修复。集成保留 T03 导出／migration 与 T05／T09 模块，并另跑上述 25 条新增公开核心测试。
 
-这是 T06 第一阶段，未接生产 frame writer 或共享投递服务。第二阶段仍须用不可变原 manifest／首次 code resolution 绑定整组目标，在每个 await 后复核范围，先查幂等再只准备必要区域、捕获冷卡真实指纹、持久 Armed 后 guarded 接收，并可靠保留事件。Query／Discussion 不走加载全区域的旧桥；实时停用／删除／撤权、公开 PTY／DB 反例、独立审查和真实 App／Provider 验收仍待完成，T06 不标为全部完成。
+T06 第二阶段接入生产 `WorkspaceDispatchService::{prepare,submit}` 的桌面基础。私有 pending 冻结原 manifest、首次解析目标与请求 fingerprint；先查幂等，prepare 不启动 PTY，submit 只异步准备原区域和原卡。整组计划与预检通过后才单事务接收；后台持久 Armed 后安装 guarded 输入，已冻结运行身份不刷新。submit 自身持有执行，丢弃回执等待句柄不能留下半组；最终只读回执暂时失败仍保留已接收事实。
+
+冷卡按原登记身份后台启动，只捕获首次真实 PTY 指纹；实际已安装 Hook 才等待本次观察到的就绪信号，持久 resume session 不当作本次就绪证据。未安装 Hook 的普通卡可传输但保持 Untracked。角色启停按卡片串行化事务，停用关闭旧 gate，后续启用不复活；确认删区域／空间前立即关闭 scope，等待窗口的新 gate 也关闭。删除失败只允许新尝试，成功则永久关闭原 UUID scope。停止桌面先废弃全部在途区域加载，迟到安装还须复核原 host 登记，避免退出后重新启动 session。
+
+frame、提交失败与 Drop 共用 AppDB journal，前台仅入内存队列。接收后的 Armed／投递失败会关闭整组输入，并可靠保存当前及后续未安装项的零输入失败证据；SQLite 写锁不能留下永久 Queued。sender loss 的原事件保留在 App 共享队列，后台替换 writer，移除 session 不丢失待写证据，恢复也不复活输入。
+
+| 本轮验收 | 自动证据 |
+| --- | --- |
+| 展开 A 向后台 B 投递，非目标零输入，同键只返回回执；旧目标替换拒绝；正文后停用不再 Enter | [`workspace_dispatch_service_tests.rs`](../../crates/app/tests/unit/workspace_dispatch_service_tests.rs) 3 条 |
+| 只启动原冷卡，实际 Hook 首次就绪后捕获指纹；旧 session 和未安装 Hook 不误判 | [`workspace_dispatch_cold_tests.rs`](../../crates/app/tests/unit/workspace_dispatch_cold_tests.rs) 2 条 |
+| 丢弃回执等待仍完成整组；冷加载期间 stop／shutdown 不复活 session | [`workspace_dispatch_cancellation_tests.rs`](../../crates/app/tests/unit/workspace_dispatch_cancellation_tests.rs) 2 条；退出反例已先在旧实现复现失败 |
+| 启停等待中按调用顺序串行化；删除等待中新旧 gate 关闭，成功与失败分别收口 | [`workspace_dispatch_authority_tests.rs`](../../crates/app/tests/unit/workspace_dispatch_authority_tests.rs) 1 条、[`workspace_dispatch_removal_tests.rs`](../../crates/app/tests/unit/workspace_dispatch_removal_tests.rs) 2 条 |
+| 真实 SQLite 写锁下整组失败证据保留；模拟 sender loss 后删 session 仍保存 frame 证据 | [`workspace_dispatch_journal_tests.rs`](../../crates/app/tests/unit/workspace_dispatch_journal_tests.rs) 2 条；sender loss 模拟传输返回原事件，不冒充真实线程崩溃 |
+| 持久 Armed 接入帧循环，正文／Enter 分开保存且其他卡片零输入 | [`workspace_operation_delivery_tests.rs`](../../crates/app/tests/unit/workspace_operation_delivery_tests.rs) 1 条 |
+
+本轮 `cargo test -p app --lib dispatch -- --test-threads=1` 为 58 passed，`card_instance` 为 11 passed；两组有 1 条重叠，不相加作为独立测试数。存储／性能／行数／no-allow／Agent 指南护栏通过。独立对抗审查已核验并关闭取消等待、journal 保留、Hook 就绪和退出迟到加载反例，最后复核未发现新增确定缺陷。
+
+`cargo test --workspace --exclude e2e -- --test-threads=1` 在 App 库测试报告 1058 passed、9 ignored、1 failed：已有 `voice_redesign_task_layout_and_mode_persistence` 断言识别／声音卡片等宽，实测 517px／543px。该测试单独复跑及恢复改动前 `cb59705d` 原 App 源码后均复现相同失败；本轮不改语音布局，不将全仓验证报告为通过。补跑 `cargo test --workspace --exclude app --exclude e2e -- --test-threads=1` 为 1078 passed、23 ignored、0 failed；`cargo check -p app` 与 `cargo build -p app --release` 均通过。本轮正常提交仍使用仓库原生 hook，不绕过检查。
+
+这些证据验证生产服务、录制 PTY 和真实 SQLite 行为，未验证真实 `.app`／Computer Use 或 Provider 任务完成。服务当前仅提供可信桌面来源，手机认证及实时 Control grant、正式 Dock／手机适配、目标补全接收、回执／恢复仍待 T06–T08；Query／Discussion 不应通过投递准备加载区域。T06 继续标为部分完成，PR 保持草稿。
 
 T07 第一阶段提供 `generate_workspace_task_plan()` 与字段私有的 `WorkspaceTaskPlan`。模型只能返回 `{target_index,text}`，代码按可信原持久目标全集绑定；漏项、追加、重复、未知字段、空正文、截断或非正常完成均整批拒绝。每次一次无工具 Provider 请求，无 Adapter／自动重试；预先取消、等待中取消及真实 20 秒超时均不返回半批计划。输入与输出按字节有界，正式调用方仍须先经 T04／T06 绑定原文与目标，在每个 await 后复核，并一次整组 submit。
 

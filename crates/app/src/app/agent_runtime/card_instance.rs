@@ -17,6 +17,7 @@ use std::time::Instant;
 mod claims;
 mod control;
 mod evidence;
+mod persistence;
 mod pump;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -49,6 +50,7 @@ pub(crate) struct CardInstanceTasks {
     transports: HashMap<String, Transport>,
     latest_turns: HashMap<WorkspaceCardRef, CardInstanceTurn>,
     interrupts: HashMap<String, Receiver<Result<Value, String>>>,
+    durable: persistence::DurableCardInstanceEvents,
 }
 
 impl MultisoulApp {
@@ -165,7 +167,15 @@ impl MultisoulApp {
         self.card_instance_tasks.coordinator.receipt(id)
     }
     pub fn take_card_instance_events(&mut self) -> Vec<CardInstanceEvent> {
-        self.card_instance_tasks.coordinator.take_events()
+        self.journal_workspace_card_instance_events();
+        let mut events: Vec<_> = self
+            .card_instance_tasks
+            .durable
+            .legacy_events
+            .drain(..)
+            .collect();
+        events.extend(self.card_instance_tasks.coordinator.take_events());
+        events
     }
 
     /// The shared service supplies a verified durable Provider outcome for the original frozen turn.
@@ -324,3 +334,7 @@ mod input_tests;
 #[cfg(test)]
 #[path = "../../../tests/support/card_instance_app.rs"]
 mod test_support;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/workspace_operation_delivery_tests.rs"]
+mod workspace_operation_delivery_tests;

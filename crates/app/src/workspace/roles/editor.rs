@@ -12,6 +12,7 @@ struct RoleEditor {
     card: WorkspaceCardRef,
     input: Entity<InputState>,
     store: storage::WorkspaceAgentRoleStore,
+    database: std::path::PathBuf,
     canvas: storage::CanvasStore,
     busy: bool,
     error: Option<String>,
@@ -49,6 +50,7 @@ impl MultisoulApp {
             card,
             input,
             store,
+            database: self.database_paths.app_db_path().to_owned(),
             canvas,
             busy: true,
             error: None,
@@ -128,12 +130,13 @@ impl RoleEditor {
         cx.notify();
         let card = self.card.clone();
         let store = self.store.clone();
+        let database = self.database.clone();
         let canvas = self.canvas.clone();
         let enabled = !self.enabled;
         let host = self.host.clone();
         let work = cx.background_executor().spawn(async move {
             let role = if toggle {
-                store.set_enabled(&card, enabled)?
+                super::super::dispatch::authority::set_role_enabled(&database, &card, enabled)?
             } else {
                 store.rename(&card, &name)?
             };

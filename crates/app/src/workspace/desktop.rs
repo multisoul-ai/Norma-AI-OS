@@ -293,6 +293,9 @@ impl MultisoulApp {
     }
 
     pub(crate) fn stop_desktop_sessions(&mut self, cx: &mut gpui::Context<Self>) {
+        self.desktop_workspace
+            .discarded_area_loads
+            .extend(self.desktop_workspace.loading_area_ids.iter().cloned());
         let sessions = std::mem::take(&mut self.desktop_workspace.sessions);
         for session in sessions.into_values() {
             session.update(cx, |session, cx| session.stop_project(cx));

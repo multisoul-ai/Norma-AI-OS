@@ -24,6 +24,10 @@ mod settings;
 mod shortcuts;
 mod updater;
 mod workspace;
+pub use workspace::dispatch::{
+    PendingWorkspaceDispatch, WorkspaceDispatchEntry, WorkspaceDispatchPreparation,
+    WorkspaceDispatchService,
+};
 
 #[cfg(test)]
 #[path = "../tests/unit/menu_bar_tests.rs"]

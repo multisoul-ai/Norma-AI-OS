@@ -265,6 +265,7 @@ impl MultisoulApp {
                     app.advance_session_reply_queue();
                     let runtime_events = app.runtime.take_events();
                     app.handle_agent_runtime_events(&runtime_events, cx);
+                    app.journal_workspace_card_instance_events();
                     if runtime_changed
                         || !runtime_events.is_empty()
                         || agent_hook_report.changed

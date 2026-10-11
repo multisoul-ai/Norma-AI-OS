@@ -38,6 +38,10 @@ impl MultisoulApp {
         );
         if changed {
             if let Some(card) = removed_role {
+                crate::workspace::dispatch::authority::revoke_card(
+                    self.database_paths.app_db_path(),
+                    &card,
+                );
                 self.persistence.queue_role_removal(
                     storage::WorkspaceAgentRoleStore::new(
                         self.database_paths.app_db_path().to_owned(),

@@ -223,26 +223,45 @@ impl MultisoulApp {
         self.desktop_workspace.busy = true;
         self.desktop_workspace.error = None;
         cx.notify();
+        let (workspace, area) = match &target {
+            DesktopDeleteTarget::Workspace { id, .. } => (id.as_str(), None),
+            DesktopDeleteTarget::Area {
+                workspace_id,
+                area_id,
+                ..
+            } => (workspace_id.as_str(), Some(area_id.as_str())),
+        };
+        let removal = crate::workspace::dispatch::authority::begin_scope_removal(
+            self.database_paths.app_db_path(),
+            workspace,
+            area,
+        );
         let store = self.desktop_workspace.store.clone();
         let work = cx.background_executor().spawn(async move {
-            let removed_areas = match &target {
-                DesktopDeleteTarget::Workspace { id, .. } => {
-                    store.delete_catalog(id)?.ok_or_else(|| {
-                        anyhow::anyhow!(ui::i18n::text("workspace.workspace_no_longer_exists"))
-                    })?
-                }
-                DesktopDeleteTarget::Area {
-                    workspace_id,
-                    area_id,
-                    ..
-                } => {
-                    if !store.remove_project_catalog(workspace_id, area_id)? {
-                        anyhow::bail!(ui::i18n::text("workspace.project_area_no_longer_exists"));
+            let result = (|| {
+                let removed_areas = match &target {
+                    DesktopDeleteTarget::Workspace { id, .. } => {
+                        store.delete_catalog(id)?.ok_or_else(|| {
+                            anyhow::anyhow!(ui::i18n::text("workspace.workspace_no_longer_exists"))
+                        })?
                     }
-                    vec![area_id.clone()]
-                }
-            };
-            Ok::<_, anyhow::Error>((target, removed_areas, store.list()))
+                    DesktopDeleteTarget::Area {
+                        workspace_id,
+                        area_id,
+                        ..
+                    } => {
+                        if !store.remove_project_catalog(workspace_id, area_id)? {
+                            anyhow::bail!(ui::i18n::text(
+                                "workspace.project_area_no_longer_exists"
+                            ));
+                        }
+                        vec![area_id.clone()]
+                    }
+                };
+                Ok::<_, anyhow::Error>((target, removed_areas, store.list()))
+            })();
+            removal.finish(result.is_ok());
+            result
         });
         cx.spawn(async move |this, cx| {
             let result = work.await;
@@ -340,3 +359,7 @@ impl MultisoulApp {
         .detach();
     }
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/workspace_dispatch_removal_tests.rs"]
+mod dispatch_removal_tests;

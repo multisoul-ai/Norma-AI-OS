@@ -44,7 +44,11 @@ impl MultisoulApp {
     }
 }
 
-fn project_retained_directory(database: &Path, directory: &mut WorkspaceDirectory, cx: &App) {
+pub(crate) fn project_retained_directory(
+    database: &Path,
+    directory: &mut WorkspaceDirectory,
+    cx: &App,
+) {
     let hosts = super::desktop::sessions::hosts(database, cx);
     // The explicit source survives active-workspace and expanded-project changes.
     for area in directory.authorized_area_ids.clone() {

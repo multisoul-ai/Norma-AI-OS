@@ -75,7 +75,10 @@ pub(crate) fn ensure(
             .await;
         host.update(cx, |app, cx| {
             app.desktop_workspace.loading_area_ids.remove(&key);
-            if app.desktop_workspace.discarded_area_loads.contains(&key) {
+            let registered = super::sessions::hosts(&database, cx)
+                .iter()
+                .any(|retained| retained.entity_id() == cx.entity_id());
+            if !registered || app.desktop_workspace.discarded_area_loads.contains(&key) {
                 return Err("configuration_changed".into());
             }
             if let Some(existing) = app.desktop_workspace.sessions.get(&key) {
