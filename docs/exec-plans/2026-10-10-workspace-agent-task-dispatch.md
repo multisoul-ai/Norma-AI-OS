@@ -1,6 +1,6 @@
 # 工作空间智能体卡片派工与进度汇报：开发任务拆分
 
-日期：2026-10-10。实施更新：2026-10-11。状态：实施中；T01／T02 已合入，T03 可开始，T09 纯聚合合同部分完成，正式进度查询仍待接入；其余任务未完成。
+日期：2026-10-10。实施更新：2026-10-11。状态：实施中；T01／T02／T05 已合入，T03 可开始，T09 纯聚合合同部分完成，正式进度查询仍待接入；其余任务未完成。
 
 实施合同以已发布的 [GitHub Issue #96](https://github.com/multisoul-ai/Norma-AI-OS/issues/96)及其[本地规格副本](../product-specs/2026-10-10-workspace-agent-task-dispatch.md)为准，Issue 标记 `ready-for-agent`。源码事实、两张运行流程图与完整验收矩阵见[派工方案](../design-docs/2026-10-09-workspace-agent-task-dispatch.md)；术语见[CONTEXT.md](../../CONTEXT.md)。本计划记录本地任务依赖，不作工期承诺。
 
@@ -41,7 +41,7 @@
 | T02 | 完成，已合入 `3e10d43d`（实施提交 `a84e20ec`） | 工作空间角色／有效与失效呼叫键事务及严格只读快照已验证；App 生命周期接入属于 T03 |
 | T03 | 可开始 | 完整登记／自动修复／标题与生命周期接入；后台登记必须先持久回填旧快照身份 |
 | T04 | 未完成 | 等待完整名称登记与目录修复 |
-| T05 | 可开始 | 基于已合入的 `WorkspaceCardTarget` 实现实例协调与输入传输 |
+| T05 | 完成，已合入 `2ef7854d`（实施提交 `24cc5fa8`） | 实例协调、独占输入传输与 exact Hook 证据关联已验证；共享派工入口由 T06 接通 |
 | T06 | 未完成 | 等待 T04／T05 的生产接口 |
 | T07 | 未完成 | 等待通用操作与跨区域投递；Dock 真实 App 闭环尚未验收 |
 | T08 | 未完成 | 等待工作空间入口；回执、重试与恢复尚未验收 |
@@ -58,6 +58,14 @@ T02 提供 [`WorkspaceAgentRoleStore`](../../crates/storage/src/workspace_agent_
 验收对应 [`workspace_agent_roles.rs`](../../crates/storage/tests/workspace_agent_roles.rs)、[`workspace_agent_role_readonly.rs`](../../crates/storage/tests/workspace_agent_role_readonly.rs)与[`agent_definition_name_normalization.rs`](../../crates/storage/tests/agent_definition_name_normalization.rs)，共 9 条公开接口场景，覆盖跨空间独立、主名／别名交叉冲突、连续改名、错误目标／存储失败不释放、并发抢名、非法名称及目录只读。名称统一 trim 的项目定义兼容回归也通过。实施者完成完整 `cargo test --quiet -p agent -p storage`、正常提交 hook 的 workspace check／fmt 及存储／性能／行数护栏；集成合入无冲突、无无关改动，另运行上述三组聚焦测试。
 
 T02 没有自动登记旧卡片或更改共享定义的具名身份；这些由 T03 接通并展示变更记录。创建／改名／删除的 App 路径尚不能由本模块测试推定已接入。
+
+T05 实施及证据见[卡片实例级派工验收记录](2026-10-11-card-instance-dispatch-evidence.md)。`agent::card_instance` 保存完整冻结目标，`MultisoulApp` 提供纯预检、受授权 gate 保护的接收、逐项回执／事件、提交前取消和精确终态核对。正文／Enter 的传输互斥，不等待前任务完成；B 只有自身可信 start 才运行，迟到 A 不结束 B。普通无定义卡片可传输，无可靠跟踪则保持 Untracked。重复旧 Hook 在 Runtime 状态更新前拒绝，App 按事件接收时的私有卡片／执行身份核对同批事件。停止／替换项目废弃输入队列，历史不自动重放。
+
+领域公开接口验证对应 [`card_instance_coordination.rs`](../../crates/agent/tests/card_instance_coordination.rs)、[`card_instance_untracked.rs`](../../crates/agent/tests/card_instance_untracked.rs)、[`workspace_card_input.rs`](../../crates/runtime/tests/workspace_card_input.rs)与[`workspace_card_hook_identity.rs`](../../crates/runtime/tests/workspace_card_hook_identity.rs)。App 的 10 条 `card_instance` 和 11 条 `agent_hook` 聚焦场景覆盖非目标零输入、草稿／审批／旧队列保护、部分写入未知、撤权／会话替换、重复操作、原 turn 中断、同批旧新 Hook 与终态后 SessionStart。实施者完成完整 agent／runtime 测试、App／workspace check、正常提交 hook 及护栏，并经独立对抗审查关闭 4 项发现；集成合入无冲突，另运行上述聚焦接口验证。
+
+T06 必须在持久整组接收前调用预检并检查组内冲突，接收使用 authority gate，在后台持久化事件；冷启动准备后才捕获指纹，不刷新已接收目标。Task／Reply 含义由账本保存，T05 输入 seam 不自行判定。T08 必须用可信原 run／session／turn 的 RPC 结果核对终态；未绑定的 Unknown 不按正文猜归属，不安全输入隔离不会因摘要或结果回执自动释放。严格核对后释放隔离的恢复接口仍需后续设计与验收。
+
+以上测试仅证明实例寻址、输入与事件规则；真实 Provider 完成、正式跨区域入口、Dock／回执 UI 和导航尚待 T06–T08 验收，不将录制 PTY 当作真实任务完成。
 
 T09 纯核心提供 [`norma::workspace_progress`](../../crates/norma/src/workspace_progress.rs) 的 `aggregate_workspace_progress()`。其 15 条公开接口场景分别验证稳定任务／显式 turn 关联去重、角色与未关联活动分列、最新尝试阶段和旧异常保留、可信终态与迟到快照／同名新卡隔离、24 小时边界及指定窗口、不截断总计的分页、授权区域过滤、目录／证据缺口和无可靠卡片身份的历史记录。没有任务／卡片身份的旧称呼记录独立待核对，不绑定同名现存角色；缺失观察时间保留未知。
 
