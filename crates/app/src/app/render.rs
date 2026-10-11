@@ -119,7 +119,6 @@ impl Render for MultisoulApp {
                     if let Some(error_banner) = self.render_workspace_error_banner(cx) {
                         root = root.child(error_banner);
                     }
-                    root = root.child(self.voice_window_inset_view.clone());
                 }
             }
         }
@@ -135,6 +134,16 @@ impl Render for MultisoulApp {
             {
                 root = root.child(self.render_desktop_workspace_top_bar(window, cx));
             }
+        }
+
+        // Voice feedback belongs to the window, outside the transformed project Scene
+        // and below Settings and dialogs. Embedded canvases never paint another copy.
+        if self.desktop_host.is_none() {
+            let voice_inset = self
+                .expanded_desktop_project()
+                .map(|project| project.read(cx).voice_window_inset_view.clone())
+                .unwrap_or_else(|| self.voice_window_inset_view.clone());
+            root = root.child(voice_inset);
         }
 
         if self.feature_guide.should_render() {
