@@ -131,6 +131,7 @@ fn desktop_command_dock_keeps_suggestions_and_keyboard_on_the_project() {
 ///   1. 绘制 Launchpad → 底部菜单和文本输入均隐藏。
 ///   2. Cmd+K 聚焦 → 按需显示输入；输入明确的中文记忆请求。
 ///   3. Enter → 尝试提交给 Norma，并反馈缺少模型的错误。
+///
 /// 预期结果：
 ///   - 正断言：快捷键后输入可见且保留中文，提交显示真实配置错误。
 ///   - 负断言：首页无常驻菜单；不伪造项目或会话，也不假报记忆已保存。
