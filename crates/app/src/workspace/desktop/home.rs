@@ -1,8 +1,8 @@
 use crate::app::MultisoulApp;
 use canvas::CanvasRect;
 use gpui::{
-    div, linear_color_stop, linear_gradient, prelude::*, px, rgba, Context, Div, Entity, Stateful,
-    Window, WindowControlArea,
+    div, img, prelude::*, px, rgba, Context, Div, Entity, ObjectFit, Stateful, Window,
+    WindowControlArea,
 };
 use ui::component::{
     button::{Button, ButtonCustomVariant, ButtonVariants},
@@ -16,21 +16,20 @@ pub(super) const POPOVER_ALPHA: u8 = 240;
 
 pub(crate) fn home_theme(id: ui::ThemeId) -> ui::Theme {
     let mut theme = crate::app::top_bar_theme(ui::Theme::for_id(id));
-    theme.panel = theme.dock;
-    // Hover adds 20/255 ≈ 8% opacity; press uses 240/255 ≈ 94%.
-    theme.panel_high = with_alpha(theme.dock, (theme.dock as u8).saturating_add(20));
-    theme.node_fill = with_alpha(theme.dock, 240);
-    theme.canvas_from = theme.dock;
-    // Only a 36/255 ≈ 14% inset tint; do not stack an opaque preview on the card.
-    theme.canvas_to = with_alpha(theme.dock, 0x24);
-    theme.node_stroke = theme.dock_line;
-    theme.edge_highlight = with_alpha(theme.dock_line, 0x80);
-    theme.accent = 0x0969daff;
+    theme.dock = 0x080d14ed;
+    theme.dock_line = 0xa0afbc4a;
+    theme.panel = 0x0d131be0;
+    theme.panel_high = 0x1c2732eb;
+    theme.node_fill = 0x253442f2;
+    theme.canvas_from = theme.panel;
+    theme.canvas_to = 0x080d15db;
+    theme.node_stroke = 0xa3b2bf59;
+    theme.edge_highlight = 0xb5c4cf88;
+    theme.focused_stroke = 0x89bde3ff;
+    theme.text_secondary = 0xcbd4dee8;
+    theme.text_tertiary = 0xb1becbc8;
+    theme.accent = 0x2b6aa5ff;
     theme
-}
-
-pub(crate) fn workspace_chrome_theme(id: ui::ThemeId) -> ui::Theme {
-    crate::app::top_bar_theme(home_theme(id))
 }
 
 pub(crate) fn home_primary_button(theme: ui::Theme, cx: &gpui::App) -> ButtonCustomVariant {
@@ -110,13 +109,6 @@ impl MultisoulApp {
                 .text_color(rgba(color))
                 .font_semibold()
                 .when(size >= 30.0, |heading| heading.font_bold())
-                .when(y >= heading_y + 86.0, |heading| {
-                    heading
-                        .px(px(8.0 * scale))
-                        .py(px(2.0 * scale))
-                        .rounded(px(5.0 * scale))
-                        .bg(rgba(theme.panel))
-                })
                 .child(text)
         };
         let mut content = div()
@@ -126,17 +118,14 @@ impl MultisoulApp {
             .when(!first_workspace, |content| {
                 content.child(
                     div()
-                        .debug_selector(|| "desktop-home-heading-surface".to_string())
+                        .debug_selector(|| "desktop-home-heading".to_string())
                         .absolute()
-                        .left(px((left - 12.0) * scale))
-                        .top(px((heading_y - 12.0) * scale))
+                        .left(px(left * scale))
+                        .top(px(heading_y * scale))
                         .max_w(px((full.size.x - 2.0 * left + 24.0) * scale))
                         .flex()
                         .flex_col()
                         .gap(px(2.0 * scale))
-                        .p(px(12.0 * scale))
-                        .rounded(px(12.0 * scale))
-                        .bg(rgba(theme.panel))
                         .child(
                             div()
                                 .text_size(px(38.0 * scale))
@@ -203,7 +192,9 @@ impl MultisoulApp {
         }
         content = content.children(workspaces.into_iter().zip(layout).enumerate().map(
             |(index, (workspace, rect))| {
-                let preview = super::layout::home_preview_rect(rect, full.size, index == 0);
+                let mut preview = super::layout::home_preview_panel_rect(rect, index == 0);
+                preview.origin.x += 1.0;
+                preview.origin.y += 1.0;
                 if !moving {
                     let mut anchor = preview;
                     anchor.origin.y += f32::from(scroll.y);
@@ -286,14 +277,21 @@ impl MultisoulApp {
                         .absolute()
                         .inset_0()
                         .debug_selector(|| "desktop-home-wallpaper".to_string())
-                        .child(self.render_workspace_backdrop()),
+                        .bg(rgba(0x030915ff))
+                        .child(
+                            img(crate::assets::HOME_BACKGROUND_ASSET)
+                                .absolute()
+                                .inset_0()
+                                .size_full()
+                                .object_fit(ObjectFit::Cover),
+                        ),
                 )
             })
             .child(page.opacity(chrome_opacity))
     }
 
     fn desktop_home_welcome(&self, size: canvas::Vec2, cx: &mut Context<Self>) -> Stateful<Div> {
-        let theme = self.theme;
+        let theme = home_theme(self.theme_id);
         let compact = size.x < 640.0 || size.y < 600.0;
         div()
             .id("desktop-home-welcome-area")
@@ -321,12 +319,7 @@ impl MultisoulApp {
                     .rounded(px(20.0))
                     .border_1()
                     .border_color(rgba(with_alpha(theme.text_primary, 0x20)))
-                    // A single 6–13% tint preserves the wallpaper instead of stacking white fills.
-                    .bg(linear_gradient(
-                        180.0,
-                        linear_color_stop(rgba(with_alpha(theme.panel_high, 0x20)), 0.0),
-                        linear_color_stop(rgba(with_alpha(theme.panel, 0x10)), 1.0),
-                    ))
+                    .bg(rgba(theme.panel))
                     .shadow_md()
                     .child(
                         div()
@@ -384,8 +377,7 @@ impl MultisoulApp {
         width: f32,
         cx: &mut Context<Self>,
     ) -> Div {
-        let theme = workspace_chrome_theme(self.theme_id);
-        let input_theme = ui::Theme::for_id(self.theme_id);
+        let theme = home_theme(self.theme_id);
         let has_workspaces = !self.desktop_workspace.workspaces.is_empty();
         let narrow = width < 640.0 && has_workspaces;
         let search = || {
@@ -403,11 +395,14 @@ impl MultisoulApp {
                 .items_center()
                 .rounded(px(8.0))
                 .border_1()
-                .border_color(rgba(with_alpha(input_theme.text_primary, 0x28)))
-                .bg(rgba(input_theme.canvas_to))
-                .child(Input::new(&input).appearance(false).cleanable(true).prefix(
-                    Icon::new(IconName::Search).text_color(rgba(input_theme.text_secondary)),
-                ))
+                .border_color(rgba(with_alpha(theme.text_primary, 0x28)))
+                .bg(rgba(with_alpha(theme.panel, 0xf0)))
+                .child(
+                    Input::new(&input)
+                        .appearance(false)
+                        .cleanable(true)
+                        .prefix(Icon::new(IconName::Search).text_color(rgba(theme.text_secondary))),
+                )
         };
         div()
             .debug_selector(|| "desktop-home-toolbar".to_string())

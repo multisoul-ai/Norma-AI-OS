@@ -123,14 +123,19 @@ fn desktop_command_dock_keeps_suggestions_and_keyboard_on_the_project() {
     });
 }
 
-/// 无项目时也有可见文本入口，个人记忆对话无需先配置语音或创建项目。
+/// 首页不常驻底部菜单，但无项目时仍可按 Cmd+K 进行个人记忆对话。
 ///
-/// 数据构造：独立空数据根，无工作空间和项目；窗口 1280×800 为桌面基准尺寸。
-/// 执行过程：绘制 Launchpad → Cmd+K 聚焦 → 输入明确的记忆请求 → Enter。
-/// 预期结果：输入保留中文；Enter 必须尝试真实提交并反馈缺少模型的错误；
-///   没有伪造项目，配置失败也不能创建会话或假报记忆已保存。
+/// 数据构造（含关键数值的推导过程）：
+///   独立空数据根中工作空间数 = 0、项目数 = 0；窗口 1280×800 为桌面基准尺寸。
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 绘制 Launchpad → 底部菜单和文本输入均隐藏。
+///   2. Cmd+K 聚焦 → 按需显示输入；输入明确的中文记忆请求。
+///   3. Enter → 尝试提交给 Norma，并反馈缺少模型的错误。
+/// 预期结果：
+///   - 正断言：快捷键后输入可见且保留中文，提交显示真实配置错误。
+///   - 负断言：首页无常驻菜单；不伪造项目或会话，也不假报记忆已保存。
 #[test]
-fn personal_memory_has_visible_text_entry_without_a_project() {
+fn personal_memory_input_is_on_demand_without_a_project() {
     let temp = tempfile::tempdir().expect("应创建独立数据根");
     let paths = storage::DatabasePaths::isolated_test(temp.path());
     let store = storage::AppStore::initialize(&paths).expect("应初始化存储");
@@ -144,12 +149,17 @@ fn personal_memory_has_visible_text_entry_without_a_project() {
     cx.simulate_resize(size(px(1280.0), px(800.0)));
     cx.update(|window, cx| window.draw(cx).clear());
     assert!(
-        cx.debug_bounds("command-dock-input").is_some(),
-        "无项目主页必须实际渲染文本输入，不能只放开聚焦代码"
+        cx.debug_bounds("workspace-command-dock").is_none(),
+        "无项目首页不能常驻底部菜单"
     );
     let host = host.expect("应创建宿主");
     host.update_in(cx, |app, window, _| app.focus_handle.focus(window));
     cx.simulate_keystrokes("cmd-k");
+    cx.update(|window, cx| window.draw(cx).clear());
+    assert!(
+        cx.debug_bounds("command-dock-input").is_some(),
+        "Cmd+K 后必须显示可用的个人对话输入"
+    );
     cx.simulate_input("请记住：我喜欢简洁中文");
     host.update(cx, |app, _| {
         assert_eq!(

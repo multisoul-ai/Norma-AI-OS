@@ -4,6 +4,44 @@ fn builtin(rel: &str) -> WallpaperReference {
     WallpaperReference::Builtin { rel: rel.into() }
 }
 
+/// 首页地球图可以作为 workspace 壁纸保存，其余 home 路径仍被拒绝。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   允许路径 1 条：home/earth-horizon.png；拒绝路径 1 条：home/other.png。
+///   独立数据库中创建 workspace 1 个，避免触碰用户数据。
+///
+/// 执行过程：
+///   1. 用地球图创建 workspace 并重新读取。
+///   2. 用其他 home 路径创建 workspace。
+///
+/// 预期结果：
+///   - 正断言：地球图引用可持久化并恢复。
+///   - 负断言：未经登记的 home 路径不能保存。
+#[test]
+fn earth_home_asset_is_a_valid_wallpaper_reference() {
+    let temp = tempfile::tempdir().expect("应创建隔离目录");
+    let store = DesktopWorkspaceStore::new(temp.path().join("app.sqlite"));
+    let earth = builtin("home/earth-horizon.png");
+    let workspace = store
+        .create_with_wallpaper("Earth", &earth)
+        .expect("应接受地球图引用");
+    assert_eq!(
+        store
+            .get(&workspace.id)
+            .expect("应读取 workspace")
+            .expect("workspace 应存在")
+            .wallpaper,
+        Some(earth),
+        "重新读取应保留地球图"
+    );
+    assert!(
+        store
+            .create_with_wallpaper("Other", &builtin("home/other.png"))
+            .is_err(),
+        "任意 home 图片不能绕过壁纸引用校验"
+    );
+}
+
 /// WP-01：工作空间壁纸独立持久化，新空间复制来源选择后不再跟随来源。
 ///
 /// 数据构造（含关键数值的推导过程）：

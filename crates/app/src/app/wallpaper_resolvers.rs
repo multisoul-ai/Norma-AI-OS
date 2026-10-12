@@ -73,7 +73,7 @@ impl WallpaperKind {
     }
 }
 
-/// 内置壁纸清单：固定 16 项，每项 `(相对资源路径, 显示名, kind)`。
+/// 内置壁纸清单：每项 `(相对资源路径, 显示名, kind)`。
 ///
 /// 相对路径形如 `wallpapers/1331865.webp`，是相对 app bundle 的 Resources 目录
 /// （打包态）或 `crates/app/assets/` 目录（开发态）的子路径。
@@ -83,7 +83,12 @@ impl WallpaperKind {
 ///   - 5 段 MP4
 pub(crate) fn builtin_wallpapers() -> &'static [(&'static str, &'static str, WallpaperKind)] {
     &[
-        ("wallpapers/1331865.webp", "Default", WallpaperKind::Static),
+        (
+            crate::assets::HOME_BACKGROUND_ASSET,
+            "Earth Horizon",
+            WallpaperKind::Static,
+        ),
+        ("wallpapers/1331865.webp", "Classic", WallpaperKind::Static),
         ("wallpapers/1350954.webp", "Aurora", WallpaperKind::Static),
         ("wallpapers/1358524.webp", "Nebula", WallpaperKind::Static),
         (

@@ -30,14 +30,7 @@ impl MultisoulApp {
             },
             featured,
         );
-        let content = super::layout::home_preview_rect(
-            CanvasRect {
-                origin: Vec2::ZERO,
-                size,
-            },
-            full,
-            featured,
-        );
+        let content = panel;
         let moving = self.desktop_directory_workspace_id() == Some(workspace.id.as_str());
         let opacity = if moving {
             self.desktop_workspace
@@ -136,8 +129,8 @@ impl MultisoulApp {
                         div()
                             .debug_selector(move || format!("desktop-workspace-content-{index}"))
                             .absolute()
-                            .left(px(scaled_content.origin.x - 1.0))
-                            .top(px(scaled_content.origin.y - 1.0))
+                            .left(px(scaled_content.origin.x))
+                            .top(px(scaled_content.origin.y))
                             .w(px(scaled_content.size.x))
                             .h(px(scaled_content.size.y))
                             .rounded(px(8.0 * scale))

@@ -15,6 +15,7 @@ pub(crate) mod preview;
 mod scope_view;
 pub(crate) mod scoped;
 pub(crate) mod state;
+mod transition;
 mod view;
 
 #[cfg(test)]
@@ -45,6 +46,10 @@ mod tests;
 #[cfg(test)]
 #[path = "../../tests/unit/wallpaper_render_id_tests.rs"]
 mod render_id_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/wallpaper_transition_tests.rs"]
+mod transition_tests;
 
 #[cfg(test)]
 #[path = "../../tests/unit/wallpaper_builtin_migration_tests.rs"]

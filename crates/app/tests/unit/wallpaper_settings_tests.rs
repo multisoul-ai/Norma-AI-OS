@@ -53,7 +53,7 @@ impl Drop for TestRootGuard {
     }
 }
 
-/// T-W1: load_default 在无偏好时返回默认内置壁纸 1331865.webp。
+/// T-W1: load_default 在无偏好时返回首页地球壁纸。
 ///
 /// 数据构造：
 ///   tempdir 作为 MULTISOUL_TEST_DATA_ROOT → app.sqlite 不存在
@@ -65,15 +65,15 @@ impl Drop for TestRootGuard {
 ///   2. SavedWallpaper::load 读取两条 KEY → 均 None → 回退默认 selection
 ///
 /// 预期结果：
-///   - 正断言：默认 selection 是 Builtin{rel ends_with("1331865.webp")}
-///   - 正断言：current_kind() == Static（默认壁纸是 WebP）
+///   - 正断言：默认 selection 是 Builtin{home/earth-horizon.png}
+///   - 正断言：current_kind() == Static（默认壁纸是 PNG）
 #[test]
 fn test_load_default_falls_back_to_default_wallpaper() {
     let _g = TestRootGuard::new();
     let s = WallpaperSettingsState::load_from_store(_g.settings_store());
     assert!(
-        matches!(s.selection, WallpaperSelection::Builtin { rel } if rel.ends_with("1331865.webp")),
-        "default selection must be the embedded default wallpaper"
+        matches!(s.selection, WallpaperSelection::Builtin { rel } if rel == crate::assets::HOME_BACKGROUND_ASSET),
+        "default selection must be the earth wallpaper"
     );
     assert_eq!(
         s.current_kind(),
@@ -96,7 +96,7 @@ fn test_load_default_falls_back_to_default_wallpaper() {
 ///
 /// 预期结果：
 ///   - 正断言：s2.selection == Builtin{rel == "wallpapers/220240.gif"}
-///   - 负断言：s2.selection 不应仍是默认 1331865.webp
+///   - 负断言：s2.selection 不应仍是默认地球图
 #[test]
 fn test_builtin_selection_round_trips_through_persistence() {
     let _g = TestRootGuard::new();
@@ -110,7 +110,7 @@ fn test_builtin_selection_round_trips_through_persistence() {
         "reloaded selection must be the gif builtin we just saved"
     );
     assert!(
-        !matches!(&s2.selection, WallpaperSelection::Builtin { rel } if rel.ends_with("1331865.webp")),
+        !matches!(&s2.selection, WallpaperSelection::Builtin { rel } if *rel == crate::assets::HOME_BACKGROUND_ASSET),
         "reloaded selection must NOT be the default after explicit select_builtin"
     );
 }
@@ -125,10 +125,10 @@ fn test_builtin_selection_round_trips_through_persistence() {
 /// 执行过程：
 ///   1. s.select_custom("mine.png") → selection=Custom 且两条 KEY 写盘
 ///   2. s.delete_custom("mine.png") → 删 tempdir/wallpapers/mine.png；因 custom 是当前选中
-///      → 回退默认 Builtin{1331865.webp} 并持久化
+///      → 回退默认 Builtin{home/earth-horizon.png} 并持久化
 ///
 /// 预期结果：
-///   - 正断言：删后 selection 是 Builtin{ends_with("1331865.webp")}
+///   - 正断言：删后 selection 是 Builtin{home/earth-horizon.png}
 ///   - 正断言：mine.png 文件已从磁盘移除
 ///   - 负断言：删后 selection 不应仍为 Custom
 #[test]
@@ -144,7 +144,7 @@ fn test_delete_custom_falls_back_to_default_and_removes_file() {
     s.delete_custom("mine.png");
 
     assert!(
-        matches!(s.selection, WallpaperSelection::Builtin { rel } if rel.ends_with("1331865.webp")),
+        matches!(s.selection, WallpaperSelection::Builtin { rel } if rel == crate::assets::HOME_BACKGROUND_ASSET),
         "deleting the in-use custom must fall back to default"
     );
     assert!(
@@ -219,8 +219,8 @@ fn test_resolve_path_uses_disk_resources_for_builtin_and_custom_wallpapers() {
         .resolve_path()
         .expect("default builtin must resolve to a real on-disk path in dev");
     assert!(
-        default_path.ends_with("wallpapers/1331865.webp"),
-        "default Static builtin must resolve to wallpapers/1331865.webp; got {default_path:?}"
+        default_path.ends_with("home/earth-horizon.png"),
+        "default Static builtin must resolve to home/earth-horizon.png; got {default_path:?}"
     );
 
     // Gif builtin.

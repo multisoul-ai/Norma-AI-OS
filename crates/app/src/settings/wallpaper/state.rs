@@ -52,6 +52,7 @@ pub(crate) enum WallpaperSelection {
 #[derive(Clone, Debug)]
 pub(crate) struct WallpaperSettingsState {
     pub(crate) selection: WallpaperSelection,
+    pub(super) transition: Option<super::transition::WallpaperTransition>,
     storage: Option<SettingsStore>,
     pub(crate) scoped: super::scoped::ScopedWallpaperState,
 }
@@ -79,6 +80,7 @@ impl WallpaperSettingsState {
                         Vec::new(),
                     ),
                     selection: loaded.selection,
+                    transition: None,
                     storage: store,
                 };
                 if loaded.needs_persist {
@@ -104,6 +106,7 @@ impl WallpaperSettingsState {
             selection: WallpaperSelection::Builtin {
                 rel: DEFAULT_WALLPAPER_ASSET,
             },
+            transition: None,
             storage,
             scoped: super::scoped::ScopedWallpaperState::new(
                 WallpaperSelection::default(),
@@ -149,10 +152,7 @@ impl WallpaperSettingsState {
     /// The key covers all render paths: builtins (incl. default fallback) and
     /// customs; switching kind (e.g. video↔image) also changes the key.
     pub(crate) fn render_id_key(&self) -> String {
-        match &self.selection {
-            WallpaperSelection::Builtin { rel } => format!("builtin:{rel}"),
-            WallpaperSelection::Custom { filename } => format!("custom:{filename}"),
-        }
+        self.selection.render_id_key()
     }
 
     /// Whether the given builtin rel path is the currently selected wallpaper.
@@ -176,18 +176,7 @@ impl WallpaperSettingsState {
     /// exists. Returns None when resolution fails — callers should fall back
     /// to the default wallpaper.
     pub(crate) fn resolve_path(&self) -> Option<PathBuf> {
-        match &self.selection {
-            WallpaperSelection::Builtin { rel } => resolve_builtin_asset(rel),
-            WallpaperSelection::Custom { filename } => {
-                let dir = custom_wallpapers_dir()?;
-                let path = dir.join(filename);
-                if path.is_file() {
-                    Some(path)
-                } else {
-                    None
-                }
-            }
-        }
+        resolve_selection_path(&self.selection)
     }
 
     /// Build the GPUI [`ImageSource`] the chrome wallpaper layer should render.
@@ -206,10 +195,13 @@ impl WallpaperSettingsState {
     ///   falls back to the default builtin image asset so the canvas never
     ///   renders a blank backdrop.
     pub(crate) fn image_source_for_render(&self) -> gpui::ImageSource {
-        match self.current_kind() {
+        Self::image_source_for_selection(&self.selection)
+    }
+
+    pub(crate) fn image_source_for_selection(selection: &WallpaperSelection) -> gpui::ImageSource {
+        match selection_kind(selection) {
             WallpaperKind::Video => default_wallpaper_image_source(),
-            WallpaperKind::Static | WallpaperKind::Gif => self
-                .resolve_path()
+            WallpaperKind::Static | WallpaperKind::Gif => resolve_selection_path(selection)
                 .map(gpui::ImageSource::from)
                 .unwrap_or_else(default_wallpaper_image_source),
         }
@@ -396,7 +388,7 @@ fn load_saved_selection(store: &SettingsStore) -> storage::StorageResult<Option<
 /// (shouldn't happen — builtins come from the registry) defaults to Static.
 /// Unknown custom extension also defaults to Static rather than being
 /// unrenderable, matching the strictest-but-safe behavior.
-fn selection_kind(sel: &WallpaperSelection) -> WallpaperKind {
+pub(super) fn selection_kind(sel: &WallpaperSelection) -> WallpaperKind {
     match sel {
         WallpaperSelection::Builtin { rel } => builtin_wallpapers()
             .iter()
@@ -409,6 +401,16 @@ fn selection_kind(sel: &WallpaperSelection) -> WallpaperKind {
                 .and_then(|e| e.to_str())
                 .unwrap_or("");
             WallpaperKind::from_extension(ext).unwrap_or(WallpaperKind::Static)
+        }
+    }
+}
+
+fn resolve_selection_path(selection: &WallpaperSelection) -> Option<PathBuf> {
+    match selection {
+        WallpaperSelection::Builtin { rel } => resolve_builtin_asset(rel),
+        WallpaperSelection::Custom { filename } => {
+            let path = custom_wallpapers_dir()?.join(filename);
+            path.is_file().then_some(path)
         }
     }
 }
@@ -435,6 +437,13 @@ impl Default for WallpaperSelection {
 }
 
 impl WallpaperSelection {
+    pub(crate) fn render_id_key(&self) -> String {
+        match self {
+            Self::Builtin { rel } => format!("builtin:{rel}"),
+            Self::Custom { filename } => format!("custom:{filename}"),
+        }
+    }
+
     pub(crate) fn reference(&self) -> storage::WallpaperReference {
         match self {
             Self::Builtin { rel } => storage::WallpaperReference::Builtin { rel: (*rel).into() },

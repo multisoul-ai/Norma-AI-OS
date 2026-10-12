@@ -119,14 +119,19 @@ impl MultisoulApp {
             // Voice window inset owns an independent child driver. Dock and caption share
             // the root waveform schedule because both render inside workspace chrome.
             voice_active: self.voice_caption_animation_active(),
-            canvas_motion_active: motion_activity.canvas_active || command_drawer_active,
+            canvas_motion_active: motion_activity.canvas_active
+                || command_drawer_active
+                || self.wallpaper_settings.transition_active(),
             canvas_frame_synced_active: motion_activity.frame_synced_active
-                || command_drawer_active,
+                || command_drawer_active
+                || self.wallpaper_settings.transition_active(),
             canvas_ambient_active: motion_activity.ambient_active || self.browsers.any_loading(),
             cursor_active: self.focused_terminal_cursor_animation_active(),
             // The shared Dock also animates on the personal/workspace overview.
             // Once its transition settles, a non-Canvas screen returns to idle cadence.
-            screen_is_canvas: matches!(self.screen, AppScreen::Canvas) || command_drawer_active,
+            screen_is_canvas: matches!(self.screen, AppScreen::Canvas)
+                || command_drawer_active
+                || self.wallpaper_settings.transition_active(),
             window_active: self.window_active,
             settings_open: self.settings_panel.open,
             next_visual_boundary: motion_activity.next_visual_boundary,
@@ -168,6 +173,7 @@ impl MultisoulApp {
                 .drawer
                 .tick(animation_delta, self.motion.reduce_motion);
         }
+        motion_changed |= self.wallpaper_settings.tick_transition(animation_delta);
         let cursor_changed = self.advance_terminal_cursor_phase(animation_delta);
         let voice_caption_changed = self.advance_voice_caption_waveform(animation_delta);
         self.tts_preview.synchronize_external_cancellation();

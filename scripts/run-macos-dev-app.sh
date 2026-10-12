@@ -164,6 +164,7 @@ if [ "$binary_name" = "norma-os" ]; then
   mkdir -p "$bundle_resources"
   cp -R "$repo_root/packaging/macos/en.lproj" "$bundle_resources/"
   cp -R "$repo_root/packaging/macos/zh-CN.lproj" "$bundle_resources/"
+  cp -R "$repo_root/crates/app/assets/home" "$bundle_resources/"
   cp -R "$wallpaper_resources" "$bundle_resources/"
   if [ ! -d "$feature_guide_resources" ]; then
     echo "Feature Guide resources are missing: $feature_guide_resources" >&2

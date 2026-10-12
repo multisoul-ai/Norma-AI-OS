@@ -63,7 +63,7 @@ pub(crate) fn register_window(app: WeakEntity<MultisoulApp>, cx: &mut App) {
                         tracing::warn!(%error, "optional media catalog unavailable");
                     }
                 }
-                notify_subscribers(true, cx);
+                notify_subscribers(true, None, cx);
             });
         })
         .detach();
@@ -158,7 +158,7 @@ pub(crate) fn request(rel: &str, retry: bool, cx: &mut App) {
         }
     })
     .detach();
-    cx.defer(|cx| notify_subscribers(false, cx));
+    cx.defer(|cx| notify_subscribers(false, None, cx));
 }
 
 pub(crate) fn cancel(rel: &str, cx: &mut App) {
@@ -172,7 +172,7 @@ pub(crate) fn cancel(rel: &str, cx: &mut App) {
     if let Some((_, flag)) = library.cancellations.remove(rel) {
         flag.cancel();
     }
-    cx.defer(|cx| notify_subscribers(false, cx));
+    cx.defer(|cx| notify_subscribers(false, None, cx));
 }
 
 pub(crate) fn shutdown(cx: &mut App) {
@@ -186,16 +186,19 @@ pub(crate) fn shutdown(cx: &mut App) {
 
 fn receive(rel: &str, id: TransferId, event: DownloadEvent, cx: &mut App) {
     let library = cx.global_mut::<SharedMedia>();
-    let (changed, ready) = match event {
+    let (changed, refresh, image_ready) = match event {
         DownloadEvent::CacheInvalidated => {
             let current = library.transfers.progress(rel, id, 0);
             if current {
                 cache::revoke(rel);
             }
-            (current, current)
+            (current, current, false)
         }
-        DownloadEvent::Progress(received) => (library.transfers.progress(rel, id, received), false),
+        DownloadEvent::Progress(received) => {
+            (library.transfers.progress(rel, id, received), false, false)
+        }
         DownloadEvent::Finished(result) => {
+            let was_missing = cache::resolve(rel).is_none();
             let path = result.as_ref().ok().cloned();
             if let Err(error) = &result {
                 tracing::warn!(rel, %error, "optional media transfer failed");
@@ -213,18 +216,23 @@ fn receive(rel: &str, id: TransferId, event: DownloadEvent, cx: &mut App) {
             {
                 library.cancellations.remove(rel);
             }
-            (changed, changed && path.is_some())
+            let ready = changed && path.is_some();
+            (changed, ready, ready && was_missing)
         }
     };
     if changed {
-        notify_subscribers(ready, cx);
+        notify_subscribers(refresh, image_ready.then_some(rel), cx);
     }
 }
 
-fn notify_subscribers(refresh_media: bool, cx: &mut App) {
+fn notify_subscribers(refresh_media: bool, image_ready: Option<&str>, cx: &mut App) {
     let subscribers = cx.global::<SharedMedia>().subscribers.clone();
     for subscriber in subscribers {
         let _ = subscriber.update(cx, |app, cx| {
+            if let Some(rel) = image_ready {
+                app.wallpaper_settings
+                    .image_resource_ready(rel, app.motion.reduce_motion);
+            }
             if refresh_media {
                 app.refresh_optional_media(cx);
             }

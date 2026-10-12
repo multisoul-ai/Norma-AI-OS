@@ -6,7 +6,8 @@ use std::borrow::Cow;
 
 pub const APP_ICON_ASSET: &str = "icons/app-icon.png";
 pub const APP_LOGO_ASSET: &str = "icons/logo.png";
-pub const DEFAULT_WALLPAPER_ASSET: &str = "wallpapers/1331865.webp";
+pub const HOME_BACKGROUND_ASSET: &str = "home/earth-horizon.png";
+pub const DEFAULT_WALLPAPER_ASSET: &str = HOME_BACKGROUND_ASSET;
 /// Toolbar SVG icon asset paths. These mirror `crate::ui::icons::ToolbarIcon::asset_path`
 /// exactly (icons/toolbar-<name>.svg) so GPUI `svg().path(...)` can resolve them.
 pub const TOOLBAR_SCROLL_ASSET: &str = "icons/toolbar-scroll.svg";
@@ -31,6 +32,7 @@ pub const SETTINGS_NAV_HOOKS_ASSET: &str = "icons/settings-nav-hooks.svg";
 pub const SETTINGS_CHECK_UPDATES_ASSET: &str = "icons/settings-check-updates.svg";
 const APP_ICON_BYTES: &[u8] = include_bytes!("../assets/icons/app-icon.png");
 const APP_LOGO_BYTES: &[u8] = include_bytes!("../assets/icons/logo.png");
+const HOME_BACKGROUND_BYTES: &[u8] = include_bytes!("../assets/home/earth-horizon.png");
 
 const TOOLBAR_SCROLL_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-scroll.svg");
 const TOOLBAR_LAYOUT_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-layout.svg");
@@ -111,6 +113,7 @@ impl AssetSource for EmbeddedAssets {
             )))),
             APP_ICON_ASSET => Ok(Some(Cow::Borrowed(APP_ICON_BYTES))),
             APP_LOGO_ASSET => Ok(Some(Cow::Borrowed(APP_LOGO_BYTES))),
+            HOME_BACKGROUND_ASSET => Ok(Some(Cow::Borrowed(HOME_BACKGROUND_BYTES))),
             TOOLBAR_SCROLL_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_SCROLL_BYTES))),
             TOOLBAR_LAYOUT_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_LAYOUT_BYTES))),
             TOOLBAR_PLUS_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_PLUS_BYTES))),
@@ -143,7 +146,11 @@ impl AssetSource for EmbeddedAssets {
 
     fn list(&self, path: &str) -> Result<Vec<SharedString>> {
         match path {
-            "" => Ok(vec![SharedString::from("icons")]),
+            "" => Ok(vec![
+                SharedString::from("icons"),
+                SharedString::from("home"),
+            ]),
+            "home" => Ok(vec![SharedString::from("earth-horizon.png")]),
             "icons" => Ok(vec![
                 SharedString::from("chevron-down.svg"),
                 SharedString::from("chevron-up.svg"),
@@ -196,7 +203,7 @@ mod assets_tests;
 mod tests {
     use super::*;
 
-    /// 内置壁纸资产：默认壁纸只由 bundle Resources 分发，不应重复嵌入主二进制。
+    /// 旧版内置壁纸只由 bundle Resources 分发，不应重复嵌入主二进制。
     ///
     /// 数据构造（含关键数值的推导过程）：
     ///   asset path = "wallpapers/1331865.webp"
@@ -205,25 +212,25 @@ mod tests {
     ///   embedded copy = 0 bytes（避免与 packaged copy 重复）
     ///
     /// 执行过程（逐步说明系统如何处理）：
-    ///   1. EmbeddedAssets.load(DEFAULT_WALLPAPER_ASSET) → 返回 None
+    ///   1. EmbeddedAssets.load("wallpapers/1331865.webp") → 返回 None
     ///   2. EmbeddedAssets.load("wallpapers/missing.png") → 返回 None
     ///
     /// 预期结果：
-    ///   - 正断言：默认壁纸不由 EmbeddedAssets 返回
+    ///   - 正断言：旧版壁纸不由 EmbeddedAssets 返回
     ///   - 负断言：未知壁纸同样不应返回任何嵌入字节
     #[test]
     fn test_embedded_assets_do_not_duplicate_packaged_wallpaper_bytes() {
         let assets = EmbeddedAssets;
         let default = assets
-            .load(DEFAULT_WALLPAPER_ASSET)
-            .expect("default wallpaper lookup should not fail");
+            .load("wallpapers/1331865.webp")
+            .expect("classic wallpaper lookup should not fail");
         let missing = assets
             .load("wallpapers/missing.png")
             .expect("unknown wallpaper lookup should not fail");
 
         assert!(
             default.is_none(),
-            "packaged default wallpaper must not also be embedded in the main binary"
+            "packaged classic wallpaper must not also be embedded in the main binary"
         );
         assert!(
             missing.is_none(),
@@ -270,18 +277,18 @@ mod tests {
         );
     }
 
-    /// 内置资产目录：只枚举真正写入主二进制的图标，壁纸由 bundle Resources 分发。
+    /// 内置资产目录：图标和首页背景写入主二进制，壁纸由 bundle Resources 分发。
     ///
     /// 数据构造（含关键数值的推导过程）：
-    ///   root = "" → 1 个顶层目录（icons）
+    ///   root = "" → 2 个顶层目录（icons、home）
     ///   wallpapers embedded entries = 0（11 张图片均只保留 bundle copy）
     ///
     /// 执行过程（逐步说明系统如何处理）：
-    ///   1. list root/icons/wallpapers
-    ///   2. 校验 root 暴露 icons，icons 非空，wallpapers 为空
+    ///   1. list root/icons/home/wallpapers
+    ///   2. 校验 root 暴露 icons、home，icons 非空、home 恰有固定背景，wallpapers 为空
     ///
     /// 预期结果：
-    ///   - 正断言：root 精确包含 icons，且图标目录仍可枚举
+    ///   - 正断言：root 精确包含 icons 和 home，且两个目录仍可枚举
     ///   - 负断言：root 不包含 wallpapers，wallpapers 不返回任何嵌入项
     #[test]
     fn test_embedded_assets_list_only_binary_assets() {
@@ -292,18 +299,26 @@ mod tests {
         let icons = assets
             .list("icons")
             .expect("icon embedded asset listing should not fail");
+        let home = assets
+            .list("home")
+            .expect("home embedded asset listing should not fail");
         let wallpapers = assets
             .list("wallpapers")
             .expect("wallpaper embedded asset listing should not fail");
 
         assert_eq!(
             root,
-            vec![SharedString::from("icons")],
-            "root asset listing should expose only the actually embedded icons directory"
+            vec![SharedString::from("icons"), SharedString::from("home")],
+            "root asset listing should expose only actually embedded directories"
         );
         assert!(
             !icons.is_empty(),
             "embedded icons directory must remain available after wallpaper deduplication"
+        );
+        assert_eq!(
+            home,
+            vec![SharedString::from("earth-horizon.png")],
+            "embedded home directory should contain only the selected fixed background"
         );
         assert!(
             wallpapers.is_empty(),

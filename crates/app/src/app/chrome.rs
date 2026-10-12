@@ -7,6 +7,7 @@ pub(crate) use top_bar::{top_bar_theme, TOP_BAR_HEIGHT};
 
 use super::MultisoulApp;
 use crate::app::wallpaper_resolvers::WallpaperKind;
+use crate::settings::wallpaper::state::WallpaperSettingsState;
 use gpui::{
     div, img, linear_color_stop, linear_gradient, point, prelude::*, px, rgba, BoxShadow, Context,
     Div, ObjectFit, Stateful, Window,
@@ -142,16 +143,39 @@ impl MultisoulApp {
             .size_full()
             .overflow_hidden();
 
-        match self.wallpaper_settings.current_kind() {
+        let host = match self.wallpaper_settings.current_kind() {
             WallpaperKind::Video => {
                 #[cfg(target_os = "macos")]
                 if let Some(frame) = self.render_video_wallpaper_surface() {
-                    return host.child(frame);
+                    return self.render_wallpaper_transition(host.child(frame));
                 }
                 host.child(self.wallpaper_img())
             }
             WallpaperKind::Static | WallpaperKind::Gif => host.child(self.wallpaper_img()),
-        }
+        };
+        self.render_wallpaper_transition(host)
+    }
+
+    fn render_wallpaper_transition(&self, host: Div) -> Div {
+        self.wallpaper_settings
+            .transition_layers()
+            .enumerate()
+            .fold(host, |host, (index, (previous, opacity))| {
+                let id = if index == 0 {
+                    previous.render_id_key()
+                } else {
+                    format!("wallpaper-previous-{index}:{}", previous.render_id_key())
+                };
+                host.child(
+                    img(WallpaperSettingsState::image_source_for_selection(previous))
+                        .id(gpui::SharedString::from(id))
+                        .absolute()
+                        .inset_0()
+                        .size_full()
+                        .object_fit(ObjectFit::Cover)
+                        .opacity(opacity),
+                )
+            })
     }
 
     /// The default image wallpaper element (Static/Gif + Video fallback).

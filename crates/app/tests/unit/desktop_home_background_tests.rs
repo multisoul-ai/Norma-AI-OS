@@ -1,21 +1,21 @@
 use crate::app::{AppScreen, MultisoulApp};
 use gpui::{px, size, AppContext, TestAppContext};
 
-/// 首页只在标题附近提供阅读衬底，壁纸不会被整页浅色遮罩冲淡。
+/// 首页固定地球背景铺满全窗，标题直接放在深色星空上。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   1 个空工作空间；1280×800 窗口面积 = 1,024,000px²。
-///   标题衬底面积上限 = 窗口面积 / 20 = 51,200px²，即最多覆盖 5%。
+///   标题区域面积上限 = 窗口面积 / 20 = 51,200px²，即最多覆盖 5%。
 ///   Paper Blue 与 Sapphire Night 分别覆盖浅、深主题，不创建项目或 PTY。
 /// 执行过程：
 ///   1. 打开隔离首页，分别绘制浅、深主题。
-///   2. 读取壁纸、标题阅读衬底和首张卡片的真实布局边界。
+///   2. 读取固定背景、标题区域和首张卡片的真实布局边界。
 ///
 /// 预期结果：
-///   - 正断言：壁纸铺满窗口；标题有局部衬底且不超过窗口面积的 5%。
-///   - 负断言：阅读衬底不能覆盖整窗、顶部栏或工作空间卡片。
+///   - 正断言：背景铺满窗口；标题区域不超过窗口面积的 5%。
+///   - 负断言：旧标题胶囊和常驻底部菜单不再显示，标题区域不能覆盖顶部栏或卡片。
 #[test]
-fn desktop_home_reading_surface_stays_local_to_heading() {
+fn desktop_home_earth_background_keeps_heading_unboxed() {
     let temp = tempfile::tempdir().expect("应创建隔离目录");
     let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
     let store = storage::AppStore::initialize(&paths).expect("应初始化数据库");
@@ -44,14 +44,18 @@ fn desktop_home_reading_surface_stays_local_to_heading() {
             .debug_bounds("desktop-home-wallpaper")
             .expect("应显示壁纸");
         let reading = cx
-            .debug_bounds("desktop-home-heading-surface")
-            .expect("标题必须有局部阅读衬底");
+            .debug_bounds("desktop-home-heading")
+            .expect("首页必须显示无底色标题");
         let toolbar = cx
             .debug_bounds("desktop-home-toolbar")
             .expect("应显示顶部栏");
         let card = cx
             .debug_bounds("desktop-home-card-0")
             .expect("应显示工作空间卡片");
+        assert!(
+            cx.debug_bounds("workspace-command-dock").is_none(),
+            "{id:?} 首页不应常驻遮挡卡片的底部菜单"
+        );
         assert_eq!(
             wallpaper.size,
             size(px(1280.0), px(800.0)),
@@ -61,9 +65,13 @@ fn desktop_home_reading_surface_stays_local_to_heading() {
         // 1280 × 800 / 20 = 51,200：阅读保护限于标题附近，不能压低全屏饱和度。
         assert!(
             reading_area <= 51_200.0,
-            "{id:?} 阅读衬底不能超过窗口面积的 5%"
+            "{id:?} 标题区域不能超过窗口面积的 5%"
         );
-        assert_ne!(reading, wallpaper, "{id:?} 阅读衬底不能成为整页遮罩");
+        assert!(
+            cx.debug_bounds("desktop-home-heading-surface").is_none(),
+            "{id:?} 旧标题胶囊必须移除"
+        );
+        assert_ne!(reading, wallpaper, "{id:?} 标题不能成为整页遮罩");
         assert!(
             reading.top() >= toolbar.bottom(),
             "{id:?} 阅读衬底不能覆盖顶部栏"
