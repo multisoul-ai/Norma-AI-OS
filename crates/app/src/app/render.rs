@@ -123,10 +123,10 @@ impl Render for MultisoulApp {
             }
         }
 
-        if matches!(
-            self.screen,
-            AppScreen::DesktopWorkspace | AppScreen::Launchpad
-        ) && !feature_guide_visible
+        if !feature_guide_visible
+            && (matches!(self.screen, AppScreen::DesktopWorkspace)
+                || (matches!(self.screen, AppScreen::Launchpad)
+                    && self.command_input_focused(window, cx)))
         {
             root = root.child(self.render_desktop_dock(window, cx));
             if matches!(self.screen, AppScreen::DesktopWorkspace)

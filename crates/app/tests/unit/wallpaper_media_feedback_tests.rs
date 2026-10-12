@@ -198,3 +198,86 @@ fn wallpaper_library_exposes_download_before_selection() {
         "已下载资源不得继续显示需下载"
     );
 }
+
+/// 缓存命中的重试不应让已显示的壁纸闪回地球；失效后重新下载则应淡入。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   选择 74174.webp；缓存文件 3 bytes（"abc"）；两次传输分别从 Ready 和 Ready 后失效开始。
+///   正常图片淡化为 220ms；完成事件对应新过渡的第 0ms。
+///
+/// 执行过程：
+///   1. 预置已验证缓存，以 retry=true 开始传输并完成。
+///   2. 再以 retry=true 开始传输，先发失效事件，再发完成事件。
+///
+/// 预期结果：
+///   - 正断言：失效后的完成事件为当前图片建立从地球图淡出的过渡。
+///   - 负断言：缓存命中的完成事件不得启动过渡或插入地球图。
+#[test]
+fn cached_wallpaper_retry_does_not_flash_fallback() {
+    const REL: &str = "wallpapers/74174.webp";
+    let temp = tempfile::tempdir().expect("应创建隔离测试目录");
+    let path = temp.path().join("cached.webp");
+    std::fs::write(&path, b"abc").expect("应创建测试缓存文件");
+    let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
+    let store = storage::AppStore::initialize(&paths).expect("应初始化隔离数据库");
+    let mut test = TestAppContext::single();
+    test.update(ui::init_components);
+    let mut saved_app = None;
+    let (_, cx) = test.add_window_view(|_, cx| {
+        let app = cx.new(|cx| MultisoulApp::new_with_database_context(cx, paths, store));
+        saved_app = Some(app.clone());
+        WallpaperPageFixture { app }
+    });
+    let app = saved_app.expect("应保留壁纸页面的 App 状态");
+    cx.run_until_parked();
+    app.update(cx, |app, _| {
+        app.wallpaper_settings.selection =
+            crate::settings::wallpaper::state::WallpaperSelection::Builtin { rel: REL };
+    });
+
+    cx.update(|_, cx| {
+        let mut library = SharedMedia::default();
+        library.subscribers.push(app.downgrade());
+        library.transfers.seed_verified(REL, path.clone());
+        let id = library
+            .transfers
+            .begin(REL, 3, true)
+            .expect("Ready 图片应允许显式重试");
+        cache::publish(REL, path.clone());
+        cx.set_global(library);
+        receive(REL, id, DownloadEvent::Finished(Ok(path.clone())), cx);
+    });
+    app.read_with(cx, |app, _| {
+        assert_eq!(
+            app.wallpaper_settings.selection,
+            crate::settings::wallpaper::state::WallpaperSelection::Builtin { rel: REL },
+            "缓存命中后应继续显示所选图片"
+        );
+        assert!(
+            !app.wallpaper_settings.transition_active(),
+            "已显示的缓存图片不应闪回地球图"
+        );
+    });
+
+    cx.update(|_, cx| {
+        let id = cx
+            .global_mut::<SharedMedia>()
+            .transfers
+            .begin(REL, 3, true)
+            .expect("Ready 图片失效前应允许重试");
+        receive(REL, id, DownloadEvent::CacheInvalidated, cx);
+        receive(REL, id, DownloadEvent::Finished(Ok(path.clone())), cx);
+    });
+    app.read_with(cx, |app, _| {
+        assert_eq!(
+            app.wallpaper_settings.transition_from(),
+            Some(&crate::settings::wallpaper::state::WallpaperSelection::default()),
+            "失效后重新下载应从地球回退画面淡入"
+        );
+        assert!(
+            app.wallpaper_settings.transition_active(),
+            "真实新资源到达时应启动图片过渡"
+        );
+    });
+    cache::revoke(REL);
+}

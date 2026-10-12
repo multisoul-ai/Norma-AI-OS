@@ -169,8 +169,8 @@ fn desktop_workspace_card_keyboard_does_not_open_from_child_buttons() {
 ///   3 列卡宽 = (1280-112-2×16)/3，卡高 = 卡宽×800/1280；第 4 项进入第二行。
 ///   GPUI 布局会取整到像素：高度容差 0.5px，约 180px 内容高的比例误差小于 0.01。
 /// 执行过程：渲染真实目录 → 检查标题/菜单边界及两行间距 → 点击菜单 → 点击名称。
-/// 预期结果：标题、菜单都在卡内且不重叠，行距仅 16px，不额外预留 60px；
-///   菜单停留目录，名称进入对应空间，不自动展开项目。
+/// 预期结果：标题、菜单都在卡内且不重叠，空状态标题至少 16px 高并居中；
+///   行距仅 16px；菜单停留目录，名称进入对应空间，不自动展开项目。
 #[test]
 fn desktop_workspace_card_keeps_title_inside_and_menu_local() {
     let temp = tempfile::tempdir().expect("应创建隔离目录");
@@ -220,6 +220,9 @@ fn desktop_workspace_card_keeps_title_inside_and_menu_local() {
     let content = cx
         .debug_bounds("desktop-workspace-content-0")
         .expect("应有真实画布内容区");
+    let empty_title = cx
+        .debug_bounds("desktop-workspace-empty-title-0")
+        .expect("空工作空间应显示可读的预览标题");
     assert!(content.top() >= header.bottom(), "画布缩略图不能覆盖标题栏");
     assert!(
         content.bottom() < card.bottom() && content.left() > card.left(),
@@ -228,6 +231,14 @@ fn desktop_workspace_card_keeps_title_inside_and_menu_local() {
     assert!(
         ((content.size.width / content.size.height) - 1280.0 / 800.0).abs() < 0.01,
         "画布必须保持原视口宽高比（允许布局像素取整）：{content:?}"
+    );
+    assert!(
+        f32::from(empty_title.size.height) >= 16.0,
+        "空状态标题不能按整张画布的缩略比例缩成小字"
+    );
+    assert!(
+        empty_title.center().x >= content.left() && empty_title.center().x <= content.right(),
+        "空状态标题应位于预览内容区中央"
     );
     let next_row = cx
         .debug_bounds("desktop-workspace-card-3")
@@ -282,6 +293,80 @@ fn desktop_workspace_card_keeps_title_inside_and_menu_local() {
             "进入空间不能自动展开项目"
         );
     });
+}
+
+/// 窄窗口的空工作空间预览保留可读标题，内容不被卡片裁切。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   940×400 窗口刚进入三列布局，卡宽下限 280，高=400×280/940≈119.15；
+///   内容区按画布比例适配为约 148×63；英文标题换成两行约 42px，
+///   加 30px 图标就超过 63px。1280×800 时内容充足，应显示完整说明。
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 绘制 940×400 的三列目录，读取第一张卡的内容与标题边界。
+///   2. 改为 1280×800，确认完整空状态说明恢复。
+///
+/// 预期结果：
+///   - 窄窗标题完整位于内容区内，标题高度至少 18px。
+///   - 窄窗不显示放不下的图标和次要说明；宽窗必须显示说明。
+#[test]
+fn desktop_workspace_empty_preview_fits_narrow_window() {
+    let temp = tempfile::tempdir().expect("应创建隔离目录");
+    let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
+    let store = storage::AppStore::initialize(&paths).expect("应初始化存储");
+    let catalog = store.desktop_workspace_store();
+    let workspaces = ["Alpha", "Beta", "Gamma"]
+        .into_iter()
+        .map(|name| catalog.create(name).expect("应创建空工作空间"))
+        .collect();
+    let mut test = TestAppContext::single();
+    let (view, cx) = test.add_window_view(|_, cx| {
+        DirectoryView(cx.new(|cx| MultisoulApp::new_with_database_context(cx, paths, store)))
+    });
+    let host = view.update(cx, |view, _| view.0.clone());
+    cx.simulate_resize(size(px(940.0), px(400.0)));
+    cx.run_until_parked();
+    host.update(cx, |app, cx| {
+        app.screen = AppScreen::Launchpad;
+        app.desktop_workspace.home_directory = false;
+        app.desktop_workspace.switcher_open = true;
+        app.desktop_workspace.workspaces = workspaces;
+        cx.notify();
+    });
+    cx.update(|window, cx| window.draw(cx).clear());
+    let content = cx
+        .debug_bounds("desktop-workspace-content-0")
+        .expect("窄窗应绘制内容区");
+    let title = cx
+        .debug_bounds("desktop-workspace-empty-title-0")
+        .expect("窄窗应绘制空状态标题");
+    assert!(
+        title.top() >= content.top() && title.bottom() <= content.bottom(),
+        "窄窗标题必须完整位于内容区内：content={content:?} title={title:?}"
+    );
+    assert!(
+        title.left() >= content.left() && title.right() <= content.right(),
+        "窄窗标题横向也必须完整位于内容区内"
+    );
+    assert!(
+        f32::from(title.size.height) >= 18.0,
+        "窄窗标题应保持可读，不能缩成微小文字"
+    );
+    assert!(
+        cx.debug_bounds("desktop-workspace-empty-icon-0").is_none(),
+        "窄窗应省略放不下的图标"
+    );
+    assert!(
+        cx.debug_bounds("desktop-workspace-empty-description-0")
+            .is_none(),
+        "窄窗应省略放不下的次要说明"
+    );
+    cx.simulate_resize(size(px(1280.0), px(800.0)));
+    cx.update(|window, cx| window.draw(cx).clear());
+    assert!(
+        cx.debug_bounds("desktop-workspace-empty-description-0")
+            .is_some(),
+        "宽窗应恢复完整的空状态说明"
+    );
 }
 
 /// 工作空间标题内置后，转场的内容起点与缩略图相同，终点恢复完整画布。

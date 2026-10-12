@@ -1,5 +1,48 @@
 use super::*;
 
+/// 首页固定背景必须由主二进制提供，且不得误命中不存在的相邻资源。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   固定资源 = home/earth-horizon.png；PNG 签名共 8 字节。
+///   不存在资源 = home/earth-horizon-missing.png。
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 从生产 EmbeddedAssets 加载首页固定背景。
+///   2. 检查 PNG 签名并查询 home 目录。
+///   3. 查询不存在的相邻路径。
+///
+/// 预期结果：
+///   - 正断言：首页背景真实嵌入且可被目录枚举。
+///   - 负断言：不存在的路径不得回退到首页背景。
+#[test]
+fn desktop_home_earth_background_is_embedded() {
+    let assets = EmbeddedAssets;
+    let path = "home/earth-horizon.png";
+    let bytes = assets
+        .load(path)
+        .expect("首页背景加载不应出错")
+        .expect("首页背景必须内嵌，不能依赖媒体下载");
+    assert_eq!(
+        &bytes[..8],
+        &[0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a],
+        "首页背景必须是生成的 PNG 资源"
+    );
+    assert!(
+        assets
+            .list("home")
+            .expect("首页资源目录应可枚举")
+            .iter()
+            .any(|item| item.as_ref() == "earth-horizon.png"),
+        "首页固定背景应出现在内嵌资源目录"
+    );
+    assert!(
+        assets
+            .load("home/earth-horizon-missing.png")
+            .expect("未知资源查找不应出错")
+            .is_none(),
+        "不存在的背景路径不能返回首页背景"
+    );
+}
+
 /// 手机连接设置：导航与组件图标必须实际嵌入，不能留下空白图标槽。
 ///
 /// 数据构造（含关键数值的推导过程）：

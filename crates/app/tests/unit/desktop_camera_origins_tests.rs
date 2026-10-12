@@ -27,12 +27,12 @@ fn assert_drawn_origin(actual: CanvasRect, drawn: CanvasRect, window: &Window) {
 /// 数据构造：1280×800 窗口，3 个工作空间，Beta 含 2 个空项目；
 ///   workspace 卡片由真实 Window::draw 取得，项目内容从标题下方等比适配。
 ///   比较容差 = 1 / backing scale，仅容纳 GPUI 设备像素取整；错误居中框偏移数十像素。
-///   窄窗600×800时两项目仍在上排，第二个区域为(308,223.75,268,150.75)，宽=(600-2×24-16)/2，高=宽×9/16。
-///   顶部避让=52px工具栏+12px间距=64px；首行y=64+(645-2×150.75-24)/2=223.75。
+///   窄窗600×800时两项目用单行，第二个区域为(308,311.125,268,150.75)，宽=(600-2×24-16)/2，高=宽×9/16。
+///   顶部避让=52px工具栏+12px间距=64px；单行y=64+(645-150.75)/2=311.125。
 ///   200×16ms=3.2 秒模拟推进大于弹簧收敛时间，不等待墙钟。
 /// 执行过程：绘制目录 → 清空来源缓存 → 打开 Beta → 绘制项目总览 → 清空来源缓存
 ///   → 展开第二项目 → 改为窄窗 → 返回并推进镜头。
-/// 预期结果：两个展开起点与真正绘制位置相同；返回落在新窗右上角，不用居中猜测框或旧列位置。
+/// 预期结果：两个展开起点与真正绘制位置相同；返回落在新窗居中单行的右侧，不用猜测框或旧列位置。
 #[test]
 fn desktop_camera_origins_use_real_layout_without_prior_bounds() {
     let temp = tempfile::tempdir().expect("应创建隔离目录");
@@ -125,20 +125,86 @@ fn desktop_camera_origins_use_real_layout_without_prior_bounds() {
             transition.tick(Duration::from_millis(16));
         }
         let expected = super::super::preview_canvas::project_canvas_rect(
-            CanvasRect::new(308.0, 223.75, 268.0, 150.75),
+            CanvasRect::new(308.0, 311.125, 268.0, 150.75),
             desktop_scene_rect(600.0, 800.0).size,
             1.0,
         );
         assert_eq!(
             transition.rect(),
             expected,
-            "窄窗返回必须落在新网格右上角，不能沿用宽窗缓存"
+            "窄窗返回必须落在新网格居中行右侧，不能沿用宽窗缓存"
         );
         assert!(
             !transition.is_active(),
             "3.2秒模拟推进后应收敛，不能依赖多次绘制才修正终点"
         );
     });
+}
+
+/// 首页放大的项目预览进入工作空间时，第一帧项目外框保持同一位置和尺寸。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   1280×800 窗口、1 个工作空间和 1 个项目；主预览底板宽 1280-2×54-2×12=1148。
+///   项目原画布布局约宽 1147，底板按高度适配后预览约宽 494；
+///   若转场仍按完整画布比例，首帧约宽 1147×1148/1280≈1029，差值超过 500px。
+///   容差 1/backing scale 仅覆盖 GPUI 设备像素取整。
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 绘制首页并记录项目预览外框；2. 打开工作空间并绘制转场首帧。
+///
+/// 预期结果：
+///   - 项目首帧与静态预览外框逐边一致，不发生数百像素跳变。
+///   - 静态预览在转场开始后消失，避免同一项目重叠两份。
+#[test]
+fn desktop_home_project_preview_hands_off_without_resizing_jump() {
+    let temp = tempfile::tempdir().expect("应创建隔离目录");
+    let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
+    let store = storage::AppStore::initialize(&paths).expect("应初始化存储");
+    let catalog = store.desktop_workspace_store();
+    let workspace = catalog.create("Home").expect("应创建工作空间");
+    let root = temp.path().join("project");
+    std::fs::create_dir(&root).expect("应创建项目目录");
+    catalog
+        .add_project(&workspace.id, &root)
+        .expect("应添加项目");
+    let mut test = TestAppContext::single();
+    let (view, cx) = test.add_window_view(|_, cx| {
+        OriginHost(cx.new(|cx| MultisoulApp::new_with_database_context(cx, paths, store)))
+    });
+    let host = view.update(cx, |view, _| view.0.clone());
+    cx.simulate_resize(size(px(1280.0), px(800.0)));
+    cx.run_until_parked();
+    host.update(cx, |app, cx| {
+        app.screen = AppScreen::Launchpad;
+        app.desktop_workspace.home_directory = true;
+        app.desktop_workspace.workspaces = catalog.list().expect("应读取目录");
+        app.desktop_workspace.previews = catalog.list_previews().expect("应读取项目预览");
+        app.motion.reduce_motion = false;
+        cx.notify();
+    });
+    cx.update(|window, cx| window.draw(cx).clear());
+    let before = cx
+        .debug_bounds("desktop-workspace-preview-0-0")
+        .expect("首页必须绘制静态项目预览");
+    host.update_in(cx, |app, window, cx| {
+        app.open_desktop_workspace(workspace.id.clone(), window, cx);
+    });
+    cx.run_until_parked();
+    cx.update(|window, cx| window.draw(cx).clear());
+    let after = cx
+        .debug_bounds("desktop-project-area-0")
+        .expect("转场首帧必须绘制项目");
+    let tolerance = cx.update(|window, _| 1.0 / window.scale_factor());
+    assert!(
+        f32::from((before.left() - after.left()).abs()) <= tolerance
+            && f32::from((before.top() - after.top()).abs()) <= tolerance
+            && f32::from((before.size.width - after.size.width).abs()) <= tolerance
+            && f32::from((before.size.height - after.size.height).abs()) <= tolerance,
+        "项目预览与转场首帧必须同位同尺寸：before={before:?} after={after:?}"
+    );
+    assert!(
+        cx.debug_bounds("desktop-workspace-preview-0-0").is_none(),
+        "转场首帧不能再绘制第二份静态项目预览"
+    );
 }
 
 /// 快捷导航选择被搜索隐藏的工作空间，先恢复包含目标的目录布局再开始动画。

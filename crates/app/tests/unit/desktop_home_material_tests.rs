@@ -1,18 +1,18 @@
 use super::home_theme;
 
-/// 首页材质在深、浅主题下都有独立的静止、悬停、按下和键盘焦点反馈。
+/// 固定地球背景上的首页使用墨黑中性材质，蓝色只标识主操作和键盘焦点。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   6 个现有主题，首页从各自的 Theme 派生局部材质；不写入主题设置。
-///   静止面板直接采用各主题 Dock 的颜色与透明度，三级文字采用顶部栏的浅色前景。
-///   预览底色 36/255≈14% 不透明，叠在卡片上仍能透出壁纸。
+///   6 个现有主题，首页卡片使用墨黑 0x0d131be0（224/255≈88%）。
+///   预览底色 0x080d15db（219/255≈86%），保留地球轮廓但压住高亮。
+///   墨黑 RGB 的蓝红差 = 27-13=14；亮蓝操作色蓝红差 = 165-43=122。
 /// 执行过程：
-///   1. 读取首页局部主题，逐项比较静止、悬停、按下和焦点 token。
-///   2. 比较面板、描边及文字与顶部/底部材质，并检查预览不会成为不透明底。
+///   1. 读取每个全局主题对应的首页局部主题。
+///   2. 比较静止、悬停、按下、焦点与固定背景下的预览材质。
 ///
 /// 预期结果：
-///   - 正断言：主文字与背景不同；焦点有独立描边；所有主题与顶部/底部材质一致。
-///   - 负断言：hover/pressed 不与静止色相同；局部材质不能修改全局主题。
+///   - 正断言：固定中性材质与低饱和蓝操作色在所有主题相同，焦点可辨。
+///   - 负断言：hover/pressed 不与静止色相同；首页不能更改工作画布的 Dock 配色。
 #[test]
 fn desktop_home_material_has_distinct_interaction_states() {
     for id in ui::ThemeId::ALL {
@@ -29,29 +29,45 @@ fn desktop_home_material_has_distinct_interaction_states() {
             "{id:?} 键盘焦点需独立描边"
         );
         assert_ne!(theme.panel, theme.text_primary, "{id:?} 名称不能与背景同色");
-        assert_eq!(theme.accent, 0x0969daff, "首页主操作应使用第三张的实心蓝色");
+        assert_eq!(theme.accent, 0x2b6aa5ff, "首页主操作应使用克制的蓝色");
         let chrome = crate::app::top_bar_theme(original);
-        assert_eq!(theme.panel, original.dock, "{id:?} 卡片必须复用 Dock 材质");
         assert_eq!(
-            theme.node_stroke, original.dock_line,
-            "{id:?} 描边需与 Dock 一致"
+            theme.panel, 0x0d131be0,
+            "{id:?} 首页卡片必须使用固定墨黑材质"
+        );
+        assert_eq!(
+            theme.dock, 0x080d14ed,
+            "{id:?} 首页顶栏必须使用固定墨黑材质"
+        );
+        assert_eq!(
+            crate::app::top_bar_theme(original).dock,
+            original.dock,
+            "{id:?} 固定首页配色不能改变项目画布的 Dock"
         );
         assert_eq!(
             theme.text_primary, chrome.text_primary,
             "{id:?} 名称需沿用顶部浅色文字"
         );
         assert_eq!(
-            theme.text_secondary, chrome.text_secondary,
-            "{id:?} 数量需沿用顶部辅助文字"
+            theme.text_secondary, 0xcbd4dee8,
+            "{id:?} 数量应使用柔和的冷灰，低于主标题亮度"
         );
         assert_eq!(
-            theme.text_tertiary, chrome.text_tertiary,
-            "{id:?} 空态文字需保持可读对比"
+            theme.text_tertiary, 0xb1becbc8,
+            "{id:?} 空态文字应进一步退后，同时保持可读对比"
         );
-        assert!(
-            theme.canvas_to & 0xff <= 36,
-            "{id:?} 预览衬底只能是轻量透明 tint"
+        assert_eq!(
+            theme.canvas_to, 0x080d15db,
+            "{id:?} 预览应使用稳定的深色底色"
         );
         assert_ne!(theme.canvas_to & 0xff, 255, "{id:?} 预览不得恢复不透明白底");
+        assert!(
+            ((theme.panel >> 8) & 0xff) - ((theme.panel >> 24) & 0xff) <= 24,
+            "{id:?} 大面积卡片不能继续使用明显偏蓝的材质"
+        );
+        assert_ne!(
+            theme.edge_highlight, theme.focused_stroke,
+            "{id:?} 普通卡片边框不能和键盘焦点使用同一亮蓝色"
+        );
     }
 }

@@ -230,8 +230,10 @@ impl MultisoulApp {
                                 app.wallpaper_settings.scoped.global.clone();
                             session.wallpaper_settings.scoped.customs =
                                 app.wallpaper_settings.scoped.customs.clone();
-                            session.wallpaper_settings.selection =
-                                session.wallpaper_settings.scoped.effective_selection();
+                            session.wallpaper_settings.set_effective_selection(
+                                session.wallpaper_settings.scoped.effective_selection(),
+                                session.motion.reduce_motion,
+                            );
                             session.layout_strategy.chrome_in_parent = true;
                             session.master_layout.chrome_in_parent = true;
                             session.apply_theme(app.theme_id, cx);

@@ -271,6 +271,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) -> gpui::Div {
         let scale = content.size.x / full.x;
+        let theme = self.desktop_theme();
         let preview = self
             .desktop_workspace
             .previews
@@ -282,11 +283,29 @@ impl MultisoulApp {
             full,
             preview.iter().map(|area| area.id.as_str()),
         );
+        let home = self.desktop_workspace.home_directory;
+        let areas = if home {
+            super::layout::home_project_preview_layout(content.size, &areas)
+        } else {
+            areas
+                .into_iter()
+                .map(|rect| {
+                    canvas::CanvasRect::new(
+                        rect.origin.x * scale,
+                        rect.origin.y * scale,
+                        rect.size.x * scale,
+                        rect.size.y * scale,
+                    )
+                })
+                .collect()
+        };
+        let compact_empty = content.size.y < 126.0;
+        let tiny_empty = content.size.y < 88.0;
         div()
             .debug_selector(move || format!("desktop-workspace-content-{index}"))
             .absolute()
-            .left(px(content.origin.x - 1.0))
-            .top(px(content.origin.y - 1.0))
+            .left(px(content.origin.x - if home { 0.0 } else { 1.0 }))
+            .top(px(content.origin.y - if home { 0.0 } else { 1.0 }))
             .w(px(content.size.x))
             .h(px(content.size.y))
             .overflow_hidden()
@@ -294,28 +313,83 @@ impl MultisoulApp {
                 this.child(
                     div()
                         .absolute()
-                        .top(px(48.0 * scale))
-                        .left(px(40.0 * scale))
-                        .right(px(40.0 * scale))
-                        .child(self.desktop_empty_canvas(scale, false, cx)),
+                        .inset_0()
+                        .flex()
+                        .flex_col()
+                        .items_center()
+                        .justify_center()
+                        .gap(px(if compact_empty { 5.0 } else { 8.0 }))
+                        .when(!tiny_empty, |this| {
+                            this.child(
+                                div()
+                                    .debug_selector(move || {
+                                        format!("desktop-workspace-empty-icon-{index}")
+                                    })
+                                    .size(px(if compact_empty { 30.0 } else { 42.0 }))
+                                    .rounded(px(if compact_empty { 9.0 } else { 13.0 }))
+                                    .border_1()
+                                    .border_color(rgba(with_alpha(theme.accent_blue, 0x70)))
+                                    .bg(rgba(with_alpha(theme.accent_blue, 0x20)))
+                                    .flex()
+                                    .items_center()
+                                    .justify_center()
+                                    .text_size(px(if compact_empty { 20.0 } else { 26.0 }))
+                                    .text_color(rgba(GLASS_TEXT))
+                                    .child("+"),
+                            )
+                        })
+                        .child(
+                            div()
+                                .debug_selector(move || {
+                                    format!("desktop-workspace-empty-title-{index}")
+                                })
+                                .font_semibold()
+                                .max_w(px((content.size.x - 16.0).max(1.0)))
+                                .text_center()
+                                .text_size(px(if compact_empty { 16.0 } else { 18.0 }))
+                                .line_height(px(if compact_empty { 21.0 } else { 24.0 }))
+                                .text_color(rgba(GLASS_TEXT))
+                                .child(ui::i18n::text("workspace.a_canvas_for_your_projects")),
+                        )
+                        .when(!compact_empty, |this| {
+                            this.child(
+                            div()
+                                .debug_selector(move || {
+                                    format!("desktop-workspace-empty-description-{index}")
+                                })
+                                .max_w(px((content.size.x - 32.0).max(1.0)))
+                                .text_center()
+                                .text_size(px(12.0))
+                                .line_height(px(17.0))
+                                .text_color(rgba(GLASS_TEXT_SECONDARY))
+                                .child(ui::i18n::text(
+                                    "workspace.add_a_project_area_to_start_working_with_its_agents",
+                                )),
+                        )
+                        }),
                 )
             })
             .children(preview.into_iter().zip(areas).enumerate().map(
                 |(area_index, (area, rect))| {
                     let selector = format!("desktop-workspace-preview-{index}-{area_index}");
+                    let preview_scale = if home {
+                        (rect.size.x / 300.0).min(1.0)
+                    } else {
+                        scale
+                    };
                     div()
                         .absolute()
-                        .left(px(rect.origin.x * scale))
-                        .top(px(rect.origin.y * scale))
-                        .w(px(rect.size.x * scale))
-                        .h(px(rect.size.y * scale))
+                        .left(px(rect.origin.x))
+                        .top(px(rect.origin.y))
+                        .w(px(rect.size.x))
+                        .h(px(rect.size.y))
                         .overflow_hidden()
                         .child(
                             self.render_desktop_project_preview(
                                 &workspace.id,
                                 &area,
-                                canvas::Vec2::new(rect.size.x * scale, rect.size.y * scale),
-                                scale,
+                                rect.size,
+                                preview_scale,
                                 super::desktop_scene_rect(full.x, full.y).size,
                                 cx,
                             )

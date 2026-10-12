@@ -11,6 +11,7 @@ resources = [
   "build/icons/Assets.car",
   { src = "packaging/macos/en.lproj", target = "en.lproj" },
   { src = "packaging/macos/zh-CN.lproj", target = "zh-CN.lproj" },
+  { src = "crates/app/assets/home", target = "home" },
   { src = "build/release-media/wallpapers", target = "wallpapers" },
   { src = "build/release-media/feature-guide", target = "feature-guide" },
   { src = "build/release-media/wallpaper-previews", target = "wallpaper-previews" },

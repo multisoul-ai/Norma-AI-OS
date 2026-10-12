@@ -30,8 +30,8 @@ fn home_text_contrast(text: u32, surface: u32, wallpaper: u32) -> f32 {
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   6 个现有主题；壁纸用纯白与纯黑覆盖 sRGB 亮度两端。
-///   卡片使用对应主题的 Dock 材质；合成色 = 前景 × alpha + 背景 × (1-alpha)。
-///   不透明度范围 65%–85%：255×0.65≈166，255×0.85≈217，与顶部材质一致。
+///   卡片使用固定墨黑材质；合成色 = 前景 × alpha + 背景 × (1-alpha)。
+///   不透明度范围 80%–92%：255×0.80≈204，255×0.92≈235，抑制地球高亮但保留层次。
 ///   WCAG 小字号对比下限 = 4.5:1；相对亮度按 sRGB 线性化及 0.2126/0.7152/0.0722 加权。
 /// 执行过程：
 ///   1. 读取首页卡片材质及两级辅助文字颜色。
@@ -46,14 +46,10 @@ fn desktop_home_card_text_remains_readable_over_wallpaper() {
     for id in ui::ThemeId::ALL {
         let theme = home_theme(id);
         let surface = theme.panel;
-        let chrome = crate::workspace::desktop::workspace_chrome_theme(id);
-        assert_eq!(
-            surface, chrome.dock,
-            "{id:?} 卡片必须与顶部和底部使用相同材质"
-        );
+        assert_eq!(surface, 0x0d131be0, "{id:?} 首页卡片应固定为墨黑材质");
         let alpha = surface & 0xff;
-        assert!(alpha >= 166, "{id:?} 卡片材质需支撑亮壁纸上的文字");
-        assert!(alpha <= 217, "{id:?} 卡片必须透出壁纸，不能成为不透明色块");
+        assert!(alpha >= 204, "{id:?} 卡片材质需支撑亮壁纸上的文字");
+        assert!(alpha <= 235, "{id:?} 卡片必须透出壁纸，不能成为不透明色块");
         assert!(
             home_text_contrast(theme.text_secondary, surface, 0xffffffff) >= 4.5,
             "{id:?} 项目数量必须在纯白壁纸上保持至少 4.5:1 对比"
@@ -95,7 +91,7 @@ fn desktop_home_card_text_remains_readable_over_wallpaper() {
 #[test]
 fn desktop_top_bar_translucent_text_remains_readable_over_wallpaper() {
     for id in ui::ThemeId::ALL {
-        let theme = crate::workspace::desktop::workspace_chrome_theme(id);
+        let theme = crate::app::top_bar_theme(ui::Theme::for_id(id));
         let original = ui::Theme::for_id(id);
         assert_eq!(
             theme.title_bar, original.dock,
@@ -309,7 +305,7 @@ fn desktop_home_first_workspace_welcome_and_creation() {
 ///   3 个空间在首组，余下2个在第二组；窄窗只保留一列，不挤压名称。
 ///   原型1586×992等比到1280×800：主卡高约370px，末行底部约758px。
 /// 执行过程：渲染首页 → 检查主卡/侧卡和工具栏 → 改主题、缩窗 → 滚到底 → 搜索 → 打开结果。
-/// 预期结果：主卡宽于侧卡，第三项与侧卡同列；所有控件在窗口内；
+/// 预期结果：主卡宽于侧卡，第三项与侧卡同列；预览占满底板；所有控件在窗口内；
 ///   滚动区域不能覆盖工具栏；搜索只显示匹配项，点击后打开正确空间，不自动展开项目。
 #[test]
 fn desktop_home_layout_search_and_navigation() {
@@ -375,6 +371,13 @@ fn desktop_home_layout_search_and_navigation() {
     assert!(
         panel.size.width >= featured.size.width - px(28.0),
         "主预览底板必须铺满卡片宽度，仅留两侧内边距"
+    );
+    let content = cx
+        .debug_bounds("desktop-workspace-content-0")
+        .expect("主卡应绘制工作空间内容");
+    assert_eq!(
+        content, panel,
+        "主卡内容必须占满预览底板，不能因窗口纵横比留下大片空白"
     );
     let title = cx
         .debug_bounds("desktop-home-title-0")

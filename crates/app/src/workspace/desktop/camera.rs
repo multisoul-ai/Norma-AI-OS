@@ -278,7 +278,13 @@ impl MultisoulApp {
             super::layout::home_layout(full.size.x, full.size.y, workspaces.len())
                 .into_iter()
                 .enumerate()
-                .map(|(index, card)| super::layout::home_preview_rect(card, full.size, index == 0))
+                .map(|(index, card)| {
+                    let mut panel = super::layout::home_preview_panel_rect(card, index == 0);
+                    // The home card's 1px border offsets its positioned preview child.
+                    panel.origin.x += 1.0;
+                    panel.origin.y += 1.0;
+                    panel
+                })
                 .collect()
         } else {
             super::layout::workspace_layout(full.size.x, full.size.y, workspaces.len())

@@ -1,5 +1,6 @@
 use crate::app::{AppScreen, MultisoulApp};
 use crate::settings::wallpaper::scoped::{WallpaperContext, WallpaperTarget};
+use crate::settings::wallpaper::state::WallpaperSelection;
 use gpui::Context;
 use storage::WallpaperReference;
 
@@ -18,7 +19,17 @@ impl MultisoulApp {
                 workspace,
             });
         self.wallpaper_settings.scoped.bind(context);
-        self.wallpaper_settings.selection = self.wallpaper_settings.scoped.effective_selection();
+        let selection = if matches!(self.screen, AppScreen::Launchpad)
+            && self.desktop_workspace.home_directory
+        {
+            WallpaperSelection::Builtin {
+                rel: crate::assets::HOME_BACKGROUND_ASSET,
+            }
+        } else {
+            self.wallpaper_settings.scoped.effective_selection()
+        };
+        self.wallpaper_settings
+            .set_effective_selection(selection, self.motion.reduce_motion);
         self.refresh_optional_media(cx);
     }
 
@@ -116,7 +127,10 @@ impl MultisoulApp {
                         scoped.status = Some(status.clone());
                     }
                 }
-                session.wallpaper_settings.selection = scoped.effective_selection();
+                let selection = scoped.effective_selection();
+                session
+                    .wallpaper_settings
+                    .set_effective_selection(selection, session.motion.reduce_motion);
                 session.refresh_optional_media(cx);
                 cx.notify();
             });

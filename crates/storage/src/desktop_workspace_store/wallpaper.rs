@@ -15,7 +15,7 @@ impl WallpaperReference {
     pub fn validate(&self) -> StorageResult<()> {
         let valid = match self {
             Self::Builtin { rel } => {
-                rel.starts_with("wallpapers/")
+                (rel.starts_with("wallpapers/") || rel == "home/earth-horizon.png")
                     && !rel.split('/').any(|part| part == ".." || part.is_empty())
                     && !rel.contains('\\')
                     && !rel.chars().any(char::is_control)

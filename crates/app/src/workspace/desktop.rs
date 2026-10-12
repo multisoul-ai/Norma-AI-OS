@@ -37,8 +37,6 @@ mod dialogs_other;
 #[cfg(feature = "e2e-test-support")]
 mod dispatch;
 mod home;
-#[cfg(test)]
-pub(crate) use home::workspace_chrome_theme;
 mod home_card;
 mod launchpad;
 mod layout;
@@ -125,7 +123,7 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) actions_area_id: Option<String>,
     pub(crate) switcher_open: bool,
     // Retain the directory presentation while its controls close during camera motion.
-    home_directory: bool,
+    pub(crate) home_directory: bool,
     switcher_return: Option<(String, Option<String>)>,
     pub(crate) switcher_query: String,
     pub(crate) switcher_input: Option<Entity<InputState>>,

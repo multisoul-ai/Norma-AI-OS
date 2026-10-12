@@ -144,6 +144,38 @@ impl MultisoulApp {
             canvas::Vec2::new(width, height),
             areas.iter().map(|area| area.id.as_str()),
         );
+        let home_source = self
+            .desktop_workspace
+            .home_directory
+            .then(|| {
+                self.desktop_workspace
+                    .workspace_motion_rects
+                    .get(&workspace_id)
+                    .copied()
+            })
+            .flatten();
+        let home_progress = home_source.zip(workspace_frame).map(|(source, frame)| {
+            ((frame.size.x - source.size.x) / (width - source.size.x).max(1.0)).clamp(0.0, 1.0)
+        });
+        let area_layout = if let (Some(source), Some(progress)) = (home_source, home_progress) {
+            let preview = super::layout::home_project_preview_layout(source.size, &area_layout);
+            let source_scale = source.size.x / width;
+            area_layout
+                .into_iter()
+                .zip(preview)
+                .map(|(target, thumbnail)| {
+                    let start = canvas::CanvasRect::new(
+                        thumbnail.origin.x / source_scale,
+                        thumbnail.origin.y / source_scale,
+                        thumbnail.size.x / source_scale,
+                        thumbnail.size.y / source_scale,
+                    );
+                    crate::motion::util::lerp_rect(start, target, progress)
+                })
+                .collect()
+        } else {
+            area_layout
+        };
         let receipts = self
             .desktop_workspace
             .dispatch_receipts
@@ -198,6 +230,11 @@ impl MultisoulApp {
                                             .top(px(rect.origin.y * scale))
                                             .w(px(rect.size.x * scale))
                                             .h(px(rect.size.y * scale));
+                                        let card_scale = home_progress.map_or(scale, |progress| {
+                                            (rect.size.x * scale / 300.0).min(1.0)
+                                                * (1.0 - progress)
+                                                + progress
+                                        });
                                         slot.child(self.desktop_project_area_card(
                                             index,
                                             area,
@@ -205,7 +242,7 @@ impl MultisoulApp {
                                                 rect.size.x * scale,
                                                 rect.size.y * scale,
                                             ),
-                                            scale,
+                                            card_scale,
                                             window,
                                             cx,
                                         ))
