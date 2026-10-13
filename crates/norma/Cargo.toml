@@ -35,5 +35,18 @@ ring = "0.17"
 # Self-signed pairing certificates; use the existing ring TLS backend.
 rcgen = { version = "=0.13.2", default-features = false, features = ["ring"] }
 
+base64 = "0.22"
+axum = "0.8"
+rmcp = { version = "=3.5.1", default-features = false, features = ["server", "transport-streamable-http-server"] }
+tokio = { workspace = true, features = ["net"] }
+tokio-util.workspace = true
+hyper = { version = "1", features = ["server", "http1"] }
+hyper-util = { version = "0.1", features = ["tokio", "service"] }
+tower = { version = "0.5", features = ["util"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+security-framework = "3"
+
 [dev-dependencies]
 tempfile.workspace = true
+reqwest = { workspace = true, features = ["json"] }

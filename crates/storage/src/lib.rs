@@ -22,6 +22,8 @@ pub use mobile_turn_store::{
 pub mod background_agent_dispatch;
 pub mod background_conversation_tail;
 pub mod canvas_store;
+pub mod connector_read;
+pub mod connector_store;
 pub mod database_paths;
 pub mod desktop_workspace_store;
 pub mod error;

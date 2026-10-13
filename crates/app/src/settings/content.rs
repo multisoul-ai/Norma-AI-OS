@@ -159,6 +159,7 @@ pub(super) fn settings_content(
                         cx,
                     ),
                     SettingsSection::Performance => performance_settings(theme, performance, cx),
+                    SettingsSection::Connector => crate::connector::settings(theme, cx),
                     SettingsSection::Mobile => {
                         crate::settings::mobile::settings(theme, &mobile, cx)
                     }
@@ -256,6 +257,7 @@ fn content_title(section: SettingsSection) -> &'static str {
 
 fn content_subtitle(section: SettingsSection, voice_shortcut_label: &str) -> String {
     match section {
+        SettingsSection::Connector => "允许 Grok Bot 读取工作空间目录与任务进度".into(),
         SettingsSection::General => ui::i18n::text("general.subtitle").into(),
         SettingsSection::Mobile => {
             ui::i18n::text("settings.connect_your_iphone_over_a_local_network_or_tailscale")

@@ -8,6 +8,7 @@ mod assets;
 mod browser_auth_host;
 mod canvas;
 mod cards;
+mod connector;
 mod database;
 mod effects;
 mod frame_diagnostics;
@@ -121,6 +122,7 @@ pub fn run_norma_os() {
         // gpui-component：主题与组件 actions；须在开窗前初始化。
         ui::init_components(cx);
         performance_monitor::install(cx);
+        connector::install(cx);
         settings::orchestration::health::install(cx);
         settings::agent_hook_ingress::install(cx)
             .expect("failed to start App-global Agent Hook ingress");
@@ -147,6 +149,7 @@ pub fn run_norma_os() {
         })
         .detach();
         cx.on_app_quit(|cx| {
+            connector::shutdown(cx);
             media::shutdown(cx);
             workspace::desktop::sessions::shutdown(cx);
             workspace::sessions::shutdown(cx);

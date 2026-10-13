@@ -56,6 +56,7 @@ pub(crate) enum SettingsSection {
     Wallpaper,
     Performance,
     Mobile,
+    Connector,
 }
 
 #[derive(Clone, Copy)]
@@ -148,6 +149,12 @@ impl SettingsSection {
                 index: 7,
                 debug_selector: "settings-section-wallpaper",
             },
+            Self::Connector => SettingsSectionMetadata {
+                title: "Grok Bot 连接器",
+                icon_asset: Some("icons/settings-nav-hooks.svg"),
+                index: 13,
+                debug_selector: "settings-section-connector",
+            },
             Self::Mobile => SettingsSectionMetadata {
                 title: ui::i18n::text("settings.mobile_connection"),
                 icon_asset: Some("icons/settings-nav-mobile.svg"),
@@ -174,6 +181,7 @@ const AUTOMATION_SECTIONS: &[SettingsSection] = &[
     SettingsSection::Agents,
     SettingsSection::Orchestration,
     SettingsSection::Mobile,
+    SettingsSection::Connector,
 ];
 
 const NORMA_SECTIONS: &[SettingsSection] = &[

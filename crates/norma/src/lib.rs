@@ -12,3 +12,5 @@ pub mod mobile;
 pub mod orchestration;
 pub mod presentation;
 pub mod protocol;
+
+pub mod connector;
