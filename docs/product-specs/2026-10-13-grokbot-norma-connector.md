@@ -6,10 +6,10 @@
 
 以下决定由 yakami 确认，原样执行，本文不再重新取舍。
 
-1. **接入方式**：Norma 在 Mac 上的 Norma App 进程内运行一个本机 MCP 服务器（传输为 MCP Streamable HTTP），只绑定 `127.0.0.1`；通过用户自有域名上的 **Cloudflare 命名隧道（named tunnel）** 暴露给 Grok Bot。**不使用 quick tunnel**（`trycloudflare.com` 地址每次变化，无法作为固定连接器地址）。隧道之上再加 **Bearer Token** 鉴权。Token 永不进仓库；生成、存储（macOS 钥匙串）、轮换、吊销见第 6 节。
+1. **接入方式**：Norma 在 Mac 上的 Norma App 进程内运行一个本机 MCP 服务器（传输为 MCP Streamable HTTP），只绑定 `127.0.0.1`；通过用户自有域名上的 **Cloudflare 命名隧道（named tunnel）** 暴露给 Grok Bot。**不使用 quick tunnel**（`trycloudflare.com` 地址每次变化，无法作为固定连接器地址）。隧道之上只用 **Bearer Token** 鉴权（Cloudflare Access 列为后续项，见 Q2）。Token 永不进仓库；生成、存储（macOS 钥匙串）、轮换、吊销见第 6 节。
 2. **由 Grok Bot 决定派给谁**：Norma 本身不做路由、不按能力选人。提供六个工具：`directory`、`dispatch_task`、`list_tasks`、`get_task_progress`、`cancel_task`、`resolve_approval`。`resolve_approval`（批准 / 拒绝）**每次都必须由 Grok Bot 先问用户确认**——这是客户端要求；同时服务端 API 也强制要求确认标志 + 一次性 nonce（第 4.6 节）。
 3. **通知四类事件**：任务完成、任务失败、等待工具审批、30 分钟无进展。Norma 向用户配置的 **Grok Bot routine webhook URL** 发 POST，唤醒 Grok Bot 给用户发消息。负载 JSON、HMAC 签名、退避重试、去重键、离线行为见第 5 节。
-4. **不依赖草稿 PR #97**（分支 `codex/workspace-agent-dispatch`），只借鉴其设计思想（第 2 节）。
+4. **不依赖草稿 PR #97**（分支 `codex/workspace-agent-dispatch`），只借鉴其设计思想（第 2 节）；`card_id` 由连接器自行定义，不切换到 #97 的身份（Q3）。
 5. **分期交付，一期一个 PR**：P1 本规格；P2 本机 MCP 服务器 + Token 鉴权 + 只读工具；P3 Cloudflare 命名隧道 + 在 Grok Bot 添加自定义连接器，只读端到端（Cloudflare 登录由用户完成）；P4 `dispatch_task` + `cancel_task`（幂等与回执）；P5 webhook 通知 + `resolve_approval`。
 
 ## 1. 背景与目标
@@ -48,7 +48,7 @@
 | 精确目标解析 | 不用相似名称、焦点或「唯一剩余卡片」替代明确称呼；补全前零接收零投递 | 服务端不做模糊匹配；名称解析由 Grok Bot 在 `directory` 结果中完成，多候选或零候选时由 Grok Bot 问用户 |
 | 带操作账本的幂等投递 | 重发同操作返回原回执、同键不同参数冲突、正文/Enter 写入崩溃标「待核对」不自动重放；提交 ≠ 运行 ≠ 完成 | 新表 `connector_operations`（第 7 节），语义与 `MobileCommandStore::reserve`、`orchestration_task_operations` 一致；状态严格区分 `accepted / submitted / running / done / failed / cancelled / outcome_unknown` |
 
-不借鉴：#97 的 Dock UI、名称修复迁移、`WorkspaceAgentRoleStore` 表结构、工作空间进度汇报 typed tool。若 #97 日后合入，P4 可把 `card_id` 解析切换到其持久身份（开放问题 Q3）。
+不借鉴：#97 的 Dock UI、名称修复迁移、`WorkspaceAgentRoleStore` 表结构、工作空间进度汇报 typed tool。`card_id` 由连接器自行定义并长期保持（Q3 已决定），即使 #97 日后合入也不切换到其身份。
 
 ## 3. 架构
 
@@ -68,14 +68,15 @@ Norma App 进程
 
 ### 3.1 MCP 服务器（新）
 
-- 进程内后台线程/tokio 任务，**只绑定 `127.0.0.1`**（不复用 `mobile::server::allowed_address`，它放行私网）。端口默认 `47615`（固定端口便于隧道配置，冲突时设置页报错，不随机），可在设置中改。
+- 进程内 tokio 任务，**只绑定 `127.0.0.1`**（不复用 `mobile::server::allowed_address`，它放行私网）。端口默认 `47615`（固定端口便于隧道配置，冲突时设置页报错，不随机），可在设置中改；修改端口时设置页提示「需同步修改 cloudflared 隧道配置中的 `ingress` 目标端口」（Q7）。
+- 无后台常驻进程、不注册登录项（Q10）：App 未运行时连接器不可达，Grok Bot 向用户显示「Norma 未运行」；App 重新打开后 outbox 中积压的事件再补发（5.4）。
 - 路径 `POST /mcp`、`GET /mcp`（SSE 流，可选）按 MCP Streamable HTTP 规范；支持 `initialize`、`tools/list`、`tools/call`；`Mcp-Session-Id` 会话头。其他路径 404。
-- 实现库：仓库没有 HTTP 框架，P2 需要选定（开放问题 Q1）。要求请求体上限 64 KiB、读超时 10 s、并发连接上限 8。
+- 实现库：`axum`（HTTP）+ `rmcp`（MCP Streamable HTTP / JSON-RPC），P2 新增这两个依赖（Q1）。要求请求体上限 64 KiB、读超时 10 s、并发连接上限 8。
 - 默认关闭；设置页「Grok Bot 连接器」开关打开后才监听。
 
 ### 3.2 `card_id`（新，不透明）
 
-格式 `c1.<base64url(desktop_workspace_id | area_id | node_id | definition_id | 创建时间戳)>.<8 字节 HMAC>`。HMAC 用本机密钥（钥匙串）防伪造。`card_revision` = 当前 Runtime 路由代次 + Provider 会话指纹的哈希。解析时逐项复核；任一不符 → `target_changed`。这是 P2 的新增投影，不改现有表。
+`card_id` 由连接器自行定义（Q3），不依赖 #97。格式 `c1.<base64url(desktop_workspace_id | area_id | canvas_id | node_id | definition_id | 创建时间戳)>.<8 字节 HMAC>`。因为同一目录下可有多个画布、`node_id` 只在画布内唯一，编码中必须包含画布标识 `canvas_id`，保证同目录多画布时 `card_id` 仍唯一。HMAC 用本机密钥（钥匙串）防伪造。`card_revision` = 当前 Runtime 路由代次 + Provider 会话指纹的哈希。解析时逐项复核；任一不符 → `target_changed`。这是 P2 的新增投影，不改现有表；若现有存储里没有稳定的画布标识，P2 需新增（见 R2）。
 
 ## 4. 工具定义
 
@@ -165,9 +166,13 @@ Norma App 进程
 | `task.completed` | 任务进入 `Done` | `AgentTaskReceiptStatus::Done` |
 | `task.failed` | 进入 `Failed` / `Interrupted` | 同上 |
 | `approval.waiting` | 出现可决定的审批（`decisions` 非空） | `WorkspaceActivityAttention.kind == "approval"` |
-| `task.stalled` | 未终态任务 30 分钟没有新的 Hook / turn / 进度事件 | 新增计时：`last_activity_at` |
+| `task.stalled` | 已跟踪（tracked）的未终态任务连续 30 分钟没有新输出、工具调用或状态变化；untracked 任务不参与 | 新增计时：`last_activity_at`（Q8） |
 
-范围：默认只通知 `source=grokbot` 的任务 + 全部审批（开放问题 Q5）。`task.stalled` 每个任务每次停滞只发一次，有新活动后重置。
+范围（Q5）：默认只通知 Grok Bot 派出的任务（`source=grokbot`），包括这些任务上的审批；设置项「通知全部任务」打开后，桌面 / 手机 / 直接卡片发起的任务及其审批也通知。
+
+与手机推送（`crates/app/src/mobile/push/activity.rs`）的关系（Q6）：两路各自独立发送，互不去重、互不抑制；`dedupe_key` 只在 webhook 通道内部生效。
+
+`task.stalled` 每个任务每次停滞只发一次，有新活动后重置。
 
 ### 5.2 负载
 
@@ -187,24 +192,26 @@ Norma App 进程
 
 ### 5.3 签名
 
-请求头：`X-Norma-Timestamp: <unix>`、`X-Norma-Event-Id`、`X-Norma-Signature: v1=<hex(HMAC-SHA256(secret, timestamp + "." + body))>`。secret 与 Bearer Token **分开**，同样存钥匙串。接收方应拒绝时间差 > 5 分钟的请求（Grok Bot routine 能否校验见 Q4）。
+请求头：`X-Norma-Timestamp: <unix>`、`X-Norma-Event-Id`、`X-Norma-Signature: v1=<hex(HMAC-SHA256(secret, timestamp + "." + body))>`。secret 与 Bearer Token **分开**，同样存钥匙串。Grok Bot routine **必须**校验 HMAC 签名与时间戳（时间差 > 5 分钟视为失败），校验失败直接丢弃事件、不通知用户（Q4）。
+
+**P5 前置条件**：确认 Grok Bot routine 的 webhook 触发器能读到原始请求体（逐字节）和请求头。若不能，需要一个小型中继先校验签名再转发给 routine；是否引入中继待用户确认（风险 R7）。
 
 ### 5.4 投递、重试、离线
 
 - 新表 `connector_outbox`（app.sqlite）：`event_id PK, dedupe_key UNIQUE, payload_json, attempts, next_attempt_at, state ∈ pending/delivered/dead`。事件先落库再发送。
 - 2xx 视为成功；4xx（除 408/429）视为永久失败 → `dead`；5xx / 超时 / 网络错误重试：1 min、2、4、8、16、32 min，此后每 60 min，最长 24 h → `dead`。429 遵守 `Retry-After`。
-- Mac 睡眠 / 断网 / App 退出：outbox 持久保留，恢复后按序补发；同一任务已有更新事件（例如 stalled 后 completed）时，过时的 `task.stalled` 直接丢弃不发。审批事件补发前复核仍为 pending，已关闭则丢弃。
+- Mac 睡眠 / 断网 / App 退出：outbox 持久保留，恢复（或 App 重新打开）后按序补发；同一任务已有更新事件（例如 stalled 后 completed）时，过时的 `task.stalled` 直接丢弃不发。审批事件补发前复核仍为 pending，已关闭则丢弃。
 - `dead` 事件在设置页可见；不会重复骚扰用户。
 
 ## 6. 安全
 
 1. **监听**：只绑 `127.0.0.1`，拒绝非回环 `peer_addr`；`Host` 头必须是配置的隧道域名或 `127.0.0.1:<port>`（防 DNS rebinding）；不开 CORS。
-2. **隧道**：Cloudflare 命名隧道，`cloudflared` 配置 `ingress` 只转发 `https://norma.<域名>/mcp` → `http://127.0.0.1:<port>`，其他 404。Cloudflare 登录和 DNS 由用户在 P3 完成；隧道凭据文件在 `~/.cloudflared/`，不进仓库。可选叠加 Cloudflare Access 服务令牌（Q2）。
+2. **隧道**：Cloudflare 命名隧道，`cloudflared` 配置 `ingress` 只转发 `https://norma.<域名>/mcp` → `http://127.0.0.1:<port>`，其他 404。Cloudflare 登录和 DNS 由用户在 P3 完成；隧道凭据文件在 `~/.cloudflared/`，不进仓库。P3 只用 Bearer Token；Cloudflare Access（服务令牌 / mTLS）列为后续项，不在 P2–P5 范围内（Q2）。
 3. **Token**：
    - 生成：设置页「生成连接令牌」，32 字节 CSPRNG，格式 `nrm_live_<base64url>`；只在生成时显示一次，供用户粘贴进 Grok Bot 自定义连接器。
    - 存储：macOS 钥匙串（service `ai.multisoul.norma.connector`），本地只存 `sha256(token)` 用于常数时间比较；不写日志、不写 SQLite、不进仓库或 E2E 夹具。
-   - 轮换：生成新 Token 后旧 Token 保留 24 小时宽限（可设为 0）；设置页显示两者状态。
-   - 吊销：「立即吊销」删除钥匙串项并断开所有 MCP 会话；关闭连接器开关等同全部吊销。
+   - 轮换：生成新 Token 后旧 Token 继续可用 24 小时宽限期，期满失效（Q9）；设置页显示两者状态。
+   - 吊销：「立即吊销」立即生效（无宽限），删除钥匙串项并断开所有 MCP 会话；关闭连接器开关等同全部吊销。
 4. **限流**：每 Token 读 60 次/分钟，写 10 次/分钟，`resolve_approval` commit 5 次/分钟；连续 10 次鉴权失败 → 封锁 15 分钟并在设置页提示。
 5. **审计日志**（新表 `connector_audit`）：时间、工具、参数摘要（任务正文只存哈希 + 前 80 字）、`operation_id`、结果码、`user_quote`（审批）。保存 90 天；设置页可查看。
 6. **Grok Bot 永远不能做的事**：写终端原始输入 / 按键；读写文件、读终端全文；创建、删除、改名卡片或工作空间；传 `force_untracked`；会话级或永久放行审批；无 nonce 批准；修改连接器设置、Token、webhook URL；访问手机配对 / `MobileDeviceGrant`；触发 Norma 自主路由。
@@ -214,17 +221,17 @@ Norma App 进程
 
 - `connector_operations(client_id, operation_id, tool, request_hash, state, result_json, error, created_at_unix, updated_at_unix, PRIMARY KEY(client_id, operation_id))`——语义复制 `MobileCommandStore::reserve`（`New / Existing / Conflict`），不复用 `mobile_commands`（它绑定 `device_id` 与手机授权）。
 - `connector_outbox`、`connector_audit`、`connector_nonces`（内存即可，重启作废）。
-- 设置：端口、webhook URL、启用开关、通知范围（存 app 设置）；Token 与 HMAC secret 只在钥匙串。
+- 设置：端口（默认 47615）、webhook URL、启用开关、通知范围（默认仅 Grok Bot 派出的任务，可切换为全部任务）（存 app 设置）；Token 与 HMAC secret 只在钥匙串。
 
 ## 8. 分期
 
 | 期 | PR 内容 | 完成标志 |
 | --- | --- | --- |
 | P1 | 本规格 | 合入 docs |
-| P2 | `ConnectorServer` + Token 生成/存储/吊销 + `directory` / `list_tasks` / `get_task_progress` + 审计 + 限流 | 本机 `curl`/MCP Inspector 调用通过 AC-01–AC-12 |
-| P3 | 命名隧道配置文档与设置页地址字段；用户登录 Cloudflare 并在 Grok Bot 添加自定义连接器 | Grok Bot 远程调用三个只读工具成功（AC-13–AC-16） |
+| P2 | `ConnectorServer`（axum + rmcp） + Token 生成/存储/吊销 + `directory` / `list_tasks` / `get_task_progress` + 审计 + 限流 | 本机 `curl`/MCP Inspector 调用通过 AC-01–AC-12、AC-41–AC-43 |
+| P3 | 命名隧道配置文档与设置页地址字段；用户登录 Cloudflare 并在 Grok Bot 添加自定义连接器 | Grok Bot 远程调用三个只读工具成功（AC-13–AC-16、AC-44） |
 | P4 | `dispatch_task` + `cancel_task` + `connector_operations` + `card_id` 精确解析 | AC-17–AC-26 |
-| P5 | `ConnectorNotifier` + outbox + HMAC + `resolve_approval` 两步确认 | AC-27–AC-40 |
+| P5 | 前置：确认 routine webhook 能读原始请求体与请求头（否则需中继，待用户确认）；`ConnectorNotifier` + outbox + HMAC + `resolve_approval` 两步确认 | AC-27–AC-40、AC-45–AC-49 |
 
 ## 9. 验收清单（QA）
 
@@ -232,12 +239,12 @@ Norma App 进程
 - AC-02 开启后只监听 `127.0.0.1:<port>`；从局域网 IP 连接失败。
 - AC-03 无 / 错误 Token → HTTP 401，审计记录一条失败。
 - AC-04 Token 只显示一次；钥匙串可见该项；SQLite 与日志中搜索不到明文 Token。
-- AC-05 吊销后旧 Token 立即 401，已有 MCP 会话断开。
-- AC-06 轮换后旧 Token 在宽限期内可用、期满 401。
+- AC-05 吊销立即生效：旧 Token 立即 401，已有 MCP 会话断开。
+- AC-06 轮换后旧 Token 在 24 小时宽限期内可用、期满 401。
 - AC-07 `Host` 头非白名单 → 拒绝。
 - AC-08 `tools/list` 在 P2 只列三个只读工具。
 - AC-09 `directory` 返回所有工作空间、项目、卡片；未加载区域卡片 `state=unloaded`，调用前后无新 PTY 启动。
-- AC-10 两张同名卡片 → 两者 `role_name_unique=false`，`card_id` 不同。
+- AC-10 两张同名卡片 → 两者 `role_name_unique=false`，`card_id` 不同；同一目录两个画布中 `node_id` 相同的卡片，`card_id` 也不同。
 - AC-11 `list_tasks` 默认含全部未终态任务与 24 h 内终态；分页游标稳定。
 - AC-12 超过读限流 → `rate_limited` 含 `retry_after_s`；连续 10 次鉴权失败触发 15 分钟封锁。
 - AC-13 命名隧道域名稳定，App 重启 / 隧道重启后 URL 不变。
@@ -259,7 +266,7 @@ Norma App 进程
 - AC-29 同 `dedupe_key` 只投递一次（包括 App 重启后）。
 - AC-30 webhook 返回 500 → 按 1/2/4… 分钟退避；返回 410 → 不再重试，标 `dead`。
 - AC-31 断网 2 小时后恢复 → 积压事件补发；已关闭的审批事件不补发。
-- AC-32 停滞 30 分钟只发一次 `task.stalled`；恢复活动后再停滞 30 分钟再发一次。
+- AC-32 已跟踪任务连续 30 分钟无新输出、工具调用或状态变化 → 只发一次 `task.stalled`；恢复活动后再停滞 30 分钟再发一次；untracked 任务永不发 `task.stalled`。
 - AC-33 负载中无终端全文、文件内容、Token。
 - AC-34 `resolve_approval commit` 缺 `user_confirmed` 或 nonce → `confirmation_required`。
 - AC-35 nonce 复用 / 过期 / 跨 approval 使用 → `nonce_invalid` / `nonce_expired`。
@@ -268,25 +275,37 @@ Norma App 进程
 - AC-38 每次审批审计记录含 `user_quote` 与决定。
 - AC-39 Grok Bot 侧：用户未确认时 Grok Bot 不调用 commit（客户端走查用例）。
 - AC-40 第 6.6 节列出的禁止能力在 `tools/list` 中不存在，任何参数组合都无法达成。
+- AC-41 默认端口为 `47615`；在设置中改端口后按新端口监听，且设置页显示「需同步修改隧道配置」提示。
+- AC-42 App 未运行时无任何 Norma 进程监听端口；未安装登录项或后台常驻进程。
+- AC-43 `card_id` 中包含画布标识；同目录多画布场景下 `directory` 返回的 `card_id` 全部唯一。
+- AC-44 App 未运行时 Grok Bot 调用得到连接失败，并向用户显示「Norma 未运行」，不误报为空目录。
+- AC-45 Grok Bot routine 收到签名错误或时间戳过期的事件 → 丢弃，不给用户发消息。
+- AC-46 默认设置下，只有 Grok Bot 派出的任务（及其审批）触发 webhook；桌面 / 手机发起的任务不触发。打开「通知全部任务」后这些任务也触发。
+- AC-47 同一事件同时触发手机推送与 webhook 时，两路都发送，互不去重。
+- AC-48 App 退出时 outbox 有积压事件 → App 重新打开后补发。
+- AC-49 （P5 前置）已记录 routine webhook 能否读取原始请求体与请求头的验证结果；若不能，已获得用户对中继方案的确认后再实现。
 
-## 10. 开放问题
+## 10. 已决定
 
-- Q1 MCP / HTTP 实现库：仓库没有 HTTP 服务框架。选 `axum`+`rmcp`（新增依赖、二进制体积）还是延续 `agent_hook_ingress.rs` 的手写 `std::net`（自己实现 Streamable HTTP 与 SSE）？
-- Q2 是否在 Bearer Token 之外再加 Cloudflare Access（服务令牌 / mTLS）？Grok Bot 自定义连接器能否发送额外头部决定可行性。
-- Q3 #97 合入后是否把 `card_id` 改为其持久卡片身份？在此之前 `node_id + definition_id + 创建时间` 的身份是否足够（同目录多画布 node_id 可重复）。
-- Q4 Grok Bot routine webhook 是否能校验 HMAC / 时间戳？若不能，签名只作为 URL 内秘密之外的纵深防御。
-- Q5 通知范围：只通知 Grok Bot 派出的任务，还是包括桌面 / 手机 / 直接卡片发起的任务？审批是否全部通知？
-- Q6 与手机推送（`crates/app/src/mobile/push/activity.rs`）同时触发时是否去重 / 只选一个渠道？
-- Q7 端口固定 `47615` 是否接受；Mac 多用户场景是否需要每用户端口。
-- Q8 「30 分钟无进展」的「进展」定义：仅 Hook / turn 事件，还是也算终端输出？无跟踪（untracked）任务是否参与。
-- Q9 Token 宽限期默认 24 h 还是 0。
-- Q10 App 未运行时 MCP 不可用；是否需要登录项 / 后台常驻。
+以下 10 项原开放问题已由 yakami 于 2026-10-13 决定，正文已同步修改。
+
+- Q1 HTTP / MCP 实现：`axum` + `rmcp`（3.1）。
+- Q2 P3 只用 Bearer Token；Cloudflare Access（服务令牌 / mTLS）列为后续项（6.2）。
+- Q3 不依赖 #97。`card_id` 由连接器自行定义，同一目录多画布时也必须唯一（编码含 `canvas_id`）；不再计划切换到 #97 的身份（2、3.2）。
+- Q4 Grok Bot routine 必须校验 HMAC 签名，校验失败丢弃事件。P5 前置条件与风险：确认 routine webhook 触发器能读取原始请求体与请求头；若不能，需要小型中继，待用户确认（5.3、R7）。
+- Q5 默认只通知 Grok Bot 派出的任务；设置项可打开「通知全部任务」（5.1、7）。
+- Q6 手机推送与 Grok Bot 通知各自独立发送，不跨渠道去重（5.1）。
+- Q7 默认端口 `47615`，可在设置中修改；修改时提示需同步修改隧道配置（3.1）。
+- Q8 停滞：连续 30 分钟没有新输出、工具调用或状态变化；untracked 任务不参与（5.1）。
+- Q9 Token 轮换后旧 Token 有 24 小时宽限期；吊销立即生效（6.3）。
+- Q10 不做后台常驻。App 未运行时连接器不可达，Grok Bot 显示「Norma 未运行」；outbox 中的事件在 App 重新打开后补发（3.1、5.4）。
 
 ## 11. 风险（代码中让决定变难的地方）
 
 - R1 现有 `AgentTaskAssignment` 只有 `name + task`，派工按名字解析；而 `agent_definitions` 名称唯一索引是定义级，同一定义可能有多张卡片。P4 需要新增按卡片实例派工的内部入口，否则无法满足「精确目标」。
-- R2 `node_id` 是区域内局部编号，同目录多画布可重复（#97 T01 正是为此）；dev 上没有持久卡片身份，`card_id` 只能尽力而为。
+- R2 `node_id` 是区域内局部编号，同目录多画布可重复（#97 T01 正是为此）；dev 上没有持久卡片身份；连接器自定义的 `card_id` 必须编码画布标识才能唯一，P2 需确认现有存储中有稳定的画布标识，没有则新增。
 - R3 审批只支持 `Codex | Claude`（`ApprovalTarget::valid`）；OpenCode 等卡片的审批无法 resolve。
 - R4 未加载区域的状态只有持久快照，`busy/idle` 可能过时；必须标注 `unloaded`，不能推断。
 - R5 仓库无 HTTP 服务框架、无钥匙串生产代码，P2 工作量与依赖审查比看起来大。
 - R6 跨工作空间派工依赖 `orchestration_task_routes`，目标工作空间未打开时的行为（`closed_workspace_response`）需在 P4 明确为错误还是排队。
+- R7 Grok Bot routine 的 webhook 触发器可能拿不到原始请求体 / 请求头，导致无法校验 HMAC；此时需要一个小型中继（P5 前置确认，是否引入待用户确认）。
