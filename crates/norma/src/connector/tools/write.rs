@@ -50,7 +50,7 @@ pub enum WriteRequest {
 }
 impl WriteRequest {
     pub fn parse(name: &str, input: Value, signer: &CardSigner) -> Result<Self, &'static str> {
-        let request = match name {
+        let mut request = match name {
             "dispatch_task" => {
                 Self::Dispatch(serde_json::from_value(input).map_err(|_| "invalid_argument")?)
             }
@@ -66,12 +66,12 @@ impl WriteRequest {
             _ => return Err("invalid_argument"),
         };
         id(request.operation_id(), 128)?;
-        match &request {
+        match &mut request {
             Self::Dispatch(args) => {
                 signer.verify(&args.card_id)?;
                 id(&args.card_revision, 256)?;
-                text(&args.task)?;
-                if let Some(context) = &args.context {
+                text(&mut args.task)?;
+                if let Some(context) = &mut args.context {
                     text(context)?;
                     if args.task.chars().count() + context.chars().count() + 2 > 8000 {
                         return Err("task_too_long");
@@ -81,7 +81,7 @@ impl WriteRequest {
             Self::Reply(args) => {
                 signer.verify(&args.card_id)?;
                 id(&args.card_revision, 256)?;
-                text(&args.message)?;
+                text(&mut args.message)?;
             }
             Self::Cancel(args) => id(&args.task_id, 4096)?,
             Self::Create(args) => {
@@ -90,7 +90,7 @@ impl WriteRequest {
                 if !matches!(args.profile.as_str(), "claude" | "codex") {
                     return Err("profile_unavailable");
                 }
-                if let Some(task) = &args.task {
+                if let Some(task) = &mut args.task {
                     text(task)?;
                 }
             }
@@ -145,7 +145,8 @@ fn id(value: &str, max: usize) -> Result<(), &'static str> {
         Ok(())
     }
 }
-fn text(value: &str) -> Result<(), &'static str> {
+fn text(value: &mut String) -> Result<(), &'static str> {
+    value.retain(|c| !c.is_control() || c == '\n' || c == '\t');
     if value.trim().is_empty() {
         Err("invalid_argument")
     } else if value.chars().count() > 8000 {

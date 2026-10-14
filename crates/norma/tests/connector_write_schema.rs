@@ -113,3 +113,75 @@ fn write_arguments_are_bounded_normalized_and_cannot_expand_adapter_capabilities
         "签名校验在预留前"
     );
 }
+
+/// 场景：连接器任务、上下文、回复和建卡任务包含终端控制字符。
+/// 构造：中文正文夹入所有 C0/C1、DEL；执行公开请求解析。
+/// 预期：进入 Adapter 前剥离控制字符，保留换行与制表符，清洗后指纹一致；空正文拒绝。
+#[test]
+fn connector_text_strips_terminal_controls_and_preserves_multiline() {
+    use norma::connector::{CardIdentity, CardSigner, WriteRequest};
+    use serde_json::json;
+    let signer = CardSigner::new(&[4; 32]);
+    let card = signer.sign(&CardIdentity {
+        workspace_id: "w".into(),
+        area_id: "a".into(),
+        canvas_id: "c".into(),
+        node_id: 7,
+        definition_id: 1,
+        created_at: 10,
+    });
+    let controls: String = (0u8..=159)
+        .map(char::from)
+        .filter(|c| c.is_control() && *c != '\n' && *c != '\t')
+        .collect();
+    let dirty = format!("任务{controls}\n\t说明");
+    let clean = "任务\n\t说明";
+    for (tool, field, mut args) in [
+        (
+            "dispatch_task",
+            "task",
+            json!({"operation_id":"op","card_id":card,"card_revision":"r"}),
+        ),
+        (
+            "reply_agent",
+            "message",
+            json!({"operation_id":"op","card_id":card,"card_revision":"r"}),
+        ),
+        (
+            "create_card",
+            "task",
+            json!({"operation_id":"op","workspace_id":"w","area_id":"a","profile":"codex"}),
+        ),
+    ] {
+        args[field] = json!(dirty);
+        let parsed = WriteRequest::parse(tool, args.clone(), &signer).expect("剥离而非拒绝正文");
+        let received = match &parsed {
+            WriteRequest::Reply(reply) => reply.message.clone(),
+            _ => parsed.task_text().expect("任务正文"),
+        };
+        assert_eq!(received, clean, "{tool} 正文在进入 Adapter 前清洗");
+        assert!(!received.contains('\u{3}'), "不得借正文发送 Ctrl+C");
+        args[field] = json!(clean);
+        assert_eq!(
+            parsed.fingerprint(),
+            WriteRequest::parse(tool, args.clone(), &signer)
+                .expect("干净正文")
+                .fingerprint(),
+            "{tool} 指纹基于规范化正文"
+        );
+        args[field] = json!(controls);
+        assert_eq!(
+            WriteRequest::parse(tool, args, &signer)
+                .expect_err("清洗后为空")
+                .to_string(),
+            "invalid_argument",
+            "剥离后仍验证非空"
+        );
+    }
+    let request = WriteRequest::parse("dispatch_task", json!({"operation_id":"op","card_id":card,"card_revision":"r","task":"主任务","context":dirty}), &signer).expect("上下文清洗");
+    assert_eq!(
+        request.task_text().as_deref(),
+        Some("主任务\n\n任务\n\t说明"),
+        "上下文也必须清洗"
+    );
+}
