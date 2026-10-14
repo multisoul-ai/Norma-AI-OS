@@ -83,3 +83,44 @@ fn connector_cancel_terminal_state_uses_spec_done() {
         "内部状态不能漏到连接器"
     );
 }
+
+/// 场景：升级前账本已有 terminal_state=succeeded 的成功取消回执，重放也必须使用规格名称 done。
+/// 构造：旧终态回执及相同取消请求，requested_at 固定为 100；调用实际账本重放映射。
+/// 预期：仅规范旧终态名称和 replayed，任务引用、操作标识、终态结果与预留时间保持不变。
+#[test]
+fn connector_cancel_replay_normalizes_legacy_terminal_state() {
+    let signer = norma::connector::CardSigner::new(&[8; 32]);
+    let request = WriteRequest::parse(
+        "cancel_task",
+        json!({"operation_id":"old-cancel","task_id":"run:1"}),
+        &signer,
+    )
+    .expect("取消请求");
+    let original = json!({"operation_id":"old-cancel","task_id":"run:1","state":"already_terminal","terminal_state":"succeeded","requested_at":100,"replayed":false});
+    let stored = MobileCommandReceipt {
+        device_id: "connector:epoch".into(),
+        operation_id: "old-cancel".into(),
+        workspace_id: "workspace".into(),
+        route_id: "run:1".into(),
+        state: "succeeded".into(),
+        result: Some(original.clone()),
+        error: None,
+        created_at_unix: 100,
+    };
+    let replayed = replay(
+        MobileCommandReservation::Existing(Box::new(stored)),
+        &request,
+    )
+    .expect("旧回执重放");
+    let mut expected = original;
+    expected["terminal_state"] = json!("done");
+    expected["replayed"] = json!(true);
+    assert_eq!(
+        replayed, expected,
+        "旧成功任务名称规范为 done，其他回执字段冻结"
+    );
+    assert_ne!(
+        replayed["terminal_state"], "succeeded",
+        "重放不能再次漏出内部状态名"
+    );
+}

@@ -270,6 +270,10 @@ fn replay(
                     )
                 }
             });
+            if matches!(request, WriteRequest::Cancel(_)) && value["terminal_state"] == "succeeded"
+            {
+                value["terminal_state"] = json!("done");
+            }
             value["replayed"] = json!(true);
             Ok(value)
         }
