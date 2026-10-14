@@ -42,12 +42,18 @@ pub(super) fn run(
         request_hash: request.fingerprint(),
     };
     match store
-        .reserve_connector(&command, now)
+        .reserve_connector(&command, repo.clock.now())
         .map_err(|_| "internal")?
     {
         MobileCommandReservation::New => {}
         existing => return replay(existing, &request),
     }
+    // Target preflight precedes reservation. Receipts use the committed ledger time,
+    // also used on replay, rather than the timestamp captured at MCP tool entry.
+    let now = match store.lookup_connector(&command).map_err(|_| "internal")? {
+        Some(MobileCommandReservation::Existing(receipt)) => receipt.created_at_unix,
+        _ => return Err("internal"),
+    };
     let mut diagnostic = None;
     let mut outcome = match execute(repo, &request, workspace, area, cancellation) {
         Ok(executed) => receipt(repo, &request, executed, now),

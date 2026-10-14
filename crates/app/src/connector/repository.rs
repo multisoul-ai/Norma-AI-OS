@@ -46,6 +46,7 @@ pub(super) struct LiveRequest {
 }
 pub(super) struct Repository {
     pub database: PathBuf,
+    pub clock: std::sync::Arc<dyn norma::connector::Clock>,
     pub signer: CardSigner,
     pub live: async_channel::Sender<LiveRequest>,
 }

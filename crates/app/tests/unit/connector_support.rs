@@ -14,12 +14,16 @@ pub(super) struct Fixture {
     pub requests: async_channel::Receiver<repository::LiveRequest>,
     pub host: Entity<MultisoulApp>,
     pub sessions: Vec<Entity<MultisoulApp>>,
+    pub on_next_capture: Option<Box<dyn FnOnce()>>,
     pub workspace: String,
     pub areas: Vec<String>,
     pub _guard: tempfile::TempDir,
 }
 impl Fixture {
     pub fn new() -> Self {
+        Self::with_clock(Arc::new(SystemClock))
+    }
+    pub fn with_clock(clock: Arc<dyn norma::connector::Clock>) -> Self {
         let guard = tempfile::tempdir().expect("临时连接器项目");
         let root = guard.path().join("project");
         std::fs::create_dir(&root).expect("项目目录");
@@ -81,7 +85,7 @@ impl Fixture {
                 Arc::new(repository::Credentials(
                     storage::connector_store::ConnectorStore::new(database.clone()),
                 )),
-                Arc::new(SystemClock),
+                clock.clone(),
             )
             .expect("随机凭据"),
         );
@@ -90,6 +94,7 @@ impl Fixture {
         let signer = CardSigner::new(&auth.signer_key().expect("签名密钥"));
         let repo = Arc::new(repository::Repository {
             database,
+            clock,
             signer: signer.clone(),
             live,
         });
@@ -103,6 +108,7 @@ impl Fixture {
             requests,
             host,
             sessions,
+            on_next_capture: None,
             workspace: workspace.id,
             areas: areas.into_iter().map(|a| a.id).collect(),
             _guard: guard,
@@ -122,6 +128,11 @@ impl Fixture {
         while !thread.is_finished() {
             assert!(std::time::Instant::now() < deadline, "后台调用不能死锁");
             if let Ok(request) = self.requests.try_recv() {
+                if request.execute.is_none() {
+                    if let Some(advance) = self.on_next_capture.take() {
+                        advance();
+                    }
+                }
                 self.test.update(|cx| {
                     live::capture(&self.repo.database, request, &self.repo.signer, cx)
                 });

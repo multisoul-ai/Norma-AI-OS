@@ -9,6 +9,7 @@ fn connector_creation_receipt_requires_node_and_known_outcome() {
     let (live, _) = async_channel::bounded(1);
     let repo = Repository {
         database: dir.path().join("app.sqlite"),
+        clock: std::sync::Arc::new(norma::connector::SystemClock),
         signer: norma::connector::CardSigner::new(&[8; 32]),
         live,
     };

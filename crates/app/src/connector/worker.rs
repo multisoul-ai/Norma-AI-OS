@@ -76,6 +76,7 @@ async fn run(
     auth.webhook_key()?;
     let source = Arc::new(Repository {
         database,
+        clock: Arc::new(SystemClock),
         signer: signer.clone(),
         live,
     });
