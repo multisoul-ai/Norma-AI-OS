@@ -334,6 +334,7 @@ Norma App 进程
 - Q12 （2026-10-14）锁定按来源 IP 计数鉴权失败，正确 Token 永不被锁；Funnel 下来源 IP 取 tailscaled 写入的 `X-Forwarded-For`，仅在确认连接来自本机 Funnel 代理时采信（6.4）。
 - Q13 （2026-10-14）Token 熵 ≥ 128 bit；不设全局失败告警（6.3、6.4）。
 - 暂定（2026-10-14，待 yakami 确认）：`card_revision` 只由持久状态计算（3.2）；webhook `occurred_at` 改为 unix 秒（5.2）；写工具幂等复用 `MobileCommandStore`（不建 `connector_operations`），连接器行保存 30 天、轮换宽限期内新旧 Token 同一 `client_id`、吊销后重新生成的 Token 为新 `client_id`（7）。P4 其余暂定项见 `2026-10-14-grokbot-connector-p4-tickets.md`。
+- Y-1–Y-6（2026-10-14，yakami 已决定，非暂定）：开放新建卡片（仅新建，删除 / 改名仍禁止）；Grok Bot 直接创建、不先问用户；`area_id` 必填、找不到 → `area_not_found`；不做 `load_card`；不设建卡数量限额；只开放 claude / codex，其他 → `profile_unavailable`（4.8）。
 - Q10 不做后台常驻。App 未运行时连接器不可达，Grok Bot 显示「Norma 未运行」；outbox 中的事件在 App 重新打开后补发（3.1、5.4）。
 
 ## 11. 风险（代码中让决定变难的地方）
