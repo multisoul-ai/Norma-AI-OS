@@ -1,7 +1,7 @@
 # Grok Bot 连接器 P4：派工与取消——工单拆分
 
 状态：工单拆分（仅文档，不改代码）· 2026-10-14。叠在 PR #105（`docs/grokbot-connector-spec-1014`）之上。
-唯一规格来源：`docs/product-specs/2026-10-13-grokbot-norma-connector.md`（下称「主规格」）。本文不改主规格已拍板事项，新增内容以「补充条款」形式提出，AC 编号从 AC-56 起续编（现至 AC-71）（AC-54 已删除，不复用）。
+唯一规格来源：`docs/product-specs/2026-10-13-grokbot-norma-connector.md`（下称「主规格」）。本文不改主规格已拍板事项，新增内容以「补充条款」形式提出，AC 编号从 AC-56 起续编（现至 AC-72）（AC-54 已删除，不复用）。
 
 代码事实依据：
 - origin/dev（主规格 1.1 节所列文件）；
@@ -118,7 +118,7 @@
 
 ### 2.3 幂等规则（两工具共用）
 
-1. 账本 `connector_operations(client_id, operation_id, tool, request_hash, state, result_json, error, created_at_unix, updated_at_unix, PK(client_id, operation_id))`（主规格第 7 节）。`client_id`：连接器调用方身份；Token 轮换 24 小时宽限期内新旧 Token 视为同一 `client_id`，跨轮换重放仍返回原回执（暂定，待 yakami 确认）（原 OQ-4）。吊销后新生成的 Token 是否沿用同一 `client_id` 未定【假设：沿用，单用户单连接器】。
+1. 账本 `connector_operations(client_id, operation_id, tool, request_hash, state, result_json, error, created_at_unix, updated_at_unix, PK(client_id, operation_id))`（主规格第 7 节）。`client_id`：连接器调用方身份；Token 轮换 24 小时宽限期内新旧 Token 视为同一 `client_id`，跨轮换重放仍返回原回执（暂定，待 yakami 确认）（原 OQ-4）。**吊销后重新生成的 Token 是新的 `client_id`**：吊销是立即生效的安全动作，旧 Token 时期的 `operation_id` 不能用新 Token 重放取回回执；同一 `operation_id` 在新 `client_id` 下是独立命名空间，按新操作处理（AC-72，2026-10-14 决定）。只有轮换宽限期内的新旧 Token 算同一 `client_id`。
 2. `request_hash`：
    - dispatch：`sha256(tool | card_id | card_revision | task | context | allow_queue)`，缺省值先规范化（`allow_queue` 缺省视为 `true`，`context` 缺省视为空串）。
    - cancel：`sha256(tool | task_id)`。
@@ -182,9 +182,10 @@
 - AC-66 审计 `connector_audit` 对每次 dispatch / cancel 记一条：`operation_id`、结果码、任务正文仅哈希 + 前 80 字（主规格 6.5）。
 - AC-67 目标工作空间未打开时 `dispatch_task` → `workspace_closed`（retryable=true），无工作空间被打开、无 PTY 启动、`operation_id` 不被占用。
 - AC-68 默认设置下 `cancel_task` 取消桌面 / 手机发起的任务 → `not_connector_task`，任务不受影响；打开「允许 Grok Bot 取消全部任务」后可取消。Grok Bot 派出的任务直接取消，无额外确认。
-- AC-69 Token 轮换后 24 小时宽限期内，用新 Token 重放旧 Token 发起的同一 `operation_id` → 原回执、`replayed=true`。
+- AC-69 Token 轮换后 24 小时宽限期内，用新 Token 重放旧 Token 发起的同一 `operation_id` → 原回执、`replayed=true`。仅限轮换宽限期；吊销后不适用（见 AC-72）。
 - AC-70 `connector_operations` 中超过 30 天的记录被清理；清理前重放仍幂等。
 - AC-71 `card_revision` 在 App 重启、PTY 重连、路由代次变化后不变；项目根目录、工作目录、profile 或 `session_id` 任一变化后改变，旧 revision 派工 → `target_changed`。
+- AC-72 吊销 Token 并重新生成后，用新 Token 以旧 Token 时期的 `operation_id` 调用 → 不返回旧回执（`replayed=false`），按新 `client_id` 下的独立操作处理；不与旧记录比对 `request_hash`、不报 `operation_conflict`。
 
 ## 5. 工单
 
@@ -194,7 +195,7 @@
 
 - **任务**：新建 `connector_operations` 表与 `reserve(New/Existing/Conflict)` 存储（语义照 `MobileCommandStore::reserve`）；`card_id` 验签 + 逐项复核 + `card_revision` 比对；新增按 `(workspace, area, canvas, node_id)` 派工的内部入口（解决 R1，不改 `AgentTaskAssignment` 现有按名语义）；`dispatch_task` 输入/输出/错误码按 §2.1；启动时把未确认写入的预留标为 `outcome_unknown`；审计记录。
 - **仓库**：multisoul-ai/Norma-AI-OS（`crates/storage`、`crates/norma/src/connector`、`crates/app/src/norma/endpoint`）
-- **Done when**：AC-17、AC-18、AC-19、AC-20、AC-21、AC-22、AC-23、AC-24、AC-26、AC-56、AC-67、AC-69、AC-70、AC-71、AC-57、AC-58、AC-59、AC-64（accepted_at）、AC-66 通过。
+- **Done when**：AC-17、AC-18、AC-19、AC-20、AC-21、AC-22、AC-23、AC-24、AC-26、AC-56、AC-67、AC-69、AC-70、AC-71、AC-72、AC-57、AC-58、AC-59、AC-64（accepted_at）、AC-66 通过。
 - **不要做**：不传 `force_untracked`；不做模糊名称匹配或自动换卡；不复用 `mobile_commands`；不自动重放 `outcome_unknown`；不改 Unix socket 协议现有语义；不自动打开未打开的工作空间（OQ-2 未定前）；不碰 Token 存储 / Funnel / 锁定逻辑。
 
 ### P4-2 `cancel_task` 工具
@@ -208,14 +209,14 @@
 
 - **任务**：`directory.cards[].created_at`；`get_task_progress` 的 `created_at / updated_at / state_changed_at / events[]`；`cancel_task.requested_at`；必要时新增状态迁移时间记录（新列或新表，只增不改）。同步把 §4 补充条款合入主规格（另起文档 PR 或本 PR 后续提交）。
 - **仓库**：multisoul-ai/Norma-AI-OS（`crates/norma/src/connector/tools`、`crates/storage`、`docs/product-specs`）
-- **Done when**：AC-62、AC-63 通过；主规格已含 §4 字段与 AC-56–AC-71。
+- **Done when**：AC-62、AC-63 通过；主规格已含 §4 字段与 AC-56–AC-72。
 - **不要做**：不改 `card_id` 编码中的 `created_at` 计算（会使已发出的 `card_id` 失效）；不用 0 / 当前时间填未知值；不在 P4 实现 webhook `occurred_at`（P5）；不在 P4 实现真实 `last_activity_at` 来源（P5）。
 
 ### P4-4 测试与端到端
 
 - **任务**：存储单测（reserve 三态、崩溃恢复）；工具集成测试（沿用 P2 `crates/norma/tests/connector_tools.rs`、`connector_http.rs` 风格）；经 Funnel 由 Grok Bot 真实派工 / 取消的走查，含 App 未运行场景；Grok Bot 侧走查：派工多候选时先问用户。
 - **仓库**：multisoul-ai/Norma-AI-OS（`crates/*/tests`、E2E 记录写在 P4 PR）
-- **Done when**：AC-17–AC-26、AC-56–AC-71 全部有自动化或记录在案的手工结果；E2E 夹具使用随机生成 Token（AC-04）。
+- **Done when**：AC-17–AC-26、AC-56–AC-72 全部有自动化或记录在案的手工结果；E2E 夹具使用随机生成 Token（AC-04）。
 - **不要做**：不把真实 Token 写进夹具 / 日志；不在用户真实工作空间上跑破坏性测试；不合并 PR。
 
 ## 6. 暂定决定（原开放问题，均为「暂定，待 yakami 确认」）
@@ -223,7 +224,7 @@
 - 原 OQ-1 `dispatch_task` 不加 `workspace_id`。暂定，待 yakami 确认。
 - 原 OQ-2 目标工作空间未打开 → 报错 `workspace_closed`，不排队、不自动打开（AC-67）。暂定，待 yakami 确认。
 - 原 OQ-3 `cancel_task` 只取消 Grok Bot 派出的任务，直接取消、无额外确认；做成设置项，日后可调（AC-68）。暂定，待 yakami 确认。
-- 原 OQ-4 24 小时轮换宽限期内新旧 Token 视为同一 `client_id`（AC-69）。暂定，待 yakami 确认。
+- 原 OQ-4 仅 24 小时轮换宽限期内新旧 Token 视为同一 `client_id`（AC-69）；吊销后重新生成的 Token 为新 `client_id`，旧 `operation_id` 不可重放取回回执（AC-72，2026-10-14 决定）。暂定，待 yakami 确认。
 - 原 OQ-5 `connector_operations` 保存 30 天（AC-70）。暂定，待 yakami 确认。
 - 原 OQ-6 webhook `occurred_at` 改为 unix 秒（主规格 5.2 已改；P5 实现）。暂定，待 yakami 确认。
 - 原 OQ-7 无 `agent_definitions` 记录的卡片 `created_at = null`（AC-62）。暂定，待 yakami 确认。
@@ -236,5 +237,4 @@
 
 ## 8. 剩余开放问题
 
-- 吊销后新生成的 Token 是否沿用同一 `client_id`（§2.3 假设沿用）。
-- `not_connector_task` 错误码名称是否需并入主规格通用错误码表。
+- 暂无。（吊销后 `client_id` 已决定为新身份，见 §2.3、AC-72；`not_connector_task` 已并入主规格通用错误码表。）
