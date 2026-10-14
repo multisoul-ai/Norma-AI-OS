@@ -96,7 +96,7 @@ MCP tools/call → 参数校验(deny_unknown_fields) → card_id 验签解析 �
 
 ### 2.7 错误码汇总
 
-已在 #105 通用表（已决定）：`card_not_loaded`、`agent_rejected`、`not_connector_task`（后三者中 `card_not_loaded` / `agent_rejected` 仍为暂定）、`workspace_closed`、`area_not_found`、`profile_unavailable`、`card_create_failed`。**删除**：`card_limit_reached`、`daily_create_limit_reached`（Y-5 不设限额）。原 P4-5 的 `role_name_taken`、`role_name_invalid`、`project_changed`、`working_dir_unsupported`、`working_dir_outside_project`、`working_dir_not_found`、`card_start_failed` 已撤回。
+已在 #105 通用表：`workspace_closed`、`area_not_found`、`profile_unavailable`、`card_create_failed`（已决定）；`card_not_loaded`、`agent_rejected`、`not_connector_task`（暂定）。**删除**：`card_limit_reached`、`daily_create_limit_reached`（Y-5 不设限额）。原 P4-5 的 `role_name_taken`、`role_name_invalid`、`project_changed`、`working_dir_unsupported`、`working_dir_outside_project`、`working_dir_not_found`、`card_start_failed` 已撤回。
 
 ### 2.8 明确范围外
 
