@@ -167,3 +167,54 @@ fn connector_concurrency_rejection_and_cleanup_preserve_mobile_commands() {
         .expect("schema检查");
     assert_eq!(forbidden, 0, "没有第二套操作账本");
 }
+
+/// 场景：共享账本内部保存预留时间，但手机回执必须维持原 JSON 契约。
+/// 构造：临时库中的普通手机请求；执行预留、完成、查询并序列化。
+/// 预期：仅七个原有字段，内部 created_at_unix 仍可供连接器读取。
+#[test]
+fn mobile_receipt_json_preserves_exact_keys() {
+    let dir = tempfile::tempdir().expect("临时库");
+    let store = MobileCommandStore::new(dir.path().join("app.sqlite"));
+    let mobile = NewMobileCommand {
+        device_id: "phone-a".into(),
+        operation_id: "mobile-op".into(),
+        workspace_id: "workspace".into(),
+        route_id: "route".into(),
+        owner_id: "phone-owner".into(),
+        request_hash: "b".repeat(64),
+    };
+    store.reserve(&mobile).expect("手机预留");
+    store
+        .finish(&mobile, Ok(json!({"sent":true})))
+        .expect("手机完成");
+    let receipt = store
+        .get("phone-a", "mobile-op", "workspace", "phone-owner")
+        .expect("手机查询")
+        .expect("原回执");
+    assert!(receipt.created_at_unix > 0, "内部预留时间保留");
+    let value = serde_json::to_value(receipt).expect("手机JSON");
+    let keys: Vec<_> = value
+        .as_object()
+        .expect("JSON对象")
+        .keys()
+        .map(String::as_str)
+        .collect();
+    assert_eq!(
+        keys,
+        [
+            "device_id",
+            "error",
+            "operation_id",
+            "result",
+            "route_id",
+            "state",
+            "workspace_id"
+        ],
+        "手机回执恰好保留七个字段"
+    );
+    assert!(
+        value.get("created_at_unix").is_none(),
+        "内部时间不可泄漏进手机协议"
+    );
+    assert_eq!(value["state"], "succeeded", "手机执行结果保留");
+}

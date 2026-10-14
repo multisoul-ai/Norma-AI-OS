@@ -41,6 +41,7 @@ pub struct MobileCommandReceipt {
     pub state: String,
     pub result: Option<Value>,
     pub error: Option<String>,
+    #[serde(skip)]
     pub created_at_unix: i64,
 }
 
