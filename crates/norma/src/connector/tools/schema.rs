@@ -70,6 +70,7 @@ pub(super) fn error(code: &str, retry_after: Option<i64>) -> Value {
         "not_connector_task" => "当前授权不能取消其它来源的任务",
         "task_too_long" => "文本最多为 8000 字符",
         "agent_rejected" => "Agent 未接收此操作",
+        "already_submitted" => "任务已提交，无法撤回",
         "outcome_unknown" => "结果待核对，请勿重复提交",
         "task_not_found" => "任务不存在",
         "target_changed" => "卡片身份已改变",

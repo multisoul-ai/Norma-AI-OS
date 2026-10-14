@@ -208,6 +208,8 @@ pub enum AdapterError {
     Cancelled,
     #[error("adapter rejected operation: {0}")]
     Rejected(String),
+    #[error("消息已交给 Agent CLI，请在卡片内管理其消息队列")]
+    AlreadySubmitted,
     #[error("adapter execution failed: {0}")]
     Failed(String),
     #[error("{0}")]

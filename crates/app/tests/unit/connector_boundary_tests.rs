@@ -211,7 +211,7 @@ fn connector_unknown_creation_receipt_never_replays_side_effects() {
 }
 
 /// 场景：同卡第二任务已交给CLI队列，现有Adapter返回AlreadySubmitted类拒绝。
-/// 执行：两次真实派工、标记第二项submitted、取消；预期agent_rejected且原文仅审计。
+/// 执行：两次真实派工、标记第二项submitted、取消和重放；预期独立 already_submitted 且原文仅审计。
 #[test]
 fn connector_cancel_submitted_queue_redacts_adapter_rejection() {
     let mut f = Fixture::new();
@@ -237,14 +237,37 @@ fn connector_cancel_submitted_queue_redacts_adapter_rejection() {
         json!({"operation_id":"cancel-submitted","task_id":task_ref}),
     );
     assert_eq!(
-        result["error"]["code"], "agent_rejected",
-        "未结构化AlreadySubmitted不猜成功"
+        result["error"]["code"], "already_submitted",
+        "已交 CLI 的任务取消有专用稳定码"
     );
     assert!(!result.to_string().contains("CLI"), "内部拒绝原文不回传");
+    assert_eq!(
+        result["error"]["message"], "任务已提交，无法撤回",
+        "schema 定义专用用户消息"
+    );
+    assert_eq!(result["error"]["retryable"], false, "已提交不可自动重试");
+    let replay = f.call(
+        "cancel_task",
+        json!({"operation_id":"cancel-submitted","task_id":task_ref}),
+    );
+    assert_eq!(
+        replay["error"]["code"], "already_submitted",
+        "重放保持专用拒绝"
+    );
+    assert_eq!(replay["replayed"], true, "不重复尝试取消");
+    assert_eq!(
+        super::execution::error_code(
+            &agent::AdapterError::Rejected("already_submitted".into()),
+            false
+        ),
+        "agent_rejected",
+        "不通过字符串猜测提交状态"
+    );
+
     let conn = rusqlite::Connection::open(&f.repo.database).expect("隔离审计");
     let summary: String = conn
         .query_row(
-            "SELECT parameter_summary FROM connector_audit WHERE operation_id='cancel-submitted'",
+            "SELECT parameter_summary FROM connector_audit WHERE operation_id='cancel-submitted' ORDER BY sequence LIMIT 1",
             [],
             |r| r.get(0),
         )

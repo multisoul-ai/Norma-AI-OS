@@ -16,6 +16,8 @@
 
 默认只允许当前连接器授权的任务取消。持久设置 `ConnectorConfig.allow_cancel_other_tasks` 默认为 false，显式开启后可取消其它来源任务；P4 未新增设置 UI 控件。
 
+取消已交给 CLI 队列、无法撤回的任务返回 `already_submitted`，`retryable=false`；同键重放保留该拒绝。未识别的拒绝仍为 `agent_rejected`。已终态任务仍返回 `already_terminal` 与真实 `terminal_state`。
+
 ## 回执与时间
 
 MCP 输出时间统一为整数 UTC unix 秒，未知为 `null`。目录卡片的展示创建时间来自定义记录；无定义时 `null`。身份编码的 birth 计算保持原状。

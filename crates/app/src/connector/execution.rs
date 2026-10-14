@@ -162,6 +162,7 @@ fn reject(code: &str) -> AdapterError {
 
 pub(super) fn error_code(error: &AdapterError, create: bool) -> &'static str {
     match error {
+        AdapterError::AlreadySubmitted => "already_submitted",
         AdapterError::Rejected(code)
             if matches!(
                 code.as_str(),

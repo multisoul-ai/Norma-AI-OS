@@ -134,9 +134,7 @@ pub(super) fn cancel(
         agent::AgentTaskCancellation::NotFound => Err(AdapterError::Rejected(format!(
             "未找到可取消的任务 #{task_id}"
         ))),
-        agent::AgentTaskCancellation::AlreadySubmitted => Err(AdapterError::Rejected(
-            "消息已交给 Agent CLI，请在卡片内管理其消息队列".to_string(),
-        )),
+        agent::AgentTaskCancellation::AlreadySubmitted => Err(AdapterError::AlreadySubmitted),
     }
 }
 
