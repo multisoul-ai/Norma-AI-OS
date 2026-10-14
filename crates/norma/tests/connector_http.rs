@@ -121,6 +121,11 @@ async fn mcp_lists_p4_tools_and_revoke_closes_sessions() {
     let response=client.post(&url).bearer_auth(&token).header("accept","application/json, text/event-stream")
         .json(&json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"1"}}})).send().await.expect("initialize");
     assert_eq!(response.status(), 200, "初始化成功");
+    assert_eq!(
+        response.headers()["content-type"],
+        "text/event-stream; charset=utf-8",
+        "初始化 SSE 必须声明 UTF-8，中文回执不能依赖客户端默认编码"
+    );
     let session = response
         .headers()
         .get("mcp-session-id")
@@ -149,6 +154,11 @@ async fn mcp_lists_p4_tools_and_revoke_closes_sessions() {
         .send()
         .await
         .expect("tools/list");
+    assert_eq!(
+        response.headers()["content-type"],
+        "text/event-stream; charset=utf-8",
+        "工具 SSE 必须声明 UTF-8"
+    );
     let body = parsed(&response.text().await.expect("工具响应"));
     let names: Vec<_> = body["result"]["tools"]
         .as_array()
@@ -198,6 +208,11 @@ async fn mcp_lists_p4_tools_and_revoke_closes_sessions() {
         .await
         .expect("SSE");
     assert_eq!(stream.status(), 200, "建立会话流");
+    assert_eq!(
+        stream.headers()["content-type"],
+        "text/event-stream; charset=utf-8",
+        "长连接 SSE 必须声明 UTF-8"
+    );
     auth.revoke().expect("吊销");
     let closed = tokio::time::timeout(std::time::Duration::from_secs(2), async {
         while let Ok(Some(_)) = stream.chunk().await {}

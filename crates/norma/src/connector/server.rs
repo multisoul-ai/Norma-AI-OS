@@ -214,7 +214,14 @@ async fn authorize(
     tokio::select! {
         biased;
         _ = sessions.cancelled() => StatusCode::UNAUTHORIZED.into_response(),
-        response = next.run(Request::from_parts(parts, Body::from(bytes))) => response,
+        response = next.run(Request::from_parts(parts, Body::from(bytes))) => {
+            let mut response = response;
+            if response.headers().get("content-type").and_then(|v|v.to_str().ok())
+                .is_some_and(|value| value.split(';').next().is_some_and(|mime|mime.trim().eq_ignore_ascii_case("text/event-stream"))) {
+                response.headers_mut().insert("content-type", axum::http::HeaderValue::from_static("text/event-stream; charset=utf-8"));
+            }
+            response
+        },
     }
 }
 async fn serve(
