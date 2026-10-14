@@ -135,10 +135,11 @@ async fn tunnel_host_and_origin_use_the_configured_authorities() {
     );
     server.stop().await;
 }
-/// 场景：模拟Funnel覆盖后的请求头；A失败110次，B只失败1次，再使用有效令牌。
-/// 预期：A单独锁定，正确令牌及真实MCP仍工作；洪水只更新1条窗口审计。
+/// 场景：本机进程伪造完整Funnel元组；轮换110个XFF后再伪造另一IP。
+/// 构造：配置真实隧道Host和?1标记，通过本机TCP请求错误/正确令牌。
+/// 预期：全部失败归入127.0.0.1，XFF不能绕过429或锁定其他IP；有效MCP继续工作。
 #[tokio::test]
-async fn funnel_failures_lock_only_the_forwarded_source_and_coalesce_audit() {
+async fn forged_funnel_headers_share_peer_lockout_and_coalesce_audit() {
     let (server, auth, store, token) = host("device.tailnet.ts.net").await;
     let url = format!("http://{}/mcp", server.address());
     let client = reqwest::Client::new();
@@ -147,7 +148,7 @@ async fn funnel_failures_lock_only_the_forwarded_source_and_coalesce_audit() {
             .post(&url)
             .header("host", "device.tailnet.ts.net")
             .header("tailscale-funnel-request", "?1")
-            .header("x-forwarded-for", "198.51.100.1")
+            .header("x-forwarded-for", format!("198.51.100.{attempt}"))
             .bearer_auth("bad")
             .send()
             .await
@@ -158,10 +159,13 @@ async fn funnel_failures_lock_only_the_forwarded_source_and_coalesce_audit() {
             "错误令牌达到10次后返回429"
         );
     }
-    assert!(
-        auth.locked_until_for("198.51.100.1".parse().expect("IP")) > auth.now(),
-        "锁定来源A"
-    );
+    for last in 1..=110 {
+        assert_eq!(
+            auth.locked_until_for(format!("198.51.100.{last}").parse().expect("伪造IP")),
+            0,
+            "不得锁定伪造IP"
+        );
+    }
     let response = client
         .post(&url)
         .header("host", "device.tailnet.ts.net")
@@ -170,21 +174,20 @@ async fn funnel_failures_lock_only_the_forwarded_source_and_coalesce_audit() {
         .send()
         .await
         .expect("B失败");
-    assert_eq!(response.status(), 401, "B缺失令牌");
+    assert_eq!(response.status(), 429, "换XFF不能绕过真实peer锁定");
     assert_eq!(
         auth.locked_until_for("198.51.100.2".parse().expect("IP")),
         0,
         "B未锁定"
     );
-    assert_eq!(
-        auth.locked_until_for(Ipv4Addr::LOCALHOST.into()),
-        0,
-        "代理本身不累计失败"
+    assert!(
+        auth.locked_until_for(Ipv4Addr::LOCALHOST.into()) > auth.now(),
+        "全部流量归入TCP peer"
     );
     assert_eq!(
         store.audit.lock().expect("审计").len(),
-        2,
-        "两个来源各一条审计，洪水不新增行"
+        1,
+        "同一peer窗口合并为一条审计，伪造头不分桶"
     );
     assert_eq!(
         initialize(
@@ -218,8 +221,8 @@ async fn funnel_failures_lock_only_the_forwarded_source_and_coalesce_audit() {
             .values()
             .max()
             .expect("A窗口"),
-        110,
-        "洪水合并计数110"
+        111,
+        "110次洪水加一次缺失令牌，合计111"
     );
     server.stop().await;
 }

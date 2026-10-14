@@ -1,5 +1,8 @@
 //! Loopback only. The owning App drops this handle on quit; there is no daemon lifecycle.
-use super::{Auth, ConnectorConfig, ConnectorTools};
+use super::{
+    forwarding::{source_ip, UnverifiedPeer},
+    Auth, ConnectorConfig, ConnectorTools,
+};
 use axum::{
     body::{to_bytes, Body},
     http::{Request, StatusCode},
@@ -16,7 +19,7 @@ use rmcp::transport::streamable_http_server::{
     session::local::LocalSessionManager, StreamableHttpServerConfig, StreamableHttpService,
 };
 use std::{
-    net::{IpAddr, Ipv4Addr, SocketAddr},
+    net::{Ipv4Addr, SocketAddr},
     sync::Arc,
     time::Duration,
 };
@@ -127,24 +130,6 @@ impl Gate {
             .any(|host| host.eq_ignore_ascii_case(value))
     }
 }
-fn source_ip(
-    peer: IpAddr,
-    host: &str,
-    headers: &axum::http::HeaderMap,
-    tunnel: Option<&workspace::HostAuthority>,
-) -> IpAddr {
-    // tailscaled overwrites XFF with one IP, strips the incoming marker and sets ?1.
-    // Trust only this explicit loopback proxy route, never an arbitrary forwarded chain.
-    if peer.is_loopback()
-        && tunnel.is_some_and(|t| t.as_str().eq_ignore_ascii_case(host))
-        && single_header(headers, "tailscale-funnel-request") == Some("?1")
-    {
-        if let Some(ip) = single_header(headers, "x-forwarded-for").and_then(|v| v.parse().ok()) {
-            return ip;
-        }
-    }
-    peer
-}
 fn single_header<'a>(headers: &'a axum::http::HeaderMap, name: &str) -> Option<&'a str> {
     let mut values = headers.get_all(name).iter();
     let value = values.next()?.to_str().ok()?;
@@ -191,7 +176,9 @@ async fn authorize(
         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     };
     let source = source_ip(
-        peer.ip(),
+        *peer,
+        SocketAddr::from((Ipv4Addr::LOCALHOST, gate.port)),
+        &UnverifiedPeer,
         single_header(request.headers(), "host").expect("validated Host"),
         request.headers(),
         gate.tunnel_authority.as_ref(),
@@ -279,7 +266,3 @@ async fn serve(
         while connections.join_next().await.is_some() {}
     }
 }
-
-#[cfg(test)]
-#[path = "../../tests/unit/connector_forwarding.rs"]
-mod tests;

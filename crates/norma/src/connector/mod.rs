@@ -1,5 +1,6 @@
 //! Opt-in, App-owned read-only MCP connector. No process spawning or terminal input APIs.
 mod auth;
+mod forwarding;
 mod identity;
 mod server;
 mod tools;
