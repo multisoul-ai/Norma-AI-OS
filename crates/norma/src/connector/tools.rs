@@ -220,14 +220,12 @@ impl ServerHandler for ConnectorTools {
             .into())
     }
 }
+/// MCP backward compatibility: clients that ignore `structuredContent` (e.g. Grok Bot
+/// custom connectors) read `content[0].text`, so it carries the same JSON document.
 fn result(value: Value) -> CallToolResult {
     let error = value.get("error").is_some();
-    let summary = if error {
-        value["error"]["message"].as_str().unwrap_or("读取失败")
-    } else {
-        "读取完成"
-    };
-    let mut result = CallToolResult::success(vec![ContentBlock::text(summary)]);
+    let text = serde_json::to_string(&value).unwrap_or_else(|_| "{}".into());
+    let mut result = CallToolResult::success(vec![ContentBlock::text(text)]);
     result.structured_content = Some(value);
     result.is_error = Some(error);
     result

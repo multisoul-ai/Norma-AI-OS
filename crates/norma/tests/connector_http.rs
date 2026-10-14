@@ -173,6 +173,14 @@ async fn mcp_lists_three_tools_and_revoke_closes_sessions() {
         json!([]),
         "真实工具输出结构"
     );
+    let text = value["result"]["content"][0]["text"]
+        .as_str()
+        .expect("文本块");
+    assert_eq!(
+        serde_json::from_str::<Value>(text).expect("文本为JSON"),
+        value["result"]["structuredContent"],
+        "content[0].text 与 structuredContent 相同"
+    );
     let mut stream = client
         .get(&url)
         .bearer_auth(&token)

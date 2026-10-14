@@ -95,10 +95,23 @@ fn fixture() -> (ConnectorTools, Authenticated, Arc<Mutex<Snapshot>>) {
     )
 }
 fn call(tools: &ConnectorTools, identity: &Authenticated, name: &str, args: Value) -> Value {
-    tools
-        .call(identity, name, args)
-        .structured_content
-        .expect("结构化响应")
+    let result = tools.call(identity, name, args);
+    let structured = result.structured_content.expect("结构化响应");
+    assert_text_mirrors_structured(&result.content, &structured);
+    structured
+}
+/// MCP 向后兼容：content[0].text 必须是与 structuredContent 相同的 JSON。
+fn assert_text_mirrors_structured(content: &[rmcp::model::ContentBlock], structured: &Value) {
+    let text = &content
+        .first()
+        .and_then(|c| c.as_text())
+        .expect("首块为文本")
+        .text;
+    let parsed: Value = serde_json::from_str(text).expect("文本为JSON");
+    assert_eq!(
+        &parsed, structured,
+        "content[0].text 与 structuredContent 一致"
+    );
 }
 /// 场景：两个画布共享项目、node_id=1、重复名称；读取目录后检查状态、身份、名称唯一性。
 /// 预期：全部unloaded、身份不同、名称不唯一；原始快照不改变。
@@ -229,6 +242,7 @@ fn progress_validation_and_structured_rate_error() {
     let limited = tools.call(&identity, "directory", json!({}));
     assert_eq!(limited.is_error, Some(true), "限流为工具错误");
     let error = limited.structured_content.expect("错误结构");
+    assert_text_mirrors_structured(&limited.content, &error);
     assert_eq!(error["error"]["code"], "rate_limited", "规范错误码");
     assert_eq!(error["error"]["retry_after_s"], 60, "窗口剩余60秒");
 }
