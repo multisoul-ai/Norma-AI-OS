@@ -130,3 +130,14 @@ impl Controller {
 #[cfg(test)]
 #[path = "../../tests/unit/connector_adapter_tests.rs"]
 mod adapter_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/connector_support.rs"]
+mod test_support;
+#[cfg(test)]
+#[path = "../../tests/unit/connector_write_tests.rs"]
+mod write_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/connector_boundary_tests.rs"]
+mod boundary_tests;

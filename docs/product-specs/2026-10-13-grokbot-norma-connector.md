@@ -48,7 +48,7 @@
 | 持久卡片身份 | 目标快照含工作空间、区域、持久卡片身份、节点、Runtime 路由代次、Provider 会话指纹；删除后重建是新身份，旧请求拒绝 | `directory` 返回 `card_id`（不透明字符串，见 3.2），`dispatch_task` 只接受 `card_id`，并带 `card_revision`；身份变化 → `target_changed`，**不自动换卡** |
 | 唯一角色名称 | 空间内主名称 + 中文语音别名共同查重，大小写不敏感；改名后旧称失效 | `directory` 只展示名称供 Grok Bot 与用户对话；`role_name_unique` 标记名称在该工作空间内是否唯一。Grok Bot 用名称跟用户沟通，**但派工必须用 `card_id`** |
 | 精确目标解析 | 不用相似名称、焦点或「唯一剩余卡片」替代明确称呼；补全前零接收零投递 | 服务端不做模糊匹配；名称解析由 Grok Bot 在 `directory` 结果中完成，多候选或零候选时由 Grok Bot 问用户 |
-| 带操作账本的幂等投递 | 重发同操作返回原回执、同键不同参数冲突、正文/Enter 写入崩溃标「待核对」不自动重放；提交 ≠ 运行 ≠ 完成 | 新表 `connector_operations`（第 7 节），语义与 `MobileCommandStore::reserve`、`orchestration_task_operations` 一致；状态严格区分 `accepted / submitted / running / done / failed / cancelled / outcome_unknown` |
+| 带操作账本的幂等投递 | 重发同操作返回原回执、同键不同参数冲突、正文/Enter 写入崩溃标「待核对」不自动重放；提交 ≠ 运行 ≠ 完成 | 复用 `MobileCommandStore` 的 `mobile_commands`，连接器使用 `connector:<client_epoch>` 命名空间（第 7 节），语义与 `MobileCommandStore::reserve`、`orchestration_task_operations` 一致；状态严格区分 `accepted / submitted / running / done / failed / cancelled / outcome_unknown` |
 
 不借鉴：#97 的 Dock UI、名称修复迁移、`WorkspaceAgentRoleStore` 表结构、工作空间进度汇报 typed tool。`card_id` 由连接器自行定义并长期保持（Q3 已决定），即使 #97 日后合入也不切换到其身份。
 
@@ -64,7 +64,7 @@ https://norma.<用户域名>/mcp   ← Cloudflare 命名隧道（cloudflared，�
 Norma App 进程
   ├─ ConnectorServer（新）: Streamable HTTP + MCP JSON-RPC, 鉴权, 限流, 审计
   ├─ ConnectorTools（新）: 六个工具 → 复用 norma::protocol::CardCommand 执行路径 / WorkspaceActivitySummary
-  ├─ connector_operations 账本（新, app.sqlite）
+  ├─ MobileCommandStore 账本（复用，connector:<client_epoch> 命名空间）
   └─ ConnectorNotifier（新）: 事件 → webhook POST(HMAC) → Grok Bot routine
 ```
 
@@ -79,6 +79,8 @@ Norma App 进程
 ### 3.2 `card_id`（新，不透明）
 
 `card_id` 由连接器自行定义（Q3），不依赖 #97。格式 `c1.<base64url(desktop_workspace_id | area_id | canvas_id | node_id | definition_id | 创建时间戳)>.<8 字节 HMAC>`。因为同一目录下可有多个画布、`node_id` 只在画布内唯一，编码中必须包含画布标识 `canvas_id`，保证同目录多画布时 `card_id` 仍唯一。HMAC 用本机密钥（钥匙串）防伪造。`card_revision` = 当前 Runtime 路由代次 + Provider 会话指纹的哈希。解析时逐项复核；任一不符 → `target_changed`。这是 P2 的新增投影，不改现有表；若现有存储里没有稳定的画布标识，P2 需新增（见 R2）。
+
+> P4 实现补充（2026-10-14）：写工具采用四种 AdapterCommand 薄映射与共享手机命令账本，详见 [P4 实现边界](2026-10-14-grokbot-connector-p4-adapter.md)。该补充取代本文旧版新建操作账本方案；P2/P3 的鉴权与隧道实现不在本次范围内。
 
 ## 4. 工具定义
 
@@ -119,7 +121,7 @@ Norma App 进程
  "tracking": "tracked|untracked", "replayed": false, "accepted_at": 1760000000}
 ```
 - 错误：`card_not_found`、`target_changed`、`card_busy`（`allow_queue=false` 且忙）、`approval_pending`（卡片正等审批，不越过）、`input_occupied`（用户正在该卡片输入）、`untracked_requires_confirmation`（对应现有 `force_untracked`，连接器**永不**传 `force_untracked=true`）、`operation_conflict`（同 `operation_id` 不同参数）、`task_too_long`。
-- 幂等：`operation_id` 由 Grok Bot 生成；`(client_id, operation_id)` 在 `connector_operations` 中预留；`request_hash = sha256(card_id|card_revision|task|context|allow_queue)`。重放 → 返回原回执且 `replayed=true`；哈希不同 → `operation_conflict`。预留后崩溃 → `outcome_unknown`，**不自动重放**，Grok Bot 只能用 `get_task_progress` 核对。
+- 幂等：`operation_id` 由 Grok Bot 生成；`(device_id=connector:<client_epoch>, operation_id)` 在 `MobileCommandStore` 中预留；`request_hash = sha256(card_id|card_revision|task|context|allow_queue)`。重放 → 返回原回执且 `replayed=true`；哈希不同 → `operation_conflict`。预留后崩溃 → `outcome_unknown`，**不自动重放**，Grok Bot 只能用 `get_task_progress` 核对。
 - 基于：`CardCommand::DispatchAgentTasks` 执行路径（`crates/app/src/norma/endpoint/task_dispatch.rs`）、回执 `AgentTaskReceipt`、`orchestration_task_operations`。**需新增**：按 `node_id`（而不是 `AgentTaskAssignment.name`）派工的内部入口，因为现有 assignment 按名字寻址（风险 R1）。
 
 ### 4.3 `list_tasks`（只读，P2）
@@ -128,12 +130,14 @@ Norma App 进程
 - 输出：`{"tasks": [{"task_id", "card_id", "role_name", "workspace_id", "state", "tracking", "summary", "created_at", "updated_at", "source": "grokbot|desktop|mobile|other"}], "next_cursor": string|null}`
 - 默认：全部未终态 + 最近 24 小时终态。
 - 错误：`invalid_argument`（游标非法）。幂等：只读。
-- 基于：`agent_dispatch_tasks`（`crates/storage/src/migrations.rs:257`）、`AgentTaskReceiptStatus`；`source=grokbot` 由 `connector_operations` 关联得出（新）。
+- 基于：`agent_dispatch_tasks`（`crates/storage/src/migrations.rs:257`）、`AgentTaskReceiptStatus`；`source=grokbot` 由连接器命名空间的 `MobileCommandStore` 回执关联得出。
 
 ### 4.4 `get_task_progress`（只读，P2）
 
 - 输入：`{"task_id": string}` 或 `{"operation_id": string}`
-- 输出：`{"task_id", "state", "tracking", "progress": {"completed", "total", "current_step"}|null, "last_activity_at", "pending_approval": {"approval_id", "tool", "summary"}|null, "result_summary": string|null, "error": string|null}`
+- 输出（P4 扩展）：`{"created_at", "updated_at", "state_changed_at": unix秒|null, "events": [{"type", "occurred_at": unix秒, "state"?}], "task_id", "state", "tracking", "progress": {"completed", "total", "current_step"}|null, "last_activity_at", "pending_approval": {"approval_id", "tool", "summary"}|null, "result_summary": string|null, "error": string|null}`
+- P4 所有时间均为整数 UTC unix 秒。`directory.cards[].created_at` 仅取定义创建时间，无定义时为 `null`；不改变 `CardIdentity.created_at` 的计算。派工/取消/建卡的 `accepted_at`/`requested_at`/`created_at` 为预留时刻，重放不变。
+- `events` 最多 20 条，从新到旧；来自真实任务状态迁移与连接器预留回执。旧库未知迁移时刻为 `null`，不回填推测历史。P4 的 `last_activity_at` 仍取 `updated_at_unix`；真实活动来源在 P5 实现。
 - `progress` 仅在有可信计划分母时返回（复用 `norma::mobile::TaskProgress`，`crates/norma/src/mobile/snapshot.rs:75`）；不编造百分比。
 - 错误：`task_not_found`。幂等：只读。
 - 基于：`CardCommand::AgentTaskStatus` / `AgentTaskResult`、`AgentTaskStatus.result`、`WorkspaceActivityAttention`（审批）。
@@ -221,7 +225,7 @@ Norma App 进程
 
 ## 7. 新增存储（全部为新）
 
-- `connector_operations(client_id, operation_id, tool, request_hash, state, result_json, error, created_at_unix, updated_at_unix, PRIMARY KEY(client_id, operation_id))`——语义复制 `MobileCommandStore::reserve`（`New / Existing / Conflict`），不复用 `mobile_commands`（它绑定 `device_id` 与手机授权）。
+- 写工具的幂等复用 `MobileCommandStore` 的 `mobile_commands`，键为 `(device_id=connector:<client_epoch>, operation_id)`；状态机 `New / Existing / Conflict`，未完成回执为 `outcome_unknown` 且不自动重放。轮换共享 epoch，吊销后新 epoch，连接器行超过 30 天清理；手机读取排除该前缀，不参与手机 grant 鉴权。
 - `connector_outbox`、`connector_audit`、`connector_nonces`（内存即可，重启作废）。
 - 设置：端口（默认 47615）、webhook URL、启用开关、通知范围（默认仅 Grok Bot 派出的任务，可切换为全部任务）（存 app 设置）；Token 与 HMAC secret 只在钥匙串。
 
@@ -232,7 +236,7 @@ Norma App 进程
 | P1 | 本规格 | 合入 docs |
 | P2 | `ConnectorServer`（axum + rmcp） + Token 生成/存储/吊销 + `directory` / `list_tasks` / `get_task_progress` + 审计 + 限流 | 本机 `curl`/MCP Inspector 调用通过 AC-01–AC-12、AC-41–AC-43 |
 | P3 | 命名隧道配置文档与设置页地址字段；用户登录 Cloudflare 并在 Grok Bot 添加自定义连接器 | Grok Bot 远程调用三个只读工具成功（AC-13–AC-16、AC-44） |
-| P4 | `dispatch_task` + `cancel_task` + `connector_operations` + `card_id` 精确解析 | AC-17–AC-26 |
+| P4 | `dispatch_task` + `cancel_task` + `reply_agent` + `create_card`，AdapterCommand 薄映射，共享命令账本与精确 card_id | AC-17–AC-26 |
 | P5 | 前置：确认 routine webhook 能读原始请求体与请求头（否则需中继，待用户确认）；`ConnectorNotifier` + outbox + HMAC + `resolve_approval` 两步确认 | AC-27–AC-40、AC-45–AC-49 |
 
 ## 9. 验收清单（QA）
