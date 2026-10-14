@@ -86,7 +86,7 @@ Norma App 进程
 通用约定：
 - 所有工具返回 MCP `CallToolResult`，`structuredContent` 为下列输出 JSON，同时 `content[0].text` 给一句中文摘要供模型阅读。
 - 错误：`isError: true`，`structuredContent = {"error": {"code": "...", "message": "...", "retryable": bool}}`。
-- 通用错误码：`unauthorized`（401，HTTP 层）、`rate_limited`（含 `retry_after_s`）、`connector_disabled`、`invalid_argument`、`workspace_not_found`、`card_not_found`、`target_changed`、`card_not_loaded`（`reply_agent` 目标卡片未在画布加载；暂定）、`agent_rejected`（AdapterCommand 层 `AdapterError::Rejected` 未映射到具体码时；暂定）、`not_connector_task`、`workspace_closed`（目标工作空间未打开，不自动打开；retryable）、`area_not_found`（`area_id` 不属于该工作空间）、`profile_unavailable`（`create_card` 只开放 claude / codex）、`card_create_failed`（`CreateAgent` 意外回执或无 `node_id`）（`cancel_task` 默认只能取消 Grok Bot 派出的任务，取消其他来源任务时返回；暂定，待 yakami 确认）、`internal`。
+- 通用错误码：`unauthorized`（401，HTTP 层）、`rate_limited`（含 `retry_after_s`）、`connector_disabled`、`invalid_argument`、`workspace_not_found`、`card_not_found`、`target_changed`、`card_not_loaded`（`reply_agent` 目标卡片未在画布加载；暂定）、`agent_rejected`（AdapterCommand 层 `AdapterError::Rejected` 未映射到具体码时；暂定）、`not_connector_task`、`workspace_closed`（目标工作空间未打开，不自动打开；retryable）、`area_not_found`（`area_id` 不属于该工作空间）、`profile_unavailable`（`create_card` 只开放 claude / codex）、`card_create_failed`（`CreateAgent` 意外回执或无 `node_id`）、`already_submitted`（仅 `cancel_task`：任务已交给 Agent CLI 队列、无法撤回；`retryable=false`，同 `operation_id` 重放保留该拒绝；来源 `AgentTaskCancellation::AlreadySubmitted` → `AdapterError::AlreadySubmitted`，PR #107 提交 cf8bf50f）（`cancel_task` 默认只能取消 Grok Bot 派出的任务，取消其他来源任务时返回；暂定，待 yakami 确认）、`internal`。
 - 文本字段一律有界：任务正文 ≤ 8000 字符；摘要 ≤ 500 字符；列表分页 `limit ≤ 50`。
 
 ### 4.1 `directory`（只读，P2）
@@ -143,7 +143,7 @@ Norma App 进程
 
 - 输入：`{"operation_id": "uuid", "task_id": string}`
 - 输出：`{"operation_id", "task_id", "state": "cancel_requested|cancelled|already_terminal", "replayed": bool}`
-- 错误：`task_not_found`、`operation_conflict`。只取消该任务，不影响同卡其他任务。
+- 错误：`task_not_found`、`operation_conflict`、`already_submitted`（已交给 CLI 队列无法撤回，不可重试）。只取消该任务，不影响同卡其他任务。
 - 幂等：同 4.2；对已终态任务返回 `already_terminal`（非错误）。
 - 基于（2026-10-14 修订）：薄映射到 `AdapterCommand::CancelAgentTask { task_id }`（`crates/agent/src/adapter.rs:51`，执行 `adapter_pump.rs:157` 起），来源 `AgentInputSource::Connector`；状态 `CancelRequested → Cancelled`。
 
