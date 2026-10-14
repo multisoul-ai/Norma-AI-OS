@@ -10,7 +10,7 @@
 2. **由 Grok Bot 决定派给谁**：Norma 本身不做路由、不按能力选人。提供六个工具：`directory`、`dispatch_task`、`list_tasks`、`get_task_progress`、`cancel_task`、`resolve_approval`。`resolve_approval`（批准 / 拒绝）**每次都必须由 Grok Bot 先问用户确认**——这是客户端要求；同时服务端 API 也强制要求确认标志 + 一次性 nonce（第 4.6 节）。
 3. **通知四类事件**：任务完成、任务失败、等待工具审批、30 分钟无进展。Norma 向用户配置的 **Grok Bot routine webhook URL** 发 POST，唤醒 Grok Bot 给用户发消息。负载 JSON、HMAC 签名、退避重试、去重键、离线行为见第 5 节。
 4. **不依赖草稿 PR #97**（分支 `codex/workspace-agent-dispatch`），只借鉴其设计思想（第 2 节）；`card_id` 由连接器自行定义，不切换到 #97 的身份（Q3）。
-5. **鉴权失败锁定（2026-10-14）**：按**来源 IP** 计数鉴权失败，只锁该 IP 的失败尝试；**携带正确 Token 的请求永不被锁**。来源 IP 的确定方式见 6.4。Token 熵 ≥ 128 bit。另设全局失败告警（只告警，不锁定）。
+5. **鉴权失败锁定（2026-10-14）**：按**来源 IP** 计数鉴权失败，只锁该 IP 的失败尝试；**携带正确 Token 的请求永不被锁**。来源 IP 的确定方式见 6.4。Token 熵 ≥ 128 bit。不设全局失败告警。
 6. **分期交付，一期一个 PR**：P1 本规格；P2 本机 MCP 服务器 + Token 鉴权 + 只读工具；P3 Tailscale Funnel + 在 Grok Bot 添加自定义连接器，只读端到端（Tailscale 登录与开启 Funnel 由用户完成）；P4 `dispatch_task` + `cancel_task`（幂等与回执）；P5 webhook 通知 + `resolve_approval`。
 
 ## 1. 背景与目标
@@ -220,7 +220,6 @@ Norma App 进程
      - 仅当该 TCP 连接确认来自本机 tailscaled 的 Funnel 代理时（P2/P3 实现：用 macOS libproc 按连接四元组查对端进程，确认是 Tailscale 系统扩展 / tailscaled 进程，并同时带 `Tailscale-Funnel-Request: ?1`），才采用 `X-Forwarded-For`（取唯一值，多值或格式非法视为不可信）作为来源 IP；
      - 其他情况（本机进程直连本地端口）一律用真实对端地址（`127.0.0.1`）作为来源 IP，忽略请求中的 `X-Forwarded-For` / `Tailscale-Funnel-Request`，所以伪造转发头既不能冒充别的 IP、也不能逃脱自己的计数；
      - 若 P3 实测无法可靠识别 tailscaled 对端进程，退化为：一律用对端地址计数（所有 Funnel 流量共享一个 `127.0.0.1` 桶）。因正确 Token 永不被锁，退化只影响错误 Token 的封锁粒度，不影响可用性（R8）。
-   - 全局失败告警：所有来源合计 10 分钟内鉴权失败 ≥ 100 次 → 设置页告警并写审计（可选系统通知）；**只告警，不锁定**。
 5. **审计日志**（新表 `connector_audit`）：时间、工具、参数摘要（任务正文只存哈希 + 前 80 字）、`operation_id`、结果码、`user_quote`（审批）。保存 90 天；设置页可查看。
 6. **Grok Bot 永远不能做的事**：写终端原始输入 / 按键；读写文件、读终端全文；创建、删除、改名卡片或工作空间；传 `force_untracked`；会话级或永久放行审批；无 nonce 批准；修改连接器设置、Token、webhook URL；访问手机配对 / `MobileDeviceGrant`；触发 Norma 自主路由。
 7. **未知字段**：所有输入 `deny_unknown_fields`（与 `MobileCommandRequest` 一致）。
@@ -230,7 +229,7 @@ Norma App 进程
 - `connector_operations(client_id, operation_id, tool, request_hash, state, result_json, error, created_at_unix, updated_at_unix, PRIMARY KEY(client_id, operation_id))`——语义复制 `MobileCommandStore::reserve`（`New / Existing / Conflict`），不复用 `mobile_commands`（它绑定 `device_id` 与手机授权）。
 - `connector_outbox`、`connector_audit`、`connector_nonces`（内存即可，重启作废）。
 - `connector_tokens(token, state ∈ active/grace/revoked, created_at_unix, grace_until_unix)`、`connector_secrets`（HMAC secret、`card_id` 密钥）。
-- 鉴权失败计数（按来源 IP）与全局失败计数：内存即可，重启清零。
+- 鉴权失败计数（按来源 IP）：内存即可，重启清零。
 - 设置：端口（默认 47615）、webhook URL、启用开关、通知范围（默认仅 Grok Bot 派出的任务，可切换为全部任务）（存 app 设置）；Token 与 HMAC secret 明文存 Norma SQLite（`connector_tokens` / `connector_secrets`），不进仓库、不写日志。
 
 ## 8. 分期
@@ -238,7 +237,7 @@ Norma App 进程
 | 期 | PR 内容 | 完成标志 |
 | --- | --- | --- |
 | P1 | 本规格 | 合入 docs |
-| P2 | `ConnectorServer`（axum + rmcp） + Token 生成/SQLite 存储/查看/吊销 + 按来源 IP 锁定 + `directory` / `list_tasks` / `get_task_progress` + 审计 + 限流 | 本机 `curl`/MCP Inspector 调用通过 AC-01–AC-12、AC-41–AC-43、AC-50–AC-54 |
+| P2 | `ConnectorServer`（axum + rmcp） + Token 生成/SQLite 存储/查看/吊销 + 按来源 IP 锁定 + `directory` / `list_tasks` / `get_task_progress` + 审计 + 限流 | 本机 `curl`/MCP Inspector 调用通过 AC-01–AC-12、AC-41–AC-43、AC-50–AC-53 |
 | P3 | Tailscale Funnel 配置文档与设置页地址字段；用户登录 Tailscale、开启 Funnel 并在 Grok Bot 添加自定义连接器；确认 Funnel 来源 IP 识别（R8） | Grok Bot 远程调用三个只读工具成功（AC-13–AC-16、AC-44、AC-55） |
 | P4 | `dispatch_task` + `cancel_task` + `connector_operations` + `card_id` 精确解析 | AC-17–AC-26 |
 | P5 | 前置：确认 routine webhook 能读原始请求体与请求头（否则需中继，待用户确认）；`ConnectorNotifier` + outbox + HMAC + `resolve_approval` 两步确认 | AC-27–AC-40、AC-45–AC-49 |
@@ -298,7 +297,7 @@ Norma App 进程
 - AC-51 其他来源 IP 发送大量错误 Token（达到并超过锁定阈值）后，正确 Token 的请求（无论来自哪个 IP，包括同一 IP）仍立即成功。
 - AC-52 同一来源 IP 连续 10 次错误 Token → 该 IP 后续错误 Token 请求返回 429 `rate_limited`（含 `retry_after_s`），15 分钟后解除；其他 IP 的失败计数不受影响。
 - AC-53 本机进程直连 `127.0.0.1:<port>`，携带伪造的 `X-Forwarded-For` / `Tailscale-Funnel-Request` 头：失败计入 `127.0.0.1` 桶，不计入伪造 IP；无法借此绕过锁定或让其他 IP 被锁。
-- AC-54 全局鉴权失败超过告警阈值 → 设置页告警并写审计；不锁定任何请求，正确 Token 仍可用。
+- AC-54 （已删除，2026-10-14：不做全局失败告警；编号不复用）
 - AC-55 （P3）经 Funnel 的请求，来源 IP 取 tailscaled 写入的 `X-Forwarded-For`（公网客户端 IP），客户端自带的 `X-Forwarded-For` 被覆盖无效；实测结果记录在 P3 PR 中。
 
 ## 10. 已决定
@@ -316,7 +315,7 @@ Norma App 进程
 - Q9 Token 轮换后旧 Token 有 24 小时宽限期；吊销立即生效（6.3）。
 - Q11 （2026-10-14）Token 明文存 Norma SQLite，不用钥匙串；设置页随时可查看；Token 永不进仓库（6.3）。
 - Q12 （2026-10-14）锁定按来源 IP 计数鉴权失败，正确 Token 永不被锁；Funnel 下来源 IP 取 tailscaled 写入的 `X-Forwarded-For`，仅在确认连接来自本机 Funnel 代理时采信（6.4）。
-- Q13 （2026-10-14）Token 熵 ≥ 128 bit；全局失败只告警不锁定（6.3、6.4）。
+- Q13 （2026-10-14）Token 熵 ≥ 128 bit；不设全局失败告警（6.3、6.4）。
 - Q10 不做后台常驻。App 未运行时连接器不可达，Grok Bot 显示「Norma 未运行」；outbox 中的事件在 App 重新打开后补发（3.1、5.4）。
 
 ## 11. 风险（代码中让决定变难的地方）
