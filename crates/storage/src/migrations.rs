@@ -456,6 +456,7 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
         ON agent_definitions(speech_alias) WHERE speech_alias IS NOT NULL;
         "#,
     )?;
+    crate::connector_task_events::migrate(connection)?;
     connection.pragma_update(None, "user_version", 1)?;
     Ok(())
 }

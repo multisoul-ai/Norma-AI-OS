@@ -121,3 +121,5 @@ pub(crate) fn current_unix_timestamp() -> StorageResult<u64> {
 pub(crate) fn is_mobile_agent_profile(profile: &str) -> bool {
     matches!(profile, "Codex" | "Claude" | "Cursor")
 }
+
+mod connector_task_events;

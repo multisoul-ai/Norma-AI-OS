@@ -30,6 +30,15 @@ pub(super) fn capture(database: &Path, mut call: LiveRequest, signer: &CardSigne
                 })
                 .collect::<std::collections::HashMap<_, _>>()
         });
+        if let Some(project) = call
+            .snapshot
+            .workspaces
+            .iter_mut()
+            .find(|w| w.workspace_id == area.desktop_workspace_id)
+            .and_then(|w| w.projects.iter_mut().find(|p| p.area_id == area.id))
+        {
+            project.loaded = true;
+        }
         let app = session.read(cx);
         if let Some(coordinator) = &app.agent_task_coordinator {
             for task in &mut call.snapshot.tasks {
@@ -41,7 +50,12 @@ pub(super) fn capture(database: &Path, mut call: LiveRequest, signer: &CardSigne
                     })
                 {
                     if let Ok(actual) = coordinator.task_by_ref(&task.task_id) {
-                        task.state = actual.state.into();
+                        task.state = if actual.state == "succeeded" {
+                            "done"
+                        } else {
+                            actual.state
+                        }
+                        .into();
                         if app
                             .pending_agent_submissions
                             .task_stage(actual.task_id)
@@ -177,6 +191,15 @@ pub(super) fn capture(database: &Path, mut call: LiveRequest, signer: &CardSigne
                 state: state.into(),
                 current_task_id: current,
                 loaded: true,
+                created_at: call
+                    .births
+                    .get(&(
+                        area.desktop_workspace_id.clone(),
+                        area.id.clone(),
+                        definition_id,
+                    ))
+                    .copied(),
+                created_by: None,
             });
         }
     }

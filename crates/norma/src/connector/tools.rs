@@ -9,7 +9,7 @@ use std::{
 mod model;
 mod pagination;
 mod schema;
-pub use model::{Card, Project, Snapshot, Task, Workspace};
+pub use model::{Card, Project, Snapshot, Task, TaskEvent, Workspace};
 use model::{Directory, ListTasks, Progress};
 use pagination::Page;
 
@@ -123,7 +123,7 @@ impl ConnectorTools {
                     return Err("invalid_argument");
                 }
                 let snapshot = self.source.snapshot().map_err(|_| "internal")?;
-                let task = snapshot
+                let mut task = snapshot
                     .tasks
                     .into_iter()
                     .find(|t| {
@@ -134,6 +134,9 @@ impl ConnectorTools {
                                 .is_some_and(|id| t.operation_id.as_ref() == Some(id))
                     })
                     .ok_or("task_not_found")?;
+                task.events
+                    .sort_by_key(|e| std::cmp::Reverse(e.occurred_at));
+                task.events.truncate(20);
                 let progress = task
                     .progress
                     .filter(|p| p.total > 0 && p.completed <= p.total)
@@ -142,7 +145,7 @@ impl ConnectorTools {
                         p
                     });
                 Ok(
-                    json!({"task_id":task.task_id,"state":task.state,"tracking":task.tracking,"progress":progress,"last_activity_at":task.updated_at,"pending_approval":task.pending_approval,"result_summary":task.result_summary.map(|s|bounded(&s)),"error":task.error.map(|s|bounded(&s))}),
+                    json!({"task_id":task.task_id,"state":task.state,"tracking":task.tracking,"progress":progress,"last_activity_at":task.updated_at,"created_at":task.created_at,"updated_at":task.updated_at,"state_changed_at":task.state_changed_at,"events":task.events,"pending_approval":task.pending_approval,"result_summary":task.result_summary.map(|s|bounded(&s)),"error":task.error.map(|s|bounded(&s))}),
                 )
             }
             _ => Err("invalid_argument"),

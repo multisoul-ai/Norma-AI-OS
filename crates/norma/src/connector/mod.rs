@@ -8,7 +8,7 @@ pub use auth::{Auth, Authenticated, Clock, SystemClock};
 pub use auth::{CredentialStore, TokenRecord};
 pub use identity::{CardIdentity, CardSigner};
 pub use server::ConnectorServer;
-pub use tools::{Card, ConnectorTools, DataSource, Project, Snapshot, Task, Workspace};
+pub use tools::{Card, ConnectorTools, DataSource, Project, Snapshot, Task, TaskEvent, Workspace};
 #[derive(Clone)]
 pub struct ConnectorConfig {
     pub enabled: bool,

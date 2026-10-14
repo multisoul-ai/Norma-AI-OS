@@ -23,6 +23,7 @@ pub struct ConnectorMember {
     pub name: String,
     pub profile: String,
     pub created_at: i64,
+    pub definition_created_at: Option<i64>,
 }
 pub struct ConnectorTask {
     pub id: i64,
@@ -36,6 +37,7 @@ pub struct ConnectorTask {
     pub updated_at: i64,
     pub error: Option<String>,
     pub result_summary: Option<String>,
+    pub events: Vec<(i64, String)>,
 }
 #[derive(Clone)]
 pub struct ConnectorReadStore {
@@ -131,7 +133,7 @@ impl ConnectorReadStore {
             };
             let id = spec.definition_id.unwrap_or(0);
             let member = if let Some(defs) = &defs {
-                defs.query_row("SELECT name,runtime_profile,created_at_unix FROM agent_definitions WHERE id=?1",[id],|r|Ok(ConnectorMember { node_id:node.id,definition_id:id,name:r.get(0)?,profile:r.get(1)?,created_at:r.get(2)? })).optional()?
+                defs.query_row("SELECT name,runtime_profile,created_at_unix FROM agent_definitions WHERE id=?1",[id],|r|Ok(ConnectorMember { node_id:node.id,definition_id:id,name:r.get(0)?,profile:r.get(1)?,created_at:r.get(2)?,definition_created_at:Some(r.get(2)?) })).optional()?
             } else {
                 None
             };
@@ -144,6 +146,7 @@ impl ConnectorReadStore {
                         .unwrap_or_else(|| spec.profile.display_title().into()),
                     profile: spec.profile.display_title().into(),
                     created_at: result.area.added_at_unix_ms / 1000,
+                    definition_created_at: None,
                 }
             }));
         }
@@ -162,9 +165,16 @@ impl ConnectorReadStore {
                     updated_at: r.get(8)?,
                     error: r.get(9)?,
                     result_summary: r.get(10)?,
+                    events: Vec::new(),
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
+        let has_events: bool = conn.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='agent_dispatch_task_events' AND type='table')", [], |r|r.get(0))?;
+        if has_events {
+            for task in &mut result.tasks {
+                task.events = conn.prepare("SELECT occurred_at_unix,state FROM agent_dispatch_task_events WHERE task_id=?1 ORDER BY sequence DESC LIMIT 20")?.query_map([task.id], |r|Ok((r.get(0)?,r.get(1)?)))?.collect::<Result<Vec<_>,_>>()?;
+            }
+        }
         Ok(result)
     }
 }

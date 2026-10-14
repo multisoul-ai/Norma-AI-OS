@@ -21,6 +21,7 @@ pub struct Project {
     pub project_id: String,
     pub area_id: String,
     pub name: String,
+    pub loaded: bool,
 }
 #[derive(Clone, Serialize)]
 pub struct Card {
@@ -35,6 +36,8 @@ pub struct Card {
     pub state: String,
     pub current_task_id: Option<String>,
     pub loaded: bool,
+    pub created_at: Option<i64>,
+    pub created_by: Option<String>,
 }
 #[derive(Clone, Serialize)]
 pub struct Task {
@@ -48,6 +51,8 @@ pub struct Task {
     pub created_at: i64,
     pub updated_at: i64,
     pub source: String,
+    pub state_changed_at: Option<i64>,
+    pub events: Vec<TaskEvent>,
     #[serde(skip)]
     pub operation_id: Option<String>,
     #[serde(skip)]
@@ -96,4 +101,11 @@ fn twenty() -> usize {
 pub(super) struct Progress {
     pub task_id: Option<String>,
     pub operation_id: Option<String>,
+}
+
+#[derive(Clone, Serialize)]
+pub struct TaskEvent {
+    pub r#type: String,
+    pub occurred_at: i64,
+    pub state: Option<String>,
 }

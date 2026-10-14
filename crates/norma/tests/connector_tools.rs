@@ -42,6 +42,8 @@ fn fixture() -> (ConnectorTools, Authenticated, Arc<Mutex<Snapshot>>) {
                 state: "busy".into(),
                 current_task_id: Some("fake".into()),
                 loaded: false,
+                created_at: None,
+                created_by: None,
             }
         });
     let task = |id: &str, state: &str, time: i64| Task {
@@ -55,6 +57,8 @@ fn fixture() -> (ConnectorTools, Authenticated, Arc<Mutex<Snapshot>>) {
         created_at: time,
         updated_at: time,
         source: "other".into(),
+        state_changed_at: None,
+        events: Vec::new(),
         operation_id: None,
         progress: None,
         pending_approval: None,
@@ -77,11 +81,13 @@ fn fixture() -> (ConnectorTools, Authenticated, Arc<Mutex<Snapshot>>) {
                     project_id: "p".into(),
                     area_id: "a".into(),
                     name: "同目录".into(),
+                    loaded: false,
                 },
                 Project {
                     project_id: "p".into(),
                     area_id: "b".into(),
                     name: "同目录".into(),
+                    loaded: false,
                 },
             ],
             cards: cards.into(),
@@ -265,4 +271,47 @@ fn card_id_roundtrip_and_tamper_rejection() {
     assert_ne!(first, signer.sign(&identity), "canvas标识包含在认证身份中");
     let forged = format!("{}00", &first[..first.len() - 2]);
     assert!(signer.verify(&forged).is_err(), "篡改HMAC拒绝");
+}
+
+/// 场景：时间来自提供方而非当前观测时刻，事件多于20；未知迁移时间不伪造。
+/// 构造：created=900000，updated=900123，25条乱序事件；执行进度读取。
+/// 预期：整数unix秒、最新20条降序，未知state_changed_at与无定义created_at为null。
+#[test]
+fn progress_times_and_events_are_bounded_without_inventing_unknown_dates() {
+    let (tools, identity, snapshot) = fixture();
+    {
+        let mut snapshot = snapshot.lock().expect("快照");
+        let task = &mut snapshot.tasks[1];
+        task.updated_at = 900123;
+        task.events = (0..25)
+            .map(|i| TaskEvent {
+                r#type: "state_changed".into(),
+                occurred_at: 900000 + i,
+                state: Some("queued".into()),
+            })
+            .collect();
+    }
+    let result = call(
+        &tools,
+        &identity,
+        "get_task_progress",
+        json!({"task_id":"old-running"}),
+    );
+    assert_eq!(result["created_at"], 900000, "真实创建时间");
+    assert_eq!(result["updated_at"], 900123, "真实更新而非observed_at");
+    assert_eq!(result["last_activity_at"], 900123, "P4沿用updated_at");
+    assert_eq!(
+        result["state_changed_at"],
+        Value::Null,
+        "未知迁移时刻不伪造"
+    );
+    let events = result["events"].as_array().expect("事件");
+    assert_eq!(events.len(), 20, "最多20条");
+    assert_eq!(events[0]["occurred_at"], 900024, "最新在前");
+    assert_eq!(events[19]["occurred_at"], 900005, "25减20保留最新边界");
+    assert_eq!(
+        call(&tools, &identity, "directory", json!({}))["workspaces"][0]["cards"][0]["created_at"],
+        Value::Null,
+        "无定义时间不使用区域时刻"
+    );
 }

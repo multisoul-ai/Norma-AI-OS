@@ -100,6 +100,7 @@ fn persisted(database: &std::path::Path, signer: &CardSigner) -> anyhow::Result<
                 project_id: project_id.clone(),
                 area_id: area.area.id.clone(),
                 name: area.area.display_name.clone(),
+                loaded: false,
             });
             for member in area.members {
                 let identity = CardIdentity {
@@ -121,6 +122,8 @@ fn persisted(database: &std::path::Path, signer: &CardSigner) -> anyhow::Result<
                     state: "unloaded".into(),
                     current_task_id: None,
                     loaded: false,
+                    created_at: member.definition_created_at,
+                    created_by: None,
                 });
             }
             for stored in area.tasks {
@@ -163,6 +166,16 @@ fn persisted(database: &std::path::Path, signer: &CardSigner) -> anyhow::Result<
                     created_at: stored.created_at,
                     updated_at: stored.updated_at,
                     source: "other".into(),
+                    state_changed_at: stored.events.first().map(|e| e.0),
+                    events: stored
+                        .events
+                        .into_iter()
+                        .map(|(occurred_at, state)| norma::connector::TaskEvent {
+                            r#type: "state_changed".into(),
+                            occurred_at,
+                            state: Some(state),
+                        })
+                        .collect(),
                     operation_id: None,
                     progress: None,
                     pending_approval: None,

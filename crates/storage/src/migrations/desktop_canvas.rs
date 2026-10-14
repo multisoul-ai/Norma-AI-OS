@@ -47,7 +47,14 @@ pub(crate) fn migrate(connection: &Connection) -> StorageResult<()> {
             .collect::<Vec<_>>()
             .join(",");
         let old = format!("{table}_before_definition_split");
+        if table == "agent_dispatch_tasks" {
+            transaction.execute_batch("CREATE TEMP TABLE connector_events_preserved AS SELECT * FROM agent_dispatch_task_events; DROP TRIGGER IF EXISTS connector_task_created; DROP TRIGGER IF EXISTS connector_task_state_changed; DROP TABLE agent_dispatch_task_events;")?;
+        }
         transaction.execute_batch(&format!("ALTER TABLE {table} RENAME TO {old}; {new_schema}; INSERT INTO {table} ({columns}) SELECT {columns} FROM {old}; DROP TABLE {old};"))?;
+        if table == "agent_dispatch_tasks" {
+            crate::connector_task_events::migrate(&transaction)?;
+            transaction.execute_batch("INSERT INTO agent_dispatch_task_events SELECT * FROM connector_events_preserved; DROP TABLE connector_events_preserved;")?;
+        }
         for index in indexes {
             transaction.execute_batch(&index)?;
         }
