@@ -1,359 +1,256 @@
-# Grok Bot 连接器 P4：派工与取消——工单拆分
+# Grok Bot 连接器 P4：派工、取消、回复与（待定）建卡——工单拆分
 
-状态：工单拆分（仅文档，不改代码）· 2026-10-14。叠在 PR #105（`docs/grokbot-connector-spec-1014`）之上。
-唯一规格来源：`docs/product-specs/2026-10-13-grokbot-norma-connector.md`（下称「主规格」）。本文不改主规格已拍板事项，新增内容以「补充条款」形式提出，AC 编号从 AC-56 起续编（现至 AC-84）（AC-54 已删除，不复用）。
+状态：工单拆分（仅文档，不改代码）· 2026-10-14 按 yakami 新方向重写。叠在 PR #105（`docs/grokbot-connector-spec-1014`）之上。
+唯一规格来源：`docs/product-specs/2026-10-13-grokbot-norma-connector.md`（下称「主规格」）。AC 编号接续主规格；AC-54 已删除不复用；本文中被新方向淘汰的 AC 标「已删除，编号不复用」，新增从 AC-85 起。
 
-代码事实依据：
-- origin/dev（主规格 1.1 节所列文件）；
-- P2 分支 `origin/feat/grokbot-connector-p2`（PR #104，**未合入，open**，头 `bc669a0e`）。凡引用 P2 代码处，均以该分支为准，合入时可能变化。
-- 标记 **【假设】** 的内容未在代码中核实，实现前需确认。
+代码依据：origin/dev（下列 file:line 均在 dev 上核对）；P2 分支 `origin/feat/grokbot-connector-p2`（PR #104，未合入）。**【假设】** 表示未在代码中核实。
 
-## 0. 不得改动的已决定事项
+## 0. 新方向（yakami 2026-10-14）与不得改动事项
 
-以下沿用主规格，P4 任何工单都不得改变：
+新方向：
+1. 写工具是 **AdapterCommand 的薄映射**：经 `execute_norma_adapter_command_with_source` 执行，新增 `AgentInputSource::Connector`。
+2. 幂等 / 回执复用 **`MobileCommandStore` reserve + receipt**（或抽成共享模块），**不建 `connector_operations`**。
+3. `AssignAgentTask` 增加可选 `node_id`（由 `card_id` 解析），`card_revision` 校验放在 AdapterCommand 层；**不再另建按节点派工入口**。
+4. 新增工具 `reply_agent`。
+5. 建卡改为映射 `create_agent(profile, task?)`；仍待 Y-1。
+6. 对外仍只暴露 `card_id`、`operation_id` 与结构化错误码（不暴露 node_id、Agent 名寻址或 AdapterError 原文）。
+7. 明确范围外：`send_terminal_input`、`delete_canvas_card`、`focus_card`、记忆写入。
 
-1. Token **明文存 Norma SQLite**（`connector_tokens`），不用钥匙串（主规格 Q11、6.3）。
-2. 隧道**优先 Tailscale Funnel**（Q2、6.2）。
-3. **AC-54 已删除**，不设全局失败告警，编号不复用（Q13）。
-4. Norma App 未运行时连接器不可达，Grok Bot 向用户显示 **「Norma 未运行」**（Q10、AC-44）。
-5. 连接器永不传 `force_untracked=true`；不做 Norma 内智能路由；`card_id` 自定义、不依赖 #97（Q3）。
-6. `card_revision` 只由持久状态计算：`sha256(card 身份字段 | 项目根目录 | 工作目录 | profile | session_id)`，不含 Runtime 路由代次（主规格 3.2，2026-10-14 修订）。
-7. `resolve_approval` 属 P5，每次批准 / 拒绝前 Grok Bot 都必须先问 yakami 确认（0.2、4.6）。
+不得改动（沿用主规格）：Token 明文存 Norma SQLite；优先 Tailscale Funnel；AC-54 已删除；Norma 未运行时 Grok Bot 显示「Norma 未运行」；连接器永不 `force_untracked`；`card_revision` 只由持久状态（身份 | 项目根目录 | 工作目录 | profile | session_id）计算；`resolve_approval` 属 P5 且每次先问 yakami；主规格 1.4 / 6.6 的「不新建卡片」保持，标「待 Y-1」。
 
-## 1. 代码现状（与 P4 相关）
-
-| 事实 | 位置 | 对 P4 的意义 |
-| --- | --- | --- |
-| P2 只注册三个只读工具 `directory / list_tasks / get_task_progress`，注解 `read_only(true)` | P2 `crates/norma/src/connector/tools/schema.rs` | P4 新增两个写工具，注解需为 `read_only(false)`，`destructive`：dispatch=false、cancel=true【假设：按 MCP 注解语义取值】 |
-| 工具分发 `ConnectorTools::execute(name, input)`，未知工具返回 `invalid_argument`；错误结构 `schema::error(code, retry_after)` | P2 `crates/norma/src/connector/tools.rs` | 新工具接入同一分发与错误结构 |
-| 输入结构体全部 `#[serde(deny_unknown_fields)]`，反序列化失败 → `invalid_argument` | P2 `tools/model.rs` | 新输入同样处理 |
-| `Task` 输出：`task_id, card_id, role_name, workspace_id, state, tracking, summary, created_at: i64, updated_at: i64, source`；`directory` 输出 `observed_at = auth.now()`（unix 秒） | P2 `tools/model.rs`、`tools.rs` | **连接器现有时间字段全部是整数 unix 秒** |
-| `Card` 输出**没有**创建时间；但内部 `CardIdentity.created_at: i64` 已存在（来自 `agent_definitions.created_at_unix`，取不到时退化为 `desktop_project_areas.added_at_unix_ms / 1000`） | P2 `connector/identity.rs`、`storage/src/connector_read.rs` | P4-3 直接暴露，见 §4 |
-| `get_task_progress.last_activity_at` 目前直接取 `agent_dispatch_tasks.updated_at_unix` | P2 `tools.rs` | 不是真正「最后活动」，见 §4 与开放问题 |
-| P2 已建 `connector_tokens / connector_secrets / connector_audit(occurred_at_unix …)`；**尚无 `connector_operations`** | P2 `storage/src/connector_store.rs` | P4-1 新建 |
-| `card_revision` 由持久目标状态派生（P2 提交 `87ac5a71` "derive card revision from persistent target state"） | P2 `crates/norma/src/connector` | P4 只比对，不改计算；与主规格 3.2 修订一致，P2 合入前需核对字段集合是否为身份 + 项目根目录 + 工作目录 + profile + session_id |
-| `MobileCommandStore::reserve` → `New / Existing(receipt) / Conflict`；「No recovery path replays a reserved side effect」 | dev `crates/storage/src/mobile_command_store.rs` | 账本语义照抄 |
-| `orchestration_task_operations(operation_id PK, request_fingerprint, result_json)` | dev `crates/storage/src/migrations.rs` | 下层派工本身的幂等，连接器账本叠在其上 |
-| `CardCommand::DispatchAgentTasks { assignments: Vec<AgentTaskAssignment{name, task}>, force_untracked }`、`AgentTaskCancel { task_ref }`；回执 `AgentTaskReceipt{task_id, operation_id, target_definition_id, target_node_id}`、`AgentTaskReceiptStatus` 九态 | dev `crates/norma/src/protocol.rs`；执行 `crates/app/src/norma/endpoint/task_dispatch.rs`、`task_control.rs` | 派工按**名字**寻址（R1），P4 必须新增按卡片实例寻址的内部入口 |
-| 审批目标 `ApprovalTarget { node_id, profile, run_id, session_id, turn_id, request_id }`，`delivery_state()` → `waiting / submitted / request_closed` | dev `crates/norma/src/mobile/approval.rs` | 取消与审批交互（§3） |
-
-## 2. 工具定义
-
-命名沿用主规格：`dispatch_task`、`cancel_task`。字段名与错误码以主规格为准；用户需求中的别名映射如下：
-
-| 需求中的叫法 | 本文 / 主规格的名称 |
-| --- | --- |
-| prompt / input | `task`（正文）+ `context`（可选补充） |
-| idempotency key | `operation_id` |
-| invalid_request | `invalid_argument`（主规格通用错误码，P2 已实现） |
-| already_finished / already_cancelled | `already_terminal`（**成功结果**的 `state` 值，非错误，主规格 4.5） |
-| target_missing | `card_not_found`（卡片不存在 / 已删除 / 签名无效）与 `target_changed`（身份或 revision 不符）——不新增 `target_missing` |
-| norma_not_running | **不是工具错误码**：App 不运行时根本无服务端可返回（Q10）。由 Grok Bot 侧在连接失败时显示「Norma 未运行」 |
-
-### 2.1 `dispatch_task`
-
-输入（`deny_unknown_fields`）：
-
-```json
-{"operation_id": "uuid-v4",            // 必填，Grok Bot 生成
- "card_id": "c1.…",                     // 必填，来自 directory
- "card_revision": "…",                  // 必填，来自 directory
- "task": "修复登录页 500",               // 必填，1..=8000 字符
- "context": "…",                        // 可选，计入 8000 上限【假设：与 task 合计】
- "allow_queue": true}                   // 可选，默认 true
-```
-
-不提供 `workspace_id` 参数（暂定，待 yakami 确认）：工作空间由 `card_id` 内编码的 `workspace_id` 唯一确定，额外参数只会制造不一致（原 OQ-1）。
-
-输出（回执）：
-
-```json
-{"operation_id": "…", "task_id": "…", "card_id": "c1.…", "role_name": "Alan",
- "workspace_id": "…",
- "state": "accepted|submitted|queued|untracked|outcome_unknown",
- "tracking": "tracked|untracked", "replayed": false,
- "accepted_at": 1760000000}
-```
-
-- `workspace_id` 为本文补充（便于 Grok Bot 汇报），其余字段原样来自主规格 4.2。
-- `state` 映射 `AgentTaskReceiptStatus`：`Accepted→accepted`、`Submitted→submitted`、`Queued→queued`、`Untracked→untracked`；预留后崩溃 → `outcome_unknown`。**提交 ≠ 运行 ≠ 完成**（AC-26）：回执里永远不会出现 `running/done`，运行状态只能通过 `get_task_progress` 查询。
-
-错误码（`isError: true`，结构同 P2 `schema::error`）：
-
-| code | 含义 | retryable |
-| --- | --- | --- |
-| `invalid_argument` | 缺字段、未知字段、`operation_id` 非 UUID、`task` 为空 | false |
-| `task_too_long` | `task`(+`context`) > 8000 字符 | false |
-| `card_not_found` | `card_id` 签名无效或卡片已不存在 | false |
-| `target_changed` | 身份字段或 `card_revision` 与当前不符（含删除后同名重建，AC-20） | false（需重新 `directory`） |
-| `workspace_not_found` | `card_id` 指向的工作空间已删除 | false |
-| `card_busy` | `allow_queue=false` 且卡片忙 | true |
-| `approval_pending` | 卡片正等工具审批，不越过 | true |
-| `input_occupied` | 用户正在该卡片输入 | true |
-| `untracked_requires_confirmation` | 卡片无可信跟踪；连接器不传 `force_untracked` | false |
-| `operation_conflict` | 同 `operation_id` 不同 `request_hash`（或不同工具） | false |
-| `workspace_closed` | 目标工作空间未打开（R6）：直接报错，不排队、不自动打开工作空间、不启动 PTY（暂定，待 yakami 确认）（原 OQ-2） | true |
-| `rate_limited` | 写限流 10 次/分钟（主规格 6.4），含 `retry_after_s` | true |
-| `connector_disabled` / `internal` | 通用 | — |
-| HTTP 401 `unauthorized` | Token 缺失 / 错误（HTTP 层） | false |
-
-
-### 2.2 `cancel_task`
-
-输入：`{"operation_id": "uuid-v4", "task_id": string}`（`deny_unknown_fields`）
-
-输出：
-
-```json
-{"operation_id": "…", "task_id": "…",
- "state": "cancel_requested|cancelled|already_terminal",
- "terminal_state": "done|failed|cancelled|interrupted"|null,
- "replayed": false}
-```
-
-- `terminal_state` 为本文补充：仅 `state=already_terminal` 时非空，告诉 Grok Bot 任务是「已完成」还是「已取消」（对应需求中的 already_finished / already_cancelled），不新增错误码。
-- 错误：`invalid_argument`、`task_not_found`、`not_connector_task`、`operation_conflict`、`rate_limited`、`internal`。
-- 只取消该 `task_id`，不影响同卡其他任务（AC-25）。默认只能取消 Grok Bot 派出的任务（`source=grokbot`，由 `connector_operations` 关联判定）；其他来源任务返回错误 `not_connector_task`（retryable=false）。该范围为设置项「允许 Grok Bot 取消全部任务」（默认关），日后可调（暂定，待 yakami 确认）（原 OQ-3）。
-- 基于 `CardCommand::AgentTaskCancel { task_ref }`，`CancelRequested → Cancelled`。
-
-### 2.3 幂等规则（两工具共用）
-
-1. 账本 `connector_operations(client_id, operation_id, tool, request_hash, state, result_json, error, created_at_unix, updated_at_unix, PK(client_id, operation_id))`（主规格第 7 节）。`client_id`：连接器调用方身份；Token 轮换 24 小时宽限期内新旧 Token 视为同一 `client_id`，跨轮换重放仍返回原回执（暂定，待 yakami 确认）（原 OQ-4）。**吊销后重新生成的 Token 是新的 `client_id`**：吊销是立即生效的安全动作，旧 Token 时期的 `operation_id` 不能用新 Token 重放取回回执；同一 `operation_id` 在新 `client_id` 下是独立命名空间，按新操作处理（AC-72，2026-10-14 决定）。只有轮换宽限期内的新旧 Token 算同一 `client_id`。
-2. `request_hash`：
-   - dispatch：`sha256(tool | card_id | card_revision | task | context | allow_queue)`，缺省值先规范化（`allow_queue` 缺省视为 `true`，`context` 缺省视为空串）。
-   - cancel：`sha256(tool | task_id)`。
-3. 预留结果：
-   - `New` → 执行副作用，写回 `result_json`；
-   - `Existing` 且哈希相同 → 返回原回执，`replayed=true`，**不再写卡片**（AC-18）；
-   - 哈希不同或 `tool` 不同 → `operation_conflict`（AC-19）。
-4. 失败也入账：校验类错误（`card_not_found`、`target_changed`、`approval_pending` 等）**不预留**，同 `operation_id` 可在情况改变后重试；一旦进入写卡片阶段，结果（含错误）固化，重放返回同一结果【假设：与 `MobileCommandStore` 的 `rejected` 语义一致，实现前核对】。
-5. 崩溃：预留后、确认写入前崩溃 → 重启后标 `outcome_unknown`，**不自动重放**（AC-24）；Grok Bot 只能用 `get_task_progress {operation_id}` 核对。
-6. 下层：连接器把同一 `operation_id` 透传给派工路径，使 `orchestration_task_operations` 的指纹幂等同时生效【假设：需确认按卡片实例的新入口是否走该表】。
-7. 账本保存期：30 天后清理；清理后同 `operation_id` 视为新操作（暂定，待 yakami 确认）（原 OQ-5）。
-
-## 3. 审批与取消
-
-### 3.1 派出任务中出现工具审批
-
-- P4 不提供 `resolve_approval`，也不发 webhook。P4 期间审批只能在 Mac / 手机上处理；Grok Bot 可通过 `get_task_progress.pending_approval` 和 `directory.state=waiting_approval` 看到。
-- P5 起：Grok Bot 派出的任务（`source=grokbot`）中出现的审批，经 `approval.waiting` webhook 通知（主规格 5.1，Q5）；Grok Bot **每一次**都要把工具名、参数摘要、卡片展示给 yakami，得到本次明确的「批准 / 拒绝」后才调 `resolve_approval commit`；不得基于先前授权或推断自动批准（主规格 4.6、AC-39）。
-- 派工本身不需要额外审批：用户对 Grok Bot 说「让 Alan 做 X」即是派工意图。但若 Grok Bot 解析名称出现多候选 / 零候选，必须先问用户（主规格 2）。
-
-### 3.2 等待审批时取消
-
-- `cancel_task` 对处于等待审批的任务**照常生效**：走 `AgentTaskCancel`，返回 `cancel_requested` 或 `cancelled`。
-- 取消**不会**替用户对审批作出 allow / deny 决定；审批请求随任务结束而关闭，后续 `ApprovalTarget::delivery_state` 返回 `request_closed`。是否真的关闭由开发期验证项 V-1 确认（原 OQ-9）。
-- P5 衔接：outbox 中尚未投递的该审批 `approval.waiting` 事件，补发前复核为已关闭即丢弃（主规格 5.4）；之后对该 `approval_id` 的 `resolve_approval` 返回 `request_closed`。
-- 取消无需 Grok Bot 额外确认：用户说「取消某任务」即直接调用；仅当按名字匹配到多个未终态任务时先问用户（暂定，待 yakami 确认）（原 OQ-3）。
-
-## 4. 补充条款：时间字段（主规格缺失）
-
-### 4.1 格式选择
-
-- **MCP 工具输出：整数 unix 秒（UTC）**。理由：主规格工具输出已用 `observed_at: 1760000000`、`accepted_at: 1760000000`，P2 代码 `Task.created_at/updated_at: i64`、`observed_at = auth.now()` 均为秒；存储列为 `*_unix`。不引入第二种格式。
-- **webhook 负载**：`occurred_at` 改为整数 unix 秒，与工具输出统一；主规格 5.2 已同步修订（暂定，待 yakami 确认）（原 OQ-6）。实现在 P5。
-- 字段名后缀统一 `_at`；值为 `null` 表示「未知」，**不得**用 0 或当前时间伪造。
-
-### 4.2 新增字段
-
-| 位置 | 字段 | 来源与回退 |
-| --- | --- | --- |
-| `directory.cards[]` | `created_at: integer\|null` | 取 `agent_definitions.created_at_unix`；卡片无 `agent_definitions` 记录时输出 `null`，不用区域 `added_at` 冒充（暂定，待 yakami 确认）（原 OQ-7）。注意：`CardIdentity.created_at` 内部仍保留 P2 的区域回退值参与 `card_id` 编码，不能为输出而改其计算 |
-| `dispatch_task` 回执 | `accepted_at`（主规格已有） | 连接器预留成功时刻；重放返回原值 |
-| `cancel_task` 回执 | `requested_at: integer` | 预留成功时刻；重放返回原值 |
-| `get_task_progress` | `created_at`、`updated_at`、`state_changed_at: integer\|null` | `agent_dispatch_tasks.created_at_unix / updated_at_unix`；`state_changed_at` 需新记录，旧任务无记录 → `null` |
-| `get_task_progress` | `events: [{"type", "occurred_at": integer, "state"?}]`，最近 ≤ 20 条，新→旧 | 来源：连接器账本 + 任务状态迁移（`accepted/submitted/running/cancel_requested/done/failed/cancelled/interrupted/approval_waiting/approval_closed`）。无可信来源的事件不生成 |
-| `get_task_progress` | `last_activity_at`（已有） | P4 保持 P2 现状（取 `updated_at_unix`），并在工具描述中注明；真实来源（最后输出 / 工具调用 / 状态变化）移到 P5 与 `task.stalled` 一起实现（暂定，待 yakami 确认）（原 OQ-8） |
-
-时区：所有值为 UTC 绝对时刻；展示时由 Grok Bot 转为用户时区（Asia/Shanghai）。
-
-### 4.3 新增验收（续编，AC-54 不复用）
-
-- AC-56 `dispatch_task` / `cancel_task` 出现在 `tools/list`，注解非只读；P2 的三个只读工具不变。
-- AC-57 同一 `operation_id` 先用于 `dispatch_task`、再用于 `cancel_task` → `operation_conflict`。
-- AC-58 `dispatch_task` 缺省字段规范化：显式 `allow_queue=true` 与省略视为同一请求，重放不冲突。
-- AC-59 校验类错误（`card_not_found`/`target_changed`/`approval_pending`/`card_busy`/`input_occupied`）不占用 `operation_id`，条件消除后同 `operation_id` 可成功派工。
-- AC-60 `cancel_task` 对已完成 / 已取消任务返回 `state=already_terminal` 且 `terminal_state` 分别为 `done` / `cancelled`，非错误；重放返回相同结果。
-- AC-61 任务等待审批时 `cancel_task` → 任务取消，审批未被 allow 或 deny，随后该审批 `delivery_state` 为 `request_closed`。
-- AC-62 `directory.cards[].created_at` 为整数 unix 秒或 `null`；卡片无定义记录时不得输出区域时间冒充卡片时间。
-- AC-63 `get_task_progress` 返回 `created_at`、`updated_at`、`state_changed_at`、`events[].occurred_at`，均为整数 unix 秒或 `null`；`events` 按时间新→旧、≤ 20 条、无伪造事件。
-- AC-64 dispatch / cancel 的回执时间（`accepted_at` / `requested_at`）在重放时与首次一致。
-- AC-65 App 未运行时调用 `dispatch_task` / `cancel_task`：Grok Bot 得到连接失败并显示「Norma 未运行」，不报告为派工失败或已取消（AC-44 在写工具上的延伸）。
-- AC-66 审计 `connector_audit` 对每次 dispatch / cancel 记一条：`operation_id`、结果码、任务正文仅哈希 + 前 80 字（主规格 6.5）。
-- AC-67 目标工作空间未打开时 `dispatch_task` → `workspace_closed`（retryable=true），无工作空间被打开、无 PTY 启动、`operation_id` 不被占用。
-- AC-68 默认设置下 `cancel_task` 取消桌面 / 手机发起的任务 → `not_connector_task`，任务不受影响；打开「允许 Grok Bot 取消全部任务」后可取消。Grok Bot 派出的任务直接取消，无额外确认。
-- AC-69 Token 轮换后 24 小时宽限期内，用新 Token 重放旧 Token 发起的同一 `operation_id` → 原回执、`replayed=true`。仅限轮换宽限期；吊销后不适用（见 AC-72）。
-- AC-70 `connector_operations` 中超过 30 天的记录被清理；清理前重放仍幂等。
-- AC-71 `card_revision` 在 App 重启、PTY 重连、路由代次变化后不变；项目根目录、工作目录、profile 或 `session_id` 任一变化后改变，旧 revision 派工 → `target_changed`。
-- AC-72 吊销 Token 并重新生成后，用新 Token 以旧 Token 时期的 `operation_id` 调用 → 不返回旧回执（`replayed=false`），按新 `client_id` 下的独立操作处理；不与旧记录比对 `request_hash`、不报 `operation_conflict`。
-
-## 5. 工单
-
-模板：任务｜仓库｜Done when｜不要做。全部在 `multisoul-ai/Norma-AI-OS`，叠在 P2（#104）之上，**P2 合入前不开工**。
-
-### P4-1 `dispatch_task` 工具 + 操作账本 + 按卡片实例派工
-
-- **任务**：新建 `connector_operations` 表与 `reserve(New/Existing/Conflict)` 存储（语义照 `MobileCommandStore::reserve`）；`card_id` 验签 + 逐项复核 + `card_revision` 比对；新增按 `(workspace, area, canvas, node_id)` 派工的内部入口（解决 R1，不改 `AgentTaskAssignment` 现有按名语义）；`dispatch_task` 输入/输出/错误码按 §2.1；启动时把未确认写入的预留标为 `outcome_unknown`；审计记录。
-- **仓库**：multisoul-ai/Norma-AI-OS（`crates/storage`、`crates/norma/src/connector`、`crates/app/src/norma/endpoint`）
-- **Done when**：AC-17、AC-18、AC-19、AC-20、AC-21、AC-22、AC-23、AC-24、AC-26、AC-56、AC-67、AC-69、AC-70、AC-71、AC-72、AC-57、AC-58、AC-59、AC-64（accepted_at）、AC-66 通过。
-- **不要做**：不传 `force_untracked`；不做模糊名称匹配或自动换卡；不复用 `mobile_commands`；不自动重放 `outcome_unknown`；不改 Unix socket 协议现有语义；不自动打开未打开的工作空间（OQ-2 未定前）；不碰 Token 存储 / Funnel / 锁定逻辑。
-
-### P4-2 `cancel_task` 工具
-
-- **任务**：`cancel_task` 按 §2.2，复用 P4-1 账本；对接 `AgentTaskCancel`；`already_terminal` + `terminal_state`；等待审批时取消的行为按 §3.2 并实测 Codex / Claude。
-- **仓库**：multisoul-ai/Norma-AI-OS（`crates/norma/src/connector`、`crates/app/src/norma/endpoint/task_control.rs` 调用侧）
-- **Done when**：AC-25、AC-68、AC-60、AC-61、AC-64（requested_at）、AC-66 通过；开发期验证项 V-1 结果记录在 PR 中。
-- **不要做**：不替用户作审批决定；不取消同卡其他任务；不实现 `resolve_approval` 或 webhook（P5）。
-
-### P4-3 时间字段补充
-
-- **任务**：`directory.cards[].created_at`；`get_task_progress` 的 `created_at / updated_at / state_changed_at / events[]`；`cancel_task.requested_at`；必要时新增状态迁移时间记录（新列或新表，只增不改）。同步把 §4 补充条款合入主规格（另起文档 PR 或本 PR 后续提交）。
-- **仓库**：multisoul-ai/Norma-AI-OS（`crates/norma/src/connector/tools`、`crates/storage`、`docs/product-specs`）
-- **Done when**：AC-62、AC-63 通过；主规格已含 §4 字段与 AC-56–AC-72。
-- **不要做**：不改 `card_id` 编码中的 `created_at` 计算（会使已发出的 `card_id` 失效）；不用 0 / 当前时间填未知值；不在 P4 实现 webhook `occurred_at`（P5）；不在 P4 实现真实 `last_activity_at` 来源（P5）。
-
-### P4-4 测试与端到端
-
-- **任务**：存储单测（reserve 三态、崩溃恢复）；工具集成测试（沿用 P2 `crates/norma/tests/connector_tools.rs`、`connector_http.rs` 风格）；经 Funnel 由 Grok Bot 真实派工 / 取消的走查，含 App 未运行场景；Grok Bot 侧走查：派工多候选时先问用户。
-- **仓库**：multisoul-ai/Norma-AI-OS（`crates/*/tests`、E2E 记录写在 P4 PR）
-- **Done when**：AC-17–AC-26、AC-56–AC-72 全部有自动化或记录在案的手工结果；E2E 夹具使用随机生成 Token（AC-04）。
-- **不要做**：不把真实 Token 写进夹具 / 日志；不在用户真实工作空间上跑破坏性测试；不合并 PR。
-
-### P4-5 `create_card`（范围变更提案，见 §9；Y-1 获批前不开工）
-
-- **任务**：按 §9 实现 `create_card`（复用手机快速建卡内部流程，不写 `agent_creation_operations`），`connector_operations` 幂等，新增错误码，限额，审计，`directory.cards[].created_by`；同步在 #105 修订 1.4 / 6.6 与通用错误码表。
-- **仓库**：multisoul-ai/Norma-AI-OS（`crates/norma/src/connector`、`crates/app/src/mobile/workspace_live/creation.rs` 抽取共用部分、`crates/storage`、`docs/product-specs`）
-- **Done when**：AC-73–AC-84 通过；V-2 结果记录在 PR 中；Y-1、Y-2、Y-5 已有 yakami 决定。
-- **不要做**：不做删除 / 改名卡片、不新建工作空间或区域；不做 `load_card`；不开放 claude / codex 以外的 profile；不支持非区域根 `working_dir`；不改手机建卡与授权模型；不提交任何任务（建卡与派工分开）。
-
-## 6. 暂定决定（原开放问题，均为「暂定，待 yakami 确认」）
-
-- 原 OQ-1 `dispatch_task` 不加 `workspace_id`。暂定，待 yakami 确认。
-- 原 OQ-2 目标工作空间未打开 → 报错 `workspace_closed`，不排队、不自动打开（AC-67）。暂定，待 yakami 确认。
-- 原 OQ-3 `cancel_task` 只取消 Grok Bot 派出的任务，直接取消、无额外确认；做成设置项，日后可调（AC-68）。暂定，待 yakami 确认。
-- 原 OQ-4 仅 24 小时轮换宽限期内新旧 Token 视为同一 `client_id`（AC-69）；吊销后重新生成的 Token 为新 `client_id`，旧 `operation_id` 不可重放取回回执（AC-72，2026-10-14 决定）。暂定，待 yakami 确认。
-- 原 OQ-5 `connector_operations` 保存 30 天（AC-70）。暂定，待 yakami 确认。
-- 原 OQ-6 webhook `occurred_at` 改为 unix 秒（主规格 5.2 已改；P5 实现）。暂定，待 yakami 确认。
-- 原 OQ-7 无 `agent_definitions` 记录的卡片 `created_at = null`（AC-62）。暂定，待 yakami 确认。
-- 原 OQ-8 真实 `last_activity_at` 来源移到 P5。暂定，待 yakami 确认。
-- 原 OQ-9 改为开发期验证项 V-1。暂定，待 yakami 确认。
-
-## 7. 开发期验证项
-
-- V-2（P4-5）：建卡后 `session_id` 写入时机，以及回执 `card_revision` 与之后 `directory` 返回值是否一致。
-
-- V-1（P4-2）：Codex 与 Claude 卡片各一次，在任务等待工具审批时调用 `cancel_task`，记录挂起审批是否关闭、`delivery_state` 是否为 `request_closed`、Provider 是否收到任何 allow / deny。若不关闭，回到规格讨论，不在代码中替用户作决定。
-
-## 8. 剩余开放问题
-
-- 暂无。（吊销后 `client_id` 已决定为新身份，见 §2.3、AC-72；`not_connector_task` 已并入主规格通用错误码表。）
-
-## 9. P4-5 `create_card`（范围变更提案，待 yakami 决定）
-
-> **与已决定事项冲突**：主规格 1.4「范围外」列有「新建 Agent 卡片」，6.6「Grok Bot 永远不能做的事」列有「创建、删除、改名卡片或工作空间」。本节**不修改**这两条，只作为提案；P4-5 在 yakami 明确同意变更范围、并在 #105 中同步修订 1.4 / 6.6 之前**不得开工**（Y-1）。即使通过，删除、改名卡片与新建工作空间仍保持禁止。
-
-### 9.1 代码现状（dev，P2 分支无卡片创建代码）
+## 1. 代码现状（file:line）
 
 | 事实 | 位置 |
 | --- | --- |
-| 手机已有「按区域快速建卡」：持久预留先于任何副作用，**不提交任务** | `crates/app/src/mobile/workspace_live/creation.rs`（文件头注释） |
-| 请求 `WorkspaceAgentCreateRequest { desktop_workspace_id, area_id, operation_id, expected_revision: u64, profile: String }`，**无名字、无工作目录** | `crates/norma/src/mobile/agent_creation.rs:6` |
-| 流程：`check_scope`（配置未变、`configuration_revision == expected_revision`、`identify_project(root)` 与区域一致）→ `desktop::mobile::ensure(area)` 加载区域会话 → `quick_definition` 自动取名（`AgentNameRegistry::next_available_name`，冲突重试 9 次）→ 账本 `bind(definition_id,name,area_id)` → `prepare_quick_mobile_card` 建画布节点 → `bind(node_id,run_id)` → `launch.spawn()` 起 PTY；任一步失败 `cleanup` 回滚定义与节点 | 同上 |
-| profile 字符串只接受 `"Codex" / "Claude" / "Cursor"`，其他 → `unsupported_profile` | 同上 |
-| 账本 `agent_creation_operations(device_id, operation_id, mac_id, workspace_id, payload, state, result, error, PK(device_id, operation_id))`；状态 `received → processing → succeeded / failed / outcome_unknown`；重启时 `processing → outcome_unknown (mac_restarted)`；有按实际结果核对恢复的路径 | `crates/storage/src/agent_creation_store.rs` |
-| 定义入库 `AgentDefinitionStore::create / create_quick`，`origin ∈ Explicit / QuickCard`；`reject_name_conflict` 对 `name`、`name_key`、`speech_alias` 查重，冲突 → `StorageError::AgentNameConflict { requested, existing }`；唯一索引 `idx_agent_definitions_name_nocase` | `crates/storage/src/agent_definition_store.rs`、`migrations.rs:240` |
-| `agent_definitions` 用 `open_project_connection` 打开，即**按项目**存储【假设：名字唯一范围是项目而非工作空间，需核对】 | 同上 |
-| Unix socket 已有 `CardCommand::CreateAgent { name: Option<String>, profile, activate: bool }`（按名字、无区域参数） | `crates/norma/src/protocol.rs:82` |
-| 画布 profile 枚举 `Claude / Codex / Cursor / Grok / OpenCode` | `crates/canvas/src/node/agent_profile.rs:4` |
-| 卡片运行目录 = 区域根（`app.runtime.workspace_root()` 被校验等于 `area.root`）；**未发现按卡片设置工作目录的字段**【假设：不支持，需核对】 | `creation.rs` |
+| `AdapterCommand` 枚举：`CreateAgent { profile, task: Option<String> }`、`AssignAgentTask { agent, task }`、`CancelAgentTask { task_id: u64 }`、`ReplyAgent { agent, message }`、`CancelAgentReply { reply_id?, agent? }` 等 | `crates/agent/src/adapter.rs:32–61` |
+| 工具定义 `create_agent`（profile ∈ codex/claude/opencode/cursor/grok，可附 task「创建后立即入队」）`:312`；`assign_agent_task` `:323`；`cancel_agent_task` `:334`；`reply_agent`（「向已有卡片发会话消息…不创建新任务」）`:342`；`focus_card` `:388`；`send_terminal_input` `:396`；`delete_canvas_card` `:408`；记忆工具 `:413–414` | `crates/agent/src/adapter.rs` |
+| 参数结构 `CreateAgentArgs{profile, task?}` `:18`、`AssignAgentTaskArgs{agent, task}` `:25`、`ReplyAgentArgs{agent, message}` `:32`、`TaskIdArgs{task_id: u64}` `:46`，均 `deny_unknown_fields`；解析入口 `parse_adapter_command` `:107`（`create_agent` `:160`、`assign_agent_task` `:179`、`cancel_agent_task` `:185`、`reply_agent` `:192`） | `crates/agent/src/adapter/commands.rs` |
+| 执行入口 `execute_norma_adapter_command_with_source(app, window: Option<&mut Window>, cx, command, input_source)` `:60`；记忆命令直接拒绝 `:68`；`CreateAgent` → `CardCommand::CreateAgent { name: None, profile, activate: true }`，有 task 时再 `dispatch_agent_task` `:108–147`；`AssignAgentTask` → `adapter_task::dispatch_agent_task(…, agent, task, input_source == DoubaoVoice)` `:149–156`（最后一个参数即 force_untracked 语义【假设：需核对 `adapter_task` 形参名】）；`CancelAgentTask` 区分未提交 / 运行中，`cancel_unsubmitted_task` / `cancel_task` + `persist_cancellation` `:157–250`；`ReplyAgent` → `reply_adapter::execute_reply_adapter_command` `:275–295`（仅 Voice/DoubaoVoice 触发视觉效果） | `crates/app/src/app/agent_runtime/adapter_pump.rs` |
+| `AgentInputSource { Voice, DoubaoVoice, MobileDiscussion, MobileExecution, Other(默认) }` | `crates/agent/src/model.rs:4–14` |
+| 手机实时工具：`RealtimeCall{device_id, call_id, turn_id, workspace_id, operation_id, request_hash = sha256([project_id, name, arguments])}` `:14–23`；鉴权后 `MobileCommandStore::reserve_realtime` `:36–40`；`Existing` 且非 unknown 直接返回原值，Pending/unknown「只读不重提交」`:51–55` | `crates/app/src/mobile/server/connection/realtime/policy.rs:8–55` |
+| 回执轮询：`succeeded` 取结果、`outcome_unknown` →「不能重复派工」、`rejected` 返回错误、`accepted` 等待；35 s 截止（派工 30 s lease + 5 s）`:59–105`；之前要求 `realtime_command_authorized`（按用户原话判定执行意图）`:33` | `crates/app/src/mobile/server/connection/realtime/execution.rs` |
+| `MobileCommandStore`：`reserve` `:63`、`finish` `:101`；`mobile_commands(device_id, operation_id, workspace_id, route_id, owner_id, request_hash, state ∈ accepted/succeeded/rejected/outcome_unknown, result_json, error, created_at_unix, PK(device_id, operation_id))` `:246–258`；实时表 `mobile_realtime_calls … UNIQUE(device_id, operation_id)` | `crates/storage/src/mobile_command_store.rs`、`…/realtime.rs:232–236` |
+| `mobile_commands` 被多处读取（投递、计划、todo、thread、feedback） | `crates/storage/src/mobile_task_delivery_store.rs`、`project_plan_store.rs`、`mobile_command_store/{delivery,todo,thread,feedback}.rs` |
+| P2 只读工具与输出（`Task.created_at/updated_at: i64`、`observed_at` unix 秒）；`card_revision` 已由持久目标状态派生（提交 `87ac5a71`） | P2 `crates/norma/src/connector/tools/{model,schema}.rs` |
 
-### 9.2 工具定义 `create_card`
+## 2. 设计
 
-输入（`deny_unknown_fields`）：
+### 2.1 执行路径（P4-1）
 
-```json
-{"operation_id": "uuid-v4",
- "workspace_id": "…", "area_id": "…",          // 来自 directory.projects[]
- "role_name": "Bella",                           // 可选；省略则按现有快速建卡自动取名
- "profile": "claude|codex",                      // 必填；P4-5 只开放这两种
- "working_dir": "相对区域根的路径",              // 可选；省略 = 区域根
- "start": true}                                  // 可选，默认 true
+```
+MCP tools/call → 参数校验(deny_unknown_fields) → card_id 验签解析 → MobileCommandStore reserve
+  → AdapterCommand{…, node_id, expected_revision} → execute_norma_adapter_command_with_source(app, None, cx, cmd, AgentInputSource::Connector)
+  → AdapterResult / AdapterError → 结构化回执 / 错误码 → finish → 审计
 ```
 
-- **加载 / 启动并入 `create_card`（`start=true` 默认），不单独做 `load_card`**。理由：① 现有快速建卡就是「建定义 + 建节点 + 起 PTY」一个带账本的原子流程并有失败回滚，拆开会出现「已建未启动」的新中间态；② 建卡的目的就是马上派工；③ `load_card` 会同时允许 Grok Bot 加载**任何**未加载区域 / 卡片，扩大到主规格 4.1「不启动未加载区域的 PTY」之外，属另一个范围决定（Y-4）。`start=false` 只建定义与节点、不起 PTY，卡片 `state=unloaded`。
-- `working_dir`：P4-5 只接受省略或等于区域根；其他值 → `working_dir_unsupported`，直到确认运行时支持按卡片工作目录（Y-3）。若日后支持，规则为：规范化后必须在区域根内（拒绝 `..`、符号链接逃逸）→ 否则 `working_dir_outside_project`；目录不存在 → `working_dir_not_found`；不自动创建目录。
+- 新增 `AgentInputSource::Connector`（`model.rs:4`）。规则：不等于 `DoubaoVoice` → 永不 force_untracked；不触发 Voice 视觉效果；`window = None`（连接器无窗口）【假设：`None` 路径对四个命令都可用，需核对 `execute_agent_card_command_with_optional_window`】。
+- 不调用 `realtime_command_authorized`（它按手机原话判断意图）；连接器的意图确认在 Grok Bot 侧完成【假设，见 §6 R-a】。
+- `AssignAgentTask { agent, task, node_id: Option<u64>, expected_revision: Option<String> }`、`ReplyAgent { agent, message, node_id, expected_revision }`：`node_id` 存在时**按节点**寻址，`agent` 只用于展示；节点不存在 → `card_not_found`；revision 不符 → `target_changed`。`node_id = None` 时现有按名字行为不变（语音 / 手机 / Agent 工具回归）。删除原 P4 设计中的「按节点派工内部入口」。
+- `card_id` 解析出 `workspace / area / canvas / node_id`；连接器选取对应工作空间的 `MultisoulApp` 执行【假设：`app` 与工作空间 / 画布的对应关系需核对；目标未打开 → `workspace_closed`】。
+- `AdapterError::Rejected(String)` 映射为稳定错误码（§2.6）；未识别的映射为 `agent_rejected`，原文只进审计，不回给 Grok Bot。
 
-输出：
+### 2.2 幂等与回执（P4-2）
 
-```json
-{"operation_id": "…", "card_id": "c1.…", "card_revision": "…",
- "workspace_id": "…", "area_id": "…", "role_name": "Bella", "profile": "Claude",
- "created_at": 1760420000, "state": "loaded|unloaded|outcome_unknown",
- "created_by": "grokbot", "replayed": false}
-```
+- 复用 `MobileCommandStore::reserve / finish / receipt`（或把这三者与状态机抽成 `command_ledger` 共享模块，手机与连接器共用；二选一在 P4-2 内决定，外部语义一致）。
+- 键映射：`device_id = "connector:<client_epoch>"`，`operation_id` 原样；`workspace_id` 取 card 所属工作空间；`route_id` = `card_id` 或 `task_id`；`owner_id = "grokbot"`；`request_hash = sha256(json([tool, 规范化参数]))`（同 `policy.rs:20` 含工具名）。
+- `client_epoch`：轮换 24 h 宽限期内新旧 Token 同 epoch（同 `client_id`，AC-69）；吊销后重新生成的 Token 新 epoch，旧 `operation_id` 不返回旧回执、为独立命名空间（AC-72）。epoch 存 `connector_secrets`【假设：P2 表可加一行，不改 Token 明文存储决定】。
+- 状态：`accepted → succeeded / rejected / outcome_unknown`。同键同参 → 原回执（`replayed=true`）；同键异参或异工具 → `operation_conflict`；崩溃 / 超时 → `outcome_unknown`，**只读核对、永不重提交**（`policy.rs:53–55`、`execution.rs:68–71` 同义）。
+- 因 revision 校验在 AdapterCommand 层（预留之后），`target_changed` / `approval_pending` 等执行期拒绝会记为 `rejected` 并在重放时原样返回；**条件消除后需用新 `operation_id` 重试**（AC-59 改义）。纯参数校验与 `card_id` 验签失败在预留前返回，不占键。
+- 保存期：连接器行 30 天后清理（AC-70，暂定，待 yakami 确认）。
+- 隔离：所有读 `mobile_commands` 的手机侧查询排除 `connector:` 前缀；连接器行不经 `MobileDeviceGrant` 鉴权（AC-91）。若排除改动面过大，则改走共享模块 + 独立表（仍不叫、也不按原设计建 `connector_operations`），由 P4-2 评估【假设】。
 
-- `card_revision` 按主规格 3.2 修订后的定义（仅持久状态：身份 | 项目根目录 | 工作目录 | profile | session_id），与随后 `directory` 返回值一致；起 PTY 后 `session_id` 产生则 revision 随之变化，Grok Bot 派工前以 `directory` 为准【假设：`session_id` 在 spawn 后才写入】。
-- `created_at` = `agent_definitions.created_at_unix`（unix 秒），与 `directory.cards[].created_at` 一致。
+### 2.3 `dispatch_task`（P4-3）
 
-### 9.3 幂等
+- 输入：`{"operation_id", "card_id", "card_revision", "task"(≤8000), "context"?, "allow_queue"?=true}`；`context` 拼入 task 正文【假设】。不加 `workspace_id`（暂定，待 yakami 确认）。
+- 映射：`AssignAgentTask{agent: role_name, task, node_id, expected_revision}`。
+- 输出：`{"operation_id", "task_id", "card_id", "role_name", "workspace_id", "state": "accepted|submitted|queued|untracked|outcome_unknown", "tracking", "replayed", "accepted_at"}`。`task_id` 为 `AdapterResult` 中的协调器任务号，以十进制字符串对外【假设：与 P2 `list_tasks.task_id` 同源，V-4】。提交 ≠ 运行 ≠ 完成（AC-26）。
+- 错误：`invalid_argument`、`task_too_long`、`card_not_found`、`target_changed`、`workspace_not_found`、`workspace_closed`（暂定）、`card_busy`、`approval_pending`、`input_occupied`、`untracked_requires_confirmation`、`operation_conflict`、`agent_rejected`、`rate_limited`、`internal`；HTTP 401。`card_busy / approval_pending / input_occupied` 是否能从 `AdapterError` 区分出来【假设，V-5】；不能区分的归 `agent_rejected`。
 
-- 走 `connector_operations`，`tool="create_card"`，`request_hash = sha256(tool | workspace_id | area_id | role_name | profile | working_dir | start)`，缺省值规范化（`role_name` 缺省为空串、`working_dir` 缺省为区域根、`start` 缺省 true）。同键同参 → 原回执 `replayed=true`，不再建卡；同键异参或异工具 → `operation_conflict`。
-- 自动取名时重放返回首次取到的名字（存在回执里）。
-- 预留后崩溃 → `outcome_unknown`，不自动重放；照 `AgentCreationStore` 的核对路径，启动时若能按已 `bind` 的 `definition_id/node_id` 确认实际结果则转为成功回执，否则保持 `outcome_unknown`。
-- 跨吊销同 AC-72：吊销后新 Token 为新 `client_id`，旧 `operation_id` 不返回旧回执，按新操作处理（可能再建一张卡——Grok Bot 不得在吊销后重放旧建卡请求）。
-- 实现复用手机建卡流程的内部函数，但**不写** `agent_creation_operations`、不需要手机授权（主规格 1.4 不改手机授权模型）。
+### 2.4 `cancel_task`（P4-3）
 
-### 9.4 错误码
+- 输入：`{"operation_id", "task_id"}`；映射 `CancelAgentTask{task_id}`（`adapter_pump.rs:157`）。
+- 输出：`{"operation_id", "task_id", "state": "cancel_requested|cancelled|already_terminal", "terminal_state"?, "requested_at", "replayed"}`。
+- 只取消 Grok Bot 派出的任务（同 `connector:` 命名空间回执关联），直接取消无额外确认，可设置放开（暂定，待 yakami 确认）；其他 → `not_connector_task`。
+- 未提交任务走 `cancel_unsubmitted_task`；`AlreadySubmitted` 类拒绝（`adapter_pump.rs:270`）映射为 `cancel_requested` 或 `agent_rejected`【假设，V-5】。
+- 等待审批时取消：照常取消，不替用户作审批决定；审批随任务关闭 → `request_closed`（开发期验证 V-1）。
 
-复用：`invalid_argument`、`workspace_not_found`、`workspace_closed`、`operation_conflict`、`rate_limited`、`connector_disabled`、`internal`、HTTP 401 `unauthorized`。
+### 2.5 `reply_agent`（P4-4，新增）
 
-新增（需同步加入 #105 通用错误码表）：
+- 用途：向画布上**已有**卡片发送会话消息，不创建任务（`adapter.rs:342`）。
+- 输入：`{"operation_id", "card_id", "card_revision", "message"(1..=8000)}`；映射 `ReplyAgent{agent, message, node_id, expected_revision}`。
+- 输出：`{"operation_id", "card_id", "reply_id", "reply_status", "replayed"}`（取自 `AdapterResult.reply_id / reply_status`，`adapter_pump.rs:286–288`）。
+- 错误：`invalid_argument`、`card_not_found`、`target_changed`、`card_not_loaded`（新，暂定：卡片未在画布加载，不自动加载）、`workspace_closed`、`operation_conflict`、`agent_rejected`、`rate_limited`。
+- 确认：同 `dispatch_task`，用户说「跟 Alan 说…」即可直接发，名称有歧义时先问。
+- 不提供 `cancel_agent_reply`（撤回）【建议，R-c】。
 
-| code | 含义 | retryable |
-| --- | --- | --- |
-| `area_not_found` | `area_id` 不属于该工作空间或已移除 | false |
-| `project_changed` | 区域根目录 / 项目身份与配置不符（对应现有 `configuration_changed`） | false |
-| `role_name_taken` | 名称或语音别名与现有定义冲突（`AgentNameConflict`，大小写不敏感），`existing` 名字放在 message | false |
-| `role_name_invalid` | 名称为空白、超长或 `agent_name_metadata` 拒绝 | false |
-| `profile_unavailable` | profile 不在开放列表，或本机未安装对应 CLI | false |
-| `working_dir_unsupported` | 传了非区域根的 `working_dir`（P4-5 阶段） | false |
-| `working_dir_outside_project` / `working_dir_not_found` | 预留，支持按卡片工作目录后启用 | false |
-| `card_limit_reached` | 该工作空间连接器所建卡片达上限 | false |
-| `daily_create_limit_reached` | 当日建卡次数达上限，含 `retry_after_s` | true |
-| `card_start_failed` | 定义与节点已回滚，PTY 启动失败（对应 `agent_start_failed`） | true |
+### 2.6 `create_card`（P4-6，待 Y-1）
 
-### 9.5 确认、限额、审计、目录标记
+- 映射 `AdapterCommand::CreateAgent { profile, task? }`（`adapter.rs:312`，执行 `adapter_pump.rs:108–147`：`CardCommand::CreateAgent{name: None, activate: true}`，有 task 时创建后立即入队）。原 P4-5 复用手机 `creation.rs` 的设计作废，仅作参考（其账本恢复与回滚思路）。
+- 输入：`{"operation_id", "workspace_id", "area_id", "profile": "claude|codex", "task"?}`。无 `role_name`（现路径 `name: None` 自动取名）、无 `working_dir`（卡片在区域根运行）、无 `start`（`activate: true` 固定）。
+- 输出：`{"operation_id", "card_id", "card_revision", "role_name", "profile", "workspace_id", "area_id", "created_at"(unix 秒), "state": "loaded|outcome_unknown", "created_by": "grokbot", "task_id"?: string, "replayed"}`。带 task 时一次操作完成建卡 + 派工，Grok Bot 不再调用 `dispatch_task`。
+- 幂等：同 2.2（含 AC-72：吊销后不得重放旧建卡回执）。
+- 错误：`invalid_argument`、`workspace_not_found`、`workspace_closed`、`area_not_found`（新）、`profile_unavailable`（新）、`card_limit_reached`（新）、`daily_create_limit_reached`（新，含 `retry_after_s`）、`card_create_failed`（新：`AgentCreated` 回执缺 `node_id` 或意外回执，`adapter_pump.rs:141–146`）、`operation_conflict`、`agent_rejected`、`rate_limited`。
+- 目录：`directory.cards[].created_by = "grokbot" | null`（由连接器命名空间回执关联）。审计一条。
+- `CreateAgent` 在哪个区域建卡由 `app` 决定，现路径无 `area_id` 参数【假设：需让连接器选定目标 app / 区域，否则 Y-3】。
 
-- **确认（建议）**：每次建卡前 Grok Bot 先向 yakami 复述「在哪个工作空间 / 项目、用什么名字和 profile 建卡、是否立即启动」，得到明确同意再调用。理由：建卡产生持久资源、起本机进程、消耗 Provider 额度，且不可由 Grok Bot 删除。服务端不强制 nonce（区别于 `resolve_approval`）【建议，Y-2】。
-- **限额（建议值）**：每工作空间连接器所建且仍存在的卡片 ≤ 5；每 `client_id` 每自然日（Asia/Shanghai）建卡 ≤ 10；另受写限流 10 次/分钟。用户在 Mac 上删除卡片后释放额度。【建议，Y-5】
-- **审计**：`connector_audit` 一条，`tool=create_card`，参数摘要含 workspace/area/role_name/profile/start，结果码与 `card_id`。
-- **目录标记**：`directory.cards[]` 新增 `created_by: "grokbot" | null`（由 `connector_operations` 关联 `definition_id/node_id` 得出；其他来源为 `null`，不推断）。定义 `origin` 沿用 `QuickCard`（不新增枚举值，避免迁移）【假设】。连接器所建卡片与普通卡片在桌面上外观一致，可由用户正常删除 / 改名。
+### 2.7 错误码汇总（新增均需进 #105 通用表，暂定）
 
-### 9.6 新增验收
+已加入 #105：`card_not_loaded`、`agent_rejected`、`not_connector_task`。本文另提（P4-6，待 Y-1 后加入 #105）：`area_not_found`、`profile_unavailable`、`card_limit_reached`、`daily_create_limit_reached`、`card_create_failed`、`workspace_closed`（P4-3 起使用，暂定）。原 P4-5 提出的 `role_name_taken`、`role_name_invalid`、`project_changed`、`working_dir_unsupported`、`working_dir_outside_project`、`working_dir_not_found`、`card_start_failed` 随设计作废，**撤回**。
 
-- AC-73 `create_card` 仅在范围变更获批后出现在 `tools/list`；未获批前的构建中不存在。
-- AC-74 `create_card(start=true)` 成功后返回 `card_id / card_revision / created_at / state=loaded`，随后 `directory` 中出现同一 `card_id`、`created_by=grokbot`，可立即被 `dispatch_task` 派工。
-- AC-75 `start=false` → `state=unloaded`，无 PTY 启动；之后 `dispatch_task` 的行为与其他未加载卡片一致。
-- AC-76 同 `operation_id` 同参重放 → 原回执、`replayed=true`、不新增卡片；自动取名时名字不变。同键异参 → `operation_conflict`。
-- AC-77 吊销并重新生成 Token 后，用旧 `operation_id` 调用不返回旧回执（同 AC-72）。
-- AC-78 名称与现有定义（含语音别名、大小写不同）冲突 → `role_name_taken`，无定义 / 节点残留。
-- AC-79 `profile` 非 claude/codex → `profile_unavailable`；非区域根 `working_dir` → `working_dir_unsupported`。
-- AC-80 工作空间未打开 → `workspace_closed`；`area_id` 不属该工作空间 → `area_not_found`；均不产生副作用。
-- AC-81 达到每工作空间或每日上限 → `card_limit_reached` / `daily_create_limit_reached`；删除连接器所建卡片后工作空间额度释放。
-- AC-82 PTY 启动失败 → `card_start_failed`，定义与节点被回滚；建卡中途杀 App → 重启后 `outcome_unknown` 或按已绑定结果核对为成功，无重复卡片。
-- AC-83 每次建卡（成功或失败）在 `connector_audit` 中有一条记录。
-- AC-84 （Grok Bot 侧走查）未得到 yakami 本次同意时，Grok Bot 不调用 `create_card`。
+### 2.8 明确范围外
 
-### 9.7 开放问题与建议
+`send_terminal_input`、`delete_canvas_card`、`focus_card`、记忆写入（`Memory` / `WorkspaceMemory` 写操作），以及 `create_terminal`、`create_browser`、`create_preview`、`cancel_agent_reply`、`find_agent_tasks`（只读用 P2 的 `list_tasks`）。连接器的 AdapterCommand 映射只构造四种命令，其他变体从 `Connector` 来源到达时一律拒绝（AC-92）。
 
-均给出建议；标 ★ 的需要 yakami 决定。
+## 3. 审批与取消
 
-- ★ Y-1 是否把「新建卡片」移入范围（修订主规格 1.4 / 6.6）？建议：同意，仅限新建，删除 / 改名仍禁止。
-- ★ Y-2 建卡前是否每次都要 Grok Bot 先问 yakami？建议：每次都问（9.5），服务端不加 nonce。
-- ★ Y-3 是否支持非区域根的 `working_dir`？建议：P4-5 不支持，需要时另开工单并先确认运行时能力。
-- ★ Y-4 是否需要独立 `load_card`（加载已存在的未加载卡片）？建议：不做；建卡时 `start=true` 已覆盖主要场景。
-- ★ Y-5 限额取值：建议每工作空间 5 张、每日 10 次。
-- ★ Y-6 profile 是否开放 Cursor（现有快速建卡支持）？建议：首版只开放 claude / codex。
-- Y-7 名字唯一范围是项目还是工作空间（9.1 假设）？建议：开发时核对，按现有 `reject_name_conflict` 行为为准，不新增规则。
-- Y-8 `origin` 是否新增 `Connector` 枚举值？建议：不新增，用 `connector_operations` 关联得出 `created_by`。
-- Y-9 `session_id` 何时写入、建卡回执中的 `card_revision` 是否会在启动后立即变化？建议：开发期验证（V-2），回执注明以 `directory` 为准。
+- P4 不提供 `resolve_approval`；派出任务中的工具审批在 P5 经 `approval.waiting` 通知，Grok Bot **每次**向 yakami 展示并获本次明确批准 / 拒绝后才 commit（主规格 4.6）。
+- 等待审批时 `cancel_task` 照常取消，不代为决定（V-1 实测）。
+- 建卡（P4-6）建议每次先问 yakami（Y-2）。
+
+## 4. 时间字段（补充条款，沿用）
+
+- MCP 工具输出一律整数 unix 秒（UTC）；webhook `occurred_at` 亦为 unix 秒（主规格 5.2，暂定，待 yakami 确认，P5 实现）；未知为 `null`，不伪造。
+- `directory.cards[].created_at`：`agent_definitions.created_at_unix`，无定义记录 → `null`（暂定，待 yakami 确认）；不改 `CardIdentity.created_at` 计算。
+- 回执：`accepted_at`（dispatch）、`requested_at`（cancel）、`created_at`（create_card）为预留时刻，重放不变。
+- `get_task_progress`：`created_at`、`updated_at`、`state_changed_at|null`、`events[{type, occurred_at, state?}]`（≤20，新→旧，来源为连接器回执与任务状态迁移）；`last_activity_at` P4 仍取 `updated_at_unix`，真实来源移到 P5（暂定，待 yakami 确认）。
+
+## 5. 验收
+
+### 5.1 主规格 P4 AC（AC-17–AC-26）
+
+全部保留：AC-17、AC-18、AC-19、AC-20、AC-21、AC-22、AC-23、AC-24、AC-25、AC-26。其中 AC-22 依赖 V-5（AdapterError 可区分），AC-24 的 `outcome_unknown` 由 `MobileCommandStore` 提供。
+
+### 5.2 本文 AC（AC-56 起）
+
+- AC-56 `dispatch_task` / `cancel_task` / `reply_agent` 出现在 `tools/list`，注解非只读；P2 三个只读工具不变。（改：增 `reply_agent`）
+- AC-57 同一 `operation_id` 跨工具使用 → `operation_conflict`（`request_hash` 含工具名）。（保留）
+- AC-58 缺省字段规范化：显式 `allow_queue=true` 与省略视为同一请求。（保留）
+- AC-59 参数校验 / `card_id` 验签失败不占用 `operation_id`；执行期拒绝（`target_changed`、`approval_pending`、`card_busy`、`input_occupied`）记为 `rejected`，同键重放返回同一拒绝，需新 `operation_id` 重试。（改）
+- AC-60 `cancel_task` 对已终态任务 → `already_terminal` + `terminal_state`；重放相同。（保留）
+- AC-61 等待审批时取消 → 任务取消、审批未被决定、随后 `request_closed`。（保留）
+- AC-62 `directory.cards[].created_at` 为 unix 秒或 `null`，不以区域时间冒充。（保留）
+- AC-63 `get_task_progress` 时间字段与 `events` 规则。（保留）
+- AC-64 回执时间（`accepted_at` / `requested_at` / `created_at`）重放不变。（改：增 create_card）
+- AC-65 App 未运行时写工具 → Grok Bot 显示「Norma 未运行」。（保留）
+- AC-66 每次写工具调用在 `connector_audit` 记一条（正文仅哈希 + 前 80 字）。（改：覆盖全部写工具）
+- AC-67 目标工作空间未打开 → `workspace_closed`，不打开工作空间、不启动 PTY、不占键。（保留）
+- AC-68 默认只能取消 Grok Bot 派出的任务，其他 → `not_connector_task`；设置放开后可取消。（保留）
+- AC-69 轮换宽限期内新 Token 重放旧 Token 的 `operation_id` → 原回执（同 `client_epoch`）。（保留，映射到 `device_id` 键）
+- AC-70 连接器命名空间的 `MobileCommandStore` 行 30 天后清理；清理前重放幂等。（改：不再指 `connector_operations`）
+- AC-71 `card_revision` 只随持久状态变化。（保留）
+- AC-72 吊销 + 重新生成后旧 `operation_id` 不返回旧回执（新 `client_epoch`）。（保留）
+- AC-73 `create_card` 仅在 Y-1 获批后出现在 `tools/list`。（保留）
+- AC-74 `create_card` 成功 → `card_id / card_revision / created_at / state=loaded / created_by=grokbot`，`directory` 中可见并可立即派工。（改：无 start 参数）
+- AC-75 （已删除，编号不复用：`start=false` 不再存在）
+- AC-76 `create_card` 同键同参重放 → 原回执、不新增卡片；同键异参 → `operation_conflict`。（保留）
+- AC-77 吊销后用旧 `operation_id` 调用 `create_card` 不返回旧回执。（保留）
+- AC-78 （已删除，编号不复用：无 `role_name` 输入）
+- AC-79 `profile` 不在开放列表 → `profile_unavailable`。（改：去掉 working_dir）
+- AC-80 `workspace_closed` / `area_not_found`，均无副作用。（保留）
+- AC-81 达每工作空间 / 每日上限 → `card_limit_reached` / `daily_create_limit_reached`。（保留）
+- AC-82 `CreateAgent` 意外回执或无 `node_id` → `card_create_failed`；中途杀 App → `outcome_unknown`，无重复卡片、无自动重放。（改：不再承诺 creation.rs 式回滚）
+- AC-83 每次 `create_card` 审计一条。（保留）
+- AC-84 （Grok Bot 侧）未获 yakami 本次同意不调用 `create_card`。（保留，依赖 Y-2）
+
+### 5.3 新增（AC-85 起）
+
+- AC-85 四个写工具都经 `execute_norma_adapter_command_with_source(…, AgentInputSource::Connector)` 执行；审计记录来源 `connector`。
+- AC-86 `AssignAgentTask` / `ReplyAgent` 带 `node_id` 时只作用于该节点，即使同名卡片存在；不带 `node_id` 时语音、手机、Agent 工具的按名行为回归不变。
+- AC-87 `expected_revision` 不符 → `target_changed`，卡片零输入；校验发生在 AdapterCommand 层。
+- AC-88 `Connector` 来源下 `dispatch_agent_task` 的 force_untracked 参数恒为 false；无可信跟踪卡片 → `untracked_requires_confirmation`。
+- AC-89 `reply_agent` 把消息投到 `card_id` 对应卡片会话，不创建任务（`list_tasks` 无新增）；同键重放不重复发送；卡片未加载 → `card_not_loaded`，不自动加载。
+- AC-90 未识别的 `AdapterError::Rejected` → `agent_rejected`，`message` 不含内部原文；原文仅在审计中。
+- AC-91 连接器行（`device_id` 以 `connector:` 开头）不出现在任何手机投递 / 计划 / 回执查询中；手机 `MobileDeviceGrant` 与配对不受影响。
+- AC-92 `tools/list` 中无 `send_terminal_input`、`delete_canvas_card`、`focus_card`、记忆写入及 2.8 所列工具；任何输入都无法从 `Connector` 来源构造这些 AdapterCommand。
+- AC-93 `create_card` 带 `task` → 一次操作建卡并入队，回执含 `task_id`；重放不重复建卡或派工。
+- AC-94 `create_card` 只在 `area_id` 指定的区域建卡；无法定位到该区域的 app → `workspace_closed` 或 `area_not_found`，不在当前聚焦区域建卡。
+
+## 6. 工单
+
+模板：任务｜仓库｜Done when｜不要做。均在 `multisoul-ai/Norma-AI-OS`，叠在 P2（#104）之上，P2 合入前不开工。
+
+### P4-1 AdapterCommand 层扩展
+
+- **任务**：新增 `AgentInputSource::Connector`；`AssignAgentTask` / `ReplyAgent` 增加可选 `node_id` 与 `expected_revision`，在 AdapterCommand 层按节点寻址与校验 revision；连接器来源的 force_untracked 恒 false、`window=None`；`AdapterError` → 结构化错误码映射表；`card_id` → 目标 app / 节点解析。
+- **仓库**：multisoul-ai/Norma-AI-OS（`crates/agent/src/{adapter.rs,adapter/commands.rs,model.rs}`、`crates/app/src/app/agent_runtime/adapter_pump.rs`、`adapter_task`、`reply_adapter`、`crates/norma/src/connector`）
+- **Done when**：AC-17、AC-20、AC-21、AC-23、AC-85、AC-86、AC-87、AC-88、AC-90 通过；V-5 结论记录在 PR。
+- **不要做**：不另建按节点派工入口；不改 `node_id=None` 时的按名行为；不给 `Connector` 开放 2.8 的命令；不调用 `realtime_command_authorized` 之外再造意图判定；不改 Unix socket 协议。
+
+### P4-2 幂等与回执复用 `MobileCommandStore`
+
+- **任务**：连接器写工具接入 `MobileCommandStore` reserve / finish / receipt（或抽共享 `command_ledger` 模块）；`device_id = connector:<client_epoch>` 键映射与 epoch 维护（轮换同 epoch、吊销换 epoch）；`outcome_unknown` 只读核对；30 天清理；手机侧读者排除 `connector:` 行。
+- **仓库**：multisoul-ai/Norma-AI-OS（`crates/storage/src/mobile_command_store*`、读 `mobile_commands` 的各 store、`crates/norma/src/connector`）
+- **Done when**：AC-18、AC-19、AC-24、AC-57、AC-58、AC-59、AC-64、AC-69、AC-70、AC-72、AC-91 通过。
+- **不要做**：不建 `connector_operations`；不让连接器行经过 `MobileDeviceGrant`；不自动重放；不改 Token 明文存储与吊销语义。
+
+### P4-3 `dispatch_task` + `cancel_task`
+
+- **任务**：按 2.3 / 2.4 的薄映射与输入输出；`not_connector_task`、`workspace_closed`、`already_terminal`；审计。
+- **仓库**：multisoul-ai/Norma-AI-OS（`crates/norma/src/connector/tools*`）
+- **Done when**：AC-22、AC-25、AC-26、AC-56、AC-60、AC-61、AC-65、AC-66、AC-67、AC-68 通过；V-1、V-4 结论记录在 PR。
+- **不要做**：不替用户作审批决定；不取消同卡其他任务；不自动打开工作空间；不暴露 `node_id` 或 Agent 名寻址。
+
+### P4-4 `reply_agent`
+
+- **任务**：按 2.5 映射 `ReplyAgent`；`card_not_loaded`；审计。
+- **仓库**：multisoul-ai/Norma-AI-OS（`crates/norma/src/connector/tools*`、`reply_adapter` 调用侧）
+- **Done when**：AC-56（reply 部分）、AC-66、AC-89 通过。
+- **不要做**：不创建任务；不自动加载卡片；不提供 `cancel_agent_reply`；不用于 Terminal 卡片。
+
+### P4-5 时间字段
+
+- **任务**：§4 的字段；必要时新增状态迁移时间记录（只增不改）；同步主规格。
+- **仓库**：multisoul-ai/Norma-AI-OS（`crates/norma/src/connector/tools`、`crates/storage`、`docs/product-specs`）
+- **Done when**：AC-62、AC-63、AC-64 通过。
+- **不要做**：不改 `card_id` 编码中的 `created_at`；不伪造未知时间；不在 P4 实现 webhook 与真实 `last_activity_at`（P5）。
+
+### P4-6 `create_card`（Y-1 获批前不开工）
+
+- **任务**：按 2.6 映射 `CreateAgent{profile, task?}`；区域定位；限额；`created_by`；新错误码；在 #105 修订 1.4 / 6.6 与错误码表。
+- **仓库**：multisoul-ai/Norma-AI-OS（`crates/norma/src/connector`、`adapter_pump.rs` CreateAgent 分支、`docs/product-specs`）
+- **Done when**：AC-73、AC-74、AC-76、AC-77、AC-79、AC-80、AC-81、AC-82、AC-83、AC-84、AC-93、AC-94 通过；Y-1、Y-2、Y-3、Y-5、Y-6 已有决定。
+- **不要做**：不复用手机 `creation.rs` 流程或其账本；不做删除 / 改名卡片、不建工作空间 / 区域；不做 `load_card`；不开放 claude / codex 以外 profile（Y-6 前）。
+
+### P4-7 测试与端到端
+
+- **任务**：AdapterCommand 层单测（按节点 / 按名回归）、账本与隔离测试、工具集成测试（P2 测试风格）、经 Funnel 的 Grok Bot 走查（含「Norma 未运行」）。
+- **仓库**：multisoul-ai/Norma-AI-OS（`crates/*/tests`，E2E 记录写在 PR）
+- **Done when**：AC-17–AC-26、AC-56–AC-74、AC-76、AC-77、AC-79–AC-94（P4-6 部分仅在 Y-1 获批后）有自动化或记录在案的手工结果；夹具 Token 随机生成。
+- **不要做**：不把真实 Token 写进夹具 / 日志；不在用户真实工作空间做破坏性测试；不合并 PR。
+
+## 7. 暂定决定（均「暂定，待 yakami 确认」）
+
+- `dispatch_task` 不加 `workspace_id`。
+- 目标工作空间未打开 → `workspace_closed`。
+- `cancel_task` 只取消 Grok Bot 派出的任务，直接取消，可设置放开。
+- 轮换宽限期内新旧 Token 同 `client_id`（同 `client_epoch`）；吊销后新 epoch（2026-10-14 已决定）。
+- 连接器回执保存 30 天。
+- webhook `occurred_at` 改 unix 秒。
+- 无 `agent_definitions` 记录卡片 `created_at = null`。
+- 真实 `last_activity_at` 来源移到 P5。
+- `reply_agent` 不需额外确认，歧义时先问；不提供撤回。
+
+## 8. 开发期验证项
+
+- V-1（P4-3）等待审批时取消，Codex / Claude 是否关闭挂起审批、是否发出任何 allow / deny。
+- V-2（P4-6）`CreateAgent` 后 `session_id` 写入时机，回执 `card_revision` 与之后 `directory` 是否一致。
+- V-3（P4-2）列出所有读 `mobile_commands` / `mobile_realtime_calls` 的查询，确认排除 `connector:` 行的改动面；过大则改走共享模块 + 独立表。
+- V-4（P4-3）协调器 `task_id: u64`（`adapter.rs:52`）与 P2 `list_tasks.task_id`（`agent_dispatch_tasks`）是否同源。
+- V-5（P4-1）`AdapterError` 能否区分 `card_busy` / `approval_pending` / `input_occupied` / `AlreadySubmitted`。
+
+## 9. 开放问题
+
+### 9.1 需要 yakami 决定（附建议）
+
+- Y-1 是否开放建卡（经 `create_agent` 映射），并修订主规格 1.4 / 6.6？建议：开放，仅新建；删除 / 改名仍禁止。
+- Y-2 每次 `create_card` 前 Grok Bot 是否都要先问 yakami？建议：每次都问，服务端不加 nonce。
+- Y-3 `create_agent` 现路径不带区域参数（`name: None`、`activate: true`）：是否要求连接器必须指定 `area_id` 并只在该区域建卡？建议：必须指定，定位不到即报错，不落到当前聚焦区域。
+- Y-4 是否需要独立 `load_card`（加载已有未加载卡片）？建议：不做；`reply_agent` 遇未加载返回 `card_not_loaded`。
+- Y-5 建卡限额？建议：每工作空间 Grok Bot 所建卡片 ≤ 5，每日 ≤ 10（Asia/Shanghai 自然日）。
+- Y-6 开放哪些 profile？`create_agent` 支持 codex / claude / opencode / cursor / grok（`adapter.rs:316`）；建议首版只开 claude / codex。
+
+### 9.2 其他（附建议，不需 yakami）
+
+- R-a 连接器来源是否需要类似 `realtime_command_authorized` 的意图判定？建议：不需要，Grok Bot 侧确认 + 结构化参数已足够。
+- R-b `MobileCommandStore` 直接复用还是抽共享模块？建议：先按 V-3 评估，倾向抽共享模块以避免污染手机读者。
+- R-c 是否开放 `cancel_agent_reply`？建议：首版不开放。
