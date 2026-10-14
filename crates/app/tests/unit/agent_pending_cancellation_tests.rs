@@ -41,6 +41,10 @@ fn cancel_queued_realtime_task(adapter: bool) {
             AdapterCommand::AssignAgentTask {
                 agent: first.agent.clone(),
                 task: "取消等待任务".into(),
+                node_id: None,
+                expected_revision: None,
+                target_identity: None,
+                allow_queue: true,
             },
             AgentInputSource::Voice,
         )
@@ -85,6 +89,7 @@ fn cancel_queued_realtime_task(adapter: bool) {
                 cx,
                 AdapterCommand::CancelAgentTask {
                     task_id: second.task_id,
+                    expected_task_ref: None,
                 },
                 AgentInputSource::Voice,
             )

@@ -44,7 +44,10 @@ pub(crate) fn execute_orchestration_agent_command_with_visual_origin(
                 zoom,
                 source,
                 Some(source_provider),
-                visual_origin,
+                super::commands::DispatchOptions {
+                    visual_origin,
+                    target_node_id: None,
+                },
             )
         }
     }
@@ -69,7 +72,10 @@ pub(crate) fn execute_high_level_agent_command(
             zoom,
             source,
             source_provider,
-            dispatch_visual_origin(source),
+            super::commands::DispatchOptions {
+                visual_origin: dispatch_visual_origin(source),
+                target_node_id: None,
+            },
         ),
     }
 }

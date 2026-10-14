@@ -186,7 +186,7 @@ pub(super) fn capture(database: &Path, mut call: LiveRequest, signer: &CardSigne
 /// Logical route and Provider session fingerprint. Registration UUIDs and PTY run IDs
 /// are process lifetimes, not persisted target revisions; reopening the same session
 /// must not invalidate a connector target. All reads below are in-memory.
-fn card_revision(app: &crate::app::MultisoulApp, identity: &CardIdentity) -> String {
+pub(crate) fn card_revision(app: &crate::app::MultisoulApp, identity: &CardIdentity) -> String {
     let canvas::CanvasNodeKind::Agent(spec) = &app
         .runtime
         .document

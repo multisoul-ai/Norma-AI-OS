@@ -217,6 +217,10 @@ fn test_doubao_replaces_busy_untracked_agent_without_authorization() {
                         agent::AdapterCommand::AssignAgentTask {
                             agent: "Alan".into(),
                             task: task.into(),
+                            node_id: None,
+                            expected_revision: None,
+                            target_identity: None,
+                            allow_queue: true,
                         },
                         source,
                     )

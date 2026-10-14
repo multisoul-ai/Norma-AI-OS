@@ -63,6 +63,12 @@ pub(super) fn execute_agent_card_command_with_optional_window(
     Ok(result)
 }
 
+#[derive(Default)]
+pub(super) struct DispatchOptions {
+    pub visual_origin: Option<crate::motion::DispatchVisualOrigin>,
+    pub target_node_id: Option<u64>,
+}
+
 pub(super) fn execute_coordinated_agent_command(
     app: &mut MultisoulApp,
     command: CardCommand,
@@ -70,7 +76,7 @@ pub(super) fn execute_coordinated_agent_command(
     zoom: f32,
     source: agent::AgentDispatchSource,
     source_provider: Option<AgentProfile>,
-    visual_origin: Option<crate::motion::DispatchVisualOrigin>,
+    options: DispatchOptions,
 ) -> Result<CardCommandResult, CardCommandError> {
     match command {
         CardCommand::ListAgents => Ok(CardCommandResult::AgentsListed {
@@ -160,7 +166,8 @@ pub(super) fn execute_coordinated_agent_command(
                 })
                 .collect::<Result<Vec<_>, CardCommandError>>()?;
             let source_identity = app.agent_identity_for_source(source);
-            let current_roster = app.agent_roster_for_provider();
+            let current_roster =
+                super::adapter_target::targeted_roster(app, options.target_node_id);
             let mut seen_untracked_definitions = HashSet::new();
             for definition in &definitions {
                 let is_untracked = current_roster.iter().any(|entry| {
@@ -201,10 +208,13 @@ pub(super) fn execute_coordinated_agent_command(
                 }
             }
             for definition in &definitions {
+                if options.target_node_id.is_some() {
+                    continue;
+                }
                 let _ = activate_definition(app, definition, area, zoom)
                     .map_err(internal_agent_error)?;
             }
-            let roster = app.agent_roster_for_provider();
+            let roster = super::adapter_target::targeted_roster(app, options.target_node_id);
             match app.agent_task_coordinator.as_mut() {
                 Some(coordinator) => coordinator
                     .sync_roster(roster)
@@ -468,7 +478,7 @@ pub(super) fn execute_coordinated_agent_command(
                     root_task_id: receipt.root_task_ref,
                 });
             }
-            if let Some(origin) = visual_origin {
+            if let Some(origin) = options.visual_origin {
                 super::dispatch_effects::spawn_accepted_dispatch_receipts(
                     app,
                     &wire_receipts,

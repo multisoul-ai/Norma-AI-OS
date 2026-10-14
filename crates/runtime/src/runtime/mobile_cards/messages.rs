@@ -9,6 +9,7 @@ use std::time::Duration;
 pub(crate) struct NativeInput {
     pub(super) control: Option<super::terminal_control::TerminalInputControl>,
     pub(super) controlled_draft: bool,
+    automatic_draft: bool,
     pub(super) sequence: u64,
     submitted: Option<u64>,
     started: bool,
@@ -17,6 +18,12 @@ pub(crate) struct NativeInput {
     pub(super) resume: native_resume::ResumeInput,
 }
 impl NativeInput {
+    pub(crate) fn mark_automatic_input(&mut self) {
+        self.automatic_draft = true;
+    }
+    pub(crate) fn has_human_pending_input(&self) -> bool {
+        self.has_pending_input() && !self.automatic_draft
+    }
     pub(crate) fn has_pending_input(&self) -> bool {
         self.dirty || self.submitted.is_some()
     }
@@ -26,6 +33,10 @@ impl NativeInput {
     pub(crate) fn observe(&mut self, input: &NodeInput, menu_navigation: bool) -> bool {
         if matches!(input, NodeInput::Text(s) | NodeInput::Paste(s) if s.is_empty()) {
             return false;
+        }
+        let task_control = matches!(input, NodeInput::Key(key) if key.key == terminal::Key::Enter || (key.ctrl && matches!(key.key,terminal::Key::Char('c'|'u'))));
+        if !task_control {
+            self.automatic_draft = false;
         }
         self.advance();
         if menu_navigation {

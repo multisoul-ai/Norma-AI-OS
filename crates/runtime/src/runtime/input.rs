@@ -1,6 +1,15 @@
 use super::*;
 
 impl Runtime {
+    /// In-memory draft metadata for conservative external dispatch; never reads terminal contents.
+    pub fn agent_task_input_pending(&self, node_id: NodeId) -> bool {
+        self.agent_task_input_held(node_id)
+            || self
+                .mobile_runs
+                .get(&node_id)
+                .is_some_and(|run| run.native_input.has_human_pending_input())
+    }
+
     pub fn agent_task_input_held(&self, node_id: NodeId) -> bool {
         self.mobile_terminal_is_controlled(node_id)
             || self
@@ -24,7 +33,13 @@ impl Runtime {
                 ))),
             );
         }
-        self.send_node_input(node_id, NodeInput::Paste(text.into()))
+        let result = self.send_node_input(node_id, NodeInput::Paste(text.into()));
+        if result.is_ok() {
+            if let Some(run) = self.mobile_runs.get_mut(&node_id) {
+                run.native_input.mark_automatic_input();
+            }
+        }
+        result
     }
 
     pub fn send_node_input(&mut self, node_id: NodeId, input: NodeInput) -> Result<(), NodeError> {

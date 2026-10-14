@@ -6,7 +6,12 @@ pub(super) fn execute_reply_adapter_command(
     command: AdapterCommand,
 ) -> Result<AdapterResult, AdapterError> {
     match command {
-        AdapterCommand::ReplyAgent { agent, message } => reply_agent(app, agent, message),
+        AdapterCommand::ReplyAgent {
+            agent,
+            message,
+            node_id,
+            ..
+        } => reply_agent(app, agent, message, node_id),
         AdapterCommand::CancelAgentReply { reply_id, agent } => {
             cancel_agent_reply(app, reply_id, agent)
         }
@@ -20,6 +25,7 @@ fn reply_agent(
     app: &mut MultisoulApp,
     agent: String,
     message: String,
+    target_node_id: Option<u64>,
 ) -> Result<AdapterResult, AdapterError> {
     let definition = app
         .agent_definitions
@@ -30,7 +36,7 @@ fn reply_agent(
     }
     let definition_id = definition.id;
     let name = definition.name.clone();
-    let node_id = app
+    let node_id = target_node_id.or_else(|| app
         .runtime
         .document
         .nodes()
@@ -40,7 +46,7 @@ fn reply_agent(
                 return None;
             };
             (spec.definition_id == Some(definition_id)).then_some(node.id)
-        })
+        }))
         .ok_or_else(|| {
             AdapterError::Rejected(format!(
                 "{name} 画布上还没有卡片；若定义已启用，请用 assign_agent_task 自动打开唯一卡片后再对话"

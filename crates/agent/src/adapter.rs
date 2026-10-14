@@ -47,13 +47,21 @@ pub enum AdapterCommand {
     AssignAgentTask {
         agent: String,
         task: String,
+        allow_queue: bool,
+        node_id: Option<u64>,
+        expected_revision: Option<String>,
+        target_identity: Option<norma::connector::CardIdentity>,
     },
     CancelAgentTask {
         task_id: u64,
+        expected_task_ref: Option<String>,
     },
     ReplyAgent {
         agent: String,
         message: String,
+        node_id: Option<u64>,
+        expected_revision: Option<String>,
+        target_identity: Option<norma::connector::CardIdentity>,
     },
     CancelAgentReply {
         reply_id: Option<u64>,
@@ -84,6 +92,28 @@ pub enum AdapterCommand {
     DeleteAgentCard {
         agent: String,
     },
+}
+
+impl AdapterCommand {
+    pub fn allowed_from(&self, source: crate::AgentInputSource) -> bool {
+        source != crate::AgentInputSource::Connector
+            || matches!(
+                self,
+                Self::AssignAgentTask {
+                    node_id: Some(_),
+                    expected_revision: Some(_),
+                    ..
+                } | Self::ReplyAgent {
+                    node_id: Some(_),
+                    expected_revision: Some(_),
+                    ..
+                } | Self::CancelAgentTask { .. }
+                    | Self::CreateAgent {
+                        profile: AgentProfile::Claude | AgentProfile::Codex,
+                        ..
+                    }
+            )
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -250,6 +280,9 @@ impl NormaToolRuntime {
             return Err(AdapterError::Rejected(
                 "这条群聊消息仅供讨论，用户尚未要求执行".into(),
             ));
+        }
+        if !command.allowed_from(context.input_source) {
+            return Err(AdapterError::Rejected("connector_command_forbidden".into()));
         }
         let delete_authorized = match &command {
             AdapterCommand::DeleteCanvasCard { node_id } => Some(has_explicit_delete_intent(

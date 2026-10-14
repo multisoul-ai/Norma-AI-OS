@@ -180,20 +180,34 @@ pub(super) fn parse_adapter_command(
             let args: AssignAgentTaskArgs = parse(arguments)?;
             let agent = require_text("agent", args.agent)?;
             let task = require_text("task", args.task)?;
-            Ok(AdapterCommand::AssignAgentTask { agent, task })
+            Ok(AdapterCommand::AssignAgentTask {
+                agent,
+                task,
+                node_id: None,
+                expected_revision: None,
+                target_identity: None,
+                allow_queue: true,
+            })
         }
         "cancel_agent_task" => {
             let args: TaskIdArgs = parse(arguments)?;
             require_positive("task_id", args.task_id)?;
             Ok(AdapterCommand::CancelAgentTask {
                 task_id: args.task_id,
+                expected_task_ref: None,
             })
         }
         "reply_agent" => {
             let args: ReplyAgentArgs = parse(arguments)?;
             let agent = require_text("agent", args.agent)?;
             let message = require_text("message", args.message)?;
-            Ok(AdapterCommand::ReplyAgent { agent, message })
+            Ok(AdapterCommand::ReplyAgent {
+                agent,
+                message,
+                node_id: None,
+                expected_revision: None,
+                target_identity: None,
+            })
         }
         "cancel_agent_reply" => {
             let args: CancelAgentReplyArgs = parse(arguments)?;

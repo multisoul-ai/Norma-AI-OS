@@ -248,11 +248,18 @@ fn start_message(
                 AdapterCommand::ReplyAgent {
                     agent: name,
                     message: text,
+                    node_id: None,
+                    expected_revision: None,
+                    target_identity: None,
                 }
             } else {
                 AdapterCommand::AssignAgentTask {
                     agent: name,
                     task: text,
+                    node_id: None,
+                    expected_revision: None,
+                    target_identity: None,
+                    allow_queue: true,
                 }
             };
             crate::app::execute_norma_adapter_command_with_source(
@@ -306,8 +313,8 @@ pub(crate) fn execute_scoped(
     cx: &mut App,
 ) -> Result<AdapterResult, AdapterError> {
     let (address, text, reply) = match command {
-        AdapterCommand::AssignAgentTask { agent, task } => (agent, task, false),
-        AdapterCommand::ReplyAgent { agent, message } => (agent, message, true),
+        AdapterCommand::AssignAgentTask { agent, task, .. } => (agent, task, false),
+        AdapterCommand::ReplyAgent { agent, message, .. } => (agent, message, true),
         _ => {
             return Err(AdapterError::Rejected(
                 "群聊执行请使用目录中的完整 Agent 地址进行派工或回复".into(),
@@ -371,7 +378,7 @@ pub(crate) fn execute_scoped(
     let result=session.update(cx,|app,cx| {
         let name=app.agent_definitions.definitions().iter().find(|d|d.id==target.definition_id).ok_or_else(||AdapterError::Rejected("Agent已移除".into()))?.name.clone();
         if app.agent_definitions.definition_by_address(&name).map(|d|d.id)!=Some(target.definition_id) {return Err(AdapterError::Rejected("Agent名称不唯一".into()));}
-        let command=if reply {AdapterCommand::ReplyAgent{agent:name,message:text}}else{AdapterCommand::AssignAgentTask{agent:name,task:text}};
+        let command=if reply {AdapterCommand::ReplyAgent{agent:name,message:text, node_id: None, expected_revision: None, target_identity: None }}else{AdapterCommand::AssignAgentTask{agent:name,task:text, node_id: None, expected_revision: None, target_identity: None, allow_queue: true }};
         let mut result=crate::app::execute_norma_adapter_command_with_source(app,None,cx,command,AgentInputSource::MobileExecution)?;
         if let Some(task_id)=result.task_id {
             let task=app.agent_task_coordinator.as_ref().and_then(|c|c.tasks().into_iter().find(|t|t.task_id==task_id)).ok_or_else(||AdapterError::Unknown("任务回执缺失".into()))?;

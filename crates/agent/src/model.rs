@@ -9,6 +9,8 @@ pub enum AgentInputSource {
     MobileDiscussion,
     /// The phone has expressed an explicit execution intent.
     MobileExecution,
+    /// Authenticated Grok Bot connector; never permits untracked input.
+    Connector,
     #[default]
     Other,
 }

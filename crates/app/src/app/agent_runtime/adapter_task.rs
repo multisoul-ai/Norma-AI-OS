@@ -14,24 +14,39 @@ pub(super) fn dispatch_agent_task(
     agent: String,
     task: String,
     force_untracked: bool,
+    target_node_id: Option<u64>,
 ) -> Result<AdapterResult, AdapterError> {
-    let definition_id = app
-        .agent_definitions
+    app.agent_definitions
         .definition_by_address(&agent)
         .map(|definition| definition.id)
         .ok_or_else(|| AdapterError::Rejected(format!("未找到 Agent：{agent}")))?;
-    let result = commands::execute_agent_card_command_with_optional_window(
-        app,
-        window,
-        CardCommand::DispatchAgentTasks {
-            assignments: vec![AgentTaskAssignment {
-                name: agent,
-                task: task.clone(),
-            }],
-            force_untracked,
-        },
-    )
-    .map_err(AdapterError::Rejected)?;
+    let command = CardCommand::DispatchAgentTasks {
+        assignments: vec![AgentTaskAssignment {
+            name: agent,
+            task: task.clone(),
+        }],
+        force_untracked,
+    };
+    let result = if let Some(node_id) = target_node_id {
+        let area = app.mobile_canvas_area(window);
+        let zoom = app.runtime.document.viewport.zoom;
+        commands::execute_coordinated_agent_command(
+            app,
+            command,
+            area,
+            zoom,
+            agent::AgentDispatchSource::norma(),
+            None,
+            commands::DispatchOptions {
+                target_node_id: Some(node_id),
+                visual_origin: None,
+            },
+        )
+        .map_err(|e| AdapterError::Rejected(e.to_string()))?
+    } else {
+        commands::execute_agent_card_command_with_optional_window(app, window, command)
+            .map_err(AdapterError::Rejected)?
+    };
     let CardCommandResult::AgentTasksDispatched { receipts } = result else {
         return Err(AdapterError::Failed(
             "Agent 派发没有返回任务回执".to_string(),
@@ -49,7 +64,12 @@ pub(super) fn dispatch_agent_task(
     let task_id = app
         .agent_task_coordinator
         .as_ref()
-        .and_then(|coordinator| coordinator.task_id_for(definition_id, &task))
+        .and_then(|coordinator| {
+            coordinator
+                .task_by_ref(&receipt.task_id)
+                .ok()
+                .map(|t| t.task_id)
+        })
         .ok_or_else(|| AdapterError::Failed("AgentCard 已接收但无法确定 task_id".to_string()))?;
     cx.notify();
     Ok(

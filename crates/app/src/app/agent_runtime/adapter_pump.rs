@@ -64,8 +64,13 @@ pub(crate) fn execute_norma_adapter_command_with_source(
     command: AdapterCommand,
     input_source: agent::AgentInputSource,
 ) -> Result<AdapterResult, AdapterError> {
+    if !command.allowed_from(input_source) {
+        return Err(AdapterError::Rejected("connector_command_forbidden".into()));
+    }
     match command {
-        AdapterCommand::Memory(_) | AdapterCommand::WorkspaceMemory { .. } => Err(AdapterError::Rejected("记忆 IO 必须经过后台服务".into())),
+        AdapterCommand::Memory(_) | AdapterCommand::WorkspaceMemory { .. } => {
+            Err(AdapterError::Rejected("记忆 IO 必须经过后台服务".into()))
+        }
         AdapterCommand::FindAgentTasks {
             task_id,
             agent,
@@ -123,6 +128,12 @@ pub(crate) fn execute_norma_adapter_command_with_source(
                     ..
                 } => match task {
                     Some(task) => {
+                        if input_source == agent::AgentInputSource::Connector
+                            && adapter_target::dispatch_preflight(app, node_id, true).is_err()
+                        {
+                            return Ok(AdapterResult::unknown("已建卡，但任务未接收；请核对目录")
+                                .with_node_id(node_id));
+                        }
                         let mut receipt = adapter_task::dispatch_agent_task(
                             app,
                             window.as_deref_mut(),
@@ -130,6 +141,7 @@ pub(crate) fn execute_norma_adapter_command_with_source(
                             name.clone(),
                             task,
                             input_source == agent::AgentInputSource::DoubaoVoice,
+                            (input_source == agent::AgentInputSource::Connector).then_some(node_id),
                         )?;
                         receipt.message =
                             format!("已创建并打开 Agent {name}，AgentCard 已接收任务");
@@ -146,134 +158,73 @@ pub(crate) fn execute_norma_adapter_command_with_source(
                 ))),
             }
         }
-        AdapterCommand::AssignAgentTask { agent, task } => adapter_task::dispatch_agent_task(
-            app,
-            window.as_deref_mut(),
-            cx,
+        AdapterCommand::AssignAgentTask {
             agent,
             task,
-            input_source == agent::AgentInputSource::DoubaoVoice,
-        ),
-        AdapterCommand::CancelAgentTask { task_id } => {
-            let task_to_cancel = app.agent_task_coordinator.as_ref().and_then(|coordinator| {
-                coordinator
-                    .tasks()
-                    .into_iter()
-                    .find(|task| task.task_id == task_id)
-            });
-            let active_node_id = task_to_cancel.as_ref().and_then(|task| {
-                app.runtime.document.nodes().iter().find_map(|node| {
-                    let canvas::CanvasNodeKind::Agent(spec) = &node.kind else {
-                        return None;
-                    };
-                    (spec.definition_id == Some(task.definition_id)).then_some(node.id)
-                })
-            });
-            if let Some((node_id, task_was_typed)) =
-                app.pending_agent_submissions.task_stage(task_id)
-            {
-                if task_was_typed {
-                    if let Err(error) =
-                        command_support::clear_agent_task_input(&mut app.runtime, node_id)
-                    {
-                        return Ok(AdapterResult::unknown(format!(
-                            "任务 #{task_id} 尚未提交，但无法确认输入区是否清空：{error}"
-                        ))
-                        .with_task_id(task_id)
-                        .with_node_id(node_id));
-                    }
-                }
-                let removed = app
-                    .pending_agent_submissions
-                    .remove_task(task_id)
-                    .expect("pending task stage was found immediately above");
-                let (result, next) = app
-                    .agent_task_coordinator
-                    .as_mut()
-                    .map(|coordinator| coordinator.cancel_unsubmitted_task(task_id))
-                    .unwrap_or((agent::AgentTaskCancellation::NotFound, None));
-                if let Some(next) = next {
-                    app.pending_agent_submissions.enqueue_immediate(next);
-                }
-                if result == agent::AgentTaskCancellation::Cancelled {
-                    if let Some(writer) = app.persistence.agent_dispatch_writer() {
-                        writer.persist_cancellation(task_id, false);
-                    }
-                    return Ok(AdapterResult::succeeded(format!(
-                        "尚未提交的任务 #{task_id} 已取消"
-                    ))
-                    .with_task_id(task_id)
-                    .with_node_id(removed.receipt.node_id));
-                }
-                return Err(AdapterError::Rejected(format!(
-                    "未找到可取消的任务 #{task_id}"
-                )));
+            node_id,
+            expected_revision,
+            target_identity,
+            allow_queue,
+        } => {
+            let agent = adapter_target::validate(
+                app,
+                &agent,
+                node_id,
+                expected_revision.as_deref(),
+                target_identity.as_ref(),
+            )?;
+            if input_source == agent::AgentInputSource::Connector {
+                adapter_target::dispatch_preflight(
+                    app,
+                    node_id.expect("connector exact target"),
+                    allow_queue,
+                )?;
             }
-
-            let is_active = task_to_cancel
-                .as_ref()
-                .is_some_and(|task| matches!(task.state, "running" | "cancel_requested"));
-            if is_active {
-                let Some(node_id) = active_node_id else {
-                    return Ok(AdapterResult::unknown(format!(
-                        "任务 #{task_id} 尚未修改，但找不到对应 AgentCard"
-                    ))
-                    .with_task_id(task_id));
-                };
-                let interrupt = runtime::NodeInput::Key(terminal::KeyInput {
-                    key: terminal::Key::Char('c'),
-                    ctrl: true,
-                    alt: false,
-                    shift: false,
-                });
-                if let Err(error) = app.runtime.send_node_input(node_id, interrupt) {
-                    return Ok(AdapterResult::unknown(format!(
-                        "任务 #{task_id} 尚未修改，无法确认中断是否送达：{error}"
-                    ))
-                    .with_task_id(task_id)
-                    .with_node_id(node_id));
-                }
-            }
-            let result = app
-                .agent_task_coordinator
-                .as_mut()
-                .map(|coordinator| coordinator.cancel_task(task_id))
-                .unwrap_or(agent::AgentTaskCancellation::NotFound);
-            if let Some(writer) = app.persistence.agent_dispatch_writer() {
-                match result {
-                    agent::AgentTaskCancellation::Cancelled => {
-                        writer.persist_cancellation(task_id, false)
-                    }
-                    agent::AgentTaskCancellation::CancelRequested => {
-                        writer.persist_cancellation(task_id, true)
-                    }
-                    agent::AgentTaskCancellation::NotFound
-                    | agent::AgentTaskCancellation::AlreadySubmitted => {}
-                }
-            }
-            match result {
-                agent::AgentTaskCancellation::Cancelled => {
-                    app.pending_agent_submissions.remove_task(task_id);
-                    Ok(
-                        AdapterResult::succeeded(format!("排队任务 #{task_id} 已取消"))
-                            .with_task_id(task_id),
-                    )
-                }
-                agent::AgentTaskCancellation::CancelRequested => Ok(AdapterResult::accepted(
-                    format!("运行任务 #{task_id} 已请求取消，等待 AgentCard 确认"),
-                )
-                .with_task_id(task_id)
-                .with_node_id(active_node_id.expect("active cancellation was delivered above"))),
-                agent::AgentTaskCancellation::NotFound => Err(AdapterError::Rejected(format!(
-                    "未找到可取消的任务 #{task_id}"
-                ))),
-                agent::AgentTaskCancellation::AlreadySubmitted => Err(AdapterError::Rejected(
-                    "消息已交给 Agent CLI，请在卡片内管理其消息队列".to_string(),
-                )),
-            }
+            adapter_task::dispatch_agent_task(
+                app,
+                window.as_deref_mut(),
+                cx,
+                agent,
+                task,
+                input_source == agent::AgentInputSource::DoubaoVoice,
+                node_id,
+            )
         }
-        command @ AdapterCommand::ReplyAgent { .. } => {
-            let result = reply_adapter::execute_reply_adapter_command(app, command)?;
+        AdapterCommand::CancelAgentTask {
+            task_id,
+            expected_task_ref,
+        } => adapter_cancel::cancel(app, task_id, expected_task_ref.as_deref()),
+        AdapterCommand::ReplyAgent {
+            agent,
+            message,
+            node_id,
+            expected_revision,
+            target_identity,
+        } => {
+            let agent = adapter_target::validate(
+                app,
+                &agent,
+                node_id,
+                expected_revision.as_deref(),
+                target_identity.as_ref(),
+            )?;
+            if input_source == agent::AgentInputSource::Connector
+                && app
+                    .runtime
+                    .agent_task_input_pending(node_id.expect("connector exact target"))
+            {
+                return Err(AdapterError::Rejected("input_occupied".into()));
+            }
+            let result = reply_adapter::execute_reply_adapter_command(
+                app,
+                AdapterCommand::ReplyAgent {
+                    agent,
+                    message,
+                    node_id,
+                    expected_revision,
+                    target_identity,
+                },
+            )?;
             if let Some(window) = window.as_deref_mut().filter(|_| {
                 matches!(
                     input_source,

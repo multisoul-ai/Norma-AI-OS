@@ -113,6 +113,10 @@ async fn assign_agent_task_executes_immediately_without_confirmation() {
         AdapterCommand::AssignAgentTask {
             agent: "Alan".to_string(),
             task: "检查当前项目有哪些技术栈。".to_string(),
+            node_id: None,
+            expected_revision: None,
+            target_identity: None,
+            allow_queue: true
         },
         "the Adapter should receive the exact target and task without a confirmation command"
     );

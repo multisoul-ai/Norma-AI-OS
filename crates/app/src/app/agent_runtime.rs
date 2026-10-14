@@ -8,6 +8,8 @@ use norma::protocol::{CardCommand, CardCommandResult, CardKind, Placement};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
+mod adapter_cancel;
+mod adapter_target;
 mod adapter_task;
 mod artifacts;
 mod command_protocol;

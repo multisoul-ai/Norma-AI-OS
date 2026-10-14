@@ -188,6 +188,10 @@ async fn norma_session_assigns_ended_agent_instead_of_replying() {
         AdapterCommand::AssignAgentTask {
             agent: "Alan".to_string(),
             task: "检查恢复路径".to_string(),
+            node_id: None,
+            expected_revision: None,
+            target_identity: None,
+            allow_queue: true
         },
         "Ended AgentCard 必须走 AssignAgentTask，并保留目标和任务正文"
     );
@@ -262,6 +266,9 @@ async fn voice_streaming_turn_preserves_source_through_direct_reply_adapter() {
         vec![AdapterCommand::ReplyAgent {
             agent: "Alan".to_string(),
             message: "按照 A 方案执行".to_string(),
+            node_id: None,
+            expected_revision: None,
+            target_identity: None
         }],
         "语音续聊必须只下发一次 ReplyAgent，并完整保留目标与正文"
     );

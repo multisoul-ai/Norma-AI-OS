@@ -176,6 +176,10 @@ fn test_norma_adapter_requires_second_close_for_busy_named_agent() {
                     agent::AdapterCommand::AssignAgentTask {
                         agent: "Chloe".to_string(),
                         task: "检查当前项目。".to_string(),
+                        node_id: None,
+                        expected_revision: None,
+                        target_identity: None,
+                        allow_queue: true,
                     },
                 )
             })
@@ -315,6 +319,10 @@ fn test_doubao_voice_closes_busy_agent_card_without_second_confirmation() {
                     agent::AdapterCommand::AssignAgentTask {
                         agent: "Chloe".into(),
                         task: "检查当前项目".into(),
+                        node_id: None,
+                        expected_revision: None,
+                        target_identity: None,
+                        allow_queue: true,
                     },
                 )
             })

@@ -1,5 +1,5 @@
 //! App-global connector ownership and the GPUI boundary; no detached OS service.
-mod live;
+pub(crate) mod live;
 mod repository;
 mod view;
 mod worker;
@@ -123,3 +123,7 @@ impl Controller {
         cx.notify();
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/connector_adapter_tests.rs"]
+mod adapter_tests;

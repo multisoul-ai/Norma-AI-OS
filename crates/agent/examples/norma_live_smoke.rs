@@ -58,7 +58,7 @@ impl AgentCardAdapter for LiveSmokeAdapter {
                         "agent": "Alan",
                         "state": "running"
                     })]),
-                AdapterCommand::CancelAgentTask { task_id } => {
+                AdapterCommand::CancelAgentTask { task_id, .. } => {
                     AdapterResult::accepted("已请求取消").with_task_id(*task_id)
                 }
                 AdapterCommand::ReplyAgent { agent, .. } => {

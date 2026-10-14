@@ -10,8 +10,15 @@ fn realtime_actions_require_execution_intent_from_the_user_turn() {
     let write = AdapterCommand::AssignAgentTask {
         agent: "codex".into(),
         task: "修复登录测试".into(),
+        node_id: None,
+        expected_revision: None,
+        target_identity: None,
+        allow_queue: true,
     };
-    let cancel = AdapterCommand::CancelAgentTask { task_id: 7 };
+    let cancel = AdapterCommand::CancelAgentTask {
+        task_id: 7,
+        expected_task_ref: None,
+    };
     let query = AdapterCommand::FindAgentTasks {
         task_id: None,
         agent: None,
