@@ -1,7 +1,7 @@
 # Grok Bot 连接器 P4：派工与取消——工单拆分
 
 状态：工单拆分（仅文档，不改代码）· 2026-10-14。叠在 PR #105（`docs/grokbot-connector-spec-1014`）之上。
-唯一规格来源：`docs/product-specs/2026-10-13-grokbot-norma-connector.md`（下称「主规格」）。本文不改主规格已拍板事项，新增内容以「补充条款」形式提出，AC 编号从 AC-56 起续编（现至 AC-72）（AC-54 已删除，不复用）。
+唯一规格来源：`docs/product-specs/2026-10-13-grokbot-norma-connector.md`（下称「主规格」）。本文不改主规格已拍板事项，新增内容以「补充条款」形式提出，AC 编号从 AC-56 起续编（现至 AC-84）（AC-54 已删除，不复用）。
 
 代码事实依据：
 - origin/dev（主规格 1.1 节所列文件）；
@@ -219,6 +219,13 @@
 - **Done when**：AC-17–AC-26、AC-56–AC-72 全部有自动化或记录在案的手工结果；E2E 夹具使用随机生成 Token（AC-04）。
 - **不要做**：不把真实 Token 写进夹具 / 日志；不在用户真实工作空间上跑破坏性测试；不合并 PR。
 
+### P4-5 `create_card`（范围变更提案，见 §9；Y-1 获批前不开工）
+
+- **任务**：按 §9 实现 `create_card`（复用手机快速建卡内部流程，不写 `agent_creation_operations`），`connector_operations` 幂等，新增错误码，限额，审计，`directory.cards[].created_by`；同步在 #105 修订 1.4 / 6.6 与通用错误码表。
+- **仓库**：multisoul-ai/Norma-AI-OS（`crates/norma/src/connector`、`crates/app/src/mobile/workspace_live/creation.rs` 抽取共用部分、`crates/storage`、`docs/product-specs`）
+- **Done when**：AC-73–AC-84 通过；V-2 结果记录在 PR 中；Y-1、Y-2、Y-5 已有 yakami 决定。
+- **不要做**：不做删除 / 改名卡片、不新建工作空间或区域；不做 `load_card`；不开放 claude / codex 以外的 profile；不支持非区域根 `working_dir`；不改手机建卡与授权模型；不提交任何任务（建卡与派工分开）。
+
 ## 6. 暂定决定（原开放问题，均为「暂定，待 yakami 确认」）
 
 - 原 OQ-1 `dispatch_task` 不加 `workspace_id`。暂定，待 yakami 确认。
@@ -233,8 +240,120 @@
 
 ## 7. 开发期验证项
 
+- V-2（P4-5）：建卡后 `session_id` 写入时机，以及回执 `card_revision` 与之后 `directory` 返回值是否一致。
+
 - V-1（P4-2）：Codex 与 Claude 卡片各一次，在任务等待工具审批时调用 `cancel_task`，记录挂起审批是否关闭、`delivery_state` 是否为 `request_closed`、Provider 是否收到任何 allow / deny。若不关闭，回到规格讨论，不在代码中替用户作决定。
 
 ## 8. 剩余开放问题
 
 - 暂无。（吊销后 `client_id` 已决定为新身份，见 §2.3、AC-72；`not_connector_task` 已并入主规格通用错误码表。）
+
+## 9. P4-5 `create_card`（范围变更提案，待 yakami 决定）
+
+> **与已决定事项冲突**：主规格 1.4「范围外」列有「新建 Agent 卡片」，6.6「Grok Bot 永远不能做的事」列有「创建、删除、改名卡片或工作空间」。本节**不修改**这两条，只作为提案；P4-5 在 yakami 明确同意变更范围、并在 #105 中同步修订 1.4 / 6.6 之前**不得开工**（Y-1）。即使通过，删除、改名卡片与新建工作空间仍保持禁止。
+
+### 9.1 代码现状（dev，P2 分支无卡片创建代码）
+
+| 事实 | 位置 |
+| --- | --- |
+| 手机已有「按区域快速建卡」：持久预留先于任何副作用，**不提交任务** | `crates/app/src/mobile/workspace_live/creation.rs`（文件头注释） |
+| 请求 `WorkspaceAgentCreateRequest { desktop_workspace_id, area_id, operation_id, expected_revision: u64, profile: String }`，**无名字、无工作目录** | `crates/norma/src/mobile/agent_creation.rs:6` |
+| 流程：`check_scope`（配置未变、`configuration_revision == expected_revision`、`identify_project(root)` 与区域一致）→ `desktop::mobile::ensure(area)` 加载区域会话 → `quick_definition` 自动取名（`AgentNameRegistry::next_available_name`，冲突重试 9 次）→ 账本 `bind(definition_id,name,area_id)` → `prepare_quick_mobile_card` 建画布节点 → `bind(node_id,run_id)` → `launch.spawn()` 起 PTY；任一步失败 `cleanup` 回滚定义与节点 | 同上 |
+| profile 字符串只接受 `"Codex" / "Claude" / "Cursor"`，其他 → `unsupported_profile` | 同上 |
+| 账本 `agent_creation_operations(device_id, operation_id, mac_id, workspace_id, payload, state, result, error, PK(device_id, operation_id))`；状态 `received → processing → succeeded / failed / outcome_unknown`；重启时 `processing → outcome_unknown (mac_restarted)`；有按实际结果核对恢复的路径 | `crates/storage/src/agent_creation_store.rs` |
+| 定义入库 `AgentDefinitionStore::create / create_quick`，`origin ∈ Explicit / QuickCard`；`reject_name_conflict` 对 `name`、`name_key`、`speech_alias` 查重，冲突 → `StorageError::AgentNameConflict { requested, existing }`；唯一索引 `idx_agent_definitions_name_nocase` | `crates/storage/src/agent_definition_store.rs`、`migrations.rs:240` |
+| `agent_definitions` 用 `open_project_connection` 打开，即**按项目**存储【假设：名字唯一范围是项目而非工作空间，需核对】 | 同上 |
+| Unix socket 已有 `CardCommand::CreateAgent { name: Option<String>, profile, activate: bool }`（按名字、无区域参数） | `crates/norma/src/protocol.rs:82` |
+| 画布 profile 枚举 `Claude / Codex / Cursor / Grok / OpenCode` | `crates/canvas/src/node/agent_profile.rs:4` |
+| 卡片运行目录 = 区域根（`app.runtime.workspace_root()` 被校验等于 `area.root`）；**未发现按卡片设置工作目录的字段**【假设：不支持，需核对】 | `creation.rs` |
+
+### 9.2 工具定义 `create_card`
+
+输入（`deny_unknown_fields`）：
+
+```json
+{"operation_id": "uuid-v4",
+ "workspace_id": "…", "area_id": "…",          // 来自 directory.projects[]
+ "role_name": "Bella",                           // 可选；省略则按现有快速建卡自动取名
+ "profile": "claude|codex",                      // 必填；P4-5 只开放这两种
+ "working_dir": "相对区域根的路径",              // 可选；省略 = 区域根
+ "start": true}                                  // 可选，默认 true
+```
+
+- **加载 / 启动并入 `create_card`（`start=true` 默认），不单独做 `load_card`**。理由：① 现有快速建卡就是「建定义 + 建节点 + 起 PTY」一个带账本的原子流程并有失败回滚，拆开会出现「已建未启动」的新中间态；② 建卡的目的就是马上派工；③ `load_card` 会同时允许 Grok Bot 加载**任何**未加载区域 / 卡片，扩大到主规格 4.1「不启动未加载区域的 PTY」之外，属另一个范围决定（Y-4）。`start=false` 只建定义与节点、不起 PTY，卡片 `state=unloaded`。
+- `working_dir`：P4-5 只接受省略或等于区域根；其他值 → `working_dir_unsupported`，直到确认运行时支持按卡片工作目录（Y-3）。若日后支持，规则为：规范化后必须在区域根内（拒绝 `..`、符号链接逃逸）→ 否则 `working_dir_outside_project`；目录不存在 → `working_dir_not_found`；不自动创建目录。
+
+输出：
+
+```json
+{"operation_id": "…", "card_id": "c1.…", "card_revision": "…",
+ "workspace_id": "…", "area_id": "…", "role_name": "Bella", "profile": "Claude",
+ "created_at": 1760420000, "state": "loaded|unloaded|outcome_unknown",
+ "created_by": "grokbot", "replayed": false}
+```
+
+- `card_revision` 按主规格 3.2 修订后的定义（仅持久状态：身份 | 项目根目录 | 工作目录 | profile | session_id），与随后 `directory` 返回值一致；起 PTY 后 `session_id` 产生则 revision 随之变化，Grok Bot 派工前以 `directory` 为准【假设：`session_id` 在 spawn 后才写入】。
+- `created_at` = `agent_definitions.created_at_unix`（unix 秒），与 `directory.cards[].created_at` 一致。
+
+### 9.3 幂等
+
+- 走 `connector_operations`，`tool="create_card"`，`request_hash = sha256(tool | workspace_id | area_id | role_name | profile | working_dir | start)`，缺省值规范化（`role_name` 缺省为空串、`working_dir` 缺省为区域根、`start` 缺省 true）。同键同参 → 原回执 `replayed=true`，不再建卡；同键异参或异工具 → `operation_conflict`。
+- 自动取名时重放返回首次取到的名字（存在回执里）。
+- 预留后崩溃 → `outcome_unknown`，不自动重放；照 `AgentCreationStore` 的核对路径，启动时若能按已 `bind` 的 `definition_id/node_id` 确认实际结果则转为成功回执，否则保持 `outcome_unknown`。
+- 跨吊销同 AC-72：吊销后新 Token 为新 `client_id`，旧 `operation_id` 不返回旧回执，按新操作处理（可能再建一张卡——Grok Bot 不得在吊销后重放旧建卡请求）。
+- 实现复用手机建卡流程的内部函数，但**不写** `agent_creation_operations`、不需要手机授权（主规格 1.4 不改手机授权模型）。
+
+### 9.4 错误码
+
+复用：`invalid_argument`、`workspace_not_found`、`workspace_closed`、`operation_conflict`、`rate_limited`、`connector_disabled`、`internal`、HTTP 401 `unauthorized`。
+
+新增（需同步加入 #105 通用错误码表）：
+
+| code | 含义 | retryable |
+| --- | --- | --- |
+| `area_not_found` | `area_id` 不属于该工作空间或已移除 | false |
+| `project_changed` | 区域根目录 / 项目身份与配置不符（对应现有 `configuration_changed`） | false |
+| `role_name_taken` | 名称或语音别名与现有定义冲突（`AgentNameConflict`，大小写不敏感），`existing` 名字放在 message | false |
+| `role_name_invalid` | 名称为空白、超长或 `agent_name_metadata` 拒绝 | false |
+| `profile_unavailable` | profile 不在开放列表，或本机未安装对应 CLI | false |
+| `working_dir_unsupported` | 传了非区域根的 `working_dir`（P4-5 阶段） | false |
+| `working_dir_outside_project` / `working_dir_not_found` | 预留，支持按卡片工作目录后启用 | false |
+| `card_limit_reached` | 该工作空间连接器所建卡片达上限 | false |
+| `daily_create_limit_reached` | 当日建卡次数达上限，含 `retry_after_s` | true |
+| `card_start_failed` | 定义与节点已回滚，PTY 启动失败（对应 `agent_start_failed`） | true |
+
+### 9.5 确认、限额、审计、目录标记
+
+- **确认（建议）**：每次建卡前 Grok Bot 先向 yakami 复述「在哪个工作空间 / 项目、用什么名字和 profile 建卡、是否立即启动」，得到明确同意再调用。理由：建卡产生持久资源、起本机进程、消耗 Provider 额度，且不可由 Grok Bot 删除。服务端不强制 nonce（区别于 `resolve_approval`）【建议，Y-2】。
+- **限额（建议值）**：每工作空间连接器所建且仍存在的卡片 ≤ 5；每 `client_id` 每自然日（Asia/Shanghai）建卡 ≤ 10；另受写限流 10 次/分钟。用户在 Mac 上删除卡片后释放额度。【建议，Y-5】
+- **审计**：`connector_audit` 一条，`tool=create_card`，参数摘要含 workspace/area/role_name/profile/start，结果码与 `card_id`。
+- **目录标记**：`directory.cards[]` 新增 `created_by: "grokbot" | null`（由 `connector_operations` 关联 `definition_id/node_id` 得出；其他来源为 `null`，不推断）。定义 `origin` 沿用 `QuickCard`（不新增枚举值，避免迁移）【假设】。连接器所建卡片与普通卡片在桌面上外观一致，可由用户正常删除 / 改名。
+
+### 9.6 新增验收
+
+- AC-73 `create_card` 仅在范围变更获批后出现在 `tools/list`；未获批前的构建中不存在。
+- AC-74 `create_card(start=true)` 成功后返回 `card_id / card_revision / created_at / state=loaded`，随后 `directory` 中出现同一 `card_id`、`created_by=grokbot`，可立即被 `dispatch_task` 派工。
+- AC-75 `start=false` → `state=unloaded`，无 PTY 启动；之后 `dispatch_task` 的行为与其他未加载卡片一致。
+- AC-76 同 `operation_id` 同参重放 → 原回执、`replayed=true`、不新增卡片；自动取名时名字不变。同键异参 → `operation_conflict`。
+- AC-77 吊销并重新生成 Token 后，用旧 `operation_id` 调用不返回旧回执（同 AC-72）。
+- AC-78 名称与现有定义（含语音别名、大小写不同）冲突 → `role_name_taken`，无定义 / 节点残留。
+- AC-79 `profile` 非 claude/codex → `profile_unavailable`；非区域根 `working_dir` → `working_dir_unsupported`。
+- AC-80 工作空间未打开 → `workspace_closed`；`area_id` 不属该工作空间 → `area_not_found`；均不产生副作用。
+- AC-81 达到每工作空间或每日上限 → `card_limit_reached` / `daily_create_limit_reached`；删除连接器所建卡片后工作空间额度释放。
+- AC-82 PTY 启动失败 → `card_start_failed`，定义与节点被回滚；建卡中途杀 App → 重启后 `outcome_unknown` 或按已绑定结果核对为成功，无重复卡片。
+- AC-83 每次建卡（成功或失败）在 `connector_audit` 中有一条记录。
+- AC-84 （Grok Bot 侧走查）未得到 yakami 本次同意时，Grok Bot 不调用 `create_card`。
+
+### 9.7 开放问题与建议
+
+均给出建议；标 ★ 的需要 yakami 决定。
+
+- ★ Y-1 是否把「新建卡片」移入范围（修订主规格 1.4 / 6.6）？建议：同意，仅限新建，删除 / 改名仍禁止。
+- ★ Y-2 建卡前是否每次都要 Grok Bot 先问 yakami？建议：每次都问（9.5），服务端不加 nonce。
+- ★ Y-3 是否支持非区域根的 `working_dir`？建议：P4-5 不支持，需要时另开工单并先确认运行时能力。
+- ★ Y-4 是否需要独立 `load_card`（加载已存在的未加载卡片）？建议：不做；建卡时 `start=true` 已覆盖主要场景。
+- ★ Y-5 限额取值：建议每工作空间 5 张、每日 10 次。
+- ★ Y-6 profile 是否开放 Cursor（现有快速建卡支持）？建议：首版只开放 claude / codex。
+- Y-7 名字唯一范围是项目还是工作空间（9.1 假设）？建议：开发时核对，按现有 `reject_name_conflict` 行为为准，不新增规则。
+- Y-8 `origin` 是否新增 `Connector` 枚举值？建议：不新增，用 `connector_operations` 关联得出 `created_by`。
+- Y-9 `session_id` 何时写入、建卡回执中的 `card_revision` 是否会在启动后立即变化？建议：开发期验证（V-2），回执注明以 `directory` 为准。
