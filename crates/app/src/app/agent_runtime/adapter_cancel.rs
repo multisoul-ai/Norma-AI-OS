@@ -6,6 +6,7 @@ pub(super) fn cancel(
     app: &mut MultisoulApp,
     task_id: u64,
     expected_task_ref: Option<&str>,
+    connector: bool,
     cx: &mut gpui::Context<MultisoulApp>,
 ) -> Result<AdapterResult, AdapterError> {
     let task_to_cancel = app.agent_task_coordinator.as_ref().and_then(|coordinator| {
@@ -91,9 +92,10 @@ pub(super) fn cancel(
         {
             return Ok(AdapterResult::unknown("目标卡片已改变，原操作待核对").with_task_id(task_id));
         }
-        if task_to_cancel
-            .as_ref()
-            .is_some_and(|task| task.state == "cancel_requested")
+        if connector
+            && task_to_cancel
+                .as_ref()
+                .is_some_and(|task| task.state == "cancel_requested")
         {
             return Ok(AdapterResult::accepted("运行任务已请求取消，等待确认")
                 .with_task_id(task_id)
@@ -105,7 +107,8 @@ pub(super) fn cancel(
             .into_iter()
             .find(|card| card.node_id == node_id);
         if let Some(card) = card.clone().filter(|card| {
-            matches!(card.profile.as_str(), "Codex" | "Claude")
+            connector
+                && matches!(card.profile.as_str(), "Codex" | "Claude")
                 && card.run_id.is_some()
                 && card.turn_id.is_some()
         }) {
@@ -145,8 +148,8 @@ pub(super) fn cancel(
                     .with_node_id(node_id));
             }
             // Old/untracked turns may have no Provider identity; still bound the cancellation wait.
-            if let Some(card) = card {
-                confirmation = Some((card, None));
+            if connector {
+                confirmation = card.map(|card| (card, None));
             }
         }
     }
@@ -155,6 +158,10 @@ pub(super) fn cancel(
         .as_mut()
         .map(|coordinator| coordinator.cancel_task(task_id))
         .unwrap_or(agent::AgentTaskCancellation::NotFound);
+    if connector && result == agent::AgentTaskCancellation::CancelRequested {
+        app.pending_agent_submissions
+            .mark_connector_cancellation(task_id, active_node_id.expect("active target"));
+    }
     if let Some(writer) = app.persistence.agent_dispatch_writer() {
         match result {
             agent::AgentTaskCancellation::Cancelled => writer.persist_cancellation(task_id, false),

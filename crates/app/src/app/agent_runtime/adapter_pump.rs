@@ -193,7 +193,7 @@ pub(crate) fn execute_norma_adapter_command_with_source(
         AdapterCommand::CancelAgentTask {
             task_id,
             expected_task_ref,
-        } => adapter_cancel::cancel(app, task_id, expected_task_ref.as_deref(), cx),
+        } => adapter_cancel::cancel(app, task_id, expected_task_ref.as_deref(), input_source == agent::AgentInputSource::Connector, cx),
         AdapterCommand::ReplyAgent {
             agent,
             message,

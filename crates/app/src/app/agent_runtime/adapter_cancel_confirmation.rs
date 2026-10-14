@@ -75,6 +75,8 @@ pub(super) fn watch(
                 if let Some(coordinator) = app.agent_task_coordinator.as_mut() {
                     coordinator.fail_active_preserving_busy(task.definition_id, task.task_id);
                 }
+                app.pending_agent_submissions
+                    .finish_connector_cancellation(task.task_id);
                 if let Some(writer) = app.persistence.agent_dispatch_writer() {
                     writer.finish_task(
                         task.task_id,

@@ -29,6 +29,7 @@ pub(crate) struct PendingAgentSubmissions {
     ready_after: HashMap<NodeId, Instant>,
     submissions: HashMap<NodeId, PendingAgentSubmission>,
     realtime: HashMap<u64, realtime::Delivery>,
+    connector_cancellations: HashMap<u64, NodeId>,
 }
 
 #[derive(Debug)]
@@ -37,6 +38,16 @@ pub(crate) struct RemovedPendingSubmission {
 }
 
 impl PendingAgentSubmissions {
+    pub(crate) fn mark_connector_cancellation(&mut self, task: u64, node: NodeId) {
+        self.connector_cancellations.insert(task, node);
+    }
+    pub(crate) fn is_connector_cancellation(&self, task: u64) -> bool {
+        self.connector_cancellations.contains_key(&task)
+    }
+    pub(crate) fn finish_connector_cancellation(&mut self, task: u64) {
+        self.connector_cancellations.remove(&task);
+    }
+
     pub(crate) fn input_in_progress(&self, node_id: NodeId) -> bool {
         self.submissions.contains_key(&node_id)
     }
@@ -149,12 +160,15 @@ impl PendingAgentSubmissions {
     }
 
     pub(crate) fn remove_node(&mut self, node_id: NodeId) {
+        self.connector_cancellations
+            .retain(|_, node| *node != node_id);
         self.ready_after.remove(&node_id);
         self.submissions.remove(&node_id);
         self.realtime.retain(|_, item| item.node != node_id);
     }
 
     pub(crate) fn remove_task(&mut self, task_id: u64) -> Option<RemovedPendingSubmission> {
+        self.connector_cancellations.remove(&task_id);
         self.realtime.remove(&task_id);
         let node_id = self.submissions.iter().find_map(|(node_id, pending)| {
             (pending.receipt.task_id == task_id).then_some(*node_id)
@@ -177,6 +191,7 @@ impl PendingAgentSubmissions {
     }
 
     pub(crate) fn clear(&mut self) {
+        self.connector_cancellations.clear();
         self.ready_after.clear();
         self.submissions.clear();
         self.realtime.clear();

@@ -24,8 +24,26 @@ impl MultisoulApp {
             .agent_task_coordinator
             .as_ref()
             .is_some_and(|coordinator| coordinator.is_cancel_requested(definition_id));
+        let connector_cancel_task = self
+            .agent_task_coordinator
+            .as_ref()
+            .and_then(|coordinator| {
+                coordinator
+                    .tasks()
+                    .into_iter()
+                    .find(|task| {
+                        task.target_node_id == node_id
+                            && task.state == "cancel_requested"
+                            && self
+                                .pending_agent_submissions
+                                .is_connector_cancellation(task.task_id)
+                    })
+                    .map(|task| task.task_id)
+            });
         let runtime_state = self.runtime.agent_task_state(node_id);
-        if !cancel_requested && matches!(runtime_state, Some(runtime::AgentTaskState::Ended)) {
+        if connector_cancel_task.is_none()
+            && matches!(runtime_state, Some(runtime::AgentTaskState::Ended))
+        {
             let coordinator_changed = self
                 .agent_task_coordinator
                 .as_mut()
@@ -40,13 +58,18 @@ impl MultisoulApp {
             return coordinator_changed;
         }
         let (terminal_state, coordinator_state, terminal_error) = match runtime_state {
-            Some(
-                runtime::AgentTaskState::Done
-                | runtime::AgentTaskState::Ended
-                | runtime::AgentTaskState::Failed { .. },
-            ) if cancel_requested => (
-                storage::AgentDispatchTaskState::Cancelled,
-                "cancelled",
+            Some(runtime::AgentTaskState::Done | runtime::AgentTaskState::Ended)
+                if connector_cancel_task.is_some() =>
+            {
+                (
+                    storage::AgentDispatchTaskState::Cancelled,
+                    "cancelled",
+                    None,
+                )
+            }
+            Some(runtime::AgentTaskState::Done) if cancel_requested => (
+                storage::AgentDispatchTaskState::Interrupted,
+                "interrupted",
                 None,
             ),
             Some(runtime::AgentTaskState::Done) => {
@@ -85,6 +108,10 @@ impl MultisoulApp {
             .and_then(|coordinator| {
                 coordinator.finish_current_with_result(definition_id, coordinator_state, result)
             });
+        if let Some(task) = connector_cancel_task {
+            self.pending_agent_submissions
+                .finish_connector_cancellation(task);
+        }
         if let Some(writer) = writer.as_ref() {
             writer.finish_current_with_result(
                 definition_id,
