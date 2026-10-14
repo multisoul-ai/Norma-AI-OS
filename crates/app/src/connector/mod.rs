@@ -153,3 +153,7 @@ mod reply_hook_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/connector_directory_tests.rs"]
 mod directory_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/connector_replay_tests.rs"]
+mod replay_tests;
