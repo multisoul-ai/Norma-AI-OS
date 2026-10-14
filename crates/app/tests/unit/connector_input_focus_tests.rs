@@ -71,3 +71,70 @@ fn clicking_connector_input_keeps_input_focus_inside_settings_panel() {
         assert_eq!(input.read(cx).value().as_ref(), "4");
     });
 }
+
+/// 场景：连接器设置渲染复制Funnel命令入口，端口修改后复制当前已保存值。
+/// 构造：真实Controller初始47615，通过GPUI update改为48000；窗口800×1000容纳控件。
+/// 执行：绘制、点击复制、读取Clipboard，再改端口、重绘并复制。
+/// 预期：两次分别复制47615和48000；渲染不能固化初始端口。
+#[test]
+fn connector_settings_copies_funnel_command_for_saved_port() {
+    let mut test = TestAppContext::single();
+    test.update(|cx| {
+        ui::sync_component_theme(
+            ui::ThemeId::ALL
+                .into_iter()
+                .find(|id| !id.is_dark())
+                .expect("浅色"),
+            cx,
+        )
+    });
+    let mut controller = None;
+    let (_, cx) = test.add_window_view(|window, cx| {
+        let (commands, _) = async_channel::unbounded();
+        let view = cx.new(|_| Controller {
+            commands,
+            config: Default::default(),
+            listening: false,
+            busy: false,
+            error: None,
+            expiries: Vec::new(),
+            locked_until: 0,
+            audit: Vec::new(),
+            port: None,
+            tunnel: None,
+            theme: Theme::default(),
+            updates: None,
+            capture: None,
+            signer: None,
+        });
+        controller = Some(view.clone());
+        ui::component::Root::new(view, window, cx)
+    });
+    let controller = controller.expect("Controller");
+    cx.simulate_resize(size(px(800.0), px(1000.0)));
+    for (port, expected) in [
+        (47615, "tailscale funnel --bg 47615"),
+        (48000, "tailscale funnel --bg 48000"),
+    ] {
+        cx.update(|_, cx| {
+            controller.update(cx, |host, cx| {
+                host.config.port = port;
+                cx.notify();
+            })
+        });
+        cx.run_until_parked();
+        cx.update(|window, cx| window.draw(cx).clear());
+        let bounds = cx
+            .debug_bounds("connector-funnel-copy")
+            .expect("复制入口必须渲染");
+        cx.simulate_click(bounds.center(), gpui::Modifiers::none());
+        cx.run_until_parked();
+        cx.update(|_, cx| {
+            assert_eq!(
+                cx.read_from_clipboard().and_then(|item| item.text()),
+                Some(expected.into()),
+                "复制已保存端口{port}对应的命令"
+            );
+        });
+    }
+}

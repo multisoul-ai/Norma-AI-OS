@@ -24,3 +24,9 @@ impl Default for ConnectorConfig {
         }
     }
 }
+
+/// Local service target syntax: https://tailscale.com/kb/1311/tailscale-funnel.
+/// The port is the HTTP backend target, not Funnel's external HTTPS listener.
+pub fn funnel_command(port: u16) -> String {
+    format!("tailscale funnel --bg {port}")
+}

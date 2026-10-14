@@ -39,6 +39,7 @@ impl Render for Controller {
                 })
             })
             .clone();
+        let funnel_command = norma::connector::funnel_command(self.config.port);
         let status = if self.busy {
             "正在处理…"
         } else if self.listening {
@@ -63,7 +64,12 @@ impl Render for Controller {
                             _=>{host.error=Some("端口须为 1–65535。".into());cx.notify();}
                         }
                     }))))
-                .child(div().settings_text(TextRole::Helper,theme).child("需同步修改隧道配置")))
+                .child(div().settings_text(TextRole::Helper,theme).child("需同步修改 Tailscale Funnel 配置"))
+                .child(div().flex().items_center().gap(px(10.0))
+                    .child(div().settings_text(TextRole::Helper,theme).child(funnel_command.clone()))
+                    .child(Button::new("connector-funnel-copy").debug_selector(|| "connector-funnel-copy".into())
+                        .child(control_label("复制命令")).outline().disabled(self.busy)
+                        .on_click(move |_,_,cx| cx.write_to_clipboard(ClipboardItem::new_string(funnel_command.clone()))))))
             .child(section(theme,"隧道地址（可选）").child(div().flex().items_center().gap(px(10.0))
                 .child(focus_guard("connector-tunnel-input",&tunnel_input,self.busy,cx).flex_1().child(Input::new(&tunnel_input).disabled(self.busy)))
                 .child(Button::new("connector-tunnel-save").child(control_label("保存地址")).outline().disabled(self.busy)
