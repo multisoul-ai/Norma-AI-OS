@@ -71,7 +71,7 @@ MCP tools/call → 参数校验(deny_unknown_fields) → card_id 验签解析 �
 - 输入：`{"operation_id", "task_id"}`；映射 `CancelAgentTask{task_id}`（`adapter_pump.rs:157`）。
 - 输出：`{"operation_id", "task_id", "state": "cancel_requested|cancelled|already_terminal", "terminal_state"?, "requested_at", "replayed"}`。
 - 只取消 Grok Bot 派出的任务（同 `connector:` 命名空间回执关联），直接取消无额外确认，可设置放开（暂定，待 yakami 确认）；其他 → `not_connector_task`。
-- 未提交任务走 `cancel_unsubmitted_task`；`AlreadySubmitted` 类拒绝（`adapter_pump.rs:270`）映射为 `cancel_requested` 或 `agent_rejected`【假设，V-5】。
+- 未提交任务走 `cancel_unsubmitted_task`；已交给 Agent CLI 队列、无法撤回的任务（`AgentTaskCancellation::AlreadySubmitted`，dev `adapter_pump.rs:270`）返回 **`already_submitted`**（`retryable=false`；同键重放保留该拒绝；原文只进审计）。PR #107 提交 cf8bf50f 已实现：新增 `AdapterError::AlreadySubmitted`（`crates/agent/src/adapter.rs`），`adapter_cancel.rs` 改为返回该变体，`connector/execution.rs` 映射为 `already_submitted`（V-5 结果）。已终态任务仍为 `already_terminal`。
 - 等待审批时取消：照常取消，不替用户作审批决定；审批随任务关闭 → `request_closed`（开发期验证 V-1）。
 
 ### 2.5 `reply_agent`（P4-4，新增）
@@ -96,7 +96,7 @@ MCP tools/call → 参数校验(deny_unknown_fields) → card_id 验签解析 �
 
 ### 2.7 错误码汇总
 
-已在 #105 通用表：`workspace_closed`、`area_not_found`、`profile_unavailable`、`card_create_failed`（已决定）；`card_not_loaded`、`agent_rejected`、`not_connector_task`（暂定）。**删除**：`card_limit_reached`、`daily_create_limit_reached`（Y-5 不设限额）。原 P4-5 的 `role_name_taken`、`role_name_invalid`、`project_changed`、`working_dir_unsupported`、`working_dir_outside_project`、`working_dir_not_found`、`card_start_failed` 已撤回。
+已在 #105 通用表：`workspace_closed`、`area_not_found`、`profile_unavailable`、`card_create_failed`、`already_submitted`（已决定）；`card_not_loaded`、`agent_rejected`、`not_connector_task`（暂定）。**删除**：`card_limit_reached`、`daily_create_limit_reached`（Y-5 不设限额）。原 P4-5 的 `role_name_taken`、`role_name_invalid`、`project_changed`、`working_dir_unsupported`、`working_dir_outside_project`、`working_dir_not_found`、`card_start_failed` 已撤回。
 
 ### 2.8 明确范围外
 
@@ -119,7 +119,7 @@ MCP tools/call → 参数校验(deny_unknown_fields) → card_id 验签解析 �
 
 ### 5.1 主规格 P4 AC（AC-17–AC-26）
 
-全部保留：AC-17、AC-18、AC-19、AC-20、AC-21、AC-22、AC-23、AC-24、AC-25、AC-26。其中 AC-22 依赖 V-5（AdapterError 可区分），AC-24 的 `outcome_unknown` 由 `MobileCommandStore` 提供。
+全部保留：AC-17、AC-18、AC-19、AC-20、AC-21、AC-22、AC-23、AC-24、AC-25、AC-26。其中 AC-22 依赖 V-5 未完成部分（`card_busy` / `approval_pending` / `input_occupied` 的区分），AC-24 的 `outcome_unknown` 由 `MobileCommandStore` 提供。
 
 ### 5.2 本文 AC（AC-56 起）
 
@@ -167,6 +167,7 @@ MCP tools/call → 参数校验(deny_unknown_fields) → card_id 验签解析 �
 - AC-94 `create_card` 只在 `area_id` 指定的区域建卡；缺 `area_id` → `invalid_argument`；`area_id` 找不到 → `area_not_found`；区域所在工作空间未打开 → `workspace_closed`；不在当前聚焦区域建卡。（Y-3）
 - AC-95 （Grok Bot 侧走查）用户要求建卡时 Grok Bot 直接调用 `create_card`，不追加确认提问。（Y-2）
 - AC-96 连续多次 `create_card`（不同 `operation_id`）不返回任何数量限额错误，仅受写限流 `rate_limited`。（Y-5）
+- AC-97 `cancel_task` 取消已交给 Agent CLI 队列、无法撤回的任务 → `already_submitted`（`retryable=false`），任务不受影响；同 `operation_id` 重放返回同一拒绝；`message` 不含内部原文。（V-5，#107 cf8bf50f）
 
 ## 6. 工单
 
@@ -174,9 +175,9 @@ MCP tools/call → 参数校验(deny_unknown_fields) → card_id 验签解析 �
 
 ### P4-1 AdapterCommand 层扩展
 
-- **任务**：新增 `AgentInputSource::Connector`；`AssignAgentTask` / `ReplyAgent` 增加可选 `node_id` 与 `expected_revision`，在 AdapterCommand 层按节点寻址与校验 revision；连接器来源的 force_untracked 恒 false、`window=None`；`AdapterError` → 结构化错误码映射表；`card_id` → 目标 app / 节点解析。
+- **任务**：新增 `AgentInputSource::Connector`；`AssignAgentTask` / `ReplyAgent` 增加可选 `node_id` 与 `expected_revision`，在 AdapterCommand 层按节点寻址与校验 revision；连接器来源的 force_untracked 恒 false、`window=None`；`AdapterError` → 结构化错误码映射表（`AdapterError::AlreadySubmitted` → `already_submitted`，见 #107 cf8bf50f；其余未识别 `Rejected` → `agent_rejected`）；`card_id` → 目标 app / 节点解析。
 - **仓库**：multisoul-ai/Norma-AI-OS（`crates/agent/src/{adapter.rs,adapter/commands.rs,model.rs}`、`crates/app/src/app/agent_runtime/adapter_pump.rs`、`adapter_task`、`reply_adapter`、`crates/norma/src/connector`）
-- **Done when**：AC-17、AC-20、AC-21、AC-23、AC-85、AC-86、AC-87、AC-88、AC-90 通过；V-5 结论记录在 PR。
+- **Done when**：AC-17、AC-20、AC-21、AC-23、AC-85、AC-86、AC-87、AC-88、AC-90、AC-97 通过；V-5 其余部分结论记录在 PR。
 - **不要做**：不另建按节点派工入口；不改 `node_id=None` 时的按名行为；不给 `Connector` 开放 2.8 的命令；不调用 `realtime_command_authorized` 之外再造意图判定；不改 Unix socket 协议。
 
 ### P4-2 幂等与回执复用 `MobileCommandStore`
@@ -190,7 +191,7 @@ MCP tools/call → 参数校验(deny_unknown_fields) → card_id 验签解析 �
 
 - **任务**：按 2.3 / 2.4 的薄映射与输入输出；`not_connector_task`、`workspace_closed`、`already_terminal`；审计。
 - **仓库**：multisoul-ai/Norma-AI-OS（`crates/norma/src/connector/tools*`）
-- **Done when**：AC-22、AC-25、AC-26、AC-56、AC-60、AC-61、AC-65、AC-66、AC-67、AC-68 通过；V-1、V-4 结论记录在 PR。
+- **Done when**：AC-22、AC-25、AC-26、AC-56、AC-60、AC-61、AC-65、AC-66、AC-67、AC-68、AC-97 通过；V-1、V-4 结论记录在 PR。
 - **不要做**：不替用户作审批决定；不取消同卡其他任务；不自动打开工作空间；不暴露 `node_id` 或 Agent 名寻址。
 
 ### P4-4 `reply_agent`
@@ -218,7 +219,7 @@ MCP tools/call → 参数校验(deny_unknown_fields) → card_id 验签解析 �
 
 - **任务**：AdapterCommand 层单测（按节点 / 按名回归）、账本与隔离测试、工具集成测试（P2 测试风格）、经 Funnel 的 Grok Bot 走查（含「Norma 未运行」）。
 - **仓库**：multisoul-ai/Norma-AI-OS（`crates/*/tests`，E2E 记录写在 PR）
-- **Done when**：AC-17–AC-26、AC-56–AC-74、AC-76、AC-77、AC-79、AC-80、AC-82、AC-83、AC-85–AC-96有自动化或记录在案的手工结果；夹具 Token 随机生成。
+- **Done when**：AC-17–AC-26、AC-56–AC-74、AC-76、AC-77、AC-79、AC-80、AC-82、AC-83、AC-85–AC-97有自动化或记录在案的手工结果；夹具 Token 随机生成。
 - **不要做**：不把真实 Token 写进夹具 / 日志；不在用户真实工作空间做破坏性测试；不合并 PR。
 
 ## 7. 暂定决定（均「暂定，待 yakami 确认」）
@@ -239,7 +240,7 @@ MCP tools/call → 参数校验(deny_unknown_fields) → card_id 验签解析 �
 - V-2（P4-6）`CreateAgent` 后 `session_id` 写入时机，回执 `card_revision` 与之后 `directory` 是否一致。
 - V-3（P4-2）列出所有读 `mobile_commands` / `mobile_realtime_calls` 的查询，确认排除 `connector:` 行的改动面；过大则改走共享模块 + 独立表。
 - V-4（P4-3）协调器 `task_id: u64`（`adapter.rs:52`）与 P2 `list_tasks.task_id`（`agent_dispatch_tasks`）是否同源。
-- V-5（P4-1）`AdapterError` 能否区分 `card_busy` / `approval_pending` / `input_occupied` / `AlreadySubmitted`。
+- V-5（P4-1）`AdapterError` 能否区分 `card_busy` / `approval_pending` / `input_occupied` / `AlreadySubmitted`。**部分已有结果**：`AlreadySubmitted` 已由 PR #107 cf8bf50f 结构化为 `AdapterError::AlreadySubmitted` → `already_submitted`；`card_busy` / `approval_pending` / `input_occupied` 仍待核对。
 
 ## 9. 开放问题
 
