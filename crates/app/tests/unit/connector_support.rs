@@ -24,6 +24,9 @@ impl Fixture {
         Self::with_clock(Arc::new(SystemClock))
     }
     pub fn with_clock(clock: Arc<dyn norma::connector::Clock>) -> Self {
+        Self::with_persisted_cards(clock, 0)
+    }
+    pub fn with_persisted_cards(clock: Arc<dyn norma::connector::Clock>, count: usize) -> Self {
         let guard = tempfile::tempdir().expect("临时连接器项目");
         let root = guard.path().join("project");
         std::fs::create_dir(&root).expect("项目目录");
@@ -41,6 +44,47 @@ impl Fixture {
                     .expect("区域")
             })
             .collect();
+        let canvas = storage::ProjectStore::initialize_for_desktop_area(
+            &paths,
+            &root,
+            &workspace.id,
+            &areas[0].id,
+        )
+        .expect("原画布");
+        let definitions = storage::ProjectStore::initialize_for_desktop_definitions(
+            &paths,
+            &areas[0].project_key,
+        )
+        .expect("原定义")
+        .agent_definition_store();
+        let mut document = canvas::Document::default();
+        for name in [
+            "Alan", "Ada", "Linus", "Dennis", "Ken", "Donald", "Edsger", "Grace",
+        ]
+        .into_iter()
+        .take(count)
+        {
+            let definition = definitions
+                .create(&storage::NewAgentDefinition {
+                    name: name.into(),
+                    runtime_profile: canvas::AgentProfile::Claude,
+                    workflow_description: String::new(),
+                })
+                .expect("保存原 Claude 定义");
+            document.add_node(
+                canvas::CanvasNodeKind::Agent(canvas::AgentSpec {
+                    profile: canvas::AgentProfile::Claude,
+                    alias: Some(name.into()),
+                    definition_id: Some(definition.id),
+                    mobile_control: false,
+                }),
+                canvas::CanvasRect::new(0.0, 0.0, 640.0, 400.0),
+            );
+        }
+        canvas
+            .canvas_store()
+            .save_snapshot(&document.to_snapshot())
+            .expect("持久化原卡片");
         let prepared: Vec<_> = areas
             .iter()
             .map(|a| PreparedProject::load_for_desktop(paths.clone(), a.clone()).expect("准备项目"))

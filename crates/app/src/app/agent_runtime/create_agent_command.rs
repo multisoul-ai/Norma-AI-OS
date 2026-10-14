@@ -12,6 +12,8 @@ pub(super) fn create_or_reuse_agent(
     area: canvas::CanvasRect,
     zoom: f32,
 ) -> Result<CardCommandResult, CardCommandError> {
+    // Desktop canvases share definitions; another retained area may have created a name.
+    app.agent_definitions.reload();
     if let Some(requested_name) = name.as_deref() {
         if let Some(existing) = app
             .agent_definitions
