@@ -9,13 +9,21 @@ impl Clock for Fixed {
         1_000_000
     }
 }
-struct Source(Arc<Mutex<Snapshot>>);
+struct Source(Arc<Mutex<Snapshot>>, Option<Value>);
 impl DataSource for Source {
     fn snapshot(&self) -> anyhow::Result<Snapshot> {
         Ok(self.0.lock().expect("快照").clone())
     }
+    fn operation_receipt(&self, _epoch: &str, operation: &str) -> anyhow::Result<Option<Value>> {
+        Ok(self.1.clone().filter(|r| r["operation_id"] == operation))
+    }
 }
 fn fixture() -> (ConnectorTools, Authenticated, Arc<Mutex<Snapshot>>) {
+    fixture_with_receipt(None)
+}
+fn fixture_with_receipt(
+    receipt: Option<Value>,
+) -> (ConnectorTools, Authenticated, Arc<Mutex<Snapshot>>) {
     let auth =
         Arc::new(Auth::load(Arc::new(Credentials::default()), Arc::new(Fixed)).expect("鉴权"));
     let token = auth.generate().expect("凭据");
@@ -95,7 +103,7 @@ fn fixture() -> (ConnectorTools, Authenticated, Arc<Mutex<Snapshot>>) {
         tasks,
     }));
     (
-        ConnectorTools::new(auth, signer, Arc::new(Source(snapshot.clone()))),
+        ConnectorTools::new(auth, signer, Arc::new(Source(snapshot.clone(), receipt))),
         identity,
         snapshot,
     )
@@ -314,4 +322,42 @@ fn progress_times_and_events_are_bounded_without_inventing_unknown_dates() {
         Value::Null,
         "无定义时间不使用区域时刻"
     );
+}
+
+/// 场景：取消 operation_id 对应账本 succeeded，但目标任务仍有真实取消状态。
+/// 构造：取消回执关联 old-running，任务保留原派工 operation_id；执行两种状态的进度查询。
+/// 预期：返回目标 task_id、cancel_requested/cancelled 和真实时间，绝不返回账本 succeeded。
+#[test]
+fn cancel_operation_progress_resolves_target_task_state() {
+    let (tools, identity, snapshot) = fixture_with_receipt(Some(json!({
+        "operation_id":"cancel-op", "task_id":"old-running", "state":"succeeded"
+    })));
+    for state in ["cancel_requested", "cancelled"] {
+        {
+            let mut data = snapshot.lock().expect("任务快照");
+            data.tasks[1].operation_id = Some("dispatch-op".into());
+            data.tasks[1].state = state.into();
+        }
+        let progress = call(
+            &tools,
+            &identity,
+            "get_task_progress",
+            json!({"operation_id":"cancel-op"}),
+        );
+        assert_eq!(progress["task_id"], "old-running", "取消回执指向目标任务");
+        assert_eq!(progress["state"], state, "真实任务取消状态");
+        assert_ne!(progress["state"], "succeeded", "不暴露账本执行状态");
+        assert_eq!(progress["created_at"], 900_000, "目标原创建时间");
+        assert_eq!(progress["tracking"], "tracked", "目标跟踪信息保留");
+        assert_eq!(
+            call(
+                &tools,
+                &identity,
+                "get_task_progress",
+                json!({"operation_id":"dispatch-op"})
+            )["state"],
+            state,
+            "原派工操作关联保持"
+        );
+    }
 }

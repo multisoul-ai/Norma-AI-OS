@@ -70,6 +70,10 @@ fn connector_four_writes_share_adapter_and_durable_receipts() {
         json!({"operation_id":"cancel-1","task_id":created["task_id"]}),
     );
     assert_eq!(cancel["state"], "cancelled", "取消未提交任务");
+    let queried = f.call("get_task_progress", json!({"operation_id":"cancel-1"}));
+    assert_eq!(queried["state"], "cancelled", "取消操作查询真实任务状态");
+    assert_eq!(queried["task_id"], created["task_id"], "关联目标任务");
+    assert_ne!(queried["state"], "succeeded", "不是账本状态");
     let again = f.call(
         "cancel_task",
         json!({"operation_id":"cancel-1","task_id":created["task_id"]}),

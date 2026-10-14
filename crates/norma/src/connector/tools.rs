@@ -185,8 +185,22 @@ impl ConnectorTools {
                     .source
                     .snapshot_for(identity.client_epoch())
                     .map_err(|_| "internal")?;
+                let operation_receipt = args
+                    .operation_id
+                    .as_deref()
+                    .map(|operation| {
+                        self.source
+                            .operation_receipt(identity.client_epoch(), operation)
+                            .map_err(|_| "internal")
+                    })
+                    .transpose()?
+                    .flatten();
+                let receipt_task_id = operation_receipt
+                    .as_ref()
+                    .and_then(|r| r["task_id"].as_str());
                 let found = snapshot.tasks.into_iter().find(|t| {
                     args.task_id.as_ref().is_some_and(|id| id == &t.task_id)
+                        || receipt_task_id.is_some_and(|id| id == t.task_id)
                         || args
                             .operation_id
                             .as_ref()
@@ -195,17 +209,9 @@ impl ConnectorTools {
                 let mut task = match found {
                     Some(task) => task,
                     None => {
-                        return args
-                            .operation_id
-                            .as_deref()
-                            .map(|operation| {
-                                self.source
-                                    .operation_receipt(identity.client_epoch(), operation)
-                                    .map_err(|_| "internal")
-                            })
-                            .transpose()?
-                            .flatten()
-                            .ok_or("task_not_found")
+                        return operation_receipt
+                            .filter(|receipt| receipt["state"] == "outcome_unknown")
+                            .ok_or("task_not_found");
                     }
                 };
                 task.events

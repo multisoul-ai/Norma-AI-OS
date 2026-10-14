@@ -129,6 +129,11 @@ fn connector_cancel_waiting_approval_does_not_decide_it() {
         result["state"], "cancel_requested",
         "中断请求不伪造Provider已关闭"
     );
+    assert_eq!(
+        f.call("get_task_progress", json!({"operation_id":"cancel"}))["state"],
+        "cancel_requested",
+        "取消操作查询真实在途取消状态"
+    );
     f.test.update(|cx| {
         f.sessions[0].update(cx, |app, _| {
             let task = app
