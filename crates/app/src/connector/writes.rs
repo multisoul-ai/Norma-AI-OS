@@ -208,7 +208,13 @@ fn receipt(
             json!({"operation_id":operation,"card_id":a.card_id,"reply_id":executed.receipt.reply_id.ok_or("outcome_unknown")?.to_string(),"reply_status":executed.receipt.reply_status.ok_or("outcome_unknown")?,"replayed":false}),
         ),
         WriteRequest::Cancel(a) => {
-            let terminal = executed.receipt.reply_status;
+            let terminal = executed.receipt.reply_status.map(|state| {
+                if state == "succeeded" {
+                    "done".into()
+                } else {
+                    state
+                }
+            });
             Ok(
                 json!({"operation_id":operation,"task_id":a.task_id,"state":if terminal.is_some(){"already_terminal"}else if executed.receipt.status == "succeeded"{"cancelled"}else{"cancel_requested"},"terminal_state":terminal,"requested_at":now,"replayed":false}),
             )
