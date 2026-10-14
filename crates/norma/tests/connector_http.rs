@@ -29,6 +29,7 @@ async fn host() -> (ConnectorServer, Arc<Auth>, Arc<Credentials>, String) {
         ConnectorConfig {
             enabled: true,
             port: 0,
+            tunnel_authority: None,
         },
         auth.clone(),
         tools,
@@ -47,7 +48,7 @@ fn parsed(body: &str) -> Value {
     })
 }
 /// 场景：关闭默认服务后开启隔离端口，执行缺失/错误令牌、Host 和无关路径请求。
-/// 预期：关闭无监听、仅 IPv4 回环监听、失败 401 且各一条审计，不发 CORS 头。
+/// 预期：关闭无监听、仅 IPv4 回环监听、失败 401 且同IP窗口合并审计，不发 CORS 头。
 #[tokio::test]
 async fn off_loopback_auth_host_and_body_limit() {
     let (server, auth, store, token) = host().await;
@@ -84,8 +85,8 @@ async fn off_loopback_auth_host_and_body_limit() {
     }
     assert_eq!(
         store.audit.lock().expect("审计").len(),
-        2,
-        "两次鉴权失败各记录一次"
+        1,
+        "两次鉴权失败合并为同IP窗口审计"
     );
     let response = client
         .post(&url)
@@ -305,6 +306,7 @@ async fn port_change_restarts_without_revoking_credentials() {
         ConnectorConfig {
             enabled: true,
             port,
+            tunnel_authority: None,
         },
         auth.clone(),
         tools.clone(),
@@ -326,7 +328,8 @@ async fn port_change_restarts_without_revoking_credentials() {
         ConnectorServer::start(
             ConnectorConfig {
                 enabled: true,
-                port
+                port,
+                tunnel_authority: None,
             },
             auth.clone(),
             tools

@@ -25,10 +25,28 @@ impl Render for Controller {
                 cx.new(|cx| InputState::new(window, cx).default_value(self.config.port.to_string()))
             })
             .clone();
+        let tunnel_input = self
+            .tunnel
+            .get_or_insert_with(|| {
+                cx.new(|cx| {
+                    InputState::new(window, cx).default_value(
+                        self.config
+                            .tunnel_authority
+                            .as_ref()
+                            .map(ToString::to_string)
+                            .unwrap_or_default(),
+                    )
+                })
+            })
+            .clone();
         let status = if self.busy {
             "正在处理…"
         } else if self.listening {
-            "已开启，仅限本机访问"
+            if self.config.tunnel_authority.is_some() {
+                "已开启，允许隧道访问"
+            } else {
+                "已开启，仅限本机访问"
+            }
         } else {
             "已关闭"
         };
@@ -46,6 +64,19 @@ impl Render for Controller {
                         }
                     }))))
                 .child(div().settings_text(TextRole::Helper,theme).child("需同步修改隧道配置")))
+            .child(section(theme,"隧道地址（可选）").child(div().flex().items_center().gap(px(10.0))
+                .child(Input::new(&tunnel_input).flex_1().disabled(self.busy))
+                .child(Button::new("connector-tunnel-save").child(control_label("保存地址")).outline().disabled(self.busy)
+                    .on_click(cx.listener(move |host,_,_,cx| {
+                        let value = tunnel_input.read(cx).value();
+                        let value = value.trim();
+                        let authority = if value.is_empty() { Ok(None) } else { value.parse::<workspace::HostAuthority>().map(Some) };
+                        match authority {
+                            Ok(authority)=>host.request(Command::TunnelAuthority(authority),cx),
+                            Err(error)=>{host.error=Some(error.into());cx.notify();}
+                        }
+                    }))))
+                .child(div().settings_text(TextRole::Helper,theme).child("填写 Tailscale Funnel 的主机名，可附端口；留空恢复仅本机访问。保存后立即生效。")))
             .child(section(theme,"连接令牌").child(div().flex().gap(px(10.0))
                 .child(action(cx,"connector-generate","生成连接令牌",self.busy,Command::Generate))
                 .child(action(cx,"connector-revoke","立即吊销",self.busy || self.expiries.is_empty(),Command::Revoke).danger()))
@@ -70,7 +101,7 @@ impl Render for Controller {
         }
         if self.locked_until > now {
             body = body.child(div().text_color(rgba(theme.destructive)).child(format!(
-                "连续鉴权失败，暂时封锁；{} 秒后可重试。",
+                "部分来源 IP 鉴权失败过多，剩余封锁最长 {} 秒；有效令牌仍可使用。",
                 self.locked_until - now
             )));
         }
@@ -84,10 +115,11 @@ impl Render for Controller {
         let mut audit = section(theme, "最近审计（保留 90 天）");
         for row in &self.audit {
             audit = audit.child(div().settings_text(TextRole::Helper, theme).child(format!(
-                "{} 秒前  {}  {}",
+                "{} 秒前  {}  {}（{} 次）",
                 (now - row.occurred_at).max(0),
                 row.tool,
-                row.result_code
+                row.result_code,
+                row.failure_count
             )));
         }
         body.child(audit)
@@ -121,7 +153,7 @@ fn action(
         .child(control_label(title.to_owned()))
         .outline()
         .disabled(busy)
-        .on_click(cx.listener(move |host, _, _, cx| host.request(command, cx)))
+        .on_click(cx.listener(move |host, _, _, cx| host.request(command.clone(), cx)))
 }
 pub(super) fn show_token(token: String, cx: &mut App) {
     let Some(window) = cx.active_window() else {

@@ -6,13 +6,14 @@ use norma::connector::{
 use std::{path::PathBuf, sync::Arc};
 use storage::connector_store::{ConnectorAudit, ConnectorStore};
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub(super) enum Command {
     Enable,
     Disable,
     Generate,
     Revoke,
     Port(u16),
+    TunnelAuthority(Option<workspace::HostAuthority>),
     Reload,
     Shutdown,
 }
@@ -94,6 +95,7 @@ async fn run(
             ConnectorConfig {
                 enabled: true,
                 port: config.port,
+                tunnel_authority: config.tunnel_authority.clone(),
             },
             auth.clone(),
             tools.clone(),
@@ -132,6 +134,7 @@ async fn run(
                         ConnectorConfig {
                             enabled: true,
                             port: config.port,
+                            tunnel_authority: config.tunnel_authority.clone(),
                         },
                         auth.clone(),
                         tools.clone(),
@@ -182,6 +185,7 @@ async fn run(
                             ConnectorConfig {
                                 enabled: true,
                                 port,
+                                tunnel_authority: config.tunnel_authority.clone(),
                             },
                             auth.clone(),
                             tools.clone(),
@@ -196,6 +200,40 @@ async fn run(
                         }
                     } else {
                         saved
+                    }
+                }
+            }
+            Command::TunnelAuthority(authority) => {
+                let mut next = config.clone();
+                next.tunnel_authority = authority;
+                match store.save_config(&next) {
+                    Err(error) => Err(error.into()),
+                    Ok(()) => {
+                        if let Some(old) = server.take() {
+                            old.stop().await;
+                        }
+                        config = next;
+                        if config.enabled {
+                            match ConnectorServer::start(
+                                ConnectorConfig {
+                                    enabled: true,
+                                    port: config.port,
+                                    tunnel_authority: config.tunnel_authority.clone(),
+                                },
+                                auth.clone(),
+                                tools.clone(),
+                            )
+                            .await
+                            {
+                                Ok(started) => {
+                                    server = started;
+                                    Ok(())
+                                }
+                                Err(error) => Err(error.into()),
+                            }
+                        } else {
+                            Ok(())
+                        }
                     }
                 }
             }

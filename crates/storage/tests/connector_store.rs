@@ -130,6 +130,7 @@ fn catalog_uses_stable_per_area_canvas_and_does_not_initialize_missing_files() {
     let config = storage::connector_store::ConnectorConfig {
         enabled: true,
         port: 47616,
+        tunnel_authority: None,
     };
     let store = ConnectorStore::new(paths.app_db_path().to_owned());
     store.save_config(&config).expect("设置端口");
@@ -227,4 +228,83 @@ fn legacy_unbound_agent_remains_visible_without_definition_database() {
     let cards = &result[0].areas[0].members;
     assert_eq!(cards.len(), 1, "未绑定定义的Agent卡片不能丢失");
     assert_eq!(cards[0].name, "Legacy", "保留旧卡片可读名称");
+}
+
+/// 场景：旧配置没有隧道字段；新配置允许hostname[:port]并通过重开持久化。
+/// 构造：直接反序列化旧JSON和恶意URL/通配符/越界端口，再保存合法ts.net主机。
+/// 预期：旧配置为空，合法配置往返一致；所有非authority输入在保存前拒绝。
+#[test]
+fn tunnel_authority_validates_and_round_trips_without_breaking_old_config() {
+    use storage::connector_store::ConnectorConfig;
+    let old: ConnectorConfig =
+        serde_json::from_str(r#"{"enabled":true,"port":47615}"#).expect("旧配置");
+    assert!(old.tunnel_authority.is_none(), "旧配置默认无隧道");
+    for value in [
+        "https://host.ts.net",
+        "host.ts.net/mcp",
+        "*.ts.net",
+        "user@host.ts.net",
+        "host:0",
+        "host:65536",
+        "host:",
+        "bad_host",
+        "-host",
+        "host..ts.net",
+        "host\r\n",
+        "",
+    ] {
+        assert!(
+            serde_json::from_value::<ConnectorConfig>(
+                serde_json::json!({"tunnel_authority":value})
+            )
+            .is_err(),
+            "拒绝非法authority: {value:?}"
+        );
+    }
+    let dir = tempfile::tempdir().expect("目录");
+    let store = ConnectorStore::new(dir.path().join("app.sqlite"));
+    for value in [
+        "alanmacbook-pro.tailnet.ts.net",
+        "alanmacbook-pro.tailnet.ts.net:8443",
+    ] {
+        let config: ConnectorConfig =
+            serde_json::from_value(serde_json::json!({"tunnel_authority":value}))
+                .expect("合法主机");
+        store.save_config(&config).expect("保存");
+        assert_eq!(store.config().expect("重开"), config, "主机和端口精确保留");
+    }
+}
+
+/// 场景：同一IP窗口内110次失败，然后另一个IP和同IP新窗口失败。
+/// 执行：调用专用失败审计接口并通过audit_page读取；预期同窗口1行计数110，其他窗口独立。
+#[test]
+fn authentication_flood_updates_one_audit_row_per_source_window() {
+    let dir = tempfile::tempdir().expect("目录");
+    let store = ConnectorStore::new(dir.path().join("app.sqlite"));
+    for count in 1..=110 {
+        store
+            .audit_auth_failure(
+                100,
+                "198.51.100.1",
+                100,
+                count,
+                if count >= 10 { 1000 } else { 0 },
+            )
+            .expect("审计");
+    }
+    let page = store.audit_page(50).expect("审计页");
+    assert_eq!(page.len(), 1, "锁定洪水只保留一行");
+    assert_eq!(page[0].failure_count, 110, "合并计数不丢失");
+    assert_eq!(page[0].result_code, "unauthorized", "不存令牌和请求参数");
+    store
+        .audit_auth_failure(100, "198.51.100.2", 100, 1, 0)
+        .expect("其他IP");
+    store
+        .audit_auth_failure(1000, "198.51.100.1", 1000, 1, 0)
+        .expect("新窗口");
+    assert_eq!(
+        store.audit_page(50).expect("审计页").len(),
+        3,
+        "各IP和窗口独立"
+    );
 }

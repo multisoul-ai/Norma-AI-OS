@@ -4713,6 +4713,7 @@ dependencies = [
  "tower",
  "tungstenite",
  "url",
+ "workspace",
 ]
 
 [[package]]

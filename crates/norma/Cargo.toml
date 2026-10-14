@@ -17,6 +17,7 @@ name = "multisoul-agent-hook"
 path = "src/bin/multisoul_agent_hook.rs"
 
 [dependencies]
+workspace.workspace = true
 mobile_pairing = { path = "../mobile_pairing" }
 anyhow.workspace = true
 clap.workspace = true

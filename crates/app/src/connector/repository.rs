@@ -33,6 +33,18 @@ impl CredentialStore for Credentials {
         )?;
         Ok(())
     }
+    fn audit_auth_failure(
+        &self,
+        now: i64,
+        source: std::net::IpAddr,
+        window_start: i64,
+        count: u64,
+        locked_until: i64,
+    ) -> anyhow::Result<()> {
+        self.0
+            .audit_auth_failure(now, &source.to_string(), window_start, count, locked_until)?;
+        Ok(())
+    }
     fn audit(&self, now: i64, tool: &str, parameters: &str, result: &str) -> anyhow::Result<()> {
         self.0.audit_parameters(now, tool, parameters, result)?;
         Ok(())

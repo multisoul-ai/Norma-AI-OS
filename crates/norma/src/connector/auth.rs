@@ -4,6 +4,7 @@ use ring::rand::{SecureRandom, SystemRandom};
 use sha2::{Digest, Sha256};
 use std::{
     collections::HashMap,
+    net::{IpAddr, Ipv4Addr},
     sync::{Arc, Mutex},
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -15,6 +16,14 @@ pub struct TokenHash {
 pub trait CredentialStore: Send + Sync {
     fn tokens(&self) -> anyhow::Result<Vec<TokenHash>>;
     fn replace_tokens(&self, tokens: &[TokenHash]) -> anyhow::Result<()>;
+    fn audit_auth_failure(
+        &self,
+        now: i64,
+        source: IpAddr,
+        window_start: i64,
+        count: u64,
+        locked_until: i64,
+    ) -> anyhow::Result<()>;
     fn audit(&self, now: i64, tool: &str, parameters: &str, result: &str) -> anyhow::Result<()>;
 }
 use subtle::ConstantTimeEq;
@@ -34,10 +43,15 @@ impl Clock for SystemClock {
 }
 #[derive(Clone)]
 pub struct Authenticated(pub(crate) [u8; 32]);
+struct FailureWindow {
+    started: i64,
+    count: u64,
+    locked_until: i64,
+}
+const FAILURE_WINDOW: i64 = 15 * 60;
 struct State {
     tokens: Vec<TokenHash>,
-    failures: u8,
-    locked_until: i64,
+    failures: HashMap<IpAddr, FailureWindow>,
     reads: HashMap<[u8; 32], (i64, u32)>,
     sessions: CancellationToken,
 }
@@ -75,8 +89,7 @@ impl Auth {
             clock,
             state: Mutex::new(State {
                 tokens: valid,
-                failures: 0,
-                locked_until: 0,
+                failures: HashMap::new(),
                 reads: HashMap::new(),
                 sessions: CancellationToken::new(),
             }),
@@ -149,14 +162,37 @@ impl Auth {
             .collect()
     }
     pub fn locked_until(&self) -> i64 {
-        self.state.lock().expect("auth lock").locked_until
+        self.state
+            .lock()
+            .expect("auth lock")
+            .failures
+            .values()
+            .map(|window| window.locked_until)
+            .filter(|until| *until > self.now())
+            .max()
+            .unwrap_or(0)
+    }
+    pub fn locked_until_for(&self, source: IpAddr) -> i64 {
+        self.state
+            .lock()
+            .expect("auth lock")
+            .failures
+            .get(&source)
+            .map(|window| window.locked_until)
+            .filter(|until| *until > self.now())
+            .unwrap_or(0)
     }
     pub fn authenticate(&self, token: Option<&str>) -> Result<Authenticated, &'static str> {
+        self.authenticate_from(Ipv4Addr::LOCALHOST.into(), token)
+    }
+    /// Background-only. Valid credentials bypass source lockout and do not reset its window.
+    pub fn authenticate_from(
+        &self,
+        source: IpAddr,
+        token: Option<&str>,
+    ) -> Result<Authenticated, &'static str> {
         let mut state = self.state.lock().map_err(|_| "internal")?;
         let now = self.now();
-        if now < state.locked_until {
-            return Err("unauthorized");
-        }
         let digest: [u8; 32] = Sha256::digest(token.unwrap_or("").as_bytes()).into();
         let mut accepted = false;
         for known in &state.tokens {
@@ -164,25 +200,39 @@ impl Auth {
                 bool::from(known.hash.ct_eq(&digest)) && known.expires_at.is_none_or(|t| t > now);
         }
         if token.is_some() && accepted {
-            state.failures = 0;
-            Ok(Authenticated(digest))
-        } else {
-            state.failures += 1;
-            if state.failures >= 10 {
-                state.locked_until = now + 900;
-                state.failures = 0;
-            }
-            Err("unauthorized")
+            return Ok(Authenticated(digest));
         }
+        state
+            .failures
+            .retain(|_, window| now < window.started + FAILURE_WINDOW || now < window.locked_until);
+        let window = state.failures.entry(source).or_insert(FailureWindow {
+            started: now,
+            count: 0,
+            locked_until: 0,
+        });
+        window.count = window.count.saturating_add(1);
+        if now >= window.locked_until && window.count >= 10 {
+            window.locked_until = now + FAILURE_WINDOW;
+        }
+        self.store
+            .audit_auth_failure(
+                now,
+                source,
+                window.started,
+                window.count,
+                window.locked_until,
+            )
+            .map_err(|_| "internal")?;
+        Err("unauthorized")
     }
     /// Recheck under the same lock as revocation and rate accounting; sessions cannot cache auth.
     pub fn read(&self, identity: &Authenticated) -> Result<(), (&'static str, Option<i64>)> {
         let mut state = self.state.lock().map_err(|_| ("internal", None))?;
         let now = self.now();
-        if now < state.locked_until
-            || !state.tokens.iter().any(|t| {
-                bool::from(t.hash.ct_eq(&identity.0)) && t.expires_at.is_none_or(|e| e > now)
-            })
+        if !state
+            .tokens
+            .iter()
+            .any(|t| bool::from(t.hash.ct_eq(&identity.0)) && t.expires_at.is_none_or(|e| e > now))
         {
             return Err(("unauthorized", None));
         }

@@ -1,5 +1,7 @@
 # Grok Bot 作为 Norma 调度员：本机 MCP 连接器、派工与通知
 
+> 2026-10-14 P3 传输决策补充：P3 使用 **Tailscale Funnel**。本文 Cloudflare 段落保留为历史方案，不代表当前隧道选择；本次只加固 P2 connector，不实现隧道安装、登录或部署。设置可保存 `tunnel_authority`（hostname[:port]），与本机 authorities 共用 Host / Origin 白名单。Funnel 请求仅在 TCP peer 为回环、Host 等于配置 authority、`Tailscale-Funnel-Request: ?1` 且 `X-Forwarded-For` 为单个合法 IP 时按转发 IP 计数。这里信任本机代理路径；本机其他进程仍能伪造完整头组，代理头不替代 Bearer Token。来源协议依据 [Serve 身份头说明](https://tailscale.com/kb/1312/serve)、[Funnel 说明](https://tailscale.com/kb/1223/funnel) 和 [tailscaled 源码](https://github.com/tailscale/tailscale/blob/a6a4c25c26e9d2320ad3db3d8611ee22922fe6af/ipn/ipnlocal/serve.go#L1088)。实际安装版本与真实 Funnel 链路待 P3 验收。
+
 状态：实现规格（P1），按 2026-10-13 yakami 拍板写入，待工程拆分 · 2026-10-13。代码事实基于 origin/dev `83590301`。本文只定义规格，不改代码；后续 P2–P5 每期一个 PR。
 
 ## 0. 已拍板的决定
@@ -212,7 +214,7 @@ Norma App 进程
    - 存储：macOS 钥匙串（service `ai.multisoul.norma.connector`），本地只存 `sha256(token)` 用于常数时间比较；不写日志、不写 SQLite、不进仓库或 E2E 夹具。
    - 轮换：生成新 Token 后旧 Token 继续可用 24 小时宽限期，期满失效（Q9）；设置页显示两者状态。
    - 吊销：「立即吊销」立即生效（无宽限），删除钥匙串项并断开所有 MCP 会话；关闭连接器开关等同全部吊销。
-4. **限流**：每 Token 读 60 次/分钟，写 10 次/分钟，`resolve_approval` commit 5 次/分钟；连续 10 次鉴权失败 → 封锁 15 分钟并在设置页提示。
+4. **限流**：每 Token 读 60 次/分钟，写 10 次/分钟，`resolve_approval` commit 5 次/分钟；每来源 IP 在固定 15 分钟窗口内 10 次鉴权失败 → 该 IP 封锁 15 分钟并在设置页提示；有效令牌与已授权读取始终豁免。失败审计按 IP 与窗口合并计数，锁定期间洪水不逐请求新增行。
 5. **审计日志**（新表 `connector_audit`）：时间、工具、参数摘要（任务正文只存哈希 + 前 80 字）、`operation_id`、结果码、`user_quote`（审批）。保存 90 天；设置页可查看。
 6. **Grok Bot 永远不能做的事**：写终端原始输入 / 按键；读写文件、读终端全文；创建、删除、改名卡片或工作空间；传 `force_untracked`；会话级或永久放行审批；无 nonce 批准；修改连接器设置、Token、webhook URL；访问手机配对 / `MobileDeviceGrant`；触发 Norma 自主路由。
 7. **未知字段**：所有输入 `deny_unknown_fields`（与 `MobileCommandRequest` 一致）。
@@ -246,7 +248,7 @@ Norma App 进程
 - AC-09 `directory` 返回所有工作空间、项目、卡片；未加载区域卡片 `state=unloaded`，调用前后无新 PTY 启动。
 - AC-10 两张同名卡片 → 两者 `role_name_unique=false`，`card_id` 不同；同一目录两个画布中 `node_id` 相同的卡片，`card_id` 也不同。
 - AC-11 `list_tasks` 默认含全部未终态任务与 24 h 内终态；分页游标稳定。
-- AC-12 超过读限流 → `rate_limited` 含 `retry_after_s`；连续 10 次鉴权失败触发 15 分钟封锁。
+- AC-12 超过读限流 → `rate_limited` 含 `retry_after_s`；每来源 IP 在 15 分钟窗口内 10 次鉴权失败触发该 IP 的 15 分钟封锁；有效 Token 始终可用，其他 IP 预算独立，同 IP 窗口审计合并计数。
 - AC-13 命名隧道域名稳定，App 重启 / 隧道重启后 URL 不变。
 - AC-14 通过隧道访问非 `/mcp` 路径 → 404。
 - AC-15 Grok Bot 自定义连接器能列出工具并调用 `directory`。

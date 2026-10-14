@@ -5,7 +5,7 @@ use axum::{
     http::{Request, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Response},
-    Router,
+    Extension, Router,
 };
 use hyper::server::conn::http1;
 use hyper_util::{
@@ -16,7 +16,7 @@ use rmcp::transport::streamable_http_server::{
     session::local::LocalSessionManager, StreamableHttpServerConfig, StreamableHttpService,
 };
 use std::{
-    net::{Ipv4Addr, SocketAddr},
+    net::{IpAddr, Ipv4Addr, SocketAddr},
     sync::Arc,
     time::Duration,
 };
@@ -50,7 +50,15 @@ impl ConnectorServer {
         let stop = CancellationToken::new();
         let shutdown = stop.clone();
         let task = tokio::spawn(async move {
-            serve(listener, address.port(), auth, tools, shutdown).await;
+            serve(
+                listener,
+                address.port(),
+                config.tunnel_authority,
+                auth,
+                tools,
+                shutdown,
+            )
+            .await;
         });
         Ok(Some(Self {
             address,
@@ -80,29 +88,77 @@ impl Drop for ConnectorServer {
 struct Gate {
     auth: Arc<Auth>,
     port: u16,
-    // P3 can explicitly supply an authority here. No public wildcard or tunnel setup in P2.
-    tunnel_authority: Option<String>,
+    tunnel_authority: Option<workspace::HostAuthority>,
 }
 impl Gate {
-    fn authorities(&self) -> Vec<String> {
-        let mut hosts = vec![
-            format!("127.0.0.1:{}", self.port),
-            format!("localhost:{}", self.port),
+    fn endpoints(&self) -> Vec<(String, &'static str)> {
+        let mut endpoints = vec![
+            (format!("127.0.0.1:{}", self.port), "http"),
+            (format!("localhost:{}", self.port), "http"),
         ];
         if let Some(tunnel) = &self.tunnel_authority {
-            hosts.push(tunnel.clone());
+            endpoints.push((tunnel.to_string(), "https"));
         }
-        hosts
+        endpoints
+    }
+    fn authorities(&self) -> Vec<String> {
+        self.endpoints()
+            .into_iter()
+            .map(|(authority, _)| authority)
+            .collect()
+    }
+    fn origins(&self) -> Vec<String> {
+        self.endpoints()
+            .into_iter()
+            .map(|(authority, scheme)| {
+                // rmcp treats an unspecified Origin port as any port; pin HTTPS default.
+                let authority = if authority.contains(':') {
+                    authority
+                } else {
+                    format!("{authority}:443")
+                };
+                format!("{scheme}://{authority}")
+            })
+            .collect()
     }
     fn allows_host(&self, value: &str) -> bool {
-        self.authorities().iter().any(|host| host == value)
+        self.authorities()
+            .iter()
+            .any(|host| host.eq_ignore_ascii_case(value))
     }
+}
+fn source_ip(
+    peer: IpAddr,
+    host: &str,
+    headers: &axum::http::HeaderMap,
+    tunnel: Option<&workspace::HostAuthority>,
+) -> IpAddr {
+    // tailscaled overwrites XFF with one IP, strips the incoming marker and sets ?1.
+    // Trust only this explicit loopback proxy route, never an arbitrary forwarded chain.
+    if peer.is_loopback()
+        && tunnel.is_some_and(|t| t.as_str().eq_ignore_ascii_case(host))
+        && single_header(headers, "tailscale-funnel-request") == Some("?1")
+    {
+        if let Some(ip) = single_header(headers, "x-forwarded-for").and_then(|v| v.parse().ok()) {
+            return ip;
+        }
+    }
+    peer
+}
+fn single_header<'a>(headers: &'a axum::http::HeaderMap, name: &str) -> Option<&'a str> {
+    let mut values = headers.get_all(name).iter();
+    let value = values.next()?.to_str().ok()?;
+    if values.next().is_some() {
+        return None;
+    }
+    Some(value)
 }
 fn router(gate: Gate, tools: ConnectorTools, sessions: CancellationToken) -> Router {
     let config = StreamableHttpServerConfig::default()
         .with_cancellation_token(sessions)
         .with_max_request_body_bytes(BODY_LIMIT)
         .with_allowed_hosts(gate.authorities())
+        .with_allowed_origins(gate.origins())
         .enforce_origin_validation();
     let service = StreamableHttpService::new(
         move || Ok(tools.clone()),
@@ -131,6 +187,15 @@ async fn authorize(
     {
         return StatusCode::FORBIDDEN.into_response();
     }
+    let Some(peer) = request.extensions().get::<SocketAddr>() else {
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    };
+    let source = source_ip(
+        peer.ip(),
+        single_header(request.headers(), "host").expect("validated Host"),
+        request.headers(),
+        gate.tunnel_authority.as_ref(),
+    );
     let token = request
         .headers()
         .get("authorization")
@@ -138,15 +203,8 @@ async fn authorize(
         .and_then(|v| v.strip_prefix("Bearer "))
         .map(str::to_owned);
     let auth = gate.auth.clone();
-    let identity = tokio::task::spawn_blocking(move || {
-        let result = auth.authenticate(token.as_deref());
-        if result.is_err() {
-            auth.audit("authentication", "unauthorized")
-                .map_err(|_| "internal")?;
-        }
-        result
-    })
-    .await;
+    let identity =
+        tokio::task::spawn_blocking(move || auth.authenticate_from(source, token.as_deref())).await;
     let identity = match identity {
         Ok(Ok(identity)) => identity,
         Ok(Err("unauthorized")) => return (StatusCode::UNAUTHORIZED, axum::Json(serde_json::json!({"error":{"code":"unauthorized","message":"连接令牌无效","retryable":false}}))).into_response(),
@@ -170,6 +228,7 @@ async fn authorize(
 async fn serve(
     listener: TcpListener,
     port: u16,
+    tunnel_authority: Option<workspace::HostAuthority>,
     auth: Arc<Auth>,
     tools: ConnectorTools,
     stop: CancellationToken,
@@ -182,7 +241,7 @@ async fn serve(
             Gate {
                 auth: auth.clone(),
                 port,
-                tunnel_authority: None,
+                tunnel_authority: tunnel_authority.clone(),
             },
             tools.clone(),
             sessions.clone(),
@@ -200,7 +259,7 @@ async fn serve(
                 } => {
                     let Ok((stream, peer, permit)) = accepted else { sessions.cancel(); return; };
                     if !peer.ip().is_loopback() { continue; }
-                    let router = router.clone();
+                    let router = router.clone().layer(Extension(peer));
                     let cancellation = sessions.clone();
                     connections.spawn(async move {
                         let _permit = permit;
@@ -215,3 +274,7 @@ async fn serve(
         while connections.join_next().await.is_some() {}
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/connector_forwarding.rs"]
+mod tests;

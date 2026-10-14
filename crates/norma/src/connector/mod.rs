@@ -16,12 +16,14 @@ pub use tools::{Card, ConnectorTools, DataSource, Project, Snapshot, Task, Works
 pub struct ConnectorConfig {
     pub enabled: bool,
     pub port: u16,
+    pub tunnel_authority: Option<workspace::HostAuthority>,
 }
 impl Default for ConnectorConfig {
     fn default() -> Self {
         Self {
             enabled: false,
             port: 47615,
+            tunnel_authority: None,
         }
     }
 }

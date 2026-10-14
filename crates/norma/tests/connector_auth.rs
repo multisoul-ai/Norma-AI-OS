@@ -68,18 +68,22 @@ fn read_limit_and_lockout_boundaries() {
     }
     assert!(
         auth.authenticate(Some(&token)).is_ok(),
-        "成功须重置连续失败数"
+        "成功允许且不会清除固定窗口的失败数"
     );
     for _ in 0..10 {
         assert!(auth.authenticate(Some("bad")).is_err(), "连续10次失败");
     }
     assert_eq!(auth.locked_until(), 1060, "160+15×60=1060封锁边界");
     assert!(
-        auth.authenticate(Some(&token)).is_err(),
-        "封锁期间正确令牌也不允许"
+        auth.authenticate(Some(&token)).is_ok(),
+        "封锁期间正确令牌始终允许"
     );
     clock.0.store(1059, Ordering::SeqCst);
-    assert!(auth.authenticate(Some(&token)).is_err(), "封锁最后一秒");
+    assert!(
+        auth.authenticate(Some(&token)).is_ok(),
+        "封锁最后一秒仍允许有效令牌"
+    );
+    assert!(auth.read(&identity).is_ok(), "失败洪水不能阻断已鉴权读取");
     clock.0.store(1060, Ordering::SeqCst);
     assert!(auth.authenticate(Some(&token)).is_ok(), "15分钟后解锁");
 }
@@ -101,6 +105,10 @@ fn keychain_plaintext_hash_only_store_and_restart() {
         URL_SAFE_NO_PAD.decode(encoded).expect("base64url").len(),
         32,
         "CSPRNG令牌32字节"
+    );
+    assert!(
+        URL_SAFE_NO_PAD.decode(encoded).expect("随机字节").len() * 8 >= 128,
+        "32字节×8=256位，达到128位熵要求；生成器使用ring CSPRNG"
     );
     let digest: [u8; 32] = Sha256::digest(token.as_bytes()).into();
     let account = format!("token-{}", hex::encode(digest));
@@ -127,4 +135,57 @@ fn keychain_plaintext_hash_only_store_and_restart() {
         keychain.get(&account).expect("钥匙串").is_none(),
         "吊销删除钥匙串明文"
     );
+}
+
+/// 场景：两个来源各自累计失败，固定窗口15×60=900秒；正确令牌穿过锁定。
+/// 构造：A在100秒失败9次、B失败1次；成功后A再失败1次，推进到999/1000秒。
+/// 预期：成功不重置失败窗口，A独立锁定900秒；B未锁定，旧窗口和锁定均可恢复。
+#[test]
+fn source_ip_windows_are_independent_and_valid_tokens_bypass_lockout() {
+    let clock = Arc::new(Time(AtomicI64::new(100)));
+    let auth = Auth::load(
+        Arc::new(Credentials::default()),
+        Arc::new(MemoryKeychain::default()),
+        clock.clone(),
+    )
+    .expect("鉴权");
+    let token = auth.generate().expect("令牌");
+    let a = "198.51.100.1".parse().expect("A IP");
+    let b = "198.51.100.2".parse().expect("B IP");
+    for _ in 0..9 {
+        assert!(auth.authenticate_from(a, Some("bad")).is_err(), "A失败");
+    }
+    assert!(auth.authenticate_from(b, None).is_err(), "B失败");
+    assert_eq!(auth.locked_until_for(a), 0, "9次未达到10次阈值");
+    let identity = auth.authenticate_from(a, Some(&token)).expect("A正确令牌");
+    assert!(auth.authenticate_from(a, None).is_err(), "A第10次失败");
+    assert_eq!(auth.locked_until_for(a), 1000, "100+900=1000，仅锁定A");
+    assert_eq!(auth.locked_until_for(b), 0, "B独立预算");
+    for _ in 0..100 {
+        assert!(auth.authenticate_from(a, None).is_err(), "锁定洪水拒绝");
+    }
+    assert!(
+        auth.authenticate_from(a, Some(&token)).is_ok(),
+        "锁定A仍可使用正确令牌"
+    );
+    assert!(
+        auth.authenticate_from(b, Some(&token)).is_ok(),
+        "其他IP洪水不影响B"
+    );
+    assert!(auth.read(&identity).is_ok(), "已授权读取继续工作");
+    clock.0.store(999, Ordering::SeqCst);
+    assert_eq!(auth.locked_until_for(a), 1000, "锁定最后一秒");
+    clock.0.store(1000, Ordering::SeqCst);
+    assert!(
+        auth.authenticate_from(a, None).is_err(),
+        "边界后开始新失败窗口"
+    );
+    assert_eq!(auth.locked_until_for(a), 0, "锁定恢复");
+    for _ in 0..8 {
+        assert!(
+            auth.authenticate_from(b, None).is_err(),
+            "B旧窗口失效后仅8次"
+        );
+    }
+    assert_eq!(auth.locked_until_for(b), 0, "B在新窗口未达阈值");
 }
