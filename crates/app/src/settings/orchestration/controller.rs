@@ -249,6 +249,23 @@ fn authorization_database_path(paths: &storage::DatabasePaths) -> PathBuf {
     paths.app_db_path().to_path_buf()
 }
 
+/// The bundled CLI and hook are installed under the same data root as the App database
+/// (`Norma OS` for production-data builds, `Norma OS Test` or an isolated root otherwise).
+fn install_paths_for_database(database_path: &std::path::Path) -> Result<InstallPaths, String> {
+    let paths = InstallPaths::for_current_process().map_err(|error| error.to_string())?;
+    Ok(managed_beside_database(paths, database_path))
+}
+
+pub(crate) fn managed_beside_database(
+    paths: InstallPaths,
+    database_path: &std::path::Path,
+) -> InstallPaths {
+    match database_path.parent() {
+        Some(root) => paths.with_managed_root(root.to_path_buf()),
+        None => paths,
+    }
+}
+
 pub(super) fn inspect_integrations(
     database_path: PathBuf,
     install_paths: Option<InstallPaths>,
@@ -261,7 +278,7 @@ pub(super) fn inspect_integrations(
 > {
     let paths = match install_paths {
         Some(paths) => paths,
-        None => InstallPaths::for_current_process().map_err(|error| error.to_string())?,
+        None => install_paths_for_database(&database_path)?,
     };
     let store = storage::OrchestrationAuthorizationStore::new(database_path);
     let mut registry = StorageAuthorizationRegistry::new(store);
@@ -289,7 +306,7 @@ fn perform_operation(
     provider: OrchestrationProvider,
     operation: OrchestrationOperation,
 ) -> Result<OrchestrationOperationResult, String> {
-    let paths = InstallPaths::for_current_process().map_err(|error| error.to_string())?;
+    let paths = install_paths_for_database(&database_path)?;
     let store = storage::OrchestrationAuthorizationStore::new(database_path);
     let mut registry = StorageAuthorizationRegistry::new(store);
     let installer = OrchestrationInstaller::new(paths, env!("CARGO_PKG_VERSION"));

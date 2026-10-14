@@ -141,3 +141,26 @@ fn installer_operation_error_is_written_to_tracing_log() {
         "failure(1) + success(0) 应只产生一条失败日志，成功结果不得误报"
     );
 }
+
+/// 本地 Test 构建（无 production-data）安装的 norma CLI 必须落在 `Norma OS Test/bin`，
+/// 生产构建仍为 `Norma OS/bin`；技能/Hook 等其他路径不受影响。
+#[test]
+fn bundled_cli_installs_beside_the_selected_app_database() {
+    let home = std::path::Path::new("/Users/tester");
+    let base = norma::orchestration::InstallPaths::for_home_and_bundle_bin(
+        home,
+        std::path::Path::new("/Applications/Norma.app/Contents/MacOS"),
+    );
+    let test = storage::DatabasePaths::local_test_for_home(home);
+    let paths = super::managed_beside_database(base.clone(), test.app_db_path());
+    assert_eq!(
+        paths.managed_cli_path(),
+        home.join("Library/Application Support/Norma OS Test/bin/norma")
+    );
+    assert_eq!(paths.claude_skill, base.claude_skill);
+    let production = storage::DatabasePaths::production_for_home(home);
+    assert_eq!(
+        super::managed_beside_database(base, production.app_db_path()).managed_cli_path(),
+        home.join("Library/Application Support/Norma OS/bin/norma")
+    );
+}

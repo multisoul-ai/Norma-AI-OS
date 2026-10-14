@@ -216,7 +216,18 @@ impl InstallPaths {
                 "current executable has no parent directory",
             )
         })?;
-        Ok(Self::for_home_and_bundle_bin(&home, bundle_bin))
+        let paths = Self::for_home_and_bundle_bin(&home, bundle_bin);
+        Ok(match installed_managed_root(bundle_bin) {
+            Some(root) => paths.with_managed_root(root),
+            None => paths,
+        })
+    }
+
+    /// Managed files live beside the App's database root, so local Test builds
+    /// never write into the production `Norma OS` directory.
+    pub fn with_managed_root(mut self, managed_root: PathBuf) -> Self {
+        self.managed_root = managed_root;
+        self
     }
 
     pub fn managed_cli_path(&self) -> PathBuf {
@@ -343,4 +354,12 @@ fn aggregate_status(components: &[&ComponentState]) -> AggregateStatus {
         return AggregateStatus::InstallFailed;
     }
     AggregateStatus::NeedsRepair
+}
+
+/// An installed CLI runs from `<managed_root>/bin/norma`; derive its root from that
+/// location so a Test install reads Test credentials. Bundle binaries are elsewhere.
+pub fn installed_managed_root(executable_dir: &std::path::Path) -> Option<PathBuf> {
+    (executable_dir.file_name()? == "bin")
+        .then(|| executable_dir.parent().map(std::path::Path::to_path_buf))
+        .flatten()
 }

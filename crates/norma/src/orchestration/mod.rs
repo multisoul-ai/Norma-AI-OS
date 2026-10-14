@@ -10,5 +10,6 @@ pub use installer::{
     OrchestrationReconcileReport,
 };
 pub use model::{
-    AggregateStatus, ComponentState, InstallPaths, OrchestrationProvider, ProviderIntegration,
+    installed_managed_root, AggregateStatus, ComponentState, InstallPaths, OrchestrationProvider,
+    ProviderIntegration,
 };
