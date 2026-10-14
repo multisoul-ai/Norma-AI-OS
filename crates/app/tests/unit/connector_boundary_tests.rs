@@ -246,3 +246,18 @@ fn connector_cancel_submitted_queue_redacts_adapter_rejection() {
         .expect("取消审计");
     assert!(summary.contains("CLI"), "原拒绝仅留在审计证据");
 }
+
+/// 场景：目标快照预检跨过一个unix秒边界，回执必须取之后的预留时刻。
+/// 构造：临时项目，首次capture暂停到下一秒；执行建卡并比较已观测预检时刻。
+/// 预期：created_at晚于预检暂停时刻，而非沿用请求进入工具时的时间。
+#[test]
+fn connector_receipt_timestamp_is_taken_after_target_preflight() {
+    let mut f = Fixture::new();
+    f.pause_next_snapshot = true;
+    let result = f.create("after-preflight", 0, None);
+    assert_eq!(result["state"], "loaded", "完整建卡成功");
+    assert!(
+        result["created_at"].as_i64().expect("unix秒") > f.paused_at.expect("预检暂停时间"),
+        "预留发生在目标预检之后"
+    );
+}

@@ -14,6 +14,8 @@ pub(super) struct Fixture {
     pub requests: async_channel::Receiver<repository::LiveRequest>,
     pub host: Entity<MultisoulApp>,
     pub sessions: Vec<Entity<MultisoulApp>>,
+    pub pause_next_snapshot: bool,
+    pub paused_at: Option<i64>,
     pub workspace: String,
     pub areas: Vec<String>,
     pub _guard: tempfile::TempDir,
@@ -103,6 +105,8 @@ impl Fixture {
             requests,
             host,
             sessions,
+            pause_next_snapshot: false,
+            paused_at: None,
             workspace: workspace.id,
             areas: areas.into_iter().map(|a| a.id).collect(),
             _guard: guard,
@@ -122,6 +126,14 @@ impl Fixture {
         while !thread.is_finished() {
             assert!(std::time::Instant::now() < deadline, "后台调用不能死锁");
             if let Ok(request) = self.requests.try_recv() {
+                if self.pause_next_snapshot && request.execute.is_none() {
+                    let at = self.auth.now();
+                    self.paused_at = Some(at);
+                    while self.auth.now() == at {
+                        std::thread::sleep(Duration::from_millis(1));
+                    }
+                    self.pause_next_snapshot = false;
+                }
                 self.test.update(|cx| {
                     live::capture(&self.repo.database, request, &self.repo.signer, cx)
                 });
