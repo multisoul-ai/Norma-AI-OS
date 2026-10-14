@@ -145,3 +145,7 @@ mod boundary_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/connector_time_tests.rs"]
 mod time_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/connector_reply_hook_tests.rs"]
+mod reply_hook_tests;

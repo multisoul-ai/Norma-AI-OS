@@ -175,6 +175,15 @@ pub fn extract_prompt_text(raw_json: &Value) -> Option<String> {
     }
 }
 
+/// Full prompt identity for internal reply-origin correlation; display titles remain bounded.
+pub fn extract_prompt_fingerprint(raw_json: &Value) -> Option<[u8; 32]> {
+    use sha2::{Digest, Sha256};
+    ["prompt", "message", "user_message"]
+        .iter()
+        .find_map(|key| string_field(raw_json, key))
+        .map(|text| Sha256::digest(text.as_bytes()).into())
+}
+
 fn string_field(raw: &Value, field: &str) -> Option<String> {
     raw.get(field)
         .and_then(Value::as_str)

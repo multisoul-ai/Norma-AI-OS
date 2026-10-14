@@ -1,7 +1,7 @@
 use agent::{AgentReplyReceipt, AgentReplyStatus};
 use canvas::{CanvasNodeKind, NodeId};
 use runtime::AgentTaskState;
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::time::{Duration, Instant};
 
 use super::command_support::{clear_agent_task_input, submit_agent_enter, type_agent_task};
@@ -26,9 +26,62 @@ enum ReplyStage {
 pub(crate) struct AgentSessionReplyQueue {
     next_reply_id: u64,
     entries: VecDeque<QueuedSessionReply>,
+    connector_reply_ids: HashSet<u64>,
+    connector_prompts: HashMap<(NodeId, i64, [u8; 32]), usize>,
 }
 
 impl AgentSessionReplyQueue {
+    pub(crate) fn mark_connector_reply(
+        &mut self,
+        result: &agent::AdapterResult,
+        definition_id: i64,
+        message: &str,
+    ) {
+        match (
+            result.reply_id,
+            result.node_id,
+            result.reply_status.as_deref(),
+        ) {
+            (Some(id), _, Some("queued")) => {
+                self.connector_reply_ids.insert(id);
+            }
+            (_, Some(node), Some("sent")) => {
+                self.record_connector_prompt(node, definition_id, message)
+            }
+            _ => {}
+        }
+    }
+    fn record_connector_prompt(&mut self, node: NodeId, definition: i64, message: &str) {
+        if let Some(hash) =
+            norma::agent_hook::extract_prompt_fingerprint(&serde_json::json!({"prompt":message}))
+        {
+            let count = self
+                .connector_prompts
+                .entry((node, definition, hash))
+                .or_default();
+            *count = count.saturating_add(1);
+        }
+    }
+    pub(crate) fn consume_connector_prompt(
+        &mut self,
+        node: NodeId,
+        definition: i64,
+        hash: Option<[u8; 32]>,
+    ) -> bool {
+        let Some(hash) = hash else {
+            return false;
+        };
+        let key = (node, definition, hash);
+        let Some(count) = self.connector_prompts.get_mut(&key) else {
+            return false;
+        };
+        *count -= 1;
+        if *count == 0 {
+            self.connector_prompts.remove(&key);
+        }
+        true
+    }
+
     pub(crate) fn has_pending_for_node(&self, node_id: NodeId) -> bool {
         self.entries
             .iter()
@@ -36,6 +89,8 @@ impl AgentSessionReplyQueue {
     }
 
     pub(crate) fn interrupt_all(&mut self) -> Vec<AgentReplyReceipt> {
+        self.connector_reply_ids.clear();
+        self.connector_prompts.clear();
         let mut interrupted = Vec::new();
         while let Some(mut entry) = self.entries.pop_front() {
             entry.receipt.status = AgentReplyStatus::Interrupted;
@@ -61,6 +116,7 @@ impl AgentSessionReplyQueue {
             if matches!(entry.stage, ReplyStage::SubmitEnter) {
                 return None;
             }
+            self.connector_reply_ids.remove(&reply_id);
             let mut entry = self.entries.remove(index).expect("index just found");
             entry.receipt.status = AgentReplyStatus::Cancelled;
             return Some(entry.receipt);
@@ -74,6 +130,7 @@ impl AgentSessionReplyQueue {
         while let Some(mut entry) = self.entries.pop_front() {
             let same_agent = entry.receipt.name.eq_ignore_ascii_case(agent.trim());
             if same_agent && !matches!(entry.stage, ReplyStage::SubmitEnter) {
+                self.connector_reply_ids.remove(&entry.receipt.reply_id);
                 entry.receipt.status = AgentReplyStatus::Cancelled;
                 cancelled.push(entry.receipt);
             } else {
@@ -198,6 +255,17 @@ impl MultisoulApp {
                     }
                     match submit_agent_enter(&mut self.runtime, entry.receipt.node_id) {
                         Ok(()) => {
+                            if self
+                                .session_reply_queue
+                                .connector_reply_ids
+                                .remove(&entry.receipt.reply_id)
+                            {
+                                self.session_reply_queue.record_connector_prompt(
+                                    entry.receipt.node_id,
+                                    entry.receipt.definition_id,
+                                    &entry.receipt.message,
+                                );
+                            }
                             self.session_reply_queue.entries.remove(index);
                         }
                         Err(_) => {
@@ -213,6 +281,9 @@ impl MultisoulApp {
 
     fn fail_reply_at(&mut self, index: usize) {
         if let Some(mut entry) = self.session_reply_queue.entries.remove(index) {
+            self.session_reply_queue
+                .connector_reply_ids
+                .remove(&entry.receipt.reply_id);
             entry.receipt.status = AgentReplyStatus::Failed;
         }
     }

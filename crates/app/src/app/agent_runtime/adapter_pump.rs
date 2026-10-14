@@ -215,6 +215,16 @@ pub(crate) fn execute_norma_adapter_command_with_source(
             {
                 return Err(AdapterError::Rejected("input_occupied".into()));
             }
+            let connector_origin =
+                (input_source == agent::AgentInputSource::Connector).then(|| {
+                    (
+                        target_identity
+                            .as_ref()
+                            .expect("validated connector identity")
+                            .definition_id,
+                        message.clone(),
+                    )
+                });
             let result = reply_adapter::execute_reply_adapter_command(
                 app,
                 AdapterCommand::ReplyAgent {
@@ -225,6 +235,10 @@ pub(crate) fn execute_norma_adapter_command_with_source(
                     target_identity,
                 },
             )?;
+            if let Some((definition, message)) = connector_origin {
+                app.session_reply_queue
+                    .mark_connector_reply(&result, definition, &message);
+            }
             if let Some(window) = window.as_deref_mut().filter(|_| {
                 matches!(
                     input_source,

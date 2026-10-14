@@ -49,6 +49,8 @@ pub(crate) struct AgentHookDrainReport {
 pub(crate) struct AgentHookStartedTask {
     pub(crate) node_id: u64,
     pub(crate) task_title: Option<String>,
+    pub(crate) prompt_fingerprint: Option<[u8; 32]>,
+    pub(crate) task_state_changed: bool,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -144,6 +146,10 @@ impl AgentHookServer {
                 (event.provider_event == "UserPromptSubmit").then(|| AgentHookStartedTask {
                     node_id,
                     task_title: extract_prompt_text(&event.raw_json),
+                    prompt_fingerprint: norma::agent_hook::extract_prompt_fingerprint(
+                        &event.raw_json,
+                    ),
+                    task_state_changed: false,
                 });
             let is_ready = matches!(
                 agent_task_state_from_hook_event(&event),
@@ -159,15 +165,18 @@ impl AgentHookServer {
             });
             report.events.push(event.clone());
             let outcome = apply_agent_hook_event_with_outcome(runtime, event);
+            // A reply's Enter can already have set Thinking. Consume its origin even
+            // when the Hook does not change state, while preserving root-registration rules.
+            if let Some(mut started_task) = started_task {
+                started_task.task_state_changed = outcome.task_state_changed;
+                report.started_tasks.push(started_task);
+            }
             if outcome.changed() {
                 report.changed = true;
                 if outcome.session_binding_changed {
                     report.session_binding_changed = true;
                 }
                 if outcome.task_state_changed {
-                    if let Some(started_task) = started_task {
-                        report.started_tasks.push(started_task);
-                    }
                     if is_ready {
                         report.ready_node_ids.push(node_id);
                     }

@@ -238,8 +238,25 @@ impl MultisoulApp {
                     }
                     let mut queue_changed = false;
                     for started in agent_hook_report.started_tasks {
-                        queue_changed |=
-                            app.register_external_agent_root(started.node_id, started.task_title);
+                        let definition =
+                            app.runtime
+                                .document
+                                .node(started.node_id)
+                                .and_then(|node| match &node.kind {
+                                    canvas::CanvasNodeKind::Agent(spec) => spec.definition_id,
+                                    _ => None,
+                                });
+                        let connector_reply = definition.is_some_and(|definition| {
+                            app.session_reply_queue.consume_connector_prompt(
+                                started.node_id,
+                                definition,
+                                started.prompt_fingerprint,
+                            )
+                        });
+                        if started.task_state_changed && !connector_reply {
+                            queue_changed |= app
+                                .register_external_agent_root(started.node_id, started.task_title);
+                        }
                     }
                     for node_id in agent_hook_report.ready_node_ids {
                         queue_changed |= app.submit_pending_agent_task_for_ready_node(node_id, cx);
