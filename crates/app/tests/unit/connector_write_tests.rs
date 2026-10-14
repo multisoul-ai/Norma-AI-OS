@@ -266,9 +266,14 @@ fn connector_card_identity_survives_rename_and_rejects_recreation() {
                 .expect("节点")
                 .bounds;
             app.runtime.remove_node(identity.node_id);
+            assert!(
+                app.agent_definitions
+                    .delete_definition(identity.definition_id),
+                "重建前移除原定义，使同名可重新创建"
+            );
             let definition = app
                 .agent_definitions
-                .create_definition(Some("Replacement".into()), canvas::AgentProfile::Codex)
+                .create_definition(Some("Renamed".into()), canvas::AgentProfile::Codex)
                 .expect("新定义");
             let mut snapshot = app.runtime.collect_canvas_snapshot();
             snapshot.nodes.push(canvas::CanvasNodeSnapshot {
