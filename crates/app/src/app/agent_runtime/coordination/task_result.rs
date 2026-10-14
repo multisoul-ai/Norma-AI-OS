@@ -20,8 +20,12 @@ impl MultisoulApp {
         }) else {
             return false;
         };
+        let cancel_requested = self
+            .agent_task_coordinator
+            .as_ref()
+            .is_some_and(|coordinator| coordinator.is_cancel_requested(definition_id));
         let runtime_state = self.runtime.agent_task_state(node_id);
-        if matches!(runtime_state, Some(runtime::AgentTaskState::Ended)) {
+        if !cancel_requested && matches!(runtime_state, Some(runtime::AgentTaskState::Ended)) {
             let coordinator_changed = self
                 .agent_task_coordinator
                 .as_mut()
@@ -35,14 +39,14 @@ impl MultisoulApp {
             }
             return coordinator_changed;
         }
-        let cancel_requested = self
-            .agent_task_coordinator
-            .as_ref()
-            .is_some_and(|coordinator| coordinator.is_cancel_requested(definition_id));
         let (terminal_state, coordinator_state, terminal_error) = match runtime_state {
-            Some(runtime::AgentTaskState::Done) if cancel_requested => (
-                storage::AgentDispatchTaskState::Interrupted,
-                "interrupted",
+            Some(
+                runtime::AgentTaskState::Done
+                | runtime::AgentTaskState::Ended
+                | runtime::AgentTaskState::Failed { .. },
+            ) if cancel_requested => (
+                storage::AgentDispatchTaskState::Cancelled,
+                "cancelled",
                 None,
             ),
             Some(runtime::AgentTaskState::Done) => {

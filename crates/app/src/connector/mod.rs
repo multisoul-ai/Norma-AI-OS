@@ -155,5 +155,9 @@ mod reply_hook_tests;
 mod directory_tests;
 
 #[cfg(test)]
+#[path = "../../tests/unit/connector_cancel_tests.rs"]
+mod cancel_tests;
+
+#[cfg(test)]
 #[path = "../../tests/unit/connector_replay_tests.rs"]
 mod replay_tests;

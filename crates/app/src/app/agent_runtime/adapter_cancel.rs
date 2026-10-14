@@ -6,6 +6,7 @@ pub(super) fn cancel(
     app: &mut MultisoulApp,
     task_id: u64,
     expected_task_ref: Option<&str>,
+    cx: &mut gpui::Context<MultisoulApp>,
 ) -> Result<AdapterResult, AdapterError> {
     let task_to_cancel = app.agent_task_coordinator.as_ref().and_then(|coordinator| {
         coordinator
@@ -73,6 +74,7 @@ pub(super) fn cancel(
         )));
     }
 
+    let mut confirmation = None;
     let is_active = task_to_cancel
         .as_ref()
         .is_some_and(|task| matches!(task.state, "running" | "cancel_requested"));
@@ -89,18 +91,63 @@ pub(super) fn cancel(
         {
             return Ok(AdapterResult::unknown("目标卡片已改变，原操作待核对").with_task_id(task_id));
         }
-        let interrupt = runtime::NodeInput::Key(terminal::KeyInput {
-            key: terminal::Key::Char('c'),
-            ctrl: true,
-            alt: false,
-            shift: false,
-        });
-        if let Err(error) = app.runtime.send_node_input(node_id, interrupt) {
-            return Ok(AdapterResult::unknown(format!(
-                "任务 #{task_id} 尚未修改，无法确认中断是否送达：{error}"
-            ))
-            .with_task_id(task_id)
-            .with_node_id(node_id));
+        if task_to_cancel
+            .as_ref()
+            .is_some_and(|task| task.state == "cancel_requested")
+        {
+            return Ok(AdapterResult::accepted("运行任务已请求取消，等待确认")
+                .with_task_id(task_id)
+                .with_node_id(node_id));
+        }
+        let card = app
+            .runtime
+            .mobile_card_snapshots()
+            .into_iter()
+            .find(|card| card.node_id == node_id);
+        if let Some(card) = card.clone().filter(|card| {
+            matches!(card.profile.as_str(), "Codex" | "Claude")
+                && card.run_id.is_some()
+                && card.turn_id.is_some()
+        }) {
+            if app.agent_hook_server.has_pending() {
+                return Err(AdapterError::Rejected("agent_rejected".into()));
+            }
+            let run = card.run_id.as_deref().expect("run");
+            let turn = card.turn_id.as_deref().expect("turn");
+            let waiting = if card.profile == "Codex"
+                && app
+                    .runtime
+                    .mobile_native_session(node_id)
+                    .is_ok_and(|native| native.is_none())
+            {
+                app.runtime.interrupt_mobile_codex(node_id, run, turn)
+            } else {
+                app.interrupt_mobile_terminal(node_id, run, turn, cx)
+            };
+            match waiting {
+                Ok(waiting) => confirmation = Some((card, Some(waiting))),
+                Err(error) => {
+                    return Ok(AdapterResult::unknown(format!("中断无法确认：{error}"))
+                        .with_task_id(task_id)
+                        .with_node_id(node_id))
+                }
+            }
+        } else {
+            let interrupt = runtime::NodeInput::Key(terminal::KeyInput {
+                key: terminal::Key::Char('c'),
+                ctrl: true,
+                alt: false,
+                shift: false,
+            });
+            if let Err(error) = app.runtime.send_node_input(node_id, interrupt) {
+                return Ok(AdapterResult::unknown(format!("中断无法送达：{error}"))
+                    .with_task_id(task_id)
+                    .with_node_id(node_id));
+            }
+            // Old/untracked turns may have no Provider identity; still bound the cancellation wait.
+            if let Some(card) = card {
+                confirmation = Some((card, None));
+            }
         }
     }
     let result = app
@@ -116,6 +163,16 @@ pub(super) fn cancel(
             }
             agent::AgentTaskCancellation::NotFound
             | agent::AgentTaskCancellation::AlreadySubmitted => {}
+        }
+    }
+    if let Some((card, waiting)) = confirmation {
+        if result == agent::AgentTaskCancellation::CancelRequested {
+            super::adapter_cancel_confirmation::watch(
+                task_to_cancel.as_ref().expect("target").clone(),
+                card,
+                waiting,
+                cx,
+            );
         }
     }
     match result {

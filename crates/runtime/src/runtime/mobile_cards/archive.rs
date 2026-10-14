@@ -58,6 +58,16 @@ impl Drop for MobileArchiveRead {
     }
 }
 impl Runtime {
+    /// Supply an already connected read-only Provider transport. Reads retain exact workspace/session
+    /// validation; this also allows isolated Provider fakes without launching a real CLI.
+    pub fn set_mobile_codex_archive_connection(&mut self, connection: CodexConnection) {
+        *self
+            .archive_reads
+            .codex
+            .connection
+            .lock()
+            .expect("Codex reader poisoned") = Some(Arc::new(connection));
+    }
     /// Keep the real TUI and read-only archive host in the same isolated test configuration.
     #[cfg(feature = "e2e-test-support")]
     pub fn set_mobile_codex_archive_config_for_e2e(&mut self, config: PathBuf) {
