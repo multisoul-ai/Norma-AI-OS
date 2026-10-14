@@ -165,14 +165,7 @@ pub(super) fn capture(database: &Path, mut call: LiveRequest, signer: &CardSigne
             } else {
                 "unknown"
             };
-            let revision = hex::encode(Sha256::digest(
-                serde_json::to_vec(&json!([
-                    app.workspace_route_id,
-                    card.run_id,
-                    card.session_id
-                ]))
-                .expect("revision"),
-            ));
+            let revision = card_revision(app, &identity);
             workspace.cards.push(Card {
                 identity,
                 card_id: id,
@@ -189,3 +182,39 @@ pub(super) fn capture(database: &Path, mut call: LiveRequest, signer: &CardSigne
     }
     let _ = call.reply.try_send(Ok(call.snapshot));
 }
+
+/// Logical route and Provider session fingerprint. Registration UUIDs and PTY run IDs
+/// are process lifetimes, not persisted target revisions; reopening the same session
+/// must not invalidate a connector target. All reads below are in-memory.
+fn card_revision(app: &crate::app::MultisoulApp, identity: &CardIdentity) -> String {
+    let canvas::CanvasNodeKind::Agent(spec) = &app
+        .runtime
+        .document
+        .node(identity.node_id)
+        .expect("card")
+        .kind
+    else {
+        unreachable!("agent card")
+    };
+    hex::encode(Sha256::digest(
+        serde_json::to_vec(&json!([
+            "r1",
+            identity,
+            app.runtime
+                .workspace_root()
+                .map(|path| path.to_string_lossy()),
+            app.runtime
+                .agent_worktree(identity.node_id)
+                .map(|path| path.to_string_lossy()),
+            spec.profile,
+            spec.definition_id,
+            spec.mobile_control,
+            app.runtime.agent_session_id(identity.node_id)
+        ]))
+        .expect("revision"),
+    ))
+}
+
+#[cfg(test)]
+#[path = "../../tests/unit/connector_revision_tests.rs"]
+mod connector_revision_tests;
