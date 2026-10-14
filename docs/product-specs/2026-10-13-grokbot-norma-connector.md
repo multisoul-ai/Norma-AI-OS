@@ -1,16 +1,17 @@
 # Grok Bot 作为 Norma 调度员：本机 MCP 连接器、派工与通知
 
-状态：实现规格（P1），按 2026-10-13 yakami 拍板写入，待工程拆分 · 2026-10-13。代码事实基于 origin/dev `83590301`。本文只定义规格，不改代码；后续 P2–P5 每期一个 PR。
+状态：实现规格（P1），按 2026-10-13 yakami 拍板写入，并按 2026-10-14 yakami 决定修订（Token 存储、隧道、锁定），待工程拆分 · 2026-10-14。代码事实基于 origin/dev `83590301`。本文只定义规格，不改代码；后续 P2–P5 每期一个 PR。
 
 ## 0. 已拍板的决定
 
 以下决定由 yakami 确认，原样执行，本文不再重新取舍。
 
-1. **接入方式**：Norma 在 Mac 上的 Norma App 进程内运行一个本机 MCP 服务器（传输为 MCP Streamable HTTP），只绑定 `127.0.0.1`；通过用户自有域名上的 **Cloudflare 命名隧道（named tunnel）** 暴露给 Grok Bot。**不使用 quick tunnel**（`trycloudflare.com` 地址每次变化，无法作为固定连接器地址）。隧道之上只用 **Bearer Token** 鉴权（Cloudflare Access 列为后续项，见 Q2）。Token 永不进仓库；生成、存储（macOS 钥匙串）、轮换、吊销见第 6 节。
+1. **接入方式**：Norma 在 Mac 上的 Norma App 进程内运行一个本机 MCP 服务器（传输为 MCP Streamable HTTP），只绑定 `127.0.0.1`；通过 **Tailscale Funnel** 暴露给 Grok Bot（2026-10-14 决定：优先 Funnel，不用 Cloudflare Tunnel）。Funnel 提供固定地址 `https://<machine>.<tailnet>.ts.net`，机器名与 tailnet 不变则地址不变。隧道之上只用 **Bearer Token** 鉴权。Token 永不进仓库；生成、存储（**明文存于 Norma 的 SQLite**，不用 macOS 钥匙串，设置页随时可查看）、轮换、吊销见第 6 节。
 2. **由 Grok Bot 决定派给谁**：Norma 本身不做路由、不按能力选人。提供六个工具：`directory`、`dispatch_task`、`list_tasks`、`get_task_progress`、`cancel_task`、`resolve_approval`。`resolve_approval`（批准 / 拒绝）**每次都必须由 Grok Bot 先问用户确认**——这是客户端要求；同时服务端 API 也强制要求确认标志 + 一次性 nonce（第 4.6 节）。
 3. **通知四类事件**：任务完成、任务失败、等待工具审批、30 分钟无进展。Norma 向用户配置的 **Grok Bot routine webhook URL** 发 POST，唤醒 Grok Bot 给用户发消息。负载 JSON、HMAC 签名、退避重试、去重键、离线行为见第 5 节。
 4. **不依赖草稿 PR #97**（分支 `codex/workspace-agent-dispatch`），只借鉴其设计思想（第 2 节）；`card_id` 由连接器自行定义，不切换到 #97 的身份（Q3）。
-5. **分期交付，一期一个 PR**：P1 本规格；P2 本机 MCP 服务器 + Token 鉴权 + 只读工具；P3 Cloudflare 命名隧道 + 在 Grok Bot 添加自定义连接器，只读端到端（Cloudflare 登录由用户完成）；P4 `dispatch_task` + `cancel_task`（幂等与回执）；P5 webhook 通知 + `resolve_approval`。
+5. **鉴权失败锁定（2026-10-14）**：按**来源 IP** 计数鉴权失败，只锁该 IP 的失败尝试；**携带正确 Token 的请求永不被锁**。来源 IP 的确定方式见 6.4。Token 熵 ≥ 128 bit。另设全局失败告警（只告警，不锁定）。
+6. **分期交付，一期一个 PR**：P1 本规格；P2 本机 MCP 服务器 + Token 鉴权 + 只读工具；P3 Tailscale Funnel + 在 Grok Bot 添加自定义连接器，只读端到端（Tailscale 登录与开启 Funnel 由用户完成）；P4 `dispatch_task` + `cancel_task`（幂等与回执）；P5 webhook 通知 + `resolve_approval`。
 
 ## 1. 背景与目标
 
@@ -29,7 +30,7 @@
 
 ### 1.3 范围内
 
-- Norma App 内新增 MCP 服务器（新）、六个工具、Token 管理、命名隧道接入说明、webhook 通知发送器（新）、连接器审计日志（新）、设置页「Grok Bot 连接器」（新）。
+- Norma App 内新增 MCP 服务器（新）、六个工具、Token 管理、Tailscale Funnel 接入说明、webhook 通知发送器（新）、连接器审计日志（新）、设置页「Grok Bot 连接器」（新）。
 
 ### 1.4 范围外
 
@@ -56,8 +57,8 @@
 Grok Bot (云端)
   │ HTTPS  Authorization: Bearer <token>
   ▼
-https://norma.<用户域名>/mcp   ← Cloudflare 命名隧道（cloudflared，用户登录）
-  │
+https://<machine>.<tailnet>.ts.net/mcp   ← Tailscale Funnel（tailscaled 本机反向代理，用户登录）
+  │  （tailscaled 覆盖写入 X-Forwarded-For = 公网客户端 IP）
   ▼  http://127.0.0.1:<port>/mcp
 Norma App 进程
   ├─ ConnectorServer（新）: Streamable HTTP + MCP JSON-RPC, 鉴权, 限流, 审计
@@ -68,7 +69,7 @@ Norma App 进程
 
 ### 3.1 MCP 服务器（新）
 
-- 进程内 tokio 任务，**只绑定 `127.0.0.1`**（不复用 `mobile::server::allowed_address`，它放行私网）。端口默认 `47615`（固定端口便于隧道配置，冲突时设置页报错，不随机），可在设置中改；修改端口时设置页提示「需同步修改 cloudflared 隧道配置中的 `ingress` 目标端口」（Q7）。
+- 进程内 tokio 任务，**只绑定 `127.0.0.1`**（不复用 `mobile::server::allowed_address`，它放行私网）。端口默认 `47615`（固定端口便于隧道配置，冲突时设置页报错，不随机），可在设置中改；修改端口时设置页提示「需同步修改 Tailscale Funnel 配置的目标端口」，并给出命令 `tailscale funnel --bg --https=443 http://127.0.0.1:<新端口>`（Q7）。
 - 无后台常驻进程、不注册登录项（Q10）：App 未运行时连接器不可达，Grok Bot 向用户显示「Norma 未运行」；App 重新打开后 outbox 中积压的事件再补发（5.4）。
 - 路径 `POST /mcp`、`GET /mcp`（SSE 流，可选）按 MCP Streamable HTTP 规范；支持 `initialize`、`tools/list`、`tools/call`；`Mcp-Session-Id` 会话头。其他路径 404。
 - 实现库：`axum`（HTTP）+ `rmcp`（MCP Streamable HTTP / JSON-RPC），P2 新增这两个依赖（Q1）。要求请求体上限 64 KiB、读超时 10 s、并发连接上限 8。
@@ -76,7 +77,7 @@ Norma App 进程
 
 ### 3.2 `card_id`（新，不透明）
 
-`card_id` 由连接器自行定义（Q3），不依赖 #97。格式 `c1.<base64url(desktop_workspace_id | area_id | canvas_id | node_id | definition_id | 创建时间戳)>.<8 字节 HMAC>`。因为同一目录下可有多个画布、`node_id` 只在画布内唯一，编码中必须包含画布标识 `canvas_id`，保证同目录多画布时 `card_id` 仍唯一。HMAC 用本机密钥（钥匙串）防伪造。`card_revision` = 当前 Runtime 路由代次 + Provider 会话指纹的哈希。解析时逐项复核；任一不符 → `target_changed`。这是 P2 的新增投影，不改现有表；若现有存储里没有稳定的画布标识，P2 需新增（见 R2）。
+`card_id` 由连接器自行定义（Q3），不依赖 #97。格式 `c1.<base64url(desktop_workspace_id | area_id | canvas_id | node_id | definition_id | 创建时间戳)>.<8 字节 HMAC>`。因为同一目录下可有多个画布、`node_id` 只在画布内唯一，编码中必须包含画布标识 `canvas_id`，保证同目录多画布时 `card_id` 仍唯一。HMAC 用本机密钥（存 Norma SQLite，同 6.3）防伪造。`card_revision` = 当前 Runtime 路由代次 + Provider 会话指纹的哈希。解析时逐项复核；任一不符 → `target_changed`。这是 P2 的新增投影，不改现有表；若现有存储里没有稳定的画布标识，P2 需新增（见 R2）。
 
 ## 4. 工具定义
 
@@ -192,7 +193,7 @@ Norma App 进程
 
 ### 5.3 签名
 
-请求头：`X-Norma-Timestamp: <unix>`、`X-Norma-Event-Id`、`X-Norma-Signature: v1=<hex(HMAC-SHA256(secret, timestamp + "." + body))>`。secret 与 Bearer Token **分开**，同样存钥匙串。Grok Bot routine **必须**校验 HMAC 签名与时间戳（时间差 > 5 分钟视为失败），校验失败直接丢弃事件、不通知用户（Q4）。
+请求头：`X-Norma-Timestamp: <unix>`、`X-Norma-Event-Id`、`X-Norma-Signature: v1=<hex(HMAC-SHA256(secret, timestamp + "." + body))>`。secret 与 Bearer Token **分开**，同样存 Norma SQLite（不进仓库、不写日志）。Grok Bot routine **必须**校验 HMAC 签名与时间戳（时间差 > 5 分钟视为失败），校验失败直接丢弃事件、不通知用户（Q4）。
 
 **P5 前置条件**：确认 Grok Bot routine 的 webhook 触发器能读到原始请求体（逐字节）和请求头。若不能，需要一个小型中继先校验签名再转发给 routine；是否引入中继待用户确认（风险 R7）。
 
@@ -205,14 +206,21 @@ Norma App 进程
 
 ## 6. 安全
 
-1. **监听**：只绑 `127.0.0.1`，拒绝非回环 `peer_addr`；`Host` 头必须是配置的隧道域名或 `127.0.0.1:<port>`（防 DNS rebinding）；不开 CORS。
-2. **隧道**：Cloudflare 命名隧道，`cloudflared` 配置 `ingress` 只转发 `https://norma.<域名>/mcp` → `http://127.0.0.1:<port>`，其他 404。Cloudflare 登录和 DNS 由用户在 P3 完成；隧道凭据文件在 `~/.cloudflared/`，不进仓库。P3 只用 Bearer Token；Cloudflare Access（服务令牌 / mTLS）列为后续项，不在 P2–P5 范围内（Q2）。
+1. **监听**：只绑 `127.0.0.1`，拒绝非回环 `peer_addr`；`Host` 头必须是配置的 Funnel 地址 `<machine>.<tailnet>.ts.net` 或 `127.0.0.1:<port>`（防 DNS rebinding）；不开 CORS。
+2. **隧道（Tailscale Funnel）**：P3 由用户在 Mac 上登录 Tailscale、在 tailnet 策略中允许该机器使用 Funnel，然后执行 `tailscale funnel --bg --https=443 http://127.0.0.1:<port>`（默认 47615）。Funnel 以 HTTPS 反向代理模式（不是 TCP 转发）把 `https://<machine>.<tailnet>.ts.net` 转发到本机端口；该地址在机器名与 tailnet 名不变时固定，作为 Grok Bot 自定义连接器地址（`…/mcp`）。非 `/mcp` 路径由 Norma 返回 404。Tailscale 凭据在系统 Tailscale 客户端内，不进仓库。改端口必须同步改 Funnel 配置（3.1）。Cloudflare 命名隧道 / Cloudflare Access 只作为后续可选方案记录，不在 P2–P5 范围内。
 3. **Token**：
-   - 生成：设置页「生成连接令牌」，32 字节 CSPRNG，格式 `nrm_live_<base64url>`；只在生成时显示一次，供用户粘贴进 Grok Bot 自定义连接器。
-   - 存储：macOS 钥匙串（service `ai.multisoul.norma.connector`），本地只存 `sha256(token)` 用于常数时间比较；不写日志、不写 SQLite、不进仓库或 E2E 夹具。
+   - 生成：设置页「生成连接令牌」，32 字节 CSPRNG（熵 256 bit，要求 ≥ 128 bit），格式 `nrm_live_<base64url>`，供用户粘贴进 Grok Bot 自定义连接器。
+   - 存储：**明文存于 Norma 的 SQLite（app.sqlite 新表 `connector_tokens`）**，不使用 macOS 钥匙串；设置页**随时可查看**（显示 / 复制）当前 Token 及宽限期内的旧 Token。比较用常数时间比较。不写日志、不进仓库或 E2E 夹具（测试用随机生成的 Token）。
    - 轮换：生成新 Token 后旧 Token 继续可用 24 小时宽限期，期满失效（Q9）；设置页显示两者状态。
-   - 吊销：「立即吊销」立即生效（无宽限），删除钥匙串项并断开所有 MCP 会话；关闭连接器开关等同全部吊销。
-4. **限流**：每 Token 读 60 次/分钟，写 10 次/分钟，`resolve_approval` commit 5 次/分钟；连续 10 次鉴权失败 → 封锁 15 分钟并在设置页提示。
+   - 吊销：「立即吊销」立即生效（无宽限），删除 SQLite 中的 Token 记录并断开所有 MCP 会话；关闭连接器开关等同全部吊销。
+4. **限流与锁定**：
+   - 限流：每 Token 读 60 次/分钟，写 10 次/分钟，`resolve_approval` commit 5 次/分钟。
+   - 锁定按**来源 IP**：同一来源 IP 15 分钟窗口内连续 10 次鉴权失败 → 该 IP 的**鉴权失败尝试**被拒 15 分钟（返回 429 `rate_limited`，含 `retry_after_s`），并在设置页提示。**携带正确 Token 的请求永不被锁**：先校验 Token，正确则直接放行，不受任何 IP 的锁定状态影响；其他 IP 的错误 Token 不影响正确 Token。
+   - 来源 IP 的确定：Funnel 的 HTTPS 反向代理（tailscaled 内的 Go `httputil.ReverseProxy`）对转发请求用 `Header.Set` **覆盖**写入 `X-Forwarded-For = 公网客户端真实 IP`，并设置 `Tailscale-Funnel-Request: ?1`（先删除客户端自带的同名头），因此经 Funnel 进来的请求，公网客户端无法伪造这两个头。但经 Funnel 与本机进程直连本地端口的请求，TCP 对端地址都是 `127.0.0.1`，只看对端地址无法区分。规则：
+     - 仅当该 TCP 连接确认来自本机 tailscaled 的 Funnel 代理时（P2/P3 实现：用 macOS libproc 按连接四元组查对端进程，确认是 Tailscale 系统扩展 / tailscaled 进程，并同时带 `Tailscale-Funnel-Request: ?1`），才采用 `X-Forwarded-For`（取唯一值，多值或格式非法视为不可信）作为来源 IP；
+     - 其他情况（本机进程直连本地端口）一律用真实对端地址（`127.0.0.1`）作为来源 IP，忽略请求中的 `X-Forwarded-For` / `Tailscale-Funnel-Request`，所以伪造转发头既不能冒充别的 IP、也不能逃脱自己的计数；
+     - 若 P3 实测无法可靠识别 tailscaled 对端进程，退化为：一律用对端地址计数（所有 Funnel 流量共享一个 `127.0.0.1` 桶）。因正确 Token 永不被锁，退化只影响错误 Token 的封锁粒度，不影响可用性（R8）。
+   - 全局失败告警：所有来源合计 10 分钟内鉴权失败 ≥ 100 次 → 设置页告警并写审计（可选系统通知）；**只告警，不锁定**。
 5. **审计日志**（新表 `connector_audit`）：时间、工具、参数摘要（任务正文只存哈希 + 前 80 字）、`operation_id`、结果码、`user_quote`（审批）。保存 90 天；设置页可查看。
 6. **Grok Bot 永远不能做的事**：写终端原始输入 / 按键；读写文件、读终端全文；创建、删除、改名卡片或工作空间；传 `force_untracked`；会话级或永久放行审批；无 nonce 批准；修改连接器设置、Token、webhook URL；访问手机配对 / `MobileDeviceGrant`；触发 Norma 自主路由。
 7. **未知字段**：所有输入 `deny_unknown_fields`（与 `MobileCommandRequest` 一致）。
@@ -221,15 +229,17 @@ Norma App 进程
 
 - `connector_operations(client_id, operation_id, tool, request_hash, state, result_json, error, created_at_unix, updated_at_unix, PRIMARY KEY(client_id, operation_id))`——语义复制 `MobileCommandStore::reserve`（`New / Existing / Conflict`），不复用 `mobile_commands`（它绑定 `device_id` 与手机授权）。
 - `connector_outbox`、`connector_audit`、`connector_nonces`（内存即可，重启作废）。
-- 设置：端口（默认 47615）、webhook URL、启用开关、通知范围（默认仅 Grok Bot 派出的任务，可切换为全部任务）（存 app 设置）；Token 与 HMAC secret 只在钥匙串。
+- `connector_tokens(token, state ∈ active/grace/revoked, created_at_unix, grace_until_unix)`、`connector_secrets`（HMAC secret、`card_id` 密钥）。
+- 鉴权失败计数（按来源 IP）与全局失败计数：内存即可，重启清零。
+- 设置：端口（默认 47615）、webhook URL、启用开关、通知范围（默认仅 Grok Bot 派出的任务，可切换为全部任务）（存 app 设置）；Token 与 HMAC secret 明文存 Norma SQLite（`connector_tokens` / `connector_secrets`），不进仓库、不写日志。
 
 ## 8. 分期
 
 | 期 | PR 内容 | 完成标志 |
 | --- | --- | --- |
 | P1 | 本规格 | 合入 docs |
-| P2 | `ConnectorServer`（axum + rmcp） + Token 生成/存储/吊销 + `directory` / `list_tasks` / `get_task_progress` + 审计 + 限流 | 本机 `curl`/MCP Inspector 调用通过 AC-01–AC-12、AC-41–AC-43 |
-| P3 | 命名隧道配置文档与设置页地址字段；用户登录 Cloudflare 并在 Grok Bot 添加自定义连接器 | Grok Bot 远程调用三个只读工具成功（AC-13–AC-16、AC-44） |
+| P2 | `ConnectorServer`（axum + rmcp） + Token 生成/SQLite 存储/查看/吊销 + 按来源 IP 锁定 + `directory` / `list_tasks` / `get_task_progress` + 审计 + 限流 | 本机 `curl`/MCP Inspector 调用通过 AC-01–AC-12、AC-41–AC-43、AC-50–AC-54 |
+| P3 | Tailscale Funnel 配置文档与设置页地址字段；用户登录 Tailscale、开启 Funnel 并在 Grok Bot 添加自定义连接器；确认 Funnel 来源 IP 识别（R8） | Grok Bot 远程调用三个只读工具成功（AC-13–AC-16、AC-44、AC-55） |
 | P4 | `dispatch_task` + `cancel_task` + `connector_operations` + `card_id` 精确解析 | AC-17–AC-26 |
 | P5 | 前置：确认 routine webhook 能读原始请求体与请求头（否则需中继，待用户确认）；`ConnectorNotifier` + outbox + HMAC + `resolve_approval` 两步确认 | AC-27–AC-40、AC-45–AC-49 |
 
@@ -238,17 +248,17 @@ Norma App 进程
 - AC-01 连接器默认关闭；关闭时端口无监听。
 - AC-02 开启后只监听 `127.0.0.1:<port>`；从局域网 IP 连接失败。
 - AC-03 无 / 错误 Token → HTTP 401，审计记录一条失败。
-- AC-04 Token 只显示一次；钥匙串可见该项；SQLite 与日志中搜索不到明文 Token。
-- AC-05 吊销立即生效：旧 Token 立即 401，已有 MCP 会话断开。
+- AC-04 Token 明文存于 Norma SQLite `connector_tokens`，不在 macOS 钥匙串；Token 熵 ≥ 128 bit；日志与仓库（含 E2E 夹具）中搜索不到该 Token。
+- AC-05 吊销立即生效：旧 Token 立即 401，SQLite 中记录删除，已有 MCP 会话断开。
 - AC-06 轮换后旧 Token 在 24 小时宽限期内可用、期满 401。
 - AC-07 `Host` 头非白名单 → 拒绝。
 - AC-08 `tools/list` 在 P2 只列三个只读工具。
 - AC-09 `directory` 返回所有工作空间、项目、卡片；未加载区域卡片 `state=unloaded`，调用前后无新 PTY 启动。
 - AC-10 两张同名卡片 → 两者 `role_name_unique=false`，`card_id` 不同；同一目录两个画布中 `node_id` 相同的卡片，`card_id` 也不同。
 - AC-11 `list_tasks` 默认含全部未终态任务与 24 h 内终态；分页游标稳定。
-- AC-12 超过读限流 → `rate_limited` 含 `retry_after_s`；连续 10 次鉴权失败触发 15 分钟封锁。
-- AC-13 命名隧道域名稳定，App 重启 / 隧道重启后 URL 不变。
-- AC-14 通过隧道访问非 `/mcp` 路径 → 404。
+- AC-12 超过读限流 → `rate_limited` 含 `retry_after_s`；同一来源 IP 连续 10 次鉴权失败 → 该 IP 的错误 Token 请求被拒 15 分钟。
+- AC-13 Funnel 地址 `https://<machine>.<tailnet>.ts.net` 稳定，App 重启 / tailscaled 重启后 URL 不变。
+- AC-14 通过 Funnel 访问非 `/mcp` 路径 → 404。
 - AC-15 Grok Bot 自定义连接器能列出工具并调用 `directory`。
 - AC-16 Mac 睡眠时 Grok Bot 调用得到明确的连接失败，不误报为空目录。
 - AC-17 `dispatch_task` 到指定 `card_id`，只有该卡片收到输入，其他卡片零输入。
@@ -275,7 +285,7 @@ Norma App 进程
 - AC-38 每次审批审计记录含 `user_quote` 与决定。
 - AC-39 Grok Bot 侧：用户未确认时 Grok Bot 不调用 commit（客户端走查用例）。
 - AC-40 第 6.6 节列出的禁止能力在 `tools/list` 中不存在，任何参数组合都无法达成。
-- AC-41 默认端口为 `47615`；在设置中改端口后按新端口监听，且设置页显示「需同步修改隧道配置」提示。
+- AC-41 默认端口为 `47615`；在设置中改端口后按新端口监听，且设置页显示「需同步修改 Tailscale Funnel 配置」提示及对应命令。
 - AC-42 App 未运行时无任何 Norma 进程监听端口；未安装登录项或后台常驻进程。
 - AC-43 `card_id` 中包含画布标识；同目录多画布场景下 `directory` 返回的 `card_id` 全部唯一。
 - AC-44 App 未运行时 Grok Bot 调用得到连接失败，并向用户显示「Norma 未运行」，不误报为空目录。
@@ -284,20 +294,29 @@ Norma App 进程
 - AC-47 同一事件同时触发手机推送与 webhook 时，两路都发送，互不去重。
 - AC-48 App 退出时 outbox 有积压事件 → App 重新打开后补发。
 - AC-49 （P5 前置）已记录 routine webhook 能否读取原始请求体与请求头的验证结果；若不能，已获得用户对中继方案的确认后再实现。
+- AC-50 设置页随时可查看（显示 / 复制）当前 Token，宽限期内也可查看旧 Token；App 重启后仍可查看。
+- AC-51 其他来源 IP 发送大量错误 Token（达到并超过锁定阈值）后，正确 Token 的请求（无论来自哪个 IP，包括同一 IP）仍立即成功。
+- AC-52 同一来源 IP 连续 10 次错误 Token → 该 IP 后续错误 Token 请求返回 429 `rate_limited`（含 `retry_after_s`），15 分钟后解除；其他 IP 的失败计数不受影响。
+- AC-53 本机进程直连 `127.0.0.1:<port>`，携带伪造的 `X-Forwarded-For` / `Tailscale-Funnel-Request` 头：失败计入 `127.0.0.1` 桶，不计入伪造 IP；无法借此绕过锁定或让其他 IP 被锁。
+- AC-54 全局鉴权失败超过告警阈值 → 设置页告警并写审计；不锁定任何请求，正确 Token 仍可用。
+- AC-55 （P3）经 Funnel 的请求，来源 IP 取 tailscaled 写入的 `X-Forwarded-For`（公网客户端 IP），客户端自带的 `X-Forwarded-For` 被覆盖无效；实测结果记录在 P3 PR 中。
 
 ## 10. 已决定
 
-以下 10 项原开放问题已由 yakami 于 2026-10-13 决定，正文已同步修改。
+以下 10 项原开放问题已由 yakami 于 2026-10-13 决定，正文已同步修改；Q2、Q7、Q9 及 Q11–Q13 按 2026-10-14 决定更新。
 
 - Q1 HTTP / MCP 实现：`axum` + `rmcp`（3.1）。
-- Q2 P3 只用 Bearer Token；Cloudflare Access（服务令牌 / mTLS）列为后续项（6.2）。
+- Q2 P3 使用 Tailscale Funnel（2026-10-14 改定，替代 Cloudflare 命名隧道），只用 Bearer Token；Cloudflare Tunnel / Access 仅作后续可选（6.2）。
 - Q3 不依赖 #97。`card_id` 由连接器自行定义，同一目录多画布时也必须唯一（编码含 `canvas_id`）；不再计划切换到 #97 的身份（2、3.2）。
 - Q4 Grok Bot routine 必须校验 HMAC 签名，校验失败丢弃事件。P5 前置条件与风险：确认 routine webhook 触发器能读取原始请求体与请求头；若不能，需要小型中继，待用户确认（5.3、R7）。
 - Q5 默认只通知 Grok Bot 派出的任务；设置项可打开「通知全部任务」（5.1、7）。
 - Q6 手机推送与 Grok Bot 通知各自独立发送，不跨渠道去重（5.1）。
-- Q7 默认端口 `47615`，可在设置中修改；修改时提示需同步修改隧道配置（3.1）。
+- Q7 默认端口 `47615`，可在设置中修改；修改时提示需同步修改 Tailscale Funnel 配置（3.1）。
 - Q8 停滞：连续 30 分钟没有新输出、工具调用或状态变化；untracked 任务不参与（5.1）。
 - Q9 Token 轮换后旧 Token 有 24 小时宽限期；吊销立即生效（6.3）。
+- Q11 （2026-10-14）Token 明文存 Norma SQLite，不用钥匙串；设置页随时可查看；Token 永不进仓库（6.3）。
+- Q12 （2026-10-14）锁定按来源 IP 计数鉴权失败，正确 Token 永不被锁；Funnel 下来源 IP 取 tailscaled 写入的 `X-Forwarded-For`，仅在确认连接来自本机 Funnel 代理时采信（6.4）。
+- Q13 （2026-10-14）Token 熵 ≥ 128 bit；全局失败只告警不锁定（6.3、6.4）。
 - Q10 不做后台常驻。App 未运行时连接器不可达，Grok Bot 显示「Norma 未运行」；outbox 中的事件在 App 重新打开后补发（3.1、5.4）。
 
 ## 11. 风险（代码中让决定变难的地方）
@@ -306,6 +325,7 @@ Norma App 进程
 - R2 `node_id` 是区域内局部编号，同目录多画布可重复（#97 T01 正是为此）；dev 上没有持久卡片身份；连接器自定义的 `card_id` 必须编码画布标识才能唯一，P2 需确认现有存储中有稳定的画布标识，没有则新增。
 - R3 审批只支持 `Codex | Claude`（`ApprovalTarget::valid`）；OpenCode 等卡片的审批无法 resolve。
 - R4 未加载区域的状态只有持久快照，`busy/idle` 可能过时；必须标注 `unloaded`，不能推断。
-- R5 仓库无 HTTP 服务框架、无钥匙串生产代码，P2 工作量与依赖审查比看起来大。
+- R5 仓库无 HTTP 服务框架，P2 工作量与依赖审查比看起来大。Token 明文存 SQLite 意味着能读 app.sqlite 的本机进程 / 备份可取得 Token，这是已接受的取舍。
 - R6 跨工作空间派工依赖 `orchestration_task_routes`，目标工作空间未打开时的行为（`closed_workspace_response`）需在 P4 明确为错误还是排队。
 - R7 Grok Bot routine 的 webhook 触发器可能拿不到原始请求体 / 请求头，导致无法校验 HMAC；此时需要一个小型中继（P5 前置确认，是否引入待用户确认）。
+- R8 经 Funnel 与本机直连的请求 TCP 对端都是 `127.0.0.1`；按对端进程识别 tailscaled 依赖 macOS libproc 与 Tailscale 客户端形态（App Store 版为系统扩展），P3 需实测。识别不可靠时退化为按对端地址计数（6.4），只降低错误 Token 封锁粒度。
