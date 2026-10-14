@@ -78,9 +78,10 @@ impl Render for Controller {
                     }))))
                 .child(div().settings_text(TextRole::Helper,theme).child("填写 Tailscale Funnel 的主机名，可附端口；留空恢复仅本机访问。保存后立即生效。")))
             .child(section(theme,"连接令牌").child(div().flex().gap(px(10.0))
+                .child(action(cx,"connector-show","查看 / 复制令牌",self.busy || self.expiries.is_empty(),Command::ShowTokens))
                 .child(action(cx,"connector-generate","生成连接令牌",self.busy,Command::Generate))
                 .child(action(cx,"connector-revoke","立即吊销",self.busy || self.expiries.is_empty(),Command::Revoke).danger()))
-                .child(div().settings_text(TextRole::Helper,theme).child("令牌只在生成时显示一次。轮换后旧令牌保留 24 小时宽限期。关闭连接器会吊销全部令牌。")));
+                .child(div().settings_text(TextRole::Helper,theme).child("可随时查看与复制令牌，重启后仍可查看。轮换后旧令牌保留 24 小时宽限期。关闭连接器会吊销全部令牌。")));
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
@@ -175,7 +176,7 @@ fn action(
         .disabled(busy)
         .on_click(cx.listener(move |host, _, _, cx| host.request(command.clone(), cx)))
 }
-pub(super) fn show_token(token: String, cx: &mut App) {
+pub(super) fn show_tokens(tokens: Vec<norma::connector::TokenRecord>, cx: &mut App) {
     let Some(window) = cx.active_window() else {
         return;
     };
@@ -185,34 +186,63 @@ pub(super) fn show_token(token: String, cx: &mut App) {
             .map(|host| host.0.read(cx).theme)
             .unwrap_or_default();
         window.open_dialog(cx, move |dialog, _, _| {
-            let value = token.clone();
-            dialog.title("连接令牌（仅显示一次）").child(
+            let mut body = div().flex().flex_col().gap(px(12.0)).child(
                 div()
-                    .flex()
-                    .flex_col()
-                    .gap(px(12.0))
-                    .child(
-                        div()
-                            .settings_text(TextRole::Helper, theme)
-                            .child("保存到 Grok Bot 自定义连接器。关闭后无法再次查看。"),
-                    )
-                    .child(
-                        div()
-                            .settings_text(TextRole::Body, theme)
-                            .child(token.clone()),
-                    )
-                    .child(
-                        Button::new("connector-token-copy")
+                    .settings_text(TextRole::Helper, theme)
+                    .child("保存到 Grok Bot 自定义连接器。关闭后可从设置页再次查看。"),
+            );
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs() as i64;
+            for (index, token) in tokens.iter().enumerate() {
+                if token.expires_at.is_some_and(|until| until <= now) {
+                    continue;
+                }
+                let value = token.token.clone();
+                let expiry = token.expires_at;
+                let label = if token.expires_at.is_none() {
+                    "当前令牌"
+                } else {
+                    "旧令牌（宽限期内）"
+                };
+                body = body.child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap(px(8.0))
+                        .child(div().settings_text(TextRole::Helper, theme).child(label))
+                        .child(
+                            div()
+                                .settings_text(TextRole::Body, theme)
+                                .child(value.clone()),
+                        )
+                        .child(
+                            Button::new(SharedString::from(format!(
+                                "connector-token-copy-{index}"
+                            )))
                             .child(control_label("复制并关闭"))
                             .outline()
                             .on_click(move |_, window, cx| {
-                                cx.write_to_clipboard(ClipboardItem::new_string(value.clone()));
+                                // A dialog opened before expiry must not copy an expired grace token.
+                                let now = std::time::SystemTime::now()
+                                    .duration_since(std::time::UNIX_EPOCH)
+                                    .unwrap_or_default()
+                                    .as_secs() as i64;
+                                if token_expiry_valid(expiry, now) {
+                                    cx.write_to_clipboard(ClipboardItem::new_string(value.clone()));
+                                }
                                 window.close_dialog(cx);
                             }),
-                    ),
-            )
+                        ),
+                );
+            }
+            dialog.title("连接令牌").child(body)
         });
     });
+}
+fn token_expiry_valid(expiry: Option<i64>, now: i64) -> bool {
+    expiry.is_none_or(|until| until > now)
 }
 
 #[cfg(test)]

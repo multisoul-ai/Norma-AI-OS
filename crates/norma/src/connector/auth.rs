@@ -1,4 +1,3 @@
-use super::Keychain;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use ring::rand::{SecureRandom, SystemRandom};
 use sha2::{Digest, Sha256};
@@ -8,14 +7,15 @@ use std::{
     sync::{Arc, Mutex},
     time::{SystemTime, UNIX_EPOCH},
 };
-#[derive(Clone, PartialEq, Eq)]
-pub struct TokenHash {
-    pub hash: [u8; 32],
-    pub expires_at: Option<i64>,
+pub use workspace::connector_credentials::TokenRecord;
+struct TokenHash {
+    hash: [u8; 32],
+    expires_at: Option<i64>,
 }
 pub trait CredentialStore: Send + Sync {
-    fn tokens(&self) -> anyhow::Result<Vec<TokenHash>>;
-    fn replace_tokens(&self, tokens: &[TokenHash]) -> anyhow::Result<()>;
+    fn tokens(&self) -> anyhow::Result<Vec<TokenRecord>>;
+    fn replace_tokens(&self, tokens: &[TokenRecord]) -> anyhow::Result<()>;
+    fn secret_or_insert(&self, name: &str, candidate: &[u8], now: i64) -> anyhow::Result<Vec<u8>>;
     fn audit_auth_failure(
         &self,
         now: i64,
@@ -57,38 +57,23 @@ struct State {
 }
 pub struct Auth {
     store: Arc<dyn CredentialStore>,
-    keychain: Arc<dyn Keychain>,
     clock: Arc<dyn Clock>,
     state: Mutex<State>,
 }
 impl Auth {
-    /// Background-only: database and Keychain operations must not run on GPUI.
-    pub fn load(
-        store: Arc<dyn CredentialStore>,
-        keychain: Arc<dyn Keychain>,
-        clock: Arc<dyn Clock>,
-    ) -> anyhow::Result<Self> {
-        let mut tokens = store.tokens()?;
-        let mut valid = Vec::new();
-        for token in tokens.drain(..) {
-            if let Some(value) = keychain.get(&account(&token.hash))? {
-                let digest: [u8; 32] = Sha256::digest(value).into();
-                if bool::from(digest.ct_eq(&token.hash))
-                    && token.expires_at.is_none_or(|t| t > clock.now())
-                {
-                    valid.push(token);
-                } else {
-                    keychain.delete(&account(&token.hash))?;
-                }
-            }
-        }
+    /// Background-only: all credential persistence uses the injected SQLite adapter.
+    pub fn load(store: Arc<dyn CredentialStore>, clock: Arc<dyn Clock>) -> anyhow::Result<Self> {
+        let tokens = store.tokens()?;
+        let valid: Vec<_> = tokens
+            .into_iter()
+            .filter(|t| t.expires_at.is_none_or(|until| until > clock.now()))
+            .collect();
         store.replace_tokens(&valid)?;
         Ok(Self {
             store,
-            keychain,
             clock,
             state: Mutex::new(State {
-                tokens: valid,
+                tokens: hashes(&valid),
                 failures: HashMap::new(),
                 reads: HashMap::new(),
                 sessions: CancellationToken::new(),
@@ -98,35 +83,26 @@ impl Auth {
     pub fn now(&self) -> i64 {
         self.clock.now()
     }
-    /// Returns plaintext exactly once. The UI must erase it when dismissed or navigated away.
+    /// Persist the current token and retain every unexpired old token for its existing grace period.
     pub fn generate(&self) -> anyhow::Result<String> {
         let mut state = self
             .state
             .lock()
             .map_err(|_| anyhow::anyhow!("auth lock"))?;
         let secret = format!("nrm_live_{}", URL_SAFE_NO_PAD.encode(random_bytes()?));
-        let hash: [u8; 32] = Sha256::digest(secret.as_bytes()).into();
-        self.keychain.set(&account(&hash), secret.as_bytes())?;
-        let mut tokens = Vec::new();
-        for token in &state.tokens {
-            if token.expires_at.is_some_and(|t| t <= self.now()) {
-                self.keychain.delete(&account(&token.hash))?;
-            } else {
-                tokens.push(TokenHash {
-                    hash: token.hash,
-                    expires_at: Some(token.expires_at.unwrap_or(self.now() + 86400)),
-                });
-            }
+        let now = self.now();
+        let mut tokens = self.store.tokens()?;
+        tokens.retain(|t| t.expires_at.is_none_or(|until| until > now));
+        for token in &mut tokens {
+            token.expires_at = Some(token.expires_at.unwrap_or(now + 86400));
         }
-        tokens.push(TokenHash {
-            hash,
+        tokens.push(TokenRecord {
+            token: secret.clone(),
+            created_at: now,
             expires_at: None,
         });
-        if let Err(error) = self.store.replace_tokens(&tokens) {
-            let _ = self.keychain.delete(&account(&hash));
-            return Err(error);
-        }
-        state.tokens = tokens;
+        self.store.replace_tokens(&tokens)?;
+        state.tokens = hashes(&tokens);
         Ok(secret)
     }
     pub fn revoke(&self) -> anyhow::Result<()> {
@@ -134,19 +110,32 @@ impl Auth {
             .state
             .lock()
             .map_err(|_| anyhow::anyhow!("auth lock"))?;
-        // Deny first even if deleting a Keychain item fails. Always disconnect existing sessions.
-        let tokens = std::mem::take(&mut state.tokens);
+        // Deny first and disconnect existing sessions even if persistence fails.
+        state.tokens.clear();
         state.sessions.cancel();
         state.sessions = CancellationToken::new();
         state.reads.clear();
-        self.store.replace_tokens(&[])?;
-        let mut result = Ok(());
-        for token in tokens {
-            if let Err(error) = self.keychain.delete(&account(&token.hash)) {
-                result = Err(error);
-            }
-        }
-        result
+        self.store.replace_tokens(&[])
+    }
+    /// Background-only. Only credentials still accepted by this Auth instance are displayable.
+    pub fn visible_tokens(&self) -> anyhow::Result<Vec<TokenRecord>> {
+        let state = self
+            .state
+            .lock()
+            .map_err(|_| anyhow::anyhow!("auth lock"))?;
+        let now = self.now();
+        Ok(self
+            .store
+            .tokens()?
+            .into_iter()
+            .filter(|token| {
+                let digest: [u8; 32] = Sha256::digest(token.token.as_bytes()).into();
+                state.tokens.iter().any(|known| {
+                    bool::from(known.hash.ct_eq(&digest))
+                        && known.expires_at.is_none_or(|until| until > now)
+                })
+            })
+            .collect())
     }
     pub fn sessions(&self) -> CancellationToken {
         self.state.lock().expect("auth lock").sessions.clone()
@@ -259,17 +248,27 @@ impl Auth {
         self.store.audit(self.now(), tool, parameters, result)
     }
     pub fn signer_key(&self) -> anyhow::Result<Vec<u8>> {
-        if let Some(key) = self.keychain.get("card-identity-hmac")? {
-            anyhow::ensure!(key.len() == 32, "invalid identity key");
-            return Ok(key);
-        }
-        let key = random_bytes()?;
-        self.keychain.set("card-identity-hmac", &key)?;
-        Ok(key.into())
+        self.secret_key("card-identity-hmac")
+    }
+    pub fn webhook_key(&self) -> anyhow::Result<Vec<u8>> {
+        self.secret_key("webhook-hmac")
+    }
+    fn secret_key(&self, name: &str) -> anyhow::Result<Vec<u8>> {
+        let key = self
+            .store
+            .secret_or_insert(name, &random_bytes()?, self.now())?;
+        anyhow::ensure!(key.len() == 32, "invalid connector key");
+        Ok(key)
     }
 }
-fn account(hash: &[u8; 32]) -> String {
-    format!("token-{}", hex::encode(hash))
+fn hashes(tokens: &[TokenRecord]) -> Vec<TokenHash> {
+    tokens
+        .iter()
+        .map(|token| TokenHash {
+            hash: Sha256::digest(token.token.as_bytes()).into(),
+            expires_at: token.expires_at,
+        })
+        .collect()
 }
 fn random_bytes() -> anyhow::Result<[u8; 32]> {
     let mut bytes = [0; 32];

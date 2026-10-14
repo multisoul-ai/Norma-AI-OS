@@ -1,7 +1,7 @@
 //! Disk projection runs on the connector worker; live capture crosses a bounded GPUI channel.
 use norma::connector::{
     Card, CardIdentity, CardSigner, CredentialStore, DataSource, Project, Snapshot, Task,
-    TokenHash, Workspace,
+    TokenRecord, Workspace,
 };
 use std::{path::PathBuf, time::Duration};
 use storage::{
@@ -10,28 +10,15 @@ use storage::{
 
 pub(super) struct Credentials(pub ConnectorStore);
 impl CredentialStore for Credentials {
-    fn tokens(&self) -> anyhow::Result<Vec<TokenHash>> {
-        Ok(self
-            .0
-            .tokens()?
-            .into_iter()
-            .map(|t| TokenHash {
-                hash: t.hash,
-                expires_at: t.expires_at,
-            })
-            .collect())
+    fn tokens(&self) -> anyhow::Result<Vec<TokenRecord>> {
+        Ok(self.0.tokens()?)
     }
-    fn replace_tokens(&self, tokens: &[TokenHash]) -> anyhow::Result<()> {
-        self.0.replace_tokens(
-            &tokens
-                .iter()
-                .map(|t| storage::connector_store::TokenHash {
-                    hash: t.hash,
-                    expires_at: t.expires_at,
-                })
-                .collect::<Vec<_>>(),
-        )?;
+    fn replace_tokens(&self, tokens: &[TokenRecord]) -> anyhow::Result<()> {
+        self.0.replace_tokens(tokens)?;
         Ok(())
+    }
+    fn secret_or_insert(&self, name: &str, candidate: &[u8], now: i64) -> anyhow::Result<Vec<u8>> {
+        Ok(self.0.secret_or_insert(name, candidate, now)?)
     }
     fn audit_auth_failure(
         &self,

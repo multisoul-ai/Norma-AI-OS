@@ -58,7 +58,7 @@ pub(crate) fn install(cx: &mut App) {
                 };
                 controller.updates = Some(cx.spawn(async move |this, cx| {
                     while let Ok(mut update) = events.recv().await {
-                        let token = update.token.take();
+                        let tokens = update.tokens.take();
                         let _ = this.update(cx, |state: &mut Controller, cx| {
                             state.config = update.config;
                             state.listening = update.listening;
@@ -72,8 +72,8 @@ pub(crate) fn install(cx: &mut App) {
                             }
                             cx.notify();
                         });
-                        if let Some(token) = token {
-                            let _ = cx.update(|cx| view::show_token(token, cx));
+                        if let Some(tokens) = tokens {
+                            let _ = cx.update(|cx| view::show_tokens(tokens, cx));
                         }
                     }
                 }));

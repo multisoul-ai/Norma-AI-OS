@@ -11,14 +11,7 @@ impl DataSource for Empty {
 }
 async fn host(authority: &str) -> (ConnectorServer, Arc<Auth>, Arc<Credentials>, String) {
     let store = Arc::new(Credentials::default());
-    let auth = Arc::new(
-        Auth::load(
-            store.clone(),
-            Arc::new(MemoryKeychain::default()),
-            Arc::new(SystemClock),
-        )
-        .expect("鉴权"),
-    );
+    let auth = Arc::new(Auth::load(store.clone(), Arc::new(SystemClock)).expect("鉴权"));
     let token = auth.generate().expect("凭据");
     let tools = ConnectorTools::new(
         auth.clone(),

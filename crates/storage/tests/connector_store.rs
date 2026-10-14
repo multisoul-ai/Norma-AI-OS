@@ -1,26 +1,27 @@
-use storage::connector_store::{ConnectorStore, TokenHash};
+use storage::connector_store::{ConnectorStore, TokenRecord};
 
-/// 场景：新 App 无连接器配置；构造临时库，读取配置并保存哈希和审计。
-/// 预期：默认关闭、端口 47615，持久化只含哈希，审计保留结果码。
+/// 场景：新 App 无连接器配置；构造临时库，读取配置并保存令牌和审计。
+/// 预期：默认关闭、端口 47615，持久化包含明文，审计保留结果码。
 #[test]
-fn defaults_and_hash_only_persistence() {
+fn defaults_and_plaintext_persistence() {
     let dir = tempfile::tempdir().expect("隔离目录");
     let path = dir.path().join("app.sqlite");
     let store = ConnectorStore::new(path.clone());
     let config = store.config().expect("默认配置");
     assert!(!config.enabled, "新连接器必须关闭");
     assert_eq!(config.port, 47615, "规格默认端口");
-    let hash = TokenHash {
-        hash: [7; 32],
+    let token = TokenRecord {
+        token: random_token(),
+        created_at: 100,
         expires_at: None,
     };
     store
-        .replace_tokens(std::slice::from_ref(&hash))
-        .expect("保存哈希");
+        .replace_tokens(std::slice::from_ref(&token))
+        .expect("保存令牌");
     assert_eq!(
-        store.tokens().expect("读取哈希"),
-        vec![hash],
-        "哈希必须持久保存"
+        store.tokens().expect("读取令牌"),
+        vec![token],
+        "令牌必须持久保存"
     );
     store
         .audit(100, "authentication", "unauthorized")
@@ -31,7 +32,7 @@ fn defaults_and_hash_only_persistence() {
         "鉴权失败必须可审计"
     );
     store.replace_tokens(&[]).expect("吊销");
-    assert!(store.tokens().expect("读取").is_empty(), "吊销移除所有哈希");
+    assert!(store.tokens().expect("读取").is_empty(), "吊销移除所有令牌");
 }
 
 /// 场景：同一空间将同目录添加两次，各自保存node_id=1，另加未初始化区域。
@@ -143,11 +144,10 @@ fn catalog_uses_stable_per_area_canvas_and_does_not_initialize_missing_files() {
     );
 }
 
-/// 场景：用随机数据构造令牌只保存SHA256，并在同库写审计；执行原始文件检索。
-/// 预期：SQLite文件包含凭据摘要，但不包含明文；90天前审计被清理。
+/// 场景：用随机数据构造令牌保存明文，并在同库写审计；执行原始文件检索。
+/// 预期：SQLite文件包含明文，审计不包含明文；90天前审计被清理。
 #[test]
-fn sqlite_has_no_plaintext_and_audit_expires_after_ninety_days() {
-    use sha2::{Digest, Sha256};
+fn sqlite_has_plaintext_but_audit_expires_after_ninety_days() {
     use std::io::Read;
     let dir = tempfile::tempdir().expect("目录");
     let path = dir.path().join("app.sqlite");
@@ -163,11 +163,11 @@ fn sqlite_has_no_plaintext_and_audit_expires_after_ninety_days() {
             .map(|b| format!("{b:02x}"))
             .collect::<String>()
     );
-    let digest: [u8; 32] = Sha256::digest(token.as_bytes()).into();
     let store = ConnectorStore::new(path.clone());
     store
-        .replace_tokens(&[TokenHash {
-            hash: digest,
+        .replace_tokens(&[TokenRecord {
+            token: token.clone(),
+            created_at: 100,
             expires_at: None,
         }])
         .expect("保存摘要");
@@ -179,12 +179,8 @@ fn sqlite_has_no_plaintext_and_audit_expires_after_ninety_days() {
     assert_eq!(store.audit_page(50).expect("审计").len(), 1, "超过90天清理");
     let bytes = std::fs::read(path).expect("读取库文件");
     assert!(
-        !bytes.windows(token.len()).any(|w| w == token.as_bytes()),
-        "数据库无明文令牌"
-    );
-    assert!(
-        bytes.windows(digest.len()).any(|w| w == digest),
-        "数据库保存哈希"
+        bytes.windows(token.len()).any(|w| w == token.as_bytes()),
+        "数据库保存明文令牌"
     );
 }
 
@@ -306,5 +302,142 @@ fn authentication_flood_updates_one_audit_row_per_source_window() {
         store.audit_page(50).expect("审计页").len(),
         3,
         "各IP和窗口独立"
+    );
+}
+
+/// 场景：随机令牌及两种独立密钥存入临时 SQLite，销毁 store 后重新打开两次。
+/// 构造：随机 UUID 文本、创建时间100、旧令牌宽限至86500（100+24×60×60）。
+/// 执行：保存当前/宽限令牌和密钥，重开读取，再吊销；预期明文可查看，Debug脱敏，吊销删除行。
+#[test]
+fn plaintext_credentials_survive_reopen_and_revoke() {
+    use storage::connector_store::TokenRecord;
+    let dir = tempfile::tempdir().expect("隔离目录");
+    let path = dir.path().join("app.sqlite");
+    let store = ConnectorStore::new(path.clone());
+    let current = random_token();
+    let old = random_token();
+    let tokens = vec![
+        TokenRecord {
+            token: current.clone(),
+            created_at: 100,
+            expires_at: None,
+        },
+        TokenRecord {
+            token: old.clone(),
+            created_at: 50,
+            expires_at: Some(86500),
+        },
+    ];
+    store.replace_tokens(&tokens).expect("保存明文");
+    let hmac = random_token().into_bytes();
+    let card = random_token().into_bytes();
+    store
+        .secret_or_insert("webhook-hmac", &hmac, 100)
+        .expect("HMAC");
+    store
+        .secret_or_insert("card-identity-hmac", &card, 100)
+        .expect("card_id");
+    drop(store);
+    for _ in 0..2 {
+        let reopened = ConnectorStore::new(path.clone());
+        assert!(
+            reopened
+                .tokens()
+                .expect("重开明文")
+                .iter()
+                .all(|t| tokens.contains(t))
+                && reopened.tokens().expect("计数").len() == 2,
+            "明文与生命周期元数据保持"
+        );
+        assert!(
+            reopened
+                .secret_or_insert("webhook-hmac", &card, 200)
+                .expect("HMAC重开")
+                == hmac,
+            "既有HMAC不能被覆盖"
+        );
+        assert!(
+            reopened
+                .secret_or_insert("card-identity-hmac", &hmac, 200)
+                .expect("card_id重开")
+                == card,
+            "card_id密钥独立稳定"
+        );
+        let debug = format!("{:?}", reopened.tokens().expect("Debug"));
+        assert!(debug.contains("REDACTED"), "必须明确脱敏");
+        assert!(
+            !debug.contains(&current) && !debug.contains(&old),
+            "Debug不得泄漏令牌"
+        );
+    }
+    ConnectorStore::new(path.clone())
+        .replace_tokens(&[])
+        .expect("吊销");
+    assert!(
+        ConnectorStore::new(path).tokens().expect("重开").is_empty(),
+        "吊销后无明文记录"
+    );
+}
+
+fn random_token() -> String {
+    use std::io::Read;
+    let mut bytes = [0; 32];
+    std::fs::File::open("/dev/urandom")
+        .expect("随机源")
+        .read_exact(&mut bytes)
+        .expect("随机数据");
+    format!(
+        "nrm_live_{}",
+        bytes.iter().map(|b| format!("{b:02x}")).collect::<String>()
+    )
+}
+
+/// 场景：未发布旧构建只有摘要表；构造临时旧表与审计，连续执行迁移并重开。
+/// 执行：插入旧摘要与审计，migrate_app_db两次；预期旧摘要清理，新明文表可用，审计保留。
+#[test]
+fn legacy_hash_schema_migration_is_idempotent_and_preserves_audit() {
+    let dir = tempfile::tempdir().expect("隔离目录");
+    let path = dir.path().join("app.sqlite");
+    let conn = rusqlite::Connection::open(&path).expect("旧临时库");
+    conn.execute_batch("CREATE TABLE connector_token_hashes(token_hash BLOB PRIMARY KEY NOT NULL,expires_at_unix INTEGER);
+        INSERT INTO connector_token_hashes VALUES(zeroblob(32),NULL);
+        CREATE TABLE connector_audit(sequence INTEGER PRIMARY KEY AUTOINCREMENT,occurred_at_unix INTEGER NOT NULL,tool TEXT NOT NULL,parameter_summary TEXT NOT NULL,operation_id TEXT,result_code TEXT NOT NULL,user_quote TEXT);
+        INSERT INTO connector_audit(occurred_at_unix,tool,parameter_summary,result_code) VALUES(100,'directory','','ok');").expect("旧schema");
+    for _ in 0..2 {
+        storage::migrations::migrate_app_db(&conn).expect("幂等迁移");
+    }
+    let old_tables: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM sqlite_master WHERE name='connector_token_hashes'",
+            [],
+            |r| r.get(0),
+        )
+        .expect("旧表");
+    assert_eq!(
+        old_tables, 0,
+        "不可恢复的旧摘要表已清理，不访问旧秘密提供者"
+    );
+    drop(conn);
+    let reopened = ConnectorStore::new(path);
+    assert!(
+        reopened.tokens().expect("新凭据表").is_empty(),
+        "迁移不伪造旧令牌"
+    );
+    assert_eq!(
+        reopened.audit_page(20).expect("旧审计")[0].result_code,
+        "ok",
+        "迁移保留既有审计"
+    );
+    reopened
+        .replace_tokens(&[storage::connector_store::TokenRecord {
+            token: random_token(),
+            created_at: 200,
+            expires_at: None,
+        }])
+        .expect("新表可写");
+    assert_eq!(
+        reopened.tokens().expect("重开").len(),
+        1,
+        "迁移后明文可持久化"
     );
 }

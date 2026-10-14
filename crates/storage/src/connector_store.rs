@@ -1,4 +1,4 @@
-//! Connector settings, credential digests and bounded audit history. Never stores secrets.
+//! Connector settings, plaintext credentials and bounded audit history. Never logs secrets.
 use crate::{migrations::open_app_connection, StorageResult};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
@@ -20,11 +20,7 @@ impl Default for ConnectorConfig {
         }
     }
 }
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct TokenHash {
-    pub hash: [u8; 32],
-    pub expires_at: Option<i64>,
-}
+pub use workspace::connector_credentials::TokenRecord;
 #[derive(Clone, Debug)]
 pub struct ConnectorAudit {
     pub occurred_at: i64,
@@ -50,36 +46,48 @@ impl ConnectorStore {
         crate::SettingsStore::new(self.path.clone())
             .set_string("connector.config.v1", &serde_json::to_string(config)?)
     }
-    pub fn tokens(&self) -> StorageResult<Vec<TokenHash>> {
+    pub fn tokens(&self) -> StorageResult<Vec<TokenRecord>> {
         let conn = open_app_connection(&self.path)?;
-        let mut stmt =
-            conn.prepare("SELECT token_hash,expires_at_unix FROM connector_token_hashes")?;
+        let mut stmt = conn.prepare("SELECT token,created_at_unix,grace_until_unix FROM connector_tokens WHERE state IN ('active','grace') ORDER BY state,created_at_unix,token")?;
         let rows = stmt
             .query_map([], |row| {
-                let bytes: Vec<u8> = row.get(0)?;
-                let hash = bytes
-                    .try_into()
-                    .map_err(|_| rusqlite::Error::InvalidQuery)?;
-                Ok(TokenHash {
-                    hash,
-                    expires_at: row.get(1)?,
+                Ok(TokenRecord {
+                    token: row.get(0)?,
+                    created_at: row.get(1)?,
+                    expires_at: row.get(2)?,
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
         Ok(rows)
     }
-    pub fn replace_tokens(&self, tokens: &[TokenHash]) -> StorageResult<()> {
+    pub fn replace_tokens(&self, tokens: &[TokenRecord]) -> StorageResult<()> {
         let mut conn = open_app_connection(&self.path)?;
         let tx = conn.transaction()?;
-        tx.execute("DELETE FROM connector_token_hashes", [])?;
+        tx.execute("DELETE FROM connector_tokens", [])?;
         for token in tokens {
-            tx.execute(
-                "INSERT INTO connector_token_hashes(token_hash,expires_at_unix) VALUES(?1,?2)",
-                params![token.hash.as_slice(), token.expires_at],
-            )?;
+            tx.execute("INSERT INTO connector_tokens(token,state,created_at_unix,grace_until_unix) VALUES(?1,?2,?3,?4)",
+                params![token.token, if token.expires_at.is_some() { "grace" } else { "active" }, token.created_at, token.expires_at])?;
         }
         tx.commit()?;
         Ok(())
+    }
+    /// Atomic insert-if-absent keeps keys stable across concurrent workers and restarts.
+    pub fn secret_or_insert(
+        &self,
+        name: &str,
+        candidate: &[u8],
+        now: i64,
+    ) -> StorageResult<Vec<u8>> {
+        let mut conn = open_app_connection(&self.path)?;
+        let tx = conn.transaction()?;
+        tx.execute("INSERT INTO connector_secrets(name,secret,created_at_unix) VALUES(?1,?2,?3) ON CONFLICT(name) DO NOTHING", params![name, candidate, now])?;
+        let secret = tx.query_row(
+            "SELECT secret FROM connector_secrets WHERE name=?1",
+            [name],
+            |row| row.get(0),
+        )?;
+        tx.commit()?;
+        Ok(secret)
     }
     /// Call only on a background worker. Parameter bodies and credentials never enter this API.
     pub fn audit(&self, now: i64, tool: &str, result: &str) -> StorageResult<()> {
@@ -147,7 +155,9 @@ impl ConnectorStore {
     }
 }
 pub(crate) fn migrate(conn: &Connection) -> StorageResult<()> {
-    conn.execute_batch("CREATE TABLE IF NOT EXISTS connector_token_hashes(token_hash BLOB PRIMARY KEY NOT NULL CHECK(length(token_hash)=32),expires_at_unix INTEGER);
+    conn.execute_batch("CREATE TABLE IF NOT EXISTS connector_tokens(token TEXT PRIMARY KEY NOT NULL,state TEXT NOT NULL CHECK(state IN ('active','grace','revoked')),created_at_unix INTEGER NOT NULL,grace_until_unix INTEGER,CHECK((state='grace' AND grace_until_unix IS NOT NULL) OR (state IN ('active','revoked') AND grace_until_unix IS NULL)));
+        CREATE TABLE IF NOT EXISTS connector_secrets(name TEXT PRIMARY KEY NOT NULL,secret BLOB NOT NULL,created_at_unix INTEGER NOT NULL);
+        DROP TABLE IF EXISTS connector_token_hashes;
         CREATE TABLE IF NOT EXISTS connector_audit(sequence INTEGER PRIMARY KEY AUTOINCREMENT,occurred_at_unix INTEGER NOT NULL,tool TEXT NOT NULL,parameter_summary TEXT NOT NULL,operation_id TEXT,result_code TEXT NOT NULL,user_quote TEXT);
         CREATE INDEX IF NOT EXISTS connector_audit_time ON connector_audit(occurred_at_unix);
         CREATE UNIQUE INDEX IF NOT EXISTS connector_auth_window ON connector_audit(operation_id) WHERE tool='authentication' AND operation_id IS NOT NULL;")?;

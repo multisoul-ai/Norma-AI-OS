@@ -1,5 +1,6 @@
 //! workspace — zero-GPUI workspace metadata and recent-project persistence.
 
+pub mod connector_credentials;
 pub mod git_clone;
 pub mod host_authority;
 pub use host_authority::HostAuthority;

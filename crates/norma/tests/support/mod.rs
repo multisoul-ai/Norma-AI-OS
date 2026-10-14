@@ -1,18 +1,28 @@
-use norma::connector::{CredentialStore, TokenHash};
+use norma::connector::{CredentialStore, TokenRecord};
 use std::{collections::HashMap, net::IpAddr, sync::Mutex};
 #[derive(Default)]
 pub struct Credentials {
-    pub hashes: Mutex<Vec<TokenHash>>,
+    pub tokens: Mutex<Vec<TokenRecord>>,
+    pub secrets: Mutex<HashMap<String, Vec<u8>>>,
     pub audit: Mutex<Vec<String>>,
     pub auth_failures: Mutex<HashMap<(IpAddr, i64), u64>>,
 }
 impl CredentialStore for Credentials {
-    fn tokens(&self) -> anyhow::Result<Vec<TokenHash>> {
-        Ok(self.hashes.lock().expect("哈希").clone())
+    fn tokens(&self) -> anyhow::Result<Vec<TokenRecord>> {
+        Ok(self.tokens.lock().expect("哈希").clone())
     }
-    fn replace_tokens(&self, tokens: &[TokenHash]) -> anyhow::Result<()> {
-        *self.hashes.lock().expect("哈希") = tokens.to_vec();
+    fn replace_tokens(&self, tokens: &[TokenRecord]) -> anyhow::Result<()> {
+        *self.tokens.lock().expect("哈希") = tokens.to_vec();
         Ok(())
+    }
+    fn secret_or_insert(&self, name: &str, candidate: &[u8], _: i64) -> anyhow::Result<Vec<u8>> {
+        Ok(self
+            .secrets
+            .lock()
+            .expect("密钥")
+            .entry(name.into())
+            .or_insert_with(|| candidate.to_vec())
+            .clone())
     }
     fn audit_auth_failure(
         &self,

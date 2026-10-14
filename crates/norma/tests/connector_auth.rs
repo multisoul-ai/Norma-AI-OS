@@ -1,4 +1,4 @@
-use norma::connector::{Auth, Clock, MemoryKeychain};
+use norma::connector::{Auth, Clock};
 use std::sync::{
     atomic::{AtomicI64, Ordering},
     Arc,
@@ -17,12 +17,7 @@ impl Clock for Time {
 fn rotation_and_revoke() {
     let clock = Arc::new(Time(AtomicI64::new(100)));
     let store = Arc::new(Credentials::default());
-    let auth = Auth::load(
-        store.clone(),
-        Arc::new(MemoryKeychain::default()),
-        clock.clone(),
-    )
-    .expect("鉴权");
+    let auth = Auth::load(store.clone(), clock.clone()).expect("鉴权");
     let old = auth.generate().expect("首次生成");
     assert!(auth.authenticate(Some(&old)).is_ok(), "有效令牌");
     let new = auth.generate().expect("轮换");
@@ -34,7 +29,7 @@ fn rotation_and_revoke() {
     auth.revoke().expect("立即吊销");
     assert!(auth.authenticate(Some(&new)).is_err(), "所有令牌被吊销");
     assert!(
-        store.hashes.lock().expect("哈希").is_empty(),
+        store.tokens.lock().expect("哈希").is_empty(),
         "本地删除哈希"
     );
 }
@@ -44,12 +39,7 @@ fn rotation_and_revoke() {
 #[test]
 fn read_limit_and_lockout_boundaries() {
     let clock = Arc::new(Time(AtomicI64::new(100)));
-    let auth = Auth::load(
-        Arc::new(Credentials::default()),
-        Arc::new(MemoryKeychain::default()),
-        clock.clone(),
-    )
-    .expect("鉴权");
+    let auth = Auth::load(Arc::new(Credentials::default()), clock.clone()).expect("鉴权");
     let token = auth.generate().expect("随机令牌");
     let identity = auth.authenticate(Some(&token)).expect("有效");
     for _ in 0..60 {
@@ -88,53 +78,28 @@ fn read_limit_and_lockout_boundaries() {
     assert!(auth.authenticate(Some(&token)).is_ok(), "15分钟后解锁");
 }
 
-/// 场景：随机生成令牌，经Keychain保存并用同一哈希存储重启鉴权，随后吊销。
-/// 预期：格式符合32字节base64url，Keychain可读明文、本地仅摘要；重启不显示令牌，吊销删除Keychain。
+/// 场景：使用32字节CSPRNG生成令牌，重载凭据后可再次查看并立即吊销。
+/// 执行：解码随机令牌、重载Auth、查看和吊销；预期256位熵且无一次性展示限制。
 #[test]
-fn keychain_plaintext_hash_only_store_and_restart() {
+fn plaintext_store_and_restart() {
     use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-    use norma::connector::Keychain;
-    use sha2::{Digest, Sha256};
     let store = Arc::new(Credentials::default());
-    let keychain = Arc::new(MemoryKeychain::default());
     let clock = Arc::new(Time(AtomicI64::new(100)));
-    let auth = Auth::load(store.clone(), keychain.clone(), clock.clone()).expect("鉴权");
+    let auth = Auth::load(store.clone(), clock.clone()).expect("鉴权");
     let token = auth.generate().expect("生成");
-    let encoded = token.strip_prefix("nrm_live_").expect("规范前缀");
-    assert_eq!(
-        URL_SAFE_NO_PAD.decode(encoded).expect("base64url").len(),
-        32,
-        "CSPRNG令牌32字节"
-    );
-    assert!(
-        URL_SAFE_NO_PAD.decode(encoded).expect("随机字节").len() * 8 >= 128,
-        "32字节×8=256位，达到128位熵要求；生成器使用ring CSPRNG"
-    );
-    let digest: [u8; 32] = Sha256::digest(token.as_bytes()).into();
-    let account = format!("token-{}", hex::encode(digest));
-    assert!(
-        keychain
-            .get(&account)
-            .expect("钥匙串")
-            .is_some_and(|v| v == token.as_bytes()),
-        "Keychain保存明文，断言不输出秘密"
-    );
-    assert_eq!(
-        store.hashes.lock().expect("存储")[0].hash,
-        digest,
-        "本地只存哈希"
-    );
+    let bytes = URL_SAFE_NO_PAD
+        .decode(token.strip_prefix("nrm_live_").expect("前缀"))
+        .expect("解码");
+    assert_eq!(bytes.len(), 32, "32×8=256位随机熵，超过128位要求");
     drop(auth);
-    let restarted = Auth::load(store, keychain.clone(), clock).expect("重启");
+    let restarted = Auth::load(store.clone(), clock).expect("重载");
+    assert!(restarted.authenticate(Some(&token)).is_ok(), "恢复授权");
     assert!(
-        restarted.authenticate(Some(&token)).is_ok(),
-        "重启恢复哈希授权"
+        restarted.visible_tokens().expect("查看")[0].token == token,
+        "重启可查看"
     );
     restarted.revoke().expect("吊销");
-    assert!(
-        keychain.get(&account).expect("钥匙串").is_none(),
-        "吊销删除钥匙串明文"
-    );
+    assert!(store.tokens.lock().expect("存储").is_empty(), "明文被删除");
 }
 
 /// 场景：两个来源各自累计失败，固定窗口15×60=900秒；正确令牌穿过锁定。
@@ -143,12 +108,7 @@ fn keychain_plaintext_hash_only_store_and_restart() {
 #[test]
 fn source_ip_windows_are_independent_and_valid_tokens_bypass_lockout() {
     let clock = Arc::new(Time(AtomicI64::new(100)));
-    let auth = Auth::load(
-        Arc::new(Credentials::default()),
-        Arc::new(MemoryKeychain::default()),
-        clock.clone(),
-    )
-    .expect("鉴权");
+    let auth = Auth::load(Arc::new(Credentials::default()), clock.clone()).expect("鉴权");
     let token = auth.generate().expect("令牌");
     let a = "198.51.100.1".parse().expect("A IP");
     let b = "198.51.100.2".parse().expect("B IP");
@@ -188,4 +148,53 @@ fn source_ip_windows_are_independent_and_valid_tokens_bypass_lockout() {
         );
     }
     assert_eq!(auth.locked_until_for(b), 0, "B在新窗口未达阈值");
+}
+
+/// 场景：令牌重启后可查看，过期旧令牌隐藏；两种密钥持久且互不相同。
+/// 构造：时钟100秒，生成两次并重载；推进到86500秒（100+86400）。
+/// 预期：新旧令牌均可查看，边界隐藏旧令牌；独立密钥和card_id签名重启稳定。
+#[test]
+fn restarted_credentials_are_displayable_and_keys_are_independent() {
+    let store = Arc::new(Credentials::default());
+    let clock = Arc::new(Time(AtomicI64::new(100)));
+    let auth = Auth::load(store.clone(), clock.clone()).expect("加载");
+    let old = auth.generate().expect("旧令牌");
+    let current = auth.generate().expect("当前令牌");
+    let card = auth.signer_key().expect("card_id密钥");
+    let hmac = auth.webhook_key().expect("HMAC密钥");
+    assert!(card != hmac, "两个用途必须采用独立随机密钥");
+    drop(auth);
+    let reopened = Auth::load(store, clock.clone()).expect("重启");
+    let visible = reopened.visible_tokens().expect("重启查看");
+    assert!(
+        visible
+            .iter()
+            .any(|t| t.token == current && t.expires_at.is_none()),
+        "当前令牌可显示"
+    );
+    assert!(
+        visible
+            .iter()
+            .any(|t| t.token == old && t.expires_at == Some(86500)),
+        "宽限期旧令牌可显示"
+    );
+    assert!(
+        reopened.signer_key().expect("身份") == card,
+        "身份密钥重启稳定"
+    );
+    assert!(
+        reopened.webhook_key().expect("签名") == hmac,
+        "HMAC密钥重启稳定"
+    );
+    clock.0.store(86500, Ordering::SeqCst);
+    assert_eq!(
+        reopened.visible_tokens().expect("期满").len(),
+        1,
+        "过期旧令牌不可显示"
+    );
+    reopened.revoke().expect("吊销");
+    assert!(
+        reopened.visible_tokens().expect("吊销查看").is_empty(),
+        "吊销后无可见秘密"
+    );
 }

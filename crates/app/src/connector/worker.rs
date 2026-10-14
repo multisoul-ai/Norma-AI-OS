@@ -1,7 +1,7 @@
-//! Dedicated App thread owns tokio and all disk/Keychain work. Shutdown never creates a process.
+//! Dedicated App thread owns tokio and all SQLite work. Shutdown never creates a process.
 use super::repository::{Credentials, LiveRequest, Repository};
 use norma::connector::{
-    Auth, CardSigner, ConnectorConfig, ConnectorServer, ConnectorTools, Keychain, SystemClock,
+    Auth, CardSigner, ConnectorConfig, ConnectorServer, ConnectorTools, SystemClock, TokenRecord,
 };
 use std::{path::PathBuf, sync::Arc};
 use storage::connector_store::{ConnectorAudit, ConnectorStore};
@@ -11,6 +11,7 @@ pub(super) enum Command {
     Enable,
     Disable,
     Generate,
+    ShowTokens,
     Revoke,
     Port(u16),
     TunnelAuthority(Option<workspace::HostAuthority>),
@@ -23,7 +24,7 @@ pub(super) struct Update {
     pub expiries: Vec<Option<i64>>,
     pub locked_until: i64,
     pub audit: Vec<ConnectorAudit>,
-    pub token: Option<String>,
+    pub tokens: Option<Vec<TokenRecord>>,
     pub error: Option<String>,
     pub signer: Option<CardSigner>,
 }
@@ -48,22 +49,12 @@ pub(super) fn start(
                 expiries: Vec::new(),
                 locked_until: 0,
                 audit: Vec::new(),
-                token: None,
-                error: Some("连接器初始化失败，请检查存储与钥匙串权限。".into()),
+                tokens: None,
+                error: Some("连接器初始化失败，请检查存储权限。".into()),
                 signer: None,
             });
         }
     });
-}
-fn keychain() -> anyhow::Result<Arc<dyn Keychain>> {
-    #[cfg(target_os = "macos")]
-    {
-        Ok(Arc::new(norma::connector::MacKeychain))
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        anyhow::bail!("connector credentials require macOS Keychain")
-    }
 }
 async fn run(
     database: PathBuf,
@@ -75,13 +66,12 @@ async fn run(
     let mut config = store.config()?;
     let auth = Arc::new(Auth::load(
         Arc::new(Credentials(store.clone())),
-        keychain()?,
         Arc::new(SystemClock),
     )?);
-    if !config.enabled {
-        auth.revoke()?;
-    }
+    // A disabled listener may have a freshly generated token awaiting setup.
+    // Only the explicit Disable action revokes; restarting must preserve visibility.
     let signer = CardSigner::new(&auth.signer_key()?);
+    auth.webhook_key()?;
     let source = Arc::new(Repository {
         database,
         signer: signer.clone(),
@@ -113,7 +103,7 @@ async fn run(
         &auth,
         Details {
             listening: server.is_some(),
-            token: None,
+            tokens: None,
             error: error.clone(),
             signer: Some(signer),
         },
@@ -125,7 +115,7 @@ async fn run(
             _=tokio::time::sleep(std::time::Duration::from_secs(2)), if server.is_some()=>Command::Reload,
         };
         let reloading = matches!(command, Command::Reload);
-        let mut token = None;
+        let mut tokens = None;
         let result = match command {
             Command::Shutdown => break,
             Command::Enable => {
@@ -162,13 +152,11 @@ async fn run(
                 let save = store.save_config(&config).map_err(anyhow::Error::from);
                 revoke.and(save)
             }
-            Command::Generate => match auth.generate() {
-                Ok(value) => {
-                    token = Some(value);
-                    Ok(())
-                }
-                Err(e) => Err(e),
-            },
+            Command::Generate => auth
+                .generate()
+                .and_then(|_| auth.visible_tokens())
+                .map(|values| tokens = Some(values)),
+            Command::ShowTokens => auth.visible_tokens().map(|values| tokens = Some(values)),
             Command::Revoke => auth.revoke(),
             Command::Port(port) => {
                 if port == 0 {
@@ -242,7 +230,7 @@ async fn run(
         if !reloading {
             error = result
                 .err()
-                .map(|_| "连接器操作失败，请检查端口、存储与钥匙串权限。".into());
+                .map(|_| "连接器操作失败，请检查端口、存储权限。".into());
         }
         publish(
             &updates,
@@ -251,7 +239,7 @@ async fn run(
             &auth,
             Details {
                 listening: server.is_some(),
-                token,
+                tokens,
                 error: error.clone(),
                 signer: None,
             },
@@ -265,7 +253,7 @@ async fn run(
 }
 struct Details {
     listening: bool,
-    token: Option<String>,
+    tokens: Option<Vec<TokenRecord>>,
     error: Option<String>,
     signer: Option<CardSigner>,
 }
@@ -278,7 +266,7 @@ async fn publish(
 ) {
     let Details {
         listening,
-        token,
+        tokens,
         error,
         signer,
     } = details;
@@ -291,7 +279,7 @@ async fn publish(
             expiries: auth.token_status(),
             locked_until: auth.locked_until(),
             audit: audit.unwrap_or_default(),
-            token,
+            tokens,
             error,
             signer,
         })

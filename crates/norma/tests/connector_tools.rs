@@ -16,14 +16,8 @@ impl DataSource for Source {
     }
 }
 fn fixture() -> (ConnectorTools, Authenticated, Arc<Mutex<Snapshot>>) {
-    let auth = Arc::new(
-        Auth::load(
-            Arc::new(Credentials::default()),
-            Arc::new(MemoryKeychain::default()),
-            Arc::new(Fixed),
-        )
-        .expect("鉴权"),
-    );
+    let auth =
+        Arc::new(Auth::load(Arc::new(Credentials::default()), Arc::new(Fixed)).expect("鉴权"));
     let token = auth.generate().expect("凭据");
     let identity = auth.authenticate(Some(&token)).expect("鉴权");
     let signer = CardSigner::new(&auth.signer_key().expect("密钥"));
