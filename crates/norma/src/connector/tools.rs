@@ -300,7 +300,7 @@ impl ServerHandler for ConnectorTools {
 /// MCP backward compatibility: clients that ignore `structuredContent` (e.g. Grok Bot
 /// custom connectors) read `content[0].text`, so it carries the same JSON document.
 fn result(value: Value) -> CallToolResult {
-    let error = value.get("error").is_some();
+    let error = value.get("error").is_some_and(|e| !e.is_null());
     let text = serde_json::to_string(&value).unwrap_or_else(|_| "{}".into());
     let mut result = CallToolResult::success(vec![ContentBlock::text(text)]);
     result.structured_content = Some(value);
@@ -313,4 +313,17 @@ pub fn bounded(text: &str) -> String {
 
 pub(super) fn public_error(code: &str) -> Value {
     schema::error(code, None)
+}
+
+#[cfg(test)]
+mod result_flag_tests {
+    use super::*;
+
+    #[test]
+    fn null_error_field_is_not_a_tool_error() {
+        let ok = result(serde_json::json!({"task_id": "1", "error": null}));
+        assert_eq!(ok.is_error, Some(false));
+        let failed = result(serde_json::json!({"error": {"code": "internal"}}));
+        assert_eq!(failed.is_error, Some(true));
+    }
 }
