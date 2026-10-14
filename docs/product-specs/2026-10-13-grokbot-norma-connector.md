@@ -84,7 +84,7 @@ Norma App 进程
 通用约定：
 - 所有工具返回 MCP `CallToolResult`，`structuredContent` 为下列输出 JSON，同时 `content[0].text` 给一句中文摘要供模型阅读。
 - 错误：`isError: true`，`structuredContent = {"error": {"code": "...", "message": "...", "retryable": bool}}`。
-- 通用错误码：`unauthorized`（401，HTTP 层）、`rate_limited`（含 `retry_after_s`）、`connector_disabled`、`invalid_argument`、`workspace_not_found`、`card_not_found`、`target_changed`、`internal`。
+- 通用错误码：`unauthorized`（401，HTTP 层）、`rate_limited`（含 `retry_after_s`）、`connector_disabled`、`invalid_argument`、`workspace_not_found`、`card_not_found`、`target_changed`、`not_connector_task`（`cancel_task` 默认只能取消 Grok Bot 派出的任务，取消其他来源任务时返回；暂定，待 yakami 确认）、`internal`。
 - 文本字段一律有界：任务正文 ≤ 8000 字符；摘要 ≤ 500 字符；列表分页 `limit ≤ 50`。
 
 ### 4.1 `directory`（只读，P2）
@@ -228,7 +228,7 @@ Norma App 进程
 
 ## 7. 新增存储（全部为新）
 
-- `connector_operations(client_id, operation_id, tool, request_hash, state, result_json, error, created_at_unix, updated_at_unix, PRIMARY KEY(client_id, operation_id))`——保存 30 天后清理（暂定，待 yakami 确认）；`client_id` 为连接器调用方身份，Token 轮换 24 小时宽限期内新旧 Token 视为同一 `client_id`，保证跨轮换重放仍幂等（暂定，待 yakami 确认）。语义复制 `MobileCommandStore::reserve`（`New / Existing / Conflict`），不复用 `mobile_commands`（它绑定 `device_id` 与手机授权）。
+- `connector_operations(client_id, operation_id, tool, request_hash, state, result_json, error, created_at_unix, updated_at_unix, PRIMARY KEY(client_id, operation_id))`——保存 30 天后清理（暂定，待 yakami 确认）；`client_id` 为连接器调用方身份，Token 轮换 24 小时宽限期内新旧 Token 视为同一 `client_id`，保证跨轮换重放仍幂等（暂定，待 yakami 确认）。**吊销后重新生成的 Token 是新的 `client_id`**：吊销是立即生效的安全动作，旧 Token 时期的 `operation_id` 不能用新 Token 重放取回回执，同一 `operation_id` 在新 `client_id` 下是独立命名空间、按新操作处理（2026-10-14）。语义复制 `MobileCommandStore::reserve`（`New / Existing / Conflict`），不复用 `mobile_commands`（它绑定 `device_id` 与手机授权）。
 - `connector_outbox`、`connector_audit`、`connector_nonces`（内存即可，重启作废）。
 - `connector_tokens(token, state ∈ active/grace/revoked, created_at_unix, grace_until_unix)`、`connector_secrets`（HMAC secret、`card_id` 密钥）。
 - 鉴权失败计数（按来源 IP）：内存即可，重启清零。
@@ -318,7 +318,7 @@ Norma App 进程
 - Q11 （2026-10-14）Token 明文存 Norma SQLite，不用钥匙串；设置页随时可查看；Token 永不进仓库（6.3）。
 - Q12 （2026-10-14）锁定按来源 IP 计数鉴权失败，正确 Token 永不被锁；Funnel 下来源 IP 取 tailscaled 写入的 `X-Forwarded-For`，仅在确认连接来自本机 Funnel 代理时采信（6.4）。
 - Q13 （2026-10-14）Token 熵 ≥ 128 bit；不设全局失败告警（6.3、6.4）。
-- 暂定（2026-10-14，待 yakami 确认）：`card_revision` 只由持久状态计算（3.2）；webhook `occurred_at` 改为 unix 秒（5.2）；`connector_operations` 保存 30 天、轮换宽限期内新旧 Token 同一 `client_id`（7）。P4 其余暂定项见 `2026-10-14-grokbot-connector-p4-tickets.md`。
+- 暂定（2026-10-14，待 yakami 确认）：`card_revision` 只由持久状态计算（3.2）；webhook `occurred_at` 改为 unix 秒（5.2）；`connector_operations` 保存 30 天、轮换宽限期内新旧 Token 同一 `client_id`、吊销后重新生成的 Token 为新 `client_id`（7）。P4 其余暂定项见 `2026-10-14-grokbot-connector-p4-tickets.md`。
 - Q10 不做后台常驻。App 未运行时连接器不可达，Grok Bot 显示「Norma 未运行」；outbox 中的事件在 App 重新打开后补发（3.1、5.4）。
 
 ## 11. 风险（代码中让决定变难的地方）
