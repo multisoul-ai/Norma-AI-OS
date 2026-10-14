@@ -142,7 +142,7 @@ async fn funnel_failures_lock_only_the_forwarded_source_and_coalesce_audit() {
     let (server, auth, store, token) = host("device.tailnet.ts.net").await;
     let url = format!("http://{}/mcp", server.address());
     let client = reqwest::Client::new();
-    for _ in 0..110 {
+    for attempt in 1..=110 {
         let response = client
             .post(&url)
             .header("host", "device.tailnet.ts.net")
@@ -152,7 +152,11 @@ async fn funnel_failures_lock_only_the_forwarded_source_and_coalesce_audit() {
             .send()
             .await
             .expect("失败请求");
-        assert_eq!(response.status(), 401, "失败和锁定均401");
+        assert_eq!(
+            response.status(),
+            if attempt < 10 { 401 } else { 429 },
+            "错误令牌达到10次后返回429"
+        );
     }
     assert!(
         auth.locked_until_for("198.51.100.1".parse().expect("IP")) > auth.now(),
@@ -227,6 +231,7 @@ async fn direct_and_malformed_forwarding_headers_do_not_change_source() {
     let local = server.address().to_string();
     let url = format!("http://{local}/mcp");
     let client = reqwest::Client::new();
+    let mut attempt = 0;
     for (host, marker, forwarded) in [
         (local.as_str(), Some("?1"), "198.51.100.9"),
         ("device.tailnet.ts.net", None, "198.51.100.9"),
@@ -239,6 +244,7 @@ async fn direct_and_malformed_forwarding_headers_do_not_change_source() {
         ("device.tailnet.ts.net", Some("?1"), "bad"),
     ] {
         for _ in 0..10 {
+            attempt += 1;
             let mut request = client
                 .post(&url)
                 .header("host", host)
@@ -248,8 +254,8 @@ async fn direct_and_malformed_forwarding_headers_do_not_change_source() {
             }
             assert_eq!(
                 request.send().await.expect("请求").status(),
-                401,
-                "未授权请求"
+                if attempt < 10 { 401 } else { 429 },
+                "达到阈值后429"
             );
         }
     }

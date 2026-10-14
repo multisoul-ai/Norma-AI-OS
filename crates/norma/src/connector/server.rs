@@ -207,7 +207,12 @@ async fn authorize(
         tokio::task::spawn_blocking(move || auth.authenticate_from(source, token.as_deref())).await;
     let identity = match identity {
         Ok(Ok(identity)) => identity,
-        Ok(Err("unauthorized")) => return (StatusCode::UNAUTHORIZED, axum::Json(serde_json::json!({"error":{"code":"unauthorized","message":"连接令牌无效","retryable":false}}))).into_response(),
+        Ok(Err(("unauthorized", _))) => return (StatusCode::UNAUTHORIZED, axum::Json(serde_json::json!({"error":{"code":"unauthorized","message":"连接令牌无效","retryable":false}}))).into_response(),
+        Ok(Err(("rate_limited", Some(retry)))) => return (
+            StatusCode::TOO_MANY_REQUESTS,
+            [("retry-after", retry.to_string())],
+            axum::Json(serde_json::json!({"error":{"code":"rate_limited","message":"此来源鉴权失败过多","retryable":true,"retry_after_s":retry}})),
+        ).into_response(),
         _ => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     };
     let sessions = gate.auth.sessions();

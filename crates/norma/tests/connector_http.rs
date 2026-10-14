@@ -341,3 +341,54 @@ async fn port_change_restarts_without_revoking_credentials() {
     );
     server.stop().await;
 }
+
+/// 场景：本机同IP错误令牌达到10次阈值，锁定15×60=900秒；有效令牌仍可初始化。
+/// 构造：前9次错误后再发送第10/11次；执行真实HTTP并检查状态、JSON与Retry-After。
+/// 预期：未锁定401无重试头，锁定429携带剩余秒数，正确令牌不被429阻断。
+#[tokio::test]
+async fn auth_lockout_returns_429_with_retry_metadata() {
+    let (server, _, _, token) = host().await;
+    let client = reqwest::Client::new();
+    let url = format!("http://{}/mcp", server.address());
+    for attempt in 1..=11 {
+        let response = client
+            .post(&url)
+            .bearer_auth("bad")
+            .send()
+            .await
+            .expect("错误请求");
+        if attempt < 10 {
+            assert_eq!(response.status(), 401, "第{attempt}次尚未锁定");
+            assert!(
+                response.headers().get("retry-after").is_none(),
+                "普通鉴权失败不含重试头"
+            );
+            let body: Value = response.json().await.expect("错误体");
+            assert_eq!(body["error"]["code"], "unauthorized", "普通错误令牌仍401");
+        } else {
+            assert_eq!(response.status(), 429, "第{attempt}次已达到锁定阈值");
+            let retry: i64 = response
+                .headers()
+                .get("retry-after")
+                .expect("重试头")
+                .to_str()
+                .expect("秒数")
+                .parse()
+                .expect("整数");
+            let body: Value = response.json().await.expect("锁定错误体");
+            assert_eq!(body["error"]["code"], "rate_limited", "锁定错误码");
+            assert_eq!(
+                body["error"]["retry_after_s"], retry,
+                "正文与头使用同一剩余秒数"
+            );
+            assert!((1..=900).contains(&retry), "剩余时间在15分钟内");
+            assert_eq!(body["error"]["retryable"], true, "锁定可在期限后重试");
+        }
+    }
+    let response = client.post(&url).bearer_auth(&token).header("accept", "application/json, text/event-stream")
+        .json(&json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"lockout-test","version":"1"}}}))
+        .send().await.expect("正确凭据");
+    assert_eq!(response.status(), 200, "锁定同IP仍接受正确令牌");
+    let _ = response.text().await.expect("释放连接");
+    server.stop().await;
+}

@@ -135,10 +135,16 @@ fn source_ip_windows_are_independent_and_valid_tokens_bypass_lockout() {
     assert!(auth.read(&identity).is_ok(), "已授权读取继续工作");
     clock.0.store(999, Ordering::SeqCst);
     assert_eq!(auth.locked_until_for(a), 1000, "锁定最后一秒");
+    assert_eq!(
+        auth.authenticate_from(a, None).err(),
+        Some(("rate_limited", Some(1))),
+        "锁定最后一秒精确返回剩余1秒且不会延长封锁"
+    );
     clock.0.store(1000, Ordering::SeqCst);
-    assert!(
-        auth.authenticate_from(a, None).is_err(),
-        "边界后开始新失败窗口"
+    assert_eq!(
+        auth.authenticate_from(a, None).err(),
+        Some(("unauthorized", None)),
+        "900秒边界后开始新窗口，普通失败恢复401语义"
     );
     assert_eq!(auth.locked_until_for(a), 0, "锁定恢复");
     for _ in 0..8 {

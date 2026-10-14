@@ -171,7 +171,10 @@ impl Auth {
             .filter(|until| *until > self.now())
             .unwrap_or(0)
     }
-    pub fn authenticate(&self, token: Option<&str>) -> Result<Authenticated, &'static str> {
+    pub fn authenticate(
+        &self,
+        token: Option<&str>,
+    ) -> Result<Authenticated, (&'static str, Option<i64>)> {
         self.authenticate_from(Ipv4Addr::LOCALHOST.into(), token)
     }
     /// Background-only. Valid credentials bypass source lockout and do not reset its window.
@@ -179,8 +182,8 @@ impl Auth {
         &self,
         source: IpAddr,
         token: Option<&str>,
-    ) -> Result<Authenticated, &'static str> {
-        let mut state = self.state.lock().map_err(|_| "internal")?;
+    ) -> Result<Authenticated, (&'static str, Option<i64>)> {
+        let mut state = self.state.lock().map_err(|_| ("internal", None))?;
         let now = self.now();
         let digest: [u8; 32] = Sha256::digest(token.unwrap_or("").as_bytes()).into();
         let mut accepted = false;
@@ -211,8 +214,12 @@ impl Auth {
                 window.count,
                 window.locked_until,
             )
-            .map_err(|_| "internal")?;
-        Err("unauthorized")
+            .map_err(|_| ("internal", None))?;
+        if window.locked_until > now {
+            Err(("rate_limited", Some(window.locked_until - now)))
+        } else {
+            Err(("unauthorized", None))
+        }
     }
     /// Recheck under the same lock as revocation and rate accounting; sessions cannot cache auth.
     pub fn read(&self, identity: &Authenticated) -> Result<(), (&'static str, Option<i64>)> {
