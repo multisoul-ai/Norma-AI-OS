@@ -7,6 +7,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 mod model;
+mod write;
+pub use write::{CancelTask, CreateCard, DispatchTask, ReplyAgent, WriteRequest};
 mod pagination;
 mod schema;
 pub use model::{Card, Project, Snapshot, Task, TaskEvent, Workspace};
@@ -16,6 +18,21 @@ use pagination::Page;
 /// Snapshot acquisition is read-only. Implementations must never ensure/load a Runtime.
 pub trait DataSource: Send + Sync {
     fn snapshot(&self) -> anyhow::Result<Snapshot>;
+    fn snapshot_for(&self, _epoch: &str) -> anyhow::Result<Snapshot> {
+        self.snapshot()
+    }
+    fn operation_receipt(&self, _epoch: &str, _operation: &str) -> anyhow::Result<Option<Value>> {
+        Ok(None)
+    }
+    fn write(
+        &self,
+        _epoch: &str,
+        _request: WriteRequest,
+        _now: i64,
+        _cancellation: tokio_util::sync::CancellationToken,
+    ) -> Result<Value, &'static str> {
+        Err("internal")
+    }
 }
 #[derive(Clone)]
 pub struct ConnectorTools {
@@ -38,31 +55,55 @@ impl ConnectorTools {
     }
     pub fn call(&self, identity: &Authenticated, name: &str, input: Value) -> CallToolResult {
         let sessions = self.auth.sessions();
-        let parameters = format!(
+        let parameters_hash = format!(
             "sha256:{}",
             hex::encode(sha2::Sha256::digest(
                 serde_json::to_vec(&input).expect("JSON parameters")
             ))
         );
-        let value = match self.auth.read(identity) {
+        let operation = input
+            .get("operation_id")
+            .and_then(Value::as_str)
+            .map(str::to_owned);
+        let body = input
+            .get("task")
+            .or_else(|| input.get("message"))
+            .and_then(Value::as_str);
+        let mut parameters = if write::is_write(name) {
+            json!({"source":"connector","operation_id":operation,"parameters_hash":parameters_hash,"body_hash":body.map(|s|hex::encode(sha2::Sha256::digest(s.as_bytes()))),"body_prefix":body.map(|s|s.chars().take(80).collect::<String>())})
+        } else {
+            json!({"parameters_hash":parameters_hash})
+        };
+        let mut value = match self.auth.limit(identity, write::is_write(name)) {
             Ok(()) => self
-                .execute(name, input)
+                .execute(identity, name, input)
                 .unwrap_or_else(|code| schema::error(code, None)),
             Err((code, retry)) => schema::error(code, retry),
         };
+        if let Some(object) = value.as_object_mut() {
+            if let Some(error) = object.remove("_adapter_error") {
+                parameters["adapter_error"] = error;
+            }
+        }
         let code = value
             .get("error")
             .and_then(|e| e["code"].as_str())
-            .unwrap_or("ok");
+            .unwrap_or(if value["state"] == "outcome_unknown" {
+                "outcome_unknown"
+            } else {
+                "ok"
+            });
         if self
             .auth
             .audit_parameters(
-                if matches!(name, "directory" | "list_tasks" | "get_task_progress") {
+                if matches!(name, "directory" | "list_tasks" | "get_task_progress")
+                    || write::is_write(name)
+                {
                     name
                 } else {
                     "unknown"
                 },
-                &parameters,
+                &parameters.to_string(),
                 code,
             )
             .is_err()
@@ -75,12 +116,29 @@ impl ConnectorTools {
         }
         result(value)
     }
-    fn execute(&self, name: &str, input: Value) -> Result<Value, &'static str> {
+    fn execute(
+        &self,
+        identity: &Authenticated,
+        name: &str,
+        input: Value,
+    ) -> Result<Value, &'static str> {
+        if write::is_write(name) {
+            let request = WriteRequest::parse(name, input, &self.signer)?;
+            return self.source.write(
+                identity.client_epoch(),
+                request,
+                self.auth.now(),
+                self.auth.sessions(),
+            );
+        }
         match name {
             "directory" => {
                 let args: Directory =
                     serde_json::from_value(input).map_err(|_| "invalid_argument")?;
-                let mut snapshot = self.source.snapshot().map_err(|_| "internal")?;
+                let mut snapshot = self
+                    .source
+                    .snapshot_for(identity.client_epoch())
+                    .map_err(|_| "internal")?;
                 self.project(&mut snapshot);
                 if let Some(id) = args.workspace_id {
                     snapshot.workspaces.retain(|w| w.workspace_id == id);
@@ -122,18 +180,33 @@ impl ConnectorTools {
                 {
                     return Err("invalid_argument");
                 }
-                let snapshot = self.source.snapshot().map_err(|_| "internal")?;
-                let mut task = snapshot
-                    .tasks
-                    .into_iter()
-                    .find(|t| {
-                        args.task_id.as_ref().is_some_and(|id| id == &t.task_id)
-                            || args
-                                .operation_id
-                                .as_ref()
-                                .is_some_and(|id| t.operation_id.as_ref() == Some(id))
-                    })
-                    .ok_or("task_not_found")?;
+                let snapshot = self
+                    .source
+                    .snapshot_for(identity.client_epoch())
+                    .map_err(|_| "internal")?;
+                let found = snapshot.tasks.into_iter().find(|t| {
+                    args.task_id.as_ref().is_some_and(|id| id == &t.task_id)
+                        || args
+                            .operation_id
+                            .as_ref()
+                            .is_some_and(|id| t.operation_id.as_ref() == Some(id))
+                });
+                let mut task = match found {
+                    Some(task) => task,
+                    None => {
+                        return args
+                            .operation_id
+                            .as_deref()
+                            .map(|operation| {
+                                self.source
+                                    .operation_receipt(identity.client_epoch(), operation)
+                                    .map_err(|_| "internal")
+                            })
+                            .transpose()?
+                            .flatten()
+                            .ok_or("task_not_found")
+                    }
+                };
                 task.events
                     .sort_by_key(|e| std::cmp::Reverse(e.occurred_at));
                 task.events.truncate(20);
@@ -235,4 +308,8 @@ fn result(value: Value) -> CallToolResult {
 }
 pub fn bounded(text: &str) -> String {
     text.chars().take(500).collect()
+}
+
+pub(super) fn public_error(code: &str) -> Value {
+    schema::error(code, None)
 }

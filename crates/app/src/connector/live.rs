@@ -203,6 +203,9 @@ pub(super) fn capture(database: &Path, mut call: LiveRequest, signer: &CardSigne
             });
         }
     }
+    if let Some(execute) = call.execute.take() {
+        super::execution::execute(database, execute, &call.areas, &call.snapshot, signer, cx);
+    }
     let _ = call.reply.try_send(Ok(call.snapshot));
 }
 

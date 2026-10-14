@@ -8,6 +8,7 @@ use std::path::PathBuf;
 #[serde(default, deny_unknown_fields)]
 pub struct ConnectorConfig {
     pub enabled: bool,
+    pub allow_cancel_other_tasks: bool,
     pub port: u16,
     pub tunnel_authority: Option<workspace::HostAuthority>,
 }
@@ -15,6 +16,7 @@ impl Default for ConnectorConfig {
     fn default() -> Self {
         Self {
             enabled: false,
+            allow_cancel_other_tasks: false,
             port: 47615,
             tunnel_authority: None,
         }
@@ -106,7 +108,10 @@ impl ConnectorStore {
             "DELETE FROM connector_audit WHERE occurred_at_unix < ?1",
             [now.saturating_sub(90 * 86400)],
         )?;
-        tx.execute("INSERT INTO connector_audit(occurred_at_unix,tool,parameter_summary,result_code) VALUES(?1,?2,?3,?4)", params![now, tool, parameters, result])?;
+        let operation = serde_json::from_str::<serde_json::Value>(parameters)
+            .ok()
+            .and_then(|v| v["operation_id"].as_str().map(str::to_owned));
+        tx.execute("INSERT INTO connector_audit(occurred_at_unix,tool,parameter_summary,result_code,operation_id) VALUES(?1,?2,?3,?4,?5)", params![now, tool, parameters, result, operation])?;
         tx.commit()?;
         Ok(())
     }

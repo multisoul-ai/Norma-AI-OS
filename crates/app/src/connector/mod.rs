@@ -1,8 +1,11 @@
 //! App-global connector ownership and the GPUI boundary; no detached OS service.
+mod execution;
 pub(crate) mod live;
+mod projection;
 mod repository;
 mod view;
 mod worker;
+mod writes;
 use gpui::{App, AppContext, Context, Entity, Global, Task};
 use norma::connector::CardSigner;
 use storage::connector_store::{ConnectorAudit, ConnectorConfig};

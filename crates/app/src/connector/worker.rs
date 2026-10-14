@@ -64,6 +64,8 @@ async fn run(
 ) -> anyhow::Result<()> {
     let store = ConnectorStore::new(database.clone());
     let mut config = store.config()?;
+    let ledger = storage::MobileCommandStore::new(database.clone());
+    let mut last_cleanup = 0;
     let auth = Arc::new(Auth::load(
         Arc::new(Credentials(store.clone())),
         Arc::new(SystemClock),
@@ -225,7 +227,18 @@ async fn run(
                     }
                 }
             }
-            Command::Reload => Ok(()),
+            Command::Reload => {
+                let now = auth.now();
+                if now >= last_cleanup + 3600 {
+                    last_cleanup = now;
+                    ledger
+                        .cleanup_connector(now)
+                        .map(|_| ())
+                        .map_err(Into::into)
+                } else {
+                    Ok(())
+                }
+            }
         };
         if !reloading {
             error = result

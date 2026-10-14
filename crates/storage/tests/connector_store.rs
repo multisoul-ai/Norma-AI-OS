@@ -129,6 +129,7 @@ fn catalog_uses_stable_per_area_canvas_and_does_not_initialize_missing_files() {
         "只读查询不能初始化缺失画布"
     );
     let config = storage::connector_store::ConnectorConfig {
+        allow_cancel_other_tasks: false,
         enabled: true,
         port: 47616,
         tunnel_authority: None,

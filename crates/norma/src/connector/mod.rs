@@ -8,7 +8,10 @@ pub use auth::{Auth, Authenticated, Clock, SystemClock};
 pub use auth::{CredentialStore, TokenRecord};
 pub use identity::{CardIdentity, CardSigner};
 pub use server::ConnectorServer;
-pub use tools::{Card, ConnectorTools, DataSource, Project, Snapshot, Task, TaskEvent, Workspace};
+pub use tools::{
+    CancelTask, Card, ConnectorTools, CreateCard, DataSource, DispatchTask, Project, ReplyAgent,
+    Snapshot, Task, TaskEvent, Workspace, WriteRequest,
+};
 #[derive(Clone)]
 pub struct ConnectorConfig {
     pub enabled: bool,
@@ -29,4 +32,8 @@ impl Default for ConnectorConfig {
 /// The port is the HTTP backend target, not Funnel's external HTTPS listener.
 pub fn funnel_command(port: u16) -> String {
     format!("tailscale funnel --bg {port}")
+}
+
+pub fn tool_error(code: &str) -> serde_json::Value {
+    tools::public_error(code)
 }

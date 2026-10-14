@@ -112,9 +112,9 @@ async fn off_loopback_auth_host_and_body_limit() {
     );
 }
 /// 场景：真实 HTTP initialize、initialized、tools/list；建立 SSE 后吊销。
-/// 预期：会话头存在、工具仅三个只读工具，吊销断开已有流且旧凭据立即401。
+/// 预期：会话头存在、工具保留三个只读工具并开放四个写工具，吊销断开已有流且旧凭据立即401。
 #[tokio::test]
-async fn mcp_lists_three_tools_and_revoke_closes_sessions() {
+async fn mcp_lists_p4_tools_and_revoke_closes_sessions() {
     let (server, auth, _, token) = host().await;
     let client = reqwest::Client::new();
     let url = format!("http://{}/mcp", server.address());
@@ -158,8 +158,16 @@ async fn mcp_lists_three_tools_and_revoke_closes_sessions() {
         .collect();
     assert_eq!(
         names,
-        vec!["directory", "list_tasks", "get_task_progress"],
-        "P2只有三个只读工具"
+        vec![
+            "directory",
+            "list_tasks",
+            "get_task_progress",
+            "dispatch_task",
+            "cancel_task",
+            "reply_agent",
+            "create_card"
+        ],
+        "P4保留P2只读工具，追加四个写工具"
     );
     let response=client.post(&url).bearer_auth(&token).header("accept","application/json, text/event-stream").header("mcp-session-id",&session)
         .json(&json!({"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"directory","arguments":{}}})).send().await.expect("真实工具调用");
@@ -391,4 +399,16 @@ async fn auth_lockout_returns_429_with_retry_metadata() {
     assert_eq!(response.status(), 200, "锁定同IP仍接受正确令牌");
     let _ = response.text().await.expect("释放连接");
     server.stop().await;
+}
+
+/// 场景：App拥有的服务退出后，写工具调用应是连接失败而非空目录或成功。
+/// 构造：随机Token、临时回环端口；执行stop后用全新HTTP客户端POST派工。
+/// 预期：无监听、传输连接错误；Grok Bot「Norma未运行」文案仍需真实客户端走查。
+#[tokio::test]
+async fn stopped_connector_writes_fail_at_transport() {
+    let (server, _, _, token) = host().await;
+    let url = format!("http://{}/mcp", server.address());
+    server.stop().await;
+    let result = reqwest::Client::new().post(url).bearer_auth(token).json(&json!({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"dispatch_task","arguments":{}}})).send().await;
+    assert!(result.is_err(), "退出后不能返回成功或空目录");
 }
