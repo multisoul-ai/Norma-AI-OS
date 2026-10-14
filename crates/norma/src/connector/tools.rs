@@ -76,7 +76,7 @@ impl ConnectorTools {
         };
         let mut value = match self.auth.limit(identity, write::is_write(name)) {
             Ok(()) => self
-                .execute(identity, name, input)
+                .execute(identity, name, input, sessions.clone())
                 .unwrap_or_else(|code| schema::error(code, None)),
             Err((code, retry)) => schema::error(code, retry),
         };
@@ -121,6 +121,7 @@ impl ConnectorTools {
         identity: &Authenticated,
         name: &str,
         input: Value,
+        cancellation: tokio_util::sync::CancellationToken,
     ) -> Result<Value, &'static str> {
         if write::is_write(name) {
             let request = WriteRequest::parse(name, input, &self.signer)?;
@@ -128,7 +129,7 @@ impl ConnectorTools {
                 identity.client_epoch(),
                 request,
                 self.auth.now(),
-                self.auth.sessions(),
+                cancellation,
             );
         }
         match name {
