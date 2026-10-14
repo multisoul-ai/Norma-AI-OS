@@ -44,7 +44,7 @@
 
 | 借鉴点 | #97 中的含义 | 本规格如何采用 |
 | --- | --- | --- |
-| 持久卡片身份 | 目标快照含工作空间、区域、持久卡片身份、节点、Runtime 路由代次、Provider 会话指纹；删除后重建是新身份，旧请求拒绝 | `directory` 返回 `card_id`（不透明字符串，见 3.2），`dispatch_task` 只接受 `card_id`，并带 `card_revision`；身份变化 → `target_changed`，**不自动换卡** |
+| 持久卡片身份 | 目标快照含工作空间、区域、持久卡片身份、节点、Runtime 路由代次、Provider 会话指纹；删除后重建是新身份，旧请求拒绝 | `directory` 返回 `card_id`（不透明字符串，见 3.2），`dispatch_task` 只接受 `card_id`，并带 `card_revision`（本规格只取持久状态计算，不含 Runtime 路由代次，见 3.2）；身份变化 → `target_changed`，**不自动换卡** |
 | 唯一角色名称 | 空间内主名称 + 中文语音别名共同查重，大小写不敏感；改名后旧称失效 | `directory` 只展示名称供 Grok Bot 与用户对话；`role_name_unique` 标记名称在该工作空间内是否唯一。Grok Bot 用名称跟用户沟通，**但派工必须用 `card_id`** |
 | 精确目标解析 | 不用相似名称、焦点或「唯一剩余卡片」替代明确称呼；补全前零接收零投递 | 服务端不做模糊匹配；名称解析由 Grok Bot 在 `directory` 结果中完成，多候选或零候选时由 Grok Bot 问用户 |
 | 带操作账本的幂等投递 | 重发同操作返回原回执、同键不同参数冲突、正文/Enter 写入崩溃标「待核对」不自动重放；提交 ≠ 运行 ≠ 完成 | 新表 `connector_operations`（第 7 节），语义与 `MobileCommandStore::reserve`、`orchestration_task_operations` 一致；状态严格区分 `accepted / submitted / running / done / failed / cancelled / outcome_unknown` |
@@ -77,7 +77,7 @@ Norma App 进程
 
 ### 3.2 `card_id`（新，不透明）
 
-`card_id` 由连接器自行定义（Q3），不依赖 #97。格式 `c1.<base64url(desktop_workspace_id | area_id | canvas_id | node_id | definition_id | 创建时间戳)>.<8 字节 HMAC>`。因为同一目录下可有多个画布、`node_id` 只在画布内唯一，编码中必须包含画布标识 `canvas_id`，保证同目录多画布时 `card_id` 仍唯一。HMAC 用本机密钥（存 Norma SQLite，同 6.3）防伪造。`card_revision` = 当前 Runtime 路由代次 + Provider 会话指纹的哈希。解析时逐项复核；任一不符 → `target_changed`。这是 P2 的新增投影，不改现有表；若现有存储里没有稳定的画布标识，P2 需新增（见 R2）。
+`card_id` 由连接器自行定义（Q3），不依赖 #97。格式 `c1.<base64url(desktop_workspace_id | area_id | canvas_id | node_id | definition_id | 创建时间戳)>.<8 字节 HMAC>`。因为同一目录下可有多个画布、`node_id` 只在画布内唯一，编码中必须包含画布标识 `canvas_id`，保证同目录多画布时 `card_id` 仍唯一。HMAC 用本机密钥（存 Norma SQLite，同 6.3）防伪造。`card_revision` = `sha256(card 身份字段 | 项目根目录 | 工作目录 | profile | session_id)` 的截断哈希，**只由持久状态计算**，不含 Runtime 路由代次或任何运行期状态（App 重启、PTY 重连不改变 revision）；无 `session_id` 时以空串参与计算。解析时逐项复核；任一不符 → `target_changed`。这是 P2 的新增投影，不改现有表；若现有存储里没有稳定的画布标识，P2 需新增（见 R2）。
 
 ## 4. 工具定义
 
@@ -179,7 +179,7 @@ Norma App 进程
 
 ```json
 {"version": 1, "event_id": "evt_…", "dedupe_key": "task.completed:<task_id>",
- "type": "task.completed", "occurred_at": "2026-10-13T05:25:00Z",
+ "type": "task.completed", "occurred_at": 1760333100,
  "machine": {"machine_id": "…", "name": "yakami 的 MacBook"},
  "workspace": {"workspace_id": "…", "name": "Norma"},
  "card": {"card_id": "c1.…", "role_name": "Alan"},
@@ -187,6 +187,8 @@ Norma App 进程
  "approval": null,
  "hint": "调用 get_task_progress 获取详情"}
 ```
+`occurred_at` 为整数 unix 秒（UTC），与工具输出一致（暂定，待 yakami 确认，2026-10-14）；`X-Norma-Timestamp` 同为 unix 秒。
+
 `approval.waiting` 时 `approval = {"approval_id", "tool", "details_summary"}`。负载不含终端全文、文件内容、Token。
 
 去重键：`task.completed:<task_id>`、`task.failed:<task_id>:<run_id>`、`approval.waiting:<approval_id>`、`task.stalled:<task_id>:<last_activity_at>`。
@@ -226,7 +228,7 @@ Norma App 进程
 
 ## 7. 新增存储（全部为新）
 
-- `connector_operations(client_id, operation_id, tool, request_hash, state, result_json, error, created_at_unix, updated_at_unix, PRIMARY KEY(client_id, operation_id))`——语义复制 `MobileCommandStore::reserve`（`New / Existing / Conflict`），不复用 `mobile_commands`（它绑定 `device_id` 与手机授权）。
+- `connector_operations(client_id, operation_id, tool, request_hash, state, result_json, error, created_at_unix, updated_at_unix, PRIMARY KEY(client_id, operation_id))`——保存 30 天后清理（暂定，待 yakami 确认）；`client_id` 为连接器调用方身份，Token 轮换 24 小时宽限期内新旧 Token 视为同一 `client_id`，保证跨轮换重放仍幂等（暂定，待 yakami 确认）。语义复制 `MobileCommandStore::reserve`（`New / Existing / Conflict`），不复用 `mobile_commands`（它绑定 `device_id` 与手机授权）。
 - `connector_outbox`、`connector_audit`、`connector_nonces`（内存即可，重启作废）。
 - `connector_tokens(token, state ∈ active/grace/revoked, created_at_unix, grace_until_unix)`、`connector_secrets`（HMAC secret、`card_id` 密钥）。
 - 鉴权失败计数（按来源 IP）：内存即可，重启清零。
@@ -316,6 +318,7 @@ Norma App 进程
 - Q11 （2026-10-14）Token 明文存 Norma SQLite，不用钥匙串；设置页随时可查看；Token 永不进仓库（6.3）。
 - Q12 （2026-10-14）锁定按来源 IP 计数鉴权失败，正确 Token 永不被锁；Funnel 下来源 IP 取 tailscaled 写入的 `X-Forwarded-For`，仅在确认连接来自本机 Funnel 代理时采信（6.4）。
 - Q13 （2026-10-14）Token 熵 ≥ 128 bit；不设全局失败告警（6.3、6.4）。
+- 暂定（2026-10-14，待 yakami 确认）：`card_revision` 只由持久状态计算（3.2）；webhook `occurred_at` 改为 unix 秒（5.2）；`connector_operations` 保存 30 天、轮换宽限期内新旧 Token 同一 `client_id`（7）。P4 其余暂定项见 `2026-10-14-grokbot-connector-p4-tickets.md`。
 - Q10 不做后台常驻。App 未运行时连接器不可达，Grok Bot 显示「Norma 未运行」；outbox 中的事件在 App 重新打开后补发（3.1、5.4）。
 
 ## 11. 风险（代码中让决定变难的地方）
