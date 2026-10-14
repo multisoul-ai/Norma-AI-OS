@@ -67,7 +67,7 @@ fn card_revision_survives_persisted_restart_and_changes_with_target() {
     };
     let signer = CardSigner::new(&[3; 32]);
     let card_id = signer.sign(&identity);
-    let mut test = TestAppContext::single();
+    let test = TestAppContext::single();
     let (first_revision, first_run, first_route) = test.update(|cx| {
         let entity = restored_app(cx, dir.path(), &canvas_store, &session_store);
         entity.update(cx, |app, _| {
