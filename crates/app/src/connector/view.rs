@@ -1,8 +1,8 @@
 use super::{Command, Controller, Host};
 use crate::settings::typography::{control_label, SettingsText, TextRole};
 use gpui::{
-    div, prelude::*, px, rgba, App, AppContext, ClipboardItem, Context, Div, Render, SharedString,
-    Window,
+    div, prelude::*, px, rgba, App, AppContext, ClipboardItem, Context, Div, Entity, Focusable,
+    MouseButton, Render, SharedString, Stateful, Window,
 };
 use ui::{
     component::{
@@ -55,7 +55,7 @@ impl Render for Controller {
                 .child(div().flex_1().child(status))
                 .child(action(cx,"connector-toggle",if self.config.enabled {"关闭"} else {"开启"},self.busy,if self.config.enabled {Command::Disable} else {Command::Enable}).selected(self.config.enabled))))
             .child(section(theme,"本机端口").child(div().flex().items_center().gap(px(10.0))
-                .child(Input::new(&input).w(px(140.0)).disabled(self.busy))
+                .child(focus_guard("connector-port-input",&input,self.busy,cx).w(px(140.0)).child(Input::new(&input).disabled(self.busy)))
                 .child(Button::new("connector-port-save").child(control_label("保存端口")).outline().disabled(self.busy)
                     .on_click(cx.listener(move |host,_,_,cx| {
                         match input.read(cx).value().parse::<u16>() {
@@ -65,7 +65,7 @@ impl Render for Controller {
                     }))))
                 .child(div().settings_text(TextRole::Helper,theme).child("需同步修改隧道配置")))
             .child(section(theme,"隧道地址（可选）").child(div().flex().items_center().gap(px(10.0))
-                .child(Input::new(&tunnel_input).flex_1().disabled(self.busy))
+                .child(focus_guard("connector-tunnel-input",&tunnel_input,self.busy,cx).flex_1().child(Input::new(&tunnel_input).disabled(self.busy)))
                 .child(Button::new("connector-tunnel-save").child(control_label("保存地址")).outline().disabled(self.busy)
                     .on_click(cx.listener(move |host,_,_,cx| {
                         let value = tunnel_input.read(cx).value();
@@ -125,6 +125,26 @@ impl Render for Controller {
         body.child(audit)
     }
 }
+/// The settings panel refocuses itself on bubble-phase mouse down, which steals
+/// focus from a gpui-component `Input` unless the click is claimed first (same
+/// pattern as `settings::norma::view::editor`).
+fn focus_guard(
+    id: &'static str,
+    input: &Entity<InputState>,
+    disabled: bool,
+    cx: &App,
+) -> Stateful<Div> {
+    let focus = input.focus_handle(cx);
+    div()
+        .id(id)
+        .on_mouse_down(MouseButton::Left, move |_, window, cx| {
+            if !disabled {
+                focus.focus(window);
+            }
+            cx.stop_propagation();
+        })
+}
+
 fn section(theme: Theme, title: &str) -> Div {
     div()
         .flex()
@@ -194,3 +214,7 @@ pub(super) fn show_token(token: String, cx: &mut App) {
         });
     });
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/connector_input_focus_tests.rs"]
+mod connector_input_focus_tests;
