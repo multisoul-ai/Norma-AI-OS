@@ -7,7 +7,7 @@
 以下决定由 yakami 确认，原样执行，本文不再重新取舍。
 
 1. **接入方式**：Norma 在 Mac 上的 Norma App 进程内运行一个本机 MCP 服务器（传输为 MCP Streamable HTTP），只绑定 `127.0.0.1`；通过 **Tailscale Funnel** 暴露给 Grok Bot（2026-10-14 决定：优先 Funnel，不用 Cloudflare Tunnel）。Funnel 提供固定地址 `https://<machine>.<tailnet>.ts.net`，机器名与 tailnet 不变则地址不变。隧道之上只用 **Bearer Token** 鉴权。Token 永不进仓库；生成、存储（**明文存于 Norma 的 SQLite**，不用 macOS 钥匙串，设置页随时可查看）、轮换、吊销见第 6 节。
-2. **由 Grok Bot 决定派给谁**：Norma 本身不做路由、不按能力选人。提供六个工具：`directory`、`dispatch_task`、`list_tasks`、`get_task_progress`、`cancel_task`、`resolve_approval`。`resolve_approval`（批准 / 拒绝）**每次都必须由 Grok Bot 先问用户确认**——这是客户端要求；同时服务端 API 也强制要求确认标志 + 一次性 nonce（第 4.6 节）。
+2. **由 Grok Bot 决定派给谁**：Norma 本身不做路由、不按能力选人。提供六个工具：`directory`、`dispatch_task`、`list_tasks`、`get_task_progress`、`cancel_task`、`resolve_approval`。`resolve_approval`（批准 / 拒绝）**每次都必须由 Grok Bot 先问用户确认**——这是客户端要求；同时服务端 API 也强制要求确认标志 + 一次性 nonce（第 4.6 节）。2026-10-14 yakami 新方向：P4 另增 `reply_agent`（向已有卡片发会话消息，4.7）；卡片创建 `create_card` 待 Y-1（见 P4 工单文档）。
 3. **通知四类事件**：任务完成、任务失败、等待工具审批、30 分钟无进展。Norma 向用户配置的 **Grok Bot routine webhook URL** 发 POST，唤醒 Grok Bot 给用户发消息。负载 JSON、HMAC 签名、退避重试、去重键、离线行为见第 5 节。
 4. **不依赖草稿 PR #97**（分支 `codex/workspace-agent-dispatch`），只借鉴其设计思想（第 2 节）；`card_id` 由连接器自行定义，不切换到 #97 的身份（Q3）。
 5. **鉴权失败锁定（2026-10-14）**：按**来源 IP** 计数鉴权失败，只锁该 IP 的失败尝试；**携带正确 Token 的请求永不被锁**。来源 IP 的确定方式见 6.4。Token 熵 ≥ 128 bit。不设全局失败告警。
@@ -34,9 +34,10 @@
 
 ### 1.4 范围外
 
-- Norma 内的智能路由 / 按能力选人；新建 Agent 卡片；Agent 提问（非审批）的回答；终端原始输入；文件读写；跨 Mac 汇总（首版只连一台 Mac）。
+- Norma 内的智能路由 / 按能力选人；新建 Agent 卡片（**待 Y-1**：yakami 2026-10-14 新方向拟经 `create_agent` 映射开放，未决前仍属范围外）；Agent 提问（非审批）的回答；终端原始输入；文件读写；跨 Mac 汇总（首版只连一台 Mac）。
 - 不改手机配对与授权模型（`mobile_commands`、`MobileDeviceGrant`），不改 Unix socket 协议的现有语义。
 - 不合入、不依赖 #97 的代码。
+- 明确不暴露（2026-10-14）：`send_terminal_input`、`delete_canvas_card`、`focus_card`、记忆写入（`crates/agent/src/adapter.rs:388–414` 中对应工具）。
 
 ## 2. 从 PR #97 借鉴的设计（只借思想，不依赖代码）
 
@@ -47,7 +48,7 @@
 | 持久卡片身份 | 目标快照含工作空间、区域、持久卡片身份、节点、Runtime 路由代次、Provider 会话指纹；删除后重建是新身份，旧请求拒绝 | `directory` 返回 `card_id`（不透明字符串，见 3.2），`dispatch_task` 只接受 `card_id`，并带 `card_revision`（本规格只取持久状态计算，不含 Runtime 路由代次，见 3.2）；身份变化 → `target_changed`，**不自动换卡** |
 | 唯一角色名称 | 空间内主名称 + 中文语音别名共同查重，大小写不敏感；改名后旧称失效 | `directory` 只展示名称供 Grok Bot 与用户对话；`role_name_unique` 标记名称在该工作空间内是否唯一。Grok Bot 用名称跟用户沟通，**但派工必须用 `card_id`** |
 | 精确目标解析 | 不用相似名称、焦点或「唯一剩余卡片」替代明确称呼；补全前零接收零投递 | 服务端不做模糊匹配；名称解析由 Grok Bot 在 `directory` 结果中完成，多候选或零候选时由 Grok Bot 问用户 |
-| 带操作账本的幂等投递 | 重发同操作返回原回执、同键不同参数冲突、正文/Enter 写入崩溃标「待核对」不自动重放；提交 ≠ 运行 ≠ 完成 | 新表 `connector_operations`（第 7 节），语义与 `MobileCommandStore::reserve`、`orchestration_task_operations` 一致；状态严格区分 `accepted / submitted / running / done / failed / cancelled / outcome_unknown` |
+| 带操作账本的幂等投递 | 重发同操作返回原回执、同键不同参数冲突、正文/Enter 写入崩溃标「待核对」不自动重放；提交 ≠ 运行 ≠ 完成 | 复用 `MobileCommandStore` 的 reserve + receipt（`crates/storage/src/mobile_command_store.rs:63` `reserve`、`:101` `finish`，主键 `(device_id, operation_id)`，`:257`）（第 7 节），不新建账本表；状态严格区分 `accepted / submitted / running / done / failed / cancelled / outcome_unknown` |
 
 不借鉴：#97 的 Dock UI、名称修复迁移、`WorkspaceAgentRoleStore` 表结构、工作空间进度汇报 typed tool。`card_id` 由连接器自行定义并长期保持（Q3 已决定），即使 #97 日后合入也不切换到其身份。
 
@@ -62,8 +63,9 @@ https://<machine>.<tailnet>.ts.net/mcp   ← Tailscale Funnel（tailscaled 本�
   ▼  http://127.0.0.1:<port>/mcp
 Norma App 进程
   ├─ ConnectorServer（新）: Streamable HTTP + MCP JSON-RPC, 鉴权, 限流, 审计
-  ├─ ConnectorTools（新）: 六个工具 → 复用 norma::protocol::CardCommand 执行路径 / WorkspaceActivitySummary
-  ├─ connector_operations 账本（新, app.sqlite）
+  ├─ ConnectorTools（新）: 只读工具 → 快照 / WorkspaceActivitySummary；写工具 → AdapterCommand（AssignAgentTask / CancelAgentTask / ReplyAgent / CreateAgent）
+  │     经 execute_norma_adapter_command_with_source(…, AgentInputSource::Connector)（crates/app/src/app/agent_runtime/adapter_pump.rs:60）
+  ├─ 幂等 / 回执：复用 MobileCommandStore reserve + receipt（app.sqlite，连接器专用 device_id 命名空间）
   └─ ConnectorNotifier（新）: 事件 → webhook POST(HMAC) → Grok Bot routine
 ```
 
@@ -84,7 +86,7 @@ Norma App 进程
 通用约定：
 - 所有工具返回 MCP `CallToolResult`，`structuredContent` 为下列输出 JSON，同时 `content[0].text` 给一句中文摘要供模型阅读。
 - 错误：`isError: true`，`structuredContent = {"error": {"code": "...", "message": "...", "retryable": bool}}`。
-- 通用错误码：`unauthorized`（401，HTTP 层）、`rate_limited`（含 `retry_after_s`）、`connector_disabled`、`invalid_argument`、`workspace_not_found`、`card_not_found`、`target_changed`、`not_connector_task`（`cancel_task` 默认只能取消 Grok Bot 派出的任务，取消其他来源任务时返回；暂定，待 yakami 确认）、`internal`。
+- 通用错误码：`unauthorized`（401，HTTP 层）、`rate_limited`（含 `retry_after_s`）、`connector_disabled`、`invalid_argument`、`workspace_not_found`、`card_not_found`、`target_changed`、`card_not_loaded`（`reply_agent` 目标卡片未在画布加载；暂定）、`agent_rejected`（AdapterCommand 层 `AdapterError::Rejected` 未映射到具体码时；暂定）、`not_connector_task`（`cancel_task` 默认只能取消 Grok Bot 派出的任务，取消其他来源任务时返回；暂定，待 yakami 确认）、`internal`。
 - 文本字段一律有界：任务正文 ≤ 8000 字符；摘要 ≤ 500 字符；列表分页 `limit ≤ 50`。
 
 ### 4.1 `directory`（只读，P2）
@@ -118,8 +120,8 @@ Norma App 进程
  "tracking": "tracked|untracked", "replayed": false, "accepted_at": 1760000000}
 ```
 - 错误：`card_not_found`、`target_changed`、`card_busy`（`allow_queue=false` 且忙）、`approval_pending`（卡片正等审批，不越过）、`input_occupied`（用户正在该卡片输入）、`untracked_requires_confirmation`（对应现有 `force_untracked`，连接器**永不**传 `force_untracked=true`）、`operation_conflict`（同 `operation_id` 不同参数）、`task_too_long`。
-- 幂等：`operation_id` 由 Grok Bot 生成；`(client_id, operation_id)` 在 `connector_operations` 中预留；`request_hash = sha256(card_id|card_revision|task|context|allow_queue)`。重放 → 返回原回执且 `replayed=true`；哈希不同 → `operation_conflict`。预留后崩溃 → `outcome_unknown`，**不自动重放**，Grok Bot 只能用 `get_task_progress` 核对。
-- 基于：`CardCommand::DispatchAgentTasks` 执行路径（`crates/app/src/norma/endpoint/task_dispatch.rs`）、回执 `AgentTaskReceipt`、`orchestration_task_operations`。**需新增**：按 `node_id`（而不是 `AgentTaskAssignment.name`）派工的内部入口，因为现有 assignment 按名字寻址（风险 R1）。
+- 幂等：`operation_id` 由 Grok Bot 生成；在 `MobileCommandStore` 中以 `(device_id = "connector:<client_epoch>", operation_id)` 预留（第 7 节）；`request_hash = sha256(card_id|card_revision|task|context|allow_queue)`。重放 → 返回原回执且 `replayed=true`；哈希不同 → `operation_conflict`。预留后崩溃 → `outcome_unknown`，**不自动重放**，Grok Bot 只能用 `get_task_progress` 核对。
+- 基于（2026-10-14 修订）：薄映射到 `AdapterCommand::AssignAgentTask`（`crates/agent/src/adapter.rs:47`），经 `execute_norma_adapter_command_with_source`（`adapter_pump.rs:60`，`AssignAgentTask` 分支 `:149`）执行，来源 `AgentInputSource::Connector`（新增于 `crates/agent/src/model.rs:4`）。`AssignAgentTask` 新增可选 `node_id`（由 `card_id` 解析）与 `card_revision` 校验，均在 AdapterCommand 层完成；**不再新增单独的按节点派工入口**（R1）。连接器来源永不触发 `force_untracked`（现仅 `DoubaoVoice` 为 true，`adapter_pump.rs:155`）。
 
 ### 4.3 `list_tasks`（只读，P2）
 
@@ -127,7 +129,7 @@ Norma App 进程
 - 输出：`{"tasks": [{"task_id", "card_id", "role_name", "workspace_id", "state", "tracking", "summary", "created_at", "updated_at", "source": "grokbot|desktop|mobile|other"}], "next_cursor": string|null}`
 - 默认：全部未终态 + 最近 24 小时终态。
 - 错误：`invalid_argument`（游标非法）。幂等：只读。
-- 基于：`agent_dispatch_tasks`（`crates/storage/src/migrations.rs:257`）、`AgentTaskReceiptStatus`；`source=grokbot` 由 `connector_operations` 关联得出（新）。
+- 基于：`agent_dispatch_tasks`（`crates/storage/src/migrations.rs:257`）、`AgentTaskReceiptStatus`；`source=grokbot` 由连接器命名空间的 `MobileCommandStore` 回执关联得出（新）。
 
 ### 4.4 `get_task_progress`（只读，P2）
 
@@ -143,7 +145,13 @@ Norma App 进程
 - 输出：`{"operation_id", "task_id", "state": "cancel_requested|cancelled|already_terminal", "replayed": bool}`
 - 错误：`task_not_found`、`operation_conflict`。只取消该任务，不影响同卡其他任务。
 - 幂等：同 4.2；对已终态任务返回 `already_terminal`（非错误）。
-- 基于：`CardCommand::AgentTaskCancel { task_ref }`（`crates/app/src/norma/endpoint/task_control.rs`），状态 `CancelRequested → Cancelled`。
+- 基于（2026-10-14 修订）：薄映射到 `AdapterCommand::CancelAgentTask { task_id }`（`crates/agent/src/adapter.rs:51`，执行 `adapter_pump.rs:157` 起），来源 `AgentInputSource::Connector`；状态 `CancelRequested → Cancelled`。
+
+### 4.7 `reply_agent`（写，P4，2026-10-14 新增）
+
+- 输入：`{"operation_id", "card_id", "card_revision", "message": string(≤8000)}`；输出：`{"operation_id", "card_id", "reply_id", "reply_status", "replayed"}`。不创建任务。
+- 基于：`AdapterCommand::ReplyAgent`（`crates/agent/src/adapter.rs:54`，工具说明 `:342`），执行 `adapter_pump.rs:275` → `reply_adapter::execute_reply_adapter_command`；新增可选 `node_id` 与 revision 校验，同 4.2。
+- 错误：通用错误码 + `card_not_loaded`、`operation_conflict`。细节见 P4 工单文档。
 
 ### 4.6 `resolve_approval`（写，P5，两步确认）
 
@@ -223,12 +231,12 @@ Norma App 进程
      - 其他情况（本机进程直连本地端口）一律用真实对端地址（`127.0.0.1`）作为来源 IP，忽略请求中的 `X-Forwarded-For` / `Tailscale-Funnel-Request`，所以伪造转发头既不能冒充别的 IP、也不能逃脱自己的计数；
      - 若 P3 实测无法可靠识别 tailscaled 对端进程，退化为：一律用对端地址计数（所有 Funnel 流量共享一个 `127.0.0.1` 桶）。因正确 Token 永不被锁，退化只影响错误 Token 的封锁粒度，不影响可用性（R8）。
 5. **审计日志**（新表 `connector_audit`）：时间、工具、参数摘要（任务正文只存哈希 + 前 80 字）、`operation_id`、结果码、`user_quote`（审批）。保存 90 天；设置页可查看。
-6. **Grok Bot 永远不能做的事**：写终端原始输入 / 按键；读写文件、读终端全文；创建、删除、改名卡片或工作空间；传 `force_untracked`；会话级或永久放行审批；无 nonce 批准；修改连接器设置、Token、webhook URL；访问手机配对 / `MobileDeviceGrant`；触发 Norma 自主路由。
+6. **Grok Bot 永远不能做的事**：写终端原始输入 / 按键；读写文件、读终端全文；创建（**待 Y-1**）、删除、改名卡片或工作空间；`send_terminal_input`、`focus_card`、记忆写入；传 `force_untracked`；会话级或永久放行审批；无 nonce 批准；修改连接器设置、Token、webhook URL；访问手机配对 / `MobileDeviceGrant`；触发 Norma 自主路由。
 7. **未知字段**：所有输入 `deny_unknown_fields`（与 `MobileCommandRequest` 一致）。
 
 ## 7. 新增存储（全部为新）
 
-- `connector_operations(client_id, operation_id, tool, request_hash, state, result_json, error, created_at_unix, updated_at_unix, PRIMARY KEY(client_id, operation_id))`——保存 30 天后清理（暂定，待 yakami 确认）；`client_id` 为连接器调用方身份，Token 轮换 24 小时宽限期内新旧 Token 视为同一 `client_id`，保证跨轮换重放仍幂等（暂定，待 yakami 确认）。**吊销后重新生成的 Token 是新的 `client_id`**：吊销是立即生效的安全动作，旧 Token 时期的 `operation_id` 不能用新 Token 重放取回回执，同一 `operation_id` 在新 `client_id` 下是独立命名空间、按新操作处理（2026-10-14）。语义复制 `MobileCommandStore::reserve`（`New / Existing / Conflict`），不复用 `mobile_commands`（它绑定 `device_id` 与手机授权）。
+- **不新建 `connector_operations`**（2026-10-14 改定）。写工具的幂等与回执复用 `MobileCommandStore` 的 reserve + receipt（`crates/storage/src/mobile_command_store.rs:63` `reserve`、`:101` `finish`，主键 `(device_id, operation_id)`，`:257`），或抽成共享模块后由手机与连接器共用（实现期二选一，语义不变：`New / Existing / Conflict`，崩溃 → `outcome_unknown`，不自动重放）。键映射：`device_id = "connector:<client_epoch>"`，`operation_id` 原样；`request_hash = sha256(tool | 规范化参数)`（同 `realtime/policy.rs:20` 的做法，含工具名）。`client_epoch`：Token 轮换 24 小时宽限期内新旧 Token 共享同一 epoch（同一 `client_id`）；**吊销后重新生成的 Token 得到新 epoch**，旧 `operation_id` 不能用新 Token 重放取回回执（独立命名空间）。连接器行保存 30 天后清理（暂定，待 yakami 确认）。手机侧读取 `mobile_commands` 的查询（投递、计划等）必须排除 `connector:` 前缀，且不经 `MobileDeviceGrant` 鉴权【假设：需核对所有读者】。
 - `connector_outbox`、`connector_audit`、`connector_nonces`（内存即可，重启作废）。
 - `connector_tokens(token, state ∈ active/grace/revoked, created_at_unix, grace_until_unix)`、`connector_secrets`（HMAC secret、`card_id` 密钥）。
 - 鉴权失败计数（按来源 IP）：内存即可，重启清零。
@@ -241,7 +249,7 @@ Norma App 进程
 | P1 | 本规格 | 合入 docs |
 | P2 | `ConnectorServer`（axum + rmcp） + Token 生成/SQLite 存储/查看/吊销 + 按来源 IP 锁定 + `directory` / `list_tasks` / `get_task_progress` + 审计 + 限流 | 本机 `curl`/MCP Inspector 调用通过 AC-01–AC-12、AC-41–AC-43、AC-50–AC-53 |
 | P3 | Tailscale Funnel 配置文档与设置页地址字段；用户登录 Tailscale、开启 Funnel 并在 Grok Bot 添加自定义连接器；确认 Funnel 来源 IP 识别（R8） | Grok Bot 远程调用三个只读工具成功（AC-13–AC-16、AC-44、AC-55） |
-| P4 | `dispatch_task` + `cancel_task` + `connector_operations` + `card_id` 精确解析 | AC-17–AC-26 |
+| P4 | `dispatch_task` + `cancel_task` + `reply_agent`（AdapterCommand 薄映射，`AgentInputSource::Connector`）+ 复用 `MobileCommandStore` 幂等 + `card_id` 精确解析；`create_card` 待 Y-1 | AC-17–AC-26 及 P4 工单文档所列 |
 | P5 | 前置：确认 routine webhook 能读原始请求体与请求头（否则需中继，待用户确认）；`ConnectorNotifier` + outbox + HMAC + `resolve_approval` 两步确认 | AC-27–AC-40、AC-45–AC-49 |
 
 ## 9. 验收清单（QA）
@@ -318,12 +326,12 @@ Norma App 进程
 - Q11 （2026-10-14）Token 明文存 Norma SQLite，不用钥匙串；设置页随时可查看；Token 永不进仓库（6.3）。
 - Q12 （2026-10-14）锁定按来源 IP 计数鉴权失败，正确 Token 永不被锁；Funnel 下来源 IP 取 tailscaled 写入的 `X-Forwarded-For`，仅在确认连接来自本机 Funnel 代理时采信（6.4）。
 - Q13 （2026-10-14）Token 熵 ≥ 128 bit；不设全局失败告警（6.3、6.4）。
-- 暂定（2026-10-14，待 yakami 确认）：`card_revision` 只由持久状态计算（3.2）；webhook `occurred_at` 改为 unix 秒（5.2）；`connector_operations` 保存 30 天、轮换宽限期内新旧 Token 同一 `client_id`、吊销后重新生成的 Token 为新 `client_id`（7）。P4 其余暂定项见 `2026-10-14-grokbot-connector-p4-tickets.md`。
+- 暂定（2026-10-14，待 yakami 确认）：`card_revision` 只由持久状态计算（3.2）；webhook `occurred_at` 改为 unix 秒（5.2）；写工具幂等复用 `MobileCommandStore`（不建 `connector_operations`），连接器行保存 30 天、轮换宽限期内新旧 Token 同一 `client_id`、吊销后重新生成的 Token 为新 `client_id`（7）。P4 其余暂定项见 `2026-10-14-grokbot-connector-p4-tickets.md`。
 - Q10 不做后台常驻。App 未运行时连接器不可达，Grok Bot 显示「Norma 未运行」；outbox 中的事件在 App 重新打开后补发（3.1、5.4）。
 
 ## 11. 风险（代码中让决定变难的地方）
 
-- R1 现有 `AgentTaskAssignment` 只有 `name + task`，派工按名字解析；而 `agent_definitions` 名称唯一索引是定义级，同一定义可能有多张卡片。P4 需要新增按卡片实例派工的内部入口，否则无法满足「精确目标」。
+- R1 现有 `AgentTaskAssignment` 只有 `name + task`，派工按名字解析；而 `agent_definitions` 名称唯一索引是定义级，同一定义可能有多张卡片。2026-10-14 改定：在 `AdapterCommand::AssignAgentTask` / `ReplyAgent` 上增加可选 `node_id`（由 `card_id` 解析）并在该层校验 `card_revision`，不另建按节点派工入口。
 - R2 `node_id` 是区域内局部编号，同目录多画布可重复（#97 T01 正是为此）；dev 上没有持久卡片身份；连接器自定义的 `card_id` 必须编码画布标识才能唯一，P2 需确认现有存储中有稳定的画布标识，没有则新增。
 - R3 审批只支持 `Codex | Claude`（`ApprovalTarget::valid`）；OpenCode 等卡片的审批无法 resolve。
 - R4 未加载区域的状态只有持久快照，`busy/idle` 可能过时；必须标注 `unloaded`，不能推断。
