@@ -10,9 +10,9 @@ pub struct TodoDecisionRef {
 }
 
 const ATTEMPTS: &str = "SELECT plan_id,todo_index,device_id,operation_id,choice_json,
-    NULL AS previous_device_id,NULL AS previous_operation_id FROM project_todo_decisions
+    NULL AS previous_device_id,NULL AS previous_operation_id FROM project_todo_decisions WHERE device_id NOT GLOB 'connector:*'
     UNION ALL SELECT plan_id,todo_index,device_id,operation_id,choice_json,
-    previous_device_id,previous_operation_id FROM project_todo_retries";
+    previous_device_id,previous_operation_id FROM project_todo_retries WHERE device_id NOT GLOB 'connector:*'";
 const CURRENT: &str = "NOT EXISTS(SELECT 1 FROM project_todo_retries r
     WHERE r.previous_device_id=d.device_id AND r.previous_operation_id=d.operation_id)";
 

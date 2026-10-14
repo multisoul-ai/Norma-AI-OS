@@ -59,6 +59,9 @@ impl MobileCommandStore {
         after: u64,
         owner: &str,
     ) -> StorageResult<Vec<RealtimeOperation>> {
+        if device.starts_with("connector:") {
+            return Ok(Vec::new());
+        }
         crate::mobile_access_store::validate_id(device)?;
         crate::mobile_access_store::validate_id(workspace)?;
         if after > i64::MAX as u64 {
@@ -67,7 +70,7 @@ impl MobileCommandStore {
         let connection = open_app_connection(&self.path)?;
         let mut query = connection.prepare(
             "SELECT sequence,call_id,turn_id,operation_id,request_hash,result_json
-            FROM mobile_realtime_calls WHERE device_id=?1 AND workspace_id=?2 AND sequence>?3
+            FROM mobile_realtime_calls WHERE device_id NOT GLOB 'connector:*' AND device_id=?1 AND workspace_id=?2 AND sequence>?3
             ORDER BY sequence LIMIT 20",
         )?;
         let rows = query
@@ -121,7 +124,7 @@ impl MobileCommandStore {
         {
             let mut query = tx.prepare(
                 "SELECT result_json FROM mobile_realtime_calls
-                WHERE device_id=?1 AND call_id=?2 AND turn_id=?3 ORDER BY sequence",
+                WHERE device_id NOT GLOB 'connector:*' AND device_id=?1 AND call_id=?2 AND turn_id=?3 ORDER BY sequence",
             )?;
             let rows = query
                 .query_map(params![call.device_id, call.call_id, call.turn_id], |row| {
@@ -200,7 +203,7 @@ fn read(connection: &Connection, call: &RealtimeCall) -> StorageResult<Option<Op
     let row = connection
         .query_row(
             "SELECT call_id,turn_id,workspace_id,request_hash,result_json
-        FROM mobile_realtime_calls WHERE device_id=?1 AND operation_id=?2",
+        FROM mobile_realtime_calls WHERE device_id NOT GLOB 'connector:*' AND device_id=?1 AND operation_id=?2",
             params![call.device_id, call.operation_id],
             |row| {
                 Ok((

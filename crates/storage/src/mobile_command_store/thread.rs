@@ -54,7 +54,7 @@ impl MobileCommandStore {
             "SELECT q.operation_id FROM mobile_message_queue q
              JOIN mobile_commands c USING(device_id,operation_id)
              JOIN mobile_thread_commands t USING(device_id,operation_id)
-             WHERE q.device_id=?1 AND c.workspace_id=?2 AND c.route_id=?3 AND q.state='sent'
+             WHERE c.device_id NOT GLOB 'connector:*' AND q.device_id=?1 AND c.workspace_id=?2 AND c.route_id=?3 AND q.state='sent'
              AND json_extract(t.binding_json,'$.source_mac_id')=?4
              AND json_extract(t.binding_json,'$.collaboration_workspace_id')=?5
              AND json_extract(t.binding_json,'$.thread_id')=?6
@@ -212,7 +212,7 @@ pub(super) fn read_binding(
     operation: &str,
 ) -> StorageResult<Option<ThreadCommandBinding>> {
     let json: Option<String> = connection.query_row(
-        "SELECT binding_json FROM mobile_thread_commands WHERE device_id=?1 AND operation_id=?2",
+        "SELECT binding_json FROM mobile_thread_commands WHERE device_id NOT GLOB 'connector:*' AND device_id=?1 AND operation_id=?2",
         params![device, operation], |row| row.get(0)).optional()?;
     json.map(|value| serde_json::from_str(&value).map_err(StorageError::from))
         .transpose()

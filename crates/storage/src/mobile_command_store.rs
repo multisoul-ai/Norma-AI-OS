@@ -4,6 +4,7 @@ use serde::Serialize;
 use serde_json::Value;
 use std::path::PathBuf;
 
+mod connector;
 mod delivery;
 mod feedback;
 pub(crate) use delivery::migrate as migrate_delivery_acceptances;
@@ -40,6 +41,7 @@ pub struct MobileCommandReceipt {
     pub state: String,
     pub result: Option<Value>,
     pub error: Option<String>,
+    pub created_at_unix: i64,
 }
 
 #[derive(Debug)]
@@ -85,6 +87,9 @@ impl MobileCommandStore {
         workspace: &str,
         current_owner: &str,
     ) -> StorageResult<Option<MobileCommandReceipt>> {
+        if device.starts_with("connector:") {
+            return Ok(None);
+        }
         crate::mobile_access_store::validate_id(device)?;
         crate::mobile_access_store::validate_id(operation)?;
         let connection = open_app_connection(&self.path)?;
@@ -104,6 +109,14 @@ impl MobileCommandStore {
         outcome: Result<Value, String>,
     ) -> StorageResult<()> {
         validate(request)?;
+        self.finish_on_validated(request, outcome)
+    }
+
+    fn finish_on_validated(
+        &self,
+        request: &NewMobileCommand,
+        outcome: Result<Value, String>,
+    ) -> StorageResult<()> {
         let (state, mut result, error) = match outcome {
             Ok(value) => ("succeeded", Some(value), None),
             Err(code) => {
@@ -155,10 +168,10 @@ fn read(
     device: &str,
     operation: &str,
 ) -> StorageResult<Option<(MobileCommandReceipt, String, String)>> {
-    let row = connection.query_row("SELECT workspace_id,route_id,owner_id,request_hash,state,result_json,error FROM mobile_commands WHERE device_id=?1 AND operation_id=?2",
-        params![device,operation], |row| Ok((row.get::<_,String>(0)?, row.get::<_,String>(1)?, row.get::<_,String>(2)?, row.get::<_,String>(3)?, row.get::<_,String>(4)?, row.get::<_,Option<String>>(5)?, row.get::<_,Option<String>>(6)?))).optional()?;
+    let row = connection.query_row("SELECT workspace_id,route_id,owner_id,request_hash,state,result_json,error,created_at_unix FROM mobile_commands WHERE device_id=?1 AND operation_id=?2",
+        params![device,operation], |row| Ok((row.get::<_,String>(0)?, row.get::<_,String>(1)?, row.get::<_,String>(2)?, row.get::<_,String>(3)?, row.get::<_,String>(4)?, row.get::<_,Option<String>>(5)?, row.get::<_,Option<String>>(6)?, row.get::<_,i64>(7)?))).optional()?;
     row.map(
-        |(workspace_id, route_id, owner, hash, state, json, error)| {
+        |(workspace_id, route_id, owner, hash, state, json, error, created_at_unix)| {
             Ok((
                 MobileCommandReceipt {
                     device_id: device.into(),
@@ -168,6 +181,7 @@ fn read(
                     state,
                     result: json.map(|value| serde_json::from_str(&value)).transpose()?,
                     error,
+                    created_at_unix,
                 },
                 owner,
                 hash,

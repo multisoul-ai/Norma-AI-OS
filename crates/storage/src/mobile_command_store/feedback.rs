@@ -127,7 +127,7 @@ fn read_feedback(
 ) -> StorageResult<Option<DeliveryFeedback>> {
     let raw: Option<String> = connection
         .query_row(
-            "SELECT data_json FROM mobile_delivery_feedback WHERE device_id=?1 AND operation_id=?2",
+            "SELECT data_json FROM mobile_delivery_feedback WHERE device_id NOT GLOB 'connector:*' AND device_id=?1 AND operation_id=?2",
             params![device, operation],
             |row| row.get(0),
         )

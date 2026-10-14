@@ -42,7 +42,12 @@ impl Clock for SystemClock {
     }
 }
 #[derive(Clone)]
-pub struct Authenticated(pub(crate) [u8; 32]);
+pub struct Authenticated(pub(crate) [u8; 32], String);
+impl Authenticated {
+    pub fn client_epoch(&self) -> &str {
+        &self.1
+    }
+}
 struct FailureWindow {
     started: i64,
     count: u64,
@@ -53,6 +58,8 @@ struct State {
     tokens: Vec<TokenHash>,
     failures: HashMap<IpAddr, FailureWindow>,
     reads: HashMap<[u8; 32], (i64, u32)>,
+    writes: HashMap<[u8; 32], (i64, u32)>,
+    epoch: String,
     sessions: CancellationToken,
 }
 pub struct Auth {
@@ -69,6 +76,14 @@ impl Auth {
             .filter(|t| t.expires_at.is_none_or(|until| until > clock.now()))
             .collect();
         store.replace_tokens(&valid)?;
+        let epoch = match valid.iter().max_by_key(|t| t.created_at) {
+            Some(token) => hex::encode(store.secret_or_insert(
+                &epoch_key(&token.token),
+                &random_bytes()?,
+                clock.now(),
+            )?),
+            None => String::new(),
+        };
         Ok(Self {
             store,
             clock,
@@ -76,6 +91,8 @@ impl Auth {
                 tokens: hashes(&valid),
                 failures: HashMap::new(),
                 reads: HashMap::new(),
+                writes: HashMap::new(),
+                epoch,
                 sessions: CancellationToken::new(),
             }),
         })
@@ -96,6 +113,14 @@ impl Auth {
         for token in &mut tokens {
             token.expires_at = Some(token.expires_at.unwrap_or(now + 86400));
         }
+        let candidate = if state.epoch.is_empty() {
+            random_bytes()?.to_vec()
+        } else {
+            hex::decode(&state.epoch)?
+        };
+        let epoch = self
+            .store
+            .secret_or_insert(&epoch_key(&secret), &candidate, now)?;
         tokens.push(TokenRecord {
             token: secret.clone(),
             created_at: now,
@@ -103,6 +128,7 @@ impl Auth {
         });
         self.store.replace_tokens(&tokens)?;
         state.tokens = hashes(&tokens);
+        state.epoch = hex::encode(epoch);
         Ok(secret)
     }
     pub fn revoke(&self) -> anyhow::Result<()> {
@@ -115,6 +141,8 @@ impl Auth {
         state.sessions.cancel();
         state.sessions = CancellationToken::new();
         state.reads.clear();
+        state.writes.clear();
+        state.epoch.clear();
         self.store.replace_tokens(&[])
     }
     /// Background-only. Only credentials still accepted by this Auth instance are displayable.
@@ -192,7 +220,7 @@ impl Auth {
                 bool::from(known.hash.ct_eq(&digest)) && known.expires_at.is_none_or(|t| t > now);
         }
         if token.is_some() && accepted {
-            return Ok(Authenticated(digest));
+            return Ok(Authenticated(digest, state.epoch.clone()));
         }
         state
             .failures
@@ -223,6 +251,13 @@ impl Auth {
     }
     /// Recheck under the same lock as revocation and rate accounting; sessions cannot cache auth.
     pub fn read(&self, identity: &Authenticated) -> Result<(), (&'static str, Option<i64>)> {
+        self.limit(identity, false)
+    }
+    pub fn limit(
+        &self,
+        identity: &Authenticated,
+        write: bool,
+    ) -> Result<(), (&'static str, Option<i64>)> {
         let mut state = self.state.lock().map_err(|_| ("internal", None))?;
         let now = self.now();
         if !state
@@ -232,11 +267,17 @@ impl Auth {
         {
             return Err(("unauthorized", None));
         }
-        let entry = state.reads.entry(identity.0).or_insert((now, 0));
+        let budget = if write { 10 } else { 60 };
+        let counts = if write {
+            &mut state.writes
+        } else {
+            &mut state.reads
+        };
+        let entry = counts.entry(identity.0).or_insert((now, 0));
         if now >= entry.0 + 60 {
             *entry = (now, 0);
         }
-        if entry.1 >= 60 {
+        if entry.1 >= budget {
             return Err(("rate_limited", Some((entry.0 + 60 - now).max(1))));
         }
         entry.1 += 1;
@@ -283,4 +324,11 @@ fn random_bytes() -> anyhow::Result<[u8; 32]> {
         .fill(&mut bytes)
         .map_err(|_| anyhow::anyhow!("secure random unavailable"))?;
     Ok(bytes)
+}
+
+fn epoch_key(token: &str) -> String {
+    format!(
+        "client-epoch:{}",
+        hex::encode(Sha256::digest(token.as_bytes()))
+    )
 }

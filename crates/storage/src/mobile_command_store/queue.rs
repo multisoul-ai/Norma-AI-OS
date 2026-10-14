@@ -46,7 +46,7 @@ impl MobileCommandStore {
         crate::mobile_access_store::validate_id(owner)?;
         let connection = open_app_connection(&self.path)?;
         let mut statement = connection.prepare(&format!(
-            "{SELECT} WHERE c.owner_id=?1 AND q.state='queued' ORDER BY q.sequence LIMIT 128"
+            "{SELECT} WHERE c.device_id NOT GLOB 'connector:*' AND c.owner_id=?1 AND q.state='queued' ORDER BY q.sequence LIMIT 128"
         ))?;
         let rows = statement.query_map([owner], row)?;
         rows.map(|entry| decode(entry?)).collect()
@@ -84,7 +84,7 @@ impl MobileCommandStore {
         crate::mobile_access_store::validate_id(run)?;
         let connection = open_app_connection(&self.path)?;
         Ok(connection.query_row("SELECT EXISTS(SELECT 1 FROM mobile_message_queue q JOIN mobile_commands c USING(device_id,operation_id)
-            WHERE c.owner_id=?1 AND c.workspace_id=?2 AND c.route_id=?3 AND q.node_id=?4 AND q.run_id=?5 AND q.state IN ('queued','dispatching'))",
+            WHERE c.device_id NOT GLOB 'connector:*' AND c.owner_id=?1 AND c.workspace_id=?2 AND c.route_id=?3 AND q.node_id=?4 AND q.run_id=?5 AND q.state IN ('queued','dispatching'))",
             params![request.owner_id,request.workspace_id,request.route_id,node,run], |row| row.get(0))?)
     }
 
@@ -100,7 +100,7 @@ impl MobileCommandStore {
         let changed = tx.execute("UPDATE mobile_message_queue SET state='dispatching' WHERE device_id=?1 AND operation_id=?2 AND state='queued'
             AND NOT EXISTS (
                 SELECT 1 FROM mobile_message_queue older JOIN mobile_commands c USING(device_id,operation_id)
-                WHERE c.owner_id=?3 AND c.workspace_id=?4 AND c.route_id=?5
+                WHERE c.device_id NOT GLOB 'connector:*' AND c.owner_id=?3 AND c.workspace_id=?4 AND c.route_id=?5
                 AND older.node_id=?6 AND older.run_id=?7 AND older.state IN ('queued','dispatching')
                 AND older.sequence < (SELECT sequence FROM mobile_message_queue WHERE device_id=?1 AND operation_id=?2)
             )", params![request.device_id, request.operation_id, request.owner_id, request.workspace_id,
@@ -239,7 +239,7 @@ pub(super) fn read_queue(
 ) -> StorageResult<Option<QueuedMessage>> {
     connection
         .query_row(
-            &format!("{SELECT} WHERE c.device_id=?1 AND c.operation_id=?2"),
+            &format!("{SELECT} WHERE c.device_id NOT GLOB 'connector:*' AND c.device_id=?1 AND c.operation_id=?2"),
             params![device, operation],
             row,
         )
@@ -304,7 +304,7 @@ pub(super) fn enqueue_on(
     }
     // 128 pending messages × 32KiB maximum = 4MiB of active message bodies per server owner.
     let count: u64 = connection.query_row("SELECT count(*) FROM mobile_message_queue q JOIN mobile_commands c USING(device_id,operation_id)
-            WHERE c.owner_id=?1 AND q.state IN ('queued','dispatching')", [&request.owner_id], |row| row.get(0))?;
+            WHERE c.device_id NOT GLOB 'connector:*' AND c.owner_id=?1 AND q.state IN ('queued','dispatching')", [&request.owner_id], |row| row.get(0))?;
     if count >= 128 {
         return Err(invalid("message queue full"));
     }

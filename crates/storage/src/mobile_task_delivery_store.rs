@@ -106,7 +106,7 @@ impl MobileTaskDeliveryStore {
              FROM mobile_task_baselines b
              JOIN mobile_commands c ON c.device_id=b.device_id AND c.operation_id=b.operation_id AND c.workspace_id=b.workspace_id
              JOIN mobile_task_deliveries d ON d.workspace_id=b.workspace_id AND d.run_id=b.run_id AND d.turn_id=b.turn_id
-             WHERE b.device_id=?1 AND b.operation_id=?2 AND b.workspace_id=?3",
+             WHERE c.device_id NOT GLOB 'connector:*' AND b.device_id=?1 AND b.operation_id=?2 AND b.workspace_id=?3",
             params![device, operation, workspace], |row| Ok((row.get(0)?, row.get(1)?)),
         ).optional()?;
         saved
@@ -142,7 +142,7 @@ impl MobileTaskDeliveryStore {
              JOIN mobile_commands c ON c.device_id=b.device_id AND c.operation_id=b.operation_id
              JOIN mobile_turn_outcomes o ON o.workspace_id=b.workspace_id AND o.run_id=b.run_id AND o.turn_id=b.turn_id
              LEFT JOIN mobile_task_deliveries d ON d.workspace_id=b.workspace_id AND d.run_id=b.run_id AND d.turn_id=b.turn_id
-             WHERE b.workspace_id=?1 AND c.workspace_id=?1 AND c.route_id<>?2 AND d.run_id IS NULL",
+             WHERE c.device_id NOT GLOB 'connector:*' AND b.workspace_id=?1 AND c.workspace_id=?1 AND c.route_id<>?2 AND d.run_id IS NULL",
         )?;
         let rows = query.query_map(params![workspace, current_route], |row| {
             Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))

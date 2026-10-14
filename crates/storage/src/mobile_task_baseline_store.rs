@@ -65,7 +65,7 @@ impl MobileTaskBaselineStore {
               'run',b.run_id,'turn',b.turn_id)
              FROM mobile_task_baselines b JOIN mobile_commands c
                ON c.device_id=b.device_id AND c.operation_id=b.operation_id AND c.workspace_id=b.workspace_id
-             WHERE b.device_id=?1 AND b.operation_id=?2 AND b.workspace_id=?3 AND c.route_id=?4",
+             WHERE c.device_id NOT GLOB 'connector:*' AND b.device_id=?1 AND b.operation_id=?2 AND b.workspace_id=?3 AND c.route_id=?4",
             params![device, operation, workspace, route], |row| row.get(0),
         ).optional()?;
         raw.map(|raw| {
