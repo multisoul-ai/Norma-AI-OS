@@ -146,7 +146,7 @@ Norma App 进程
 
 - 输入：`{"operation_id": "uuid", "task_id": string}`
 - 输出：`{"operation_id", "task_id", "state": "cancel_requested|cancelled|already_terminal", "replayed": bool}`
-- 错误：`task_not_found`、`operation_conflict`、`already_submitted`（已交给 CLI 队列且无法撤回，不可重试）。只取消该任务，不影响同卡其他任务。
+- 错误：`task_not_found`、`operation_conflict`。只取消该任务，不影响同卡其他任务。
 - 幂等：同 4.2；对已终态任务返回 `already_terminal`（非错误）。
 - 基于：`CardCommand::AgentTaskCancel { task_ref }`（`crates/app/src/norma/endpoint/task_control.rs`），状态 `CancelRequested → Cancelled`。
 
