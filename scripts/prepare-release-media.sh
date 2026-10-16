@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Full is the safe release default until original optional media is published.
+# Non-notarized packaging defaults to full; release-local.sh --notarize defaults to light.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
