@@ -9,12 +9,9 @@
 - secondary binary: `target/release/multisoul-agent-hook`
 - minimum macOS: `12.0`
 
-Release workflow:
+正式发布使用仓库入口；公证模式默认打轻量包：
 
 ```bash
-cargo install cargo-packager --locked
-cargo packager --release -c Packager.toml
-cargo packager --notarize --release -c Packager.toml
 ./scripts/release-local.sh
 ./scripts/release-local.sh --notarize
 ```
@@ -30,11 +27,13 @@ Rust/macOS binary materially larger.
 `APPLE_API_*`、`APPLE_KEYCHAIN_PROFILE`、`APPLE_ID`、`APPLE_PASSWORD`、
 `APPLE_TEAM_ID`，因此只做 Developer ID 签名打包，不提交 Apple 公证。
 
-需要真实发版公证时，显式传 `--notarize`：
+只验证 Cargo wrapper 的 App 公证路径时，可显式传 `--notarize` 并指定轻量资源：
 
 ```bash
-cargo packager --notarize --release -c Packager.toml
+NORMA_MEDIA_PROFILE=light cargo packager --notarize --release -c Packager.toml
 ```
+
+这个低层入口不会对最终 DMG 单独公证和验收，不用于线上发布。
 
 wrapper 会把
 `APP_STORE_CONNECT_API_KEY_ID` / `APP_STORE_CONNECT_API_ISSUER_ID` /
@@ -325,8 +324,10 @@ resources = [
 
 ### 按需媒体与轻量包
 
-`NORMA_MEDIA_PROFILE` 支持 `full`（默认，全部内置）、`wallpapers-on-demand`
-（动态壁纸按需下载）和 `light`（动态壁纸与教程视频均按需下载）。清单
+`NORMA_MEDIA_PROFILE` 支持 `full`（全部内置）、`wallpapers-on-demand`
+（动态壁纸按需下载）和 `light`（动态壁纸与教程视频均按需下载）。
+`release-local.sh --notarize` 的线上发布默认使用 `light`；其他打包模式仍默认
+`full`，需要完整离线发布时可显式设置 `NORMA_MEDIA_PROFILE=full`。清单
 `packaging/media/resources.json` 固定原始文件大小、SHA-256、分类与资源版本。
 `light` 保留 18 项核心媒体、7 份动态壁纸静态预览和可信目录；12 项可选媒体
 下载后经长度、SHA-256 校验及原子提升进入用户缓存，不转码原文件。

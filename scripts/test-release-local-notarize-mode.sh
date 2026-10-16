@@ -10,6 +10,7 @@
 #   default command       = ./scripts/release-local.sh
 #   notarize command     = ./scripts/release-local.sh --notarize
 #   notarize credentials = APP_STORE_CONNECT_* mapped to APPLE_API_*
+#   production media    = light by default; explicit full remains available
 #   skip credentials     = unset APPLE_API_* / APPLE_ID_* before cargo-packager
 #   GitHub Actions CI     = CI=true（cargo-packager 0.11.8 会据此跳过 Finder AppleScript）
 #   protected invocations = 3（ad-hoc + notarized + signed local）
@@ -20,6 +21,7 @@
 #   3. Verify --notarize flips NOTARIZE true.
 #   4. Verify default cargo-packager execution unsets all notary credential env.
 #   5. Verify notarize execution maps APP_STORE_CONNECT_* to APPLE_API_*.
+#   5a. Verify notarized production builds default to light media.
 #   6. Verify release execution invokes the external cargo-packager directly,
 #      bypassing the workspace target runner used only for the development app.
 #   7. Verify every cargo-packager invocation removes CI so Finder writes .DS_Store.
@@ -30,6 +32,7 @@
 #   - Positive: --notarize is an explicit accepted flag.
 #   - Positive: default mode removes APPLE_API_* and APPLE_ID_* before packaging.
 #   - Positive: notarize mode injects APPLE_API_* from APP_STORE_CONNECT_*.
+#   - Positive: notarize mode defaults to light while allowing an explicit profile.
 #   - Positive: notarize mode calls cargo-packager after sanitizing notary env.
 #   - Positive: all three packaging modes remove CI=true before cargo-packager.
 #   - Positive: release-local rejects a DMG whose Finder layout is missing.
@@ -70,6 +73,9 @@ grep -Fq 'export APPLE_API_ISSUER="$APP_STORE_CONNECT_API_ISSUER_ID"' "$script" 
 
 grep -Fq 'export APPLE_API_KEY_PATH="$APP_STORE_CONNECT_API_KEY_PATH"' "$script" \
   || fail "notarize mode must map APP_STORE_CONNECT_API_KEY_PATH to APPLE_API_KEY_PATH"
+
+grep -Fq 'export NORMA_MEDIA_PROFILE="${NORMA_MEDIA_PROFILE:-light}"' "$script" \
+  || fail "notarized production packages must default to light media"
 
 grep -Fq 'cargo-packager --release -c Packager.toml' "$script" \
   || fail "release-local must invoke external cargo-packager after preparing notarization credentials"
