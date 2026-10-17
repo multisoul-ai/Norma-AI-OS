@@ -29,6 +29,7 @@ assets/models/tts/*
 .worktrees/
 # superpowers scratch (subagent reports, ledger)
 .superpowers/
+# 含桌面 E2E 证据 artifacts/desktop-workspace-e2e/
 artifacts/
 .zvec-grep
 apps/quest/outputs/

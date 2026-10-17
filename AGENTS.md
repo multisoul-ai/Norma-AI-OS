@@ -74,7 +74,8 @@ Workspace 分层：
 - **新增可配置快捷键必须进 Settings**：任何新的 app shortcut 都要注册到 `shortcuts.rs`，并在 Settings → Keyboard Shortcuts 支持录制与恢复。
 - **旧 e2e 套件已移除**：用户流程使用受影响 crate 的单元/集成测试与真实 App 验收；原型浏览器测试归各自原型目录维护。
 - **按实际行为验收**：使用受影响 crate 的单元/集成测试；`TestAppContext`/`simulate_click` 不等于启动真实 `.app`，要求真实程序的流程须操作真实 App 并检查最终结果。
-- **页面/样式验收必须用 Computer Use**：凡编写或修改页面、布局、样式或视觉状态，进入检查与验收时必须使用 `computer-use:computer-use` 操作真实 App 完成 E2E；headless GPUI、单测和静态截图只能作为补充，不能替代 Computer Use。
+- **页面/样式验收优先 desktop-e2e**：编写或修改页面、布局、样式或视觉状态时，先用 `scripts/desktop-e2e.sh` 在真实 App 上验收；desktop-e2e 覆盖不到的流程再降级 `computer-use:computer-use`。headless GPUI、单测和静态截图只能作补充。细则见 [`docs/quality/desktop-e2e.md`](docs/quality/desktop-e2e.md)。
+- **新增 desktop-e2e 按模块划分**：场景放 `test/desktop-e2e/Scenarios/<模块>/`，看图清单放 `checks/<模块>/`，夹具放 `Fixtures/<模块>/`。同一模块只改该目录的 `<模块>Module.swift`；`Scenarios/Catalog.swift` 只追加模块 `manifest`。`scripts/desktop-e2e.sh <模块>` 跑完该模块，`<场景>` 只跑一条。边界见 [`.agents/skills/norma-desktop-e2e/references/modules.md`](.agents/skills/norma-desktop-e2e/references/modules.md)。
 - **不要把知识塞进地图**：`AGENTS.md` 只放指针；长说明沉淀到 `CLAUDE.md` 或未来 `docs/`。
 
 ## 3. 技术栈速览
@@ -127,6 +128,7 @@ Workspace 分层：
 | Crate 文件地图 | [`docs/references/crate-file-map.md`](docs/references/crate-file-map.md) |
 | 快捷键与输入路由 | [`docs/references/keyboard-shortcuts.md`](docs/references/keyboard-shortcuts.md) |
 | 测试注释与断言规范 | [`docs/quality/test-requirements.md`](docs/quality/test-requirements.md) |
+| 真实 App 桌面 E2E | [`docs/quality/desktop-e2e.md`](docs/quality/desktop-e2e.md)；按模块放在 `test/desktop-e2e/Scenarios/<模块>/`；入口 `scripts/desktop-e2e.sh`；模块边界 [`.agents/skills/norma-desktop-e2e/references/modules.md`](.agents/skills/norma-desktop-e2e/references/modules.md) |
 | 文档现行入口与历史状态 | [`docs/README.md`](docs/README.md) |
 | 打包与 release | [`docs/references/packaging.md`](docs/references/packaging.md) |
 | 卡片 RuntimeEvent 扩展 | [`docs/references/card-runtime-events.md`](docs/references/card-runtime-events.md) |
@@ -150,7 +152,7 @@ Workspace 分层：
 | `crates/tts/**` | `cargo test -p tts` |
 | `crates/ui/**` | `cargo test -p ui` |
 | `crates/app/**` | `cargo check -p app` |
-| 用户流程验收 | 受影响 crate 的单元/集成测试；真实 App 流程检查最终结果，页面/样式使用 Computer Use |
+| 用户流程验收 | 受影响 crate 的单元/集成测试；真实 App 流程检查最终结果，页面/样式优先 desktop-e2e，覆盖不到再降级 Computer Use |
 | 跨 crate 行为 | `cargo test --workspace` |
 | GPUI/打包相关 | `cargo build -p app --release` |
 | 域层依赖边界 | `cargo tree -p canvas -p terminal -p runtime | grep -i gpui` 应无输出 |
