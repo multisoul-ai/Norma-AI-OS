@@ -1,6 +1,6 @@
 # Norma iOS 原生替换：架构与数据结构讨论稿
 
-状态：**A0 产品与架构边界已获用户确认，具体接口契约进入 to-spec；原生代码尚未开工** · 2026-09-28。产品边界以 [`CONTEXT.md`](../../CONTEXT.md) 和 [数据存储矩阵](../product-specs/2026-09-28-norma-ios-data-storage-matrix.md) 中已确认的条目为准。本文聚焦实现方式，不修改原生代码。
+状态：**A0 产品与架构边界已获用户确认，具体接口契约进入 to-spec；原生代码尚未开工** · 2026-09-28。产品边界以 [`CONTEXT.md`](../../CONTEXT.md) 和 [数据存储矩阵](../product-specs/2026-09-06-norma-ios-companion.md#appendix-storage-matrix) 中已确认的条目为准。本文聚焦实现方式，不修改原生代码。
 
 ## 1. 核心分工
 

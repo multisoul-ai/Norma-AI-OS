@@ -6,7 +6,7 @@
 
 交付 GitHub [#54 想法库](https://github.com/multisoul-ai/Norma-AI-OS/issues/54)、[#55 Mac 连接与授权](https://github.com/multisoul-ai/Norma-AI-OS/issues/55)、[#56 Workspace 管理](https://github.com/multisoul-ai/Norma-AI-OS/issues/56)、[#57 工作线程](https://github.com/multisoul-ai/Norma-AI-OS/issues/57)、[#58 Norma 单聊主屏与云端文字能力](https://github.com/multisoul-ai/Norma-AI-OS/issues/58)的**原生、可运行、可独立验收**闭环。用户能把想法留在手机，连接 Mac 并授权，创建多个关联真实项目和 Agent 的 Workspace，在其中建立独立工作线程；即使 Mac 离线，也能在 Norma 角色主屏切换文字输入，与云端模型对话。五票全部完成后，以真实 App 从想法记录走到线程和私聊，并验证数据边界。
 
-产品与技术依据：[总 Goal](2026-09-28-norma-ios-ideas-workspaces-native-goal.md)、[原生架构](../design-docs/2026-09-28-norma-ios-native-architecture-proposal.md)、[云服务架构](../design-docs/2026-09-28-norma-cloud-service-architecture.md)、[数据存储矩阵](../product-specs/2026-09-28-norma-ios-data-storage-matrix.md)、[逐屏原型验收规格](../product-specs/2026-09-28-norma-ios-prototype-fidelity-acceptance.md)。本 Goal 以 09-28 五屏及 09-26 十屏的实际图片为视觉基准；两套图的旧产品规则按逐屏规格处理。
+产品与技术依据：[总 Goal](2026-09-28-norma-ios-ideas-workspaces-native-goal.md)、[原生架构](../design-docs/2026-09-28-norma-ios-native-architecture-proposal.md)、[云服务架构](../design-docs/2026-09-28-norma-cloud-service-architecture.md)、[数据存储矩阵](../product-specs/2026-09-06-norma-ios-companion.md#appendix-storage-matrix)、[逐屏原型验收规格](../product-specs/2026-09-06-norma-ios-companion.md#appendix-prototype-fidelity)。本 Goal 以 09-28 五屏及 09-26 十屏的实际图片为视觉基准；两套图的旧产品规则按逐屏规格处理。
 
 ## 边界与实现顺序
 
@@ -23,14 +23,14 @@
 ### 当前接续点（2026-09-29）
 
 - **最新用户指令优先**：真机验收放到后面，由用户自行测试；继续完善其他功能，完成后再更新 GitHub Issue。真机扫码、麦克风/Apple Speech、真实音频回放不再阻塞独立的本地开发。下文早期“真机未验收则停止开发”的理解不适用；真机项目仍保留待测标记，不写成已通过。
-- **执行范围**：只本地运行和测试，不部署云端。已补线程草稿版本、逐线程保存/重试与后台保存；DEBUG 版提供仅回环地址的网关入口，凭据与历史与正式数据隔离。最新结果与逐票状态见[本地联调记录](2026-09-29-norma-ios-local-test.md)。
+- **执行范围**：只本地运行和测试，不部署云端。已补线程草稿版本、逐线程保存/重试与后台保存；DEBUG 版提供仅回环地址的网关入口，凭据与历史与正式数据隔离。最新结果与逐票状态见[本地联调记录](2026-09-29-norma-ios-acceptance.md#acceptance-local)。
 - **仍有独立阻断**：Xcode/Simulator 运行、Computer Use 的模拟器授权，以及 GitHub 登录。它们不是“待用户真机验收”的同义词。Goal 工具保留此前 blocked 状态，没有用新 Goal 替代或冒报 complete；开发已按最新指令接续。GitHub 尚未修改。
 
 - 用户纠正：撤销独立「Norma 文字对话」模块；单聊使用 W07，群聊使用 P05/W04。旧黑色启动页立即替换为浅色想法库，正式三项导航提前接入。#56 本机 Workspace 配置同步开始施工；不能将旧 Mac 单项目列表改名冒充 Workspace。
-- 首页替换和 W07 同屏文字已落地，启动/文字想法新增编辑搜索重启/单聊切换/Workspace 创建归档重开已有原生通过证据。只读 UI Agent 对 P01 首页、单聊结构及返工后的 W07 上下文导航卡/P04 操作蓝给出对应截图项 PASS。详情见[本轮验收记录](2026-09-29-norma-ios-new-shell-acceptance.md)；Computer Use 选择 Simulator 被拒绝，未将 XCTest 当作替代。下一步继续真实项目关联、#57 线程及剩余真机/云服务验收。
-- #57 本机线程、消息、来源引用与版本简报已接入；#56 关联选择新增准确的电脑/项目来源、失败重试及保存成功后关闭。新测试与代码复核见[线程接续记录](2026-09-29-norma-ios-thread-acceptance.md)。本轮 CoreSimulator 与 SwiftPM 默认缓存被沙箱拒绝访问，隔离 TLS fixture 的 UI 启动在准备阶段失败，尚无关联和线程新页面的运行证据；不能复用旧截图判新代码 PASS。当前无活跃测试 fixture。
-- #58 已实测线上健康 200、新文字接口 404，因此真实云端验收尚未开始。本轮修复正文等待期间的授权/去重/额度过期读取、损坏设备状态检查与代理 4 KiB 上限，并修复手机连点发送/新草稿保护。Node 全套测试和 Swift 云端存储/解析两项通过；原生并发测试仅通过类型检查。待发布包、影响范围及回退步骤见[云端待发布记录](2026-09-29-norma-cloud-text-release.md)，未部署生产。
-- 后续接续已校验发布包白名单/SHA-256，并从包内源码在 Node 22.23.2 独立启动，邀请、撤销及重启持久化的本机 HTTP 检查通过；尚未切换正式服务。#54 修复编辑按钮焦点、等待权限关闭、无录音正文放弃确认和音频会话释放，`IdeaStoreTests` 6 项通过；独立 Agent 复核代码问题通过，原生交互仍未验收，详见[#54 规格接续](../product-specs/2026-09-28-norma-ios-issue-54-idea-library.md)。该轮有实际修复和新发布包运行证据；Goal 状态以最新接续点为准。
+- 首页替换和 W07 同屏文字已落地，启动/文字想法新增编辑搜索重启/单聊切换/Workspace 创建归档重开已有原生通过证据。只读 UI Agent 对 P01 首页、单聊结构及返工后的 W07 上下文导航卡/P04 操作蓝给出对应截图项 PASS。详情见[本轮验收记录](2026-09-29-norma-ios-acceptance.md#acceptance-shell)；Computer Use 选择 Simulator 被拒绝，未将 XCTest 当作替代。下一步继续真实项目关联、#57 线程及剩余真机/云服务验收。
+- #57 本机线程、消息、来源引用与版本简报已接入；#56 关联选择新增准确的电脑/项目来源、失败重试及保存成功后关闭。新测试与代码复核见[线程接续记录](2026-09-29-norma-ios-acceptance.md#acceptance-thread)。本轮 CoreSimulator 与 SwiftPM 默认缓存被沙箱拒绝访问，隔离 TLS fixture 的 UI 启动在准备阶段失败，尚无关联和线程新页面的运行证据；不能复用旧截图判新代码 PASS。当前无活跃测试 fixture。
+- #58 已实测线上健康 200、新文字接口 404，因此真实云端验收尚未开始。本轮修复正文等待期间的授权/去重/额度过期读取、损坏设备状态检查与代理 4 KiB 上限，并修复手机连点发送/新草稿保护。Node 全套测试和 Swift 云端存储/解析两项通过；原生并发测试仅通过类型检查。待发布包、影响范围及回退步骤见[云端待发布记录](2026-10-06-norma-cloud-deployment.md#cloud-text-2026-09-29)，未部署生产。
+- 后续接续已校验发布包白名单/SHA-256，并从包内源码在 Node 22.23.2 独立启动，邀请、撤销及重启持久化的本机 HTTP 检查通过；尚未切换正式服务。#54 修复编辑按钮焦点、等待权限关闭、无录音正文放弃确认和音频会话释放，`IdeaStoreTests` 6 项通过；独立 Agent 复核代码问题通过，原生交互仍未验收，详见[#54 规格接续](../product-specs/2026-09-28-norma-ios-issues-spec.md#issue-54)。该轮有实际修复和新发布包运行证据；Goal 状态以最新接续点为准。
 
 - 工作树仍有多处未提交改动，不得整体重置。#54 的本地想法存储、语音页面和部分模拟器 UI 测试已开展；**真机 Apple Speech、录音回放/重试和完整 Computer Use 证据尚未齐备**。#56–#58 尚未完成原生闭环。
 - #55 已实现旧记录兼容的项目摘要与最近成功同步时间、Mac 全项目授权/修订号/执行前复核，以及 W02 原生在线/离线卡、扫码入口。隔离 iPhone 17 Pro Max 上的 `ConnectedComputersFlowTests` 三项均通过（2026-09-29 07:27，`ios/DerivedData/Logs/Test/Test-Norma-2026.09.29_07-26-50-+0800.xcresult`；以实际最新 `.xcresult` 为准）。同轮 `swift test --package-path ios` 93 项通过，`cargo test -p storage --test mobile_access` 6 项通过，`cargo test -p e2e --test mobile_pairing_persistence` 2 项通过，`cargo test -p app` 807 通过/7 忽略，`cargo check -p app` 通过。
@@ -83,3 +83,27 @@
 ## 完成判定
 
 只有 #54–#58 的验收标准全部满足、依赖链可运行、旧数据与权限未损、上述联合场景有真实 App 与自动化证据、独立 UI 子 Agent 最终复核 PASS，才把本 Goal 标为完成。报告必须列出每票的测试命令与结果、逐屏截图路径、真机和云服务的实际验收范围、未解决缺陷；真机证据按最新分工移交用户；其余关键证据缺失则保持进行中。#59 的真实派工、#60 的完整收件箱与 #63 的实时语音仍属于后续目标。#64 的正式导航切换已按用户最新指令提前执行，剩余旧入口下线与清理另行验收。
+
+<a id="start-prompt"></a>
+
+## 启动提示词
+
+> 历史：见 git 提交。原文路径：`docs/exec-plans/2026-09-28-norma-ios-issues-01-05-start-prompt.md`。
+
+# 启动／继续 Goal 的提示词
+
+复制以下文本到 Codex 对话。当前同目标 Goal 已处于 active，继续时不要重复创建。
+
+```text
+请执行 Norma iOS 01–05 Goal：GitHub Issues #54–#58 的原生功能、原型还原和自行端到端验收。先查询当前 Goal；同目标 Goal 已存在就接续，只有不存在时才创建。以 docs/exec-plans/2026-09-28-norma-ios-issues-01-05-native-goal.md 为执行契约，先读 AGENTS.md、iOS 样式规范、逐屏验收规格、两套原型图片和相关架构/存储文档。
+
+先检查分支、工作树及现有实现和测试，保护未提交改动，从文档的「当前接续点」核对实际状态后继续；不要重做已通过工作。按依赖推进：#54、#55、#58 可独立做；#56 依赖 #55；#57 依赖 #54/#56。每票先核对或补全 to-spec，写聚焦失败测试，再完成真实 iOS、Mac 或云服务流程；每票收口时 App 必须可运行，数据与旧配对权限不得丢失。
+
+落实用户 2026-09-29 的纠正：冷启动直接进入 P01 浅色想法库，正式三项导航提前切换，不能恢复旧黑色连接首页。Norma 单聊只使用 W07 角色主屏，文字是同屏输入方式；群聊使用 P05/W04 工作线程，不新增独立「Norma 文字对话」模块。
+
+页面必须按 P01–P05 和适用的 W01–W05 原型一比一还原浅色 iOS 视觉与交互，遵守 docs/design-docs/norma-ios-style-guide.md；导航、浮动控件和 Sheet 在支持的系统上使用原生 Liquid Glass，旧系统用系统材质回退。缺少关键素材时生成并检查裁切。参考图中的旧产品规则按逐屏验收规格处理，绝不让想法自动变成 Workspace，也不伪造 Agent 回执。
+
+每完成一屏，自己运行对应 Swift、Xcode UI、Rust、云服务及 e2e 测试；使用 Computer Use 操作真实 App，完成点击、输入、滚动、Sheet、返回、错误和重启流程，保存同机型同状态截图与原图对照。再启动独立只读 UI/交互验收子 Agent；它只能核对原图、真实 App 截图和可操作的页面，逐屏报告 PASS 或带证据的 NEEDS WORK，不修改文件，也不得撤销其他人的编辑。有偏差就修复、重测、重新操作 App 并交它复核，直到对应屏幕与主要交互全部 PASS。
+
+语音想法和扫码必须补真机证据；云端 Norma 文字对话必须经过真实服务验证。XCTest 截图、网页原型、模拟数据及自评不能替代这些证据。将原始截图/日志放 target/norma-ios-evidence/goal-01-05/，并在 docs/exec-plans/ 留下逐票验收记录，列明测试结果、十张适用原型对照、子 Agent 初审和复核、真机/云服务范围及未解决缺陷。任何关键证据缺失时保持 Goal active，如实说明阻断；全部通过后才标记 complete。不要使用问答工具，只有无法自主消除的真实阻断才向我说明。
+```

@@ -1,5 +1,9 @@
 # 语音链路优化 SPEC
 
+> 历史：见 git 提交。原文路径：`docs/superpowers/plans/2026-06-27-voice-pipeline-optimization.md`。
+
+仍有效的结论已在本文：松键后等待 500ms 再停止识别，`cancel()` 不等待；指令解析前只做最小修正。
+
 ## 1. 背景与目标
 
 **背景**：当前语音识别链路基于 Paraformer ONNX 流式识别 + Ollama 指令解析。存在两个影响使用的问题：

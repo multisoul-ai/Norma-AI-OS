@@ -2,6 +2,9 @@
 
 > 历史方案。2026-09-29 的完成态视觉反馈要求把呼吸霓虹限制在卡片边框；现行行为见 [`2026-09-29-agent-completion-border.md`](../design-docs/2026-09-29-agent-completion-border.md)。
 
+> 历史：见 git 提交。原文路径：`docs/exec-plans/2026-06-25-agent-card-corner-glow.md`。
+
+
 ## 1. 背景与目标
 
 [[2026-06-24-SPEC-agent-card-breathing-border]] 已经让 Agent 卡片在运行中 / 等待批准时，边框颜色按冷色组 / 暖色组循环呼吸。但效果只是单色随时间变化的描边，不具备用户提供的 Uiverse CSS 参考效果（`m2` 卡片）里"四角多彩光晕 + 模糊呼吸"的视觉层次——四个角各自带一团固定颜色的光晕（橙/蓝/粉/紫），整体随时间在锐利与朦胧之间呼吸。

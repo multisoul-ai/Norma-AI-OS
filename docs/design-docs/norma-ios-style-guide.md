@@ -2,7 +2,7 @@
 
 状态：iOS 原生界面的目标样式规范；不表示现有 App 已完成还原。  
 适用：`ios/App/` 的页面、组件、图标、动效与视觉验收；不覆盖 macOS 画布样式。  
-基线：[W01–W09 原型](../product-specs/norma-ios-prototypes-2026-09-26/生成提示词.md)及 [逐屏还原与验收](../product-specs/2026-09-28-norma-ios-prototype-fidelity-acceptance.md)。
+基线：[W01–W09 原型](../product-specs/norma-ios-prototypes-2026-09-26/生成提示词.md)及 [逐屏还原与验收](../product-specs/2026-09-06-norma-ios-companion.md#appendix-prototype-fidelity)。
 视觉速览：[HTML 版](norma-ios-style-guide.html)。若两者内容冲突，以本文为准。
 
 外部方法参考：`/Users/alan/Documents/codes/yakami0129/multisoul/mobile/docs/design.md` 与同目录的 `design.html`。本文借鉴其从设计原则、语义色、排版、间距、材质、组件、动效到验收的组织方法。**MultiSoul 的品牌色、字体、暗色控制台和产品组件不属于 Norma iOS。** Norma 的品牌身份以[品牌视觉规范](../brand/norma-os-brand-guidelines.md)为准。
@@ -10,7 +10,7 @@
 ## 1. 范围与优先级
 
 1. **样式**：以 W 系列的浅色 iOS、近白卡片、深蓝文字、蓝色主操作、薄荷与少量粉黄为基线；P 系列延续相同视觉语言。[P03 工作空间](../product-specs/norma-ios-ideas-workspaces-2026-09-28/P03-workspaces-drawer.png)与 [P05 工作线程](../product-specs/norma-ios-ideas-workspaces-2026-09-28/P05-work-thread.png)是对应首页和线程的主构图，W01/W04 补充搜索、筛选、对话及卡片状态。
-2. **产品结构与文案**：以[逐屏验收文件](../product-specs/2026-09-28-norma-ios-prototype-fidelity-acceptance.md)和现行产品规格为准。W 图中“想法即工作空间”、Workspace“硬约束”、Norma 私聊默认进入 Workspace 等旧设定只保留视觉参考；不得写回新页面。
+2. **产品结构与文案**：以[逐屏验收文件](../product-specs/2026-09-06-norma-ios-companion.md#appendix-prototype-fidelity)和现行产品规格为准。W 图中“想法即工作空间”、Workspace“硬约束”、Norma 私聊默认进入 Workspace 等旧设定只保留视觉参考；不得写回新页面。
 3. **角色身份**：W07 的人物大小、字幕与控件布局可参考；Norma 本人的发色、X 发夹、蝴蝶结与服装以品牌规范及获批素材为准，不把 W07 的黑发形象定为角色标准。
 4. **平台**：用 iOS 原生导航、输入、Sheet、安全区和辅助功能。项目最低 iOS 17；可用新版系统玻璃效果时采用系统 API，旧系统采用系统材质，具体 API 以所用 SDK 核实。
 
@@ -112,7 +112,7 @@
 ## 8. 验收清单
 
 - [ ] 对照相同机型、字号、外观和内容状态下的原型与真实 App 截图；不比较图片外壳，只比较页面内容。
-- [ ] 检查信息顺序、留白、字体、色彩、圆角、头像、卡片及底部操作，并按[逐屏验收](../product-specs/2026-09-28-norma-ios-prototype-fidelity-acceptance.md)处理 P/W 冲突。
+- [ ] 检查信息顺序、留白、字体、色彩、圆角、头像、卡片及底部操作，并按[逐屏验收](../product-specs/2026-09-06-norma-ios-companion.md#appendix-prototype-fidelity)处理 P/W 冲突。
 - [ ] 验证 VoiceOver 标签和阅读顺序、Dynamic Type、至少 44 pt 触控区、对比度、安全区、键盘与横竖屏适配。
 - [ ] 验证按下/选中/禁用/加载/错误反馈，以及减少动态效果和减少透明度。
 - [ ] 对用户可见流程保留自动化证据，并按 `AGENTS.md` 使用 Computer Use 操作真实 App 验收；静态原型不证明功能已实现。

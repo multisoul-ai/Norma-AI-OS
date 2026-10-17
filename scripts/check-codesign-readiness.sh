@@ -5,7 +5,7 @@
 #
 # On failure: 打印缺失项，退出码 1。挂 pre-commit 与 CI。
 #
-# Background: docs/design-docs/2026-07-05-developer-id-notarize-design.md
+# Background: docs/references/macos-release-and-notarization.md
 #
 # On non-macOS hosts (e.g. Linux Cloud Agents), plist tooling is unavailable.
 # File presence and Packager.toml field checks still run; macOS-only plist

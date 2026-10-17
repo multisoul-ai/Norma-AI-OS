@@ -1,6 +1,6 @@
 # Norma iOS 实时指挥台 · Goal 实时实施文档
 
-更新时间：2026-09-14 · 版本：20 · 当前阶段：按用户「先完成所有功能，测试豆包对话就行」的最新范围完成。v49 当前代码的网关三组回归、原生豆包音频L3（1/0）和真实豆包云端→真实Codex→原生播报L3（1/0）通过；Goal 收口为complete。GPT 云端、物理耳机/锁屏测量与用户界面验收延后，仍保留未测标记。v48 App808/0、e2e269/0、App check/Clippy/边界护栏及Release通过；Swift78/0和原生入口/Computer Use为v47，系统后台为v46。独立Vercel网关及iOS免Key接入已追加交付，见[部署记录](2026-09-14-voice-vercel-deployment.md)。
+更新时间：2026-09-14 · 版本：20 · 当前阶段：按用户「先完成所有功能，测试豆包对话就行」的最新范围完成。v49 当前代码的网关三组回归、原生豆包音频L3（1/0）和真实豆包云端→真实Codex→原生播报L3（1/0）通过；Goal 收口为complete。GPT 云端、物理耳机/锁屏测量与用户界面验收延后，仍保留未测标记。v48 App808/0、e2e269/0、App check/Clippy/边界护栏及Release通过；Swift78/0和原生入口/Computer Use为v47，系统后台为v46。独立Vercel网关及iOS免Key接入已追加交付，见[部署记录](2026-10-06-norma-cloud-deployment.md#cloud-superseded)。
 
 本文是本次指挥台替换的统一实施入口，持续记录决定、改动范围、实现状态与验收证据。产品依据：[实时虚拟人指挥台规格](../product-specs/2026-09-13-norma-ios-realtime-companion.md)。既有 iOS 能力仍参照[原 iOS Goal](2026-09-07-norma-ios-goal.md)；其中指挥台布局由本文取代，其他模块不重做。
 
@@ -206,9 +206,9 @@ headless GPUI 不等于真实 `.app`；HTML 原型不等于原生页面；模拟
 | 2026-09-14 / v19 阻塞复查 | v48之后连续三轮均无进展：官方GPT凭据缺失、物理iPhone unavailable、用户验收待完成 | 已依据持续目标的三轮阻塞规则将Goal标记blocked；不是complete，不修改原目标或通过条件。已有代码、App808/0、e2e269/0与Release证据保留；外部条件就绪后恢复 |
 | 2026-09-14 / v20 | 用户调整本轮验收范围为豆包；恢复Goal并核对现有功能，补运行入口说明 | v49网关三组回归通过；原生豆包音频L3 1/0（34.20秒）；当前代码真实豆包云端→Codex/gpt-5.6-sol→原生播报L3 1/0（105.05秒）。唯一真实任务/成果与原操作一致，未自动验收；Computer Use确认Done，临时App/端口/登录链接已清理。按最新范围complete，延后事项不标通过 |
 
-2026-09-14 追加交付：按用户授权新建`norma-voice` Vercel项目，默认`https://norma-voice.vercel.app`，东京节点真实豆包回复与独立播报通过；iOS以Mac签名授权免Key接入。实现、回归与仍未验收边界见[独立部署记录](2026-09-14-voice-vercel-deployment.md)，不回写前序版本的历史测试结论。
+2026-09-14 追加交付：按用户授权新建`norma-voice` Vercel项目，默认`https://norma-voice.vercel.app`，东京节点真实豆包回复与独立播报通过；iOS以Mac签名授权免Key接入。实现、回归与仍未验收边界见[独立部署记录](2026-10-06-norma-cloud-deployment.md#cloud-superseded)，不回写前序版本的历史测试结论。
 
-2026-09-14 / v52：独立Vercel网关改用原生HTTPS供应商流，修复挂断确认被云存储释放竞态吞掉，音频积压保持限流并允许重连。最终生产版本从云端发起三次完整ASR/Chat/PCM、工具及独立播报验收通过；本机网络抖动与Computer Use工具超时仍按实际记录，不宣称物理iPhone或长时稳定性验收完成。证据见[部署记录](2026-09-14-voice-vercel-deployment.md)。
+2026-09-14 / v52：独立Vercel网关改用原生HTTPS供应商流，修复挂断确认被云存储释放竞态吞掉，音频积压保持限流并允许重连。最终生产版本从云端发起三次完整ASR/Chat/PCM、工具及独立播报验收通过；本机网络抖动与Computer Use工具超时仍按实际记录，不宣称物理iPhone或长时稳定性验收完成。证据见[部署记录](2026-10-06-norma-cloud-deployment.md#cloud-superseded)。
 
 2026-09-14 / v53：原生iOS自动领取已登记Mac签名并连接最终生产豆包网关，HTTP200、WSS就绪和关闭确认均通过；未登记身份对照401。新增runner防止跳过被误记为成功，E2E270/0。Simulator的Computer Use绑定仍超时，Xcode可操作但未能恢复Simulator，因此该点击门禁继续未完成。
 

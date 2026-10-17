@@ -14,7 +14,7 @@ Mac 通过 Settings → Mobile Connection 管理手机连接，欢迎页不再�
 
 项目/卡片已支持名称、任务标题、状态和Agent筛选，使用当前授权快照即时过滤，清除或切换电脑不会保留上一台的结果。Todo默认显示仍需跟进的事项，已完成/未采纳进入「全部记录」；失败、停止、未发送和结果未知仍保留，执行完成不等同于成果验收。
 
-功能代码与外部验收单独记录在[实时计划](../docs/exec-plans/2026-09-07-norma-ios-goal.md#功能实现与验收分开跟踪v64)。APNs服务尚未部署，完整真机/界面验收后置；TestFlight 0.1.0 (1)已进入内部测试，当前账号已获邀请，见[发布记录](../docs/exec-plans/2026-09-08-norma-ios-testflight.md)。后文为各版本的历史开发记录。
+功能代码与外部验收单独记录在[实时计划](../docs/exec-plans/2026-09-07-norma-ios-goal.md#功能实现与验收分开跟踪v64)。APNs服务尚未部署，完整真机/界面验收后置；TestFlight 0.1.0 (1)已进入内部测试，当前账号已获邀请，见[发布记录](../docs/exec-plans/2026-09-08-norma-ios-release-records.md#release-testflight)。后文为各版本的历史开发记录。
 
 ## 豆包实时指挥台
 
@@ -416,7 +416,7 @@ cargo test -p e2e --lib e2e_mobile_snapshot::e2e_mobile_project_change_latency \
 
 ## TestFlight发布准备（v54）
 
-`0.1.0 (1)` 已生成发布签名IPA，路径为`../target/norma-ios-testflight/export/Norma.ipa`，尚未上传。App Store Connect缺少对应App记录，Apple公开API不支持创建，网页操作需解锁Mac。创建记录后继续上传、等待处理并完成真实加密问卷；详见[发布记录](../docs/exec-plans/2026-09-08-norma-ios-testflight.md)。
+`0.1.0 (1)` 已生成发布签名IPA，路径为`../target/norma-ios-testflight/export/Norma.ipa`，尚未上传。App Store Connect缺少对应App记录，Apple公开API不支持创建，网页操作需解锁Mac。创建记录后继续上传、等待处理并完成真实加密问卷；详见[发布记录](../docs/exec-plans/2026-09-08-norma-ios-release-records.md#release-testflight)。
 
 
 ## 会话记录与归档聊天（v55）
@@ -511,7 +511,7 @@ E2E233、Swift38、iOS45通过/4跳过；本轮生产逻辑未改。计划建议
 
 重跑核心及正式网络验证：`swift test --package-path ios`、`cargo test -p e2e --test mobile_image_network`。原生Agent专项见`crates/e2e/src/e2e_mobile_images.rs`；显式设置`NORMA_SWIFT_PROBE`和`NORMA_TEST_IMAGE`，只使用隔离AppDB与测试图片。UI复测使用独立模拟器和`NORMA_DECISION_UI=1 NORMA_NOTIFICATION_UI=1` fixture，启用`ui-decision-deck`、`ui-chat-interactions`、`ui-card-management`后放入`photo-fixture.jpg`；依次运行`NotificationFlowTests/testSeedChatPhoto`与`ChatPhotoFlowTests`，最后正式忘记测试电脑并结束fixture。未上传TestFlight，证据见`../target/norma-ios-evidence/v116/`。
 
-默认语音服务的原生生产授权验收见[部署验证](../docs/exec-plans/2026-09-14-voice-vercel-deployment.md)。复用`native_voice_authorization_without_keys` runner；显式设置`NORMA_VOICE_REGISTERED_DATABASE`与`NORMA_VOICE_REGISTERED_FINGERPRINT`时，使用已登记 Mac 的 AppDB 身份并在隔离项目/权限库中配对，验证自动签名→生产换票→豆包 WSS 就绪/关闭。手机不接收供应商 Key；缺少匹配指纹或模拟器已有该 Mac 配对时不得算通过。
+默认语音服务的原生生产授权验收见[部署验证](../docs/exec-plans/2026-10-06-norma-cloud-deployment.md#cloud-superseded)。复用`native_voice_authorization_without_keys` runner；显式设置`NORMA_VOICE_REGISTERED_DATABASE`与`NORMA_VOICE_REGISTERED_FINGERPRINT`时，使用已登记 Mac 的 AppDB 身份并在隔离项目/权限库中配对，验证自动签名→生产换票→豆包 WSS 就绪/关闭。手机不接收供应商 Key；缺少匹配指纹或模拟器已有该 Mac 配对时不得算通过。
 
 
 ### #58 本地网关联调（仅 Debug Simulator）

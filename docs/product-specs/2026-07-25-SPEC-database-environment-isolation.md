@@ -250,19 +250,13 @@ bash scripts/check-performance-guardrails.sh
 - `cargo run` 不允许通过环境变量切换到生产数据库。
 - 本次只处理 SQLite，不扩展到其他应用数据。
 
-## 10. 后续文档
+## 10. 打包模式识别
 
-对应技术设计见：
+> 历史：见 git 提交。原文路径：`docs/design-docs/2026-07-25-database-environment-isolation.md`。
 
-```text
-docs/design-docs/2026-07-25-database-environment-isolation.md
-```
+本文状态为已实施（2026-07-26）。设计文中的识别方式如下，步骤清单不再保留：
 
-技术设计进一步明确：
-
-- 正式打包模式的可靠识别方式。
-- 数据库路径解析函数放置位置。
-- `AppStore`、`ProjectStore` 和 App 构造入口的调整边界。
-- E2E 临时目录的持有方式。
-- 如何防止测试环境回退生产路径。
-- 自动化验收用例与分阶段实施顺序。
+- 只有打包流程启用的 `production-data` 编译标记进入生产库。`cargo run` 与 `cargo run --release` 都没有该标记，仍是测试库。
+- 不用 `debug_assertions` 区分模式，也不允许用环境变量把 `cargo run` 切到生产库。
+- `NORMA_TEST_DATA_ROOT` 只能改测试路径，不能切换到生产。
+- 路径解析失败时不得退回到当前目录的 `app.sqlite`。测试环境不复制旧 `Multisoul/app.sqlite`。

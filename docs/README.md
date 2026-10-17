@@ -13,8 +13,20 @@
 | 研究与验证记录 | [研究](research/)、[验证](verification/) | 历史测量不自动代表当前版本 |
 | 品牌 | [品牌资料](brand/README.md) | 使用前核对当前视觉方向 |
 
+<a id="history"></a>
+
 ## 历史材料
 
-被替代的 Ideas Vault、Realtime Card Task 方案以及旧 Rust `e2e` 套件已从当前树移除。历史细节仍可从删除前的 Git 提交 `366284b4` 查阅。保留在 `docs/` 的旧规格和执行记录只解释当时的决策、命令与验收，不作为当前实施指令；新需求使用受影响 crate 的测试和真实 App 验收。
+被替代的 Ideas Vault、Realtime Card Task 方案以及旧 Rust `e2e` 套件已从当前树移除。这些材料以及 2026-06-28 的 e2e 规格与实施计划，仍可从 Git 提交 `366284b4` 及其后的删除提交查阅。2026-10-17 的文档整合还删除了 `docs/superpowers/` 下的旧施工计划、与规格重复的执行步骤，以及已被统一云服务取代的部署记录。清单见 [文档整合计划](exec-plans/2026-10-17-docs-consolidation.md)。
 
-实验的逐轮日志和候选图片也可在上述提交中查阅。当前树保留仍被规格、脚本或报告引用的素材与汇总数据。
+保留在 `docs/` 的旧规格和执行记录只解释当时的决策、命令与验收，不作为当前实施指令；新需求使用受影响 crate 的测试和真实 App 验收。
+
+仍留在文档根目录、且继续被脚本或规格引用的页面：
+
+- [产品设计系统](design.md) 与评审页 [design.html](design.html)。`design.md` 自标为 V2 / Current Direction（2026-08-08）。
+- [Core UI 交互原型](product-ui.html)，由 `scripts/check-product-ui-prototype.sh` 与 `scripts/render-product-ui-assets.sh` 使用。
+- [派工粒子视觉基准](ion-fireworks.html)，由 `scripts/check-ion-fireworks-prototype.sh` 与派工粒子规格引用。
+
+`exec-plans/archive/` 与 `prototypes/archive/` 仍被现行规格引用，本次保留。`research/assets/` 下的测量 JSON 本次未动。
+
+实验的逐轮日志和候选图片也可在 `366284b4` 查阅。当前树保留仍被规格、脚本或报告引用的素材与汇总数据。

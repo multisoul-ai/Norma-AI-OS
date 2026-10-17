@@ -46,4 +46,4 @@ Apple 设计原则落地：保留现有原生项目选择和实时状态反馈�
 
 ## 后续发布（用户另行授权，2026-09-12）
 
-用户随后要求编译桌面并发布 TestFlight。桌面已生成 0.1.71（20260912.154818）的 Developer ID 签名 DMG，未公证、未安装；iOS 0.1.0（29）已进入原内测组并回读确认可安装。详见 [发布记录](2026-09-08-norma-ios-testflight.md)。
+用户随后要求编译桌面并发布 TestFlight。桌面已生成 0.1.71（20260912.154818）的 Developer ID 签名 DMG，未公证、未安装；iOS 0.1.0（29）已进入原内测组并回读确认可安装。详见 [发布记录](2026-09-08-norma-ios-release-records.md#release-testflight)。

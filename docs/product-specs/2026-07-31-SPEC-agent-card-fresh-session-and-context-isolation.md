@@ -7,7 +7,22 @@
 - 相关规格：
   - [`2026-07-25-SPEC-agent-conversation-context-and-continuation.md`](2026-07-25-SPEC-agent-conversation-context-and-continuation.md)
   - [`2026-07-18-SPEC-natural-agent-delegation-and-canvas-context.md`](2026-07-18-SPEC-natural-agent-delegation-and-canvas-context.md)
-  - [`../superpowers/specs/2026-06-27-canvas-session-persistence-design.md`](../superpowers/specs/2026-06-27-canvas-session-persistence-design.md)
+  - [Phase 1 画布会话恢复](#phase1-canvas-session)
+
+<a id="phase1-canvas-session"></a>
+
+## 历史：Phase 1 画布会话恢复
+
+> 历史：见 git 提交。原文路径：`docs/superpowers/specs/2026-06-27-canvas-session-persistence-design.md`、`docs/superpowers/plans/2026-06-27-canvas-session-persistence.md`。
+
+2026-06-27 已批准的 Phase 1 只做视图恢复，不保活后台进程：
+
+- 退出时把终端 cwd 和 Claude `session_id` 写入项目库的 `node_sessions`。该表与 `session_checkpoints` 分开：后者保存启动参数，前者保存退出时捕获的运行状态。
+- 终端 cwd 用 macOS `proc_pidinfo` 读取，恢复时进入该目录。读不到则从工作区根目录打开。
+- Claude 卡片用 `--resume <session_id>` 恢复。当时未做 Codex 恢复，也不恢复终端滚动历史。
+- 没有 `node_sessions` 记录时，行为与加入该表之前相同。任一步失败都静默退回当时的默认行为。
+
+本规格要求的「开始全新会话」不得破坏上述未重置项目的恢复。
 
 ## 1. 背景与问题
 

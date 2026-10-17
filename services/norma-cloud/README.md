@@ -1,6 +1,6 @@
 # Norma 统一云服务
 
-`push` 已合并到本目录；`server.mjs` 是唯一启动入口，推送、实时语音、文字和协作中继共用一个 Node.js 进程与监听端口。生产目标为 `47.251.242.24` 的 `norma-cloud.service`，Nginx 保留原客户端地址；当前部署与回退信息见[统一服务部署记录](../../docs/exec-plans/2026-10-06-norma-cloud-unified-deployment.md)。
+`push` 已合并到本目录；`server.mjs` 是唯一启动入口，推送、实时语音、文字和协作中继共用一个 Node.js 进程与监听端口。生产目标为 `47.251.242.24` 的 `norma-cloud.service`，Nginx 保留原客户端地址；当前部署与回退信息见[统一服务部署记录](../../docs/exec-plans/2026-10-06-norma-cloud-deployment.md#cloud-current)。
 
 ## 模块
 
@@ -41,7 +41,7 @@ Nginx 只引入 `deploy/nginx-front.conf` 一次，并移除旧 push/voice 片�
 
 从 companion 的 `server/` 迁入，源仓库保持只读，文件来源与 SHA-256 见
 [`2026-09-13-realtime-source.json`](../../docs/design-docs/2026-09-13-realtime-source.json)。
-Node.js 22+；仅依赖既有 `ws`。生产地址为 `https://soulvoiceai.com/norma/voice`，部署验证见[交付记录](../../docs/exec-plans/2026-09-15-voice-server-deployment.md)。
+Node.js 22+；仅依赖既有 `ws`。生产地址为 `https://soulvoiceai.com/norma/voice`，部署验证见[交付记录](../../docs/exec-plans/2026-10-06-norma-cloud-deployment.md#cloud-superseded)。
 
 ```sh
 cd services/norma-cloud
@@ -105,7 +105,7 @@ node scripts/device-admin.mjs revoke <device-id>
 每天每设备默认上限 300 回合，可用 `NORMA_TEXT_DAILY_LIMIT` 调整；并发每设备 1 回合。
 服务端不持久保存聊天正文，iPhone 本地历史与原生页面仍需按 #58 后续阶段接入和验收。
 
-当前受邀文字实现及待发布证据见[09-29 发布计划](../../docs/exec-plans/2026-09-29-norma-cloud-text-release.md)。Nginx 的文字请求上限须为 32 KiB，并关闭响应缓冲；旧 4 KiB 代理配置会在有历史上下文时提前拒绝请求。页面与本机历史已接入 W07 同屏文字模式，真实云服务与设备验收尚未完成。
+当前受邀文字实现及待发布证据见[09-29 发布计划](../../docs/exec-plans/2026-10-06-norma-cloud-deployment.md#cloud-text-2026-09-29)。Nginx 的文字请求上限须为 32 KiB，并关闭响应缓冲；旧 4 KiB 代理配置会在有历史上下文时提前拒绝请求。页面与本机历史已接入 W07 同屏文字模式，真实云服务与设备验收尚未完成。
 
 本地 Swift 客户端与正式网关 HTTP 联调：`npm --prefix services/norma-cloud run test:native:text`。它自动启动回环服务并运行 `CloudTextNetworkTests`，使用临时设备状态和确定的测试供应商，覆盖中文增量、完整结束、历史恢复、重复请求、中断及撤销；完成后清理服务与临时凭据，不访问生产环境。该检查运行 macOS 上的共享 Swift 核心，不等同于 iOS 页面、Keychain 或真实模型验收。
 
@@ -117,7 +117,7 @@ node scripts/device-admin.mjs revoke <device-id>
 服务端通过 `NORMA_RELAY_TRUSTED_CERTIFICATES`（DER 公开证书 base64 数组）限制可上线的 Mac；
 手机使用既有受邀设备凭据，撤销后在线连接也停止转发。空证书清单默认关闭 Mac 入口。
 中继只转发在线通道的不透明字节，Mac 离线返回 offline；不存任务正文，不代 Mac 产生已送达或执行完成回执。
-具体容量与协议见 [#59 规格](../../docs/product-specs/2026-09-29-norma-ios-issue-59-single-mac.md)。
+具体容量与协议见 [#59 规格](../../docs/product-specs/2026-09-28-norma-ios-issues-spec.md#issue-59)。
 
 `npm run test:relay` 使用临时 P-256 证书、真实邀请准入与本机 WebSocket，覆盖签名重放、重复 Mac、
 双向转发、跨连接隔离、撤销、断线、重启和限额；无真实模型调用。它已进入 `npm test`。

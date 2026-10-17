@@ -2,6 +2,17 @@
 
 > 2026-07-15 目录更新：受控目录新增非推荐候选 `Zipformer Streaming CTC ZH`。它复用本文的不可变 ID、安装完整性和发布门槛，但通过 Sherpa `OnlineZipformer2Ctc` 适配；推荐资格统一记录在 [`../quality/asr-model-release-gate.md`](../quality/asr-model-release-gate.md)。
 
+<a id="asr-status"></a>
+
+> 历史：见 git 提交。原文路径：`docs/design-docs/2026-07-11-asr-model-framework.md`、`docs/exec-plans/2026-07-11-asr-model-framework.md`。
+
+2026-07-18 设计更新：受控目录还有第四个非推荐候选 Zipformer Bilingual。推荐资格仍以 [`../quality/asr-model-release-gate.md`](../quality/asr-model-release-gate.md) 为准。
+
+实施状态（2026-07-11）：
+
+- 阶段 1 至 3 已完成：零 GPUI `asr` crate、Paraformer 迁入、Zipformer 固定工件与失败回退已落地。真实模型冒烟仍需本机下载官方模型后运行 ignored 测试。
+- 阶段 4 当时尚未通过：Zipformer 保持未推荐，需固定中文 WAV、团队麦克风数据和目标 Apple Silicon 性能结果之后才能另定推荐状态。
+
 ## Problem Statement
 
 当前 Norma OS 的本地语音识别与 Paraformer 的文件目录和 Sherpa 配置直接绑定。用户在 Voice Settings 中看到的是模型路径而不是可理解的识别模型；听写、持续聆听、Agent Provider 和工程配置也混在一起，缺少清晰的语音交互模式。

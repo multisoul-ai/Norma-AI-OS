@@ -296,6 +296,6 @@ M4 本地验收完成前不标记整个 Goal 完成。生产资源未上线时�
 
 ### 2026-10-11 后续上线与轻量包
 
-上述资源未上线和流程待验是当时的状态。后续已完成 [壁纸下载状态反馈与真实 App 验收](2026-10-10-wallpaper-download-feedback.md)，并按用户授权公开发布 [media-v1 原始资源](2026-10-11-cloud-media-publish.md)：7 个动态壁纸、5 个教程视频，共 135,781,610 字节。全部公开 HTTPS 原文件的长度与 SHA-256 校验通过；隔离真实 App 从 GitHub 下载潮汐后显示已下载并自动应用。
+上述资源未上线和流程待验是当时的状态。后续已完成 [壁纸下载状态反馈与真实 App 验收](2026-10-10-wallpaper-download-feedback.md)，并按用户授权公开发布 [media-v1 原始资源](../references/macos-release-and-notarization.md#media-v1)：7 个动态壁纸、5 个教程视频，共 135,781,610 字节。全部公开 HTTPS 原文件的长度与 SHA-256 校验通过；隔离真实 App 从 GitHub 下载潮汐后显示已下载并自动应用。
 
 最新本地轻量包保持 0.1.73 / arm64 / ad-hoc，64,868,153 字节（64.87 MB），SHA-256 `355c1e2e256dbbceb863ef8d703d422fd7c282a2dd1669544bdc1cc2bb9189c0`。当前 production-data 构建、签名完整性、DMG/Finder 布局、102 项包内文件/链接核对和 12 项远端原文件复查通过。[包信息](../research/assets/2026-10-11-cloud-light-package/package.json)、[包内核验](../research/assets/2026-10-11-cloud-light-package/contents-validation.json)、[本次打包日志](../research/assets/2026-10-11-cloud-light-package/packaging.log)。仍未公证；新轻量包不替代上表的同轮 full/light 对照或原冻结源码基线。
