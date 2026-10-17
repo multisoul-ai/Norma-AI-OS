@@ -63,6 +63,7 @@ if [ "$AD_HOC" = true ]; then
       cargo-packager -c Packager.dev.toml
 elif [ "$NOTARIZE" = true ]; then
   # 真实发版：映射 APP_STORE_CONNECT_* -> APPLE_API_*，启用 notarize
+  export NORMA_MEDIA_PROFILE="${NORMA_MEDIA_PROFILE:-light}"
   : "${APP_STORE_CONNECT_API_KEY_ID:?需设置 APP_STORE_CONNECT_API_KEY_ID（同 mobile）}"
   : "${APP_STORE_CONNECT_API_ISSUER_ID:?需设置 APP_STORE_CONNECT_API_ISSUER_ID}"
   : "${APP_STORE_CONNECT_API_KEY_PATH:?需设置 APP_STORE_CONNECT_API_KEY_PATH}"
