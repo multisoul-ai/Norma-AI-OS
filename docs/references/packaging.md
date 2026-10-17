@@ -1,5 +1,7 @@
 # Packaging Notes
 
+签名、公证与 Sparkle 的决策记录见 [macOS 发布与公证](macos-release-and-notarization.md)。本文保留当前打包命令。
+
 `Packager.toml` configures a macOS app and DMG with entitlements + Developer ID signing:
 
 - product name: `Norma OS`
@@ -152,7 +154,7 @@ checks the full-bleed opaque artwork, native stack, and both packaging paths.
 Codesigning 配置见 `packaging/macos/NormaOS.entitlements` 与
 `Packager.toml` 的 `[macos]` 段；notarization 只通过
 `cargo packager --notarize ...` 或 `scripts/release-local.sh --notarize` 显式开启，详见
-`docs/design-docs/2026-07-05-developer-id-notarize-design.md`。
+[macOS 发布与公证](macos-release-and-notarization.md#notarize)。
 
 ## Sparkle 2 更新与发布资产
 
@@ -352,7 +354,7 @@ NORMA_MEDIA_PROFILE=light SPARKLE_PUBLIC_ED_KEY='<现有 Sparkle 公钥>' ./scri
 ad-hoc 的 `--local-test` 只跳过远端可用性 gate，仍执行原始资源、预览和白名单
 校验。普通 production-data 构建不启用 `media-download-qa` 传输覆盖。
 壁纸页逐项显示需下载、进度、校验、已下载、取消或失败重试状态；完成后仅应用
-当前仍选中的壁纸。发布证据见 [云端媒体验收](../exec-plans/2026-10-11-cloud-media-publish.md)。
+当前仍选中的壁纸。发布证据见 [云端媒体验收](macos-release-and-notarization.md#media-v1)。
 
 Static/GIF wallpapers are loaded from their resolved files under
 `Contents/Resources/wallpapers/`; they must not also be served by

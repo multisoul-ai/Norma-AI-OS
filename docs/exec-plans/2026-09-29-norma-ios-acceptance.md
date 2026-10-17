@@ -1,6 +1,14 @@
+# Norma iOS 验收记录
+
+三份记录合并。`local-test` 文内写明 2026-09-30 的核对优先于它自己后文的历史快照。浅色首页与线程记录保持各自日期，不互相取消对方的证据。
+
+> 历史：见 git 提交。原文路径：`docs/exec-plans/2026-09-29-norma-ios-local-test.md`、`docs/exec-plans/2026-09-29-norma-ios-new-shell-acceptance.md`、`docs/exec-plans/2026-09-29-norma-ios-thread-acceptance.md`。
+
+<a id="acceptance-local"></a>
+
 # Norma iOS 01–05 本地联调记录
 
-> 2026-09-30 单码注册更新：43 的额外邀请码步骤已被替代，44 已停止测试；45 发布与当前验收流程见 [单次扫码与派工验收](2026-09-30-norma-ios-testflight-dispatch.md)。真机验收及其余 Goal 项保持未完成。
+> 2026-09-30 单码注册更新：43 的额外邀请码步骤已被替代，44 已停止测试；45 发布与当前验收流程见 [单次扫码与派工验收](2026-09-08-norma-ios-release-records.md#release-dispatch)。真机验收及其余 Goal 项保持未完成。
 
 
 2026-09-29。最新用户分工：真机验收由用户后置完成；继续完善剩余功能，完成后更新 Issue。**只本地运行、测试，不部署云端。** 下一阶段 Goal 已 active，#54–#58 尚未关闭；不能把单个切片完成误报为整个目标完成。最新优先级：**Norma 语音通话最后做，优先其他功能**。
@@ -162,7 +170,7 @@ GitHub 已恢复读取；更新时合并本表的新进展与用户真机分工�
 
 ## 下一阶段：中继与端到端会话基础
 
-实施依据：[本阶段 Goal](2026-09-29-norma-ios-single-mac-goal.md)、[#57/#59 规格](../product-specs/2026-09-29-norma-ios-issue-59-single-mac.md)。本轮未修改页面，没有新的视觉或 Computer Use PASS，也没有部署云端。
+实施依据：[本阶段 Goal](2026-09-29-norma-ios-single-mac-goal.md)、[#57/#59 规格](../product-specs/2026-09-28-norma-ios-issues-spec.md#issue-59)。本轮未修改页面，没有新的视觉或 Computer Use PASS，也没有部署云端。
 
 - 在既有 Node 网关增加在线协作中继，复用 #58 准入；受信 Mac 用配对安装证书签挑战。断线只通知通道关闭，无服务端任务队列或伪造持久回执。
 - 中继校验撤销、连接归属、挑战时限、容量和帧大小。测试发现空 Origin header 和到期挑战先于定时器回调两个问题，先留下失败证据再修复。
@@ -888,7 +896,7 @@ GitHub CLI已实际同步：[57回执](https://github.com/multisoul-ai/Norma-AI-
 
 此前各UI轮次均在原生清理成功后结束其正式网络fixture；没有把UI失败轮的网络通过当作页面通过。网络为正式中继、Mac MobileServer与SQLite回执，终端前台输出/写入目标是显式fixture；不是新的真实Coding Agent或真实PTY端到端证据。
 
-独立只读Agent`thread_delivery_ui_review`完成最终四张截图及日志复核：当前标准/AX5终端UI切片PASS，最大字号输出高度、圆角裁字、身份混读与右侧光标问题关闭，无新增必改项。历史切换、长项目名滚动、完整VoiceOver与真实PTY尚未由本轮证明。最终截图映射见`screenshots-final-check/manifest.json`和[线程验收记录](2026-09-29-norma-ios-thread-acceptance.md)文末。Computer Use最终重新选择Simulator先报`cgWindowNotFound`，读取状态明确返回Mac锁屏，无新的手动界面验收结论。Xcode缓存权限正常；本轮只检查配置存在性，进程和`services/norma-cloud/.env`/`.env.local`均未找到所查OpenAI/豆包Key，未输出密钥。
+独立只读Agent`thread_delivery_ui_review`完成最终四张截图及日志复核：当前标准/AX5终端UI切片PASS，最大字号输出高度、圆角裁字、身份混读与右侧光标问题关闭，无新增必改项。历史切换、长项目名滚动、完整VoiceOver与真实PTY尚未由本轮证明。最终截图映射见`screenshots-final-check/manifest.json`和[线程验收记录](2026-09-29-norma-ios-acceptance.md#acceptance-thread)文末。Computer Use最终重新选择Simulator先报`cgWindowNotFound`，读取状态明确返回Mac锁屏，无新的手动界面验收结论。Xcode缓存权限正常；本轮只检查配置存在性，进程和`services/norma-cloud/.env`/`.env.local`均未找到所查OpenAI/豆包Key，未输出密钥。
 
 完整Goal仍包含：真实线程@Norma模型编排、W06具体工作步骤/原任务追问、真实Coding Agent退回修改→新成果→验收、后台/断网/Mac及中继重启/跨网络、全部原型/VoiceOver、被替代旧代码清理。真机扫码/Apple Speech/麦克风由用户后置，Norma通话最后。全仓行数护栏仍被此前已有的`settings/mobile.rs`546行挡住；默认并发的恢复/网络间歇失败未修复。Goal active，Issue不提前关闭；只本地测试，未提交、推送或部署。
 
@@ -897,4 +905,170 @@ GitHub CLI已实际同步：[57回执](https://github.com/multisoul-ai/Norma-AI-
 
 原生 iOS 页面 → 本地中继 → 真实 Mac/Codex → 原线程回复与两文件成果、重启恢复及不重复执行已通过；Computer Use 实操浏览成果和返回原线程通过。Swift Core 142 项（8 条条件跳过）无失败，原生固定证书 HTTPS 邀请/Keychain 恢复与 WSS 通过。
 
-用户已授权发布 TestFlight。0.1.0（43）现已 VALID / IN_BETA_TESTING，原「Norma 内测」组与中文说明回读通过。只在同一 Wi-Fi 使用已启动的 Mac 专用验收版及本地中继，未部署云端。安装、配对与派工步骤见 [本次交付文档](2026-09-30-norma-ios-testflight-dispatch.md)。真实 @Norma、完整后台/跨公网及后续修改闭环仍待收口，物理 iPhone 用户验收、语音最后；#57/#59 保持 OPEN，整体 Goal active。
+用户已授权发布 TestFlight。0.1.0（43）现已 VALID / IN_BETA_TESTING，原「Norma 内测」组与中文说明回读通过。只在同一 Wi-Fi 使用已启动的 Mac 专用验收版及本地中继，未部署云端。安装、配对与派工步骤见 [本次交付文档](2026-09-08-norma-ios-release-records.md#release-dispatch)。真实 @Norma、完整后台/跨公网及后续修改闭环仍待收口，物理 iPhone 用户验收、语音最后；#57/#59 保持 OPEN，整体 Goal active。
+
+
+---
+
+<a id="acceptance-shell"></a>
+
+# 浅色启动首页与 Norma 单聊主屏：实施与验收记录
+
+更新：2026-09-29。分支：`codex/norma-ios-companion`。本记录覆盖本轮首页替换及单聊入口纠正，**不代表 #54–#58 Goal 完成**。
+
+## 已落地
+
+- 冷启动直接显示 P01 浅色想法库；底部为「工作空间 / Norma / 收件箱」。已配对电脑的后台连接失败不会遮挡本机想法首页。电脑管理从更多模块进入。
+- Norma 单聊以 W07 角色主屏为入口；键盘按钮在同屏切换私聊历史和输入，不再提供独立文字模块。通知目标与邀请深链复用同一私聊模型。
+- Workspace 有独立的本机配置、创建、搜索、改名、归档和重开；设置中提供项目与 Agent 关联入口。09:29 的已运行版本中卡片进入设置；后续已改为进入线程列表，另提供明确设置入口。后续改动的状态见[线程接续验收记录](2026-09-29-norma-ios-acceptance.md#acceptance-thread)，下表旧运行结果不能代替新流程验收。
+- 收件箱暂承接既有真实待处理事项与任务提醒设置。旧深色任务首页入口已移除，完整注意力聚合仍属于 #60。电脑内的旧项目详情保留显式关闭操作，尚未完成该详情的浅色迁移。
+
+## 原生测试证据
+
+执行环境：iPhone 17 Pro Max Simulator，iOS 26.2，Xcode 原生 App。不是网页或 SwiftUI Preview。
+
+以下公共参数配合表内 `-only-testing` 范围执行：
+
+```sh
+xcodebuild -project ios/Norma.xcodeproj -scheme Norma \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max' \
+  -derivedDataPath ios/DerivedData \
+  -packageCachePath /Users/alan/Documents/mybook/norma-ai-os/target/xcode-packages \
+  -only-testing:<下表测试范围> test
+```
+
+| 范围 | 结果 | 原始证据 |
+|---|---|---|
+| `NormaUITests/CloudChatFlowTests`、`IdeaLibraryFlowTests/testAppLaunchesIntoIdeaLibrary`、`WorkspaceLibraryFlowTests`、`ConnectedComputersFlowTests/testConnectedComputersUsesLightStatusBarBackground` | 4 项通过 | `ios/DerivedData/Logs/Test/Test-Norma-2026.09.29_09-18-37-+0800.xcresult` |
+| 修正 W07 导航卡、P04 按钮色后的 `CloudChatFlowTests`、`WorkspaceLibraryFlowTests` | 2 项通过 | `ios/DerivedData/Logs/Test/Test-Norma-2026.09.29_09-26-15-+0800.xcresult` |
+| `NormaDeviceTests/CredentialVaultTests` | 同一 Keychain 读写隔离测试在 iOS 通过 | 同上 |
+| `NormaUITests/IdeaLibraryFlowTests/testTextIdeaIsOfflineEditableSearchableAndPersistent` | 单独复测通过；新增、编辑、搜索、重启恢复 | `ios/DerivedData/Logs/Test/Test-Norma-2026.09.29_09-28-15-+0800.xcresult` |
+| 最终组合：`CloudChatFlowTests`、`IdeaLibraryFlowTests/testAppLaunchesIntoIdeaLibrary`、`IdeaLibraryFlowTests/testTextIdeaIsOfflineEditableSearchableAndPersistent` | 3 项通过；复跑原顺序未再出现意外切页 | `ios/DerivedData/Logs/Test/Test-Norma-2026.09.29_09-29-27-+0800.xcresult` |
+| `swift test --disable-sandbox --package-path ios --cache-path target/swift-cache` | 97 项中 96 项通过；Mac 测试进程的 `CredentialVaultTests` 抛出 `keychain(-67674)` | `target/norma-ios-evidence/goal-01-05/new-shell-20260929/core-tests.log` |
+| `git diff --check` | 通过 | 本轮终端检查 |
+
+09:26 组合测试中，文字想法用例先检测到记录入口，随后页面切到 Norma 文字模式而失败。单独复测及随后组合复测均通过，未修改代码或降低断言来重试；该次切页原因未确认，保留失败录像与元素树，不能把该次运行记为全绿。Keychain 在 iOS 的通过也不改写 Mac 测试的失败结果；未修改凭据保护策略来让测试通过。
+
+## 截图与独立复核
+
+全部原始截图为 1320 × 2868。对照时只比较参考图的屏幕内容；原型外壳、系统状态栏和空库/通话中的真实状态差异分别记录，不把演示文案作为执行结果。
+
+| 页面 | 截图 | 只读 UI Agent 结论 |
+|---|---|---|
+| P01 空首页 | `target/norma-ios-evidence/goal-01-05/new-shell-20260929/1AE1E209-03E5-4874-B996-B79DEFE113D3.png` | 对照本轮用户图二，构图、空态与三项底栏 PASS |
+| W07 角色主屏 | `target/norma-ios-evidence/goal-01-05/new-shell-review-20260929/FCC548AB-C028-44BC-879D-918F8E46A6E2.png` | 单聊结构 PASS；初审要求恢复上下文导航卡，修正后该项 PASS |
+| W07 同屏文字模式 | `target/norma-ios-evidence/goal-01-05/new-shell-review-20260929/9D261816-9542-49AD-AB6E-6FB873A1F982.png` | 同屏输入结构 PASS；当前为未受邀状态，不作为真实云服务调用证据 |
+| P04 空配置 | `target/norma-ios-evidence/goal-01-05/new-shell-review-20260929/8A0FD1E3-DAF0-4AD6-9C06-E8B85BF6CD0B.png` | 添加按钮操作蓝修正后 PASS；真实项目/Agent 关联流程尚待验收 |
+| P01 文字记录 | `target/norma-ios-evidence/goal-01-05/new-shell-ideas-20260929/F15E9771-ED1C-4CD8-886C-DEADD1E54AB5.png` | 新增后真实截图；本轮未单独复核该填充状态 |
+
+只读复核者：`/root/new_shell_ui_review`。前三项代码问题已修：通知独立 hosting 的模型传递、收件箱进入旧任务页的无返回路径、后台连接错误弹窗打断首页。复核结论按覆盖范围记录，不能扩写为全产品 PASS。
+
+Apple 设计原则的落实：系统字体与安全区；正文白底；导航卡及底栏使用 iOS 26 系统 `glassEffect`，旧系统采用系统材质；减少透明度时改为实底；保留 44pt 以上主要操作区域与可见按下反馈。动态字号、VoiceOver、键盘出现后的全部布局以及真实手势仍需后续完整复核。
+
+## Norma 素材来源
+
+- 生成方式：本轮内置 `imagegen`。不替换真实通话中的原有角色驱动；新增静态素材用于未通话的 W07 主视觉。
+- 身份参考：`ios/App/Assets.xcassets/NormaPortrait.imageset/norma-portrait.png` 与 `docs/brand/norma-os-brand-guidelines.md`。
+- 构图参考：`docs/product-specs/norma-ios-prototypes-2026-09-26/W07-norma-call.png`。
+- 原始输出：`/Users/alan/.codex/generated_images/01a0d8e3-9017-7133-956d-b993337d2b24/exec-9c3dca49-0fc9-4174-9b9e-34866b3f5b88.png`。
+- App 资源：`ios/App/Assets.xcassets/NormaCompanion.imageset/norma-companion.png`。
+
+生成需求的复现提示词（按本轮要求整理，非工具调用原文逐字转录）：
+
+> 为 Norma iOS 浅色角色主屏生成透明背景的半身人物素材。保持 Norma 已获批的紫色头发、白色 X 发夹、黑色蝴蝶结及深蓝服装身份；参考 W07 半身构图，角色面向用户，伸出一只手，表情亲切自然。人物轮廓清晰，适合白色或极浅灰背景，头顶、手和发梢保留空间。仅绘制人物，不生成文字、按钮、手机外壳或界面。不要沿用 W07 示例中的黑色头发来替代品牌人物。
+
+## 尚未通过的门槛
+
+Computer Use 尝试选择 Simulator 返回 `Computer Use was not approved to use Simulator`，本轮没有绕过该权限；XCTest 的操作、录屏和截图不等价于 Computer Use PASS。真机 Apple Speech、扫码与双端授权、真实云服务、跨项目关联、P05/W04 工作线程均未在本轮闭环；Goal 保持进行中。
+
+
+---
+
+<a id="acceptance-thread"></a>
+
+# #56–#57 接续：关联选择、工作线程与简报
+
+状态：实施中，**Goal 保持 active，#56/#57 未验收完成**。分支 `codex/norma-ios-companion`，2026-09-29。
+
+## 已实现
+
+- P03 的 Workspace 卡进入线程列表；成员旁提供独立项目/Agent 配置入口。选择器标明 Agent 所属电脑和项目，失败可重试；只有保存成功才关闭，失败保留勾选。
+- 想法菜单「在工作空间推进」明确选择 Workspace 并创建线程；原想法不移动，保存来源 ID 和当时正文快照。来源页可打开原件，读取失败可重试。
+- P05 本机线程：长期消息、跨日日期、待发送状态、按线程保留当前页面草稿；无实际 Mac 回执时不显示执行、完成或 Agent 回复。消息可记为共同决定，保留来源。
+- W05：线程目标、Workspace 项目、共同事实/决定、逐版本历史与源消息正文；版本冲突不能覆盖当前值，保留用户草稿并允许重新读取核对。
+- SQLite 复用 `CollaborationWorkspaceStore`。两个线程和两个 Workspace 隔离，稳定消息 ID 去重；归档可读、拒绝新写入；原有想法、配对、私聊数据不迁移或删除。
+
+## 测试与构建范围
+
+| 验证 | 结果与证据 |
+|---|---|
+| `swift test --disable-sandbox --package-path ios --cache-path target/swift-cache --filter 'WorkThreadStoreTests\|CollaborationWorkspaceStoreTests'` | 4 项通过。首次接口未实现时失败；跨线程来源查询也先新增失败测试再实现。日志：`target/norma-ios-typecheck/source-red.log`、`thread-tests.log`。 |
+| iOS Simulator SDK 构建 `NormaCore` | `swift build --disable-sandbox --package-path ios --cache-path target/swift-cache --scratch-path target/norma-ios-typecheck/cross-build --triple arm64-apple-ios17.0-simulator --sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk --target NormaCore` 通过；`target/norma-ios-typecheck/cross-build.log`。 |
+| Swift iOS SDK 全部 App 源文件类型检查 | 使用上述 Core 模块、已有 WebRTC framework、Swift 6 / iOS 17 target；通过。响应文件与日志为 `target/norma-ios-typecheck/app-sources.txt`、`app.log`。**仅编译语义检查，没有运行 App，也没有生成新的安装包。** |
+| Swift iOS SDK 全部 UITests 类型检查 | 通过；`target/norma-ios-typecheck/ui-test-sources.txt`、`ui-tests.log`。新 `WorkThreadFlowTests`、`WorkspaceAssociationFlowTests` 已加入 Xcode 工程，但尚未在模拟器执行。 |
+| `git diff --check` | 通过；未 commit/push。 |
+
+初次直接调用 Swift 编译器时，宏插件的嵌套沙箱失败；按 SwiftPM 在受限环境中的标准构建参数处理后 Core 与类型检查通过。以上操作不涉及启动 Simulator，不替代真实 App 验收。
+
+## 本轮环境阻断
+
+隔离 Rust TLS fixture 的第三次启动在 09:46 终止，退出码 101。具体原因：
+
+```text
+CoreSimulatorService connection became invalid
+Error opening log file .../Library/Logs/CoreSimulator/...: Operation not permitted
+Could not resolve package dependencies:
+cannot open .../Library/Caches/org.swift.swiftpm/manifests/ManifestLoading/webrtc.dia
+for diagnostics emission (Operation not permitted)
+```
+
+`scripts/check-norma-ios-transport.sh` 现在提供工作区 package cache 并把 stderr 写入原生日志，避免隐藏实际失败原因；没有变更配对或凭据保护。三个失败 fixture 都已终止，不能把它们当作在线 Mac。此前 Computer Use 选择 Simulator 被拒，本轮没有尝试绕过。
+
+## 独立只读复核
+
+`/root/new_shell_ui_review` 初审为 NEEDS WORK，指出读取失败假空库、保存中继续输入会丢字符、版本冲突无法恢复、长期历史日期不完整、VoiceOver 编辑标签缺失。修复后，复核对**这些代码项**给出 PASS，未发现新增阻断。
+
+**视觉、键盘、手势与实际 VoiceOver 仍为 NEEDS WORK。** 本轮没有新增截图，不能把代码复核称为原型还原通过。Apple 设计落实为：系统 NavigationStack/Sheet 转场，至少 44pt 主要按钮，正文实底，输入功能层采用 iOS 26 原生玻璃并为旧版/减少透明度回退；实际观感还需截图确认。
+
+## 下一步验收
+
+1. 环境允许后重新启动独立 TLS fixture，运行 `WorkspaceAssociationFlowTests`，精确清理测试电脑。
+2. 运行 `WorkThreadFlowTests`、更新后的 `WorkspaceLibraryFlowTests`，以及首页和单聊入口回归；截图 P03/P04/P05/W03/W05，核对线程返回、Sheet、键盘和归档。
+3. 用 Computer Use 操作 App；把相同机型的新截图交独立子 Agent 按原型复核，偏差继续返工。
+4. 真机 Apple Speech/扫码、真实云服务及消息重连送达仍待验收。当前线程输入只落本机；#59 的派工、语音输入和真实任务/成果尚未交付，不因本机测试通过而关闭这些门槛。
+
+## 接续状态（覆盖上文历史阻断，2026-09-29）
+
+完整执行权限已恢复，Xcode/Simulator 构建和原生测试均通过；上文缓存拒绝属于历史。Computer Use 窗口连接也已恢复，根任务已实际操作标准字号的线程、Agent 回复、执行完成卡、任务详情及返回。最新 @Agent、冻结上下文、任务卡与复核记录统一见 [逐票进度文末](2026-09-29-norma-ios-acceptance.md#acceptance-local)。
+
+执行状态、具名回复及成果元数据现已按完整任务引用回原线程，事务去重、重启恢复及结果查询共用预算已测试。独立复核提出的部分回复辅助语义、等待成果文案已修复；最终原生专项 8 通过、1 fixture 跳过、0 失败。标准字号截图来自 Computer Use 操作；最大字号线程/详情截图来自原生 UI 测试附件，尚不能声称最大字号手势通过。Workspace 标题/筛选区在最大字号下拥挤，已留证待修；完整视觉仍 NEEDS WORK。
+
+结果网络专项使用真实本机中继与 MobileServer，但执行数据为显式 fixture。真实 Coding Agent、成果正文/文件对比、VoiceOver 实操和剩余页面验收尚未完成，#57/#59 与 Goal 保持进行中；Norma 语音通话最后，真机项目由用户后置。
+
+## W06a终端键盘切片（2026-09-30，最新）
+
+范围：原任务W06工作情况/终端切换中的W06a阅读、接管、系统键盘、功能键、后台草稿恢复、重新接管与交还。参考`docs/product-specs/norma-ios-prototypes-2026-09-26/W06a-terminal-control.png`，依现行产品规则移除旧硬约束文案。真实App为iPhone16e/iOS26.3、1170×2532截图；AX5为最大辅助字号。
+
+Apple设计落实：内容用浅色实底/深色终端，功能键用系统玻璃；键盘时任务标题进入系统导航，最大字号将成功反馈和接管状态放一行。长身份名称与项目可原生横向滚动，项目有独立视觉边界。保留动态字体、44pt操作区和原生输入法，光标与视口边界保留8pt留白。
+
+### 初审→复核
+
+独立只读`thread_delivery_ui_review`初审NEEDS WORK：只读误报执行中、退出/失联残留接管提示、AX5输出被键盘挤压、圆角裁字、身份混读、右侧光标证据不足。修复后`ui-final-check`标准/AX5 2/2通过，Agent最终对**该终端UI切片**给出PASS，无新增必改项。AX5输出114pt、标准113pt，断言要求整个第71列光标位于视口内，90pt/60pt最小输出要求未降低。
+
+截图目录：`target/norma-ios-evidence/terminal-ui-20260930/screenshots-final-check/`。
+
+| 状态 | 文件 | 证据 |
+|---|---|---|
+| 标准只读 | `FDD1E789-2028-49AE-A8D3-32BE2CD93634.png` | 只读状态、接管入口、首字与圆角留白。 |
+| 标准键盘 | `F918DA77-6060-493B-9B90-551AB95421F2.png` | 系统键盘保持、第71列光标完整、写入反馈与交还可达。 |
+| AX5只读 | `CDA0A00C-1D0C-4F76-B882-4472B226C457.png` | 大字号状态与终端区域。 |
+| AX5键盘 | `98CE270E-5418-4D42-BA74-1F359178A500.png` | 后台返回只读、草稿恢复后显式接管；实际横向滚动露出完整Mac名称、独立项目标签、长行末端光标。 |
+
+几何记录为同目录`ACDED118-5CA5-409D-95B9-333A437CA551.txt`（AX5）和`41E8D00C-D8DD-4CF4-84EA-41CEF6327BB7.txt`（标准）。失败与修复日志保留在上级证据目录，详见[逐票进度文末](2026-09-29-norma-ios-acceptance.md#acceptance-local)。清理原生临时配对/云凭据1/1后，正式网络fixture完成输入次数、撤权、停服断言并退出0。
+
+### 未通过的范围
+
+本轮终端输出与执行目标是显式前台fixture，网络为正式本地中继/MobileServer/SQLite；不等同于真实PTY或Coding Agent端到端交付。Computer Use最后重查仍明确Mac锁屏，必须解锁后补实际操作。历史/实时切换、工作情况阅读位置、长项目名滚动、完整VoiceOver、错误/未决状态的实际界面操作仍待补证据。不能将此局部PASS扩大为完整W06a、所有原型或Goal完成。
+
+
+---

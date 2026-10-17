@@ -1,5 +1,9 @@
 # 单次语音指令与持续聆听共享运行时 SPEC
 
+> 历史：见 git 提交。原文路径：`docs/exec-plans/2026-07-12-single-voice-command-shared-runtime.md`。
+
+产品行为以本文和 [ADR 0013](../adr/0013-share-the-voice-turn-runtime-across-interaction-modes.md) 为准。代码中已有 `SingleVoiceCommand`。
+
 ## Problem Statement
 
 当前语音交互把旧听写实现为独立的一次性录音、转写和焦点文本写入链路，而持续聆听另有 PCM、VAD、流式 ASR、Agent 和 TTS 链路。两条链路虽然使用同一模型选择和相同入口，却有重复的麦克风生命周期、状态、错误恢复和测试面；旧听写也无法得到 Agent 执行与语音回复。

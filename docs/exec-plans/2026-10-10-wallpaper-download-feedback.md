@@ -51,4 +51,4 @@
 
 ## 云端上线更新（2026-10-11）
 
-用户随后授权发布云资源，现已公开发布 [media-v1](https://github.com/multisoul-ai/norma-os-releases/releases/tag/media-v1)：7 个动态壁纸、5 个教程视频，共 135,781,610 原始字节。全部 12 个公开 HTTPS 下载已通过大小与 SHA-256 校验，真实隔离 App 从 GitHub 下载「潮汐」后显示已下载并自动应用。上述 404 是上线前的历史检查结果，当前测试包可直接重试，无需重装；安装包字节、版本与签名状态不变。[本次发布及验收记录](2026-10-11-cloud-media-publish.md)。
+用户随后授权发布云资源，现已公开发布 [media-v1](https://github.com/multisoul-ai/norma-os-releases/releases/tag/media-v1)：7 个动态壁纸、5 个教程视频，共 135,781,610 原始字节。全部 12 个公开 HTTPS 下载已通过大小与 SHA-256 校验，真实隔离 App 从 GitHub 下载「潮汐」后显示已下载并自动应用。上述 404 是上线前的历史检查结果，当前测试包可直接重试，无需重装；安装包字节、版本与签名状态不变。[本次发布及验收记录](../references/macos-release-and-notarization.md#media-v1)。

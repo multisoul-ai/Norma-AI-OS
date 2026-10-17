@@ -1,5 +1,9 @@
 # Card Task Identity SPEC
 
+> 历史：见 git 提交。原文路径：`docs/superpowers/plans/2026-07-01-card-task-identity.md`。
+
+任务标题仍是第一条用户 prompt 截取前 60 字后锁定。实施步骤不再保留在当前树。
+
 ## 1. 背景与目标
 
 **背景：** 当画布上并行运行多个 Agent/Terminal 卡片时，用户无法一眼区分「哪张卡片在执行哪个任务」。

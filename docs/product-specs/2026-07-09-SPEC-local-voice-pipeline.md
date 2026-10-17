@@ -4,6 +4,10 @@
 > 来源：interview-spec 多轮采访 + 冲突审查修订  
 > 取代方向：旧 OpenAI Realtime + Node sidecar 方案已从当前文档树移除，可从 Git 历史查阅。
 
+> 历史：见 git 提交。原文路径：`docs/superpowers/plans/2026-07-09-local-voice-pipeline-01-speech-skeleton.md`、`docs/superpowers/plans/2026-07-09-local-voice-pipeline-02-llm-and-card-tools.md`。
+
+待确认：本文仍写「待实施」。对应步骤清单已删除，是否已被后续语音规格取代，本次不改状态。
+
 ## 1. 背景与目标
 
 将现有 **OpenAI Realtime + Node sidecar** 路径，重构为：

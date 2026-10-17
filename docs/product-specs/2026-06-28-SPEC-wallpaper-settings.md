@@ -3,6 +3,10 @@
 > 日期：2026-06-28 · 状态：已确认，待实施
 > 来源：采访式需求梳理（interview-spec）+ GPUI 0.2.2 源码可行性验证
 
+> 历史：见 git 提交。原文路径：`docs/superpowers/plans/2026-06-28-wallpaper-settings.md`。
+
+上文状态仍是「待实施」。视频走 `surface()`、`core-video` 精确锁 `0.4.3`、内置 10 个素材等结论已在本文，不另留步骤清单。
+
 ## 1. 背景与目标
 
 Multisoul Desktop 当前壁纸写死为内置单张 PNG（`crates/app/assets/wallpapers/1331865.png`），唯一切换途径是环境变量 `MULTISOUL_WALLPAPER`（见 `crates/app/src/app/wallpaper.rs`）。用户无法在应用内更换壁纸。

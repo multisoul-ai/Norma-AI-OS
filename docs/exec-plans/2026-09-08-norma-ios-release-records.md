@@ -1,9 +1,202 @@
+# Norma iOS 与双端自测发布记录
+
+按时间从新到旧排列。较新的安装包状态优先于较早条目里的「当前可安装」句子；各节仍保留当时的版本号和证据。
+
+> 历史：见 git 提交。原文路径：`docs/exec-plans/2026-10-06-mobile-self-test-release.md`、`docs/exec-plans/2026-10-05-workspace-chat-self-test-release.md`、`docs/exec-plans/2026-09-30-norma-ios-testflight-dispatch.md`、`docs/exec-plans/2026-09-08-norma-ios-testflight.md`。
+
+<a id="release-mobile"></a>
+
+# 2026-10-06 双端自测包
+
+用户授权：重新本地打包并安装 Mac，发布 iOS，由用户进行蜂窝任务与断线恢复验收。
+
+## 已交付
+
+- Mac：0.1.73（20261006.131442），已替换 `/Applications/Norma OS.app` 并通过 Computer Use 启动。正常退出旧版后安装，旧包备份于 `/Users/alan/Documents/mybook/norma-ai-os/build/release-backups/local-test-20261006/Original installed Norma OS.app`。
+- iOS：0.1.0（53），Apple 回读 `VALID / IN_BETA_TESTING`，加入原「Norma 内测」组，中文测试说明逐字核对。Build / Delivery ID：`1b72c9d2-358b-46fc-87cd-70b87ef9a472`。没有新增测试邀请或公开 App Store 上架。
+- Mac 手机服务已开启，原 iPhone 配对保持「全部项目 · 控制 · 10 个项目 · 权限版本 1」。新版进程建立到 `47.251.242.24:443` 的出站连接。未修改数据目录或安装证书。
+
+## 产物与验证
+
+Mac DMG：`/Users/alan/Documents/mybook/norma-ai-os/build/Norma OS_0.1.73_aarch64.dmg`，197449962 字节（188.30 MiB），SHA-256 `dc1003dd2369f26ad4edf93d6a394f9e0318b1f5942fd371ecae05044393e1f9`。Developer ID 团队 `2BF8G9AN4L`；严格签名、DMG 布局与完整性、安装后的 4 个可执行文件哈希均通过。此本地自测包未公证，Gatekeeper 评估不通过且无 stapler 票据；未将其描述为正式公共分发包。按现行打包脚本保留 manifest 版本 0.1.73，更新 bundle 构建号。
+
+iOS IPA：`/Users/alan/Documents/mybook/norma-ai-os/build/local-test-release-20261006/Norma_0.1.0_53.ipa`，91179046 字节，SHA-256 `d3e5c113d95f2bbf8cf3716ba314746cfcf2d1cda6db660f14f299e3a1cfc85a`。App 与 Widget 均为 build 53；严格签名、production APNs、禁止调试、无测试 bundle、无隔离网关配置、Apple 校验与单次上传通过。沿用既有相同加密用途与分发范围。
+
+Swift 核心：XCTest 111 项（2 项条件跳过，零失败），Swift Testing 26 项通过。Rust 文件行数、禁止 allow、Agent 指南行数检查通过。Mac Release 构建通过。Mac 1197 项、iOS 195 项生产输入在构建前后没有漂移。真实 App 已观察到原 5 个工作空间、已开启手机服务与原 iPhone 配对。
+
+发布原始证据、哈希清单及 Apple 回读：`/Users/alan/Documents/mybook/norma-ai-os/build/local-test-release-20261006`。iOS 版本在 `ios/project.yml` 从 52 更新为 53，通过 xcodegen 重新生成 Xcode 项目；没有提交或推送代码。
+
+## 用户自测
+
+1. 在 TestFlight 更新到 0.1.0（53），Mac 保持在线和唤醒。
+2. 若手机仍显示「启用云端聊天」，先与 Mac 连接同一 Wi-Fi，在「Norma → 输入文字」点击启用；现行初次注册需通过已配对的 Mac 直连取得证明。已有云端凭据可直接继续。
+3. 关闭手机 Wi-Fi，使用 4G，在工作空间群聊通过 @ 选择一张空闲 Agent 卡片，对隔离测试项目发送创建唯一标记文件的任务，检查真实文件和手机结果。
+4. 执行中断开手机网络并恢复，检查原任务继续、回执与历史补齐、唯一标记只出现一次。结果未知时先查原回执，不重复派工。
+
+蜂窝任务与断线恢复本轮由用户验收；构建、上传、TCP 连接和模拟器记录均不替代真机验收。iPhone 11 支持 4G，5G 尚未验证。
+
+
+---
+
+<a id="release-workspace"></a>
+
+# 工作空间群聊双端自测发布
+
+日期：2026-10-05。授权：用户要求「发布手机和桌面版本我自测一下」。
+
+本次发布当前 `dev` 工作区的自测包；不部署云服务，不发布公共 GitHub Release 或 Sparkle 更新，不表示完整实现 Goal 或 UI 验收已通过。
+
+## 安装包状态
+
+| 平台 | 版本 | 当前状态 |
+| --- | --- | --- |
+| iOS | 0.1.0（47） | 顶部概览修复；Apple 回读 VALID / IN_BETA_TESTING，原「Norma 内测」组可安装；中文说明一致 |
+| macOS | 0.1.71（20261005.010042） | Developer ID 签名自测 DMG 已生成；安装盘布局和完整性通过；未公证 |
+
+发布证据保存在 `target/self-test-release-2026-10-05/`。手机与桌面生产输入分别冻结并校验，不把隔离验收的端点、证书 pin、测试 namespace 写入手机 Release。
+
+iOS Build / Delivery ID：`a8d8f402-a9ff-48e4-974e-a45cad568d20`。IPA 87,369,838 字节，SHA-256：`cb4200e7fef1eec67dbe70784c545668c017b90c20d96026244672dbe9cf5da8`。严格分发签名、production APNs、禁止调试 entitlement、Apple 校验与单次上传通过；沿用既有加密用途分类，没有新增邀请或外部 Beta。
+
+桌面自测包：`build/self-test-20261005/Norma OS_0.1.71_aarch64.dmg`，197,144,768 字节，SHA-256：`9713cf1d5f1a2bd7b77ab2c62f7ce49a88594f74a27d44b1dc62d63931c64eba`；相邻 `.sha256` 校验文件已生成。App 标识 `com.norma.os`，签名团队 `2BF8G9AN4L`。本次打包使用最新冻结源码和 production-data 配置，源输入无漂移。
+
+Computer Use 已打开真实 Finder 安装盘并核对 App／Applications 图标、箭头、名称与背景布局；截图：`target/self-test-release-2026-10-05/mac-installer.png`。没有覆盖用户已安装的 App 或终止其运行项目。
+
+**桌面正式发布尚未完成。** `release-dmg` 要求正式发布包通过 Apple 公证、stapler 与 Gatekeeper。公证 CLI 的加速上传、标准 S3 端点和官方 Notary REST API 上传均在当前网络/代理下超时；REST 提交与 AWS TLS 连通可用，但大文件上传速率不足。没有将公证记录的 `In Progress` 当作成功，没有生成虚假的公证票据。本机先交付明确标注为未公证的签名自测包；更换可用网络或代理后再补公证。临时上传凭据文件已清除，系统代理设置未修改。
+
+DMG 首次生成受旧 Norma 映像挂载影响：上游 create-dmg 错取首个挂载盘而卸载失败。核验旧 Norma 映像没有打开文件后正常卸载该映像，再按仓库打包脚本生成本次新包；没有强制卸载其他磁盘或终止用户 App。
+
+## 本包变化
+
+- 手机读取并配置真实桌面工作空间、项目区域与 Agent 卡片；进入工作空间直接打开群聊。
+- 工作空间消息通过 Mac 处理；普通讨论由 Norma 回应，明确执行或选择具体 Agent 后使用桌面会话与真实执行目录。
+- 支持局域网优先及同协议中继、稳定操作 ID、回执核查、增量历史和本地长期保存。旧工作线程只读保留，旧待发送操作不自动重新派发。
+- 群聊保留浅色页面、系统导航与 Sheet、玻璃功能层、键盘避让及减少动态效果处理；修复长历史首次打开时定位到最近成果。
+
+## 自测顺序
+
+1. 退出旧桌面 App，安装本次 DMG，再打开 Norma OS。先确认桌面的 Norma 模型可以正常对话，再建立工作空间、关联实际项目，并准备一张可执行的 Agent 卡片。群聊普通讨论使用 Mac 的模型设置。
+2. 开启桌面的手机连接服务；手机更新到最新可用的 TestFlight 构建。首次连接扫描本次桌面二维码；已有配对可先尝试复用，配对失效再重新扫码。
+3. 手机进入「工作空间」，确认名称、项目和 Agent 与桌面一致。修改一项设置，检查桌面和手机刷新后均一致。
+4. 发一条普通讨论，检查 Norma 回应且没有自动新建执行任务。然后通过 `@` 选择具体卡片，给出容易核验的任务，例如在测试项目创建 `mobile-proof.txt` 并写入指定的一行内容。
+5. 检查手机接收回执、桌面卡片实际执行、磁盘文件真实存在，以及手机成果内容。对同一成果追问，确认复用原卡片和会话。
+6. 查看较早消息后等待新回复，检查是否保留阅读位置。关闭并重开手机，检查历史和未发送草稿仍在。Mac 重启后检查回执与历史补齐。
+7. 同一 Wi-Fi 流程完成后，再测试关闭 Wi-Fi、蜂窝网络远程连接；该场景尚未由开发端验收。结果未知时先查询原操作回执，避免手动重复派工。
+
+## 当前证据与限制
+
+- Swift 核心 XCTest：107 项，2 项按条件跳过，0 失败；Swift Testing：11 项通过。
+- 群聊长历史定位原生 UI 测试：1 项通过；Computer Use 已进入真实模拟器群聊，确认最近真实 Codex 成果可见，截图为 `ios-latest-result.png`。
+- `cargo check -p app` 通过；旧线程写入退休聚焦测试 2 项通过；源码行数、禁止 allow、存储边界和性能护栏通过。
+- 前序隔离环境已跑通手机提交 → 真实 Mac/Codex 创建文件 → 成果回手机及原任务追问；本次发布包的真机扫码、蜂窝网络和正式 Mac Norma 模型回复由用户继续验收。
+- 独立只读 UI 子 Agent 复核本批修复为 PASS（限已核验样例）：最新成果定位、紧凑具名回执、用户时间、Markdown 路径/代码围栏、@ 勾选、键盘避让与草稿保留。它核对了最新截图与累计三项原生 UI 测试通过日志。
+- 独立 UI 总验收尚未完成；空群聊、大字号、VoiceOver、惯性滚动中新回复、Reduce Motion、完整 Sheet 手势等不能标为已通过。语音通话后置。
+
+`git diff --check` 仍报告旧代码清理文件的末尾空行，未影响编译或运行；本次不在输入冻结后改写这些文件。
+
+## 构建 47：群聊顶部概览修复
+
+- 原因：概览原来位于消息 `LazyVStack` 内，打开长历史默认定位最新消息后，概览被滚出可视区域。
+- 修复：将概览移到系统导航栏下、消息滚动区外，保留项目与 Agent 数量、Mac 连接状态和原生概览 Sheet。消息仍默认显示最近成果，输入栏继续避让键盘。采用 apple-design 的稳定空间关系、系统导航与可逆 Sheet；阅读卡保持实底。
+- 聚焦失败测试已复现原实现；修复后四项原生 UI 测试通过，零失败、零跳过。随后补上「最新成果滚出可点击区域」的具体断言，再跑概览聚焦测试一项通过，证明实际进入早期历史且概览保持原位置（容差 1 pt）。
+- Computer Use 已操作真实模拟器，核对概览、项目/成员 Sheet、关闭与草稿编辑；实际滚动位移以原生 XCUITest 及附件证明。独立只读 UI 子 Agent 复核 PASS，限定本轮顶部概览与既有交互回归，不代表完整 UI 总验收。
+- 证据：`target/workspace-overview-fix-2026-10-05/` 中的 `red.log`、`green.xcresult`、`scroll.xcresult`、`test-attachments/`、`overview-top.png`、`overview-sheet.png`。Release 生产输入冻结后未变化，仅加强了不参与分发的 UI 测试断言。
+- IPA：87,383,558 字节；SHA-256 `09646dfa0c3c75906b0163def2101ea2ed2761cd75088088b83cfb122327df99`。分发签名、production APNs、禁止调试 entitlement、隔离网关配置为空、Apple 校验均通过。仅更新手机包。
+- 单次上传成功，Build / Delivery UUID：`adfb33f2-7273-4a3d-98d6-93efa3a62d54`。最终 Apple 回读 `VALID / IN_BETA_TESTING`，确认加入原内测组 `1e9af1ec-bf35-4a49-b7fd-01169c421384`，中文更新说明逐字一致；手机可从 TestFlight 更新到 47。
+
+
+---
+
+<a id="release-dispatch"></a>
+
+# TestFlight：单次扫码注册与 iPhone → Mac 派工验收
+
+## 当前状态（2026-09-30）
+
+- **0.1.0（45）已可安装**。2026-09-30 14:28（北京时间）Apple 回读确认 `VALID / IN_BETA_TESTING`，已关联原「Norma 内测」组。Build/Delivery UUID `950c0463-4f23-4ac9-883c-2ddceed60424`，中文说明已核对。
+- 43 的双码流程已被替代。44 的真实页面验收发现“添加电脑”闪退，已在 Apple 标记 `expired=true` 并回读确认，不能用于验收。45 已修复环境注入并通过对应 XCTest UI 回归。
+- Mac 专用验收版和常驻本地中继已升级，配对身份与数据保留；原安装 `/Applications/Norma OS.app` 未替换。备份在私有验收目录的 `backups/single-scan-44/`。
+- 当前模拟器已恢复常驻服务。用户原 `Test / 2222` 线程中的 `@Alice 123123` 自动送达 Mac，Alice 返回真实澄清回复，错误消失；未替用户验收成果。
+
+## 你如何验收
+
+1. 在 TestFlight 更新到 **0.1.0（45）**。手机和 Mac 连接同一 Wi-Fi，Mac 保持唤醒。
+2. 保持 **Norma iPhone Acceptance** 与本地中继运行。Mac 打开 `Codex Task` 项目，在 Settings → Mobile Connection 确认连接开启。
+3. 已配对手机：打开 Norma 后自动补注册，原待发送消息继续发送，不需要重新扫码或第二个邀请码。新手机：更多模块 → 已连接电脑 → 添加电脑，在 **Norma 内扫描 Mac 设置页二维码**，在 Mac 确认控制权限后自动完成注册。
+4. 在工作空间设置关联 `Codex Task` 与 `Alice`；进入工作线程，通过 `@` 选择 Alice，发送：**创建 iphone-acceptance.txt，写入 hello from iPhone；只修改这个文件，不提交 Git，完成后告诉我。**
+5. 检查消息“已送达 Mac”、任务状态、Alice 回复与成果；查看真实文件，再自行选择验收或退回。退出并重开后应回到同一线程，不能重复执行。
+
+本轮测试入口是 **直接 @Agent 派工**。`@Norma` 真实模型编排、实时通话、公网跨网络尚未开放，不应据本次注册通过宣称全部 Goal 完成。
+
+本版本固定访问 `https://192.168.31.165:9444/`，TLS 证书固定校验。Mac/IP 或网络变化后需要重新准备验收环境；没有部署云端，也无需用户输入供应商 Key。
+
+## 常驻环境与模拟器
+
+私有目录：`~/Library/Application Support/Norma Local Acceptance/`。
+
+- `启动本地中继.command`：回环端口 8787、手机 HTTPS/WSS 端口 9444，无临时测试到期计时。
+- `打开 Mac 验收版.command`：专用二进制、原数据和原 Codex 配置；重开后在设置确认手机连接已开启。
+- `打开 iPhone 模拟器验收版.command`：给当前模拟器绑定常驻服务。模拟器需用此脚本重新启动，**TestFlight 不依赖该脚本或启动环境变量**。后续自动化使用独立模拟器，禁止把用户正在验收的模拟器切换到会到期的临时服务。
+
+本轮用户遇到的 `Could not connect to the server` 根因：验收者留下临时测试端口 49165，该服务 10 分钟到期退出；用户随后在同一模拟器中配对了真实 Mac，但手机仍访问临时网关。已改回常驻 8787 与固定 namespace，没有删除配对或待发送记录。此问题属于本地测试交接，不能通过让用户重复扫码解决。
+
+## 单码注册修复与证据
+
+| 验收点 | 结果 |
+|---|---|
+| 单码真实协议 | Rust TLS 配对设备请求短期注册证明 → Node 验签和独立设备注册 → HTTPS/WSS 中继；`final-green.log` 1/1 PASS |
+| 注册边界 | 错配对 token、撤销、篡改、未知 Mac 证书、过期证明拒绝；相同身份重试幂等、重启恢复；同一集成测试覆盖 |
+| 原生身份与持久化 | `final-native-run.log` 1/1 PASS；`native-test.log` 2/2 PASS，真实二维码图像解码、Mac 审批、App 注册、Keychain 恢复、真实中继认证；零邀请 |
+| 页面闪退回归 | `ui-guide-red.log` 真实失败；修复 RootView modal 环境注入后 `ui-guide-green.log` 1/1 PASS |
+| Computer Use | 实际进入添加电脑、扫码和系统图片选择器；用户配对后，实际打开原 Test/2222 线程，确认原消息送达、真实 Alice 回复、无注册错误。`user-thread-recovered.png` |
+| 常驻服务 | 更新后 HTTPS/WSS 与 Mac 在线路由 PASS，`persistent-ready.json`；没有把临时测试服务当成用户环境 |
+| 只读 UI 审查 | `ui-review.md`：修复后台状态、共享错误、只读权限及并发注册反馈；最终结论见报告限定范围 |
+
+证据目录：`target/norma-ios-evidence/single-scan-20260930/`。模拟器图片识别不等于物理相机扫码；真机权限、扫码、Apple Speech 与实际手感仍由用户验收。
+
+注册复用 Mac 已有 TLS 身份和服务的可信 Mac 名单。Mac 仅签发初次注册证明，不发语音通行证；手机独立生成长期凭据，收到服务成功回执才保存为已授权。失败仅保留待注册凭据以便幂等重试。只读 Mac 授权仅显示“可查看项目”，不会承诺派工。
+
+45 IPA：88,399,037 字节，SHA256 `fa3b0666ddff362bb5c075b5a00d3ac7e0875286c17f72bfc452a8bfb98452ef`。
+
+45 发布证据目录：`target/norma-ios-testflight/single-scan-45/`。186 项生产输入在归档前后核验哈希；未提交或推送当前工作区。Issue #57/#59 与整体 Goal 仍保留剩余验收项。
+
+## 43 历史验收记录（不再使用旧邀请步骤）
+
+## 本次已验证
+
+| 检查 | 结果与证据 |
+|---|---|
+| Swift Core | 142 项，8 项按条件跳过，0 失败；`target/norma-ios-evidence/physical-dispatch-20260930/swift-core.log` |
+| 真实 Mac/Codex 原生闭环 | 原生页面建空间、绑定项目/Agent、发送任务、真实生成两文件、冻结成果、重启恢复；执行记录仅一行。`real-dispatch.log`，L3 用例 1/1 PASS |
+| Computer Use | 实际操作 Mac 打开项目/手机服务；模拟器点击原线程成果、查看文件和返回，确认未自动验收；`cua-result.md`、`cua-real-result.png`、`cua-real-thread.png` |
+| 本地 TLS | 错 pin 拒绝、邀请只能兑换一次、真实 HTTPS/WSS、管理端点不暴露；`tls-green.log` |
+| 原生打包配置 | App 默认模型读取 Info.plist，真实 HTTPS 邀请兑换、Keychain 恢复及 WSS；`tls-native.log`，1/1 PASS |
+| 中继边界 | 认证、隔离、撤销、断开、重启检查通过；`relay-regression.log` |
+| 常驻验收环境 | 私网 HTTPS/WSS 与配套 Mac 实际在线路由通过；`persistent-ready.json` |
+| 发布输入与签名 | 185 项生产输入归档前后哈希一致，`aps-environment=production`，禁止调试，分发签名通过 |
+
+本轮未把模拟器测试算作物理手机扫码/麦克风/Apple Speech 验收。**直接 @Agent 是此次入口**；`@Norma` 真实模型编排、实时语音、跨公网、完整断网/后台与后续修改闭环仍按既有 Goal 跟进，不能视为全部完成。
+
+## 实现与发布记录
+
+- iOS 复用现有证书固定校验，同时用于邀请 HTTPS 和中继 WSS；端点/证书/隔离 namespace 只可由构建配置提供，邀请不能改变端点。默认配置为空，普通正式构建仍走原服务。
+- Mac 继续使用现有中继注册、端到端加密和项目授权。Node 本地 TLS 入口复用正式网关；管理员接口与 Mac 注册仅监听回环，手机端不含管理员或供应商 Key。
+- 配套 Mac 复用本轮真实派工通过的同一二进制，独立副本和数据目录；本地 ad hoc 签名，不作为正式 DMG 发布。
+- IPA：`target/norma-ios-testflight/local-dispatch/export/Norma.ipa`，88,365,682 字节，SHA256 `99256e2fbbdee810609daad9fb4db8e2cbb845bfce7b928b251052c16aaabb6d`。
+- 发布证据：`target/norma-ios-testflight/local-dispatch/`。真实 L3 全量证据：`/private/var/folders/kr/106cttn15rv7xlgv2y_7v4wr0000gn/T/norma-thread-real-D9JclA/`。
+- 发布期间 Node 直连 Apple API 两次 TLS 连接重置；使用本机已配置的网络代理后恢复。关联组后第一次回读误用了 Apple 不支持的 `builds/{id}/betaGroups` GET 路由，改为读取现有组的 builds 列表并核对 Build ID；最终可安装状态、组成员关系、中文说明与未过期状态全部通过。未重复上传 IPA。
+- 发布来自当前未提交工作区；未执行 commit/push，未部署云端。Issue #57/#59 在剩余验收满足前保持 OPEN，整体 Goal 保持 active。
+
+
+---
+
+<a id="release-testflight"></a>
+
 # Norma iOS TestFlight发布记录
 
-> 2026-09-30 单码注册更新：43 的额外邀请码步骤已被替代，44 已停止测试；45 发布与当前验收流程见 [单次扫码与派工验收](2026-09-30-norma-ios-testflight-dispatch.md)。真机验收及其余 Goal 项保持未完成。
+> 2026-09-30 单码注册更新：43 的额外邀请码步骤已被替代，44 已停止测试；45 发布与当前验收流程见 [单次扫码与派工验收](2026-09-08-norma-ios-release-records.md#release-dispatch)。真机验收及其余 Goal 项保持未完成。
 
 
-更新时间：2026-09-30。当前状态：**0.1.0（43）已进入现有「Norma 内测」组，可安装**；Apple 回读确认 VALID / IN_BETA_TESTING、未过期，中文说明一致。本次是同一 Wi-Fi 的本地派工验收包，需要配套 Mac 专用版，详见 [安装与验收步骤](2026-09-30-norma-ios-testflight-dispatch.md)。
+更新时间：2026-09-30。当前状态：**0.1.0（43）已进入现有「Norma 内测」组，可安装**；Apple 回读确认 VALID / IN_BETA_TESTING、未过期，中文说明一致。本次是同一 Wi-Fi 的本地派工验收包，需要配套 Mac 专用版，详见 [安装与验收步骤](2026-09-08-norma-ios-release-records.md#release-dispatch)。
 
 ## 原生工作空间与真实 Mac 派工 · TestFlight 0.1.0（43）（2026-09-30）
 
@@ -31,7 +224,7 @@
 
 ## 语音服务迁移自有服务器 · TestFlight 0.1.0（38）（2026-09-15）
 
-按用户"打包桌面并发布 TestFlight"授权发布。语音服务从 Vercel 网关迁移到自有服务器 `soulvoiceai.com/norma/voice`（部署细节见 [迁移记录](2026-09-15-voice-server-deployment.md)）。相对构建 37 的 iOS 输入差异为 `VoiceCall`、`VoiceCallAuthorization`、`VoiceCallDoubao`、`VoiceCallEvents` 与 NormaCore 的 `VoiceAuthorization`、`VoiceSessionTicket` 共 8 项（含版本配置）：iOS 默认地址改为新基址并自动迁移旧 Norma/Vercel 默认值（自定义地址保留），票据校验保留同源/同挂载目录/协议/过期/凭据边界；配套 Rust 侧 `realtime.rs`/`voice_authorization.rs`/`archive.rs` 同步更新并进入桌面包。验证：Swift Core 81/81、`cargo check -p app`。
+按用户"打包桌面并发布 TestFlight"授权发布。语音服务从 Vercel 网关迁移到自有服务器 `soulvoiceai.com/norma/voice`（部署细节见 [迁移记录](2026-10-06-norma-cloud-deployment.md#cloud-superseded)）。相对构建 37 的 iOS 输入差异为 `VoiceCall`、`VoiceCallAuthorization`、`VoiceCallDoubao`、`VoiceCallEvents` 与 NormaCore 的 `VoiceAuthorization`、`VoiceSessionTicket` 共 8 项（含版本配置）：iOS 默认地址改为新基址并自动迁移旧 Norma/Vercel 默认值（自定义地址保留），票据校验保留同源/同挂载目录/协议/过期/凭据边界；配套 Rust 侧 `realtime.rs`/`voice_authorization.rs`/`archive.rs` 同步更新并进入桌面包。验证：Swift Core 81/81、`cargo check -p app`。
 
 Release 归档、导出、严格分发签名、production entitlement、Apple 校验与单次上传通过；归档及上传后两次复验 119 项生产输入哈希一致。期间 verify 一度报 `VoiceCall.swift` 哈希不符，排查为发布脚本从 rt-build37 复制时路径未替换（对比的是旧构建清单）而非源码漂移，修正后两次归档均与冻结清单一致。IPA：`target/norma-ios-testflight/rt-build38/export/Norma.ipa`，82576333 字节，SHA256 `1643a5dfc9a1e1190bc5a0901a1ca25697068f9a69544a2428c13498b2fb590f`。Build ID：`3665f83c-2c2d-4958-bc3d-0bc2164c26d2`；Apple 回读 VALID / IN_BETA_TESTING、未过期，原组关联及中文说明均通过（并确认停用的 build 23 未分发）。沿用既有加密分类与不在法国分发范围，没有新增邀请、外部 Beta 或公开上架。证据：`target/norma-ios-testflight/rt-build38/summary.json`。
 
@@ -51,7 +244,7 @@ Release 归档、导出、严格分发签名、production entitlement、Apple �
 
 ## 语音免配置接入 · TestFlight 0.1.0（35）（2026-09-14）
 
-按用户"打包桌面并发布 TestFlight"授权发布。独立 Vercel 语音网关（`norma-voice.vercel.app`）已部署，iOS 免 Key 接入：配对并取得项目控制权限后无需填写 URL、Key 或访问口令即可使用默认豆包语音；手机通过已配对 pin TLS 通道领取固定用途授权（24 小时有效、钥匙串保存、最后一小时自动刷新），Mac 使用 P-256 安装身份签名、网关仅信任登记的公开证书。相对构建 34 的 iOS 输入差异为 `CallSettingsView`、`VoiceCall`、`VoiceCallAuthorization`、NormaCore `VoiceAuthorization` 与 `Wire` 共 5 个文件，生产输入扩至 119 项冻结。部署细节见 [Vercel 部署记录](2026-09-14-voice-vercel-deployment.md)；GPT 云端同会话派工与物理耳机锁屏测量仍未验收。
+按用户"打包桌面并发布 TestFlight"授权发布。独立 Vercel 语音网关（`norma-voice.vercel.app`）已部署，iOS 免 Key 接入：配对并取得项目控制权限后无需填写 URL、Key 或访问口令即可使用默认豆包语音；手机通过已配对 pin TLS 通道领取固定用途授权（24 小时有效、钥匙串保存、最后一小时自动刷新），Mac 使用 P-256 安装身份签名、网关仅信任登记的公开证书。相对构建 34 的 iOS 输入差异为 `CallSettingsView`、`VoiceCall`、`VoiceCallAuthorization`、NormaCore `VoiceAuthorization` 与 `Wire` 共 5 个文件，生产输入扩至 119 项冻结。部署细节见 [Vercel 部署记录](2026-10-06-norma-cloud-deployment.md#cloud-superseded)；GPT 云端同会话派工与物理耳机锁屏测量仍未验收。
 
 Release 归档、导出、严格分发签名、production entitlement、Apple 校验与单次上传通过；归档及上传后两次复验 119 项生产输入哈希一致。IPA：`target/norma-ios-testflight/rt-build35/export/Norma.ipa`，82571795 字节，SHA256 `e7daeda923a700fa9eed0c628129f1b3079e8f1973360a7088b21b02b2e3b972`。Build/Delivery ID：`6ad164e9-6fb3-4d2e-825a-37316a8e0a6c`；Apple 回读 VALID / IN_BETA_TESTING、未过期，原组关联及中文说明均通过。沿用既有加密分类与不在法国分发范围，没有新增邀请、外部 Beta 或公开上架。验证：Swift Core 79/79、`cargo check -p app`。证据：`target/norma-ios-testflight/rt-build35/summary.json`。
 
@@ -377,3 +570,6 @@ Swift Core 81项通过；原生TLS/WSS回归覆盖冷卡恢复运行、断线继
 Release归档、导出、严格签名、Apple校验/上传及130项生产输入hash一致性通过。IPA `target/norma-ios-testflight/rt-build40/export/Norma.ipa`，82577451字节，SHA256 `5f0df3968183d59e59016f7b2d39bb70615f3d993c3d06fdd389683e556677ac`。发布回读、测试日志、Computer Use状态与截图见同目录 `summary.json`、`acceptance.json`、`cua-recovered.png`。未更换运行中的Mac或语音服务器。
 
 可重复执行本次回归：在既有隔离模拟器上设置 `NORMA_IOS_SIMULATOR`、`NORMA_NOTIFICATION_UI=1`、`NORMA_DECISION_UI=1` 与 `NORMA_SWIFT_PROBE=$PWD/scripts/check-norma-ios-chat-recovery.sh`，运行 `cargo test -p e2e --test mobile_notification_native -- --ignored --nocapture`。
+
+
+---

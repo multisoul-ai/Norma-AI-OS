@@ -1,5 +1,9 @@
 # Core UI V2 主题切换验收报告
 
+> 历史：见 git 提交。原文路径：`docs/exec-plans/2026-07-16-core-ui-v2-theme-switching.md`。
+
+本文是验收记录。六套主题与真实应用操作结果以下文为准。
+
 > 验收日期：2026-07-16
 > 分支：`feat/core-ui-v2-themes`
 > Worktree：`.worktrees/feat-core-ui-v2-themes`

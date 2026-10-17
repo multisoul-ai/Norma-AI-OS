@@ -1,5 +1,9 @@
 # Browser Chrome Auth Sharing SPEC
 
+> 历史：见 git 提交。原文路径：`docs/design-docs/2026-07-16-browser-chrome-auth.md`、`docs/exec-plans/2026-07-16-browser-chrome-auth.md`、`docs/superpowers/plans/2026-07-05-cef-browser-engine-switch.md`。
+
+设计结论已在本文：只用 Manifest V3 扩展经 Native Messaging 读取当前 URL 的 Cookie；禁止直接复用 Chrome Profile 或解密 Cookie 数据库；Cookie 值不进 SQLite 或界面。执行计划六个切片当时均已勾选。默认引擎仍是 Wry，CEF 只在 `chromium-browser` feature 下编译。验收表里的 `crates/e2e` 是当时证据，该套件后来已移除。
+
 ## Goal
 
 Let a user explicitly import the current page's authenticated Google Chrome session into a Norma Browser card without opening, copying, or mutating Chrome's profile directory.

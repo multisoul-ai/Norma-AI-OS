@@ -204,7 +204,7 @@ Norma Rust License 客户端
 
 ### 6.1 状态
 
-Lemon Squeezy 在商业化文档中是“路径二”，用于港企/个人主体收款，明确延后；License SPEC 也把 Payments、Invoices、Lemon Squeezy 和 Customer Portal/Account System 列为 out of scope。[License 设计分期](../design-docs/2026-07-14-software-licensing.md#L18-L25) · [SPEC out of scope](../product-specs/2026-07-14-SPEC-software-licensing.md#L91-L101)
+Lemon Squeezy 在商业化文档中是“路径二”，用于港企/个人主体收款，明确延后；License SPEC 也把 Payments、Invoices、Lemon Squeezy 和 Customer Portal/Account System 列为 out of scope。[License 设计分期](../product-specs/2026-07-14-SPEC-software-licensing.md#L18-L25) · [SPEC out of scope](../product-specs/2026-07-14-SPEC-software-licensing.md#L91-L101)
 
 2026-07-27 的专项文档明确声明“不讨论 API、Webhook 或代码实现”，所以它只能证明团队研究了商户注册、店铺审核、支付和结算，不能证明已建立 Norma 商户后台集成。[调研范围](2026-07-27-lemonsqueezy-registration-and-payout-hk.md#L1-L5)
 
@@ -227,7 +227,7 @@ Lemon Squeezy 在商业化文档中是“路径二”，用于港企/个人主�
 
 ## 7. Keygen CE / Portal：仅失败备选
 
-Keygen CE 只在 Keygate spike 失败时才启用；设计文档写明它“CE 无完整 Dashboard，可后补 Portal”。Keygate spike 已经 GO，所以 ADR 明确“不换 Keygen CE”。仓库没有 Keygen 服务、客户端、Portal 或数据模型。[设计备注](../design-docs/2026-07-14-software-licensing.md#L45-L49) · [ADR outcome](../adr/0014-spike-keygate-before-app-licensing.md#L5-L7)
+Keygen CE 只在 Keygate spike 失败时才启用；设计文档写明它“CE 无完整 Dashboard，可后补 Portal”。Keygate spike 已经 GO，所以 ADR 明确“不换 Keygen CE”。仓库没有 Keygen 服务、客户端、Portal 或数据模型。[设计备注](../product-specs/2026-07-14-SPEC-software-licensing.md#L45-L49) · [ADR outcome](../adr/0014-spike-keygate-before-app-licensing.md#L5-L7)
 
 ## 8. 容易误判为“后台”的本机面板与诊断
 

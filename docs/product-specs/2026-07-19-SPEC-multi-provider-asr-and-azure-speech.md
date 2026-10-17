@@ -90,6 +90,17 @@ Settings 将 ASR 从“一个本地模型选择”扩展为“一个当前 ASR �
 - `asr` 成为完整 ASR 能力模块，拥有模型领域、Provider 注册表、Provider 配置语义、能力描述、识别会话、Local Sherpa Adapter 和 Azure Adapter。它保持零 GPUI、零 Storage、零 Keychain，但允许 Provider 子模块使用受控 Sherpa 与网络依赖。
 - 所有供应商均为随 App 编译发布的内置 Provider。不建设运行时插件、跨进程插件协议、Provider 市场或任意协议 URL。
 - `voice_input` 成为独立能力模块，拥有麦克风权限、输入设备、AVAudioEngine 采集、重采样、PCM 和 VAD。它不转写文本，也不知道当前 ASR 选择。
+
+<a id="voice-input-device"></a>
+
+### 历史：麦克风设备选择
+
+> 历史：见 git 提交。原文路径：`docs/superpowers/plans/2026-07-01-voice-input-device-settings.md`。
+
+- 未保存设备 ID 时使用系统默认输入。
+- 用户显式选中的麦克风缺失时必须报错，不能静默改回系统默认输入。
+- 切换输入设备只影响下一次录音，不热切正在进行的录音。
+- 该计划不包含输出设备。
 - `voice_sherpa` 在迁移期作为兼容外观存在；其 ASR 实现迁入 Local Sherpa Provider，其采集/VAD 职责迁入语音输入，其 TTS Adapter 迁往 TTS 的本地 Sherpa 责任。只有所有调用者迁移且兼容测试通过后才能删除。
 - 当前独立 Azure Demo 的协议与测试收口到 Cloud Azure Provider，随后删除独立厂商 crate，避免 App 同时依赖通用 ASR 与厂商 crate。
 - 旧 `voice` 模块的 transcript-to-plan/Ollama planner/refiner 已被 Agent Runtime 取代，不参与新识别架构；它只在剩余常量和调用迁出、回归通过后删除。

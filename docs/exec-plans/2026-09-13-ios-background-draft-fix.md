@@ -23,4 +23,4 @@
 
 证据：`target/norma-background-draft-evidence/`。用户物理 iPhone 的本地文件未读取；结论来自与后台原卡契约一致、可重复触发同一提示的本地及原生流程。
 
-后续发布证据：`target/norma-ios-testflight/draft-build30/`，见 [发布记录](2026-09-08-norma-ios-testflight.md)。桌面继续使用配套 0.1.71（20260912.154818），无需为此修复更新。
+后续发布证据：`target/norma-ios-testflight/draft-build30/`，见 [发布记录](2026-09-08-norma-ios-release-records.md#release-testflight)。桌面继续使用配套 0.1.71（20260912.154818），无需为此修复更新。

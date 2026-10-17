@@ -6,6 +6,20 @@
 - 范围：Agent 定义、呼叫名、活跃 Agent 卡片、任务委派、CardTask 提示词、单次语音指令、持续聆听、任务跟踪与迁移
 - 2026-07-15 对齐说明：Cursor 已进入正式 Agent runtime profile；任务终态播报规则由 [`2026-07-14-SPEC-agent-task-tts-announcements.md`](2026-07-14-SPEC-agent-task-tts-announcements.md) 取代本文早期的“仅持续聆听播报”限制。
 
+<a id="project-agent-catalog"></a>
+
+## 历史：项目级 Agent 目录
+
+> 历史：见 git 提交。原文路径：`docs/superpowers/specs/2026-07-01-project-agent-catalog-design.md`、`docs/superpowers/plans/2026-07-01-project-agent-catalog.md`。
+
+2026-07-01 目录方案里仍被本文沿用的决定：
+
+- Agent 定义属于当前项目，放在 `<workspace>/.multisoul/project.sqlite` 的 `agent_definitions`，不写入应用级 settings。
+- 首版创建卡片时复制名称和 runtime profile，不把 `workflow_description` 自动送进 Agent CLI。
+- 首版不给 `AgentSpec` 增加 `definition_id`，但存储侧保留定义 id，以便以后补上。
+
+同目录的执行计划 `docs/exec-plans/2026-07-14-voice-addressable-agents.md` 仍保留：本文自标 Partially superseded，不能把该计划当成已完成而删除。
+
 ## Problem Statement
 
 用户已经可以在 Settings 中维护项目级 Agent 定义，也可以在画布上创建 Codex、Claude、Cursor 或 OpenCode Agent 卡片，并通过语音 CardTask 操作卡片。但这些能力尚未形成同一个产品模型：快速创建和语音创建仍可能产生没有持久定义、没有稳定名称的匿名 Agent 卡片；Settings 中的 Agent 名称只被复制成卡片 alias，卡片没有保存定义身份；语音只能让模型先列出卡片、猜测目标 node id，再发送文本。

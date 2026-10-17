@@ -2,6 +2,9 @@
 
 > **已被替代（2026-07-15）**：Launchpad 现使用专用 `wallpapers/home.mp4` 视频背景，不继承 Canvas 或 `MULTISOUL_WALLPAPER` 设置。当前背景决策见 [`2026-07-15-launchpad-dedicated-video.md`](../design-docs/2026-07-15-launchpad-dedicated-video.md)；本文件仅保留其余静态视觉与 Recent Projects 历史验收。
 
+> 历史：见 git 提交。原文路径：`docs/exec-plans/2026-06-28-launchpad-static-visual.md`。
+
+
 ## 0. 原型关联（AI 识别入口）
 
 本 SPEC 关联并落地 `Launchpad UI Option 1 / Orbit Entry` 原型。后续 AI 或 Agent 执行实现时，必须优先读取本节引用的原型文件，再对照本 SPEC 实现。

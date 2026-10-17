@@ -1,3 +1,12 @@
+# Norma Cloud 部署
+
+<a id="cloud-current"></a>
+
+## 当前生效
+
+> 历史：见 git 提交。原文路径：`docs/exec-plans/2026-10-06-norma-cloud-unified-deployment.md`。
+
+
 # Norma 统一云服务部署
 
 2026-10-06 21:52（Asia/Shanghai）：按用户授权，将 `services/norma-cloud` 部署到 `47.251.242.24`，替代原独立 push / voice 进程。统一服务 `norma-cloud` 为 active/running、enabled；旧 `norma-push`、`norma-voice` 以及 SFOA 均为 inactive、disabled。
@@ -43,3 +52,25 @@
 该脚本停止并禁用新服务，恢复原服务启停状态、设备目录所有权及原 Nginx；保留回退时最新设备状态，不用旧快照覆盖新增记录。原 voice 发布目录仍为 `/opt/norma-voice/releases/20261006-121416-relay`。本次首次切换失败时已实际执行并验证回退成功。
 
 最终 Nginx 主配置 SHA-256：`bd7d9179a8bf942214b13c08072edf5ca637e57caaac352140bc748d527004af`。
+
+<a id="cloud-superseded"></a>
+
+## 已被取代的部署
+
+> 历史：见 git 提交。原文路径：`docs/exec-plans/2026-09-14-voice-vercel-deployment.md`、`docs/exec-plans/2026-09-15-voice-server-deployment.md`、`docs/exec-plans/2026-10-06-norma-cloud-relay-deployment.md`。
+
+
+- 2026-09-14 曾把语音网关部署到 Vercel 项目 `norma-voice`，稳定地址当时是 `https://norma-voice.vercel.app`。手机不填写供应商 Key。
+- 2026-09-15 迁到 `47.251.242.24` 的 `norma-voice` 进程，基址 `https://soulvoiceai.com/norma/voice`，本机监听 `127.0.0.1:8789`。
+- 2026-10-06 较早一次把协作中继放进当时的 `norma-voice` 发布目录。同日稍后的统一服务改为 `norma-cloud` 单进程，并停用旧的 `norma-voice` 与 `norma-push`。公网路径仍包含 `/norma/voice/*`。
+
+这些记录里的回退目录和当次验收只说明那一次切换，不能当作当前启动方式。
+
+<a id="cloud-text-2026-09-29"></a>
+
+## 2026-09-29 文字发布
+
+> 历史：见 git 提交。原文路径：`docs/exec-plans/2026-09-29-norma-cloud-text-release.md`。
+
+
+当日状态是代码与本地验证已准备，用户要求只做本地联调，未上传、未发布、未重启生产。这不是对以后部署的永久禁令。当前进程以上文统一服务为准。

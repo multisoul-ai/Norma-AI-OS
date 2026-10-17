@@ -3,6 +3,10 @@
 > 日期：2026-06-28 · 状态：已确认，待实施
 > 来源：采访式需求梳理（interview-spec）+ 现状代码侦察（无 onboarding 现状）
 
+> 设计修正，优先于下文「新增 `AppScreen::Onboarding`」的旧写法：不增加该屏幕变体。引导使用 `OnboardingState` overlay，`screen` 仍只有 Launchpad 与 Canvas，避免现有 Canvas 守卫挡住引导期间创建节点。尚无元素 bounds 查询时，锚点用画布坐标投影到屏幕再加静态偏移。
+>
+> 待确认：当前代码没有 `OnboardingState`。实施计划 [`../exec-plans/2026-06-28-EXEC-onboarding.md`](../exec-plans/2026-06-28-EXEC-onboarding.md) 因此保留，不删步骤。
+
 ## 1. 背景与目标
 
 Multisoul Desktop 当前**无任何新手引导**：首启直接进 Launchpad，麦克风权限要到用语音才请求，Agent Hooks 要用户自己进 Settings → Hooks 手动 Install，方向键切换节点 / NewClaudeAgent 等快捷键默认未绑定或未注册。新手不知道这些能力存在。

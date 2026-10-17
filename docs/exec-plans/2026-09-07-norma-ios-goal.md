@@ -790,7 +790,7 @@ v50收尾验证：Swift35通过；原生DeviceTests42通过/4明确跳过（物�
 
 下一步：在App Store Connect创建App（iOS，名称Norma，主要语言简体中文，Bundle ID如上，SKU norma-ai-os-ios）；查询真实Apple ID和构建号后上传已导出的IPA，等待处理，处理实际加密问卷并核验TestFlight可测试状态。配对模块包含SPAKE2与ring AES-GCM，不能直接声明“仅使用Apple系统加密”；本轮未替用户填报出口合规或宣称豁免，也没有提交外部Beta审核、邀请测试人员或发布到公开App Store。
 
-产物、签名和未完成状态见`target/norma-ios-testflight/package-evidence.json`与[发布记录](2026-09-08-norma-ios-testflight.md)。这是本轮新增实际进展，完整Goal继续active，未标记完成或blocked。
+产物、签名和未完成状态见`target/norma-ios-testflight/package-evidence.json`与[发布记录](2026-09-08-norma-ios-release-records.md#release-testflight)。这是本轮新增实际进展，完整Goal继续active，未标记完成或blocked。
 
 
 ## 项目会话记录与原生完整聊天（v55）
@@ -953,7 +953,7 @@ iPhone诊断进一步确认：当前USB枚举没有iOS设备；Xcode仅有已配
 
 Swift41通过，iOS48通过/4专项跳过，完整E2E233通过/39忽略；真实WSS覆盖持续6秒心跳、另一手机决定、撤回、排队终态、项目隔离和撤权。macOS/iOS原生Codex Todo分别20.62s/29.63s通过，终态通过新订阅获得。最初两次macOS原生检查在中断后校验失败；只补非敏感诊断后通过，根因未定，不称为生产修复。常规护栏与App check通过，源码与日志见`target/norma-ios-evidence/v66/summary.json`。
 
-用户本轮重新授权尝试TestFlight，并指定Chrome。已通过Chrome创建Norma应用记录（6810038463，既有Bundle ID）；最新0.1.0(1)归档/分发签名/导出/Apple校验和上传通过，Apple处理为VALID。用户确认不在法国分发后已保存加密问卷；「Norma 内测」含1个构建与1名测试员，当前账号已按用户授权收到邀请，内部状态IN_BETA_TESTING；中文测试说明已保存。后续以[发布记录](2026-09-08-norma-ios-testflight.md)为准，不再将旧取消状态视为当前授权。没有重启用户桌面或覆盖用户模拟器；APNs部署、正式云规划质量、物理设备/跨网及完整界面验收仍未完成。
+用户本轮重新授权尝试TestFlight，并指定Chrome。已通过Chrome创建Norma应用记录（6810038463，既有Bundle ID）；最新0.1.0(1)归档/分发签名/导出/Apple校验和上传通过，Apple处理为VALID。用户确认不在法国分发后已保存加密问卷；「Norma 内测」含1个构建与1名测试员，当前账号已按用户授权收到邀请，内部状态IN_BETA_TESTING；中文测试说明已保存。后续以[发布记录](2026-09-08-norma-ios-release-records.md#release-testflight)为准，不再将旧取消状态视为当前授权。没有重启用户桌面或覆盖用户模拟器；APNs部署、正式云规划质量、物理设备/跨网及完整界面验收仍未完成。
 
 
 ## v69 · 用户纠正：复用原生 Agent 卡片（实施中）
@@ -1153,7 +1153,7 @@ Computer Use在getApp时仍报告Mac锁屏，本轮没有完成观察或点击�
 - 完整Rust回归1776通过/91忽略，Swift49通过；iOS设备测试61项中57通过/4个需fixture的测试显式跳过。Mac Release和App check通过，新增原生流程单独显式运行，不能把91个忽略记作通过。Manifest测试从硬编码build2失败修正为正整数校验；发布流程独立验证build5递增。最终E2E check无新增诊断；全仓运行中的一处测试括号警告已移除。
 - v81–v83原生界面自动化证据继续有效；本轮Computer Use仍报告Mac锁屏，没有点击通过。用户明确接手发布后真机/跨网/完整界面验收。证据在`target/norma-ios-evidence/v84/`，保留所有红测及诊断失败日志；发布结果在下一条记录更新，不将归档等同于已分发。
 
-交付完成（2026-09-09T23:20:41+08:00）：TestFlight **0.1.0(5)**，Apple `VALID`、内部`IN_BETA_TESTING`，同一「Norma 内测」组已含Build `098fb430-2cde-4926-aa97-7feb14607c06`；没有新增测试人员邀请。配套Mac0.1.71已生成并通过签名/DMG/布局检查，未公证、未切换当前v70。具体路径/摘要见[TestFlight记录](2026-09-08-norma-ios-testflight.md)。功能代码与必要回归已交付，完整真机、跨网、模型质量与页面验收由用户接手；整体Goal保留验收待完成状态，不将发布自动等同于G5通过。下一步依据用户实际验收反馈，不重复原样测试或上传。
+交付完成（2026-09-09T23:20:41+08:00）：TestFlight **0.1.0(5)**，Apple `VALID`、内部`IN_BETA_TESTING`，同一「Norma 内测」组已含Build `098fb430-2cde-4926-aa97-7feb14607c06`；没有新增测试人员邀请。配套Mac0.1.71已生成并通过签名/DMG/布局检查，未公证、未切换当前v70。具体路径/摘要见[TestFlight记录](2026-09-08-norma-ios-release-records.md#release-testflight)。功能代码与必要回归已交付，完整真机、跨网、模型质量与页面验收由用户接手；整体Goal保留验收待完成状态，不将发布自动等同于G5通过。下一步依据用户实际验收反馈，不重复原样测试或上传。
 
 
 ## v85：原卡终端与构建6
@@ -1168,7 +1168,7 @@ v84原型P0复核发现终端查看/输入/历史入口遗漏，本轮补齐。�
 
 证据：`target/norma-ios-evidence/v85/summary.json`；发布产物与Apple回执：`target/norma-ios-testflight/v85/`。Computer Use仍报告Mac锁屏，不能把XCTest或headless GPUI当作真实界面点击验收。APNs服务延期，物理iPhone、多Mac、LAN/Tailscale、云规划质量和完整页面由用户发布后验收；Goal保持active。
 
-交付确认（2026-09-10T00:12:14+08:00）：TestFlight **0.1.0(6)** 已可供现有「Norma 内测」组安装；Apple回读构建、版本、未过期状态、组关联与中文说明全部一致。沿用用户已确认的加密用途和不在法国分发范围，没有新增邀请、外部Beta或公开App Store发布。配套Mac包与SHA256详见[TestFlight记录](2026-09-08-norma-ios-testflight.md)。Goal继续保留实际验收待完成状态。
+交付确认（2026-09-10T00:12:14+08:00）：TestFlight **0.1.0(6)** 已可供现有「Norma 内测」组安装；Apple回读构建、版本、未过期状态、组关联与中文说明全部一致。沿用用户已确认的加密用途和不在法国分发范围，没有新增邀请、外部Beta或公开App Store发布。配套Mac包与SHA256详见[TestFlight记录](2026-09-08-norma-ios-release-records.md#release-testflight)。Goal继续保留实际验收待完成状态。
 
 ## v86：简单工具卡片与构建7交付
 
