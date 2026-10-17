@@ -13,7 +13,7 @@
 | 已完成 | 原生陪伴入口、真实角色/动作迁入、旧布局删除、审批与成果弹层、唯一通话对象、GPT 与豆包传输迁入、原生服务选择；原话草稿、操作记录、持久回合预算、GPT 汇报队列、无窗口 Adapter 与内部持久命令通道；[当前验收记录](../design-docs/2026-09-13-realtime-native-validation.md) |
 | 本轮完成 | 既定功能已实现，v49当前代码的豆包对话、真实派工与原生成果播报通过；复用已有测试，无额外生产代码改动 |
 | 延后验收/发布 | GPT云端同项目sideband及任务/汇报、物理耳机与锁屏测量、用户界面验收；完整Computer Use点击受工具窗口错误阻断（部署与免Key路径见独立交付记录） |
-| 已有证据 | [原型验证记录](../prototypes/assets/norma-realtime/validation.md)、[手机布局截图](../prototypes/assets/norma-realtime/companion-mobile.png)、[浏览器用例](../../crates/e2e/tests/browser/norma-realtime-prototype.cua.js)；均为 HTML 模拟流程 |
+| 已有证据 | [原型验证记录](../prototypes/assets/norma-realtime/validation.md)、[手机布局截图](../prototypes/assets/norma-realtime/companion-mobile.png)、[浏览器用例](../prototypes/tests/norma-realtime-prototype.cua.js)；均为 HTML 模拟流程 |
 | 尚无证据 | 物理iPhone直连云端完整通话、GPT同会话sideband鉴权、锁屏持续音频与真机延迟；v45已使用真实Codex模型，但iOS仍为模拟器 |
 | 当前依赖 | 豆包已有本机Plan凭据与隔离模拟器可用于本轮验收；公网部署与模型对外分发不在本轮授权范围 |
 | 使用入口 | 按[iOS运行说明](../../ios/README.md#豆包实时指挥台)更新Mac/iOS后配对即可使用默认豆包服务，无需填写Key或地址；GPT、物理设备和客户端分发保留独立验收/发布记录 |

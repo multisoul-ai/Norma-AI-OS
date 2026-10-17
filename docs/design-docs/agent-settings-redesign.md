@@ -142,7 +142,7 @@
 - active cards 存在时无法删除 definition；没有 active cards 时必须二次确认。
 - Disabled Agent 不会被移除，且不能 Add to Canvas。
 - 所有按钮、列表行、分段控件、Toggle、菜单项覆盖适用的 rest、hover、pressed、focus、selected/toggled、disabled 状态。
-- 页面实现后必须补 `crates/e2e` 用户流程，并用 Computer Use 操作真实 App 验收浅色、深色、键盘和破坏性流程。
+- 页面实现后必须补受影响 crate 的用户流程测试，并用 Computer Use 操作真实 App 验收浅色、深色、键盘和破坏性流程。
 
 ## 9. 实现边界
 

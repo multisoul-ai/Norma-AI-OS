@@ -28,13 +28,13 @@
 
 采纳 `apple-design` 的材质层级、直接操作与减少透明度原则，以及 `emil-design-eng` 的克制视觉反馈；参考 [Apple 材质规范](https://developer.apple.com/design/human-interface-guidelines/materials)。玻璃只柔化环境，CLI 文字不随环境模糊；菜单清除覆盖区域的旧文字，避免两层文字透叠。
 
-新增两项决策测试，覆盖阻塞范围、明确解锁、替代选择、重复点击、退回补充与最终确认。当前共 24 项单元测试及类型检查通过，构建通过。Computer Use 分段执行 `crates/e2e/browser/norma_vr_decisions.mjs` 的 12 项断言，覆盖范围决策、内容切换和验收；等待模拟执行时遇到工具单次轮询期限，读取可见完成状态后继续完成验收。证据位于原型 `outputs/vr-glass-decisions-evidence.json`。
+新增两项决策测试，覆盖阻塞范围、明确解锁、替代选择、重复点击、退回补充与最终确认。当前共 24 项单元测试及类型检查通过，构建通过。Computer Use 分段执行 `spikes/norma-spatial-prototype/tests/browser/norma_vr_decisions.mjs` 的 12 项断言，覆盖范围决策、内容切换和验收；等待模拟执行时遇到工具单次轮询期限，读取可见完成状态后继续完成验收。证据位于原型 `outputs/vr-glass-decisions-evidence.json`。
 
 ## 多任务待决策队列
 
 右侧默认呈现 5 个独立任务待办，每页 4 项。列表包括任务、问题摘要、负责 Agent 和总数；点选任意项后在中央打开独立详情，右侧仍可继续浏览或切换。查看上下文关闭详情但保留待办；明确选择只移除对应项并继续对应任务，不自动跳入下一个决定。页码在末页删空后钳回有效页。当前任务的最终验收可与其他待办并存。
 
-为验证任务隔离，首页、预览、文档和兼容性任务拥有各自的 mock 状态与进度；主任务的验证范围不会被其他任务的决定解锁。全局暂停也覆盖这些独立任务。当前共 26 项测试、类型检查和构建通过。Computer Use 执行 `crates/e2e/browser/norma_vr_queue.mjs` 的 13 项断言，验证任意选择、详情切换、分页、独立处理和清空。证据位于 `outputs/vr-multi-decision-evidence.json`。
+为验证任务隔离，首页、预览、文档和兼容性任务拥有各自的 mock 状态与进度；主任务的验证范围不会被其他任务的决定解锁。全局暂停也覆盖这些独立任务。当前共 26 项测试、类型检查和构建通过。Computer Use 执行 `spikes/norma-spatial-prototype/tests/browser/norma_vr_queue.mjs` 的 13 项断言，验证任意选择、详情切换、分页、独立处理和清空。证据位于 `outputs/vr-multi-decision-evidence.json`。
 
 ## VR 交互设计评估
 
@@ -80,14 +80,14 @@ WebXR 自然输入参考 [WebKit 官方说明](https://webkit.org/blog/15162/int
 
 ## 验收记录与限制
 
-- 前轮 VR 主路径（新增右侧决策前）：Computer Use 在独立的 1280×720 真实预览中执行 `crates/e2e/browser/norma_vr.mjs`，8 项断言通过，涵盖初始运行状态、点名暂停、通过进度面板打开 Claude、全队暂停以及报告/图表/网页/三维对象切换时的进度保留。
+- 前轮 VR 主路径（新增右侧决策前）：Computer Use 在独立的 1280×720 真实预览中执行 `spikes/norma-spatial-prototype/tests/browser/norma_vr.mjs`，8 项断言通过，涵盖初始运行状态、点名暂停、通过进度面板打开 Claude、全队暂停以及报告/图表/网页/三维对象切换时的进度保留。
 - 真实指针操作另确认三维模型旋转、进度面板单独抓取，以及在空间对话中恢复指定 Agent。
 
 - `npm test`：24 项通过；新增独立活动进度、连续语音交接、打断与过期回调清理、无语音能力反馈、空间菜单与演示指挥测试，并涵盖协作状态、暂停恢复、确认、独立 CLI、审查上下文、笔迹恢复、关联节点、锚点缩放与 VR 坐标映射。
 - `npm run typecheck`、`npm run build` 通过。Three.js 的 bundle 有体积提示，未作为生产体积优化项目扩展范围。
 - 前轮 Computer Use 在旧比较页面完成 14 项共享流程断言：默认 CLI、独立输入、中断、保留内容、Claude 接手、diff、添加图片、变体结构和状态保留、输入框方向键保护。
 - 另有 7 项共享指针流程断言通过：绘制、撤销、重做、擦除、关联 CLI 发送、节点移动和键盘缩放；空间绘制与返回后共享笔迹另外经 Computer Use 验证。
-- Rust `cargo test -p e2e` 被本机缺失 Xcode Metal Toolchain 阻断，没有伪称通过。浏览器 runner 存在 `crates/e2e/browser/`，与 GPUI 测试分开。
+- 当时 Rust `cargo test -p e2e` 被本机缺失 Xcode Metal Toolchain 阻断，没有伪称通过。原型浏览器 runner 现存于 `spikes/norma-spatial-prototype/tests/browser/`，与 GPUI 测试分开。
 - 未完成真实头显佩戴、持续自然捏合精度和真人语音识别验收。空间总览文字需要头显评估；可切到独立终端阅读。
 - 本机入口为 `http://localhost:3000/`。远程头显需可信 HTTPS；当前没有在线部署，不能把局域网 HTTP 作为已可用的头显地址。
 

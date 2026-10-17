@@ -11,7 +11,7 @@
 | Browser Use | 操作了设置→项目选择，以及扫码→注册两条流程；均无控制台或页面错误。 |
 | Google Chrome | 使用本机 Google Chrome 153 的 Playwright channel 运行完整浏览器测试，结果 PASS。 |
 
-运行命令：BROWSER_CHANNEL=chrome node crates/e2e/tests/browser/norma-ios-workspace.cjs
+运行命令：BROWSER_CHANNEL=chrome node docs/prototypes/tests/norma-ios-workspace.cjs
 
 截图：W01-mobile.png 至 W09-mobile.png 九张主状态，以及 W01-compact-mobile.png、W08-compact-mobile.png 两张短屏状态；W04-updated-mobile.png、settings-mobile.png、W02-scan-mobile.png、new-workspace-mobile.png 为补充状态。
 

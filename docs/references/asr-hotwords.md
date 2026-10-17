@@ -247,18 +247,13 @@ cargo test -p asr
 cargo check -p app
 ```
 
-如果修改了 Settings、录音入口或模型升级流程，再运行：
-
-```bash
-cargo test -p e2e
-```
+如果修改了 Settings、录音入口或模型升级流程，再运行受影响 crate 的聚焦测试，并用真实 App 验收用户可见行为。
 
 相关测试：
 
 - `crates/voice_sherpa/tests/unit/recognizer_config_tests.rs`
 - `crates/voice_sherpa/tests/unit/recognizer_config_hotword_tests.rs`
 - `crates/asr/tests/unit/installation_tests.rs`
-- `crates/e2e/src/e2e_10_voice_model_matrix.rs`
 
 验收至少覆盖：
 

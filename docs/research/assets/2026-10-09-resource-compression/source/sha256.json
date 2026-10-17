@@ -1,8 +1,0 @@
-{
-  "benchmark-resource-compression.py": "488e68eb52860e0215d5a5c9fa9c9e879593a101f9b94702339135c12ebc046d",
-  "test-resource-compression-benchmark.py": "05cfe2c6da5526479eb9676baa5591a90e2c6fc9bff852f66bcac5b0ac87af1f",
-  "benchmark-resource-compression-dmg.py": "a9bf6a461130da6746d11119da9dcbca002b41e874c7564291bc016fbb45a01a",
-  "test-resource-compression-dmg.py": "1f89328da9919dfd6f5fa38c10b10f9a857536317aa658305d02c6c69e112134",
-  "merge-resource-compression-results.py": "0de9ef0a1bf2e581a1a496560f44a441f67541433ddcc63307ad4bb95299da56",
-  "test-merge-resource-compression-results.py": "0552e32a8c0801de2079c0dfa7931b3ea6f8f36bd3e0030318e19f72cd8f1bbd"
-}

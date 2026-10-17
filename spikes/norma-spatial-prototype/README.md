@@ -48,11 +48,11 @@ npm --prefix spikes/norma-spatial-prototype run build
 npm --prefix spikes/norma-spatial-prototype run test:e2e
 ```
 
-24 项聚焦测试通过。当前 VR 主路径通过 8 项真实浏览器断言，覆盖独立进度、点名暂停、CLI 切换与多种成果呈现；共享 runner 为 `crates/e2e/browser/norma_vr.mjs`。另有 20 项二维辅助编辑与 3 项 VR 入口断言，以及旧比较页 21 项断言。当前验收使用 Computer Use 操作实际浏览器；CI 入口需要 Playwright Chromium。
+24 项聚焦测试通过。当前 VR 主路径通过 8 项真实浏览器断言，覆盖独立进度、点名暂停、CLI 切换与多种成果呈现；共享 runner 为 `tests/browser/norma_vr.mjs`。另有 20 项二维辅助编辑与 3 项 VR 入口断言，以及旧比较页 21 项断言。当前验收使用 Computer Use 操作实际浏览器；CI 入口需要 Playwright Chromium。
 
 三维实体旋转、进度窗口独立抓取和空间对话中的演示指令另经 Computer Use 操作确认。证据与截图保存在忽略跟踪的 `outputs/`。
 
-Rust `cargo test -p e2e` 在本机被 Xcode Metal Toolchain 缺失阻断；本原型没有修改 Rust/GPUI。
+当时 Rust `cargo test -p e2e` 被 Xcode Metal Toolchain 缺失阻断；该旧 crate 现已移除，本原型没有修改 Rust/GPUI。
 
 ### 玻璃画布与右侧决策
 

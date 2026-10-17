@@ -4,14 +4,14 @@
 
 ```bash
 python3 -m http.server 8766 --bind 127.0.0.1 --directory docs
-BROWSER_CHANNEL=chrome node crates/e2e/tests/browser/norma-ios-ideas-workspaces.cjs
+BROWSER_CHANNEL=chrome node docs/prototypes/tests/norma-ios-ideas-workspaces.cjs
 ```
 
 浏览器入口：http://127.0.0.1:8766/prototypes/norma-ios-workspace.html
 
 测试在 Google Chrome 的 390×844 触控视口中覆盖文字及语音记录、想法与工作空间分离、多个工作空间独立配置、来源想法和线程消息。
 
-[旧版九屏原型](archive/2026-09-28-norma-ios-workspace/norma-ios-workspace.html)已归档，可运行 `BROWSER_CHANNEL=chrome node crates/e2e/tests/browser/norma-ios-workspace.cjs` 验证。旧版截图与记录见 [验收记录](assets/norma-ios-workspace/validation.md)。
+[旧版九屏原型](archive/2026-09-28-norma-ios-workspace/norma-ios-workspace.html)已归档，可运行 `BROWSER_CHANNEL=chrome node docs/prototypes/tests/norma-ios-workspace.cjs` 验证。旧版截图与记录见 [验收记录](assets/norma-ios-workspace/validation.md)。
 
 此前的 [实时虚拟人指挥台](norma-realtime.html) 仍保留作历史方案参考。
 

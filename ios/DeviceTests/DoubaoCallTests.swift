@@ -173,7 +173,7 @@ import NormaCore
     func testNativeDuplexGatewayLifecycle() async throws {
         let env = ProcessInfo.processInfo.environment
         guard env["NORMA_TEST_MODE"] == "doubao-loopback", let path = env["NORMA_TEST_QR"] else {
-            throw XCTSkip("需要 crates/e2e 的显式豆包回环网关")
+            throw XCTSkip("显式豆包回环网关尚未迁移到独立测试入口")
         }
         let config = try JSONDecoder().decode(GatewayFixture.self, from: Data(contentsOf: URL(fileURLWithPath: path)))
         let origin = config.origin

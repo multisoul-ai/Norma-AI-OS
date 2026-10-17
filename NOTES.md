@@ -5,7 +5,7 @@
 - 产品：Norma OS，macOS 空间工作台；核心抽象是 Infinite Canvas 上的 Live Node。
 - 当前首个 Live Node 是 Terminal，近期迭代集中在 Agent、语音、Browser、授权与发布体验。
 - 产品规格、设计说明和执行计划分别沉淀在 `docs/product-specs/`、`docs/design-docs/`、`docs/exec-plans/`。
-- 仓库要求新功能和 bugfix 先写失败测试；用户可观察流程要把验收标准映射到 `crates/e2e` 自动化证据。
+- 仓库要求新功能和 bugfix 先写失败测试；用户可观察流程要把验收标准映射到受影响 crate 的测试或真实 App 验收证据。
 - 验证范围按变更 crate 选择；跨 crate 行为才需要全 workspace 验证。
 
 ## 当前迭代节奏

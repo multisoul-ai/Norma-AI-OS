@@ -3,7 +3,7 @@
 - 日期：2026-08-04
 - 状态：Redesign Prototype / Decision Support
 - 关联方案：[`Ideas Vault：基于现有 Canvas 的原生化重设计`](../../product-specs/2026-08-04-SPEC-ideas-vault-canvas-native-redesign.md)
-- 替代原型：[`2026-08-04-ideas-vault-prototype`](../2026-08-04-ideas-vault-prototype/README.md)
+- 替代原型：2026-08-04 的 Browser Library / Preview 原型；旧稿已从当前文档树移除，可从 Git 历史查阅。
 - 范围：原型只表达未来交互，不是已经实现的产品截图
 
 生成提示词与纠错记录见 [`IMAGEGEN-PROMPTS.md`](IMAGEGEN-PROMPTS.md)。

@@ -1,5 +1,7 @@
 # Norma iOS
 
+> 历史测试说明：旧 Rust `crates/e2e` 已移除。下文版本记录中的 `cargo test -p e2e`、`check-norma-mobile-approvals.sh` 和 `run-norma-mobile-desktop-l3.sh` 命令仅记载当时验收，当前开发请使用受影响 crate 的测试与真实 App 验收。
+
 原生 SwiftUI 客户端，最低 iOS 17；使用系统 NavigationStack、TabView、Sheet 和 VisionKit 相机扫码。无 WebView；验证码使用两端共用的 Rust SPAKE2 库。
 
 当前可运行：黑色界面、居中指挥台导航、多电脑元数据管理、扫码引导、配对核对码、Keychain 独立手机凭据、TLS 1.3 / 证书 pin、真实授权回查与本地忘记电脑；项目目录读取真实 Mac 快照，极简 Agent 卡片通过持续 WSS 接收增量更新，支持 Codex / Claude / Cursor 品牌图标和运行动效。已接入创建空卡、删除确认与操作结果查询；完整对话读取现已接入；已接入首条消息与同会话续发，以及按会话保存的本地草稿；原生中断和可靠消息队列已接入；手机审批与跨电脑指挥台已接入；计划生成、Todo确认/拒绝和真实发送关联已接入；Todo准确回合完成/失败/中断已接入，明确未发送后的重新安排已接入，项目变更预览和Mac任务起点已接入，不可变交付、历史成果和验收回执已接入；修改意见回原会话已接入；图片预览已接入；通知设置、APNs回调和点击回源已接入，真实推送配置和锁屏验收待完成。
