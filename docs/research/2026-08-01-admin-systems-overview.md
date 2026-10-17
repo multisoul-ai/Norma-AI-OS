@@ -85,7 +85,7 @@ Norma Rust License 客户端
 
 - 本机 spike 使用 Docker Compose，从 GitHub `tabloy/keygate@v0.1.1` 构建 Keygate，并使用 PostgreSQL 16；端口为 `9000`，开发环境可 `dev-login`。[Compose](../../spikes/keygate-mvp/docker-compose.yml#L1-L46)
 - spike 的 GO 证据是：能启动、自助/脚本发买断 License、列出 License、读取 admin stats、在线激活并在断网状态本地验签。[README](../../spikes/keygate-mvp/README.md#L7-L15) [结论](../../spikes/keygate-mvp/README.md#L34-L47)
-- 2026-08-11 起 App 的 `licenses` feature 默认关闭，启动决策会在读取本地凭证前直接进入工作台；发行打包同时显式使用 `--no-default-features`。只有显式使用 `--features licenses` 的专用构建才会无凭证显示激活壳。[feature](../../crates/app/Cargo.toml#L8-L14) · [App 启动](../../crates/app/src/lib.rs#L65-L86) · [E2E 证据](../../crates/e2e/src/e2e_17_license_gate_startup.rs#L6-L39)
+- 2026-08-11 起 App 的 `licenses` feature 默认关闭，启动决策会在读取本地凭证前直接进入工作台；发行打包同时显式使用 `--no-default-features`。只有显式使用 `--features licenses` 的专用构建才会无凭证显示激活壳。[feature](../../crates/app/Cargo.toml#L8-L14) · [App 启动](../../crates/app/src/lib.rs#L65-L86)。当时的 E2E 证据已随旧套件移除，可从 Git 历史查阅。
 - 当前发行客户端的嵌入地址被测试锁定为 `https://soulvoiceai.com/keygate`，说明激活链路不再只是 localhost spike；但仓库没有该线上 Keygate 的部署脚本、数据快照或生产运维面板验收记录。[生产 URL 测试](../../crates/app/src/license_gate/config.rs#L126-L145)
 
 因此准确状态应写成：

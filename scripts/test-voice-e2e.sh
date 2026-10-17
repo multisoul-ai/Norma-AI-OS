@@ -12,7 +12,7 @@ elif [[ $# -gt 0 ]]; then
   exit 2
 fi
 
-echo "[voice-e2e] legacy crates/e2e disabled pending deletion and rebuild; running remaining crate tests only"
+echo "[voice-e2e] running voice flow checks in the owning crates"
 
 echo "[voice-e2e] app shortcut, mode, dialogue, provider and playback scenarios"
 cargo test -p app voice_
@@ -41,4 +41,4 @@ if [[ "$run_real_models" == true ]]; then
     -- --ignored
 fi
 
-echo "[voice-e2e] remaining crate tests passed; legacy e2e acceptance was not run"
+echo "[voice-e2e] owning crate tests passed"

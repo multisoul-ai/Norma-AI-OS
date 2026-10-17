@@ -2,7 +2,7 @@
 
 - 日期：2026-08-04
 - 状态：Redesign Proposal / Decision Support
-- 替代方案：本文件取代 [`2026-08-04-SPEC-ideas-vault-design-and-prototype-plan.md`](2026-08-04-SPEC-ideas-vault-design-and-prototype-plan.md)
+- 替代方案：本文件取代 2026-08-04 的 Browser Library / Preview 旧方案；旧稿已从当前文档树移除，可从 Git 历史查阅。
 - 范围：只做架构审视、产品设计、交互原型与未来改动定位；本轮不修改产品代码
 - 设计基线：现有 Canvas/Card/Workspace 机制、`codebase-design`、Apple Human Interface 原则
 

@@ -184,8 +184,9 @@ Mac通知线程随手机连接服务启动、关窗停止。复用原有有界�
 
 ```sh
 cargo build -p app --features l3-test-support --bin norma-push-sqlite-l3
-NORMA_PUSH_SQLITE_PROBE="$PWD/target/debug/norma-push-sqlite-l3" cargo test -p e2e --test mobile_push_sqlite -- --ignored --nocapture
 ```
+
+原跨进程测试依赖已移除的旧 `e2e` crate；上面的构建命令只生成探针，不构成该场景验收。重新验收时应在所属 crate 建立独立测试并运行探针。
 
 此证据覆盖正式库的跨进程持久化，不包括正式App窗口重启或升级后的签名ACL兼容。该轮验收时尚缺服务部署和APNs密钥；当前部署状态见文首，仍需可用物理iPhone完成真实锁屏投递。
 

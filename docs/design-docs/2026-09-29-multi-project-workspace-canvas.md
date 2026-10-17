@@ -61,7 +61,7 @@
 | [存储](../../crates/storage/src/migrations.rs)、[最近记录](../../crates/storage/src/recent_store.rs)、[持久化](../../crates/app/src/workspace/persistence.rs) | 最近的“workspace”实际是项目路径；每个项目数据库只有一份画布与会话快照 | 新增桌面工作空间与「工作空间 + 项目」画布实例身份；不导入旧桌面画布存档，也不主动删除旧文件 |
 | [项目生命周期](../../crates/app/src/app/lifecycle.rs)、[Agent 路由](../../crates/app/src/workspace/norma_route.rs) | 关窗和主动退出会释放一个项目 Runtime；现有 `workspace_id` 绑定项目身份 | 收起项目画布、切换工作空间不得停止 Agent；关闭窗口、退出 App 才按既有策略处理对应实例，手机项目身份继续保留 |
 | [菜单与快捷键](../../crates/app/src/menu_bar.rs)、[快捷键目录](../../crates/app/src/shortcuts/catalog.rs) | `Open Project` 与 `New Window` 都围绕项目启动页 | 增加新建/切换工作空间语义，并使添加项目入口在首页与工作空间内有明确目标 |
-| [现有 e2e](../../crates/e2e/src/e2e_20_project_picker.rs)、[克隆 e2e](../../crates/e2e/src/e2e_21_github_clone.rs) | 断言打开项目后关闭首页并只剩一个项目窗口 | 改为验证工作空间创建、添加项目区域、克隆后归属、同项目跨工作空间独立、重启恢复 |
+| 旧 e2e（已移除） | 当时断言打开项目后关闭首页并只剩一个项目窗口 | 用所属 crate 测试与真实 App 验收工作空间创建、添加项目区域、克隆后归属、同项目跨工作空间独立、重启恢复 |
 
 改动限定桌面工作空间层；现有 iOS 页面、手机协议及以项目为身份的手机访问路由不纳入重构。由于桌面与手机目前共用一部分项目加载和生命周期代码，实施时仍需回归验证其现有行为。
 

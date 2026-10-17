@@ -294,7 +294,7 @@ v26 历史截图：[指挥台](../prototypes/archive/2026-09-06-norma-ios/assets
 node scripts/check-norma-mobile-prototype.cjs
 ```
 
-浏览器 E2E 使用 [`crates/e2e/tests/browser/norma-ios-prototype.cua.js`](../../crates/e2e/tests/browser/norma-ios-prototype.cua.js)，通过 CUA 对实际页面操作；不冒充 GPUI headless 测试或已启动原生 iOS App。
+浏览器 E2E 使用[原型浏览器用例](../prototypes/tests/norma-ios-prototype.cua.js)，通过 CUA 对实际页面操作；不冒充 GPUI headless 测试或已启动原生 iOS App。
 
 此前迭代仓库验证（本轮未重跑）`cargo test -p e2e`：197 通过、5 失败、4 忽略。失败位于本次未修改的 Chrome 会话导入（2 例，状态停留 waiting）和 MiniMax Voice（1 例 runtime voice 不符，另 2 例共享锁 poisoned）。Chrome 两例及 MiniMax Voice 主失败单独重跑仍失败；未扩展修改这些模块。上述 Rust 测试不执行本 HTML，原型的 Node 与 Computer Use 验证独立通过。
 

@@ -5,7 +5,7 @@
 - 实施目录：`/Users/alan/Documents/mybook/norma-ai-os-desktop-workspaces`。
 - 分支：`codex/desktop-multi-project-workspaces`。
 - 上级计划：[桌面统一场景 Goal](2026-09-30-desktop-unified-scene-goal.md)。
-- 视觉参考：[25 号项目画布原型](../design-docs/2026-09-29-desktop-workbench-concepts/25-project-canvas-compact-reference.png)。
+- 视觉参考：[24 号窗口外观图](../design-docs/2026-09-29-desktop-workbench-concepts/24-overview-glass-windows-reference.png)。原 25 号文件与 24 号逐字节相同，已去重；两行项目排列以本文规则为准。
 
 ## 1. 对象与边界
 

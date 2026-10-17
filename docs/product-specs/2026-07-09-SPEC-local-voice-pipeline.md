@@ -2,7 +2,7 @@
 
 > 日期：2026-07-09 · 状态：采访已确认，待实施  
 > 来源：interview-spec 多轮采访 + 冲突审查修订  
-> 取代方向：`docs/design-docs/realtime-card-task-mvp/`（OpenAI Realtime + Node sidecar）将废弃，不再作为实现依据
+> 取代方向：旧 OpenAI Realtime + Node sidecar 方案已从当前文档树移除，可从 Git 历史查阅。
 
 ## 1. 背景与目标
 

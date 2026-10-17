@@ -145,16 +145,16 @@ Apple 设计原则落实为：当前绑定项目持续可见；输入立即反�
 
 | 场景 | 必须观察到的行为 | 证据层级 |
 |---|---|---|
-| 讨论到派工 | 讨论不写任务；明确执行后进入正确项目与 Agent | 共享域测试 + crates/e2e |
-| 断线重试 | 同一请求仅执行一次；草稿保留；离线无虚假回执 | 回执与恢复测试 + crates/e2e |
-| Mac 无窗口执行 | 手机服务开启时关窗，派工及事件仍可继续 | 后台项目 e2e + 真实 App |
+| 讨论到派工 | 讨论不写任务；明确执行后进入正确项目与 Agent | 共享域测试 + 真实 App |
+| 断线重试 | 同一请求仅执行一次；草稿保留；离线无虚假回执 | 回执与恢复测试 + 真实 App |
+| Mac 无窗口执行 | 手机服务开启时关窗，派工及事件仍可继续 | 后台项目集成测试 + 真实 App |
 | 通话与插话 | 耳机锁屏 30 分钟；插话停播；切网恢复 | 真机音频与网络记录 |
 | 主动汇报 | 用户讲话不被普通汇报打断；可暂停、合并并恢复 | 事件队列测试 + 真机通话 |
-| 挂断继续执行 | 任务不因挂断取消；成果仍可访问 | crates/e2e + 真机；APNs 单独验收 |
+| 挂断继续执行 | 任务不因挂断取消；成果仍可访问 | 所属 crate 测试 + 真机；APNs 单独验收 |
 | 三端界面成果 | 待验收 → 查看 → 通过或退回原任务 | 浏览器/真实 App Computer Use + 用户对应设备确认 |
 
 原型状态逻辑检查：node scripts/check-norma-realtime-prototype.cjs。
-浏览器交互检查脚本：[CUA 原型用例](../../crates/e2e/tests/browser/norma-realtime-prototype.cua.js)。脚本存在不代表已执行，也不替代原生能力验收。
+浏览器交互检查脚本：[CUA 原型用例](../prototypes/tests/norma-realtime-prototype.cua.js)。脚本存在不代表已执行，也不替代原生能力验收。
 
 源码依据：crates/agent/src/adapter.rs、rig_tools.rs；crates/app/src/app/agent_runtime.rs 及 adapter_pump.rs、orchestration_commands.rs；crates/app/src/mobile/command.rs；ios/Sources/NormaCore/CredentialVault.swift、PinnedConnection.swift、MobileClient.swift；companion/ios/App/VoiceCall.swift、OpenAIRealtime.swift、AudioDuplex.swift、WebRTCAudio.swift。
 

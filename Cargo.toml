@@ -17,7 +17,6 @@ members = [
   "crates/workspace",
   "crates/terminal",
   "crates/runtime",
-  "crates/e2e",
   "crates/voice_sherpa",
   "crates/ui",
   "crates/norma",

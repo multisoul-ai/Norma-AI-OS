@@ -57,7 +57,7 @@ ui -> {gpui, gpui-component}
 - **Consult GPUI skills first**: when writing GPUI code, load local `gpui-*` skills, then adapt to the pinned GPUI version; still prefer the component library when it covers the need.
 - **Rounded child surfaces need explicit ownership**: GPUI 0.2.2's `overflow_hidden()` uses a rectangular content mask. An opaque full-size `div`, `img`, or `surface` inside a rounded container must draw its exposed outer radii itself, or be partitioned away from the corner squares; protect the behavior with an automated test.
 - **New configurable app shortcuts must appear in Settings**: register them in `shortcuts.rs` and support recording/restoring them in Settings → Keyboard Shortcuts.
-- **旧 e2e 套件已禁用**：`crates/e2e` 后续需要删除与重构；后续需求不再新增、维护或运行这套测试，也不得将其结果作为验收依据。禁用说明见 [`docs/references/e2e-testing-guide.md`](docs/references/e2e-testing-guide.md)。
+- **旧 e2e 套件已移除**：用户流程使用受影响 crate 的单元/集成测试与真实 App 验收；原型浏览器测试归各自原型目录维护。
 - **按实际行为验收**：使用受影响 crate 的单元/集成测试；`TestAppContext`/`simulate_click` 不等于启动真实 `.app`，要求真实程序的流程须操作真实 App 并检查最终结果。
 - **页面/样式验收必须用 Computer Use**：凡编写或修改页面、布局、样式或视觉状态，进入检查与验收时必须使用 `computer-use:computer-use` 操作真实 App 完成 E2E；headless GPUI、单测和静态截图只能作为补充，不能替代 Computer Use。
 - **TDD before feature or bugfix work**: add a focused failing test first where the behavior can be tested below the GPUI layer.
@@ -124,7 +124,7 @@ cargo test --workspace
 cargo check -p app
 ```
 
-旧 `crates/e2e` 已禁用，后续需要删除与重构；不再作为开发或验收命令运行。`cargo test --workspace` 不执行该套件，后续需求使用受影响 crate 的测试和实际 App 验收。
+旧 `crates/e2e` 已移除；后续需求使用受影响 crate 的测试和实际 App 验收。
 
 iOS companion (requires Rust iOS targets, xcodegen, Xcode):
 
@@ -193,7 +193,7 @@ See [`AGENTS.md`](AGENTS.md) §5 for the canonical change-area → verification 
 
 Follow the project test comment and assertion rules in [`docs/quality/test-requirements.md`](docs/quality/test-requirements.md).
 
-处理带验收标准的需求时，将每条标准映射到受影响 crate 的单元/集成测试或真实 App 验收证据。旧 `crates/e2e` 已禁用，后续需要删除与重构；无需新增、维护或运行旧用例，历史指南不再构成执行要求。
+处理带验收标准的需求时，将每条标准映射到受影响 crate 的单元/集成测试或真实 App 验收证据。
 
 要求真实程序的流程必须操作真实 App 并检查最终结果；页面、布局、样式或视觉状态仍须通过 `computer-use:computer-use` 验收，不能用内部状态或截图文件存在代替结果判断。
 

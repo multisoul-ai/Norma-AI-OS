@@ -200,7 +200,7 @@ python3 scripts/benchmark-resource-compression-dmg.py \
 
 系统须有 gzip、bzip2、hdiutil 与 Python 3；源文件以 manifest 为准。输出目录不能已有 results.json，也不能放进原资源目录。算法缺失记录为 unavailable，不自动安装。DMG 入口默认程序为 target/release/norma-os；没有该历史程序时需通过 --program 指定固定程序快照，不要求重新构建正式 App。
 
-[实验 JSON](assets/2026-10-09-resource-compression/results.json)、[汇总 JSON](assets/2026-10-09-resource-compression/summary.json)、[DMG JSON](assets/2026-10-09-resource-compression/dmg/results.json) 保存工具版本、原文件清单、逐轮命令、耗时、哈希与 RSS。日志和专用工具失败证据随目录保存，原数据内绝对临时路径是当时执行上下文，查看保存副本时按同名日志定位。
+[实验 JSON](assets/2026-10-09-resource-compression/results.json)、[汇总 JSON](assets/2026-10-09-resource-compression/summary.json)、[DMG JSON](assets/2026-10-09-resource-compression/dmg/results.json) 保存工具版本、原文件清单、逐轮命令、耗时、哈希与 RSS。逐轮日志和专用工具失败证据已从当前树清理，可从 Git 提交 `366284b4` 的同名目录查阅；原数据内绝对临时路径是当时执行上下文。
 
 临时归档、还原副本与模拟 DMG 已由实验入口清理；原始资源与正式打包流程未修改。
 
