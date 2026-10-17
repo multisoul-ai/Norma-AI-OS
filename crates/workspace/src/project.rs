@@ -12,32 +12,37 @@ pub struct ProjectIdentity {
 
 pub fn identify_project(path: &Path) -> io::Result<ProjectIdentity> {
     let selected = path.canonicalize()?;
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(&selected)
-        .args([
-            "rev-parse",
-            "--path-format=absolute",
-            "--git-common-dir",
-            "--show-toplevel",
-        ])
-        .stderr(Stdio::null())
-        .output();
-    if let Ok(output) = output {
-        if output.status.success() {
-            let paths = String::from_utf8_lossy(&output.stdout);
-            let mut lines = paths.lines();
-            if let (Some(common), Some(root)) = (lines.next(), lines.next()) {
-                return Ok(ProjectIdentity {
-                    key: PathBuf::from(common).canonicalize()?,
-                    root: PathBuf::from(root).canonicalize()?,
-                });
-            }
+    // Match Git's filesystem and ceiling-directory discovery rules without
+    // requiring the system Git executable at runtime.
+    // git2 always passes a non-null ceiling list to libgit2, so forward the
+    // environment value explicitly when FROM_ENV is used.
+    let ceiling_dirs = std::env::var_os("GIT_CEILING_DIRECTORIES")
+        .map(|value| std::env::split_paths(&value).collect::<Vec<_>>())
+        .unwrap_or_default();
+    let repository = match git2::Repository::open_ext(
+        &selected,
+        git2::RepositoryOpenFlags::FROM_ENV,
+        &ceiling_dirs,
+    ) {
+        Ok(repository) => repository,
+        // A directory with broken or unreadable Git metadata is still a
+        // usable plain project, as it was when `git rev-parse` failed.
+        Err(_) => {
+            return Ok(ProjectIdentity {
+                key: selected.clone(),
+                root: selected,
+            });
         }
-    }
+    };
+    let Some(root) = repository.workdir() else {
+        return Ok(ProjectIdentity {
+            key: selected.clone(),
+            root: selected,
+        });
+    };
     Ok(ProjectIdentity {
-        key: selected.clone(),
-        root: selected,
+        key: repository.commondir().canonicalize()?,
+        root: root.canonicalize()?,
     })
 }
 
