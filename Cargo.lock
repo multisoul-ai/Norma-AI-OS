@@ -9598,6 +9598,7 @@ name = "workspace"
 version = "0.1.76"
 dependencies = [
  "dirs 6.0.0",
+ "git2",
  "libc",
  "serde",
  "tempfile",
