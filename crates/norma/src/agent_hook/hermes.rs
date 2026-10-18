@@ -31,7 +31,7 @@ fn conflict(dir: &Path) -> AgentHookError {
 }
 
 /// 目录存在但不是 Norma 受管（无标记）时返回 true。
-fn is_unmanaged(dir: &Path) -> Result<bool, AgentHookError> {
+pub(super) fn is_unmanaged(dir: &Path) -> Result<bool, AgentHookError> {
     match fs::read_to_string(dir.join(PLUGIN_INIT_FILE)) {
         Ok(source) => Ok(!source.contains(HERMES_PLUGIN_MARKER)),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => match fs::read_dir(dir) {
@@ -107,4 +107,14 @@ pub(super) fn spawn_disable_and_remove_hermes_plugin(dir: std::path::PathBuf) {
         run_hermes_plugins("disable");
         let _ = uninstall_hermes_plugin(&dir);
     });
+}
+
+/// 同步启用插件（供已在后台线程运行的编排安装器使用）；hermes 缺失时返回 false，文件保留。
+pub fn enable_hermes_plugin_blocking() -> bool {
+    run_hermes_plugins("enable")
+}
+
+/// 同步禁用插件，避免卸载后 config.yaml 残留指向已删除目录的启用条目。
+pub fn disable_hermes_plugin_blocking() -> bool {
+    run_hermes_plugins("disable")
 }

@@ -5,8 +5,9 @@ use super::credential::{
 use super::file_ops::{atomic_write, remove_matching_binary, set_mode};
 use super::model::{ComponentState, InstallPaths, OrchestrationProvider, ProviderIntegration};
 use crate::agent_hook::{
-    agent_hooks_installed_for_source, install_hook_config, uninstall_hook_config, AgentHookError,
-    OPENCODE_PLUGIN_MARKER,
+    agent_hooks_installed_for_source, disable_hermes_plugin_blocking,
+    enable_hermes_plugin_blocking, install_hook_config, uninstall_hook_config, unmanaged_hook_path,
+    AgentHookError, OPENCODE_PLUGIN_MARKER,
 };
 use std::fmt;
 use std::fs::{self, File};
@@ -98,6 +99,7 @@ impl From<AgentHookError> for InstallerError {
 pub struct OrchestrationInstaller {
     paths: InstallPaths,
     required_version: String,
+    hermes_activation: bool,
 }
 
 impl OrchestrationInstaller {
@@ -105,7 +107,16 @@ impl OrchestrationInstaller {
         Self {
             paths,
             required_version: required_version.into(),
+            hermes_activation: false,
         }
+    }
+
+    /// 安装/卸载 Hermes 插件时同步执行 `hermes plugins enable|disable`。
+    ///
+    /// 默认关闭，避免测试改动开发者真实的 Hermes 配置；App 在后台线程构造安装器时开启。
+    pub fn with_hermes_activation(mut self) -> Self {
+        self.hermes_activation = true;
+        self
     }
 
     pub fn paths(&self) -> &InstallPaths {
@@ -163,6 +174,10 @@ impl OrchestrationInstaller {
                 self.paths.managed_hook_path().as_path(),
                 &self.paths.hook_paths,
             )?;
+            if self.hermes_activation && provider == OrchestrationProvider::Hermes {
+                // hermes 未安装时仅状态灯不可用，文件已就位，不视为安装失败。
+                enable_hermes_plugin_blocking();
+            }
         }
         if !matches!(before.authorization_component, ComponentState::Ready { .. }) {
             let credential = self.install_or_read_credential(provider)?;
@@ -185,6 +200,9 @@ impl OrchestrationInstaller {
             .revoke(provider)
             .map_err(|error| InstallerError::Authorization(error.to_string()))?;
         self.remove_managed_skills(provider)?;
+        if self.hermes_activation && provider == OrchestrationProvider::Hermes {
+            disable_hermes_plugin_blocking();
+        }
         uninstall_hook_config(
             provider
                 .hook_target()
@@ -255,6 +273,18 @@ impl OrchestrationInstaller {
                 }
             }
         }
+        let source = provider
+            .hook_source()
+            .expect("supported orchestration provider has a hook source");
+        if let Some(path) = unmanaged_hook_path(source, &self.paths.hook_paths) {
+            return ComponentState::Conflict {
+                path,
+                reason: format!(
+                    "Existing {} hook at the managed path is not owned by Norma OS.",
+                    provider.display_name()
+                ),
+            };
+        }
         let binary = self.inspect_binary(
             self.paths.managed_hook_path().as_path(),
             self.paths.bundled_hook.as_path(),
@@ -262,9 +292,6 @@ impl OrchestrationInstaller {
         if !matches!(binary, ComponentState::Ready { .. }) {
             return binary;
         }
-        let source = provider
-            .hook_source()
-            .expect("supported orchestration provider has a hook source");
         if agent_hooks_installed_for_source(source, &self.paths.hook_paths) {
             ComponentState::Ready {
                 version: self.required_version.clone(),

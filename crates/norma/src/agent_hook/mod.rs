@@ -34,10 +34,11 @@ pub use event::{
     extract_prompt_text, hook_events_for_source, parse_hook_event, task_state_for_provider_event,
 };
 pub use forward::{forward_event, forward_hook};
+pub use hermes::{disable_hermes_plugin_blocking, enable_hermes_plugin_blocking};
 pub use install::{
     agent_hooks_installed, agent_hooks_installed_at, agent_hooks_installed_for_source,
     install_agent_hooks, install_hook_config, uninstall_agent_hooks, uninstall_hook_config,
-    uninstall_hook_config_except_hermes,
+    uninstall_hook_config_except_hermes, unmanaged_hook_path,
 };
 pub use kimi::kimi_config_path_for;
 

@@ -1,8 +1,8 @@
 use super::atomic_file;
 use super::cursor::{cursor_hooks_installed_at, install_cursor_hooks, uninstall_cursor_hooks};
 use super::hermes::{
-    hermes_plugin_installed_at, install_hermes_plugin, spawn_disable_and_remove_hermes_plugin,
-    spawn_enable_hermes_plugin, uninstall_hermes_plugin,
+    hermes_plugin_installed_at, install_hermes_plugin, is_unmanaged as hermes_dir_unmanaged,
+    spawn_disable_and_remove_hermes_plugin, spawn_enable_hermes_plugin, uninstall_hermes_plugin,
 };
 use super::json_config::add_command_hook;
 use super::kimi::{install_kimi_hooks, kimi_hooks_installed_at, uninstall_kimi_hooks};
@@ -88,6 +88,19 @@ pub fn agent_hooks_installed(target: HookTarget, paths: &HookInstallPaths) -> bo
 
 pub fn agent_hooks_installed_for_source(source: HookSource, paths: &HookInstallPaths) -> bool {
     agent_hooks_installed_at(config_path_for_source(source, paths), source)
+}
+
+/// 目标路径上存在非 Norma 自有的 Pi 扩展 / Hermes 插件目录时返回该路径（安装会拒绝覆盖）。
+pub fn unmanaged_hook_path(source: HookSource, paths: &HookInstallPaths) -> Option<PathBuf> {
+    match source {
+        HookSource::Pi => fs::read_to_string(&paths.pi_extension)
+            .is_ok_and(|text| !text.contains(PI_EXTENSION_MARKER))
+            .then(|| paths.pi_extension.clone()),
+        HookSource::Hermes => hermes_dir_unmanaged(&paths.hermes_plugin_dir)
+            .unwrap_or(false)
+            .then(|| paths.hermes_plugin_dir.clone()),
+        _ => None,
+    }
 }
 
 pub fn agent_hooks_installed_at(path: &Path, source: HookSource) -> bool {
