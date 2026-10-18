@@ -145,6 +145,24 @@ extension Session {
         try await hotkey(key: key, modifiers: modifiers)
     }
 
+    public func scroll(xFraction: CGFloat, yFraction: CGFloat, deltaY: Int32) async throws {
+        try await activate()
+        let window = try await currentWindow()
+        let point = CGPoint(
+            x: window.frame.minX + window.frame.width * xFraction,
+            y: window.frame.minY + window.frame.height * yFraction
+        )
+        try await requireOwnWindow(at: point)
+        try postMove(point)
+        guard let event = CGEvent(
+            scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1,
+            wheel1: deltaY, wheel2: 0, wheel3: 0
+        ) else { throw E2EError.env("无法创建滚动事件") }
+        event.location = point
+        event.post(tap: .cghidEventTap)
+        try await Task.sleep(nanoseconds: 200_000_000)
+    }
+
     /// 精选目录卡片的「打开」在操作按钮右侧。优先点识别到的省略号，否则用两者中心距 68pt。
     public func openFeaturedActions() async throws {
         let frame = try await capture()

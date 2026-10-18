@@ -2,7 +2,7 @@
 
 ## 设计依据
 
-用户要求 Norma 位于设置最前面，人设、记忆、语音分别作为子菜单；人设排在首位并作为首次打开的默认页，设置导航与页面标题使用英文。
+2026-10-04 最初要求 Norma 位于设置最前面，人设、记忆、语音分别作为子菜单，人设为首次打开的默认页。2026-10-18 调整为通用在前、Norma 在后，保留默认人格页；名称随界面语言切换。
 
 已阅读 Google 官方 [Ten things we know to be true](https://about.google/company-info/philosophy/)，主要采纳：
 
@@ -14,19 +14,23 @@
 
 ## 导航与布局
 
+2026-10-18 调整：通用与外观合为一个分组，语言与节能合为基础设置页。实施与验收见[合并计划](../exec-plans/2026-10-18-settings-general-appearance-merge.md)。以下导航为当前结构；后文 2026-10-04 的截图与验收记录保留其历史适用范围。
+
 ```text
 Settings
+  General
+    Basic Settings / Themes / Wallpaper
   Norma
     Persona
     Memory
     Voice
-  Appearance
-    Themes / Wallpaper / Performance
   Input & Controls
     Keyboard Shortcuts
   AI & Automation
     Agents / Orchestration / Mobile Connection
 ```
+
+以下对照记录 2026-10-04 的改版背景，当前分组顺序以上方导航为准。
 
 | Before | After | Why |
 | --- | --- | --- |
@@ -36,7 +40,7 @@ Settings
 | 侧栏边框与高亮线叠加 | 单一填充选中状态与语义图标 | 减少视觉噪声，保持清晰层级 |
 | 空白人设入口 | 交流风格、表达示例、补充说明与保存 | 可操作、可理解、可恢复 |
 
-Sidebar 与 CompactSidebar 保持分组导航；极窄窗口保留现有可横向滚动的 TopBar，同样先显示 Norma 三个目的地。侧栏导航统一使用 `ui::component::Button`，覆盖 hover、pressed、键盘 focus；选中态使用持续填充色。自定义颜色使用 Theme token，深浅主题分别验收。
+Sidebar 与 CompactSidebar 保持分组导航；极窄窗口保留现有可横向滚动的 TopBar，同样先显示通用的三个目的地，随后为 Norma 等分组。侧栏导航统一使用 `ui::component::Button`，覆盖 hover、pressed、键盘 focus；选中态使用持续填充色。自定义颜色使用 Theme token，深浅主题分别验收。
 
 记忆保留已有搜索、查看来源、编辑纠正、导入和冲突保护，读写开关归为同一设置卡片。语音直接复用已有配置与后台任务，长页面可滚动。人设使用三个互斥风格选项、明确标为“表达示例”的固定样例、可选补充说明和显式保存；样例不伪装为模型实时生成。1280×800px 桌面基准下保存操作直接可见；有草稿时关闭设置会返回 Persona，滚动至页首并立即展示继续编辑/放弃修改提示。
 
@@ -53,7 +57,7 @@ Sidebar 与 CompactSidebar 保持分组导航；极窄窗口保留现有可横�
 
 | 行为 | 自动验证 | 真实 App 验收 |
 | --- | --- | --- |
-| 首组为 Norma，顺序为人设/记忆/语音 | `settings_navigation_layout_tests` | 点击三个英文子菜单确认直达 |
+| 通用、Norma、输入与控制、AI 与自动化四组十页 | `settings_navigation_layout_tests` | settings-navigation 依次进入十页，核对标题与选中项 |
 | 默认人设与语音长页滚动 | panel default、Persona 导航与 `settings_norma_scroll_tests` | 首次打开人设，语音页面滚动到声音配置 |
 | 人设保存后重载、非法输入不覆盖 | `settings_persona_tests` | 输入说明、保存、重启查看 |
 | 草稿跨页保留、关闭保护 | Persona 导航布局测试 | 改风格→切记忆→关闭→继续/放弃 |
