@@ -20,7 +20,6 @@ pub(super) fn hooks_settings(
     let cursor_installed = agent_hooks_installed(HookTarget::Cursor, &paths);
     let grok_installed = agent_hooks_installed(HookTarget::Grok, &paths);
     let opencode_installed = agent_hooks_installed(HookTarget::OpenCode, &paths);
-    let pi_installed = agent_hooks_installed(HookTarget::Pi, &paths);
 
     div()
         .flex()
@@ -91,19 +90,6 @@ pub(super) fn hooks_settings(
             cx,
             MultisoulApp::on_toggle_opencode_hooks,
         ))
-        .child(hook_provider_row(
-            theme,
-            &HookProviderRowSpec {
-                title: "Pi",
-                hint: ui::i18n::text("settings.manage_lifecycle_hooks_in_pi_extensions"),
-                config_path: paths.pi_extension.display().to_string(),
-                installed: pi_installed,
-                status: &panel.pi_hook_status,
-                button_id: "settings-install-pi-hooks",
-            },
-            cx,
-            MultisoulApp::on_toggle_pi_hooks,
-        ))
 }
 
 /// Content bundle for one [`hook_provider_row`] (provider labels, paths, and
@@ -146,16 +132,6 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.settings_panel.opencode_hook_status = toggle_status_for(HookTarget::OpenCode);
-        cx.notify();
-    }
-
-    pub(super) fn on_toggle_pi_hooks(
-        &mut self,
-        _: &ClickEvent,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.settings_panel.pi_hook_status = toggle_status_for(HookTarget::Pi);
         cx.notify();
     }
 
@@ -212,7 +188,6 @@ fn hook_install_success_message(
         HookTarget::Cursor => "Cursor Agent CLI",
         HookTarget::Grok => "Grok Build",
         HookTarget::OpenCode => "OpenCode",
-        HookTarget::Pi => "Pi",
         HookTarget::All => ui::i18n::text("settings.agent_providers"),
     };
     ui::i18n::message(

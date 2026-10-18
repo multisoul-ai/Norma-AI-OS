@@ -4,7 +4,6 @@
   "settings.manage_lifecycle_hooks_in_cursor_hooks_json": "Manage lifecycle hooks in ~/.cursor/hooks.json",
   "settings.manage_lifecycle_hooks_in_grok_hooks": "Manage lifecycle hooks in ~/.grok/hooks",
   "settings.manage_lifecycle_hooks_in_config_opencode_plugins": "Manage lifecycle hooks in ~/.config/opencode/plugins",
-  "settings.manage_lifecycle_hooks_in_pi_extensions": "Manage lifecycle hooks in ~/.pi/agent/extensions (honors PI_CODING_AGENT_DIR)",
   "settings.agent_providers": "agent providers",
   "settings.installed_using_provider_reads_hooks_when_a_session_starts_restart_existing": "Installed using %{arg0}. %{provider} reads hooks when a session starts; restart existing Agent cards or create a new Agent card to activate lifecycle status updates.",
   "settings.norma_os_hooks_removed": "Norma OS hooks removed",
