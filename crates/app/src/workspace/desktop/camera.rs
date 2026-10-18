@@ -237,7 +237,7 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let full = desktop_focus_rect(window);
+        let full = self.desktop_final_focus_rect(window);
         let Some(card) = self.desktop_workspace_directory_rect(workspace_id, window) else {
             return;
         };
@@ -314,7 +314,10 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         let size = window.viewport_size();
-        let full = desktop_scene_rect(f32::from(size.width), f32::from(size.height));
+        let full = desktop_scene_rect(
+            self.desktop_assistant_layout(window).canvas_width,
+            f32::from(size.height),
+        );
         let Some(card) = self.desktop_project_overview_rect(workspace_id, area_id, window) else {
             return;
         };
@@ -353,7 +356,8 @@ impl MultisoulApp {
         window: &Window,
     ) -> Option<CanvasRect> {
         let size = window.viewport_size();
-        let full = desktop_scene_rect(f32::from(size.width), f32::from(size.height));
+        let width = self.desktop_assistant_layout(window).canvas_width;
+        let full = desktop_scene_rect(width, f32::from(size.height));
         let index = self
             .desktop_workspace
             .areas
@@ -361,12 +365,26 @@ impl MultisoulApp {
             .position(|area| area.id == area_id)?;
         let layout = self.desktop_project_rects(
             workspace_id,
-            canvas::Vec2::new(f32::from(size.width), f32::from(size.height)),
+            canvas::Vec2::new(width, f32::from(size.height)),
             self.desktop_workspace
                 .areas
                 .iter()
                 .map(|area| area.id.as_str()),
         );
+        let drawer = self.desktop_assistant_layout(window);
+        let scale = window.scale_factor();
+        let snap = |value: f32| (value * scale).round() / scale;
+        let parent_x = snap(drawer.left_space);
+        let layout = layout
+            .into_iter()
+            .map(|rect| {
+                let left = snap(drawer.left_space + rect.origin.x);
+                let right = snap(drawer.left_space + rect.origin.x + rect.size.x);
+                let top = snap(rect.origin.y);
+                let bottom = snap(rect.origin.y + rect.size.y);
+                CanvasRect::new(left - parent_x, top, right - left, bottom - top)
+            })
+            .collect::<Vec<_>>();
         {
             let mut rects = self
                 .desktop_workspace
@@ -382,6 +400,25 @@ impl MultisoulApp {
             full.size,
             1.0,
         ))
+    }
+
+    fn desktop_final_focus_rect(&self, window: &Window) -> CanvasRect {
+        // This is called while the source is still the Launchpad. The destination
+        // must use the workspace drawer geometry before `screen` changes.
+        let layout = self.desktop_workspace.drawer_motion.layout_with_widths(
+            f32::from(window.viewport_size().width),
+            self.desktop_workspace.drawers.left_open,
+            self.desktop_workspace.drawers.right_open,
+            self.motion.reduce_motion,
+            self.desktop_workspace.drawer_widths.left,
+            self.desktop_workspace.drawer_widths.right,
+        );
+        CanvasRect::new(
+            layout.left_space,
+            0.0,
+            layout.canvas_width,
+            f32::from(window.viewport_size().height),
+        )
     }
 
     pub(super) fn begin_desktop_zoom(

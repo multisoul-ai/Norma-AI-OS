@@ -67,6 +67,9 @@ impl PreparedProject {
                 &area.desktop_workspace_id,
                 &area.id,
             )?;
+            // This loader runs off the GPUI foreground thread. Remove only legacy
+            // ordinary content cards before constructing the live Runtime; Ego tasks stay.
+            project.canvas_store().prune_desktop_content_cards()?;
             let definitions_store =
                 ProjectStore::initialize_for_desktop_definitions(&paths, &area.project_key)?
                     .agent_definition_store();
@@ -408,3 +411,7 @@ mod desktop_project_tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/desktop_content_migration_tests.rs"]
+mod desktop_content_migration_tests;

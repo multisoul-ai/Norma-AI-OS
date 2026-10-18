@@ -63,7 +63,7 @@ pub(crate) fn register_window(app: WeakEntity<MultisoulApp>, cx: &mut App) {
                         tracing::warn!(%error, "optional media catalog unavailable");
                     }
                 }
-                notify_subscribers(true, None, cx);
+                notify_subscribers(None, true, None, cx);
             });
         })
         .detach();
@@ -158,7 +158,7 @@ pub(crate) fn request(rel: &str, retry: bool, cx: &mut App) {
         }
     })
     .detach();
-    cx.defer(|cx| notify_subscribers(false, None, cx));
+    cx.defer(|cx| notify_subscribers(None, false, None, cx));
 }
 
 pub(crate) fn cancel(rel: &str, cx: &mut App) {
@@ -172,7 +172,7 @@ pub(crate) fn cancel(rel: &str, cx: &mut App) {
     if let Some((_, flag)) = library.cancellations.remove(rel) {
         flag.cancel();
     }
-    cx.defer(|cx| notify_subscribers(false, None, cx));
+    cx.defer(|cx| notify_subscribers(None, false, None, cx));
 }
 
 pub(crate) fn shutdown(cx: &mut App) {
@@ -221,14 +221,31 @@ fn receive(rel: &str, id: TransferId, event: DownloadEvent, cx: &mut App) {
         }
     };
     if changed {
-        notify_subscribers(refresh, image_ready.then_some(rel), cx);
+        notify_subscribers(Some(rel), refresh, image_ready.then_some(rel), cx);
     }
 }
 
-fn notify_subscribers(refresh_media: bool, image_ready: Option<&str>, cx: &mut App) {
+fn notify_subscribers(
+    rel: Option<&str>,
+    refresh_media: bool,
+    image_ready: Option<&str>,
+    cx: &mut App,
+) {
     let subscribers = cx.global::<SharedMedia>().subscribers.clone();
     for subscriber in subscribers {
         let _ = subscriber.update(cx, |app, cx| {
+            if refresh_media || image_ready.is_some() {
+                match rel {
+                    Some(rel) => {
+                        app.desktop_workspace
+                            .frosted_wallpaper
+                            .invalidate_for_builtin(rel);
+                    }
+                    None => {
+                        app.desktop_workspace.frosted_wallpaper.invalidate();
+                    }
+                }
+            }
             if let Some(rel) = image_ready {
                 app.wallpaper_settings
                     .image_resource_ready(rel, app.motion.reduce_motion);

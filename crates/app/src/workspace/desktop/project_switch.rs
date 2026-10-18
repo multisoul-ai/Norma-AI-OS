@@ -130,7 +130,8 @@ impl MultisoulApp {
     ) {
         self.desktop_workspace.pending_navigation = None;
         let size = window.viewport_size();
-        let full = desktop_scene_rect(f32::from(size.width), f32::from(size.height));
+        let width = self.desktop_assistant_layout(window).canvas_width;
+        let full = desktop_scene_rect(width, f32::from(size.height));
         let subject = DesktopCanvasSubject::Project {
             workspace_id: workspace_id.to_owned(),
             area_id: target.to_owned(),
@@ -171,7 +172,7 @@ impl MultisoulApp {
                 .unwrap_or(full);
             let layout = self.desktop_project_rects(
                 workspace_id,
-                Vec2::new(f32::from(size.width), f32::from(size.height)),
+                Vec2::new(width, f32::from(size.height)),
                 self.desktop_workspace
                     .areas
                     .iter()

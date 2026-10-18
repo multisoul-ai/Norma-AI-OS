@@ -79,11 +79,7 @@ impl MultisoulApp {
                     .child(
                         project_canvas_scene(session.clone(), projects.logical_size, scale)
                             .opacity(layer.opacity.clamp(0.0, 1.0))
-                            .offset(point(
-                                px(frame.origin.x),
-                                px(frame.origin.y
-                                    + (frame.size.y - projects.logical_size.y * scale) * 0.5),
-                            )),
+                            .offset(point(px(frame.origin.x), px(frame.origin.y))),
                     ),
             );
         }
@@ -99,7 +95,10 @@ impl MultisoulApp {
         window: &Window,
     ) -> Stateful<Div> {
         let viewport = window.viewport_size();
-        let full = desktop_scene_rect(f32::from(viewport.width), f32::from(viewport.height));
+        let full = desktop_scene_rect(
+            self.desktop_assistant_layout(window).canvas_width,
+            f32::from(viewport.height),
+        );
         let frame = frame.unwrap_or(full);
         div()
             .id("desktop-project-world")

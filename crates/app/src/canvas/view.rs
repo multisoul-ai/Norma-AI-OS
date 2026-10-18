@@ -40,6 +40,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 use ui::icons::with_alpha;
 static CANVAS_OPEN_RENDER_PENDING: AtomicBool = AtomicBool::new(false);
+
+pub(crate) fn embedded_node_visible(node_type: NodeType, embedded_desktop: bool) -> bool {
+    !embedded_desktop || matches!(node_type, NodeType::Agent | NodeType::Term)
+}
+
 pub(crate) fn mark_canvas_open_render_pending() {
     CANVAS_OPEN_RENDER_PENDING.store(true, Ordering::Release);
 }
@@ -61,8 +66,13 @@ pub fn render_canvas(
     let vp = app.runtime.document.viewport;
     let win = window.viewport_size();
     let canvas_size = if app.desktop_host.is_some() {
-        crate::workspace::desktop::desktop_scene_rect(f32::from(win.width), f32::from(win.height))
+        app.desktop_embedded_canvas_size.unwrap_or_else(|| {
+            crate::workspace::desktop::desktop_scene_rect(
+                f32::from(win.width),
+                f32::from(win.height),
+            )
             .size
+        })
     } else {
         canvas::Vec2::new(f32::from(win.width), f32::from(win.height))
     };
@@ -84,7 +94,7 @@ pub fn render_canvas(
         let Some((canonical_rect, selected, node_type)) =
             app.runtime.document.node(id).map(|node| {
                 (
-                    node.bounds,
+                    app.presented_node_bounds(id).unwrap_or(node.bounds),
                     node.selected || app.runtime.selection.contains(id),
                     node.kind.node_type(),
                 )
@@ -92,6 +102,9 @@ pub fn render_canvas(
         else {
             continue;
         };
+        if !embedded_node_visible(node_type, app.desktop_host.is_some()) {
+            continue;
+        }
         let focused = matches!(focus_mode, InputMode::NodeFocused(fid) if fid == id);
         let is_swap_candidate = swap_candidate == Some(id);
         app.motion.ensure_node(id, canonical_rect);

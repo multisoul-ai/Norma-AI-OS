@@ -7,7 +7,7 @@ static CHANGES: Changes = Changes::new();
 pub(crate) fn changed() {
     CHANGES.changed();
 }
-pub(super) fn revision() -> u64 {
+pub(crate) fn revision() -> u64 {
     CHANGES.revision()
 }
 pub(super) async fn wait(revision: u64, timeout: Duration) {

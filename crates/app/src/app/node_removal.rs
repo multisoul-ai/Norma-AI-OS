@@ -24,17 +24,41 @@ impl MultisoulApp {
             .node(node_id)
             .map(|node| matches!(node.kind, CanvasNodeKind::Browser(_)))
             .unwrap_or(false);
-        let next_id = canvas::next_neighbor_after_delete(self.runtime.document.nodes(), node_id);
+        let visible_nodes: Vec<_> = self
+            .runtime
+            .document
+            .nodes()
+            .iter()
+            .filter(|node| {
+                self.desktop_host.is_none()
+                    || crate::canvas::view::embedded_node_visible(node.kind.node_type(), true)
+            })
+            .cloned()
+            .collect();
+        let next_id = canvas::next_neighbor_after_delete(&visible_nodes, node_id);
 
-        let changed = close_node_and_update_layout_for_area(
-            &mut self.runtime,
-            &mut self.motion,
-            &mut self.master_layout,
-            node_id,
-            area,
-            zoom,
-            self.layout_strategy,
-        );
+        let changed = if self.desktop_host.is_some() {
+            if !self.runtime.remove_node(node_id) {
+                false
+            } else {
+                self.master_layout.forget_removed_node(node_id);
+                self.motion.clear_transient();
+                self.motion
+                    .retain_nodes(self.runtime.document.nodes().iter().map(|node| node.id));
+                self.refresh_desktop_presentation(window);
+                true
+            }
+        } else {
+            close_node_and_update_layout_for_area(
+                &mut self.runtime,
+                &mut self.motion,
+                &mut self.master_layout,
+                node_id,
+                area,
+                zoom,
+                self.layout_strategy,
+            )
+        };
         if changed {
             if self.agent_queue_ui.open_node_id() == Some(node_id) {
                 self.agent_queue_ui.close();

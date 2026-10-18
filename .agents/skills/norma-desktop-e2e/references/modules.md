@@ -19,6 +19,7 @@
 | 模块 | 场景 | 验收范围 |
 | --- | --- | --- |
 | `workspace` | `workspace-lifecycle` | 工作空间目录：创建、列出、按名称搜索、重命名、取消删除、确认删除、项目目录保留、重启后不恢复。核对 `desktop_workspaces` 与 `desktop_project_areas`。 |
+| `canvas` | `canvas-drawers`、`canvas-project-drawers`、`canvas-content-tabs` | 桌面画布外壳：左右抽屉独立开合及拖宽自动收起、悬浮概览折叠、真实项目画布与输入位置；右侧内容标签的恢复、切换与来源移除。 |
 
 ## 预留模块
 
@@ -26,7 +27,6 @@
 
 | 模块 | 以后验收什么 |
 | --- | --- |
-| `canvas` | 画布平移、选择、节点焦点，以及节点在画布上的可见结果 |
 | `terminal` | Terminal 节点的创建、输入、输出和焦点进出 |
 | `agent` | Agent 卡片的创建、状态和可见回复 |
 | `settings` | 设置页里的可配置项，含快捷键录制与恢复 |

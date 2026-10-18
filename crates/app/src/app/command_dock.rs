@@ -20,6 +20,7 @@ pub(crate) struct CommandDockState {
     pub selected: usize,
     pub scroll: ScrollHandle,
     pub visible: bool,
+    pub sidebar_origin: bool,
     pub drawer: motion::CommandDrawer,
     pub pending_preview: Option<String>,
     pub error: Option<ui::i18n::LocalizedText>,
@@ -84,9 +85,9 @@ impl MultisoulApp {
                     app.interaction.layout_menu_open = false;
                     state.set_visible(true);
                     state.error = None;
-                    state.reply = None;
-                    state.pending_reply = false;
-                    state.reply_generation += 1;
+                    if !state.pending_reply {
+                        state.reply = None;
+                    }
                 }
                 InputEvent::Focus => {
                     app.release_all_browser_input();
@@ -115,6 +116,8 @@ impl MultisoulApp {
             selected: 0,
             scroll: ScrollHandle::new(),
             visible: false,
+            sidebar_origin: matches!(self.screen, AppScreen::DesktopWorkspace)
+                || self.desktop_host.is_some(),
             drawer: motion::CommandDrawer::default(),
             pending_preview: None,
             error: None,
@@ -134,6 +137,9 @@ impl MultisoulApp {
             return;
         }
         self.ensure_command_input(window, cx);
+        if let Some(state) = &mut self.command_dock {
+            state.sidebar_origin = false;
+        }
         self.release_all_browser_input();
         super::native_input::focus_gpui(window, "command_input_shortcut");
         self.runtime.focus.exit_to_canvas();
@@ -168,9 +174,9 @@ impl MultisoulApp {
         state.scroll.scroll_to_item(0);
         state.set_visible(visible);
         state.error = None;
-        state.reply = None;
-        state.pending_reply = false;
-        state.reply_generation += 1;
+        if !state.pending_reply {
+            state.reply = None;
+        }
         state
             .input
             .update(cx, |input, cx| input.set_value(value, window, cx));

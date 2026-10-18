@@ -98,7 +98,7 @@ impl ProjectLayout {
         self.current != self.target
     }
 
-    fn settle(&mut self) {
+    pub(super) fn settle(&mut self) {
         self.current.clone_from(&self.target);
         tracing::info!(target: "desktop_motion", event="project_layout_end", workspace=%self.workspace,
             elapsed_ms=self.elapsed.as_millis(), outcome="completed");
@@ -130,7 +130,10 @@ impl MultisoulApp {
             return;
         };
         let size = window.viewport_size();
-        let viewport = Vec2::new(f32::from(size.width), f32::from(size.height));
+        let viewport = Vec2::new(
+            self.desktop_assistant_layout(window).canvas_width,
+            f32::from(size.height),
+        );
         let ids: Vec<_> = self
             .desktop_workspace
             .areas

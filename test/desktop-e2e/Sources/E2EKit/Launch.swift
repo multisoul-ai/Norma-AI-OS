@@ -1,6 +1,12 @@
 import AppKit
 import Foundation
 
+/// Keep the Unix socket below macOS's sun_path limit even in a deep worktree.
+func isolatedSocketPath(identifier: String) -> String {
+    let safe = identifier.filter { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-") }
+    return "/tmp/norma-e2e-\(safe.prefix(40)).sock"
+}
+
 @MainActor
 public final class Session {
     public let scenario: String
@@ -44,7 +50,7 @@ public final class Session {
         process.executableURL = URL(fileURLWithPath: appPath)
         var environment = ProcessInfo.processInfo.environment
         environment["NORMA_TEST_DATA_ROOT"] = dataRoot.path
-        environment["NORMA_SOCKET"] = dataRoot.appendingPathComponent("norma.sock").path
+        environment["NORMA_SOCKET"] = isolatedSocketPath(identifier: UUID().uuidString)
         process.environment = environment
         process.standardOutput = handle
         process.standardError = handle

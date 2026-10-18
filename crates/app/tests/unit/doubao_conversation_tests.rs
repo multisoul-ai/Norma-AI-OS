@@ -21,6 +21,7 @@ async fn interrupted_reply_late_error_keeps_listening() {
         .send(SpeechEvent::Final("第一句".into()))
         .await
         .expect("应发送第一句");
+    call.expect_user_transcript("第一句").await;
     assert_eq!(
         call.status().await,
         DoubaoStatus::Thinking,
@@ -49,6 +50,7 @@ async fn interrupted_reply_late_error_keeps_listening() {
         .send(SpeechEvent::Final("第二句".into()))
         .await
         .expect("应发送第二句");
+    call.expect_user_transcript("第二句").await;
     assert_eq!(
         call.status().await,
         DoubaoStatus::Thinking,
@@ -102,6 +104,7 @@ async fn notification_waits_for_user_speech_and_reply() {
         .send(SpeechEvent::Final("请继续".into()))
         .await
         .expect("应结束用户语音");
+    call.expect_user_transcript("请继续").await;
     assert_eq!(
         call.status().await,
         DoubaoStatus::Thinking,
@@ -180,6 +183,7 @@ async fn final_replaces_and_cancels_active_notification() {
         .send(SpeechEvent::Final("新输入".into()))
         .await
         .expect("应直接发送 Final");
+    call.expect_user_transcript("新输入").await;
     assert_eq!(
         call.status().await,
         DoubaoStatus::Thinking,
@@ -292,6 +296,7 @@ async fn externally_cancelled_notification_keeps_call_connected() {
         .send(SpeechEvent::Final("继续对话".into()))
         .await
         .expect("应提交后续输入");
+    call.expect_user_transcript("继续对话").await;
     assert_eq!(
         call.status().await,
         DoubaoStatus::Thinking,
@@ -328,6 +333,7 @@ async fn interrupted_reply_late_success_does_not_release_notification() {
         .send(SpeechEvent::Final("第一句".into()))
         .await
         .expect("应发送第一句");
+    call.expect_user_transcript("第一句").await;
     assert_eq!(
         call.status().await,
         DoubaoStatus::Thinking,
@@ -381,6 +387,7 @@ async fn current_reply_failure_is_reported_and_cleans_up() {
         .send(SpeechEvent::Final("当前请求".into()))
         .await
         .expect("应发送输入");
+    call.expect_user_transcript("当前请求").await;
     assert_eq!(
         call.status().await,
         DoubaoStatus::Thinking,

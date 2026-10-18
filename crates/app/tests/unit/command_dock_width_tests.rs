@@ -1,93 +1,48 @@
 use super::*;
 use gpui::{px, size, AppContext, Bounds, Pixels, TestAppContext};
 
-/// 场景：项目从 1 个增加到 8 个，快捷指令输入框在总览和项目画布中都保持固定宽度。
+/// 场景：恢复底部原 Command Dock 后，项目数量增加也不能挤走输入和设置入口。
 ///
-/// 数据构造（含关键数值的推导过程）：
-///   输入框 = 360px，比原 240px 增加 50%；扣除左右 8px 内边距与 1px 边框后为 342px。
-///   快捷键提示约 32px，余下文本区 ≈ 342 - 32 = 310px，可容纳完整中英文默认提示。
-///   项目数 = 1、4、8；编号区上限 = 4×32 + 3×4 = 140px，8 个项目必须滚动访问。
-///   窗口 = 900×800px；900px 大于 Dock 上限 840px + 左右 18px 留白 = 876px。
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 分别创建 1、4、8 个空项目，绘制真实的总览 Dock 并读取输入框布局边界。
-///   2. 展开各组最后一个项目，绘制带语音入口的项目 Dock 并再次读取边界。
-///   3. 检查编号区和设置按钮没有与输入框重叠或超出 Dock。
-///
-/// 预期结果：
-///   - 正断言：六个场景的输入框均为 360px，编号和设置入口仍可见。
-///   - 负断言：项目增多不能压缩输入框，项目编号不能侵入输入框或挤出设置按钮。
+/// 数据构造：窗口宽 900px，左抽屉预留 300px，中央剩余 600px；分别放入
+/// 1、4、8 个项目。编号区最多同时显示 4×32+3×4=140px，其余可横向滚动。
+/// 执行过程：分别绘制工作空间总览和展开的最后一个项目，读取 Dock、输入、编号区与设置入口。
+/// 预期结果：两种场景的 Dock 均在中央画布内，原输入常驻，编号区和设置入口不重叠。
 #[test]
-fn command_dock_input_keeps_fixed_width_as_projects_increase() {
-    let (overview_one, canvas_one) = dock_input_bounds(1, 900.0);
-    let (overview_four, canvas_four) = dock_input_bounds(4, 900.0);
-    let (overview_eight, canvas_eight) = dock_input_bounds(8, 900.0);
-
-    assert_eq!(
-        overview_one.size.width,
-        px(360.0),
-        "1 个项目的总览输入框应为 360px"
-    );
-    assert_eq!(
-        canvas_one.size.width,
-        px(360.0),
-        "1 个项目的画布输入框应为 360px"
-    );
-    assert_eq!(
-        overview_four.size.width,
-        px(360.0),
-        "4 个项目不能压缩总览输入框"
-    );
-    assert_eq!(
-        canvas_four.size.width,
-        px(360.0),
-        "4 个项目不能压缩画布输入框"
-    );
-    assert_eq!(
-        overview_eight.size.width,
-        px(360.0),
-        "8 个项目不能压缩总览输入框"
-    );
-    assert_eq!(
-        canvas_eight.size.width,
-        px(360.0),
-        "8 个项目不能压缩画布输入框"
-    );
+fn command_dock_fits_canvas_as_projects_increase() {
+    for project_count in [1, 4, 8] {
+        let (overview, project) = command_dock_bounds(project_count, 900.0);
+        for dock in [overview, project] {
+            assert!(
+                dock.left() >= px(318.0),
+                "{project_count} 个项目时，Dock 应在左抽屉 300px 和 18px 留白之后"
+            );
+            assert!(
+                dock.right() <= px(882.0),
+                "{project_count} 个项目时，Dock 不能越过右侧 18px 留白"
+            );
+        }
+    }
 }
 
-/// 场景：窄窗口中输入框适度收缩，8 个项目的编号与设置入口仍留在底栏内。
+/// 场景：窄窗口切换为覆盖式抽屉时，底部原 Dock 仍完整可见。
 ///
-/// 数据构造（含关键数值的推导过程）：
-///   窗口 = 640×800px；底栏可用宽度 = 640 - 2×18 = 604px。
-///   输入框默认 = 360px，收缩下限 = 原宽度 240px，最多回收 360 - 240 = 120px。
-///   项目数 = 8，超过 4 个可见编号，其余沿用横向滚动。
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 绘制总览底栏，再展开最后一个项目绘制带语音入口的画布底栏。
-///   2. 读取输入框边界，检查底栏、编号区和设置按钮没有越界或重叠。
-///
-/// 预期结果：
-///   - 正断言：两处输入框至少为 240px，编号区和设置入口仍可见。
-///   - 负断言：输入框不能坚持 360px 而挤出其他控件，底栏不能越过窗口留白。
+/// 数据构造：窗口 640×800px；该断点不预留左侧 300px 抽屉宽度；加入 8 个项目。
+/// 执行过程：绘制总览和项目画布，检查 Dock、编号区、设置入口及输入边界。
+/// 预期结果：Dock 处于窗口两侧各 18px 留白内，编号区至少保留一个 32px 槽位；
+/// 输入与设置入口均可见。
 #[test]
-fn command_dock_input_shrinks_to_fit_a_narrow_window() {
-    let (overview, canvas) = dock_input_bounds(8, 640.0);
-    assert!(
-        overview.size.width >= px(240.0),
-        "总览输入框不能低于原可用宽度"
-    );
-    assert!(
-        canvas.size.width >= px(240.0),
-        "画布输入框不能低于原可用宽度"
-    );
-    assert!(
-        overview.size.width < px(360.0),
-        "窄窗口总览输入框应允许收缩"
-    );
-    assert!(canvas.size.width < px(360.0), "窄窗口画布输入框应允许收缩");
+fn command_dock_fits_narrow_overlay_window() {
+    let (overview, project) = command_dock_bounds(8, 640.0);
+    for dock in [overview, project] {
+        assert!(dock.left() >= px(18.0), "窄窗口 Dock 不能越过左侧留白");
+        assert!(dock.right() <= px(622.0), "窄窗口 Dock 不能越过右侧留白");
+    }
 }
 
-fn dock_input_bounds(project_count: usize, window_width: f32) -> (Bounds<Pixels>, Bounds<Pixels>) {
+fn command_dock_bounds(
+    project_count: usize,
+    window_width: f32,
+) -> (Bounds<Pixels>, Bounds<Pixels>) {
     let temp = tempfile::tempdir().expect("应创建隔离目录");
     let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
     let store = storage::AppStore::initialize(&paths).expect("应初始化隔离存储");
@@ -112,7 +67,6 @@ fn dock_input_bounds(project_count: usize, window_width: f32) -> (Bounds<Pixels>
         ui::component::Root::new(entity, window, cx)
     });
     let host = host.expect("应创建宿主");
-    // 高度沿用 800px，宽度由场景指定：900px 验证默认宽度，640px 验证收缩。
     cx.simulate_resize(size(px(window_width), px(800.0)));
     host.update_in(cx, |app, window, cx| {
         app.motion.reduce_motion = true;
@@ -121,10 +75,7 @@ fn dock_input_bounds(project_count: usize, window_width: f32) -> (Bounds<Pixels>
     cx.run_until_parked();
     host.update_in(cx, |app, window, cx| app.finish_desktop_zoom(window, cx));
     cx.update(|window, cx| window.draw(cx).clear());
-    let overview = cx
-        .debug_bounds("command-dock-input")
-        .expect("总览应显示输入框");
-    assert_dock_controls_fit(cx, project_count, window_width, overview);
+    let overview = assert_command_dock_controls_fit(cx, project_count, false);
 
     host.update_in(cx, |app, window, cx| {
         app.expand_desktop_project_area(last_project.id, window, cx);
@@ -132,45 +83,48 @@ fn dock_input_bounds(project_count: usize, window_width: f32) -> (Bounds<Pixels>
     });
     cx.run_until_parked();
     cx.update(|window, cx| window.draw(cx).clear());
-    let input = cx
-        .debug_bounds("command-dock-input")
-        .expect("画布应显示输入框");
-    assert_dock_controls_fit(cx, project_count, window_width, input);
-    (overview, input)
+    let project = assert_command_dock_controls_fit(cx, project_count, true);
+    (overview, project)
 }
 
-fn assert_dock_controls_fit(
+fn assert_command_dock_controls_fit(
     cx: &mut gpui::VisualTestContext,
     project_count: usize,
-    window_width: f32,
-    input: Bounds<Pixels>,
-) {
-    let switcher = cx
-        .debug_bounds("desktop-project-switcher")
-        .expect("应显示项目切换入口");
+    project_open: bool,
+) -> Bounds<Pixels> {
     let dock = cx
         .debug_bounds("workspace-command-dock")
-        .expect("应显示底栏");
+        .expect("中央应显示原 Command Dock");
+    let input = cx.debug_bounds("command-dock-input").expect("原输入应常驻");
+    let switcher = cx
+        .debug_bounds("desktop-project-switcher")
+        .expect("原 Dock 应显示项目切换入口");
     let settings = cx.debug_bounds("toolbar-settings").expect("应显示设置按钮");
-    assert!(dock.left() >= px(18.0), "底栏不能越过窗口左侧 18px 留白");
     assert!(
-        dock.right() <= px(window_width - 18.0),
-        "底栏不能越过窗口右侧 18px 留白"
+        input.left() >= dock.left() && input.right() <= dock.right(),
+        "{project_count} 个项目时原输入不能溢出 Dock"
+    );
+    if project_open {
+        let voice = cx
+            .debug_bounds("workspace-voice-control")
+            .expect("项目 Dock 应保留原语音入口");
+        assert!(input.right() <= voice.left(), "输入与语音入口不能重叠");
+        assert!(
+            voice.right() <= switcher.left(),
+            "语音入口与项目编号不能重叠"
+        );
+    }
+    assert!(
+        switcher.size.width >= px(32.0),
+        "{project_count} 个项目时项目切换入口不能被裁掉"
     );
     assert!(
-        switcher.left() >= input.right(),
-        "{project_count} 个项目的编号不能与输入框重叠"
-    );
-    assert!(
-        settings.left() >= switcher.right(),
-        "{project_count} 个项目的编号不能与设置按钮重叠"
+        switcher.right() <= settings.left(),
+        "{project_count} 个项目时项目编号不能与设置入口重叠"
     );
     assert!(
         settings.right() <= dock.right(),
-        "{project_count} 个项目不能将设置按钮挤出底栏"
+        "{project_count} 个项目时设置入口不能溢出 Dock"
     );
-    assert!(
-        switcher.size.width >= px(32.0),
-        "项目切换入口不能被裁成不可见"
-    );
+    dock
 }

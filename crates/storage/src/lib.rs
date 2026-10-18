@@ -14,7 +14,8 @@ mod mobile_turn_store;
 pub use mobile_session_store::{MobileSession, MobileSessionKey, RecordedMobileSession};
 pub use mobile_task_baseline_store::{MobileTaskBaselineStore, StoredTaskBaseline, TaskBaseline};
 pub use mobile_task_delivery_store::{
-    MobileTaskDeliveryStore, StoredTaskDelivery, TaskDeliveryContent, TaskDeliverySummary,
+    MobileTaskDeliveryStore, ReviewableFileRef, StoredTaskDelivery, TaskDeliveryContent,
+    TaskDeliverySummary,
 };
 pub use mobile_turn_store::{
     MobileTurnKey, MobileTurnOutcome, MobileTurnState, MobileTurnStore, RecordedMobileTurn,
@@ -23,6 +24,8 @@ pub mod background_agent_dispatch;
 pub mod background_conversation_tail;
 pub mod canvas_store;
 pub mod database_paths;
+pub mod desktop_area_status_store;
+pub mod desktop_content_tab_store;
 pub mod desktop_workspace_store;
 pub mod error;
 pub mod layout_store;
@@ -87,6 +90,12 @@ pub use background_agent_dispatch::BackgroundAgentDispatchStore;
 pub use background_conversation_tail::BackgroundConversationTailStore;
 pub use canvas_store::CanvasStore;
 pub use database_paths::{DatabaseMode, DatabasePaths};
+pub use desktop_area_status_store::{
+    DesktopAgentStatus, DesktopAreaStatus, DesktopAreaStatusStore,
+};
+pub use desktop_content_tab_store::{
+    DesktopContentKind, DesktopContentTab, DesktopContentTabStore, NewDesktopContentTab,
+};
 pub use desktop_workspace_store::{
     DesktopAreaPreview, DesktopProjectArea, DesktopWorkspace, DesktopWorkspaceStore,
     WallpaperReference, WallpaperUsage,

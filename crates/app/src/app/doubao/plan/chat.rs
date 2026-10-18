@@ -8,7 +8,9 @@ use tokio_util::sync::CancellationToken;
 use ui::i18n::LocalizedText;
 
 use super::{plan_url, tts};
-use crate::app::doubao::{playback::PlaybackQueue, tools, ContextRequests, DoubaoStatus};
+use crate::app::doubao::{
+    playback::PlaybackQueue, tools, ContextRequest, ContextRequests, DoubaoStatus,
+};
 
 #[cfg(test)]
 #[path = "../../../../tests/unit/doubao_reply_publish_tests.rs"]
@@ -110,15 +112,43 @@ pub(crate) async fn request_with_current_context(
 ) -> Result<Value, LocalizedText> {
     let (response, received) = tokio::sync::oneshot::channel();
     context
-        .send(response)
+        .send(ContextRequest::Model(response))
         .await
         .map_err(|_| LocalizedText::new("doubao.call_ended"))?;
-    let (canvas, roster) = received
+    let (canvas, roster, desktop) = received
         .await
         .map_err(|_| LocalizedText::new("doubao.call_ended"))?;
-    let mut prompt = agent::norma_system_prompt_base(&canvas, &roster);
+    let mut prompt =
+        agent::norma_system_prompt_base_with_desktop(&canvas, &roster, desktop.as_ref());
     prompt.push_str(instructions);
-    bounded_request(&prompt, history, include_tools, personal)
+    let desktop_active = matches!(
+        desktop,
+        Some(
+            agent::DesktopContext::WorkspaceOverview { .. }
+                | agent::DesktopContext::ProjectCanvas { .. }
+                | agent::DesktopContext::Switching { .. }
+        )
+    );
+    let mut body = bounded_request(&prompt, history, include_tools, personal && !desktop_active)?;
+    if personal && desktop_active {
+        if let Some(tools) = body["tools"].as_array_mut() {
+            tools.retain(|tool| {
+                tool["function"]["name"].as_str().is_some_and(|name| {
+                    name.starts_with("memory_")
+                        || matches!(
+                            name,
+                            "workspace_snapshot"
+                                | "assign_workspace_task"
+                                | "open_workspace_artifact"
+                                | "locate_workspace_agent"
+                                | "create_browser"
+                                | "create_preview"
+                        )
+                })
+            });
+        }
+    }
+    Ok(body)
 }
 
 impl ChatRuntime {
@@ -311,8 +341,17 @@ async fn publish_reply(
     }
     tokio::select! {
         biased;
+        _ = cancellation.cancelled() => return false,
+        sent = status.send(DoubaoStatus::AssistantReply(reply.to_owned())) => {
+            if sent.is_err() {
+                return false;
+            }
+        }
+    }
+    tokio::select! {
+        biased;
         _ = cancellation.cancelled() => false,
-        _ = status.send(DoubaoStatus::Speaking) => true,
+        sent = status.send(DoubaoStatus::Speaking) => sent.is_ok(),
     }
 }
 

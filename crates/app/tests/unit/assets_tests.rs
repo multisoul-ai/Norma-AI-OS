@@ -1,5 +1,41 @@
 use super::*;
 
+/// 场景：左侧 Norma 光环在语音状态变化时切换至活跃帧。
+/// 数据构造：32 张待机帧与 32 张活跃帧，首尾路径均由真实渲染器拼接。
+/// 执行过程：通过生产 AssetSource 加载并枚举两组资源，同时检查越界路径。
+/// 预期结果：全部帧都是 PNG，目录含对应名称，越界路径不可加载。
+#[test]
+fn desktop_assistant_orb_frames_are_embedded_for_both_voice_states() {
+    let assets = EmbeddedAssets;
+    let icons = assets.list("icons").expect("内嵌图标目录应可枚举");
+    for prefix in ["norma-orb", "norma-orb-active"] {
+        for index in 0..32 {
+            let name = format!("{prefix}-{index:02}.png");
+            let path = format!("icons/{name}");
+            let bytes = assets
+                .load(&path)
+                .expect("光环资源查找不应出错")
+                .expect("渲染器引用的光环帧必须嵌入主程序");
+            assert_eq!(
+                &bytes[..8],
+                &[0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a],
+                "{path} 必须是可解码的 PNG"
+            );
+            assert!(
+                icons.iter().any(|item| item.as_ref() == name),
+                "{name} 必须出现在图标目录中"
+            );
+        }
+        assert!(
+            assets
+                .load(&format!("icons/{prefix}-32.png"))
+                .expect("越界光环资源查找不应出错")
+                .is_none(),
+            "{prefix} 第 32 帧越界，不得错误加载其他帧"
+        );
+    }
+}
+
 /// 首页固定背景必须由主二进制提供，且不得误命中不存在的相邻资源。
 ///
 /// 数据构造（含关键数值的推导过程）：

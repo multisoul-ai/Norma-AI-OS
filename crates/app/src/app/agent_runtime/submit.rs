@@ -6,7 +6,6 @@ use agent::{AgentCommand, AgentEvent};
 use gpui::{Context, Window};
 
 impl MultisoulApp {
-    #[cfg(feature = "e2e-test-support")]
     pub(crate) fn submit_compact_agent_text(
         &mut self,
         node_id: canvas::NodeId,
@@ -71,7 +70,8 @@ impl MultisoulApp {
         }
         let roster = self.agent_roster_for_provider();
         let canvas = self.current_canvas_context_for_provider();
-        let mut commands = contextualized_agent_commands(roster, canvas, command);
+        let desktop = self.desktop_context_for_provider(cx);
+        let mut commands = contextualized_agent_commands(roster, canvas, desktop, command);
         let requested = commands
             .pop()
             .expect("contextualized command batch should include the requested command");

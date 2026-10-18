@@ -25,9 +25,6 @@ impl MultisoulApp {
                 .id("desktop-workspace-world")
                 .absolute()
                 .inset_0()
-                .when(!self.desktop_directory_zoom_active(), |world| {
-                    world.child(self.render_workspace_backdrop())
-                })
                 .child(self.render_desktop_project_switch(cx));
             return self.clip_desktop_directory_workspace(world, window);
         }
@@ -72,6 +69,23 @@ impl MultisoulApp {
                     .get(&(workspace_id.to_owned(), area_id.to_owned()))
                     .cloned()
             });
+        if let Some(session) = focus_session.as_ref() {
+            let window_size = window.viewport_size();
+            let target = super::drawers::motion::DesktopDrawerLayout::with_widths(
+                f32::from(window_size.width),
+                f32::from(self.desktop_workspace.drawers.left_open as u8),
+                f32::from(self.desktop_workspace.drawers.right_open as u8),
+                self.desktop_workspace.drawer_widths.left,
+                self.desktop_workspace.drawer_widths.right,
+            );
+            let logical =
+                super::desktop_scene_rect(target.canvas_width, f32::from(window_size.height)).size;
+            session.update(cx, |project, cx| {
+                if project.sync_desktop_embedded_canvas_size(logical, window) {
+                    cx.notify();
+                }
+            });
+        }
         let returning =
             transition_project.is_some() && self.desktop_workspace.expanded_area_id.is_none();
         let workspace_name = self
@@ -86,7 +100,6 @@ impl MultisoulApp {
                     .debug_selector(|| "desktop-workspace-world".to_string())
                     .absolute()
                     .inset_0()
-                    .child(self.render_workspace_backdrop())
                     .child(
                         div()
                             .id("desktop-project-expanded")
@@ -106,22 +119,20 @@ impl MultisoulApp {
         let workspace_id = self.desktop_workspace.active_id.clone().unwrap_or_default();
         let area_ids: Vec<_> = areas.iter().map(|area| area.id.clone()).collect();
         let area_rects = self.desktop_workspace.area_rects.clone();
-        let zoomed_area_id = transition_project
-            .as_ref()
-            .map(|(area_id, _)| area_id.clone());
         let capture_workspace_id = workspace_id.clone();
         if let Some(scroll) = self.desktop_overview_scroll.get(&workspace_id) {
             scroll.set_offset(gpui::point(px(0.0), px(0.0)));
         }
         let is_empty = areas.is_empty();
         // A moving camera scales the settled layout; its frame must never trigger a breakpoint.
-        let width = f32::from(window.viewport_size().width);
+        let width = self.desktop_assistant_layout(window).canvas_width;
         let height = f32::from(window.viewport_size().height);
         let workspace_frame = workspace_frame.map(|frame| {
             if self.desktop_workspace.home_directory {
                 return frame;
             }
-            let full = canvas::CanvasRect::new(0.0, 0.0, width, height);
+            let layout = self.desktop_assistant_layout(window);
+            let full = canvas::CanvasRect::new(layout.left_space, 0.0, width, height);
             let source = self
                 .desktop_workspace
                 .workspace_motion_rects
@@ -137,7 +148,6 @@ impl MultisoulApp {
         let scale = workspace_frame
             .map(|frame| frame.size.x / width)
             .unwrap_or(scene.size.x / width);
-        let capture_bounds = self.desktop_workspace.transition.is_none();
         let capture_project_bounds = transition_project.is_none();
         let area_layout = self.desktop_project_rects(
             &workspace_id,
@@ -192,15 +202,6 @@ impl MultisoulApp {
             .h(px(height * scale))
             .flex()
             .flex_col()
-            .when(capture_bounds, |this| {
-                this.bg(rgba(theme.graphite)).child(
-                    div()
-                        .id("desktop-workspace-overview-wallpaper")
-                        .absolute()
-                        .inset_0()
-                        .child(self.render_workspace_backdrop()),
-                )
-            })
             .child(
                 div()
                     .id("desktop-project-area-scroll")
@@ -334,17 +335,6 @@ impl MultisoulApp {
             .id("desktop-workspace-world")
             .debug_selector(|| "desktop-workspace-world".to_string())
             .absolute();
-        // Directory transitions already paint a fixed window backdrop in the host.
-        if zoomed_area_id.is_some() && !self.desktop_directory_zoom_active() {
-            world = world.child(
-                div()
-                    .id("desktop-project-receding-wallpaper")
-                    .debug_selector(|| "desktop-project-receding-wallpaper".to_string())
-                    .absolute()
-                    .inset_0()
-                    .child(self.render_workspace_backdrop()),
-            );
-        }
         world = world.child(overview);
         if let Some(layer) = project_layer {
             world = world.child(layer);

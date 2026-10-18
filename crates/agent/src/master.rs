@@ -6,8 +6,8 @@ use crate::rig_tools::{
     FindAgentTasksTool, FocusCardTool, ReplyAgentTool, RigToolContext, SendTerminalInputTool,
 };
 use crate::{
-    norma_system_prompt_base, AgentCardAdapter, AgentRosterEntry, CurrentCanvasContext,
-    NormaToolRuntime, ProviderConfig, ProviderProtocol, ToolContext,
+    AgentCardAdapter, AgentRosterEntry, CurrentCanvasContext, DesktopContext, NormaToolRuntime,
+    ProviderConfig, ProviderProtocol, ToolContext,
 };
 use futures::StreamExt;
 use rig_core::agent::{
@@ -94,6 +94,7 @@ pub struct NormaSession {
     model: NormaModel,
     tools: NormaToolRuntime,
     canvas: CurrentCanvasContext,
+    desktop_context: Option<DesktopContext>,
     roster: Vec<AgentRosterEntry>,
     protocol_history: Vec<Message>,
     session_id: String,
@@ -121,6 +122,7 @@ impl NormaSession {
                 cards: Vec::new(),
                 conversation_tails: Vec::new(),
             },
+            desktop_context: None,
             project_id,
             model,
             tools: NormaToolRuntime::new(adapter),
@@ -157,6 +159,10 @@ impl NormaSession {
     ) {
         self.canvas = canvas;
         self.roster = roster;
+    }
+
+    pub fn update_desktop_context(&mut self, context: Option<DesktopContext>) {
+        self.desktop_context = context;
     }
 
     pub fn switch_model(&mut self, config: &ProviderConfig) -> Result<(), NormaSessionError> {
@@ -240,6 +246,14 @@ impl NormaSession {
             context,
             cancellation,
             deltas,
+            desktop_active: matches!(
+                self.desktop_context,
+                Some(
+                    DesktopContext::WorkspaceOverview { .. }
+                        | DesktopContext::ProjectCanvas { .. }
+                        | DesktopContext::Switching { .. }
+                )
+            ),
         };
         let result = match &self.model {
             NormaModel::OpenAi(model) => run_turn(model.clone(), self.tools.clone(), request).await,
@@ -336,6 +350,7 @@ struct TurnRequest {
     context: ToolContext,
     cancellation: CancellationToken,
     deltas: Option<tokio::sync::mpsc::Sender<String>>,
+    desktop_active: bool,
 }
 
 async fn run_turn<M>(
@@ -354,11 +369,12 @@ where
         context,
         cancellation,
         deltas,
+        desktop_active,
     } = request;
     let future = async move {
         let rig_context = RigToolContext::new(context);
         let unknown_status = rig_context.clone();
-        let agent = build_agent(model, &preamble, tools, rig_context.clone());
+        let agent = build_agent(model, &preamble, tools, rig_context.clone(), desktop_active);
         let mut extensions = ToolCallExtensions::new();
         extensions.insert(rig_context);
         let mut stream = agent

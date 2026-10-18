@@ -184,9 +184,10 @@ fn desktop_project_reflow_preserves_agents_and_camera_origin() {
     assert_eq!(initial.len(), 3, "0/1/7个Agent仍只分配三个项目区域");
     assert_eq!(
         initial[0],
-        // 顶部52+12=64；每格高(800-64-91-24)/2=310.5，宽=高×16/9=552。
-        // x=24+(1232-2×552-16)/2=80。
-        CanvasRect::new(80.0, 64.0, 552.0, 310.5),
+        // 1280px 窗口左栏占 307.2px，中间余 972.8px；
+        // 两列各宽 (972.8-48-16)/2=454.4，高=454.4×9/16=255.6。
+        // 两行加 24px 间距在可用高度 645px 中居中，y=64+(645-535.2)/2=118.9。
+        CanvasRect::new(24.0, 118.899994, 454.40002, 255.6),
         "空A保留左上槽位，旧偏移不能使其离屏"
     );
     c_session.update(cx, |app, cx| {
@@ -229,10 +230,13 @@ fn desktop_project_reflow_preserves_agents_and_camera_origin() {
         .debug_bounds("desktop-project-area-2")
         .expect("中间帧C项目必须可见");
     host.update_in(cx, |app, window, cx| {
-        let shell = super::super::camera::canvas_rect_from_bounds(drawn);
+        let mut shell = super::super::camera::canvas_rect_from_bounds(drawn);
+        let drawer = app.desktop_assistant_layout(window);
+        let scale = window.scale_factor();
+        shell.origin.x -= (drawer.left_space * scale).round() / scale;
         let expected = super::super::preview_canvas::project_canvas_rect(
             shell,
-            super::super::desktop_scene_rect(1280.0, 800.0).size,
+            super::super::desktop_scene_rect(drawer.canvas_width, 800.0).size,
             1.0,
         );
         app.expand_desktop_project_area(c.id.clone(), window, cx);

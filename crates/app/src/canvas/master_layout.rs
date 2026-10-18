@@ -44,6 +44,14 @@ impl MasterLayoutState {
         self.active = None;
     }
 
+    pub(crate) fn forget_removed_node(&mut self, node_id: NodeId) {
+        if self.master_id() == Some(node_id) {
+            self.clear();
+        } else if let Some(active) = &mut self.active {
+            active.original_bounds.remove(&node_id);
+        }
+    }
+
     pub(crate) fn to_snapshot(&self) -> LayoutStateSnapshot {
         match &self.active {
             Some(active) => LayoutStateSnapshot {

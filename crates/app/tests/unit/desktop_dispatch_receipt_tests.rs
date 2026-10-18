@@ -128,13 +128,13 @@ fn desktop_workspace_dispatch_receipt_is_painted_over_shared_dock() {
         .expect("Workspace 必须实际绘制已接受任务的流星，不能仅创建状态");
     assert_eq!(
         overlay.origin,
-        point(px(0.0), px(0.0)),
-        "流星层必须从窗口原点开始"
+        point(px(307.0), px(0.0)),
+        "流星层必须从中间画布左边缘开始"
     );
     assert_eq!(
         overlay.size,
-        size(px(1280.0), px(800.0)),
-        "流星层必须覆盖共享 Dock"
+        size(px(973.0), px(800.0)),
+        "流星层必须覆盖中间画布的共享 Dock"
     );
     assert_ne!(
         overlay.origin,
