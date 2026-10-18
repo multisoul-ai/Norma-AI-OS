@@ -20,6 +20,7 @@
 | --- | --- | --- |
 | `workspace` | `workspace-lifecycle` | 工作空间目录：创建、列出、按名称搜索、重命名、取消删除、确认删除、项目目录保留、重启后不恢复。核对 `desktop_workspaces` 与 `desktop_project_areas`。 |
 | `canvas` | `canvas-drawers`、`canvas-project-drawers`、`canvas-content-tabs` | 桌面画布外壳：左右抽屉独立开合及拖宽自动收起、悬浮概览折叠、真实项目画布与输入位置；右侧内容标签的恢复、切换与来源移除。 |
+| `settings` | `settings-navigation`、`settings-basic-preferences`、`settings-responsive-keyboard` | 两级导航、基础设置中的语言与节能、主题切换、持久化与重启恢复，以及键盘和窄窗口。 |
 
 ## 预留模块
 
@@ -29,7 +30,6 @@
 | --- | --- |
 | `terminal` | Terminal 节点的创建、输入、输出和焦点进出 |
 | `agent` | Agent 卡片的创建、状态和可见回复 |
-| `settings` | 设置页里的可配置项，含快捷键录制与恢复 |
 | `voice` | 语音输入或朗读在真实窗口上的可见状态 |
 
 导航可以穿过别的模块，例如从工作空间目录打开画布。断言仍只写本模块的后置状态。跨模块的用户流程拆成各自模块里的场景，或在本表新增一行说明它为什么必须跨模块。

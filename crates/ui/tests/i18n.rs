@@ -1,5 +1,53 @@
 use ui::i18n::{LanguagePreference, Locale, LocalizedText};
 
+/// 通用分组与基础设置页面使用不同名称，节能分区及页面说明均随语言切换。
+///
+/// 数据构造：4 个文案键 × 中文和英文 2 种语言，共 8 个独立期望值。
+/// 执行过程：用显式 Locale 读取分组、页面、说明和节能分区文案，不修改进程语言。
+/// 预期结果：中英文均返回约定名称；页面名称不得与分组相同，中文不得回退为文案键。
+#[test]
+fn general_group_and_basic_settings_have_distinct_bilingual_labels() {
+    use ui::i18n::text_for;
+    let cases = [
+        ("general.title", "通用", "General"),
+        ("general.basic_settings", "基础设置", "Basic Settings"),
+        (
+            "general.subtitle",
+            "设置界面语言与空闲节能偏好",
+            "Set your interface language and idle energy preferences",
+        ),
+        (
+            "settings.performance_energy",
+            "性能与节能",
+            "Performance & Energy",
+        ),
+    ];
+    for (key, chinese, english) in cases {
+        assert_eq!(
+            text_for(Locale::ZhCn, key),
+            chinese,
+            "中文文案应符合设置结构：{key}"
+        );
+        assert_eq!(
+            text_for(Locale::En, key),
+            english,
+            "英文文案应符合设置结构：{key}"
+        );
+        assert_ne!(
+            text_for(Locale::ZhCn, key),
+            key,
+            "中文文案不得回退为键：{key}"
+        );
+    }
+    for locale in [Locale::ZhCn, Locale::En] {
+        assert_ne!(
+            text_for(locale, "general.title"),
+            text_for(locale, "general.basic_settings"),
+            "通用分组与基础设置页面应有不同名称"
+        );
+    }
+}
+
 /// 跟随系统选择首个受支持的语言，显式选择优先于系统偏好。
 ///
 /// 数据构造（含关键数值的推导过程）：

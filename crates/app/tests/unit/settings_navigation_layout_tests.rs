@@ -64,43 +64,51 @@ fn sidebar_navigation_items_use_canonical_thirty_nine_pixel_height() {
     );
 }
 
-/// 通用位于顶部；Norma 作为第二组，人设、记忆与语音均可直接导航。
+/// 通用合并外观后保持四组十页，基础设置、主题和壁纸均为通用的直接目的地。
 ///
-/// 数据构造：顶部通用 1 项；读取第二个生产导航分组；Norma 子页面数 = 人设(1)+记忆(1)+语音(1)=3。
-/// 执行过程：取第一个分组及页面标题，再检查其他导航组。
-/// 预期结果：首组为 Norma 且顺序明确；AI 与输入分组没有重复的 Norma 入口。
+/// 数据构造：通用 3 页 + Norma 3 页 + 输入 1 页 + 自动化 3 页 = 10 页，4 个分组。
+/// 执行过程：逐组核对生产导航的顺序和页面归属，再检查扁平化后的唯一性与隐藏项。
+/// 预期结果：完整结构与用户确认的两级菜单一致；没有独立外观组、重复页面或测试占位页。
 #[test]
-fn general_precedes_norma_with_three_direct_destinations() {
-    let (_, general) = super::NAVIGATION_GROUPS[0];
+fn settings_navigation_has_four_groups_and_ten_unique_pages() {
+    use super::SettingsSection::*;
+    let expected: &[(&str, &[super::SettingsSection])] = &[
+        ("general.title", &[General, Themes, Wallpaper]),
+        ("Norma", &[NormaPersona, NormaMemory, NormaVoice]),
+        ("settings.input_controls", &[Keyboard]),
+        ("settings.ai_automation", &[Agents, Orchestration, Mobile]),
+    ];
     assert_eq!(
-        general,
-        &[super::SettingsSection::General],
-        "通用必须为首个设置入口"
+        super::NAVIGATION_GROUPS.len(),
+        4,
+        "合并后必须恰有四个导航分组"
     );
+    for ((title, sections), (expected_title, expected_sections)) in
+        super::NAVIGATION_GROUPS.iter().zip(expected)
+    {
+        assert_eq!(title, expected_title, "分组名称和顺序必须符合两级菜单");
+        assert_eq!(
+            sections, expected_sections,
+            "分组 {title} 的页面归属和顺序必须正确"
+        );
+    }
+    let pages: Vec<_> = super::NAVIGATION_GROUPS
+        .iter()
+        .flat_map(|(_, sections)| sections.iter().copied())
+        .collect();
+    assert_eq!(pages.len(), 10, "页面总数应为 3 + 3 + 1 + 3 = 10");
+    for (index, page) in pages.iter().enumerate() {
+        assert!(!pages[..index].contains(page), "页面 {page:?} 只能出现一次");
+    }
     assert!(
-        !general.contains(&super::SettingsSection::NormaVoice),
-        "语音仍属于 Norma 分组"
+        !pages.contains(&Runtime),
+        "测试专用 Runtime 不得进入生产导航"
     );
-    let (title, sections) = super::NAVIGATION_GROUPS[1];
-    assert_eq!(title, "Norma", "通用之后必须保留独立 Norma 板块");
-    assert_eq!(
-        sections
-            .iter()
-            .map(|section| section.title())
-            .collect::<Vec<_>>(),
-        ["Persona", "Memory", "Voice"],
-        "英文子菜单必须以 Persona 开始，随后是 Memory 与 Voice"
-    );
+    assert!(!pages.contains(&Skills), "测试专用 Skills 不得进入生产导航");
     assert!(
-        !super::AUTOMATION_SECTIONS
+        super::NAVIGATION_GROUPS
             .iter()
-            .any(|section| sections.contains(section)),
-        "Norma 不应继续混在 AI & Automation 分组中"
-    );
-    assert!(
-        !super::INPUT_SECTIONS
-            .iter()
-            .any(|section| sections.contains(section)),
-        "语音入口必须仅属于 Norma，不能重复出现在输入分组"
+            .all(|(title, _)| !title.is_empty() && *title != "settings.appearance"),
+        "通用应显示分组标题，独立外观分组应被合并"
     );
 }

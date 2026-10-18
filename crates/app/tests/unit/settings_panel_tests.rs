@@ -335,16 +335,16 @@ fn test_settings_panel_selects_sections_without_closing() {
     );
 }
 
-/// Settings 导航暴露七个已实现页面，并继续隐藏 Runtime/Skills mock 分组。
+/// Settings 内容路由承载合并后的十个页面，并继续隐藏 Runtime/Skills mock 分组。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   source = settings_panel.rs + settings_content.rs（生产侧栏与内容路由）；
-///   visible sections = Themes + Keyboard + Voice + Agents + Orchestration + Wallpaper + Performance，共 7 个；
+///   source = panel.rs + navigation.rs + content.rs（生产导航与内容路由）；
+///   visible sections = 通用 3 + Norma 3 + 输入 1 + 自动化 3 = 10 个；
 ///   hidden mock sections = Runtime + Skills，共 2 个。
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 读取 settings_panel.rs 生产源码
-///   2. 检查侧栏接线的 7 个可配置页面
+///   1. 读取生产导航与内容路由源码
+///   2. 检查 10 个页面仍接入内容路由
 ///   3. 检查内容路由明确把 2 个旧 mock 分组收敛为空白 fallback
 ///
 /// 预期结果：
@@ -359,13 +359,16 @@ fn test_settings_sidebar_exposes_only_implemented_configuration_pages() {
         include_str!("../../src/settings/content.rs")
     );
     let visible_sections = [
+        "SettingsSection::General",
         "SettingsSection::Themes",
         "SettingsSection::Keyboard",
         "SettingsSection::NormaMemory",
+        "SettingsSection::NormaPersona",
+        "SettingsSection::NormaVoice",
         "SettingsSection::Agents",
         "SettingsSection::Orchestration",
         "SettingsSection::Wallpaper",
-        "SettingsSection::Performance",
+        "SettingsSection::Mobile",
     ];
 
     for section in visible_sections {
@@ -377,6 +380,10 @@ fn test_settings_sidebar_exposes_only_implemented_configuration_pages() {
     assert!(
         source.contains("SettingsSection::Runtime | SettingsSection::Skills => div()"),
         "旧 Runtime/Skills 分组必须保留为空白 fallback，不能恢复为 mock 内容"
+    );
+    assert!(
+        !source.contains("SettingsSection::Performance"),
+        "独立性能页面应归入基础设置，不再保留内容路由"
     );
 }
 

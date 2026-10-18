@@ -36,6 +36,14 @@ extension Session {
         try Catalog.load(database: databaseURL())
     }
 
+    public func setting(_ key: String) throws -> String? {
+        let database = try SQLiteDB(path: databaseURL().path, write: false)
+        defer { database.close() }
+        return try database.query("SELECT value FROM settings WHERE key=?1", bindings: [key]) {
+            column($0, 0)
+        }.first
+    }
+
     public func waitCatalog(timeout: TimeInterval, _ ready: (Catalog) -> Bool) async throws -> Catalog {
         let deadline = Date().addingTimeInterval(timeout)
         var last = ""

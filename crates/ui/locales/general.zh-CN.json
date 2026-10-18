@@ -1,6 +1,7 @@
 {
   "general.title": "通用",
-  "general.subtitle": "选择你喜欢的界面语言",
+  "general.basic_settings": "基础设置",
+  "general.subtitle": "设置界面语言与空闲节能偏好",
   "general.interface_language": "界面语言",
   "general.follow_system": "跟随系统",
   "general.language_hint": "立即应用到所有窗口。AI 回复保持现有语言行为。",

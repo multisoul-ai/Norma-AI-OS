@@ -54,7 +54,6 @@ pub(crate) enum SettingsSection {
     Skills,
     Orchestration,
     Wallpaper,
-    Performance,
     Mobile,
 }
 
@@ -81,7 +80,7 @@ impl SettingsSection {
     fn metadata(self) -> SettingsSectionMetadata {
         match self {
             Self::General => SettingsSectionMetadata {
-                title: ui::i18n::text("general.title"),
+                title: ui::i18n::text("general.basic_settings"),
                 icon_asset: Some(TOOLBAR_SETTINGS_ASSET),
                 index: 12,
                 debug_selector: "settings-section-general",
@@ -154,20 +153,14 @@ impl SettingsSection {
                 index: 9,
                 debug_selector: "settings-section-mobile",
             },
-            Self::Performance => SettingsSectionMetadata {
-                title: ui::i18n::text("settings.performance"),
-                icon_asset: Some(TOOLBAR_SETTINGS_ASSET),
-                index: 8,
-                debug_selector: "settings-section-performance",
-            },
         }
     }
 }
 
-const APPEARANCE_SECTIONS: &[SettingsSection] = &[
+const GENERAL_SECTIONS: &[SettingsSection] = &[
+    SettingsSection::General,
     SettingsSection::Themes,
     SettingsSection::Wallpaper,
-    SettingsSection::Performance,
 ];
 const INPUT_SECTIONS: &[SettingsSection] = &[SettingsSection::Keyboard];
 const AUTOMATION_SECTIONS: &[SettingsSection] = &[
@@ -182,10 +175,9 @@ const NORMA_SECTIONS: &[SettingsSection] = &[
     SettingsSection::NormaVoice,
 ];
 
-const NAVIGATION_GROUPS: [(&str, &[SettingsSection]); 5] = [
-    ("", &[SettingsSection::General]),
+const NAVIGATION_GROUPS: [(&str, &[SettingsSection]); 4] = [
+    ("general.title", GENERAL_SECTIONS),
     ("Norma", NORMA_SECTIONS),
-    ("settings.appearance", APPEARANCE_SECTIONS),
     ("settings.input_controls", INPUT_SECTIONS),
     ("settings.ai_automation", AUTOMATION_SECTIONS),
 ];

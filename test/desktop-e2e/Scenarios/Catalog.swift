@@ -6,6 +6,7 @@ public enum ScenarioCatalog {
     public static let modules: [DesktopModule] = [
         WorkspaceModule.manifest,
         CanvasModule.manifest,
+        SettingsModule.manifest,
     ]
 
     public static func names(matching selector: String) -> [String]? {
