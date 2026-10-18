@@ -1,6 +1,6 @@
 # Goal：接入 Kimi、ZCode、Pi、Hermes 智能体卡片
 
-状态：ACTIVE（2026-10-18 创建，尚未开工，G0–G5 均未通过）。
+状态：ACTIVE（2026-10-18 创建）。代码与单元/集成验证已合并到本地基线分支 `feat/new-cli-cards-base`（尚未推送，未建 PR）；**真实 App 验收（desktop-e2e）未做、委派链路未验证、若干产品决策待定，G5 未通过**，因此 Goal 不能标记 complete。逐项进度见 §7 与 §9。
 
 **用户决定（2026-10-18）**：Kimi 接 Kimi Code CLI（命令 `kimi`，不接已归档的旧 `kimi-cli`）；ZCode 指 `zai-org/ZCode`；图标取官方素材并转成终端可显示的像素风格；快捷键 Kimi=`Cmd+7`、Pi=`Cmd+8`、Hermes=`Cmd+9`、ZCode 默认不绑定，全部进 Settings；hooks、会话恢复、编排都要做。
 
@@ -90,12 +90,12 @@ scripts/desktop-e2e.sh <模块>
 
 ## 7. 完成定义
 
-- [ ] G0–G5 有实际产物、命令结果与记录。
-- [ ] 四种卡片的创建、启动、保存、恢复、hooks 状态、编排全部有对应测试与真实 App 证据；不支持的能力有书面依据和降级行为。
-- [ ] 图标来源与授权已记录，像素图标在深浅色下验收通过。
-- [ ] 快捷键进入 Settings 并可恢复；文档与两份 Agent 指南同步。
-- [ ] 现有五种卡片行为和性能护栏无回归；PTY 清理路径无新增泄漏。
-- [ ] 获用户授权后提交；hooks 未被绕过。
+- [ ] G0–G5 有实际产物、命令结果与记录。（G0 探测、G2 基础接入、G3 hooks、G4 恢复与编排的 norma 层已有产物与测试；G1 图标仅 Pi 完成官方像素转换，Kimi/ZCode 为字母占位，Hermes 已转换但商标条款未确认；G5 真实 App 验收未做。）
+- [ ] 四种卡片的创建、启动、保存、恢复、hooks 状态、编排全部有对应测试与真实 App 证据；不支持的能力有书面依据和降级行为。（单元/集成测试已覆盖，不支持项见各调研文档的“已验证/未验证”表；**真实 App 证据缺失**；四个 CLI 的“模型按 skill 调用 norma”均未验证，设置页已标注“实验性：委派链路未验证”。）
+- [ ] 图标来源与授权已记录，像素图标在深浅色下验收通过。（Pi 来源与 MIT 许可已记录；Kimi、ZCode 许可未验证，保持字母占位；Hermes 的官方图标商标条款未验证，待用户确认是否保留；深浅色真实 App 验收未做。）
+- [ ] 快捷键进入 Settings 并可恢复；文档与两份 Agent 指南同步。（Kimi=`Cmd+7`、Pi=`Cmd+8`、Hermes=`Cmd+9`、ZCode 默认不绑定已注册到 `shortcuts/catalog.rs`，CLAUDE.md / ARCHITECTURE.md / keyboard-shortcuts.md 已同步；Settings 中录制与恢复的真实 App 验收未做。）
+- [ ] 现有五种卡片行为和性能护栏无回归；PTY 清理路径无新增泄漏。（域层与 app lib 测试、6 个护栏脚本通过；app lib 有 1 个既有的顺序相关测试 `voice_redesign_task_layout_and_mode_persistence` 单独运行失败，基线复现，与本 Goal 无关；PTY 泄漏未专门验证。）
+- [ ] 获用户授权后提交；hooks 未被绕过。（本地提交均经 pre-commit，未使用 `--no-verify`；推送与 PR 尚未获授权。）
 - [ ] 最终报告注明可运行 App 与证据路径；仅此时将 Goal 标记 complete。
 
 ## 8. 可直接创建 Goal 的提示词
@@ -121,3 +121,11 @@ scripts/desktop-e2e.sh <模块>
 | 日期 | 阶段 | 内容 | 结果 |
 | --- | --- | --- | --- |
 | 2026-10-18 | 创建 | 用户确认 5 项决定；盘点 `AgentProfile::OpenCode` 的全部匹配点形成改动清单 | 未写代码，G0 待开工 |
+| 2026-10-18 | G0 探测 | 四个 CLI 真机探测：Pi 1.3.0、Kimi Code 2.2.0、Hermes 0.22.2、ZCode 0.16.9（源码构建）；调研文档与证据在 `docs/research/2026-10-18-*.md` | 完成；每项结论标“已验证/未验证”，未验证项不实现 |
+| 2026-10-18 | G2 基础接入 | `AgentProfile` 骨架贯通 canvas/storage/runtime/norma/agent/app/ui；四分支并行实施、独立审查、修复后合并 | 域层 152 个测试二进制通过；app lib 1054+ 通过 |
+| 2026-10-18 | G3/G4 hooks 与恢复 | Pi 扩展、Kimi `config.toml` 标记区块、Hermes 目录插件、ZCode JSON 配置的 hooks；恢复命令 `--session-id`/`--session`/`--resume`；会话发现一律 None | 完成；ZCode 无失败/中断事件，卡片会停在 Thinking |
+| 2026-10-18 | G4 编排 | 四个 CLI 的 skill 目录实测后接入 `OrchestrationProvider::ALL` 与 hooks 安装；授权隔离；hook Conflict 不授权；设置页标注“委派链路未验证” | 完成 norma 层与设置页；Kimi/ZCode 的 hook 是共享配置合并写入，无独占冲突检测，待产品决定 |
+| 2026-10-18 | 集成修复 | 合并后补 `cfg(test)`、拆分 `install.rs`（530→343 行）、补全测试夹具字段、`All` 安装测试不再写根目录 | 已修 |
+| 2026-10-18 | iOS | `Snapshot.swift` 校验白名单缺新 profile，会让整份手机快照失败；抽出 `MobileAgentProfile.displayable`，手机端可创建名单不变 | 修复并补 3 个测试；NormaCore 114 个测试 0 失败 |
+| 2026-10-18 | 文档同步 | CLAUDE.md、ARCHITECTURE.md、keyboard-shortcuts.md 补快捷键与新建入口 | 完成 |
+| 待办 | G5 | 真实 App desktop-e2e 验收；推送与 PR；Hermes 图标商标确认；Kimi/ZCode 冲突检测决策；用真实模型凭据验证委派链路 | 未做 |
