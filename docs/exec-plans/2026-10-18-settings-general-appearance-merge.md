@@ -1,6 +1,6 @@
 # 设置通用与外观合并实施计划
 
-状态：实施中。信息架构已由用户确认，2026-10-18 在独立 worktree 的 `feat/settings-general-appearance-merge` 分支实施，目标合并到 `dev`。
+状态：实施与本地验收完成。2026-10-18 在独立 worktree 的 `feat/settings-general-appearance-merge` 分支实施，目标通过 PR 合并到 `dev`。
 
 将现有独立「通用」页面与「外观」导航分组合并为「通用」分组，下面设置「基础设置、主题、壁纸」三个页面。基础设置承载界面语言和性能与节能，整个设置导航保持两级。
 
@@ -138,13 +138,13 @@ bash scripts/check-performance-guardrails.sh
 
 ## 完成条件
 
-- [ ] 四组十页的两级结构与目标树完全一致。
-- [ ] 基础设置内语言与节能可独立操作，旧配置可直接恢复。
-- [ ] 中英文名称、页面标题与导航选中状态一致。
-- [ ] 主题、壁纸、默认页、关闭重开与草稿保护通过回归。
-- [ ] 相关测试、构建和护栏通过，desktop-e2e 与必要的 Computer Use 有真实结果。
-- [ ] 记录真实验收命令、退出码、数据断言与截图绝对路径，并逐张给出视觉结论。
-- [ ] 更新本计划状态及现行导航说明；既有无关失败单独记录，不写成已通过。
+- [x] 四组十页的两级结构与目标树完全一致。
+- [x] 基础设置内语言与节能可独立操作，旧配置可直接恢复。
+- [x] 中英文名称、页面标题与导航选中状态一致。
+- [x] 主题、壁纸、默认页、关闭重开与草稿保护通过回归。
+- [x] 相关测试、构建和护栏已执行，既有失败单列；desktop-e2e 有真实结果。
+- [x] 记录真实验收命令、退出码、数据断言与截图绝对路径，并逐张给出视觉结论。
+- [x] 更新本计划状态及现行导航说明；既有无关失败单独记录，不写成已通过。
 
 ## 实施记录
 
@@ -152,3 +152,25 @@ bash scripts/check-performance-guardrails.sh
 - UI crate：`cargo test -p ui -- --test-threads=1` 通过，7 个单元测试和 6 个集成测试。
 - 设置回归：247 项中 246 通过，`voice_redesign_task_layout_and_mode_persistence` 在语音卡片等宽断言处失败，实际为 517px 与 543px。单独运行同样失败；暂时将本轮修改的 `navigation.rs`、`content.rs`、`performance.rs` 恢复为 `dev` 基线后，仍在同一断言得到相同结果。本轮代码随后已恢复。对照日志：`/tmp/norma-settings-verification-20261018/baseline-voice.log`。
 - 独立对抗式静态审查：未发现本轮生产改动的缺陷或当前 E2E 调用顺序中的假阳性；键盘、窄窗口和视觉状态交由真实 App 验收。
+
+
+## 最终验收（2026-10-18）
+
+- `cargo build -p app`：退出码 0（恢复工作目录后重建 16m32s）。
+- `cargo build -p app --release --target-dir /Users/openclawd/.cache/norma-settings-delivery-20261018/release-target --jobs 4`：退出码 0，29m04s。
+- 正常 pre-commit：行数、no-allow、指南行数、性能、签名就绪、视频壁纸护栏、`cargo check --workspace --quiet` 与 `cargo fmt --check` 均通过；没有绕过 hook。
+- UI 与设置测试沿用本任务前段已完成的 13 项 UI 通过、246 项设置通过和 1 项基线失败；目录恢复后的重复测试为优先提交而停止，不将该次未完成运行记为通过。
+- `bash scripts/desktop-e2e.sh settings`：退出码 0，3/3 通过。navigation 92.84s、basic-preferences 51.11s、responsive-keyboard 28.68s；无 ENV 失败。
+- SQLite 断言：语言依次保存 en / zh-CN，节能保存 true / false，互不覆盖；重启恢复 zh-CN 与 true；浅色主题保存 paper-blue。
+- 第三场景首次运行在恢复 1280×800 时未达到系统窗口尺寸要求，键盘与两个窄窗口步骤已通过。浅色切换前改用已通过的 720×760 中间尺寸，最终仍严格验 560×760；完整三场景随后通过。未改产品代码或放宽最终尺寸断言。
+- 独立 subagent 对新增场景及调整复审，未发现需修复问题。
+
+证据根目录：`/Users/openclawd/.cache/norma-settings-delivery-20261018/work/artifacts/desktop-workspace-e2e/`。逐张打开并核对以下清单，26 张结论均为符合；响应式顶部导航保留横向滚动，长内容保留纵向滚动。
+
+| 场景目录 | 已核对截图（全部符合） |
+| --- | --- |
+| `2026-10-18T03-11-20Z` | `01-persona-default.png`、`02-basic-dark.png`、`3-themes.png`、`4-wallpaper.png`、`5-persona.png`、`6-memory.png`、`7-voice.png`、`8-keyboard.png`、`9-agents.png`、`10-orchestration.png`、`11-mobile.png`、`12-basic-light.png` |
+| `2026-10-18T03-12-53Z` | `01-language-english.png`、`02-energy-enabled.png`、`03-language-chinese.png`、`04-reopened-basic.png`、`05-restored-basic.png`、`06-energy-disabled.png` |
+| `2026-10-18T03-13-44Z` | `01-themes-keyboard-focus.png`、`02-themes-keyboard-enter.png`、`03-basic-keyboard-space.png`、`04-basic-compact-dark.png`、`05-compact-energy-dark.png`、`06-basic-topbar-dark.png`、`07-topbar-energy-dark.png`、`08-basic-topbar-light.png` |
+
+每个目录中的 `report.json` 包含逐步结果、耗时和数据目录，原始运行日志保存在 `/tmp/norma-settings-verification-20261018/isolated-settings-e2e-final.log`。编排页的安装状态仅验证导航与说明可见，本轮没有执行安装或修复操作。
