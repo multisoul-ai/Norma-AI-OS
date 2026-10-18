@@ -198,7 +198,7 @@ fn test_install_hook_config_is_idempotent_for_claude_and_codex() {
         opencode_plugin: temp.path().join("multisoul-agent-hook.js"),
         kimi_config: (temp.path().join("multisoul-agent-hook.js"))
             .with_file_name("kimi-config.toml"),
-        hermes_plugin_dir: std::path::PathBuf::from("/nonexistent-hermes-plugin-dir"),
+        hermes_plugin_dir: temp.path().join("hermes-plugin"),
         zcode_config: temp.path().join("zcode-config.json"),
     };
     let command_path = temp.path().join("multisoul-agent-hook");
