@@ -1,20 +1,10 @@
 //! Pure desktop assistant drawer decisions; GPUI only applies the resulting view state.
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct DesktopDrawerState {
     pub left_open: bool,
     pub right_open: bool,
     pub overview_expanded: bool,
-}
-
-impl Default for DesktopDrawerState {
-    fn default() -> Self {
-        Self {
-            left_open: true,
-            right_open: false,
-            overview_expanded: false,
-        }
-    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

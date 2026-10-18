@@ -2,8 +2,9 @@
 
 use crate::app::{AppScreen, MultisoulApp};
 use agent::{AdapterError, AdapterResult, WorkspaceSnapshotScope};
-use gpui::{App, Context};
+use gpui::{App, Context, EntityId};
 use serde_json::{json, Value};
+use storage::DesktopAgentStatus;
 
 impl MultisoulApp {
     pub(crate) fn norma_workspace_snapshot(
@@ -13,17 +14,21 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) -> Result<AdapterResult, AdapterError> {
         if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
+            // The source project is currently leased by the Adapter update. Pass its live
+            // projection to the host so a workspace-wide query never reads that entity again.
+            let source = (cx.entity().entity_id(), super::status::live_agents(self));
             return host.update(cx, |host, cx| {
-                host.norma_workspace_snapshot_on_host(scope, area_id, cx)
+                host.norma_workspace_snapshot_on_host(scope, area_id, Some(source), cx)
             });
         }
-        self.norma_workspace_snapshot_on_host(scope, area_id, cx)
+        self.norma_workspace_snapshot_on_host(scope, area_id, None, cx)
     }
 
     fn norma_workspace_snapshot_on_host(
         &self,
         scope: WorkspaceSnapshotScope,
         area_id: Option<&str>,
+        source: Option<(EntityId, Vec<DesktopAgentStatus>)>,
         cx: &App,
     ) -> Result<AdapterResult, AdapterError> {
         if self.screen != AppScreen::DesktopWorkspace {
@@ -54,7 +59,22 @@ impl MultisoulApp {
             if selected.is_some_and(|target| target != area.id) {
                 continue;
             }
-            let status = self.desktop_area_status_view(&workspace.id, &area.id, cx);
+            let status = match source.as_ref() {
+                Some((source_id, agents))
+                    if self
+                        .desktop_workspace
+                        .sessions
+                        .get(&(workspace.id.clone(), area.id.clone()))
+                        .is_some_and(|session| session.entity_id() == *source_id) =>
+                {
+                    super::status::DesktopAreaStatusView {
+                        agents: agents.clone(),
+                        live: true,
+                        updated_at_unix_ms: None,
+                    }
+                }
+                _ => self.desktop_area_status_view(&workspace.id, &area.id, cx),
+            };
             let live = status.live;
             let agents = status
                 .agents

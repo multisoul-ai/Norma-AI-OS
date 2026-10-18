@@ -1,5 +1,22 @@
 use super::*;
 
+/// 新开工作空间时先呈现完整画布，Norma 对话与右侧内容由用户按需展开。
+///
+/// 数据构造：使用未经过任何用户操作的抽屉默认状态。
+/// 执行过程：读取初始开合状态，再触发一次左栏切换。
+/// 预期结果：初始两侧均收起、概览折叠；用户点击后左栏仍可展开。
+#[test]
+fn desktop_drawers_start_collapsed_and_left_can_be_opened() {
+    let initial = DesktopDrawerState::default();
+    assert!(!initial.left_open, "左侧 Norma 对话默认应收起");
+    assert!(!initial.right_open, "右侧内容默认应收起");
+    assert!(!initial.overview_expanded, "运行概览默认应折叠");
+
+    let opened = route_drawer(initial, DesktopDrawerEvent::ToggleLeft);
+    assert!(opened.left_open, "用户点击左侧入口后应展开对话");
+    assert!(!opened.right_open, "展开左栏不得连带打开右栏");
+}
+
 /// 语音对话和后台产物出现时，已收起的抽屉不得自行弹开。
 ///
 /// 数据构造：左、右抽屉均已收起，悬浮概览也已折叠。

@@ -21,6 +21,12 @@ public enum CanvasDrawers {
             try await session.click(local: placeholder.center, on: dialog)
             try await session.type("DrawerCheck")
             try await session.click(matching: ["创建工作空间", "Create Workspace"], pick: .bottom)
+            let collapsed = try await waitFor(session) { frame in
+                !leftVisible(frame) && canvasTitle(frame) != nil && wallpaperVisible(frame)
+            }
+            try assertCanvasRegion(collapsed, leftOpen: false, rightOpen: false)
+            try session.save(collapsed, "00-left-default-closed.png")
+            try await clickReopen(session, side: .left)
             let frame = try await waitFor(session) { frame in
                 leftVisible(frame) && canvasTitle(frame) != nil && wallpaperVisible(frame)
             }

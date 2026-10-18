@@ -3,19 +3,25 @@ use gpui::{px, size, AppContext, Bounds, Pixels, TestAppContext};
 
 /// 场景：恢复底部原 Command Dock 后，项目数量增加也不能挤走输入和设置入口。
 ///
-/// 数据构造：窗口宽 900px，左抽屉预留 300px，中央剩余 600px；分别放入
+/// 数据构造：窗口宽 900px，总览先默认收起再手动展开左抽屉（预留最小 366px）；项目自动收起左栏；分别放入
 /// 1、4、8 个项目。编号区最多同时显示 4×32+3×4=140px，其余可横向滚动。
-/// 执行过程：分别绘制工作空间总览和展开的最后一个项目，读取 Dock、输入、编号区与设置入口。
-/// 预期结果：两种场景的 Dock 均在中央画布内，原输入常驻，编号区和设置入口不重叠。
+/// 执行过程：分别绘制默认总览、展开左栏的总览和最后一个项目，读取 Dock、输入、编号区与设置入口。
+/// 预期结果：默认总览和项目 Dock 使用完整画布，手动展开时避开左抽屉；控件不重叠。
 #[test]
 fn command_dock_fits_canvas_as_projects_increase() {
     for project_count in [1, 4, 8] {
-        let (overview, project) = command_dock_bounds(project_count, 900.0);
-        for dock in [overview, project] {
+        let (default_overview, overview, project) = command_dock_bounds(project_count, 900.0);
+        assert!(
+            overview.left() >= px(384.0),
+            "{project_count} 个项目时，总览 Dock 应避开 366px 左抽屉和 18px 留白"
+        );
+        for dock in [default_overview, project] {
             assert!(
-                dock.left() >= px(318.0),
-                "{project_count} 个项目时，Dock 应在左抽屉 300px 和 18px 留白之后"
+                dock.left() >= px(18.0) && dock.left() < px(300.0),
+                "{project_count} 个项目时，收起左栏的 Dock 应使用完整画布：{dock:?}"
             );
+        }
+        for dock in [default_overview, overview, project] {
             assert!(
                 dock.right() <= px(882.0),
                 "{project_count} 个项目时，Dock 不能越过右侧 18px 留白"
@@ -32,8 +38,8 @@ fn command_dock_fits_canvas_as_projects_increase() {
 /// 输入与设置入口均可见。
 #[test]
 fn command_dock_fits_narrow_overlay_window() {
-    let (overview, project) = command_dock_bounds(8, 640.0);
-    for dock in [overview, project] {
+    let (default_overview, overview, project) = command_dock_bounds(8, 640.0);
+    for dock in [default_overview, overview, project] {
         assert!(dock.left() >= px(18.0), "窄窗口 Dock 不能越过左侧留白");
         assert!(dock.right() <= px(622.0), "窄窗口 Dock 不能越过右侧留白");
     }
@@ -42,7 +48,7 @@ fn command_dock_fits_narrow_overlay_window() {
 fn command_dock_bounds(
     project_count: usize,
     window_width: f32,
-) -> (Bounds<Pixels>, Bounds<Pixels>) {
+) -> (Bounds<Pixels>, Bounds<Pixels>, Bounds<Pixels>) {
     let temp = tempfile::tempdir().expect("应创建隔离目录");
     let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
     let store = storage::AppStore::initialize(&paths).expect("应初始化隔离存储");
@@ -75,6 +81,13 @@ fn command_dock_bounds(
     cx.run_until_parked();
     host.update_in(cx, |app, window, cx| app.finish_desktop_zoom(window, cx));
     cx.update(|window, cx| window.draw(cx).clear());
+    let default_overview = assert_command_dock_controls_fit(cx, project_count, false);
+    host.update_in(cx, |app, _, cx| {
+        app.desktop_workspace.drawers.left_open = true;
+        app.desktop_workspace.drawer_motion.settle_left(true);
+        cx.notify();
+    });
+    cx.update(|window, cx| window.draw(cx).clear());
     let overview = assert_command_dock_controls_fit(cx, project_count, false);
 
     host.update_in(cx, |app, window, cx| {
@@ -84,7 +97,7 @@ fn command_dock_bounds(
     cx.run_until_parked();
     cx.update(|window, cx| window.draw(cx).clear());
     let project = assert_command_dock_controls_fit(cx, project_count, true);
-    (overview, project)
+    (default_overview, overview, project)
 }
 
 fn assert_command_dock_controls_fit(

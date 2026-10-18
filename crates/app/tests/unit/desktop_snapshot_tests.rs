@@ -1,6 +1,75 @@
 use super::*;
-use gpui::TestAppContext;
+use gpui::{AppContext as _, TestAppContext};
 use storage::{DesktopAgentStatus, DesktopAreaStatus, DesktopWorkspaceStore};
+
+/// 项目内的 Norma 查询工作空间进度时，不得重新读取正在更新的同一 GPUI 项目实体。
+///
+/// 数据构造：桌面宿主绑定一个已加载项目，项目画布有一张名为 Codex 的 Agent 卡片。
+/// 执行过程：从该项目会话的 update 回调调用真实 workspace_snapshot 工具。
+/// 预期结果：工具返回实时 Codex 状态；不触发 GPUI 的双重读取 panic，也不误报缓存状态。
+#[test]
+fn workspace_snapshot_from_project_session_uses_source_status_without_reentrant_read() {
+    let temp = tempfile::tempdir().expect("应创建隔离目录");
+    let root = temp.path().join("project-a");
+    std::fs::create_dir(&root).expect("应创建项目目录");
+    let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
+    let store = storage::AppStore::initialize(&paths).expect("应初始化隔离存储");
+    let catalog = DesktopWorkspaceStore::new(paths.app_db_path().to_owned());
+    let workspace = catalog.create("工作空间").expect("应创建工作空间");
+    let area = catalog
+        .add_project(&workspace.id, &root)
+        .expect("应添加项目");
+    let prepared = crate::app::background_project::PreparedProject::load_for_desktop(
+        paths.clone(),
+        area.clone(),
+    )
+    .expect("应准备项目会话");
+    let mut test = TestAppContext::single();
+    let (host, cx) =
+        test.add_window_view(|_, cx| MultisoulApp::new_with_database_context(cx, paths, store));
+    let session = cx.new(|cx| {
+        let mut app = MultisoulApp::from_background_project(prepared, cx);
+        app.desktop_host = Some(host.downgrade());
+        app
+    });
+    host.update(cx, |app, _| {
+        app.screen = AppScreen::DesktopWorkspace;
+        app.desktop_workspace.active_id = Some(workspace.id.clone());
+        app.desktop_workspace.workspaces = vec![workspace.clone()];
+        app.desktop_workspace.areas = vec![area.clone()];
+        app.desktop_workspace.expanded_area_id = Some(area.id.clone());
+        app.desktop_workspace
+            .sessions
+            .insert((workspace.id.clone(), area.id.clone()), session.clone());
+    });
+    let snapshot = session.update(cx, |app, cx| {
+        app.runtime.document.add_node(
+            canvas::CanvasNodeKind::Agent(canvas::AgentSpec {
+                profile: canvas::AgentProfile::Codex,
+                alias: Some("Codex".into()),
+                definition_id: None,
+                mobile_control: false,
+            }),
+            canvas::CanvasRect::new(0.0, 0.0, 640.0, 400.0),
+        );
+        app.norma_workspace_snapshot(WorkspaceSnapshotScope::Workspace, None, cx)
+            .expect("项目内的工作空间查询应成功")
+            .snapshot
+            .expect("应返回结构化状态")
+    });
+    assert_eq!(
+        snapshot["projects"][0]["live"], true,
+        "当前项目应报告实时状态"
+    );
+    assert_eq!(
+        snapshot["projects"][0]["agents"][0]["name"], "Codex",
+        "实时状态应包含当前项目的 Agent 卡片"
+    );
+    assert_eq!(
+        snapshot["projects"][0]["agents"][0]["state"], "idle",
+        "没有运行任务的卡片不能被误报为执行中"
+    );
+}
 
 /// SNAPSHOT-1：模型只读工具在工作空间总览返回真实缓存状态，不启动项目。
 ///

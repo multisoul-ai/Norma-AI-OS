@@ -184,10 +184,9 @@ fn desktop_project_reflow_preserves_agents_and_camera_origin() {
     assert_eq!(initial.len(), 3, "0/1/7个Agent仍只分配三个项目区域");
     assert_eq!(
         initial[0],
-        // 1280px 窗口左栏占 307.2px，中间余 972.8px；
-        // 两列各宽 (972.8-48-16)/2=454.4，高=454.4×9/16=255.6。
-        // 两行加 24px 间距在可用高度 645px 中居中，y=64+(645-535.2)/2=118.9。
-        CanvasRect::new(24.0, 118.899994, 454.40002, 255.6),
+        // 左栏默认收起，1280px 全宽中两列各 552px；两列加 16px 间距共 1120px，左右各 80px。
+        // 可用高度 800-64-91=645px；两行各 310.5px 加 24px 间距恰好填满。
+        CanvasRect::new(80.0, 64.0, 552.0, 310.5),
         "空A保留左上槽位，旧偏移不能使其离屏"
     );
     c_session.update(cx, |app, cx| {

@@ -2,14 +2,16 @@ use super::*;
 use std::time::Duration;
 
 /// 场景：左右侧抽屉分别从自己的窗口边缘滑入，收起期间保留面板，并可中途反向。
-/// 数据构造：左侧初始展开，右侧初始收起；两侧均经过 80ms 的部分动画。
+/// 数据构造：显式展开左侧，右侧保持收起；两侧均经过 80ms 的部分动画。
 /// 执行过程：左侧收起、右侧展开，推进一帧，再反向两侧并推进至结束。
 /// 预期结果：两侧独立运动；反向首帧位置连续；终点准确且无需继续请求动画帧。
 #[test]
 fn side_drawers_slide_independently_and_reverse_from_displayed_frame() {
     let mut motion = DesktopAssistantDrawerMotion::default();
-    assert_eq!(motion.left.fraction(false), 1.0, "左侧初始完整展开");
+    assert_eq!(motion.left.fraction(false), 0.0, "左侧默认应完整收起");
     assert_eq!(motion.right.fraction(false), 0.0, "右侧初始完整收起");
+    motion.settle_left(true);
+    assert_eq!(motion.left.fraction(false), 1.0, "显式展开后左侧应完整呈现");
     assert_eq!(
         motion.left.edge_inset(336.0, 12.0, false),
         12.0,
@@ -89,6 +91,7 @@ fn reduced_motion_fades_at_open_position_without_sliding() {
 #[test]
 fn drawer_layout_reserves_canvas_width_like_prototype() {
     let mut motion = DesktopAssistantDrawerMotion::default();
+    motion.settle_left(true);
     let left = motion.layout(1280.0, true, false, false);
     assert!(
         (left.left_width - 396.8).abs() < 0.01,

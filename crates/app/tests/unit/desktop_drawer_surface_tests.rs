@@ -85,6 +85,7 @@ fn drawer_empty_surface_matches_conversation_and_content_layout() {
         app.motion.reduce_motion = true;
         app.open_desktop_workspace(workspace.id.clone(), window, cx);
         app.finish_desktop_zoom(window, cx);
+        app.toggle_desktop_drawer(DesktopDrawerEvent::ToggleLeft, cx);
         app.toggle_desktop_drawer(DesktopDrawerEvent::ToggleRight, cx);
     });
     cx.run_until_parked();
@@ -153,12 +154,14 @@ fn drawer_empty_surface_matches_conversation_and_content_layout() {
         app.motion.reduce_motion = false;
         app.desktop_workspace.drawer_motion =
             super::motion::DesktopAssistantDrawerMotion::default();
+        app.desktop_workspace.drawer_motion.settle_left(true);
         app.desktop_workspace.drawers.right_open = true;
         app.desktop_workspace.drawer_motion.retarget(true, true);
         let layout = app.desktop_assistant_layout(window);
         assert!(
-            (layout.canvas_width - 499.2).abs() < 0.5,
-            "抽屉开启动画首帧中央就应采用 1280-307.2-473.6=499.2px 目标宽度"
+            (layout.canvas_width - 409.6).abs() < 0.5,
+            "抽屉开启动画首帧中央就应采用 1280-396.8-473.6=409.6px 目标宽度；实际 {}px",
+            layout.canvas_width
         );
     });
 }
@@ -189,6 +192,7 @@ fn assistant_orb_activates_existing_voice_entry() {
         app.motion.reduce_motion = true;
         app.open_desktop_workspace(workspace.id, window, cx);
         app.finish_desktop_zoom(window, cx);
+        app.toggle_desktop_drawer(DesktopDrawerEvent::ToggleLeft, cx);
     });
     cx.run_until_parked();
     cx.update(|window, cx| window.draw(cx).clear());

@@ -92,7 +92,7 @@ pub(crate) struct DesktopAssistantDrawerMotion {
 impl Default for DesktopAssistantDrawerMotion {
     fn default() -> Self {
         Self {
-            left: SideDrawerMotion::new(true),
+            left: SideDrawerMotion::new(false),
             right: SideDrawerMotion::new(false),
         }
     }

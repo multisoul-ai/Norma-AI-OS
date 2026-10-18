@@ -5,13 +5,13 @@ use gpui::{point, px, size, AppContext, TestAppContext};
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   1 个空间 Studio，2 个空目录 project-alpha/project-beta；不创建 PTY 或 Agent。
-///   窗口 1280×800，左栏约 307px，中央顶部栏宽约 973px，标题距中央左侧 14px。
+///   窗口 1280×800；手动展开左栏后目标宽 1280×0.31=396.8px，绘制取整为 397px；中央为 883px。
 ///   栏高 = 按钮 36px + 上下各 8px = 52px；标题纵向中心 = 52 / 2 = 26px。
 ///   旧悬浮栏原点 = (18, 8)，中心 y = 8 + 44 / 2 = 30；新标题上移 30 - 26 = 4px。
 ///   窄窗 640×800，中心 x = 640 / 2 = 320px；容差 1px 覆盖像素取整。
 /// 执行过程：
 ///   1. 打开 Studio 并完成镜头，检查顶部栏贴顶铺满窗口且没有覆盖项目。
-///   2. 展开 alpha、切换到 beta，检查顶部栏边界与总览一致，并更新当前项目名称。
+///   2. 展开 alpha、切换到 beta，检查项目隐藏左栏后的完整顶部栏，并更新当前项目名称。
 ///   3. 缩至覆盖模式后检查标题居中，再返回目录并检查首页顶部仍与画布对齐。
 ///
 /// 预期结果：
@@ -46,6 +46,8 @@ fn desktop_top_bar_tracks_workspace_and_project_with_drawer_alignment() {
     host.update_in(cx, |app, window, cx| {
         app.motion.reduce_motion = true;
         app.open_desktop_workspace(workspace.id.clone(), window, cx);
+        app.desktop_workspace.drawers.left_open = true;
+        app.desktop_workspace.drawer_motion.settle_left(true);
     });
     cx.run_until_parked();
     host.update_in(cx, |app, window, cx| app.finish_desktop_zoom(window, cx));
@@ -55,12 +57,12 @@ fn desktop_top_bar_tracks_workspace_and_project_with_drawer_alignment() {
         .expect("总览必须有顶部栏");
     assert_eq!(
         bar.size,
-        size(px(973.0), px(52.0)),
+        size(px(883.0), px(52.0)),
         "顶部栏必须铺满抽屉之间的画布，并与画布顶部占用空间一致"
     );
     assert_eq!(
         bar.origin,
-        point(px(307.0), px(0.0)),
+        point(px(397.0), px(0.0)),
         "顶部栏必须贴合窗口顶边和左抽屉的右边"
     );
     let brand = cx
@@ -142,7 +144,7 @@ fn desktop_top_bar_tracks_workspace_and_project_with_drawer_alignment() {
     });
     cx.update(|window, cx| window.draw(cx).clear());
     // 场景：同时展开两侧抽屉后，窄中央顶栏采用原型的左对齐面包屑。
-    // 数据构造：1280px 窗口、左栏 307px、右栏 474px，中央约 499px。
+    // 数据构造：1280px 窗口、左栏 396.8px、右栏 473.6px，中央 409.6px。
     // 执行过程：打开右侧内容抽屉，绘制后读取标题与顶栏边界，再关闭右栏。
     // 预期结果：标题距中央左边 14px；右栏收起后恢复原有宽栏布局。
     host.update_in(cx, |app, _, cx| {
@@ -194,10 +196,18 @@ fn desktop_top_bar_tracks_workspace_and_project_with_drawer_alignment() {
         app.finish_desktop_zoom(window, cx);
     });
     cx.update(|window, cx| window.draw(cx).clear());
+    let project_bar = cx
+        .debug_bounds("desktop-workspace-top-bar")
+        .expect("alpha 项目画布必须保留顶部栏");
     assert_eq!(
-        cx.debug_bounds("desktop-workspace-top-bar"),
-        Some(bar),
-        "alpha 项目画布的顶部栏必须与工作空间总览保持相同位置和尺寸"
+        project_bar.origin,
+        point(px(0.0), px(0.0)),
+        "进入项目后左栏自动收起，顶部栏应从窗口左边开始"
+    );
+    assert_eq!(
+        project_bar.size,
+        size(px(1280.0), px(52.0)),
+        "进入项目后顶部栏应铺满画布"
     );
     assert!(
         cx.debug_bounds("workspace-topbar-project-project-alpha")
@@ -260,7 +270,7 @@ fn desktop_top_bar_tracks_workspace_and_project_with_drawer_alignment() {
     cx.update(|window, cx| window.draw(cx).clear());
     assert_eq!(
         cx.debug_bounds("desktop-workspace-top-bar"),
-        Some(bar),
+        Some(project_bar),
         "切换到 beta 后顶部栏不能产生额外偏移或改变宽度"
     );
     assert!(

@@ -220,7 +220,7 @@ impl MultisoulApp {
     }
 }
 
-fn live_agents(project: &MultisoulApp) -> Vec<DesktopAgentStatus> {
+pub(super) fn live_agents(project: &MultisoulApp) -> Vec<DesktopAgentStatus> {
     let snapshots = project.mobile_card_snapshots();
     project
         .runtime

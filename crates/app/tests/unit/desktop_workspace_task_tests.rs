@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 /// 数据构造：一个桌面空间含 ProjectA 和 ProjectB，各有一张 Codex 卡片；
 /// 两个隔离 Recording PTY 分别收集写入，当前聚焦 ProjectA。
 /// 执行过程：拒绝错误工作空间后向 B 派活，再分别向 A/B 派活；
-/// 最后用无效节点 ID 验证过期目标。
+/// 最后用无效节点 ID 验证过期目标，再从 A 项目会话向自己的 Agent 派活。
 /// 预期结果：A 只收到自己的任务，B 的后续任务排队且不写入正在忙碌的 PTY；
 /// Enter 留给协调队列；
 /// 逐目标回执准确，过期目标不得产生 PTY 写入。
@@ -39,11 +39,13 @@ fn workspace_task_tool_targets_exact_agent_through_coordinator() {
         test.add_window_view(|_, cx| MultisoulApp::new_with_database_context(cx, paths, store));
     let writes_a = Arc::new(Mutex::new(Vec::<Vec<u8>>::new()));
     let writes_b = Arc::new(Mutex::new(Vec::<Vec<u8>>::new()));
+    let desktop_host = host.downgrade();
     let make_session = |prepared: PreparedProject,
                         writes: Arc<Mutex<Vec<Vec<u8>>>>,
                         cx: &mut gpui::VisualTestContext| {
         cx.new(|cx| {
             let mut app = MultisoulApp::from_background_project(prepared, cx);
+            app.desktop_host = Some(desktop_host.clone());
             app.runtime.set_pty_factory(Box::new(move |_, _, _, tx| {
                 Ok(Box::new(terminal::TestPtyBackend::recording(
                     tx,
@@ -232,6 +234,38 @@ fn workspace_task_tool_targets_exact_agent_through_coordinator() {
         counts.1,
         "拒绝失效节点不得写入 B"
     );
+    let same_project = session_a.update(cx, |app, cx| {
+        app.norma_assign_workspace_task(&workspace.id, &area_a.id, node_a, "补充注册验收", cx)
+            .expect("项目会话派给自身 Agent 不应重入读取同一实体")
+    });
+    assert!(
+        same_project.task_id.is_some(),
+        "同项目派活也应返回可追踪任务 ID"
+    );
+    // 场景：A 项目会话请求定位 B 的 Agent，导航需要先分离仍在更新的 A。
+    // 数据构造：A 是当前项目，B 的 Codex 卡片已经加载。
+    // 执行过程：从 A 的 update 回调发起定位，随后执行延后导航。
+    // 预期结果：不重入 A；画布切到 B，且 B 的目标卡片获得选择。
+    let cross_project = session_a.update_in(cx, |app, window, cx| {
+        app.norma_locate_workspace_agent(&workspace.id, &area_b.id, node_b, None, None, window, cx)
+            .expect("跨项目定位不应在来源项目更新期间导航")
+    });
+    assert_eq!(
+        cross_project.node_id,
+        Some(node_b),
+        "跨项目定位回执应指向 B 的卡片"
+    );
+    cx.run_until_parked();
+    host.read_with(cx, |app, _| {
+        assert_eq!(
+            app.desktop_workspace.expanded_area_id.as_deref(),
+            Some(area_b.id.as_str()),
+            "延后导航必须把中央画布切到 B"
+        );
+    });
+    session_b.read_with(cx, |app, _| {
+        assert!(app.runtime.selection.contains(node_b), "B 的目标卡片应选中");
+    });
     session_a.update(cx, |app, _| app.runtime.kill_all());
     session_b.update(cx, |app, _| app.runtime.kill_all());
 }
@@ -258,8 +292,10 @@ fn workspace_agent_locator_rejects_stale_approval_then_focuses_exact_card() {
     let mut test = TestAppContext::single();
     let (host, cx) =
         test.add_window_view(|_, cx| MultisoulApp::new_with_database_context(cx, paths, store));
+    let desktop_host = host.downgrade();
     let session = cx.new(|cx| {
         let mut app = MultisoulApp::from_background_project(prepared, cx);
+        app.desktop_host = Some(desktop_host);
         app.runtime.set_pty_factory(Box::new(|_, _, _, tx| {
             Ok(Box::new(terminal::TestPtyBackend::echo(tx)))
         }));
@@ -334,6 +370,36 @@ fn workspace_agent_locator_rejects_stale_approval_then_focuses_exact_card() {
     });
     session.read_with(cx, |app, _| {
         assert!(app.runtime.selection.contains(node_id), "原卡片应选中");
+    });
+    session.update(cx, |app, cx| {
+        app.runtime.selection.clear();
+        cx.notify();
+    });
+    session.read_with(cx, |app, _| {
+        assert!(
+            !app.runtime.selection.contains(node_id),
+            "新定位前先清除旧选择"
+        );
+    });
+    // 场景：Norma 从项目会话定位本项目的 Agent。
+    // 数据构造：当前展开项目就是命令来源，目标仍是同一张 Codex 卡片。
+    // 执行过程：在项目实体的 update 回调内调用真实定位工具，再执行延后导航。
+    // 预期结果：工具不重入读取或更新项目；最终仍选中目标卡片。
+    let from_project = session.update_in(cx, |app, window, cx| {
+        app.norma_locate_workspace_agent(&workspace.id, &area.id, node_id, None, None, window, cx)
+            .expect("项目会话定位自身 Agent 不应重入")
+    });
+    assert_eq!(
+        from_project.node_id,
+        Some(node_id),
+        "项目会话定位回执应指向原卡片"
+    );
+    cx.run_until_parked();
+    session.read_with(cx, |app, _| {
+        assert!(
+            app.runtime.selection.contains(node_id),
+            "延后导航后原卡片应选中"
+        );
     });
     session.update(cx, |app, _| app.runtime.kill_all());
 }

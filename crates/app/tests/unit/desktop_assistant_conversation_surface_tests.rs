@@ -1,5 +1,63 @@
 use super::*;
-use gpui::{size, AppContext, TestAppContext};
+use gpui::{size, AppContext, Modifiers, TestAppContext};
+
+/// 工作空间首次打开时先显示完整画布，Norma 对话保留显式展开入口。
+/// 数据构造：空工作空间与 1280×800 的真实 GPUI 视图树。
+/// 执行过程：打开工作空间并绘制，再点击左侧展开按钮。
+/// 预期结果：首帧左栏不占宽且对话不可见；点击后显示同一对话输入。
+#[test]
+fn workspace_starts_with_left_drawer_collapsed_and_reopens_on_click() {
+    let temp = tempfile::tempdir().expect("应创建隔离目录");
+    let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
+    let store = storage::AppStore::initialize(&paths).expect("应初始化隔离存储");
+    let workspace = store
+        .desktop_workspace_store()
+        .create("Closed by default")
+        .expect("应创建工作空间");
+    let mut test = TestAppContext::single();
+    let mut host = None;
+    let (_, cx) = test.add_window_view(|window, cx| {
+        let entity = cx.new(|cx| MultisoulApp::new_with_database_context(cx, paths, store));
+        host = Some(entity.clone());
+        ui::component::Root::new(entity, window, cx)
+    });
+    let host = host.expect("应创建桌面宿主");
+    cx.simulate_resize(size(px(1280.0), px(800.0)));
+    host.update_in(cx, |app, window, cx| {
+        app.motion.reduce_motion = true;
+        app.open_desktop_workspace(workspace.id, window, cx);
+        app.finish_desktop_zoom(window, cx);
+        assert!(
+            !app.desktop_workspace.drawers.left_open,
+            "工作空间左栏应默认收起"
+        );
+        assert_eq!(
+            app.desktop_workspace.drawer_motion.left.fraction(false),
+            0.0,
+            "首帧不应绘制一次退出动画"
+        );
+        assert_eq!(
+            app.desktop_assistant_layout(window).left_space,
+            0.0,
+            "默认收起时左栏不得挤压画布"
+        );
+    });
+    cx.run_until_parked();
+    cx.update(|window, cx| window.draw(cx).clear());
+    assert!(
+        cx.debug_bounds("desktop-assistant-chat-input").is_none(),
+        "默认状态不能显示左侧对话"
+    );
+    let reopen = cx
+        .debug_bounds("desktop-open-left-drawer")
+        .expect("默认收起时应保留展开入口");
+    cx.simulate_click(reopen.center(), Modifiers::none());
+    cx.update(|window, cx| window.draw(cx).clear());
+    assert!(
+        cx.debug_bounds("desktop-assistant-chat-input").is_some(),
+        "用户点击后应能打开 Norma 对话"
+    );
+}
 
 /// 场景：左抽屉展示当前 Norma 会话的两轮历史。
 /// 数据构造：隔离工作空间，分别记录两次用户提问和 Norma 回复。
@@ -27,6 +85,7 @@ fn left_drawer_renders_all_current_session_messages() {
         app.motion.reduce_motion = true;
         app.open_desktop_workspace(workspace.id, window, cx);
         app.finish_desktop_zoom(window, cx);
+        app.toggle_desktop_drawer(DesktopDrawerEvent::ToggleLeft, cx);
         app.assistant_conversation.user("第一个问题");
         app.assistant_conversation.norma("第一条回复");
         app.assistant_conversation.user("第二个问题");
@@ -64,9 +123,9 @@ fn left_drawer_renders_all_current_session_messages() {
 }
 
 /// 场景：从工作空间总览进入项目，左侧对话不应在项目加载时挤压画布。
-/// 数据构造：隔离工作空间内有一个真实项目目录，默认总览左栏展开。
+/// 数据构造：隔离工作空间内有一个真实项目目录，总览左栏默认收起。
 /// 执行过程：展开项目、手动打开左栏，再返回工作空间总览。
-/// 预期结果：项目初次呈现时左栏立即收起；仍能按需打开；返回时恢复总览状态。
+/// 预期结果：项目初次呈现时左栏保持收起；仍能按需打开；返回时恢复总览状态。
 #[test]
 fn project_entry_starts_with_left_drawer_closed_and_preserves_manual_reopen() {
     let temp = tempfile::tempdir().expect("应创建隔离目录");
@@ -93,8 +152,8 @@ fn project_entry_starts_with_left_drawer_closed_and_preserves_manual_reopen() {
         app.open_desktop_workspace(workspace.id, window, cx);
         app.finish_desktop_zoom(window, cx);
         assert!(
-            app.desktop_workspace.drawers.left_open,
-            "工作空间总览默认保留 Norma 对话栏"
+            !app.desktop_workspace.drawers.left_open,
+            "工作空间总览默认收起左栏"
         );
     });
     cx.run_until_parked();
@@ -117,14 +176,14 @@ fn project_entry_starts_with_left_drawer_closed_and_preserves_manual_reopen() {
         );
         app.collapse_desktop_project_area(window, cx);
         assert!(
-            app.desktop_workspace.drawers.left_open,
-            "返回总览时应恢复原有展开状态"
+            !app.desktop_workspace.drawers.left_open,
+            "返回总览时应恢复原有收起状态"
         );
     });
 }
 
 /// 场景：进入项目后，项目目录在后台加载前不可用。
-/// 数据构造：工作空间已保存项目，但在请求展开前移走目录。
+/// 数据构造：工作空间已保存项目，先手动展开左栏，再在请求展开前移走目录。
 /// 执行过程：请求展开并等待后台加载失败。
 /// 预期结果：留在工作空间总览，恢复原先展开的左栏，并展示加载错误。
 #[test]
@@ -151,6 +210,7 @@ fn failed_project_entry_restores_workspace_left_drawer() {
         app.motion.reduce_motion = true;
         app.open_desktop_workspace(workspace.id, window, cx);
         app.finish_desktop_zoom(window, cx);
+        app.toggle_desktop_drawer(DesktopDrawerEvent::ToggleLeft, cx);
     });
     cx.run_until_parked();
     host.update(cx, |app, _| {
@@ -195,7 +255,7 @@ fn failed_project_entry_restores_workspace_left_drawer() {
 }
 
 /// 场景：项目 A 直接导航到另一个工作空间 B。
-/// 数据构造：A 有项目，B 为空，A 总览左栏原本展开。
+/// 数据构造：A 有项目，B 为空，用户在 A 总览手动展开左栏。
 /// 执行过程：进入 A 项目，再直接打开 B 并完成导航动效。
 /// 预期结果：B 总览恢复左栏，且不继承 A 的项目收起状态。
 #[test]
@@ -223,6 +283,7 @@ fn opening_another_workspace_restores_left_drawer_state() {
         app.motion.reduce_motion = true;
         app.open_desktop_workspace(workspace_a.id, window, cx);
         app.finish_desktop_zoom(window, cx);
+        app.toggle_desktop_drawer(DesktopDrawerEvent::ToggleLeft, cx);
     });
     cx.run_until_parked();
     host.update_in(cx, |app, window, cx| {

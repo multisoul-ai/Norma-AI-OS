@@ -38,13 +38,23 @@ fn last_known_agent_status_is_scoped_ordered_and_removed_with_area() {
 
     assert!(
         store
-            .save(&workspace.id, &area_a.id, 1000, &[running.clone()])
+            .save(
+                &workspace.id,
+                &area_a.id,
+                1000,
+                std::slice::from_ref(&running)
+            )
             .expect("应保存首次状态"),
         "首次状态应写入"
     );
     assert!(
         store
-            .save(&workspace.id, &area_a.id, 2000, &[pending.clone()])
+            .save(
+                &workspace.id,
+                &area_a.id,
+                2000,
+                std::slice::from_ref(&pending)
+            )
             .expect("应保存最新状态"),
         "新状态应替换旧状态"
     );
