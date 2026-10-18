@@ -1,0 +1,8 @@
+import { appendFileSync } from "node:fs";
+export default function (pi) {
+  for (const name of ["session_start", "session_shutdown", "input", "before_agent_start", "agent_start", "agent_end", "agent_settled", "tool_call", "tool_result", "turn_start", "turn_end", "ui_prompt_start", "ui_prompt_end"]) {
+    pi.on(name, (event, ctx) => {
+      appendFileSync(process.env.NORMA_PI_PROBE_LOG, JSON.stringify({ event, context: { cwd: ctx.cwd, sessionId: ctx.sessionManager.getSessionId(), sessionFile: ctx.sessionManager.getSessionFile(), hasUI: ctx.hasUI } }) + "\n");
+    });
+  }
+}

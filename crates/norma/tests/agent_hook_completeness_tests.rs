@@ -9,6 +9,7 @@ fn hook_paths(root: &std::path::Path) -> HookInstallPaths {
         codex_hooks: root.join("codex-hooks.json"),
         cursor_hooks: root.join("cursor-hooks.json"),
         grok_hooks: root.join("grok-hooks.json"),
+        pi_extension: root.join("norma-agent-hook.ts"),
         opencode_plugin: root.join("multisoul-agent-hook.js"),
     }
 }

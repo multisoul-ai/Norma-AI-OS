@@ -130,7 +130,7 @@ pub fn hook_events_for_source(source: HookSource) -> &'static [&'static str] {
             "PreCompact",
             "PostCompact",
         ],
-        HookSource::OpenCode => &[
+        HookSource::OpenCode | HookSource::Pi => &[
             "SessionStart",
             "UserPromptSubmit",
             "PreToolUse",

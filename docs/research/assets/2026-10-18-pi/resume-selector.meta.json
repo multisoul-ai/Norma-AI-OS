@@ -1,0 +1,32 @@
+{
+  "cmd": [
+    "/Users/openclawd/.local/bin/pi",
+    "--offline",
+    "--no-skills",
+    "--no-context-files",
+    "--no-prompt-templates",
+    "-e",
+    "/Users/openclawd/.pi/agent/extensions/norma-probe-7f1l_gyq.ts",
+    "--model",
+    "norma-probe/fixture",
+    "-r"
+  ],
+  "pid": 65075,
+  "exit": 0,
+  "timed_out": false,
+  "sent": [
+    {
+      "at": 3.0,
+      "bytes": "b'01a14cb5-4b48-71eb-af74-53296bd903ff'"
+    },
+    {
+      "at": 4.02,
+      "bytes": "b'\\r'"
+    },
+    {
+      "at": 6.04,
+      "bytes": "b'/quit\\r'"
+    }
+  ],
+  "duration": 6.12
+}

@@ -1,0 +1,27 @@
+{
+  "cmd": [
+    "/Users/openclawd/.local/bin/pi",
+    "--offline",
+    "--no-skills",
+    "--no-context-files",
+    "--no-prompt-templates",
+    "-e",
+    "/Users/openclawd/.pi/agent/extensions/norma-probe-7f1l_gyq.ts",
+    "--model",
+    "norma-probe/fixture"
+  ],
+  "pid": 67795,
+  "exit": 0,
+  "timed_out": false,
+  "sent": [
+    {
+      "at": 4.05,
+      "bytes": "b'\\x1b'"
+    },
+    {
+      "at": 6.02,
+      "bytes": "b'\\x04'"
+    }
+  ],
+  "duration": 6.09
+}

@@ -169,6 +169,7 @@ fn test_cursor_hook_config_is_idempotent_and_preserves_user_hooks() {
         codex_hooks: temp.path().join("codex-hooks.json"),
         cursor_hooks: cursor_path.clone(),
         grok_hooks: temp.path().join("grok-hooks.json"),
+        pi_extension: temp.path().join("norma-agent-hook.ts"),
         opencode_plugin: temp.path().join("multisoul-agent-hook.js"),
     };
     let command_path = temp.path().join("multisoul-agent-hook");

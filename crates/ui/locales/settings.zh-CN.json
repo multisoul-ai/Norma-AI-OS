@@ -4,6 +4,7 @@
   "settings.manage_lifecycle_hooks_in_cursor_hooks_json": "管理 ~/.cursor/hooks.json 中的生命周期 Hook",
   "settings.manage_lifecycle_hooks_in_grok_hooks": "管理 ~/.grok/hooks 中的生命周期 Hook",
   "settings.manage_lifecycle_hooks_in_config_opencode_plugins": "管理 ~/.config/opencode/plugins 中的生命周期 Hook",
+  "settings.manage_lifecycle_hooks_in_pi_extensions": "管理 ~/.pi/agent/extensions 中的生命周期扩展（遵循 PI_CODING_AGENT_DIR）",
   "settings.agent_providers": "Agent 供应商",
   "settings.installed_using_provider_reads_hooks_when_a_session_starts_restart_existing": "已通过 %{arg0} 安装。%{provider} 会在会话开始时读取 Hook；请重启现有 Agent 卡片或新建卡片，以启用生命周期状态更新。",
   "settings.norma_os_hooks_removed": "Norma OS Hook 已移除",

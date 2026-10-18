@@ -10,6 +10,7 @@ mod forward;
 mod install;
 mod json_config;
 mod opencode;
+mod pi;
 
 use crate::protocol::{AgentProfile, NodeId};
 use serde::{Deserialize, Serialize};
@@ -42,6 +43,8 @@ pub const ENV_HOOK_TOKEN: &str = "MULTISOUL_HOOK_TOKEN";
 pub const AGENT_HOOK_BINARY_NAME: &str = "multisoul-agent-hook";
 pub const OPENCODE_PLUGIN_FILE_NAME: &str = "multisoul-agent-hook.js";
 pub const OPENCODE_PLUGIN_MARKER: &str = "multisoul-opencode-plugin-marker";
+pub const PI_EXTENSION_FILE_NAME: &str = "norma-agent-hook.ts";
+pub const PI_EXTENSION_MARKER: &str = "multisoul-pi-extension-marker";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum HookSource {
@@ -50,6 +53,7 @@ pub enum HookSource {
     Cursor,
     Grok,
     OpenCode,
+    Pi,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -59,6 +63,7 @@ pub enum HookTarget {
     Cursor,
     Grok,
     OpenCode,
+    Pi,
     All,
 }
 
@@ -94,6 +99,7 @@ pub struct HookInstallPaths {
     pub cursor_hooks: PathBuf,
     pub grok_hooks: PathBuf,
     pub opencode_plugin: PathBuf,
+    pub pi_extension: PathBuf,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -152,6 +158,7 @@ pub fn parse_hook_source(value: &str) -> Option<HookSource> {
         "cursor" | "Cursor" => Some(HookSource::Cursor),
         "grok" | "Grok" => Some(HookSource::Grok),
         "opencode" | "OpenCode" => Some(HookSource::OpenCode),
+        "pi" | "Pi" => Some(HookSource::Pi),
         _ => None,
     }
 }
@@ -163,6 +170,7 @@ pub fn parse_hook_target(value: &str) -> Option<HookTarget> {
         "cursor" | "Cursor" => Some(HookTarget::Cursor),
         "grok" | "Grok" => Some(HookTarget::Grok),
         "opencode" | "OpenCode" => Some(HookTarget::OpenCode),
+        "pi" | "Pi" => Some(HookTarget::Pi),
         "all" | "All" => Some(HookTarget::All),
         _ => None,
     }
@@ -186,6 +194,7 @@ pub fn hook_source_arg(source: HookSource) -> &'static str {
         HookSource::Cursor => "cursor",
         HookSource::Grok => "grok",
         HookSource::OpenCode => "opencode",
+        HookSource::Pi => "pi",
     }
 }
 
@@ -196,6 +205,7 @@ pub fn profile_for_source(source: HookSource) -> AgentProfile {
         HookSource::Cursor => AgentProfile::Cursor,
         HookSource::Grok => AgentProfile::Grok,
         HookSource::OpenCode => AgentProfile::OpenCode,
+        HookSource::Pi => AgentProfile::Pi,
     }
 }
 
@@ -224,6 +234,10 @@ pub fn default_install_paths() -> HookInstallPaths {
             .join("opencode")
             .join("plugins")
             .join(OPENCODE_PLUGIN_FILE_NAME),
+        pi_extension: pi::pi_extension_path(
+            &home,
+            std::env::var("PI_CODING_AGENT_DIR").ok().as_deref(),
+        ),
     }
 }
 

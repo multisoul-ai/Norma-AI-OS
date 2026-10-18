@@ -1,0 +1,73 @@
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────                                                                                                                                            ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────/private/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/model-work0.0%/33k (auto)                                                                                                                      fixture █▀ █ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash · ctrl+o more                                                        Press ctrl+o to show full startup help and loaded resources.                                                                                                                                                                                                                            Pi can explain its own features and look up its docs. Ask it how to use or extend Pi.                                                      [Skills]                                                                                                                                      answer-me-with-html, ask-matt, career-90-day-plan, career-ai-side-hustle, career-hidden-skills, career-higher-pay-paths,                  career-income-opportunities, career-monetize-experience, career-prioritize-opportunity, chrome-cdp, code-review, codebase-design,           create-skill, diagnosing-bugs, doc-coauthoring, domain-modeling, feishu-doc, find-skills, frontend-design, gh-cli, gitlab, grill-me,        grill-with-docs, grilling, handoff, implement, implement-spec, improve-codebase-architecture, lark-approval, lark-base, lark-calendar,      lark-contact, lark-doc, lark-drive, lark-event, lark-im, lark-mail, lark-minutes, lark-openapi-explorer, lark-shared, lark-sheets,          lark-skill-maker, lark-task, lark-vc, lark-whiteboard, lark-wiki, lark-workflow-meeting-summary, lark-workflow-standup-report, norma-probe, pencil-skill, ponytail, pr, prototype, research, retro, setup-matt-pocock-skills, show-me, tdd, teach, to-questionnaire, to-spec,           to-tickets, triage, typescript-react-reviewer, vercel-react-best-practices, wait-what, wayfinder, web-design-guidelines, wizard,            writing-for-agents                                                                                                                          [Extensions]                                                                                                                                  norma-probe-7f1l_gyq.ts                                                                                                                   [Skill conflicts]                                                                                                                             ~/.agents/skills/infcode-release/SKILL.md                                                                                                     description is required                                                                                                                   ~/.agents/skills/insight-debug.bak/SKILL.md                                                                                                   description is required                                                                                                                   ~/.agents/skills/insight-debug.bak/SKILL.md                                                                                                   name contains invalid characters (must be lowercase a-z, 0-9, hyphens only)                                                              Warning: fd not found. Offline mode enabled, skipping download.
+
+ ▀▀█  v1.3.0
+
+ █▀ █ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash · ctrl+o more
+
+ Press ctrl+o to show full startup help and loaded resources.
+
+
+
+ Pi can explain its own features and look up its docs. Ask it how to use or extend Pi.
+
+
+
+[Skills]
+
+  answer-me-with-html, ask-matt, career-90-day-plan, career-ai-side-hustle, career-hidden-skills, career-higher-pay-paths,
+
+career-income-opportunities, career-monetize-experience, career-prioritize-opportunity, chrome-cdp, code-review, codebase-design,
+
+create-skill, diagnosing-bugs, doc-coauthoring, domain-modeling, feishu-doc, find-skills, frontend-design, gh-cli, gitlab, grill-me,
+
+grill-with-docs, grilling, handoff, implement, implement-spec, improve-codebase-architecture, lark-approval, lark-base, lark-calendar,
+
+lark-contact, lark-doc, lark-drive, lark-event, lark-im, lark-mail, lark-minutes, lark-openapi-explorer, lark-shared, lark-sheets,
+
+lark-skill-maker, lark-task, lark-vc, lark-whiteboard, lark-wiki, lark-workflow-meeting-summary, lark-workflow-standup-report, norma-probe,
+
+pencil-skill, ponytail, pr, prototype, research, retro, setup-matt-pocock-skills, show-me, tdd, teach, to-questionnaire, to-spec,
+
+to-tickets, triage, typescript-react-reviewer, vercel-react-best-practices, wait-what, wayfinder, web-design-guidelines, wizard,
+
+writing-for-agents
+
+
+
+[Extensions]
+
+  norma-probe-7f1l_gyq.ts
+
+
+
+[Skill conflicts]
+
+  ~/.agents/skills/infcode-release/SKILL.md
+
+    description is required
+
+  ~/.agents/skills/insight-debug.bak/SKILL.md
+
+    description is required
+
+  ~/.agents/skills/insight-debug.bak/SKILL.md
+
+    name contains invalid characters (must be lowercase a-z, 0-9, hyphens only)
+
+
+
+
+
+ Warning: fd not found. Offline mode enabled, skipping download.
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+/private/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/model-work
+
+0.0%/33k (auto)                                                                                                                      fixture

@@ -1,0 +1,222 @@
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+Resume Session (Current Folder)                                                    ○ Current Folder | Loading ...  Name: All  Sort: Threaded
+
+tab scope · re:<pattern> regex · "phrase" exact
+
+ctrl+s sort · ctrl+n named · ctrl+d delete · ctrl+p path (off)
+
+
+
+>
+
+
+
+  No sessions in current folder. Press Tab to view all.
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+Resume Session (Current Folder)                                                          ◉ Current Folder | ○ All  Name: All  Sort: Threaded
+
+tab scope · re:<pattern> regex · "phrase" exact
+
+ctrl+s sort · ctrl+n named · ctrl+d delete · ctrl+p path (off)
+
+
+
+>
+
+
+
+› NORMAPI_ERROR                                                                                                                         3 1m
+
+  NORMAPI_RESUME                                                                                                                        3 1m
+
+  NORMAPI_TOOLS remember norma-pi-token-20261018                                                                                       15 1m
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+Resume Session (Current Folder)                                                          ◉ Current Folder | ○ All  Name: All  Sort: Threaded
+
+tab scope · re:<pattern> regex · "phrase" exact
+
+ctrl+s sort · ctrl+n named · ctrl+d delete · ctrl+p path (off)
+
+
+
+>
+
+
+
+› NORMAPI_ERROR                                                                                                                         3 1m
+
+  NORMAPI_RESUME                                                                                                                        3 1m
+
+  NORMAPI_TOOLS remember norma-pi-token-20261018                                                                                       15 1m
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+> 01a14cb5-4b48-71eb-af74-53296bd903ff
+
+
+
+› NORMAPI_TOOLS remember norma-pi-token-20261018                                                                                       15 1m
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+
+
+ ENOENT: no such file or directory, access                                                                                                   '/private/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/model-work/missing-probe.txt'                                                                                                                                                                         PI_FIXTURE_DONE prior_tool_history=true                                                                                                                                                                                                                                                 NORMAPI_RESUME prove prior history                                                                                                                                                                                                                                                      PI_FIXTURE_DONE prior_tool_history=true                                                                                                                                                                                                                                                 NORMAPI_RESUME prove prior history                                                                                                                                                                                                                                                      PI_FIXTURE_DONE prior_tool_history=true                                                                                                                                                                                                                                                 NORMAPI_RESUME prove prior history                                                                                                                                                                                                                                                      PI_FIXTURE_DONE prior_tool_history=true                                                                                                                                                                                                                                                 NORMAPI_RESUME prove prior history                                                                                                                                                                                                                                                      PI_FIXTURE_DONE prior_tool_history=true                                                                                                    ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────                                                                                                                                            ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────/private/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/model-work↑120 ↓60 0.1%/33k (auto)                                                                                                             fixture
+
+ ▀▀█  v1.3.0
+
+ █▀ █ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash · ctrl+o more
+
+ Press ctrl+o to show full startup help and loaded resources.
+
+
+
+ Pi can explain its own features and look up its docs. Ask it how to use or extend Pi.
+
+
+
+[Extensions]
+
+  norma-probe-7f1l_gyq.ts
+
+
+
+
+
+ Warning: fd not found. Offline mode enabled, skipping download.
+
+
+
+
+
+ NORMAPI_TOOLS remember norma-pi-token-20261018
+
+
+
+
+
+
+
+ write probe.txt
+
+
+
+ norma-pi-token-20261018
+
+
+
+
+
+
+
+ $ printf norma-pi-shell-ok
+
+
+
+ norma-pi-shell-ok
+
+
+
+ Took 0.0s
+
+
+
+
+
+
+
+ read missing-probe.txt
+
+
+
+ ENOENT: no such file or directory, access
+
+ '/private/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/model-work/missing-probe.txt'
+
+
+
+
+
+ PI_FIXTURE_DONE prior_tool_history=true
+
+
+
+
+
+ NORMAPI_RESUME prove prior history
+
+
+
+
+
+ PI_FIXTURE_DONE prior_tool_history=true
+
+
+
+
+
+ NORMAPI_RESUME prove prior history
+
+
+
+
+
+ PI_FIXTURE_DONE prior_tool_history=true
+
+
+
+
+
+ NORMAPI_RESUME prove prior history
+
+
+
+
+
+ PI_FIXTURE_DONE prior_tool_history=true
+
+
+
+
+
+ NORMAPI_RESUME prove prior history
+
+
+
+
+
+ PI_FIXTURE_DONE prior_tool_history=true
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+/private/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/model-work
+
+↑120 ↓60 0.1%/33k (auto)                                                                                                             fixture
+
+To resume this session: pi --session 01a14cb5-4b48-71eb-af74-53296bd903ff

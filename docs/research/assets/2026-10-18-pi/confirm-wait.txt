@@ -1,0 +1,91 @@
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────                                                                                                                                            ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────/private/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/model-work0.0%/33k (auto)                                                                                                                      fixture ▀▀█  v1.3.0                                                                                                                                 █▀ █ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash · ctrl+o more                                                        Press ctrl+o to show full startup help and loaded resources.                                                                                                                                                                                                                            Pi can explain its own features and look up its docs. Ask it how to use or extend Pi.                                                      [Extensions]                                                                                                                                  confirm.ts, norma-probe-7f1l_gyq.ts                                                                                                        Warning: fd not found. Offline mode enabled, skipping download.                                                                                                                                                                                                                         NORMAPI_TOOLS                                                                                                                                                                                                                                                                          ── ⠋ Working ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────4.4%/33k (auto)                                                                                                                      fixture Warning: fd not found. Offline mode enabled, skipping download.                                                                                                                                                                                                                         NORMAPI_TOOLS                                                                                                                                                                                                                                                                                                                                                                                                                       write probe.txt                                                                                                                                                                                                                                                                         norma-pi-token-20261018                                                                                                                                                                                                                                                                                                                                                                                                             $ printf norma-pi-shell-ok                                                                                                                                                                                                                                                                                                                                                                                                          read missing-probe.txt                                                                                                                                                                                                                                                                 ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── Norma probe permission                                                                                                                      Allow harmless printf?                                                                                                                      → Yes                                                                                                                                         No                                                                                                                                        ↑↓ navigate  enter select  escape/ctrl+c cancel                                                                                            ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────↑20 ↓10 0.1%/33k (auto)                                                                                                              fixture ▀▀█  v1.3.0                                                                                                                                 █▀ █ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash · ctrl+o more                                                        Press ctrl+o to show full startup help and loaded resources.                                                                                                                                                                                                                            Pi can explain its own features and look up its docs. Ask it how to use or extend Pi.                                                      [Extensions]                                                                                                                                  confirm.ts, norma-probe-7f1l_gyq.ts                                                                                                        Warning: fd not found. Offline mode enabled, skipping download.                                                                             NORMAPI_TOOLS                                                                                                                               write probe.txt                                                                                                                             norma-pi-token-20261018                                                                                                                                                                                                                                                                 $ printf norma-pi-shell-ok                                                                                                                                                                                                                                                                                                                                                                                                          read missing-probe.txt                                                                                                                                                                                                                                                                 ── ⠼ Working ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────                                                                                                                                            ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────  confirm.ts, norma-probe-7f1l_gyq.ts                                                                                                        Warning: fd not found. Offline mode enabled, skipping download.                                                                                                                                                                                                                         NORMAPI_TOOLS                                                                                                                                                                                                                                                                                                                                                                                                                       write probe.txt                                                                                                                                                                                                                                                                         norma-pi-token-20261018                                                                                                                                                                                                                                                                                                                                                                                                             $ printf norma-pi-shell-ok                                                                                                                                                                                                                                                              probe user declined                                                                                                                                                                                                                                                                     Took 1.9s                                                                                                                                                                                                                                                                                                                                                                                                                           read missing-probe.txt                                                                                                                                                                                                                                                                  ENOENT: no such file or directory, access                                                                                                   '/private/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/model-work/missing-probe.txt'                            ── ⠴ Working ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────↑20 ↓10 0.3%/33k (auto)                                                                                                              fixture Warning: fd not found. Offline mode enabled, skipping download.                                                                                                                                                                                                                         NORMAPI_TOOLS                                                                                                                               write probe.txt                                                                                                                             norma-pi-token-20261018                                                                                                                     $ printf norma-pi-shell-ok                                                                                                                  probe user declined                                                                                                                         Took 1.9s                                                                                                                                   read missing-probe.txt                                                                                                                      ENOENT: no such file or directory, access                                                                                                   '/private/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/model-work/missing-probe.txt'                                                                                                                                                                         PI_FIXTURE_DONE prior_tool_history=true                                                                                                    ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────↑40 ↓20 0.1%/33k (auto)                                                                                                              fixture
+
+ ▀▀█  v1.3.0
+
+ █▀ █ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash · ctrl+o more
+
+ Press ctrl+o to show full startup help and loaded resources.
+
+
+
+ Pi can explain its own features and look up its docs. Ask it how to use or extend Pi.
+
+
+
+[Extensions]
+
+  confirm.ts, norma-probe-7f1l_gyq.ts
+
+
+
+
+
+ Warning: fd not found. Offline mode enabled, skipping download.
+
+
+
+
+
+ NORMAPI_TOOLS
+
+
+
+
+
+
+
+ write probe.txt
+
+
+
+ norma-pi-token-20261018
+
+
+
+
+
+
+
+ $ printf norma-pi-shell-ok
+
+
+
+ probe user declined
+
+
+
+ Took 1.9s
+
+
+
+
+
+
+
+ read missing-probe.txt
+
+
+
+ ENOENT: no such file or directory, access
+
+ '/private/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/model-work/missing-probe.txt'
+
+
+
+
+
+ PI_FIXTURE_DONE prior_tool_history=true
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+/private/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/model-work
+
+↑40 ↓20 0.1%/33k (auto)                                                                                                              fixture
+
+To resume this session: pi --session 01a14cb8-4bf9-76d4-88d4-4413d6bccf11

@@ -2,9 +2,10 @@ use super::atomic_file;
 use super::cursor::{cursor_hooks_installed_at, install_cursor_hooks, uninstall_cursor_hooks};
 use super::json_config::add_command_hook;
 use super::opencode::{install_opencode_plugin, uninstall_opencode_plugin};
+use super::pi::{install_pi_extension, uninstall_pi_extension};
 use super::{
     build_hook_command, hook_events_for_source, hook_source_arg, AgentHookError, HookInstallPaths,
-    HookSource, HookTarget, AGENT_HOOK_BINARY_NAME, OPENCODE_PLUGIN_MARKER,
+    HookSource, HookTarget, AGENT_HOOK_BINARY_NAME, OPENCODE_PLUGIN_MARKER, PI_EXTENSION_MARKER,
 };
 use super::{default_install_paths, resolve_agent_hook_command_path};
 use serde_json::{json, Value};
@@ -16,6 +17,11 @@ pub fn install_agent_hooks(target: HookTarget) -> Result<PathBuf, AgentHookError
         let paths = default_install_paths();
         install_hook_config(target, Path::new(AGENT_HOOK_BINARY_NAME), &paths)?;
         return Ok(paths.opencode_plugin);
+    }
+    if target == HookTarget::Pi {
+        let paths = default_install_paths();
+        install_hook_config(target, Path::new(AGENT_HOOK_BINARY_NAME), &paths)?;
+        return Ok(paths.pi_extension);
     }
     let command_path = resolve_agent_hook_command_path().ok_or_else(|| {
         AgentHookError::Io(std::io::Error::new(
@@ -38,12 +44,14 @@ pub fn agent_hooks_installed(target: HookTarget, paths: &HookInstallPaths) -> bo
         HookTarget::Cursor => agent_hooks_installed_for_source(HookSource::Cursor, paths),
         HookTarget::Grok => agent_hooks_installed_for_source(HookSource::Grok, paths),
         HookTarget::OpenCode => agent_hooks_installed_for_source(HookSource::OpenCode, paths),
+        HookTarget::Pi => agent_hooks_installed_for_source(HookSource::Pi, paths),
         HookTarget::All => {
             agent_hooks_installed_for_source(HookSource::Claude, paths)
                 && agent_hooks_installed_for_source(HookSource::Codex, paths)
                 && agent_hooks_installed_for_source(HookSource::Cursor, paths)
                 && agent_hooks_installed_for_source(HookSource::Grok, paths)
                 && agent_hooks_installed_for_source(HookSource::OpenCode, paths)
+                && agent_hooks_installed_for_source(HookSource::Pi, paths)
         }
     }
 }
@@ -56,6 +64,9 @@ pub fn agent_hooks_installed_at(path: &Path, source: HookSource) -> bool {
     if source == HookSource::OpenCode {
         return fs::read_to_string(path)
             .is_ok_and(|source| source.contains(OPENCODE_PLUGIN_MARKER));
+    }
+    if source == HookSource::Pi {
+        return fs::read_to_string(path).is_ok_and(|source| source.contains(PI_EXTENSION_MARKER));
     }
     if source == HookSource::Cursor {
         return cursor_hooks_installed_at(path);
@@ -87,6 +98,9 @@ pub fn uninstall_hook_config(
     if matches!(target, HookTarget::OpenCode | HookTarget::All) {
         uninstall_opencode_plugin(paths.opencode_plugin.as_path())?;
     }
+    if matches!(target, HookTarget::Pi | HookTarget::All) {
+        uninstall_pi_extension(paths.pi_extension.as_path())?;
+    }
     Ok(())
 }
 
@@ -113,6 +127,9 @@ pub fn install_hook_config(
     }
     if matches!(target, HookTarget::OpenCode | HookTarget::All) {
         install_opencode_plugin(paths.opencode_plugin.as_path())?;
+    }
+    if matches!(target, HookTarget::Pi | HookTarget::All) {
+        install_pi_extension(paths.pi_extension.as_path())?;
     }
     Ok(())
 }
@@ -156,6 +173,7 @@ fn config_path_for_source(source: HookSource, paths: &HookInstallPaths) -> &Path
         HookSource::Cursor => paths.cursor_hooks.as_path(),
         HookSource::Grok => paths.grok_hooks.as_path(),
         HookSource::OpenCode => paths.opencode_plugin.as_path(),
+        HookSource::Pi => paths.pi_extension.as_path(),
     }
 }
 

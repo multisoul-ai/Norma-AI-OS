@@ -1,18 +1,13 @@
 <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
-  <!-- 骨架占位：首字母像素字，待该 CLI 负责人替换为官方图标的像素版 -->
-  <rect x="7" y="5" width="2" height="2"/>
-  <rect x="9" y="5" width="2" height="2"/>
-  <rect x="11" y="5" width="2" height="2"/>
-  <rect x="13" y="5" width="2" height="2"/>
-  <rect x="7" y="7" width="2" height="2"/>
-  <rect x="15" y="7" width="2" height="2"/>
-  <rect x="7" y="9" width="2" height="2"/>
-  <rect x="15" y="9" width="2" height="2"/>
-  <rect x="7" y="11" width="2" height="2"/>
-  <rect x="9" y="11" width="2" height="2"/>
-  <rect x="11" y="11" width="2" height="2"/>
-  <rect x="13" y="11" width="2" height="2"/>
-  <rect x="7" y="13" width="2" height="2"/>
-  <rect x="7" y="15" width="2" height="2"/>
-  <rect x="7" y="17" width="2" height="2"/>
+  <!-- Pi pixel logo, converted from the official pi-logo.ts (MIT, (c) 2025 Mario Zechner): https://github.com/earendil-works/pi/blob/main/packages/coding-agent/src/modes/interactive/components/pi-logo.ts -->
+  <rect x="4" y="4" width="4" height="4"/>
+  <rect x="8" y="4" width="4" height="4"/>
+  <rect x="12" y="4" width="4" height="4"/>
+  <rect x="4" y="8" width="4" height="4"/>
+  <rect x="12" y="8" width="4" height="4"/>
+  <rect x="4" y="12" width="4" height="4"/>
+  <rect x="8" y="12" width="4" height="4"/>
+  <rect x="16" y="12" width="4" height="4"/>
+  <rect x="4" y="16" width="4" height="4"/>
+  <rect x="16" y="16" width="4" height="4"/>
 </svg>

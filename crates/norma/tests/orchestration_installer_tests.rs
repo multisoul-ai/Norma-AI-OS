@@ -57,6 +57,7 @@ fn install_paths(root: &Path) -> InstallPaths {
             codex_hooks: root.join(".codex").join("hooks.json"),
             cursor_hooks: root.join(".cursor").join("hooks.json"),
             grok_hooks: root.join(".grok").join("hooks.json"),
+            pi_extension: root.join("norma-agent-hook.ts"),
             opencode_plugin: root
                 .join(".config")
                 .join("opencode")

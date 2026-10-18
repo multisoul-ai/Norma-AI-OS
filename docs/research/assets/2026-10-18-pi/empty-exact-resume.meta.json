@@ -1,0 +1,29 @@
+{
+  "cmd": [
+    "/Users/openclawd/.local/bin/pi",
+    "--offline",
+    "--no-skills",
+    "--no-context-files",
+    "--no-prompt-templates",
+    "-e",
+    "/Users/openclawd/.pi/agent/extensions/norma-probe-7f1l_gyq.ts",
+    "--model",
+    "norma-probe/fixture",
+    "--session-id",
+    "01a14cbb-3684-764b-b624-786b54129e33"
+  ],
+  "pid": 86766,
+  "exit": 0,
+  "timed_out": false,
+  "sent": [
+    {
+      "at": 3.03,
+      "bytes": "b'NORMAPI_RESUME empty exact id\\r'"
+    },
+    {
+      "at": 5.01,
+      "bytes": "b'/quit\\r'"
+    }
+  ],
+  "duration": 5.08
+}
