@@ -28,7 +28,7 @@ use crate::workspace::desktop::DesktopWorkspaceUiState;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
 use canvas::{CanvasRect, NodeId, NodeType, Vec2};
-use gpui::{actions, div, prelude::*, px, Context, FocusHandle, Focusable, Window};
+use gpui::{div, prelude::*, px, Context, FocusHandle, Focusable, Window};
 use runtime::{route, InputEvent, Route, Runtime};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -36,6 +36,7 @@ use std::sync::{atomic::AtomicBool, Arc};
 #[cfg(test)]
 use std::time::Duration;
 use ui::{Theme, ThemeId};
+mod actions;
 mod agent_actions;
 mod agent_announcements;
 mod agent_close;
@@ -113,6 +114,7 @@ mod optional_media;
 mod voice_window_inset;
 mod wallpaper_actions;
 pub(crate) mod wallpaper_resolvers;
+pub use actions::*;
 #[cfg(feature = "e2e-test-support")]
 pub use e2e::dialogue_tts::*;
 #[cfg(feature = "e2e-test-support")]
@@ -136,32 +138,6 @@ pub use e2e::{
 };
 pub(crate) use state::mark_runtime_node_viewed_if_needed;
 pub use state::AppScreen;
-actions!(
-    multisoul,
-    [
-        NewWindow,
-        NewTerminal,
-        NewClaudeAgent,
-        NewCodexAgent,
-        NewCursorAgent,
-        NewGrokAgent,
-        NewOpenCodeAgent,
-        NewBrowser,
-        NewEgo,
-        CopyCardContent,
-        OpenPreviewFile,
-        OpenProject,
-        CloneProject,
-        OpenFeatureGuide,
-        CheckForUpdates,
-        ExitFocus,
-        ReflowLayout,
-        ToggleMasterLayout,
-        ToggleSettings,
-        QuitNormaOs
-    ]
-);
-
 pub struct MultisoulApp {
     pub(crate) database_paths: storage::DatabasePaths,
     pub(crate) test_database_guard: Option<Arc<crate::database::TestDatabaseGuard>>,

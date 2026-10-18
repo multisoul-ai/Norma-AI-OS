@@ -429,6 +429,11 @@ fn provider_index(provider: OrchestrationProvider) -> usize {
         OrchestrationProvider::Cursor => 2,
         OrchestrationProvider::OpenCode => 3,
         OrchestrationProvider::Grok => 4,
+        // 新增四个 Provider 尚未进入 ALL，排序位置待各负责人接入编排时确定。
+        OrchestrationProvider::Kimi => 5,
+        OrchestrationProvider::ZCode => 6,
+        OrchestrationProvider::Pi => 7,
+        OrchestrationProvider::Hermes => 8,
     }
 }
 
@@ -439,6 +444,10 @@ fn action_selector(provider: OrchestrationProvider) -> &'static str {
         OrchestrationProvider::Cursor => "settings-orchestration-cursor-action",
         OrchestrationProvider::OpenCode => "settings-orchestration-opencode-action",
         OrchestrationProvider::Grok => "settings-orchestration-grok-action",
+        OrchestrationProvider::Kimi => "settings-orchestration-kimi-action",
+        OrchestrationProvider::ZCode => "settings-orchestration-zcode-action",
+        OrchestrationProvider::Pi => "settings-orchestration-pi-action",
+        OrchestrationProvider::Hermes => "settings-orchestration-hermes-action",
     }
 }
 
@@ -449,6 +458,10 @@ fn disclosure_selector(provider: OrchestrationProvider) -> &'static str {
         OrchestrationProvider::Cursor => "settings-orchestration-cursor-disclosure",
         OrchestrationProvider::OpenCode => "settings-orchestration-opencode-disclosure",
         OrchestrationProvider::Grok => "settings-orchestration-grok-disclosure",
+        OrchestrationProvider::Kimi => "settings-orchestration-kimi-disclosure",
+        OrchestrationProvider::ZCode => "settings-orchestration-zcode-disclosure",
+        OrchestrationProvider::Pi => "settings-orchestration-pi-disclosure",
+        OrchestrationProvider::Hermes => "settings-orchestration-hermes-disclosure",
     }
 }
 

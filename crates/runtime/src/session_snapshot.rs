@@ -136,7 +136,13 @@ pub fn find_agent_session_id_for_profile(
         AgentProfile::Claude => find_agent_session_id(workspace_root),
         AgentProfile::Codex => find_codex_session_id(workspace_root),
         AgentProfile::Grok => find_grok_session_id(workspace_root),
-        AgentProfile::Cursor | AgentProfile::OpenCode => None,
+        // Kimi/ZCode/Pi/Hermes 的会话发现待各自实测后接入，未验证前不猜目录结构。
+        AgentProfile::Cursor
+        | AgentProfile::OpenCode
+        | AgentProfile::Kimi
+        | AgentProfile::ZCode
+        | AgentProfile::Pi
+        | AgentProfile::Hermes => None,
     }
 }
 
@@ -281,6 +287,11 @@ pub(crate) fn build_agent_resume_command(
                 shell_quote(session_id)
             )
         }
+        // 骨架占位：恢复参数未经实测前退化为普通启动，由各 CLI 负责人替换为已验证命令。
+        AgentProfile::Kimi => "exec kimi".to_string(),
+        AgentProfile::ZCode => "exec zcode".to_string(),
+        AgentProfile::Pi => "exec pi".to_string(),
+        AgentProfile::Hermes => "exec hermes".to_string(),
     };
     let mut cmd = PtyCommand::new(shell).args(["-lic", &cmd_str]);
     cmd = cmd.with_cwd(workspace_root);

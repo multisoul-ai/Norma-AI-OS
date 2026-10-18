@@ -364,6 +364,10 @@ fn parse_provider(value: &str) -> Option<OrchestrationProvider> {
         "cursor" => Some(OrchestrationProvider::Cursor),
         "opencode" => Some(OrchestrationProvider::OpenCode),
         "grok" => Some(OrchestrationProvider::Grok),
+        "kimi" => Some(OrchestrationProvider::Kimi),
+        "zcode" => Some(OrchestrationProvider::ZCode),
+        "pi" => Some(OrchestrationProvider::Pi),
+        "hermes" => Some(OrchestrationProvider::Hermes),
         _ => None,
     }
 }

@@ -271,6 +271,10 @@ fn profile_slug(profile: norma::protocol::AgentProfile) -> &'static str {
         norma::protocol::AgentProfile::Cursor => "cursor",
         norma::protocol::AgentProfile::Grok => "grok",
         norma::protocol::AgentProfile::OpenCode => "opencode",
+        norma::protocol::AgentProfile::Kimi => "kimi",
+        norma::protocol::AgentProfile::ZCode => "zcode",
+        norma::protocol::AgentProfile::Pi => "pi",
+        norma::protocol::AgentProfile::Hermes => "hermes",
     }
 }
 
@@ -284,6 +288,10 @@ fn orchestration_provider(
         canvas::AgentProfile::Cursor => norma::orchestration::OrchestrationProvider::Cursor,
         canvas::AgentProfile::Grok => norma::orchestration::OrchestrationProvider::Grok,
         canvas::AgentProfile::OpenCode => norma::orchestration::OrchestrationProvider::OpenCode,
+        canvas::AgentProfile::Kimi => norma::orchestration::OrchestrationProvider::Kimi,
+        canvas::AgentProfile::ZCode => norma::orchestration::OrchestrationProvider::ZCode,
+        canvas::AgentProfile::Pi => norma::orchestration::OrchestrationProvider::Pi,
+        canvas::AgentProfile::Hermes => norma::orchestration::OrchestrationProvider::Hermes,
     }
 }
 

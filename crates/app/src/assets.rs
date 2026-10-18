@@ -20,6 +20,10 @@ pub const TOOLBAR_CODEX_ASSET: &str = "icons/toolbar-codex.svg";
 pub const TOOLBAR_CURSOR_ASSET: &str = "icons/toolbar-cursor.svg";
 pub const TOOLBAR_GROK_ASSET: &str = "icons/toolbar-grok.svg";
 pub const TOOLBAR_OPENCODE_ASSET: &str = "icons/toolbar-opencode.svg";
+pub const TOOLBAR_KIMI_ASSET: &str = "icons/toolbar-kimi.svg";
+pub const TOOLBAR_ZCODE_ASSET: &str = "icons/toolbar-zcode.svg";
+pub const TOOLBAR_PI_ASSET: &str = "icons/toolbar-pi.svg";
+pub const TOOLBAR_HERMES_ASSET: &str = "icons/toolbar-hermes.svg";
 pub const TOOLBAR_PREVIEW_ASSET: &str = "icons/toolbar-preview.svg";
 pub const TOOLBAR_SETTINGS_ASSET: &str = "icons/toolbar-settings.svg";
 pub const TOOLBAR_WORKSPACES_ASSET: &str = "icons/toolbar-workspaces.svg";
@@ -44,6 +48,10 @@ const TOOLBAR_CODEX_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-codex
 const TOOLBAR_CURSOR_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-cursor.svg");
 const TOOLBAR_GROK_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-grok.svg");
 const TOOLBAR_OPENCODE_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-opencode.svg");
+const TOOLBAR_KIMI_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-kimi.svg");
+const TOOLBAR_ZCODE_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-zcode.svg");
+const TOOLBAR_PI_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-pi.svg");
+const TOOLBAR_HERMES_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-hermes.svg");
 const TOOLBAR_PREVIEW_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-preview.svg");
 const TOOLBAR_SETTINGS_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-settings.svg");
 const TOOLBAR_WORKSPACES_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-workspaces.svg");
@@ -124,6 +132,10 @@ impl AssetSource for EmbeddedAssets {
             TOOLBAR_CURSOR_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_CURSOR_BYTES))),
             TOOLBAR_GROK_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_GROK_BYTES))),
             TOOLBAR_OPENCODE_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_OPENCODE_BYTES))),
+            TOOLBAR_KIMI_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_KIMI_BYTES))),
+            TOOLBAR_ZCODE_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_ZCODE_BYTES))),
+            TOOLBAR_PI_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_PI_BYTES))),
+            TOOLBAR_HERMES_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_HERMES_BYTES))),
             TOOLBAR_PREVIEW_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_PREVIEW_BYTES))),
             TOOLBAR_SETTINGS_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_SETTINGS_BYTES))),
             TOOLBAR_WORKSPACES_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_WORKSPACES_BYTES))),
@@ -177,6 +189,10 @@ impl AssetSource for EmbeddedAssets {
                 SharedString::from("toolbar-cursor.svg"),
                 SharedString::from("toolbar-grok.svg"),
                 SharedString::from("toolbar-opencode.svg"),
+                SharedString::from("toolbar-kimi.svg"),
+                SharedString::from("toolbar-zcode.svg"),
+                SharedString::from("toolbar-pi.svg"),
+                SharedString::from("toolbar-hermes.svg"),
                 SharedString::from("toolbar-preview.svg"),
                 SharedString::from("toolbar-settings.svg"),
                 SharedString::from("toolbar-workspaces.svg"),
@@ -358,6 +374,10 @@ mod tests {
             TOOLBAR_CURSOR_ASSET,
             TOOLBAR_GROK_ASSET,
             TOOLBAR_OPENCODE_ASSET,
+            TOOLBAR_KIMI_ASSET,
+            TOOLBAR_ZCODE_ASSET,
+            TOOLBAR_PI_ASSET,
+            TOOLBAR_HERMES_ASSET,
             TOOLBAR_PREVIEW_ASSET,
             TOOLBAR_SETTINGS_ASSET,
             TOOLBAR_WORKSPACES_ASSET,

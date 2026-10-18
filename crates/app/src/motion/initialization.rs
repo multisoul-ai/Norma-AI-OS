@@ -23,6 +23,10 @@ pub(crate) enum InitializationAnimationKind {
     Cursor,
     Grok,
     OpenCode,
+    Kimi,
+    ZCode,
+    Pi,
+    Hermes,
 }
 
 impl InitializationAnimationKind {
@@ -33,6 +37,10 @@ impl InitializationAnimationKind {
             AgentProfile::Cursor => Self::Cursor,
             AgentProfile::Grok => Self::Grok,
             AgentProfile::OpenCode => Self::OpenCode,
+            AgentProfile::Kimi => Self::Kimi,
+            AgentProfile::ZCode => Self::ZCode,
+            AgentProfile::Pi => Self::Pi,
+            AgentProfile::Hermes => Self::Hermes,
         }
     }
 }

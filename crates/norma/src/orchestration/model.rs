@@ -9,6 +9,11 @@ pub enum OrchestrationProvider {
     Cursor,
     OpenCode,
     Grok,
+    // 以下四个仅为骨架占位：未进入 ALL，编排安装与设置页行由各 CLI 负责人验证后接入。
+    Kimi,
+    ZCode,
+    Pi,
+    Hermes,
 }
 
 impl OrchestrationProvider {
@@ -27,6 +32,10 @@ impl OrchestrationProvider {
             Self::Cursor => "cursor",
             Self::OpenCode => "opencode",
             Self::Grok => "grok",
+            Self::Kimi => "kimi",
+            Self::ZCode => "zcode",
+            Self::Pi => "pi",
+            Self::Hermes => "hermes",
         }
     }
 
@@ -37,6 +46,10 @@ impl OrchestrationProvider {
             Self::Cursor => "Cursor Agent CLI",
             Self::OpenCode => "OpenCode",
             Self::Grok => "Grok Build",
+            Self::Kimi => "Kimi Code",
+            Self::ZCode => "ZCode",
+            Self::Pi => "Pi",
+            Self::Hermes => "Hermes Agent",
         }
     }
 
@@ -47,6 +60,10 @@ impl OrchestrationProvider {
             Self::Cursor => AgentProfile::Cursor,
             Self::OpenCode => AgentProfile::OpenCode,
             Self::Grok => AgentProfile::Grok,
+            Self::Kimi => AgentProfile::Kimi,
+            Self::ZCode => AgentProfile::ZCode,
+            Self::Pi => AgentProfile::Pi,
+            Self::Hermes => AgentProfile::Hermes,
         }
     }
 
@@ -56,7 +73,7 @@ impl OrchestrationProvider {
             Self::Codex => Some(HookSource::Codex),
             Self::Cursor => Some(HookSource::Cursor),
             Self::OpenCode => Some(HookSource::OpenCode),
-            Self::Grok => None,
+            Self::Grok | Self::Kimi | Self::ZCode | Self::Pi | Self::Hermes => None,
         }
     }
 
@@ -66,7 +83,7 @@ impl OrchestrationProvider {
             Self::Codex => Some(HookTarget::Codex),
             Self::Cursor => Some(HookTarget::Cursor),
             Self::OpenCode => Some(HookTarget::OpenCode),
-            Self::Grok => None,
+            Self::Grok | Self::Kimi | Self::ZCode | Self::Pi | Self::Hermes => None,
         }
     }
 }
@@ -239,7 +256,11 @@ impl InstallPaths {
             OrchestrationProvider::Codex => Some(&self.codex_skill),
             OrchestrationProvider::Cursor => Some(&self.cursor_rule),
             OrchestrationProvider::OpenCode => Some(&self.opencode_skill),
-            OrchestrationProvider::Grok => None,
+            OrchestrationProvider::Grok
+            | OrchestrationProvider::Kimi
+            | OrchestrationProvider::ZCode
+            | OrchestrationProvider::Pi
+            | OrchestrationProvider::Hermes => None,
         }
     }
 
@@ -271,7 +292,11 @@ impl InstallPaths {
                 .join("norma-presentation")
                 .join("SKILL.md")
                 .into(),
-            OrchestrationProvider::Grok => None,
+            OrchestrationProvider::Grok
+            | OrchestrationProvider::Kimi
+            | OrchestrationProvider::ZCode
+            | OrchestrationProvider::Pi
+            | OrchestrationProvider::Hermes => None,
         }
     }
 
@@ -306,7 +331,11 @@ impl InstallPaths {
                 .join("ask-norma")
                 .join("SKILL.md")
                 .into(),
-            OrchestrationProvider::Grok => None,
+            OrchestrationProvider::Grok
+            | OrchestrationProvider::Kimi
+            | OrchestrationProvider::ZCode
+            | OrchestrationProvider::Pi
+            | OrchestrationProvider::Hermes => None,
         }
     }
 }

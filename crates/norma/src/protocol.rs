@@ -159,6 +159,10 @@ pub enum AgentProfile {
     Cursor,
     Grok,
     OpenCode,
+    Kimi,
+    ZCode,
+    Pi,
+    Hermes,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]

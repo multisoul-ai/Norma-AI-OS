@@ -313,7 +313,7 @@ pub fn norma_tool_definitions() -> Vec<ToolDefinition> {
             "仅在用户明确要求新建某个内置类型的 Agent 时使用。若同时要求新 Agent 执行任务，把完整任务放入 task，由系统在创建后立即入队，不要再调用 assign_agent_task。若用户点名的 Agent 画布上已有卡片，不要调用本工具，应 reply_agent 直接对话。",
             object_schema(
                 json!({
-                    "profile": {"type": "string", "enum": ["codex", "claude", "opencode", "cursor", "grok"]},
+                    "profile": {"type": "string", "enum": ["codex", "claude", "opencode", "cursor", "grok", "kimi", "zcode", "pi", "hermes"]},
                     "task": {"type": "string", "minLength": 1}
                 }),
                 &["profile"],

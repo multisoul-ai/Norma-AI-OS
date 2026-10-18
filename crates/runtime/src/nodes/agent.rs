@@ -44,6 +44,11 @@ pub(crate) fn agent_command(profile: AgentProfile, hook_env: Option<&AgentHookEn
         AgentProfile::OpenCode => {
             PtyCommand::new("/bin/zsh").args(["-lic", "exec \"${OPENCODE_BIN:-opencode}\""])
         }
+        // 骨架占位：只使用已确认的命令名，不带任何跳过审批参数；各 CLI 负责人实测后补充。
+        AgentProfile::Kimi => PtyCommand::new("/bin/zsh").args(["-lic", "exec kimi"]),
+        AgentProfile::ZCode => PtyCommand::new("/bin/zsh").args(["-lic", "exec zcode"]),
+        AgentProfile::Pi => PtyCommand::new("/bin/zsh").args(["-lic", "exec pi"]),
+        AgentProfile::Hermes => PtyCommand::new("/bin/zsh").args(["-lic", "exec hermes"]),
     };
     match hook_env {
         Some(hook_env) => hook_env.apply_to_command(command),

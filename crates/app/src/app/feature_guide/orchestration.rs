@@ -347,6 +347,10 @@ fn provider_mark(provider: OrchestrationProvider) -> &'static str {
         OrchestrationProvider::Cursor => ">",
         OrchestrationProvider::OpenCode => "{}",
         OrchestrationProvider::Grok => "G",
+        OrchestrationProvider::Kimi => "K",
+        OrchestrationProvider::ZCode => "Z",
+        OrchestrationProvider::Pi => "Pi",
+        OrchestrationProvider::Hermes => "H",
     }
 }
 
@@ -355,6 +359,10 @@ fn palette_provider_color(theme: Theme, provider: OrchestrationProvider) -> u32 
         OrchestrationProvider::Claude => theme.accent_orange,
         OrchestrationProvider::OpenCode => theme.accent_blue,
         OrchestrationProvider::Codex | OrchestrationProvider::Cursor => theme.text_primary,
-        OrchestrationProvider::Grok => theme.text_secondary,
+        OrchestrationProvider::Grok
+        | OrchestrationProvider::Kimi
+        | OrchestrationProvider::ZCode
+        | OrchestrationProvider::Pi
+        | OrchestrationProvider::Hermes => theme.text_secondary,
     }
 }

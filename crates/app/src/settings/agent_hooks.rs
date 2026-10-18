@@ -267,6 +267,10 @@ fn canvas_profile(profile: norma::protocol::AgentProfile) -> CanvasAgentProfile 
         norma::protocol::AgentProfile::Cursor => CanvasAgentProfile::Cursor,
         norma::protocol::AgentProfile::Grok => CanvasAgentProfile::Grok,
         norma::protocol::AgentProfile::OpenCode => CanvasAgentProfile::OpenCode,
+        norma::protocol::AgentProfile::Kimi => CanvasAgentProfile::Kimi,
+        norma::protocol::AgentProfile::ZCode => CanvasAgentProfile::ZCode,
+        norma::protocol::AgentProfile::Pi => CanvasAgentProfile::Pi,
+        norma::protocol::AgentProfile::Hermes => CanvasAgentProfile::Hermes,
     }
 }
 

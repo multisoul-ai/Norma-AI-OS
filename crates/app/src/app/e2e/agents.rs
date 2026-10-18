@@ -203,6 +203,10 @@ impl MultisoulApp {
             canvas::AgentProfile::Cursor => "cursor",
             canvas::AgentProfile::Grok => "grok",
             canvas::AgentProfile::OpenCode => "opencode",
+            canvas::AgentProfile::Kimi => "kimi",
+            canvas::AgentProfile::ZCode => "zcode",
+            canvas::AgentProfile::Pi => "pi",
+            canvas::AgentProfile::Hermes => "hermes",
         };
         AgentSettingsE2eSnapshot {
             definitions: self

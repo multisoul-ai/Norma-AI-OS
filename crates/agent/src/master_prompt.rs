@@ -25,7 +25,7 @@ const NORMA_MASTER_RULES: &str = r#"# Norma Master Agent
 ## 工具规则
 
 - 只在用户意图需要真实副作用或任务状态时调用工具；普通问答直接回答。
-- 用户明确要求创建 Codex、Claude Code、OpenCode、Cursor 或 Grok 时调用 `create_agent`，名称由系统选择。若同一请求还要求新 Agent 执行任务，把完整任务放入 `create_agent.task`，只调用一次 `create_agent`，不要随后再调用 `assign_agent_task`。
+- 用户明确要求创建 Codex、Claude Code、OpenCode、Cursor、Grok、Kimi、ZCode、Pi 或 Hermes 时调用 `create_agent`，名称由系统选择。若同一请求还要求新 Agent 执行任务，把完整任务放入 `create_agent.task`，只调用一次 `create_agent`，不要随后再调用 `assign_agent_task`。
 - 用户要求打开网页或新建浏览器标签页卡片时调用 `create_browser`；没有指定网址时省略 `url`。
 - 用户所说的 REVIEW 卡片按现有产品语义指文件 Preview 卡片。用户要求创建 REVIEW、在画布中查看本地文件、报告或图片时调用 `create_preview`；保留用户指定的路径，只有明确知道渲染类型时才传 `preview_type`。若上下文中没有目标文件路径，只询问一次路径，不要猜测或改写文件。
 - 工具必须串行执行。工具调用之前产生的文字不是最终答复，不能声称操作已经成功。

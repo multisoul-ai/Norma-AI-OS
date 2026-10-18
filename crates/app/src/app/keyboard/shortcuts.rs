@@ -57,6 +57,18 @@ impl MultisoulApp {
             ShortcutCommandId::NewGrokAgent => {
                 self.on_new_grok_agent(&crate::app::NewGrokAgent, window, cx)
             }
+            ShortcutCommandId::NewKimiAgent => {
+                self.on_new_kimi_agent(&crate::app::NewKimiAgent, window, cx)
+            }
+            ShortcutCommandId::NewZCodeAgent => {
+                self.on_new_zcode_agent(&crate::app::NewZCodeAgent, window, cx)
+            }
+            ShortcutCommandId::NewPiAgent => {
+                self.on_new_pi_agent(&crate::app::NewPiAgent, window, cx)
+            }
+            ShortcutCommandId::NewHermesAgent => {
+                self.on_new_hermes_agent(&crate::app::NewHermesAgent, window, cx)
+            }
             ShortcutCommandId::DeleteCard => self.on_delete_card_shortcut(window, cx),
             ShortcutCommandId::ReflowLayout => {
                 self.on_reflow_layout(&crate::app::ReflowLayout, window, cx)
