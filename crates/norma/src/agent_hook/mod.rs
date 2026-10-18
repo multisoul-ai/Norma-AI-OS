@@ -34,6 +34,7 @@ pub use forward::{forward_event, forward_hook};
 pub use install::{
     agent_hooks_installed, agent_hooks_installed_at, agent_hooks_installed_for_source,
     install_agent_hooks, install_hook_config, uninstall_agent_hooks, uninstall_hook_config,
+    uninstall_hook_config_except_hermes,
 };
 
 pub const ENV_NODE_ID: &str = "MULTISOUL_NODE_ID";

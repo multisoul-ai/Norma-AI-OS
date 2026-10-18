@@ -48,7 +48,9 @@ pub fn uninstall_agent_hooks(target: HookTarget) -> Result<(), AgentHookError> {
     if target == HookTarget::Hermes {
         return Ok(());
     }
-    uninstall_hook_config(target, &paths)
+    // Hermes 目录交给上面的后台线程：实测目录缺失时 `hermes plugins disable` 失败且
+    // 在 config.yaml 残留启用条目，所以 All 不能在这里同步删目录。
+    uninstall_hook_config_except_hermes(target, &paths)
 }
 
 pub fn agent_hooks_installed(target: HookTarget, paths: &HookInstallPaths) -> bool {
@@ -97,6 +99,18 @@ pub fn uninstall_hook_config(
     target: HookTarget,
     paths: &HookInstallPaths,
 ) -> Result<(), AgentHookError> {
+    uninstall_hook_config_except_hermes(target, paths)?;
+    if matches!(target, HookTarget::Hermes | HookTarget::All) {
+        uninstall_hermes_plugin(paths.hermes_plugin_dir.as_path())?;
+    }
+    Ok(())
+}
+
+/// 卸载除 Hermes 目录插件之外的目标；Hermes 须先 disable 再删目录，由调用方排序。
+pub fn uninstall_hook_config_except_hermes(
+    target: HookTarget,
+    paths: &HookInstallPaths,
+) -> Result<(), AgentHookError> {
     if matches!(target, HookTarget::Claude | HookTarget::All) {
         uninstall_for_source(paths.claude_settings.as_path(), HookSource::Claude)?;
     }
@@ -111,9 +125,6 @@ pub fn uninstall_hook_config(
     }
     if matches!(target, HookTarget::OpenCode | HookTarget::All) {
         uninstall_opencode_plugin(paths.opencode_plugin.as_path())?;
-    }
-    if matches!(target, HookTarget::Hermes | HookTarget::All) {
-        uninstall_hermes_plugin(paths.hermes_plugin_dir.as_path())?;
     }
     Ok(())
 }

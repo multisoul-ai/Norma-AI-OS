@@ -28,7 +28,9 @@ def _post(name, payload):
             json.dumps(body).encode("utf-8"),
             {"Authorization": "Bearer " + token, "Content-Type": "application/json"},
         )
-        urllib.request.urlopen(request, timeout=_TIMEOUT_SECONDS).read()
+        # Token 只发往本机端点，显式禁用代理，避免 http_proxy 把请求和 token 带给代理。
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        opener.open(request, timeout=_TIMEOUT_SECONDS).read()
     except Exception:
         pass
 
