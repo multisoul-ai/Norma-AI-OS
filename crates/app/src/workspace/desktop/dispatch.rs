@@ -265,7 +265,7 @@ impl MultisoulApp {
             })
             .ok_or_else(|| AdapterError::Rejected("Agent 卡片已失效，请重新查询目标".into()))?;
         let submitted = session.update(cx, |session, cx| {
-            session.submit_compact_agent_text(node_id, task, cx)
+            session.submit_tracked_agent_text(node_id, task, cx)
         });
         self.desktop_workspace
             .dispatch_receipts
@@ -275,16 +275,21 @@ impl MultisoulApp {
                 project_name: project_name.clone(),
                 agent_name: agent_name.clone(),
                 status: match &submitted {
-                    Ok(()) => "已提交".into(),
+                    Ok(_) => "已接收".into(),
                     Err(error) => format!("失败：{error}"),
                 },
                 submitted: submitted.is_ok(),
             });
         cx.notify();
-        submitted.map_err(AdapterError::Rejected)?;
+        let accepted = submitted?;
         Ok(
             AdapterResult::accepted(format!("{project_name} 的 {agent_name} 已接收任务"))
-                .with_node_id(node_id),
+                .with_node_id(node_id)
+                .with_task_id(
+                    accepted.task_id.ok_or_else(|| {
+                        AdapterError::Failed("Agent 已接收但未返回任务身份".into())
+                    })?,
+                ),
         )
     }
 }

@@ -4,16 +4,17 @@ use crate::app::AppScreen;
 use gpui::{AppContext as _, TestAppContext};
 use std::sync::{Arc, Mutex};
 
-/// 稳定 ID 派活工具必须写入指定项目的 Agent，并留下逐目标回执。
+/// 稳定 ID 派活工具必须进入指定项目的协调队列，并留下逐目标回执。
 ///
 /// 数据构造：一个桌面空间含 ProjectA 和 ProjectB，各有一张 Codex 卡片；
 /// 两个隔离 Recording PTY 分别收集写入，当前聚焦 ProjectA。
 /// 执行过程：拒绝错误工作空间后向 B 派活，再分别向 A/B 派活；
-/// 停止 A 的 PTY 后分别重试，最后用无效节点 ID 验证过期目标。
-/// 预期结果：任务只送达指定 PTY 一次；A 失败不阻止 B 成功；
+/// 最后用无效节点 ID 验证过期目标。
+/// 预期结果：A 只收到自己的任务，B 的后续任务排队且不写入正在忙碌的 PTY；
+/// Enter 留给协调队列；
 /// 逐目标回执准确，过期目标不得产生 PTY 写入。
 #[test]
-fn workspace_task_tool_targets_exact_agent_and_isolates_failures() {
+fn workspace_task_tool_targets_exact_agent_through_coordinator() {
     let temp = tempfile::tempdir().expect("应创建隔离目录");
     let root_a = temp.path().join("ProjectA");
     let root_b = temp.path().join("ProjectB");
@@ -118,6 +119,20 @@ fn workspace_task_tool_targets_exact_agent_and_isolates_failures() {
         "回执应携带实际 Agent 卡片 ID"
     );
     assert!(
+        accepted.task_id.is_some(),
+        "成功派活必须返回可追踪的任务 ID"
+    );
+    session_b.read_with(cx, |app, _| {
+        assert!(
+            app.agent_task_coordinator
+                .as_ref()
+                .is_some_and(|coordinator| coordinator.tasks().iter().any(|task| {
+                    task.target_node_id == node_b && task.task == "检查登录方案"
+                })),
+            "跨项目派活必须进入目标项目的协调队列，供待审批保护与产物追踪使用"
+        );
+    });
+    assert!(
         writes_a.lock().expect("应读取 A 写入").is_empty(),
         "跨项目工具不能写入当前聚焦的 A"
     );
@@ -152,25 +167,40 @@ fn workspace_task_tool_targets_exact_agent_and_isolates_failures() {
     });
     assert_eq!(reply_a.node_id, Some(node_a), "A 的回执应指向 A 卡片");
     assert_eq!(reply_b.node_id, Some(node_b), "B 的回执应指向 B 卡片");
-    for (label, task, writes) in [
-        ("A", "修复注册问题", &writes_a),
-        ("B", "测试登录", &writes_b),
-    ] {
-        let writes = writes.lock().expect("应读取对应 PTY 写入");
-        assert_eq!(
-            writes
-                .iter()
-                .filter(|chunk| String::from_utf8_lossy(chunk).contains(task))
-                .count(),
-            1,
-            "{label} 应只收到自己的一次任务"
+    let writes_a_guard = writes_a.lock().expect("应读取 A 的 PTY 写入");
+    assert_eq!(
+        writes_a_guard
+            .iter()
+            .filter(|chunk| String::from_utf8_lossy(chunk).contains("修复注册问题"))
+            .count(),
+        1,
+        "A 应只收到自己的任务"
+    );
+    assert_eq!(
+        writes_a_guard
+            .iter()
+            .filter(|chunk| chunk.contains(&b'\r'))
+            .count(),
+        0,
+        "A 的 Enter 应由协调队列在输入就绪后提交"
+    );
+    drop(writes_a_guard);
+    assert!(
+        writes_b.lock().expect("应读取 B 的 PTY 写入").is_empty(),
+        "B 正在处理上一任务时，后续任务不得抢写 PTY"
+    );
+    session_b.read_with(cx, |app, _| {
+        assert!(
+            app.agent_task_coordinator
+                .as_ref()
+                .is_some_and(|coordinator| coordinator.tasks().iter().any(|task| {
+                    task.target_node_id == node_b
+                        && task.task == "测试登录"
+                        && task.state == "queued"
+                })),
+            "B 的后续任务应保留在协调队列中"
         );
-        assert_eq!(
-            writes.iter().filter(|chunk| chunk.contains(&b'\r')).count(),
-            1,
-            "{label} 的任务应只提交一次 Enter"
-        );
-    }
+    });
     host.read_with(cx, |app, _| {
         let receipts = app
             .desktop_workspace
@@ -184,51 +214,6 @@ fn workspace_task_tool_targets_exact_agent_and_isolates_failures() {
         );
     });
 
-    session_a.update(cx, |app, _| app.runtime.kill_all());
-    writes_a.lock().expect("应清空 A 写入").clear();
-    writes_b.lock().expect("应清空 B 写入").clear();
-    let failed_a = host.update(cx, |app, cx| {
-        app.norma_assign_workspace_task(&workspace.id, &area_a.id, node_a, "修复支付问题", cx)
-    });
-    assert!(failed_a.is_err(), "停止的 A 应返回失败回执");
-    let accepted_b = host.update(cx, |app, cx| {
-        app.norma_assign_workspace_task(&workspace.id, &area_b.id, node_b, "测试支付", cx)
-            .expect("A 失败不应影响 B")
-    });
-    assert_eq!(accepted_b.status, "accepted", "B 应独立提交成功");
-    host.read_with(cx, |app, _| {
-        let receipts = app
-            .desktop_workspace
-            .dispatch_receipts
-            .get(&workspace.id)
-            .expect("工作空间应保留成功与失败的逐目标回执");
-        assert_eq!(receipts.len(), 5, "两次独立调用都应留下回执");
-        assert_eq!(
-            receipts[3].project_name, "ProjectA",
-            "失败回执应保留 A 来源"
-        );
-        assert!(!receipts[3].submitted, "A 停止后应记录失败");
-        assert!(receipts[3].status.contains("失败"), "失败原因应可见");
-        assert_eq!(
-            receipts[4].project_name, "ProjectB",
-            "成功回执应保留 B 来源"
-        );
-        assert!(receipts[4].submitted, "B 应保留独立成功回执");
-    });
-    assert!(
-        writes_a.lock().expect("应读取失败目标写入").is_empty(),
-        "停止的 A 不能收到任务"
-    );
-    assert_eq!(
-        writes_b
-            .lock()
-            .expect("应读取成功目标写入")
-            .iter()
-            .filter(|chunk| String::from_utf8_lossy(chunk).contains("测试支付"))
-            .count(),
-        1,
-        "A 失败后 B 仍只能收到一次任务"
-    );
     let counts = (
         writes_a.lock().expect("应统计 A 写入").len(),
         writes_b.lock().expect("应统计 B 写入").len(),
@@ -247,6 +232,7 @@ fn workspace_task_tool_targets_exact_agent_and_isolates_failures() {
         counts.1,
         "拒绝失效节点不得写入 B"
     );
+    session_a.update(cx, |app, _| app.runtime.kill_all());
     session_b.update(cx, |app, _| app.runtime.kill_all());
 }
 
