@@ -292,9 +292,12 @@ pub(crate) fn build_agent_resume_command(
         // 已验证（docs/research/2026-10-18-zcode.md §12）：只用 --resume <id>，不用按目录取最近的 -c；
         // ID 必须是 hook 给出的 `sess_<uuid>`，否则退化为普通启动，避免注入与失效 ID 延迟报错。
         AgentProfile::ZCode if is_zcode_session_id(session_id) => {
-            format!("exec zcode --resume {}", shell_quote(session_id))
+            crate::zcode_launch::zcode_launch_script(&format!(
+                "--resume {}",
+                shell_quote(session_id)
+            ))
         }
-        AgentProfile::ZCode => "exec zcode".to_string(),
+        AgentProfile::ZCode => crate::zcode_launch::zcode_launch_script(""),
         AgentProfile::Pi => "exec pi".to_string(),
         AgentProfile::Hermes => "exec hermes".to_string(),
     };

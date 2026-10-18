@@ -16,16 +16,16 @@ fn zcode_shell_line(session_id: &str) -> String {
 ///
 /// 执行过程：调用 `build_agent_resume_command(ZCode, ...)`，取 `-lic` 后的 shell 命令行。
 ///
-/// 预期结果：命令为 `exec zcode --resume '<id>'`；不得出现 `-c`（按目录取最近会产生串会话）
+/// 预期结果：命令以守卫开头、以 `exec zcode --resume '<id>'` 结尾；不得出现 `-c`（按目录取最近会产生串会话）
 /// 与任何跳过审批的 `--mode`。
 #[test]
 fn zcode_resume_uses_explicit_session_id_without_continue_or_mode() {
     let line = zcode_shell_line(VALID_ID);
-    assert_eq!(
-        line,
-        format!("exec zcode --resume '{VALID_ID}'"),
-        "合法 sess_ ID 应拼成 --resume 命令"
+    assert!(
+        line.ends_with(&format!("; exec zcode --resume '{VALID_ID}'")),
+        "合法 sess_ ID 应拼成 --resume 命令: {line}"
     );
+    assert!(line.contains("command -v zcode"), "应带未安装守卫: {line}");
     assert!(!line.contains(" -c"), "不得使用按目录取最近的 -c: {line}");
     assert!(
         !line.contains("--mode"),
@@ -52,7 +52,10 @@ fn zcode_resume_rejects_invalid_session_id_and_falls_back_to_plain_launch() {
     ];
     for id in bad {
         let line = zcode_shell_line(id);
-        assert_eq!(line, "exec zcode", "非法 ID {id:?} 应退化为普通启动");
+        assert!(
+            line.ends_with("; exec zcode"),
+            "非法 ID {id:?} 应退化为普通启动: {line}"
+        );
         assert!(!line.contains("--resume"), "非法 ID 不得进入命令: {line}");
         assert!(!line.contains("pwn"), "注入片段不得进入命令: {line}");
     }
