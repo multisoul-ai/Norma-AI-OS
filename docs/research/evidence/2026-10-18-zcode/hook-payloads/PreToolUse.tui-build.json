@@ -1,0 +1,28 @@
+{
+  "cwd": "/private/tmp/zc-work",
+  "hookEventName": "PreToolUse",
+  "mode": "build",
+  "riskLevel": "high",
+  "sessionId": "sess_33c0d69e-b643-4683-9910-eff2d4c585cb",
+  "sideEffectScope": "system",
+  "timestamp": "2026-10-18T03:57:58.697Z",
+  "toolCallId": "call_1",
+  "toolInput": {
+    "command": "echo hi-from-tool",
+    "description": "echo"
+  },
+  "toolName": "Bash",
+  "traceId": "4ddd37ec-00ae-4881-9306-899fc762e342",
+  "turnId": "turn_473777ac-98f9-4587-beb8-b9e2c7832c36",
+  "hook_event_name": "PreToolUse",
+  "permission_mode": "build",
+  "session_id": "sess_33c0d69e-b643-4683-9910-eff2d4c585cb",
+  "transcript_path": "<tmp>/zcode-hook-XXXX/transcript.jsonl",
+  "transcriptPath": "<tmp>/zcode-hook-XXXX/transcript.jsonl",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "echo hi-from-tool",
+    "description": "echo"
+  },
+  "tool_use_id": "call_1"
+}

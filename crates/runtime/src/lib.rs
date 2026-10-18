@@ -19,6 +19,7 @@ mod runtime_support;
 pub(crate) mod session_restore;
 pub mod session_snapshot;
 pub mod snapshot;
+mod zcode_launch;
 
 pub use agent_hooks::AgentHookRuntimeConfig;
 pub use agent_session_bindings::AgentSessionHydrationReport;

@@ -75,6 +75,8 @@ impl OrchestrationProvider {
             Self::OpenCode => Some(HookSource::OpenCode),
             Self::Pi => Some(HookSource::Pi),
             Self::Grok | Self::Kimi | Self::ZCode | Self::Hermes => None,
+            Self::ZCode => Some(HookSource::ZCode),
+            Self::Grok | Self::Kimi | Self::Pi | Self::Hermes => None,
         }
     }
 
@@ -86,6 +88,8 @@ impl OrchestrationProvider {
             Self::OpenCode => Some(HookTarget::OpenCode),
             Self::Pi => Some(HookTarget::Pi),
             Self::Grok | Self::Kimi | Self::ZCode | Self::Hermes => None,
+            Self::ZCode => Some(HookTarget::ZCode),
+            Self::Grok | Self::Kimi | Self::Pi | Self::Hermes => None,
         }
     }
 }
@@ -219,6 +223,7 @@ impl InstallPaths {
                     std::env::var_os("KIMI_CODE_HOME"),
                 ),
                 hermes_plugin_dir: crate::agent_hook::hermes_plugin_dir_for_home(home),
+                zcode_config: home.join(".zcode/cli/config.json"),
             },
             claude_skill: home.join(".claude/skills/norma-orchestration/SKILL.md"),
             codex_skill: home.join(".codex/skills/norma-orchestration/SKILL.md"),

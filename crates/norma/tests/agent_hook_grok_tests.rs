@@ -121,6 +121,7 @@ fn grok_hook_install_is_idempotent_and_uninstall_preserves_third_party_hooks() {
         kimi_config: (temp.path().join("multisoul-agent-hook.js"))
             .with_file_name("kimi-config.toml"),
         hermes_plugin_dir: std::path::PathBuf::from("/nonexistent-hermes-plugin-dir"),
+        zcode_config: temp.path().join("zcode-config.json"),
     };
     let command_path = temp.path().join("multisoul-agent-hook");
     let grok_command = build_hook_command(&command_path, HookSource::Grok);

@@ -289,8 +289,15 @@ pub(crate) fn build_agent_resume_command(
         }
         // Kimi Code 2.2.0 实测：`--session <ID>` 按 ID 续接；`--continue` 按目录取最近会话，会串卡片。
         AgentProfile::Kimi => format!("exec kimi --session {}", shell_quote(session_id)),
-        // 骨架占位：恢复参数未经实测前退化为普通启动，由各 CLI 负责人替换为已验证命令。
-        AgentProfile::ZCode => "exec zcode".to_string(),
+        // 已验证（docs/research/2026-10-18-zcode.md §12）：只用 --resume <id>，不用按目录取最近的 -c；
+        // ID 必须是 hook 给出的 `sess_<uuid>`，否则退化为普通启动，避免注入与失效 ID 延迟报错。
+        AgentProfile::ZCode if is_zcode_session_id(session_id) => {
+            crate::zcode_launch::zcode_launch_script(&format!(
+                "--resume {}",
+                shell_quote(session_id)
+            ))
+        }
+        AgentProfile::ZCode => crate::zcode_launch::zcode_launch_script(""),
         // 已验证（docs/research/2026-10-18-pi-coding-agent.md §4）：--session-id 恢复完整历史；
         // -r 总是弹选择器，-c 会串到最近会话，均不用于自动恢复。
         AgentProfile::Pi => {
@@ -357,6 +364,13 @@ fn codex_session_id_for_workspace(path: &Path, workspace_root: &Path) -> Option<
     None
 }
 
+/// ZCode 会话 ID 形如 `sess_` + 36 位 UUID 文本（十六进制与连字符）。
+fn is_zcode_session_id(value: &str) -> bool {
+    value.strip_prefix("sess_").is_some_and(|rest| {
+        rest.len() == 36 && rest.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-')
+    })
+}
+
 pub(crate) fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\\''"))
 }
@@ -380,3 +394,7 @@ mod pi_tests;
 #[cfg(test)]
 #[path = "../tests/unit/session_snapshot_hermes_tests.rs"]
 mod hermes_tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/session_snapshot_zcode_tests.rs"]
+mod zcode_tests;

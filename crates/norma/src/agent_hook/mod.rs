@@ -13,6 +13,7 @@ mod json_config;
 mod kimi;
 mod opencode;
 mod pi;
+mod zcode;
 
 use crate::protocol::{AgentProfile, NodeId};
 use serde::{Deserialize, Serialize};
@@ -62,6 +63,7 @@ pub enum HookSource {
     Pi,
     Kimi,
     Hermes,
+    ZCode,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -74,6 +76,7 @@ pub enum HookTarget {
     Pi,
     Kimi,
     Hermes,
+    ZCode,
     All,
 }
 
@@ -112,6 +115,7 @@ pub struct HookInstallPaths {
     pub pi_extension: PathBuf,
     pub kimi_config: PathBuf,
     pub hermes_plugin_dir: PathBuf,
+    pub zcode_config: PathBuf,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -173,6 +177,7 @@ pub fn parse_hook_source(value: &str) -> Option<HookSource> {
         "pi" | "Pi" => Some(HookSource::Pi),
         "kimi" | "Kimi" => Some(HookSource::Kimi),
         "hermes" | "Hermes" => Some(HookSource::Hermes),
+        "zcode" | "ZCode" => Some(HookSource::ZCode),
         _ => None,
     }
 }
@@ -187,6 +192,7 @@ pub fn parse_hook_target(value: &str) -> Option<HookTarget> {
         "pi" | "Pi" => Some(HookTarget::Pi),
         "kimi" | "Kimi" => Some(HookTarget::Kimi),
         "hermes" | "Hermes" => Some(HookTarget::Hermes),
+        "zcode" | "ZCode" => Some(HookTarget::ZCode),
         "all" | "All" => Some(HookTarget::All),
         _ => None,
     }
@@ -213,6 +219,7 @@ pub fn hook_source_arg(source: HookSource) -> &'static str {
         HookSource::Pi => "pi",
         HookSource::Kimi => "kimi",
         HookSource::Hermes => "hermes",
+        HookSource::ZCode => "zcode",
     }
 }
 
@@ -226,6 +233,7 @@ pub fn profile_for_source(source: HookSource) -> AgentProfile {
         HookSource::Pi => AgentProfile::Pi,
         HookSource::Kimi => AgentProfile::Kimi,
         HookSource::Hermes => AgentProfile::Hermes,
+        HookSource::ZCode => AgentProfile::ZCode,
     }
 }
 
@@ -266,6 +274,7 @@ pub fn default_install_paths() -> HookInstallPaths {
                     .join(HERMES_PLUGIN_NAME)
             })
             .unwrap_or_else(|| hermes_plugin_dir_for_home(&home)),
+        zcode_config: home.join(".zcode").join("cli").join("config.json"),
     }
 }
 

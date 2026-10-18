@@ -174,6 +174,16 @@ pub fn hook_events_for_source(source: HookSource) -> &'static [&'static str] {
             "StopFailure",
             "SessionEnd",
         ],
+        // 实测 ZCode 恰好 7 个事件，无 SessionEnd/StopFailure，见 docs/research/2026-10-18-zcode.md。
+        HookSource::ZCode => &[
+            "SessionStart",
+            "UserPromptSubmit",
+            "PreToolUse",
+            "PermissionRequest",
+            "PostToolUse",
+            "PostToolUseFailure",
+            "Stop",
+        ],
     }
 }
 

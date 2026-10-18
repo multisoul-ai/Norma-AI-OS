@@ -8,6 +8,7 @@ use super::json_config::add_command_hook;
 use super::kimi::{install_kimi_hooks, kimi_hooks_installed_at, uninstall_kimi_hooks};
 use super::opencode::{install_opencode_plugin, uninstall_opencode_plugin};
 use super::pi::{install_pi_extension, uninstall_pi_extension};
+use super::zcode::{install_zcode_hooks, uninstall_zcode_hooks, zcode_hooks_installed_at};
 use super::{
     build_hook_command, hook_events_for_source, hook_source_arg, AgentHookError, HookInstallPaths,
     HookSource, HookTarget, AGENT_HOOK_BINARY_NAME, OPENCODE_PLUGIN_MARKER, PI_EXTENSION_MARKER,
@@ -70,6 +71,7 @@ pub fn agent_hooks_installed(target: HookTarget, paths: &HookInstallPaths) -> bo
         HookTarget::Pi => agent_hooks_installed_for_source(HookSource::Pi, paths),
         HookTarget::Kimi => agent_hooks_installed_for_source(HookSource::Kimi, paths),
         HookTarget::Hermes => agent_hooks_installed_for_source(HookSource::Hermes, paths),
+        HookTarget::ZCode => agent_hooks_installed_for_source(HookSource::ZCode, paths),
         HookTarget::All => {
             agent_hooks_installed_for_source(HookSource::Claude, paths)
                 && agent_hooks_installed_for_source(HookSource::Codex, paths)
@@ -79,6 +81,7 @@ pub fn agent_hooks_installed(target: HookTarget, paths: &HookInstallPaths) -> bo
                 && agent_hooks_installed_for_source(HookSource::Pi, paths)
                 && agent_hooks_installed_for_source(HookSource::Kimi, paths)
                 && agent_hooks_installed_for_source(HookSource::Hermes, paths)
+                && agent_hooks_installed_for_source(HookSource::ZCode, paths)
         }
     }
 }
@@ -103,6 +106,9 @@ pub fn agent_hooks_installed_at(path: &Path, source: HookSource) -> bool {
     }
     if source == HookSource::Cursor {
         return cursor_hooks_installed_at(path);
+    }
+    if source == HookSource::ZCode {
+        return zcode_hooks_installed_at(path);
     }
     let Ok(root) = read_json_or_empty(path) else {
         return false;
@@ -149,6 +155,9 @@ pub fn uninstall_hook_config_except_hermes(
     if matches!(target, HookTarget::Kimi | HookTarget::All) {
         uninstall_kimi_hooks(paths.kimi_config.as_path())?;
     }
+    if matches!(target, HookTarget::ZCode | HookTarget::All) {
+        uninstall_zcode_hooks(paths.zcode_config.as_path())?;
+    }
     Ok(())
 }
 
@@ -184,6 +193,9 @@ pub fn install_hook_config(
     }
     if matches!(target, HookTarget::Hermes | HookTarget::All) {
         install_hermes_plugin(paths.hermes_plugin_dir.as_path())?;
+    }
+    if matches!(target, HookTarget::ZCode | HookTarget::All) {
+        install_zcode_hooks(paths.zcode_config.as_path(), command_path)?;
     }
     Ok(())
 }
@@ -230,6 +242,7 @@ fn config_path_for_source(source: HookSource, paths: &HookInstallPaths) -> &Path
         HookSource::Pi => paths.pi_extension.as_path(),
         HookSource::Kimi => paths.kimi_config.as_path(),
         HookSource::Hermes => paths.hermes_plugin_dir.as_path(),
+        HookSource::ZCode => paths.zcode_config.as_path(),
     }
 }
 

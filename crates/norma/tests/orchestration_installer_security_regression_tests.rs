@@ -57,6 +57,7 @@ fn test_paths(root: &std::path::Path) -> InstallPaths {
             kimi_config: (root.join(".config/opencode/plugins/multisoul-agent-hook.js"))
                 .with_file_name("kimi-config.toml"),
             hermes_plugin_dir: std::path::PathBuf::from("/nonexistent-hermes-plugin-dir"),
+            zcode_config: root.join(".zcode/cli/config.json"),
         },
         claude_skill: root.join(".claude/skills/norma-orchestration/SKILL.md"),
         codex_skill: root.join(".codex/skills/norma-orchestration/SKILL.md"),
