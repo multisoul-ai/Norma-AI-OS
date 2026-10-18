@@ -364,8 +364,10 @@ mod tests;
 #[path = "../tests/unit/session_snapshot_grok_tests.rs"]
 mod grok_tests;
 
+#[cfg(test)]
 #[path = "../tests/unit/session_snapshot_kimi_tests.rs"]
 mod kimi_tests;
+
 #[cfg(test)]
 #[path = "../tests/unit/session_snapshot_pi_tests.rs"]
 mod pi_tests;
