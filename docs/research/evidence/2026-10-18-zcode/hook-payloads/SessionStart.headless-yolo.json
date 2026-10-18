@@ -1,0 +1,16 @@
+{
+  "cwd": "/private/tmp/zc-work",
+  "hookEventName": "SessionStart",
+  "mode": "yolo",
+  "model": "mock/mock-model",
+  "sessionId": "sess_4f863ed2-8a59-4db3-b15f-e90e3b3d70f2",
+  "source": "startup",
+  "timestamp": "2026-10-18T03:57:30.170Z",
+  "traceId": "1784a445-2d92-4b3d-bc77-d261d8029639",
+  "turnId": "turn_a7247030-6c77-45e7-8d8e-cbc1f2c49520",
+  "hook_event_name": "SessionStart",
+  "permission_mode": "yolo",
+  "session_id": "sess_4f863ed2-8a59-4db3-b15f-e90e3b3d70f2",
+  "transcript_path": "<tmp>/zcode-hook-XXXX/transcript.jsonl",
+  "transcriptPath": "<tmp>/zcode-hook-XXXX/transcript.jsonl"
+}

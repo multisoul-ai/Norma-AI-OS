@@ -1,0 +1,103 @@
+{
+  "provider": {
+    "mock": {
+      "kind": "openai-compatible",
+      "name": "Mock",
+      "options": {
+        "baseURL": "http://127.0.0.1:18765/v1",
+        "apiKey": "test-key-not-real"
+      },
+      "models": {
+        "mock-model": {
+          "name": "Mock"
+        }
+      }
+    }
+  },
+  "model": "mock/mock-model",
+  "hooks": {
+    "events": {
+      "SessionStart": [
+        {
+          "hooks": [
+            {
+              "type": "command",
+              "command": "<norma-agent-hook> forward --source zcode",
+              "timeout": 5
+            }
+          ]
+        }
+      ],
+      "UserPromptSubmit": [
+        {
+          "hooks": [
+            {
+              "type": "command",
+              "command": "<norma-agent-hook> forward --source zcode",
+              "timeout": 5
+            }
+          ]
+        }
+      ],
+      "PreToolUse": [
+        {
+          "hooks": [
+            {
+              "type": "command",
+              "command": "<norma-agent-hook> forward --source zcode",
+              "timeout": 5
+            }
+          ]
+        }
+      ],
+      "PermissionRequest": [
+        {
+          "hooks": [
+            {
+              "type": "command",
+              "command": "<norma-agent-hook> forward --source zcode",
+              "timeout": 5
+            }
+          ]
+        }
+      ],
+      "PostToolUse": [
+        {
+          "hooks": [
+            {
+              "type": "command",
+              "command": "<norma-agent-hook> forward --source zcode",
+              "timeout": 5
+            }
+          ]
+        }
+      ],
+      "PostToolUseFailure": [
+        {
+          "hooks": [
+            {
+              "type": "command",
+              "command": "<norma-agent-hook> forward --source zcode",
+              "timeout": 5
+            }
+          ]
+        }
+      ],
+      "Stop": [
+        {
+          "hooks": [
+            {
+              "type": "command",
+              "command": "<norma-agent-hook> forward --source zcode",
+              "timeout": 5
+            }
+          ]
+        }
+      ]
+    },
+    "enabled": true
+  },
+  "userKeep": {
+    "x": 1
+  }
+}
