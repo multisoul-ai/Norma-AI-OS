@@ -74,49 +74,49 @@ test('图片和视频保持独立意图', () => {
   assert.deepEqual(plain(applyCards([], plan('看看视频'))), ['video'], '视频请求应打开视频卡片');
 });
 
-/// 场景：单独打开网页直接进入完整内容展示，保留可返回的网页卡片。
+/// 场景：单独打开网页直接进入右侧内容浏览器，保留中间的网页卡片。
 /// 数据构造：空卡片集合、空展示状态；输入“打开 Apple Intelligence 网页”。
 /// 执行过程：1. 解析打开意图。2. 同时更新卡片集合和展示目标。
-/// 预期结果：web 展示目标存在；progress 不新增；网页卡片可返回。
-test('打开网页直接进入全屏展示', () => {
+/// 预期结果：web 阅读目标存在；progress 不新增；网页卡片持续可见。
+test('打开网页直接进入右侧浏览器', () => {
   const action = plan('打开 Apple Intelligence 网页');
   assert.equal(action.type, 'present', '打开网页应进入内容展示，不能只显示摘要卡片');
-  assert.equal(applyPresentation(null, action).kind, 'web', '全屏目标必须为网页');
+  assert.equal(applyPresentation(null, action).kind, 'web', '右侧阅读目标必须为网页');
   const cards = applyCards([], action);
   assert.ok(cards.includes('web'), '展示网页时必须保留可返回的网页卡片');
   assert.ok(!cards.includes('progress'), '打开网页不能额外增加项目卡片');
 });
 
-/// 场景：在全屏网页中调出全屏图片，新图片接管内容区。
+/// 场景：在网页阅读中调出图片，新图片成为当前标签。
 /// 数据构造：当前展示 web；输入“全屏展示图片”。
-/// 执行过程：1. 识别全屏指令。2. 更新展示目标。
-/// 预期结果：image 成为当前目标；web 不再占据全屏内容区。
-test('全屏目标可以切换到图片', () => {
+/// 执行过程：1. 识别展开指令。2. 更新当前阅读目标。
+/// 预期结果：image 成为当前目标；web 标签仍可切回。
+test('当前阅读目标可以切换到图片', () => {
   const next = applyPresentation({ kind: 'web' }, plan('全屏展示图片'));
-  assert.equal(next.kind, 'image', '全屏切换应展示请求的图片');
-  assert.notEqual(next.kind, 'web', '原网页不能继续遮挡新内容');
+  assert.equal(next.kind, 'image', '右侧应展示请求的图片');
+  assert.notEqual(next.kind, 'web', '原网页不能继续占据当前内容区');
 });
 
-/// 场景：退出全屏恢复对话舞台，同时保留原有信息卡片。
+/// 场景：收起右侧浏览器，同时保留原有信息卡片。
 /// 数据构造：当前展示 web；已有 progress、web；输入“退出全屏”。
 /// 执行过程：1. 解析返回指令。2. 清除展示目标。3. 保持卡片集合。
-/// 预期结果：全屏目标不存在；两张原有卡片均存在。
-test('退出全屏不删除原有卡片', () => {
+/// 预期结果：当前展示目标清空；两张原有卡片均存在。
+test('收起浏览器不删除原有卡片', () => {
   const action = plan('退出全屏');
-  assert.equal(applyPresentation({ kind: 'web' }, action), null, '退出后圆球应回到对话舞台');
+  assert.equal(applyPresentation({ kind: 'web' }, action), null, '收起后内容不再占据右侧');
   const cards = applyCards(['progress', 'web'], action);
   assert.ok(cards.includes('progress'), '返回对话必须保留项目进度');
   assert.ok(cards.includes('web'), '返回对话必须保留已打开的网页卡片');
 });
 
-/// 场景：关闭无关卡片不会退出正在看的图片，关闭图片则退出。
+/// 场景：关闭画布卡片不会关闭已打开的阅读标签。
 /// 数据构造：当前展示 image；分别输入“关闭网页”和“关闭图片”。
 /// 执行过程：1. 定向移除网页。2. 定向移除图片。
-/// 预期结果：第一次 image 保留；第二次展示目标消失。
-test('定向关闭只影响对应全屏内容', () => {
+/// 预期结果：两次关闭卡片后 image 阅读目标都保留。
+test('关闭画布卡片不关闭右侧阅读标签', () => {
   const current = { kind: 'image' };
-  assert.equal(applyPresentation(current, plan('关闭网页')).kind, 'image', '关闭网页不能打断图片阅读');
-  assert.equal(applyPresentation(current, plan('关闭图片')), null, '关闭正在看的图片应退出全屏');
+  assert.equal(applyPresentation(current, plan('关闭网页')).kind, 'image', '关闭网页卡片不能打断图片阅读');
+  assert.equal(applyPresentation(current, plan('关闭图片')).kind, 'image', '关闭图片卡片后阅读标签仍应保留');
 });
 
 /// 场景：在阅读中询问暂不支持的问题，原内容继续显示。
@@ -125,6 +125,6 @@ test('定向关闭只影响对应全屏内容', () => {
 /// 预期结果：web 保留；不会切换到未请求的内容或对话舞台。
 test('帮助回复不会遮挡正在阅读的内容', () => {
   const next = applyPresentation({ kind: 'web' }, plan('明天天气如何'));
-  assert.equal(next.kind, 'web', '普通回复时圆球应继续留在左下角');
-  assert.notEqual(next, null, '帮助回复不能强制退出全屏阅读');
+  assert.equal(next.kind, 'web', '普通回复时右侧阅读目标应保留');
+  assert.notEqual(next, null, '帮助回复不能强制关闭阅读内容');
 });
