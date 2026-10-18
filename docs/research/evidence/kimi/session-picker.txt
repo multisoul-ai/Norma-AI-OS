@@ -1,0 +1,16 @@
+ ╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │                                                                                                                                        │
+ │  ▐█▛█▛█▌  Welcome to Kimi Code!                                                                                                        │
+ │  ▐█████▌  Run /login or /provider to get started.                                                                                      │
+ │                                                                                                                                        │
+ │  Directory: /private/tmp/kimi-iso/work2                                                                                                │
+ │  Session:                                                                                                                              │
+ │  Model:     not set, run /login or /provider                                                                                           │
+ │  Version:   2.2.0                                                                                                                      │
+ │                                                                                                                                        │
+ ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ✦ Kimi Code Desktop is here — Everything you love about Kimi Code, now on desktop
+   Run /desktop or visit https://www.kimi.com/code to install
+   tmux extended-keys is off. Modified Enter keys may not work. Add `set -g extended-keys on` to ~/.tmux.conf and restart tmux.
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Sessions  (type to search)

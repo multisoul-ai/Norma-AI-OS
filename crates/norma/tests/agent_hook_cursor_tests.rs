@@ -171,6 +171,8 @@ fn test_cursor_hook_config_is_idempotent_and_preserves_user_hooks() {
         grok_hooks: temp.path().join("grok-hooks.json"),
         pi_extension: temp.path().join("norma-agent-hook.ts"),
         opencode_plugin: temp.path().join("multisoul-agent-hook.js"),
+        kimi_config: (temp.path().join("multisoul-agent-hook.js"))
+            .with_file_name("kimi-config.toml"),
     };
     let command_path = temp.path().join("multisoul-agent-hook");
     let cursor_command = build_hook_command(&command_path, HookSource::Cursor);

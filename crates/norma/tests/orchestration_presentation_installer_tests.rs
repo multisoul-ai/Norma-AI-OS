@@ -226,6 +226,8 @@ fn install_paths(root: &Path) -> InstallPaths {
             grok_hooks: root.join(".grok/hooks.json"),
             pi_extension: root.join("norma-agent-hook.ts"),
             opencode_plugin: root.join(".config/opencode/plugins/multisoul-agent-hook.js"),
+            kimi_config: (root.join(".config/opencode/plugins/multisoul-agent-hook.js"))
+                .with_file_name("kimi-config.toml"),
         },
         claude_skill: root.join(".claude/skills/norma-orchestration/SKILL.md"),
         codex_skill: root.join(".codex/skills/norma-orchestration/SKILL.md"),

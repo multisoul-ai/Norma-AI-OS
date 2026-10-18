@@ -11,6 +11,7 @@ fn hook_paths(root: &std::path::Path) -> HookInstallPaths {
         grok_hooks: root.join("grok-hooks.json"),
         pi_extension: root.join("norma-agent-hook.ts"),
         opencode_plugin: root.join("multisoul-agent-hook.js"),
+        kimi_config: (root.join("multisoul-agent-hook.js")).with_file_name("kimi-config.toml"),
     }
 }
 

@@ -1,0 +1,90 @@
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Trust this folder?
+  ↑↓ navigate · Enter select · Esc exit
+
+  /private/tmp/kimi-probe.0ELU
+
+  No project integrations or instructions to activate.
+
+  Trust is remembered for this folder, including future project config changes.
+  Tool approvals follow your permission settings.
+
+   ❯ Trust and continue
+     Exit
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ ╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │                                                                                                                                        │
+ │  ▐█▛█▛█▌  Welcome to Kimi Code!                                                                                                        │
+ │  ▐█████▌  Run /login or /provider to get started.                                                                                      │
+ │                                                                                                                                        │
+ │  Directory: /private/tmp/kimi-probe.0ELU                                                                                               │
+ │  Session:                                                                                                                              │
+ │  Model:     not set, run /login or /provider                                                                                           │
+ │  Version:   2.2.0                                                                                                                      │
+ │                                                                                                                                        │
+ ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+ ✦ Kimi Code Desktop is here — Everything you love about Kimi Code, now on desktop
+   Run /desktop or visit https://www.kimi.com/code to install
+
+   No session yet — one will be created on your first message.
+   tmux extended-keys is off. Modified Enter keys may not work. Add `set -g extended-keys on` to ~/.tmux.conf and restart tmux.
+
+ ╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ >                                                                                                                                      │
+ ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ /private/tmp/kimi-probe.0ELU                 shift-tab to Plan mode to review the approach before Kimi edits files. | /model: switch model
+                                                                                                                                context: 0%
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

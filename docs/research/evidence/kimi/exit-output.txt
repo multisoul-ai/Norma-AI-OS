@@ -1,0 +1,6 @@
+ ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ mock-model  …/tmp/kimi-iso/work2                                    /auto when you want Kimi to handle approvals and keep going unattended
+ Shutting down… (running shutdown hooks)                                                                             context: 1% (28/97.7k)
+ Bye!
+ To resume this session: kimi -r session_e9029623-7275-4b57-8758-0e8cb054234f
+Pane is dead (status 0, Sun Oct 18 11:35:55 2026)

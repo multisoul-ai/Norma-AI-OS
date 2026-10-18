@@ -214,6 +214,10 @@ impl InstallPaths {
                 grok_hooks: home.join(".grok/hooks.json"),
                 opencode_plugin: home.join(".config/opencode/plugins/multisoul-agent-hook.js"),
                 pi_extension: home.join(".pi/agent/extensions/norma-agent-hook.ts"),
+                kimi_config: crate::agent_hook::kimi_config_path_for(
+                    home,
+                    std::env::var_os("KIMI_CODE_HOME"),
+                ),
             },
             claude_skill: home.join(".claude/skills/norma-orchestration/SKILL.md"),
             codex_skill: home.join(".codex/skills/norma-orchestration/SKILL.md"),

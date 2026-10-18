@@ -9,6 +9,7 @@ mod event;
 mod forward;
 mod install;
 mod json_config;
+mod kimi;
 mod opencode;
 mod pi;
 
@@ -35,6 +36,7 @@ pub use install::{
     agent_hooks_installed, agent_hooks_installed_at, agent_hooks_installed_for_source,
     install_agent_hooks, install_hook_config, uninstall_agent_hooks, uninstall_hook_config,
 };
+pub use kimi::kimi_config_path_for;
 
 pub const ENV_NODE_ID: &str = "MULTISOUL_NODE_ID";
 pub const ENV_AGENT_PROFILE: &str = "MULTISOUL_AGENT_PROFILE";
@@ -54,6 +56,7 @@ pub enum HookSource {
     Grok,
     OpenCode,
     Pi,
+    Kimi,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -64,6 +67,7 @@ pub enum HookTarget {
     Grok,
     OpenCode,
     Pi,
+    Kimi,
     All,
 }
 
@@ -100,6 +104,7 @@ pub struct HookInstallPaths {
     pub grok_hooks: PathBuf,
     pub opencode_plugin: PathBuf,
     pub pi_extension: PathBuf,
+    pub kimi_config: PathBuf,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -159,6 +164,7 @@ pub fn parse_hook_source(value: &str) -> Option<HookSource> {
         "grok" | "Grok" => Some(HookSource::Grok),
         "opencode" | "OpenCode" => Some(HookSource::OpenCode),
         "pi" | "Pi" => Some(HookSource::Pi),
+        "kimi" | "Kimi" => Some(HookSource::Kimi),
         _ => None,
     }
 }
@@ -171,6 +177,7 @@ pub fn parse_hook_target(value: &str) -> Option<HookTarget> {
         "grok" | "Grok" => Some(HookTarget::Grok),
         "opencode" | "OpenCode" => Some(HookTarget::OpenCode),
         "pi" | "Pi" => Some(HookTarget::Pi),
+        "kimi" | "Kimi" => Some(HookTarget::Kimi),
         "all" | "All" => Some(HookTarget::All),
         _ => None,
     }
@@ -195,6 +202,7 @@ pub fn hook_source_arg(source: HookSource) -> &'static str {
         HookSource::Grok => "grok",
         HookSource::OpenCode => "opencode",
         HookSource::Pi => "pi",
+        HookSource::Kimi => "kimi",
     }
 }
 
@@ -206,6 +214,7 @@ pub fn profile_for_source(source: HookSource) -> AgentProfile {
         HookSource::Grok => AgentProfile::Grok,
         HookSource::OpenCode => AgentProfile::OpenCode,
         HookSource::Pi => AgentProfile::Pi,
+        HookSource::Kimi => AgentProfile::Kimi,
     }
 }
 
@@ -238,6 +247,7 @@ pub fn default_install_paths() -> HookInstallPaths {
             &home,
             std::env::var("PI_CODING_AGENT_DIR").ok().as_deref(),
         ),
+        kimi_config: kimi::kimi_config_path_for(&home, std::env::var_os("KIMI_CODE_HOME")),
     }
 }
 
