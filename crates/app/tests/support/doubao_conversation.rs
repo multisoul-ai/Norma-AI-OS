@@ -31,6 +31,10 @@ pub(super) struct Conversation {
 
 impl Conversation {
     pub fn start() -> Self {
+        Self::start_with_status_capacity(None)
+    }
+
+    pub fn start_with_status_capacity(capacity: Option<usize>) -> Self {
         let cancellation = CancellationToken::new();
         let asr_cancel = cancellation.clone();
         let asr_task = tokio::spawn(async move {
@@ -44,7 +48,8 @@ impl Conversation {
         ));
         let (speech, speech_rx) = async_channel::unbounded();
         let (reports, report_rx) = async_channel::unbounded();
-        let (status_tx, statuses) = async_channel::unbounded();
+        let (status_tx, statuses) =
+            capacity.map_or_else(async_channel::unbounded, async_channel::bounded);
         let (reply_tx, replies) = async_channel::unbounded();
         let task = tokio::spawn(super::run(
             move |reply, token| {
@@ -85,6 +90,14 @@ impl Conversation {
             .await
             .expect("控制循环应及时更新通话状态")
             .expect("通话不应在预期状态之前结束")
+    }
+
+    pub async fn expect_user_transcript(&self, transcript: &str) {
+        assert_eq!(
+            self.status().await,
+            DoubaoStatus::UserTranscript(transcript.to_owned()),
+            "开始思考前应向对话栏显示本轮用户转写"
+        );
     }
 
     pub async fn reply(&self) -> PendingReply {

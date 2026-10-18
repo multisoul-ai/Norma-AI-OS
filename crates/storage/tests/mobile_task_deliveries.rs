@@ -149,6 +149,125 @@ fn review(text: &[u8]) -> ProjectReview {
     }
 }
 
+/// 概览只读取已完成回合的可打开文件引用，不读入冻结文件字节或推测目录内容。
+///
+/// 数据构造：同一真实回合含新增 result.txt 和已删除 old.txt，另一个项目有同名文件。
+/// 执行过程：持久化终态与成果，按项目查询待看文件引用。
+/// 预期结果：只得到当前项目的新增文件，且携带节点、回合与内容指纹。
+#[test]
+fn reviewable_file_refs_keep_task_source_and_skip_deleted_files() {
+    let dir = tempfile::tempdir().expect("隔离数据");
+    let db = dir.path().join("app.sqlite");
+    let store = MobileTaskDeliveryStore::new(db.clone());
+    for workspace in ["project-a", "project-b"] {
+        let writer = BackgroundApprovalAudit::new(
+            ApprovalAuditStore::new(dir.path().join(format!("{workspace}.sqlite")))
+                .with_turn_store(MobileTurnStore::for_workspace(db.clone(), workspace.into())),
+        )
+        .expect("终态 writer");
+        writer
+            .record_turn(MobileTurnOutcome {
+                summary: None,
+                key: key("turn-1"),
+                state: MobileTurnState::Completed,
+            })
+            .expect("入队")
+            .recv_timeout(Duration::from_secs(5))
+            .expect("回执")
+            .expect("落盘");
+        let mut changed = review(b"hello");
+        changed.files.push(FileChange {
+            path: "old.txt".into(),
+            status: " D".into(),
+            before: Some(FileVersion {
+                kind: ContentKind::Text,
+                executable: false,
+                bytes: b"old".to_vec(),
+            }),
+            after: None,
+            index: None,
+            diff: None,
+            staged_diff: None,
+        });
+        store
+            .record(
+                workspace,
+                &key("turn-1"),
+                &TaskDeliveryContent::Available { review: changed },
+            )
+            .expect("冻结成果");
+    }
+    let files = store
+        .reviewable_file_refs("project-a")
+        .expect("读取文件引用");
+    assert_eq!(files.len(), 1, "删除的文件与另一项目的文件不得混入");
+    assert_eq!(files[0].path, "result.txt", "必须保留真实文件路径");
+    assert_eq!(files[0].node_id, 7, "必须保留来源 Agent 节点");
+    assert_eq!(
+        files[0].profile, "Codex",
+        "未加载项目仍须保留来源 Agent 类型"
+    );
+    assert_eq!(files[0].turn_id, "turn-1", "必须保留来源回合");
+    assert_eq!(files[0].fingerprint.len(), 64, "内容指纹用于区分文件版本");
+    assert_ne!(files[0].workspace_id, "project-b", "项目身份不能串线");
+}
+
+/// 同一路径后续变化时，旧标签仍应读取来源回合冻结的文件版本。
+///
+/// 数据构造：真实完成回合冻结 result.txt 的 v1 字节，来源引用携带指纹。
+/// 执行过程：按项目、节点、指纹和路径读取冻结版本，并尝试错误指纹与错误项目。
+/// 预期结果：只返回 v1 字节，不能将其他项目或错误版本误认为该成果。
+#[test]
+fn frozen_file_version_resolves_exact_task_source() {
+    let dir = tempfile::tempdir().expect("隔离数据");
+    let db = dir.path().join("app.sqlite");
+    let store = MobileTaskDeliveryStore::new(db.clone());
+    let workspace = "project-a";
+    let writer = BackgroundApprovalAudit::new(
+        ApprovalAuditStore::new(dir.path().join("project.sqlite"))
+            .with_turn_store(MobileTurnStore::for_workspace(db, workspace.into())),
+    )
+    .expect("应创建终态 writer");
+    writer
+        .record_turn(MobileTurnOutcome {
+            summary: None,
+            key: key("turn-v1"),
+            state: MobileTurnState::Completed,
+        })
+        .expect("应入队")
+        .recv_timeout(Duration::from_secs(5))
+        .expect("应收到回执")
+        .expect("应保存终态");
+    let saved = store
+        .record(
+            workspace,
+            &key("turn-v1"),
+            &TaskDeliveryContent::Available {
+                review: review(b"version one"),
+            },
+        )
+        .expect("应冻结成果");
+    let file = store
+        .frozen_file_version(workspace, 7, &saved.fingerprint, "result.txt")
+        .expect("应读取冻结版本")
+        .expect("版本应存在");
+    assert_eq!(file.bytes, b"version one", "必须返回来源回合的冻结字节");
+    assert!(
+        store
+            .frozen_file_version("project-b", 7, &saved.fingerprint, "result.txt")
+            .expect("跨项目查询应正常结束")
+            .is_none(),
+        "其他项目不得复用 A 的成果"
+    );
+    assert!(
+        store
+            .frozen_file_version(workspace, 7, "wrong", "result.txt")
+            .expect("错误版本查询应正常结束")
+            .is_none(),
+        "错误指纹不得回退到当前文件"
+    );
+}
+
 /// 交付固定到已持久化的真实回合，后续内容不能覆盖；失败标记与成果正文不混淆。
 ///
 /// 数据构造：项目a节点7，turn-a真实完成，turn-b真实失败，turn-c没有终态；正文result.txt为hello五字节。

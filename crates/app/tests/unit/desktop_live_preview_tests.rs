@@ -90,6 +90,15 @@ fn desktop_populated_preview_click_opens_without_activating_nested_controls() {
         app.open_desktop_workspace(workspace.id.clone(), window, cx);
     });
     cx.run_until_parked();
+    // 缩略卡片位于左侧抽屉下方；先收起抽屉，再验收原有画布导航。
+    host.update(cx, |app, cx| {
+        app.desktop_workspace.drawers.left_open = false;
+        app.desktop_workspace.drawer_motion.retarget(false, false);
+        app.desktop_workspace
+            .drawer_motion
+            .tick(std::time::Duration::from_millis(300), false);
+        cx.notify();
+    });
     let session = host.read_with(cx, |app, _| {
         app.desktop_workspace.sessions[&(workspace.id.clone(), area.id.clone())].clone()
     });
@@ -218,6 +227,15 @@ fn desktop_live_preview_scales_the_original_canvas_and_routes_input() {
         app.open_desktop_workspace(workspace.id.clone(), window, cx);
     });
     cx.run_until_parked();
+    // 缩略卡片位于左侧抽屉下方；先收起抽屉，再验收原有画布导航。
+    host.update(cx, |app, cx| {
+        app.desktop_workspace.drawers.left_open = false;
+        app.desktop_workspace.drawer_motion.retarget(false, false);
+        app.desktop_workspace
+            .drawer_motion
+            .tick(std::time::Duration::from_millis(300), false);
+        cx.notify();
+    });
     let session = host.update(cx, |app, _| {
         app.desktop_workspace.sessions[&(workspace.id.clone(), area.id.clone())].clone()
     });

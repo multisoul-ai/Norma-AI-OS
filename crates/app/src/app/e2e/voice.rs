@@ -33,8 +33,10 @@ impl MultisoulApp {
                 crate::app::doubao::DoubaoStatus::Connecting => "connecting",
                 crate::app::doubao::DoubaoStatus::Connected
                 | crate::app::doubao::DoubaoStatus::RecordingResolved(_) => "connected",
-                crate::app::doubao::DoubaoStatus::Thinking => "thinking",
-                crate::app::doubao::DoubaoStatus::Speaking => "speaking",
+                crate::app::doubao::DoubaoStatus::Thinking
+                | crate::app::doubao::DoubaoStatus::UserTranscript(_) => "thinking",
+                crate::app::doubao::DoubaoStatus::Speaking
+                | crate::app::doubao::DoubaoStatus::AssistantReply(_) => "speaking",
                 crate::app::doubao::DoubaoStatus::Disconnected(_) => "disconnected",
             },
             phase: match self.voice.phase() {

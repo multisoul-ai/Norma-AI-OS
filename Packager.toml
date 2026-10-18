@@ -8,6 +8,7 @@ identifier = "com.norma.os"
 authors = ["multisoul"]
 formats = ["app", "dmg"]
 resources = [
+  "THIRD_PARTY_NOTICES.md",
   "build/icons/Assets.car",
   { src = "packaging/macos/en.lproj", target = "en.lproj" },
   { src = "packaging/macos/zh-CN.lproj", target = "zh-CN.lproj" },

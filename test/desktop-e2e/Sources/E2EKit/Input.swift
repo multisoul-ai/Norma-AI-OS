@@ -40,6 +40,66 @@ extension Session {
         try await click(local: local, on: frame, requery: nil, pick: nil)
     }
 
+    /// 在本次隔离窗口里连续拖动，供抽屉、卡片等真实指针交互验收。
+    public func drag(local start: CGPoint, to end: CGPoint, on frame: Frame) async throws {
+        try await activate()
+        let window = try await currentWindow()
+        guard window.id == frame.windowID else {
+            throw E2EError.product("拖拽前窗口已切换，请重新截图定位。")
+        }
+        let origin = window.frame.origin
+        let from = CGPoint(x: origin.x + start.x, y: origin.y + start.y)
+        let destination = CGPoint(x: origin.x + end.x, y: origin.y + end.y)
+        try await requireOwnWindow(at: from)
+        try await requireOwnWindow(at: destination)
+        try postMove(from)
+        try await Task.sleep(nanoseconds: 100_000_000)
+        guard let down = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: from, mouseButton: .left) else {
+            throw E2EError.env("无法创建鼠标按下事件")
+        }
+        down.post(tap: .cghidEventTap)
+        for step in 1...12 {
+            let progress = CGFloat(step) / 12
+            let point = CGPoint(
+                x: from.x + (destination.x - from.x) * progress,
+                y: from.y + (destination.y - from.y) * progress
+            )
+            guard let moved = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDragged, mouseCursorPosition: point, mouseButton: .left) else {
+                throw E2EError.env("无法创建鼠标拖动事件")
+            }
+            moved.post(tap: .cghidEventTap)
+            try await Task.sleep(nanoseconds: 25_000_000)
+        }
+        guard let up = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: destination, mouseButton: .left) else {
+            throw E2EError.env("无法创建鼠标抬起事件")
+        }
+        up.post(tap: .cghidEventTap)
+    }
+
+    /// Send a real wheel event only to the captured isolated App window.
+    public func scroll(local point: CGPoint, pixels: Int32, on frame: Frame) async throws {
+        try await activate()
+        let window = try await currentWindow()
+        guard window.id == frame.windowID else {
+            throw E2EError.product("滚动前窗口已切换，请重新截图定位。")
+        }
+        let global = CGPoint(x: window.frame.minX + point.x, y: window.frame.minY + point.y)
+        try await requireOwnWindow(at: global)
+        try postMove(global)
+        guard let event = CGEvent(
+            scrollWheelEvent2Source: nil,
+            units: .pixel,
+            wheelCount: 1,
+            wheel1: pixels,
+            wheel2: 0,
+            wheel3: 0
+        ) else {
+            throw E2EError.env("无法创建滚轮事件")
+        }
+        event.location = global
+        event.post(tap: .cghidEventTap)
+    }
+
     private func click(local: CGPoint, on frame: Frame, requery: [String]?, pick: TextPick?) async throws {
         try await activate()
         var point = local

@@ -5,6 +5,7 @@ import E2EKit
 public enum ScenarioCatalog {
     public static let modules: [DesktopModule] = [
         WorkspaceModule.manifest,
+        CanvasModule.manifest,
         SettingsModule.manifest,
     ]
 

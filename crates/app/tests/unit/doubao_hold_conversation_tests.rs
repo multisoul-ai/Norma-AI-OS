@@ -16,6 +16,7 @@ async fn doubao_hold_start_interrupts_and_rejects_stale_transcripts() {
         .send(SpeechEvent::Final("旧回复".into()))
         .await
         .expect("应开始旧回复");
+    call.expect_user_transcript("旧回复").await;
     assert_eq!(
         call.status().await,
         DoubaoStatus::Thinking,
@@ -57,6 +58,7 @@ async fn doubao_hold_start_interrupts_and_rejects_stale_transcripts() {
         DoubaoStatus::RecordingResolved(2),
         "当前转写必须携带录音 id，让 UI 解除旧状态隔离"
     );
+    call.expect_user_transcript("新输入").await;
     assert_eq!(
         call.status().await,
         DoubaoStatus::Thinking,

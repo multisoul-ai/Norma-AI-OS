@@ -128,10 +128,38 @@ if [ "$binary_name" = "norma-os" ] && { [ ! -x "$hook_binary" ] || [ ! -x "$auth
     --bin multisoul-agent-hook --bin norma-browser-auth-host
 fi
 
+# A new worktree can contain LFS pointer files even when their objects already
+# exist locally. Restore only media pointers before the integrity check; if an
+# object is missing, explain the required fetch instead of reporting a hash mismatch.
+hydrate_development_media() {
+  local source_path
+  local -a pointers=()
+  while IFS= read -r -d '' source_path; do
+    if head -c 64 "$source_path" | grep -aq '^version https://git-lfs.github.com/spec/v1'; then
+      pointers+=("${source_path#"$repo_root"/}")
+    fi
+  done < <(find "$repo_root/crates/app/assets/wallpapers" \
+    "$repo_root/crates/app/assets/feature-guide" -type f -print0)
+  if [ "${#pointers[@]}" -eq 0 ]; then
+    return 0
+  fi
+  if ! (cd "$repo_root" && git lfs checkout "${pointers[@]}"); then
+    echo "Could not restore local LFS media. Run git lfs pull in $repo_root." >&2
+    return 1
+  fi
+  for source_path in "${pointers[@]}"; do
+    if head -c 64 "$repo_root/$source_path" | grep -aq '^version https://git-lfs.github.com/spec/v1'; then
+      echo "Missing LFS media: $source_path. Run git lfs pull in $repo_root." >&2
+      return 1
+    fi
+  done
+}
+
 # A previous Cargo target can leave a differently signed executable in the
 # shared development bundle. Rebuild from an empty bundle so codesign never
 # sees stale nested code whose sealed Info.plist belongs to another binary.
 if [ "$binary_name" = "norma-os" ]; then
+  hydrate_development_media
   (cd "$repo_root" && scripts/prepare-release-media.sh --local-test)
 fi
 rm -rf "$bundle"

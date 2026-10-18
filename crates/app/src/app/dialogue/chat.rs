@@ -254,7 +254,7 @@ pub(crate) fn start_pipeline_event_pump(
                         );
                         false
                     } else {
-                        this.update(cx, |app, _cx| {
+                        this.update(cx, |app, cx| {
                             if app.dialogue.phase() != DialoguePhase::Listening {
                                 tracing::warn!(
                                     target: "norma_voice",
@@ -265,6 +265,7 @@ pub(crate) fn start_pipeline_event_pump(
                             }
                             match app.dialogue.on_final_transcript(&text) {
                                 Ok(()) => {
+                                    app.record_assistant_user_message(&text, cx);
                                     app.voice.reset_caption_to_default();
                                     app.dialogue.mark_voice_turn_pending();
                                     true

@@ -26,6 +26,31 @@ pub(super) fn migrate(connection: &Connection) -> StorageResult<()> {
 
         CREATE INDEX IF NOT EXISTS idx_desktop_project_areas_workspace
         ON desktop_project_areas(desktop_workspace_id, added_at_unix_ms);
+
+        CREATE TABLE IF NOT EXISTS desktop_content_tabs (
+            id TEXT PRIMARY KEY NOT NULL,
+            workspace_id TEXT NOT NULL REFERENCES desktop_workspaces(id) ON DELETE CASCADE,
+            source_area_id TEXT,
+            source_project_name TEXT NOT NULL,
+            kind TEXT NOT NULL CHECK(kind IN ('browser', 'file')),
+            resource TEXT NOT NULL,
+            version TEXT NOT NULL DEFAULT '',
+            title TEXT NOT NULL,
+            position INTEGER NOT NULL,
+            selected INTEGER NOT NULL DEFAULT 0 CHECK(selected IN (0, 1)),
+            UNIQUE(workspace_id, kind, resource, version)
+        );
+        CREATE INDEX IF NOT EXISTS idx_desktop_content_tabs_workspace
+        ON desktop_content_tabs(workspace_id, position);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_desktop_content_tabs_selected
+        ON desktop_content_tabs(workspace_id) WHERE selected = 1;
+        CREATE TABLE IF NOT EXISTS desktop_area_status (
+            workspace_id TEXT NOT NULL REFERENCES desktop_workspaces(id) ON DELETE CASCADE,
+            area_id TEXT NOT NULL REFERENCES desktop_project_areas(id) ON DELETE CASCADE,
+            updated_at_unix_ms INTEGER NOT NULL,
+            agents_json TEXT NOT NULL,
+            PRIMARY KEY(workspace_id, area_id)
+        );
     "#,
     )?;
     super::ensure_column(

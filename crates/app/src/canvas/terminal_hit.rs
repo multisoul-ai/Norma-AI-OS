@@ -13,9 +13,8 @@ pub(crate) fn terminal_text_point_for_screen(
     node_id: NodeId,
     screen: Vec2,
 ) -> Option<TextPoint> {
-    let node = app.runtime.document.node(node_id)?;
     let viewport = app.runtime.document.viewport;
-    let node_top_left = viewport.canvas_to_screen(node.bounds.origin);
+    let node_top_left = viewport.canvas_to_screen(app.presented_node_bounds(node_id)?.origin);
     let NodeView::Term { snapshot, .. } = app.runtime.node_view(node_id)?;
     let local = terminal_content_local_position(screen, node_top_left, viewport.zoom);
     Some(terminal_point_for_local_position(
@@ -36,9 +35,8 @@ pub(crate) fn terminal_selection_point_for_screen(
     node_id: NodeId,
     screen: Vec2,
 ) -> Option<TextPoint> {
-    let node = app.runtime.document.node(node_id)?;
     let viewport = app.runtime.document.viewport;
-    let node_top_left = viewport.canvas_to_screen(node.bounds.origin);
+    let node_top_left = viewport.canvas_to_screen(app.presented_node_bounds(node_id)?.origin);
     let NodeView::Term { snapshot, .. } = app.runtime.node_view(node_id)?;
     let local = terminal_content_local_position(screen, node_top_left, viewport.zoom);
     let viewport_point =
@@ -54,9 +52,8 @@ pub(crate) fn terminal_selection_point_for_screen(
 /// 与 `terminal_content_local_position` 的逆映射保持一致：padding 不随 zoom
 /// 缩放，标题栏高度随 zoom 缩放。
 pub(crate) fn terminal_content_rect(app: &MultisoulApp, node_id: NodeId) -> Option<(Vec2, Vec2)> {
-    let node = app.runtime.document.node(node_id)?;
     let viewport = app.runtime.document.viewport;
-    let node_top_left = viewport.canvas_to_screen(node.bounds.origin);
+    let node_top_left = viewport.canvas_to_screen(app.presented_node_bounds(node_id)?.origin);
     let NodeView::Term { snapshot, .. } = app.runtime.node_view(node_id)?;
     let metrics = terminal_render_metrics(viewport.zoom);
     let width = f32::from(metrics.cell_width) * snapshot.cols as f32;
@@ -74,9 +71,8 @@ pub(crate) fn terminal_link_point_for_screen(
     node_id: NodeId,
     screen: Vec2,
 ) -> Option<TextPoint> {
-    let node = app.runtime.document.node(node_id)?;
     let viewport = app.runtime.document.viewport;
-    let node_top_left = viewport.canvas_to_screen(node.bounds.origin);
+    let node_top_left = viewport.canvas_to_screen(app.presented_node_bounds(node_id)?.origin);
     let NodeView::Term { snapshot, .. } = app.runtime.node_view(node_id)?;
     let local = terminal_content_local_position(screen, node_top_left, viewport.zoom);
     let metrics = terminal_render_metrics(viewport.zoom);

@@ -123,12 +123,12 @@ extension Catalog {
     }
 }
 
-private func column(_ statement: OpaquePointer?, _ index: Int32) -> String {
+func column(_ statement: OpaquePointer?, _ index: Int32) -> String {
     guard let raw = sqlite3_column_text(statement, index) else { return "" }
     return String(cString: raw)
 }
 
-private final class SQLiteDB {
+final class SQLiteDB {
     private var database: OpaquePointer?
 
     init(path: String, write: Bool) throws {
@@ -162,10 +162,6 @@ private final class SQLiteDB {
         }
         defer { sqlite3_finalize(statement) }
         try bind(bindings, to: statement)
-        let added = Int64(bindings.last ?? "") ?? Int64(Date().timeIntervalSince1970 * 1000)
-        if bindings.count >= 6 {
-            sqlite3_bind_int64(statement, 6, added)
-        }
         guard sqlite3_step(statement) == SQLITE_DONE else {
             throw E2EError.product("SQLite 写入失败：\(String(cString: sqlite3_errmsg(database)))")
         }
@@ -173,7 +169,7 @@ private final class SQLiteDB {
 
     private func bind(_ values: [String], to statement: OpaquePointer?) throws {
         let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
-        for (offset, value) in values.enumerated() where offset < 5 || values.count < 6 {
+        for (offset, value) in values.enumerated() {
             let index = Int32(offset + 1)
             let result = value.withCString { pointer in
                 sqlite3_bind_text(statement, index, pointer, -1, transient)

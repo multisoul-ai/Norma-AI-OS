@@ -67,9 +67,24 @@ impl PreparedProject {
                 &area.desktop_workspace_id,
                 &area.id,
             )?;
+            // This loader runs off the GPUI foreground thread. Remove only legacy
+            // ordinary content cards before constructing the live Runtime; Ego tasks stay.
+            project.canvas_store().prune_desktop_content_cards()?;
             let definitions_store =
                 ProjectStore::initialize_for_desktop_definitions(&paths, &area.project_key)?
                     .agent_definition_store();
+            let canvas_store = project.canvas_store();
+            let mut migration_runtime = runtime::Runtime::new_for_workspace(area.root.clone());
+            migration_runtime.load_canvas_snapshot(&canvas_store)?;
+            // Definitions are shared by sibling areas; one area's canvas cannot decide which
+            // quick definitions are unused by the whole project.
+            crate::workspace::legacy_agent_migration::migrate_legacy_agent_cards_with_stores(
+                &mut migration_runtime,
+                &definitions_store,
+                &canvas_store,
+                false,
+            )
+            .map_err(anyhow::Error::msg)?;
             Self::finish_load(paths, store, identity, project, definitions_store)
         };
         load().map_err(|error| error.to_string())
@@ -228,6 +243,10 @@ impl MultisoulApp {
         self.resync_voice_settings(true, cx);
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/desktop_legacy_agent_background_tests.rs"]
+mod legacy_background_tests;
 
 #[cfg(test)]
 mod desktop_project_tests {
@@ -408,3 +427,7 @@ mod desktop_project_tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/desktop_content_migration_tests.rs"]
+mod desktop_content_migration_tests;

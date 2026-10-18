@@ -296,6 +296,13 @@ impl MultisoulApp {
                                 app.desktop_workspace
                                     .areas
                                     .retain(|area| area.id != area_id);
+                                for tab in &mut app.desktop_workspace.content_tabs {
+                                    if tab.workspace_id == workspace_id
+                                        && tab.source_area_id.as_deref() == Some(area_id.as_str())
+                                    {
+                                        tab.source_removed = true;
+                                    }
+                                }
                                 if app.desktop_workspace.active_area_id.as_deref() == Some(&area_id)
                                 {
                                     app.desktop_workspace.active_area_id = None;

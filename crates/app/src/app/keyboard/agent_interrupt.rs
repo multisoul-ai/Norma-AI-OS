@@ -2,6 +2,8 @@
 
 use crate::app::MultisoulApp;
 use canvas::{CanvasNodeKind, NodeId};
+use gpui::Context;
+use runtime::NodeInput;
 use runtime::{AgentTaskState, AgentTaskUpdate};
 use terminal::{Key, KeyInput};
 
@@ -42,5 +44,36 @@ pub(super) fn end_active_agent_task_for_manual_interrupt(
         session_id: None,
     }) {
         app.advance_agent_task_queue(node_id);
+    }
+}
+
+impl MultisoulApp {
+    pub(crate) fn interrupt_agent_from_desktop_overview(
+        &mut self,
+        node_id: NodeId,
+        cx: &mut Context<Self>,
+    ) -> Result<(), String> {
+        if !matches!(
+            self.runtime.agent_task_state(node_id),
+            Some(
+                AgentTaskState::Thinking
+                    | AgentTaskState::RunningTool { .. }
+                    | AgentTaskState::WaitingApproval { .. }
+            )
+        ) {
+            return Err("Agent 任务已结束".into());
+        }
+        let input = KeyInput {
+            key: Key::Char('c'),
+            ctrl: true,
+            alt: false,
+            shift: false,
+        };
+        self.runtime
+            .send_node_input(node_id, NodeInput::Key(input.clone()))
+            .map_err(|error| error.to_string())?;
+        end_active_agent_task_for_manual_interrupt(self, node_id, &input);
+        cx.notify();
+        Ok(())
     }
 }

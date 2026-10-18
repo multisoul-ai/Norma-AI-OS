@@ -27,7 +27,9 @@ use crate::workspace::clone_project::CloneProjectUiState;
 use crate::workspace::desktop::DesktopWorkspaceUiState;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
-use canvas::{CanvasRect, NodeId, NodeType, Vec2};
+#[cfg(test)]
+use canvas::CanvasRect;
+use canvas::{NodeId, NodeType, Vec2};
 use gpui::{actions, div, prelude::*, px, Context, FocusHandle, Focusable, Window};
 use runtime::{route, InputEvent, Route, Runtime};
 use std::collections::HashMap;
@@ -64,6 +66,7 @@ mod canvas_surface;
 pub(crate) mod cef_process;
 mod chrome;
 pub(crate) use chrome::{top_bar_theme, TOP_BAR_HEIGHT};
+pub(crate) mod assistant_conversation;
 mod clipboard_image;
 pub(crate) mod command_dock;
 mod cpu_benchmark;
@@ -78,6 +81,7 @@ pub(crate) mod ego;
 mod ego_page_capture;
 #[cfg(target_os = "macos")]
 mod ego_preview;
+pub(crate) mod embedded_canvas;
 #[cfg(all(target_os = "macos", feature = "l3-test-support"))]
 pub use ego_preview::{run_ego_live_capture_probe, EgoLiveCaptureProbeReport};
 pub(crate) mod file_picker;
@@ -107,6 +111,7 @@ pub(crate) mod video_decoder;
 #[cfg(target_os = "macos")]
 pub(crate) mod video_wallpaper;
 mod voice;
+pub(crate) use voice::caption::VoiceWaveformState;
 #[cfg(not(feature = "e2e-test-support"))]
 pub(crate) use voice::recognition::AsrRecordingSession;
 mod optional_media;
@@ -178,6 +183,7 @@ pub struct MultisoulApp {
     pub(crate) ego_previews: ego_preview::EgoPreviewStore,
     pub(crate) browser_address_edit: Option<BrowserAddressEdit>,
     pub(crate) command_dock: Option<command_dock::CommandDockState>,
+    pub(crate) assistant_conversation: assistant_conversation::AssistantConversation,
     pub(crate) master_layout: MasterLayoutState,
     pub(crate) layout_strategy: CanvasLayoutStrategy,
     pub(crate) persistence: PersistenceScheduler,
@@ -242,6 +248,10 @@ pub struct MultisoulApp {
     #[cfg(target_os = "macos")]
     pub(crate) video_wallpaper: Option<video_wallpaper::VideoWallpaperState>,
     pub(crate) last_reflow_window_size: Option<(f32, f32)>,
+    pub(crate) desktop_embedded_canvas_size: Option<Vec2>,
+    pub(crate) desktop_embedded_reflow_size: Option<Vec2>,
+    pub(crate) desktop_embedded_layout_origin: Option<Vec2>,
+    pub(crate) desktop_presentation_bounds: HashMap<NodeId, canvas::CanvasRect>,
     pub(crate) terminal_cursor_phase: f32,
     pub(crate) voice_caption_waveform_phase: f32,
     pub(crate) terminal_render_cache: TerminalRenderCacheHandle,
@@ -322,6 +332,25 @@ impl MultisoulApp {
     }
 
     fn on_new_browser(&mut self, _: &NewBrowser, window: &mut Window, cx: &mut Context<Self>) {
+        let home = crate::cards::browser::normalize_browser_url("");
+        if self.route_project_content_to_desktop(
+            storage::DesktopContentKind::Browser,
+            home.clone(),
+            "浏览器".to_string(),
+            cx,
+        ) {
+            return;
+        }
+        if matches!(self.screen, AppScreen::DesktopWorkspace) {
+            self.open_desktop_content_tab(
+                storage::DesktopContentKind::Browser,
+                home,
+                "浏览器".to_string(),
+                self.desktop_workspace.expanded_area_id.clone(),
+                cx,
+            );
+            return;
+        }
         if !matches!(self.screen, AppScreen::Canvas) {
             self.workspace_state.error = Some(ui::i18n::LocalizedText::new("chrome.open_browsers"));
             cx.notify();
@@ -444,57 +473,7 @@ impl MultisoulApp {
     pub(crate) fn mark_node_viewed_if_needed(&mut self, node_id: NodeId) -> bool {
         mark_runtime_node_viewed_if_needed(&mut self.runtime, node_id)
     }
-
-    pub(crate) fn visible_canvas_rect(&self, window: &mut Window) -> CanvasRect {
-        let vp = self.runtime.document.viewport;
-        let win = window.viewport_size();
-        let top_left = vp.screen_to_canvas(Vec2::ZERO);
-        let size = if self.desktop_host.is_some() {
-            crate::workspace::desktop::desktop_scene_rect(
-                f32::from(win.width),
-                f32::from(win.height),
-            )
-            .size
-        } else {
-            Vec2::new(f32::from(win.width), f32::from(win.height))
-        };
-        let bottom_right = vp.screen_to_canvas(size);
-        CanvasRect::new(
-            top_left.x,
-            top_left.y,
-            bottom_right.x - top_left.x,
-            bottom_right.y - top_left.y,
-        )
-    }
-
-    fn reflow_if_window_size_changed(&mut self, window: &mut Window) {
-        let size = window.viewport_size();
-        let current = (f32::from(size.width), f32::from(size.height));
-        if self.last_reflow_window_size != Some(current) {
-            self.last_reflow_window_size = Some(current);
-            self.apply_layout_for_current_mode(window);
-        }
-    }
 }
-
-impl Focusable for MultisoulApp {
-    fn focus_handle(&self, _cx: &gpui::App) -> FocusHandle {
-        self.focus_handle.clone()
-    }
-}
-
+mod focusable;
 #[cfg(test)]
-#[path = "../../tests/unit/app_cursor_animation_tests.rs"]
-mod cursor_animation_tests;
-#[cfg(test)]
-#[path = "../../tests/unit/database_isolation_support.rs"]
-mod database_isolation_support;
-#[cfg(test)]
-#[path = "../../tests/unit/database_isolation_tests.rs"]
-mod database_isolation_tests;
-#[cfg(test)]
-#[path = "../../tests/unit/app_tests.rs"]
-mod tests;
-#[cfg(all(test, target_os = "macos"))]
-#[path = "../../tests/unit/video_decoder_tests.rs"]
-mod video_decoder_tests;
+mod test_modules;

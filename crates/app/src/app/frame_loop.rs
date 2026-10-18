@@ -222,7 +222,7 @@ impl MultisoulApp {
                     if runtime_changed {
                         app.performance.note_terminal_activity();
                     }
-                    let browser_changed = app.drain_browser_events();
+                    let browser_changed = app.drain_browser_events(cx);
                     let agent_hook_report =
                         app.agent_hook_server.drain_into_runtime(&mut app.runtime);
                     if agent_hook_report.session_binding_changed {

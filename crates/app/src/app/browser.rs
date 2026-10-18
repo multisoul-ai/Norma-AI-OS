@@ -19,6 +19,7 @@ mod chrome_auth_tests;
 mod cef_backend;
 mod engine;
 mod load_timeline;
+mod location;
 pub(crate) mod native;
 mod presentation;
 mod resource_timing;
@@ -31,6 +32,7 @@ pub(crate) use address_input::BrowserAddressInput;
 use address_input::BrowserAddressInputEvent;
 pub(crate) use chrome_auth::BrowserAuthUiState;
 pub(crate) use engine::BrowserEngineKind;
+pub(crate) use location::canonical_browser_location;
 pub(crate) use native::{browser_native_view_bounds, BrowserViewBounds, NativeBrowserView};
 pub(crate) use store::BrowserStore;
 pub(crate) use wry_backend::initialize_safari_browser_identity;
@@ -103,7 +105,24 @@ pub(crate) enum BrowserEvent {
 }
 
 impl MultisoulApp {
-    pub(crate) fn open_terminal_link_in_browser_card(&mut self, url: String, window: &mut Window) {
+    pub(crate) fn open_terminal_link_in_browser_card(
+        &mut self,
+        url: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let title = url::Url::parse(&url)
+            .ok()
+            .and_then(|url| url.host_str().map(ToOwned::to_owned))
+            .unwrap_or_else(|| "网页".to_string());
+        if self.route_project_content_to_desktop(
+            storage::DesktopContentKind::Browser,
+            url.clone(),
+            title,
+            cx,
+        ) {
+            return;
+        }
         let bounds = self
             .visible_canvas_rect(window)
             .inset(self.layout_gap_canvas());
@@ -218,7 +237,7 @@ impl MultisoulApp {
         self.browser_address_edit = None;
     }
 
-    pub(crate) fn drain_browser_events(&mut self) -> bool {
+    pub(crate) fn drain_browser_events(&mut self, cx: &mut Context<Self>) -> bool {
         let mut changed = false;
         for event in self.browsers.drain_events() {
             match event {
@@ -228,7 +247,9 @@ impl MultisoulApp {
                     }
                 }
                 BrowserEvent::LocationChanged { node_id, url } => {
-                    if self.set_browser_url(node_id, url) {
+                    if self.update_desktop_browser_tab_location(node_id, url.clone(), cx)
+                        || self.set_browser_url(node_id, url)
+                    {
                         self.mark_canvas_dirty();
                         changed = true;
                     }
@@ -244,7 +265,9 @@ impl MultisoulApp {
                 }
                 BrowserEvent::PageLoad { .. } => {}
                 BrowserEvent::NavigateCurrentCard { node_id, url } => {
-                    if self.set_browser_url(node_id, url.clone()) {
+                    if self.update_desktop_browser_tab_location(node_id, url.clone(), cx)
+                        || self.set_browser_url(node_id, url.clone())
+                    {
                         self.browsers.load_url(node_id, &url);
                         self.mark_canvas_dirty();
                         changed = true;
@@ -377,7 +400,9 @@ impl MultisoulApp {
         }
         let url = normalize_browser_url(draft);
         self.browser_address_edit = None;
-        if self.set_browser_url(node_id, url.clone()) {
+        if self.update_desktop_browser_tab_location(node_id, url.clone(), cx)
+            || self.set_browser_url(node_id, url.clone())
+        {
             self.browsers.load_url(node_id, &url);
             self.mark_canvas_dirty();
         }
@@ -407,45 +432,6 @@ impl MultisoulApp {
         let focus_handle = self.focus_handle.clone();
         let _ = cx.update_window(window_handle, |_, window, _| focus_handle.focus(window));
     }
-
-    fn set_browser_url(&mut self, node_id: NodeId, url: String) -> bool {
-        let Some(node) = self.runtime.document.node_mut(node_id) else {
-            return false;
-        };
-        let CanvasNodeKind::Browser(spec) = &mut node.kind else {
-            return false;
-        };
-        let url = canonical_browser_location(&url);
-        if spec.url == url && spec.title.is_none() {
-            return false;
-        }
-        spec.url = url;
-        spec.title = None;
-        true
-    }
-
-    fn set_browser_title(&mut self, node_id: NodeId, title: String) -> bool {
-        let Some(node) = self.runtime.document.node_mut(node_id) else {
-            return false;
-        };
-        let CanvasNodeKind::Browser(spec) = &mut node.kind else {
-            return false;
-        };
-        let clean = title.trim().to_string();
-        if clean.is_empty() || spec.title.as_deref() == Some(clean.as_str()) {
-            return false;
-        }
-        spec.title = Some(clean);
-        self.mark_canvas_dirty();
-        true
-    }
-}
-
-pub(crate) fn canonical_browser_location(input: &str) -> String {
-    let trimmed = input.trim();
-    url::Url::parse(trimmed)
-        .map(|url| url.to_string())
-        .unwrap_or_else(|_| trimmed.to_string())
 }
 
 #[cfg(all(target_os = "macos", feature = "chromium-browser"))]

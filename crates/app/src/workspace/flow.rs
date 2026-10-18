@@ -266,6 +266,7 @@ impl MultisoulApp {
                         "workspace_open_timing"
                     );
                     if restored {
+                        app.resize_restored_presentation_node(node_id);
                         cx.notify();
                     }
                     true

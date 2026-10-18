@@ -257,6 +257,7 @@ async fn run_project_agent(
     let cancel_handle = session.lock().await.cancel_handle();
     let mut roster = Vec::new();
     let mut canvas = None;
+    let mut desktop_context = None;
     let mut model_switch_error = None;
     let generation = Arc::new(AtomicU64::new(0));
     let turn_runtime = TurnRuntime {
@@ -281,6 +282,10 @@ async fn run_project_agent(
             }
             AgentCommand::UpdateCurrentCanvasContext(next) => {
                 canvas = Some(next);
+                let _ = request.response.send(Ok(Vec::new())).await;
+            }
+            AgentCommand::UpdateDesktopContext(next) => {
+                desktop_context = next;
                 let _ = request.response.send(Ok(Vec::new())).await;
             }
             AgentCommand::SwitchModel(config) => {
@@ -319,12 +324,14 @@ async fn run_project_agent(
                 dialogue_cancelled.store(false, Ordering::Release);
                 let turn_generation = generation.fetch_add(1, Ordering::AcqRel) + 1;
                 let context = canvas.clone();
+                let desktop_context = desktop_context.clone();
                 let roster = roster.clone();
                 spawn_turn(
                     &turn_runtime,
                     input,
                     input_source,
                     context,
+                    desktop_context,
                     roster,
                     request.response,
                     turn_generation,
@@ -342,6 +349,7 @@ async fn run_project_agent(
                     format!("取消 Agent 任务 #{task_id}"),
                     AgentInputSource::Other,
                     canvas.clone(),
+                    desktop_context.clone(),
                     roster.clone(),
                     request.response,
                     generation.fetch_add(1, Ordering::AcqRel) + 1,
@@ -359,6 +367,7 @@ async fn run_project_agent(
                     prompt,
                     AgentInputSource::Other,
                     canvas.clone(),
+                    desktop_context.clone(),
                     roster.clone(),
                     request.response,
                     generation.fetch_add(1, Ordering::AcqRel) + 1,
@@ -383,6 +392,7 @@ fn spawn_turn(
     input: String,
     input_source: AgentInputSource,
     canvas: Option<agent::CurrentCanvasContext>,
+    desktop_context: Option<agent::DesktopContext>,
     roster: Vec<agent::AgentRosterEntry>,
     response: async_channel::Sender<Result<Vec<AgentEvent>, String>>,
     turn_generation: u64,
@@ -401,6 +411,7 @@ fn spawn_turn(
             if let Some(canvas) = canvas {
                 session.update_environment(canvas, roster);
             }
+            session.update_desktop_context(desktop_context);
             let cancel = session.cancel_handle();
             let dialogue_cancelled = Arc::clone(&runtime.dialogue_cancelled);
             let watcher = tokio::spawn(async move {
@@ -459,6 +470,8 @@ mod workspace;
 pub(crate) use workspace::submit_workspace_turn;
 
 include!("agent_runtime/adapter_pump.rs");
+include!("agent_runtime/desktop_content_tools.rs");
+include!("agent_runtime/pump_events.rs");
 
 #[cfg(test)]
 #[path = "agent_runtime/tests.rs"]
