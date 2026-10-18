@@ -56,6 +56,13 @@ impl OrchestrationProvider {
         }
     }
 
+    /// 委派链路（模型按 skill 调用 norma 命令行）尚未用真实模型验证的 provider。
+    ///
+    /// hooks 与 skill 文件照常安装，但 UI 必须标注为实验性，不能暗示委派已验证。
+    pub const fn delegation_unverified(self) -> bool {
+        matches!(self, Self::Kimi | Self::ZCode | Self::Pi | Self::Hermes)
+    }
+
     pub const fn profile(self) -> AgentProfile {
         match self {
             Self::Claude => AgentProfile::Claude,

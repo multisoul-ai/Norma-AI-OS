@@ -179,6 +179,12 @@ impl OrchestrationInstaller {
                 enable_hermes_plugin_blocking();
             }
         }
+        if provider.delegation_unverified()
+            && matches!(self.inspect_hook(provider), ComponentState::Conflict { .. })
+        {
+            // 新 provider 的 hook 被用户文件占用：不授权，整体状态保持“需处理”。
+            return Ok(self.inspect(provider, registry));
+        }
         if !matches!(before.authorization_component, ComponentState::Ready { .. }) {
             let credential = self.install_or_read_credential(provider)?;
             registry
