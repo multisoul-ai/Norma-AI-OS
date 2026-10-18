@@ -285,7 +285,7 @@ blue  .     .     yellow
 
 官网下载的 HTML 引用 `/logo-auto.svg`，但本次抓该 SVG 返回 403，未使用。计划从已取得并带 MIT 的官方 TypeScript 图标像素坐标生成 `toolbar-pi.svg`，用整数 `rect` 和 `currentColor` 适配现有工具栏。脚本 `scripts/generate-pi-icon.py` 的输入和输出路径都由参数传入，并保留源 URL/许可。若后续发现独立限制覆盖该来源，则用 P 字母占位并标注。16/24 px 深浅色真实 App 验收留到第二步。
 
-## 11. 本 CLI 接入方案（待基线骨架）
+## 11. 本 CLI 接入方案（基线骨架已合入）
 
 ### 启动、恢复与安装
 
@@ -345,8 +345,12 @@ blue  .     .     yellow
 | 跨 Agent 编排 | 未验证 / 不支持已接通声明 | 待 Pi provider 骨架、授权和真实 App 验证 |
 | PR | 未创建 | 等骨架与基线已推送通知，目标 feat/new-cli-cards-base |
 
-## 阶段状态与汇报
+## 复核记录与阶段状态（2026-10-18 第二次复核）
 
-第一步的 CLI 探测及方案已形成；本文和证据单独提交。第二步尚未开始，等待用户明确通知“基线骨架已提交”，随后先 merge 基线。推送仍等待基线已推送通知。
+**已复核（本机重跑）**：`pi --version` 为 1.3.0，路径 `/Users/openclawd/.local/bin/pi`；`/bin/zsh -lic 'pi --help'` 仍列出 `--continue/-c`、`--resume/-r`、`--session <path|id>`、`--session-id <id>`（“Use exact project session ID, creating it if missing”）、`--approve/-a`、`--no-approve/-na`；`~/.pi/agent/` 下只有 `auth.json(2 字节)/bin/models-store.json/sessions/settings.json`，没有 `extensions/` 目录，测试扩展已清理。
 
-Norma 汇报实测：`norma agent self --format json` 确认本 Agent 为 Henry、node 40；`agent list` 确认 Alan node 21。`card send 21 ... --submit` 返回 `workspace_required`；经 agent task assign（operation ID `6ba2caf5-7184-42c7-9c0e-b97a62b572b3`）向 Alan 报进度返回 `delegation_cycle`，指出 Alan 是当前祖先链。此拒绝不可重试，未换 operation ID 绕过。进度已在当前对话同步；没有声称 Norma 消息发送成功。
+**与初稿的差异（已验证）**：此次执行 `pi auth check --provider anthropic --json --no-refresh` 返回 `{"status":"ready","provider":"anthropic","authType":"api_key"}`，与初稿的 `not_ready` 不同。原因：本会话进程环境继承了 `ANTHROPIC_AUTH_TOKEN/ANTHROPIC_BASE_URL`（仅核对变量名，未读取值），而 `auth.json` 只有 2 字节。即“是否已登录”取决于继承的环境变量，不是 Pi 自己存储的凭据。初稿“未登录界面”结论是在无这些变量的环境得到的，不变；本次未用该环境发起真实模型请求，真实模型任务仍为未验证。
+
+**基线骨架现状**（`rg 'AgentProfile::Pi\b' crates`）：枚举与菜单/Dock/设置/图标占位/storage/protocol 均已有 Pi 行；占位点为 `runtime/nodes/agent.rs:50`（`exec pi`）、`runtime/session_snapshot.rs:144`（会话发现 None）与 `:293`（恢复退化为普通启动）、`runtime/agent_hooks.rs:75`、`norma/orchestration/model.rs:65`（`Pi` 未进入 `ALL`）、`norma/agent_hook/` 下尚无 Pi 的 install/event 分支。第二步直接在这些位置替换，不再改枚举。
+
+**阶段状态**：第一步（探测与方案）完成并提交；不做 Rust 改动，不推送，不创建 PR。
