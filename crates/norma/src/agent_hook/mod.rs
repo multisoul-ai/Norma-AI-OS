@@ -7,6 +7,7 @@ mod conversation_observe;
 mod cursor;
 mod event;
 mod forward;
+mod hermes;
 mod install;
 mod json_config;
 mod opencode;
@@ -42,6 +43,8 @@ pub const ENV_HOOK_TOKEN: &str = "MULTISOUL_HOOK_TOKEN";
 pub const AGENT_HOOK_BINARY_NAME: &str = "multisoul-agent-hook";
 pub const OPENCODE_PLUGIN_FILE_NAME: &str = "multisoul-agent-hook.js";
 pub const OPENCODE_PLUGIN_MARKER: &str = "multisoul-opencode-plugin-marker";
+pub const HERMES_PLUGIN_NAME: &str = "norma-agent-hook";
+pub const HERMES_PLUGIN_MARKER: &str = "multisoul-hermes-plugin-marker";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum HookSource {
@@ -50,6 +53,7 @@ pub enum HookSource {
     Cursor,
     Grok,
     OpenCode,
+    Hermes,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -59,6 +63,7 @@ pub enum HookTarget {
     Cursor,
     Grok,
     OpenCode,
+    Hermes,
     All,
 }
 
@@ -94,6 +99,7 @@ pub struct HookInstallPaths {
     pub cursor_hooks: PathBuf,
     pub grok_hooks: PathBuf,
     pub opencode_plugin: PathBuf,
+    pub hermes_plugin_dir: PathBuf,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -152,6 +158,7 @@ pub fn parse_hook_source(value: &str) -> Option<HookSource> {
         "cursor" | "Cursor" => Some(HookSource::Cursor),
         "grok" | "Grok" => Some(HookSource::Grok),
         "opencode" | "OpenCode" => Some(HookSource::OpenCode),
+        "hermes" | "Hermes" => Some(HookSource::Hermes),
         _ => None,
     }
 }
@@ -163,6 +170,7 @@ pub fn parse_hook_target(value: &str) -> Option<HookTarget> {
         "cursor" | "Cursor" => Some(HookTarget::Cursor),
         "grok" | "Grok" => Some(HookTarget::Grok),
         "opencode" | "OpenCode" => Some(HookTarget::OpenCode),
+        "hermes" | "Hermes" => Some(HookTarget::Hermes),
         "all" | "All" => Some(HookTarget::All),
         _ => None,
     }
@@ -186,6 +194,7 @@ pub fn hook_source_arg(source: HookSource) -> &'static str {
         HookSource::Cursor => "cursor",
         HookSource::Grok => "grok",
         HookSource::OpenCode => "opencode",
+        HookSource::Hermes => "hermes",
     }
 }
 
@@ -196,6 +205,7 @@ pub fn profile_for_source(source: HookSource) -> AgentProfile {
         HookSource::Cursor => AgentProfile::Cursor,
         HookSource::Grok => AgentProfile::Grok,
         HookSource::OpenCode => AgentProfile::OpenCode,
+        HookSource::Hermes => AgentProfile::Hermes,
     }
 }
 
@@ -224,7 +234,21 @@ pub fn default_install_paths() -> HookInstallPaths {
             .join("opencode")
             .join("plugins")
             .join(OPENCODE_PLUGIN_FILE_NAME),
+        hermes_plugin_dir: std::env::var_os("HERMES_HOME")
+            .map(|hermes_home| {
+                PathBuf::from(hermes_home)
+                    .join("plugins")
+                    .join(HERMES_PLUGIN_NAME)
+            })
+            .unwrap_or_else(|| hermes_plugin_dir_for_home(&home)),
     }
+}
+
+/// `<hermes_home>/plugins/norma-agent-hook`，`hermes_home` 默认 `<home>/.hermes`。
+pub fn hermes_plugin_dir_for_home(home: &Path) -> PathBuf {
+    home.join(".hermes")
+        .join("plugins")
+        .join(HERMES_PLUGIN_NAME)
 }
 
 pub fn resolve_agent_hook_command_path() -> Option<PathBuf> {

@@ -140,6 +140,16 @@ pub fn hook_events_for_source(source: HookSource) -> &'static [&'static str] {
             "StopFailure",
             "SessionEnd",
         ],
+        HookSource::Hermes => &[
+            "SessionStart",
+            "UserPromptSubmit",
+            "PreToolUse",
+            "PostToolUse",
+            "PermissionRequest",
+            "Stop",
+            "StopFailure",
+            "SessionEnd",
+        ],
     }
 }
 

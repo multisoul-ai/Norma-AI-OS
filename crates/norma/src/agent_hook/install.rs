@@ -1,5 +1,9 @@
 use super::atomic_file;
 use super::cursor::{cursor_hooks_installed_at, install_cursor_hooks, uninstall_cursor_hooks};
+use super::hermes::{
+    hermes_plugin_installed_at, install_hermes_plugin, spawn_disable_and_remove_hermes_plugin,
+    spawn_enable_hermes_plugin, uninstall_hermes_plugin,
+};
 use super::json_config::add_command_hook;
 use super::opencode::{install_opencode_plugin, uninstall_opencode_plugin};
 use super::{
@@ -12,9 +16,13 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 pub fn install_agent_hooks(target: HookTarget) -> Result<PathBuf, AgentHookError> {
-    if target == HookTarget::OpenCode {
+    if matches!(target, HookTarget::OpenCode | HookTarget::Hermes) {
         let paths = default_install_paths();
         install_hook_config(target, Path::new(AGENT_HOOK_BINARY_NAME), &paths)?;
+        if target == HookTarget::Hermes {
+            spawn_enable_hermes_plugin();
+            return Ok(paths.hermes_plugin_dir);
+        }
         return Ok(paths.opencode_plugin);
     }
     let command_path = resolve_agent_hook_command_path().ok_or_else(|| {
@@ -23,12 +31,24 @@ pub fn install_agent_hooks(target: HookTarget) -> Result<PathBuf, AgentHookError
             format!("{AGENT_HOOK_BINARY_NAME} binary not found next to Norma OS or on PATH"),
         ))
     })?;
-    install_hook_config(target, &command_path, &default_install_paths())?;
+    let paths = default_install_paths();
+    install_hook_config(target, &command_path, &paths)?;
+    if matches!(target, HookTarget::Hermes | HookTarget::All) {
+        spawn_enable_hermes_plugin();
+    }
     Ok(command_path)
 }
 
 pub fn uninstall_agent_hooks(target: HookTarget) -> Result<(), AgentHookError> {
-    uninstall_hook_config(target, &default_install_paths())
+    let paths = default_install_paths();
+    if matches!(target, HookTarget::Hermes | HookTarget::All) {
+        // disable 约 3 秒，放后台线程：先 disable 再删受管目录，前台只处理其余目标。
+        spawn_disable_and_remove_hermes_plugin(paths.hermes_plugin_dir.clone());
+    }
+    if target == HookTarget::Hermes {
+        return Ok(());
+    }
+    uninstall_hook_config(target, &paths)
 }
 
 pub fn agent_hooks_installed(target: HookTarget, paths: &HookInstallPaths) -> bool {
@@ -38,12 +58,14 @@ pub fn agent_hooks_installed(target: HookTarget, paths: &HookInstallPaths) -> bo
         HookTarget::Cursor => agent_hooks_installed_for_source(HookSource::Cursor, paths),
         HookTarget::Grok => agent_hooks_installed_for_source(HookSource::Grok, paths),
         HookTarget::OpenCode => agent_hooks_installed_for_source(HookSource::OpenCode, paths),
+        HookTarget::Hermes => agent_hooks_installed_for_source(HookSource::Hermes, paths),
         HookTarget::All => {
             agent_hooks_installed_for_source(HookSource::Claude, paths)
                 && agent_hooks_installed_for_source(HookSource::Codex, paths)
                 && agent_hooks_installed_for_source(HookSource::Cursor, paths)
                 && agent_hooks_installed_for_source(HookSource::Grok, paths)
                 && agent_hooks_installed_for_source(HookSource::OpenCode, paths)
+                && agent_hooks_installed_for_source(HookSource::Hermes, paths)
         }
     }
 }
@@ -53,6 +75,9 @@ pub fn agent_hooks_installed_for_source(source: HookSource, paths: &HookInstallP
 }
 
 pub fn agent_hooks_installed_at(path: &Path, source: HookSource) -> bool {
+    if source == HookSource::Hermes {
+        return hermes_plugin_installed_at(path);
+    }
     if source == HookSource::OpenCode {
         return fs::read_to_string(path)
             .is_ok_and(|source| source.contains(OPENCODE_PLUGIN_MARKER));
@@ -87,6 +112,9 @@ pub fn uninstall_hook_config(
     if matches!(target, HookTarget::OpenCode | HookTarget::All) {
         uninstall_opencode_plugin(paths.opencode_plugin.as_path())?;
     }
+    if matches!(target, HookTarget::Hermes | HookTarget::All) {
+        uninstall_hermes_plugin(paths.hermes_plugin_dir.as_path())?;
+    }
     Ok(())
 }
 
@@ -113,6 +141,9 @@ pub fn install_hook_config(
     }
     if matches!(target, HookTarget::OpenCode | HookTarget::All) {
         install_opencode_plugin(paths.opencode_plugin.as_path())?;
+    }
+    if matches!(target, HookTarget::Hermes | HookTarget::All) {
+        install_hermes_plugin(paths.hermes_plugin_dir.as_path())?;
     }
     Ok(())
 }
@@ -156,6 +187,7 @@ fn config_path_for_source(source: HookSource, paths: &HookInstallPaths) -> &Path
         HookSource::Cursor => paths.cursor_hooks.as_path(),
         HookSource::Grok => paths.grok_hooks.as_path(),
         HookSource::OpenCode => paths.opencode_plugin.as_path(),
+        HookSource::Hermes => paths.hermes_plugin_dir.as_path(),
     }
 }
 

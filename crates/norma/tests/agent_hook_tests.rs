@@ -195,6 +195,7 @@ fn test_install_hook_config_is_idempotent_for_claude_and_codex() {
         cursor_hooks: temp.path().join("cursor-hooks.json"),
         grok_hooks: temp.path().join("grok-hooks.json"),
         opencode_plugin: temp.path().join("multisoul-agent-hook.js"),
+        hermes_plugin_dir: std::path::PathBuf::from("/nonexistent-hermes-plugin-dir"),
     };
     let command_path = temp.path().join("multisoul-agent-hook");
 
@@ -363,6 +364,7 @@ fn test_uninstall_hook_config_removes_only_multisoul_hooks() {
         cursor_hooks: temp.path().join("cursor-hooks.json"),
         grok_hooks: temp.path().join("grok-hooks.json"),
         opencode_plugin: temp.path().join("multisoul-agent-hook.js"),
+        hermes_plugin_dir: std::path::PathBuf::from("/nonexistent-hermes-plugin-dir"),
     };
     let command_path = temp.path().join("multisoul-agent-hook");
     std::fs::write(
@@ -431,6 +433,7 @@ fn test_uninstall_hook_config_is_idempotent_when_missing_or_clean() {
         cursor_hooks: temp.path().join("cursor-hooks.json"),
         grok_hooks: temp.path().join("grok-hooks.json"),
         opencode_plugin: temp.path().join("multisoul-agent-hook.js"),
+        hermes_plugin_dir: std::path::PathBuf::from("/nonexistent-hermes-plugin-dir"),
     };
 
     uninstall_hook_config(HookTarget::Codex, &paths).expect("第一次 uninstall 应成功");

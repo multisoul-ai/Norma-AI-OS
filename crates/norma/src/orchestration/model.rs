@@ -211,6 +211,7 @@ impl InstallPaths {
                 cursor_hooks: home.join(".cursor/hooks.json"),
                 grok_hooks: home.join(".grok/hooks.json"),
                 opencode_plugin: home.join(".config/opencode/plugins/multisoul-agent-hook.js"),
+                hermes_plugin_dir: crate::agent_hook::hermes_plugin_dir_for_home(home),
             },
             claude_skill: home.join(".claude/skills/norma-orchestration/SKILL.md"),
             codex_skill: home.join(".codex/skills/norma-orchestration/SKILL.md"),

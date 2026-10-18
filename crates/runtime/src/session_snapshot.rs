@@ -291,7 +291,8 @@ pub(crate) fn build_agent_resume_command(
         AgentProfile::Kimi => "exec kimi".to_string(),
         AgentProfile::ZCode => "exec zcode".to_string(),
         AgentProfile::Pi => "exec pi".to_string(),
-        AgentProfile::Hermes => "exec hermes".to_string(),
+        // 已实测：--resume <id> 续接且 session_id 不变；不用 -c（工作区作用域不可靠）。
+        AgentProfile::Hermes => format!("exec hermes --resume {}", shell_quote(session_id)),
     };
     let mut cmd = PtyCommand::new(shell).args(["-lic", &cmd_str]);
     cmd = cmd.with_cwd(workspace_root);
@@ -358,3 +359,7 @@ mod tests;
 #[cfg(test)]
 #[path = "../tests/unit/session_snapshot_grok_tests.rs"]
 mod grok_tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/session_snapshot_hermes_tests.rs"]
+mod hermes_tests;

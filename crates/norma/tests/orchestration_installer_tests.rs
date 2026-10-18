@@ -62,6 +62,7 @@ fn install_paths(root: &Path) -> InstallPaths {
                 .join("opencode")
                 .join("plugins")
                 .join("multisoul-agent-hook.js"),
+            hermes_plugin_dir: std::path::PathBuf::from("/nonexistent-hermes-plugin-dir"),
         },
         claude_skill: root
             .join(".claude")

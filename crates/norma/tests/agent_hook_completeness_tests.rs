@@ -10,6 +10,7 @@ fn hook_paths(root: &std::path::Path) -> HookInstallPaths {
         cursor_hooks: root.join("cursor-hooks.json"),
         grok_hooks: root.join("grok-hooks.json"),
         opencode_plugin: root.join("multisoul-agent-hook.js"),
+        hermes_plugin_dir: std::path::PathBuf::from("/nonexistent-hermes-plugin-dir"),
     }
 }
 
