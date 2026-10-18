@@ -26,13 +26,15 @@ fn hermes_resume_uses_verified_resume_flag_with_quoted_id() {
         None,
         Some(Path::new("/tmp/hm-ws")),
     );
-    assert_eq!(
-        cmd.args,
-        vec![
-            "-lic".to_string(),
-            "exec hermes --resume '20261018_101500_abcdef'".to_string()
-        ],
-        "Hermes 恢复命令应使用实测的 --resume <id>"
+    assert_eq!(cmd.args.len(), 2, "Hermes 恢复命令应是 -lic + 单条脚本");
+    assert!(
+        cmd.args[1].ends_with("; exec hermes --resume '20261018_101500_abcdef'"),
+        "Hermes 恢复命令应以实测的 --resume <id> 收尾: {}",
+        cmd.args[1]
+    );
+    assert!(
+        cmd.args[1].contains("command -v hermes") && cmd.args[1].contains("install.sh"),
+        "未安装时应给出官方安装命令提示"
     );
     let joined = cmd.args.join(" ");
     assert!(
@@ -58,10 +60,10 @@ fn hermes_resume_uses_verified_resume_flag_with_quoted_id() {
 #[test]
 fn hermes_resume_quotes_hostile_session_id() {
     let cmd = build_agent_resume_command(AgentProfile::Hermes, "/bin/zsh", "a'b;rm", None, None);
-    assert_eq!(
-        cmd.args.get(1).map(String::as_str),
-        Some("exec hermes --resume 'a'\\''b;rm'"),
-        "含单引号的会话 ID 必须被安全转义"
+    assert!(
+        cmd.args[1].ends_with("exec hermes --resume 'a'\\''b;rm'"),
+        "含单引号的会话 ID 必须被安全转义: {}",
+        cmd.args[1]
     );
 }
 
@@ -72,14 +74,48 @@ fn hermes_resume_quotes_hostile_session_id() {
 #[test]
 fn hermes_launch_is_plain_and_discovery_is_none() {
     let cmd = agent_command(AgentProfile::Hermes, None);
-    assert_eq!(
-        cmd.args,
-        vec!["-lic".to_string(), "exec hermes".to_string()],
-        "Hermes 默认启动命令只能是 exec hermes"
+    assert!(
+        cmd.args[1].ends_with("; exec hermes"),
+        "Hermes 默认启动命令必须以裸 exec hermes 收尾: {}",
+        cmd.args[1]
+    );
+    assert!(
+        !cmd.args[1].contains("--yolo") && !cmd.args[1].contains("--accept-hooks"),
+        "默认启动不得带跳过审批参数"
     );
     assert_eq!(
         find_agent_session_id_for_profile(AgentProfile::Hermes, Path::new("/tmp/hm-ws")),
         None,
         "Hermes 会话 ID 只来自 hook 缓存，不得扫描目录"
     );
+}
+
+/// HM-4: 真实 zsh 下 hermes 不在 PATH 时，打印安装命令与链接并退出，而不是 command not found。
+///
+/// 数据构造：PATH=/usr/bin:/bin（不含 hermes），SHELL=/usr/bin/true（让 exec 后的“留住终端”立即结束）。
+/// 执行过程：用 /bin/zsh -c 运行启动脚本，捕获 stdout/stderr。
+/// 预期：stdout 含官方安装命令与站点；stderr 不含 "command not found"；退出码 0。
+#[test]
+fn hermes_missing_cli_prints_install_hint_in_real_shell() {
+    let cmd = agent_command(AgentProfile::Hermes, None);
+    let output = std::process::Command::new("/bin/zsh")
+        .args(["-c", &cmd.args[1]])
+        .env("PATH", "/usr/bin:/bin")
+        .env("SHELL", "/usr/bin/true")
+        .output()
+        .expect("应能运行 zsh");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash"),
+        "应展示官方安装命令: {stdout}"
+    );
+    assert!(
+        stdout.contains("https://hermes-agent.nousresearch.com"),
+        "应展示官方站点"
+    );
+    assert!(
+        !String::from_utf8_lossy(&output.stderr).contains("command not found"),
+        "不得出现一闪而过的 zsh 报错"
+    );
+    assert!(output.status.success(), "提示后应正常退出");
 }

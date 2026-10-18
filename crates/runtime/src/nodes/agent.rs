@@ -48,7 +48,14 @@ pub(crate) fn agent_command(profile: AgentProfile, hook_env: Option<&AgentHookEn
         AgentProfile::Kimi => PtyCommand::new("/bin/zsh").args(["-lic", "exec kimi"]),
         AgentProfile::ZCode => PtyCommand::new("/bin/zsh").args(["-lic", "exec zcode"]),
         AgentProfile::Pi => PtyCommand::new("/bin/zsh").args(["-lic", "exec pi"]),
-        AgentProfile::Hermes => PtyCommand::new("/bin/zsh").args(["-lic", "exec hermes"]),
+        AgentProfile::Hermes => PtyCommand::new("/bin/zsh").args([
+            "-lic",
+            &crate::agent_install_hint::with_install_hint(
+                "hermes",
+                crate::agent_install_hint::HERMES_INSTALL_MESSAGE,
+                "exec hermes",
+            ),
+        ]),
     };
     match hook_env {
         Some(hook_env) => hook_env.apply_to_command(command),

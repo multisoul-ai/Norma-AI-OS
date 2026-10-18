@@ -20,6 +20,7 @@ pub(super) fn hooks_settings(
     let cursor_installed = agent_hooks_installed(HookTarget::Cursor, &paths);
     let grok_installed = agent_hooks_installed(HookTarget::Grok, &paths);
     let opencode_installed = agent_hooks_installed(HookTarget::OpenCode, &paths);
+    let hermes_installed = agent_hooks_installed(HookTarget::Hermes, &paths);
 
     div()
         .flex()
@@ -90,6 +91,19 @@ pub(super) fn hooks_settings(
             cx,
             MultisoulApp::on_toggle_opencode_hooks,
         ))
+        .child(hook_provider_row(
+            theme,
+            &HookProviderRowSpec {
+                title: "Hermes Agent",
+                hint: ui::i18n::text("settings.manage_lifecycle_hooks_in_hermes_plugins"),
+                config_path: paths.hermes_plugin_dir.display().to_string(),
+                installed: hermes_installed,
+                status: &panel.hermes_hook_status,
+                button_id: "settings-install-hermes-hooks",
+            },
+            cx,
+            MultisoulApp::on_toggle_hermes_hooks,
+        ))
 }
 
 /// Content bundle for one [`hook_provider_row`] (provider labels, paths, and
@@ -132,6 +146,16 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.settings_panel.opencode_hook_status = toggle_status_for(HookTarget::OpenCode);
+        cx.notify();
+    }
+
+    pub(super) fn on_toggle_hermes_hooks(
+        &mut self,
+        _: &ClickEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.settings_panel.hermes_hook_status = toggle_status_for(HookTarget::Hermes);
         cx.notify();
     }
 
@@ -188,6 +212,7 @@ fn hook_install_success_message(
         HookTarget::Cursor => "Cursor Agent CLI",
         HookTarget::Grok => "Grok Build",
         HookTarget::OpenCode => "OpenCode",
+        HookTarget::Hermes => "Hermes Agent",
         HookTarget::All => ui::i18n::text("settings.agent_providers"),
     };
     ui::i18n::message(

@@ -317,3 +317,9 @@ pre_tool_call -> pre_approval_request(surface="smart") -> pre_approval_request(s
 
 - 调研初期误对默认 socket 执行了一次 `tmux kill-server`，之后全部改用独立 socket `-L hm`。该操作可能终止了同机其他任务在默认 tmux server 上的会话，已在最终报告中披露。
 - 调研时发现 127.0.0.1:18765 已被其他进程占用（返回非本调研的 mock 内容），本调研改用 18991/18992，未触碰该进程。
+
+## 13. 图标落地记录
+
+- 来源：https://raw.githubusercontent.com/NousResearch/hermes-agent/main/assets/icon-master.svg（仓库 LICENSE 为 MIT，Copyright (c) 2025 Nous Research）。
+- 转换：`python3 -I scripts/svg-to-pixel-icon.py <官方.svg> crates/app/assets/icons/toolbar-hermes.svg --grid 22`，把深色字形缩到 22x22 单元格并合并为整数像素 rect。
+- 未验证：官方 logo 的商标使用条款（仅找到 MIT，无品牌政策），合并前建议人工确认。

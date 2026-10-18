@@ -292,7 +292,11 @@ pub(crate) fn build_agent_resume_command(
         AgentProfile::ZCode => "exec zcode".to_string(),
         AgentProfile::Pi => "exec pi".to_string(),
         // 已实测：--resume <id> 续接且 session_id 不变；不用 -c（工作区作用域不可靠）。
-        AgentProfile::Hermes => format!("exec hermes --resume {}", shell_quote(session_id)),
+        AgentProfile::Hermes => crate::agent_install_hint::with_install_hint(
+            "hermes",
+            crate::agent_install_hint::HERMES_INSTALL_MESSAGE,
+            &format!("exec hermes --resume {}", shell_quote(session_id)),
+        ),
     };
     let mut cmd = PtyCommand::new(shell).args(["-lic", &cmd_str]);
     cmd = cmd.with_cwd(workspace_root);
