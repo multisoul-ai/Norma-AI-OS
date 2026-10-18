@@ -138,7 +138,7 @@ pub(super) fn performance_settings(
                 .child(
                     div()
                         .settings_text(TextRole::Headline, theme)
-                        .child(ui::i18n::text("settings.animation_energy")),
+                        .child(ui::i18n::text("settings.performance_energy")),
                 )
                 .child(
                     div()
