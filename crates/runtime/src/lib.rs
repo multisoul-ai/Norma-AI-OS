@@ -10,6 +10,7 @@ pub mod focus;
 pub mod live;
 pub(crate) mod macos_proc;
 pub mod nodes;
+mod pi_launch;
 mod preview;
 pub mod route;
 pub mod runtime;

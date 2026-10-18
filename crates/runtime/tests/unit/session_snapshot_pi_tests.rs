@@ -26,10 +26,17 @@ fn pi_resume_uses_verified_session_id_flag_and_saved_cwd() {
     let cmd = build_agent_resume_command(AgentProfile::Pi, "/bin/zsh", uuid, None, Some(workspace));
 
     assert_eq!(cmd.program, "/bin/zsh", "Pi 恢复应通过 zsh 启动");
-    assert_eq!(
-        cmd.args,
-        vec!["-lic".to_string(), format!("exec pi --session-id '{uuid}'")],
-        "Pi 恢复命令必须是 exec pi --session-id '<完整 UUID>'"
+    assert_eq!(cmd.args.len(), 2, "argv 应为 -lic + 一条脚本");
+    assert_eq!(cmd.args[0], "-lic", "应使用 login interactive shell");
+    assert!(
+        cmd.args[1].ends_with(&format!("; exec pi --session-id '{uuid}'")),
+        "Pi 恢复命令必须以 exec pi --session-id '<完整 UUID>' 结尾：{}",
+        cmd.args[1]
+    );
+    assert!(
+        cmd.args[1].starts_with("if ! command -v pi"),
+        "恢复命令应带未安装提示守卫：{}",
+        cmd.args[1]
     );
     assert_eq!(
         cmd.cwd.as_deref(),
@@ -63,7 +70,7 @@ fn pi_resume_quotes_hostile_session_id() {
     let cmd = build_agent_resume_command(AgentProfile::Pi, "/bin/zsh", id, None, None);
 
     assert!(
-        cmd.args[1].ends_with(&format!("--session-id {}", shell_quote(id))),
+        cmd.args[1].ends_with(&format!("exec pi --session-id {}", shell_quote(id))),
         "session ID 必须被 shell_quote：{}",
         cmd.args[1]
     );
@@ -119,4 +126,35 @@ fn pi_session_discovery_never_scans_and_returns_none() {
     let found = find_agent_session_id_for_profile(AgentProfile::Pi, Path::new("/tmp"));
 
     assert_eq!(found, None, "Pi 无 hook 缓存时不得猜测会话 ID");
+}
+
+/// Pi 新建命令：带未安装提示守卫，最终仍是不含任何跳过审批参数的 `exec pi`。
+///
+/// 数据构造：profile=Pi，hook_env=None；脚本结构 = 守卫（1 段）+ `exec pi`（1 段）。
+///
+/// 执行过程：调用 `agent_command(Pi, None)`。
+///
+/// 预期结果：
+///   - 正断言：args[0]=`-lic`，脚本以 `; exec pi` 结尾并含安装命令与 https://pi.dev/。
+///   - 负断言：不含 `--approve`、`yolo`、`dangerously`、`--session-id`（新建不带会话参数）。
+#[test]
+fn pi_new_card_command_has_install_guard_and_no_bypass_flags() {
+    let cmd = crate::nodes::agent::agent_command(AgentProfile::Pi, None);
+
+    let script = &cmd.args[1];
+    assert_eq!(cmd.args[0], "-lic", "应使用 login interactive shell");
+    assert!(
+        script.ends_with("; exec pi"),
+        "新建应以 exec pi 结尾：{script}"
+    );
+    assert!(
+        script.contains("@earendil-works/pi-coding-agent") && script.contains("https://pi.dev/"),
+        "应含安装命令与官方链接：{script}"
+    );
+    for forbidden in ["--approve", "yolo", "dangerously", "--session-id"] {
+        assert!(
+            !script.contains(forbidden),
+            "新建命令不得含 {forbidden}：{script}"
+        );
+    }
 }

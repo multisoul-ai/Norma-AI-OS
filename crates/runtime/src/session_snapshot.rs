@@ -292,7 +292,9 @@ pub(crate) fn build_agent_resume_command(
         AgentProfile::ZCode => "exec zcode".to_string(),
         // 已验证（docs/research/2026-10-18-pi-coding-agent.md §4）：--session-id 恢复完整历史；
         // -r 总是弹选择器，-c 会串到最近会话，均不用于自动恢复。
-        AgentProfile::Pi => format!("exec pi --session-id {}", shell_quote(session_id)),
+        AgentProfile::Pi => {
+            crate::pi_launch::pi_launch_script(&format!("--session-id {}", shell_quote(session_id)))
+        }
         AgentProfile::Hermes => "exec hermes".to_string(),
     };
     let mut cmd = PtyCommand::new(shell).args(["-lic", &cmd_str]);
