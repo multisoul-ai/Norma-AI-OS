@@ -134,6 +134,7 @@ Workspace 分层：
 | 卡片 RuntimeEvent 扩展 | [`docs/references/card-runtime-events.md`](docs/references/card-runtime-events.md) |
 | 机械化约束（lint 脚本） | [`docs/quality/mechanized-constraints.md`](docs/quality/mechanized-constraints.md) |
 | Agent 执行分级与提交完整性 | [`docs/quality/agent-execution-policy.md`](docs/quality/agent-execution-policy.md) |
+| 临时任务独立构建、验收后缓存回收与 E2E 边界 | [`docs/references/task-build-cache.md`](docs/references/task-build-cache.md)，入口 `scripts/task-build-cache.py` |
 | 历史 SDD 施工记录 | [`.superpowers/sdd/progress.md`](.superpowers/sdd/progress.md) |
 
 ## 5. 改完代码必跑的验证
