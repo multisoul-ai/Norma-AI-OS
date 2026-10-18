@@ -82,8 +82,12 @@ fn test_menu_bar_groups_application_file_edit_and_layout_commands() {
             "New Cursor Agent",
             "New Grok Agent",
             "New OpenCode Agent",
+            "New Kimi Agent",
+            "New ZCode Agent",
+            "New Pi Agent",
+            "New Hermes Agent",
         ],
-        "New 子菜单必须按 Workspace、Cards、Agents 三组排列，且 Cursor/Grok/OpenCode 入口不能缺失"
+        "New 子菜单必须按 Workspace、Cards、Agents 三组排列，且 Cursor/Grok/OpenCode 以及 Kimi/ZCode/Pi/Hermes 入口不能缺失"
     );
     assert!(
         !item_labels(new_items).contains(&"Open Project…"),
