@@ -25,7 +25,7 @@ function post(providerEvent, ctx, extra = {}) {
   const nodeID = Number(process.env.MULTISOUL_NODE_ID);
   const endpoint = process.env.MULTISOUL_HOOK_ENDPOINT;
   const token = process.env.MULTISOUL_HOOK_TOKEN;
-  if (!Number.isFinite(nodeID) || !endpoint || !token) return;
+  if (!Number.isFinite(nodeID) || !endpoint || !token) return undefined;
 
   let sessionId;
   let cwd;
@@ -59,6 +59,7 @@ function post(providerEvent, ctx, extra = {}) {
       // Fail open: Pi must never block on Norma OS being unavailable.
     }
   });
+  return queue;
 }
 
 export default function (pi) {
@@ -70,9 +71,10 @@ export default function (pi) {
   const on = (name, handler) => {
     pi.on(name, (event, ctx) => {
       try {
-        handler(event || {}, ctx);
+        return handler(event || {}, ctx);
       } catch {
         // Fail open.
+        return undefined;
       }
     });
   };
@@ -133,7 +135,6 @@ export default function (pi) {
     });
   });
 
-  on("session_shutdown", (_event, ctx) => {
-    post("SessionEnd", ctx);
-  });
+  // Awaited (bounded by the 300ms fetch timeout) so the event is flushed before Pi exits.
+  on("session_shutdown", (_event, ctx) => post("SessionEnd", ctx));
 }
