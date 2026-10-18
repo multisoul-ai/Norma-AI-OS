@@ -84,6 +84,7 @@ fn test_opencode_install_writes_and_removes_plugin_file() {
         codex_hooks: temp.path().join("codex-hooks.json"),
         cursor_hooks: temp.path().join("cursor-hooks.json"),
         grok_hooks: temp.path().join("grok-hooks.json"),
+        pi_extension: temp.path().join("norma-agent-hook.ts"),
         opencode_plugin: plugin_path.clone(),
     };
     let command_path = temp.path().join("multisoul-agent-hook");
@@ -152,6 +153,7 @@ fn test_opencode_install_rejects_unmanaged_same_path_plugin() {
         codex_hooks: temp.path().join("codex-hooks.json"),
         cursor_hooks: temp.path().join("cursor-hooks.json"),
         grok_hooks: temp.path().join("grok-hooks.json"),
+        pi_extension: temp.path().join("norma-agent-hook.ts"),
         opencode_plugin: plugin_path.clone(),
     };
     let user_source = "export const userPlugin = true;\n";

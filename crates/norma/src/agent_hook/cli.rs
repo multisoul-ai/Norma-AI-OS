@@ -97,10 +97,10 @@ fn forward_from_stdin(source: HookSource, request_approval: bool) -> super::Hook
 
 fn parse_source_arg(value: &str) -> Result<HookSource, String> {
     parse_hook_source(value)
-        .ok_or_else(|| "expected claude, codex, cursor, or opencode".to_string())
+        .ok_or_else(|| "expected claude, codex, cursor, opencode, or pi".to_string())
 }
 
 fn parse_target_arg(value: &str) -> Result<HookTarget, String> {
     parse_hook_target(value)
-        .ok_or_else(|| "expected claude, codex, cursor, opencode, or all".to_string())
+        .ok_or_else(|| "expected claude, codex, cursor, opencode, pi, or all".to_string())
 }

@@ -116,6 +116,7 @@ fn grok_hook_install_is_idempotent_and_uninstall_preserves_third_party_hooks() {
         codex_hooks: temp.path().join("codex-hooks.json"),
         cursor_hooks: temp.path().join("cursor-hooks.json"),
         grok_hooks: grok_path.clone(),
+        pi_extension: temp.path().join("norma-agent-hook.ts"),
         opencode_plugin: temp.path().join("multisoul-agent-hook.js"),
     };
     let command_path = temp.path().join("multisoul-agent-hook");
