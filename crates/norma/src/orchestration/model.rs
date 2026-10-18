@@ -218,6 +218,7 @@ impl InstallPaths {
                     home,
                     std::env::var_os("KIMI_CODE_HOME"),
                 ),
+                hermes_plugin_dir: crate::agent_hook::hermes_plugin_dir_for_home(home),
             },
             claude_skill: home.join(".claude/skills/norma-orchestration/SKILL.md"),
             codex_skill: home.join(".codex/skills/norma-orchestration/SKILL.md"),

@@ -58,6 +58,7 @@ fn install_paths(root: &Path) -> InstallPaths {
                 .join("plugins")
                 .join("multisoul-agent-hook.js"),
             kimi_config: root.join(".kimi-code").join("config.toml"),
+            hermes_plugin_dir: std::path::PathBuf::from("/nonexistent-hermes-plugin-dir"),
         },
         claude_skill: root
             .join(".claude")

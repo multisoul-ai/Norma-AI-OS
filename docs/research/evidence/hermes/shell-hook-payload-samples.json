@@ -1,0 +1,603 @@
+[
+ {
+  "hook_event_name": "pre_llm_call",
+  "tool_name": null,
+  "tool_input": null,
+  "session_id": "20261018_113636_195f7f",
+  "cwd": "/private/tmp/hermes-probe/work2",
+  "profile": "default",
+  "extra": {
+   "task_id": "20261018_113636_195f7f",
+   "turn_id": "20261018_113636_195f7f:20261018_113636_195f7f:f328ecde",
+   "user_message": "DANGER please",
+   "conversation_history": [
+    {
+     "role": "user",
+     "content": "say hi",
+     "timestamp": 1792294632.711822,
+     "_db_persisted": true,
+     "_row_id": 7,
+     "message_uid": "f7b224c1d00e468b81d1650b5e9ca2a6",
+     "_db_row_snapshot": "b59f43a60e8660549a2d16483c7e3897"
+    },
+    {
+     "role": "assistant",
+     "content": "MOCK-REPLY to: say hi",
+     "reasoning": null,
+     "finish_reason": "stop",
+     "timestamp": 1792294634.6235158,
+     "_db_persisted": true,
+     "_row_id": 8,
+     "message_uid": "0b638bc3fc704592a62d8cb50468f242",
+     "_db_row_snapshot": "e9b42379a8f2c31e06ec613687e8ebaa"
+    },
+    "...[7 items]"
+   ],
+   "is_first_turn": false,
+   "model": "mock-model",
+   "platform": "cli",
+   "sender_id": "",
+   "telemetry_schema_version": "hermes.observer.v1"
+  }
+ },
+ {
+  "hook_event_name": "pre_api_request",
+  "tool_name": null,
+  "tool_input": null,
+  "session_id": "20261018_113636_195f7f",
+  "cwd": "/private/tmp/hermes-probe/work2",
+  "profile": "default",
+  "extra": {
+   "task_id": "20261018_113636_195f7f",
+   "turn_id": "20261018_113636_195f7f:20261018_113636_195f7f:f328ecde",
+   "api_request_id": "20261018_113636_195f7f:20261018_113636_195f7f:f328ecde:api:1",
+   "user_message": "DANGER please",
+   "conversation_history": [
+    {
+     "role": "user",
+     "content": "say hi",
+     "timestamp": 1792294632.711822,
+     "_db_persisted": true,
+     "_row_id": 7,
+     "message_uid": "f7b224c1d00e468b81d1650b5e9ca2a6",
+     "_db_row_snapshot": "b59f43a60e8660549a2d16483c7e3897"
+    },
+    {
+     "role": "assistant",
+     "content": "MOCK-REPLY to: say hi",
+     "reasoning": null,
+     "finish_reason": "stop",
+     "timestamp": 1792294634.6235158,
+     "_db_persisted": true,
+     "_row_id": 8,
+     "message_uid": "0b638bc3fc704592a62d8cb50468f242",
+     "_db_row_snapshot": "e9b42379a8f2c31e06ec613687e8ebaa"
+    },
+    "...[7 items]"
+   ],
+   "platform": "cli",
+   "model": "mock-model",
+   "provider": "custom",
+   "base_url": "http://127.0.0.1:18991/v1",
+   "api_mode": "chat_completions",
+   "api_call_count": 1,
+   "retry_count": 0,
+   "request_messages": [
+    {
+     "role": "system",
+     "content": "You are Hermes Agent, built by Nous Research. Be direct: match the length of your reply to the weight of the ask — a one-line question gets a one-line answer, a...[trimmed 13386 chars]"
+    },
+    {
+     "role": "user",
+     "content": "say hi"
+    },
+    "...[8 items]"
+   ],
+   "system_prompt": "You are Hermes Agent, built by Nous Research. Be direct: match the length of your reply to the weight of the ask — a one-line question gets a one-line answer, a...[trimmed 13386 chars]",
+   "message_count": 8,
+   "tool_count": 21,
+   "approx_input_tokens": 3597,
+   "request_char_count": 14388,
+   "max_tokens": null,
+   "started_at": 1792294684.59743,
+   "middleware_trace": [],
+   "request": {
+    "method": "POST",
+    "body": {
+     "model": "mock-model",
+     "messages": [
+      {
+       "role": "system",
+       "content": "You are Hermes Agent, built by Nous Research. Be direct: match the length of your reply to the weight of the ask — a one-line question gets a one-line answer, a...[trimmed 8025 chars]"
+      },
+      {
+       "role": "user",
+       "content": "say hi"
+      },
+      "...[8 items]"
+     ],
+     "tools": [
+      {
+       "type": "function",
+       "function": {
+        "name": "browser_exec",
+        "description": "Drive a real web browser via the Browser Use CLI: `code` runs as full Python (stdlib available) with pre-imported browser helpers; stdout comes back in the resu...[trimmed 2604 chars]",
+        "parameters": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string",
+           "description": "Python code to execute using the pre-imported browser helpers. Use print(...) for any data you need back."
+          },
+          "session": {
+           "type": "string",
+           "description": "Named isolated browser session — its own daemon and (on cloud backends) own browser, so concurrent tasks don't share tabs. Reuse the same name on every related ...[trimmed 202 chars]"
+          },
+          "timeout_s": {
+           "type": "integer",
+           "default": 300,
+           "description": "Max seconds to wait for the code to finish (default 300, max 1800)."
+          }
+         },
+         "required": [
+          "code"
+         ]
+        }
+       }
+      },
+      {
+       "type": "function",
+       "function": {
+        "name": "clarify",
+        "description": "Ask the user one or more questions when you need a decision, clarification, or feedback before proceeding. Pass every question in `questions` (1-5 entries) — a ...[trimmed 1160 chars]",
+        "parameters": {
+         "type": "object",
+         "properties": {
+          "questions": {
+           "type": "array",
+           "minItems": 1,
+           "maxItems": 5,
+           "description": "The question(s). Each: question text (options excluded), optional choices (recommended first; omit for free-text), optional multi_select. Responses come back in...[trimmed 206 chars]",
+           "items": {
+            "type": "<str depth limit>",
+            "properties": "<dict depth limit>",
+            "required": "<list depth limit>"
+           }
+          }
+         },
+         "required": [
+          "questions"
+         ]
+        }
+       }
+      },
+      "...[21 items]"
+     ],
+     "reasoning_effort": "medium"
+    }
+   },
+   "telemetry_schema_version": "hermes.observer.v1"
+  }
+ },
+ {
+  "hook_event_name": "on_stream_start",
+  "tool_name": null,
+  "tool_input": null,
+  "session_id": "20261018_113636_195f7f",
+  "cwd": "/private/tmp/hermes-probe/work2",
+  "profile": "default",
+  "extra": {
+   "turn_id": "20261018_113636_195f7f:20261018_113636_195f7f:f328ecde",
+   "iteration": 1,
+   "model": "mock-model",
+   "provider": "custom",
+   "surface": "cli",
+   "telemetry_schema_version": "hermes.observer.v1"
+  }
+ },
+ {
+  "hook_event_name": "on_stream_end",
+  "tool_name": null,
+  "tool_input": null,
+  "session_id": "20261018_113636_195f7f",
+  "cwd": "/private/tmp/hermes-probe/work2",
+  "profile": "default",
+  "extra": {
+   "turn_id": "20261018_113636_195f7f:20261018_113636_195f7f:f328ecde",
+   "iteration": 1,
+   "model": "mock-model",
+   "provider": "custom",
+   "surface": "cli",
+   "final_text": "",
+   "finished": true,
+   "error": null,
+   "telemetry_schema_version": "hermes.observer.v1"
+  }
+ },
+ {
+  "hook_event_name": "post_api_request",
+  "tool_name": null,
+  "tool_input": null,
+  "session_id": "20261018_113636_195f7f",
+  "cwd": "/private/tmp/hermes-probe/work2",
+  "profile": "default",
+  "extra": {
+   "task_id": "20261018_113636_195f7f",
+   "turn_id": "20261018_113636_195f7f:20261018_113636_195f7f:f328ecde",
+   "api_request_id": "20261018_113636_195f7f:20261018_113636_195f7f:f328ecde:api:1",
+   "platform": "cli",
+   "model": "mock-model",
+   "provider": "custom",
+   "base_url": "http://127.0.0.1:18991/v1",
+   "api_mode": "chat_completions",
+   "api_call_count": 1,
+   "api_duration": 0.05223703384399414,
+   "started_at": 1792294684.59743,
+   "ended_at": 1792294684.649667,
+   "first_chunk_at": 1792294684.647275,
+   "finish_reason": "tool_calls",
+   "message_count": 8,
+   "response_model": "mock-model",
+   "response": {
+    "model": "mock-model",
+    "upstream_provider": null,
+    "finish_reason": "tool_calls",
+    "assistant_message": {
+     "role": "assistant",
+     "content": null,
+     "tool_calls": [
+      {
+       "id": "call_2",
+       "name": "terminal",
+       "arguments": "{\"command\": \"rm -rf /tmp/hermes-probe/danger-dir\"}",
+       "provider_data": null
+      }
+     ]
+    },
+    "usage": {
+     "input_tokens": 10,
+     "output_tokens": 5,
+     "cache_read_tokens": 0,
+     "cache_write_tokens": 0,
+     "reasoning_tokens": 0,
+     "request_count": 1,
+     "prompt_tokens": 10,
+     "total_tokens": 15
+    }
+   },
+   "usage": {
+    "input_tokens": 10,
+    "output_tokens": 5,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "reasoning_tokens": 0,
+    "request_count": 1,
+    "prompt_tokens": 10,
+    "total_tokens": 15
+   },
+   "context_length": 256000,
+   "assistant_message": "NormalizedResponse(content=None, tool_calls=[ToolCall(id='call_2', name='terminal', arguments='{\"command\": \"rm -rf /tmp/hermes-probe/danger-dir\"}')], finish_rea...[trimmed 279 chars]",
+   "assistant_content_chars": 0,
+   "assistant_tool_call_count": 1,
+   "moa_references": null,
+   "telemetry_schema_version": "hermes.observer.v1"
+  }
+ },
+ {
+  "hook_event_name": "pre_tool_call",
+  "tool_name": "terminal",
+  "tool_input": {
+   "command": "rm -rf /tmp/hermes-probe/danger-dir"
+  },
+  "session_id": "20261018_113636_195f7f",
+  "cwd": "/private/tmp/hermes-probe/work2",
+  "profile": "default",
+  "extra": {
+   "task_id": "20261018_113636_195f7f",
+   "tool_call_id": "call_2",
+   "turn_id": "20261018_113636_195f7f:20261018_113636_195f7f:f328ecde",
+   "api_request_id": "20261018_113636_195f7f:20261018_113636_195f7f:f328ecde:api:1",
+   "middleware_trace": [],
+   "telemetry_schema_version": "hermes.observer.v1"
+  }
+ },
+ {
+  "hook_event_name": "pre_approval_request",
+  "tool_name": null,
+  "tool_input": null,
+  "session_id": "20261018_113636_195f7f",
+  "cwd": "/private/tmp/hermes-probe/work2",
+  "profile": "default",
+  "extra": {
+   "command": "rm -rf /tmp/hermes-probe/danger-dir",
+   "description": "delete in root path",
+   "pattern_key": "delete in root path",
+   "pattern_keys": [
+    "delete in root path"
+   ],
+   "session_key": "20261018_113636_195f7f",
+   "surface": "smart",
+   "turn_id": "20261018_113636_195f7f:20261018_113636_195f7f:f328ecde",
+   "tool_call_id": "call_2",
+   "telemetry_schema_version": "hermes.observer.v1"
+  }
+ },
+ {
+  "hook_event_name": "pre_approval_request",
+  "tool_name": null,
+  "tool_input": null,
+  "session_id": "20261018_113636_195f7f",
+  "cwd": "/private/tmp/hermes-probe/work2",
+  "profile": "default",
+  "extra": {
+   "command": "rm -rf /tmp/hermes-probe/danger-dir",
+   "description": "delete in root path",
+   "pattern_key": "delete in root path",
+   "pattern_keys": [
+    "delete in root path"
+   ],
+   "session_key": "20261018_113636_195f7f",
+   "surface": "cli",
+   "turn_id": "20261018_113636_195f7f:20261018_113636_195f7f:f328ecde",
+   "tool_call_id": "call_2",
+   "telemetry_schema_version": "hermes.observer.v1"
+  }
+ },
+ {
+  "hook_event_name": "on_human_input_request",
+  "tool_name": null,
+  "tool_input": null,
+  "session_id": "20261018_113636_195f7f",
+  "cwd": "/private/tmp/hermes-probe/work2",
+  "profile": "default",
+  "extra": {
+   "kind": "approval",
+   "request_id": "c4211b6362084fab908d4289dfd1ef44",
+   "session_key": "20261018_113636_195f7f",
+   "platform": "cli",
+   "prompt": "rm -rf /tmp/hermes-probe/danger-dir",
+   "telemetry_schema_version": "hermes.observer.v1"
+  }
+ },
+ {
+  "hook_event_name": "on_human_input_resolved",
+  "tool_name": null,
+  "tool_input": null,
+  "session_id": "20261018_113636_195f7f",
+  "cwd": "/private/tmp/hermes-probe/work2",
+  "profile": "default",
+  "extra": {
+   "kind": "approval",
+   "request_id": "c4211b6362084fab908d4289dfd1ef44",
+   "session_key": "20261018_113636_195f7f",
+   "platform": "cli",
+   "prompt": "rm -rf /tmp/hermes-probe/danger-dir",
+   "outcome": "deny",
+   "telemetry_schema_version": "hermes.observer.v1"
+  }
+ },
+ {
+  "hook_event_name": "post_approval_response",
+  "tool_name": null,
+  "tool_input": null,
+  "session_id": "20261018_113636_195f7f",
+  "cwd": "/private/tmp/hermes-probe/work2",
+  "profile": "default",
+  "extra": {
+   "command": "rm -rf /tmp/hermes-probe/danger-dir",
+   "description": "delete in root path",
+   "pattern_key": "delete in root path",
+   "pattern_keys": [
+    "delete in root path"
+   ],
+   "session_key": "20261018_113636_195f7f",
+   "surface": "cli",
+   "choice": "deny",
+   "turn_id": "20261018_113636_195f7f:20261018_113636_195f7f:f328ecde",
+   "tool_call_id": "call_2",
+   "telemetry_schema_version": "hermes.observer.v1"
+  }
+ },
+ {
+  "hook_event_name": "post_tool_call",
+  "tool_name": "terminal",
+  "tool_input": {
+   "command": "rm -rf /tmp/hermes-probe/danger-dir"
+  },
+  "session_id": "20261018_113636_195f7f",
+  "cwd": "/private/tmp/hermes-probe/work2",
+  "profile": "default",
+  "extra": {
+   "result": "{\"output\": \"\", \"exit_code\": -1, \"error\": \"BLOCKED: User denied this command. The user has NOT consented to this action. Do NOT retry this command, do NOT rephra...[trimmed 432 chars]",
+   "task_id": "20261018_113636_195f7f",
+   "tool_call_id": "call_2",
+   "turn_id": "20261018_113636_195f7f:20261018_113636_195f7f:f328ecde",
+   "api_request_id": "20261018_113636_195f7f:20261018_113636_195f7f:f328ecde:api:1",
+   "duration_ms": 22818,
+   "status": "error",
+   "error_type": "tool_error",
+   "error_message": "BLOCKED: User denied this command. The user has NOT consented to this action. Do NOT retry this command, do NOT rephrase it, and do NOT attempt the same outcome...[trimmed 306 chars]",
+   "middleware_trace": [],
+   "telemetry_schema_version": "hermes.observer.v1"
+  }
+ },
+ {
+  "hook_event_name": "post_llm_call",
+  "tool_name": null,
+  "tool_input": null,
+  "session_id": "20261018_113636_195f7f",
+  "cwd": "/private/tmp/hermes-probe/work2",
+  "profile": "default",
+  "extra": {
+   "task_id": "20261018_113636_195f7f",
+   "turn_id": "20261018_113636_195f7f:20261018_113636_195f7f:f328ecde",
+   "user_message": "DANGER please",
+   "assistant_response": "Tool done: mock final answer.",
+   "conversation_history": [
+    {
+     "role": "user",
+     "content": "say hi",
+     "timestamp": 1792294632.711822,
+     "_db_persisted": true,
+     "_row_id": 7,
+     "message_uid": "f7b224c1d00e468b81d1650b5e9ca2a6",
+     "_db_row_snapshot": "b59f43a60e8660549a2d16483c7e3897"
+    },
+    {
+     "role": "assistant",
+     "content": "MOCK-REPLY to: say hi",
+     "reasoning": null,
+     "finish_reason": "stop",
+     "timestamp": 1792294634.6235158,
+     "_db_persisted": true,
+     "_row_id": 8,
+     "message_uid": "0b638bc3fc704592a62d8cb50468f242",
+     "_db_row_snapshot": "e9b42379a8f2c31e06ec613687e8ebaa"
+    },
+    "...[10 items]"
+   ],
+   "model": "mock-model",
+   "platform": "cli",
+   "telemetry_schema_version": "hermes.observer.v1"
+  }
+ },
+ {
+  "hook_event_name": "on_session_end",
+  "tool_name": null,
+  "tool_input": null,
+  "session_id": "20261018_113636_195f7f",
+  "cwd": "/private/tmp/hermes-probe/work2",
+  "profile": "default",
+  "extra": {
+   "task_id": "20261018_113636_195f7f",
+   "turn_id": "20261018_113636_195f7f:20261018_113636_195f7f:f328ecde",
+   "completed": true,
+   "failed": false,
+   "interrupted": false,
+   "turn_exit_reason": "text_response(finish_reason=stop)",
+   "model": "mock-model",
+   "platform": "cli",
+   "telemetry_schema_version": "hermes.observer.v1"
+  }
+ },
+ {
+  "hook_event_name": "api_request_error",
+  "tool_name": null,
+  "tool_input": null,
+  "session_id": "20261018_113636_195f7f",
+  "cwd": "/private/tmp/hermes-probe/work2",
+  "profile": "default",
+  "extra": {
+   "task_id": "20261018_113636_195f7f",
+   "turn_id": "20261018_113636_195f7f:20261018_113636_195f7f:c8ef32f5",
+   "api_request_id": "20261018_113636_195f7f:20261018_113636_195f7f:c8ef32f5:api:1",
+   "platform": "cli",
+   "model": "mock-model",
+   "provider": "custom",
+   "base_url": "http://127.0.0.1:18991/v1",
+   "api_mode": "chat_completions",
+   "api_call_count": 1,
+   "api_duration": 0.15419602394104004,
+   "started_at": 1792294799.761324,
+   "ended_at": 1792294799.91552,
+   "status_code": 401,
+   "retry_count": 0,
+   "max_retries": 3,
+   "retryable": false,
+   "reason": "auth",
+   "error": {
+    "type": "AuthenticationError",
+    "message": "Error code: 401 - {'error': {'message': 'invalid api key'}}"
+   },
+   "request": {
+    "method": "POST",
+    "body": {
+     "model": "mock-model",
+     "messages": [
+      {
+       "role": "system",
+       "content": "You are Hermes Agent, built by Nous Research. Be direct: match the length of your reply to the weight of the ask — a one-line question gets a one-line answer, a...[trimmed 8025 chars]"
+      },
+      {
+       "role": "user",
+       "content": "say hi"
+      },
+      "...[14 items]"
+     ],
+     "tools": [
+      {
+       "type": "function",
+       "function": {
+        "name": "browser_exec",
+        "description": "Drive a real web browser via the Browser Use CLI: `code` runs as full Python (stdlib available) with pre-imported browser helpers; stdout comes back in the resu...[trimmed 2604 chars]",
+        "parameters": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string",
+           "description": "Python code to execute using the pre-imported browser helpers. Use print(...) for any data you need back."
+          },
+          "session": {
+           "type": "string",
+           "description": "Named isolated browser session — its own daemon and (on cloud backends) own browser, so concurrent tasks don't share tabs. Reuse the same name on every related ...[trimmed 202 chars]"
+          },
+          "timeout_s": {
+           "type": "integer",
+           "default": 300,
+           "description": "Max seconds to wait for the code to finish (default 300, max 1800)."
+          }
+         },
+         "required": [
+          "code"
+         ]
+        }
+       }
+      },
+      {
+       "type": "function",
+       "function": {
+        "name": "clarify",
+        "description": "Ask the user one or more questions when you need a decision, clarification, or feedback before proceeding. Pass every question in `questions` (1-5 entries) — a ...[trimmed 1160 chars]",
+        "parameters": {
+         "type": "object",
+         "properties": {
+          "questions": {
+           "type": "array",
+           "minItems": 1,
+           "maxItems": 5,
+           "description": "The question(s). Each: question text (options excluded), optional choices (recommended first; omit for free-text), optional multi_select. Responses come back in...[trimmed 206 chars]",
+           "items": {
+            "type": "<str depth limit>",
+            "properties": "<dict depth limit>",
+            "required": "<list depth limit>"
+           }
+          }
+         },
+         "required": [
+          "questions"
+         ]
+        }
+       }
+      },
+      "...[21 items]"
+     ],
+     "reasoning_effort": "medium"
+    }
+   },
+   "telemetry_schema_version": "hermes.observer.v1"
+  }
+ },
+ {
+  "hook_event_name": "on_session_start",
+  "tool_name": null,
+  "tool_input": null,
+  "session_id": "20261018_113636_195f7f",
+  "cwd": "/private/tmp/hermes-probe/work2",
+  "profile": "default",
+  "extra": {
+   "model": "mock-model",
+   "platform": "cli",
+   "telemetry_schema_version": "hermes.observer.v1"
+  }
+ }
+]

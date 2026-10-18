@@ -87,6 +87,7 @@ fn test_opencode_install_writes_and_removes_plugin_file() {
         pi_extension: temp.path().join("norma-agent-hook.ts"),
         opencode_plugin: plugin_path.clone(),
         kimi_config: (plugin_path.clone()).with_file_name("kimi-config.toml"),
+        hermes_plugin_dir: std::path::PathBuf::from("/nonexistent-hermes-plugin-dir"),
     };
     let command_path = temp.path().join("multisoul-agent-hook");
 
@@ -157,6 +158,7 @@ fn test_opencode_install_rejects_unmanaged_same_path_plugin() {
         pi_extension: temp.path().join("norma-agent-hook.ts"),
         opencode_plugin: plugin_path.clone(),
         kimi_config: (plugin_path.clone()).with_file_name("kimi-config.toml"),
+        hermes_plugin_dir: std::path::PathBuf::from("/nonexistent-hermes-plugin-dir"),
     };
     let user_source = "export const userPlugin = true;\n";
     std::fs::write(&plugin_path, user_source).expect("测试必须预置用户 OpenCode 插件");

@@ -1,5 +1,9 @@
 use super::atomic_file;
 use super::cursor::{cursor_hooks_installed_at, install_cursor_hooks, uninstall_cursor_hooks};
+use super::hermes::{
+    hermes_plugin_installed_at, install_hermes_plugin, spawn_disable_and_remove_hermes_plugin,
+    spawn_enable_hermes_plugin, uninstall_hermes_plugin,
+};
 use super::json_config::add_command_hook;
 use super::kimi::{install_kimi_hooks, kimi_hooks_installed_at, uninstall_kimi_hooks};
 use super::opencode::{install_opencode_plugin, uninstall_opencode_plugin};
@@ -14,9 +18,13 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 pub fn install_agent_hooks(target: HookTarget) -> Result<PathBuf, AgentHookError> {
-    if target == HookTarget::OpenCode {
+    if matches!(target, HookTarget::OpenCode | HookTarget::Hermes) {
         let paths = default_install_paths();
         install_hook_config(target, Path::new(AGENT_HOOK_BINARY_NAME), &paths)?;
+        if target == HookTarget::Hermes {
+            spawn_enable_hermes_plugin();
+            return Ok(paths.hermes_plugin_dir);
+        }
         return Ok(paths.opencode_plugin);
     }
     if target == HookTarget::Pi {
@@ -30,12 +38,26 @@ pub fn install_agent_hooks(target: HookTarget) -> Result<PathBuf, AgentHookError
             format!("{AGENT_HOOK_BINARY_NAME} binary not found next to Norma OS or on PATH"),
         ))
     })?;
-    install_hook_config(target, &command_path, &default_install_paths())?;
+    let paths = default_install_paths();
+    install_hook_config(target, &command_path, &paths)?;
+    if matches!(target, HookTarget::Hermes | HookTarget::All) {
+        spawn_enable_hermes_plugin();
+    }
     Ok(command_path)
 }
 
 pub fn uninstall_agent_hooks(target: HookTarget) -> Result<(), AgentHookError> {
-    uninstall_hook_config(target, &default_install_paths())
+    let paths = default_install_paths();
+    if matches!(target, HookTarget::Hermes | HookTarget::All) {
+        // disable 约 3 秒，放后台线程：先 disable 再删受管目录，前台只处理其余目标。
+        spawn_disable_and_remove_hermes_plugin(paths.hermes_plugin_dir.clone());
+    }
+    if target == HookTarget::Hermes {
+        return Ok(());
+    }
+    // Hermes 目录交给上面的后台线程：实测目录缺失时 `hermes plugins disable` 失败且
+    // 在 config.yaml 残留启用条目，所以 All 不能在这里同步删目录。
+    uninstall_hook_config_except_hermes(target, &paths)
 }
 
 pub fn agent_hooks_installed(target: HookTarget, paths: &HookInstallPaths) -> bool {
@@ -47,6 +69,7 @@ pub fn agent_hooks_installed(target: HookTarget, paths: &HookInstallPaths) -> bo
         HookTarget::OpenCode => agent_hooks_installed_for_source(HookSource::OpenCode, paths),
         HookTarget::Pi => agent_hooks_installed_for_source(HookSource::Pi, paths),
         HookTarget::Kimi => agent_hooks_installed_for_source(HookSource::Kimi, paths),
+        HookTarget::Hermes => agent_hooks_installed_for_source(HookSource::Hermes, paths),
         HookTarget::All => {
             agent_hooks_installed_for_source(HookSource::Claude, paths)
                 && agent_hooks_installed_for_source(HookSource::Codex, paths)
@@ -55,6 +78,7 @@ pub fn agent_hooks_installed(target: HookTarget, paths: &HookInstallPaths) -> bo
                 && agent_hooks_installed_for_source(HookSource::OpenCode, paths)
                 && agent_hooks_installed_for_source(HookSource::Pi, paths)
                 && agent_hooks_installed_for_source(HookSource::Kimi, paths)
+                && agent_hooks_installed_for_source(HookSource::Hermes, paths)
         }
     }
 }
@@ -64,6 +88,9 @@ pub fn agent_hooks_installed_for_source(source: HookSource, paths: &HookInstallP
 }
 
 pub fn agent_hooks_installed_at(path: &Path, source: HookSource) -> bool {
+    if source == HookSource::Hermes {
+        return hermes_plugin_installed_at(path);
+    }
     if source == HookSource::OpenCode {
         return fs::read_to_string(path)
             .is_ok_and(|source| source.contains(OPENCODE_PLUGIN_MARKER));
@@ -86,6 +113,18 @@ pub fn agent_hooks_installed_at(path: &Path, source: HookSource) -> bool {
 }
 
 pub fn uninstall_hook_config(
+    target: HookTarget,
+    paths: &HookInstallPaths,
+) -> Result<(), AgentHookError> {
+    uninstall_hook_config_except_hermes(target, paths)?;
+    if matches!(target, HookTarget::Hermes | HookTarget::All) {
+        uninstall_hermes_plugin(paths.hermes_plugin_dir.as_path())?;
+    }
+    Ok(())
+}
+
+/// 卸载除 Hermes 目录插件之外的目标；Hermes 须先 disable 再删目录，由调用方排序。
+pub fn uninstall_hook_config_except_hermes(
     target: HookTarget,
     paths: &HookInstallPaths,
 ) -> Result<(), AgentHookError> {
@@ -143,6 +182,9 @@ pub fn install_hook_config(
     if matches!(target, HookTarget::Kimi | HookTarget::All) {
         install_kimi_hooks(paths.kimi_config.as_path(), command_path)?;
     }
+    if matches!(target, HookTarget::Hermes | HookTarget::All) {
+        install_hermes_plugin(paths.hermes_plugin_dir.as_path())?;
+    }
     Ok(())
 }
 
@@ -187,6 +229,7 @@ fn config_path_for_source(source: HookSource, paths: &HookInstallPaths) -> &Path
         HookSource::OpenCode => paths.opencode_plugin.as_path(),
         HookSource::Pi => paths.pi_extension.as_path(),
         HookSource::Kimi => paths.kimi_config.as_path(),
+        HookSource::Hermes => paths.hermes_plugin_dir.as_path(),
     }
 }
 
@@ -297,191 +340,4 @@ pub(super) fn ensure_array(value: &mut Value) {
     if !value.is_array() {
         *value = json!([]);
     }
-}
-
-pub(super) fn opencode_plugin_source() -> &'static str {
-    r#"// multisoul-opencode-plugin-marker
-// Auto-generated by Norma OS. Forwards OpenCode Agent lifecycle events to the local Norma app.
-
-function stringValue(value) {
-  return typeof value === "string" && value.length > 0 ? value : undefined;
-}
-
-function toolName(value) {
-  const raw = stringValue(value) || "tool";
-  return raw.charAt(0).toUpperCase() + raw.slice(1);
-}
-
-function textFromParts(parts) {
-  if (!Array.isArray(parts)) return undefined;
-  for (const part of parts) {
-    const text = stringValue(part?.text) || stringValue(part?.content);
-    if (text) return text;
-  }
-  return undefined;
-}
-
-function textFromOutput(output) {
-  return (
-    textFromParts(output?.parts) ||
-    stringValue(output?.message?.text) ||
-    stringValue(output?.message?.content) ||
-    stringValue(output?.message)
-  );
-}
-
-async function postHook(providerEvent, sessionID, extra = {}) {
-  const nodeID = Number(process.env.MULTISOUL_NODE_ID);
-  const endpoint = process.env.MULTISOUL_HOOK_ENDPOINT;
-  const token = process.env.MULTISOUL_HOOK_TOKEN;
-  if (!Number.isFinite(nodeID) || !endpoint || !token) return;
-
-  const rawJson = {
-    hook_event_name: providerEvent,
-    session_id: sessionID,
-    ...extra.raw_json,
-  };
-  if (extra.tool_name) rawJson.tool_name = extra.tool_name;
-  if (extra.message) rawJson.message = extra.message;
-  if (extra.prompt) rawJson.prompt = extra.prompt;
-
-  const body = {
-    node_id: nodeID,
-    profile: "OpenCode",
-    provider_event: providerEvent,
-    session_id: stringValue(sessionID),
-    turn_id: stringValue(extra.turn_id),
-    tool_name: stringValue(extra.tool_name),
-    message: stringValue(extra.message),
-    raw_json: rawJson,
-  };
-
-  try {
-    await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(300),
-    });
-  } catch {
-    // Fail open: OpenCode must never block on Norma OS being unavailable.
-  }
-}
-
-export default async () => {
-  const msgRoles = new Map();
-  const sentPrompts = new Set();
-
-  async function sendPrompt(sessionID, prompt, key) {
-    if (!prompt) return;
-    const dedupeKey = key || `${sessionID}:${prompt}`;
-    if (sentPrompts.has(dedupeKey)) return;
-    sentPrompts.add(dedupeKey);
-    if (sentPrompts.size > 200) sentPrompts.delete(sentPrompts.keys().next().value);
-    await postHook("UserPromptSubmit", sessionID, {
-      prompt,
-      raw_json: { prompt },
-    });
-  }
-
-  function rememberMessage(info) {
-    if (!info?.id || !info?.sessionID) return;
-    msgRoles.set(info.id, { role: info.role, sessionID: info.sessionID });
-    if (msgRoles.size > 200) msgRoles.delete(msgRoles.keys().next().value);
-  }
-
-  return {
-    "chat.message": async (input, output) => {
-      await sendPrompt(input.sessionID, textFromOutput(output), input.messageID);
-    },
-
-    "tool.execute.before": async (input, output) => {
-      const name = toolName(input.tool);
-      await postHook("PreToolUse", input.sessionID, {
-        tool_name: name,
-        raw_json: { tool_name: name, tool_input: output?.args },
-      });
-    },
-
-    "tool.execute.after": async (input) => {
-      const name = toolName(input.tool);
-      await postHook("PostToolUse", input.sessionID, {
-        tool_name: name,
-        raw_json: { tool_name: name },
-      });
-    },
-
-    event: async ({ event }) => {
-      const type = event?.type;
-      const properties = event?.properties || {};
-
-      if (type === "session.created" && properties.info?.id) {
-        await postHook("SessionStart", properties.info.id, {
-          raw_json: { cwd: properties.info.directory },
-        });
-        return;
-      }
-
-      if (type === "session.deleted" && properties.info?.id) {
-        await postHook("SessionEnd", properties.info.id);
-        return;
-      }
-
-      if (type === "session.updated" && properties.info?.id && properties.info?.time?.archived) {
-        await postHook("SessionEnd", properties.info.id);
-        return;
-      }
-
-      if (type === "session.status" && properties.sessionID && properties.status?.type === "idle") {
-        await postHook("Stop", properties.sessionID);
-        return;
-      }
-
-      if (type === "session.error" && properties.sessionID) {
-        await postHook("StopFailure", properties.sessionID, {
-          message: stringValue(properties.error?.message) || "OpenCode session error",
-        });
-        return;
-      }
-
-      if (type === "message.updated") {
-        rememberMessage(properties.info);
-        return;
-      }
-
-      if (type === "message.part.updated" && properties.part?.messageID) {
-        const meta = msgRoles.get(properties.part.messageID);
-        if (!meta) return;
-        if (meta.role === "user" && properties.part.type === "text") {
-          await sendPrompt(meta.sessionID, stringValue(properties.part.text), properties.part.messageID);
-        }
-        return;
-      }
-
-      if (type === "message.part.updated" && properties.part?.type === "tool" && properties.part?.sessionID) {
-        const status = properties.part.state?.status;
-        const name = toolName(properties.part.tool);
-        if (status === "running" || status === "pending") {
-          await postHook("PreToolUse", properties.part.sessionID, {
-            tool_name: name,
-            raw_json: { tool_name: name, tool_input: properties.part.state?.input },
-          });
-        } else if (status === "completed") {
-          await postHook("PostToolUse", properties.part.sessionID, {
-            tool_name: name,
-          });
-        } else if (status === "error") {
-          await postHook("PostToolUseFailure", properties.part.sessionID, {
-            tool_name: name,
-            message: "OpenCode tool failed",
-          });
-        }
-      }
-    },
-  };
-};
-"#
 }

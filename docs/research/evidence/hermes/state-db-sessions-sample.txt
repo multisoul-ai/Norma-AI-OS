@@ -1,0 +1,4 @@
+id|source|cwd|end_reason|title
+20261018_113125_319f97|oneshot|/private/tmp/hermes-probe/work2|agent_close|hello
+20261018_113153_544bed|oneshot|/private/tmp/hermes-probe/work2|agent_close|
+20261018_113201_88767b|oneshot|/private/tmp/hermes-probe/work2|agent_close|

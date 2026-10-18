@@ -1,0 +1,17 @@
+{"event": "on_session_start", "ts": 1792295513.5131369, "pid": 54351, "cwd": "/private/tmp/hermes-probe/work2", "session_id": "20261018_115133_eae93f", "platform": "cli"}
+{"event": "pre_llm_call", "ts": 1792295513.5204291, "pid": 54351, "cwd": "/private/tmp/hermes-probe/work2", "session_id": "20261018_115133_eae93f", "platform": "cli"}
+{"event": "pre_tool_call", "ts": 1792295513.7981172, "pid": 54351, "cwd": "/private/tmp/hermes-probe/work2", "tool_name": "terminal", "session_id": "20261018_115133_eae93f", "tool_call_id": "call_1"}
+{"event": "post_tool_call", "ts": 1792295513.926147, "pid": 54351, "cwd": "/private/tmp/hermes-probe/work2", "tool_name": "terminal", "session_id": "20261018_115133_eae93f", "status": "ok", "tool_call_id": "call_1"}
+{"event": "post_llm_call", "ts": 1792295513.961258, "pid": 54351, "cwd": "/private/tmp/hermes-probe/work2", "session_id": "20261018_115133_eae93f", "platform": "cli"}
+{"event": "on_session_end", "ts": 1792295513.962687, "pid": 54351, "cwd": "/private/tmp/hermes-probe/work2", "session_id": "20261018_115133_eae93f", "completed": true, "failed": false, "interrupted": false, "turn_exit_reason": "text_response(finish_reason=stop)", "platform": "cli"}
+{"event": "pre_llm_call", "ts": 1792295523.734029, "pid": 54351, "cwd": "/private/tmp/hermes-probe/work2", "session_id": "20261018_115133_eae93f", "platform": "cli"}
+{"event": "pre_tool_call", "ts": 1792295523.786707, "pid": 54351, "cwd": "/private/tmp/hermes-probe/work2", "tool_name": "terminal", "session_id": "20261018_115133_eae93f", "tool_call_id": "call_2"}
+{"event": "pre_approval_request", "ts": 1792295523.791923, "pid": 54351, "cwd": "/private/tmp/hermes-probe/work2", "session_id": "20261018_115133_eae93f", "tool_call_id": "call_2"}
+{"event": "pre_approval_request", "ts": 1792295523.804189, "pid": 54351, "cwd": "/private/tmp/hermes-probe/work2", "session_id": "20261018_115133_eae93f", "tool_call_id": "call_2"}
+{"event": "on_human_input_request", "ts": 1792295523.807221, "pid": 54351, "cwd": "/private/tmp/hermes-probe/work2", "session_id": "20261018_115133_eae93f", "kind": "approval", "platform": "cli"}
+{"event": "on_human_input_resolved", "ts": 1792295532.279043, "pid": 54351, "cwd": "/private/tmp/hermes-probe/work2", "session_id": "20261018_115133_eae93f", "kind": "approval", "outcome": "deny", "platform": "cli"}
+{"event": "post_approval_response", "ts": 1792295532.279383, "pid": 54351, "cwd": "/private/tmp/hermes-probe/work2", "session_id": "20261018_115133_eae93f", "choice": "deny", "tool_call_id": "call_2"}
+{"event": "post_tool_call", "ts": 1792295532.293865, "pid": 54351, "cwd": "/private/tmp/hermes-probe/work2", "tool_name": "terminal", "session_id": "20261018_115133_eae93f", "status": "error", "tool_call_id": "call_2"}
+{"event": "post_llm_call", "ts": 1792295532.337672, "pid": 54351, "cwd": "/private/tmp/hermes-probe/work2", "session_id": "20261018_115133_eae93f", "platform": "cli"}
+{"event": "on_session_end", "ts": 1792295532.339709, "pid": 54351, "cwd": "/private/tmp/hermes-probe/work2", "session_id": "20261018_115133_eae93f", "completed": true, "failed": false, "interrupted": false, "turn_exit_reason": "text_response(finish_reason=stop)", "platform": "cli"}
+{"event": "on_session_finalize", "ts": 1792295538.35376, "pid": 54351, "cwd": "/private/tmp/hermes-probe/work2", "session_id": "20261018_115133_eae93f", "reason": "shutdown", "platform": "cli"}

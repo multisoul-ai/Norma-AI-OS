@@ -296,7 +296,12 @@ pub(crate) fn build_agent_resume_command(
         AgentProfile::Pi => {
             crate::pi_launch::pi_launch_script(&format!("--session-id {}", shell_quote(session_id)))
         }
-        AgentProfile::Hermes => "exec hermes".to_string(),
+        // 已实测：--resume <id> 续接且 session_id 不变；不用 -c（工作区作用域不可靠）。
+        AgentProfile::Hermes => crate::agent_install_hint::with_install_hint(
+            "hermes",
+            crate::agent_install_hint::HERMES_INSTALL_MESSAGE,
+            &format!("exec hermes --resume {}", shell_quote(session_id)),
+        ),
     };
     let mut cmd = PtyCommand::new(shell).args(["-lic", &cmd_str]);
     cmd = cmd.with_cwd(workspace_root);
@@ -371,3 +376,7 @@ mod kimi_tests;
 #[cfg(test)]
 #[path = "../tests/unit/session_snapshot_pi_tests.rs"]
 mod pi_tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/session_snapshot_hermes_tests.rs"]
+mod hermes_tests;
