@@ -91,7 +91,7 @@ At a glance:
 
 ## 4. Current User-Facing Behavior
 
-- `Cmd+1` creates a Terminal node; `Cmd+2` through `Cmd+6` create Claude, Codex, Cursor, OpenCode, and Grok cards. Each creation reflows the current layout.
+- `Cmd+1` creates a Terminal node; `Cmd+2` through `Cmd+6` create Claude, Codex, Cursor, OpenCode, and Grok cards; `Cmd+7`, `Cmd+8`, and `Cmd+9` create Kimi, Pi, and Hermes cards (ZCode has no default shortcut; all are rebindable in Settings). Each creation reflows the current layout.
 - Drag a node by its title bar.
 - Single-click selects a node; clicking blank canvas clears selection.
 - Double-click a focusable node, or click a terminal/agent body, to focus it.
