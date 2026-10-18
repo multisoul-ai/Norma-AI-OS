@@ -236,7 +236,7 @@ export default function (pi) {
 | `agent_end` | 缓存最后 assistant 文本与错误 | 先不发布 Stop，等待 settled；保留真实结果用于编排回执 |
 | `agent_settled` 且末次无错误、非 aborted | Stop / Done | 发送 `last_assistant_message`、本轮 turn_id；只发送文本，不能用工具输出当最终回复 |
 | `agent_settled` 且缓存 error 或 aborted=true | StopFailure / Failed | aborted 标明用户取消；不伪造成功结果 |
-| `session_shutdown reason=quit` | SessionEnd / Ended | 不作为任务成功；保留已知真实 terminal status |
+| `session_shutdown reason=quit` | SessionEnd / Ended | 不作为任务成功；保留已知真实 terminal status |（仅 quit 发送；源码 SessionShutdownEvent.reason 另有 reload/new/resume/fork，进程仍存活，扩展忽略）
 
 **已验证**：本地夹具返回 HTTP 400 时 Pi 退出 1，`turn_end.outcome=error`、assistant `stopReason=error`，`errorMessage` 包含 `norma-pi-fixture-error`；`agent_settled.aborted=false`。因此“settled 且非 aborted ⇒ Done”会误报，必须合并缓存错误。
 

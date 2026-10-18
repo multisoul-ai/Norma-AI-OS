@@ -205,7 +205,8 @@ if (scenario === "error") {
   run("turn_end", { type: "turn_end", message: { role: "assistant", stopReason: "stop", content: [{ type: "text", text: "FINAL" }] } });
   run("agent_settled", { type: "agent_settled", aborted: false });
 }
-run("session_shutdown", { type: "session_shutdown", reason: "quit" });
+const reasons = scenario === "reloads" ? ["reload", "new", "resume", "fork"] : ["quit"];
+for (const reason of reasons) run("session_shutdown", { type: "session_shutdown", reason });
 await new Promise((r) => setTimeout(r, 800));
 "#;
 
@@ -365,6 +366,29 @@ fn pi_extension_reports_failure_and_abort_as_stop_failure() {
     assert!(
         !names(&aborted).contains(&"Stop".to_string()),
         "取消不得发 Stop"
+    );
+}
+
+/// Pi 在 reload/new/resume/fork 时进程仍存活，也会触发 session_shutdown，不得误报 SessionEnd。
+///
+/// 数据构造：桩 pi 走成功路径，但收尾依次触发 reason=reload、new、resume、fork 四次 session_shutdown
+///   （reason 取值来自 pi-coding-agent 的 SessionShutdownEvent 类型定义）。
+///
+/// 预期结果：
+///   - 正断言：仍收到 SessionStart 与 Stop，证明扩展在工作。
+///   - 负断言：事件中不得出现 SessionEnd；quit 场景的 SessionEnd 由顺序测试覆盖。
+#[test]
+fn pi_extension_ignores_non_quit_session_shutdown() {
+    let events = run_extension("reloads", true);
+
+    assert!(
+        names(&events).contains(&"Stop".to_string()),
+        "应仍转发 Stop"
+    );
+    assert!(
+        !names(&events).contains(&"SessionEnd".to_string()),
+        "非 quit 的 session_shutdown 不得标记 Ended：{:?}",
+        names(&events)
     );
 }
 

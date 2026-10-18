@@ -135,6 +135,11 @@ export default function (pi) {
     });
   });
 
+  // Pi also emits session_shutdown for reload/new/resume/fork while the process stays alive
+  // (SessionShutdownEvent.reason in pi-coding-agent types); only "quit" means the process exits.
   // Awaited (bounded by the 300ms fetch timeout) so the event is flushed before Pi exits.
-  on("session_shutdown", (_event, ctx) => post("SessionEnd", ctx));
+  on("session_shutdown", (event, ctx) => {
+    if (event.reason !== "quit") return undefined;
+    return post("SessionEnd", ctx);
+  });
 }
