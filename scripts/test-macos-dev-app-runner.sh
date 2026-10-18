@@ -15,6 +15,7 @@
 #   auth helper    = <target-dir>/norma-browser-auth-host, built by the app crate
 #   auth extension = crates/app/assets/browser-auth-extension → bundle Resources
 #   wallpaper      = crates/app/assets/wallpapers/1407174.mp4 → bundle Resources
+#   home           = crates/app/assets/home/fixture.txt → bundle Resources
 #   feature guide  = crates/app/assets/feature-guide/demo-live-node-shortcuts.mp4
 #                    → bundle Resources
 #   signal fixture = fake `open -W` that starts an independently living app
@@ -194,9 +195,11 @@ cargo_args_file="$tmp_dir/cargo-args"
 codesign_args_file="$tmp_dir/codesign-args"
 fixture_wallpaper_source="$fixture_root/crates/app/assets/wallpapers/1407174.mp4"
 fixture_feature_guide_source="$fixture_root/crates/app/assets/feature-guide/demo-live-node-shortcuts.mp4"
+fixture_home_source="$fixture_root/crates/app/assets/home/fixture.txt"
 fixture_auth_extension_manifest="$fixture_root/crates/app/assets/browser-auth-extension/manifest.json"
 mkdir -p "$fixture_bin" "$fixture_root/scripts" "$fixture_root/packaging/macos" \
   "$(dirname "$fixture_wallpaper_source")" "$(dirname "$fixture_feature_guide_source")" \
+  "$(dirname "$fixture_home_source")" \
   "$(dirname "$fixture_auth_extension_manifest")"
 cp "$runner" "$fixture_runner"
 cp "$dev_plist" "$fixture_root/packaging/macos/DevInfo.plist"
@@ -205,6 +208,7 @@ cp -R "$repo_root/packaging/macos/zh-CN.lproj" "$fixture_root/packaging/macos/"
 cp "$entitlements" "$fixture_root/packaging/macos/NormaOS.entitlements"
 printf 'fixture bundle wallpaper\n' >"$fixture_wallpaper_source"
 printf 'fixture feature guide video\n' >"$fixture_feature_guide_source"
+printf 'fixture home resource\n' >"$fixture_home_source"
 printf '{"name":"fixture-browser-auth-extension"}\n' >"$fixture_auth_extension_manifest"
 
 # 场景：runner 使用签名前的同一 staging 契约。此 fixture 只模拟准备器输出，
@@ -395,6 +399,9 @@ if ! cmp -s "$fixture_auth_extension_manifest" "$bundle_auth_extension_manifest"
 fi
 
 bundle_wallpaper="$tmp_dir/Norma OS Dev.app/Contents/Resources/wallpapers/1407174.mp4"
+if ! cmp -s "$fixture_home_source" "$tmp_dir/Norma OS Dev.app/Contents/Resources/home/fixture.txt"; then
+  fail "development bundle must include the home resources copied by the runner"
+fi
 if ! cmp -s "$fixture_root/build/release-media/media-catalog.json" "$tmp_dir/Norma OS Dev.app/Contents/Resources/media-catalog.json"; then
   fail "development bundle must carry the prepared trusted catalog before signing"
 fi
