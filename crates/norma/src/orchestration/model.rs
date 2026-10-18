@@ -73,7 +73,8 @@ impl OrchestrationProvider {
             Self::Codex => Some(HookSource::Codex),
             Self::Cursor => Some(HookSource::Cursor),
             Self::OpenCode => Some(HookSource::OpenCode),
-            Self::Grok | Self::Kimi | Self::ZCode | Self::Pi | Self::Hermes => None,
+            Self::ZCode => Some(HookSource::ZCode),
+            Self::Grok | Self::Kimi | Self::Pi | Self::Hermes => None,
         }
     }
 
@@ -83,7 +84,8 @@ impl OrchestrationProvider {
             Self::Codex => Some(HookTarget::Codex),
             Self::Cursor => Some(HookTarget::Cursor),
             Self::OpenCode => Some(HookTarget::OpenCode),
-            Self::Grok | Self::Kimi | Self::ZCode | Self::Pi | Self::Hermes => None,
+            Self::ZCode => Some(HookTarget::ZCode),
+            Self::Grok | Self::Kimi | Self::Pi | Self::Hermes => None,
         }
     }
 }
@@ -211,6 +213,7 @@ impl InstallPaths {
                 cursor_hooks: home.join(".cursor/hooks.json"),
                 grok_hooks: home.join(".grok/hooks.json"),
                 opencode_plugin: home.join(".config/opencode/plugins/multisoul-agent-hook.js"),
+                zcode_config: home.join(".zcode/cli/config.json"),
             },
             claude_skill: home.join(".claude/skills/norma-orchestration/SKILL.md"),
             codex_skill: home.join(".codex/skills/norma-orchestration/SKILL.md"),

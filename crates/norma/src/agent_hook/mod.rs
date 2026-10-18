@@ -10,6 +10,7 @@ mod forward;
 mod install;
 mod json_config;
 mod opencode;
+mod zcode;
 
 use crate::protocol::{AgentProfile, NodeId};
 use serde::{Deserialize, Serialize};
@@ -50,6 +51,7 @@ pub enum HookSource {
     Cursor,
     Grok,
     OpenCode,
+    ZCode,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -59,6 +61,7 @@ pub enum HookTarget {
     Cursor,
     Grok,
     OpenCode,
+    ZCode,
     All,
 }
 
@@ -94,6 +97,7 @@ pub struct HookInstallPaths {
     pub cursor_hooks: PathBuf,
     pub grok_hooks: PathBuf,
     pub opencode_plugin: PathBuf,
+    pub zcode_config: PathBuf,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -152,6 +156,7 @@ pub fn parse_hook_source(value: &str) -> Option<HookSource> {
         "cursor" | "Cursor" => Some(HookSource::Cursor),
         "grok" | "Grok" => Some(HookSource::Grok),
         "opencode" | "OpenCode" => Some(HookSource::OpenCode),
+        "zcode" | "ZCode" => Some(HookSource::ZCode),
         _ => None,
     }
 }
@@ -163,6 +168,7 @@ pub fn parse_hook_target(value: &str) -> Option<HookTarget> {
         "cursor" | "Cursor" => Some(HookTarget::Cursor),
         "grok" | "Grok" => Some(HookTarget::Grok),
         "opencode" | "OpenCode" => Some(HookTarget::OpenCode),
+        "zcode" | "ZCode" => Some(HookTarget::ZCode),
         "all" | "All" => Some(HookTarget::All),
         _ => None,
     }
@@ -186,6 +192,7 @@ pub fn hook_source_arg(source: HookSource) -> &'static str {
         HookSource::Cursor => "cursor",
         HookSource::Grok => "grok",
         HookSource::OpenCode => "opencode",
+        HookSource::ZCode => "zcode",
     }
 }
 
@@ -196,6 +203,7 @@ pub fn profile_for_source(source: HookSource) -> AgentProfile {
         HookSource::Cursor => AgentProfile::Cursor,
         HookSource::Grok => AgentProfile::Grok,
         HookSource::OpenCode => AgentProfile::OpenCode,
+        HookSource::ZCode => AgentProfile::ZCode,
     }
 }
 
@@ -224,6 +232,7 @@ pub fn default_install_paths() -> HookInstallPaths {
             .join("opencode")
             .join("plugins")
             .join(OPENCODE_PLUGIN_FILE_NAME),
+        zcode_config: home.join(".zcode").join("cli").join("config.json"),
     }
 }
 

@@ -289,6 +289,11 @@ pub(crate) fn build_agent_resume_command(
         }
         // 骨架占位：恢复参数未经实测前退化为普通启动，由各 CLI 负责人替换为已验证命令。
         AgentProfile::Kimi => "exec kimi".to_string(),
+        // 已验证（docs/research/2026-10-18-zcode.md §12）：只用 --resume <id>，不用按目录取最近的 -c；
+        // ID 必须是 hook 给出的 `sess_<uuid>`，否则退化为普通启动，避免注入与失效 ID 延迟报错。
+        AgentProfile::ZCode if is_zcode_session_id(session_id) => {
+            format!("exec zcode --resume {}", shell_quote(session_id))
+        }
         AgentProfile::ZCode => "exec zcode".to_string(),
         AgentProfile::Pi => "exec pi".to_string(),
         AgentProfile::Hermes => "exec hermes".to_string(),
@@ -347,6 +352,13 @@ fn codex_session_id_for_workspace(path: &Path, workspace_root: &Path) -> Option<
     None
 }
 
+/// ZCode 会话 ID 形如 `sess_` + 36 位 UUID 文本（十六进制与连字符）。
+fn is_zcode_session_id(value: &str) -> bool {
+    value.strip_prefix("sess_").is_some_and(|rest| {
+        rest.len() == 36 && rest.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-')
+    })
+}
+
 pub(crate) fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\\''"))
 }
@@ -358,3 +370,7 @@ mod tests;
 #[cfg(test)]
 #[path = "../tests/unit/session_snapshot_grok_tests.rs"]
 mod grok_tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/session_snapshot_zcode_tests.rs"]
+mod zcode_tests;

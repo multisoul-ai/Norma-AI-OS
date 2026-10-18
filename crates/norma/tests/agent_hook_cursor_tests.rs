@@ -170,6 +170,7 @@ fn test_cursor_hook_config_is_idempotent_and_preserves_user_hooks() {
         cursor_hooks: cursor_path.clone(),
         grok_hooks: temp.path().join("grok-hooks.json"),
         opencode_plugin: temp.path().join("multisoul-agent-hook.js"),
+        zcode_config: temp.path().join("zcode-config.json"),
     };
     let command_path = temp.path().join("multisoul-agent-hook");
     let cursor_command = build_hook_command(&command_path, HookSource::Cursor);

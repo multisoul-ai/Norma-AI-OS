@@ -85,6 +85,7 @@ fn test_opencode_install_writes_and_removes_plugin_file() {
         cursor_hooks: temp.path().join("cursor-hooks.json"),
         grok_hooks: temp.path().join("grok-hooks.json"),
         opencode_plugin: plugin_path.clone(),
+        zcode_config: plugin_path.with_file_name("zcode-config.json"),
     };
     let command_path = temp.path().join("multisoul-agent-hook");
 
@@ -153,6 +154,7 @@ fn test_opencode_install_rejects_unmanaged_same_path_plugin() {
         cursor_hooks: temp.path().join("cursor-hooks.json"),
         grok_hooks: temp.path().join("grok-hooks.json"),
         opencode_plugin: plugin_path.clone(),
+        zcode_config: plugin_path.with_file_name("zcode-config.json"),
     };
     let user_source = "export const userPlugin = true;\n";
     std::fs::write(&plugin_path, user_source).expect("测试必须预置用户 OpenCode 插件");

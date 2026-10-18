@@ -62,6 +62,7 @@ fn install_paths(root: &Path) -> InstallPaths {
                 .join("opencode")
                 .join("plugins")
                 .join("multisoul-agent-hook.js"),
+            zcode_config: root.join(".zcode/cli/config.json"),
         },
         claude_skill: root
             .join(".claude")
