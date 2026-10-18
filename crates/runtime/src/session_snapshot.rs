@@ -287,8 +287,9 @@ pub(crate) fn build_agent_resume_command(
                 shell_quote(session_id)
             )
         }
+        // Kimi Code 2.2.0 实测：`--session <ID>` 按 ID 续接；`--continue` 按目录取最近会话，会串卡片。
+        AgentProfile::Kimi => format!("exec kimi --session {}", shell_quote(session_id)),
         // 骨架占位：恢复参数未经实测前退化为普通启动，由各 CLI 负责人替换为已验证命令。
-        AgentProfile::Kimi => "exec kimi".to_string(),
         AgentProfile::ZCode => "exec zcode".to_string(),
         AgentProfile::Pi => "exec pi".to_string(),
         AgentProfile::Hermes => "exec hermes".to_string(),
@@ -358,3 +359,7 @@ mod tests;
 #[cfg(test)]
 #[path = "../tests/unit/session_snapshot_grok_tests.rs"]
 mod grok_tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/session_snapshot_kimi_tests.rs"]
+mod kimi_tests;
