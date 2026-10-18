@@ -1,0 +1,53 @@
+hello-pi-probe
+/login
+^[────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────                                                                                                                                            ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────/private/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/work0.0%/0 (auto)                                                                                                                        unknown────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────hello-pi-probe                                                                                                                              /login                                                                                                                                       ▀▀█  v1.3.0                                                                                                                                 █▀ █ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash · ctrl+o more                                                        Press ctrl+o to show full startup help and loaded resources.                                                                                                                                                                                                                            Pi can explain its own features and look up its docs. Ask it how to use or extend Pi.                                                      [Extensions]                                                                                                                                  norma-probe-7f1l_gyq.ts                                                                                                                    Warning: No models available. Use /login to log into a provider via OAuth or API key. See:                                                    /Users/openclawd/.local/lib/node_modules/@earendil-works/pi-coding-agent/docs/providers.md                                                  /Users/openclawd/.local/lib/node_modules/@earendil-works/pi-coding-agent/docs/models.md                                                  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── Error: No API key found for the selected model.                                                                                                                                                                                                                                         Use /login to log into a provider via OAuth or API key. See:                                                                                  /Users/openclawd/.local/lib/node_modules/@earendil-works/pi-coding-agent/docs/providers.md                                                  /Users/openclawd/.local/lib/node_modules/@earendil-works/pi-coding-agent/docs/models.md
+
+ ▀▀█  v1.3.0
+
+ █▀ █ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash · ctrl+o more
+
+ Press ctrl+o to show full startup help and loaded resources.
+
+
+
+ Pi can explain its own features and look up its docs. Ask it how to use or extend Pi.
+
+
+
+[Extensions]
+
+  norma-probe-7f1l_gyq.ts
+
+
+
+
+
+ Warning: No models available. Use /login to log into a provider via OAuth or API key. See:
+
+   /Users/openclawd/.local/lib/node_modules/@earendil-works/pi-coding-agent/docs/providers.md
+
+   /Users/openclawd/.local/lib/node_modules/@earendil-works/pi-coding-agent/docs/models.md
+
+
+
+ Error: No API key found for the selected model.
+
+
+
+ Use /login to log into a provider via OAuth or API key. See:
+
+   /Users/openclawd/.local/lib/node_modules/@earendil-works/pi-coding-agent/docs/providers.md
+
+   /Users/openclawd/.local/lib/node_modules/@earendil-works/pi-coding-agent/docs/models.md
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+/private/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/work
+
+0.0%/0 (auto)                                                                                                                        unknown

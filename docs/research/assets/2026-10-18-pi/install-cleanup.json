@@ -1,0 +1,26 @@
+{
+  "shell_before": {
+    ".zshrc": "444d803c8f9f1bd9b25af6d3a99bd2fe52d3fecc29f5666577a53dec2a158ddc",
+    ".zprofile": null,
+    ".profile": null,
+    ".bashrc": null,
+    ".bash_profile": null
+  },
+  "shell_after": {
+    ".zshrc": "b533756310fbf4ff5a3b46f670c06de12ec2df3c886b0c3e87bcf0eca282a722",
+    ".zprofile": null,
+    ".profile": null,
+    ".bashrc": null,
+    ".bash_profile": null
+  },
+  "shell_unchanged": false,
+  "note": "本任务只执行 npm --prefix 用户目录安装，未执行 curl installer，未写 shell 配置。同期 .zshrc 哈希变化，来源未验证；未回滚用户文件。",
+  "removed_extension": "/Users/openclawd/.pi/agent/extensions/norma-probe-7f1l_gyq.ts",
+  "extension_absent": true,
+  "pi_config_files_after": [
+    ".pi/agent/settings.json",
+    ".pi/agent/models-store.json",
+    ".pi/agent/auth.json",
+    ".pi/agent/bin/fd"
+  ]
+}

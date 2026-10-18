@@ -1,0 +1,42 @@
+{
+  "pty": {
+    "cmd": [
+      "/Users/openclawd/.local/bin/pi",
+      "--offline",
+      "--no-skills",
+      "--no-context-files",
+      "--no-prompt-templates",
+      "-e",
+      "/private/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/probe-extension.ts",
+      "--model",
+      "norma-probe/fixture",
+      "NORMAPI_CLEANUP"
+    ],
+    "pid": 33115,
+    "exit": 0,
+    "timed_out": false,
+    "sent": [
+      {
+        "at": 8.02,
+        "bytes": "b'\\x03'"
+      },
+      {
+        "at": 8.19,
+        "bytes": "b'\\x03'"
+      }
+    ],
+    "duration": 8.27
+  },
+  "observed_children_before_exit": [
+    {
+      "pid": 33273,
+      "ppid": 33115,
+      "pgid": 33273,
+      "command": "sleep 120",
+      "observed_seconds": 2.24
+    }
+  ],
+  "remaining_children_after_exit": [],
+  "check_seconds_after_test_start": 8.37,
+  "test_child_sleep_seconds": 120
+}

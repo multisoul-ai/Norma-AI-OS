@@ -1,0 +1,33 @@
+{
+  "cmd": [
+    "/Users/openclawd/.local/bin/pi",
+    "--offline",
+    "--no-skills",
+    "--no-context-files",
+    "--no-prompt-templates",
+    "-e",
+    "/Users/openclawd/.pi/agent/extensions/norma-probe-7f1l_gyq.ts",
+    "--model",
+    "norma-probe/fixture",
+    "-e",
+    "/private/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/confirm.ts"
+  ],
+  "pid": 67453,
+  "exit": 0,
+  "timed_out": false,
+  "sent": [
+    {
+      "at": 3.01,
+      "bytes": "b'NORMAPI_TOOLS\\r'"
+    },
+    {
+      "at": 5.02,
+      "bytes": "b'\\x1b'"
+    },
+    {
+      "at": 7.05,
+      "bytes": "b'/quit\\r'"
+    }
+  ],
+  "duration": 7.11
+}

@@ -1,0 +1,14 @@
+{
+  "five_same_session_ids": [
+    "01a14cb5-4b48-71eb-af74-53296bd903ff",
+    "01a14cb5-4b48-71eb-af74-53296bd903ff",
+    "01a14cb5-4b48-71eb-af74-53296bd903ff",
+    "01a14cb5-4b48-71eb-af74-53296bd903ff",
+    "01a14cb5-4b48-71eb-af74-53296bd903ff"
+  ],
+  "exact_new_id": "11111111-1111-4111-8111-111111111111",
+  "tool_write_file": "norma-pi-token-20261018\\n",
+  "tool_failure_observed": true,
+  "provider_failure_observed": true,
+  "aborted_settled_observed": true
+}

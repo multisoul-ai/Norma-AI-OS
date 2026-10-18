@@ -1,0 +1,173 @@
+[
+  {
+    "name": "create",
+    "argv": [
+      "/Users/openclawd/.local/bin/pi",
+      "--offline",
+      "--no-skills",
+      "--no-context-files",
+      "--no-prompt-templates",
+      "-e",
+      "/Users/openclawd/.pi/agent/extensions/norma-probe-7f1l_gyq.ts",
+      "--model",
+      "norma-probe/fixture",
+      "-p",
+      "NORMAPI_TOOLS remember norma-pi-token-20261018"
+    ],
+    "cwd": "/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/model-work",
+    "exit": 0,
+    "stdout": "PI_FIXTURE_DONE prior_tool_history=true\n",
+    "stderr": ""
+  },
+  {
+    "name": "continue",
+    "argv": [
+      "/Users/openclawd/.local/bin/pi",
+      "--offline",
+      "--no-skills",
+      "--no-context-files",
+      "--no-prompt-templates",
+      "-e",
+      "/Users/openclawd/.pi/agent/extensions/norma-probe-7f1l_gyq.ts",
+      "--model",
+      "norma-probe/fixture",
+      "-c",
+      "-p",
+      "NORMAPI_RESUME prove prior history"
+    ],
+    "cwd": "/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/model-work",
+    "exit": 0,
+    "stdout": "PI_FIXTURE_DONE prior_tool_history=true\n",
+    "stderr": ""
+  },
+  {
+    "name": "session-id",
+    "argv": [
+      "/Users/openclawd/.local/bin/pi",
+      "--offline",
+      "--no-skills",
+      "--no-context-files",
+      "--no-prompt-templates",
+      "-e",
+      "/Users/openclawd/.pi/agent/extensions/norma-probe-7f1l_gyq.ts",
+      "--model",
+      "norma-probe/fixture",
+      "--session",
+      "01a14cb5-4b48-71eb-af74-53296bd903ff",
+      "-p",
+      "NORMAPI_RESUME prove prior history"
+    ],
+    "cwd": "/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/model-work",
+    "exit": 0,
+    "stdout": "PI_FIXTURE_DONE prior_tool_history=true\n",
+    "stderr": ""
+  },
+  {
+    "name": "session-path",
+    "argv": [
+      "/Users/openclawd/.local/bin/pi",
+      "--offline",
+      "--no-skills",
+      "--no-context-files",
+      "--no-prompt-templates",
+      "-e",
+      "/Users/openclawd/.pi/agent/extensions/norma-probe-7f1l_gyq.ts",
+      "--model",
+      "norma-probe/fixture",
+      "--session",
+      "/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/agent/sessions/--private-var-folders-pf-k4j7_s8d0yv6z3jbtc7sfv2c0000gn-T-norma-pi-probe-7f1l_gyq-model-work--/2026-10-18T01-51-52-138Z_01a14cb5-4b48-71eb-af74-53296bd903ff.jsonl",
+      "-p",
+      "NORMAPI_RESUME prove prior history"
+    ],
+    "cwd": "/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/model-work",
+    "exit": 0,
+    "stdout": "PI_FIXTURE_DONE prior_tool_history=true\n",
+    "stderr": ""
+  },
+  {
+    "name": "exact-id",
+    "argv": [
+      "/Users/openclawd/.local/bin/pi",
+      "--offline",
+      "--no-skills",
+      "--no-context-files",
+      "--no-prompt-templates",
+      "-e",
+      "/Users/openclawd/.pi/agent/extensions/norma-probe-7f1l_gyq.ts",
+      "--model",
+      "norma-probe/fixture",
+      "--session-id",
+      "01a14cb5-4b48-71eb-af74-53296bd903ff",
+      "-p",
+      "NORMAPI_RESUME prove prior history"
+    ],
+    "cwd": "/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/model-work",
+    "exit": 0,
+    "stdout": "PI_FIXTURE_DONE prior_tool_history=true\n",
+    "stderr": ""
+  },
+  {
+    "name": "missing-session",
+    "argv": [
+      "/Users/openclawd/.local/bin/pi",
+      "--offline",
+      "--no-skills",
+      "--no-context-files",
+      "--no-prompt-templates",
+      "-e",
+      "/Users/openclawd/.pi/agent/extensions/norma-probe-7f1l_gyq.ts",
+      "--model",
+      "norma-probe/fixture",
+      "--session",
+      "00000000-0000-0000-0000-000000000000",
+      "-p",
+      "NORMAPI_RESUME"
+    ],
+    "cwd": "/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/model-work",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "No session found matching '00000000-0000-0000-0000-000000000000'\n"
+  },
+  {
+    "name": "new-exact-id",
+    "argv": [
+      "/Users/openclawd/.local/bin/pi",
+      "--offline",
+      "--no-skills",
+      "--no-context-files",
+      "--no-prompt-templates",
+      "-e",
+      "/Users/openclawd/.pi/agent/extensions/norma-probe-7f1l_gyq.ts",
+      "--model",
+      "norma-probe/fixture",
+      "--session-id",
+      "11111111-1111-4111-8111-111111111111",
+      "-p",
+      "NORMAPI_RESUME"
+    ],
+    "cwd": "/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/model-work",
+    "exit": 0,
+    "stdout": "PI_FIXTURE_DONE prior_tool_history=false\n",
+    "stderr": "Warning: No project session found with id '11111111-1111-4111-8111-111111111111'; creating a new session with that id.\n"
+  },
+  {
+    "name": "provider-error",
+    "argv": [
+      "/Users/openclawd/.local/bin/pi",
+      "--offline",
+      "--no-skills",
+      "--no-context-files",
+      "--no-prompt-templates",
+      "-e",
+      "/Users/openclawd/.pi/agent/extensions/norma-probe-7f1l_gyq.ts",
+      "--model",
+      "norma-probe/fixture",
+      "-p",
+      "NORMAPI_ERROR"
+    ],
+    "cwd": "/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/model-work",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "400: {\"message\":\"norma-pi-fixture-error\",\"type\":\"invalid_request_error\"}\n"
+  }
+]
