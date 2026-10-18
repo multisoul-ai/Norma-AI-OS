@@ -10,6 +10,7 @@ fn hook_paths(root: &std::path::Path) -> HookInstallPaths {
         cursor_hooks: root.join("cursor-hooks.json"),
         grok_hooks: root.join("grok-hooks.json"),
         opencode_plugin: root.join("multisoul-agent-hook.js"),
+        kimi_config: (root.join("multisoul-agent-hook.js")).with_file_name("kimi-config.toml"),
     }
 }
 

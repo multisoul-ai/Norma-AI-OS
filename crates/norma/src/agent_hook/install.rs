@@ -1,6 +1,7 @@
 use super::atomic_file;
 use super::cursor::{cursor_hooks_installed_at, install_cursor_hooks, uninstall_cursor_hooks};
 use super::json_config::add_command_hook;
+use super::kimi::{install_kimi_hooks, kimi_hooks_installed_at, uninstall_kimi_hooks};
 use super::opencode::{install_opencode_plugin, uninstall_opencode_plugin};
 use super::{
     build_hook_command, hook_events_for_source, hook_source_arg, AgentHookError, HookInstallPaths,
@@ -38,12 +39,14 @@ pub fn agent_hooks_installed(target: HookTarget, paths: &HookInstallPaths) -> bo
         HookTarget::Cursor => agent_hooks_installed_for_source(HookSource::Cursor, paths),
         HookTarget::Grok => agent_hooks_installed_for_source(HookSource::Grok, paths),
         HookTarget::OpenCode => agent_hooks_installed_for_source(HookSource::OpenCode, paths),
+        HookTarget::Kimi => agent_hooks_installed_for_source(HookSource::Kimi, paths),
         HookTarget::All => {
             agent_hooks_installed_for_source(HookSource::Claude, paths)
                 && agent_hooks_installed_for_source(HookSource::Codex, paths)
                 && agent_hooks_installed_for_source(HookSource::Cursor, paths)
                 && agent_hooks_installed_for_source(HookSource::Grok, paths)
                 && agent_hooks_installed_for_source(HookSource::OpenCode, paths)
+                && agent_hooks_installed_for_source(HookSource::Kimi, paths)
         }
     }
 }
@@ -56,6 +59,9 @@ pub fn agent_hooks_installed_at(path: &Path, source: HookSource) -> bool {
     if source == HookSource::OpenCode {
         return fs::read_to_string(path)
             .is_ok_and(|source| source.contains(OPENCODE_PLUGIN_MARKER));
+    }
+    if source == HookSource::Kimi {
+        return kimi_hooks_installed_at(path);
     }
     if source == HookSource::Cursor {
         return cursor_hooks_installed_at(path);
@@ -87,6 +93,9 @@ pub fn uninstall_hook_config(
     if matches!(target, HookTarget::OpenCode | HookTarget::All) {
         uninstall_opencode_plugin(paths.opencode_plugin.as_path())?;
     }
+    if matches!(target, HookTarget::Kimi | HookTarget::All) {
+        uninstall_kimi_hooks(paths.kimi_config.as_path())?;
+    }
     Ok(())
 }
 
@@ -113,6 +122,9 @@ pub fn install_hook_config(
     }
     if matches!(target, HookTarget::OpenCode | HookTarget::All) {
         install_opencode_plugin(paths.opencode_plugin.as_path())?;
+    }
+    if matches!(target, HookTarget::Kimi | HookTarget::All) {
+        install_kimi_hooks(paths.kimi_config.as_path(), command_path)?;
     }
     Ok(())
 }
@@ -156,6 +168,7 @@ fn config_path_for_source(source: HookSource, paths: &HookInstallPaths) -> &Path
         HookSource::Cursor => paths.cursor_hooks.as_path(),
         HookSource::Grok => paths.grok_hooks.as_path(),
         HookSource::OpenCode => paths.opencode_plugin.as_path(),
+        HookSource::Kimi => paths.kimi_config.as_path(),
     }
 }
 

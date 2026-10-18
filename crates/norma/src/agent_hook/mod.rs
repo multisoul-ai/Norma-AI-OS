@@ -9,6 +9,7 @@ mod event;
 mod forward;
 mod install;
 mod json_config;
+mod kimi;
 mod opencode;
 
 use crate::protocol::{AgentProfile, NodeId};
@@ -34,6 +35,7 @@ pub use install::{
     agent_hooks_installed, agent_hooks_installed_at, agent_hooks_installed_for_source,
     install_agent_hooks, install_hook_config, uninstall_agent_hooks, uninstall_hook_config,
 };
+pub use kimi::kimi_config_path_for;
 
 pub const ENV_NODE_ID: &str = "MULTISOUL_NODE_ID";
 pub const ENV_AGENT_PROFILE: &str = "MULTISOUL_AGENT_PROFILE";
@@ -50,6 +52,7 @@ pub enum HookSource {
     Cursor,
     Grok,
     OpenCode,
+    Kimi,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -59,6 +62,7 @@ pub enum HookTarget {
     Cursor,
     Grok,
     OpenCode,
+    Kimi,
     All,
 }
 
@@ -94,6 +98,7 @@ pub struct HookInstallPaths {
     pub cursor_hooks: PathBuf,
     pub grok_hooks: PathBuf,
     pub opencode_plugin: PathBuf,
+    pub kimi_config: PathBuf,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -152,6 +157,7 @@ pub fn parse_hook_source(value: &str) -> Option<HookSource> {
         "cursor" | "Cursor" => Some(HookSource::Cursor),
         "grok" | "Grok" => Some(HookSource::Grok),
         "opencode" | "OpenCode" => Some(HookSource::OpenCode),
+        "kimi" | "Kimi" => Some(HookSource::Kimi),
         _ => None,
     }
 }
@@ -163,6 +169,7 @@ pub fn parse_hook_target(value: &str) -> Option<HookTarget> {
         "cursor" | "Cursor" => Some(HookTarget::Cursor),
         "grok" | "Grok" => Some(HookTarget::Grok),
         "opencode" | "OpenCode" => Some(HookTarget::OpenCode),
+        "kimi" | "Kimi" => Some(HookTarget::Kimi),
         "all" | "All" => Some(HookTarget::All),
         _ => None,
     }
@@ -186,6 +193,7 @@ pub fn hook_source_arg(source: HookSource) -> &'static str {
         HookSource::Cursor => "cursor",
         HookSource::Grok => "grok",
         HookSource::OpenCode => "opencode",
+        HookSource::Kimi => "kimi",
     }
 }
 
@@ -196,6 +204,7 @@ pub fn profile_for_source(source: HookSource) -> AgentProfile {
         HookSource::Cursor => AgentProfile::Cursor,
         HookSource::Grok => AgentProfile::Grok,
         HookSource::OpenCode => AgentProfile::OpenCode,
+        HookSource::Kimi => AgentProfile::Kimi,
     }
 }
 
@@ -224,6 +233,7 @@ pub fn default_install_paths() -> HookInstallPaths {
             .join("opencode")
             .join("plugins")
             .join(OPENCODE_PLUGIN_FILE_NAME),
+        kimi_config: kimi::kimi_config_path_for(&home, std::env::var_os("KIMI_CODE_HOME")),
     }
 }
 

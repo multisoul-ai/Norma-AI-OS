@@ -117,6 +117,8 @@ fn grok_hook_install_is_idempotent_and_uninstall_preserves_third_party_hooks() {
         cursor_hooks: temp.path().join("cursor-hooks.json"),
         grok_hooks: grok_path.clone(),
         opencode_plugin: temp.path().join("multisoul-agent-hook.js"),
+        kimi_config: (temp.path().join("multisoul-agent-hook.js"))
+            .with_file_name("kimi-config.toml"),
     };
     let command_path = temp.path().join("multisoul-agent-hook");
     let grok_command = build_hook_command(&command_path, HookSource::Grok);

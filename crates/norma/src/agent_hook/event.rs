@@ -1,4 +1,5 @@
 use super::{profile_for_source, AgentHookError, AgentHookEvent, AgentHookTaskState, HookSource};
+use crate::protocol::AgentProfile;
 use crate::protocol::NodeId;
 use serde_json::Value;
 
@@ -23,7 +24,12 @@ pub fn parse_hook_event(
             .or_else(|| string_field(&raw_json, "toolName")),
         message: string_field(&raw_json, "message")
             .or_else(|| string_field(&raw_json, "error"))
-            .or_else(|| string_field(&raw_json, "reason")),
+            .or_else(|| string_field(&raw_json, "reason"))
+            .or_else(|| {
+                (source == HookSource::Kimi)
+                    .then(|| string_field(&raw_json, "error_message"))
+                    .flatten()
+            }),
         raw_json,
     })
 }
@@ -60,6 +66,11 @@ pub fn task_state_for_provider_event(event: &AgentHookEvent) -> Option<AgentHook
         "PreToolUse" => Some(AgentHookTaskState::RunningTool {
             tool_name: event.tool_name.clone(),
         }),
+        // Kimi 专有：审批结果（批准或拒绝）回到思考；Esc 中断等同一轮结束。
+        "PermissionResult" if event.profile == AgentProfile::Kimi => {
+            Some(AgentHookTaskState::Thinking)
+        }
+        "Interrupt" if event.profile == AgentProfile::Kimi => Some(AgentHookTaskState::Done),
         "PostToolUse" | "SubagentStop" => Some(AgentHookTaskState::Thinking),
         "PermissionRequest" => Some(AgentHookTaskState::WaitingApproval {
             tool_name: event.tool_name.clone(),
@@ -130,6 +141,19 @@ pub fn hook_events_for_source(source: HookSource) -> &'static [&'static str] {
             "PreCompact",
             "PostCompact",
         ],
+        HookSource::Kimi => &[
+            "SessionStart",
+            "UserPromptSubmit",
+            "PreToolUse",
+            "PostToolUse",
+            "PostToolUseFailure",
+            "PermissionRequest",
+            "PermissionResult",
+            "Stop",
+            "StopFailure",
+            "Interrupt",
+            "SessionEnd",
+        ],
         HookSource::OpenCode => &[
             "SessionStart",
             "UserPromptSubmit",
@@ -166,7 +190,8 @@ fn normalize_provider_event(source: HookSource, provider_event: String) -> Strin
 pub fn extract_prompt_text(raw_json: &Value) -> Option<String> {
     let text = ["prompt", "message", "user_message"]
         .iter()
-        .find_map(|key| string_field(raw_json, key))?;
+        .find_map(|key| string_field(raw_json, key))
+        .or_else(|| super::kimi::kimi_prompt_text(raw_json))?;
     if text.chars().count() <= 60 {
         Some(text)
     } else {

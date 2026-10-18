@@ -225,6 +225,8 @@ fn install_paths(root: &Path) -> InstallPaths {
             cursor_hooks: root.join(".cursor/hooks.json"),
             grok_hooks: root.join(".grok/hooks.json"),
             opencode_plugin: root.join(".config/opencode/plugins/multisoul-agent-hook.js"),
+            kimi_config: (root.join(".config/opencode/plugins/multisoul-agent-hook.js"))
+                .with_file_name("kimi-config.toml"),
         },
         claude_skill: root.join(".claude/skills/norma-orchestration/SKILL.md"),
         codex_skill: root.join(".codex/skills/norma-orchestration/SKILL.md"),
