@@ -95,11 +95,22 @@ impl From<AgentHookError> for InstallerError {
     }
 }
 
+/// 启用（true）/禁用（false）Hermes 插件；返回命令是否成功。
+pub type HermesToggle = fn(enable: bool) -> bool;
+
+fn toggle_real_hermes(enable: bool) -> bool {
+    if enable {
+        enable_hermes_plugin_blocking()
+    } else {
+        disable_hermes_plugin_blocking()
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct OrchestrationInstaller {
     paths: InstallPaths,
     required_version: String,
-    hermes_activation: bool,
+    hermes_toggle: Option<HermesToggle>,
 }
 
 impl OrchestrationInstaller {
@@ -107,7 +118,7 @@ impl OrchestrationInstaller {
         Self {
             paths,
             required_version: required_version.into(),
-            hermes_activation: false,
+            hermes_toggle: None,
         }
     }
 
@@ -115,12 +126,18 @@ impl OrchestrationInstaller {
     ///
     /// 默认关闭，避免测试改动开发者真实的 Hermes 配置；App 在后台线程构造安装器时开启。
     pub fn with_hermes_activation(mut self) -> Self {
-        self.hermes_activation = true;
+        self.hermes_toggle = Some(toggle_real_hermes);
+        self
+    }
+
+    /// 用自定义开关替代真实 `hermes plugins` 命令（测试注入，不触碰真实配置）。
+    pub fn with_hermes_toggle(mut self, toggle: HermesToggle) -> Self {
+        self.hermes_toggle = Some(toggle);
         self
     }
 
     pub fn hermes_activation_enabled(&self) -> bool {
-        self.hermes_activation
+        self.hermes_toggle.is_some()
     }
 
     pub fn paths(&self) -> &InstallPaths {
@@ -178,9 +195,9 @@ impl OrchestrationInstaller {
                 self.paths.managed_hook_path().as_path(),
                 &self.paths.hook_paths,
             )?;
-            if self.hermes_activation && provider == OrchestrationProvider::Hermes {
+            if let (Some(toggle), OrchestrationProvider::Hermes) = (self.hermes_toggle, provider) {
                 // hermes 未安装时仅状态灯不可用，文件已就位，不视为安装失败。
-                enable_hermes_plugin_blocking();
+                toggle(true);
             }
         }
         if provider.delegation_unverified()
@@ -210,8 +227,15 @@ impl OrchestrationInstaller {
             .revoke(provider)
             .map_err(|error| InstallerError::Authorization(error.to_string()))?;
         self.remove_managed_skills(provider)?;
-        if self.hermes_activation && provider == OrchestrationProvider::Hermes {
-            disable_hermes_plugin_blocking();
+        if let (Some(toggle), OrchestrationProvider::Hermes) = (self.hermes_toggle, provider) {
+            // 目录是用户自有（非 Norma 受管）时文件会被保留，也不得禁用用户自己的同名插件。
+            let user_owned = provider
+                .hook_source()
+                .and_then(|source| unmanaged_hook_path(source, &self.paths.hook_paths))
+                .is_some();
+            if !user_owned {
+                toggle(false);
+            }
         }
         uninstall_hook_config(
             provider

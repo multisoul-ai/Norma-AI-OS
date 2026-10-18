@@ -175,3 +175,56 @@ fn delegation_unverified_marks_only_new_clis() {
         );
     }
 }
+
+static HERMES_CALLS: std::sync::Mutex<Vec<bool>> = std::sync::Mutex::new(Vec::new());
+
+fn record_hermes(enable: bool) -> bool {
+    HERMES_CALLS.lock().expect("锁").push(enable);
+    true
+}
+
+/// 卸载 Hermes 时只对 Norma 受管插件执行 `hermes plugins disable`。
+///
+/// 场景：开启 Hermes 激活（注入记录型开关）。
+/// 数据构造：先在用户自有同名目录（`__init__.py` 为 "# user plugin"，无 Norma 标记）上卸载；
+/// 再换一个干净 home 安装受管插件后卸载。
+/// 预期：用户自有目录卸载不记录任何调用且文件保留；受管卸载恰好记录一次 disable(false)。
+#[test]
+fn uninstall_hermes_disables_only_managed_plugin() {
+    let user_home = tempfile::tempdir().expect("应创建临时目录");
+    let installer = setup(user_home.path()).with_hermes_toggle(record_hermes);
+    let hooks = installer.paths().hook_paths.clone();
+    let user_file = hooks.hermes_plugin_dir.join("__init__.py");
+    fs::create_dir_all(&hooks.hermes_plugin_dir).expect("建目录");
+    fs::write(&user_file, "# user plugin").expect("写入");
+    HERMES_CALLS.lock().expect("锁").clear();
+    let mut registry = MemoryRegistry::default();
+    installer
+        .uninstall(OrchestrationProvider::Hermes, &mut registry)
+        .expect("卸载不应报错");
+    assert!(
+        HERMES_CALLS.lock().expect("锁").is_empty(),
+        "用户自有同名插件不得被 disable"
+    );
+    assert_eq!(
+        fs::read(&user_file).expect("读取"),
+        b"# user plugin",
+        "用户文件必须保留"
+    );
+
+    let managed_home = tempfile::tempdir().expect("应创建临时目录");
+    let managed = setup(managed_home.path()).with_hermes_toggle(record_hermes);
+    let mut registry = MemoryRegistry::default();
+    managed
+        .install_or_repair(OrchestrationProvider::Hermes, &mut registry)
+        .expect("安装不应报错");
+    HERMES_CALLS.lock().expect("锁").clear();
+    managed
+        .uninstall(OrchestrationProvider::Hermes, &mut registry)
+        .expect("卸载不应报错");
+    assert_eq!(
+        *HERMES_CALLS.lock().expect("锁"),
+        vec![false],
+        "受管插件卸载应恰好 disable 一次"
+    );
+}
