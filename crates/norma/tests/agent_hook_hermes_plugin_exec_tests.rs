@@ -282,6 +282,9 @@ fn all_uninstall_keeps_hermes_dir_for_disable() {
         grok_hooks: root.join("grok.json"),
         opencode_plugin: root.join("opencode.js"),
         hermes_plugin_dir: root.join("hermes/plugins/norma-agent-hook"),
+        pi_extension: root.join("pi-agent/extensions/norma-agent-hook.ts"),
+        kimi_config: root.join("kimi-home").join("config.toml"),
+        zcode_config: root.join("zcode").join("config.json"),
     };
     install_hook_config(HookTarget::All, Path::new("/bin/norma-hook"), &paths).unwrap();
     assert!(
