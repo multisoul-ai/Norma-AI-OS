@@ -1,0 +1,15 @@
+  You'll pick a provider (Nous Portal OAuth is the fastest; no API key needed) and a model.
+  Set up a provider now? [Y/n]: n
+  Skipped. Run 'hermes model' or 'hermes setup' any time.
+Welcome to Hermes Agent! Type your message or /help for commands.
+A legacy OpenClaw directory was detected at ~/.openclaw/.
+To port your config, memory, and skills over to Hermes, run `hermes claw migrate`.
+If you've already migrated and want to archive the old directory, run `hermes claw cleanup` (renames it to ~/.openclaw.pre-migration —
+OpenClaw will stop working after this).
+This tip only shows once.
+✦ Tip: HERMES_EPHEMERAL_SYSTEM_PROMPT injects a system prompt that's never persisted to history.
+
+ ☤ unknown │ ctx -- │ [░░░░░░░░░░] -- │ 16s │ ⏲ 0s
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ Set a reminder or schedule a recurring task
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
