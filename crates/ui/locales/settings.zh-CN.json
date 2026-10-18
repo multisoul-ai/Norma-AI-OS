@@ -52,6 +52,7 @@
   "settings.install_skill_cli_hooks_and_authorization": "安装 Skill、CLI、Hook 与授权",
   "settings.one_component_needs_attention": "一个组件需要处理",
   "settings.orchestration_is_not_supported_in_the_first_release": "首个版本暂不支持编排",
+  "settings.delegation_unverified_experimental": "实验性：委派链路未验证",
   "settings.delegate_tasks_through_norma_os": "通过 Norma OS 委派任务",
   "settings.install_failed": "安装失败",
   "settings.not_installed": "未安装",

@@ -119,6 +119,10 @@ impl OrchestrationInstaller {
         self
     }
 
+    pub fn hermes_activation_enabled(&self) -> bool {
+        self.hermes_activation
+    }
+
     pub fn paths(&self) -> &InstallPaths {
         &self.paths
     }

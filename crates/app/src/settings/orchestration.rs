@@ -1,6 +1,6 @@
 use crate::settings::typography::{control_label, SettingsText, TextRole};
 mod status;
-use status::{component_error_detail, component_status, provider_description};
+use status::{component_error_detail, component_status, delegation_notice, provider_description};
 mod controller;
 pub(crate) mod health;
 mod tokens;
@@ -127,6 +127,15 @@ fn provider_row(
                         })
                         .child(provider.display_name()),
                 )
+                .when_some(delegation_notice(provider), |column, notice| {
+                    column.child(
+                        div()
+                            .truncate()
+                            .settings_font(TextRole::Helper)
+                            .text_color(rgba(warning_status_color()))
+                            .child(notice),
+                    )
+                })
                 .child(
                     div()
                         .truncate()
@@ -429,7 +438,6 @@ fn provider_index(provider: OrchestrationProvider) -> usize {
         OrchestrationProvider::Cursor => 2,
         OrchestrationProvider::OpenCode => 3,
         OrchestrationProvider::Grok => 4,
-        // 新增四个 Provider 尚未进入 ALL，排序位置待各负责人接入编排时确定。
         OrchestrationProvider::Kimi => 5,
         OrchestrationProvider::ZCode => 6,
         OrchestrationProvider::Pi => 7,
@@ -472,3 +480,7 @@ fn with_alpha(color: u32, alpha: u8) -> u32 {
 #[cfg(test)]
 #[path = "../../tests/unit/orchestration_settings_layout_tests.rs"]
 mod orchestration_settings_layout_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/orchestration_new_provider_tests.rs"]
+mod orchestration_new_provider_tests;
