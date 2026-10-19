@@ -217,8 +217,12 @@ impl MultisoulApp {
                             app.load_workbench_file(false, false, cx);
                         }
                     }
-                    Err(error) => s.error = Some(error),
+                    Err(error) => {
+                        s.error = Some(error);
+                        s.pending_open = None;
+                    }
                 }
+                app.apply_pending_workbench_open(cx);
                 app.persist_file_workbench(cx);
                 cx.notify();
             });
@@ -261,6 +265,8 @@ impl MultisoulApp {
         self.hide_desktop_content_browsers();
         let s = &mut self.desktop_workspace.workbench;
         s.saved.selected = Some(path);
+        s.jump_line = None;
+        s.pending_scroll = None;
         s.sidebar_open = false;
         s.show_source = false;
         self.load_workbench_file(diff, staged, cx);
@@ -339,6 +345,7 @@ impl MultisoulApp {
                     }
                     Err(e) => s.error = Some(e),
                 }
+                app.consume_workbench_scroll();
                 cx.notify();
             });
         })

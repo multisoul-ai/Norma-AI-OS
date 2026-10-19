@@ -36,9 +36,9 @@ pub(crate) fn on_mouse_up(
                 app.interaction.update_hovered_terminal_link(None);
                 app.open_url_in_default_browser(url)
             }
-            TerminalLinkIntent::OpenPreviewCard { paths } => {
+            TerminalLinkIntent::OpenPath { paths, system } => {
                 app.interaction.update_hovered_terminal_link(None);
-                app.open_terminal_path_in_preview_card(paths, pending.node_id, w, cx)
+                app.open_terminal_path(paths, system, pending.node_id, w, cx)
             }
             TerminalLinkIntent::InvalidLink
             | TerminalLinkIntent::BeginTextSelection

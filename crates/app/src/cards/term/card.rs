@@ -1,5 +1,6 @@
 //! Terminal card renderer.
 
+use crate::canvas::terminal_path_cache::TerminalPathScope;
 use crate::cards::chrome::{CardChrome, TITLE_BAR_H};
 use crate::cards::term::view::{
     render_terminal_node, terminal_content_mode, TerminalNodeRenderOptions, TERM_CELL_PX,
@@ -54,6 +55,11 @@ impl Card for TermCard {
                 reduce_motion: context.reduce_motion,
                 initialization: context.initialization,
                 cursor_phase: context.terminal_cursor_phase,
+                path_scope: TerminalPathScope::for_node(
+                    &context.terminal_path_cache,
+                    context.runtime,
+                    node.id,
+                ),
             },
         )
     }

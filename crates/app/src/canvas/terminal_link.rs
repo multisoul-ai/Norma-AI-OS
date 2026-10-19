@@ -1,30 +1,42 @@
 use crate::canvas::text_selection::TextPoint;
 use gpui::{div, prelude::*, px, rgba, AnyElement};
-use terminal::GridSnapshot;
+use terminal::{GridSnapshot, PathRef, PathTier};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum TerminalLinkIntent {
     OpenBrowserCard { url: String },
     OpenDefaultBrowser { url: String },
-    OpenPreviewCard { paths: Vec<String> },
+    OpenPath { paths: Vec<String>, system: bool },
     InvalidLink,
     BeginTextSelection,
     Ignore,
 }
 
+/// `verified` 报告某个待验证候选是否已确认存在；与下划线共用同一份路径检测，保证有下划线就能点。
 pub(crate) fn terminal_link_intent(
     snapshot: &GridSnapshot,
     point: TextPoint,
     platform_modifier: bool,
     click_count: usize,
+    verified: &dyn Fn(&PathRef) -> bool,
 ) -> TerminalLinkIntent {
     if click_count != 1 {
         return TerminalLinkIntent::Ignore;
     }
     let Some(url) = snapshot.link_at(point.row, point.col) else {
-        let paths = snapshot.preview_path_candidates_at(point.row, point.col);
+        let mut paths = snapshot.preview_path_candidates_at(point.row, point.col);
+        if paths.is_empty() {
+            if let Some(path_ref) = snapshot.path_ref_at(point.row, point.col) {
+                if path_ref.tier == PathTier::Strong || verified(&path_ref) {
+                    paths.push(path_ref.raw);
+                }
+            }
+        }
         if !paths.is_empty() {
-            return TerminalLinkIntent::OpenPreviewCard { paths };
+            return TerminalLinkIntent::OpenPath {
+                paths,
+                system: platform_modifier,
+            };
         }
         return if snapshot.has_link_candidate_at(point.row, point.col) {
             TerminalLinkIntent::InvalidLink

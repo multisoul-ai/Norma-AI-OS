@@ -9,8 +9,8 @@ pub mod session;
 pub mod test_backend;
 
 pub use grid::{
-    terminal_wheel_action, Cell, CellAttrs, GridSnapshot, TerminalColor, TerminalGrid,
-    TerminalNamedColor, TerminalWheelAction,
+    parse_path_ref, terminal_wheel_action, Cell, CellAttrs, GridSnapshot, PathRef, PathRefSpan,
+    PathTier, TerminalColor, TerminalGrid, TerminalNamedColor, TerminalWheelAction,
 };
 pub use input::{encode, Key, KeyInput};
 pub use message::PtyEvent;

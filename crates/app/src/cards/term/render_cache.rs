@@ -18,9 +18,16 @@ pub(super) struct TerminalRenderKey {
     metrics: TerminalRenderMetrics,
     theme: TerminalThemeKey,
     selection: Option<TextRange>,
+    path_version: u64,
 }
 
 impl TerminalRenderKey {
+    /// 路径存在性缓存的展示版本；验证结果变化时让已准备好的帧失效以重画下划线。
+    pub(super) fn with_path_version(mut self, path_version: u64) -> Self {
+        self.path_version = path_version;
+        self
+    }
+
     pub(super) fn new(
         node_id: NodeId,
         revision: u64,
@@ -34,6 +41,7 @@ impl TerminalRenderKey {
             metrics,
             theme: TerminalThemeKey::from_theme(theme),
             selection,
+            path_version: 0,
         }
     }
 }

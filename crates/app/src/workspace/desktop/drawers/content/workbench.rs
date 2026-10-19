@@ -12,6 +12,7 @@ mod editor;
 mod layout;
 mod leaving;
 mod navigation;
+pub(crate) mod open_path;
 mod selectors;
 mod sidebar;
 mod sidebar_ops;
@@ -94,6 +95,11 @@ pub(crate) struct WorkbenchState {
     pub persistence: Option<Task<()>>,
     pub confirm_discard: Option<Vec<String>>,
     pub pending_close: Option<PendingWorkbenchAction>,
+    /// 终端点击路径后等待项目加载完成再打开的文件。
+    pub pending_open: Option<open_path::PendingOpen>,
+    /// 待滚动并高亮的 0 起始行号；`pending_scroll` 在文件加载完成时消费一次。
+    pub jump_line: Option<usize>,
+    pub pending_scroll: Option<usize>,
 }
 
 impl WorkbenchState {
