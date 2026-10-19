@@ -14,13 +14,33 @@ impl MultisoulApp {
         cx: &gpui::App,
     ) {
         let app = app.downgrade();
-        window.on_window_should_close(cx, move |_, cx| {
-            app.update(cx, |app, cx| app.confirm_preview_edits_before_leaving(cx))
-                .unwrap_or(true)
+        window.on_window_should_close(cx, move |window, cx| {
+            app.update(cx, |app, cx| {
+                let allowed = app.confirm_preview_edits_before_leaving(cx);
+                if !allowed && app.desktop_workspace.workbench.has_edits() {
+                    app.desktop_workspace.workbench.pending_close = Some(
+                        crate::workspace::desktop::PendingWorkbenchAction::CloseWindow(
+                            window.window_handle(),
+                        ),
+                    );
+                }
+                allowed
+            })
+            .unwrap_or(true)
         });
     }
 
     pub(crate) fn confirm_preview_edits_before_leaving(&mut self, cx: &mut Context<Self>) -> bool {
+        if self.desktop_workspace.workbench.has_edits() {
+            self.desktop_workspace.workbench.pending_close =
+                Some(crate::workspace::desktop::PendingWorkbenchAction::Quit);
+            self.desktop_workspace.error =
+                Some("文件工作台有未保存修改或 Git 操作，请先处理后离开".into());
+            self.reveal_workbench_prompt(cx);
+            self.hide_desktop_content_browsers();
+            cx.notify();
+            return false;
+        }
         if self
             .previews
             .editors

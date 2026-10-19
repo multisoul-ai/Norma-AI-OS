@@ -65,6 +65,7 @@ pub(super) fn migrate(connection: &Connection) -> StorageResult<()> {
         "overview_scroll_y",
         "overview_scroll_y INTEGER NOT NULL DEFAULT 0",
     )?;
+    migrate_content_workbench(connection)?;
     migrate_wallpapers(connection)?;
     migrate_project_instances(connection)?;
     Ok(())
@@ -152,5 +153,36 @@ fn migrate_wallpapers(connection: &Connection) -> StorageResult<()> {
         transaction.execute("INSERT INTO settings(key,value,updated_at_unix) VALUES('wallpaper.desktop_migrated.v1','1',0)", [])?;
     }
     transaction.commit()?;
+    Ok(())
+}
+
+fn migrate_content_workbench(connection: &Connection) -> StorageResult<()> {
+    let sql: String = connection.query_row(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='desktop_content_tabs'",
+        [],
+        |row| row.get(0),
+    )?;
+    if !sql.contains("project_files") {
+        connection.execute_batch("SAVEPOINT content_workbench;
+            ALTER TABLE desktop_content_tabs RENAME TO desktop_content_tabs_old;
+            CREATE TABLE desktop_content_tabs (
+                id TEXT PRIMARY KEY NOT NULL,
+                workspace_id TEXT NOT NULL REFERENCES desktop_workspaces(id) ON DELETE CASCADE,
+                source_area_id TEXT, source_project_name TEXT NOT NULL,
+                kind TEXT NOT NULL CHECK(kind IN ('browser','file','project_files')),
+                resource TEXT NOT NULL, version TEXT NOT NULL DEFAULT '', title TEXT NOT NULL,
+                position INTEGER NOT NULL, selected INTEGER NOT NULL DEFAULT 0 CHECK(selected IN (0,1)),
+                UNIQUE(workspace_id,kind,resource,version));
+            INSERT INTO desktop_content_tabs SELECT * FROM desktop_content_tabs_old;
+            DROP TABLE desktop_content_tabs_old;
+            CREATE INDEX idx_desktop_content_tabs_workspace ON desktop_content_tabs(workspace_id,position);
+            CREATE UNIQUE INDEX idx_desktop_content_tabs_selected ON desktop_content_tabs(workspace_id) WHERE selected=1;
+            RELEASE content_workbench;")?;
+    }
+    connection.execute_batch(
+        "CREATE TABLE IF NOT EXISTS desktop_content_state (
+        workspace_id TEXT PRIMARY KEY NOT NULL REFERENCES desktop_workspaces(id) ON DELETE CASCADE,
+        state_json TEXT NOT NULL);",
+    )?;
     Ok(())
 }

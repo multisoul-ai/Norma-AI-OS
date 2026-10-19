@@ -6,6 +6,7 @@ public enum ScenarioCatalog {
     public static let modules: [DesktopModule] = [
         WorkspaceModule.manifest,
         CanvasModule.manifest,
+        ContentModule.manifest,
         SettingsModule.manifest,
     ]
 

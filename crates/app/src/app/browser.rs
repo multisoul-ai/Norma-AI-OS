@@ -67,6 +67,10 @@ pub(crate) struct BrowserAddressEdit {
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum BrowserEvent {
+    PreviewNavigation {
+        node_id: NodeId,
+        url: String,
+    },
     TitleChanged {
         node_id: NodeId,
         title: String,
@@ -245,6 +249,10 @@ impl MultisoulApp {
                     if self.set_browser_title(node_id, title) {
                         changed = true;
                     }
+                }
+                BrowserEvent::PreviewNavigation { node_id, url } => {
+                    self.route_workbench_navigation(node_id, url, cx);
+                    changed = true;
                 }
                 BrowserEvent::LocationChanged { node_id, url } => {
                     if self.update_desktop_browser_tab_location(node_id, url.clone(), cx)

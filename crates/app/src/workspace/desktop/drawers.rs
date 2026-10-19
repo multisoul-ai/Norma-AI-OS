@@ -16,7 +16,7 @@ pub(super) const BOTTOM: f32 = 0.0;
 mod artifacts;
 mod chat;
 mod chat_message;
-mod content;
+pub(super) mod content;
 pub(super) mod material;
 pub(super) mod motion;
 pub(super) mod orb;
@@ -406,22 +406,6 @@ pub(super) fn content_node_id(id: &str) -> NodeId {
     u64::from_str_radix(&prefix, 16).unwrap_or(0) | (1_u64 << 63)
 }
 
-pub(super) fn is_image_file(path: &str) -> bool {
-    [
-        "png", "jpg", "jpeg", "gif", "webp", "bmp", "tif", "tiff", "svg",
-    ]
-    .iter()
-    .any(|extension| {
-        path.to_ascii_lowercase()
-            .ends_with(&format!(".{extension}"))
-    })
-}
-
-pub(super) fn is_web_file(path: &str) -> bool {
-    ["html", "htm", "pdf", "mp4", "mov", "webm"]
-        .iter()
-        .any(|extension| {
-            path.to_ascii_lowercase()
-                .ends_with(&format!(".{extension}"))
-        })
-}
+#[cfg(test)]
+#[path = "../../../tests/unit/desktop_reader_chrome_surface_tests.rs"]
+mod reader_chrome_surface_tests;

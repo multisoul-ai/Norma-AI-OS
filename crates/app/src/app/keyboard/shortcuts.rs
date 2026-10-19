@@ -10,6 +10,15 @@ impl MultisoulApp {
         match command {
             ShortcutCommandId::FocusCommandInput => self.focus_command_input(window, cx),
             ShortcutCommandId::SavePreviewFile => {
+                if self
+                    .desktop_workspace
+                    .content_tabs
+                    .iter()
+                    .any(|t| t.selected && t.kind == storage::DesktopContentKind::ProjectFiles)
+                {
+                    self.save_workbench_file(cx);
+                    return;
+                }
                 if let Some(node_id) = current_selection_node_id(&self.runtime) {
                     self.save_preview_edit(node_id, cx);
                 }

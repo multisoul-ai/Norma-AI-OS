@@ -211,6 +211,8 @@ fn norma_artifact_tool_opens_exact_version_in_right_drawer_without_switching_pro
     let (app, cx) = test
         .add_window_view(|_, cx| MultisoulApp::new_with_database_context(cx, paths.clone(), store));
     app.update(cx, |app, cx| {
+        // 冻结 Markdown 现在使用富文本 WebView；本单测只验版本与来源，原生窗口由 desktop-e2e 验收。
+        app.browsers.disable_native_views();
         app.screen = AppScreen::DesktopWorkspace;
         app.desktop_workspace.active_id = Some(workspace.id.clone());
         app.desktop_workspace.workspaces = vec![workspace.clone()];

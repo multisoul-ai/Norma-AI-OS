@@ -99,8 +99,8 @@ fn drawer_empty_surface_matches_conversation_and_content_layout() {
         "左栏标题应显示独立的产品标识与 Norma 名称"
     );
     assert!(
-        cx.debug_bounds("desktop-content-empty").is_some(),
-        "右抽屉无标签时应显示内容空态"
+        cx.debug_bounds("desktop-content-home").is_some(),
+        "右抽屉无标签时应显示网页输入与文件入口主页"
     );
     assert!(
         cx.debug_bounds("desktop-assistant-left-frost").is_some(),

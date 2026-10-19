@@ -100,6 +100,17 @@ extension Catalog {
         return Catalog(workspaces: workspaces, areas: areas)
     }
 
+    /// 仅在被测 App 停止时建立场景前提；创建交互由 workspace 模块独立验收。
+    public static func seedWorkspace(database url: URL, name: String) throws {
+        let database = try SQLiteDB(path: url.path, write: true)
+        defer { database.close() }
+        let now = String(Int64(Date().timeIntervalSince1970 * 1000))
+        try database.execute(
+            "INSERT INTO desktop_workspaces(id,name,created_at_unix_ms,last_opened_at_unix_ms) VALUES(?1,?2,?3,?4)",
+            bindings: [UUID().uuidString, name, now, now]
+        )
+    }
+
     public static func seedArea(database url: URL, workspaceName: String, root: URL, displayName: String) throws {
         let database = try SQLiteDB(path: url.path, write: true)
         defer { database.close() }

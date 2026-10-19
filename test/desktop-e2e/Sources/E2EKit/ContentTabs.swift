@@ -5,6 +5,7 @@ public struct ContentTabRow: Equatable, CustomStringConvertible {
     public let id: String
     public let title: String
     public let kind: String
+    public let resource: String
     public let selected: Bool
     public let sourceRemoved: Bool
 
@@ -30,7 +31,7 @@ extension Catalog {
         position: Int,
         selected: Bool
     ) throws {
-        guard kind == "file" || kind == "browser" else {
+        guard kind == "file" || kind == "browser" || kind == "project_files" else {
             throw E2EError.product("内容标签夹具类型无效：\(kind)")
         }
         let database = try SQLiteDB(path: url.path, write: true)
@@ -57,13 +58,14 @@ extension Catalog {
         let database = try SQLiteDB(path: url.path, write: false)
         defer { database.close() }
         return try database.query(
-            "SELECT t.id,t.title,t.kind,t.selected,CASE WHEN t.source_area_id IS NULL THEN 0 WHEN a.id IS NULL THEN 1 ELSE 0 END FROM desktop_content_tabs t JOIN desktop_workspaces w ON w.id=t.workspace_id LEFT JOIN desktop_project_areas a ON a.id=t.source_area_id AND a.desktop_workspace_id=t.workspace_id WHERE w.name=?1 ORDER BY t.position,t.id",
+            "SELECT t.id,t.title,t.kind,t.selected,CASE WHEN t.source_area_id IS NULL THEN 0 WHEN a.id IS NULL THEN 1 ELSE 0 END,t.resource FROM desktop_content_tabs t JOIN desktop_workspaces w ON w.id=t.workspace_id LEFT JOIN desktop_project_areas a ON a.id=t.source_area_id AND a.desktop_workspace_id=t.workspace_id WHERE w.name=?1 ORDER BY t.position,t.id",
             bindings: [workspaceName]
         ) { statement in
             ContentTabRow(
                 id: column(statement, 0),
                 title: column(statement, 1),
                 kind: column(statement, 2),
+                resource: column(statement, 5),
                 selected: sqlite3_column_int(statement, 3) == 1,
                 sourceRemoved: sqlite3_column_int(statement, 4) == 1
             )

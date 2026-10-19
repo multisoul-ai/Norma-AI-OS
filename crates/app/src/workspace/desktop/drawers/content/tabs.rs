@@ -320,6 +320,32 @@ impl MultisoulApp {
     }
 
     pub(super) fn close_desktop_content_tab(&mut self, tab_id: &str, cx: &mut Context<Self>) {
+        if self
+            .desktop_workspace
+            .content_tabs
+            .iter()
+            .any(|t| t.id == tab_id && t.kind == DesktopContentKind::ProjectFiles)
+            && self.desktop_workspace.workbench.has_edits()
+        {
+            self.desktop_workspace.workbench.pending_close = Some(
+                super::workbench::PendingWorkbenchAction::CloseTab(tab_id.to_string()),
+            );
+            self.hide_desktop_content_browsers();
+            cx.notify();
+            return;
+        }
+        if self
+            .desktop_workspace
+            .content_tabs
+            .iter()
+            .any(|t| t.id == tab_id && t.kind == DesktopContentKind::ProjectFiles)
+        {
+            let saved = std::mem::take(&mut self.desktop_workspace.workbench.saved);
+            let persistence = self.desktop_workspace.workbench.persistence.take();
+            self.desktop_workspace.workbench = Default::default();
+            self.desktop_workspace.workbench.saved = saved;
+            self.desktop_workspace.workbench.persistence = persistence;
+        }
         let Some(workspace_id) = self.desktop_workspace.active_id.clone() else {
             return;
         };
@@ -330,6 +356,7 @@ impl MultisoulApp {
         self.browsers.remove(content_node_id(&tab_id));
         self.desktop_workspace.content_previews.remove(&tab_id);
         self.desktop_workspace.content_snapshots.remove(&tab_id);
+        self.desktop_workspace.content_resources.remove(&tab_id);
         self.desktop_workspace.content_loading.remove(&tab_id);
         self.desktop_workspace.content_tab_generation = self
             .desktop_workspace
