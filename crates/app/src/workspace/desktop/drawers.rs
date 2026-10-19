@@ -35,6 +35,10 @@ mod conversation_surface_tests;
 mod new_card_reflow_tests;
 
 #[cfg(test)]
+#[path = "../../../tests/unit/desktop_card_layout_adapt_tests.rs"]
+mod card_layout_adapt_tests;
+
+#[cfg(test)]
 #[path = "../../../tests/unit/desktop_orb_motion_tests.rs"]
 mod orb_motion_tests;
 
