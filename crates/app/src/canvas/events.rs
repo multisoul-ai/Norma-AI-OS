@@ -193,12 +193,23 @@ pub(super) fn on_mouse_down(
         if !is_title_bar {
             if let Some(point) = terminal_link_point_for_screen(app, id, screen) {
                 app.motion.interrupt_initialization(id);
+                let scope = crate::canvas::terminal_path_cache::TerminalPathScope::for_node(
+                    &app.terminal_path_cache,
+                    &app.runtime,
+                    id,
+                );
+                let is_verified = |path_ref: &terminal::PathRef| {
+                    scope
+                        .as_ref()
+                        .is_some_and(|scope| scope.is_verified(&path_ref.raw))
+                };
                 let intent = app.runtime.node_view(id).map(|view| match view {
                     runtime::NodeView::Term { snapshot, .. } => terminal_link_intent(
                         &snapshot,
                         point,
                         ev.modifiers.platform,
                         ev.click_count,
+                        &is_verified,
                     ),
                 });
                 // 选区用 scrollback 绝对坐标；link point 仍是视口相对坐标（仅用于链接命中）。
@@ -207,7 +218,7 @@ pub(super) fn on_mouse_down(
                 match intent.unwrap_or(TerminalLinkIntent::BeginTextSelection) {
                     intent @ (TerminalLinkIntent::OpenBrowserCard { .. }
                     | TerminalLinkIntent::OpenDefaultBrowser { .. }
-                    | TerminalLinkIntent::OpenPreviewCard { .. }) => {
+                    | TerminalLinkIntent::OpenPath { .. }) => {
                         app.interaction
                             .begin_terminal_link(id, abs_point, screen, intent);
                     }

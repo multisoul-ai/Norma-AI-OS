@@ -193,6 +193,8 @@ pub struct MultisoulApp {
     pub(crate) screen: AppScreen,
     pub(crate) workspace_state: WorkspaceState,
     pub(crate) desktop_workspace: DesktopWorkspaceUiState,
+    /// Rc 句柄不是 Send，不能放进会跨线程搬运的 WorkbenchState。
+    pub(crate) workbench_text_scroll: gpui::UniformListScrollHandle,
     pub(crate) clone_project: CloneProjectUiState,
     pub(crate) recent_project_context_path: Option<PathBuf>,
     pub(crate) voice: crate::app::voice::control::VoiceControlState,
@@ -231,6 +233,7 @@ pub struct MultisoulApp {
     pub(crate) terminal_cursor_phase: f32,
     pub(crate) voice_caption_waveform_phase: f32,
     pub(crate) terminal_render_cache: TerminalRenderCacheHandle,
+    pub(crate) terminal_path_cache: crate::canvas::terminal_path_cache::TerminalPathCacheHandle,
     pub(crate) performance: crate::performance_monitor::WindowPerformanceHandle,
     terminal_cursor_repaint: FrameThrottle,
     #[cfg(feature = "e2e-test-support")]

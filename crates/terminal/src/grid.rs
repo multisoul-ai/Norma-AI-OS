@@ -21,6 +21,8 @@ use alacritty_terminal::vte::ansi::{
 use crossbeam_channel::{unbounded, Receiver, Sender};
 
 mod links;
+mod path_ref;
+pub use path_ref::{parse_path_ref, PathRef, PathRefSpan, PathTier};
 
 /// 中性终端颜色（不含 alacritty 类型）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

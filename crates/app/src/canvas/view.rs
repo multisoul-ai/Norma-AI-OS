@@ -357,6 +357,7 @@ pub fn render_canvas(
             CardBodyContext {
                 runtime: &app.runtime,
                 terminal_render_cache: app.terminal_render_cache.clone(),
+                terminal_path_cache: app.terminal_path_cache.clone(),
                 preview_state: app.previews.state_for(id),
                 preview_editor: app.previews.editor_for(id),
                 preview_image_viewer,

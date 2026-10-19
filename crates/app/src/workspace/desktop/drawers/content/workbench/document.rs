@@ -20,6 +20,7 @@ pub(super) const TEXT_SECONDARY: u32 = 0xcdd5e0ff;
 pub(super) const TEXT_MUTED: u32 = 0x8e99a8ff;
 pub(super) const GUTTER: u32 = 0x6f7b8bff;
 pub(super) const LINE: u32 = 0xffffff14;
+const JUMP_LINE: u32 = 0x8db9ec2e;
 pub(super) const GREEN: u32 = 0x4cd37aff;
 pub(super) const RED: u32 = 0xff6b6bff;
 pub(super) const FOCUS: u32 = 0x8db9ecaa;
@@ -322,11 +323,13 @@ impl MultisoulApp {
                 range
                     .map(|index| {
                         let line = cache.as_ref().map_or("", |c| c.line(text, index));
-                        numbered_line(index + 1, GUTTER, display_line(line), TEXT, None)
+                        let bg = (s.jump_line == Some(index)).then_some(JUMP_LINE);
+                        numbered_line(index + 1, GUTTER, display_line(line), TEXT, bg)
                     })
                     .collect::<Vec<_>>()
             }),
         )
+        .track_scroll(self.workbench_text_scroll.clone())
         .with_horizontal_sizing_behavior(ListHorizontalSizingBehavior::Unconstrained)
         .with_width_from_item(longest)
         .font_family("Menlo")

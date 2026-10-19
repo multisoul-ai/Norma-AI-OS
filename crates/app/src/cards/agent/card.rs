@@ -1,5 +1,6 @@
 //! Agent card renderer.
 
+use crate::canvas::terminal_path_cache::TerminalPathScope;
 use crate::cards::chrome::{CardChrome, CardChromeTaskBadge, CardChromeTaskTone};
 use crate::cards::term::card::term_resize;
 use crate::cards::term::view::{
@@ -74,6 +75,11 @@ impl Card for AgentCard {
                 reduce_motion: context.reduce_motion,
                 initialization: context.initialization,
                 cursor_phase: context.terminal_cursor_phase,
+                path_scope: TerminalPathScope::for_node(
+                    &context.terminal_path_cache,
+                    context.runtime,
+                    node.id,
+                ),
             },
         )
     }

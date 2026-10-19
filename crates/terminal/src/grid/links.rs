@@ -1,3 +1,4 @@
+use super::path_ref::{parse_path_ref, PathTier};
 use super::{Cell, GridSnapshot};
 
 struct BareWebUrl {
@@ -75,8 +76,9 @@ impl GridSnapshot {
                 .then(|| target.to_string());
         }
         let token = wrapped_terminal_token_at(&self.rows, row, col)?;
-        let path = trim_url_trailing_punctuation(&token);
-        is_preview_path_candidate(path).then(|| path.to_string())
+        parse_path_ref(&token)
+            .filter(|path_ref| path_ref.tier == PathTier::Strong)
+            .map(|path_ref| path_ref.raw)
     }
 
     /// 返回文件目标候选。OSC 8 为唯一权威目标；纯文本的 CLI 折行候选
@@ -317,33 +319,7 @@ fn trim_url_trailing_punctuation(url: &str) -> &str {
 }
 
 fn is_preview_path_candidate(path: &str) -> bool {
-    let extension = path
-        .rsplit_once('.')
-        .map(|(_, extension)| extension.to_ascii_lowercase());
-    let supported_extension = matches!(
-        extension.as_deref(),
-        Some(
-            "md" | "markdown"
-                | "mdown"
-                | "mkd"
-                | "txt"
-                | "text"
-                | "log"
-                | "png"
-                | "jpg"
-                | "jpeg"
-                | "gif"
-                | "webp"
-                | "bmp"
-                | "tif"
-                | "tiff"
-                | "svg"
-        )
-    );
-    if path.starts_with("file://") {
-        return supported_extension;
-    }
-    !path.is_empty() && !path.contains("://") && path.contains('/') && supported_extension
+    parse_path_ref(path).is_some_and(|path_ref| path_ref.tier == PathTier::Strong)
 }
 
 fn is_valid_web_url(url: &str) -> bool {
