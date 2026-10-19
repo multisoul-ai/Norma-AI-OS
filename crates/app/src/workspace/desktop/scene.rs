@@ -66,6 +66,28 @@ pub(super) fn project_rect(source: CanvasRect, frame: CanvasRect, rect: CanvasRe
 }
 
 impl MultisoulApp {
+    /// Where an expanding workspace lands: the canvas between the open drawers. Directory
+    /// shells must fade against this rect, not the window, or they linger at the end.
+    pub(super) fn desktop_workspace_expanded_rect(
+        &self,
+        viewport: gpui::Size<gpui::Pixels>,
+    ) -> CanvasRect {
+        let layout = self.desktop_workspace.drawer_motion.layout_with_widths(
+            f32::from(viewport.width),
+            self.desktop_workspace.drawers.left_open,
+            self.desktop_workspace.drawers.right_open,
+            self.motion.reduce_motion,
+            self.desktop_workspace.drawer_widths.left,
+            self.desktop_workspace.drawer_widths.right,
+        );
+        CanvasRect::new(
+            layout.left_space,
+            0.0,
+            layout.canvas_width,
+            f32::from(viewport.height),
+        )
+    }
+
     pub(super) fn desktop_directory_workspace_id(&self) -> Option<&str> {
         let transition = self.desktop_workspace.transition.as_ref()?;
         match &transition.subject {

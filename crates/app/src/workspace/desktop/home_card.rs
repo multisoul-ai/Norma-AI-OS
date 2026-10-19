@@ -50,14 +50,11 @@ impl MultisoulApp {
                         .as_ref()
                         .filter(|t| t.directory_content.is_none())
                         .map_or(frame, |t| t.rect());
-                    super::scene::overview_chrome_opacity(
-                        frame,
-                        *source,
-                        CanvasRect {
-                            origin: Vec2::ZERO,
-                            size: full,
-                        },
-                    )
+                    let landing = self.desktop_workspace_expanded_rect(gpui::size(
+                        gpui::px(full.x),
+                        gpui::px(full.y),
+                    ));
+                    super::scene::overview_chrome_opacity(frame, *source, landing)
                 })
         } else {
             1.0

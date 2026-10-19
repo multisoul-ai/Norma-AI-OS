@@ -52,7 +52,7 @@ impl MultisoulApp {
                     super::scene::overview_chrome_opacity(
                         transition.rect(),
                         *source,
-                        canvas::CanvasRect::new(0.0, 0.0, full_width, full_height),
+                        self.desktop_workspace_expanded_rect(viewport),
                     )
                 })
         });

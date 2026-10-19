@@ -84,7 +84,8 @@ impl MultisoulApp {
                     .as_ref()
                     .filter(|t| t.directory_content.is_none())
                     .map_or_else(|| self.desktop_scene_frame(full, false), |t| t.rect());
-                super::scene::overview_chrome_opacity(workspace_frame, *source, full)
+                let landing = self.desktop_workspace_expanded_rect(viewport);
+                super::scene::overview_chrome_opacity(workspace_frame, *source, landing)
             });
         let workspaces: Vec<_> = self
             .desktop_workspace

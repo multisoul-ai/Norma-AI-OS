@@ -405,20 +405,7 @@ impl MultisoulApp {
     fn desktop_final_focus_rect(&self, window: &Window) -> CanvasRect {
         // This is called while the source is still the Launchpad. The destination
         // must use the workspace drawer geometry before `screen` changes.
-        let layout = self.desktop_workspace.drawer_motion.layout_with_widths(
-            f32::from(window.viewport_size().width),
-            self.desktop_workspace.drawers.left_open,
-            self.desktop_workspace.drawers.right_open,
-            self.motion.reduce_motion,
-            self.desktop_workspace.drawer_widths.left,
-            self.desktop_workspace.drawer_widths.right,
-        );
-        CanvasRect::new(
-            layout.left_space,
-            0.0,
-            layout.canvas_width,
-            f32::from(window.viewport_size().height),
-        )
+        self.desktop_workspace_expanded_rect(window.viewport_size())
     }
 
     pub(super) fn begin_desktop_zoom(
