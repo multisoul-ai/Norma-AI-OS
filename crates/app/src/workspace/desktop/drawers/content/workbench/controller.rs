@@ -17,6 +17,12 @@ impl MultisoulApp {
         );
     }
 
+    /// Opens the file workbench with the "已更改的文件" section expanded.
+    pub(crate) fn open_changes_view(&mut self, cx: &mut Context<Self>) {
+        self.desktop_workspace.workbench.changes_section_closed = false;
+        self.open_file_workbench(cx);
+    }
+
     pub(crate) fn ensure_file_workbench(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.desktop_workspace.workbench.filter.is_none() {
             let input = cx.new(|cx| InputState::new(window, cx).placeholder("筛选文件…"));

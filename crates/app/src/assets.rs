@@ -97,6 +97,21 @@ impl AssetSource for EmbeddedAssets {
             "icons/panel-right-open.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
                 "../assets/icons/panel-right-open.svg"
             )))),
+            "icons/diff.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/diff.svg"
+            )))),
+            "icons/grid.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/grid.svg"
+            )))),
+            "icons/globe.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/globe.svg"
+            )))),
+            "icons/image.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/image.svg"
+            )))),
+            "icons/video.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/video.svg"
+            )))),
             "icons/folder.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
                 "../assets/icons/folder.svg"
             )))),
@@ -199,6 +214,11 @@ impl AssetSource for EmbeddedAssets {
                     SharedString::from("chevron-up.svg"),
                     SharedString::from("check.svg"),
                     SharedString::from("folder.svg"),
+                    SharedString::from("diff.svg"),
+                    SharedString::from("grid.svg"),
+                    SharedString::from("globe.svg"),
+                    SharedString::from("image.svg"),
+                    SharedString::from("video.svg"),
                     SharedString::from("command-workspace.svg"),
                     SharedString::from("settings-nav-mobile.svg"),
                     SharedString::from("bell.svg"),

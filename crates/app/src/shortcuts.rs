@@ -27,6 +27,8 @@ pub(crate) enum ShortcutCommandId {
     ShowWorkspaceDirectory,
     NewTerminal,
     NewBrowser,
+    OpenFileWorkbench,
+    ShowChanges,
     CopyCardContent,
     OpenProject,
     OpenPreviewFile,
@@ -202,6 +204,14 @@ impl ShortcutSettingsState {
         self.effective.iter().find_map(|entry| {
             (entry.current_keystroke.as_deref() == Some(source.as_str())).then_some(entry.command)
         })
+    }
+
+    pub(crate) fn current_keystroke(&self, command: ShortcutCommandId) -> Option<&str> {
+        self.effective
+            .iter()
+            .find(|entry| entry.command == command)?
+            .current_keystroke
+            .as_deref()
     }
 
     pub(crate) fn voice_interaction_keystroke(&self) -> Option<Keystroke> {

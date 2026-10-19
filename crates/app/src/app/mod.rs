@@ -283,7 +283,12 @@ impl MultisoulApp {
         )
     }
 
-    fn on_new_terminal(&mut self, _: &NewTerminal, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn on_new_terminal(
+        &mut self,
+        _: &NewTerminal,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if !matches!(self.screen, AppScreen::Canvas) {
             self.workspace_state.error =
                 Some(ui::i18n::LocalizedText::new("chrome.open_terminals"));

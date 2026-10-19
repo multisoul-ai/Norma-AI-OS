@@ -12,6 +12,7 @@ mod chrome;
 mod chrome_controls;
 mod chrome_format;
 mod home;
+mod home_tools;
 mod preview_load;
 mod render;
 mod tabs;
@@ -79,7 +80,7 @@ impl MultisoulApp {
                         body.child(self.render_content_tab_body(&tab, width, window, cx))
                     })
                     .when(self.desktop_workspace.content_tabs.is_empty(), |body| {
-                        body.child(self.render_content_home(window, cx))
+                        body.child(self.render_content_home(width, window, cx))
                     }),
             )
     }
@@ -88,3 +89,7 @@ impl MultisoulApp {
 #[cfg(test)]
 #[path = "../../../../tests/unit/desktop_reader_chrome_format_tests.rs"]
 mod reader_chrome_format_tests;
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/desktop_content_home_surface_tests.rs"]
+mod home_surface_tests;

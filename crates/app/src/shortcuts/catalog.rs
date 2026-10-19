@@ -107,6 +107,20 @@ const DEFAULT_SHORTCUT_ENTRIES: &[ShortcutEntry] = &[
         None,
     ),
     entry(
+        ShortcutCommandId::OpenFileWorkbench,
+        "common.workspace",
+        "shortcuts.open_file_workbench",
+        "shortcuts.browse_project_files_in_the_right_drawer",
+        Some("cmd-p"),
+    ),
+    entry(
+        ShortcutCommandId::ShowChanges,
+        "common.workspace",
+        "shortcuts.show_changes",
+        "shortcuts.review_changed_files_in_the_right_drawer",
+        Some("ctrl-shift-g"),
+    ),
+    entry(
         ShortcutCommandId::OpenProject,
         "common.workspace",
         "workspace.open_project",

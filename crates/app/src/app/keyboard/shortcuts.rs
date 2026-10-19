@@ -42,6 +42,8 @@ impl MultisoulApp {
             ShortcutCommandId::NewBrowser => {
                 self.on_new_browser(&crate::app::NewBrowser, window, cx)
             }
+            ShortcutCommandId::OpenFileWorkbench => self.open_file_workbench(cx),
+            ShortcutCommandId::ShowChanges => self.open_changes_view(cx),
             ShortcutCommandId::CopyCardContent => {
                 self.on_copy_card_content(&crate::app::CopyCardContent, window, cx)
             }

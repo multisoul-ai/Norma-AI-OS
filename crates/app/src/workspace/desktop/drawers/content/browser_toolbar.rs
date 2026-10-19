@@ -14,6 +14,8 @@ pub(crate) struct ContentBrowserState {
     pub input: Option<gpui::Entity<InputState>>,
     pub tab_id: Option<String>,
     pub location: Option<String>,
+    pub home_notice: Option<String>,
+    pub home_notice_generation: u64,
 }
 
 pub(super) fn browser_input(draft: &str) -> Result<String, String> {
@@ -101,34 +103,6 @@ impl MultisoulApp {
         cx.notify();
     }
 
-    pub(super) fn render_content_tool_buttons(&self, cx: &mut Context<Self>) -> Div {
-        div()
-            .flex()
-            .gap(px(4.0))
-            .flex_none()
-            .child(
-                Button::new("desktop-content-files")
-                    .label("文件")
-                    .small()
-                    .on_click(cx.listener(|app, _, _, cx| app.open_file_workbench(cx))),
-            )
-            .child(
-                Button::new("desktop-content-browser")
-                    .label("+")
-                    .tooltip("新建网页")
-                    .small()
-                    .on_click(cx.listener(|app, _, _, cx| {
-                        app.open_desktop_content_tab(
-                            DesktopContentKind::Browser,
-                            "about:blank".into(),
-                            "浏览器".into(),
-                            None,
-                            cx,
-                        )
-                    })),
-            )
-    }
-
     pub(super) fn render_content_browser_toolbar(
         &mut self,
         tab: &DesktopContentTab,
@@ -168,7 +142,6 @@ impl MultisoulApp {
             .gap(px(4.0))
             .h(px(28.0))
             .flex_none()
-            .child(self.render_content_tool_buttons(cx))
             .child(
                 Button::new("desktop-browser-back")
                     .label("‹")

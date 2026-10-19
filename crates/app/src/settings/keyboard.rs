@@ -307,6 +307,8 @@ fn shortcut_row_id(command: ShortcutCommandId) -> &'static str {
         ShortcutCommandId::ShowWorkspaceDirectory => "settings-shortcut-show-workspace-directory",
         ShortcutCommandId::NewTerminal => "settings-shortcut-new-terminal",
         ShortcutCommandId::NewBrowser => "settings-shortcut-new-browser",
+        ShortcutCommandId::OpenFileWorkbench => "settings-shortcut-open-file-workbench",
+        ShortcutCommandId::ShowChanges => "settings-shortcut-show-changes",
         ShortcutCommandId::CopyCardContent => "settings-shortcut-copy-card-content",
         ShortcutCommandId::OpenProject => "settings-shortcut-open-project",
         ShortcutCommandId::OpenPreviewFile => "settings-shortcut-open-preview-file",
@@ -350,6 +352,8 @@ fn shortcut_restore_id(command: ShortcutCommandId) -> &'static str {
         }
         ShortcutCommandId::NewTerminal => "settings-shortcut-restore-new-terminal",
         ShortcutCommandId::NewBrowser => "settings-shortcut-restore-new-browser",
+        ShortcutCommandId::OpenFileWorkbench => "settings-shortcut-restore-open-file-workbench",
+        ShortcutCommandId::ShowChanges => "settings-shortcut-restore-show-changes",
         ShortcutCommandId::CopyCardContent => "settings-shortcut-restore-copy-card-content",
         ShortcutCommandId::OpenProject => "settings-shortcut-restore-open-project",
         ShortcutCommandId::OpenPreviewFile => "settings-shortcut-restore-open-preview-file",

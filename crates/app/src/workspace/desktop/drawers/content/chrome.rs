@@ -36,19 +36,12 @@ impl MultisoulApp {
             .when(!self.desktop_workspace.content_tabs.is_empty(), |row| {
                 row.child(self.render_reader_tabs(colors, cx))
             })
-            .when(self.selected_tab_is_project_files(), |row| {
+            .when(!self.desktop_workspace.content_tabs.is_empty(), |row| {
                 row.child(self.render_new_browser_tab(colors, cx))
             })
     }
 
-    fn selected_tab_is_project_files(&self) -> bool {
-        self.desktop_workspace
-            .content_tabs
-            .iter()
-            .any(|tab| tab.selected && tab.kind == DesktopContentKind::ProjectFiles)
-    }
-
-    /// The chromeless file page has no tool row, so new-web-page access lives at the strip's end.
+    /// No page carries a tool row, so new-web-page access lives at the strip's end.
     fn render_new_browser_tab(&self, colors: ReaderChromeColors, cx: &mut Context<Self>) -> Button {
         Button::new("desktop-content-new-browser")
             .debug_selector(|| "desktop-content-new-browser".to_string())

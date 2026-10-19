@@ -20,14 +20,6 @@ impl MultisoulApp {
         let browser = tab.kind == DesktopContentKind::Browser;
         if browser {
             content = content.child(self.render_content_browser_toolbar(tab, width, window, cx));
-        } else {
-            content = content.child(
-                div()
-                    .h(px(32.0))
-                    .flex_none()
-                    .px(px(8.0))
-                    .child(self.render_content_tool_buttons(cx)),
-            );
         }
         let url = if tab.kind == DesktopContentKind::Browser {
             Some(tab.resource.clone())

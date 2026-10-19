@@ -16,6 +16,8 @@ pub(super) fn shortcut_command_name(command: ShortcutCommandId) -> &'static str 
         ShortcutCommandId::ShowWorkspaceDirectory => "show_workspace_directory",
         ShortcutCommandId::NewTerminal => "new_terminal",
         ShortcutCommandId::NewBrowser => "new_browser",
+        ShortcutCommandId::OpenFileWorkbench => "open_file_workbench",
+        ShortcutCommandId::ShowChanges => "show_changes",
         ShortcutCommandId::CopyCardContent => "copy_card_content",
         ShortcutCommandId::OpenProject => "open_project",
         ShortcutCommandId::OpenPreviewFile => "open_preview_file",
