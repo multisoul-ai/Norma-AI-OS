@@ -5,9 +5,7 @@ use super::{glass_button_variant, GLASS_TEXT, GLASS_TEXT_MUTED, GLASS_TEXT_SECON
 use crate::app::MultisoulApp;
 use canvas::NodeId;
 use gpui::{div, prelude::*, px, rgba, svg, Context, Div, ElementId, Stateful, Window};
-use runtime::desktop_drawers::{
-    route_drawer, DesktopDrawerEvent, DesktopDrawerSide, DesktopLeftView,
-};
+use runtime::desktop_drawers::{route_drawer, DesktopDrawerEvent, DesktopDrawerSide};
 use ui::component::{
     button::{Button, ButtonVariants},
     Disableable, StyledExt,
@@ -320,26 +318,8 @@ impl MultisoulApp {
     }
 
     fn toggle_desktop_drawer(&mut self, event: DesktopDrawerEvent, cx: &mut Context<Self>) {
-        let before = self.desktop_workspace.drawers;
-        self.desktop_workspace.drawers = route_drawer(before, event);
-        if before.left_view != self.desktop_workspace.drawers.left_view {
-            self.desktop_workspace.left_view_slide.retarget(
-                self.desktop_workspace.drawers.left_view == DesktopLeftView::Overview,
-                self.motion.reduce_motion,
-            );
-            if let Some(id) = self.desktop_workspace.active_id.clone() {
-                self.persist_left_drawer_view(&id, cx);
-            }
-        }
-        self.desktop_workspace.drawer_motion.retarget(
-            self.desktop_workspace.drawers.left_open,
-            self.desktop_workspace.drawers.right_open,
-        );
-        if !before.right_open && self.desktop_workspace.drawers.right_open {
-            self.load_selected_desktop_content(cx);
-        }
-        self.wake_animation_frame_loop();
-        cx.notify();
+        let next = route_drawer(self.desktop_workspace.drawers, event);
+        self.apply_desktop_drawers(next, cx);
     }
 
     pub(crate) fn locate_desktop_agent(

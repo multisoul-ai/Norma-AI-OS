@@ -4,7 +4,11 @@ import E2EKit
 public enum WorkspaceModule {
     public static let manifest = DesktopModule(
         name: "workspace",
-        scenarioNames: [WorkspaceLifecycle.name, WorkspaceDrawerTabs.name],
+        scenarioNames: [
+            WorkspaceLifecycle.name,
+            WorkspaceDrawerTabs.name,
+            WorkspaceStatusCapsule.name,
+        ],
         run: { scenario, session in
             switch scenario {
             case WorkspaceLifecycle.name:
@@ -12,6 +16,9 @@ public enum WorkspaceModule {
                 return true
             case WorkspaceDrawerTabs.name:
                 try await WorkspaceDrawerTabs.run(session)
+                return true
+            case WorkspaceStatusCapsule.name:
+                try await WorkspaceStatusCapsule.run(session)
                 return true
             default:
                 return false

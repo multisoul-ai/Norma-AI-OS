@@ -9,19 +9,19 @@ use std::time::Instant;
 use storage::{DesktopAreaPreview, DesktopProjectArea, DesktopWorkspace, DesktopWorkspaceStore};
 use ui::component::button::ButtonCustomVariant;
 use ui::component::input::InputState;
-use ui::icons::with_alpha;
 
 const GLASS_TEXT: u32 = 0xfffffff5;
 const GLASS_TEXT_SECONDARY: u32 = 0xffffffb8;
 const GLASS_TEXT_MUTED: u32 = 0xffffff85;
 
 fn glass_button_variant(theme: ui::Theme, cx: &gpui::App) -> ButtonCustomVariant {
+    let chrome = status_capsule::capsule_chrome(theme);
     ButtonCustomVariant::new(cx)
-        .color(gpui::rgba(with_alpha(theme.dock, 0xa0)).into())
+        .color(gpui::rgba(chrome.rest).into())
         .foreground(gpui::rgba(GLASS_TEXT).into())
         .border(gpui::rgba(theme.dock_line).into())
-        .hover(gpui::rgba(with_alpha(theme.accent_blue, 0x78)).into())
-        .active(gpui::rgba(with_alpha(theme.accent_blue, 0x9c)).into())
+        .hover(gpui::rgba(chrome.hover).into())
+        .active(gpui::rgba(chrome.active).into())
 }
 
 mod activity_cache;
@@ -45,6 +45,7 @@ mod layout;
 mod management;
 mod snapshot;
 mod status;
+mod status_capsule;
 use management::DesktopRenameTarget;
 mod motion_log;
 mod navigation;
@@ -147,6 +148,8 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) activity_generation: u64,
     pub(crate) activity_summary: Option<norma::mobile::WorkspaceActivitySummary>,
     pub(crate) activity_view: Option<norma::mobile::WorkspaceActivityView>,
+    pub(crate) activity_capsule: Option<norma::mobile::StatusCapsule>,
+    pub(crate) focus_status_overview_row: bool,
     activity_overview: Option<Vec<activity_cache::OverviewArea>>,
     pub(crate) workspaces: Vec<DesktopWorkspace>,
     pub(crate) previews: HashMap<String, Vec<DesktopAreaPreview>>,
@@ -282,6 +285,8 @@ impl DesktopWorkspaceUiState {
             activity_generation: 0,
             activity_summary: None,
             activity_view: None,
+            activity_capsule: None,
+            focus_status_overview_row: false,
             activity_overview: None,
             workspaces,
             previews: HashMap::new(),

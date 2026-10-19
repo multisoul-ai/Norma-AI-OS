@@ -271,7 +271,7 @@ impl MultisoulApp {
             .clone()
     }
 
-    pub(super) fn left_overview_focus(&mut self, cx: &mut Context<Self>) -> gpui::FocusHandle {
+    pub(crate) fn left_overview_focus(&mut self, cx: &mut Context<Self>) -> gpui::FocusHandle {
         self.desktop_workspace
             .left_overview_focus
             .get_or_insert_with(|| cx.focus_handle())

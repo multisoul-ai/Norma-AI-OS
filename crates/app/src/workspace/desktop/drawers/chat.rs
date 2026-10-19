@@ -102,7 +102,7 @@ impl MultisoulApp {
                     ),
             )
             .child(self.render_left_drawer_tabs(cx))
-            .child(self.render_left_drawer_body(width, cx))
+            .child(self.render_left_drawer_body(width, window, cx))
             .child(
                 div()
                     .id("desktop-assistant-chat-input")

@@ -167,6 +167,9 @@ impl MultisoulApp {
                                     app.open_desktop_add_project(window, cx);
                                 })),
                         )
+                    })
+                    .when_some(self.render_status_capsule(window, cx), |row, capsule| {
+                        row.child(capsule)
                     }),
             )
     }

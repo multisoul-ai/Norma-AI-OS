@@ -116,6 +116,41 @@ pub fn left_view_from_preference(raw: Option<&str>) -> DesktopLeftView {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct StatusCapsuleClick {
+    pub floating: bool,
+    pub from_keyboard: bool,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StatusCapsuleEffect {
+    FocusFloating,
+    ShowOverview { focus_first_row: bool },
+    ReturnToChat,
+}
+
+/// Capsule click. Floating focus is a branch for the later floating panel; this state has no pin.
+pub fn route_status_capsule(
+    mut state: DesktopDrawerState,
+    click: StatusCapsuleClick,
+) -> (DesktopDrawerState, StatusCapsuleEffect) {
+    if click.floating {
+        return (state, StatusCapsuleEffect::FocusFloating);
+    }
+    if state.left_open && state.left_view == DesktopLeftView::Overview {
+        state.left_view = DesktopLeftView::Chat;
+        return (state, StatusCapsuleEffect::ReturnToChat);
+    }
+    state.left_open = true;
+    state.left_view = DesktopLeftView::Overview;
+    (
+        state,
+        StatusCapsuleEffect::ShowOverview {
+            focus_first_row: click.from_keyboard,
+        },
+    )
+}
+
 /// Restoring an overview view also opens a collapsed left drawer so the view is visible.
 pub fn restore_left_view(
     mut state: DesktopDrawerState,

@@ -10,7 +10,7 @@ use runtime::desktop_drawers::{
 use std::sync::atomic::Ordering;
 
 impl MultisoulApp {
-    pub(super) fn persist_left_drawer_view(&mut self, workspace_id: &str, cx: &mut Context<Self>) {
+    pub(crate) fn persist_left_drawer_view(&mut self, workspace_id: &str, cx: &mut Context<Self>) {
         let json = left_view_preference_json(self.desktop_workspace.drawers.left_view);
         let Some(workspace) = self
             .desktop_workspace

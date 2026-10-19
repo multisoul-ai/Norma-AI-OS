@@ -5,8 +5,8 @@ use super::status::{
 use crate::app::MultisoulApp;
 use gpui::{App, Context};
 use norma::mobile::{
-    CardSnapshot, DesktopChatAgent, DesktopChatProject, DesktopChatWorkspace,
-    WorkspaceActivityFacts, WorkspaceActivitySummary, WorkspaceActivityView,
+    status_capsule, CardSnapshot, DesktopChatAgent, DesktopChatProject, DesktopChatWorkspace,
+    StatusCapsule, WorkspaceActivityFacts, WorkspaceActivitySummary, WorkspaceActivityView,
 };
 use runtime::RuntimeEvent;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -117,6 +117,7 @@ struct ActivityInput {
     facts: WorkspaceActivityFacts,
     area_ids: Vec<String>,
     presentation: Vec<ActivityPresentation>,
+    current_area_id: String,
 }
 
 struct ActivityOutput {
@@ -124,6 +125,7 @@ struct ActivityOutput {
     summary: WorkspaceActivitySummary,
     view: WorkspaceActivityView,
     areas: Vec<OverviewArea>,
+    capsule: StatusCapsule,
 }
 
 fn project_activity(input: ActivityInput) -> ActivityOutput {
@@ -132,6 +134,7 @@ fn project_activity(input: ActivityInput) -> ActivityOutput {
         .map(|elapsed| elapsed.as_secs())
         .unwrap_or(0);
     let view = WorkspaceActivityView::from_facts(&input.facts);
+    let capsule = status_capsule(&input.facts, &input.current_area_id);
     let summary = WorkspaceActivitySummary::from_facts("desktop", input.facts, now);
     let areas = overview_areas_from_activity(&input.area_ids, &view, &input.presentation);
     ActivityOutput {
@@ -139,6 +142,7 @@ fn project_activity(input: ActivityInput) -> ActivityOutput {
         summary,
         view,
         areas,
+        capsule,
     }
 }
 
@@ -168,12 +172,25 @@ impl MultisoulApp {
         self.desktop_workspace.activity_summary = None;
         self.desktop_workspace.activity_view = None;
         self.desktop_workspace.activity_overview = None;
+        self.desktop_workspace.activity_capsule = None;
     }
 
     pub(super) fn ensure_workspace_activity_cache(&mut self, cx: &mut Context<Self>) {
-        if self.desktop_workspace.active_id.is_none()
-            || self.desktop_workspace.activity_overview.is_some()
-        {
+        if self.desktop_workspace.active_id.is_none() {
+            return;
+        }
+        let current = self
+            .desktop_workspace
+            .expanded_area_id
+            .clone()
+            .unwrap_or_default();
+        let fresh = self.desktop_workspace.activity_overview.is_some()
+            && self
+                .desktop_workspace
+                .activity_capsule
+                .as_ref()
+                .is_some_and(|capsule| capsule.current_area_id == current);
+        if fresh {
             return;
         }
         self.mark_workspace_activity_dirty(cx);
@@ -232,6 +249,7 @@ impl MultisoulApp {
                     app.desktop_workspace.activity_summary = Some(projected.summary);
                     app.desktop_workspace.activity_view = Some(projected.view);
                     app.desktop_workspace.activity_overview = Some(projected.areas);
+                    app.desktop_workspace.activity_capsule = Some(projected.capsule);
                     cx.notify();
                 }
                 if app.desktop_workspace.activity_gate.finish() {
@@ -267,6 +285,11 @@ impl MultisoulApp {
         }
         Some(ActivityInput {
             generation: self.desktop_workspace.activity_generation,
+            current_area_id: self
+                .desktop_workspace
+                .expanded_area_id
+                .clone()
+                .unwrap_or_default(),
             area_ids,
             presentation,
             facts: WorkspaceActivityFacts {

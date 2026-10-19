@@ -7,10 +7,16 @@ use std::collections::HashSet;
 mod activity_refresh;
 #[path = "workspace_activity_view.rs"]
 mod activity_view;
+#[path = "status_capsule.rs"]
+mod capsule;
 pub use activity_refresh::ActivityRefreshGate;
 pub use activity_view::{
     WorkspaceActivityAgentEntry, WorkspaceActivityPendingItem, WorkspaceActivityProjectGroup,
     WorkspaceActivityView,
+};
+pub use capsule::{
+    status_capsule, status_capsule_title, StatusCapsule, StatusCapsuleChip, StatusCapsuleKind,
+    StatusCapsuleRank, StatusCapsuleTitle,
 };
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
