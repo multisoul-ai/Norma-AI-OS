@@ -2,7 +2,6 @@ import AppKit
 import CoreGraphics
 import Foundation
 import ImageIO
-import ScreenCaptureKit
 import Vision
 
 public struct VisibleText {
@@ -102,16 +101,10 @@ extension Session {
         try ensureCaptureEnvironment()
         var lastEmptyFrame: Frame?
         let captured = try await retryCapture { () async throws -> Frame? in
-            let window = try await currentWindow()
             let png = FileManager.default.temporaryDirectory.appendingPathComponent("norma-e2e-\(UUID().uuidString).png")
             defer { try? FileManager.default.removeItem(at: png) }
-            let shot = Process()
-            shot.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-            shot.arguments = ["-x", "-o", "-l", String(window.id), png.path]
-            try shot.run()
-            shot.waitUntilExit()
-            guard shot.terminationStatus == 0,
-                  let source = CGImageSourceCreateWithURL(png as CFURL, nil),
+            let window = try controlWindow(try await control(["op": "capture", "path": png.path]))
+            guard let source = CGImageSourceCreateWithURL(png as CFURL, nil),
                   let image = CGImageSourceCreateImageAtIndex(source, 0, nil),
                   let pngData = try? Data(contentsOf: png) else {
                 return nil
@@ -139,30 +132,20 @@ extension Session {
         }
         if let captured { return captured }
         if let lastEmptyFrame { return lastEmptyFrame }
-        throw E2EError.env("screencapture 连续 3 次截取窗口失败。请检查 Norma Desktop E2E 的屏幕录制授权和窗口可见性。")
+        throw E2EError.env("App 控制通道连续 3 次未能导出窗口画面。请检查隔离窗口是否可见。")
     }
 
     private func ensureCaptureEnvironment() throws {
-        guard CGPreflightScreenCaptureAccess() else {
-            throw E2EError.env("屏幕录制权限已不可用，请允许 Norma Desktop E2E 后重跑。")
-        }
         if let state = CGSessionCopyCurrentDictionary() as NSDictionary?,
            (state["CGSSessionScreenIsLocked"] as? NSNumber)?.boolValue == true {
             throw E2EError.env("屏幕已锁定，请解锁后重跑。")
         }
     }
 
+    /// 窗口坐标原点固定为 (0, 0)：点击、拖拽和截图都使用窗口内坐标。
     func currentWindow() async throws -> (id: CGWindowID, frame: CGRect) {
-        try ensureRunning()
-        guard let pid = app?.processIdentifier else { throw deathError() }
-        let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
-        let windows = content.windows.filter {
-            $0.owningApplication?.processID == pid && $0.frame.width > 400 && $0.frame.height > 300
-        }
-        guard let window = windows.max(by: { $0.frame.width * $0.frame.height < $1.frame.width * $1.frame.height }) else {
-            throw E2EError.product("找不到 PID \(pid) 的 Norma 窗口")
-        }
-        return (CGWindowID(window.windowID), window.frame)
+        let window = try controlWindow(try await control(["op": "window"]))
+        return (window.id, window.frame)
     }
 
     public func save(_ frame: Frame, _ name: String) throws {

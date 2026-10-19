@@ -13,9 +13,7 @@ let package = Package(
             path: "Sources/E2EKit",
             linkerSettings: [
                 .linkedFramework("AppKit"),
-                .linkedFramework("ApplicationServices"),
                 .linkedFramework("CoreGraphics"),
-                .linkedFramework("ScreenCaptureKit"),
                 .linkedFramework("Vision"),
                 .linkedLibrary("sqlite3"),
             ]

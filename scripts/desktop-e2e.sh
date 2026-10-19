@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 桌面 E2E 薄入口：构建 SwiftPM 驱动、装入固定 bundle、运行场景。
+# 桌面 E2E 薄入口：构建 SwiftPM 驱动并运行场景。
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -38,28 +38,16 @@ app_binary="$repo_root/target/debug/norma-os"
 artifact_root="$repo_root/artifacts/desktop-workspace-e2e"
 package="$repo_root/test/desktop-e2e"
 build_path="$repo_root/target/desktop-e2e-spm"
-driver_app="$repo_root/target/desktop-workspace-e2e/NormaE2E.app"
-driver="$driver_app/Contents/MacOS/NormaE2E"
+# 驱动经 debug App 的测试控制通道收发键鼠与截图，不需要辅助功能/屏幕录制授权，
+# 因此直接运行 SwiftPM 产物，无需打包或签名。
+driver="$build_path/debug/norma-e2e"
 
 if [[ ! -x "$app_binary" ]]; then
-  echo "缺少 ${app_binary}；请先 cargo build -p app（不要使用 production-data）" >&2
+  echo "缺少 ${app_binary}；请先 cargo build -p app（debug 构建，不要使用 production-data 或 --release）" >&2
   exit 2
 fi
 
 swift build --package-path "$package" --build-path "$build_path" --configuration debug
-mkdir -p "$driver_app/Contents/MacOS"
-cp "$build_path/debug/norma-e2e" "$driver"
-cat > "$driver_app/Contents/Info.plist" <<'PLIST'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict>
-  <key>CFBundleIdentifier</key><string>ai.norma.desktop-e2e</string>
-  <key>CFBundleExecutable</key><string>NormaE2E</string>
-  <key>CFBundleName</key><string>Norma Desktop E2E</string>
-  <key>LSUIElement</key><true/>
-</dict></plist>
-PLIST
-codesign --force --sign - --identifier ai.norma.desktop-e2e "$driver_app" >/dev/null
 
 list_file="$(mktemp)"
 if ! "$driver" list "$scenario" >"$list_file"; then

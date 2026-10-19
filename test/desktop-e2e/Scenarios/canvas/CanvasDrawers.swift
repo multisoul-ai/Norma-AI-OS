@@ -2,7 +2,7 @@ import AppKit
 import E2EKit
 import Foundation
 
-/// 在真实桌面窗口中验收左右抽屉及中央画布占位，不借助 App 测试钩子。
+/// 在真实桌面窗口中验收左右抽屉及中央画布占位，只经 debug 测试控制通道发送原始输入，不读取 App 内部状态。
 @MainActor
 public enum CanvasDrawers {
     public nonisolated static let name = "canvas-drawers"

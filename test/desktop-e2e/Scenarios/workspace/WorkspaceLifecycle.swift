@@ -13,7 +13,7 @@ public enum WorkspaceLifecycle {
         defer { session.stop() }
 
         try await session.step("前置检查") {
-            "辅助功能、屏幕录制、未锁屏已在启动前完成；用户已有 Norma 不会被结束"
+            "未锁屏与测试二进制已在启动前确认；用户已有 Norma 不会被结束"
         }
 
         try await session.step("创建工作空间") {

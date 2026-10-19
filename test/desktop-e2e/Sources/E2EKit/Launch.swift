@@ -15,6 +15,7 @@ public final class Session {
     public private(set) var output: URL?
     public private(set) var dataRoot: URL?
     public private(set) var app: Process?
+    private(set) var channel: ControlChannel?
     let started = Date()
     var steps: [StepRecord] = []
     var screenshotNames: [String] = []
@@ -51,11 +52,14 @@ public final class Session {
         var environment = ProcessInfo.processInfo.environment
         environment["NORMA_TEST_DATA_ROOT"] = dataRoot.path
         environment["NORMA_SOCKET"] = isolatedSocketPath(identifier: UUID().uuidString)
+        let channel = ControlChannel.make()
+        environment.merge(channel.environment) { _, new in new }
         process.environment = environment
         process.standardOutput = handle
         process.standardError = handle
         try process.run()
         app = process
+        self.channel = channel
         logHandle = handle
         try OwnedProcess.write(pid: process.processIdentifier, executable: appPath, root: artifactRoot)
         print("已启动隔离 Norma，PID \(process.processIdentifier)，数据 \(dataRoot.path)")
@@ -76,6 +80,10 @@ public final class Session {
         }
         try? logHandle?.close()
         logHandle = nil
+        if let channel {
+            try? FileManager.default.removeItem(atPath: channel.socketPath)
+        }
+        channel = nil
         OwnedProcess.clear(pid: process.processIdentifier, root: artifactRoot)
         app = nil
     }

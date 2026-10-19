@@ -1,0 +1,253 @@
+//! Debug-build-only control channel for `scripts/desktop-e2e.sh`.
+//!
+//! The driver injects input and reads the App's own window image through this
+//! socket instead of system-wide CGEvent/screen capture, so runs need neither
+//! Accessibility nor Screen Recording permission. It starts only when both
+//! `NORMA_E2E_CONTROL_SOCKET` and a per-run `NORMA_E2E_CONTROL_TOKEN` are set,
+//! and is not compiled into release builds.
+mod capture;
+mod protocol;
+
+#[cfg(test)]
+#[path = "../../tests/unit/e2e_control_tests.rs"]
+mod tests;
+
+use gpui::{px, size, AnyWindowHandle, App, KeyUpEvent, Keystroke, PlatformInput, Window};
+use protocol::{
+    control_config, mouse_input, parse_request, scroll_input, text_keystrokes, Command, Response,
+    WindowInfo,
+};
+use std::io::{BufRead, BufReader, Write};
+use std::os::unix::fs::PermissionsExt;
+use std::os::unix::net::{UnixListener, UnixStream};
+use std::path::{Path, PathBuf};
+
+const SOCKET_ENV: &str = "NORMA_E2E_CONTROL_SOCKET";
+const TOKEN_ENV: &str = "NORMA_E2E_CONTROL_TOKEN";
+
+struct Job {
+    command: Command,
+    reply: async_channel::Sender<Outcome>,
+}
+
+enum Outcome {
+    Done(Response),
+    Capture { window: WindowInfo, path: PathBuf },
+}
+
+pub(crate) fn install(cx: &mut App) {
+    let Some(config) = control_config(
+        std::env::var(SOCKET_ENV).ok(),
+        std::env::var(TOKEN_ENV).ok(),
+    ) else {
+        return;
+    };
+    let listener = match bind(&config.socket) {
+        Ok(listener) => listener,
+        Err(error) => {
+            tracing::error!(%error, socket = %config.socket.display(), "desktop E2E control socket unavailable");
+            return;
+        }
+    };
+    let (jobs, receiver) = async_channel::unbounded::<Job>();
+    let token = config.token;
+    let spawned = std::thread::Builder::new()
+        .name("norma-e2e-control".into())
+        .spawn(move || serve(listener, token, jobs));
+    if let Err(error) = spawned {
+        tracing::error!(%error, "desktop E2E control thread unavailable");
+        return;
+    }
+    cx.spawn(async move |cx| {
+        while let Ok(job) = receiver.recv().await {
+            let outcome = cx
+                .update(|cx| execute(job.command, cx))
+                .unwrap_or_else(|_| Outcome::Done(Response::error("app unavailable")));
+            let _ = job.reply.send(outcome).await;
+        }
+    })
+    .detach();
+    tracing::warn!(socket = %config.socket.display(), "desktop E2E control channel enabled");
+}
+
+fn bind(path: &Path) -> std::io::Result<UnixListener> {
+    if path.symlink_metadata().is_ok() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::AlreadyExists,
+            "control socket path already exists",
+        ));
+    }
+    let listener = UnixListener::bind(path)?;
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
+    Ok(listener)
+}
+
+fn serve(listener: UnixListener, token: String, jobs: async_channel::Sender<Job>) {
+    for stream in listener.incoming() {
+        let Ok(stream) = stream else { continue };
+        if !peer_is_same_user(&stream) {
+            continue;
+        }
+        let token = token.clone();
+        let jobs = jobs.clone();
+        let _ = std::thread::Builder::new()
+            .name("norma-e2e-control-conn".into())
+            .spawn(move || handle_connection(stream, &token, &jobs));
+    }
+}
+
+fn peer_is_same_user(stream: &UnixStream) -> bool {
+    use std::os::fd::AsRawFd;
+    let mut uid = 0;
+    let mut gid = 0;
+    let status = unsafe { libc::getpeereid(stream.as_raw_fd(), &mut uid, &mut gid) };
+    status == 0 && uid == unsafe { libc::geteuid() }
+}
+
+fn handle_connection(stream: UnixStream, token: &str, jobs: &async_channel::Sender<Job>) {
+    let Ok(mut writer) = stream.try_clone() else {
+        return;
+    };
+    for line in BufReader::new(stream).lines() {
+        let Ok(line) = line else { return };
+        let response = match parse_request(&line, token) {
+            Ok(command) => run(command, jobs),
+            Err(error) => Response::error(error),
+        };
+        if writeln!(writer, "{}", response.to_line()).is_err() {
+            return;
+        }
+    }
+}
+
+fn run(command: Command, jobs: &async_channel::Sender<Job>) -> Response {
+    let (reply, outcome) = async_channel::bounded(1);
+    if jobs.send_blocking(Job { command, reply }).is_err() {
+        return Response::error("app unavailable");
+    }
+    match outcome.recv_blocking() {
+        Ok(Outcome::Done(response)) => response,
+        Ok(Outcome::Capture { window, path }) => capture_to(window, &path),
+        Err(_) => Response::error("app unavailable"),
+    }
+}
+
+fn capture_to(window: WindowInfo, path: &Path) -> Response {
+    let Ok(number) = u32::try_from(window.number) else {
+        return Response::error("invalid window number");
+    };
+    match capture::capture_window_png(number, path) {
+        Ok(()) => Response::window(window),
+        Err(error) => Response::error(error),
+    }
+}
+
+fn target_window(cx: &mut App) -> Option<AnyWindowHandle> {
+    let mut best: Option<(AnyWindowHandle, f32)> = None;
+    for handle in cx.windows() {
+        let Ok(area) = handle.update(cx, |_, window, _| {
+            let size = window.bounds().size;
+            f32::from(size.width) * f32::from(size.height)
+        }) else {
+            continue;
+        };
+        if best.is_none_or(|(_, largest)| area > largest) {
+            best = Some((handle, area));
+        }
+    }
+    best.map(|(handle, _)| handle)
+}
+
+fn execute(command: Command, cx: &mut App) -> Outcome {
+    let Some(handle) = target_window(cx) else {
+        return Outcome::Done(Response::error("no window"));
+    };
+    handle
+        .update(cx, |_, window, cx| execute_in(command, window, cx))
+        .unwrap_or_else(|_| Outcome::Done(Response::error("window closed")))
+}
+
+fn execute_in(command: Command, window: &mut Window, cx: &mut App) -> Outcome {
+    let done = |response| Outcome::Done(response);
+    match command {
+        Command::Window => done(window_info(window).map_or_else(Response::error, Response::window)),
+        Command::Activate => {
+            cx.activate(true);
+            window.activate_window();
+            done(Response::ok())
+        }
+        Command::Mouse {
+            phase,
+            x,
+            y,
+            click_count,
+            pressed,
+            modifiers,
+        } => {
+            window.dispatch_event(
+                mouse_input(phase, x, y, click_count, pressed, &modifiers),
+                cx,
+            );
+            done(Response::ok())
+        }
+        Command::Scroll { x, y, dy } => {
+            window.dispatch_event(scroll_input(x, y, dy), cx);
+            done(Response::ok())
+        }
+        Command::Key { keystroke } => match Keystroke::parse(&keystroke) {
+            Ok(keystroke) => {
+                press(keystroke, window, cx);
+                done(Response::ok())
+            }
+            Err(error) => done(Response::error(error.to_string())),
+        },
+        Command::Text { text } => {
+            for keystroke in text_keystrokes(&text) {
+                press(keystroke, window, cx);
+            }
+            done(Response::ok())
+        }
+        Command::Resize { width, height } => {
+            window.resize(size(px(width), px(height)));
+            done(Response::ok())
+        }
+        Command::Capture { path } => match window_info(window) {
+            Ok(window) => Outcome::Capture { window, path },
+            Err(error) => done(Response::error(error)),
+        },
+    }
+}
+
+fn press(keystroke: Keystroke, window: &mut Window, cx: &mut App) {
+    window.dispatch_keystroke(keystroke.clone(), cx);
+    window.dispatch_event(PlatformInput::KeyUp(KeyUpEvent { keystroke }), cx);
+}
+
+fn window_info(window: &Window) -> Result<WindowInfo, &'static str> {
+    let size = window.bounds().size;
+    Ok(WindowInfo {
+        number: native_window_number(window)?,
+        width: f32::from(size.width),
+        height: f32::from(size.height),
+        scale: window.scale_factor(),
+    })
+}
+
+#[cfg(not(test))]
+fn native_window_number(window: &Window) -> Result<i64, &'static str> {
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    let handle = HasWindowHandle::window_handle(window).map_err(|_| "no native window")?;
+    let RawWindowHandle::AppKit(handle) = handle.as_raw() else {
+        return Err("not an AppKit window");
+    };
+    // SAFETY: GPUI owns this live view and we are on the AppKit main thread.
+    let view = unsafe { &*handle.ns_view.as_ptr().cast::<objc2_app_kit::NSView>() };
+    view.window()
+        .map(|window| window.windowNumber() as i64)
+        .ok_or("view has no window")
+}
+
+#[cfg(test)]
+fn native_window_number(_: &Window) -> Result<i64, &'static str> {
+    Err("no native window")
+}
