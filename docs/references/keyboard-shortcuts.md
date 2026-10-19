@@ -155,7 +155,7 @@ Layout:   Reflow Layout / Toggle Master Layout
 底部 Dock 按「工作空间｜布局｜指令输入｜Voice｜设置」排列，布局、Voice 和设置沿用原有交互。创建按钮统一收纳到指令输入：
 
 - `/new` 显示五种 Agent；`/new codex` 等直接创建，不再选择位置。
-- `/terminal`、`/browser` 创建并激活对应卡片；`/preview` 复用文件选择器。
+- `/terminal` 创建并激活终端卡片。快捷指令列表不提供创建浏览器和查看文件。
 - `/theme` 显示正式六主题；`/theme midnight-violet` 应用主题。
 - 支持有限中文表达，例如「创建一个 Codex 卡片」「打开终端」「切换深色主题」。未知、否定、多操作或额外参数不会执行。
 - 输入只过滤；↑/↓选择、Tab 补全、Enter/点击执行；Esc 收起并保留草稿。IME 组词期间不执行。

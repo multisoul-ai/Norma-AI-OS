@@ -33,8 +33,6 @@ pub fn suggestions(query: &str, themes: &[CommandTheme]) -> Vec<CommandSuggestio
     let roots = vec![
         suggestion("新建 Agent", "/new ", None),
         suggestion("新建终端", "/terminal", Some(DockCommand::Terminal)),
-        suggestion("新建浏览器", "/browser", Some(DockCommand::Browser)),
-        suggestion("预览文件", "/preview", Some(DockCommand::Preview)),
         suggestion("切换主题", "/theme ", None),
     ];
     if query.is_empty() || query == "/" {
@@ -137,16 +135,6 @@ fn phrase_choices(query: &str, themes: &[CommandTheme]) -> Vec<CommandSuggestion
             "新建终端",
             "/terminal",
             Some(DockCommand::Terminal),
-        )],
-        "浏览器" | "browser" => vec![suggestion(
-            "新建浏览器",
-            "/browser",
-            Some(DockCommand::Browser),
-        )],
-        "预览" | "预览文件" | "文件预览" | "preview" => vec![suggestion(
-            "预览文件",
-            "/preview",
-            Some(DockCommand::Preview),
         )],
         "" | "agent" => agent_choices(""),
         _ => agent_choices(text),

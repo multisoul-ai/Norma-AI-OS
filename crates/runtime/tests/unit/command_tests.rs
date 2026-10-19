@@ -60,8 +60,8 @@ fn agent_command_creates_without_position_step() {
 /// 场景：常用中文表达映射到同一动作，含糊主题返回候选，不接受否定、批量和未知参数。
 ///
 /// 数据构造：2 个主题分别为浅色 Paper Blue 和深色 Midnight Violet，深色候选数 = 2 - 1 = 1。
-/// 执行过程：查询创建、终端、浏览器、预览、深色主题，再查询否定和混合表达。
-/// 预期结果：每个明确表达对应同一个已支持动作；深色不包含浅色；不支持的输入没有动作。
+/// 执行过程：查询创建、终端、深色主题，再查询浏览器、预览、否定和混合表达。
+/// 预期结果：终端与主题仍对应原动作；根列表为 5 - 2 = 3 项，不含浏览器和预览；不支持的输入没有动作。
 #[test]
 fn common_phrases_and_theme_catalog_are_bounded() {
     let themes = [
@@ -86,15 +86,17 @@ fn common_phrases_and_theme_catalog_are_bounded() {
         Some(DockCommand::Terminal),
         "打开终端应映射到创建终端"
     );
-    assert_eq!(
-        suggestions("浏览器", &themes)[0].command,
-        Some(DockCommand::Browser),
-        "浏览器关键词应找到创建浏览器"
+    assert!(
+        suggestions("浏览器", &themes).is_empty()
+            && suggestions("创建浏览器", &themes).is_empty()
+            && suggestions("/browser", &themes).is_empty(),
+        "快捷指令不再提供创建浏览器"
     );
-    assert_eq!(
-        suggestions("预览文件", &themes)[0].command,
-        Some(DockCommand::Preview),
-        "预览文件应调用文件选择器"
+    assert!(
+        suggestions("预览文件", &themes).is_empty()
+            && suggestions("查看文件", &themes).is_empty()
+            && suggestions("/preview", &themes).is_empty(),
+        "快捷指令不再提供查看文件"
     );
     let dark = suggestions("切换深色主题", &themes);
     assert_eq!(dark.len(), 1, "目录仅有一个深色主题");
@@ -131,9 +133,25 @@ fn common_phrases_and_theme_catalog_are_bounded() {
         "未知指令不能执行"
     );
     assert!(suggestions("/ego", &themes).is_empty(), "本版本不接入 Ego");
+    let roots = suggestions("/", &themes);
     assert_eq!(
-        suggestions("/", &themes).len(),
-        5,
-        "根列表应保留已约定的五类指令"
+        roots.len(),
+        3,
+        "根列表保留新建 Agent、新建终端、切换主题，共 5 - 2 = 3 项"
+    );
+    assert!(
+        roots
+            .iter()
+            .any(|item| item.command == Some(DockCommand::Terminal)),
+        "根列表仍包含新建终端"
+    );
+    assert!(
+        roots.iter().all(|item| {
+            !matches!(
+                item.command,
+                Some(DockCommand::Browser | DockCommand::Preview)
+            )
+        }),
+        "根列表不得包含创建浏览器或查看文件"
     );
 }
