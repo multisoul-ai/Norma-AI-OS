@@ -40,6 +40,9 @@ impl MultisoulApp {
                             s.file = None;
                             s.preview = None;
                         }
+                        s.lock_area = false;
+                        s.turn_paths = None;
+                        s.pending_turn_diff = None;
                         app.refresh_file_workbench(cx);
                     }
                 },

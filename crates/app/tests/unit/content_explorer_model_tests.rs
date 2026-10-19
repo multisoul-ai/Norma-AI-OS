@@ -47,6 +47,7 @@ fn change_tree_groups_by_directory_with_stable_file_identity() {
         &paths(&["docs/research/a.md", "docs/b.md", "README.md"]),
         &BTreeSet::new(),
         "",
+        None,
     );
     let shape = rows
         .iter()
@@ -76,13 +77,13 @@ fn change_tree_groups_by_directory_with_stable_file_identity() {
 fn change_tree_collapse_hides_children_and_search_keeps_ancestors() {
     let all = paths(&["docs/research/a.md", "docs/b.md", "README.md"]);
     let collapsed = BTreeSet::from(["docs".to_string()]);
-    let rows = change_rows(&all, &collapsed, "");
+    let rows = change_rows(&all, &collapsed, "", None);
     assert_eq!(rows.len(), 2, "折叠 docs 后仅剩 docs 与 README: {rows:?}");
     assert!(
         matches!(&rows[0], ChangeRow::Dir { open: false, .. }),
         "docs 为收起态"
     );
-    let rows = change_rows(&all, &collapsed, "A.MD");
+    let rows = change_rows(&all, &collapsed, "A.MD", None);
     assert_eq!(rows.len(), 3, "筛选保留祖先且无视折叠: {rows:?}");
     assert!(
         !rows

@@ -228,8 +228,17 @@ impl MultisoulApp {
                     app.toggle_desktop_drawer(DesktopDrawerEvent::EscapeOverview, cx);
                     app.focus_left_drawer_view(window, cx);
                     cx.stop_propagation();
+                    return;
+                }
+                if app.handle_run_overview_key(
+                    event.keystroke.key.as_str(),
+                    event.keystroke.modifiers.modified(),
+                    window,
+                    cx,
+                ) {
+                    cx.stop_propagation();
                 }
             }))
-            .child(self.render_agent_overview(cx))
+            .child(self.render_run_overview(cx))
     }
 }

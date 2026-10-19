@@ -8,6 +8,10 @@ use workspace::content::GitAction;
 
 impl MultisoulApp {
     pub(crate) fn open_file_workbench(&mut self, cx: &mut Context<Self>) {
+        let state = &mut self.desktop_workspace.workbench;
+        state.turn_paths = None;
+        state.lock_area = false;
+        state.pending_turn_diff = None;
         self.open_desktop_content_tab(
             DesktopContentKind::ProjectFiles,
             "project-files".into(),
@@ -42,12 +46,14 @@ impl MultisoulApp {
             .clone()
             .or(self.desktop_workspace.active_area_id.clone());
         let state = &mut self.desktop_workspace.workbench;
-        let follow = state.followed_area != current && current.is_some();
-        state.followed_area = current.clone();
-        if follow && state.saved.area_id != current {
-            state.saved.area_id = current;
-            state.saved.selected = None;
-            state.saved.expanded.clear();
+        if !state.lock_area {
+            let follow = state.followed_area != current && current.is_some();
+            state.followed_area = current.clone();
+            if follow && state.saved.area_id != current {
+                state.saved.area_id = current;
+                state.saved.selected = None;
+                state.saved.expanded.clear();
+            }
         }
         if state.saved.area_id.is_none() {
             state.saved.area_id = self.desktop_workspace.areas.first().map(|a| a.id.clone());
@@ -195,7 +201,16 @@ impl MultisoulApp {
                                 s.git_error = Some(e);
                             }
                         }
-                        let reload_diff = s.show_diff
+                        let pending_diff = s.pending_turn_diff.clone().filter(|path| {
+                            s.git.as_ref().is_some_and(|git| {
+                                git.changes.iter().any(|change| change.path == *path)
+                            })
+                        });
+                        if pending_diff.is_some() {
+                            s.pending_turn_diff = None;
+                        }
+                        let reload_diff = pending_diff.is_none()
+                            && s.show_diff
                             && (s.diff_comparison != s.saved.comparison
                                 || s.diff_version != s.git.as_ref().map(|g| g.version.clone()));
                         let dirty = s
@@ -209,7 +224,9 @@ impl MultisoulApp {
                         if external_change && dirty {
                             s.notice = Some("文件已被外部修改；保存前请合并，草稿仍保留".into());
                         }
-                        if reload_diff {
+                        if let Some(path) = pending_diff {
+                            app.select_workbench_path(path, true, false, cx);
+                        } else if reload_diff {
                             let staged = s.diff_staged;
                             app.load_workbench_file(true, staged, cx);
                         } else if (changed_project || (external_change && !dirty))

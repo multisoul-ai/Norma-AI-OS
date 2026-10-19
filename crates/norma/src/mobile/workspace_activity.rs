@@ -8,9 +8,16 @@ mod activity_refresh;
 #[path = "workspace_activity_view.rs"]
 mod activity_view;
 pub use activity_refresh::ActivityRefreshGate;
+#[path = "run_overview.rs"]
+mod run_overview;
 pub use activity_view::{
     WorkspaceActivityAgentEntry, WorkspaceActivityPendingItem, WorkspaceActivityProjectGroup,
     WorkspaceActivityView,
+};
+pub use run_overview::{
+    project_run_overview, RunOverview, RunOverviewAgent, RunOverviewAttention,
+    RunOverviewAttentionKind, RunOverviewFile, RunOverviewPresence, RunOverviewProject,
+    RunOverviewProjectPresence,
 };
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

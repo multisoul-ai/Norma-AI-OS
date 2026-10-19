@@ -48,6 +48,7 @@ mod status;
 use management::DesktopRenameTarget;
 mod motion_log;
 mod navigation;
+mod overview_rows;
 mod preview_canvas;
 mod project_area;
 mod project_layout;
@@ -148,6 +149,9 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) activity_summary: Option<norma::mobile::WorkspaceActivitySummary>,
     pub(crate) activity_view: Option<norma::mobile::WorkspaceActivityView>,
     activity_overview: Option<Vec<activity_cache::OverviewArea>>,
+    pub(crate) activity_run_overview: Option<norma::mobile::RunOverview>,
+    pub(crate) overview_cursor: Option<usize>,
+    pub(crate) overview_prelight: Option<(String, u64)>,
     pub(crate) workspaces: Vec<DesktopWorkspace>,
     pub(crate) previews: HashMap<String, Vec<DesktopAreaPreview>>,
     pub(crate) active_id: Option<String>,
@@ -283,6 +287,9 @@ impl DesktopWorkspaceUiState {
             activity_summary: None,
             activity_view: None,
             activity_overview: None,
+            activity_run_overview: None,
+            overview_cursor: None,
+            overview_prelight: None,
             workspaces,
             previews: HashMap::new(),
             active_id: None,

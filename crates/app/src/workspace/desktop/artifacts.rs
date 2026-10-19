@@ -70,6 +70,7 @@ impl MultisoulApp {
                     Ok(artifacts) => {
                         app.desktop_workspace.content_artifacts = artifacts;
                         app.desktop_workspace.artifact_revision = revision;
+                        app.mark_workspace_activity_dirty(cx);
                     }
                     Err(error) => tracing::warn!(%error, "desktop artifact refresh failed"),
                 }

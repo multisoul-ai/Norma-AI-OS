@@ -38,6 +38,7 @@ fn change_tree_keeps_case_distinct_directories_contiguous() {
         ],
         &BTreeSet::new(),
         "",
+        None,
     );
     let dirs = rows
         .iter()

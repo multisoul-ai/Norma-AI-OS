@@ -1,17 +1,13 @@
 //! Workspace-wide assistant surfaces. Open drawers reserve space beside the live canvas.
 
-use super::activity_cache::overview_task_text;
 use super::{glass_button_variant, GLASS_TEXT, GLASS_TEXT_MUTED, GLASS_TEXT_SECONDARY};
 use crate::app::MultisoulApp;
 use canvas::NodeId;
-use gpui::{div, prelude::*, px, rgba, svg, Context, Div, ElementId, Stateful, Window};
+use gpui::{div, prelude::*, px, rgba, svg, Context, Div, Stateful, Window};
 use runtime::desktop_drawers::{
     route_drawer, DesktopDrawerEvent, DesktopDrawerSide, DesktopLeftView,
 };
-use ui::component::{
-    button::{Button, ButtonVariants},
-    Disableable, StyledExt,
-};
+use ui::component::button::{Button, ButtonVariants};
 
 pub(super) const TOP: f32 = 0.0;
 pub(super) const BOTTOM: f32 = 0.0;
@@ -27,6 +23,8 @@ pub(super) mod left_view_slide;
 pub(super) mod material;
 pub(super) mod motion;
 pub(super) mod orb;
+mod overview_actions;
+mod overview_list;
 pub(super) mod resize;
 
 #[cfg(test)]
@@ -200,123 +198,6 @@ impl MultisoulApp {
                         );
                     })),
             )
-    }
-
-    fn render_agent_overview(&self, cx: &mut Context<Self>) -> Stateful<Div> {
-        let theme = self.desktop_theme();
-        div()
-            .id("desktop-agent-overview-list")
-            .debug_selector(|| "desktop-agent-overview-list".to_string())
-            .flex_1()
-            .min_h(px(0.0))
-            .overflow_y_scroll()
-            .px(px(10.0))
-            .pb(px(10.0))
-            .children(self.desktop_workspace.areas.iter().map(|area| {
-                let rows = self.overview_rows_for(&area.id);
-                div()
-                    .id(ElementId::Name(
-                        format!("desktop-agent-project-{}", area.id).into(),
-                    ))
-                    .mt(px(8.0))
-                    .flex()
-                    .flex_col()
-                    .gap(px(4.0))
-                    .child(
-                        div()
-                            .text_size(px(11.0))
-                            .font_semibold()
-                            .text_color(rgba(GLASS_TEXT_SECONDARY))
-                            .child(area.display_name.clone()),
-                    )
-                    .when(rows.is_empty(), |group| {
-                        group.child(
-                            div()
-                                .text_size(px(11.0))
-                                .text_color(rgba(GLASS_TEXT_MUTED))
-                                .child("尚无已加载的智能体"),
-                        )
-                    })
-                    .children(rows.into_iter().map(|row| {
-                        let area_id = row.area_id.clone();
-                        let node_id = row.node_id;
-                        let needs_approval = row.needs_approval;
-                        let can_locate_approval = row.can_locate_approval;
-                        let is_ego = row.is_ego;
-                        let ego_stop_agent = row.ego_stop_agent;
-                        let run_id = row.run_id.clone();
-                        let turn_id = row.turn_id.clone();
-                        let button_id = format!("desktop-agent-jump-{area_id}-{node_id}");
-                        Button::new(ElementId::Name(button_id.clone().into()))
-                            .disabled(
-                                row.stale
-                                    || (needs_approval && !can_locate_approval)
-                                    || (is_ego && ego_stop_agent.is_none()),
-                            )
-                            .debug_selector(move || button_id.clone())
-                            .w_full()
-                            .h(px(54.0))
-                            .p(px(8.0))
-                            .rounded(px(8.0))
-                            .custom(glass_button_variant(theme, cx))
-                            .child(
-                                div()
-                                    .w_full()
-                                    .flex()
-                                    .flex_col()
-                                    .gap(px(2.0))
-                                    .child(format!("{} · {}", row.label, row.state))
-                                    .child(
-                                        div()
-                                            .text_size(px(11.0))
-                                            .text_color(rgba(if row.needs_approval {
-                                                theme.accent_cyan
-                                            } else {
-                                                GLASS_TEXT_SECONDARY
-                                            }))
-                                            .child(overview_task_text(
-                                                &row.task,
-                                                row.updated_at_unix_ms,
-                                            )),
-                                    ),
-                            )
-                            .child(
-                                div()
-                                    .text_size(px(10.0))
-                                    .text_color(rgba(theme.accent_cyan))
-                                    .child(if row.stale {
-                                        "项目尚未加载"
-                                    } else if is_ego && ego_stop_agent.is_some() {
-                                        "停止任务 →"
-                                    } else if is_ego {
-                                        "暂无可停止的任务"
-                                    } else if needs_approval && !can_locate_approval {
-                                        "审批信息待同步"
-                                    } else if needs_approval {
-                                        "处理审批 →"
-                                    } else {
-                                        "定位卡片 →"
-                                    }),
-                            )
-                            .on_click(cx.listener(move |app, _, window, cx| {
-                                if let Some(agent_id) = ego_stop_agent {
-                                    app.stop_desktop_ego_task(&area_id, node_id, agent_id, cx);
-                                } else if can_locate_approval {
-                                    app.locate_desktop_approval(
-                                        &area_id,
-                                        node_id,
-                                        run_id.as_deref(),
-                                        turn_id.as_deref(),
-                                        window,
-                                        cx,
-                                    );
-                                } else {
-                                    app.locate_desktop_agent(&area_id, node_id, window, cx);
-                                }
-                            }))
-                    }))
-            }))
-            .child(self.render_desktop_artifacts(cx))
     }
 
     fn toggle_desktop_drawer(&mut self, event: DesktopDrawerEvent, cx: &mut Context<Self>) {

@@ -5,8 +5,9 @@ use super::status::{
 use crate::app::MultisoulApp;
 use gpui::{App, Context};
 use norma::mobile::{
-    CardSnapshot, DesktopChatAgent, DesktopChatProject, DesktopChatWorkspace,
-    WorkspaceActivityFacts, WorkspaceActivitySummary, WorkspaceActivityView,
+    project_run_overview, CardSnapshot, DesktopChatAgent, DesktopChatProject, DesktopChatWorkspace,
+    RunOverview, RunOverviewFile, RunOverviewProjectPresence, WorkspaceActivityFacts,
+    WorkspaceActivitySummary, WorkspaceActivityView,
 };
 use runtime::RuntimeEvent;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -117,6 +118,9 @@ struct ActivityInput {
     facts: WorkspaceActivityFacts,
     area_ids: Vec<String>,
     presentation: Vec<ActivityPresentation>,
+    current_area_id: String,
+    files: Vec<RunOverviewFile>,
+    presence: Vec<RunOverviewProjectPresence>,
 }
 
 struct ActivityOutput {
@@ -124,6 +128,7 @@ struct ActivityOutput {
     summary: WorkspaceActivitySummary,
     view: WorkspaceActivityView,
     areas: Vec<OverviewArea>,
+    overview: RunOverview,
 }
 
 fn project_activity(input: ActivityInput) -> ActivityOutput {
@@ -134,11 +139,14 @@ fn project_activity(input: ActivityInput) -> ActivityOutput {
     let view = WorkspaceActivityView::from_facts(&input.facts);
     let summary = WorkspaceActivitySummary::from_facts("desktop", input.facts, now);
     let areas = overview_areas_from_activity(&input.area_ids, &view, &input.presentation);
+    let overview =
+        project_run_overview(&input.current_area_id, &view, &input.files, &input.presence);
     ActivityOutput {
         generation: input.generation,
         summary,
         view,
         areas,
+        overview,
     }
 }
 
@@ -168,11 +176,15 @@ impl MultisoulApp {
         self.desktop_workspace.activity_summary = None;
         self.desktop_workspace.activity_view = None;
         self.desktop_workspace.activity_overview = None;
+        self.desktop_workspace.activity_run_overview = None;
+        self.desktop_workspace.overview_cursor = None;
+        self.desktop_workspace.overview_prelight = None;
     }
 
     pub(super) fn ensure_workspace_activity_cache(&mut self, cx: &mut Context<Self>) {
         if self.desktop_workspace.active_id.is_none()
-            || self.desktop_workspace.activity_overview.is_some()
+            || (self.desktop_workspace.activity_overview.is_some()
+                && self.desktop_workspace.activity_run_overview.is_some())
         {
             return;
         }
@@ -232,6 +244,17 @@ impl MultisoulApp {
                     app.desktop_workspace.activity_summary = Some(projected.summary);
                     app.desktop_workspace.activity_view = Some(projected.view);
                     app.desktop_workspace.activity_overview = Some(projected.areas);
+                    app.desktop_workspace.activity_run_overview = Some(projected.overview.clone());
+                    let count = projected.overview.attention.len()
+                        + projected.overview.current_agents.len()
+                        + projected.overview.other_projects.len();
+                    if app
+                        .desktop_workspace
+                        .overview_cursor
+                        .is_some_and(|index| index >= count)
+                    {
+                        app.desktop_workspace.overview_cursor = count.checked_sub(1);
+                    }
                     cx.notify();
                 }
                 if app.desktop_workspace.activity_gate.finish() {
@@ -265,10 +288,56 @@ impl MultisoulApp {
                 definitions: Vec::new(),
             });
         }
+        let current_area_id = self
+            .desktop_workspace
+            .expanded_area_id
+            .clone()
+            .or_else(|| self.desktop_workspace.active_area_id.clone())
+            .unwrap_or_default();
+        let files = self
+            .desktop_workspace
+            .content_artifacts
+            .iter()
+            .map(|artifact| RunOverviewFile {
+                area_id: artifact.area_id.clone(),
+                node_id: artifact.node_id,
+                agent_hint: artifact.agent_profile.clone(),
+                project_hint: self
+                    .desktop_workspace
+                    .areas
+                    .iter()
+                    .find(|area| area.id == artifact.area_id)
+                    .map(|area| area.display_name.clone())
+                    .unwrap_or_default(),
+                path: artifact.source_path.clone(),
+                turn_id: artifact.turn_id.clone(),
+                fingerprint: artifact.version.clone(),
+            })
+            .collect();
+        let presence = self
+            .desktop_workspace
+            .areas
+            .iter()
+            .map(|area| RunOverviewProjectPresence {
+                area_id: area.id.clone(),
+                loaded: self
+                    .desktop_workspace
+                    .sessions
+                    .contains_key(&(workspace_id.clone(), area.id.clone())),
+                updated_at_unix_ms: self
+                    .desktop_workspace
+                    .status_cache
+                    .get(&area.id)
+                    .map(|status| status.updated_at_unix_ms),
+            })
+            .collect();
         Some(ActivityInput {
             generation: self.desktop_workspace.activity_generation,
             area_ids,
             presentation,
+            current_area_id,
+            files,
+            presence,
             facts: WorkspaceActivityFacts {
                 workspace: DesktopChatWorkspace {
                     id: workspace_id,

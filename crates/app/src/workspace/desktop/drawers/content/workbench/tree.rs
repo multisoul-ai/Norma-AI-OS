@@ -44,13 +44,17 @@ pub(crate) fn change_rows(
     paths: &[String],
     collapsed: &BTreeSet<String>,
     query: &str,
+    allow: Option<&[String]>,
 ) -> Vec<ChangeRow> {
     let needle = query.trim().to_lowercase();
     let searching = !needle.is_empty();
     let mut items = paths
         .iter()
         .enumerate()
-        .filter(|(_, p)| !searching || p.to_lowercase().contains(&needle))
+        .filter(|(_, path)| {
+            allow.is_none_or(|allow| allow.iter().any(|item| item == *path))
+                && (!searching || path.to_lowercase().contains(&needle))
+        })
         .collect::<Vec<_>>();
     items.sort_by_key(|(_, p)| sort_key(p, false));
     let mut emitted = BTreeSet::new();
