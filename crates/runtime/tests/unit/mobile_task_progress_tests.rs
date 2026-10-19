@@ -448,3 +448,6 @@ fn claude_turns_without_todo_tools_have_no_task_progress() {
         "没有 in_progress 或 pending 时不编造进行中项"
     );
 }
+
+#[path = "mobile_unverified_task_progress_tests.rs"]
+mod unverified_task_progress;
