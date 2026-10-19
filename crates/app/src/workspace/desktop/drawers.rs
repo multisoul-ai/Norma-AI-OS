@@ -5,7 +5,9 @@ use super::{glass_button_variant, GLASS_TEXT, GLASS_TEXT_MUTED, GLASS_TEXT_SECON
 use crate::app::MultisoulApp;
 use canvas::NodeId;
 use gpui::{div, prelude::*, px, rgba, svg, Context, Div, ElementId, Stateful, Window};
-use runtime::desktop_drawers::{route_drawer, DesktopDrawerEvent, DesktopDrawerSide};
+use runtime::desktop_drawers::{
+    route_drawer, DesktopDrawerEvent, DesktopDrawerSide, DesktopLeftView,
+};
 use ui::component::{
     button::{Button, ButtonVariants},
     Disableable, StyledExt,
@@ -18,6 +20,10 @@ mod artifacts;
 mod chat;
 mod chat_message;
 pub(super) mod content;
+mod layout_save;
+mod left_body;
+mod left_tabs;
+pub(super) mod left_view_slide;
 pub(super) mod material;
 pub(super) mod motion;
 pub(super) mod orb;
@@ -120,9 +126,6 @@ impl MultisoulApp {
         let right = right_visible.then(|| {
             self.render_assistant_right(layout.right_width, right_inset, right_opacity, window, cx)
         });
-        let overview = left_visible.then(|| {
-            self.render_floating_agent_overview(layout.left_width, left_inset, left_opacity, cx)
-        });
         let left_handle = drawers.left_open.then(|| {
             self.drawer_resize_handle(DesktopDrawerSide::Left, layout.left_width, left_inset, cx)
         });
@@ -147,7 +150,6 @@ impl MultisoulApp {
             })
             .when_some(left, |layer, left| layer.child(left))
             .when_some(right, |layer, right| layer.child(right))
-            .when_some(overview, |layer, overview| layer.child(overview))
             .when_some(left_handle, |layer, handle| layer.child(handle))
             .when_some(right_handle, |layer, handle| layer.child(handle))
             .when_some(resize_capture, |layer, capture| layer.child(capture))
@@ -205,7 +207,8 @@ impl MultisoulApp {
         div()
             .id("desktop-agent-overview-list")
             .debug_selector(|| "desktop-agent-overview-list".to_string())
-            .max_h(px(236.0))
+            .flex_1()
+            .min_h(px(0.0))
             .overflow_y_scroll()
             .px(px(10.0))
             .pb(px(10.0))
@@ -319,6 +322,15 @@ impl MultisoulApp {
     fn toggle_desktop_drawer(&mut self, event: DesktopDrawerEvent, cx: &mut Context<Self>) {
         let before = self.desktop_workspace.drawers;
         self.desktop_workspace.drawers = route_drawer(before, event);
+        if before.left_view != self.desktop_workspace.drawers.left_view {
+            self.desktop_workspace.left_view_slide.retarget(
+                self.desktop_workspace.drawers.left_view == DesktopLeftView::Overview,
+                self.motion.reduce_motion,
+            );
+            if let Some(id) = self.desktop_workspace.active_id.clone() {
+                self.persist_left_drawer_view(&id, cx);
+            }
+        }
         self.desktop_workspace.drawer_motion.retarget(
             self.desktop_workspace.drawers.left_open,
             self.desktop_workspace.drawers.right_open,

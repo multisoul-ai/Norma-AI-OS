@@ -3,6 +3,7 @@ use gpui::Entity;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::PathBuf;
+use std::sync::atomic::AtomicU64;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use storage::{DesktopAreaPreview, DesktopProjectArea, DesktopWorkspace, DesktopWorkspaceStore};
@@ -116,6 +117,12 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) drawers: runtime::desktop_drawers::DesktopDrawerState,
     pub(crate) left_open_before_project: Option<bool>,
     pub(crate) drawer_motion: drawers::motion::DesktopAssistantDrawerMotion,
+    left_view_slide: drawers::left_view_slide::LeftViewSlide,
+    pub(crate) left_chat_tab_focus: Option<gpui::FocusHandle>,
+    pub(crate) left_overview_tab_focus: Option<gpui::FocusHandle>,
+    pub(crate) left_overview_focus: Option<gpui::FocusHandle>,
+    pub(crate) drawer_layout_save: Option<gpui::Task<()>>,
+    pub(crate) drawer_layout_generation: Arc<AtomicU64>,
     pub(crate) drawer_widths: drawers::resize::DesktopDrawerWidths,
     pub(crate) drawer_resize: Option<drawers::resize::DesktopDrawerResizeSession>,
     pub(crate) frosted_wallpaper: drawers::material::FrostedWallpaperState,
@@ -189,6 +196,18 @@ pub(crate) struct DesktopWorkspaceUiState {
 }
 
 impl DesktopWorkspaceUiState {
+    pub(crate) fn left_view_slide_active(&self) -> bool {
+        self.left_view_slide.is_active()
+    }
+
+    pub(crate) fn tick_left_view_slide(
+        &mut self,
+        delta: std::time::Duration,
+        reduce_motion: bool,
+    ) -> bool {
+        self.left_view_slide.tick(delta, reduce_motion)
+    }
+
     pub(crate) fn advance_assistant_orb(
         &mut self,
         delta: std::time::Duration,
@@ -233,6 +252,12 @@ impl DesktopWorkspaceUiState {
             drawers: runtime::desktop_drawers::DesktopDrawerState::default(),
             left_open_before_project: None,
             drawer_motion: drawers::motion::DesktopAssistantDrawerMotion::default(),
+            left_view_slide: drawers::left_view_slide::LeftViewSlide::default(),
+            left_chat_tab_focus: None,
+            left_overview_tab_focus: None,
+            left_overview_focus: None,
+            drawer_layout_save: None,
+            drawer_layout_generation: Arc::new(AtomicU64::new(0)),
             drawer_widths: drawers::resize::DesktopDrawerWidths::default(),
             drawer_resize: None,
             frosted_wallpaper: drawers::material::FrostedWallpaperState::default(),
@@ -385,6 +410,7 @@ impl MultisoulApp {
     }
 
     pub(crate) fn stop_desktop_sessions(&mut self, cx: &mut gpui::Context<Self>) {
+        self.flush_left_drawer_view_on_exit();
         let sessions = std::mem::take(&mut self.desktop_workspace.sessions);
         for session in sessions.into_values() {
             session.update(cx, |session, cx| session.stop_project(cx));

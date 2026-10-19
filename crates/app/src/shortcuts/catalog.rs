@@ -247,6 +247,13 @@ const DEFAULT_SHORTCUT_ENTRIES: &[ShortcutEntry] = &[
         Some("cmd-,"),
     ),
     entry(
+        ShortcutCommandId::ToggleRunOverview,
+        "common.workspace",
+        "shortcuts.toggle_run_overview",
+        "shortcuts.switch_the_left_drawer_between_chat_and_run_overview",
+        Some("cmd-shift-e"),
+    ),
+    entry(
         ShortcutCommandId::VoiceInteraction,
         "common.voice",
         "shortcuts.voice_interaction",

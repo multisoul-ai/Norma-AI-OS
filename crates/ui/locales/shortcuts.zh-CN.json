@@ -93,5 +93,7 @@
   "shortcuts.terminal_input": "终端输入",
   "shortcuts.printable_keys_enter_tab_ctrl_and_alt_are_forwarded_to_pty": "可打印字符、Enter、Tab、Ctrl 和 Alt 会传给 PTY",
   "shortcuts.node_behavior": "节点行为",
-  "shortcuts.open_project": "打开项目"
+  "shortcuts.open_project": "打开项目",
+  "shortcuts.toggle_run_overview": "切换运行概览",
+  "shortcuts.switch_the_left_drawer_between_chat_and_run_overview": "在左侧抽屉的对话与运行概览之间切换"
 }

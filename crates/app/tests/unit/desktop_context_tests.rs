@@ -19,6 +19,7 @@ fn visible_desktop_context_distinguishes_overview_project_and_launchpad() {
         expanded_area_id: None,
         overview_scroll_y: 0,
         wallpaper: None,
+        drawer_layout_json: None,
     };
     let areas = vec![DesktopProjectArea {
         id: "area-7".into(),

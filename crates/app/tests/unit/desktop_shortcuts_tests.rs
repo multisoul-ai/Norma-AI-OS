@@ -187,3 +187,64 @@ fn desktop_creation_shortcuts_record_and_restore() {
         "恢复后添加自定义键不能残留"
     );
 }
+
+/// 切换运行概览默认是 ⌘⇧E，可录制成其他组合并恢复，且不改语音的 ⌘E。
+///
+/// 数据构造：空偏好；自定义键选未被占用的 Cmd+Shift+Y。
+/// 执行过程：核对默认分派，录制新键，JSON 重载，再恢复默认。
+/// 预期结果：默认 ⌘⇧E 命中切换运行概览，⌘E 始终是语音；恢复后自定义键消失。
+#[test]
+fn toggle_run_overview_records_and_restores_without_taking_voice() {
+    let mut state = ShortcutSettingsState::default();
+    let command = |state: &ShortcutSettingsState, key| {
+        state.command_for_keystroke(&Keystroke::parse(key).expect("测试键位合法"))
+    };
+    assert_eq!(
+        command(&state, "cmd-shift-e"),
+        Some(ShortcutCommandId::ToggleRunOverview),
+        "⌘⇧E 应切换运行概览"
+    );
+    assert_eq!(
+        command(&state, "cmd-e"),
+        Some(ShortcutCommandId::VoiceInteraction),
+        "⌘E 仍是语音，不能被运行概览占用"
+    );
+    state.begin_recording(ShortcutCommandId::ToggleRunOverview);
+    assert!(
+        state.record_keystroke(&Keystroke::parse("cmd-shift-y").unwrap()),
+        "应能把切换运行概览录制成 ⌘⇧Y"
+    );
+    let mut restored =
+        ShortcutSettingsState::new(ShortcutPreferences::from_json(&state.prefs.to_json()), None);
+    assert_eq!(
+        command(&restored, "cmd-shift-y"),
+        Some(ShortcutCommandId::ToggleRunOverview),
+        "重载后自定义键仍切换运行概览"
+    );
+    assert_eq!(
+        command(&restored, "cmd-shift-e"),
+        None,
+        "录制新键后默认 ⌘⇧E 应让出"
+    );
+    assert_eq!(
+        command(&restored, "cmd-e"),
+        Some(ShortcutCommandId::VoiceInteraction),
+        "改运行概览的键不应影响语音 ⌘E"
+    );
+    restored.restore_default(ShortcutCommandId::ToggleRunOverview);
+    assert_eq!(
+        command(&restored, "cmd-shift-e"),
+        Some(ShortcutCommandId::ToggleRunOverview),
+        "恢复默认后 ⌘⇧E 回到切换运行概览"
+    );
+    assert_eq!(
+        command(&restored, "cmd-shift-y"),
+        None,
+        "恢复默认后自定义键不再命中"
+    );
+    assert_eq!(
+        command(&restored, "cmd-e"),
+        Some(ShortcutCommandId::VoiceInteraction),
+        "恢复运行概览默认键后语音仍是 ⌘E"
+    );
+}

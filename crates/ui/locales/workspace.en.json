@@ -120,5 +120,7 @@
   "workspace.clone": "Clone",
   "workspace.stopping_git_and_cleaning_the_incomplete_clone": "Stopping Git and cleaning the incomplete clone…",
   "workspace.project_count": "Projects: %{count}",
-  "workspace.workspace_count": "Workspaces: %{count}"
+  "workspace.workspace_count": "Workspaces: %{count}",
+  "workspace.left_tab_chat": "Chat",
+  "workspace.left_tab_overview": "Run Overview"
 }

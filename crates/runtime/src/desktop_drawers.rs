@@ -1,17 +1,26 @@
 //! Pure desktop assistant drawer decisions; GPUI only applies the resulting view state.
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum DesktopLeftView {
+    #[default]
+    Chat,
+    Overview,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct DesktopDrawerState {
     pub left_open: bool,
     pub right_open: bool,
-    pub overview_expanded: bool,
+    pub left_view: DesktopLeftView,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DesktopDrawerEvent {
     ToggleLeft,
     ToggleRight,
-    ToggleOverview,
+    ToggleRunOverview,
+    SelectLeftView(DesktopLeftView),
+    EscapeOverview,
     OpenArtifact,
     VoiceTriggered,
     ArtifactReady,
@@ -59,11 +68,62 @@ pub fn route_drawer(
     match event {
         DesktopDrawerEvent::ToggleLeft => state.left_open = !state.left_open,
         DesktopDrawerEvent::ToggleRight => state.right_open = !state.right_open,
-        DesktopDrawerEvent::ToggleOverview => state.overview_expanded = !state.overview_expanded,
+        DesktopDrawerEvent::ToggleRunOverview => {
+            state.left_view = match state.left_view {
+                DesktopLeftView::Chat => DesktopLeftView::Overview,
+                DesktopLeftView::Overview => DesktopLeftView::Chat,
+            };
+            if state.left_view == DesktopLeftView::Overview {
+                state.left_open = true;
+            }
+        }
+        DesktopDrawerEvent::SelectLeftView(view) => {
+            state.left_view = view;
+            if view == DesktopLeftView::Overview {
+                state.left_open = true;
+            }
+        }
+        DesktopDrawerEvent::EscapeOverview => {
+            if state.left_view == DesktopLeftView::Overview {
+                state.left_view = DesktopLeftView::Chat;
+            }
+        }
         DesktopDrawerEvent::OpenArtifact => state.right_open = true,
         DesktopDrawerEvent::ResizeLeft(open) => state.left_open = open,
         DesktopDrawerEvent::ResizeRight(open) => state.right_open = open,
         DesktopDrawerEvent::VoiceTriggered | DesktopDrawerEvent::ArtifactReady => {}
+    }
+    state
+}
+
+pub fn left_view_preference_json(view: DesktopLeftView) -> &'static str {
+    match view {
+        DesktopLeftView::Chat => r#"{"left_view":"chat"}"#,
+        DesktopLeftView::Overview => r#"{"left_view":"overview"}"#,
+    }
+}
+
+pub fn left_view_from_preference(raw: Option<&str>) -> DesktopLeftView {
+    let Some(raw) = raw.map(str::trim).filter(|value| !value.is_empty()) else {
+        return DesktopLeftView::Chat;
+    };
+    match serde_json::from_str::<serde_json::Value>(raw) {
+        Ok(value) => match value.get("left_view").and_then(|item| item.as_str()) {
+            Some("overview") => DesktopLeftView::Overview,
+            _ => DesktopLeftView::Chat,
+        },
+        Err(_) => DesktopLeftView::Chat,
+    }
+}
+
+/// Restoring an overview view also opens a collapsed left drawer so the view is visible.
+pub fn restore_left_view(
+    mut state: DesktopDrawerState,
+    view: DesktopLeftView,
+) -> DesktopDrawerState {
+    state.left_view = view;
+    if view == DesktopLeftView::Overview {
+        state.left_open = true;
     }
     state
 }

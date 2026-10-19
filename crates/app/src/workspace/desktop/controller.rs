@@ -196,7 +196,7 @@ impl MultisoulApp {
             .desktop_workspace
             .content_tab_generation
             .wrapping_add(1);
-        self.desktop_workspace.active_id = Some(id.clone());
+        self.activate_desktop_workspace_view(&id, cx);
         self.desktop_workspace.areas.clear();
         self.desktop_workspace.workbench = Default::default();
         self.desktop_workspace.content_tabs.clear();

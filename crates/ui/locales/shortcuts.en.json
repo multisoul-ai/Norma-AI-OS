@@ -93,5 +93,7 @@
   "shortcuts.terminal_input": "Terminal Input",
   "shortcuts.printable_keys_enter_tab_ctrl_and_alt_are_forwarded_to_pty": "Printable keys, Enter, Tab, Ctrl, and Alt are forwarded to PTY",
   "shortcuts.node_behavior": "Node behavior",
-  "shortcuts.open_project": "Open Project"
+  "shortcuts.open_project": "Open Project",
+  "shortcuts.toggle_run_overview": "Toggle Run Overview",
+  "shortcuts.switch_the_left_drawer_between_chat_and_run_overview": "Switch the left drawer between chat and the run overview"
 }
