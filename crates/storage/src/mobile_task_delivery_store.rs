@@ -5,7 +5,7 @@ use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{io, path::PathBuf};
-use workspace::review::ProjectReview;
+use workspace::review::{FileVersion, ProjectReview};
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
@@ -65,6 +65,19 @@ pub struct TaskDeliverySummary {
     pub acceptance: Option<crate::DeliveryAcceptance>,
 }
 
+/// A task-bound path only. The caller must still verify that the current file is openable.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReviewableFileRef {
+    pub workspace_id: String,
+    pub node_id: u64,
+    pub profile: String,
+    pub run_id: String,
+    pub turn_id: String,
+    pub path: String,
+    pub fingerprint: String,
+    pub saved_at_unix: u64,
+}
+
 #[derive(Clone)]
 pub struct MobileTaskDeliveryStore {
     path: PathBuf,
@@ -72,6 +85,90 @@ pub struct MobileTaskDeliveryStore {
 impl MobileTaskDeliveryStore {
     pub fn new(path: PathBuf) -> Self {
         Self { path }
+    }
+
+    /// Return bounded task-sourced file references without loading frozen file bytes.
+    pub fn reviewable_file_refs(&self, workspace: &str) -> StorageResult<Vec<ReviewableFileRef>> {
+        crate::mobile_turn_store::validate_workspace_scope(workspace)?;
+        let connection = open_app_connection(&self.path)?;
+        let mut query = connection.prepare(&format!(
+            "SELECT d.workspace_id,d.node_id,
+                    json_extract(d.data_json,'$.outcome.key.profile'),
+                    json_extract(d.data_json,'$.outcome.key.run_id'),
+                    json_extract(d.data_json,'$.outcome.key.turn_id'),
+                    json_extract(file.value,'$.path'),
+                    json_extract(d.data_json,'$.fingerprint'),
+                    json_extract(d.data_json,'$.saved_at_unix')
+             FROM mobile_task_deliveries d
+             JOIN json_each(d.data_json,'$.content.review.files') file
+             LEFT JOIN mobile_delivery_acceptances a
+               ON a.workspace_id=d.workspace_id AND a.run_id=d.run_id AND a.turn_id=d.turn_id
+             WHERE d.workspace_id=?1 AND {REVIEWABLE} AND a.run_id IS NULL
+               AND json_type(file.value,'$.after')='object'
+             ORDER BY d.sequence DESC LIMIT 40"
+        ))?;
+        let rows = query.query_map([workspace], |row| {
+            Ok(ReviewableFileRef {
+                workspace_id: row.get(0)?,
+                node_id: row.get(1)?,
+                profile: row.get(2)?,
+                run_id: row.get(3)?,
+                turn_id: row.get(4)?,
+                path: row.get(5)?,
+                fingerprint: row.get(6)?,
+                saved_at_unix: row.get(7)?,
+            })
+        })?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+    }
+
+    /// Resolve an overview file tab to immutable bytes from its exact task delivery.
+    /// This is a background-only read of bounded review data, never a current-path fallback.
+    pub fn frozen_file_version(
+        &self,
+        workspace: &str,
+        node_id: u64,
+        expected_fingerprint: &str,
+        path: &str,
+    ) -> StorageResult<Option<FileVersion>> {
+        crate::mobile_turn_store::validate_workspace_scope(workspace)?;
+        if node_id == 0 || node_id > i64::MAX as u64 || path.is_empty() {
+            return Ok(None);
+        }
+        let connection = open_app_connection(&self.path)?;
+        let raw: Option<String> = connection
+            .query_row(
+                "SELECT data_json FROM mobile_task_deliveries \
+                 WHERE workspace_id=?1 AND node_id=?2 \
+                 AND json_extract(data_json,'$.fingerprint')=?3 LIMIT 1",
+                params![workspace, node_id, expected_fingerprint],
+                |row| row.get(0),
+            )
+            .optional()?;
+        let Some(raw) = raw else {
+            return Ok(None);
+        };
+        if raw.len() > 32 * 1024 * 1024 {
+            return Err(invalid("saved delivery too large"));
+        }
+        let saved: StoredTaskDelivery = serde_json::from_str(&raw)?;
+        saved.outcome.key.validate()?;
+        saved.content.validate()?;
+        if saved.workspace_id != workspace
+            || saved.outcome.key.node_id != node_id
+            || saved.fingerprint != expected_fingerprint
+            || saved.fingerprint != fingerprint(workspace, &saved.outcome, &saved.content)?
+        {
+            return Err(invalid("saved delivery identity or content mismatch"));
+        }
+        let TaskDeliveryContent::Available { review } = saved.content else {
+            return Ok(None);
+        };
+        Ok(review
+            .files
+            .into_iter()
+            .find(|file| file.path == path)
+            .and_then(|file| file.after))
     }
 
     /// The immutable pre-send binding identifies this operation's turn. Only metadata leaves SQLite;

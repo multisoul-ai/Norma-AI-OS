@@ -63,6 +63,9 @@ pub(crate) fn shutdown(cx: &mut App) {
 }
 
 pub(crate) fn can_quit(cx: &mut App) -> bool {
+    if !super::desktop::sessions::can_quit(cx) {
+        return false;
+    }
     let projects = cx
         .default_global::<Sessions>()
         .projects

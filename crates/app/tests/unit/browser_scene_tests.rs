@@ -166,3 +166,83 @@ fn browser_scene_preserves_document_and_detached_session() {
         assert_eq!(view.url, "https://example.com/", "离场不能清空原网页地址");
     });
 }
+
+/// 场景：Git 回执占用正文高度后，原生预览仍须完整放入剩余区域。
+/// 数据构造：1280×800 窗口，默认右栏，一个 HTML 预览和额外的 Git 完成回执。
+/// 执行过程：恢复工作台、加载预览、显示回执并绘制生产 scene。
+/// 预期结果：WebView 逻辑高度等于实际可见高度，底部媒体控件不会被裁掉。
+#[test]
+fn workbench_preview_fits_remaining_space_below_notice() {
+    use crate::preview::local_content::LocalPreview;
+    use gpui::{px, size, AppContext};
+    use storage::{DesktopContentKind, DesktopContentTab};
+    use workspace::content::Project;
+    let temp = tempfile::tempdir().expect("目录");
+    let root = temp.path().join("project");
+    std::fs::create_dir(&root).expect("项目");
+    std::fs::write(root.join("page.html"), "<h1>Preview</h1>").expect("预览");
+    let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
+    let store = storage::AppStore::initialize(&paths).expect("存储");
+    let workspace = store
+        .desktop_workspace_store()
+        .create("Preview Size")
+        .expect("空间");
+    let area = store
+        .desktop_workspace_store()
+        .add_project(&workspace.id, &root)
+        .expect("项目来源");
+    let mut test = TestAppContext::single();
+    let mut host = None;
+    let (_, cx) = test.add_window_view(|window, cx| {
+        let app = cx.new(|cx| MultisoulApp::new_with_database_context(cx, paths, store));
+        host = Some(app.clone());
+        ui::component::Root::new(app, window, cx)
+    });
+    let host = host.expect("宿主");
+    cx.simulate_resize(size(px(1280.0), px(800.0)));
+    host.update_in(cx, |app, _, cx| {
+        app.motion.reduce_motion = true;
+        app.browsers.disable_native_views();
+        app.screen = AppScreen::DesktopWorkspace;
+        app.desktop_workspace.active_id = Some(workspace.id.clone());
+        app.desktop_workspace.workspaces = vec![workspace.clone()];
+        app.desktop_workspace.areas = vec![area.clone()];
+        app.desktop_workspace.drawers.right_open = true;
+        app.desktop_workspace.drawer_motion.retarget(false, true);
+        app.desktop_workspace.content_tabs = vec![DesktopContentTab {
+            id: "abcd1234".into(),
+            workspace_id: workspace.id.clone(),
+            source_area_id: None,
+            source_project_name: "Preview Size".into(),
+            kind: DesktopContentKind::ProjectFiles,
+            resource: "project-files".into(),
+            version: None,
+            title: "文件".into(),
+            position: 0,
+            selected: true,
+            source_removed: false,
+        }];
+        let s = &mut app.desktop_workspace.workbench;
+        s.saved.area_id = Some(area.id.clone());
+        s.project_area = Some(area.id.clone());
+        s.project = Some(Project::open(&root).expect("项目"));
+        s.saved.selected = Some("page.html".into());
+        s.sidebar_open = false;
+        s.preview =
+            Some(LocalPreview::new(&root, "page.html", Some("<h1>Preview</h1>")).expect("预览"));
+        s.notice = Some("Git 操作完成".into());
+        cx.notify();
+    });
+    cx.update(|window, cx| window.draw(cx).clear());
+    host.read_with(cx, |app, _| {
+        let id = (1_u64 << 63) | 0xabcd1234; // 内容标签 ID 按十六进制解析，并置高位。
+        let view = app.browsers.views.get(&id).expect("原生预览应已呈现");
+        let (placement, _, _) = view.presentation.expect("预览应在窗口内");
+        assert_eq!(
+            view.bounds.height,
+            f64::from(f32::from(placement.visible_bounds.size.height)),
+            "预览必须使用剩余实际高度，不能把底部控件放到裁剪区域外"
+        );
+        assert!(view.bounds.height > 500.0, "正文仍保留主要可视区域");
+    });
+}

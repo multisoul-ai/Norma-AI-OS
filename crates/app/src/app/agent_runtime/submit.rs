@@ -2,31 +2,43 @@ use super::{
     contextualized_agent_commands, start_adapter_pump, start_event_pump, ProjectAgentRuntime,
 };
 use crate::app::MultisoulApp;
-use agent::{AgentCommand, AgentEvent};
+use agent::{AdapterError, AdapterResult, AgentCommand, AgentEvent};
 use gpui::{Context, Window};
 
 impl MultisoulApp {
-    #[cfg(feature = "e2e-test-support")]
-    pub(crate) fn submit_compact_agent_text(
+    pub(crate) fn submit_tracked_agent_text(
         &mut self,
         node_id: canvas::NodeId,
         text: &str,
         cx: &mut Context<Self>,
-    ) -> Result<(), String> {
-        let is_agent = self
+    ) -> Result<AdapterResult, AdapterError> {
+        let definition_id = self
             .runtime
             .document
             .node(node_id)
-            .is_some_and(|node| matches!(node.kind, canvas::CanvasNodeKind::Agent(_)));
-        if !is_agent {
-            return Err("Target Agent card no longer exists".to_string());
+            .and_then(|node| match &node.kind {
+                canvas::CanvasNodeKind::Agent(spec) => spec.definition_id,
+                _ => None,
+            })
+            .ok_or_else(|| AdapterError::Rejected("目标 Agent 卡片已失效或缺少任务身份".into()))?;
+        let agent = self
+            .agent_definitions
+            .definitions()
+            .iter()
+            .find(|definition| definition.id == definition_id)
+            .map(|definition| definition.name.clone())
+            .ok_or_else(|| AdapterError::Rejected("目标 Agent 定义已失效".into()))?;
+        let active_node_id = self
+            .agent_roster_for_provider()
+            .into_iter()
+            .find(|entry| entry.definition_id == definition_id)
+            .and_then(|entry| entry.active_node_id);
+        if active_node_id != Some(node_id) {
+            return Err(AdapterError::Rejected(
+                "目标 Agent 卡片已变化，请重新查询目标".into(),
+            ));
         }
-        super::command_support::type_agent_task(&mut self.runtime, node_id, text)
-            .map_err(|error| error.to_string())?;
-        super::command_support::submit_agent_enter(&mut self.runtime, node_id)
-            .map_err(|error| error.to_string())?;
-        cx.notify();
-        Ok(())
+        super::adapter_task::dispatch_agent_task(self, None, cx, agent, text.to_owned(), false)
     }
 
     pub(crate) fn submit_project_agent(
@@ -71,7 +83,8 @@ impl MultisoulApp {
         }
         let roster = self.agent_roster_for_provider();
         let canvas = self.current_canvas_context_for_provider();
-        let mut commands = contextualized_agent_commands(roster, canvas, command);
+        let desktop = self.desktop_context_for_provider(cx);
+        let mut commands = contextualized_agent_commands(roster, canvas, desktop, command);
         let requested = commands
             .pop()
             .expect("contextualized command batch should include the requested command");

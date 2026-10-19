@@ -206,7 +206,8 @@ cp "$dev_plist" "$fixture_root/packaging/macos/DevInfo.plist"
 cp -R "$repo_root/packaging/macos/en.lproj" "$fixture_root/packaging/macos/"
 cp -R "$repo_root/packaging/macos/zh-CN.lproj" "$fixture_root/packaging/macos/"
 cp "$entitlements" "$fixture_root/packaging/macos/NormaOS.entitlements"
-printf 'fixture bundle wallpaper\n' >"$fixture_wallpaper_source"
+printf 'version https://git-lfs.github.com/spec/v1\noid sha256:fixture\nsize 25\n' >"$fixture_wallpaper_source"
+touch "$fixture_root/.git"
 printf 'fixture feature guide video\n' >"$fixture_feature_guide_source"
 printf 'fixture home resource\n' >"$fixture_home_source"
 printf '{"name":"fixture-browser-auth-extension"}\n' >"$fixture_auth_extension_manifest"
@@ -217,6 +218,10 @@ cat >"$fixture_root/scripts/prepare-release-media.sh" <<'MEDIA'
 #!/usr/bin/env bash
 set -euo pipefail
 [ "${1:-}" = --local-test ]
+if grep -Fq 'version https://git-lfs.github.com/spec/v1' crates/app/assets/wallpapers/1407174.mp4; then
+  echo 'fixture wallpaper is still an LFS pointer' >&2
+  exit 1
+fi
 mkdir -p build/release-media/wallpaper-previews
 cp -R crates/app/assets/wallpapers build/release-media/
 cp -R crates/app/assets/feature-guide build/release-media/
@@ -224,6 +229,22 @@ printf 'trusted fixture catalog\n' >build/release-media/media-catalog.json
 printf 'static fixture preview\n' >build/release-media/wallpaper-previews/optional.webp
 MEDIA
 chmod +x "$fixture_root/scripts/prepare-release-media.sh"
+
+# 新 worktree 有本地 LFS 对象但媒体文件仍是指针时，开发启动必须先还原真实字节。
+cat >"$fixture_bin/git" <<'GIT'
+#!/usr/bin/env bash
+set -euo pipefail
+[ "${1:-}" = lfs ] && [ "${2:-}" = checkout ]
+shift 2
+for media_path in "$@"; do
+  case "$media_path" in
+    crates/app/assets/wallpapers/1407174.mp4)
+      printf 'fixture bundle wallpaper\n' >"$FAKE_REPO_ROOT/$media_path"
+      ;;
+  esac
+done
+GIT
+chmod +x "$fixture_bin/git"
 
 cat >"$fixture_input" <<'APP'
 #!/usr/bin/env bash
@@ -313,6 +334,7 @@ OPEN
 chmod +x "$fixture_bin/open"
 
 PATH="$fixture_bin:$PATH" OPEN_APP_PID_FILE="$app_pid_file" \
+  FAKE_REPO_ROOT="$fixture_root" \
   FAKE_CLI_SOURCE="$fixture_cli_source" FAKE_CLI_DEST="$fixture_cli" \
   FAKE_HOOK_SOURCE="$fixture_hook_source" FAKE_HOOK_DEST="$fixture_hook" \
   FAKE_AUTH_HOST_SOURCE="$fixture_auth_host_source" FAKE_AUTH_HOST_DEST="$fixture_auth_host" \
@@ -462,6 +484,7 @@ bundle_main="$tmp_dir/Norma OS Dev.app/Contents/MacOS/norma-os"
 app_pid=$!
 
 PATH="$fixture_bin:$PATH" OPEN_APP_PID_FILE="$app_pid_file" \
+  FAKE_REPO_ROOT="$fixture_root" \
   FAKE_CLI_SOURCE="$fixture_cli_source" FAKE_CLI_DEST="$fixture_cli" \
   FAKE_HOOK_SOURCE="$fixture_hook_source" FAKE_HOOK_DEST="$fixture_hook" \
   FAKE_AUTH_HOST_SOURCE="$fixture_auth_host_source" FAKE_AUTH_HOST_DEST="$fixture_auth_host" \

@@ -19,7 +19,9 @@
 | 模块 | 场景 | 验收范围 |
 | --- | --- | --- |
 | `workspace` | `workspace-lifecycle` | 工作空间目录：创建、列出、按名称搜索、重命名、取消删除、确认删除、项目目录保留、重启后不恢复。核对 `desktop_workspaces` 与 `desktop_project_areas`。 |
-| `settings` | `settings-navigation`、`settings-basic-preferences`、`settings-responsive-keyboard` | 两级导航、基础设置中的语言与节能、主题切换、持久化与重启恢复，以及键盘和窄窗口。 |
+| `canvas` | `canvas-drawers`、`canvas-project-drawers`、`canvas-content-tabs` | 桌面画布外壳：左右抽屉独立开合及拖宽自动收起、悬浮概览折叠、真实项目画布与输入位置；右侧内容标签的恢复、切换与来源移除。 |
+| `content` | `content-workbench` | 项目文件树、编辑保存、Git 暂存/提交（核对真实索引与 HEAD）、Markdown/HTML、图片缩放、视频播放与隐藏暂停、浏览器导航/会话保留、深浅主题。 |
+| `settings` | `settings-navigation`、`settings-basic-preferences`、`settings-responsive-keyboard`、`settings-space-wallpapers` | 两级导航、基础设置中的语言与节能、主题切换、太空壁纸选择与预览、持久化与重启恢复，以及键盘和窄窗口。 |
 
 ## 预留模块
 
@@ -27,7 +29,6 @@
 
 | 模块 | 以后验收什么 |
 | --- | --- |
-| `canvas` | 画布平移、选择、节点焦点，以及节点在画布上的可见结果 |
 | `terminal` | Terminal 节点的创建、输入、输出和焦点进出 |
 | `agent` | Agent 卡片的创建、状态和可见回复 |
 | `voice` | 语音输入或朗读在真实窗口上的可见状态 |

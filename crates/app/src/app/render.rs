@@ -99,11 +99,32 @@ impl Render for MultisoulApp {
                 }
             }
             AppScreen::DesktopWorkspace => {
+                root = root.child(self.render_workspace_backdrop());
                 if self.desktop_directory_zoom_active() {
-                    root = root.child(self.render_workspace_backdrop());
                     root = root.child(self.render_desktop_launchpad(window, cx));
                 }
-                root = root.child(self.render_desktop_workspace(window, cx));
+                let layout = self.desktop_assistant_layout(window);
+                let directory_zoom = self.desktop_directory_zoom_active();
+                root = root.child(
+                    div()
+                        .id("desktop-assistant-canvas-region")
+                        .debug_selector(|| "desktop-assistant-canvas-region".to_string())
+                        .absolute()
+                        .top(px(0.0))
+                        .bottom(px(0.0))
+                        .left(px(if directory_zoom {
+                            0.0
+                        } else {
+                            layout.left_space
+                        }))
+                        .right(px(if directory_zoom {
+                            0.0
+                        } else {
+                            layout.right_space
+                        }))
+                        .overflow_hidden()
+                        .child(self.render_desktop_workspace(window, cx)),
+                );
             }
             AppScreen::Canvas => {
                 root = root
@@ -132,11 +153,29 @@ impl Render for MultisoulApp {
                 || (matches!(self.screen, AppScreen::Launchpad)
                     && self.command_input_focused(window, cx)))
         {
-            root = root.child(self.render_desktop_dock(window, cx));
+            if matches!(self.screen, AppScreen::DesktopWorkspace)
+                && !self.desktop_directory_zoom_active()
+            {
+                let layout = self.desktop_assistant_layout(window);
+                root = root.child(
+                    div()
+                        .id("desktop-assistant-dock-region")
+                        .debug_selector(|| "desktop-assistant-dock-region".to_string())
+                        .absolute()
+                        .top(px(0.0))
+                        .bottom(px(0.0))
+                        .left(px(layout.left_space))
+                        .right(px(layout.right_space))
+                        .child(self.render_desktop_dock(window, cx)),
+                );
+            } else {
+                root = root.child(self.render_desktop_dock(window, cx));
+            }
             if matches!(self.screen, AppScreen::DesktopWorkspace)
                 && !self.desktop_directory_zoom_active()
             {
                 root = root.child(self.render_desktop_workspace_top_bar(window, cx));
+                root = root.child(self.render_desktop_assistant_drawers(window, cx));
             }
         }
 

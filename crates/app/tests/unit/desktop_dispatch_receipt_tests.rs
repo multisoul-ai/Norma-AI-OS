@@ -129,12 +129,12 @@ fn desktop_workspace_dispatch_receipt_is_painted_over_shared_dock() {
     assert_eq!(
         overlay.origin,
         point(px(0.0), px(0.0)),
-        "流星层必须从窗口原点开始"
+        "项目视图左栏默认收起，流星层必须从完整画布左边缘开始"
     );
     assert_eq!(
         overlay.size,
         size(px(1280.0), px(800.0)),
-        "流星层必须覆盖共享 Dock"
+        "流星层必须覆盖中间画布的共享 Dock"
     );
     assert_ne!(
         overlay.origin,

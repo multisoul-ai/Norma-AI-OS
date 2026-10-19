@@ -69,6 +69,19 @@ impl CanvasLayoutStrategy {
     }
 }
 
+/// An embedded project keeps its user's layout choice until the drawer canvas is too narrow.
+pub(crate) fn embedded_project_layout_strategy(
+    mut strategy: CanvasLayoutStrategy,
+    canvas_width: f32,
+) -> CanvasLayoutStrategy {
+    if canvas_width <= 650.0 {
+        strategy.fill = GridFill::RowFirst;
+        strategy.track_count = 1;
+        strategy.sizing = GridCardSizing::FitViewport;
+    }
+    strategy
+}
+
 pub(crate) fn layout_gap_for_zoom(zoom: f32) -> f32 {
     LAYOUT_GAP_SCREEN_PX / zoom.max(0.001)
 }
@@ -107,6 +120,35 @@ pub(crate) fn apply_workspace_reflow_for_area(
         .iter()
         .map(|node| node.id)
         .collect();
+    apply_workspace_reflow_for_ids(runtime, motion, &ordered_ids, area, zoom, strategy);
+}
+
+/// The desktop project canvas omits legacy content nodes; they must not reserve grid cells.
+pub(crate) fn apply_embedded_project_reflow_for_area(
+    runtime: &mut Runtime,
+    motion: &mut MotionStore,
+    area: CanvasRect,
+    zoom: f32,
+    strategy: CanvasLayoutStrategy,
+) {
+    let ordered_ids: Vec<_> = runtime
+        .document
+        .nodes()
+        .iter()
+        .filter(|node| crate::canvas::view::embedded_node_visible(node.kind.node_type(), true))
+        .map(|node| node.id)
+        .collect();
+    apply_workspace_reflow_for_ids(runtime, motion, &ordered_ids, area, zoom, strategy);
+}
+
+fn apply_workspace_reflow_for_ids(
+    runtime: &mut Runtime,
+    motion: &mut MotionStore,
+    ordered_ids: &[NodeId],
+    area: CanvasRect,
+    zoom: f32,
+    strategy: CanvasLayoutStrategy,
+) {
     let assignments =
         compute_configurable_grid_layout(&ordered_ids, area, strategy.grid_config_for_zoom(zoom));
     apply_layout_assignments(runtime, motion, assignments, zoom);

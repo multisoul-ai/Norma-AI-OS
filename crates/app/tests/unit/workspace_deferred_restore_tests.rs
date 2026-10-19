@@ -114,6 +114,30 @@ fn desktop_overview_restores_live_sessions_before_project_expansion() {
             CanvasNodeKind::Term(TermSpec),
             CanvasRect::new(660., 0., 640., 400.),
         );
+        app.refresh_desktop_presentation_for_area(CanvasRect::new(0., 0., 472., 710.), 1.0);
+        assert_eq!(
+            app.desktop_presentation_bounds.len(),
+            2,
+            "会话恢复前应先建立窄画布展示位置"
+        );
+        assert!(
+            !app.runtime.take_events().iter().any(|event| {
+                matches!(event, runtime::RuntimeEvent::NodeOperationFailed { .. })
+            }),
+            "未恢复的终端不应产生无意义的 resize 失败事件"
+        );
+        app.refresh_desktop_presentation_for_area(CanvasRect::new(0., 0., 472., 710.), 1.0);
+        assert_eq!(
+            app.desktop_presentation_bounds.len(),
+            2,
+            "会话恢复前应先建立窄画布展示位置"
+        );
+        assert!(
+            !app.runtime.take_events().iter().any(|event| {
+                matches!(event, runtime::RuntimeEvent::NodeOperationFailed { .. })
+            }),
+            "未恢复的终端不应产生无意义的 resize 失败事件"
+        );
         app.background_restore = Some(PendingLiveSessionRestore::new(
             root.path().to_owned(),
             &app.runtime,
@@ -140,6 +164,24 @@ fn desktop_overview_restores_live_sessions_before_project_expansion() {
             "第二张真实终端也应恢复，不能等用户展开"
         );
         assert_eq!(app.runtime.live_len(), 2, "总览应启动两张存储卡片的会话");
+        let shown = app.desktop_presentation_bounds[&first];
+        let runtime::NodeResize::TermGrid { cols, .. } =
+            crate::cards::term::card::term_resize(shown, 1.0);
+        let runtime::NodeView::Term { snapshot, .. } =
+            app.runtime.node_view(first).expect("恢复后的终端应有画面");
+        assert_eq!(
+            snapshot.cols, cols as usize,
+            "延迟恢复的 PTY 必须采用当前窄画布列数"
+        );
+        let shown = app.desktop_presentation_bounds[&first];
+        let runtime::NodeResize::TermGrid { cols, .. } =
+            crate::cards::term::card::term_resize(shown, 1.0);
+        let runtime::NodeView::Term { snapshot, .. } =
+            app.runtime.node_view(first).expect("恢复后的终端应有画面");
+        assert_eq!(
+            snapshot.cols, cols as usize,
+            "延迟恢复的 PTY 必须采用当前窄画布列数"
+        );
         assert!(
             app.project_window.is_none(),
             "恢复会话不应把未展开项目绑定到前台窗口"

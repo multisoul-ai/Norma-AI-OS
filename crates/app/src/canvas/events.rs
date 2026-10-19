@@ -15,28 +15,64 @@ use crate::canvas::terminal_hit::{
     terminal_text_point_for_screen,
 };
 use crate::canvas::terminal_link::{terminal_link_intent, TerminalLinkIntent};
-use canvas::{hit_test, Vec2};
-use gpui::{
-    px, Context, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, ScrollWheelEvent,
-    Window,
-};
+use canvas::{hit_test, CanvasNode, CanvasRect, NodeId, Vec2};
+use gpui::{px, Context, MouseButton, MouseDownEvent, MouseMoveEvent, ScrollWheelEvent, Window};
 use runtime::{route, NodeScroll, Route};
 use std::time::{Duration, Instant};
 
 const MOTION_NOTIFY_INTERVAL: Duration = Duration::from_millis(16);
 const TERMINAL_LINK_DRAG_THRESHOLD_PX: f32 = 3.0;
 
+fn visible_hit(
+    nodes: &[CanvasNode],
+    point: Vec2,
+    embedded_desktop: bool,
+    presentation: &std::collections::HashMap<NodeId, CanvasRect>,
+) -> Option<NodeId> {
+    if !embedded_desktop {
+        return hit_test(nodes, point);
+    }
+    nodes
+        .iter()
+        .filter(|node| {
+            presentation
+                .get(&node.id)
+                .unwrap_or(&node.bounds)
+                .contains(point)
+                && super::view::embedded_node_visible(node.kind.node_type(), true)
+        })
+        .max_by_key(|node| node.z_index)
+        .map(|node| node.id)
+}
+
 /// 滚轮/触控板平移画布；卡片内部滚动优先于画布滚动。
 pub(super) fn on_scroll(
     app: &mut MultisoulApp,
     ev: &ScrollWheelEvent,
-    _w: &mut Window,
+    window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) {
     let _span = tracing::trace_span!("canvas_scroll").entered();
     let cursor = pt_to_vec(ev.position);
+    let presented_nodes = app
+        .runtime
+        .document
+        .nodes()
+        .iter()
+        .filter(|node| {
+            app.desktop_host.is_none()
+                || super::view::embedded_node_visible(node.kind.node_type(), true)
+        })
+        .map(|node| {
+            let mut node = node.clone();
+            if let Some(bounds) = app.desktop_presentation_bounds.get(&node.id) {
+                node.bounds = *bounds;
+            }
+            node
+        })
+        .collect::<Vec<_>>();
     let owner = wheel_scroll_owner_for_point(
-        app.runtime.document.nodes(),
+        &presented_nodes,
         &app.runtime.selection,
         cursor,
         app.runtime.document.viewport,
@@ -68,10 +104,20 @@ pub(super) fn on_scroll(
     cx.stop_propagation();
     let delta = ev.delta.pixel_delta(px(1.0));
     let pixel_delta = Vec2::new(f32::from(delta.x), f32::from(delta.y));
+    let stacked_scroll = app.desktop_host.is_some()
+        && crate::app::embedded_canvas::embedded_presentation_overflows_vertically(
+            &app.desktop_presentation_bounds,
+            app.visible_canvas_rect(window).size.y,
+        );
+    let pixel_delta = if stacked_scroll && !app.interaction.canvas_scroll_enabled {
+        Vec2::new(0.0, pixel_delta.y)
+    } else {
+        pixel_delta
+    };
     if apply_canvas_wheel_scroll(
         &mut app.runtime.document.viewport,
         pixel_delta,
-        app.interaction.canvas_scroll_enabled,
+        app.interaction.canvas_scroll_enabled || stacked_scroll,
     ) {
         app.mark_canvas_dirty();
         cx.notify();
@@ -117,7 +163,12 @@ pub(super) fn on_mouse_down(
     }
 
     let canvas_pt = app.runtime.document.viewport.screen_to_canvas(screen);
-    let hit = hit_test(app.runtime.document.nodes(), canvas_pt);
+    let hit = visible_hit(
+        app.runtime.document.nodes(),
+        canvas_pt,
+        app.desktop_host.is_some(),
+        &app.desktop_presentation_bounds,
+    );
 
     let (is_focusable, is_title_bar) = if let Some(id) = hit {
         if let Some(node) = app.runtime.document.node(id) {
@@ -125,7 +176,7 @@ pub(super) fn on_mouse_down(
                 .runtime
                 .document
                 .viewport
-                .canvas_to_screen(node.bounds.origin);
+                .canvas_to_screen(app.presented_node_bounds(id).unwrap_or(node.bounds).origin);
             (
                 app.runtime.node_caps(id).focusable,
                 is_title_bar_hit(screen.y, top_screen.y, app.runtime.document.viewport.zoom),
@@ -338,15 +389,20 @@ pub(super) fn on_mouse_move(
         let screen_delta = screen - drag.last_screen;
         // 屏幕位移 → 画布位移（除以 zoom）。
         let canvas_delta = Vec2::new(screen_delta.x / zoom, screen_delta.y / zoom);
-        app.runtime.document.move_node(drag.node, canvas_delta);
-        if let Some(node) = app.runtime.document.node(drag.node) {
-            app.motion.sync_drag_rect(drag.node, node.bounds);
+        if let Some(rect) = app.desktop_presentation_bounds.get_mut(&drag.node) {
+            rect.origin = rect.origin + canvas_delta;
+            app.motion.sync_drag_rect(drag.node, *rect);
+        } else {
+            app.runtime.document.move_node(drag.node, canvas_delta);
+            if let Some(node) = app.runtime.document.node(drag.node) {
+                app.motion.sync_drag_rect(drag.node, node.bounds);
+            }
         }
         // Convert node ref to Vec2 (Copy) before calling nodes(), avoiding overlapping borrows.
-        let dragged_center = app.runtime.document.node(drag.node).map(|n| {
+        let dragged_center = app.presented_node_bounds(drag.node).map(|bounds| {
             Vec2::new(
-                n.bounds.origin.x + n.bounds.size.x / 2.0,
-                n.bounds.origin.y + n.bounds.size.y / 2.0,
+                bounds.origin.x + bounds.size.x / 2.0,
+                bounds.origin.y + bounds.size.y / 2.0,
             )
         });
         let new_swap = if let Some(center) = dragged_center {
@@ -354,7 +410,12 @@ pub(super) fn on_mouse_move(
                 .document
                 .nodes()
                 .iter()
-                .find(|n| n.id != drag.node && n.bounds.contains(center))
+                .find(|n| {
+                    n.id != drag.node
+                        && app
+                            .presented_node_bounds(n.id)
+                            .is_some_and(|bounds| bounds.contains(center))
+                })
                 .map(|n| n.id)
         } else {
             None
@@ -373,7 +434,13 @@ pub(super) fn on_mouse_move(
     }
 
     let canvas_pt = app.runtime.document.viewport.screen_to_canvas(screen);
-    let hovered_link = hit_test(app.runtime.document.nodes(), canvas_pt).and_then(|node_id| {
+    let hovered_link = visible_hit(
+        app.runtime.document.nodes(),
+        canvas_pt,
+        app.desktop_host.is_some(),
+        &app.desktop_presentation_bounds,
+    )
+    .and_then(|node_id| {
         let point = terminal_link_point_for_screen(app, node_id, screen)?;
         let runtime::NodeView::Term { snapshot, .. } = app.runtime.node_view(node_id)?;
         let url = snapshot.link_at(point.row, point.col).or_else(|| {
@@ -394,89 +461,15 @@ pub(super) fn on_mouse_move(
     }
 }
 
-pub(super) fn on_mouse_up(
-    app: &mut MultisoulApp,
-    ev: &MouseUpEvent,
-    w: &mut Window,
-    cx: &mut Context<MultisoulApp>,
-) {
-    if app.interaction.finish_preview_pan() {
-        app.interaction.last_motion_notify = None;
-        cx.notify();
-        return;
-    }
-    if let Some(pending) = app.interaction.take_pending_terminal_link() {
-        let release_screen = pt_to_vec(ev.position);
-        if terminal_link_dragged(pending.pressed_screen, release_screen) {
-            if let Some(point) =
-                terminal_selection_point_for_screen(app, pending.node_id, release_screen)
-            {
-                app.interaction
-                    .begin_text_selection(pending.node_id, pending.anchor);
-                app.interaction
-                    .update_text_selection_head(pending.node_id, point);
-                app.interaction.finish_text_selection();
-            }
-            cx.notify();
-            return;
-        }
-        match pending.intent {
-            TerminalLinkIntent::OpenBrowserCard { url } => {
-                app.interaction.update_hovered_terminal_link(None);
-                app.open_terminal_link_in_browser_card(url, w)
-            }
-            TerminalLinkIntent::OpenDefaultBrowser { url } => {
-                app.interaction.update_hovered_terminal_link(None);
-                app.open_url_in_default_browser(url)
-            }
-            TerminalLinkIntent::OpenPreviewCard { paths } => {
-                app.interaction.update_hovered_terminal_link(None);
-                app.open_terminal_path_in_preview_card(paths, pending.node_id, w, cx)
-            }
-            TerminalLinkIntent::InvalidLink
-            | TerminalLinkIntent::BeginTextSelection
-            | TerminalLinkIntent::Ignore => {}
-        }
-        cx.notify();
-        return;
-    }
-    let should_persist_canvas = app.interaction.panning || app.interaction.drag.is_some();
-    let was_text_selecting = app
-        .interaction
-        .active_text_selection
-        .map(|selection| selection.dragging)
-        .unwrap_or(false);
-    // Execute card swap before clearing drag state.
-    if let Some(drag) = &app.interaction.drag {
-        if let Some(target) = drag.swap_candidate {
-            let dragged = drag.node;
-            if app.runtime.document.swap_node_order(dragged, target) {
-                if app.master_layout.is_active() {
-                    app.apply_layout_for_current_mode(w);
-                } else {
-                    app.reflow_tiled_nodes(w);
-                }
-            }
-        }
-    }
-    app.interaction.panning = false;
-    app.interaction.drag = None;
-    app.interaction.last_screen = None;
-    app.interaction.last_motion_notify = None;
-    app.motion.clear_transient();
-    if was_text_selecting {
-        app.interaction.finish_text_selection();
-        cx.notify();
-        return;
-    }
-    if should_persist_canvas {
-        app.mark_canvas_dirty();
-    }
-    cx.notify();
-}
+mod mouse_up;
+pub(super) use mouse_up::on_mouse_up;
 
 fn terminal_link_dragged(pressed: Vec2, current: Vec2) -> bool {
     let delta = current - pressed;
     delta.x * delta.x + delta.y * delta.y
         >= TERMINAL_LINK_DRAG_THRESHOLD_PX * TERMINAL_LINK_DRAG_THRESHOLD_PX
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/canvas_events_visibility_tests.rs"]
+mod desktop_visibility_tests;

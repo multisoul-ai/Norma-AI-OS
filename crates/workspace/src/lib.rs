@@ -1,5 +1,7 @@
 //! workspace — zero-GPUI workspace metadata and recent-project persistence.
 
+#[cfg(unix)]
+pub mod content;
 pub mod git_clone;
 pub mod path_display;
 pub mod project;

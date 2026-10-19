@@ -405,7 +405,7 @@ pub(super) fn selection_kind(sel: &WallpaperSelection) -> WallpaperKind {
     }
 }
 
-fn resolve_selection_path(selection: &WallpaperSelection) -> Option<PathBuf> {
+pub(crate) fn resolve_selection_path(selection: &WallpaperSelection) -> Option<PathBuf> {
     match selection {
         WallpaperSelection::Builtin { rel } => resolve_builtin_asset(rel),
         WallpaperSelection::Custom { filename } => {

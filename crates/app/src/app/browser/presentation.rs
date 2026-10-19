@@ -11,6 +11,39 @@ impl MultisoulApp {
         bounds: BrowserViewBounds,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        self.browser_scene_element_sized(node_id, url, bounds, false, cx)
+    }
+
+    /// Drawer content follows its actual flex viewport, including banners and toolbars.
+    pub(crate) fn browser_scene_element_filling(
+        &self,
+        node_id: NodeId,
+        url: String,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        self.browser_scene_element_sized(
+            node_id,
+            url,
+            BrowserViewBounds {
+                x: 0.0,
+                y: 0.0,
+                width: 0.0,
+                height: 0.0,
+                bottom_corner_radius_px: 0.0,
+            },
+            true,
+            cx,
+        )
+    }
+
+    fn browser_scene_element_sized(
+        &self,
+        node_id: NodeId,
+        url: String,
+        bounds: BrowserViewBounds,
+        filling: bool,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let owner = cx.entity().downgrade();
         let id = SharedString::from(format!("native-browser-{}-{node_id}", cx.entity_id()));
         canvas(
@@ -45,6 +78,16 @@ impl MultisoulApp {
                             let logical = BrowserViewBounds {
                                 x: 0.0,
                                 y: 0.0,
+                                width: if filling {
+                                    f64::from(f32::from(local.size.width))
+                                } else {
+                                    bounds.width
+                                },
+                                height: if filling {
+                                    f64::from(f32::from(local.size.height))
+                                } else {
+                                    bounds.height
+                                },
                                 ..bounds
                             };
                             app.browsers.sync_view(node_id, &url, logical, window);
@@ -60,8 +103,12 @@ impl MultisoulApp {
         .absolute()
         .left(px(bounds.x as f32))
         .top(px(bounds.y as f32))
-        .w(px(bounds.width as f32))
-        .h(px(bounds.height as f32))
+        .when(filling, |element| element.size_full())
+        .when(!filling, |element| {
+            element
+                .w(px(bounds.width as f32))
+                .h(px(bounds.height as f32))
+        })
         .into_any_element()
     }
 }

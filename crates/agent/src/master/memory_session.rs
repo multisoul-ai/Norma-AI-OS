@@ -27,6 +27,7 @@ pub(super) fn build_agent<M>(
     preamble: &str,
     tools: NormaToolRuntime,
     rig_context: RigToolContext,
+    desktop_active: bool,
 ) -> Agent<M>
 where
     M: CompletionModel,
@@ -46,6 +47,35 @@ where
         .tool(crate::rig_tools::MemoryWriteTool::new(tools.clone()));
     let builder = if workspace {
         builder.tool(crate::rig_tools::WorkspaceMemoryTool::new(tools.clone()))
+    } else {
+        builder
+    };
+    let builder = if desktop_active {
+        builder
+            .tool(crate::rig_tools::WorkspaceSnapshotTool::new(tools.clone()))
+            .tool(crate::rig_tools::AssignWorkspaceTaskTool::new(
+                tools.clone(),
+            ))
+            .tool(crate::rig_tools::OpenWorkspaceArtifactTool::new(
+                tools.clone(),
+            ))
+            .tool(crate::rig_tools::LocateWorkspaceAgentTool::new(
+                tools.clone(),
+            ))
+    } else {
+        builder
+    };
+    let builder = if desktop_active && personal {
+        builder
+            .tool(CreateBrowserTool::new(tools.clone()))
+            .tool(CreatePreviewTool::new(tools.clone()))
+    } else {
+        builder
+    };
+    let builder = if desktop_active && personal {
+        builder
+            .tool(CreateBrowserTool::new(tools.clone()))
+            .tool(CreatePreviewTool::new(tools.clone()))
     } else {
         builder
     };
@@ -87,7 +117,11 @@ impl NormaSession {
         }
         self.memory_enabled = enabled;
         self.memory_epoch = epoch;
-        let mut preamble = norma_system_prompt_base(&self.canvas, &self.roster);
+        let mut preamble = crate::norma_system_prompt_base_with_desktop(
+            &self.canvas,
+            &self.roster,
+            self.desktop_context.as_ref(),
+        );
         let persona = memory
             .as_ref()
             .map(|context| context.persona.clone())

@@ -119,9 +119,14 @@ impl MultisoulApp {
     }
 
     #[cfg(feature = "e2e-test-support")]
-    pub fn report_browser_location_for_e2e(&mut self, node_id: u64, url: String) -> bool {
+    pub fn report_browser_location_for_e2e(
+        &mut self,
+        node_id: u64,
+        url: String,
+        cx: &mut Context<Self>,
+    ) -> bool {
         self.browsers.report_location_for_e2e(node_id, url);
-        self.drain_browser_events()
+        self.drain_browser_events(cx)
     }
 
     #[cfg(feature = "e2e-test-support")]

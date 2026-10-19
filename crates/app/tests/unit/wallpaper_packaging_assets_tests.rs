@@ -6,6 +6,91 @@ fn asset_path(rel: &str) -> PathBuf {
         .join(rel)
 }
 
+/// 场景：静谧宇宙五款壁纸可在内置素材库选择，且离线安装包包含原图。
+/// 构造：五条独立资源名及交付原图尺寸；蓝色图高 940px，其余高 941px，宽均为 1672px。
+/// 执行：检查生产清单、解码与发布完整性；每款使用临时 SQLite 保存后重建设置状态。
+/// 预期：五款均为静态且尺寸不变，离线原字节完整；重新读取仍为所选壁纸，不回退默认图。
+#[test]
+fn space_collection_is_selectable_bundled_and_decodable() {
+    use super::{
+        builtin_wallpapers, canonical_builtin_wallpaper, resolve_builtin_asset, WallpaperKind,
+    };
+    use sha2::{Digest, Sha256};
+
+    let manifest: serde_json::Value =
+        serde_json::from_str(include_str!("../../../../packaging/media/resources.json"))
+            .expect("release media manifest must parse");
+    let resources = manifest["resources"]
+        .as_array()
+        .expect("resources must be an array");
+    for (file, name, height) in [
+        ("norma-blue-horizon.png", "Blue Horizon", 940),
+        ("norma-golden-orbit.png", "Golden Orbit", 941),
+        ("norma-violet-nebula.png", "Violet Nebula", 941),
+        ("norma-emerald-aurora.png", "Emerald Aurora", 941),
+        ("norma-silver-moonscape.png", "Silver Moonscape", 941),
+    ] {
+        let rel = format!("wallpapers/{file}");
+        let entry = builtin_wallpapers()
+            .iter()
+            .find(|(path, _, _)| *path == rel);
+        assert_eq!(
+            entry.map(|(_, title, kind)| (*title, *kind)),
+            Some((name, WallpaperKind::Static)),
+            "{name} must be selectable as a named static builtin"
+        );
+        assert_eq!(
+            canonical_builtin_wallpaper(&rel),
+            Some(rel.as_str()),
+            "{name} must remain a valid persisted selection"
+        );
+        let fixture = tempfile::tempdir().expect("space wallpaper database must be isolated");
+        let store = storage::SettingsStore::new(fixture.path().join("app.sqlite"));
+        let mut selected =
+            crate::settings::wallpaper::WallpaperSettingsState::load_from_store(store.clone());
+        selected.select_builtin(entry.expect("space wallpaper must be registered").0);
+        drop(selected);
+        let restored = crate::settings::wallpaper::WallpaperSettingsState::load_from_store(store);
+        assert!(
+            restored.is_selected_builtin(&rel),
+            "{name} must restore from SQLite when settings state is recreated"
+        );
+        assert!(
+            !restored.is_selected_builtin(crate::assets::DEFAULT_WALLPAPER_ASSET),
+            "restoring {name} cannot silently fall back to the default wallpaper"
+        );
+        let path = resolve_builtin_asset(&rel).expect("space wallpaper must resolve offline");
+        let decoded = image::ImageReader::open(&path)
+            .expect("space wallpaper must open")
+            .decode()
+            .expect("space wallpaper must decode through the production image decoder");
+        assert_eq!(
+            (decoded.width(), decoded.height()),
+            (1672, height),
+            "{name} must retain its delivered native resolution"
+        );
+        let resource = resources
+            .iter()
+            .find(|entry| entry["path"] == rel)
+            .expect("space wallpaper must be in the signed release catalog");
+        assert_eq!(
+            resource["policy"], "core",
+            "{name} must ship in every media profile"
+        );
+        let bytes = std::fs::read(&path).expect("space wallpaper bytes must be readable");
+        assert_eq!(
+            resource["bytes"],
+            bytes.len() as u64,
+            "{name} must have an accurate byte count"
+        );
+        assert_eq!(
+            resource["sha256"],
+            format!("{:x}", Sha256::digest(&bytes)),
+            "{name} must match the release integrity hash"
+        );
+    }
+}
+
 fn inspect_webp(rel: &str) -> (u64, (u32, u32), [u8; 12]) {
     let path = asset_path(rel);
     let bytes = std::fs::read(&path).expect("optimized WebP asset must be readable");

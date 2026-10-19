@@ -66,6 +66,48 @@ pub(crate) fn execute_norma_adapter_command_with_source(
 ) -> Result<AdapterResult, AdapterError> {
     match command {
         AdapterCommand::Memory(_) | AdapterCommand::WorkspaceMemory { .. } => Err(AdapterError::Rejected("记忆 IO 必须经过后台服务".into())),
+        AdapterCommand::WorkspaceSnapshot { scope, area_id } => {
+            app.norma_workspace_snapshot(scope, area_id.as_deref(), cx)
+        }
+        AdapterCommand::AssignWorkspaceTask {
+            workspace_id,
+            area_id,
+            node_id,
+            task,
+        } => app.norma_assign_workspace_task(&workspace_id, &area_id, node_id, &task, cx),
+        AdapterCommand::OpenWorkspaceArtifact {
+            workspace_id,
+            area_id,
+            node_id,
+            turn_id,
+            source_path,
+            version,
+        } => app.norma_open_workspace_artifact(
+            &workspace_id,
+            &area_id,
+            node_id,
+            &turn_id,
+            &source_path,
+            &version,
+            cx,
+        ),
+        AdapterCommand::LocateWorkspaceAgent {
+            workspace_id,
+            area_id,
+            node_id,
+            approval_run_id,
+            approval_turn_id,
+        } => app.norma_locate_workspace_agent(
+            &workspace_id,
+            &area_id,
+            node_id,
+            approval_run_id.as_deref(),
+            approval_turn_id.as_deref(),
+            window.as_deref_mut().ok_or_else(|| {
+                AdapterError::Rejected("定位 Agent 需要桌面窗口".into())
+            })?,
+            cx,
+        ),
         AdapterCommand::FindAgentTasks {
             task_id,
             agent,
@@ -309,6 +351,9 @@ pub(crate) fn execute_norma_adapter_command_with_source(
         ),
         AdapterCommand::CreateBrowser { url } => {
             let url = crate::cards::browser::normalize_browser_url(url.as_deref().unwrap_or(""));
+            if desktop_content_tool_available(app) {
+                return open_desktop_browser_tab_from_tool(app, url, cx);
+            }
             map_card_result(
                 commands::execute_agent_card_command_with_optional_window(
                     app,
@@ -325,6 +370,9 @@ pub(crate) fn execute_norma_adapter_command_with_source(
             path,
             explicit_type,
         } => {
+            if desktop_content_tool_available(app) {
+                return open_desktop_preview_tab_from_tool(app, path, cx);
+            }
             let workspace_root = app
                 .runtime
                 .workspace_root()
@@ -420,58 +468,4 @@ fn map_card_result(
             "Canvas 操作返回了意外回执：{other:?}"
         ))),
     }
-}
-
-fn start_event_pump(
-    events: async_channel::Receiver<AgentEvent>,
-    runtime_id: u64,
-    cx: &mut Context<MultisoulApp>,
-) {
-    cx.spawn(async move |this, cx| {
-        while let Ok(event) = events.recv().await {
-            diagnostics::event_receive(runtime_id, &event);
-            let _ = this.update(cx, |app, cx| {
-                if !is_current_runtime(app, runtime_id) {
-                    return;
-                }
-                match event {
-                    AgentEvent::DialogueTextDelta { text } => {
-                        app.dialogue.on_agent_text_delta(&text, cx);
-                    }
-                    AgentEvent::DialogueStreamFinished => {
-                        app.dialogue.finish_agent_text_stream(cx);
-                    }
-                    _ => {
-                        if let Some(report) = terminal_task_report(&event) {
-                            app.dialogue
-                                .queue_agent_report_for_current_voice_source(report);
-                        }
-                    }
-                }
-                cx.notify();
-            });
-        }
-    })
-    .detach();
-}
-
-fn terminal_task_report(event: &AgentEvent) -> Option<String> {
-    match event {
-        AgentEvent::TaskSucceeded { summary, .. } => Some(summary.clone()),
-        AgentEvent::TaskPartiallyDispatched { summary, .. } => Some(summary.clone()),
-        AgentEvent::TaskFailed { reason, .. } => Some(format!("任务失败：{reason}")),
-        AgentEvent::TaskCancelled {
-            partial_effects: true,
-            ..
-        } => Some("任务已取消；已发生的操作不会回滚".to_string()),
-        AgentEvent::TaskCancelled { .. } => Some("任务已取消".to_string()),
-        AgentEvent::TaskInterrupted { .. } => Some("任务已中断".to_string()),
-        _ => None,
-    }
-}
-
-fn is_current_runtime(app: &MultisoulApp, runtime_id: u64) -> bool {
-    app.agent_runtime
-        .as_ref()
-        .is_some_and(|runtime| runtime.id() == runtime_id)
 }

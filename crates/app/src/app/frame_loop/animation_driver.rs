@@ -115,22 +115,36 @@ impl MultisoulApp {
             .command_dock
             .as_ref()
             .is_some_and(|state| state.drawer.is_active());
+        let desktop_drawer_active = self.desktop_workspace.drawer_motion.is_active()
+            && matches!(self.screen, AppScreen::DesktopWorkspace);
+        let assistant_orb_visible = matches!(self.screen, AppScreen::DesktopWorkspace)
+            && self.desktop_workspace.drawer_motion.left.should_render()
+            && !self.motion.reduce_motion;
+        let assistant_orb_engaged =
+            assistant_orb_visible && self.desktop_workspace.assistant_orb_energy > 0.11;
         AnimationActivity {
             // Voice window inset owns an independent child driver. Dock and caption share
             // the root waveform schedule because both render inside workspace chrome.
             voice_active: self.voice_caption_animation_active(),
             canvas_motion_active: motion_activity.canvas_active
                 || command_drawer_active
+                || desktop_drawer_active
                 || self.wallpaper_settings.transition_active(),
             canvas_frame_synced_active: motion_activity.frame_synced_active
                 || command_drawer_active
+                || desktop_drawer_active
+                || assistant_orb_engaged
                 || self.wallpaper_settings.transition_active(),
-            canvas_ambient_active: motion_activity.ambient_active || self.browsers.any_loading(),
+            canvas_ambient_active: motion_activity.ambient_active
+                || self.browsers.any_loading()
+                || assistant_orb_visible,
             cursor_active: self.focused_terminal_cursor_animation_active(),
             // The shared Dock also animates on the personal/workspace overview.
             // Once its transition settles, a non-Canvas screen returns to idle cadence.
             screen_is_canvas: matches!(self.screen, AppScreen::Canvas)
+                || assistant_orb_visible
                 || command_drawer_active
+                || desktop_drawer_active
                 || self.wallpaper_settings.transition_active(),
             window_active: self.window_active,
             settings_open: self.settings_panel.open,
@@ -172,6 +186,27 @@ impl MultisoulApp {
             motion_changed |= state
                 .drawer
                 .tick(animation_delta, self.motion.reduce_motion);
+        }
+        let right_was_visible = self.desktop_workspace.drawer_motion.right.should_render();
+        motion_changed |= self
+            .desktop_workspace
+            .drawer_motion
+            .tick(animation_delta, self.motion.reduce_motion);
+        if matches!(self.screen, AppScreen::DesktopWorkspace)
+            && self.desktop_workspace.drawer_motion.left.should_render()
+        {
+            let orb_mode = self.desktop_assistant_orb_mode(cx);
+            motion_changed |= self.desktop_workspace.advance_assistant_orb(
+                animation_delta,
+                self.motion.reduce_motion,
+                orb_mode,
+            );
+        }
+        if right_was_visible
+            && !self.desktop_workspace.drawer_motion.right.should_render()
+            && !self.desktop_workspace.drawers.right_open
+        {
+            self.hide_desktop_content_browsers();
         }
         motion_changed |= self.wallpaper_settings.tick_transition(animation_delta);
         let cursor_changed = self.advance_terminal_cursor_phase(animation_delta);

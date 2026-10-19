@@ -92,17 +92,46 @@ impl MultisoulApp {
         let Some(card) = self.desktop_workspace_directory_rect(workspace_id, window) else {
             return;
         };
-        let Some(project) = self.desktop_project_overview_rect(workspace_id, area_id, window)
+        let Some(index) = self
+            .desktop_workspace
+            .areas
+            .iter()
+            .position(|area| area.id == area_id)
         else {
             return;
         };
+        // The directory thumbnail is drawn against the full Launchpad viewport,
+        // even while the live workspace uses only the width between drawers.
+        let directory_layout = super::layout::project_area_layout(
+            full.size.x,
+            full.size.y,
+            self.desktop_workspace.areas.len(),
+        );
+        let project = super::preview_canvas::project_canvas_rect(
+            directory_layout[index],
+            super::desktop_scene_rect(full.size.x, full.size.y).size,
+            1.0,
+        );
         let content = if self.desktop_workspace.home_directory {
             card
         } else {
             workspace_content_rect(card, full.size, 1.0)
         };
-        let nested = project_rect(full, content, project);
-        let expanded = super::desktop_scene_rect(full.size.x, full.size.y);
+        let mut nested = project_rect(full, content, project);
+        let layout = self.desktop_workspace.drawer_motion.layout_with_widths(
+            full.size.x,
+            self.desktop_workspace.drawers.left_open,
+            self.desktop_workspace.drawers.right_open,
+            self.motion.reduce_motion,
+            self.desktop_workspace.drawer_widths.left,
+            self.desktop_workspace.drawer_widths.right,
+        );
+        let mut expanded = super::desktop_scene_rect(layout.canvas_width, full.size.y);
+        expanded.origin.x += layout.left_space;
+        let directory_logical = super::desktop_scene_rect(full.size.x, full.size.y);
+        let live_scale = expanded.size.x / directory_logical.size.x;
+        nested.size.x *= live_scale;
+        nested.size.y *= live_scale;
         let (source, target) = if reverse {
             (expanded, nested)
         } else {
@@ -302,20 +331,36 @@ impl MultisoulApp {
             DesktopCanvasSubject::Project {
                 workspace_id,
                 area_id,
-            } => self
-                .desktop_workspace
-                .area_rects
-                .lock()
-                .expect("project bounds mutex poisoned")
-                .get(&(workspace_id.clone(), area_id.clone()))
-                .copied()
-                .map(|card| {
-                    super::preview_canvas::project_canvas_rect(
-                        card,
-                        super::desktop_scene_rect(full.size.x, full.size.y).size,
-                        1.0,
-                    )
-                }),
+            } => {
+                let source_area = if directory && transition.directory_content.is_some() {
+                    transition
+                        .projects
+                        .as_ref()
+                        .and_then(|projects| {
+                            projects
+                                .layers
+                                .iter()
+                                .find(|layer| layer.anchor == canvas::Vec2::ZERO)
+                        })
+                        .map(|layer| &layer.id)
+                        .unwrap_or(area_id)
+                } else {
+                    area_id
+                };
+                self.desktop_workspace
+                    .area_rects
+                    .lock()
+                    .expect("project bounds mutex poisoned")
+                    .get(&(workspace_id.clone(), source_area.clone()))
+                    .copied()
+                    .map(|card| {
+                        super::preview_canvas::project_canvas_rect(
+                            card,
+                            super::desktop_scene_rect(full.size.x, full.size.y).size,
+                            1.0,
+                        )
+                    })
+            }
             _ => None,
         };
         let frame = source

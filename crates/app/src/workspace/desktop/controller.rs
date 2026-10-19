@@ -149,6 +149,9 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if !self.allow_workbench_workspace_switch(&id, window, cx) {
+            return;
+        }
         if !self
             .desktop_workspace
             .workspaces
@@ -158,6 +161,9 @@ impl MultisoulApp {
             return;
         }
         self.focus_handle.focus(window);
+        if let Some(dock) = self.command_dock.as_mut() {
+            dock.sidebar_origin = true;
+        }
         if self.desktop_workspace.switcher_open {
             self.desktop_workspace.search_query = self.desktop_workspace.switcher_query.clone();
         }
@@ -177,11 +183,31 @@ impl MultisoulApp {
         ) {
             return;
         }
+        self.restore_left_drawer_after_project();
         self.begin_desktop_workspace_zoom(&id, false, window, cx);
         self.detach_visible_desktop_area(cx);
+        self.hide_desktop_content_browsers();
         self.start_desktop_status_refresh(cx);
+        self.desktop_workspace.workspace_load_generation = self
+            .desktop_workspace
+            .workspace_load_generation
+            .wrapping_add(1);
+        self.desktop_workspace.content_tab_generation = self
+            .desktop_workspace
+            .content_tab_generation
+            .wrapping_add(1);
         self.desktop_workspace.active_id = Some(id.clone());
         self.desktop_workspace.areas.clear();
+        self.desktop_workspace.workbench = Default::default();
+        self.desktop_workspace.content_tabs.clear();
+        self.desktop_workspace.content_previews.clear();
+        self.desktop_workspace.content_snapshots.clear();
+        self.desktop_workspace.content_resources.clear();
+        self.desktop_workspace.content_loading.clear();
+        self.desktop_workspace.content_artifacts.clear();
+        self.desktop_workspace.status_cache.clear();
+        self.desktop_workspace.status_live_seen.clear();
+        self.desktop_workspace.artifact_revision = 0;
         self.desktop_workspace.active_area_id = None;
         self.desktop_workspace.selected_area_id = None;
         self.desktop_workspace.expanded_area_id = None;
@@ -194,11 +220,20 @@ impl MultisoulApp {
         self.refresh_wallpaper_library(cx);
         cx.notify();
         let store = self.desktop_workspace.store.clone();
+        let content_tabs =
+            storage::DesktopContentTabStore::new(self.database_paths.app_db_path().to_owned());
+        let content_tab_generation = self.desktop_workspace.content_tab_generation;
+        let workspace_load_generation = self.desktop_workspace.workspace_load_generation;
+        let area_status =
+            storage::DesktopAreaStatusStore::new(self.database_paths.app_db_path().to_owned());
         let load_id = id.clone();
         let wallpaper_revision = self.wallpaper_settings.scoped.revision;
         let work = cx.background_executor().spawn(async move {
             store.touch(&load_id)?;
             let areas = store.list_projects(&load_id)?;
+            let tabs = content_tabs.list(&load_id)?;
+            let content_state = content_tabs.state(&load_id)?;
+            let statuses = area_status.list(&load_id)?;
             let unavailable = areas
                 .iter()
                 .filter_map(|area| {
@@ -212,16 +247,25 @@ impl MultisoulApp {
                     })
                 })
                 .collect();
-            Ok::<_, storage::StorageError>((store.list()?, areas, unavailable))
+            Ok::<_, storage::StorageError>((
+                store.list()?,
+                areas,
+                tabs,
+                statuses,
+                unavailable,
+                content_state,
+            ))
         });
         cx.spawn_in(window, async move |this, cx| {
             let result = work.await;
             let _ = this.update_in(cx, |app, window, cx| {
-                if app.desktop_workspace.active_id.as_deref() != Some(&id) {
+                if app.desktop_workspace.active_id.as_deref() != Some(&id)
+                    || app.desktop_workspace.workspace_load_generation != workspace_load_generation
+                {
                     return;
                 }
                 match result {
-                    Ok((mut workspaces, mut areas, unavailable)) => {
+                    Ok((mut workspaces, mut areas, tabs, statuses, unavailable, content_state)) => {
                         app.preserve_wallpaper_snapshot(
                             &mut workspaces,
                             &mut areas,
@@ -230,6 +274,19 @@ impl MultisoulApp {
                         );
                         app.desktop_workspace.workspaces = workspaces;
                         app.desktop_workspace.areas = areas;
+                        app.desktop_workspace.workbench.saved = content_state
+                            .and_then(|s| serde_json::from_str(&s).ok())
+                            .unwrap_or_default();
+                        if app.desktop_workspace.content_tab_generation == content_tab_generation {
+                            app.desktop_workspace.content_tabs = tabs;
+                        }
+                        app.desktop_workspace.status_cache = statuses
+                            .into_iter()
+                            .map(|status| (status.area_id.clone(), status))
+                            .collect();
+                        if app.desktop_workspace.drawers.right_open {
+                            app.load_selected_desktop_content(cx);
+                        }
                         app.desktop_workspace.area_errors = unavailable;
                         app.bind_desktop_wallpaper(cx);
                         app.broadcast_wallpaper_state(None, cx);
@@ -271,9 +328,14 @@ impl MultisoulApp {
                 .await;
             if this
                 .update(cx, |app, cx| {
-                    if !app.window_active || app.desktop_workspace.sessions.is_empty() {
+                    if !app.window_active {
                         return;
                     }
+                    app.refresh_desktop_artifacts_if_changed(cx);
+                    if app.desktop_workspace.sessions.is_empty() {
+                        return;
+                    }
+                    app.refresh_desktop_agent_status_cache(cx);
                     if matches!(app.screen, AppScreen::Launchpad)
                         || (matches!(app.screen, AppScreen::DesktopWorkspace)
                             && app.desktop_workspace.expanded_area_id.is_none())

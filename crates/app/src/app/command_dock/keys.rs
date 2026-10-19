@@ -41,8 +41,17 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        // The window host must not steal Cmd+K from its expanded project's Dock.
-        if self.expanded_desktop_project().is_some() {
+        // The same InputState is rendered in the sidebar and the project Dock. When
+        // focused from the sidebar, the project Scene is not on the keyboard path,
+        // so the host forwards command navigation to the owning project.
+        if let Some(project) = self.expanded_desktop_project() {
+            // Enter is delivered by InputState::PressEnter. Routing it through the
+            // host here would nest the project's dispatch back into an updating host.
+            if event.keystroke.key != "enter" {
+                project.update(cx, |project, cx| {
+                    project.capture_command_dock_key(event, window, cx);
+                });
+            }
             return;
         }
         if !matches!(

@@ -87,6 +87,19 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        let title = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("文件")
+            .to_string();
+        if self.route_project_content_to_desktop(
+            storage::DesktopContentKind::File,
+            path.to_string_lossy().into_owned(),
+            title,
+            cx,
+        ) {
+            return;
+        }
         let area = self.visible_canvas_rect(window);
         let bounds = area.inset(self.layout_gap_canvas());
         let zoom = self.runtime.document.viewport.zoom;
@@ -175,9 +188,25 @@ impl MultisoulApp {
                 let mut picker_error = None;
                 match result {
                     Ok(Ok(Some(paths))) if !paths.is_empty() => {
-                        success = app
-                            .spawn_preview_from_paths(paths, None, bounds, area, zoom, cx)
-                            .is_some();
+                        if app.desktop_host.is_some() {
+                            success = paths.into_iter().all(|path| {
+                                let title = path
+                                    .file_name()
+                                    .and_then(|name| name.to_str())
+                                    .unwrap_or("文件")
+                                    .to_string();
+                                app.route_project_content_to_desktop(
+                                    storage::DesktopContentKind::File,
+                                    path.to_string_lossy().into_owned(),
+                                    title,
+                                    cx,
+                                )
+                            });
+                        } else {
+                            success = app
+                                .spawn_preview_from_paths(paths, None, bounds, area, zoom, cx)
+                                .is_some();
+                        }
                         if !success {
                             picker_error = app.workspace_state.error.clone();
                         }

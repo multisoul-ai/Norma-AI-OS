@@ -94,7 +94,9 @@ impl DesktopWorkspaceStore {
             for area in self.list_projects(&workspace.id)? {
                 let path = desktop_canvas_path(&self.path, &workspace.id, &area.id)?;
                 let snapshot = if path.exists() {
-                    crate::CanvasStore::new(path).load_snapshot()?
+                    let canvas = crate::CanvasStore::new(path);
+                    canvas.prune_desktop_content_cards()?;
+                    canvas.load_snapshot()?
                 } else {
                     None
                 };

@@ -13,24 +13,25 @@ struct RecordingAdapter {
     commands: Mutex<Vec<AdapterCommand>>,
 }
 
-/// Norma 提示词应把用户用语 REVIEW 明确路由到现有文件 Preview 工具。
+/// Norma 提示词应将 REVIEW 识别为文件查看请求，并按来源选择右侧工具。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   Canvas cards = 0
 ///   Agent roster entries = 0
-///   Review route = 1（REVIEW → create_preview）
+///   Ordinary review route = 1（REVIEW → create_preview）
+///   Task-bound review route = 1（REVIEW → open_workspace_artifact）
 ///   Missing-path clarification limit = 1 次
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 用空画布构建生产 system prompt。
-///   2. 检查 REVIEW 别称、目标工具与缺少路径时的行为约束。
+///   2. 检查 REVIEW 别称、两类目标工具与缺少路径时的行为约束。
 ///
 /// 预期结果：
-///   - 正断言：REVIEW 必须明确映射到 `create_preview`。
+///   - 正断言：普通文件走 `create_preview`，有任务来源的成果走 `open_workspace_artifact`，都在右侧显示。
 ///   - 正断言：缺少路径时只允许一次最小澄清。
 ///   - 负断言：REVIEW 不得被路由到 Terminal 工具或允许猜测文件。
 #[test]
-fn norma_prompt_routes_review_card_language_to_file_preview_tool() {
+fn norma_prompt_routes_review_language_to_right_drawer_file_tools() {
     let prompt = norma_system_prompt(
         &CurrentCanvasContext {
             project_name: "project-1".to_string(),
@@ -43,9 +44,12 @@ fn norma_prompt_routes_review_card_language_to_file_preview_tool() {
     );
 
     assert!(
-        prompt.contains("REVIEW 卡片按现有产品语义指文件 Preview 卡片")
-            && prompt.contains("调用 `create_preview`"),
-        "Norma prompt should deterministically route REVIEW card wording to create_preview"
+        prompt.contains("REVIEW")
+            && prompt.contains("普通本地文件")
+            && prompt.contains("`create_preview`")
+            && prompt.contains("有明确任务来源的成果优先使用 `open_workspace_artifact`")
+            && prompt.contains("右侧标签"),
+        "REVIEW 应按文件来源选择工具，并在桌面右侧展示"
     );
     assert!(
         prompt.contains("只询问一次路径"),

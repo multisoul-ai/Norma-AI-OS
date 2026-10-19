@@ -1,13 +1,32 @@
 use agent::{AgentName, AgentNameRegistry};
 use canvas::CanvasNodeKind;
 use runtime::Runtime;
-use storage::{AgentDefinition, NewAgentDefinition, ProjectStore, StorageError};
+use storage::{
+    AgentDefinition, AgentDefinitionStore, CanvasStore, NewAgentDefinition, ProjectStore,
+    StorageError,
+};
 
 pub(crate) fn migrate_legacy_agent_cards(
     runtime: &mut Runtime,
     project_store: &ProjectStore,
 ) -> Result<usize, String> {
-    purge_leaked_quick_definitions(runtime, project_store);
+    migrate_legacy_agent_cards_with_stores(
+        runtime,
+        &project_store.agent_definition_store(),
+        &project_store.canvas_store(),
+        true,
+    )
+}
+
+pub(crate) fn migrate_legacy_agent_cards_with_stores(
+    runtime: &mut Runtime,
+    definition_store: &AgentDefinitionStore,
+    canvas_store: &CanvasStore,
+    purge_quick_definitions: bool,
+) -> Result<usize, String> {
+    if purge_quick_definitions {
+        purge_leaked_quick_definitions(runtime, definition_store);
+    }
     let legacy = runtime
         .document
         .nodes()
@@ -25,10 +44,9 @@ pub(crate) fn migrate_legacy_agent_cards(
         return Ok(0);
     }
 
-    let definition_store = project_store.agent_definition_store();
     for (node_id, profile, legacy_alias) in &legacy {
         let definition =
-            create_migrated_definition(&definition_store, *profile, legacy_alias.as_deref())?;
+            create_migrated_definition(definition_store, *profile, legacy_alias.as_deref())?;
         let node = runtime.document.node_mut(*node_id).ok_or_else(|| {
             ui::i18n::format(
                 "workspace.legacy_agent_card_node_id_disappeared_during_migration",
@@ -45,7 +63,7 @@ pub(crate) fn migrate_legacy_agent_cards(
         spec.alias = Some(definition.name);
     }
     runtime
-        .save_canvas_snapshot(&project_store.canvas_store())
+        .save_canvas_snapshot(canvas_store)
         .map_err(|error| {
             ui::i18n::format(
                 "workspace.could_not_save_migrated_agent_cards_error",
@@ -56,7 +74,7 @@ pub(crate) fn migrate_legacy_agent_cards(
 }
 
 /// 历史版本关闭 QuickCard 时清理可能因外键失败而遗留定义，占用内置名称。
-fn purge_leaked_quick_definitions(runtime: &Runtime, project_store: &ProjectStore) {
+fn purge_leaked_quick_definitions(runtime: &Runtime, definition_store: &AgentDefinitionStore) {
     let live_ids = runtime
         .document
         .nodes()
@@ -66,10 +84,7 @@ fn purge_leaked_quick_definitions(runtime: &Runtime, project_store: &ProjectStor
             _ => None,
         })
         .collect::<Vec<_>>();
-    match project_store
-        .agent_definition_store()
-        .purge_quick_except(&live_ids)
-    {
+    match definition_store.purge_quick_except(&live_ids) {
         Ok(0) => {}
         Ok(purged) => tracing::info!(purged, "purged leaked quick Agent definitions"),
         Err(error) => tracing::warn!(%error, "could not purge leaked quick Agent definitions"),
@@ -98,43 +113,90 @@ fn create_migrated_definition(
         }
     }
 
-    let existing = store.list().map_err(|error| {
-        ui::i18n::format(
-            "workspace.could_not_list_agent_names_during_migration_error",
-            &[("error", (error).to_string())],
-        )
-    })?;
-    let registry = AgentNameRegistry::from_names(
-        existing.iter().map(|definition| &definition.name),
-    )
-    .map_err(|error| {
-        ui::i18n::format(
-            "workspace.could_not_build_agent_name_registry_error",
-            &[("error", (error).to_string())],
-        )
-    })?;
-    let name = registry.next_available_name().ok_or_else(|| {
-        ui::i18n::text("workspace.could_not_allocate_a_unique_name_for_a_legacy_agent_card")
-            .to_string()
-    })?;
-    store
-        .create(&NewAgentDefinition {
+    loop {
+        let existing = store.list().map_err(|error| {
+            ui::i18n::format(
+                "workspace.could_not_list_agent_names_during_migration_error",
+                &[("error", (error).to_string())],
+            )
+        })?;
+        let registry =
+            AgentNameRegistry::from_names(existing.iter().map(|definition| &definition.name))
+                .map_err(|error| {
+                    ui::i18n::format(
+                        "workspace.could_not_build_agent_name_registry_error",
+                        &[("error", (error).to_string())],
+                    )
+                })?;
+        let name = registry.next_available_name().ok_or_else(|| {
+            ui::i18n::text("workspace.could_not_allocate_a_unique_name_for_a_legacy_agent_card")
+                .to_string()
+        })?;
+        match store.create(&NewAgentDefinition {
             name,
             runtime_profile: profile,
             workflow_description: String::new(),
-        })
-        .map_err(|error| {
-            ui::i18n::format(
-                "workspace.could_not_allocate_a_name_for_a_legacy_agent_card_error",
-                &[("error", (error).to_string())],
-            )
-        })
+        }) {
+            Ok(definition) => return Ok(definition),
+            Err(StorageError::AgentNameConflict { .. }) => continue,
+            Err(error) => {
+                return Err(ui::i18n::format(
+                    "workspace.could_not_allocate_a_name_for_a_legacy_agent_card_error",
+                    &[("error", (error).to_string())],
+                ));
+            }
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use canvas::{AgentProfile, AgentSpec, CanvasRect};
+    use std::sync::{Arc, Barrier};
+
+    /// 同一项目的多个区域同时迁移旧卡片时，每张卡片都应得到唯一的 Agent 定义。
+    ///
+    /// 数据构造：一个空的项目级定义库，12 个并行加载的区域各有一张无合法 alias 的旧卡。
+    /// 执行过程：用栅栏同时触发 12 次备用名称分配，再读取定义库。
+    /// 预期结果：12 次创建全部成功，得到 12 个不同名称；没有区域因名称冲突加载失败。
+    #[test]
+    fn concurrent_legacy_cards_get_distinct_fallback_names() {
+        let temp = tempfile::tempdir().expect("应创建隔离项目");
+        let store = ProjectStore::for_workspace(temp.path()).expect("应打开项目存储");
+        let definitions = store.agent_definition_store();
+        let barrier = Arc::new(Barrier::new(12));
+        let created = std::thread::scope(|scope| {
+            let workers = (0..12)
+                .map(|_| {
+                    let definitions = definitions.clone();
+                    let barrier = Arc::clone(&barrier);
+                    scope.spawn(move || {
+                        barrier.wait();
+                        create_migrated_definition(
+                            &definitions,
+                            AgentProfile::Codex,
+                            Some("Code Reviewer"),
+                        )
+                    })
+                })
+                .collect::<Vec<_>>();
+            workers
+                .into_iter()
+                .map(|worker| worker.join().expect("迁移线程不应崩溃"))
+                .collect::<Vec<_>>()
+        });
+        let names = created
+            .into_iter()
+            .map(|result| result.expect("并发迁移不应因名称冲突失败").name)
+            .collect::<std::collections::HashSet<_>>();
+        assert_eq!(names.len(), 12, "12 张旧卡片必须得到 12 个不同名称");
+        assert_eq!(
+            definitions.list().expect("应列出迁移后的定义").len(),
+            12,
+            "定义库应恰好新增 12 条，不得遗漏或重复"
+        );
+    }
 
     /// 真正旧卡片在内置名称用尽时使用备用名称，重新加载迁移不得重复创建定义。
     ///

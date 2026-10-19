@@ -174,6 +174,15 @@ impl MotionStore {
             .or_insert_with(|| NodeMotion::settled(target_rect));
         node.set_layout_target(target_rect, self.reduce_motion);
     }
+    /// Presentation-only canvas adaptation must share a rect with hit testing on the same frame.
+    /// Keep hover, focus, breathing and initialization effects on the existing node.
+    pub(crate) fn settle_presentation_rect(&mut self, id: NodeId, rect: CanvasRect) {
+        self.ensure_node(id, rect);
+        let target = self.nodes[&id].target_rect;
+        if !approx_rect(target, rect) {
+            self.sync_drag_rect(id, rect);
+        }
+    }
     pub fn set_hover(&mut self, id: NodeId, hovered: bool) {
         if let Some(node) = self.nodes.get_mut(&id) {
             node.hover.set_bool(hovered);

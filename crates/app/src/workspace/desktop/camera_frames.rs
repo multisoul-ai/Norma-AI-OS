@@ -40,6 +40,12 @@ impl MultisoulApp {
     }
 
     pub(super) fn finish_desktop_zoom(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        // While a transition is still present, sync snaps project slots to the
+        // destination canvas width. This keeps the first settled frame aligned.
+        if matches!(self.screen, crate::app::AppScreen::DesktopWorkspace) {
+            self.sync_desktop_project_layout(window, cx);
+            self.desktop_workspace.project_layout.settle();
+        }
         let Some(finished) = self.desktop_workspace.transition.take() else {
             return;
         };
