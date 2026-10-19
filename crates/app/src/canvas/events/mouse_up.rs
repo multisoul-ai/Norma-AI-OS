@@ -59,18 +59,13 @@ pub(crate) fn on_mouse_up(
         .map(|selection| selection.dragging)
         .unwrap_or(false);
     // Execute card swap before clearing drag state.
+    let mut did_swap = false;
     if let Some(drag) = &app.interaction.drag {
         if let Some(target) = drag.swap_candidate {
             let dragged = drag.node;
             if app.runtime.document.swap_node_order(dragged, target) {
                 should_persist_canvas = true;
-                if app.desktop_host.is_none() {
-                    if app.master_layout.is_active() {
-                        app.apply_layout_for_current_mode(w);
-                    } else {
-                        app.reflow_tiled_nodes(w);
-                    }
-                }
+                did_swap = true;
             }
         }
     }
@@ -79,7 +74,9 @@ pub(crate) fn on_mouse_up(
     app.interaction.last_screen = None;
     app.interaction.last_motion_notify = None;
     app.motion.clear_transient();
-    if app.desktop_host.is_some() {
+    if did_swap {
+        app.finish_card_swap(w);
+    } else if app.desktop_host.is_some() {
         app.refresh_desktop_presentation(w);
     }
     if was_text_selecting {

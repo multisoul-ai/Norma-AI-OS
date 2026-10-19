@@ -118,6 +118,16 @@ impl MultisoulApp {
         self.apply_tiled_nodes(window);
     }
 
+    /// After a successful card-order swap, re-apply the active layout so grid slots exchange.
+    /// Desktop embedded projects must reflow saved bounds; presentation-only refresh is not enough.
+    pub(crate) fn finish_card_swap(&mut self, window: &mut Window) {
+        if self.master_layout.is_active() {
+            self.apply_layout_for_current_mode(window);
+        } else {
+            self.reflow_tiled_nodes(window);
+        }
+    }
+
     pub(crate) fn apply_layout_for_new_node(&mut self, node_id: NodeId, window: &mut Window) {
         let area = self.visible_canvas_rect(window);
         let zoom = self.runtime.document.viewport.zoom;
@@ -170,13 +180,24 @@ impl MultisoulApp {
         let area = self.visible_canvas_rect(window);
         let zoom = self.runtime.document.viewport.zoom;
         if self.master_layout.is_active() {
+            // Match tiled desktop: persist against the stable window area, then adapt
+            // the drawer-sized presentation overlay. Never write the narrow drawer canvas
+            // into saved master/detail coordinates.
+            let layout_area = if self.desktop_host.is_some() {
+                self.stable_embedded_layout_area(area)
+            } else {
+                area
+            };
             let _ = reapply_master_layout_for_area(
                 &mut self.master_layout,
                 &mut self.runtime,
                 &mut self.motion,
-                area,
+                layout_area,
                 zoom,
             );
+            if self.desktop_host.is_some() {
+                self.refresh_desktop_presentation_for_area(area, zoom);
+            }
             return;
         }
         self.apply_tiled_nodes(window);

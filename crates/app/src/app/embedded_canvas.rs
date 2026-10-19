@@ -124,19 +124,29 @@ impl MultisoulApp {
         self.desktop_embedded_layout_origin
             .get_or_insert_with(|| self.runtime.document.viewport.screen_to_canvas(Vec2::ZERO));
         let viewport = window.viewport_size();
-        self.desktop_embedded_reflow_size = Some(
-            crate::workspace::desktop::desktop_scene_rect(
-                f32::from(viewport.width),
-                f32::from(viewport.height),
-            )
-            .size,
-        );
-        if self.desktop_embedded_canvas_size == Some(size) {
+        let new_reflow = crate::workspace::desktop::desktop_scene_rect(
+            f32::from(viewport.width),
+            f32::from(viewport.height),
+        )
+        .size;
+        // Drawer width only changes the presentation canvas. Window resize changes the
+        // stable save/reflow area and must rewrite FitViewport grid slots.
+        // First sync only records the baseline size — do not reflow restored nodes on open.
+        let reflow_changed = self.desktop_embedded_reflow_size.is_some_and(|prev| {
+            (prev.x - new_reflow.x).abs() > 0.5 || (prev.y - new_reflow.y).abs() > 0.5
+        });
+        let canvas_changed = self.desktop_embedded_canvas_size != Some(size);
+        self.desktop_embedded_reflow_size = Some(new_reflow);
+        if !canvas_changed && !reflow_changed {
             return false;
         }
         self.desktop_embedded_canvas_size = Some(size);
         self.last_reflow_window_size = Some((size.x, size.y));
-        self.refresh_desktop_presentation(window);
+        if reflow_changed {
+            self.apply_layout_for_current_mode(window);
+        } else {
+            self.refresh_desktop_presentation(window);
+        }
         true
     }
 
