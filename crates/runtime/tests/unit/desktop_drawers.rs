@@ -33,11 +33,7 @@ fn desktop_drawers_start_collapsed_and_left_can_be_opened() {
 /// 预期结果：前两步不改开合与视图；打开产物只展开右栏。
 #[test]
 fn voice_and_background_artifact_do_not_force_drawers_open() {
-    let mut state = DesktopDrawerState {
-        left_open: false,
-        right_open: false,
-        left_view: DesktopLeftView::Chat,
-    };
+    let mut state = DesktopDrawerState::default();
     state = route_drawer(state, DesktopDrawerEvent::VoiceTriggered);
     state = route_drawer(state, DesktopDrawerEvent::ArtifactReady);
     assert!(!state.left_open, "语音触发不能强制打开左栏");
@@ -135,108 +131,6 @@ fn toggle_run_overview_opens_collapsed_left_drawer_and_escape_returns_to_chat() 
     );
 }
 
-/// 场景：点击右上角状态胶囊切换左栏，悬浮时只聚焦悬浮面板。
-///
-/// 数据构造：三种起点——左栏收起、左栏已开且停在概览、左栏已开且停在对话。
-///   悬浮标志单独传入，因为当前抽屉状态还没有悬浮字段。
-/// 执行过程：分别用指针和键盘触发，再对悬浮状态触发一次。
-/// 预期结果：收起时先展开并进入概览；已在概览时回到对话且左栏仍开着；
-///   键盘进入概览时要求焦点落到第一行；悬浮时不改左栏，效果是聚焦悬浮面板。
-#[test]
-fn status_capsule_click_opens_overview_returns_to_chat_or_focuses_floating() {
-    let collapsed = DesktopDrawerState::default();
-    let (opened, effect) = route_status_capsule(
-        collapsed,
-        StatusCapsuleClick {
-            floating: false,
-            from_keyboard: false,
-        },
-    );
-    assert!(opened.left_open, "左栏收起时点击应先展开");
-    assert_eq!(
-        opened.left_view,
-        DesktopLeftView::Overview,
-        "展开后应显示运行概览"
-    );
-    assert_eq!(
-        effect,
-        StatusCapsuleEffect::ShowOverview {
-            focus_first_row: false
-        },
-        "指针点击展开概览时不把焦点送进第一行"
-    );
-    assert!(!opened.right_open, "点击胶囊不能打开右栏");
-
-    let (back, back_effect) = route_status_capsule(
-        opened,
-        StatusCapsuleClick {
-            floating: false,
-            from_keyboard: true,
-        },
-    );
-    assert_eq!(
-        back.left_view,
-        DesktopLeftView::Chat,
-        "已在概览时再点应回到对话"
-    );
-    assert!(back.left_open, "回到对话时不应收起已经展开的左栏");
-    assert_eq!(
-        back_effect,
-        StatusCapsuleEffect::ReturnToChat,
-        "已显示概览时的点击是回对话，不是再聚焦"
-    );
-    assert_ne!(
-        back.left_view,
-        DesktopLeftView::Overview,
-        "回对话后不能仍停在概览"
-    );
-
-    let chatting = DesktopDrawerState {
-        left_open: true,
-        right_open: true,
-        left_view: DesktopLeftView::Chat,
-    };
-    let (overview, keyboard) = route_status_capsule(
-        chatting,
-        StatusCapsuleClick {
-            floating: false,
-            from_keyboard: true,
-        },
-    );
-    assert_eq!(
-        keyboard,
-        StatusCapsuleEffect::ShowOverview {
-            focus_first_row: true
-        },
-        "键盘触发进入概览时焦点应进入第一行"
-    );
-    assert!(overview.right_open, "切换左栏视图不能收起右栏");
-
-    let (unchanged, floating) = route_status_capsule(
-        chatting,
-        StatusCapsuleClick {
-            floating: true,
-            from_keyboard: true,
-        },
-    );
-    assert_eq!(
-        floating,
-        StatusCapsuleEffect::FocusFloating,
-        "概览已悬浮时点击应聚焦悬浮面板"
-    );
-    assert_eq!(
-        unchanged, chatting,
-        "聚焦悬浮面板时不能改动抽屉开合或左栏视图"
-    );
-    assert_ne!(
-        floating,
-        StatusCapsuleEffect::ShowOverview {
-            focus_first_row: true
-        },
-        "悬浮时不能再把左栏切去概览"
-    );
-}
-
 /// 场景：用户拖动任一抽屉的内侧边缘，越过最小宽度时抽屉收起。
 /// 数据构造：左栏宽 340px、右栏宽 420px，最小分别为 300px、370px。
 /// 执行过程：向外扩大、向内缩到阈值、再继续缩过阈值。
@@ -258,4 +152,301 @@ fn drawer_resize_obeys_side_direction_and_collapse_threshold() {
     let collapsed = resize_drawer(DesktopDrawerSide::Right, 420.0, 800.0, 851.0, 370.0, 600.0);
     assert_eq!(collapsed.width, 370.0, "收起后应保留可恢复的最小宽度");
     assert!(!collapsed.open, "小于最小宽度应收起右栏");
+}
+
+/// 点图钉把概览弹出到画布，左栏回到对话；再点则收回并清掉偏移。
+///
+/// 数据构造：左栏已展开、当前是概览，偏移先被拖到 (-24, 12)。
+/// 执行过程：点一次图钉，再点一次；中间打开产物。
+/// 预期结果：第一次 floating 且左栏是对话；产物动作不收起面板；
+///   第二次回到抽屉概览且偏移归零。状态显示只在悬浮时标图钉。
+#[test]
+fn pin_floats_overview_then_docks_it_back_into_the_drawer() {
+    let drawer = route_drawer(
+        DesktopDrawerState {
+            left_open: true,
+            ..DesktopDrawerState::default()
+        },
+        DesktopDrawerEvent::SelectLeftView(DesktopLeftView::Overview),
+    );
+    let mut floating = route_drawer(drawer, DesktopDrawerEvent::ToggleOverviewPin);
+    floating.overview_offset = OverviewOffset { x: -24, y: 12 };
+    assert!(floating.overview_floating, "点图钉应把运行概览弹出");
+    assert_eq!(
+        floating.left_view,
+        DesktopLeftView::Chat,
+        "弹出后左栏应回到对话"
+    );
+    assert!(floating.left_open, "弹出后左栏保持展开，对话仍可输入");
+    assert!(
+        status_display_marks_pin(&floating),
+        "悬浮时状态显示应标图钉"
+    );
+    assert_ne!(
+        floating.left_view,
+        DesktopLeftView::Overview,
+        "悬浮后面板不该还占着抽屉概览"
+    );
+
+    let still = route_drawer(floating, DesktopDrawerEvent::OpenArtifact);
+    assert!(still.overview_floating, "打开产物后悬浮面板应继续显示");
+    assert!(still.right_open, "打开产物仍应展开右栏");
+    assert_eq!(
+        still.overview_offset,
+        OverviewOffset { x: -24, y: 12 },
+        "行动作不能改掉已经拖好的位置"
+    );
+
+    let docked = route_drawer(still, DesktopDrawerEvent::ToggleOverviewPin);
+    assert!(!docked.overview_floating, "再点图钉应收回抽屉");
+    assert_eq!(
+        docked.left_view,
+        DesktopLeftView::Overview,
+        "收回后左栏应显示运行概览"
+    );
+    assert_eq!(
+        docked.overview_offset,
+        OverviewOffset::default(),
+        "收回时应把偏移清回 (0, 0)"
+    );
+    assert!(docked.left_open, "收回后左栏应展开");
+    assert!(
+        !status_display_marks_pin(&docked),
+        "收回后状态显示不再标图钉"
+    );
+}
+
+/// 点「运行概览」标签在悬浮时收回，未悬浮时只切换视图。
+///
+/// 数据构造：已悬浮，偏移 (-8, 4)。
+/// 执行过程：选择概览标签；另起一份未悬浮状态再选一次概览。
+/// 预期结果：悬浮时等同收回；未悬浮时只切到概览且不开始悬浮。
+#[test]
+fn overview_tab_docks_a_floating_panel_and_otherwise_selects_the_view() {
+    let floating = DesktopDrawerState {
+        left_open: true,
+        overview_floating: true,
+        overview_offset: OverviewOffset { x: -8, y: 4 },
+        ..DesktopDrawerState::default()
+    };
+    let docked = route_drawer(
+        floating,
+        DesktopDrawerEvent::SelectLeftView(DesktopLeftView::Overview),
+    );
+    assert!(!docked.overview_floating, "悬浮时点概览标签应收回");
+    assert_eq!(
+        docked.left_view,
+        DesktopLeftView::Overview,
+        "收回后应显示抽屉概览"
+    );
+    assert_eq!(
+        docked.overview_offset,
+        OverviewOffset::default(),
+        "从标签收回也应清偏移"
+    );
+
+    let chat = DesktopDrawerState::default();
+    let overview = route_drawer(
+        chat,
+        DesktopDrawerEvent::SelectLeftView(DesktopLeftView::Overview),
+    );
+    assert_eq!(
+        overview.left_view,
+        DesktopLeftView::Overview,
+        "未悬浮时点概览标签应切到概览"
+    );
+    assert!(
+        !overview.overview_floating,
+        "未悬浮时点概览标签不能自己弹出"
+    );
+}
+
+/// 拖动和方向键按 1:1 累加偏移，并限制在画布内；双击标题栏回到原点。
+///
+/// 数据构造：画布 1200×800。面板宽 min(360, 1200-24)=360，高 min(640, 800-150)=640。
+///   默认左缘 = 1200-12-360 = 828，上缘 = 64。
+///   水平限位：左缘≥8 得 x≥8-828=-820；右缘≤1192 得 x≤1192-360-828=4。
+///   垂直限位：上缘≥4 得 y≥4-64=-60；下缘≤792 得 y≤792-640-64=88。
+/// 执行过程：向左 16、Shift 向左再 48、向右 100、向上 100，然后双击复位。
+/// 预期结果：(-16)、(-64) 原样落下；向右停在 4；向上停在 -60；复位为 (0, 0)。
+#[test]
+fn overview_offset_tracks_the_pointer_and_resets_on_double_click() {
+    let canvas = OverviewCanvas {
+        width: 1200.0,
+        height: 800.0,
+    };
+    let origin = OverviewOffset::default();
+    let step = overview_key_step(false);
+    let left = move_overview_offset(origin, -(step as f32), 0.0, canvas);
+    assert_eq!(left.x, -16, "方向键一步应是 16px，向左 1:1");
+    assert_eq!(left.y, 0, "水平移动不能带动垂直偏移");
+    assert_eq!(overview_key_step(false), 16, "未按 Shift 的步长是 16");
+    assert_eq!(overview_key_step(true), 48, "按住 Shift 的步长是 48");
+
+    let shifted = move_overview_offset(left, -48.0, 0.0, canvas);
+    assert_eq!(shifted.x, -64, "Shift 步长应从当前偏移继续累加");
+
+    let right = move_overview_offset(origin, 100.0, 0.0, canvas);
+    assert_eq!(right.x, 4, "向右不能越过画布右缘 8px");
+    assert_ne!(right.x, 100, "超出画布的拖动增量必须被限位裁掉");
+
+    let up = move_overview_offset(origin, 0.0, -100.0, canvas);
+    assert_eq!(up.y, -60, "上缘应停在画布顶内 4px，不能压到顶部");
+    let down = move_overview_offset(origin, 0.0, 200.0, canvas);
+    assert_eq!(down.y, 88, "下缘应留出 8px，面板最大高度 640");
+
+    let placed = place_overview(right, canvas);
+    assert_eq!(placed.width, 360.0, "宽画布上面板宽应为 360");
+    assert_eq!(placed.left, 832.0, "默认左缘 828 再加限位后的 x=4");
+    assert_eq!(placed.top, 64.0, "只限制水平时上缘仍是默认 64");
+
+    let reset = route_drawer(
+        DesktopDrawerState {
+            overview_floating: true,
+            overview_offset: shifted,
+            ..DesktopDrawerState::default()
+        },
+        DesktopDrawerEvent::ResetOverviewOffset,
+    );
+    assert_eq!(
+        reset.overview_offset,
+        OverviewOffset::default(),
+        "双击标题栏应把偏移复位为 (0, 0)"
+    );
+    assert!(reset.overview_floating, "复位不能把面板收回抽屉");
+}
+
+/// 悬浮状态和偏移按桌面工作空间往返；还原时按当前画布重新限位。
+///
+/// 数据构造：悬浮偏移 (-40, 20)；保存 JSON 为字面量。
+///   窄画布宽 400：面板宽 min(360, 376)=360，默认左缘 400-12-360=28。
+///   右缘限位 x≤(400-8-360)-28=4，所以 -40 仍合法；上缘 y=-20 在 [-60, …] 内。
+///   再给一个会越界的 x=80。
+/// 执行过程：序列化、解析、分别在宽画布和会裁切的偏移上还原。
+/// 预期结果：往返保持悬浮、对话视图和原偏移；越界偏移被裁到 4；
+///   旧的只含 left_view 的 JSON 仍还原成抽屉概览。
+#[test]
+fn overview_float_layout_roundtrips_and_reclamps_to_the_current_canvas() {
+    let floating = DesktopDrawerState {
+        left_open: true,
+        left_view: DesktopLeftView::Chat,
+        overview_floating: true,
+        overview_offset: OverviewOffset { x: -40, y: 20 },
+        ..DesktopDrawerState::default()
+    };
+    let saved = overview_layout_json(&floating);
+    assert_eq!(
+        saved, r#"{"floating":true,"left_view":"chat","offset_x":-40,"offset_y":20}"#,
+        "布局 JSON 应同时写下视图、悬浮和偏移"
+    );
+    let parsed = overview_layout_from_preference(Some(&saved));
+    assert!(parsed.floating, "读回应仍是悬浮");
+    assert_eq!(parsed.left_view, DesktopLeftView::Chat, "读回应仍是对话");
+    assert_eq!(
+        parsed.offset,
+        OverviewOffset { x: -40, y: 20 },
+        "读回应保持原偏移"
+    );
+
+    let wide = OverviewCanvas {
+        width: 1200.0,
+        height: 800.0,
+    };
+    let restored = restore_overview_layout(DesktopDrawerState::default(), parsed, Some(wide));
+    assert!(restored.overview_floating, "重启后应还原悬浮");
+    assert!(restored.left_open, "还原悬浮时应展开左栏对话");
+    assert_eq!(
+        restored.left_view,
+        DesktopLeftView::Chat,
+        "悬浮还原后左栏是对话，不是抽屉概览"
+    );
+    assert_eq!(
+        restored.overview_offset,
+        OverviewOffset { x: -40, y: 20 },
+        "宽画布上这个偏移无需裁切"
+    );
+    assert!(
+        status_display_marks_pin(&restored),
+        "还原成悬浮后状态显示仍应标图钉"
+    );
+
+    let clamped = restore_overview_layout(
+        DesktopDrawerState::default(),
+        OverviewLayoutPreference {
+            offset: OverviewOffset { x: 80, y: 20 },
+            ..parsed
+        },
+        Some(wide),
+    );
+    assert_eq!(
+        clamped.overview_offset.x, 4,
+        "还原到当前画布时向右越过 8px 边距的偏移应裁到 4"
+    );
+    assert_ne!(clamped.overview_offset.x, 80, "越界偏移不能原样回到画布外");
+
+    let legacy = overview_layout_from_preference(Some(r#"{"left_view":"overview"}"#));
+    let drawer = restore_overview_layout(DesktopDrawerState::default(), legacy, Some(wide));
+    assert_eq!(
+        drawer.left_view,
+        DesktopLeftView::Overview,
+        "旧的概览偏好仍应还原成抽屉概览"
+    );
+    assert!(!drawer.overview_floating, "旧偏好没有悬浮字段时不能弹出");
+    assert_eq!(
+        drawer.overview_offset,
+        OverviewOffset::default(),
+        "未悬浮的旧偏好偏移应为 (0, 0)"
+    );
+    assert_eq!(
+        overview_layout_from_preference(Some("{")),
+        OverviewLayoutPreference::default(),
+        "损坏的 JSON 应回退到对话且不悬浮"
+    );
+}
+
+/// Esc 在悬浮面板里只交还焦点，在抽屉概览里回到对话。
+///
+/// 数据构造：一份悬浮状态，一份抽屉概览状态。
+/// 执行过程：分别在焦点位于面板内、外时询问 Escape。
+/// 预期结果：面板内回到状态显示且不改变悬浮；抽屉概览回到对话；对话中忽略。
+#[test]
+fn escape_returns_floating_focus_to_the_status_display() {
+    let floating = DesktopDrawerState {
+        left_open: true,
+        overview_floating: true,
+        overview_offset: OverviewOffset { x: -12, y: 0 },
+        ..DesktopDrawerState::default()
+    };
+    let (kept, target) = route_overview_escape(floating, true);
+    assert_eq!(
+        target,
+        OverviewEscape::ReturnFocusToStatus,
+        "焦点在悬浮面板时 Esc 应回到状态显示"
+    );
+    assert_eq!(kept, floating, "这次 Esc 不能收回或移动面板");
+
+    let (ignored, target) = route_overview_escape(floating, false);
+    assert_eq!(
+        target,
+        OverviewEscape::Ignore,
+        "焦点不在悬浮面板时 Esc 不应抢走状态显示"
+    );
+    assert!(ignored.overview_floating, "未命中面板的 Esc 不能收回悬浮");
+
+    let drawer = route_drawer(
+        DesktopDrawerState::default(),
+        DesktopDrawerEvent::SelectLeftView(DesktopLeftView::Overview),
+    );
+    let (chat, target) = route_overview_escape(drawer, false);
+    assert_eq!(
+        target,
+        OverviewEscape::ReturnDrawerToChat,
+        "焦点在抽屉概览时 Esc 应回到对话"
+    );
+    assert_eq!(
+        chat.left_view,
+        DesktopLeftView::Chat,
+        "抽屉概览的 Esc 应变回对话"
+    );
+    assert!(!chat.overview_floating, "抽屉 Esc 不能改成悬浮");
 }

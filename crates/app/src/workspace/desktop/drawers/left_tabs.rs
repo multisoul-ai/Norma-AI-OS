@@ -132,6 +132,18 @@ impl MultisoulApp {
                 }
             }))
             .child(label)
+            .when(
+                self.desktop_workspace.drawers.overview_floating && id.ends_with("overview"),
+                |tab| {
+                    tab.child(
+                        gpui::svg()
+                            .path("icons/pin.svg")
+                            .text_color(rgba(0x9fd2ffff))
+                            .w(px(12.0))
+                            .h(px(12.0)),
+                    )
+                },
+            )
             .when_some(pending, |tab, count| {
                 tab.child(
                     div()
@@ -222,6 +234,11 @@ impl MultisoulApp {
         }
         if self.desktop_workspace.switcher_open {
             self.dismiss_desktop_switcher(window, cx);
+            cx.stop_propagation();
+            return true;
+        }
+        if self.overview_float_holds_focus(window, cx) {
+            self.focus_run_status(window, cx);
             cx.stop_propagation();
             return true;
         }

@@ -8,6 +8,7 @@ public enum WorkspaceModule {
             WorkspaceLifecycle.name,
             WorkspaceDrawerTabs.name,
             WorkspaceStatusCapsule.name,
+            WorkspaceOverviewFloat.name,
         ],
         run: { scenario, session in
             switch scenario {
@@ -19,6 +20,9 @@ public enum WorkspaceModule {
                 return true
             case WorkspaceStatusCapsule.name:
                 try await WorkspaceStatusCapsule.run(session)
+                return true
+            case WorkspaceOverviewFloat.name:
+                try await WorkspaceOverviewFloat.run(session)
                 return true
             default:
                 return false

@@ -18,6 +18,7 @@ mod artifacts;
 mod chat;
 mod chat_message;
 pub(super) mod content;
+pub(in crate::workspace::desktop) mod float;
 mod layout_save;
 mod left_body;
 mod left_tabs;
@@ -102,6 +103,7 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
+        self.reconcile_overview_float_bounds(window, cx);
         self.ensure_workspace_activity_cache(cx);
         self.ensure_drawer_frost(cx);
         let drawers = self.desktop_workspace.drawers;
@@ -151,6 +153,16 @@ impl MultisoulApp {
             .when_some(left_handle, |layer, handle| layer.child(handle))
             .when_some(right_handle, |layer, handle| layer.child(handle))
             .when_some(resize_capture, |layer, capture| layer.child(capture))
+            .when_some(
+                self.render_run_status_focus_sink(window, cx),
+                |layer, sink| layer.child(sink),
+            )
+            .when_some(self.render_floating_overview(window, cx), |layer, panel| {
+                layer.child(panel)
+            })
+            .when_some(self.render_overview_drag_capture(cx), |layer, capture| {
+                layer.child(capture)
+            })
     }
 
     fn drawer_reopen_button(&self, id: &'static str, left: bool, cx: &Context<Self>) -> Div {

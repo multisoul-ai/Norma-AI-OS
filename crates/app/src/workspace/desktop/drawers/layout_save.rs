@@ -5,13 +5,17 @@
 use crate::app::MultisoulApp;
 use gpui::{AppContext, Context};
 use runtime::desktop_drawers::{
-    left_view_from_preference, left_view_preference_json, restore_left_view,
+    overview_layout_from_preference, overview_layout_json, restore_overview_layout,
 };
 use std::sync::atomic::Ordering;
 
 impl MultisoulApp {
-    pub(crate) fn persist_left_drawer_view(&mut self, workspace_id: &str, cx: &mut Context<Self>) {
-        let json = left_view_preference_json(self.desktop_workspace.drawers.left_view);
+    pub(in crate::workspace::desktop) fn persist_left_drawer_view(
+        &mut self,
+        workspace_id: &str,
+        cx: &mut Context<Self>,
+    ) {
+        let json = overview_layout_json(&self.desktop_workspace.drawers);
         let Some(workspace) = self
             .desktop_workspace
             .workspaces
@@ -20,7 +24,7 @@ impl MultisoulApp {
         else {
             return;
         };
-        if workspace.drawer_layout_json.as_deref() == Some(json) {
+        if workspace.drawer_layout_json.as_deref() == Some(json.as_str()) {
             return;
         }
         workspace.drawer_layout_json = Some(json.to_string());
@@ -69,9 +73,14 @@ impl MultisoulApp {
             .iter()
             .find(|workspace| workspace.id == workspace_id)
             .and_then(|workspace| workspace.drawer_layout_json.clone());
-        let view = left_view_from_preference(raw.as_deref());
+        let preference = overview_layout_from_preference(raw.as_deref());
         let before = self.desktop_workspace.drawers;
-        self.desktop_workspace.drawers = restore_left_view(before, view);
+        self.desktop_workspace.drawers = restore_overview_layout(before, preference, None);
+        if preference.floating {
+            self.desktop_workspace.overview_float_fade.snap_visible();
+        } else {
+            self.desktop_workspace.overview_float_fade = super::float::OverviewFloatFade::hidden();
+        }
         self.desktop_workspace.left_view_slide = super::left_view_slide::LeftViewSlide::settled();
         if before != self.desktop_workspace.drawers {
             self.desktop_workspace.drawer_motion.retarget(
@@ -85,7 +94,7 @@ impl MultisoulApp {
         let Some(id) = self.desktop_workspace.active_id.clone() else {
             return;
         };
-        let json = left_view_preference_json(self.desktop_workspace.drawers.left_view).to_string();
+        let json = overview_layout_json(&self.desktop_workspace.drawers);
         if let Some(workspace) = self
             .desktop_workspace
             .workspaces

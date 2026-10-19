@@ -7,7 +7,8 @@
 use super::{glass_button_variant, GLASS_TEXT, GLASS_TEXT_MUTED};
 use crate::app::MultisoulApp;
 use gpui::{
-    canvas, div, point, prelude::*, px, rgba, AnyElement, ClickEvent, Context, PathBuilder, Window,
+    canvas, div, point, prelude::*, px, rgba, svg, AnyElement, ClickEvent, Context, PathBuilder,
+    Window,
 };
 use runtime::desktop_drawers::{
     route_status_capsule, DesktopDrawerState, StatusCapsuleClick, StatusCapsuleEffect,
@@ -56,107 +57,137 @@ impl MultisoulApp {
         let theme = self.desktop_theme();
         let chrome = capsule_chrome(theme);
         let spoken = capsule.accessibility_label.clone();
+        let status_focus = self.run_status_focus(cx);
         let pending = capsule.pending_count;
         Some(
-            Button::new("desktop-status-capsule")
-                .debug_selector(|| "desktop-status-capsule".to_string())
-                .h(px(32.0))
-                .px(px(8.0))
-                .rounded(px(9.0))
-                .custom(glass_button_variant(theme, cx))
-                .tooltip(spoken.clone())
+            div()
+                .id("desktop-status-capsule-slot")
+                .track_focus(&status_focus)
                 .child(
-                    div()
-                        .flex()
-                        .items_center()
-                        .gap(px(8.0))
+                    Button::new("desktop-status-capsule")
+                        .debug_selector(|| "desktop-status-capsule".to_string())
+                        .h(px(32.0))
+                        .px(px(8.0))
+                        .rounded(px(9.0))
+                        .custom(glass_button_variant(theme, cx))
+                        .tooltip(spoken.clone())
                         .child(
-                            div()
-                                .h(px(0.0))
-                                .overflow_hidden()
-                                .text_size(px(1.0))
-                                .child(spoken),
-                        )
-                        .children(capsule.chips.iter().map(|chip| {
-                            let fraction = match (chip.completed, chip.total) {
-                                (Some(done), Some(total)) if total > 0 => {
-                                    Some(done as f32 / total as f32)
-                                }
-                                _ => None,
-                            };
-                            let show_count = !compact || chip.count_label.contains('/');
                             div()
                                 .flex()
                                 .items_center()
-                                .gap(px(6.0))
-                                .child(progress_ring(
-                                    fraction,
-                                    chip.waiting_mark,
-                                    chrome.ring,
-                                    with_alpha(chrome.focus, 0x88),
-                                ))
-                                .when(!compact, |row| {
+                                .gap(px(8.0))
+                                .child(
+                                    div()
+                                        .h(px(0.0))
+                                        .overflow_hidden()
+                                        .text_size(px(1.0))
+                                        .child(spoken),
+                                )
+                                .children(capsule.chips.iter().map(|chip| {
+                                    let fraction = match (chip.completed, chip.total) {
+                                        (Some(done), Some(total)) if total > 0 => {
+                                            Some(done as f32 / total as f32)
+                                        }
+                                        _ => None,
+                                    };
+                                    let show_count = !compact || chip.count_label.contains('/');
+                                    div()
+                                        .flex()
+                                        .items_center()
+                                        .gap(px(6.0))
+                                        .child(progress_ring(
+                                            fraction,
+                                            chip.waiting_mark,
+                                            chrome.ring,
+                                            with_alpha(chrome.focus, 0x88),
+                                        ))
+                                        .when(!compact, |row| {
+                                            row.child(
+                                                div()
+                                                    .text_size(px(12.0))
+                                                    .text_color(rgba(GLASS_TEXT))
+                                                    .child(chip.display_name.clone()),
+                                            )
+                                        })
+                                        .when(show_count, |row| {
+                                            row.child(
+                                                div()
+                                                    .text_size(px(12.0))
+                                                    .text_color(rgba(GLASS_TEXT))
+                                                    .child(chip.count_label.clone()),
+                                            )
+                                        })
+                                }))
+                                .when(capsule.overflow > 0, |row| {
                                     row.child(
                                         div()
                                             .text_size(px(12.0))
-                                            .text_color(rgba(GLASS_TEXT))
-                                            .child(chip.display_name.clone()),
+                                            .text_color(rgba(GLASS_TEXT_MUTED))
+                                            .child(format!("+{}", capsule.overflow)),
                                     )
                                 })
-                                .when(show_count, |row| {
+                                .when(pending > 0, |row| {
                                     row.child(
                                         div()
-                                            .text_size(px(12.0))
-                                            .text_color(rgba(GLASS_TEXT))
-                                            .child(chip.count_label.clone()),
+                                            .flex()
+                                            .items_center()
+                                            .gap(px(4.0))
+                                            .child(
+                                                div()
+                                                    .text_size(px(12.0))
+                                                    .text_color(rgba(chrome.amber))
+                                                    .child(pending.to_string()),
+                                            )
+                                            .when(!compact, |badge| {
+                                                badge.child(
+                                                    div()
+                                                        .text_size(px(11.0))
+                                                        .text_color(rgba(GLASS_TEXT_MUTED))
+                                                        .child("待处理"),
+                                                )
+                                            }),
                                     )
-                                })
-                        }))
-                        .when(capsule.overflow > 0, |row| {
-                            row.child(
-                                div()
-                                    .text_size(px(12.0))
-                                    .text_color(rgba(GLASS_TEXT_MUTED))
-                                    .child(format!("+{}", capsule.overflow)),
+                                }),
+                        )
+                        .when(drawers.overview_floating, |button| {
+                            button.child(
+                                svg()
+                                    .path("icons/pin.svg")
+                                    .w(px(12.0))
+                                    .h(px(12.0))
+                                    .text_color(rgba(GLASS_TEXT)),
                             )
                         })
-                        .when(pending > 0, |row| {
-                            row.child(
-                                div()
-                                    .flex()
-                                    .items_center()
-                                    .gap(px(4.0))
-                                    .child(
-                                        div()
-                                            .text_size(px(12.0))
-                                            .text_color(rgba(chrome.amber))
-                                            .child(pending.to_string()),
-                                    )
-                                    .when(!compact, |badge| {
-                                        badge.child(
-                                            div()
-                                                .text_size(px(11.0))
-                                                .text_color(rgba(GLASS_TEXT_MUTED))
-                                                .child("待处理"),
-                                        )
-                                    }),
-                            )
-                        }),
+                        .on_click(cx.listener(|app, event: &ClickEvent, window, cx| {
+                            cx.stop_propagation();
+                            let from_keyboard = matches!(event, ClickEvent::Keyboard(_));
+                            app.activate_status_capsule(from_keyboard, window, cx);
+                        })),
                 )
-                .on_click(cx.listener(|app, event: &ClickEvent, _window, cx| {
-                    cx.stop_propagation();
-                    let from_keyboard = matches!(event, ClickEvent::Keyboard(_));
-                    app.activate_status_capsule(from_keyboard, cx);
-                }))
                 .into_any_element(),
         )
     }
 
-    fn activate_status_capsule(&mut self, from_keyboard: bool, cx: &mut Context<Self>) {
+    pub(crate) fn status_capsule_visible(&self) -> bool {
+        self.desktop_workspace
+            .activity_capsule
+            .as_ref()
+            .is_some_and(|capsule| {
+                !capsule.chips.is_empty() || capsule.overflow > 0 || capsule.pending_count > 0
+            })
+    }
+
+    fn activate_status_capsule(
+        &mut self,
+        from_keyboard: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let floating = self.desktop_workspace.drawers.overview_floating;
         let (next, effect) = route_status_capsule(
             self.desktop_workspace.drawers,
             StatusCapsuleClick {
-                floating: false,
+                floating,
                 from_keyboard,
             },
         );
@@ -167,6 +198,12 @@ impl MultisoulApp {
             }
         );
         if matches!(effect, StatusCapsuleEffect::FocusFloating) {
+            let focus = self
+                .desktop_workspace
+                .overview_float_focus
+                .get_or_insert_with(|| cx.focus_handle())
+                .clone();
+            window.focus(&focus);
             return;
         }
         self.apply_desktop_drawers(next, cx);
@@ -179,21 +216,32 @@ impl MultisoulApp {
     ) {
         let before = self.desktop_workspace.drawers;
         self.desktop_workspace.drawers = next;
-        if before.left_view != self.desktop_workspace.drawers.left_view {
+        if before.left_view != next.left_view {
             self.desktop_workspace.left_view_slide.retarget(
-                self.desktop_workspace.drawers.left_view
-                    == runtime::desktop_drawers::DesktopLeftView::Overview,
+                next.left_view == runtime::desktop_drawers::DesktopLeftView::Overview,
                 self.motion.reduce_motion,
             );
+        }
+        if before.overview_floating != next.overview_floating {
+            if next.overview_floating {
+                self.desktop_workspace.overview_float_fade.retarget(true);
+            } else {
+                self.desktop_workspace.overview_float_fade =
+                    super::drawers::float::OverviewFloatFade::hidden();
+            }
+        }
+        let layout_changed = before.left_view != next.left_view
+            || before.overview_floating != next.overview_floating
+            || before.overview_offset != next.overview_offset;
+        if layout_changed {
             if let Some(id) = self.desktop_workspace.active_id.clone() {
                 self.persist_left_drawer_view(&id, cx);
             }
         }
-        self.desktop_workspace.drawer_motion.retarget(
-            self.desktop_workspace.drawers.left_open,
-            self.desktop_workspace.drawers.right_open,
-        );
-        if !before.right_open && self.desktop_workspace.drawers.right_open {
+        self.desktop_workspace
+            .drawer_motion
+            .retarget(next.left_open, next.right_open);
+        if !before.right_open && next.right_open {
             self.load_selected_desktop_content(cx);
         }
         self.wake_animation_frame_loop();
