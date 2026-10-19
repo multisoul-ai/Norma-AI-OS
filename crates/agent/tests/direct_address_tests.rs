@@ -329,6 +329,26 @@ fn ordinary_mention_of_agent_name_is_not_a_reply_or_task() {
     );
 }
 
+/// 中文任务分隔符不能按单字节切片；ASCII和中文冒号都须完整移除且保留正文。
+/// 数据构造：已存在Alan卡片，任务前缀带“追加”，走通用分隔符分支。
+/// 执行过程：分别解析两种冒号；预期均为NewTask且正文精确为检查支付模块，不崩溃。
+#[test]
+fn new_task_separator_preserves_utf8_boundaries() {
+    for separator in ["：", ":"] {
+        let intent = parse_direct_address(
+            &format!("Alan，追加一个新任务{separator}检查支付模块"),
+            &[alan(true)],
+        );
+        let DirectAddressIntent::NewTask { message, .. } = intent else {
+            panic!("显式新任务应被识别")
+        };
+        assert_eq!(
+            message, "检查支付模块",
+            "{separator}必须按完整Unicode字符移除"
+        );
+    }
+}
+
 /// 多 Agent 句首点名应按表达顺序形成回复目标集合。
 #[test]
 fn multi_agent_leading_address_preserves_order() {

@@ -21,7 +21,7 @@ pub use stream::install_test_duplex_pcm_stream;
 #[cfg(feature = "test-support")]
 pub use stream::install_test_pcm_stream;
 pub use stream::{start_duplex_pcm_stream, start_pcm_stream, PcmStreamSession};
-pub use vad::{FakeEnergyVadClient, SherpaVadClient};
+pub use vad::{FakeEnergyVadClient, SherpaVadClient, SpeechSpan, VadObservation};
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 

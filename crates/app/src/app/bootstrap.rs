@@ -202,6 +202,7 @@ impl MultisoulApp {
             recent_project_context_path: None,
             voice: crate::app::voice::control::VoiceControlState::default(),
             doubao: crate::app::doubao::DoubaoVoiceState::default(),
+            gpt_live: crate::app::gpt_live::GptLiveVoiceState::default(),
             dialogue,
             tts_preview,
             pending_tts_activation: None,

@@ -28,6 +28,12 @@ pub(crate) enum VoiceWaveformState {
 
 impl MultisoulApp {
     pub(crate) fn voice_caption_text(&self) -> Option<String> {
+        if self.voice_settings.values().desktop_mode()
+            == crate::settings::voice::DesktopVoiceMode::GptLive
+        {
+            return self.gpt_live.has_caption().then(|| self.gpt_live.caption());
+        }
+
         self.voice
             .caption_text()
             .map(ToOwned::to_owned)
@@ -44,6 +50,12 @@ impl MultisoulApp {
     }
 
     pub(crate) fn voice_caption_is_visible(&self) -> bool {
+        if self.voice_settings.values().desktop_mode()
+            == crate::settings::voice::DesktopVoiceMode::GptLive
+        {
+            return false;
+        }
+
         self.voice.caption_text().is_some()
             || (matches!(
                 self.dialogue.phase(),
@@ -63,6 +75,13 @@ impl MultisoulApp {
     }
 
     pub(crate) fn voice_waveform_state(&self) -> Option<VoiceWaveformState> {
+        if self.voice_settings.values().desktop_mode()
+            == crate::settings::voice::DesktopVoiceMode::GptLive
+        {
+            return (self.gpt_live.is_active() && !self.gpt_live.is_muted())
+                .then_some(VoiceWaveformState::Listening);
+        }
+
         if self.voice_settings.values().desktop_mode()
             == crate::settings::voice::DesktopVoiceMode::Doubao
         {
@@ -118,6 +137,9 @@ impl MultisoulApp {
     }
 
     pub(crate) fn render_voice_caption(&mut self, cx: &mut Context<Self>) -> Option<Div> {
+        if !self.voice_caption_is_visible() {
+            return None;
+        }
         let full_text = self.voice_caption_text()?;
         let expanded = self.voice.caption_expanded();
         let visible_text = if expanded {

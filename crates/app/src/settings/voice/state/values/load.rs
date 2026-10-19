@@ -15,6 +15,14 @@ impl SavedVoiceSettings {
         let openai_plaintext =
             non_empty_option(store.get_string(KEY_AGENT_OPENAI_API_KEY)?).or(legacy_openai_api_key);
         Ok(Self {
+            gpt_live_interaction_mode: store
+                .get_string(KEY_GPT_LIVE_INTERACTION_MODE)?
+                .as_deref()
+                .and_then(VoiceInteractionMode::from_stored),
+            gpt_live_profile: GptLiveProfile::from_stored(
+                store.get_string(KEY_GPT_LIVE_CREDENTIAL_REF)?,
+                store.get_string(KEY_GPT_LIVE_VOICE)?,
+            ),
             desktop_mode: store
                 .get_string(KEY_DESKTOP_MODE)?
                 .as_deref()

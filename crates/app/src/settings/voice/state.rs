@@ -14,6 +14,9 @@ mod doubao_voice;
 mod e2e;
 mod editing;
 mod field;
+mod gpt_live;
+mod gpt_live_credentials;
+use gpt_live_credentials::GptLiveCredentialRollback;
 mod migration;
 mod mode;
 mod model_selection;
@@ -76,6 +79,10 @@ pub(crate) struct VoiceSettingsState {
     minimax_validation_write_rollback: Option<tts_provider::MiniMaxValidationWriteRollback>,
     minimax_api_key_draft: Option<String>,
     doubao_credential_previous: Option<Option<String>>,
+    gpt_live_credential_rollback: Option<GptLiveCredentialRollback>,
+    gpt_live_credential_retry: Option<gpt_live_credentials::CredentialIntent>,
+    gpt_live_key_expanded: bool,
+    gpt_live_diagnostics_expanded: bool,
     doubao_voice_search: String,
     minimax_account_status: tts::RemoteAccountStatus,
     minimax_voice_catalog: tts::ProviderVoiceCatalog,
@@ -167,6 +174,10 @@ impl VoiceSettingsState {
             minimax_validation_write_rollback: None,
             minimax_api_key_draft: None,
             doubao_credential_previous: None,
+            gpt_live_credential_rollback: None,
+            gpt_live_credential_retry: None,
+            gpt_live_key_expanded: false,
+            gpt_live_diagnostics_expanded: false,
             doubao_voice_search: String::new(),
             minimax_account_status: tts::RemoteAccountStatus::Unchecked,
             minimax_voice_catalog: tts::ProviderVoiceCatalog::default(),
@@ -481,3 +492,7 @@ mod voice_settings_resync_tests;
 #[cfg(test)]
 #[path = "../../../tests/unit/voice_settings_runtime_sync_tests.rs"]
 mod runtime_sync_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/voice_settings_gpt_live_tests.rs"]
+mod voice_settings_gpt_live_tests;

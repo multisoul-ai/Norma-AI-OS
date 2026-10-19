@@ -170,7 +170,7 @@ impl AdapterResult {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Error)]
+#[derive(Clone, Debug, Eq, PartialEq, Error, Serialize, Deserialize)]
 pub enum AdapterError {
     #[error("invalid tool arguments: {0}")]
     InvalidArguments(String),
@@ -200,7 +200,13 @@ pub trait AgentCardAdapter: Send + Sync {
 #[derive(Clone)]
 pub struct NormaToolRuntime {
     adapter: Arc<dyn AgentCardAdapter>,
-    operation_receipts: Arc<Mutex<HashMap<String, Result<AdapterResult, AdapterError>>>>,
+    operation_receipts: Arc<Mutex<HashMap<String, OperationReceipt>>>,
+}
+
+#[derive(Clone)]
+struct OperationReceipt {
+    request: Value,
+    result: Result<AdapterResult, AdapterError>,
 }
 
 impl NormaToolRuntime {
@@ -226,6 +232,9 @@ impl NormaToolRuntime {
         if context.cancellation.is_cancelled() {
             return Err(AdapterError::Cancelled);
         }
+        let request = json!({"tool":tool_name,"arguments":arguments,
+            "project":context.project_id,"turn":context.turn_id,"user":context.user_input,
+            "source":format!("{:?}", context.input_source)});
         if let Some(operation_id) = context.operation_id.as_deref() {
             if let Some(receipt) = self
                 .operation_receipts
@@ -234,7 +243,12 @@ impl NormaToolRuntime {
                 .get(operation_id)
                 .cloned()
             {
-                return receipt;
+                if receipt.request != request {
+                    return Err(AdapterError::Rejected(
+                        "操作ID与原始请求不匹配，未再次执行".into(),
+                    ));
+                }
+                return receipt.result;
             }
         }
 
@@ -251,7 +265,9 @@ impl NormaToolRuntime {
                 "这条群聊消息仅供讨论，用户尚未要求执行".into(),
             ));
         }
+        // GPT's model selects the operation; only its typed target is resolved locally.
         let delete_authorized = match &command {
+            _ if context.input_source == crate::AgentInputSource::GptLiveVoice => None,
             AdapterCommand::DeleteCanvasCard { node_id } => Some(has_explicit_delete_intent(
                 &context.user_input,
                 *node_id,
@@ -277,7 +293,13 @@ impl NormaToolRuntime {
             self.operation_receipts
                 .lock()
                 .expect("operation receipt lock should not be poisoned")
-                .insert(operation_id.to_string(), result.clone());
+                .insert(
+                    operation_id.to_string(),
+                    OperationReceipt {
+                        request,
+                        result: result.clone(),
+                    },
+                );
         }
         result
     }

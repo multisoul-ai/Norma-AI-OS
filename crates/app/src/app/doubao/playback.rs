@@ -13,7 +13,16 @@ use ui::i18n::LocalizedText;
 const MAX_PENDING_COMPLETIONS: usize = 512;
 const COMPLETION_GRACE: Duration = Duration::from_secs(5);
 
+struct BudgetedAudio {
+    generation: u64,
+    pcm: PcmAudioChunk,
+    reservation: Option<budget::Reservation>,
+}
+
+mod budget;
+
 struct PendingCompletion {
+    _reservation: Option<budget::Reservation>,
     receiver: async_channel::Receiver<()>,
     deadline: Instant,
 }
@@ -27,19 +36,31 @@ enum PlaybackControl {
     },
 }
 
-pub(super) struct PlaybackQueue {
-    audio: crossbeam_channel::Sender<(u64, PcmAudioChunk)>,
+pub(in crate::app) struct PlaybackQueue {
+    audio: crossbeam_channel::Sender<BudgetedAudio>,
     control: crossbeam_channel::Sender<PlaybackControl>,
     epoch: Arc<AtomicU64>,
-    pub(super) errors: async_channel::Receiver<LocalizedText>,
+    stopped: async_channel::Receiver<()>,
+    budget: Option<Arc<budget::Budget>>,
+    pub(in crate::app) errors: async_channel::Receiver<LocalizedText>,
 }
 
 impl PlaybackQueue {
-    pub(super) fn generation(&self) -> u64 {
+    pub(in crate::app) fn buffered_duration(&self) -> Duration {
+        self.budget
+            .as_ref()
+            .map_or(Duration::ZERO, |budget| budget.buffered())
+    }
+
+    pub(in crate::app) async fn wait_stopped(&self) {
+        let _ = self.stopped.recv().await;
+    }
+
+    pub(in crate::app) fn generation(&self) -> u64 {
         self.epoch.load(Ordering::Acquire)
     }
 
-    pub(super) fn enqueue_for(
+    pub(in crate::app) fn enqueue_for(
         &self,
         generation: u64,
         pcm: PcmAudioChunk,
@@ -47,12 +68,21 @@ impl PlaybackQueue {
         if generation != self.generation() {
             return Ok(());
         }
+        let reservation = self
+            .budget
+            .as_ref()
+            .map(|budget| budget.reserve(&pcm))
+            .transpose()?;
         self.audio
-            .try_send((generation, pcm))
+            .try_send(BudgetedAudio {
+                generation,
+                pcm,
+                reservation,
+            })
             .map_err(|_| LocalizedText::new("doubao.playback_overflow"))
     }
 
-    pub(super) fn finish_for(
+    pub(in crate::app) fn finish_for(
         &self,
         generation: u64,
     ) -> Result<async_channel::Receiver<()>, LocalizedText> {
@@ -63,40 +93,67 @@ impl PlaybackQueue {
         Ok(receiver)
     }
 
-    pub(super) fn interrupt(&self) {
+    pub(in crate::app) fn interrupt(&self) {
         self.epoch.fetch_add(1, Ordering::AcqRel);
         let _ = self.control.send(PlaybackControl::Interrupt);
     }
 
-    pub(super) fn end(&self) {
+    pub(in crate::app) fn end(&self) {
         self.interrupt();
         let _ = self.control.send(PlaybackControl::End);
     }
 }
 
-pub(super) fn start_playback(events: VoiceWindowInsetEventSink) -> PlaybackQueue {
+pub(in crate::app) fn start_playback(events: VoiceWindowInsetEventSink) -> PlaybackQueue {
     start_playback_with(
         crate::app::voice::playback::default_assistant_audio_sink,
         events,
     )
 }
 
-pub(super) fn start_playback_with(
+pub(in crate::app) fn start_playback_with(
     make_sink: impl FnOnce() -> Box<dyn crate::app::voice::playback::AssistantAudioSink>
         + Send
         + 'static,
     events: VoiceWindowInsetEventSink,
 ) -> PlaybackQueue {
+    start_playback_worker(make_sink, events, None)
+}
+
+pub(in crate::app) fn start_live_playback(events: VoiceWindowInsetEventSink) -> PlaybackQueue {
+    start_live_playback_with(
+        crate::app::voice::playback::default_assistant_audio_sink,
+        events,
+    )
+}
+
+pub(in crate::app) fn start_live_playback_with(
+    make_sink: impl FnOnce() -> Box<dyn crate::app::voice::playback::AssistantAudioSink>
+        + Send
+        + 'static,
+    events: VoiceWindowInsetEventSink,
+) -> PlaybackQueue {
+    start_playback_worker(make_sink, events, Some(Arc::new(budget::Budget::default())))
+}
+
+fn start_playback_worker(
+    make_sink: impl FnOnce() -> Box<dyn crate::app::voice::playback::AssistantAudioSink>
+        + Send
+        + 'static,
+    events: VoiceWindowInsetEventSink,
+    budget: Option<Arc<budget::Budget>>,
+) -> PlaybackQueue {
     let (audio_tx, audio_rx) = crossbeam_channel::bounded(16);
     let (control_tx, control_rx) = crossbeam_channel::unbounded();
     let (error_tx, error_rx) = async_channel::bounded(1);
+    let (stopped_tx, stopped) = async_channel::bounded::<()>(1);
     let epoch = Arc::new(AtomicU64::new(0));
     let epoch_worker = Arc::clone(&epoch);
     std::thread::spawn(move || {
         let mut sink = make_sink();
         let tick = crossbeam_channel::tick(Duration::from_millis(12));
         let idle = crossbeam_channel::never::<Instant>();
-        let paused_audio = crossbeam_channel::never::<(u64, PcmAudioChunk)>();
+        let paused_audio = crossbeam_channel::never::<BudgetedAudio>();
         let mut pending = Vec::<PendingCompletion>::new();
         let mut finishing: Option<(u64, async_channel::Sender<()>)> = None;
         let mut started = false;
@@ -111,7 +168,10 @@ pub(super) fn start_playback_with(
             crossbeam_channel::select_biased! {
                 recv(control_rx) -> command => match command {
                     Ok(PlaybackControl::Interrupt) => {
-                        sink.stop();
+                        if let Err(error) = sink.stop_and_confirm() {
+                            let _ = error_tx.try_send(LocalizedText::new("doubao.playback_failed").with_arg("reason", error));
+                            break;
+                        }
                         pending.clear();
                         finishing = None;
                         playback_tail = Instant::now();
@@ -128,9 +188,14 @@ pub(super) fn start_playback_with(
                     }
                 },
                 recv(next_audio) -> command => match command {
-                    Ok((generation, pcm)) if generation == epoch_worker.load(Ordering::Acquire) => {
+                    Ok(BudgetedAudio { generation, pcm, reservation }) if generation == epoch_worker.load(Ordering::Acquire) => {
                         let (playback_started, _started_rx) = async_channel::bounded(1);
                         let (completed, completion_rx) = async_channel::bounded(1);
+                        pending.push(PendingCompletion {
+                            _reservation: reservation,
+                            receiver: completion_rx,
+                            deadline: playback_tail.max(Instant::now()) + crate::app::voice::playback::pcm_chunk_duration(&pcm) + COMPLETION_GRACE,
+                        });
                         let duration = match sink.write_chunk_with_completion(
                             &pcm,
                             playback_started,
@@ -148,10 +213,9 @@ pub(super) fn start_playback_with(
                             events.push(TtsPlaybackEvent::Started);
                             started = true;
                         }
-                        pending.push(PendingCompletion {
-                            receiver: completion_rx,
-                            deadline: playback_tail + COMPLETION_GRACE,
-                        });
+                        if let Some(pending) = pending.last_mut() {
+                            pending.deadline = playback_tail + COMPLETION_GRACE;
+                        }
                     }
                     Ok(_) => {},
                     Err(_) => break,
@@ -165,14 +229,14 @@ pub(super) fn start_playback_with(
                         Err(async_channel::TryRecvError::Empty) => {
                             if now >= completion.deadline {
                                 callback_timed_out = true;
-                                false
+                                true
                             } else {
                                 true
                             }
                         }
                         Err(async_channel::TryRecvError::Closed) => {
                             callback_lost = true;
-                            false
+                            true
                         }
                     });
                     if callback_lost {
@@ -201,15 +265,25 @@ pub(super) fn start_playback_with(
                 }
             }
         }
-        sink.stop();
+        let _ = sink.stop_and_confirm();
         if started {
             events.push(TtsPlaybackEvent::Interrupted);
         }
+        drop(sink);
+        pending.clear();
+        drop(audio_rx);
+        stopped_tx.close();
     });
     PlaybackQueue {
         audio: audio_tx,
         control: control_tx,
         epoch,
         errors: error_rx,
+        stopped,
+        budget,
     }
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/gpt_live_playback_tests.rs"]
+mod live_tests;

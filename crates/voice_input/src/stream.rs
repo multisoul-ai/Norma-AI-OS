@@ -25,6 +25,8 @@ pub struct PcmStreamSession {
     forward_thread: Option<JoinHandle<()>>,
     #[cfg(feature = "test-support")]
     test_hold_tx: Option<async_channel::Sender<PcmAudioChunk>>,
+    #[cfg(feature = "test-support")]
+    test_lifecycle_tx: Option<async_channel::Sender<()>>,
 }
 
 impl PcmStreamSession {
@@ -43,7 +45,10 @@ impl PcmStreamSession {
             let _ = forward_thread.join();
         }
         #[cfg(feature = "test-support")]
-        self.test_hold_tx.take();
+        {
+            self.test_hold_tx.take();
+            self.test_lifecycle_tx.take();
+        }
     }
 }
 
@@ -54,8 +59,11 @@ impl Drop for PcmStreamSession {
 }
 
 #[cfg(feature = "test-support")]
-fn test_pcm_stream() -> &'static Mutex<Option<(Vec<PcmAudioChunk>, bool)>> {
-    static STREAM: OnceLock<Mutex<Option<(Vec<PcmAudioChunk>, bool)>>> = OnceLock::new();
+type TestPcmStreamState = Option<(Vec<PcmAudioChunk>, bool, Option<async_channel::Sender<()>>)>;
+
+#[cfg(feature = "test-support")]
+fn test_pcm_stream() -> &'static Mutex<TestPcmStreamState> {
+    static STREAM: OnceLock<Mutex<TestPcmStreamState>> = OnceLock::new();
     STREAM.get_or_init(|| Mutex::new(None))
 }
 
@@ -63,19 +71,22 @@ fn test_pcm_stream() -> &'static Mutex<Option<(Vec<PcmAudioChunk>, bool)>> {
 pub fn install_test_pcm_stream(chunks: Vec<PcmAudioChunk>) {
     *test_pcm_stream()
         .lock()
-        .expect("test PCM stream lock must not be poisoned") = Some((chunks, false));
+        .expect("test PCM stream lock must not be poisoned") = Some((chunks, false, None));
 }
 
 #[cfg(feature = "test-support")]
-pub fn install_test_duplex_pcm_stream(chunks: Vec<PcmAudioChunk>) {
+pub fn install_test_duplex_pcm_stream(chunks: Vec<PcmAudioChunk>) -> async_channel::Receiver<()> {
+    let (lifecycle, observed) = async_channel::bounded(1);
     *test_pcm_stream()
         .lock()
-        .expect("test PCM stream lock must not be poisoned") = Some((chunks, true));
+        .expect("test PCM stream lock must not be poisoned") =
+        Some((chunks, true, Some(lifecycle)));
+    observed
 }
 
 #[cfg(feature = "test-support")]
 fn take_test_pcm_stream() -> Option<(PcmStreamSession, async_channel::Receiver<PcmAudioChunk>)> {
-    let (chunks, keep_open) = test_pcm_stream()
+    let (chunks, keep_open, lifecycle) = test_pcm_stream()
         .lock()
         .expect("test PCM stream lock must not be poisoned")
         .take()?;
@@ -86,12 +97,16 @@ fn take_test_pcm_stream() -> Option<(PcmStreamSession, async_channel::Receiver<P
             .expect("bounded test PCM stream must accept its pre-sized chunks");
     }
     let test_hold_tx = keep_open.then_some(sender);
+    if let Some(lifecycle) = &lifecycle {
+        let _ = lifecycle.try_send(());
+    }
     Some((
         PcmStreamSession {
             stop_tx: None,
             capture_thread: None,
             forward_thread: None,
             test_hold_tx,
+            test_lifecycle_tx: lifecycle,
         },
         receiver,
     ))
@@ -182,6 +197,8 @@ fn start_pcm_stream_with_voice_processing(
         forward_thread: Some(forward_thread),
         #[cfg(feature = "test-support")]
         test_hold_tx: None,
+        #[cfg(feature = "test-support")]
+        test_lifecycle_tx: None,
     };
     if voice_processing {
         wait_for_voice_processing_ready(&stats, DUPLEX_CAPTURE_READY_TIMEOUT)?;

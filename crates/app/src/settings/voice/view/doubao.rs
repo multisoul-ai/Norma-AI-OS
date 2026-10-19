@@ -47,6 +47,12 @@ pub(super) fn desktop_mode_picker(
                     DesktopVoiceMode::Doubao,
                     mode == DesktopVoiceMode::Doubao,
                     cx,
+                ))
+                .child(mode_card(
+                    theme,
+                    DesktopVoiceMode::GptLive,
+                    mode == DesktopVoiceMode::GptLive,
+                    cx,
                 )),
         )
 }
@@ -66,6 +72,11 @@ fn mode_card(
         DesktopVoiceMode::Doubao => (
             "settings-voice-desktop-mode-doubao",
             ui::i18n::text("voice.doubao_2_0_voice"),
+            ui::i18n::text("voice.have_a_real_time_conversation_with_norma"),
+        ),
+        DesktopVoiceMode::GptLive => (
+            "settings-voice-desktop-mode-gpt-live",
+            "GPT-Live",
             ui::i18n::text("voice.have_a_real_time_conversation_with_norma"),
         ),
     };
@@ -96,9 +107,12 @@ fn mode_card(
         .id(selector)
         .debug_selector(move || selector.to_string())
         .flex_1()
-        .min_w(px(230.0))
+        .min_w(px(160.0))
+        .flex()
+        .flex_col()
         .child(
             Button::new(selector)
+                .debug_selector(move || format!("{selector}-button"))
                 .custom(variant)
                 .w_full()
                 .h(px(88.0))
@@ -130,16 +144,7 @@ fn mode_card(
                         ),
                 )
                 .on_activate(cx.listener(move |app, _, _, cx| {
-                    if mode == DesktopVoiceMode::Legacy {
-                        app.stop_doubao_voice(cx);
-                    } else {
-                        app.stop_continuous_listening(cx);
-                        app.voice.stop_for_model_switch();
-                        app.cancel_agent_announcements();
-                    }
-                    app.voice_settings.select_desktop_mode(mode);
-                    app.persist_voice_settings_in_background(cx);
-                    cx.notify();
+                    app.select_desktop_voice_mode(mode, cx);
                 })),
         )
 }

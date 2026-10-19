@@ -44,6 +44,8 @@ fn test_drop_pcm_stream_session_stops_capture_and_closes_stream() {
         forward_thread: Some(forward_thread),
         #[cfg(feature = "test-support")]
         test_hold_tx: None,
+        #[cfg(feature = "test-support")]
+        test_lifecycle_tx: None,
     };
     drop(session);
 
@@ -96,6 +98,8 @@ fn test_cancel_consumes_session_and_stops_capture_once() {
         forward_thread: None,
         #[cfg(feature = "test-support")]
         test_hold_tx: None,
+        #[cfg(feature = "test-support")]
+        test_lifecycle_tx: None,
     };
     session.cancel();
 

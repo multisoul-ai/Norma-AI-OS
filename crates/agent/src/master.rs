@@ -1,3 +1,4 @@
+mod delegation;
 mod memory_session;
 use crate::master_history::{history_char_budget, is_human_user_message, protocol_history_chars};
 use crate::rig_tools::{
@@ -9,6 +10,7 @@ use crate::{
     norma_system_prompt_base, AgentCardAdapter, AgentRosterEntry, CurrentCanvasContext,
     NormaToolRuntime, ProviderConfig, ProviderProtocol, ToolContext,
 };
+pub use delegation::NormaDelegation;
 use futures::StreamExt;
 use rig_core::agent::{
     Agent, AgentBuilder, AgentHook, Flow, HookContext, MultiTurnStreamItem, StepEvent,
@@ -170,7 +172,7 @@ impl NormaSession {
     }
 
     pub async fn turn(&mut self, input: &str) -> Result<NormaTurnResult, NormaSessionError> {
-        self.turn_with_deltas(input, None, crate::AgentInputSource::Other)
+        self.turn_with_deltas(input, None, crate::AgentInputSource::Other, None)
             .await
     }
 
@@ -180,7 +182,7 @@ impl NormaSession {
         deltas: tokio::sync::mpsc::Sender<String>,
         input_source: crate::AgentInputSource,
     ) -> Result<NormaTurnResult, NormaSessionError> {
-        self.turn_with_deltas(input, Some(deltas), input_source)
+        self.turn_with_deltas(input, Some(deltas), input_source, None)
             .await
     }
 
@@ -189,75 +191,97 @@ impl NormaSession {
         input: &str,
         deltas: Option<tokio::sync::mpsc::Sender<String>>,
         input_source: crate::AgentInputSource,
+        delegation: Option<NormaDelegation>,
     ) -> Result<NormaTurnResult, NormaSessionError> {
         let input = input.trim();
         if input.is_empty() {
             return Err(NormaSessionError::EmptyInput);
         }
-        let cancellation = self.begin_turn();
-        let turn_id = format!("{}:turn-{}", self.session_id, self.next_turn_id);
-        self.next_turn_id = self.next_turn_id.saturating_add(1);
-        let preamble = self.memory_preamble(input).await?;
-        let contextual_delete_targets = self
-            .canvas
-            .cards
-            .iter()
-            .filter(|card| card.focused || card.selected)
-            .map(|card| card.node_id)
-            .collect();
-        let context = ToolContext {
-            project_id: self.project_id.clone(),
-            turn_id,
-            user_input: input.to_string(),
-            input_source,
-            contextual_delete_targets,
-            tool_call_id: String::new(),
-            operation_id: None,
-            cancellation: cancellation.clone(),
-        };
-        if let Some(final_text) = crate::direct_address_turn::maybe_handle_direct_address(
-            &self.tools,
-            &context,
-            input,
-            &self.roster,
-        )
-        .await?
-        {
-            let final_text = visible_norma_reply(&final_text);
+        let cancellation = self.begin_turn(
+            delegation
+                .as_ref()
+                .map(|request| request.cancellation.child_token()),
+        );
+        delegation::with_turn_budget(cancellation.clone(), async {
+            let turn_id = delegation.as_ref().map_or_else(
+                || format!("{}:turn-{}", self.session_id, self.next_turn_id),
+                NormaDelegation::turn_id,
+            );
+            self.next_turn_id = self.next_turn_id.saturating_add(1);
+            let model_input = delegation
+                .as_ref()
+                .map_or_else(|| input.to_string(), NormaDelegation::model_input);
+            let preamble = tokio::select! {
+                biased;
+                _ = cancellation.cancelled() => return Err(NormaSessionError::Cancelled),
+                preamble = self.memory_preamble(&model_input) => preamble?,
+            };
+            let contextual_delete_targets = self
+                .canvas
+                .cards
+                .iter()
+                .filter(|card| card.focused || card.selected)
+                .map(|card| card.node_id)
+                .collect();
+            let context = ToolContext {
+                project_id: self.project_id.clone(),
+                turn_id,
+                user_input: input.to_string(),
+                input_source,
+                contextual_delete_targets,
+                tool_call_id: String::new(),
+                operation_id: None,
+                cancellation: cancellation.clone(),
+            };
+            if let Some(final_text) = crate::direct_address_turn::maybe_handle_direct_address(
+                &self.tools,
+                &context,
+                input,
+                &self.roster,
+            )
+            .await?
+            {
+                let final_text = visible_norma_reply(&final_text);
+                if final_text.is_empty() {
+                    return Err(NormaSessionError::MissingFinalResponse);
+                }
+                return Ok(NormaTurnResult {
+                    final_text,
+                    tool_calls: 0,
+                });
+            }
+            let history = self.protocol_history.clone();
+            let request = TurnRequest {
+                preamble,
+                input: model_input,
+                history,
+                context,
+                cancellation,
+                deltas,
+            };
+            let result = match &self.model {
+                NormaModel::OpenAi(model) => {
+                    run_turn(model.clone(), self.tools.clone(), request).await
+                }
+                NormaModel::Ollama(model) => {
+                    run_turn(model.clone(), self.tools.clone(), request).await
+                }
+            }?;
+            self.replace_protocol_history(result.new_messages);
+            let final_text = visible_norma_reply(&result.final_text);
             if final_text.is_empty() {
                 return Err(NormaSessionError::MissingFinalResponse);
             }
-            return Ok(NormaTurnResult {
+            Ok(NormaTurnResult {
                 final_text,
-                tool_calls: 0,
-            });
-        }
-        let history = self.protocol_history.clone();
-        let request = TurnRequest {
-            preamble,
-            input: input.to_string(),
-            history,
-            context,
-            cancellation,
-            deltas,
-        };
-        let result = match &self.model {
-            NormaModel::OpenAi(model) => run_turn(model.clone(), self.tools.clone(), request).await,
-            NormaModel::Ollama(model) => run_turn(model.clone(), self.tools.clone(), request).await,
-        }?;
-        self.replace_protocol_history(result.new_messages);
-        let final_text = visible_norma_reply(&result.final_text);
-        if final_text.is_empty() {
-            return Err(NormaSessionError::MissingFinalResponse);
-        }
-        Ok(NormaTurnResult {
-            final_text,
-            tool_calls: result.tool_calls,
+                tool_calls: result.tool_calls,
+            })
         })
+        .await
     }
 
-    fn begin_turn(&self) -> CancellationToken {
-        let next = CancellationToken::new();
+    fn begin_turn(&self, requested: Option<CancellationToken>) -> CancellationToken {
+        let next = requested.unwrap_or_default();
         let mut active = self
             .active_turn
             .lock()
@@ -313,6 +337,8 @@ pub enum NormaSessionError {
     Configuration(String),
     #[error("Norma input must not be empty")]
     EmptyInput,
+    #[error("invalid external delegation identity or context size")]
+    InvalidDelegation,
     #[error("Norma turn was cancelled")]
     Cancelled,
     #[error("Norma turn exceeded the 60 second budget")]
@@ -414,6 +440,13 @@ where
                             pending_visible = next_visible;
                         }
                     }
+                }
+                MultiTurnStreamItem::StreamAssistantItem(StreamedAssistantContent::ToolCall {
+                    tool_call,
+                    internal_call_id,
+                }) => {
+                    // Rig's OpenAI hook omits provider IDs; the completed stream item precedes it.
+                    unknown_status.record_streamed_call(&tool_call.id, &internal_call_id);
                 }
                 MultiTurnStreamItem::StreamAssistantItem(_)
                 | MultiTurnStreamItem::StreamUserItem(_)

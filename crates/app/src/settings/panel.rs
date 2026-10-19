@@ -257,6 +257,9 @@ impl MultisoulApp {
                 orchestration: &self.orchestration_settings,
                 performance: &self.performance_settings,
                 voice: VoiceSettingsContent {
+                    live_call: self
+                        .gpt_live
+                        .view_for_project(self.runtime.workspace_root()),
                     state: &self.voice_settings,
                     inputs: &self.voice_settings_inputs,
                     setup_scroll_target,

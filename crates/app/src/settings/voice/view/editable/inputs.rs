@@ -49,6 +49,7 @@ pub(crate) struct VoiceSettingsInputs {
     minimax_voice_id: Entity<VoiceTextInput>,
     minimax_voice_search: Entity<VoiceTextInput>,
     doubao_api_key: Entity<VoiceTextInput>,
+    gpt_live_api_key: Entity<VoiceTextInput>,
     doubao_voice_search: Entity<VoiceTextInput>,
 }
 
@@ -180,6 +181,18 @@ impl VoiceSettingsInputs {
             theme,
             cx,
         );
+        let gpt_live_api_key = create_input(
+            VoiceInputSpec {
+                field: VoiceSettingsField::GptLiveApiKey,
+                placeholder: status::input_placeholder(state, VoiceSettingsField::GptLiveApiKey),
+                masked: true,
+            },
+            app.clone(),
+            root_focus.clone(),
+            state,
+            theme,
+            cx,
+        );
         let doubao_voice_search = create_input(
             VoiceInputSpec {
                 field: VoiceSettingsField::DoubaoVoiceSearch,
@@ -203,6 +216,7 @@ impl VoiceSettingsInputs {
             minimax_voice_id,
             minimax_voice_search,
             doubao_api_key,
+            gpt_live_api_key,
             doubao_voice_search,
         }
     }
@@ -219,6 +233,7 @@ impl VoiceSettingsInputs {
             VoiceSettingsField::MiniMaxVoiceId => self.minimax_voice_id.clone(),
             VoiceSettingsField::MiniMaxVoiceSearch => self.minimax_voice_search.clone(),
             VoiceSettingsField::DoubaoApiKey => self.doubao_api_key.clone(),
+            VoiceSettingsField::GptLiveApiKey => self.gpt_live_api_key.clone(),
             VoiceSettingsField::DoubaoVoiceSearch => self.doubao_voice_search.clone(),
         }
     }
@@ -239,6 +254,7 @@ impl VoiceSettingsInputs {
             VoiceSettingsField::MiniMaxVoiceId,
             VoiceSettingsField::MiniMaxVoiceSearch,
             VoiceSettingsField::DoubaoApiKey,
+            VoiceSettingsField::GptLiveApiKey,
             VoiceSettingsField::DoubaoVoiceSearch,
         ] {
             self.sync_field_from_state(field, state, cx);
@@ -257,6 +273,7 @@ impl VoiceSettingsInputs {
             &self.minimax_voice_id,
             &self.minimax_voice_search,
             &self.doubao_api_key,
+            &self.gpt_live_api_key,
             &self.doubao_voice_search,
         ] {
             input.update(cx, |input, cx| input.set_theme(theme, cx));
@@ -275,6 +292,7 @@ impl VoiceSettingsInputs {
             &self.minimax_voice_id,
             &self.minimax_voice_search,
             &self.doubao_api_key,
+            &self.gpt_live_api_key,
             &self.doubao_voice_search,
         ]
         .into_iter()

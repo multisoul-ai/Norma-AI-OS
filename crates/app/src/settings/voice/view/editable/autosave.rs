@@ -22,6 +22,9 @@ impl MultisoulApp {
             }
         }
         self.voice_settings.begin_edit_with_value(field, value);
+        if field == VoiceSettingsField::GptLiveApiKey {
+            self.voice_settings.set_gpt_live_key_expanded(true);
+        }
         cx.notify();
     }
 
@@ -43,6 +46,9 @@ impl MultisoulApp {
     ) -> Option<String> {
         let profile_generation = self.voice_settings.minimax_profile_generation();
         let saved = self.voice_settings.auto_save_edit_value(field, value);
+        if field == VoiceSettingsField::GptLiveApiKey && saved.is_some() {
+            self.stop_gpt_live_voice(cx);
+        }
         if field == VoiceSettingsField::MiniMaxVoiceId
             && !self.voice_settings.tts_picker_open()
             && self.voice_settings.minimax_profile_generation() != profile_generation
@@ -66,6 +72,10 @@ impl MultisoulApp {
         let profile_generation = self.voice_settings.minimax_profile_generation();
         let saved = self.voice_settings.commit_edit_value(field, value);
         if saved.is_some() {
+            if field == VoiceSettingsField::GptLiveApiKey {
+                self.stop_gpt_live_voice(cx);
+                self.voice_settings.set_gpt_live_key_expanded(false);
+            }
             self.persist_voice_settings_in_background(cx);
             if field == VoiceSettingsField::MiniMaxVoiceId
                 && !self.voice_settings.tts_picker_open()

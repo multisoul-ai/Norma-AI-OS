@@ -3,6 +3,7 @@ pub(crate) enum DesktopVoiceMode {
     #[default]
     Legacy,
     Doubao,
+    GptLive,
 }
 
 impl DesktopVoiceMode {
@@ -10,6 +11,7 @@ impl DesktopVoiceMode {
         match value.trim() {
             "legacy" => Some(Self::Legacy),
             "doubao" => Some(Self::Doubao),
+            "gpt_live" => Some(Self::GptLive),
             _ => None,
         }
     }
@@ -18,6 +20,7 @@ impl DesktopVoiceMode {
         match self {
             Self::Legacy => "legacy",
             Self::Doubao => "doubao",
+            Self::GptLive => "gpt_live",
         }
     }
 }
@@ -69,3 +72,7 @@ impl DictationTrigger {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/desktop_voice_mode_tests.rs"]
+mod desktop_voice_mode_tests;

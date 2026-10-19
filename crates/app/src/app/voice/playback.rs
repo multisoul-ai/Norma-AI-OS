@@ -28,6 +28,12 @@ pub(crate) trait AssistantAudioSink: Send {
     }
 
     fn stop(&mut self);
+
+    /// Confirm local hardware stop before callers release scheduled PCM reservations.
+    fn stop_and_confirm(&mut self) -> Result<(), String> {
+        self.stop();
+        Ok(())
+    }
 }
 
 #[derive(Default)]

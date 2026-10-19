@@ -64,28 +64,62 @@ impl SettingsStore {
     pub fn apply_string_changes(&self, changes: &[(String, Option<String>)]) -> StorageResult<()> {
         let mut connection = open_app_connection(&self.path)?;
         let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        for (key, value) in changes {
-            match value {
-                Some(value) => {
-                    transaction.execute(
-                        r#"
+        apply_changes(&transaction, changes)?;
+        transaction.commit()?;
+        Ok(())
+    }
+
+    /// Applies the whole batch only when the guard still matches, returning its resulting value.
+    pub fn apply_string_changes_if_current(
+        &self,
+        key: &str,
+        expected: Option<&str>,
+        changes: &[(String, Option<String>)],
+    ) -> StorageResult<(bool, Option<String>)> {
+        let mut connection = open_app_connection(&self.path)?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let read = || -> StorageResult<Option<String>> {
+            Ok(transaction
+                .query_row("SELECT value FROM settings WHERE key = ?1", [key], |row| {
+                    row.get(0)
+                })
+                .optional()?)
+        };
+        let current = read()?;
+        if current.as_deref() != expected {
+            return Ok((false, current));
+        }
+        apply_changes(&transaction, changes)?;
+        let current = read()?;
+        transaction.commit()?;
+        Ok((true, current))
+    }
+}
+
+fn apply_changes(
+    transaction: &rusqlite::Transaction<'_>,
+    changes: &[(String, Option<String>)],
+) -> StorageResult<()> {
+    for (key, value) in changes {
+        match value {
+            Some(value) => {
+                transaction.execute(
+                    r#"
                         INSERT INTO settings (key, value, updated_at_unix)
                         VALUES (?1, ?2, ?3)
                         ON CONFLICT(key) DO UPDATE SET
                             value = excluded.value,
                             updated_at_unix = excluded.updated_at_unix
                         "#,
-                        params![key, value, current_unix_timestamp()?],
-                    )?;
-                }
-                None => {
-                    transaction.execute("DELETE FROM settings WHERE key = ?1", params![key])?;
-                }
+                    params![key, value, current_unix_timestamp()?],
+                )?;
+            }
+            None => {
+                transaction.execute("DELETE FROM settings WHERE key = ?1", params![key])?;
             }
         }
-        transaction.commit()?;
-        Ok(())
     }
+    Ok(())
 }
 
 #[cfg(test)]

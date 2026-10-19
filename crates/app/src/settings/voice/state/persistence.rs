@@ -8,6 +8,7 @@ use super::{error_status, ok_status, VoiceSettingsState};
 
 #[derive(Clone)]
 pub(crate) enum PendingVoiceSettingWrite {
+    GptLiveCredential(super::gpt_live_credentials::GptLiveCredentialWrite),
     Set {
         store: SettingsStore,
         key: String,
@@ -36,6 +37,7 @@ pub(super) struct VoicePersistenceBatch {
     minimax_clear: bool,
     minimax_validation: bool,
     doubao_credential: bool,
+    gpt_live_credential: bool,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -49,6 +51,7 @@ pub(crate) struct VoicePersistenceCompletion {
 impl PendingVoiceSettingWrite {
     pub(crate) fn execute(self) -> Result<(), String> {
         match self {
+            Self::GptLiveCredential(write) => write.execute(),
             Self::Set { store, key, value } => store
                 .set_string(&key, &value)
                 .map_err(|error| error.to_string()),
@@ -90,7 +93,9 @@ impl PendingVoiceSettingWrite {
                     store.get_or_insert(write_store);
                     changes.push((key, None));
                 }
-                Self::StoreCredential { .. } | Self::DeleteCredential { .. } => {
+                Self::StoreCredential { .. }
+                | Self::DeleteCredential { .. }
+                | Self::GptLiveCredential(_) => {
                     return Err(
                         "TTS activation transaction cannot contain credential writes.".to_string(),
                     );
@@ -107,6 +112,7 @@ impl PendingVoiceSettingWrite {
 
     pub(super) fn key(&self) -> &str {
         match self {
+            Self::GptLiveCredential(_) => super::values::KEY_GPT_LIVE_CREDENTIAL_REF,
             Self::Set { key, .. } | Self::Delete { key, .. } => key,
             Self::StoreCredential { account, .. } | Self::DeleteCredential { account, .. } => {
                 account
@@ -131,7 +137,9 @@ impl PendingVoiceSettingWrite {
     fn writes_minimax_validation(&self) -> bool {
         let key = match self {
             Self::Set { key, .. } | Self::Delete { key, .. } => key.as_str(),
-            Self::StoreCredential { .. } | Self::DeleteCredential { .. } => return false,
+            Self::StoreCredential { .. }
+            | Self::DeleteCredential { .. }
+            | Self::GptLiveCredential(_) => return false,
         };
         matches!(
             key,
@@ -159,6 +167,11 @@ impl VoiceSettingsState {
         let minimax_clear_account = self.minimax_credential_clear_account();
         let minimax_validation_pending = self.minimax_validation_write_rollback.is_some();
         self.active_persistence_batch = Some(VoicePersistenceBatch {
+            gpt_live_credential: self.gpt_live_credential_rollback.is_some()
+                && self
+                    .pending_writes
+                    .iter()
+                    .any(|write| matches!(write, PendingVoiceSettingWrite::GptLiveCredential(_))),
             agent_credential: self
                 .pending_writes
                 .iter()
@@ -196,6 +209,9 @@ impl VoiceSettingsState {
         self.persistence_running = false;
         self.persistence_epoch = self.persistence_epoch.wrapping_add(1);
         let batch = self.active_persistence_batch.take().unwrap_or_default();
+        if batch.gpt_live_credential {
+            self.finish_gpt_live_credential_persistence();
+        }
         if batch.agent_credential {
             self.finish_credential_persistence(&result);
         }

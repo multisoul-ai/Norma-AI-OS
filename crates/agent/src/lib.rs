@@ -53,10 +53,10 @@ pub use identity::{
     builtin_agent_names, AgentName, AgentNameError, AgentNameRegistry, BuiltinAgentName,
 };
 pub use master::{
-    visible_norma_reply, ModelFactory, NormaCancelHandle, NormaSession, NormaSessionError,
-    NormaTurnResult,
+    visible_norma_reply, ModelFactory, NormaCancelHandle, NormaDelegation, NormaSession,
+    NormaSessionError, NormaTurnResult,
 };
-pub use master_prompt::{norma_system_prompt, norma_system_prompt_base};
+pub use master_prompt::{norma_system_prompt, norma_system_prompt_base, NORMA_MEMORY_RULES};
 pub use memory::{
     MemoryCommitReceipt, MemoryEntry, MemoryEntryId, MemoryEntryIdError, MemoryKind,
     MemoryMutation, MemoryRevision, MemoryScope, MemorySourceReference, MemorySummary,

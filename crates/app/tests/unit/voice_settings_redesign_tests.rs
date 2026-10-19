@@ -73,6 +73,10 @@ fn voice_redesign_task_layout_and_mode_persistence() {
         recognition.size.width, replies.size.width,
         "识别与声音卡片应共用完整内容宽度"
     );
+    assert_eq!(
+        recognition.size.width, provider.size.width,
+        "识别与连接卡片应共用完整内容宽度"
+    );
     let local_source = cx
         .debug_bounds("voice-setup-asr-source-local")
         .expect("应有本地来源入口");
@@ -128,15 +132,41 @@ fn voice_redesign_task_layout_and_mode_persistence() {
         provider_input.top() >= viewport.top() && provider_input.top() < viewport.bottom(),
         "下一步应直接定位到缺失的AI连接配置"
     );
-    host.read_with(cx, |app, _| {
+    host.update(cx, |app, cx| {
         app.settings_viewport
             .content_scroll
-            .set_offset(gpui::Point::default())
+            .set_offset(gpui::Point::default());
+        cx.notify();
     });
     cx.update(|window, cx| window.draw(cx).clear());
     let doubao = cx
         .debug_bounds("settings-voice-desktop-mode-doubao")
         .expect("应保留豆包模式入口");
+    for (selector, button_selector) in [
+        (
+            "settings-voice-desktop-mode-legacy",
+            "settings-voice-desktop-mode-legacy-button",
+        ),
+        (
+            "settings-voice-desktop-mode-doubao",
+            "settings-voice-desktop-mode-doubao-button",
+        ),
+        (
+            "settings-voice-desktop-mode-gpt-live",
+            "settings-voice-desktop-mode-gpt-live-button",
+        ),
+    ] {
+        let card = cx.debug_bounds(selector).expect("模式卡片应存在");
+        let button = cx.debug_bounds(button_selector).expect("模式按钮应存在");
+        assert!(
+            button.left() >= card.left() && button.right() <= card.right(),
+            "{selector}按钮必须位于自身卡片内，不能覆盖相邻模式"
+        );
+    }
+    assert!(
+        doubao.top() >= viewport.top() && doubao.bottom() <= viewport.bottom(),
+        "滚动重绘后豆包入口应完全位于可点击视口内"
+    );
     cx.simulate_click(doubao.center(), Modifiers::none());
     cx.run_until_parked();
     cx.update(|window, cx| window.draw(cx).clear());

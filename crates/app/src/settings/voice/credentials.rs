@@ -13,7 +13,7 @@ pub(super) fn new_account(provider: &str) -> String {
     format!("{provider}-{}-{nanos}-{sequence}", std::process::id())
 }
 
-fn key(account: &str) -> String {
+pub(super) fn key(account: &str) -> String {
     format!("{CREDENTIAL_PREFIX}{account}")
 }
 

@@ -13,6 +13,9 @@ pub(crate) async fn maybe_handle_direct_address(
     input: &str,
     roster: &[crate::AgentRosterEntry],
 ) -> Result<Option<String>, NormaSessionError> {
+    if context.input_source == crate::AgentInputSource::GptLiveVoice {
+        return Ok(None);
+    }
     match parse_direct_address(input, roster) {
         DirectAddressIntent::NoSideEffect => Ok(None),
         DirectAddressIntent::RejectContextDependent { agents, reason, .. } => {
@@ -42,6 +45,11 @@ pub(crate) async fn maybe_handle_direct_address(
                     )
                     .await
                     .map_err(map_adapter_error)?;
+                if result.status == "unknown" {
+                    return Err(NormaSessionError::Runtime(
+                        "直接寻址操作结果待核对，已停止后续工具调用".into(),
+                    ));
+                }
                 parts.push(format_reply_result(&result));
             }
             Ok(Some(join_spoken_parts(parts)))
@@ -64,6 +72,11 @@ pub(crate) async fn maybe_handle_direct_address(
                     )
                     .await
                     .map_err(map_adapter_error)?;
+                if result.status == "unknown" {
+                    return Err(NormaSessionError::Runtime(
+                        "直接寻址操作结果待核对，已停止后续工具调用".into(),
+                    ));
+                }
                 parts.push(result.message);
             }
             Ok(Some(join_spoken_parts(parts)))

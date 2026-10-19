@@ -87,6 +87,7 @@ impl VoiceSettingsState {
             || self.azure_credential_write_rollback.is_some()
             || self.minimax_credential_write_rollback.is_some()
             || self.minimax_credential_clear_rollback.is_some()
+            || self.gpt_live_credential_rollback.is_some()
     }
 
     pub(crate) fn load_credential(

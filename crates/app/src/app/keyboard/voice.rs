@@ -30,6 +30,12 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         if self.voice_settings.values().desktop_mode()
+            == crate::settings::voice::DesktopVoiceMode::GptLive
+        {
+            self.activate_gpt_live_voice(pointer_toggle, window, cx);
+            return;
+        }
+        if self.voice_settings.values().desktop_mode()
             == crate::settings::voice::DesktopVoiceMode::Doubao
         {
             if self.voice_settings.values().doubao_interaction_mode()
@@ -116,6 +122,17 @@ impl MultisoulApp {
     ) -> bool {
         let voice_shortcut = self.shortcuts.voice_interaction_keystroke();
         if self.voice_settings.values().desktop_mode()
+            == crate::settings::voice::DesktopVoiceMode::GptLive
+        {
+            if self.gpt_live.is_shortcut_input()
+                && is_voice_hold_release(keystroke, voice_shortcut.as_ref())
+            {
+                self.release_gpt_live_input(cx);
+                return true;
+            }
+            return false;
+        }
+        if self.voice_settings.values().desktop_mode()
             == crate::settings::voice::DesktopVoiceMode::Doubao
         {
             if self.doubao.recording_from_shortcut
@@ -144,6 +161,16 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         let voice_shortcut = self.shortcuts.voice_interaction_keystroke();
+        if self.voice_settings.values().desktop_mode()
+            == crate::settings::voice::DesktopVoiceMode::GptLive
+        {
+            if self.gpt_live.is_shortcut_input()
+                && is_voice_hold_modifier_release(modifiers, voice_shortcut.as_ref())
+            {
+                self.release_gpt_live_input(cx);
+            }
+            return;
+        }
         if self.voice_settings.values().desktop_mode()
             == crate::settings::voice::DesktopVoiceMode::Doubao
         {

@@ -301,3 +301,15 @@ fn require_positive(field: &str, value: u64) -> Result<(), AdapterError> {
     }
     Ok(())
 }
+
+impl AdapterCommand {
+    pub fn is_read_only(&self) -> bool {
+        match self {
+            Self::FindAgentTasks { .. } => true,
+            Self::Memory(command) | Self::WorkspaceMemory { command, .. } => {
+                !matches!(command, crate::MemoryCommand::Write { .. })
+            }
+            _ => false,
+        }
+    }
+}

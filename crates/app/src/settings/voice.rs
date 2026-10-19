@@ -1,6 +1,7 @@
 mod credentials;
 mod download_progress;
 mod models;
+pub(crate) use models::ensure_silero_vad;
 mod readiness;
 mod state;
 pub(crate) mod tts_models;

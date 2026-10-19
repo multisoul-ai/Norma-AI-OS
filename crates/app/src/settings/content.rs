@@ -19,6 +19,7 @@ mod keyboard;
 use self::keyboard::keyboard_settings;
 
 pub(super) struct VoiceSettingsContent<'a> {
+    pub(super) live_call: crate::app::LiveCallView,
     pub(super) state: &'a VoiceSettingsState,
     pub(super) inputs: &'a VoiceSettingsInputs,
     pub(super) setup_scroll_target: Option<VoiceSetupDestination>,
@@ -131,6 +132,7 @@ pub(super) fn settings_content(
                         crate::settings::voice::VoiceSettingsView {
                             theme,
                             state: voice.state,
+                            live_call: voice.live_call,
                             inputs: voice.inputs,
                             content_scroll,
                             setup_scroll_target: voice.setup_scroll_target,

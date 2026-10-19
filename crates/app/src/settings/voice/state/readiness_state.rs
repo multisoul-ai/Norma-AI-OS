@@ -5,15 +5,24 @@ use crate::settings::voice::{
 };
 
 impl VoiceSettingsState {
+    /// Local credential readiness; model permissions and VAD are checked by the running call.
+    pub(crate) fn gpt_live_delegation_ready(&self) -> bool {
+        self.values.gpt_live_profile().credential_ref().is_some()
+            && self.gpt_live_credential_rollback.is_none()
+    }
+
     pub(crate) fn readiness(&self) -> VoiceEntryState {
         #[cfg(feature = "e2e-test-support")]
         if let Some(readiness) = self.readiness_override {
             return readiness;
         }
-        if self.values.desktop_mode() == super::DesktopVoiceMode::Doubao {
-            return if self.microphone_requirement == VoiceRequirementState::Ready
-                && self.values.doubao_credential_ref().is_some()
-            {
+        let cloud_configured = match self.values.desktop_mode() {
+            super::DesktopVoiceMode::Doubao => Some(self.values.doubao_credential_ref().is_some()),
+            super::DesktopVoiceMode::GptLive => Some(self.gpt_live_delegation_ready()),
+            super::DesktopVoiceMode::Legacy => None,
+        };
+        if let Some(configured) = cloud_configured {
+            return if self.microphone_requirement == VoiceRequirementState::Ready && configured {
                 VoiceEntryState::Ready
             } else {
                 VoiceEntryState::Unavailable {

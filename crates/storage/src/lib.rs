@@ -26,6 +26,11 @@ pub mod database_paths;
 pub mod desktop_workspace_store;
 pub mod error;
 pub mod layout_store;
+mod live_operation_store;
+pub use live_operation_store::{
+    LiveOperationKey, LiveOperationLease, LiveOperationReceipt, LiveOperationRequest,
+    LiveOperationReservation, LiveOperationState, LiveOperationStore, LiveTaskFact, LiveTaskWatch,
+};
 pub mod memory;
 mod memory_access;
 pub use memory::{MemoryError, MemoryResult, MemorySnapshot, MemoryStore};

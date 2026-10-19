@@ -5,7 +5,7 @@ use ui::i18n::LocalizedText;
 
 mod input;
 mod plan;
-mod playback;
+pub(super) mod playback;
 mod tools;
 
 use plan::run_session;

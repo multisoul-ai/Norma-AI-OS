@@ -39,6 +39,11 @@ impl AgentAnnouncements {
 impl MultisoulApp {
     pub(super) fn agent_announcement_tts_availability(&self) -> AgentAnnouncementTtsAvailability {
         if self.voice_settings.values().desktop_mode()
+            == crate::settings::voice::DesktopVoiceMode::GptLive
+        {
+            return AgentAnnouncementTtsAvailability::Unavailable;
+        }
+        if self.voice_settings.values().desktop_mode()
             == crate::settings::voice::DesktopVoiceMode::Doubao
         {
             return if self
@@ -126,3 +131,7 @@ impl MultisoulApp {
         availability == AgentAnnouncementTtsAvailability::Ready
     }
 }
+
+#[cfg(all(test, feature = "e2e-test-support"))]
+#[path = "../../../tests/unit/gpt_live_announcements_tests.rs"]
+mod live_tests;

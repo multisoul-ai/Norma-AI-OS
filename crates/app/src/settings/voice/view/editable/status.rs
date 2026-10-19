@@ -42,6 +42,12 @@ pub(super) fn input_placeholder(
             CONFIGURED_API_KEY_PLACEHOLDER
         }
         VoiceSettingsField::DoubaoApiKey => ui::i18n::text(UNCONFIGURED_API_KEY_PLACEHOLDER),
+        VoiceSettingsField::GptLiveApiKey
+            if state.values().gpt_live_profile().credential_ref().is_some() =>
+        {
+            CONFIGURED_API_KEY_PLACEHOLDER
+        }
+        VoiceSettingsField::GptLiveApiKey => ui::i18n::text(UNCONFIGURED_API_KEY_PLACEHOLDER),
         VoiceSettingsField::MiniMaxVoiceId => ui::i18n::text("voice.enter_voice_id"),
         VoiceSettingsField::DoubaoVoiceSearch => ui::i18n::text("doubao.search_voices"),
         VoiceSettingsField::MiniMaxVoiceSearch => {

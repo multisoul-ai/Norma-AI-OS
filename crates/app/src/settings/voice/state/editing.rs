@@ -62,6 +62,7 @@ impl VoiceSettingsState {
                     | VoiceSettingsField::AzureApiKey
                     | VoiceSettingsField::MiniMaxApiKey
                     | VoiceSettingsField::DoubaoApiKey
+                    | VoiceSettingsField::GptLiveApiKey
             )
         {
             format!("{}|", "•".repeat(self.draft.chars().count()))
@@ -125,6 +126,7 @@ impl VoiceSettingsState {
                     | VoiceSettingsField::AzureApiKey
                     | VoiceSettingsField::MiniMaxApiKey
                     | VoiceSettingsField::DoubaoApiKey
+                    | VoiceSettingsField::GptLiveApiKey
             ) {
                 if finish_editing {
                     self.editing = None;
@@ -169,6 +171,13 @@ impl VoiceSettingsState {
             }
             VoiceSettingsField::DoubaoApiKey => {
                 self.save_doubao_credential(value);
+                self.finish_editing_if_requested(finish_editing);
+                return Some(String::new());
+            }
+            VoiceSettingsField::GptLiveApiKey => {
+                if !self.save_gpt_live_credential(value) {
+                    return None;
+                }
                 self.finish_editing_if_requested(finish_editing);
                 return Some(String::new());
             }
@@ -272,7 +281,7 @@ impl VoiceSettingsState {
             VoiceSettingsField::ApiKey
             | VoiceSettingsField::AzureApiKey
             | VoiceSettingsField::MiniMaxApiKey => String::new(),
-            VoiceSettingsField::DoubaoApiKey => String::new(),
+            VoiceSettingsField::DoubaoApiKey | VoiceSettingsField::GptLiveApiKey => String::new(),
             VoiceSettingsField::AzureRegion => self.values.azure_asr_profile().region().to_string(),
             VoiceSettingsField::AzureLocale => self.values.azure_asr_profile().locale().to_string(),
             VoiceSettingsField::MiniMaxVoiceId => self

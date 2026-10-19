@@ -52,6 +52,7 @@ impl MultisoulApp {
                     .inset_0()
                     .capture_key_down(cx.listener(Self::capture_command_dock_key))
                     .children(effect)
+                    .children(project.render_voice_caption(cx))
                     .child(project.render_command_dock(window, cx, switcher))
                     .when(project.interaction.layout_menu_open, |dock| {
                         dock.child(project.render_layout_menu(cx))
@@ -61,6 +62,7 @@ impl MultisoulApp {
             div()
                 .absolute()
                 .inset_0()
+                .children(self.render_voice_caption(cx))
                 .child(self.render_command_dock(window, cx, switcher))
         }
     }

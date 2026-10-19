@@ -10,6 +10,12 @@ impl MultisoulApp {
 
     pub(crate) fn effective_voice_label(&self) -> String {
         if self.voice_settings.values().desktop_mode()
+            == crate::settings::voice::DesktopVoiceMode::GptLive
+        {
+            return self.gpt_live.label().into();
+        }
+
+        if self.voice_settings.values().desktop_mode()
             == crate::settings::voice::DesktopVoiceMode::Doubao
         {
             return self.doubao.label().into();
@@ -22,6 +28,12 @@ impl MultisoulApp {
     }
 
     pub(crate) fn effective_voice_visual(&self) -> crate::app::voice::control::VoiceVisual {
+        if self.voice_settings.values().desktop_mode()
+            == crate::settings::voice::DesktopVoiceMode::GptLive
+        {
+            return self.gpt_live.visual();
+        }
+
         if self.voice_settings.values().desktop_mode()
             == crate::settings::voice::DesktopVoiceMode::Doubao
         {
@@ -53,6 +65,12 @@ impl MultisoulApp {
     }
 
     pub(crate) fn effective_voice_dock_label(&self) -> &'static str {
+        if self.voice_settings.values().desktop_mode()
+            == crate::settings::voice::DesktopVoiceMode::GptLive
+        {
+            return self.gpt_live.label();
+        }
+
         if self.voice_settings.values().desktop_mode()
             == crate::settings::voice::DesktopVoiceMode::Doubao
         {

@@ -57,6 +57,7 @@ public struct Frame {
 extension Session {
     public func capture() async throws -> Frame {
         try ensureRunning()
+        try ensureCaptureEnvironment()
         let window = try await currentWindow()
         let png = FileManager.default.temporaryDirectory.appendingPathComponent("norma-e2e-\(UUID().uuidString).png")
         defer { try? FileManager.default.removeItem(at: png) }
@@ -68,7 +69,10 @@ extension Session {
         guard shot.terminationStatus == 0,
               let source = CGImageSourceCreateWithURL(png as CFURL, nil),
               let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
-            throw E2EError.env("screencapture 截取窗口失败。若系统刚弹出屏幕录制授权，允许 Norma Desktop E2E 后重跑。")
+            try ensureCaptureEnvironment()
+            // A restarted app can publish its window before the first image is available.
+            // The caller retries with a fresh window; missing permissions still stop immediately.
+            throw E2EError.product("窗口\(window.id)图像尚不可用；截图权限有效，等待新窗口就绪")
         }
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
@@ -86,6 +90,16 @@ extension Session {
             ))
         }
         return Frame(windowID: window.id, windowFrame: window.frame, image: image, texts: texts)
+    }
+
+    private func ensureCaptureEnvironment() throws {
+        guard CGPreflightScreenCaptureAccess() else {
+            throw E2EError.env("屏幕录制权限已不可用，请允许 Norma Desktop E2E 后重跑。")
+        }
+        if let state = CGSessionCopyCurrentDictionary() as NSDictionary?,
+           (state["CGSSessionScreenIsLocked"] as? NSNumber)?.boolValue == true {
+            throw E2EError.env("屏幕已锁定，请解锁后重跑。")
+        }
     }
 
     func currentWindow() async throws -> (id: CGWindowID, frame: CGRect) {

@@ -1,3 +1,4 @@
+use super::gpt_live::GptLiveProfile;
 use super::provider_values::{
     AgentProviderKind, ProviderProfileValues, SavedProviderProfile, DEFAULT_OLLAMA_ENDPOINT,
     DEFAULT_OLLAMA_MODEL, DEFAULT_OPENAI_BASE_URL, KEY_AGENT_OLLAMA_API_KEY,
@@ -11,6 +12,8 @@ use tts::{TtsModelId, TtsVoiceId};
 mod debug;
 mod doubao;
 mod load;
+mod sources;
+use sources::{first_non_empty, non_empty_option, stored_bool, trace_enabled_from_value};
 pub(super) const KEY_OLLAMA_ENDPOINT: &str = "voice.ollama.endpoint";
 pub(super) const KEY_OLLAMA_MODEL: &str = "voice.ollama.model";
 pub(super) const KEY_DIALOGUE_MODEL: &str = "voice.dialogue.model";
@@ -18,6 +21,9 @@ pub(super) const KEY_REFINE_MODEL: &str = "voice.refine.model";
 pub(super) const KEY_INTERACTION_MODE: &str = "voice.interaction.mode";
 pub(super) const KEY_DESKTOP_MODE: &str = "voice.desktop.mode";
 pub(super) const KEY_DOUBAO_CREDENTIAL_REF: &str = "voice.doubao.credential_ref";
+pub(super) const KEY_GPT_LIVE_CREDENTIAL_REF: &str = "voice.gpt_live.credential_ref";
+pub(super) const KEY_GPT_LIVE_VOICE: &str = "voice.gpt_live.voice";
+pub(super) const KEY_GPT_LIVE_INTERACTION_MODE: &str = "voice.gpt_live.interaction_mode";
 pub(super) const KEY_DOUBAO_SPEAKER: &str = "voice.doubao.speaker";
 pub(super) const KEY_DOUBAO_INTERACTION_MODE: &str = "voice.doubao.interaction_mode";
 pub(super) const KEY_SINGLE_VOICE_COMMAND_TRIGGER: &str = "voice.single_voice_command.trigger";
@@ -50,6 +56,8 @@ pub(super) const KEY_OPENAI_CARD_PLANNER_MODEL: &str = "voice.openai.card_planne
 #[derive(Clone, Default, Eq, PartialEq)]
 pub(crate) struct SavedVoiceSettings {
     pub(crate) desktop_mode: Option<DesktopVoiceMode>,
+    pub(crate) gpt_live_profile: GptLiveProfile,
+    pub(crate) gpt_live_interaction_mode: Option<VoiceInteractionMode>,
     pub(crate) doubao_credential_ref: Option<String>,
     pub(crate) doubao_speaker: Option<String>,
     pub(crate) doubao_interaction_mode: Option<VoiceInteractionMode>,
@@ -126,6 +134,8 @@ pub(crate) struct EnvVoiceSettings {
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) struct VoiceSettingsValues {
     pub(crate) desktop_mode: DesktopVoiceMode,
+    pub(crate) gpt_live_profile: GptLiveProfile,
+    pub(super) gpt_live_interaction_mode: VoiceInteractionMode,
     pub(crate) doubao_credential_ref: Option<String>,
     doubao_voice: &'static tts::providers::doubao::DoubaoVoice,
     pub(super) doubao_interaction_mode: VoiceInteractionMode,
@@ -290,6 +300,10 @@ impl VoiceSettingsValues {
 
         Self {
             desktop_mode,
+            gpt_live_profile: saved.gpt_live_profile.clone(),
+            gpt_live_interaction_mode: saved
+                .gpt_live_interaction_mode
+                .unwrap_or(VoiceInteractionMode::ContinuousListening),
             doubao_credential_ref: saved.doubao_credential_ref.clone(),
             doubao_voice: doubao::resolve(saved.doubao_speaker.as_deref()),
             doubao_interaction_mode: saved
@@ -326,6 +340,10 @@ impl VoiceSettingsValues {
 
     pub(crate) fn agent_provider(&self) -> AgentProviderKind {
         self.agent_provider
+    }
+
+    pub(crate) fn gpt_live_profile(&self) -> &GptLiveProfile {
+        &self.gpt_live_profile
     }
 
     pub(crate) fn interaction_mode(&self) -> VoiceInteractionMode {
@@ -449,47 +467,4 @@ impl VoiceSettingsValues {
     pub(crate) fn voice_window_inset_enabled(&self) -> bool {
         self.voice_window_inset_enabled
     }
-}
-impl EnvVoiceSettings {
-    pub(crate) fn from_env() -> Self {
-        Self {
-            ollama_endpoint: std::env::var("MULTISOUL_OLLAMA_ENDPOINT").ok(),
-            planner_model: std::env::var("MULTISOUL_OLLAMA_MODEL").ok(),
-            dialogue_model: std::env::var("MULTISOUL_DIALOGUE_MODEL").ok(),
-            refine_model: std::env::var("MULTISOUL_REFINE_MODEL").ok(),
-            input_device_id: std::env::var("MULTISOUL_VOICE_INPUT_DEVICE_ID").ok(),
-            trace_enabled: std::env::var("MULTISOUL_VOICE_TRACE").ok(),
-        }
-    }
-}
-pub(super) fn non_empty_option(value: Option<String>) -> Option<String> {
-    value
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
-}
-
-fn first_non_empty(saved: Option<&str>, env: Option<&str>, default: &str) -> String {
-    saved
-        .filter(|value| !value.trim().is_empty())
-        .or_else(|| env.filter(|value| !value.trim().is_empty()))
-        .map(str::trim)
-        .unwrap_or(default)
-        .to_string()
-}
-
-fn stored_bool(value: &str) -> Option<bool> {
-    match value.trim().to_ascii_lowercase().as_str() {
-        "1" | "true" | "yes" | "on" => Some(true),
-        "0" | "false" | "no" | "off" => Some(false),
-        _ => None,
-    }
-}
-
-fn trace_enabled_from_value(value: Option<&str>) -> bool {
-    value.is_some_and(|value| {
-        matches!(
-            value.trim().to_ascii_lowercase().as_str(),
-            "1" | "true" | "yes" | "on"
-        )
-    })
 }

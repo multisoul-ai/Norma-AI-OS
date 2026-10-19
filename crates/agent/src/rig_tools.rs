@@ -4,13 +4,23 @@ use crate::{
 };
 use rig_core::tool::{Tool, ToolCallExtensions};
 use serde_json::Value;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
+
+mod gpt_live;
+pub(crate) use gpt_live::GptLiveDeleteCanvasCardTool;
+
+#[derive(Default)]
+struct CallIdentities {
+    pending: VecDeque<String>,
+    provider_ids: HashMap<String, String>,
+    steps: HashMap<String, usize>,
+}
 
 #[derive(Clone)]
 pub(crate) struct RigToolContext {
     base: ToolContext,
-    pending_tool_call_ids: Arc<Mutex<VecDeque<String>>>,
+    identities: Arc<Mutex<CallIdentities>>,
     policy: ToolCallPolicy,
 }
 
@@ -18,7 +28,7 @@ impl RigToolContext {
     pub(crate) fn new(base: ToolContext) -> Self {
         Self {
             base,
-            pending_tool_call_ids: Arc::new(Mutex::new(VecDeque::new())),
+            identities: Arc::new(Mutex::new(CallIdentities::default())),
             policy: ToolCallPolicy::default(),
         }
     }
@@ -35,6 +45,10 @@ impl RigToolContext {
         )
     }
 
+    pub(crate) fn is_gpt_live(&self) -> bool {
+        self.base.input_source == crate::AgentInputSource::GptLiveVoice
+    }
+
     pub(crate) fn unknown_seen(&self) -> bool {
         self.policy.unknown_seen()
     }
@@ -48,27 +62,47 @@ impl RigToolContext {
         provider_tool_call_id: Option<&str>,
         internal_call_id: &str,
     ) {
+        let mut ids = self.identities.lock().expect("Rig call identity lock");
         let stable_id = provider_tool_call_id
-            .unwrap_or(internal_call_id)
-            .to_string();
-        self.pending_tool_call_ids
+            .filter(|id| !id.is_empty())
+            .map(str::to_owned)
+            .or_else(|| ids.provider_ids.get(internal_call_id).cloned())
+            .unwrap_or_else(|| internal_call_id.to_string());
+        ids.pending.push_back(stable_id);
+    }
+
+    pub(crate) fn record_streamed_call(&self, provider_id: &str, internal_id: &str) {
+        // Ollama has no provider call ID: each parsed occurrence keeps its Rig identity.
+        if provider_id.is_empty() {
+            return;
+        }
+        self.identities
             .lock()
-            .expect("pending Rig tool-call ID lock should not be poisoned")
-            .push_back(stable_id);
+            .expect("Rig call identity lock")
+            .provider_ids
+            .insert(internal_id.to_owned(), provider_id.to_owned());
     }
 
     fn next(&self) -> Result<ToolContext, AdapterError> {
-        let tool_call_id = self
-            .pending_tool_call_ids
-            .lock()
-            .expect("pending Rig tool-call ID lock should not be poisoned")
+        let mut ids = self.identities.lock().expect("Rig call identity lock");
+        let tool_call_id = ids
+            .pending
             .pop_front()
+            .filter(|id| !id.is_empty())
             .ok_or_else(|| {
                 AdapterError::Failed("Rig tool-call hook did not provide a call ID".to_string())
             })?;
         let mut context = self.base.clone();
         context.tool_call_id = tool_call_id.clone();
-        context.operation_id = Some(format!("{}:{tool_call_id}", context.turn_id));
+        context.operation_id = Some(
+            if context.input_source == crate::AgentInputSource::GptLiveVoice {
+                let next = ids.steps.len() + 1;
+                let step = ids.steps.entry(tool_call_id).or_insert(next);
+                format!("{}:step-{step}", context.turn_id)
+            } else {
+                format!("{}:{tool_call_id}", context.turn_id)
+            },
+        );
         Ok(context)
     }
 }

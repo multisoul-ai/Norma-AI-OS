@@ -7,6 +7,7 @@ impl fmt::Debug for SavedVoiceSettings {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("SavedVoiceSettings")
             .field("desktop_mode", &self.desktop_mode)
+            .field("gpt_live_profile", &self.gpt_live_profile)
             .field("doubao_speaker", &self.doubao_speaker)
             .field(
                 "doubao_credential_ref",
@@ -53,6 +54,7 @@ impl fmt::Debug for VoiceSettingsValues {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("VoiceSettingsValues")
             .field("desktop_mode", &self.desktop_mode)
+            .field("gpt_live_profile", &self.gpt_live_profile)
             .field("doubao_voice", &self.doubao_voice)
             .field(
                 "doubao_credential_ref",
@@ -93,6 +95,7 @@ impl fmt::Debug for VoiceSettingsState {
                     | VoiceSettingsField::AzureApiKey
                     | VoiceSettingsField::MiniMaxApiKey
                     | VoiceSettingsField::DoubaoApiKey
+                    | VoiceSettingsField::GptLiveApiKey
             )
         ) {
             "<redacted>"

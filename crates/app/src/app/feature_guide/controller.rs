@@ -250,7 +250,10 @@ impl MultisoulApp {
             voice_active: matches!(
                 self.voice.phase(),
                 VoicePhase::Recording { .. } | VoicePhase::Transcribing
-            ) || self.voice_caption_is_visible(),
+            ) || (self.voice_settings.values().desktop_mode()
+                == crate::settings::voice::DesktopVoiceMode::GptLive
+                && self.gpt_live.has_caption())
+                || self.voice_caption_is_visible(),
             confirmation_open: self.pending_agent_close_confirmation.is_some(),
             workspace_error_visible: self.workspace_state.error.is_some(),
         }

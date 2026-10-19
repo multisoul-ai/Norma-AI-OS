@@ -9,6 +9,7 @@ members = [
   "crates/asr",
   "crates/license",
   "crates/audio",
+  "crates/live_voice",
   "crates/voice_input",
   "crates/agent",
   "crates/dialogue",
@@ -69,6 +70,7 @@ tungstenite = { version = "0.28", default-features = false, features = ["handsha
 tokio-tungstenite = { version = "0.28", default-features = false, features = ["connect", "rustls-tls-native-roots"] }
 # 内部 crate（路径依赖）
 audio = { path = "crates/audio" }
+live_voice = { path = "crates/live_voice" }
 voice_input = { path = "crates/voice_input" }
 model_store = { path = "crates/model_store" }
 media_store = { path = "crates/media_store" }

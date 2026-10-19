@@ -115,6 +115,20 @@ extension Session {
         }
     }
 
+    /// Scroll only inside the owned window, over the settings content region.
+    public func scroll(pixels: Int32) async throws {
+        try await requireKeyboardFocus()
+        let frame = try await capture()
+        let point = CGPoint(x: frame.windowFrame.minX + frame.windowFrame.width * 0.75, y: frame.windowFrame.minY + frame.windowFrame.height * 0.6)
+        try await requireOwnWindow(at: point)
+        try postMove(point)
+        guard let event = CGEvent(scrollWheelEvent2Source: CGEventSource(stateID: .hidSystemState), units: .pixel, wheelCount: 1, wheel1: pixels, wheel2: 0, wheel3: 0) else {
+            throw E2EError.env("无法创建滚动事件")
+        }
+        event.location = point
+        event.post(tap: .cghidEventTap)
+    }
+
     public func type(_ value: String) async throws {
         try await requireKeyboardFocus()
         let source = CGEventSource(stateID: .hidSystemState)

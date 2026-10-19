@@ -5,6 +5,8 @@ pub enum AgentInputSource {
     Voice,
     /// Only the local desktop Doubao session may use this source.
     DoubaoVoice,
+    /// GPT-Live delegation; authorization uses only the observed user transcript.
+    GptLiveVoice,
     /// Workspace discussion cannot dispatch mutable desktop tools.
     MobileDiscussion,
     /// The phone has expressed an explicit execution intent.

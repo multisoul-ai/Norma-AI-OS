@@ -149,6 +149,7 @@ impl MultisoulApp {
 
     pub(crate) fn detach_project_window(&mut self, cx: &mut Context<Self>) {
         self.stop_doubao_voice(cx);
+        self.stop_gpt_live_voice(cx);
         self.project_window = None;
         self.background_project = true;
         self.window_active = false;

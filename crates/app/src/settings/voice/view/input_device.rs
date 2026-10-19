@@ -1,7 +1,9 @@
 use super::{action_button, with_alpha};
 use crate::app::MultisoulApp;
 use crate::settings::typography::{SettingsText, TextRole};
-use crate::settings::voice::VoiceSettingsState;
+use crate::settings::voice::{
+    DesktopVoiceMode, VoiceRequirement, VoiceRequirementState, VoiceSettingsState,
+};
 use gpui::{div, prelude::*, px, rgba, Context, Div};
 use ui::Theme;
 
@@ -10,6 +12,9 @@ pub(super) fn input_device_row(
     state: &VoiceSettingsState,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
+    let is_live = state.values().desktop_mode() == DesktopVoiceMode::GptLive;
+    let microphone_ready =
+        state.requirement_state(VoiceRequirement::Microphone) == VoiceRequirementState::Ready;
     let selected_id = state.values().input_device_id();
     let selected_label = selected_id
         .and_then(|selected| {
@@ -49,6 +54,7 @@ pub(super) fn input_device_row(
                 .debug_selector(move || format!("settings-voice-input-device-{index}"))
                 .on_click(cx.listener(move |app, _, _window, cx| {
                     app.stop_doubao_voice(cx);
+                    app.stop_gpt_live_voice(cx);
                     app.voice_settings.select_input_device(Some(id.clone()));
                     app.voice_settings.close_input_device_picker();
                     app.persist_voice_settings_in_background(cx);
@@ -106,7 +112,11 @@ pub(super) fn input_device_row(
                         .child(
                             div()
                                 .settings_text(TextRole::Helper, theme)
-                                .child(ui::i18n::text("voice.input_used_for_speech_recognition")),
+                                .child(ui::i18n::text(if is_live {
+                                    "voice.live_input_device_hint"
+                                } else {
+                                    "voice.input_used_for_speech_recognition"
+                                })),
                         ),
                 )
                 .child(picker),
@@ -116,8 +126,18 @@ pub(super) fn input_device_row(
                 .id("settings-voice-legacy-recognition-status")
                 .debug_selector(|| "settings-voice-legacy-recognition-status".to_string())
                 .settings_font(TextRole::Label)
-                .text_color(rgba(theme.accent_green))
-                .child(ui::i18n::text("voice.speech_recognition_ready")),
+                .text_color(rgba(if is_live && !microphone_ready {
+                    theme.accent_orange
+                } else {
+                    theme.accent_green
+                }))
+                .child(ui::i18n::text(if !is_live {
+                    "voice.speech_recognition_ready"
+                } else if microphone_ready {
+                    "voice.microphone_permission_authorized"
+                } else {
+                    "voice.microphone_permission_required_2"
+                })),
         )
         .when(state.input_device_picker_expanded(), |row| {
             row.child(expanded_device_options(theme, options, cx))

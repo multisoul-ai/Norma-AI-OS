@@ -224,3 +224,106 @@ fn test_settings_store_applies_related_string_changes_atomically() {
         "事务提交后不得残留旧 voice"
     );
 }
+
+/// S-6/AC12：条件事务将凭据和引用一并替换，过期窗口不得写入或删除其他窗口的数据。
+/// 数据构造：两个SettingsStore共享隔离库；R为旧引用，C为另一窗口已保存的新引用。
+/// 执行过程：从空值提交R→另一窗口将R替换为C→以过期R尝试删除C并写入A。
+/// 预期结果：前两次原子提交成功；第三次返回当前C，且整批变化均未执行。
+#[test]
+fn conditional_settings_changes_reject_stale_reference_without_partial_writes() {
+    let temp = tempfile::tempdir().expect("隔离目录");
+    let store = SettingsStore::new(temp.path().join("app.sqlite"));
+    let other = store.clone();
+    let first = store
+        .apply_string_changes_if_current(
+            "ref",
+            None,
+            &[
+                ("ref".into(), Some("R".into())),
+                ("secret.R".into(), Some("old".into())),
+            ],
+        )
+        .expect("首次提交");
+    assert_eq!(first, (true, Some("R".into())), "空引用支持首次原子写入");
+    let second = other
+        .apply_string_changes_if_current(
+            "ref",
+            Some("R"),
+            &[
+                ("ref".into(), Some("C".into())),
+                ("secret.C".into(), Some("new".into())),
+                ("secret.R".into(), None),
+            ],
+        )
+        .expect("另一窗口替换");
+    assert_eq!(second, (true, Some("C".into())), "替换和清理在同一事务生效");
+    let stale = store
+        .apply_string_changes_if_current(
+            "ref",
+            Some("R"),
+            &[
+                ("ref".into(), Some("A".into())),
+                ("secret.A".into(), Some("stale".into())),
+                ("secret.C".into(), None),
+            ],
+        )
+        .expect("过期请求可识别");
+    assert_eq!(
+        stale,
+        (false, Some("C".into())),
+        "冲突须返回当前引用供宿主同步"
+    );
+    assert_eq!(
+        store.get_string("secret.C").expect("C仍可读").as_deref(),
+        Some("new"),
+        "冲突不能删除已发布secret"
+    );
+    assert_eq!(
+        store.get_string("secret.A").expect("无孤儿账号"),
+        None,
+        "冲突不能部分写入secret"
+    );
+    assert_eq!(
+        store.get_string("secret.R").expect("旧账号已清理"),
+        None,
+        "成功替换不残留旧secret"
+    );
+}
+
+/// S-6：条件匹配后遇到SQLite写入错误时，整批数据仍须原子回滚。
+/// 数据构造：隔离库旧ref/secret，加一个拒绝blocked key的触发器。
+/// 执行过程：条件匹配，先换ref并删旧secret，最后触发错误；随后重读旧数据。
+/// 预期结果：返回错误，原ref和secret完整保留，不存在部分提交。
+#[test]
+fn conditional_settings_changes_roll_back_on_write_failure() {
+    let temp = tempfile::tempdir().expect("隔离目录");
+    let store = SettingsStore::new(temp.path().join("app.sqlite"));
+    store.set_string("ref", "old").expect("旧引用");
+    store.set_string("secret.old", "working").expect("旧secret");
+    open_app_connection(store.path()).expect("连接").execute_batch("CREATE TRIGGER reject_fixture BEFORE INSERT ON settings WHEN NEW.key = 'blocked' BEGIN SELECT RAISE(ABORT, 'fixture failure'); END;").expect("失败夹具");
+    let result = store.apply_string_changes_if_current(
+        "ref",
+        Some("old"),
+        &[
+            ("ref".into(), Some("new".into())),
+            ("secret.old".into(), None),
+            ("blocked".into(), Some("stop".into())),
+        ],
+    );
+    assert!(result.is_err(), "SQL触发器应制造真实写入失败");
+    assert_eq!(
+        store.get_string("ref").expect("原引用").as_deref(),
+        Some("old"),
+        "失败不能部分替换引用"
+    );
+    assert_eq!(
+        store.get_string("secret.old").expect("原secret").as_deref(),
+        Some("working"),
+        "失败不能部分清除secret"
+    );
+    assert_eq!(
+        store.get_string("blocked").expect("阻止的值"),
+        None,
+        "失败批次没有新值"
+    );
+}

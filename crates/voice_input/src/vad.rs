@@ -7,6 +7,21 @@ use std::path::Path;
 
 const VAD_BUFFER_SECONDS: f32 = 30.0;
 
+/// A detector-confirmed segment, in mono 16kHz samples since the last reset.
+/// Forced maximum-duration segments may belong to the same ongoing utterance.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SpeechSpan {
+    pub start_sample: u64,
+    pub end_sample: u64,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct VadObservation {
+    pub events: Vec<VadEvent>,
+    pub completed_spans: Vec<SpeechSpan>,
+    pub speech_active: bool,
+}
+
 pub struct SherpaVadClient {
     inner: SherpaVadBackend,
     was_detected: bool,
@@ -64,8 +79,11 @@ fn build_vad_config(model_path: &Path) -> sherpa_onnx::VadModelConfig {
     }
 }
 
-impl VadClient for SherpaVadClient {
-    fn push_pcm(&mut self, chunk: &PcmAudioChunk) -> Result<Vec<VadEvent>, VoiceInputError> {
+impl SherpaVadClient {
+    pub fn observe_pcm(
+        &mut self,
+        chunk: &PcmAudioChunk,
+    ) -> Result<VadObservation, VoiceInputError> {
         match &mut self.inner {
             SherpaVadBackend::Sherpa(inner) => {
                 let samples =
@@ -78,8 +96,18 @@ impl VadClient for SherpaVadClient {
                     events.push(VadEvent::SpeechStart);
                 }
 
+                let mut completed_spans = Vec::new();
                 while let Some(segment) = inner.front() {
-                    let _ = segment.n();
+                    let start = u64::try_from(segment.start()).map_err(|_| {
+                        VoiceInputError::Recognizer("negative VAD segment start".into())
+                    })?;
+                    let length = u64::try_from(segment.n()).map_err(|_| {
+                        VoiceInputError::Recognizer("negative VAD segment length".into())
+                    })?;
+                    completed_spans.push(SpeechSpan {
+                        start_sample: start,
+                        end_sample: start + length,
+                    });
                     inner.pop();
                     events.push(VadEvent::SpeechEnd);
                 }
@@ -89,11 +117,21 @@ impl VadClient for SherpaVadClient {
                 }
 
                 self.was_detected = detected;
-                Ok(events)
+                Ok(VadObservation {
+                    events,
+                    completed_spans,
+                    speech_active: detected,
+                })
             }
             #[cfg(feature = "test-support")]
-            SherpaVadBackend::Deterministic(fake) => fake.push_pcm(chunk),
+            SherpaVadBackend::Deterministic(fake) => fake.observe_pcm(chunk),
         }
+    }
+}
+
+impl VadClient for SherpaVadClient {
+    fn push_pcm(&mut self, chunk: &PcmAudioChunk) -> Result<Vec<VadEvent>, VoiceInputError> {
+        self.observe_pcm(chunk).map(|observed| observed.events)
     }
 
     fn reset(&mut self) {
@@ -113,6 +151,8 @@ impl VadClient for SherpaVadClient {
 pub struct FakeEnergyVadClient {
     threshold: f32,
     was_detected: bool,
+    samples_seen: u64,
+    active_start: Option<u64>,
 }
 
 impl FakeEnergyVadClient {
@@ -120,28 +160,51 @@ impl FakeEnergyVadClient {
         Self {
             threshold,
             was_detected: false,
+            samples_seen: 0,
+            active_start: None,
         }
     }
 }
 
-impl VadClient for FakeEnergyVadClient {
-    fn push_pcm(&mut self, chunk: &PcmAudioChunk) -> Result<Vec<VadEvent>, VoiceInputError> {
+impl FakeEnergyVadClient {
+    fn observe_pcm(&mut self, chunk: &PcmAudioChunk) -> Result<VadObservation, VoiceInputError> {
         let samples = pcm16_chunk_to_f32_samples(chunk).map_err(VoiceInputError::Recognizer)?;
         let energy =
             samples.iter().map(|sample| sample * sample).sum::<f32>() / samples.len() as f32;
         let detected = energy >= self.threshold;
         let mut events = Vec::new();
+        let mut completed_spans = Vec::new();
         if detected && !self.was_detected {
+            self.active_start = Some(self.samples_seen);
             events.push(VadEvent::SpeechStart);
         }
         if !detected && self.was_detected {
+            if let Some(start_sample) = self.active_start.take() {
+                completed_spans.push(SpeechSpan {
+                    start_sample,
+                    end_sample: self.samples_seen,
+                });
+            }
             events.push(VadEvent::SpeechEnd);
         }
         self.was_detected = detected;
-        Ok(events)
+        self.samples_seen += samples.len() as u64;
+        Ok(VadObservation {
+            events,
+            completed_spans,
+            speech_active: detected,
+        })
+    }
+}
+
+impl VadClient for FakeEnergyVadClient {
+    fn push_pcm(&mut self, chunk: &PcmAudioChunk) -> Result<Vec<VadEvent>, VoiceInputError> {
+        self.observe_pcm(chunk).map(|observed| observed.events)
     }
 
     fn reset(&mut self) {
+        self.samples_seen = 0;
+        self.active_start = None;
         self.was_detected = false;
     }
 }

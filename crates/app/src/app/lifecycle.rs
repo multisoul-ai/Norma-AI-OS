@@ -3,6 +3,7 @@ use crate::app::MultisoulApp;
 impl MultisoulApp {
     pub(crate) fn stop_project(&mut self, cx: &mut gpui::Context<Self>) {
         self.stop_doubao_voice(cx);
+        self.stop_gpt_live_voice(cx);
         crate::workspace::sessions::remove(cx.entity_id(), cx);
         self.unregister_workspace_window_if_needed(cx);
         self.workspace_id = None;
@@ -26,6 +27,7 @@ impl MultisoulApp {
 impl Drop for MultisoulApp {
     fn drop(&mut self) {
         self.doubao.stop();
+        self.gpt_live.stop();
         self.dialogue.on_window_closed();
         self.voice.cancel_speech_task();
         self.voice.cancel_speech_session();

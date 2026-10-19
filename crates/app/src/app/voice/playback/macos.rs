@@ -20,7 +20,7 @@ enum PlaybackCommand {
         playback_started: async_channel::Sender<()>,
         completion_tx: async_channel::Sender<()>,
     },
-    Stop,
+    Stop(mpsc::Sender<()>),
     Shutdown,
 }
 
@@ -73,7 +73,19 @@ impl AssistantAudioSink for MacosAssistantAudioSink {
     }
 
     fn stop(&mut self) {
-        let _ = self.command_tx.send(PlaybackCommand::Stop);
+        // UI callers require a nonblocking stop. Only background queues wait for the ACK.
+        let (done, _stopped) = mpsc::channel();
+        let _ = self.command_tx.send(PlaybackCommand::Stop(done));
+    }
+
+    fn stop_and_confirm(&mut self) -> Result<(), String> {
+        let (done, stopped) = mpsc::channel();
+        self.command_tx
+            .send(PlaybackCommand::Stop(done))
+            .map_err(|_| "assistant playback thread is unavailable".to_string())?;
+        stopped
+            .recv_timeout(COMMAND_TIMEOUT)
+            .map_err(|_| "assistant playback stop timed out".to_string())
     }
 }
 
@@ -110,7 +122,10 @@ fn playback_loop(command_rx: mpsc::Receiver<PlaybackCommand>) {
                 );
                 let _ = result_tx.send(result);
             }
-            PlaybackCommand::Stop => unsafe { player.stop() },
+            PlaybackCommand::Stop(done) => {
+                unsafe { player.stop() };
+                let _ = done.send(());
+            }
             PlaybackCommand::Shutdown => {
                 unsafe {
                     player.stop();

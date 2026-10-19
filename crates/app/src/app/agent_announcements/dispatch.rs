@@ -19,6 +19,11 @@ use std::time::SystemTime;
 
 impl MultisoulApp {
     pub(crate) fn start_next_agent_announcement(&mut self, cx: &mut Context<Self>) {
+        if self.voice_settings.values().desktop_mode()
+            == crate::settings::voice::DesktopVoiceMode::GptLive
+        {
+            return;
+        }
         if !self
             .voice_settings
             .values()

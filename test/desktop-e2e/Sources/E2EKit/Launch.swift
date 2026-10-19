@@ -13,6 +13,7 @@ public final class Session {
     var steps: [StepRecord] = []
     var screenshotNames: [String] = []
     private var logHandle: FileHandle?
+    private let socketRoot = URL(fileURLWithPath: "/tmp/norma-e2e-" + UUID().uuidString, isDirectory: true)
 
     public init(scenario: String, appPath: String, artifactRoot: String) {
         self.scenario = scenario
@@ -44,7 +45,9 @@ public final class Session {
         process.executableURL = URL(fileURLWithPath: appPath)
         var environment = ProcessInfo.processInfo.environment
         environment["NORMA_TEST_DATA_ROOT"] = dataRoot.path
-        environment["NORMA_SOCKET"] = dataRoot.appendingPathComponent("norma.sock").path
+        // macOS Unix socket paths must fit SUN_LEN even in deeply nested git worktrees.
+        try FileManager.default.createDirectory(at: socketRoot, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        environment["NORMA_SOCKET"] = socketRoot.appendingPathComponent("norma.sock").path
         process.environment = environment
         process.standardOutput = handle
         process.standardError = handle
@@ -72,6 +75,7 @@ public final class Session {
         logHandle = nil
         OwnedProcess.clear(pid: process.processIdentifier, root: artifactRoot)
         app = nil
+        try? FileManager.default.removeItem(at: socketRoot)
     }
 
     public func ensureRunning() throws {

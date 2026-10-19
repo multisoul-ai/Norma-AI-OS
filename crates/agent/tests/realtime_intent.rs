@@ -119,3 +119,29 @@ fn explicit_named_agent_instruction_is_authorized() {
         "相似目标名不能匹配Codex"
     );
 }
+
+/// 预览动作可以直接以动词开头，不能被创建类别收紧误伤。
+/// 数据构造：指向同一隔离README的CreatePreview，中英文预览原文和仅提及用途的原文。
+/// 执行过程：调用共享授权门槛，分别验证两个明确请求与一个非请求。
+/// 预期结果：明确预览可用，终端用途中的“预览”仍不能创建预览卡片。
+#[test]
+fn explicit_preview_verbs_keep_working() {
+    let command = AdapterCommand::CreatePreview {
+        path: "/isolated/README.md".into(),
+        explicit_type: None,
+    };
+    for input in ["预览 /isolated/README.md", "preview /isolated/README.md"] {
+        assert!(
+            realtime_command_authorized(&command, input),
+            "明确预览应允许：{input}"
+        );
+    }
+    assert!(
+        !realtime_command_authorized(&command, "创建一个终端用于预览README"),
+        "用途不是创建预览的请求"
+    );
+    assert!(
+        !realtime_command_authorized(&AdapterCommand::CreateTerminal, "preview terminal"),
+        "预览动作不能创建终端"
+    );
+}

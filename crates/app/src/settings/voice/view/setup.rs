@@ -91,7 +91,7 @@ pub(super) fn voice_setup(
         .when(state.reviewing_setup(), |page| {
             page.child(finish_setup_button(theme, cx))
         });
-    div().w_full().child(page)
+    div().w_full().min_w(px(0.0)).flex().flex_col().child(page)
 }
 
 fn setup_step(

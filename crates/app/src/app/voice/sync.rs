@@ -75,6 +75,14 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         let mode_changed = previous.desktop_mode != latest.desktop_mode;
+        if mode_changed
+            || previous.gpt_live_interaction_mode != latest.gpt_live_interaction_mode
+            || previous.gpt_live_profile.credential_ref()
+                != latest.gpt_live_profile.credential_ref()
+            || previous.input_device_id != latest.input_device_id
+        {
+            self.stop_gpt_live_voice(cx);
+        }
         let asr_changed = previous.asr_provider != latest.asr_provider
             || previous.asr_model_id != latest.asr_model_id
             || previous.azure_asr_credential_ref != latest.azure_asr_credential_ref

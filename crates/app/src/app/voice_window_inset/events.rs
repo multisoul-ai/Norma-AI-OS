@@ -6,6 +6,7 @@ pub(crate) enum TtsPlaybackSource {
     AgentAnnouncement,
     Preview,
     Doubao,
+    GptLive,
 }
 
 #[derive(Clone, Debug)]

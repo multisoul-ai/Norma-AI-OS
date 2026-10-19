@@ -22,6 +22,7 @@ mod asr_provider;
 mod components;
 mod doubao;
 mod editable;
+mod gpt_live;
 mod input_device;
 mod interaction;
 mod model_catalog;
@@ -43,6 +44,7 @@ pub(crate) fn voice_settings(
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     let VoiceSettingsView {
+        live_call,
         theme,
         state,
         inputs,
@@ -57,13 +59,25 @@ pub(crate) fn voice_settings(
         .flex()
         .flex_col()
         .gap(px(SECTION_GAP))
-        .child(desktop_mode_picker(theme, state, cx))
-        .child(voice_status_overview(
-            theme,
-            state,
-            voice_shortcut_label,
-            cx,
-        ));
+        .child(desktop_mode_picker(theme, state, cx));
+    if state.values().desktop_mode() == super::DesktopVoiceMode::GptLive {
+        return page
+            .child(gpt_live::gpt_live_settings(
+                theme,
+                state,
+                inputs,
+                live_call,
+                voice_shortcut_label,
+                cx,
+            ))
+            .children(status_message(theme, state));
+    }
+    let page = page.child(voice_status_overview(
+        theme,
+        state,
+        voice_shortcut_label,
+        cx,
+    ));
     if state.values().desktop_mode() == super::DesktopVoiceMode::Doubao {
         return page
             .child(doubao_interaction_group(
@@ -217,6 +231,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.stop_doubao_voice(cx);
+        self.stop_gpt_live_voice(cx);
         self.voice_settings.select_input_device(None);
         self.voice_settings.close_input_device_picker();
         self.persist_voice_settings_in_background(cx);
@@ -340,6 +355,8 @@ impl MultisoulApp {
                 app.persist_voice_settings_in_background(cx);
                 if credential_succeeded {
                     app.broadcast_voice_settings_changed(false, cx);
+                } else {
+                    app.resync_voice_settings(false, cx);
                 }
                 if completion.agent_credential && credential_succeeded {
                     app.validate_saved_voice_provider(cx);

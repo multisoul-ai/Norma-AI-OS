@@ -28,7 +28,7 @@ use crate::workspace::desktop::DesktopWorkspaceUiState;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
 use canvas::{CanvasRect, NodeId, NodeType, Vec2};
-use gpui::{actions, div, prelude::*, px, Context, FocusHandle, Focusable, Window};
+use gpui::{div, prelude::*, px, Context, FocusHandle, Focusable, Window};
 use runtime::{route, InputEvent, Route, Runtime};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -136,31 +136,10 @@ pub use e2e::{
 };
 pub(crate) use state::mark_runtime_node_viewed_if_needed;
 pub use state::AppScreen;
-actions!(
-    multisoul,
-    [
-        NewWindow,
-        NewTerminal,
-        NewClaudeAgent,
-        NewCodexAgent,
-        NewCursorAgent,
-        NewGrokAgent,
-        NewOpenCodeAgent,
-        NewBrowser,
-        NewEgo,
-        CopyCardContent,
-        OpenPreviewFile,
-        OpenProject,
-        CloneProject,
-        OpenFeatureGuide,
-        CheckForUpdates,
-        ExitFocus,
-        ReflowLayout,
-        ToggleMasterLayout,
-        ToggleSettings,
-        QuitNormaOs
-    ]
-);
+mod actions;
+pub use actions::*;
+mod gpt_live;
+pub(crate) use gpt_live::LiveCallView;
 
 pub struct MultisoulApp {
     pub(crate) database_paths: storage::DatabasePaths,
@@ -215,6 +194,7 @@ pub struct MultisoulApp {
     pub(crate) recent_project_context_path: Option<PathBuf>,
     pub(crate) voice: crate::app::voice::control::VoiceControlState,
     pub(crate) doubao: doubao::DoubaoVoiceState,
+    pub(crate) gpt_live: gpt_live::GptLiveVoiceState,
     pub(crate) dialogue: crate::app::dialogue::DialogueControlState,
     pub(crate) tts_preview: crate::app::dialogue::TtsPreviewState,
     pub(crate) pending_tts_activation: Option<crate::app::dialogue::PendingTtsActivation>,

@@ -301,7 +301,12 @@ fn strip_new_task_prefix(message: &str) -> String {
     if let Some(idx) = text.find('：').or_else(|| text.find(':')) {
         let (head, tail) = text.split_at(idx);
         if head.contains("新任务") || head.to_lowercase().contains("new task") {
-            return tail[1..].trim().to_string();
+            let separator_bytes = tail
+                .chars()
+                .next()
+                .expect("matched task separator")
+                .len_utf8();
+            return tail[separator_bytes..].trim().to_string();
         }
     }
     text

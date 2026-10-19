@@ -1,0 +1,27 @@
+[package]
+name = "live_voice"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[features]
+test-support = []
+
+[dependencies]
+audio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+base64 = "0.22"
+tokio = { workspace = true, features = ["net"] }
+tokio-util.workspace = true
+tokio-tungstenite.workspace = true
+futures.workspace = true
+reqwest = { workspace = true, features = ["socks"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
+
+[[test]]
+name = "websocket_session"
+required-features = ["test-support"]

@@ -259,6 +259,7 @@ impl MultisoulApp {
     }
 
     pub(crate) fn detach_desktop_host_window(&mut self, cx: &mut gpui::Context<Self>) {
+        self.stop_gpt_live_voice(cx);
         self.detach_visible_desktop_area(cx);
         self.window_active = false;
         self.dialogue.on_window_closed();
