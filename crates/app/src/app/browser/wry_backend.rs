@@ -8,21 +8,18 @@ use canvas::NodeId;
 use crossbeam_channel::Sender;
 use gpui::Window;
 use objc2::runtime::AnyObject;
-use objc2::MainThreadMarker;
 use objc2_foundation::{
-    ns_string, NSArray, NSBundle, NSDate, NSHTTPCookie, NSHTTPCookieDomain, NSHTTPCookieExpires,
+    ns_string, NSArray, NSDate, NSHTTPCookie, NSHTTPCookieDomain, NSHTTPCookieExpires,
     NSHTTPCookieName, NSHTTPCookiePath, NSHTTPCookiePropertyKey, NSHTTPCookieSecure,
     NSHTTPCookieValue, NSMutableDictionary, NSString,
 };
-use objc2_web_kit::WKWebViewConfiguration;
-use std::sync::OnceLock;
 use std::time::Instant;
-use wry::{WebViewBuilderExtMacos, WebViewExtMacOS};
+use wry::WebViewExtMacOS;
 
 use super::native::CookieImportStatus;
+use super::safari_identity::with_safari_browser_identity;
 
 const BROWSER_PAGE_INTERACTION_MESSAGE: &str = "multisoul:browser-page-interaction";
-static SAFARI_APPLICATION_NAME: OnceLock<Option<String>> = OnceLock::new();
 const BROWSER_PAGE_INTERACTION_SCRIPT: &str = r#"
 (() => {
     const notifyHost = () => window.ipc?.postMessage("multisoul:browser-page-interaction");
@@ -342,57 +339,6 @@ fn forward_new_window_to_current_card(
 ) -> wry::NewWindowResponse {
     let _ = sender.send(BrowserEvent::NavigateCurrentCard { node_id, url });
     wry::NewWindowResponse::Deny
-}
-
-fn with_safari_browser_identity<'a>(builder: wry::WebViewBuilder<'a>) -> wry::WebViewBuilder<'a> {
-    let Some(application_name) = SAFARI_APPLICATION_NAME.get().and_then(Option::as_deref) else {
-        return builder;
-    };
-    let Some(mtm) = MainThreadMarker::new() else {
-        tracing::warn!("WKWebView configuration must be created on the main thread");
-        return builder;
-    };
-
-    // SAFETY: WebKit configuration is created on the main thread, proven by `mtm` above.
-    let configuration = unsafe { WKWebViewConfiguration::new(mtm) };
-    let application_name = NSString::from_str(application_name);
-    unsafe {
-        configuration.setApplicationNameForUserAgent(Some(&application_name));
-    }
-    builder.with_webview_configuration(configuration)
-}
-
-pub(crate) fn initialize_safari_browser_identity() {
-    let application_name = installed_safari_version()
-        .as_deref()
-        .and_then(safari_application_name_for_user_agent);
-    if application_name.is_none() {
-        tracing::warn!("Safari version unavailable; using the system WKWebView user agent");
-    }
-    let _ = SAFARI_APPLICATION_NAME.set(application_name);
-}
-
-fn installed_safari_version() -> Option<String> {
-    let safari_path = NSString::from_str("/Applications/Safari.app");
-    let bundle = NSBundle::bundleWithPath(&safari_path)?;
-    let version_key = NSString::from_str("CFBundleShortVersionString");
-    bundle
-        .objectForInfoDictionaryKey(&version_key)?
-        .downcast::<NSString>()
-        .ok()
-        .map(|version| version.to_string())
-}
-
-fn safari_application_name_for_user_agent(version: &str) -> Option<String> {
-    let version = version.trim();
-    if version.is_empty()
-        || !version
-            .split('.')
-            .all(|part| !part.is_empty() && part.bytes().all(|byte| byte.is_ascii_digit()))
-    {
-        return None;
-    }
-    Some(format!("Version/{version} Safari/605.1.15"))
 }
 
 fn clip_native_webview_to_bottom_corners(webview: &wry::WebView, radius_px: f64) {

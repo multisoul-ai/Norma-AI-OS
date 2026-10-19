@@ -19,7 +19,7 @@ impl MultisoulApp {
         let mut content = div().size_full().flex().flex_col();
         let browser = tab.kind == DesktopContentKind::Browser;
         if browser {
-            content = content.child(self.render_content_browser_toolbar(tab, window, cx));
+            content = content.child(self.render_content_browser_toolbar(tab, width, window, cx));
         } else {
             content = content.child(
                 div()

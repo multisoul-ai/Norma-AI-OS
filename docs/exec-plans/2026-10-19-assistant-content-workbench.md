@@ -37,7 +37,7 @@
 
 ## 实施位置与回归记录
 
-实现保留在独立工作树 `../Norma-AI-OS-content-workbench`，分支 `feat/assistant-content-workbench`，基线 `6d593506`。原工作树存在并行编辑，未合并、提交或清理其中的改动。
+实现及下列原始验收产物位于独立工作树 `../Norma-AI-OS-content-workbench`，分支 `feat/assistant-content-workbench`，开发基线 `6d593506`。集成时保留 `dev` 的 `c19e69f5` 并行提交，包括太空壁纸、抽屉动效、Safari 身份拆分和 GPT Live 文档；浏览器导航与最终预览尺寸修复采用本任务的已验收版本。
 
 - `cargo test -p workspace -p storage`：248 项通过。
 - 最终 App 单元测试：1130 项通过，1 项失败，9 项忽略。失败为 `voice_redesign_task_layout_and_mode_persistence` 的 517/543px 宽度断言；单独运行也失败，相关语音源文件和用例未修改。
@@ -74,3 +74,10 @@
 | 12-light-document、13-light-file-tree | 符合：Paper Blue 已应用，右栏沿用现有深色材质，正文、目录和控件仍清楚可辨。 |
 
 图片平移、视频拖动进度、外部站点登录以及全部键盘/hover 状态未在本场景穷举；不把它们写成已完成验收。早期运行存在 OCR 漏字/乱码和定位失败，已保留各次报告；最终通过记录仅指上述单次完整流程。
+
+
+## dev 集成验证（2026-10-19）
+
+合并保留 `c19e69f5` 的并行改动。独立审查发现新允许的 185px 右栏会把浏览器地址输入压到 0px；聚焦测试先复现，再让窄栏导航分为两行，185/474px 的输入、打开入口与历史按钮边界均通过。`cargo check -p app`、正常提交钩子、248 项 workspace/storage 测试、226 项相关 App 回归通过（1 项忽略）；本轮未重跑全仓测试或 release 构建，既有全仓限制见上文。
+
+合并后的 debug 构建与 `content-workbench` 真实 App 场景通过：退出 0、7/7 步、65.92 秒、单跑 1/1。证据在独立工作树的 `artifacts/desktop-workspace-e2e/2026-10-19T01-17-14Z/`。18 张关键截图均已逐张检查：01–13 的结论与上表一致；新增 `14-narrow-browser.png` 符合，右栏约 190px，第一行五个入口与第二行地址/打开按钮完整可见，正文从工具栏下方开始。场景进一步实际编辑窄栏地址并点击打开，验证首页正文及精确持久化地址，再恢复宽度并导航到第二页；最终标签仍为 `/two`。

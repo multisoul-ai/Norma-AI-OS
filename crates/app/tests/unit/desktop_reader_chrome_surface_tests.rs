@@ -121,4 +121,51 @@ fn open_browser_tab_uses_prototype_reader_chrome() {
         (body.top() - context.bottom()).abs() <= px(1.0),
         "内容应紧接上下文条，不能再留内缩圆角卡片"
     );
+    // 场景：dev 允许把右栏拖至 185px，导航不能挤掉输入与打开入口。
+    // 数据构造：依次使用最小 185px 和常规 474px 右栏；地址至少保留 100px 可编辑宽度。
+    // 执行过程：沿用已打开网页，通过真实抽屉宽度状态重绘并读取布局边界。
+    // 预期结果：窄栏的地址与打开入口换行且完全可见，恢复宽栏后仍可编辑。
+    for width in [185.0, 474.0] {
+        host.update_in(cx, |app, _, cx| {
+            app.desktop_workspace.drawer_widths.right = Some(width);
+            cx.notify();
+        });
+        cx.update(|window, cx| window.draw(cx).clear());
+        let drawer = cx
+            .debug_bounds("desktop-assistant-right")
+            .expect("应找到右栏");
+        let address = cx
+            .debug_bounds("desktop-content-address-bar")
+            .expect("应找到地址输入");
+        assert!(
+            address.size.width >= px(100.0),
+            "{width}px 右栏应至少保留 100px 地址输入，实际 {:?}",
+            address.size.width
+        );
+        let actions = cx
+            .debug_bounds("desktop-content-browser-actions")
+            .expect("应找到历史导航和文件入口");
+        assert!(
+            actions.left() >= drawer.left() && actions.right() <= drawer.right(),
+            "{width}px 右栏的文件、新建与历史导航也必须完整可见"
+        );
+        let navigate = cx
+            .debug_bounds("desktop-browser-navigate-control")
+            .expect("应找到打开入口");
+        assert!(
+            address.left() >= drawer.left() && navigate.right() <= drawer.right(),
+            "{width}px 右栏的地址输入与打开入口不能被边缘裁掉"
+        );
+        assert!(
+            navigate.left() >= address.right() && navigate.size.width > px(0.0),
+            "打开入口应完整排列在地址输入右侧，不能重叠或归零"
+        );
+        let navigation = cx
+            .debug_bounds("desktop-content-browser-navigation")
+            .expect("应找到导航栏");
+        assert!(
+            navigate.bottom() <= navigation.bottom(),
+            "打开入口应位于导航栏内，不能覆盖网页正文"
+        );
+    }
 }

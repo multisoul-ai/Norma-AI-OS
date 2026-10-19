@@ -53,7 +53,26 @@ extension ContentWorkbench {
             try await session.click(local: CGPoint(x: inputLeft - 35, y: toolbarY), on: try await session.capture())
             _ = try await session.wait(Expectation(allOf: ["BROWSER SECOND E2E"], timeout: 8))
             guard try session.contentTabs(workspaceName: workspace).contains(where: { $0.kind == "browser" && $0.resource.hasSuffix("/two") }) else { throw E2EError.product("网页导航位置未持久化") }
-            return "HTTP 页面、表单会话保留、前进后退与刷新通过；最终地址已写入 SQLite"
+            // 右栏拖至新最小宽度附近，验证地址输入和打开入口实际可用。
+            let wide = try await session.capture()
+            let edge = wide.windowFrame.width * 0.63
+            try await session.drag(local: CGPoint(x: edge, y: 260), to: CGPoint(x: wide.windowFrame.width - 190, y: 260), on: wide)
+            try await Task.sleep(nanoseconds: 350_000_000)
+            let narrow = try await session.capture()
+            try session.save(narrow, "14-narrow-browser.png")
+            try await session.click(local: CGPoint(x: narrow.windowFrame.width - 120, y: 144), on: narrow)
+            try await session.shortcut(key: 0, modifiers: [0x37])
+            try await session.type(server.address)
+            // 第二行最右侧打开按钮；实际磁盘标签地址与正文继续作硬断言。
+            try await session.click(local: CGPoint(x: narrow.windowFrame.width - 30, y: 144), on: try await session.capture())
+            _ = try await session.wait(Expectation(anyOf: ["FIRST E2E", "FIRST"], timeout: 8))
+            guard try session.contentTabs(workspaceName: workspace).contains(where: { $0.kind == "browser" && $0.resource == server.address }) else { throw E2EError.product("窄栏打开入口未导航") }
+            let small = try await session.capture()
+            try await session.drag(local: CGPoint(x: small.windowFrame.width - 190, y: 260), to: CGPoint(x: edge, y: 260), on: small)
+            _ = try await session.wait(Expectation(allOf: ["BROWSER FIRST E2E"], timeout: 8))
+            try await session.click(matching: ["NEXT PAGE E2E"], pick: .bottom)
+            _ = try await session.wait(Expectation(allOf: ["BROWSER SECOND E2E"], timeout: 8))
+            return "HTTP 页面、会话保留、导航与窄栏地址输入通过；最终地址已写入 SQLite"
         }
         try await session.step("浅色主题下的文件工作台") {
             try await session.shortcut(key: 43, modifiers: [0x37])

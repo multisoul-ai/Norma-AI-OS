@@ -78,7 +78,7 @@ impl WallpaperKind {
 /// 相对路径形如 `wallpapers/1331865.webp`，是相对 app bundle 的 Resources 目录
 /// （打包态）或 `crates/app/assets/` 目录（开发态）的子路径。
 /// 素材布局：
-///   - 9 张静态图（含默认 1331865.webp 与 `mut/v2` 的 6 张）
+///   - 15 张静态图（地球背景、既有 9 张与静谧宇宙 5 张）
 ///   - 2 张 GIF
 ///   - 5 段 MP4
 pub(crate) fn builtin_wallpapers() -> &'static [(&'static str, &'static str, WallpaperKind)] {
@@ -86,6 +86,31 @@ pub(crate) fn builtin_wallpapers() -> &'static [(&'static str, &'static str, Wal
         (
             crate::assets::HOME_BACKGROUND_ASSET,
             "Earth Horizon",
+            WallpaperKind::Static,
+        ),
+        (
+            "wallpapers/norma-blue-horizon.png",
+            "Blue Horizon",
+            WallpaperKind::Static,
+        ),
+        (
+            "wallpapers/norma-golden-orbit.png",
+            "Golden Orbit",
+            WallpaperKind::Static,
+        ),
+        (
+            "wallpapers/norma-violet-nebula.png",
+            "Violet Nebula",
+            WallpaperKind::Static,
+        ),
+        (
+            "wallpapers/norma-emerald-aurora.png",
+            "Emerald Aurora",
+            WallpaperKind::Static,
+        ),
+        (
+            "wallpapers/norma-silver-moonscape.png",
+            "Silver Moonscape",
             WallpaperKind::Static,
         ),
         ("wallpapers/1331865.webp", "Classic", WallpaperKind::Static),

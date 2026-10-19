@@ -182,6 +182,36 @@
       "policy": "core",
       "bytes": 193862,
       "sha256": "bb4d5620ac83a183d3a9b64952f7190b3763af0b66c584ab00b517002bc259e5"
+    },
+    {
+      "path": "wallpapers/norma-blue-horizon.png",
+      "policy": "core",
+      "bytes": 2089190,
+      "sha256": "cc8f65d2c3ddbfaf15a2c566e483bb5c4344b5d56f4fa564fd6883b8583d40ca"
+    },
+    {
+      "path": "wallpapers/norma-golden-orbit.png",
+      "policy": "core",
+      "bytes": 1982456,
+      "sha256": "c0146679cf98975cc48dddbecc94d0c8ce0db64c8589440888e0c85585da0598"
+    },
+    {
+      "path": "wallpapers/norma-violet-nebula.png",
+      "policy": "core",
+      "bytes": 2324062,
+      "sha256": "b75e89d86681c9795996aab21bbff8cd82d9198045688f934d2823e310172163"
+    },
+    {
+      "path": "wallpapers/norma-emerald-aurora.png",
+      "policy": "core",
+      "bytes": 1993602,
+      "sha256": "85f57e1e36303e04244fc7510b2451a7b3bbbe8d9ef6d4d70d3fe1fad009cb2f"
+    },
+    {
+      "path": "wallpapers/norma-silver-moonscape.png",
+      "policy": "core",
+      "bytes": 2229752,
+      "sha256": "f6e1e6fbb2d7d47ba711512b8d0f2e6fe5053720727a702409d522f5cdad3d7e"
     }
   ],
   "previews": [

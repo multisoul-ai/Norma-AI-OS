@@ -28,6 +28,11 @@ pub(super) struct BuiltinWallpaperCell {
 
 pub(super) fn builtin_name(name: &str) -> &str {
     match name {
+        "Blue Horizon" => ui::i18n::text("settings.wallpaper_blue_horizon"),
+        "Golden Orbit" => ui::i18n::text("settings.wallpaper_golden_orbit"),
+        "Violet Nebula" => ui::i18n::text("settings.wallpaper_violet_nebula"),
+        "Emerald Aurora" => ui::i18n::text("settings.wallpaper_emerald_aurora"),
+        "Silver Moonscape" => ui::i18n::text("settings.wallpaper_silver_moonscape"),
         "Default" => ui::i18n::text("settings.wallpaper_default"),
         "Aurora" => ui::i18n::text("settings.wallpaper_aurora"),
         "Nebula" => ui::i18n::text("settings.wallpaper_nebula"),

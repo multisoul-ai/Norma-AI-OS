@@ -196,6 +196,13 @@ impl MultisoulApp {
             zoom,
             self.layout_strategy,
         );
+        // A layout that fits the slot must start at the slot's top-left. A pan left over
+        // from a narrower (scrolling) presentation would otherwise clip the first row.
+        if !next.is_empty() && !embedded_presentation_overflows_vertically(&next, area.size.y) {
+            if let Some(origin) = self.desktop_embedded_layout_origin {
+                self.runtime.document.viewport.pan = Vec2::new(-origin.x * zoom, -origin.y * zoom);
+            }
+        }
         for (&id, &rect) in &next {
             let presentation_changed = self.desktop_presentation_bounds.get(&id) != Some(&rect);
             // A saved-layout reflow can retarget motion even when this node's compact

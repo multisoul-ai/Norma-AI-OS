@@ -1,0 +1,258 @@
+<title>四个新智能体卡片接入计划</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<style>
+/* 布局概念：左侧窄目录 + 右侧单栏正文，像一份工程评审单；表格承载事实，色块只标注状态 */
+:root {
+  --bg: #f6f7f7;
+  --surface: #ffffff;
+  --ink: #16201f;
+  --ink-2: #4a5857;
+  --line: #d9dfde;
+  --accent: #1f6f6a;
+  --accent-soft: #dcefed;
+  --ok: #2a7a43;
+  --ok-soft: #dff1e4;
+  --warn: #9a6200;
+  --warn-soft: #fbecc8;
+  --risk: #b3402f;
+  --risk-soft: #f9dfda;
+  --code-bg: #eef1f1;
+  --font-body: "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1514; --surface: #172120; --ink: #e4ecea; --ink-2: #9fb1ae; --line: #2a3a38;
+    --accent: #5fc4bb; --accent-soft: #1b3a38;
+    --ok: #6fcf8d; --ok-soft: #1a3324; --warn: #e8b84a; --warn-soft: #3a2f12;
+    --risk: #ef8a78; --risk-soft: #3d1f1a; --code-bg: #1d2b2a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1514; --surface: #172120; --ink: #e4ecea; --ink-2: #9fb1ae; --line: #2a3a38;
+  --accent: #5fc4bb; --accent-soft: #1b3a38;
+  --ok: #6fcf8d; --ok-soft: #1a3324; --warn: #e8b84a; --warn-soft: #3a2f12;
+  --risk: #ef8a78; --risk-soft: #3d1f1a; --code-bg: #1d2b2a;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.7 var(--font-body); padding-inline: 20px; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-block: 40px 80px; display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 48px; }
+nav { position: sticky; top: env(safe-area-inset-top, 0px); align-self: start; padding-top: 8px; font-size: 13px; }
+nav p { margin: 0 0 10px; font: 500 11px var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); }
+nav a { display: block; padding: 5px 0 5px 12px; color: var(--ink-2); text-decoration: none; border-left: 2px solid var(--line); }
+nav a:hover, nav a:focus-visible { color: var(--accent); border-left-color: var(--accent); outline: none; }
+main { min-width: 0; display: flex; flex-direction: column; gap: 52px; }
+header .kicker { font: 500 12px var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+h1 { font-size: clamp(26px, 4vw, 38px); line-height: 1.25; margin: 10px 0 14px; text-wrap: balance; }
+.lede { max-width: 62ch; color: var(--ink-2); margin: 0; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-top: 18px; font: 12px var(--font-mono); color: var(--ink-2); }
+h2 { font-size: 21px; margin: 0 0 6px; text-wrap: balance; }
+h3 { font-size: 16px; margin: 0 0 6px; }
+section > p, .note { max-width: 70ch; color: var(--ink-2); margin: 0 0 16px; }
+code, .mono { font: 13px var(--font-mono); background: var(--code-bg); padding: 1px 6px; border-radius: 4px; }
+.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+th { font: 500 11px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); background: var(--code-bg); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td:first-child { font-weight: 700; white-space: nowrap; }
+.pill { display: inline-block; font: 500 11px var(--font-mono); padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
+.ok { background: var(--ok-soft); color: var(--ok); }
+.warn { background: var(--warn-soft); color: var(--warn); }
+.risk { background: var(--risk-soft); color: var(--risk); }
+.info { background: var(--accent-soft); color: var(--accent); }
+.decide { border: 1px solid var(--warn); background: var(--warn-soft); border-radius: 8px; padding: 16px 20px; }
+.decide h3 { color: var(--warn); }
+.decide ol { margin: 8px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+.decide li { color: var(--ink); }
+.phases { display: flex; flex-direction: column; gap: 14px; }
+.phase { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px 20px; }
+.phase header { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; margin-bottom: 6px; }
+.phase header .tag { font: 700 12px var(--font-mono); color: var(--accent); }
+.phase ul { margin: 6px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+.phase .gate { margin-top: 10px; font-size: 13px; color: var(--ink-2); border-top: 1px dashed var(--line); padding-top: 8px; }
+pre { margin: 0; padding: 14px 16px; background: var(--code-bg); border-radius: 8px; overflow-x: auto; font: 13px/1.6 var(--font-mono); }
+footer { color: var(--ink-2); font-size: 13px; border-top: 1px solid var(--line); padding-top: 16px; }
+@media (max-width: 860px) { .wrap { grid-template-columns: minmax(0, 1fr); gap: 24px; } nav { position: static; } nav a { display: inline-block; border-left: 0; padding: 4px 12px 4px 0; } }
+</style>
+
+<div class="wrap">
+<nav aria-label="目录">
+  <p>目录</p>
+  <a href="#decide">已确认决定</a>
+  <a href="#facts">四个 CLI 事实</a>
+  <a href="#flow">现有接入流程</a>
+  <a href="#touch">改动清单</a>
+  <a href="#icons">图标流水线</a>
+  <a href="#phases">分阶段实施</a>
+  <a href="#accept">验收映射</a>
+  <a href="#risk">风险</a>
+</nav>
+
+<main>
+<header>
+  <div class="kicker">Execution plan · 2026-10-18</div>
+  <h1>接入 Kimi、ZCode、Pi、Hermes 四种智能体卡片</h1>
+  <p class="lede">按 Grok、OpenCode 已走通的流程扩展 <code>AgentProfile</code>:先让四个 CLI 都能在画布上以 PTY 卡片启动并持久化,再逐个补 hooks 与会话恢复。每个 CLI 单独成一个可合并的 PR。</p>
+  <div class="meta"><span>分支基线:docs/norma-assistant-prototype</span><span>参照:crates/canvas/src/node/agent_profile.rs</span><span>状态:决定已确认,待开工 Phase 0</span></div>
+</header>
+
+<section id="decide" class="decide">
+  <h3>已确认的 5 项决定(2026-10-18)</h3>
+  <ol>
+    <li><strong>Kimi:接 Kimi Code CLI。</strong>命令仍是 <code>kimi</code>,安装 <code>curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash</code>。旧版 <code>kimi-cli</code> 已归档,不支持;卡片名叫 “Kimi”。</li>
+    <li><strong>ZCode:是智谱/Z.ai 的 <code>zai-org/ZCode</code>。</strong>README 没有写 resume 和 hooks,Phase 0 先跑 <code>zcode --help</code> 并读 <code>apps/zcode-cli/</code> 源码确认。</li>
+    <li><strong>图标:找各家官方 icon,转成终端可显示的像素风格。</strong>见下方“图标流水线”。授权以官方品牌页的使用条款为准。</li>
+    <li><strong>快捷键:</strong>Kimi=<code>Cmd+7</code>、Pi=<code>Cmd+8</code>、Hermes=<code>Cmd+9</code>,ZCode 默认不绑定;全部进 Settings 可录制、可恢复。</li>
+    <li><strong>范围:hooks、会话恢复、编排都要做。</strong>仍按 P1 → P2 分批合并,避免被四个 CLI 里最不确定的部分拖住 P1。</li>
+  </ol>
+</section>
+
+<section id="facts">
+  <h2>四个 CLI 的事实</h2>
+  <p>来源是各自 GitHub README 与官方文档。标 “待验证” 的项,在对应 PR 的 Phase 0 用真实二进制确认,结果写回本文档。</p>
+  <div class="scroll"><table>
+    <thead><tr><th>项目</th><th>启动命令</th><th>安装</th><th>续接会话</th><th>Hooks / 事件</th><th>会话存储</th></tr></thead>
+    <tbody>
+      <tr><td>Kimi Code</td><td><code>kimi</code></td><td>install.sh / <code>brew install kimi-code</code> / <code>npm i -g @moonshot-ai/kimi-code</code></td><td><span class="pill ok">已知</span> <code>--continue</code>/<code>-C</code>,<code>--resume [ID]</code>/<code>-r</code>(取自旧版文档,新版待验证)</td><td><span class="pill warn">待验证</span> 文档未提</td><td><span class="pill warn">待验证</span> <code>~/.kimi/</code>,含 <code>context.jsonl</code> 等</td></tr>
+      <tr><td>ZCode</td><td><code>zcode</code>(TUI);<code>--web</code> 为网页模式</td><td>install.sh → <code>~/.local/bin/zcode</code>,运行时在 <code>~/.zcode/runtime</code></td><td><span class="pill warn">待验证</span> README 未列</td><td><span class="pill warn">待验证</span></td><td><span class="pill warn">待验证</span> <code>.zcode/</code> 位于 <code>ZCODE_DATA_BASE_DIR</code> 下</td></tr>
+      <tr><td>Pi</td><td><code>pi</code></td><td>pi.dev/install.sh 或 <code>npm i -g --ignore-scripts @earendil-works/pi-coding-agent</code>,需 Node 22.19+</td><td><span class="pill ok">已知</span> <code>-c</code>、<code>-r</code>、<code>--session &lt;path|id&gt;</code>、<code>--session-id</code></td><td><span class="pill ok">已知</span> TypeScript 扩展,放 <code>~/.pi/agent/extensions/</code>,事件有 <code>session_start</code>、<code>agent_start</code>、<code>agent_end</code>、<code>tool_call</code>、<code>tool_result</code>、<code>turn_end</code></td><td>按项目目录分组,<code>--session-dir</code> 可改</td></tr>
+      <tr><td>Hermes</td><td><code>hermes</code></td><td>hermes-agent.nousresearch.com/install.sh;首次要 <code>hermes setup</code></td><td><span class="pill ok">已知</span> <code>-c</code>、<code>--resume &lt;id|标题&gt;</code>、<code>--in &lt;dir&gt;</code></td><td><span class="pill warn">待验证</span> 会话文档未提</td><td><code>~/.hermes/state.db</code>(SQLite)</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note" style="margin-top:12px">Norma 启动方式沿用 Grok:<code>/bin/zsh -lic "exec &lt;命令&gt;"</code>。不加任何跳过审批的参数(如 Kimi 的 <code>--yolo</code>),保持各 CLI 默认权限模式。</p>
+</section>
+
+<section id="flow">
+  <h2>现有接入流程(以 Grok 为模板)</h2>
+  <p>我对照了 <code>docs/research/2026-07-19-grok-build-integration.md</code> 和代码里所有 <code>AgentProfile::OpenCode</code> 的匹配点。接入是穷尽匹配驱动的:先在 <code>canvas</code> 加枚举值,编译器会逐处报缺口。</p>
+<pre>canvas  AgentProfile  →  runtime  PtyCommand / 恢复命令 / 会话发现
+   →  norma  协议·CLI·hook source  →  storage  稳定编码
+   →  agent  create_agent schema·提示词  →  app  菜单·设置·图标·动画·快捷键
+   →  测试  各 crate 单测 + desktop-e2e</pre>
+</section>
+
+<section id="touch">
+  <h2>改动清单</h2>
+  <p>每行对应一个 crate 的具体文件。四个 CLI 的改动形状相同,下表按层级列一次。</p>
+  <div class="scroll"><table>
+    <thead><tr><th>层</th><th>文件</th><th>要做的事</th><th>阶段</th></tr></thead>
+    <tbody>
+      <tr><td>canvas</td><td><code>node/agent_profile.rs</code>、<code>node.rs</code></td><td>增加 <code>Kimi</code>、<code>ZCode</code>、<code>Pi</code>、<code>Hermes</code>,补 <code>display_title</code>;参照 <code>tests/grok_agent_profile.rs</code> 写序列化与标题测试</td><td><span class="pill info">P1</span></td></tr>
+      <tr><td>runtime</td><td><code>nodes/agent.rs</code>、<code>command.rs</code></td><td>四条 <code>PtyCommand</code>;加入可创建 profile 列表</td><td><span class="pill info">P1</span></td></tr>
+      <tr><td>runtime</td><td><code>session_snapshot.rs</code></td><td>恢复命令:<code>kimi --resume ID</code>、<code>pi --session ID</code>、<code>hermes --resume ID</code>;ZCode 待 Phase 0。会话 ID 取自 hook 缓存,不扫目录</td><td><span class="pill warn">P2</span></td></tr>
+      <tr><td>runtime</td><td><code>agent_hooks.rs</code></td><td>四个 profile 的 hook 来源名</td><td><span class="pill warn">P2</span></td></tr>
+      <tr><td>storage</td><td><code>session_store.rs</code>、<code>agent_definition_store.rs</code></td><td>稳定值 <code>kimi</code>/<code>zcode</code>/<code>pi</code>/<code>hermes</code>,旧库兼容;参照 <code>tests/grok_agent_profile.rs</code></td><td><span class="pill info">P1</span></td></tr>
+      <tr><td>norma</td><td><code>protocol.rs</code>、<code>cli.rs</code>、<code>cli/value.rs</code>、<code>cli/output.rs</code>、<code>client.rs</code></td><td>协议枚举与 <code>--profile</code> 取值</td><td><span class="pill info">P1</span></td></tr>
+      <tr><td>norma</td><td><code>agent_hook/*</code>、<code>orchestration/*</code></td><td>新 <code>HookSource</code>/<code>HookTarget</code>;Pi 写扩展文件(仿 <code>opencode.rs</code> 的标记与拒绝覆盖逻辑);编排安装器</td><td><span class="pill warn">P2</span></td></tr>
+      <tr><td>agent</td><td><code>adapter.rs</code>、<code>adapter/commands.rs</code>、<code>master_prompt.rs</code>、<code>environment.rs</code>、<code>conversation_tail.rs</code></td><td><code>create_agent.profile</code> 的 enum 与提示词加四项,让语音和助手能创建新卡片</td><td><span class="pill info">P1</span></td></tr>
+      <tr><td>app</td><td><code>menu_bar.rs</code>、<code>lib.rs</code>、<code>app/mod.rs</code>、<code>app/render.rs</code>、<code>app/agent_actions.rs</code></td><td>四个 <code>NewXxxAgent</code> action、菜单项、处理函数</td><td><span class="pill info">P1</span></td></tr>
+      <tr><td>app</td><td><code>shortcuts.rs</code>、<code>shortcuts/catalog.rs</code>、<code>settings/keyboard.rs</code>、<code>app/keyboard/shortcuts.rs</code>、<code>app/e2e/shortcuts.rs</code></td><td>快捷键注册、Settings 录制与恢复、e2e 名称映射</td><td><span class="pill info">P1</span></td></tr>
+      <tr><td>app</td><td><code>assets.rs</code>、<code>command_dock/view.rs</code>、<code>settings/agents/*</code>、<code>motion/initialization.rs</code>、<code>cards/intro/*</code></td><td>图标资源、Dock 图标、设置里的 profile 选择与配色、初始化动画种类</td><td><span class="pill info">P1</span></td></tr>
+      <tr><td>app</td><td><code>agent_runtime/{identity,command_protocol,command_support,coordination,conversation_tails}.rs</code>、<code>norma/server/*</code>、<code>settings/agent_hooks.rs</code>、<code>settings/hooks.rs</code></td><td>画布与协议 profile 互转、字符串名映射、hooks 设置面板</td><td><span class="pill info">P1</span> / <span class="pill warn">P2</span></td></tr>
+      <tr><td>ios</td><td><code>Sources/NormaCore/Snapshot.swift</code></td><td>确认手机端对未知 profile 的解码不会失败,必要时加新值</td><td><span class="pill info">P1</span></td></tr>
+      <tr><td>文档</td><td><code>CLAUDE.md</code>、<code>AGENTS.md</code>、<code>docs/references/keyboard-shortcuts.md</code></td><td>同步卡片列表与快捷键(两份指南重叠事实要一致,且各自不超过 300 行)</td><td><span class="pill info">P1</span></td></tr>
+    </tbody>
+  </table></div>
+  <p class="note" style="margin-top:12px">文件行数约束:<code>settings/hooks.rs</code>、<code>menu_bar.rs</code>、<code>agent_runtime/coordination.rs</code> 加四项后可能逼近 500 行,到时先拆子模块再继续。</p>
+</section>
+
+<section id="icons">
+  <h2>图标流水线</h2>
+  <p>目标:每个 CLI 一套像素风图标,在终端里的卡片初始化动画和 Dock 里都能用,风格与现有 <code>toolbar-grok.svg</code>、<code>toolbar-opencode.svg</code> 保持一致。</p>
+  <ol>
+    <li><strong>取官方素材。</strong>只从各自官网、品牌页或官方仓库取 SVG/PNG,记录来源 URL 与使用条款;条款不允许时改用字母占位并标注。</li>
+    <li><strong>像素化。</strong>先用现有图标的网格(查 <code>assets/icons/toolbar-grok.svg</code> 与 <code>cards/intro</code> 的 <code>AGENT_FRAMES</code> 尺寸)确定分辨率,再把官方图形降采样为单色/双色网格。脚本放 <code>scripts/</code>,输入输出路径由参数传入,产物可复现。</li>
+    <li><strong>两种产物。</strong>Dock 与菜单用 <code>toolbar-&lt;名&gt;.svg</code>(整数像素的 rect 拼成);卡片初始化动画用帧数据,配色从 <code>ui/theme.rs</code> 取 accent。</li>
+    <li><strong>验收。</strong>浅色与深色下各截一张真实 App 图;图标在 16、24 px 下仍可辨认;在 Dock 图标测试里加一条“四个新 profile 都有图标”的断言。</li>
+  </ol>
+</section>
+
+<section id="phases">
+  <h2>分阶段实施</h2>
+  <p>先横向打通共用层,再纵向逐个 CLI 交付,这样一个 CLI 的不确定性不会阻塞另外三个。</p>
+  <div class="phases">
+    <div class="phase">
+      <header><span class="tag">PHASE 0</span><h3>真实 CLI 探测(半天)</h3></header>
+      <ul>
+        <li>本机安装四个 CLI,记录 <code>--help</code>、版本号、首次登录流程。</li>
+        <li>确认 Kimi Code 新版的 resume 参数、hooks 机制和会话目录。</li>
+        <li>确认 ZCode 的 resume 和 hooks;确认 <code>command -v zcode</code> 指向官方二进制,避免装到第三方同名包。</li>
+        <li>确认 Hermes 是否有生命周期 hooks 或插件事件。</li>
+        <li>把结论写进 <code>docs/research/2026-10-18-new-cli-agents.md</code>,并更新上面“待验证”项。</li>
+      </ul>
+      <div class="gate">出口:每个 CLI 的 P2 方案(hook 方式、恢复命令)有书面结论,没有的标注“P2 不做”。</div>
+    </div>
+    <div class="phase">
+      <header><span class="tag">PHASE 1</span><h3>四个卡片能创建、运行、保存(核心)</h3></header>
+      <ul>
+        <li>TDD:先写 canvas、storage、runtime、norma 的失败测试,参照 Grok 的测试文件。</li>
+        <li>按“改动清单”标 P1 的行逐层实现,以编译器的穷尽匹配错误为检查表。</li>
+        <li>菜单、Dock、Settings、快捷键、图标、初始化动画全部接通。</li>
+        <li>PTY 清理沿用现有 <code>kill_all</code> 路径,不新增子进程管理。</li>
+      </ul>
+      <div class="gate">出口:<code>cargo test -p canvas -p runtime -p storage -p norma -p agent</code> 与 <code>cargo check -p app</code> 通过;mechanized 脚本全绿。</div>
+    </div>
+    <div class="phase">
+      <header><span class="tag">PHASE 2</span><h3>状态灯、会话恢复、编排(逐个 CLI)</h3></header>
+      <ul>
+        <li><strong>Pi 先做:</strong>文档完整、扩展事件齐全。写 <code>~/.pi/agent/extensions/</code> 下带 Norma 标记的扩展,事件归一化为 Ready、Thinking、RunningTool、Done、Failed;卸载只删带标记的文件。</li>
+        <li><strong>Kimi、Hermes:</strong>按 Phase 0 结论选 hook 或进程内事件;没有 hook 时只做恢复,状态灯标为不可用。</li>
+        <li><strong>ZCode:</strong>最后做,依赖 Phase 0 对其源码的结论。</li>
+        <li>会话 ID 由 hook 写入缓存,不在 PTY drain、渲染、关闭路径上扫目录或查 SQLite(Hermes 的 <code>state.db</code> 尤其如此)。</li>
+      </ul>
+      <div class="gate">出口:每个 CLI 的 hook 单测、恢复命令单测通过;真实 App 里提交任务后卡片状态正确变化。</div>
+    </div>
+    <div class="phase">
+      <header><span class="tag">PHASE 3</span><h3>真实 App 验收与文档</h3></header>
+      <ul>
+        <li>desktop-e2e 新增场景,放在对应模块目录并在 <code>Catalog.swift</code> 追加 manifest。</li>
+        <li>浅色与深色下检查菜单、Settings 选择器、Dock 图标的 hover/选中/禁用状态。</li>
+        <li>手机端能看到新卡片并正确显示名称。</li>
+        <li>同步 <code>CLAUDE.md</code>、<code>AGENTS.md</code>、快捷键文档。</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="accept">
+  <h2>验收标准与证据</h2>
+  <div class="scroll"><table>
+    <thead><tr><th>标准</th><th>证据</th></tr></thead>
+    <tbody>
+      <tr><td>四种 profile 可序列化,旧数据库仍能读</td><td>canvas、storage 单测(含旧值读取的正负断言)</td></tr>
+      <tr><td>每种卡片启动对应命令,且不带跳过审批参数</td><td>runtime 单测断言 <code>PtyCommand</code> 参数</td></tr>
+      <tr><td>助手、语音、CLI 都能创建新卡片</td><td>agent schema 测试、norma CLI 测试</td></tr>
+      <tr><td>新卡片不会被误标为其他 Agent</td><td>identity 与协议互转的表驱动测试</td></tr>
+      <tr><td>快捷键可在 Settings 录制与恢复</td><td>shortcuts 单测 + desktop-e2e</td></tr>
+      <tr><td>画布上能看到新建卡片并运行 CLI</td><td>desktop-e2e 真实 App 场景,检查终端首屏内容</td></tr>
+      <tr><td>hooks 安装不覆盖用户文件,卸载只删自己的</td><td>norma 单测(参照 <code>agent_hook_opencode_tests.rs</code>)</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="risk">
+  <h2>风险</h2>
+  <div class="scroll"><table>
+    <thead><tr><th>风险</th><th>级别</th><th>应对</th></tr></thead>
+    <tbody>
+      <tr><td>Kimi 旧版已停服,命令同名</td><td><span class="pill risk">高</span></td><td>启动前检测版本;设置页提示迁移到 Kimi Code CLI</td></tr>
+      <tr><td>ZCode 资料最少,存在同名第三方包</td><td><span class="pill risk">高</span></td><td>Phase 0 先验证;一期只做 PTY 启动,不承诺 hooks</td></tr>
+      <tr><td>Hermes 会话在 SQLite 里</td><td><span class="pill warn">中</span></td><td>只通过 hook 或退出时打印的 ID 获取,禁止热路径读库</td></tr>
+      <tr><td>用户本机没装对应 CLI</td><td><span class="pill warn">中</span></td><td>卡片里显示安装命令与官方链接,而不是一闪而过的 zsh 报错</td></tr>
+      <tr><td>Pi 需要 Node 22.19+</td><td><span class="pill warn">中</span></td><td>启动失败时给出版本提示;不自动安装 Node</td></tr>
+      <tr><td>图标与品牌素材授权</td><td><span class="pill warn">中</span></td><td>使用官方素材或占位字母图标,上线前确认</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<footer>
+  来源:<a href="https://github.com/MoonshotAI/kimi-cli">kimi-cli</a> · <a href="https://github.com/zai-org/ZCode">zai-org/ZCode</a> · <a href="https://github.com/earendil-works/pi">earendil-works/pi</a> · <a href="https://github.com/NousResearch/hermes-agent">NousResearch/hermes-agent</a> · 仓库内 <code>docs/research/2026-07-19-grok-build-integration.md</code>
+</footer>
+</main>
+</div>

@@ -132,6 +132,7 @@ impl MultisoulApp {
     pub(super) fn render_content_browser_toolbar(
         &mut self,
         tab: &DesktopContentTab,
+        width: f32,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
@@ -157,22 +158,23 @@ impl MultisoulApp {
             self.desktop_workspace.content_browser.location = Some(tab.resource.clone());
         }
         let empty = input.read(cx).value().trim().is_empty();
+        let compact = width < 360.0;
         let id = content_node_id(&tab.id);
-        div()
-            .id("desktop-content-browser-navigation")
-            .debug_selector(|| "desktop-content-browser-navigation".into())
-            .h(px(40.0))
-            .flex_none()
+        let controls = div()
+            .id("desktop-content-browser-actions")
+            .debug_selector(|| "desktop-content-browser-actions".into())
             .flex()
             .items_center()
             .gap(px(4.0))
-            .px(px(6.0))
+            .h(px(28.0))
+            .flex_none()
             .child(self.render_content_tool_buttons(cx))
             .child(
                 Button::new("desktop-browser-back")
                     .label("‹")
                     .tooltip("后退")
                     .small()
+                    .when(compact, |button| button.w(px(24.0)).p(px(0.0)))
                     .on_click(cx.listener(move |app, _, _, cx| {
                         app.browsers.go_back(id);
                         cx.notify();
@@ -183,6 +185,7 @@ impl MultisoulApp {
                     .label("›")
                     .tooltip("前进")
                     .small()
+                    .when(compact, |button| button.w(px(24.0)).p(px(0.0)))
                     .on_click(cx.listener(move |app, _, _, cx| {
                         app.browsers.go_forward(id);
                         cx.notify();
@@ -193,11 +196,20 @@ impl MultisoulApp {
                     .label("↻")
                     .tooltip("刷新")
                     .small()
+                    .when(compact, |button| button.w(px(24.0)).p(px(0.0)))
                     .on_click(cx.listener(move |app, _, _, cx| {
                         app.browsers.reload(id);
                         cx.notify();
                     })),
-            )
+            );
+        let address = div()
+            .flex()
+            .items_center()
+            .gap(px(4.0))
+            .h(px(28.0))
+            .min_w(px(0.0))
+            .when(compact, |row| row.w_full().flex_none())
+            .when(!compact, |row| row.flex_1())
             .child(
                 div()
                     .id("desktop-content-address-bar")
@@ -214,12 +226,34 @@ impl MultisoulApp {
                     })),
             )
             .child(
-                Button::new("desktop-browser-navigate")
-                    .label("打开")
-                    .small()
-                    .disabled(empty)
-                    .on_click(cx.listener(|app, _, _, cx| app.open_desktop_url_from_input(cx))),
-            )
+                div()
+                    .id("desktop-browser-navigate-control")
+                    .debug_selector(|| "desktop-browser-navigate-control".into())
+                    .flex_none()
+                    .child(
+                        Button::new("desktop-browser-navigate")
+                            .label("打开")
+                            .small()
+                            .disabled(empty)
+                            .on_click(
+                                cx.listener(|app, _, _, cx| app.open_desktop_url_from_input(cx)),
+                            ),
+                    ),
+            );
+        div()
+            .id("desktop-content-browser-navigation")
+            .debug_selector(|| "desktop-content-browser-navigation".into())
+            .h(px(if compact { 72.0 } else { 40.0 }))
+            .flex_none()
+            .flex()
+            .items_center()
+            .when(compact, |toolbar| {
+                toolbar.flex_col().items_start().py(px(6.0))
+            })
+            .gap(px(4.0))
+            .px(px(6.0))
+            .child(controls)
+            .child(address)
     }
 }
 

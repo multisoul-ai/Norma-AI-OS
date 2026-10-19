@@ -19,3 +19,5 @@
 - 10-browser-retained.png：切换文件标签后返回，表单仍为 RETAINED E2E。
 - 11-browser-second.png：链接导航成功；脚本继续验证后退、前进与刷新，并检查 SQLite 最终地址。
 - 12-light-document.png、13-light-file-tree.png：Paper Blue 下正文、目录、选择器及工具按钮清楚可辨。
+
+- 14-narrow-browser.png：约 190px 右栏中，文件/新建/历史控件和第二行地址输入、打开入口完整可见，正文不覆盖工具栏。
