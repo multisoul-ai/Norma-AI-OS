@@ -130,16 +130,12 @@ impl MultisoulApp {
                             &mut rows,
                         )?;
                     } else {
-                        rows = project
+                        let hits = project
                             .search(&query, options)?
                             .into_iter()
-                            .map(|e| FileRow {
-                                label: e.path.to_string_lossy().to_string(),
-                                path: e.path.to_string_lossy().to_string(),
-                                directory: e.directory,
-                                depth: 0,
-                            })
-                            .collect();
+                            .map(|e| (e.path.to_string_lossy().to_string(), e.directory))
+                            .collect::<Vec<_>>();
+                        rows = super::tree::search_rows(&hits);
                     }
                     let mut git = project.git_snapshot(&Comparison::Local);
                     let mut git_error = None;
@@ -334,6 +330,9 @@ impl MultisoulApp {
                 s.loading = false;
                 match result {
                     Ok((diff, text, preview)) => {
+                        s.diff_parsed = diff
+                            .as_deref()
+                            .map(|p| std::sync::Arc::new(super::diff::parse_diff_for_display(p)));
                         s.diff = diff;
                         s.file = text;
                         s.preview = preview;

@@ -5,11 +5,19 @@ use ui::component::input::InputState;
 use workspace::content::{Comparison, FileOptions, GitSnapshot, Project, TextFile};
 
 mod controller;
+mod diff;
+mod diff_view;
+mod document;
 mod editor;
+mod layout;
 mod leaving;
 mod navigation;
 mod selectors;
 mod sidebar;
+mod sidebar_ops;
+mod text_index;
+mod tree;
+mod tree_row;
 mod view;
 use crate::preview::local_content as local_preview;
 
@@ -58,12 +66,19 @@ pub(crate) struct WorkbenchState {
     pub preview: Option<local_preview::LocalPreview>,
     pub drafts: HashMap<String, Draft>,
     pub diff: Option<String>,
+    pub diff_parsed: Option<std::sync::Arc<Vec<diff::DiffLine>>>,
+    pub text_index: std::cell::RefCell<Option<text_index::TextIndex>>,
     pub show_diff: bool,
     pub diff_version: Option<String>,
     pub diff_comparison: Comparison,
     pub diff_staged: bool,
     pub show_source: bool,
     pub sidebar_open: bool,
+    pub changes_section_closed: bool,
+    pub files_section_closed: bool,
+    pub changes_dirs_closed: BTreeSet<String>,
+    pub ops_open: bool,
+    pub commit_open: bool,
     pub generation: u64,
     pub file_generation: u64,
     pub refreshing: bool,
@@ -142,3 +157,15 @@ pub(crate) enum PendingWorkbenchAction {
 #[cfg(test)]
 #[path = "../../../../../tests/unit/content_workbench_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../../../../tests/unit/content_explorer_model_tests.rs"]
+mod explorer_model_tests;
+
+#[cfg(test)]
+#[path = "../../../../../tests/unit/content_explorer_surface_tests.rs"]
+mod explorer_surface_tests;
+
+#[cfg(test)]
+#[path = "../../../../../tests/unit/content_explorer_text_tests.rs"]
+mod explorer_text_tests;

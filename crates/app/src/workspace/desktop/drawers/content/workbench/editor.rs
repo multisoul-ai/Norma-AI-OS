@@ -13,7 +13,8 @@ impl MultisoulApp {
         if !s.drafts.contains_key(&key) {
             let input = cx.new(|cx| {
                 InputState::new(window, cx)
-                    .multi_line(true)
+                    .code_editor("text")
+                    .line_number(true)
                     .soft_wrap(false)
                     .default_value(original.text.clone())
             });

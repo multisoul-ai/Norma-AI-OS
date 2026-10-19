@@ -1,23 +1,15 @@
 # 文件工作台视觉验收
 
-- 01-file-tree.png：项目选择紧凑；文件筛选、Git 变更和完整目录层级清晰；窄抽屉列表不横向溢出。
-- 02-text-preview.png：正文可读；目录可收起；标题、编辑、系统打开入口不重叠。
-- 03-file-saved.png：保存反馈清楚，编辑区和画布互不抢焦点；检查磁盘断言。
-- 03b-git-committed.png：Git 完成反馈可见；索引与提交必须通过夹具中的真实 Git 断言。
-- 04-markdown-preview.png：标题、表格以富文本渲染；WebView 不覆盖抽屉工具栏。
-- 05-html-preview.png：HTML 正文显示，原生视图贴合内容区，未遮挡顶部标签。
+结构基线：用户截图 `docs/design-docs/assets/assistant-content-explorer-reference-2026-10-19.png` 与原型 `explorerPage()` / `changesPage()`。顶部单层标签，标签下直接是内容：左侧路径条 + 行号正文，右侧紧凑目录；没有通用上下文条、没有「文件 / +」工具行。
 
-补充人工验收：鼠标/键盘状态；视频拖动进度；图片平移；外部站点登录状态与失败回执。
+- 01-file-tree.png：右侧为项目选择器、筛选框、「已更改的文件」（绿色变更名、尾部 `+`）与「所有文件」两棵左对齐树；正文区同时可见，目录约 181px（565px 栏）；无多排按钮和常驻提交输入。
+- 02-text-preview.png：路径条（文件名 + 编辑/复制/系统打开图标）下为等宽字体行号正文；目录里选中行为轻量背景。
+- 03-file-saved.png：保存反馈以悬浮提示呈现，不增加预览区高度；磁盘断言保存成功。
+- 03a-git-diff.png：差异主视图——状态/增删摘要胶囊、路径头（+n −n）、带行号、删除红底/新增绿底；不显示 `diff --git`/`index` 等噪声头。
+- 03b-git-committed.png：Git 完成反馈可见；索引与提交通过夹具真实 Git 断言。批量暂存/提交在「已更改的文件」尾部 `⋯` 面板中按需出现。
+- 04-markdown-preview.png / 05-html-preview.png：富文本预览贴合正文区；路径条保留源码/预览切换图标；WebView 不覆盖标签与目录。
+- 06~08：图片/视频预览在正文容器内，自带控件完整。
+- 09~11、14：浏览器标签自己的地址栏不受影响；标签栏最右端的 `+` 是文件页新建网页的入口。
+- 12-light-document.png、13-light-file-tree.png：外壳随主题，内部文件面板保持原型深色；目录、选择器、图标可辨。
 
-- 06-image-preview.png：测试图像完整可见，系统按钮清晰。
-- 07-image-zoom.png：放大后可平移，不遮挡工作台标题。
-- 08-video-preview.png：系统中央播放入口位于抽屉内，后续截图验证实际播放。
-
-- 08a-video-playing.png、08b-video-progress.png：动态画面与进度发生变化，原生控件完整位于内容区。
-- 08c-video-returned.png：离开期间暂停；返回时进度约 2 秒，不能在后台继续推进至结束。
-- 09-browser-first.png：本机 HTTP 页面加载，地址栏和正文互不遮挡，表单内容已输入。
-- 10-browser-retained.png：切换文件标签后返回，表单仍为 RETAINED E2E。
-- 11-browser-second.png：链接导航成功；脚本继续验证后退、前进与刷新，并检查 SQLite 最终地址。
-- 12-light-document.png、13-light-file-tree.png：Paper Blue 下正文、目录、选择器及工具按钮清楚可辨。
-
-- 14-narrow-browser.png：约 190px 右栏中，文件/新建/历史控件和第二行地址输入、打开入口完整可见，正文不覆盖工具栏。
+补充人工验收：键盘上下/左右/Enter 的树导航；185px 紧凑目录按钮进入与返回；视频拖动进度；图片平移。

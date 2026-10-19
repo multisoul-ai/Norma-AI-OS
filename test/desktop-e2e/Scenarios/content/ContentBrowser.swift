@@ -18,9 +18,9 @@ extension ContentWorkbench {
         defer { server.stop() }
         try await session.step("浏览器导航与切换会话") {
             let file = try await session.capture()
-            // 视频播放时 Vision 常漏读 GPUI 标题；固定 1280px 场景中 + 的位置已看图核对。
-            let plusX = file.pick(["目录"], .top).map { $0.rect.minX + 66 } ?? file.windowFrame.width - 390
-            try await session.click(local: CGPoint(x: plusX, y: 104), on: file)
+            // 新建网页的 + 固定在标签栏最右端；固定 1280px 场景中的位置已看图核对。
+            let plusX = file.windowFrame.width - 29
+            try await session.click(local: CGPoint(x: plusX, y: 26), on: file)
             let blank = try await session.wait(Expectation(allOf: ["about:blank"], timeout: 10))
             guard let address = blank.pick(["about:blank"], .bottom) else { throw E2EError.product("浏览器地址栏不可见") }
             try await session.click(local: address.center, on: blank)

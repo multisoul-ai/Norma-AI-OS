@@ -63,9 +63,12 @@ impl MultisoulApp {
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .child(frost)
             .child(self.render_reader_chrome(cx))
-            .when(selected.is_some(), |drawer| {
-                drawer.child(self.render_reader_toolbar(cx))
-            })
+            .when(
+                selected
+                    .as_ref()
+                    .is_some_and(|tab| tab.kind != storage::DesktopContentKind::ProjectFiles),
+                |drawer| drawer.child(self.render_reader_toolbar(cx)),
+            )
             .child(
                 div()
                     .id("desktop-content-body")

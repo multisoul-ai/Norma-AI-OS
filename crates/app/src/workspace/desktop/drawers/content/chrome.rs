@@ -36,6 +36,45 @@ impl MultisoulApp {
             .when(!self.desktop_workspace.content_tabs.is_empty(), |row| {
                 row.child(self.render_reader_tabs(colors, cx))
             })
+            .when(self.selected_tab_is_project_files(), |row| {
+                row.child(self.render_new_browser_tab(colors, cx))
+            })
+    }
+
+    fn selected_tab_is_project_files(&self) -> bool {
+        self.desktop_workspace
+            .content_tabs
+            .iter()
+            .any(|tab| tab.selected && tab.kind == DesktopContentKind::ProjectFiles)
+    }
+
+    /// The chromeless file page has no tool row, so new-web-page access lives at the strip's end.
+    fn render_new_browser_tab(&self, colors: ReaderChromeColors, cx: &mut Context<Self>) -> Button {
+        Button::new("desktop-content-new-browser")
+            .debug_selector(|| "desktop-content-new-browser".to_string())
+            .w(px(32.0))
+            .h(px(32.0))
+            .p(px(0.0))
+            .flex_none()
+            .rounded(px(9.0))
+            .child(
+                svg()
+                    .path("icons/toolbar-plus.svg")
+                    .text_color(rgba(GLASS_TEXT))
+                    .w(px(14.0))
+                    .h(px(14.0)),
+            )
+            .custom(self.reader_control_variant(colors, cx))
+            .tooltip("新建网页")
+            .on_click(cx.listener(|app, _, _, cx| {
+                app.open_desktop_content_tab(
+                    DesktopContentKind::Browser,
+                    "about:blank".into(),
+                    "浏览器".into(),
+                    None,
+                    cx,
+                )
+            }))
     }
 
     pub(super) fn render_reader_toolbar(&mut self, cx: &mut Context<Self>) -> Stateful<Div> {
