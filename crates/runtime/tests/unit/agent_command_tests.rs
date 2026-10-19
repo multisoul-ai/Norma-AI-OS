@@ -105,17 +105,19 @@ fn grok_agent_restore_uses_saved_hook_session_id() {
 ///   Claude profile → /bin/zsh -lic "exec claude --dangerously-skip-permissions"
 ///   Codex profile  → /bin/zsh -lic "exec codex -c disable_paste_burst=true --dangerously-bypass-approvals-and-sandbox"
 ///   OpenCode profile → /bin/zsh -lic "exec \"${OPENCODE_BIN:-opencode}\""
+///   InfCode profile → /bin/zsh -lic "exec \"${INFCODE_BIN:-infcode}\" --yolo"
 ///   使用 -lic：login shell 先读 ~/.zprofile，再以交互模式读取 ~/.zshrc，exec 替换 shell 进程
 ///
 /// 执行过程：
 ///   1. Runtime::agent_command(Claude)
 ///   2. Runtime::agent_command(Codex)
 ///   3. Runtime::agent_command(OpenCode)
-///   4. 分别检查 program 与 args
+///   4. Runtime::agent_command(InfCode)
+///   5. 分别检查 program 与 args
 ///
 /// 预期结果：
-///   - 正断言：三个命令 program 都是 /bin/zsh
-///   - 正断言：Claude/Codex/OpenCode args 精确匹配计划中的命令
+///   - 正断言：Claude/Codex/OpenCode/InfCode program 都是 /bin/zsh
+///   - 正断言：Claude/Codex/OpenCode/InfCode args 精确匹配计划中的命令
 ///   - 负断言：OpenCode 命令不应包含 Claude/Codex 专属危险权限参数
 #[test]
 fn test_agent_command_specs_are_exact() {
@@ -156,8 +158,12 @@ fn test_agent_command_specs_are_exact() {
     );
     assert_eq!(
         infcode.args,
-        vec!["-lic", "exec \"${INFCODE_BIN:-infcode}\""],
-        "InfCode Agent args 应以 login interactive shell 启动，并允许 INFCODE_BIN 覆盖 binary"
+        vec!["-lic", "exec \"${INFCODE_BIN:-infcode}\" --yolo"],
+        "InfCode Agent 必须以 --yolo 启动（自动批准本进程权限请求），并允许 INFCODE_BIN 覆盖 binary"
+    );
+    assert!(
+        infcode.args.iter().any(|arg| arg.contains("--yolo")),
+        "InfCode 新建会话必须带 --yolo，与 Claude/Codex 全权限策略对齐"
     );
     assert!(
         !claude.args.iter().any(|arg| arg.contains("codex")),

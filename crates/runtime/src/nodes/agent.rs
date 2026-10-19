@@ -44,9 +44,11 @@ pub(crate) fn agent_command(profile: AgentProfile, hook_env: Option<&AgentHookEn
         AgentProfile::OpenCode => {
             PtyCommand::new("/bin/zsh").args(["-lic", "exec \"${OPENCODE_BIN:-opencode}\""])
         }
-        AgentProfile::InfCode => {
-            PtyCommand::new("/bin/zsh").args(["-lic", "exec \"${INFCODE_BIN:-infcode}\""])
-        }
+        AgentProfile::InfCode => PtyCommand::new("/bin/zsh").args([
+            "-lic",
+            // InfCode `--yolo`：本进程内自动批准 TUI 会话及其递归 Task 后代的权限请求。
+            "exec \"${INFCODE_BIN:-infcode}\" --yolo",
+        ]),
         // 骨架占位：只使用已确认的命令名，不带任何跳过审批参数；各 CLI 负责人实测后补充。
         AgentProfile::Kimi => PtyCommand::new("/bin/zsh").args(["-lic", "exec kimi"]),
         AgentProfile::ZCode => PtyCommand::new("/bin/zsh")

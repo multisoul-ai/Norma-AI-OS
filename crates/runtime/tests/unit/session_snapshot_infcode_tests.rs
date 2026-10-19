@@ -4,7 +4,7 @@ use crate::session_snapshot::{build_agent_resume_command, find_agent_session_id_
 use canvas::AgentProfile;
 use std::path::Path;
 
-/// InfCode 恢复命令：必须使用已验证的 `--session <ID>`，不得用 `resume` 子命令。
+/// InfCode 恢复命令：必须带 `--yolo`，并用已验证的 `--session <ID>`，不得用 `resume` 子命令。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   session_id = "inf-session-42"（hook 缓存 ID 占位）
@@ -16,7 +16,7 @@ use std::path::Path;
 ///   3. 断言会话发现对 InfCode 返回 None（仅 hook 缓存）。
 ///
 /// 预期：
-///   - 正断言：命令精确为 `exec "${INFCODE_BIN:-infcode}" --session '<ID>'`；
+///   - 正断言：命令精确为 `exec "${INFCODE_BIN:-infcode}" --yolo --session '<ID>'`；
 ///   - 负断言：不含 `resume` 子命令、不含 OpenCode 的 OPENCODE_BIN；
 ///   - 会话发现为 None。
 #[test]
@@ -31,8 +31,8 @@ fn infcode_resume_uses_session_flag_not_resume_subcommand() {
     let line = command.args.get(1).map(String::as_str).unwrap_or_default();
     assert_eq!(
         line,
-        format!("exec \"${{INFCODE_BIN:-infcode}}\" --session '{id}'"),
-        "InfCode 恢复命令应精确使用 --session 与 INFCODE_BIN 覆盖"
+        format!("exec \"${{INFCODE_BIN:-infcode}}\" --yolo --session '{id}'"),
+        "InfCode 恢复命令应带 --yolo，并精确使用 --session 与 INFCODE_BIN 覆盖"
     );
     assert!(
         !line.contains(" resume ") && !line.ends_with(" resume") && !line.contains("resume '"),
@@ -47,7 +47,7 @@ fn infcode_resume_uses_session_flag_not_resume_subcommand() {
         build_agent_resume_command(AgentProfile::InfCode, "/bin/zsh", "bad'id", None, None);
     assert_eq!(
         quoted.args.get(1).map(String::as_str),
-        Some("exec \"${INFCODE_BIN:-infcode}\" --session 'bad'\\''id'"),
+        Some("exec \"${INFCODE_BIN:-infcode}\" --yolo --session 'bad'\\''id'"),
         "含单引号的 ID 必须被 shell 转义"
     );
     assert_eq!(

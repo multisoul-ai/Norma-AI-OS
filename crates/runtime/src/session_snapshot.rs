@@ -288,10 +288,11 @@ pub(crate) fn build_agent_resume_command(
                 shell_quote(session_id)
             )
         }
-        // InfCode 2.7.x 已验证：用 --session <id> 续接，不是 resume 子命令。
+        // InfCode 2.7.x 已验证：用 --session <id> 续接，不是 resume 子命令；
+        // `--yolo` 与新建卡片一致，保持本进程自动批准权限请求。
         AgentProfile::InfCode => {
             format!(
-                "exec \"${{INFCODE_BIN:-infcode}}\" --session {}",
+                "exec \"${{INFCODE_BIN:-infcode}}\" --yolo --session {}",
                 shell_quote(session_id)
             )
         }
