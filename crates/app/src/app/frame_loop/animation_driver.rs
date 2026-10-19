@@ -117,7 +117,8 @@ impl MultisoulApp {
             .is_some_and(|state| state.drawer.is_active());
         let desktop_drawer_active = matches!(self.screen, AppScreen::DesktopWorkspace)
             && (self.desktop_workspace.drawer_motion.is_active()
-                || self.desktop_workspace.left_view_slide_active());
+                || self.desktop_workspace.left_view_slide_active()
+                || self.desktop_workspace.overview_float_fade_active());
         let assistant_orb_visible = matches!(self.screen, AppScreen::DesktopWorkspace)
             && self.desktop_workspace.drawer_motion.left.should_render()
             && !self.motion.reduce_motion;
@@ -196,6 +197,9 @@ impl MultisoulApp {
         motion_changed |= self
             .desktop_workspace
             .tick_left_view_slide(animation_delta, self.motion.reduce_motion);
+        motion_changed |= self
+            .desktop_workspace
+            .tick_overview_float_fade(animation_delta, self.motion.reduce_motion);
         if matches!(self.screen, AppScreen::DesktopWorkspace)
             && self.desktop_workspace.drawer_motion.left.should_render()
         {

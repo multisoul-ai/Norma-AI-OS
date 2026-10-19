@@ -239,6 +239,7 @@ impl MultisoulApp {
                     cx.stop_propagation();
                 }
             }))
+            .child(self.render_overview_drawer_header(cx))
             .child(self.render_run_overview(cx))
     }
 }

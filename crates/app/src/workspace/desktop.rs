@@ -122,6 +122,11 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) left_chat_tab_focus: Option<gpui::FocusHandle>,
     pub(crate) left_overview_tab_focus: Option<gpui::FocusHandle>,
     pub(crate) left_overview_focus: Option<gpui::FocusHandle>,
+    pub(crate) overview_float_fade: drawers::float::OverviewFloatFade,
+    pub(crate) overview_drag: Option<drawers::float::OverviewDrag>,
+    pub(crate) overview_float_focus: Option<gpui::FocusHandle>,
+    pub(crate) overview_move_focus: Option<gpui::FocusHandle>,
+    pub(crate) run_status_focus: Option<gpui::FocusHandle>,
     pub(crate) drawer_layout_save: Option<gpui::Task<()>>,
     pub(crate) drawer_layout_generation: Arc<AtomicU64>,
     pub(crate) drawer_widths: drawers::resize::DesktopDrawerWidths,
@@ -212,6 +217,18 @@ impl DesktopWorkspaceUiState {
         self.left_view_slide.tick(delta, reduce_motion)
     }
 
+    pub(crate) fn overview_float_fade_active(&self) -> bool {
+        self.overview_float_fade.is_active()
+    }
+
+    pub(crate) fn tick_overview_float_fade(
+        &mut self,
+        delta: std::time::Duration,
+        reduce_motion: bool,
+    ) -> bool {
+        self.overview_float_fade.tick(delta, reduce_motion)
+    }
+
     pub(crate) fn advance_assistant_orb(
         &mut self,
         delta: std::time::Duration,
@@ -260,6 +277,11 @@ impl DesktopWorkspaceUiState {
             left_chat_tab_focus: None,
             left_overview_tab_focus: None,
             left_overview_focus: None,
+            overview_float_fade: drawers::float::OverviewFloatFade::default(),
+            overview_drag: None,
+            overview_float_focus: None,
+            overview_move_focus: None,
+            run_status_focus: None,
             drawer_layout_save: None,
             drawer_layout_generation: Arc::new(AtomicU64::new(0)),
             drawer_widths: drawers::resize::DesktopDrawerWidths::default(),
