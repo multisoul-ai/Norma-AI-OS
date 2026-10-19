@@ -1,0 +1,9 @@
+
+↻ Resumed session 20261018_113636_195f7f "MOCK-REPLY to: say hi" (7 user messages, 18 total messages)
+Welcome to Hermes Agent! Type your message or /help for commands.
+✦ Tip: hermes claw migrate --dry-run previews OpenClaw migration without writing anything.
+
+ ☤ mock-model │ ctx -- │ [░░░░░░░░░░] -- │ 0s │ ⏲ 0s                                                                ─ MOCK-REPLY to: say hi
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ Draft a reply to the last email in my inbox
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────

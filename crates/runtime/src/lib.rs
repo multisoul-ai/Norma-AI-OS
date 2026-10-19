@@ -1,5 +1,6 @@
 //! runtime — 域层（零 gpui）：节点生命周期、焦点、输入路由。
 pub mod agent_hooks;
+mod agent_install_hint;
 mod agent_session_bindings;
 pub mod command;
 pub mod desktop_drawers;
@@ -10,6 +11,7 @@ pub mod focus;
 pub mod live;
 pub(crate) mod macos_proc;
 pub mod nodes;
+mod pi_launch;
 mod preview;
 pub mod route;
 pub mod runtime;
@@ -17,6 +19,7 @@ mod runtime_support;
 pub(crate) mod session_restore;
 pub mod session_snapshot;
 pub mod snapshot;
+mod zcode_launch;
 
 pub use agent_hooks::AgentHookRuntimeConfig;
 pub use agent_session_bindings::AgentSessionHydrationReport;

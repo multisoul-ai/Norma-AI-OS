@@ -29,7 +29,7 @@ impl OrchestrationInstaller {
     ) -> Result<(), InstallerError> {
         let paths = self
             .skill_paths(provider)
-            .expect("supported orchestration provider has skill paths");
+            .ok_or(InstallerError::UnsupportedProvider)?;
         for (kind, path) in paths {
             let state = self.inspect_skill_file(provider, kind, &path);
             if matches!(
@@ -55,7 +55,7 @@ impl OrchestrationInstaller {
     ) -> Result<(), InstallerError> {
         let paths = self
             .skill_paths(provider)
-            .expect("supported orchestration provider has skill paths");
+            .ok_or(InstallerError::UnsupportedProvider)?;
         for (kind, path) in paths {
             if fs::read_to_string(&path).is_ok_and(|source| source.contains(managed_marker(kind))) {
                 fs::remove_file(path)?;
@@ -113,7 +113,7 @@ impl OrchestrationInstaller {
         Some([
             (
                 ManagedSkillKind::Orchestration,
-                self.paths.skill_path(provider)?.clone(),
+                self.paths.skill_path(provider)?,
             ),
             (
                 ManagedSkillKind::Presentation,

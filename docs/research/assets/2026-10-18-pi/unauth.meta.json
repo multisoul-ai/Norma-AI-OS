@@ -1,0 +1,33 @@
+{
+  "cmd": [
+    "/bin/zsh",
+    "-lic",
+    "exec pi --offline --no-skills --no-context-files --no-prompt-templates"
+  ],
+  "pid": 65219,
+  "exit": 0,
+  "timed_out": false,
+  "sent": [
+    {
+      "at": 3.05,
+      "bytes": "b'hello-pi-probe\\r'"
+    },
+    {
+      "at": 4.01,
+      "bytes": "b'/login\\r'"
+    },
+    {
+      "at": 5.03,
+      "bytes": "b'\\x1b'"
+    },
+    {
+      "at": 6.01,
+      "bytes": "b'/exit\\r'"
+    },
+    {
+      "at": 8.0,
+      "bytes": "b'/quit\\r'"
+    }
+  ],
+  "duration": 8.08
+}

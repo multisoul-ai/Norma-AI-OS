@@ -1,0 +1,50 @@
+Warning: No project session found with id '01a14cbb-3684-764b-b624-786b54129e33'; creating a new session with that id.
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────                                                                                                                                            ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────/private/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/empty-exact-work0.0%/33k (auto)                                                                                                                      fixture ▀▀█  v1.3.0                                                                                                                                 █▀ █ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash · ctrl+o more                                                        Press ctrl+o to show full startup help and loaded resources.                                                                                                                                                                                                                            Pi can explain its own features and look up its docs. Ask it how to use or extend Pi.                                                      [Extensions]                                                                                                                                  norma-probe-7f1l_gyq.ts                                                                                                                    Warning: fd not found. Offline mode enabled, skipping download.                                                                                                                                                                                                                         NORMAPI_RESUME empty exact id                                                                                                                                                                                                                                                          ── ⠋ Working ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────4.4%/33k (auto)                                                                                                                      fixture PI_FIXTURE_DONE prior_tool_history=false                                                                                                   ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────↑20 ↓10 0.1%/33k (auto)                                                                                                              fixture
+
+ ▀▀█  v1.3.0
+
+ █▀ █ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash · ctrl+o more
+
+ Press ctrl+o to show full startup help and loaded resources.
+
+
+
+ Pi can explain its own features and look up its docs. Ask it how to use or extend Pi.
+
+
+
+[Extensions]
+
+  norma-probe-7f1l_gyq.ts
+
+
+
+
+
+ Warning: fd not found. Offline mode enabled, skipping download.
+
+
+
+
+
+ NORMAPI_RESUME empty exact id
+
+
+
+
+
+ PI_FIXTURE_DONE prior_tool_history=false
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+/private/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/empty-exact-work
+
+↑20 ↓10 0.1%/33k (auto)                                                                                                              fixture
+
+To resume this session: pi --session 01a14cbb-3684-764b-b624-786b54129e33

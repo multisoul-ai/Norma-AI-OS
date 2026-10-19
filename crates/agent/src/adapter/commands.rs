@@ -255,6 +255,10 @@ pub(super) fn parse_adapter_command(
                 "opencode" => AgentProfile::OpenCode,
                 "cursor" => AgentProfile::Cursor,
                 "grok" => AgentProfile::Grok,
+                "kimi" => AgentProfile::Kimi,
+                "zcode" => AgentProfile::ZCode,
+                "pi" => AgentProfile::Pi,
+                "hermes" => AgentProfile::Hermes,
                 other => {
                     return Err(AdapterError::InvalidArguments(format!(
                         "unsupported Agent profile: {other}"

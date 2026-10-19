@@ -226,6 +226,10 @@ fn profile_slug(profile: AgentProfile) -> &'static str {
         AgentProfile::Cursor => "cursor",
         AgentProfile::Grok => "grok",
         AgentProfile::OpenCode => "opencode",
+        AgentProfile::Kimi => "kimi",
+        AgentProfile::ZCode => "zcode",
+        AgentProfile::Pi => "pi",
+        AgentProfile::Hermes => "hermes",
     }
 }
 

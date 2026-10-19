@@ -7,9 +7,13 @@ mod conversation_observe;
 mod cursor;
 mod event;
 mod forward;
+mod hermes;
 mod install;
 mod json_config;
+mod kimi;
 mod opencode;
+mod pi;
+mod zcode;
 
 use crate::protocol::{AgentProfile, NodeId};
 use serde::{Deserialize, Serialize};
@@ -30,10 +34,13 @@ pub use event::{
     extract_prompt_text, hook_events_for_source, parse_hook_event, task_state_for_provider_event,
 };
 pub use forward::{forward_event, forward_hook};
+pub use hermes::{disable_hermes_plugin_blocking, enable_hermes_plugin_blocking};
 pub use install::{
     agent_hooks_installed, agent_hooks_installed_at, agent_hooks_installed_for_source,
     install_agent_hooks, install_hook_config, uninstall_agent_hooks, uninstall_hook_config,
+    uninstall_hook_config_except_hermes, unmanaged_hook_path,
 };
+pub use kimi::kimi_config_path_for;
 
 pub const ENV_NODE_ID: &str = "MULTISOUL_NODE_ID";
 pub const ENV_AGENT_PROFILE: &str = "MULTISOUL_AGENT_PROFILE";
@@ -42,6 +49,10 @@ pub const ENV_HOOK_TOKEN: &str = "MULTISOUL_HOOK_TOKEN";
 pub const AGENT_HOOK_BINARY_NAME: &str = "multisoul-agent-hook";
 pub const OPENCODE_PLUGIN_FILE_NAME: &str = "multisoul-agent-hook.js";
 pub const OPENCODE_PLUGIN_MARKER: &str = "multisoul-opencode-plugin-marker";
+pub const PI_EXTENSION_FILE_NAME: &str = "norma-agent-hook.ts";
+pub const PI_EXTENSION_MARKER: &str = "multisoul-pi-extension-marker";
+pub const HERMES_PLUGIN_NAME: &str = "norma-agent-hook";
+pub const HERMES_PLUGIN_MARKER: &str = "multisoul-hermes-plugin-marker";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum HookSource {
@@ -50,6 +61,10 @@ pub enum HookSource {
     Cursor,
     Grok,
     OpenCode,
+    Pi,
+    Kimi,
+    Hermes,
+    ZCode,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -59,6 +74,10 @@ pub enum HookTarget {
     Cursor,
     Grok,
     OpenCode,
+    Pi,
+    Kimi,
+    Hermes,
+    ZCode,
     All,
 }
 
@@ -94,6 +113,10 @@ pub struct HookInstallPaths {
     pub cursor_hooks: PathBuf,
     pub grok_hooks: PathBuf,
     pub opencode_plugin: PathBuf,
+    pub pi_extension: PathBuf,
+    pub kimi_config: PathBuf,
+    pub hermes_plugin_dir: PathBuf,
+    pub zcode_config: PathBuf,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -152,6 +175,10 @@ pub fn parse_hook_source(value: &str) -> Option<HookSource> {
         "cursor" | "Cursor" => Some(HookSource::Cursor),
         "grok" | "Grok" => Some(HookSource::Grok),
         "opencode" | "OpenCode" => Some(HookSource::OpenCode),
+        "pi" | "Pi" => Some(HookSource::Pi),
+        "kimi" | "Kimi" => Some(HookSource::Kimi),
+        "hermes" | "Hermes" => Some(HookSource::Hermes),
+        "zcode" | "ZCode" => Some(HookSource::ZCode),
         _ => None,
     }
 }
@@ -163,6 +190,10 @@ pub fn parse_hook_target(value: &str) -> Option<HookTarget> {
         "cursor" | "Cursor" => Some(HookTarget::Cursor),
         "grok" | "Grok" => Some(HookTarget::Grok),
         "opencode" | "OpenCode" => Some(HookTarget::OpenCode),
+        "pi" | "Pi" => Some(HookTarget::Pi),
+        "kimi" | "Kimi" => Some(HookTarget::Kimi),
+        "hermes" | "Hermes" => Some(HookTarget::Hermes),
+        "zcode" | "ZCode" => Some(HookTarget::ZCode),
         "all" | "All" => Some(HookTarget::All),
         _ => None,
     }
@@ -186,6 +217,10 @@ pub fn hook_source_arg(source: HookSource) -> &'static str {
         HookSource::Cursor => "cursor",
         HookSource::Grok => "grok",
         HookSource::OpenCode => "opencode",
+        HookSource::Pi => "pi",
+        HookSource::Kimi => "kimi",
+        HookSource::Hermes => "hermes",
+        HookSource::ZCode => "zcode",
     }
 }
 
@@ -196,6 +231,10 @@ pub fn profile_for_source(source: HookSource) -> AgentProfile {
         HookSource::Cursor => AgentProfile::Cursor,
         HookSource::Grok => AgentProfile::Grok,
         HookSource::OpenCode => AgentProfile::OpenCode,
+        HookSource::Pi => AgentProfile::Pi,
+        HookSource::Kimi => AgentProfile::Kimi,
+        HookSource::Hermes => AgentProfile::Hermes,
+        HookSource::ZCode => AgentProfile::ZCode,
     }
 }
 
@@ -224,7 +263,27 @@ pub fn default_install_paths() -> HookInstallPaths {
             .join("opencode")
             .join("plugins")
             .join(OPENCODE_PLUGIN_FILE_NAME),
+        pi_extension: pi::pi_extension_path(
+            &home,
+            std::env::var("PI_CODING_AGENT_DIR").ok().as_deref(),
+        ),
+        kimi_config: kimi::kimi_config_path_for(&home, std::env::var_os("KIMI_CODE_HOME")),
+        hermes_plugin_dir: std::env::var_os("HERMES_HOME")
+            .map(|hermes_home| {
+                PathBuf::from(hermes_home)
+                    .join("plugins")
+                    .join(HERMES_PLUGIN_NAME)
+            })
+            .unwrap_or_else(|| hermes_plugin_dir_for_home(&home)),
+        zcode_config: home.join(".zcode").join("cli").join("config.json"),
     }
+}
+
+/// `<hermes_home>/plugins/norma-agent-hook`，`hermes_home` 默认 `<home>/.hermes`。
+pub fn hermes_plugin_dir_for_home(home: &Path) -> PathBuf {
+    home.join(".hermes")
+        .join("plugins")
+        .join(HERMES_PLUGIN_NAME)
 }
 
 pub fn resolve_agent_hook_command_path() -> Option<PathBuf> {

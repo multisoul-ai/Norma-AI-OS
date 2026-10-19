@@ -53,6 +53,7 @@
   "settings.install_skill_cli_hooks_and_authorization": "Install Skill, CLI, hooks, and authorization",
   "settings.one_component_needs_attention": "One component needs attention",
   "settings.orchestration_is_not_supported_in_the_first_release": "Orchestration is not supported in the first release",
+  "settings.delegation_unverified_experimental": "Experimental: delegation not verified",
   "settings.delegate_tasks_through_norma_os": "Delegate tasks through Norma OS",
   "settings.install_failed": "Install failed",
   "settings.not_installed": "Not installed",

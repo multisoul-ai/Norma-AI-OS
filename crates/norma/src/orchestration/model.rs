@@ -9,15 +9,23 @@ pub enum OrchestrationProvider {
     Cursor,
     OpenCode,
     Grok,
+    Kimi,
+    ZCode,
+    Pi,
+    Hermes,
 }
 
 impl OrchestrationProvider {
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 9] = [
         Self::Codex,
         Self::Claude,
         Self::Cursor,
         Self::OpenCode,
         Self::Grok,
+        Self::Kimi,
+        Self::ZCode,
+        Self::Pi,
+        Self::Hermes,
     ];
 
     pub const fn slug(self) -> &'static str {
@@ -27,6 +35,10 @@ impl OrchestrationProvider {
             Self::Cursor => "cursor",
             Self::OpenCode => "opencode",
             Self::Grok => "grok",
+            Self::Kimi => "kimi",
+            Self::ZCode => "zcode",
+            Self::Pi => "pi",
+            Self::Hermes => "hermes",
         }
     }
 
@@ -37,7 +49,18 @@ impl OrchestrationProvider {
             Self::Cursor => "Cursor Agent CLI",
             Self::OpenCode => "OpenCode",
             Self::Grok => "Grok Build",
+            Self::Kimi => "Kimi Code",
+            Self::ZCode => "ZCode",
+            Self::Pi => "Pi",
+            Self::Hermes => "Hermes Agent",
         }
+    }
+
+    /// 委派链路（模型按 skill 调用 norma 命令行）尚未用真实模型验证的 provider。
+    ///
+    /// hooks 与 skill 文件照常安装，但 UI 必须标注为实验性，不能暗示委派已验证。
+    pub const fn delegation_unverified(self) -> bool {
+        matches!(self, Self::Kimi | Self::ZCode | Self::Pi | Self::Hermes)
     }
 
     pub const fn profile(self) -> AgentProfile {
@@ -47,6 +70,10 @@ impl OrchestrationProvider {
             Self::Cursor => AgentProfile::Cursor,
             Self::OpenCode => AgentProfile::OpenCode,
             Self::Grok => AgentProfile::Grok,
+            Self::Kimi => AgentProfile::Kimi,
+            Self::ZCode => AgentProfile::ZCode,
+            Self::Pi => AgentProfile::Pi,
+            Self::Hermes => AgentProfile::Hermes,
         }
     }
 
@@ -56,6 +83,10 @@ impl OrchestrationProvider {
             Self::Codex => Some(HookSource::Codex),
             Self::Cursor => Some(HookSource::Cursor),
             Self::OpenCode => Some(HookSource::OpenCode),
+            Self::Pi => Some(HookSource::Pi),
+            Self::Kimi => Some(HookSource::Kimi),
+            Self::ZCode => Some(HookSource::ZCode),
+            Self::Hermes => Some(HookSource::Hermes),
             Self::Grok => None,
         }
     }
@@ -66,6 +97,10 @@ impl OrchestrationProvider {
             Self::Codex => Some(HookTarget::Codex),
             Self::Cursor => Some(HookTarget::Cursor),
             Self::OpenCode => Some(HookTarget::OpenCode),
+            Self::Pi => Some(HookTarget::Pi),
+            Self::Kimi => Some(HookTarget::Kimi),
+            Self::ZCode => Some(HookTarget::ZCode),
+            Self::Hermes => Some(HookTarget::Hermes),
             Self::Grok => None,
         }
     }
@@ -170,6 +205,14 @@ impl ProviderIntegration {
     }
 }
 
+/// 各 CLI 官方支持的配置根覆盖环境变量取值（空字符串视同未设置）。
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct CliHomeOverrides {
+    pub kimi_code_home: Option<std::ffi::OsString>,
+    pub pi_coding_agent_dir: Option<std::ffi::OsString>,
+    pub hermes_home: Option<std::ffi::OsString>,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct InstallPaths {
     pub managed_root: PathBuf,
@@ -184,6 +227,32 @@ pub struct InstallPaths {
 
 impl InstallPaths {
     pub fn for_home_and_bundle_bin(home: &std::path::Path, bundle_bin: &std::path::Path) -> Self {
+        Self::for_home_bundle_bin_and_env(
+            home,
+            bundle_bin,
+            &CliHomeOverrides {
+                kimi_code_home: std::env::var_os("KIMI_CODE_HOME"),
+                pi_coding_agent_dir: std::env::var_os("PI_CODING_AGENT_DIR"),
+                hermes_home: std::env::var_os("HERMES_HOME"),
+            },
+        )
+    }
+
+    /// 与 [`Self::for_home_and_bundle_bin`] 相同，但各 CLI 的目录覆盖变量由调用方显式给出，便于隔离测试。
+    pub fn for_home_bundle_bin_and_env(
+        home: &std::path::Path,
+        bundle_bin: &std::path::Path,
+        overrides: &CliHomeOverrides,
+    ) -> Self {
+        let non_empty = |value: &Option<std::ffi::OsString>| {
+            value
+                .clone()
+                .filter(|value| !value.is_empty())
+                .map(PathBuf::from)
+        };
+        let pi_agent_dir = non_empty(&overrides.pi_coding_agent_dir)
+            .unwrap_or_else(|| home.join(".pi").join("agent"));
+        let hermes_home = non_empty(&overrides.hermes_home).unwrap_or_else(|| home.join(".hermes"));
         Self {
             managed_root: home.join("Library/Application Support/Norma OS"),
             bundled_cli: bundle_bin.join("norma"),
@@ -194,6 +263,17 @@ impl InstallPaths {
                 cursor_hooks: home.join(".cursor/hooks.json"),
                 grok_hooks: home.join(".grok/hooks.json"),
                 opencode_plugin: home.join(".config/opencode/plugins/multisoul-agent-hook.js"),
+                pi_extension: pi_agent_dir
+                    .join("extensions")
+                    .join(crate::agent_hook::PI_EXTENSION_FILE_NAME),
+                kimi_config: crate::agent_hook::kimi_config_path_for(
+                    home,
+                    overrides.kimi_code_home.clone(),
+                ),
+                hermes_plugin_dir: hermes_home
+                    .join("plugins")
+                    .join(crate::agent_hook::HERMES_PLUGIN_NAME),
+                zcode_config: home.join(".zcode/cli/config.json"),
             },
             claude_skill: home.join(".claude/skills/norma-orchestration/SKILL.md"),
             codex_skill: home.join(".codex/skills/norma-orchestration/SKILL.md"),
@@ -233,45 +313,66 @@ impl InstallPaths {
             .join(format!("{}.json", provider.slug()))
     }
 
-    pub(crate) fn skill_path(&self, provider: OrchestrationProvider) -> Option<&PathBuf> {
+    /// 四个新 CLI 的 `skills/` 根目录，由各自已验证的 hook 路径推导，保证技能与 hook 位于同一配置根。
+    ///
+    /// - Kimi：`config.toml` 的父目录（`$KIMI_CODE_HOME` 或 `~/.kimi-code`）。
+    /// - ZCode：`~/.zcode/cli/config.json` 上两级，即 `~/.zcode`。
+    /// - Pi：`<agent_dir>/extensions/<file>` 上两级，即 `$PI_CODING_AGENT_DIR` 或 `~/.pi/agent`。
+    /// - Hermes：`<HERMES_HOME>/plugins/<name>` 上两级，即 `$HERMES_HOME` 或 `~/.hermes`。
+    fn derived_skills_root(&self, provider: OrchestrationProvider) -> Option<PathBuf> {
+        let base = match provider {
+            OrchestrationProvider::Kimi => self.hook_paths.kimi_config.parent()?,
+            OrchestrationProvider::ZCode => self.hook_paths.zcode_config.parent()?.parent()?,
+            OrchestrationProvider::Pi => self.hook_paths.pi_extension.parent()?.parent()?,
+            OrchestrationProvider::Hermes => {
+                self.hook_paths.hermes_plugin_dir.parent()?.parent()?
+            }
+            _ => return None,
+        };
+        Some(base.join("skills"))
+    }
+
+    pub fn skill_path(&self, provider: OrchestrationProvider) -> Option<PathBuf> {
         match provider {
-            OrchestrationProvider::Claude => Some(&self.claude_skill),
-            OrchestrationProvider::Codex => Some(&self.codex_skill),
-            OrchestrationProvider::Cursor => Some(&self.cursor_rule),
-            OrchestrationProvider::OpenCode => Some(&self.opencode_skill),
+            OrchestrationProvider::Claude => Some(self.claude_skill.clone()),
+            OrchestrationProvider::Codex => Some(self.codex_skill.clone()),
+            OrchestrationProvider::Cursor => Some(self.cursor_rule.clone()),
+            OrchestrationProvider::OpenCode => Some(self.opencode_skill.clone()),
             OrchestrationProvider::Grok => None,
+            OrchestrationProvider::Kimi
+            | OrchestrationProvider::ZCode
+            | OrchestrationProvider::Pi
+            | OrchestrationProvider::Hermes => Some(
+                self.derived_skills_root(provider)?
+                    .join("norma-orchestration")
+                    .join("SKILL.md"),
+            ),
         }
+    }
+
+    fn sibling_skill_path(&self, provider: OrchestrationProvider, name: &str) -> Option<PathBuf> {
+        let skills_root = match provider {
+            OrchestrationProvider::Claude => self.claude_skill.parent()?.parent()?.to_path_buf(),
+            OrchestrationProvider::Codex => self.codex_skill.parent()?.parent()?.to_path_buf(),
+            OrchestrationProvider::OpenCode => {
+                self.opencode_skill.parent()?.parent()?.to_path_buf()
+            }
+            OrchestrationProvider::Kimi
+            | OrchestrationProvider::ZCode
+            | OrchestrationProvider::Pi
+            | OrchestrationProvider::Hermes => self.derived_skills_root(provider)?,
+            OrchestrationProvider::Cursor | OrchestrationProvider::Grok => return None,
+        };
+        Some(skills_root.join(name).join("SKILL.md"))
     }
 
     pub fn presentation_skill_path(&self, provider: OrchestrationProvider) -> Option<PathBuf> {
         match provider {
-            OrchestrationProvider::Claude => self
-                .claude_skill
-                .parent()?
-                .parent()?
-                .join("norma-presentation")
-                .join("SKILL.md")
-                .into(),
-            OrchestrationProvider::Codex => self
-                .codex_skill
-                .parent()?
-                .parent()?
-                .join("norma-presentation")
-                .join("SKILL.md")
-                .into(),
             OrchestrationProvider::Cursor => self
                 .cursor_rule
-                .parent()?
-                .join("norma-presentation.mdc")
-                .into(),
-            OrchestrationProvider::OpenCode => self
-                .opencode_skill
-                .parent()?
-                .parent()?
-                .join("norma-presentation")
-                .join("SKILL.md")
-                .into(),
-            OrchestrationProvider::Grok => None,
+                .parent()
+                .map(|dir| dir.join("norma-presentation.mdc")),
+            _ => self.sibling_skill_path(provider, "norma-presentation"),
         }
     }
 
@@ -282,31 +383,11 @@ impl InstallPaths {
     /// stays beside it without adding fields to `InstallPaths`.
     pub fn ask_norma_skill_path(&self, provider: OrchestrationProvider) -> Option<PathBuf> {
         match provider {
-            OrchestrationProvider::Claude => self
-                .claude_skill
-                .parent()?
-                .parent()?
-                .join("ask-norma")
-                .join("SKILL.md")
-                .into(),
-            OrchestrationProvider::Codex => self
-                .codex_skill
-                .parent()?
-                .parent()?
-                .join("ask-norma")
-                .join("SKILL.md")
-                .into(),
-            OrchestrationProvider::Cursor => {
-                self.cursor_rule.parent()?.join("ask-norma.mdc").into()
-            }
-            OrchestrationProvider::OpenCode => self
-                .opencode_skill
-                .parent()?
-                .parent()?
-                .join("ask-norma")
-                .join("SKILL.md")
-                .into(),
-            OrchestrationProvider::Grok => None,
+            OrchestrationProvider::Cursor => self
+                .cursor_rule
+                .parent()
+                .map(|dir| dir.join("ask-norma.mdc")),
+            _ => self.sibling_skill_path(provider, "ask-norma"),
         }
     }
 }

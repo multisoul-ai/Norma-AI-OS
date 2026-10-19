@@ -2,8 +2,9 @@
 
 use crate::app::{
     CheckForUpdates, CloneProject, CopyCardContent, NewBrowser, NewClaudeAgent, NewCodexAgent,
-    NewCursorAgent, NewGrokAgent, NewOpenCodeAgent, NewTerminal, NewWindow, OpenFeatureGuide,
-    OpenPreviewFile, OpenProject, QuitNormaOs, ReflowLayout, ToggleMasterLayout, ToggleSettings,
+    NewCursorAgent, NewGrokAgent, NewHermesAgent, NewKimiAgent, NewOpenCodeAgent, NewPiAgent,
+    NewTerminal, NewWindow, NewZCodeAgent, OpenFeatureGuide, OpenPreviewFile, OpenProject,
+    QuitNormaOs, ReflowLayout, ToggleMasterLayout, ToggleSettings,
 };
 use gpui::{Menu, MenuItem, SystemMenuType};
 
@@ -41,6 +42,10 @@ pub(crate) enum MenuAction {
     NewCursorAgent,
     NewGrokAgent,
     NewOpenCodeAgent,
+    NewKimiAgent,
+    NewZCodeAgent,
+    NewPiAgent,
+    NewHermesAgent,
     OpenProject,
     CloneProject,
     CopyCardContent,
@@ -121,6 +126,22 @@ pub(crate) fn menu_bar_spec_for(locale: ui::i18n::Locale) -> Vec<MenuSpec> {
                         action(
                             ui::i18n::text_for(locale, "menu.new_opencode_agent"),
                             MenuAction::NewOpenCodeAgent,
+                        ),
+                        action(
+                            ui::i18n::text_for(locale, "menu.new_kimi_agent"),
+                            MenuAction::NewKimiAgent,
+                        ),
+                        action(
+                            ui::i18n::text_for(locale, "menu.new_zcode_agent"),
+                            MenuAction::NewZCodeAgent,
+                        ),
+                        action(
+                            ui::i18n::text_for(locale, "menu.new_pi_agent"),
+                            MenuAction::NewPiAgent,
+                        ),
+                        action(
+                            ui::i18n::text_for(locale, "menu.new_hermes_agent"),
+                            MenuAction::NewHermesAgent,
                         ),
                     ],
                 },
@@ -206,6 +227,10 @@ fn action_item(label: &'static str, action: MenuAction) -> MenuItem {
         MenuAction::NewCursorAgent => MenuItem::action(label, NewCursorAgent),
         MenuAction::NewGrokAgent => MenuItem::action(label, NewGrokAgent),
         MenuAction::NewOpenCodeAgent => MenuItem::action(label, NewOpenCodeAgent),
+        MenuAction::NewKimiAgent => MenuItem::action(label, NewKimiAgent),
+        MenuAction::NewZCodeAgent => MenuItem::action(label, NewZCodeAgent),
+        MenuAction::NewPiAgent => MenuItem::action(label, NewPiAgent),
+        MenuAction::NewHermesAgent => MenuItem::action(label, NewHermesAgent),
         MenuAction::OpenProject => MenuItem::action(label, OpenProject),
         MenuAction::CloneProject => MenuItem::action(label, CloneProject),
         MenuAction::CopyCardContent => MenuItem::action(label, CopyCardContent),

@@ -169,7 +169,12 @@ fn test_cursor_hook_config_is_idempotent_and_preserves_user_hooks() {
         codex_hooks: temp.path().join("codex-hooks.json"),
         cursor_hooks: cursor_path.clone(),
         grok_hooks: temp.path().join("grok-hooks.json"),
+        pi_extension: temp.path().join("norma-agent-hook.ts"),
         opencode_plugin: temp.path().join("multisoul-agent-hook.js"),
+        kimi_config: (temp.path().join("multisoul-agent-hook.js"))
+            .with_file_name("kimi-config.toml"),
+        hermes_plugin_dir: std::path::PathBuf::from("/nonexistent-hermes-plugin-dir"),
+        zcode_config: temp.path().join("zcode-config.json"),
     };
     let command_path = temp.path().join("multisoul-agent-hook");
     let cursor_command = build_hook_command(&command_path, HookSource::Cursor);

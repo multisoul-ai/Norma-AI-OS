@@ -1,0 +1,163 @@
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────                                                                                                                                            ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────/private/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/model-work↑120 ↓60 0.1%/33k (auto)                                                                                                             fixture ENOENT: no such file or directory, access                                                                                                   '/private/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/model-work/missing-probe.txt'                                                                                                                                                                         PI_FIXTURE_DONE prior_tool_history=true                                                                                                                                                                                                                                                 NORMAPI_RESUME prove prior history                                                                                                                                                                                                                                                      PI_FIXTURE_DONE prior_tool_history=true                                                                                                                                                                                                                                                 NORMAPI_RESUME prove prior history                                                                                                                                                                                                                                                      PI_FIXTURE_DONE prior_tool_history=true                                                                                                                                                                                                                                                 NORMAPI_RESUME prove prior history                                                                                                                                                                                                                                                      PI_FIXTURE_DONE prior_tool_history=true                                                                                                                                                                                                                                                 NORMAPI_RESUME prove prior history                                                                                                                                                                                                                                                      PI_FIXTURE_DONE prior_tool_history=true                                                                                                     PI_FIXTURE_DONE prior_tool_history=true                                                                                                     NORMAPI_RESUME prove prior history                                                                                                                                                                                                                                                      PI_FIXTURE_DONE prior_tool_history=true                                                                                                     NORMAPI_RESUME prove prior history                                                                                                                                                                                                                                                      PI_FIXTURE_DONE prior_tool_history=true                                                                                                     NORMAPI_RESUME prove prior history                                                                                                                                                                                                                                                      PI_FIXTURE_DONE prior_tool_history=true                                                                                                     NORMAPI_RESUME prove prior history                                                                                                                                                                                                                                                      PI_FIXTURE_DONE prior_tool_history=true                                                                                                     NORMAPI_RESUME interactive history                                                                                                                                                                                                                                                     ── ⠋ Working ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────                                                                                                                                             NORMAPI_RESUME prove prior history                                                                                                          PI_FIXTURE_DONE prior_tool_history=true                                                                                                                                                                                                                                                 NORMAPI_RESUME prove prior history                                                                                                          PI_FIXTURE_DONE prior_tool_history=true                                                                                                                                                                                                                                                 NORMAPI_RESUME prove prior history                                                                                                          PI_FIXTURE_DONE prior_tool_history=true                                                                                                                                                                                                                                                 NORMAPI_RESUME prove prior history                                                                                                          PI_FIXTURE_DONE prior_tool_history=true                                                                                                                                                                                                                                                 NORMAPI_RESUME interactive history                                                                                                          PI_FIXTURE_DONE prior_tool_history=true                                                                                                    ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────↑140 ↓70 0.1%/33k (auto)                                                                                                             fixture NORMAPI_RESUME interactive history                                                                                                          /exit                                                                                                                                      ↑160 ↓80 0.1%/33k (auto)                                                                                                             fixture
+
+ ▀▀█  v1.3.0
+
+ █▀ █ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash · ctrl+o more
+
+ Press ctrl+o to show full startup help and loaded resources.
+
+
+
+ Pi can explain its own features and look up its docs. Ask it how to use or extend Pi.
+
+
+
+[Extensions]
+
+  norma-probe-7f1l_gyq.ts
+
+
+
+
+
+ Warning: fd not found. Offline mode enabled, skipping download.
+
+
+
+
+
+ NORMAPI_TOOLS remember norma-pi-token-20261018
+
+
+
+
+
+
+
+ write probe.txt
+
+
+
+ norma-pi-token-20261018
+
+
+
+
+
+
+
+ $ printf norma-pi-shell-ok
+
+
+
+ norma-pi-shell-ok
+
+
+
+ Took 0.0s
+
+
+
+
+
+
+
+ read missing-probe.txt
+
+
+
+ ENOENT: no such file or directory, access
+
+ '/private/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/model-work/missing-probe.txt'
+
+
+
+
+
+ PI_FIXTURE_DONE prior_tool_history=true
+
+
+
+
+
+ NORMAPI_RESUME prove prior history
+
+
+
+
+
+ PI_FIXTURE_DONE prior_tool_history=true
+
+
+
+
+
+ NORMAPI_RESUME prove prior history
+
+
+
+
+
+ PI_FIXTURE_DONE prior_tool_history=true
+
+
+
+
+
+ NORMAPI_RESUME prove prior history
+
+
+
+
+
+ PI_FIXTURE_DONE prior_tool_history=true
+
+
+
+
+
+ NORMAPI_RESUME prove prior history
+
+
+
+
+
+ PI_FIXTURE_DONE prior_tool_history=true
+
+
+
+
+
+ NORMAPI_RESUME interactive history
+
+
+
+
+
+ PI_FIXTURE_DONE prior_tool_history=true
+
+
+
+
+
+ /exit
+
+
+
+
+
+ PI_FIXTURE_DONE prior_tool_history=true
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+/private/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/model-work
+
+↑160 ↓80 0.1%/33k (auto)                                                                                                             fixture
+
+To resume this session: pi --session 01a14cb5-4b48-71eb-af74-53296bd903ff

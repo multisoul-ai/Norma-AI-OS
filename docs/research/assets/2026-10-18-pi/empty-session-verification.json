@@ -1,0 +1,13 @@
+{
+  "original_session": {
+    "cwd": "/private/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/empty-exact-work",
+    "sessionId": "01a14cbb-3684-764b-b624-786b54129e33",
+    "sessionFile": "/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/agent/sessions/--private-var-folders-pf-k4j7_s8d0yv6z3jbtc7sfv2c0000gn-T-norma-pi-probe-7f1l_gyq-empty-exact-work--/2026-10-18T01-58-20-037Z_01a14cbb-3684-764b-b624-786b54129e33.jsonl",
+    "hasUI": true
+  },
+  "same_id_after_resume": [
+    "01a14cbb-3684-764b-b624-786b54129e33",
+    "01a14cbb-3684-764b-b624-786b54129e33"
+  ],
+  "file_absent_before_resume": true
+}

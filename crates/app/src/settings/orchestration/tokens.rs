@@ -27,13 +27,14 @@ pub(super) fn warning_status_color() -> u32 {
 }
 
 #[cfg(test)]
-pub(super) fn canonical_expanded_content_height() -> f32 {
+pub(super) fn canonical_expanded_content_height_for(providers: &[OrchestrationProvider]) -> f32 {
     const CONTENT_HEADER_HEIGHT: f32 = 119.0;
     const COMPONENT_COUNT: f32 = 4.0;
     CONTENT_HEADER_HEIGHT
         + NOTICE_HEIGHT
-        + OrchestrationProvider::ALL
-            .into_iter()
+        + providers
+            .iter()
+            .copied()
             .map(|provider| {
                 provider_row_min_height(provider, provider == OrchestrationProvider::Cursor)
             })

@@ -9,6 +9,10 @@ impl From<AgentProfileValue> for AgentProfile {
             AgentProfileValue::Cursor => AgentProfile::Cursor,
             AgentProfileValue::Grok => AgentProfile::Grok,
             AgentProfileValue::OpenCode => AgentProfile::OpenCode,
+            AgentProfileValue::Kimi => AgentProfile::Kimi,
+            AgentProfileValue::ZCode => AgentProfile::ZCode,
+            AgentProfileValue::Pi => AgentProfile::Pi,
+            AgentProfileValue::Hermes => AgentProfile::Hermes,
         }
     }
 }

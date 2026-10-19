@@ -7,6 +7,10 @@ pub enum AgentProfile {
     Cursor,
     Grok,
     OpenCode,
+    Kimi,
+    ZCode,
+    Pi,
+    Hermes,
 }
 
 impl AgentProfile {
@@ -17,6 +21,10 @@ impl AgentProfile {
             AgentProfile::Cursor => "Cursor",
             AgentProfile::Grok => "Grok",
             AgentProfile::OpenCode => "OpenCode",
+            AgentProfile::Kimi => "Kimi",
+            AgentProfile::ZCode => "ZCode",
+            AgentProfile::Pi => "Pi",
+            AgentProfile::Hermes => "Hermes",
         }
     }
 }

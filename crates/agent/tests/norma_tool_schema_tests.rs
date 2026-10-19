@@ -39,7 +39,7 @@ fn desktop_tool_descriptions_match_drawer_and_cached_status_contract() {
 ///   `reply_agent` required fields = 2（agent + message）
 ///   `create_browser` required fields = 0（无 URL 时使用产品默认首页）
 ///   `create_preview` required fields = 1（path）
-///   `create_agent.profile` enum 数 = 5（Codex / Claude / OpenCode / Cursor / Grok）
+///   `create_agent.profile` enum 数 = 9（Codex / Claude / OpenCode / Cursor / Grok / Kimi / ZCode / Pi / Hermes）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 从生产工具注册表读取所有模型可见 definition
@@ -165,13 +165,13 @@ fn norma_exposes_exactly_twenty_one_narrow_tool_schemas() {
     );
     assert_eq!(
         create.parameters["properties"]["profile"]["enum"],
-        json!(["codex", "claude", "opencode", "cursor", "grok"]),
-        "create_agent profile enum 应包含且仅包含五种受支持 runtime，Grok 不得遗漏"
+        json!(["codex", "claude", "opencode", "cursor", "grok", "kimi", "zcode", "pi", "hermes"]),
+        "create_agent profile enum 应包含且仅包含九种受支持 runtime，Kimi/ZCode/Pi/Hermes 不得遗漏"
     );
     assert_ne!(
         create.parameters["properties"]["profile"]["enum"],
-        json!(["codex", "claude", "opencode", "cursor"]),
-        "Grok 对接后 create_agent schema 不得继续停留在旧四种 profile"
+        json!(["codex", "claude", "opencode", "cursor", "grok"]),
+        "新增四种 Agent 后 create_agent schema 不得继续停留在旧五种 profile"
     );
     assert!(
         create.parameters["properties"].get("name").is_none(),

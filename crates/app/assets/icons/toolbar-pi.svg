@@ -1,0 +1,13 @@
+<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
+  <!-- Pi pixel logo, converted from the official pi-logo.ts (MIT, (c) 2025 Mario Zechner): https://github.com/earendil-works/pi/blob/main/packages/coding-agent/src/modes/interactive/components/pi-logo.ts -->
+  <rect x="4" y="4" width="4" height="4"/>
+  <rect x="8" y="4" width="4" height="4"/>
+  <rect x="12" y="4" width="4" height="4"/>
+  <rect x="4" y="8" width="4" height="4"/>
+  <rect x="12" y="8" width="4" height="4"/>
+  <rect x="4" y="12" width="4" height="4"/>
+  <rect x="8" y="12" width="4" height="4"/>
+  <rect x="16" y="12" width="4" height="4"/>
+  <rect x="4" y="16" width="4" height="4"/>
+  <rect x="16" y="16" width="4" height="4"/>
+</svg>

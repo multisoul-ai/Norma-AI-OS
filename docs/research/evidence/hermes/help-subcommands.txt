@@ -1,0 +1,337 @@
+### hermes chat --help
+usage: hermes chat [-h] [-q QUERY | --query-file PATH] [--oneshot]
+                   [--image IMAGE] [-m MODEL] [-t TOOLSETS]
+                   [--reasoning LEVEL] [-s SKILLS] [--provider PROVIDER] [-v]
+                   [-Q] [--format {text,stream-json}] [--resume SESSION_ID]
+                   [--no-restore-cwd] [--in DIR] [--continue [SESSION_NAME]]
+                   [--create-if-missing] [--worktree] [--accept-hooks]
+                   [--checkpoints] [--max-turns N] [--run-budget SECONDS]
+                   [--yolo] [--pass-session-id] [--ignore-user-config]
+                   [--ignore-rules] [--safe-mode] [--source SOURCE] [--tui]
+                   [--native] [--cli] [--dev]
+
+Start an interactive chat session with Hermes Agent
+
+options:
+  -h, --help            show this help message and exit
+  -q, --query QUERY     Query to run. On a real TTY the prompt seeds an
+                        interactive session (submitted literally as the first
+                        turn); combined with --oneshot or -Q, or on a non-TTY,
+                        it answers and exits.
+  --query-file PATH     Read the single query from a file instead of the
+                        command line ('-' reads stdin). Safe for arbitrary
+                        text: nothing is shell-interpreted, so quotes, $(...),
+                        and backticks are preserved verbatim. Mutually
+                        exclusive with -q.
+  --oneshot             With -q/--query-file: answer the query and exit
+                        (legacy single-query behavior) instead of seeding an
+                        interactive session. Implied on non-TTY stdio and by
+                        -Q/--quiet.
+  --image IMAGE         Optional local image path to attach to a single query
+  -m, --model MODEL     Model to use (e.g., anthropic/claude-sonnet-4)
+  -t, --toolsets TOOLSETS
+                        Comma-separated toolsets to enable
+  --reasoning LEVEL     Reasoning effort for this session: none, minimal, low,
+                        medium, high, xhigh, max, or ultra. Overrides
+                        agent.reasoning_effort for this run only (same levels
+                        as the /reasoning slash command).
+  -s, --skills SKILLS   Preload one or more skills for the session (repeat
+                        flag or comma-separate)
+  --provider PROVIDER   Inference provider (default: auto). Built-in or a
+                        user-defined name from `providers:` in config.yaml.
+  -v, --verbose         Verbose output
+  -Q, --quiet           Quiet mode for programmatic use: suppress banner,
+                        spinner, and tool previews. Only output the final
+                        response and session info.
+  --format {text,stream-json}
+                        Output format for single-query mode (-q). 'text'
+                        prints the final response as plain text (default).
+                        'stream-json' emits newline-delimited JSON events
+                        (JSONL), implies --quiet, and cannot be combined with
+                        --tui.
+  --resume, -r SESSION_ID
+                        Resume a previous session by ID (shown on exit), or
+                        'latest' for the most recent session
+  --no-restore-cwd      Don't cd into a resumed session's recorded working
+                        directory.
+  --in DIR              Change into DIR before starting or resuming (scopes '
+                        --resume latest' / -c lookups to DIR's workspace).
+  --continue, -c [SESSION_NAME]
+                        Resume a session by name, or the most recent if no
+                        name given
+  --create-if-missing   With -c/--continue <name>: if no session matches the
+                        name, create a new session with that title and proceed
+                        (instead of failing with a not-found error).
+                        Programmatic callers that want 'send to this named
+                        thread, making it if needed'.
+  --worktree, -w        Run in an isolated git worktree (for parallel agents
+                        on the same repo)
+  --accept-hooks        Auto-approve any unseen shell hooks declared in
+                        config.yaml without a TTY prompt (see also
+                        HERMES_ACCEPT_HOOKS env var and hooks_auto_accept: in
+                        config.yaml).
+  --checkpoints         Enable filesystem checkpoints before destructive file
+                        operations (use /rollback to restore)
+  --max-turns N         Maximum tool-calling iterations per conversation turn
+                        (default: 500, or agent.max_turns in config)
+  --run-budget SECONDS  Optional wall-clock budget in seconds for each
+                        conversation run. At 80% elapsed the agent gets a one-
+                        time wrap-up notice, and implicit provider stale
+                        timeouts are capped to the remaining budget so one
+                        hung call can't consume the run. Unset = off. Also
+                        configurable as agent.run_budget_seconds in
+                        config.yaml. Intended for one-shot/eval invocations
+                        with a hard ceiling.
+  --yolo                Bypass all dangerous command approval prompts (use at
+                        your own risk)
+  --pass-session-id     Include the session ID in the agent's system prompt
+  --ignore-user-config  Ignore /tmp/hermes-probe/home2/config.yaml and fall
+                        back to built-in defaults (credentials in .env are
+                        still loaded). Useful for isolated CI runs,
+                        reproduction, and third-party integrations.
+  --ignore-rules        Skip auto-injection of AGENTS.md, SOUL.md,
+                        .cursorrules, memory, and preloaded skills. Combine
+                        with --ignore-user-config for a fully isolated run.
+  --safe-mode           Troubleshooting mode: disable ALL customizations —
+                        user config, AGENTS.md/memory injection, plugins, and
+                        MCP servers (implies --ignore-user-config and
+                        --ignore-rules). Use to isolate whether a problem
+                        comes from your setup or from Hermes itself.
+  --source SOURCE       Session source tag for filtering (default: cli). Use
+                        'tool' for third-party integrations that should not
+                        appear in user session lists.
+  --tui                 Launch the modern TUI instead of the classic REPL
+  --native, --tui-native
+                        Use native terminal scrollback and disable mouse
+                        tracking
+  --cli                 Force the classic prompt_toolkit REPL (overrides
+                        display.interface=tui)
+  --dev                 With --tui: run TypeScript sources via tsx (skip dist
+                        build)
+### hermes sessions --help
+usage: hermes sessions [-h]
+                       {list,export,delete,prune,archive,optimize,clean-markers,optimize-storage,repair,set-journal-mode,repair-routing,repair-profiles,repair-prompts,recover,stats,rename,pin,unpin,pinned,retitle-skills,browse,import} ...
+
+View and manage the SQLite session store
+
+positional arguments:
+  {list,export,delete,prune,archive,optimize,clean-markers,optimize-storage,repair,set-journal-mode,repair-routing,repair-profiles,repair-prompts,recover,stats,rename,pin,unpin,pinned,retitle-skills,browse,import}
+    list                List recent sessions
+    export              Export sessions to JSONL, Markdown, or QMD
+    delete              Delete a specific session
+    prune               Delete old sessions (filterable by time window,
+                        source, title, ...)
+    archive             Bulk-archive (soft-hide) sessions matching filters —
+                        no deletion
+    optimize            Reclaim disk space: merge FTS5 segments + VACUUM (no
+                        data change)
+    clean-markers       Permanently clear stale tool-call marker content left
+                        by sessions from before #78148
+    optimize-storage    Migrate the search index to the compact v23 layout
+                        (reclaims disk on large DBs)
+    repair              Repair a malformed state.db schema so hidden sessions
+                        reappear
+    set-journal-mode    Convert state.db between journal_mode=WAL and DELETE
+                        offline (every holder stopped)
+    repair-routing      Re-stamp gateway sessions that lost their routing
+                        identity
+    repair-profiles     Settle session/routing state that landed under the
+                        wrong profile
+    repair-prompts      Report or clear stored system prompts degraded to a
+                        reduced-toolset build
+    recover             Rebuild canonical session data into a separate clean
+                        database
+    stats               Show session store statistics
+    rename              Set or change a session's title
+    pin                 Pin session(s) — durable keep flag, exempt from auto-
+                        archive
+    unpin               Remove the pin (durable keep flag) from session(s)
+    pinned              List pinned sessions
+    retitle-skills      Re-title sessions whose auto-title came from a
+                        /skill's own text
+    browse              Interactive session picker — browse, search, and
+                        resume sessions
+    import              Import a Claude Code or Codex CLI session into Hermes
+
+options:
+  -h, --help            show this help message and exit
+### hermes hooks --help
+usage: hermes hooks [-h] {list,ls,test,revoke,remove,rm,doctor} ...
+
+Inspect shell-script hooks declared in ~/.hermes/config.yaml, test them
+against synthetic payloads, and manage the first-use consent allowlist at
+~/.hermes/shell-hooks-allowlist.json.
+
+positional arguments:
+  {list,ls,test,revoke,remove,rm,doctor}
+    list (ls)           List configured hooks with matcher, timeout, and
+                        consent status
+    test                Fire every hook matching <event> against a synthetic
+                        payload
+    revoke (remove, rm)
+                        Remove a command's allowlist entries (takes effect on
+                        next restart)
+    doctor              Check each configured hook: exec bit, allowlist, mtime
+                        drift, JSON validity, and synthetic run timing
+
+options:
+  -h, --help            show this help message and exit
+### hermes plugins --help
+usage: hermes plugins [-h]
+                      {install,search,browse,validate,update,adopt,trust-update-url,check-updates,check,remove,rm,uninstall,list,ls,enable,disable,capabilities,doctor,pack,show,info} ...
+
+Install, update, remove, list, or validate native Hermes plugins and portable
+Agent Plugins v1 packages. Portable packages install disabled.
+
+positional arguments:
+  {install,search,browse,validate,update,adopt,trust-update-url,check-updates,check,remove,rm,uninstall,list,ls,enable,disable,capabilities,doctor,pack,show,info}
+    install             Install a plugin from the curated catalog, a Git URL,
+                        or owner/repo
+    search              Search the curated Hermes plugin catalog
+    browse              List every curated plugin catalog entry
+    validate            Validate a plugin directory for catalog admission (CI
+                        gate)
+    update              Pull latest changes for an installed plugin
+    adopt               Adopt a self-cloned plugin dir into provenance
+                        tracking
+    trust-update-url    Confirm a changed plugin update_url into the saved tag
+    check-updates (check)
+                        Check whether installed plugins have updates (read-
+                        only)
+    remove (rm, uninstall)
+                        Remove an installed plugin
+    list (ls)           List installed plugins
+    enable              Enable a disabled plugin
+    disable             Disable a plugin without removing it
+    capabilities        Show declared vs granted capabilities per plugin
+    doctor              Validate a plugin with the real runtime contracts
+    pack                Declarative, shareable plugin sets (hermes-pack.yaml)
+    show (info)         Show details for a single plugin (including
+                        emits/listens)
+
+options:
+  -h, --help            show this help message and exit
+### hermes setup --help
+usage: hermes setup [-h] [--non-interactive] [--reset] [--reconfigure]
+                    [--quick] [--portal]
+                    [{model,tts,terminal,gateway,tools,telemetry,agent}]
+
+Configure Hermes Agent with an interactive wizard. Run a specific section:
+hermes setup model|tts|terminal|gateway|tools|telemetry|agent
+
+positional arguments:
+  {model,tts,terminal,gateway,tools,telemetry,agent}
+                        Run a specific setup section instead of the full
+                        wizard
+
+options:
+  -h, --help            show this help message and exit
+  --non-interactive     Non-interactive mode (use defaults/env vars)
+  --reset               Reset configuration to defaults
+  --reconfigure         (Default on existing installs.) Re-run the full
+                        wizard, showing current values as defaults. Kept for
+                        backwards compatibility — a bare 'hermes setup' now
+                        does this.
+  --quick               On existing installs: only prompt for items that are
+                        missing or unset, instead of running the full
+                        reconfigure wizard.
+  --portal              One-shot Nous Portal setup: log in via OAuth, pick a
+                        Nous model, set Nous as the inference provider, and
+                        opt into the Tool Gateway. Skips the rest of the
+                        wizard.
+### hermes model --help
+usage: hermes model [-h] [--refresh] [--portal-url PORTAL_URL]
+                    [--inference-url INFERENCE_URL] [--client-id CLIENT_ID]
+                    [--scope SCOPE] [--no-browser] [--timeout TIMEOUT]
+                    [--ca-bundle CA_BUNDLE] [--insecure]
+
+Interactively select your inference provider and default model
+
+options:
+  -h, --help            show this help message and exit
+  --refresh             Wipe the model picker disk cache and re-fetch every
+                        provider's live /v1/models list.
+  --portal-url PORTAL_URL
+                        Portal base URL for Nous login (default: production
+                        portal)
+  --inference-url INFERENCE_URL
+                        Inference API base URL for Nous login (default:
+                        production inference API)
+  --client-id CLIENT_ID
+                        OAuth client id to use for Nous login (default:
+                        hermes-cli)
+  --scope SCOPE         OAuth scope to request for Nous login
+  --no-browser          Do not attempt to open the browser automatically
+                        during Nous login
+  --timeout TIMEOUT     HTTP request timeout in seconds for Nous login
+                        (default: 15)
+  --ca-bundle CA_BUNDLE
+                        Path to CA bundle PEM file for Nous TLS verification
+  --insecure            Disable TLS verification for Nous login (testing only)
+### hermes config --help
+usage: hermes config [-h]
+                     {show,edit,get,set,unset,path,env-path,check,migrate} ...
+
+Manage Hermes Agent configuration
+
+positional arguments:
+  {show,edit,get,set,unset,path,env-path,check,migrate}
+    show                Show current configuration
+    edit                Open config file in editor
+    get                 Print a resolved configuration value
+    set                 Set a configuration value
+    unset               Remove a configuration value
+    path                Print config file path
+    env-path            Print .env file path
+    check               Check for missing/outdated config
+    migrate             Update config with new options
+
+options:
+  -h, --help            show this help message and exit
+### hermes auth --help
+usage: hermes auth [-h]
+                   {add,list,remove,reset,priority,refresh,status,logout,upgrade} ...
+
+positional arguments:
+  {add,list,remove,reset,priority,refresh,status,logout,upgrade}
+    add                 Add a pooled credential
+    list                List pooled credentials
+    remove              Remove a pooled credential by index, id, or label
+    reset               Clear exhaustion status for a provider's credentials
+                        (all, or one target)
+    priority            Move a pooled credential to a priority (0 = tried
+                        first under fill_first)
+    refresh             Refresh a pooled OAuth credential's tokens and clear
+                        its cooldown
+    status              Show auth status for a provider
+    logout              Log out a provider and clear stored auth state
+    upgrade             Sign in with a Nous account, keeping your connectors
+
+options:
+  -h, --help            show this help message and exit
+### hermes status --help
+usage: hermes status [-h] [--full] [--deep]
+
+Display status of Hermes Agent components
+
+options:
+  -h, --help     show this help message and exit
+  --full, --all  Show every section (keys redacted) instead of the one-screen
+                 summary
+  --deep         Run deep checks (implies --full; may take longer)
+### hermes doctor --help
+usage: hermes doctor [-h] [--fix] [--live] [--ack ADVISORY_ID]
+
+Diagnose issues with Hermes Agent setup
+
+options:
+  -h, --help         show this help message and exit
+  --fix              Attempt to fix issues automatically
+  --live             Opt-in: run one bounded, read-only real-call health probe
+                     per configured tool backend
+                     (Firecrawl/FAL/browser/MCP/TTS/STT) after the static
+                     checks. Makes real network calls.
+  --ack ADVISORY_ID  Acknowledge a security advisory by ID and exit. After
+                     ack, the advisory will no longer trigger startup banners.
+                     Run `hermes doctor` first to see active advisories and
+                     their IDs.

@@ -39,6 +39,14 @@ pub(crate) fn skill_source(
     }
 }
 
+/// Hermes 的 SKILL.md frontmatter 约定含 `version`（已验证）；其他 CLI 不加该字段。
+fn hermes_version_line(provider: OrchestrationProvider, version: &str) -> String {
+    match provider {
+        OrchestrationProvider::Hermes => format!("version: {version}\n"),
+        _ => String::new(),
+    }
+}
+
 pub(crate) fn managed_marker(kind: ManagedSkillKind) -> &'static str {
     match kind {
         ManagedSkillKind::Orchestration => ORCHESTRATION_MANAGED_MARKER,
@@ -164,7 +172,8 @@ fn orchestration_skill_source(
             "---\ndescription: {ORCHESTRATION_SKILL_DESCRIPTION}\nalwaysApply: true\n---\n{body}"
         ),
         _ => format!(
-            "---\nname: norma-orchestration\ndescription: {ORCHESTRATION_SKILL_DESCRIPTION}\n---\n{body}"
+            "---\nname: norma-orchestration\ndescription: {ORCHESTRATION_SKILL_DESCRIPTION}\n{}---\n{body}",
+            hermes_version_line(provider, version)
         ),
     }
 }
@@ -185,9 +194,10 @@ execute the full delegation flow below exactly as the norma-orchestration skill 
         OrchestrationProvider::Cursor => format!(
             "---\ndescription: {ASK_NORMA_SKILL_DESCRIPTION}\nalwaysApply: true\n---\n{body}"
         ),
-        _ => {
-            format!("---\nname: ask-norma\ndescription: {ASK_NORMA_SKILL_DESCRIPTION}\n---\n{body}")
-        }
+        _ => format!(
+            "---\nname: ask-norma\ndescription: {ASK_NORMA_SKILL_DESCRIPTION}\n{}---\n{body}",
+            hermes_version_line(provider, version)
+        ),
     }
 }
 
@@ -253,7 +263,8 @@ failures. If a command's side-effect outcome is unknown, stop immediately and do
             "---\ndescription: Present Browser, external Ego Lite, and read-only Preview cards through Norma OS\nalwaysApply: true\n---\n{body}"
         ),
         _ => format!(
-            "---\nname: norma-presentation\ndescription: Present Browser, external Ego Lite, and read-only Preview cards through Norma OS\n---\n{body}"
+            "---\nname: norma-presentation\ndescription: Present Browser, external Ego Lite, and read-only Preview cards through Norma OS\n{}---\n{body}",
+            hermes_version_line(provider, version)
         ),
     }
 }

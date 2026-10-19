@@ -1,0 +1,6 @@
+{"auth": "Bearer tok-test", "body": {"cwd": "/private/tmp/hermes-probe/work1", "hook_event_name": "PluginLoaded"}}
+{"auth": "Bearer tok-test", "body": {"session_id": "20261018_113636_195f7f", "hermes_event": "pre_llm_call", "hook_event_name": "UserPromptSubmit"}}
+{"auth": "Bearer tok-test", "body": {"tool_name": "terminal", "session_id": "20261018_113636_195f7f", "hermes_event": "pre_tool_call", "hook_event_name": "PreToolUse"}}
+{"auth": "Bearer tok-test", "body": {"tool_name": "terminal", "session_id": "20261018_113636_195f7f", "status": "ok", "hermes_event": "post_tool_call", "hook_event_name": "PostToolUse"}}
+{"auth": "Bearer tok-test", "body": {"session_id": "20261018_113636_195f7f", "completed": true, "failed": false, "interrupted": false, "turn_exit_reason": "text_response(finish_reason=stop)", "hermes_event": "on_session_end", "hook_event_name": "Stop"}}
+{"auth": "Bearer tok-test", "body": {"session_id": "20261018_113636_195f7f", "reason": "shutdown", "hermes_event": "on_session_finalize", "hook_event_name": "SessionEnd"}}

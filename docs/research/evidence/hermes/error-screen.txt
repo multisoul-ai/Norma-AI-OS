@@ -1,0 +1,22 @@
+────────────────────────────────────────
+
+  ┊ 💻 preparing terminal…
+
+⚠ Approval: rm -rf /tmp/hermes-probe/danger-dir → denied
+  ┊ 💻 $         rm -rf /tmp/hermes-probe/danger-dir  22.8s [You denied this command — it did not run.]
+
+╭─ ☤ Hermes ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+Tool done: mock final answer.
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+────────────────────────────────────────
+● ERRFAIL now
+────────────────────────────────────────
+
+⏳ Provider temporarily unavailable — retrying automatically in 17s (cycle 1/5); press Esc to stop
+  ⏳ Provider temporarily unavailable — retrying automatically in 17s (cycle 1/5); press Esc to stop
+
+ ☤ mock-model │ ~205/256K │ [░░░░░░░░░░] ~0% │ ◷ 0.2s │ ↑ 26 t/s │ 3m │ ⏱ 24s                                       ─ MOCK-REPLY to: say hi
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+☤ ❯ msg=interrupt · /queue · /bg · /steer · Ctrl+C cancel
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
