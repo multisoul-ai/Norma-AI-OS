@@ -76,6 +76,7 @@ impl Render for MultisoulApp {
                         .on_action(cx.listener(Self::on_new_pi_agent))
                         .on_action(cx.listener(Self::on_new_hermes_agent))
                         .on_action(cx.listener(Self::on_new_opencode_agent))
+                        .on_action(cx.listener(Self::on_new_infcode_agent))
                         .on_action(cx.listener(Self::on_copy_card_content))
                         .on_action(cx.listener(Self::on_open_preview_file))
                         .on_action(cx.listener(Self::on_reflow_layout))

@@ -4,7 +4,7 @@ public enum MobileAgentProfile {
     public static let supported = ["Codex", "Claude", "Cursor"]
     /// Mac 端可能出现的全部 Agent 卡片 profile（与 Rust 侧 `canvas::AgentProfile` 的名称一致）。
     /// 只用于校验和展示：不在这里的 profile 会让整份快照解码失败；能否在手机端创建/操作仍由 `supported` 决定。
-    public static let displayable = ["Codex", "Claude", "Cursor", "Grok", "OpenCode", "Kimi", "ZCode", "Pi", "Hermes"]
+    public static let displayable = ["Codex", "Claude", "Cursor", "Grok", "OpenCode", "InfCode", "Kimi", "ZCode", "Pi", "Hermes"]
     public static func supports(_ profile: String) -> Bool { supported.contains(profile) }
     public static func historyPaginatesBackward(_ profile: String) -> Bool { profile == "Codex" }
 }

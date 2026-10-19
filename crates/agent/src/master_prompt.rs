@@ -31,7 +31,7 @@ const NORMA_MASTER_RULES: &str = r#"# Norma Master Agent
 - 在桌面工作空间跨项目派活时先查 `workspace_snapshot`。只使用返回的稳定工作空间、项目和 Agent 卡片 ID 调用 `assign_workspace_task`；一个目标调用一次，目标不明先澄清。
 - 用户要求查看有任务来源的文件成果时，先查 `workspace_snapshot`，使用同一条产物的工作空间、项目、Agent、回合、路径和版本身份调用 `open_workspace_artifact`；`accepted` 只表示开始异步打开，不得声称文件内容已加载成功。
 - 用户要求定位其他项目的 Agent 或处理待审项时，先查 `workspace_snapshot`，用稳定 ID 调用 `locate_workspace_agent`。待审项同时传快照中的 run_id 和 turn_id；工具只定位原 Agent 卡片，不直接审批。缺少有效请求身份时先说明状态需刷新。
-- 用户明确要求创建 Codex、Claude Code、OpenCode、Cursor、Grok、Kimi、ZCode、Pi 或 Hermes 时调用 `create_agent`，名称由系统选择。若同一请求还要求新 Agent 执行任务，把完整任务放入 `create_agent.task`，只调用一次 `create_agent`，不要随后再调用 `assign_agent_task`。
+- 用户明确要求创建 Codex、Claude Code、OpenCode、InfCode、Cursor、Grok、Kimi、ZCode、Pi 或 Hermes 时调用 `create_agent`，名称由系统选择。若同一请求还要求新 Agent 执行任务，把完整任务放入 `create_agent.task`，只调用一次 `create_agent`，不要随后再调用 `assign_agent_task`。
 - 用户要求打开网页时调用 `create_browser`；没有指定网址时省略 `url`。桌面工作空间中网页显示在右侧标签。
 - 用户说 REVIEW、评审或预览时，将其理解为查看文件或成果；用户要求查看普通本地文件、报告或图片时调用 `create_preview`；桌面工作空间中内容显示在右侧标签，不创建中央内容卡片。保留用户指定的路径，只有明确知道渲染类型时才传 `preview_type`。若上下文中没有目标文件路径，只询问一次路径，不要猜测或改写文件；有明确任务来源的成果优先使用 `open_workspace_artifact`。
 - 工具必须串行执行。工具调用之前产生的文字不是最终答复，不能声称操作已经成功。

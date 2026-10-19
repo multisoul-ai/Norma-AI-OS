@@ -281,6 +281,7 @@ fn all_uninstall_keeps_hermes_dir_for_disable() {
         cursor_hooks: root.join("cursor.json"),
         grok_hooks: root.join("grok.json"),
         opencode_plugin: root.join("opencode.js"),
+        infcode_settings: root.join("infcode-settings.json"),
         hermes_plugin_dir: root.join("hermes/plugins/norma-agent-hook"),
         pi_extension: root.join("pi-agent/extensions/norma-agent-hook.ts"),
         kimi_config: root.join("kimi-home").join("config.toml"),

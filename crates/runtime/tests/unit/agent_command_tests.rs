@@ -122,6 +122,7 @@ fn test_agent_command_specs_are_exact() {
     let claude = Runtime::agent_command(AgentProfile::Claude);
     let codex = Runtime::agent_command(AgentProfile::Codex);
     let opencode = Runtime::agent_command(AgentProfile::OpenCode);
+    let infcode = Runtime::agent_command(AgentProfile::InfCode);
 
     assert_eq!(
         claude.program, "/bin/zsh",
@@ -152,6 +153,11 @@ fn test_agent_command_specs_are_exact() {
         opencode.args,
         vec!["-lic", "exec \"${OPENCODE_BIN:-opencode}\""],
         "OpenCode Agent args 应以 login interactive shell 启动 TUI，确保 GUI 环境读取 Homebrew PATH，并允许 OPENCODE_BIN 覆盖 binary"
+    );
+    assert_eq!(
+        infcode.args,
+        vec!["-lic", "exec \"${INFCODE_BIN:-infcode}\""],
+        "InfCode Agent args 应以 login interactive shell 启动，并允许 INFCODE_BIN 覆盖 binary"
     );
     assert!(
         !claude.args.iter().any(|arg| arg.contains("codex")),

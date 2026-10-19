@@ -202,6 +202,7 @@ fn profile_as_str(profile: AgentProfile) -> &'static str {
         AgentProfile::Cursor => "cursor",
         AgentProfile::Grok => "grok",
         AgentProfile::OpenCode => "opencode",
+        AgentProfile::InfCode => "infcode",
         AgentProfile::Kimi => "kimi",
         AgentProfile::ZCode => "zcode",
         AgentProfile::Pi => "pi",

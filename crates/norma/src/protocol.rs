@@ -159,6 +159,7 @@ pub enum AgentProfile {
     Cursor,
     Grok,
     OpenCode,
+    InfCode,
     Kimi,
     ZCode,
     Pi,

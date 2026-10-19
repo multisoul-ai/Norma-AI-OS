@@ -36,6 +36,7 @@ pub(crate) enum ShortcutCommandId {
     NewCursorAgent,
     NewGrokAgent,
     NewOpenCodeAgent,
+    NewInfCodeAgent,
     NewKimiAgent,
     NewZCodeAgent,
     NewPiAgent,

@@ -164,6 +164,7 @@ pub(crate) fn canonical_preview_integrations() -> Vec<ProviderIntegration> {
             ready_component,
         ),
         ready(OrchestrationProvider::OpenCode),
+        ready(OrchestrationProvider::InfCode),
         ProviderIntegration::unsupported(OrchestrationProvider::Grok),
         ready(OrchestrationProvider::Kimi),
         ready(OrchestrationProvider::ZCode),

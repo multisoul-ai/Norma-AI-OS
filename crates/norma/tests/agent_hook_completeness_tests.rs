@@ -11,6 +11,7 @@ fn hook_paths(root: &std::path::Path) -> HookInstallPaths {
         grok_hooks: root.join("grok-hooks.json"),
         pi_extension: root.join("norma-agent-hook.ts"),
         opencode_plugin: root.join("multisoul-agent-hook.js"),
+        infcode_settings: root.join(".infcode/settings.json"),
         kimi_config: (root.join("multisoul-agent-hook.js")).with_file_name("kimi-config.toml"),
         hermes_plugin_dir: std::path::PathBuf::from("/nonexistent-hermes-plugin-dir"),
         zcode_config: root.join(".zcode/cli/config.json"),

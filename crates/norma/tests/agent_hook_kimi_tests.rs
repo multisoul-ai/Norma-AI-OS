@@ -18,6 +18,7 @@ fn paths(root: &Path) -> HookInstallPaths {
         cursor_hooks: root.join("cursor-hooks.json"),
         grok_hooks: root.join("grok-hooks.json"),
         opencode_plugin: root.join("multisoul-agent-hook.js"),
+        infcode_settings: root.join(".infcode/settings.json"),
         kimi_config: root.join("kimi-home").join("config.toml"),
         pi_extension: root.join("pi-agent/extensions/norma-agent-hook.ts"),
         hermes_plugin_dir: root.join("hermes/plugins/norma-agent-hook"),

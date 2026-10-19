@@ -24,6 +24,7 @@ pub(super) fn shortcut_command_name(command: ShortcutCommandId) -> &'static str 
         ShortcutCommandId::NewCodexAgent => "new_codex_agent",
         ShortcutCommandId::NewCursorAgent => "new_cursor_agent",
         ShortcutCommandId::NewOpenCodeAgent => "new_opencode_agent",
+        ShortcutCommandId::NewInfCodeAgent => "new_infcode_agent",
         ShortcutCommandId::NewGrokAgent => "new_grok_agent",
         ShortcutCommandId::NewKimiAgent => "new_kimi_agent",
         ShortcutCommandId::NewZCodeAgent => "new_zcode_agent",

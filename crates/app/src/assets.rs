@@ -22,6 +22,7 @@ pub const TOOLBAR_CODEX_ASSET: &str = "icons/toolbar-codex.svg";
 pub const TOOLBAR_CURSOR_ASSET: &str = "icons/toolbar-cursor.svg";
 pub const TOOLBAR_GROK_ASSET: &str = "icons/toolbar-grok.svg";
 pub const TOOLBAR_OPENCODE_ASSET: &str = "icons/toolbar-opencode.svg";
+pub const TOOLBAR_INFCODE_ASSET: &str = "icons/toolbar-infcode.svg";
 pub const TOOLBAR_KIMI_ASSET: &str = "icons/toolbar-kimi.svg";
 pub const TOOLBAR_ZCODE_ASSET: &str = "icons/toolbar-zcode.svg";
 pub const TOOLBAR_PI_ASSET: &str = "icons/toolbar-pi.svg";
@@ -49,6 +50,7 @@ const TOOLBAR_CODEX_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-codex
 const TOOLBAR_CURSOR_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-cursor.svg");
 const TOOLBAR_GROK_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-grok.svg");
 const TOOLBAR_OPENCODE_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-opencode.svg");
+const TOOLBAR_INFCODE_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-infcode.svg");
 const TOOLBAR_KIMI_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-kimi.svg");
 const TOOLBAR_ZCODE_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-zcode.svg");
 const TOOLBAR_PI_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-pi.svg");
@@ -157,6 +159,7 @@ impl AssetSource for EmbeddedAssets {
             TOOLBAR_CURSOR_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_CURSOR_BYTES))),
             TOOLBAR_GROK_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_GROK_BYTES))),
             TOOLBAR_OPENCODE_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_OPENCODE_BYTES))),
+            TOOLBAR_INFCODE_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_INFCODE_BYTES))),
             TOOLBAR_KIMI_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_KIMI_BYTES))),
             TOOLBAR_ZCODE_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_ZCODE_BYTES))),
             TOOLBAR_PI_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_PI_BYTES))),
@@ -217,6 +220,7 @@ impl AssetSource for EmbeddedAssets {
                     SharedString::from("toolbar-cursor.svg"),
                     SharedString::from("toolbar-grok.svg"),
                     SharedString::from("toolbar-opencode.svg"),
+                    SharedString::from("toolbar-infcode.svg"),
                     SharedString::from("toolbar-kimi.svg"),
                     SharedString::from("toolbar-zcode.svg"),
                     SharedString::from("toolbar-pi.svg"),

@@ -21,6 +21,7 @@ pub enum ToolbarIcon {
     Cursor,
     Grok,
     OpenCode,
+    InfCode,
     Kimi,
     ZCode,
     Pi,
@@ -44,6 +45,7 @@ impl ToolbarIcon {
             ToolbarIcon::Cursor => "icons/toolbar-cursor.svg",
             ToolbarIcon::Grok => "icons/toolbar-grok.svg",
             ToolbarIcon::OpenCode => "icons/toolbar-opencode.svg",
+            ToolbarIcon::InfCode => "icons/toolbar-infcode.svg",
             ToolbarIcon::Kimi => "icons/toolbar-kimi.svg",
             ToolbarIcon::ZCode => "icons/toolbar-zcode.svg",
             ToolbarIcon::Pi => "icons/toolbar-pi.svg",
@@ -113,6 +115,7 @@ mod tests {
             ToolbarIcon::Cursor,
             ToolbarIcon::Grok,
             ToolbarIcon::OpenCode,
+            ToolbarIcon::InfCode,
             ToolbarIcon::Kimi,
             ToolbarIcon::ZCode,
             ToolbarIcon::Pi,
@@ -121,8 +124,8 @@ mod tests {
             ToolbarIcon::Settings,
             ToolbarIcon::Workspaces,
         ];
-        // expected len = 12 个旧图标 + 1 个工作空间图标 + 4 个新增 Agent 图标 = 17。
-        let expected: [(&ToolbarIcon, &str); 17] = [
+        // expected len = 12 个旧图标 + 1 个工作空间图标 + 5 个新增 Agent 图标 = 18。
+        let expected: [(&ToolbarIcon, &str); 18] = [
             (&ToolbarIcon::Layout, "icons/toolbar-layout.svg"),
             (&ToolbarIcon::Scroll, "icons/toolbar-scroll.svg"),
             (&ToolbarIcon::Plus, "icons/toolbar-plus.svg"),
@@ -133,6 +136,7 @@ mod tests {
             (&ToolbarIcon::Cursor, "icons/toolbar-cursor.svg"),
             (&ToolbarIcon::Grok, "icons/toolbar-grok.svg"),
             (&ToolbarIcon::OpenCode, "icons/toolbar-opencode.svg"),
+            (&ToolbarIcon::InfCode, "icons/toolbar-infcode.svg"),
             (&ToolbarIcon::Kimi, "icons/toolbar-kimi.svg"),
             (&ToolbarIcon::ZCode, "icons/toolbar-zcode.svg"),
             (&ToolbarIcon::Pi, "icons/toolbar-pi.svg"),
@@ -169,8 +173,8 @@ mod tests {
             );
         }
 
-        // 负断言：17 个变体之间无重复路径（任意两个变体不得共用同一 SVG）。
-        // 推导：variants.len() == 12 + 1 + 4；若集合大小 < 17 则存在重复。
+        // 负断言：18 个变体之间无重复路径（任意两个变体不得共用同一 SVG）。
+        // 推导：variants.len() == 12 + 1 + 5；若集合大小 < 18 则存在重复。
         let set: HashSet<&'static str> = variants.iter().map(|v| v.asset_path()).collect();
         assert_eq!(
             set.len(),

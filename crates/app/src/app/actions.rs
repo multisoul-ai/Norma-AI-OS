@@ -16,6 +16,7 @@ actions!(
         NewPiAgent,
         NewHermesAgent,
         NewOpenCodeAgent,
+        NewInfCodeAgent,
         NewBrowser,
         NewEgo,
         CopyCardContent,

@@ -437,11 +437,12 @@ fn provider_index(provider: OrchestrationProvider) -> usize {
         OrchestrationProvider::Claude => 1,
         OrchestrationProvider::Cursor => 2,
         OrchestrationProvider::OpenCode => 3,
-        OrchestrationProvider::Grok => 4,
-        OrchestrationProvider::Kimi => 5,
-        OrchestrationProvider::ZCode => 6,
-        OrchestrationProvider::Pi => 7,
-        OrchestrationProvider::Hermes => 8,
+        OrchestrationProvider::InfCode => 4,
+        OrchestrationProvider::Grok => 5,
+        OrchestrationProvider::Kimi => 6,
+        OrchestrationProvider::ZCode => 7,
+        OrchestrationProvider::Pi => 8,
+        OrchestrationProvider::Hermes => 9,
     }
 }
 
@@ -451,6 +452,7 @@ fn action_selector(provider: OrchestrationProvider) -> &'static str {
         OrchestrationProvider::Claude => "settings-orchestration-claude-action",
         OrchestrationProvider::Cursor => "settings-orchestration-cursor-action",
         OrchestrationProvider::OpenCode => "settings-orchestration-opencode-action",
+        OrchestrationProvider::InfCode => "settings-orchestration-infcode-action",
         OrchestrationProvider::Grok => "settings-orchestration-grok-action",
         OrchestrationProvider::Kimi => "settings-orchestration-kimi-action",
         OrchestrationProvider::ZCode => "settings-orchestration-zcode-action",
@@ -465,6 +467,7 @@ fn disclosure_selector(provider: OrchestrationProvider) -> &'static str {
         OrchestrationProvider::Claude => "settings-orchestration-claude-disclosure",
         OrchestrationProvider::Cursor => "settings-orchestration-cursor-disclosure",
         OrchestrationProvider::OpenCode => "settings-orchestration-opencode-disclosure",
+        OrchestrationProvider::InfCode => "settings-orchestration-infcode-disclosure",
         OrchestrationProvider::Grok => "settings-orchestration-grok-disclosure",
         OrchestrationProvider::Kimi => "settings-orchestration-kimi-disclosure",
         OrchestrationProvider::ZCode => "settings-orchestration-zcode-disclosure",

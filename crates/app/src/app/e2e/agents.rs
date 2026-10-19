@@ -208,6 +208,7 @@ impl MultisoulApp {
             canvas::AgentProfile::Cursor => "cursor",
             canvas::AgentProfile::Grok => "grok",
             canvas::AgentProfile::OpenCode => "opencode",
+            canvas::AgentProfile::InfCode => "infcode",
             canvas::AgentProfile::Kimi => "kimi",
             canvas::AgentProfile::ZCode => "zcode",
             canvas::AgentProfile::Pi => "pi",

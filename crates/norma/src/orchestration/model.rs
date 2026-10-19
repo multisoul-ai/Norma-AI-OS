@@ -8,6 +8,7 @@ pub enum OrchestrationProvider {
     Codex,
     Cursor,
     OpenCode,
+    InfCode,
     Grok,
     Kimi,
     ZCode,
@@ -16,11 +17,12 @@ pub enum OrchestrationProvider {
 }
 
 impl OrchestrationProvider {
-    pub const ALL: [Self; 9] = [
+    pub const ALL: [Self; 10] = [
         Self::Codex,
         Self::Claude,
         Self::Cursor,
         Self::OpenCode,
+        Self::InfCode,
         Self::Grok,
         Self::Kimi,
         Self::ZCode,
@@ -34,6 +36,7 @@ impl OrchestrationProvider {
             Self::Codex => "codex",
             Self::Cursor => "cursor",
             Self::OpenCode => "opencode",
+            Self::InfCode => "infcode",
             Self::Grok => "grok",
             Self::Kimi => "kimi",
             Self::ZCode => "zcode",
@@ -48,6 +51,7 @@ impl OrchestrationProvider {
             Self::Codex => "Codex",
             Self::Cursor => "Cursor Agent CLI",
             Self::OpenCode => "OpenCode",
+            Self::InfCode => "InfCode",
             Self::Grok => "Grok Build",
             Self::Kimi => "Kimi Code",
             Self::ZCode => "ZCode",
@@ -60,7 +64,10 @@ impl OrchestrationProvider {
     ///
     /// hooks 与 skill 文件照常安装，但 UI 必须标注为实验性，不能暗示委派已验证。
     pub const fn delegation_unverified(self) -> bool {
-        matches!(self, Self::Kimi | Self::ZCode | Self::Pi | Self::Hermes)
+        matches!(
+            self,
+            Self::InfCode | Self::Kimi | Self::ZCode | Self::Pi | Self::Hermes
+        )
     }
 
     pub const fn profile(self) -> AgentProfile {
@@ -69,6 +76,7 @@ impl OrchestrationProvider {
             Self::Codex => AgentProfile::Codex,
             Self::Cursor => AgentProfile::Cursor,
             Self::OpenCode => AgentProfile::OpenCode,
+            Self::InfCode => AgentProfile::InfCode,
             Self::Grok => AgentProfile::Grok,
             Self::Kimi => AgentProfile::Kimi,
             Self::ZCode => AgentProfile::ZCode,
@@ -83,6 +91,7 @@ impl OrchestrationProvider {
             Self::Codex => Some(HookSource::Codex),
             Self::Cursor => Some(HookSource::Cursor),
             Self::OpenCode => Some(HookSource::OpenCode),
+            Self::InfCode => Some(HookSource::InfCode),
             Self::Pi => Some(HookSource::Pi),
             Self::Kimi => Some(HookSource::Kimi),
             Self::ZCode => Some(HookSource::ZCode),
@@ -97,6 +106,7 @@ impl OrchestrationProvider {
             Self::Codex => Some(HookTarget::Codex),
             Self::Cursor => Some(HookTarget::Cursor),
             Self::OpenCode => Some(HookTarget::OpenCode),
+            Self::InfCode => Some(HookTarget::InfCode),
             Self::Pi => Some(HookTarget::Pi),
             Self::Kimi => Some(HookTarget::Kimi),
             Self::ZCode => Some(HookTarget::ZCode),
@@ -223,6 +233,7 @@ pub struct InstallPaths {
     pub codex_skill: PathBuf,
     pub cursor_rule: PathBuf,
     pub opencode_skill: PathBuf,
+    pub infcode_skill: PathBuf,
 }
 
 impl InstallPaths {
@@ -263,6 +274,7 @@ impl InstallPaths {
                 cursor_hooks: home.join(".cursor/hooks.json"),
                 grok_hooks: home.join(".grok/hooks.json"),
                 opencode_plugin: home.join(".config/opencode/plugins/multisoul-agent-hook.js"),
+                infcode_settings: home.join(".infcode/settings.json"),
                 pi_extension: pi_agent_dir
                     .join("extensions")
                     .join(crate::agent_hook::PI_EXTENSION_FILE_NAME),
@@ -279,6 +291,7 @@ impl InstallPaths {
             codex_skill: home.join(".codex/skills/norma-orchestration/SKILL.md"),
             cursor_rule: home.join(".cursor/rules/norma-orchestration.mdc"),
             opencode_skill: home.join(".config/opencode/skills/norma-orchestration/SKILL.md"),
+            infcode_skill: home.join(".infcode/skills/norma-orchestration/SKILL.md"),
         }
     }
 
@@ -338,6 +351,7 @@ impl InstallPaths {
             OrchestrationProvider::Codex => Some(self.codex_skill.clone()),
             OrchestrationProvider::Cursor => Some(self.cursor_rule.clone()),
             OrchestrationProvider::OpenCode => Some(self.opencode_skill.clone()),
+            OrchestrationProvider::InfCode => Some(self.infcode_skill.clone()),
             OrchestrationProvider::Grok => None,
             OrchestrationProvider::Kimi
             | OrchestrationProvider::ZCode
@@ -357,6 +371,7 @@ impl InstallPaths {
             OrchestrationProvider::OpenCode => {
                 self.opencode_skill.parent()?.parent()?.to_path_buf()
             }
+            OrchestrationProvider::InfCode => self.infcode_skill.parent()?.parent()?.to_path_buf(),
             OrchestrationProvider::Kimi
             | OrchestrationProvider::ZCode
             | OrchestrationProvider::Pi

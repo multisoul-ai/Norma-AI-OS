@@ -68,6 +68,7 @@ pub fn agent_hooks_installed(target: HookTarget, paths: &HookInstallPaths) -> bo
         HookTarget::Cursor => agent_hooks_installed_for_source(HookSource::Cursor, paths),
         HookTarget::Grok => agent_hooks_installed_for_source(HookSource::Grok, paths),
         HookTarget::OpenCode => agent_hooks_installed_for_source(HookSource::OpenCode, paths),
+        HookTarget::InfCode => agent_hooks_installed_for_source(HookSource::InfCode, paths),
         HookTarget::Pi => agent_hooks_installed_for_source(HookSource::Pi, paths),
         HookTarget::Kimi => agent_hooks_installed_for_source(HookSource::Kimi, paths),
         HookTarget::Hermes => agent_hooks_installed_for_source(HookSource::Hermes, paths),
@@ -78,6 +79,7 @@ pub fn agent_hooks_installed(target: HookTarget, paths: &HookInstallPaths) -> bo
                 && agent_hooks_installed_for_source(HookSource::Cursor, paths)
                 && agent_hooks_installed_for_source(HookSource::Grok, paths)
                 && agent_hooks_installed_for_source(HookSource::OpenCode, paths)
+                && agent_hooks_installed_for_source(HookSource::InfCode, paths)
                 && agent_hooks_installed_for_source(HookSource::Pi, paths)
                 && agent_hooks_installed_for_source(HookSource::Kimi, paths)
                 && agent_hooks_installed_for_source(HookSource::Hermes, paths)
@@ -162,6 +164,9 @@ pub fn uninstall_hook_config_except_hermes(
     if matches!(target, HookTarget::OpenCode | HookTarget::All) {
         uninstall_opencode_plugin(paths.opencode_plugin.as_path())?;
     }
+    if matches!(target, HookTarget::InfCode | HookTarget::All) {
+        uninstall_for_source(paths.infcode_settings.as_path(), HookSource::InfCode)?;
+    }
     if matches!(target, HookTarget::Pi | HookTarget::All) {
         uninstall_pi_extension(paths.pi_extension.as_path())?;
     }
@@ -197,6 +202,13 @@ pub fn install_hook_config(
     }
     if matches!(target, HookTarget::OpenCode | HookTarget::All) {
         install_opencode_plugin(paths.opencode_plugin.as_path())?;
+    }
+    if matches!(target, HookTarget::InfCode | HookTarget::All) {
+        install_for_source(
+            paths.infcode_settings.as_path(),
+            command_path,
+            HookSource::InfCode,
+        )?;
     }
     if matches!(target, HookTarget::Pi | HookTarget::All) {
         install_pi_extension(paths.pi_extension.as_path())?;
@@ -252,6 +264,7 @@ fn config_path_for_source(source: HookSource, paths: &HookInstallPaths) -> &Path
         HookSource::Cursor => paths.cursor_hooks.as_path(),
         HookSource::Grok => paths.grok_hooks.as_path(),
         HookSource::OpenCode => paths.opencode_plugin.as_path(),
+        HookSource::InfCode => paths.infcode_settings.as_path(),
         HookSource::Pi => paths.pi_extension.as_path(),
         HookSource::Kimi => paths.kimi_config.as_path(),
         HookSource::Hermes => paths.hermes_plugin_dir.as_path(),

@@ -171,6 +171,7 @@ fn test_cursor_hook_config_is_idempotent_and_preserves_user_hooks() {
         grok_hooks: temp.path().join("grok-hooks.json"),
         pi_extension: temp.path().join("norma-agent-hook.ts"),
         opencode_plugin: temp.path().join("multisoul-agent-hook.js"),
+        infcode_settings: temp.path().join("infcode-settings.json"),
         kimi_config: (temp.path().join("multisoul-agent-hook.js"))
             .with_file_name("kimi-config.toml"),
         hermes_plugin_dir: std::path::PathBuf::from("/nonexistent-hermes-plugin-dir"),

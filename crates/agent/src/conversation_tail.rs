@@ -231,6 +231,7 @@ fn profile_name(profile: AgentProfile) -> &'static str {
         AgentProfile::Cursor => "Cursor",
         AgentProfile::Grok => "Grok",
         AgentProfile::OpenCode => "OpenCode",
+        AgentProfile::InfCode => "InfCode",
         AgentProfile::Kimi => "Kimi",
         AgentProfile::ZCode => "ZCode",
         AgentProfile::Pi => "Pi",

@@ -2,9 +2,9 @@
 
 use crate::app::{
     CheckForUpdates, CloneProject, CopyCardContent, NewBrowser, NewClaudeAgent, NewCodexAgent,
-    NewCursorAgent, NewGrokAgent, NewHermesAgent, NewKimiAgent, NewOpenCodeAgent, NewPiAgent,
-    NewTerminal, NewWindow, NewZCodeAgent, OpenFeatureGuide, OpenPreviewFile, OpenProject,
-    QuitNormaOs, ReflowLayout, ToggleMasterLayout, ToggleSettings,
+    NewCursorAgent, NewGrokAgent, NewHermesAgent, NewInfCodeAgent, NewKimiAgent, NewOpenCodeAgent,
+    NewPiAgent, NewTerminal, NewWindow, NewZCodeAgent, OpenFeatureGuide, OpenPreviewFile,
+    OpenProject, QuitNormaOs, ReflowLayout, ToggleMasterLayout, ToggleSettings,
 };
 use gpui::{Menu, MenuItem, SystemMenuType};
 
@@ -42,6 +42,7 @@ pub(crate) enum MenuAction {
     NewCursorAgent,
     NewGrokAgent,
     NewOpenCodeAgent,
+    NewInfCodeAgent,
     NewKimiAgent,
     NewZCodeAgent,
     NewPiAgent,
@@ -126,6 +127,10 @@ pub(crate) fn menu_bar_spec_for(locale: ui::i18n::Locale) -> Vec<MenuSpec> {
                         action(
                             ui::i18n::text_for(locale, "menu.new_opencode_agent"),
                             MenuAction::NewOpenCodeAgent,
+                        ),
+                        action(
+                            ui::i18n::text_for(locale, "menu.new_infcode_agent"),
+                            MenuAction::NewInfCodeAgent,
                         ),
                         action(
                             ui::i18n::text_for(locale, "menu.new_kimi_agent"),
@@ -227,6 +232,7 @@ fn action_item(label: &'static str, action: MenuAction) -> MenuItem {
         MenuAction::NewCursorAgent => MenuItem::action(label, NewCursorAgent),
         MenuAction::NewGrokAgent => MenuItem::action(label, NewGrokAgent),
         MenuAction::NewOpenCodeAgent => MenuItem::action(label, NewOpenCodeAgent),
+        MenuAction::NewInfCodeAgent => MenuItem::action(label, NewInfCodeAgent),
         MenuAction::NewKimiAgent => MenuItem::action(label, NewKimiAgent),
         MenuAction::NewZCodeAgent => MenuItem::action(label, NewZCodeAgent),
         MenuAction::NewPiAgent => MenuItem::action(label, NewPiAgent),

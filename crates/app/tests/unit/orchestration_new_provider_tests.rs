@@ -5,7 +5,8 @@ use norma::orchestration::{InstallPaths, OrchestrationInstaller};
 use std::collections::HashSet;
 use ui::i18n::{text_for, Locale};
 
-const NEW_PROVIDERS: [OrchestrationProvider; 4] = [
+const NEW_PROVIDERS: [OrchestrationProvider; 5] = [
+    OrchestrationProvider::InfCode,
     OrchestrationProvider::Kimi,
     OrchestrationProvider::ZCode,
     OrchestrationProvider::Pi,
@@ -71,19 +72,19 @@ fn delegation_unverified_notice_only_for_new_providers() {
     assert_ne!(en, zh, "两种语言文案应各自本地化");
 }
 
-/// 场景：9 个 provider 的下标与选择器 id 全局唯一，描述覆盖四个新 provider。
-/// 预期：下标 0..9 互异；action 与 disclosure 选择器共 18 个互异；
+/// 场景：10 个 provider 的下标与选择器 id 全局唯一，描述覆盖新 provider。
+/// 预期：下标 0..10 互异；action 与 disclosure 选择器共 20 个互异；
 /// 新 provider 在 NotInstalled 状态有非空描述，且不带 Grok 的“不支持”文案。
 #[test]
 fn selectors_and_descriptions_cover_all_providers() {
     let all = OrchestrationProvider::ALL;
     let indexes: HashSet<_> = all.iter().map(|p| provider_index(*p)).collect();
-    assert_eq!(indexes.len(), 9, "provider_index 必须互异");
+    assert_eq!(indexes.len(), 10, "provider_index 必须互异");
     let selectors: HashSet<_> = all
         .iter()
         .flat_map(|p| [action_selector(*p), disclosure_selector(*p)])
         .collect();
-    assert_eq!(selectors.len(), 18, "选择器 id 必须全局唯一");
+    assert_eq!(selectors.len(), 20, "选择器 id 必须全局唯一");
     let grok = provider_description(OrchestrationProvider::Grok, AggregateStatus::NotInstalled);
     for provider in NEW_PROVIDERS {
         let description = provider_description(provider, AggregateStatus::NotInstalled);

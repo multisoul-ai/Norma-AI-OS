@@ -266,18 +266,19 @@ fn canonical_text_alignment_removes_final_visible_double_edges() {
     );
 }
 
-/// 场景：ALL 扩到 9 个 provider 后总高度与行节奏正确，且页面可滚动不会溢出。
-/// 数据构造：旧 5 项 = 782px（见上）；新增 Kimi/ZCode/Pi/Hermes 各 85px（默认行高）
-/// 共 4 × 85 = 340px；total = 782 + 340 = 1122px，大于 820px 面板，因此必须依赖滚动。
+/// 场景：ALL 扩到 10 个 provider 后总高度与行节奏正确，且页面可滚动不会溢出。
+/// 数据构造：旧 5 项 = 782px（见上）；新增 InfCode/Kimi/ZCode/Pi/Hermes 各 85px（默认行高）
+/// 共 5 × 85 = 425px；total = 782 + 425 = 1207px，大于 820px 面板，因此必须依赖滚动。
 /// 过程：对完整 ALL 计算高度；读取 content.rs 源码确认 Orchestration 内容容器 overflow_y_scroll。
-/// 预期：正断言高度 1122 且新行均为 85；content.rs 含 overflow_y_scroll；
-/// 负断言：1122 不得被误当作需放进 820 面板的固定高度（超出时由滚动承载）。
+/// 预期：正断言高度 1207 且新行均为 85；content.rs 含 overflow_y_scroll；
+/// 负断言：1207 不得被误当作需放进 820 面板的固定高度（超出时由滚动承载）。
 #[test]
-fn nine_provider_layout_is_scrollable_with_85px_rows() {
+fn ten_provider_layout_is_scrollable_with_85px_rows() {
     let height = canonical_expanded_content_height_for(&OrchestrationProvider::ALL);
 
-    assert_eq!(height, 1122.0, "9 个 provider 总高应为 782 + 4×85");
+    assert_eq!(height, 1207.0, "10 个 provider 总高应为 782 + 5×85");
     for provider in [
+        OrchestrationProvider::InfCode,
         OrchestrationProvider::Kimi,
         OrchestrationProvider::ZCode,
         OrchestrationProvider::Pi,
@@ -293,7 +294,7 @@ fn nine_provider_layout_is_scrollable_with_85px_rows() {
     let content = include_str!("../../src/settings/content.rs");
     assert!(
         content.contains("overflow_y_scroll()"),
-        "Settings 内容区必须可滚动，9 个 provider 才不会溢出"
+        "Settings 内容区必须可滚动，10 个 provider 才不会溢出"
     );
     let fixed = content
         .split("let fixed_height_section = matches!(")

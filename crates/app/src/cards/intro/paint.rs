@@ -194,6 +194,7 @@ fn intro_text_color(kind: InitializationAnimationKind, accent: bool, theme: Them
         InitializationAnimationKind::Cursor => rgba(CURSOR_ACCENT).into(),
         InitializationAnimationKind::Grok => rgba(theme.accent_violet).into(),
         InitializationAnimationKind::OpenCode => rgba(theme.accent_violet).into(),
+        InitializationAnimationKind::InfCode => rgba(theme.accent_violet).into(),
         InitializationAnimationKind::Kimi => rgba(theme.accent_violet).into(),
         InitializationAnimationKind::ZCode => rgba(theme.accent_violet).into(),
         InitializationAnimationKind::Pi => rgba(theme.accent_violet).into(),

@@ -168,6 +168,7 @@ impl MultisoulApp {
                         crate::motion::InitializationAnimationKind::Cursor => "cursor",
                         crate::motion::InitializationAnimationKind::Grok => "grok",
                         crate::motion::InitializationAnimationKind::OpenCode => "opencode",
+                        crate::motion::InitializationAnimationKind::InfCode => "infcode",
                         crate::motion::InitializationAnimationKind::Kimi => "kimi",
                         crate::motion::InitializationAnimationKind::ZCode => "zcode",
                         crate::motion::InitializationAnimationKind::Pi => "pi",

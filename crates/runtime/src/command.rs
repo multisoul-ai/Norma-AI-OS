@@ -67,6 +67,7 @@ fn agent_choices(filter: &str) -> Vec<CommandSuggestion> {
         AgentProfile::Codex,
         AgentProfile::Claude,
         AgentProfile::OpenCode,
+        AgentProfile::InfCode,
         AgentProfile::Cursor,
         AgentProfile::Grok,
         AgentProfile::Kimi,

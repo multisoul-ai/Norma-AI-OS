@@ -144,8 +144,8 @@ pub(crate) fn constant_time_equal(left: &[u8], right: &[u8]) -> bool {
 
 fn decode_provider(value: &str) -> rusqlite::Result<String> {
     match value {
-        "claude" | "codex" | "cursor" | "opencode" | "grok" | "kimi" | "zcode" | "pi"
-        | "hermes" => Ok(value.to_string()),
+        "claude" | "codex" | "cursor" | "opencode" | "infcode" | "grok" | "kimi" | "zcode"
+        | "pi" | "hermes" => Ok(value.to_string()),
         other => Err(rusqlite::Error::FromSqlConversionFailure(
             other.len(),
             rusqlite::types::Type::Text,
@@ -157,7 +157,16 @@ fn decode_provider(value: &str) -> rusqlite::Result<String> {
 fn validate_provider(value: &str) -> StorageResult<()> {
     if matches!(
         value,
-        "claude" | "codex" | "cursor" | "opencode" | "grok" | "kimi" | "zcode" | "pi" | "hermes"
+        "claude"
+            | "codex"
+            | "cursor"
+            | "opencode"
+            | "infcode"
+            | "grok"
+            | "kimi"
+            | "zcode"
+            | "pi"
+            | "hermes"
     ) {
         Ok(())
     } else {

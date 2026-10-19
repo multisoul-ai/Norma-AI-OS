@@ -11,6 +11,7 @@ pub(super) fn norma_agent_profile(value: CanvasAgentProfile) -> AgentProfile {
         CanvasAgentProfile::Cursor => AgentProfile::Cursor,
         CanvasAgentProfile::Grok => AgentProfile::Grok,
         CanvasAgentProfile::OpenCode => AgentProfile::OpenCode,
+        CanvasAgentProfile::InfCode => AgentProfile::InfCode,
         CanvasAgentProfile::Kimi => AgentProfile::Kimi,
         CanvasAgentProfile::ZCode => AgentProfile::ZCode,
         CanvasAgentProfile::Pi => AgentProfile::Pi,

@@ -63,6 +63,9 @@ impl MultisoulApp {
             ShortcutCommandId::NewOpenCodeAgent => {
                 self.on_new_opencode_agent(&crate::app::NewOpenCodeAgent, window, cx)
             }
+            ShortcutCommandId::NewInfCodeAgent => {
+                self.on_new_infcode_agent(&crate::app::NewInfCodeAgent, window, cx)
+            }
             ShortcutCommandId::NewGrokAgent => {
                 self.on_new_grok_agent(&crate::app::NewGrokAgent, window, cx)
             }

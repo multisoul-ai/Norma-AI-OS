@@ -57,6 +57,7 @@ fn install_paths(root: &Path) -> InstallPaths {
                 .join("opencode")
                 .join("plugins")
                 .join("multisoul-agent-hook.js"),
+            infcode_settings: root.join(".infcode/settings.json"),
             kimi_config: root.join(".kimi-code").join("config.toml"),
             hermes_plugin_dir: std::path::PathBuf::from("/nonexistent-hermes-plugin-dir"),
             zcode_config: root.join(".zcode/cli/config.json"),
@@ -81,6 +82,7 @@ fn install_paths(root: &Path) -> InstallPaths {
             .join("skills")
             .join("norma-orchestration")
             .join("SKILL.md"),
+        infcode_skill: root.join(".infcode/skills/norma-orchestration/SKILL.md"),
     }
 }
 

@@ -238,6 +238,7 @@ impl MultisoulApp {
                         AgentProfile::Codex => ToolbarIcon::Codex,
                         AgentProfile::Claude => ToolbarIcon::Claude,
                         AgentProfile::OpenCode => ToolbarIcon::OpenCode,
+                        AgentProfile::InfCode => ToolbarIcon::InfCode,
                         AgentProfile::Cursor => ToolbarIcon::Cursor,
                         AgentProfile::Grok => ToolbarIcon::Grok,
                         AgentProfile::Kimi => ToolbarIcon::Kimi,

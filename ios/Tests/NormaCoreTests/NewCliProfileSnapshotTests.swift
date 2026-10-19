@@ -2,18 +2,18 @@ import XCTest
 @testable import NormaCore
 
 final class NewCliProfileSnapshotTests: XCTestCase {
-    private let newProfiles = ["Kimi", "ZCode", "Pi", "Hermes"]
+    private let newProfiles = ["InfCode", "Kimi", "ZCode", "Pi", "Hermes"]
 
     private func card(_ profile: String, node: Int = 7) -> String {
         #"{"node_id":\#(node),"profile":"\#(profile)","title":"卡片","mobile_control":false,"state":"idle"}"#
     }
 
-    /// Mac 上出现 Kimi/ZCode/Pi/Hermes 卡片时，单张卡片校验必须通过，不能因白名单缺项而抛错。
+    /// Mac 上出现 InfCode/Kimi/ZCode/Pi/Hermes 卡片时，单张卡片校验必须通过，不能因白名单缺项而抛错。
     ///
-    /// 数据构造：node_id=7、state=idle 的最小卡片 JSON，profile 依次取四个新值；
+    /// 数据构造：node_id=7、state=idle 的最小卡片 JSON，profile 依次取五个新值；
     /// 另构造 profile=Nope 的卡片作为负例。
     /// 执行过程：JSON 解码为 CardSnapshot → 调用 validate()。
-    /// 预期结果：四个新 profile 都通过；未知 profile 仍被拒绝（白名单没有被放开成任意字符串）。
+    /// 预期结果：五个新 profile 都通过；未知 profile 仍被拒绝（白名单没有被放开成任意字符串）。
     func testCardValidationAcceptsNewCliProfilesButStillRejectsUnknown() throws {
         for profile in newProfiles {
             let decoded = try JSONDecoder().decode(CardSnapshot.self, from: Data(card(profile).utf8))
@@ -25,7 +25,7 @@ final class NewCliProfileSnapshotTests: XCTestCase {
 
     /// 项目快照同时包含已支持卡片和新 CLI 卡片时，整份快照必须仍然有效。
     ///
-    /// 数据构造：card_count=2；一张 Codex（node 7）、一张 Kimi（node 8）；project-a / route-a。
+    /// 数据构造：card_count=2；一张 Codex（node 7）、一张 InfCode（node 8）；project-a / route-a。
     /// 执行过程：解码 ProjectSnapshot → validate(includeCards: true)。
     /// 预期结果：校验通过，两张卡片都保留；把其中一张换成未知 profile 后整份快照被拒绝（负断言）。
     func testProjectSnapshotWithNewCliCardStaysValid() throws {
@@ -43,10 +43,10 @@ final class NewCliProfileSnapshotTests: XCTestCase {
 
     /// agent 定义列表含新 CLI 时校验通过，但手机端仍不能创建这些卡片。
     ///
-    /// 数据构造：definition_id=3 的启用定义，profile 取四个新值，以及一个 Codex 定义作对照。
+    /// 数据构造：definition_id=3 的启用定义，profile 取五个新值，以及一个 Codex 定义作对照。
     /// 执行过程：解码 ProjectAgentDefinition → validate() → 读取 isCreatableOnIOS。
     /// 预期结果：新 profile 校验通过且 isCreatableOnIOS=false；Codex 为 true；
-    /// MobileAgentProfile.supports 对四个新值返回 false，证明没有顺带扩大手机端能力。
+    /// MobileAgentProfile.supports 对五个新值返回 false，证明没有顺带扩大手机端能力。
     func testAgentDefinitionAcceptsNewCliProfilesWithoutEnablingIOSCreation() throws {
         func definition(_ profile: String) -> String {
             #"{"definition_id":3,"name":"代理","profile":"\#(profile)","enabled":true,"busy":false}"#

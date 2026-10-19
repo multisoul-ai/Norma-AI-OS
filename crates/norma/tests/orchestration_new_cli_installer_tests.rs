@@ -8,7 +8,8 @@ use std::ffi::OsString;
 use std::fs;
 use std::path::Path;
 
-const NEW_CLIS: [OrchestrationProvider; 4] = [
+const NEW_CLIS: [OrchestrationProvider; 5] = [
+    OrchestrationProvider::InfCode,
     OrchestrationProvider::Kimi,
     OrchestrationProvider::ZCode,
     OrchestrationProvider::Pi,
@@ -64,12 +65,12 @@ fn no_overrides() -> CliHomeOverrides {
     CliHomeOverrides::default()
 }
 
-/// 四个新 CLI 进入 ALL 且各有 skill 路径与 hook 映射。
+/// 新 CLI 进入 ALL 且各有 skill 路径与 hook 映射。
 ///
-/// 数据构造：ALL 原有 5 项（Codex、Claude、Cursor、OpenCode、Grok），新增 4 项后共 9 项，
-/// Grok 仍无 skill 路径，其余 8 项都必须有三个 skill 路径与 hook 映射。
+/// 数据构造：ALL 原有 5 项（Codex、Claude、Cursor、OpenCode、Grok），新增 InfCode + 4 项后共 10 项，
+/// Grok 仍无 skill 路径，其余都必须有三个 skill 路径与 hook 映射。
 /// 过程：遍历 ALL 查询 skill / presentation / ask-norma 路径。
-/// 预期：正断言 ALL 含四个新 CLI 且长度为 9；负断言 Grok 路径为 None（未被放宽）。
+/// 预期：正断言 ALL 含新 CLI 且长度为 10；负断言 Grok 路径为 None（未被放宽）。
 #[test]
 fn all_contains_new_clis_with_skill_paths_and_grok_stays_unsupported() {
     let temp = tempfile::tempdir().expect("应创建临时目录");
@@ -78,8 +79,8 @@ fn all_contains_new_clis_with_skill_paths_and_grok_stays_unsupported() {
 
     assert_eq!(
         OrchestrationProvider::ALL.len(),
-        9,
-        "ALL 应为 5 个旧 + 4 个新 provider"
+        10,
+        "ALL 应为 5 个旧 + InfCode + 4 个新 provider"
     );
     for provider in NEW_CLIS {
         assert!(
@@ -118,6 +119,10 @@ fn skill_dirs_follow_verified_defaults_and_env_overrides() {
     let leaf = "skills/norma-orchestration/SKILL.md";
     let default = setup(t, &no_overrides());
     let skill = |i: &OrchestrationInstaller, p| i.paths().skill_path(p).expect("应有路径");
+    assert_eq!(
+        skill(&default, OrchestrationProvider::InfCode),
+        home.join(".infcode").join(leaf)
+    );
     assert_eq!(
         skill(&default, OrchestrationProvider::Kimi),
         home.join(".kimi-code").join(leaf)

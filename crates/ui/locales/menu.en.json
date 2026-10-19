@@ -18,6 +18,7 @@
   "menu.new_pi_agent": "New Pi Agent",
   "menu.new_hermes_agent": "New Hermes Agent",
   "menu.new_opencode_agent": "New OpenCode Agent",
+  "menu.new_infcode_agent": "New InfCode Agent",
   "menu.open_project": "Open Project…",
   "menu.clone_github_repository": "Clone GitHub Repository…",
   "menu.edit": "Edit",

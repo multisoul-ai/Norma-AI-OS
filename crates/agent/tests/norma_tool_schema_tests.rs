@@ -165,13 +165,16 @@ fn norma_exposes_exactly_twenty_one_narrow_tool_schemas() {
     );
     assert_eq!(
         create.parameters["properties"]["profile"]["enum"],
-        json!(["codex", "claude", "opencode", "cursor", "grok", "kimi", "zcode", "pi", "hermes"]),
-        "create_agent profile enum 应包含且仅包含九种受支持 runtime，Kimi/ZCode/Pi/Hermes 不得遗漏"
+        json!([
+            "codex", "claude", "opencode", "infcode", "cursor", "grok", "kimi", "zcode", "pi",
+            "hermes"
+        ]),
+        "create_agent profile enum 应包含且仅包含十种受支持 runtime，InfCode 不得遗漏"
     );
     assert_ne!(
         create.parameters["properties"]["profile"]["enum"],
         json!(["codex", "claude", "opencode", "cursor", "grok"]),
-        "新增四种 Agent 后 create_agent schema 不得继续停留在旧五种 profile"
+        "新增 InfCode 等 Agent 后 create_agent schema 不得继续停留在旧五种 profile"
     );
     assert!(
         create.parameters["properties"].get("name").is_none(),

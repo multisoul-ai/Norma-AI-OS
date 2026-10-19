@@ -253,6 +253,7 @@ pub(super) fn parse_adapter_command(
                 "codex" => AgentProfile::Codex,
                 "claude" => AgentProfile::Claude,
                 "opencode" => AgentProfile::OpenCode,
+                "infcode" => AgentProfile::InfCode,
                 "cursor" => AgentProfile::Cursor,
                 "grok" => AgentProfile::Grok,
                 "kimi" => AgentProfile::Kimi,

@@ -139,6 +139,7 @@ pub fn find_agent_session_id_for_profile(
         // Pi 会话 ID 只来自 hook 缓存，不扫描 ~/.pi；Kimi/ZCode/Hermes 的会话发现待各自实测后接入，未验证前不猜目录结构。
         AgentProfile::Cursor
         | AgentProfile::OpenCode
+        | AgentProfile::InfCode
         | AgentProfile::Kimi
         | AgentProfile::ZCode
         | AgentProfile::Pi
@@ -287,6 +288,13 @@ pub(crate) fn build_agent_resume_command(
                 shell_quote(session_id)
             )
         }
+        // InfCode 2.7.x 已验证：用 --session <id> 续接，不是 resume 子命令。
+        AgentProfile::InfCode => {
+            format!(
+                "exec \"${{INFCODE_BIN:-infcode}}\" --session {}",
+                shell_quote(session_id)
+            )
+        }
         // Kimi Code 2.2.0 实测：`--session <ID>` 按 ID 续接；`--continue` 按目录取最近会话，会串卡片。
         AgentProfile::Kimi => format!("exec kimi --session {}", shell_quote(session_id)),
         // 已验证（docs/research/2026-10-18-zcode.md §12）：只用 --resume <id>，不用按目录取最近的 -c；
@@ -398,3 +406,7 @@ mod hermes_tests;
 #[cfg(test)]
 #[path = "../tests/unit/session_snapshot_zcode_tests.rs"]
 mod zcode_tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/session_snapshot_infcode_tests.rs"]
+mod infcode_tests;

@@ -149,6 +149,13 @@ const DEFAULT_SHORTCUT_ENTRIES: &[ShortcutEntry] = &[
         Some("cmd-5"),
     ),
     entry(
+        ShortcutCommandId::NewInfCodeAgent,
+        "common.cards",
+        "shortcuts.new_infcode_agent",
+        "shortcuts.create_an_infcode_live_agent_card",
+        None,
+    ),
+    entry(
         ShortcutCommandId::NewGrokAgent,
         "common.cards",
         "shortcuts.new_grok_agent",

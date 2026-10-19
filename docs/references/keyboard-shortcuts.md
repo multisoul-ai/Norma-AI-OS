@@ -51,6 +51,7 @@ canvas/view.rs
 | `⌘6` | `NewGrokAgent` | `on_new_grok_agent` | Canvas | 创建 Grok Build Agent CLI 卡片 |
 | `⌘7` | `NewKimiAgent` | `on_new_kimi_agent` | Canvas | 创建 Kimi Code CLI 卡片 |
 | 未绑定 | `NewZCodeAgent` | `on_new_zcode_agent` | Canvas | 创建 ZCode CLI 卡片；默认不绑定，可在 Settings 中录制 |
+| 未绑定 | `NewInfCodeAgent` | `on_new_infcode_agent` | Canvas | 创建 InfCode CLI 卡片；默认不绑定，可在 Settings 中录制 |
 | `⌘8` | `NewPiAgent` | `on_new_pi_agent` | Canvas | 创建 Pi CLI 卡片 |
 | `⌘9` | `NewHermesAgent` | `on_new_hermes_agent` | Canvas | 创建 Hermes Agent CLI 卡片 |
 | `⌘D` | `DeleteCard` | `on_delete_card_shortcut` | Canvas | 删除当前聚焦卡片；无聚焦时仅删除唯一选中的画布卡片 |
@@ -84,7 +85,7 @@ canvas/view.rs
 
 以下命令在 `AppScreen::Launchpad` 下会直接返回或设置错误提示，不执行画布操作：
 
-- `NewTerminal`、`NewBrowser`、`OpenPreviewFile`、`NewClaudeAgent`、`NewCodexAgent`、`NewCursorAgent`、`NewOpenCodeAgent`、`NewGrokAgent`、`NewKimiAgent`、`NewZCodeAgent`、`NewPiAgent`、`NewHermesAgent`、`DeleteCard`、`ToggleMasterLayout`、`ReflowLayout`、`ToggleSettings`
+- `NewTerminal`、`NewBrowser`、`OpenPreviewFile`、`NewClaudeAgent`、`NewCodexAgent`、`NewCursorAgent`、`NewOpenCodeAgent`、`NewGrokAgent`、`NewKimiAgent`、`NewZCodeAgent`、`NewInfCodeAgent`、`NewPiAgent`、`NewHermesAgent`、`DeleteCard`、`ToggleMasterLayout`、`ReflowLayout`、`ToggleSettings`
 - `CopyCardContent`（静默忽略）
 
 `NewWindow`、`OpenProject`、`ExitFocus` 不受 Canvas 限制。
@@ -145,6 +146,7 @@ Layout:   Reflow Layout / Toggle Master Layout
 | New Grok Agent | `⌘6` | `NewGrokAgent` | `on_new_grok_agent` | `/new grok` |
 | New Kimi Agent | `⌘7` | `NewKimiAgent` | `on_new_kimi_agent` | `/new kimi` |
 | New ZCode Agent | 未绑定 | `NewZCodeAgent` | `on_new_zcode_agent` | `/new zcode` |
+| New InfCode Agent | 未绑定 | `NewInfCodeAgent` | `on_new_infcode_agent` | `/new infcode` |
 | New Pi Agent | `⌘8` | `NewPiAgent` | `on_new_pi_agent` | `/new pi` |
 | New Hermes Agent | `⌘9` | `NewHermesAgent` | `on_new_hermes_agent` | `/new hermes` |
 

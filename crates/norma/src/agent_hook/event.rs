@@ -164,6 +164,22 @@ pub fn hook_events_for_source(source: HookSource) -> &'static [&'static str] {
             "StopFailure",
             "SessionEnd",
         ],
+        // InfCode hooks-runtime（settings.json）文档事件：含 PermissionRequest / Subagent* /
+        // Turn*；无 OpenCode 插件侧的 StopFailure。证据见 docs/research/2026-10-19-infcode.md。
+        HookSource::InfCode => &[
+            "SessionStart",
+            "UserPromptSubmit",
+            "PreToolUse",
+            "PostToolUse",
+            "PostToolUseFailure",
+            "PermissionRequest",
+            "Stop",
+            "SessionEnd",
+            "SubagentStart",
+            "SubagentStop",
+            "TurnStart",
+            "TurnEnd",
+        ],
         HookSource::Hermes => &[
             "SessionStart",
             "UserPromptSubmit",
