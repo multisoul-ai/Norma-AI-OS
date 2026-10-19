@@ -76,17 +76,8 @@ impl MultisoulApp {
         let moving = self.desktop_directory_zoom_active();
         let chrome_opacity = self
             .desktop_directory_workspace_id()
-            .and_then(|id| self.desktop_workspace.workspace_motion_rects.get(id))
-            .map_or(1.0, |source| {
-                let workspace_frame = self
-                    .desktop_workspace
-                    .transition
-                    .as_ref()
-                    .filter(|t| t.directory_content.is_none())
-                    .map_or_else(|| self.desktop_scene_frame(full, false), |t| t.rect());
-                let landing = self.desktop_workspace_expanded_rect(viewport);
-                super::scene::overview_chrome_opacity(workspace_frame, *source, landing)
-            });
+            .and_then(|id| self.desktop_directory_chrome_opacity(id, viewport))
+            .unwrap_or(1.0);
         let workspaces: Vec<_> = self
             .desktop_workspace
             .filtered()

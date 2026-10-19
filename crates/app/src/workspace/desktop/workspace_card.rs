@@ -36,25 +36,9 @@ impl MultisoulApp {
                     || (transition.directory_content.is_some()
                         && self.desktop_directory_workspace_id() == Some(workspace.id.as_str()))
             });
-        let shell_opacity = moving.map_or(1.0, |transition| {
-            if let Some(content) = transition.directory_content {
-                let frame = self.desktop_scene_frame(
-                    canvas::CanvasRect::new(0.0, 0.0, full_width, full_height),
-                    false,
-                );
-                return ((full_width - frame.size.x) / (full_width - content.size.x).max(1.0))
-                    .clamp(0.0, 1.0);
-            }
-            self.desktop_workspace
-                .workspace_motion_rects
-                .get(&workspace.id)
-                .map_or(0.0, |source| {
-                    super::scene::overview_chrome_opacity(
-                        transition.rect(),
-                        *source,
-                        self.desktop_workspace_expanded_rect(viewport),
-                    )
-                })
+        let shell_opacity = moving.map_or(1.0, |_| {
+            self.desktop_directory_chrome_opacity(&workspace.id, viewport)
+                .unwrap_or(0.0)
         });
         let open_id = workspace.id.clone();
         let actions_id = workspace.id.clone();

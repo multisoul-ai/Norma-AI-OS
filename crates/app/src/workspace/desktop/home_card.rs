@@ -33,29 +33,11 @@ impl MultisoulApp {
         let content = panel;
         let moving = self.desktop_directory_workspace_id() == Some(workspace.id.as_str());
         let opacity = if moving {
-            self.desktop_workspace
-                .workspace_motion_rects
-                .get(&workspace.id)
-                .map_or(1.0, |source| {
-                    let frame = self.desktop_scene_frame(
-                        CanvasRect {
-                            origin: Vec2::ZERO,
-                            size: full,
-                        },
-                        false,
-                    );
-                    let frame = self
-                        .desktop_workspace
-                        .transition
-                        .as_ref()
-                        .filter(|t| t.directory_content.is_none())
-                        .map_or(frame, |t| t.rect());
-                    let landing = self.desktop_workspace_expanded_rect(gpui::size(
-                        gpui::px(full.x),
-                        gpui::px(full.y),
-                    ));
-                    super::scene::overview_chrome_opacity(frame, *source, landing)
-                })
+            self.desktop_directory_chrome_opacity(
+                &workspace.id,
+                gpui::size(gpui::px(full.x), gpui::px(full.y)),
+            )
+            .unwrap_or(1.0)
         } else {
             1.0
         };

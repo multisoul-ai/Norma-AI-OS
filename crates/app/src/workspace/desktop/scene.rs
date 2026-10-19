@@ -72,20 +72,61 @@ impl MultisoulApp {
         &self,
         viewport: gpui::Size<gpui::Pixels>,
     ) -> CanvasRect {
-        let layout = self.desktop_workspace.drawer_motion.layout_with_widths(
-            f32::from(viewport.width),
-            self.desktop_workspace.drawers.left_open,
-            self.desktop_workspace.drawers.right_open,
-            self.motion.reduce_motion,
-            self.desktop_workspace.drawer_widths.left,
-            self.desktop_workspace.drawer_widths.right,
-        );
+        let layout = self.desktop_workspace_landing_layout(f32::from(viewport.width));
         CanvasRect::new(
             layout.left_space,
             0.0,
             layout.canvas_width,
             f32::from(viewport.height),
         )
+    }
+
+    /// Drawer geometry a camera leaving the directory lands in. Drawers are hidden while
+    /// the directory is shown, so this is evaluated before `screen` changes.
+    fn desktop_workspace_landing_layout(
+        &self,
+        width: f32,
+    ) -> super::drawers::motion::DesktopDrawerLayout {
+        self.desktop_workspace.drawer_motion.layout_with_widths(
+            width,
+            self.desktop_workspace.drawers.left_open,
+            self.desktop_workspace.drawers.right_open,
+            self.motion.reduce_motion,
+            self.desktop_workspace.drawer_widths.left,
+            self.desktop_workspace.drawer_widths.right,
+        )
+    }
+
+    /// Opacity of a directory shell while its workspace or project camera is moving.
+    /// `None` when that shell is not the transition source or its slot is unknown.
+    pub(super) fn desktop_directory_chrome_opacity(
+        &self,
+        workspace_id: &str,
+        viewport: gpui::Size<gpui::Pixels>,
+    ) -> Option<f32> {
+        if self.desktop_directory_workspace_id() != Some(workspace_id) {
+            return None;
+        }
+        let transition = self.desktop_workspace.transition.as_ref()?;
+        if transition.directory_content.is_some() {
+            // A project camera magnifies the workspace past the window, so its frame has
+            // no fixed landing rect; fade by the camera's own progress instead.
+            let (overview, expanded) = transition.directory_ends?;
+            return Some(overview_chrome_opacity(
+                transition.camera.rect(),
+                overview,
+                expanded,
+            ));
+        }
+        let source = self
+            .desktop_workspace
+            .workspace_motion_rects
+            .get(workspace_id)?;
+        Some(overview_chrome_opacity(
+            transition.rect(),
+            *source,
+            self.desktop_workspace_expanded_rect(viewport),
+        ))
     }
 
     pub(super) fn desktop_directory_workspace_id(&self) -> Option<&str> {
@@ -140,14 +181,10 @@ impl MultisoulApp {
             workspace_content_rect(card, full.size, 1.0)
         };
         let mut nested = project_rect(full, content, project);
-        let layout = self.desktop_workspace.drawer_motion.layout_with_widths(
-            full.size.x,
-            self.desktop_workspace.drawers.left_open,
-            self.desktop_workspace.drawers.right_open,
-            self.motion.reduce_motion,
-            self.desktop_workspace.drawer_widths.left,
-            self.desktop_workspace.drawer_widths.right,
-        );
+        let layout = self.desktop_workspace_landing_layout(full.size.x);
+        // The live workspace frame is anchored on the cached card; a card captured under
+        // other drawers or another window size would land the workspace off its canvas.
+        self.desktop_capture_project_rects(workspace_id, layout, window);
         let mut expanded = super::desktop_scene_rect(layout.canvas_width, full.size.y);
         expanded.origin.x += layout.left_space;
         let directory_logical = super::desktop_scene_rect(full.size.x, full.size.y);
@@ -176,6 +213,7 @@ impl MultisoulApp {
         );
         if let Some(transition) = &mut self.desktop_workspace.transition {
             transition.directory_content = Some(content);
+            transition.directory_ends = Some((nested, expanded));
             if reverse {
                 if let Some(projects) = &mut transition.projects {
                     projects.show_overview();
@@ -398,3 +436,7 @@ impl MultisoulApp {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/desktop_directory_landing_tests.rs"]
+mod landing_tests;

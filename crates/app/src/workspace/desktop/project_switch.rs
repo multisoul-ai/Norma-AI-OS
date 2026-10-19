@@ -219,6 +219,7 @@ impl MultisoulApp {
             let directory_content = previous_transition
                 .as_ref()
                 .and_then(|t| t.directory_content);
+            let directory_ends = previous_transition.as_ref().and_then(|t| t.directory_ends);
             let mut camera = previous_transition
                 .map(|t| t.camera)
                 .unwrap_or_else(|| DesktopCamera::new(frame));
@@ -228,6 +229,7 @@ impl MultisoulApp {
                 camera,
                 projects: Some(projects),
                 directory_content,
+                directory_ends,
             });
         }
         self.desktop_workspace.transition_last_tick = cx.background_executor().now();

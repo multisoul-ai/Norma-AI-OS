@@ -112,6 +112,9 @@ pub(super) struct DesktopCanvasTransition {
     /// The enclosing workspace's real content slot in the directory. A project camera
     /// can target this nested slot directly without an intermediate workspace animation.
     pub(super) directory_content: Option<CanvasRect>,
+    /// The directory camera's (overview, expanded) ends; shells fade by camera progress
+    /// between them, independent of cached live-card geometry.
+    pub(super) directory_ends: Option<(CanvasRect, CanvasRect)>,
 }
 
 impl DesktopCanvasTransition {
@@ -127,6 +130,7 @@ impl DesktopCanvasTransition {
             camera,
             projects: None,
             directory_content: None,
+            directory_ends: None,
         }
     }
 
@@ -356,13 +360,30 @@ impl MultisoulApp {
         window: &Window,
     ) -> Option<CanvasRect> {
         let size = window.viewport_size();
-        let width = self.desktop_assistant_layout(window).canvas_width;
-        let full = desktop_scene_rect(width, f32::from(size.height));
+        let drawer = self.desktop_assistant_layout(window);
+        let full = desktop_scene_rect(drawer.canvas_width, f32::from(size.height));
         let index = self
             .desktop_workspace
             .areas
             .iter()
             .position(|area| area.id == area_id)?;
+        let layout = self.desktop_capture_project_rects(workspace_id, drawer, window);
+        Some(super::preview_canvas::project_canvas_rect(
+            layout[index],
+            full.size,
+            1.0,
+        ))
+    }
+
+    /// Record every project card of the live workspace laid out between `drawer`'s drawers.
+    pub(super) fn desktop_capture_project_rects(
+        &mut self,
+        workspace_id: &str,
+        drawer: super::drawers::motion::DesktopDrawerLayout,
+        window: &Window,
+    ) -> Vec<CanvasRect> {
+        let size = window.viewport_size();
+        let width = drawer.canvas_width;
         let layout = self.desktop_project_rects(
             workspace_id,
             canvas::Vec2::new(width, f32::from(size.height)),
@@ -371,7 +392,6 @@ impl MultisoulApp {
                 .iter()
                 .map(|area| area.id.as_str()),
         );
-        let drawer = self.desktop_assistant_layout(window);
         let scale = window.scale_factor();
         let snap = |value: f32| (value * scale).round() / scale;
         let parent_x = snap(drawer.left_space);
@@ -395,11 +415,7 @@ impl MultisoulApp {
                 rects.insert((workspace_id.to_owned(), area.id.clone()), *rect);
             }
         }
-        Some(super::preview_canvas::project_canvas_rect(
-            layout[index],
-            full.size,
-            1.0,
-        ))
+        layout
     }
 
     fn desktop_final_focus_rect(&self, window: &Window) -> CanvasRect {
