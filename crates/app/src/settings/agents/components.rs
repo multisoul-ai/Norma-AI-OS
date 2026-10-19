@@ -132,6 +132,12 @@ pub(super) fn profile_avatar_color(profile: canvas::AgentProfile) -> u32 {
         canvas::AgentProfile::Cursor => 0x4a5560ff,
         canvas::AgentProfile::Grok => 0x6a5cffff,
         canvas::AgentProfile::OpenCode => 0x2fa57fff,
+        canvas::AgentProfile::InfCode => 0x5b8defff,
+        // 占位色：互相区分即可，品牌色待各 CLI 负责人取得官方素材后调整。
+        canvas::AgentProfile::Kimi => 0x1f6febff,
+        canvas::AgentProfile::ZCode => 0x0f9d8aff,
+        canvas::AgentProfile::Pi => 0xb5651dff,
+        canvas::AgentProfile::Hermes => 0xc2415dff,
     }
 }
 

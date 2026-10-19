@@ -49,6 +49,11 @@ canvas/view.rs
 | `⌘4` | `NewCursorAgent` | `on_new_cursor_agent` | Canvas | 创建 Cursor Agent CLI 卡片 |
 | `⌘5` | `NewOpenCodeAgent` | `on_new_opencode_agent` | Canvas | 创建 OpenCode Agent CLI 卡片 |
 | `⌘6` | `NewGrokAgent` | `on_new_grok_agent` | Canvas | 创建 Grok Build Agent CLI 卡片 |
+| `⌘7` | `NewKimiAgent` | `on_new_kimi_agent` | Canvas | 创建 Kimi Code CLI 卡片 |
+| 未绑定 | `NewZCodeAgent` | `on_new_zcode_agent` | Canvas | 创建 ZCode CLI 卡片；默认不绑定，可在 Settings 中录制 |
+| 未绑定 | `NewInfCodeAgent` | `on_new_infcode_agent` | Canvas | 创建 InfCode CLI 卡片；默认不绑定，可在 Settings 中录制 |
+| `⌘8` | `NewPiAgent` | `on_new_pi_agent` | Canvas | 创建 Pi CLI 卡片 |
+| `⌘9` | `NewHermesAgent` | `on_new_hermes_agent` | Canvas | 创建 Hermes Agent CLI 卡片 |
 | `⌘D` | `DeleteCard` | `on_delete_card_shortcut` | Canvas | 删除当前聚焦卡片；无聚焦时仅删除唯一选中的画布卡片 |
 | `⌘M` | `ToggleMasterLayout` | `on_toggle_master_layout` | Canvas | 切换 master/detail 布局；无选中时忽略 |
 | `⌘⇧L` | `ReflowLayout` | `on_reflow_layout` | Canvas | 退出 master 模式并按最多三列平铺网格重排全部节点 |
@@ -80,7 +85,7 @@ canvas/view.rs
 
 以下命令在 `AppScreen::Launchpad` 下会直接返回或设置错误提示，不执行画布操作：
 
-- `NewTerminal`、`NewBrowser`、`OpenPreviewFile`、`NewClaudeAgent`、`NewCodexAgent`、`NewCursorAgent`、`NewOpenCodeAgent`、`NewGrokAgent`、`DeleteCard`、`ToggleMasterLayout`、`ReflowLayout`、`ToggleSettings`
+- `NewTerminal`、`NewBrowser`、`OpenPreviewFile`、`NewClaudeAgent`、`NewCodexAgent`、`NewCursorAgent`、`NewOpenCodeAgent`、`NewGrokAgent`、`NewKimiAgent`、`NewZCodeAgent`、`NewInfCodeAgent`、`NewPiAgent`、`NewHermesAgent`、`DeleteCard`、`ToggleMasterLayout`、`ReflowLayout`、`ToggleSettings`
 - `CopyCardContent`（静默忽略）
 
 `NewWindow`、`OpenProject`、`ExitFocus` 不受 Canvas 限制。
@@ -139,6 +144,11 @@ Layout:   Reflow Layout / Toggle Master Layout
 | New Cursor Agent | `⌘4` | `NewCursorAgent` | `on_new_cursor_agent` | `/new cursor` |
 | New OpenCode Agent | `⌘5` | `NewOpenCodeAgent` | `on_new_opencode_agent` | `/new opencode` |
 | New Grok Agent | `⌘6` | `NewGrokAgent` | `on_new_grok_agent` | `/new grok` |
+| New Kimi Agent | `⌘7` | `NewKimiAgent` | `on_new_kimi_agent` | `/new kimi` |
+| New ZCode Agent | 未绑定 | `NewZCodeAgent` | `on_new_zcode_agent` | `/new zcode` |
+| New InfCode Agent | 未绑定 | `NewInfCodeAgent` | `on_new_infcode_agent` | `/new infcode` |
+| New Pi Agent | `⌘8` | `NewPiAgent` | `on_new_pi_agent` | `/new pi` |
+| New Hermes Agent | `⌘9` | `NewHermesAgent` | `on_new_hermes_agent` | `/new hermes` |
 
 除固定的 `Cmd+Q` 外，原生菜单暂不显示快捷键提示：可配置按键的真值仍是 `ShortcutSettingsState`，避免菜单显示与用户 override 不同步。Launchpad 中 Canvas 专属菜单项按原生禁用状态显示；`New Window` 与 `Open Project…` 保持可用。
 

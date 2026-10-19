@@ -199,6 +199,11 @@ fn orchestration_provider(profile: AgentProfile) -> norma::orchestration::Orches
         AgentProfile::Cursor => norma::orchestration::OrchestrationProvider::Cursor,
         AgentProfile::Grok => norma::orchestration::OrchestrationProvider::Grok,
         AgentProfile::OpenCode => norma::orchestration::OrchestrationProvider::OpenCode,
+        AgentProfile::InfCode => norma::orchestration::OrchestrationProvider::InfCode,
+        AgentProfile::Kimi => norma::orchestration::OrchestrationProvider::Kimi,
+        AgentProfile::ZCode => norma::orchestration::OrchestrationProvider::ZCode,
+        AgentProfile::Pi => norma::orchestration::OrchestrationProvider::Pi,
+        AgentProfile::Hermes => norma::orchestration::OrchestrationProvider::Hermes,
     }
 }
 
@@ -209,6 +214,11 @@ fn norma_agent_profile_from_canvas(profile: CanvasAgentProfile) -> AgentProfile 
         CanvasAgentProfile::Cursor => AgentProfile::Cursor,
         CanvasAgentProfile::Grok => AgentProfile::Grok,
         CanvasAgentProfile::OpenCode => AgentProfile::OpenCode,
+        CanvasAgentProfile::InfCode => AgentProfile::InfCode,
+        CanvasAgentProfile::Kimi => AgentProfile::Kimi,
+        CanvasAgentProfile::ZCode => AgentProfile::ZCode,
+        CanvasAgentProfile::Pi => AgentProfile::Pi,
+        CanvasAgentProfile::Hermes => AgentProfile::Hermes,
     }
 }
 
@@ -251,6 +261,11 @@ pub(super) fn agent_profile_label(profile: AgentProfile) -> &'static str {
         AgentProfile::Cursor => "cursor",
         AgentProfile::Grok => "grok",
         AgentProfile::OpenCode => "opencode",
+        AgentProfile::InfCode => "infcode",
+        AgentProfile::Kimi => "kimi",
+        AgentProfile::ZCode => "zcode",
+        AgentProfile::Pi => "pi",
+        AgentProfile::Hermes => "hermes",
     }
 }
 

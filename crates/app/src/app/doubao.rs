@@ -30,9 +30,17 @@ impl DoubaoReport {
     }
 }
 
-pub(super) type ContextRequests = async_channel::Sender<
-    tokio::sync::oneshot::Sender<(agent::CurrentCanvasContext, Vec<agent::AgentRosterEntry>)>,
->;
+pub(super) enum ContextRequest {
+    Model(
+        tokio::sync::oneshot::Sender<(
+            agent::CurrentCanvasContext,
+            Vec<agent::AgentRosterEntry>,
+            Option<agent::DesktopContext>,
+        )>,
+    ),
+}
+
+pub(super) type ContextRequests = async_channel::Sender<ContextRequest>;
 
 fn connect_failure_message(error: &tokio_tungstenite::tungstenite::Error) -> LocalizedText {
     match error {
@@ -54,6 +62,8 @@ pub(crate) enum DoubaoStatus {
     Thinking,
     Speaking,
     RecordingResolved(u64),
+    UserTranscript(String),
+    AssistantReply(String),
     Disconnected(LocalizedText),
 }
 
@@ -66,6 +76,7 @@ impl DoubaoStatus {
             Self::Thinking => "doubao.thinking",
             Self::Speaking => "doubao.replying",
             Self::RecordingResolved(_) => "voice.push_to_talk",
+            Self::UserTranscript(_) | Self::AssistantReply(_) => "chrome.listening",
             Self::Disconnected(_) => "doubao.disconnected",
         })
     }
@@ -84,6 +95,8 @@ pub(crate) struct DoubaoVoiceState {
     activation: Option<gpui::Subscription>,
     session_task: Option<tokio::task::JoinHandle<()>>,
     pub(crate) reports: Option<async_channel::Sender<DoubaoReport>>,
+    pub(crate) last_transcript: Option<String>,
+    pub(crate) last_reply: Option<String>,
 }
 
 impl Default for DoubaoVoiceState {
@@ -101,12 +114,23 @@ impl Default for DoubaoVoiceState {
             activation: None,
             session_task: None,
             reports: None,
+            last_transcript: None,
+            last_reply: None,
         }
     }
 }
 
 impl DoubaoVoiceState {
     pub(crate) fn apply_status(&mut self, status: DoubaoStatus) {
+        if let DoubaoStatus::UserTranscript(text) = status {
+            self.last_transcript = Some(text);
+            self.last_reply = None;
+            return;
+        }
+        if let DoubaoStatus::AssistantReply(text) = status {
+            self.last_reply = Some(text);
+            return;
+        }
         if let DoubaoStatus::RecordingResolved(id) = status {
             if id == self.recording_id {
                 self.awaiting_transcript = false;
@@ -173,9 +197,9 @@ impl MultisoulApp {
     ) -> ContextRequests {
         let (requests, incoming): (ContextRequests, _) = async_channel::bounded(1);
         cx.spawn_in(window, async move |this, cx| {
-            while let Ok(response) = incoming.recv().await {
+            while let Ok(request) = incoming.recv().await {
                 let context = this
-                    .update_in(cx, |app, _, _| {
+                    .update_in(cx, |app, _, cx| {
                         let current_project = app
                             .runtime
                             .workspace_root()
@@ -192,13 +216,15 @@ impl MultisoulApp {
                                     cards: Vec::new(),
                                     conversation_tails: Vec::new(),
                                 });
-                        Some((canvas, app.agent_roster_for_provider()))
+                        let desktop = app.desktop_context_for_provider(cx);
+                        Some((canvas, app.agent_roster_for_provider(), desktop))
                     })
                     .ok()
                     .flatten();
                 let Some(context) = context else {
                     break;
                 };
+                let ContextRequest::Model(response) = request;
                 let _ = response.send(context);
             }
         })
@@ -233,6 +259,8 @@ impl MultisoulApp {
             .map(|root| root.display().to_string());
         let bound_project = project_id.clone();
         self.doubao.generation = self.doubao.generation.wrapping_add(1);
+        self.doubao.last_transcript = None;
+        self.doubao.last_reply = None;
         let generation = self.doubao.generation;
         let tool_adapter = super::agent_runtime::start_doubao_adapter(
             project_id.clone().unwrap_or_default(),
@@ -339,6 +367,11 @@ impl MultisoulApp {
                         return false;
                     }
                     while let Ok(status) = events_rx.try_recv() {
+                        match &status {
+                            DoubaoStatus::UserTranscript(text) => app.record_assistant_user_message(text, cx),
+                            DoubaoStatus::AssistantReply(text) => app.record_assistant_norma_message(text, cx),
+                            _ => {}
+                        }
                         let ended = matches!(status, DoubaoStatus::Disconnected(_));
                         if let DoubaoStatus::Disconnected(message) = &status {
                             tracing::info!(target: "norma_voice", reason = %message, "voice conversation ended");

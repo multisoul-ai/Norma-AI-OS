@@ -1,0 +1,18 @@
+<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
+  <!-- 骨架占位：首字母像素字，待该 CLI 负责人替换为官方图标的像素版 -->
+  <rect x="7" y="5" width="2" height="2"/>
+  <rect x="9" y="5" width="2" height="2"/>
+  <rect x="11" y="5" width="2" height="2"/>
+  <rect x="13" y="5" width="2" height="2"/>
+  <rect x="15" y="5" width="2" height="2"/>
+  <rect x="15" y="7" width="2" height="2"/>
+  <rect x="13" y="9" width="2" height="2"/>
+  <rect x="11" y="11" width="2" height="2"/>
+  <rect x="9" y="13" width="2" height="2"/>
+  <rect x="7" y="15" width="2" height="2"/>
+  <rect x="7" y="17" width="2" height="2"/>
+  <rect x="9" y="17" width="2" height="2"/>
+  <rect x="11" y="17" width="2" height="2"/>
+  <rect x="13" y="17" width="2" height="2"/>
+  <rect x="15" y="17" width="2" height="2"/>
+</svg>

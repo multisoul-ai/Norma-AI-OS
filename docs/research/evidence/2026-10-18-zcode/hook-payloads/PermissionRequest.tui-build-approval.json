@@ -1,0 +1,30 @@
+{
+  "cwd": "/tmp/zc-work",
+  "hookEventName": "PermissionRequest",
+  "mode": "build",
+  "reason": "High risk tools require explicit approval",
+  "requestId": "perm_31c660e8-2c70-463c-84ee-2e09aaa65cd5",
+  "riskLevel": "high",
+  "sessionId": "sess_33c0d69e-b643-4683-9910-eff2d4c585cb",
+  "sideEffectScope": "system",
+  "timestamp": "2026-10-18T03:58:54.379Z",
+  "toolCallId": "call_1",
+  "toolInput": {
+    "command": "touch /tmp/zc-work/approve.txt",
+    "description": "touch"
+  },
+  "toolName": "Bash",
+  "traceId": "4ddd37ec-00ae-4881-9306-899fc762e342",
+  "turnId": "turn_e2126d11-6ee3-42da-b0fc-b8a98562d863",
+  "hook_event_name": "PermissionRequest",
+  "permission_mode": "build",
+  "session_id": "sess_33c0d69e-b643-4683-9910-eff2d4c585cb",
+  "transcript_path": "<tmp>/zcode-hook-XXXX/transcript.jsonl",
+  "transcriptPath": "<tmp>/zcode-hook-XXXX/transcript.jsonl",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "touch /tmp/zc-work/approve.txt",
+    "description": "touch"
+  },
+  "tool_use_id": "call_1"
+}

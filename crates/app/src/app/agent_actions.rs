@@ -2,7 +2,7 @@
 
 use super::{
     AppScreen, MultisoulApp, NewClaudeAgent, NewCodexAgent, NewCursorAgent, NewGrokAgent,
-    NewOpenCodeAgent,
+    NewHermesAgent, NewInfCodeAgent, NewKimiAgent, NewOpenCodeAgent, NewPiAgent, NewZCodeAgent,
 };
 use crate::canvas::master_layout::term_grid_size_for_card;
 use crate::canvas::spawn_focus;
@@ -66,6 +66,21 @@ impl MultisoulApp {
         self.spawn_agent_card(AgentProfile::OpenCode, window, cx);
     }
 
+    pub(crate) fn on_new_infcode_agent(
+        &mut self,
+        _: &NewInfCodeAgent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if !matches!(self.screen, AppScreen::Canvas) {
+            self.workspace_state.error =
+                Some(ui::i18n::LocalizedText::new("agent.open_project_first"));
+            cx.notify();
+            return;
+        }
+        self.spawn_agent_card(AgentProfile::InfCode, window, cx);
+    }
+
     pub(crate) fn on_new_grok_agent(
         &mut self,
         _: &NewGrokAgent,
@@ -79,6 +94,66 @@ impl MultisoulApp {
             return;
         }
         self.spawn_agent_card(AgentProfile::Grok, window, cx);
+    }
+
+    pub(crate) fn on_new_kimi_agent(
+        &mut self,
+        _: &NewKimiAgent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if !matches!(self.screen, AppScreen::Canvas) {
+            self.workspace_state.error =
+                Some(ui::i18n::LocalizedText::new("agent.open_project_first"));
+            cx.notify();
+            return;
+        }
+        self.spawn_agent_card(AgentProfile::Kimi, window, cx);
+    }
+
+    pub(crate) fn on_new_zcode_agent(
+        &mut self,
+        _: &NewZCodeAgent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if !matches!(self.screen, AppScreen::Canvas) {
+            self.workspace_state.error =
+                Some(ui::i18n::LocalizedText::new("agent.open_project_first"));
+            cx.notify();
+            return;
+        }
+        self.spawn_agent_card(AgentProfile::ZCode, window, cx);
+    }
+
+    pub(crate) fn on_new_pi_agent(
+        &mut self,
+        _: &NewPiAgent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if !matches!(self.screen, AppScreen::Canvas) {
+            self.workspace_state.error =
+                Some(ui::i18n::LocalizedText::new("agent.open_project_first"));
+            cx.notify();
+            return;
+        }
+        self.spawn_agent_card(AgentProfile::Pi, window, cx);
+    }
+
+    pub(crate) fn on_new_hermes_agent(
+        &mut self,
+        _: &NewHermesAgent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if !matches!(self.screen, AppScreen::Canvas) {
+            self.workspace_state.error =
+                Some(ui::i18n::LocalizedText::new("agent.open_project_first"));
+            cx.notify();
+            return;
+        }
+        self.spawn_agent_card(AgentProfile::Hermes, window, cx);
     }
 
     pub(crate) fn on_new_cursor_agent(

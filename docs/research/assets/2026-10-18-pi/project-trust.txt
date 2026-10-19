@@ -1,0 +1,86 @@
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+ Trust project folder?
+
+ /private/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/trust-work
+
+
+
+ This allows pi to load .pi settings and resources, install missing project packages, and execute project extensions.
+
+
+
+ → Trust
+
+   Trust parent folder (/private/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq)
+
+   Trust (this session only)
+
+   Do not trust
+
+   Do not trust (this session only)
+
+
+
+ ↑↓ navigate  enter select  escape/ctrl+c cancel
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────                                                                                                                                            ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────/private/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/trust-work0.0%/33k (auto)                                                                                                                      fixture ▀▀█  v1.3.0                                                                                                                                 █▀ █ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash · ctrl+o more                                                        Press ctrl+o to show full startup help and loaded resources.                                                                                                                                                                                                                            Pi can explain its own features and look up its docs. Ask it how to use or extend Pi.                                                      [Extensions]                                                                                                                                  norma-probe-7f1l_gyq.ts                                                                                                                    Warning: fd not found. Offline mode enabled, skipping download.                                                                             This project is not trusted. Project .pi resources and packages are ignored. Use /trust to save a trust decision, then restart pi.
+
+ ▀▀█  v1.3.0
+
+ █▀ █ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash · ctrl+o more
+
+ Press ctrl+o to show full startup help and loaded resources.
+
+
+
+ Pi can explain its own features and look up its docs. Ask it how to use or extend Pi.
+
+
+
+[Extensions]
+
+  norma-probe-7f1l_gyq.ts
+
+
+
+
+
+ Warning: fd not found. Offline mode enabled, skipping download.
+
+
+
+ This project is not trusted. Project .pi resources and packages are ignored. Use /trust to save a trust decision, then restart pi.
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+/private/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-pi-probe-7f1l_gyq/trust-work
+
+0.0%/33k (auto)                                                                                                                      fixture

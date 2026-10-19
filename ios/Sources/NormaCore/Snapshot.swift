@@ -2,6 +2,9 @@ import Foundation
 
 public enum MobileAgentProfile {
     public static let supported = ["Codex", "Claude", "Cursor"]
+    /// Mac 端可能出现的全部 Agent 卡片 profile（与 Rust 侧 `canvas::AgentProfile` 的名称一致）。
+    /// 只用于校验和展示：不在这里的 profile 会让整份快照解码失败；能否在手机端创建/操作仍由 `supported` 决定。
+    public static let displayable = ["Codex", "Claude", "Cursor", "Grok", "OpenCode", "InfCode", "Kimi", "ZCode", "Pi", "Hermes"]
     public static func supports(_ profile: String) -> Bool { supported.contains(profile) }
     public static func historyPaginatesBackward(_ profile: String) -> Bool { profile == "Codex" }
 }
@@ -41,7 +44,7 @@ public struct CardSnapshot: Codable, Sendable, Identifiable, Equatable {
             guard (1...64).contains(progress.total), (0...progress.total).contains(progress.completed),
                   progress.currentStep.map({ !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && $0.count <= 256 }) ?? true else { throw MobileError.invalidResponse }
         }
-        guard (taskTiming?.startedAtUnixMs ?? 1) > 0, nodeID > 0, ["Codex", "Claude", "Cursor", "Grok", "OpenCode"].contains(profile),
+        guard (taskTiming?.startedAtUnixMs ?? 1) > 0, nodeID > 0, MobileAgentProfile.displayable.contains(profile),
               ["idle", "preparing", "ready", "thinking", "running_tool", "waiting_approval", "interrupting", "collecting", "done", "failed", "ended", "unknown"].contains(state),
               title.count <= 256, (taskTitle?.count ?? 0) <= 1024,
               runID.map(validID) ?? true, turnID.map(validID) ?? true, (sessionID?.utf8.count ?? 0) <= 128 else { throw MobileError.invalidResponse }
@@ -71,7 +74,7 @@ public struct ProjectAgentDefinition: Decodable, Sendable, Identifiable, Equatab
                 && !value.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains)
         }
         guard definitionID > 0, validText(name, 256),
-              ["Codex", "Claude", "Cursor", "Grok", "OpenCode"].contains(profile),
+              MobileAgentProfile.displayable.contains(profile),
               activeNodeID.map({ $0 > 0 }) ?? true,
               speechAlias.map({ validText($0, 256) }) ?? true else { throw MobileError.invalidResponse }
     }

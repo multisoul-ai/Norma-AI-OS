@@ -164,7 +164,12 @@ pub(crate) fn canonical_preview_integrations() -> Vec<ProviderIntegration> {
             ready_component,
         ),
         ready(OrchestrationProvider::OpenCode),
+        ready(OrchestrationProvider::InfCode),
         ProviderIntegration::unsupported(OrchestrationProvider::Grok),
+        ready(OrchestrationProvider::Kimi),
+        ready(OrchestrationProvider::ZCode),
+        ready(OrchestrationProvider::Pi),
+        missing_integration(OrchestrationProvider::Hermes),
     ]
 }
 
@@ -265,7 +270,7 @@ pub(super) fn inspect_integrations(
     };
     let store = storage::OrchestrationAuthorizationStore::new(database_path);
     let mut registry = StorageAuthorizationRegistry::new(store);
-    let installer = OrchestrationInstaller::new(paths, env!("CARGO_PKG_VERSION"));
+    let installer = app_installer(paths);
     let report = installer.reconcile_installed(&mut registry);
     for failure in report.failures {
         tracing::warn!(
@@ -276,6 +281,11 @@ pub(super) fn inspect_integrations(
     }
     let records = registry.list().map_err(|error| error.to_string())?;
     Ok((report.integrations, records))
+}
+
+/// App 内唯一的安装器构造点：开启 Hermes 插件同步启用，否则 Hermes 状态灯不会亮。
+pub(super) fn app_installer(paths: InstallPaths) -> OrchestrationInstaller {
+    OrchestrationInstaller::new(paths, env!("CARGO_PKG_VERSION")).with_hermes_activation()
 }
 
 type OrchestrationOperationResult = (
@@ -292,7 +302,7 @@ fn perform_operation(
     let paths = InstallPaths::for_current_process().map_err(|error| error.to_string())?;
     let store = storage::OrchestrationAuthorizationStore::new(database_path);
     let mut registry = StorageAuthorizationRegistry::new(store);
-    let installer = OrchestrationInstaller::new(paths, env!("CARGO_PKG_VERSION"));
+    let installer = app_installer(paths);
     let operation_error = match operation {
         OrchestrationOperation::InstallOrRepair => installer
             .install_or_repair(provider, &mut registry)

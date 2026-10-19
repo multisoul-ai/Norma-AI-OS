@@ -35,6 +35,12 @@ fn agent_command_creates_without_position_step() {
     assert!(
         agents
             .iter()
+            .any(|s| s.command == Some(DockCommand::Agent(AgentProfile::InfCode))),
+        "分类必须包含 InfCode"
+    );
+    assert!(
+        agents
+            .iter()
             .any(|s| s.command == Some(DockCommand::Agent(AgentProfile::Grok))),
         "分类必须包含 Grok"
     );

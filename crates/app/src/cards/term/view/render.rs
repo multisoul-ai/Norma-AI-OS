@@ -27,6 +27,7 @@ pub(crate) fn render_terminal_node(
         reduce_motion,
         initialization,
         cursor_phase,
+        path_scope,
     } = options;
     let content_mode = terminal_content_mode(initialization);
     let content_opacity = content_mode.content_opacity();
@@ -53,6 +54,7 @@ pub(crate) fn render_terminal_node(
                     metrics: terminal_render_metrics(zoom),
                     selection,
                     cursor_animation,
+                    path_scope,
                 });
                 let mut terminal = div()
                     .flex()

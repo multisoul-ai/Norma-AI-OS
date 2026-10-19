@@ -10,6 +10,15 @@ impl MultisoulApp {
         match command {
             ShortcutCommandId::FocusCommandInput => self.focus_command_input(window, cx),
             ShortcutCommandId::SavePreviewFile => {
+                if self
+                    .desktop_workspace
+                    .content_tabs
+                    .iter()
+                    .any(|t| t.selected && t.kind == storage::DesktopContentKind::ProjectFiles)
+                {
+                    self.save_workbench_file(cx);
+                    return;
+                }
                 if let Some(node_id) = current_selection_node_id(&self.runtime) {
                     self.save_preview_edit(node_id, cx);
                 }
@@ -54,8 +63,23 @@ impl MultisoulApp {
             ShortcutCommandId::NewOpenCodeAgent => {
                 self.on_new_opencode_agent(&crate::app::NewOpenCodeAgent, window, cx)
             }
+            ShortcutCommandId::NewInfCodeAgent => {
+                self.on_new_infcode_agent(&crate::app::NewInfCodeAgent, window, cx)
+            }
             ShortcutCommandId::NewGrokAgent => {
                 self.on_new_grok_agent(&crate::app::NewGrokAgent, window, cx)
+            }
+            ShortcutCommandId::NewKimiAgent => {
+                self.on_new_kimi_agent(&crate::app::NewKimiAgent, window, cx)
+            }
+            ShortcutCommandId::NewZCodeAgent => {
+                self.on_new_zcode_agent(&crate::app::NewZCodeAgent, window, cx)
+            }
+            ShortcutCommandId::NewPiAgent => {
+                self.on_new_pi_agent(&crate::app::NewPiAgent, window, cx)
+            }
+            ShortcutCommandId::NewHermesAgent => {
+                self.on_new_hermes_agent(&crate::app::NewHermesAgent, window, cx)
             }
             ShortcutCommandId::DeleteCard => self.on_delete_card_shortcut(window, cx),
             ShortcutCommandId::ReflowLayout => {

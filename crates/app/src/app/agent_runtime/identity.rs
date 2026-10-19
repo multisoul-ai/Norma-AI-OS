@@ -82,6 +82,11 @@ pub(super) fn norma_agent_profile(profile: canvas::AgentProfile) -> norma::proto
         canvas::AgentProfile::Cursor => norma::protocol::AgentProfile::Cursor,
         canvas::AgentProfile::Grok => norma::protocol::AgentProfile::Grok,
         canvas::AgentProfile::OpenCode => norma::protocol::AgentProfile::OpenCode,
+        canvas::AgentProfile::InfCode => norma::protocol::AgentProfile::InfCode,
+        canvas::AgentProfile::Kimi => norma::protocol::AgentProfile::Kimi,
+        canvas::AgentProfile::ZCode => norma::protocol::AgentProfile::ZCode,
+        canvas::AgentProfile::Pi => norma::protocol::AgentProfile::Pi,
+        canvas::AgentProfile::Hermes => norma::protocol::AgentProfile::Hermes,
     }
 }
 

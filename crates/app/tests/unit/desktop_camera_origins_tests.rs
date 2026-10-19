@@ -104,9 +104,13 @@ fn desktop_camera_origins_use_real_layout_without_prior_bounds() {
             .as_ref()
             .expect("应有项目展开动画")
             .rect();
+        let drawer_layout = app.desktop_assistant_layout(window);
+        let mut local_bounds = canvas_rect_from_bounds(project_bounds);
+        let scale = window.scale_factor();
+        local_bounds.origin.x -= (drawer_layout.left_space * scale).round() / scale;
         let expected = super::super::preview_canvas::project_canvas_rect(
-            canvas_rect_from_bounds(project_bounds),
-            desktop_scene_rect(1280.0, 800.0).size,
+            local_bounds,
+            desktop_scene_rect(drawer_layout.canvas_width, 800.0).size,
             1.0,
         );
         assert_drawn_origin(source, expected, window);
@@ -124,8 +128,16 @@ fn desktop_camera_origins_use_real_layout_without_prior_bounds() {
         for _ in 0..200 {
             transition.tick(Duration::from_millis(16));
         }
+        let scale = window.scale_factor();
+        let snap = |value: f32| (value * scale).round() / scale;
+        // The fallback applies the same backing-pixel rounding as the drawn slot.
         let expected = super::super::preview_canvas::project_canvas_rect(
-            CanvasRect::new(308.0, 311.125, 268.0, 150.75),
+            CanvasRect::new(
+                snap(308.0),
+                snap(311.125),
+                snap(576.0) - snap(308.0),
+                snap(461.875) - snap(311.125),
+            ),
             desktop_scene_rect(600.0, 800.0).size,
             1.0,
         );

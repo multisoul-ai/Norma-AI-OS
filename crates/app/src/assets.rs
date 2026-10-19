@@ -4,6 +4,8 @@ use anyhow::Result;
 use gpui::{AssetSource, SharedString};
 use std::borrow::Cow;
 
+mod orb_frames;
+
 pub const APP_ICON_ASSET: &str = "icons/app-icon.png";
 pub const APP_LOGO_ASSET: &str = "icons/logo.png";
 pub const HOME_BACKGROUND_ASSET: &str = "home/earth-horizon.png";
@@ -20,6 +22,11 @@ pub const TOOLBAR_CODEX_ASSET: &str = "icons/toolbar-codex.svg";
 pub const TOOLBAR_CURSOR_ASSET: &str = "icons/toolbar-cursor.svg";
 pub const TOOLBAR_GROK_ASSET: &str = "icons/toolbar-grok.svg";
 pub const TOOLBAR_OPENCODE_ASSET: &str = "icons/toolbar-opencode.svg";
+pub const TOOLBAR_INFCODE_ASSET: &str = "icons/toolbar-infcode.svg";
+pub const TOOLBAR_KIMI_ASSET: &str = "icons/toolbar-kimi.svg";
+pub const TOOLBAR_ZCODE_ASSET: &str = "icons/toolbar-zcode.svg";
+pub const TOOLBAR_PI_ASSET: &str = "icons/toolbar-pi.svg";
+pub const TOOLBAR_HERMES_ASSET: &str = "icons/toolbar-hermes.svg";
 pub const TOOLBAR_PREVIEW_ASSET: &str = "icons/toolbar-preview.svg";
 pub const TOOLBAR_SETTINGS_ASSET: &str = "icons/toolbar-settings.svg";
 pub const TOOLBAR_WORKSPACES_ASSET: &str = "icons/toolbar-workspaces.svg";
@@ -33,7 +40,6 @@ pub const SETTINGS_CHECK_UPDATES_ASSET: &str = "icons/settings-check-updates.svg
 const APP_ICON_BYTES: &[u8] = include_bytes!("../assets/icons/app-icon.png");
 const APP_LOGO_BYTES: &[u8] = include_bytes!("../assets/icons/logo.png");
 const HOME_BACKGROUND_BYTES: &[u8] = include_bytes!("../assets/home/earth-horizon.png");
-
 const TOOLBAR_SCROLL_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-scroll.svg");
 const TOOLBAR_LAYOUT_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-layout.svg");
 const TOOLBAR_PLUS_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-plus.svg");
@@ -44,6 +50,11 @@ const TOOLBAR_CODEX_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-codex
 const TOOLBAR_CURSOR_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-cursor.svg");
 const TOOLBAR_GROK_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-grok.svg");
 const TOOLBAR_OPENCODE_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-opencode.svg");
+const TOOLBAR_INFCODE_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-infcode.svg");
+const TOOLBAR_KIMI_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-kimi.svg");
+const TOOLBAR_ZCODE_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-zcode.svg");
+const TOOLBAR_PI_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-pi.svg");
+const TOOLBAR_HERMES_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-hermes.svg");
 const TOOLBAR_PREVIEW_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-preview.svg");
 const TOOLBAR_SETTINGS_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-settings.svg");
 const TOOLBAR_WORKSPACES_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-workspaces.svg");
@@ -61,7 +72,31 @@ const SETTINGS_CHECK_UPDATES_BYTES: &[u8] =
 pub struct EmbeddedAssets;
 impl AssetSource for EmbeddedAssets {
     fn load(&self, path: &str) -> Result<Option<Cow<'static, [u8]>>> {
+        if let Some(frame) = orb_frames::frame(path) {
+            return Ok(Some(Cow::Borrowed(frame)));
+        }
         match path {
+            "icons/file-document.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/file-document.svg"
+            )))),
+            "icons/microphone.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/microphone.svg"
+            )))),
+            "icons/activity.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/activity.svg"
+            )))),
+            "icons/panel-left-close.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/panel-left-close.svg"
+            )))),
+            "icons/panel-left-open.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/panel-left-open.svg"
+            )))),
+            "icons/panel-right-close.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/panel-right-close.svg"
+            )))),
+            "icons/panel-right-open.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/panel-right-open.svg"
+            )))),
             "icons/folder.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
                 "../assets/icons/folder.svg"
             )))),
@@ -124,6 +159,11 @@ impl AssetSource for EmbeddedAssets {
             TOOLBAR_CURSOR_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_CURSOR_BYTES))),
             TOOLBAR_GROK_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_GROK_BYTES))),
             TOOLBAR_OPENCODE_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_OPENCODE_BYTES))),
+            TOOLBAR_INFCODE_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_INFCODE_BYTES))),
+            TOOLBAR_KIMI_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_KIMI_BYTES))),
+            TOOLBAR_ZCODE_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_ZCODE_BYTES))),
+            TOOLBAR_PI_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_PI_BYTES))),
+            TOOLBAR_HERMES_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_HERMES_BYTES))),
             TOOLBAR_PREVIEW_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_PREVIEW_BYTES))),
             TOOLBAR_SETTINGS_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_SETTINGS_BYTES))),
             TOOLBAR_WORKSPACES_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_WORKSPACES_BYTES))),
@@ -151,45 +191,64 @@ impl AssetSource for EmbeddedAssets {
                 SharedString::from("home"),
             ]),
             "home" => Ok(vec![SharedString::from("earth-horizon.png")]),
-            "icons" => Ok(vec![
-                SharedString::from("chevron-down.svg"),
-                SharedString::from("chevron-up.svg"),
-                SharedString::from("check.svg"),
-                SharedString::from("folder.svg"),
-                SharedString::from("command-workspace.svg"),
-                SharedString::from("settings-nav-mobile.svg"),
-                SharedString::from("bell.svg"),
-                SharedString::from("circle-x.svg"),
-                SharedString::from("delete.svg"),
-                SharedString::from("eye.svg"),
-                SharedString::from("settings-2.svg"),
-                SharedString::from("copy.svg"),
-                SharedString::from("triangle-alert.svg"),
-                SharedString::from("app-icon.png"),
-                SharedString::from("logo.png"),
-                SharedString::from("toolbar-scroll.svg"),
-                SharedString::from("toolbar-layout.svg"),
-                SharedString::from("toolbar-plus.svg"),
-                SharedString::from("toolbar-terminal.svg"),
-                SharedString::from("toolbar-browser.svg"),
-                SharedString::from("toolbar-claude.svg"),
-                SharedString::from("toolbar-codex.svg"),
-                SharedString::from("toolbar-cursor.svg"),
-                SharedString::from("toolbar-grok.svg"),
-                SharedString::from("toolbar-opencode.svg"),
-                SharedString::from("toolbar-preview.svg"),
-                SharedString::from("toolbar-settings.svg"),
-                SharedString::from("toolbar-workspaces.svg"),
-                SharedString::from("settings-nav-themes.svg"),
-                SharedString::from("settings-nav-wallpaper.svg"),
-                SharedString::from("settings-nav-keyboard.svg"),
-                SharedString::from("settings-nav-voice.svg"),
-                SharedString::from("settings-nav-memory.svg"),
-                SharedString::from("settings-nav-persona.svg"),
-                SharedString::from("settings-nav-agents.svg"),
-                SharedString::from("settings-nav-hooks.svg"),
-                SharedString::from("settings-check-updates.svg"),
-            ]),
+            "icons" => {
+                let mut icons = vec![
+                    SharedString::from("file-document.svg"),
+                    SharedString::from("microphone.svg"),
+                    SharedString::from("chevron-down.svg"),
+                    SharedString::from("chevron-up.svg"),
+                    SharedString::from("check.svg"),
+                    SharedString::from("folder.svg"),
+                    SharedString::from("command-workspace.svg"),
+                    SharedString::from("settings-nav-mobile.svg"),
+                    SharedString::from("bell.svg"),
+                    SharedString::from("circle-x.svg"),
+                    SharedString::from("delete.svg"),
+                    SharedString::from("eye.svg"),
+                    SharedString::from("settings-2.svg"),
+                    SharedString::from("copy.svg"),
+                    SharedString::from("triangle-alert.svg"),
+                    SharedString::from("app-icon.png"),
+                    SharedString::from("logo.png"),
+                    SharedString::from("toolbar-scroll.svg"),
+                    SharedString::from("toolbar-layout.svg"),
+                    SharedString::from("toolbar-plus.svg"),
+                    SharedString::from("toolbar-terminal.svg"),
+                    SharedString::from("toolbar-browser.svg"),
+                    SharedString::from("toolbar-claude.svg"),
+                    SharedString::from("toolbar-codex.svg"),
+                    SharedString::from("toolbar-cursor.svg"),
+                    SharedString::from("toolbar-grok.svg"),
+                    SharedString::from("toolbar-opencode.svg"),
+                    SharedString::from("toolbar-infcode.svg"),
+                    SharedString::from("toolbar-kimi.svg"),
+                    SharedString::from("toolbar-zcode.svg"),
+                    SharedString::from("toolbar-pi.svg"),
+                    SharedString::from("toolbar-hermes.svg"),
+                    SharedString::from("toolbar-preview.svg"),
+                    SharedString::from("toolbar-settings.svg"),
+                    SharedString::from("toolbar-workspaces.svg"),
+                    SharedString::from("settings-nav-themes.svg"),
+                    SharedString::from("settings-nav-wallpaper.svg"),
+                    SharedString::from("settings-nav-keyboard.svg"),
+                    SharedString::from("settings-nav-voice.svg"),
+                    SharedString::from("settings-nav-memory.svg"),
+                    SharedString::from("settings-nav-persona.svg"),
+                    SharedString::from("settings-nav-agents.svg"),
+                    SharedString::from("settings-nav-hooks.svg"),
+                    SharedString::from("settings-check-updates.svg"),
+                ];
+                icons.extend(
+                    (0..orb_frames::FRAME_COUNT)
+                        .map(|index| SharedString::from(format!("norma-orb-{index:02}.png"))),
+                );
+                icons.extend(
+                    (0..orb_frames::FRAME_COUNT).map(|index| {
+                        SharedString::from(format!("norma-orb-active-{index:02}.png"))
+                    }),
+                );
+                Ok(icons)
+            }
             _ => Ok(vec![]),
         }
     }
@@ -358,6 +417,10 @@ mod tests {
             TOOLBAR_CURSOR_ASSET,
             TOOLBAR_GROK_ASSET,
             TOOLBAR_OPENCODE_ASSET,
+            TOOLBAR_KIMI_ASSET,
+            TOOLBAR_ZCODE_ASSET,
+            TOOLBAR_PI_ASSET,
+            TOOLBAR_HERMES_ASSET,
             TOOLBAR_PREVIEW_ASSET,
             TOOLBAR_SETTINGS_ASSET,
             TOOLBAR_WORKSPACES_ASSET,

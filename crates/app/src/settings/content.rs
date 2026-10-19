@@ -119,9 +119,12 @@ pub(super) fn settings_content(
                 .pt(px(SECTION_GAP))
                 .pb(px(padding))
                 .child(match panel.active_section {
-                    SettingsSection::General => {
-                        crate::settings::general::general_settings(theme, cx)
-                    }
+                    SettingsSection::General => div()
+                        .flex()
+                        .flex_col()
+                        .gap(px(SECTION_GAP))
+                        .child(crate::settings::general::general_settings(theme, cx))
+                        .child(performance_settings(theme, performance, cx)),
                     SettingsSection::Themes => {
                         theme_appearance(theme_id, theme, width - padding * 2.0, cx)
                     }
@@ -160,7 +163,6 @@ pub(super) fn settings_content(
                         width - padding * 2.0,
                         cx,
                     ),
-                    SettingsSection::Performance => performance_settings(theme, performance, cx),
                     SettingsSection::Mobile => {
                         crate::settings::mobile::settings(theme, &mobile, cx)
                     }
@@ -297,10 +299,6 @@ fn content_subtitle(section: SettingsSection, voice_shortcut_label: &str) -> Str
         )
         .to_string(),
         SettingsSection::Wallpaper => String::new(),
-        SettingsSection::Performance => {
-            ui::i18n::text("settings.balance_animation_responsiveness_and_idle_energy_use")
-                .to_string()
-        }
     }
 }
 

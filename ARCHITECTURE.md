@@ -383,7 +383,8 @@ child.kill() + child.wait()
 | 操作 | 当前行为 |
 |------|----------|
 | `Cmd+1` | 新建 Terminal 节点，并按当前布局重排全部节点 |
-| `Cmd+2`～`Cmd+5` | 依次新建 Claude、Codex、Cursor、OpenCode Agent 节点，并按当前布局重排全部节点 |
+| `Cmd+2`～`Cmd+6` | 依次新建 Claude、Codex、Cursor、OpenCode、Grok Agent 节点，并按当前布局重排全部节点 |
+| `Cmd+7`～`Cmd+9` | 依次新建 Kimi、Pi、Hermes Agent 节点；ZCode 默认不绑定快捷键，可在 Settings 中分配 |
 | 单击节点 | 选中节点并退出终端聚焦 |
 | 单击空白 | 清空选择并退出终端聚焦 |
 | 双击 Terminal | 聚焦该终端，后续按键写入 PTY |

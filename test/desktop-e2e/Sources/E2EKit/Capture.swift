@@ -20,6 +20,7 @@ public struct Frame {
     public let windowID: CGWindowID
     public let windowFrame: CGRect
     public let image: CGImage
+    public let pngData: Data
     public let texts: [VisibleText]
 
     public var summary: String {
@@ -54,42 +55,91 @@ public struct Frame {
     }
 }
 
+/// A window may briefly stop producing a CGImage while macOS changes focus or redraws it.
+/// A missing frame is retried; errors such as a vanished app still propagate immediately.
+func retryCapture<T>(
+    attempts: Int = 3,
+    intervalNanoseconds: UInt64 = 120_000_000,
+    operation: () async throws -> T?
+) async throws -> T? {
+    for attempt in 0..<attempts {
+        if let result = try await operation() { return result }
+        if attempt + 1 < attempts {
+            try await Task.sleep(nanoseconds: intervalNanoseconds)
+        }
+    }
+    return nil
+}
+
+/// Recover from Vision's occasional compute model failure without turning it into a product verdict.
+func recoverVisionRecognition<T>(
+    accurate: () throws -> T,
+    fast: () throws -> T
+) throws -> T {
+    do {
+        return try accurate()
+    } catch let accurateError {
+        do {
+            return try fast()
+        } catch let fastError {
+            throw E2EError.env("macOS Vision 文字识别不可用；精确模式：\(accurateError)；快速模式：\(fastError)")
+        }
+    }
+}
+
+private func recognizeText(_ image: CGImage, level: VNRequestTextRecognitionLevel) throws -> [VNRecognizedTextObservation] {
+    let request = VNRecognizeTextRequest()
+    request.recognitionLevel = level
+    request.recognitionLanguages = ["zh-Hans", "en-US"]
+    request.usesLanguageCorrection = false
+    try VNImageRequestHandler(cgImage: image).perform([request])
+    return request.results ?? []
+}
+
 extension Session {
     public func capture() async throws -> Frame {
         try ensureRunning()
         try ensureCaptureEnvironment()
-        let window = try await currentWindow()
-        let png = FileManager.default.temporaryDirectory.appendingPathComponent("norma-e2e-\(UUID().uuidString).png")
-        defer { try? FileManager.default.removeItem(at: png) }
-        let shot = Process()
-        shot.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-        shot.arguments = ["-x", "-o", "-l", String(window.id), png.path]
-        try shot.run()
-        shot.waitUntilExit()
-        guard shot.terminationStatus == 0,
-              let source = CGImageSourceCreateWithURL(png as CFURL, nil),
-              let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
-            try ensureCaptureEnvironment()
-            // A restarted app can publish its window before the first image is available.
-            // The caller retries with a fresh window; missing permissions still stop immediately.
-            throw E2EError.product("窗口\(window.id)图像尚不可用；截图权限有效，等待新窗口就绪")
+        var lastEmptyFrame: Frame?
+        let captured = try await retryCapture { () async throws -> Frame? in
+            let window = try await currentWindow()
+            let png = FileManager.default.temporaryDirectory.appendingPathComponent("norma-e2e-\(UUID().uuidString).png")
+            defer { try? FileManager.default.removeItem(at: png) }
+            let shot = Process()
+            shot.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+            shot.arguments = ["-x", "-o", "-l", String(window.id), png.path]
+            try shot.run()
+            shot.waitUntilExit()
+            guard shot.terminationStatus == 0,
+                  let source = CGImageSourceCreateWithURL(png as CFURL, nil),
+                  let image = CGImageSourceCreateImageAtIndex(source, 0, nil),
+                  let pngData = try? Data(contentsOf: png) else {
+                return nil
+            }
+            let observations = try recoverVisionRecognition(
+                accurate: { try recognizeText(image, level: .accurate) },
+                fast: { try recognizeText(image, level: .fast) }
+            )
+            let texts = observations.compactMap { item -> VisibleText? in
+                guard let value = item.topCandidates(1).first?.string else { return nil }
+                let box = item.boundingBox
+                return VisibleText(value: value, rect: CGRect(
+                    x: box.minX * window.frame.width,
+                    y: (1 - box.maxY) * window.frame.height,
+                    width: box.width * window.frame.width,
+                    height: box.height * window.frame.height
+                ))
+            }
+            let frame = Frame(windowID: window.id, windowFrame: window.frame, image: image, pngData: pngData, texts: texts)
+            if texts.isEmpty {
+                lastEmptyFrame = frame
+                return nil
+            }
+            return frame
         }
-        let request = VNRecognizeTextRequest()
-        request.recognitionLevel = .accurate
-        request.recognitionLanguages = ["zh-Hans", "en-US"]
-        request.usesLanguageCorrection = false
-        try VNImageRequestHandler(cgImage: image).perform([request])
-        let texts = (request.results ?? []).compactMap { item -> VisibleText? in
-            guard let value = item.topCandidates(1).first?.string else { return nil }
-            let box = item.boundingBox
-            return VisibleText(value: value, rect: CGRect(
-                x: box.minX * window.frame.width,
-                y: (1 - box.maxY) * window.frame.height,
-                width: box.width * window.frame.width,
-                height: box.height * window.frame.height
-            ))
-        }
-        return Frame(windowID: window.id, windowFrame: window.frame, image: image, texts: texts)
+        if let captured { return captured }
+        if let lastEmptyFrame { return lastEmptyFrame }
+        throw E2EError.env("screencapture 连续 3 次截取窗口失败。请检查 Norma Desktop E2E 的屏幕录制授权和窗口可见性。")
     }
 
     private func ensureCaptureEnvironment() throws {
@@ -117,11 +167,7 @@ extension Session {
 
     public func save(_ frame: Frame, _ name: String) throws {
         guard let output else { throw E2EError.env("运行目录尚未建立") }
-        let image = NSBitmapImageRep(cgImage: frame.image)
-        guard let data = image.representation(using: .png, properties: [:]) else {
-            throw E2EError.product("无法编码截图 \(name)")
-        }
-        try data.write(to: output.appendingPathComponent(name))
+        try frame.pngData.write(to: output.appendingPathComponent(name))
         screenshotNames.append(name)
         print("截图 \(name)：\(frame.summary)")
     }

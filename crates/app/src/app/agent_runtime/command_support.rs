@@ -137,5 +137,10 @@ pub(super) fn canvas_agent_profile(profile: norma::protocol::AgentProfile) -> ca
         norma::protocol::AgentProfile::Cursor => canvas::AgentProfile::Cursor,
         norma::protocol::AgentProfile::Grok => canvas::AgentProfile::Grok,
         norma::protocol::AgentProfile::OpenCode => canvas::AgentProfile::OpenCode,
+        norma::protocol::AgentProfile::InfCode => canvas::AgentProfile::InfCode,
+        norma::protocol::AgentProfile::Kimi => canvas::AgentProfile::Kimi,
+        norma::protocol::AgentProfile::ZCode => canvas::AgentProfile::ZCode,
+        norma::protocol::AgentProfile::Pi => canvas::AgentProfile::Pi,
+        norma::protocol::AgentProfile::Hermes => canvas::AgentProfile::Hermes,
     }
 }

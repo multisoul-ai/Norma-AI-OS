@@ -1,7 +1,7 @@
 //! GPUI terminal renderer: resolves neutral terminal snapshot styles into painted runs.
 
+use crate::canvas::terminal_path_cache::{kick_path_checks, TerminalPathScope};
 use crate::canvas::text_selection::{SelectionSpan, TextRange};
-use crate::cards::term::selection::terminal_selection_spans;
 use canvas::NodeId;
 use gpui::{
     canvas, point, prelude::*, px, quad, transparent_black, App, Bounds, Edges, Hsla, IntoElement,
@@ -11,15 +11,21 @@ use std::sync::Arc;
 use terminal::{Cell, GridSnapshot, TerminalColor, TerminalNamedColor};
 use ui::Theme;
 
-use self::cursor_paint::{cursor_paint_model, cursor_text_run, paint_cursor};
+use self::cursor_paint::{cursor_paint_model, paint_cursor};
+#[cfg(test)]
+use self::layout_build::{build_layout, build_layout_with_selection};
+use self::path_dashes::{paint_dash_span, TerminalDashSpan};
 use self::prepared::{prepare_terminal_frame, PreparedTerminalTextRun};
 use super::cursor::TerminalCursorAnimation;
 use super::paint_style::{
     resolve_cell_style, TerminalGlassStyle, TerminalPalette, TerminalTextStyle,
 };
+use super::path_underline::LinkMark;
 use super::render_cache::{TerminalRenderCacheHandle, TerminalRenderKey};
 
 mod cursor_paint;
+mod layout_build;
+mod path_dashes;
 mod prepared;
 pub(crate) use prepared::PreparedTerminalFrame;
 
@@ -39,6 +45,7 @@ pub struct TerminalCanvasOptions {
     pub metrics: TerminalRenderMetrics,
     pub selection: Option<TextRange>,
     pub cursor_animation: TerminalCursorAnimation,
+    pub path_scope: Option<TerminalPathScope>,
 }
 
 pub fn render_terminal_canvas(options: TerminalCanvasOptions) -> impl IntoElement {
@@ -51,15 +58,35 @@ pub fn render_terminal_canvas(options: TerminalCanvasOptions) -> impl IntoElemen
         metrics,
         selection,
         cursor_animation,
+        path_scope,
     } = options;
     let palette = TerminalPalette::from_theme(theme);
     let glass_style = TerminalGlassStyle::from_theme(theme);
-    let key = TerminalRenderKey::new(node_id, revision, metrics, theme, selection);
+    let path_version = path_scope
+        .as_ref()
+        .map_or(0, |scope| scope.cache.borrow().version());
+    let key = TerminalRenderKey::new(node_id, revision, metrics, theme, selection)
+        .with_path_version(path_version);
     canvas(
-        move |_bounds, window, _cx| {
+        move |_bounds, window, cx| {
             let (prepared, _outcome) = cache.borrow_mut().resolve(key, || {
-                prepare_terminal_frame(&snapshot, palette, metrics, glass_style, selection, window)
+                let marks = path_scope
+                    .as_ref()
+                    .map(|scope| scope.marks_for(&snapshot))
+                    .unwrap_or_default();
+                prepare_terminal_frame(
+                    &snapshot,
+                    palette,
+                    metrics,
+                    glass_style,
+                    selection,
+                    &marks,
+                    window,
+                )
             });
+            if let Some(scope) = &path_scope {
+                kick_path_checks(&scope.cache, cx);
+            }
             prepared
         },
         move |bounds, prepared, window, cx| {
@@ -105,66 +132,19 @@ struct TerminalLayout {
     default_bg: Hsla,
     default_bg_fill: Option<Hsla>,
     glass_style: TerminalGlassStyle,
-}
-
-fn build_layout(
-    snapshot: &GridSnapshot,
-    palette: TerminalPalette,
-    metrics: TerminalRenderMetrics,
-    glass_style: TerminalGlassStyle,
-) -> TerminalLayout {
-    let mut backgrounds = Vec::new();
-    let mut text_runs = Vec::new();
-
-    for (row_index, row) in snapshot.rows.iter().enumerate() {
-        let link_columns = snapshot.link_columns_for_row(row_index);
-        let row_layout = layout_row_with_links(row_index, row, palette, |col| {
-            link_columns.get(col).copied().unwrap_or(false)
-        });
-        backgrounds.extend(row_layout.backgrounds);
-        text_runs.extend(row_layout.text_runs);
-    }
-
-    TerminalLayout {
-        backgrounds,
-        text_runs,
-        cursor_text_run: cursor_text_run(snapshot, palette),
-        cursor_line: snapshot.cursor_line,
-        cursor_col: snapshot.cursor_col,
-        cursor_visible: snapshot.display_offset == 0 && snapshot.show_cursor,
-        metrics,
-        selection_spans: Vec::new(),
-        default_bg: palette.resolve(TerminalColor::Named(TerminalNamedColor::Background)),
-        default_bg_fill: None,
-        glass_style,
-    }
-}
-
-fn build_layout_with_selection(
-    snapshot: &GridSnapshot,
-    palette: TerminalPalette,
-    metrics: TerminalRenderMetrics,
-    glass_style: TerminalGlassStyle,
-    selection: TextRange,
-) -> TerminalLayout {
-    let mut layout = build_layout(snapshot, palette, metrics, glass_style);
-    layout.selection_spans = terminal_selection_spans(snapshot, selection)
-        .into_iter()
-        .filter(|span| !span.is_empty())
-        .collect();
-    layout
+    path_dashes: Vec<TerminalDashSpan>,
 }
 
 #[cfg(test)]
 fn layout_row(row_index: usize, row: &[Cell], palette: TerminalPalette) -> TerminalRowLayout {
-    layout_row_with_links(row_index, row, palette, |_| false)
+    layout_row_with_links(row_index, row, palette, |_| None)
 }
 
 fn layout_row_with_links(
     row_index: usize,
     row: &[Cell],
     palette: TerminalPalette,
-    mut is_link_at: impl FnMut(usize) -> bool,
+    mut link_at: impl FnMut(usize) -> Option<LinkMark>,
 ) -> TerminalRowLayout {
     let mut layout = TerminalRowLayout::default();
     let mut current_bg: Option<TerminalBackgroundRect> = None;
@@ -187,10 +167,9 @@ fn layout_row_with_links(
             continue;
         }
 
-        let text_style = if is_link_at(col) {
-            terminal_link_text_style(style.text_style(), palette)
-        } else {
-            style.text_style()
+        let text_style = match link_at(col) {
+            Some(mark) => terminal_link_text_style(style.text_style(), palette, mark),
+            None => style.text_style(),
         };
         match current_text.as_mut() {
             Some(run) if run.style == text_style && run.end_col == col => {
@@ -227,9 +206,11 @@ fn layout_row_with_links(
 fn terminal_link_text_style(
     mut text_style: TerminalTextStyle,
     palette: TerminalPalette,
+    mark: LinkMark,
 ) -> TerminalTextStyle {
     text_style.fg = palette.resolve(TerminalColor::Named(TerminalNamedColor::Cyan));
-    text_style.underline = true;
+    // 虚线由 PathDashes 层单独画，文本自带下划线只用于实线。
+    text_style.underline = mark == LinkMark::Solid;
     text_style
 }
 
@@ -285,6 +266,7 @@ enum TerminalPaintLayer {
     ExplicitBackgrounds,
     SelectionHighlights,
     TextRuns,
+    PathDashes,
     Cursor,
     CursorText,
 }
@@ -345,6 +327,11 @@ fn paint_prepared_frame(
                     paint_prepared_text_run(bounds, run, metrics, window, cx);
                 }
             }
+            TerminalPaintLayer::PathDashes => {
+                for span in &layout.path_dashes {
+                    paint_dash_span(bounds, *span, metrics, window);
+                }
+            }
             TerminalPaintLayer::Cursor => {
                 paint_cursor(cursor_paint_model(bounds, layout, cursor_animation), window);
             }
@@ -380,6 +367,9 @@ fn paint_layer_order(layout: &TerminalLayout) -> Vec<TerminalPaintLayer> {
     }
     if !layout.text_runs.is_empty() {
         layers.push(TerminalPaintLayer::TextRuns);
+    }
+    if !layout.path_dashes.is_empty() {
+        layers.push(TerminalPaintLayer::PathDashes);
     }
     if layout.cursor_visible {
         layers.push(TerminalPaintLayer::Cursor);
@@ -468,3 +458,7 @@ mod geometry_tests;
 #[cfg(test)]
 #[path = "../../../tests/unit/cards/term/paint_link_tests.rs"]
 mod link_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/cards/term/paint_path_mark_tests.rs"]
+mod path_mark_tests;

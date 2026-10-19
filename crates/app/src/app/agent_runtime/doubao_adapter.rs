@@ -28,7 +28,7 @@ fn start_doubao_adapter_pump(
                         .runtime
                         .workspace_root()
                         .map(|root| root.display().to_string());
-                    if current_project.as_deref() != Some(project_id.as_str()) {
+                    if current_project.as_deref().unwrap_or_default() != project_id {
                         return Err(AdapterError::Rejected(
                             "当前项目已变更，豆包工具调用已拒绝".into(),
                         ));

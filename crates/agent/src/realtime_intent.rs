@@ -205,6 +205,38 @@ pub fn realtime_command_authorized(command: &AdapterCommand, input: &str) -> boo
         AdapterCommand::Memory(_)
         | AdapterCommand::WorkspaceMemory { .. }
         | AdapterCommand::FindAgentTasks { .. } => return false,
+        AdapterCommand::WorkspaceSnapshot { .. }
+        | AdapterCommand::AssignWorkspaceTask { .. }
+        | AdapterCommand::OpenWorkspaceArtifact { .. }
+        | AdapterCommand::LocateWorkspaceAgent { .. } => &[
+            "实现",
+            "修复",
+            "创建",
+            "新建",
+            "安排",
+            "执行",
+            "开始执行",
+            "继续执行",
+            "继续实现",
+            "继续修复",
+            "修改",
+            "调整",
+            "添加",
+            "测试",
+            "运行",
+            "打开",
+            "定位",
+            "重构",
+            "implement ",
+            "fix ",
+            "create ",
+            "build ",
+            "run ",
+            "open ",
+            "locate ",
+            "continue implementing ",
+            "continue fixing ",
+        ],
     };
     verbs.iter().any(|verb| {
         action.strip_prefix(verb).is_some_and(|target| {

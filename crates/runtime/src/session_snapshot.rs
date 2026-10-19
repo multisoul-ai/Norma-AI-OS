@@ -136,7 +136,14 @@ pub fn find_agent_session_id_for_profile(
         AgentProfile::Claude => find_agent_session_id(workspace_root),
         AgentProfile::Codex => find_codex_session_id(workspace_root),
         AgentProfile::Grok => find_grok_session_id(workspace_root),
-        AgentProfile::Cursor | AgentProfile::OpenCode => None,
+        // Pi 会话 ID 只来自 hook 缓存，不扫描 ~/.pi；Kimi/ZCode/Hermes 的会话发现待各自实测后接入，未验证前不猜目录结构。
+        AgentProfile::Cursor
+        | AgentProfile::OpenCode
+        | AgentProfile::InfCode
+        | AgentProfile::Kimi
+        | AgentProfile::ZCode
+        | AgentProfile::Pi
+        | AgentProfile::Hermes => None,
     }
 }
 
@@ -281,6 +288,36 @@ pub(crate) fn build_agent_resume_command(
                 shell_quote(session_id)
             )
         }
+        // InfCode 2.7.x 已验证：用 --session <id> 续接，不是 resume 子命令；
+        // `--yolo` 与新建卡片一致，保持本进程自动批准权限请求。
+        AgentProfile::InfCode => {
+            format!(
+                "exec \"${{INFCODE_BIN:-infcode}}\" --yolo --session {}",
+                shell_quote(session_id)
+            )
+        }
+        // Kimi Code 2.2.0 实测：`--session <ID>` 按 ID 续接；`--continue` 按目录取最近会话，会串卡片。
+        AgentProfile::Kimi => format!("exec kimi --session {}", shell_quote(session_id)),
+        // 已验证（docs/research/2026-10-18-zcode.md §12）：只用 --resume <id>，不用按目录取最近的 -c；
+        // ID 必须是 hook 给出的 `sess_<uuid>`，否则退化为普通启动，避免注入与失效 ID 延迟报错。
+        AgentProfile::ZCode if is_zcode_session_id(session_id) => {
+            crate::zcode_launch::zcode_launch_script(&format!(
+                "--resume {}",
+                shell_quote(session_id)
+            ))
+        }
+        AgentProfile::ZCode => crate::zcode_launch::zcode_launch_script(""),
+        // 已验证（docs/research/2026-10-18-pi-coding-agent.md §4）：--session-id 恢复完整历史；
+        // -r 总是弹选择器，-c 会串到最近会话，均不用于自动恢复。
+        AgentProfile::Pi => {
+            crate::pi_launch::pi_launch_script(&format!("--session-id {}", shell_quote(session_id)))
+        }
+        // 已实测：--resume <id> 续接且 session_id 不变；不用 -c（工作区作用域不可靠）。
+        AgentProfile::Hermes => crate::agent_install_hint::with_install_hint(
+            "hermes",
+            crate::agent_install_hint::HERMES_INSTALL_MESSAGE,
+            &format!("exec hermes --resume {}", shell_quote(session_id)),
+        ),
     };
     let mut cmd = PtyCommand::new(shell).args(["-lic", &cmd_str]);
     cmd = cmd.with_cwd(workspace_root);
@@ -336,6 +373,13 @@ fn codex_session_id_for_workspace(path: &Path, workspace_root: &Path) -> Option<
     None
 }
 
+/// ZCode 会话 ID 形如 `sess_` + 36 位 UUID 文本（十六进制与连字符）。
+fn is_zcode_session_id(value: &str) -> bool {
+    value.strip_prefix("sess_").is_some_and(|rest| {
+        rest.len() == 36 && rest.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-')
+    })
+}
+
 pub(crate) fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\\''"))
 }
@@ -347,3 +391,23 @@ mod tests;
 #[cfg(test)]
 #[path = "../tests/unit/session_snapshot_grok_tests.rs"]
 mod grok_tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/session_snapshot_kimi_tests.rs"]
+mod kimi_tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/session_snapshot_pi_tests.rs"]
+mod pi_tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/session_snapshot_hermes_tests.rs"]
+mod hermes_tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/session_snapshot_zcode_tests.rs"]
+mod zcode_tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/session_snapshot_infcode_tests.rs"]
+mod infcode_tests;

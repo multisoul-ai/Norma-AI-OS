@@ -1,5 +1,6 @@
 //! 终端卡片内容渲染 + 键盘翻译。grid 快照按等宽字体逐行绘制。
 
+use crate::canvas::terminal_path_cache::TerminalPathScope;
 use crate::canvas::text_selection::TextRange;
 use crate::cards::term::paint::TerminalRenderMetrics;
 use crate::cards::term::render_cache::TerminalRenderCacheHandle;
@@ -64,6 +65,7 @@ pub struct TerminalNodeRenderOptions {
     pub reduce_motion: bool,
     pub initialization: Option<InitializationPresentation>,
     pub cursor_phase: f32,
+    pub path_scope: Option<TerminalPathScope>,
 }
 
 pub fn terminal_render_metrics(zoom: f32) -> TerminalRenderMetrics {

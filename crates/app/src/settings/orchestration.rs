@@ -1,6 +1,6 @@
 use crate::settings::typography::{control_label, SettingsText, TextRole};
 mod status;
-use status::{component_error_detail, component_status, provider_description};
+use status::{component_error_detail, component_status, delegation_notice, provider_description};
 mod controller;
 pub(crate) mod health;
 mod tokens;
@@ -127,6 +127,15 @@ fn provider_row(
                         })
                         .child(provider.display_name()),
                 )
+                .when_some(delegation_notice(provider), |column, notice| {
+                    column.child(
+                        div()
+                            .truncate()
+                            .settings_font(TextRole::Helper)
+                            .text_color(rgba(warning_status_color()))
+                            .child(notice),
+                    )
+                })
                 .child(
                     div()
                         .truncate()
@@ -428,7 +437,12 @@ fn provider_index(provider: OrchestrationProvider) -> usize {
         OrchestrationProvider::Claude => 1,
         OrchestrationProvider::Cursor => 2,
         OrchestrationProvider::OpenCode => 3,
-        OrchestrationProvider::Grok => 4,
+        OrchestrationProvider::InfCode => 4,
+        OrchestrationProvider::Grok => 5,
+        OrchestrationProvider::Kimi => 6,
+        OrchestrationProvider::ZCode => 7,
+        OrchestrationProvider::Pi => 8,
+        OrchestrationProvider::Hermes => 9,
     }
 }
 
@@ -438,7 +452,12 @@ fn action_selector(provider: OrchestrationProvider) -> &'static str {
         OrchestrationProvider::Claude => "settings-orchestration-claude-action",
         OrchestrationProvider::Cursor => "settings-orchestration-cursor-action",
         OrchestrationProvider::OpenCode => "settings-orchestration-opencode-action",
+        OrchestrationProvider::InfCode => "settings-orchestration-infcode-action",
         OrchestrationProvider::Grok => "settings-orchestration-grok-action",
+        OrchestrationProvider::Kimi => "settings-orchestration-kimi-action",
+        OrchestrationProvider::ZCode => "settings-orchestration-zcode-action",
+        OrchestrationProvider::Pi => "settings-orchestration-pi-action",
+        OrchestrationProvider::Hermes => "settings-orchestration-hermes-action",
     }
 }
 
@@ -448,7 +467,12 @@ fn disclosure_selector(provider: OrchestrationProvider) -> &'static str {
         OrchestrationProvider::Claude => "settings-orchestration-claude-disclosure",
         OrchestrationProvider::Cursor => "settings-orchestration-cursor-disclosure",
         OrchestrationProvider::OpenCode => "settings-orchestration-opencode-disclosure",
+        OrchestrationProvider::InfCode => "settings-orchestration-infcode-disclosure",
         OrchestrationProvider::Grok => "settings-orchestration-grok-disclosure",
+        OrchestrationProvider::Kimi => "settings-orchestration-kimi-disclosure",
+        OrchestrationProvider::ZCode => "settings-orchestration-zcode-disclosure",
+        OrchestrationProvider::Pi => "settings-orchestration-pi-disclosure",
+        OrchestrationProvider::Hermes => "settings-orchestration-hermes-disclosure",
     }
 }
 
@@ -459,3 +483,7 @@ fn with_alpha(color: u32, alpha: u8) -> u32 {
 #[cfg(test)]
 #[path = "../../tests/unit/orchestration_settings_layout_tests.rs"]
 mod orchestration_settings_layout_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/orchestration_new_provider_tests.rs"]
+mod orchestration_new_provider_tests;

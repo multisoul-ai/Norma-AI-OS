@@ -1,6 +1,4 @@
 use crate::app::MultisoulApp;
-#[cfg(feature = "e2e-test-support")]
-use gpui::AppContext as _;
 use gpui::Entity;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -28,19 +26,23 @@ fn glass_button_variant(theme: ui::Theme, cx: &gpui::App) -> ButtonCustomVariant
 mod agent;
 mod agent_preview;
 mod area;
+mod artifacts;
 mod camera;
 mod camera_frames;
+mod context;
 mod controller;
 mod creation;
 mod dialogs;
 mod dialogs_other;
-#[cfg(feature = "e2e-test-support")]
 mod dispatch;
+mod drawers;
 mod home;
 mod home_card;
 mod launchpad;
 mod layout;
 mod management;
+mod snapshot;
+mod status;
 use management::DesktopRenameTarget;
 mod motion_log;
 mod navigation;
@@ -89,8 +91,50 @@ pub(crate) struct DesktopDispatchReceipt {
     pub(crate) submitted: bool,
 }
 
+#[derive(Clone)]
+pub(crate) struct DesktopArtifact {
+    pub(crate) area_id: String,
+    pub(crate) node_id: canvas::NodeId,
+    pub(crate) agent_profile: String,
+    pub(crate) turn_id: String,
+    pub(crate) path: PathBuf,
+    pub(crate) source_path: String,
+    pub(crate) version: String,
+    pub(crate) saved_at_unix: u64,
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+pub(crate) struct DesktopArtifactVersion {
+    pub(crate) node_id: canvas::NodeId,
+    pub(crate) fingerprint: String,
+    pub(crate) source_path: String,
+}
+
 pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) store: DesktopWorkspaceStore,
+    pub(crate) drawers: runtime::desktop_drawers::DesktopDrawerState,
+    pub(crate) left_open_before_project: Option<bool>,
+    pub(crate) drawer_motion: drawers::motion::DesktopAssistantDrawerMotion,
+    pub(crate) drawer_widths: drawers::resize::DesktopDrawerWidths,
+    pub(crate) drawer_resize: Option<drawers::resize::DesktopDrawerResizeSession>,
+    pub(crate) frosted_wallpaper: drawers::material::FrostedWallpaperState,
+    pub(crate) assistant_orb_phase: f32,
+    pub(crate) assistant_orb_energy: f32,
+    pub(crate) content_tabs: Vec<storage::DesktopContentTab>,
+    pub(crate) workbench: drawers::content::workbench::WorkbenchState,
+    pub(crate) content_browser: drawers::content::browser_toolbar::ContentBrowserState,
+    pub(crate) content_tab_task: Option<gpui::Task<()>>,
+    pub(crate) content_tab_generation: u64,
+    pub(crate) workspace_load_generation: u64,
+    pub(crate) content_previews: HashMap<String, Result<String, String>>,
+    pub(crate) content_snapshots: HashMap<String, tempfile::TempPath>,
+    pub(crate) content_resources: HashMap<String, crate::preview::local_content::LocalPreview>,
+    pub(crate) content_loading: HashSet<String>,
+    pub(crate) content_artifacts: Vec<DesktopArtifact>,
+    pub(crate) artifact_revision: u64,
+    pub(crate) artifact_refreshing: bool,
+    pub(crate) status_cache: HashMap<String, storage::DesktopAreaStatus>,
+    pub(crate) status_live_seen: HashSet<String>,
     pub(crate) workspaces: Vec<DesktopWorkspace>,
     pub(crate) previews: HashMap<String, Vec<DesktopAreaPreview>>,
     pub(crate) active_id: Option<String>,
@@ -139,6 +183,21 @@ pub(crate) struct DesktopWorkspaceUiState {
 }
 
 impl DesktopWorkspaceUiState {
+    pub(crate) fn advance_assistant_orb(
+        &mut self,
+        delta: std::time::Duration,
+        reduce_motion: bool,
+        mode: drawers::orb::OrbMode,
+    ) -> bool {
+        let next = drawers::orb::advance_orb_phase(self.assistant_orb_phase, delta, reduce_motion);
+        let energy =
+            drawers::orb::advance_orb_energy(self.assistant_orb_energy, mode, delta, reduce_motion);
+        let changed = next != self.assistant_orb_phase || energy != self.assistant_orb_energy;
+        self.assistant_orb_phase = next;
+        self.assistant_orb_energy = energy;
+        changed
+    }
+
     pub(crate) fn empty(store: DesktopWorkspaceStore) -> Self {
         Self::from_catalog(store, Vec::new(), None)
     }
@@ -165,6 +224,29 @@ impl DesktopWorkspaceUiState {
     ) -> Self {
         Self {
             store,
+            drawers: runtime::desktop_drawers::DesktopDrawerState::default(),
+            left_open_before_project: None,
+            drawer_motion: drawers::motion::DesktopAssistantDrawerMotion::default(),
+            drawer_widths: drawers::resize::DesktopDrawerWidths::default(),
+            drawer_resize: None,
+            frosted_wallpaper: drawers::material::FrostedWallpaperState::default(),
+            assistant_orb_phase: 0.0,
+            assistant_orb_energy: 0.1,
+            content_tabs: Vec::new(),
+            workbench: Default::default(),
+            content_browser: Default::default(),
+            content_tab_task: None,
+            content_tab_generation: 0,
+            workspace_load_generation: 0,
+            content_previews: HashMap::new(),
+            content_snapshots: HashMap::new(),
+            content_resources: HashMap::new(),
+            content_loading: HashSet::new(),
+            content_artifacts: Vec::new(),
+            artifact_revision: 0,
+            artifact_refreshing: false,
+            status_cache: HashMap::new(),
+            status_live_seen: HashSet::new(),
             workspaces,
             previews: HashMap::new(),
             active_id: None,
@@ -301,194 +383,10 @@ impl MultisoulApp {
 }
 
 #[cfg(feature = "e2e-test-support")]
-impl MultisoulApp {
-    pub fn desktop_wallpaper_render_key_for_e2e(&self) -> String {
-        self.wallpaper_settings.render_id_key()
-    }
-
-    pub fn desktop_set_catalog_path_for_e2e(&mut self, path: PathBuf) {
-        self.desktop_workspace.store = DesktopWorkspaceStore::new(path);
-    }
-
-    pub fn desktop_area_node_count_for_e2e(&self, cx: &gpui::App) -> Option<usize> {
-        let workspace_id = self.desktop_workspace.active_id.as_ref()?;
-        let area_id = self.desktop_workspace.expanded_area_id.as_ref()?;
-        let session = self
-            .desktop_workspace
-            .sessions
-            .get(&(workspace_id.clone(), area_id.clone()))?;
-        Some(session.read(cx).runtime.document.nodes().len())
-    }
-
-    pub fn desktop_loaded_area_count_for_e2e(&self) -> usize {
-        let Some(workspace_id) = self.desktop_workspace.active_id.as_ref() else {
-            return 0;
-        };
-        self.desktop_workspace
-            .sessions
-            .keys()
-            .filter(|(id, _)| id == workspace_id)
-            .count()
-    }
-
-    pub fn desktop_area_live_count_for_e2e(
-        &self,
-        workspace_id: &str,
-        area_id: &str,
-        cx: &gpui::App,
-    ) -> Option<usize> {
-        let session = self
-            .desktop_workspace
-            .sessions
-            .get(&(workspace_id.to_owned(), area_id.to_owned()))?;
-        Some(session.read(cx).runtime.live_len())
-    }
-
-    pub fn desktop_area_running_count_for_e2e(
-        &self,
-        workspace_id: &str,
-        area_id: &str,
-        cx: &gpui::App,
-    ) -> Option<usize> {
-        let session = self
-            .desktop_workspace
-            .sessions
-            .get(&(workspace_id.to_owned(), area_id.to_owned()))?;
-        Some(session.read(cx).runtime.running_terminal_count())
-    }
-
-    pub fn desktop_dispatch_statuses_for_e2e(&self, workspace_id: &str) -> Vec<String> {
-        self.desktop_workspace
-            .dispatch_receipts
-            .get(workspace_id)
-            .into_iter()
-            .flat_map(|receipts| receipts.iter().map(|receipt| receipt.status.clone()))
-            .collect()
-    }
-
-    /// Exercises the existing workspace dispatcher without showing a second message field.
-    pub fn desktop_send_command_for_e2e(
-        &mut self,
-        text: &str,
-        window: &mut gpui::Window,
-        cx: &mut gpui::Context<Self>,
-    ) {
-        let input = cx.new(|cx| InputState::new(window, cx));
-        input.update(cx, |input, cx| input.set_value(text.to_owned(), window, cx));
-        self.send_desktop_workspace_command(input, window, cx);
-    }
-
-    pub fn desktop_stop_area_runtime_for_e2e(
-        &mut self,
-        workspace_id: &str,
-        area_id: &str,
-        cx: &mut gpui::Context<Self>,
-    ) {
-        if let Some(session) = self
-            .desktop_workspace
-            .sessions
-            .get(&(workspace_id.to_owned(), area_id.to_owned()))
-        {
-            session.update(cx, |session, _| session.runtime.kill_all());
-        }
-    }
-
-    pub fn desktop_set_expanded_pty_factory_for_e2e(
-        &mut self,
-        factory: runtime::PtyFactory,
-        cx: &mut gpui::Context<Self>,
-    ) {
-        if let (Some(workspace_id), Some(area_id)) = (
-            self.desktop_workspace.active_id.as_ref(),
-            self.desktop_workspace.expanded_area_id.as_ref(),
-        ) {
-            if let Some(session) = self
-                .desktop_workspace
-                .sessions
-                .get(&(workspace_id.clone(), area_id.clone()))
-            {
-                session.update(cx, |session, _| session.runtime.set_pty_factory(factory));
-            }
-        }
-    }
-
-    pub fn desktop_set_area_pty_factory_for_e2e(
-        &mut self,
-        area_id: &str,
-        factory: runtime::PtyFactory,
-        cx: &mut gpui::Context<Self>,
-    ) {
-        let Some(workspace_id) = self.desktop_workspace.active_id.as_ref() else {
-            return;
-        };
-        if let Some(session) = self
-            .desktop_workspace
-            .sessions
-            .get(&(workspace_id.clone(), area_id.to_owned()))
-        {
-            session.update(cx, |session, _| session.runtime.set_pty_factory(factory));
-        }
-    }
-
-    pub fn desktop_expanded_agent_ids_for_e2e(&self, cx: &gpui::App) -> Vec<u64> {
-        let (Some(workspace_id), Some(area_id)) = (
-            self.desktop_workspace.active_id.as_ref(),
-            self.desktop_workspace.expanded_area_id.as_ref(),
-        ) else {
-            return Vec::new();
-        };
-        let Some(session) = self
-            .desktop_workspace
-            .sessions
-            .get(&(workspace_id.clone(), area_id.clone()))
-        else {
-            return Vec::new();
-        };
-        session
-            .read(cx)
-            .runtime
-            .document
-            .nodes()
-            .iter()
-            .filter_map(|node| {
-                matches!(node.kind, canvas::CanvasNodeKind::Agent(_)).then_some(node.id)
-            })
-            .collect()
-    }
-
-    pub fn desktop_agent_grid_text_for_e2e(
-        &self,
-        workspace_id: &str,
-        area_id: &str,
-        node_id: u64,
-        cx: &gpui::App,
-    ) -> Option<String> {
-        let session = self
-            .desktop_workspace
-            .sessions
-            .get(&(workspace_id.to_owned(), area_id.to_owned()))?;
-        let runtime::NodeView::Term { snapshot, .. } =
-            session.read(cx).runtime.node_view(node_id)?;
-        Some(
-            snapshot
-                .rows
-                .iter()
-                .map(|row| row.iter().map(|cell| cell.c).collect::<String>())
-                .collect::<Vec<_>>()
-                .join("\n"),
-        )
-    }
-
-    pub fn desktop_drain_area_outputs_for_e2e(&mut self, cx: &mut gpui::Context<Self>) {
-        for session in self.desktop_workspace.sessions.values() {
-            session.update(cx, |session, cx| {
-                session.runtime.drain_all();
-                cx.notify();
-            });
-        }
-    }
-}
+mod e2e;
 
 #[cfg(test)]
 #[path = "../../tests/unit/desktop_workspace_state_tests.rs"]
 mod tests;
+
+pub(crate) use drawers::content::workbench::PendingWorkbenchAction;

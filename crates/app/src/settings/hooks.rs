@@ -188,6 +188,11 @@ fn hook_install_success_message(
         HookTarget::Cursor => "Cursor Agent CLI",
         HookTarget::Grok => "Grok Build",
         HookTarget::OpenCode => "OpenCode",
+        HookTarget::InfCode => "InfCode",
+        HookTarget::Pi => "Pi",
+        HookTarget::Kimi => "Kimi",
+        HookTarget::Hermes => "Hermes",
+        HookTarget::ZCode => "ZCode",
         HookTarget::All => ui::i18n::text("settings.agent_providers"),
     };
     ui::i18n::message(

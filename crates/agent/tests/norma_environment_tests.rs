@@ -1,8 +1,50 @@
 use agent::{
-    norma_system_prompt, render_norma_environment, AgentRosterEntry, AgentTrackingMode,
-    CanvasCardContext, CanvasCardKind, CurrentCanvasContext,
+    norma_system_prompt, norma_system_prompt_base_with_desktop, render_norma_environment,
+    AgentRosterEntry, AgentTrackingMode, CanvasCardContext, CanvasCardKind, CurrentCanvasContext,
+    DesktopContext,
 };
 use norma::protocol::AgentProfile;
+
+/// ENV-DESKTOP-1：项目画布的 Norma 系统前言应含当前桌面工作空间和项目稳定身份。
+///
+/// 数据构造：一个已打开的工作空间 dw-42，当前可见项目 area-7；画布上下文的项目名刻意设为旧值。
+/// 执行过程：用桌面上下文构造本轮系统前言。
+/// 预期结果：前言呈现 dw-42 和 area-7，并且不把旧项目名当成当前项目。
+#[test]
+fn desktop_project_prompt_uses_visible_workspace_and_project_instead_of_stale_canvas_name() {
+    let canvas = CurrentCanvasContext {
+        project_name: "上次项目".into(),
+        workspace_root: "/old-project".into(),
+        total_cards: 0,
+        cards: Vec::new(),
+        conversation_tails: Vec::new(),
+    };
+    let desktop = DesktopContext::ProjectCanvas {
+        workspace_id: "dw-42".into(),
+        workspace_name: "产品研发".into(),
+        area_id: "area-7".into(),
+        project_name: "Norma OS".into(),
+    };
+
+    let prompt = norma_system_prompt_base_with_desktop(&canvas, &[], Some(&desktop));
+
+    assert!(
+        prompt.contains("当前桌面工作空间：产品研发（id=dw-42）"),
+        "系统前言应包含当前打开工作空间的名称和稳定 ID：{prompt}"
+    );
+    assert!(
+        prompt.contains("当前项目：Norma OS（area_id=area-7）"),
+        "系统前言应包含当前可见项目的名称和稳定 ID：{prompt}"
+    );
+    assert!(
+        !prompt.contains("当前项目：上次项目"),
+        "桌面上下文存在时不得沿用旧画布项目名：{prompt}"
+    );
+    assert!(
+        prompt.contains("workspace_snapshot") && prompt.contains("当前项目"),
+        "当前工作空间的进度应通过只读工具获取，不能只靠环境猜测：{prompt}"
+    );
+}
 
 /// ENV-POS-1：环境中的卡片必须携带独立于展示优先级的 1-based 画布位置。
 ///

@@ -21,6 +21,11 @@ pub enum ToolbarIcon {
     Cursor,
     Grok,
     OpenCode,
+    InfCode,
+    Kimi,
+    ZCode,
+    Pi,
+    Hermes,
     Preview,
     Settings,
     Workspaces,
@@ -40,6 +45,11 @@ impl ToolbarIcon {
             ToolbarIcon::Cursor => "icons/toolbar-cursor.svg",
             ToolbarIcon::Grok => "icons/toolbar-grok.svg",
             ToolbarIcon::OpenCode => "icons/toolbar-opencode.svg",
+            ToolbarIcon::InfCode => "icons/toolbar-infcode.svg",
+            ToolbarIcon::Kimi => "icons/toolbar-kimi.svg",
+            ToolbarIcon::ZCode => "icons/toolbar-zcode.svg",
+            ToolbarIcon::Pi => "icons/toolbar-pi.svg",
+            ToolbarIcon::Hermes => "icons/toolbar-hermes.svg",
             ToolbarIcon::Preview => "icons/toolbar-preview.svg",
             ToolbarIcon::Settings => "icons/toolbar-settings.svg",
             ToolbarIcon::Workspaces => "icons/toolbar-workspaces.svg",
@@ -85,7 +95,7 @@ mod tests {
     ///   1. 遍历 12 个变体，调用 `ToolbarIcon::asset_path(variant)` 取得 &str
     ///   2. 对每条路径检查前缀 "icons/toolbar-" 与后缀 ".svg"
     ///   3. 对每条路径与期望字面量做精确相等断言
-    ///   4. 将 12 条路径收集进 HashSet，断言去重后长度 == 12
+    ///   4. 将 12 条路径收集进 HashSet，断言去重后长度 == 17
     ///
     /// 预期结果：
     ///   - 正断言：每个变体的路径以 "icons/toolbar-" 开头
@@ -105,12 +115,17 @@ mod tests {
             ToolbarIcon::Cursor,
             ToolbarIcon::Grok,
             ToolbarIcon::OpenCode,
+            ToolbarIcon::InfCode,
+            ToolbarIcon::Kimi,
+            ToolbarIcon::ZCode,
+            ToolbarIcon::Pi,
+            ToolbarIcon::Hermes,
             ToolbarIcon::Preview,
             ToolbarIcon::Settings,
             ToolbarIcon::Workspaces,
         ];
-        // expected len = 12 个旧图标 + 1 个工作空间图标 = 13。
-        let expected: [(&ToolbarIcon, &str); 13] = [
+        // expected len = 12 个旧图标 + 1 个工作空间图标 + 5 个新增 Agent 图标 = 18。
+        let expected: [(&ToolbarIcon, &str); 18] = [
             (&ToolbarIcon::Layout, "icons/toolbar-layout.svg"),
             (&ToolbarIcon::Scroll, "icons/toolbar-scroll.svg"),
             (&ToolbarIcon::Plus, "icons/toolbar-plus.svg"),
@@ -121,6 +136,11 @@ mod tests {
             (&ToolbarIcon::Cursor, "icons/toolbar-cursor.svg"),
             (&ToolbarIcon::Grok, "icons/toolbar-grok.svg"),
             (&ToolbarIcon::OpenCode, "icons/toolbar-opencode.svg"),
+            (&ToolbarIcon::InfCode, "icons/toolbar-infcode.svg"),
+            (&ToolbarIcon::Kimi, "icons/toolbar-kimi.svg"),
+            (&ToolbarIcon::ZCode, "icons/toolbar-zcode.svg"),
+            (&ToolbarIcon::Pi, "icons/toolbar-pi.svg"),
+            (&ToolbarIcon::Hermes, "icons/toolbar-hermes.svg"),
             (&ToolbarIcon::Preview, "icons/toolbar-preview.svg"),
             (&ToolbarIcon::Settings, "icons/toolbar-settings.svg"),
             (&ToolbarIcon::Workspaces, "icons/toolbar-workspaces.svg"),
@@ -153,8 +173,8 @@ mod tests {
             );
         }
 
-        // 负断言：13 个变体之间无重复路径（任意两个变体不得共用同一 SVG）。
-        // 推导：variants.len() == 12 + 1；若集合大小 < 13 则存在重复。
+        // 负断言：18 个变体之间无重复路径（任意两个变体不得共用同一 SVG）。
+        // 推导：variants.len() == 12 + 1 + 5；若集合大小 < 18 则存在重复。
         let set: HashSet<&'static str> = variants.iter().map(|v| v.asset_path()).collect();
         assert_eq!(
             set.len(),

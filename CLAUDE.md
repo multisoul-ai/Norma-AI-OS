@@ -91,7 +91,7 @@ At a glance:
 
 ## 4. Current User-Facing Behavior
 
-- `Cmd+1` creates a Terminal node; `Cmd+2` through `Cmd+6` create Claude, Codex, Cursor, OpenCode, and Grok cards. Each creation reflows the current layout.
+- `Cmd+1` creates a Terminal node; `Cmd+2` through `Cmd+6` create Claude, Codex, Cursor, OpenCode, and Grok cards; `Cmd+7`, `Cmd+8`, and `Cmd+9` create Kimi, Pi, and Hermes cards (ZCode and InfCode have no default shortcut; all are rebindable in Settings). Each creation reflows the current layout.
 - Drag a node by its title bar.
 - Single-click selects a node; clicking blank canvas clears selection.
 - Double-click a focusable node, or click a terminal/agent body, to focus it.
@@ -201,6 +201,8 @@ Follow the project test comment and assertion rules in [`docs/quality/test-requi
 ## Agent Execution Sizing
 
 Choose the smallest sufficient implementation and verification flow from [`docs/quality/agent-execution-policy.md`](docs/quality/agent-execution-policy.md). In particular, do not automatically invoke implementation/review skills that require full-suite validation or parallel review for a focused single-crate change. Escalate only for cross-crate behaviour, explicit acceptance criteria, or high-risk boundaries.
+
+临时任务独立构建、验收后缓存回收与 E2E 边界见 [`docs/references/task-build-cache.md`](docs/references/task-build-cache.md)，入口为 `scripts/task-build-cache.py`。
 
 代码 review 必须使用独立 subagent 做对抗式审查：主动寻找反例、遗漏和测试假阳性，主 Agent 核验发现及证据；具体流程见 [`docs/quality/agent-execution-policy.md`](docs/quality/agent-execution-policy.md)。
 

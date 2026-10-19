@@ -5,8 +5,9 @@ use super::credential::{
 use super::file_ops::{atomic_write, remove_matching_binary, set_mode};
 use super::model::{ComponentState, InstallPaths, OrchestrationProvider, ProviderIntegration};
 use crate::agent_hook::{
-    agent_hooks_installed_for_source, install_hook_config, uninstall_hook_config, AgentHookError,
-    OPENCODE_PLUGIN_MARKER,
+    agent_hooks_installed_for_source, disable_hermes_plugin_blocking,
+    enable_hermes_plugin_blocking, install_hook_config, uninstall_hook_config, unmanaged_hook_path,
+    AgentHookError, OPENCODE_PLUGIN_MARKER,
 };
 use std::fmt;
 use std::fs::{self, File};
@@ -94,10 +95,22 @@ impl From<AgentHookError> for InstallerError {
     }
 }
 
+/// 启用（true）/禁用（false）Hermes 插件；返回命令是否成功。
+pub type HermesToggle = fn(enable: bool) -> bool;
+
+fn toggle_real_hermes(enable: bool) -> bool {
+    if enable {
+        enable_hermes_plugin_blocking()
+    } else {
+        disable_hermes_plugin_blocking()
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct OrchestrationInstaller {
     paths: InstallPaths,
     required_version: String,
+    hermes_toggle: Option<HermesToggle>,
 }
 
 impl OrchestrationInstaller {
@@ -105,7 +118,26 @@ impl OrchestrationInstaller {
         Self {
             paths,
             required_version: required_version.into(),
+            hermes_toggle: None,
         }
+    }
+
+    /// 安装/卸载 Hermes 插件时同步执行 `hermes plugins enable|disable`。
+    ///
+    /// 默认关闭，避免测试改动开发者真实的 Hermes 配置；App 在后台线程构造安装器时开启。
+    pub fn with_hermes_activation(mut self) -> Self {
+        self.hermes_toggle = Some(toggle_real_hermes);
+        self
+    }
+
+    /// 用自定义开关替代真实 `hermes plugins` 命令（测试注入，不触碰真实配置）。
+    pub fn with_hermes_toggle(mut self, toggle: HermesToggle) -> Self {
+        self.hermes_toggle = Some(toggle);
+        self
+    }
+
+    pub fn hermes_activation_enabled(&self) -> bool {
+        self.hermes_toggle.is_some()
     }
 
     pub fn paths(&self) -> &InstallPaths {
@@ -163,6 +195,16 @@ impl OrchestrationInstaller {
                 self.paths.managed_hook_path().as_path(),
                 &self.paths.hook_paths,
             )?;
+            if let (Some(toggle), OrchestrationProvider::Hermes) = (self.hermes_toggle, provider) {
+                // hermes 未安装时仅状态灯不可用，文件已就位，不视为安装失败。
+                toggle(true);
+            }
+        }
+        if provider.delegation_unverified()
+            && matches!(self.inspect_hook(provider), ComponentState::Conflict { .. })
+        {
+            // 新 provider 的 hook 被用户文件占用：不授权，整体状态保持“需处理”。
+            return Ok(self.inspect(provider, registry));
         }
         if !matches!(before.authorization_component, ComponentState::Ready { .. }) {
             let credential = self.install_or_read_credential(provider)?;
@@ -185,6 +227,16 @@ impl OrchestrationInstaller {
             .revoke(provider)
             .map_err(|error| InstallerError::Authorization(error.to_string()))?;
         self.remove_managed_skills(provider)?;
+        if let (Some(toggle), OrchestrationProvider::Hermes) = (self.hermes_toggle, provider) {
+            // 目录是用户自有（非 Norma 受管）时文件会被保留，也不得禁用用户自己的同名插件。
+            let user_owned = provider
+                .hook_source()
+                .and_then(|source| unmanaged_hook_path(source, &self.paths.hook_paths))
+                .is_some();
+            if !user_owned {
+                toggle(false);
+            }
+        }
         uninstall_hook_config(
             provider
                 .hook_target()
@@ -255,6 +307,18 @@ impl OrchestrationInstaller {
                 }
             }
         }
+        let source = provider
+            .hook_source()
+            .expect("supported orchestration provider has a hook source");
+        if let Some(path) = unmanaged_hook_path(source, &self.paths.hook_paths) {
+            return ComponentState::Conflict {
+                path,
+                reason: format!(
+                    "Existing {} hook at the managed path is not owned by Norma OS.",
+                    provider.display_name()
+                ),
+            };
+        }
         let binary = self.inspect_binary(
             self.paths.managed_hook_path().as_path(),
             self.paths.bundled_hook.as_path(),
@@ -262,9 +326,6 @@ impl OrchestrationInstaller {
         if !matches!(binary, ComponentState::Ready { .. }) {
             return binary;
         }
-        let source = provider
-            .hook_source()
-            .expect("supported orchestration provider has a hook source");
         if agent_hooks_installed_for_source(source, &self.paths.hook_paths) {
             ComponentState::Ready {
                 version: self.required_version.clone(),

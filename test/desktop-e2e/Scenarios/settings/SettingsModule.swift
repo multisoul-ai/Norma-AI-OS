@@ -4,14 +4,29 @@ import E2EKit
 public enum SettingsModule {
     public static let manifest = DesktopModule(
         name: "settings",
-        scenarioNames: [SettingsLiveConfiguration.name],
-        run: { name, session in
-            switch name {
+        scenarioNames: [
+            SettingsNavigation.name,
+            SettingsBasicPreferences.name,
+            SettingsResponsiveKeyboard.name,
+            SettingsSpaceWallpapers.name,
+            SettingsLiveConfiguration.name,
+        ],
+        run: { scenario, session in
+            switch scenario {
+            case SettingsNavigation.name:
+                try await SettingsNavigation.run(session)
+            case SettingsBasicPreferences.name:
+                try await SettingsBasicPreferences.run(session)
+            case SettingsResponsiveKeyboard.name:
+                try await SettingsResponsiveKeyboard.run(session)
+            case SettingsSpaceWallpapers.name:
+                try await SettingsSpaceWallpapers.run(session)
             case SettingsLiveConfiguration.name:
                 try await SettingsLiveConfiguration.run(session)
-                return true
-            default: return false
+            default:
+                return false
             }
+            return true
         }
     )
 }

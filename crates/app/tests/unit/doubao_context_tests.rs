@@ -1,9 +1,78 @@
-use super::{plan::chat, ContextRequests};
+use super::{plan::chat, ContextRequest, ContextRequests};
 use crate::app::MultisoulApp;
 use canvas::{AgentProfile, AgentSpec, CanvasNodeKind, CanvasRect};
 use gpui::{TestAppContext, VisualTestContext};
 use serde_json::{json, Value};
 use ui::i18n::LocalizedText;
+
+/// DB-CONTEXT-DESKTOP-1：豆包模型请求也应看到当前桌面工作空间和可见项目。
+///
+/// 数据构造：画布项目名设为旧值，桌面快照指向工作空间 dw-42 的 area-7。
+/// 执行过程：通过生产上下文请求通道构造一次模型请求。
+/// 预期结果：system 含当前稳定身份，不再把旧项目写成当前项目。
+#[tokio::test]
+async fn doubao_model_request_uses_current_desktop_location() {
+    let (context, requests): (ContextRequests, _) = async_channel::bounded(1);
+    let responder = tokio::spawn(async move {
+        let ContextRequest::Model(response) = requests.recv().await.expect("模型请求应到达");
+        let _ = response.send((
+            agent::CurrentCanvasContext {
+                project_name: "上次项目".into(),
+                workspace_root: "/old-project".into(),
+                total_cards: 0,
+                cards: Vec::new(),
+                conversation_tails: Vec::new(),
+            },
+            Vec::new(),
+            Some(agent::DesktopContext::ProjectCanvas {
+                workspace_id: "dw-42".into(),
+                workspace_name: "产品研发".into(),
+                area_id: "area-7".into(),
+                project_name: "Norma OS".into(),
+            }),
+        ));
+    });
+    let mut history = vec![json!({"role":"user","content":"看看当前项目"})];
+
+    let body = chat::request_with_current_context(&context, "", &mut history, true, true)
+        .await
+        .expect("本轮请求应构造成功");
+    responder.await.expect("上下文提供方应完成");
+    let system = body["messages"][0]["content"]
+        .as_str()
+        .expect("system 消息应存在");
+    assert!(
+        system.contains("当前桌面工作空间：产品研发（id=dw-42）"),
+        "豆包应获得真实桌面工作空间：{system}"
+    );
+    assert!(
+        system.contains("当前项目：Norma OS（area_id=area-7）"),
+        "豆包应获得当前可见项目：{system}"
+    );
+    assert!(
+        !system.contains("当前项目：上次项目"),
+        "旧画布项目不得冒充当前项目：{system}"
+    );
+    let tools = body["tools"].as_array().expect("桌面语音应提供只读工具");
+    assert!(
+        tools
+            .iter()
+            .any(|tool| tool["function"]["name"] == "workspace_snapshot"),
+        "无项目 root 的桌面语音仍须暴露工作空间快照工具"
+    );
+    assert!(
+        tools
+            .iter()
+            .any(|tool| tool["function"]["name"] == "create_browser"),
+        "桌面豆包应能在右侧打开网页标签"
+    );
+    assert!(
+        !tools
+            .iter()
+            .any(|tool| tool["function"]["name"] == "assign_agent_task"),
+        "尚未接通跨项目派活时，不应暴露无法正确路由的旧项目派活工具"
+    );
+}
 
 fn request(context: &ContextRequests, cx: &VisualTestContext) -> Result<Value, LocalizedText> {
     // 单个请求、单个回执，容量 1 足够；调度器推进到无待执行任务，无真实网络或 sleep。

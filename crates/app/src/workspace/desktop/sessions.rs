@@ -80,3 +80,24 @@ pub(crate) fn shutdown(cx: &mut App) {
         host.app.update(cx, |app, cx| app.stop_desktop_sessions(cx));
     }
 }
+
+/// Desktop hosts own the content drawer independently of project Runtime sessions.
+pub(crate) fn can_quit(cx: &mut App) -> bool {
+    let hosts = cx
+        .try_global::<DesktopHosts>()
+        .map(|h| {
+            h.0.iter()
+                .map(|h| (h.app.clone(), h.window))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    for (app, window) in hosts {
+        if !app.update(cx, |app, cx| app.confirm_preview_edits_before_leaving(cx)) {
+            if let Some(window) = window {
+                let _ = window.update(cx, |_, window, _| window.activate_window());
+            }
+            return false;
+        }
+    }
+    true
+}

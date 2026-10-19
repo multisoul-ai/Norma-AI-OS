@@ -1,6 +1,7 @@
 {
   "general.title": "General",
-  "general.subtitle": "Choose your preferred interface language",
+  "general.basic_settings": "Basic Settings",
+  "general.subtitle": "Set your interface language and idle energy preferences",
   "general.interface_language": "Interface Language",
   "general.follow_system": "Follow System",
   "general.language_hint": "Applies immediately to all windows. AI replies keep their current language behavior.",

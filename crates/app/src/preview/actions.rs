@@ -1,10 +1,7 @@
-use super::terminal_path::resolve_terminal_preview_path;
 use super::{load_preview_contents, PreviewImageCommand, PreviewImageCommandKind};
 use crate::app::{AppScreen, MultisoulApp};
 use crate::canvas::layout_strategy::apply_new_workspace_node_layout_for_area;
-use crate::canvas::master_layout::{
-    enter_master_layout_for_area, reapply_master_layout_for_area, switch_master_layout_for_area,
-};
+use crate::canvas::master_layout::reapply_master_layout_for_area;
 use canvas::{CanvasNodeKind, CanvasRect, NodeId, PreviewType};
 use futures::channel::oneshot;
 use gpui::{AppContext, Context, PathPromptOptions, Window};
@@ -33,90 +30,6 @@ impl MultisoulApp {
                     cx.notify();
                 }
             }
-        }
-    }
-
-    pub(crate) fn open_terminal_path_in_preview_card(
-        &mut self,
-        targets: Vec<String>,
-        source_node: NodeId,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let Some(root) = self.runtime.workspace_root() else {
-            self.workspace_state.error = Some(ui::i18n::LocalizedText::new("preview.open_project"));
-            return;
-        };
-        let root = root.to_path_buf();
-        let lookup_root = root.clone();
-        cx.spawn_in(window, async move |this, cx| {
-            let result = cx
-                .background_spawn(
-                    async move { resolve_terminal_preview_path(&lookup_root, &targets) },
-                )
-                .await;
-            this.update_in(cx, |app, window, cx| {
-                if app.runtime.workspace_root() != Some(root.as_path())
-                    || app.runtime.document.node(source_node).is_none()
-                    || !app.can_create_preview()
-                {
-                    return;
-                }
-                match result {
-                    Ok(path) => {
-                        app.workspace_state.error = None;
-                        app.open_resolved_terminal_preview(path, window, cx);
-                    }
-                    Err(error) => {
-                        app.workspace_state.error = Some(
-                            ui::i18n::LocalizedText::new("common.operation_failed")
-                                .with_arg("reason", error),
-                        )
-                    }
-                }
-                cx.notify();
-            })?;
-            Ok::<(), anyhow::Error>(())
-        })
-        .detach();
-    }
-
-    fn open_resolved_terminal_preview(
-        &mut self,
-        path: PathBuf,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let area = self.visible_canvas_rect(window);
-        let bounds = area.inset(self.layout_gap_canvas());
-        let zoom = self.runtime.document.viewport.zoom;
-        let node_id = self.runtime.spawn_preview_from_path(path, None, bounds);
-        self.motion.spawn_node(node_id, bounds);
-        let arranged = if self.master_layout.is_active() {
-            switch_master_layout_for_area(
-                &mut self.master_layout,
-                &mut self.runtime,
-                &mut self.motion,
-                node_id,
-                area,
-                zoom,
-            )
-        } else {
-            enter_master_layout_for_area(
-                &mut self.master_layout,
-                &mut self.runtime,
-                &mut self.motion,
-                node_id,
-                area,
-                zoom,
-            )
-        };
-        if arranged {
-            self.mark_canvas_dirty();
-            self.load_preview_node(node_id, cx);
-        } else {
-            self.workspace_state.error =
-                Some(ui::i18n::LocalizedText::new("preview.arrange_failed"));
         }
     }
 
@@ -175,9 +88,25 @@ impl MultisoulApp {
                 let mut picker_error = None;
                 match result {
                     Ok(Ok(Some(paths))) if !paths.is_empty() => {
-                        success = app
-                            .spawn_preview_from_paths(paths, None, bounds, area, zoom, cx)
-                            .is_some();
+                        if app.desktop_host.is_some() {
+                            success = paths.into_iter().all(|path| {
+                                let title = path
+                                    .file_name()
+                                    .and_then(|name| name.to_str())
+                                    .unwrap_or("文件")
+                                    .to_string();
+                                app.route_project_content_to_desktop(
+                                    storage::DesktopContentKind::File,
+                                    path.to_string_lossy().into_owned(),
+                                    title,
+                                    cx,
+                                )
+                            });
+                        } else {
+                            success = app
+                                .spawn_preview_from_paths(paths, None, bounds, area, zoom, cx)
+                                .is_some();
+                        }
                         if !success {
                             picker_error = app.workspace_state.error.clone();
                         }
@@ -287,7 +216,7 @@ impl MultisoulApp {
         }
     }
 
-    fn load_preview_node(&mut self, node_id: NodeId, cx: &mut Context<Self>) {
+    pub(super) fn load_preview_node(&mut self, node_id: NodeId, cx: &mut Context<Self>) {
         if self.previews.has_pending_edits(node_id) {
             if let Some(editor) = self.previews.editors.get_mut(&node_id) {
                 editor.error = Some(ui::i18n::LocalizedText::new("preview.refresh_unsaved"));

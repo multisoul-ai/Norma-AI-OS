@@ -1,0 +1,31 @@
+{
+  "cwd": "/tmp/zc-work",
+  "error": "File does not exist. Note: your current working directory is /tmp/zc-work.",
+  "hookEventName": "PostToolUseFailure",
+  "isInterrupt": false,
+  "mode": "build",
+  "sessionId": "sess_33c0d69e-b643-4683-9910-eff2d4c585cb",
+  "timestamp": "2026-10-18T04:05:37.578Z",
+  "toolCallId": "call_1",
+  "toolInput": {
+    "file_path": "/tmp/zc-work/nonexistent-file.txt"
+  },
+  "toolName": "Read",
+  "traceId": "4ddd37ec-00ae-4881-9306-899fc762e342",
+  "turnId": "turn_77061c17-f779-4503-8ca7-25c9cdf3ee52",
+  "hook_event_name": "PostToolUseFailure",
+  "permission_mode": "build",
+  "session_id": "sess_33c0d69e-b643-4683-9910-eff2d4c585cb",
+  "transcript_path": "<tmp>/zcode-hook-XXXX/transcript.jsonl",
+  "transcriptPath": "<tmp>/zcode-hook-XXXX/transcript.jsonl",
+  "tool_name": "Read",
+  "tool_input": {
+    "file_path": "/tmp/zc-work/nonexistent-file.txt"
+  },
+  "tool_use_id": "call_1",
+  "error_details": {
+    "message": "File does not exist. Note: your current working directory is /tmp/zc-work.",
+    "type": "tool_execution_failed"
+  },
+  "is_interrupt": false
+}

@@ -276,6 +276,11 @@ fn parse_profile(value: &str) -> Option<WireAgentProfile> {
         "cursor" => Some(WireAgentProfile::Cursor),
         "grok" => Some(WireAgentProfile::Grok),
         "opencode" => Some(WireAgentProfile::OpenCode),
+        "infcode" => Some(WireAgentProfile::InfCode),
+        "kimi" => Some(WireAgentProfile::Kimi),
+        "zcode" => Some(WireAgentProfile::ZCode),
+        "pi" => Some(WireAgentProfile::Pi),
+        "hermes" => Some(WireAgentProfile::Hermes),
         _ => None,
     }
 }
@@ -287,6 +292,11 @@ fn profile_key(profile: WireAgentProfile) -> &'static str {
         WireAgentProfile::Cursor => "cursor",
         WireAgentProfile::Grok => "grok",
         WireAgentProfile::OpenCode => "opencode",
+        WireAgentProfile::InfCode => "infcode",
+        WireAgentProfile::Kimi => "kimi",
+        WireAgentProfile::ZCode => "zcode",
+        WireAgentProfile::Pi => "pi",
+        WireAgentProfile::Hermes => "hermes",
     }
 }
 

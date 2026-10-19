@@ -7,6 +7,9 @@ use tokio_util::sync::CancellationToken;
 use ui::i18n::LocalizedText;
 
 #[cfg(test)]
+#[path = "../../../../tests/unit/doubao_conversation_backpressure_tests.rs"]
+mod backpressure_tests;
+#[cfg(test)]
 #[path = "../../../../tests/unit/doubao_hold_conversation_tests.rs"]
 mod hold_tests;
 #[cfg(test)]
@@ -81,15 +84,16 @@ where
                             SpeechEvent::HeldFinal(id, text) if id == recording_id => text,
                             _ => continue,
                         };
-                        if recording_id != 0 {
-                            let _ = events.send(DoubaoStatus::RecordingResolved(recording_id)).await;
-                        }
-                        user_speaking = false;
-                        // New input must retire active output even when Started is absent.
+                        // Retire old output before any status send can wait on a full UI queue.
                         if let Some(token) = reply_token.take() {
                             token.cancel();
                             playback.interrupt();
                         }
+                        user_speaking = false;
+                        if recording_id != 0 {
+                            let _ = events.send(DoubaoStatus::RecordingResolved(recording_id)).await;
+                        }
+                        let _ = events.send(DoubaoStatus::UserTranscript(transcript.clone())).await;
                         turn = turn.wrapping_add(1);
                         reply_id = reply_id.wrapping_add(1);
                         reply_active = true;

@@ -398,6 +398,11 @@ fn profile_buttons(theme: Theme, selected: AgentProfile, cx: &mut Context<Multis
                     ("Cursor", AgentProfile::Cursor),
                     ("Grok", AgentProfile::Grok),
                     ("OpenCode", AgentProfile::OpenCode),
+                    ("InfCode", AgentProfile::InfCode),
+                    ("Kimi", AgentProfile::Kimi),
+                    ("ZCode", AgentProfile::ZCode),
+                    ("Pi", AgentProfile::Pi),
+                    ("Hermes", AgentProfile::Hermes),
                 ]
                 .into_iter()
                 .map(|(label, profile)| profile_button(theme, label, profile, selected, cx)),
@@ -418,6 +423,11 @@ fn profile_button(
         AgentProfile::Cursor => "settings-agent-profile-cursor",
         AgentProfile::Grok => "settings-agent-profile-grok",
         AgentProfile::OpenCode => "settings-agent-profile-opencode",
+        AgentProfile::InfCode => "settings-agent-profile-infcode",
+        AgentProfile::Kimi => "settings-agent-profile-kimi",
+        AgentProfile::ZCode => "settings-agent-profile-zcode",
+        AgentProfile::Pi => "settings-agent-profile-pi",
+        AgentProfile::Hermes => "settings-agent-profile-hermes",
     };
     let accent = if selected == profile {
         theme.accent_orange

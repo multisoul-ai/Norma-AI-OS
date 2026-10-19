@@ -1,0 +1,20 @@
+{
+  "cwd": "/private/tmp/zc-work",
+  "hookEventName": "Stop",
+  "mode": "yolo",
+  "responsePreview": "mock reply: hello",
+  "responseText": "mock reply: hello",
+  "sessionId": "sess_4f863ed2-8a59-4db3-b15f-e90e3b3d70f2",
+  "stopHookActive": false,
+  "timestamp": "2026-10-18T03:57:31.023Z",
+  "toolCallCount": 0,
+  "traceId": "1784a445-2d92-4b3d-bc77-d261d8029639",
+  "turnId": "turn_a7247030-6c77-45e7-8d8e-cbc1f2c49520",
+  "hook_event_name": "Stop",
+  "permission_mode": "yolo",
+  "session_id": "sess_4f863ed2-8a59-4db3-b15f-e90e3b3d70f2",
+  "transcript_path": "<tmp>/zcode-hook-XXXX/transcript.jsonl",
+  "transcriptPath": "<tmp>/zcode-hook-XXXX/transcript.jsonl",
+  "last_assistant_message": "mock reply: hello",
+  "stop_hook_active": false
+}

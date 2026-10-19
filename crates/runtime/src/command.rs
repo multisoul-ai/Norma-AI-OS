@@ -67,8 +67,13 @@ fn agent_choices(filter: &str) -> Vec<CommandSuggestion> {
         AgentProfile::Codex,
         AgentProfile::Claude,
         AgentProfile::OpenCode,
+        AgentProfile::InfCode,
         AgentProfile::Cursor,
         AgentProfile::Grok,
+        AgentProfile::Kimi,
+        AgentProfile::ZCode,
+        AgentProfile::Pi,
+        AgentProfile::Hermes,
     ]
     .into_iter()
     .filter(|p| p.display_title().to_lowercase().starts_with(filter))

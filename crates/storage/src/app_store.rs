@@ -64,6 +64,10 @@ impl AppStore {
         crate::DesktopWorkspaceStore::new(self.path.clone())
     }
 
+    pub fn desktop_content_tab_store(&self) -> crate::DesktopContentTabStore {
+        crate::DesktopContentTabStore::new(self.path.clone())
+    }
+
     pub fn orchestration_task_route_store(&self) -> crate::OrchestrationTaskRouteStore {
         crate::OrchestrationTaskRouteStore::new(self.path.clone())
     }

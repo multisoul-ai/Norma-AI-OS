@@ -1,0 +1,88 @@
+# NORMA-TEST-COMMENT-KEEP-ME
+default_model = "mock"
+[providers.mock]
+type = "openai"
+base_url = "http://127.0.0.1:18765/v1"
+api_key = "dummy-not-a-credential"
+[models.mock]
+provider = "mock"
+model = "mock-model"
+max_context_size = 100000
+
+[[hooks]]
+event = "UserPromptSubmit"
+command = "/tmp/kimi-iso/hook.sh"
+
+[[hooks]]
+event = "UserPromptQueued"
+command = "/tmp/kimi-iso/hook.sh"
+
+[[hooks]]
+event = "PreToolUse"
+command = "/tmp/kimi-iso/hook.sh"
+
+[[hooks]]
+event = "Stop"
+command = "/tmp/kimi-iso/hook.sh"
+
+[[hooks]]
+event = "TurnStarted"
+command = "/tmp/kimi-iso/hook.sh"
+
+[[hooks]]
+event = "PostToolUse"
+command = "/tmp/kimi-iso/hook.sh"
+
+[[hooks]]
+event = "PostToolUseFailure"
+command = "/tmp/kimi-iso/hook.sh"
+
+[[hooks]]
+event = "PermissionRequest"
+command = "/tmp/kimi-iso/hook.sh"
+
+[[hooks]]
+event = "PermissionResult"
+command = "/tmp/kimi-iso/hook.sh"
+
+[[hooks]]
+event = "SessionStart"
+command = "/tmp/kimi-iso/hook.sh"
+
+[[hooks]]
+event = "SessionEnd"
+command = "/tmp/kimi-iso/hook.sh"
+
+[[hooks]]
+event = "SubagentStart"
+command = "/tmp/kimi-iso/hook.sh"
+
+[[hooks]]
+event = "SubagentStop"
+command = "/tmp/kimi-iso/hook.sh"
+
+[[hooks]]
+event = "TaskStarted"
+command = "/tmp/kimi-iso/hook.sh"
+
+[[hooks]]
+event = "StopFailure"
+command = "/tmp/kimi-iso/hook.sh"
+
+[[hooks]]
+event = "Interrupt"
+command = "/tmp/kimi-iso/hook.sh"
+
+[[hooks]]
+event = "PreCompact"
+command = "/tmp/kimi-iso/hook.sh"
+
+[[hooks]]
+event = "PostCompact"
+command = "/tmp/kimi-iso/hook.sh"
+
+[[hooks]]
+event = "Notification"
+command = "/tmp/kimi-iso/hook.sh"
+[thinking]
+enabled = false

@@ -152,6 +152,7 @@ impl DialogueControlState {
                         .any(|event| matches!(event, agent::AgentEvent::DialogueTextDelta { .. }));
                     let artifacts = crate::app::agent_runtime::artifacts_from_agent_events(events);
                     let _ = this.update(cx, |app, cx| {
+                        app.record_assistant_norma_message(&artifacts.reply_text, cx);
                         app.dialogue.store_turn_artifacts(&artifacts);
                         app.dialogue.reply_task = None;
                         if !has_live_dialogue && artifacts.play_reply {
@@ -167,6 +168,7 @@ impl DialogueControlState {
                 Err(error) => {
                     tracing::warn!(%error, "voice turn failed");
                     let _ = this.update(cx, |app, cx| {
+                        app.record_assistant_norma_message(&error.to_string(), cx);
                         app.dialogue.recover_reply_failure(
                             ui::i18n::LocalizedText::new("chrome.turn_failed")
                                 .with_arg("reason", error),
@@ -186,9 +188,13 @@ impl DialogueControlState {
         }
     }
 
+    pub(crate) fn last_reply_text(&self) -> Option<&str> {
+        self.last_reply_text.as_deref()
+    }
+
     #[cfg(test)]
     pub(crate) fn last_reply_text_for_tests(&self) -> Option<&str> {
-        self.last_reply_text.as_deref()
+        self.last_reply_text()
     }
 
     #[cfg(test)]

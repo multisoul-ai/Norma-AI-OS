@@ -119,9 +119,14 @@ impl MultisoulApp {
     }
 
     #[cfg(feature = "e2e-test-support")]
-    pub fn report_browser_location_for_e2e(&mut self, node_id: u64, url: String) -> bool {
+    pub fn report_browser_location_for_e2e(
+        &mut self,
+        node_id: u64,
+        url: String,
+        cx: &mut Context<Self>,
+    ) -> bool {
         self.browsers.report_location_for_e2e(node_id, url);
-        self.drain_browser_events()
+        self.drain_browser_events(cx)
     }
 
     #[cfg(feature = "e2e-test-support")]
@@ -203,6 +208,11 @@ impl MultisoulApp {
             canvas::AgentProfile::Cursor => "cursor",
             canvas::AgentProfile::Grok => "grok",
             canvas::AgentProfile::OpenCode => "opencode",
+            canvas::AgentProfile::InfCode => "infcode",
+            canvas::AgentProfile::Kimi => "kimi",
+            canvas::AgentProfile::ZCode => "zcode",
+            canvas::AgentProfile::Pi => "pi",
+            canvas::AgentProfile::Hermes => "hermes",
         };
         AgentSettingsE2eSnapshot {
             definitions: self

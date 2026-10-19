@@ -74,7 +74,12 @@ pub fn observe_conversation(event: &AgentHookEvent) -> Option<ConversationObserv
 }
 
 fn observe_user_message(event: &AgentHookEvent) -> Option<ConversationObservation> {
-    let (text, truncated) = extract_bounded_text(&event.raw_json, USER_MESSAGE_KEYS)?;
+    let (text, truncated) =
+        extract_bounded_text(&event.raw_json, USER_MESSAGE_KEYS).or_else(|| {
+            // Kimi 的 prompt 是 [{type,text}] 数组，只有 Kimi 载荷会走到这里。
+            super::kimi::kimi_prompt_text(&event.raw_json)
+                .map(|text| truncate_chars(&text, MAX_CONVERSATION_MESSAGE_CHARS))
+        })?;
     let fingerprint = fingerprint(event, "user", Some(text.as_str()));
     Some(ConversationObservation {
         node_id: event.node_id,
@@ -197,5 +202,10 @@ fn profile_as_str(profile: AgentProfile) -> &'static str {
         AgentProfile::Cursor => "cursor",
         AgentProfile::Grok => "grok",
         AgentProfile::OpenCode => "opencode",
+        AgentProfile::InfCode => "infcode",
+        AgentProfile::Kimi => "kimi",
+        AgentProfile::ZCode => "zcode",
+        AgentProfile::Pi => "pi",
+        AgentProfile::Hermes => "hermes",
     }
 }

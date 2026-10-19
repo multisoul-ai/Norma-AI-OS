@@ -168,6 +168,7 @@ impl MultisoulApp {
             ego_previews: super::ego_preview::EgoPreviewStore::default(),
             browser_address_edit: None,
             command_dock: None,
+            assistant_conversation: Default::default(),
             master_layout: MasterLayoutState::default(),
             layout_strategy: CanvasLayoutStrategy::default(),
             persistence: PersistenceScheduler::default(),
@@ -198,6 +199,7 @@ impl MultisoulApp {
             screen: AppScreen::Launchpad,
             workspace_state,
             desktop_workspace,
+            workbench_text_scroll: gpui::UniformListScrollHandle::new(),
             clone_project: crate::workspace::clone_project::CloneProjectUiState::default(),
             recent_project_context_path: None,
             voice: crate::app::voice::control::VoiceControlState::default(),
@@ -235,6 +237,9 @@ impl MultisoulApp {
             voice_caption_waveform_phase: 0.0,
             terminal_render_cache:
                 crate::cards::term::render_cache::terminal_render_cache_handle_from_env(),
+            terminal_path_cache: std::rc::Rc::new(std::cell::RefCell::new(
+                crate::canvas::terminal_path_cache::TerminalPathCache::default(),
+            )),
             performance,
             terminal_cursor_repaint: FrameThrottle::default(),
             #[cfg(feature = "e2e-test-support")]
@@ -252,6 +257,10 @@ impl MultisoulApp {
             background_project: background,
             voice_runtime_checked: !background,
             desktop_host: None,
+            desktop_embedded_canvas_size: None,
+            desktop_embedded_reflow_size: None,
+            desktop_embedded_layout_origin: None,
+            desktop_presentation_bounds: std::collections::HashMap::new(),
             desktop_switcher_subscription: None,
             background_restore: None,
             desktop_overview_scroll: std::collections::HashMap::new(),

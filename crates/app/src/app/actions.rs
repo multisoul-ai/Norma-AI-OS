@@ -1,3 +1,5 @@
+//! Application-level GPUI actions shared by the menu bar, shortcuts, and key bindings.
+
 use gpui::actions;
 
 actions!(
@@ -9,7 +11,12 @@ actions!(
         NewCodexAgent,
         NewCursorAgent,
         NewGrokAgent,
+        NewKimiAgent,
+        NewZCodeAgent,
+        NewPiAgent,
+        NewHermesAgent,
         NewOpenCodeAgent,
+        NewInfCodeAgent,
         NewBrowser,
         NewEgo,
         CopyCardContent,

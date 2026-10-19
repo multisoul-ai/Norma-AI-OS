@@ -1,0 +1,46 @@
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+Resume Session (Current Folder)                                                    ○ Current Folder | Loading ...  Name: All  Sort: Threaded
+
+tab scope · re:<pattern> regex · "phrase" exact
+
+ctrl+s sort · ctrl+n named · ctrl+d delete · ctrl+p path (off)
+
+
+
+>
+
+
+
+  No sessions in current folder. Press Tab to view all.
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+Resume Session (Current Folder)                                                          ◉ Current Folder | ○ All  Name: All  Sort: Threaded
+
+tab scope · re:<pattern> regex · "phrase" exact
+
+ctrl+s sort · ctrl+n named · ctrl+d delete · ctrl+p path (off)
+
+
+
+>
+
+
+
+› NORMAPI_ERROR                                                                                                                         3 1m
+
+  NORMAPI_RESUME                                                                                                                        3 1m
+
+  NORMAPI_TOOLS remember norma-pi-token-20261018                                                                                       15 1m
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+No session selected

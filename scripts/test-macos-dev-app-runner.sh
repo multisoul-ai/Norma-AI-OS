@@ -15,6 +15,7 @@
 #   auth helper    = <target-dir>/norma-browser-auth-host, built by the app crate
 #   auth extension = crates/app/assets/browser-auth-extension → bundle Resources
 #   wallpaper      = crates/app/assets/wallpapers/1407174.mp4 → bundle Resources
+#   home           = crates/app/assets/home/fixture.txt → bundle Resources
 #   feature guide  = crates/app/assets/feature-guide/demo-live-node-shortcuts.mp4
 #                    → bundle Resources
 #   signal fixture = fake `open -W` that starts an independently living app
@@ -194,17 +195,21 @@ cargo_args_file="$tmp_dir/cargo-args"
 codesign_args_file="$tmp_dir/codesign-args"
 fixture_wallpaper_source="$fixture_root/crates/app/assets/wallpapers/1407174.mp4"
 fixture_feature_guide_source="$fixture_root/crates/app/assets/feature-guide/demo-live-node-shortcuts.mp4"
+fixture_home_source="$fixture_root/crates/app/assets/home/fixture.txt"
 fixture_auth_extension_manifest="$fixture_root/crates/app/assets/browser-auth-extension/manifest.json"
 mkdir -p "$fixture_bin" "$fixture_root/scripts" "$fixture_root/packaging/macos" \
   "$(dirname "$fixture_wallpaper_source")" "$(dirname "$fixture_feature_guide_source")" \
+  "$(dirname "$fixture_home_source")" \
   "$(dirname "$fixture_auth_extension_manifest")"
 cp "$runner" "$fixture_runner"
 cp "$dev_plist" "$fixture_root/packaging/macos/DevInfo.plist"
 cp -R "$repo_root/packaging/macos/en.lproj" "$fixture_root/packaging/macos/"
 cp -R "$repo_root/packaging/macos/zh-CN.lproj" "$fixture_root/packaging/macos/"
 cp "$entitlements" "$fixture_root/packaging/macos/NormaOS.entitlements"
-printf 'fixture bundle wallpaper\n' >"$fixture_wallpaper_source"
+printf 'version https://git-lfs.github.com/spec/v1\noid sha256:fixture\nsize 25\n' >"$fixture_wallpaper_source"
+touch "$fixture_root/.git"
 printf 'fixture feature guide video\n' >"$fixture_feature_guide_source"
+printf 'fixture home resource\n' >"$fixture_home_source"
 printf '{"name":"fixture-browser-auth-extension"}\n' >"$fixture_auth_extension_manifest"
 
 # 场景：runner 使用签名前的同一 staging 契约。此 fixture 只模拟准备器输出，
@@ -213,6 +218,10 @@ cat >"$fixture_root/scripts/prepare-release-media.sh" <<'MEDIA'
 #!/usr/bin/env bash
 set -euo pipefail
 [ "${1:-}" = --local-test ]
+if grep -Fq 'version https://git-lfs.github.com/spec/v1' crates/app/assets/wallpapers/1407174.mp4; then
+  echo 'fixture wallpaper is still an LFS pointer' >&2
+  exit 1
+fi
 mkdir -p build/release-media/wallpaper-previews
 cp -R crates/app/assets/wallpapers build/release-media/
 cp -R crates/app/assets/feature-guide build/release-media/
@@ -220,6 +229,22 @@ printf 'trusted fixture catalog\n' >build/release-media/media-catalog.json
 printf 'static fixture preview\n' >build/release-media/wallpaper-previews/optional.webp
 MEDIA
 chmod +x "$fixture_root/scripts/prepare-release-media.sh"
+
+# 新 worktree 有本地 LFS 对象但媒体文件仍是指针时，开发启动必须先还原真实字节。
+cat >"$fixture_bin/git" <<'GIT'
+#!/usr/bin/env bash
+set -euo pipefail
+[ "${1:-}" = lfs ] && [ "${2:-}" = checkout ]
+shift 2
+for media_path in "$@"; do
+  case "$media_path" in
+    crates/app/assets/wallpapers/1407174.mp4)
+      printf 'fixture bundle wallpaper\n' >"$FAKE_REPO_ROOT/$media_path"
+      ;;
+  esac
+done
+GIT
+chmod +x "$fixture_bin/git"
 
 cat >"$fixture_input" <<'APP'
 #!/usr/bin/env bash
@@ -309,6 +334,7 @@ OPEN
 chmod +x "$fixture_bin/open"
 
 PATH="$fixture_bin:$PATH" OPEN_APP_PID_FILE="$app_pid_file" \
+  FAKE_REPO_ROOT="$fixture_root" \
   FAKE_CLI_SOURCE="$fixture_cli_source" FAKE_CLI_DEST="$fixture_cli" \
   FAKE_HOOK_SOURCE="$fixture_hook_source" FAKE_HOOK_DEST="$fixture_hook" \
   FAKE_AUTH_HOST_SOURCE="$fixture_auth_host_source" FAKE_AUTH_HOST_DEST="$fixture_auth_host" \
@@ -395,6 +421,9 @@ if ! cmp -s "$fixture_auth_extension_manifest" "$bundle_auth_extension_manifest"
 fi
 
 bundle_wallpaper="$tmp_dir/Norma OS Dev.app/Contents/Resources/wallpapers/1407174.mp4"
+if ! cmp -s "$fixture_home_source" "$tmp_dir/Norma OS Dev.app/Contents/Resources/home/fixture.txt"; then
+  fail "development bundle must include the home resources copied by the runner"
+fi
 if ! cmp -s "$fixture_root/build/release-media/media-catalog.json" "$tmp_dir/Norma OS Dev.app/Contents/Resources/media-catalog.json"; then
   fail "development bundle must carry the prepared trusted catalog before signing"
 fi
@@ -455,6 +484,7 @@ bundle_main="$tmp_dir/Norma OS Dev.app/Contents/MacOS/norma-os"
 app_pid=$!
 
 PATH="$fixture_bin:$PATH" OPEN_APP_PID_FILE="$app_pid_file" \
+  FAKE_REPO_ROOT="$fixture_root" \
   FAKE_CLI_SOURCE="$fixture_cli_source" FAKE_CLI_DEST="$fixture_cli" \
   FAKE_HOOK_SOURCE="$fixture_hook_source" FAKE_HOOK_DEST="$fixture_hook" \
   FAKE_AUTH_HOST_SOURCE="$fixture_auth_host_source" FAKE_AUTH_HOST_DEST="$fixture_auth_host" \

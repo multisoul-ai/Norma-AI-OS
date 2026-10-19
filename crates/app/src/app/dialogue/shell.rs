@@ -52,6 +52,8 @@ impl MultisoulApp {
                     }
                 }
                 crate::app::doubao::DoubaoStatus::Thinking
+                | crate::app::doubao::DoubaoStatus::UserTranscript(_)
+                | crate::app::doubao::DoubaoStatus::AssistantReply(_)
                 | crate::app::doubao::DoubaoStatus::RecordingResolved(_)
                 | crate::app::doubao::DoubaoStatus::Speaking => {
                     crate::app::voice::control::VoiceVisual::Processing

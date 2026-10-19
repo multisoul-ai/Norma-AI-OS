@@ -36,6 +36,14 @@ extension Session {
         try Catalog.load(database: databaseURL())
     }
 
+    public func setting(_ key: String) throws -> String? {
+        let database = try SQLiteDB(path: databaseURL().path, write: false)
+        defer { database.close() }
+        return try database.query("SELECT value FROM settings WHERE key=?1", bindings: [key]) {
+            column($0, 0)
+        }.first
+    }
+
     public func waitCatalog(timeout: TimeInterval, _ ready: (Catalog) -> Bool) async throws -> Catalog {
         let deadline = Date().addingTimeInterval(timeout)
         var last = ""
@@ -92,6 +100,17 @@ extension Catalog {
         return Catalog(workspaces: workspaces, areas: areas)
     }
 
+    /// 仅在被测 App 停止时建立场景前提；创建交互由 workspace 模块独立验收。
+    public static func seedWorkspace(database url: URL, name: String) throws {
+        let database = try SQLiteDB(path: url.path, write: true)
+        defer { database.close() }
+        let now = String(Int64(Date().timeIntervalSince1970 * 1000))
+        try database.execute(
+            "INSERT INTO desktop_workspaces(id,name,created_at_unix_ms,last_opened_at_unix_ms) VALUES(?1,?2,?3,?4)",
+            bindings: [UUID().uuidString, name, now, now]
+        )
+    }
+
     public static func seedArea(database url: URL, workspaceName: String, root: URL, displayName: String) throws {
         let database = try SQLiteDB(path: url.path, write: true)
         defer { database.close() }
@@ -115,12 +134,12 @@ extension Catalog {
     }
 }
 
-private func column(_ statement: OpaquePointer?, _ index: Int32) -> String {
+func column(_ statement: OpaquePointer?, _ index: Int32) -> String {
     guard let raw = sqlite3_column_text(statement, index) else { return "" }
     return String(cString: raw)
 }
 
-private final class SQLiteDB {
+final class SQLiteDB {
     private var database: OpaquePointer?
 
     init(path: String, write: Bool) throws {
@@ -154,10 +173,6 @@ private final class SQLiteDB {
         }
         defer { sqlite3_finalize(statement) }
         try bind(bindings, to: statement)
-        let added = Int64(bindings.last ?? "") ?? Int64(Date().timeIntervalSince1970 * 1000)
-        if bindings.count >= 6 {
-            sqlite3_bind_int64(statement, 6, added)
-        }
         guard sqlite3_step(statement) == SQLITE_DONE else {
             throw E2EError.product("SQLite 写入失败：\(String(cString: sqlite3_errmsg(database)))")
         }
@@ -165,7 +180,7 @@ private final class SQLiteDB {
 
     private func bind(_ values: [String], to statement: OpaquePointer?) throws {
         let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
-        for (offset, value) in values.enumerated() where offset < 5 || values.count < 6 {
+        for (offset, value) in values.enumerated() {
             let index = Int32(offset + 1)
             let result = value.withCString { pointer in
                 sqlite3_bind_text(statement, index, pointer, -1, transient)

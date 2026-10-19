@@ -211,3 +211,7 @@ define_rig_tool!(MemoryReadTool, "memory_read", 14);
 define_rig_tool!(MemoryWriteTool, "memory_write", 15);
 
 define_rig_tool!(WorkspaceMemoryTool, "workspace_memory", 16);
+define_rig_tool!(WorkspaceSnapshotTool, "workspace_snapshot", 17);
+define_rig_tool!(AssignWorkspaceTaskTool, "assign_workspace_task", 18);
+define_rig_tool!(OpenWorkspaceArtifactTool, "open_workspace_artifact", 19);
+define_rig_tool!(LocateWorkspaceAgentTool, "locate_workspace_agent", 20);

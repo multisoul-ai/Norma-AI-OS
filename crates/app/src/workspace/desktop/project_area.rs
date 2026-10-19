@@ -81,7 +81,10 @@ impl MultisoulApp {
                 .copied();
             let size = window.viewport_size();
             source.map_or(0.0, |source| {
-                let full = super::desktop_scene_rect(f32::from(size.width), f32::from(size.height));
+                let full = super::desktop_scene_rect(
+                    self.desktop_assistant_layout(window).canvas_width,
+                    f32::from(size.height),
+                );
                 let mut source = project_canvas_rect(source, full.size, 1.0);
                 let mut frame = transition.rect();
                 if transition.projects.is_some() {
@@ -93,7 +96,7 @@ impl MultisoulApp {
             })
         });
         let logical_size = super::desktop_scene_rect(
-            f32::from(window.viewport_size().width),
+            self.desktop_assistant_layout(window).canvas_width,
             f32::from(window.viewport_size().height),
         )
         .size;

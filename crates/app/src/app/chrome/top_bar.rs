@@ -68,7 +68,8 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
         let theme = top_bar_theme(self.theme);
-        let width = f32::from(window.viewport_size().width);
+        let layout = self.desktop_assistant_layout(window);
+        let width = layout.canvas_width;
         let wide = width >= 780.0;
         let workspace = self
             .desktop_workspace
@@ -86,19 +87,25 @@ impl MultisoulApp {
                     .find(|area| area.id == id)
             })
             .map(|area| area.display_name.clone());
-        let save = self
-            .expanded_desktop_project()
-            .map(|project| save_visual(project.read(cx).persistence.save_state()));
-        // Symmetric reserves keep the breadcrumb at the window center, independent of actions.
+        let beside_left_drawer = layout.left_space > 0.0;
+        // The prototype anchors the breadcrumb to the canvas edge while the chat drawer
+        // is open. Overlay drawers on narrow windows leave the title centered.
         let reserve = if wide { 220.0 } else { 104.0 };
-        let title_width = (width - reserve * 2.0).max(1.0);
-        let title = desktop_top_bar_title(workspace, project, title_width, theme);
+        let title_width = if beside_left_drawer {
+            (width - if wide { 250.0 } else { 74.0 }).max(1.0)
+        } else {
+            (width - reserve * 2.0).max(1.0)
+        };
+        let title = desktop_top_bar_title(workspace, project, title_width, theme)
+            .when(beside_left_drawer, |title| title.absolute().left(px(14.0)));
         top_bar_frame("desktop-workspace-top-bar", theme)
-            .when(wide, |bar| {
+            .left(px(layout.left_space))
+            .right(px(layout.right_space))
+            .when(wide && !self.desktop_workspace.drawers.left_open, |bar| {
                 bar.child(
                     div()
                         .absolute()
-                        .left(px(108.0))
+                        .left(px(128.0))
                         .h(px(TOP_BAR_HEIGHT))
                         .flex()
                         .items_center()
@@ -112,7 +119,18 @@ impl MultisoulApp {
             .child(
                 div()
                     .absolute()
-                    .right(px(if wide { 24.0 } else { 12.0 }))
+                    .right(px(if self.desktop_workspace.drawers.right_open {
+                        if wide {
+                            24.0
+                        } else {
+                            12.0
+                        }
+                    } else if wide {
+                        // Keep a small gap before the icon-only content drawer trigger.
+                        58.0
+                    } else {
+                        58.0
+                    }))
                     .h(px(TOP_BAR_HEIGHT))
                     .flex()
                     .items_center()
@@ -130,9 +148,6 @@ impl MultisoulApp {
                                 );
                             })),
                     )
-                    .when_some(save.filter(|_| wide), |row, save| {
-                        row.child(save_status(save, theme))
-                    })
                     .when(self.desktop_workspace.expanded_area_id.is_none(), |row| {
                         row.child(
                             Button::new("desktop-topbar-add-project")

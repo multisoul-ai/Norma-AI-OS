@@ -9,6 +9,7 @@ pub mod scroll;
 pub mod spawn_focus;
 pub mod terminal_hit;
 pub(crate) mod terminal_link;
+pub(crate) mod terminal_path_cache;
 pub mod text_selection;
 pub mod view;
 mod working_snakes;

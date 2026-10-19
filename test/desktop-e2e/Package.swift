@@ -35,5 +35,10 @@ let package = Package(
             dependencies: ["E2EKit", "Scenarios"],
             path: "Sources/norma-e2e"
         ),
+        .testTarget(
+            name: "E2EKitTests",
+            dependencies: ["E2EKit"],
+            path: "Tests/E2EKitTests"
+        ),
     ]
 )

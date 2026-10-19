@@ -19,6 +19,13 @@ pub(super) fn provider_description(
     }
 }
 
+/// 委派链路未验证的 provider 在设置行上显示的实验性标注；已验证的 provider 返回 None。
+pub(super) fn delegation_notice(provider: OrchestrationProvider) -> Option<&'static str> {
+    provider
+        .delegation_unverified()
+        .then(|| ui::i18n::text("settings.delegation_unverified_experimental"))
+}
+
 pub(super) fn component_status(theme: Theme, component: &ComponentState) -> (&'static str, u32) {
     match component {
         ComponentState::Ready { .. } => (ui::i18n::text("common.ready"), theme.accent_green),

@@ -190,7 +190,7 @@ private func confirmCreate(_ session: Session, _ name: String) async throws {
 
 @MainActor
 private func showDirectory(_ session: Session, required: [String]) async throws {
-    try await session.act("打开工作空间目录", attempts: 3, expect: Expectation(anyOf: ["打开", "Open", "新建工作空间", "New Workspace", "工作空间"], allOf: required, timeout: 6)) {
+    try await session.act("打开工作空间目录", attempts: 3, expect: Expectation(anyOf: ["搜索工作空间", "Search workspaces"], allOf: required, timeout: 6)) {
         try await session.shortcut(key: 126, modifiers: [0x37, 0x38])
     }
 }

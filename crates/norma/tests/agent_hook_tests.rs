@@ -194,7 +194,13 @@ fn test_install_hook_config_is_idempotent_for_claude_and_codex() {
         codex_hooks: codex_path.clone(),
         cursor_hooks: temp.path().join("cursor-hooks.json"),
         grok_hooks: temp.path().join("grok-hooks.json"),
+        pi_extension: temp.path().join("norma-agent-hook.ts"),
         opencode_plugin: temp.path().join("multisoul-agent-hook.js"),
+        infcode_settings: temp.path().join("infcode-settings.json"),
+        kimi_config: (temp.path().join("multisoul-agent-hook.js"))
+            .with_file_name("kimi-config.toml"),
+        hermes_plugin_dir: temp.path().join("hermes-plugin"),
+        zcode_config: temp.path().join("zcode-config.json"),
     };
     let command_path = temp.path().join("multisoul-agent-hook");
 
@@ -362,7 +368,13 @@ fn test_uninstall_hook_config_removes_only_multisoul_hooks() {
         codex_hooks: codex_path.clone(),
         cursor_hooks: temp.path().join("cursor-hooks.json"),
         grok_hooks: temp.path().join("grok-hooks.json"),
+        pi_extension: temp.path().join("norma-agent-hook.ts"),
         opencode_plugin: temp.path().join("multisoul-agent-hook.js"),
+        infcode_settings: temp.path().join("infcode-settings.json"),
+        kimi_config: (temp.path().join("multisoul-agent-hook.js"))
+            .with_file_name("kimi-config.toml"),
+        hermes_plugin_dir: std::path::PathBuf::from("/nonexistent-hermes-plugin-dir"),
+        zcode_config: temp.path().join("zcode-config.json"),
     };
     let command_path = temp.path().join("multisoul-agent-hook");
     std::fs::write(
@@ -430,7 +442,13 @@ fn test_uninstall_hook_config_is_idempotent_when_missing_or_clean() {
         codex_hooks: temp.path().join("codex-hooks.json"),
         cursor_hooks: temp.path().join("cursor-hooks.json"),
         grok_hooks: temp.path().join("grok-hooks.json"),
+        pi_extension: temp.path().join("norma-agent-hook.ts"),
         opencode_plugin: temp.path().join("multisoul-agent-hook.js"),
+        infcode_settings: temp.path().join("infcode-settings.json"),
+        kimi_config: (temp.path().join("multisoul-agent-hook.js"))
+            .with_file_name("kimi-config.toml"),
+        hermes_plugin_dir: std::path::PathBuf::from("/nonexistent-hermes-plugin-dir"),
+        zcode_config: temp.path().join("zcode-config.json"),
     };
 
     uninstall_hook_config(HookTarget::Codex, &paths).expect("第一次 uninstall 应成功");

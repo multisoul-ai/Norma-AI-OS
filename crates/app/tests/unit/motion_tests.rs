@@ -446,3 +446,33 @@ fn test_reduce_motion_disables_breathing_phase_and_fade_entirely() {
         "Reduce Motion 开启时不应渗入任何呼吸色"
     );
 }
+/// 场景：项目展示网格在卡片位移动效中重复刷新同一目标。
+/// 数据构造：卡片从旧位置向展示位置移动，推进不足完成时长的一帧。
+/// 执行过程：以相同展示矩形再次同步，再切换到不同展示矩形。
+/// 预期结果：相同目标保留中间帧；新目标立即对齐展示格，避免绘制和命中错位。
+#[test]
+fn presentation_refresh_preserves_in_flight_motion_for_same_target() {
+    let mut store = MotionStore::new(false);
+    let old = CanvasRect::new(0.0, 0.0, 300.0, 200.0);
+    let target = CanvasRect::new(320.0, 0.0, 300.0, 200.0);
+    let changed = CanvasRect::new(640.0, 0.0, 300.0, 200.0);
+    let id = 9901;
+    store.spawn_node(id, old);
+    store.set_layout_target(id, target);
+    store.tick(Duration::from_millis(50));
+    let middle = store.current_node_rect(id, target);
+    assert_ne!(middle, old, "推进后应已有可见位移");
+    assert_ne!(middle, target, "50ms 不应结束卡片布局动效");
+    store.settle_presentation_rect(id, target);
+    assert_eq!(
+        store.current_node_rect(id, target),
+        middle,
+        "相同目标刷新应保留动效中间帧"
+    );
+    store.settle_presentation_rect(id, changed);
+    assert_eq!(
+        store.current_node_rect(id, changed),
+        changed,
+        "新展示格应立即对齐"
+    );
+}

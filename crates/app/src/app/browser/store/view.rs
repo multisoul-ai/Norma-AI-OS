@@ -12,7 +12,11 @@ impl BrowserView {
     ) {
         if self.native_view.is_none() {
             let configured = std::env::var("MULTISOUL_BROWSER_ENGINE").ok();
-            let engine = BrowserEngineKind::from_env_value(configured.as_deref());
+            let engine = if url.starts_with("norma-content://") {
+                BrowserEngineKind::Wry
+            } else {
+                BrowserEngineKind::from_env_value(configured.as_deref())
+            };
             let create_started = Instant::now();
             match NativeBrowserView::create(engine, node_id, url, bounds, window, event_sender) {
                 Ok(native_view) => {

@@ -1,7 +1,8 @@
 use super::{
-    canonical_expanded_content_height, canonical_provider_row_layout,
+    canonical_expanded_content_height_for, canonical_provider_row_layout,
     canonical_provider_row_rhythm, canonical_provider_typography, warning_status_color,
 };
+use norma::orchestration::OrchestrationProvider;
 use ui::Theme;
 
 /// Canonical 展开态高度：五个 Provider 与 Cursor 四组件必须同时留在 golden 面板内。
@@ -25,7 +26,13 @@ use ui::Theme;
 ///   - 负断言：不得超过 820px 并把 Grok 推出面板。
 #[test]
 fn canonical_expanded_layout_keeps_grok_inside_golden_panel() {
-    let height = canonical_expanded_content_height();
+    let height = canonical_expanded_content_height_for(&[
+        OrchestrationProvider::Codex,
+        OrchestrationProvider::Claude,
+        OrchestrationProvider::Cursor,
+        OrchestrationProvider::OpenCode,
+        OrchestrationProvider::Grok,
+    ]);
 
     assert_eq!(
         height, 782.0,
@@ -256,5 +263,46 @@ fn canonical_text_alignment_removes_final_visible_double_edges() {
     assert_eq!(
         symmetric_eighteen_padding_count, 1,
         "仅错误详情可保留对称 18px，组件行不得继续左偏 2px"
+    );
+}
+
+/// 场景：ALL 扩到 10 个 provider 后总高度与行节奏正确，且页面可滚动不会溢出。
+/// 数据构造：旧 5 项 = 782px（见上）；新增 InfCode/Kimi/ZCode/Pi/Hermes 各 85px（默认行高）
+/// 共 5 × 85 = 425px；total = 782 + 425 = 1207px，大于 820px 面板，因此必须依赖滚动。
+/// 过程：对完整 ALL 计算高度；读取 content.rs 源码确认 Orchestration 内容容器 overflow_y_scroll。
+/// 预期：正断言高度 1207 且新行均为 85；content.rs 含 overflow_y_scroll；
+/// 负断言：1207 不得被误当作需放进 820 面板的固定高度（超出时由滚动承载）。
+#[test]
+fn ten_provider_layout_is_scrollable_with_85px_rows() {
+    let height = canonical_expanded_content_height_for(&OrchestrationProvider::ALL);
+
+    assert_eq!(height, 1207.0, "10 个 provider 总高应为 782 + 5×85");
+    for provider in [
+        OrchestrationProvider::InfCode,
+        OrchestrationProvider::Kimi,
+        OrchestrationProvider::ZCode,
+        OrchestrationProvider::Pi,
+        OrchestrationProvider::Hermes,
+    ] {
+        assert_eq!(
+            super::provider_row_min_height(provider, false),
+            85.0,
+            "{provider:?} 行高应为默认 85px"
+        );
+    }
+    assert!(height > 820.0, "总高超过面板，必须依赖滚动");
+    let content = include_str!("../../src/settings/content.rs");
+    assert!(
+        content.contains("overflow_y_scroll()"),
+        "Settings 内容区必须可滚动，10 个 provider 才不会溢出"
+    );
+    let fixed = content
+        .split("let fixed_height_section = matches!(")
+        .nth(1)
+        .and_then(|rest| rest.split(");").next())
+        .expect("应找到固定高度分区列表");
+    assert!(
+        !fixed.contains("SettingsSection::Orchestration"),
+        "Orchestration 不得是固定高度（不可滚动）分区"
     );
 }

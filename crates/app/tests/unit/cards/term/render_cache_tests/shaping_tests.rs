@@ -94,6 +94,7 @@ fn test_terminal_prepared_frame_shapes_text_once_across_animation_only_repaints(
                         running: true,
                         display_offset: 0,
                     },
+                    path_scope: None,
                 })
                 .into_any_element()
             },

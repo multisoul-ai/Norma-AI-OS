@@ -4,6 +4,7 @@ mod adapter;
 mod conversation_tail;
 mod coordination;
 mod current_context;
+mod desktop_context;
 mod direct_address;
 mod direct_address_turn;
 mod environment;
@@ -28,7 +29,7 @@ pub use tool_policy::{ToolCallBudget, ToolCallPolicy, MAX_TOOL_CALLS_PER_TURN};
 
 pub use adapter::{
     norma_tool_definitions, AdapterCommand, AdapterError, AdapterResult, AgentCardAdapter,
-    NormaToolRuntime, ToolContext, ToolDefinition,
+    NormaToolRuntime, ToolContext, ToolDefinition, WorkspaceSnapshotScope,
 };
 pub use conversation_tail::{
     compare_tails_for_context, render_conversation_tails, truncate_tail_message,
@@ -47,6 +48,7 @@ pub use current_context::{
     render_current_canvas_context, CanvasCardContext, CanvasCardKind, CurrentCanvasContext,
     MAX_CURRENT_CANVAS_CARDS,
 };
+pub use desktop_context::DesktopContext;
 pub use direct_address::{parse_direct_address, AddressedAgent, DirectAddressIntent};
 pub use environment::{render_norma_environment, render_norma_environment_with_hints};
 pub use identity::{
@@ -56,7 +58,10 @@ pub use master::{
     visible_norma_reply, ModelFactory, NormaCancelHandle, NormaDelegation, NormaSession,
     NormaSessionError, NormaTurnResult,
 };
-pub use master_prompt::{norma_system_prompt, norma_system_prompt_base, NORMA_MEMORY_RULES};
+pub use master_prompt::{
+    norma_system_prompt, norma_system_prompt_base, norma_system_prompt_base_with_desktop,
+    NORMA_MEMORY_RULES,
+};
 pub use memory::{
     MemoryCommitReceipt, MemoryEntry, MemoryEntryId, MemoryEntryIdError, MemoryKind,
     MemoryMutation, MemoryRevision, MemoryScope, MemorySourceReference, MemorySummary,

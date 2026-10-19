@@ -48,9 +48,10 @@ pub use app::{
     AgentDefinitionE2eSnapshot, AgentSettingsE2eSnapshot, ApiKeyDisplayState, AppScreen,
     CanvasLayoutE2eSnapshot, CheckForUpdates, CloneProject, CopyCardContent, ExitFocus,
     InitializationAnimationE2eSnapshot, MultisoulApp, NewBrowser, NewClaudeAgent, NewCodexAgent,
-    NewCursorAgent, NewGrokAgent, NewOpenCodeAgent, NewTerminal, NewWindow, OpenFeatureGuide,
-    OpenPreviewFile, OpenProject, QuitNormaOs, ReflowLayout, SettingsE2eSnapshot,
-    ToggleMasterLayout, ToggleSettings, TtsProviderE2eSnapshot,
+    NewCursorAgent, NewGrokAgent, NewHermesAgent, NewInfCodeAgent, NewKimiAgent, NewOpenCodeAgent,
+    NewPiAgent, NewTerminal, NewWindow, NewZCodeAgent, OpenFeatureGuide, OpenPreviewFile,
+    OpenProject, QuitNormaOs, ReflowLayout, SettingsE2eSnapshot, ToggleMasterLayout,
+    ToggleSettings, TtsProviderE2eSnapshot,
 };
 #[cfg(feature = "e2e-test-support")]
 pub use app::{DispatchReceiptEffectE2eSnapshot, DispatchReceiptEffectItemE2eSnapshot};

@@ -19,6 +19,7 @@ pub enum AgentInputSource {
 pub enum AgentCommand {
     UpdateAgentRoster(Vec<crate::AgentRosterEntry>),
     UpdateCurrentCanvasContext(crate::CurrentCanvasContext),
+    UpdateDesktopContext(Option<crate::DesktopContext>),
     SwitchModel(crate::ProviderConfig),
     UserTurn {
         input: String,

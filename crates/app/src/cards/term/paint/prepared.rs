@@ -1,11 +1,10 @@
 //! Terminal layout preparation that runs only on render-cache misses.
 
-use super::{
-    build_layout, build_layout_with_selection, TerminalLayout, TerminalRenderMetrics,
-    TerminalTextRun,
-};
+use super::layout_build::build_layout_with_marks;
+use super::{TerminalLayout, TerminalRenderMetrics, TerminalTextRun};
 use crate::canvas::text_selection::TextRange;
 use crate::cards::term::paint_style::{TerminalGlassStyle, TerminalPalette};
+use crate::cards::term::path_underline::PathMarks;
 use gpui::{
     px, Font, FontFeatures, FontStyle, FontWeight, ShapedLine, SharedString, StrikethroughStyle,
     TextRun, UnderlineStyle, Window,
@@ -30,13 +29,10 @@ pub(super) fn prepare_terminal_frame(
     metrics: TerminalRenderMetrics,
     glass_style: TerminalGlassStyle,
     selection: Option<TextRange>,
+    marks: &PathMarks,
     window: &mut Window,
 ) -> PreparedTerminalFrame {
-    let layout = if let Some(selection) = selection {
-        build_layout_with_selection(snapshot, palette, metrics, glass_style, selection)
-    } else {
-        build_layout(snapshot, palette, metrics, glass_style)
-    };
+    let layout = build_layout_with_marks(snapshot, palette, metrics, glass_style, selection, marks);
     let shaped_text_runs = layout
         .text_runs
         .iter()

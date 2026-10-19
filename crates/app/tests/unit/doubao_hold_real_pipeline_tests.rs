@@ -1,5 +1,6 @@
 use super::*;
 use crate::app::doubao::input::SessionInput;
+use crate::app::doubao::ContextRequest;
 use crate::app::voice_window_inset::{
     TtsPlaybackEvent, TtsPlaybackSource, VoiceWindowInsetEventBus,
 };
@@ -29,7 +30,8 @@ async fn doubao_hold_real_pipeline_replies_after_release() {
         .expect("测试 PCM 应可读取");
     let (context, requests): (ContextRequests, _) = async_channel::unbounded();
     let context_task = tokio::spawn(async move {
-        while let Ok(response) = requests.recv().await {
+        while let Ok(request) = requests.recv().await {
+            let ContextRequest::Model(response) = request;
             let _ = response.send((
                 agent::CurrentCanvasContext {
                     project_name: "语音测试".into(),
@@ -39,6 +41,7 @@ async fn doubao_hold_real_pipeline_replies_after_release() {
                     conversation_tails: Vec::new(),
                 },
                 Vec::new(),
+                None,
             ));
         }
     });
@@ -96,10 +99,18 @@ async fn doubao_hold_real_pipeline_replies_after_release() {
             DoubaoStatus::RecordingResolved(1),
             "当前录音必须完成转写"
         );
+        assert!(
+            matches!(statuses.recv().await.expect("应收到转写文本"), DoubaoStatus::UserTranscript(text) if !text.trim().is_empty()),
+            "松键后应向左侧对话显示非空真实转写"
+        );
         assert_eq!(
             statuses.recv().await.expect("应收到思考状态"),
             DoubaoStatus::Thinking,
             "转写必须进入真实 AI 回复流程"
+        );
+        assert!(
+            matches!(statuses.recv().await.expect("应收到回复文本"), DoubaoStatus::AssistantReply(text) if !text.trim().is_empty()),
+            "AI 回复必须先进入左侧对话"
         );
         assert_eq!(
             statuses.recv().await.expect("应收到回复状态"),

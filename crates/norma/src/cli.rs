@@ -180,6 +180,13 @@ enum AgentProfileValue {
     Grok,
     #[value(name = "opencode")]
     OpenCode,
+    #[value(name = "infcode")]
+    InfCode,
+    Kimi,
+    #[value(name = "zcode")]
+    ZCode,
+    Pi,
+    Hermes,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]

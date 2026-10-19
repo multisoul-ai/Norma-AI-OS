@@ -1,14 +1,14 @@
 use super::*;
 use crate::app::AppScreen;
-use gpui::{px, size, AppContext, Modifiers, TestAppContext};
+use gpui::{px, size, AppContext, Focusable, Modifiers, TestAppContext};
 use std::time::Duration;
 
 /// 场景：桌面宿主中的项目 Dock 仍能显示命令建议、处理键盘并返回同窗口目录。
 ///
 /// 数据构造：隔离存储中一个空间、一个空项目；窗口1280×800；/theme包含6个候选。
 ///   推进220ms等于命令抽屉完整展开时长；初始候选索引0，Down后为1。
-/// 执行过程：展开项目 → 输入/theme → 推进抽屉 → Down → Esc → /new codex → 返回目录。
-/// 预期结果：建议和键盘有效；浏览建议不创建卡片；异步创建仅生成1张Codex且无假失败；返回不新增窗口。
+/// 执行过程：展开项目 → 确认底部原 Command Dock 常驻 → Cmd+K 输入/theme → 推进抽屉 → Down → Esc → /new codex → 返回目录。
+/// 预期结果：底部保留原输入和语音条；项目首屏收起左栏，手动展开可用；命令建议和键盘有效。
 #[test]
 fn desktop_command_dock_keeps_suggestions_and_keyboard_on_the_project() {
     let temp = tempfile::tempdir().expect("应创建隔离目录");
@@ -42,9 +42,53 @@ fn desktop_command_dock_keeps_suggestions_and_keyboard_on_the_project() {
         app.desktop_workspace.sessions[&(workspace.id.clone(), area.id.clone())].clone()
     });
     cx.update(|window, cx| window.draw(cx).clear());
+    assert!(
+        cx.debug_bounds("workspace-command-dock").is_some(),
+        "项目底部应保留原 Command Dock"
+    );
+    assert!(
+        cx.debug_bounds("desktop-assistant-chat-input").is_none(),
+        "项目首屏应收起左侧对话"
+    );
+    let reopen = cx
+        .debug_bounds("desktop-open-left-drawer")
+        .expect("应有左栏重开按钮");
+    cx.simulate_click(reopen.center(), Modifiers::none());
+    cx.update(|window, cx| window.draw(cx).clear());
+    assert!(
+        cx.debug_bounds("desktop-assistant-chat-input").is_some(),
+        "手动展开后应显示同一对话输入"
+    );
+    assert!(
+        cx.debug_bounds("command-dock-input").is_some(),
+        "底部原输入应常驻"
+    );
+    assert!(
+        cx.debug_bounds("workspace-voice-control").is_some(),
+        "底部原语音入口应保留"
+    );
+    // 场景：键盘 Tab 可直接聚焦左侧输入，不产生父容器的鼠标按下事件。
+    // 数据构造：项目输入与左栏共用同一个 InputState，初始不调用 Cmd+K。
+    // 执行过程：用 focus handle 模拟键盘聚焦，随后重绘宿主。
+    // 预期结果：左栏输入保持对话来源；底部原输入仍可见。
+    project.update_in(cx, |app, window, cx| {
+        app.command_dock
+            .as_ref()
+            .expect("左栏必须初始化命令输入")
+            .input
+            .focus_handle(cx)
+            .focus(window);
+    });
+    cx.update(|window, cx| window.draw(cx).clear());
+    assert!(
+        cx.debug_bounds("command-dock-input").is_some(),
+        "左栏获得焦点后底部原输入仍应可见"
+    );
+    cx.simulate_keystrokes("cmd-k");
+    cx.update(|window, cx| window.draw(cx).clear());
     let input = cx
         .debug_bounds("command-dock-input")
-        .expect("项目应显示命令输入");
+        .expect("Cmd+K 应按需显示原有命令输入");
     cx.simulate_click(input.center(), Modifiers::none());
     cx.simulate_input("/theme");
     project.update_in(cx, |app, window, cx| {
@@ -191,6 +235,43 @@ fn personal_memory_input_is_on_demand_without_a_project() {
         assert!(
             app.workspace_state.current_root.is_none(),
             "提交个人对话不能伪造项目"
+        );
+    });
+}
+/// 场景：Norma 回复尚未返回时用户继续输入下一条草稿。
+/// 数据构造：项目 Dock 处于等待回复状态，generation 固定为 7。
+/// 执行过程：修改共用输入框的文字。
+/// 预期结果：新草稿被保存，但上一条回复的等待状态和 generation 保留。
+#[test]
+fn editing_next_draft_does_not_cancel_pending_norma_reply() {
+    let temp = tempfile::tempdir().expect("应创建隔离目录");
+    let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
+    let store = storage::AppStore::initialize(&paths).expect("应初始化存储");
+    let mut test = TestAppContext::single();
+    let mut app_entity = None;
+    let (_, cx) = test.add_window_view(|window, cx| {
+        let app = cx.new(|cx| MultisoulApp::new_with_database_context(cx, paths, store));
+        app_entity = Some(app.clone());
+        ui::component::Root::new(app, window, cx)
+    });
+    let app_entity = app_entity.expect("应创建 App");
+    app_entity.update_in(cx, |app, window, cx| {
+        app.ensure_command_input(window, cx);
+        let state = app.command_dock.as_mut().expect("应初始化输入");
+        state.pending_reply = true;
+        state.reply_generation = 7;
+        state.input.update(cx, |input, cx| {
+            input.set_value("/the".to_owned(), window, cx)
+        });
+        app.complete_command_input(window, cx);
+    });
+    app_entity.read_with(cx, |app, _| {
+        let state = app.command_dock.as_ref().expect("输入应保留");
+        assert!(state.draft.starts_with("/the"), "补全后的新草稿应保存");
+        assert!(state.pending_reply, "输入新草稿不应取消上一条回复");
+        assert_eq!(
+            state.reply_generation, 7,
+            "新草稿不应废弃上一条回复的 generation"
         );
     });
 }

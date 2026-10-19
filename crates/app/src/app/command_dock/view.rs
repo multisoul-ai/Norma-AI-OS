@@ -29,6 +29,7 @@ impl MultisoulApp {
             return;
         };
         let show = state.visible
+            && !state.sidebar_origin
             && matches!(
                 self.screen,
                 AppScreen::Canvas | AppScreen::DesktopWorkspace | AppScreen::Launchpad
@@ -69,7 +70,8 @@ impl MultisoulApp {
 
     pub(crate) fn command_panel_rect(&self, width: f32, height: f32) -> Option<CanvasRect> {
         let state = self.command_dock.as_ref()?;
-        if state.drawer.opacity() <= 0.0
+        if state.sidebar_origin
+            || state.drawer.opacity() <= 0.0
             || self.settings_panel.open
             || self.feature_guide.is_visible()
         {
@@ -103,7 +105,13 @@ impl MultisoulApp {
             .as_ref()
             .expect("command input initialized");
         let input = state.input.clone();
-        let focused = self.command_input_focused(window, cx);
+        let sidebar_origin = state.sidebar_origin;
+        let focused = !sidebar_origin && self.command_input_focused(window, cx);
+        let narrow_desktop = self
+            .desktop_embedded_canvas_size
+            .is_some_and(|size| size.x < 650.0)
+            || matches!(self.screen, AppScreen::DesktopWorkspace)
+                && self.desktop_assistant_layout(window).canvas_width < 650.0;
         let focus_shortcut = self
             .shortcuts
             .effective
@@ -117,12 +125,9 @@ impl MultisoulApp {
             .id("command-dock-input")
             .debug_selector(|| "command-dock-input".into())
             .w(px(360.0))
-            .min_w(px(240.0))
+            .min_w(px(if narrow_desktop { 150.0 } else { 240.0 }))
             .flex_none()
-            // Dock max width 840px + two 18px window insets = 876px.
-            .when(window.viewport_size().width < px(876.0), |input| {
-                input.flex_shrink()
-            })
+            .flex_shrink()
             .h(px(34.0))
             .flex()
             .items_center()
@@ -233,8 +238,13 @@ impl MultisoulApp {
                         AgentProfile::Codex => ToolbarIcon::Codex,
                         AgentProfile::Claude => ToolbarIcon::Claude,
                         AgentProfile::OpenCode => ToolbarIcon::OpenCode,
+                        AgentProfile::InfCode => ToolbarIcon::InfCode,
                         AgentProfile::Cursor => ToolbarIcon::Cursor,
                         AgentProfile::Grok => ToolbarIcon::Grok,
+                        AgentProfile::Kimi => ToolbarIcon::Kimi,
+                        AgentProfile::ZCode => ToolbarIcon::ZCode,
+                        AgentProfile::Pi => ToolbarIcon::Pi,
+                        AgentProfile::Hermes => ToolbarIcon::Hermes,
                     },
                     Some(DockCommand::Terminal) => ToolbarIcon::Terminal,
                     Some(DockCommand::Browser) => ToolbarIcon::Browser,

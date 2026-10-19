@@ -1,4 +1,4 @@
-use super::{AdapterCommand, AdapterError};
+use super::{AdapterCommand, AdapterError, WorkspaceSnapshotScope};
 use norma::protocol::{AgentProfile, PreviewType};
 use serde::Deserialize;
 use serde_json::Value;
@@ -11,6 +11,43 @@ struct FindAgentTasksArgs {
     agent: Option<String>,
     #[serde(default)]
     states: Vec<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct WorkspaceSnapshotArgs {
+    scope: WorkspaceSnapshotScope,
+    area_id: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AssignWorkspaceTaskArgs {
+    workspace_id: String,
+    area_id: String,
+    node_id: u64,
+    task: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct OpenWorkspaceArtifactArgs {
+    workspace_id: String,
+    area_id: String,
+    node_id: u64,
+    turn_id: String,
+    source_path: String,
+    version: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LocateWorkspaceAgentArgs {
+    workspace_id: String,
+    area_id: String,
+    node_id: u64,
+    approval_run_id: Option<String>,
+    approval_turn_id: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -109,6 +146,59 @@ pub(super) fn parse_adapter_command(
     arguments: Value,
 ) -> Result<AdapterCommand, AdapterError> {
     match name {
+        "locate_workspace_agent" => {
+            let args: LocateWorkspaceAgentArgs = parse(arguments)?;
+            require_positive("node_id", args.node_id)?;
+            let approval_run_id = clean_optional(args.approval_run_id);
+            let approval_turn_id = clean_optional(args.approval_turn_id);
+            if approval_run_id.is_some() != approval_turn_id.is_some() {
+                return Err(AdapterError::InvalidArguments(
+                    "审批定位必须同时提供 run_id 和 turn_id".into(),
+                ));
+            }
+            Ok(AdapterCommand::LocateWorkspaceAgent {
+                workspace_id: require_text("workspace_id", args.workspace_id)?,
+                area_id: require_text("area_id", args.area_id)?,
+                node_id: args.node_id,
+                approval_run_id,
+                approval_turn_id,
+            })
+        }
+        "open_workspace_artifact" => {
+            let args: OpenWorkspaceArtifactArgs = parse(arguments)?;
+            require_positive("node_id", args.node_id)?;
+            Ok(AdapterCommand::OpenWorkspaceArtifact {
+                workspace_id: require_text("workspace_id", args.workspace_id)?,
+                area_id: require_text("area_id", args.area_id)?,
+                node_id: args.node_id,
+                turn_id: require_text("turn_id", args.turn_id)?,
+                source_path: require_text("source_path", args.source_path)?,
+                version: require_text("version", args.version)?,
+            })
+        }
+        "assign_workspace_task" => {
+            let args: AssignWorkspaceTaskArgs = parse(arguments)?;
+            require_positive("node_id", args.node_id)?;
+            Ok(AdapterCommand::AssignWorkspaceTask {
+                workspace_id: require_text("workspace_id", args.workspace_id)?,
+                area_id: require_text("area_id", args.area_id)?,
+                node_id: args.node_id,
+                task: require_text("task", args.task)?,
+            })
+        }
+        "workspace_snapshot" => {
+            let args: WorkspaceSnapshotArgs = parse(arguments)?;
+            let area_id = clean_optional(args.area_id);
+            if (args.scope == WorkspaceSnapshotScope::Area) != area_id.is_some() {
+                return Err(AdapterError::InvalidArguments(
+                    "area_id 只在 scope=area 时必填".into(),
+                ));
+            }
+            Ok(AdapterCommand::WorkspaceSnapshot {
+                scope: args.scope,
+                area_id,
+            })
+        }
         "workspace_memory" => {
             let mut fields = arguments
                 .as_object()
@@ -163,8 +253,13 @@ pub(super) fn parse_adapter_command(
                 "codex" => AgentProfile::Codex,
                 "claude" => AgentProfile::Claude,
                 "opencode" => AgentProfile::OpenCode,
+                "infcode" => AgentProfile::InfCode,
                 "cursor" => AgentProfile::Cursor,
                 "grok" => AgentProfile::Grok,
+                "kimi" => AgentProfile::Kimi,
+                "zcode" => AgentProfile::ZCode,
+                "pi" => AgentProfile::Pi,
+                "hermes" => AgentProfile::Hermes,
                 other => {
                     return Err(AdapterError::InvalidArguments(format!(
                         "unsupported Agent profile: {other}"
