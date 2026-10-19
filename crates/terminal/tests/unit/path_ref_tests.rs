@@ -150,6 +150,82 @@ fn test_path_ref_spans_for_row_reports_exact_columns_without_wrappers() {
     );
 }
 
+/// 复现 Codex 卡片截图：中文文件名、隐藏目录、整条路径被括号包裹，且行首有全角文字。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   行文本 = "打开 HTML 页面 (/Users/alan/.answer-me-with-html/pages/TUI-反馈如何合并派单-20261019-160455.html)"
+///   "打开" 占 4 列，空格 1 列，"HTML" 4 列，空格 1 列，"页面" 4 列，空格 1 列 → "(" 在列 15，路径从列 16 开始
+///   路径含 8 个全角字符（反馈如何合并派单），每个占 2 列
+///
+/// 预期结果：
+///   - 正断言：路径起点列与终点列命中，且 raw 为完整路径（不含括号）。
+///   - 负断言：左括号列 15 不命中。
+#[test]
+fn test_path_ref_detects_cjk_filename_in_hidden_dir_wrapped_by_parens() {
+    let mut grid = TerminalGrid::new(120, 4);
+    let path = "/Users/alan/.answer-me-with-html/pages/TUI-反馈如何合并派单-20261019-160455.html";
+    grid.advance(format!("打开 HTML 页面 ({path})").as_bytes());
+    let snapshot = grid.snapshot();
+    let spans = snapshot.path_ref_spans_for_row(0);
+
+    assert_eq!(spans.len(), 1, "应识别出 1 个路径，实际 {spans:?}");
+    assert_eq!(spans[0].path_ref.raw, path, "raw 应是完整路径，不含括号");
+    assert_eq!(spans[0].start, 16, "路径应从列 16 起，括号在列 15");
+    assert!(
+        snapshot.path_ref_at(0, spans[0].end - 1).is_some(),
+        "路径末列应命中"
+    );
+    assert!(snapshot.path_ref_at(0, 15).is_none(), "左括号不得命中");
+}
+
+/// Codex 0.163 用 OSC 8 `file://` 超链接输出本地路径：可见文本区间应被识别，目标取自 URI。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   行文本 = "打开 (" + OSC8[file:///proj/docs/中文.html](可见文本 "/proj/docs/中文.html") + ")"
+///   "打开" 4 列 + 空格 1 列 + "(" 1 列 → 超链接可见文本从列 6 开始
+///   可见文本 "/proj/docs/" 11 列 + "中文" 4 列 + ".html" 5 列 = 20 列 → 区间 6..26
+///   另有一段 ssh:// 超链接 "x/y.md" 与一段 https 超链接 "a/b.md"，均不应被当作本地文件
+///
+/// 预期结果：
+///   - 正断言：恰好 1 个区间 (6, 26)，raw 为完整 file:// URI，tier 为 Strong；列 6、25 命中。
+///   - 负断言：列 5 的左括号、列 26 的右括号不命中；ssh/https 超链接不产生区间。
+#[test]
+fn test_path_ref_detects_osc8_file_hyperlink_over_visible_text() {
+    let uri = "file:///proj/docs/中文.html";
+    let mut grid = TerminalGrid::new(120, 4);
+    grid.advance(
+        format!("打开 (\x1b]8;;{uri}\x1b\\/proj/docs/中文.html\x1b]8;;\x1b\\)").as_bytes(),
+    );
+    let snapshot = grid.snapshot();
+    let spans = snapshot.path_ref_spans_for_row(0);
+
+    assert_eq!(spans.len(), 1, "应只识别出 file:// 超链接，实际 {spans:?}");
+    assert_eq!(
+        (spans[0].start, spans[0].end),
+        (6, 26),
+        "区间应覆盖可见文本"
+    );
+    assert_eq!(spans[0].path_ref.raw, uri, "目标应取自 OSC 8 的 URI");
+    assert_eq!(
+        spans[0].path_ref.tier,
+        PathTier::Strong,
+        "带扩展名应为强候选"
+    );
+    assert!(snapshot.path_ref_at(0, 6).is_some(), "区间首列应命中");
+    assert!(snapshot.path_ref_at(0, 25).is_some(), "区间末列应命中");
+    assert!(snapshot.path_ref_at(0, 5).is_none(), "左括号不得命中");
+    assert!(snapshot.path_ref_at(0, 26).is_none(), "右括号不得命中");
+
+    let mut other = TerminalGrid::new(120, 4);
+    other.advance(
+        b"\x1b]8;;ssh://h/x/y.md\x1b\\x/y.md\x1b]8;;\x1b\\ \x1b]8;;https://e.io/a/b.md\x1b\\a/b.md\x1b]8;;\x1b\\",
+    );
+    assert!(
+        other.snapshot().path_ref_spans_for_row(0).is_empty(),
+        "非 file 协议的超链接不得被当作本地文件"
+    );
+}
+
 /// 单击命中：`path_ref_at` 只在路径区间内命中，区间外与网页链接不命中。
 ///
 /// 数据构造：

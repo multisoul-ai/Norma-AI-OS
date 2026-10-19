@@ -128,6 +128,8 @@ impl GridSnapshot {
             }
             index = token_end;
         }
+        spans.extend(file_hyperlink_spans(cells));
+        spans.sort_by_key(|span| span.start);
         spans
     }
 
@@ -138,6 +140,46 @@ impl GridSnapshot {
             .find(|span| col >= span.start && col < span.end)
             .map(|span| span.path_ref)
     }
+}
+
+/// OSC 8 `file://` 超链接的可见文本区间（如 Codex 输出的本地路径）；目标以 URI 为准，不依赖可见文字。
+fn file_hyperlink_spans(cells: &[Cell]) -> Vec<PathRefSpan> {
+    let uri_at = |index: usize| {
+        cells[index]
+            .hyperlink
+            .as_ref()
+            .map(|link| link.uri())
+            .filter(|uri| uri.starts_with("file://"))
+    };
+    let mut spans = Vec::new();
+    let mut index = 0;
+    while index < cells.len() {
+        let Some(uri) = uri_at(index) else {
+            index += 1;
+            continue;
+        };
+        let mut end = index;
+        while end < cells.len() && uri_at(end) == Some(uri) {
+            end += 1;
+        }
+        while end > index + 1 && is_blank(&cells[end - 1]) {
+            end -= 1;
+        }
+        let path_ref = parse_path_ref(uri).unwrap_or_else(|| PathRef {
+            raw: uri.to_string(),
+            path: uri.to_string(),
+            line: None,
+            col: None,
+            tier: PathTier::NeedsVerify,
+        });
+        spans.push(PathRefSpan {
+            start: index,
+            end,
+            path_ref,
+        });
+        index = end.max(index + 1);
+    }
+    spans
 }
 
 fn is_blank(cell: &Cell) -> bool {
