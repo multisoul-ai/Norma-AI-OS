@@ -3,14 +3,9 @@
 use super::{glass_button_variant, GLASS_TEXT, GLASS_TEXT_MUTED, GLASS_TEXT_SECONDARY};
 use crate::app::MultisoulApp;
 use canvas::NodeId;
-use gpui::{div, prelude::*, px, rgba, svg, Context, Div, ElementId, Stateful, Window};
-use runtime::desktop_drawers::{
-    route_drawer, DesktopDrawerEvent, DesktopDrawerSide, DesktopLeftView,
-};
-use ui::component::{
-    button::{Button, ButtonVariants},
-    Disableable, StyledExt,
-};
+use gpui::{div, prelude::*, px, rgba, svg, Context, Div, Stateful, Window};
+use runtime::desktop_drawers::{route_drawer, DesktopDrawerEvent, DesktopDrawerSide};
+use ui::component::button::{Button, ButtonVariants};
 
 pub(super) const TOP: f32 = 0.0;
 pub(super) const BOTTOM: f32 = 0.0;

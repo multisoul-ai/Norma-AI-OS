@@ -48,16 +48,6 @@ pub(super) struct OverviewArea {
     pub rows: Vec<OverviewAgentRow>,
 }
 
-pub(super) fn overview_task_text(task: &str, updated_at_unix_ms: Option<i64>) -> String {
-    match updated_at_unix_ms {
-        Some(updated) => format!(
-            "{task} · 上次更新{}",
-            super::status::last_update_label(updated)
-        ),
-        None => task.to_owned(),
-    }
-}
-
 pub(super) fn overview_areas_from_activity(
     area_ids: &[String],
     view: &WorkspaceActivityView,

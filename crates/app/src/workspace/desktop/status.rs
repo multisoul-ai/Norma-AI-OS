@@ -278,16 +278,6 @@ fn ego_state_key(phase: EgoCardPhase) -> &'static str {
     }
 }
 
-pub(super) fn last_update_label(updated_at_unix_ms: i64) -> String {
-    let age = current_unix_ms().saturating_sub(updated_at_unix_ms) / 1_000;
-    match age {
-        0..=59 => "刚刚".into(),
-        60..=3_599 => format!("{} 分钟前", age / 60),
-        3_600..=86_399 => format!("{} 小时前", age / 3_600),
-        _ => format!("{} 天前", age / 86_400),
-    }
-}
-
 fn current_unix_ms() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)

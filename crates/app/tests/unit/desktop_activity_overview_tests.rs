@@ -1,4 +1,4 @@
-use super::{overview_areas_from_activity, overview_task_text, ActivityPresentation};
+use super::{overview_areas_from_activity, ActivityPresentation};
 use norma::mobile::{
     WorkspaceActivityAgentEntry, WorkspaceActivityProjectGroup, WorkspaceActivityStatus,
     WorkspaceActivityView,
@@ -155,20 +155,6 @@ fn overview_rows_follow_existing_locate_approval_and_ego_rules() {
     );
     assert_eq!(live[3].task, "暂无任务标题", "没有任务标题时沿用原占位");
     assert_eq!(live[3].state, "待命", "ego_ready 文案不变");
-    assert_eq!(
-        overview_task_text("审核登录方案", None),
-        "审核登录方案",
-        "实时行不追加上次更新"
-    );
-    let stale_text = overview_task_text("审核登录方案", Some(2_000));
-    assert!(
-        stale_text.starts_with("审核登录方案 · 上次更新"),
-        "过期行在渲染时追加上次更新"
-    );
-    assert_ne!(
-        stale_text, "审核登录方案",
-        "过期行不能停在没有时间的任务标题"
-    );
 }
 
 fn group(area_id: &str, agents: Vec<WorkspaceActivityAgentEntry>) -> WorkspaceActivityProjectGroup {

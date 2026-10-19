@@ -2,76 +2,11 @@ use super::*;
 use crate::app::AppScreen;
 use gpui::{AppContext as _, TestAppContext};
 use storage::{
-    ApprovalAuditStore, BackgroundApprovalAudit, DesktopAgentStatus, DesktopAreaStatus,
-    DesktopContentTabStore, DesktopWorkspaceStore, MobileTaskDeliveryStore, MobileTurnKey,
-    MobileTurnOutcome, MobileTurnState, MobileTurnStore, TaskDeliveryContent,
+    ApprovalAuditStore, BackgroundApprovalAudit, DesktopContentTabStore, DesktopWorkspaceStore,
+    MobileTaskDeliveryStore, MobileTurnKey, MobileTurnOutcome, MobileTurnState, MobileTurnStore,
+    TaskDeliveryContent,
 };
 use workspace::review::{ContentKind, FileChange, FileVersion, ProjectReview};
-
-/// 场景：未加载项目的方案仍应显示来源 Agent，而不退化为“原 Agent”。
-/// 数据构造：项目没有运行会话；节点 7 的存储来源类型为 Codex，最近状态缓存标记其别名 Alan。
-/// 执行过程：先读取概览应显示的名称，再清除缓存模拟仅剩任务产物记录。
-/// 预期结果：有缓存时显示 Alan；没有缓存时显示可信的 Codex 类型，不虚构别名。
-#[test]
-fn artifact_agent_name_uses_cached_alias_then_task_profile_when_project_is_unloaded() {
-    let temp = tempfile::tempdir().expect("应创建隔离目录");
-    let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
-    let store = storage::AppStore::initialize(&paths).expect("应初始化隔离存储");
-    let catalog = DesktopWorkspaceStore::new(paths.app_db_path().to_owned());
-    let workspace = catalog.create("空间").expect("应创建工作空间");
-    let root = temp.path().join("project-b");
-    std::fs::create_dir(&root).expect("应创建项目目录");
-    let area = catalog
-        .add_project(&workspace.id, &root)
-        .expect("应添加项目");
-    let artifact = DesktopArtifact {
-        area_id: area.id.clone(),
-        node_id: 7,
-        agent_profile: "Codex".into(),
-        turn_id: "turn-b".into(),
-        path: root.join("plan.md"),
-        source_path: "plan.md".into(),
-        version: "version-b".into(),
-        saved_at_unix: 1,
-    };
-    let mut test = TestAppContext::single();
-    let (app, cx) =
-        test.add_window_view(|_, cx| MultisoulApp::new_with_database_context(cx, paths, store));
-    app.update(cx, |app, cx| {
-        app.desktop_workspace.active_id = Some(workspace.id.clone());
-        app.desktop_workspace.areas = vec![area.clone()];
-        app.desktop_workspace.status_cache.insert(
-            area.id.clone(),
-            DesktopAreaStatus {
-                area_id: area.id.clone(),
-                updated_at_unix_ms: 2_000,
-                agents: vec![DesktopAgentStatus {
-                    node_id: 7,
-                    name: "Alan".into(),
-                    task: Some("审核方案".into()),
-                    state: "done".into(),
-                    run_id: None,
-                    turn_id: None,
-                }],
-            },
-        );
-        assert!(
-            app.desktop_workspace.sessions.is_empty(),
-            "测试项目必须保持未加载"
-        );
-        assert_eq!(
-            app.desktop_artifact_agent_name(&artifact, cx),
-            "Alan",
-            "未加载项目的产物应显示缓存中的 Agent 别名"
-        );
-        app.desktop_workspace.status_cache.clear();
-        assert_eq!(
-            app.desktop_artifact_agent_name(&artifact, cx),
-            "Codex",
-            "没有最近状态时应退回任务记录中可信的 Agent 类型"
-        );
-    });
-}
 
 /// 工作空间切换期间完成的文件校验不能把旧空间的产物写进新空间标签。
 ///

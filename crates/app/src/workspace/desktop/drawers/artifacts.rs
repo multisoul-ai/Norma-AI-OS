@@ -3,24 +3,6 @@ use canvas::NodeId;
 use gpui::{Context, Window};
 
 impl MultisoulApp {
-    pub(crate) fn desktop_artifact_agent_name(
-        &self,
-        artifact: &super::super::DesktopArtifact,
-        cx: &gpui::App,
-    ) -> String {
-        self.desktop_workspace
-            .active_id
-            .as_deref()
-            .and_then(|workspace_id| {
-                self.desktop_area_status_view(workspace_id, &artifact.area_id, cx)
-                    .agents
-                    .into_iter()
-                    .find(|agent| agent.node_id == artifact.node_id)
-                    .map(|agent| agent.name)
-            })
-            .unwrap_or_else(|| artifact.agent_profile.clone())
-    }
-
     pub(crate) fn locate_desktop_approval(
         &mut self,
         area_id: &str,
