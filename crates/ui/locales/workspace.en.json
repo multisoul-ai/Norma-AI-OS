@@ -122,5 +122,8 @@
   "workspace.project_count": "Projects: %{count}",
   "workspace.workspace_count": "Workspaces: %{count}",
   "workspace.left_tab_chat": "Chat",
-  "workspace.left_tab_overview": "Run Overview"
+  "workspace.left_tab_overview": "Run Overview",
+  "workspace.overview_pin_float": "Pin the run overview onto the canvas",
+  "workspace.overview_pin_dock": "Dock the run overview back into the drawer",
+  "workspace.overview_move": "Drag to move. Arrow keys move it. Double-click the title bar to reset."
 }
