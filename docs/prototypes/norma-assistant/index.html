@@ -279,12 +279,66 @@ body[data-input=keyboard] .orb-button:active .orb-surface{transform:none}
 .page-dock-page{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:35px;height:34px;padding:0 9px;border:1px solid transparent;border-radius:9px;color:#bdcfe0;font-size:10px;white-space:nowrap;flex:none}
 .page-dock-page[aria-current=page]{background:#58adff28;border-color:#83c4ff8c;color:#eaf7ff;box-shadow:inset 0 1px #eaf7ff2b}.page-dock-page svg{width:14px;height:14px}
 .page-dock-setting{width:34px;padding:0}.page-dock-setting svg{width:15px;height:15px}
-.progress-float{position:sticky;top:0;z-index:3;flex:none;margin:12px 20px 0;padding:13px 13px 10px;border:1px solid #b7dcff62;border-radius:16px;background:linear-gradient(155deg,#102b43d6,#0a1c30c2 65%,#0a2033d1);box-shadow:inset 0 1px #e5f6ff36,0 16px 38px #0008;backdrop-filter:blur(18px) saturate(130%);-webkit-backdrop-filter:blur(18px) saturate(130%)}
-.conversation-panel .conversation-heading{padding-top:14px}
-.progress-head{display:flex;align-items:center;gap:9px;min-width:0}.progress-mark{width:28px;height:28px;flex:none;display:grid;place-items:center;border-radius:9px;background:#51aaff28;color:#bfe4ff}.progress-mark svg{width:15px;height:15px}.progress-head-copy{min-width:0;display:flex;flex-direction:column;gap:3px}.progress-head-copy small{color:#9abbd7;font:8px "SF Mono",Menlo,monospace;letter-spacing:.8px}.progress-head-copy strong{color:#f2f8ff;font-size:12px;font-weight:620;white-space:nowrap}.progress-count{margin-left:auto;flex:none;color:#b2d7f3;font:8px "SF Mono",Menlo,monospace}
-.progress-agent-list{margin-top:11px;padding:3px 0;border-top:1px solid #cde8ff21;border-bottom:1px solid #cde8ff21}.progress-agent-row{display:grid;grid-template-columns:7px minmax(0,1fr) auto;align-items:center;column-gap:8px;width:100%;min-height:39px;padding:0 5px;text-align:left;border-radius:8px}.progress-agent-row:hover,.progress-agent-row:focus-visible{background:#8fcaff26}.progress-status-dot{width:6px;height:6px;border-radius:50%;background:#36dce8;box-shadow:0 0 10px #36dce888}.progress-agent-row.is-idle .progress-status-dot{background:#7b9dbd;box-shadow:none}.progress-agent-copy{min-width:0;display:flex;flex-direction:column;gap:2px}.progress-agent-copy strong{color:#eff8ff;font-size:10px;font-weight:600}.progress-agent-copy small{color:#a9c0d5;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.progress-agent-state{font-size:9px;color:#71e5ee}.progress-agent-row.is-idle .progress-agent-state{color:#a9bdd0}
-.progress-followups{display:grid;gap:5px;margin-top:9px}.progress-followup{display:grid;grid-template-columns:70px minmax(0,1fr);align-items:center;gap:5px;min-height:25px;font-size:9px}.progress-followup b{font-weight:550;color:#d7e8f8}.progress-followup.is-review b:before,.progress-followup.is-result b:before,.progress-followup.is-file b:before{content:"";display:inline-block;width:5px;height:5px;margin-right:6px;border-radius:50%;vertical-align:1px}.progress-followup.is-review b:before{background:#f2c773}.progress-followup.is-result b:before{background:#64dfd2}.progress-followup.is-file b:before{background:#80baff}
-.progress-action{display:inline-flex;align-items:center;min-width:0;max-width:100%;height:23px;padding:0 7px;border-radius:7px;background:#a8d5ff14;color:#d5eaff;text-align:left;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.progress-action:hover,.progress-action:focus-visible{background:#8fcaff31;color:#fff}.progress-file-buttons{min-width:0;display:flex;gap:4px}.progress-file-buttons .progress-action{padding-inline:5px;flex:1}.progress-file-buttons .progress-action:last-child{flex:.75}
+/* 运行概览：左侧抽屉视图、顶栏状态与悬浮面板。 */
+.workspace-header{position:relative;z-index:30}.workspace-actions{gap:8px}
+.run-status{display:inline-flex;align-items:center;gap:10px;flex:none;height:32px;padding:0 10px 0 11px;border:1px solid #a9d4f43d;border-radius:9px;background:#9fcfff10;color:#d9ebfb;font-size:12px;white-space:nowrap;box-shadow:inset 0 1px #e3f3ff17;transition:background 120ms ease,border-color 120ms ease}
+.run-status:hover{background:#8fcaff2a;border-color:#bce1ff8c;color:#fff}.run-status:active{background:#8fcaff3b}.run-status:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.run-status[aria-expanded=true]{background:#a6d5ff22;border-color:#b5d5f0a0;color:#fff}
+.run-trigger-sep{width:1px;height:14px;background:#cde8ff33}
+.run-trigger-pending{display:inline-flex;align-items:center;gap:6px;color:#f6dfaa}
+.progress-badge{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#f2c773;color:#162638;font:700 11px/1 -apple-system,BlinkMacSystemFont,sans-serif}
+.run-status-pin{display:none;color:#9fd2ff}.run-status-pin svg{width:12px;height:12px}.app[data-run-floating=true] .run-status-pin{display:grid;place-items:center}
+.run-agents{display:inline-flex;align-items:center;gap:10px}
+.run-agent-chip{position:relative;display:inline-flex;align-items:center;gap:6px;color:#e4f1fd}
+.run-agent-ring{position:relative;width:16px;height:16px;flex:none;border-radius:50%;background:conic-gradient(var(--ring,#36dce8) calc(var(--step,0) / var(--steps,1) * 1turn),#cde8ff2e 0);-webkit-mask:radial-gradient(circle,#0000 4.5px,#000 5px);mask:radial-gradient(circle,#0000 4.5px,#000 5px)}
+.run-agent-chip.is-idle .run-agent-ring{background:none;box-shadow:inset 0 0 0 1.5px #8fa9c2;-webkit-mask:none;mask:none}
+.run-agent-name{font-weight:560}.run-agent-step{font:500 11px "SF Mono",Menlo,monospace;color:#7ee9ee}.run-agent-chip.is-idle .run-agent-step{font:11px -apple-system,BlinkMacSystemFont,sans-serif;color:#a9bfd1}
+.run-agent-alert{position:absolute;top:-2px;left:11px;width:7px;height:7px;border-radius:50%;background:#f2c773;box-shadow:0 0 0 2px #0b1f33}
+.app[data-chat=open][data-reader=open] .run-agent-name,.app[data-chat=open][data-reader=open] .run-agent-chip.is-idle .run-agent-step,.app[data-chat=open][data-reader=open] .run-trigger-pending-label,.app[data-chat=open][data-reader=open] .run-trigger-sep{display:none}
+.drawer-switch{flex:none;display:grid;grid-template-columns:1fr 1fr;gap:2px;margin:10px 16px 0;padding:3px;border:1px solid #a9d4f42e;border-radius:10px;background:#9fcfff0f}
+.drawer-tab{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:30px;border-radius:8px;color:#b9cfe3;font-size:12px;font-weight:520;transition:background 120ms ease,color 120ms ease}
+.drawer-tab:hover{background:#8fcaff17;color:#fff}.drawer-tab:active{background:#8fcaff2a}.drawer-tab:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+.drawer-tab[aria-selected=true]{background:#58adff2e;color:#fff;box-shadow:inset 0 0 0 1px #83c4ff70}
+.drawer-tab-float{display:none;color:#9fd2ff}.drawer-tab-float svg{width:12px;height:12px}.app[data-run-floating=true] .drawer-tab-float{display:grid;place-items:center}
+.app[data-left-view=overview] .conversation-heading,.app[data-left-view=overview] .orb-zone,.app[data-left-view=overview] .conversation-scroll{display:none}
+.run-overview{--run-x:0px;--run-y:0px;color:#e4effa}.run-overview[hidden]{display:none}
+.run-overview[data-mode=drawer]{flex:1;min-height:0;display:flex;flex-direction:column;padding:4px 8px 0}
+.run-overview[data-mode=floating]{position:absolute;top:64px;right:12px;width:min(360px,calc(100% - 24px));max-height:min(640px,calc(100% - 150px));display:flex;flex-direction:column;pointer-events:auto;border:1px solid #83c4ffa6;border-radius:14px;background:#0b1b2df5;box-shadow:inset 0 1px #e5f6ff26,0 22px 52px #000b;backdrop-filter:blur(24px) saturate(130%);-webkit-backdrop-filter:blur(24px) saturate(130%);transform:translate(var(--run-x),var(--run-y))}
+.run-float-layer{position:absolute;inset:0;z-index:25;pointer-events:none}
+.run-pop-head{display:flex;align-items:center;gap:10px;padding:10px 8px 8px}.run-overview[data-mode=floating] .run-pop-head{padding:12px 10px 10px 16px;border-bottom:1px solid #cde8ff1c;cursor:grab;user-select:none}
+.run-pop-title{flex:1;min-width:0}.run-pop-title strong{display:block;font-size:14px;font-weight:620;color:#f2f8ff}.run-pop-title small{display:block;margin-top:3px;font-size:11px;color:#9fb8cf}
+.run-pop-actions{display:flex;align-items:center;gap:2px}
+.run-pop-icon{display:grid;place-items:center;width:28px;height:28px;border-radius:7px;color:#a9c3da}.run-pop-icon svg{width:14px;height:14px}.run-pop-icon[hidden]{display:none}
+.run-pop-icon:hover{background:#8fcaff24;color:#fff}.run-pop-icon:active{background:#8fcaff3a}.run-pop-icon:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+.run-pop-icon[aria-pressed=true]{background:#58adff33;color:#eaf7ff;box-shadow:inset 0 0 0 1px #83c4ff8c}.run-pop-move{cursor:grab}
+.run-pop-scroll{flex:1;min-height:0;overflow:auto;padding:0 0 10px;scrollbar-width:thin;scrollbar-color:#cde8ff55 transparent}.run-overview[data-mode=floating] .run-pop-scroll{padding:4px 8px 8px}
+.run-group+.run-group{margin-top:4px;padding-top:4px;border-top:1px solid #cde8ff14}
+.run-group-title{display:flex;align-items:center;justify-content:space-between;gap:8px;height:30px;padding:0 8px;font-size:11px;font-weight:600;color:#a9c3da;letter-spacing:.2px}.run-group-title span{font-weight:400;color:#8ea8bf}
+.run-group-title .run-count{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#f2c77326;color:#f6dfaa;font-weight:600}
+.run-row{display:grid;grid-template-columns:20px minmax(0,1fr) auto;align-items:center;column-gap:10px;width:100%;min-height:48px;padding:6px 8px;border-radius:9px;text-align:left;color:inherit;transition:background 80ms ease}
+.run-row:hover{background:#8fcaff1f}.run-row:active{background:#8fcaff36}.run-row:focus-visible{outline:2px solid var(--blue);outline-offset:-2px;background:#8fcaff1f}
+.run-row.is-agent{align-items:start}.run-row.is-agent .run-lead,.run-row.is-agent .run-trail{margin-top:2px}
+.run-lead{display:grid;place-items:center;width:20px;height:20px}.run-lead i{width:8px;height:8px;border-radius:50%;background:#80baff}
+.run-row.is-review .run-lead i{background:#f2c773;box-shadow:0 0 0 3px #f2c77324}.run-row.is-result .run-lead i{background:#64dfd2}.run-row.is-file .run-lead i{background:#80baff}
+.run-row.is-agent .run-lead i{background:#36dce8;box-shadow:0 0 0 3px #36dce829}.run-row.is-agent.is-idle .run-lead i{background:#7b9dbd;box-shadow:none}
+.run-row.is-project .run-lead{width:24px;font:600 11px "SF Mono",Menlo,monospace;color:#9fb8cf;border:1px solid #cde8ff33;border-radius:6px}
+.run-copy{min-width:0;display:flex;flex-direction:column;gap:3px}.run-copy strong{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:560;color:#eef6ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.run-copy small{font-size:12px;color:#a9c0d5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.run-state{flex:none;padding:1px 6px;border-radius:5px;background:#9fb8cf1a;color:#b3c6d8;font-size:11px;font-weight:500}.run-state.is-running{background:#36dce81f;color:#7ee9ee}
+.run-alert{flex:none;padding:1px 6px;border-radius:5px;background:#f2c77326;color:#f6dfaa;font-size:11px;font-weight:500}
+.run-steps{display:grid;grid-template-columns:repeat(var(--steps),1fr);gap:3px;height:4px;margin-top:5px}
+.run-steps i{border-radius:2px;background:#cde8ff24}.run-steps i.done{background:#36dce8}.run-steps i.current{background:linear-gradient(90deg,#36dce8 0 50%,#36dce859 50%)}
+.run-step-label{margin-top:4px;font-size:12px;color:#cfe3f4}.run-step-label em{font-style:normal;color:#8ea8bf}
+.run-trail{display:inline-flex;align-items:center;gap:4px;padding:0 4px;font-size:12px;color:#9fc7ea;white-space:nowrap}.run-trail svg{width:12px;height:12px}.run-row:hover .run-trail,.run-row:focus-visible .run-trail{color:#fff}
+.live-card.is-peeked{box-shadow:0 0 0 2px #8fd0ffcc,0 0 28px #5ab8ff55!important}
+.live-task-status.is-running{background:#27d7ea20;color:#27d7ea;font-variant-numeric:tabular-nums}.live-task-status.is-idle{background:#9fb8cf1f;color:#b3c6d8}
+@keyframes left-view-in{from{opacity:0;transform:translateX(var(--view-from,10px))}to{opacity:1;transform:none}}
+@keyframes left-view-fade{from{opacity:0}to{opacity:1}}
+@keyframes run-float-in{from{opacity:0;transform:translate(var(--run-x),var(--run-y)) scale(.96)}to{opacity:1;transform:translate(var(--run-x),var(--run-y))}}
+.left-view-enter{animation:left-view-in 200ms var(--ease) both}.run-overview[data-mode=floating].float-enter{transform-origin:top right;animation:run-float-in 180ms var(--ease) both}
+.run-overview.is-dragging,.run-overview.is-dragging .run-pop-head{transition:none;animation:none;cursor:grabbing}
+@media(prefers-reduced-motion:reduce){.left-view-enter,.run-overview[data-mode=floating].float-enter{animation-name:left-view-fade;animation-duration:120ms}.drawer-tab,.run-row,.run-status{transition:none}}
+@media(prefers-reduced-transparency:reduce){.run-overview[data-mode=floating]{background:#0b1a2a;backdrop-filter:none;-webkit-backdrop-filter:none}}
+/* /运行概览 */
 .progress-target-flash{background:#e9be6333!important;border-radius:5px;box-shadow:0 0 0 4px #e9be6318}
 /* 顶部只露出与当前抽屉状态对应的开关；窄左栏保留所有工具的图标入口。 */
 .app[data-chat=open] .chat-open,.app[data-reader=open] .canvas-open{display:none}
@@ -296,24 +350,11 @@ body[data-input=keyboard] .orb-button:active .orb-surface{transform:none}
 .conversation-panel .topbar{padding-inline:12px}.conversation-panel .brand{gap:5px}.conversation-panel .wordmark{font-size:21px;letter-spacing:-1px}
 .conversation-panel .quiet-button{width:32px;height:32px;padding:0;justify-content:center;font-size:0}.conversation-panel .quiet-button svg{width:14px;height:14px}
 .conversation-panel .top-actions{gap:3px}.conversation-panel .top-actions .icon-button{width:30px;height:30px}
-.progress-float{position:absolute;top:78px;right:14px;left:auto;width:calc(100% - 28px);margin:0;padding:11px 11px 9px;border-radius:14px;max-height:min(355px,48svh);overflow:auto;scrollbar-width:thin;scrollbar-color:#cde8ff55 transparent;z-index:12;background:linear-gradient(155deg,#102b43f2,#0a1c30eb 65%,#0a2033ef);backdrop-filter:blur(24px) saturate(130%);-webkit-backdrop-filter:blur(24px) saturate(130%);transition:width 220ms var(--ease),max-height 220ms var(--ease),padding 220ms var(--ease)}
-.progress-float[data-collapsed=true]{width:44px;max-height:44px;padding:7px;overflow:visible}
-.progress-toggle{display:flex;align-items:center;gap:9px;width:100%;min-width:0;padding:0;text-align:left;border-radius:8px}.progress-toggle:hover .progress-mark,.progress-toggle:focus-visible .progress-mark{background:#69b8ff43;color:#fff}.progress-toggle:focus-visible{outline-offset:4px}
-.progress-mark{position:relative}.progress-badge{display:none;position:absolute;top:-6px;right:-6px;min-width:14px;height:14px;padding:0 3px;border-radius:7px;background:#f2c773;color:#162638;font:700 9px/14px -apple-system,BlinkMacSystemFont,sans-serif;text-align:center;box-shadow:0 0 0 2px #102b43}
-.progress-float[data-collapsed=true] .progress-badge{display:block}.progress-float[data-collapsed=true] .progress-head-copy,.progress-float[data-collapsed=true] .progress-count,.progress-float[data-collapsed=true] .progress-chevron{display:none}
-.progress-chevron{flex:none;color:#b4d5ed}.progress-chevron svg{width:14px;height:14px;transform:rotate(-90deg);transition:transform 180ms var(--ease)}
-.progress-body{display:grid;grid-template-rows:1fr;opacity:1;transition:grid-template-rows 220ms var(--ease),opacity 160ms ease}.progress-body-inner{min-height:0;overflow:hidden}.progress-float[data-collapsed=true] .progress-body{grid-template-rows:0fr;opacity:0;pointer-events:none}
-.conversation-panel .conversation-live{margin-right:47px}
-.progress-section-title{display:flex;justify-content:space-between;gap:6px;margin-top:11px;color:#d2e8fa;font-size:9px;font-weight:600;letter-spacing:.3px}.progress-section-title span{font-size:8px;font-weight:400;color:#91afc9;letter-spacing:0}
-.progress-agent-list{margin-top:4px;padding:2px 0 5px;border-top:0}.progress-agent-row{min-height:37px;padding-inline:5px}.progress-agent-copy strong{display:flex;align-items:center;gap:7px}.progress-agent-copy em{color:#70e7e7;font-size:8px;font-style:normal;font-weight:450}.progress-agent-row.is-idle .progress-agent-copy em{color:#a9bfd1}
-.progress-followups{gap:4px;margin-top:5px}.progress-followup{grid-template-columns:minmax(0,1fr) 54px;min-height:37px;gap:6px;padding:3px 5px 3px 8px;border-radius:8px;background:#b6dbff0a}.progress-followup-copy{display:flex;flex-direction:column;gap:2px;min-width:0}.progress-followup b{font-size:9px}.progress-followup small{font-size:9px;color:#b9cfe1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.progress-followup.is-resource b:before{content:"";display:inline-block;width:5px;height:5px;margin-right:6px;border-radius:50%;vertical-align:1px;background:#7b9dbd}.progress-action{justify-content:center;width:54px;height:25px;padding:0 4px;border:1px solid #add7ff27;border-radius:7px;font-size:9px}.progress-action:active{background:#8fcaff4a}
 .document-text .file-preview-image{display:block;width:100%;height:auto;border:1px solid #cde8ff38;border-radius:10px;margin-top:15px}.document-text pre{overflow:auto;padding:14px;border:1px solid #cde8ff24;border-radius:9px;background:#061321ad;color:#c9e4fb;font:10px/1.6 "SF Mono",Menlo,monospace}
 @media(max-width:1050px){.page-dock-command{display:none}.page-dock-surface{width:max-content;max-width:100%}}
 @media(max-width:520px){.page-dock{padding-inline:8px}.page-dock-surface{gap:3px}.page-dock-page{padding-inline:7px}.page-dock-page-label{display:none}}
-@media(max-height:740px){.progress-float{max-height:min(330px,45svh)}}
-@media(prefers-reduced-motion:reduce){.progress-float,.progress-body,.progress-chevron svg{transition:none}}
-@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.conversation-panel,.reader-panel,.composer-area,.reader-chrome,.workspace-header,.page-dock-surface,.progress-float{background:#091a2de8}}
-@media(prefers-reduced-transparency:reduce){.conversation-panel,.reader-panel,.composer-area,.app[data-view=content] .composer-area,.bottom-bar,.reader-chrome,.workspace-header,.page-dock-surface,.viewer-toolbar,.progress-float{background:#0b1a2a;backdrop-filter:none;-webkit-backdrop-filter:none}}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.conversation-panel,.reader-panel,.composer-area,.reader-chrome,.workspace-header,.page-dock-surface{background:#091a2de8}}
+@media(prefers-reduced-transparency:reduce){.conversation-panel,.reader-panel,.composer-area,.app[data-view=content] .composer-area,.bottom-bar,.reader-chrome,.workspace-header,.page-dock-surface,.viewer-toolbar{background:#0b1a2a;backdrop-filter:none;-webkit-backdrop-filter:none}}
 @media(prefers-contrast:more){.conversation-panel,.reader-panel,.page-dock-surface{border-color:#dceeff}.page-dock-page[aria-current=page]{border-color:#dceeff}.chat-message.assistant,.reader-empty{color:#fff}}
 
 .resize-handle{position:absolute;top:0;bottom:0;width:9px;z-index:30;cursor:col-resize;touch-action:none;background:transparent}
@@ -359,7 +400,7 @@ summary::-webkit-details-marker{display:none}
 </style>
 </head>
 <body>
-<div class="app" id="app" data-appearance="aurora">
+<div class="app" id="app" data-appearance="aurora" data-left-view="chat">
   <aside class="conversation-panel" id="conversation-panel" aria-label="Norma 对话">
     <div class="resize-handle" id="chat-resize" data-side="chat" role="separator" aria-orientation="vertical" aria-label="调整对话栏宽度，左右方向键微调，双击还原" tabindex="0"></div>
   <header class="topbar">
@@ -367,23 +408,7 @@ summary::-webkit-details-marker{display:none}
     <div class="brand"><svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3 12 7 16 3 21 8 17 12 21 16 16 21 12 17 8 21 3 16 7 12 3 8Z" fill="currentColor" stroke="none"/></svg><span class="wordmark">norma</span></div>
     <div class="top-actions"><button id="demo-button" class="quiet-button"><span data-icon="play"></span><span id="demo-label">演示一下</span></button><button id="voice-toggle" class="icon-button" aria-label="开启语音播报" aria-pressed="false" title="开启语音播报"><span data-icon="volume-off"></span></button><button id="help-button" class="icon-button" aria-label="使用说明" title="使用说明"><span data-icon="help"></span></button></div>
   </header>
-    <section class="progress-float" id="progress-float" data-collapsed="true" aria-label="智能体运行概览示例">
-      <header class="progress-head"><button class="progress-toggle" id="progress-toggle" type="button" aria-label="展开 Norma-AI-OS 智能体运行概览，3 项待处理" aria-controls="progress-body" aria-expanded="false" title="展开智能体运行概览"><span class="progress-mark" aria-hidden="true"><span data-icon="activity"></span><span class="progress-badge">3</span></span><span class="progress-head-copy"><small>当前项目 · 视觉示例</small><strong>Norma-AI-OS</strong></span><span class="progress-count">3 项待处理</span><span class="progress-chevron" aria-hidden="true"><span data-icon="chevron"></span></span></button></header>
-      <div class="progress-body" id="progress-body" aria-hidden="true" inert><div class="progress-body-inner">
-      <div class="progress-section-title">智能体任务 <span>点击定位画布</span></div>
-      <div class="progress-agent-list">
-        <button class="progress-agent-row" type="button" data-progress-node="agent-bella" aria-label="定位到 Bella 智能体卡片"><span class="progress-status-dot" aria-hidden="true"></span><span class="progress-agent-copy"><strong>Bella <em>进行中</em></strong><small>任务 · 调整原型布局与透明材质</small></span><span class="progress-agent-state">定位 ↗</span></button>
-        <button class="progress-agent-row is-idle" type="button" data-progress-node="agent-bruno" aria-label="定位到 Bruno 智能体卡片"><span class="progress-status-dot" aria-hidden="true"></span><span class="progress-agent-copy"><strong>Bruno <em>待开始</em></strong><small>任务 · 检查抽屉响应式布局</small></span><span class="progress-agent-state">定位 ↗</span></button>
-      </div>
-      <div class="progress-section-title">等待你处理 <span>3 项需关注</span></div>
-      <div class="progress-followups">
-        <div class="progress-followup is-review"><span class="progress-followup-copy"><b>待审核 · 1</b><small>Bella · 抽屉视觉方案</small></span><button class="progress-action" type="button" data-progress-node="approval-bella" aria-label="定位 Bella 的抽屉视觉方案待审核项">定位 ↗</button></div>
-        <div class="progress-followup is-result"><span class="progress-followup-copy"><b>成果待查看 · 1</b><small>Bella · 布局验收结果</small></span><button class="progress-action" type="button" data-progress-file="result" aria-label="打开 Bella 的布局验收结果">打开 ↗</button></div>
-        <div class="progress-followup is-file"><span class="progress-followup-copy"><b>待查看文件 · 1</b><small>Bella · index.html</small></span><button class="progress-action" type="button" data-progress-file="prototype" aria-label="打开 Bella 的 index.html 文件预览">打开 ↗</button></div>
-        <div class="progress-followup is-resource"><span class="progress-followup-copy"><b>项目资源</b><small>Norma-AI-OS · 背景图</small></span><button class="progress-action" type="button" data-progress-file="wallpaper" aria-label="打开项目默认背景图预览">打开 ↗</button></div>
-      </div>
-      </div></div>
-    </section>
+  <nav class="drawer-switch" id="drawer-switch" role="tablist" aria-label="左侧抽屉视图"><button class="drawer-tab" id="drawer-tab-chat" role="tab" aria-selected="true" aria-controls="conversation-scroll" type="button">对话</button><button class="drawer-tab" id="drawer-tab-overview" role="tab" aria-selected="false" aria-controls="progress-body" tabindex="-1" type="button">运行概览 <span class="progress-badge" aria-label="3 项待处理">3</span><span class="drawer-tab-float" title="已悬浮在画布上" aria-hidden="true"><span data-icon="pin"></span></span></button></nav>
   <div class="conversation-heading"><div><span class="conversation-eyebrow">当前对话</span><h2>和 Norma 聊聊</h2></div><span class="conversation-live"><span class="tiny-dot"></span>在线</span></div>
     <section class="orb-zone" aria-label="Norma 对话助手">
       <button id="orb-button" class="orb-button" aria-label="点击 Norma，开始语音对话" title="点击开始语音输入"><span class="orb-surface"><span class="orb-fallback" id="orb-fallback" aria-hidden="true"></span><canvas id="orb-canvas" class="orb-canvas" aria-hidden="true"></canvas></span></button>
@@ -392,17 +417,18 @@ summary::-webkit-details-marker{display:none}
   <div class="conversation-scroll" id="conversation-scroll">
     <div class="chat-log" id="chat-log" role="log" aria-label="对话记录" aria-live="polite"><div class="chat-message assistant"><span class="message-author">Norma</span><p>你好，我是 Norma。左边和我聊天，中间看项目画布，右边可用标签浏览网页、文件、图片和视频。</p></div></div>
   </div>
+  <section class="run-overview" id="progress-body" role="tabpanel" aria-labelledby="drawer-tab-overview" data-mode="drawer" hidden><header class="run-pop-head" id="progress-drag"><div class="run-pop-title"><strong>运行概览</strong><small>Norma OS 工作空间 · 视觉示例 · 刚刚更新</small></div><div class="run-pop-actions"><button class="run-pop-icon run-pop-move" id="progress-move" type="button" aria-label="移动运行概览：方向键移动，双击标题栏复位" title="拖动移动 · 双击标题栏复位" hidden><span data-icon="grip"></span></button><button class="run-pop-icon" id="progress-pin" type="button" aria-pressed="false" aria-label="悬浮固定运行概览" title="弹出到画布上悬浮固定"><span data-icon="pin"></span></button></div></header><div class="run-pop-scroll"><section class="run-group" aria-label="需要你处理"><h3 class="run-group-title">需要你处理 <span class="run-count">3</span></h3><button class="run-row is-review" type="button" data-progress-node="approval-bella" data-peek="agent-bella" aria-label="定位 Bella 的待审核项：抽屉视觉方案"><span class="run-lead" aria-hidden="true"><i></i></span><span class="run-copy"><strong>待审核 · 抽屉视觉方案</strong><small>Bella · Norma-AI-OS</small></span><span class="run-trail">定位<span data-icon="arrow-diagonal"></span></span></button><button class="run-row is-result" type="button" data-progress-file="result" data-peek="agent-bella" aria-label="在右侧打开 Bella 的布局验收结果"><span class="run-lead" aria-hidden="true"><i></i></span><span class="run-copy"><strong>成果待查看 · 布局验收结果</strong><small>Bella · Norma-AI-OS</small></span><span class="run-trail">打开<span data-icon="arrow-diagonal"></span></span></button><button class="run-row is-file" type="button" data-progress-file="prototype" data-peek="agent-bella" aria-label="在右侧打开 Bella 修改的 index.html"><span class="run-lead" aria-hidden="true"><i></i></span><span class="run-copy"><strong>待查看文件 · index.html</strong><small>Bella · docs/prototypes/norma-assistant</small></span><span class="run-trail">打开<span data-icon="arrow-diagonal"></span></span></button></section><section class="run-group" aria-label="当前项目智能体"><h3 class="run-group-title">当前项目 · Norma-AI-OS <span>2 个智能体</span></h3><button class="run-row is-agent" type="button" data-progress-node="agent-bella" data-peek="agent-bella" aria-label="定位 Bella 智能体卡片：运行中，已完成 4/6，正在做第 5 项原型交互验收，已运行 18 分钟，1 项待审核"><span class="run-lead" aria-hidden="true"><i></i></span><span class="run-copy"><strong>Bella <span class="run-state is-running">运行中</span><span class="run-alert">1 待审核</span></strong><small>任务 · 调整原型布局与透明材质</small><span class="run-steps" style="--steps:6" aria-hidden="true"><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="current"></i><i class=""></i></span><span class="run-step-label">第 5/6 项 · 原型交互验收 <em>· 已运行 18 分</em></span></span><span class="run-trail">定位<span data-icon="arrow-diagonal"></span></span></button><button class="run-row is-agent is-idle" type="button" data-progress-node="agent-bruno" data-peek="agent-bruno" aria-label="定位 Bruno 智能体卡片：待开始，尚未开始执行"><span class="run-lead" aria-hidden="true"><i></i></span><span class="run-copy"><strong>Bruno <span class="run-state">待开始</span></strong><small>任务 · 检查抽屉响应式布局</small><span class="run-step-label"><em>尚未开始 · 项目上下文已就绪</em></span></span><span class="run-trail">定位<span data-icon="arrow-diagonal"></span></span></button></section><section class="run-group" aria-label="其他项目"><h3 class="run-group-title">其他项目 <span>上次状态</span></h3><button class="run-row is-project" type="button" data-progress-project="design" aria-label="切换到设计草稿项目，1 个智能体，上次状态 12 分钟前，未加载"><span class="run-lead" aria-hidden="true">02</span><span class="run-copy"><strong>设计草稿</strong><small>1 个智能体 · 上次状态 12 分钟前 · 未加载</small></span><span class="run-trail">切换<span data-icon="arrow-diagonal"></span></span></button></section></div></section><!-- /run-overview -->
   <section class="composer-area" aria-label="对话输入">
     <form class="composer" id="composer" autocomplete="off"><label class="sr-only" for="command-input">向 Norma 说一句话</label><input id="command-input" placeholder="说说你的想法…" maxlength="500"><button id="mic-button" class="mic-button" type="button" aria-label="开始语音输入" aria-pressed="false" title="开始语音输入"><span data-icon="mic"></span></button><button id="send-button" class="send-button" type="submit" aria-label="发送指令" disabled><span data-icon="arrow-up"></span></button></form>
   </section>
   <footer class="bottom-bar" hidden><div class="bottom-left"><span id="card-count">等待你的第一个想法</span><button id="clear-button" class="clear-button" hidden>收起卡片</button></div></footer>
   </aside>
   <section class="workspace-panel" aria-label="内容画布">
-    <header class="workspace-header"><div class="workspace-heading"><button class="chat-open" id="chat-open" aria-label="展开对话抽屉" aria-controls="conversation-panel" aria-expanded="true" title="展开对话抽屉"><span data-icon="panel-left-open"></span></button><div><span class="workspace-kicker">N O R M A &nbsp; / &nbsp; W O R K S P A C E</span><h2>Norma OS <span class="workspace-slash">/</span> Norma-AI-OS</h2></div></div><div class="workspace-actions"><button class="canvas-open" id="reader-open" aria-label="展开内容浏览器" aria-controls="reader-panel" aria-expanded="false" title="展开内容浏览器"><span data-icon="panel-right-open"></span><span class="canvas-open-label">内容浏览器</span></button></div></header>
+    <header class="workspace-header"><div class="workspace-heading"><button class="chat-open" id="chat-open" aria-label="展开对话抽屉" aria-controls="conversation-panel" aria-expanded="true" title="展开对话抽屉"><span data-icon="panel-left-open"></span></button><div><span class="workspace-kicker">N O R M A &nbsp; / &nbsp; W O R K S P A C E</span><h2>Norma OS <span class="workspace-slash">/</span> Norma-AI-OS</h2></div></div><div class="workspace-actions"><button class="run-status" id="progress-toggle" type="button" aria-controls="progress-body" aria-expanded="false" aria-label="在左侧查看运行概览：Bella 运行中，已完成 4/6，1 项待你审核；Bruno 待开始；共 3 项待处理" title="在左侧查看运行概览"><span class="run-agents" aria-hidden="true"><span class="run-agent-chip is-running" style="--step:4;--steps:6"><span class="run-agent-ring"></span><span class="run-agent-name">Bella</span><span class="run-agent-step">4/6</span><i class="run-agent-alert"></i></span><span class="run-agent-chip is-idle"><span class="run-agent-ring"></span><span class="run-agent-name">Bruno</span><span class="run-agent-step">待开始</span></span></span><span class="run-trigger-sep" aria-hidden="true"></span><span class="run-trigger-pending" aria-hidden="true"><span class="progress-badge">3</span><span class="run-trigger-pending-label">待处理</span></span><span class="run-status-pin" aria-hidden="true"><span data-icon="pin"></span></span></button><button class="canvas-open" id="reader-open" aria-label="展开内容浏览器" aria-controls="reader-panel" aria-expanded="false" title="展开内容浏览器"><span data-icon="panel-right-open"></span><span class="canvas-open-label">内容浏览器</span></button></div></header>
     <main class="stage" id="stage" aria-label="项目画布，仅展示智能体和终端">
       <section class="live-canvas" id="live-canvas" aria-label="示例 Live Node">
         <article class="live-card live-agent live-primary" id="agent-bella" data-node-kind="agent" tabindex="0" aria-label="Bella 智能体卡片，视觉示例" data-selected="true">
-          <header class="live-card-title"><span class="live-type"><i></i>Agent</span><strong>Bella</strong><span class="live-card-detail">Norma-AI-OS / Norma-AI-OS · 调整原型交互</span><span class="live-task-status">工具</span><span class="live-card-menu" aria-hidden="true">×</span></header>
+          <header class="live-card-title"><span class="live-type"><i></i>Agent</span><strong>Bella</strong><span class="live-card-detail">Norma-AI-OS / Norma-AI-OS · 调整原型交互</span><span class="live-task-status is-running" title="第 5/6 项 · 原型交互验收">运行中 4/6</span><span class="live-card-menu" aria-hidden="true">×</span></header>
           <div class="live-terminal-body"><div class="live-terminal-lines">
             <p><span class="term-prompt">›</span> 参考当前项目样式设计高保真原型</p>
             <p class="term-muted">└ 读取画布、卡片与默认背景资源</p>
@@ -422,7 +448,7 @@ summary::-webkit-details-marker{display:none}
         </article>
         <div class="live-secondary">
           <article class="live-card live-agent live-small-agent" id="agent-bruno" data-node-kind="agent" tabindex="0" aria-label="Bruno 智能体卡片，视觉示例">
-            <header class="live-card-title"><span class="live-type"><i></i>Agent</span><strong>Bruno</strong><span class="live-card-detail">Norma-AI-OS</span><span class="live-card-menu" aria-hidden="true">×</span></header>
+            <header class="live-card-title"><span class="live-type"><i></i>Agent</span><strong>Bruno</strong><span class="live-card-detail">Norma-AI-OS</span><span class="live-task-status is-idle">待开始</span><span class="live-card-menu" aria-hidden="true">×</span></header>
             <div class="live-terminal-body"><p><span class="term-prompt">›</span> 检查抽屉响应式布局</p><p class="term-gap term-muted">待开始 · 项目上下文已就绪</p><p class="term-indent">等待执行</p><p class="term-gap term-muted">示例会话 · 未连接 Agent Runtime</p></div>
           </article>
           <article class="live-card live-term" data-node-kind="terminal" tabindex="0" aria-label="终端卡片一，视觉示例">
@@ -436,6 +462,7 @@ summary::-webkit-details-marker{display:none}
         </div>
       </section>
     </main>
+    <div class="run-float-layer" id="run-float-layer"></div>
     <nav class="page-dock" aria-label="页面切换">
       <div class="page-dock-surface">
         <span class="page-dock-brand" title="工作空间" aria-hidden="true"><span data-icon="sparkles"></span></span>
@@ -729,7 +756,7 @@ var AssistantVoice = (() => {
 const $ = id => document.getElementById(id);
 const icons = {
   diff:'<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M12 7v6M9 10h6M9 17h6"/>',folder:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/>',terminal:'<rect x="3" y="4" width="18" height="16" rx="3"/><path d="m7 10 3 2-3 2M12 15h5"/>',search:'<circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/>',
-  play:'<path d="m7 4 12 8-12 8Z"/>',pause:'<path d="M8 5v14M16 5v14"/>',close:'<path d="m6 6 12 12M18 6 6 18"/>',pin:'<path d="m9 3 6 0-1 7 4 4H6l4-4ZM12 14v7"/>',expand:'<path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5"/>',mic:'<rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/>',sparkles:'<path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5ZM20 2v4M18 4h4"/>',grid:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',activity:'<path d="M3 12h4l3-8 4 16 3-8h4"/>',globe:'<circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/>',file:'<path d="M14 3H5v18h14V8ZM14 3v5h5M8 12h8M8 16h6"/>',image:'<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.4"/><path d="m3 17 6-6 4 4 3-3 5 5"/>',video:'<rect x="3" y="5" width="14" height="14" rx="3"/><path d="m17 9 5-3v12l-5-3"/>',check:'<path d="m5 12 4 4 10-10"/>','arrow-up':'<path d="M12 20V4M5 11l7-7 7 7"/>','arrow-right':'<path d="M4 12h16M14 6l6 6-6 6"/>','arrow-diagonal':'<path d="M6 18 18 6M6 6h12v12"/>','chevron':'<path d="m9 5 7 7-7 7"/>','panel-left-close':'<rect x="2.5" y="4" width="19" height="16" rx="3"/><path d="M9 4v16m6-11-3 3 3 3"/>','panel-left-open':'<rect x="2.5" y="4" width="19" height="16" rx="3"/><path d="M9 4v16m3-11 3 3-3 3"/>','panel-right-open':'<rect x="2.5" y="4" width="19" height="16" rx="3"/><path d="M15 4v16m-3-11-3 3 3 3"/>','panel-right-close':'<rect x="2.5" y="4" width="19" height="16" rx="3"/><path d="M15 4v16m-6-11 3 3-3 3"/>',help:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4 2c-1 .6-1.5 1.2-1.5 2.5M12 17h.01"/>','volume-off':'<path d="m11 4-6 5H2v6h3l6 5ZM16 9l6 6M22 9l-6 6"/>',volume:'<path d="m11 4-6 5H2v6h3l6 5ZM15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',link:'<path d="m10 14 4-4M8 16l-2 2a4 4 0 0 1-6-6l5-5a4 4 0 0 1 6 0M16 8l2-2a4 4 0 0 1 6 6l-5 5a4 4 0 0 1-6 0" transform="translate(1 0) scale(.9)"/>'
+  play:'<path d="m7 4 12 8-12 8Z"/>',pause:'<path d="M8 5v14M16 5v14"/>',close:'<path d="m6 6 12 12M18 6 6 18"/>',pin:'<path d="m9 3 6 0-1 7 4 4H6l4-4ZM12 14v7"/>',expand:'<path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5"/>',mic:'<rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/>',sparkles:'<path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5ZM20 2v4M18 4h4"/>',grip:'<circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/>',grid:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',activity:'<path d="M3 12h4l3-8 4 16 3-8h4"/>',globe:'<circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/>',file:'<path d="M14 3H5v18h14V8ZM14 3v5h5M8 12h8M8 16h6"/>',image:'<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.4"/><path d="m3 17 6-6 4 4 3-3 5 5"/>',video:'<rect x="3" y="5" width="14" height="14" rx="3"/><path d="m17 9 5-3v12l-5-3"/>',check:'<path d="m5 12 4 4 10-10"/>','arrow-up':'<path d="M12 20V4M5 11l7-7 7 7"/>','arrow-right':'<path d="M4 12h16M14 6l6 6-6 6"/>','arrow-diagonal':'<path d="M6 18 18 6M6 6h12v12"/>','chevron':'<path d="m9 5 7 7-7 7"/>','panel-left-close':'<rect x="2.5" y="4" width="19" height="16" rx="3"/><path d="M9 4v16m6-11-3 3 3 3"/>','panel-left-open':'<rect x="2.5" y="4" width="19" height="16" rx="3"/><path d="M9 4v16m3-11 3 3-3 3"/>','panel-right-open':'<rect x="2.5" y="4" width="19" height="16" rx="3"/><path d="M15 4v16m-3-11-3 3 3 3"/>','panel-right-close':'<rect x="2.5" y="4" width="19" height="16" rx="3"/><path d="M15 4v16m-6-11 3 3-3 3"/>',help:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4 2c-1 .6-1.5 1.2-1.5 2.5M12 17h.01"/>','volume-off':'<path d="m11 4-6 5H2v6h3l6 5ZM16 9l6 6M22 9l-6 6"/>',volume:'<path d="m11 4-6 5H2v6h3l6 5ZM15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',link:'<path d="m10 14 4-4M8 16l-2 2a4 4 0 0 1-6-6l5-5a4 4 0 0 1 6 0M16 8l2-2a4 4 0 0 1 6 6l-5 5a4 4 0 0 1-6 0" transform="translate(1 0) scale(.9)"/>'
 };
 const icon = name => `<svg viewBox="0 0 24 24" aria-hidden="true">${icons[name] || icons.sparkles}</svg>`;
 function hydrate(scope = document) { scope.querySelectorAll('[data-icon]').forEach(el => {el.innerHTML = icon(el.dataset.icon);}); }
@@ -1251,22 +1278,133 @@ function focusProgressNode(id) {
   state.progressHighlightTimer=setTimeout(()=>{target.classList.remove('progress-target-flash');if(state.progressHighlighted===target)state.progressHighlighted=null;},1800);
   toast(id==='approval-bella'?'已定位 Bella 的待审核项':`已定位 ${card.id==='agent-bruno'?'Bruno':'Bella'} 智能体卡片`);
 }
-function setProgressCollapsed(collapsed) {
-  const panel=$('progress-float'),button=$('progress-toggle'),body=$('progress-body');
-  panel.dataset.collapsed=String(collapsed);
-  button.setAttribute('aria-expanded',String(!collapsed));
-  button.setAttribute('aria-label',collapsed?'展开 Norma-AI-OS 智能体运行概览，3 项待处理':'收起智能体运行概览');
-  button.title=collapsed?'展开智能体运行概览':'收起智能体运行概览';
-  body.inert=collapsed;
-  body.setAttribute('aria-hidden',String(collapsed));
-  if(collapsed)panel.scrollTop=0;
+const progressOffset={x:0,y:0};
+function progressFloating() {return $('progress-body').dataset.mode==='floating';}
+function leftView() {return $('app').dataset.leftView||'chat';}
+function saveProgressPreference() {
+  try{preferenceStorage?.setItem('norma.prototype.runOverview',JSON.stringify({view:leftView(),floating:progressFloating(),x:progressOffset.x,y:progressOffset.y}));}catch{}
 }
-$('progress-toggle').addEventListener('click',()=>setProgressCollapsed($('progress-float').dataset.collapsed!=='true'));
-$('progress-float').addEventListener('click',event=>{
-  const file=event.target.closest('[data-progress-file]');if(file){openPresentation('files',file.dataset.progressFile);setProgressCollapsed(true);$('viewer-content').focus({preventScroll:true});return;}
-  const node=event.target.closest('[data-progress-node]');if(node){focusProgressNode(node.dataset.progressNode);setProgressCollapsed(true);}
+function setProgressPeek(id) {
+  $('live-canvas').querySelectorAll('.is-peeked').forEach(node=>node.classList.remove('is-peeked'));
+  if(id)$(id)?.classList.add('is-peeked');
+}
+function playEnter(elements,from) {
+  if(reduced.matches&&!elements.length)return;
+  elements.forEach(element=>{element.classList.remove('left-view-enter');element.style.setProperty('--view-from',from);void element.offsetWidth;element.classList.add('left-view-enter');element.addEventListener('animationend',()=>element.classList.remove('left-view-enter'),{once:true});});
+}
+function syncProgressStatus() {
+  const shown=progressFloating()||(state.chatOpen&&leftView()==='overview');
+  $('progress-toggle').setAttribute('aria-expanded',String(shown));
+  $('progress-toggle').title=progressFloating()?'运行概览已悬浮在画布上':shown?'回到对话':'在左侧查看运行概览';
+}
+// 左侧抽屉在“对话 / 运行概览”间切换；抽屉收起时先展开，输入区两种视图共用。
+function setLeftView(view,{animate=true,focusFirst=false}={}) {
+  if(!state.chatOpen){
+    const next=AssistantDrawers.set({chat:state.chatOpen,reader:state.readerOpen},'chat',true,window.matchMedia('(max-width: 760px)').matches);
+    if(!next.reader&&state.readerOpen){if(state.presentation)state.tabScroll.set(state.activeTabId,$('viewer-content').scrollTop);restoreVideoCard();state.presentation=null;}
+    state.chatOpen=next.chat;state.readerOpen=next.reader;syncReader();
+  }
+  const changed=leftView()!==view,body=$('progress-body');
+  $('app').dataset.leftView=view;
+  [['drawer-tab-chat','chat'],['drawer-tab-overview','overview']].forEach(([id,value])=>{const tab=$(id);tab.setAttribute('aria-selected',String(view===value));tab.tabIndex=view===value?0:-1;});
+  if(!progressFloating())body.hidden=view!=='overview';
+  if(view!=='overview'&&!progressFloating())setProgressPeek(null);
+  if(changed&&animate)playEnter(view==='overview'&&!progressFloating()?[body]:[...document.querySelectorAll('.conversation-heading,.orb-zone,.conversation-scroll')],view==='overview'?'10px':'-10px');
+  if(focusFirst&&view==='overview')body.querySelector('.run-row')?.focus({preventScroll:true});
+  syncProgressStatus();saveProgressPreference();
+}
+// 悬浮层只能在画布区域内移动：上缘不压顶栏，四周保留 8px。
+function clampProgressOffset(x,y) {
+  const rect=$('progress-body').getBoundingClientRect(),area=$('stage').getBoundingClientRect();
+  const baseLeft=rect.left-progressOffset.x,baseTop=rect.top-progressOffset.y;
+  const minX=area.left+8-baseLeft,maxX=area.right-8-rect.width-baseLeft;
+  const minY=area.top+4-baseTop,maxY=Math.max(minY,area.bottom-8-rect.height-baseTop);
+  return {x:Math.round(Math.min(Math.max(x,minX),Math.max(minX,maxX))),y:Math.round(Math.min(Math.max(y,minY),maxY))};
+}
+function setProgressOffset(x,y,{clamp=true}={}) {
+  const next=clamp?clampProgressOffset(x,y):{x,y};
+  progressOffset.x=next.x;progressOffset.y=next.y;
+  $('progress-body').style.setProperty('--run-x',`${next.x}px`);$('progress-body').style.setProperty('--run-y',`${next.y}px`);
+}
+// 悬浮固定：把同一个概览节点移到画布悬浮层，抽屉回到对话；收回时放回抽屉并显示概览。
+function setProgressFloating(floating,{animate=true}={}) {
+  const body=$('progress-body'),pin=$('progress-pin');
+  if(floating){
+    $('run-float-layer').appendChild(body);body.dataset.mode='floating';body.hidden=false;
+    body.setAttribute('role','region');body.removeAttribute('aria-labelledby');body.setAttribute('aria-label','运行概览（悬浮）');
+    if(animate){body.classList.remove('float-enter');void body.offsetWidth;body.classList.add('float-enter');body.addEventListener('animationend',()=>body.classList.remove('float-enter'),{once:true});}
+    setLeftView('chat',{animate});
+  }else{
+    $('conversation-panel').insertBefore(body,document.querySelector('.composer-area'));body.dataset.mode='drawer';
+    body.setAttribute('role','tabpanel');body.removeAttribute('aria-label');body.setAttribute('aria-labelledby','drawer-tab-overview');
+    setProgressOffset(0,0,{clamp:false});
+    setLeftView('overview',{animate});
+  }
+  $('app').dataset.runFloating=String(floating);
+  pin.setAttribute('aria-pressed',String(floating));
+  pin.setAttribute('aria-label',floating?'收回运行概览到左侧抽屉':'悬浮固定运行概览');
+  pin.title=floating?'收回到左侧抽屉':'弹出到画布上悬浮固定';
+  $('progress-move').hidden=!floating;
+  syncProgressStatus();saveProgressPreference();
+}
+function handleProgressEscape() {
+  const body=$('progress-body');if(!body.contains(document.activeElement))return false;
+  if(progressFloating()){$('progress-toggle').focus({preventScroll:true});return true;}
+  setLeftView('chat');$('drawer-tab-chat').focus({preventScroll:true});return true;
+}
+function progressRows() {return [...$('progress-body').querySelectorAll('.run-row')];}
+$('progress-toggle').addEventListener('click',event=>{
+  if(progressFloating()){progressRows()[0]?.focus({preventScroll:true});return;}
+  const showing=state.chatOpen&&leftView()==='overview';
+  setLeftView(showing?'chat':'overview',{focusFirst:!showing&&event.detail===0});
 });
-document.addEventListener('pointerdown',event=>{if($('progress-float').dataset.collapsed==='false'&&!$('progress-float').contains(event.target))setProgressCollapsed(true);});
+$('drawer-switch').addEventListener('click',event=>{
+  const tab=event.target.closest('[role=tab]');if(!tab)return;
+  if(tab.id==='drawer-tab-overview'&&progressFloating()){setProgressFloating(false);return;}
+  setLeftView(tab.id==='drawer-tab-overview'?'overview':'chat');
+});
+$('drawer-switch').addEventListener('keydown',event=>{
+  const tabs=[$('drawer-tab-chat'),$('drawer-tab-overview')],index=tabs.indexOf(document.activeElement);
+  const next={ArrowLeft:index-1,ArrowRight:index+1,Home:0,End:1}[event.key];
+  if(index<0||next===undefined)return;
+  event.preventDefault();const tab=tabs[(next+2)%2];tab.focus();tab.click();
+});
+$('progress-pin').addEventListener('click',()=>{const floating=!progressFloating();setProgressFloating(floating);$('progress-pin').focus({preventScroll:true});toast(floating?'运行概览已悬浮在画布上，可拖动标题栏移动':'运行概览已收回左侧抽屉');});
+$('progress-move').addEventListener('keydown',event=>{
+  const step=event.shiftKey?48:16,delta={ArrowLeft:[-step,0],ArrowRight:[step,0],ArrowUp:[0,-step],ArrowDown:[0,step]}[event.key];
+  if(!delta)return;
+  event.preventDefault();event.stopPropagation();setProgressOffset(progressOffset.x+delta[0],progressOffset.y+delta[1]);saveProgressPreference();
+});
+$('progress-drag').addEventListener('pointerdown',event=>{
+  if(!progressFloating()||event.button!==0||(event.target.closest('button')&&!event.target.closest('#progress-move')))return;
+  const head=$('progress-drag'),body=$('progress-body'),start={x:event.clientX,y:event.clientY,ox:progressOffset.x,oy:progressOffset.y};
+  head.setPointerCapture(event.pointerId);body.classList.add('is-dragging');event.preventDefault();
+  const move=moveEvent=>setProgressOffset(start.ox+moveEvent.clientX-start.x,start.oy+moveEvent.clientY-start.y);
+  const end=()=>{body.classList.remove('is-dragging');head.removeEventListener('pointermove',move);head.removeEventListener('pointerup',end);head.removeEventListener('pointercancel',end);saveProgressPreference();};
+  head.addEventListener('pointermove',move);head.addEventListener('pointerup',end);head.addEventListener('pointercancel',end);
+});
+$('progress-drag').addEventListener('dblclick',event=>{if(!progressFloating()||event.target.closest('button:not(#progress-move)'))return;setProgressOffset(0,0);saveProgressPreference();});
+window.addEventListener('resize',()=>{if(progressFloating())setProgressOffset(progressOffset.x,progressOffset.y);});
+$('progress-body').addEventListener('keydown',event=>{
+  if(event.target.closest('#progress-move'))return;
+  const rows=progressRows(),index=rows.indexOf(document.activeElement);
+  const next={ArrowDown:index+1,ArrowUp:index-1,Home:0,End:rows.length-1}[event.key];
+  if(next===undefined)return;
+  event.preventDefault();rows[(next+rows.length)%rows.length].focus({preventScroll:false});
+});
+['pointerover','focusin'].forEach(type=>$('progress-body').addEventListener(type,event=>{const row=event.target.closest('.run-row');setProgressPeek(row?.dataset.peek||null);}));
+$('progress-body').addEventListener('pointerleave',()=>setProgressPeek(null));
+$('progress-body').addEventListener('focusout',event=>{if(!$('progress-body').contains(event.relatedTarget))setProgressPeek(null);});
+$('progress-body').addEventListener('click',event=>{
+  const file=event.target.closest('[data-progress-file]');if(file){openPresentation('files',file.dataset.progressFile);return;}
+  const node=event.target.closest('[data-progress-node]');if(node){focusProgressNode(node.dataset.progressNode);if($('progress-body').offsetParent)node.focus({preventScroll:true});return;}
+  const project=event.target.closest('[data-progress-project]');if(project)toast('示意：将切换到「设计草稿」项目页，加载后显示实时状态');
+});
+(()=>{let saved=null;try{saved=JSON.parse(preferenceStorage?.getItem('norma.prototype.runOverview')||'null');}catch{saved=null;}
+  if(saved?.floating){setProgressFloating(true,{animate:false});requestAnimationFrame(()=>setProgressOffset(Number(saved.x)||0,Number(saved.y)||0));}
+  else if(saved?.view==='overview'&&state.chatOpen)setLeftView('overview',{animate:false});
+  syncProgressStatus();
+})();
 $('live-canvas').addEventListener('click',event=>{
   const card=event.target.closest('[data-node-kind]');if(!card)return;
   $('live-canvas').querySelectorAll('[data-node-kind]').forEach(node=>{node.dataset.selected=String(node===card);});
@@ -1296,7 +1434,7 @@ function startVoiceInput() {
   try{recognition.start();}catch{state.recognition=null;setMode('idle');toast('语音输入启动失败，请在下方打字。');}
 }
 $('orb-button').addEventListener('click',startVoiceInput);$('mic-button').addEventListener('click',startVoiceInput);
-document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!$('detail-dialog').open){if($('progress-float').dataset.collapsed==='false'){setProgressCollapsed(true);$('progress-toggle').focus({preventScroll:true});return;}if(state.readerOpen){returnToConversation();return;}interrupt();$('orb-reply').textContent='已打断。你可以继续说，或者输入新的想法。';}});
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!$('detail-dialog').open){if(handleProgressEscape())return;if(state.readerOpen){returnToConversation();return;}interrupt();$('orb-reply').textContent='已打断。你可以继续说，或者输入新的想法。';}});
 $('demo-button').addEventListener('click',()=>{
   if(state.demo){interrupt();$('orb-reply').textContent='演示已停止。现在，你来试试。';return;}
   interrupt();applyAction({type:'clear',kinds:[]});state.demo=true;$('demo-label').textContent='停止演示';$('demo-button').setAttribute('aria-pressed','true');
