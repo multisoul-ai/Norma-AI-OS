@@ -225,3 +225,34 @@ fn file_versions_and_removed_project_tabs_survive_selection_changes() {
     );
     assert!(file.exists(), "移除项目和关闭标签均不得删除本地文件");
 }
+
+/// 场景：新版文件工作台与旧文件标签并存。
+/// 数据构造：沿用隔离数据库夹具，创建工作空间。
+/// 执行过程：打开 ProjectFiles 标签后重新读取。
+/// 预期结果：类型与来源保持稳定，旧表升级后仍能保存新类型。
+#[test]
+fn project_files_tab_round_trips() {
+    let temp = tempfile::tempdir().expect("临时目录");
+    let paths = storage::DatabasePaths::isolated_test(temp.path());
+    let app = storage::AppStore::initialize(&paths).expect("存储");
+    let workspace = app.desktop_workspace_store().create("Files").expect("空间");
+    let store = storage::DesktopContentTabStore::new(paths.app_db_path().to_owned());
+    store
+        .open_or_select(storage::NewDesktopContentTab {
+            workspace_id: workspace.id.clone(),
+            source_area_id: None,
+            source_project_name: "Files".into(),
+            kind: storage::DesktopContentKind::ProjectFiles,
+            resource: "project-files".into(),
+            version: None,
+            title: "文件".into(),
+        })
+        .expect("打开工作台");
+    let tabs = store.list(&workspace.id).expect("读取");
+    assert_eq!(
+        tabs[0].kind,
+        storage::DesktopContentKind::ProjectFiles,
+        "持久化工作台类型"
+    );
+    assert_eq!(tabs.len(), 1, "只保留一个工作台标签");
+}

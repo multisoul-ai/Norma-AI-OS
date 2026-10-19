@@ -1,112 +1,85 @@
-//! Render selected browser and file content inside the right drawer.
-
+//! Shared browser and file previews for user navigation and assistant-opened tabs.
 use super::super::content_node_id;
-use super::{is_image_file, is_web_file, GLASS_TEXT_SECONDARY};
 use crate::app::MultisoulApp;
-use gpui::{div, img, prelude::*, px, rgba, AnyElement, Context, ObjectFit};
+use crate::preview::local_content::{kind, Kind};
+use gpui::{div, prelude::*, px, AnyElement, Context};
 use storage::{DesktopContentKind, DesktopContentTab};
 
 impl MultisoulApp {
     pub(super) fn render_content_tab_body(
-        &self,
+        &mut self,
         tab: &DesktopContentTab,
         width: f32,
         height: f32,
+        window: &mut gpui::Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let label = if tab.source_removed {
-            format!("{} · 来源项目已移除", tab.source_project_name)
+        if tab.kind == DesktopContentKind::ProjectFiles {
+            return self.render_file_workbench(tab, width, height, window, cx);
+        }
+        let mut content = div().size_full().flex().flex_col();
+        let url = if tab.kind == DesktopContentKind::Browser {
+            Some(tab.resource.clone())
         } else {
-            tab.source_project_name.clone()
-        };
-        let mut content = div().size_full().flex().flex_col().child(
-            div()
-                .px(px(12.0))
-                .py(px(9.0))
-                .text_size(px(11.0))
-                .text_color(rgba(GLASS_TEXT_SECONDARY))
-                .child(label),
-        );
-        let resource = tab.resource.clone();
-        let snapshot = self
-            .desktop_workspace
-            .content_snapshots
-            .get(&tab.id)
-            .map(|path| path.to_path_buf());
-        if tab.version.is_some()
-            && (is_web_file(&resource) || is_image_file(&resource))
-            && snapshot.is_none()
-        {
-            let message = self
-                .desktop_workspace
-                .content_previews
+            self.desktop_workspace
+                .content_resources
                 .get(&tab.id)
-                .and_then(|result| result.as_ref().err())
-                .map(String::as_str)
-                .unwrap_or("正在打开任务成果版本…");
+                .map(|p| p.url.clone())
+        };
+        if let Some(url) = url {
             return content
                 .child(
                     div()
-                        .p(px(14.0))
-                        .text_size(px(12.0))
-                        .child(message.to_owned()),
+                        .relative()
+                        .flex_1()
+                        .min_h(px(0.0))
+                        .child(self.browser_scene_element(
+                            content_node_id(&tab.id),
+                            url,
+                            crate::app::browser::BrowserViewBounds {
+                                x: 0.0,
+                                y: 0.0,
+                                width: f64::from(width),
+                                height: f64::from(height),
+                                bottom_corner_radius_px: 0.0,
+                            },
+                            cx,
+                        )),
                 )
                 .into_any_element();
         }
-        let path = snapshot.unwrap_or_else(|| self.resolved_content_path(tab));
-        if tab.kind == DesktopContentKind::Browser || is_web_file(&resource) {
-            let url = if tab.kind == DesktopContentKind::Browser {
-                resource
-            } else {
-                url::Url::from_file_path(&path)
-                    .ok()
-                    .map(|url| url.to_string())
-                    .unwrap_or_default()
-            };
-            if !url.is_empty() {
-                content = content.child(div().relative().flex_1().min_h(px(0.0)).child(
-                    self.browser_scene_element(
-                        content_node_id(&tab.id),
-                        url,
-                        crate::app::browser::BrowserViewBounds {
-                            x: 0.0,
-                            y: 0.0,
-                            width: f64::from(width - 26.0),
-                            height: f64::from(height),
-                            bottom_corner_radius_px: 0.0,
-                        },
-                        cx,
-                    ),
-                ));
-            }
-        } else if is_image_file(&tab.resource) {
+        let text = self.desktop_workspace.content_previews.get(&tab.id);
+        let message = match text {
+            Some(Err(error)) => error.clone(),
+            Some(Ok(text)) if kind(&tab.resource) == Kind::Text => text.clone(),
+            _ => "正在打开文件…".to_string(),
+        };
+        if matches!(text, Some(Err(_))) && tab.version.is_none() {
+            let path = self.resolved_content_path(tab);
             content = content.child(
-                img(path)
-                    .flex_1()
-                    .min_h(px(0.0))
-                    .object_fit(ObjectFit::Contain),
-            );
-        } else {
-            let text = self.desktop_workspace.content_previews.get(&tab.id);
-            content = content.child(
-                div()
-                    .id("desktop-content-file-scroll")
-                    .flex_1()
-                    .min_h(px(0.0))
-                    .overflow_y_scroll()
-                    .p(px(14.0))
-                    .text_size(px(12.0))
-                    .child(match text {
-                        Some(Ok(text)) => text.clone(),
-                        Some(Err(error)) => error.clone(),
-                        None => "正在打开文件…".to_string(),
-                    }),
+                ui::component::button::Button::new("desktop-file-open-system")
+                    .label("使用系统应用打开")
+                    .on_click(cx.listener(move |_, _, _, cx| {
+                        if let Ok(url) = url::Url::from_file_path(&path) {
+                            cx.open_url(url.as_str());
+                        }
+                    })),
             );
         }
+        content = content.child(
+            div()
+                .id("desktop-content-file-scroll")
+                .flex_1()
+                .min_h(px(0.0))
+                .overflow_y_scroll()
+                .p(px(14.0))
+                .text_size(px(12.0))
+                .child(message),
+        );
         content.into_any_element()
     }
 
-    fn resolved_content_path(&self, tab: &DesktopContentTab) -> std::path::PathBuf {
+    pub(crate) fn resolved_content_path(&self, tab: &DesktopContentTab) -> std::path::PathBuf {
         let path = std::path::PathBuf::from(&tab.resource);
         if path.is_absolute() {
             return path;

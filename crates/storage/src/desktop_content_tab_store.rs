@@ -7,6 +7,7 @@ use std::path::PathBuf;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DesktopContentKind {
     Browser,
+    ProjectFiles,
     File,
 }
 
@@ -14,6 +15,7 @@ impl DesktopContentKind {
     fn as_str(self) -> &'static str {
         match self {
             Self::Browser => "browser",
+            Self::ProjectFiles => "project_files",
             Self::File => "file",
         }
     }
@@ -65,6 +67,25 @@ const SELECT_TAB: &str = "SELECT t.id,t.workspace_id,t.source_area_id,t.source_p
 impl DesktopContentTabStore {
     pub fn new(path: PathBuf) -> Self {
         Self { path }
+    }
+
+    pub fn state(&self, workspace_id: &str) -> StorageResult<Option<String>> {
+        open_app_connection(&self.path)?
+            .query_row(
+                "SELECT state_json FROM desktop_content_state WHERE workspace_id=?1",
+                [workspace_id],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(Into::into)
+    }
+
+    pub fn save_state(&self, workspace_id: &str, state: &str) -> StorageResult<()> {
+        open_app_connection(&self.path)?.execute(
+            "INSERT INTO desktop_content_state(workspace_id,state_json) VALUES(?1,?2) ON CONFLICT(workspace_id) DO UPDATE SET state_json=excluded.state_json",
+            params![workspace_id, state],
+        )?;
+        Ok(())
     }
 
     pub fn list(&self, workspace_id: &str) -> StorageResult<Vec<DesktopContentTab>> {
@@ -290,6 +311,7 @@ fn read_tab(row: &Row<'_>) -> rusqlite::Result<DesktopContentTab> {
     let kind: String = row.get(4)?;
     let kind = match kind.as_str() {
         "browser" => DesktopContentKind::Browser,
+        "project_files" => DesktopContentKind::ProjectFiles,
         "file" => DesktopContentKind::File,
         _ => {
             return Err(rusqlite::Error::FromSqlConversionFailure(

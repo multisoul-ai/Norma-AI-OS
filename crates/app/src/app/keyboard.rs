@@ -276,7 +276,9 @@ impl MultisoulApp {
         if self.handle_feature_guide_key_down(ev, window, cx) {
             return;
         }
-        if self.command_input_focused(window, cx) {
+        if self.command_input_focused(window, cx)
+            || self.handle_workbench_editor_key(ev, window, cx)
+        {
             return;
         }
         if let Some(node_id) = self.previews.focused_editor(window, cx) {

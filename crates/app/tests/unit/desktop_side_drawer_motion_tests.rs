@@ -133,11 +133,17 @@ fn drawer_layout_reserves_canvas_width_like_prototype() {
 
     // 原型仅在 760px 以下改为覆盖式抽屉；普通 900px 桌面窗口仍应形成三栏。
     let compact_desktop = DesktopDrawerLayout::new(900.0, 1.0, 1.0);
-    assert_eq!(compact_desktop.left_space, 300.0, "900px 桌面左栏仍应占位");
-    assert_eq!(compact_desktop.right_space, 370.0, "900px 桌面右栏仍应占位");
-    assert_eq!(
-        compact_desktop.canvas_width, 230.0,
-        "画布使用两栏之间剩余宽度"
+    assert!(
+        compact_desktop.left_space >= 150.0,
+        "900px 桌面左栏仍应占位"
+    );
+    assert!(
+        compact_desktop.right_space >= 185.0,
+        "900px 桌面右栏仍应占位"
+    );
+    assert!(
+        (compact_desktop.canvas_width - 320.0).abs() < 0.01,
+        "画布保留最小宽度 320px"
     );
 
     let mobile = DesktopDrawerLayout::new(759.0, 1.0, 1.0);
@@ -169,9 +175,9 @@ fn resized_drawer_layout_uses_custom_widths_without_losing_canvas() {
 #[test]
 fn remembered_drawer_widths_reflow_when_window_shrinks() {
     let medium = DesktopDrawerLayout::with_widths(1000.0, 1.0, 1.0, Some(420.0), Some(520.0));
-    assert!(medium.left_width >= 300.0, "缩窗后左栏不能低于可读最小宽度");
+    assert!(medium.left_width >= 150.0, "缩窗后左栏不能低于可读最小宽度");
     assert!(
-        medium.right_width >= 370.0,
+        medium.right_width >= 185.0,
         "缩窗后右栏不能低于可读最小宽度"
     );
     assert!(
@@ -184,16 +190,10 @@ fn remembered_drawer_widths_reflow_when_window_shrinks() {
     );
 
     let compact = DesktopDrawerLayout::with_widths(900.0, 1.0, 1.0, Some(420.0), Some(520.0));
-    assert_eq!(
-        compact.left_width, 300.0,
-        "900px 窗口左栏回落到原型最小宽度"
-    );
-    assert_eq!(
-        compact.right_width, 370.0,
-        "900px 窗口右栏回落到原型最小宽度"
-    );
-    assert_eq!(
-        compact.canvas_width, 230.0,
-        "900px 三栏布局保留原型中央区域"
+    assert!(compact.left_width >= 150.0, "900px 窗口左栏不低于最小宽度");
+    assert!(compact.right_width >= 185.0, "900px 窗口右栏不低于最小宽度");
+    assert!(
+        (compact.canvas_width - 320.0).abs() < 0.01,
+        "900px 三栏布局保留 320px 中央画布"
     );
 }

@@ -6,8 +6,8 @@ use crate::motion::{
 };
 use std::time::Duration;
 
-pub(super) const LEFT_MIN_WIDTH: f32 = 300.0;
-pub(super) const RIGHT_MIN_WIDTH: f32 = 370.0;
+pub(super) const LEFT_MIN_WIDTH: f32 = 150.0;
+pub(super) const RIGHT_MIN_WIDTH: f32 = 185.0;
 pub(super) const MIN_CANVAS_WIDTH: f32 = 320.0;
 
 pub(crate) struct SideDrawerMotion {

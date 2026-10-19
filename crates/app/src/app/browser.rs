@@ -23,6 +23,7 @@ mod location;
 pub(crate) mod native;
 mod presentation;
 mod resource_timing;
+mod safari_identity;
 #[cfg(target_os = "macos")]
 mod scene_clip;
 mod store;
@@ -34,8 +35,8 @@ pub(crate) use chrome_auth::BrowserAuthUiState;
 pub(crate) use engine::BrowserEngineKind;
 pub(crate) use location::canonical_browser_location;
 pub(crate) use native::{browser_native_view_bounds, BrowserViewBounds, NativeBrowserView};
+pub(crate) use safari_identity::initialize_safari_browser_identity;
 pub(crate) use store::BrowserStore;
-pub(crate) use wry_backend::initialize_safari_browser_identity;
 
 const CEF_MESSAGE_PUMP_INTERVAL: Duration = Duration::from_millis(16);
 
@@ -67,6 +68,10 @@ pub(crate) struct BrowserAddressEdit {
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum BrowserEvent {
+    PreviewNavigation {
+        node_id: NodeId,
+        url: String,
+    },
     TitleChanged {
         node_id: NodeId,
         title: String,
@@ -245,6 +250,10 @@ impl MultisoulApp {
                     if self.set_browser_title(node_id, title) {
                         changed = true;
                     }
+                }
+                BrowserEvent::PreviewNavigation { node_id, url } => {
+                    self.route_workbench_navigation(node_id, url, cx);
+                    changed = true;
                 }
                 BrowserEvent::LocationChanged { node_id, url } => {
                     if self.update_desktop_browser_tab_location(node_id, url.clone(), cx)

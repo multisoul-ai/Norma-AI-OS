@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 mod actions;
 mod editing;
 mod editing_actions;
+pub(crate) mod local_content;
 pub(crate) use editing::{PreviewEditCommand, PreviewEditCommandKind, PreviewEditor};
 mod image_viewer;
 mod terminal_path;

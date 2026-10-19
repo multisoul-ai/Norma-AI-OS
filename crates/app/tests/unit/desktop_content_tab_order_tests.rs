@@ -1,7 +1,7 @@
 use super::*;
 use gpui::TestAppContext;
 use std::time::Duration;
-use storage::{DesktopContentTabStore, DesktopWorkspaceStore};
+use storage::{DesktopContentKind, DesktopContentTabStore, DesktopWorkspaceStore};
 use workspace::review::{ContentKind, FileChange, FileVersion, ProjectReview};
 
 /// 连续标签操作必须按用户发起顺序落盘并回填，不可让旧回调复活已关闭标签。

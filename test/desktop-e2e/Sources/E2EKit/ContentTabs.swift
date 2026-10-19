@@ -30,7 +30,7 @@ extension Catalog {
         position: Int,
         selected: Bool
     ) throws {
-        guard kind == "file" || kind == "browser" else {
+        guard kind == "file" || kind == "browser" || kind == "project_files" else {
             throw E2EError.product("内容标签夹具类型无效：\(kind)")
         }
         let database = try SQLiteDB(path: url.path, write: true)

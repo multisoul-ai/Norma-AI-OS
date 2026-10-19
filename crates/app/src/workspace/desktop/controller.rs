@@ -149,6 +149,9 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if !self.allow_workbench_workspace_switch(&id, window, cx) {
+            return;
+        }
         if !self
             .desktop_workspace
             .workspaces
@@ -195,9 +198,11 @@ impl MultisoulApp {
             .wrapping_add(1);
         self.desktop_workspace.active_id = Some(id.clone());
         self.desktop_workspace.areas.clear();
+        self.desktop_workspace.workbench = Default::default();
         self.desktop_workspace.content_tabs.clear();
         self.desktop_workspace.content_previews.clear();
         self.desktop_workspace.content_snapshots.clear();
+        self.desktop_workspace.content_resources.clear();
         self.desktop_workspace.content_loading.clear();
         self.desktop_workspace.content_artifacts.clear();
         self.desktop_workspace.status_cache.clear();
@@ -227,6 +232,7 @@ impl MultisoulApp {
             store.touch(&load_id)?;
             let areas = store.list_projects(&load_id)?;
             let tabs = content_tabs.list(&load_id)?;
+            let content_state = content_tabs.state(&load_id)?;
             let statuses = area_status.list(&load_id)?;
             let unavailable = areas
                 .iter()
@@ -241,7 +247,14 @@ impl MultisoulApp {
                     })
                 })
                 .collect();
-            Ok::<_, storage::StorageError>((store.list()?, areas, tabs, statuses, unavailable))
+            Ok::<_, storage::StorageError>((
+                store.list()?,
+                areas,
+                tabs,
+                statuses,
+                unavailable,
+                content_state,
+            ))
         });
         cx.spawn_in(window, async move |this, cx| {
             let result = work.await;
@@ -252,7 +265,7 @@ impl MultisoulApp {
                     return;
                 }
                 match result {
-                    Ok((mut workspaces, mut areas, tabs, statuses, unavailable)) => {
+                    Ok((mut workspaces, mut areas, tabs, statuses, unavailable, content_state)) => {
                         app.preserve_wallpaper_snapshot(
                             &mut workspaces,
                             &mut areas,
@@ -261,6 +274,9 @@ impl MultisoulApp {
                         );
                         app.desktop_workspace.workspaces = workspaces;
                         app.desktop_workspace.areas = areas;
+                        app.desktop_workspace.workbench.saved = content_state
+                            .and_then(|s| serde_json::from_str(&s).ok())
+                            .unwrap_or_default();
                         if app.desktop_workspace.content_tab_generation == content_tab_generation {
                             app.desktop_workspace.content_tabs = tabs;
                         }

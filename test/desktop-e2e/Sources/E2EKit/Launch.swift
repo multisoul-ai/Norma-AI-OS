@@ -92,7 +92,7 @@ public final class Session {
         if conflict.contains(where: { log.localizedCaseInsensitiveContains($0) }) {
             return .env("隔离 Norma 因 socket 或端口冲突退出。未结束用户已有的 Norma。\n\(log)")
         }
-        return .product("隔离 Norma 进程已退出。\n\(log)")
+        return .product("隔离 Norma 进程已退出，status=\(app?.terminationStatus ?? -1)，reason=\(String(describing: app?.terminationReason))。\n\(log)")
     }
 }
 
