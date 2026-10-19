@@ -3,7 +3,7 @@
 use super::{GLASS_TEXT_MUTED, GLASS_TEXT_SECONDARY};
 use crate::app::assistant_conversation::Speaker;
 use crate::app::MultisoulApp;
-use gpui::{div, prelude::*, px, rgba, Context, Div, KeyDownEvent, Stateful};
+use gpui::{div, prelude::*, px, rgba, Context, Div, KeyDownEvent, Stateful, Window};
 use runtime::desktop_drawers::{DesktopDrawerEvent, DesktopLeftView};
 use ui::component::{
     button::{Button, ButtonCustomVariant, ButtonVariants},
@@ -14,6 +14,7 @@ impl MultisoulApp {
     pub(super) fn render_left_drawer_body(
         &mut self,
         width: f32,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
         let reduce = self.motion.reduce_motion;
@@ -22,7 +23,7 @@ impl MultisoulApp {
         let offset = slide.offset(reduce);
         let opacity = slide.opacity();
         let body = if overview {
-            self.render_left_overview_body(cx)
+            self.render_left_overview_body(window, cx)
         } else {
             self.render_left_chat_body(width, cx)
         };
@@ -208,7 +209,12 @@ impl MultisoulApp {
             )
     }
 
-    fn render_left_overview_body(&mut self, cx: &mut Context<Self>) -> Stateful<Div> {
+    fn render_left_overview_body(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Stateful<Div> {
+        self.focus_status_overview_first_row(window, cx);
         let focus = self.left_overview_focus(cx);
         let theme = self.desktop_theme();
         div()

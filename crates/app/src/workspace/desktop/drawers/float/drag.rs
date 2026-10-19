@@ -223,7 +223,9 @@ impl MultisoulApp {
         window: &Window,
         cx: &mut Context<Self>,
     ) -> Option<Stateful<Div>> {
-        if !status_display_marks_pin(&self.desktop_workspace.drawers) {
+        if !status_display_marks_pin(&self.desktop_workspace.drawers)
+            || self.status_capsule_visible()
+        {
             return None;
         }
         let layout = self.desktop_assistant_layout(window);
@@ -263,7 +265,10 @@ impl MultisoulApp {
             .clone()
     }
 
-    fn run_status_focus(&mut self, cx: &mut Context<Self>) -> gpui::FocusHandle {
+    pub(in crate::workspace::desktop) fn run_status_focus(
+        &mut self,
+        cx: &mut Context<Self>,
+    ) -> gpui::FocusHandle {
         self.desktop_workspace
             .run_status_focus
             .get_or_insert_with(|| cx.focus_handle())

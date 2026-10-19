@@ -330,6 +330,41 @@ fn json_i32(value: Option<&serde_json::Value>) -> i32 {
         .clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct StatusCapsuleClick {
+    pub floating: bool,
+    pub from_keyboard: bool,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StatusCapsuleEffect {
+    FocusFloating,
+    ShowOverview { focus_first_row: bool },
+    ReturnToChat,
+}
+
+/// Capsule click. A floating overview keeps its panel and only asks the UI to focus it.
+pub fn route_status_capsule(
+    mut state: DesktopDrawerState,
+    click: StatusCapsuleClick,
+) -> (DesktopDrawerState, StatusCapsuleEffect) {
+    if click.floating {
+        return (state, StatusCapsuleEffect::FocusFloating);
+    }
+    if state.left_open && state.left_view == DesktopLeftView::Overview {
+        state.left_view = DesktopLeftView::Chat;
+        return (state, StatusCapsuleEffect::ReturnToChat);
+    }
+    state.left_open = true;
+    state.left_view = DesktopLeftView::Overview;
+    (
+        state,
+        StatusCapsuleEffect::ShowOverview {
+            focus_first_row: click.from_keyboard,
+        },
+    )
+}
+
 /// Restoring an overview view also opens a collapsed left drawer so the view is visible.
 pub fn restore_left_view(
     mut state: DesktopDrawerState,
@@ -366,3 +401,7 @@ pub fn restore_overview_layout(
 #[cfg(test)]
 #[path = "../tests/unit/desktop_drawers.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/status_capsule_click.rs"]
+mod status_capsule_click;

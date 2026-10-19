@@ -3,11 +3,14 @@
 use super::{glass_button_variant, GLASS_TEXT, GLASS_TEXT_MUTED, GLASS_TEXT_SECONDARY};
 use crate::app::MultisoulApp;
 use canvas::NodeId;
-use gpui::{div, prelude::*, px, rgba, svg, Context, Div, Stateful, Window};
+use gpui::{div, prelude::*, px, rgba, svg, Context, Div, ElementId, Stateful, Window};
 use runtime::desktop_drawers::{
     route_drawer, DesktopDrawerEvent, DesktopDrawerSide, DesktopLeftView,
 };
-use ui::component::button::{Button, ButtonVariants};
+use ui::component::{
+    button::{Button, ButtonVariants},
+    Disableable, StyledExt,
+};
 
 pub(super) const TOP: f32 = 0.0;
 pub(super) const BOTTOM: f32 = 0.0;
@@ -213,38 +216,8 @@ impl MultisoulApp {
     }
 
     fn toggle_desktop_drawer(&mut self, event: DesktopDrawerEvent, cx: &mut Context<Self>) {
-        let before = self.desktop_workspace.drawers;
-        self.desktop_workspace.drawers = route_drawer(before, event);
-        if before.left_view != self.desktop_workspace.drawers.left_view {
-            self.desktop_workspace.left_view_slide.retarget(
-                self.desktop_workspace.drawers.left_view == DesktopLeftView::Overview,
-                self.motion.reduce_motion,
-            );
-        }
-        if before.overview_floating != self.desktop_workspace.drawers.overview_floating {
-            if self.desktop_workspace.drawers.overview_floating {
-                self.desktop_workspace.overview_float_fade.retarget(true);
-            } else {
-                self.desktop_workspace.overview_float_fade = float::OverviewFloatFade::hidden();
-            }
-        }
-        let layout_changed = before.left_view != self.desktop_workspace.drawers.left_view
-            || before.overview_floating != self.desktop_workspace.drawers.overview_floating
-            || before.overview_offset != self.desktop_workspace.drawers.overview_offset;
-        if layout_changed {
-            if let Some(id) = self.desktop_workspace.active_id.clone() {
-                self.persist_left_drawer_view(&id, cx);
-            }
-        }
-        self.desktop_workspace.drawer_motion.retarget(
-            self.desktop_workspace.drawers.left_open,
-            self.desktop_workspace.drawers.right_open,
-        );
-        if !before.right_open && self.desktop_workspace.drawers.right_open {
-            self.load_selected_desktop_content(cx);
-        }
-        self.wake_animation_frame_loop();
-        cx.notify();
+        let next = route_drawer(self.desktop_workspace.drawers, event);
+        self.apply_desktop_drawers(next, cx);
     }
 
     pub(crate) fn locate_desktop_agent(

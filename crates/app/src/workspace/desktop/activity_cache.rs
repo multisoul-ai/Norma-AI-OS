@@ -5,9 +5,9 @@ use super::status::{
 use crate::app::MultisoulApp;
 use gpui::{App, Context};
 use norma::mobile::{
-    project_run_overview, CardSnapshot, DesktopChatAgent, DesktopChatProject, DesktopChatWorkspace,
-    RunOverview, RunOverviewFile, RunOverviewProjectPresence, WorkspaceActivityFacts,
-    WorkspaceActivitySummary, WorkspaceActivityView,
+    project_run_overview, status_capsule, CardSnapshot, DesktopChatAgent, DesktopChatProject,
+    DesktopChatWorkspace, RunOverview, RunOverviewFile, RunOverviewProjectPresence, StatusCapsule,
+    WorkspaceActivityFacts, WorkspaceActivitySummary, WorkspaceActivityView,
 };
 use runtime::RuntimeEvent;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -129,6 +129,7 @@ struct ActivityOutput {
     view: WorkspaceActivityView,
     areas: Vec<OverviewArea>,
     overview: RunOverview,
+    capsule: StatusCapsule,
 }
 
 fn project_activity(input: ActivityInput) -> ActivityOutput {
@@ -137,6 +138,7 @@ fn project_activity(input: ActivityInput) -> ActivityOutput {
         .map(|elapsed| elapsed.as_secs())
         .unwrap_or(0);
     let view = WorkspaceActivityView::from_facts(&input.facts);
+    let capsule = status_capsule(&input.facts, &input.current_area_id);
     let summary = WorkspaceActivitySummary::from_facts("desktop", input.facts, now);
     let areas = overview_areas_from_activity(&input.area_ids, &view, &input.presentation);
     let overview =
@@ -147,6 +149,7 @@ fn project_activity(input: ActivityInput) -> ActivityOutput {
         view,
         areas,
         overview,
+        capsule,
     }
 }
 
@@ -177,15 +180,29 @@ impl MultisoulApp {
         self.desktop_workspace.activity_view = None;
         self.desktop_workspace.activity_overview = None;
         self.desktop_workspace.activity_run_overview = None;
+        self.desktop_workspace.activity_capsule = None;
         self.desktop_workspace.overview_cursor = None;
         self.desktop_workspace.overview_prelight = None;
     }
 
     pub(super) fn ensure_workspace_activity_cache(&mut self, cx: &mut Context<Self>) {
-        if self.desktop_workspace.active_id.is_none()
-            || (self.desktop_workspace.activity_overview.is_some()
-                && self.desktop_workspace.activity_run_overview.is_some())
-        {
+        if self.desktop_workspace.active_id.is_none() {
+            return;
+        }
+        let current = self
+            .desktop_workspace
+            .expanded_area_id
+            .clone()
+            .or_else(|| self.desktop_workspace.active_area_id.clone())
+            .unwrap_or_default();
+        let fresh = self.desktop_workspace.activity_overview.is_some()
+            && self.desktop_workspace.activity_run_overview.is_some()
+            && self
+                .desktop_workspace
+                .activity_capsule
+                .as_ref()
+                .is_some_and(|capsule| capsule.current_area_id == current);
+        if fresh {
             return;
         }
         self.mark_workspace_activity_dirty(cx);
@@ -255,6 +272,7 @@ impl MultisoulApp {
                     {
                         app.desktop_workspace.overview_cursor = count.checked_sub(1);
                     }
+                    app.desktop_workspace.activity_capsule = Some(projected.capsule);
                     cx.notify();
                 }
                 if app.desktop_workspace.activity_gate.finish() {

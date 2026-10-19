@@ -168,7 +168,7 @@ fn test_agent_card_chrome_prefers_alias_over_profile_title() {
 /// 数据构造（含关键数值推导）：
 ///   runtime 添加 node_id=1 的 Codex Agent
 ///   task update: PreToolUse 等价状态 RunningTool(tool_name=shell)
-///   badge 文案 V1 固定为短标签 "Tool"，避免标题栏溢出
+///   没有待办进度时，badge 与右上角胶囊共用「运行中」
 ///
 /// 执行过程：
 ///   1. 在 runtime.document 中添加 Agent node
@@ -176,8 +176,8 @@ fn test_agent_card_chrome_prefers_alias_over_profile_title() {
 ///   3. 调用 AgentCard.chrome 读取 badge
 ///
 /// 预期结果：
-///   - 正断言：badge 存在且 label 为 Tool
-///   - 负断言：badge 不应显示 Terminal，也不应退化为 None
+///   - 正断言：badge 存在且 label 为「运行中」
+///   - 负断言：badge 不应显示 Tool 或 Terminal，也不应退化为 None
 #[test]
 fn test_agent_card_chrome_shows_task_badge() {
     let mut runtime = Runtime::new();
@@ -212,7 +212,11 @@ fn test_agent_card_chrome_shows_task_badge() {
         .expect("RunningTool 状态应渲染 task badge");
 
     assert!(changed, "Agent task update 应改变 runtime task state");
-    assert_eq!(badge.label, "Tool", "RunningTool 应显示短标签 Tool");
+    assert_eq!(
+        badge.label, "运行中",
+        "没有待办进度的 RunningTool 应显示运行中"
+    );
+    assert_ne!(badge.label, "Tool", "卡片标题不再使用工具短标签");
     assert_ne!(
         badge.label, "Terminal",
         "Agent task badge 不应显示 Terminal 文案"
