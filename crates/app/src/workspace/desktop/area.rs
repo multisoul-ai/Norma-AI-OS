@@ -276,6 +276,7 @@ impl MultisoulApp {
                             });
                         }
                         app.desktop_workspace.sessions.insert(key, session);
+                        app.mark_workspace_activity_dirty(cx);
                         if expand_now {
                             app.expand_desktop_project_area(area_id, window, cx);
                         } else if requested && visible {

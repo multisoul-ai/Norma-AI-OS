@@ -300,18 +300,13 @@ impl MultisoulApp {
     ) -> Stateful<Div> {
         let theme = self.desktop_theme();
         let overview_open = self.desktop_workspace.drawers.overview_expanded;
-        let workspace_id = self
-            .desktop_workspace
-            .active_id
-            .as_deref()
-            .unwrap_or_default();
         let pending_count = self.desktop_workspace.content_artifacts.len()
             + self
                 .desktop_workspace
                 .areas
                 .iter()
                 .map(|area| {
-                    self.desktop_agent_rows(workspace_id, &area.id, cx)
+                    self.overview_rows_for(&area.id)
                         .into_iter()
                         .filter(|row| row.needs_approval)
                         .count()

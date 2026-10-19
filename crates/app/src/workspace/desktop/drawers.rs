@@ -1,5 +1,6 @@
 //! Workspace-wide assistant surfaces. Open drawers reserve space beside the live canvas.
 
+use super::activity_cache::overview_task_text;
 use super::{glass_button_variant, GLASS_TEXT, GLASS_TEXT_MUTED, GLASS_TEXT_SECONDARY};
 use crate::app::MultisoulApp;
 use canvas::NodeId;
@@ -97,6 +98,7 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
+        self.ensure_workspace_activity_cache(cx);
         self.ensure_drawer_frost(cx);
         let drawers = self.desktop_workspace.drawers;
         self.desktop_workspace
@@ -200,11 +202,6 @@ impl MultisoulApp {
 
     fn render_agent_overview(&self, cx: &mut Context<Self>) -> Stateful<Div> {
         let theme = self.desktop_theme();
-        let workspace_id = self
-            .desktop_workspace
-            .active_id
-            .as_deref()
-            .unwrap_or_default();
         div()
             .id("desktop-agent-overview-list")
             .debug_selector(|| "desktop-agent-overview-list".to_string())
@@ -213,7 +210,7 @@ impl MultisoulApp {
             .px(px(10.0))
             .pb(px(10.0))
             .children(self.desktop_workspace.areas.iter().map(|area| {
-                let rows = self.desktop_agent_rows(workspace_id, &area.id, cx);
+                let rows = self.overview_rows_for(&area.id);
                 div()
                     .id(ElementId::Name(
                         format!("desktop-agent-project-{}", area.id).into(),
@@ -274,7 +271,10 @@ impl MultisoulApp {
                                             } else {
                                                 GLASS_TEXT_SECONDARY
                                             }))
-                                            .child(row.task),
+                                            .child(overview_task_text(
+                                                &row.task,
+                                                row.updated_at_unix_ms,
+                                            )),
                                     ),
                             )
                             .child(

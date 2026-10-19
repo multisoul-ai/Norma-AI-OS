@@ -1,7 +1,7 @@
 //! A single live/status-cache projection for the overview and voice replies.
 
 use crate::app::MultisoulApp;
-use canvas::{BrowserSurfaceKind, CanvasNodeKind, EgoCardPhase, NodeId};
+use canvas::{BrowserSurfaceKind, CanvasNodeKind, EgoCardPhase};
 use gpui::{App, Context};
 use runtime::AgentTaskState;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -44,21 +44,6 @@ pub(super) struct DesktopAreaStatusView {
     pub updated_at_unix_ms: Option<i64>,
 }
 
-pub(super) struct AgentRow {
-    pub area_id: String,
-    pub node_id: NodeId,
-    pub label: String,
-    pub task: String,
-    pub state: String,
-    pub needs_approval: bool,
-    pub can_locate_approval: bool,
-    pub run_id: Option<String>,
-    pub turn_id: Option<String>,
-    pub stale: bool,
-    pub is_ego: bool,
-    pub ego_stop_agent: Option<NodeId>,
-}
-
 impl MultisoulApp {
     pub(super) fn desktop_area_status_view(
         &self,
@@ -89,74 +74,6 @@ impl MultisoulApp {
             live: false,
             updated_at_unix_ms: None,
         }
-    }
-
-    pub(super) fn desktop_agent_rows(
-        &self,
-        workspace_id: &str,
-        area_id: &str,
-        cx: &App,
-    ) -> Vec<AgentRow> {
-        let view = self.desktop_area_status_view(workspace_id, area_id, cx);
-        let last_update = view.updated_at_unix_ms.map(last_update_label);
-        view.agents
-            .into_iter()
-            .map(|agent| {
-                let stale = !view.live;
-                let needs_approval = approval_is_pending(&agent.state);
-                let can_locate_approval = approval_is_actionable(
-                    view.live,
-                    &agent.state,
-                    agent.run_id.as_deref(),
-                    agent.turn_id.as_deref(),
-                );
-                let is_ego = agent.state.starts_with("ego_");
-                let ego_stop_agent = if is_ego && view.live {
-                    self.desktop_workspace
-                        .sessions
-                        .get(&(workspace_id.to_owned(), area_id.to_owned()))
-                        .and_then(|session| {
-                            let project = session.read(cx);
-                            let state = project.runtime.ego_task_state(agent.node_id)?;
-                            let bound = state.bound_agent_node_id?;
-                            (matches!(
-                                state.phase,
-                                EgoCardPhase::PreparingAgent
-                                    | EgoCardPhase::AgentWorking
-                                    | EgoCardPhase::ResumeRequested
-                            ) && matches!(
-                                project.runtime.agent_task_state(bound),
-                                Some(
-                                    AgentTaskState::Thinking
-                                        | AgentTaskState::RunningTool { .. }
-                                        | AgentTaskState::WaitingApproval { .. }
-                                )
-                            ))
-                            .then_some(bound)
-                        })
-                } else {
-                    None
-                };
-                let task = agent.task.unwrap_or_else(|| "暂无任务标题".into());
-                AgentRow {
-                    area_id: area_id.to_owned(),
-                    node_id: agent.node_id,
-                    label: agent.name,
-                    task: match &last_update {
-                        Some(label) => format!("{task} · 上次更新{label}"),
-                        None => task,
-                    },
-                    state: state_label(&agent.state).into(),
-                    needs_approval,
-                    can_locate_approval,
-                    run_id: agent.run_id,
-                    turn_id: agent.turn_id,
-                    stale,
-                    is_ego,
-                    ego_stop_agent,
-                }
-            })
-            .collect()
     }
 
     pub(super) fn refresh_desktop_agent_status_cache(&mut self, cx: &mut Context<Self>) {
@@ -197,6 +114,7 @@ impl MultisoulApp {
         if changed.is_empty() {
             return;
         }
+        self.mark_workspace_activity_dirty(cx);
         cx.notify();
         let store = DesktopAreaStatusStore::new(self.database_paths.app_db_path().to_owned());
         cx.spawn(async move |_, cx| {
@@ -218,6 +136,26 @@ impl MultisoulApp {
         })
         .detach();
     }
+}
+
+pub(super) fn ego_stop_agent(
+    project: &MultisoulApp,
+    ego_node: canvas::NodeId,
+) -> Option<canvas::NodeId> {
+    let state = project.runtime.ego_task_state(ego_node)?;
+    let bound = state.bound_agent_node_id?;
+    (matches!(
+        state.phase,
+        EgoCardPhase::PreparingAgent | EgoCardPhase::AgentWorking | EgoCardPhase::ResumeRequested
+    ) && matches!(
+        project.runtime.agent_task_state(bound),
+        Some(
+            AgentTaskState::Thinking
+                | AgentTaskState::RunningTool { .. }
+                | AgentTaskState::WaitingApproval { .. }
+        )
+    ))
+    .then_some(bound)
 }
 
 pub(super) fn live_agents(project: &MultisoulApp) -> Vec<DesktopAgentStatus> {

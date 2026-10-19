@@ -23,6 +23,7 @@ fn glass_button_variant(theme: ui::Theme, cx: &gpui::App) -> ButtonCustomVariant
         .active(gpui::rgba(with_alpha(theme.accent_blue, 0x9c)).into())
 }
 
+mod activity_cache;
 mod agent;
 mod agent_preview;
 mod area;
@@ -135,6 +136,11 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) artifact_refreshing: bool,
     pub(crate) status_cache: HashMap<String, storage::DesktopAreaStatus>,
     pub(crate) status_live_seen: HashSet<String>,
+    pub(crate) activity_gate: norma::mobile::ActivityRefreshGate,
+    pub(crate) activity_generation: u64,
+    pub(crate) activity_summary: Option<norma::mobile::WorkspaceActivitySummary>,
+    pub(crate) activity_view: Option<norma::mobile::WorkspaceActivityView>,
+    activity_overview: Option<Vec<activity_cache::OverviewArea>>,
     pub(crate) workspaces: Vec<DesktopWorkspace>,
     pub(crate) previews: HashMap<String, Vec<DesktopAreaPreview>>,
     pub(crate) active_id: Option<String>,
@@ -247,6 +253,11 @@ impl DesktopWorkspaceUiState {
             artifact_refreshing: false,
             status_cache: HashMap::new(),
             status_live_seen: HashSet::new(),
+            activity_gate: norma::mobile::ActivityRefreshGate::default(),
+            activity_generation: 0,
+            activity_summary: None,
+            activity_view: None,
+            activity_overview: None,
             workspaces,
             previews: HashMap::new(),
             active_id: None,
