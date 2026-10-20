@@ -48,6 +48,7 @@ pub(crate) enum ShortcutCommandId {
     ToggleMasterLayout,
     ExitFocus,
     ToggleSettings,
+    ToggleRunOverview,
     VoiceInteraction,
 }
 

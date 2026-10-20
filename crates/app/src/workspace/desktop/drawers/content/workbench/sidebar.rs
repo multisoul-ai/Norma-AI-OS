@@ -131,20 +131,29 @@ impl MultisoulApp {
             .as_ref()
             .map(|i| i.read(cx).value().to_string())
             .unwrap_or_default();
+        let allow = s.turn_paths.clone();
         let paths = s
             .git
             .as_ref()
             .map(|g| g.changes.iter().map(|c| c.path.clone()).collect::<Vec<_>>())
             .unwrap_or_default();
-        let total = paths.len();
+        let total = paths
+            .iter()
+            .filter(|path| {
+                allow
+                    .as_ref()
+                    .is_none_or(|allow| allow.iter().any(|item| item == *path))
+            })
+            .count();
         let mut items = vec![Item::ChangesHead { count: total }];
         if !s.changes_section_closed {
-            let rows = change_rows(&paths, &s.changes_dirs_closed, &query);
+            let rows = change_rows(&paths, &s.changes_dirs_closed, &query, allow.as_deref());
             if rows.is_empty() {
                 items.push(Item::Note(match (&s.git, &s.git_error) {
                     (None, Some(e)) => e.clone(),
                     (None, None) => "正在读取 Git…".into(),
                     _ if total > 0 => "没有匹配的变更".into(),
+                    _ if s.turn_paths.is_some() => "本回合没有匹配的变更".into(),
                     _ => "没有变更".into(),
                 }));
             }

@@ -37,6 +37,7 @@ pub(super) fn shortcut_command_name(command: ShortcutCommandId) -> &'static str 
         ShortcutCommandId::ToggleMasterLayout => "toggle_master_layout",
         ShortcutCommandId::ExitFocus => "exit_focus",
         ShortcutCommandId::ToggleSettings => "toggle_settings",
+        ShortcutCommandId::ToggleRunOverview => "toggle_run_overview",
         ShortcutCommandId::VoiceInteraction => "voice_interaction",
     }
 }

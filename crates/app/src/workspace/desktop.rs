@@ -3,26 +3,28 @@ use gpui::Entity;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::PathBuf;
+use std::sync::atomic::AtomicU64;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use storage::{DesktopAreaPreview, DesktopProjectArea, DesktopWorkspace, DesktopWorkspaceStore};
 use ui::component::button::ButtonCustomVariant;
 use ui::component::input::InputState;
-use ui::icons::with_alpha;
 
 const GLASS_TEXT: u32 = 0xfffffff5;
 const GLASS_TEXT_SECONDARY: u32 = 0xffffffb8;
 const GLASS_TEXT_MUTED: u32 = 0xffffff85;
 
 fn glass_button_variant(theme: ui::Theme, cx: &gpui::App) -> ButtonCustomVariant {
+    let chrome = status_capsule::capsule_chrome(theme);
     ButtonCustomVariant::new(cx)
-        .color(gpui::rgba(with_alpha(theme.dock, 0xa0)).into())
+        .color(gpui::rgba(chrome.rest).into())
         .foreground(gpui::rgba(GLASS_TEXT).into())
         .border(gpui::rgba(theme.dock_line).into())
-        .hover(gpui::rgba(with_alpha(theme.accent_blue, 0x78)).into())
-        .active(gpui::rgba(with_alpha(theme.accent_blue, 0x9c)).into())
+        .hover(gpui::rgba(chrome.hover).into())
+        .active(gpui::rgba(chrome.active).into())
 }
 
+mod activity_cache;
 mod agent;
 mod agent_preview;
 mod area;
@@ -43,9 +45,11 @@ mod layout;
 mod management;
 mod snapshot;
 mod status;
+mod status_capsule;
 use management::DesktopRenameTarget;
 mod motion_log;
 mod navigation;
+mod overview_rows;
 mod preview_canvas;
 mod project_area;
 mod project_layout;
@@ -115,6 +119,17 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) drawers: runtime::desktop_drawers::DesktopDrawerState,
     pub(crate) left_open_before_project: Option<bool>,
     pub(crate) drawer_motion: drawers::motion::DesktopAssistantDrawerMotion,
+    left_view_slide: drawers::left_view_slide::LeftViewSlide,
+    pub(crate) left_chat_tab_focus: Option<gpui::FocusHandle>,
+    pub(crate) left_overview_tab_focus: Option<gpui::FocusHandle>,
+    pub(crate) left_overview_focus: Option<gpui::FocusHandle>,
+    pub(crate) overview_float_fade: drawers::float::OverviewFloatFade,
+    pub(crate) overview_drag: Option<drawers::float::OverviewDrag>,
+    pub(crate) overview_float_focus: Option<gpui::FocusHandle>,
+    pub(crate) overview_move_focus: Option<gpui::FocusHandle>,
+    pub(crate) run_status_focus: Option<gpui::FocusHandle>,
+    pub(crate) drawer_layout_save: Option<gpui::Task<()>>,
+    pub(crate) drawer_layout_generation: Arc<AtomicU64>,
     pub(crate) drawer_widths: drawers::resize::DesktopDrawerWidths,
     pub(crate) drawer_resize: Option<drawers::resize::DesktopDrawerResizeSession>,
     pub(crate) frosted_wallpaper: drawers::material::FrostedWallpaperState,
@@ -135,6 +150,17 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) artifact_refreshing: bool,
     pub(crate) status_cache: HashMap<String, storage::DesktopAreaStatus>,
     pub(crate) status_live_seen: HashSet<String>,
+    pub(crate) activity_gate: norma::mobile::ActivityRefreshGate,
+    pub(crate) activity_generation: u64,
+    pub(crate) activity_summary: Option<norma::mobile::WorkspaceActivitySummary>,
+    pub(crate) activity_view: Option<norma::mobile::WorkspaceActivityView>,
+    pub(crate) activity_capsule: Option<norma::mobile::StatusCapsule>,
+    pub(crate) focus_status_overview_row: bool,
+    activity_overview: Option<Vec<activity_cache::OverviewArea>>,
+    pub(crate) activity_run_overview: Option<norma::mobile::RunOverview>,
+    pub(crate) activity_updated_at_ms: Option<i64>,
+    pub(crate) overview_cursor: Option<usize>,
+    pub(crate) overview_prelight: Option<(String, u64)>,
     pub(crate) workspaces: Vec<DesktopWorkspace>,
     pub(crate) previews: HashMap<String, Vec<DesktopAreaPreview>>,
     pub(crate) active_id: Option<String>,
@@ -183,6 +209,30 @@ pub(crate) struct DesktopWorkspaceUiState {
 }
 
 impl DesktopWorkspaceUiState {
+    pub(crate) fn left_view_slide_active(&self) -> bool {
+        self.left_view_slide.is_active()
+    }
+
+    pub(crate) fn tick_left_view_slide(
+        &mut self,
+        delta: std::time::Duration,
+        reduce_motion: bool,
+    ) -> bool {
+        self.left_view_slide.tick(delta, reduce_motion)
+    }
+
+    pub(crate) fn overview_float_fade_active(&self) -> bool {
+        self.overview_float_fade.is_active()
+    }
+
+    pub(crate) fn tick_overview_float_fade(
+        &mut self,
+        delta: std::time::Duration,
+        reduce_motion: bool,
+    ) -> bool {
+        self.overview_float_fade.tick(delta, reduce_motion)
+    }
+
     pub(crate) fn advance_assistant_orb(
         &mut self,
         delta: std::time::Duration,
@@ -227,6 +277,17 @@ impl DesktopWorkspaceUiState {
             drawers: runtime::desktop_drawers::DesktopDrawerState::default(),
             left_open_before_project: None,
             drawer_motion: drawers::motion::DesktopAssistantDrawerMotion::default(),
+            left_view_slide: drawers::left_view_slide::LeftViewSlide::default(),
+            left_chat_tab_focus: None,
+            left_overview_tab_focus: None,
+            left_overview_focus: None,
+            overview_float_fade: drawers::float::OverviewFloatFade::default(),
+            overview_drag: None,
+            overview_float_focus: None,
+            overview_move_focus: None,
+            run_status_focus: None,
+            drawer_layout_save: None,
+            drawer_layout_generation: Arc::new(AtomicU64::new(0)),
             drawer_widths: drawers::resize::DesktopDrawerWidths::default(),
             drawer_resize: None,
             frosted_wallpaper: drawers::material::FrostedWallpaperState::default(),
@@ -247,6 +308,17 @@ impl DesktopWorkspaceUiState {
             artifact_refreshing: false,
             status_cache: HashMap::new(),
             status_live_seen: HashSet::new(),
+            activity_gate: norma::mobile::ActivityRefreshGate::default(),
+            activity_generation: 0,
+            activity_summary: None,
+            activity_view: None,
+            activity_capsule: None,
+            focus_status_overview_row: false,
+            activity_overview: None,
+            activity_run_overview: None,
+            activity_updated_at_ms: None,
+            overview_cursor: None,
+            overview_prelight: None,
             workspaces,
             previews: HashMap::new(),
             active_id: None,
@@ -374,6 +446,7 @@ impl MultisoulApp {
     }
 
     pub(crate) fn stop_desktop_sessions(&mut self, cx: &mut gpui::Context<Self>) {
+        self.flush_left_drawer_view_on_exit();
         let sessions = std::mem::take(&mut self.desktop_workspace.sessions);
         for session in sessions.into_values() {
             session.update(cx, |session, cx| session.stop_project(cx));

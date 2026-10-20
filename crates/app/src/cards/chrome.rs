@@ -102,11 +102,14 @@ pub fn render_card_title(
     .into_any_element()
 }
 
+/// 「等你处理」固定用琥珀色，与状态胶囊、运行概览保持一致，不随主题的暖色变化。
+const WAITING_AMBER: u32 = 0xf2c773ff;
+
 pub fn render_task_badge(badge: CardChromeTaskBadge, zoom: f32, theme: Theme) -> Div {
     let (fg, bg) = match badge.tone {
         CardChromeTaskTone::Muted => (theme.text_secondary, with_alpha(theme.panel_high, 0x68)),
         CardChromeTaskTone::Active => (theme.accent_cyan, with_alpha(theme.accent_cyan, 0x18)),
-        CardChromeTaskTone::Warning => (theme.accent_warm, with_alpha(theme.accent_warm, 0x1f)),
+        CardChromeTaskTone::Warning => (WAITING_AMBER, with_alpha(WAITING_AMBER, 0x24)),
         CardChromeTaskTone::Error => (theme.destructive, with_alpha(theme.destructive, 0x1f)),
     };
     div()

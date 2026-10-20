@@ -14,6 +14,8 @@ pub(super) struct TaskSteps {
     tasks: Vec<Step>,
     seen: HashSet<String>,
     incomplete: bool,
+    /// Claude TodoWrite replaced the list. It cannot be merged with TaskCreate/TaskUpdate.
+    todo_write: bool,
 }
 
 struct Step {
@@ -87,17 +89,20 @@ impl TaskSteps {
     }
 
     fn apply(&mut self, tool: &str, raw: &Value) -> Option<()> {
-        // Subagent task lists and legacy TodoWrite have not been verified as the main turn's plan.
-        if raw.get("agent_id").is_some() || tool == "TodoWrite" {
-            return None;
+        if tool == "TodoWrite" {
+            return self.apply_todo_write(raw);
+        }
+        // Subagent task lists are not the main turn's plan.
+        if raw.get("agent_id").is_some() {
+            return Some(());
         }
         let call = text(&raw["tool_use_id"])?;
         if self.seen.contains(call) {
             return Some(());
         }
         // ponytail: keep at most 64 steps and 256 confirmed changes per turn; beyond that hide
-        // totals until a new turn. Add a verified complete-list protocol before lifting the ceiling.
-        if self.seen.len() >= 256 {
+        // totals until a new turn. TodoWrite uses the same ceilings on one complete list.
+        if self.seen.len() >= 256 || self.todo_write {
             return None;
         }
         let input = &raw["tool_input"];
@@ -164,6 +169,67 @@ impl TaskSteps {
         self.seen.insert(call.into());
         Some(())
     }
+
+    // Claude Code 2.1.296 replaces the whole list: tool_input.todos == tool_response.newTodos.
+    // agent_id is present only for a subagent, so those lists are ignored.
+    fn apply_todo_write(&mut self, raw: &Value) -> Option<()> {
+        if raw.get("agent_id").is_some() {
+            return Some(());
+        }
+        let call = text(&raw["tool_use_id"])?;
+        if self.seen.contains(call) {
+            return Some(());
+        }
+        if self.seen.len() >= 256 || (!self.todo_write && !self.tasks.is_empty()) {
+            return None;
+        }
+        let steps = confirmed_todo_list(raw)?;
+        if steps.len() > 64 {
+            return None;
+        }
+        self.todo_write = true;
+        self.tasks = steps;
+        self.seen.insert(call.into());
+        Some(())
+    }
+}
+
+fn confirmed_todo_list(raw: &Value) -> Option<Vec<Step>> {
+    let input = raw["tool_input"]["todos"].as_array()?;
+    let confirmed = raw["tool_response"]["newTodos"].as_array()?;
+    let previous = raw["tool_response"]["oldTodos"].as_array()?;
+    if input.len() != confirmed.len() || previous.iter().any(|item| todo_step(item).is_none()) {
+        return None;
+    }
+    let mut steps = Vec::with_capacity(input.len());
+    for (index, (left, right)) in input.iter().zip(confirmed).enumerate() {
+        let step = todo_step(left)?;
+        let other = todo_step(right)?;
+        if step.subject != other.subject || step.active != other.active || step.state != other.state
+        {
+            return None;
+        }
+        steps.push(Step {
+            id: index.to_string(),
+            subject: step.subject,
+            active: step.active,
+            state: step.state,
+        });
+    }
+    Some(steps)
+}
+
+fn todo_step(value: &Value) -> Option<Step> {
+    let state = text(&value["status"])?;
+    if !matches!(state, "pending" | "in_progress" | "completed") {
+        return None;
+    }
+    Some(Step {
+        id: String::new(),
+        subject: text(&value["content"])?.into(),
+        active: text(&value["activeForm"])?.into(),
+        state: state.into(),
+    })
 }
 
 fn text(value: &Value) -> Option<&str> {

@@ -10,6 +10,7 @@ use crate::cards::{Card, CardBodyContext};
 use crate::motion::breathing::BreathingIntent;
 use canvas::{CanvasNode, CanvasNodeKind, CanvasRect, NodeType};
 use gpui::AnyElement;
+use norma::mobile::{status_capsule_title, StatusCapsuleKind, TaskProgress};
 use runtime::{AgentTaskState, CardAttentionKind, CardAttentionState, NodeResize, Runtime};
 
 pub struct AgentCard;
@@ -44,11 +45,13 @@ impl Card for AgentCard {
             (None, task) => task,
         };
         let state = runtime.agent_task_state(node.id);
+        let progress = runtime.mobile_task_progress(node.id);
+        let preparing = runtime.mobile_agent_is_preparing(node.id);
         CardChrome {
             title,
             title_detail,
             refreshable: false,
-            task_badge: agent_task_badge(state),
+            task_badge: agent_task_badge(state, progress, preparing),
         }
     }
 
@@ -104,28 +107,53 @@ fn single_line_task_title(title: &str) -> Option<String> {
     Some(single_line)
 }
 
-fn agent_task_badge(state: Option<AgentTaskState>) -> Option<CardChromeTaskBadge> {
+fn agent_task_badge(
+    state: Option<AgentTaskState>,
+    progress: Option<TaskProgress>,
+    preparing: bool,
+) -> Option<CardChromeTaskBadge> {
     let state = state?;
+    let (completed, total) = match progress {
+        Some(progress) => (Some(progress.completed), Some(progress.total)),
+        None => (None, None),
+    };
+    let settled = matches!(
+        state,
+        AgentTaskState::Thinking
+            | AgentTaskState::RunningTool { .. }
+            | AgentTaskState::WaitingApproval { .. }
+            | AgentTaskState::Failed { .. }
+    );
+    if preparing && !settled {
+        return Some(CardChromeTaskBadge {
+            label: status_capsule_title(StatusCapsuleKind::PendingStart, None, None),
+            tone: CardChromeTaskTone::Muted,
+        });
+    }
     let (label, tone) = match state {
-        AgentTaskState::Ready => (ui::i18n::text("common.ready"), CardChromeTaskTone::Muted),
-        AgentTaskState::Thinking => (ui::i18n::text("cards.thinking"), CardChromeTaskTone::Active),
-        AgentTaskState::RunningTool { .. } => {
-            (ui::i18n::text("cards.tool"), CardChromeTaskTone::Active)
-        }
+        AgentTaskState::Ready => (
+            status_capsule_title(StatusCapsuleKind::PendingStart, None, None),
+            CardChromeTaskTone::Muted,
+        ),
+        AgentTaskState::Thinking | AgentTaskState::RunningTool { .. } => (
+            status_capsule_title(StatusCapsuleKind::Running, completed, total),
+            CardChromeTaskTone::Active,
+        ),
         AgentTaskState::WaitingApproval { .. } => (
-            ui::i18n::text("cards.approval"),
+            status_capsule_title(StatusCapsuleKind::Waiting, completed, total),
             CardChromeTaskTone::Warning,
         ),
-        AgentTaskState::Done => ("Done", CardChromeTaskTone::Muted),
-        AgentTaskState::Failed { .. } => {
-            (ui::i18n::text("common.failed"), CardChromeTaskTone::Error)
-        }
-        AgentTaskState::Ended => (ui::i18n::text("cards.ended"), CardChromeTaskTone::Muted),
+        AgentTaskState::Done => ("Done".to_string(), CardChromeTaskTone::Muted),
+        AgentTaskState::Failed { .. } => (
+            status_capsule_title(StatusCapsuleKind::Failed, completed, total),
+            CardChromeTaskTone::Error,
+        ),
+        AgentTaskState::Ended => (
+            ui::i18n::text("cards.ended").to_string(),
+            CardChromeTaskTone::Muted,
+        ),
     };
-    Some(CardChromeTaskBadge {
-        label: label.to_string(),
-        tone,
-    })
+    Some(CardChromeTaskBadge { label, tone })
 }
 
 pub fn agent_breathing_intent(

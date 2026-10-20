@@ -85,6 +85,12 @@ impl AssetSource for EmbeddedAssets {
             "icons/activity.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
                 "../assets/icons/activity.svg"
             )))),
+            "icons/pin.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/pin.svg"
+            )))),
+            "icons/grip.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/grip.svg"
+            )))),
             "icons/panel-left-close.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
                 "../assets/icons/panel-left-close.svg"
             )))),
