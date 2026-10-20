@@ -1,0 +1,4 @@
+module E2EKit {
+header "E2EKit-Swift.h"
+export *
+}

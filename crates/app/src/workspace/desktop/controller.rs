@@ -183,7 +183,6 @@ impl MultisoulApp {
         ) {
             return;
         }
-        self.restore_left_drawer_after_project();
         self.begin_desktop_workspace_zoom(&id, false, window, cx);
         self.detach_visible_desktop_area(cx);
         self.hide_desktop_content_browsers();

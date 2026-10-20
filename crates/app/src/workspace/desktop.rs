@@ -117,7 +117,6 @@ pub(crate) struct DesktopArtifactVersion {
 pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) store: DesktopWorkspaceStore,
     pub(crate) drawers: runtime::desktop_drawers::DesktopDrawerState,
-    pub(crate) left_open_before_project: Option<bool>,
     pub(crate) drawer_motion: drawers::motion::DesktopAssistantDrawerMotion,
     left_view_slide: drawers::left_view_slide::LeftViewSlide,
     pub(crate) left_chat_tab_focus: Option<gpui::FocusHandle>,
@@ -275,7 +274,6 @@ impl DesktopWorkspaceUiState {
         Self {
             store,
             drawers: runtime::desktop_drawers::DesktopDrawerState::default(),
-            left_open_before_project: None,
             drawer_motion: drawers::motion::DesktopAssistantDrawerMotion::default(),
             left_view_slide: drawers::left_view_slide::LeftViewSlide::default(),
             left_chat_tab_focus: None,

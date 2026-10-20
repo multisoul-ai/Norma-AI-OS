@@ -1,34 +1,22 @@
 import AppKit
-import ApplicationServices
 import CoreGraphics
 import Foundation
 
+/// 点击、拖拽、滚动和按键都通过 App 控制通道派发到隔离窗口内，坐标为窗口内坐标。
+/// 事件只进入本次启动的 Norma，不会落到用户的其他窗口，也不占用系统键鼠。
 extension Session {
-    /// 尽量把隔离窗口抬到最前。点击不依赖 isActive；键盘在仍未获得焦点时会取消发送。
+    /// 把隔离窗口抬到前台，使渲染持续刷新；输入本身不依赖前台状态。
     public func activate() async throws {
         try ensureRunning()
-        _ = await becomeFrontmost()
-    }
-
-    private func becomeFrontmost() async -> Bool {
-        guard let pid = app?.processIdentifier,
-              let running = NSRunningApplication(processIdentifier: pid) else { return false }
-        for _ in 1...4 {
+        // X5: NORMA_E2E_NO_ACTIVATE=1 leaves the window wherever the system put it.
+        if ProcessInfo.processInfo.environment["NORMA_E2E_NO_ACTIVATE"] == "1" { return }
+        if let pid = app?.processIdentifier, let running = NSRunningApplication(processIdentifier: pid) {
             _ = running.activate(from: NSRunningApplication.current, options: [.activateAllWindows])
-            raiseViaAccessibility(pid)
-            if running.isActive { return true }
-            try? await Task.sleep(nanoseconds: 180_000_000)
         }
-        return running.isActive
-    }
-
-    private func requireKeyboardFocus() async throws {
-        if await becomeFrontmost() { return }
-        throw E2EError.product("隔离 Norma 没有键盘焦点，已取消按键，避免输入进其他应用。")
+        try await control(["op": "activate"])
     }
 
     public func click(matching candidates: [String], pick: TextPick) async throws {
-        try await activate()
         let frame = try await capture()
         guard let text = frame.pick(candidates, pick) else {
             throw E2EError.product("未识别到可点击文字：\(candidates.joined(separator: " / "))。可见：\(frame.summary)")
@@ -47,164 +35,47 @@ extension Session {
         guard window.id == frame.windowID else {
             throw E2EError.product("拖拽前窗口已切换，请重新截图定位。")
         }
-        let origin = window.frame.origin
-        let from = CGPoint(x: origin.x + start.x, y: origin.y + start.y)
-        let destination = CGPoint(x: origin.x + end.x, y: origin.y + end.y)
-        try await requireOwnWindow(at: from)
-        try await requireOwnWindow(at: destination)
-        try postMove(from)
+        try await mouse("move", start)
         try await Task.sleep(nanoseconds: 100_000_000)
-        guard let down = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: from, mouseButton: .left) else {
-            throw E2EError.env("无法创建鼠标按下事件")
-        }
-        down.post(tap: .cghidEventTap)
+        try await mouse("down", start)
         for step in 1...12 {
             let progress = CGFloat(step) / 12
             let point = CGPoint(
-                x: from.x + (destination.x - from.x) * progress,
-                y: from.y + (destination.y - from.y) * progress
+                x: start.x + (end.x - start.x) * progress,
+                y: start.y + (end.y - start.y) * progress
             )
-            guard let moved = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDragged, mouseCursorPosition: point, mouseButton: .left) else {
-                throw E2EError.env("无法创建鼠标拖动事件")
-            }
-            moved.post(tap: .cghidEventTap)
+            try await mouse("move", point, pressed: true)
             try await Task.sleep(nanoseconds: 25_000_000)
         }
-        guard let up = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: destination, mouseButton: .left) else {
-            throw E2EError.env("无法创建鼠标抬起事件")
-        }
-        up.post(tap: .cghidEventTap)
+        try await mouse("up", end)
     }
 
-    /// Send a real wheel event only to the captured isolated App window.
+    /// Send a pixel wheel event to the captured isolated App window.
     public func scroll(local point: CGPoint, pixels: Int32, on frame: Frame) async throws {
-        try await activate()
         let window = try await currentWindow()
         guard window.id == frame.windowID else {
             throw E2EError.product("滚动前窗口已切换，请重新截图定位。")
         }
-        let global = CGPoint(x: window.frame.minX + point.x, y: window.frame.minY + point.y)
-        try await requireOwnWindow(at: global)
-        try postMove(global)
-        guard let event = CGEvent(
-            scrollWheelEvent2Source: nil,
-            units: .pixel,
-            wheelCount: 1,
-            wheel1: pixels,
-            wheel2: 0,
-            wheel3: 0
-        ) else {
-            throw E2EError.env("无法创建滚轮事件")
-        }
-        event.location = global
-        event.post(tap: .cghidEventTap)
+        try await wheel(at: point, pixels: pixels)
     }
 
-    private func click(local: CGPoint, on frame: Frame, requery: [String]?, pick: TextPick?) async throws {
-        try await activate()
-        var point = local
-        var window = try await currentWindow()
-        if window.id != frame.windowID || abs(window.frame.width - frame.windowFrame.width) > 2 {
-            if let requery, let pick {
-                let fresh = try await capture()
-                guard let text = fresh.pick(requery, pick) else {
-                    throw E2EError.product("重取窗口后未重新识别：\(requery.joined(separator: " / "))")
-                }
-                point = text.center
-                window = (fresh.windowID, fresh.windowFrame)
-            }
-        }
-        var global = CGPoint(x: window.frame.minX + point.x, y: window.frame.minY + point.y)
-        try postMove(global)
-        try await Task.sleep(nanoseconds: 160_000_000)
-        let moved = try await currentWindow()
-        if abs(moved.frame.minX - window.frame.minX) > 2 || abs(moved.frame.minY - window.frame.minY) > 2 {
-            if let requery, let pick {
-                let fresh = try await capture()
-                guard let text = fresh.pick(requery, pick) else {
-                    throw E2EError.product("窗口移动后未重新识别：\(requery.joined(separator: " / "))")
-                }
-                point = text.center
-                global = CGPoint(x: fresh.windowFrame.minX + point.x, y: fresh.windowFrame.minY + point.y)
-            } else {
-                global = CGPoint(x: moved.frame.minX + point.x, y: moved.frame.minY + point.y)
-            }
-            try postMove(global)
-            try await Task.sleep(nanoseconds: 80_000_000)
-        }
-        try await requireOwnWindow(at: global)
-        try postClick(global)
-    }
-
-    private func requireOwnWindow(at global: CGPoint) async throws {
-        if ownsScreenPoint(global) { return }
-        _ = await becomeFrontmost()
-        try await Task.sleep(nanoseconds: 200_000_000)
-        guard ownsScreenPoint(global) else {
-            throw E2EError.product("点击点被其他窗口挡住，已取消这次点击，避免点到别的 Norma。")
-        }
-    }
-
-    private func ownsScreenPoint(_ global: CGPoint) -> Bool {
-        guard let pid = app?.processIdentifier,
-              let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
-            return false
-        }
-        for window in windows {
-            let layer = window[kCGWindowLayer as String] as? Int ?? 0
-            let alpha = window[kCGWindowAlpha as String] as? Double ?? 1
-            if layer != 0 || alpha < 0.05 { continue }
-            guard let bounds = window[kCGWindowBounds as String] as? NSDictionary,
-                  let rect = CGRect(dictionaryRepresentation: bounds),
-                  rect.width > 2, rect.height > 2, rect.contains(global) else { continue }
-            let owner = window[kCGWindowOwnerPID as String] as? Int32
-                ?? (window[kCGWindowOwnerPID as String] as? Int).map(Int32.init)
-            return owner == pid
-        }
-        return false
-    }
-
-    private func raiseViaAccessibility(_ pid: pid_t) {
-        let application = AXUIElementCreateApplication(pid)
-        AXUIElementSetAttributeValue(application, kAXFrontmostAttribute as CFString, kCFBooleanTrue)
-        var raw: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(application, kAXWindowsAttribute as CFString, &raw) == .success else { return }
-        let windows = raw as? [AXUIElement] ?? []
-        for window in windows {
-            AXUIElementPerformAction(window, kAXRaiseAction as CFString)
-        }
-    }
-
-    /// Scroll only inside the owned window, over the settings content region.
+    /// Scroll over the settings content region.
     public func scroll(pixels: Int32) async throws {
-        try await requireKeyboardFocus()
-        let frame = try await capture()
-        let point = CGPoint(x: frame.windowFrame.minX + frame.windowFrame.width * 0.75, y: frame.windowFrame.minY + frame.windowFrame.height * 0.6)
-        try await requireOwnWindow(at: point)
-        try postMove(point)
-        guard let event = CGEvent(scrollWheelEvent2Source: CGEventSource(stateID: .hidSystemState), units: .pixel, wheelCount: 1, wheel1: pixels, wheel2: 0, wheel3: 0) else {
-            throw E2EError.env("无法创建滚动事件")
-        }
-        event.location = point
-        event.post(tap: .cghidEventTap)
+        let window = try await currentWindow()
+        try await wheel(at: CGPoint(x: window.frame.width * 0.75, y: window.frame.height * 0.6), pixels: pixels)
+    }
+
+    public func scroll(xFraction: CGFloat, yFraction: CGFloat, deltaY: Int32) async throws {
+        let window = try await currentWindow()
+        let point = CGPoint(x: window.frame.width * xFraction, y: window.frame.height * yFraction)
+        try await wheel(at: point, pixels: deltaY)
+        try await Task.sleep(nanoseconds: 200_000_000)
     }
 
     public func type(_ value: String) async throws {
-        try await requireKeyboardFocus()
-        let source = CGEventSource(stateID: .hidSystemState)
-        for scalar in value.utf16 {
-            guard let down = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true),
-                  let up = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false) else {
-                throw E2EError.env("无法创建文字输入事件")
-            }
-            var character = scalar
-            down.keyboardSetUnicodeString(stringLength: 1, unicodeString: &character)
-            up.keyboardSetUnicodeString(stringLength: 1, unicodeString: &character)
-            down.post(tap: .cghidEventTap)
-            try await Task.sleep(nanoseconds: 16_000_000)
-            up.post(tap: .cghidEventTap)
-            try await Task.sleep(nanoseconds: 18_000_000)
-        }
+        try await activate()
+        try await control(["op": appKitInput ? "ns_text" : "text", "text": value])
+        try await Task.sleep(nanoseconds: 60_000_000)
     }
 
     public func selectAll() async throws {
@@ -217,24 +88,6 @@ extension Session {
 
     public func shortcut(key: CGKeyCode, modifiers: [CGKeyCode]) async throws {
         try await hotkey(key: key, modifiers: modifiers)
-    }
-
-    public func scroll(xFraction: CGFloat, yFraction: CGFloat, deltaY: Int32) async throws {
-        try await activate()
-        let window = try await currentWindow()
-        let point = CGPoint(
-            x: window.frame.minX + window.frame.width * xFraction,
-            y: window.frame.minY + window.frame.height * yFraction
-        )
-        try await requireOwnWindow(at: point)
-        try postMove(point)
-        guard let event = CGEvent(
-            scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1,
-            wheel1: deltaY, wheel2: 0, wheel3: 0
-        ) else { throw E2EError.env("无法创建滚动事件") }
-        event.location = point
-        event.post(tap: .cghidEventTap)
-        try await Task.sleep(nanoseconds: 200_000_000)
     }
 
     /// 精选目录卡片的「打开」在操作按钮右侧。优先点识别到的省略号，否则用两者中心距 68pt。
@@ -255,53 +108,90 @@ extension Session {
         try await click(local: local, on: frame)
     }
 
-    private func hotkey(key: CGKeyCode, modifiers: [CGKeyCode]) async throws {
-        try await requireKeyboardFocus()
-        let source = CGEventSource(stateID: .hidSystemState)
-        func event(_ virtualKey: CGKeyCode, down: Bool, flags: CGEventFlags) throws -> CGEvent {
-            guard let event = CGEvent(keyboardEventSource: source, virtualKey: virtualKey, keyDown: down) else {
-                throw E2EError.env("无法创建键盘事件")
+    private func click(local: CGPoint, on frame: Frame, requery: [String]?, pick: TextPick?) async throws {
+        try await activate()
+        var point = local
+        let window = try await currentWindow()
+        if window.id != frame.windowID || abs(window.frame.width - frame.windowFrame.width) > 2 {
+            guard let requery, let pick else {
+                throw E2EError.product("点击前窗口已切换或改变尺寸，请重新截图定位。")
             }
-            event.flags = flags
-            return event
+            let fresh = try await capture()
+            guard let text = fresh.pick(requery, pick) else {
+                throw E2EError.product("重取窗口后未重新识别：\(requery.joined(separator: " / "))")
+            }
+            point = text.center
         }
-        var flags = CGEventFlags()
-        for modifier in modifiers {
-            if modifier == 0x37 { flags.insert(.maskCommand) }
-            if modifier == 0x38 { flags.insert(.maskShift) }
-            if modifier == 0x3A { flags.insert(.maskAlternate) }
-            if modifier == 0x3B { flags.insert(.maskControl) }
+        try await mouse("move", point)
+        try await Task.sleep(nanoseconds: 160_000_000)
+        try await mouse("down", point)
+        try await Task.sleep(nanoseconds: 40_000_000)
+        try await mouse("up", point)
+    }
+
+    /// Spike: NORMA_E2E_INPUT=ns routes mouse/text through AppKit NSWindow.sendEvent.
+    private var appKitInput: Bool { ProcessInfo.processInfo.environment["NORMA_E2E_INPUT"] == "ns" }
+
+    private func mouse(_ phase: String, _ point: CGPoint, pressed: Bool = false) async throws {
+        try await control([
+            "op": appKitInput ? "ns_mouse" : "mouse", "phase": phase,
+            "x": Double(point.x), "y": Double(point.y), "pressed": pressed,
+        ])
+    }
+
+    private func wheel(at point: CGPoint, pixels: Int32) async throws {
+        try await mouse("move", point)
+        try await control(["op": "scroll", "x": Double(point.x), "y": Double(point.y), "dy": Double(pixels)])
+    }
+
+    private func hotkey(key: CGKeyCode, modifiers: [CGKeyCode]) async throws {
+        try await activate()
+        if appKitInput {
+            try await control([
+                "op": "ns_key", "key_code": Int(key), "chars": try keyCharacters(key),
+                "modifiers": try modifiers.map(modifierName),
+            ])
+            try await Task.sleep(nanoseconds: 30_000_000)
+            return
         }
-        for modifier in modifiers {
-            try event(modifier, down: true, flags: flags).post(tap: .cghidEventTap)
-        }
-        try event(key, down: true, flags: flags).post(tap: .cghidEventTap)
+        try await control(["op": "key", "keystroke": try keystroke(key: key, modifiers: modifiers)])
         try await Task.sleep(nanoseconds: 30_000_000)
-        try event(key, down: false, flags: flags).post(tap: .cghidEventTap)
-        for modifier in modifiers.reversed() {
-            try event(modifier, down: false, flags: CGEventFlags()).post(tap: .cghidEventTap)
-        }
     }
+}
 
-    private func postMove(_ global: CGPoint) throws {
-        guard let event = CGEvent(
-            mouseEventSource: nil,
-            mouseType: .mouseMoved,
-            mouseCursorPosition: global,
-            mouseButton: .left
-        ) else { throw E2EError.env("无法创建鼠标移动事件") }
-        event.post(tap: .cghidEventTap)
+/// 把场景使用的 macOS 虚拟键码转成 GPUI 按键描述，例如 Cmd+D → "cmd-d"。
+func keystroke(key: CGKeyCode, modifiers: [CGKeyCode]) throws -> String {
+    let names: [CGKeyCode: String] = [
+        0: "a", 1: "s", 2: "d", 36: "enter", 43: ",", 48: "tab", 49: "space",
+        51: "backspace", 53: "escape", 123: "left", 124: "right", 125: "down", 126: "up",
+    ]
+    let modifierNames: [CGKeyCode: String] = [0x37: "cmd", 0x38: "shift", 0x3A: "alt", 0x3B: "ctrl"]
+    guard let name = names[key] else {
+        throw E2EError.env("控制通道还不支持虚拟键码 \(key)，请在 keystroke(key:modifiers:) 中补充映射。")
     }
-
-    private func postClick(_ global: CGPoint) throws {
-        guard let down = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: global, mouseButton: .left),
-              let up = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: global, mouseButton: .left) else {
-            throw E2EError.env("无法创建鼠标点击事件")
+    let prefix = try modifiers.map { code -> String in
+        guard let modifier = modifierNames[code] else {
+            throw E2EError.env("控制通道还不支持修饰键码 \(code)")
         }
-        down.setIntegerValueField(.mouseEventClickState, value: 1)
-        up.setIntegerValueField(.mouseEventClickState, value: 1)
-        down.post(tap: .cghidEventTap)
-        Thread.sleep(forTimeInterval: 0.04)
-        up.post(tap: .cghidEventTap)
+        return modifier + "-"
     }
+    return prefix.joined() + name
+}
+
+/// Characters an AppKit keyDown carries for the virtual key codes scenarios use.
+func keyCharacters(_ key: CGKeyCode) throws -> String {
+    let table: [CGKeyCode: String] = [
+        0: "a", 1: "s", 2: "d", 36: "\r", 43: ",", 48: "\t", 49: " ", 51: "\u{7f}", 53: "\u{1b}",
+        123: "\u{F702}", 124: "\u{F703}", 125: "\u{F701}", 126: "\u{F700}",
+    ]
+    guard let value = table[key] else {
+        throw E2EError.env("控制通道还不支持虚拟键码 \(key)，请在 keyCharacters 中补充映射。")
+    }
+    return value
+}
+
+func modifierName(_ code: CGKeyCode) throws -> String {
+    let names: [CGKeyCode: String] = [0x37: "cmd", 0x38: "shift", 0x3A: "alt", 0x3B: "ctrl"]
+    guard let name = names[code] else { throw E2EError.env("控制通道还不支持修饰键码 \(code)") }
+    return name
 }

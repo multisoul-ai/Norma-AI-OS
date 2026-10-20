@@ -11,7 +11,7 @@ public enum ContentWorkbench {
         var root: URL?
         defer { session.stop(); if let root { try? FileManager.default.removeItem(at: root) } }
         try await session.step("建立隔离项目与文件工作台") {
-            try session.launch()
+            try session.launch(language: "zh-Hans")
             // 内容模块只验右栏；先让 App 初始化数据库，再停机写入隔离前置数据。
             // 避免重复覆盖 workspace 模块的创建弹窗流程及其 OCR 依赖。
             let database = try session.databaseURL()
@@ -20,7 +20,7 @@ public enum ContentWorkbench {
             guard let data = session.dataRoot else { throw E2EError.env("隔离目录丢失") }
             try Catalog.seedWorkspace(database: data.appendingPathComponent("app.sqlite"), name: workspace)
             root = try ContentFixture.install(dataRoot: data, workspace: workspace)
-            try session.launch()
+            try session.launch(language: "zh-Hans")
             _ = try await session.wait(Expectation(allOf: [workspace], timeout: 20))
             let frame = try await session.capture()
             // 新建隔离库没有上次打开空间；卡片打开按钮的位置由失败截图核对。

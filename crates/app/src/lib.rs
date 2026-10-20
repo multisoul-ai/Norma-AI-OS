@@ -9,6 +9,12 @@ mod browser_auth_host;
 mod canvas;
 mod cards;
 mod database;
+#[cfg(all(
+    target_os = "macos",
+    debug_assertions,
+    not(feature = "production-data")
+))]
+mod e2e_control;
 mod effects;
 mod frame_diagnostics;
 mod license_gate;
@@ -136,6 +142,12 @@ pub fn run_norma_os() {
         // Quit 是唯一由 GPUI keymap 固定绑定的菜单快捷键；可配置命令仍由
         // ShortcutSettingsState 统一处理，暂不在原生菜单中显示提示。
         register_global_actions(cx);
+        #[cfg(all(
+            target_os = "macos",
+            debug_assertions,
+            not(feature = "production-data")
+        ))]
+        e2e_control::install(cx);
         cx.bind_keys([KeyBinding::new("cmd-q", QuitNormaOs, None)]);
         cx.set_menus(menu_bar::menu_bar());
 

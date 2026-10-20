@@ -2,7 +2,7 @@ import AppKit
 import E2EKit
 import Foundation
 
-/// 在真实桌面窗口中验收左右抽屉及中央画布占位，不借助 App 测试钩子。
+/// 在真实桌面窗口中验收左右抽屉及中央画布占位，只经 debug 测试控制通道发送原始输入，不读取 App 内部状态。
 @MainActor
 public enum CanvasDrawers {
     public nonisolated static let name = "canvas-drawers"
@@ -10,7 +10,7 @@ public enum CanvasDrawers {
     public static func run(_ session: Session) async throws {
         defer { session.stop() }
         try await session.step("创建抽屉验收工作空间") {
-            try session.launch()
+            try session.launch(language: "zh-Hans")
             _ = try await session.wait(Expectation(anyOf: ["创建工作空间", "Create Workspace"], timeout: 25))
             try await session.click(matching: ["创建工作空间", "Create Workspace"], pick: .bottom)
             _ = try await session.wait(Expectation(anyOf: ["工作空间名称", "Workspace name"], timeout: 4))
@@ -108,26 +108,7 @@ public enum CanvasDrawers {
             return "右栏已退出，中央画布扩展至右边缘"
         }
 
-        try await session.step("悬浮运行概览展开") {
-            try await clickOverview(session)
-            let opened = try await waitFor(session) { frame in
-                frame.contains("智能体运行概览") && frame.contains("待看文件")
-            }
-            try assertCanvasRegion(opened, leftOpen: true, rightOpen: false)
-            try session.save(opened, "06-overview-open.png")
-            return "概览悬浮展开，没有改变画布区域"
-        }
-
-        try await session.step("悬浮运行概览折叠") {
-            try await clickOverview(session)
-            let collapsed = try await waitFor(session) { frame in
-                !frame.contains("智能体运行概览") && !frame.contains("待看文件")
-                    && leftVisible(frame)
-            }
-            try assertCanvasRegion(collapsed, leftOpen: true, rightOpen: false)
-            try session.save(collapsed, "07-overview-collapsed.png")
-            return "概览收起为右上角图标，对话保留"
-        }
+        // 旧「悬浮运行概览」已被左栏「对话 / 运行概览」分段取代，覆盖见 workspace-drawer-tabs 与 workspace-overview-float。
 
         try await session.step("左侧对话框可输入") {
             let frame = try await session.capture()
@@ -169,7 +150,7 @@ public enum CanvasDrawers {
             let edge = min(438, max(366, width * 0.31)) + 100
             try await session.drag(
                 local: CGPoint(x: edge, y: 260),
-                to: CGPoint(x: 260, y: 260),
+                to: CGPoint(x: 100, y: 260),
                 on: before
             )
             _ = try await waitFor(session) { !leftVisible($0) }
@@ -178,7 +159,7 @@ public enum CanvasDrawers {
                 throw E2EError.product("左栏收起后画布未回收空间：\(collapsed.summary)")
             }
             try session.save(collapsed, "10-left-drag-collapsed.png")
-            return "左栏低于 300px 后收起"
+            return "左栏低于 150px 后收起"
         }
 
         try await session.step("拖动右栏边缘扩大并收起") {
@@ -201,7 +182,7 @@ public enum CanvasDrawers {
             try session.save(resized, "11-right-resized.png")
             try await session.drag(
                 local: CGPoint(x: edge - 82, y: 260),
-                to: CGPoint(x: edge + 150, y: 260),
+                to: CGPoint(x: width - 10, y: 260),
                 on: resized
             )
             try session.save(try await session.capture(), "12-right-after-drag.png")
@@ -211,7 +192,7 @@ public enum CanvasDrawers {
                 throw E2EError.product("右栏收起后画布未回收空间：\(collapsed.summary)")
             }
             try session.save(collapsed, "12-right-drag-collapsed.png")
-            return "右栏低于 370px 后收起，画布恢复全宽"
+            return "右栏低于 185px 后收起，画布恢复全宽"
         }
 
         try await session.step("拖拽结束后右栏入口仍可操作") {
@@ -219,7 +200,7 @@ public enum CanvasDrawers {
             _ = try await waitFor(session) { rightVisible($0) }
             let reopened = try await settledFrame(session)
             let width = Double(reopened.windowFrame.width)
-            guard abs((try centerOfCanvas(reopened)) - (width - 370) / 2) <= 18 else {
+            guard abs((try centerOfCanvas(reopened)) - (width - 185) / 2) <= 18 else {
                 throw E2EError.product("重新打开右栏后未恢复最小宽度：\(reopened.summary)")
             }
             try session.save(reopened, "13-right-reopened.png")
@@ -239,7 +220,8 @@ private func clickTopClose(_ session: Session, side: DrawerSide) async throws {
     let width = Double(frame.windowFrame.width)
     let rightWidth = min(560, max(370, width * 0.37))
     let leftWidth = min(438, max(366, width * 0.31))
-    let x = side == .left ? leftWidth - 28 : width - rightWidth + 28
+    // 左侧开关是标题栏固定锚点（x≈98），展开与收起位置一致；右侧开关在右抽屉内。
+    let x = side == .left ? 98 : width - rightWidth + 28
     try await session.click(local: CGPoint(x: x, y: 26), on: frame)
 }
 
@@ -248,15 +230,6 @@ private func clickReopen(_ session: Session, side: DrawerSide) async throws {
     let frame = try await session.capture()
     let x = side == .left ? 98 : Double(frame.windowFrame.width) - 28
     try await session.click(local: CGPoint(x: x, y: 26), on: frame)
-}
-
-@MainActor
-private func clickOverview(_ session: Session) async throws {
-    let frame = try await session.capture()
-    let width = Double(frame.windowFrame.width)
-    let leftWidth = min(438, max(366, width * 0.31))
-    let x = frame.contains("智能体运行概览") ? 39 : leftWidth - 36
-    try await session.click(local: CGPoint(x: x, y: 99), on: frame)
 }
 
 @MainActor
@@ -300,7 +273,7 @@ private func leftVisible(_ frame: Frame) -> Bool {
 }
 
 private func rightVisible(_ frame: Frame) -> Bool {
-    frame.contains("在这里浏览内容")
+    frame.contains("搜索或输入网址")
 }
 
 private func wallpaperVisible(_ frame: Frame) -> Bool {

@@ -32,8 +32,6 @@ struct Main {
         let scenario = arguments[2]
         let session = Session(scenario: scenario, appPath: arguments[3], artifactRoot: arguments[4])
         do {
-            let inputLock = try InputLock.acquire()
-            defer { withExtendedLifetime(inputLock) {} }
             try Preflight.check(appPath: session.appPath, artifactRoot: session.artifactRoot)
             try session.begin()
             try await ScenarioCatalog.run(scenario, session)

@@ -3,7 +3,7 @@
 mod dock;
 mod top_bar;
 
-pub(crate) use top_bar::{top_bar_theme, TOP_BAR_HEIGHT};
+pub(crate) use top_bar::{brand_logo, top_bar_theme, BRAND_TOGGLE_LEFT, TOP_BAR_HEIGHT};
 
 use super::MultisoulApp;
 use crate::app::wallpaper_resolvers::WallpaperKind;

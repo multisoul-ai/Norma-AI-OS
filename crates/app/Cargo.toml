@@ -114,7 +114,7 @@ objc2-web-kit = { version = "0.3", default-features = false, features = [
     "WKWebViewConfiguration",
     "WKWebsiteDataStore",
 ] }
-objc2-app-kit = { version = "0.3", features = ["NSPasteboard", "NSView", "NSWindow"] }
+objc2-app-kit = { version = "0.3", features = ["NSPasteboard", "NSView", "NSWindow", "NSEvent", "NSGraphicsContext", "NSResponder"] }
 objc2-avf-audio = { version = "0.3.2", features = [
     "AVAudioBuffer",
     "AVAudioEngine",

@@ -201,6 +201,11 @@ impl WallpaperSettingsState {
     pub(crate) fn image_source_for_selection(selection: &WallpaperSelection) -> gpui::ImageSource {
         match selection_kind(selection) {
             WallpaperKind::Video => default_wallpaper_image_source(),
+            // 默认壁纸已内置：直接走内置资源，渲染时不访问文件系统。否则未打包构建会读取
+            // 源码 checkout（位于“文稿”目录）触发授权弹窗，并在每帧多做一次 stat。
+            WallpaperKind::Static | WallpaperKind::Gif if is_embedded_default(selection) => {
+                default_wallpaper_image_source()
+            }
             WallpaperKind::Static | WallpaperKind::Gif => resolve_selection_path(selection)
                 .map(gpui::ImageSource::from)
                 .unwrap_or_else(default_wallpaper_image_source),
@@ -334,9 +339,11 @@ impl WallpaperSettingsState {
 }
 
 fn default_wallpaper_image_source() -> gpui::ImageSource {
-    resolve_builtin_asset(DEFAULT_WALLPAPER_ASSET)
-        .map(gpui::ImageSource::from)
-        .unwrap_or_else(|| gpui::ImageSource::from(DEFAULT_WALLPAPER_ASSET))
+    gpui::ImageSource::from(DEFAULT_WALLPAPER_ASSET)
+}
+
+pub(crate) fn is_embedded_default(selection: &WallpaperSelection) -> bool {
+    matches!(selection, WallpaperSelection::Builtin { rel } if *rel == DEFAULT_WALLPAPER_ASSET)
 }
 
 /// Read both keys and reconstruct a selection. Returns None when either

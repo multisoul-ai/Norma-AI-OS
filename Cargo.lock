@@ -8606,6 +8606,7 @@ dependencies = [
  "audio",
  "block2",
  "crossbeam-channel",
+ "hound",
  "objc2",
  "objc2-av-foundation",
  "objc2-avf-audio",

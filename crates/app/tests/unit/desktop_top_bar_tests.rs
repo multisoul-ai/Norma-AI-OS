@@ -8,14 +8,14 @@ use gpui::{point, px, size, AppContext, TestAppContext};
 ///   窗口 1280×800；手动展开左栏后目标宽 1280×0.31=396.8px，绘制取整为 397px；中央为 883px。
 ///   栏高 = 按钮 36px + 上下各 8px = 52px；标题纵向中心 = 52 / 2 = 26px。
 ///   旧悬浮栏原点 = (18, 8)，中心 y = 8 + 44 / 2 = 30；新标题上移 30 - 26 = 4px。
-///   窄窗 640×800，中心 x = 640 / 2 = 320px；容差 1px 覆盖像素取整。
+///   窄窗 640×800，左栏收起时面包屑起点 = logo 右边 146 + 12 = 158px；容差 1px 覆盖像素取整。
 /// 执行过程：
 ///   1. 打开 Studio 并完成镜头，检查顶部栏贴顶铺满窗口且没有覆盖项目。
-///   2. 展开 alpha、切换到 beta，检查项目隐藏左栏后的完整顶部栏，并更新当前项目名称。
-///   3. 缩至覆盖模式后检查标题居中，再返回目录并检查首页顶部仍与画布对齐。
+///   2. 展开 alpha、切换到 beta，检查左栏保持展开时的顶部栏仍贴合抽屉，并更新当前项目名称。
+///   3. 缩至窄窗后检查标题紧贴 logo 左对齐，再返回目录并检查首页顶部仍与画布对齐。
 ///
 /// 预期结果：
-///   - 正断言：左栏展开时标题靠画布左侧；窄窗覆盖模式居中；alpha/beta 各自在当前项目时出现。
+///   - 正断言：左栏展开时标题靠画布左侧；窄窗收起态贴 logo 左对齐；alpha/beta 各自在当前项目时出现。
 ///   - 负断言：顶部栏不能保留悬浮偏移或遮住项目；切换后不残留 alpha；返回目录不残留项目顶部栏。
 #[test]
 fn desktop_top_bar_tracks_workspace_and_project_with_drawer_alignment() {
@@ -201,13 +201,13 @@ fn desktop_top_bar_tracks_workspace_and_project_with_drawer_alignment() {
         .expect("alpha 项目画布必须保留顶部栏");
     assert_eq!(
         project_bar.origin,
-        point(px(0.0), px(0.0)),
-        "进入项目后左栏自动收起，顶部栏应从窗口左边开始"
+        point(px(397.0), px(0.0)),
+        "进入项目不得强制收起左栏，顶部栏应继续贴合左抽屉右边"
     );
     assert_eq!(
         project_bar.size,
-        size(px(1280.0), px(52.0)),
-        "进入项目后顶部栏应铺满画布"
+        size(px(883.0), px(52.0)),
+        "左栏保持展开时，项目顶部栏应铺满抽屉之间的 883px 画布"
     );
     assert!(
         cx.debug_bounds("workspace-topbar-project-project-alpha")
@@ -283,6 +283,12 @@ fn desktop_top_bar_tracks_workspace_and_project_with_drawer_alignment() {
             .is_none(),
         "切换后不能残留 alpha 名称"
     );
+    // 进入项目不再自动收起左栏，窄窗收起态须由用户显式关闭左栏得到。
+    host.update_in(cx, |app, _, cx| {
+        app.desktop_workspace.drawers.left_open = false;
+        app.desktop_workspace.drawer_motion.settle_left(false);
+        cx.notify();
+    });
     cx.simulate_resize(size(px(640.0), px(800.0)));
     cx.update(|window, cx| window.draw(cx).clear());
     let title = cx
@@ -296,13 +302,14 @@ fn desktop_top_bar_tracks_workspace_and_project_with_drawer_alignment() {
         size(px(640.0), px(52.0)),
         "窄窗顶部栏仍须铺满 640px 窗口，控件不能溢出窗口"
     );
+    // 左抽屉收起时 logo 固定在 82+32+10=124..146，面包屑从 146+12=158 起左对齐。
     assert!(
-        (title.center().x - px(320.0)).abs() <= px(1.0),
-        "窄窗标题仍须对齐窗口中心"
+        (title.left() - px(158.0)).abs() <= px(1.0),
+        "窄窗收起态标题应紧贴 logo 左对齐：{title:?}"
     );
     assert!(
-        title.left() >= px(88.0) && title.right() <= px(552.0),
-        "窄窗标题不能覆盖两侧控件"
+        title.right() <= px(552.0),
+        "窄窗标题不能覆盖右侧控件：{title:?}"
     );
     host.update_in(cx, |app, window, cx| {
         app.show_desktop_launchpad(window, cx);

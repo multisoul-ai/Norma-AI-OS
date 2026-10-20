@@ -37,6 +37,11 @@ impl AudioCapture {
         target_sample_rate_hz: u32,
         voice_processing: bool,
     ) -> Result<Self, VoiceInputError> {
+        if crate::permissions::fixture_replaces_microphone() {
+            return Err(VoiceInputError::Audio(
+                "E2E audio fixture is active; this capture path does not support it".to_string(),
+            ));
+        }
         #[cfg(target_os = "macos")]
         {
             Ok(Self {

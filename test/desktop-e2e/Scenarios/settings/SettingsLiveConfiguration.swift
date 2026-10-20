@@ -9,7 +9,7 @@ public enum SettingsLiveConfiguration {
     public static func run(_ session: Session) async throws {
         defer { session.stop() }
         try await session.step("打开独立语音设置并选择GPT-Live") {
-            try session.launch()
+            try session.launch(language: "zh-Hans")
             _ = try await session.wait(Expectation(anyOf: ["创建工作空间", "Create Workspace"], timeout: 25))
             try await openVoice(session)
             try await session.click(matching: ["GPT-Live"], pick: .top)
@@ -28,7 +28,13 @@ public enum SettingsLiveConfiguration {
             return "点击缺Key连接按钮后仍未连接，无凭据引用；离线静音/停止播报/任务核对默认隐藏"
         }
         try await session.step("选择音色并核对持久化") {
-            try await session.scroll(pixels: -230)
+            // 滚动惯性会让落点逐次不同：按步滚动直到两个音色都出现，而不是依赖固定距离。
+            for _ in 0..<8 {
+                let frame = try await session.capture()
+                if frame.contains("Marin") && frame.contains("Cedar") { break }
+                try await session.scroll(pixels: -230)
+                try await Task.sleep(nanoseconds: 400_000_000)
+            }
             _ = try await session.wait(Expectation(allOf: ["Marin", "Cedar"], timeout: 5))
             try await session.click(matching: ["Cedar"], pick: .top)
             try await waitValue(session, "voice.gpt_live.voice", "cedar")
@@ -37,18 +43,19 @@ public enum SettingsLiveConfiguration {
             return "Cedar由真实按钮保存，SQLite=cedar"
         }
         try await session.step("GPT配置简化且交互方式独立保存") {
-            try await session.scroll(pixels: 1000)
-            try await session.scroll(pixels: -180)
-            _ = try await session.wait(Expectation(anyOf: ["按住说话", "Push to talk"], timeout: 5))
-            try await session.click(matching: ["按住说话", "Push to talk"], pick: .top)
+            // 上一步已把「对话偏好」滚进视图，交互方式与音色同在一张卡片，不再盲滚。
+            // 用 wait 返回的同一帧定位，避免滚动惯性让第二次截图的文字位置变化。
+            let modes = try await session.wait(Expectation(anyOf: ["按住说话", "Push to talk"], timeout: 5))
+            guard let hold = modes.pick(["按住说话", "Push to talk"], .top) else {
+                throw E2EError.product("未识别到「按住说话」按钮。可见：\(modes.summary)")
+            }
+            try await session.click(local: hold.center, on: modes)
             try await waitValue(session, "voice.gpt_live.interaction_mode", "single_voice_command")
-            try await session.scroll(pixels: -1000)
             let simple = try await session.wait(Expectation(anyOf: ["Marin", "Cedar"], absent: ["智能体供应商", "Agent Provider", "Ollama", "OpenAI 兼容", "OpenAI Compatible", "准备语音检测", "Prepare speech detection", "项目工具", "Project tools"], timeout: 5))
             try session.save(simple, "03b-simple-dark.png")
             return "按住模式独立保存；GPT页面底部无供应商、模型和手工VAD配置，未启动云端通话"
         }
         try await session.step("诊断按需展开并可收起") {
-            try await session.scroll(pixels: -1000)
             _ = try await session.wait(Expectation(anyOf: ["诊断", "Diagnostics"], absent: ["刷新核对", "Refresh reconciliation"], timeout: 5))
             try await session.click(matching: ["诊断", "Diagnostics"], pick: .bottom)
             try await session.scroll(pixels: -300)
@@ -93,7 +100,7 @@ public enum SettingsLiveConfiguration {
         try await session.step("浅色主题重启后恢复模式与音色") {
             session.stop()
             try VoiceConfigurationFixture.theme(database: session.databaseURL(), id: "paper-blue")
-            try session.launch()
+            try session.launch(language: "zh-Hans")
             _ = try await session.wait(Expectation(anyOf: ["创建工作空间", "Create Workspace"], timeout: 25))
             try await openVoice(session)
             let live = try await session.wait(Expectation(anyOf: ["已安全保存", "己安全保存", "Saved securely"], allOf: ["GPT-Live"], absent: ["刷新核对", "Refresh reconciliation", "fixture-only-live-layout-key"], timeout: 8))

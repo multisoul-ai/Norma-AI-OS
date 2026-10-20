@@ -24,7 +24,8 @@
 | `workspace` | `workspace-status-capsule` | 空工作空间的画布右上角不显示状态胶囊。有智能体时的环、名字、已完成数和紧凑态对照运行概览原型，不验收概览行内容或悬浮拖动。 |
 | `workspace` | `workspace-run-overview-agents` | 项目画布里有智能体运行时：假 `claude`（经 ZDOTDIR 放进 PATH）通过真实 Hook 上报 1/3 待办进度，核对右上角胶囊、卡片标题「运行中 1/3」与 ⌘⇧E 打开的概览行（三段进度条、「第 2/3 项」）。不覆盖浅色/深色与减少动态效果。 |
 | `workspace` | `workspace-overview-float` | 运行概览图钉：从抽屉弹出到画布，左栏回到对话，拖动标题后点标签收回。 |
-| `canvas` | `canvas-drawers`、`canvas-project-drawers`、`canvas-content-tabs` | 桌面画布外壳：左右抽屉独立开合及拖宽自动收起、悬浮概览折叠、真实项目画布与输入位置；右侧内容标签的恢复、切换与来源移除。 |
+| `canvas` | `canvas-drawers`、`canvas-project-drawers`、`canvas-content-tabs`、`canvas-delete-reflow` | 桌面画布外壳：左右抽屉独立开合及拖宽自动收起、悬浮概览折叠、真实项目画布与输入位置；右侧内容标签的恢复、切换与来源移除；删除第一张卡片后其余卡片补进空出的格子。 |
+
 | `content` | `content-workbench`、`content-home` | 右抽屉空态（`content-home`）：胶囊地址栏、六个工具磁贴与快捷键提示、推荐区、未实现入口的“即将支持”提示、文件磁贴打开工作台。工作台（`content-workbench`）：项目文件树、编辑保存、Git 暂存/提交（核对真实索引与 HEAD）、Markdown/HTML、图片缩放、视频播放与隐藏暂停、浏览器导航/会话保留、深浅主题。 |
 | `settings` | `settings-navigation`、`settings-basic-preferences`、`settings-responsive-keyboard`、`settings-space-wallpapers` | 两级导航、基础设置中的语言与节能、主题切换、太空壁纸选择与预览、持久化与重启恢复，以及键盘和窄窗口。 |
 

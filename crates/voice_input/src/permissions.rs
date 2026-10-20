@@ -18,9 +18,24 @@ pub fn microphone_authorization_from_raw(raw: i64) -> Option<MicrophoneAuthoriza
     }
 }
 
+/// Debug E2E only: with an audio fixture configured the real microphone is never opened,
+/// so there is nothing to authorise and no TCC prompt may be raised.
+#[cfg(debug_assertions)]
+pub(crate) fn fixture_replaces_microphone() -> bool {
+    crate::fixture::fixture_path().is_some()
+}
+
+#[cfg(not(debug_assertions))]
+pub(crate) fn fixture_replaces_microphone() -> bool {
+    false
+}
+
 #[cfg(target_os = "macos")]
 pub fn microphone_authorization_status() -> Result<MicrophoneAuthorization, VoiceInputError> {
     use objc2_av_foundation::{AVCaptureDevice, AVMediaTypeAudio};
+    if fixture_replaces_microphone() {
+        return Ok(MicrophoneAuthorization::Authorized);
+    }
     let media_type = unsafe { AVMediaTypeAudio }
         .ok_or_else(|| VoiceInputError::Audio("audio media type unavailable".to_string()))?;
     microphone_authorization_from_raw(unsafe {
@@ -32,6 +47,9 @@ pub fn microphone_authorization_status() -> Result<MicrophoneAuthorization, Voic
 #[cfg(target_os = "macos")]
 pub fn ensure_microphone_authorized() -> Result<(), VoiceInputError> {
     use objc2_av_foundation::AVMediaTypeAudio;
+    if fixture_replaces_microphone() {
+        return Ok(());
+    }
     let media_type = unsafe { AVMediaTypeAudio }
         .ok_or_else(|| VoiceInputError::Audio("audio media type unavailable".to_string()))?;
     let status = microphone_authorization_status()?;

@@ -108,3 +108,11 @@ Focused arithmetic validation:
 ```sh
 cargo test --manifest-path vendor/gpui-0.2.2/Cargo.toml --locked --lib frame_timing::tests -- --nocapture
 ```
+
+## Public `DispatchEventResult` (2026-10-19)
+
+Upstream exposes `Window::dispatch_event` as `pub` but returns the
+`pub(crate)` `DispatchEventResult`, so no downstream crate can call it. The
+struct is now `pub` with its fields unchanged. Only the debug-build desktop E2E
+control channel (`crates/app/src/e2e_control/`) uses it to inject mouse and
+scroll input into its own window; release builds do not compile that caller.

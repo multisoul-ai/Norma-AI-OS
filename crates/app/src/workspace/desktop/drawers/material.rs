@@ -15,7 +15,9 @@ use image::{DynamicImage, Frame, ImageReader, RgbaImage};
 
 use crate::app::wallpaper_resolvers::WallpaperKind;
 use crate::app::MultisoulApp;
-use crate::settings::wallpaper::state::{resolve_selection_path, WallpaperSelection};
+use crate::settings::wallpaper::state::{
+    is_embedded_default, resolve_selection_path, WallpaperSelection,
+};
 
 const FROST_MAX_EDGE_PX: u32 = 1280;
 const FROST_SIGMA: f32 = 24.0;
@@ -91,6 +93,10 @@ fn decode_frosted_wallpaper(path: &Path, kind: WallpaperKind) -> anyhow::Result<
             }
         }
     };
+    Ok(frost_rgba(rgba))
+}
+
+fn frost_rgba(rgba: RgbaImage) -> Arc<RenderImage> {
     let bounded = if rgba.width() > FROST_MAX_EDGE_PX || rgba.height() > FROST_MAX_EDGE_PX {
         DynamicImage::ImageRgba8(rgba)
             .thumbnail(FROST_MAX_EDGE_PX, FROST_MAX_EDGE_PX)
@@ -102,7 +108,29 @@ fn decode_frosted_wallpaper(path: &Path, kind: WallpaperKind) -> anyhow::Result<
     for pixel in frosted.chunks_exact_mut(4) {
         pixel.swap(0, 2);
     }
-    Ok(Arc::new(RenderImage::new(vec![Frame::new(frosted)])))
+    Arc::new(RenderImage::new(vec![Frame::new(frosted)]))
+}
+
+/// Decodes the compiled-in default wallpaper. It never touches the file system, so an
+/// unbundled build cannot read the source checkout (which may sit in a TCC-protected folder).
+fn decode_frosted_embedded_default() -> anyhow::Result<(PathBuf, Arc<RenderImage>)> {
+    use gpui::AssetSource;
+    let name = crate::assets::DEFAULT_WALLPAPER_ASSET;
+    let bytes = crate::assets::EmbeddedAssets
+        .load(name)?
+        .ok_or_else(|| anyhow::anyhow!("embedded wallpaper {name} is missing"))?;
+    let rgba = image::load_from_memory(&bytes)?.into_rgba8();
+    Ok((PathBuf::from(name), frost_rgba(rgba)))
+}
+
+pub(super) fn decode_frosted_selection(
+    selection: &WallpaperSelection,
+    kind: WallpaperKind,
+) -> anyhow::Result<(PathBuf, Arc<RenderImage>)> {
+    if is_embedded_default(selection) {
+        return decode_frosted_embedded_default();
+    }
+    decode_frosted_source(resolve_selection_path(selection), kind)
 }
 
 pub(super) fn decode_frosted_source(
@@ -139,9 +167,7 @@ impl MultisoulApp {
             let decode_selection = selection.clone();
             let result = cx
                 .background_executor()
-                .spawn(async move {
-                    decode_frosted_source(resolve_selection_path(&decode_selection), kind)
-                })
+                .spawn(async move { decode_frosted_selection(&decode_selection, kind) })
                 .await;
             let _ = this.update(cx, |app, cx| {
                 let state = &mut app.desktop_workspace.frosted_wallpaper;

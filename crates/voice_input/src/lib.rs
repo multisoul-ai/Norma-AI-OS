@@ -1,5 +1,7 @@
 mod audio_capture;
 mod devices;
+#[cfg(debug_assertions)]
+mod fixture;
 mod permissions;
 mod resample;
 mod samples;

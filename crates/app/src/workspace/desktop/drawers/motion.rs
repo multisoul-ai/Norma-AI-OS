@@ -99,6 +99,7 @@ impl Default for DesktopAssistantDrawerMotion {
 }
 
 impl DesktopAssistantDrawerMotion {
+    #[cfg(test)]
     pub(crate) fn settle_left(&mut self, open: bool) {
         self.left = SideDrawerMotion::new(open);
     }

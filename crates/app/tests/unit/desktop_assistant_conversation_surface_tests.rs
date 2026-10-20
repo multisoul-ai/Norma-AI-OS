@@ -122,12 +122,13 @@ fn left_drawer_renders_all_current_session_messages() {
     );
 }
 
-/// 场景：从工作空间总览进入项目，左侧对话不应在项目加载时挤压画布。
+/// 场景：左栏的展开/收起只由用户决定，进入与离开项目都不得改写。
 /// 数据构造：隔离工作空间内有一个真实项目目录，总览左栏默认收起。
-/// 执行过程：展开项目、手动打开左栏，再返回工作空间总览。
-/// 预期结果：项目初次呈现时左栏保持收起；仍能按需打开；返回时恢复总览状态。
+/// 执行过程：展开项目（左栏收起）、在项目内手动打开左栏，再返回工作空间总览。
+/// 预期结果：收起的左栏进入项目后保持收起且无滑出动画；项目内仍能按需打开；
+///   返回总览时保持用户最后一次选择（展开），不被"恢复"成进入前的状态。
 #[test]
-fn project_entry_starts_with_left_drawer_closed_and_preserves_manual_reopen() {
+fn project_entry_and_exit_never_rewrite_left_drawer_state() {
     let temp = tempfile::tempdir().expect("应创建隔离目录");
     let project_root = temp.path().join("project");
     std::fs::create_dir(&project_root).expect("应创建项目目录");
@@ -161,7 +162,7 @@ fn project_entry_starts_with_left_drawer_closed_and_preserves_manual_reopen() {
         app.expand_desktop_project_area(area.id, window, cx);
         assert!(
             !app.desktop_workspace.drawers.left_open,
-            "进入项目应立即收起左栏"
+            "收起的左栏进入项目后应保持收起"
         );
         assert_eq!(
             app.desktop_workspace.drawer_motion.left.fraction(false),
@@ -176,8 +177,82 @@ fn project_entry_starts_with_left_drawer_closed_and_preserves_manual_reopen() {
         );
         app.collapse_desktop_project_area(window, cx);
         assert!(
-            !app.desktop_workspace.drawers.left_open,
-            "返回总览时应恢复原有收起状态"
+            app.desktop_workspace.drawers.left_open,
+            "返回总览应保持用户在项目内打开的左栏"
+        );
+    });
+}
+
+/// 场景：用户在总览打开左栏（Run Overview / Chat）后进入 agent 画布，左栏不得被强制收起。
+/// 数据构造：窗口 1280×800；展开左栏的目标宽 = 1280×0.31 = 396.8px，画布宽 = 1280 − 396.8 = 883.2px。
+/// 执行过程：
+///   1. 总览中展开左栏并落稳（motion 展开度 1.0）。
+///   2. 展开项目并完成缩放：检查逻辑状态、动效展开度、画布可用宽度。
+///   3. 返回总览：再次检查三者。
+/// 预期结果：
+///   - 进入项目后 `left_open` 仍为 true（旧实现会改为 false）；
+///   - 动效展开度仍为 1.0 且仍渲染左栏（旧实现会收起到 0.0）；
+///   - 项目内画布宽度仍扣除左栏（约 883.2px），不是整窗 1280px；
+///   - 返回总览后三者保持不变。
+#[test]
+fn project_entry_keeps_open_left_drawer_with_matching_canvas_width() {
+    let temp = tempfile::tempdir().expect("应创建隔离目录");
+    let project_root = temp.path().join("project");
+    std::fs::create_dir(&project_root).expect("应创建项目目录");
+    let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
+    let store = storage::AppStore::initialize(&paths).expect("应初始化隔离存储");
+    let catalog = store.desktop_workspace_store();
+    let workspace = catalog.create("Open Entry").expect("应创建工作空间");
+    let area = catalog
+        .add_project(&workspace.id, &project_root)
+        .expect("应添加项目");
+    let mut test = TestAppContext::single();
+    let mut host = None;
+    let (_, cx) = test.add_window_view(|window, cx| {
+        let entity = cx.new(|cx| MultisoulApp::new_with_database_context(cx, paths, store));
+        host = Some(entity.clone());
+        ui::component::Root::new(entity, window, cx)
+    });
+    let host = host.expect("应创建宿主");
+    cx.simulate_resize(size(px(1280.0), px(800.0)));
+    host.update_in(cx, |app, window, cx| {
+        app.motion.reduce_motion = true;
+        app.open_desktop_workspace(workspace.id, window, cx);
+        app.finish_desktop_zoom(window, cx);
+        app.desktop_workspace.drawers.left_open = true;
+        app.desktop_workspace.drawer_motion.settle_left(true);
+    });
+    cx.run_until_parked();
+    host.update_in(cx, |app, window, cx| {
+        app.expand_desktop_project_area(area.id, window, cx);
+        app.finish_desktop_zoom(window, cx);
+        assert!(
+            app.desktop_workspace.drawers.left_open,
+            "进入项目不得强制收起用户展开的左栏"
+        );
+        assert_eq!(
+            app.desktop_workspace.drawer_motion.left.fraction(false),
+            1.0,
+            "进入项目后左栏动效应保持完全展开"
+        );
+        assert!(
+            app.desktop_workspace.drawer_motion.left.should_render(),
+            "进入项目后左栏仍应被渲染"
+        );
+        let canvas_width = app.desktop_assistant_layout(window).canvas_width;
+        assert!(
+            (canvas_width - 883.2).abs() < 1.0,
+            "左栏展开时项目画布宽度应扣除左栏（≈883.2px），实际 {canvas_width}"
+        );
+        app.collapse_desktop_project_area(window, cx);
+        assert!(
+            app.desktop_workspace.drawers.left_open,
+            "返回总览后左栏仍应展开"
+        );
+        assert_eq!(
+            app.desktop_workspace.drawer_motion.left.fraction(false),
+            1.0,
+            "返回总览后左栏动效仍应完全展开"
         );
     });
 }
@@ -185,9 +260,9 @@ fn project_entry_starts_with_left_drawer_closed_and_preserves_manual_reopen() {
 /// 场景：进入项目后，项目目录在后台加载前不可用。
 /// 数据构造：工作空间已保存项目，先手动展开左栏，再在请求展开前移走目录。
 /// 执行过程：请求展开并等待后台加载失败。
-/// 预期结果：留在工作空间总览，恢复原先展开的左栏，并展示加载错误。
+/// 预期结果：加载期间与失败后左栏始终保持展开；留在工作空间总览并展示加载错误。
 #[test]
-fn failed_project_entry_restores_workspace_left_drawer() {
+fn failed_project_entry_keeps_workspace_left_drawer_open() {
     let temp = tempfile::tempdir().expect("应创建隔离目录");
     let project_root = temp.path().join("project");
     std::fs::create_dir(&project_root).expect("应创建项目目录");
@@ -211,6 +286,7 @@ fn failed_project_entry_restores_workspace_left_drawer() {
         app.open_desktop_workspace(workspace.id, window, cx);
         app.finish_desktop_zoom(window, cx);
         app.toggle_desktop_drawer(DesktopDrawerEvent::ToggleLeft, cx);
+        app.desktop_workspace.drawer_motion.settle_left(true);
     });
     cx.run_until_parked();
     host.update(cx, |app, _| {
@@ -222,8 +298,8 @@ fn failed_project_entry_restores_workspace_left_drawer() {
     host.update_in(cx, |app, window, cx| {
         app.expand_desktop_project_area(area.id, window, cx);
         assert!(
-            !app.desktop_workspace.drawers.left_open,
-            "加载期间应收起左栏"
+            app.desktop_workspace.drawers.left_open,
+            "加载期间不得收起用户展开的左栏"
         );
     });
     for _ in 0..100 {
@@ -239,12 +315,16 @@ fn failed_project_entry_restores_workspace_left_drawer() {
     host.read_with(cx, |app, _| {
         assert!(
             app.desktop_workspace.drawers.left_open,
-            "失败后应恢复总览左栏；expanded={:?} active={:?} pending={} errors={} saved={:?}",
+            "失败后左栏应仍保持展开；expanded={:?} active={:?} pending={} errors={}",
             app.desktop_workspace.expanded_area_id,
             app.desktop_workspace.active_area_id,
             app.desktop_workspace.pending_navigation.is_some(),
-            app.desktop_workspace.area_errors.len(),
-            app.desktop_workspace.left_open_before_project
+            app.desktop_workspace.area_errors.len()
+        );
+        assert_eq!(
+            app.desktop_workspace.drawer_motion.left.fraction(false),
+            1.0,
+            "失败后左栏动效也应保持完全展开，不能只保留逻辑状态"
         );
         assert!(
             app.desktop_workspace.expanded_area_id.is_none(),
@@ -257,9 +337,9 @@ fn failed_project_entry_restores_workspace_left_drawer() {
 /// 场景：项目 A 直接导航到另一个工作空间 B。
 /// 数据构造：A 有项目，B 为空，用户在 A 总览手动展开左栏。
 /// 执行过程：进入 A 项目，再直接打开 B 并完成导航动效。
-/// 预期结果：B 总览恢复左栏，且不继承 A 的项目收起状态。
+/// 预期结果：进入项目后左栏仍展开；B 总览同样展开，不被项目进出改写。
 #[test]
-fn opening_another_workspace_restores_left_drawer_state() {
+fn opening_another_workspace_keeps_left_drawer_state() {
     let temp = tempfile::tempdir().expect("应创建隔离目录");
     let project_root = temp.path().join("project");
     std::fs::create_dir(&project_root).expect("应创建项目目录");
@@ -289,7 +369,10 @@ fn opening_another_workspace_restores_left_drawer_state() {
     host.update_in(cx, |app, window, cx| {
         app.expand_desktop_project_area(area.id, window, cx);
         app.finish_desktop_zoom(window, cx);
-        assert!(!app.desktop_workspace.drawers.left_open, "项目中左栏应收起");
+        assert!(
+            app.desktop_workspace.drawers.left_open,
+            "进入项目后左栏应保持展开"
+        );
         app.open_desktop_workspace(workspace_b.id.clone(), window, cx);
         app.finish_desktop_zoom(window, cx);
         app.finish_desktop_zoom(window, cx);
@@ -301,10 +384,9 @@ fn opening_another_workspace_restores_left_drawer_state() {
             Some(workspace_b.id.as_str()),
             "应进入 B"
         );
-        assert!(app.desktop_workspace.drawers.left_open, "B 总览应恢复左栏");
         assert!(
-            app.desktop_workspace.left_open_before_project.is_none(),
-            "项目临时状态应清理"
+            app.desktop_workspace.drawers.left_open,
+            "B 总览应保持左栏展开"
         );
     });
 }
