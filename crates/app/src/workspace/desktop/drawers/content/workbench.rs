@@ -100,6 +100,12 @@ pub(crate) struct WorkbenchState {
     /// 待滚动并高亮的 0 起始行号；`pending_scroll` 在文件加载完成时消费一次。
     pub jump_line: Option<usize>,
     pub pending_scroll: Option<usize>,
+    /// 成果行打开右栏时只显示这些路径；用户改选项目后清空。
+    pub turn_paths: Option<Vec<String>>,
+    /// 为真时不要用当前展开项目覆盖成果所属项目。
+    pub lock_area: bool,
+    /// Git 快照到达后要直接打开差异的单个路径。
+    pub pending_turn_diff: Option<String>,
 }
 
 impl WorkbenchState {

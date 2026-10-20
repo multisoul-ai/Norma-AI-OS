@@ -238,7 +238,7 @@ impl MultisoulApp {
                             );
                             app.desktop_workspace.transition = None;
                             app.desktop_workspace.pending_navigation = None;
-                            app.desktop_workspace.active_id = Some(id);
+                            app.activate_desktop_workspace_view(&id, cx);
                             app.desktop_workspace.areas.clear();
                             app.desktop_workspace.active_area_id = None;
                             app.desktop_workspace.expanded_area_id = None;

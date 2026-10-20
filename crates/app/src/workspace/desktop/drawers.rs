@@ -3,12 +3,9 @@
 use super::{glass_button_variant, GLASS_TEXT, GLASS_TEXT_MUTED, GLASS_TEXT_SECONDARY};
 use crate::app::MultisoulApp;
 use canvas::NodeId;
-use gpui::{div, prelude::*, px, rgba, svg, Context, Div, ElementId, Stateful, Window};
+use gpui::{div, prelude::*, px, rgba, svg, Context, Div, Stateful, Window};
 use runtime::desktop_drawers::{route_drawer, DesktopDrawerEvent, DesktopDrawerSide};
-use ui::component::{
-    button::{Button, ButtonVariants},
-    Disableable, StyledExt,
-};
+use ui::component::button::{Button, ButtonVariants};
 
 pub(super) const TOP: f32 = 0.0;
 pub(super) const BOTTOM: f32 = 0.0;
@@ -17,9 +14,16 @@ mod artifacts;
 mod chat;
 mod chat_message;
 pub(super) mod content;
+pub(in crate::workspace::desktop) mod float;
+mod layout_save;
+mod left_body;
+mod left_tabs;
+pub(super) mod left_view_slide;
 pub(super) mod material;
 pub(super) mod motion;
 pub(super) mod orb;
+mod overview_actions;
+mod overview_list;
 pub(super) mod resize;
 
 #[cfg(test)]
@@ -46,32 +50,11 @@ mod orb_motion_tests;
 #[path = "../../../tests/unit/desktop_drawer_material_tests.rs"]
 mod material_tests;
 
+#[cfg(test)]
+#[path = "../../../tests/unit/desktop_run_overview_shortcut_tests.rs"]
+mod run_overview_shortcut_tests;
+
 impl MultisoulApp {
-    pub(super) fn hide_left_drawer_for_project(&mut self) {
-        if self.desktop_workspace.left_open_before_project.is_some() {
-            return;
-        }
-        let previous = self.desktop_workspace.drawers.left_open;
-        self.desktop_workspace.left_open_before_project = Some(previous);
-        self.desktop_workspace.drawers = route_drawer(
-            self.desktop_workspace.drawers,
-            DesktopDrawerEvent::ResizeLeft(false),
-        );
-        self.desktop_workspace.drawer_motion.settle_left(false);
-        self.desktop_workspace.drawer_resize = None;
-    }
-
-    pub(super) fn restore_left_drawer_after_project(&mut self) {
-        let Some(previous) = self.desktop_workspace.left_open_before_project.take() else {
-            return;
-        };
-        self.desktop_workspace.drawers = route_drawer(
-            self.desktop_workspace.drawers,
-            DesktopDrawerEvent::ResizeLeft(previous),
-        );
-        self.desktop_workspace.drawer_motion.settle_left(previous);
-    }
-
     pub(crate) fn desktop_assistant_layout(&self, window: &Window) -> motion::DesktopDrawerLayout {
         let width = f32::from(window.viewport_size().width);
         if !matches!(self.screen, crate::app::AppScreen::DesktopWorkspace)
@@ -97,6 +80,8 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
+        self.reconcile_overview_float_bounds(window, cx);
+        self.ensure_workspace_activity_cache(cx);
         self.ensure_drawer_frost(cx);
         let drawers = self.desktop_workspace.drawers;
         self.desktop_workspace
@@ -117,9 +102,6 @@ impl MultisoulApp {
         });
         let right = right_visible.then(|| {
             self.render_assistant_right(layout.right_width, right_inset, right_opacity, window, cx)
-        });
-        let overview = left_visible.then(|| {
-            self.render_floating_agent_overview(layout.left_width, left_inset, left_opacity, cx)
         });
         let left_handle = drawers.left_open.then(|| {
             self.drawer_resize_handle(DesktopDrawerSide::Left, layout.left_width, left_inset, cx)
@@ -145,10 +127,19 @@ impl MultisoulApp {
             })
             .when_some(left, |layer, left| layer.child(left))
             .when_some(right, |layer, right| layer.child(right))
-            .when_some(overview, |layer, overview| layer.child(overview))
             .when_some(left_handle, |layer, handle| layer.child(handle))
             .when_some(right_handle, |layer, handle| layer.child(handle))
             .when_some(resize_capture, |layer, capture| layer.child(capture))
+            .when_some(
+                self.render_run_status_focus_sink(window, cx),
+                |layer, sink| layer.child(sink),
+            )
+            .when_some(self.render_floating_overview(window, cx), |layer, panel| {
+                layer.child(panel)
+            })
+            .when_some(self.render_overview_drag_capture(cx), |layer, capture| {
+                layer.child(capture)
+            })
     }
 
     fn drawer_reopen_button(&self, id: &'static str, left: bool, cx: &Context<Self>) -> Div {
@@ -156,7 +147,9 @@ impl MultisoulApp {
         div()
             .absolute()
             .top(px(10.0))
-            .when(left, |button| button.left(px(82.0)))
+            .when(left, |button| {
+                button.left(px(crate::app::BRAND_TOGGLE_LEFT))
+            })
             .when(!left, |button| button.right(px(12.0)))
             .child(
                 Button::new(id)
@@ -198,136 +191,9 @@ impl MultisoulApp {
             )
     }
 
-    fn render_agent_overview(&self, cx: &mut Context<Self>) -> Stateful<Div> {
-        let theme = self.desktop_theme();
-        let workspace_id = self
-            .desktop_workspace
-            .active_id
-            .as_deref()
-            .unwrap_or_default();
-        div()
-            .id("desktop-agent-overview-list")
-            .debug_selector(|| "desktop-agent-overview-list".to_string())
-            .max_h(px(236.0))
-            .overflow_y_scroll()
-            .px(px(10.0))
-            .pb(px(10.0))
-            .children(self.desktop_workspace.areas.iter().map(|area| {
-                let rows = self.desktop_agent_rows(workspace_id, &area.id, cx);
-                div()
-                    .id(ElementId::Name(
-                        format!("desktop-agent-project-{}", area.id).into(),
-                    ))
-                    .mt(px(8.0))
-                    .flex()
-                    .flex_col()
-                    .gap(px(4.0))
-                    .child(
-                        div()
-                            .text_size(px(11.0))
-                            .font_semibold()
-                            .text_color(rgba(GLASS_TEXT_SECONDARY))
-                            .child(area.display_name.clone()),
-                    )
-                    .when(rows.is_empty(), |group| {
-                        group.child(
-                            div()
-                                .text_size(px(11.0))
-                                .text_color(rgba(GLASS_TEXT_MUTED))
-                                .child("尚无已加载的智能体"),
-                        )
-                    })
-                    .children(rows.into_iter().map(|row| {
-                        let area_id = row.area_id.clone();
-                        let node_id = row.node_id;
-                        let needs_approval = row.needs_approval;
-                        let can_locate_approval = row.can_locate_approval;
-                        let is_ego = row.is_ego;
-                        let ego_stop_agent = row.ego_stop_agent;
-                        let run_id = row.run_id.clone();
-                        let turn_id = row.turn_id.clone();
-                        let button_id = format!("desktop-agent-jump-{area_id}-{node_id}");
-                        Button::new(ElementId::Name(button_id.clone().into()))
-                            .disabled(
-                                row.stale
-                                    || (needs_approval && !can_locate_approval)
-                                    || (is_ego && ego_stop_agent.is_none()),
-                            )
-                            .debug_selector(move || button_id.clone())
-                            .w_full()
-                            .h(px(54.0))
-                            .p(px(8.0))
-                            .rounded(px(8.0))
-                            .custom(glass_button_variant(theme, cx))
-                            .child(
-                                div()
-                                    .w_full()
-                                    .flex()
-                                    .flex_col()
-                                    .gap(px(2.0))
-                                    .child(format!("{} · {}", row.label, row.state))
-                                    .child(
-                                        div()
-                                            .text_size(px(11.0))
-                                            .text_color(rgba(if row.needs_approval {
-                                                theme.accent_cyan
-                                            } else {
-                                                GLASS_TEXT_SECONDARY
-                                            }))
-                                            .child(row.task),
-                                    ),
-                            )
-                            .child(
-                                div()
-                                    .text_size(px(10.0))
-                                    .text_color(rgba(theme.accent_cyan))
-                                    .child(if row.stale {
-                                        "项目尚未加载"
-                                    } else if is_ego && ego_stop_agent.is_some() {
-                                        "停止任务 →"
-                                    } else if is_ego {
-                                        "暂无可停止的任务"
-                                    } else if needs_approval && !can_locate_approval {
-                                        "审批信息待同步"
-                                    } else if needs_approval {
-                                        "处理审批 →"
-                                    } else {
-                                        "定位卡片 →"
-                                    }),
-                            )
-                            .on_click(cx.listener(move |app, _, window, cx| {
-                                if let Some(agent_id) = ego_stop_agent {
-                                    app.stop_desktop_ego_task(&area_id, node_id, agent_id, cx);
-                                } else if can_locate_approval {
-                                    app.locate_desktop_approval(
-                                        &area_id,
-                                        node_id,
-                                        run_id.as_deref(),
-                                        turn_id.as_deref(),
-                                        window,
-                                        cx,
-                                    );
-                                } else {
-                                    app.locate_desktop_agent(&area_id, node_id, window, cx);
-                                }
-                            }))
-                    }))
-            }))
-            .child(self.render_desktop_artifacts(cx))
-    }
-
     fn toggle_desktop_drawer(&mut self, event: DesktopDrawerEvent, cx: &mut Context<Self>) {
-        let before = self.desktop_workspace.drawers;
-        self.desktop_workspace.drawers = route_drawer(before, event);
-        self.desktop_workspace.drawer_motion.retarget(
-            self.desktop_workspace.drawers.left_open,
-            self.desktop_workspace.drawers.right_open,
-        );
-        if !before.right_open && self.desktop_workspace.drawers.right_open {
-            self.load_selected_desktop_content(cx);
-        }
-        self.wake_animation_frame_loop();
-        cx.notify();
+        let next = route_drawer(self.desktop_workspace.drawers, event);
+        self.apply_desktop_drawers(next, cx);
     }
 
     pub(crate) fn locate_desktop_agent(

@@ -269,6 +269,11 @@ impl MultisoulApp {
                     {
                         crate::mobile::project_events::changed();
                     }
+                    app.note_workspace_activity_from_frame(
+                        agent_hook_report.changed,
+                        &runtime_events,
+                        cx,
+                    );
                     #[cfg(all(target_os = "macos", not(feature = "e2e-test-support")))]
                     if !app.background_project {
                         app.refresh_due_ego_previews(cx);

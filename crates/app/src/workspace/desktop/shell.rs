@@ -236,6 +236,10 @@ mod settings_tests;
 mod top_bar_tests;
 
 #[cfg(test)]
+#[path = "../../../tests/unit/desktop_brand_anchor_tests.rs"]
+mod brand_anchor_tests;
+
+#[cfg(test)]
 #[path = "../../../tests/unit/command_dock_width_tests.rs"]
 mod width_tests;
 

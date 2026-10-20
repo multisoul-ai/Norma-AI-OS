@@ -3,24 +3,24 @@ use gpui::{px, size, AppContext, Bounds, Pixels, TestAppContext};
 
 /// 场景：恢复底部原 Command Dock 后，项目数量增加也不能挤走输入和设置入口。
 ///
-/// 数据构造：窗口宽 900px，总览先默认收起再手动展开左抽屉（预留最小 366px）；项目自动收起左栏；分别放入
-/// 1、4、8 个项目。编号区最多同时显示 4×32+3×4=140px，其余可横向滚动。
-/// 执行过程：分别绘制默认总览、展开左栏的总览和最后一个项目，读取 Dock、输入、编号区与设置入口。
-/// 预期结果：默认总览和项目 Dock 使用完整画布，手动展开时避开左抽屉；控件不重叠。
+/// 数据构造：窗口宽 900px，总览先默认收起再手动展开左抽屉（预留最小 366px）；进入项目时不再强制收起左栏；
+/// 分别放入 1、4、8 个项目。编号区最多同时显示 4×32+3×4=140px，其余可横向滚动。
+/// 执行过程：分别绘制默认总览、展开左栏的总览和进入最后一个项目后的画布，读取 Dock、输入、编号区与设置入口。
+/// 预期结果：默认总览 Dock 使用完整画布；左栏展开时总览与项目 Dock 都避开左抽屉；控件不重叠。
 #[test]
 fn command_dock_fits_canvas_as_projects_increase() {
     for project_count in [1, 4, 8] {
         let (default_overview, overview, project) = command_dock_bounds(project_count, 900.0);
-        assert!(
-            overview.left() >= px(384.0),
-            "{project_count} 个项目时，总览 Dock 应避开 366px 左抽屉和 18px 留白"
-        );
-        for dock in [default_overview, project] {
+        for dock in [overview, project] {
             assert!(
-                dock.left() >= px(18.0) && dock.left() < px(300.0),
-                "{project_count} 个项目时，收起左栏的 Dock 应使用完整画布：{dock:?}"
+                dock.left() >= px(384.0),
+                "{project_count} 个项目时，左栏展开的 Dock 应避开 366px 左抽屉和 18px 留白：{dock:?}"
             );
         }
+        assert!(
+            default_overview.left() >= px(18.0) && default_overview.left() < px(300.0),
+            "{project_count} 个项目时，左栏收起的默认总览 Dock 应使用完整画布：{default_overview:?}"
+        );
         for dock in [default_overview, overview, project] {
             assert!(
                 dock.right() <= px(882.0),

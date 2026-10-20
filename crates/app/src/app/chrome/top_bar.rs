@@ -3,7 +3,7 @@
 use crate::app::MultisoulApp;
 use crate::shortcuts::ShortcutCommandId;
 use crate::workspace::persistence::PersistenceSaveState;
-use gpui::{div, prelude::*, px, rgba, Context, Div, Stateful, Window, WindowControlArea};
+use gpui::{div, img, prelude::*, px, rgba, Context, Div, Stateful, Window, WindowControlArea};
 use std::path::Path;
 use ui::component::{
     button::{Button, ButtonCustomVariant, ButtonVariants},
@@ -13,6 +13,26 @@ use ui::icons::{toolbar_icon, with_alpha, ToolbarIcon};
 use workspace::display_name_for_path;
 
 pub(crate) const TOP_BAR_HEIGHT: f32 = 52.0;
+/// Left drawer toggle starts here in both drawer states (clears the traffic lights).
+pub(crate) const BRAND_TOGGLE_LEFT: f32 = 82.0;
+pub(crate) const BRAND_LOGO_SIZE: f32 = 22.0;
+// toggle 32px + 10px gap after BRAND_TOGGLE_LEFT.
+pub(crate) const BRAND_LOGO_LEFT: f32 = BRAND_TOGGLE_LEFT + 32.0 + 10.0;
+// logo right edge + 12px gap.
+const BRAND_BREADCRUMB_LEFT: f32 = BRAND_LOGO_LEFT + BRAND_LOGO_SIZE + 12.0;
+
+pub(crate) fn brand_logo() -> Div {
+    div()
+        .debug_selector(|| "desktop-brand-logo".to_string())
+        .w(px(BRAND_LOGO_SIZE))
+        .h(px(BRAND_LOGO_SIZE))
+        .flex_none()
+        .child(
+            img(crate::assets::APP_LOGO_ASSET)
+                .w(px(BRAND_LOGO_SIZE))
+                .h(px(BRAND_LOGO_SIZE)),
+        )
+}
 
 pub(crate) fn top_bar_theme(mut theme: ui::Theme) -> ui::Theme {
     // The Dock remains dark in light themes, so its chrome needs light foregrounds.
@@ -91,28 +111,30 @@ impl MultisoulApp {
         // The prototype anchors the breadcrumb to the canvas edge while the chat drawer
         // is open. Overlay drawers on narrow windows leave the title centered.
         let reserve = if wide { 220.0 } else { 104.0 };
+        // With the drawer collapsed the logo stays at its drawer-header x and the
+        // breadcrumb hugs it instead of centering.
+        let brand_anchored = !self.desktop_workspace.drawers.left_open;
         let title_width = if beside_left_drawer {
             (width - if wide { 250.0 } else { 74.0 }).max(1.0)
+        } else if brand_anchored {
+            (width - BRAND_BREADCRUMB_LEFT - reserve).max(1.0)
         } else {
             (width - reserve * 2.0).max(1.0)
         };
         let title = desktop_top_bar_title(workspace, project, title_width, theme)
-            .when(beside_left_drawer, |title| title.absolute().left(px(14.0)));
+            .when(beside_left_drawer, |title| title.absolute().left(px(14.0)))
+            .when(brand_anchored && !beside_left_drawer, |title| {
+                title.absolute().left(px(BRAND_BREADCRUMB_LEFT))
+            });
         top_bar_frame("desktop-workspace-top-bar", theme)
             .left(px(layout.left_space))
             .right(px(layout.right_space))
-            .when(wide && !self.desktop_workspace.drawers.left_open, |bar| {
+            .when(brand_anchored, |bar| {
                 bar.child(
-                    div()
+                    brand_logo()
                         .absolute()
-                        .left(px(128.0))
-                        .h(px(TOP_BAR_HEIGHT))
-                        .flex()
-                        .items_center()
-                        .text_size(px(17.0))
-                        .font_semibold()
-                        .text_color(rgba(theme.text_primary))
-                        .child("Norma"),
+                        .left(px(BRAND_LOGO_LEFT))
+                        .top(px((TOP_BAR_HEIGHT - BRAND_LOGO_SIZE) / 2.0)),
                 )
             })
             .child(title)
@@ -167,6 +189,9 @@ impl MultisoulApp {
                                     app.open_desktop_add_project(window, cx);
                                 })),
                         )
+                    })
+                    .when_some(self.render_status_capsule(window, cx), |row, capsule| {
+                        row.child(capsule)
                     }),
             )
     }

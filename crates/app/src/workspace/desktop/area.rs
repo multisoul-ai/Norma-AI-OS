@@ -83,7 +83,6 @@ impl MultisoulApp {
             cx.notify();
             return;
         }
-        self.hide_left_drawer_for_project();
         self.desktop_workspace.active_area_id = Some(area_id.clone());
         self.desktop_workspace.selected_area_id = None;
         let key = (workspace_id.clone(), area_id.clone());
@@ -276,6 +275,7 @@ impl MultisoulApp {
                             });
                         }
                         app.desktop_workspace.sessions.insert(key, session);
+                        app.mark_workspace_activity_dirty(cx);
                         if expand_now {
                             app.expand_desktop_project_area(area_id, window, cx);
                         } else if requested && visible {
@@ -289,7 +289,6 @@ impl MultisoulApp {
                         {
                             app.desktop_workspace.expanded_area_id = None;
                             app.desktop_workspace.active_area_id = None;
-                            app.restore_left_drawer_after_project();
                             app.bind_desktop_wallpaper(cx);
                         }
                         if matches!(&app.desktop_workspace.pending_navigation,
@@ -322,7 +321,6 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.restore_left_drawer_after_project();
         self.focus_handle.focus(window);
         self.desktop_workspace.pending_navigation = None;
         if let Some(area_id) = self.desktop_workspace.expanded_area_id.as_ref() {

@@ -120,5 +120,10 @@
   "workspace.clone": "克隆",
   "workspace.stopping_git_and_cleaning_the_incomplete_clone": "正在停止 Git 并清理未完成的克隆…",
   "workspace.project_count": "%{count} 个项目",
-  "workspace.workspace_count": "%{count} 个工作空间"
+  "workspace.workspace_count": "%{count} 个工作空间",
+  "workspace.left_tab_chat": "对话",
+  "workspace.left_tab_overview": "运行概览",
+  "workspace.overview_pin_float": "弹出到画布上悬浮固定",
+  "workspace.overview_pin_dock": "收回到左侧抽屉",
+  "workspace.overview_move": "拖动移动，方向键移动，双击标题栏复位"
 }

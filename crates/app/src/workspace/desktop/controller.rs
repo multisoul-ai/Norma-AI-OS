@@ -183,7 +183,6 @@ impl MultisoulApp {
         ) {
             return;
         }
-        self.restore_left_drawer_after_project();
         self.begin_desktop_workspace_zoom(&id, false, window, cx);
         self.detach_visible_desktop_area(cx);
         self.hide_desktop_content_browsers();
@@ -196,7 +195,7 @@ impl MultisoulApp {
             .desktop_workspace
             .content_tab_generation
             .wrapping_add(1);
-        self.desktop_workspace.active_id = Some(id.clone());
+        self.activate_desktop_workspace_view(&id, cx);
         self.desktop_workspace.areas.clear();
         self.desktop_workspace.workbench = Default::default();
         self.desktop_workspace.content_tabs.clear();
@@ -207,6 +206,7 @@ impl MultisoulApp {
         self.desktop_workspace.content_artifacts.clear();
         self.desktop_workspace.status_cache.clear();
         self.desktop_workspace.status_live_seen.clear();
+        self.invalidate_workspace_activity();
         self.desktop_workspace.artifact_revision = 0;
         self.desktop_workspace.active_area_id = None;
         self.desktop_workspace.selected_area_id = None;
@@ -284,6 +284,7 @@ impl MultisoulApp {
                             .into_iter()
                             .map(|status| (status.area_id.clone(), status))
                             .collect();
+                        app.mark_workspace_activity_dirty(cx);
                         if app.desktop_workspace.drawers.right_open {
                             app.load_selected_desktop_content(cx);
                         }

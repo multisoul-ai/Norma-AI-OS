@@ -299,12 +299,7 @@ impl MultisoulApp {
             return;
         }
 
-        if self.desktop_workspace.switcher_open
-            && ev.keystroke.key == "escape"
-            && !ev.keystroke.modifiers.modified()
-        {
-            self.dismiss_desktop_switcher(window, cx);
-            cx.stop_propagation();
+        if self.dismiss_desktop_escape(ev, window, cx) {
             return;
         }
 

@@ -25,6 +25,7 @@ pub struct DesktopWorkspace {
     pub expanded_area_id: Option<String>,
     pub overview_scroll_y: i64,
     pub wallpaper: Option<WallpaperReference>,
+    pub drawer_layout_json: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -52,7 +53,7 @@ pub struct DesktopWorkspaceStore {
 
 const SELECT: &str = "SELECT id, name, created_at_unix_ms, last_opened_at_unix_ms, \
                       (SELECT count(*) FROM desktop_project_areas a WHERE a.desktop_workspace_id=desktop_workspaces.id) \
-                      , expanded_area_id, overview_scroll_y, wallpaper_json FROM desktop_workspaces";
+                      , expanded_area_id, overview_scroll_y, wallpaper_json, drawer_layout_json FROM desktop_workspaces";
 const SELECT_AREA: &str =
     "SELECT id, desktop_workspace_id, project_key, root_path, display_name, added_at_unix_ms, wallpaper_json \
                            FROM desktop_project_areas";
@@ -157,6 +158,18 @@ impl DesktopWorkspaceStore {
             "UPDATE desktop_workspaces SET expanded_area_id=?2 WHERE id=?1 AND
              (?2 IS NULL OR EXISTS(SELECT 1 FROM desktop_project_areas WHERE id=?2 AND desktop_workspace_id=?1))",
             params![workspace_id, area_id],
+        )?;
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows.into());
+        }
+        Ok(())
+    }
+
+    pub fn set_drawer_layout(&self, workspace_id: &str, layout_json: &str) -> StorageResult<()> {
+        let connection = open_app_connection(&self.path)?;
+        let changed = connection.execute(
+            "UPDATE desktop_workspaces SET drawer_layout_json=?2 WHERE id=?1",
+            params![workspace_id, layout_json],
         )?;
         if changed == 0 {
             return Err(rusqlite::Error::QueryReturnedNoRows.into());
@@ -322,6 +335,7 @@ fn read_workspace(row: &Row<'_>) -> rusqlite::Result<DesktopWorkspace> {
         expanded_area_id: row.get(5)?,
         overview_scroll_y: row.get(6)?,
         wallpaper: wallpaper::decode(row.get(7)?),
+        drawer_layout_json: row.get(8)?,
     })
 }
 

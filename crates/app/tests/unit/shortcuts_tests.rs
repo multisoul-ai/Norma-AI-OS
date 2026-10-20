@@ -159,6 +159,22 @@ fn test_shortcut_registry_contains_defaults_and_read_only_behaviors() {
         Some("cmd-e"),
         "Voice Interaction 默认应使用 Cmd+E，且可在 Settings 中重新录制"
     );
+    assert_eq!(
+        shortcut_for(&effective, ShortcutCommandId::ToggleRunOverview),
+        Some("cmd-shift-e"),
+        "切换运行概览默认应使用 Cmd+Shift+E，不能占用语音的 Cmd+E"
+    );
+    let overview_entry = entry_for(&effective, ShortcutCommandId::ToggleRunOverview);
+    assert!(
+        overview_entry.editable,
+        "切换运行概览应允许在 Settings 中录制和恢复"
+    );
+    assert!(
+        !read_only_behaviors()
+            .iter()
+            .any(|behavior| behavior.title == "shortcuts.toggle_run_overview"),
+        "切换运行概览是可配置动作，不应出现在只读行为列表"
+    );
     let voice_entry = entry_for(&effective, ShortcutCommandId::VoiceInteraction);
     assert_eq!(
         voice_entry.category, "common.voice",
@@ -324,14 +340,14 @@ fn test_shortcut_preferences_ignore_invalid_json_and_invalid_keystrokes() {
 ///   reserved candidates = cmd-v / up / space
 ///   bare printable = a
 ///   valid candidate = cmd-t
-///   voice reassign candidate = cmd-shift-e
+///   voice reassign candidate = cmd-shift-y（cmd-shift-e 已是切换运行概览）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 以默认 effective shortcuts 调用 validate_shortcut_change
 ///   2. 分别检查重复、保留、裸字符、有效候选与 VoiceInteraction 改键
 ///
 /// 预期结果：
-///   - 正断言：cmd-t 可用于 NewTerminal；cmd-shift-e 可用于 VoiceInteraction
+///   - 正断言：cmd-t 可用于 NewTerminal；cmd-shift-y 可用于 VoiceInteraction
 ///   - 负断言：cmd-o / cmd-d / cmd-v / cmd-e(占用) / up / space / a 均不允许给 NewTerminal
 #[test]
 fn test_shortcut_validation_rejects_duplicates_reserved_inputs_and_bare_printables() {
@@ -363,8 +379,22 @@ fn test_shortcut_validation_rejects_duplicates_reserved_inputs_and_bare_printabl
             "cmd-shift-e",
             &effective
         )
+        .is_err(),
+        "cmd-shift-e 已被切换运行概览占用，不应再分配给语音"
+    );
+    assert!(
+        validate_shortcut_change(
+            ShortcutCommandId::VoiceInteraction,
+            "cmd-shift-y",
+            &effective
+        )
         .is_ok(),
-        "Voice Interaction 应允许改成未被占用的 cmd-shift-e"
+        "Voice Interaction 应允许改成未被占用的 cmd-shift-y"
+    );
+    assert!(
+        validate_shortcut_change(ShortcutCommandId::ToggleRunOverview, "cmd-e", &effective)
+            .is_err(),
+        "cmd-e 仍属于语音，切换运行概览不能占用"
     );
     assert!(
         validate_shortcut_change(ShortcutCommandId::NewTerminal, "up", &effective).is_err(),

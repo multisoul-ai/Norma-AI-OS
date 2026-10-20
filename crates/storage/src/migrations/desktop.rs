@@ -65,6 +65,12 @@ pub(super) fn migrate(connection: &Connection) -> StorageResult<()> {
         "overview_scroll_y",
         "overview_scroll_y INTEGER NOT NULL DEFAULT 0",
     )?;
+    super::ensure_column(
+        connection,
+        "desktop_workspaces",
+        "drawer_layout_json",
+        "drawer_layout_json TEXT",
+    )?;
     migrate_content_workbench(connection)?;
     migrate_wallpapers(connection)?;
     migrate_project_instances(connection)?;

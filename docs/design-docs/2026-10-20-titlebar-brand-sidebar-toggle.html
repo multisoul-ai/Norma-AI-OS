@@ -1,0 +1,303 @@
+<title>标题栏品牌与侧栏开关</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root {
+  --bg: #f2f5f5;
+  --surface: #ffffff;
+  --surface-2: #e9eef0;
+  --text: #313d44;
+  --muted: #5b6a72;
+  --faint: #8a979e;
+  --line: #d6dfe3;
+  --accent: #2468c8;
+  --accent-soft: #e3eefc;
+  --bad: #c0334a;
+  --bad-soft: #fbe6ea;
+  --ok: #1d7a5a;
+  --ok-soft: #dcf3ea;
+  --font-sans: "IBM Plex Sans", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b1218;
+    --surface: #121b24;
+    --surface-2: #19252f;
+    --text: #e3eaf0;
+    --muted: #9aabb6;
+    --faint: #6d7f8b;
+    --line: #243340;
+    --accent: #6aa5ff;
+    --accent-soft: #162a47;
+    --bad: #ff8496;
+    --bad-soft: #3a1a22;
+    --ok: #64e0b5;
+    --ok-soft: #123329;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b1218;
+  --surface: #121b24;
+  --surface-2: #19252f;
+  --text: #e3eaf0;
+  --muted: #9aabb6;
+  --faint: #6d7f8b;
+  --line: #243340;
+  --accent: #6aa5ff;
+  --accent-soft: #162a47;
+  --bad: #ff8496;
+  --bad-soft: #3a1a22;
+  --ok: #64e0b5;
+  --ok-soft: #123329;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.6;
+}
+.page { max-width: 1260px; margin: 0 auto; padding: 48px 28px 72px; display: flex; flex-direction: column; gap: 44px; }
+
+header { display: flex; flex-direction: column; gap: 10px; max-width: 70ch; }
+h1 { margin: 0; font-size: 30px; line-height: 1.2; font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; }
+.lede { margin: 0; color: var(--muted); font-size: 16px; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+
+section { display: flex; flex-direction: column; gap: 16px; }
+h2 { margin: 0; font-size: 20px; font-weight: 600; display: flex; align-items: center; gap: 10px; text-wrap: balance; }
+.tag { font-family: var(--font-mono); font-size: 12px; font-weight: 500; padding: 2px 9px; border-radius: 999px; letter-spacing: 0.04em; }
+.tag.bad { background: var(--bad-soft); color: var(--bad); }
+.tag.ok { background: var(--ok-soft); color: var(--ok); }
+
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 580px), 1fr)); gap: 24px; }
+.cell { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.cell-label { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.mockwrap { overflow-x: auto; padding-bottom: 2px; }
+
+.notes { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: var(--muted); }
+.notes li { display: flex; gap: 8px; }
+.notes li::before { content: "–"; color: var(--faint); }
+.notes b { color: var(--text); font-weight: 600; }
+
+/* ---------- app mock: always dark, like the real window ---------- */
+.mock {
+  --m-bg: #0b1520;
+  --m-sb: #0e1a27;
+  --m-line: #2a3d4f;
+  --m-text: #f3f6f9;
+  --m-muted: #8ea3b4;
+  --m-faint: #1b2b3a;
+  --m-btn: #101d2b;
+  --m-btn-line: #3d5468;
+  --bcx: 124px;
+  position: relative;
+  width: 560px;
+  height: 188px;
+  flex: none;
+  background: var(--m-bg);
+  border: 1px solid #2a3d4f;
+  border-radius: 12px;
+  overflow: hidden;
+  color: var(--m-text);
+  font-size: 13px;
+}
+.mock .tb { position: absolute; inset: 0 0 auto 0; height: 44px; border-bottom: 1px solid var(--m-line); }
+.mock .sbcol { position: absolute; top: 0; bottom: 0; left: 0; width: 230px; background: var(--m-sb); border-right: 1px solid var(--m-line); }
+.mock .lights { position: absolute; top: 16px; left: 14px; display: flex; gap: 8px; z-index: 2; }
+.mock .lights i { width: 12px; height: 12px; border-radius: 50%; background: #ff5f57; }
+.mock .lights i:nth-child(2) { background: #febc2e; }
+.mock .lights i:nth-child(3) { background: #28c840; }
+
+.tg {
+  position: absolute; top: 8px; left: var(--x);
+  width: 28px; height: 28px; border-radius: 8px;
+  border: 1px solid var(--m-btn-line); background: var(--m-btn);
+  display: grid; place-items: center; z-index: 2;
+}
+.tg svg { width: 16px; height: 16px; stroke: var(--m-text); fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.tg.ghost { border-style: dashed; background: transparent; opacity: 0.55; }
+.tg.ghost svg { stroke: var(--m-muted); }
+
+.brand { position: absolute; display: flex; align-items: center; gap: 8px; font-weight: 600; z-index: 2; }
+.brand .name { font-size: 16px; letter-spacing: -0.005em; }
+.brand.big .name { font-size: 18px; }
+.lg {
+  width: 22px; height: 22px; border-radius: 6px; flex: none; position: relative;
+  background: linear-gradient(135deg, #ff5a5f 0%, #ffb347 28%, #7bdc6b 52%, #3fa9f5 76%, #8a5cf6 100%);
+}
+.lg::after { content: ""; position: absolute; inset: 5px 4px 3px 4px; border-radius: 50% 50% 40% 40%; background: #0b1520; }
+.brand.big .lg { width: 28px; height: 28px; border-radius: 7px; }
+.brand.big .lg::after { inset: 6px 5px 4px 5px; }
+.brand.mini .lg { width: 20px; height: 20px; border-radius: 5px; }
+.brand.mini .lg::after { inset: 4px 3px 3px 3px; }
+
+.bc { position: absolute; top: 0; height: 44px; display: flex; align-items: center; gap: 10px; white-space: nowrap; color: var(--m-muted); z-index: 2; }
+.bc b { color: var(--m-text); font-weight: 600; }
+.bc em { font-style: normal; color: #4a6074; }
+
+.row { position: absolute; height: 8px; border-radius: 4px; background: var(--m-faint); }
+.card { position: absolute; border-radius: 8px; background: #0f1d2b; border: 1px solid #1c2d3d; }
+
+.guide { position: absolute; top: 0; bottom: 0; left: calc(var(--x) + 14px); border-left: 1px dashed; z-index: 1; opacity: 0.85; }
+.guide.bad { border-color: #ff8496; }
+.guide.ok { border-color: #64e0b5; }
+.guide-label { position: absolute; bottom: 8px; left: calc(var(--x) + 22px); font-family: var(--font-mono); font-size: 11px; z-index: 2; }
+.guide-label.bad { color: #ff8496; }
+.guide-label.ok { color: #64e0b5; }
+
+.switch { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); cursor: pointer; width: fit-content; }
+.switch input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+.switch input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.mock .logo-opt { display: none; }
+.mock.with-logo .logo-opt { display: flex; }
+.mock.with-logo { --bcx: 156px; }
+
+.rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.rule { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 6px; }
+.rule h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.rule p { margin: 0; font-size: 14px; color: var(--muted); }
+code { font-family: var(--font-mono); font-size: 13px; background: var(--surface-2); padding: 1px 6px; border-radius: 4px; }
+
+.tradeoff { background: var(--accent-soft); border-radius: 10px; padding: 16px 20px; max-width: 80ch; }
+.tradeoff p { margin: 0; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .tg { transition: left 0.18s ease; }
+}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-collapse" viewBox="0 0 16 16"><rect x="2" y="2.5" width="12" height="11" rx="2.5"/><path d="M6 2.5v11"/><path d="M10.5 6l-2 2 2 2"/></symbol>
+  <symbol id="i-expand" viewBox="0 0 16 16"><rect x="2" y="2.5" width="12" height="11" rx="2.5"/><path d="M6 2.5v11"/><path d="M9 6l2 2-2 2"/></symbol>
+</svg>
+
+<div class="page">
+  <header>
+    <span class="eyebrow">标题栏 · 草图</span>
+    <h1>标题栏品牌与侧栏开关</h1>
+    <p class="lede">先看现在的问题，再看建议方案。每个窗口都画出展开和收起两种状态，虚线标出侧栏开关所在的位置。</p>
+  </header>
+
+  <section>
+    <h2>现状 <span class="tag bad">开关会跳</span></h2>
+    <div class="pair">
+      <div class="cell">
+        <span class="cell-label">侧栏展开</span>
+        <div class="mockwrap">
+          <div class="mock" role="img" aria-label="现状展开态：logo 与 Norma 在左，开关在侧栏右边缘，随后是面包屑">
+            <div class="sbcol"></div>
+            <div class="tb"></div>
+            <div class="lights"><i></i><i></i><i></i></div>
+            <div class="brand" style="left:84px;top:10px"><span class="lg"></span><span class="name">Norma</span></div>
+            <div class="guide bad" style="--x:192px"></div>
+            <div class="tg" style="--x:192px"><svg><use href="#i-collapse"/></svg></div>
+            <div class="bc" style="left:246px"><span>norma-os</span><em>/</em><b>norma-ai-os</b></div>
+            <div class="row" style="left:16px;top:66px;width:150px"></div>
+            <div class="row" style="left:16px;top:86px;width:120px"></div>
+            <div class="row" style="left:16px;top:106px;width:160px"></div>
+            <div class="card" style="left:250px;top:64px;width:290px;height:96px"></div>
+            <span class="guide-label bad" style="--x:192px;left:200px">开关 x 在侧栏右缘</span>
+          </div>
+        </div>
+      </div>
+      <div class="cell">
+        <span class="cell-label">侧栏收起</span>
+        <div class="mockwrap">
+          <div class="mock" role="img" aria-label="现状收起态：开关移到最左，标题栏只剩 Norma 文字">
+            <div class="tb"></div>
+            <div class="lights"><i></i><i></i><i></i></div>
+            <div class="tg ghost" style="--x:192px"><svg><use href="#i-collapse"/></svg></div>
+            <div class="guide bad" style="--x:84px"></div>
+            <div class="tg" style="--x:84px"><svg><use href="#i-expand"/></svg></div>
+            <div class="brand" style="left:128px;top:10px"><span class="name" style="font-size:16px;line-height:24px">Norma</span></div>
+            <div class="card" style="left:20px;top:64px;width:520px;height:96px"></div>
+            <span class="guide-label bad" style="--x:84px;left:164px">开关左移，虚线框是原位置</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ul class="notes">
+      <li><b>开关位置会变。</b>展开时在侧栏右缘，收起后跑到最左，每次切换都要重新找。</li>
+      <li><b>品牌重复且偏重。</b>logo 的彩色块和 Norma 字号，抢了右侧面包屑的注意力；面包屑才是当前上下文。</li>
+      <li><b>收起态不连贯。</b>logo 消失，只剩一个孤立的 Norma 文字，既不是品牌也不是上下文。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>建议 <span class="tag ok">开关固定</span></h2>
+    <div class="pair">
+      <div class="cell">
+        <span class="cell-label">侧栏展开</span>
+        <div class="mockwrap">
+          <div class="mock" role="img" aria-label="建议展开态：开关紧跟交通灯，logo 与 Norma 在侧栏头部，面包屑从内容区起点开始">
+            <div class="sbcol"></div>
+            <div class="tb"></div>
+            <div class="lights"><i></i><i></i><i></i></div>
+            <div class="guide ok" style="--x:84px"></div>
+            <div class="tg" style="--x:84px"><svg><use href="#i-collapse"/></svg></div>
+            <div class="brand mini" style="left:124px;top:11px"><span class="lg"></span><span class="name" style="font-size:15px">Norma</span></div>
+            <div class="bc" style="left:246px"><span>norma-os</span><em>/</em><b>norma-ai-os</b></div>
+            <div class="row" style="left:16px;top:66px;width:150px"></div>
+            <div class="row" style="left:16px;top:86px;width:120px"></div>
+            <div class="row" style="left:16px;top:106px;width:160px"></div>
+            <div class="card" style="left:250px;top:64px;width:290px;height:96px"></div>
+            <span class="guide-label ok" style="--x:84px;left:112px;bottom:10px">开关与 logo 的 x 都固定</span>
+          </div>
+        </div>
+      </div>
+      <div class="cell">
+        <span class="cell-label">侧栏收起</span>
+        <div class="mockwrap">
+          <div class="mock" id="m-collapsed" role="img" aria-label="建议收起态：开关位置不变，面包屑紧贴开关左对齐">
+            <div class="tb"></div>
+            <div class="lights"><i></i><i></i><i></i></div>
+            <div class="guide ok" style="--x:84px"></div>
+            <div class="tg" style="--x:84px"><svg><use href="#i-expand"/></svg></div>
+            <div class="brand mini" style="left:124px;top:11px"><span class="lg"></span></div>
+            <div class="bc" style="left:158px"><span>norma-os</span><em>/</em><b>norma-ai-os</b></div>
+            <div class="card" style="left:20px;top:64px;width:520px;height:96px"></div>
+            <span class="guide-label ok" style="--x:84px;left:112px;bottom:10px">开关与 logo 的 x 都没变</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ul class="notes">
+      <li><b>开关和 logo 都是固定锚点。</b>交通灯右侧依次是开关、logo，两者在展开和收起时位置完全一致。</li>
+      <li><b>只有两样东西会变。</b>“Norma”文字只在侧栏展开时出现，面包屑展开时从内容区起点开始，收起时贴着 logo。</li>
+      <li><b>logo 缩到 20 到 22px。</b>视觉权重让给面包屑，但始终可见，品牌不会因为收起而消失。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>落地时要满足的规则</h2>
+    <div class="rules">
+      <div class="rule">
+        <h3>开关状态完整</h3>
+        <p>hover、按下、键盘聚焦、tooltip 都要有；tooltip 带上快捷键 <code>⌘⇧E</code>。</p>
+      </div>
+      <div class="rule">
+        <h3>图标表达下一步</h3>
+        <p>展开时显示“收起”图标，收起时显示“展开”图标，两种状态的外框和位置完全一致。</p>
+      </div>
+      <div class="rule">
+        <h3>动效只服务位置</h3>
+        <p>开关本身不动。面包屑随侧栏平移，开启“减少动态效果”时直接切换，不做过渡。</p>
+      </div>
+      <div class="rule">
+        <h3>浅色与深色都验收</h3>
+        <p>logo 在两套主题下对比度都要足够，在真实 App 里用 desktop-e2e 截图确认，不以此草图为准。</p>
+      </div>
+    </div>
+    <div class="tradeoff">
+      <p>取舍：logo 一直在，开关位置也不变，代价是收起后标题栏左侧要多占约 34px 给 logo。如果之后想把 logo 点击做成回到主页之类的入口，固定位置也方便。</p>
+    </div>
+  </section>
+</div>
+
