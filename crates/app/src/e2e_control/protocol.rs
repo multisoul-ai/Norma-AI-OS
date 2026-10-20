@@ -67,6 +67,27 @@ pub(super) enum Command {
     Capture {
         path: PathBuf,
     },
+    /// AppKit-level mouse event delivered through `NSWindow::sendEvent`.
+    NsMouse {
+        phase: MousePhase,
+        x: f32,
+        y: f32,
+        #[serde(default = "single_click")]
+        click_count: usize,
+        #[serde(default)]
+        pressed: bool,
+    },
+    /// AppKit-level key press by macOS virtual key code.
+    NsKey {
+        key_code: u16,
+        chars: String,
+        #[serde(default)]
+        modifiers: Vec<String>,
+    },
+    /// AppKit-level typing: one keyDown/keyUp pair per character.
+    NsText {
+        text: String,
+    },
 }
 
 fn single_click() -> usize {

@@ -6,13 +6,16 @@
 //! `NORMA_E2E_CONTROL_SOCKET` and a per-run `NORMA_E2E_CONTROL_TOKEN` are set,
 //! and is not compiled into release builds.
 mod capture;
+mod ns_input;
 mod protocol;
 
 #[cfg(test)]
 #[path = "../../tests/unit/e2e_control_tests.rs"]
 mod tests;
 
-use gpui::{px, size, AnyWindowHandle, App, KeyUpEvent, Keystroke, PlatformInput, Window};
+use gpui::{
+    px, size, AnyWindowHandle, App, AsyncApp, KeyUpEvent, Keystroke, PlatformInput, Window,
+};
 use protocol::{
     control_config, mouse_input, parse_request, scroll_input, text_keystrokes, Command, Response,
     WindowInfo,
@@ -60,9 +63,14 @@ pub(crate) fn install(cx: &mut App) {
     }
     cx.spawn(async move |cx| {
         while let Ok(job) = receiver.recv().await {
-            let outcome = cx
-                .update(|cx| execute(job.command, cx))
-                .unwrap_or_else(|_| Outcome::Done(Response::error("app unavailable")));
+            let outcome = match job.command {
+                Command::NsMouse { .. } | Command::NsText { .. } | Command::NsKey { .. } => {
+                    execute_native(job.command, cx)
+                }
+                command => cx
+                    .update(|cx| execute(command, cx))
+                    .unwrap_or_else(|_| Outcome::Done(Response::error("app unavailable"))),
+            };
             let _ = job.reply.send(outcome).await;
         }
     })
@@ -158,6 +166,38 @@ fn target_window(cx: &mut App) -> Option<AnyWindowHandle> {
     best.map(|(handle, _)| handle)
 }
 
+/// AppKit input is delivered after `update` returns so GPUI can re-enter the app.
+fn execute_native(command: Command, cx: &mut AsyncApp) -> Outcome {
+    let native = cx
+        .update(|cx| {
+            let handle = target_window(cx).ok_or("no window")?;
+            handle
+                .update(cx, |_, window, _| ns_input::native_window(window))
+                .map_err(|_| "window closed")?
+        })
+        .unwrap_or(Err("app unavailable"));
+    let native = match native {
+        Ok(native) => native,
+        Err(error) => return Outcome::Done(Response::error(error)),
+    };
+    Outcome::Done(match command {
+        Command::NsMouse {
+            phase,
+            x,
+            y,
+            click_count,
+            pressed,
+        } => ns_input::mouse(&native, phase, x, y, click_count, pressed),
+        Command::NsText { text } => ns_input::text(&native, &text),
+        Command::NsKey {
+            key_code,
+            chars,
+            modifiers,
+        } => ns_input::key(&native, key_code, &chars, &modifiers),
+        _ => Response::error("not a native command"),
+    })
+}
+
 fn execute(command: Command, cx: &mut App) -> Outcome {
     let Some(handle) = target_window(cx) else {
         return Outcome::Done(Response::error("no window"));
@@ -211,6 +251,9 @@ fn execute_in(command: Command, window: &mut Window, cx: &mut App) -> Outcome {
             window.resize(size(px(width), px(height)));
             done(Response::ok())
         }
+        Command::NsMouse { .. } | Command::NsText { .. } | Command::NsKey { .. } => done(
+            Response::error("native input runs outside the window lease"),
+        ),
         Command::Capture { path } => match window_info(window) {
             Ok(window) => Outcome::Capture { window, path },
             Err(error) => done(Response::error(error)),

@@ -8,6 +8,8 @@ extension Session {
     /// 把隔离窗口抬到前台，使渲染持续刷新；输入本身不依赖前台状态。
     public func activate() async throws {
         try ensureRunning()
+        // X5: NORMA_E2E_NO_ACTIVATE=1 leaves the window wherever the system put it.
+        if ProcessInfo.processInfo.environment["NORMA_E2E_NO_ACTIVATE"] == "1" { return }
         if let pid = app?.processIdentifier, let running = NSRunningApplication(processIdentifier: pid) {
             _ = running.activate(from: NSRunningApplication.current, options: [.activateAllWindows])
         }
@@ -72,7 +74,7 @@ extension Session {
 
     public func type(_ value: String) async throws {
         try await activate()
-        try await control(["op": "text", "text": value])
+        try await control(["op": appKitInput ? "ns_text" : "text", "text": value])
         try await Task.sleep(nanoseconds: 60_000_000)
     }
 
@@ -127,9 +129,12 @@ extension Session {
         try await mouse("up", point)
     }
 
+    /// Spike: NORMA_E2E_INPUT=ns routes mouse/text through AppKit NSWindow.sendEvent.
+    private var appKitInput: Bool { ProcessInfo.processInfo.environment["NORMA_E2E_INPUT"] == "ns" }
+
     private func mouse(_ phase: String, _ point: CGPoint, pressed: Bool = false) async throws {
         try await control([
-            "op": "mouse", "phase": phase,
+            "op": appKitInput ? "ns_mouse" : "mouse", "phase": phase,
             "x": Double(point.x), "y": Double(point.y), "pressed": pressed,
         ])
     }
@@ -141,6 +146,14 @@ extension Session {
 
     private func hotkey(key: CGKeyCode, modifiers: [CGKeyCode]) async throws {
         try await activate()
+        if appKitInput {
+            try await control([
+                "op": "ns_key", "key_code": Int(key), "chars": try keyCharacters(key),
+                "modifiers": try modifiers.map(modifierName),
+            ])
+            try await Task.sleep(nanoseconds: 30_000_000)
+            return
+        }
         try await control(["op": "key", "keystroke": try keystroke(key: key, modifiers: modifiers)])
         try await Task.sleep(nanoseconds: 30_000_000)
     }
@@ -163,4 +176,22 @@ func keystroke(key: CGKeyCode, modifiers: [CGKeyCode]) throws -> String {
         return modifier + "-"
     }
     return prefix.joined() + name
+}
+
+/// Characters an AppKit keyDown carries for the virtual key codes scenarios use.
+func keyCharacters(_ key: CGKeyCode) throws -> String {
+    let table: [CGKeyCode: String] = [
+        0: "a", 1: "s", 2: "d", 36: "\r", 43: ",", 48: "\t", 49: " ", 51: "\u{7f}", 53: "\u{1b}",
+        123: "\u{F702}", 124: "\u{F703}", 125: "\u{F701}", 126: "\u{F700}",
+    ]
+    guard let value = table[key] else {
+        throw E2EError.env("控制通道还不支持虚拟键码 \(key)，请在 keyCharacters 中补充映射。")
+    }
+    return value
+}
+
+func modifierName(_ code: CGKeyCode) throws -> String {
+    let names: [CGKeyCode: String] = [0x37: "cmd", 0x38: "shift", 0x3A: "alt", 0x3B: "ctrl"]
+    guard let name = names[code] else { throw E2EError.env("控制通道还不支持修饰键码 \(code)") }
+    return name
 }

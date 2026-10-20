@@ -54,6 +54,16 @@ bash scripts/desktop-e2e.sh workspace-lifecycle --repeat 5
 | 多 worktree | 全机键鼠锁，必须排队 | 可并行（各打各的隔离窗口） |
 | 适用构建 | debug / 有权限即可 | 仅 debug（release / `production-data` 无通道） |
 
+### 可选开关
+
+| 环境变量 | 作用 |
+| --- | --- |
+| `NORMA_E2E_INPUT=ns` | 鼠标、文字和按键改走 AppKit：App 内构造 `NSEvent` 并交给 `NSWindow.sendEvent`，所以内嵌的 WKWebView 也能收到事件。默认仍是 GPUI 路径。事件必须在 `cx.update` 之外发送，否则 GPUI 的原生事件回调拿不到窗口，事件被静默丢弃。 |
+| `NORMA_E2E_NO_ACTIVATE=1` | 驱动不主动激活 Norma，仅用于验证非前台行为。窗口不是 key 窗口时，部分点击会被丢掉；全屏被遮挡时画面也不刷新，所以正常验收不要设置。 |
+| `NORMA_E2E_AUDIO_FIXTURE=<wav>` | debug 构建里用这段 WAV 代替麦克风（按实时节奏回放，播完后输出静音），并报告麦克风已授权，不会触发系统授权。release 构建不含这段代码。本地 Sherpa 听写走的 `AudioCapture` 路径不支持，会直接报错。诊断示例：`cargo run -p voice_input --example e2e_fixture_probe`。 |
+
+两点限制：Norma 必须能成为前台 key 窗口，测试期间在别的应用里操作会打断测试；`voice-live-call` 的云端部分仍需要 `NORMA_LIVE_TEST_KEY_FILE`。
+
 ### 能测到 vs 不能测到
 
 | 验收对象 | 之前 | 现在 |
@@ -63,8 +73,8 @@ bash scripts/desktop-e2e.sh workspace-lifecycle --repeat 5
 | 删卡后补位、布局、抽屉等页面样式 | 能 | 能 |
 | OCR 读窗口文字 + 视觉看图清单 | 能 | 能 |
 | 隔离 SQLite / 夹具文件断言 | 能 | 能 |
-| 原生输入法候选、合成输入 | 能 | 不能 |
-| Browser / CEF 网页内部点击与输入 | 能（真实指针） | 不能（不经 GPUI） |
+| 原生输入法候选、合成输入 | 能 | 未验证（`ns` 路径经过 `interpretKeyEvents`，但没有场景覆盖） |
+| Browser / 文件预览 WebView 内的点击、输入与视频播放 | 能（真实指针） | 设 `NORMA_E2E_INPUT=ns` 后能（见下） |
 | 系统菜单栏、系统对话框 | 能 | 不能 |
 | 「真实系统键鼠路径」本身 | 能 | 不能（注入在 App 内） |
 | 窗口完全被挡时的画面刷新 | 依赖前台 | 驱动会先激活窗口；仍依赖可见重绘 |

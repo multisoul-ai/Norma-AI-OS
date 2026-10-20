@@ -30,6 +30,20 @@ pub struct PcmStreamSession {
 }
 
 impl PcmStreamSession {
+    /// Session whose capture thread is the debug E2E fixture player.
+    #[cfg(debug_assertions)]
+    pub(crate) fn from_fixture(stop_tx: mpsc::Sender<()>, thread: JoinHandle<()>) -> Self {
+        Self {
+            stop_tx: Some(stop_tx),
+            capture_thread: Some(thread),
+            forward_thread: None,
+            #[cfg(feature = "test-support")]
+            test_hold_tx: None,
+            #[cfg(feature = "test-support")]
+            test_lifecycle_tx: None,
+        }
+    }
+
     pub fn cancel(mut self) {
         self.stop_and_join();
     }
@@ -131,6 +145,10 @@ fn start_pcm_stream_with_voice_processing(
     #[cfg(feature = "test-support")]
     if let Some(stream) = take_test_pcm_stream() {
         return Ok(stream);
+    }
+    #[cfg(debug_assertions)]
+    if let Some(path) = crate::fixture::fixture_path() {
+        return crate::fixture::start_fixture_stream(&path);
     }
     tracing::info!(
         target: "norma_voice",
