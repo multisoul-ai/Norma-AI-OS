@@ -38,14 +38,21 @@ impl MultisoulApp {
         let next_id = canvas::next_neighbor_after_delete(&visible_nodes, node_id);
 
         let changed = if self.desktop_host.is_some() {
+            // Captured before remove: forget_removed_node clears master when this node is master.
+            let removed_master = self.master_layout.master_id() == Some(node_id);
             if !self.runtime.remove_node(node_id) {
                 false
             } else {
                 self.master_layout.forget_removed_node(node_id);
+                if removed_master {
+                    self.master_layout.clear();
+                }
                 self.motion.clear_transient();
                 self.motion
                     .retain_nodes(self.runtime.document.nodes().iter().map(|node| node.id));
-                self.refresh_desktop_presentation(window);
+                // Saved grid slots must move. A presentation-only refresh leaves the
+                // deleted card's cell empty whenever the wide canvas has no overflow.
+                self.apply_layout_for_current_mode(window);
                 true
             }
         } else {
