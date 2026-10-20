@@ -10,10 +10,12 @@ public enum WorkspaceRunOverviewAgents {
     public static func run(_ session: Session) async throws {
         var projectRoot: URL?
         var fakeShell: URL?
+        var otherRoot: URL?
         defer {
             session.stop()
             if let projectRoot { try? FileManager.default.removeItem(at: projectRoot) }
             if let fakeShell { try? FileManager.default.removeItem(at: fakeShell) }
+            if let otherRoot { try? FileManager.default.removeItem(at: otherRoot) }
         }
         let workspace = "AgentOverviewCheck"
 
@@ -21,6 +23,8 @@ public enum WorkspaceRunOverviewAgents {
             let shell = try FakeAgentShell.install()
             fakeShell = shell
             setenv("ZDOTDIR", shell.path, 1)
+            setenv("NORMA_FAKE_APPROVAL", "1", 1)
+            setenv("NORMA_E2E_LANGUAGE", "zh-Hans", 1)
             try session.launch()
             _ = try await session.wait(Expectation(anyOf: ["创建工作空间", "Create Workspace"], timeout: 25))
             try await session.click(matching: ["创建工作空间", "Create Workspace"], pick: .bottom)
@@ -36,15 +40,30 @@ public enum WorkspaceRunOverviewAgents {
             session.stop()
             guard let dataRoot = session.dataRoot else { throw E2EError.env("隔离数据目录丢失") }
             projectRoot = try CanvasProjectFixture.install(dataRoot: dataRoot, workspaceName: workspace)
+            let other = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
+                .appendingPathComponent("norma-canvas-e2e-other-\(UUID().uuidString)", isDirectory: true)
+            try FileManager.default.createDirectory(at: other, withIntermediateDirectories: true)
+            otherRoot = other
+            try Catalog.seedArea(
+                database: dataRoot.appendingPathComponent("app.sqlite"),
+                workspaceName: workspace,
+                root: other,
+                displayName: "设计草稿"
+            )
             try session.launch()
             _ = try await session.wait(Expectation(allOf: [workspace], timeout: 20))
-            return try session.prove(names: [workspace], areaCount: 1, linkedTo: workspace).summary
+            return try session.prove(names: [workspace], areaCount: 2, linkedTo: workspace).summary
         }
 
         try await session.step("进入项目并创建两个智能体") {
             let launch = try await session.capture()
             if launch.contains("搜索工作空间") || launch.contains("Search workspaces") {
-                try await session.click(matching: ["打开", "Open"], pick: .bottom)
+                // 工作空间卡片右下角的「打开」按钮：文字识别会与项目占位文案混淆，改用位置点击。
+                try await session.click(
+                    local: CGPoint(x: Double(launch.windowFrame.width) - 111, y: 540),
+                    on: launch
+                )
+                _ = try await session.wait(Expectation(absent: ["搜索工作空间", "Search workspaces"], timeout: 12))
             }
             _ = try await session.wait(Expectation(allOf: ["E2E Project"], timeout: 12))
             try await session.click(matching: ["E2E Project"], pick: .bottom)

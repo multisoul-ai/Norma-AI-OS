@@ -20,6 +20,7 @@ mod tests;
 
 pub(super) const OVERVIEW_TEXT_PRIMARY: f32 = 13.0;
 pub(super) const OVERVIEW_TEXT_SECONDARY: f32 = 11.0;
+pub(super) const OVERVIEW_TEXT_COPY: f32 = 12.0;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum OverviewRowKind {
@@ -95,6 +96,8 @@ pub(super) struct OverviewRow {
     pub action_label: String,
     pub action: OverviewAction,
     pub status_label: Option<String>,
+    /// Project rows show their 1-based position in a small box instead of a status dot.
+    pub lead_label: Option<String>,
     pub status_tone: OverviewStatusTone,
     pub approval_badge: Option<String>,
     pub progress: Option<Vec<ProgressMark>>,
@@ -211,14 +214,21 @@ pub(super) struct OverviewTone {
     pub file: u32,
 }
 
+/// 抽屉在浅色主题下也是深色玻璃，状态色取原型的固定色，不跟浅色 token 走。
+pub(super) const TONE_RUNNING: u32 = 0x36dce8ff;
+pub(super) const TONE_IDLE: u32 = 0x7b9dbdff;
+pub(super) const TONE_AMBER: u32 = 0xf2c773ff;
+pub(super) const TONE_RESULT: u32 = 0x64dfd2ff;
+pub(super) const TONE_FILE: u32 = 0x80baffff;
+
 pub(super) fn overview_tone(theme: Theme) -> OverviewTone {
     OverviewTone {
-        running: theme.accent_cyan,
-        idle: theme.text_secondary,
+        running: TONE_RUNNING,
+        idle: TONE_IDLE,
         failed: theme.destructive,
-        approval: theme.accent_warm,
-        review: theme.accent_cyan,
-        file: theme.accent_blue,
+        approval: TONE_AMBER,
+        review: TONE_RESULT,
+        file: TONE_FILE,
     }
 }
 
@@ -320,6 +330,7 @@ fn attention_row(row: &RunOverviewAttention) -> OverviewRow {
         action_label: action_label.into(),
         action,
         status_label: Some(prefix.into()),
+        lead_label: None,
         status_tone: tone,
         approval_badge: None,
         progress: None,
@@ -388,6 +399,7 @@ fn agent_row(
         action_label: action_label.into(),
         action,
         status_label: Some(status_label.into()),
+        lead_label: None,
         status_tone,
         approval_badge: (agent.approval_count > 0)
             .then(|| format!("{} 待审核", agent.approval_count)),
@@ -411,6 +423,7 @@ fn project_row(project: &RunOverviewProject, now_ms: u64) -> OverviewRow {
             area_id: project.area_id.clone(),
         },
         status_label: Some(project_status(project.status).into()),
+        lead_label: Some(format!("{:02}", project.order)),
         status_tone: project_tone(project.status),
         approval_badge: None,
         progress: None,

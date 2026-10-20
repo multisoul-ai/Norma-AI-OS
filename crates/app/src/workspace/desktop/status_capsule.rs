@@ -18,6 +18,9 @@ use ui::icons::with_alpha;
 
 const AMBER: u32 = 0xf2c773ff;
 const COMPACT_CANVAS_WIDTH: f32 = 680.0;
+const STEP_TEAL: u32 = 0x7ee9eeff;
+const STATUS_WORD: u32 = 0xa9bfd1ff;
+const RING_TRACK: u32 = 0xcde8ff2e;
 
 #[derive(Clone, Copy)]
 pub(super) struct CapsuleChrome {
@@ -67,7 +70,8 @@ impl MultisoulApp {
                     Button::new("desktop-status-capsule")
                         .debug_selector(|| "desktop-status-capsule".to_string())
                         .h(px(32.0))
-                        .px(px(8.0))
+                        .pl(px(11.0))
+                        .pr(px(10.0))
                         .rounded(px(9.0))
                         .custom(glass_button_variant(theme, cx))
                         .tooltip(spoken.clone())
@@ -75,10 +79,11 @@ impl MultisoulApp {
                             div()
                                 .flex()
                                 .items_center()
-                                .gap(px(8.0))
+                                .gap(px(10.0))
                                 .child(
                                     div()
-                                        .h(px(0.0))
+                                        .absolute()
+                                        .size(px(0.0))
                                         .overflow_hidden()
                                         .text_size(px(1.0))
                                         .child(spoken),
@@ -105,15 +110,24 @@ impl MultisoulApp {
                                             row.child(
                                                 div()
                                                     .text_size(px(12.0))
-                                                    .text_color(rgba(GLASS_TEXT))
+                                                    .font_weight(gpui::FontWeight::MEDIUM)
+                                                    .text_color(rgba(0xe4f1fdff))
                                                     .child(chip.display_name.clone()),
                                             )
                                         })
                                         .when(show_count, |row| {
+                                            let counted = chip.count_label.contains('/');
                                             row.child(
                                                 div()
-                                                    .text_size(px(12.0))
-                                                    .text_color(rgba(GLASS_TEXT))
+                                                    .text_size(px(11.0))
+                                                    .when(counted, |count| {
+                                                        count
+                                                            .font_family("Menlo")
+                                                            .text_color(rgba(STEP_TEAL))
+                                                    })
+                                                    .when(!counted, |count| {
+                                                        count.text_color(rgba(STATUS_WORD))
+                                                    })
                                                     .child(chip.count_label.clone()),
                                             )
                                         })
@@ -127,26 +141,36 @@ impl MultisoulApp {
                                     )
                                 })
                                 .when(pending > 0, |row| {
-                                    row.child(
-                                        div()
-                                            .flex()
-                                            .items_center()
-                                            .gap(px(4.0))
-                                            .child(
-                                                div()
-                                                    .text_size(px(12.0))
-                                                    .text_color(rgba(chrome.amber))
-                                                    .child(pending.to_string()),
-                                            )
-                                            .when(!compact, |badge| {
-                                                badge.child(
+                                    row.child(div().w(px(1.0)).h(px(14.0)).bg(rgba(0xcde8ff33)))
+                                        .child(
+                                            div()
+                                                .flex()
+                                                .items_center()
+                                                .gap(px(6.0))
+                                                .child(
                                                     div()
+                                                        .min_w(px(18.0))
+                                                        .h(px(18.0))
+                                                        .px(px(5.0))
+                                                        .flex()
+                                                        .items_center()
+                                                        .justify_center()
+                                                        .rounded(px(9.0))
+                                                        .bg(rgba(chrome.amber))
                                                         .text_size(px(11.0))
-                                                        .text_color(rgba(GLASS_TEXT_MUTED))
-                                                        .child("待处理"),
+                                                        .font_weight(gpui::FontWeight::BOLD)
+                                                        .text_color(rgba(0x162638ff))
+                                                        .child(pending.to_string()),
                                                 )
-                                            }),
-                                    )
+                                                .when(!compact, |badge| {
+                                                    badge.child(
+                                                        div()
+                                                            .text_size(px(12.0))
+                                                            .text_color(rgba(0xf6dfaaff))
+                                                            .child("待处理"),
+                                                    )
+                                                }),
+                                        )
                                 }),
                         )
                         .when(drawers.overview_floating, |button| {
@@ -272,34 +296,29 @@ impl MultisoulApp {
     }
 }
 
-fn progress_ring(fraction: Option<f32>, waiting: bool, color: u32, track: u32) -> gpui::Div {
+/// 16px 的环：底环与进度弧在同一个画布里绘制，线宽 3px，和原型的圆环蒙版一致。
+fn progress_ring(fraction: Option<f32>, waiting: bool, color: u32, _track: u32) -> gpui::Div {
     let fraction = fraction.unwrap_or(0.0).clamp(0.0, 1.0);
     div()
         .relative()
         .w(px(16.0))
         .h(px(16.0))
+        .flex_none()
         .child(
-            div()
-                .size_full()
-                .rounded_full()
-                .border_1()
-                .border_color(rgba(track)),
-        )
-        .when(fraction > 0.0, |ring| {
-            ring.child(
-                canvas(
-                    |_, _, _| (),
-                    move |bounds, _, window, _| {
-                        let center = bounds.center();
-                        let mut builder = PathBuilder::stroke(px(1.6));
-                        let steps = ((28.0 * fraction).ceil() as i32).max(1);
+            canvas(
+                |_, _, _| (),
+                move |bounds, _, window, _| {
+                    let center = bounds.center();
+                    let paint_arc = |share: f32, tint: u32, window: &mut Window| {
+                        let mut builder = PathBuilder::stroke(px(3.0));
+                        let steps = ((48.0 * share).ceil() as i32).max(1);
                         let start = -std::f32::consts::FRAC_PI_2;
-                        let sweep = std::f32::consts::TAU * fraction;
+                        let sweep = std::f32::consts::TAU * share;
                         for index in 0..=steps {
                             let angle = start + sweep * index as f32 / steps as f32;
                             let sample = point(
-                                center.x + px(angle.cos() * 6.25),
-                                center.y + px(angle.sin() * 6.25),
+                                center.x + px(angle.cos() * 6.5),
+                                center.y + px(angle.sin() * 6.5),
                             );
                             if index == 0 {
                                 builder.move_to(sample);
@@ -308,14 +327,17 @@ fn progress_ring(fraction: Option<f32>, waiting: bool, color: u32, track: u32) -
                             }
                         }
                         if let Ok(path) = builder.build() {
-                            window.paint_path(path, rgba(color));
+                            window.paint_path(path, rgba(tint));
                         }
-                    },
-                )
-                .absolute()
-                .size_full(),
+                    };
+                    paint_arc(1.0, RING_TRACK, window);
+                    if fraction > 0.0 {
+                        paint_arc(fraction, color, window);
+                    }
+                },
             )
-        })
+            .size_full(),
+        )
         .when(waiting, |ring| {
             ring.child(
                 div()

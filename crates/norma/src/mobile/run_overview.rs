@@ -68,6 +68,8 @@ pub struct RunOverviewAgent {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RunOverviewProject {
     pub area_id: String,
+    /// 1-based position among the workspace's projects, shown as the row's index box.
+    pub order: usize,
     pub name: String,
     pub agent_count: usize,
     pub status: WorkspaceActivityStatus,
@@ -106,11 +108,13 @@ pub fn project_run_overview(
     let other_projects = view
         .groups
         .iter()
-        .filter(|group| group.area_id != current_area_id)
-        .map(|group| {
+        .enumerate()
+        .filter(|(_, group)| group.area_id != current_area_id)
+        .map(|(position, group)| {
             let side = presence.iter().find(|item| item.area_id == group.area_id);
             RunOverviewProject {
                 area_id: group.area_id.clone(),
+                order: position + 1,
                 name: group.name.clone(),
                 agent_count: group.agents.len(),
                 status: project_status(group),

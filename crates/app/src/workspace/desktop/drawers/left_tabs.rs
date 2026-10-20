@@ -17,15 +17,13 @@
 //!   选中与焦点同时可见，以及待处理角标。颜色取 `desktop_theme()`：浅色应用主题下
 //!   抽屉仍是深色玻璃，状态色跟这块玻璃走，避免浅色 token 贴在深底上发灰。
 
-use super::{GLASS_TEXT, GLASS_TEXT_SECONDARY};
+use super::GLASS_TEXT;
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div, KeyDownEvent, Stateful, Window};
 use runtime::desktop_drawers::{DesktopDrawerEvent, DesktopLeftView};
-use ui::icons::with_alpha;
 
 impl MultisoulApp {
     pub(super) fn render_left_drawer_tabs(&mut self, cx: &mut Context<Self>) -> Stateful<Div> {
-        let theme = self.desktop_theme();
         let selected = self.desktop_workspace.drawers.left_view;
         let pending = self.cached_workspace_pending_count();
         let chat_focus = self.left_chat_tab_focus(cx);
@@ -41,9 +39,9 @@ impl MultisoulApp {
             .p(px(3.0))
             .gap(px(2.0))
             .rounded(px(10.0))
-            .bg(rgba(with_alpha(theme.graphite, 0x88)))
+            .bg(rgba(0x9fcfff0f))
             .border_1()
-            .border_color(rgba(with_alpha(theme.edge_highlight, 0x40)))
+            .border_color(rgba(0xa9d4f42e))
             .child(self.left_view_tab(
                 "desktop-left-tab-chat",
                 ui::i18n::text("workspace.left_tab_chat"),
@@ -77,21 +75,9 @@ impl MultisoulApp {
         } else {
             DesktopLeftView::Chat
         };
-        let rest = if selected {
-            with_alpha(theme.accent_blue, 0xc4)
-        } else {
-            0x00000000
-        };
-        let hover = if selected {
-            with_alpha(theme.accent_blue, 0xe0)
-        } else {
-            with_alpha(theme.accent_blue, 0x55)
-        };
-        let pressed = if selected {
-            with_alpha(theme.accent_blue, 0xff)
-        } else {
-            with_alpha(theme.accent_blue, 0x88)
-        };
+        let rest = if selected { 0x58adff2e } else { 0x00000000 };
+        let hover = if selected { 0x58adff45 } else { 0x8fcaff17 };
+        let pressed = if selected { 0x58adff5c } else { 0x8fcaff2a };
         div()
             .id(id)
             .debug_selector(move || id.to_string())
@@ -103,22 +89,14 @@ impl MultisoulApp {
             .gap(px(6.0))
             .rounded(px(8.0))
             .border_1()
-            .border_color(rgba(0x00000000))
+            .border_color(rgba(if selected { 0x83c4ff70 } else { 0x00000000 }))
             .cursor_pointer()
             .tab_index(0)
             .track_focus(&focus)
             .bg(rgba(rest))
             .text_size(px(12.0))
-            .font_weight(if selected {
-                gpui::FontWeight::SEMIBOLD
-            } else {
-                gpui::FontWeight::NORMAL
-            })
-            .text_color(rgba(if selected {
-                GLASS_TEXT
-            } else {
-                GLASS_TEXT_SECONDARY
-            }))
+            .font_weight(gpui::FontWeight::MEDIUM)
+            .text_color(rgba(if selected { GLASS_TEXT } else { 0xb9cfe3ff }))
             .hover(move |style| style.bg(rgba(hover)))
             .active(move |style| style.bg(rgba(pressed)))
             .focus(|style| style.border_color(rgba(theme.focused_stroke)))
@@ -148,16 +126,16 @@ impl MultisoulApp {
                 tab.child(
                     div()
                         .px(px(5.0))
-                        .h(px(16.0))
-                        .min_w(px(16.0))
+                        .h(px(18.0))
+                        .min_w(px(18.0))
                         .flex()
                         .items_center()
                         .justify_center()
-                        .rounded_full()
-                        .bg(rgba(theme.accent_warm))
+                        .rounded(px(9.0))
+                        .bg(rgba(0xf2c773ff))
                         .text_size(px(11.0))
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
-                        .text_color(rgba(0x1b1406ff))
+                        .font_weight(gpui::FontWeight::BOLD)
+                        .text_color(rgba(0x162638ff))
                         .child(count.to_string()),
                 )
             })
@@ -272,10 +250,11 @@ impl MultisoulApp {
     }
 
     fn cached_workspace_pending_count(&self) -> usize {
+        // 与右上角状态胶囊同一来源，两处的待处理数不会各算各的。
         self.desktop_workspace
-            .activity_view
+            .activity_capsule
             .as_ref()
-            .map(|view| view.pending.len())
+            .map(|capsule| capsule.pending_count)
             .unwrap_or(0)
     }
 

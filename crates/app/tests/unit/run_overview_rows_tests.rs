@@ -385,6 +385,7 @@ fn sample(now: u64) -> RunOverview {
         ],
         other_projects: vec![RunOverviewProject {
             area_id: "area-other".into(),
+            order: 2,
             name: "设计草稿".into(),
             agent_count: 1,
             status: WorkspaceActivityStatus::Idle,

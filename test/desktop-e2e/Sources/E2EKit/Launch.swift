@@ -52,6 +52,10 @@ public final class Session {
         environment["NORMA_TEST_DATA_ROOT"] = dataRoot.path
         environment["NORMA_SOCKET"] = isolatedSocketPath(identifier: UUID().uuidString)
         process.environment = environment
+        // 界面语言跟随系统偏好；场景需要对照中文原型时设置 NORMA_E2E_LANGUAGE（如 zh-Hans）。
+        if let language = ProcessInfo.processInfo.environment["NORMA_E2E_LANGUAGE"] {
+            process.arguments = ["-AppleLanguages", "(\(language))"]
+        }
         process.standardOutput = handle
         process.standardError = handle
         try process.run()

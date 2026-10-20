@@ -42,12 +42,16 @@ public enum FakeAgentShell {
             "tool_response": {"success": True, "taskId": i, "statusChange": {"from": a, "to": b}, "updatedFields": ["status"]}})
     time.sleep(2)
     post("UserPromptSubmit", None, {})
-    create("1", "整理需求")
-    create("2", "原型交互验收")
-    create("3", "发布说明")
-    update("1", "pending", "in_progress")
-    update("1", "in_progress", "completed")
-    update("2", "pending", "in_progress")
+    titles = ["整理需求", "确认画布节点类型", "调整布局", "检查默认背景", "原型交互验收", "发布说明"]
+    for i, title in enumerate(titles, start=1):
+        create(str(i), title)
+    for i in range(1, 5):
+        update(str(i), "pending", "in_progress")
+        update(str(i), "in_progress", "completed")
+    update("5", "pending", "in_progress")
+    if os.environ.get("NORMA_FAKE_APPROVAL") == "1":
+        post("PermissionRequest", "Bash", {"tool_name": "Bash", "tool_use_id": "perm-1",
+            "tool_input": {"command": "cargo test -p app"}})
     time.sleep(3600)
     """
 }
