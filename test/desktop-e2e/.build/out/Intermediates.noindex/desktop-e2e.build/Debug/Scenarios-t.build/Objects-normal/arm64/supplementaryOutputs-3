@@ -1,0 +1,23 @@
+{
+  "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Scenarios/canvas/CanvasProjectDrawers.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasProjectDrawers.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasProjectDrawers.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasProjectDrawers.dia",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasProjectDrawers.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasProjectDrawers.swiftdeps"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Scenarios/content/ContentBrowser.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentBrowser.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentBrowser.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentBrowser.dia",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentBrowser.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentBrowser.swiftdeps"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Scenarios/content/ContentHome.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentHome.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentHome.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentHome.dia",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentHome.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentHome.swiftdeps"
+  }
+}

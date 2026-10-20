@@ -1,0 +1,99 @@
+{
+  "" : {
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/Fixtures-primary.dia",
+    "emit-module-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/Fixtures-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/Fixtures-primary-emit-module.dia",
+    "pch" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/Fixtures-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/Fixtures-primary.swiftdeps"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Fixtures/canvas/CanvasProjectFixture.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/CanvasProjectFixture.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/CanvasProjectFixture.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/CanvasProjectFixture.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/CanvasProjectFixture.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/CanvasProjectFixture.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/CanvasProjectFixture.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/CanvasProjectFixture.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/CanvasProjectFixture~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Fixtures/content/ContentBrowserFixture.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ContentBrowserFixture.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ContentBrowserFixture.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ContentBrowserFixture.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ContentBrowserFixture.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ContentBrowserFixture.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ContentBrowserFixture.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ContentBrowserFixture.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ContentBrowserFixture~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Fixtures/content/ContentFixture.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ContentFixture.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ContentFixture.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ContentFixture.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ContentFixture.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ContentFixture.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ContentFixture.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ContentFixture.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ContentFixture~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Fixtures/content/ContentMediaFixture.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ContentMediaFixture.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ContentMediaFixture.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ContentMediaFixture.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ContentMediaFixture.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ContentMediaFixture.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ContentMediaFixture.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ContentMediaFixture.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ContentMediaFixture~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Fixtures/settings/VoiceConfiguration.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/VoiceConfiguration.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/VoiceConfiguration.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/VoiceConfiguration.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/VoiceConfiguration.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/VoiceConfiguration.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/VoiceConfiguration.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/VoiceConfiguration.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/VoiceConfiguration~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Fixtures/voice/LiveAcoustic.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/LiveAcoustic.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/LiveAcoustic.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/LiveAcoustic.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/LiveAcoustic.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/LiveAcoustic.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/LiveAcoustic.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/LiveAcoustic.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/LiveAcoustic~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Fixtures/voice/LiveCredential.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/LiveCredential.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/LiveCredential.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/LiveCredential.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/LiveCredential.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/LiveCredential.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/LiveCredential.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/LiveCredential.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/LiveCredential~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Fixtures/workspace/FakeAgentShell.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/FakeAgentShell.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/FakeAgentShell.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/FakeAgentShell.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/FakeAgentShell.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/FakeAgentShell.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/FakeAgentShell.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/FakeAgentShell.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/FakeAgentShell~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Fixtures/workspace/ProjectArea.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ProjectArea.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ProjectArea.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ProjectArea.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ProjectArea.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ProjectArea.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ProjectArea.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ProjectArea.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Fixtures-t.build/Objects-normal/arm64/ProjectArea~partial.swiftmodule"
+  }
+}

@@ -24,7 +24,7 @@ public enum SettingsNavigation {
         let pages: [(String, [String], [String])] = [
             ("themes", ["Themes"], ["Paper Blue"]),
             ("wallpaper", ["Wallpaper"], ["Wallpaper Library"]),
-            ("persona", ["Persona"], ["Communication Style"]),
+            ("persona", ["Persona"], ["Additional Instructions"]),
             ("memory", ["Memory"], ["Review and organize"]),
             ("voice", ["Voice"], ["Let Norma hear you"]),
             ("keyboard", ["Keyboard Shortcuts"], ["Customize app commands"]),
