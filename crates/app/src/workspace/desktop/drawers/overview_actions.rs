@@ -69,11 +69,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         if overview_action_keeps_overview(&action) {
-            self.with_overview_kept(
-                |app, window, cx| app.perform_overview_action(action, window, cx),
-                window,
-                cx,
-            );
+            self.perform_overview_action(action, window, cx);
             let focus = self.left_overview_focus(cx);
             window.focus(&focus);
             return;
@@ -148,23 +144,6 @@ impl MultisoulApp {
                 self.open_overview_file(&area_id, node_id, &path, &fingerprint, cx);
             }
             OverviewAction::SwitchProject { .. } => {}
-        }
-    }
-
-    fn with_overview_kept(
-        &mut self,
-        body: impl FnOnce(&mut Self, &mut Window, &mut Context<Self>),
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let sentinel = self.desktop_workspace.left_open_before_project.is_none();
-        if sentinel {
-            self.desktop_workspace.left_open_before_project =
-                Some(self.desktop_workspace.drawers.left_open);
-        }
-        body(self, window, cx);
-        if sentinel {
-            self.desktop_workspace.left_open_before_project = None;
         }
     }
 

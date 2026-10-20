@@ -55,31 +55,6 @@ mod material_tests;
 mod run_overview_shortcut_tests;
 
 impl MultisoulApp {
-    pub(super) fn hide_left_drawer_for_project(&mut self) {
-        if self.desktop_workspace.left_open_before_project.is_some() {
-            return;
-        }
-        let previous = self.desktop_workspace.drawers.left_open;
-        self.desktop_workspace.left_open_before_project = Some(previous);
-        self.desktop_workspace.drawers = route_drawer(
-            self.desktop_workspace.drawers,
-            DesktopDrawerEvent::ResizeLeft(false),
-        );
-        self.desktop_workspace.drawer_motion.settle_left(false);
-        self.desktop_workspace.drawer_resize = None;
-    }
-
-    pub(super) fn restore_left_drawer_after_project(&mut self) {
-        let Some(previous) = self.desktop_workspace.left_open_before_project.take() else {
-            return;
-        };
-        self.desktop_workspace.drawers = route_drawer(
-            self.desktop_workspace.drawers,
-            DesktopDrawerEvent::ResizeLeft(previous),
-        );
-        self.desktop_workspace.drawer_motion.settle_left(previous);
-    }
-
     pub(crate) fn desktop_assistant_layout(&self, window: &Window) -> motion::DesktopDrawerLayout {
         let width = f32::from(window.viewport_size().width);
         if !matches!(self.screen, crate::app::AppScreen::DesktopWorkspace)

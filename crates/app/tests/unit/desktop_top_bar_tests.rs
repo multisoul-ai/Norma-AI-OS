@@ -11,7 +11,7 @@ use gpui::{point, px, size, AppContext, TestAppContext};
 ///   窄窗 640×800，左栏收起时面包屑起点 = logo 右边 146 + 12 = 158px；容差 1px 覆盖像素取整。
 /// 执行过程：
 ///   1. 打开 Studio 并完成镜头，检查顶部栏贴顶铺满窗口且没有覆盖项目。
-///   2. 展开 alpha、切换到 beta，检查项目隐藏左栏后的完整顶部栏，并更新当前项目名称。
+///   2. 展开 alpha、切换到 beta，检查左栏保持展开时的顶部栏仍贴合抽屉，并更新当前项目名称。
 ///   3. 缩至窄窗后检查标题紧贴 logo 左对齐，再返回目录并检查首页顶部仍与画布对齐。
 ///
 /// 预期结果：
@@ -201,13 +201,13 @@ fn desktop_top_bar_tracks_workspace_and_project_with_drawer_alignment() {
         .expect("alpha 项目画布必须保留顶部栏");
     assert_eq!(
         project_bar.origin,
-        point(px(0.0), px(0.0)),
-        "进入项目后左栏自动收起，顶部栏应从窗口左边开始"
+        point(px(397.0), px(0.0)),
+        "进入项目不得强制收起左栏，顶部栏应继续贴合左抽屉右边"
     );
     assert_eq!(
         project_bar.size,
-        size(px(1280.0), px(52.0)),
-        "进入项目后顶部栏应铺满画布"
+        size(px(883.0), px(52.0)),
+        "左栏保持展开时，项目顶部栏应铺满抽屉之间的 883px 画布"
     );
     assert!(
         cx.debug_bounds("workspace-topbar-project-project-alpha")
@@ -283,6 +283,12 @@ fn desktop_top_bar_tracks_workspace_and_project_with_drawer_alignment() {
             .is_none(),
         "切换后不能残留 alpha 名称"
     );
+    // 进入项目不再自动收起左栏，窄窗收起态须由用户显式关闭左栏得到。
+    host.update_in(cx, |app, _, cx| {
+        app.desktop_workspace.drawers.left_open = false;
+        app.desktop_workspace.drawer_motion.settle_left(false);
+        cx.notify();
+    });
     cx.simulate_resize(size(px(640.0), px(800.0)));
     cx.update(|window, cx| window.draw(cx).clear());
     let title = cx

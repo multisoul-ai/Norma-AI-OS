@@ -43,12 +43,13 @@ public enum CanvasProjectDrawers {
             if launch.contains("搜索工作空间") || launch.contains("Search workspaces") {
                 try await session.click(matching: ["打开", "Open"], pick: .bottom)
             }
-            _ = try await session.wait(Expectation(allOf: ["E2E Project", "当前对话"], timeout: 12))
+            // 全新数据目录的左抽屉默认收起；进入项目不得改写这一状态。
+            _ = try await session.wait(Expectation(allOf: ["E2E Project"], absent: ["当前对话"], timeout: 12))
             try await session.click(matching: ["E2E Project"], pick: .bottom)
             try await Task.sleep(nanoseconds: 120_000_000)
             let entering = try await session.capture()
             guard !entering.contains("当前对话") else {
-                throw E2EError.product("项目进入过渡帧仍绘制左侧 Norma 对话栏：\(entering.summary)")
+                throw E2EError.product("项目进入过渡帧凭空绘制了左侧 Norma 对话栏：\(entering.summary)")
             }
             try session.save(entering, "00-project-transition.png")
             // 小字保存状态易被 Vision 误识别；项目面包屑与后续真实卡片是验收证据。
@@ -57,7 +58,7 @@ public enum CanvasProjectDrawers {
             try await Task.sleep(nanoseconds: 700_000_000)
             let project = try await session.capture()
             guard !project.contains("当前对话") else {
-                throw E2EError.product("进入项目后左侧 Norma 对话栏仍自动展开：\(project.summary)")
+                throw E2EError.product("进入项目后左抽屉状态被改写（进入前为收起）：\(project.summary)")
             }
             try session.save(project, "01-project-left-closed.png")
             return project.summary
@@ -155,6 +156,30 @@ public enum CanvasProjectDrawers {
             let typed = try await session.wait(Expectation(allOf: ["项目对话输入验收", "E2E Project"], timeout: 5))
             try session.save(typed, "05-project-chat-input.png")
             return "左侧对话输入可在当前项目里接收键盘文字"
+        }
+
+        try await session.step("总览与项目往返时左抽屉保持展开") {
+            let inProject = try await session.capture()
+            guard let crumb = inProject.texts.first(where: { text in
+                text.center.y < 52 && text.center.x > 397 && text.value.contains(workspace)
+            }) else {
+                throw E2EError.product("项目顶栏找不到工作空间面包屑：\(inProject.summary)")
+            }
+            try await session.click(local: crumb.center, on: inProject)
+            try await Task.sleep(nanoseconds: 900_000_000)
+            let overview = try await session.capture()
+            try session.save(overview, "05b-back-to-overview-left-open.png")
+            guard overview.contains("当前对话"), overview.contains("E2E Project") else {
+                throw E2EError.product("返回总览后左抽屉被收起或总览未出现：\(overview.summary)")
+            }
+            try await session.click(matching: ["E2E Project"], pick: .bottom)
+            try await Task.sleep(nanoseconds: 1_200_000_000)
+            let reentered = try await session.capture()
+            try session.save(reentered, "05c-reenter-project-left-open.png")
+            guard reentered.contains("当前对话"), reentered.contains("E2E Project") else {
+                throw E2EError.product("再次进入项目后左抽屉被强制收起：\(reentered.summary)")
+            }
+            return "总览→项目→总览→项目，左抽屉始终展开"
         }
 
         try await session.step("收起右抽屉后恢复宽画布卡片布局") {
