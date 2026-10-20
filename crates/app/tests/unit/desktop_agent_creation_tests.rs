@@ -104,6 +104,95 @@ fn desktop_agent_creation_uses_area_root_without_confirmation() {
     });
 }
 
+/// 空画布再创建 Agent：关闭项目里最后一张卡片后，必须仍能创建新的 Agent 卡片。
+///
+/// 数据构造：1 个桌面工作空间、1 个非 Git 项目；先创建 1 张 Codex（PTY 启动 1 次），
+///   关闭后画布 0 张卡片；再创建 1 张 Claude，预期 PTY 启动累计 2 次、画布 1 张卡片。
+/// 执行过程：创建 Codex → 经 close_node_through_route 关闭 → 确认画布为空 → 再创建 Claude。
+/// 预期结果：第二次创建不被静默吞掉；空画布上出现 Claude 卡片，cwd 仍是项目目录。
+#[test]
+fn desktop_agent_creation_works_on_emptied_canvas() {
+    let temp = tempfile::tempdir().expect("应创建隔离测试目录");
+    let root = temp.path().join("plain-project");
+    std::fs::create_dir(&root).expect("应创建普通项目");
+    let root = root.canonicalize().expect("应规范化所选目录");
+    let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
+    let store = storage::AppStore::initialize(&paths).expect("应初始化隔离数据库");
+    let catalog = store.desktop_workspace_store();
+    let workspace = catalog.create("Test").expect("应创建工作空间");
+    let area = catalog
+        .add_project(&workspace.id, &root)
+        .expect("应添加普通项目");
+    let prepared =
+        PreparedProject::load_for_desktop(paths.clone(), area.clone()).expect("应准备项目实例");
+    let launches = Arc::new(Mutex::new(Vec::new()));
+    let captured = launches.clone();
+    let mut test = TestAppContext::single();
+    let (host, cx) =
+        test.add_window_view(|_, cx| MultisoulApp::new_with_database_context(cx, paths, store));
+    cx.run_until_parked();
+    let session = cx.new(|cx| {
+        let mut app = MultisoulApp::from_background_project(prepared, cx);
+        app.desktop_host = Some(host.downgrade());
+        app.runtime
+            .set_pty_factory(Box::new(move |command, _, _, tx| {
+                captured
+                    .lock()
+                    .expect("启动记录锁")
+                    .push(command.cwd.clone());
+                Ok(Box::new(terminal::TestPtyBackend::echo(tx)))
+            }));
+        app
+    });
+    host.update(cx, |app, _| {
+        app.desktop_workspace.workspaces = vec![workspace.clone()];
+        app.desktop_workspace.active_id = Some(workspace.id.clone());
+        app.desktop_workspace.areas = vec![area.clone()];
+        app.desktop_workspace.expanded_area_id = Some(area.id.clone());
+        app.desktop_workspace
+            .sessions
+            .insert((workspace.id.clone(), area.id.clone()), session.clone());
+    });
+    session.update_in(cx, |app, window, cx| {
+        app.spawn_agent_card(canvas::AgentProfile::Codex, window, cx);
+    });
+    cx.run_until_parked();
+    session.update_in(cx, |app, window, _| {
+        let id = app.runtime.document.nodes()[0].id;
+        assert!(app.close_node_through_route(id, window), "应能关闭唯一卡片");
+    });
+    cx.run_until_parked();
+    session.read_with(cx, |app, _| {
+        assert!(
+            app.runtime.document.nodes().is_empty(),
+            "前置条件：画布已清空"
+        );
+    });
+    session.update_in(cx, |app, window, cx| {
+        app.spawn_agent_card(canvas::AgentProfile::Claude, window, cx);
+    });
+    cx.run_until_parked();
+    assert_eq!(
+        launches.lock().expect("启动记录").len(),
+        2,
+        "空画布上第二次创建必须启动 PTY"
+    );
+    session.read_with(cx, |app, _| {
+        assert_eq!(
+            app.runtime.document.nodes().len(),
+            1,
+            "空画布上必须出现新 Agent 卡片"
+        );
+    });
+    host.read_with(cx, |app, _| {
+        assert!(
+            app.desktop_workspace.error.is_none(),
+            "不应有创建错误：{:?}",
+            app.desktop_workspace.error
+        );
+    });
+}
+
 fn git(root: &std::path::Path, args: &[&str]) {
     let output = std::process::Command::new("git")
         .arg("-C")

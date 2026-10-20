@@ -28,6 +28,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         if !matches!(self.screen, AppScreen::Canvas) {
+            tracing::warn!(screen = ?self.screen, "[DEBUG-a7c3] agent action rejected: screen is not Canvas");
             self.workspace_state.error =
                 Some(ui::i18n::LocalizedText::new("agent.open_project_first"));
             cx.notify();
@@ -43,6 +44,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         if !matches!(self.screen, AppScreen::Canvas) {
+            tracing::warn!(screen = ?self.screen, "[DEBUG-a7c3] agent action rejected: screen is not Canvas");
             self.workspace_state.error =
                 Some(ui::i18n::LocalizedText::new("agent.open_project_first"));
             cx.notify();
@@ -58,6 +60,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         if !matches!(self.screen, AppScreen::Canvas) {
+            tracing::warn!(screen = ?self.screen, "[DEBUG-a7c3] agent action rejected: screen is not Canvas");
             self.workspace_state.error =
                 Some(ui::i18n::LocalizedText::new("agent.open_project_first"));
             cx.notify();
@@ -73,6 +76,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         if !matches!(self.screen, AppScreen::Canvas) {
+            tracing::warn!(screen = ?self.screen, "[DEBUG-a7c3] agent action rejected: screen is not Canvas");
             self.workspace_state.error =
                 Some(ui::i18n::LocalizedText::new("agent.open_project_first"));
             cx.notify();
@@ -88,6 +92,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         if !matches!(self.screen, AppScreen::Canvas) {
+            tracing::warn!(screen = ?self.screen, "[DEBUG-a7c3] agent action rejected: screen is not Canvas");
             self.workspace_state.error =
                 Some(ui::i18n::LocalizedText::new("agent.open_project_first"));
             cx.notify();
@@ -103,6 +108,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         if !matches!(self.screen, AppScreen::Canvas) {
+            tracing::warn!(screen = ?self.screen, "[DEBUG-a7c3] agent action rejected: screen is not Canvas");
             self.workspace_state.error =
                 Some(ui::i18n::LocalizedText::new("agent.open_project_first"));
             cx.notify();
@@ -118,6 +124,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         if !matches!(self.screen, AppScreen::Canvas) {
+            tracing::warn!(screen = ?self.screen, "[DEBUG-a7c3] agent action rejected: screen is not Canvas");
             self.workspace_state.error =
                 Some(ui::i18n::LocalizedText::new("agent.open_project_first"));
             cx.notify();
@@ -133,6 +140,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         if !matches!(self.screen, AppScreen::Canvas) {
+            tracing::warn!(screen = ?self.screen, "[DEBUG-a7c3] agent action rejected: screen is not Canvas");
             self.workspace_state.error =
                 Some(ui::i18n::LocalizedText::new("agent.open_project_first"));
             cx.notify();
@@ -148,6 +156,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         if !matches!(self.screen, AppScreen::Canvas) {
+            tracing::warn!(screen = ?self.screen, "[DEBUG-a7c3] agent action rejected: screen is not Canvas");
             self.workspace_state.error =
                 Some(ui::i18n::LocalizedText::new("agent.open_project_first"));
             cx.notify();
@@ -163,6 +172,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         if !matches!(self.screen, AppScreen::Canvas) {
+            tracing::warn!(screen = ?self.screen, "[DEBUG-a7c3] agent action rejected: screen is not Canvas");
             self.workspace_state.error =
                 Some(ui::i18n::LocalizedText::new("agent.open_project_first"));
             cx.notify();
@@ -177,6 +187,12 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        tracing::info!(
+            ?profile,
+            has_host = self.desktop_host.is_some(),
+            nodes = self.runtime.document.nodes().len(),
+            "[DEBUG-a7c3] spawn_agent_card"
+        );
         if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
             let source = cx.entity().entity_id();
             host.update(cx, |host, cx| {
@@ -276,6 +292,7 @@ impl MultisoulApp {
                 cx,
             ),
             Err(error) => {
+                tracing::warn!(%error, ?profile, "[DEBUG-a7c3] spawn_desktop_agent_at: definition failed");
                 self.workspace_state.error = Some(
                     ui::i18n::LocalizedText::new("common.operation_failed")
                         .with_arg("reason", error),
@@ -296,6 +313,14 @@ impl MultisoulApp {
         let (cols, rows) =
             term_grid_size_for_card(NodeType::Agent, bounds, self.runtime.document.viewport.zoom);
         let profile = spec.profile;
+        tracing::info!(
+            ?profile,
+            ?bounds,
+            cols,
+            rows,
+            ?worktree,
+            "[DEBUG-a7c3] spawning agent card"
+        );
         let spawn = match (spec.definition_id, spec.alias) {
             (Some(definition_id), Some(alias)) => {
                 self.runtime.spawn_agent_for_definition_in_worktree(
@@ -330,7 +355,7 @@ impl MultisoulApp {
                 self.mark_session_dirty();
             }
             Err(e) => {
-                tracing::error!(error = %e, ?profile, "failed to spawn agent");
+                tracing::error!(error = %e, ?profile, "[DEBUG-a7c3] failed to spawn agent");
             }
         }
         cx.notify();
