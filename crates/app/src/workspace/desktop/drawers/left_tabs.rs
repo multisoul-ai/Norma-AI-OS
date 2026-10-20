@@ -207,6 +207,11 @@ impl MultisoulApp {
     }
 
     pub(crate) fn toggle_run_overview(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        // 项目画布是嵌入的独立实例，左栏属于桌面外壳；快捷键落在项目实例上时交给外壳处理。
+        if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
+            host.update(cx, |app, cx| app.toggle_run_overview(window, cx));
+            return;
+        }
         self.toggle_desktop_drawer(DesktopDrawerEvent::ToggleRunOverview, cx);
         if matches!(self.screen, crate::app::AppScreen::DesktopWorkspace) {
             self.focus_left_drawer_view(window, cx);

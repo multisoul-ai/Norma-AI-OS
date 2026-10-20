@@ -9,6 +9,7 @@ public enum WorkspaceModule {
             WorkspaceDrawerTabs.name,
             WorkspaceRunOverview.name,
             WorkspaceStatusCapsule.name,
+            WorkspaceRunOverviewAgents.name,
             WorkspaceOverviewFloat.name,
         ],
         run: { scenario, session in
@@ -21,6 +22,9 @@ public enum WorkspaceModule {
                 return true
             case WorkspaceRunOverview.name:
                 try await WorkspaceRunOverview.run(session)
+                return true
+            case WorkspaceRunOverviewAgents.name:
+                try await WorkspaceRunOverviewAgents.run(session)
                 return true
             case WorkspaceStatusCapsule.name:
                 try await WorkspaceStatusCapsule.run(session)

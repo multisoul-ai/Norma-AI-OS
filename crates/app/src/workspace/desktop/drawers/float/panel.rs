@@ -151,7 +151,7 @@ impl MultisoulApp {
                             .text_color(rgba(0xf2f8ffff))
                             .child(ui::i18n::text("workspace.left_tab_overview")),
                     )
-                    .when(floating && !subtitle.is_empty(), |title| {
+                    .when(!subtitle.is_empty(), |title| {
                         title.child(
                             div()
                                 .text_size(px(11.0))

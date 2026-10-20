@@ -50,6 +50,10 @@ mod orb_motion_tests;
 #[path = "../../../tests/unit/desktop_drawer_material_tests.rs"]
 mod material_tests;
 
+#[cfg(test)]
+#[path = "../../../tests/unit/desktop_run_overview_shortcut_tests.rs"]
+mod run_overview_shortcut_tests;
+
 impl MultisoulApp {
     pub(super) fn hide_left_drawer_for_project(&mut self) {
         if self.desktop_workspace.left_open_before_project.is_some() {

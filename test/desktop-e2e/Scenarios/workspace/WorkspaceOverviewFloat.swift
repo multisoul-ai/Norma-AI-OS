@@ -35,7 +35,7 @@ public enum WorkspaceOverviewFloat {
                 on: frame
             )
             let floating = try await session.wait(
-                Expectation(anyOf: ["和 Norma 聊聊", "Talk to Norma"], allOf: ["运行概览"], timeout: 6)
+                Expectation(anyOf: ["和 Norma 聊聊", "Talk to Norma"], allOf: ["要你处理"], timeout: 6)
             )
             try session.save(floating, "02-floating-overview.png")
             let unchanged = try session.prove(names: [name], areaCount: 0)

@@ -17,12 +17,6 @@ impl MultisoulApp {
         let cursor = self.desktop_workspace.overview_cursor;
         let feedback = overview_feedback(theme);
         let tone = overview_tone(theme);
-        let workspace = self
-            .desktop_workspace
-            .activity_summary
-            .as_ref()
-            .map(|summary| summary.name.clone())
-            .unwrap_or_default();
         let mut flat = 0usize;
         div()
             .id("desktop-agent-overview-list")
@@ -35,7 +29,6 @@ impl MultisoulApp {
             .flex()
             .flex_col()
             .gap(px(4.0))
-            .child(overview_heading(&workspace, theme))
             .children(screen.sections.iter().map(|section| {
                 let start = flat;
                 flat += section.rows.len();
@@ -135,30 +128,6 @@ impl MultisoulApp {
             .child(row_copy(row, color, theme))
             .child(action_label(&row.action_label, theme))
     }
-}
-
-fn overview_heading(workspace: &str, theme: ui::Theme) -> Div {
-    div()
-        .pt(px(12.0))
-        .pb(px(2.0))
-        .flex()
-        .flex_col()
-        .gap(px(2.0))
-        .child(
-            div()
-                .text_size(px(15.0))
-                .font_semibold()
-                .text_color(rgba(theme.text_primary))
-                .child("运行概览"),
-        )
-        .when(!workspace.is_empty(), |heading| {
-            heading.child(
-                div()
-                    .text_size(px(OVERVIEW_TEXT_SECONDARY))
-                    .text_color(rgba(theme.text_secondary))
-                    .child(workspace.to_owned()),
-            )
-        })
 }
 
 fn section_heading(section: &OverviewSection, theme: ui::Theme) -> Div {
