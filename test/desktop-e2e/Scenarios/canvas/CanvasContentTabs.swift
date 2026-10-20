@@ -16,7 +16,7 @@ public enum CanvasContentTabs {
         }
 
         try await session.step("建立文件与网页标签夹具") {
-            try session.launch()
+            try session.launch(language: "zh-Hans")
             _ = try await session.wait(Expectation(anyOf: ["创建工作空间", "Create Workspace"], timeout: 25))
             try await session.click(matching: ["创建工作空间", "Create Workspace"], pick: .bottom)
             _ = try await session.wait(Expectation(anyOf: ["工作空间名称", "Workspace name"], timeout: 4))
@@ -45,7 +45,7 @@ public enum CanvasContentTabs {
                 resource: "data:text/html,%3Ch1%3EWEB%20PAGE%20E2E%3C%2Fh1%3E", title: "WebE2E",
                 position: 1, selected: false
             )
-            try session.launch()
+            try session.launch(language: "zh-Hans")
             _ = try await session.wait(Expectation(allOf: [workspace], timeout: 20))
             try await openWorkspace(session)
             let catalog = try session.prove(names: [workspace], areaCount: 1, linkedTo: workspace)
@@ -67,13 +67,13 @@ public enum CanvasContentTabs {
 
         try await session.step("切换网页与文件标签") {
             try await session.click(matching: ["WebE2E"], pick: .top)
-            let web = try await session.wait(Expectation(allOf: ["WebE2E", "输入网页地址", "E2E Project", "WEB PAGE E2E"], timeout: 8))
+            let web = try await session.wait(Expectation(allOf: ["WebE2E", "E2E Project", "WEB PAGE E2E"], timeout: 8))
             guard try session.contentTabs(workspaceName: workspace).first(where: { $0.title == "WebE2E" })?.selected == true else {
                 throw E2EError.product("点击网页标签后 SQLite 未保存选中项")
             }
             try session.save(web, "02-browser-selected.png")
             try await session.click(matching: ["PlanE2E.md"], pick: .top)
-            let file = try await session.wait(Expectation(allOf: ["E2E PLAN CONTENT"], absent: ["输入网页地址"], timeout: 8))
+            let file = try await session.wait(Expectation(allOf: ["E2E PLAN CONTENT"], absent: ["WEB PAGE E2E"], timeout: 8))
             guard try session.contentTabs(workspaceName: workspace).first(where: { $0.title == "PlanE2E.md" })?.selected == true else {
                 throw E2EError.product("切回文件标签后 SQLite 未保存选中项")
             }
@@ -96,7 +96,7 @@ public enum CanvasContentTabs {
 
         try await session.step("重启后恢复标签列表和选中项") {
             session.stop()
-            try session.launch()
+            try session.launch(language: "zh-Hans")
             _ = try await session.wait(Expectation(allOf: [workspace], timeout: 20))
             try await openWorkspace(session)
             try await openRightDrawer(session)
@@ -113,7 +113,7 @@ public enum CanvasContentTabs {
             let width = Double(before.windowFrame.width)
             let rightWidth = min(560, max(370, width * 0.37))
             guard let project = before.texts.first(where: {
-                $0.value.contains("E2E Project") && $0.center.x > 300 && $0.center.x < width - rightWidth
+                $0.value.contains("E2E Project") && $0.center.x > 40 && $0.center.x < width - rightWidth
             }) else {
                 throw E2EError.product("移除前找不到中央项目卡片：\(before.summary)")
             }
@@ -121,9 +121,20 @@ public enum CanvasContentTabs {
             _ = try await session.wait(Expectation(anyOf: ["移除", "Remove"], timeout: 4))
             try await session.click(matching: ["移除", "Remove"], pick: .bottom)
             _ = try await session.wait(Expectation(anyOf: ["移除项目区", "Remove Project Area"], timeout: 4))
-            try await session.click(matching: ["删除", "Delete"], pick: .bottom)
+            // 确认框居中于整个窗口，右栏展开时「删除」按钮被右栏盖住大半，OCR 读不到；
+            // 取不到时点「取消」右侧仍露出的那一截。
+            try await Task.sleep(nanoseconds: 600_000_000)
+            let confirm = try await session.capture()
+            try session.save(confirm, "05b-delete-confirm.png")
+            if let delete = confirm.pick(["删除", "Delete"], .bottom) {
+                try await session.click(local: delete.center, on: confirm)
+            } else if let cancel = confirm.pick(["取消", "Cancel"], .bottom) {
+                try await session.click(local: CGPoint(x: cancel.center.x + 58, y: cancel.center.y), on: confirm)
+            } else {
+                throw E2EError.product("删除确认框里找不到按钮：\(confirm.summary)")
+            }
             _ = try await session.waitCatalog(timeout: 8) { $0.areas.isEmpty }
-            let removed = try await session.wait(Expectation(allOf: ["来源项目已移除", "E2E PLAN CONTENT"], timeout: 12))
+            let removed = try await session.wait(Expectation(allOf: ["来源已移除", "E2E PLAN CONTENT"], timeout: 12))
             guard try session.contentTabs(workspaceName: workspace).count == 2,
                   let projectRoot,
                   FileManager.default.fileExists(atPath: projectRoot.appendingPathComponent("PlanE2E.md").path) else {
@@ -153,11 +164,14 @@ private func openWorkspace(_ session: Session) async throws {
     if launch.contains("搜索工作空间") || launch.contains("Search workspaces") {
         try await session.click(matching: ["打开", "Open"], pick: .bottom)
     }
-    _ = try await session.wait(Expectation(allOf: ["当前对话"], timeout: 12))
+    // 进入项目后左栏默认收起，用顶栏的项目名确认已进入画布。
+    _ = try await session.wait(Expectation(allOf: ["E2E Project"], timeout: 12))
 }
 
 @MainActor
 private func openRightDrawer(_ session: Session) async throws {
+    // 恢复的右栏可能仍在滑入，先等一会儿再判断，避免把「已展开」误点成收起。
+    try await Task.sleep(nanoseconds: 1_500_000_000)
     let frame = try await session.capture()
     if frame.contains("PlanE2E.md") && frame.contains("WebE2E") { return }
     try await session.click(local: CGPoint(x: Double(frame.windowFrame.width) - 28, y: 26), on: frame)

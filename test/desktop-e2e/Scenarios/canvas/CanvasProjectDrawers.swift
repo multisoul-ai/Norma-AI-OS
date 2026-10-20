@@ -16,7 +16,7 @@ public enum CanvasProjectDrawers {
         let workspace = "ProjectDrawerCheck"
 
         try await session.step("建立含项目区的隔离工作空间") {
-            try session.launch()
+            try session.launch(language: "zh-Hans")
             _ = try await session.wait(Expectation(anyOf: ["创建工作空间", "Create Workspace"], timeout: 25))
             try await session.click(matching: ["创建工作空间", "Create Workspace"], pick: .bottom)
             _ = try await session.wait(Expectation(anyOf: ["工作空间名称", "Workspace name"], timeout: 4))
@@ -33,7 +33,7 @@ public enum CanvasProjectDrawers {
                 throw E2EError.env("隔离数据目录丢失")
             }
             projectRoot = try CanvasProjectFixture.install(dataRoot: dataRoot, workspaceName: workspace)
-            try session.launch()
+            try session.launch(language: "zh-Hans")
             _ = try await session.wait(Expectation(allOf: [workspace], timeout: 20))
             return try session.prove(names: [workspace], areaCount: 1, linkedTo: workspace).summary
         }
@@ -107,7 +107,7 @@ public enum CanvasProjectDrawers {
             _ = try await session.wait(Expectation(allOf: ["当前对话", "E2E Project"], timeout: 8))
             let leftOpened = try await session.capture()
             try await session.click(local: CGPoint(x: Double(leftOpened.windowFrame.width) - 28, y: 26), on: leftOpened)
-            _ = try await session.wait(Expectation(allOf: ["E2E Project", "在这里浏览内容", "当前对话"], timeout: 8))
+            _ = try await session.wait(Expectation(allOf: ["E2E Project", "搜索或输入网址", "当前对话"], timeout: 8))
             try await Task.sleep(nanoseconds: 700_000_000)
             let opened = try await session.capture()
             try session.save(opened, "04-project-both-open.png")
@@ -185,7 +185,7 @@ public enum CanvasProjectDrawers {
         try await session.step("收起右抽屉后恢复宽画布卡片布局") {
             let frame = try await session.capture()
             try await session.click(local: CGPoint(x: 834, y: 26), on: frame)
-            _ = try await session.wait(Expectation(allOf: ["E2E Project", "Alan"], absent: ["在这里浏览内容"], timeout: 8))
+            _ = try await session.wait(Expectation(allOf: ["E2E Project", "Alan"], absent: ["搜索或输入网址"], timeout: 8))
             try await Task.sleep(nanoseconds: 700_000_000)
             let closed = try await session.capture()
             try session.save(closed, "06-project-right-closed.png")
