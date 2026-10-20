@@ -84,3 +84,37 @@ fn test_wallpaper_selection_variants_are_distinct() {
         "Custom 变体应携带 filename"
     );
 }
+
+/// T-W11: 默认壁纸必须用内置资源，渲染时不得为它访问文件系统。
+///
+/// 背景：默认壁纸 `home/earth-horizon.png` 已 `include_bytes!` 进二进制。旧实现在每次
+/// 渲染都先 `Path::is_file` 解析仓库路径，未打包的 debug 构建会因此读取位于用户“文稿”
+/// 目录的源码 checkout，对从未授权的宿主触发文件夹访问授权弹窗，同时每帧多一次 stat。
+///
+/// 数据构造：选择 = 默认 Builtin{home/earth-horizon.png}；测试环境里
+///   `CARGO_MANIFEST_DIR/assets/home/earth-horizon.png` 确实存在，所以旧实现必然返回路径来源。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 取默认选择的 image_source_for_selection
+///
+/// 预期结果：
+///   - 正断言：返回 `Resource::Embedded("home/earth-horizon.png")`
+///   - 负断言：不是 `Resource::Path`，否则仍会读取磁盘上的源码资源
+#[test]
+fn test_default_wallpaper_uses_embedded_asset_without_touching_disk() {
+    use gpui::{ImageSource, Resource};
+    let source = WallpaperSettingsState::image_source_for_selection(&WallpaperSelection::default());
+
+    match &source {
+        ImageSource::Resource(Resource::Embedded(path)) => {
+            assert_eq!(path.as_ref(), crate::assets::DEFAULT_WALLPAPER_ASSET);
+        }
+        ImageSource::Resource(Resource::Path(path)) => {
+            panic!(
+                "default wallpaper must not read disk, got {}",
+                path.display()
+            )
+        }
+        _ => panic!("default wallpaper must be an embedded resource"),
+    }
+}
