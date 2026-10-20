@@ -3,8 +3,7 @@
 use super::{glass_button_variant, BOTTOM, GLASS_TEXT, GLASS_TEXT_SECONDARY, TOP};
 use crate::app::MultisoulApp;
 use gpui::{
-    div, img, point, prelude::*, px, rgba, svg, BoxShadow, Context, Div, MouseButton, Stateful,
-    Window,
+    div, point, prelude::*, px, rgba, svg, BoxShadow, Context, Div, MouseButton, Stateful, Window,
 };
 use runtime::desktop_drawers::DesktopDrawerEvent;
 use ui::component::{
@@ -65,25 +64,15 @@ impl MultisoulApp {
                     .h(px(crate::app::TOP_BAR_HEIGHT))
                     .flex()
                     .items_center()
-                    .pl(px(82.0))
+                    .pl(px(crate::app::BRAND_TOGGLE_LEFT))
                     .pr(px(12.0))
+                    .gap(px(10.0))
                     .border_b_1()
                     .border_color(rgba(with_alpha(theme.edge_highlight, 0x36)))
                     .bg(rgba(with_alpha(theme.canvas_from, 0x50)))
                     .child(
-                        div()
-                            .id("desktop-assistant-brand")
-                            .debug_selector(|| "desktop-assistant-brand".to_string())
-                            .flex()
-                            .items_center()
-                            .gap(px(8.0))
-                            .child(img(crate::assets::APP_LOGO_ASSET).w(px(28.0)).h(px(28.0)))
-                            .child(div().font_semibold().text_size(px(19.0)).child("Norma")),
-                    )
-                    .child(
                         Button::new("desktop-close-left-drawer")
                             .debug_selector(|| "desktop-close-left-drawer".to_string())
-                            .ml_auto()
                             .w(px(32.0))
                             .h(px(32.0))
                             .p(px(0.0))
@@ -99,6 +88,22 @@ impl MultisoulApp {
                             .on_click(cx.listener(|app, _, _, cx| {
                                 app.toggle_desktop_drawer(DesktopDrawerEvent::ToggleLeft, cx);
                             })),
+                    )
+                    .child(
+                        div()
+                            .id("desktop-assistant-brand")
+                            .debug_selector(|| "desktop-assistant-brand".to_string())
+                            .flex()
+                            .items_center()
+                            .gap(px(8.0))
+                            .child(crate::app::brand_logo())
+                            .child(
+                                div()
+                                    .debug_selector(|| "desktop-brand-wordmark".to_string())
+                                    .font_semibold()
+                                    .text_size(px(15.0))
+                                    .child("Norma"),
+                            ),
                     ),
             )
             .child(self.render_left_drawer_tabs(cx))

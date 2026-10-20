@@ -172,7 +172,9 @@ impl MultisoulApp {
         div()
             .absolute()
             .top(px(10.0))
-            .when(left, |button| button.left(px(82.0)))
+            .when(left, |button| {
+                button.left(px(crate::app::BRAND_TOGGLE_LEFT))
+            })
             .when(!left, |button| button.right(px(12.0)))
             .child(
                 Button::new(id)
