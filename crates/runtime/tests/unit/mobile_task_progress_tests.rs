@@ -451,3 +451,28 @@ fn claude_turns_without_todo_tools_have_no_task_progress() {
 
 #[path = "mobile_unverified_task_progress_tests.rs"]
 mod unverified_task_progress;
+
+/// 子智能体的任务工具事件不属于主回合计划，不能让主回合进度消失。
+///
+/// 数据构造：主回合 TaskCreate 1、2 并完成 1；随后同回合来自 worker-1 的 TaskCreate 与未知 TaskUpdate。
+/// 执行过程：主计划 → 子智能体创建 → 子智能体更新一个主计划里不存在的任务。
+/// 预期结果：主回合仍显示 1/2，不被判为缺口而隐藏。
+#[test]
+fn native_task_progress_ignores_subagent_task_tools() {
+    let (mut runtime, node) = runtime();
+    runtime.observe_mobile_hook(&create(node, "1"));
+    runtime.observe_mobile_hook(&create(node, "2"));
+    runtime.observe_mobile_hook(&update(node, "1", "pending", "completed"));
+    let progress = runtime.mobile_task_progress(node).expect("主回合计划");
+    let mut sub_create = create(node, "9");
+    sub_create.raw_json["agent_id"] = json!("worker-1");
+    runtime.observe_mobile_hook(&sub_create);
+    let mut sub_update = update(node, "9", "pending", "completed");
+    sub_update.raw_json["agent_id"] = json!("worker-1");
+    runtime.observe_mobile_hook(&sub_update);
+    assert_eq!(
+        runtime.mobile_task_progress(node),
+        Some(progress),
+        "子智能体的任务工具不能改写或隐藏主回合进度"
+    );
+}

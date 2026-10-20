@@ -94,7 +94,7 @@ impl TaskSteps {
         }
         // Subagent task lists are not the main turn's plan.
         if raw.get("agent_id").is_some() {
-            return None;
+            return Some(());
         }
         let call = text(&raw["tool_use_id"])?;
         if self.seen.contains(call) {
