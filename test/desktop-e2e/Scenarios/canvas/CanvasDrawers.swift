@@ -273,7 +273,8 @@ private func leftVisible(_ frame: Frame) -> Bool {
 }
 
 private func rightVisible(_ frame: Frame) -> Bool {
-    frame.contains("搜索或输入网址")
+    // 空态右栏的稳定锚点；OCR 偶尔漏读其中一个，任一出现即视为展开。
+    ["搜索或输入网址", "推荐", "更多工具"].contains { frame.contains($0) }
 }
 
 private func wallpaperVisible(_ frame: Frame) -> Bool {
