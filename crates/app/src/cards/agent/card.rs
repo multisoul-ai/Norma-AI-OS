@@ -132,7 +132,7 @@ fn agent_task_badge(
     }
     let (label, tone) = match state {
         AgentTaskState::Ready => (
-            ui::i18n::text("common.ready").to_string(),
+            status_capsule_title(StatusCapsuleKind::PendingStart, None, None),
             CardChromeTaskTone::Muted,
         ),
         AgentTaskState::Thinking | AgentTaskState::RunningTool { .. } => (

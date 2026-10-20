@@ -10,6 +10,7 @@ use ui::Theme;
 
 #[path = "overview_copy.rs"]
 mod overview_copy;
+pub(in crate::workspace::desktop) use overview_copy::overview_subtitle;
 use overview_copy::{
     progress_detail, project_secondary, project_status, project_tone, running_detail,
 };

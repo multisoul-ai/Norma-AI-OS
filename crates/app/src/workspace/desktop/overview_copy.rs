@@ -104,7 +104,7 @@ fn elapsed_label(started_at_unix_ms: u64, now_ms: u64) -> String {
     }
 }
 
-fn relative_update(updated_at_unix_ms: i64, now_ms: u64) -> String {
+pub(super) fn relative_update(updated_at_unix_ms: i64, now_ms: u64) -> String {
     if updated_at_unix_ms < 0 {
         return String::new();
     }
@@ -114,5 +114,27 @@ fn relative_update(updated_at_unix_ms: i64, now_ms: u64) -> String {
         60..=3_599 => format!("{} 分钟前", age / 60),
         3_600..=86_399 => format!("{} 小时前", age / 3_600),
         _ => format!("{} 天前", age / 86_400),
+    }
+}
+
+/// 概览副标题：工作空间名，有投影时间时追加「· 刚刚更新」。
+pub(in crate::workspace::desktop) fn overview_subtitle(
+    name: &str,
+    updated_at_ms: Option<i64>,
+    now_ms: u64,
+) -> String {
+    match updated_at_ms.map(|at| relative_update(at, now_ms)) {
+        Some(when) if !when.is_empty() && !name.is_empty() => {
+            format!("{name} · {}", when_updated(&when))
+        }
+        _ => name.to_string(),
+    }
+}
+
+fn when_updated(when: &str) -> String {
+    if when == "刚刚" {
+        "刚刚更新".into()
+    } else {
+        format!("{when}更新")
     }
 }

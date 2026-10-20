@@ -427,3 +427,13 @@ fn test_agent_card_chrome_keeps_name_and_collapses_multiline_task_title() {
         "Agent title_detail 不得保留 LF，否则标题栏可能渲染成多行"
     );
 }
+
+/// 场景：空闲智能体的卡片芯片与状态胶囊同词，显示「待开始」而不是英文 Ready。
+#[test]
+fn idle_agent_badge_reads_pending_start() {
+    let badge = super::agent_task_badge(Some(AgentTaskState::Ready), None, false)
+        .expect("Ready 状态应渲染芯片");
+
+    assert_eq!(badge.label, "待开始", "空闲芯片应使用胶囊同一词汇");
+    assert_ne!(badge.label, "Ready", "不应再显示英文 Ready");
+}

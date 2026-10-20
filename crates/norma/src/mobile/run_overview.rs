@@ -194,7 +194,7 @@ fn attention_rows(
                     .task_title
                     .clone()
                     .filter(|title| !title.is_empty())
-                    .unwrap_or_else(|| "待审核".into()),
+                    .unwrap_or_else(|| "等待你确认".into()),
                 run_id: agent.run_id.clone().unwrap_or_default(),
                 turn_id: agent.turn_id.clone().unwrap_or_default(),
                 request_id: None,
@@ -353,7 +353,7 @@ fn approval_title(task: Option<&str>, reason: &str) -> String {
         .rsplit_once("确认 ")
         .map(|(_, tool)| tool.trim())
         .filter(|tool| !tool.is_empty())
-        .unwrap_or("待审核")
+        .unwrap_or("等待你确认")
         .to_string()
 }
 

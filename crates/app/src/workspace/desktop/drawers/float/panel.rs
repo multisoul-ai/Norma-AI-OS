@@ -1,5 +1,7 @@
 //! 悬浮面板的标题栏、图钉和列表。拖动与焦点落点在 drag.rs。
 
+use super::super::super::activity_cache::overview_clock_ms;
+use super::super::super::overview_rows::overview_subtitle;
 use super::super::GLASS_TEXT;
 use super::{
     overview_panel_fill, prefers_reduced_transparency, PANEL_BORDER, PANEL_RADIUS, PIN_ICON,
@@ -99,11 +101,16 @@ impl MultisoulApp {
 
     fn overview_title_bar(&mut self, floating: bool, cx: &mut Context<Self>) -> Stateful<Div> {
         let theme = self.desktop_theme();
-        let subtitle = self
+        let name = self
             .desktop_workspace
             .active()
             .map(|workspace| workspace.name.clone())
             .unwrap_or_default();
+        let subtitle = overview_subtitle(
+            &name,
+            self.desktop_workspace.activity_updated_at_ms,
+            overview_clock_ms(),
+        );
         div()
             .id(if floating {
                 "desktop-overview-float-header"

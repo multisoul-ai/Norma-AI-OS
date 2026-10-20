@@ -1,7 +1,7 @@
 use super::{
     move_overview_cursor, overview_action_keeps_overview, overview_action_starts_project,
-    overview_feedback, overview_row_height, overview_tone, present_overview, OverviewAction,
-    OverviewCursor, OverviewKey, OverviewRowKind, OverviewStatusTone, ProgressMark,
+    overview_feedback, overview_row_height, overview_subtitle, overview_tone, present_overview,
+    OverviewAction, OverviewCursor, OverviewKey, OverviewRowKind, OverviewStatusTone, ProgressMark,
     OVERVIEW_TEXT_PRIMARY, OVERVIEW_TEXT_SECONDARY,
 };
 use norma::mobile::{
@@ -473,4 +473,20 @@ fn color_distance(left: (u8, u8, u8), right: (u8, u8, u8)) -> i32 {
     (left.0 as i32 - right.0 as i32).abs()
         + (left.1 as i32 - right.1 as i32).abs()
         + (left.2 as i32 - right.2 as i32).abs()
+}
+
+/// 场景：概览副标题在有投影时间时追加「· 刚刚更新」，没有时间或没有名字时只退回名字。
+#[test]
+fn overview_subtitle_appends_update_age() {
+    let now = 10_000_000u64;
+    assert_eq!(
+        overview_subtitle("Norma", Some(now as i64 - 5_000), now),
+        "Norma · 刚刚更新"
+    );
+    assert_eq!(
+        overview_subtitle("Norma", Some(now as i64 - 180_000), now),
+        "Norma · 3 分钟前更新"
+    );
+    assert_eq!(overview_subtitle("Norma", None, now), "Norma");
+    assert_eq!(overview_subtitle("", Some(now as i64), now), "");
 }

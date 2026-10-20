@@ -252,6 +252,7 @@ impl MultisoulApp {
                     app.desktop_workspace.activity_view = Some(projected.view);
                     app.desktop_workspace.activity_overview = Some(projected.areas);
                     app.desktop_workspace.activity_run_overview = Some(projected.overview.clone());
+                    app.desktop_workspace.activity_updated_at_ms = Some(overview_clock_ms() as i64);
                     let count = projected.overview.attention.len()
                         + projected.overview.current_agents.len()
                         + projected.overview.other_projects.len();
@@ -448,4 +449,11 @@ fn card_from_status(
     card.run_id = agent.run_id.clone();
     card.turn_id = agent.turn_id.clone();
     card
+}
+
+pub(in crate::workspace::desktop) fn overview_clock_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_millis() as u64)
+        .unwrap_or_default()
 }
