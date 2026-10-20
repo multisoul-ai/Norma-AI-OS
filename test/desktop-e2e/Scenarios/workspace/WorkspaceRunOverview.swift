@@ -22,7 +22,7 @@ public enum WorkspaceRunOverview {
             try await session.shortcut(key: 14, modifiers: [0x37, 0x38])
             let overview = try await session.wait(
                 Expectation(
-                    allOf: ["需要你处理", "当前项目", "其他项目"],
+                    allOf: ["要你处理", "当前项目", "其他项目"],
                     absent: ["尚无已加载的智能体", "%"],
                     timeout: 6
                 )

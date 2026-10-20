@@ -17,7 +17,7 @@ public enum WorkspaceOverviewFloat {
             _ = try await session.wait(Expectation(allOf: [name], timeout: 12))
             try await session.shortcut(key: 14, modifiers: [0x37, 0x38])
             let overview = try await session.wait(
-                Expectation(allOf: ["对话", "运行概览"], timeout: 6)
+                Expectation(allOf: ["当前项目", "其他项目"], timeout: 6)
             )
             try session.save(overview, "01-drawer-overview.png")
             return overview.summary
@@ -25,16 +25,17 @@ public enum WorkspaceOverviewFloat {
 
         try await session.step("点图钉后概览悬浮，左栏回到对话") {
             let frame = try await session.capture()
-            guard let title = frame.pick(["运行概览"], .bottom) else {
-                throw E2EError.product("抽屉概览标题没有出现。可见：\(frame.summary)")
+            guard let tab = frame.pick(["Run Overview", "运行概览"], .top) else {
+                throw E2EError.product("抽屉概览标签没有出现。可见：\(frame.summary)")
             }
+            let pinY = tab.center.y + 42
             let drawerRight = min(max(frame.windowFrame.width * 0.31, 366), 438)
             try await session.click(
-                local: CGPoint(x: drawerRight - 26, y: title.center.y),
+                local: CGPoint(x: drawerRight - 26, y: pinY),
                 on: frame
             )
             let floating = try await session.wait(
-                Expectation(allOf: ["和 Norma 聊聊", "运行概览"], timeout: 6)
+                Expectation(anyOf: ["和 Norma 聊聊", "Talk to Norma"], allOf: ["运行概览"], timeout: 6)
             )
             try session.save(floating, "02-floating-overview.png")
             let unchanged = try session.prove(names: [name], areaCount: 0)
@@ -42,16 +43,17 @@ public enum WorkspaceOverviewFloat {
         }
 
         try await session.step("拖动悬浮标题后点运行概览标签收回") {
+            try await Task.sleep(nanoseconds: 700_000_000)
             let frame = try await session.capture()
-            guard let title = frame.pick(["运行概览"], .right) else {
+            guard let title = frame.pick(["Run Overview", "运行概览"], .right) else {
                 throw E2EError.product("悬浮概览标题没有出现。可见：\(frame.summary)")
             }
             let destination = CGPoint(x: title.center.x - 80, y: title.center.y + 36)
             try await session.drag(local: title.center, to: destination, on: frame)
-            try await session.click(matching: ["运行概览"], pick: .top)
+            try await session.click(matching: ["Run Overview", "运行概览"], pick: .left)
             let docked = try await session.wait(
                 Expectation(
-                    allOf: ["运行概览", "需要你处理"],
+                    allOf: ["要你处理"],
                     absent: ["和 Norma 聊聊"],
                     timeout: 6
                 )

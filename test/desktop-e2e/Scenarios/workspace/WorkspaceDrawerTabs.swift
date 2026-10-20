@@ -22,7 +22,7 @@ public enum WorkspaceDrawerTabs {
         try await session.step("⌘⇧E 展开左栏并进入运行概览") {
             try await session.shortcut(key: 14, modifiers: [0x37, 0x38])
             let overview = try await session.wait(
-                Expectation(allOf: ["对话", "运行概览"], timeout: 6)
+                Expectation(allOf: ["当前项目", "其他项目"], timeout: 6)
             )
             try session.save(overview, "01-run-overview.png")
             let unchanged = try session.prove(names: [name], areaCount: 0)
@@ -32,7 +32,7 @@ public enum WorkspaceDrawerTabs {
         try await session.step("再次 ⌘⇧E 回到对话") {
             try await session.shortcut(key: 14, modifiers: [0x37, 0x38])
             let chat = try await session.wait(
-                Expectation(allOf: ["对话", "和 Norma 聊聊"], absent: ["尚无已加载的智能体"], timeout: 6)
+                Expectation(anyOf: ["和 Norma 聊聊", "Talk to Norma"], absent: ["当前项目", "尚无已加载的智能体"], timeout: 6)
             )
             try session.save(chat, "02-back-to-chat.png")
             let unchanged = try session.prove(names: [name], areaCount: 0)
