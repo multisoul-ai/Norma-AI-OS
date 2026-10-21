@@ -76,6 +76,38 @@ public enum CanvasCommandDock {
             return "裸词只剩 Midnight 主题"
         }
 
+        try await session.step("/opcode 模糊匹配并用 Tab 补全") {
+            try await session.selectAll()
+            try await session.type("/opcode")
+            try await Task.sleep(nanoseconds: 1_200_000_000)
+            let frame = try await session.capture()
+            try session.save(frame, "02b-fuzzy-agent.png")
+            // 子序列命中 OpenCode，补全文本为 /new opencode；其余 Agent 不应出现。
+            guard frame.contains("new opencode"), !frame.contains("Codex") else {
+                throw E2EError.product("/opcode 未模糊匹配到 OpenCode：\(frame.summary)")
+            }
+            try await session.shortcut(key: 48, modifiers: [])
+            try await Task.sleep(nanoseconds: 1_000_000_000)
+            let completed = try await session.capture()
+            try session.save(completed, "02c-tab-completed.png")
+            guard completed.contains("new opencode") else {
+                throw E2EError.product("Tab 后输入框未补全为 /new opencode：\(completed.summary)")
+            }
+            return "/opcode 经 Tab 补全为 /new opencode"
+        }
+
+        try await session.step("/open 同时列出浏览与 OpenCode") {
+            try await session.selectAll()
+            try await session.type("/open")
+            try await Task.sleep(nanoseconds: 1_200_000_000)
+            let frame = try await session.capture()
+            try session.save(frame, "02d-open-prefix.png")
+            guard frame.contains("new opencode"), frame.contains("/open") else {
+                throw E2EError.product("/open 应同时列出浏览项与 OpenCode：\(frame.summary)")
+            }
+            return "/open 列出浏览文件夹与新建 OpenCode"
+        }
+
         try await session.step("/add 无匹配时回退到浏览文件夹") {
             try await session.selectAll()
             try await session.type("/add zzzz")
