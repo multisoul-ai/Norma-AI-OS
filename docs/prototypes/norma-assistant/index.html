@@ -400,10 +400,10 @@ summary::-webkit-details-marker{display:none}
 /* 想法清单：运行概览里的一栏，拖给智能体卡片或新建智能体 */
 /* 运行概览分栏：每栏固定高度（按比例分配抽屉高度），内容多了栏内滚动；标题可折叠，折叠后空间让给其他栏。 */
 .run-overview .run-sections{display:flex;flex-direction:column;gap:4px;overflow-y:auto;overflow-x:hidden}
-.run-sections .run-group{display:flex;flex-direction:column;min-height:84px;flex:0 1 var(--h,160px);margin:0;padding:0}
+.run-sections .run-group{display:flex;flex-direction:column;min-height:84px;flex:var(--g,1) 1 var(--h,160px);margin:0;padding:0}
 .run-sections .run-group+.run-group{margin-top:0;padding-top:4px;border-top:1px solid #cde8ff14}
 .run-overview[data-mode=drawer] .run-pop-head{padding:8px 8px 4px}.run-overview[data-mode=drawer] .run-pop-title small{display:none}
-.run-group[data-group=attention]{--h:190px}.run-group[data-group=current]{--h:210px}.run-group[data-group=ideas]{--h:236px}.run-group[data-group=other]{--h:88px}.drawer-tab{white-space:nowrap}
+.run-group[data-group=attention]{--h:190px;--g:1}.run-group[data-group=current]{--h:210px;--g:1.2}.run-group[data-group=ideas]{--h:236px;--g:1.4}.run-group[data-group=other]{--h:88px;--g:.6}.drawer-tab{white-space:nowrap}
 .run-sections .run-group-title{flex:none}
 .run-empty{display:none;height:100%;min-height:0;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:8px 12px;text-align:center;color:#9fb8cf;font-size:12px;line-height:1.5}
 .run-group[data-group=other] .run-empty small{display:none}.run-empty span{font-size:16px;color:#7ea4c4}.run-empty strong{font-weight:560;color:#cfe3f4}.run-empty small{color:#8ea8bf}
