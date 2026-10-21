@@ -3,8 +3,8 @@ use std::collections::{HashSet, VecDeque};
 use std::time::{Duration, Instant};
 
 const FLIGHT_DURATION: Duration = Duration::from_millis(480);
-/// 想法流星飞得更久一些：先慢后快再收，需要时间铺开加速的过程。
-const IDEA_FLIGHT_DURATION: Duration = Duration::from_millis(760);
+/// 想法流星飞得更久一些：前半程蓄势，需要时间铺开“先缓后猛”的过程。
+const IDEA_FLIGHT_DURATION: Duration = Duration::from_millis(900);
 const IMPACT_DURATION: Duration = Duration::from_millis(430);
 const REDUCED_PULSE_DURATION: Duration = Duration::from_millis(150);
 const MAX_TICK_DELTA: Duration = Duration::from_millis(50);

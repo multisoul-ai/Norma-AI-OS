@@ -1,7 +1,7 @@
-//! 想法流星：白色光点，沿一条轻微弯曲的弧线逐步加速飞向卡片中央，尾迹随速度拉长。
+//! 想法流星：白色光点，沿一条轻微弯曲的弧线先缓慢蓄势、再突然加速飞向卡片中央，尾焰随速度拉长。
 //!
 //! 对照原型 `flyMeteor`：
-//! - 进度用 easeInOutCubic（先慢后快再收），所以是“逐步加速”，临近目标时收速。
+//! - 进度用 easeInQuart：前半程几乎在原地蓄势，随后突然提速，撞击时速度最快——先缓后猛的“顿挫”。
 //! - 尾迹是一串由细到粗、由冷白到纯白的小段，越靠近头部越亮越粗（宽度 1 + 6.5·life²）；
 //!   速度越快，尾迹覆盖的行程越长。
 //! - 头部是纯白亮点加两层冷白光晕；尾迹两侧散落几粒细小的火花。
@@ -21,14 +21,9 @@ const SPARKS: usize = 18;
 /// 尾焰覆盖的时间占整段飞行的比例（原型是 320ms / 约 760ms）。
 const TAIL_SPAN: f32 = 0.42;
 
-/// easeInOutCubic：前半段加速，后半段减速。
+/// easeInQuart：先缓慢蓄势，后半段突然加速，撞击时速度最快（有“顿挫”的发射感）。
 pub(super) fn ease_in_out_cubic(progress: f32) -> f32 {
-    let p = progress.clamp(0.0, 1.0);
-    if p < 0.5 {
-        4.0 * p * p * p
-    } else {
-        1.0 - (-2.0 * p + 2.0).powi(3) / 2.0
-    }
+    progress.clamp(0.0, 1.0).powi(4)
 }
 
 /// 尾焰起点对应的行程比例。
@@ -135,17 +130,17 @@ fn paint_sparks(
 }
 
 fn paint_head(head: Point<Pixels>, linear_progress: f32, plan: &mut DispatchPaintPlan) {
-    // 接近目标时头部略微收小，与撞击光环衔接。
-    let settle = 1.0 - 0.3 * ((linear_progress - 0.85) / 0.15).clamp(0.0, 1.0);
+    // 蓄势期光点由小变亮；冲刺时保持满亮度直至撞击。
+    let charge = 0.55 + 0.45 * (linear_progress / 0.6).clamp(0.0, 1.0);
     for (size, alpha) in [(36.0, 0x1c), (22.0, 0x40), (12.0, 0x90)] {
-        let size = size * settle;
+        let size = size * charge;
         plan.quads.push(round_quad(
             centered_bounds(head, size, size),
             size / 2.0,
             with_alpha(0xdff1ffff, alpha),
         ));
     }
-    let core = 5.5 * settle;
+    let core = 5.5 * charge;
     plan.quads.push(round_quad(
         centered_bounds(head, core, core),
         core / 2.0,

@@ -200,7 +200,7 @@ public enum WorkspaceIdeas {
             let target = try cardTarget(frame)
             let size = frame.windowFrame.size
             let baseline = try await session.snapshot()
-            let samples = try await session.dragSampling(local: start, to: target, on: frame, afterMs: [80, 200, 320, 440, 560, 680, 800, 920, 1040])
+            let samples = try await session.dragSampling(local: start, to: target, on: frame, afterMs: [150, 350, 550, 700, 800, 880, 960, 1060, 1200])
             // 抽屉右侧到落点之间只有流星会经过（抽屉里的列表重排不算）。
             let corridor = CGRect(x: geo.drawer + 4, y: min(start.y, target.y) - 70, width: max(40, target.x - geo.drawer - 4), height: abs(target.y - start.y) + 140)
             // 指令栏本身（底部 52px 高、距底 22px）；避开卡片，卡片落点的高亮不算。
@@ -261,10 +261,12 @@ public enum WorkspaceIdeas {
             try await session.click(local: CGPoint(x: geo.drawer - 97, y: line.center.y + 11), on: frame)
             frame = try await session.wait(Expectation(allOf: ["新建智能体来完成"], timeout: 5))
             try session.save(frame, "06-menu.png")
-            guard let item = frame.texts.filter({ ($0.value.contains("Bella") || $0.value.contains("Alan")) && $0.center.x > 150 && $0.center.x < geo.drawer - 20 && $0.center.y > line.center.y }).min(by: { $0.center.y < $1.center.y }) else {
-                throw E2EError.product("菜单里找不到智能体选项：\(frame.summary)")
+            // 菜单项高 36px：「新建智能体来完成」上方隔着一条分隔线，它正上方一项是 Bella；按几何定位比读小字更稳。
+            guard let newItem = frame.texts.filter({ $0.value.contains("新建智能体来完成") && $0.center.x < geo.drawer }).max(by: { $0.center.y < $1.center.y }) else {
+                throw E2EError.product("菜单里找不到「新建智能体来完成」：\(frame.summary)")
             }
-            try await session.click(local: item.center, on: frame)
+            let itemPoint = CGPoint(x: newItem.center.x, y: newItem.center.y - 44)
+            try await session.click(local: itemPoint, on: frame)
             try await Task.sleep(nanoseconds: 1_800_000_000)
             let state = try idea(viaMenu)
             guard state.state == "assigned", !state.taskRef.isEmpty else {
