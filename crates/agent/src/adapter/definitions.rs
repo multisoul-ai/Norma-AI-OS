@@ -176,6 +176,30 @@ pub fn norma_tool_definitions() -> Vec<ToolDefinition> {
             &["workspace_id", "area_id", "node_id"],
         ),
     ));
+    tools.push(definition(
+        "capture_idea",
+        "用户说“记一下/记下来/别忘了/提醒我/加个待办”等，想把一个想法留着以后做时调用。body 写成一句自包含的想法原文，不要自行扩写或拆分。只记录，不执行；用户没有要求现在就做时不要派发。",
+        object_schema(json!({"body": {"type": "string", "minLength": 1}}), &["body"]),
+    ));
+    tools.push(definition(
+        "list_ideas",
+        "只读：列出当前工作空间的想法清单（待办、已指派、已完成）及 idea_id。用户问“有哪些想法/待办”，或需要 idea_id 才能派发时先调用。",
+        object_schema(json!({}), &[]),
+    ));
+    tools.push(definition(
+        "assign_idea",
+        "把清单里的一条待办想法交给 Agent 去做。先用 list_ideas 取得 idea_id；目标二选一：已有智能体传 node_id（来自 workspace_snapshot），新建智能体传 new_agent_profile。workspace_id 与 area_id 必填，新建时 area_id 即新卡片所在项目区域。一次只派一个想法给一个目标，按真实回执答复。",
+        object_schema(
+            json!({
+                "idea_id": {"type": "string", "minLength": 1},
+                "workspace_id": {"type": "string", "minLength": 1},
+                "area_id": {"type": "string", "minLength": 1},
+                "node_id": {"type": "integer", "minimum": 1},
+                "new_agent_profile": {"type": "string", "enum": ["codex", "claude", "opencode", "infcode", "cursor", "grok", "kimi", "zcode", "pi", "hermes"]}
+            }),
+            &["idea_id", "workspace_id", "area_id"],
+        ),
+    ));
     tools
 }
 

@@ -63,6 +63,9 @@ where
             .tool(crate::rig_tools::LocateWorkspaceAgentTool::new(
                 tools.clone(),
             ))
+            .tool(crate::rig_tools::CaptureIdeaTool::new(tools.clone()))
+            .tool(crate::rig_tools::ListIdeasTool::new(tools.clone()))
+            .tool(crate::rig_tools::AssignIdeaTool::new(tools.clone()))
     } else {
         builder
     };

@@ -30,13 +30,28 @@ pub struct IdeasStore {
 enum Patch<'a> {
     Keep,
     TaskRef(&'a str),
-    Assignee { area: &'a str, node: u64 },
+    Assignee {
+        area: &'a str,
+        node: u64,
+        task_ref: Option<&'a str>,
+    },
     Clear,
 }
 
 impl IdeasStore {
     pub fn new(path: PathBuf) -> Self {
         Self { path }
+    }
+
+    /// 由存储生成 ID 的 `add`，供对话/语音入口使用。
+    pub fn capture(
+        &self,
+        workspace_id: &str,
+        body: &str,
+        source: IdeaSource,
+    ) -> StorageResult<StoredIdea> {
+        let id = crate::workspace_identity_store::random_workspace_id()?;
+        self.add(workspace_id, &id, body, source)
     }
 
     pub fn add(
@@ -83,7 +98,7 @@ impl IdeasStore {
         id: &str,
         task_ref: &str,
     ) -> StorageResult<Option<StoredIdea>> {
-        crate::mobile_access_store::validate_id(task_ref)?;
+        validate_task_ref(task_ref)?;
         self.step(
             workspace_id,
             id,
@@ -92,16 +107,22 @@ impl IdeasStore {
         )
     }
 
+    /// 派发成功：记录落点智能体，并用派发回执里的真实 `task_ref` 替换占位值（未给出则保留）。
     pub fn mark_assigned(
         &self,
         workspace_id: &str,
         id: &str,
         area_id: &str,
         node_id: u64,
+        task_ref: Option<&str>,
     ) -> StorageResult<Option<StoredIdea>> {
+        if let Some(task_ref) = task_ref {
+            validate_task_ref(task_ref)?;
+        }
         let patch = Patch::Assignee {
             area: area_id,
             node: node_id,
+            task_ref,
         };
         self.step(workspace_id, id, IdeaEvent::DispatchSucceeded, patch)
     }
@@ -206,8 +227,14 @@ impl IdeasStore {
                     task_ref
                 ],
             )?,
-            Patch::Assignee { area, node } => tx.execute(
-                &format!("{head},assignee_area_id=?6,assignee_node_id=?7 {tail}"),
+            Patch::Assignee {
+                area,
+                node,
+                task_ref,
+            } => tx.execute(
+                &format!(
+                    "{head},assignee_area_id=?6,assignee_node_id=?7,task_ref=COALESCE(?8,task_ref) {tail}"
+                ),
                 params![
                     next.as_str(),
                     now,
@@ -215,7 +242,8 @@ impl IdeasStore {
                     id,
                     current.state.as_str(),
                     area,
-                    i64::try_from(node).map_err(|_| invalid("node id out of range"))?
+                    i64::try_from(node).map_err(|_| invalid("node id out of range"))?,
+                    task_ref
                 ],
             )?,
         };
@@ -283,6 +311,14 @@ fn read(tx: &Transaction<'_>, workspace_id: &str, id: &str) -> StorageResult<Opt
     .optional()?
     .map(convert)
     .transpose()
+}
+
+/// 运行时 task_ref 形如 `<runtime-instance>:<id>`，不能套用只允许字母数字的 ID 规则。
+fn validate_task_ref(task_ref: &str) -> StorageResult<()> {
+    if task_ref.is_empty() || task_ref.len() > 128 || task_ref.chars().any(char::is_control) {
+        return Err(invalid("invalid task_ref"));
+    }
+    Ok(())
 }
 
 fn invalid(message: &str) -> StorageError {

@@ -166,11 +166,11 @@ fn assignment_completion_failure_and_retract_follow_state_machine() {
         .add(&ws, "i2", "乙", IdeaSource::Chat)
         .expect("应记下想法");
     store
-        .begin_dispatch(&ws, "i1", "task-1")
+        .begin_dispatch(&ws, "i1", "idea:i1")
         .expect("不应出错")
-        .expect("应开始派发");
+        .expect("应开始派发（占位 task_ref）");
     let assigned = store
-        .mark_assigned(&ws, "i1", "area-1", 7)
+        .mark_assigned(&ws, "i1", "area-1", 7, Some("run-9:41"))
         .expect("不应出错")
         .expect("派发中应可标记成功");
     assert_eq!(assigned.state, IdeaState::Assigned, "派发成功后应为已指派");
@@ -182,6 +182,11 @@ fn assignment_completion_failure_and_retract_follow_state_machine() {
         (Some("area-1"), Some(7)),
         "应记录落点智能体"
     );
+    assert_eq!(
+        assigned.task_ref.as_deref(),
+        Some("run-9:41"),
+        "派发回执的真实 task_ref（含冒号）应替换占位值"
+    );
     assert!(
         !store
             .complete_by_task_ref("task-unknown")
@@ -189,7 +194,11 @@ fn assignment_completion_failure_and_retract_follow_state_machine() {
         "未知 task_ref 不应完成任何想法"
     );
     assert!(
-        store.complete_by_task_ref("task-1").expect("不应出错"),
+        !store.complete_by_task_ref("idea:i1").expect("不应出错"),
+        "被替换掉的占位 task_ref 不应再匹配"
+    );
+    assert!(
+        store.complete_by_task_ref("run-9:41").expect("不应出错"),
         "已知 task_ref 应完成对应想法"
     );
     assert!(
@@ -312,5 +321,29 @@ fn deleting_workspace_removes_its_ideas() {
     assert!(
         store.add(&ws, "i2", "乙", IdeaSource::Chat).is_err(),
         "不存在的工作空间不能记想法"
+    );
+}
+
+/// 记想法时由存储生成不重复的 ID，调用方（Norma 适配器）不必自造。
+///
+/// 数据构造：同一工作空间连续 capture 同样正文两次。
+/// 预期结果：
+///   - 正断言：两条想法都进入清单且状态为待办。
+///   - 负断言：两个 ID 不相等（相同正文不会被合并或覆盖）。
+#[test]
+fn capture_generates_distinct_ids_for_identical_bodies() {
+    let (_temp, db, ws) = setup();
+    let store = IdeasStore::new(db);
+    let first = store
+        .capture(&ws, "同一句话", IdeaSource::Voice)
+        .expect("应记下第一条");
+    let second = store
+        .capture(&ws, "同一句话", IdeaSource::Voice)
+        .expect("应记下第二条");
+    assert_ne!(first.id, second.id, "相同正文也应生成不同 ID");
+    assert_eq!(
+        store.list(&ws).expect("应列出").len(),
+        2,
+        "两条想法都应在清单里"
     );
 }

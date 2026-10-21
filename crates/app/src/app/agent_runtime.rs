@@ -22,6 +22,7 @@ mod diagnostics;
 mod dispatch_effects;
 mod doubao_adapter;
 mod gpt_live_adapter;
+mod idea_commands;
 mod identity;
 mod mobile_control;
 mod mobile_delivery;

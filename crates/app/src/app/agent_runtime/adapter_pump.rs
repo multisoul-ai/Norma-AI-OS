@@ -66,6 +66,13 @@ pub(crate) fn execute_norma_adapter_command_with_source(
 ) -> Result<AdapterResult, AdapterError> {
     match command {
         AdapterCommand::Memory(_) | AdapterCommand::WorkspaceMemory { .. } => Err(AdapterError::Rejected("记忆 IO 必须经过后台服务".into())),
+        AdapterCommand::CaptureIdea { body } => {
+            idea_commands::capture_idea(app, cx, &body, input_source)
+        }
+        AdapterCommand::ListIdeas => idea_commands::list_ideas(app, cx),
+        AdapterCommand::AssignIdea { idea_id, target } => {
+            idea_commands::assign_idea(app, window, cx, &idea_id, target, input_source)
+        }
         AdapterCommand::WorkspaceSnapshot { scope, area_id } => {
             app.norma_workspace_snapshot(scope, area_id.as_deref(), cx)
         }

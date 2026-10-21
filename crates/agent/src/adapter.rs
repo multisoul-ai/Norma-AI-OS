@@ -11,6 +11,7 @@ use tokio_util::sync::CancellationToken;
 mod commands;
 use commands::parse_adapter_command;
 mod definitions;
+mod ideas;
 pub use definitions::norma_tool_definitions;
 mod delete_intent;
 use delete_intent::{
@@ -28,6 +29,21 @@ pub struct ToolContext {
     pub tool_call_id: String,
     pub operation_id: Option<String>,
     pub cancellation: CancellationToken,
+}
+
+/// 想法的派发目标：已有智能体（稳定三元定位）或在指定项目区域新建。
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub enum IdeaTarget {
+    Agent {
+        workspace_id: String,
+        area_id: String,
+        node_id: u64,
+    },
+    NewAgent {
+        workspace_id: String,
+        area_id: String,
+        profile: AgentProfile,
+    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -70,6 +86,14 @@ pub enum AdapterCommand {
     CreateAgent {
         profile: AgentProfile,
         task: Option<String>,
+    },
+    CaptureIdea {
+        body: String,
+    },
+    ListIdeas,
+    AssignIdea {
+        idea_id: String,
+        target: IdeaTarget,
     },
     AssignAgentTask {
         agent: String,
@@ -304,6 +328,7 @@ impl NormaToolRuntime {
                 AdapterCommand::Memory(_)
                     | AdapterCommand::WorkspaceMemory { .. }
                     | AdapterCommand::FindAgentTasks { .. }
+                    | AdapterCommand::ListIdeas
             )
         {
             return Err(AdapterError::Rejected(
