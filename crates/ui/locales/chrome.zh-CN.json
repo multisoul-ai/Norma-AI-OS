@@ -63,6 +63,8 @@
   "chrome.command.browser": "新建浏览器",
   "chrome.command.preview": "预览文件",
   "chrome.command.theme": "切换主题",
+  "chrome.command.browse_project": "浏览文件夹…",
+  "chrome.command.browse_project_detail": "在访达中选择其他文件夹作为项目",
   "chrome.ego_task_active": "Ego 任务仍在进行中；请先完成任务或等待 Agent 结束后再关闭卡片。",
   "chrome.ego_master_first": "请先将 Ego 卡片设为 Master，再接管浏览器。",
   "chrome.spoken_reply_failed": "语音回复失败：%{reason}",

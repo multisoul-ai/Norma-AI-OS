@@ -7,7 +7,7 @@ pub(crate) use view::DOCK_RADIUS;
 
 use super::{AppScreen, MultisoulApp, NewBrowser, NewTerminal};
 use gpui::{App, AppContext, Context, Entity, Focusable, ScrollHandle, Subscription, Window};
-use runtime::command::{suggestions, CommandSuggestion, CommandTheme, DockCommand};
+use runtime::command::{suggestions, CommandProject, CommandSuggestion, CommandTheme, DockCommand};
 use ui::{
     component::input::{InputEvent, InputState},
     ThemeId,
@@ -27,6 +27,8 @@ pub(crate) struct CommandDockState {
     pub reply: Option<ui::i18n::LocalizedText>,
     pub pending_reply: bool,
     pub reply_generation: u64,
+    /// Recent repos offered by `/add`, refreshed whenever the dock gains input.
+    pub projects: Vec<CommandProject>,
 }
 
 impl CommandDockState {
@@ -35,10 +37,10 @@ impl CommandDockState {
     }
 
     fn suggestions(&self) -> Vec<CommandSuggestion> {
-        Self::suggestions_for(&self.draft)
+        Self::suggestions_for(&self.draft, &self.projects)
     }
 
-    fn suggestions_for(draft: &str) -> Vec<CommandSuggestion> {
+    fn suggestions_for(draft: &str, projects: &[CommandProject]) -> Vec<CommandSuggestion> {
         suggestions(
             draft,
             &ThemeId::ALL.map(|id| CommandTheme {
@@ -46,6 +48,7 @@ impl CommandDockState {
                 title: id.display_name(),
                 dark: id.is_dark(),
             }),
+            projects,
         )
     }
 }
@@ -71,6 +74,7 @@ impl MultisoulApp {
         let subscription = cx.subscribe_in(&input, window, |app, input, event, window, cx| {
             match event {
                 InputEvent::Change => {
+                    app.refresh_command_projects(cx);
                     let value = input.read(cx).value().to_string();
                     let Some(state) = &mut app.command_dock else {
                         return;
@@ -90,6 +94,7 @@ impl MultisoulApp {
                     }
                 }
                 InputEvent::Focus => {
+                    app.refresh_command_projects(cx);
                     app.release_all_browser_input();
                     super::native_input::focus_gpui(window, "command_input_focus");
                     app.runtime.focus.exit_to_canvas();
@@ -124,6 +129,7 @@ impl MultisoulApp {
             reply: None,
             pending_reply: false,
             reply_generation: 0,
+            projects: Vec::new(),
         });
     }
 
@@ -151,6 +157,34 @@ impl MultisoulApp {
             state.input.focus_handle(cx).focus(window);
         }
         cx.notify();
+    }
+
+    /// Recent repos live on the desktop host when the dock sits in a project window.
+    fn refresh_command_projects(&mut self, cx: &mut Context<Self>) {
+        let records = match self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
+            Some(host) => host.read(cx).workspace_state.recent.records.clone(),
+            None => self.workspace_state.recent.records.clone(),
+        };
+        if let Some(state) = &mut self.command_dock {
+            state.projects = records
+                .into_iter()
+                .map(|record| CommandProject {
+                    name: record.display_name,
+                    path: record.path.display().to_string(),
+                })
+                .collect();
+        }
+    }
+
+    fn add_project_from_dock(&mut self, path: String, window: &mut Window, cx: &mut Context<Self>) {
+        let path = std::path::PathBuf::from(path);
+        if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
+            host.update(cx, |host, cx| {
+                host.add_project_to_desktop_workspace(path, window, cx)
+            });
+        } else {
+            self.add_project_to_desktop_workspace(path, window, cx);
+        }
     }
 
     pub(crate) fn hide_command_suggestions(&mut self) {
@@ -223,6 +257,28 @@ impl MultisoulApp {
             }
             return;
         }
+        match command {
+            DockCommand::AddProject(path) => {
+                self.add_project_from_dock(path, window, cx);
+                self.set_command_query(String::new(), false, window, cx);
+                self.focus_handle.focus(window);
+                return;
+            }
+            DockCommand::BrowseProject => {
+                self.set_command_query(String::new(), false, window, cx);
+                self.prompt_open_project(window, cx);
+                return;
+            }
+            command => self.spawn_dock_card(command, window, cx),
+        }
+    }
+
+    fn spawn_dock_card(
+        &mut self,
+        command: DockCommand,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let before = self.runtime.document.nodes().len();
         let desktop_agent_pending = matches!(command, DockCommand::Agent(_))
             && self
@@ -234,7 +290,10 @@ impl MultisoulApp {
             DockCommand::Agent(profile) => self.spawn_agent_card(profile, window, cx),
             DockCommand::Terminal => self.on_new_terminal(&NewTerminal, window, cx),
             DockCommand::Browser => self.on_new_browser(&NewBrowser, window, cx),
-            DockCommand::Preview | DockCommand::Theme(_) => unreachable!(),
+            DockCommand::Preview
+            | DockCommand::Theme(_)
+            | DockCommand::AddProject(_)
+            | DockCommand::BrowseProject => unreachable!(),
         }
         // Desktop Agent creation validates its directory asynchronously. Consume the
         // accepted command now; a second Enter event must not submit it again.
