@@ -141,8 +141,6 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) ideas_input: Option<Entity<InputState>>,
     /// 上一次渲染时的待办条数（None 表示还没渲染过，首次不滚动）。
     pub(crate) ideas_seen_todo: Option<usize>,
-    /// 指派菜单刚展开后，还需要把它滚进可见范围的帧数。
-    pub(crate) ideas_menu_reveal_frames: u8,
     pub(crate) idea_drag: Option<idea_drag_ui::IdeaDragSession>,
     pub(crate) overview_float_fade: drawers::float::OverviewFloatFade,
     pub(crate) overview_drag: Option<drawers::float::OverviewDrag>,
@@ -315,7 +313,6 @@ impl DesktopWorkspaceUiState {
             idea_flight_anchor: (140, 240),
             ideas_input: None,
             ideas_seen_todo: None,
-            ideas_menu_reveal_frames: 0,
             idea_drag: None,
             overview_float_fade: drawers::float::OverviewFloatFade::default(),
             overview_drag: None,

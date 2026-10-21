@@ -200,20 +200,28 @@ pub(super) fn tone_color(
     }
 }
 
-/// 栏标题前的折叠箭头：展开朝下，折叠朝右。用图标而不是文字符号，避免和相邻文字粘在一起。
+/// 栏标题前的折叠箭头：与原型一致的 8×5 实心小三角，展开朝下，折叠朝右。
 pub(super) fn group_chevron(collapsed: bool) -> gpui::AnyElement {
     let icon = gpui::svg()
-        .path("icons/chevron-down.svg")
-        .w(px(11.0))
-        .h(px(11.0))
+        .path("icons/triangle-down.svg")
+        .w(px(8.0))
+        .h(px(5.0))
         .flex_none()
-        .text_color(rgba(0x9db7cdff));
-    if collapsed {
+        .text_color(rgba(0xa9c3daff));
+    let icon = if collapsed {
         icon.with_transformation(gpui::Transformation::rotate(gpui::radians(
             -std::f32::consts::FRAC_PI_2,
         )))
-        .into_any_element()
     } else {
-        icon.into_any_element()
-    }
+        icon
+    };
+    div()
+        .w(px(8.0))
+        .h(px(8.0))
+        .flex_none()
+        .flex()
+        .items_center()
+        .justify_center()
+        .child(icon)
+        .into_any_element()
 }

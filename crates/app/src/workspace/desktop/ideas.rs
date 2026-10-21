@@ -27,6 +27,9 @@ pub(super) struct IdeaTargetOption {
     pub(super) area_name: String,
     pub(super) node_id: u64,
     pub(super) name: String,
+    /// 菜单右侧的状态文字与圆点颜色：运行中 / 等待审批 / 待开始。
+    pub(super) status: &'static str,
+    pub(super) running: bool,
 }
 
 /// 用户在界面里选的派发目标。
@@ -237,11 +240,23 @@ impl MultisoulApp {
                     continue;
                 }
                 if let Some(name) = agent_label(project, node.id) {
+                    let (status, running) = match project.runtime.agent_task_state(node.id) {
+                        Some(
+                            runtime::AgentTaskState::Thinking
+                            | runtime::AgentTaskState::RunningTool { .. },
+                        ) => ("运行中", true),
+                        Some(runtime::AgentTaskState::WaitingApproval { .. }) => {
+                            ("等待审批", false)
+                        }
+                        _ => ("待开始", false),
+                    };
                     options.push(IdeaTargetOption {
                         area_id: area.id.clone(),
                         area_name: area.display_name.clone(),
                         node_id: node.id,
                         name,
+                        status,
+                        running,
                     });
                 }
             }

@@ -1,4 +1,4 @@
-//! 想法的指派菜单：就地展开在行下方，↑/↓ 选择、回车确认、Esc 收回。
+//! 想法的指派菜单：悬浮在「指派」按钮下方（对照原型 `.idea-menu`），↑/↓ 选择、回车确认、Esc 收回。
 
 use super::super::ideas::{IdeaTargetOption, IdeaUiTarget};
 use super::super::overview_rows::OverviewFeedback;
@@ -26,14 +26,18 @@ impl MultisoulApp {
         div()
             .id("desktop-idea-menu")
             .debug_selector(|| "desktop-idea-menu".to_string())
-            .ml(px(8.0))
-            .mr(px(4.0))
-            .mt(px(2.0))
-            .mb(px(4.0))
+            .w(px(236.0))
             .p(px(6.0))
             .flex()
             .flex_col()
             .rounded(px(12.0))
+            .shadow(vec![gpui::BoxShadow {
+                color: rgba(0x000000bb).into(),
+                offset: gpui::point(px(0.0), px(18.0)),
+                blur_radius: px(44.0),
+                spread_radius: px(0.0),
+            }])
+            .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .border_1()
             .border_color(rgba(MENU_BORDER))
             .bg(rgba(MENU_FILL))
@@ -56,8 +60,13 @@ impl MultisoulApp {
                     MenuItem {
                         id: format!("desktop-idea-target-{index}"),
                         label: option.name.clone(),
-                        detail: Some(option.area_name.clone()),
+                        detail: Some(option.status.to_owned()),
                         accent: false,
+                        dot: if option.running {
+                            Dot::Running
+                        } else {
+                            Dot::Idle
+                        },
                         selected: cursor == index,
                     },
                     feedback,
@@ -83,6 +92,7 @@ impl MultisoulApp {
                         label: "新建智能体来完成".to_owned(),
                         detail: None,
                         accent: true,
+                        dot: Dot::NewAgent,
                         selected: cursor == total,
                     },
                     feedback,
@@ -105,8 +115,16 @@ fn click_point(event: &gpui::ClickEvent) -> (f32, f32) {
     (f32::from(at.x), f32::from(at.y))
 }
 
+#[derive(Clone, Copy)]
+enum Dot {
+    Running,
+    Idle,
+    NewAgent,
+}
+
 struct MenuItem {
     id: String,
+    dot: Dot,
     label: String,
     detail: Option<String>,
     accent: bool,
@@ -120,6 +138,7 @@ fn menu_item(
 ) -> Stateful<Div> {
     let MenuItem {
         id,
+        dot,
         label,
         detail,
         accent,
@@ -130,11 +149,10 @@ fn menu_item(
         .id(ElementId::Name(id.clone().into()))
         .debug_selector(move || id.clone())
         .w_full()
-        .h(px(32.0))
+        .h(px(36.0))
         .px(px(10.0))
         .flex()
         .items_center()
-        .justify_between()
         .gap(px(8.0))
         .rounded(px(8.0))
         .border_1()
@@ -143,18 +161,55 @@ fn menu_item(
         .hover(move |style| style.bg(rgba(hover)))
         .active(move |style| style.bg(rgba(pressed)))
         .on_click(on_click)
+        .child(dot_view(dot))
         .child(
             div()
-                .text_size(px(12.0))
+                .flex_1()
+                .min_w(px(0.0))
+                .text_size(px(13.0))
                 .text_color(rgba(if accent { 0xbfe6ffff } else { 0xe8f3fdff }))
                 .child(label),
         )
         .when_some(detail, |item, detail| {
             item.child(
                 div()
-                    .text_size(px(10.0))
+                    .text_size(px(11.0))
                     .text_color(rgba(0x9fb8cfff))
                     .child(detail),
             )
         })
+}
+
+/// 行首圆点：运行中青色、空闲灰蓝，「新建」是空心圆环。
+fn dot_view(dot: Dot) -> Div {
+    let cell = div()
+        .w(px(14.0))
+        .flex_none()
+        .flex()
+        .items_center()
+        .justify_center();
+    match dot {
+        Dot::Running => cell.child(
+            div()
+                .w(px(8.0))
+                .h(px(8.0))
+                .rounded_full()
+                .bg(rgba(0x36dce8ff)),
+        ),
+        Dot::Idle => cell.child(
+            div()
+                .w(px(8.0))
+                .h(px(8.0))
+                .rounded_full()
+                .bg(rgba(0x7b9dbdff)),
+        ),
+        Dot::NewAgent => cell.child(
+            div()
+                .w(px(8.0))
+                .h(px(8.0))
+                .rounded_full()
+                .border_2()
+                .border_color(rgba(0x9fd2ffff)),
+        ),
+    }
 }

@@ -259,9 +259,9 @@ public enum WorkspaceIdeas {
             }
             // OCR 常把「指派 ▾」与右侧的「×」读成一个框，框中心会落在两个按钮之间；按钮位置固定在抽屉右侧，横向取按钮自己的位置。
             try await session.click(local: CGPoint(x: geo.drawer - 97, y: line.center.y + 11), on: frame)
-            frame = try await session.wait(Expectation(allOf: ["交给谁来做"], timeout: 5))
+            frame = try await session.wait(Expectation(allOf: ["新建智能体来完成"], timeout: 5))
             try session.save(frame, "06-menu.png")
-            guard let item = frame.texts.filter({ ($0.value.contains("Bella") || $0.value.contains("Alan")) && $0.center.x < geo.drawer && $0.center.y > line.center.y }).max(by: { $0.center.y < $1.center.y }) else {
+            guard let item = frame.texts.filter({ ($0.value.contains("Bella") || $0.value.contains("Alan")) && $0.center.x > 150 && $0.center.x < geo.drawer - 20 && $0.center.y > line.center.y }).min(by: { $0.center.y < $1.center.y }) else {
                 throw E2EError.product("菜单里找不到智能体选项：\(frame.summary)")
             }
             try await session.click(local: item.center, on: frame)

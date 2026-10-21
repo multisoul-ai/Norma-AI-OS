@@ -46,9 +46,6 @@ impl MultisoulApp {
     pub(super) fn toggle_idea_menu(&mut self, id: &str, cx: &mut Context<Self>) {
         let open = self.desktop_workspace.ideas_menu.as_deref() == Some(id);
         self.desktop_workspace.ideas_menu = (!open).then(|| id.to_owned());
-        // 菜单就地展开在行下方，而栏是固定高度的：随后几帧把这一行连同菜单滚进可见范围。
-        // 滚动按上一帧的布局计算，菜单出现后的那一帧才有它的尺寸，所以多给几帧。
-        self.desktop_workspace.ideas_menu_reveal_frames = if open { 0 } else { 3 };
         self.desktop_workspace.ideas_menu_cursor = 0;
         self.desktop_workspace.ideas_notice = None;
         cx.notify();

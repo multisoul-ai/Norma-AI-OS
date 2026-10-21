@@ -42,21 +42,6 @@ impl MultisoulApp {
             scroll.scroll_to_item(heading + todo_count.saturating_sub(1));
         }
         self.desktop_workspace.ideas_seen_todo = Some(todo_count);
-        if self.desktop_workspace.ideas_menu_reveal_frames > 0 {
-            if let Some(position) = self
-                .desktop_workspace
-                .ideas_menu
-                .as_deref()
-                .and_then(|id| screen.todo.iter().position(|row| row.id == id))
-            {
-                let heading = usize::from(!screen.assigned.is_empty());
-                scroll.scroll_to_item(heading + position);
-                self.desktop_workspace.ideas_menu_reveal_frames -= 1;
-                cx.notify();
-            } else {
-                self.desktop_workspace.ideas_menu_reveal_frames = 0;
-            }
-        }
         let menu_open = self.desktop_workspace.ideas_menu.clone();
         let options = if menu_open.is_some() {
             self.idea_target_options(cx)

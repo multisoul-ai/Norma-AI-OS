@@ -109,7 +109,29 @@ impl MultisoulApp {
         let hover = feedback.hover;
         let pressed = feedback.pressed;
         let show_actions = focused || menu_open;
+        let popover = menu_open.then(|| {
+            // 菜单悬浮在「指派」按钮下方、右缘对齐；延迟绘制，不被栏的滚动区域裁剪。
+            div()
+                .absolute()
+                .right(px(0.0))
+                .top(px(34.0))
+                .w(px(0.0))
+                .h(px(0.0))
+                .child(gpui::deferred(
+                    gpui::anchored()
+                        .anchor(gpui::Corner::TopRight)
+                        .snap_to_window_with_margin(px(8.0))
+                        .child(self.render_idea_menu(
+                            &row.id,
+                            options,
+                            expanded_area,
+                            feedback,
+                            cx,
+                        )),
+                ))
+        });
         let actions = div()
+            .relative()
             .flex_none()
             .flex()
             .items_center()
@@ -142,78 +164,72 @@ impl MultisoulApp {
                     app.delete_idea(&delete_id, cx);
                 })),
             );
-        div()
-            .flex()
-            .flex_col()
-            .child(
-                div()
-                    .id(ElementId::Name(element_id.clone().into()))
-                    .debug_selector(move || element_id.clone())
-                    .group(group)
-                    .w_full()
-                    .min_h(px(46.0))
-                    .py(px(6.0))
-                    .pl(px(4.0))
-                    .pr(px(6.0))
-                    .flex()
-                    .items_center()
-                    .gap(px(8.0))
-                    .rounded(px(9.0))
-                    .border_1()
-                    .border_color(rgba(if focused { feedback.focus } else { 0x00000000 }))
-                    .bg(rgba(if menu_open { hover } else { feedback.rest }))
-                    .cursor_pointer()
-                    .hover(move |style| style.bg(rgba(hover)))
-                    .active(move |style| style.bg(rgba(pressed)))
-                    .on_click(cx.listener(move |app, _, window, cx| {
-                        cx.stop_propagation();
-                        app.select_idea_row(&id, window, cx);
-                    }))
-                    .child(
-                        div()
-                            .id(ElementId::Name(format!("idea-grab-{drag_id}").into()))
-                            .flex_1()
-                            .min_w(px(0.0))
-                            .flex()
-                            .items_center()
-                            .gap(px(8.0))
-                            .cursor_grab()
-                            .on_mouse_down(
-                                MouseButton::Left,
-                                cx.listener(move |app, event: &MouseDownEvent, window, cx| {
-                                    app.begin_idea_drag(&drag_id, event, window, cx);
-                                }),
-                            )
-                            .child(grip(menu_open || focused))
-                            .child(
-                                div()
-                                    .flex_1()
-                                    .min_w(px(0.0))
-                                    .flex()
-                                    .flex_col()
-                                    .gap(px(3.0))
-                                    .child(
-                                        div()
-                                            .font_weight(gpui::FontWeight::MEDIUM)
-                                            .text_size(px(12.0))
-                                            .line_height(px(16.0))
-                                            .max_h(px(32.0))
-                                            .overflow_hidden()
-                                            .text_color(rgba(COPY_PRIMARY))
-                                            .child(row.title.clone()),
-                                    )
-                                    .child(
-                                        div()
-                                            .text_size(px(11.0))
-                                            .text_color(rgba(COPY_SECONDARY))
-                                            .child(row.meta.clone()),
-                                    ),
-                            ),
-                    )
-                    .child(actions),
-            )
-            .when(menu_open, |column| {
-                column.child(self.render_idea_menu(&row.id, options, expanded_area, feedback, cx))
-            })
+        div().flex().flex_col().child(
+            div()
+                .id(ElementId::Name(element_id.clone().into()))
+                .debug_selector(move || element_id.clone())
+                .group(group)
+                .w_full()
+                .min_h(px(46.0))
+                .py(px(6.0))
+                .pl(px(4.0))
+                .pr(px(6.0))
+                .flex()
+                .items_center()
+                .gap(px(8.0))
+                .rounded(px(9.0))
+                .border_1()
+                .border_color(rgba(if focused { feedback.focus } else { 0x00000000 }))
+                .bg(rgba(if menu_open { hover } else { feedback.rest }))
+                .cursor_pointer()
+                .hover(move |style| style.bg(rgba(hover)))
+                .active(move |style| style.bg(rgba(pressed)))
+                .on_click(cx.listener(move |app, _, window, cx| {
+                    cx.stop_propagation();
+                    app.select_idea_row(&id, window, cx);
+                }))
+                .child(
+                    div()
+                        .id(ElementId::Name(format!("idea-grab-{drag_id}").into()))
+                        .flex_1()
+                        .min_w(px(0.0))
+                        .flex()
+                        .items_center()
+                        .gap(px(8.0))
+                        .cursor_grab()
+                        .on_mouse_down(
+                            MouseButton::Left,
+                            cx.listener(move |app, event: &MouseDownEvent, window, cx| {
+                                app.begin_idea_drag(&drag_id, event, window, cx);
+                            }),
+                        )
+                        .child(grip(menu_open || focused))
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w(px(0.0))
+                                .flex()
+                                .flex_col()
+                                .gap(px(3.0))
+                                .child(
+                                    div()
+                                        .font_weight(gpui::FontWeight::MEDIUM)
+                                        .text_size(px(12.0))
+                                        .line_height(px(16.0))
+                                        .max_h(px(32.0))
+                                        .overflow_hidden()
+                                        .text_color(rgba(COPY_PRIMARY))
+                                        .child(row.title.clone()),
+                                )
+                                .child(
+                                    div()
+                                        .text_size(px(11.0))
+                                        .text_color(rgba(COPY_SECONDARY))
+                                        .child(row.meta.clone()),
+                                ),
+                        ),
+                )
+                .child(actions.children(popover)),
+        )
     }
 }
