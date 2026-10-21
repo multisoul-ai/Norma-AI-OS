@@ -130,7 +130,7 @@ fn menu_item(
         .id(ElementId::Name(id.clone().into()))
         .debug_selector(move || id.clone())
         .w_full()
-        .h(px(36.0))
+        .h(px(32.0))
         .px(px(10.0))
         .flex()
         .items_center()
@@ -145,14 +145,14 @@ fn menu_item(
         .on_click(on_click)
         .child(
             div()
-                .text_size(px(13.0))
+                .text_size(px(12.0))
                 .text_color(rgba(if accent { 0xbfe6ffff } else { 0xe8f3fdff }))
                 .child(label),
         )
         .when_some(detail, |item, detail| {
             item.child(
                 div()
-                    .text_size(px(11.0))
+                    .text_size(px(10.0))
                     .text_color(rgba(0x9fb8cfff))
                     .child(detail),
             )

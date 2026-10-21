@@ -32,7 +32,7 @@ pub(super) fn idea_pill(id: impl Into<ElementId>, label: &'static str) -> Statef
         .bg(rgba(0x58adff26))
         .border_1()
         .border_color(rgba(0x83c4ff55))
-        .text_size(px(12.0))
+        .text_size(px(11.0))
         .font_weight(gpui::FontWeight::MEDIUM)
         .text_color(rgba(0xdff0ffff))
         .cursor_pointer()
@@ -70,15 +70,8 @@ pub(super) fn idea_sub_heading(label: String) -> Div {
         .child(label)
 }
 
-/// 六点抓手：两列三行的小圆点，悬停行时提亮。
+/// 抓手：与原型一致的 grip 图标（14px），悬停行时提亮。
 fn grip(active: bool) -> Div {
-    let color = if active { GRIP_ACTIVE } else { GRIP };
-    let column =
-        || {
-            div().flex().flex_col().gap(px(3.0)).children(
-                (0..3).map(|_| div().w(px(2.5)).h(px(2.5)).rounded_full().bg(rgba(color))),
-            )
-        };
     div()
         .w(px(18.0))
         .h(px(28.0))
@@ -86,9 +79,14 @@ fn grip(active: bool) -> Div {
         .flex()
         .items_center()
         .justify_center()
-        .gap(px(3.0))
-        .child(column())
-        .child(column())
+        .text_color(rgba(if active { GRIP_ACTIVE } else { GRIP }))
+        .child(
+            svg()
+                .path("icons/grip.svg")
+                .w(px(14.0))
+                .h(px(14.0))
+                .flex_none(),
+        )
 }
 
 impl MultisoulApp {
@@ -153,7 +151,7 @@ impl MultisoulApp {
                     .debug_selector(move || element_id.clone())
                     .group(group)
                     .w_full()
-                    .min_h(px(52.0))
+                    .min_h(px(46.0))
                     .py(px(6.0))
                     .pl(px(4.0))
                     .pr(px(6.0))
@@ -197,16 +195,16 @@ impl MultisoulApp {
                                     .child(
                                         div()
                                             .font_weight(gpui::FontWeight::MEDIUM)
-                                            .text_size(px(13.0))
-                                            .line_height(px(17.5))
-                                            .max_h(px(35.0))
+                                            .text_size(px(12.0))
+                                            .line_height(px(16.0))
+                                            .max_h(px(32.0))
                                             .overflow_hidden()
                                             .text_color(rgba(COPY_PRIMARY))
                                             .child(row.title.clone()),
                                     )
                                     .child(
                                         div()
-                                            .text_size(px(12.0))
+                                            .text_size(px(11.0))
                                             .text_color(rgba(COPY_SECONDARY))
                                             .child(row.meta.clone()),
                                     ),

@@ -207,7 +207,7 @@ impl MultisoulApp {
                                 .items_center()
                                 .text_size(px(12.0))
                                 .text_color(rgba(COPY_PRIMARY))
-                                .child(Input::new(&input).small().appearance(false)),
+                                .child(Input::new(&input).xsmall().appearance(false)),
                         )
                         .child(idea_pill("desktop-ideas-add-button", "添加").on_click(
                             cx.listener(|app, _, window, cx| {

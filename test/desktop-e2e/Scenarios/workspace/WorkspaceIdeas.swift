@@ -157,7 +157,7 @@ public enum WorkspaceIdeas {
 
         try await session.step("手动添加：输入框里写一条并回车，库里是手动来源的待办") {
             let frame = try await session.capture()
-            guard let input = frame.pick(["写下一个想法"], .top) else {
+            guard let input = frame.pick(["个想法，回车", "回车添加"], .top) else {
                 throw E2EError.product("找不到想法输入框：\(frame.summary)")
             }
             try await session.click(local: input.center, on: frame)
@@ -261,7 +261,7 @@ public enum WorkspaceIdeas {
             try await session.click(local: CGPoint(x: geo.drawer - 97, y: line.center.y + 11), on: frame)
             frame = try await session.wait(Expectation(allOf: ["交给谁来做"], timeout: 5))
             try session.save(frame, "06-menu.png")
-            guard let item = frame.texts.filter({ $0.value.contains("E2E Project") && $0.center.x < geo.drawer && $0.center.y > line.center.y }).max(by: { $0.center.y < $1.center.y }) else {
+            guard let item = frame.texts.filter({ ($0.value.contains("Bella") || $0.value.contains("Alan")) && $0.center.x < geo.drawer && $0.center.y > line.center.y }).max(by: { $0.center.y < $1.center.y }) else {
                 throw E2EError.product("菜单里找不到智能体选项：\(frame.summary)")
             }
             try await session.click(local: item.center, on: frame)
