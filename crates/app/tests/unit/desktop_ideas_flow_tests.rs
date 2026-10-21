@@ -212,3 +212,41 @@ fn manual_idea_is_added_listed_and_dispatched_end_to_end() {
         );
     });
 }
+
+/// 想法输入框拒绝含换行的输入：换行进入单行输入框的值会在绘制时触发断言崩溃（真实 App 的 e2e 抓到过）。
+///
+/// 数据构造：建立输入框；先提交 "ab"，再提交 "x\ny"（模拟粘贴多行文字或模拟回车），再提交 "c"。
+/// 预期结果：
+///   - 正断言：普通文字 "ab"、"c" 被接受，值为 "abc"。
+///   - 负断言：带换行的提交被整体拒绝，值里始终不含换行。
+#[test]
+fn idea_input_rejects_newlines() {
+    use gpui::EntityInputHandler as _;
+    let temp = tempfile::tempdir().expect("应创建隔离目录");
+    let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
+    let store = storage::AppStore::initialize(&paths).expect("应初始化隔离存储");
+    let mut test = TestAppContext::single();
+    let (host, cx) =
+        test.add_window_view(|_, cx| MultisoulApp::new_with_database_context(cx, paths, store));
+    host.update_in(cx, |app, window, cx| app.ensure_idea_input(window, cx));
+    let input = host.read_with(cx, |app, _| {
+        app.desktop_workspace
+            .ideas_input
+            .clone()
+            .expect("应建立输入框")
+    });
+    let mut insert = |text: &str, cx: &mut gpui::VisualTestContext| {
+        input.update_in(cx, |state, window, cx| {
+            state.replace_text_in_range(None, text, window, cx)
+        });
+    };
+    insert("ab", cx);
+    insert("x\ny", cx);
+    insert("\r", cx);
+    insert("c", cx);
+    let value = input.read_with(cx, |state, _| state.value().to_string());
+    assert_eq!(
+        value, "abc",
+        "带换行的提交应被整体拒绝，普通文字照常进入，实际 {value:?}"
+    );
+}

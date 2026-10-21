@@ -1,23 +1,30 @@
 {
-  "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Scenarios/canvas/CanvasDeleteReflow.swift" : {
-    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDeleteReflow.swiftconstvalues",
-    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDeleteReflow.d",
-    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDeleteReflow.dia",
-    "object" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDeleteReflow.o",
-    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDeleteReflow.swiftdeps"
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/canvas/CanvasDeleteReflow.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDeleteReflow.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDeleteReflow.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDeleteReflow.dia",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDeleteReflow.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDeleteReflow.swiftdeps"
   },
-  "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Scenarios/canvas/CanvasDrawers.swift" : {
-    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDrawers.swiftconstvalues",
-    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDrawers.d",
-    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDrawers.dia",
-    "object" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDrawers.o",
-    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDrawers.swiftdeps"
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/canvas/CanvasDrawers.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDrawers.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDrawers.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDrawers.dia",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDrawers.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDrawers.swiftdeps"
   },
-  "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Scenarios/canvas/CanvasModule.swift" : {
-    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasModule.swiftconstvalues",
-    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasModule.d",
-    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasModule.dia",
-    "object" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasModule.o",
-    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasModule.swiftdeps"
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/canvas/CanvasModule.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasModule.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasModule.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasModule.dia",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasModule.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasModule.swiftdeps"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/canvas/CanvasProjectDrawers.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasProjectDrawers.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasProjectDrawers.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasProjectDrawers.dia",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasProjectDrawers.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasProjectDrawers.swiftdeps"
   }
 }

@@ -1,0 +1,339 @@
+{
+  "" : {
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/Scenarios-primary.dia",
+    "emit-module-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/Scenarios-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/Scenarios-primary-emit-module.dia",
+    "pch" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/Scenarios-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/Scenarios-primary.swiftdeps"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/Catalog.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/Catalog.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/Catalog.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/Catalog.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/Catalog.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/Catalog.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/Catalog.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/Catalog.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/Catalog~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/DesktopModule.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/DesktopModule.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/DesktopModule.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/DesktopModule.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/DesktopModule.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/DesktopModule.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/DesktopModule.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/DesktopModule.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/DesktopModule~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/canvas/CanvasCommandDock.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasCommandDock.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasCommandDock.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasCommandDock.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasCommandDock.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasCommandDock.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasCommandDock.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasCommandDock.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasCommandDock~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/canvas/CanvasContentTabs.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasContentTabs.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasContentTabs.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasContentTabs.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasContentTabs.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasContentTabs.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasContentTabs.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasContentTabs.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasContentTabs~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/canvas/CanvasDeleteReflow.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDeleteReflow.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDeleteReflow.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDeleteReflow.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDeleteReflow.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDeleteReflow.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDeleteReflow.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDeleteReflow.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDeleteReflow~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/canvas/CanvasDrawers.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDrawers.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDrawers.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDrawers.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDrawers.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDrawers.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDrawers.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDrawers.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasDrawers~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/canvas/CanvasModule.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasModule.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasModule.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasModule.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasModule.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasModule.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasModule.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasModule.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasModule~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/canvas/CanvasProjectDrawers.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasProjectDrawers.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasProjectDrawers.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasProjectDrawers.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasProjectDrawers.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasProjectDrawers.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasProjectDrawers.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasProjectDrawers.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/CanvasProjectDrawers~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/content/ContentBrowser.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentBrowser.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentBrowser.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentBrowser.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentBrowser.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentBrowser.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentBrowser.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentBrowser.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentBrowser~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/content/ContentHome.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentHome.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentHome.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentHome.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentHome.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentHome.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentHome.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentHome.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentHome~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/content/ContentModule.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentModule.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentModule.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentModule.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentModule.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentModule.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentModule.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentModule.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentModule~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/content/ContentWebviewSpike.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentWebviewSpike.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentWebviewSpike.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentWebviewSpike.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentWebviewSpike.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentWebviewSpike.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentWebviewSpike.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentWebviewSpike.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentWebviewSpike~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/content/ContentWorkbench.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentWorkbench.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentWorkbench.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentWorkbench.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentWorkbench.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentWorkbench.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentWorkbench.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentWorkbench.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/ContentWorkbench~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/settings/SettingsBasicPreferences.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsBasicPreferences.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsBasicPreferences.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsBasicPreferences.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsBasicPreferences.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsBasicPreferences.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsBasicPreferences.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsBasicPreferences.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsBasicPreferences~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/settings/SettingsLiveConfiguration.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsLiveConfiguration.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsLiveConfiguration.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsLiveConfiguration.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsLiveConfiguration.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsLiveConfiguration.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsLiveConfiguration.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsLiveConfiguration.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsLiveConfiguration~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/settings/SettingsModule.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsModule.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsModule.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsModule.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsModule.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsModule.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsModule.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsModule.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsModule~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/settings/SettingsNavigation.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsNavigation.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsNavigation.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsNavigation.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsNavigation.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsNavigation.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsNavigation.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsNavigation.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsNavigation~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/settings/SettingsResponsiveKeyboard.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsResponsiveKeyboard.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsResponsiveKeyboard.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsResponsiveKeyboard.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsResponsiveKeyboard.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsResponsiveKeyboard.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsResponsiveKeyboard.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsResponsiveKeyboard.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsResponsiveKeyboard~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/settings/SettingsShortcutCustomize.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsShortcutCustomize.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsShortcutCustomize.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsShortcutCustomize.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsShortcutCustomize.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsShortcutCustomize.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsShortcutCustomize.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsShortcutCustomize.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsShortcutCustomize~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/settings/SettingsSpaceWallpapers.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsSpaceWallpapers.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsSpaceWallpapers.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsSpaceWallpapers.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsSpaceWallpapers.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsSpaceWallpapers.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsSpaceWallpapers.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsSpaceWallpapers.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsSpaceWallpapers~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/settings/SettingsSupport.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsSupport.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsSupport.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsSupport.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsSupport.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsSupport.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsSupport.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsSupport.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/SettingsSupport~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/voice/VoiceLiveAcoustic.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/VoiceLiveAcoustic.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/VoiceLiveAcoustic.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/VoiceLiveAcoustic.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/VoiceLiveAcoustic.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/VoiceLiveAcoustic.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/VoiceLiveAcoustic.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/VoiceLiveAcoustic.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/VoiceLiveAcoustic~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/voice/VoiceLiveCall.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/VoiceLiveCall.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/VoiceLiveCall.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/VoiceLiveCall.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/VoiceLiveCall.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/VoiceLiveCall.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/VoiceLiveCall.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/VoiceLiveCall.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/VoiceLiveCall~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/voice/VoiceModule.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/VoiceModule.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/VoiceModule.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/VoiceModule.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/VoiceModule.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/VoiceModule.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/VoiceModule.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/VoiceModule.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/VoiceModule~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/workspace/WorkspaceDrawerTabs.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceDrawerTabs.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceDrawerTabs.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceDrawerTabs.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceDrawerTabs.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceDrawerTabs.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceDrawerTabs.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceDrawerTabs.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceDrawerTabs~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/workspace/WorkspaceIdeas.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceIdeas.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceIdeas.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceIdeas.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceIdeas.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceIdeas.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceIdeas.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceIdeas.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceIdeas~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/workspace/WorkspaceLifecycle.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceLifecycle.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceLifecycle.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceLifecycle.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceLifecycle.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceLifecycle.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceLifecycle.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceLifecycle.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceLifecycle~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/workspace/WorkspaceModule.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceModule.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceModule.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceModule.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceModule.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceModule.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceModule.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceModule.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceModule~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/workspace/WorkspaceOverviewFloat.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceOverviewFloat.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceOverviewFloat.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceOverviewFloat.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceOverviewFloat.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceOverviewFloat.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceOverviewFloat.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceOverviewFloat.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceOverviewFloat~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/workspace/WorkspaceRunOverview.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceRunOverview.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceRunOverview.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceRunOverview.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceRunOverview.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceRunOverview.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceRunOverview.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceRunOverview.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceRunOverview~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/workspace/WorkspaceRunOverviewAgents.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceRunOverviewAgents.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceRunOverviewAgents.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceRunOverviewAgents.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceRunOverviewAgents.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceRunOverviewAgents.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceRunOverviewAgents.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceRunOverviewAgents.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceRunOverviewAgents~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/workspace/WorkspaceStatusCapsule.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceStatusCapsule.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceStatusCapsule.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceStatusCapsule.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceStatusCapsule.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceStatusCapsule.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceStatusCapsule.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceStatusCapsule.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceStatusCapsule~partial.swiftmodule"
+  },
+  "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios/workspace/WorkspaceTitlebarBrand.swift" : {
+    "const-values" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceTitlebarBrand.swiftconstvalues",
+    "dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceTitlebarBrand.d",
+    "diagnostics" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceTitlebarBrand.dia",
+    "index-unit-output-path" : "/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceTitlebarBrand.o",
+    "llvm-bc" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceTitlebarBrand.bc",
+    "object" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceTitlebarBrand.o",
+    "swift-dependencies" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceTitlebarBrand.swiftdeps",
+    "swiftmodule" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/.build/out/Intermediates.noindex/desktop-e2e.build/Debug/Scenarios-t.build/Objects-normal/arm64/WorkspaceTitlebarBrand~partial.swiftmodule"
+  }
+}

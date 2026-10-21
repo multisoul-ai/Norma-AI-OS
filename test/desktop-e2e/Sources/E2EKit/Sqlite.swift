@@ -138,6 +138,16 @@ extension Catalog {
         )
     }
 
+    /// 想法正文 → 来源（chat / voice / manual）。
+    public static func ideaSources(database url: URL) throws -> [String: String] {
+        let database = try SQLiteDB(path: url.path, write: false)
+        defer { database.close() }
+        let rows = try database.query("SELECT body,source FROM workspace_ideas") { statement in
+            (column(statement, 0), column(statement, 1))
+        }
+        return Dictionary(rows, uniquingKeysWith: { first, _ in first })
+    }
+
     /// 读取想法的正文、状态与任务引用，供拖拽投递后的数据断言。
     public static func ideas(database url: URL) throws -> [(body: String, state: String, taskRef: String)] {
         let database = try SQLiteDB(path: url.path, write: false)

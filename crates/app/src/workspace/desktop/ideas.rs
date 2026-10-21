@@ -121,7 +121,13 @@ impl MultisoulApp {
         if self.desktop_workspace.ideas_input.is_some() {
             return;
         }
-        let input = cx.new(|cx| InputState::new(window, cx).placeholder("写下一个想法，回车添加"));
+        // 单行输入框不会过滤换行（粘贴多行文字或模拟输入的回车都可能带进来），
+        // 带换行的值在绘制时会触发 shape_line 的断言：用 validate 直接拒绝含换行的输入。
+        let input = cx.new(|cx| {
+            InputState::new(window, cx)
+                .placeholder("写下一个想法，回车添加")
+                .validate(|value, _| !value.contains(['\n', '\r']))
+        });
         let subscription =
             cx.subscribe_in(&input, window, |app, _, event: &InputEvent, window, cx| {
                 if matches!(event, InputEvent::PressEnter { .. }) {

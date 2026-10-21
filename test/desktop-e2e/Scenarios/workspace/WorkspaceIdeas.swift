@@ -18,6 +18,11 @@ public enum WorkspaceIdeas {
         let workspace = "IdeasCheck"
         let first = "检查登录方案"
         let second = "整理注册流程"
+        let blank = "空白落点想法"
+        let cancelled = "取消拖拽的想法"
+        let fresh = "交给新智能体的想法"
+        let viaMenu = "走菜单指派的想法"
+        let typed = "typed by hand"
 
         try await session.step("建立含项目区与两条想法的隔离工作空间") {
             let shell = try FakeAgentShell.install()
@@ -43,10 +48,12 @@ public enum WorkspaceIdeas {
             projectRoot = try CanvasProjectFixture.install(dataRoot: dataRoot, workspaceName: workspace)
             let database = dataRoot.appendingPathComponent("app.sqlite")
             try Catalog.seedIdea(database: database, workspaceName: workspace, body: first, position: 1024)
-            try Catalog.seedIdea(database: database, workspaceName: workspace, body: second, position: 2048)
+            for (offset, body) in [second, blank, cancelled, fresh, viaMenu].enumerated() {
+                try Catalog.seedIdea(database: database, workspaceName: workspace, body: body, position: 2048 + offset * 1024)
+            }
             try session.launch()
             _ = try await session.wait(Expectation(allOf: [workspace], timeout: 20))
-            return "已写入 2 条想法"
+            return "已写入 6 条想法"
         }
 
         try await session.step("进入项目并创建一个智能体") {
@@ -74,7 +81,7 @@ public enum WorkspaceIdeas {
             return try await session.capture().summary
         }
 
-        try await session.step("⌘⇧I 打开想法清单，看到两条待办") {
+        try await session.step("⌘⇧I 打开想法清单，看到待办") {
             try await session.shortcut(key: 34, modifiers: [0x37, 0x38])
             let ideas = try await session.wait(
                 Expectation(allOf: ["想法清单", first, second], timeout: 8)
@@ -83,40 +90,150 @@ public enum WorkspaceIdeas {
             return ideas.summary
         }
 
-        try await session.step("把第一条想法拖到智能体卡片") {
-            let frame = try await session.capture()
-            guard let row = frame.pick([first], .top) else {
-                throw E2EError.product("找不到想法行「\(first)」：\(frame.summary)")
+        func idea(_ body: String) throws -> (body: String, state: String, taskRef: String) {
+            let all = try Catalog.ideas(database: try session.databaseURL())
+            guard let found = all.first(where: { $0.body == body }) else {
+                throw E2EError.product("库里找不到想法「\(body)」：\(all)")
             }
+            return found
+        }
+        func geometry(_ frame: Frame) -> (width: Double, height: Double, drawer: Double) {
+            let width = Double(frame.windowFrame.width)
+            return (width, Double(frame.windowFrame.height), min(438, max(366, width * 0.31)))
+        }
+        func cardTarget(_ frame: Frame) throws -> CGPoint {
             // 假智能体卡片标题行含临时项目目录名；落点取标题行正下方的卡片正文区。
             guard let title = frame.pick(["norma-canvas-e2e"], .bottom) else {
                 throw E2EError.product("找不到智能体卡片标题：\(frame.summary)")
             }
-            let target = CGPoint(x: title.center.x, y: title.center.y + 150)
-            try await session.drag(local: row.center, to: target, on: frame)
-            try await Task.sleep(nanoseconds: 350_000_000)
-            try session.save(try await session.capture(), "02-meteor.png")
-            try await Task.sleep(nanoseconds: 1_800_000_000)
-            let done = try await session.capture()
-            try session.save(done, "03-assigned.png")
-            return done.summary
+            return CGPoint(x: title.center.x, y: title.center.y + 150)
+        }
+        func row(_ frame: Frame, _ body: String) throws -> VisibleText {
+            let key = String(body.prefix(3))
+            guard let text = frame.texts.filter({ $0.value.contains(key) && $0.center.x < geometry(frame).drawer }).first else {
+                throw E2EError.product("找不到想法行「\(body)」：\(frame.summary)")
+            }
+            return text
         }
 
-        try await session.step("数据与画面：想法变为已指派并带任务引用") {
-            let database = try session.databaseURL()
-            let ideas = try Catalog.ideas(database: database)
-            guard let assigned = ideas.first(where: { $0.body == first }) else {
-                throw E2EError.product("库里找不到想法「\(first)」：\(ideas)")
+        try await session.step("手动添加：输入框里写一条并回车，库里是手动来源的待办") {
+            let frame = try await session.capture()
+            guard let input = frame.pick(["写下一个想法"], .top) else {
+                throw E2EError.product("找不到想法输入框：\(frame.summary)")
             }
-            guard assigned.state == "assigned", !assigned.taskRef.isEmpty else {
-                throw E2EError.product("想法没有变成已指派或缺少任务引用：\(assigned)")
+            try await session.click(local: input.center, on: frame)
+            try await session.type(typed)
+            try await session.shortcut(key: 36, modifiers: [])
+            let after = try await session.wait(Expectation(allOf: [typed], timeout: 6))
+            try session.save(after, "02-typed.png")
+            let stored = try idea(typed)
+            guard stored.state == "todo" else { throw E2EError.product("手动添加的想法应是待办：\(stored)") }
+            let manual = try Catalog.ideaSources(database: try session.databaseURL())[typed]
+            guard manual == "manual" else { throw E2EError.product("来源应为 manual，实际 \(manual ?? "nil")") }
+            return "已记下 \(typed)"
+        }
+
+        try await session.step("拖到空白处松手：想法保持待办，没有任何派发") {
+            let frame = try await session.capture()
+            let start = try row(frame, blank).center
+            let geo = geometry(frame)
+            try await session.drag(local: start, to: CGPoint(x: geo.width - 90, y: geo.height / 2 + 40), on: frame)
+            try await Task.sleep(nanoseconds: 900_000_000)
+            let state = try idea(blank)
+            guard state.state == "todo", state.taskRef.isEmpty else { throw E2EError.product("落空的想法不应被派发：\(state)") }
+            return "仍是待办"
+        }
+
+        try await session.step("拖动中按 Esc：想法保持待办") {
+            let frame = try await session.capture()
+            let start = try row(frame, cancelled).center
+            try await session.dragCancellingWithEscape(local: start, to: try cardTarget(frame), on: frame)
+            try await Task.sleep(nanoseconds: 900_000_000)
+            let state = try idea(cancelled)
+            guard state.state == "todo", state.taskRef.isEmpty else { throw E2EError.product("Esc 取消后想法不应被派发：\(state)") }
+            return "仍是待办"
+        }
+
+        try await session.step("拖到智能体卡片：流星从左抽屉直射卡片，底部指令栏没有飞行") {
+            let frame = try await session.capture()
+            let geo = geometry(frame)
+            let start = try row(frame, first).center
+            let target = try cardTarget(frame)
+            let size = frame.windowFrame.size
+            let baseline = try await session.snapshot()
+            let samples = try await session.dragSampling(local: start, to: target, on: frame, afterMs: [60, 160, 260, 380])
+            // 抽屉右侧到落点之间只有流星会经过（抽屉里的列表重排不算）。
+            let corridor = CGRect(x: geo.drawer + 4, y: min(start.y, target.y) - 70, width: max(40, target.x - geo.drawer - 4), height: abs(target.y - start.y) + 140)
+            // 指令栏本身（底部 52px 高、距底 22px）；避开卡片，卡片落点的高亮不算。
+            let bottom = CGRect(x: geo.width / 2 - 250, y: geo.height - 76, width: 500, height: 44)
+            let corridorChanges = samples.map { changedPixels(baseline, $0, in: corridor, windowSize: size) }
+            let bottomChanges = samples.map { changedPixels(baseline, $0, in: bottom, windowSize: size) }
+            for (index, image) in samples.enumerated() { try session.saveSnapshot(image, "03-flight-\(index).png") }
+            guard (corridorChanges.max() ?? 0) >= 40 else {
+                throw E2EError.product("松手后没有看到流星穿过抽屉右侧到卡片之间的区域：\(corridorChanges)")
             }
-            guard let untouched = ideas.first(where: { $0.body == second }), untouched.state == "todo" else {
-                throw E2EError.product("第二条想法不应被改动：\(ideas)")
+            // 底部区域相对松手前有一块固定差异（焦点、悬停等静态变化），不是动画：看取样之间的波动。
+            let bottomSwing = (bottomChanges.max() ?? 0) - (bottomChanges.min() ?? 0)
+            guard bottomSwing <= 150 else {
+                throw E2EError.product("底部指令栏出现了飞行（想法的流星不应从底部起飞）：各取样 \(bottomChanges)，波动 \(bottomSwing)")
             }
-            let screen = try await session.wait(Expectation(allOf: ["已指派"], timeout: 6))
-            try session.save(screen, "04-list-after.png")
-            return "\(assigned.state) \(assigned.taskRef)"
+            try await Task.sleep(nanoseconds: 1_200_000_000)
+            let assigned = try idea(first)
+            guard assigned.state == "assigned", !assigned.taskRef.isEmpty, !assigned.taskRef.hasPrefix("idea:") else {
+                throw E2EError.product("想法没有变成已指派或缺少真实任务引用：\(assigned)")
+            }
+            try session.save(try await session.capture(), "04-assigned.png")
+            return "流星 \(corridorChanges)，底部 \(bottomChanges)，\(assigned.taskRef)"
+        }
+
+        try await session.step("拖到「新建智能体来完成」：想法被派发，卡片数量增加") {
+            let frame = try await session.capture()
+            let geo = geometry(frame)
+            let start = try row(frame, fresh).center
+            let zone = CGPoint(x: geo.drawer + (geo.width - 14 - geo.drawer) / 2, y: geo.height - 126)
+            try await session.drag(local: start, to: zone, on: frame)
+            try await Task.sleep(nanoseconds: 2_500_000_000)
+            let state = try idea(fresh)
+            try session.save(try await session.capture(), "05-new-agent.png")
+            guard state.state == "assigned", !state.taskRef.isEmpty else {
+                throw E2EError.product("拖到新建区后想法应已指派：\(state)")
+            }
+            return "已指派 \(state.taskRef)"
+        }
+
+        try await session.step("点「指派」走菜单：选智能体后想法被派发") {
+            var frame = try await session.capture()
+            let geo = geometry(frame)
+            let line = try row(frame, viaMenu)
+            let buttons = frame.texts.filter { $0.value.contains("指派") && $0.center.x < geo.drawer && abs($0.center.y - line.center.y) < 40 && !$0.value.contains("已指派") }
+            guard let assignButton = buttons.max(by: { $0.center.x < $1.center.x }) else {
+                throw E2EError.product("找不到该行的「指派」按钮：\(frame.summary)")
+            }
+            try await session.click(local: assignButton.center, on: frame)
+            frame = try await session.wait(Expectation(allOf: ["交给谁来做"], timeout: 5))
+            try session.save(frame, "06-menu.png")
+            guard let item = frame.texts.filter({ $0.value.contains("E2E Project") && $0.center.x < geo.drawer }).last else {
+                throw E2EError.product("菜单里找不到智能体选项：\(frame.summary)")
+            }
+            try await session.click(local: item.center, on: frame)
+            try await Task.sleep(nanoseconds: 1_800_000_000)
+            let state = try idea(viaMenu)
+            guard state.state == "assigned", !state.taskRef.isEmpty else {
+                throw E2EError.product("菜单指派后想法应已指派：\(state)")
+            }
+            return "已指派 \(state.taskRef)"
+        }
+
+        try await session.step("收尾：落空与取消的想法始终是待办，且各想法互不串扰") {
+            let all = try Catalog.ideas(database: try session.databaseURL())
+            for body in [second, blank, cancelled, typed] {
+                guard let found = all.first(where: { $0.body == body }), found.state == "todo" else {
+                    throw E2EError.product("「\(body)」应保持待办：\(all)")
+                }
+            }
+            let refs = all.filter { !$0.taskRef.isEmpty }.map(\.taskRef)
+            guard Set(refs).count == refs.count else { throw E2EError.product("不同想法不应共用任务引用：\(refs)") }
+            return "\(all.map { "\($0.body)=\($0.state)" })"
         }
     }
 }
