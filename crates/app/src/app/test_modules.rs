@@ -10,6 +10,9 @@ mod database_isolation_support;
 #[path = "../../tests/unit/database_isolation_tests.rs"]
 mod database_isolation_tests;
 #[cfg(test)]
+#[path = "../../tests/unit/packager_production_data_tests.rs"]
+mod packager_production_data_tests;
+#[cfg(test)]
 #[path = "../../tests/unit/app_tests.rs"]
 mod tests;
 #[cfg(all(test, target_os = "macos"))]

@@ -240,36 +240,6 @@ fn test_external_test_root_rejects_direct_and_symlinked_production_directory() {
     );
 }
 
-/// DBI-0C：cargo-packager 必须显式为主 App 开启唯一的 Production 数据标记。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   Packager 配置文件数 = 1
-///   主 App release build 命令数 = 1
-///   必需 feature = production-data
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 编译期读取仓库根 `Packager.toml`。
-///   2. 归一化可选的 --no-default-features 参数，检查主 App 的显式 production-data feature。
-///   3. 同时检查旧的无 feature 主 App 构建片段已经消失。
-///
-/// 预期结果：
-///   - 正断言：打包命令包含 `--features production-data`。
-///   - 负断言：不得保留无 Production 标记的主 App release 构建。
-#[test]
-fn test_packager_enables_the_production_data_feature_for_the_main_app() {
-    // --no-default-features 只关闭默认 feature，不改变显式 production-data 的含义。
-    let packager = include_str!("../../../../Packager.toml").replace("--no-default-features ", "");
-
-    assert!(
-        packager.contains("cargo build --release -p app --features production-data"),
-        "Packager 主 App 构建必须显式开启 production-data"
-    );
-    assert!(
-        !packager.contains("cargo build --release -p app &&"),
-        "Packager 不得继续使用缺少 production-data 的主 App 构建命令"
-    );
-}
-
 /// DBI-1：显式 Test DatabasePaths 构造 App 时，所有启动设置必须来自 Test app DB。
 ///
 /// 数据构造（含关键数值的推导过程）：

@@ -1,4 +1,4 @@
-# 本地签名测试配置：ad-hoc 签名（"-"），不 bump 版本，直接用 target/release 现有二进制。
+# 本地签名测试配置：ad-hoc 签名（"-"），不 bump 版本；before-packaging-command 会重新构建 production-data 二进制，禁止复用 target/release 里可能是 Test 数据的旧产物。
 # 用法：cargo packager -c Packager.dev.toml
 # 真实发版走 Packager.toml（阶段 0 启用 signing-identity 后）。
 name = "app"
@@ -10,11 +10,13 @@ formats = ["app", "dmg"]
 icons = ["assets/AppIcon.icns"]
 out-dir = "build/dev"
 binaries-dir = "."
-before-packaging-command = "scripts/prepare-release-media.sh --local-test && scripts/prepare-sparkle.sh && scripts/prepare-app-icon.sh && scripts/prepare-release-info-plist.sh"
+before-packaging-command = "scripts/prepare-release-media.sh --local-test && scripts/prepare-sparkle.sh && scripts/prepare-app-icon.sh && scripts/prepare-release-info-plist.sh && cargo build --release -p app --no-default-features --features production-data && cargo build --release -p norma --bins"
 resources = [
+  "THIRD_PARTY_NOTICES.md",
   "build/icons/Assets.car",
   { src = "packaging/macos/en.lproj", target = "en.lproj" },
   { src = "packaging/macos/zh-CN.lproj", target = "zh-CN.lproj" },
+  { src = "crates/app/assets/home", target = "home" },
   { src = "build/release-media/wallpapers", target = "wallpapers" },
   { src = "build/release-media/feature-guide", target = "feature-guide" },
   { src = "build/release-media/wallpaper-previews", target = "wallpaper-previews" },
