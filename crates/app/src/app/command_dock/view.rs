@@ -5,7 +5,7 @@ use crate::{
 };
 use canvas::{AgentProfile, CanvasRect};
 use gpui::{div, prelude::*, px, rgba, Context, Div, Keystroke, MouseButton, Stateful, Window};
-use runtime::command::DockCommand;
+use runtime::command::{CommandGroup, CommandSuggestion, DockCommand};
 use ui::{
     component::{input::Input, kbd::Kbd},
     icons::{toolbar_icon, with_alpha, ToolbarIcon},
@@ -15,6 +15,10 @@ use ui::{
 // Six themes is the longest list. 40px heading + 6 × 54px rows + 8px inset = 372px.
 const HEADER: f32 = 40.0;
 const ROW: f32 = 54.0;
+// Group label shown above the first row of each group.
+const GROUP: f32 = 24.0;
+// Longer lists scroll: the drawer stays at most as tall as the six-theme list.
+const MAX_DRAWER: f32 = 372.0;
 const INSET: f32 = 8.0;
 pub(crate) const DOCK_RADIUS: f32 = 18.0;
 
@@ -40,16 +44,17 @@ impl MultisoulApp {
             state.drawer.draft.clone_from(&state.draft);
             state.drawer.error.clone_from(&state.error);
             state.drawer.reply.clone_from(&state.reply);
-            let rows = if state.error.is_some() {
-                1
+            let list_height = if state.error.is_some() {
+                ROW
             } else {
-                state.suggestions().len().max(1)
+                let items = state.suggestions();
+                ROW * items.len().max(1) as f32 + GROUP * group_heads(&items) as f32
             };
             let bottom = COMMAND_DOCK_BOTTOM_PX + COMMAND_DOCK_HEIGHT_PX;
             (if state.reply.is_some() {
                 220.0
             } else {
-                HEADER + ROW * rows as f32 + INSET
+                (HEADER + list_height + INSET).min(MAX_DRAWER)
             })
             .min((f32::from(window.viewport_size().height) - bottom - 60.0).max(0.0))
         } else {
@@ -168,7 +173,7 @@ impl MultisoulApp {
             self.command_panel_rect(f32::from(viewport.width), f32::from(viewport.height))?;
         let radius = px(DOCK_RADIUS);
         let state = self.command_dock.as_ref()?;
-        let items = super::CommandDockState::suggestions_for(&state.drawer.draft);
+        let items = super::CommandDockState::suggestions_for(&state.drawer.draft, &state.projects);
         let theme = command_panel_theme(self.theme);
         let is_conversation = items.is_empty() && !state.drawer.draft.trim().starts_with('/');
         let heading = if is_conversation {
@@ -231,6 +236,7 @@ impl MultisoulApp {
                     )),
             );
         } else {
+            let show_group_labels = group_heads(&items) > 0;
             for (index, item) in items.iter().enumerate() {
                 let selected = index == state.selected;
                 let icon = match &item.command {
@@ -248,9 +254,11 @@ impl MultisoulApp {
                     },
                     Some(DockCommand::Terminal) => ToolbarIcon::Terminal,
                     Some(DockCommand::Browser) => ToolbarIcon::Browser,
-                    Some(DockCommand::Preview) => ToolbarIcon::Preview,
+                    Some(DockCommand::Preview | DockCommand::Help) => ToolbarIcon::Preview,
                     Some(DockCommand::Theme(_)) => ToolbarIcon::Settings,
-                    Some(DockCommand::Help) => ToolbarIcon::Preview,
+                    Some(DockCommand::AddProject(_) | DockCommand::BrowseProject) => {
+                        ToolbarIcon::Workspaces
+                    }
                     None if item.completion.starts_with("/theme") => ToolbarIcon::Settings,
                     None => ToolbarIcon::Plus,
                 };
@@ -259,64 +267,95 @@ impl MultisoulApp {
                         .into_iter()
                         .find(|theme| theme.as_str() == id)
                         .map(ThemeId::description)
-                        .unwrap_or(""),
-                    Some(DockCommand::Preview) => ui::i18n::text("chrome.choose_a_file_to_preview"),
-                    Some(DockCommand::Help) => ui::i18n::text("chrome.command.help_detail"),
-                    Some(_) => ui::i18n::text("chrome.create_a_card_in_this_workspace"),
-                    None => ui::i18n::text("chrome.choose_an_action"),
+                        .unwrap_or("")
+                        .to_string(),
+                    Some(DockCommand::Preview) => {
+                        ui::i18n::text("chrome.choose_a_file_to_preview").to_string()
+                    }
+                    Some(DockCommand::AddProject(path)) => {
+                        workspace::compact_path(std::path::Path::new(path))
+                    }
+                    Some(DockCommand::BrowseProject) => {
+                        ui::i18n::text("chrome.command.browse_project_detail").to_string()
+                    }
+                    Some(DockCommand::Help) => {
+                        ui::i18n::text("chrome.command.help_detail").to_string()
+                    }
+                    Some(_) => ui::i18n::text("chrome.create_a_card_in_this_workspace").to_string(),
+                    None => ui::i18n::text("chrome.choose_an_action").to_string(),
                 };
-                rows = rows.child(
+                let row = div()
+                    .id(("command-option", index))
+                    .h(px(ROW))
+                    .flex_none()
+                    .w_full()
+                    .flex()
+                    .items_center()
+                    .gap(px(12.0))
+                    .px(px(12.0))
+                    .rounded(px(10.0))
+                    .border_1()
+                    .border_color(rgba(if selected {
+                        with_alpha(theme.accent_cyan, 0x80)
+                    } else {
+                        0x00000000
+                    }))
+                    .bg(rgba(if selected {
+                        with_alpha(theme.accent_blue, 0x2e)
+                    } else {
+                        0x00000000
+                    }))
+                    .cursor_pointer()
+                    .hover(move |s| s.bg(rgba(with_alpha(theme.accent_blue, 0x38))))
+                    .active(move |s| s.bg(rgba(with_alpha(theme.accent_blue, 0x55))))
+                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .on_click(cx.listener(move |app, _, window, cx| {
+                        if let Some(state) = &mut app.command_dock {
+                            state.selected = index;
+                        }
+                        app.execute_dock_suggestion(window, cx);
+                    }))
+                    .child(toolbar_icon(icon, theme.text_primary, 20.0))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w(px(0.0))
+                            .child(div().text_size(px(13.0)).child(suggestion_title(item)))
+                            .child(
+                                div()
+                                    .text_size(px(11.0))
+                                    .text_color(rgba(theme.text_secondary))
+                                    .truncate()
+                                    .child(detail),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .text_size(px(11.0))
+                            .text_color(rgba(theme.text_secondary))
+                            .child(item.completion.trim().to_string()),
+                    );
+                let first_of_group =
+                    show_group_labels && (index == 0 || items[index - 1].group != item.group);
+                // Header and row share one child so scroll_to_item indices stay item indices.
+                rows = rows.child(if first_of_group {
                     div()
-                        .id(("command-option", index))
-                        .h(px(ROW))
                         .flex_none()
                         .w_full()
-                        .flex()
-                        .items_center()
-                        .gap(px(12.0))
-                        .px(px(12.0))
-                        .rounded(px(10.0))
-                        .border_1()
-                        .border_color(rgba(if selected {
-                            with_alpha(theme.accent_cyan, 0x80)
-                        } else {
-                            0x00000000
-                        }))
-                        .bg(rgba(if selected {
-                            with_alpha(theme.accent_blue, 0x2e)
-                        } else {
-                            0x00000000
-                        }))
-                        .cursor_pointer()
-                        .hover(move |s| s.bg(rgba(with_alpha(theme.accent_blue, 0x38))))
-                        .active(move |s| s.bg(rgba(with_alpha(theme.accent_blue, 0x55))))
-                        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                        .on_click(cx.listener(move |app, _, window, cx| {
-                            if let Some(state) = &mut app.command_dock {
-                                state.selected = index;
-                            }
-                            app.execute_dock_suggestion(window, cx);
-                        }))
-                        .child(toolbar_icon(icon, theme.text_primary, 20.0))
                         .child(
                             div()
-                                .flex_1()
-                                .min_w(px(0.0))
-                                .child(div().text_size(px(13.0)).child(suggestion_title(item)))
-                                .child(
-                                    div()
-                                        .text_size(px(11.0))
-                                        .text_color(rgba(theme.text_secondary))
-                                        .child(detail),
-                                ),
-                        )
-                        .child(
-                            div()
+                                .h(px(GROUP))
+                                .px(px(12.0))
+                                .flex()
+                                .items_center()
                                 .text_size(px(11.0))
                                 .text_color(rgba(theme.text_secondary))
-                                .child(item.completion.trim().to_string()),
-                        ),
-                );
+                                .child(group_label(item.group)),
+                        )
+                        .child(row)
+                } else {
+                    div().flex_none().w_full().child(row)
+                });
             }
         }
         let content = div()
@@ -395,9 +434,35 @@ fn suggestion_title(item: &runtime::command::CommandSuggestion) -> String {
         Some(DockCommand::Terminal) => ui::i18n::text("chrome.command.terminal").into(),
         Some(DockCommand::Browser) => ui::i18n::text("chrome.command.browser").into(),
         Some(DockCommand::Preview) => ui::i18n::text("chrome.command.preview").into(),
+        Some(DockCommand::Theme(_) | DockCommand::AddProject(_)) => item.title.clone(),
+        Some(DockCommand::BrowseProject) => ui::i18n::text("chrome.command.browse_project").into(),
         Some(DockCommand::Help) => ui::i18n::text("chrome.command.help").into(),
-        Some(DockCommand::Theme(_)) => item.title.clone(),
         None if item.completion.starts_with("/new") => ui::i18n::text("chrome.new_agent").into(),
         None => ui::i18n::text("chrome.command.theme").into(),
+    }
+}
+
+fn group_label(group: CommandGroup) -> &'static str {
+    match group {
+        CommandGroup::Agent => ui::i18n::text("chrome.new_agent"),
+        CommandGroup::Terminal => ui::i18n::text("chrome.command.terminal"),
+        CommandGroup::Project => ui::i18n::text("shortcuts.add_project"),
+        CommandGroup::Theme => ui::i18n::text("chrome.apply_theme"),
+        CommandGroup::Help => ui::i18n::text("chrome.command.help"),
+    }
+}
+
+/// Group labels only help when several groups share the list; a single group is
+/// already named by the panel heading.
+fn group_heads(items: &[CommandSuggestion]) -> usize {
+    let heads = items
+        .iter()
+        .enumerate()
+        .filter(|(i, s)| *i == 0 || items[i - 1].group != s.group)
+        .count();
+    if heads > 1 {
+        heads
+    } else {
+        0
     }
 }

@@ -117,6 +117,9 @@ private func focusDock(_ session: Session) async throws {
         local: CGPoint(x: Double(dock.windowFrame.width) * 0.42, y: Double(dock.windowFrame.height) - 47),
         on: dock
     )
+    try await Task.sleep(nanoseconds: 300_000_000)
+    // 上一条指令的残留文本会与新输入拼接，先全选再覆盖。
+    try await session.selectAll()
 }
 
 @MainActor

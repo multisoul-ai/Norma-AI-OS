@@ -111,6 +111,16 @@ extension Catalog {
         )
     }
 
+    /// 仅在被测 App 停止时写入「最近打开」，供 `/add` 在不弹系统窗口的情况下列出 repo。
+    public static func seedRecent(database url: URL, root: URL, displayName: String) throws {
+        let database = try SQLiteDB(path: url.path, write: true)
+        defer { database.close() }
+        try database.execute(
+            "INSERT OR REPLACE INTO recent_workspaces(path,display_name,last_opened_at_unix,source) VALUES(?1,?2,?3,'open')",
+            bindings: [root.path, displayName, String(Int64(Date().timeIntervalSince1970))]
+        )
+    }
+
     public static func seedArea(database url: URL, workspaceName: String, root: URL, displayName: String) throws {
         let database = try SQLiteDB(path: url.path, write: true)
         defer { database.close() }

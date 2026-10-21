@@ -65,6 +65,8 @@
   "chrome.command.theme": "Change Theme",
   "chrome.command.help": "Help",
   "chrome.command.help_detail": "Open the feature guide and shortcuts",
+  "chrome.command.browse_project": "Browse for Folder…",
+  "chrome.command.browse_project_detail": "Choose another folder as a project in Finder",
   "chrome.ego_task_active": "The Ego task is still active. Finish the task or wait for the Agent before closing this card.",
   "chrome.ego_master_first": "Set the Ego card as Master before taking control of the browser.",
   "chrome.spoken_reply_failed": "Spoken reply failed: %{reason}",

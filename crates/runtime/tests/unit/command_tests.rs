@@ -7,7 +7,7 @@ use super::*;
 /// 预期结果：五种 Agent 均可选；完整 Claude 指令只有一个直接创建动作；旧位置不执行。
 #[test]
 fn agent_command_creates_without_position_step() {
-    let agents = suggestions("/new", &[]);
+    let agents = suggestions("/new", &[], &[]);
     assert!(
         agents
             .iter()
@@ -44,7 +44,7 @@ fn agent_command_creates_without_position_step() {
             .any(|s| s.command == Some(DockCommand::Agent(AgentProfile::Grok))),
         "分类必须包含 Grok"
     );
-    let claude = suggestions("/new claude", &[]);
+    let claude = suggestions("/new claude", &[], &[]);
     assert_eq!(claude.len(), 1, "完整类型只产生一个候选，不应出现位置选择");
     assert_eq!(
         claude[0].command,
@@ -52,7 +52,7 @@ fn agent_command_creates_without_position_step() {
         "确认 Claude 应直接创建"
     );
     assert!(
-        suggestions("/new claude right", &[]).is_empty(),
+        suggestions("/new claude right", &[], &[]).is_empty(),
         "废弃位置参数不可静默执行"
     );
 }
@@ -61,7 +61,7 @@ fn agent_command_creates_without_position_step() {
 ///
 /// 数据构造：2 个主题分别为浅色 Paper Blue 和深色 Midnight Violet，深色候选数 = 2 - 1 = 1。
 /// 执行过程：查询创建、终端、深色主题，再查询浏览器、预览、否定和混合表达。
-/// 预期结果：终端与主题仍对应原动作；根列表为 5 - 2 + 1（帮助）= 4 项，不含浏览器和预览；不支持的输入没有动作。
+/// 预期结果：终端与主题仍对应原动作；根列表平铺为 10 个 Agent + 1 终端 + 1 浏览文件夹 + 2 主题 = 14 项，不含浏览器和预览；不支持的输入没有动作。
 #[test]
 fn common_phrases_and_theme_catalog_are_bounded() {
     let themes = [
@@ -77,28 +77,28 @@ fn common_phrases_and_theme_catalog_are_bounded() {
         },
     ];
     assert_eq!(
-        suggestions("创建一个 Codex 卡片", &themes)[0].command,
+        suggestions("创建一个 Codex 卡片", &themes, &[])[0].command,
         Some(DockCommand::Agent(AgentProfile::Codex)),
         "常用中文创建应选择 Codex"
     );
     assert_eq!(
-        suggestions("打开终端", &themes)[0].command,
+        suggestions("打开终端", &themes, &[])[0].command,
         Some(DockCommand::Terminal),
         "打开终端应映射到创建终端"
     );
     assert!(
-        suggestions("浏览器", &themes).is_empty()
-            && suggestions("创建浏览器", &themes).is_empty()
-            && suggestions("/browser", &themes).is_empty(),
+        suggestions("浏览器", &themes, &[]).is_empty()
+            && suggestions("创建浏览器", &themes, &[]).is_empty()
+            && suggestions("/browser", &themes, &[]).is_empty(),
         "快捷指令不再提供创建浏览器"
     );
     assert!(
-        suggestions("预览文件", &themes).is_empty()
-            && suggestions("查看文件", &themes).is_empty()
-            && suggestions("/preview", &themes).is_empty(),
+        suggestions("预览文件", &themes, &[]).is_empty()
+            && suggestions("查看文件", &themes, &[]).is_empty()
+            && suggestions("/preview", &themes, &[]).is_empty(),
         "快捷指令不再提供查看文件"
     );
-    let dark = suggestions("切换深色主题", &themes);
+    let dark = suggestions("切换深色主题", &themes, &[]);
     assert_eq!(dark.len(), 1, "目录仅有一个深色主题");
     assert_eq!(
         dark[0].command,
@@ -112,32 +112,35 @@ fn common_phrases_and_theme_catalog_are_bounded() {
         "深色候选不得包含浅色 Paper Blue"
     );
     assert_eq!(
-        suggestions("/theme paper-blue", &themes)[0].command,
+        suggestions("/theme paper-blue", &themes, &[])[0].command,
         Some(DockCommand::Theme("paper-blue".into())),
         "完整主题指令应精确匹配"
     );
     assert!(
-        suggestions("不要创建 Codex", &themes).is_empty(),
+        suggestions("不要创建 Codex", &themes, &[]).is_empty(),
         "否定表达不应触发创建"
     );
     assert!(
-        suggestions("创建 Codex 并打开浏览器", &themes).is_empty(),
+        suggestions("创建 Codex 并打开浏览器", &themes, &[]).is_empty(),
         "多个操作不能被截断为单个动作"
     );
     assert!(
-        suggestions("/new codex extra", &themes).is_empty(),
+        suggestions("/new codex extra", &themes, &[]).is_empty(),
         "额外参数不应被丢弃后执行"
     );
     assert!(
-        suggestions("/unknown", &themes).is_empty(),
+        suggestions("/unknown", &themes, &[]).is_empty(),
         "未知指令不能执行"
     );
-    assert!(suggestions("/ego", &themes).is_empty(), "本版本不接入 Ego");
-    let roots = suggestions("/", &themes);
+    assert!(
+        suggestions("/ego", &themes, &[]).is_empty(),
+        "本版本不接入 Ego"
+    );
+    let roots = suggestions("/", &themes, &[]);
     assert_eq!(
         roots.len(),
-        4,
-        "根列表保留新建 Agent、新建终端、切换主题、帮助，共 5 - 2 + 1 = 4 项"
+        15,
+        "根列表平铺全部叶子指令，共 10 + 1 + 1 + 2 + 1 = 15 项"
     );
     assert!(
         roots
@@ -156,30 +159,126 @@ fn common_phrases_and_theme_catalog_are_bounded() {
     );
 }
 
-/// 场景：/help 打开功能引导，中英文说法都只映射到同一个动作。
+/// 场景：根列表平铺全部叶子指令并按组排序，裸词可直接过滤。
 ///
-/// 数据构造：无主题目录；查询 "/help"、"/he" 前缀、"帮助"、"help" 与带额外参数的 "/help me"。
-/// 执行过程：逐个查询候选。
-/// 预期结果：前四种均恰好 1 个 Help 候选；带参数的输入没有候选，不能被截断后执行。
+/// 数据构造：2 个主题；Agent 10 个，终端 1 个。
+/// 执行过程：查询空输入、`/`、`codex`、`midnight`、`/te`。
+/// 预期结果：空输入与 `/` 一致且无需进入分类（无 command 为 None 的项）；分组顺序为 Agent→Terminal→Theme；
+/// 裸词 `midnight` 直接命中主题，`/te` 命中终端与带 `/theme` 之外的前缀项。
+#[test]
+fn root_lists_flat_grouped_leaves_and_bare_words_filter() {
+    let themes = [
+        CommandTheme {
+            id: "paper-blue",
+            title: "Paper Blue",
+            dark: false,
+        },
+        CommandTheme {
+            id: "midnight-violet",
+            title: "Midnight Violet",
+            dark: true,
+        },
+    ];
+    let root = suggestions("", &themes, &[]);
+    assert_eq!(root, suggestions("/", &themes, &[]), "空输入与 / 应一致");
+    assert!(root.iter().all(|s| s.command.is_some()), "不应再有分类项");
+    let groups: Vec<_> = root.iter().map(|s| s.group).collect();
+    let mut sorted = groups.clone();
+    sorted.sort_by_key(|g| *g as u8);
+    assert_eq!(groups, sorted, "分组顺序应为 Agent、Terminal、Theme");
+    let midnight = suggestions("midnight", &themes, &[]);
+    assert_eq!(midnight.len(), 1, "裸词只命中一个主题");
+    assert_eq!(
+        midnight[0].command,
+        Some(DockCommand::Theme("midnight-violet".into())),
+        "midnight 应直接命中 Midnight Violet"
+    );
+    let te = suggestions("/te", &themes, &[]);
+    assert!(
+        te.iter().any(|s| s.command == Some(DockCommand::Terminal)),
+        "/te 应命中终端"
+    );
+}
+
+/// 场景：`/add` 按名称添加最近 repo，`/open` 打开文件夹选择器。
+///
+/// 数据构造：2 个最近 repo（norma、Website）；主题目录为空。
+/// 执行过程：查询 `/add`、`/add web`、`/add nothing`、`/open`、裸词 `norma`。
+/// 预期结果：`/add` 为 2 个 repo + 1 个浏览项 = 3；`/add web` 只命中 Website 再加浏览项；
+/// 无匹配时仍保留浏览项；`/open` 只返回浏览项；裸词可直接命中 repo。
+#[test]
+fn add_command_lists_recent_repos_and_falls_back_to_browse() {
+    let projects = [
+        CommandProject {
+            name: "norma".into(),
+            path: "/code/norma".into(),
+        },
+        CommandProject {
+            name: "Website".into(),
+            path: "/code/site".into(),
+        },
+    ];
+    assert_eq!(
+        suggestions("/add", &[], &projects).len(),
+        3,
+        "2 个 repo + 浏览项"
+    );
+    let web = suggestions("/add web", &[], &projects);
+    assert_eq!(
+        web[0].command,
+        Some(DockCommand::AddProject("/code/site".into())),
+        "名称过滤不区分大小写"
+    );
+    assert_eq!(web.len(), 2, "命中的 repo + 浏览项");
+    let none = suggestions("/add nothing", &[], &projects);
+    assert_eq!(
+        none.iter().map(|s| s.command.clone()).collect::<Vec<_>>(),
+        vec![Some(DockCommand::BrowseProject)],
+        "无匹配时只剩浏览项"
+    );
+    assert_eq!(
+        suggestions("/open", &[], &projects)[0].command,
+        Some(DockCommand::BrowseProject),
+        "/open 打开文件夹选择器"
+    );
+    assert_eq!(
+        suggestions("norma", &[], &projects)[0].command,
+        Some(DockCommand::AddProject("/code/norma".into())),
+        "裸词直接命中 repo"
+    );
+    assert!(
+        !suggestions("/", &[], &projects)
+            .iter()
+            .any(|s| matches!(s.command, Some(DockCommand::AddProject(_)))),
+        "根列表不展开 repo，避免淹没其它指令"
+    );
+}
+
+/// 场景：/help 与中英文裸词都只产生一个“打开功能引导”候选。
+///
+/// 数据构造：主题与最近 repo 为空；根列表 = 10 Agent + 1 终端 + 1 浏览文件夹 + 1 帮助 = 13。
+/// 执行过程：查询 `/help`、`/he`、`帮助`、`help`、带多余参数的 `/help me`、根列表。
+/// 预期结果：前四个各只有一个 Help 候选；`/help me` 不执行；根列表含 Help 且排在最后一组。
 #[test]
 fn help_command_opens_feature_guide() {
     for query in ["/help", "/he", "帮助", "help"] {
-        let found = suggestions(query, &[]);
-        assert_eq!(found.len(), 1, "{query} 应只产生一个候选");
+        let found = suggestions(query, &[], &[]);
+        assert_eq!(found.len(), 1, "{query} 只应命中一个候选");
         assert_eq!(
             found[0].command,
             Some(DockCommand::Help),
-            "{query} 应映射到 Help"
+            "{query} 应打开功能引导"
         );
     }
     assert!(
-        suggestions("/help me", &[]).is_empty(),
-        "额外参数不能被丢弃后执行"
+        suggestions("/help me", &[], &[]).is_empty(),
+        "多余参数不能静默执行"
     );
-    assert!(
-        suggestions("/", &[])
-            .iter()
-            .any(|s| s.command == Some(DockCommand::Help)),
-        "根列表必须包含帮助"
+    let roots = suggestions("/", &[], &[]);
+    assert_eq!(roots.len(), 13, "10 + 1 + 1 + 1 = 13 项");
+    assert_eq!(
+        roots.last().and_then(|item| item.command.clone()),
+        Some(DockCommand::Help),
+        "帮助排在最后一组"
     );
 }
