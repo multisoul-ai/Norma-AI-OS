@@ -295,8 +295,8 @@ body[data-input=keyboard] .orb-button:active .orb-surface{transform:none}
 .run-agent-name{font-weight:560}.run-agent-step{font:500 11px "SF Mono",Menlo,monospace;color:#7ee9ee}.run-agent-chip.is-idle .run-agent-step{font:11px -apple-system,BlinkMacSystemFont,sans-serif;color:#a9bfd1}
 .run-agent-alert{position:absolute;top:-2px;left:11px;width:7px;height:7px;border-radius:50%;background:#f2c773;box-shadow:0 0 0 2px #0b1f33}
 .app[data-chat=open][data-reader=open] .run-agent-name,.app[data-chat=open][data-reader=open] .run-agent-chip.is-idle .run-agent-step,.app[data-chat=open][data-reader=open] .run-trigger-pending-label,.app[data-chat=open][data-reader=open] .run-trigger-sep{display:none}
-.drawer-switch{flex:none;display:grid;grid-template-columns:1fr 1fr;gap:2px;margin:10px 16px 0;padding:3px;border:1px solid #a9d4f42e;border-radius:10px;background:#9fcfff0f}
-.drawer-tab{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:30px;border-radius:8px;color:#b9cfe3;font-size:12px;font-weight:520;transition:background 120ms ease,color 120ms ease}
+.drawer-switch{flex:none;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px;margin:10px 16px 0;padding:3px;border:1px solid #a9d4f42e;border-radius:10px;background:#9fcfff0f}
+.drawer-tab{min-width:0;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:30px;border-radius:8px;color:#b9cfe3;font-size:12px;font-weight:520;transition:background 120ms ease,color 120ms ease}
 .drawer-tab:hover{background:#8fcaff17;color:#fff}.drawer-tab:active{background:#8fcaff2a}.drawer-tab:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
 .drawer-tab[aria-selected=true]{background:#58adff2e;color:#fff;box-shadow:inset 0 0 0 1px #83c4ff70}
 .drawer-tab-float{display:none;color:#9fd2ff}.drawer-tab-float svg{width:12px;height:12px}.app[data-run-floating=true] .drawer-tab-float{display:grid;place-items:center}
@@ -397,6 +397,88 @@ summary::-webkit-details-marker{display:none}
 .ex-doc{flex:1;min-height:0;overflow:auto;font:12px/1.9 "SF Mono",Menlo,monospace}.ex-path{position:sticky;top:0;padding:10px 14px;background:#15171b;border-bottom:1px solid #ffffff14;font:12px -apple-system,"SF Pro Text",sans-serif;color:#cdd5e0}
 @media(max-width:520px){.changes-view,.explorer-view{grid-template-columns:1fr}.cv-side,.ex-side{display:none}}
 @media(prefers-reduced-motion:reduce){.resize-handle::after,.cv-side summary svg,.ex-side summary svg{transition:none}}
+/* 想法清单：运行概览里的一栏，拖给智能体卡片或新建智能体 */
+/* 运行概览分栏：每栏固定高度（按比例分配抽屉高度），内容多了栏内滚动；标题可折叠，折叠后空间让给其他栏。 */
+.run-overview .run-sections{display:flex;flex-direction:column;gap:4px;overflow-y:auto;overflow-x:hidden}
+.run-sections .run-group{display:flex;flex-direction:column;min-height:84px;flex:var(--g,1) 1 var(--h,160px);margin:0;padding:0}
+.run-sections .run-group+.run-group{margin-top:0;padding-top:4px;border-top:1px solid #cde8ff14}
+.run-overview[data-mode=drawer] .run-pop-head{padding:8px 8px 4px}
+.run-group[data-group=attention]{--h:190px;--g:1}.run-group[data-group=current]{--h:210px;--g:1.2}.run-group[data-group=ideas]{--h:236px;--g:1.4}.run-group[data-group=other]{--h:88px;--g:.6}.drawer-tab{white-space:nowrap}
+.run-sections .run-group-title{flex:none}
+.run-empty{display:none;height:100%;min-height:0;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:8px 12px;text-align:center;color:#9fb8cf;font-size:12px;line-height:1.5}
+.run-group[data-group=other] .run-empty small{display:none}.run-empty span{font-size:16px;color:#7ea4c4}.run-empty strong{font-weight:560;color:#cfe3f4}.run-empty small{color:#8ea8bf}
+.run-group-body:not(:has(.run-row)) .run-empty{display:flex}
+.run-group-body{position:relative;scroll-snap-type:y proximity;flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#cde8ff55 transparent}
+.run-group-body>.run-row,.run-group-body .idea-row,.run-group-body .idea-sub{scroll-snap-align:start}
+.run-group-body.has-more{-webkit-mask-image:linear-gradient(#000 calc(100% - 22px),#0000);mask-image:linear-gradient(#000 calc(100% - 22px),#0000)}
+.run-group.is-collapsed{flex:none;min-height:0}.run-group.is-collapsed .run-group-body,.run-group.is-collapsed .idea-add{display:none}
+.run-group-toggle{display:inline-flex;align-items:center;gap:6px;height:26px;margin-left:-6px;padding:0 6px;border-radius:7px;color:inherit;font:inherit;letter-spacing:inherit;transition:background 80ms ease}
+.run-group-toggle:hover{background:#8fcaff1f;color:#fff}.run-group-toggle:active{background:#8fcaff36}.run-group-toggle:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+.run-chevron{width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid currentColor;transition:transform 140ms var(--ease)}
+.run-group.is-collapsed .run-chevron{transform:rotate(-90deg)}
+.run-overview[data-mode=floating] .run-sections{height:min(560px,calc(100vh - 260px));flex:none}
+.idea-add{flex:none;display:flex;align-items:center;gap:6px;margin:4px 8px 2px;padding:3px 3px 3px 10px;border:1px solid #83c4ff40;border-radius:9px;background:#0b1b2d99}
+.idea-add:focus-within{border-color:#83c4ffa6}.idea-add input{flex:1;min-width:0;height:28px;background:none;border:0;outline:0;color:#eef6ff;font-size:12px}.idea-add input::placeholder{color:#8ea8bf}
+.idea-sub{display:flex;align-items:center;justify-content:space-between;height:26px;padding:0 8px;font-size:11px;color:#8ea8bf}
+.idea-sub-toggle{display:inline-flex;align-items:center;gap:6px;height:22px;margin-left:-4px;padding:0 4px;border-radius:6px;color:inherit;font:inherit}
+.idea-sub-toggle:hover{background:#8fcaff1f;color:#fff}.idea-sub-toggle:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+.idea-sub.is-collapsed .run-chevron,.idea-sub[data-collapsed=true] .run-chevron{transform:rotate(-90deg)}
+.idea-empty-line{padding:14px 10px;text-align:center;color:#a9c0d5;font-size:12px;line-height:1.6}
+@media(prefers-reduced-motion:reduce){.run-chevron{transition:none}}
+.run-group-title .ideas-badge{background:#8fcaff2e;color:#d4eaff}.ideas-badge[hidden]{display:none}.ideas-badge.bump{animation:idea-bump 320ms var(--ease)}
+.ideas-hint{margin:2px 8px 6px;padding:8px 10px;border-radius:9px;background:#8fcaff12;color:#b4cde2;font-size:12px;line-height:1.5}.ideas-hint b{color:#e8f4ff;font-weight:560}
+.idea-row{position:relative;display:grid;grid-template-columns:18px minmax(0,1fr) auto;align-items:center;column-gap:8px;min-height:52px;padding:6px 6px 6px 4px;border-radius:9px;color:#e4effa;cursor:grab;user-select:none;-webkit-user-select:none;transition:background 80ms ease,opacity 120ms ease}
+.idea-row:hover{background:#8fcaff1f}.idea-row:active{background:#8fcaff36}.idea-row:focus-visible{outline:2px solid var(--blue);outline-offset:-2px;background:#8fcaff1f}
+.idea-row.is-lifted{opacity:.35}.idea-row.is-menu-open{background:#8fcaff24}
+.idea-row.is-new{animation:idea-in 280ms var(--ease) both,idea-glow 1600ms ease-out both}
+.idea-grip{display:grid;place-items:center;width:18px;height:28px;color:#6f8ba3;touch-action:none}.idea-grip svg{width:14px;height:14px}.idea-row:hover .idea-grip,.idea-row:focus-visible .idea-grip{color:#bcd8f0}
+.idea-copy{min-width:0;display:flex;flex-direction:column;gap:3px}.idea-copy strong{font-size:13px;font-weight:560;color:#eef6ff;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.idea-copy small{font-size:12px;color:#a9c0d5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.idea-copy small b{font-weight:560;color:#8be9ee}
+.idea-actions{display:inline-flex;align-items:center;gap:2px;opacity:0;transition:opacity 100ms ease}
+.idea-row:hover .idea-actions,.idea-row:focus-within .idea-actions,.idea-row.is-menu-open .idea-actions{opacity:1}
+@media(hover:none){.idea-actions{opacity:1}}
+.idea-btn{display:inline-flex;align-items:center;justify-content:center;gap:4px;height:28px;min-width:28px;padding:0 8px;border-radius:7px;color:#bcd8f0;font-size:12px;font-weight:520}.idea-btn svg{width:13px;height:13px}
+.idea-btn:hover{background:#8fcaff2e;color:#fff}.idea-btn:active{background:#8fcaff48}.idea-btn:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+.idea-btn.is-assign{background:#58adff26;color:#dff0ff;box-shadow:inset 0 0 0 1px #83c4ff55}.idea-btn.is-assign:hover{background:#58adff40}
+.idea-btn.is-icon{padding:0;width:28px}
+.idea-row.is-assigned{cursor:pointer}.idea-row.is-assigned .idea-copy strong{color:#c5d9ea;font-weight:500}.idea-row.is-assigned .idea-grip{visibility:hidden}
+.idea-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#36dce8;box-shadow:0 0 0 3px #36dce829;vertical-align:1px;margin-right:2px}
+.idea-clear{height:22px;padding:0 6px;border-radius:6px;font-size:11px;font-weight:500;color:#9fc7ea}.idea-clear:hover{background:#8fcaff24;color:#fff}.idea-clear:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+.idea-empty{display:grid;justify-items:center;gap:8px;padding:34px 18px;text-align:center;color:#a9c0d5;font-size:12px;line-height:1.6}.idea-empty strong{font-size:13px;color:#e4effa}
+.idea-menu{position:fixed;z-index:80;min-width:216px;padding:6px;border:1px solid #83c4ff66;border-radius:12px;background:#0d1d2ff7;box-shadow:inset 0 1px #e5f6ff22,0 18px 44px #000b;backdrop-filter:blur(22px) saturate(130%);-webkit-backdrop-filter:blur(22px) saturate(130%);transform-origin:var(--menu-origin,top right);animation:idea-menu-in 140ms var(--ease) both}
+.idea-menu-title{padding:4px 10px 6px;font-size:11px;color:#8ea8bf}
+.idea-menu button{display:grid;grid-template-columns:14px minmax(0,1fr) auto;align-items:center;column-gap:8px;width:100%;min-height:36px;padding:0 10px;border-radius:8px;text-align:left;color:#e8f3fd;font-size:13px}
+.idea-menu button small{font-size:11px;color:#9fb8cf}.idea-menu button:hover,.idea-menu button:focus-visible{background:#8fcaff2e;outline:none}.idea-menu button:active{background:#8fcaff46}
+.idea-menu button.is-new{color:#bfe6ff}.idea-menu hr{border:0;border-top:1px solid #cde8ff1c;margin:5px 4px}
+.idea-menu i{width:8px;height:8px;border-radius:50%;background:#7b9dbd}.idea-menu i.running{background:#36dce8}.idea-menu i.new{background:none;box-shadow:inset 0 0 0 1.5px #9fd2ff}
+.idea-ghost{position:fixed;left:0;top:0;z-index:70;pointer-events:none;display:flex;align-items:center;gap:8px;max-width:280px;padding:9px 13px;border:1px solid #8fd0ffb8;border-radius:11px;background:#123552ee;color:#f1f9ff;font-size:12.5px;font-weight:540;box-shadow:0 14px 36px #000a,0 0 24px #4fb8ff40;will-change:transform}
+.idea-ghost span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.idea-ghost svg{flex:none;width:14px;height:14px;color:#8be9ee}
+.idea-newzone{position:absolute;left:50%;bottom:92px;transform:translate(-50%,10px);display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 18px;border:1.5px dashed #8fd0ff99;border-radius:21px;background:#0b1b2de6;color:#cfe8ff;font-size:13px;font-weight:540;opacity:0;visibility:hidden;pointer-events:none;box-shadow:0 12px 32px #0009;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);transition:opacity 160ms ease,transform 200ms var(--ease),visibility 0s linear 200ms,background 100ms ease,border-color 100ms ease}
+.idea-newzone svg{width:15px;height:15px}
+.app[data-idea-drag=true] .idea-newzone{opacity:1;visibility:visible;transform:translate(-50%,0);transition-delay:0s}
+.idea-newzone.is-drop-target{background:#1a4d73f2;border-style:solid;border-color:#bfe6ff;color:#fff;box-shadow:0 12px 32px #0009,0 0 30px #55c4ff55}
+.app[data-idea-drag=true] .live-card[data-node-kind=agent]{outline:2px dashed #8fd0ff88;outline-offset:-3px}
+.app[data-idea-drag=true] .live-card[data-node-kind=terminal]{opacity:.55}
+.app[data-idea-drag=true] .live-card[data-node-kind=agent]:after{content:"交给 " attr(data-agent-name);position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:7px 14px;border-radius:999px;background:#0b1b2dd9;color:#cfe8ff;font-size:12px;font-weight:560;pointer-events:none;box-shadow:0 8px 24px #0008}
+.app[data-idea-drag=true] .live-card.is-drop-target{outline:2px solid #bfe6ff;background-color:#2a73a62e;box-shadow:0 0 0 4px #55c4ff40,0 0 36px #55c4ff66!important}
+.app[data-idea-drag=true] .live-card.is-drop-target:after{background:#1a4d73f2;color:#fff}
+.app[data-idea-drag=true],.app[data-idea-drag=true] *{cursor:grabbing!important}
+.live-card.is-awaiting{opacity:0;animation:none;pointer-events:none}.live-card.is-arriving{animation:node-arrive 360ms var(--ease) both}
+.live-card.is-receiving{animation:idea-receive 900ms ease-out both}
+.live-terminal-body .term-new{animation:idea-line 1400ms ease-out both}
+.live-card-detail .queue{color:#8be9ee}
+.toast.has-action.visible{pointer-events:auto}.toast .toast-action{margin-left:12px;padding:3px 9px;border-radius:6px;background:#8fcaff2e;color:#e8f4ff;font-weight:560}.toast .toast-action:hover{background:#8fcaff4a}.toast .toast-action:focus-visible{outline:2px solid var(--blue)}
+.meteor-canvas{position:fixed;inset:0;width:100%;height:100%;z-index:90;pointer-events:none}
+.live-secondary{grid-template-rows:repeat(var(--rows,3),1fr)}
+@container (max-width:650px){.live-secondary{grid-template-rows:repeat(var(--rows,3),180px)}}
+@keyframes idea-in{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+@keyframes idea-glow{from{background:#58adff40}to{background:transparent}}
+@keyframes idea-bump{40%{transform:scale(1.35)}}
+@keyframes idea-menu-in{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
+@keyframes idea-receive{0%{box-shadow:0 0 0 0 #7fe3ffcc,0 0 0 #7fe3ff;border-color:#e8fbff}60%{box-shadow:0 0 0 12px #7fe3ff00,0 0 44px #5ac8ff88}100%{box-shadow:0 0 0 12px #7fe3ff00,0 0 0 #5ac8ff00}}
+@keyframes idea-line{from{background:#58d8ff45}to{background:transparent}}
+@media(prefers-reduced-motion:reduce){.idea-row.is-new,.idea-menu,.ideas-badge.bump{animation:none}.live-card.is-receiving{animation:idea-receive-still 900ms ease-out both}.idea-newzone{transition:opacity 120ms ease}.live-card.is-arriving{animation:left-view-fade 160ms ease both}.live-terminal-body .term-new{animation:idea-line 1000ms ease-out both}}
+@keyframes idea-receive-still{0%{border-color:#e8fbff;box-shadow:0 0 0 3px #7fe3ff99}100%{box-shadow:0 0 0 3px #7fe3ff00}}
+@media(prefers-reduced-transparency:reduce){.idea-menu,.idea-newzone{background:#0b1a2a;backdrop-filter:none;-webkit-backdrop-filter:none}}
 </style>
 </head>
 <body>
@@ -417,7 +499,7 @@ summary::-webkit-details-marker{display:none}
   <div class="conversation-scroll" id="conversation-scroll">
     <div class="chat-log" id="chat-log" role="log" aria-label="对话记录" aria-live="polite"><div class="chat-message assistant"><span class="message-author">Norma</span><p>你好，我是 Norma。左边和我聊天，中间看项目画布，右边可用标签浏览网页、文件、图片和视频。</p></div></div>
   </div>
-  <section class="run-overview" id="progress-body" role="tabpanel" aria-labelledby="drawer-tab-overview" data-mode="drawer" hidden><header class="run-pop-head" id="progress-drag"><div class="run-pop-title"><strong>运行概览</strong><small>Norma OS 工作空间 · 视觉示例 · 刚刚更新</small></div><div class="run-pop-actions"><button class="run-pop-icon run-pop-move" id="progress-move" type="button" aria-label="移动运行概览：方向键移动，双击标题栏复位" title="拖动移动 · 双击标题栏复位" hidden><span data-icon="grip"></span></button><button class="run-pop-icon" id="progress-pin" type="button" aria-pressed="false" aria-label="悬浮固定运行概览" title="弹出到画布上悬浮固定"><span data-icon="pin"></span></button></div></header><div class="run-pop-scroll"><section class="run-group" aria-label="需要你处理"><h3 class="run-group-title">需要你处理 <span class="run-count">3</span></h3><button class="run-row is-review" type="button" data-progress-node="approval-bella" data-peek="agent-bella" aria-label="定位 Bella 的待审核项：抽屉视觉方案"><span class="run-lead" aria-hidden="true"><i></i></span><span class="run-copy"><strong>待审核 · 抽屉视觉方案</strong><small>Bella · Norma-AI-OS</small></span><span class="run-trail">定位<span data-icon="arrow-diagonal"></span></span></button><button class="run-row is-result" type="button" data-progress-file="result" data-peek="agent-bella" aria-label="在右侧打开 Bella 的布局验收结果"><span class="run-lead" aria-hidden="true"><i></i></span><span class="run-copy"><strong>成果待查看 · 布局验收结果</strong><small>Bella · Norma-AI-OS</small></span><span class="run-trail">打开<span data-icon="arrow-diagonal"></span></span></button><button class="run-row is-file" type="button" data-progress-file="prototype" data-peek="agent-bella" aria-label="在右侧打开 Bella 修改的 index.html"><span class="run-lead" aria-hidden="true"><i></i></span><span class="run-copy"><strong>待查看文件 · index.html</strong><small>Bella · docs/prototypes/norma-assistant</small></span><span class="run-trail">打开<span data-icon="arrow-diagonal"></span></span></button></section><section class="run-group" aria-label="当前项目智能体"><h3 class="run-group-title">当前项目 · Norma-AI-OS <span>2 个智能体</span></h3><button class="run-row is-agent" type="button" data-progress-node="agent-bella" data-peek="agent-bella" aria-label="定位 Bella 智能体卡片：运行中，已完成 4/6，正在做第 5 项原型交互验收，已运行 18 分钟，1 项待审核"><span class="run-lead" aria-hidden="true"><i></i></span><span class="run-copy"><strong>Bella <span class="run-state is-running">运行中</span><span class="run-alert">1 待审核</span></strong><small>任务 · 调整原型布局与透明材质</small><span class="run-steps" style="--steps:6" aria-hidden="true"><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="current"></i><i class=""></i></span><span class="run-step-label">第 5/6 项 · 原型交互验收 <em>· 已运行 18 分</em></span></span><span class="run-trail">定位<span data-icon="arrow-diagonal"></span></span></button><button class="run-row is-agent is-idle" type="button" data-progress-node="agent-bruno" data-peek="agent-bruno" aria-label="定位 Bruno 智能体卡片：待开始，尚未开始执行"><span class="run-lead" aria-hidden="true"><i></i></span><span class="run-copy"><strong>Bruno <span class="run-state">待开始</span></strong><small>任务 · 检查抽屉响应式布局</small><span class="run-step-label"><em>尚未开始 · 项目上下文已就绪</em></span></span><span class="run-trail">定位<span data-icon="arrow-diagonal"></span></span></button></section><section class="run-group" aria-label="其他项目"><h3 class="run-group-title">其他项目 <span>上次状态</span></h3><button class="run-row is-project" type="button" data-progress-project="design" aria-label="切换到设计草稿项目，1 个智能体，上次状态 12 分钟前，未加载"><span class="run-lead" aria-hidden="true">02</span><span class="run-copy"><strong>设计草稿</strong><small>1 个智能体 · 上次状态 12 分钟前 · 未加载</small></span><span class="run-trail">切换<span data-icon="arrow-diagonal"></span></span></button></section></div></section><!-- /run-overview -->
+  <section class="run-overview" id="progress-body" role="tabpanel" aria-labelledby="drawer-tab-overview" data-mode="drawer" hidden><header class="run-pop-head" id="progress-drag"><div class="run-pop-title"><strong>运行概览</strong><small>Norma OS 工作空间 · 视觉示例 · 刚刚更新</small></div><div class="run-pop-actions"><button class="run-pop-icon run-pop-move" id="progress-move" type="button" aria-label="移动运行概览：方向键移动，双击标题栏复位" title="拖动移动 · 双击标题栏复位" hidden><span data-icon="grip"></span></button><button class="run-pop-icon" id="progress-pin" type="button" aria-pressed="false" aria-label="悬浮固定运行概览" title="弹出到画布上悬浮固定"><span data-icon="pin"></span></button></div></header><div class="run-pop-scroll run-sections"><section class="run-group" data-group="attention" id="run-group-attention" aria-label="需要你处理"><h3 class="run-group-title"><button class="run-group-toggle" type="button" aria-expanded="true" aria-controls="run-body-attention"><span class="run-chevron" aria-hidden="true"></span>需要你处理</button><span class="run-count">3</span></h3><div class="run-group-body" id="run-body-attention"><button class="run-row is-review" type="button" data-progress-node="approval-bella" data-peek="agent-bella" aria-label="定位 Bella 的待审核项：抽屉视觉方案"><span class="run-lead" aria-hidden="true"><i></i></span><span class="run-copy"><strong>待审核 · 抽屉视觉方案</strong><small>Bella · Norma-AI-OS</small></span><span class="run-trail">定位<span data-icon="arrow-diagonal"></span></span></button><button class="run-row is-result" type="button" data-progress-file="result" data-peek="agent-bella" aria-label="在右侧打开 Bella 的布局验收结果"><span class="run-lead" aria-hidden="true"><i></i></span><span class="run-copy"><strong>成果待查看 · 布局验收结果</strong><small>Bella · Norma-AI-OS</small></span><span class="run-trail">打开<span data-icon="arrow-diagonal"></span></span></button><button class="run-row is-file" type="button" data-progress-file="prototype" data-peek="agent-bella" aria-label="在右侧打开 Bella 修改的 index.html"><span class="run-lead" aria-hidden="true"><i></i></span><span class="run-copy"><strong>待查看文件 · index.html</strong><small>Bella · docs/prototypes/norma-assistant</small></span><span class="run-trail">打开<span data-icon="arrow-diagonal"></span></span></button><div class="run-empty"><span aria-hidden="true">✓</span><strong>没有需要你处理的事</strong><small>审核、成果和待查看文件会出现在这里</small></div></div></section><section class="run-group" data-group="current" id="run-group-current" aria-label="当前项目智能体"><h3 class="run-group-title"><button class="run-group-toggle" type="button" aria-expanded="true" aria-controls="run-body-current"><span class="run-chevron" aria-hidden="true"></span>当前项目 · Norma-AI-OS</button><span>2 个智能体</span></h3><div class="run-group-body" id="run-body-current"><button class="run-row is-agent" type="button" data-progress-node="agent-bella" data-peek="agent-bella" aria-label="定位 Bella 智能体卡片：运行中，已完成 4/6，正在做第 5 项原型交互验收，已运行 18 分钟，1 项待审核"><span class="run-lead" aria-hidden="true"><i></i></span><span class="run-copy"><strong>Bella <span class="run-state is-running">运行中</span><span class="run-alert">1 待审核</span></strong><small>任务 · 调整原型布局与透明材质</small><span class="run-steps" style="--steps:6" aria-hidden="true"><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="current"></i><i class=""></i></span><span class="run-step-label">第 5/6 项 · 原型交互验收 <em>· 已运行 18 分</em></span></span><span class="run-trail">定位<span data-icon="arrow-diagonal"></span></span></button><button class="run-row is-agent is-idle" type="button" data-progress-node="agent-bruno" data-peek="agent-bruno" aria-label="定位 Bruno 智能体卡片：待开始，尚未开始执行"><span class="run-lead" aria-hidden="true"><i></i></span><span class="run-copy"><strong>Bruno <span class="run-state">待开始</span></strong><small>任务 · 检查抽屉响应式布局</small><span class="run-step-label"><em>尚未开始 · 项目上下文已就绪</em></span></span><span class="run-trail">定位<span data-icon="arrow-diagonal"></span></span></button><div class="run-empty"><span aria-hidden="true">◌</span><strong>当前项目还没有智能体</strong><small>对 Norma 说“新建一个 Claude”，或在画布上添加</small></div></div></section><section class="run-group is-ideas" data-group="ideas" id="ideas-body" aria-label="想法"><h3 class="run-group-title"><button class="run-group-toggle" type="button" aria-expanded="true" aria-controls="ideas-scroll"><span class="run-chevron" aria-hidden="true"></span>想法</button><span><span class="ideas-badge run-count" id="ideas-badge" aria-label="0 条待办想法">0</span></span></h3><div class="run-group-body" id="ideas-scroll"></div><form class="idea-add" id="idea-add" autocomplete="off"><label class="sr-only" for="idea-add-input">添加想法</label><input id="idea-add-input" maxlength="500" placeholder="添加想法，回车保存"><button class="idea-btn is-assign" type="submit">添加</button></form></section><section class="run-group" data-group="other" id="run-group-other" aria-label="其他项目"><h3 class="run-group-title"><button class="run-group-toggle" type="button" aria-expanded="true" aria-controls="run-body-other"><span class="run-chevron" aria-hidden="true"></span>其他项目</button><span>上次状态</span></h3><div class="run-group-body" id="run-body-other"><button class="run-row is-project" type="button" data-progress-project="design" aria-label="切换到设计草稿项目，1 个智能体，上次状态 12 分钟前，未加载"><span class="run-lead" aria-hidden="true">02</span><span class="run-copy"><strong>设计草稿</strong><small>1 个智能体 · 上次状态 12 分钟前 · 未加载</small></span><span class="run-trail">切换<span data-icon="arrow-diagonal"></span></span></button><div class="run-empty"><span aria-hidden="true">▫</span><strong>没有其他项目</strong><small>在工作空间里新建或打开项目后显示在这里</small></div></div></section></div></section><!-- /run-overview -->
   <section class="composer-area" aria-label="对话输入">
     <form class="composer" id="composer" autocomplete="off"><label class="sr-only" for="command-input">向 Norma 说一句话</label><input id="command-input" placeholder="说说你的想法…" maxlength="500"><button id="mic-button" class="mic-button" type="button" aria-label="开始语音输入" aria-pressed="false" title="开始语音输入"><span data-icon="mic"></span></button><button id="send-button" class="send-button" type="submit" aria-label="发送指令" disabled><span data-icon="arrow-up"></span></button></form>
   </section>
@@ -462,7 +544,7 @@ summary::-webkit-details-marker{display:none}
         </div>
       </section>
     </main>
-    <div class="run-float-layer" id="run-float-layer"></div>
+    <div class="run-float-layer" id="run-float-layer"><div class="idea-newzone" id="idea-newzone" aria-hidden="true"><span data-icon="plus"></span>新建智能体来完成</div></div>
     <nav class="page-dock" aria-label="页面切换">
       <div class="page-dock-surface">
         <span class="page-dock-brand" title="工作空间" aria-hidden="true"><span data-icon="sparkles"></span></span>
@@ -534,6 +616,73 @@ var AssistantCore = (() => {
     return current;
   }
   return {plan, applyCards, applyPresentation};
+})();
+</script>
+<script id="assistant-ideas">
+var AssistantIdeas = (() => {
+  const digits = {一:1,二:2,两:2,三:3,四:4,五:5,六:6,七:7,八:8,九:9,十:10};
+  const agents = [['bella',/bella|贝拉/i],['bruno',/bruno|布鲁诺/i],['new',/新(?:建)?(?:的|一个)?(?:智能体|agent)|再开一个(?:智能体|agent)/i]];
+  const trigger = /^(?:请|帮我|麻烦)?\s*(?:记一下|记下来?|记录一下|记录|记个|记着|加个待办|添加待办|加到待办|待办|备忘|别忘了|提醒我)\s*[:：,，、]?\s*(.+)$/;
+  const trailing = /^(.+?)[,，]?\s*(?:帮我|请)?记(?:一)?下来?[。.!！]?$/;
+  function clean(text) {return text.replace(/^(?:一个|一条)?(?:想法|待办)\s*[:：,，、]?\s*/,'').replace(/[。.!！\s]+$/,'').trim().slice(0,80);}
+  // 只在明确的“记下”措辞下捕获，避免把普通指令误记为想法。
+  function capture(text) {
+    const value = text.trim();
+    if (/交给|派给|指派|分给/.test(value)) return null;
+    const match = value.match(trigger) || value.match(trailing);
+    const title = match ? clean(match[1]) : '';
+    return title || null;
+  }
+  function wantsList(text) {return /(?:看看|打开|查看|有哪些|显示|列出).{0,4}(?:想法|待办)|(?:想法|待办).{0,3}(?:清单|列表)/.test(text);}
+  function ordinal(text) {
+    const arabic = text.match(/第\s*(\d+)\s*(?:条|个|项)?/);if (arabic) return {n:Number(arabic[1])};
+    const cn = text.match(/第\s*([一二两三四五六七八九十])\s*(?:条|个|项)?/);if (cn) return {n:digits[cn[1]]};
+    return {latest:true};
+  }
+  // “把第二条交给 Bruno”“让新智能体做刚才那个想法”→ {ref,target}；没有明确执行者时返回 null。
+  function assignIntent(text) {
+    if (!/想法|待办|条|个|刚才|刚刚|这件事|这个/.test(text) || !/交给|派给|指派|分给|让.+(?:做|去做|完成|处理)|新建.*(?:智能体|agent)/i.test(text)) return null;
+    const hit = agents.find(([, pattern]) => pattern.test(text));
+    return hit ? {ref:ordinal(text),target:hit[0]} : null;
+  }
+  let sequence = 0;
+  function add(list, title, {now = Date.now(), id = `idea-${now.toString(36)}-${++sequence}`, source = 'chat'} = {}) {
+    const value = title.trim();
+    if (!value) return {list:[...list],idea:null};
+    const idea = {id,title:value,createdAt:now,source,assignee:null};
+    return {list:[...list,idea],idea};
+  }
+  const open = list => list.filter(idea => !idea.assignee);
+  const groups = list => ({todo:open(list),assigned:list.filter(idea => idea.assignee)});
+  // ref 指向“待办”中的第 n 条（从 1 起）或最新一条。
+  function resolve(list, ref) {
+    const todo = open(list);
+    return ref?.n ? todo[ref.n - 1] || null : todo.at(-1) || null;
+  }
+  const assign = (list, id, assignee) => list.map(idea => idea.id === id && !idea.assignee ? {...idea,assignee:{...assignee}} : idea);
+  const unassign = (list, id) => list.map(idea => idea.id === id ? {...idea,assignee:null} : idea);
+  const remove = (list, id) => list.filter(idea => idea.id !== id);
+  // 撤销删除：放回原位置。
+  function restore(list, idea, index) {const next = [...list];next.splice(Math.min(Math.max(index,0),next.length),0,idea);return next;}
+  function nextAgentName(taken) {
+    const pool = ['Cleo','Dana','Eli','Faye','Gus','Hana'];
+    return pool.find(name => !taken.includes(name)) || `Agent ${taken.length + 1}`;
+  }
+  function age(createdAt, now = Date.now()) {
+    const minutes = Math.floor((now - createdAt) / 60000);
+    return minutes < 1 ? '刚刚' : minutes < 60 ? `${minutes} 分钟前` : minutes < 1440 ? `${Math.floor(minutes / 60)} 小时前` : `${Math.floor(minutes / 1440)} 天前`;
+  }
+  const key = 'norma.prototype.ideas';
+  function read(storage) {
+    try {
+      const data = JSON.parse(storage?.getItem(key) || 'null');
+      const ideas = Array.isArray(data?.ideas) ? data.ideas.filter(idea => idea && typeof idea.id === 'string' && typeof idea.title === 'string') : [];
+      const spawned = Array.isArray(data?.spawned) ? data.spawned.filter(item => item && typeof item.id === 'string' && typeof item.name === 'string') : [];
+      return {ideas,spawned};
+    } catch {return {ideas:[],spawned:[]};}
+  }
+  function write(storage, state) {try {storage?.setItem(key,JSON.stringify(state));} catch {}}
+  return {capture,clean,wantsList,assignIntent,add,groups,resolve,assign,unassign,remove,restore,nextAgentName,age,read,write};
 })();
 </script>
 <script id="assistant-tabs">
@@ -756,7 +905,7 @@ var AssistantVoice = (() => {
 const $ = id => document.getElementById(id);
 const icons = {
   diff:'<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M12 7v6M9 10h6M9 17h6"/>',folder:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/>',terminal:'<rect x="3" y="4" width="18" height="16" rx="3"/><path d="m7 10 3 2-3 2M12 15h5"/>',search:'<circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/>',
-  play:'<path d="m7 4 12 8-12 8Z"/>',pause:'<path d="M8 5v14M16 5v14"/>',close:'<path d="m6 6 12 12M18 6 6 18"/>',pin:'<path d="m9 3 6 0-1 7 4 4H6l4-4ZM12 14v7"/>',expand:'<path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5"/>',mic:'<rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/>',sparkles:'<path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5ZM20 2v4M18 4h4"/>',grip:'<circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/>',grid:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',activity:'<path d="M3 12h4l3-8 4 16 3-8h4"/>',globe:'<circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/>',file:'<path d="M14 3H5v18h14V8ZM14 3v5h5M8 12h8M8 16h6"/>',image:'<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.4"/><path d="m3 17 6-6 4 4 3-3 5 5"/>',video:'<rect x="3" y="5" width="14" height="14" rx="3"/><path d="m17 9 5-3v12l-5-3"/>',check:'<path d="m5 12 4 4 10-10"/>','arrow-up':'<path d="M12 20V4M5 11l7-7 7 7"/>','arrow-right':'<path d="M4 12h16M14 6l6 6-6 6"/>','arrow-diagonal':'<path d="M6 18 18 6M6 6h12v12"/>','chevron':'<path d="m9 5 7 7-7 7"/>','panel-left-close':'<rect x="2.5" y="4" width="19" height="16" rx="3"/><path d="M9 4v16m6-11-3 3 3 3"/>','panel-left-open':'<rect x="2.5" y="4" width="19" height="16" rx="3"/><path d="M9 4v16m3-11 3 3-3 3"/>','panel-right-open':'<rect x="2.5" y="4" width="19" height="16" rx="3"/><path d="M15 4v16m-3-11-3 3 3 3"/>','panel-right-close':'<rect x="2.5" y="4" width="19" height="16" rx="3"/><path d="M15 4v16m-6-11 3 3-3 3"/>',help:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4 2c-1 .6-1.5 1.2-1.5 2.5M12 17h.01"/>','volume-off':'<path d="m11 4-6 5H2v6h3l6 5ZM16 9l6 6M22 9l-6 6"/>',volume:'<path d="m11 4-6 5H2v6h3l6 5ZM15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',link:'<path d="m10 14 4-4M8 16l-2 2a4 4 0 0 1-6-6l5-5a4 4 0 0 1 6 0M16 8l2-2a4 4 0 0 1 6 6l-5 5a4 4 0 0 1-6 0" transform="translate(1 0) scale(.9)"/>'
+  play:'<path d="m7 4 12 8-12 8Z"/>',plus:'<path d="M12 5v14M5 12h14"/>',chevron:'<path d="m6 9 6 6 6-6"/>',pause:'<path d="M8 5v14M16 5v14"/>',close:'<path d="m6 6 12 12M18 6 6 18"/>',pin:'<path d="m9 3 6 0-1 7 4 4H6l4-4ZM12 14v7"/>',expand:'<path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5"/>',mic:'<rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/>',sparkles:'<path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5ZM20 2v4M18 4h4"/>',grip:'<circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/>',grid:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',activity:'<path d="M3 12h4l3-8 4 16 3-8h4"/>',globe:'<circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/>',file:'<path d="M14 3H5v18h14V8ZM14 3v5h5M8 12h8M8 16h6"/>',image:'<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.4"/><path d="m3 17 6-6 4 4 3-3 5 5"/>',video:'<rect x="3" y="5" width="14" height="14" rx="3"/><path d="m17 9 5-3v12l-5-3"/>',check:'<path d="m5 12 4 4 10-10"/>','arrow-up':'<path d="M12 20V4M5 11l7-7 7 7"/>','arrow-right':'<path d="M4 12h16M14 6l6 6-6 6"/>','arrow-diagonal':'<path d="M6 18 18 6M6 6h12v12"/>','chevron':'<path d="m9 5 7 7-7 7"/>','panel-left-close':'<rect x="2.5" y="4" width="19" height="16" rx="3"/><path d="M9 4v16m6-11-3 3 3 3"/>','panel-left-open':'<rect x="2.5" y="4" width="19" height="16" rx="3"/><path d="M9 4v16m3-11 3 3-3 3"/>','panel-right-open':'<rect x="2.5" y="4" width="19" height="16" rx="3"/><path d="M15 4v16m-3-11-3 3 3 3"/>','panel-right-close':'<rect x="2.5" y="4" width="19" height="16" rx="3"/><path d="M15 4v16m-6-11 3 3-3 3"/>',help:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4 2c-1 .6-1.5 1.2-1.5 2.5M12 17h.01"/>','volume-off':'<path d="m11 4-6 5H2v6h3l6 5ZM16 9l6 6M22 9l-6 6"/>',volume:'<path d="m11 4-6 5H2v6h3l6 5ZM15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',link:'<path d="m10 14 4-4M8 16l-2 2a4 4 0 0 1-6-6l5-5a4 4 0 0 1 6 0M16 8l2-2a4 4 0 0 1 6 6l-5 5a4 4 0 0 1-6 0" transform="translate(1 0) scale(.9)"/>'
 };
 const icon = name => `<svg viewBox="0 0 24 24" aria-hidden="true">${icons[name] || icons.sparkles}</svg>`;
 function hydrate(scope = document) { scope.querySelectorAll('[data-icon]').forEach(el => {el.innerHTML = icon(el.dataset.icon);}); }
@@ -775,7 +924,7 @@ let inputMethod = 'pointer';
 document.addEventListener('pointerdown',() => {inputMethod = 'pointer';document.body.dataset.input='pointer';});
 document.addEventListener('keydown',() => {inputMethod = 'keyboard';document.body.dataset.input='keyboard';});
 let toastTimer;
-function toast(message) { $('toast').textContent = message; $('toast').classList.add('visible'); clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').classList.remove('visible'),4300); }
+function toast(message) { $('toast').classList.remove('has-action');$('toast').textContent = message; $('toast').classList.add('visible'); clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').classList.remove('visible'),4300); }
 function addConversationMessage(role,text) {
   state.messages=AssistantConversation.append(state.messages,role,text);
   const scroll=$('conversation-scroll'),follow=AssistantConversation.shouldFollow(scroll,role);
@@ -892,6 +1041,8 @@ function submit(text,{demo=false}={}) {
   const turn=++state.turn;const action=AssistantCore.plan(value);$('user-line').textContent=value;
   addConversationMessage('user',value);
   $('command-input').value='';$('send-button').disabled=true;
+  const idea=handleIdeaCommand(value);
+  if(idea){setMode('speaking');$('orb-reply').textContent=idea.reply;finishPendingMessage(idea.reply);if(!speak(idea.reply,turn))state.responseTimer=setTimeout(()=>{if(turn===state.turn)setMode('idle');},1700);return;}
   if(action.type==='clear'||action.type==='remove'||action.type==='overview') {applyAction(action);$('orb-reply').textContent=action.reply;finishPendingMessage(action.reply);setMode('idle');return;}
   setMode('thinking');showPendingMessage();
   // 600 ms 仅模拟原型的思考反馈；即时响应已经在 setMode 中完成。
@@ -1265,6 +1416,337 @@ $('reader-tabs').addEventListener('click',event=>{
   const close=event.target.closest('[data-close-tab]');if(close){closeTab(close.dataset.closeTab);return;}
   const tab=event.target.closest('[data-tab]');if(tab){const selected=state.tabs.find(item=>item.id===tab.dataset.tab);if(selected)setPresentation(selected);}
 });
+// ───── 想法清单：对话记下 → 拖给智能体（或新建智能体）→ 流星投递 ─────
+const ideasModel={list:[],spawned:[],fresh:null,assignedCollapsed:false};
+function revealIdeas() {
+  setLeftView('overview');setGroupCollapsed('ideas',false);
+  $('ideas-body').scrollIntoView({block:'nearest',behavior:reduced.matches?'instant':'smooth'});
+}
+const ideaTab=id=>$('ideas-body').querySelector(`.idea-row[data-id="${id}"]`);
+function saveIdeas() {AssistantIdeas.write(preferenceStorage,{ideas:ideasModel.list,spawned:ideasModel.spawned});}
+function agentCards() {return [...$('live-canvas').querySelectorAll('[data-node-kind=agent]')];}
+const agentName=card=>card.querySelector('.live-card-title strong')?.textContent.trim()||'智能体';
+function labelAgents() {agentCards().forEach(card=>{card.dataset.agentName=agentName(card);});}
+const centerOf=rect=>({x:rect.left+rect.width/2,y:rect.top+rect.height/2});
+// 流星打在卡片正中央（不是标题栏里的状态角标）。
+function landingPoint(card) {return centerOf(card.getBoundingClientRect());}
+function startPointFor(id) {
+  const row=ideaTab(id);
+  if(row?.offsetParent)return centerOf(row.querySelector('.idea-grip').getBoundingClientRect());
+  return centerOf($('composer').getBoundingClientRect());
+}
+function toastAction(message,label,action) {
+  const el=$('toast');el.textContent='';
+  const text=document.createElement('span');text.textContent=message;
+  const button=document.createElement('button');button.type='button';button.className='toast-action';button.textContent=label;
+  button.addEventListener('click',()=>{el.classList.remove('visible','has-action');action();});
+  el.append(text,button);el.classList.add('has-action','visible');
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('visible','has-action'),6000);
+}
+// 左栏第三个视图的角标与列表渲染；重绘时保留键盘焦点所在行。
+function renderIdeas() {
+  const {todo,assigned}=AssistantIdeas.groups(ideasModel.list),scroll=$('ideas-scroll');
+  const focusId=document.activeElement?.closest?.('.idea-row')?.dataset.id,focusPart=document.activeElement?.dataset?.part;
+  const badge=$('ideas-badge');badge.hidden=!todo.length;badge.textContent=String(todo.length);badge.setAttribute('aria-label',`${todo.length} 条待办想法`);
+  const todoRow=idea=>`<div class="idea-row${idea.id===ideasModel.fresh?' is-new':''}" role="listitem" tabindex="0" data-id="${idea.id}" data-state="todo" aria-label="想法：${esc(idea.title)}。回车指派，Delete 删除"><span class="idea-grip" aria-hidden="true"><span data-icon="grip"></span></span><span class="idea-copy"><strong>${esc(idea.title)}</strong><small>${AssistantIdeas.age(idea.createdAt)} · 来自${idea.source==='manual'?'手动添加':'对话'}</small></span><span class="idea-actions"><button class="idea-btn is-assign" type="button" data-part="assign" data-assign="${idea.id}" aria-haspopup="menu" aria-label="指派：${esc(idea.title)}">指派<span data-icon="chevron"></span></button><button class="idea-btn is-icon" type="button" data-part="delete" data-delete="${idea.id}" aria-label="删除想法：${esc(idea.title)}" title="删除"><span data-icon="close"></span></button></span></div>`;
+  const stateText={sending:'投递中…',running:'运行中',queued:'已排队，当前任务后开始'};
+  const doneRow=idea=>`<div class="idea-row is-assigned" role="listitem" tabindex="0" data-id="${idea.id}" data-state="assigned" data-card="${idea.assignee.id}" aria-label="已交给 ${esc(idea.assignee.name)}：${esc(idea.title)}，回车定位卡片"><span class="idea-grip" aria-hidden="true"></span><span class="idea-copy"><strong><span class="idea-dot" aria-hidden="true"></span> ${esc(idea.title)}</strong><small>已交给 <b>${esc(idea.assignee.name)}</b> · ${stateText[idea.assignee.state]||'运行中'}</small></span><span class="run-trail">定位<span data-icon="arrow-diagonal"></span></span></div>`;
+  const collapsed=ideasModel.assignedCollapsed;
+  const sub=(label,count,extra='',toggle=false)=>`<div class="idea-sub" data-collapsed="${collapsed}">${toggle?`<button class="idea-sub-toggle" type="button" data-toggle-assigned aria-expanded="${!collapsed}"><span class="run-chevron" aria-hidden="true"></span>${label} ${count}</button>`:`<span>${label} ${count}</span>`}${extra}</div>`;
+  scroll.innerHTML=(todo.length||assigned.length)?`${todo.length?`${assigned.length?sub('待办',todo.length):''}<div role="list">${todo.map(todoRow).join('')}</div>`:'<p class="idea-empty-line">想法都分出去了。继续对 Norma 说“记一下…”。</p>'}${assigned.length?`${sub('已指派',assigned.length,'<button class="idea-clear" type="button" data-clear-assigned>清空</button>',true)}${collapsed?'':`<div role="list">${assigned.map(doneRow).join('')}</div>`}`:''}`
+    :`<div class="run-empty" style="display:flex"><span aria-hidden="true">💡</span><strong>还没有想法</strong><small>对 Norma 说“记一下：…”，或在下方输入；记下后拖到智能体卡片即可开工</small></div>`;
+  hydrate(scroll);
+  if(focusId){const row=ideaTab(focusId);(row?.querySelector(`[data-part="${focusPart}"]`)||row)?.focus({preventScroll:true});}
+  ideasModel.fresh=null;
+}
+function addIdea(title,{source='chat'}={}) {
+  const {list,idea}=AssistantIdeas.add(ideasModel.list,title,{source});
+  if(!idea)return null;
+  ideasModel.list=list;ideasModel.fresh=idea.id;saveIdeas();renderIdeas();
+  const badge=$('ideas-badge');badge.classList.remove('bump');void badge.offsetWidth;badge.classList.add('bump');
+  if(leftView()==='overview'||progressFloating())$('ideas-scroll').scrollTop=0;
+  return idea;
+}
+function removeIdea(id) {
+  const index=ideasModel.list.findIndex(idea=>idea.id===id);if(index<0)return;
+  const idea=ideasModel.list[index],rows=[...$('ideas-body').querySelectorAll('.idea-row')],at=rows.findIndex(row=>row.dataset.id===id);
+  ideasModel.list=AssistantIdeas.remove(ideasModel.list,id);saveIdeas();renderIdeas();
+  const next=[...$('ideas-body').querySelectorAll('.idea-row')];(next[Math.min(at,next.length-1)]||$('idea-add-input')).focus({preventScroll:true});
+  toastAction('已删除想法','撤销',()=>{ideasModel.list=AssistantIdeas.restore(ideasModel.list,idea,index);saveIdeas();renderIdeas();ideaTab(id)?.focus({preventScroll:true});});
+}
+// ───── 新建智能体卡片：新同事出生就带着这条想法 ─────
+function spawnAgentCard({id,name,title},{awaiting=false}={}) {
+  const card=document.createElement('article');
+  card.className=`live-card live-agent live-small-agent is-spawned${awaiting?' is-awaiting':''}`;card.id=id;card.dataset.nodeKind='agent';card.dataset.agentName=name;card.tabIndex=0;
+  card.setAttribute('aria-label',`${name} 智能体卡片，由想法清单新建`);
+  card.innerHTML=`<header class="live-card-title"><span class="live-type"><i></i>Agent</span><strong>${esc(name)}</strong><span class="live-card-detail">Norma-AI-OS · 来自想法清单</span><span class="live-task-status is-running">运行中</span><span class="live-card-menu" aria-hidden="true">×</span></header><div class="live-terminal-body"><p><span class="term-prompt">›</span> ${esc(title)}</p><p class="term-gap"><span class="term-dot cyan"></span> 已接收 · 来自想法清单</p><p class="term-indent">└ 正在读取项目上下文</p><p class="term-gap term-muted">示例会话 · 未连接 Agent Runtime</p></div>`;
+  const secondary=document.querySelector('.live-secondary');
+  secondary.insertBefore(card,secondary.querySelector('.live-term'));
+  secondary.style.setProperty('--rows',String(secondary.children.length));
+  return card;
+}
+function appendTerminalLines(lines,html) {
+  const rows=lines.querySelectorAll('p');
+  if(rows.length>7){rows[0].remove();rows[1]?.remove();}
+  lines.insertAdjacentHTML('beforeend',html);
+}
+// 把任务写进智能体卡片：空闲的从头开始，忙碌的排到当前任务之后。
+function deliverToCard(card,title) {
+  const status=card.querySelector('.live-task-status'),body=card.querySelector('.live-terminal-body'),lines=card.querySelector('.live-terminal-lines')||body;
+  if(card.classList.contains('is-spawned'))return 'running';
+  if(status?.classList.contains('is-idle')){
+    body.innerHTML=`<p class="term-new"><span class="term-prompt">›</span> ${esc(title)}</p><p class="term-gap term-new"><span class="term-dot cyan"></span> 已接收 · 来自想法清单</p><p class="term-indent term-new">└ 正在读取项目上下文</p><p class="term-gap term-muted">示例会话 · 未连接 Agent Runtime</p>`;
+    status.className='live-task-status is-running';status.textContent='运行中';
+    if(card.id==='agent-bruno')syncBrunoOverview(title);
+    return 'running';
+  }
+  const queued=Number(card.dataset.queued||0)+1;card.dataset.queued=String(queued);
+  appendTerminalLines(lines,`<p class="term-gap term-new"><span class="term-dot"></span> 已排队 · ${esc(title)}</p><p class="term-indent term-new">└ 当前任务完成后自动开始</p>`);
+  if(status){status.dataset.base||=status.textContent;status.textContent=`${status.dataset.base} · +${queued} 排队`;}
+  return 'queued';
+}
+// 运行概览里的 Bruno 同步为运行中，避免两处状态矛盾。
+function syncBrunoOverview(title) {
+  const row=document.querySelector('.run-row[data-progress-node="agent-bruno"]');
+  if(row){row.classList.remove('is-idle');const state=row.querySelector('.run-state');if(state){state.className='run-state is-running';state.textContent='运行中';}
+    const small=row.querySelector('.run-copy small');if(small)small.textContent=`任务 · ${title}`;const em=row.querySelector('.run-step-label em');if(em)em.textContent='刚收到 · 来自想法清单';
+    row.setAttribute('aria-label','定位 Bruno 智能体卡片：运行中，刚从想法清单收到任务');}
+  const chip=document.querySelector('.run-agent-chip.is-idle');
+  if(chip){chip.classList.replace('is-idle','is-running');chip.style.setProperty('--step','1');chip.style.setProperty('--steps','6');const step=chip.querySelector('.run-agent-step');if(step)step.textContent='运行中';}
+}
+function receiveFlash(card) {
+  card.classList.remove('is-receiving');void card.offsetWidth;card.classList.add('is-receiving');
+  card.addEventListener('animationend',event=>{if(event.animationName.startsWith('idea-receive'))card.classList.remove('is-receiving');},{once:true});
+}
+// 指派一条想法：流星从 start 飞向目标卡片，落点处才真正写入卡片。
+function assignIdea(id,target,start) {
+  const idea=ideasModel.list.find(item=>item.id===id&&!item.assignee);if(!idea)return;
+  const name=target.spawn?AssistantIdeas.nextAgentName(agentCards().map(agentName)):null;
+  let card=target.spawn?null:$(target.cardId);
+  if(target.spawn){
+    const spec={id:`agent-${name.toLowerCase()}`,name,title:idea.title};
+    ideasModel.spawned.push(spec);card=spawnAgentCard(spec,{awaiting:!reduced.matches});
+  }
+  if(!card)return;
+  if(state.presentation&&!target.spawn)setPresentation(null);
+  ideasModel.list=AssistantIdeas.assign(ideasModel.list,id,{id:card.id,name:agentName(card),state:'sending'});
+  saveIdeas();renderIdeas();
+  const land=()=>{
+    const result=deliverToCard(card,idea.title);
+    if(card.classList.contains('is-awaiting')){card.classList.remove('is-awaiting');card.classList.add('is-arriving');card.addEventListener('animationend',()=>card.classList.remove('is-arriving'),{once:true});}
+    receiveFlash(card);
+    ideasModel.list=ideasModel.list.map(item=>item.id===id&&item.assignee?{...item,assignee:{...item.assignee,state:result}}:item);
+    saveIdeas();renderIdeas();
+    toast(target.spawn?`已新建 ${agentName(card)} 来完成：${idea.title}`:`已交给 ${agentName(card)}：${idea.title}`);
+  };
+  if(reduced.matches){land();return;}
+  card.scrollIntoView({block:'nearest',behavior:'instant'});
+  flyMeteor(start||startPointFor(id),landingPoint(card),{onImpact:land});
+}
+// ───── 流星：贝塞尔弧线 + 渐隐尾迹 + 落点涟漪；直接画在一层全屏 canvas 上 ─────
+const meteors=new Set();let meteorCanvas=null,meteorFrame=0;
+function flyMeteor(from,to,{onImpact,duration=680}={}) {
+  if(!meteorCanvas){meteorCanvas=document.createElement('canvas');meteorCanvas.className='meteor-canvas';meteorCanvas.setAttribute('aria-hidden','true');document.body.append(meteorCanvas);}
+  const dx=to.x-from.x,dy=to.y-from.y,dist=Math.max(1,Math.hypot(dx,dy)),bow=Math.min(140,dist*.24)*(dx>=0?-1:1);
+  meteors.add({from,to,ctrl:{x:(from.x+to.x)/2+(-dy/dist)*bow,y:(from.y+to.y)/2+(dx/dist)*bow},t0:performance.now(),duration:Math.min(900,duration+dist*.12),trail:[],sparks:[],ring:null,impact:false,onImpact});
+  if(!meteorFrame)meteorFrame=requestAnimationFrame(drawMeteors);
+}
+function drawMeteors(now) {
+  const ratio=window.devicePixelRatio||1,w=window.innerWidth,h=window.innerHeight;
+  if(meteorCanvas.width!==Math.round(w*ratio)||meteorCanvas.height!==Math.round(h*ratio)){meteorCanvas.width=Math.round(w*ratio);meteorCanvas.height=Math.round(h*ratio);}
+  const ctx=meteorCanvas.getContext('2d');ctx.setTransform(ratio,0,0,ratio,0,0);ctx.clearRect(0,0,w,h);ctx.globalCompositeOperation='lighter';ctx.lineCap='round';
+  meteors.forEach(m=>{
+    const p=Math.min(1,(now-m.t0)/m.duration),e=p<.5?4*p*p*p:1-Math.pow(-2*p+2,3)/2,u=1-e;
+    const x=u*u*m.from.x+2*u*e*m.ctrl.x+e*e*m.to.x,y=u*u*m.from.y+2*u*e*m.ctrl.y+e*e*m.to.y;
+    if(p<1){m.trail.push({x,y,t:now});if(Math.random()<.7)m.sparks.push({x,y,vx:(Math.random()-.5)*34,vy:(Math.random()-.5)*34,t:now});}
+    m.trail=m.trail.filter(point=>now-point.t<320);m.sparks=m.sparks.filter(spark=>now-spark.t<520);
+    for(let i=1;i<m.trail.length;i++){
+      const a=m.trail[i-1],b=m.trail[i],life=1-(now-b.t)/320;
+      ctx.strokeStyle=`rgba(${120+Math.round(110*life)},${210+Math.round(40*life)},255,${(life*.85).toFixed(3)})`;ctx.lineWidth=1+7*life*life;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+    }
+    m.sparks.forEach(spark=>{const age=(now-spark.t)/520;ctx.fillStyle=`rgba(170,230,255,${((1-age)*.7).toFixed(3)})`;ctx.beginPath();ctx.arc(spark.x+spark.vx*age,spark.y+spark.vy*age,1.6*(1-age)+.4,0,Math.PI*2);ctx.fill();});
+    if(p<1){
+      const glow=ctx.createRadialGradient(x,y,0,x,y,18);glow.addColorStop(0,'rgba(255,255,255,.95)');glow.addColorStop(.3,'rgba(150,225,255,.6)');glow.addColorStop(1,'rgba(80,180,255,0)');
+      ctx.fillStyle=glow;ctx.beginPath();ctx.arc(x,y,18,0,Math.PI*2);ctx.fill();
+    }else if(!m.impact){m.impact=true;m.ring=now;m.onImpact?.();}
+    if(m.ring){const age=(now-m.ring)/460;if(age<1){ctx.strokeStyle=`rgba(160,230,255,${((1-age)*.8).toFixed(3)})`;ctx.lineWidth=2.5*(1-age)+.5;ctx.beginPath();ctx.arc(m.to.x,m.to.y,10+46*(1-Math.pow(1-age,3)),0,Math.PI*2);ctx.stroke();}}
+    if(m.impact&&!m.trail.length&&!m.sparks.length&&(!m.ring||now-m.ring>460))meteors.delete(m);
+  });
+  meteorFrame=meteors.size?requestAnimationFrame(drawMeteors):0;
+  if(!meteors.size)ctx.clearRect(0,0,w,h);
+}
+// ───── 指派菜单（键盘与触屏的等价路径） ─────
+let ideaMenu=null,ideaMenuRow=null;
+function hideIdeaMenu({restore=false}={}) {
+  if(!ideaMenu)return;
+  ideaMenu.remove();ideaMenu=null;ideaMenuRow?.classList.remove('is-menu-open');
+  if(restore)ideaMenuRow?.querySelector('[data-part="assign"]')?.focus({preventScroll:true});ideaMenuRow=null;
+}
+function showIdeaMenu(id,anchor) {
+  hideIdeaMenu();
+  const items=agentCards().map(card=>{const st=card.querySelector('.live-task-status');return `<button type="button" role="menuitem" data-card="${card.id}"><i class="${st?.classList.contains('is-running')?'running':''}"></i><span>${esc(agentName(card))}</span><small>${esc(st?.textContent.trim()||'')}</small></button>`;}).join('');
+  const menu=document.createElement('div');menu.className='idea-menu';menu.setAttribute('role','menu');menu.setAttribute('aria-label','指派给');
+  menu.innerHTML=`<div class="idea-menu-title">交给谁来做</div>${items}<hr><button type="button" role="menuitem" class="is-new" data-new="1"><i class="new"></i><span>新建智能体来完成</span><small></small></button>`;
+  document.body.append(menu);
+  const rect=anchor.getBoundingClientRect(),box=menu.getBoundingClientRect(),below=rect.bottom+6+box.height<window.innerHeight-8;
+  menu.style.left=`${Math.max(8,Math.min(rect.right-box.width,window.innerWidth-box.width-8))}px`;menu.style.top=`${below?rect.bottom+6:Math.max(8,rect.top-6-box.height)}px`;menu.style.setProperty('--menu-origin',below?'top right':'bottom right');
+  ideaMenu=menu;ideaMenuRow=anchor.closest('.idea-row');ideaMenuRow?.classList.add('is-menu-open');menu.dataset.idea=id;menu.dataset.anchorX=String(centerOf(rect).x);menu.dataset.anchorY=String(centerOf(rect).y);
+  menu.querySelector('button').focus({preventScroll:true});
+}
+document.addEventListener('pointerdown',event=>{if(ideaMenu&&!ideaMenu.contains(event.target)&&!event.target.closest('[data-assign]'))hideIdeaMenu();},true);
+window.addEventListener('resize',()=>hideIdeaMenu());
+document.addEventListener('keydown',event=>{
+  if(!ideaMenu||!ideaMenu.contains(document.activeElement))return;
+  const buttons=[...ideaMenu.querySelectorAll('button')],index=buttons.indexOf(document.activeElement);
+  const next={ArrowDown:index+1,ArrowUp:index-1,Home:0,End:buttons.length-1}[event.key];
+  if(next!==undefined){event.preventDefault();buttons[(next+buttons.length)%buttons.length].focus();}
+  else if(event.key==='Escape'){event.preventDefault();event.stopPropagation();hideIdeaMenu({restore:true});}
+  else if(event.key==='Tab')hideIdeaMenu({restore:true});
+},true);
+document.addEventListener('click',event=>{
+  const item=event.target.closest?.('.idea-menu button');if(!item||!ideaMenu)return;
+  const id=ideaMenu.dataset.idea,start={x:Number(ideaMenu.dataset.anchorX),y:Number(ideaMenu.dataset.anchorY)};
+  hideIdeaMenu();assignIdea(id,item.dataset.new?{spawn:true}:{cardId:item.dataset.card},start);
+});
+// ───── 列表交互：指派、删除、定位、键盘 ─────
+$('idea-add').addEventListener('submit',event=>{
+  event.preventDefault();const input=$('idea-add-input'),title=AssistantIdeas.clean(input.value);
+  if(!title){input.focus();return;}
+  addIdea(title,{source:'manual'});input.value='';input.focus();
+});
+$('idea-add-input').addEventListener('keydown',event=>{if(event.key==='Escape'){event.stopPropagation();event.target.blur();}});
+// 栏内还有未显示的内容时，底部渐隐提示可滚动，避免整行被生硬截断。
+function syncMore(body) {body.classList.toggle('has-more',body.scrollHeight-body.scrollTop-body.clientHeight>2);}
+const moreObserver=new ResizeObserver(entries=>entries.forEach(entry=>syncMore(entry.target)));
+document.querySelectorAll('.run-group-body').forEach(body=>{body.addEventListener('scroll',()=>syncMore(body),{passive:true});moreObserver.observe(body);});
+new MutationObserver(()=>document.querySelectorAll('.run-group-body').forEach(syncMore)).observe($('progress-body'),{childList:true,subtree:true});
+// 栏目折叠：状态记在本机；折叠后其余栏按比例分走高度。
+const groupStateKey='norma.prototype.runGroups';
+function setGroupCollapsed(name,collapsed,{persist=true}={}) {
+  const group=$(`run-group-${name}`)||(name==='ideas'?$('ideas-body'):null);if(!group)return;
+  group.classList.toggle('is-collapsed',collapsed);
+  group.querySelector('.run-group-toggle')?.setAttribute('aria-expanded',String(!collapsed));
+  if(!persist)return;
+  try{const saved=JSON.parse(preferenceStorage?.getItem(groupStateKey)||'{}');saved[name]=collapsed;preferenceStorage?.setItem(groupStateKey,JSON.stringify(saved));}catch{}
+}
+(()=>{let saved={};try{saved=JSON.parse(preferenceStorage?.getItem(groupStateKey)||'{}')||{};}catch{saved={};}
+  Object.entries(saved).forEach(([name,collapsed])=>setGroupCollapsed(name,Boolean(collapsed),{persist:false}));})();
+$('progress-body').addEventListener('click',event=>{
+  const toggle=event.target.closest('.run-group-toggle');if(!toggle)return;
+  const group=toggle.closest('.run-group');setGroupCollapsed(group.dataset.group,!group.classList.contains('is-collapsed'));
+});
+$('ideas-body').addEventListener('click',event=>{
+  const assign=event.target.closest('[data-assign]');if(assign){ideaMenu&&ideaMenuRow===assign.closest('.idea-row')?hideIdeaMenu():showIdeaMenu(assign.dataset.assign,assign);return;}
+  const del=event.target.closest('[data-delete]');if(del){removeIdea(del.dataset.delete);return;}
+  if(event.target.closest('[data-toggle-assigned]')){ideasModel.assignedCollapsed=!ideasModel.assignedCollapsed;renderIdeas();$('ideas-body').querySelector('[data-toggle-assigned]')?.focus({preventScroll:true});return;}
+  if(event.target.closest('[data-clear-assigned]')){
+    const before=ideasModel.list,removed=before.filter(idea=>idea.assignee).length;
+    ideasModel.list=before.filter(idea=>!idea.assignee);saveIdeas();renderIdeas();
+    toastAction(`已清空 ${removed} 条已指派的想法`,'撤销',()=>{ideasModel.list=before;saveIdeas();renderIdeas();});return;
+  }
+  const done=event.target.closest('.idea-row.is-assigned');if(done)focusProgressNode(done.dataset.card);
+});
+$('ideas-body').addEventListener('keydown',event=>{
+  if(event.target.closest('.idea-add'))return;
+  if(event.key==='Escape'&&ideaMenu)return;
+  const row=event.target.closest('.idea-row');if(!row)return;
+  const rows=[...$('ideas-body').querySelectorAll('.idea-row')],index=rows.indexOf(row);
+  const next={ArrowDown:index+1,ArrowUp:index-1,Home:0,End:rows.length-1}[event.key];
+  if(next!==undefined&&event.target===row){event.preventDefault();rows[(next+rows.length)%rows.length].focus();return;}
+  if(event.target!==row)return;
+  if(event.key==='Enter'||event.key===' '){event.preventDefault();if(row.dataset.state==='todo')showIdeaMenu(row.dataset.id,row.querySelector('[data-assign]'));else focusProgressNode(row.dataset.card);}
+  else if((event.key==='Delete'||event.key==='Backspace')&&row.dataset.state==='todo'){event.preventDefault();removeIdea(row.dataset.id);}
+});
+['pointerover','focusin'].forEach(type=>$('ideas-body').addEventListener(type,event=>{const row=event.target.closest('.idea-row.is-assigned');setProgressPeek(row?.dataset.card||null);}));
+$('ideas-body').addEventListener('pointerleave',()=>setProgressPeek(null));
+// ───── 拖拽：1:1 跟手，悬停卡片即时高亮，松手投递，Esc/落空则原路弹回 ─────
+let ideaDrag=null;
+function ideaTargetAt(x,y) {
+  const inside=rect=>x>=rect.left&&x<=rect.right&&y>=rect.top&&y<=rect.bottom;
+  const zone=$('idea-newzone');if(inside(zone.getBoundingClientRect()))return {spawn:true,el:zone};
+  if(!inside($('stage').getBoundingClientRect()))return null;
+  const card=agentCards().find(item=>inside(item.getBoundingClientRect()));
+  return card?{cardId:card.id,el:card}:null;
+}
+function setIdeaHot(target) {
+  document.querySelectorAll('.is-drop-target').forEach(el=>{if(el!==target?.el)el.classList.remove('is-drop-target');});
+  target?.el.classList.add('is-drop-target');
+}
+function endIdeaDrag() {
+  document.removeEventListener('keydown',ideaDrag.onKey,true);
+  $('app').removeAttribute('data-idea-drag');setIdeaHot(null);ideaDrag.row.classList.remove('is-lifted');ideaDrag=null;
+}
+function cancelIdeaDrag() {
+  const {ghost,x,y,origin}=ideaDrag;endIdeaDrag();
+  if(reduced.matches){ghost.remove();return;}
+  ghost.animate([{transform:`translate(${x}px,${y}px) rotate(-1.2deg) scale(1.03)`,opacity:1},{transform:`translate(${origin.x}px,${origin.y}px) scale(.96)`,opacity:0}],{duration:220,easing:'cubic-bezier(.23,1,.32,1)',fill:'forwards'}).finished.then(()=>ghost.remove(),()=>ghost.remove());
+}
+$('ideas-body').addEventListener('pointerdown',event=>{
+  const row=event.target.closest('.idea-row[data-state="todo"]');
+  if(!row||event.button!==0||event.target.closest('button')||ideaDrag)return;
+  if(event.pointerType==='touch'&&!event.target.closest('.idea-grip'))return;
+  hideIdeaMenu();
+  const rect=row.getBoundingClientRect(),idea=ideasModel.list.find(item=>item.id===row.dataset.id);if(!idea)return;
+  const drag={row,id:idea.id,title:idea.title,sx:event.clientX,sy:event.clientY,ox:event.clientX-rect.left,oy:event.clientY-rect.top,origin:{x:rect.left,y:rect.top},active:false,ghost:null,x:rect.left,y:rect.top,pointerId:event.pointerId,hot:null,frame:0};
+  const move=moveEvent=>{
+    if(!drag.active){
+      if(Math.hypot(moveEvent.clientX-drag.sx,moveEvent.clientY-drag.sy)<5)return;
+      drag.active=true;ideaDrag=drag;row.setPointerCapture(drag.pointerId);
+      const ghost=document.createElement('div');ghost.className='idea-ghost';ghost.innerHTML=`<svg viewBox="0 0 24 24" aria-hidden="true">${icons.sparkles}</svg><span></span>`;ghost.querySelector('span').textContent=drag.title;document.body.append(ghost);drag.ghost=ghost;
+      row.classList.add('is-lifted');$('app').dataset.ideaDrag='true';labelAgents();
+      drag.onKey=keyEvent=>{if(keyEvent.key==='Escape'){keyEvent.preventDefault();keyEvent.stopPropagation();detach();cancelIdeaDrag();}};
+      document.addEventListener('keydown',drag.onKey,true);
+    }
+    drag.x=moveEvent.clientX-drag.ox;drag.y=moveEvent.clientY-drag.oy;drag.px=moveEvent.clientX;drag.py=moveEvent.clientY;
+    drag.ghost.style.transform=`translate(${drag.x}px,${drag.y}px) rotate(-1.2deg) scale(1.03)`;
+    if(!drag.frame)drag.frame=requestAnimationFrame(()=>{drag.frame=0;if(ideaDrag!==drag)return;drag.hot=ideaTargetAt(drag.px,drag.py);setIdeaHot(drag.hot);});
+  };
+  const detach=()=>{row.removeEventListener('pointermove',move);row.removeEventListener('pointerup',up);row.removeEventListener('pointercancel',cancel);try{row.releasePointerCapture(drag.pointerId);}catch{}};
+  const up=upEvent=>{
+    detach();if(!drag.active)return;
+    const target=ideaTargetAt(upEvent.clientX,upEvent.clientY),{ghost,x,y}=drag,start={x:upEvent.clientX,y:upEvent.clientY};
+    if(!target){cancelIdeaDrag();return;}
+    endIdeaDrag();
+    if(reduced.matches)ghost.remove();else ghost.animate([{transform:`translate(${x}px,${y}px) rotate(-1.2deg) scale(1.03)`,opacity:1},{transform:`translate(${x+drag.ox/2}px,${y+drag.oy/2}px) scale(.3)`,opacity:0}],{duration:150,easing:'ease-out',fill:'forwards'}).finished.then(()=>ghost.remove(),()=>ghost.remove());
+    assignIdea(drag.id,target.spawn?{spawn:true}:{cardId:target.cardId},start);
+  };
+  const cancel=()=>{detach();if(drag.active)cancelIdeaDrag();};
+  row.addEventListener('pointermove',move);row.addEventListener('pointerup',up);row.addEventListener('pointercancel',cancel);
+});
+// ───── 对话入口：记下想法、口述指派、查看清单 ─────
+const shortTitle=title=>title.length>18?`${title.slice(0,18)}…`:title;
+function handleIdeaCommand(value) {
+  const intent=AssistantIdeas.assignIntent(value);
+  if(intent){
+    const idea=AssistantIdeas.resolve(ideasModel.list,intent.ref);
+    if(!idea)return {reply:'想法清单里没有对应的待办。先对我说“记一下…”吧。'};
+    if(intent.target!=='new'&&!$(`agent-${intent.target}`))return {reply:'画布上没有这位智能体。'};
+    const target=intent.target==='new'?{spawn:true}:{cardId:`agent-${intent.target}`};
+    assignIdea(idea.id,target);
+    return {reply:`好的，“${shortTitle(idea.title)}”${target.spawn?'交给新智能体去做。':`交给 ${agentName($(target.cardId))} 了。`}`};
+  }
+  if(AssistantIdeas.wantsList(value)){
+    const count=AssistantIdeas.groups(ideasModel.list).todo.length;revealIdeas();
+    return {reply:count?`你现在有 ${count} 条待办想法，拖到智能体卡片就能开工。`:'清单是空的，说“记一下…”就能添加。'};
+  }
+  const title=AssistantIdeas.capture(value);
+  if(!title)return null;
+  addIdea(title);
+  return {reply:`已记下：“${shortTitle(title)}”。在运行概览的「想法」栏里拖给智能体就能开工。`};
+}
+(()=>{
+  let hasStored=false;try{hasStored=preferenceStorage?.getItem('norma.prototype.ideas')!=null;}catch{}
+  const saved=AssistantIdeas.read(preferenceStorage);ideasModel.list=saved.ideas;ideasModel.spawned=saved.spawned;
+  if(!hasStored){
+    const now=Date.now();
+    [['给设置页加一个深色主题开关',18],['终端卡片标题偶尔闪烁，排查一下',9],['README 补充快捷键截图',2]].forEach(([title,minutes],index)=>{
+      ideasModel.list=AssistantIdeas.add(ideasModel.list,title,{now:now-minutes*60000,id:`idea-seed-${index}`}).list;
+    });
+  }
+  if(/[?&]empty\b/.test(location.search)){ideasModel.list=[];document.querySelectorAll('#progress-body .run-group-body .run-row').forEach(row=>row.remove());document.querySelectorAll('#progress-body .run-count').forEach(count=>{count.textContent='0';});}
+  ideasModel.spawned.forEach(spec=>{if(!$(spec.id))spawnAgentCard(spec);});
+  labelAgents();renderIdeas();ideasModel.fresh=null;
+})();
 function focusProgressNode(id) {
   const target=$(id),card=target?.closest('[data-node-kind]');if(!card)return;
   if(state.presentation)setPresentation(null);
@@ -1298,18 +1780,20 @@ function syncProgressStatus() {
   $('progress-toggle').title=progressFloating()?'运行概览已悬浮在画布上':shown?'回到对话':'在左侧查看运行概览';
 }
 // 左侧抽屉在“对话 / 运行概览”间切换；抽屉收起时先展开，输入区两种视图共用。
+const leftViews=['chat','overview'],leftTabIds={chat:'drawer-tab-chat',overview:'drawer-tab-overview'};
 function setLeftView(view,{animate=true,focusFirst=false}={}) {
   if(!state.chatOpen){
     const next=AssistantDrawers.set({chat:state.chatOpen,reader:state.readerOpen},'chat',true,window.matchMedia('(max-width: 760px)').matches);
     if(!next.reader&&state.readerOpen){if(state.presentation)state.tabScroll.set(state.activeTabId,$('viewer-content').scrollTop);restoreVideoCard();state.presentation=null;}
     state.chatOpen=next.chat;state.readerOpen=next.reader;syncReader();
   }
-  const changed=leftView()!==view,body=$('progress-body');
+  const previous=leftView(),changed=previous!==view,body=$('progress-body');
   $('app').dataset.leftView=view;
-  [['drawer-tab-chat','chat'],['drawer-tab-overview','overview']].forEach(([id,value])=>{const tab=$(id);tab.setAttribute('aria-selected',String(view===value));tab.tabIndex=view===value?0:-1;});
+  leftViews.forEach(value=>{const tab=$(leftTabIds[value]);tab.setAttribute('aria-selected',String(view===value));tab.tabIndex=view===value?0:-1;});
   if(!progressFloating())body.hidden=view!=='overview';
   if(view!=='overview'&&!progressFloating())setProgressPeek(null);
-  if(changed&&animate)playEnter(view==='overview'&&!progressFloating()?[body]:[...document.querySelectorAll('.conversation-heading,.orb-zone,.conversation-scroll')],view==='overview'?'10px':'-10px');
+  if(view!=='overview')hideIdeaMenu();
+  if(changed&&animate)playEnter(view==='overview'&&!progressFloating()?[body]:[...document.querySelectorAll('.conversation-heading,.orb-zone,.conversation-scroll')],leftViews.indexOf(view)>leftViews.indexOf(previous)?'10px':'-10px');
   if(focusFirst&&view==='overview')body.querySelector('.run-row')?.focus({preventScroll:true});
   syncProgressStatus();saveProgressPreference();
 }
@@ -1361,13 +1845,13 @@ $('progress-toggle').addEventListener('click',event=>{
 $('drawer-switch').addEventListener('click',event=>{
   const tab=event.target.closest('[role=tab]');if(!tab)return;
   if(tab.id==='drawer-tab-overview'&&progressFloating()){setProgressFloating(false);return;}
-  setLeftView(tab.id==='drawer-tab-overview'?'overview':'chat');
+  setLeftView(leftViews.find(value=>leftTabIds[value]===tab.id)||'chat');
 });
 $('drawer-switch').addEventListener('keydown',event=>{
-  const tabs=[$('drawer-tab-chat'),$('drawer-tab-overview')],index=tabs.indexOf(document.activeElement);
-  const next={ArrowLeft:index-1,ArrowRight:index+1,Home:0,End:1}[event.key];
+  const tabs=leftViews.map(value=>$(leftTabIds[value])),index=tabs.indexOf(document.activeElement);
+  const next={ArrowLeft:index-1,ArrowRight:index+1,Home:0,End:tabs.length-1}[event.key];
   if(index<0||next===undefined)return;
-  event.preventDefault();const tab=tabs[(next+2)%2];tab.focus();tab.click();
+  event.preventDefault();const tab=tabs[(next+tabs.length)%tabs.length];tab.focus();tab.click();
 });
 $('progress-pin').addEventListener('click',()=>{const floating=!progressFloating();setProgressFloating(floating);$('progress-pin').focus({preventScroll:true});toast(floating?'运行概览已悬浮在画布上，可拖动标题栏移动':'运行概览已收回左侧抽屉');});
 $('progress-move').addEventListener('keydown',event=>{
@@ -1386,7 +1870,7 @@ $('progress-drag').addEventListener('pointerdown',event=>{
 $('progress-drag').addEventListener('dblclick',event=>{if(!progressFloating()||event.target.closest('button:not(#progress-move)'))return;setProgressOffset(0,0);saveProgressPreference();});
 window.addEventListener('resize',()=>{if(progressFloating())setProgressOffset(progressOffset.x,progressOffset.y);});
 $('progress-body').addEventListener('keydown',event=>{
-  if(event.target.closest('#progress-move'))return;
+  if(event.target.closest('#progress-move,#ideas-body'))return;
   const rows=progressRows(),index=rows.indexOf(document.activeElement);
   const next={ArrowDown:index+1,ArrowUp:index-1,Home:0,End:rows.length-1}[event.key];
   if(next===undefined)return;
@@ -1402,7 +1886,7 @@ $('progress-body').addEventListener('click',event=>{
 });
 (()=>{let saved=null;try{saved=JSON.parse(preferenceStorage?.getItem('norma.prototype.runOverview')||'null');}catch{saved=null;}
   if(saved?.floating){setProgressFloating(true,{animate:false});requestAnimationFrame(()=>setProgressOffset(Number(saved.x)||0,Number(saved.y)||0));}
-  else if(saved?.view==='overview'&&state.chatOpen)setLeftView('overview',{animate:false});
+  else if(['overview','ideas'].includes(saved?.view)&&state.chatOpen)setLeftView('overview',{animate:false});
   syncProgressStatus();
 })();
 $('live-canvas').addEventListener('click',event=>{

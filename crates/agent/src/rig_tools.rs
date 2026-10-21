@@ -215,3 +215,6 @@ define_rig_tool!(WorkspaceSnapshotTool, "workspace_snapshot", 17);
 define_rig_tool!(AssignWorkspaceTaskTool, "assign_workspace_task", 18);
 define_rig_tool!(OpenWorkspaceArtifactTool, "open_workspace_artifact", 19);
 define_rig_tool!(LocateWorkspaceAgentTool, "locate_workspace_agent", 20);
+define_rig_tool!(CaptureIdeaTool, "capture_idea", 21);
+define_rig_tool!(ListIdeasTool, "list_ideas", 22);
+define_rig_tool!(AssignIdeaTool, "assign_idea", 23);

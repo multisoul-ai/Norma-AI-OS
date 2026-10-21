@@ -46,6 +46,7 @@ mod agent_queue;
 mod agent_runtime;
 mod memory;
 pub(crate) mod native_input;
+pub(crate) use agent_runtime::assign_idea_for_ui;
 pub(crate) use agent_runtime::execute_norma_adapter_command_with_source;
 pub(crate) use agent_runtime::shared_tokio_runtime;
 pub(crate) use agent_runtime::submit_workspace_turn;
@@ -254,8 +255,11 @@ pub struct MultisoulApp {
     pub(crate) voice_runtime_checked: bool,
     pub(crate) desktop_host: Option<gpui::WeakEntity<MultisoulApp>>,
     pub(crate) desktop_switcher_subscription: Option<gpui::Subscription>,
+    pub(crate) desktop_ideas_input_subscription: Option<gpui::Subscription>,
     pub(crate) background_restore: Option<crate::workspace::flow::PendingLiveSessionRestore>,
     pub(crate) desktop_overview_scroll: HashMap<String, gpui::ScrollHandle>,
+    /// 想法栏的滚动位置（ScrollHandle 非 Send，不能放进跨线程的桌面状态）；新增想法时滚到末尾。
+    pub(crate) ideas_scroll: gpui::ScrollHandle,
     pub(crate) desktop_directory_scroll: gpui::ScrollHandle,
     canvas_surface: gpui::Entity<canvas_surface::CanvasSurfaceView>,
     pub(crate) working_snake_views: HashMap<NodeId, gpui::Entity<WorkingSnakeView>>,

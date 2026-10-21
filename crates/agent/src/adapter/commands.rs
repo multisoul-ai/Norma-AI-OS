@@ -145,6 +145,9 @@ pub(super) fn parse_adapter_command(
     name: &str,
     arguments: Value,
 ) -> Result<AdapterCommand, AdapterError> {
+    if let Some(result) = super::ideas::parse_idea_command(name, arguments.clone()) {
+        return result;
+    }
     match name {
         "locate_workspace_agent" => {
             let args: LocateWorkspaceAgentArgs = parse(arguments)?;
@@ -400,7 +403,7 @@ fn require_positive(field: &str, value: u64) -> Result<(), AdapterError> {
 impl AdapterCommand {
     pub fn is_read_only(&self) -> bool {
         match self {
-            Self::FindAgentTasks { .. } => true,
+            Self::FindAgentTasks { .. } | Self::ListIdeas => true,
             Self::Memory(command) | Self::WorkspaceMemory { command, .. } => {
                 !matches!(command, crate::MemoryCommand::Write { .. })
             }

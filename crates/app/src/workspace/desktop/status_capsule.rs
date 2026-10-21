@@ -242,7 +242,7 @@ impl MultisoulApp {
         self.desktop_workspace.drawers = next;
         if before.left_view != next.left_view {
             self.desktop_workspace.left_view_slide.retarget(
-                next.left_view == runtime::desktop_drawers::DesktopLeftView::Overview,
+                next.left_view.rank() > before.left_view.rank(),
                 self.motion.reduce_motion,
             );
         }

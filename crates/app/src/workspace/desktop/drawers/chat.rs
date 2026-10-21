@@ -33,6 +33,42 @@ impl MultisoulApp {
             self.ensure_command_input(window, cx);
             self.command_dock.as_ref().map(|dock| dock.input.clone())
         };
+        let has_draft = self.desktop_assistant_has_draft(cx);
+        let send_button = div()
+            .id("desktop-assistant-send")
+            .tab_index(0)
+            .focus(|style| style.border_color(rgba(0x83c4ffcc)))
+            .debug_selector(|| "desktop-assistant-send".to_string())
+            .w(px(32.0))
+            .h(px(32.0))
+            .flex_none()
+            .flex()
+            .items_center()
+            .justify_center()
+            .rounded(px(9.0))
+            .border_1()
+            .border_color(rgba(0xa6d2e916))
+            .bg(rgba(0xa6d2e91a))
+            .text_color(rgba(0xbbe3f4ff))
+            .when(has_draft, |button| {
+                button
+                    .cursor_pointer()
+                    .hover(|style| style.bg(rgba(0xa6d2e933)))
+                    .active(|style| style.bg(rgba(0xa6d2e94d)))
+                    .on_click(cx.listener(|app, _, window, cx| {
+                        cx.stop_propagation();
+                        app.submit_desktop_assistant_chat(window, cx);
+                    }))
+            })
+            .when(!has_draft, |button| button.opacity(0.4))
+            .child(
+                svg()
+                    .path("icons/arrow-up.svg")
+                    .w(px(15.0))
+                    .h(px(15.0))
+                    .flex_none()
+                    .text_color(rgba(0xbbe3f4ff)),
+            );
         div()
             .id("desktop-assistant-left")
             .debug_selector(|| "desktop-assistant-left".to_string())
@@ -121,8 +157,8 @@ impl MultisoulApp {
                     .gap(px(8.0))
                     .rounded(px(26.0))
                     .border_1()
-                    .border_color(rgba(with_alpha(theme.edge_highlight, 0x60)))
-                    .bg(rgba(with_alpha(theme.graphite, 0xa6)))
+                    .border_color(rgba(0xb7d4ee1f))
+                    .bg(rgba(0x151e28d0))
                     .text_size(px(12.0))
                     .text_color(rgba(GLASS_TEXT_SECONDARY))
                     .on_mouse_down(
@@ -141,28 +177,70 @@ impl MultisoulApp {
                         )
                     })
                     .child(
-                        Button::new("desktop-assistant-voice")
+                        div()
+                            .id("desktop-assistant-voice")
+                            .tab_index(0)
+                            .border_1()
+                            .border_color(rgba(0x00000000))
+                            .focus(|style| style.border_color(rgba(0x83c4ffcc)))
                             .debug_selector(|| "desktop-assistant-voice".to_string())
-                            .w(px(32.0))
-                            .h(px(32.0))
-                            .p(px(0.0))
+                            .w(px(34.0))
+                            .h(px(34.0))
+                            .flex_none()
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .rounded(px(9.0))
+                            .cursor_pointer()
+                            .hover(|style| style.bg(rgba(0x8dd5ed13)))
+                            .active(|style| style.bg(rgba(0x8dd5ed26)))
+                            .tooltip({
+                                let label = format!(
+                                    "语音对话 · {}",
+                                    self.shortcuts.voice_interaction_label()
+                                );
+                                move |window, cx| {
+                                    ui::component::tooltip::Tooltip::new(label.clone())
+                                        .build(window, cx)
+                                }
+                            })
+                            .on_click(cx.listener(|app, _, window, cx| {
+                                app.activate_desktop_assistant_voice(window, cx);
+                            }))
                             .child(
                                 svg()
                                     .path("icons/microphone.svg")
                                     .w(px(17.0))
                                     .h(px(17.0))
-                                    .text_color(rgba(GLASS_TEXT)),
-                            )
-                            .custom(glass_button_variant(theme, cx))
-                            .tooltip(format!(
-                                "语音对话 · {}",
-                                self.shortcuts.voice_interaction_label()
-                            ))
-                            .on_click(cx.listener(|app, _, window, cx| {
-                                app.activate_desktop_assistant_voice(window, cx);
-                            })),
-                    ),
+                                    .text_color(rgba(0x9ec3d5ff)),
+                            ),
+                    )
+                    .child(send_button),
             )
+    }
+
+    /// 输入框里有没有待发送的文字（决定发送按钮是否可用）。
+    fn desktop_assistant_has_draft(&self, cx: &gpui::App) -> bool {
+        let has = |app: &MultisoulApp| {
+            app.command_dock
+                .as_ref()
+                .is_some_and(|dock| !dock.input.read(cx).value().trim().is_empty())
+        };
+        match self.expanded_desktop_project() {
+            Some(project) => has(project.read(cx)),
+            None => has(self),
+        }
+    }
+
+    /// 发送按钮与回车等价：交给命令栏的同一条执行路径。
+    fn submit_desktop_assistant_chat(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(project) = self.expanded_desktop_project() {
+            project.update(cx, |project, cx| {
+                project.execute_dock_suggestion(window, cx)
+            });
+        } else {
+            self.execute_dock_suggestion(window, cx);
+        }
     }
 
     fn mark_desktop_assistant_chat_input(&mut self, cx: &mut Context<Self>) {

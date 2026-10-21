@@ -30,6 +30,12 @@ impl FlightCurve {
         Self::from_control_points(origin, control_a, control_b, target)
     }
 
+    /// 想法流星：从左抽屉直接射向卡片，只做轻微弯曲（弯曲量约为距离的 8%，上限 40px）。
+    pub(super) fn new_idea_shot(origin: Point<Pixels>, target: Point<Pixels>) -> Self {
+        let (control_a, control_b) = idea_shot_control_points(origin, target);
+        Self::from_control_points(origin, control_a, control_b, target)
+    }
+
     fn from_control_points(
         origin: Point<Pixels>,
         control_a: Point<Pixels>,
@@ -119,6 +125,15 @@ pub(crate) fn bezier_point_at_travel(
 }
 
 #[cfg(test)]
+pub(crate) fn idea_shot_bezier_point_at_travel(
+    origin: Point<Pixels>,
+    target: Point<Pixels>,
+    travel: f32,
+) -> Point<Pixels> {
+    FlightCurve::new_idea_shot(origin, target).point_at_travel(travel)
+}
+
+#[cfg(test)]
 pub(crate) fn agent_handoff_bezier_point_at_travel(
     origin: Point<Pixels>,
     target: Point<Pixels>,
@@ -153,6 +168,31 @@ fn control_points(origin: Point<Pixels>, target: Point<Pixels>) -> (Point<Pixels
     (
         point(origin.x + px(horizontal * 0.045), origin.y - px(lift)),
         point(target.x - px(horizontal * 0.18), target.y + px(settle)),
+    )
+}
+
+fn idea_shot_control_points(
+    origin: Point<Pixels>,
+    target: Point<Pixels>,
+) -> (Point<Pixels>, Point<Pixels>) {
+    let dx = f32::from(target.x - origin.x);
+    let dy = f32::from(target.y - origin.y);
+    let distance = dx.hypot(dy).max(f32::EPSILON);
+    // 法线朝上，弧线微微上拱，像抛射而不是绕路。
+    let mut normal = (-dy / distance, dx / distance);
+    if normal.1 > 0.0 {
+        normal = (-normal.0, -normal.1);
+    }
+    let bend = (distance * 0.08).min(40.0);
+    (
+        point(
+            origin.x + px(dx * 0.30 + normal.0 * bend),
+            origin.y + px(dy * 0.30 + normal.1 * bend),
+        ),
+        point(
+            origin.x + px(dx * 0.70 + normal.0 * bend),
+            origin.y + px(dy * 0.70 + normal.1 * bend),
+        ),
     )
 }
 

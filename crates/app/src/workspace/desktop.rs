@@ -47,8 +47,15 @@ mod snapshot;
 mod status;
 mod status_capsule;
 use management::DesktopRenameTarget;
+mod idea_drag;
+mod idea_drag_ui;
+mod ideas;
+mod ideas_rows;
+mod ideas_sync;
+mod ideas_undo;
 mod motion_log;
 mod navigation;
+mod overview_layout;
 mod overview_rows;
 mod preview_canvas;
 mod project_area;
@@ -88,14 +95,6 @@ pub(crate) enum DesktopDeleteTarget {
 }
 
 #[derive(Clone)]
-pub(crate) struct DesktopDispatchReceipt {
-    pub(crate) project_name: String,
-    pub(crate) agent_name: String,
-    pub(crate) status: String,
-    pub(crate) submitted: bool,
-}
-
-#[derive(Clone)]
 pub(crate) struct DesktopArtifact {
     pub(crate) area_id: String,
     pub(crate) node_id: canvas::NodeId,
@@ -122,6 +121,29 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) left_chat_tab_focus: Option<gpui::FocusHandle>,
     pub(crate) left_overview_tab_focus: Option<gpui::FocusHandle>,
     pub(crate) left_overview_focus: Option<gpui::FocusHandle>,
+    pub(crate) left_ideas_focus: Option<gpui::FocusHandle>,
+    /// 想法清单缓存：渲染只读它，刷新在后台完成。
+    pub(crate) ideas: Vec<storage::StoredIdea>,
+    pub(crate) ideas_refresh: Option<gpui::Task<()>>,
+    pub(crate) ideas_cursor: Option<usize>,
+    /// 展开了指派菜单的想法 ID。
+    pub(crate) ideas_menu: Option<String>,
+    pub(crate) ideas_menu_cursor: usize,
+    /// 可撤销的操作栈（最新的在末尾，最多保留 5 条）。
+    pub(crate) ideas_undo: Vec<ideas_undo::IdeaUndo>,
+    /// 清空「已完成」后、撤销窗口内暂不显示（也还没真正删除）的想法。
+    pub(crate) ideas_pending_purge: std::collections::HashSet<String>,
+    pub(crate) ideas_undo_timer: Option<gpui::Task<()>>,
+    pub(crate) ideas_notice: Option<String>,
+    pub(crate) ideas_show_done: bool,
+    /// “已指派”分组是否折叠（只影响显示，新的指派不会自动展开）。
+    pub(crate) ideas_assigned_collapsed: bool,
+    /// 左抽屉里想法行的大致位置（窗口坐标）：键盘、对话等没有具体行位置的派发，流星从这里出发。
+    pub(crate) idea_flight_anchor: (i32, i32),
+    pub(crate) ideas_input: Option<Entity<InputState>>,
+    /// 上一次渲染时的待办条数（None 表示还没渲染过，首次不滚动）。
+    pub(crate) ideas_seen_todo: Option<usize>,
+    pub(crate) idea_drag: Option<idea_drag_ui::IdeaDragSession>,
     pub(crate) overview_float_fade: drawers::float::OverviewFloatFade,
     pub(crate) overview_drag: Option<drawers::float::OverviewDrag>,
     pub(crate) overview_float_focus: Option<gpui::FocusHandle>,
@@ -203,7 +225,6 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) pending_project_path: Option<PathBuf>,
     pub(crate) pending_project_source: workspace::WorkspaceSource,
     pub(crate) add_project_open: bool,
-    pub(crate) dispatch_receipts: HashMap<String, Vec<DesktopDispatchReceipt>>,
     pub(crate) refresh_started: bool,
 }
 
@@ -279,6 +300,22 @@ impl DesktopWorkspaceUiState {
             left_chat_tab_focus: None,
             left_overview_tab_focus: None,
             left_overview_focus: None,
+            left_ideas_focus: None,
+            ideas: Vec::new(),
+            ideas_refresh: None,
+            ideas_cursor: None,
+            ideas_menu: None,
+            ideas_menu_cursor: 0,
+            ideas_undo: Vec::new(),
+            ideas_pending_purge: std::collections::HashSet::new(),
+            ideas_undo_timer: None,
+            ideas_notice: None,
+            ideas_show_done: false,
+            ideas_assigned_collapsed: false,
+            idea_flight_anchor: (140, 240),
+            ideas_input: None,
+            ideas_seen_todo: None,
+            idea_drag: None,
             overview_float_fade: drawers::float::OverviewFloatFade::default(),
             overview_drag: None,
             overview_float_focus: None,
@@ -359,7 +396,6 @@ impl DesktopWorkspaceUiState {
             pending_project_path: None,
             pending_project_source: workspace::WorkspaceSource::Open,
             add_project_open: false,
-            dispatch_receipts: HashMap::new(),
             refresh_started: false,
         }
     }

@@ -95,5 +95,7 @@
   "shortcuts.node_behavior": "节点行为",
   "shortcuts.open_project": "打开项目",
   "shortcuts.toggle_run_overview": "切换运行概览",
-  "shortcuts.switch_the_left_drawer_between_chat_and_run_overview": "在左侧抽屉的对话与运行概览之间切换"
+  "shortcuts.switch_the_left_drawer_between_chat_and_run_overview": "在左侧抽屉的对话与运行概览之间切换",
+  "shortcuts.toggle_ideas": "切换想法清单",
+  "shortcuts.switch_the_left_drawer_between_chat_and_the_ideas_list": "在左侧抽屉的对话与想法清单之间切换"
 }

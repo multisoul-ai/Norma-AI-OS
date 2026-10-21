@@ -67,6 +67,8 @@ pub struct MotionStore {
     nodes: BTreeMap<NodeId, NodeMotion>,
     initializations: BTreeMap<NodeId, InitializationAnimation>,
     dispatch_receipts: dispatch_receipt::DispatchEffectStore,
+    /// 想法派发期间为真：跳过指令栏起点的飞行，只播想法自己的流星。
+    dock_flight_suppressed: bool,
 }
 impl MotionStore {
     pub fn from_env() -> Self {
@@ -81,6 +83,7 @@ impl MotionStore {
             nodes: BTreeMap::new(),
             initializations: BTreeMap::new(),
             dispatch_receipts: dispatch_receipt::DispatchEffectStore::default(),
+            dock_flight_suppressed: false,
         }
     }
     pub(crate) fn reduced_fade_duration(&self) -> Duration {

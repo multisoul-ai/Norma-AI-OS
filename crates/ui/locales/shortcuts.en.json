@@ -95,5 +95,7 @@
   "shortcuts.node_behavior": "Node behavior",
   "shortcuts.open_project": "Open Project",
   "shortcuts.toggle_run_overview": "Toggle Run Overview",
-  "shortcuts.switch_the_left_drawer_between_chat_and_run_overview": "Switch the left drawer between chat and the run overview"
+  "shortcuts.switch_the_left_drawer_between_chat_and_run_overview": "Switch the left drawer between chat and the run overview",
+  "shortcuts.toggle_ideas": "Toggle Ideas",
+  "shortcuts.switch_the_left_drawer_between_chat_and_the_ideas_list": "Switch the left drawer between chat and the ideas list"
 }

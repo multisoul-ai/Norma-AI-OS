@@ -20,6 +20,11 @@ struct PlanProjectsView: View {
                         } label: {
                             Label(project.displayName, systemImage: "folder").font(.subheadline).padding(.vertical, 6)
                         }
+                        NavigationLink {
+                            WorkspaceIdeasView(model: model, machine: machine, workspaceID: project.id, name: project.displayName)
+                        } label: {
+                            Label("\(project.displayName) 的想法清单", systemImage: "lightbulb").font(.subheadline).padding(.vertical, 6)
+                        }
                     }
                     if let error { Text(error).font(.caption).foregroundStyle(.orange) }
                     else if !loading && projects.isEmpty { Text("这台电脑还没有授权给手机的项目").font(.subheadline).foregroundStyle(.secondary) }

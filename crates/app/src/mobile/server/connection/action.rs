@@ -186,6 +186,11 @@ pub(in crate::mobile) enum Action {
         workspace_id: String,
         plan_id: String,
     },
+    WorkspaceIdeas {
+        device_id: String,
+        token: String,
+        workspace_id: String,
+    },
     ProjectPlans {
         device_id: String,
         token: String,

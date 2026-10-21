@@ -134,6 +134,17 @@ fn handle(request: Request, shared: &Arc<Shared>, socket_id: u64) -> Value {
             workspace_id,
             Some(plan_id.as_str()),
         )),
+        Action::WorkspaceIdeas {
+            device_id,
+            token,
+            workspace_id,
+        } => Some(crate::mobile::ideas::read(
+            shared,
+            &request.machine_id,
+            device_id,
+            token,
+            workspace_id,
+        )),
         Action::ProjectPlans {
             device_id,
             token,
@@ -343,6 +354,7 @@ fn handle(request: Request, shared: &Arc<Shared>, socket_id: u64) -> Value {
         | Action::ProjectReview { .. }
         | Action::WatchProject { .. }
         | Action::ProjectPlans { .. }
+        | Action::WorkspaceIdeas { .. }
         | Action::ProjectPlan { .. }
         | Action::WatchConversation { .. }
         | Action::Approvals { .. }

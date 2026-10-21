@@ -1,13 +1,14 @@
 mod flight;
 mod geometry;
 mod impact;
+mod meteor;
 mod primitives;
 
 use self::flight::paint_flight;
 #[cfg(test)]
 pub(super) use self::geometry::{
     agent_handoff_bezier_point_at_travel, bezier_point, bezier_point_at_travel, helix_offset,
-    natural_flight_progress,
+    idea_shot_bezier_point_at_travel, natural_flight_progress,
 };
 use self::impact::paint_impact;
 #[cfg(test)]
@@ -56,13 +57,14 @@ pub(crate) fn command_dock_center(viewport: Size<Pixels>) -> Point<Pixels> {
 }
 
 pub(crate) fn render(app: &MultisoulApp, window: &mut Window) -> Option<AnyElement> {
-    render_with_canvas_offset(app, window, Point::default())
+    render_with_canvas_offset(app, window, Point::default(), Point::default())
 }
 
 pub(crate) fn render_with_canvas_offset(
     app: &MultisoulApp,
     window: &mut Window,
     canvas_offset: Point<Pixels>,
+    overlay_shift: Point<Pixels>,
 ) -> Option<AnyElement> {
     let viewport = app.runtime.document.viewport;
     let dock_origin = command_dock_center(window.viewport_size());
@@ -94,6 +96,10 @@ pub(crate) fn render_with_canvas_offset(
             }
             let (origin, origin_bounds) = match presentation.origin {
                 DispatchVisualOrigin::CommandDock => (dock_origin, None),
+                // 窗口像素坐标，直接作为起点（叠加层覆盖整个窗口）。
+                DispatchVisualOrigin::IdeaRow { x, y } => {
+                    (idea_row_origin(x, y, overlay_shift), None)
+                }
                 DispatchVisualOrigin::AgentNode(source_node_id) => {
                     let source_node = app.runtime.document.node(source_node_id)?;
                     if !matches!(source_node.kind, CanvasNodeKind::Agent(_)) {
@@ -241,6 +247,14 @@ pub(super) fn agent_card_launch_origin(
     let half_height = (f32::from(source_bounds.size.height) / 2.0).max(f32::EPSILON);
     let scale = 1.0 / (dx.abs() / half_width).max(dy.abs() / half_height);
     point(center.x + px(dx * scale), center.y + px(dy * scale))
+}
+
+/// 想法行的窗口坐标换算成叠加层本地坐标：叠加层的原点在窗口里偏移了 `overlay_shift`。
+pub(crate) fn idea_row_origin(x: i32, y: i32, overlay_shift: Point<Pixels>) -> Point<Pixels> {
+    point(
+        px(x as f32) - overlay_shift.x,
+        px(y as f32) - overlay_shift.y,
+    )
 }
 
 pub(super) fn screen_point_visible(point: Point<Pixels>, viewport: Size<Pixels>) -> bool {

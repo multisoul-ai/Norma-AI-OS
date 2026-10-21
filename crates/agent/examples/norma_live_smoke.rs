@@ -26,7 +26,10 @@ impl AgentCardAdapter for LiveSmokeAdapter {
                 | AdapterCommand::WorkspaceSnapshot { .. }
                 | AdapterCommand::AssignWorkspaceTask { .. }
                 | AdapterCommand::OpenWorkspaceArtifact { .. }
-                | AdapterCommand::LocateWorkspaceAgent { .. } => {
+                | AdapterCommand::LocateWorkspaceAgent { .. }
+                | AdapterCommand::CaptureIdea { .. }
+                | AdapterCommand::ListIdeas
+                | AdapterCommand::AssignIdea { .. } => {
                     return Err(AdapterError::Rejected("示例未连接持久记忆宿主".into()))
                 }
                 AdapterCommand::AssignAgentTask { agent, .. } => {

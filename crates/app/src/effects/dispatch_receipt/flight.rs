@@ -13,6 +13,15 @@ const TRAIL_LENGTH: f32 = 0.19;
 const CORAL: u32 = 0xff6b5eff;
 
 pub(super) fn paint_flight(frame: DispatchEffectFrame, theme: Theme, plan: &mut DispatchPaintPlan) {
+    // 想法流星有自己的画法：白色、逐步加速、尾迹随速度拉长。
+    if matches!(
+        frame.presentation.origin,
+        DispatchVisualOrigin::IdeaRow { .. }
+    ) {
+        let curve = FlightCurve::new_idea_shot(frame.origin, frame.target);
+        super::meteor::paint_idea_meteor(&curve, frame.presentation.progress, plan);
+        return;
+    }
     let travel = natural_flight_progress(frame.presentation.progress);
     if travel <= 0.0 {
         return;
@@ -21,6 +30,10 @@ pub(super) fn paint_flight(frame: DispatchEffectFrame, theme: Theme, plan: &mut 
         DispatchVisualOrigin::CommandDock => FlightCurve::new(frame.origin, frame.target),
         DispatchVisualOrigin::AgentNode(_) => {
             FlightCurve::new_agent_handoff(frame.origin, frame.target)
+        }
+        // 想法流星已在函数开头单独处理。
+        DispatchVisualOrigin::IdeaRow { .. } => {
+            FlightCurve::new_idea_shot(frame.origin, frame.target)
         }
     };
     let (color, intensity) = status_style(frame.presentation.status, theme);
@@ -49,7 +62,9 @@ pub(super) fn paint_flight(frame: DispatchEffectFrame, theme: Theme, plan: &mut 
     paint_trail_motes(&curve, trail_start, travel, color, intensity, plan);
     let launch_direction = match frame.presentation.origin {
         DispatchVisualOrigin::CommandDock => (0.0, -1.0),
-        DispatchVisualOrigin::AgentNode(_) => curve.tangent_at_travel(0.0),
+        DispatchVisualOrigin::AgentNode(_) | DispatchVisualOrigin::IdeaRow { .. } => {
+            curve.tangent_at_travel(0.0)
+        }
     };
     paint_launch_plume(
         frame.origin,

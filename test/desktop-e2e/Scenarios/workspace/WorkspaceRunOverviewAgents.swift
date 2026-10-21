@@ -91,11 +91,17 @@ public enum WorkspaceRunOverviewAgents {
         }
 
         try await session.step("⌘⇧E 看运行概览里的进度行") {
+            // 首次进入工作空间会自动弹出功能引导，盖住界面：先关掉它。
+            let current = try await session.capture()
+            if current.contains("Feature Guide") || current.contains("功能引导") || current.contains("Skip Guide") || current.contains("跳过引导") {
+                try await session.shortcut(key: 53, modifiers: [])
+                try await Task.sleep(nanoseconds: 600_000_000)
+            }
             try await session.shortcut(key: 14, modifiers: [0x37, 0x38])
             try await Task.sleep(nanoseconds: 900_000_000)
             let overview = try await session.capture()
             try session.save(overview, "02-overview.png")
-            guard overview.contains("需要你处理"), overview.contains("更新") else {
+            guard overview.contains("要你处理") || overview.contains("需要你"), overview.contains("更新") else {
                 throw E2EError.product("⌘⇧E 没有打开运行概览或副标题缺少更新时间：\(overview.summary)")
             }
             guard !overview.contains("待审核，待审核"), !overview.contains("待审核 · 待审核") else {

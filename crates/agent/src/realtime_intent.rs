@@ -202,8 +202,24 @@ pub fn realtime_command_authorized(command: &AdapterCommand, input: &str) -> boo
                 "continue fixing ",
             ]
         }
+        // 想法：只有明确的记录/派发祈使句才算授权；“让 X 做…”保守视为草稿，需要再确认。
+        AdapterCommand::CaptureIdea { .. } => &[
+            "记一下",
+            "记下",
+            "记录",
+            "记个",
+            "记着",
+            "别忘了",
+            "提醒我",
+            "加个待办",
+            "添加待办",
+            "note ",
+            "remember ",
+        ],
+        AdapterCommand::AssignIdea { .. } => &["把", "交给", "派给", "指派", "分给", "assign "],
         AdapterCommand::Memory(_)
         | AdapterCommand::WorkspaceMemory { .. }
+        | AdapterCommand::ListIdeas
         | AdapterCommand::FindAgentTasks { .. } => return false,
         AdapterCommand::WorkspaceSnapshot { .. }
         | AdapterCommand::AssignWorkspaceTask { .. }
