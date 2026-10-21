@@ -1,4 +1,3 @@
-use super::GLASS_TEXT_SECONDARY;
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div, Stateful, Window};
 
@@ -186,12 +185,6 @@ impl MultisoulApp {
         } else {
             area_layout
         };
-        let receipts = self
-            .desktop_workspace
-            .dispatch_receipts
-            .get(&workspace_id)
-            .cloned()
-            .unwrap_or_default();
         let overview = div()
             .id("desktop-workspace-overview")
             .debug_selector(|| "desktop-workspace-overview".to_string())
@@ -286,37 +279,6 @@ impl MultisoulApp {
                         .pb(px(12.0))
                         .text_color(rgba(theme.destructive))
                         .child(error),
-                )
-            })
-            .when(!receipts.is_empty(), |this| {
-                this.child(
-                    div()
-                        .id("desktop-norma-receipts")
-                        .px(px(40.0))
-                        .pb(px(8.0))
-                        .flex()
-                        .justify_center()
-                        .gap(px(8.0))
-                        .overflow_scroll()
-                        .children(receipts.into_iter().enumerate().map(|(index, receipt)| {
-                            div()
-                                .id(("desktop-norma-receipt", index))
-                                .debug_selector(move || format!("desktop-norma-receipt-{index}"))
-                                .px(px(9.0))
-                                .py(px(5.0))
-                                .rounded(px(7.0))
-                                .bg(rgba(theme.dock))
-                                .text_size(px(11.0))
-                                .text_color(rgba(if receipt.submitted {
-                                    GLASS_TEXT_SECONDARY
-                                } else {
-                                    theme.destructive
-                                }))
-                                .child(format!(
-                                    "{} / {} · {}",
-                                    receipt.project_name, receipt.agent_name, receipt.status
-                                ))
-                        })),
                 )
             });
         let project_layer = transition_project

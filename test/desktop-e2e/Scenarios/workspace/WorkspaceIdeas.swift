@@ -81,13 +81,39 @@ public enum WorkspaceIdeas {
             return try await session.capture().summary
         }
 
-        try await session.step("⌘⇧I 打开想法清单，看到待办") {
+        try await session.step("⌘⇧I 打开运行概览的想法栏，四栏顺序固定，看到待办") {
             try await session.shortcut(key: 34, modifiers: [0x37, 0x38])
             let ideas = try await session.wait(
-                Expectation(allOf: ["想法清单", first, second], timeout: 8)
+                Expectation(allOf: ["当前项目", "其他项目", first, second], timeout: 8)
             )
             try session.save(ideas, "01-ideas.png")
+            func top(_ text: String) throws -> Double {
+                guard let found = ideas.texts.filter({ $0.value.contains(text) && $0.center.x < 440 }).first else {
+                    throw E2EError.product("概览里找不到栏目「\(text)」：\(ideas.summary)")
+                }
+                return Double(found.center.y)
+            }
+            let order = [try top("处理"), try top("当前项目"), try top(String(first.prefix(3))), try top("其他项目")]
+            guard order == order.sorted() else {
+                throw E2EError.product("栏目顺序应为 需要你处理 → 当前项目 → 想法 → 其他项目：\(order)")
+            }
             return ideas.summary
+        }
+
+        try await session.step("折叠其余三栏：想法栏分到全部剩余高度，六条想法都可见") {
+            for title in ["处理", "当前项目", "其他项目"] {
+                let frame = try await session.capture()
+                guard let heading = frame.texts.filter({ $0.value.contains(title) && $0.center.x < 440 }).first else {
+                    throw E2EError.product("找不到栏标题「\(title)」：\(frame.summary)")
+                }
+                try await session.click(local: heading.center, on: frame)
+                try await Task.sleep(nanoseconds: 400_000_000)
+            }
+            let folded = try await session.wait(
+                Expectation(allOf: [String(first.prefix(3)), String(second.prefix(3))], timeout: 6)
+            )
+            try session.save(folded, "01b-folded.png")
+            return folded.summary
         }
 
         func idea(_ body: String) throws -> (body: String, state: String, taskRef: String) {
@@ -116,6 +142,19 @@ public enum WorkspaceIdeas {
             return text
         }
 
+        /// 想法栏固定高度、栏内滚动：目标行不在可见范围时先在栏内来回滚动再截图。
+        func capture(showing body: String) async throws -> Frame {
+            var frame = try await session.capture()
+            for attempt in 0..<6 {
+                if (try? row(frame, body)) != nil { return frame }
+                let geo = geometry(frame)
+                try await session.scroll(local: CGPoint(x: geo.drawer / 2, y: geo.height * 0.5), pixels: attempt % 2 == 0 ? 400 : -800, on: frame)
+                try await Task.sleep(nanoseconds: 400_000_000)
+                frame = try await session.capture()
+            }
+            return frame
+        }
+
         try await session.step("手动添加：输入框里写一条并回车，库里是手动来源的待办") {
             let frame = try await session.capture()
             guard let input = frame.pick(["写下一个想法"], .top) else {
@@ -124,7 +163,7 @@ public enum WorkspaceIdeas {
             try await session.click(local: input.center, on: frame)
             try await session.type(typed)
             try await session.shortcut(key: 36, modifiers: [])
-            let after = try await session.wait(Expectation(allOf: [typed], timeout: 6))
+            let after = try await session.wait(Expectation(allOf: ["by hand"], timeout: 8))
             try session.save(after, "02-typed.png")
             let stored = try idea(typed)
             guard stored.state == "todo" else { throw E2EError.product("手动添加的想法应是待办：\(stored)") }
@@ -134,7 +173,7 @@ public enum WorkspaceIdeas {
         }
 
         try await session.step("拖到空白处松手：想法保持待办，没有任何派发") {
-            let frame = try await session.capture()
+            let frame = try await capture(showing: blank)
             let start = try row(frame, blank).center
             let geo = geometry(frame)
             try await session.drag(local: start, to: CGPoint(x: geo.width - 90, y: geo.height / 2 + 40), on: frame)
@@ -145,7 +184,7 @@ public enum WorkspaceIdeas {
         }
 
         try await session.step("拖动中按 Esc：想法保持待办") {
-            let frame = try await session.capture()
+            let frame = try await capture(showing: cancelled)
             let start = try row(frame, cancelled).center
             try await session.dragCancellingWithEscape(local: start, to: try cardTarget(frame), on: frame)
             try await Task.sleep(nanoseconds: 900_000_000)
@@ -155,7 +194,7 @@ public enum WorkspaceIdeas {
         }
 
         try await session.step("拖到智能体卡片：流星从左抽屉直射卡片，底部指令栏没有飞行") {
-            let frame = try await session.capture()
+            let frame = try await capture(showing: first)
             let geo = geometry(frame)
             let start = try row(frame, first).center
             let target = try cardTarget(frame)
@@ -196,7 +235,7 @@ public enum WorkspaceIdeas {
         }
 
         try await session.step("拖到「新建智能体来完成」：想法被派发，卡片数量增加") {
-            let frame = try await session.capture()
+            let frame = try await capture(showing: fresh)
             let geo = geometry(frame)
             let start = try row(frame, fresh).center
             let zone = CGPoint(x: geo.drawer + (geo.width - 14 - geo.drawer) / 2, y: geo.height - 126)
@@ -211,17 +250,18 @@ public enum WorkspaceIdeas {
         }
 
         try await session.step("点「指派」走菜单：选智能体后想法被派发") {
-            var frame = try await session.capture()
+            var frame = try await capture(showing: viaMenu)
             let geo = geometry(frame)
             let line = try row(frame, viaMenu)
             let buttons = frame.texts.filter { $0.value.contains("指派") && $0.center.x < geo.drawer && abs($0.center.y - line.center.y) < 40 && !$0.value.contains("已指派") }
             guard let assignButton = buttons.max(by: { $0.center.x < $1.center.x }) else {
                 throw E2EError.product("找不到该行的「指派」按钮：\(frame.summary)")
             }
-            try await session.click(local: assignButton.center, on: frame)
+            // OCR 常把「指派 ▾」与右侧的「×」读成一个框，框中心会落在两个按钮之间；按钮位置固定在抽屉右侧，横向取按钮自己的位置。
+            try await session.click(local: CGPoint(x: geo.drawer - 97, y: line.center.y + 11), on: frame)
             frame = try await session.wait(Expectation(allOf: ["交给谁来做"], timeout: 5))
             try session.save(frame, "06-menu.png")
-            guard let item = frame.texts.filter({ $0.value.contains("E2E Project") && $0.center.x < geo.drawer }).last else {
+            guard let item = frame.texts.filter({ $0.value.contains("E2E Project") && $0.center.x < geo.drawer && $0.center.y > line.center.y }).max(by: { $0.center.y < $1.center.y }) else {
                 throw E2EError.product("菜单里找不到智能体选项：\(frame.summary)")
             }
             try await session.click(local: item.center, on: frame)

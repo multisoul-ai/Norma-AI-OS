@@ -232,6 +232,11 @@ impl MultisoulApp {
         if pending.stage == PendingSubmissionStage::TypeTask {
             return match type_agent_task(&mut self.runtime, receipt.node_id, &receipt.task) {
                 Ok(()) => {
+                    tracing::info!(
+                        task_id = receipt.task_id,
+                        node_id = receipt.node_id,
+                        "[agent-submit] typed after ready"
+                    );
                     self.pending_agent_submissions.schedule_enter(receipt);
                     true
                 }
@@ -251,6 +256,11 @@ impl MultisoulApp {
         }
         match submit_agent_enter(&mut self.runtime, receipt.node_id) {
             Ok(()) => {
+                tracing::info!(
+                    task_id = receipt.task_id,
+                    node_id = receipt.node_id,
+                    "[agent-submit] enter sent"
+                );
                 self.realtime_submission_sent(receipt.task_id, cx);
                 if let Some(coordinator) = self.agent_task_coordinator.as_mut() {
                     coordinator.mark_task_submitted(receipt.task_id);

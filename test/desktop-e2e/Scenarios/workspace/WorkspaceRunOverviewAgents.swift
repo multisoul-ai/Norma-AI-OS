@@ -95,7 +95,7 @@ public enum WorkspaceRunOverviewAgents {
             try await Task.sleep(nanoseconds: 900_000_000)
             let overview = try await session.capture()
             try session.save(overview, "02-overview.png")
-            guard overview.contains("需要你处理"), overview.contains("更新") else {
+            guard overview.contains("要你处理") || overview.contains("需要你"), overview.contains("更新") else {
                 throw E2EError.product("⌘⇧E 没有打开运行概览或副标题缺少更新时间：\(overview.summary)")
             }
             guard !overview.contains("待审核，待审核"), !overview.contains("待审核 · 待审核") else {

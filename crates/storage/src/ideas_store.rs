@@ -271,6 +271,18 @@ impl IdeasStore {
         Ok(changed > 0)
     }
 
+    /// 用户手动清空“已指派”：本工作空间的已指派想法一并收进已完成，返回条数。
+    /// 不碰派发中的想法（回执还没回来），也不改 `task_ref`。
+    pub fn clear_assigned(&self, workspace_id: &str) -> StorageResult<usize> {
+        let connection = open_app_connection(&self.path)?;
+        let now = crate::current_unix_timestamp()? as i64;
+        let changed = connection.execute(
+            "UPDATE workspace_ideas SET state='done',updated_at_unix=?2 WHERE workspace_id=?1 AND state='assigned'",
+            params![workspace_id, now],
+        )?;
+        Ok(changed)
+    }
+
     /// 清理更新时间早于 `cutoff_unix` 的已完成想法，返回清理条数。
     pub fn purge_done_before(&self, workspace_id: &str, cutoff_unix: u64) -> StorageResult<usize> {
         let connection = open_app_connection(&self.path)?;

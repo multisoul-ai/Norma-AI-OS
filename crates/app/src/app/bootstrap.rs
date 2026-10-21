@@ -265,6 +265,7 @@ impl MultisoulApp {
             desktop_ideas_input_subscription: None,
             background_restore: None,
             desktop_overview_scroll: std::collections::HashMap::new(),
+            ideas_scroll: gpui::ScrollHandle::new(),
             desktop_directory_scroll: gpui::ScrollHandle::new(),
             canvas_surface,
             working_snake_views: std::collections::HashMap::new(),

@@ -203,18 +203,6 @@ fn workspace_task_tool_targets_exact_agent_through_coordinator() {
             "B 的后续任务应保留在协调队列中"
         );
     });
-    host.read_with(cx, |app, _| {
-        let receipts = app
-            .desktop_workspace
-            .dispatch_receipts
-            .get(&workspace.id)
-            .expect("工作空间应保留逐目标回执");
-        assert_eq!(receipts.len(), 3, "三次成功派活应各有独立回执");
-        assert!(
-            receipts.iter().all(|receipt| receipt.submitted),
-            "各次成功派活均应有成功标记"
-        );
-    });
 
     let counts = (
         writes_a.lock().expect("应统计 A 写入").len(),

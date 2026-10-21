@@ -1,6 +1,7 @@
 //! Run-overview actions. Rendering reads the cached projection; these handlers
 //! do not recompute groups or touch SQLite on the pointer path.
 
+use super::super::overview_layout::OverviewGroup;
 use super::super::overview_rows::{
     move_overview_cursor, overview_action_keeps_overview, present_overview, OverviewAction,
     OverviewCursor, OverviewKey, OverviewScreen,
@@ -13,10 +14,22 @@ impl MultisoulApp {
     pub(super) fn presented_overview(&self) -> OverviewScreen {
         let now = unix_ms();
         let stops = self.overview_ego_stops();
-        match &self.desktop_workspace.activity_run_overview {
+        let mut screen = match &self.desktop_workspace.activity_run_overview {
             Some(overview) => present_overview(overview, &stops, now),
             None => OverviewScreen::empty(),
+        };
+        // 折叠的栏不显示行，键盘上下也不应落到看不见的行上。
+        let groups = [
+            OverviewGroup::Attention,
+            OverviewGroup::Current,
+            OverviewGroup::Other,
+        ];
+        for (section, group) in screen.sections.iter_mut().zip(groups) {
+            if self.desktop_workspace.overview_collapse.is_collapsed(group) {
+                section.rows.clear();
+            }
         }
+        screen
     }
 
     pub(super) fn handle_run_overview_key(
@@ -26,7 +39,7 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> bool {
-        if modified {
+        if modified || self.ideas_hold_focus(window, cx) {
             return false;
         }
         let nav = match key {

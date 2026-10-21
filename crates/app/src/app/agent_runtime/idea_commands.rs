@@ -112,6 +112,20 @@ pub(crate) fn assign_idea(
         .begin_dispatch(&workspace_id, idea_id, &format!("idea:{idea_id}"))
         .map_err(storage_error)?
         .ok_or_else(|| AdapterError::Rejected("这条想法不在待办中，可能已指派或已删除".into()))?;
+    let roster_state = match &target {
+        IdeaTarget::Agent { node_id, .. } => app
+            .agent_roster_for_provider()
+            .into_iter()
+            .find(|entry| entry.active_node_id == Some(*node_id))
+            .map(|entry| format!("tracking={:?} busy={}", entry.tracking, entry.busy)),
+        IdeaTarget::NewAgent { .. } => Some("new agent".to_owned()),
+    };
+    tracing::info!(
+        idea_id,
+        ?roster_state,
+        user_initiated,
+        "[idea-dispatch] begin"
+    );
     // 想法有自己的流星（从左抽屉起飞）；压住派发路径里指令栏的飞行，避免叠成两条。
     app.motion.set_dock_flight_suppressed(true);
     let dispatched = match target {
@@ -142,6 +156,11 @@ pub(crate) fn assign_idea(
         }
     };
     app.motion.set_dock_flight_suppressed(false);
+    tracing::info!(
+        idea_id,
+        outcome = ?dispatched.as_ref().map(|result| (result.status.clone(), result.task_id, result.node_id)),
+        "[idea-dispatch] result"
+    );
     match dispatched {
         Ok(result) => {
             let node_id = result.node_id.unwrap_or_default();

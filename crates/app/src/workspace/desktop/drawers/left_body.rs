@@ -23,10 +23,6 @@ impl MultisoulApp {
         let opacity = slide.opacity();
         let body = match self.desktop_workspace.drawers.left_view {
             DesktopLeftView::Overview => self.render_left_overview_body(window, cx),
-            DesktopLeftView::Ideas => {
-                self.ensure_idea_input(window, cx);
-                self.render_left_ideas_body(cx)
-            }
             DesktopLeftView::Chat => self.render_left_chat_body(width, cx),
         };
         div()
@@ -43,6 +39,8 @@ impl MultisoulApp {
                     .bottom(px(0.0))
                     .left(px(offset))
                     .right(px(-offset))
+                    .flex()
+                    .flex_col()
                     .opacity(opacity)
                     .child(body),
             )
@@ -217,8 +215,8 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
         self.focus_status_overview_first_row(window, cx);
+        self.ensure_idea_input(window, cx);
         let focus = self.left_overview_focus(cx);
-        let theme = self.desktop_theme();
         div()
             .id("desktop-run-overview")
             .debug_selector(|| "desktop-run-overview".to_string())
@@ -228,9 +226,6 @@ impl MultisoulApp {
             .flex_col()
             .tab_index(0)
             .track_focus(&focus)
-            .border_1()
-            .border_color(rgba(0x00000000))
-            .focus(|style| style.border_color(rgba(theme.focused_stroke)))
             .on_key_down(cx.listener(|app, event: &KeyDownEvent, window, cx| {
                 if event.keystroke.key == "escape" && !event.keystroke.modifiers.modified() {
                     app.toggle_desktop_drawer(DesktopDrawerEvent::EscapeOverview, cx);

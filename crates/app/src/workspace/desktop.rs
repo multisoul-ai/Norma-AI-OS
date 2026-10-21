@@ -54,6 +54,7 @@ mod ideas_rows;
 mod ideas_sync;
 mod motion_log;
 mod navigation;
+mod overview_layout;
 mod overview_rows;
 mod preview_canvas;
 mod project_area;
@@ -93,14 +94,6 @@ pub(crate) enum DesktopDeleteTarget {
 }
 
 #[derive(Clone)]
-pub(crate) struct DesktopDispatchReceipt {
-    pub(crate) project_name: String,
-    pub(crate) agent_name: String,
-    pub(crate) status: String,
-    pub(crate) submitted: bool,
-}
-
-#[derive(Clone)]
 pub(crate) struct DesktopArtifact {
     pub(crate) area_id: String,
     pub(crate) node_id: canvas::NodeId,
@@ -127,7 +120,6 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) left_chat_tab_focus: Option<gpui::FocusHandle>,
     pub(crate) left_overview_tab_focus: Option<gpui::FocusHandle>,
     pub(crate) left_overview_focus: Option<gpui::FocusHandle>,
-    pub(crate) left_ideas_tab_focus: Option<gpui::FocusHandle>,
     pub(crate) left_ideas_focus: Option<gpui::FocusHandle>,
     /// 想法清单缓存：渲染只读它，刷新在后台完成。
     pub(crate) ideas: Vec<storage::StoredIdea>,
@@ -140,9 +132,17 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) ideas_undo_timer: Option<gpui::Task<()>>,
     pub(crate) ideas_notice: Option<String>,
     pub(crate) ideas_show_done: bool,
+    /// “已指派”分组是否折叠（只影响显示，新的指派不会自动展开）。
+    pub(crate) ideas_assigned_collapsed: bool,
+    /// 运行概览各栏的折叠状态。
+    pub(crate) overview_collapse: overview_layout::OverviewCollapse,
     /// 左抽屉里想法行的大致位置（窗口坐标）：键盘、对话等没有具体行位置的派发，流星从这里出发。
     pub(crate) idea_flight_anchor: (i32, i32),
     pub(crate) ideas_input: Option<Entity<InputState>>,
+    /// 上一次渲染时的待办条数（None 表示还没渲染过，首次不滚动）。
+    pub(crate) ideas_seen_todo: Option<usize>,
+    /// 指派菜单刚展开后，还需要把它滚进可见范围的帧数。
+    pub(crate) ideas_menu_reveal_frames: u8,
     pub(crate) idea_drag: Option<idea_drag_ui::IdeaDragSession>,
     pub(crate) overview_float_fade: drawers::float::OverviewFloatFade,
     pub(crate) overview_drag: Option<drawers::float::OverviewDrag>,
@@ -225,7 +225,6 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) pending_project_path: Option<PathBuf>,
     pub(crate) pending_project_source: workspace::WorkspaceSource,
     pub(crate) add_project_open: bool,
-    pub(crate) dispatch_receipts: HashMap<String, Vec<DesktopDispatchReceipt>>,
     pub(crate) refresh_started: bool,
 }
 
@@ -301,7 +300,6 @@ impl DesktopWorkspaceUiState {
             left_chat_tab_focus: None,
             left_overview_tab_focus: None,
             left_overview_focus: None,
-            left_ideas_tab_focus: None,
             left_ideas_focus: None,
             ideas: Vec::new(),
             ideas_refresh: None,
@@ -312,8 +310,12 @@ impl DesktopWorkspaceUiState {
             ideas_undo_timer: None,
             ideas_notice: None,
             ideas_show_done: false,
+            ideas_assigned_collapsed: false,
+            overview_collapse: overview_layout::OverviewCollapse::default(),
             idea_flight_anchor: (140, 240),
             ideas_input: None,
+            ideas_seen_todo: None,
+            ideas_menu_reveal_frames: 0,
             idea_drag: None,
             overview_float_fade: drawers::float::OverviewFloatFade::default(),
             overview_drag: None,
@@ -395,7 +397,6 @@ impl DesktopWorkspaceUiState {
             pending_project_path: None,
             pending_project_source: workspace::WorkspaceSource::Open,
             add_project_open: false,
-            dispatch_receipts: HashMap::new(),
             refresh_started: false,
         }
     }

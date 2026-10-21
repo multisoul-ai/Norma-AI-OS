@@ -295,8 +295,8 @@ fn ideas_capture_assign_rollback_and_reject_duplicates() {
     host.read_with(cx, |app, _| {
         assert_eq!(
             app.desktop_workspace.drawers.left_view,
-            runtime::desktop_drawers::DesktopLeftView::Ideas,
-            "项目会话触发 ToggleIdeas 后宿主左栏应切到想法"
+            runtime::desktop_drawers::DesktopLeftView::Overview,
+            "项目会话触发 ToggleIdeas 后宿主左栏应切到运行概览（想法栏在其中）"
         );
     });
 }

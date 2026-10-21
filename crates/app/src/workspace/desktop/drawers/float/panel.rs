@@ -24,6 +24,7 @@ impl MultisoulApp {
         if !self.desktop_workspace.drawers.overview_floating {
             return None;
         }
+        self.ensure_idea_input(window, cx);
         let canvas = self.overview_canvas(window);
         let place = place_overview(self.desktop_workspace.drawers.overview_offset, canvas);
         let layout = self.desktop_assistant_layout(window);

@@ -287,6 +287,28 @@ impl MultisoulApp {
         cx.notify();
     }
 
+    /// 清空“已指派”：先在界面上收进已完成，再后台落库，最后以库为准刷新。
+    pub(super) fn clear_assigned_ideas(&mut self, cx: &mut Context<Self>) {
+        let Some(workspace_id) = self.desktop_workspace.active_id.clone() else {
+            return;
+        };
+        for idea in &mut self.desktop_workspace.ideas {
+            if idea.state == workspace::ideas::IdeaState::Assigned {
+                idea.state = workspace::ideas::IdeaState::Done;
+            }
+        }
+        self.desktop_workspace.ideas_cursor = None;
+        let store = IdeasStore::new(self.database_paths.app_db_path().to_owned());
+        cx.spawn(async move |this, cx| {
+            let _ = cx
+                .background_spawn(async move { store.clear_assigned(&workspace_id) })
+                .await;
+            let _ = this.update(cx, |app, cx| app.refresh_ideas(cx));
+        })
+        .detach();
+        cx.notify();
+    }
+
     pub(super) fn undo_delete_idea(&mut self, cx: &mut Context<Self>) {
         let (Some(undo), Some(workspace_id)) = (
             self.desktop_workspace.ideas_undo.take(),

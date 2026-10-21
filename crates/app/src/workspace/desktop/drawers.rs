@@ -28,6 +28,7 @@ pub(super) mod motion;
 pub(super) mod orb;
 mod overview_actions;
 mod overview_list;
+mod overview_parts;
 pub(super) mod resize;
 
 #[cfg(test)]

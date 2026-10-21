@@ -235,7 +235,7 @@ fn idea_input_rejects_newlines() {
             .clone()
             .expect("应建立输入框")
     });
-    let mut insert = |text: &str, cx: &mut gpui::VisualTestContext| {
+    let insert = |text: &str, cx: &mut gpui::VisualTestContext| {
         input.update_in(cx, |state, window, cx| {
             state.replace_text_in_range(None, text, window, cx)
         });

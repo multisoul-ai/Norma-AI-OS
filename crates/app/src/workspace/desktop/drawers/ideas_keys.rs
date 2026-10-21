@@ -23,11 +23,12 @@ impl MultisoulApp {
             .clone()
     }
 
-    pub(super) fn left_ideas_tab_focus(&mut self, cx: &mut Context<Self>) -> gpui::FocusHandle {
+    /// 焦点在想法栏里（含输入框）时，概览自己的上下键浏览让位给想法清单。
+    pub(super) fn ideas_hold_focus(&self, window: &Window, cx: &gpui::App) -> bool {
         self.desktop_workspace
-            .left_ideas_tab_focus
-            .get_or_insert_with(|| cx.focus_handle())
-            .clone()
+            .left_ideas_focus
+            .as_ref()
+            .is_some_and(|handle| handle.contains_focused(window, cx))
     }
 
     pub(super) fn select_idea_row(
@@ -45,6 +46,9 @@ impl MultisoulApp {
     pub(super) fn toggle_idea_menu(&mut self, id: &str, cx: &mut Context<Self>) {
         let open = self.desktop_workspace.ideas_menu.as_deref() == Some(id);
         self.desktop_workspace.ideas_menu = (!open).then(|| id.to_owned());
+        // 菜单就地展开在行下方，而栏是固定高度的：随后几帧把这一行连同菜单滚进可见范围。
+        // 滚动按上一帧的布局计算，菜单出现后的那一帧才有它的尺寸，所以多给几帧。
+        self.desktop_workspace.ideas_menu_reveal_frames = if open { 0 } else { 3 };
         self.desktop_workspace.ideas_menu_cursor = 0;
         self.desktop_workspace.ideas_notice = None;
         cx.notify();
@@ -83,7 +87,12 @@ impl MultisoulApp {
         }
         let screen = self.ideas_screen(cx);
         let todo = screen.todo.len();
-        let total = todo + screen.assigned.len();
+        let visible_assigned = if self.desktop_workspace.ideas_assigned_collapsed {
+            0
+        } else {
+            screen.assigned.len()
+        };
+        let total = todo + visible_assigned;
         if self.desktop_workspace.ideas_menu.is_some() {
             return self.handle_ideas_menu_key(key, window, cx);
         }

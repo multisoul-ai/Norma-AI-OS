@@ -17,6 +17,7 @@
 //!   选中与焦点同时可见，以及待处理角标。颜色取 `desktop_theme()`：浅色应用主题下
 //!   抽屉仍是深色玻璃，状态色跟这块玻璃走，避免浅色 token 贴在深底上发灰。
 
+use super::super::overview_layout::OverviewGroup;
 use super::GLASS_TEXT;
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div, KeyDownEvent, Stateful, Window};
@@ -26,8 +27,6 @@ use runtime::desktop_drawers::{DesktopDrawerEvent, DesktopLeftView};
 enum TabBadge {
     /// 待你处理的数量（琥珀）。
     Pending(usize),
-    /// 普通计数（中性）。
-    Count(usize),
 }
 
 impl MultisoulApp {
@@ -36,13 +35,6 @@ impl MultisoulApp {
         let pending = self.cached_workspace_pending_count();
         let chat_focus = self.left_chat_tab_focus(cx);
         let overview_focus = self.left_overview_tab_focus(cx);
-        let ideas_focus = self.left_ideas_tab_focus(cx);
-        let ideas_todo = self
-            .desktop_workspace
-            .ideas
-            .iter()
-            .filter(|idea| idea.state == workspace::ideas::IdeaState::Todo)
-            .count();
         div()
             .id("desktop-left-view-tabs")
             .debug_selector(|| "desktop-left-view-tabs".to_string())
@@ -63,14 +55,6 @@ impl MultisoulApp {
                 None,
                 selected == DesktopLeftView::Chat,
                 chat_focus,
-                cx,
-            ))
-            .child(self.left_view_tab(
-                "desktop-left-tab-ideas",
-                ui::i18n::text("workspace.left_tab_ideas"),
-                (ideas_todo > 0).then_some(TabBadge::Count(ideas_todo)),
-                selected == DesktopLeftView::Ideas,
-                ideas_focus,
                 cx,
             ))
             .child(self.left_view_tab(
@@ -95,8 +79,6 @@ impl MultisoulApp {
         let theme = self.desktop_theme();
         let view = if id.ends_with("overview") {
             DesktopLeftView::Overview
-        } else if id.ends_with("ideas") {
-            DesktopLeftView::Ideas
         } else {
             DesktopLeftView::Chat
         };
@@ -151,7 +133,6 @@ impl MultisoulApp {
                 let (count, fill, ink) = match badge {
                     // 待处理要你动手：琥珀；想法只是计数：中性蓝灰。
                     TabBadge::Pending(count) => (count, 0xf2c773ff, 0x162638ff),
-                    TabBadge::Count(count) => (count, 0x8fcaff2e, 0xd4eaffff),
                 };
                 tab.child(
                     div()
@@ -184,11 +165,7 @@ impl MultisoulApp {
         let next = match event.keystroke.key.as_str() {
             "enter" | "space" => current,
             "right" | "left" => {
-                let order = [
-                    DesktopLeftView::Chat,
-                    DesktopLeftView::Ideas,
-                    DesktopLeftView::Overview,
-                ];
+                let order = [DesktopLeftView::Chat, DesktopLeftView::Overview];
                 let at = usize::from(current.rank());
                 let next = if event.keystroke.key == "right" {
                     at + 1
@@ -218,7 +195,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.toggle_desktop_drawer(DesktopDrawerEvent::SelectLeftView(view), cx);
-        if view == DesktopLeftView::Ideas {
+        if view == DesktopLeftView::Overview {
             self.refresh_ideas(cx);
         }
         self.focus_left_drawer_view(window, cx);
@@ -231,10 +208,14 @@ impl MultisoulApp {
         }
         self.toggle_desktop_drawer(DesktopDrawerEvent::ToggleIdeas, cx);
         if matches!(self.screen, crate::app::AppScreen::DesktopWorkspace) {
-            if self.desktop_workspace.drawers.left_view == DesktopLeftView::Ideas {
-                self.refresh_ideas(cx);
-            }
-            self.focus_left_drawer_view(window, cx);
+            // 想法是概览里的一栏：展开它，刷新清单，并把焦点放到想法栏。
+            self.desktop_workspace
+                .overview_collapse
+                .reveal(OverviewGroup::Ideas);
+            self.refresh_ideas(cx);
+            self.ensure_idea_input(window, cx);
+            self.left_ideas_focus(cx).focus(window);
+            cx.notify();
         }
     }
 
@@ -253,7 +234,6 @@ impl MultisoulApp {
     pub(super) fn focus_left_drawer_view(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let handle = match self.desktop_workspace.drawers.left_view {
             DesktopLeftView::Overview => self.left_overview_tab_focus(cx),
-            DesktopLeftView::Ideas => self.left_ideas_tab_focus(cx),
             DesktopLeftView::Chat => self.left_chat_tab_focus(cx),
         };
         handle.focus(window);
@@ -278,12 +258,6 @@ impl MultisoulApp {
             cx.stop_propagation();
             return true;
         }
-        if self.left_ideas_holds_escape(window, cx) {
-            self.toggle_desktop_drawer(DesktopDrawerEvent::EscapeOverview, cx);
-            self.focus_left_drawer_view(window, cx);
-            cx.stop_propagation();
-            return true;
-        }
         if self.left_overview_holds_escape(window, cx) {
             self.toggle_desktop_drawer(DesktopDrawerEvent::EscapeOverview, cx);
             self.focus_left_drawer_view(window, cx);
@@ -291,21 +265,6 @@ impl MultisoulApp {
             return true;
         }
         false
-    }
-
-    fn left_ideas_holds_escape(&self, window: &Window, cx: &gpui::App) -> bool {
-        if self.desktop_workspace.drawers.left_view != DesktopLeftView::Ideas {
-            return false;
-        }
-        self.desktop_workspace
-            .left_ideas_focus
-            .as_ref()
-            .is_some_and(|handle| handle.contains_focused(window, cx))
-            || self
-                .desktop_workspace
-                .left_ideas_tab_focus
-                .as_ref()
-                .is_some_and(|handle| handle.is_focused(window))
     }
 
     fn left_overview_holds_escape(&self, window: &Window, cx: &gpui::App) -> bool {

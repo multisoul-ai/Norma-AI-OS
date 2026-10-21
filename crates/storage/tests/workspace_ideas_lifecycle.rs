@@ -401,3 +401,57 @@ fn mobile_view_sanitizes_titles_and_keeps_todos_first() {
         "待办应排在前面"
     );
 }
+
+/// 清空已指派：只把本工作空间的“已指派”转为已完成，待办、派发中与其他空间不动；幂等。
+///
+/// 数据构造：本空间一条待办 t、两条已指派 a/b、一条派发中 c；另一空间一条已指派 x。
+/// 执行过程：对本空间调用两次 clear_assigned。
+/// 预期结果：
+///   - 正断言：第一次返回 2；a、b 变为 done（task_ref 保留，便于之后追溯）。
+///   - 负断言：第二次返回 0；待办 t、派发中 c、另一空间的 x 状态不变。
+#[test]
+fn clearing_assigned_ideas_marks_only_this_workspace_assigned_as_done() {
+    let (_temp, db, ws) = setup();
+    let other = DesktopWorkspaceStore::new(db.clone())
+        .create("其他")
+        .expect("应创建")
+        .id;
+    let store = IdeasStore::new(db);
+    for (space, id, ref_name, finish) in [
+        (&ws, "a", "r-a", true),
+        (&ws, "b", "r-b", true),
+        (&ws, "c", "r-c", false),
+        (&other, "x", "r-x", true),
+    ] {
+        store.add(space, id, id, IdeaSource::Chat).expect("应记下");
+        store
+            .begin_dispatch(space, id, ref_name)
+            .expect("不应出错")
+            .expect("应开始派发");
+        if finish {
+            store
+                .mark_assigned(space, id, "area", 1, None)
+                .expect("不应出错")
+                .expect("应指派");
+        }
+    }
+    store.add(&ws, "t", "t", IdeaSource::Chat).expect("应记下");
+
+    assert_eq!(store.clear_assigned(&ws).expect("应清空"), 2);
+    assert_eq!(store.clear_assigned(&ws).expect("应清空"), 0);
+
+    let state_of = |space: &str, id: &str| {
+        store
+            .list(space)
+            .expect("应列出")
+            .into_iter()
+            .find(|idea| idea.id == id)
+            .expect("应存在")
+            .state
+    };
+    assert_eq!(state_of(&ws, "a"), IdeaState::Done);
+    assert_eq!(state_of(&ws, "b"), IdeaState::Done);
+    assert_eq!(state_of(&ws, "c"), IdeaState::Dispatching);
+    assert_eq!(state_of(&ws, "t"), IdeaState::Todo);
+    assert_eq!(state_of(&other, "x"), IdeaState::Assigned);
+}
