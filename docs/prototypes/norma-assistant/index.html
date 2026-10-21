@@ -397,11 +397,34 @@ summary::-webkit-details-marker{display:none}
 .ex-doc{flex:1;min-height:0;overflow:auto;font:12px/1.9 "SF Mono",Menlo,monospace}.ex-path{position:sticky;top:0;padding:10px 14px;background:#15171b;border-bottom:1px solid #ffffff14;font:12px -apple-system,"SF Pro Text",sans-serif;color:#cdd5e0}
 @media(max-width:520px){.changes-view,.explorer-view{grid-template-columns:1fr}.cv-side,.ex-side{display:none}}
 @media(prefers-reduced-motion:reduce){.resize-handle::after,.cv-side summary svg,.ex-side summary svg{transition:none}}
-/* 想法清单：左栏第三个视图，拖给智能体卡片或新建智能体 */
+/* 想法清单：运行概览里的一栏，拖给智能体卡片或新建智能体 */
+/* 运行概览分栏：每栏固定高度（按比例分配抽屉高度），内容多了栏内滚动；标题可折叠，折叠后空间让给其他栏。 */
+.run-overview .run-sections{display:flex;flex-direction:column;gap:4px;overflow-y:auto;overflow-x:hidden}
+.run-sections .run-group{display:flex;flex-direction:column;min-height:92px;flex:var(--grow,1) 1 0;margin:0;padding:0}
+.run-sections .run-group+.run-group{margin-top:0;padding-top:4px;border-top:1px solid #cde8ff14}
+.run-group[data-group=attention]{--grow:24}.run-group[data-group=current]{--grow:30}.run-group[data-group=ideas]{--grow:34}.run-group[data-group=other]{--grow:14}.drawer-tab{white-space:nowrap}
+.run-sections .run-group-title{flex:none}
+.run-empty{display:none;height:100%;min-height:0;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:8px 12px;text-align:center;color:#9fb8cf;font-size:12px;line-height:1.5}
+.run-group[data-group=other] .run-empty small{display:none}.run-empty span{font-size:16px;color:#7ea4c4}.run-empty strong{font-weight:560;color:#cfe3f4}.run-empty small{color:#8ea8bf}
+.run-group-body:not(:has(.run-row)) .run-empty{display:flex}
+.run-sections .run-group{min-height:84px}.run-group[data-group=ideas]{min-height:150px}
+.run-group-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#cde8ff55 transparent}
+.run-group.is-collapsed{flex:none;min-height:0}.run-group.is-collapsed .run-group-body,.run-group.is-collapsed .idea-add{display:none}
+.run-group-toggle{display:inline-flex;align-items:center;gap:6px;height:26px;margin-left:-6px;padding:0 6px;border-radius:7px;color:inherit;font:inherit;letter-spacing:inherit;transition:background 80ms ease}
+.run-group-toggle:hover{background:#8fcaff1f;color:#fff}.run-group-toggle:active{background:#8fcaff36}.run-group-toggle:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+.run-chevron{width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid currentColor;transition:transform 140ms var(--ease)}
+.run-group.is-collapsed .run-chevron{transform:rotate(-90deg)}
+.run-overview[data-mode=floating] .run-sections{height:min(560px,calc(100vh - 260px));flex:none}
+.idea-add{flex:none;display:flex;align-items:center;gap:6px;margin:4px 8px 2px;padding:3px 3px 3px 10px;border:1px solid #83c4ff40;border-radius:9px;background:#0b1b2d99}
+.idea-add:focus-within{border-color:#83c4ffa6}.idea-add input{flex:1;min-width:0;height:28px;background:none;border:0;outline:0;color:#eef6ff;font-size:12px}.idea-add input::placeholder{color:#8ea8bf}
+.idea-sub{display:flex;align-items:center;justify-content:space-between;height:26px;padding:0 8px;font-size:11px;color:#8ea8bf}
+.idea-sub-toggle{display:inline-flex;align-items:center;gap:6px;height:22px;margin-left:-4px;padding:0 4px;border-radius:6px;color:inherit;font:inherit}
+.idea-sub-toggle:hover{background:#8fcaff1f;color:#fff}.idea-sub-toggle:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+.idea-sub.is-collapsed .run-chevron,.idea-sub[data-collapsed=true] .run-chevron{transform:rotate(-90deg)}
+.idea-empty-line{padding:14px 10px;text-align:center;color:#a9c0d5;font-size:12px;line-height:1.6}
+@media(prefers-reduced-motion:reduce){.run-chevron{transition:none}}
 .drawer-switch{grid-template-columns:1fr 1fr 1.35fr}
-.ideas-badge{background:#8fcaff2e;color:#d4eaff}.ideas-badge[hidden]{display:none}.ideas-badge.bump{animation:idea-bump 320ms var(--ease)}
-.app[data-left-view=ideas] .conversation-heading,.app[data-left-view=ideas] .orb-zone,.app[data-left-view=ideas] .conversation-scroll{display:none}
-.ideas-panel[hidden]{display:none}
+.run-group-title .ideas-badge{background:#8fcaff2e;color:#d4eaff}.ideas-badge[hidden]{display:none}.ideas-badge.bump{animation:idea-bump 320ms var(--ease)}
 .ideas-hint{margin:2px 8px 6px;padding:8px 10px;border-radius:9px;background:#8fcaff12;color:#b4cde2;font-size:12px;line-height:1.5}.ideas-hint b{color:#e8f4ff;font-weight:560}
 .idea-row{position:relative;display:grid;grid-template-columns:18px minmax(0,1fr) auto;align-items:center;column-gap:8px;min-height:52px;padding:6px 6px 6px 4px;border-radius:9px;color:#e4effa;cursor:grab;user-select:none;-webkit-user-select:none;transition:background 80ms ease,opacity 120ms ease}
 .idea-row:hover{background:#8fcaff1f}.idea-row:active{background:#8fcaff36}.idea-row:focus-visible{outline:2px solid var(--blue);outline-offset:-2px;background:#8fcaff1f}
@@ -466,7 +489,7 @@ summary::-webkit-details-marker{display:none}
     <div class="brand"><svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3 12 7 16 3 21 8 17 12 21 16 16 21 12 17 8 21 3 16 7 12 3 8Z" fill="currentColor" stroke="none"/></svg><span class="wordmark">norma</span></div>
     <div class="top-actions"><button id="demo-button" class="quiet-button"><span data-icon="play"></span><span id="demo-label">演示一下</span></button><button id="voice-toggle" class="icon-button" aria-label="开启语音播报" aria-pressed="false" title="开启语音播报"><span data-icon="volume-off"></span></button><button id="help-button" class="icon-button" aria-label="使用说明" title="使用说明"><span data-icon="help"></span></button></div>
   </header>
-  <nav class="drawer-switch" id="drawer-switch" role="tablist" aria-label="左侧抽屉视图"><button class="drawer-tab" id="drawer-tab-chat" role="tab" aria-selected="true" aria-controls="conversation-scroll" type="button">对话</button><button class="drawer-tab" id="drawer-tab-ideas" role="tab" aria-selected="false" aria-controls="ideas-body" tabindex="-1" type="button">想法 <span class="progress-badge ideas-badge" id="ideas-badge" aria-label="待办想法">0</span></button><button class="drawer-tab" id="drawer-tab-overview" role="tab" aria-selected="false" aria-controls="progress-body" tabindex="-1" type="button">运行概览 <span class="progress-badge" aria-label="3 项待处理">3</span><span class="drawer-tab-float" title="已悬浮在画布上" aria-hidden="true"><span data-icon="pin"></span></span></button></nav>
+  <nav class="drawer-switch" id="drawer-switch" role="tablist" aria-label="左侧抽屉视图"><button class="drawer-tab" id="drawer-tab-chat" role="tab" aria-selected="true" aria-controls="conversation-scroll" type="button">对话</button><button class="drawer-tab" id="drawer-tab-overview" role="tab" aria-selected="false" aria-controls="progress-body" tabindex="-1" type="button">运行概览 <span class="progress-badge" aria-label="3 项待处理">3</span><span class="drawer-tab-float" title="已悬浮在画布上" aria-hidden="true"><span data-icon="pin"></span></span></button></nav>
   <div class="conversation-heading"><div><span class="conversation-eyebrow">当前对话</span><h2>和 Norma 聊聊</h2></div><span class="conversation-live"><span class="tiny-dot"></span>在线</span></div>
     <section class="orb-zone" aria-label="Norma 对话助手">
       <button id="orb-button" class="orb-button" aria-label="点击 Norma，开始语音对话" title="点击开始语音输入"><span class="orb-surface"><span class="orb-fallback" id="orb-fallback" aria-hidden="true"></span><canvas id="orb-canvas" class="orb-canvas" aria-hidden="true"></canvas></span></button>
@@ -475,8 +498,7 @@ summary::-webkit-details-marker{display:none}
   <div class="conversation-scroll" id="conversation-scroll">
     <div class="chat-log" id="chat-log" role="log" aria-label="对话记录" aria-live="polite"><div class="chat-message assistant"><span class="message-author">Norma</span><p>你好，我是 Norma。左边和我聊天，中间看项目画布，右边可用标签浏览网页、文件、图片和视频。</p></div></div>
   </div>
-  <section class="run-overview ideas-panel" id="ideas-body" role="tabpanel" aria-labelledby="drawer-tab-ideas" data-mode="drawer" hidden><header class="run-pop-head"><div class="run-pop-title"><strong>想法清单</strong><small id="ideas-sub">对 Norma 说“记一下…”，她会帮你记下</small></div></header><div class="run-pop-scroll" id="ideas-scroll"></div></section>
-  <section class="run-overview" id="progress-body" role="tabpanel" aria-labelledby="drawer-tab-overview" data-mode="drawer" hidden><header class="run-pop-head" id="progress-drag"><div class="run-pop-title"><strong>运行概览</strong><small>Norma OS 工作空间 · 视觉示例 · 刚刚更新</small></div><div class="run-pop-actions"><button class="run-pop-icon run-pop-move" id="progress-move" type="button" aria-label="移动运行概览：方向键移动，双击标题栏复位" title="拖动移动 · 双击标题栏复位" hidden><span data-icon="grip"></span></button><button class="run-pop-icon" id="progress-pin" type="button" aria-pressed="false" aria-label="悬浮固定运行概览" title="弹出到画布上悬浮固定"><span data-icon="pin"></span></button></div></header><div class="run-pop-scroll"><section class="run-group" aria-label="需要你处理"><h3 class="run-group-title">需要你处理 <span class="run-count">3</span></h3><button class="run-row is-review" type="button" data-progress-node="approval-bella" data-peek="agent-bella" aria-label="定位 Bella 的待审核项：抽屉视觉方案"><span class="run-lead" aria-hidden="true"><i></i></span><span class="run-copy"><strong>待审核 · 抽屉视觉方案</strong><small>Bella · Norma-AI-OS</small></span><span class="run-trail">定位<span data-icon="arrow-diagonal"></span></span></button><button class="run-row is-result" type="button" data-progress-file="result" data-peek="agent-bella" aria-label="在右侧打开 Bella 的布局验收结果"><span class="run-lead" aria-hidden="true"><i></i></span><span class="run-copy"><strong>成果待查看 · 布局验收结果</strong><small>Bella · Norma-AI-OS</small></span><span class="run-trail">打开<span data-icon="arrow-diagonal"></span></span></button><button class="run-row is-file" type="button" data-progress-file="prototype" data-peek="agent-bella" aria-label="在右侧打开 Bella 修改的 index.html"><span class="run-lead" aria-hidden="true"><i></i></span><span class="run-copy"><strong>待查看文件 · index.html</strong><small>Bella · docs/prototypes/norma-assistant</small></span><span class="run-trail">打开<span data-icon="arrow-diagonal"></span></span></button></section><section class="run-group" aria-label="当前项目智能体"><h3 class="run-group-title">当前项目 · Norma-AI-OS <span>2 个智能体</span></h3><button class="run-row is-agent" type="button" data-progress-node="agent-bella" data-peek="agent-bella" aria-label="定位 Bella 智能体卡片：运行中，已完成 4/6，正在做第 5 项原型交互验收，已运行 18 分钟，1 项待审核"><span class="run-lead" aria-hidden="true"><i></i></span><span class="run-copy"><strong>Bella <span class="run-state is-running">运行中</span><span class="run-alert">1 待审核</span></strong><small>任务 · 调整原型布局与透明材质</small><span class="run-steps" style="--steps:6" aria-hidden="true"><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="current"></i><i class=""></i></span><span class="run-step-label">第 5/6 项 · 原型交互验收 <em>· 已运行 18 分</em></span></span><span class="run-trail">定位<span data-icon="arrow-diagonal"></span></span></button><button class="run-row is-agent is-idle" type="button" data-progress-node="agent-bruno" data-peek="agent-bruno" aria-label="定位 Bruno 智能体卡片：待开始，尚未开始执行"><span class="run-lead" aria-hidden="true"><i></i></span><span class="run-copy"><strong>Bruno <span class="run-state">待开始</span></strong><small>任务 · 检查抽屉响应式布局</small><span class="run-step-label"><em>尚未开始 · 项目上下文已就绪</em></span></span><span class="run-trail">定位<span data-icon="arrow-diagonal"></span></span></button></section><section class="run-group" aria-label="其他项目"><h3 class="run-group-title">其他项目 <span>上次状态</span></h3><button class="run-row is-project" type="button" data-progress-project="design" aria-label="切换到设计草稿项目，1 个智能体，上次状态 12 分钟前，未加载"><span class="run-lead" aria-hidden="true">02</span><span class="run-copy"><strong>设计草稿</strong><small>1 个智能体 · 上次状态 12 分钟前 · 未加载</small></span><span class="run-trail">切换<span data-icon="arrow-diagonal"></span></span></button></section></div></section><!-- /run-overview -->
+  <section class="run-overview" id="progress-body" role="tabpanel" aria-labelledby="drawer-tab-overview" data-mode="drawer" hidden><header class="run-pop-head" id="progress-drag"><div class="run-pop-title"><strong>运行概览</strong><small>Norma OS 工作空间 · 视觉示例 · 刚刚更新</small></div><div class="run-pop-actions"><button class="run-pop-icon run-pop-move" id="progress-move" type="button" aria-label="移动运行概览：方向键移动，双击标题栏复位" title="拖动移动 · 双击标题栏复位" hidden><span data-icon="grip"></span></button><button class="run-pop-icon" id="progress-pin" type="button" aria-pressed="false" aria-label="悬浮固定运行概览" title="弹出到画布上悬浮固定"><span data-icon="pin"></span></button></div></header><div class="run-pop-scroll run-sections"><section class="run-group" data-group="attention" id="run-group-attention" aria-label="需要你处理"><h3 class="run-group-title"><button class="run-group-toggle" type="button" aria-expanded="true" aria-controls="run-body-attention"><span class="run-chevron" aria-hidden="true"></span>需要你处理</button><span class="run-count">3</span></h3><div class="run-group-body" id="run-body-attention"><button class="run-row is-review" type="button" data-progress-node="approval-bella" data-peek="agent-bella" aria-label="定位 Bella 的待审核项：抽屉视觉方案"><span class="run-lead" aria-hidden="true"><i></i></span><span class="run-copy"><strong>待审核 · 抽屉视觉方案</strong><small>Bella · Norma-AI-OS</small></span><span class="run-trail">定位<span data-icon="arrow-diagonal"></span></span></button><button class="run-row is-result" type="button" data-progress-file="result" data-peek="agent-bella" aria-label="在右侧打开 Bella 的布局验收结果"><span class="run-lead" aria-hidden="true"><i></i></span><span class="run-copy"><strong>成果待查看 · 布局验收结果</strong><small>Bella · Norma-AI-OS</small></span><span class="run-trail">打开<span data-icon="arrow-diagonal"></span></span></button><button class="run-row is-file" type="button" data-progress-file="prototype" data-peek="agent-bella" aria-label="在右侧打开 Bella 修改的 index.html"><span class="run-lead" aria-hidden="true"><i></i></span><span class="run-copy"><strong>待查看文件 · index.html</strong><small>Bella · docs/prototypes/norma-assistant</small></span><span class="run-trail">打开<span data-icon="arrow-diagonal"></span></span></button><div class="run-empty"><span aria-hidden="true">✓</span><strong>没有需要你处理的事</strong><small>审核、成果和待查看文件会出现在这里</small></div></div></section><section class="run-group" data-group="current" id="run-group-current" aria-label="当前项目智能体"><h3 class="run-group-title"><button class="run-group-toggle" type="button" aria-expanded="true" aria-controls="run-body-current"><span class="run-chevron" aria-hidden="true"></span>当前项目 · Norma-AI-OS</button><span>2 个智能体</span></h3><div class="run-group-body" id="run-body-current"><button class="run-row is-agent" type="button" data-progress-node="agent-bella" data-peek="agent-bella" aria-label="定位 Bella 智能体卡片：运行中，已完成 4/6，正在做第 5 项原型交互验收，已运行 18 分钟，1 项待审核"><span class="run-lead" aria-hidden="true"><i></i></span><span class="run-copy"><strong>Bella <span class="run-state is-running">运行中</span><span class="run-alert">1 待审核</span></strong><small>任务 · 调整原型布局与透明材质</small><span class="run-steps" style="--steps:6" aria-hidden="true"><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="current"></i><i class=""></i></span><span class="run-step-label">第 5/6 项 · 原型交互验收 <em>· 已运行 18 分</em></span></span><span class="run-trail">定位<span data-icon="arrow-diagonal"></span></span></button><button class="run-row is-agent is-idle" type="button" data-progress-node="agent-bruno" data-peek="agent-bruno" aria-label="定位 Bruno 智能体卡片：待开始，尚未开始执行"><span class="run-lead" aria-hidden="true"><i></i></span><span class="run-copy"><strong>Bruno <span class="run-state">待开始</span></strong><small>任务 · 检查抽屉响应式布局</small><span class="run-step-label"><em>尚未开始 · 项目上下文已就绪</em></span></span><span class="run-trail">定位<span data-icon="arrow-diagonal"></span></span></button><div class="run-empty"><span aria-hidden="true">◌</span><strong>当前项目还没有智能体</strong><small>对 Norma 说“新建一个 Claude”，或在画布上添加</small></div></div></section><section class="run-group is-ideas" data-group="ideas" id="ideas-body" aria-label="想法"><h3 class="run-group-title"><button class="run-group-toggle" type="button" aria-expanded="true" aria-controls="ideas-scroll"><span class="run-chevron" aria-hidden="true"></span>想法</button><span><span class="ideas-badge run-count" id="ideas-badge" aria-label="0 条待办想法">0</span></span></h3><div class="run-group-body" id="ideas-scroll"></div><form class="idea-add" id="idea-add" autocomplete="off"><label class="sr-only" for="idea-add-input">添加想法</label><input id="idea-add-input" maxlength="500" placeholder="添加想法，回车保存"><button class="idea-btn is-assign" type="submit">添加</button></form></section><section class="run-group" data-group="other" id="run-group-other" aria-label="其他项目"><h3 class="run-group-title"><button class="run-group-toggle" type="button" aria-expanded="true" aria-controls="run-body-other"><span class="run-chevron" aria-hidden="true"></span>其他项目</button><span>上次状态</span></h3><div class="run-group-body" id="run-body-other"><button class="run-row is-project" type="button" data-progress-project="design" aria-label="切换到设计草稿项目，1 个智能体，上次状态 12 分钟前，未加载"><span class="run-lead" aria-hidden="true">02</span><span class="run-copy"><strong>设计草稿</strong><small>1 个智能体 · 上次状态 12 分钟前 · 未加载</small></span><span class="run-trail">切换<span data-icon="arrow-diagonal"></span></span></button><div class="run-empty"><span aria-hidden="true">▫</span><strong>没有其他项目</strong><small>在工作空间里新建或打开项目后显示在这里</small></div></div></section></div></section><!-- /run-overview -->
   <section class="composer-area" aria-label="对话输入">
     <form class="composer" id="composer" autocomplete="off"><label class="sr-only" for="command-input">向 Norma 说一句话</label><input id="command-input" placeholder="说说你的想法…" maxlength="500"><button id="mic-button" class="mic-button" type="button" aria-label="开始语音输入" aria-pressed="false" title="开始语音输入"><span data-icon="mic"></span></button><button id="send-button" class="send-button" type="submit" aria-label="发送指令" disabled><span data-icon="arrow-up"></span></button></form>
   </section>
@@ -1394,7 +1416,11 @@ $('reader-tabs').addEventListener('click',event=>{
   const tab=event.target.closest('[data-tab]');if(tab){const selected=state.tabs.find(item=>item.id===tab.dataset.tab);if(selected)setPresentation(selected);}
 });
 // ───── 想法清单：对话记下 → 拖给智能体（或新建智能体）→ 流星投递 ─────
-const ideasModel={list:[],spawned:[],fresh:null};
+const ideasModel={list:[],spawned:[],fresh:null,assignedCollapsed:false};
+function revealIdeas() {
+  setLeftView('overview');setGroupCollapsed('ideas',false);
+  $('ideas-body').scrollIntoView({block:'nearest',behavior:reduced.matches?'instant':'smooth'});
+}
 const ideaTab=id=>$('ideas-body').querySelector(`.idea-row[data-id="${id}"]`);
 function saveIdeas() {AssistantIdeas.write(preferenceStorage,{ideas:ideasModel.list,spawned:ideasModel.spawned});}
 function agentCards() {return [...$('live-canvas').querySelectorAll('[data-node-kind=agent]')];}
@@ -1423,12 +1449,13 @@ function renderIdeas() {
   const {todo,assigned}=AssistantIdeas.groups(ideasModel.list),scroll=$('ideas-scroll');
   const focusId=document.activeElement?.closest?.('.idea-row')?.dataset.id,focusPart=document.activeElement?.dataset?.part;
   const badge=$('ideas-badge');badge.hidden=!todo.length;badge.textContent=String(todo.length);badge.setAttribute('aria-label',`${todo.length} 条待办想法`);
-  $('ideas-sub').textContent=todo.length?`${todo.length} 条待办 · 拖到智能体卡片，或点“指派”`:'对 Norma 说“记一下…”，她会帮你记下';
   const todoRow=idea=>`<div class="idea-row${idea.id===ideasModel.fresh?' is-new':''}" role="listitem" tabindex="0" data-id="${idea.id}" data-state="todo" aria-label="想法：${esc(idea.title)}。回车指派，Delete 删除"><span class="idea-grip" aria-hidden="true"><span data-icon="grip"></span></span><span class="idea-copy"><strong>${esc(idea.title)}</strong><small>${AssistantIdeas.age(idea.createdAt)} · 来自${idea.source==='manual'?'手动添加':'对话'}</small></span><span class="idea-actions"><button class="idea-btn is-assign" type="button" data-part="assign" data-assign="${idea.id}" aria-haspopup="menu" aria-label="指派：${esc(idea.title)}">指派<span data-icon="chevron"></span></button><button class="idea-btn is-icon" type="button" data-part="delete" data-delete="${idea.id}" aria-label="删除想法：${esc(idea.title)}" title="删除"><span data-icon="close"></span></button></span></div>`;
   const stateText={sending:'投递中…',running:'运行中',queued:'已排队，当前任务后开始'};
   const doneRow=idea=>`<div class="idea-row is-assigned" role="listitem" tabindex="0" data-id="${idea.id}" data-state="assigned" data-card="${idea.assignee.id}" aria-label="已交给 ${esc(idea.assignee.name)}：${esc(idea.title)}，回车定位卡片"><span class="idea-grip" aria-hidden="true"></span><span class="idea-copy"><strong><span class="idea-dot" aria-hidden="true"></span> ${esc(idea.title)}</strong><small>已交给 <b>${esc(idea.assignee.name)}</b> · ${stateText[idea.assignee.state]||'运行中'}</small></span><span class="run-trail">定位<span data-icon="arrow-diagonal"></span></span></div>`;
-  scroll.innerHTML=(todo.length||assigned.length)?`<div class="ideas-hint">把想法<b>拖到画布上的智能体卡片</b>交给它；拖到底部的<b>＋ 新建智能体</b>则让新同事来做。</div><section class="run-group" aria-label="待办想法"><h3 class="run-group-title">待办 <span class="run-count">${todo.length}</span></h3><div role="list">${todo.map(todoRow).join('')||'<p class="idea-empty">想法都分出去了。继续对 Norma 说“记一下…”。</p>'}</div></section>${assigned.length?`<section class="run-group" aria-label="已指派"><h3 class="run-group-title">已指派 <span>${assigned.length}<button class="idea-clear" type="button" data-clear-assigned>清除</button></span></h3><div role="list">${assigned.map(doneRow).join('')}</div></section>`:''}`
-    :`<div class="idea-empty"><span aria-hidden="true">💡</span><strong>还没有想法</strong>对 Norma 说“记一下：给设置页加深色主题”，<br>或用下面的输入框写下来。</div>`;
+  const collapsed=ideasModel.assignedCollapsed;
+  const sub=(label,count,extra='',toggle=false)=>`<div class="idea-sub" data-collapsed="${collapsed}">${toggle?`<button class="idea-sub-toggle" type="button" data-toggle-assigned aria-expanded="${!collapsed}"><span class="run-chevron" aria-hidden="true"></span>${label} ${count}</button>`:`<span>${label} ${count}</span>`}${extra}</div>`;
+  scroll.innerHTML=(todo.length||assigned.length)?`${todo.length?`${sub('待办',todo.length)}<div role="list">${todo.map(todoRow).join('')}</div>`:'<p class="idea-empty-line">想法都分出去了。继续对 Norma 说“记一下…”。</p>'}${assigned.length?`${sub('已指派',assigned.length,'<button class="idea-clear" type="button" data-clear-assigned>清空</button>',true)}${collapsed?'':`<div role="list">${assigned.map(doneRow).join('')}</div>`}`:''}`
+    :`<div class="run-empty" style="display:flex"><span aria-hidden="true">💡</span><strong>还没有想法</strong><small>对 Norma 说“记一下：…”，或在下方输入；记下后拖到智能体卡片即可开工</small></div>`;
   hydrate(scroll);
   if(focusId){const row=ideaTab(focusId);(row?.querySelector(`[data-part="${focusPart}"]`)||row)?.focus({preventScroll:true});}
   ideasModel.fresh=null;
@@ -1438,14 +1465,14 @@ function addIdea(title,{source='chat'}={}) {
   if(!idea)return null;
   ideasModel.list=list;ideasModel.fresh=idea.id;saveIdeas();renderIdeas();
   const badge=$('ideas-badge');badge.classList.remove('bump');void badge.offsetWidth;badge.classList.add('bump');
-  if(leftView()==='ideas')$('ideas-scroll').scrollTop=0;
+  if(leftView()==='overview'||progressFloating())$('ideas-scroll').scrollTop=0;
   return idea;
 }
 function removeIdea(id) {
   const index=ideasModel.list.findIndex(idea=>idea.id===id);if(index<0)return;
   const idea=ideasModel.list[index],rows=[...$('ideas-body').querySelectorAll('.idea-row')],at=rows.findIndex(row=>row.dataset.id===id);
   ideasModel.list=AssistantIdeas.remove(ideasModel.list,id);saveIdeas();renderIdeas();
-  const next=[...$('ideas-body').querySelectorAll('.idea-row')];(next[Math.min(at,next.length-1)]||$('drawer-tab-ideas')).focus({preventScroll:true});
+  const next=[...$('ideas-body').querySelectorAll('.idea-row')];(next[Math.min(at,next.length-1)]||$('idea-add-input')).focus({preventScroll:true});
   toastAction('已删除想法','撤销',()=>{ideasModel.list=AssistantIdeas.restore(ideasModel.list,idea,index);saveIdeas();renderIdeas();ideaTab(id)?.focus({preventScroll:true});});
 }
 // ───── 新建智能体卡片：新同事出生就带着这条想法 ─────
@@ -1583,14 +1610,41 @@ document.addEventListener('click',event=>{
   hideIdeaMenu();assignIdea(id,item.dataset.new?{spawn:true}:{cardId:item.dataset.card},start);
 });
 // ───── 列表交互：指派、删除、定位、键盘 ─────
+$('idea-add').addEventListener('submit',event=>{
+  event.preventDefault();const input=$('idea-add-input'),title=AssistantIdeas.clean(input.value);
+  if(!title){input.focus();return;}
+  addIdea(title,{source:'manual'});input.value='';input.focus();
+});
+$('idea-add-input').addEventListener('keydown',event=>{if(event.key==='Escape'){event.stopPropagation();event.target.blur();}});
+// 栏目折叠：状态记在本机；折叠后其余栏按比例分走高度。
+const groupStateKey='norma.prototype.runGroups';
+function setGroupCollapsed(name,collapsed,{persist=true}={}) {
+  const group=$(`run-group-${name}`)||(name==='ideas'?$('ideas-body'):null);if(!group)return;
+  group.classList.toggle('is-collapsed',collapsed);
+  group.querySelector('.run-group-toggle')?.setAttribute('aria-expanded',String(!collapsed));
+  if(!persist)return;
+  try{const saved=JSON.parse(preferenceStorage?.getItem(groupStateKey)||'{}');saved[name]=collapsed;preferenceStorage?.setItem(groupStateKey,JSON.stringify(saved));}catch{}
+}
+(()=>{let saved={};try{saved=JSON.parse(preferenceStorage?.getItem(groupStateKey)||'{}')||{};}catch{saved={};}
+  Object.entries(saved).forEach(([name,collapsed])=>setGroupCollapsed(name,Boolean(collapsed),{persist:false}));})();
+$('progress-body').addEventListener('click',event=>{
+  const toggle=event.target.closest('.run-group-toggle');if(!toggle)return;
+  const group=toggle.closest('.run-group');setGroupCollapsed(group.dataset.group,!group.classList.contains('is-collapsed'));
+});
 $('ideas-body').addEventListener('click',event=>{
   const assign=event.target.closest('[data-assign]');if(assign){ideaMenu&&ideaMenuRow===assign.closest('.idea-row')?hideIdeaMenu():showIdeaMenu(assign.dataset.assign,assign);return;}
   const del=event.target.closest('[data-delete]');if(del){removeIdea(del.dataset.delete);return;}
-  if(event.target.closest('[data-clear-assigned]')){ideasModel.list=ideasModel.list.filter(idea=>!idea.assignee);saveIdeas();renderIdeas();return;}
+  if(event.target.closest('[data-toggle-assigned]')){ideasModel.assignedCollapsed=!ideasModel.assignedCollapsed;renderIdeas();$('ideas-body').querySelector('[data-toggle-assigned]')?.focus({preventScroll:true});return;}
+  if(event.target.closest('[data-clear-assigned]')){
+    const before=ideasModel.list,removed=before.filter(idea=>idea.assignee).length;
+    ideasModel.list=before.filter(idea=>!idea.assignee);saveIdeas();renderIdeas();
+    toastAction(`已清空 ${removed} 条已指派的想法`,'撤销',()=>{ideasModel.list=before;saveIdeas();renderIdeas();});return;
+  }
   const done=event.target.closest('.idea-row.is-assigned');if(done)focusProgressNode(done.dataset.card);
 });
 $('ideas-body').addEventListener('keydown',event=>{
-  if(event.key==='Escape'){if(ideaMenu)return;setLeftView('chat');$('drawer-tab-chat').focus({preventScroll:true});return;}
+  if(event.target.closest('.idea-add'))return;
+  if(event.key==='Escape'&&ideaMenu)return;
   const row=event.target.closest('.idea-row');if(!row)return;
   const rows=[...$('ideas-body').querySelectorAll('.idea-row')],index=rows.indexOf(row);
   const next={ArrowDown:index+1,ArrowUp:index-1,Home:0,End:rows.length-1}[event.key];
@@ -1668,13 +1722,13 @@ function handleIdeaCommand(value) {
     return {reply:`好的，“${shortTitle(idea.title)}”${target.spawn?'交给新智能体去做。':`交给 ${agentName($(target.cardId))} 了。`}`};
   }
   if(AssistantIdeas.wantsList(value)){
-    const count=AssistantIdeas.groups(ideasModel.list).todo.length;setLeftView('ideas');
+    const count=AssistantIdeas.groups(ideasModel.list).todo.length;revealIdeas();
     return {reply:count?`你现在有 ${count} 条待办想法，拖到智能体卡片就能开工。`:'清单是空的，说“记一下…”就能添加。'};
   }
-  const title=AssistantIdeas.capture(value)||(leftView()==='ideas'&&AssistantCore.plan(value).type==='help'?AssistantIdeas.clean(value):null);
+  const title=AssistantIdeas.capture(value);
   if(!title)return null;
   addIdea(title);
-  return {reply:`已记下：“${shortTitle(title)}”。在「想法」里拖给智能体就能开工。`};
+  return {reply:`已记下：“${shortTitle(title)}”。在运行概览的「想法」栏里拖给智能体就能开工。`};
 }
 (()=>{
   let hasStored=false;try{hasStored=preferenceStorage?.getItem('norma.prototype.ideas')!=null;}catch{}
@@ -1685,6 +1739,7 @@ function handleIdeaCommand(value) {
       ideasModel.list=AssistantIdeas.add(ideasModel.list,title,{now:now-minutes*60000,id:`idea-seed-${index}`}).list;
     });
   }
+  if(/[?&]empty\b/.test(location.search)){ideasModel.list=[];document.querySelectorAll('#progress-body .run-group-body .run-row').forEach(row=>row.remove());document.querySelectorAll('#progress-body .run-count').forEach(count=>{count.textContent='0';});}
   ideasModel.spawned.forEach(spec=>{if(!$(spec.id))spawnAgentCard(spec);});
   labelAgents();renderIdeas();ideasModel.fresh=null;
 })();
@@ -1721,22 +1776,20 @@ function syncProgressStatus() {
   $('progress-toggle').title=progressFloating()?'运行概览已悬浮在画布上':shown?'回到对话':'在左侧查看运行概览';
 }
 // 左侧抽屉在“对话 / 运行概览”间切换；抽屉收起时先展开，输入区两种视图共用。
-const leftViews=['chat','ideas','overview'],leftTabIds={chat:'drawer-tab-chat',ideas:'drawer-tab-ideas',overview:'drawer-tab-overview'};
+const leftViews=['chat','overview'],leftTabIds={chat:'drawer-tab-chat',overview:'drawer-tab-overview'};
 function setLeftView(view,{animate=true,focusFirst=false}={}) {
   if(!state.chatOpen){
     const next=AssistantDrawers.set({chat:state.chatOpen,reader:state.readerOpen},'chat',true,window.matchMedia('(max-width: 760px)').matches);
     if(!next.reader&&state.readerOpen){if(state.presentation)state.tabScroll.set(state.activeTabId,$('viewer-content').scrollTop);restoreVideoCard();state.presentation=null;}
     state.chatOpen=next.chat;state.readerOpen=next.reader;syncReader();
   }
-  const previous=leftView(),changed=previous!==view,body=$('progress-body'),ideasBody=$('ideas-body');
+  const previous=leftView(),changed=previous!==view,body=$('progress-body');
   $('app').dataset.leftView=view;
   leftViews.forEach(value=>{const tab=$(leftTabIds[value]);tab.setAttribute('aria-selected',String(view===value));tab.tabIndex=view===value?0:-1;});
   if(!progressFloating())body.hidden=view!=='overview';
-  ideasBody.hidden=view!=='ideas';
-  $('command-input').placeholder=view==='ideas'?'说出想法，Norma 帮你记下…':'说说你的想法…';
   if(view!=='overview'&&!progressFloating())setProgressPeek(null);
-  if(view!=='ideas')hideIdeaMenu();
-  if(changed&&animate)playEnter(view==='overview'&&!progressFloating()?[body]:view==='ideas'?[ideasBody]:[...document.querySelectorAll('.conversation-heading,.orb-zone,.conversation-scroll')],leftViews.indexOf(view)>leftViews.indexOf(previous)?'10px':'-10px');
+  if(view!=='overview')hideIdeaMenu();
+  if(changed&&animate)playEnter(view==='overview'&&!progressFloating()?[body]:[...document.querySelectorAll('.conversation-heading,.orb-zone,.conversation-scroll')],leftViews.indexOf(view)>leftViews.indexOf(previous)?'10px':'-10px');
   if(focusFirst&&view==='overview')body.querySelector('.run-row')?.focus({preventScroll:true});
   syncProgressStatus();saveProgressPreference();
 }
@@ -1813,7 +1866,7 @@ $('progress-drag').addEventListener('pointerdown',event=>{
 $('progress-drag').addEventListener('dblclick',event=>{if(!progressFloating()||event.target.closest('button:not(#progress-move)'))return;setProgressOffset(0,0);saveProgressPreference();});
 window.addEventListener('resize',()=>{if(progressFloating())setProgressOffset(progressOffset.x,progressOffset.y);});
 $('progress-body').addEventListener('keydown',event=>{
-  if(event.target.closest('#progress-move'))return;
+  if(event.target.closest('#progress-move,#ideas-body'))return;
   const rows=progressRows(),index=rows.indexOf(document.activeElement);
   const next={ArrowDown:index+1,ArrowUp:index-1,Home:0,End:rows.length-1}[event.key];
   if(next===undefined)return;
@@ -1829,7 +1882,7 @@ $('progress-body').addEventListener('click',event=>{
 });
 (()=>{let saved=null;try{saved=JSON.parse(preferenceStorage?.getItem('norma.prototype.runOverview')||'null');}catch{saved=null;}
   if(saved?.floating){setProgressFloating(true,{animate:false});requestAnimationFrame(()=>setProgressOffset(Number(saved.x)||0,Number(saved.y)||0));}
-  else if(['overview','ideas'].includes(saved?.view)&&state.chatOpen)setLeftView(saved.view,{animate:false});
+  else if(['overview','ideas'].includes(saved?.view)&&state.chatOpen)setLeftView('overview',{animate:false});
   syncProgressStatus();
 })();
 $('live-canvas').addEventListener('click',event=>{

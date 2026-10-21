@@ -85,13 +85,18 @@ test('新智能体名字避让、时间文案与存储容错', () => {
   assert.doesNotThrow(() => ideas().write({setItem() {throw new Error('quota');}}, {ideas:[],spawned:[]}));
 });
 
-/// 场景：想法清单作为左栏第三个视图接入，并提供拖拽以外的等价路径。
+/// 场景：想法清单作为运行概览里的一栏接入（不再有独立标签），并提供拖拽以外的等价路径。
 /// 数据构造：读取页面源码。
 /// 执行过程：检查标签、面板、新建智能体投放区、指派菜单与键盘/减少动态效果分支。
-/// 预期结果：三个标签互相关联；投放区存在；菜单、Esc 取消拖拽、减少动态效果时跳过流星。
+/// 预期结果：只剩对话/运行概览两个标签；想法栏位于当前项目与其他项目之间且每栏有固定高度的滚动内容区；投放区存在；菜单、Esc 取消拖拽、减少动态效果时跳过流星。
 test('想法清单入口、拖拽等价路径与减少动态效果均已接入', () => {
-  assert.match(html, /id="drawer-tab-ideas"[^>]*role="tab"[^>]*aria-controls="ideas-body"/);
-  assert.match(html, /id="ideas-body"[^>]*role="tabpanel"[^>]*aria-labelledby="drawer-tab-ideas"/);
+  assert.doesNotMatch(html, /id="drawer-tab-ideas"/, '想法不再是独立标签');
+  const order = ['run-group-attention', 'run-group-current', 'id="ideas-body"', 'run-group-other'].map((key) => html.indexOf(key));
+  assert.ok(order.every((at) => at > 0) && order.every((at, i) => i === 0 || at > order[i - 1]), '栏目顺序：需要你处理、当前项目、想法、其他项目');
+  assert.match(html, /\.run-group-body\{flex:1;min-height:0;overflow-y:auto/, '每栏内容区固定高度，内容多了栏内滚动');
+  assert.match(html, /data-group="ideas"[\s\S]{0,400}aria-controls="ideas-scroll"/, '想法栏可折叠');
+  assert.match(html, /data-clear-assigned[\s\S]{0,40}清空/, '已指派可清空');
+  assert.match(html, /data-toggle-assigned/, '已指派可折叠');
   assert.match(html, /id="idea-newzone"/, '应有“新建智能体”投放区');
   assert.match(html, /setAttribute\('role','menu'\)/,'应有指派菜单作为键盘与触屏路径');
   assert.match(html, /keyEvent\.key==='Escape'[\s\S]{0,120}cancelIdeaDrag/, 'Esc 应取消拖拽');
