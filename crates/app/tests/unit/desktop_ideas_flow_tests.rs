@@ -16,7 +16,7 @@ use workspace::ideas::IdeaState;
 /// 预期结果：
 ///   - 正断言：缓存与库里都有一条来源为 Manual、正文完全一致的待办；派发后变为已指派，记录 B 的区域与节点，task_ref 非占位；
 ///     B 的 PTY 恰好收到一次正文；B 会话里有起点为 IdeaRow(30,40) 的流星；输入框已清空。
-///   - 负断言：空白输入不产生想法；派发后清单里没有残留的待办。
+///   - 负断言：空白输入不产生想法；派发后清单里没有残留的待办；不会再叠一条从底部指令栏起飞的流星。
 #[test]
 fn manual_idea_is_added_listed_and_dispatched_end_to_end() {
     let temp = tempfile::tempdir().expect("应创建隔离目录");
@@ -184,6 +184,12 @@ fn manual_idea_is_added_listed_and_dispatched_end_to_end() {
     assert_eq!(delivered, 1, "B 的 PTY 应恰好收到一次正文");
     session_b.read_with(cx, |app, _| {
         let flights = app.motion.dispatch_receipt_presentations();
+        assert!(
+            flights
+                .iter()
+                .all(|flight| flight.origin != crate::motion::DispatchVisualOrigin::CommandDock),
+            "想法派发不应叠加底部指令栏的飞行：{flights:?}"
+        );
         assert!(
             flights.iter().any(|flight| flight.origin
                 == crate::motion::DispatchVisualOrigin::IdeaRow { x: 30, y: 40 }

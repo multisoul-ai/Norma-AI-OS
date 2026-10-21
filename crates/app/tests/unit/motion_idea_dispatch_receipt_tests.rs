@@ -114,3 +114,55 @@ fn test_idea_row_effect_honors_reduced_motion() {
     assert!(shown[0].reduce_motion, "必须沿用减少动态效果路径");
     assert_eq!(shown[0].origin, origin, "起点仍应保留");
 }
+
+/// 想法派发期间要压住指令栏的飞行效果：只跳过 CommandDock 起点，想法流星照常播放；解除后恢复。
+///
+/// 数据构造：开启抑制后分别 spawn 一条 CommandDock 与一条 IdeaRow；解除抑制后再 spawn 一条 CommandDock。
+/// 预期结果：
+///   - 正断言：抑制期间 IdeaRow 流星成功入场；解除后 CommandDock 恢复可用。
+///   - 负断言：抑制期间 CommandDock 不产生任何 effect（避免和想法流星叠成两条）。
+#[test]
+fn test_dock_flight_can_be_suppressed_without_touching_idea_flights() {
+    let mut store = MotionStore::new(false);
+    store.set_dock_flight_suppressed(true);
+    let dock = store.spawn_dispatch_receipt_from(
+        "t:1",
+        DispatchVisualOrigin::CommandDock,
+        5,
+        DispatchReceiptVisualStatus::Submitted,
+    );
+    assert_eq!(
+        dock,
+        DispatchEffectSpawnOutcome::Duplicate,
+        "抑制期间不应播放指令栏飞行"
+    );
+    assert!(
+        store.dispatch_receipt_presentations().is_empty(),
+        "抑制期间不应有任何 effect"
+    );
+    let idea = store.spawn_dispatch_receipt_from(
+        "idea:1",
+        DispatchVisualOrigin::IdeaRow { x: 10, y: 20 },
+        5,
+        DispatchReceiptVisualStatus::Submitted,
+    );
+    assert_eq!(
+        idea,
+        DispatchEffectSpawnOutcome::Spawned,
+        "想法流星不受抑制"
+    );
+    store.set_dock_flight_suppressed(false);
+    let later = store.spawn_dispatch_receipt_from(
+        "t:2",
+        DispatchVisualOrigin::CommandDock,
+        6,
+        DispatchReceiptVisualStatus::Submitted,
+    );
+    assert!(
+        matches!(
+            later,
+            DispatchEffectSpawnOutcome::Spawned | DispatchEffectSpawnOutcome::Queued
+        ),
+        "解除后指令栏飞行应恢复，实际 {later:?}"
+    );
+}

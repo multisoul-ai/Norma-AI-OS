@@ -78,7 +78,10 @@ pub(crate) fn execute_norma_adapter_command_with_source(
                 &idea_id,
                 target,
                 input_source,
-                crate::motion::DispatchVisualOrigin::CommandDock,
+                idea_commands::IdeaFlight {
+                    origin: idea_commands::drawer_origin(app, cx),
+                    user_initiated: false,
+                },
             )
         }
         AdapterCommand::WorkspaceSnapshot { scope, area_id } => {

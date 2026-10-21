@@ -141,7 +141,7 @@ fn new_zone_wins_overlap_and_offcanvas_cards_are_not_hittable() {
 ///
 /// 数据构造：越过阈值后分别在 B 上、空白处松手；另一次拖拽中取消；再有一次未过阈值取消。
 /// 预期结果：
-///   - 正断言：B 上松手 → Deliver{Existing(a1,8), at=(900,150)}；空白松手 → Return；活动中取消 → Return。
+///   - 正断言：B 上松手 → Deliver{Existing(a1,8), at=(900,150), from=按下点(60,220)}（流星从想法行出发，不是从松手点）；空白松手 → Return；活动中取消 → Return。
 ///   - 负断言：未过阈值取消只是 Click，不触发弹回动画。
 #[test]
 fn release_delivers_on_target_otherwise_returns() {
@@ -155,7 +155,8 @@ fn release_delivers_on_target_otherwise_returns() {
                 area_id: "a1".into(),
                 node_id: 8
             },
-            at: (900.0, 150.0)
+            at: (900.0, 150.0),
+            from: (60.0, 220.0)
         },
         "在 B 上松手应投递并带上松手点"
     );

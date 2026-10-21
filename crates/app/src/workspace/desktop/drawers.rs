@@ -96,6 +96,7 @@ impl MultisoulApp {
             .drawer_motion
             .retarget(drawers.left_open, drawers.right_open);
         let layout = self.desktop_assistant_layout(window);
+        self.desktop_workspace.idea_flight_anchor = ((layout.left_width * 0.5).round() as i32, 240);
         let left_motion = &self.desktop_workspace.drawer_motion.left;
         let left_inset = left_motion.edge_inset(layout.left_width, 0.0, self.motion.reduce_motion);
         let left_opacity = left_motion.opacity(self.motion.reduce_motion);

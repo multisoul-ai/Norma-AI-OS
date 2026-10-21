@@ -79,7 +79,10 @@ pub(super) enum DragOutcome {
     Click,
     Deliver {
         target: DropTarget,
+        /// 松手点（落在目标上）。
         at: (f32, f32),
+        /// 按下点，即想法行所在位置：流星从这里出发。
+        from: (f32, f32),
     },
     /// 落空或取消：预览弹回原行。
     Return,
@@ -146,7 +149,11 @@ impl IdeaDrag {
             return DragOutcome::Click;
         }
         match targets.hit(x, y) {
-            Some(target) => DragOutcome::Deliver { target, at: (x, y) },
+            Some(target) => DragOutcome::Deliver {
+                target,
+                at: (x, y),
+                from: self.start,
+            },
             None => DragOutcome::Return,
         }
     }

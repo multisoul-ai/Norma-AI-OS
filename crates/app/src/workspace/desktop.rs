@@ -140,6 +140,8 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) ideas_undo_timer: Option<gpui::Task<()>>,
     pub(crate) ideas_notice: Option<String>,
     pub(crate) ideas_show_done: bool,
+    /// 左抽屉里想法行的大致位置（窗口坐标）：键盘、对话等没有具体行位置的派发，流星从这里出发。
+    pub(crate) idea_flight_anchor: (i32, i32),
     pub(crate) ideas_input: Option<Entity<InputState>>,
     pub(crate) idea_drag: Option<idea_drag_ui::IdeaDragSession>,
     pub(crate) overview_float_fade: drawers::float::OverviewFloatFade,
@@ -310,6 +312,7 @@ impl DesktopWorkspaceUiState {
             ideas_undo_timer: None,
             ideas_notice: None,
             ideas_show_done: false,
+            idea_flight_anchor: (140, 240),
             ideas_input: None,
             idea_drag: None,
             overview_float_fade: drawers::float::OverviewFloatFade::default(),

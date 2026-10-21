@@ -19,9 +19,12 @@ pub(super) fn paint_flight(frame: DispatchEffectFrame, theme: Theme, plan: &mut 
     }
     let curve = match frame.presentation.origin {
         DispatchVisualOrigin::CommandDock => FlightCurve::new(frame.origin, frame.target),
-        // 想法行在左抽屉、目标在画布：与 Agent 间交接同属侧向飞入，用同一条弧线。
-        DispatchVisualOrigin::AgentNode(_) | DispatchVisualOrigin::IdeaRow { .. } => {
+        DispatchVisualOrigin::AgentNode(_) => {
             FlightCurve::new_agent_handoff(frame.origin, frame.target)
+        }
+        // 想法行在左抽屉：直接射向卡片，只轻微弯曲。
+        DispatchVisualOrigin::IdeaRow { .. } => {
+            FlightCurve::new_idea_shot(frame.origin, frame.target)
         }
     };
     let (color, intensity) = status_style(frame.presentation.status, theme);

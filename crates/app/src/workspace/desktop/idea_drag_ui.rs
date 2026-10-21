@@ -166,7 +166,7 @@ impl MultisoulApp {
                     screen.todo.iter().position(|row| row.id == id);
             }
             DragOutcome::Return => {}
-            DragOutcome::Deliver { target, at } => {
+            DragOutcome::Deliver { target, from, .. } => {
                 let target = match target {
                     DropTarget::Existing { area_id, node_id } => {
                         IdeaUiTarget::Existing { area_id, node_id }
@@ -179,7 +179,7 @@ impl MultisoulApp {
                         IdeaUiTarget::New { area_id }
                     }
                 };
-                self.dispatch_idea(id, target, Some(at), window, cx);
+                self.dispatch_idea(id, target, Some(from), window, cx);
             }
         }
         cx.notify();

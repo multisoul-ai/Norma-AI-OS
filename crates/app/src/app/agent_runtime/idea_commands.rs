@@ -52,6 +52,29 @@ pub(super) fn list_ideas(
     )
 }
 
+/// 一次想法派发的“谁发起、流星从哪出发”。
+#[derive(Clone, Copy)]
+pub(crate) struct IdeaFlight {
+    pub(crate) origin: DispatchVisualOrigin,
+    /// 用户在界面里亲手派发：本身就是明确授权，且按“手动”来源入队。
+    pub(crate) user_initiated: bool,
+}
+
+/// 左抽屉里想法清单的出发点；对话、语音、键盘派发都从这里起飞，不再借用底部指令栏的飞行效果。
+pub(super) fn drawer_origin(
+    app: &MultisoulApp,
+    cx: &Context<MultisoulApp>,
+) -> DispatchVisualOrigin {
+    let (x, y) = app
+        .desktop_host
+        .as_ref()
+        .and_then(|host| host.upgrade())
+        .map_or((140, 240), |host| {
+            host.read(cx).desktop_workspace.idea_flight_anchor
+        });
+    DispatchVisualOrigin::IdeaRow { x, y }
+}
+
 pub(crate) fn assign_idea(
     app: &mut MultisoulApp,
     mut window: Option<&mut Window>,
@@ -59,11 +82,13 @@ pub(crate) fn assign_idea(
     idea_id: &str,
     target: IdeaTarget,
     input_source: AgentInputSource,
-    origin: DispatchVisualOrigin,
+    flight: IdeaFlight,
 ) -> Result<AdapterResult, AdapterError> {
+    let IdeaFlight {
+        origin,
+        user_initiated,
+    } = flight;
     let workspace_id = active_workspace_id(app, cx)?;
-    // 在界面里亲手拖放或点选指派，本身就是对“交给这个 Agent”的明确授权。
-    let user_initiated = matches!(origin, DispatchVisualOrigin::IdeaRow { .. });
     let (target_workspace, area_id) = match &target {
         IdeaTarget::Agent {
             workspace_id,
@@ -87,6 +112,8 @@ pub(crate) fn assign_idea(
         .begin_dispatch(&workspace_id, idea_id, &format!("idea:{idea_id}"))
         .map_err(storage_error)?
         .ok_or_else(|| AdapterError::Rejected("这条想法不在待办中，可能已指派或已删除".into()))?;
+    // 想法有自己的流星（从左抽屉起飞）；压住派发路径里指令栏的飞行，避免叠成两条。
+    app.motion.set_dock_flight_suppressed(true);
     let dispatched = match target {
         IdeaTarget::Agent { node_id, .. } => app.norma_assign_workspace_task_with(
             &workspace_id,
@@ -114,6 +141,7 @@ pub(crate) fn assign_idea(
             }
         }
     };
+    app.motion.set_dock_flight_suppressed(false);
     match dispatched {
         Ok(result) => {
             let node_id = result.node_id.unwrap_or_default();
@@ -158,12 +186,18 @@ pub(crate) fn assign_idea_for_ui(
     target: IdeaTarget,
     from: Option<(f32, f32)>,
 ) -> Result<AdapterResult, AdapterError> {
-    let origin = from.map_or(DispatchVisualOrigin::CommandDock, |(x, y)| {
-        DispatchVisualOrigin::IdeaRow {
+    // 有具体行位置（拖拽、菜单点击）就从那里起飞；键盘等没有位置的，从左抽屉的出发点起飞。
+    let origin = from.map_or_else(
+        || drawer_origin(app, cx),
+        |(x, y)| DispatchVisualOrigin::IdeaRow {
             x: x.round() as i32,
             y: y.round() as i32,
-        }
-    });
+        },
+    );
+    let flight = IdeaFlight {
+        origin,
+        user_initiated: true,
+    };
     assign_idea(
         app,
         Some(window),
@@ -171,7 +205,7 @@ pub(crate) fn assign_idea_for_ui(
         idea_id,
         target,
         AgentInputSource::Other,
-        origin,
+        flight,
     )
 }
 

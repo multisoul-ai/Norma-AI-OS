@@ -136,7 +136,10 @@ fn ideas_capture_assign_rollback_and_reject_duplicates() {
                 &first_id,
                 to_b.clone(),
                 AgentInputSource::Other,
-                DispatchVisualOrigin::CommandDock,
+                IdeaFlight {
+                    origin: DispatchVisualOrigin::IdeaRow { x: 10, y: 10 },
+                    user_initiated: false,
+                },
             )
         })
         .expect("待办想法应可派给 B 的 Agent");
@@ -190,7 +193,10 @@ fn ideas_capture_assign_rollback_and_reject_duplicates() {
             &first_id,
             to_b.clone(),
             AgentInputSource::Other,
-            DispatchVisualOrigin::CommandDock,
+            IdeaFlight {
+                origin: DispatchVisualOrigin::IdeaRow { x: 10, y: 10 },
+                user_initiated: false,
+            },
         )
     });
     assert!(
@@ -212,7 +218,10 @@ fn ideas_capture_assign_rollback_and_reject_duplicates() {
             &second_id,
             stale,
             AgentInputSource::Other,
-            DispatchVisualOrigin::CommandDock,
+            IdeaFlight {
+                origin: DispatchVisualOrigin::IdeaRow { x: 10, y: 10 },
+                user_initiated: false,
+            },
         )
     });
     assert!(result.is_err(), "无效节点必须失败");
@@ -235,7 +244,10 @@ fn ideas_capture_assign_rollback_and_reject_duplicates() {
             &second_id,
             wrong_workspace,
             AgentInputSource::Other,
-            DispatchVisualOrigin::CommandDock,
+            IdeaFlight {
+                origin: DispatchVisualOrigin::IdeaRow { x: 10, y: 10 },
+                user_initiated: false,
+            },
         )
     });
     assert!(
@@ -261,7 +273,10 @@ fn ideas_capture_assign_rollback_and_reject_duplicates() {
             &second_id,
             new_in_b,
             AgentInputSource::Other,
-            DispatchVisualOrigin::CommandDock,
+            IdeaFlight {
+                origin: DispatchVisualOrigin::IdeaRow { x: 10, y: 10 },
+                user_initiated: false,
+            },
         )
     });
     assert!(
