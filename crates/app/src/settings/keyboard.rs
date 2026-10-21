@@ -78,7 +78,7 @@ fn command_group(
                 .effective
                 .iter()
                 .filter(move |entry| entry.category == category)
-                .map(|entry| command_row(theme, entry, shortcuts.recording, cx)),
+                .map(|entry| command_row(theme, entry, shortcuts, cx)),
         )
 }
 
@@ -115,11 +115,11 @@ fn read_only_group(theme: Theme) -> Div {
 fn command_row(
     theme: Theme,
     entry: &EffectiveShortcutEntry,
-    recording: Option<ShortcutCommandId>,
+    shortcuts: &ShortcutSettingsState,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     let command = entry.command;
-    let label = if recording == Some(command) {
+    let label = if shortcuts.recording == Some(command) {
         ui::i18n::text("settings.type_shortcut").to_string()
     } else {
         keystroke_label(entry.current_keystroke.as_deref())
@@ -147,13 +147,65 @@ fn command_row(
             .child(restore_button(theme, command, cx));
     }
 
+    let hint = row_hint(entry, shortcuts);
+    let hint_color = if hint.is_error {
+        rgba(theme.destructive)
+    } else {
+        rgba(theme.accent_cyan)
+    };
+    let hint_line = div()
+        .debug_selector(move || shortcut_hint_id(command))
+        .settings_text(TextRole::Helper, theme);
+    let hint_line = if hint.is_status {
+        hint_line.text_color(hint_color)
+    } else {
+        hint_line
+    };
+
     row_shell(theme)
-        .child(label_block(
-            theme,
-            ui::i18n::text(entry.title),
-            ui::i18n::text(entry.hint),
-        ))
+        .child(
+            div()
+                .flex_1()
+                .min_w(px(0.0))
+                .whitespace_normal()
+                .flex()
+                .flex_col()
+                .gap(px(4.0))
+                .child(
+                    div()
+                        .settings_text(TextRole::RowTitle, theme)
+                        .child(ui::i18n::text(entry.title)),
+                )
+                .child(hint_line.child(hint.text)),
+        )
         .child(controls.child(shortcut))
+}
+
+/// 行内说明；正在录制的行用录制状态（提示或校验错误）替换静态说明，保证反馈就在用户视线内。
+pub(super) struct RowHint {
+    pub(super) text: String,
+    pub(super) is_error: bool,
+    pub(super) is_status: bool,
+}
+
+pub(super) fn row_hint(
+    entry: &EffectiveShortcutEntry,
+    shortcuts: &ShortcutSettingsState,
+) -> RowHint {
+    if shortcuts.recording == Some(entry.command) {
+        if let Some(message) = shortcuts.status.message.as_ref() {
+            return RowHint {
+                text: message.to_string(),
+                is_error: shortcuts.status.is_error,
+                is_status: true,
+            };
+        }
+    }
+    RowHint {
+        text: ui::i18n::text(entry.hint).to_string(),
+        is_error: false,
+        is_status: false,
+    }
 }
 
 fn restore_button(
@@ -331,6 +383,10 @@ fn shortcut_row_id(command: ShortcutCommandId) -> &'static str {
         ShortcutCommandId::ToggleRunOverview => "settings-shortcut-toggle-run-overview",
         ShortcutCommandId::VoiceInteraction => "settings-shortcut-voice-interaction",
     }
+}
+
+fn shortcut_hint_id(command: ShortcutCommandId) -> String {
+    format!("{}-hint", shortcut_row_id(command))
 }
 
 fn shortcut_restore_id(command: ShortcutCommandId) -> &'static str {

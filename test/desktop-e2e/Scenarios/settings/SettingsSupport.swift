@@ -22,10 +22,11 @@ enum SettingsSupport {
             if let target = frame.pick(labels, .left), target.center.x < frame.windowFrame.width * 0.4 {
                 try await session.click(local: target.center, on: frame)
                 let expected = Expectation(anyOf: content, timeout: 5)
-                for _ in 0..<5 {
+                // 内容区滚动位置会跨页面保留，目标可能在当前视口上方或下方：先向一侧找，再回扫另一侧。
+                for step in 0..<12 {
                     let page = try await session.capture()
                     if page.satisfies(expected) { return page }
-                    try await session.scroll(xFraction: 0.7, yFraction: 0.65, deltaY: -260)
+                    try await session.scroll(xFraction: 0.7, yFraction: 0.65, deltaY: step < 4 ? -260 : 260)
                 }
                 return try await session.wait(expected)
             }

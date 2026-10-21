@@ -10,6 +10,7 @@ public enum SettingsModule {
             SettingsResponsiveKeyboard.name,
             SettingsSpaceWallpapers.name,
             SettingsLiveConfiguration.name,
+            SettingsShortcutCustomize.name,
         ],
         run: { scenario, session in
             switch scenario {
@@ -23,6 +24,8 @@ public enum SettingsModule {
                 try await SettingsSpaceWallpapers.run(session)
             case SettingsLiveConfiguration.name:
                 try await SettingsLiveConfiguration.run(session)
+            case SettingsShortcutCustomize.name:
+                try await SettingsShortcutCustomize.run(session)
             default:
                 return false
             }
