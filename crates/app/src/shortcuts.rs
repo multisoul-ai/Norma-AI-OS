@@ -297,13 +297,33 @@ impl ShortcutSettingsState {
 
 impl fmt::Display for ShortcutValidationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let titled = |key: &'static str, title: &'static str| {
+            ui::i18n::message(key, &[("title", ui::i18n::text(title).to_string())])
+        };
         match self {
-            Self::UnknownCommand => write!(f, "Unknown shortcut command"),
-            Self::NotEditable(title) => write!(f, "{title} cannot be edited"),
-            Self::InvalidKeystroke(raw) => write!(f, "{raw} is not a valid shortcut"),
-            Self::ReservedInput(title) => write!(f, "Reserved by {title}"),
-            Self::DuplicateCommand(title) => write!(f, "Already used by {title}"),
-            Self::BarePrintable => write!(f, "Use a modifier key for text shortcuts"),
+            Self::UnknownCommand => {
+                f.write_str(ui::i18n::text("shortcuts.unknown_shortcut_command"))
+            }
+            Self::NotEditable(title) => {
+                write!(f, "{}", titled("shortcuts.title_cannot_be_edited", title))
+            }
+            Self::InvalidKeystroke(raw) => write!(
+                f,
+                "{}",
+                ui::i18n::message(
+                    "shortcuts.raw_is_not_a_valid_shortcut",
+                    &[("raw", raw.clone())]
+                )
+            ),
+            Self::ReservedInput(title) => {
+                write!(f, "{}", titled("shortcuts.reserved_by_title", title))
+            }
+            Self::DuplicateCommand(title) => {
+                write!(f, "{}", titled("shortcuts.already_used_by_title", title))
+            }
+            Self::BarePrintable => f.write_str(ui::i18n::text(
+                "shortcuts.use_a_modifier_key_for_text_shortcuts",
+            )),
         }
     }
 }
