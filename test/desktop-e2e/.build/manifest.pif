@@ -1,15 +1,15 @@
 [
   {
     "contents" : {
-      "guid" : "Workspace:/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e",
+      "guid" : "Workspace:/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e",
       "name" : "desktop-e2e",
-      "path" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e",
+      "path" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e",
       "projects" : [
-        "d34e3106b4b647bd1b7a2c93078b01af9c1273443e1ecde19891ee2360b5698a",
-        "ba0b8ed35c355ced8cee4120428944245bc74c1bc93b83620b211cda2e051808"
+        "99f51ea367872e98649d0f2eff2ce4de7cf494f3492b1ee0e28528d272ec8c42",
+        "ef9eba7d67f2c6dc9e40e0717ed3e1fb29217bbd484eb11c8dd773dc3fcc94e5"
       ]
     },
-    "signature" : "31ed12e04029c7576d97151be7009faf8127925fa8bb890c218ff278714eba1f",
+    "signature" : "2b93e16aa3d677b3f96a016b47c2e64febcb5a60795e62cdef905829162606f1",
     "type" : "workspace"
   },
   {
@@ -208,8 +208,8 @@
               }
             ],
             "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_2",
-            "name" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Tests/E2EKitTests",
-            "path" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Tests/E2EKitTests",
+            "name" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Tests/E2EKitTests",
+            "path" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Tests/E2EKitTests",
             "sourceTree" : "<absolute>",
             "type" : "group"
           },
@@ -225,8 +225,8 @@
               }
             ],
             "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_3",
-            "name" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Sources/norma-e2e",
-            "path" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Sources/norma-e2e",
+            "name" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Sources/norma-e2e",
+            "path" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Sources/norma-e2e",
             "sourceTree" : "<absolute>",
             "type" : "group"
           },
@@ -242,8 +242,8 @@
               }
             ],
             "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_4",
-            "name" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Sources/norma-e2e",
-            "path" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Sources/norma-e2e",
+            "name" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Sources/norma-e2e",
+            "path" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Sources/norma-e2e",
             "sourceTree" : "<absolute>",
             "type" : "group"
           },
@@ -268,14 +268,6 @@
               {
                 "fileType" : "sourcecode.swift",
                 "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_2",
-                "name" : "canvas/CanvasCommandDock.swift",
-                "path" : "canvas/CanvasCommandDock.swift",
-                "sourceTree" : "<group>",
-                "type" : "file"
-              },
-              {
-                "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_3",
                 "name" : "canvas/CanvasContentTabs.swift",
                 "path" : "canvas/CanvasContentTabs.swift",
                 "sourceTree" : "<group>",
@@ -283,7 +275,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_4",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_3",
                 "name" : "canvas/CanvasDeleteReflow.swift",
                 "path" : "canvas/CanvasDeleteReflow.swift",
                 "sourceTree" : "<group>",
@@ -291,7 +283,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_5",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_4",
                 "name" : "canvas/CanvasDrawers.swift",
                 "path" : "canvas/CanvasDrawers.swift",
                 "sourceTree" : "<group>",
@@ -299,7 +291,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_6",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_5",
                 "name" : "canvas/CanvasModule.swift",
                 "path" : "canvas/CanvasModule.swift",
                 "sourceTree" : "<group>",
@@ -307,7 +299,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_7",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_6",
                 "name" : "canvas/CanvasProjectDrawers.swift",
                 "path" : "canvas/CanvasProjectDrawers.swift",
                 "sourceTree" : "<group>",
@@ -315,7 +307,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_8",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_7",
                 "name" : "content/ContentBrowser.swift",
                 "path" : "content/ContentBrowser.swift",
                 "sourceTree" : "<group>",
@@ -323,7 +315,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_9",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_8",
                 "name" : "content/ContentHome.swift",
                 "path" : "content/ContentHome.swift",
                 "sourceTree" : "<group>",
@@ -331,7 +323,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_10",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_9",
                 "name" : "content/ContentModule.swift",
                 "path" : "content/ContentModule.swift",
                 "sourceTree" : "<group>",
@@ -339,7 +331,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_11",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_10",
                 "name" : "content/ContentWebviewSpike.swift",
                 "path" : "content/ContentWebviewSpike.swift",
                 "sourceTree" : "<group>",
@@ -347,7 +339,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_12",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_11",
                 "name" : "content/ContentWorkbench.swift",
                 "path" : "content/ContentWorkbench.swift",
                 "sourceTree" : "<group>",
@@ -355,7 +347,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_13",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_12",
                 "name" : "settings/SettingsBasicPreferences.swift",
                 "path" : "settings/SettingsBasicPreferences.swift",
                 "sourceTree" : "<group>",
@@ -363,7 +355,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_14",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_13",
                 "name" : "settings/SettingsLiveConfiguration.swift",
                 "path" : "settings/SettingsLiveConfiguration.swift",
                 "sourceTree" : "<group>",
@@ -371,7 +363,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_15",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_14",
                 "name" : "settings/SettingsModule.swift",
                 "path" : "settings/SettingsModule.swift",
                 "sourceTree" : "<group>",
@@ -379,7 +371,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_16",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_15",
                 "name" : "settings/SettingsNavigation.swift",
                 "path" : "settings/SettingsNavigation.swift",
                 "sourceTree" : "<group>",
@@ -387,7 +379,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_17",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_16",
                 "name" : "settings/SettingsResponsiveKeyboard.swift",
                 "path" : "settings/SettingsResponsiveKeyboard.swift",
                 "sourceTree" : "<group>",
@@ -395,15 +387,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_18",
-                "name" : "settings/SettingsShortcutCustomize.swift",
-                "path" : "settings/SettingsShortcutCustomize.swift",
-                "sourceTree" : "<group>",
-                "type" : "file"
-              },
-              {
-                "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_19",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_17",
                 "name" : "settings/SettingsSpaceWallpapers.swift",
                 "path" : "settings/SettingsSpaceWallpapers.swift",
                 "sourceTree" : "<group>",
@@ -411,7 +395,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_20",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_18",
                 "name" : "settings/SettingsSupport.swift",
                 "path" : "settings/SettingsSupport.swift",
                 "sourceTree" : "<group>",
@@ -419,7 +403,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_21",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_19",
                 "name" : "voice/VoiceLiveAcoustic.swift",
                 "path" : "voice/VoiceLiveAcoustic.swift",
                 "sourceTree" : "<group>",
@@ -427,7 +411,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_22",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_20",
                 "name" : "voice/VoiceLiveCall.swift",
                 "path" : "voice/VoiceLiveCall.swift",
                 "sourceTree" : "<group>",
@@ -435,7 +419,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_23",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_21",
                 "name" : "voice/VoiceModule.swift",
                 "path" : "voice/VoiceModule.swift",
                 "sourceTree" : "<group>",
@@ -443,7 +427,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_24",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_22",
                 "name" : "workspace/WorkspaceDrawerTabs.swift",
                 "path" : "workspace/WorkspaceDrawerTabs.swift",
                 "sourceTree" : "<group>",
@@ -451,15 +435,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_25",
-                "name" : "workspace/WorkspaceIdeas.swift",
-                "path" : "workspace/WorkspaceIdeas.swift",
-                "sourceTree" : "<group>",
-                "type" : "file"
-              },
-              {
-                "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_26",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_23",
                 "name" : "workspace/WorkspaceLifecycle.swift",
                 "path" : "workspace/WorkspaceLifecycle.swift",
                 "sourceTree" : "<group>",
@@ -467,7 +443,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_27",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_24",
                 "name" : "workspace/WorkspaceModule.swift",
                 "path" : "workspace/WorkspaceModule.swift",
                 "sourceTree" : "<group>",
@@ -475,7 +451,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_28",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_25",
                 "name" : "workspace/WorkspaceOverviewFloat.swift",
                 "path" : "workspace/WorkspaceOverviewFloat.swift",
                 "sourceTree" : "<group>",
@@ -483,7 +459,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_29",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_26",
                 "name" : "workspace/WorkspaceRunOverview.swift",
                 "path" : "workspace/WorkspaceRunOverview.swift",
                 "sourceTree" : "<group>",
@@ -491,7 +467,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_30",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_27",
                 "name" : "workspace/WorkspaceRunOverviewAgents.swift",
                 "path" : "workspace/WorkspaceRunOverviewAgents.swift",
                 "sourceTree" : "<group>",
@@ -499,7 +475,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_31",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_28",
                 "name" : "workspace/WorkspaceStatusCapsule.swift",
                 "path" : "workspace/WorkspaceStatusCapsule.swift",
                 "sourceTree" : "<group>",
@@ -507,7 +483,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_32",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_29",
                 "name" : "workspace/WorkspaceTitlebarBrand.swift",
                 "path" : "workspace/WorkspaceTitlebarBrand.swift",
                 "sourceTree" : "<group>",
@@ -515,8 +491,8 @@
               }
             ],
             "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5",
-            "name" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios",
-            "path" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios",
+            "name" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Scenarios",
+            "path" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Scenarios",
             "sourceTree" : "<absolute>",
             "type" : "group"
           },
@@ -541,14 +517,6 @@
               {
                 "fileType" : "sourcecode.swift",
                 "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_2",
-                "name" : "canvas/CanvasCommandDock.swift",
-                "path" : "canvas/CanvasCommandDock.swift",
-                "sourceTree" : "<group>",
-                "type" : "file"
-              },
-              {
-                "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_3",
                 "name" : "canvas/CanvasContentTabs.swift",
                 "path" : "canvas/CanvasContentTabs.swift",
                 "sourceTree" : "<group>",
@@ -556,7 +524,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_4",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_3",
                 "name" : "canvas/CanvasDeleteReflow.swift",
                 "path" : "canvas/CanvasDeleteReflow.swift",
                 "sourceTree" : "<group>",
@@ -564,7 +532,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_5",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_4",
                 "name" : "canvas/CanvasDrawers.swift",
                 "path" : "canvas/CanvasDrawers.swift",
                 "sourceTree" : "<group>",
@@ -572,7 +540,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_6",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_5",
                 "name" : "canvas/CanvasModule.swift",
                 "path" : "canvas/CanvasModule.swift",
                 "sourceTree" : "<group>",
@@ -580,7 +548,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_7",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_6",
                 "name" : "canvas/CanvasProjectDrawers.swift",
                 "path" : "canvas/CanvasProjectDrawers.swift",
                 "sourceTree" : "<group>",
@@ -588,7 +556,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_8",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_7",
                 "name" : "content/ContentBrowser.swift",
                 "path" : "content/ContentBrowser.swift",
                 "sourceTree" : "<group>",
@@ -596,7 +564,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_9",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_8",
                 "name" : "content/ContentHome.swift",
                 "path" : "content/ContentHome.swift",
                 "sourceTree" : "<group>",
@@ -604,7 +572,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_10",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_9",
                 "name" : "content/ContentModule.swift",
                 "path" : "content/ContentModule.swift",
                 "sourceTree" : "<group>",
@@ -612,7 +580,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_11",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_10",
                 "name" : "content/ContentWebviewSpike.swift",
                 "path" : "content/ContentWebviewSpike.swift",
                 "sourceTree" : "<group>",
@@ -620,7 +588,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_12",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_11",
                 "name" : "content/ContentWorkbench.swift",
                 "path" : "content/ContentWorkbench.swift",
                 "sourceTree" : "<group>",
@@ -628,7 +596,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_13",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_12",
                 "name" : "settings/SettingsBasicPreferences.swift",
                 "path" : "settings/SettingsBasicPreferences.swift",
                 "sourceTree" : "<group>",
@@ -636,7 +604,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_14",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_13",
                 "name" : "settings/SettingsLiveConfiguration.swift",
                 "path" : "settings/SettingsLiveConfiguration.swift",
                 "sourceTree" : "<group>",
@@ -644,7 +612,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_15",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_14",
                 "name" : "settings/SettingsModule.swift",
                 "path" : "settings/SettingsModule.swift",
                 "sourceTree" : "<group>",
@@ -652,7 +620,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_16",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_15",
                 "name" : "settings/SettingsNavigation.swift",
                 "path" : "settings/SettingsNavigation.swift",
                 "sourceTree" : "<group>",
@@ -660,7 +628,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_17",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_16",
                 "name" : "settings/SettingsResponsiveKeyboard.swift",
                 "path" : "settings/SettingsResponsiveKeyboard.swift",
                 "sourceTree" : "<group>",
@@ -668,15 +636,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_18",
-                "name" : "settings/SettingsShortcutCustomize.swift",
-                "path" : "settings/SettingsShortcutCustomize.swift",
-                "sourceTree" : "<group>",
-                "type" : "file"
-              },
-              {
-                "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_19",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_17",
                 "name" : "settings/SettingsSpaceWallpapers.swift",
                 "path" : "settings/SettingsSpaceWallpapers.swift",
                 "sourceTree" : "<group>",
@@ -684,7 +644,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_20",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_18",
                 "name" : "settings/SettingsSupport.swift",
                 "path" : "settings/SettingsSupport.swift",
                 "sourceTree" : "<group>",
@@ -692,7 +652,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_21",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_19",
                 "name" : "voice/VoiceLiveAcoustic.swift",
                 "path" : "voice/VoiceLiveAcoustic.swift",
                 "sourceTree" : "<group>",
@@ -700,7 +660,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_22",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_20",
                 "name" : "voice/VoiceLiveCall.swift",
                 "path" : "voice/VoiceLiveCall.swift",
                 "sourceTree" : "<group>",
@@ -708,7 +668,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_23",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_21",
                 "name" : "voice/VoiceModule.swift",
                 "path" : "voice/VoiceModule.swift",
                 "sourceTree" : "<group>",
@@ -716,7 +676,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_24",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_22",
                 "name" : "workspace/WorkspaceDrawerTabs.swift",
                 "path" : "workspace/WorkspaceDrawerTabs.swift",
                 "sourceTree" : "<group>",
@@ -724,15 +684,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_25",
-                "name" : "workspace/WorkspaceIdeas.swift",
-                "path" : "workspace/WorkspaceIdeas.swift",
-                "sourceTree" : "<group>",
-                "type" : "file"
-              },
-              {
-                "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_26",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_23",
                 "name" : "workspace/WorkspaceLifecycle.swift",
                 "path" : "workspace/WorkspaceLifecycle.swift",
                 "sourceTree" : "<group>",
@@ -740,7 +692,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_27",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_24",
                 "name" : "workspace/WorkspaceModule.swift",
                 "path" : "workspace/WorkspaceModule.swift",
                 "sourceTree" : "<group>",
@@ -748,7 +700,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_28",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_25",
                 "name" : "workspace/WorkspaceOverviewFloat.swift",
                 "path" : "workspace/WorkspaceOverviewFloat.swift",
                 "sourceTree" : "<group>",
@@ -756,7 +708,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_29",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_26",
                 "name" : "workspace/WorkspaceRunOverview.swift",
                 "path" : "workspace/WorkspaceRunOverview.swift",
                 "sourceTree" : "<group>",
@@ -764,7 +716,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_30",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_27",
                 "name" : "workspace/WorkspaceRunOverviewAgents.swift",
                 "path" : "workspace/WorkspaceRunOverviewAgents.swift",
                 "sourceTree" : "<group>",
@@ -772,7 +724,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_31",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_28",
                 "name" : "workspace/WorkspaceStatusCapsule.swift",
                 "path" : "workspace/WorkspaceStatusCapsule.swift",
                 "sourceTree" : "<group>",
@@ -780,7 +732,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_32",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_29",
                 "name" : "workspace/WorkspaceTitlebarBrand.swift",
                 "path" : "workspace/WorkspaceTitlebarBrand.swift",
                 "sourceTree" : "<group>",
@@ -788,8 +740,8 @@
               }
             ],
             "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6",
-            "name" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios",
-            "path" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Scenarios",
+            "name" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Scenarios",
+            "path" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Scenarios",
             "sourceTree" : "<absolute>",
             "type" : "group"
           },
@@ -869,8 +821,8 @@
               }
             ],
             "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_7",
-            "name" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Fixtures",
-            "path" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Fixtures",
+            "name" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Fixtures",
+            "path" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Fixtures",
             "sourceTree" : "<absolute>",
             "type" : "group"
           },
@@ -950,8 +902,8 @@
               }
             ],
             "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_8",
-            "name" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Fixtures",
-            "path" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Fixtures",
+            "name" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Fixtures",
+            "path" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Fixtures",
             "sourceTree" : "<absolute>",
             "type" : "group"
           },
@@ -984,14 +936,6 @@
               {
                 "fileType" : "sourcecode.swift",
                 "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_9::REF_3",
-                "name" : "Flight.swift",
-                "path" : "Flight.swift",
-                "sourceTree" : "<group>",
-                "type" : "file"
-              },
-              {
-                "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_9::REF_4",
                 "name" : "Input.swift",
                 "path" : "Input.swift",
                 "sourceTree" : "<group>",
@@ -999,7 +943,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_9::REF_5",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_9::REF_4",
                 "name" : "Launch.swift",
                 "path" : "Launch.swift",
                 "sourceTree" : "<group>",
@@ -1007,7 +951,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_9::REF_6",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_9::REF_5",
                 "name" : "Preflight.swift",
                 "path" : "Preflight.swift",
                 "sourceTree" : "<group>",
@@ -1015,7 +959,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_9::REF_7",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_9::REF_6",
                 "name" : "Report.swift",
                 "path" : "Report.swift",
                 "sourceTree" : "<group>",
@@ -1023,7 +967,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_9::REF_8",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_9::REF_7",
                 "name" : "Sqlite.swift",
                 "path" : "Sqlite.swift",
                 "sourceTree" : "<group>",
@@ -1031,7 +975,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_9::REF_9",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_9::REF_8",
                 "name" : "Wait.swift",
                 "path" : "Wait.swift",
                 "sourceTree" : "<group>",
@@ -1039,7 +983,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_9::REF_10",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_9::REF_9",
                 "name" : "Window.swift",
                 "path" : "Window.swift",
                 "sourceTree" : "<group>",
@@ -1047,8 +991,8 @@
               }
             ],
             "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_9",
-            "name" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Sources/E2EKit",
-            "path" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Sources/E2EKit",
+            "name" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Sources/E2EKit",
+            "path" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Sources/E2EKit",
             "sourceTree" : "<absolute>",
             "type" : "group"
           },
@@ -1081,14 +1025,6 @@
               {
                 "fileType" : "sourcecode.swift",
                 "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_10::REF_3",
-                "name" : "Flight.swift",
-                "path" : "Flight.swift",
-                "sourceTree" : "<group>",
-                "type" : "file"
-              },
-              {
-                "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_10::REF_4",
                 "name" : "Input.swift",
                 "path" : "Input.swift",
                 "sourceTree" : "<group>",
@@ -1096,7 +1032,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_10::REF_5",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_10::REF_4",
                 "name" : "Launch.swift",
                 "path" : "Launch.swift",
                 "sourceTree" : "<group>",
@@ -1104,7 +1040,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_10::REF_6",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_10::REF_5",
                 "name" : "Preflight.swift",
                 "path" : "Preflight.swift",
                 "sourceTree" : "<group>",
@@ -1112,7 +1048,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_10::REF_7",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_10::REF_6",
                 "name" : "Report.swift",
                 "path" : "Report.swift",
                 "sourceTree" : "<group>",
@@ -1120,7 +1056,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_10::REF_8",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_10::REF_7",
                 "name" : "Sqlite.swift",
                 "path" : "Sqlite.swift",
                 "sourceTree" : "<group>",
@@ -1128,7 +1064,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_10::REF_9",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_10::REF_8",
                 "name" : "Wait.swift",
                 "path" : "Wait.swift",
                 "sourceTree" : "<group>",
@@ -1136,7 +1072,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_10::REF_10",
+                "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_10::REF_9",
                 "name" : "Window.swift",
                 "path" : "Window.swift",
                 "sourceTree" : "<group>",
@@ -1144,8 +1080,8 @@
               }
             ],
             "guid" : "PACKAGE:desktop-e2e::MAINGROUP::REF_10",
-            "name" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Sources/E2EKit",
-            "path" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Sources/E2EKit",
+            "name" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Sources/E2EKit",
+            "path" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Sources/E2EKit",
             "sourceTree" : "<absolute>",
             "type" : "group"
           }
@@ -1157,8 +1093,8 @@
         "type" : "group"
       },
       "guid" : "PACKAGE:desktop-e2e",
-      "path" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Package.swift",
-      "projectDirectory" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e",
+      "path" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Package.swift",
+      "projectDirectory" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e",
       "projectIsPackage" : "true",
       "projectName" : "desktop-e2e",
       "targets" : [
@@ -1166,16 +1102,16 @@
         "82a29ae8af6c4c9717fd51e3d4f5ad7f4c914750865ed35517124b7f86441a12",
         "3591b3c2416d31b74b22ea783d35aad76849f007f7e09465b6e54c6c8135fcb2",
         "c9884bb410c41f651140ad2b9937d74ad8991f31055e3ad1cb1028a26f7c24ab",
-        "8cdd4e6ddc1861c0232dd2a685ac5e9a9ab0f8f1f35687044a5e8246cfd0d5b1",
-        "23a5a72b6fedfd422645f9a9fa736950f768c194a674fdea9c1cbf8b63131f55",
+        "21b5b94a29e336c81b0880e88ab56890a5868411042f38e30d7b6fb01e6d5301",
+        "d369721926b54043280364de43a118d2cf21792b1f517a032e94ac7e6434f08e",
         "755b5ffb9dc4d33ca20ea479521b82524d2f84d72c9349f08282951074c0bdc9",
         "64b4f184b586dc6881144b6c3f1e44d1762a0eb9da70a80ec2f18d352a0b653d",
-        "c2d630a84ffd9f7082ce4ab5ab85a2be34eb370163c0aa41d2a786c476f02831",
-        "85e2440c37af8dcb973187f0f21b7472d37bf2c6d042618e1c54d55e6d93e7e7",
+        "30d233522f95b523846c77ed2cc2dcacda2e3a7dd68f3b552f44205ab65df911",
+        "a6cf7aedb3af96263d1f802f1c9ca7d772358de2b166bb5fe76c8487c02774a5",
         "f1e0671e38c568c19cca46ab1a8cc197a81e0a35013ed18a4c682368a5e3efb3"
       ]
     },
-    "signature" : "d34e3106b4b647bd1b7a2c93078b01af9c1273443e1ecde19891ee2360b5698a",
+    "signature" : "99f51ea367872e98649d0f2eff2ce4de7cf494f3492b1ee0e28528d272ec8c42",
     "type" : "project"
   },
   {
@@ -2272,33 +2208,6 @@
 
               ],
               "removeHeadersOnCopy" : "false"
-            },
-            {
-              "codeSignOnCopy" : "false",
-              "fileReference" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_30",
-              "guid" : "PACKAGE-TARGET:Scenarios::BUILDPHASE_0::30",
-              "platformFilters" : [
-
-              ],
-              "removeHeadersOnCopy" : "false"
-            },
-            {
-              "codeSignOnCopy" : "false",
-              "fileReference" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_31",
-              "guid" : "PACKAGE-TARGET:Scenarios::BUILDPHASE_0::31",
-              "platformFilters" : [
-
-              ],
-              "removeHeadersOnCopy" : "false"
-            },
-            {
-              "codeSignOnCopy" : "false",
-              "fileReference" : "PACKAGE:desktop-e2e::MAINGROUP::REF_5::REF_32",
-              "guid" : "PACKAGE-TARGET:Scenarios::BUILDPHASE_0::32",
-              "platformFilters" : [
-
-              ],
-              "removeHeadersOnCopy" : "false"
             }
           ],
           "guid" : "PACKAGE-TARGET:Scenarios::BUILDPHASE_0",
@@ -2336,7 +2245,7 @@
       "productTypeIdentifier" : "org.swift.product-type.library.static",
       "type" : "standard"
     },
-    "signature" : "8cdd4e6ddc1861c0232dd2a685ac5e9a9ab0f8f1f35687044a5e8246cfd0d5b1",
+    "signature" : "21b5b94a29e336c81b0880e88ab56890a5868411042f38e30d7b6fb01e6d5301",
     "type" : "target"
   },
   {
@@ -2808,15 +2717,6 @@
 
               ],
               "removeHeadersOnCopy" : "false"
-            },
-            {
-              "codeSignOnCopy" : "false",
-              "fileReference" : "PACKAGE:desktop-e2e::MAINGROUP::REF_9::REF_10",
-              "guid" : "PACKAGE-TARGET:E2EKit::BUILDPHASE_0::10",
-              "platformFilters" : [
-
-              ],
-              "removeHeadersOnCopy" : "false"
             }
           ],
           "guid" : "PACKAGE-TARGET:E2EKit::BUILDPHASE_0",
@@ -2843,7 +2743,7 @@
       "productTypeIdentifier" : "org.swift.product-type.library.static",
       "type" : "standard"
     },
-    "signature" : "c2d630a84ffd9f7082ce4ab5ab85a2be34eb370163c0aa41d2a786c476f02831",
+    "signature" : "30d233522f95b523846c77ed2cc2dcacda2e3a7dd68f3b552f44205ab65df911",
     "type" : "target"
   },
   {
@@ -3284,33 +3184,6 @@
 
               ],
               "removeHeadersOnCopy" : "false"
-            },
-            {
-              "codeSignOnCopy" : "false",
-              "fileReference" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_30",
-              "guid" : "PACKAGE-TARGET:Scenarios--1A0F47791BD5F50-dynamic::BUILDPHASE_0::30",
-              "platformFilters" : [
-
-              ],
-              "removeHeadersOnCopy" : "false"
-            },
-            {
-              "codeSignOnCopy" : "false",
-              "fileReference" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_31",
-              "guid" : "PACKAGE-TARGET:Scenarios--1A0F47791BD5F50-dynamic::BUILDPHASE_0::31",
-              "platformFilters" : [
-
-              ],
-              "removeHeadersOnCopy" : "false"
-            },
-            {
-              "codeSignOnCopy" : "false",
-              "fileReference" : "PACKAGE:desktop-e2e::MAINGROUP::REF_6::REF_32",
-              "guid" : "PACKAGE-TARGET:Scenarios--1A0F47791BD5F50-dynamic::BUILDPHASE_0::32",
-              "platformFilters" : [
-
-              ],
-              "removeHeadersOnCopy" : "false"
             }
           ],
           "guid" : "PACKAGE-TARGET:Scenarios--1A0F47791BD5F50-dynamic::BUILDPHASE_0",
@@ -3367,7 +3240,7 @@
       "productTypeIdentifier" : "com.apple.product-type.library.dynamic",
       "type" : "standard"
     },
-    "signature" : "23a5a72b6fedfd422645f9a9fa736950f768c194a674fdea9c1cbf8b63131f55",
+    "signature" : "d369721926b54043280364de43a118d2cf21792b1f517a032e94ac7e6434f08e",
     "type" : "target"
   },
   {
@@ -3847,15 +3720,6 @@
 
               ],
               "removeHeadersOnCopy" : "false"
-            },
-            {
-              "codeSignOnCopy" : "false",
-              "fileReference" : "PACKAGE:desktop-e2e::MAINGROUP::REF_10::REF_10",
-              "guid" : "PACKAGE-TARGET:E2EKit-1817B251DB4F6A-dynamic::BUILDPHASE_0::10",
-              "platformFilters" : [
-
-              ],
-              "removeHeadersOnCopy" : "false"
             }
           ],
           "guid" : "PACKAGE-TARGET:E2EKit-1817B251DB4F6A-dynamic::BUILDPHASE_0",
@@ -3881,7 +3745,7 @@
       "productTypeIdentifier" : "com.apple.product-type.library.dynamic",
       "type" : "standard"
     },
-    "signature" : "85e2440c37af8dcb973187f0f21b7472d37bf2c6d042618e1c54d55e6d93e7e7",
+    "signature" : "a6cf7aedb3af96263d1f802f1c9ca7d772358de2b166bb5fe76c8487c02774a5",
     "type" : "target"
   },
   {
@@ -3937,8 +3801,8 @@
         "type" : "group"
       },
       "guid" : "AGGREGATE",
-      "path" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e/Package.swift",
-      "projectDirectory" : "/Users/openclawd/Documents/code/norma-os/wt-workspace-ideas/test/desktop-e2e",
+      "path" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e/Package.swift",
+      "projectDirectory" : "/Users/openclawd/Documents/code/norma-os/wt-e2e-nsevent/test/desktop-e2e",
       "projectIsPackage" : "true",
       "projectName" : "Aggregate",
       "targets" : [
@@ -3946,7 +3810,7 @@
         "19a0cd53ca76cfe11af7ba9c9e4bc2ec41f0a95e8802ba96a1fc9c36c5d5a7c4"
       ]
     },
-    "signature" : "ba0b8ed35c355ced8cee4120428944245bc74c1bc93b83620b211cda2e051808",
+    "signature" : "ef9eba7d67f2c6dc9e40e0717ed3e1fb29217bbd484eb11c8dd773dc3fcc94e5",
     "type" : "project"
   },
   {

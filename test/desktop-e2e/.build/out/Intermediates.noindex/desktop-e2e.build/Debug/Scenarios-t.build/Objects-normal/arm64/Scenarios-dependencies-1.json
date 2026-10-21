@@ -2,12 +2,12 @@
   {
     "isFramework" : true,
     "moduleName" : "AVFAudio",
-    "modulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/AVFAudio-WELH8D5LARW3.swiftmodule"
+    "modulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/AVFAudio-1GXFRW0OKG8JP.swiftmodule"
   },
   {
     "isFramework" : false,
     "moduleName" : "AVFoundation",
-    "modulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/AVFoundation-1KOE8A1WL51VJ.swiftmodule"
+    "modulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/AVFoundation-LWV47ZKJLU5L.swiftmodule"
   },
   {
     "isFramework" : false,
@@ -22,12 +22,12 @@
   {
     "isFramework" : true,
     "moduleName" : "AppKit",
-    "modulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/AppKit-2MMVO0NC6ZLIX.swiftmodule"
+    "modulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/AppKit-1X3RYZ051OKZE.swiftmodule"
   },
   {
     "isFramework" : true,
     "moduleName" : "AudioToolbox",
-    "modulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/AudioToolbox-1GHFWH88UN3T6.swiftmodule"
+    "modulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/AudioToolbox-3LZBCLZWB4BLE.swiftmodule"
   },
   {
     "isFramework" : true,
@@ -122,12 +122,12 @@
   {
     "isFramework" : false,
     "moduleName" : "E2EKit",
-    "modulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/Products\/Debug\/E2EKit.swiftmodule\/arm64-apple-macos.swiftmodule"
+    "modulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/Products\/Debug\/E2EKit.swiftmodule\/arm64-apple-macos.swiftmodule"
   },
   {
     "isFramework" : false,
     "moduleName" : "Fixtures",
-    "modulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/Products\/Debug\/Fixtures.swiftmodule\/arm64-apple-macos.swiftmodule"
+    "modulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/Products\/Debug\/Fixtures.swiftmodule\/arm64-apple-macos.swiftmodule"
   },
   {
     "isFramework" : true,
@@ -147,7 +147,7 @@
   {
     "isFramework" : true,
     "moduleName" : "MediaToolbox",
-    "modulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/MediaToolbox-XMIMVGTCJXGO.swiftmodule"
+    "modulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/MediaToolbox-UISYB93ZGWHG.swiftmodule"
   },
   {
     "isFramework" : false,
@@ -192,7 +192,7 @@
   {
     "isFramework" : true,
     "moduleName" : "SwiftUICore",
-    "modulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/SwiftUICore-36VSTYGG21LZS.swiftmodule"
+    "modulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/SwiftUICore-33SPCZ9MBSTL2.swiftmodule"
   },
   {
     "isFramework" : true,
@@ -222,7 +222,7 @@
   {
     "isFramework" : true,
     "moduleName" : "Vision",
-    "modulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/Vision-1G3QYJ6S67ZQ1.swiftmodule"
+    "modulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/Vision-2ENU8GJBBL643.swiftmodule"
   },
   {
     "isFramework" : false,
@@ -271,539 +271,539 @@
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/AVFAudio.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/AVFAudio-DAILBG1Z85F391P93AELVUB9H.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/AVFAudio-5C6GKVFGLGAAOI28WTRANES1K.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "AVFAudio"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/AVFoundation.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/AVFoundation-C56GFA267LZIG0ABPKTXIXWE3.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/AVFoundation-7IPKRNH3MEMWEBQ25YIQ55YX3.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "AVFoundation"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/Accelerate.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/Accelerate-1GBUU5Q26CGSS5RNZ8XSCRDYE.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/Accelerate-BDOY7IS04FVQ71WPUH56BQJHU.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "Accelerate"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/Accessibility.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/Accessibility-EMRK7CG6YDNK8WRH3JILIQSXF.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/Accessibility-1OPNARMYLQWQT4RQI263Y95WF.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "Accessibility"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/AppKit.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/AppKit-5JSV9BWR6WQHREMI948OZI5NC.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/AppKit-541950V90AM0P80CVFROJD8WZ.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "AppKit"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/ApplicationServices.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/ApplicationServices-5TDPWZ2RBTYF8ZKAX2FETWGLG.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/ApplicationServices-7RVQ7G3UJUE7PIPHKVK32R951.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "ApplicationServices"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/AudioToolbox.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/AudioToolbox-B222O3UG5W0WM5TMJOP69INF0.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/AudioToolbox-ELJRJZN9IS4KDPFVEFEFUIHJI.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "AudioToolbox"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CFNetwork.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/CFNetwork-4IQDAQEAZV8Z41GZ1ESXIJ7FY.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/CFNetwork-BI4P2PY6UYHVXEWUOPOZUO7M7.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "CFNetwork"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/cups.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/CUPS-33VQSIIFG4IT4MTYYP3913FY.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/CUPS-1JZH3VZSFEHPDUFPUWOZSBALO.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "CUPS"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/Carbon.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/Carbon-CYRMATCNBCL37D7604KAK9N3Y.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/Carbon-EEEIFPF6E2JVL78I4H6P2URCX.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "Carbon"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/ColorSync.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/ColorSync-86IFY846YVXCM5AFIS8YBUJBU.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/ColorSync-C1PMO21OGAYP7KYRAA9A2OSE1.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "ColorSync"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/compression.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/Compression-4FHBO2K55QE6YMP69728IFNEO.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/Compression-E3QPWODQCRRE18VXE4AFHVQ17.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "Compression"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CoreAudio.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/CoreAudio-6VCO92BVKPATYO4ZKK1DWK0T7.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/CoreAudio-BVAVW5WILT80LSQBC80K1ZGZT.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "CoreAudio"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CoreAudioTypes.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/CoreAudioTypes-7VEZ4F98J9CZRMBOSUQQL480I.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/CoreAudioTypes-5I9PAVEVIGPIWEN9DIKL8GY3Z.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "CoreAudioTypes"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CoreData.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/CoreData-87GX89EOWAPAEQLJ342B83LRR.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/CoreData-BKV71YQWZLQE92IDZ8O0RDNDB.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "CoreData"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CoreFoundation.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/CoreFoundation-ERFV0E6P1WY55AJE2N0RIYFBW.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/CoreFoundation-QKY42L2IMG9VSDBINIQKCXG0.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "CoreFoundation"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CoreGraphics.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/CoreGraphics-VDU1BHP32ET5PW77XH40A71Y.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/CoreGraphics-1DPXUYIFVS8024I454LUL3029.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "CoreGraphics"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CoreImage.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/CoreImage-A71PEJUCLISZN2SKA9RK2728F.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/CoreImage-9I2AKNDN89PPWSMA75N4WWPLS.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "CoreImage"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CoreMIDI.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/CoreMIDI-7HOV9HGN6FJEGAZPL4DM2HU2P.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/CoreMIDI-NDXJ98OLAMH6TIY8ZCJ2UCQB.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "CoreMIDI"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CoreML.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/CoreML-AZ9HFAIJMYS67HCOI8RQL9O0X.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/CoreML-DBIVGR9UKW39VH67ZSK8KBQPU.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "CoreML"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CoreMedia.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/CoreMedia-F3MCC724IDJV4GZL2R4BWVJ0K.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/CoreMedia-9NVVBR8APF34TE0T0WVR4R6DT.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "CoreMedia"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CoreServices.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/CoreServices-B00RMREUB851CX7FD3LVE4HGA.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/CoreServices-A750F7ZUTZMMOS6LQOYQ7LNSV.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "CoreServices"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CoreText.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/CoreText-CEJQI5XN0YTBS73US5FGHYJUE.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/CoreText-5DSPLKDJAPZAVUWEH484ICN6Z.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "CoreText"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CoreTransferable.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/CoreTransferable-EADTEVJXUIM26DY1KAPLLLPLD.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/CoreTransferable-DR7UOI3H5PG09OZ2GK9ZHCGCA.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "CoreTransferable"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CoreVideo.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/CoreVideo-DAP5J3SSR9X5ZCUF3DTFXIFW4.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/CoreVideo-38WTKRIUKELZ1GXGN94ZMUOAS.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "CoreVideo"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/Darwin.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/Darwin-7TCOBIPO1Z90Z0Y9OQRLSA9SY.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/Darwin-AOMKFHL5ZKS3U8K0MT8W4PZ3J.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "Darwin"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/DataDetection.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/DataDetection-7RXHWVL5TYNKLCCQYOZ2GJXS6.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/DataDetection-8LQSEBAMLFW09OGD0L757VK85.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "DataDetection"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/DeveloperToolsSupport.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/DeveloperToolsSupport-75J0A86L5T6L8PN9I5G8XNED0.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/DeveloperToolsSupport-F1UX5RFBNV5KY5CGUYII2FGDO.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "DeveloperToolsSupport"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/DiskArbitration.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/DiskArbitration-O11DTQCVTAVG86SJT5TQPJMG.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/DiskArbitration-DCHR7NWLYVX7MFWCIVT4WWE6U.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "DiskArbitration"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/dispatch.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/Dispatch-4PLB9CSDX25AK4UZ618WKSQSH.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/Dispatch-725GDRS13XPZA0EX2A8C3G4A1.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "Dispatch"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/Foundation.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/Foundation-7HEK013AZZ8Z7J9OQURPYYERN.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/Foundation-DHC0W6AREPN5004QEOYVYOP6O.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "Foundation"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/IOKit.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/IOKit-CST4HA24WCW7TMX2G7A4NHXGQ.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/IOKit-6FIKEOABIWJ1RWBROMLIL6H18.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "IOKit"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/IOSurface.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/IOSurface-DSK5W9ST3025P8KJWJBASIBQC.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/IOSurface-5YHMEYMJHZR7D4TP142RK4T25.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "IOSurface"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/ImageIO.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/ImageIO-D3JM1YXGKVTXDN01LQH4VQIPU.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/ImageIO-DZYLJ3OBVO127O4LD45PHZPCN.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "ImageIO"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/DarwinBasic.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/MachO-ESL5IYCW8LZQT4NQF4T1LPW0M.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/MachO-B6OPXN0JKSF73AD7MUFAG6DJK.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "MachO"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/MediaToolbox.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/MediaToolbox-5VPY23JXFYW6CPIJ3W7SSKOD6.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/MediaToolbox-D1ONRVRQ0QDY72XEHO2S5TRIE.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "MediaToolbox"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/Metal.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/Metal-2VOLTWKMZVGTJC721RWZTHM8I.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/Metal-5KVL72XOSSEZAJNAN1TXUS3TO.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "Metal"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/OSLog.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/OSLog-5V90WCLHQFKMK7XJ31FKFHRJ5.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/OSLog-B2TRTFJ4KLLXUMIG14X7I2X4X.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "OSLog"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/ObjectiveC.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/ObjectiveC-93EKZEII8T2Q2AU1X9EYEPTEO.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/ObjectiveC-4P3FZZKM6X2KVL01WM9ALDB5O.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "ObjectiveC"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/OpenGL.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/OpenGL-D59SR9ZF8GQD9M16TO3R17TUC.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/OpenGL-1QEI8NGSAPAREOOMX3DH3WBAF.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "OpenGL"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/QuartzCore.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/QuartzCore-5KA94JY8U065P4GU2KF1THI1.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/QuartzCore-E2BNH51T6E028CZVB9A9SYR4K.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "QuartzCore"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/SQLite3.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/SQLite3-9E0F6R0155MZ3F6AKFOO3EYQ3.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/SQLite3-4RT3Z2U9ENGMD9BKSXU1B91FB.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "SQLite3"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/Security.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/Security-1IXMMBY835W124SBNAUT1NLGO.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/Security-8006JOURO63LK4GCLD06HW1EH.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "Security"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/Spatial\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/Spatial-436YJ8P4WJ8Y9XR15HQB9GBYV.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/Spatial-1RKVWLPIH77V7OD49AGQMW541.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "Spatial"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/lib\/swift\/shims\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/SwiftShims-2BPM4N126N881U3IZVP1NH3Q.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/SwiftShims-CBB2ZQESQD3GQL0CLFV9L8X4Y.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "SwiftShims"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/SwiftUICore.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/SwiftUICore-6DXM65HQPHOB355UB36W8W8R1.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/SwiftUICore-45HPR6FCE94EMOHXCU8PRL8AW.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "SwiftUICore"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/Symbols.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/Symbols-C3FL239UGX50FMAIO6DTZXHBO.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/Symbols-4R7S3N2UZNTBDTW5229DP7YH4.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "Symbols"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/UniformTypeIdentifiers.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/UniformTypeIdentifiers-92ID8W42O1C525VDQYZWIEUBP.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/UniformTypeIdentifiers-1TVAEVOS09VGIUZ44MM066E62.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "UniformTypeIdentifiers"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/VideoToolbox.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/VideoToolbox-378QOSNJP3PKY9BGQ9QRAVYRB.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/VideoToolbox-4ISGCDGQDYI9INOI6YUPBVCI4.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "VideoToolbox"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/Vision.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/Vision-CAVX87AEENOPRDRUJCKBNPPIG.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/Vision-AUG4ZJJ523VRPNDKRYPTUXF30.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "Vision"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/xpc.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/XPC-8EUV9JVQEBKUNUDABNZH65Q6S.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/XPC-BK0ST5YNA32JEMY0I70ZERTIK.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "XPC"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/DarwinFoundation1.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/_AvailabilityInternal-7MYUMOKWD0LS7DBYKR8ZBIN0J.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/_AvailabilityInternal-EE0846EHO86GWEXZ2LTZQO49K.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "_AvailabilityInternal"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_float-2OC7JDPXOGC179HGVCLMMMAT1.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_float-5C4Z015WBY0U9CFGDTVPHG1TZ.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "_Builtin_float"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_intrinsics-99TCUEP1WMGDMI13E9REKJ0O2.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_intrinsics-7KS56NB9WT4W2RQSUN6IKE3UE.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "_Builtin_intrinsics"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_inttypes-80NXBTDILCG6ZXX0F2VKC0V4K.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_inttypes-A975YI1WES2X6SWGOKHBBH366.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "_Builtin_inttypes"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_limits-45AMVNRKAF7S5Z6N1CS33OTLQ.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_limits-3WT8ZWXJL07R4JZB6OU2WBZP5.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "_Builtin_limits"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_stdarg-C9WDBTGZ065KBPJYNWC2OMXBL.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_stdarg-1HRDN43SL2IORVS05LA5IIJI0.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "_Builtin_stdarg"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_stdatomic-4HZPLUND3RGA8NA0MP6UXM7BP.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_stdatomic-E4FU8CPNJVTZNYDDO2XEBF46P.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "_Builtin_stdatomic"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_stdbool-AFVE9M1LSF98RA5APHU4835TL.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_stdbool-8W1G745E71CMOW0ZCN046MWDT.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "_Builtin_stdbool"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_stddef-591SOOQ6KXR5DRVH1LM3AYJDA.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_stddef-6WVAUGH7EXMSSCH3G9AKSAPU7.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "_Builtin_stddef"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_stdint-7U2XTV7OP4ZBQ43UB7E7A0P0H.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_stdint-EYKDESS7ID9YD08RGEMU299W3.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "_Builtin_stdint"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_tgmath-7YJKZ8RYU6IIZFSDH02SJZ7YX.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_tgmath-97ZGH1UW5EQB1SU9TKC8E8VEF.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "_Builtin_tgmath"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/DarwinFoundation1.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/_DarwinFoundation1-5FSHT9SB0JRVJGU5IO8P8RMT.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/_DarwinFoundation1-8BAB5FWOXBHD3XJF50Z5MZWQZ.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "_DarwinFoundation1"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/DarwinFoundation2.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/_DarwinFoundation2-B3QSF18YZZIEU9Y52MNWWQSW3.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/_DarwinFoundation2-A5YEQEAMBR18QSU4ARF7IM7PU.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "_DarwinFoundation2"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/DarwinFoundation3.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/_DarwinFoundation3-D74YTZTRU08U0DVY41N6FOK6.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/_DarwinFoundation3-1AV5TTYOABHFWOXGQA6NWEUVE.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "_DarwinFoundation3"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/lib\/swift\/shims\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/_SwiftConcurrencyShims-9RMRZ12WL9YI2899XB0P0DJPZ.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/_SwiftConcurrencyShims-E0OF63MNRL348FUV7PRSM3XJW.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "_SwiftConcurrencyShims"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/launch.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/launch-1LQHWX37TEDOTOFX8BQU6A27N.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/launch-907XXKF2EOM7XL338L6MLWU1G.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "launch"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/libDER\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/libDER-9DSMG8ZQGAMIP5VGKLQN6XW01.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/libDER-598LHPKKHTOWLGGM3SFDFKR5Y.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "libDER"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/libkern.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/libkern-EQYAFMSH0MX60YUUQ4FXNIVQ.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/libkern-E7X73E7RMEU3WNKKNGHEBXGR1.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "libkern"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/os.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/os-757SS1CX7HE7E85CPCXPTN3KZ.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/os-3BXD337OU9EH1039T89DTBWXO.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "os"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/os.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/os_object-7KSPCCCYAMVGBNF3NOEBBX8MR.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/os_object-2NN6OV0O12GV6LP6E94YGDN0M.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "os_object"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/os.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/os_workgroup-B4L2PH7V6DFX7XFBWVHQ63QCF.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/os_workgroup-PLNVAH7WE19WD1HRIG575AM3.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "os_workgroup"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/ptrauth-3MC3DRRLPC5X7MRQMC9O3JZ7B.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/ptrauth-V2G5O3RQOQY3YXL0IGA8RTV1.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "ptrauth"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/ptrcheck-357UFZANF225SFGEVLNL655XK.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/ptrcheck-EKBWEXT60QECNC7HI431KFSHQ.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "ptrcheck"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/simd\/module.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/simd-67OEQJFYB4JE4TTT8TQCVWXOH.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/simd-BD9D63RYJQZQY71Y6NVLJV4CU.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "simd"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/c_standard_library.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/string_h-2BQSZYDT7RF2K38V8VP2A6AA.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/string_h-4WCROD4N94ZYAWZ4N5OF3N44E.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "string_h"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/DarwinFoundation2.modulemap",
-    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-workspace-ideas\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/sys_types-3IZLCPALI88SN2KX74RT9M6P1.pcm",
+    "clangModulePath" : "\/Users\/openclawd\/Documents\/code\/norma-os\/wt-e2e-nsevent\/test\/desktop-e2e\/.build\/out\/SDKExplicitPrecompiledModules\/sys_types-86EC8KUMM0MOPG9WY03SK9RRX.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "sys_types"

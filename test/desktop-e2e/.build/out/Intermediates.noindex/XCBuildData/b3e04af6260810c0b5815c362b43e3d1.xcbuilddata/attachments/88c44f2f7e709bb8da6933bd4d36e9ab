@@ -1,4 +1,0 @@
-module Scenarios {
-header "Scenarios-Swift.h"
-export *
-}
