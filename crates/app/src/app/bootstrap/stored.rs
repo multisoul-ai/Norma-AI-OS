@@ -45,6 +45,13 @@ impl StoredBootstrap {
             settings.clone(),
             !workspace.recent.records.is_empty(),
         );
+        // Unit tests open projects on fresh stores; an auto-opened guide would steal their keys.
+        #[cfg(test)]
+        let guide = {
+            let mut guide = guide;
+            guide.suppress();
+            guide
+        };
         Self {
             wallpaper: WallpaperSettingsState::load_from_store(settings.clone()),
             workspace,

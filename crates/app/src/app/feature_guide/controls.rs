@@ -1,4 +1,4 @@
-use super::style::{with_alpha, FeatureGuidePalette};
+use super::style::{guide_stroke, with_alpha, FeatureGuidePalette};
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, AnyElement, Context, KeyDownEvent};
 use std::rc::Rc;
@@ -106,7 +106,7 @@ pub(super) fn guide_button(
         .h(px(36.0))
         .px(px(14.0))
         .rounded(px(10.0))
-        .border_color(rgba(with_alpha(theme.node_stroke, 0x78)))
+        .border_color(rgba(guide_stroke(theme, 0x78)))
         .on_click(cx.listener(move |app, _, _, cx| {
             cx.stop_propagation();
             click_handler(app, cx);

@@ -24,8 +24,14 @@ impl FeatureGuidePalette {
         let supporting_text = readable_text_mix(primary_text, panel, 0.78);
         let metadata_text = readable_text_mix(primary_text, panel, 0.72);
         let accent_text = readable_tint(theme.accent_blue, theme);
-        let primary_background = opaque(theme.accent_blue);
-        let primary_foreground = best_on_accent(primary_background);
+        let primary_background = primary_fill(opaque(theme.accent_blue), panel);
+        let primary_foreground = if relative_luminance(panel) >= 0.5
+            && contrast_ratio(LIGHT_ON_ACCENT, primary_background) >= MIN_SMALL_TEXT_CONTRAST
+        {
+            LIGHT_ON_ACCENT
+        } else {
+            best_on_accent(primary_background)
+        };
         let interaction_target = if primary_foreground == DARK_ON_ACCENT {
             LIGHT_ON_ACCENT
         } else {
@@ -52,6 +58,15 @@ pub(super) fn guide_shadow(theme: Theme) -> Vec<BoxShadow> {
         blur_radius: px(60.0),
         spread_radius: px(-16.0),
     }]
+}
+
+/// Light panels wash out the pale `node_stroke`, so dividers and outlines use a tint of the
+/// text colour there; dark panels keep the theme stroke.
+pub(super) fn guide_stroke(theme: Theme, alpha: u8) -> u32 {
+    if relative_luminance(opaque(theme.panel_high)) < 0.5 {
+        return with_alpha(theme.node_stroke, alpha);
+    }
+    with_alpha(theme.text_primary, (u16::from(alpha) * 40 / 128) as u8)
 }
 
 pub(super) fn with_alpha(color: u32, alpha: u8) -> u32 {
@@ -85,6 +100,18 @@ fn ensure_contrast(candidate: u32, fallback: u32, background: u32) -> u32 {
         }
     }
     fallback
+}
+
+/// Light panels read as broken with black text on a mid-tone blue button, so darken the
+/// accent just enough for white text to pass AA; very light accents keep black text.
+fn primary_fill(accent: u32, panel: u32) -> u32 {
+    if relative_luminance(panel) < 0.5 {
+        return accent;
+    }
+    (0..=7)
+        .map(|step| mix_colors(accent, DARK_ON_ACCENT, step as f32 * 0.05))
+        .find(|fill| contrast_ratio(LIGHT_ON_ACCENT, *fill) >= MIN_SMALL_TEXT_CONTRAST)
+        .unwrap_or(accent)
 }
 
 fn best_on_accent(background: u32) -> u32 {

@@ -12,6 +12,8 @@ pub enum DockCommand {
     AddProject(String),
     /// Open the native folder picker to add any other repo.
     BrowseProject,
+    /// Open the feature guide.
+    Help,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -20,6 +22,7 @@ pub enum CommandGroup {
     Terminal,
     Project,
     Theme,
+    Help,
 }
 
 /// A repo that `/add` can attach without a file picker.
@@ -77,12 +80,13 @@ pub fn suggestions(
     }
 }
 
-/// Every executable leaf, flat and grouped: Agents, Terminal, then Themes.
+/// Every executable leaf, flat and grouped: Agents, Terminal, Projects, Themes, then Help.
 fn all_choices(themes: &[CommandTheme]) -> Vec<CommandSuggestion> {
     let mut all = agent_choices("");
     all.push(terminal_choice());
     all.push(browse_choice());
     all.extend(theme_choices("", themes));
+    all.push(help_choice());
     all
 }
 
@@ -97,6 +101,10 @@ fn leaf_matches(
         .chain(project_choices("", projects))
         .filter(|s| s.title.to_lowercase().contains(query) || s.completion.contains(query))
         .collect()
+}
+
+fn help_choice() -> CommandSuggestion {
+    suggestion(CommandGroup::Help, "帮助", "/help", Some(DockCommand::Help))
 }
 
 fn browse_choice() -> CommandSuggestion {
@@ -224,6 +232,7 @@ fn phrase_choices(query: &str, themes: &[CommandTheme]) -> Vec<CommandSuggestion
         .trim();
     match text {
         "终端" | "terminal" => vec![terminal_choice()],
+        "帮助" | "help" => vec![help_choice()],
         "" | "agent" => agent_choices(""),
         _ => agent_choices(text),
     }
