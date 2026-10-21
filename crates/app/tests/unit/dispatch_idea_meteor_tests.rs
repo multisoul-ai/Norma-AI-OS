@@ -8,19 +8,17 @@ use super::*;
 ///   - 负断言：曲线两端为 0 和 1，不会越界。
 #[test]
 fn meteor_charges_slowly_then_bursts() {
-    assert_eq!(ease_in_out_cubic(0.0), 0.0, "起点应为 0");
-    assert_eq!(ease_in_out_cubic(1.0), 1.0, "终点应为 1");
+    assert_eq!(ease_in_quart(0.0), 0.0, "起点应为 0");
+    assert_eq!(ease_in_quart(1.0), 1.0, "终点应为 1");
     let steps: Vec<f32> = (0..8)
-        .map(|index| {
-            ease_in_out_cubic((index + 1) as f32 / 8.0) - ease_in_out_cubic(index as f32 / 8.0)
-        })
+        .map(|index| ease_in_quart((index + 1) as f32 / 8.0) - ease_in_quart(index as f32 / 8.0))
         .collect();
     for pair in steps.windows(2) {
         assert!(pair[1] > pair[0], "应持续加速：{steps:?}");
     }
-    assert!(ease_in_out_cubic(0.5) < 0.10, "前半程应几乎在原地蓄势");
+    assert!(ease_in_quart(0.5) < 0.10, "前半程应几乎在原地蓄势");
     assert!(
-        1.0 - ease_in_out_cubic(0.75) > 0.5,
+        1.0 - ease_in_quart(0.75) > 0.5,
         "最后四分之一时间应走完一半以上的路程"
     );
 }
@@ -33,7 +31,7 @@ fn meteor_charges_slowly_then_bursts() {
 ///   - 负断言：尾焰行程不会为负，也不会超过 1。
 #[test]
 fn meteor_tail_stretches_with_speed() {
-    let tail = |progress: f32| ease_in_out_cubic(progress) - tail_start(progress);
+    let tail = |progress: f32| ease_in_quart(progress) - tail_start(progress);
     let (early, middle, late) = (tail(0.15), tail(0.6), tail(0.98));
     assert!(
         middle > early * 3.0,

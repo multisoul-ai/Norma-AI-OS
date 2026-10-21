@@ -36,6 +36,8 @@ impl MultisoulApp {
         let has_draft = self.desktop_assistant_has_draft(cx);
         let send_button = div()
             .id("desktop-assistant-send")
+            .tab_index(0)
+            .focus(|style| style.border_color(rgba(0x83c4ffcc)))
             .debug_selector(|| "desktop-assistant-send".to_string())
             .w(px(32.0))
             .h(px(32.0))
@@ -177,6 +179,10 @@ impl MultisoulApp {
                     .child(
                         div()
                             .id("desktop-assistant-voice")
+                            .tab_index(0)
+                            .border_1()
+                            .border_color(rgba(0x00000000))
+                            .focus(|style| style.border_color(rgba(0x83c4ffcc)))
                             .debug_selector(|| "desktop-assistant-voice".to_string())
                             .w(px(34.0))
                             .h(px(34.0))

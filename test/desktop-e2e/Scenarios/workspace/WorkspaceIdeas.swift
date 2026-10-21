@@ -69,6 +69,12 @@ public enum WorkspaceIdeas {
             try await session.click(matching: ["E2E Project"], pick: .bottom)
             _ = try await session.wait(Expectation(allOf: ["E2E Project"], absent: ["项目目录不可用"], timeout: 15))
             try await Task.sleep(nanoseconds: 900_000_000)
+            // 首次进入工作空间会自动弹出功能引导，盖住整个界面：先关掉它。
+            let entered = try await session.capture()
+            if entered.contains("Feature Guide") || entered.contains("Skip Guide") {
+                try await session.shortcut(key: 53, modifiers: [])
+                _ = try await session.wait(Expectation(absent: ["Feature Guide", "Skip Guide"], timeout: 6))
+            }
             let frame = try await session.capture()
             try await session.click(
                 local: CGPoint(x: Double(frame.windowFrame.width) / 2, y: Double(frame.windowFrame.height) - 38),

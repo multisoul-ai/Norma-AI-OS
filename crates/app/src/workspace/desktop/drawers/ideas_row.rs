@@ -136,8 +136,8 @@ impl MultisoulApp {
             .flex()
             .items_center()
             .gap(px(2.0))
-            .opacity(if show_actions { 1.0 } else { 0.0 })
-            .group_hover(group.clone(), |style| style.opacity(1.0))
+            .when(!show_actions, |actions| actions.invisible())
+            .group_hover(group.clone(), |style| style.visible())
             .child(
                 idea_pill(
                     ElementId::Name(format!("idea-assign-{assign_id}").into()),
@@ -148,8 +148,10 @@ impl MultisoulApp {
                     },
                 )
                 .tooltip(|window, cx| Tooltip::new("指派给智能体 · 回车").build(window, cx))
-                .on_click(cx.listener(move |app, _, _, cx| {
+                .on_click(cx.listener(move |app, _, window, cx| {
                     cx.stop_propagation();
+                    // 鼠标点开菜单后，↑/↓/回车/Esc 也要能用：焦点交给想法栏。
+                    app.left_ideas_focus(cx).focus(window);
                     app.toggle_idea_menu(&assign_id, cx);
                 })),
             )

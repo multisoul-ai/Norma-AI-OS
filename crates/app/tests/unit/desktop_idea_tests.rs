@@ -183,7 +183,33 @@ fn ideas_capture_assign_rollback_and_reject_duplicates() {
             .filter(|chunk| String::from_utf8_lossy(chunk).contains("检查登录方案"))
             .count()
     };
-    assert_eq!(writes_count(&writes_b), 1, "B 的 PTY 应恰好收到一次正文");
+    // 由 A 会话经工具派给 B 的卡片：暂缓必须落在 B 会话上，流星抵达前正文不能先输入。
+    assert_eq!(
+        writes_count(&writes_b),
+        0,
+        "流星抵达前 B 的 PTY 不应收到正文"
+    );
+    session_b.read_with(cx, |app, _| {
+        assert!(
+            app.pending_agent_submissions.has_pending_for_node(node_b),
+            "B 会话应暂缓该卡片的输入"
+        );
+    });
+    session_a.read_with(cx, |app, _| {
+        assert!(
+            !app.pending_agent_submissions.has_pending_for_node(node_b),
+            "暂缓不应泄漏到调用方 A 会话"
+        );
+    });
+    std::thread::sleep(std::time::Duration::from_millis(950));
+    session_b.update(cx, |app, cx| {
+        app.submit_due_pending_agent_tasks(std::time::Instant::now(), cx);
+    });
+    assert_eq!(
+        writes_count(&writes_b),
+        1,
+        "流星抵达后 B 的 PTY 应恰好收到一次正文"
+    );
 
     let again = session_a.update(cx, |app, cx| {
         assign_idea(

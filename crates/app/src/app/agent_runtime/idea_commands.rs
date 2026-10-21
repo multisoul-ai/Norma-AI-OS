@@ -123,17 +123,23 @@ pub(crate) fn assign_idea(
             .map(|entry| format!("tracking={:?} busy={}", entry.tracking, entry.busy)),
         IdeaTarget::NewAgent { .. } => Some("new agent".to_owned()),
     };
-    tracing::info!(
+    tracing::debug!(
         idea_id,
         ?roster_state,
         user_initiated,
         "[idea-dispatch] begin"
     );
     // 流星要飞约 0.9 秒才落到卡片：任务正文等流星到了再输入，否则卡片会在流星抵达前就开始运行。
-    if let IdeaTarget::Agent { node_id, .. } = &target {
-        app.pending_agent_submissions
-            .hold_until(*node_id, std::time::Instant::now() + IDEA_DELIVERY_DELAY);
-    }
+    let hold_until = std::time::Instant::now() + IDEA_DELIVERY_DELAY;
+    let held_node = match &target {
+        IdeaTarget::Agent { node_id, .. } => {
+            with_target_pending(app, cx, &workspace_id, &area_id, |pending| {
+                pending.hold_until(*node_id, hold_until)
+            });
+            Some(*node_id)
+        }
+        IdeaTarget::NewAgent { .. } => None,
+    };
     // 想法有自己的流星（从左抽屉起飞）；压住派发路径里指令栏的飞行，避免叠成两条。
     app.motion.set_dock_flight_suppressed(true);
     let dispatched = match target {
@@ -164,7 +170,12 @@ pub(crate) fn assign_idea(
         }
     };
     app.motion.set_dock_flight_suppressed(false);
-    tracing::info!(
+    if let (Some(node_id), Err(_)) = (held_node, &dispatched) {
+        with_target_pending(app, cx, &workspace_id, &area_id, |pending| {
+            pending.release_hold(node_id, hold_until)
+        });
+    }
+    tracing::debug!(
         idea_id,
         outcome = ?dispatched.as_ref().map(|result| (result.status.clone(), result.task_id, result.node_id)),
         "[idea-dispatch] result"
@@ -286,6 +297,35 @@ fn create_agent_with_task(
     receipt.message = format!("已创建并打开 Agent {name}，AgentCard 已接收想法");
     receipt.node_id = Some(node_id);
     Ok(receipt)
+}
+
+/// 在目标项目会话的等待队列上做一件事：目标就是当前会话时直接用 `app`，否则找宿主里对应的项目会话。
+/// 暂缓必须落在拥有该卡片的会话上，写到别的会话里既不起作用，还会泄漏等待记录。
+fn with_target_pending(
+    app: &mut MultisoulApp,
+    cx: &mut Context<MultisoulApp>,
+    workspace_id: &str,
+    area_id: &str,
+    change: impl FnOnce(&mut crate::app::agent_runtime::pending::PendingAgentSubmissions),
+) {
+    if is_source_area(app, cx, workspace_id, area_id) {
+        change(&mut app.pending_agent_submissions);
+        return;
+    }
+    let Some(host) = app.desktop_host.as_ref().and_then(|host| host.upgrade()) else {
+        return;
+    };
+    let session = host
+        .read(cx)
+        .desktop_workspace
+        .sessions
+        .get(&(workspace_id.to_owned(), area_id.to_owned()))
+        .cloned();
+    if let Some(session) = session {
+        session.update(cx, |session, _| {
+            change(&mut session.pending_agent_submissions)
+        });
+    }
 }
 
 /// 派发回执只带运行时内的 task_id；真实 task_ref 在目标项目的协调器里。

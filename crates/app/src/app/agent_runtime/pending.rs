@@ -61,6 +61,16 @@ impl PendingAgentSubmissions {
         *entry = (*entry).max(until);
     }
 
+    /// 派发失败时撤销自己加的暂缓：只在等待时间仍是 `until`、且没有待输入任务时才清除，
+    /// 避免留下一条永远不会被消费的等待记录（它会让手机端对该卡片一直返回“未就绪”）。
+    pub(crate) fn release_hold(&mut self, node_id: NodeId, until: Instant) {
+        if self.ready_after.get(&node_id) == Some(&until)
+            && !self.submissions.contains_key(&node_id)
+        {
+            self.ready_after.remove(&node_id);
+        }
+    }
+
     pub(crate) fn should_wait(&mut self, node_id: NodeId) -> bool {
         self.should_wait_at(node_id, Instant::now())
     }
@@ -239,11 +249,6 @@ impl MultisoulApp {
         if pending.stage == PendingSubmissionStage::TypeTask {
             return match type_agent_task(&mut self.runtime, receipt.node_id, &receipt.task) {
                 Ok(()) => {
-                    tracing::info!(
-                        task_id = receipt.task_id,
-                        node_id = receipt.node_id,
-                        "[agent-submit] typed after ready"
-                    );
                     self.pending_agent_submissions.schedule_enter(receipt);
                     true
                 }
@@ -263,11 +268,6 @@ impl MultisoulApp {
         }
         match submit_agent_enter(&mut self.runtime, receipt.node_id) {
             Ok(()) => {
-                tracing::info!(
-                    task_id = receipt.task_id,
-                    node_id = receipt.node_id,
-                    "[agent-submit] enter sent"
-                );
                 self.realtime_submission_sent(receipt.task_id, cx);
                 if let Some(coordinator) = self.agent_task_coordinator.as_mut() {
                     coordinator.mark_task_submitted(receipt.task_id);

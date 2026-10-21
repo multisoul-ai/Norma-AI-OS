@@ -22,13 +22,13 @@ const SPARKS: usize = 18;
 const TAIL_SPAN: f32 = 0.42;
 
 /// easeInQuart：先缓慢蓄势，后半段突然加速，撞击时速度最快（有“顿挫”的发射感）。
-pub(super) fn ease_in_out_cubic(progress: f32) -> f32 {
+pub(super) fn ease_in_quart(progress: f32) -> f32 {
     progress.clamp(0.0, 1.0).powi(4)
 }
 
 /// 尾焰起点对应的行程比例。
 fn tail_start(linear_progress: f32) -> f32 {
-    ease_in_out_cubic((linear_progress - TAIL_SPAN).max(0.0))
+    ease_in_quart((linear_progress - TAIL_SPAN).max(0.0))
 }
 
 pub(super) fn paint_idea_meteor(
@@ -36,7 +36,7 @@ pub(super) fn paint_idea_meteor(
     linear_progress: f32,
     plan: &mut DispatchPaintPlan,
 ) {
-    let travel = ease_in_out_cubic(linear_progress);
+    let travel = ease_in_quart(linear_progress);
     if travel <= 0.0 {
         return;
     }
@@ -57,7 +57,7 @@ pub(super) fn paint_idea_afterglow(
     if fade <= 0.0 {
         return;
     }
-    let tail_from = ease_in_out_cubic(1.0 - TAIL_SPAN);
+    let tail_from = ease_in_quart(1.0 - TAIL_SPAN);
     let start = tail_from + (1.0 - tail_from) * impact_progress.clamp(0.0, 1.0);
     paint_trail(curve, start, 1.0, fade, plan);
     paint_sparks(curve, start, 1.0, fade, plan);

@@ -66,6 +66,10 @@ impl MultisoulApp {
         let feedback = overview_feedback(theme);
         let tone = overview_tone(theme);
         let collapsed = self.overview_collapse().is_collapsed(group);
+        if collapsed && group == OverviewGroup::Ideas {
+            // 折叠期间不渲染清单；展开时不要把期间新增的想法当成“刚新增”而滚动。
+            self.desktop_workspace.ideas_seen_todo = None;
+        }
         let heading = self.group_heading(group, section, collapsed, feedback, cx);
         let body = match (group, section) {
             (OverviewGroup::Ideas, _) => self.render_ideas_group_body(cx).into_any_element(),
