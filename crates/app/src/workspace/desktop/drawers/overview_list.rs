@@ -80,7 +80,7 @@ impl MultisoulApp {
                 .flex_col()
                 .gap(px(2.0))
                 .when(section.rows.is_empty(), |body| {
-                    body.child(group_empty(group))
+                    body.child(group_empty(group, true))
                 })
                 .children(section.rows.iter().enumerate().map(|(offset, row)| {
                     self.render_overview_row(
@@ -289,14 +289,16 @@ fn count_badge(count: usize, amber: bool) -> Div {
 }
 
 /// 栏内没有内容时的空态：标题加一行提示，在固定高度的栏内居中。
-pub(super) fn group_empty(group: OverviewGroup) -> Stateful<Div> {
+/// `fill` 为真时占满所在的栏（栏里只有它）；为假时按内容高度排在其他内容之上（想法栏里还有「已完成」时）。
+pub(super) fn group_empty(group: OverviewGroup, fill: bool) -> Stateful<Div> {
     let (title, hint) = group.empty_copy();
     div()
         .id(ElementId::Name(
             format!("desktop-run-empty-{}", group.key()).into(),
         ))
-        .size_full()
-        .min_h(px(0.0))
+        .w_full()
+        .when(fill, |empty| empty.h_full().min_h(px(0.0)))
+        .when(!fill, |empty| empty.py(px(14.0)))
         .px(px(12.0))
         .py(px(8.0))
         .flex()

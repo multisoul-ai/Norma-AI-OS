@@ -17,7 +17,6 @@ use ui::component::input::Input;
 use ui::component::Sizable;
 
 const COPY_PRIMARY: u32 = 0xeef6ffff;
-const COPY_SECONDARY: u32 = 0xa9c0d5ff;
 const GROUP_RULE: u32 = 0xcde8ff14;
 const NOTICE: u32 = 0xf6dfaaff;
 
@@ -83,7 +82,9 @@ impl MultisoulApp {
                     .gap(px(4.0))
                     .when(
                         screen.todo.is_empty() && screen.assigned.is_empty(),
-                        |list| list.child(group_empty(OverviewGroup::Ideas)),
+                        |list| {
+                            list.child(group_empty(OverviewGroup::Ideas, screen.done.is_empty()))
+                        },
                     )
                     .when(!screen.todo.is_empty(), |list| {
                         list.when(!screen.assigned.is_empty(), |list| {
@@ -126,28 +127,28 @@ impl MultisoulApp {
                         list.child(
                             div()
                                 .id("desktop-ideas-done-toggle")
-                                .mt(px(8.0))
-                                .h(px(32.0))
+                                .mt(px(4.0))
+                                .h(px(26.0))
                                 .px(px(8.0))
                                 .flex()
                                 .items_center()
-                                .rounded(px(8.0))
+                                .gap(px(6.0))
+                                .rounded(px(6.0))
                                 .cursor_pointer()
-                                .hover(move |style| style.bg(rgba(feedback.hover)))
-                                .active(move |style| style.bg(rgba(feedback.pressed)))
                                 .text_size(px(11.0))
-                                .text_color(rgba(COPY_SECONDARY))
+                                .text_color(rgba(0x8ea8bfff))
+                                .hover(move |style| {
+                                    style.bg(rgba(feedback.hover)).text_color(rgba(0xffffffff))
+                                })
+                                .active(move |style| style.bg(rgba(feedback.pressed)))
                                 .on_click(cx.listener(|app, _, _, cx| {
                                     cx.stop_propagation();
                                     app.desktop_workspace.ideas_show_done =
                                         !app.desktop_workspace.ideas_show_done;
                                     cx.notify();
                                 }))
-                                .child(format!(
-                                    "{} 已完成 {} 条",
-                                    if show { "▾" } else { "▸" },
-                                    screen.done.len()
-                                )),
+                                .child(super::overview_parts::group_chevron(!show))
+                                .child(format!("已完成 {}", screen.done.len())),
                         )
                         .when(show, |list| {
                             list.children(screen.done.iter().map(|row| {
@@ -155,11 +156,26 @@ impl MultisoulApp {
                                     .id(ElementId::Name(
                                         format!("desktop-idea-done-{}", row.id).into(),
                                     ))
-                                    .px(px(8.0))
-                                    .py(px(5.0))
+                                    .h(px(28.0))
+                                    .pl(px(22.0))
+                                    .pr(px(8.0))
+                                    .flex()
+                                    .items_center()
+                                    .gap(px(8.0))
                                     .text_size(px(12.0))
-                                    .text_color(rgba(COPY_SECONDARY))
-                                    .child(format!("✓ {}", row.title))
+                                    .text_color(rgba(0x8ea8bfff))
+                                    .child(
+                                        div().flex_none().text_color(rgba(0x64dfd2ff)).child("✓"),
+                                    )
+                                    .child(
+                                        div()
+                                            .flex_1()
+                                            .min_w(px(0.0))
+                                            .overflow_hidden()
+                                            .whitespace_nowrap()
+                                            .text_ellipsis()
+                                            .child(row.title.clone()),
+                                    )
                             }))
                         })
                     }),
