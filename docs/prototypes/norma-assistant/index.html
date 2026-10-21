@@ -400,15 +400,17 @@ summary::-webkit-details-marker{display:none}
 /* 想法清单：运行概览里的一栏，拖给智能体卡片或新建智能体 */
 /* 运行概览分栏：每栏固定高度（按比例分配抽屉高度），内容多了栏内滚动；标题可折叠，折叠后空间让给其他栏。 */
 .run-overview .run-sections{display:flex;flex-direction:column;gap:4px;overflow-y:auto;overflow-x:hidden}
-.run-sections .run-group{display:flex;flex-direction:column;min-height:92px;flex:var(--grow,1) 1 0;margin:0;padding:0}
+.run-sections .run-group{display:flex;flex-direction:column;min-height:84px;flex:0 1 var(--h,160px);margin:0;padding:0}
 .run-sections .run-group+.run-group{margin-top:0;padding-top:4px;border-top:1px solid #cde8ff14}
-.run-group[data-group=attention]{--grow:24}.run-group[data-group=current]{--grow:30}.run-group[data-group=ideas]{--grow:34}.run-group[data-group=other]{--grow:14}.drawer-tab{white-space:nowrap}
+.run-overview[data-mode=drawer] .run-pop-head{padding:8px 8px 4px}.run-overview[data-mode=drawer] .run-pop-title small{display:none}
+.run-group[data-group=attention]{--h:190px}.run-group[data-group=current]{--h:210px}.run-group[data-group=ideas]{--h:236px}.run-group[data-group=other]{--h:88px}.drawer-tab{white-space:nowrap}
 .run-sections .run-group-title{flex:none}
 .run-empty{display:none;height:100%;min-height:0;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:8px 12px;text-align:center;color:#9fb8cf;font-size:12px;line-height:1.5}
 .run-group[data-group=other] .run-empty small{display:none}.run-empty span{font-size:16px;color:#7ea4c4}.run-empty strong{font-weight:560;color:#cfe3f4}.run-empty small{color:#8ea8bf}
 .run-group-body:not(:has(.run-row)) .run-empty{display:flex}
-.run-sections .run-group{min-height:84px}.run-group[data-group=ideas]{min-height:150px}
-.run-group-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#cde8ff55 transparent}
+.run-group-body{position:relative;scroll-snap-type:y proximity;flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#cde8ff55 transparent}
+.run-group-body>.run-row,.run-group-body .idea-row,.run-group-body .idea-sub{scroll-snap-align:start}
+.run-group-body.has-more{-webkit-mask-image:linear-gradient(#000 calc(100% - 22px),#0000);mask-image:linear-gradient(#000 calc(100% - 22px),#0000)}
 .run-group.is-collapsed{flex:none;min-height:0}.run-group.is-collapsed .run-group-body,.run-group.is-collapsed .idea-add{display:none}
 .run-group-toggle{display:inline-flex;align-items:center;gap:6px;height:26px;margin-left:-6px;padding:0 6px;border-radius:7px;color:inherit;font:inherit;letter-spacing:inherit;transition:background 80ms ease}
 .run-group-toggle:hover{background:#8fcaff1f;color:#fff}.run-group-toggle:active{background:#8fcaff36}.run-group-toggle:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
@@ -1427,10 +1429,8 @@ function agentCards() {return [...$('live-canvas').querySelectorAll('[data-node-
 const agentName=card=>card.querySelector('.live-card-title strong')?.textContent.trim()||'智能体';
 function labelAgents() {agentCards().forEach(card=>{card.dataset.agentName=agentName(card);});}
 const centerOf=rect=>({x:rect.left+rect.width/2,y:rect.top+rect.height/2});
-function landingPoint(card) {
-  const status=card.querySelector('.live-task-status');
-  return centerOf((status||card).getBoundingClientRect());
-}
+// 流星打在卡片正中央（不是标题栏里的状态角标）。
+function landingPoint(card) {return centerOf(card.getBoundingClientRect());}
 function startPointFor(id) {
   const row=ideaTab(id);
   if(row?.offsetParent)return centerOf(row.querySelector('.idea-grip').getBoundingClientRect());
@@ -1454,7 +1454,7 @@ function renderIdeas() {
   const doneRow=idea=>`<div class="idea-row is-assigned" role="listitem" tabindex="0" data-id="${idea.id}" data-state="assigned" data-card="${idea.assignee.id}" aria-label="已交给 ${esc(idea.assignee.name)}：${esc(idea.title)}，回车定位卡片"><span class="idea-grip" aria-hidden="true"></span><span class="idea-copy"><strong><span class="idea-dot" aria-hidden="true"></span> ${esc(idea.title)}</strong><small>已交给 <b>${esc(idea.assignee.name)}</b> · ${stateText[idea.assignee.state]||'运行中'}</small></span><span class="run-trail">定位<span data-icon="arrow-diagonal"></span></span></div>`;
   const collapsed=ideasModel.assignedCollapsed;
   const sub=(label,count,extra='',toggle=false)=>`<div class="idea-sub" data-collapsed="${collapsed}">${toggle?`<button class="idea-sub-toggle" type="button" data-toggle-assigned aria-expanded="${!collapsed}"><span class="run-chevron" aria-hidden="true"></span>${label} ${count}</button>`:`<span>${label} ${count}</span>`}${extra}</div>`;
-  scroll.innerHTML=(todo.length||assigned.length)?`${todo.length?`${sub('待办',todo.length)}<div role="list">${todo.map(todoRow).join('')}</div>`:'<p class="idea-empty-line">想法都分出去了。继续对 Norma 说“记一下…”。</p>'}${assigned.length?`${sub('已指派',assigned.length,'<button class="idea-clear" type="button" data-clear-assigned>清空</button>',true)}${collapsed?'':`<div role="list">${assigned.map(doneRow).join('')}</div>`}`:''}`
+  scroll.innerHTML=(todo.length||assigned.length)?`${todo.length?`${assigned.length?sub('待办',todo.length):''}<div role="list">${todo.map(todoRow).join('')}</div>`:'<p class="idea-empty-line">想法都分出去了。继续对 Norma 说“记一下…”。</p>'}${assigned.length?`${sub('已指派',assigned.length,'<button class="idea-clear" type="button" data-clear-assigned>清空</button>',true)}${collapsed?'':`<div role="list">${assigned.map(doneRow).join('')}</div>`}`:''}`
     :`<div class="run-empty" style="display:flex"><span aria-hidden="true">💡</span><strong>还没有想法</strong><small>对 Norma 说“记一下：…”，或在下方输入；记下后拖到智能体卡片即可开工</small></div>`;
   hydrate(scroll);
   if(focusId){const row=ideaTab(focusId);(row?.querySelector(`[data-part="${focusPart}"]`)||row)?.focus({preventScroll:true});}
@@ -1616,6 +1616,11 @@ $('idea-add').addEventListener('submit',event=>{
   addIdea(title,{source:'manual'});input.value='';input.focus();
 });
 $('idea-add-input').addEventListener('keydown',event=>{if(event.key==='Escape'){event.stopPropagation();event.target.blur();}});
+// 栏内还有未显示的内容时，底部渐隐提示可滚动，避免整行被生硬截断。
+function syncMore(body) {body.classList.toggle('has-more',body.scrollHeight-body.scrollTop-body.clientHeight>2);}
+const moreObserver=new ResizeObserver(entries=>entries.forEach(entry=>syncMore(entry.target)));
+document.querySelectorAll('.run-group-body').forEach(body=>{body.addEventListener('scroll',()=>syncMore(body),{passive:true});moreObserver.observe(body);});
+new MutationObserver(()=>document.querySelectorAll('.run-group-body').forEach(syncMore)).observe($('progress-body'),{childList:true,subtree:true});
 // 栏目折叠：状态记在本机；折叠后其余栏按比例分走高度。
 const groupStateKey='norma.prototype.runGroups';
 function setGroupCollapsed(name,collapsed,{persist=true}={}) {

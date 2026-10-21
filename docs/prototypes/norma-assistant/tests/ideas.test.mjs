@@ -93,7 +93,7 @@ test('想法清单入口、拖拽等价路径与减少动态效果均已接入',
   assert.doesNotMatch(html, /id="drawer-tab-ideas"/, '想法不再是独立标签');
   const order = ['run-group-attention', 'run-group-current', 'id="ideas-body"', 'run-group-other'].map((key) => html.indexOf(key));
   assert.ok(order.every((at) => at > 0) && order.every((at, i) => i === 0 || at > order[i - 1]), '栏目顺序：需要你处理、当前项目、想法、其他项目');
-  assert.match(html, /\.run-group-body\{flex:1;min-height:0;overflow-y:auto/, '每栏内容区固定高度，内容多了栏内滚动');
+  assert.match(html, /\.run-group-body\{[^}]*min-height:0;overflow-y:auto/, '每栏内容区固定高度，内容多了栏内滚动');
   assert.match(html, /data-group="ideas"[\s\S]{0,400}aria-controls="ideas-scroll"/, '想法栏可折叠');
   assert.match(html, /data-clear-assigned[\s\S]{0,40}清空/, '已指派可清空');
   assert.match(html, /data-toggle-assigned/, '已指派可折叠');
