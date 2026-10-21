@@ -28,6 +28,7 @@ impl MultisoulApp {
     ) -> Div {
         let switcher = self.render_desktop_project_switcher(window, cx);
         let project = self.expanded_desktop_project();
+        let left_space = self.desktop_assistant_layout(window).left_space;
         let project_zoom_active = self.desktop_project_zoom_active();
         if let Some(project) = project {
             project.update(cx, |project, cx| {
@@ -41,10 +42,12 @@ impl MultisoulApp {
                     let size = window.viewport_size();
                     let frame =
                         super::desktop_scene_rect(f32::from(size.width), f32::from(size.height));
+                    // 左抽屉展开时项目画布整体右移，飞行与落点要跟着移。
+                    let left_space = left_space;
                     crate::effects::dispatch_receipt::render_with_canvas_offset(
                         project,
                         window,
-                        point(px(frame.origin.x), px(frame.origin.y)),
+                        point(px(frame.origin.x + left_space), px(frame.origin.y)),
                     )
                 };
                 div()

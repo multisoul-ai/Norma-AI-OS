@@ -15,6 +15,7 @@ use gpui::{
     Stateful,
 };
 use ui::component::button::{Button, ButtonVariants};
+use ui::component::Sizable;
 use ui::component::StyledExt;
 
 const GROUP_TITLE: u32 = 0xa9c3daff;
@@ -262,6 +263,7 @@ impl MultisoulApp {
                     .child(
                         Button::new(ElementId::Name(format!("idea-assign-{assign_id}").into()))
                             .ghost()
+                            .small()
                             .tooltip("指派给智能体 · 回车")
                             .child(if menu_open {
                                 "指派 ▴"
@@ -276,6 +278,7 @@ impl MultisoulApp {
                     .child(
                         Button::new(ElementId::Name(format!("idea-delete-{delete_id}").into()))
                             .ghost()
+                            .small()
                             .tooltip("删除 · Delete")
                             .child("×")
                             .on_click(cx.listener(move |app, _, _, cx| {

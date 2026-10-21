@@ -101,7 +101,8 @@ impl MultisoulApp {
                 area_id: area_id.clone(),
                 node_id: node.id,
                 rect: Rect {
-                    x: origin.x + frame.origin.x,
+                    // 展开的项目画布整体右移了左抽屉占用的宽度（scene.rs 同样处理）。
+                    x: origin.x + frame.origin.x + layout.left_space,
                     y: origin.y + frame.origin.y,
                     w: rect.size.x * viewport.zoom,
                     h: rect.size.y * viewport.zoom,
