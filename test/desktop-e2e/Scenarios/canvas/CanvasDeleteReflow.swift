@@ -34,6 +34,7 @@ public enum CanvasDeleteReflow {
                 throw E2EError.env("隔离数据目录丢失")
             }
             projectRoot = try CanvasProjectFixture.install(dataRoot: dataRoot, workspaceName: workspace)
+            try Catalog.suppressFeatureGuide(database: dataRoot.appendingPathComponent("app.sqlite"))
             try session.launch()
             _ = try await session.wait(Expectation(anyOf: ["DeleteRef", "Reflow", "Open", "打开", "Continue"], timeout: 20))
             return try session.prove(names: [workspace], areaCount: 1, linkedTo: workspace).summary
