@@ -6,12 +6,13 @@ use agent::{AdapterError, AdapterResult, AgentCommand, AgentEvent};
 use gpui::{Context, Window};
 
 impl MultisoulApp {
-    /// `force_untracked`：用户亲手把任务交给没有 Hook 的 Agent（例如拖拽想法）本身就是明确授权。
+    /// `user_initiated`：用户亲手派发（例如拖拽想法）。这本身就是明确授权，所以没有 Hook 的 Agent 也接收，
+    /// 并按“手动”来源入队。
     pub(crate) fn submit_agent_text(
         &mut self,
         node_id: canvas::NodeId,
         text: &str,
-        force_untracked: bool,
+        user_initiated: bool,
         cx: &mut Context<Self>,
     ) -> Result<AdapterResult, AdapterError> {
         let definition_id = self
@@ -46,7 +47,8 @@ impl MultisoulApp {
             cx,
             agent,
             text.to_owned(),
-            force_untracked,
+            user_initiated,
+            user_initiated,
         )
     }
 

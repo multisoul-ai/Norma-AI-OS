@@ -7,14 +7,15 @@
 //! - 状态同时用文字和颜色表达；拖到卡片的直接操作在后续切片加入。
 
 use super::super::ideas::IdeaTargetOption;
-use super::super::ideas_rows::{AssignedRow, IdeaStatus, TodoRow};
-use super::super::overview_rows::{overview_feedback, TONE_RUNNING};
+use super::super::ideas_rows::TodoRow;
+use super::super::overview_rows::overview_feedback;
 use crate::app::MultisoulApp;
 use gpui::{
     div, prelude::*, px, rgba, Context, Div, ElementId, KeyDownEvent, MouseButton, MouseDownEvent,
     Stateful,
 };
 use ui::component::button::{Button, ButtonVariants};
+use ui::component::input::Input;
 use ui::component::Sizable;
 use ui::component::StyledExt;
 
@@ -84,6 +85,44 @@ impl MultisoulApp {
                             .child(screen.subtitle.clone()),
                     ),
             )
+            .when_some(self.desktop_workspace.ideas_input.clone(), |body, input| {
+                body.child(
+                    div()
+                        .id("desktop-ideas-add")
+                        .debug_selector(|| "desktop-ideas-add".to_string())
+                        .mx(px(12.0))
+                        .mb(px(8.0))
+                        .flex()
+                        .items_center()
+                        .gap(px(8.0))
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w(px(0.0))
+                                .h(px(36.0))
+                                .px(px(10.0))
+                                .flex()
+                                .items_center()
+                                .rounded(px(9.0))
+                                .border_1()
+                                .border_color(rgba(0x83c4ff40))
+                                .bg(rgba(0x0b1b2d99))
+                                .text_color(rgba(COPY_PRIMARY))
+                                .child(Input::new(&input).appearance(false)),
+                        )
+                        .child(
+                            Button::new("desktop-ideas-add-button")
+                                .ghost()
+                                .small()
+                                .tooltip("添加想法 · 回车")
+                                .child("添加")
+                                .on_click(cx.listener(|app, _, window, cx| {
+                                    cx.stop_propagation();
+                                    app.add_idea_from_input(window, cx);
+                                })),
+                        ),
+                )
+            })
             .child(
                 div()
                     .id("desktop-ideas-list")
@@ -322,104 +361,6 @@ impl MultisoulApp {
             .when(menu_open, |column| {
                 column.child(self.render_idea_menu(&row.id, options, expanded_area, feedback, cx))
             })
-    }
-
-    fn render_assigned_row(
-        &self,
-        row: &AssignedRow,
-        focused: bool,
-        feedback: super::super::overview_rows::OverviewFeedback,
-        cx: &mut Context<Self>,
-    ) -> Stateful<Div> {
-        let element_id = format!("desktop-idea-assigned-{}", row.id);
-        let hover = feedback.hover;
-        let pressed = feedback.pressed;
-        let locate = row.area_id.clone().zip(row.node_id);
-        let retry = row.retryable.then(|| row.id.clone());
-        let status = match &row.status {
-            IdeaStatus::Sending => "投递中…".to_owned(),
-            IdeaStatus::AssignedTo { name, phase } => match phase_label(*phase) {
-                Some(label) => format!("已交给 {name} · {label}"),
-                None => format!("已交给 {name}"),
-            },
-        };
-        div()
-            .id(ElementId::Name(element_id.clone().into()))
-            .debug_selector(move || element_id.clone())
-            .w_full()
-            .min_h(px(48.0))
-            .px(px(8.0))
-            .py(px(6.0))
-            .flex()
-            .items_center()
-            .gap(px(10.0))
-            .rounded(px(9.0))
-            .border_1()
-            .border_color(rgba(if focused { feedback.focus } else { 0x00000000 }))
-            .when(locate.is_some(), |row| {
-                row.cursor_pointer()
-                    .hover(move |style| style.bg(rgba(hover)))
-                    .active(move |style| style.bg(rgba(pressed)))
-            })
-            .on_click(cx.listener(move |app, _, window, cx| {
-                cx.stop_propagation();
-                if let Some((area_id, node_id)) = locate.clone() {
-                    app.locate_desktop_agent(&area_id, node_id, window, cx);
-                }
-            }))
-            .child(
-                div()
-                    .w(px(8.0))
-                    .h(px(8.0))
-                    .flex_none()
-                    .rounded_full()
-                    .bg(rgba(TONE_RUNNING)),
-            )
-            .child(
-                div()
-                    .flex_1()
-                    .min_w(px(0.0))
-                    .flex()
-                    .flex_col()
-                    .gap(px(3.0))
-                    .child(
-                        div()
-                            .text_size(px(13.0))
-                            .text_color(rgba(0xc5d9eaff))
-                            .child(row.title.clone()),
-                    )
-                    .child(
-                        div()
-                            .text_size(px(12.0))
-                            .text_color(rgba(COPY_SECONDARY))
-                            .child(status),
-                    ),
-            )
-            .when_some(retry, |row, id| {
-                row.child(
-                    Button::new(ElementId::Name(format!("idea-retry-{id}").into()))
-                        .ghost()
-                        .small()
-                        .tooltip("退回待办，重新指派")
-                        .child("重试")
-                        .on_click(cx.listener(move |app, _, _, cx| {
-                            cx.stop_propagation();
-                            app.retry_idea(&id, cx);
-                        })),
-                )
-            })
-    }
-}
-
-fn phase_label(phase: Option<workspace::ideas::TaskPhase>) -> Option<&'static str> {
-    use workspace::ideas::TaskPhase;
-    match phase? {
-        TaskPhase::Running => Some("运行中"),
-        TaskPhase::Queued => Some("已排队"),
-        TaskPhase::Failed => Some("失败"),
-        TaskPhase::Succeeded => Some("已完成"),
-        TaskPhase::Cancelled => Some("已取消"),
-        TaskPhase::Untracked => Some("无法追踪"),
     }
 }
 

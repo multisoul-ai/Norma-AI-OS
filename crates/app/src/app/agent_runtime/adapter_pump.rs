@@ -187,6 +187,7 @@ pub(crate) fn execute_norma_adapter_command_with_source(
                             name.clone(),
                             task,
                             input_source == agent::AgentInputSource::DoubaoVoice,
+                            false,
                         )?;
                         receipt.message =
                             format!("已创建并打开 Agent {name}，AgentCard 已接收任务");
@@ -210,6 +211,7 @@ pub(crate) fn execute_norma_adapter_command_with_source(
             agent,
             task,
             input_source == agent::AgentInputSource::DoubaoVoice,
+            false,
         ),
         AdapterCommand::CancelAgentTask { task_id } => {
             let task_to_cancel = app.agent_task_coordinator.as_ref().and_then(|coordinator| {

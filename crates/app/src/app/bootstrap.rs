@@ -262,6 +262,7 @@ impl MultisoulApp {
             desktop_embedded_layout_origin: None,
             desktop_presentation_bounds: std::collections::HashMap::new(),
             desktop_switcher_subscription: None,
+            desktop_ideas_input_subscription: None,
             background_restore: None,
             desktop_overview_scroll: std::collections::HashMap::new(),
             desktop_directory_scroll: gpui::ScrollHandle::new(),

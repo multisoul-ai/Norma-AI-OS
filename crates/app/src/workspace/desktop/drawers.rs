@@ -15,6 +15,7 @@ mod chat;
 mod chat_message;
 pub(super) mod content;
 pub(in crate::workspace::desktop) mod float;
+mod ideas_assigned;
 mod ideas_keys;
 mod ideas_list;
 mod ideas_menu;

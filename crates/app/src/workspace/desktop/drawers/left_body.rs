@@ -23,7 +23,10 @@ impl MultisoulApp {
         let opacity = slide.opacity();
         let body = match self.desktop_workspace.drawers.left_view {
             DesktopLeftView::Overview => self.render_left_overview_body(window, cx),
-            DesktopLeftView::Ideas => self.render_left_ideas_body(cx),
+            DesktopLeftView::Ideas => {
+                self.ensure_idea_input(window, cx);
+                self.render_left_ideas_body(cx)
+            }
             DesktopLeftView::Chat => self.render_left_chat_body(width, cx),
         };
         div()

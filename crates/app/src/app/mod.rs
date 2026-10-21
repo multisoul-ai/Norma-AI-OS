@@ -255,6 +255,7 @@ pub struct MultisoulApp {
     pub(crate) voice_runtime_checked: bool,
     pub(crate) desktop_host: Option<gpui::WeakEntity<MultisoulApp>>,
     pub(crate) desktop_switcher_subscription: Option<gpui::Subscription>,
+    pub(crate) desktop_ideas_input_subscription: Option<gpui::Subscription>,
     pub(crate) background_restore: Option<crate::workspace::flow::PendingLiveSessionRestore>,
     pub(crate) desktop_overview_scroll: HashMap<String, gpui::ScrollHandle>,
     pub(crate) desktop_directory_scroll: gpui::ScrollHandle,

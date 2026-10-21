@@ -26,6 +26,21 @@ pub(super) fn execute_agent_card_command_with_optional_window(
     window: Option<&mut Window>,
     command: CardCommand,
 ) -> Result<CardCommandResult, String> {
+    execute_agent_card_command_with_source(
+        app,
+        window,
+        command,
+        agent::AgentDispatchSource::norma(),
+    )
+}
+
+/// `source` 决定任务在队列里的来源标记，以及是否播放 Norma 指令栏的飞行效果（手动来源不播）。
+pub(super) fn execute_agent_card_command_with_source(
+    app: &mut MultisoulApp,
+    window: Option<&mut Window>,
+    command: CardCommand,
+    source: agent::AgentDispatchSource,
+) -> Result<CardCommandResult, String> {
     let area = app.mobile_canvas_area(window);
     let zoom = app.runtime.document.viewport.zoom;
     if matches!(
@@ -39,12 +54,7 @@ pub(super) fn execute_agent_card_command_with_optional_window(
             | CardCommand::AgentTaskCancel { .. }
     ) {
         return super::orchestration_commands::execute_high_level_agent_command(
-            app,
-            command,
-            area,
-            zoom,
-            agent::AgentDispatchSource::norma(),
-            None,
+            app, command, area, zoom, source, None,
         )
         .map_err(|error| error.to_string());
     }

@@ -2,7 +2,7 @@
 
 use super::super::ideas::IdeaUiTarget;
 use crate::app::MultisoulApp;
-use gpui::{Context, Window};
+use gpui::{Context, Focusable as _, Window};
 use runtime::desktop_drawers::DesktopDrawerEvent;
 
 /// 键盘光标按“待办、已指派”的显示顺序编号。
@@ -67,6 +67,15 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) -> bool {
         if modified {
+            return false;
+        }
+        // 在输入框里打字时，方向键、回车、退格都属于输入框，不能被清单的键盘浏览抢走。
+        if self
+            .desktop_workspace
+            .ideas_input
+            .as_ref()
+            .is_some_and(|input| input.focus_handle(cx).is_focused(window))
+        {
             return false;
         }
         if key == "escape" && self.cancel_idea_drag(cx) {

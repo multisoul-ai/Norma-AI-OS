@@ -221,14 +221,14 @@ impl MultisoulApp {
         self.norma_assign_workspace_task_with(workspace_id, area_id, node_id, task, false, cx)
     }
 
-    /// `force_untracked` 为真时，没有 Hook 的 Agent 也接收任务（仅用于用户亲手发起的派发）。
+    /// `user_initiated` 为真时是用户亲手发起的派发：没有 Hook 的 Agent 也接收，并按手动来源入队。
     pub(crate) fn norma_assign_workspace_task_with(
         &mut self,
         workspace_id: &str,
         area_id: &str,
         node_id: canvas::NodeId,
         task: &str,
-        force_untracked: bool,
+        user_initiated: bool,
         cx: &mut Context<Self>,
     ) -> Result<AdapterResult, AdapterError> {
         if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
@@ -244,7 +244,7 @@ impl MultisoulApp {
                     host.read(cx)
                         .workspace_task_project_name(workspace_id, area_id, task)?;
                 let agent_name = agent_name_for_node(self, node_id)?;
-                let submitted = self.submit_agent_text(node_id, task, force_untracked, cx);
+                let submitted = self.submit_agent_text(node_id, task, user_initiated, cx);
                 return host.update(cx, |host, cx| {
                     host.finish_workspace_task_submission(
                         workspace_id,
@@ -262,7 +262,7 @@ impl MultisoulApp {
                     area_id,
                     node_id,
                     task,
-                    force_untracked,
+                    user_initiated,
                     cx,
                 )
             });
@@ -272,7 +272,7 @@ impl MultisoulApp {
             area_id,
             node_id,
             task,
-            force_untracked,
+            user_initiated,
             cx,
         )
     }
@@ -283,7 +283,7 @@ impl MultisoulApp {
         area_id: &str,
         node_id: canvas::NodeId,
         task: &str,
-        force_untracked: bool,
+        user_initiated: bool,
         cx: &mut Context<Self>,
     ) -> Result<AdapterResult, AdapterError> {
         let project_name = self.workspace_task_project_name(workspace_id, area_id, task)?;
@@ -295,7 +295,7 @@ impl MultisoulApp {
             .ok_or_else(|| AdapterError::Rejected("Agent 会话尚未加载".into()))?;
         let agent_name = agent_name_for_node(&session.read(cx), node_id)?;
         let submitted = session.update(cx, |session, cx| {
-            session.submit_agent_text(node_id, task, force_untracked, cx)
+            session.submit_agent_text(node_id, task, user_initiated, cx)
         });
         self.finish_workspace_task_submission(
             workspace_id,

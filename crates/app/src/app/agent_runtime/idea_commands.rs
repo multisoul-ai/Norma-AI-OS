@@ -108,6 +108,7 @@ pub(crate) fn assign_idea(
                     cx,
                     profile,
                     idea.body.clone(),
+                    user_initiated,
                     user_initiated || input_source == AgentInputSource::DoubaoVoice,
                 )
             }
@@ -191,6 +192,7 @@ fn create_agent_with_task(
     cx: &mut Context<MultisoulApp>,
     profile: norma::protocol::AgentProfile,
     task: String,
+    user_initiated: bool,
     force_untracked: bool,
 ) -> Result<AdapterResult, AdapterError> {
     let created = commands::execute_agent_card_command_with_optional_window(
@@ -211,8 +213,15 @@ fn create_agent_with_task(
     else {
         return Err(AdapterError::Failed("创建 Agent 返回了意外回执".into()));
     };
-    let mut receipt =
-        adapter_task::dispatch_agent_task(app, window, cx, name.clone(), task, force_untracked)?;
+    let mut receipt = adapter_task::dispatch_agent_task(
+        app,
+        window,
+        cx,
+        name.clone(),
+        task,
+        force_untracked,
+        user_initiated,
+    )?;
     receipt.message = format!("已创建并打开 Agent {name}，AgentCard 已接收想法");
     receipt.node_id = Some(node_id);
     Ok(receipt)
