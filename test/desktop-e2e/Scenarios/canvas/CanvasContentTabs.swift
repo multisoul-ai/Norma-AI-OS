@@ -18,6 +18,7 @@ public enum CanvasContentTabs {
         try await session.step("建立文件与网页标签夹具") {
             try session.launch(language: "zh-Hans")
             _ = try await session.wait(Expectation(anyOf: ["创建工作空间", "Create Workspace"], timeout: 25))
+            try await Task.sleep(nanoseconds: 800_000_000) // 首屏仍在过渡时 OCR 会读出乱码
             try await session.click(matching: ["创建工作空间", "Create Workspace"], pick: .bottom)
             _ = try await session.wait(Expectation(anyOf: ["工作空间名称", "Workspace name"], timeout: 4))
             let dialog = try await session.capture()
@@ -181,7 +182,10 @@ private func openRightDrawer(_ session: Session) async throws {
 @MainActor
 private func closeTab(_ session: Session, title: String) async throws {
     let frame = try await session.capture()
-    guard let label = frame.exact(title) else {
+    // 标签前的图标常被 OCR 并进文字（如「昏 PlanE2E.md」），按标签栏那一行包含匹配。
+    guard let label = frame.texts
+        .filter({ $0.center.y < 40 && $0.value.contains(title) })
+        .min(by: { $0.center.x < $1.center.x }) else {
         throw E2EError.product("找不到要关闭的标签：\(title)。可见：\(frame.summary)")
     }
     let close = frame.texts
