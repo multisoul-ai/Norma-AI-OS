@@ -3,6 +3,8 @@ use std::collections::{HashSet, VecDeque};
 use std::time::{Duration, Instant};
 
 const FLIGHT_DURATION: Duration = Duration::from_millis(480);
+/// 想法流星飞得更久一些：先慢后快再收，需要时间铺开加速的过程。
+const IDEA_FLIGHT_DURATION: Duration = Duration::from_millis(760);
 const IMPACT_DURATION: Duration = Duration::from_millis(430);
 const REDUCED_PULSE_DURATION: Duration = Duration::from_millis(150);
 const MAX_TICK_DELTA: Duration = Duration::from_millis(50);
@@ -314,10 +316,18 @@ impl DispatchEffect {
         }
     }
 
+    fn flight_duration(&self) -> Duration {
+        match self.origin {
+            DispatchVisualOrigin::IdeaRow { .. } => IDEA_FLIGHT_DURATION,
+            _ => FLIGHT_DURATION,
+        }
+    }
+
     fn tick(&mut self, delta: Duration) {
         self.elapsed = self.elapsed.saturating_add(delta);
-        if self.phase == DispatchEffectPhase::Flight && self.elapsed >= FLIGHT_DURATION {
-            self.elapsed = self.elapsed.saturating_sub(FLIGHT_DURATION);
+        let flight = self.flight_duration();
+        if self.phase == DispatchEffectPhase::Flight && self.elapsed >= flight {
+            self.elapsed = self.elapsed.saturating_sub(flight);
             self.phase = DispatchEffectPhase::Impact;
         }
     }
@@ -333,7 +343,7 @@ impl DispatchEffect {
 
     fn presentation(&self) -> DispatchEffectPresentation {
         let duration = match self.phase {
-            DispatchEffectPhase::Flight => FLIGHT_DURATION,
+            DispatchEffectPhase::Flight => self.flight_duration(),
             DispatchEffectPhase::Impact if self.reduce_motion => REDUCED_PULSE_DURATION,
             DispatchEffectPhase::Impact => IMPACT_DURATION,
         };

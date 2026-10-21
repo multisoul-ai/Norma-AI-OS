@@ -200,7 +200,7 @@ public enum WorkspaceIdeas {
             let target = try cardTarget(frame)
             let size = frame.windowFrame.size
             let baseline = try await session.snapshot()
-            let samples = try await session.dragSampling(local: start, to: target, on: frame, afterMs: [60, 160, 260, 380, 520, 700])
+            let samples = try await session.dragSampling(local: start, to: target, on: frame, afterMs: [80, 200, 320, 440, 560, 680, 800, 920, 1040])
             // 抽屉右侧到落点之间只有流星会经过（抽屉里的列表重排不算）。
             let corridor = CGRect(x: geo.drawer + 4, y: min(start.y, target.y) - 70, width: max(40, target.x - geo.drawer - 4), height: abs(target.y - start.y) + 140)
             // 指令栏本身（底部 52px 高、距底 22px）；避开卡片，卡片落点的高亮不算。

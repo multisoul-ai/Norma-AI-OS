@@ -1,6 +1,7 @@
 mod flight;
 mod geometry;
 mod impact;
+mod meteor;
 mod primitives;
 
 use self::flight::paint_flight;
