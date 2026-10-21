@@ -73,6 +73,12 @@ public enum WorkspaceFeatureGuide {
             return "已关闭"
         }
 
+        try await session.step("Dock 占位提示包含 /help") {
+            let frame = try await session.wait(Expectation(anyOf: ["/help", "for commands"], timeout: 6))
+            try session.save(frame, "03b-placeholder.png")
+            return "已截图"
+        }
+
         let themes = ["paper-blue", "linen-sage", "silver-violet", "sapphire-night", "midnight-violet", "forest-mint"]
         for (index, theme) in themes.enumerated() {
             try await session.step("\(theme)：切换主题并用 /help 重开引导") {

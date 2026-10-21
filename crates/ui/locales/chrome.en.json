@@ -1,5 +1,5 @@
 {
-  "chrome.talk_to_norma_or_type_for_commands": "Talk to Norma, or type / for commands",
+  "chrome.talk_to_norma_or_type_for_commands": "Talk to Norma, / for commands, /help",
   "chrome.finish_or_cancel_the_open_file_picker_first": "Finish or cancel the open file picker first",
   "chrome.could_not_create_the_card_check_the_runtime_environment_and_try": "Could not create the card. Check the runtime environment and try again.",
   "chrome.layout": "Layout",

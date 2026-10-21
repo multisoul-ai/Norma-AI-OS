@@ -1,5 +1,5 @@
 {
-  "chrome.talk_to_norma_or_type_for_commands": "与 Norma 交流，或输入 / 使用指令",
+  "chrome.talk_to_norma_or_type_for_commands": "与 Norma 交流，/ 指令，/help 帮助",
   "chrome.finish_or_cancel_the_open_file_picker_first": "请先完成或取消已打开的文件选择窗口",
   "chrome.could_not_create_the_card_check_the_runtime_environment_and_try": "创建失败，请检查运行环境后重试",
   "chrome.layout": "布局",
