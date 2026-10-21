@@ -35,7 +35,12 @@ pub struct DesktopDrawerState {
     pub left_view: DesktopLeftView,
     pub overview_floating: bool,
     pub overview_offset: OverviewOffset,
+    /// 运行概览四栏的折叠位（低 4 位，按栏顺序）；随抽屉布局一起保存。
+    pub overview_collapsed: u8,
 }
+
+/// 折叠位只有四个栏。
+const OVERVIEW_COLLAPSE_MASK: u8 = 0b1111;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DesktopDrawerEvent {
@@ -96,6 +101,7 @@ pub struct OverviewLayoutPreference {
     pub left_view: DesktopLeftView,
     pub floating: bool,
     pub offset: OverviewOffset,
+    pub collapsed: u8,
 }
 
 impl Default for OverviewLayoutPreference {
@@ -104,6 +110,7 @@ impl Default for OverviewLayoutPreference {
             left_view: DesktopLeftView::Chat,
             floating: false,
             offset: OverviewOffset::default(),
+            collapsed: 0,
         }
     }
 }
@@ -300,7 +307,7 @@ pub fn overview_layout_json(state: &DesktopDrawerState) -> String {
         DesktopLeftView::Overview => "overview",
     };
     format!(
-        r#"{{"floating":{},"left_view":"{}","offset_x":{},"offset_y":{}}}"#,
+        r#"{{"floating":{},"left_view":"{}","offset_x":{},"offset_y":{},"collapsed":{}}}"#,
         if state.overview_floating {
             "true"
         } else {
@@ -309,6 +316,7 @@ pub fn overview_layout_json(state: &DesktopDrawerState) -> String {
         view,
         state.overview_offset.x,
         state.overview_offset.y,
+        state.overview_collapsed & OVERVIEW_COLLAPSE_MASK,
     )
 }
 
@@ -332,10 +340,15 @@ pub fn overview_layout_from_preference(raw: Option<&str>) -> OverviewLayoutPrefe
         x: json_i32(value.get("offset_x")),
         y: json_i32(value.get("offset_y")),
     };
+    let collapsed = value
+        .get("collapsed")
+        .and_then(|item| item.as_u64())
+        .map_or(0, |bits| (bits & u64::from(OVERVIEW_COLLAPSE_MASK)) as u8);
     OverviewLayoutPreference {
         left_view,
         floating,
         offset,
+        collapsed,
     }
 }
 
@@ -402,6 +415,7 @@ pub fn restore_overview_layout(
     preference: OverviewLayoutPreference,
     canvas: Option<OverviewCanvas>,
 ) -> DesktopDrawerState {
+    state.overview_collapsed = preference.collapsed & OVERVIEW_COLLAPSE_MASK;
     if preference.floating {
         state.overview_floating = true;
         state.left_view = DesktopLeftView::Chat;

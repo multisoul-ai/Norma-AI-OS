@@ -95,3 +95,36 @@ fn left_views_rank_in_tab_order() {
         "排名应与标签顺序（对话、运行概览）一致"
     );
 }
+
+/// 概览各栏的折叠状态随抽屉布局一起保存和还原。
+///
+/// 数据构造：折叠位 0b0101（需要你处理、想法折叠）的抽屉状态；一份不含 collapsed 字段的旧布局 JSON；一份带越界位（0xff）的 JSON。
+/// 执行过程：序列化再解析；还原到默认状态；解析旧 JSON 与越界 JSON。
+/// 预期结果：
+///   - 正断言：往返后折叠位仍是 0b0101；还原后的抽屉状态带着同样的折叠位；旧 JSON 解析为 0（全部展开）。
+///   - 负断言：越界位被屏蔽，只保留低 4 位（四个栏），不会产生不存在的栏。
+#[test]
+fn overview_collapse_bits_round_trip_with_the_layout() {
+    let state = DesktopDrawerState {
+        overview_collapsed: 0b0101,
+        ..DesktopDrawerState::default()
+    };
+    let layout = overview_layout_json(&state);
+    let parsed = overview_layout_from_preference(Some(&layout));
+    assert_eq!(parsed.collapsed, 0b0101, "折叠位应随布局保存");
+    let restored = restore_overview_layout(DesktopDrawerState::default(), parsed, None);
+    assert_eq!(restored.overview_collapsed, 0b0101, "还原时应带回折叠位");
+
+    let legacy = r#"{"floating":false,"left_view":"overview","offset_x":0,"offset_y":0}"#;
+    assert_eq!(
+        overview_layout_from_preference(Some(legacy)).collapsed,
+        0,
+        "旧布局没有折叠位，应全部展开"
+    );
+    let wild = r#"{"left_view":"overview","collapsed":255}"#;
+    assert_eq!(
+        overview_layout_from_preference(Some(wild)).collapsed,
+        0b1111,
+        "越界位应被屏蔽"
+    );
+}

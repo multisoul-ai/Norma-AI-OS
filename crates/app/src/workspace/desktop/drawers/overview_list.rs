@@ -65,7 +65,7 @@ impl MultisoulApp {
         let theme = self.desktop_theme();
         let feedback = overview_feedback(theme);
         let tone = overview_tone(theme);
-        let collapsed = self.desktop_workspace.overview_collapse.is_collapsed(group);
+        let collapsed = self.overview_collapse().is_collapsed(group);
         let heading = self.group_heading(group, section, collapsed, feedback, cx);
         let body = match (group, section) {
             (OverviewGroup::Ideas, _) => self.render_ideas_group_body(cx).into_any_element(),
@@ -182,8 +182,7 @@ impl MultisoulApp {
             .active(move |style| style.bg(rgba(pressed)))
             .on_click(cx.listener(move |app, _, _, cx| {
                 cx.stop_propagation();
-                app.desktop_workspace.overview_collapse.toggle(group);
-                cx.notify();
+                app.update_overview_collapse(|collapse| collapse.toggle(group), cx);
             }))
             .child(
                 div()

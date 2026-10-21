@@ -86,6 +86,15 @@ impl OverviewGroup {
 pub(crate) struct OverviewCollapse(u8);
 
 impl OverviewCollapse {
+    /// 从抽屉状态里保存的折叠位还原。
+    pub(super) fn from_bits(bits: u8) -> Self {
+        Self(bits)
+    }
+
+    pub(super) fn bits(self) -> u8 {
+        self.0
+    }
+
     pub(super) fn is_collapsed(self, group: OverviewGroup) -> bool {
         self.0 & group.bit() != 0
     }

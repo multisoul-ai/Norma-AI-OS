@@ -209,9 +209,7 @@ impl MultisoulApp {
         self.toggle_desktop_drawer(DesktopDrawerEvent::ToggleIdeas, cx);
         if matches!(self.screen, crate::app::AppScreen::DesktopWorkspace) {
             // 想法是概览里的一栏：展开它，刷新清单，并把焦点放到想法栏。
-            self.desktop_workspace
-                .overview_collapse
-                .reveal(OverviewGroup::Ideas);
+            self.update_overview_collapse(|collapse| collapse.reveal(OverviewGroup::Ideas), cx);
             self.refresh_ideas(cx);
             self.ensure_idea_input(window, cx);
             self.left_ideas_focus(cx).focus(window);

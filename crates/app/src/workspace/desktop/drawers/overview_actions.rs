@@ -25,7 +25,7 @@ impl MultisoulApp {
             OverviewGroup::Other,
         ];
         for (section, group) in screen.sections.iter_mut().zip(groups) {
-            if self.desktop_workspace.overview_collapse.is_collapsed(group) {
+            if self.overview_collapse().is_collapsed(group) {
                 section.rows.clear();
             }
         }

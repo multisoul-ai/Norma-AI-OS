@@ -2,6 +2,7 @@
 //! background thread when the view changes, when the workspace changes, or when
 //! the desktop host exits. Render and pointer paths do not touch SQLite.
 
+use super::super::overview_layout::OverviewCollapse;
 use crate::app::MultisoulApp;
 use gpui::{AppContext, Context};
 use runtime::desktop_drawers::{
@@ -50,6 +51,29 @@ impl MultisoulApp {
                 .background_spawn(async move { store.set_drawer_layout(&id, &saved) })
                 .await;
         }));
+    }
+
+    /// 运行概览各栏的折叠状态（存在抽屉状态里，随布局一起保存）。
+    pub(in crate::workspace::desktop) fn overview_collapse(&self) -> OverviewCollapse {
+        OverviewCollapse::from_bits(self.desktop_workspace.drawers.overview_collapsed)
+    }
+
+    /// 修改折叠状态：立即重绘，并在后台把布局写入当前工作空间。
+    pub(in crate::workspace::desktop) fn update_overview_collapse(
+        &mut self,
+        change: impl FnOnce(&mut OverviewCollapse),
+        cx: &mut Context<Self>,
+    ) {
+        let mut collapse = self.overview_collapse();
+        change(&mut collapse);
+        if collapse.bits() == self.desktop_workspace.drawers.overview_collapsed {
+            return;
+        }
+        self.desktop_workspace.drawers.overview_collapsed = collapse.bits();
+        if let Some(id) = self.desktop_workspace.active_id.clone() {
+            self.persist_left_drawer_view(&id, cx);
+        }
+        cx.notify();
     }
 
     pub(crate) fn activate_desktop_workspace_view(&mut self, id: &str, cx: &mut Context<Self>) {
@@ -116,3 +140,7 @@ impl MultisoulApp {
         let _ = std::thread::spawn(move || store.set_drawer_layout(&id, &json)).join();
     }
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/desktop_overview_collapse_tests.rs"]
+mod collapse_tests;
