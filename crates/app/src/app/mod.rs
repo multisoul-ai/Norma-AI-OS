@@ -46,6 +46,7 @@ mod agent_queue;
 mod agent_runtime;
 mod memory;
 pub(crate) mod native_input;
+pub(crate) use agent_runtime::assign_idea_for_ui;
 pub(crate) use agent_runtime::execute_norma_adapter_command_with_source;
 pub(crate) use agent_runtime::shared_tokio_runtime;
 pub(crate) use agent_runtime::submit_workspace_turn;

@@ -47,6 +47,8 @@ mod snapshot;
 mod status;
 mod status_capsule;
 use management::DesktopRenameTarget;
+mod ideas;
+mod ideas_rows;
 mod motion_log;
 mod navigation;
 mod overview_rows;
@@ -122,6 +124,18 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) left_chat_tab_focus: Option<gpui::FocusHandle>,
     pub(crate) left_overview_tab_focus: Option<gpui::FocusHandle>,
     pub(crate) left_overview_focus: Option<gpui::FocusHandle>,
+    pub(crate) left_ideas_tab_focus: Option<gpui::FocusHandle>,
+    pub(crate) left_ideas_focus: Option<gpui::FocusHandle>,
+    /// 想法清单缓存：渲染只读它，刷新在后台完成。
+    pub(crate) ideas: Vec<storage::StoredIdea>,
+    pub(crate) ideas_refresh: Option<gpui::Task<()>>,
+    pub(crate) ideas_cursor: Option<usize>,
+    /// 展开了指派菜单的想法 ID。
+    pub(crate) ideas_menu: Option<String>,
+    pub(crate) ideas_menu_cursor: usize,
+    pub(crate) ideas_undo: Option<ideas::IdeaUndo>,
+    pub(crate) ideas_undo_timer: Option<gpui::Task<()>>,
+    pub(crate) ideas_notice: Option<String>,
     pub(crate) overview_float_fade: drawers::float::OverviewFloatFade,
     pub(crate) overview_drag: Option<drawers::float::OverviewDrag>,
     pub(crate) overview_float_focus: Option<gpui::FocusHandle>,
@@ -279,6 +293,16 @@ impl DesktopWorkspaceUiState {
             left_chat_tab_focus: None,
             left_overview_tab_focus: None,
             left_overview_focus: None,
+            left_ideas_tab_focus: None,
+            left_ideas_focus: None,
+            ideas: Vec::new(),
+            ideas_refresh: None,
+            ideas_cursor: None,
+            ideas_menu: None,
+            ideas_menu_cursor: 0,
+            ideas_undo: None,
+            ideas_undo_timer: None,
+            ideas_notice: None,
             overview_float_fade: drawers::float::OverviewFloatFade::default(),
             overview_drag: None,
             overview_float_focus: None,

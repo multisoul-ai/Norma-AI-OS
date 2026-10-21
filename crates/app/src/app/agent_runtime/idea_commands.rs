@@ -28,7 +28,7 @@ pub(super) fn capture_idea(
     let idea = store(app)
         .capture(&workspace_id, body, source)
         .map_err(storage_error)?;
-    cx.notify();
+    notify_host(app, cx);
     Ok(
         AdapterResult::succeeded(format!("已记下想法：{}", idea.body))
             .with_tasks(vec![idea_json(&idea)]),
@@ -51,7 +51,7 @@ pub(super) fn list_ideas(
     )
 }
 
-pub(super) fn assign_idea(
+pub(crate) fn assign_idea(
     app: &mut MultisoulApp,
     mut window: Option<&mut Window>,
     cx: &mut Context<MultisoulApp>,
@@ -119,15 +119,41 @@ pub(super) fn assign_idea(
             ) {
                 tracing::warn!(%error, idea_id, "idea dispatched but assignment could not be recorded");
             }
-            cx.notify();
+            notify_host(app, cx);
             Ok(result)
         }
         Err(error) => {
             if let Err(rollback) = ideas.fail_dispatch(&workspace_id, idea_id) {
                 tracing::warn!(%rollback, idea_id, "idea dispatch failed and could not be rolled back");
             }
+            notify_host(app, cx);
             Err(error)
         }
+    }
+}
+
+/// 界面入口：来源按普通输入处理。
+pub(crate) fn assign_idea_for_ui(
+    app: &mut MultisoulApp,
+    window: &mut Window,
+    cx: &mut Context<MultisoulApp>,
+    idea_id: &str,
+    target: IdeaTarget,
+) -> Result<AdapterResult, AdapterError> {
+    assign_idea(
+        app,
+        Some(window),
+        cx,
+        idea_id,
+        target,
+        AgentInputSource::Other,
+    )
+}
+
+/// 清单缓存属于桌面宿主；项目会话写库后通知宿主后台刷新。
+fn notify_host(app: &MultisoulApp, cx: &mut Context<MultisoulApp>) {
+    if let Some(host) = app.desktop_host.as_ref().and_then(|host| host.upgrade()) {
+        host.update(cx, |host, cx| host.refresh_ideas(cx));
     }
 }
 
@@ -210,7 +236,7 @@ fn is_source_area(
             .sessions
             .get(&key)
             .is_some_and(|session| session.entity_id() == cx.entity().entity_id()),
-        None => app.desktop_workspace.sessions.contains_key(&key),
+        None => false,
     }
 }
 

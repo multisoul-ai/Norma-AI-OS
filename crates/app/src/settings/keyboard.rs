@@ -381,6 +381,7 @@ fn shortcut_row_id(command: ShortcutCommandId) -> &'static str {
         ShortcutCommandId::ExitFocus => "settings-shortcut-exit-focus",
         ShortcutCommandId::ToggleSettings => "settings-shortcut-toggle-settings",
         ShortcutCommandId::ToggleRunOverview => "settings-shortcut-toggle-run-overview",
+        ShortcutCommandId::ToggleIdeas => "settings-shortcut-toggle-ideas",
         ShortcutCommandId::VoiceInteraction => "settings-shortcut-voice-interaction",
     }
 }
@@ -431,6 +432,7 @@ fn shortcut_restore_id(command: ShortcutCommandId) -> &'static str {
         ShortcutCommandId::ExitFocus => "settings-shortcut-restore-exit-focus",
         ShortcutCommandId::ToggleSettings => "settings-shortcut-restore-toggle-settings",
         ShortcutCommandId::ToggleRunOverview => "settings-shortcut-restore-toggle-run-overview",
+        ShortcutCommandId::ToggleIdeas => "settings-shortcut-restore-toggle-ideas",
         ShortcutCommandId::VoiceInteraction => "settings-shortcut-restore-voice-interaction",
     }
 }

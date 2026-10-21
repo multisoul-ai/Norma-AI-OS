@@ -8,7 +8,20 @@
 pub enum DesktopLeftView {
     #[default]
     Chat,
+    /// 工作空间想法清单：先记下，再派给智能体。
+    Ideas,
     Overview,
+}
+
+impl DesktopLeftView {
+    /// 标签顺序（对话、想法、运行概览）；视图切换的滑入方向由排名大小决定。
+    pub fn rank(self) -> u8 {
+        match self {
+            Self::Chat => 0,
+            Self::Ideas => 1,
+            Self::Overview => 2,
+        }
+    }
 }
 
 /// Pixel offset from the floating panel's default top-right anchor.
@@ -32,6 +45,7 @@ pub enum DesktopDrawerEvent {
     ToggleLeft,
     ToggleRight,
     ToggleRunOverview,
+    ToggleIdeas,
     SelectLeftView(DesktopLeftView),
     ToggleOverviewPin,
     ResetOverviewOffset,
@@ -142,13 +156,21 @@ pub fn route_drawer(
                 dock_overview(&mut state);
             } else {
                 state.left_view = match state.left_view {
-                    DesktopLeftView::Chat => DesktopLeftView::Overview,
+                    DesktopLeftView::Chat | DesktopLeftView::Ideas => DesktopLeftView::Overview,
                     DesktopLeftView::Overview => DesktopLeftView::Chat,
                 };
                 if state.left_view == DesktopLeftView::Overview {
                     state.left_open = true;
                 }
             }
+        }
+        DesktopDrawerEvent::ToggleIdeas => {
+            state.left_view = if state.left_view == DesktopLeftView::Ideas {
+                DesktopLeftView::Chat
+            } else {
+                state.left_open = true;
+                DesktopLeftView::Ideas
+            };
         }
         DesktopDrawerEvent::SelectLeftView(DesktopLeftView::Overview)
             if state.overview_floating =>
@@ -157,7 +179,7 @@ pub fn route_drawer(
         }
         DesktopDrawerEvent::SelectLeftView(view) => {
             state.left_view = view;
-            if view == DesktopLeftView::Overview {
+            if view != DesktopLeftView::Chat {
                 state.left_open = true;
             }
         }
@@ -174,7 +196,9 @@ pub fn route_drawer(
             state.overview_offset = OverviewOffset::default();
         }
         DesktopDrawerEvent::EscapeOverview => {
-            if state.left_view == DesktopLeftView::Overview && !state.overview_floating {
+            if state.left_view == DesktopLeftView::Ideas
+                || (state.left_view == DesktopLeftView::Overview && !state.overview_floating)
+            {
                 state.left_view = DesktopLeftView::Chat;
             }
         }
@@ -213,7 +237,9 @@ pub fn route_overview_escape(
     if state.overview_floating && focus_in_floating_panel {
         return (state, OverviewEscape::ReturnFocusToStatus);
     }
-    if state.left_view == DesktopLeftView::Overview && !state.overview_floating {
+    if state.left_view == DesktopLeftView::Ideas
+        || (state.left_view == DesktopLeftView::Overview && !state.overview_floating)
+    {
         state.left_view = DesktopLeftView::Chat;
         return (state, OverviewEscape::ReturnDrawerToChat);
     }
@@ -268,6 +294,7 @@ pub fn place_overview(offset: OverviewOffset, canvas: OverviewCanvas) -> Overvie
 pub fn left_view_preference_json(view: DesktopLeftView) -> &'static str {
     match view {
         DesktopLeftView::Chat => r#"{"left_view":"chat"}"#,
+        DesktopLeftView::Ideas => r#"{"left_view":"ideas"}"#,
         DesktopLeftView::Overview => r#"{"left_view":"overview"}"#,
     }
 }
@@ -279,6 +306,7 @@ pub fn left_view_from_preference(raw: Option<&str>) -> DesktopLeftView {
 pub fn overview_layout_json(state: &DesktopDrawerState) -> String {
     let view = match state.left_view {
         DesktopLeftView::Chat => "chat",
+        DesktopLeftView::Ideas => "ideas",
         DesktopLeftView::Overview => "overview",
     };
     format!(
@@ -303,6 +331,7 @@ pub fn overview_layout_from_preference(raw: Option<&str>) -> OverviewLayoutPrefe
     };
     let left_view = match value.get("left_view").and_then(|item| item.as_str()) {
         Some("overview") => DesktopLeftView::Overview,
+        Some("ideas") => DesktopLeftView::Ideas,
         _ => DesktopLeftView::Chat,
     };
     let floating = value
@@ -371,7 +400,7 @@ pub fn restore_left_view(
     view: DesktopLeftView,
 ) -> DesktopDrawerState {
     state.left_view = view;
-    if view == DesktopLeftView::Overview {
+    if view != DesktopLeftView::Chat {
         state.left_open = true;
     }
     state
@@ -405,3 +434,7 @@ mod tests;
 #[cfg(test)]
 #[path = "../tests/unit/status_capsule_click.rs"]
 mod status_capsule_click;
+
+#[cfg(test)]
+#[path = "../tests/unit/desktop_drawers_ideas.rs"]
+mod ideas_tests;

@@ -22,12 +22,27 @@ use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div, KeyDownEvent, Stateful, Window};
 use runtime::desktop_drawers::{DesktopDrawerEvent, DesktopLeftView};
 
+#[derive(Clone, Copy)]
+enum TabBadge {
+    /// 待你处理的数量（琥珀）。
+    Pending(usize),
+    /// 普通计数（中性）。
+    Count(usize),
+}
+
 impl MultisoulApp {
     pub(super) fn render_left_drawer_tabs(&mut self, cx: &mut Context<Self>) -> Stateful<Div> {
         let selected = self.desktop_workspace.drawers.left_view;
         let pending = self.cached_workspace_pending_count();
         let chat_focus = self.left_chat_tab_focus(cx);
         let overview_focus = self.left_overview_tab_focus(cx);
+        let ideas_focus = self.left_ideas_tab_focus(cx);
+        let ideas_todo = self
+            .desktop_workspace
+            .ideas
+            .iter()
+            .filter(|idea| idea.state == workspace::ideas::IdeaState::Todo)
+            .count();
         div()
             .id("desktop-left-view-tabs")
             .debug_selector(|| "desktop-left-view-tabs".to_string())
@@ -51,9 +66,17 @@ impl MultisoulApp {
                 cx,
             ))
             .child(self.left_view_tab(
+                "desktop-left-tab-ideas",
+                ui::i18n::text("workspace.left_tab_ideas"),
+                (ideas_todo > 0).then_some(TabBadge::Count(ideas_todo)),
+                selected == DesktopLeftView::Ideas,
+                ideas_focus,
+                cx,
+            ))
+            .child(self.left_view_tab(
                 "desktop-left-tab-overview",
                 ui::i18n::text("workspace.left_tab_overview"),
-                (pending > 0).then_some(pending),
+                (pending > 0).then_some(TabBadge::Pending(pending)),
                 selected == DesktopLeftView::Overview,
                 overview_focus,
                 cx,
@@ -64,7 +87,7 @@ impl MultisoulApp {
         &self,
         id: &'static str,
         label: &'static str,
-        pending: Option<usize>,
+        badge: Option<TabBadge>,
         selected: bool,
         focus: gpui::FocusHandle,
         cx: &Context<Self>,
@@ -72,6 +95,8 @@ impl MultisoulApp {
         let theme = self.desktop_theme();
         let view = if id.ends_with("overview") {
             DesktopLeftView::Overview
+        } else if id.ends_with("ideas") {
+            DesktopLeftView::Ideas
         } else {
             DesktopLeftView::Chat
         };
@@ -122,7 +147,12 @@ impl MultisoulApp {
                     )
                 },
             )
-            .when_some(pending, |tab, count| {
+            .when_some(badge, |tab, badge| {
+                let (count, fill, ink) = match badge {
+                    // 待处理要你动手：琥珀；想法只是计数：中性蓝灰。
+                    TabBadge::Pending(count) => (count, 0xf2c773ff, 0x162638ff),
+                    TabBadge::Count(count) => (count, 0x8fcaff2e, 0xd4eaffff),
+                };
                 tab.child(
                     div()
                         .px(px(5.0))
@@ -132,10 +162,10 @@ impl MultisoulApp {
                         .items_center()
                         .justify_center()
                         .rounded(px(9.0))
-                        .bg(rgba(0xf2c773ff))
+                        .bg(rgba(fill))
                         .text_size(px(11.0))
                         .font_weight(gpui::FontWeight::BOLD)
-                        .text_color(rgba(0x162638ff))
+                        .text_color(rgba(ink))
                         .child(count.to_string()),
                 )
             })
@@ -153,17 +183,24 @@ impl MultisoulApp {
         }
         let next = match event.keystroke.key.as_str() {
             "enter" | "space" => current,
-            "right" | "left" => match (current, event.keystroke.key.as_str()) {
-                (DesktopLeftView::Chat, "right") | (DesktopLeftView::Overview, "left") => {
-                    if current == DesktopLeftView::Chat {
-                        DesktopLeftView::Overview
-                    } else {
-                        DesktopLeftView::Chat
-                    }
+            "right" | "left" => {
+                let order = [
+                    DesktopLeftView::Chat,
+                    DesktopLeftView::Ideas,
+                    DesktopLeftView::Overview,
+                ];
+                let at = usize::from(current.rank());
+                let next = if event.keystroke.key == "right" {
+                    at + 1
+                } else {
+                    at.wrapping_sub(1)
+                };
+                match order.get(next) {
+                    Some(view) => *view,
+                    None => return false,
                 }
-                _ => return false,
-            },
-            "escape" if current == DesktopLeftView::Overview => {
+            }
+            "escape" if current != DesktopLeftView::Chat => {
                 self.toggle_desktop_drawer(DesktopDrawerEvent::EscapeOverview, cx);
                 self.focus_left_drawer_view(window, cx);
                 return true;
@@ -181,7 +218,24 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.toggle_desktop_drawer(DesktopDrawerEvent::SelectLeftView(view), cx);
+        if view == DesktopLeftView::Ideas {
+            self.refresh_ideas(cx);
+        }
         self.focus_left_drawer_view(window, cx);
+    }
+
+    pub(crate) fn toggle_ideas(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
+            host.update(cx, |app, cx| app.toggle_ideas(window, cx));
+            return;
+        }
+        self.toggle_desktop_drawer(DesktopDrawerEvent::ToggleIdeas, cx);
+        if matches!(self.screen, crate::app::AppScreen::DesktopWorkspace) {
+            if self.desktop_workspace.drawers.left_view == DesktopLeftView::Ideas {
+                self.refresh_ideas(cx);
+            }
+            self.focus_left_drawer_view(window, cx);
+        }
     }
 
     pub(crate) fn toggle_run_overview(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -197,11 +251,10 @@ impl MultisoulApp {
     }
 
     pub(super) fn focus_left_drawer_view(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let overview = self.desktop_workspace.drawers.left_view == DesktopLeftView::Overview;
-        let handle = if overview {
-            self.left_overview_tab_focus(cx)
-        } else {
-            self.left_chat_tab_focus(cx)
+        let handle = match self.desktop_workspace.drawers.left_view {
+            DesktopLeftView::Overview => self.left_overview_tab_focus(cx),
+            DesktopLeftView::Ideas => self.left_ideas_tab_focus(cx),
+            DesktopLeftView::Chat => self.left_chat_tab_focus(cx),
         };
         handle.focus(window);
     }
@@ -225,6 +278,12 @@ impl MultisoulApp {
             cx.stop_propagation();
             return true;
         }
+        if self.left_ideas_holds_escape(window, cx) {
+            self.toggle_desktop_drawer(DesktopDrawerEvent::EscapeOverview, cx);
+            self.focus_left_drawer_view(window, cx);
+            cx.stop_propagation();
+            return true;
+        }
         if self.left_overview_holds_escape(window, cx) {
             self.toggle_desktop_drawer(DesktopDrawerEvent::EscapeOverview, cx);
             self.focus_left_drawer_view(window, cx);
@@ -232,6 +291,21 @@ impl MultisoulApp {
             return true;
         }
         false
+    }
+
+    fn left_ideas_holds_escape(&self, window: &Window, cx: &gpui::App) -> bool {
+        if self.desktop_workspace.drawers.left_view != DesktopLeftView::Ideas {
+            return false;
+        }
+        self.desktop_workspace
+            .left_ideas_focus
+            .as_ref()
+            .is_some_and(|handle| handle.contains_focused(window, cx))
+            || self
+                .desktop_workspace
+                .left_ideas_tab_focus
+                .as_ref()
+                .is_some_and(|handle| handle.is_focused(window))
     }
 
     fn left_overview_holds_escape(&self, window: &Window, cx: &gpui::App) -> bool {

@@ -44,6 +44,7 @@ use context_commands::contextualized_agent_commands;
 use coordination::agent_completion_report;
 pub(crate) use doubao_adapter::start_doubao_adapter;
 pub(crate) use gpt_live_adapter::{start_gpt_live_adapter, LiveAdapterScope};
+pub(crate) use idea_commands::assign_idea_for_ui;
 pub(crate) use orchestration_commands::execute_high_level_agent_command;
 pub(crate) use orchestration_commands::execute_orchestration_agent_command;
 pub(crate) use orchestration_commands::execute_orchestration_agent_command_with_visual_origin;

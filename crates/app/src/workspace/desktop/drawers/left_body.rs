@@ -19,13 +19,12 @@ impl MultisoulApp {
     ) -> Stateful<Div> {
         let reduce = self.motion.reduce_motion;
         let slide = self.desktop_workspace.left_view_slide;
-        let overview = self.desktop_workspace.drawers.left_view == DesktopLeftView::Overview;
         let offset = slide.offset(reduce);
         let opacity = slide.opacity();
-        let body = if overview {
-            self.render_left_overview_body(window, cx)
-        } else {
-            self.render_left_chat_body(width, cx)
+        let body = match self.desktop_workspace.drawers.left_view {
+            DesktopLeftView::Overview => self.render_left_overview_body(window, cx),
+            DesktopLeftView::Ideas => self.render_left_ideas_body(cx),
+            DesktopLeftView::Chat => self.render_left_chat_body(width, cx),
         };
         div()
             .id("desktop-left-view-body")
