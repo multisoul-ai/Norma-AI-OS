@@ -25,22 +25,23 @@ fn meteor_progress_accelerates_then_settles() {
     assert!(steps[0] < fastest / 4.0, "起步应明显慢于最快段：{steps:?}");
 }
 
-/// 尾迹长度随速度变化：中段（最快）比起步和收尾都长。
+/// 尾焰随速度拉长：起步时很短，加速后最长，收尾时又缩短；任何时刻都不会超过整段行程。
 ///
+/// 数据构造：取起步（15%）、中段（60%）、临近目标（98%）三个线性进度。
 /// 预期结果：
-///   - 正断言：速度峰值在进度 0.5 附近，峰值是起点速度的数十倍。
-///   - 负断言：起点与终点的速度都接近 0（不会一出发就拖一条长尾）。
+///   - 正断言：中段的尾焰行程明显长于起步，也长于临近目标时。
+///   - 负断言：尾焰行程不会为负，也不会超过 1。
 #[test]
-fn meteor_speed_peaks_in_the_middle() {
-    let start = speed(0.01);
-    let middle = speed(0.5);
-    let end = speed(0.99);
+fn meteor_tail_stretches_with_speed() {
+    let tail = |progress: f32| ease_in_out_cubic(progress) - tail_start(progress);
+    let (early, middle, late) = (tail(0.15), tail(0.6), tail(0.98));
     assert!(
-        middle > start * 20.0 && middle > end * 20.0,
-        "{start} {middle} {end}"
+        middle > early * 3.0,
+        "中段尾焰应远长于起步：{early} {middle}"
     );
-    assert!(
-        start < 0.01 && end < 0.01,
-        "两端速度应接近 0：{start} {end}"
-    );
+    assert!(middle > late, "收尾时尾焰应缩短：{middle} {late}");
+    for progress in [0.0, 0.15, 0.6, 0.98, 1.0] {
+        let length = tail(progress);
+        assert!((0.0..=1.0).contains(&length), "尾焰行程越界：{length}");
+    }
 }

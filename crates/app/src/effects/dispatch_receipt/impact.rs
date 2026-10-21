@@ -22,6 +22,13 @@ pub(super) fn paint_impact(frame: DispatchEffectFrame, theme: Theme, plan: &mut 
     } else {
         status_color
     };
+    if matches!(
+        frame.presentation.origin,
+        crate::motion::DispatchVisualOrigin::IdeaRow { .. }
+    ) {
+        let curve = super::geometry::FlightCurve::new_idea_shot(frame.origin, frame.target);
+        super::meteor::paint_idea_afterglow(&curve, progress, plan);
+    }
     let fade = 1.0 - smoothstep(progress);
     let expansion = 3.0 + ease_out_cubic(progress) * 18.0;
     plan.quads.push(outline_quad(
