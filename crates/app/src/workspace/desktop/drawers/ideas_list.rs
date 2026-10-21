@@ -98,7 +98,7 @@ impl MultisoulApp {
                     .gap(px(4.0))
                     .when(
                         screen.todo.is_empty() && screen.assigned.is_empty(),
-                        |list| list.child(empty_state(screen.done_count)),
+                        |list| list.child(empty_state(screen.done.len())),
                     )
                     .when(!screen.todo.is_empty(), |list| {
                         list.child(group_heading("待办", Some(todo_count)))
@@ -124,15 +124,47 @@ impl MultisoulApp {
                                 self.render_assigned_row(row, focused, feedback, cx)
                             }))
                     })
-                    .when(screen.done_count > 0 && !screen.todo.is_empty(), |list| {
+                    .when(!screen.done.is_empty(), |list| {
+                        let show = self.desktop_workspace.ideas_show_done;
                         list.child(
                             div()
+                                .id("desktop-ideas-done-toggle")
+                                .mt(px(8.0))
+                                .h(px(32.0))
                                 .px(px(8.0))
-                                .pt(px(8.0))
+                                .flex()
+                                .items_center()
+                                .rounded(px(8.0))
+                                .cursor_pointer()
+                                .hover(move |style| style.bg(rgba(feedback.hover)))
+                                .active(move |style| style.bg(rgba(feedback.pressed)))
                                 .text_size(px(11.0))
                                 .text_color(rgba(COPY_SECONDARY))
-                                .child(format!("已完成 {} 条", screen.done_count)),
+                                .on_click(cx.listener(|app, _, _, cx| {
+                                    cx.stop_propagation();
+                                    app.desktop_workspace.ideas_show_done =
+                                        !app.desktop_workspace.ideas_show_done;
+                                    cx.notify();
+                                }))
+                                .child(format!(
+                                    "{} 已完成 {} 条",
+                                    if show { "▾" } else { "▸" },
+                                    screen.done.len()
+                                )),
                         )
+                        .when(show, |list| {
+                            list.children(screen.done.iter().map(|row| {
+                                div()
+                                    .id(ElementId::Name(
+                                        format!("desktop-idea-done-{}", row.id).into(),
+                                    ))
+                                    .px(px(8.0))
+                                    .py(px(5.0))
+                                    .text_size(px(12.0))
+                                    .text_color(rgba(COPY_SECONDARY))
+                                    .child(format!("✓ {}", row.title))
+                            }))
+                        })
                     }),
             )
             .when_some(
@@ -303,9 +335,13 @@ impl MultisoulApp {
         let hover = feedback.hover;
         let pressed = feedback.pressed;
         let locate = row.area_id.clone().zip(row.node_id);
+        let retry = row.retryable.then(|| row.id.clone());
         let status = match &row.status {
             IdeaStatus::Sending => "投递中…".to_owned(),
-            IdeaStatus::AssignedTo(name) => format!("已交给 {name}"),
+            IdeaStatus::AssignedTo { name, phase } => match phase_label(*phase) {
+                Some(label) => format!("已交给 {name} · {label}"),
+                None => format!("已交给 {name}"),
+            },
         };
         div()
             .id(ElementId::Name(element_id.clone().into()))
@@ -359,6 +395,31 @@ impl MultisoulApp {
                             .child(status),
                     ),
             )
+            .when_some(retry, |row, id| {
+                row.child(
+                    Button::new(ElementId::Name(format!("idea-retry-{id}").into()))
+                        .ghost()
+                        .small()
+                        .tooltip("退回待办，重新指派")
+                        .child("重试")
+                        .on_click(cx.listener(move |app, _, _, cx| {
+                            cx.stop_propagation();
+                            app.retry_idea(&id, cx);
+                        })),
+                )
+            })
+    }
+}
+
+fn phase_label(phase: Option<workspace::ideas::TaskPhase>) -> Option<&'static str> {
+    use workspace::ideas::TaskPhase;
+    match phase? {
+        TaskPhase::Running => Some("运行中"),
+        TaskPhase::Queued => Some("已排队"),
+        TaskPhase::Failed => Some("失败"),
+        TaskPhase::Succeeded => Some("已完成"),
+        TaskPhase::Cancelled => Some("已取消"),
+        TaskPhase::Untracked => Some("无法追踪"),
     }
 }
 

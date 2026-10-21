@@ -1,7 +1,10 @@
 use crate::{migrations::open_app_connection, StorageError, StorageResult};
 use rusqlite::{params, Connection, OptionalExtension, Row, Transaction, TransactionBehavior};
 use std::path::PathBuf;
-use workspace::ideas::{normalize_body, transition, IdeaEvent, IdeaSource, IdeaState};
+use workspace::ideas::{
+    idea_effect, normalize_body, transition, IdeaEffect, IdeaEvent, IdeaSource, IdeaState,
+    TaskPhase,
+};
 
 /// 相邻想法的排序间隔，为将来的手动排序留出空隙。
 const POSITION_STEP: i64 = 1024;
@@ -18,6 +21,7 @@ pub struct StoredIdea {
     pub assignee_node_id: Option<u64>,
     pub position: i64,
     pub created_at_unix: u64,
+    pub updated_at_unix: u64,
 }
 
 /// 工作空间想法清单。状态流转只走 `workspace::ideas::transition`；
@@ -36,6 +40,8 @@ enum Patch<'a> {
         task_ref: Option<&'a str>,
     },
     Clear,
+    /// 对账时补上真实 task_ref，落点未知。
+    Resolved(&'a str),
 }
 
 impl IdeasStore {
@@ -155,39 +161,86 @@ impl IdeasStore {
         Ok(changed > 0)
     }
 
-    /// 启动对账：遗留的“派发中”按 `task_ref` 是否真的发出来决定去向，
-    /// 发出的补成已指派，没发出的回待办；不盲目回退，避免重复派发。返回被处理的条数。
-    pub fn reconcile_dispatching(
+    /// 启动对账：停留超过 `min_age_secs` 的“派发中”想法，由调用方按真实派发记录判断是否发出。
+    /// `resolve` 返回 `Some(真实 task_ref)` 表示已发出，补成已指派；`None` 表示没发出，回待办。
+    /// 太新的想法可能仍在派发中，不处理，避免抢先回退造成重复派发。返回被处理的条数。
+    pub fn reconcile_dispatching_with(
         &self,
         workspace_id: &str,
-        was_dispatched: impl Fn(&str) -> bool,
+        min_age_secs: u64,
+        resolve: impl Fn(&StoredIdea) -> Option<String>,
     ) -> StorageResult<usize> {
+        let now = crate::current_unix_timestamp()?;
         let stuck: Vec<StoredIdea> = self
             .list(workspace_id)?
             .into_iter()
-            .filter(|idea| idea.state == IdeaState::Dispatching)
+            .filter(|idea| {
+                idea.state == IdeaState::Dispatching
+                    && now.saturating_sub(idea.updated_at_unix) >= min_age_secs
+            })
             .collect();
         let mut settled = 0;
         for idea in stuck {
-            let sent = idea.task_ref.as_deref().is_some_and(&was_dispatched);
-            let result = if sent {
-                self.step(
-                    workspace_id,
-                    &idea.id,
-                    IdeaEvent::DispatchSucceeded,
-                    Patch::Keep,
-                )?
-            } else {
-                self.step(
+            let result = match resolve(&idea) {
+                Some(task_ref) => {
+                    validate_task_ref(&task_ref)?;
+                    self.step(
+                        workspace_id,
+                        &idea.id,
+                        IdeaEvent::DispatchSucceeded,
+                        Patch::Resolved(&task_ref),
+                    )?
+                }
+                None => self.step(
                     workspace_id,
                     &idea.id,
                     IdeaEvent::DispatchFailed,
                     Patch::Clear,
-                )?
+                )?,
             };
             settled += usize::from(result.is_some());
         }
         Ok(settled)
+    }
+
+    /// 把任务阶段回写到已指派的想法：成功→完成，取消→回待办；其余不动。幂等。
+    pub fn apply_task_phases(
+        &self,
+        workspace_id: &str,
+        phase_of: impl Fn(&str) -> Option<TaskPhase>,
+    ) -> StorageResult<usize> {
+        let assigned: Vec<StoredIdea> = self
+            .list(workspace_id)?
+            .into_iter()
+            .filter(|idea| idea.state == IdeaState::Assigned)
+            .collect();
+        let mut changed = 0;
+        for idea in assigned {
+            let Some(phase) = idea.task_ref.as_deref().and_then(&phase_of) else {
+                continue;
+            };
+            let result = match idea_effect(phase) {
+                IdeaEffect::Complete => {
+                    self.step(workspace_id, &idea.id, IdeaEvent::Complete, Patch::Keep)?
+                }
+                IdeaEffect::Retract => {
+                    self.step(workspace_id, &idea.id, IdeaEvent::Retract, Patch::Clear)?
+                }
+                IdeaEffect::Keep => None,
+            };
+            changed += usize::from(result.is_some());
+        }
+        Ok(changed)
+    }
+
+    /// 清理更新时间早于 `cutoff_unix` 的已完成想法，返回清理条数。
+    pub fn purge_done_before(&self, workspace_id: &str, cutoff_unix: u64) -> StorageResult<usize> {
+        let connection = open_app_connection(&self.path)?;
+        let removed = connection.execute(
+            "DELETE FROM workspace_ideas WHERE workspace_id=?1 AND state='done' AND updated_at_unix<?2",
+            params![workspace_id, cutoff_unix as i64],
+        )?;
+        Ok(removed)
     }
 
     /// 在立即事务里读状态、校验流转、条件更新：并发时只有一个调用方能成功。
@@ -212,6 +265,10 @@ impl IdeasStore {
         let base = params![next.as_str(), now, workspace_id, id, current.state.as_str()];
         let changed = match patch {
             Patch::Keep => tx.execute(&format!("{head} {tail}"), base)?,
+            Patch::Resolved(task_ref) => tx.execute(
+                &format!("{head},task_ref=?6 {tail}"),
+                params![next.as_str(), now, workspace_id, id, current.state.as_str(), task_ref],
+            )?,
             Patch::Clear => tx.execute(
                 &format!("{head},task_ref=NULL,assignee_area_id=NULL,assignee_node_id=NULL {tail}"),
                 base,
@@ -256,7 +313,7 @@ impl IdeasStore {
     }
 }
 
-const SELECT: &str = "SELECT id,workspace_id,body,source,state,task_ref,assignee_area_id,assignee_node_id,position,created_at_unix FROM workspace_ideas";
+const SELECT: &str = "SELECT id,workspace_id,body,source,state,task_ref,assignee_area_id,assignee_node_id,position,created_at_unix,updated_at_unix FROM workspace_ideas";
 
 type Raw = (
     String,
@@ -267,6 +324,7 @@ type Raw = (
     Option<String>,
     Option<String>,
     Option<i64>,
+    i64,
     i64,
     i64,
 );
@@ -283,11 +341,13 @@ fn decode(row: &Row<'_>) -> rusqlite::Result<Raw> {
         row.get(7)?,
         row.get(8)?,
         row.get(9)?,
+        row.get(10)?,
     ))
 }
 
 fn convert(raw: Raw) -> StorageResult<StoredIdea> {
-    let (id, workspace_id, body, source, state, task_ref, area, node, position, created) = raw;
+    let (id, workspace_id, body, source, state, task_ref, area, node, position, created, updated) =
+        raw;
     Ok(StoredIdea {
         source: IdeaSource::parse(&source).ok_or_else(|| invalid("unknown source"))?,
         state: IdeaState::parse(&state).ok_or_else(|| invalid("unknown state"))?,
@@ -299,6 +359,7 @@ fn convert(raw: Raw) -> StorageResult<StoredIdea> {
         assignee_node_id: node.map(|value| value as u64),
         position,
         created_at_unix: created as u64,
+        updated_at_unix: updated as u64,
     })
 }
 

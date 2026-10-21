@@ -7,7 +7,12 @@ use agent::IdeaTarget;
 use gpui::{AppContext as _, Context, Window};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use storage::IdeasStore;
+use workspace::ideas::{classify_task_state, TaskPhase};
 
+/// 停留超过这么久的“派发中”才会被对账，避免抢先回退仍在发送的想法。
+const STUCK_AFTER_SECS: u64 = 120;
+/// 已完成的想法保留的时长（7 天）。
+const DONE_KEEP_SECS: u64 = 7 * 24 * 3600;
 /// 删除后可撤销的时间窗口。
 const UNDO_WINDOW: Duration = Duration::from_secs(6);
 
@@ -40,15 +45,73 @@ pub(super) enum IdeaUiTarget {
 }
 
 impl MultisoulApp {
-    /// 后台重读当前工作空间的清单；只保留最新一次，迟到的结果按工作空间校验后丢弃。
+    /// 已加载项目协调器里的任务快照：(task_ref, 任务正文, 阶段)。
+    fn idea_task_snapshot(&self, cx: &Context<Self>) -> Vec<(String, String, TaskPhase)> {
+        let Some(workspace_id) = self.desktop_workspace.active_id.as_deref() else {
+            return Vec::new();
+        };
+        let mut tasks = Vec::new();
+        for area in &self.desktop_workspace.areas {
+            let Some(session) = self
+                .desktop_workspace
+                .sessions
+                .get(&(workspace_id.to_owned(), area.id.clone()))
+            else {
+                continue;
+            };
+            if let Some(coordinator) = session.read(cx).agent_task_coordinator.as_ref() {
+                tasks.extend(
+                    coordinator
+                        .tasks()
+                        .into_iter()
+                        .map(|task| (task.task_ref, task.task, classify_task_state(task.state))),
+                );
+            }
+        }
+        tasks
+    }
+
+    /// 后台重读当前工作空间的清单，并把任务终态回写进想法：成功→完成、取消→回待办，
+    /// 超过一段时间的“派发中”按真实任务对账，已完成保留 7 天后清理。
+    /// 只保留最新一次，迟到的结果按工作空间校验后丢弃。
     pub(crate) fn refresh_ideas(&mut self, cx: &mut Context<Self>) {
         let Some(workspace_id) = self.desktop_workspace.active_id.clone() else {
             return;
         };
         let store = IdeasStore::new(self.database_paths.app_db_path().to_owned());
+        let tasks = self.idea_task_snapshot(cx);
         let id = workspace_id.clone();
         self.desktop_workspace.ideas_refresh = Some(cx.spawn(async move |this, cx| {
-            let list = cx.background_spawn(async move { store.list(&id) }).await;
+            let list = cx
+                .background_spawn(async move {
+                    let phase_of = |task_ref: &str| {
+                        tasks
+                            .iter()
+                            .find(|(candidate, _, _)| candidate == task_ref)
+                            .map(|(_, _, phase)| *phase)
+                    };
+                    let resolve = |idea: &storage::StoredIdea| {
+                        tasks
+                            .iter()
+                            .find(|(_, text, _)| *text == idea.body)
+                            .map(|(task_ref, _, _)| task_ref.clone())
+                    };
+                    let now = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .map(|elapsed| elapsed.as_secs())
+                        .unwrap_or_default();
+                    let reconciled =
+                        store.reconcile_dispatching_with(&id, STUCK_AFTER_SECS, resolve);
+                    let applied = store.apply_task_phases(&id, phase_of);
+                    let purged = store.purge_done_before(&id, now.saturating_sub(DONE_KEEP_SECS));
+                    for outcome in [reconciled, applied, purged] {
+                        if let Err(error) = outcome {
+                            tracing::warn!(%error, "idea housekeeping failed");
+                        }
+                    }
+                    store.list(&id)
+                })
+                .await;
             let _ = this.update(cx, |app, cx| {
                 if app.desktop_workspace.active_id.as_deref() != Some(workspace_id.as_str()) {
                     return;
@@ -62,13 +125,36 @@ impl MultisoulApp {
         }));
     }
 
+    /// 失败的想法退回待办重试。
+    pub(super) fn retry_idea(&mut self, id: &str, cx: &mut Context<Self>) {
+        let Some(workspace_id) = self.desktop_workspace.active_id.clone() else {
+            return;
+        };
+        let store = IdeasStore::new(self.database_paths.app_db_path().to_owned());
+        let target = id.to_owned();
+        cx.spawn(async move |this, cx| {
+            let _ = cx
+                .background_spawn(async move { store.retract(&workspace_id, &target) })
+                .await;
+            let _ = this.update(cx, |app, cx| app.refresh_ideas(cx));
+        })
+        .detach();
+    }
+
     pub(super) fn ideas_screen(&self, cx: &Context<Self>) -> IdeasScreen {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|elapsed| elapsed.as_secs())
             .unwrap_or_default();
         let names = |area: &str, node: u64| self.idea_agent_name(area, node, cx);
-        ideas_screen(&self.desktop_workspace.ideas, now, &names)
+        let tasks = self.idea_task_snapshot(cx);
+        let phase_of = |task_ref: &str| {
+            tasks
+                .iter()
+                .find(|(candidate, _, _)| candidate == task_ref)
+                .map(|(_, _, phase)| *phase)
+        };
+        ideas_screen(&self.desktop_workspace.ideas, now, &names, &phase_of)
     }
 
     fn idea_agent_name(&self, area_id: &str, node_id: u64, cx: &Context<Self>) -> Option<String> {

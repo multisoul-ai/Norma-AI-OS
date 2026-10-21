@@ -264,6 +264,10 @@ impl MultisoulApp {
                         app.desktop_workspace.overview_cursor = count.checked_sub(1);
                     }
                     app.desktop_workspace.activity_capsule = Some(projected.capsule);
+                    // 智能体状态变了：已指派的想法要跟着任务状态联动（完成、取消、失败）。
+                    if !app.desktop_workspace.ideas.is_empty() {
+                        app.refresh_ideas(cx);
+                    }
                     cx.notify();
                 }
                 if app.desktop_workspace.activity_gate.finish() {

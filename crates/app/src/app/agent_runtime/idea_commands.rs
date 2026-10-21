@@ -161,10 +161,14 @@ pub(crate) fn assign_idea_for_ui(
     )
 }
 
-/// 清单缓存属于桌面宿主；项目会话写库后通知宿主后台刷新。
+/// 清单缓存属于桌面宿主；项目会话写库后通知宿主刷新。
+/// 刷新要读取各项目会话，而当前会话正处于更新中，不能立刻读自己：放到下一轮再执行。
 fn notify_host(app: &MultisoulApp, cx: &mut Context<MultisoulApp>) {
-    if let Some(host) = app.desktop_host.as_ref().and_then(|host| host.upgrade()) {
-        host.update(cx, |host, cx| host.refresh_ideas(cx));
+    if let Some(host) = app.desktop_host.clone() {
+        cx.spawn(async move |_, cx| {
+            let _ = host.update(cx, |host, cx| host.refresh_ideas(cx));
+        })
+        .detach();
     }
 }
 

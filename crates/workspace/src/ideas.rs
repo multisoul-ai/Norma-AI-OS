@@ -106,3 +106,46 @@ pub fn transition(state: IdeaState, event: IdeaEvent) -> Result<IdeaState, IdeaE
         _ => Err(IdeaError::InvalidTransition),
     }
 }
+
+/// 任务阶段：协调器与派发库的状态文本归并后，想法只关心这几类。
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TaskPhase {
+    Queued,
+    Running,
+    Succeeded,
+    Failed,
+    Cancelled,
+    /// 无法追踪完成（没有任务回执可读）。
+    Untracked,
+}
+
+/// 任务阶段对想法存储状态的联动。
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum IdeaEffect {
+    Keep,
+    Complete,
+    Retract,
+}
+
+/// 未知状态保守地当作运行中，绝不当作成功或取消。
+pub fn classify_task_state(state: &str) -> TaskPhase {
+    match state {
+        "queued" => TaskPhase::Queued,
+        "succeeded" | "done" => TaskPhase::Succeeded,
+        "failed" | "interrupted" => TaskPhase::Failed,
+        "cancelled" => TaskPhase::Cancelled,
+        "untracked" => TaskPhase::Untracked,
+        _ => TaskPhase::Running,
+    }
+}
+
+/// 只有成功会让想法完成，只有取消会让它回到待办；失败与无法追踪保持已指派，交给界面提示。
+pub fn idea_effect(phase: TaskPhase) -> IdeaEffect {
+    match phase {
+        TaskPhase::Succeeded => IdeaEffect::Complete,
+        TaskPhase::Cancelled => IdeaEffect::Retract,
+        TaskPhase::Queued | TaskPhase::Running | TaskPhase::Failed | TaskPhase::Untracked => {
+            IdeaEffect::Keep
+        }
+    }
+}

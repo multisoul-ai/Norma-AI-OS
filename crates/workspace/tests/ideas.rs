@@ -154,3 +154,57 @@ fn state_text_encoding_round_trips_and_rejects_unknown() {
         "未知状态不应被静默当作任何一种"
     );
 }
+
+/// 协调器/派发库里的任务状态文本映射成想法关心的阶段，并给出想法该如何联动。
+///
+/// 数据构造：协调器用到的全部状态文本，加一个未知值。
+/// 预期结果：
+///   - 正断言：queued→排队；accepted/submitted/running/cancel_requested→运行中；succeeded/done→成功；failed/interrupted→失败；cancelled→取消；untracked→无法追踪。
+///   - 负断言：未知状态不当作成功或取消（保守视为运行中），避免误把想法标为完成；只有成功触发完成、只有取消触发退回待办，失败与无法追踪不改变存储状态。
+#[test]
+fn task_states_map_to_phases_and_only_success_or_cancel_change_the_idea() {
+    use workspace::ideas::{classify_task_state, idea_effect, IdeaEffect, TaskPhase};
+    let cases = [
+        ("queued", TaskPhase::Queued),
+        ("accepted", TaskPhase::Running),
+        ("submitted", TaskPhase::Running),
+        ("running", TaskPhase::Running),
+        ("cancel_requested", TaskPhase::Running),
+        ("succeeded", TaskPhase::Succeeded),
+        ("done", TaskPhase::Succeeded),
+        ("failed", TaskPhase::Failed),
+        ("interrupted", TaskPhase::Failed),
+        ("cancelled", TaskPhase::Cancelled),
+        ("untracked", TaskPhase::Untracked),
+        ("something-new", TaskPhase::Running),
+    ];
+    for (text, phase) in cases {
+        assert_eq!(
+            classify_task_state(text),
+            phase,
+            "{text} 的阶段应为 {phase:?}"
+        );
+    }
+    assert_eq!(
+        idea_effect(TaskPhase::Succeeded),
+        IdeaEffect::Complete,
+        "成功应让想法完成"
+    );
+    assert_eq!(
+        idea_effect(TaskPhase::Cancelled),
+        IdeaEffect::Retract,
+        "取消应让想法退回待办"
+    );
+    for phase in [
+        TaskPhase::Queued,
+        TaskPhase::Running,
+        TaskPhase::Failed,
+        TaskPhase::Untracked,
+    ] {
+        assert_eq!(
+            idea_effect(phase),
+            IdeaEffect::Keep,
+            "{phase:?} 不应改变想法的存储状态"
+        );
+    }
+}

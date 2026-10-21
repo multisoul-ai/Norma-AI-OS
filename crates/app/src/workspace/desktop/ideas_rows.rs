@@ -1,7 +1,7 @@
 //! 想法清单的行视图模型：只做分组与文案，不碰 GPUI、存储或时钟。
 
 use storage::StoredIdea;
-use workspace::ideas::IdeaState;
+use workspace::ideas::{IdeaState, TaskPhase};
 
 #[cfg(test)]
 #[path = "../../../tests/unit/desktop_ideas_rows_tests.rs"]
@@ -14,7 +14,11 @@ const TITLE_CHARS: usize = 40;
 pub(super) enum IdeaStatus {
     /// 正在投递，派发回执尚未返回。
     Sending,
-    AssignedTo(String),
+    AssignedTo {
+        name: String,
+        /// 来自协调器的真实任务阶段；查不到时为 None（例如项目未加载）。
+        phase: Option<TaskPhase>,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -32,6 +36,14 @@ pub(super) struct AssignedRow {
     pub(super) status: IdeaStatus,
     pub(super) area_id: Option<String>,
     pub(super) node_id: Option<u64>,
+    /// 任务失败时可退回待办重试。
+    pub(super) retryable: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct DoneRow {
+    pub(super) id: String,
+    pub(super) title: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -40,21 +52,23 @@ pub(super) struct IdeasScreen {
     pub(super) badge: Option<usize>,
     pub(super) todo: Vec<TodoRow>,
     pub(super) assigned: Vec<AssignedRow>,
-    pub(super) done_count: usize,
+    pub(super) done: Vec<DoneRow>,
 }
 
 /// `agent_name` 按（项目区域，节点）查执行者名字；找不到时显示“智能体”。
+/// `task_phase` 按 task_ref 查协调器里的任务阶段。
 pub(super) fn ideas_screen(
     ideas: &[StoredIdea],
     now_unix: u64,
     agent_name: &dyn Fn(&str, u64) -> Option<String>,
+    task_phase: &dyn Fn(&str) -> Option<TaskPhase>,
 ) -> IdeasScreen {
     let mut screen = IdeasScreen {
         subtitle: String::new(),
         badge: None,
         todo: Vec::new(),
         assigned: Vec::new(),
-        done_count: 0,
+        done: Vec::new(),
     };
     for idea in ideas {
         match idea.state {
@@ -69,6 +83,7 @@ pub(super) fn ideas_screen(
                 ),
             }),
             IdeaState::Dispatching | IdeaState::Assigned => {
+                let phase = idea.task_ref.as_deref().and_then(task_phase);
                 let status = if idea.state == IdeaState::Dispatching {
                     IdeaStatus::Sending
                 } else {
@@ -78,7 +93,7 @@ pub(super) fn ideas_screen(
                         .zip(idea.assignee_node_id)
                         .and_then(|(area, node)| agent_name(area, node))
                         .unwrap_or_else(|| "智能体".to_owned());
-                    IdeaStatus::AssignedTo(name)
+                    IdeaStatus::AssignedTo { name, phase }
                 };
                 screen.assigned.push(AssignedRow {
                     id: idea.id.clone(),
@@ -86,9 +101,14 @@ pub(super) fn ideas_screen(
                     status,
                     area_id: idea.assignee_area_id.clone(),
                     node_id: idea.assignee_node_id,
+                    retryable: idea.state == IdeaState::Assigned
+                        && phase == Some(TaskPhase::Failed),
                 });
             }
-            IdeaState::Done => screen.done_count += 1,
+            IdeaState::Done => screen.done.push(DoneRow {
+                id: idea.id.clone(),
+                title: title_of(&idea.body),
+            }),
             IdeaState::Dismissed => {}
         }
     }

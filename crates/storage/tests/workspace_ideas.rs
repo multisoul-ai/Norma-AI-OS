@@ -257,7 +257,9 @@ fn reconcile_resolves_dispatching_by_task_ref_and_leaves_others_alone() {
         .expect("应开始派发");
 
     let changed = store
-        .reconcile_dispatching(&ws, |task_ref| task_ref == "task-1")
+        .reconcile_dispatching_with(&ws, 0, |idea| {
+            (idea.task_ref.as_deref() == Some("task-1")).then(|| "run-3:11".to_owned())
+        })
         .expect("对账不应出错");
     assert_eq!(changed, 2, "只有本工作空间的两条派发中想法被处理");
     let by_id = |id: &str| {
@@ -275,8 +277,8 @@ fn reconcile_resolves_dispatching_by_task_ref_and_leaves_others_alone() {
     );
     assert_eq!(
         by_id("i1").task_ref.as_deref(),
-        Some("task-1"),
-        "已指派应保留 task_ref"
+        Some("run-3:11"),
+        "已指派应换成对账找到的真实 task_ref"
     );
     assert_eq!(
         (by_id("i2").state, by_id("i2").task_ref),

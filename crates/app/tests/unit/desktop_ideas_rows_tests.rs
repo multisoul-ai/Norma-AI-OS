@@ -1,6 +1,7 @@
 use super::{ideas_screen, relative_age, IdeaStatus};
 use storage::{IdeaSource, StoredIdea};
 use workspace::ideas::IdeaState;
+use workspace::ideas::TaskPhase;
 
 fn idea(id: &str, body: &str, state: IdeaState, created: u64) -> StoredIdea {
     StoredIdea {
@@ -14,6 +15,7 @@ fn idea(id: &str, body: &str, state: IdeaState, created: u64) -> StoredIdea {
         assignee_node_id: None,
         position: 0,
         created_at_unix: created,
+        updated_at_unix: created,
     }
 }
 
@@ -37,7 +39,7 @@ fn ideas_are_grouped_by_state_in_record_order() {
         idea("i5", "戊", IdeaState::Dispatching, 9_990),
     ];
     let names = |area: &str, node: u64| (area == "area-b" && node == 7).then(|| "Bruno".to_owned());
-    let screen = ideas_screen(&ideas, 10_000, &names);
+    let screen = ideas_screen(&ideas, 10_000, &names, &|_| None);
     let todo: Vec<_> = screen.todo.iter().map(|row| row.title.as_str()).collect();
     assert_eq!(todo, ["甲", "丙"], "待办应保持记录顺序");
     let assigned: Vec<_> = screen
@@ -48,14 +50,25 @@ fn ideas_are_grouped_by_state_in_record_order() {
     assert_eq!(
         assigned,
         [
-            ("乙", IdeaStatus::AssignedTo("Bruno".into())),
+            (
+                "乙",
+                IdeaStatus::AssignedTo {
+                    name: "Bruno".into(),
+                    phase: None
+                }
+            ),
             ("戊", IdeaStatus::Sending)
         ],
         "已指派应带执行者名字，派发中标为投递中"
     );
-    assert_eq!(screen.done_count, 1, "已完成应单独计数");
+    assert_eq!(screen.done.len(), 1, "已完成应单独成组");
     assert_eq!(screen.badge, Some(2), "角标只数待办");
-    let empty = ideas_screen(&[idea("i4", "丁", IdeaState::Done, 8_000)], 10_000, &names);
+    let empty = ideas_screen(
+        &[idea("i4", "丁", IdeaState::Done, 8_000)],
+        10_000,
+        &names,
+        &|_| None,
+    );
     assert_eq!(empty.badge, None, "没有待办时不显示角标");
     assert!(
         empty.todo.is_empty() && empty.assigned.is_empty(),
@@ -79,7 +92,7 @@ fn long_or_multiline_ideas_show_first_line_but_keep_full_body() {
         idea("b", &long, IdeaState::Todo, 0),
         idea("c", &exact, IdeaState::Todo, 0),
     ];
-    let screen = ideas_screen(&ideas, 0, &|_, _| None);
+    let screen = ideas_screen(&ideas, 0, &|_, _| None, &|_| None);
     assert_eq!(screen.todo[0].title, "第一行", "多行正文应只显示首行");
     assert_eq!(screen.todo[0].body, multi, "完整正文应原样保留");
     assert_eq!(
@@ -125,6 +138,7 @@ fn subtitle_reports_count_or_teaches_capture() {
         ],
         0,
         &|_, _| None,
+        &|_| None,
     );
     assert!(
         some.subtitle.contains("2 条待办"),
@@ -135,10 +149,74 @@ fn subtitle_reports_count_or_teaches_capture() {
         !some.subtitle.contains("记一下"),
         "有待办时不应显示空状态提示"
     );
-    let none = ideas_screen(&[], 0, &|_, _| None);
+    let none = ideas_screen(&[], 0, &|_, _| None, &|_| None);
     assert!(
         none.subtitle.contains("记一下"),
         "空清单应教用户说“记一下”，实际：{}",
         none.subtitle
     );
+}
+
+/// 已指派行按任务阶段显示状态，失败时给出重试，已完成的单独成组并保留标题。
+///
+/// 数据构造：三条已指派想法，task_ref 分别是 t-run、t-queue、t-fail、t-none（无记录）；一条已完成。
+/// 执行过程：阶段查找函数 t-run→运行中、t-queue→排队、t-fail→失败，t-none→None。
+/// 预期结果：
+///   - 正断言：四行阶段依次为 Running、Queued、Failed、None；只有失败行 retryable。
+///   - 负断言：运行中与排队行不可重试；已完成行不进入已指派，标题保留在 done 里。
+#[test]
+fn assigned_rows_show_task_phase_and_only_failed_is_retryable() {
+    let mk = |id: &str, task_ref: &str| {
+        let mut idea = idea(id, id, IdeaState::Assigned, 0);
+        idea.task_ref = Some(task_ref.into());
+        idea.assignee_area_id = Some("a".into());
+        idea.assignee_node_id = Some(1);
+        idea
+    };
+    let mut done = idea("d", "已完成的事", IdeaState::Done, 0);
+    done.task_ref = Some("t-done".into());
+    let ideas = vec![
+        mk("r", "t-run"),
+        mk("q", "t-queue"),
+        mk("f", "t-fail"),
+        mk("n", "t-none"),
+        done,
+    ];
+    let phase = |task_ref: &str| match task_ref {
+        "t-run" => Some(TaskPhase::Running),
+        "t-queue" => Some(TaskPhase::Queued),
+        "t-fail" => Some(TaskPhase::Failed),
+        _ => None,
+    };
+    let screen = ideas_screen(&ideas, 0, &|_, _| Some("Bella".into()), &phase);
+    let phases: Vec<_> = screen
+        .assigned
+        .iter()
+        .map(|row| match &row.status {
+            IdeaStatus::AssignedTo { phase, .. } => *phase,
+            IdeaStatus::Sending => None,
+        })
+        .collect();
+    assert_eq!(
+        phases,
+        [
+            Some(TaskPhase::Running),
+            Some(TaskPhase::Queued),
+            Some(TaskPhase::Failed),
+            None
+        ],
+        "各行应带对应的任务阶段"
+    );
+    let retryable: Vec<_> = screen.assigned.iter().map(|row| row.retryable).collect();
+    assert_eq!(retryable, [false, false, true, false], "只有失败的行可重试");
+    assert_eq!(
+        screen
+            .done
+            .iter()
+            .map(|row| row.title.as_str())
+            .collect::<Vec<_>>(),
+        ["已完成的事"],
+        "已完成单独成组并保留标题"
+    );
+    assert_eq!(screen.assigned.len(), 4, "已完成不应混进已指派");
 }
