@@ -9,7 +9,17 @@ let package = Package(
     ],
     targets: [
         .target(
+            name: "VirtualDisplay",
+            path: "Sources/VirtualDisplay",
+            cSettings: [.unsafeFlags(["-fobjc-arc"])],
+            linkerSettings: [
+                .linkedFramework("Foundation"),
+                .linkedFramework("CoreGraphics"),
+            ]
+        ),
+        .target(
             name: "E2EKit",
+            dependencies: ["VirtualDisplay"],
             path: "Sources/E2EKit",
             linkerSettings: [
                 .linkedFramework("AppKit"),

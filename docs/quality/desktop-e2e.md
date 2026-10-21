@@ -19,7 +19,7 @@ bash scripts/desktop-e2e.sh workspace-lifecycle --repeat 5
 ## 一次运行
 
 1. 前置检查：未锁屏、测试二进制存在。发现其他 Norma 只记录，不结束；`owned.json` 里上次由本脚手架留下的 PID，且可执行文件就是本次测试二进制时，才会被结束。
-2. 用独立的 `NORMA_TEST_DATA_ROOT`、`NORMA_SOCKET` 和本次随机生成的控制通道 socket / token 启动，避免碰到用户数据和默认 socket。输入只进入本次隔离窗口，不占用系统键鼠，因此不同 git worktree 可以同时跑。
+2. 用独立的 `NORMA_TEST_DATA_ROOT`、`NORMA_SOCKET` 和本次随机生成的控制通道 socket / token 启动，避免碰到用户数据和默认 socket。输入只进入本次隔离窗口，不占用系统键鼠，因此不同 git worktree 可以同时跑。窗口默认开在驱动创建的私有虚拟显示器上，不出现在用户屏幕、不抢前台（见下文“不打扰用户”）。
 3. 场景步骤都是“动作 → 期望的后置状态 → 有限次重试”。点击前重取窗口尺寸并重新 OCR，先移动鼠标再按下。
 4. 硬断言同时看画面文字、`desktop_workspaces` / `desktop_project_areas`，以及 `keep-me.txt`。
 5. 证据写到 `artifacts/desktop-workspace-e2e/<时间戳>/`，含截图、`report.json` 和 `app.log`。该目录被仓库根 `.gitignore` 的 `artifacts/` 忽略。
@@ -59,10 +59,22 @@ bash scripts/desktop-e2e.sh workspace-lifecycle --repeat 5
 | 环境变量 | 作用 |
 | --- | --- |
 | `NORMA_E2E_INPUT=ns` | 鼠标、文字和按键改走 AppKit：App 内构造 `NSEvent` 并交给 `NSWindow.sendEvent`，所以内嵌的 WKWebView 也能收到事件。默认仍是 GPUI 路径。事件必须在 `cx.update` 之外发送，否则 GPUI 的原生事件回调拿不到窗口，事件被静默丢弃。 |
-| `NORMA_E2E_NO_ACTIVATE=1` | 驱动不主动激活 Norma，仅用于验证非前台行为。窗口不是 key 窗口时，部分点击会被丢掉；全屏被遮挡时画面也不刷新，所以正常验收不要设置。 |
+| `NORMA_E2E_FOREGROUND=1` | 恢复旧行为：每次输入前把 Norma 激活到前台，窗口留在用户屏幕上。会抢焦点，仅用于排查后台模式是否影响结果。 |
+| `NORMA_E2E_VISIBLE=1` | 不建虚拟显示器、不移动窗口，隔离窗口留在用户屏幕上便于实时观察；仍不抢前台与键鼠。 |
+| `NORMA_E2E_VIRTUAL_DISPLAY=0` | 不建虚拟显示器，窗口停靠在当前屏幕右下角外、只留 4pt 在屏内。 |
+| `NORMA_E2E_NO_ACTIVATE=1` | 连 App 内的 active 标记也不做，仅用于验证非活动窗口行为。焦点路径缺失时部分输入会被丢掉，正常验收不要设置。 |
 | `NORMA_E2E_AUDIO_FIXTURE=<wav>` | debug 构建里用这段 WAV 代替麦克风（按实时节奏回放，播完后输出静音），并报告麦克风已授权，不会触发系统授权。release 构建不含这段代码。本地 Sherpa 听写走的 `AudioCapture` 路径不支持，会直接报错。诊断示例：`cargo run -p voice_input --example e2e_fixture_probe`。 |
 
-两点限制：Norma 必须能成为前台 key 窗口，测试期间在别的应用里操作会打断测试；`voice-live-call` 的云端部分仍需要 `NORMA_LIVE_TEST_KEY_FILE`。
+`voice-live-call` 的云端部分仍需要 `NORMA_LIVE_TEST_KEY_FILE`。
+
+### 不打扰用户
+
+默认运行不抢屏幕、前台、键盘或鼠标，测试期间可以照常使用电脑：
+
+- **虚拟显示器**：驱动用私有 API `CGVirtualDisplay` 创建一块 1440×900 HiDPI 虚拟屏，只在主屏右下角点相接，通过 `NORMA_E2E_DISPLAY_ID` 告诉 App；窗口创建时就开在这块屏上，驱动进程退出时系统回收。每个场景各自创建一块，整个模块会增减多次显示器。创建失败（例如未来 macOS 移除该 API）时退回“停靠屏幕角落”，不判为失败。
+- **不成为前台应用**：控制通道启用后 App 切为 `Accessory` 激活策略；`activate` 只在 App 内把窗口标为 active（`Window::set_active_for_e2e`，vendored GPUI），并等窗口画出 active 帧后才应答，之后的输入才有焦点路径。
+- **不接真实指针**：隔离窗口 `ignoresMouseEvents`，用户指针误入虚拟屏也点不到它；注入事件不受影响。
+- **观察画面**：看证据目录里的逐步截图；需要实时看时设 `NORMA_E2E_VISIBLE=1`。
 
 ### 能测到 vs 不能测到
 
@@ -77,9 +89,9 @@ bash scripts/desktop-e2e.sh workspace-lifecycle --repeat 5
 | Browser / 文件预览 WebView 内的点击、输入与视频播放 | 能（真实指针） | 设 `NORMA_E2E_INPUT=ns` 后能（见下） |
 | 系统菜单栏、系统对话框 | 能 | 不能 |
 | 「真实系统键鼠路径」本身 | 能 | 不能（注入在 App 内） |
-| 窗口完全被挡时的画面刷新 | 依赖前台 | 驱动会先激活窗口；仍依赖可见重绘 |
+| 窗口完全被挡时的画面刷新 | 依赖前台 | 窗口在虚拟显示器上不被遮挡，持续重绘 |
 
-一句话：GPUI 画出来的交互，现在都能测且不用授权；系统层和原生嵌入视图（尤其 Browser）仍要 Computer Use 或旧路径。窗口被完全遮挡时 GPUI 会停止重绘，驱动在输入前会激活隔离窗口。
+一句话：GPUI 画出来的交互，现在都能测且不用授权；系统层和原生嵌入视图（尤其 Browser）仍要 Computer Use 或旧路径。窗口被完全遮挡时 GPUI 会停止重绘，所以隔离窗口放在没有其他窗口的虚拟显示器上，而不是另一个 Space 或用户屏幕的背后。
 
 ## 场景按模块放
 

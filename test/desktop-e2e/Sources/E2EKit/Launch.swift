@@ -1,10 +1,35 @@
 import AppKit
 import Foundation
+import VirtualDisplay
 
 /// Keep the Unix socket below macOS's sun_path limit even in a deep worktree.
 func isolatedSocketPath(identifier: String) -> String {
     let safe = identifier.filter { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-") }
     return "/tmp/norma-e2e-\(safe.prefix(40)).sock"
+}
+
+/// 隔离窗口所在的私有虚拟显示器。驱动进程内只建一次，进程退出时系统回收。
+/// `NORMA_E2E_FOREGROUND=1`、`NORMA_E2E_VISIBLE=1` 或 `NORMA_E2E_VIRTUAL_DISPLAY=0` 时不创建。
+@MainActor
+private var virtualDisplayID: UInt32?
+
+@MainActor
+func isolatedDisplayID() -> UInt32? {
+    let env = ProcessInfo.processInfo.environment
+    if env["NORMA_E2E_FOREGROUND"] == "1" || env["NORMA_E2E_VISIBLE"] == "1" || env["NORMA_E2E_VIRTUAL_DISPLAY"] == "0" {
+        return nil
+    }
+    if let virtualDisplayID { return virtualDisplayID }
+    let id = NormaE2ECreateVirtualDisplay(1440, 900)
+    guard id != 0 else {
+        print("虚拟显示器不可用，隔离窗口改为停靠在屏幕角落")
+        return nil
+    }
+    // 屏幕列表需要片刻才会出现新显示器。
+    RunLoop.main.run(until: Date().addingTimeInterval(1.0))
+    virtualDisplayID = id
+    print("隔离窗口使用虚拟显示器 \(id)")
+    return id
 }
 
 @MainActor
@@ -52,6 +77,9 @@ public final class Session {
         var environment = ProcessInfo.processInfo.environment
         environment["NORMA_TEST_DATA_ROOT"] = dataRoot.path
         environment["NORMA_SOCKET"] = isolatedSocketPath(identifier: UUID().uuidString)
+        if let display = isolatedDisplayID() {
+            environment["NORMA_E2E_DISPLAY_ID"] = String(display)
+        }
         let channel = ControlChannel.make()
         environment.merge(channel.environment) { _, new in new }
         process.environment = environment
