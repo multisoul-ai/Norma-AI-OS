@@ -76,6 +76,25 @@ bash scripts/desktop-e2e.sh workspace-lifecycle --repeat 5
 - **不接真实指针**：隔离窗口 `ignoresMouseEvents`，用户指针误入虚拟屏也点不到它；注入事件不受影响。
 - **观察画面**：看证据目录里的逐步截图；需要实时看时设 `NORMA_E2E_VISIBLE=1`。
 
+### 关闭后台模式：人工观察与验收
+
+需要人亲眼看着窗口操作（例如人工验收、排查动效）时，任何人都可以自己用环境变量关掉后台模式，不需要 Agent 代为启动：
+
+```bash
+cargo build -p app   # 先确保 target/debug/norma-os 是最新 debug 构建
+
+# 窗口出现在自己的屏幕上实时观看；仍不抢前台和键鼠（推荐）
+NORMA_E2E_VISIBLE=1 bash scripts/desktop-e2e.sh canvas-drawers
+
+# 完全恢复旧行为：每步把 Norma 激活到前台，会抢焦点，运行期间不要操作电脑
+NORMA_E2E_FOREGROUND=1 bash scripts/desktop-e2e.sh canvas-drawers
+
+# 只关掉虚拟显示器：窗口停靠在当前屏幕右下角外，只留 4pt 在屏内
+NORMA_E2E_VIRTUAL_DISPLAY=0 bash scripts/desktop-e2e.sh canvas-drawers
+```
+
+`VISIBLE` 与 `FOREGROUND` 都不会创建虚拟显示器。只看结果不看过程时，直接打开证据目录 `artifacts/desktop-workspace-e2e/<时间戳>/` 里的逐步截图与 `report.json`。
+
 ### 能测到 vs 不能测到
 
 | 验收对象 | 之前 | 现在 |
