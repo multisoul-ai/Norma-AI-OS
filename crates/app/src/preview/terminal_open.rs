@@ -88,7 +88,12 @@ impl MultisoulApp {
                     self.open_workbench_file_in_host(area, rel, hit.line.map(|l| l as usize), cx)
                 });
                 if !opened {
-                    open_path_in_system_app(hit.path);
+                    // 右抽屉优先：工作台不可用时退到抽屉预览标签，最后才交给系统应用。
+                    if self.can_create_preview() {
+                        self.open_resolved_terminal_preview(hit.path, window, cx);
+                    } else {
+                        open_path_in_system_app(hit.path);
+                    }
                 }
             }
             TerminalPathRoute::Directory => {

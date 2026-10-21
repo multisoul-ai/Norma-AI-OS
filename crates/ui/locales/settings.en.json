@@ -192,5 +192,7 @@
   "settings.auto_save": "Changes save automatically",
   "settings.directory_background": "Directory background",
   "settings.built_in": "Built-in",
-  "settings.your_wallpapers": "Your wallpapers"
+  "settings.your_wallpapers": "Your wallpapers",
+  "settings.path_convention_title": "File path output convention",
+  "settings.path_convention_hint": "Asks Norma-launched agents to write file paths in a consistent format so paths in replies open in the right-hand file panel. Applies to agents started afterwards."
 }

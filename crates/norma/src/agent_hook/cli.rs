@@ -4,7 +4,7 @@ use super::{
 };
 use clap::{Parser, Subcommand};
 use serde_json::Value;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::path::PathBuf;
 
 #[derive(Debug, Parser)]
@@ -92,7 +92,26 @@ fn forward_from_stdin(source: HookSource, request_approval: bool) -> super::Hook
         }
         return super::HookForwardOutcome::Posted;
     }
-    forward_hook(source, raw_json, hook_forward_env_from_process())
+    let env = hook_forward_env_from_process();
+    let mut claim = super::session_claim::claim;
+    if let Some(output) = super::session_context_output(
+        source,
+        &raw_json,
+        env.is_some() && super::path_convention_enabled_from_env(),
+        &mut claim,
+    ) {
+        // 写 stdout 失败（Agent 已关管道）不能 panic：事件转发仍要继续，并撤销“已注入”标记。
+        let mut stdout = std::io::stdout().lock();
+        if writeln!(stdout, "{output}")
+            .and_then(|()| stdout.flush())
+            .is_err()
+        {
+            if let Some(id) = raw_json.get("session_id").and_then(Value::as_str) {
+                super::session_claim::release(id);
+            }
+        }
+    }
+    forward_hook(source, raw_json, env)
 }
 
 fn parse_source_arg(value: &str) -> Result<HookSource, String> {

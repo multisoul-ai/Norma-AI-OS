@@ -192,5 +192,7 @@
   "settings.auto_save": "更改自动保存",
   "settings.directory_background": "目录背景",
   "settings.built_in": "内置壁纸",
-  "settings.your_wallpapers": "你的壁纸"
+  "settings.your_wallpapers": "你的壁纸",
+  "settings.path_convention_title": "文件路径输出约定",
+  "settings.path_convention_hint": "让 Norma 启动的智能体用统一格式输出文件路径，回复里的路径即可在右侧文件栏点击打开。仅对之后新启动的智能体生效。"
 }

@@ -29,6 +29,8 @@ pub(crate) struct OrchestrationSettingsState {
     pub(super) pending_uninstall: Option<OrchestrationProvider>,
     pub(super) operation_error: Option<(OrchestrationProvider, ui::i18n::LocalizedText)>,
     refresh_generation: u64,
+    pub(super) path_convention_enabled: bool,
+    pub(super) settings_store: Option<storage::SettingsStore>,
 }
 
 impl Default for OrchestrationSettingsState {
@@ -43,11 +45,26 @@ impl Default for OrchestrationSettingsState {
             pending_uninstall: None,
             operation_error: None,
             refresh_generation: 0,
+            path_convention_enabled: true,
+            settings_store: None,
         }
     }
 }
 
 impl OrchestrationSettingsState {
+    /// 启动时带上持久化的路径约定开关，之后的修改写回同一个 SettingsStore。
+    pub(crate) fn with_settings_store(store: storage::SettingsStore) -> Self {
+        Self {
+            path_convention_enabled: super::path_convention::load_path_convention(&store),
+            settings_store: Some(store),
+            ..Self::default()
+        }
+    }
+
+    pub(crate) fn path_convention_enabled(&self) -> bool {
+        self.path_convention_enabled
+    }
+
     pub(crate) fn integration(&self, provider: OrchestrationProvider) -> ProviderIntegration {
         self.integrations
             .iter()

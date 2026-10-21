@@ -283,3 +283,129 @@ fn test_preview_path_entry_returns_strong_code_paths_with_suffix() {
         "裸文件名属于待验证候选，不得经强候选入口返回"
     );
 }
+
+/// 约定格式：反引号内的路径允许含空格，整段作为一个强候选；两侧反引号不进入区间。
+///
+/// 数据构造：行文本 = "see `docs/my notes/a b.md:3` ok"
+///   列索引：s0 e1 e2 空3 `4；路径 "docs/my notes/a b.md:3" 共 22 字符，占 5..27，右反引号在 27
+///
+/// 预期结果：恰好 1 个区间 (5,27)，path = "docs/my notes/a b.md"，line = 3，Strong；
+///   点击空格右侧的 "notes" 列（列 12）同样命中该路径。
+#[test]
+fn test_backtick_span_with_spaces_is_one_strong_path() {
+    let mut grid = TerminalGrid::new(60, 4);
+    grid.advance(b"see `docs/my notes/a b.md:3` ok");
+    let snapshot = grid.snapshot();
+    let spans = snapshot.path_ref_spans_for_row(0);
+    assert_eq!(spans.len(), 1, "含空格路径应只产生一个区间，实际 {spans:?}");
+    assert_eq!((spans[0].start, spans[0].end), (5, 27), "区间应排除反引号");
+    assert_eq!(spans[0].path_ref.path, "docs/my notes/a b.md");
+    assert_eq!(spans[0].path_ref.line, Some(3));
+    assert_eq!(spans[0].path_ref.tier, PathTier::Strong);
+    let hit = snapshot.path_ref_at(0, 12).expect("空格右侧的列也应命中");
+    assert_eq!(
+        hit.path, "docs/my notes/a b.md",
+        "点击路径中段应得到完整路径"
+    );
+
+    let mut prose = TerminalGrid::new(60, 4);
+    prose.advance(b"run `cargo test` then `git status` now");
+    assert!(
+        prose.snapshot().path_ref_spans_for_row(0).is_empty(),
+        "普通命令反引号不是路径，不应产生区间"
+    );
+}
+
+/// 窄终端把反引号路径软折成两行：两行各有一段下划线区间，点击任一行都得到同一个完整路径。
+///
+/// 数据构造：grid = 20 列；文本 "x `docs/my notes/spaced note.md` ok"。
+///   前缀 "x `" 占 3 格，路径从列 3 起；第一行 20 格装下 "x `docs/my notes/sp"
+///   （3 + 17 个路径字符 "docs/my notes/spa"），其余 "ced note.md` ok" 软折到第二行，路径续段为 "ced note.md"（11 字符）。
+///
+/// 预期结果：
+///   - 第 0 行区间 (3,20)，第 1 行区间 (0,11)，两者 path = "docs/my notes/spaced note.md"，Strong；
+///   - 点击第 1 行列 5 得到完整路径；第 1 行 "ok" 所在列不命中。
+#[test]
+fn test_backtick_path_soft_wrapped_across_rows_is_one_path() {
+    let mut grid = TerminalGrid::new(20, 4);
+    grid.advance(b"x `docs/my notes/spaced note.md` ok");
+    let snapshot = grid.snapshot();
+    let first = snapshot.path_ref_spans_for_row(0);
+    let second = snapshot.path_ref_spans_for_row(1);
+    assert_eq!(first.len(), 1, "第 0 行应有路径首段，实际 {first:?}");
+    assert_eq!((first[0].start, first[0].end), (3, 20), "首段区间");
+    assert_eq!(second.len(), 1, "第 1 行应有路径续段，实际 {second:?}");
+    assert_eq!((second[0].start, second[0].end), (0, 11), "续段区间");
+    for span in [&first[0], &second[0]] {
+        assert_eq!(span.path_ref.path, "docs/my notes/spaced note.md");
+        assert_eq!(span.path_ref.tier, PathTier::Strong);
+    }
+    let hit = snapshot
+        .path_ref_at(1, 5)
+        .expect("续段内点击应命中完整路径");
+    assert_eq!(
+        hit.path, "docs/my notes/spaced note.md",
+        "续段点击得到完整路径"
+    );
+    assert!(
+        snapshot.path_ref_at(1, 14).is_none(),
+        "路径之后的文字不应命中"
+    );
+}
+
+/// 带空格的反引号命令不是路径：不得吞掉其中原本可点的路径 token，也不得整串当路径。
+///
+/// 数据构造：行 = "run `git diff src/a.rs` and `cargo test -p app tests/foo.rs` ok"。
+///   两段反引号内容含空格且末段是 "目录/文件.扩展名"，旧实现会整串判为 Strong 路径。
+///   正向对照：同一行再加 `docs/my notes/a b.md`，这段含空格的真路径仍应识别。
+///
+/// 预期结果：
+///   - 命令内的 "src/a.rs"、"tests/foo.rs" 仍作为普通 token 识别（各自独立区间，path 不含命令词）；
+///   - 没有任何区间的 path 以 "git " 或 "cargo " 开头；
+///   - 真路径 "docs/my notes/a b.md" 仍被识别。
+#[test]
+fn test_backtick_command_with_spaces_is_not_treated_as_path() {
+    let mut grid = TerminalGrid::new(120, 4);
+    grid.advance(
+        b"run `git diff src/a.rs` and `cargo test -p app tests/foo.rs` ok `docs/my notes/a b.md`",
+    );
+    let spans = grid.snapshot().path_ref_spans_for_row(0);
+    let paths: Vec<&str> = spans.iter().map(|s| s.path_ref.path.as_str()).collect();
+    assert!(
+        paths.contains(&"src/a.rs"),
+        "命令里的 src/a.rs 仍应可点，实际 {paths:?}"
+    );
+    assert!(
+        paths.contains(&"tests/foo.rs"),
+        "tests/foo.rs 仍应可点，实际 {paths:?}"
+    );
+    assert!(
+        !paths
+            .iter()
+            .any(|p| p.starts_with("git ") || p.starts_with("cargo ")),
+        "命令整串不得成为路径，实际 {paths:?}"
+    );
+    assert!(
+        paths.contains(&"docs/my notes/a b.md"),
+        "真实的含空格路径仍应识别，实际 {paths:?}"
+    );
+}
+
+/// 奇数个反引号不得 panic，也不得产生路径。
+///
+/// 数据构造：行 = "stray ` backtick docs/x.md and `unterminated"。
+/// 预期结果：不 panic；docs/x.md 作为普通 token 仍被识别；没有含反引号的路径。
+#[test]
+fn test_unbalanced_backticks_do_not_panic_or_leak_into_paths() {
+    let mut grid = TerminalGrid::new(60, 4);
+    grid.advance(b"stray ` backtick docs/x.md and `unterminated");
+    let spans = grid.snapshot().path_ref_spans_for_row(0);
+    assert!(
+        spans.iter().all(|s| !s.path_ref.path.contains('`')),
+        "路径不应含反引号：{spans:?}"
+    );
+    assert!(
+        spans.iter().any(|s| s.path_ref.path == "docs/x.md"),
+        "普通 token 仍识别：{spans:?}"
+    );
+}

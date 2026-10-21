@@ -129,6 +129,13 @@ impl GridSnapshot {
             index = token_end;
         }
         spans.extend(file_hyperlink_spans(cells));
+        let quoted = super::path_backtick::spans_for_row(&self.rows, row);
+        spans.retain(|span| {
+            !quoted
+                .iter()
+                .any(|q| span.start < q.end && q.start < span.end)
+        });
+        spans.extend(quoted);
         spans.sort_by_key(|span| span.start);
         spans
     }
