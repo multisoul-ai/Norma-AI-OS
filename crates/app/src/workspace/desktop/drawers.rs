@@ -43,6 +43,10 @@ mod new_card_reflow_tests;
 mod card_layout_adapt_tests;
 
 #[cfg(test)]
+#[path = "../../../tests/unit/desktop_cmd_d_delete_tests.rs"]
+mod cmd_d_delete_tests;
+
+#[cfg(test)]
 #[path = "../../../tests/unit/desktop_orb_motion_tests.rs"]
 mod orb_motion_tests;
 

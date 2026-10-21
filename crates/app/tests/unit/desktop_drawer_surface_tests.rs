@@ -310,10 +310,10 @@ fn embedded_drawer_presentation_keeps_saved_nodes_and_skips_hidden_cards() {
     );
 }
 
-/// 场景：已保存的宽画布节点在桌面项目中切换双侧抽屉并返回。
+/// 场景：已保存的宽画布节点在桌面项目中切换双侧抽屉并返回；之后在窄画布删除非 master。
 /// 数据构造：1280px 宿主、一个真实项目，两个旧终端节点分别位于 x=20 和 x=850。
-/// 执行过程：挂接项目后同步 472px 窄画布，再同步 945px 宽画布。
-/// 预期结果：窄画布展示层包含旧节点；两次切换均不修改文档快照或启动新 PTY。
+/// 执行过程：挂接项目后同步 472px 窄画布，再同步 945px 宽画布；回到窄画布后以第二张为 master 并删除第一张。
+/// 预期结果：抽屉切换只改展示层，不改文档快照、不新建 PTY。删除则重排保存坐标到稳定区 master，窄画布展示仍按抽屉宽度适配。
 #[test]
 fn embedded_drawer_resize_changes_only_presentation_not_saved_canvas() {
     use canvas::{CanvasNodeKind, CanvasRect, TermSpec, Vec2};
@@ -457,10 +457,24 @@ fn embedded_drawer_resize_changes_only_presentation_not_saved_canvas() {
     });
     project.read_with(cx, |app, _| {
         assert_eq!(app.runtime.document.nodes().len(), 1, "只删除目标卡片");
-        assert_eq!(
-            app.runtime.document.nodes()[0].bounds,
-            saved.nodes[1].bounds,
-            "关闭窄画布卡片不得重排另一张卡片的保存坐标"
+        let zoom = app.runtime.document.viewport.zoom;
+        let saved_after = app.runtime.document.nodes()[0].bounds;
+        assert_ne!(
+            saved_after, saved.nodes[1].bounds,
+            "删除非 master 后必须重排保存坐标，不能把被删卡片旁边的旧格子留着"
+        );
+        assert!(
+            saved_after.size.x * zoom > 600.0,
+            "重排必须写稳定区的 master 宽度，不能把 472px 抽屉画布写入保存坐标：got {}",
+            saved_after.size.x * zoom
+        );
+        let shown = app
+            .presented_node_bounds(app.runtime.document.nodes()[0].id)
+            .expect("窄画布仍须展示剩余卡片");
+        assert!(
+            shown.size.x * zoom <= 480.0,
+            "窄画布展示仍按抽屉宽度适配，不得把稳定区宽度直接画出来：shown={}",
+            shown.size.x * zoom
         );
         assert_eq!(
             app.desktop_presentation_bounds.len(),

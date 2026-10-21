@@ -1,6 +1,9 @@
-use super::*;
 use canvas::{CanvasNodeKind, CanvasRect, TermSpec, Vec2};
 use gpui::{px, size, TestAppContext};
+
+#[path = "../support/desktop_embedded_project.rs"]
+mod embedded_project;
+use embedded_project::{open_wide_embedded_project, place_tiled_terminals};
 
 /// 场景：宽画布已排好三张卡片后，用户打开抽屉把中央画布收窄到 472px。
 ///
@@ -10,51 +13,10 @@ use gpui::{px, size, TestAppContext};
 #[test]
 fn drawer_narrow_adapts_presentation_without_new_cards() {
     let temp = tempfile::tempdir().expect("应创建隔离目录");
-    let project_root = temp.path().join("project");
-    std::fs::create_dir(&project_root).expect("应创建项目目录");
-    let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
-    let store = storage::AppStore::initialize(&paths).expect("应初始化存储");
-    let catalog = store.desktop_workspace_store();
-    let workspace = catalog.create("Drawer Adapt").expect("应创建工作空间");
-    let area = catalog
-        .add_project(&workspace.id, &project_root)
-        .expect("应添加项目");
     let mut test = TestAppContext::single();
-    let mut host = None;
-    let (_, cx) = test.add_window_view(|window, cx| {
-        let entity = cx.new(|cx| MultisoulApp::new_with_database_context(cx, paths, store));
-        host = Some(entity.clone());
-        ui::component::Root::new(entity, window, cx)
-    });
-    let host = host.expect("应创建宿主");
-    cx.simulate_resize(size(px(1280.0), px(800.0)));
-    host.update_in(cx, |app, window, cx| {
-        app.motion.reduce_motion = true;
-        app.open_desktop_workspace(workspace.id, window, cx);
-        app.finish_desktop_zoom(window, cx);
-    });
-    cx.run_until_parked();
-    host.update_in(cx, |app, window, cx| {
-        app.expand_desktop_project_area(area.id, window, cx);
-        app.finish_desktop_zoom(window, cx);
-    });
-    let project = host.read_with(cx, |app, _| {
-        app.expanded_desktop_project().expect("项目应已展开")
-    });
+    let (project, cx) = open_wide_embedded_project(&mut test, temp.path(), "Drawer Adapt");
     project.update_in(cx, |app, window, _| {
-        app.sync_desktop_embedded_canvas_size(Vec2::new(945.0, 710.0), window);
-        let viewport = app.visible_canvas_rect(window);
-        let zoom = app.runtime.document.viewport.zoom;
-        let mut ids = Vec::new();
-        for _ in 0..3 {
-            let bounds = app.next_tiled_node_bounds_for_area(viewport, zoom);
-            let id = app
-                .runtime
-                .document
-                .add_node(CanvasNodeKind::Term(TermSpec), bounds);
-            app.apply_layout_for_new_node_for_area(id, viewport, zoom);
-            ids.push(id);
-        }
+        let ids = place_tiled_terminals(app, window, 3);
         let wide_first = app.presented_node_bounds(ids[0]).expect("首张应展示");
         let wide_second = app.presented_node_bounds(ids[1]).expect("第二张应展示");
         assert!(
@@ -94,50 +56,11 @@ fn drawer_narrow_adapts_presentation_without_new_cards() {
 #[test]
 fn window_resize_reflows_saved_embedded_cards() {
     let temp = tempfile::tempdir().expect("应创建隔离目录");
-    let project_root = temp.path().join("project");
-    std::fs::create_dir(&project_root).expect("应创建项目目录");
-    let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
-    let store = storage::AppStore::initialize(&paths).expect("应初始化存储");
-    let catalog = store.desktop_workspace_store();
-    let workspace = catalog.create("Window Reflow").expect("应创建工作空间");
-    let area = catalog
-        .add_project(&workspace.id, &project_root)
-        .expect("应添加项目");
     let mut test = TestAppContext::single();
-    let mut host = None;
-    let (_, cx) = test.add_window_view(|window, cx| {
-        let entity = cx.new(|cx| MultisoulApp::new_with_database_context(cx, paths, store));
-        host = Some(entity.clone());
-        ui::component::Root::new(entity, window, cx)
-    });
-    let host = host.expect("应创建宿主");
-    cx.simulate_resize(size(px(1280.0), px(800.0)));
-    host.update_in(cx, |app, window, cx| {
-        app.motion.reduce_motion = true;
-        app.open_desktop_workspace(workspace.id, window, cx);
-        app.finish_desktop_zoom(window, cx);
-    });
-    cx.run_until_parked();
-    host.update_in(cx, |app, window, cx| {
-        app.expand_desktop_project_area(area.id, window, cx);
-        app.finish_desktop_zoom(window, cx);
-    });
-    let project = host.read_with(cx, |app, _| {
-        app.expanded_desktop_project().expect("项目应已展开")
-    });
+    let (project, cx) = open_wide_embedded_project(&mut test, temp.path(), "Window Reflow");
     let mut before_width = 0.0;
     project.update_in(cx, |app, window, _| {
-        app.sync_desktop_embedded_canvas_size(Vec2::new(945.0, 710.0), window);
-        let viewport = app.visible_canvas_rect(window);
-        let zoom = app.runtime.document.viewport.zoom;
-        for _ in 0..2 {
-            let bounds = app.next_tiled_node_bounds_for_area(viewport, zoom);
-            let id = app
-                .runtime
-                .document
-                .add_node(CanvasNodeKind::Term(TermSpec), bounds);
-            app.apply_layout_for_new_node_for_area(id, viewport, zoom);
-        }
+        place_tiled_terminals(app, window, 2);
         before_width = app
             .runtime
             .document
@@ -198,37 +121,8 @@ fn window_resize_reflows_saved_embedded_cards() {
 #[test]
 fn first_desktop_sync_does_not_reflow_restored_bounds() {
     let temp = tempfile::tempdir().expect("应创建隔离目录");
-    let project_root = temp.path().join("project");
-    std::fs::create_dir(&project_root).expect("应创建项目目录");
-    let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
-    let store = storage::AppStore::initialize(&paths).expect("应初始化存储");
-    let catalog = store.desktop_workspace_store();
-    let workspace = catalog.create("First Sync").expect("应创建工作空间");
-    let area = catalog
-        .add_project(&workspace.id, &project_root)
-        .expect("应添加项目");
     let mut test = TestAppContext::single();
-    let mut host = None;
-    let (_, cx) = test.add_window_view(|window, cx| {
-        let entity = cx.new(|cx| MultisoulApp::new_with_database_context(cx, paths, store));
-        host = Some(entity.clone());
-        ui::component::Root::new(entity, window, cx)
-    });
-    let host = host.expect("应创建宿主");
-    cx.simulate_resize(size(px(1280.0), px(800.0)));
-    host.update_in(cx, |app, window, cx| {
-        app.motion.reduce_motion = true;
-        app.open_desktop_workspace(workspace.id, window, cx);
-        app.finish_desktop_zoom(window, cx);
-    });
-    cx.run_until_parked();
-    host.update_in(cx, |app, window, cx| {
-        app.expand_desktop_project_area(area.id, window, cx);
-        app.finish_desktop_zoom(window, cx);
-    });
-    let project = host.read_with(cx, |app, _| {
-        app.expanded_desktop_project().expect("项目应已展开")
-    });
+    let (project, cx) = open_wide_embedded_project(&mut test, temp.path(), "First Sync");
     project.update_in(cx, |app, window, _| {
         app.desktop_embedded_reflow_size = None;
         app.desktop_embedded_canvas_size = None;
@@ -260,52 +154,12 @@ fn desktop_master_reflow_uses_stable_area_then_presentation() {
     use crate::canvas::master_layout::enter_master_layout_for_area;
 
     let temp = tempfile::tempdir().expect("应创建隔离目录");
-    let project_root = temp.path().join("project");
-    std::fs::create_dir(&project_root).expect("应创建项目目录");
-    let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
-    let store = storage::AppStore::initialize(&paths).expect("应初始化存储");
-    let catalog = store.desktop_workspace_store();
-    let workspace = catalog.create("Master Stable").expect("应创建工作空间");
-    let area = catalog
-        .add_project(&workspace.id, &project_root)
-        .expect("应添加项目");
     let mut test = TestAppContext::single();
-    let mut host = None;
-    let (_, cx) = test.add_window_view(|window, cx| {
-        let entity = cx.new(|cx| MultisoulApp::new_with_database_context(cx, paths, store));
-        host = Some(entity.clone());
-        ui::component::Root::new(entity, window, cx)
-    });
-    let host = host.expect("应创建宿主");
-    cx.simulate_resize(size(px(1280.0), px(800.0)));
-    host.update_in(cx, |app, window, cx| {
-        app.motion.reduce_motion = true;
-        app.open_desktop_workspace(workspace.id, window, cx);
-        app.finish_desktop_zoom(window, cx);
-    });
-    cx.run_until_parked();
-    host.update_in(cx, |app, window, cx| {
-        app.expand_desktop_project_area(area.id, window, cx);
-        app.finish_desktop_zoom(window, cx);
-    });
-    let project = host.read_with(cx, |app, _| {
-        app.expanded_desktop_project().expect("项目应已展开")
-    });
+    let (project, cx) = open_wide_embedded_project(&mut test, temp.path(), "Master Stable");
     project.update_in(cx, |app, window, _| {
-        app.sync_desktop_embedded_canvas_size(Vec2::new(945.0, 710.0), window);
-        let viewport = app.visible_canvas_rect(window);
-        let zoom = app.runtime.document.viewport.zoom;
-        let mut ids = Vec::new();
-        for _ in 0..2 {
-            let bounds = app.next_tiled_node_bounds_for_area(viewport, zoom);
-            let id = app
-                .runtime
-                .document
-                .add_node(CanvasNodeKind::Term(TermSpec), bounds);
-            app.apply_layout_for_new_node_for_area(id, viewport, zoom);
-            ids.push(id);
-        }
+        let ids = place_tiled_terminals(app, window, 2);
         let layout_area = app.visible_canvas_rect(window);
+        let zoom = app.runtime.document.viewport.zoom;
         assert!(
             enter_master_layout_for_area(
                 &mut app.master_layout,
@@ -360,51 +214,10 @@ fn desktop_master_reflow_uses_stable_area_then_presentation() {
 #[test]
 fn desktop_card_swap_exchanges_grid_slots() {
     let temp = tempfile::tempdir().expect("应创建隔离目录");
-    let project_root = temp.path().join("project");
-    std::fs::create_dir(&project_root).expect("应创建项目目录");
-    let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
-    let store = storage::AppStore::initialize(&paths).expect("应初始化存储");
-    let catalog = store.desktop_workspace_store();
-    let workspace = catalog.create("Card Swap").expect("应创建工作空间");
-    let area = catalog
-        .add_project(&workspace.id, &project_root)
-        .expect("应添加项目");
     let mut test = TestAppContext::single();
-    let mut host = None;
-    let (_, cx) = test.add_window_view(|window, cx| {
-        let entity = cx.new(|cx| MultisoulApp::new_with_database_context(cx, paths, store));
-        host = Some(entity.clone());
-        ui::component::Root::new(entity, window, cx)
-    });
-    let host = host.expect("应创建宿主");
-    cx.simulate_resize(size(px(1280.0), px(800.0)));
-    host.update_in(cx, |app, window, cx| {
-        app.motion.reduce_motion = true;
-        app.open_desktop_workspace(workspace.id, window, cx);
-        app.finish_desktop_zoom(window, cx);
-    });
-    cx.run_until_parked();
-    host.update_in(cx, |app, window, cx| {
-        app.expand_desktop_project_area(area.id, window, cx);
-        app.finish_desktop_zoom(window, cx);
-    });
-    let project = host.read_with(cx, |app, _| {
-        app.expanded_desktop_project().expect("项目应已展开")
-    });
+    let (project, cx) = open_wide_embedded_project(&mut test, temp.path(), "Card Swap");
     project.update_in(cx, |app, window, _| {
-        app.sync_desktop_embedded_canvas_size(Vec2::new(945.0, 710.0), window);
-        let viewport = app.visible_canvas_rect(window);
-        let zoom = app.runtime.document.viewport.zoom;
-        let mut ids = Vec::new();
-        for _ in 0..2 {
-            let bounds = app.next_tiled_node_bounds_for_area(viewport, zoom);
-            let id = app
-                .runtime
-                .document
-                .add_node(CanvasNodeKind::Term(TermSpec), bounds);
-            app.apply_layout_for_new_node_for_area(id, viewport, zoom);
-            ids.push(id);
-        }
+        let ids = place_tiled_terminals(app, window, 2);
         let before_a = app.runtime.document.node(ids[0]).expect("A 应存在").bounds;
         let before_b = app.runtime.document.node(ids[1]).expect("B 应存在").bounds;
         assert!(
@@ -432,6 +245,233 @@ fn desktop_card_swap_exchanges_grid_slots() {
             app.presented_node_bounds(ids[1]).expect("B 应展示"),
             after_b,
             "宽画布下展示应跟随交换后的保存格子"
+        );
+    });
+}
+
+/// 场景：嵌入项目宽画布上删掉第 1 张卡片后，后面的卡片应补进空出的格子。
+///
+/// 数据构造：945px 画布、默认 3 列。2 张与 3 张都是 1 行 × 3 轨，格子尺寸相同，
+/// 因此删第 1 张后，原第 2、3 张的保存坐标应等于删前第 1、2 格。
+/// 执行过程：`remove_node_and_reflow` 删除第 1 张。
+/// 预期结果：剩下两张落到第 1、2 格；第 3 格不再被占用；被删卡片不存在。
+#[test]
+fn desktop_delete_first_card_fills_leading_grid_slots() {
+    let temp = tempfile::tempdir().expect("应创建隔离目录");
+    let mut test = TestAppContext::single();
+    let (project, cx) = open_wide_embedded_project(&mut test, temp.path(), "Delete Reflow");
+    project.update_in(cx, |app, window, _| {
+        let ids = place_tiled_terminals(app, window, 3);
+        let before: Vec<_> = ids
+            .iter()
+            .map(|id| app.runtime.document.node(*id).expect("卡片应存在").bounds)
+            .collect();
+        assert!(
+            before[1].origin.x > before[0].origin.x && before[2].origin.x > before[1].origin.x,
+            "夹具必须是三张从左到右并排"
+        );
+
+        assert!(
+            app.remove_node_and_reflow(ids[0], window),
+            "应删除第 1 张卡片"
+        );
+
+        assert!(
+            app.runtime.document.node(ids[0]).is_none(),
+            "第 1 张卡片必须从文档中消失"
+        );
+        assert_eq!(
+            app.runtime
+                .document
+                .node(ids[1])
+                .expect("第 2 张应留下")
+                .bounds,
+            before[0],
+            "第 2 张应补到原先第 1 格"
+        );
+        assert_eq!(
+            app.runtime
+                .document
+                .node(ids[2])
+                .expect("第 3 张应留下")
+                .bounds,
+            before[1],
+            "第 3 张应补到原先第 2 格"
+        );
+        assert_ne!(
+            app.runtime
+                .document
+                .node(ids[2])
+                .expect("第 3 张应留下")
+                .bounds,
+            before[2],
+            "第 3 张不得留在被删卡片空出的原位"
+        );
+        assert_eq!(
+            app.presented_node_bounds(ids[1]).expect("第 2 张应展示"),
+            before[0],
+            "宽画布展示应跟随补位后的保存格子"
+        );
+    });
+}
+
+/// 场景：嵌入项目的主次布局里删掉 master，应退出主次并按平铺重排剩余卡片。
+///
+/// 数据构造：三张并排终端后让第 1 张成为 master。平铺格子按 3 轨计算，
+/// 删 master 后剩余两张应回到删前平铺的第 1、2 格，而不是停在主次分区。
+/// 执行过程：进入 master 后 `remove_node_and_reflow` 删除 master。
+/// 预期结果：master 状态关闭；剩下两张等于原平铺第 1、2 格。
+#[test]
+fn desktop_delete_master_falls_back_to_tiled_reflow() {
+    use crate::canvas::master_layout::enter_master_layout_for_area;
+
+    let temp = tempfile::tempdir().expect("应创建隔离目录");
+    let mut test = TestAppContext::single();
+    let (project, cx) = open_wide_embedded_project(&mut test, temp.path(), "Delete Master");
+    project.update_in(cx, |app, window, _| {
+        let ids = place_tiled_terminals(app, window, 3);
+        let tiled: Vec<_> = ids
+            .iter()
+            .map(|id| app.runtime.document.node(*id).expect("卡片应存在").bounds)
+            .collect();
+        let viewport = app.visible_canvas_rect(window);
+        let zoom = app.runtime.document.viewport.zoom;
+        assert!(
+            enter_master_layout_for_area(
+                &mut app.master_layout,
+                &mut app.runtime,
+                &mut app.motion,
+                ids[0],
+                viewport,
+                zoom,
+            ),
+            "应进入主次布局"
+        );
+        let master_bounds = app
+            .runtime
+            .document
+            .node(ids[0])
+            .expect("master 应存在")
+            .bounds;
+        assert_ne!(master_bounds, tiled[0], "夹具必须已经离开平铺格子");
+
+        assert!(app.remove_node_and_reflow(ids[0], window), "应删除 master");
+
+        assert!(
+            app.runtime.document.node(ids[0]).is_none(),
+            "被删的 master 不应继续存在"
+        );
+        assert!(!app.master_layout.is_active(), "删除 master 后应退回平铺");
+        assert_eq!(
+            app.runtime
+                .document
+                .node(ids[1])
+                .expect("第 2 张应留下")
+                .bounds,
+            tiled[0],
+            "剩余第一张应回到平铺第 1 格"
+        );
+        assert_eq!(
+            app.runtime
+                .document
+                .node(ids[2])
+                .expect("第 3 张应留下")
+                .bounds,
+            tiled[1],
+            "剩余第二张应回到平铺第 2 格"
+        );
+        assert_ne!(
+            app.runtime
+                .document
+                .node(ids[1])
+                .expect("第 2 张应留下")
+                .bounds,
+            master_bounds,
+            "剩余卡片不得占据被删 master 的主区域"
+        );
+    });
+}
+
+/// 场景：嵌入项目的主次布局里删掉一张非 master 卡片，应保持 master 并重排 detail。
+///
+/// 数据构造：三张终端，master 为第 1 张。主区约占 2/3，右侧 detail 区放不下两列
+/// （最小列宽 320px），两张 detail 纵向平分高度；删掉一张后剩下的 detail 应占满右侧高度。
+/// 执行过程：`remove_node_and_reflow` 删除第 2 张。
+/// 预期结果：master 仍是第 1 张；剩余 detail 变高；被删卡片不在文档也不在原始坐标里。
+#[test]
+fn desktop_delete_non_master_reapplies_master_layout() {
+    use crate::canvas::master_layout::enter_master_layout_for_area;
+
+    let temp = tempfile::tempdir().expect("应创建隔离目录");
+    let mut test = TestAppContext::single();
+    let (project, cx) = open_wide_embedded_project(&mut test, temp.path(), "Delete Detail");
+    project.update_in(cx, |app, window, _| {
+        let ids = place_tiled_terminals(app, window, 3);
+        let viewport = app.visible_canvas_rect(window);
+        let zoom = app.runtime.document.viewport.zoom;
+        assert!(
+            enter_master_layout_for_area(
+                &mut app.master_layout,
+                &mut app.runtime,
+                &mut app.motion,
+                ids[0],
+                viewport,
+                zoom,
+            ),
+            "应进入主次布局"
+        );
+        let detail_before = app
+            .runtime
+            .document
+            .node(ids[2])
+            .expect("第 3 张 detail 应存在")
+            .bounds;
+
+        assert!(
+            app.remove_node_and_reflow(ids[1], window),
+            "应删除非 master 卡片"
+        );
+
+        assert!(
+            app.runtime.document.node(ids[1]).is_none(),
+            "被删的 detail 不应继续存在"
+        );
+        assert_eq!(
+            app.master_layout.master_id(),
+            Some(ids[0]),
+            "删除非 master 后应继续以第 1 张为 master"
+        );
+        let master_after = app
+            .runtime
+            .document
+            .node(ids[0])
+            .expect("master 应留下")
+            .bounds;
+        let detail_after = app
+            .runtime
+            .document
+            .node(ids[2])
+            .expect("剩余 detail 应留下")
+            .bounds;
+        assert!(
+            detail_after.size.y > detail_before.size.y * 1.4,
+            "剩下的 detail 应占满右侧，而不是留在半高格子：before={}, after={}",
+            detail_before.size.y,
+            detail_after.size.y
+        );
+        assert!(
+            master_after.size.x > detail_after.size.x * 1.5,
+            "重排后仍应是主次分区，master 明显宽于 detail：master={}, detail={}",
+            master_after.size.x,
+            detail_after.size.x
+        );
+        assert!(
+            app.master_layout
+                .to_snapshot()
+                .original_bounds
+                .iter()
+                .all(|entry| entry.node_id != ids[1]),
+            "被删卡片不应残留在 master 原始坐标中"
         );
     });
 }
