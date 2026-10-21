@@ -139,8 +139,8 @@ fn common_phrases_and_theme_catalog_are_bounded() {
     let roots = suggestions("/", &themes, &[]);
     assert_eq!(
         roots.len(),
-        14,
-        "根列表平铺全部叶子指令，共 10 + 1 + 1 + 2 = 14 项"
+        15,
+        "根列表平铺全部叶子指令，共 10 + 1 + 1 + 2 + 1 = 15 项"
     );
     assert!(
         roots
@@ -251,5 +251,34 @@ fn add_command_lists_recent_repos_and_falls_back_to_browse() {
             .iter()
             .any(|s| matches!(s.command, Some(DockCommand::AddProject(_)))),
         "根列表不展开 repo，避免淹没其它指令"
+    );
+}
+
+/// 场景：/help 与中英文裸词都只产生一个“打开功能引导”候选。
+///
+/// 数据构造：主题与最近 repo 为空；根列表 = 10 Agent + 1 终端 + 1 浏览文件夹 + 1 帮助 = 13。
+/// 执行过程：查询 `/help`、`/he`、`帮助`、`help`、带多余参数的 `/help me`、根列表。
+/// 预期结果：前四个各只有一个 Help 候选；`/help me` 不执行；根列表含 Help 且排在最后一组。
+#[test]
+fn help_command_opens_feature_guide() {
+    for query in ["/help", "/he", "帮助", "help"] {
+        let found = suggestions(query, &[], &[]);
+        assert_eq!(found.len(), 1, "{query} 只应命中一个候选");
+        assert_eq!(
+            found[0].command,
+            Some(DockCommand::Help),
+            "{query} 应打开功能引导"
+        );
+    }
+    assert!(
+        suggestions("/help me", &[], &[]).is_empty(),
+        "多余参数不能静默执行"
+    );
+    let roots = suggestions("/", &[], &[]);
+    assert_eq!(roots.len(), 13, "10 + 1 + 1 + 1 = 13 项");
+    assert_eq!(
+        roots.last().and_then(|item| item.command.clone()),
+        Some(DockCommand::Help),
+        "帮助排在最后一组"
     );
 }

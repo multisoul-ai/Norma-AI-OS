@@ -190,7 +190,8 @@ impl Render for MultisoulApp {
             root = root.child(voice_inset);
         }
 
-        if self.feature_guide.should_render() {
+        // A project session is a clipped child; its host presents the guide for the whole window.
+        if self.desktop_host.is_none() && self.feature_guide.should_render() {
             root = root.child(self.render_feature_guide(window, cx));
         }
         // A project canvas is transformed and clipped; Settings belongs to the window.

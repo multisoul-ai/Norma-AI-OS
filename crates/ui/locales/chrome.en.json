@@ -1,5 +1,5 @@
 {
-  "chrome.talk_to_norma_or_type_for_commands": "Talk to Norma, or type / for commands",
+  "chrome.talk_to_norma_or_type_for_commands": "Talk to Norma, / for commands, /help",
   "chrome.finish_or_cancel_the_open_file_picker_first": "Finish or cancel the open file picker first",
   "chrome.could_not_create_the_card_check_the_runtime_environment_and_try": "Could not create the card. Check the runtime environment and try again.",
   "chrome.layout": "Layout",
@@ -63,6 +63,8 @@
   "chrome.command.browser": "New Browser",
   "chrome.command.preview": "Preview File",
   "chrome.command.theme": "Change Theme",
+  "chrome.command.help": "Help",
+  "chrome.command.help_detail": "Open the feature guide and shortcuts",
   "chrome.command.browse_project": "Browse for Folder…",
   "chrome.command.browse_project_detail": "Choose another folder as a project in Finder",
   "chrome.ego_task_active": "The Ego task is still active. Finish the task or wait for the Agent before closing this card.",

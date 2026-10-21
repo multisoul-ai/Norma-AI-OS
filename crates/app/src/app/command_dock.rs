@@ -6,6 +6,7 @@ mod view;
 pub(crate) use view::DOCK_RADIUS;
 
 use super::{AppScreen, MultisoulApp, NewBrowser, NewTerminal};
+use crate::OpenFeatureGuide;
 use gpui::{App, AppContext, Context, Entity, Focusable, ScrollHandle, Subscription, Window};
 use runtime::command::{suggestions, CommandProject, CommandSuggestion, CommandTheme, DockCommand};
 use ui::{
@@ -258,6 +259,19 @@ impl MultisoulApp {
             return;
         }
         match command {
+            DockCommand::Help => {
+                self.set_command_query(String::new(), false, window, cx);
+                // A desktop project canvas is a clipped child of the host; the guide must be
+                // presented by the host so it covers the whole window instead of the canvas.
+                if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
+                    host.update(cx, |host, cx| {
+                        host.on_open_feature_guide(&OpenFeatureGuide, window, cx)
+                    });
+                } else {
+                    self.on_open_feature_guide(&OpenFeatureGuide, window, cx);
+                }
+                return;
+            }
             DockCommand::AddProject(path) => {
                 self.add_project_from_dock(path, window, cx);
                 self.set_command_query(String::new(), false, window, cx);
@@ -293,7 +307,8 @@ impl MultisoulApp {
             DockCommand::Preview
             | DockCommand::Theme(_)
             | DockCommand::AddProject(_)
-            | DockCommand::BrowseProject => unreachable!(),
+            | DockCommand::BrowseProject
+            | DockCommand::Help => unreachable!(),
         }
         // Desktop Agent creation validates its directory asynchronously. Consume the
         // accepted command now; a second Enter event must not submit it again.

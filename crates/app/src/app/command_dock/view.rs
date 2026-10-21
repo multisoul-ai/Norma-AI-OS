@@ -254,7 +254,7 @@ impl MultisoulApp {
                     },
                     Some(DockCommand::Terminal) => ToolbarIcon::Terminal,
                     Some(DockCommand::Browser) => ToolbarIcon::Browser,
-                    Some(DockCommand::Preview) => ToolbarIcon::Preview,
+                    Some(DockCommand::Preview | DockCommand::Help) => ToolbarIcon::Preview,
                     Some(DockCommand::Theme(_)) => ToolbarIcon::Settings,
                     Some(DockCommand::AddProject(_) | DockCommand::BrowseProject) => {
                         ToolbarIcon::Workspaces
@@ -277,6 +277,9 @@ impl MultisoulApp {
                     }
                     Some(DockCommand::BrowseProject) => {
                         ui::i18n::text("chrome.command.browse_project_detail").to_string()
+                    }
+                    Some(DockCommand::Help) => {
+                        ui::i18n::text("chrome.command.help_detail").to_string()
                     }
                     Some(_) => ui::i18n::text("chrome.create_a_card_in_this_workspace").to_string(),
                     None => ui::i18n::text("chrome.choose_an_action").to_string(),
@@ -433,6 +436,7 @@ fn suggestion_title(item: &runtime::command::CommandSuggestion) -> String {
         Some(DockCommand::Preview) => ui::i18n::text("chrome.command.preview").into(),
         Some(DockCommand::Theme(_) | DockCommand::AddProject(_)) => item.title.clone(),
         Some(DockCommand::BrowseProject) => ui::i18n::text("chrome.command.browse_project").into(),
+        Some(DockCommand::Help) => ui::i18n::text("chrome.command.help").into(),
         None if item.completion.starts_with("/new") => ui::i18n::text("chrome.new_agent").into(),
         None => ui::i18n::text("chrome.command.theme").into(),
     }
@@ -444,6 +448,7 @@ fn group_label(group: CommandGroup) -> &'static str {
         CommandGroup::Terminal => ui::i18n::text("chrome.command.terminal"),
         CommandGroup::Project => ui::i18n::text("shortcuts.add_project"),
         CommandGroup::Theme => ui::i18n::text("chrome.apply_theme"),
+        CommandGroup::Help => ui::i18n::text("chrome.command.help"),
     }
 }
 

@@ -1,5 +1,5 @@
 {
-  "chrome.talk_to_norma_or_type_for_commands": "与 Norma 交流，或输入 / 使用指令",
+  "chrome.talk_to_norma_or_type_for_commands": "与 Norma 交流，/ 指令，/help 帮助",
   "chrome.finish_or_cancel_the_open_file_picker_first": "请先完成或取消已打开的文件选择窗口",
   "chrome.could_not_create_the_card_check_the_runtime_environment_and_try": "创建失败，请检查运行环境后重试",
   "chrome.layout": "布局",
@@ -63,6 +63,8 @@
   "chrome.command.browser": "新建浏览器",
   "chrome.command.preview": "预览文件",
   "chrome.command.theme": "切换主题",
+  "chrome.command.help": "帮助",
+  "chrome.command.help_detail": "打开功能引导与快捷操作",
   "chrome.command.browse_project": "浏览文件夹…",
   "chrome.command.browse_project_detail": "在访达中选择其他文件夹作为项目",
   "chrome.ego_task_active": "Ego 任务仍在进行中；请先完成任务或等待 Agent 结束后再关闭卡片。",

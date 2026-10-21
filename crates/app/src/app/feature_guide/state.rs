@@ -136,7 +136,12 @@ impl FeatureGuideState {
     }
 
     pub(crate) fn on_workspace_opened(&mut self) {
-        if self.auto_eligible && self.presentation != FeatureGuidePresentation::ClosedForSession {
+        if self.auto_eligible
+            && !matches!(
+                self.presentation,
+                FeatureGuidePresentation::ClosedForSession | FeatureGuidePresentation::Visible
+            )
+        {
             self.presentation = FeatureGuidePresentation::Pending;
         }
     }

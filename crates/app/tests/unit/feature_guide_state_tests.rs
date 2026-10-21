@@ -424,3 +424,27 @@ fn close_for_session_survives_opening_another_workspace() {
         "用户已关闭当前会话后，跨项目切换也不能让导览重新可见"
     );
 }
+
+/// 场景：桌面模式每次进入项目区都会请求调度引导，已显示的引导不能被重新排队而闪退。
+///
+/// 数据构造：全新用户（无保存状态且无最近项目），因此自动弹出资格为真。
+/// 执行过程：第一次进入项目 → 画布就绪 → 引导可见；再次进入另一个项目区。
+/// 预期结果：第一次后为 Pending，就绪后为 Visible；第二次进入后仍是 Visible，不回到 Pending。
+#[test]
+fn repeated_project_entry_keeps_visible_guide_visible() {
+    let mut state = FeatureGuideState::load(None, None, false);
+    state.on_workspace_opened();
+    assert_eq!(
+        state.presentation,
+        FeatureGuidePresentation::Pending,
+        "首次进入项目应排队引导"
+    );
+    state.on_canvas_ready(FeatureGuideBlockers::default());
+    assert!(state.is_visible(), "无阻塞时画布就绪应显示引导");
+    state.on_workspace_opened();
+    assert!(
+        state.is_visible(),
+        "已显示的引导不应因再次进入项目而回到 Pending"
+    );
+    assert!(!state.is_pending(), "再次进入项目后不应处于 Pending");
+}

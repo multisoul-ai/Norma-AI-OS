@@ -2,7 +2,7 @@ mod header;
 use super::controls::{guide_button, is_unmodified_activation, GuideButtonKind};
 use super::demo::{render_demo, FeatureGuideDemo};
 use super::orchestration::{guide_navigation_badge, render_orchestration_setup};
-use super::style::{guide_shadow, with_alpha, FeatureGuidePalette};
+use super::style::{guide_shadow, guide_stroke, with_alpha, FeatureGuidePalette};
 use super::{feature_guide_crossfade_opacity, FeatureGuideSettingsTransition, FeatureGuideTopic};
 use crate::app::MultisoulApp;
 use gpui::{
@@ -79,7 +79,7 @@ impl MultisoulApp {
                         .overflow_hidden()
                         .rounded(px(24.0))
                         .border_1()
-                        .border_color(rgba(with_alpha(theme.node_stroke, 0xd8)))
+                        .border_color(rgba(guide_stroke(theme, 0xd8)))
                         .bg(rgba(with_alpha(theme.panel_high, 0xfc)))
                         .shadow(guide_shadow(theme))
                         .child(self.render_feature_guide_header(theme, palette, cx))
@@ -159,13 +159,13 @@ impl MultisoulApp {
                 .border_b_1()
         } else {
             navigation
-                .w(px(220.0))
+                .w(px(260.0))
                 .h_full()
                 .flex_col()
                 .p(px(14.0))
                 .border_r_1()
         }
-        .border_color(rgba(with_alpha(theme.node_stroke, 0x68)));
+        .border_color(rgba(guide_stroke(theme, 0x68)));
 
         for (index, topic) in FeatureGuideTopic::ALL.into_iter().enumerate() {
             let selected = active == topic;
@@ -203,8 +203,11 @@ impl MultisoulApp {
                     .text_color(rgba(tone))
                     .child((index + 1).to_string())
             } else {
+                // Button content is auto-sized, so `w_full` cannot bound it. 260 panel - 2*14
+                // padding - 2*10 button padding = 212 keeps the "Set up" badge inside the row.
                 div()
-                    .w_full()
+                    .w(px(212.0))
+                    .overflow_hidden()
                     .flex()
                     .items_center()
                     .gap(px(10.0))
@@ -229,6 +232,7 @@ impl MultisoulApp {
                     )
                     .child(
                         div()
+                            .flex_1()
                             .min_w(px(0.0))
                             .truncate()
                             .text_size(px(13.0))
@@ -247,7 +251,7 @@ impl MultisoulApp {
                                 palette,
                                 cx,
                             ),
-                            |label, badge| label.child(badge),
+                            |label, badge| label.child(div().flex_none().child(badge)),
                         )
                     })
             };
@@ -365,7 +369,7 @@ impl MultisoulApp {
             .justify_between()
             .px(px(26.0))
             .border_t_1()
-            .border_color(rgba(with_alpha(theme.node_stroke, 0x80)))
+            .border_color(rgba(guide_stroke(theme, 0x80)))
             .child(guide_button(
                 GuideButtonKind::Skip,
                 ui::i18n::text("guide.skip_guide"),

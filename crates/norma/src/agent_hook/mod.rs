@@ -12,7 +12,9 @@ mod install;
 mod json_config;
 mod kimi;
 mod opencode;
+mod path_convention;
 mod pi;
+mod session_claim;
 mod zcode;
 
 use crate::protocol::{AgentProfile, NodeId};
@@ -41,6 +43,10 @@ pub use install::{
     uninstall_hook_config_except_hermes, unmanaged_hook_path,
 };
 pub use kimi::kimi_config_path_for;
+pub use path_convention::{
+    path_convention_enabled_from_env, session_context_output, ENV_PATH_CONVENTION,
+    PATH_CONVENTION_PROMPT,
+};
 
 pub const ENV_NODE_ID: &str = "MULTISOUL_NODE_ID";
 pub const ENV_AGENT_PROFILE: &str = "MULTISOUL_AGENT_PROFILE";

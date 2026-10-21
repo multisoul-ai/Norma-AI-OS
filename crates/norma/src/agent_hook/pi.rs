@@ -30,7 +30,10 @@ pub(super) fn install_pi_extension(path: &Path) -> Result<(), AgentHookError> {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
         Err(error) => return Err(AgentHookError::Io(error)),
     }
-    atomic_file::replace(path, PI_EXTENSION_SOURCE.as_bytes())?;
+    atomic_file::replace(
+        path,
+        super::path_convention::embed_prompt(PI_EXTENSION_SOURCE).as_bytes(),
+    )?;
     Ok(())
 }
 

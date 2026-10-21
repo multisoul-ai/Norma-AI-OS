@@ -15,7 +15,7 @@ impl MultisoulApp {
             .justify_between()
             .px(px(26.0))
             .border_b_1()
-            .border_color(rgba(with_alpha(theme.node_stroke, 0x80)))
+            .border_color(rgba(guide_stroke(theme, 0x80)))
             .child(
                 div()
                     .flex()

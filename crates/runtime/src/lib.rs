@@ -21,7 +21,9 @@ pub mod session_snapshot;
 pub mod snapshot;
 mod zcode_launch;
 
-pub use agent_hooks::AgentHookRuntimeConfig;
+pub use agent_hooks::{
+    path_convention_enabled, set_path_convention_enabled, AgentHookRuntimeConfig,
+};
 pub use agent_session_bindings::AgentSessionHydrationReport;
 pub use ego::{EgoOwnership, EgoTaskCommand, EgoTaskError, EgoTaskState};
 pub use events::{

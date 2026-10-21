@@ -184,7 +184,9 @@ impl MultisoulApp {
             #[cfg(feature = "e2e-test-support")]
             feature_guide_primary_focused_for_e2e: false,
             agent_definitions: AgentDefinitionsState::default(),
-            orchestration_settings: OrchestrationSettingsState::default(),
+            orchestration_settings: OrchestrationSettingsState::with_settings_store(
+                app_store.settings_store(),
+            ),
             voice_settings,
             voice_settings_inputs,
             shortcuts,

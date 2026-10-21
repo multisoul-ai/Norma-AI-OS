@@ -1,5 +1,5 @@
 use super::controls::{guide_button, is_unmodified_activation, GuideButtonKind};
-use super::style::{with_alpha, FeatureGuidePalette};
+use super::style::{guide_stroke, with_alpha, FeatureGuidePalette};
 use crate::app::MultisoulApp;
 use crate::settings::orchestration::{health, visible_status, OrchestrationSettingsState};
 use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight};
@@ -79,7 +79,7 @@ pub(super) fn guide_navigation_badge(
             .font_weight(FontWeight::MEDIUM)
             .text_color(rgba(color))
             .border_1()
-            .border_color(rgba(with_alpha(theme.node_stroke, 0x58)))
+            .border_color(rgba(guide_stroke(theme, 0x58)))
             .child(label),
     )
 }
@@ -107,7 +107,7 @@ pub(super) fn render_orchestration_setup(
                 .flex_col()
                 .rounded(px(12.0))
                 .border_1()
-                .border_color(rgba(with_alpha(theme.node_stroke, 0x78)))
+                .border_color(rgba(guide_stroke(theme, 0x78)))
                 .overflow_hidden()
                 .children(
                     GUIDED_PROVIDERS
@@ -217,7 +217,7 @@ fn provider_row(
         .px(px(13.0))
         .when(has_divider, |row| {
             row.border_b_1()
-                .border_color(rgba(with_alpha(theme.node_stroke, 0x58)))
+                .border_color(rgba(guide_stroke(theme, 0x58)))
         })
         .child(
             div()

@@ -24,7 +24,13 @@ pub(crate) fn terminal_link_intent(
         return TerminalLinkIntent::Ignore;
     }
     let Some(url) = snapshot.link_at(point.row, point.col) else {
-        let mut paths = snapshot.preview_path_candidates_at(point.row, point.col);
+        let mut paths: Vec<String> = snapshot
+            .backtick_path_at(point.row, point.col)
+            .map(|path_ref| vec![path_ref.raw])
+            .unwrap_or_default();
+        if paths.is_empty() {
+            paths = snapshot.preview_path_candidates_at(point.row, point.col);
+        }
         if paths.is_empty() {
             if let Some(path_ref) = snapshot.path_ref_at(point.row, point.col) {
                 if path_ref.tier == PathTier::Strong || verified(&path_ref) {
