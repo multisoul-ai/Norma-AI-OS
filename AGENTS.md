@@ -74,7 +74,7 @@ Workspace 分层：
 - **新增可配置快捷键必须进 Settings**：任何新的 app shortcut 都要注册到 `shortcuts.rs`，并在 Settings → Keyboard Shortcuts 支持录制与恢复。
 - **旧 e2e 套件已移除**：用户流程使用受影响 crate 的单元/集成测试与真实 App 验收；原型浏览器测试归各自原型目录维护。
 - **按实际行为验收**：使用受影响 crate 的单元/集成测试；`TestAppContext`/`simulate_click` 不等于启动真实 `.app`，要求真实程序的流程须操作真实 App 并检查最终结果。
-- **页面/样式验收优先 desktop-e2e**：编写或修改页面、布局、样式或视觉状态时，先用 `scripts/desktop-e2e.sh` 在真实 App 上验收；desktop-e2e 覆盖不到的流程再降级 `computer-use:computer-use`。headless GPUI、单测和静态截图只能作补充。细则见 [`docs/quality/desktop-e2e.md`](docs/quality/desktop-e2e.md)。
+- **页面/样式验收优先 desktop-e2e**：本次实际改变的页面、布局、样式或视觉状态，优先用 `scripts/desktop-e2e.sh` 在真实 App 上定向验收；覆盖不到再降级 `computer-use:computer-use`。合并与已有证据复用按[执行规范](docs/quality/agent-execution-policy.md)确定范围，headless GPUI、单测和静态截图只能作补充。细则见 [`docs/quality/desktop-e2e.md`](docs/quality/desktop-e2e.md)。
 - **新增 desktop-e2e 按模块划分**：场景放 `test/desktop-e2e/Scenarios/<模块>/`，看图清单放 `checks/<模块>/`，夹具放 `Fixtures/<模块>/`。同一模块只改该目录的 `<模块>Module.swift`；`Scenarios/Catalog.swift` 只追加模块 `manifest`。`scripts/desktop-e2e.sh <模块>` 跑完该模块，`<场景>` 只跑一条。边界见 [`.agents/skills/norma-desktop-e2e/references/modules.md`](.agents/skills/norma-desktop-e2e/references/modules.md)。
 - **不要把知识塞进地图**：`AGENTS.md` 只放指针；长说明沉淀到 `CLAUDE.md` 或未来 `docs/`。
 
@@ -139,6 +139,8 @@ Workspace 分层：
 
 ## 5. 改完代码必跑的验证
 
+下表针对本次实际新增或修改的行为；仅提交/合并时，按[执行规范](docs/quality/agent-execution-policy.md)复用已有证据并做增量验证。
+
 | 改了 | 跑 |
 |------|----|
 | `crates/agent/**` | `cargo test -p agent` |
@@ -200,7 +202,7 @@ xcrun metal --version
 - 涉及 GPUI API、元素、样式、actions、async、testing 或 troubleshooting 时，先加载对应 `gpui-*` skill；若 skill 与 `gpui =0.2.2` 或现有代码冲突，以本仓库验证结果为准。
 - 修改代码后按第 5 节跑对应验证；验证失败先定位根因。
 - 按 [`docs/quality/agent-execution-policy.md`](docs/quality/agent-execution-policy.md) 选择最小充分流程；没有明确理由，不启动重型 skill、并行审查或全仓验证。
-- **代码 review 必须使用独立 subagent 做对抗式审查**：主动寻找反例、遗漏和测试假阳性，主 Agent 核验发现及证据；具体流程见 [`docs/quality/agent-execution-policy.md`](docs/quality/agent-execution-policy.md)。
+- **进行代码 review 时必须使用独立 subagent 做对抗式审查**：主动寻找反例、遗漏和测试假阳性，主 Agent 核验发现及证据；触发条件与范围见 [`docs/quality/agent-execution-policy.md`](docs/quality/agent-execution-policy.md)。
 - 新增测试必须遵守第 2 节测试结构规范。
 - 处理带验收标准的需求时，先把每条验收标准映射到相应的单元/集成测试或真实 App 验收证据。
 - 若新增长期文档，优先建立 `docs/product-specs/`、`docs/design-docs/`、`docs/exec-plans/` 这类 canonical 路径；`.superpowers/sdd/` 只作为历史上下文，除非明确继续旧 SDD 流程。

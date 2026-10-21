@@ -59,7 +59,7 @@ ui -> {gpui, gpui-component}
 - **New configurable app shortcuts must appear in Settings**: register them in `shortcuts.rs` and support recording/restoring them in Settings → Keyboard Shortcuts.
 - **旧 e2e 套件已移除**：用户流程使用受影响 crate 的单元/集成测试与真实 App 验收；原型浏览器测试归各自原型目录维护。
 - **按实际行为验收**：使用受影响 crate 的单元/集成测试；`TestAppContext`/`simulate_click` 不等于启动真实 `.app`，要求真实程序的流程须操作真实 App 并检查最终结果。
-- **页面/样式验收优先 desktop-e2e**：编写或修改页面、布局、样式或视觉状态时，先用 `scripts/desktop-e2e.sh` 在真实 App 上验收；desktop-e2e 覆盖不到的流程再降级 `computer-use:computer-use`。headless GPUI、单测和静态截图只能作补充。细则见 [`docs/quality/desktop-e2e.md`](docs/quality/desktop-e2e.md)。
+- **页面/样式验收优先 desktop-e2e**：本次实际改变的页面、布局、样式或视觉状态，优先用 `scripts/desktop-e2e.sh` 在真实 App 上定向验收；覆盖不到再降级 `computer-use:computer-use`。合并与已有证据复用按[执行规范](docs/quality/agent-execution-policy.md)确定范围，headless GPUI、单测和静态截图只能作补充。细则见 [`docs/quality/desktop-e2e.md`](docs/quality/desktop-e2e.md)。
 - **新增 desktop-e2e 按模块划分**：场景放 `test/desktop-e2e/Scenarios/<模块>/`，看图清单放 `checks/<模块>/`，夹具放 `Fixtures/<模块>/`。同一模块只改该目录的 `<模块>Module.swift`；`Scenarios/Catalog.swift` 只追加模块 `manifest`。`scripts/desktop-e2e.sh <模块>` 跑完该模块，`<场景>` 只跑一条。边界见 [`.agents/skills/norma-desktop-e2e/references/modules.md`](.agents/skills/norma-desktop-e2e/references/modules.md)。
 - **TDD before feature or bugfix work**: add a focused failing test first where the behavior can be tested below the GPUI layer.
 - **No `#[allow(...)]`**: do not hide Rust diagnostics with allow attributes. Fix root causes instead.
@@ -188,7 +188,7 @@ More command recipes: [`AGENTS.md`](AGENTS.md) §6.
 
 ## 6. Verification Matrix
 
-See [`AGENTS.md`](AGENTS.md) §5 for the canonical change-area → verification table.
+See [`AGENTS.md`](AGENTS.md) §5 for the canonical change-area → verification table; commit/merge tasks reuse valid evidence and verify only the integration differences under the execution policy below.
 
 ## 7. Test Requirements
 
@@ -196,15 +196,15 @@ Follow the project test comment and assertion rules in [`docs/quality/test-requi
 
 处理带验收标准的需求时，将每条标准映射到受影响 crate 的单元/集成测试或真实 App 验收证据。
 
-要求真实程序的流程必须操作真实 App 并检查最终结果；页面、布局、样式或视觉状态优先用 desktop-e2e 验收，覆盖不到再降级 `computer-use:computer-use`。不能用内部状态或截图文件存在代替结果判断。新的 desktop-e2e 用例按模块放进 `test/desktop-e2e/Scenarios/<模块>/`，登记在该模块的 `<模块>Module.swift`；`scripts/desktop-e2e.sh <模块>` 跑完该模块，`<场景>` 只跑一条。
+需要新增真实 App 证据的页面或流程，按下述执行规范选择覆盖本次差异的最小 desktop-e2e 场景，覆盖不到再降级 `computer-use:computer-use`。不能用内部状态或截图文件存在代替结果判断。新的 desktop-e2e 用例按模块放进 `test/desktop-e2e/Scenarios/<模块>/`，登记在该模块的 `<模块>Module.swift`；`scripts/desktop-e2e.sh <模块>` 跑完该模块，`<场景>` 只跑一条。
 
 ## Agent Execution Sizing
 
-Choose the smallest sufficient implementation and verification flow from [`docs/quality/agent-execution-policy.md`](docs/quality/agent-execution-policy.md). In particular, do not automatically invoke implementation/review skills that require full-suite validation or parallel review for a focused single-crate change. Escalate only for cross-crate behaviour, explicit acceptance criteria, or high-risk boundaries.
+Choose the smallest sufficient implementation and verification flow from [`docs/quality/agent-execution-policy.md`](docs/quality/agent-execution-policy.md). Apply its commit/merge and evidence-reuse rules before invoking implementation/review skills or expanding validation; cross-crate files in a merge alone do not trigger full-suite validation.
 
 临时任务独立构建、验收后缓存回收与 E2E 边界见 [`docs/references/task-build-cache.md`](docs/references/task-build-cache.md)，入口为 `scripts/task-build-cache.py`。
 
-代码 review 必须使用独立 subagent 做对抗式审查：主动寻找反例、遗漏和测试假阳性，主 Agent 核验发现及证据；具体流程见 [`docs/quality/agent-execution-policy.md`](docs/quality/agent-execution-policy.md)。
+进行代码 review 时必须使用独立 subagent 做对抗式审查：主动寻找反例、遗漏和测试假阳性，主 Agent 核验发现及证据；触发条件与范围见 [`docs/quality/agent-execution-policy.md`](docs/quality/agent-execution-policy.md)。
 
 ## 8. UI And Interaction Notes
 
