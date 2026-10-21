@@ -42,12 +42,13 @@ impl MultisoulApp {
                     let size = window.viewport_size();
                     let frame =
                         super::desktop_scene_rect(f32::from(size.width), f32::from(size.height));
-                    // 左抽屉展开时项目画布整体右移，飞行与落点要跟着移。
-                    let left_space = left_space;
+                    // 叠加层的原点在左抽屉右侧：卡片坐标按叠加层本地算（不含抽屉宽度），
+                    // 窗口坐标的起点（想法行）要减去这段位移才对得上。
                     crate::effects::dispatch_receipt::render_with_canvas_offset(
                         project,
                         window,
-                        point(px(frame.origin.x + left_space), px(frame.origin.y)),
+                        point(px(frame.origin.x), px(frame.origin.y)),
+                        point(px(left_space), px(0.0)),
                     )
                 };
                 div()

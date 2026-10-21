@@ -1,7 +1,7 @@
 use super::*;
 use crate::app::background_project::PreparedProject;
 use crate::app::AppScreen;
-use gpui::{AppContext as _, TestAppContext};
+use gpui::TestAppContext;
 use std::sync::{Arc, Mutex};
 use workspace::ideas::IdeaState;
 

@@ -300,3 +300,106 @@ fn ideas_capture_assign_rollback_and_reject_duplicates() {
         );
     });
 }
+
+/// 新建智能体来完成：新卡片的 CLI 还在启动，任务必须等它就绪再输入，不能一建好就往 PTY 里打字（会被吞掉）。
+///
+/// 数据构造：桌面空间含 ProjectA（Norma 所在会话、展开区域）；记一条想法，以“新建智能体”目标派到 A。
+/// 执行过程：用拖放入口（用户亲手）调用 assign_idea，不推进时间。
+/// 预期结果：
+///   - 正断言：回执成功；新卡片进入“启动等待”（has_pending_for_node），想法已指派并记录新卡片的节点。
+///   - 负断言：此刻 PTY 里没有收到任务正文（还没到输入时机）。
+#[test]
+fn new_agent_target_waits_for_startup_before_typing() {
+    let temp = tempfile::tempdir().expect("应创建隔离目录");
+    let root_a = temp.path().join("ProjectA");
+    std::fs::create_dir(&root_a).expect("应创建 A 项目目录");
+    let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
+    let store = storage::AppStore::initialize(&paths).expect("应初始化隔离存储");
+    let catalog = store.desktop_workspace_store();
+    let workspace = catalog.create("Fresh").expect("应创建桌面空间");
+    let area_a = catalog
+        .add_project(&workspace.id, &root_a)
+        .expect("应添加 A");
+    let prepared_a =
+        PreparedProject::load_for_desktop(paths.clone(), area_a.clone()).expect("应准备 A");
+    let ideas = IdeasStore::new(paths.app_db_path().to_owned());
+    let mut test = TestAppContext::single();
+    let (host, cx) =
+        test.add_window_view(|_, cx| MultisoulApp::new_with_database_context(cx, paths, store));
+    let writes = Arc::new(Mutex::new(Vec::<Vec<u8>>::new()));
+    let desktop_host = host.downgrade();
+    let session = {
+        let writes = writes.clone();
+        cx.new(|cx| {
+            let mut app = MultisoulApp::from_background_project(prepared_a, cx);
+            app.desktop_host = Some(desktop_host.clone());
+            app.runtime.set_pty_factory(Box::new(move |_, _, _, tx| {
+                Ok(Box::new(terminal::TestPtyBackend::recording(
+                    tx,
+                    writes.clone(),
+                )))
+            }));
+            app
+        })
+    };
+    host.update(cx, |app, _| {
+        app.screen = AppScreen::DesktopWorkspace;
+        app.desktop_workspace.active_id = Some(workspace.id.clone());
+        app.desktop_workspace.areas = vec![area_a.clone()];
+        app.desktop_workspace.expanded_area_id = Some(area_a.id.clone());
+        app.desktop_workspace
+            .sessions
+            .insert((workspace.id.clone(), area_a.id.clone()), session.clone());
+    });
+    let captured = session
+        .update(cx, |app, cx| {
+            capture_idea(app, cx, "新卡片要做的事", AgentInputSource::Other)
+        })
+        .expect("应记下想法");
+    let idea_id = captured.tasks[0]["idea_id"]
+        .as_str()
+        .expect("应有 idea_id")
+        .to_owned();
+    let target = IdeaTarget::NewAgent {
+        workspace_id: workspace.id.clone(),
+        area_id: area_a.id.clone(),
+        profile: norma::protocol::AgentProfile::Codex,
+    };
+    let flight = IdeaFlight {
+        origin: DispatchVisualOrigin::IdeaRow { x: 10, y: 10 },
+        user_initiated: true,
+    };
+    let result = session
+        .update_in(cx, |app, window, cx| {
+            assign_idea(
+                app,
+                Some(window),
+                cx,
+                &idea_id,
+                target,
+                AgentInputSource::Other,
+                flight,
+            )
+        })
+        .expect("新建智能体并派发应成功");
+    let node_id = result.node_id.expect("回执应带新卡片节点");
+    session.read_with(cx, |app, _| {
+        assert!(
+            app.pending_agent_submissions.has_pending_for_node(node_id),
+            "新卡片应处于启动等待，就绪后才输入任务"
+        );
+    });
+    let typed = writes
+        .lock()
+        .expect("应读取写入")
+        .iter()
+        .filter(|chunk| String::from_utf8_lossy(chunk).contains("新卡片要做的事"))
+        .count();
+    assert_eq!(typed, 0, "启动期间不应把任务正文打进 PTY");
+    let stored = ideas.list(&workspace.id).expect("应列出").remove(0);
+    assert_eq!(
+        (stored.state, stored.assignee_node_id),
+        (IdeaState::Assigned, Some(node_id)),
+        "想法应已指派给新卡片"
+    );
+}

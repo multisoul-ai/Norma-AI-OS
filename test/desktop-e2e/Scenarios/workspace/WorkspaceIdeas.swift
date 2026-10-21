@@ -161,7 +161,7 @@ public enum WorkspaceIdeas {
             let target = try cardTarget(frame)
             let size = frame.windowFrame.size
             let baseline = try await session.snapshot()
-            let samples = try await session.dragSampling(local: start, to: target, on: frame, afterMs: [60, 160, 260, 380])
+            let samples = try await session.dragSampling(local: start, to: target, on: frame, afterMs: [60, 160, 260, 380, 520, 700])
             // 抽屉右侧到落点之间只有流星会经过（抽屉里的列表重排不算）。
             let corridor = CGRect(x: geo.drawer + 4, y: min(start.y, target.y) - 70, width: max(40, target.x - geo.drawer - 4), height: abs(target.y - start.y) + 140)
             // 指令栏本身（底部 52px 高、距底 22px）；避开卡片，卡片落点的高亮不算。
@@ -169,6 +169,15 @@ public enum WorkspaceIdeas {
             let corridorChanges = samples.map { changedPixels(baseline, $0, in: corridor, windowSize: size) }
             let bottomChanges = samples.map { changedPixels(baseline, $0, in: bottom, windowSize: size) }
             for (index, image) in samples.enumerated() { try session.saveSnapshot(image, "03-flight-\(index).png") }
+            // 落点必须是卡片中心：单卡宽 406.7、左上角 (抽屉宽+22, 72)、高 = 窗口高 − 171。
+            let cardCenter = CGPoint(x: geo.drawer + 22 + 203.3, y: 72 + (geo.height - 171) / 2)
+            let hitArea = CGRect(x: cardCenter.x - 70, y: cardCenter.y - 70, width: 140, height: 140)
+            let missArea = hitArea.offsetBy(dx: 0, dy: 230) // 卡片内偏下的对照区域
+            let hits = samples.map { changedPixels(baseline, $0, in: hitArea, windowSize: size) }
+            let misses = samples.map { changedPixels(baseline, $0, in: missArea, windowSize: size) }
+            guard (hits.max() ?? 0) >= 150, (hits.max() ?? 0) > 2 * (misses.max() ?? 0) else {
+                throw E2EError.product("撞击闪光没有出现在卡片中央（中心区域 \(hits)，对照区域 \(misses)）")
+            }
             guard (corridorChanges.max() ?? 0) >= 40 else {
                 throw E2EError.product("松手后没有看到流星穿过抽屉右侧到卡片之间的区域：\(corridorChanges)")
             }
@@ -183,7 +192,7 @@ public enum WorkspaceIdeas {
                 throw E2EError.product("想法没有变成已指派或缺少真实任务引用：\(assigned)")
             }
             try session.save(try await session.capture(), "04-assigned.png")
-            return "流星 \(corridorChanges)，底部 \(bottomChanges)，\(assigned.taskRef)"
+            return "流星 \(corridorChanges)，中心 \(hits)，对照 \(misses)，底部 \(bottomChanges)，\(assigned.taskRef)"
         }
 
         try await session.step("拖到「新建智能体来完成」：想法被派发，卡片数量增加") {
