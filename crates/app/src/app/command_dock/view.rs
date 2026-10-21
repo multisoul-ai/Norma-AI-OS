@@ -250,6 +250,7 @@ impl MultisoulApp {
                     Some(DockCommand::Browser) => ToolbarIcon::Browser,
                     Some(DockCommand::Preview) => ToolbarIcon::Preview,
                     Some(DockCommand::Theme(_)) => ToolbarIcon::Settings,
+                    Some(DockCommand::Help) => ToolbarIcon::Preview,
                     None if item.completion.starts_with("/theme") => ToolbarIcon::Settings,
                     None => ToolbarIcon::Plus,
                 };
@@ -260,6 +261,7 @@ impl MultisoulApp {
                         .map(ThemeId::description)
                         .unwrap_or(""),
                     Some(DockCommand::Preview) => ui::i18n::text("chrome.choose_a_file_to_preview"),
+                    Some(DockCommand::Help) => ui::i18n::text("chrome.command.help_detail"),
                     Some(_) => ui::i18n::text("chrome.create_a_card_in_this_workspace"),
                     None => ui::i18n::text("chrome.choose_an_action"),
                 };
@@ -393,6 +395,7 @@ fn suggestion_title(item: &runtime::command::CommandSuggestion) -> String {
         Some(DockCommand::Terminal) => ui::i18n::text("chrome.command.terminal").into(),
         Some(DockCommand::Browser) => ui::i18n::text("chrome.command.browser").into(),
         Some(DockCommand::Preview) => ui::i18n::text("chrome.command.preview").into(),
+        Some(DockCommand::Help) => ui::i18n::text("chrome.command.help").into(),
         Some(DockCommand::Theme(_)) => item.title.clone(),
         None if item.completion.starts_with("/new") => ui::i18n::text("chrome.new_agent").into(),
         None => ui::i18n::text("chrome.command.theme").into(),

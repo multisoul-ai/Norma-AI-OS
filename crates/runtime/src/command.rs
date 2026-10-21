@@ -8,6 +8,7 @@ pub enum DockCommand {
     Browser,
     Preview,
     Theme(String),
+    Help,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -34,6 +35,7 @@ pub fn suggestions(query: &str, themes: &[CommandTheme]) -> Vec<CommandSuggestio
         suggestion("新建 Agent", "/new ", None),
         suggestion("新建终端", "/terminal", Some(DockCommand::Terminal)),
         suggestion("切换主题", "/theme ", None),
+        suggestion("帮助", "/help", Some(DockCommand::Help)),
     ];
     if query.is_empty() || query == "/" {
         return roots;
@@ -122,6 +124,9 @@ fn phrase_choices(query: &str, themes: &[CommandTheme]) -> Vec<CommandSuggestion
     if theme != query || matches!(theme, "深色" | "暗色" | "浅色" | "dark" | "light" | "theme")
     {
         return theme_choices(if theme == "theme" { "" } else { theme }, themes);
+    }
+    if matches!(query, "帮助" | "help") {
+        return vec![suggestion("帮助", "/help", Some(DockCommand::Help))];
     }
     let text = strip_prefix(query, &["创建", "新建", "打开", "create ", "new ", "open "]);
     let text = strip_prefix(text, &["一个", "一张", "an ", "a "]);

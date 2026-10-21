@@ -137,6 +137,7 @@ impl MultisoulApp {
             self.desktop_workspace.expanded_area_id = Some(area_id);
             self.screen = crate::app::AppScreen::DesktopWorkspace;
             self.desktop_workspace.error = None;
+            self.schedule_feature_guide_after_workspace_open(cx);
             self.bind_desktop_wallpaper(cx);
             self.broadcast_wallpaper_state(None, cx);
             cx.notify();

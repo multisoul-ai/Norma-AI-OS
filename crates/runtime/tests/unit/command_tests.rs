@@ -61,7 +61,7 @@ fn agent_command_creates_without_position_step() {
 ///
 /// 数据构造：2 个主题分别为浅色 Paper Blue 和深色 Midnight Violet，深色候选数 = 2 - 1 = 1。
 /// 执行过程：查询创建、终端、深色主题，再查询浏览器、预览、否定和混合表达。
-/// 预期结果：终端与主题仍对应原动作；根列表为 5 - 2 = 3 项，不含浏览器和预览；不支持的输入没有动作。
+/// 预期结果：终端与主题仍对应原动作；根列表为 5 - 2 + 1（帮助）= 4 项，不含浏览器和预览；不支持的输入没有动作。
 #[test]
 fn common_phrases_and_theme_catalog_are_bounded() {
     let themes = [
@@ -136,8 +136,8 @@ fn common_phrases_and_theme_catalog_are_bounded() {
     let roots = suggestions("/", &themes);
     assert_eq!(
         roots.len(),
-        3,
-        "根列表保留新建 Agent、新建终端、切换主题，共 5 - 2 = 3 项"
+        4,
+        "根列表保留新建 Agent、新建终端、切换主题、帮助，共 5 - 2 + 1 = 4 项"
     );
     assert!(
         roots
@@ -153,5 +153,33 @@ fn common_phrases_and_theme_catalog_are_bounded() {
             )
         }),
         "根列表不得包含创建浏览器或查看文件"
+    );
+}
+
+/// 场景：/help 打开功能引导，中英文说法都只映射到同一个动作。
+///
+/// 数据构造：无主题目录；查询 "/help"、"/he" 前缀、"帮助"、"help" 与带额外参数的 "/help me"。
+/// 执行过程：逐个查询候选。
+/// 预期结果：前四种均恰好 1 个 Help 候选；带参数的输入没有候选，不能被截断后执行。
+#[test]
+fn help_command_opens_feature_guide() {
+    for query in ["/help", "/he", "帮助", "help"] {
+        let found = suggestions(query, &[]);
+        assert_eq!(found.len(), 1, "{query} 应只产生一个候选");
+        assert_eq!(
+            found[0].command,
+            Some(DockCommand::Help),
+            "{query} 应映射到 Help"
+        );
+    }
+    assert!(
+        suggestions("/help me", &[]).is_empty(),
+        "额外参数不能被丢弃后执行"
+    );
+    assert!(
+        suggestions("/", &[])
+            .iter()
+            .any(|s| s.command == Some(DockCommand::Help)),
+        "根列表必须包含帮助"
     );
 }
