@@ -203,3 +203,63 @@ fn reconcile_skips_fresh_dispatching_ideas() {
         "应回到待办"
     );
 }
+
+/// 手机端只读视图：只暴露截断后的标题与粗粒度状态，不暴露正文、路径、任务引用，也不暴露已删除的想法。
+///
+/// 数据构造：一条多行想法（首行“登录页改版”）、一条 100 个字符的单行、一条派发中、一条已删除、再补 105 条待办凑超限。
+/// 执行过程：调用 mobile_view。
+/// 预期结果：
+///   - 正断言：多行想法标题只含首行；100 字符标题截成 80 字符加省略号；派发中显示为 assigned；条数被限制为 100。
+///   - 负断言：已删除的不出现；视图里没有正文第二行内容。
+#[test]
+fn mobile_view_is_bounded_coarse_and_hides_dismissed() {
+    let (_temp, db, ws) = setup();
+    let store = IdeasStore::new(db);
+    store
+        .add(&ws, "m1", "登录页改版\n第二行是内部细节", IdeaSource::Chat)
+        .expect("应记下");
+    store
+        .add(&ws, "m2", &"长".repeat(100), IdeaSource::Chat)
+        .expect("应记下");
+    store
+        .add(&ws, "m3", "派发中的事", IdeaSource::Chat)
+        .expect("应记下");
+    store
+        .begin_dispatch(&ws, "m3", "idea:m3")
+        .expect("不应出错")
+        .expect("应开始派发");
+    store
+        .add(&ws, "m4", "删掉的事", IdeaSource::Chat)
+        .expect("应记下");
+    store.dismiss(&ws, "m4").expect("不应出错").expect("应删除");
+    let view = store.mobile_view(&ws).expect("应生成手机视图");
+    assert_eq!(view[0].title, "登录页改版", "多行想法只应暴露首行");
+    assert_eq!(
+        view[1].title,
+        format!("{}…", "长".repeat(80)),
+        "超过 80 字符应截断并加省略号"
+    );
+    assert_eq!(
+        (view[2].title.as_str(), view[2].state),
+        ("派发中的事", "assigned"),
+        "派发中应显示为 assigned"
+    );
+    assert!(
+        view.iter().all(|idea| idea.title != "删掉的事"),
+        "已删除的想法不应出现"
+    );
+    assert!(
+        view.iter().all(|idea| !idea.title.contains("内部细节")),
+        "不应泄露正文的其余部分"
+    );
+    for n in 0..105 {
+        store
+            .add(&ws, &format!("pad{n}"), "占位", IdeaSource::Chat)
+            .expect("应记下");
+    }
+    assert_eq!(
+        store.mobile_view(&ws).expect("应生成手机视图").len(),
+        100,
+        "条数应限制为 100"
+    );
+}

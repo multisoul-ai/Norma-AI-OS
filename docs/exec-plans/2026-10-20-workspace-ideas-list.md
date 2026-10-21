@@ -1,6 +1,6 @@
 # 工作空间想法清单：对话记下、拖给智能体、流星投递
 
-状态：已确认 §9 的四项决定，待开工。基线为本地 `dev`。交互与视觉以原型为准：[`docs/prototypes/norma-assistant`](../prototypes/norma-assistant/README.md)「想法清单」一节与 `tests/ideas.test.mjs`。本文只定义生产实现的分层、切片、验收，不重复原型细节。
+状态：S0–S6 已实现并提交到 `dev`；真实 App 的拖拽投递 e2e 在本机环境恢复前未取得通过结果，见 §11。基线为本地 `dev`。交互与视觉以原型为准：[`docs/prototypes/norma-assistant`](../prototypes/norma-assistant/README.md)「想法清单」一节与 `tests/ideas.test.mjs`。本文只定义生产实现的分层、切片、验收，不重复原型细节。
 
 ## 1. 目标与非目标
 
@@ -146,3 +146,17 @@ desktop-e2e 按模块组织：`test/desktop-e2e/Scenarios/ideas/IdeasModule.swif
 ## 10. 建议顺序与规模
 
 S0 → S1 → S2 → S3 → S4 → S5 → S6。S1–S3 交付后即有可用闭环（对话记下 + 菜单指派，无拖拽）；S4 增加拖拽与流星；S5 收尾联动。每片合并前按 `docs/quality/agent-execution-policy.md` 选最小充分验证，代码 review 使用独立 subagent 做对抗式审查。
+
+## 11. 实施记录（2026-10-21）
+
+| 切片 | 结果 |
+| --- | --- |
+| S0 | 画布节点命中走应用层指针状态（方案 b）：全窗口捕获层 + 拖拽开始时缓存的窗口坐标矩形；desktop-e2e 已有 `drag` 原语，补了 E/I 键码。 |
+| S1 | `workspace::ideas` 状态机、`storage::IdeasStore`（CAS、撤销保位置、级联删除、手机视图）。 |
+| S2 | `capture_idea / list_ideas / assign_idea` 工具与 App 适配器；task_ref 无法预注入，改为占位 ref + 派发成功后替换为协调器真实值；对账改为按停留时长与真实任务正文匹配。 |
+| S3 | 左栏「想法」视图、⌘⇧I、就地指派菜单、删除撤销、键盘浏览。 |
+| S4 | 拖拽到卡片/新建区、`DispatchVisualOrigin::IdeaRow` 流星；顺带修正左抽屉展开时飞行终点偏左。 |
+| S5 | 已指派想法联动任务阶段：成功→完成、取消→回待办、失败可重试、已完成折叠并 7 天后清理。 |
+| S6 | 手机只读：`workspace_ideas` 动作（同项目计划读取的授权闸门）、`WorkspaceIdea`（与本机“个人想法”分离）、只读列表页。 |
+
+与原方案的偏差：删除撤销靠保留排序值（不取前后均值）；新建智能体目前只支持当前展开的项目区域，默认 Codex；拖拽落点仅限当前展开项目的卡片，其他项目用「指派」菜单；预览条不做弹回动画。

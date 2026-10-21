@@ -6,6 +6,10 @@ use workspace::ideas::{
     TaskPhase,
 };
 
+/// 手机端最多展示的想法条数与标题字符数。
+const MOBILE_IDEA_LIMIT: usize = 100;
+const MOBILE_TITLE_CHARS: usize = 80;
+
 /// 相邻想法的排序间隔，为将来的手动排序留出空隙。
 const POSITION_STEP: i64 = 1024;
 
@@ -22,6 +26,26 @@ pub struct StoredIdea {
     pub position: i64,
     pub created_at_unix: u64,
     pub updated_at_unix: u64,
+}
+
+/// 手机端看到的一条想法。
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
+pub struct MobileIdea {
+    pub id: String,
+    pub title: String,
+    /// `todo` / `assigned` / `done`。
+    pub state: &'static str,
+    pub created_at_unix: u64,
+}
+
+fn mobile_title(body: &str) -> String {
+    let first = body.lines().next().unwrap_or_default().trim();
+    if first.chars().count() > MOBILE_TITLE_CHARS {
+        let cut: String = first.chars().take(MOBILE_TITLE_CHARS).collect();
+        format!("{cut}…")
+    } else {
+        first.to_owned()
+    }
 }
 
 /// 工作空间想法清单。状态流转只走 `workspace::ideas::transition`；
@@ -231,6 +255,25 @@ impl IdeasStore {
             changed += usize::from(result.is_some());
         }
         Ok(changed)
+    }
+
+    /// 手机端只读视图：截断后的标题与粗粒度状态，不含正文、路径与任务引用。
+    pub fn mobile_view(&self, workspace_id: &str) -> StorageResult<Vec<MobileIdea>> {
+        Ok(self
+            .list(workspace_id)?
+            .into_iter()
+            .take(MOBILE_IDEA_LIMIT)
+            .map(|idea| MobileIdea {
+                title: mobile_title(&idea.body),
+                state: match idea.state {
+                    IdeaState::Todo => "todo",
+                    IdeaState::Dispatching | IdeaState::Assigned => "assigned",
+                    IdeaState::Done | IdeaState::Dismissed => "done",
+                },
+                id: idea.id,
+                created_at_unix: idea.created_at_unix,
+            })
+            .collect())
     }
 
     /// 清理更新时间早于 `cutoff_unix` 的已完成想法，返回清理条数。

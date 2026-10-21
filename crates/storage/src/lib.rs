@@ -29,7 +29,7 @@ pub mod desktop_content_tab_store;
 pub mod desktop_workspace_store;
 pub mod error;
 mod ideas_store;
-pub use ideas_store::{IdeasStore, StoredIdea};
+pub use ideas_store::{IdeasStore, MobileIdea, StoredIdea};
 pub use workspace::ideas::IdeaSource;
 pub mod layout_store;
 mod live_operation_store;

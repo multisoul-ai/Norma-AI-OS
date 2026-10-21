@@ -35,6 +35,7 @@ canvas/view.rs
 | 默认快捷键 | Command | 处理器 | 生效界面 | 行为 |
 | --- | --- | --- | --- | --- |
 | `⌘N` | `NewWorkspace` | `navigate_desktop_shortcut` | 桌面主界面 | 打开创建工作空间命名表单 |
+| `⌘⇧I` | `ToggleIdeas` | `toggle_ideas` | 桌面工作空间 | 左栏在对话与「想法」清单之间切换，收起时先展开；可在设置中录制与恢复 |
 | `⌘⇧A` | `AddProject` | `navigate_desktop_shortcut` | 工作空间／项目画布 | 打开当前空间的项目选择器 |
 | `⌘K` | `FocusCommandInput` | `focus_command_input` | Canvas | 聚焦底部指令输入框，支持录制及恢复 |
 | `⌘⇧N` | `NewWindow` | `on_new_window` | 全局 | 打开新的 Launchpad 窗口，不创建画布节点 |
