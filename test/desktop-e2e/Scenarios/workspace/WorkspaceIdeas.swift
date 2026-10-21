@@ -25,8 +25,10 @@ public enum WorkspaceIdeas {
             setenv("ZDOTDIR", shell.path, 1)
             try session.launch()
             _ = try await session.wait(Expectation(anyOf: ["创建工作空间", "Create Workspace", "Create your first"], timeout: 25))
-            try await session.act("打开创建对话框", attempts: 6, expect: Expectation(anyOf: ["工作空间名称", "Workspace name"], timeout: 3.5)) {
-                try await session.click(matching: ["创建工作空间", "Create Workspace"], pick: .bottom)
+            // 启动页的「创建工作空间」按钮位于窗口水平居中、约 515px 处；OCR 偶尔识别不出，这里按位置点击。
+            try await session.act("打开创建对话框", attempts: 4, expect: Expectation(anyOf: ["工作空间名称", "Workspace name"], timeout: 3.5)) {
+                let launch = try await session.capture()
+                try await session.click(local: CGPoint(x: Double(launch.windowFrame.width) / 2, y: 515), on: launch)
             }
             let dialog = try await session.capture()
             guard let input = dialog.pick(["网站改版", "Website redesign"], .bottom) else {
