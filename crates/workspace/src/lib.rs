@@ -3,6 +3,7 @@
 #[cfg(unix)]
 pub mod content;
 pub mod git_clone;
+pub mod ideas;
 pub mod path_display;
 pub mod project;
 pub mod recent;

@@ -11,6 +11,8 @@ pub enum StorageError {
     InvalidWallpaperReference,
     #[error("invalid desktop workspace name: {0}")]
     InvalidDesktopWorkspaceName(String),
+    #[error("invalid idea: {0}")]
+    InvalidIdea(String),
     #[error("invalid project plan: {0}")]
     InvalidProjectPlan(String),
     #[error("invalid mobile command: {0}")]
