@@ -58,7 +58,9 @@ pub(super) fn dispatch_agent_task(
         .agent_task_coordinator
         .as_ref()
         .and_then(|coordinator| coordinator.task_id_for(definition_id, &task))
-        .ok_or_else(|| AdapterError::Failed("AgentCard 已接收但无法确定 task_id".to_string()))?;
+        .ok_or_else(|| {
+            AdapterError::AcceptedWithoutTaskId("AgentCard 已接收但无法确定 task_id".to_string())
+        })?;
     cx.notify();
     Ok(
         AdapterResult::accepted(format!("{} 的 AgentCard 已接收任务", receipt.name))

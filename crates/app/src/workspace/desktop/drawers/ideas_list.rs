@@ -276,39 +276,42 @@ impl MultisoulApp {
                     )
                 },
             )
-            .when_some(self.desktop_workspace.ideas_undo.clone(), |body, undo| {
-                body.child(
-                    div()
-                        .id("desktop-ideas-undo")
-                        .mx(px(12.0))
-                        .mb(px(10.0))
-                        .px(px(10.0))
-                        .h(px(36.0))
-                        .flex()
-                        .items_center()
-                        .justify_between()
-                        .gap(px(8.0))
-                        .rounded(px(8.0))
-                        .bg(rgba(0x8fcaff1f))
-                        .text_size(px(12.0))
-                        .text_color(rgba(COPY_PRIMARY))
-                        .child(
-                            div()
-                                .flex_1()
-                                .min_w(px(0.0))
-                                .overflow_hidden()
-                                .child(format!("已删除「{}」", undo.title)),
-                        )
-                        .child(
-                            Button::new("desktop-ideas-undo-button")
-                                .ghost()
-                                .child("撤销")
-                                .on_click(cx.listener(|app, _, _, cx| {
-                                    cx.stop_propagation();
-                                    app.undo_delete_idea(cx);
-                                })),
-                        ),
-                )
-            })
+            .when_some(
+                self.desktop_workspace.ideas_undo.last().cloned(),
+                |body, undo| {
+                    body.child(
+                        div()
+                            .id("desktop-ideas-undo")
+                            .mx(px(12.0))
+                            .mb(px(10.0))
+                            .px(px(10.0))
+                            .h(px(36.0))
+                            .flex()
+                            .items_center()
+                            .justify_between()
+                            .gap(px(8.0))
+                            .rounded(px(8.0))
+                            .bg(rgba(0x8fcaff1f))
+                            .text_size(px(12.0))
+                            .text_color(rgba(COPY_PRIMARY))
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .min_w(px(0.0))
+                                    .overflow_hidden()
+                                    .child(undo.message()),
+                            )
+                            .child(
+                                Button::new("desktop-ideas-undo-button")
+                                    .ghost()
+                                    .child("撤销")
+                                    .on_click(cx.listener(|app, _, _, cx| {
+                                        cx.stop_propagation();
+                                        app.undo_last_idea_action(cx);
+                                    })),
+                            ),
+                    )
+                },
+            )
     }
 }

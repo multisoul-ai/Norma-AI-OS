@@ -249,6 +249,9 @@ pub enum AdapterError {
     Rejected(String),
     #[error("adapter execution failed: {0}")]
     Failed(String),
+    /// 任务文本已经提交给智能体，只是没拿到任务编号：不是失败，调用方不能回滚或重发，否则会重复派发。
+    #[error("adapter accepted the task but returned no task id: {0}")]
+    AcceptedWithoutTaskId(String),
     #[error("{0}")]
     Unknown(String),
 }

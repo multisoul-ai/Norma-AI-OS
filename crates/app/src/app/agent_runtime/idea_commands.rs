@@ -200,8 +200,7 @@ pub(crate) fn assign_idea(
             Ok(result)
         }
         // 任务文本已经提交、只是没拿到任务编号：不回滚，保持派发中，交给后台对账按正文找回，避免重复派发。
-        Err(error) if matches!(&error, AdapterError::Failed(message) if message.contains("已接收")) =>
-        {
+        Err(error @ AdapterError::AcceptedWithoutTaskId(_)) => {
             notify_host(app, cx);
             Err(error)
         }

@@ -271,16 +271,40 @@ impl IdeasStore {
         Ok(changed > 0)
     }
 
-    /// 用户手动清空“已指派”：本工作空间的已指派想法一并收进已完成，返回条数。
-    /// 不碰派发中的想法（回执还没回来），也不改 `task_ref`。
-    pub fn clear_assigned(&self, workspace_id: &str) -> StorageResult<usize> {
-        let connection = open_app_connection(&self.path)?;
+    /// 用户手动清空“已指派”：只把点名的、属于本工作空间的已指派想法收进已完成，返回条数。
+    /// 由调用方挑出不再运行的那些（仍在运行或排队的任务不该被标成已完成）。不改 `task_ref`。
+    pub fn complete_assigned_ids(
+        &self,
+        workspace_id: &str,
+        ids: &[String],
+    ) -> StorageResult<usize> {
+        let mut connection = open_app_connection(&self.path)?;
+        let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let now = crate::current_unix_timestamp()? as i64;
-        let changed = connection.execute(
-            "UPDATE workspace_ideas SET state='done',updated_at_unix=?2 WHERE workspace_id=?1 AND state='assigned'",
-            params![workspace_id, now],
-        )?;
+        let mut changed = 0;
+        for id in ids {
+            changed += tx.execute(
+                "UPDATE workspace_ideas SET state='done',updated_at_unix=?3 WHERE workspace_id=?1 AND id=?2 AND state='assigned'",
+                params![workspace_id, id, now],
+            )?;
+        }
+        tx.commit()?;
         Ok(changed)
+    }
+
+    /// 删除点名的已完成想法（清空「已完成」的撤销窗口过后执行）；只删本空间、只删已完成，返回条数。
+    pub fn delete_done(&self, workspace_id: &str, ids: &[String]) -> StorageResult<usize> {
+        let mut connection = open_app_connection(&self.path)?;
+        let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let mut removed = 0;
+        for id in ids {
+            removed += tx.execute(
+                "DELETE FROM workspace_ideas WHERE workspace_id=?1 AND id=?2 AND state='done'",
+                params![workspace_id, id],
+            )?;
+        }
+        tx.commit()?;
+        Ok(removed)
     }
 
     /// 清理更新时间早于 `cutoff_unix` 的已完成想法，返回清理条数。

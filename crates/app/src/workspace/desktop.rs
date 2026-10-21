@@ -52,6 +52,7 @@ mod idea_drag_ui;
 mod ideas;
 mod ideas_rows;
 mod ideas_sync;
+mod ideas_undo;
 mod motion_log;
 mod navigation;
 mod overview_layout;
@@ -128,7 +129,10 @@ pub(crate) struct DesktopWorkspaceUiState {
     /// 展开了指派菜单的想法 ID。
     pub(crate) ideas_menu: Option<String>,
     pub(crate) ideas_menu_cursor: usize,
-    pub(crate) ideas_undo: Option<ideas::IdeaUndo>,
+    /// 可撤销的操作栈（最新的在末尾，最多保留 5 条）。
+    pub(crate) ideas_undo: Vec<ideas_undo::IdeaUndo>,
+    /// 清空「已完成」后、撤销窗口内暂不显示（也还没真正删除）的想法。
+    pub(crate) ideas_pending_purge: std::collections::HashSet<String>,
     pub(crate) ideas_undo_timer: Option<gpui::Task<()>>,
     pub(crate) ideas_notice: Option<String>,
     pub(crate) ideas_show_done: bool,
@@ -302,7 +306,8 @@ impl DesktopWorkspaceUiState {
             ideas_cursor: None,
             ideas_menu: None,
             ideas_menu_cursor: 0,
-            ideas_undo: None,
+            ideas_undo: Vec::new(),
+            ideas_pending_purge: std::collections::HashSet::new(),
             ideas_undo_timer: None,
             ideas_notice: None,
             ideas_show_done: false,

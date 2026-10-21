@@ -402,44 +402,40 @@ fn mobile_view_sanitizes_titles_and_keeps_todos_first() {
     );
 }
 
-/// 清空已指派：只把本工作空间的“已指派”转为已完成，待办、派发中与其他空间不动；幂等。
+/// 按 id 清空已指派：只把点名的、属于本空间的已指派想法收进已完成（用于跳过仍在运行的任务）；幂等。
 ///
-/// 数据构造：本空间一条待办 t、两条已指派 a/b、一条派发中 c；另一空间一条已指派 x。
-/// 执行过程：对本空间调用两次 clear_assigned。
+/// 数据构造：本空间已指派 a、b、c；另一空间已指派 x。
+/// 执行过程：complete_assigned_ids(本空间, [a, c, x])（x 不属于本空间）；再调用一次。
 /// 预期结果：
-///   - 正断言：第一次返回 2；a、b 变为 done（task_ref 保留，便于之后追溯）。
-///   - 负断言：第二次返回 0；待办 t、派发中 c、另一空间的 x 状态不变。
+///   - 正断言：第一次返回 2，a、c 为 done；第二次返回 0。
+///   - 负断言：b（未点名）仍是已指派；另一空间的 x 不受影响。
 #[test]
-fn clearing_assigned_ideas_marks_only_this_workspace_assigned_as_done() {
+fn completing_assigned_by_ids_skips_unlisted_and_foreign_ideas() {
     let (_temp, db, ws) = setup();
     let other = DesktopWorkspaceStore::new(db.clone())
         .create("其他")
         .expect("应创建")
         .id;
     let store = IdeasStore::new(db);
-    for (space, id, ref_name, finish) in [
-        (&ws, "a", "r-a", true),
-        (&ws, "b", "r-b", true),
-        (&ws, "c", "r-c", false),
-        (&other, "x", "r-x", true),
+    for (space, id, task_ref) in [
+        (&ws, "a", "r-a"),
+        (&ws, "b", "r-b"),
+        (&ws, "c", "r-c"),
+        (&other, "x", "r-x"),
     ] {
         store.add(space, id, id, IdeaSource::Chat).expect("应记下");
         store
-            .begin_dispatch(space, id, ref_name)
+            .begin_dispatch(space, id, task_ref)
             .expect("不应出错")
             .expect("应开始派发");
-        if finish {
-            store
-                .mark_assigned(space, id, "area", 1, None)
-                .expect("不应出错")
-                .expect("应指派");
-        }
+        store
+            .mark_assigned(space, id, "area", 1, None)
+            .expect("不应出错")
+            .expect("应指派");
     }
-    store.add(&ws, "t", "t", IdeaSource::Chat).expect("应记下");
-
-    assert_eq!(store.clear_assigned(&ws).expect("应清空"), 2);
-    assert_eq!(store.clear_assigned(&ws).expect("应清空"), 0);
-
+    let ids = ["a".to_owned(), "c".to_owned(), "x".to_owned()];
+    assert_eq!(store.complete_assigned_ids(&ws, &ids).expect("应完成"), 2);
+    assert_eq!(store.complete_assigned_ids(&ws, &ids).expect("应完成"), 0);
     let state_of = |space: &str, id: &str| {
         store
             .list(space)
@@ -450,8 +446,52 @@ fn clearing_assigned_ideas_marks_only_this_workspace_assigned_as_done() {
             .state
     };
     assert_eq!(state_of(&ws, "a"), IdeaState::Done);
-    assert_eq!(state_of(&ws, "b"), IdeaState::Done);
-    assert_eq!(state_of(&ws, "c"), IdeaState::Dispatching);
-    assert_eq!(state_of(&ws, "t"), IdeaState::Todo);
+    assert_eq!(state_of(&ws, "c"), IdeaState::Done);
+    assert_eq!(state_of(&ws, "b"), IdeaState::Assigned);
     assert_eq!(state_of(&other, "x"), IdeaState::Assigned);
+}
+
+/// 按 id 删除已完成：只删点名的已完成想法，不碰待办、已指派和其他空间（清空「已完成」的撤销窗口过后才真正执行）。
+///
+/// 数据构造：本空间已完成 d1、d2，待办 t；另一空间已完成 dx。
+/// 执行过程：delete_done(本空间, [d1, t, dx])。
+/// 预期结果：
+///   - 正断言：返回 1，d1 被删除。
+///   - 负断言：d2（未点名）、t（待办，点名也不删）、另一空间的 dx 都还在。
+#[test]
+fn deleting_done_by_ids_only_removes_listed_done_ideas() {
+    let (_temp, db, ws) = setup();
+    let other = DesktopWorkspaceStore::new(db.clone())
+        .create("其他")
+        .expect("应创建")
+        .id;
+    let store = IdeasStore::new(db);
+    for (space, id) in [(&ws, "d1"), (&ws, "d2"), (&other, "dx")] {
+        store.add(space, id, id, IdeaSource::Chat).expect("应记下");
+        store
+            .begin_dispatch(space, id, &format!("r-{id}"))
+            .expect("不应出错")
+            .expect("应开始派发");
+        store
+            .mark_assigned(space, id, "area", 1, None)
+            .expect("不应出错")
+            .expect("应指派");
+        assert!(store
+            .complete_by_task_ref(&format!("r-{id}"))
+            .expect("应完成"));
+    }
+    store.add(&ws, "t", "t", IdeaSource::Chat).expect("应记下");
+    let ids = ["d1".to_owned(), "t".to_owned(), "dx".to_owned()];
+    assert_eq!(store.delete_done(&ws, &ids).expect("应删除"), 1);
+    let exists = |space: &str, id: &str| {
+        store
+            .list(space)
+            .expect("应列出")
+            .iter()
+            .any(|idea| idea.id == id)
+    };
+    assert!(!exists(&ws, "d1"));
+    assert!(exists(&ws, "d2"));
+    assert!(exists(&ws, "t"), "待办不能被删");
+    assert!(exists(&other, "dx"), "其他空间不能被删");
 }

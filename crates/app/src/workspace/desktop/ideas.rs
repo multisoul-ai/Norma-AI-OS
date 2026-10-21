@@ -3,22 +3,14 @@
 
 use super::ideas_rows::{ideas_screen, IdeasScreen};
 use super::ideas_sync::{sync_ideas, DispatchLookup, STUCK_AFTER_SECS};
+use super::ideas_undo::IdeaUndo;
 use crate::app::MultisoulApp;
 use agent::IdeaTarget;
 use gpui::{AppContext as _, Context, Window};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 use storage::IdeasStore;
 use ui::component::input::{InputEvent, InputState};
 use workspace::ideas::{classify_task_state, TaskPhase};
-
-/// 删除后可撤销的时间窗口。
-const UNDO_WINDOW: Duration = Duration::from_secs(6);
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct IdeaUndo {
-    pub(crate) id: String,
-    pub(crate) title: String,
-}
 
 /// 菜单里的一个已有智能体。
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -208,7 +200,20 @@ impl MultisoulApp {
                 .find(|(candidate, _, _)| candidate == task_ref)
                 .map(|(_, _, phase)| *phase)
         };
-        ideas_screen(&self.desktop_workspace.ideas, now, &names, &phase_of)
+        // 清空「已完成」后、撤销窗口内：这些想法暂不显示（库里还在，撤销可恢复）。
+        let visible: Vec<_> = self
+            .desktop_workspace
+            .ideas
+            .iter()
+            .filter(|idea| {
+                !self
+                    .desktop_workspace
+                    .ideas_pending_purge
+                    .contains(&idea.id)
+            })
+            .cloned()
+            .collect();
+        ideas_screen(&visible, now, &names, &phase_of)
     }
 
     fn idea_agent_name(&self, area_id: &str, node_id: u64, cx: &Context<Self>) -> Option<String> {
@@ -279,7 +284,7 @@ impl MultisoulApp {
         let removed = self.desktop_workspace.ideas.remove(position);
         let title = removed.body.lines().next().unwrap_or_default().to_owned();
         self.desktop_workspace.ideas_menu = None;
-        self.desktop_workspace.ideas_undo = Some(IdeaUndo {
+        self.push_idea_undo(IdeaUndo::Delete {
             id: removed.id.clone(),
             title,
         });
@@ -292,74 +297,7 @@ impl MultisoulApp {
             let _ = this.update(cx, |app, cx| app.refresh_ideas(cx));
         })
         .detach();
-        self.desktop_workspace.ideas_undo_timer = Some(cx.spawn(async move |this, cx| {
-            cx.background_executor().timer(UNDO_WINDOW).await;
-            let _ = this.update(cx, |app, cx| {
-                app.desktop_workspace.ideas_undo = None;
-                cx.notify();
-            });
-        }));
-        cx.notify();
-    }
-
-    /// 清空“已指派”：先在界面上收进已完成，再后台落库，最后以库为准刷新。
-    pub(super) fn clear_assigned_ideas(&mut self, cx: &mut Context<Self>) {
-        let Some(workspace_id) = self.desktop_workspace.active_id.clone() else {
-            return;
-        };
-        for idea in &mut self.desktop_workspace.ideas {
-            if idea.state == workspace::ideas::IdeaState::Assigned {
-                idea.state = workspace::ideas::IdeaState::Done;
-            }
-        }
-        self.desktop_workspace.ideas_cursor = None;
-        let store = IdeasStore::new(self.database_paths.app_db_path().to_owned());
-        cx.spawn(async move |this, cx| {
-            let _ = cx
-                .background_spawn(async move { store.clear_assigned(&workspace_id) })
-                .await;
-            let _ = this.update(cx, |app, cx| app.refresh_ideas(cx));
-        })
-        .detach();
-        cx.notify();
-    }
-
-    /// 清空「已完成」：先在界面上去掉，再后台删除本工作空间所有已完成想法。
-    pub(super) fn clear_done_ideas(&mut self, cx: &mut Context<Self>) {
-        let Some(workspace_id) = self.desktop_workspace.active_id.clone() else {
-            return;
-        };
-        self.desktop_workspace
-            .ideas
-            .retain(|idea| idea.state != workspace::ideas::IdeaState::Done);
-        let store = IdeasStore::new(self.database_paths.app_db_path().to_owned());
-        cx.spawn(async move |this, cx| {
-            let cutoff = i64::MAX as u64;
-            let _ = cx
-                .background_spawn(async move { store.purge_done_before(&workspace_id, cutoff) })
-                .await;
-            let _ = this.update(cx, |app, cx| app.refresh_ideas(cx));
-        })
-        .detach();
-        cx.notify();
-    }
-
-    pub(super) fn undo_delete_idea(&mut self, cx: &mut Context<Self>) {
-        let (Some(undo), Some(workspace_id)) = (
-            self.desktop_workspace.ideas_undo.take(),
-            self.desktop_workspace.active_id.clone(),
-        ) else {
-            return;
-        };
-        self.desktop_workspace.ideas_undo_timer = None;
-        let store = IdeasStore::new(self.database_paths.app_db_path().to_owned());
-        cx.spawn(async move |this, cx| {
-            let _ = cx
-                .background_spawn(async move { store.restore(&workspace_id, &undo.id) })
-                .await;
-            let _ = this.update(cx, |app, cx| app.refresh_ideas(cx));
-        })
-        .detach();
+        self.schedule_idea_undo_expiry(cx);
         cx.notify();
     }
 

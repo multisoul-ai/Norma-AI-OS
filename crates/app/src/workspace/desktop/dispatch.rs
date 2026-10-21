@@ -335,11 +335,9 @@ fn finish_workspace_task_submission(
     Ok(
         AdapterResult::accepted(format!("{project_name} 的 {agent_name} 已接收任务"))
             .with_node_id(node_id)
-            .with_task_id(
-                accepted
-                    .task_id
-                    .ok_or_else(|| AdapterError::Failed("Agent 已接收但未返回任务身份".into()))?,
-            ),
+            .with_task_id(accepted.task_id.ok_or_else(|| {
+                AdapterError::AcceptedWithoutTaskId("Agent 已接收但未返回任务身份".into())
+            })?),
     )
 }
 
