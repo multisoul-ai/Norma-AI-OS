@@ -92,7 +92,38 @@ fn forward_from_stdin(source: HookSource, request_approval: bool) -> super::Hook
         }
         return super::HookForwardOutcome::Posted;
     }
-    forward_hook(source, raw_json, hook_forward_env_from_process())
+    let env = hook_forward_env_from_process();
+    let mut claim = claim_session_once;
+    if let Some(output) = super::session_context_output(
+        source,
+        &raw_json,
+        env.is_some() && super::path_convention_enabled_from_env(),
+        &mut claim,
+    ) {
+        println!("{output}");
+    }
+    forward_hook(source, raw_json, env)
+}
+
+/// 以临时目录下的标记文件保证“每个会话只注入一次”；任何 IO 失败按未注入处理（宁可少注入）。
+fn claim_session_once(session_id: &str) -> bool {
+    let safe: String = session_id
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_'))
+        .take(96)
+        .collect();
+    if safe.is_empty() {
+        return false;
+    }
+    let dir = std::env::temp_dir().join("norma-path-convention");
+    if std::fs::create_dir_all(&dir).is_err() {
+        return false;
+    }
+    std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(dir.join(safe))
+        .is_ok()
 }
 
 fn parse_source_arg(value: &str) -> Result<HookSource, String> {

@@ -11,6 +11,7 @@ public enum SettingsModule {
             SettingsSpaceWallpapers.name,
             SettingsLiveConfiguration.name,
             SettingsShortcutCustomize.name,
+            SettingsOrchestrationPathConvention.name,
         ],
         run: { scenario, session in
             switch scenario {
@@ -26,6 +27,8 @@ public enum SettingsModule {
                 try await SettingsLiveConfiguration.run(session)
             case SettingsShortcutCustomize.name:
                 try await SettingsShortcutCustomize.run(session)
+            case SettingsOrchestrationPathConvention.name:
+                try await SettingsOrchestrationPathConvention.run(session)
             default:
                 return false
             }

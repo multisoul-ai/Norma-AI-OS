@@ -3,6 +3,7 @@ mod status;
 use status::{component_error_detail, component_status, delegation_notice, provider_description};
 mod controller;
 pub(crate) mod health;
+pub(crate) mod path_convention;
 mod tokens;
 
 #[cfg(feature = "e2e-test-support")]
@@ -57,6 +58,11 @@ pub(super) fn orchestration_settings(
                     "settings.restart_existing_agent_sessions_after_installation",
                 ))),
         )
+        .child(path_convention::path_convention_row(
+            theme,
+            state.path_convention_enabled(),
+            cx,
+        ))
         .children(
             OrchestrationProvider::ALL
                 .into_iter()

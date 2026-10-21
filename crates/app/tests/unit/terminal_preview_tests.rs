@@ -230,3 +230,69 @@ fn terminal_path_resolves_directories_in_base_order() {
 
     assert!(resolve("./nothing").is_err(), "不存在的目录不得命中");
 }
+
+/// 模拟 Agent 一轮回复：遵守约定的路径点击后都能解析到真实文件并带出行号；网页走浏览器意图。
+///
+/// 数据构造：临时项目含 src/main.rs、docs/my notes/a b.md；绝对路径指向 src/main.rs。
+///   回复逐行写入 120 列终端（均为窄字符，避免宽字符列偏移）：
+///     1 "Fixed `src/main.rs:42:7` today."          相对路径 + 行列
+///     2 "Plan in `docs/my notes/a b.md` ok."        含空格路径
+///     3 "Abs: `<root>/src/main.rs:9`."              绝对路径
+///     4 "See https://example.com/docs for more."    网页
+/// 执行过程：用 path_ref_spans_for_row 取各路径区间起点作点击列，经 terminal_link_intent
+///   得到意图，再用后台同款 resolve_terminal_path 解析。
+/// 预期结果：
+///   - 三条路径都得到 OpenPath 且解析到存在的文件；行号分别为 42、None、9，列 7。
+///   - 网页得到 OpenBrowserCard（桌面模式由 route_project_content_to_desktop 送入右抽屉）。
+#[test]
+fn test_mock_agent_reply_paths_open_and_urls_route_to_browser() {
+    let temp = tempfile::tempdir().expect("创建临时项目");
+    let root = temp.path().canonicalize().expect("规范化根目录");
+    std::fs::create_dir_all(root.join("src")).expect("创建 src");
+    std::fs::create_dir_all(root.join("docs/my notes")).expect("创建含空格目录");
+    std::fs::write(root.join("src/main.rs"), "fn main() {}").expect("写入 main.rs");
+    std::fs::write(root.join("docs/my notes/a b.md"), "# note").expect("写入含空格文件");
+    let reply = format!(
+        "Fixed `src/main.rs:42:7` today.\r\nPlan in `docs/my notes/a b.md` ok.\r\nAbs: `{}/src/main.rs:9`.\r\nSee https://example.com/docs for more.",
+        root.display()
+    );
+    let mut grid = TerminalGrid::new(120, 8);
+    grid.advance(reply.as_bytes());
+    let snapshot = grid.snapshot();
+    let bases = [root.clone()];
+    let expect = [
+        (0, root.join("src/main.rs"), Some(42), Some(7)),
+        (1, root.join("docs/my notes/a b.md"), None, None),
+        (2, root.join("src/main.rs"), Some(9), None),
+    ];
+    for (row, file, line, col) in expect {
+        let span = snapshot
+            .path_ref_spans_for_row(row)
+            .into_iter()
+            .next()
+            .unwrap_or_else(|| panic!("第 {row} 行应识别出路径"));
+        let intent = terminal_link_intent(
+            &snapshot,
+            TextPoint::new(row, span.start),
+            false,
+            1,
+            &|_| false,
+        );
+        let TerminalLinkIntent::OpenPath { paths, .. } = intent else {
+            panic!("第 {row} 行应打开路径，实际 {intent:?}");
+        };
+        let hit = resolve_terminal_path(&bases, None, &paths).expect("路径应解析到真实文件");
+        assert_eq!(hit.path, file, "第 {row} 行应解析到正确文件");
+        assert_eq!(hit.line, line, "第 {row} 行行号");
+        assert_eq!(hit.col, col, "第 {row} 行列号");
+    }
+    let url_col = "See ".len();
+    let web = terminal_link_intent(&snapshot, TextPoint::new(3, url_col), false, 1, &|_| false);
+    assert_eq!(
+        web,
+        TerminalLinkIntent::OpenBrowserCard {
+            url: "https://example.com/docs".to_string()
+        },
+        "网页应走浏览器意图（桌面模式进右抽屉）"
+    );
+}

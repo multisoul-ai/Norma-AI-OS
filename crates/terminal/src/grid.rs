@@ -21,6 +21,7 @@ use alacritty_terminal::vte::ansi::{
 use crossbeam_channel::{unbounded, Receiver, Sender};
 
 mod links;
+mod path_backtick;
 mod path_ref;
 pub use path_ref::{parse_path_ref, PathRef, PathRefSpan, PathTier};
 

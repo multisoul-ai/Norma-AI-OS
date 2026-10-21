@@ -27,9 +27,11 @@
 | `canvas` | `canvas-drawers`、`canvas-project-drawers`、`canvas-content-tabs`、`canvas-delete-reflow` | 桌面画布外壳：左右抽屉独立开合及拖宽自动收起、悬浮概览折叠、真实项目画布与输入位置；右侧内容标签的恢复、切换与来源移除；删除第一张卡片后其余卡片补进空出的格子。 |
 
 | `content` | `content-workbench`、`content-home` | 右抽屉空态（`content-home`）：胶囊地址栏、六个工具磁贴与快捷键提示、推荐区、未实现入口的“即将支持”提示、文件磁贴打开工作台。工作台（`content-workbench`）：项目文件树、编辑保存、Git 暂存/提交（核对真实索引与 HEAD）、Markdown/HTML、图片缩放、视频播放与隐藏暂停、浏览器导航/会话保留、深浅主题。 |
+| `content` | `content-terminal-path-link` | 终端里 Agent 回复的反引号路径（相对路径、含空格路径）点击后在右抽屉打开 Markdown 预览，并持久化文件标签。 |
 | `settings` | `settings-navigation`、`settings-basic-preferences`、`settings-responsive-keyboard`、`settings-space-wallpapers` | 两级导航、基础设置中的语言与节能、主题切换、太空壁纸选择与预览、持久化与重启恢复，以及键盘和窄窗口。 |
 
 | `settings` | `settings-live-configuration` | GPT-Live模式切换、缺Key禁用、音色持久化、重启恢复和深浅主题。 |
+| `settings` | `settings-orchestration-path-convention` | 编排页“文件路径输出约定”开关：默认开启（未写库），点击后保存 false，再点击保存 true，开关外观随之变化。 |
 | `voice` | `voice-live-call`、`voice-live-acoustic` | 前者验连接/静音/用量；后者原依赖字幕OCR，用户移除浮层后在启动/连接前返回ENV，避免无效云端用量。真人声学按统一验收清单执行。 |
 
 ## 预留模块

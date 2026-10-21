@@ -2,7 +2,20 @@
 
 use crate::runtime::Runtime;
 use canvas::{AgentProfile, NodeId};
+use std::sync::atomic::{AtomicBool, Ordering};
 use terminal::PtyCommand;
+
+/// 用户在“编排”设置里是否允许向 Agent 注入文件路径输出约定；默认开启。
+static PATH_CONVENTION_ENABLED: AtomicBool = AtomicBool::new(true);
+
+/// 只影响之后启动的 Agent：开关经启动环境变量 `NORMA_PATH_CONVENTION=0` 传给 hook 与插件。
+pub fn set_path_convention_enabled(enabled: bool) {
+    PATH_CONVENTION_ENABLED.store(enabled, Ordering::Relaxed);
+}
+
+pub fn path_convention_enabled() -> bool {
+    PATH_CONVENTION_ENABLED.load(Ordering::Relaxed)
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AgentHookRuntimeConfig {
@@ -26,6 +39,11 @@ pub(crate) struct AgentHookEnv {
 
 impl AgentHookEnv {
     pub(crate) fn apply_to_command(&self, command: PtyCommand) -> PtyCommand {
+        let command = if path_convention_enabled() {
+            command
+        } else {
+            command.env("NORMA_PATH_CONVENTION", "0")
+        };
         command
             .env("MULTISOUL_NODE_ID", self.node_id.to_string())
             .env("MULTISOUL_AGENT_PROFILE", agent_profile_env(self.profile))
@@ -143,6 +161,39 @@ mod tests {
             AgentProfile::Codex,
             "OpenCode hook env must not be normalized to Codex"
         );
+    }
+
+    /// 用户在“编排”设置里关闭路径约定后，之后启动的 Agent 带 `NORMA_PATH_CONVENTION=0`；默认不带。
+    ///
+    /// 数据构造：Codex/42 + 任意 hook 配置。
+    /// 执行过程：默认状态应用一次；关闭开关后应用一次；最后恢复开启，避免影响同进程其他测试。
+    /// 预期结果：默认命令不含该变量（正断言：含 MULTISOUL_NODE_ID；负断言：无 NORMA_PATH_CONVENTION）；
+    ///   关闭后命令含 `NORMA_PATH_CONVENTION=0`。
+    #[test]
+    fn path_convention_switch_reaches_agent_environment() {
+        let mut runtime = Runtime::new();
+        runtime.set_agent_hook_config(Some(AgentHookRuntimeConfig {
+            endpoint: "http://127.0.0.1:49152/agent-hooks".to_string(),
+            token: "tok".to_string(),
+            workspace_id: "w".to_string(),
+            workspace_route_id: "r".to_string(),
+            norma_socket: "/tmp/s.sock".to_string(),
+        }));
+        let env = runtime.agent_hook_env(42, AgentProfile::Codex).unwrap();
+        let has = |command: &PtyCommand, key: &str, value: &str| {
+            command.env.iter().any(|(k, v)| k == key && v == value)
+        };
+        set_path_convention_enabled(true);
+        let on = env.apply_to_command(PtyCommand::new("/bin/zsh"));
+        assert!(has(&on, "MULTISOUL_NODE_ID", "42"), "hook 环境仍应注入");
+        assert!(
+            !on.env.iter().any(|(k, _)| k == "NORMA_PATH_CONVENTION"),
+            "默认开启时不应设置关闭变量"
+        );
+        set_path_convention_enabled(false);
+        let off = env.apply_to_command(PtyCommand::new("/bin/zsh"));
+        set_path_convention_enabled(true);
+        assert!(has(&off, "NORMA_PATH_CONVENTION", "0"), "关闭后应显式传 0");
     }
 
     /// Agent 启动上下文必须显式绑定所属 Norma socket，不能依赖全局安装 CLI 的构建类型。
