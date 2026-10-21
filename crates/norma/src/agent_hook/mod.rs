@@ -14,6 +14,7 @@ mod kimi;
 mod opencode;
 mod path_convention;
 mod pi;
+mod session_claim;
 mod zcode;
 
 use crate::protocol::{AgentProfile, NodeId};

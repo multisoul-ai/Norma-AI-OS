@@ -21,3 +21,11 @@
 - 约定只对 Norma 托管会话生效（有 `MULTISOUL_NODE_ID` 等环境变量）。
 - 解析端同步支持：反引号路径含空格、被终端软折行拆成多行（`terminal/src/grid/path_backtick.rs`），点击时优先于折行启发式候选。
 - 开关在 Settings → 编排 顶部（键 `orchestration.path_convention.v1`，默认开）。关闭后 Norma 以 `NORMA_PATH_CONVENTION=0` 启动之后的 Agent，hook / OpenCode 插件 / Pi 扩展据此不注入；已运行的 Agent 不受影响。
+
+## 已知边界
+
+- **Claude Code 交互式 TUI 渲染行内代码时会去掉反引号**（真机 tmux 抓屏：回复与回显里都只剩 `src/main.rs:1`，反引号被样式取代）。因此在 Claude（以及渲染方式类似的 TUI）里，约定的反引号识别用不上：无空格、带目录和扩展名的路径仍靠原有 token 识别点击；**含空格路径无法识别**。反引号识别只对原样输出文本的场景有效（脚本输出、`-p` 输出、不剥反引号的 TUI）。
+- 约定的实际收益主要是让模型稳定写出「目录 + 扩展名 + 可选 :行号、不加粗、不加链接」的路径，使原有 token 识别命中率更高。
+- 带空格的反引号内容必须“像路径”才识别（首段含目录或以 `~`/`.` 开头，且无 `-` 参数），避免把 `` `git diff src/a.rs` `` 这类命令整串当成路径。
+- 逻辑行向上/向下最多连接 8 个可视行；无反引号的行在分配前直接返回，保证每行渲染的开销有上限。
+- Kimi 的“只注入一次”标记在 `$TMPDIR/norma-path-convention/`（0700，文件名含 session_id 哈希，7 天后清理）；写 stdout 失败时撤销标记。

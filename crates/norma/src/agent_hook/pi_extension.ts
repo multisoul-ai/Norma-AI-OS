@@ -94,7 +94,7 @@ export default function (pi) {
     post("UserPromptSubmit", ctx, { turnId, raw: prompt ? { prompt } : {} });
     // Norma 托管会话：在本轮 system prompt 末尾追加文件路径输出约定。
     if (
-      Number.isFinite(Number(process.env.MULTISOUL_NODE_ID)) &&
+      /^\d+$/.test(process.env.MULTISOUL_NODE_ID || "") &&
       process.env.NORMA_PATH_CONVENTION !== "0" &&
       str(event.systemPrompt)
     ) {

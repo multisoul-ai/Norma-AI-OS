@@ -134,9 +134,11 @@ export default async () => {
   return {
     // Norma 托管会话：在 system prompt 末尾追加文件路径输出约定（真机探针已验证模型可见）。
     "experimental.chat.system.transform": async (_input, output) => {
-      if (!Number.isFinite(Number(process.env.MULTISOUL_NODE_ID))) return;
+      if (!/^\d+$/.test(process.env.MULTISOUL_NODE_ID || "")) return;
       if (process.env.NORMA_PATH_CONVENTION === "0") return;
-      if (Array.isArray(output?.system)) output.system.push(PATH_CONVENTION);
+      if (Array.isArray(output?.system) && !output.system.includes(PATH_CONVENTION)) {
+        output.system.push(PATH_CONVENTION);
+      }
     },
 
     "chat.message": async (input, output) => {

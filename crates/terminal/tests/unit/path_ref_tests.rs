@@ -352,3 +352,60 @@ fn test_backtick_path_soft_wrapped_across_rows_is_one_path() {
         "路径之后的文字不应命中"
     );
 }
+
+/// 带空格的反引号命令不是路径：不得吞掉其中原本可点的路径 token，也不得整串当路径。
+///
+/// 数据构造：行 = "run `git diff src/a.rs` and `cargo test -p app tests/foo.rs` ok"。
+///   两段反引号内容含空格且末段是 "目录/文件.扩展名"，旧实现会整串判为 Strong 路径。
+///   正向对照：同一行再加 `docs/my notes/a b.md`，这段含空格的真路径仍应识别。
+///
+/// 预期结果：
+///   - 命令内的 "src/a.rs"、"tests/foo.rs" 仍作为普通 token 识别（各自独立区间，path 不含命令词）；
+///   - 没有任何区间的 path 以 "git " 或 "cargo " 开头；
+///   - 真路径 "docs/my notes/a b.md" 仍被识别。
+#[test]
+fn test_backtick_command_with_spaces_is_not_treated_as_path() {
+    let mut grid = TerminalGrid::new(120, 4);
+    grid.advance(
+        b"run `git diff src/a.rs` and `cargo test -p app tests/foo.rs` ok `docs/my notes/a b.md`",
+    );
+    let spans = grid.snapshot().path_ref_spans_for_row(0);
+    let paths: Vec<&str> = spans.iter().map(|s| s.path_ref.path.as_str()).collect();
+    assert!(
+        paths.contains(&"src/a.rs"),
+        "命令里的 src/a.rs 仍应可点，实际 {paths:?}"
+    );
+    assert!(
+        paths.contains(&"tests/foo.rs"),
+        "tests/foo.rs 仍应可点，实际 {paths:?}"
+    );
+    assert!(
+        !paths
+            .iter()
+            .any(|p| p.starts_with("git ") || p.starts_with("cargo ")),
+        "命令整串不得成为路径，实际 {paths:?}"
+    );
+    assert!(
+        paths.contains(&"docs/my notes/a b.md"),
+        "真实的含空格路径仍应识别，实际 {paths:?}"
+    );
+}
+
+/// 奇数个反引号不得 panic，也不得产生路径。
+///
+/// 数据构造：行 = "stray ` backtick docs/x.md and `unterminated"。
+/// 预期结果：不 panic；docs/x.md 作为普通 token 仍被识别；没有含反引号的路径。
+#[test]
+fn test_unbalanced_backticks_do_not_panic_or_leak_into_paths() {
+    let mut grid = TerminalGrid::new(60, 4);
+    grid.advance(b"stray ` backtick docs/x.md and `unterminated");
+    let spans = grid.snapshot().path_ref_spans_for_row(0);
+    assert!(
+        spans.iter().all(|s| !s.path_ref.path.contains('`')),
+        "路径不应含反引号：{spans:?}"
+    );
+    assert!(
+        spans.iter().any(|s| s.path_ref.path == "docs/x.md"),
+        "普通 token 仍识别：{spans:?}"
+    );
+}

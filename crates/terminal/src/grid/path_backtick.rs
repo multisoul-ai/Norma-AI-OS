@@ -7,18 +7,37 @@ fn soft_wraps(row: &[Cell]) -> bool {
     row.last().is_some_and(|cell| cell.attrs.soft_wrap)
 }
 
+/// 逻辑行向上/向下最多连接的可视行数：渲染对每一行调用，必须给工作量封顶。
+const MAX_WRAPPED_ROWS: usize = 8;
+
+/// 含空格的“路径”必须像路径而不是命令：首段（第一个空格前）要带目录或以 `~`/`.` 开头，
+/// 且之后没有以 `-` 开头的参数。`git diff src/a.rs`、`cargo test -p app x/y.rs` 都会被拒绝。
+fn looks_like_spaced_path(text: &str) -> bool {
+    let mut words = text.split(' ');
+    let first = words.next().unwrap_or_default();
+    let rooted = first.contains('/') || first.starts_with(['~', '.']);
+    rooted && !words.any(|word| word.starts_with('-'))
+}
+
 /// `row` 所在逻辑行（经软折行连接的所有可视行）里的反引号强路径，只返回落在 `row` 上的区间。
 pub(super) fn spans_for_row(rows: &[Vec<Cell>], row: usize) -> Vec<PathRefSpan> {
     if row >= rows.len() {
         return Vec::new();
     }
     let mut first = row;
-    while first > 0 && soft_wraps(&rows[first - 1]) {
+    while first > 0 && row - first < MAX_WRAPPED_ROWS && soft_wraps(&rows[first - 1]) {
         first -= 1;
     }
     let mut last = row;
-    while last + 1 < rows.len() && soft_wraps(&rows[last]) {
+    while last + 1 < rows.len() && last - row < MAX_WRAPPED_ROWS && soft_wraps(&rows[last]) {
         last += 1;
+    }
+    // 没有任何反引号的逻辑行（绝大多数行）在分配前直接返回。
+    if !rows[first..=last]
+        .iter()
+        .any(|cells| cells.iter().any(|cell| cell.c == '`'))
+    {
+        return Vec::new();
     }
     // 逻辑行字符及其所在 (行, 列)；宽字符占位格不产生字符。
     let mut chars: Vec<(char, usize, usize)> = Vec::new();
@@ -47,6 +66,9 @@ pub(super) fn spans_for_row(rows: &[Vec<Cell>], row: usize) -> Vec<PathRefSpan> 
             .zip(inner.last())
             .is_some_and(|(a, b)| a.1 != b.1);
         if !(text.contains(' ') || crosses_rows) {
+            continue;
+        }
+        if text.contains(' ') && !looks_like_spaced_path(&text) {
             continue;
         }
         let Some(path_ref) = parse_path_ref(&text) else {
