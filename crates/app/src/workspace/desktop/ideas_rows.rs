@@ -121,6 +121,11 @@ pub(super) fn ideas_screen(
     screen
 }
 
+/// 刷新后条数可能变少：过期的键盘光标直接失效。
+pub(super) fn clamp_cursor(cursor: Option<usize>, total: usize) -> Option<usize> {
+    cursor.filter(|index| *index < total)
+}
+
 fn title_of(body: &str) -> String {
     let first = body.lines().next().unwrap_or_default().trim();
     if first.chars().count() > TITLE_CHARS {

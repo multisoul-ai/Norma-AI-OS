@@ -51,6 +51,7 @@ mod idea_drag;
 mod idea_drag_ui;
 mod ideas;
 mod ideas_rows;
+mod ideas_sync;
 mod motion_log;
 mod navigation;
 mod overview_rows;

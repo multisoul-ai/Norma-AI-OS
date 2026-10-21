@@ -1,4 +1,4 @@
-use super::{ideas_screen, relative_age, IdeaStatus};
+use super::{clamp_cursor, ideas_screen, relative_age, IdeaStatus};
 use storage::{IdeaSource, StoredIdea};
 use workspace::ideas::IdeaState;
 use workspace::ideas::TaskPhase;
@@ -219,4 +219,18 @@ fn assigned_rows_show_task_phase_and_only_failed_is_retryable() {
         "已完成单独成组并保留标题"
     );
     assert_eq!(screen.assigned.len(), 4, "已完成不应混进已指派");
+}
+
+/// 刷新后条数变少，键盘光标必须收敛回有效范围，否则回车会索引越界。
+///
+/// 数据构造：光标在第 2 行（下标 2）；总数分别为 3、2、0。
+/// 预期结果：
+///   - 正断言：总数 3 时保持；总数 2 时光标失效为 None；
+///   - 负断言：总数 0 时一定是 None（空清单不能留着旧光标）。
+#[test]
+fn stale_keyboard_cursor_is_dropped_when_rows_shrink() {
+    assert_eq!(clamp_cursor(Some(2), 3), Some(2), "仍在范围内应保持");
+    assert_eq!(clamp_cursor(Some(2), 2), None, "光标超出末行应失效");
+    assert_eq!(clamp_cursor(Some(0), 0), None, "空清单不能留着旧光标");
+    assert_eq!(clamp_cursor(None, 5), None, "没有光标仍是 None");
 }

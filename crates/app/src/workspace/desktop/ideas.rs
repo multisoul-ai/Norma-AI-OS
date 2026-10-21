@@ -2,6 +2,7 @@
 //! 读写 SQLite 都在后台执行器上完成；前台只替换缓存并通知重绘。
 
 use super::ideas_rows::{ideas_screen, IdeasScreen};
+use super::ideas_sync::{sync_ideas, DispatchLookup, STUCK_AFTER_SECS};
 use crate::app::MultisoulApp;
 use agent::IdeaTarget;
 use gpui::{AppContext as _, Context, Window};
@@ -9,10 +10,6 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use storage::IdeasStore;
 use workspace::ideas::{classify_task_state, TaskPhase};
 
-/// 停留超过这么久的“派发中”才会被对账，避免抢先回退仍在发送的想法。
-const STUCK_AFTER_SECS: u64 = 120;
-/// 已完成的想法保留的时长（7 天）。
-const DONE_KEEP_SECS: u64 = 7 * 24 * 3600;
 /// 删除后可撤销的时间窗口。
 const UNDO_WINDOW: Duration = Duration::from_secs(6);
 
@@ -45,13 +42,19 @@ pub(super) enum IdeaUiTarget {
 }
 
 impl MultisoulApp {
-    /// 已加载项目协调器里的任务快照：(task_ref, 任务正文, 阶段)。
-    fn idea_task_snapshot(&self, cx: &Context<Self>) -> Vec<(String, String, TaskPhase)> {
-        let Some(workspace_id) = self.desktop_workspace.active_id.as_deref() else {
-            return Vec::new();
+    /// 已加载项目协调器里的任务快照：(task_ref, 任务正文, 阶段)，以及各项目派发库路径。
+    fn idea_task_sources(&self, cx: &Context<Self>) -> DispatchLookup {
+        let mut lookup = DispatchLookup {
+            live: Vec::new(),
+            project_dbs: Vec::new(),
         };
-        let mut tasks = Vec::new();
+        let Some(workspace_id) = self.desktop_workspace.active_id.as_deref() else {
+            return lookup;
+        };
         for area in &self.desktop_workspace.areas {
+            lookup
+                .project_dbs
+                .push(self.database_paths.project_db_path(&area.root));
             let Some(session) = self
                 .desktop_workspace
                 .sessions
@@ -60,56 +63,43 @@ impl MultisoulApp {
                 continue;
             };
             if let Some(coordinator) = session.read(cx).agent_task_coordinator.as_ref() {
-                tasks.extend(
-                    coordinator
-                        .tasks()
-                        .into_iter()
-                        .map(|task| (task.task_ref, task.task, classify_task_state(task.state))),
-                );
+                lookup
+                    .live
+                    .extend(coordinator.tasks().into_iter().map(|task| {
+                        let mut phase = classify_task_state(task.state);
+                        // 无法追踪完成的任务（“untracked”在 tracking 字段里，不在 state 里）。
+                        if task.tracking == agent::AgentTrackingMode::Untracked
+                            && matches!(phase, TaskPhase::Queued | TaskPhase::Running)
+                        {
+                            phase = TaskPhase::Untracked;
+                        }
+                        (task.task_ref, task.task, phase)
+                    }));
             }
         }
-        tasks
+        lookup
     }
 
-    /// 后台重读当前工作空间的清单，并把任务终态回写进想法：成功→完成、取消→回待办，
-    /// 超过一段时间的“派发中”按真实任务对账，已完成保留 7 天后清理。
-    /// 只保留最新一次，迟到的结果按工作空间校验后丢弃。
+    /// 后台重读当前工作空间的清单，并把任务终态回写进想法（见 `ideas_sync`）。
+    /// 读取各项目会话必须在前台且不能与正在更新的实体冲突：整个刷新从下一轮开始，
+    /// 因此无论从项目会话、宿主还是快捷键调用都安全。只保留最新一次，迟到的结果按工作空间校验后丢弃。
     pub(crate) fn refresh_ideas(&mut self, cx: &mut Context<Self>) {
         let Some(workspace_id) = self.desktop_workspace.active_id.clone() else {
             return;
         };
         let store = IdeasStore::new(self.database_paths.app_db_path().to_owned());
-        let tasks = self.idea_task_snapshot(cx);
-        let id = workspace_id.clone();
         self.desktop_workspace.ideas_refresh = Some(cx.spawn(async move |this, cx| {
+            let Ok(lookup) = this.update(cx, |app, cx| app.idea_task_sources(cx)) else {
+                return;
+            };
+            let id = workspace_id.clone();
             let list = cx
                 .background_spawn(async move {
-                    let phase_of = |task_ref: &str| {
-                        tasks
-                            .iter()
-                            .find(|(candidate, _, _)| candidate == task_ref)
-                            .map(|(_, _, phase)| *phase)
-                    };
-                    let resolve = |idea: &storage::StoredIdea| {
-                        tasks
-                            .iter()
-                            .find(|(_, text, _)| *text == idea.body)
-                            .map(|(task_ref, _, _)| task_ref.clone())
-                    };
                     let now = SystemTime::now()
                         .duration_since(UNIX_EPOCH)
                         .map(|elapsed| elapsed.as_secs())
                         .unwrap_or_default();
-                    let reconciled =
-                        store.reconcile_dispatching_with(&id, STUCK_AFTER_SECS, resolve);
-                    let applied = store.apply_task_phases(&id, phase_of);
-                    let purged = store.purge_done_before(&id, now.saturating_sub(DONE_KEEP_SECS));
-                    for outcome in [reconciled, applied, purged] {
-                        if let Err(error) = outcome {
-                            tracing::warn!(%error, "idea housekeeping failed");
-                        }
-                    }
-                    store.list(&id)
+                    sync_ideas(&store, &id, &lookup, now, STUCK_AFTER_SECS)
                 })
                 .await;
             let _ = this.update(cx, |app, cx| {
@@ -118,7 +108,7 @@ impl MultisoulApp {
                 }
                 match list {
                     Ok(list) => app.desktop_workspace.ideas = list,
-                    Err(error) => tracing::warn!(%error, "failed to load workspace ideas"),
+                    Err(error) => tracing::warn!(%error, "failed to sync workspace ideas"),
                 }
                 cx.notify();
             });
@@ -147,9 +137,10 @@ impl MultisoulApp {
             .map(|elapsed| elapsed.as_secs())
             .unwrap_or_default();
         let names = |area: &str, node: u64| self.idea_agent_name(area, node, cx);
-        let tasks = self.idea_task_snapshot(cx);
+        let sources = self.idea_task_sources(cx);
         let phase_of = |task_ref: &str| {
-            tasks
+            sources
+                .live
                 .iter()
                 .find(|(candidate, _, _)| candidate == task_ref)
                 .map(|(_, _, phase)| *phase)

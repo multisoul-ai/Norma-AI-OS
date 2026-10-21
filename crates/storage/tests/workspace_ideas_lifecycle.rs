@@ -1,4 +1,4 @@
-use storage::{DesktopWorkspaceStore, IdeaSource, IdeasStore};
+use storage::{DesktopWorkspaceStore, IdeaSource, IdeasStore, Reconcile};
 use workspace::ideas::IdeaState;
 
 fn setup() -> (tempfile::TempDir, std::path::PathBuf, String) {
@@ -180,7 +180,7 @@ fn reconcile_skips_fresh_dispatching_ideas() {
         .expect("应开始派发");
     assert_eq!(
         store
-            .reconcile_dispatching_with(&ws, 3_600, |_| None)
+            .reconcile_dispatching_with(&ws, 3_600, |_| Reconcile::NotSent)
             .expect("不应出错"),
         0,
         "刚开始的派发不应被对账回退"
@@ -192,7 +192,7 @@ fn reconcile_skips_fresh_dispatching_ideas() {
     );
     assert_eq!(
         store
-            .reconcile_dispatching_with(&ws, 0, |_| None)
+            .reconcile_dispatching_with(&ws, 0, |_| Reconcile::NotSent)
             .expect("不应出错"),
         1,
         "年龄达标且没发出时才回待办"
@@ -261,5 +261,143 @@ fn mobile_view_is_bounded_coarse_and_hides_dismissed() {
         store.mobile_view(&ws).expect("应生成手机视图").len(),
         100,
         "条数应限制为 100"
+    );
+}
+
+/// 对账无法判断时（例如派发库读取失败）必须保持派发中，不能当作“没发出”回退。
+///
+/// 数据构造：一条停留足够久的派发中想法；resolve 返回 Unknown。
+/// 预期结果：
+///   - 正断言：返回 0，想法仍是派发中，task_ref 占位值不变。
+///   - 负断言：不会因为“不确定”而回到待办（那会导致重复派发）。
+#[test]
+fn reconcile_unknown_keeps_dispatching() {
+    let (_temp, db, ws) = setup();
+    let store = IdeasStore::new(db);
+    store.add(&ws, "a", "a", IdeaSource::Chat).expect("应记下");
+    store
+        .begin_dispatch(&ws, "a", "idea:a")
+        .expect("不应出错")
+        .expect("应开始派发");
+    assert_eq!(
+        store
+            .reconcile_dispatching_with(&ws, 0, |_| Reconcile::Unknown)
+            .expect("不应出错"),
+        0,
+        "不确定时不应处理"
+    );
+    let idea = store.list(&ws).expect("应列出").remove(0);
+    assert_eq!(
+        (idea.state, idea.task_ref.as_deref()),
+        (IdeaState::Dispatching, Some("idea:a")),
+        "应保持派发中与占位引用"
+    );
+}
+
+/// 派发成功但没拿到真实 task_ref 时留下的占位值，之后可被替换；非占位的真实引用不被改写。
+///
+/// 数据构造：两条已指派想法：a 仍是占位 idea:a，b 已有真实引用 run-1:5。
+/// 预期结果：
+///   - 正断言：a 采用 run-2:9 后 task_ref 为真实值；
+///   - 负断言：b 不被改写（返回 false）；待办想法也不能采用引用；已被其他想法占用的引用返回错误而不是静默覆盖。
+#[test]
+fn adopt_task_ref_replaces_only_placeholders() {
+    let (_temp, db, ws) = setup();
+    let store = IdeasStore::new(db);
+    for (id, placeholder) in [("a", "idea:a"), ("b", "run-1:5")] {
+        store.add(&ws, id, id, IdeaSource::Chat).expect("应记下");
+        store
+            .begin_dispatch(&ws, id, placeholder)
+            .expect("不应出错")
+            .expect("应开始派发");
+        store
+            .mark_assigned(&ws, id, "area", 1, None)
+            .expect("不应出错")
+            .expect("应指派");
+    }
+    store.add(&ws, "c", "c", IdeaSource::Chat).expect("应记下");
+    assert!(
+        store.adopt_task_ref(&ws, "a", "run-2:9").expect("不应出错"),
+        "占位引用应被替换"
+    );
+    assert!(
+        !store.adopt_task_ref(&ws, "b", "run-3:1").expect("不应出错"),
+        "真实引用不应被改写"
+    );
+    assert!(
+        !store.adopt_task_ref(&ws, "c", "run-4:1").expect("不应出错"),
+        "待办不能采用引用"
+    );
+    let by_id = |id: &str| {
+        store
+            .list(&ws)
+            .expect("应列出")
+            .into_iter()
+            .find(|i| i.id == id)
+            .expect("应存在")
+    };
+    assert_eq!(
+        by_id("a").task_ref.as_deref(),
+        Some("run-2:9"),
+        "a 应持有真实引用"
+    );
+    assert_eq!(
+        by_id("b").task_ref.as_deref(),
+        Some("run-1:5"),
+        "b 应保持原引用"
+    );
+}
+
+/// 手机视图的标题清洗控制字符，并在超出上限时优先保留待办。
+///
+/// 数据构造：标题含制表符与响铃符；105 条已完成排在前，最后一条待办“最新待办”。
+/// 预期结果：
+///   - 正断言：标题里的控制字符变成空格；最新的待办出现在视图里，且排在已完成之前。
+///   - 负断言：任何标题都不含控制字符；总数仍是 100。
+#[test]
+fn mobile_view_sanitizes_titles_and_keeps_todos_first() {
+    let (_temp, db, ws) = setup();
+    let store = IdeasStore::new(db);
+    store
+        .add(&ws, "t", "修复\tbug\u{7}吧", IdeaSource::Chat)
+        .expect("应记下");
+    for n in 0..105 {
+        let id = format!("d{n}");
+        store
+            .add(&ws, &id, "旧事", IdeaSource::Chat)
+            .expect("应记下");
+        store
+            .begin_dispatch(&ws, &id, &format!("r:{n}"))
+            .expect("不应出错")
+            .expect("应开始派发");
+        store
+            .mark_assigned(&ws, &id, "area", 1, None)
+            .expect("不应出错")
+            .expect("应指派");
+        assert!(
+            store
+                .complete_by_task_ref(&format!("r:{n}"))
+                .expect("不应出错"),
+            "应完成"
+        );
+    }
+    store
+        .add(&ws, "latest", "最新待办", IdeaSource::Chat)
+        .expect("应记下");
+    let view = store.mobile_view(&ws).expect("应生成");
+    assert_eq!(view.len(), 100, "总数应限制为 100");
+    assert_eq!(view[0].title, "修复 bug 吧", "控制字符应被替换为空格");
+    assert!(
+        view.iter().any(|idea| idea.title == "最新待办"),
+        "最新待办必须可见"
+    );
+    assert!(
+        view.iter()
+            .all(|idea| !idea.title.chars().any(char::is_control)),
+        "标题不应含控制字符"
+    );
+    assert!(
+        view[..2].iter().all(|idea| idea.state == "todo"),
+        "待办应排在前面"
     );
 }

@@ -78,7 +78,10 @@ impl MultisoulApp {
         if self.desktop_workspace.ideas_menu.is_some() {
             return self.handle_ideas_menu_key(key, window, cx);
         }
-        let current = self.desktop_workspace.ideas_cursor;
+        // 刷新后条数可能变少：先把过期的光标收敛回有效范围，再做任何索引。
+        let current =
+            super::super::ideas_rows::clamp_cursor(self.desktop_workspace.ideas_cursor, total);
+        self.desktop_workspace.ideas_cursor = current;
         let next = match key {
             "down" => Some(current.map_or(0, |index| (index + 1).min(total.saturating_sub(1)))),
             "up" => Some(current.map_or(0, |index| index.saturating_sub(1))),

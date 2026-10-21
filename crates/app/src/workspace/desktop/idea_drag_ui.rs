@@ -207,13 +207,14 @@ impl MultisoulApp {
             .inset_0()
             .cursor_grabbing()
             .occlude()
-            .on_mouse_move(cx.listener(|app, event: &MouseMoveEvent, window, cx| {
+            .on_mouse_move(cx.listener(|app, event: &MouseMoveEvent, _window, cx| {
                 cx.stop_propagation();
                 let (x, y) = (f32::from(event.position.x), f32::from(event.position.y));
                 if event.pressed_button == Some(MouseButton::Left) {
                     app.idea_drag_move(x, y, cx);
                 } else {
-                    app.idea_drag_finish(x, y, window, cx);
+                    // 没有按下按键：松手发生在窗口外或失焦期间，按取消处理，绝不派发。
+                    app.cancel_idea_drag(cx);
                 }
             }))
             .on_mouse_up(

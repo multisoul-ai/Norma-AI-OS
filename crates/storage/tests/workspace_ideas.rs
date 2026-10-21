@@ -1,5 +1,5 @@
 use std::sync::{Arc, Barrier};
-use storage::{DesktopWorkspaceStore, IdeaSource, IdeasStore};
+use storage::{DesktopWorkspaceStore, IdeaSource, IdeasStore, Reconcile};
 use workspace::ideas::IdeaState;
 
 fn setup() -> (tempfile::TempDir, std::path::PathBuf, String) {
@@ -258,7 +258,11 @@ fn reconcile_resolves_dispatching_by_task_ref_and_leaves_others_alone() {
 
     let changed = store
         .reconcile_dispatching_with(&ws, 0, |idea| {
-            (idea.task_ref.as_deref() == Some("task-1")).then(|| "run-3:11".to_owned())
+            if idea.task_ref.as_deref() == Some("task-1") {
+                Reconcile::Sent("run-3:11".to_owned())
+            } else {
+                Reconcile::NotSent
+            }
         })
         .expect("对账不应出错");
     assert_eq!(changed, 2, "只有本工作空间的两条派发中想法被处理");

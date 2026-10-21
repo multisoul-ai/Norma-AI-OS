@@ -6,10 +6,6 @@ use workspace::ideas::{
     TaskPhase,
 };
 
-/// 手机端最多展示的想法条数与标题字符数。
-const MOBILE_IDEA_LIMIT: usize = 100;
-const MOBILE_TITLE_CHARS: usize = 80;
-
 /// 相邻想法的排序间隔，为将来的手动排序留出空隙。
 const POSITION_STEP: i64 = 1024;
 
@@ -28,24 +24,15 @@ pub struct StoredIdea {
     pub updated_at_unix: u64,
 }
 
-/// 手机端看到的一条想法。
-#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
-pub struct MobileIdea {
-    pub id: String,
-    pub title: String,
-    /// `todo` / `assigned` / `done`。
-    pub state: &'static str,
-    pub created_at_unix: u64,
-}
-
-fn mobile_title(body: &str) -> String {
-    let first = body.lines().next().unwrap_or_default().trim();
-    if first.chars().count() > MOBILE_TITLE_CHARS {
-        let cut: String = first.chars().take(MOBILE_TITLE_CHARS).collect();
-        format!("{cut}…")
-    } else {
-        first.to_owned()
-    }
+/// 对账一条“派发中”想法的判断结果。
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Reconcile {
+    /// 已经发出，带真实 task_ref。
+    Sent(String),
+    /// 确认没有发出。
+    NotSent,
+    /// 无法判断（例如派发库读取失败）：保持派发中，绝不当作没发出。
+    Unknown,
 }
 
 /// 工作空间想法清单。状态流转只走 `workspace::ideas::transition`；
@@ -186,13 +173,14 @@ impl IdeasStore {
     }
 
     /// 启动对账：停留超过 `min_age_secs` 的“派发中”想法，由调用方按真实派发记录判断是否发出。
-    /// `resolve` 返回 `Some(真实 task_ref)` 表示已发出，补成已指派；`None` 表示没发出，回待办。
+    /// `resolve` 返回 `Sent(真实 task_ref)` 表示已发出，补成已指派；`NotSent` 表示确认没发出，回待办；
+    /// `Unknown` 表示无法判断，保持不动。
     /// 太新的想法可能仍在派发中，不处理，避免抢先回退造成重复派发。返回被处理的条数。
     pub fn reconcile_dispatching_with(
         &self,
         workspace_id: &str,
         min_age_secs: u64,
-        resolve: impl Fn(&StoredIdea) -> Option<String>,
+        resolve: impl Fn(&StoredIdea) -> Reconcile,
     ) -> StorageResult<usize> {
         let now = crate::current_unix_timestamp()?;
         let stuck: Vec<StoredIdea> = self
@@ -206,16 +194,23 @@ impl IdeasStore {
         let mut settled = 0;
         for idea in stuck {
             let result = match resolve(&idea) {
-                Some(task_ref) => {
-                    validate_task_ref(&task_ref)?;
-                    self.step(
+                Reconcile::Unknown => continue,
+                Reconcile::Sent(task_ref) => {
+                    if validate_task_ref(&task_ref).is_err() {
+                        continue;
+                    }
+                    // 引用已被另一条想法占用（唯一索引冲突）时只跳过这一条，不中止整批对账。
+                    match self.step(
                         workspace_id,
                         &idea.id,
                         IdeaEvent::DispatchSucceeded,
                         Patch::Resolved(&task_ref),
-                    )?
+                    ) {
+                        Ok(result) => result,
+                        Err(_) => continue,
+                    }
                 }
-                None => self.step(
+                Reconcile::NotSent => self.step(
                     workspace_id,
                     &idea.id,
                     IdeaEvent::DispatchFailed,
@@ -257,23 +252,23 @@ impl IdeasStore {
         Ok(changed)
     }
 
-    /// 手机端只读视图：截断后的标题与粗粒度状态，不含正文、路径与任务引用。
-    pub fn mobile_view(&self, workspace_id: &str) -> StorageResult<Vec<MobileIdea>> {
-        Ok(self
-            .list(workspace_id)?
-            .into_iter()
-            .take(MOBILE_IDEA_LIMIT)
-            .map(|idea| MobileIdea {
-                title: mobile_title(&idea.body),
-                state: match idea.state {
-                    IdeaState::Todo => "todo",
-                    IdeaState::Dispatching | IdeaState::Assigned => "assigned",
-                    IdeaState::Done | IdeaState::Dismissed => "done",
-                },
-                id: idea.id,
-                created_at_unix: idea.created_at_unix,
-            })
-            .collect())
+    /// 派发成功却没拿到真实引用时留下占位值（`idea:…`）；之后找到真实引用就替换。
+    /// 只替换占位值，不改写真实引用；引用已被别的想法占用时返回错误。返回是否发生替换。
+    pub fn adopt_task_ref(
+        &self,
+        workspace_id: &str,
+        id: &str,
+        task_ref: &str,
+    ) -> StorageResult<bool> {
+        validate_task_ref(task_ref)?;
+        let connection = open_app_connection(&self.path)?;
+        let now = crate::current_unix_timestamp()? as i64;
+        let changed = connection.execute(
+            "UPDATE workspace_ideas SET task_ref=?3,updated_at_unix=?4
+             WHERE workspace_id=?1 AND id=?2 AND state='assigned' AND task_ref LIKE 'idea:%'",
+            params![workspace_id, id, task_ref, now],
+        )?;
+        Ok(changed > 0)
     }
 
     /// 清理更新时间早于 `cutoff_unix` 的已完成想法，返回清理条数。

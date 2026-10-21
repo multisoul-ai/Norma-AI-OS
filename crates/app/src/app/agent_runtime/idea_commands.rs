@@ -125,6 +125,12 @@ pub(crate) fn assign_idea(
             notify_host(app, cx);
             Ok(result)
         }
+        // 任务文本已经提交、只是没拿到任务编号：不回滚，保持派发中，交给后台对账按正文找回，避免重复派发。
+        Err(error) if matches!(&error, AdapterError::Failed(message) if message.contains("已接收")) =>
+        {
+            notify_host(app, cx);
+            Err(error)
+        }
         Err(error) => {
             if let Err(rollback) = ideas.fail_dispatch(&workspace_id, idea_id) {
                 tracing::warn!(%rollback, idea_id, "idea dispatch failed and could not be rolled back");
