@@ -52,6 +52,9 @@ pub(super) fn list_ideas(
     )
 }
 
+/// 想法流星的飞行约 900ms（见 motion 里的 IDEA_FLIGHT_DURATION）；任务在落点撞击前一刻才开始。
+const IDEA_DELIVERY_DELAY: std::time::Duration = std::time::Duration::from_millis(860);
+
 /// 一次想法派发的“谁发起、流星从哪出发”。
 #[derive(Clone, Copy)]
 pub(crate) struct IdeaFlight {
@@ -126,6 +129,11 @@ pub(crate) fn assign_idea(
         user_initiated,
         "[idea-dispatch] begin"
     );
+    // 流星要飞约 0.9 秒才落到卡片：任务正文等流星到了再输入，否则卡片会在流星抵达前就开始运行。
+    if let IdeaTarget::Agent { node_id, .. } = &target {
+        app.pending_agent_submissions
+            .hold_until(*node_id, std::time::Instant::now() + IDEA_DELIVERY_DELAY);
+    }
     // 想法有自己的流星（从左抽屉起飞）；压住派发路径里指令栏的飞行，避免叠成两条。
     app.motion.set_dock_flight_suppressed(true);
     let dispatched = match target {

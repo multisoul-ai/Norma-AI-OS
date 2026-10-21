@@ -175,13 +175,31 @@ fn manual_idea_is_added_listed_and_dispatched_end_to_end() {
         "task_ref 应是协调器里的真实值，实际 {:?}",
         assigned.task_ref
     );
-    let delivered = writes_b
-        .lock()
-        .expect("应读取写入")
-        .iter()
-        .filter(|chunk| String::from_utf8_lossy(chunk).contains("手动写下的想法"))
-        .count();
-    assert_eq!(delivered, 1, "B 的 PTY 应恰好收到一次正文");
+    // 流星要飞约 0.9 秒：任务正文必须等流星到了才输入，不能在它抵达前卡片就开始运行。
+    let count_delivered = || {
+        writes_b
+            .lock()
+            .expect("应读取写入")
+            .iter()
+            .filter(|chunk| String::from_utf8_lossy(chunk).contains("手动写下的想法"))
+            .count()
+    };
+    assert_eq!(count_delivered(), 0, "流星抵达前不应把任务打进 B 的 PTY");
+    session_b.read_with(cx, |app, _| {
+        assert!(
+            app.pending_agent_submissions.has_pending_for_node(node_b),
+            "任务应挂在等待队列里，等流星抵达"
+        );
+    });
+    std::thread::sleep(std::time::Duration::from_millis(950));
+    session_b.update(cx, |app, cx| {
+        app.submit_due_pending_agent_tasks(std::time::Instant::now(), cx);
+    });
+    assert_eq!(
+        count_delivered(),
+        1,
+        "流星抵达后，B 的 PTY 应恰好收到一次正文"
+    );
     session_b.read_with(cx, |app, _| {
         let flights = app.motion.dispatch_receipt_presentations();
         assert!(
