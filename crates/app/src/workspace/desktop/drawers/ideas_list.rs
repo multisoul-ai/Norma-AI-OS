@@ -126,29 +126,65 @@ impl MultisoulApp {
                         let show = self.desktop_workspace.ideas_show_done;
                         list.child(
                             div()
-                                .id("desktop-ideas-done-toggle")
                                 .mt(px(4.0))
                                 .h(px(26.0))
                                 .px(px(8.0))
                                 .flex()
                                 .items_center()
-                                .gap(px(6.0))
-                                .rounded(px(6.0))
-                                .cursor_pointer()
-                                .text_size(px(11.0))
-                                .text_color(rgba(0x8ea8bfff))
-                                .hover(move |style| {
-                                    style.bg(rgba(feedback.hover)).text_color(rgba(0xffffffff))
-                                })
-                                .active(move |style| style.bg(rgba(feedback.pressed)))
-                                .on_click(cx.listener(|app, _, _, cx| {
-                                    cx.stop_propagation();
-                                    app.desktop_workspace.ideas_show_done =
-                                        !app.desktop_workspace.ideas_show_done;
-                                    cx.notify();
-                                }))
-                                .child(super::overview_parts::group_chevron(!show))
-                                .child(format!("已完成 {}", screen.done.len())),
+                                .justify_between()
+                                .child(
+                                    div()
+                                        .id("desktop-ideas-done-toggle")
+                                        .h(px(22.0))
+                                        .ml(px(-4.0))
+                                        .px(px(4.0))
+                                        .flex()
+                                        .items_center()
+                                        .gap(px(6.0))
+                                        .rounded(px(6.0))
+                                        .cursor_pointer()
+                                        .text_size(px(11.0))
+                                        .text_color(rgba(0x8ea8bfff))
+                                        .hover(move |style| {
+                                            style
+                                                .bg(rgba(feedback.hover))
+                                                .text_color(rgba(0xffffffff))
+                                        })
+                                        .active(move |style| style.bg(rgba(feedback.pressed)))
+                                        .on_click(cx.listener(|app, _, _, cx| {
+                                            cx.stop_propagation();
+                                            app.desktop_workspace.ideas_show_done =
+                                                !app.desktop_workspace.ideas_show_done;
+                                            cx.notify();
+                                        }))
+                                        .child(super::overview_parts::group_chevron(!show))
+                                        .child(format!("已完成 {}", screen.done.len())),
+                                )
+                                .when(show, |heading| {
+                                    heading.child(
+                                        div()
+                                            .id("desktop-ideas-done-clear")
+                                            .h(px(22.0))
+                                            .px(px(6.0))
+                                            .flex()
+                                            .items_center()
+                                            .rounded(px(6.0))
+                                            .cursor_pointer()
+                                            .text_size(px(11.0))
+                                            .font_weight(gpui::FontWeight::MEDIUM)
+                                            .text_color(rgba(0x9fc7eaff))
+                                            .hover(|style| {
+                                                style
+                                                    .bg(rgba(0x8fcaff24))
+                                                    .text_color(rgba(0xffffffff))
+                                            })
+                                            .on_click(cx.listener(|app, _, _, cx| {
+                                                cx.stop_propagation();
+                                                app.clear_done_ideas(cx);
+                                            }))
+                                            .child("清空"),
+                                    )
+                                }),
                         )
                         .when(show, |list| {
                             list.children(screen.done.iter().map(|row| {
@@ -156,16 +192,20 @@ impl MultisoulApp {
                                     .id(ElementId::Name(
                                         format!("desktop-idea-done-{}", row.id).into(),
                                     ))
-                                    .h(px(28.0))
-                                    .pl(px(22.0))
+                                    .h(px(24.0))
+                                    .pl(px(14.0))
                                     .pr(px(8.0))
                                     .flex()
                                     .items_center()
                                     .gap(px(8.0))
                                     .text_size(px(12.0))
-                                    .text_color(rgba(0x8ea8bfff))
+                                    .text_color(rgba(0x6f879cff))
                                     .child(
-                                        div().flex_none().text_color(rgba(0x64dfd2ff)).child("✓"),
+                                        div()
+                                            .flex_none()
+                                            .text_size(px(10.0))
+                                            .text_color(rgba(0x64dfd299))
+                                            .child("✓"),
                                     )
                                     .child(
                                         div()

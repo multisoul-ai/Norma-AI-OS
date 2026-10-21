@@ -324,6 +324,26 @@ impl MultisoulApp {
         cx.notify();
     }
 
+    /// 清空「已完成」：先在界面上去掉，再后台删除本工作空间所有已完成想法。
+    pub(super) fn clear_done_ideas(&mut self, cx: &mut Context<Self>) {
+        let Some(workspace_id) = self.desktop_workspace.active_id.clone() else {
+            return;
+        };
+        self.desktop_workspace
+            .ideas
+            .retain(|idea| idea.state != workspace::ideas::IdeaState::Done);
+        let store = IdeasStore::new(self.database_paths.app_db_path().to_owned());
+        cx.spawn(async move |this, cx| {
+            let cutoff = i64::MAX as u64;
+            let _ = cx
+                .background_spawn(async move { store.purge_done_before(&workspace_id, cutoff) })
+                .await;
+            let _ = this.update(cx, |app, cx| app.refresh_ideas(cx));
+        })
+        .detach();
+        cx.notify();
+    }
+
     pub(super) fn undo_delete_idea(&mut self, cx: &mut Context<Self>) {
         let (Some(undo), Some(workspace_id)) = (
             self.desktop_workspace.ideas_undo.take(),
