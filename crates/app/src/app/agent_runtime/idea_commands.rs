@@ -62,6 +62,8 @@ pub(crate) fn assign_idea(
     origin: DispatchVisualOrigin,
 ) -> Result<AdapterResult, AdapterError> {
     let workspace_id = active_workspace_id(app, cx)?;
+    // 在界面里亲手拖放或点选指派，本身就是对“交给这个 Agent”的明确授权。
+    let user_initiated = matches!(origin, DispatchVisualOrigin::IdeaRow { .. });
     let (target_workspace, area_id) = match &target {
         IdeaTarget::Agent {
             workspace_id,
@@ -86,9 +88,14 @@ pub(crate) fn assign_idea(
         .map_err(storage_error)?
         .ok_or_else(|| AdapterError::Rejected("这条想法不在待办中，可能已指派或已删除".into()))?;
     let dispatched = match target {
-        IdeaTarget::Agent { node_id, .. } => {
-            app.norma_assign_workspace_task(&workspace_id, &area_id, node_id, &idea.body, cx)
-        }
+        IdeaTarget::Agent { node_id, .. } => app.norma_assign_workspace_task_with(
+            &workspace_id,
+            &area_id,
+            node_id,
+            &idea.body,
+            user_initiated,
+            cx,
+        ),
         IdeaTarget::NewAgent { profile, .. } => {
             if !is_source_area(app, cx, &workspace_id, &area_id) {
                 Err(AdapterError::Rejected(
@@ -101,7 +108,7 @@ pub(crate) fn assign_idea(
                     cx,
                     profile,
                     idea.body.clone(),
-                    input_source == AgentInputSource::DoubaoVoice,
+                    user_initiated || input_source == AgentInputSource::DoubaoVoice,
                 )
             }
         }

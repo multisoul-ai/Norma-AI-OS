@@ -6,10 +6,12 @@ use agent::{AdapterError, AdapterResult, AgentCommand, AgentEvent};
 use gpui::{Context, Window};
 
 impl MultisoulApp {
-    pub(crate) fn submit_tracked_agent_text(
+    /// `force_untracked`：用户亲手把任务交给没有 Hook 的 Agent（例如拖拽想法）本身就是明确授权。
+    pub(crate) fn submit_agent_text(
         &mut self,
         node_id: canvas::NodeId,
         text: &str,
+        force_untracked: bool,
         cx: &mut Context<Self>,
     ) -> Result<AdapterResult, AdapterError> {
         let definition_id = self
@@ -38,7 +40,14 @@ impl MultisoulApp {
                 "目标 Agent 卡片已变化，请重新查询目标".into(),
             ));
         }
-        super::adapter_task::dispatch_agent_task(self, None, cx, agent, text.to_owned(), false)
+        super::adapter_task::dispatch_agent_task(
+            self,
+            None,
+            cx,
+            agent,
+            text.to_owned(),
+            force_untracked,
+        )
     }
 
     pub(crate) fn submit_project_agent(

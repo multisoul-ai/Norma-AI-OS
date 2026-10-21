@@ -218,6 +218,19 @@ impl MultisoulApp {
         task: &str,
         cx: &mut Context<Self>,
     ) -> Result<AdapterResult, AdapterError> {
+        self.norma_assign_workspace_task_with(workspace_id, area_id, node_id, task, false, cx)
+    }
+
+    /// `force_untracked` 为真时，没有 Hook 的 Agent 也接收任务（仅用于用户亲手发起的派发）。
+    pub(crate) fn norma_assign_workspace_task_with(
+        &mut self,
+        workspace_id: &str,
+        area_id: &str,
+        node_id: canvas::NodeId,
+        task: &str,
+        force_untracked: bool,
+        cx: &mut Context<Self>,
+    ) -> Result<AdapterResult, AdapterError> {
         if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
             let source_id = cx.entity().entity_id();
             let target_is_source = host
@@ -231,7 +244,7 @@ impl MultisoulApp {
                     host.read(cx)
                         .workspace_task_project_name(workspace_id, area_id, task)?;
                 let agent_name = agent_name_for_node(self, node_id)?;
-                let submitted = self.submit_tracked_agent_text(node_id, task, cx);
+                let submitted = self.submit_agent_text(node_id, task, force_untracked, cx);
                 return host.update(cx, |host, cx| {
                     host.finish_workspace_task_submission(
                         workspace_id,
@@ -244,10 +257,24 @@ impl MultisoulApp {
                 });
             }
             return host.update(cx, |host, cx| {
-                host.norma_assign_workspace_task_on_host(workspace_id, area_id, node_id, task, cx)
+                host.norma_assign_workspace_task_on_host(
+                    workspace_id,
+                    area_id,
+                    node_id,
+                    task,
+                    force_untracked,
+                    cx,
+                )
             });
         }
-        self.norma_assign_workspace_task_on_host(workspace_id, area_id, node_id, task, cx)
+        self.norma_assign_workspace_task_on_host(
+            workspace_id,
+            area_id,
+            node_id,
+            task,
+            force_untracked,
+            cx,
+        )
     }
 
     fn norma_assign_workspace_task_on_host(
@@ -256,6 +283,7 @@ impl MultisoulApp {
         area_id: &str,
         node_id: canvas::NodeId,
         task: &str,
+        force_untracked: bool,
         cx: &mut Context<Self>,
     ) -> Result<AdapterResult, AdapterError> {
         let project_name = self.workspace_task_project_name(workspace_id, area_id, task)?;
@@ -267,7 +295,7 @@ impl MultisoulApp {
             .ok_or_else(|| AdapterError::Rejected("Agent 会话尚未加载".into()))?;
         let agent_name = agent_name_for_node(&session.read(cx), node_id)?;
         let submitted = session.update(cx, |session, cx| {
-            session.submit_tracked_agent_text(node_id, task, cx)
+            session.submit_agent_text(node_id, task, force_untracked, cx)
         });
         self.finish_workspace_task_submission(
             workspace_id,

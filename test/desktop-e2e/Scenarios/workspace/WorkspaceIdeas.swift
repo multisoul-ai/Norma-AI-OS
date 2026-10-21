@@ -24,9 +24,10 @@ public enum WorkspaceIdeas {
             fakeShell = shell
             setenv("ZDOTDIR", shell.path, 1)
             try session.launch()
-            _ = try await session.wait(Expectation(anyOf: ["创建工作空间", "Create Workspace"], timeout: 25))
-            try await session.click(matching: ["创建工作空间", "Create Workspace"], pick: .bottom)
-            _ = try await session.wait(Expectation(anyOf: ["工作空间名称", "Workspace name"], timeout: 4))
+            _ = try await session.wait(Expectation(anyOf: ["创建工作空间", "Create Workspace", "Create your first"], timeout: 25))
+            try await session.act("打开创建对话框", attempts: 6, expect: Expectation(anyOf: ["工作空间名称", "Workspace name"], timeout: 3.5)) {
+                try await session.click(matching: ["创建工作空间", "Create Workspace"], pick: .bottom)
+            }
             let dialog = try await session.capture()
             guard let input = dialog.pick(["网站改版", "Website redesign"], .bottom) else {
                 throw E2EError.product("找不到工作空间名称输入框：\(dialog.summary)")
