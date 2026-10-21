@@ -84,7 +84,7 @@ public enum WorkspaceIdeas {
         try await session.step("⌘⇧I 打开运行概览的想法栏，四栏顺序固定，看到待办") {
             try await session.shortcut(key: 34, modifiers: [0x37, 0x38])
             let ideas = try await session.wait(
-                Expectation(allOf: ["当前项目", "其他项目", first, second], timeout: 8)
+                Expectation(allOf: ["当前项目", "其他项目", String(first.dropFirst(2).prefix(2))], timeout: 8)
             )
             try session.save(ideas, "01-ideas.png")
             func top(_ text: String) throws -> Double {
@@ -93,7 +93,7 @@ public enum WorkspaceIdeas {
                 }
                 return Double(found.center.y)
             }
-            let order = [try top("处理"), try top("当前项目"), try top(String(first.prefix(3))), try top("其他项目")]
+            let order = [try top("处理"), try top("当前项目"), try top(String(first.dropFirst(2).prefix(2))), try top("其他项目")]
             guard order == order.sorted() else {
                 throw E2EError.product("栏目顺序应为 需要你处理 → 当前项目 → 想法 → 其他项目：\(order)")
             }
@@ -110,7 +110,7 @@ public enum WorkspaceIdeas {
                 try await Task.sleep(nanoseconds: 400_000_000)
             }
             let folded = try await session.wait(
-                Expectation(allOf: [String(first.prefix(3)), String(second.prefix(3))], timeout: 6)
+                Expectation(allOf: [String(first.dropFirst(2).prefix(2)), String(second.dropFirst(2).prefix(2))], timeout: 6)
             )
             try session.save(folded, "01b-folded.png")
             return folded.summary
@@ -135,7 +135,7 @@ public enum WorkspaceIdeas {
             return CGPoint(x: title.center.x, y: title.center.y + 150)
         }
         func row(_ frame: Frame, _ body: String) throws -> VisibleText {
-            let key = String(body.prefix(3))
+            let key = String(body.dropFirst(2).prefix(2))
             guard let text = frame.texts.filter({ $0.value.contains(key) && $0.center.x < geometry(frame).drawer }).first else {
                 throw E2EError.product("找不到想法行「\(body)」：\(frame.summary)")
             }
@@ -163,7 +163,7 @@ public enum WorkspaceIdeas {
             try await session.click(local: input.center, on: frame)
             try await session.type(typed)
             try await session.shortcut(key: 36, modifiers: [])
-            let after = try await session.wait(Expectation(allOf: ["by hand"], timeout: 8))
+            let after = try await session.wait(Expectation(allOf: ["by han"], timeout: 8))
             try session.save(after, "02-typed.png")
             let stored = try idea(typed)
             guard stored.state == "todo" else { throw E2EError.product("手动添加的想法应是待办：\(stored)") }

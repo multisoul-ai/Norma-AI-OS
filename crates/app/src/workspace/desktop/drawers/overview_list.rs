@@ -308,6 +308,12 @@ pub(super) fn group_empty(group: OverviewGroup) -> Stateful<Div> {
         .text_center()
         .child(
             div()
+                .text_size(px(16.0))
+                .text_color(rgba(0x7ea4c4ff))
+                .child(group.empty_icon()),
+        )
+        .child(
+            div()
                 .text_size(px(OVERVIEW_TEXT_PRIMARY))
                 .font_weight(gpui::FontWeight::MEDIUM)
                 .text_color(rgba(COPY_STEP))

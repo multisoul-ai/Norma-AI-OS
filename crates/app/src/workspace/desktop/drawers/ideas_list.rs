@@ -6,22 +6,16 @@
 //! - 删除可撤销（6 秒），不弹确认框；派发失败时在列表底部给出原因。
 //! - 状态同时用文字和颜色表达；拖到卡片的直接操作在后续切片加入。
 
-use super::super::ideas::IdeaTargetOption;
-use super::super::ideas_rows::TodoRow;
 use super::super::overview_layout::OverviewGroup;
 use super::super::overview_rows::overview_feedback;
+use super::ideas_row::{idea_pill, idea_sub_heading};
 use super::overview_list::group_empty;
 use crate::app::MultisoulApp;
-use gpui::{
-    div, prelude::*, px, rgba, Context, Div, ElementId, KeyDownEvent, MouseButton, MouseDownEvent,
-    Stateful,
-};
+use gpui::{div, prelude::*, px, rgba, Context, Div, ElementId, KeyDownEvent, Stateful};
 use ui::component::button::{Button, ButtonVariants};
 use ui::component::input::Input;
 use ui::component::Sizable;
-use ui::component::StyledExt;
 
-const GROUP_TITLE: u32 = 0xa9c3daff;
 const COPY_PRIMARY: u32 = 0xeef6ffff;
 const COPY_SECONDARY: u32 = 0xa9c0d5ff;
 const GROUP_RULE: u32 = 0xcde8ff14;
@@ -108,7 +102,7 @@ impl MultisoulApp {
                     )
                     .when(!screen.todo.is_empty(), |list| {
                         list.when(!screen.assigned.is_empty(), |list| {
-                            list.child(group_heading("待办", Some(todo_count)))
+                            list.child(idea_sub_heading(format!("待办 {todo_count}")))
                         })
                         .children(screen.todo.iter().enumerate().map(|(index, row)| {
                             let focused = cursor == Some(index);
@@ -190,37 +184,37 @@ impl MultisoulApp {
                     div()
                         .id("desktop-ideas-add")
                         .debug_selector(|| "desktop-ideas-add".to_string())
-                        .mx(px(12.0))
-                        .mb(px(8.0))
+                        .flex_none()
+                        .mx(px(8.0))
+                        .mt(px(4.0))
+                        .mb(px(2.0))
+                        .py(px(3.0))
+                        .pr(px(3.0))
+                        .pl(px(10.0))
                         .flex()
                         .items_center()
-                        .gap(px(8.0))
+                        .gap(px(6.0))
+                        .rounded(px(9.0))
+                        .border_1()
+                        .border_color(rgba(0x83c4ff40))
+                        .bg(rgba(0x0b1b2d99))
                         .child(
                             div()
                                 .flex_1()
                                 .min_w(px(0.0))
-                                .h(px(36.0))
-                                .px(px(10.0))
+                                .h(px(28.0))
                                 .flex()
                                 .items_center()
-                                .rounded(px(9.0))
-                                .border_1()
-                                .border_color(rgba(0x83c4ff40))
-                                .bg(rgba(0x0b1b2d99))
+                                .text_size(px(12.0))
                                 .text_color(rgba(COPY_PRIMARY))
-                                .child(Input::new(&input).appearance(false)),
+                                .child(Input::new(&input).small().appearance(false)),
                         )
-                        .child(
-                            Button::new("desktop-ideas-add-button")
-                                .ghost()
-                                .small()
-                                .tooltip("添加想法 · 回车")
-                                .child("添加")
-                                .on_click(cx.listener(|app, _, window, cx| {
-                                    cx.stop_propagation();
-                                    app.add_idea_from_input(window, cx);
-                                })),
-                        ),
+                        .child(idea_pill("desktop-ideas-add-button", "添加").on_click(
+                            cx.listener(|app, _, window, cx| {
+                                cx.stop_propagation();
+                                app.add_idea_from_input(window, cx);
+                            }),
+                        )),
                 )
             })
             .when_some(
@@ -276,140 +270,4 @@ impl MultisoulApp {
                 )
             })
     }
-
-    fn render_todo_row(
-        &self,
-        row: &TodoRow,
-        focused: bool,
-        menu_open: bool,
-        options: &[IdeaTargetOption],
-        expanded_area: Option<String>,
-        feedback: super::super::overview_rows::OverviewFeedback,
-        cx: &mut Context<Self>,
-    ) -> Div {
-        let id = row.id.clone();
-        let element_id = format!("desktop-idea-row-{}", row.id);
-        let assign_id = row.id.clone();
-        let delete_id = row.id.clone();
-        let drag_id = row.id.clone();
-        let hover = feedback.hover;
-        let pressed = feedback.pressed;
-        div()
-            .flex()
-            .flex_col()
-            .child(
-                div()
-                    .id(ElementId::Name(element_id.clone().into()))
-                    .debug_selector(move || element_id.clone())
-                    .w_full()
-                    .min_h(px(52.0))
-                    .px(px(8.0))
-                    .py(px(6.0))
-                    .flex()
-                    .items_center()
-                    .gap(px(8.0))
-                    .rounded(px(9.0))
-                    .border_1()
-                    .border_color(rgba(if focused { feedback.focus } else { 0x00000000 }))
-                    .bg(rgba(if menu_open { hover } else { feedback.rest }))
-                    .cursor_pointer()
-                    .hover(move |style| style.bg(rgba(hover)))
-                    .active(move |style| style.bg(rgba(pressed)))
-                    .on_click(cx.listener(move |app, _, window, cx| {
-                        cx.stop_propagation();
-                        app.select_idea_row(&id, window, cx);
-                    }))
-                    .child(
-                        div()
-                            .id(ElementId::Name(format!("idea-grab-{drag_id}").into()))
-                            .flex_1()
-                            .min_w(px(0.0))
-                            .flex()
-                            .flex_col()
-                            .gap(px(3.0))
-                            .cursor_grab()
-                            .on_mouse_down(
-                                MouseButton::Left,
-                                cx.listener(move |app, event: &MouseDownEvent, window, cx| {
-                                    app.begin_idea_drag(&drag_id, event, window, cx);
-                                }),
-                            )
-                            .child(
-                                div()
-                                    .font_medium()
-                                    .text_size(px(13.0))
-                                    .text_color(rgba(COPY_PRIMARY))
-                                    .child(row.title.clone()),
-                            )
-                            .child(
-                                div()
-                                    .text_size(px(12.0))
-                                    .text_color(rgba(COPY_SECONDARY))
-                                    .child(row.meta.clone()),
-                            ),
-                    )
-                    .child(
-                        Button::new(ElementId::Name(format!("idea-assign-{assign_id}").into()))
-                            .ghost()
-                            .small()
-                            .tooltip("指派给智能体 · 回车")
-                            .child(if menu_open {
-                                "指派 ▴"
-                            } else {
-                                "指派 ▾"
-                            })
-                            .on_click(cx.listener(move |app, _, _, cx| {
-                                cx.stop_propagation();
-                                app.toggle_idea_menu(&assign_id, cx);
-                            })),
-                    )
-                    .child(
-                        Button::new(ElementId::Name(format!("idea-delete-{delete_id}").into()))
-                            .ghost()
-                            .small()
-                            .tooltip("删除 · Delete")
-                            .child("×")
-                            .on_click(cx.listener(move |app, _, _, cx| {
-                                cx.stop_propagation();
-                                app.delete_idea(&delete_id, cx);
-                            })),
-                    ),
-            )
-            .when(menu_open, |column| {
-                column.child(self.render_idea_menu(&row.id, options, expanded_area, feedback, cx))
-            })
-    }
-}
-
-fn group_heading(title: &'static str, count: Option<usize>) -> Div {
-    div()
-        .h(px(30.0))
-        .px(px(8.0))
-        .flex()
-        .items_center()
-        .justify_between()
-        .child(
-            div()
-                .text_size(px(11.0))
-                .font_semibold()
-                .text_color(rgba(GROUP_TITLE))
-                .child(title),
-        )
-        .when_some(count, |heading, count| {
-            heading.child(
-                div()
-                    .min_w(px(18.0))
-                    .h(px(18.0))
-                    .px(px(5.0))
-                    .rounded(px(9.0))
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .bg(rgba(0x8fcaff2e))
-                    .text_size(px(11.0))
-                    .font_semibold()
-                    .text_color(rgba(0xd4eaffff))
-                    .child(count.to_string()),
-            )
-        })
 }

@@ -5,12 +5,13 @@ use super::super::overview_rows::{OverviewFeedback, TONE_RUNNING};
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div, ElementId, Stateful};
 use ui::component::button::{Button, ButtonVariants};
-use ui::component::{Sizable, StyledExt};
+use ui::component::tooltip::Tooltip;
+use ui::component::Sizable;
 
 const COPY_SECONDARY: u32 = 0xa9c0d5ff;
 
 impl MultisoulApp {
-    /// 分组标题：点击折叠/展开，右侧“清空”把已指派收进已完成。
+    /// 「已指派 2」小标题：点击折叠/展开，右侧「清空」把已指派收进已完成。样式对照原型 `.idea-sub`。
     pub(super) fn assigned_heading(
         &self,
         count: usize,
@@ -23,55 +24,57 @@ impl MultisoulApp {
         div()
             .id("desktop-ideas-assigned-heading")
             .debug_selector(|| "desktop-ideas-assigned-heading".to_string())
-            .h(px(30.0))
+            .h(px(26.0))
             .px(px(8.0))
             .flex()
             .items_center()
             .justify_between()
-            .rounded(px(8.0))
-            .cursor_pointer()
-            .hover(move |style| style.bg(rgba(hover)))
-            .active(move |style| style.bg(rgba(pressed)))
-            .on_click(cx.listener(|app, _, _, cx| {
-                cx.stop_propagation();
-                app.desktop_workspace.ideas_assigned_collapsed =
-                    !app.desktop_workspace.ideas_assigned_collapsed;
-                cx.notify();
-            }))
             .child(
                 div()
+                    .id("desktop-ideas-assigned-toggle")
+                    .h(px(22.0))
+                    .ml(px(-4.0))
+                    .px(px(4.0))
                     .flex()
                     .items_center()
                     .gap(px(6.0))
+                    .rounded(px(6.0))
+                    .cursor_pointer()
                     .text_size(px(11.0))
-                    .font_semibold()
-                    .text_color(rgba(0x9db7cdff))
+                    .text_color(rgba(0x8ea8bfff))
+                    .hover(move |style| style.bg(rgba(hover)).text_color(rgba(0xffffffff)))
+                    .active(move |style| style.bg(rgba(pressed)))
+                    .on_click(cx.listener(|app, _, _, cx| {
+                        cx.stop_propagation();
+                        app.desktop_workspace.ideas_assigned_collapsed =
+                            !app.desktop_workspace.ideas_assigned_collapsed;
+                        cx.notify();
+                    }))
                     .child(super::overview_parts::group_chevron(collapsed))
-                    .child("已指派")
-                    .child(
-                        div()
-                            .min_w(px(18.0))
-                            .h(px(18.0))
-                            .px(px(5.0))
-                            .rounded(px(9.0))
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .bg(rgba(0x8fcaff2e))
-                            .text_color(rgba(0xd4eaffff))
-                            .child(count.to_string()),
-                    ),
+                    .child(format!("已指派 {count}")),
             )
             .child(
-                Button::new("desktop-ideas-assigned-clear")
-                    .ghost()
-                    .small()
-                    .tooltip("清空已指派（收进已完成）")
-                    .child("清空")
+                div()
+                    .id("desktop-ideas-assigned-clear")
+                    .h(px(22.0))
+                    .px(px(6.0))
+                    .flex()
+                    .items_center()
+                    .rounded(px(6.0))
+                    .cursor_pointer()
+                    .text_size(px(11.0))
+                    .font_weight(gpui::FontWeight::MEDIUM)
+                    .text_color(rgba(0x9fc7eaff))
+                    .hover(move |style| style.bg(rgba(0x8fcaff24)).text_color(rgba(0xffffffff)))
+                    .active(move |style| style.bg(rgba(pressed)))
+                    .tooltip(|window, cx| {
+                        Tooltip::new("清空已指派（收进已完成）").build(window, cx)
+                    })
                     .on_click(cx.listener(|app, _, _, cx| {
                         cx.stop_propagation();
                         app.clear_assigned_ideas(cx);
-                    })),
+                    }))
+                    .child("清空"),
             )
     }
 
@@ -118,14 +121,7 @@ impl MultisoulApp {
                     app.locate_desktop_agent(&area_id, node_id, window, cx);
                 }
             }))
-            .child(
-                div()
-                    .w(px(8.0))
-                    .h(px(8.0))
-                    .flex_none()
-                    .rounded_full()
-                    .bg(rgba(TONE_RUNNING)),
-            )
+            .child(div().w(px(14.0)).flex_none())
             .child(
                 div()
                     .flex_1()
@@ -135,12 +131,37 @@ impl MultisoulApp {
                     .gap(px(3.0))
                     .child(
                         div()
-                            .text_size(px(13.0))
-                            .text_color(rgba(0xc5d9eaff))
-                            .child(row.title.clone()),
+                            .flex()
+                            .items_center()
+                            .gap(px(8.0))
+                            .child(
+                                div()
+                                    .w(px(14.0))
+                                    .h(px(14.0))
+                                    .flex_none()
+                                    .rounded_full()
+                                    .flex()
+                                    .items_center()
+                                    .justify_center()
+                                    .bg(rgba(ui::icons::with_alpha(TONE_RUNNING, 0x29)))
+                                    .child(
+                                        div()
+                                            .w(px(8.0))
+                                            .h(px(8.0))
+                                            .rounded_full()
+                                            .bg(rgba(TONE_RUNNING)),
+                                    ),
+                            )
+                            .child(
+                                div()
+                                    .text_size(px(13.0))
+                                    .text_color(rgba(0xc5d9eaff))
+                                    .child(row.title.clone()),
+                            ),
                     )
                     .child(
                         div()
+                            .pl(px(22.0))
                             .text_size(px(12.0))
                             .text_color(rgba(COPY_SECONDARY))
                             .child(status),

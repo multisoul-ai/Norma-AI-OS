@@ -54,6 +54,16 @@ impl OverviewGroup {
         1 << (self as u8)
     }
 
+    /// 空态顶部的小图标字符。
+    pub(super) fn empty_icon(self) -> &'static str {
+        match self {
+            Self::Attention => "✓",
+            Self::Current => "◌",
+            Self::Ideas => "💡",
+            Self::Other => "▫",
+        }
+    }
+
     /// 栏内没有内容时的（标题，提示）。
     pub(super) fn empty_copy(self) -> (&'static str, &'static str) {
         match self {
