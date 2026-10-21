@@ -174,6 +174,7 @@ impl MultisoulApp {
         &mut self,
         idea_id: String,
         target: IdeaUiTarget,
+        from: Option<(f32, f32)>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -213,7 +214,7 @@ impl MultisoulApp {
         let host = cx.entity().downgrade();
         window.defer(cx, move |window, cx| {
             let result = session.update(cx, |app, cx| {
-                crate::app::assign_idea_for_ui(app, window, cx, &idea_id, ideas_target)
+                crate::app::assign_idea_for_ui(app, window, cx, &idea_id, ideas_target, from)
             });
             let _ = host.update(cx, |app, cx| {
                 if let Err(error) = result {

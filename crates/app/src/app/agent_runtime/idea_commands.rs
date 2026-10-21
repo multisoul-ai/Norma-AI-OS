@@ -6,6 +6,7 @@
 
 use super::{adapter_task, commands};
 use crate::app::{AppScreen, MultisoulApp};
+use crate::motion::{DispatchReceiptVisualStatus, DispatchVisualOrigin};
 use agent::{AdapterError, AdapterResult, AgentInputSource, IdeaTarget};
 use gpui::{Context, Window};
 use norma::protocol::{CardCommand, CardCommandResult};
@@ -58,6 +59,7 @@ pub(crate) fn assign_idea(
     idea_id: &str,
     target: IdeaTarget,
     input_source: AgentInputSource,
+    origin: DispatchVisualOrigin,
 ) -> Result<AdapterResult, AdapterError> {
     let workspace_id = active_workspace_id(app, cx)?;
     let (target_workspace, area_id) = match &target {
@@ -119,6 +121,7 @@ pub(crate) fn assign_idea(
             ) {
                 tracing::warn!(%error, idea_id, "idea dispatched but assignment could not be recorded");
             }
+            spawn_idea_flight(app, cx, idea_id, &result, origin);
             notify_host(app, cx);
             Ok(result)
         }
@@ -139,7 +142,14 @@ pub(crate) fn assign_idea_for_ui(
     cx: &mut Context<MultisoulApp>,
     idea_id: &str,
     target: IdeaTarget,
+    from: Option<(f32, f32)>,
 ) -> Result<AdapterResult, AdapterError> {
+    let origin = from.map_or(DispatchVisualOrigin::CommandDock, |(x, y)| {
+        DispatchVisualOrigin::IdeaRow {
+            x: x.round() as i32,
+            y: y.round() as i32,
+        }
+    });
     assign_idea(
         app,
         Some(window),
@@ -147,6 +157,7 @@ pub(crate) fn assign_idea_for_ui(
         idea_id,
         target,
         AgentInputSource::Other,
+        origin,
     )
 }
 
@@ -278,6 +289,41 @@ fn storage_error(error: StorageError) -> AdapterError {
         }
         other => AdapterError::Failed(format!("想法存储失败：{other}")),
     }
+}
+
+/// 派发成功后播放流星：只在目标卡片属于本会话时播放（跨项目的目标由各自会话渲染）。
+fn spawn_idea_flight(
+    app: &mut MultisoulApp,
+    cx: &mut Context<MultisoulApp>,
+    idea_id: &str,
+    result: &AdapterResult,
+    origin: DispatchVisualOrigin,
+) {
+    let Some(node_id) = result
+        .node_id
+        .filter(|id| app.runtime.document.node(*id).is_some())
+    else {
+        return;
+    };
+    let queued = result.task_id.is_some_and(|task_id| {
+        app.agent_task_coordinator
+            .as_ref()
+            .is_some_and(|coordinator| {
+                coordinator
+                    .tasks()
+                    .iter()
+                    .any(|task| task.task_id == task_id && task.state == "queued")
+            })
+    });
+    let status = if queued {
+        DispatchReceiptVisualStatus::Queued
+    } else {
+        DispatchReceiptVisualStatus::Submitted
+    };
+    app.motion
+        .spawn_dispatch_receipt_from(format!("idea:{idea_id}"), origin, node_id, status);
+    app.wake_animation_frame_loop();
+    cx.notify();
 }
 
 #[cfg(test)]

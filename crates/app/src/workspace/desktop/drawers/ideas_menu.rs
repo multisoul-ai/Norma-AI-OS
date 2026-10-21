@@ -61,9 +61,10 @@ impl MultisoulApp {
                         selected: cursor == index,
                     },
                     feedback,
-                    cx.listener(move |app, _, window, cx| {
+                    cx.listener(move |app, event: &gpui::ClickEvent, window, cx| {
                         cx.stop_propagation();
-                        app.dispatch_idea(id.clone(), target.clone(), window, cx);
+                        let from = Some(click_point(event));
+                        app.dispatch_idea(id.clone(), target.clone(), from, window, cx);
                     }),
                 )
             }))
@@ -85,20 +86,23 @@ impl MultisoulApp {
                         selected: cursor == total,
                     },
                     feedback,
-                    cx.listener(move |app, _, window, cx| {
+                    cx.listener(move |app, event: &gpui::ClickEvent, window, cx| {
                         cx.stop_propagation();
                         if let Some(area_id) = new_area.clone() {
-                            app.dispatch_idea(
-                                id.clone(),
-                                IdeaUiTarget::New { area_id },
-                                window,
-                                cx,
-                            );
+                            let from = Some(click_point(event));
+                            let target = IdeaUiTarget::New { area_id };
+                            app.dispatch_idea(id.clone(), target, from, window, cx);
                         }
                     }),
                 )
             })
     }
+}
+
+/// 菜单点击的窗口坐标，流星从这里起飞。
+fn click_point(event: &gpui::ClickEvent) -> (f32, f32) {
+    let at = event.position();
+    (f32::from(at.x), f32::from(at.y))
 }
 
 struct MenuItem {

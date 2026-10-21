@@ -94,6 +94,8 @@ pub(crate) fn render_with_canvas_offset(
             }
             let (origin, origin_bounds) = match presentation.origin {
                 DispatchVisualOrigin::CommandDock => (dock_origin, None),
+                // 窗口像素坐标，直接作为起点（叠加层覆盖整个窗口）。
+                DispatchVisualOrigin::IdeaRow { x, y } => (point(px(x as f32), px(y as f32)), None),
                 DispatchVisualOrigin::AgentNode(source_node_id) => {
                     let source_node = app.runtime.document.node(source_node_id)?;
                     if !matches!(source_node.kind, CanvasNodeKind::Agent(_)) {

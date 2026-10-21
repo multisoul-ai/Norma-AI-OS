@@ -37,6 +37,11 @@ pub(crate) enum DispatchEffectSpawnOutcome {
 pub(crate) enum DispatchVisualOrigin {
     CommandDock,
     AgentNode(NodeId),
+    /// 想法清单里被派发的那一行，窗口像素坐标；没有来源节点，只靠目标节点存活。
+    IdeaRow {
+        x: i32,
+        y: i32,
+    },
 }
 
 #[cfg(any(test, feature = "e2e-test-support"))]
@@ -200,7 +205,9 @@ impl DispatchEffectStore {
         let retain_effect = |effect: &DispatchEffect, keep: &mut dyn FnMut(NodeId) -> bool| {
             keep(effect.target_node_id)
                 && match effect.origin {
-                    DispatchVisualOrigin::CommandDock => true,
+                    DispatchVisualOrigin::CommandDock | DispatchVisualOrigin::IdeaRow { .. } => {
+                        true
+                    }
                     DispatchVisualOrigin::AgentNode(source_node_id) => keep(source_node_id),
                 }
         };

@@ -13,7 +13,10 @@ enum Cursor {
 }
 
 impl MultisoulApp {
-    pub(super) fn left_ideas_focus(&mut self, cx: &mut Context<Self>) -> gpui::FocusHandle {
+    pub(in crate::workspace::desktop) fn left_ideas_focus(
+        &mut self,
+        cx: &mut Context<Self>,
+    ) -> gpui::FocusHandle {
         self.desktop_workspace
             .left_ideas_focus
             .get_or_insert_with(|| cx.focus_handle())
@@ -65,6 +68,9 @@ impl MultisoulApp {
     ) -> bool {
         if modified {
             return false;
+        }
+        if key == "escape" && self.cancel_idea_drag(cx) {
+            return true;
         }
         let screen = self.ideas_screen(cx);
         let todo = screen.todo.len();
@@ -145,7 +151,7 @@ impl MultisoulApp {
                         .map(|area_id| IdeaUiTarget::New { area_id }),
                 };
                 if let Some(target) = target {
-                    self.dispatch_idea(id, target, window, cx);
+                    self.dispatch_idea(id, target, None, window, cx);
                 }
             }
             _ => return false,

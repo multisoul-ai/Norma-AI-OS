@@ -47,6 +47,8 @@ mod snapshot;
 mod status;
 mod status_capsule;
 use management::DesktopRenameTarget;
+mod idea_drag;
+mod idea_drag_ui;
 mod ideas;
 mod ideas_rows;
 mod motion_log;
@@ -136,6 +138,7 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) ideas_undo: Option<ideas::IdeaUndo>,
     pub(crate) ideas_undo_timer: Option<gpui::Task<()>>,
     pub(crate) ideas_notice: Option<String>,
+    pub(crate) idea_drag: Option<idea_drag_ui::IdeaDragSession>,
     pub(crate) overview_float_fade: drawers::float::OverviewFloatFade,
     pub(crate) overview_drag: Option<drawers::float::OverviewDrag>,
     pub(crate) overview_float_focus: Option<gpui::FocusHandle>,
@@ -303,6 +306,7 @@ impl DesktopWorkspaceUiState {
             ideas_undo: None,
             ideas_undo_timer: None,
             ideas_notice: None,
+            idea_drag: None,
             overview_float_fade: drawers::float::OverviewFloatFade::default(),
             overview_drag: None,
             overview_float_focus: None,

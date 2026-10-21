@@ -71,7 +71,15 @@ pub(crate) fn execute_norma_adapter_command_with_source(
         }
         AdapterCommand::ListIdeas => idea_commands::list_ideas(app, cx),
         AdapterCommand::AssignIdea { idea_id, target } => {
-            idea_commands::assign_idea(app, window, cx, &idea_id, target, input_source)
+            idea_commands::assign_idea(
+                app,
+                window,
+                cx,
+                &idea_id,
+                target,
+                input_source,
+                crate::motion::DispatchVisualOrigin::CommandDock,
+            )
         }
         AdapterCommand::WorkspaceSnapshot { scope, area_id } => {
             app.norma_workspace_snapshot(scope, area_id.as_deref(), cx)

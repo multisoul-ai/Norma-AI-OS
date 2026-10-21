@@ -147,6 +147,9 @@ impl MultisoulApp {
             .when_some(self.render_overview_drag_capture(cx), |layer, capture| {
                 layer.child(capture)
             })
+            .when_some(self.render_idea_drag_layer(cx), |layer, capture| {
+                layer.child(capture)
+            })
     }
 
     fn drawer_reopen_button(&self, id: &'static str, left: bool, cx: &Context<Self>) -> Div {

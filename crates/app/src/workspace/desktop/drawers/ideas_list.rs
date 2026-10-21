@@ -10,7 +10,10 @@ use super::super::ideas::IdeaTargetOption;
 use super::super::ideas_rows::{AssignedRow, IdeaStatus, TodoRow};
 use super::super::overview_rows::{overview_feedback, TONE_RUNNING};
 use crate::app::MultisoulApp;
-use gpui::{div, prelude::*, px, rgba, Context, Div, ElementId, KeyDownEvent, Stateful};
+use gpui::{
+    div, prelude::*, px, rgba, Context, Div, ElementId, KeyDownEvent, MouseButton, MouseDownEvent,
+    Stateful,
+};
 use ui::component::button::{Button, ButtonVariants};
 use ui::component::StyledExt;
 
@@ -199,6 +202,7 @@ impl MultisoulApp {
         let element_id = format!("desktop-idea-row-{}", row.id);
         let assign_id = row.id.clone();
         let delete_id = row.id.clone();
+        let drag_id = row.id.clone();
         let hover = feedback.hover;
         let pressed = feedback.pressed;
         div()
@@ -228,11 +232,19 @@ impl MultisoulApp {
                     }))
                     .child(
                         div()
+                            .id(ElementId::Name(format!("idea-grab-{drag_id}").into()))
                             .flex_1()
                             .min_w(px(0.0))
                             .flex()
                             .flex_col()
                             .gap(px(3.0))
+                            .cursor_grab()
+                            .on_mouse_down(
+                                MouseButton::Left,
+                                cx.listener(move |app, event: &MouseDownEvent, window, cx| {
+                                    app.begin_idea_drag(&drag_id, event, window, cx);
+                                }),
+                            )
                             .child(
                                 div()
                                     .font_medium()

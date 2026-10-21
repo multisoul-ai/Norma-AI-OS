@@ -19,7 +19,8 @@ pub(super) fn paint_flight(frame: DispatchEffectFrame, theme: Theme, plan: &mut 
     }
     let curve = match frame.presentation.origin {
         DispatchVisualOrigin::CommandDock => FlightCurve::new(frame.origin, frame.target),
-        DispatchVisualOrigin::AgentNode(_) => {
+        // 想法行在左抽屉、目标在画布：与 Agent 间交接同属侧向飞入，用同一条弧线。
+        DispatchVisualOrigin::AgentNode(_) | DispatchVisualOrigin::IdeaRow { .. } => {
             FlightCurve::new_agent_handoff(frame.origin, frame.target)
         }
     };
@@ -49,7 +50,9 @@ pub(super) fn paint_flight(frame: DispatchEffectFrame, theme: Theme, plan: &mut 
     paint_trail_motes(&curve, trail_start, travel, color, intensity, plan);
     let launch_direction = match frame.presentation.origin {
         DispatchVisualOrigin::CommandDock => (0.0, -1.0),
-        DispatchVisualOrigin::AgentNode(_) => curve.tangent_at_travel(0.0),
+        DispatchVisualOrigin::AgentNode(_) | DispatchVisualOrigin::IdeaRow { .. } => {
+            curve.tangent_at_travel(0.0)
+        }
     };
     paint_launch_plume(
         frame.origin,

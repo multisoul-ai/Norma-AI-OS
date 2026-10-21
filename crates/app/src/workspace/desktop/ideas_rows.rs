@@ -96,7 +96,7 @@ pub(super) fn ideas_screen(
     screen.subtitle = if screen.todo.is_empty() {
         "对 Norma 说“记一下…”，她会帮你记下".to_owned()
     } else {
-        format!("{} 条待办 · 点“指派”交给智能体", screen.todo.len())
+        format!("{} 条待办 · 拖到智能体卡片，或点“指派”", screen.todo.len())
     };
     screen
 }
