@@ -403,3 +403,53 @@ fn doubao_blocked_channel_skips_announcements() {
         );
     });
 }
+
+/// 后台项目的通道断开后无法重连，完成通知不再排队，避免过期后丢失或回到前台时补播。
+///
+/// 数据构造：豆包模式 + 已保存凭据；项目已转入后台且通道未连接。
+///   AgentCard = 1（Chloe/Claude）；矩形 640 × 360 仅提供合法卡片区域。
+/// 执行过程：完成任务 → 之后接入通道并再次调度。
+/// 预期结果：后台无通道期间的完成通知被跳过；接入通道后不会补播。
+#[test]
+fn doubao_background_project_without_channel_skips_announcements() {
+    let mut gpui = TestAppContext::single();
+    let workspace = tempfile::tempdir().expect("应创建隔离工作区");
+    let (host, cx) = gpui.add_window_view(|_, cx| {
+        MultisoulApp::new_with_pty_factory(
+            cx,
+            Box::new(|_, _, _, tx| Ok(Box::new(terminal::TestPtyBackend::echo(tx)))),
+        )
+    });
+    host.update(cx, |app, cx| {
+        app.enter_canvas_for_test(workspace.path(), cx)
+    });
+    let (sender, reports) = async_channel::unbounded();
+    host.update(cx, |app, cx| {
+        app.voice_settings = VoiceSettingsState::from_sources(
+            SavedVoiceSettings {
+                desktop_mode: Some(DesktopVoiceMode::Doubao),
+                doubao_credential_ref: Some("synthetic-doubao-account".into()),
+                ..Default::default()
+            },
+            EnvVoiceSettings::default(),
+        );
+        app.background_project = true;
+        let node_id = app.runtime.document.add_node(
+            CanvasNodeKind::Agent(AgentSpec {
+                profile: AgentProfile::Claude,
+                alias: Some("Chloe".into()),
+                definition_id: None,
+                mobile_control: false,
+            }),
+            CanvasRect::new(0.0, 0.0, 640.0, 360.0),
+        );
+        app.handle_agent_runtime_events(&[task_event(node_id, AgentTaskState::Done, "Stop")], cx);
+        app.doubao.reports = Some(sender);
+        app.doubao.cancellation = Some(CancellationToken::new());
+        app.handle_agent_runtime_events(&[], cx);
+        assert!(
+            reports.try_recv().is_err(),
+            "后台无通道期间的完成通知不能在恢复后补播"
+        );
+    });
+}

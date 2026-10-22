@@ -294,3 +294,42 @@ fn doubao_channel_listen_end_only_stops_matching_listen() {
     );
     assert!(state.is_active(), "收音失败不能关闭播报通道");
 }
+
+/// 稳定连接后断开，退避从 1 秒重新开始；连上即断仍按次数翻倍。
+///
+/// 数据构造：retry_attempt = 6（下次本应等 2^6 → 60 s）；稳定阈值 30 s。
+///   A：connected_at = now − 31 s（已稳定）；B：connected_at = now − 1 s（未稳定）。
+/// 执行过程：先验证 Connected 状态会记录连接时刻，再分别对 A、B 调用 note_channel_ended。
+/// 预期结果：A → retry_at = now + 1 s、attempt = 1；B → retry_at = now + 60 s、attempt = 7。
+#[test]
+fn doubao_channel_backoff_resets_after_stable_connection() {
+    let mut fresh = DoubaoVoiceState::default();
+    fresh.apply_status(DoubaoStatus::Connected);
+    assert!(fresh.connected_at.is_some(), "通道就绪应记录连接时刻");
+
+    let now = Instant::now();
+    let reason = LocalizedText::new("doubao.connection_failed");
+    let mut stable = DoubaoVoiceState {
+        retry_attempt: 6,
+        connected_at: Some(now - Duration::from_secs(31)),
+        ..Default::default()
+    };
+    stable.note_channel_ended(&reason, now);
+    assert_eq!(
+        (stable.retry_at, stable.retry_attempt),
+        (Some(now + Duration::from_secs(1)), 1),
+        "稳定连接后的断线应从 1 秒重新退避"
+    );
+
+    let mut flapping = DoubaoVoiceState {
+        retry_attempt: 6,
+        connected_at: Some(now - Duration::from_secs(1)),
+        ..Default::default()
+    };
+    flapping.note_channel_ended(&reason, now);
+    assert_eq!(
+        (flapping.retry_at, flapping.retry_attempt),
+        (Some(now + Duration::from_secs(60)), 7),
+        "连上即断仍应继续翻倍退避"
+    );
+}
