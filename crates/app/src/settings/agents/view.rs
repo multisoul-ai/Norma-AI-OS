@@ -9,8 +9,8 @@ use super::components::{action_button, status_block, with_alpha};
 use super::{AgentDefinitionsState, AgentDeleteDialog};
 use crate::app::MultisoulApp;
 use gpui::{
-    div, prelude::*, px, rgba, AnyElement, Context, Div, MouseButton, MouseDownEvent, ScrollHandle,
-    Window,
+    div, prelude::*, px, rgba, AnyElement, Context, Div, KeyDownEvent, MouseButton, MouseDownEvent,
+    ScrollHandle, Window,
 };
 use std::collections::HashSet;
 use ui::Theme;
@@ -175,6 +175,14 @@ fn master_detail(
         .border_1()
         .border_color(rgba(with_alpha(theme.edge_highlight, 0x30)))
         .bg(rgba(with_alpha(theme.node_fill, 0xb8)))
+        .on_key_down(cx.listener(move |app, event: &KeyDownEvent, _window, cx| {
+            // Esc 与点遮罩等价：有未保存修改时由 close_drawer 拒绝并提示。
+            if drawer_open && event.keystroke.key == "escape" {
+                app.agent_definitions.close_drawer();
+                cx.notify();
+                cx.stop_propagation();
+            }
+        }))
         .child(agent_library(
             theme,
             state,
