@@ -21,6 +21,30 @@ impl MultisoulApp {
             .cloned()
     }
 
+    /// 左栏对话展示的会话。项目缩放进行中沿用缩放前的来源，结束后一次切换，
+    /// 避免展开/收起瞬间左栏内容换成另一个会话的（空）状态。
+    pub(crate) fn desktop_drawer_chat_project(&self) -> Option<gpui::Entity<Self>> {
+        let transition = self.desktop_workspace.transition.as_ref()?;
+        let plain_zoom = transition.projects.is_none() && transition.directory_content.is_none();
+        let super::camera::DesktopCanvasSubject::Project {
+            workspace_id,
+            area_id,
+        } = &transition.subject
+        else {
+            return self.expanded_desktop_project();
+        };
+        if !plain_zoom || !matches!(self.screen, crate::app::AppScreen::DesktopWorkspace) {
+            return self.expanded_desktop_project();
+        }
+        if self.desktop_workspace.expanded_area_id.is_some() {
+            return None;
+        }
+        self.desktop_workspace
+            .sessions
+            .get(&(workspace_id.clone(), area_id.clone()))
+            .cloned()
+    }
+
     pub(crate) fn render_desktop_dock(
         &mut self,
         window: &mut Window,

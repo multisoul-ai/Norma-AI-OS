@@ -99,6 +99,12 @@ impl Default for DesktopAssistantDrawerMotion {
 }
 
 impl DesktopAssistantDrawerMotion {
+    /// Jump both drawers to their logical state without animating.
+    pub(crate) fn settle(&mut self, left_open: bool, right_open: bool) {
+        self.left = SideDrawerMotion::new(left_open);
+        self.right = SideDrawerMotion::new(right_open);
+    }
+
     #[cfg(test)]
     pub(crate) fn settle_left(&mut self, open: bool) {
         self.left = SideDrawerMotion::new(open);

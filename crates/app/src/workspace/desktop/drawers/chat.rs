@@ -24,7 +24,7 @@ impl MultisoulApp {
     ) -> Stateful<Div> {
         let theme = self.desktop_theme();
         let frost = self.render_drawer_frost(true, width, edge_inset, window);
-        let chat_input = if let Some(project) = self.expanded_desktop_project() {
+        let chat_input = if let Some(project) = self.desktop_drawer_chat_project() {
             project.update(cx, |project, cx| {
                 project.ensure_command_input(window, cx);
                 project.command_dock.as_ref().map(|dock| dock.input.clone())
@@ -320,7 +320,7 @@ impl MultisoulApp {
                 source.dialogue.dialogue_voice_label(),
             )
         };
-        match self.expanded_desktop_project() {
+        match self.desktop_drawer_chat_project() {
             Some(project) => snapshot(&project.read(cx)),
             None => snapshot(self),
         }
@@ -328,7 +328,7 @@ impl MultisoulApp {
 
     pub(crate) fn desktop_assistant_orb_mode(&self, cx: &gpui::App) -> super::orb::OrbMode {
         use super::orb::OrbMode;
-        let source = self.expanded_desktop_project();
+        let source = self.desktop_drawer_chat_project();
         let source = source.as_ref().map(|project| project.read(cx));
         let source = source.as_deref().unwrap_or(self);
         match source.voice_waveform_state() {
