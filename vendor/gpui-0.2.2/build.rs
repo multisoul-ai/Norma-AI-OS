@@ -143,6 +143,8 @@ mod macos {
             "PathSprite".into(),
             "SurfaceInputIndex".into(),
             "SurfaceBounds".into(),
+            "LiquidGlassInputIndex".into(),
+            "LiquidGlass".into(),
             "TransformationMatrix".into(),
         ]);
         config.no_includes = true;

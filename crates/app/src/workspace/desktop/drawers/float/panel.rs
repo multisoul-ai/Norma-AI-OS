@@ -3,9 +3,7 @@
 use super::super::super::activity_cache::overview_clock_ms;
 use super::super::super::overview_rows::overview_subtitle;
 use super::super::GLASS_TEXT;
-use super::{
-    overview_panel_fill, prefers_reduced_transparency, PANEL_BORDER, PANEL_RADIUS, PIN_ICON,
-};
+use super::{overview_panel_fill, PANEL_BORDER, PANEL_RADIUS, PIN_ICON};
 use crate::app::MultisoulApp;
 use gpui::{
     div, point, prelude::*, px, rgba, svg, BoxShadow, Context, Div, KeyDownEvent, MouseButton,
@@ -49,7 +47,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
         let theme = self.desktop_theme();
-        let fill = overview_panel_fill(prefers_reduced_transparency());
+        let fill = overview_panel_fill(crate::app::prefers_reduced_transparency());
         let focus = self.overview_float_focus(cx);
         div()
             .id("desktop-run-overview-float")

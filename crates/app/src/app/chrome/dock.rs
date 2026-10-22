@@ -3,9 +3,10 @@
 use super::super::command_dock::DOCK_RADIUS;
 use super::super::{AppScreen, MultisoulApp};
 use super::bottom_voice_bar_visible;
+use super::liquid_glass::liquid_glass_layer;
 use crate::effects::dispatch_receipt::{COMMAND_DOCK_BOTTOM_PX, COMMAND_DOCK_HEIGHT_PX};
 use gpui::{
-    div, point, prelude::*, px, rgba, AnyElement, AnyView, App, BoxShadow, Context, Div,
+    div, point, prelude::*, px, rgba, AnyElement, AnyView, App, BoxShadow, Context, Corners, Div,
     MouseButton, Stateful, Window,
 };
 use ui::icons::{with_alpha, ToolbarIcon};
@@ -25,6 +26,7 @@ impl MultisoulApp {
         let input = self.render_command_input(window, cx);
         let suggestions = self.render_command_suggestions(window, cx);
         let top_radius = self.dock_top_radius();
+        let glass = self.render_dock_glass(window);
         div()
             .absolute()
             .left(px(18.0))
@@ -48,11 +50,9 @@ impl MultisoulApp {
                     .rounded_tr(px(top_radius))
                     .rounded_bl(px(DOCK_RADIUS))
                     .rounded_br(px(DOCK_RADIUS))
-                    .border_1()
-                    .border_color(rgba(theme.dock_line))
                     .shadow(command_dock_shadow())
-                    .bg(rgba(theme.dock))
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .child(glass)
                     .children(suggestions)
                     .child(
                         chrome_icon_button(
@@ -113,6 +113,7 @@ impl MultisoulApp {
         let input = self.render_command_input(window, cx);
         let suggestions = self.render_command_suggestions(window, cx);
         let top_radius = self.dock_top_radius();
+        let glass = self.render_dock_glass(window);
         div()
             .absolute()
             .left(px(18.0))
@@ -136,11 +137,9 @@ impl MultisoulApp {
                     .rounded_tr(px(top_radius))
                     .rounded_bl(px(DOCK_RADIUS))
                     .rounded_br(px(DOCK_RADIUS))
-                    .border_1()
-                    .border_color(rgba(theme.dock_line))
                     .shadow(command_dock_shadow())
-                    .bg(rgba(theme.dock))
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .child(glass)
                     .children(suggestions)
                     .child(
                         chrome_icon_button(
@@ -184,11 +183,40 @@ impl MultisoulApp {
     }
 }
 
+impl MultisoulApp {
+    /// One glass slab under the dock; while the suggestion drawer is open the slab
+    /// grows upward to include it, so both read as a single floating surface.
+    fn render_dock_glass(&self, window: &Window) -> impl IntoElement {
+        let viewport = window.viewport_size();
+        let drawer_height = self
+            .command_panel_rect(f32::from(viewport.width), f32::from(viewport.height))
+            .map_or(0.0, |rect| rect.size.y);
+        let top = if drawer_height > 0.0 {
+            DOCK_RADIUS
+        } else {
+            self.dock_top_radius()
+        };
+        liquid_glass_layer(
+            self.theme,
+            Corners {
+                top_left: px(top),
+                top_right: px(top),
+                bottom_right: px(DOCK_RADIUS),
+                bottom_left: px(DOCK_RADIUS),
+            },
+            drawer_height,
+            crate::app::prefers_reduced_transparency(),
+        )
+    }
+}
+
+/// A soft contact shadow. The glass refracts what is beneath it, shadow included,
+/// so it stays light enough not to muddy the slab.
 fn command_dock_shadow() -> Vec<BoxShadow> {
     vec![BoxShadow {
-        color: rgba(0x04091247).into(),
-        offset: point(px(0.0), px(20.0)),
-        blur_radius: px(55.0),
+        color: rgba(0x0409122e).into(),
+        offset: point(px(0.0), px(14.0)),
+        blur_radius: px(40.0),
         spread_radius: px(0.0),
     }]
 }

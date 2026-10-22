@@ -104,39 +104,6 @@ pub(crate) fn overview_panel_fill(reduce_transparency: bool) -> u32 {
     }
 }
 
-fn prefers_reduced_transparency() -> bool {
-    match std::env::var("MULTISOUL_REDUCE_TRANSPARENCY") {
-        Ok(value) => {
-            let value = value.trim().to_ascii_lowercase();
-            matches!(value.as_str(), "1" | "true" | "yes" | "on")
-        }
-        Err(_) => system_reduce_transparency(),
-    }
-}
-
-fn system_reduce_transparency() -> bool {
-    #[cfg(target_os = "macos")]
-    {
-        use objc2::msg_send;
-        use objc2::runtime::{AnyClass, AnyObject};
-        unsafe {
-            let Some(class) = AnyClass::get(c"NSWorkspace") else {
-                return false;
-            };
-            let workspace: *mut AnyObject = msg_send![class, sharedWorkspace];
-            if workspace.is_null() {
-                return false;
-            }
-            let reduced: bool = msg_send![workspace, accessibilityDisplayShouldReduceTransparency];
-            reduced
-        }
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        false
-    }
-}
-
 mod drag;
 mod panel;
 
