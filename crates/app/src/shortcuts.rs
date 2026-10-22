@@ -6,6 +6,7 @@ use std::fmt;
 use storage::SettingsStore;
 
 mod catalog;
+pub(crate) mod idea_assign;
 pub(crate) use catalog::{default_shortcut_entries, read_only_behaviors};
 
 const SHORTCUT_PREFS_KEY: &str = "keyboard.shortcuts.v1";
@@ -50,6 +51,10 @@ pub(crate) enum ShortcutCommandId {
     ToggleSettings,
     ToggleRunOverview,
     ToggleIdeas,
+    /// `⌃1…9`：把想法派给当前展开项目的第 N 张智能体卡片。
+    AssignIdeaToCard(u8),
+    /// `⌃0`（默认类型）与 `⌃⇧2…9`：新建智能体并派发，数字沿用 `⌘2…9` 的创建顺序。
+    AssignIdeaToNewAgent(u8),
     VoiceInteraction,
 }
 

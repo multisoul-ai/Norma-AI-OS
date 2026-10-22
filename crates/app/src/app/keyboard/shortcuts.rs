@@ -94,6 +94,9 @@ impl MultisoulApp {
             ShortcutCommandId::ToggleSettings => self.toggle_settings_panel(cx),
             ShortcutCommandId::ToggleRunOverview => self.toggle_run_overview(window, cx),
             ShortcutCommandId::ToggleIdeas => self.toggle_ideas(window, cx),
+            ShortcutCommandId::AssignIdeaToCard(_) | ShortcutCommandId::AssignIdeaToNewAgent(_) => {
+                self.assign_idea_by_shortcut(command, window, cx)
+            }
             ShortcutCommandId::VoiceInteraction => {
                 if !matches!(
                     self.voice_settings.readiness(),

@@ -60,7 +60,20 @@ canvas/view.rs
 | `⌘⇧L` | `ReflowLayout` | `on_reflow_layout` | Canvas | 退出 master 模式并按最多三列平铺网格重排全部节点 |
 | `⌘Esc` | `ExitFocus` | `on_exit_focus` | 全局 | 从 `NodeFocused` 退回 `CanvasSelect`（画布选择模式） |
 | `⌘,` | `ToggleSettings` | `toggle_settings_panel` | Canvas | 打开或关闭 Settings 面板 |
+| `⌃1`–`⌃9` | `AssignIdeaToCard(N)` | `assign_idea_by_shortcut` | 桌面工作空间（终端聚焦时也生效） | 把想法栏光标所在的待办（无光标取待办队首）派给当前展开项目的第 N 张智能体卡片（文档顺序）；无此卡片时在想法栏提示 |
+| `⌃0` | `AssignIdeaToNewAgent(0)` | `assign_idea_by_shortcut` | 桌面工作空间 | 新建默认类型的智能体并派发；默认类型为 Codex，想法栏聚焦时按 `Tab` 轮换（会话内生效） |
+| `⌃⇧2`–`⌃⇧9` | `AssignIdeaToNewAgent(N)` | `assign_idea_by_shortcut` | 桌面工作空间 | 新建指定类型并派发，数字与 `⌘2…9` 的创建顺序一致（2 Claude、3 Codex、4 Cursor、5 OpenCode、6 Grok、7 Kimi、8 Pi、9 Hermes） |
+| `⌃⇧0` | `AssignIdeaToNewAgent(1)` | `open_idea_picker` | 桌面工作空间 | 打开类型选择器（见下），选定后新建并派发 |
 | `⌘E` | `VoiceInteraction` | `activate_ready_voice` | 全局 | 按当前语音交互模式开始/停止单次语音指令或持续聆听；Hold 模式下松开结束输入 |
+
+### 想法排序与派发（想法栏）
+
+- 想法栏内拖动一条待办是排序（显示插入线），拖出栏外到卡片或「新建智能体」区是派发；只有待办可排序。
+- 想法栏聚焦（`⌘⇧I`）且不在输入框时：`⌥↑` / `⌥↓` 把光标行上移或下移一格；`Tab` 轮换新建默认类型（保存在设置库 `ideas.new_agent_profile.v1`，重启后保留）。
+- `⌃⇧0` 弹出类型选择器（含没有数字键的 ZCode、InfCode）：↑/↓ 移动，回车或点击确认，`2…9` 直达，Esc 或点空白收回；选定后新建该类型的卡片并派发想法。
+- 上表 `⌃` 系列共 19 条命令都在 Settings → Keyboard Shortcuts 里单独录制与恢复，冲突检测与其他命令一致。
+- 有待办想法时，单独按住 `⌃` 在当前项目前 9 张智能体卡片左上角显示序号；按住 `⌃⇧` 在画布底部显示新建类型的数字键。松开即消失；提示按默认 `⌃` 键位显示，在 Settings 改键后不随之变化。
+- 派发快捷键与拖放一样视为用户明确授权；待办为空、未展开项目或卡片序号越界时，在想法栏顶部给出提示，不静默忽略。
 
 ### 复制（`⌘C`）优先级
 

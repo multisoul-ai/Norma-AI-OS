@@ -17,8 +17,8 @@ use gpui::{
     px, size, AnyWindowHandle, App, AsyncApp, KeyUpEvent, Keystroke, PlatformInput, Window,
 };
 use protocol::{
-    control_config, mouse_input, parse_request, scroll_input, text_keystrokes, Command, Response,
-    WindowInfo,
+    control_config, modifiers_input, mouse_input, parse_request, scroll_input, text_keystrokes,
+    Command, Response, WindowInfo,
 };
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::fs::PermissionsExt;
@@ -241,6 +241,10 @@ fn execute_in(command: Command, window: &mut Window, cx: &mut App) -> Outcome {
             }
             Err(error) => done(Response::error(error.to_string())),
         },
+        Command::Modifiers { modifiers } => {
+            window.dispatch_event(modifiers_input(&modifiers), cx);
+            done(Response::ok())
+        }
         Command::Text { text } => {
             for keystroke in text_keystrokes(&text) {
                 press(keystroke, window, cx);

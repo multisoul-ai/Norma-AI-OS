@@ -1,16 +1,48 @@
 //! 桌面工作空间想法清单的宿主侧状态：缓存、刷新、删除撤销与指派入口。
 //! 读写 SQLite 都在后台执行器上完成；前台只替换缓存并通知重绘。
 
+mod idea_assign;
+mod idea_badges;
+mod idea_picker;
+pub(in crate::workspace::desktop) mod idea_reorder;
+
 use super::ideas_rows::{ideas_screen, IdeasScreen};
 use super::ideas_sync::{sync_ideas, DispatchLookup, STUCK_AFTER_SECS};
 use super::ideas_undo::IdeaUndo;
 use crate::app::MultisoulApp;
 use agent::IdeaTarget;
 use gpui::{AppContext as _, Context, Window};
+use norma::protocol::AgentProfile;
 use std::time::{SystemTime, UNIX_EPOCH};
 use storage::IdeasStore;
 use ui::component::input::{InputEvent, InputState};
 use workspace::ideas::{classify_task_state, TaskPhase};
+
+/// 想法栏的辅助状态：新建智能体的默认类型（拖到新建区、菜单新建、`⌃0` 共用），
+/// 以及上一帧绘制出的待办行矩形（窗口坐标、按显示顺序），拖动排序时用来定位插入点。
+pub(crate) struct IdeasAux {
+    pub(crate) default_profile: AgentProfile,
+    /// 上一次修饰键里的（⌃，⇧）；只在变化时重绘序号提示。
+    pub(crate) badge_keys: (bool, bool),
+    /// `⌃⇧0` 类型选择器：打开时是高亮行的下标。
+    pub(crate) picker: Option<usize>,
+    /// 默认类型已从设置库读回（或已被本次运行里的选择覆盖）；之后不再用库里的值回写界面。
+    pub(crate) profile_loaded: bool,
+    pub(crate) row_bounds:
+        std::sync::Arc<std::sync::Mutex<Vec<(String, gpui::Bounds<gpui::Pixels>)>>>,
+}
+
+impl Default for IdeasAux {
+    fn default() -> Self {
+        Self {
+            default_profile: AgentProfile::Codex,
+            badge_keys: (false, false),
+            picker: None,
+            profile_loaded: false,
+            row_bounds: Default::default(),
+        }
+    }
+}
 
 /// 菜单里的一个已有智能体。
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -34,6 +66,7 @@ pub(super) enum IdeaUiTarget {
     /// 在指定项目区域新建智能体来完成。
     New {
         area_id: String,
+        profile: AgentProfile,
     },
 }
 
@@ -83,24 +116,40 @@ impl MultisoulApp {
         let Some(workspace_id) = self.desktop_workspace.active_id.clone() else {
             return;
         };
-        let store = IdeasStore::new(self.database_paths.app_db_path().to_owned());
+        let db_path = self.database_paths.app_db_path().to_owned();
+        let store = IdeasStore::new(db_path.clone());
         self.desktop_workspace.ideas_refresh = Some(cx.spawn(async move |this, cx| {
             let Ok(lookup) = this.update(cx, |app, cx| app.idea_task_sources(cx)) else {
                 return;
             };
             let id = workspace_id.clone();
-            let list = cx
+            let (list, saved_profile) = cx
                 .background_spawn(async move {
                     let now = SystemTime::now()
                         .duration_since(UNIX_EPOCH)
                         .map(|elapsed| elapsed.as_secs())
                         .unwrap_or_default();
-                    sync_ideas(&store, &id, &lookup, now, STUCK_AFTER_SECS)
+                    let list = sync_ideas(&store, &id, &lookup, now, STUCK_AFTER_SECS);
+                    let saved = storage::SettingsStore::new(db_path)
+                        .get_string(crate::shortcuts::idea_assign::DEFAULT_PROFILE_SETTING)
+                        .ok()
+                        .flatten();
+                    (list, saved)
                 })
                 .await;
             let _ = this.update(cx, |app, cx| {
                 if app.desktop_workspace.active_id.as_deref() != Some(workspace_id.as_str()) {
                     return;
+                }
+                let aux = &mut app.desktop_workspace.ideas_aux;
+                if !aux.profile_loaded {
+                    aux.profile_loaded = true;
+                    if let Some(profile) = saved_profile
+                        .as_deref()
+                        .and_then(crate::shortcuts::idea_assign::profile_from_key)
+                    {
+                        aux.default_profile = profile;
+                    }
                 }
                 match list {
                     Ok(list) => app.desktop_workspace.ideas = list,
@@ -109,6 +158,27 @@ impl MultisoulApp {
                 cx.notify();
             });
         }));
+    }
+
+    /// 改默认新建类型：界面立即生效，写库放后台；之后库里的旧值不再覆盖它。
+    pub(super) fn set_default_idea_profile(
+        &mut self,
+        profile: AgentProfile,
+        cx: &mut Context<Self>,
+    ) {
+        let aux = &mut self.desktop_workspace.ideas_aux;
+        aux.default_profile = profile;
+        aux.profile_loaded = true;
+        let store = storage::SettingsStore::new(self.database_paths.app_db_path().to_owned());
+        cx.background_spawn(async move {
+            let key = crate::shortcuts::idea_assign::DEFAULT_PROFILE_SETTING;
+            if let Err(error) =
+                store.set_string(key, crate::shortcuts::idea_assign::profile_key(profile))
+            {
+                tracing::warn!(%error, "failed to persist default idea agent type");
+            }
+        })
+        .detach();
     }
 
     /// 想法清单顶部的输入框：回车或点“添加”记一条手动想法。创建需要窗口，所以在渲染前惰性建立。
@@ -322,12 +392,12 @@ impl MultisoulApp {
                     node_id,
                 },
             ),
-            IdeaUiTarget::New { area_id } => (
+            IdeaUiTarget::New { area_id, profile } => (
                 area_id.clone(),
                 IdeaTarget::NewAgent {
                     workspace_id: workspace_id.clone(),
                     area_id,
-                    profile: norma::protocol::AgentProfile::Codex,
+                    profile,
                 },
             ),
         };

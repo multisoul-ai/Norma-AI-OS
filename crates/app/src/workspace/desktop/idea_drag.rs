@@ -29,10 +29,24 @@ pub(super) struct CardTarget {
     pub(super) rect: Rect,
 }
 
+/// 想法栏里一条待办行的窗口坐标矩形，按显示顺序排列。
+#[derive(Clone, Debug, PartialEq)]
+pub(super) struct RowSlot {
+    pub(super) id: String,
+    pub(super) rect: Rect,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum DropTarget {
-    Existing { area_id: String, node_id: u64 },
+    Existing {
+        area_id: String,
+        node_id: u64,
+    },
     NewAgent,
+    /// 栏内排序：放到 `before` 这条之前，`None` 为末尾。
+    Reorder {
+        before: Option<String>,
+    },
 }
 
 /// 窗口坐标下的全部投放目标；拖拽开始时算一次，拖动中不再重算。
@@ -42,6 +56,9 @@ pub(super) struct DragTargets {
     pub(super) new_zone: Rect,
     /// 画布可见区域：卡片在区域外（被抽屉遮住或滚出）不可命中。
     pub(super) canvas: Rect,
+    /// 想法栏的可见列表区域：指针留在这里是排序，不是派发。
+    pub(super) list: Rect,
+    pub(super) rows: Vec<RowSlot>,
 }
 
 impl DragTargets {
@@ -49,16 +66,26 @@ impl DragTargets {
         if self.new_zone.contains(x, y) {
             return Some(DropTarget::NewAgent);
         }
-        if !self.canvas.contains(x, y) {
-            return None;
+        if self.canvas.contains(x, y) {
+            return self
+                .cards
+                .iter()
+                .find(|card| card.rect.contains(x, y))
+                .map(|card| DropTarget::Existing {
+                    area_id: card.area_id.clone(),
+                    node_id: card.node_id,
+                });
         }
-        self.cards
-            .iter()
-            .find(|card| card.rect.contains(x, y))
-            .map(|card| DropTarget::Existing {
-                area_id: card.area_id.clone(),
-                node_id: card.node_id,
-            })
+        if self.list.contains(x, y) && !self.rows.is_empty() {
+            // 指针在哪一行的上半部分，就插到那一行之前；都不在则插到末尾。
+            let before = self
+                .rows
+                .iter()
+                .find(|row| y < row.rect.y + row.rect.h / 2.0)
+                .map(|row| row.id.clone());
+            return Some(DropTarget::Reorder { before });
+        }
+        None
     }
 }
 
@@ -84,6 +111,8 @@ pub(super) enum DragOutcome {
         /// 按下点，即想法行所在位置：流星从这里出发。
         from: (f32, f32),
     },
+    /// 在想法栏内松手：按新位置排序。
+    Reorder { before: Option<String> },
     /// 落空或取消：预览弹回原行。
     Return,
 }
@@ -149,6 +178,7 @@ impl IdeaDrag {
             return DragOutcome::Click;
         }
         match targets.hit(x, y) {
+            Some(DropTarget::Reorder { before }) => DragOutcome::Reorder { before },
             Some(target) => DragOutcome::Deliver {
                 target,
                 at: (x, y),

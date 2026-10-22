@@ -58,9 +58,13 @@ impl MultisoulApp {
             .tab_index(0)
             .track_focus(&focus)
             .on_key_down(cx.listener(|app, event: &KeyDownEvent, window, cx| {
+                let modifiers = &event.keystroke.modifiers;
+                let alt_only =
+                    modifiers.alt && !modifiers.control && !modifiers.platform && !modifiers.shift;
                 if app.handle_ideas_key(
                     event.keystroke.key.as_str(),
-                    event.keystroke.modifiers.modified(),
+                    modifiers.modified(),
+                    alt_only,
                     window,
                     cx,
                 ) {
@@ -90,19 +94,35 @@ impl MultisoulApp {
                         list.when(!screen.assigned.is_empty(), |list| {
                             list.child(idea_sub_heading(format!("待办 {todo_count}")))
                         })
-                        .children(screen.todo.iter().enumerate().map(|(index, row)| {
-                            let focused = cursor == Some(index);
-                            let open = menu_open.as_deref() == Some(row.id.as_str());
-                            self.render_todo_row(
-                                row,
-                                focused,
-                                open,
-                                &options,
-                                areas.clone(),
-                                feedback,
-                                cx,
-                            )
-                        }))
+                        .child(
+                            div()
+                                .flex()
+                                .flex_col()
+                                .gap(px(4.0))
+                                .on_children_prepainted({
+                                    let ids: Vec<String> =
+                                        screen.todo.iter().map(|row| row.id.clone()).collect();
+                                    let cell = self.desktop_workspace.ideas_aux.row_bounds.clone();
+                                    move |bounds, _window, _cx| {
+                                        if let Ok(mut rows) = cell.lock() {
+                                            *rows = ids.iter().cloned().zip(bounds).collect();
+                                        }
+                                    }
+                                })
+                                .children(screen.todo.iter().enumerate().map(|(index, row)| {
+                                    let focused = cursor == Some(index);
+                                    let open = menu_open.as_deref() == Some(row.id.as_str());
+                                    self.render_todo_row(
+                                        row,
+                                        focused,
+                                        open,
+                                        &options,
+                                        areas.clone(),
+                                        feedback,
+                                        cx,
+                                    )
+                                })),
+                        )
                     })
                     .when(!screen.assigned.is_empty(), |list| {
                         let collapsed = self.desktop_workspace.ideas_assigned_collapsed;

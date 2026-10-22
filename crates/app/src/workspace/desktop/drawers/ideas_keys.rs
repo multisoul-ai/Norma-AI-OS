@@ -1,5 +1,6 @@
 //! 想法视图的键盘与焦点：光标在“待办、已指派”之间移动，菜单展开后改由菜单接管。
 
+use super::super::ideas::idea_reorder::{keyboard_step, Step};
 use super::super::ideas::IdeaUiTarget;
 use crate::app::MultisoulApp;
 use gpui::{Context, Focusable as _, Window};
@@ -64,10 +65,11 @@ impl MultisoulApp {
         &mut self,
         key: &str,
         modified: bool,
+        alt_only: bool,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> bool {
-        if modified {
+        if modified && !alt_only {
             return false;
         }
         // 在输入框里打字时，方向键、回车、退格都属于输入框，不能被清单的键盘浏览抢走。
@@ -78,6 +80,21 @@ impl MultisoulApp {
             .is_some_and(|input| input.focus_handle(cx).is_focused(window))
         {
             return false;
+        }
+        if self.desktop_workspace.ideas_aux.picker.is_some() {
+            return self.handle_idea_picker_key(key, window, cx);
+        }
+        if key == "tab" && self.desktop_workspace.ideas_menu.is_none() {
+            let next = crate::shortcuts::idea_assign::next_default_profile(
+                self.desktop_workspace.ideas_aux.default_profile,
+            );
+            self.set_default_idea_profile(next, cx);
+            self.desktop_workspace.ideas_notice = Some(format!("新建智能体默认类型：{next:?}"));
+            cx.notify();
+            return true;
+        }
+        if alt_only {
+            return matches!(key, "up" | "down") && self.move_idea_with_keyboard(key == "up", cx);
         }
         if key == "escape" && self.cancel_idea_drag(cx) {
             return true;
@@ -137,6 +154,29 @@ impl MultisoulApp {
         }
     }
 
+    /// `⌥↑/⌥↓`：把光标所在的待办上移或下移一格，光标跟着走。输入框、菜单展开时不接管。
+    fn move_idea_with_keyboard(&mut self, up: bool, cx: &mut Context<Self>) -> bool {
+        if self.desktop_workspace.ideas_menu.is_some() {
+            return false;
+        }
+        let screen = self.ideas_screen(cx);
+        let todo_ids: Vec<String> = screen.todo.iter().map(|row| row.id.clone()).collect();
+        let Some(index) = self
+            .desktop_workspace
+            .ideas_cursor
+            .filter(|index| *index < todo_ids.len())
+        else {
+            return false;
+        };
+        let step = if up { Step::Up } else { Step::Down };
+        if let Some((before, cursor)) = keyboard_step(&todo_ids, index, step) {
+            self.reorder_idea(&todo_ids[index], before.as_deref(), cx);
+            self.desktop_workspace.ideas_cursor = Some(cursor);
+            cx.notify();
+        }
+        true
+    }
+
     fn handle_ideas_menu_key(
         &mut self,
         key: &str,
@@ -166,7 +206,10 @@ impl MultisoulApp {
                         .expanded_area_id
                         .clone()
                         .or_else(|| options.first().map(|option| option.area_id.clone()))
-                        .map(|area_id| IdeaUiTarget::New { area_id }),
+                        .map(|area_id| IdeaUiTarget::New {
+                            area_id,
+                            profile: self.desktop_workspace.ideas_aux.default_profile,
+                        }),
                 };
                 if let Some(target) = target {
                     self.dispatch_idea(id, target, None, window, cx);

@@ -201,6 +201,12 @@ impl MultisoulApp {
         self.focus_left_drawer_view(window, cx);
     }
 
+    /// 展开概览里的「想法」栏并刷新清单，不移动焦点。
+    pub(crate) fn reveal_ideas_group(&mut self, cx: &mut Context<Self>) {
+        self.update_overview_collapse(|collapse| collapse.reveal(OverviewGroup::Ideas), cx);
+        self.refresh_ideas(cx);
+    }
+
     pub(crate) fn toggle_ideas(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
             host.update(cx, |app, cx| app.toggle_ideas(window, cx));
