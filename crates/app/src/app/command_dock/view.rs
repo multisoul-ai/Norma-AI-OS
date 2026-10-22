@@ -386,17 +386,23 @@ impl MultisoulApp {
             div()
                 .id("command-dock-suggestions")
                 .debug_selector(|| "command-dock-suggestions".into())
-                // Anchored to the dock's top edge. The dock paints one glass slab under
-                // both surfaces, so the drawer itself is transparent.
+                // Anchored to the dock's top edge; -1px insets cover the dock border so both
+                // surfaces share one outer edge.
                 .absolute()
-                .left_0()
-                .right_0()
-                .bottom(px(COMMAND_DOCK_HEIGHT_PX))
+                .left(px(-1.0))
+                .right(px(-1.0))
+                // Padding box is dock height - 2×1px border; 51px lifts the panel's bottom
+                // to the dock's outer top edge, leaving its top border as the divider.
+                .bottom(px(COMMAND_DOCK_HEIGHT_PX - 1.0))
                 .h(px(rect.size.y))
                 .overflow_hidden()
                 .opacity(state.drawer.opacity())
                 .rounded_tl(radius)
                 .rounded_tr(radius)
+                .border_1()
+                .border_b_0()
+                .border_color(rgba(theme.dock_line))
+                .bg(rgba(theme.dock))
                 .text_color(rgba(theme.text_primary))
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .on_mouse_down_out(cx.listener(|app, _, _, cx| {
@@ -414,16 +420,6 @@ impl MultisoulApp {
                         .h(px((rect.size.y - INSET * 2.0).max(0.0)))
                         .overflow_hidden()
                         .child(content),
-                )
-                .child(
-                    // Hairline between drawer and dock inside the shared glass.
-                    div()
-                        .absolute()
-                        .left(px(DOCK_RADIUS))
-                        .right(px(DOCK_RADIUS))
-                        .bottom_0()
-                        .h(px(1.0))
-                        .bg(rgba(with_alpha(theme.dock_line, 0x55))),
                 ),
         )
     }

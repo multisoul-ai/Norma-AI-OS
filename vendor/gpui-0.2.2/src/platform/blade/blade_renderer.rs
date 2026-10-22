@@ -813,8 +813,6 @@ impl BladeRenderer {
                     );
                     encoder.draw(0, 4, 0, sprites.len() as u32);
                 }
-                // Blade has no backdrop copy yet; the glass is skipped and content stays legible.
-                PrimitiveBatch::LiquidGlasses(_) => {}
                 PrimitiveBatch::Surfaces(surfaces) => {
                     let mut _encoder = pass.with(&self.pipelines.surfaces);
 

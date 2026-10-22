@@ -1,7 +1,6 @@
 use super::metal_atlas::MetalAtlas;
 use crate::{
-    AtlasTextureId, Background, Bounds, ContentMask, DevicePixels, LiquidGlass, MonochromeSprite,
-    PaintSurface,
+    AtlasTextureId, Background, Bounds, ContentMask, DevicePixels, MonochromeSprite, PaintSurface,
     Path, Point, PolychromeSprite, PrimitiveBatch, Quad, ScaledPixels, Scene, Shadow, Size,
     Surface, Underline, point, size,
 };
@@ -110,8 +109,6 @@ pub(crate) struct MetalRenderer {
     monochrome_sprites_pipeline_state: metal::RenderPipelineState,
     polychrome_sprites_pipeline_state: metal::RenderPipelineState,
     surfaces_pipeline_state: metal::RenderPipelineState,
-    liquid_glass_pipeline_state: metal::RenderPipelineState,
-    liquid_glass_backdrop: Option<metal::Texture>,
     unit_vertices: metal::Buffer,
     #[allow(clippy::arc_with_non_send_sync)]
     instance_buffer_pool: Arc<Mutex<InstanceBufferPool>>,
@@ -146,8 +143,6 @@ impl MetalRenderer {
         layer.set_device(&device);
         layer.set_pixel_format(MTLPixelFormat::BGRA8Unorm);
         layer.set_opaque(false);
-        // Liquid Glass copies already-painted pixels out of the drawable.
-        layer.set_framebuffer_only(false);
         layer.set_maximum_drawable_count(3);
         unsafe {
             let _: () = msg_send![&*layer, setAllowsNextDrawableTimeout: NO];
@@ -254,15 +249,6 @@ impl MetalRenderer {
             MTLPixelFormat::BGRA8Unorm,
         );
 
-        let liquid_glass_pipeline_state = build_pipeline_state(
-            &device,
-            &library,
-            "liquid_glass",
-            "liquid_glass_vertex",
-            "liquid_glass_fragment",
-            MTLPixelFormat::BGRA8Unorm,
-        );
-
         let command_queue = device.new_command_queue();
         let sprite_atlas = Arc::new(MetalAtlas::new(device.clone()));
         let core_video_texture_cache =
@@ -281,8 +267,6 @@ impl MetalRenderer {
             monochrome_sprites_pipeline_state,
             polychrome_sprites_pipeline_state,
             surfaces_pipeline_state,
-            liquid_glass_pipeline_state,
-            liquid_glass_backdrop: None,
             unit_vertices,
             instance_buffer_pool,
             sprite_atlas,
@@ -551,34 +535,6 @@ impl MetalRenderer {
                     viewport_size,
                     command_encoder,
                 ),
-                PrimitiveBatch::LiquidGlasses(glasses) => {
-                    command_encoder.end_encoding();
-                    let backdrop = self.copy_liquid_glass_backdrop(
-                        glasses,
-                        command_buffer,
-                        drawable,
-                        viewport_size,
-                    );
-                    command_encoder = new_command_encoder(
-                        command_buffer,
-                        drawable,
-                        viewport_size,
-                        |color_attachment| {
-                            color_attachment.set_load_action(metal::MTLLoadAction::Load);
-                        },
-                    );
-                    match backdrop {
-                        Some(backdrop) => self.draw_liquid_glasses(
-                            glasses,
-                            &backdrop,
-                            instance_buffer,
-                            &mut instance_offset,
-                            viewport_size,
-                            command_encoder,
-                        ),
-                        None => true,
-                    }
-                }
             };
             if !ok {
                 command_encoder.end_encoding();
@@ -687,121 +643,6 @@ impl MetalRenderer {
         *instance_offset = next_offset;
 
         command_encoder.end_encoding();
-        true
-    }
-
-    /// Copies the pixels under (and just around) every glass slab, so the glass shader can
-    /// refract what has been painted so far. Only the union region is copied.
-    fn copy_liquid_glass_backdrop(
-        &mut self,
-        glasses: &[LiquidGlass],
-        command_buffer: &metal::CommandBufferRef,
-        drawable: &metal::MetalDrawableRef,
-        viewport_size: Size<DevicePixels>,
-    ) -> Option<metal::Texture> {
-        let width = i32::from(viewport_size.width).max(0) as u64;
-        let height = i32::from(viewport_size.height).max(0) as u64;
-        let region = liquid_glass_copy_region(glasses, width as f32, height as f32)?;
-
-        let reusable = self
-            .liquid_glass_backdrop
-            .as_ref()
-            .is_some_and(|texture| texture.width() == width && texture.height() == height);
-        if !reusable {
-            let descriptor = metal::TextureDescriptor::new();
-            descriptor.set_width(width);
-            descriptor.set_height(height);
-            descriptor.set_pixel_format(metal::MTLPixelFormat::BGRA8Unorm);
-            descriptor.set_storage_mode(metal::MTLStorageMode::Private);
-            descriptor.set_usage(metal::MTLTextureUsage::ShaderRead);
-            self.liquid_glass_backdrop = Some(self.device.new_texture(&descriptor));
-        }
-        let backdrop = self.liquid_glass_backdrop.clone()?;
-
-        let blit = command_buffer.new_blit_command_encoder();
-        let origin = metal::MTLOrigin {
-            x: region.0,
-            y: region.1,
-            z: 0,
-        };
-        blit.copy_from_texture(
-            drawable.texture(),
-            0,
-            0,
-            origin,
-            metal::MTLSize {
-                width: region.2,
-                height: region.3,
-                depth: 1,
-            },
-            &backdrop,
-            0,
-            0,
-            origin,
-        );
-        blit.end_encoding();
-        Some(backdrop)
-    }
-
-    fn draw_liquid_glasses(
-        &self,
-        glasses: &[LiquidGlass],
-        backdrop: &metal::TextureRef,
-        instance_buffer: &mut InstanceBuffer,
-        instance_offset: &mut usize,
-        viewport_size: Size<DevicePixels>,
-        command_encoder: &metal::RenderCommandEncoderRef,
-    ) -> bool {
-        if glasses.is_empty() {
-            return true;
-        }
-        align_offset(instance_offset);
-
-        command_encoder.set_render_pipeline_state(&self.liquid_glass_pipeline_state);
-        command_encoder.set_vertex_buffer(
-            LiquidGlassInputIndex::Vertices as u64,
-            Some(&self.unit_vertices),
-            0,
-        );
-        command_encoder.set_vertex_buffer(
-            LiquidGlassInputIndex::Glasses as u64,
-            Some(&instance_buffer.metal_buffer),
-            *instance_offset as u64,
-        );
-        command_encoder.set_fragment_buffer(
-            LiquidGlassInputIndex::Glasses as u64,
-            Some(&instance_buffer.metal_buffer),
-            *instance_offset as u64,
-        );
-        command_encoder.set_vertex_bytes(
-            LiquidGlassInputIndex::ViewportSize as u64,
-            mem::size_of_val(&viewport_size) as u64,
-            &viewport_size as *const Size<DevicePixels> as *const _,
-        );
-        command_encoder.set_fragment_texture(LiquidGlassInputIndex::Backdrop as u64, Some(backdrop));
-
-        let glass_bytes_len = mem::size_of_val(glasses);
-        let next_offset = *instance_offset + glass_bytes_len;
-        if next_offset > instance_buffer.size {
-            return false;
-        }
-        let buffer_contents =
-            unsafe { (instance_buffer.metal_buffer.contents() as *mut u8).add(*instance_offset) };
-        unsafe {
-            ptr::copy_nonoverlapping(
-                glasses.as_ptr() as *const u8,
-                buffer_contents,
-                glass_bytes_len,
-            );
-        }
-
-        command_encoder.draw_primitives_instanced(
-            metal::MTLPrimitiveType::Triangle,
-            0,
-            6,
-            glasses.len() as u64,
-        );
-        *instance_offset = next_offset;
         true
     }
 
@@ -1518,49 +1359,6 @@ enum PathRasterizationInputIndex {
 #[repr(C)]
 pub struct PathSprite {
     pub bounds: Bounds<ScaledPixels>,
-}
-
-#[repr(C)]
-enum LiquidGlassInputIndex {
-    Vertices = 0,
-    Glasses = 1,
-    ViewportSize = 2,
-    Backdrop = 3,
-}
-
-/// Device-pixel `(x, y, width, height)` covering every visible glass slab plus the
-/// margin its blur taps may read, clamped to the drawable. `None` when nothing shows.
-pub(crate) fn liquid_glass_copy_region(
-    glasses: &[LiquidGlass],
-    viewport_width: f32,
-    viewport_height: f32,
-) -> Option<(u64, u64, u64, u64)> {
-    let mut min = (f32::MAX, f32::MAX);
-    let mut max = (f32::MIN, f32::MIN);
-    for glass in glasses {
-        let visible = glass.bounds.intersect(&glass.content_mask.bounds);
-        if visible.is_empty() {
-            continue;
-        }
-        let margin = glass.blur * 2.0 + 2.0;
-        min.0 = min.0.min(visible.origin.x.0 - margin);
-        min.1 = min.1.min(visible.origin.y.0 - margin);
-        max.0 = max.0.max(visible.origin.x.0 + visible.size.width.0 + margin);
-        max.1 = max.1.max(visible.origin.y.0 + visible.size.height.0 + margin);
-    }
-    let left = min.0.floor().clamp(0.0, viewport_width);
-    let top = min.1.floor().clamp(0.0, viewport_height);
-    let right = max.0.ceil().clamp(0.0, viewport_width);
-    let bottom = max.1.ceil().clamp(0.0, viewport_height);
-    if right <= left || bottom <= top {
-        return None;
-    }
-    Some((
-        left as u64,
-        top as u64,
-        (right - left) as u64,
-        (bottom - top) as u64,
-    ))
 }
 
 #[derive(Clone, Debug, PartialEq)]

@@ -35,7 +35,6 @@ pub(crate) struct Scene {
     pub(crate) monochrome_sprites: Vec<MonochromeSprite>,
     pub(crate) polychrome_sprites: Vec<PolychromeSprite>,
     pub(crate) surfaces: Vec<PaintSurface>,
-    pub(crate) liquid_glasses: Vec<LiquidGlass>,
 }
 
 impl Scene {
@@ -53,7 +52,6 @@ impl Scene {
         self.monochrome_sprites.clear();
         self.polychrome_sprites.clear();
         self.surfaces.clear();
-        self.liquid_glasses.clear();
     }
 
     pub fn len(&self) -> usize {
@@ -151,10 +149,6 @@ impl Scene {
                 surface.order = order;
                 self.surfaces.push(surface);
             }
-            Primitive::LiquidGlass(mut glass) => {
-                glass.order = order;
-                self.liquid_glasses.push(glass);
-            }
         }
     }
 
@@ -182,7 +176,6 @@ impl Scene {
         self.polychrome_sprites
             .sort_by_key(|sprite| (sprite.order, sprite.tile.tile_id));
         self.surfaces.sort_by_key(|surface| surface.order);
-        self.liquid_glasses.sort_by_key(|glass| glass.order);
     }
 
     #[cfg_attr(
@@ -215,9 +208,6 @@ impl Scene {
             surfaces: &self.surfaces,
             surfaces_start: 0,
             surfaces_iter: self.surfaces.iter().peekable(),
-            liquid_glasses: &self.liquid_glasses,
-            liquid_glasses_start: 0,
-            liquid_glasses_iter: self.liquid_glasses.iter().peekable(),
         }
     }
 }
@@ -239,7 +229,6 @@ pub(crate) enum PrimitiveKind {
     MonochromeSprite,
     PolychromeSprite,
     Surface,
-    LiquidGlass,
 }
 
 pub(crate) enum PaintOperation {
@@ -263,7 +252,6 @@ pub(crate) enum Primitive {
     MonochromeSprite(MonochromeSprite),
     PolychromeSprite(PolychromeSprite),
     Surface(PaintSurface),
-    LiquidGlass(LiquidGlass),
 }
 
 impl Primitive {
@@ -276,7 +264,6 @@ impl Primitive {
             Primitive::MonochromeSprite(sprite) => &sprite.bounds,
             Primitive::PolychromeSprite(sprite) => &sprite.bounds,
             Primitive::Surface(surface) => &surface.bounds,
-            Primitive::LiquidGlass(glass) => &glass.bounds,
         }
     }
 
@@ -289,7 +276,6 @@ impl Primitive {
             Primitive::MonochromeSprite(sprite) => &sprite.content_mask,
             Primitive::PolychromeSprite(sprite) => &sprite.content_mask,
             Primitive::Surface(surface) => &surface.content_mask,
-            Primitive::LiquidGlass(glass) => &glass.content_mask,
         }
     }
 }
@@ -323,9 +309,6 @@ struct BatchIterator<'a> {
     surfaces: &'a [PaintSurface],
     surfaces_start: usize,
     surfaces_iter: Peekable<slice::Iter<'a, PaintSurface>>,
-    liquid_glasses: &'a [LiquidGlass],
-    liquid_glasses_start: usize,
-    liquid_glasses_iter: Peekable<slice::Iter<'a, LiquidGlass>>,
 }
 
 impl<'a> Iterator for BatchIterator<'a> {
@@ -354,10 +337,6 @@ impl<'a> Iterator for BatchIterator<'a> {
             (
                 self.surfaces_iter.peek().map(|s| s.order),
                 PrimitiveKind::Surface,
-            ),
-            (
-                self.liquid_glasses_iter.peek().map(|g| g.order),
-                PrimitiveKind::LiquidGlass,
             ),
         ];
         orders_and_kinds.sort_by_key(|(order, kind)| (order.unwrap_or(u32::MAX), *kind));
@@ -489,20 +468,6 @@ impl<'a> Iterator for BatchIterator<'a> {
                     &self.surfaces[surfaces_start..surfaces_end],
                 ))
             }
-            PrimitiveKind::LiquidGlass => {
-                let start = self.liquid_glasses_start;
-                let mut end = start + 1;
-                self.liquid_glasses_iter.next();
-                while self
-                    .liquid_glasses_iter
-                    .next_if(|glass| (glass.order, batch_kind) < max_order_and_kind)
-                    .is_some()
-                {
-                    end += 1;
-                }
-                self.liquid_glasses_start = end;
-                Some(PrimitiveBatch::LiquidGlasses(&self.liquid_glasses[start..end]))
-            }
         }
     }
 }
@@ -529,8 +494,6 @@ pub(crate) enum PrimitiveBatch<'a> {
         sprites: &'a [PolychromeSprite],
     },
     Surfaces(&'a [PaintSurface]),
-    /// Backdrop-sampling glass: renderers copy what is already painted before drawing it.
-    LiquidGlasses(&'a [LiquidGlass]),
 }
 
 #[derive(Default, Debug, Clone)]
@@ -754,72 +717,6 @@ impl From<PaintSurface> for Primitive {
     }
 }
 
-/// Optical parameters for [`crate::Window::paint_liquid_glass`].
-///
-/// Lengths are logical pixels. The glass refracts whatever was painted below it in the
-/// same frame: `bezel` is the curved rim width, `refraction` the strongest rim
-/// displacement, `blur` the backdrop softening inside the slab.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct LiquidGlassStyle {
-    /// Color laid over the refracted backdrop; alpha is the tint strength.
-    pub tint: Hsla,
-    /// Width of the curved rim, in logical pixels.
-    pub bezel: Pixels,
-    /// Maximum lens displacement at the outer edge, in logical pixels.
-    pub refraction: Pixels,
-    /// Backdrop blur radius, in logical pixels.
-    pub blur: Pixels,
-    /// Backdrop saturation multiplier (1.0 keeps the source).
-    pub saturation: f32,
-    /// Strength of the light catching the rim (0.0 to 1.0).
-    pub specular: f32,
-    /// Chromatic split of the rim refraction (0.0 to 1.0).
-    pub dispersion: f32,
-    /// Ceiling on the tinted glass's linear luminance (0.0 to 1.0). Brighter backdrops
-    /// are darkened to it, so light labels stay legible over any wallpaper; 1.0 disables.
-    pub max_luminance: f32,
-}
-
-impl Default for LiquidGlassStyle {
-    fn default() -> Self {
-        Self {
-            tint: crate::hsla(0.0, 0.0, 1.0, 0.06),
-            bezel: Pixels(16.0),
-            refraction: Pixels(14.0),
-            blur: Pixels(3.0),
-            saturation: 1.5,
-            specular: 0.55,
-            dispersion: 0.35,
-            max_luminance: 1.0,
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-#[repr(C)]
-pub(crate) struct LiquidGlass {
-    pub order: DrawOrder,
-    pub pad: u32, // align to 8 bytes
-    pub bounds: Bounds<ScaledPixels>,
-    pub content_mask: ContentMask<ScaledPixels>,
-    pub corner_radii: Corners<ScaledPixels>,
-    pub tint: Hsla,
-    pub bezel: f32,
-    pub refraction: f32,
-    pub blur: f32,
-    pub saturation: f32,
-    pub specular: f32,
-    pub dispersion: f32,
-    pub opacity: f32,
-    pub max_luminance: f32,
-}
-
-impl From<LiquidGlass> for Primitive {
-    fn from(glass: LiquidGlass) -> Self {
-        Primitive::LiquidGlass(glass)
-    }
-}
-
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) struct PathId(pub(crate) usize);
 
@@ -983,7 +880,3 @@ impl PathVertex<Pixels> {
         }
     }
 }
-
-#[cfg(test)]
-#[path = "../tests/unit/scene_liquid_glass.rs"]
-mod liquid_glass_tests;

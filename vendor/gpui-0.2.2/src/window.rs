@@ -2912,41 +2912,6 @@ impl Window {
         });
     }
 
-    /// Paint a Liquid Glass slab that refracts everything already painted beneath it.
-    ///
-    /// Elements painted afterwards (labels, icons) sit on top of the glass. Renderers
-    /// without backdrop sampling fall back to a tinted rounded rectangle.
-    ///
-    /// This method should only be called as part of the paint phase of element drawing.
-    pub fn paint_liquid_glass(
-        &mut self,
-        bounds: Bounds<Pixels>,
-        corner_radii: Corners<Pixels>,
-        style: crate::LiquidGlassStyle,
-    ) {
-        self.invalidator.debug_assert_paint();
-
-        let scale_factor = self.scale_factor();
-        let content_mask = self.content_mask();
-        let opacity = self.element_opacity();
-        self.next_frame.scene.insert_primitive(crate::LiquidGlass {
-            order: 0,
-            pad: 0,
-            bounds: bounds.scale(scale_factor),
-            content_mask: content_mask.scale(scale_factor),
-            corner_radii: corner_radii.scale(scale_factor),
-            tint: style.tint,
-            bezel: style.bezel.0 * scale_factor,
-            refraction: style.refraction.0 * scale_factor,
-            blur: style.blur.0 * scale_factor,
-            saturation: style.saturation,
-            specular: style.specular,
-            dispersion: style.dispersion,
-            opacity,
-            max_luminance: style.max_luminance,
-        });
-    }
-
     /// Paint the given `Path` into the scene for the next frame at the current z-index.
     ///
     /// This method should only be called as part of the paint phase of element drawing.

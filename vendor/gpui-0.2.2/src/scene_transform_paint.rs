@@ -89,15 +89,6 @@ impl ScenePlacement {
                 surface.bounds = bounds(surface.bounds);
                 surface.content_mask = mask(&surface.content_mask);
             }
-            Primitive::LiquidGlass(glass) => {
-                glass.opacity *= opacity;
-                glass.bounds = bounds(glass.bounds);
-                glass.content_mask = mask(&glass.content_mask);
-                glass.corner_radii = glass.corner_radii.map(|v| *v * scale);
-                glass.bezel *= scale;
-                glass.refraction *= scale;
-                glass.blur *= scale;
-            }
         }
     }
 }

@@ -116,33 +116,3 @@ Upstream exposes `Window::dispatch_event` as `pub` but returns the
 struct is now `pub` with its fields unchanged. Only the debug-build desktop E2E
 control channel (`crates/app/src/e2e_control/`) uses it to inject mouse and
 scroll input into its own window; release builds do not compile that caller.
-
-## Liquid Glass primitive (2026-10-21)
-
-`Window::paint_liquid_glass(bounds, corner_radii, LiquidGlassStyle)` adds an
-Apple-style Liquid Glass slab. AppKit's `NSGlassEffectView` cannot be used:
-GPUI paints the whole window into one `CAMetalLayer`, so a native glass view can
-only sit entirely above the dock's controls (blurring them) or entirely below the
-canvas (sampling nothing). The glass has to live between the two inside the scene.
-
-The new `LiquidGlass` primitive batches by draw order like any other. On a glass
-batch the Metal renderer ends the current pass, blits the union of the glass
-regions (plus the blur margin) from the drawable into a lazily allocated,
-viewport-sized backdrop texture, resumes with `MTLLoadAction::Load`, and draws
-the slabs. The layer is therefore `framebufferOnly = false`. Everything painted
-later (icons, labels) sits on top of the glass.
-
-The fragment shader derives the rim normal from the rounded-rectangle SDF and
-uses a circular-arc profile: the backdrop is displaced inward at the rim
-(refraction), with a small per-channel split (dispersion), a light golden-angle
-blur, a saturation boost, a tint, an adaptive luminance ceiling that keeps light
-labels legible over bright backdrops, and a top-left specular rim. Blade and
-DirectX skip the batch. The scene transform scales glass geometry with the camera.
-
-```sh
-cargo test --manifest-path vendor/gpui-0.2.2/Cargo.toml --locked --lib liquid_glass -- --nocapture
-```
-
-The tests cover batching between backdrop and content, plus dropping clipped
-slabs. Visual output was accepted in the real App through the
-`canvas-command-dock` desktop-e2e scenario (dock idle and drawer open).

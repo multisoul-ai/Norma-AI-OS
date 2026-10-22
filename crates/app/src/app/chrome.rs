@@ -1,10 +1,7 @@
 //! Workspace overlay chrome for the GPUI app shell.
 
 mod dock;
-mod liquid_glass;
 mod top_bar;
-
-pub(crate) use liquid_glass::prefers_reduced_transparency;
 
 pub(crate) use top_bar::{brand_logo, top_bar_theme, BRAND_TOGGLE_LEFT, TOP_BAR_HEIGHT};
 

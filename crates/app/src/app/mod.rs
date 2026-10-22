@@ -67,9 +67,7 @@ pub(crate) use browser::{BrowserCommand, BrowserCommandKind};
 mod canvas_surface;
 pub(crate) mod cef_process;
 mod chrome;
-pub(crate) use chrome::{
-    brand_logo, prefers_reduced_transparency, top_bar_theme, BRAND_TOGGLE_LEFT, TOP_BAR_HEIGHT,
-};
+pub(crate) use chrome::{brand_logo, top_bar_theme, BRAND_TOGGLE_LEFT, TOP_BAR_HEIGHT};
 pub(crate) mod assistant_conversation;
 mod clipboard_image;
 pub(crate) mod command_dock;
