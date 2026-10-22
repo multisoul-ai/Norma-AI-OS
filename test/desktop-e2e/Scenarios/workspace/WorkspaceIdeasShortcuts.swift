@@ -117,7 +117,8 @@ public enum WorkspaceIdeasShortcuts {
                 try await session.shortcut(key: 53, modifiers: [])
                 _ = try await session.wait(Expectation(absent: ["Feature Guide", "Skip Guide"], timeout: 6))
             }
-            // ⌘2 新建 Claude 卡片（先前经底部指令栏输入 /new claude 回车时，应用曾在 Run Overview 打开的状态下崩溃：gpui shape_line 报 text argument should not contain newlines，来源未查明）。
+            // ⌘2 新建 Claude 卡片。不经底部指令栏输入回车：默认的 GPUI 注入路径会给按键补一个模拟 IME 的 "\n"，
+            // 而单行输入框的 Enter 动作会继续传播，Run Overview 打开时换行被插进指令栏而崩溃（只出现在注入路径；NORMA_E2E_INPUT=ns 的真实 AppKit 路径正常）。
             try await session.shortcut(key: 19, modifiers: [0x37])
             try await Task.sleep(nanoseconds: 2_500_000_000)
             // 想法栏已在上一步打开并折叠过其余三栏：此时应仍是展开的同一布局。
