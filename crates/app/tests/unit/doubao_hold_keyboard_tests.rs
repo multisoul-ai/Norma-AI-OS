@@ -36,7 +36,7 @@ fn test_doubao_hold_window_deactivation_preserves_pending_reply() {
         );
         app.voice_settings
             .select_desktop_mode(DesktopVoiceMode::Doubao);
-        app.toggle_doubao_voice(window, cx);
+        app.start_doubao_channel(window, cx);
         let session = app.doubao.cancellation.clone().expect("应创建会话");
         app.doubao.recording = Some(recording.clone());
         app.doubao.recording_from_shortcut = true;

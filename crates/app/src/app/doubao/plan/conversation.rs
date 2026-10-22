@@ -10,6 +10,9 @@ use ui::i18n::LocalizedText;
 #[path = "../../../../tests/unit/doubao_conversation_backpressure_tests.rs"]
 mod backpressure_tests;
 #[cfg(test)]
+#[path = "../../../../tests/unit/doubao_conversation_freshness_tests.rs"]
+mod freshness_tests;
+#[cfg(test)]
 #[path = "../../../../tests/unit/doubao_hold_conversation_tests.rs"]
 mod hold_tests;
 #[cfg(test)]
@@ -47,6 +50,7 @@ where
     let mut reply_id = 0_u64;
     let mut turn = 0_u64;
     let mut recording_id = 0_u64;
+    let mut held_id: Option<u64> = None;
     let result = loop {
         tokio::select! {
             // Queued speech must win over notifications and stale reply completions.
@@ -69,7 +73,7 @@ where
                         let _ = events.send(DoubaoStatus::Connected).await;
                     }
                     Ok(event @ (SpeechEvent::Started | SpeechEvent::HeldStarted(_))) => {
-                        if let SpeechEvent::HeldStarted(id) = event { recording_id = id; }
+                        if let SpeechEvent::HeldStarted(id) = event { recording_id = id; held_id = Some(id); }
                         user_speaking = true;
                         if let Some(token) = reply_token.take() { token.cancel(); }
                         // Retire this reply before its cancelled network request can finish.
@@ -108,12 +112,19 @@ where
                             let _ = done.send((id, result)).await;
                         });
                     }
+                    Ok(SpeechEvent::ListenEnded(id, error)) => {
+                        // 收音结束（含失败）只解除说话占用，通道继续播报；按住模式忽略旧录音的迟到结束。
+                        if held_id.is_none_or(|current| current == id) { user_speaking = false; }
+                        let _ = events.send(DoubaoStatus::ListenEnded(id, error)).await;
+                    }
                     Err(_) => break (&mut asr_task).await.map_err(|_| LocalizedText::new("doubao.asr_interrupted"))?,
                 }
             }
             report = reports.recv(), if reports_open && !user_speaking && !reply_active => {
                 if let Ok(report) = report {
-                    if report.cancellation.is_cancelled() { continue; }
+                    // 交给会话后仍可能等用户说完；过期的通知直接丢弃，不迟到播报。
+                    if report.cancellation.is_cancelled()
+                        || report.expires_at.is_some_and(|expires_at| std::time::Instant::now() >= expires_at) { continue; }
                     reply_id = reply_id.wrapping_add(1);
                     reply_active = true;
                     let _ = events.send(DoubaoStatus::Speaking).await;

@@ -95,6 +95,8 @@ pub(super) enum AgentAnnouncementPlaybackPhase {
     Reporting {
         announcement: AgentAnnouncement,
         cancellation: tokio_util::sync::CancellationToken,
+        /// 最早入队时间：被打断后按原时效重新排队。
+        queued_at: std::time::Instant,
     },
     Synthesizing(AgentAnnouncement),
     Playing {

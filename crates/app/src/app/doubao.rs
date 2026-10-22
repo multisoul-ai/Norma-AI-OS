@@ -1,19 +1,22 @@
 use crate::app::MultisoulApp;
-use gpui::{Context, Window};
+use gpui::Context;
+use std::time::Instant;
 use tokio_util::sync::CancellationToken;
 use ui::i18n::LocalizedText;
 
+mod channel;
 mod input;
 mod plan;
 pub(super) mod playback;
+mod session;
 mod tools;
-
-use plan::run_session;
 
 pub(crate) struct DoubaoReport {
     pub(crate) text: String,
     pub(crate) cancellation: CancellationToken,
     pub(crate) completed: tokio::sync::oneshot::Sender<()>,
+    /// 超过该时刻仍未开播即丢弃（通知有效期）。
+    pub(crate) expires_at: Option<Instant>,
 }
 
 impl DoubaoReport {
@@ -24,6 +27,7 @@ impl DoubaoReport {
                 text,
                 cancellation: CancellationToken::new(),
                 completed,
+                expires_at: None,
             },
             completion,
         )
@@ -64,6 +68,10 @@ pub(crate) enum DoubaoStatus {
     RecordingResolved(u64),
     UserTranscript(String),
     AssistantReply(String),
+    /// 一次收音结束（事件，不作为持久状态）；`Some` 为失败原因。
+    ListenEnded(u64, Option<LocalizedText>),
+    /// 收音失败，通道仍在；下次 Cmd+E 清除。
+    ListenFailed(LocalizedText),
     Disconnected(LocalizedText),
 }
 
@@ -76,7 +84,10 @@ impl DoubaoStatus {
             Self::Thinking => "doubao.thinking",
             Self::Speaking => "doubao.replying",
             Self::RecordingResolved(_) => "voice.push_to_talk",
-            Self::UserTranscript(_) | Self::AssistantReply(_) => "chrome.listening",
+            Self::UserTranscript(_) | Self::AssistantReply(_) | Self::ListenEnded(..) => {
+                "chrome.listening"
+            }
+            Self::ListenFailed(_) => "doubao.listen_failed",
             Self::Disconnected(_) => "doubao.disconnected",
         })
     }
@@ -88,9 +99,19 @@ pub(crate) struct DoubaoVoiceState {
     pub(crate) cancellation: Option<CancellationToken>,
     pub(crate) recording: Option<CancellationToken>,
     pub(crate) recording_from_shortcut: bool,
+    /// 持续聆听：本次 Cmd+E 收音的令牌。
+    pub(crate) listening: Option<CancellationToken>,
     recording_id: u64,
     awaiting_transcript: bool,
     recordings: Option<async_channel::Sender<input::RecordingInput>>,
+    listens: Option<async_channel::Sender<input::ListenRequest>>,
+    binding: Option<channel::ChannelBinding>,
+    start_pending: bool,
+    retry_attempt: u32,
+    retry_at: Option<Instant>,
+    /// 本次通道首次就绪的时刻；用来判断断线前是否稳定连接过。
+    connected_at: Option<Instant>,
+    blocked: bool,
     speech: Option<async_channel::Sender<plan::asr::SpeechEvent>>,
     activation: Option<gpui::Subscription>,
     session_task: Option<tokio::task::JoinHandle<()>>,
@@ -107,9 +128,17 @@ impl Default for DoubaoVoiceState {
             cancellation: None,
             recording: None,
             recording_from_shortcut: false,
+            listening: None,
             recording_id: 0,
             awaiting_transcript: false,
             recordings: None,
+            listens: None,
+            binding: None,
+            start_pending: false,
+            retry_attempt: 0,
+            retry_at: None,
+            connected_at: None,
+            blocked: false,
             speech: None,
             activation: None,
             session_task: None,
@@ -129,7 +158,15 @@ impl DoubaoVoiceState {
         }
         if let DoubaoStatus::AssistantReply(text) = status {
             self.last_reply = Some(text);
+            self.retry_attempt = 0;
             return;
+        }
+        if let DoubaoStatus::ListenEnded(id, error) = status {
+            self.end_listen(id, error);
+            return;
+        }
+        if status == DoubaoStatus::Connected && self.connected_at.is_none() {
+            self.connected_at = Some(Instant::now());
         }
         if let DoubaoStatus::RecordingResolved(id) = status {
             if id == self.recording_id {
@@ -156,15 +193,12 @@ impl DoubaoVoiceState {
         if let Some(cancellation) = self.cancellation.take() {
             cancellation.cancel();
         }
-        self.reports = None;
-        if let Some(recording) = self.recording.take() {
-            recording.cancel();
-        }
-        self.recording_from_shortcut = false;
-        self.awaiting_transcript = false;
-        self.recordings = None;
-        self.speech = None;
-        self.activation = None;
+        self.end_channel();
+        self.start_pending = false;
+        self.retry_attempt = 0;
+        self.retry_at = None;
+        self.connected_at = None;
+        self.blocked = false;
         self.status = DoubaoStatus::Idle;
     }
 
@@ -172,15 +206,18 @@ impl DoubaoVoiceState {
         self.cancellation.is_some()
     }
 
+    /// 通道已就绪但没有收音：待命。
     pub(crate) fn waiting_for_input(&self) -> bool {
-        self.status == DoubaoStatus::Connected
-            && self.recordings.is_some()
-            && self.recording.is_none()
+        self.status == DoubaoStatus::Connected && !self.is_listening()
     }
 
     pub(crate) fn label(&self) -> &'static str {
         if self.waiting_for_input() {
-            ui::i18n::text("voice.push_to_talk")
+            ui::i18n::text(if self.recordings.is_some() {
+                "voice.push_to_talk"
+            } else {
+                "doubao.voice"
+            })
         } else {
             self.status.label()
         }
@@ -188,215 +225,8 @@ impl DoubaoVoiceState {
 }
 
 impl MultisoulApp {
-    fn start_doubao_context_requests(
-        &self,
-        generation: u64,
-        project_id: Option<String>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> ContextRequests {
-        let (requests, incoming): (ContextRequests, _) = async_channel::bounded(1);
-        cx.spawn_in(window, async move |this, cx| {
-            while let Ok(request) = incoming.recv().await {
-                let context = this
-                    .update_in(cx, |app, _, cx| {
-                        let current_project = app
-                            .runtime
-                            .workspace_root()
-                            .map(|root| root.display().to_string());
-                        if app.doubao.generation != generation || current_project != project_id {
-                            return None;
-                        }
-                        let canvas =
-                            app.current_canvas_context_for_provider()
-                                .unwrap_or_else(|| agent::CurrentCanvasContext {
-                                    project_name: "未打开项目".into(),
-                                    workspace_root: "未打开项目；项目操作不可用".into(),
-                                    total_cards: 0,
-                                    cards: Vec::new(),
-                                    conversation_tails: Vec::new(),
-                                });
-                        let desktop = app.desktop_context_for_provider(cx);
-                        Some((canvas, app.agent_roster_for_provider(), desktop))
-                    })
-                    .ok()
-                    .flatten();
-                let Some(context) = context else {
-                    break;
-                };
-                let ContextRequest::Model(response) = request;
-                let _ = response.send(context);
-            }
-        })
-        .detach();
-        requests
-    }
-
     pub(crate) fn stop_doubao_voice(&mut self, cx: &mut Context<Self>) {
         self.doubao.stop();
-        cx.notify();
-    }
-
-    pub(crate) fn toggle_doubao_voice(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.doubao.is_active() {
-            self.stop_doubao_voice(cx);
-            return;
-        }
-        let Some(account) = self
-            .voice_settings
-            .values()
-            .doubao_credential_ref()
-            .map(str::to_owned)
-        else {
-            self.doubao.status =
-                DoubaoStatus::Disconnected(LocalizedText::new("doubao.key_required"));
-            cx.notify();
-            return;
-        };
-        let project_id = self
-            .runtime
-            .workspace_root()
-            .map(|root| root.display().to_string());
-        let bound_project = project_id.clone();
-        self.doubao.generation = self.doubao.generation.wrapping_add(1);
-        self.doubao.last_transcript = None;
-        self.doubao.last_reply = None;
-        let generation = self.doubao.generation;
-        let tool_adapter = super::agent_runtime::start_doubao_adapter(
-            project_id.clone().unwrap_or_default(),
-            generation,
-            self.database_paths.clone(),
-            self.workspace_state.current_root.clone(),
-            window,
-            cx,
-        );
-        let tools = Some(agent::NormaToolRuntime::new(tool_adapter));
-        let database = self.database_paths.app_db_path().to_path_buf();
-        let selected_voice = self.voice_settings.values().doubao_voice();
-        let cancellation = CancellationToken::new();
-        self.doubao.cancellation = Some(cancellation.clone());
-        self.doubao.status = DoubaoStatus::Connecting;
-        tracing::info!(target: "norma_voice", generation,
-            "Doubao session start requested");
-        let (events_tx, events_rx) = async_channel::bounded(32);
-        let (speech_tx, speech_rx) = async_channel::unbounded();
-        self.doubao.speech = Some(speech_tx.clone());
-        let (reports_tx, reports_rx) = async_channel::unbounded();
-        let recordings = if self.voice_settings.values().doubao_interaction_mode()
-            == crate::settings::voice::VoiceInteractionMode::SingleVoiceCommand
-        {
-            let (sender, receiver) = async_channel::unbounded();
-            self.doubao.recordings = Some(sender);
-            Some(receiver)
-        } else {
-            None
-        };
-        let input = input::SessionInput {
-            events: speech_tx,
-            speech: speech_rx,
-            recordings,
-        };
-        self.doubao.activation = Some(cx.observe_window_activation(window, |app, window, cx| {
-            if !window.is_window_active() && app.doubao.recording.is_some() {
-                // 失活时可能收不到松键事件；结束采集后仍须完成当前转写和回复。
-                app.end_doubao_recording(cx);
-            }
-        }));
-        self.doubao.reports = Some(reports_tx);
-        let playback_events = self
-            .voice_window_inset_events
-            .sink(crate::app::voice_window_inset::TtsPlaybackSource::Doubao);
-        if let Ok(runtime) = super::shared_tokio_runtime() {
-            let context =
-                self.start_doubao_context_requests(generation, project_id.clone(), window, cx);
-            let previous_task = self.doubao.session_task.take();
-            self.doubao.session_task = Some(runtime.spawn(async move {
-                if let Some(previous_task) = previous_task {
-                    tracing::info!(target: "norma_voice", generation,
-                        "waiting for previous Doubao session to finish");
-                    let _ = previous_task.await;
-                    tracing::info!(target: "norma_voice", generation,
-                        "previous Doubao session finished");
-                }
-                if cancellation.is_cancelled() {
-                    return;
-                }
-                let result = run_session(
-                    (account, selected_voice),
-                    context,
-                    project_id,
-                    database,
-                    tools,
-                    cancellation,
-                    (events_tx.clone(), reports_rx, playback_events, input),
-                )
-                .await;
-                tracing::info!(target: "norma_voice", generation,
-                    reason = result.as_ref().err().map(LocalizedText::as_str).unwrap_or("normal"),
-                    "Doubao session task finished");
-                let _ = events_tx
-                    .send(DoubaoStatus::Disconnected(
-                        result
-                            .err()
-                            .unwrap_or_else(|| LocalizedText::new("doubao.call_ended")),
-                    ))
-                    .await;
-            }));
-        } else {
-            self.doubao.stop();
-            self.doubao.status =
-                DoubaoStatus::Disconnected(LocalizedText::new("doubao.runtime_unavailable"));
-            cx.notify();
-            return;
-        }
-        cx.spawn_in(window, async move |this, cx| loop {
-            cx.background_executor()
-                .timer(std::time::Duration::from_millis(100))
-                .await;
-            let still_active = this
-                .update_in(cx, |app, _, cx| {
-                    if app.doubao.generation != generation {
-                        return false;
-                    }
-                    let now = app
-                        .runtime
-                        .workspace_root()
-                        .map(|root| root.display().to_string());
-                    if now != bound_project {
-                        app.stop_doubao_voice(cx);
-                        return false;
-                    }
-                    while let Ok(status) = events_rx.try_recv() {
-                        match &status {
-                            DoubaoStatus::UserTranscript(text) => app.record_assistant_user_message(text, cx),
-                            DoubaoStatus::AssistantReply(text) => app.record_assistant_norma_message(text, cx),
-                            _ => {}
-                        }
-                        let ended = matches!(status, DoubaoStatus::Disconnected(_));
-                        if let DoubaoStatus::Disconnected(message) = &status {
-                            tracing::info!(target: "norma_voice", reason = %message, "voice conversation ended");
-                        }
-                        app.doubao.apply_status(status);
-                        if ended {
-                            if let Some(recording) = app.doubao.recording.take() { recording.cancel(); }
-                            app.doubao.recording_from_shortcut = false;
-                            app.doubao.awaiting_transcript = false;
-                            app.doubao.recordings = None;
-                            app.doubao.speech = None;
-                            app.doubao.activation = None;
-                            app.doubao.cancellation = None;
-                            app.doubao.reports = None;
-                        }
-                        cx.notify();
-                    }
-                    app.doubao.is_active()
-                })
-                .unwrap_or(false);
-            if !still_active {
-                break;
-            }
-        })
-        .detach();
         cx.notify();
     }
 }

@@ -25,6 +25,7 @@ impl AgentAnnouncements {
             AgentAnnouncementTtsAvailability::Waiting => {
                 for pending in &mut self.pending {
                     pending.waiting_for_tts = true;
+                    pending.deferred = true;
                 }
             }
             AgentAnnouncementTtsAvailability::Unavailable => {
@@ -58,6 +59,9 @@ impl MultisoulApp {
                 .values()
                 .doubao_credential_ref()
                 .is_some()
+                && !self.doubao.is_blocked()
+                // 后台项目没有窗口，断开后无法重建通道；不让通知排队空等。
+                && !self.background_project
             {
                 AgentAnnouncementTtsAvailability::Waiting
             } else {

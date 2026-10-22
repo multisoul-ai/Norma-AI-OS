@@ -58,7 +58,11 @@ impl MultisoulApp {
                 | crate::app::doubao::DoubaoStatus::Speaking => {
                     crate::app::voice::control::VoiceVisual::Processing
                 }
-                crate::app::doubao::DoubaoStatus::Disconnected(_) => {
+                crate::app::doubao::DoubaoStatus::ListenEnded(..) => {
+                    crate::app::voice::control::VoiceVisual::Idle
+                }
+                crate::app::doubao::DoubaoStatus::ListenFailed(_)
+                | crate::app::doubao::DoubaoStatus::Disconnected(_) => {
                     crate::app::voice::control::VoiceVisual::Error
                 }
             };

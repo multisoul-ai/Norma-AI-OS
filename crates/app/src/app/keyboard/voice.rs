@@ -41,7 +41,7 @@ impl MultisoulApp {
             if self.voice_settings.values().doubao_interaction_mode()
                 == crate::settings::voice::VoiceInteractionMode::ContinuousListening
             {
-                self.toggle_doubao_voice(window, cx);
+                self.toggle_doubao_listening(window, cx);
             } else if pointer_toggle && self.doubao.recording.is_some() {
                 self.end_doubao_recording(cx);
             } else {

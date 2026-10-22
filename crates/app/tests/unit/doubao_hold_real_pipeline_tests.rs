@@ -67,6 +67,7 @@ async fn doubao_hold_real_pipeline_replies_after_release() {
                 events: speech.clone(),
                 speech: speech_rx,
                 recordings: Some(recording_rx),
+                listens: None,
             },
         ),
     ));
