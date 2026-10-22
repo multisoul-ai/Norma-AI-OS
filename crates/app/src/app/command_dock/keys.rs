@@ -41,6 +41,14 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if event.keystroke.key == "enter"
+            && self
+                .command_dock
+                .as_ref()
+                .is_some_and(|state| state.draft.trim().starts_with('/'))
+        {
+            self.trace_command_dock("key_enter", window, cx);
+        }
         // The same InputState is rendered in the sidebar and the project Dock. When
         // focused from the sidebar, the project Scene is not on the keyboard path,
         // so the host forwards command navigation to the owning project.
