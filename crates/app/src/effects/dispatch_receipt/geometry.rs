@@ -20,13 +20,14 @@ pub(super) struct FlightCurve {
 }
 
 impl FlightCurve {
-    pub(super) fn new(origin: Point<Pixels>, target: Point<Pixels>) -> Self {
-        let (control_a, control_b) = control_points(origin, target);
+    pub(super) fn new_agent_handoff(origin: Point<Pixels>, target: Point<Pixels>) -> Self {
+        let (control_a, control_b) = agent_handoff_control_points(origin, target);
         Self::from_control_points(origin, control_a, control_b, target)
     }
 
-    pub(super) fn new_agent_handoff(origin: Point<Pixels>, target: Point<Pixels>) -> Self {
-        let (control_a, control_b) = agent_handoff_control_points(origin, target);
+    /// 想法流星：从左抽屉直接射向卡片，只做轻微弯曲（弯曲量约为距离的 8%，上限 40px）。
+    pub(super) fn new_idea_shot(origin: Point<Pixels>, target: Point<Pixels>) -> Self {
+        let (control_a, control_b) = idea_shot_control_points(origin, target);
         Self::from_control_points(origin, control_a, control_b, target)
     }
 
@@ -100,22 +101,12 @@ impl FlightCurve {
 }
 
 #[cfg(test)]
-pub(crate) fn bezier_point(
-    origin: Point<Pixels>,
-    target: Point<Pixels>,
-    progress: f32,
-) -> Point<Pixels> {
-    let (control_a, control_b) = control_points(origin, target);
-    cubic_point(origin, control_a, control_b, target, progress)
-}
-
-#[cfg(test)]
-pub(crate) fn bezier_point_at_travel(
+pub(crate) fn idea_shot_bezier_point_at_travel(
     origin: Point<Pixels>,
     target: Point<Pixels>,
     travel: f32,
 ) -> Point<Pixels> {
-    FlightCurve::new(origin, target).point_at_travel(travel)
+    FlightCurve::new_idea_shot(origin, target).point_at_travel(travel)
 }
 
 #[cfg(test)]
@@ -144,15 +135,28 @@ pub(crate) fn helix_offset(ratio: f32, phase: f32) -> f32 {
     (ratio * std::f32::consts::PI * HELIX_COILS + phase).sin() * envelope * HELIX_RADIUS
 }
 
-fn control_points(origin: Point<Pixels>, target: Point<Pixels>) -> (Point<Pixels>, Point<Pixels>) {
-    let horizontal = f32::from(target.x - origin.x);
-    let vertical = f32::from(origin.y - target.y).max(0.0);
-    let direct_distance = horizontal.hypot(f32::from(target.y - origin.y));
-    let lift = (direct_distance * 0.34).clamp(150.0, 252.0);
-    let settle = (vertical * 0.17).clamp(68.0, 132.0);
+fn idea_shot_control_points(
+    origin: Point<Pixels>,
+    target: Point<Pixels>,
+) -> (Point<Pixels>, Point<Pixels>) {
+    let dx = f32::from(target.x - origin.x);
+    let dy = f32::from(target.y - origin.y);
+    let distance = dx.hypot(dy).max(f32::EPSILON);
+    // 法线朝上，弧线微微上拱，像抛射而不是绕路。
+    let mut normal = (-dy / distance, dx / distance);
+    if normal.1 > 0.0 {
+        normal = (-normal.0, -normal.1);
+    }
+    let bend = (distance * 0.08).min(40.0);
     (
-        point(origin.x + px(horizontal * 0.045), origin.y - px(lift)),
-        point(target.x - px(horizontal * 0.18), target.y + px(settle)),
+        point(
+            origin.x + px(dx * 0.30 + normal.0 * bend),
+            origin.y + px(dy * 0.30 + normal.1 * bend),
+        ),
+        point(
+            origin.x + px(dx * 0.70 + normal.0 * bend),
+            origin.y + px(dy * 0.70 + normal.1 * bend),
+        ),
     )
 }
 

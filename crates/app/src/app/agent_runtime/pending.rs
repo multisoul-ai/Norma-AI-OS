@@ -54,6 +54,23 @@ impl PendingAgentSubmissions {
             .insert(node_id, started_at + AGENT_STARTUP_GRACE);
     }
 
+    /// 暂缓向该卡片输入任务，直到 `until`（想法流星飞到卡片之前，任务不能先开始）。
+    /// 已有更晚的等待时间时保留更晚的那个。
+    pub(crate) fn hold_until(&mut self, node_id: NodeId, until: Instant) {
+        let entry = self.ready_after.entry(node_id).or_insert(until);
+        *entry = (*entry).max(until);
+    }
+
+    /// 派发失败时撤销自己加的暂缓：只在等待时间仍是 `until`、且没有待输入任务时才清除，
+    /// 避免留下一条永远不会被消费的等待记录（它会让手机端对该卡片一直返回“未就绪”）。
+    pub(crate) fn release_hold(&mut self, node_id: NodeId, until: Instant) {
+        if self.ready_after.get(&node_id) == Some(&until)
+            && !self.submissions.contains_key(&node_id)
+        {
+            self.ready_after.remove(&node_id);
+        }
+    }
+
     pub(crate) fn should_wait(&mut self, node_id: NodeId) -> bool {
         self.should_wait_at(node_id, Instant::now())
     }

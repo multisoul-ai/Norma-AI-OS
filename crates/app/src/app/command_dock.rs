@@ -232,7 +232,7 @@ impl MultisoulApp {
         cx.notify();
     }
 
-    fn execute_dock_suggestion(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn execute_dock_suggestion(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.trace_command_dock("execute_requested", window, cx);
         let Some(state) = &self.command_dock else {
             return;

@@ -62,7 +62,9 @@ fn spawn_agent_handoff(
     let canvas_is_visible = matches!(app.screen, AppScreen::Canvas);
     let target_is_visible = canvas_is_visible && agent_node_is_visible(app, node_id, visible_area);
     let origin_is_visible = match origin {
-        DispatchVisualOrigin::CommandDock => canvas_is_visible,
+        DispatchVisualOrigin::CommandDock | DispatchVisualOrigin::IdeaRow { .. } => {
+            canvas_is_visible
+        }
         DispatchVisualOrigin::AgentNode(source_node_id) => {
             canvas_is_visible && agent_node_is_visible(app, source_node_id, visible_area)
         }
@@ -84,10 +86,9 @@ fn spawn_agent_handoff(
             app.motion
                 .spawn_dispatch_receipt(receipt_ref.clone(), node_id, status)
         }
-        DispatchVisualOrigin::AgentNode(_) => {
-            app.motion
-                .spawn_dispatch_receipt_from(receipt_ref.clone(), origin, node_id, status)
-        }
+        DispatchVisualOrigin::AgentNode(_) | DispatchVisualOrigin::IdeaRow { .. } => app
+            .motion
+            .spawn_dispatch_receipt_from(receipt_ref.clone(), origin, node_id, status),
     };
     if outcome == DispatchEffectSpawnOutcome::DroppedCapacity {
         tracing::debug!(

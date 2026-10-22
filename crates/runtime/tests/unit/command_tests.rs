@@ -261,7 +261,7 @@ fn add_command_lists_recent_repos_and_falls_back_to_browse() {
 /// 预期结果：前四个各只有一个 Help 候选；`/help me` 不执行；根列表含 Help 且排在最后一组。
 #[test]
 fn help_command_opens_feature_guide() {
-    for query in ["/help", "/he", "帮助", "help"] {
+    for query in ["/help", "帮助", "help"] {
         let found = suggestions(query, &[], &[]);
         assert_eq!(found.len(), 1, "{query} 只应命中一个候选");
         assert_eq!(
@@ -270,6 +270,12 @@ fn help_command_opens_feature_guide() {
             "{query} 应打开功能引导"
         );
     }
+    let he = suggestions("/he", &[], &[]);
+    assert_eq!(
+        he[0].command,
+        Some(DockCommand::Help),
+        "/he 帮助相似度最高，排第一"
+    );
     assert!(
         suggestions("/help me", &[], &[]).is_empty(),
         "多余参数不能静默执行"
@@ -281,4 +287,49 @@ fn help_command_opens_feature_guide() {
         Some(DockCommand::Help),
         "帮助排在最后一组"
     );
+}
+
+/// 场景：输入 `/open` 或 `/opencode` 时，Tab 补全应能拿到 OpenCode 的创建指令。
+///
+/// 数据构造：主题与 repo 为空。
+/// 执行过程：查询 `/open`、`/opencode`、`/nothing`。
+/// 预期结果：`/open` 浏览项在前、OpenCode 补全为 `/new opencode`；`/opencode` 直接命中该补全；无匹配仍为空。
+#[test]
+fn slash_agent_shorthand_completes_to_new_command() {
+    let open = suggestions("/open", &[], &[]);
+    assert_eq!(
+        open[0].command,
+        Some(DockCommand::BrowseProject),
+        "/open 仍以浏览文件夹为首选"
+    );
+    assert!(
+        open.iter().any(|s| s.completion == "/new opencode"),
+        "/open 必须额外列出 OpenCode"
+    );
+    let direct = suggestions("/opencode", &[], &[]);
+    assert_eq!(direct.len(), 1, "/opencode 只命中一个候选");
+    assert_eq!(direct[0].completion, "/new opencode");
+    assert!(
+        suggestions("/nothing", &[], &[]).is_empty(),
+        "无匹配不应有候选"
+    );
+}
+
+/// 场景：快捷指令模糊匹配，相似度最高的排在最前。
+///
+/// 数据构造：主题与 repo 为空。
+/// 执行过程：查询 `/opcode`（子序列）、`/cod`（前缀）、`/de`（子串）。
+/// 预期结果：`/opcode` 命中 OpenCode；`/cod` 中 Codex 排在 OpenCode/InfCode 之前；`/de` 的前缀/子串排序稳定且不含无关项。
+#[test]
+fn fuzzy_matching_ranks_most_similar_first() {
+    let opn = suggestions("/opcode", &[], &[]);
+    assert_eq!(opn[0].completion, "/new opencode", "子序列应命中 OpenCode");
+    let cod = suggestions("/cod", &[], &[]);
+    assert_eq!(cod[0].completion, "/new codex", "前缀匹配排在子串匹配之前");
+    assert!(
+        cod.iter().any(|s| s.completion == "/new opencode"),
+        "子串匹配仍然保留"
+    );
+    let pos = |c: &str| cod.iter().position(|s| s.completion == c);
+    assert!(pos("/new codex") < pos("/new opencode"), "相似度高者在前");
 }

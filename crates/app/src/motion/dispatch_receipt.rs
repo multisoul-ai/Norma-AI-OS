@@ -3,6 +3,8 @@ use std::collections::{HashSet, VecDeque};
 use std::time::{Duration, Instant};
 
 const FLIGHT_DURATION: Duration = Duration::from_millis(480);
+/// 想法流星飞得更久一些：前半程蓄势，需要时间铺开“先缓后猛”的过程。
+const IDEA_FLIGHT_DURATION: Duration = Duration::from_millis(900);
 const IMPACT_DURATION: Duration = Duration::from_millis(430);
 const REDUCED_PULSE_DURATION: Duration = Duration::from_millis(150);
 const MAX_TICK_DELTA: Duration = Duration::from_millis(50);
@@ -37,6 +39,18 @@ pub(crate) enum DispatchEffectSpawnOutcome {
 pub(crate) enum DispatchVisualOrigin {
     CommandDock,
     AgentNode(NodeId),
+    /// 想法清单里被派发的那一行，窗口像素坐标；没有来源节点，只靠目标节点存活。
+    IdeaRow {
+        x: i32,
+        y: i32,
+    },
+}
+
+impl DispatchVisualOrigin {
+    /// 想法派发与指令栏（语音）派发共用想法流星：白色光点、蓄势后冲刺、900ms；Agent 间交接保留离子画法。
+    pub(crate) fn uses_idea_meteor(self) -> bool {
+        matches!(self, Self::CommandDock | Self::IdeaRow { .. })
+    }
 }
 
 #[cfg(any(test, feature = "e2e-test-support"))]
@@ -200,7 +214,9 @@ impl DispatchEffectStore {
         let retain_effect = |effect: &DispatchEffect, keep: &mut dyn FnMut(NodeId) -> bool| {
             keep(effect.target_node_id)
                 && match effect.origin {
-                    DispatchVisualOrigin::CommandDock => true,
+                    DispatchVisualOrigin::CommandDock | DispatchVisualOrigin::IdeaRow { .. } => {
+                        true
+                    }
                     DispatchVisualOrigin::AgentNode(source_node_id) => keep(source_node_id),
                 }
         };
@@ -307,10 +323,19 @@ impl DispatchEffect {
         }
     }
 
+    fn flight_duration(&self) -> Duration {
+        if self.origin.uses_idea_meteor() {
+            IDEA_FLIGHT_DURATION
+        } else {
+            FLIGHT_DURATION
+        }
+    }
+
     fn tick(&mut self, delta: Duration) {
         self.elapsed = self.elapsed.saturating_add(delta);
-        if self.phase == DispatchEffectPhase::Flight && self.elapsed >= FLIGHT_DURATION {
-            self.elapsed = self.elapsed.saturating_sub(FLIGHT_DURATION);
+        let flight = self.flight_duration();
+        if self.phase == DispatchEffectPhase::Flight && self.elapsed >= flight {
+            self.elapsed = self.elapsed.saturating_sub(flight);
             self.phase = DispatchEffectPhase::Impact;
         }
     }
@@ -326,7 +351,7 @@ impl DispatchEffect {
 
     fn presentation(&self) -> DispatchEffectPresentation {
         let duration = match self.phase {
-            DispatchEffectPhase::Flight => FLIGHT_DURATION,
+            DispatchEffectPhase::Flight => self.flight_duration(),
             DispatchEffectPhase::Impact if self.reduce_motion => REDUCED_PULSE_DURATION,
             DispatchEffectPhase::Impact => IMPACT_DURATION,
         };

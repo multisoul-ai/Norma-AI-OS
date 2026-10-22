@@ -20,6 +20,7 @@ mod thread_task_review;
 pub use terminal::{LiveTerminalRequest, LiveTerminalTask};
 mod review;
 pub use review::{LiveReviewRequest, ProjectReviewRequest};
+mod ideas;
 mod plan;
 pub(crate) mod project_events;
 pub(crate) mod push;

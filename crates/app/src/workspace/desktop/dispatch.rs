@@ -1,4 +1,3 @@
-use super::DesktopDispatchReceipt;
 use crate::app::MultisoulApp;
 use agent::{AdapterError, AdapterResult};
 use gpui::{Context, Entity, Window};
@@ -218,6 +217,19 @@ impl MultisoulApp {
         task: &str,
         cx: &mut Context<Self>,
     ) -> Result<AdapterResult, AdapterError> {
+        self.norma_assign_workspace_task_with(workspace_id, area_id, node_id, task, false, cx)
+    }
+
+    /// `user_initiated` 为真时是用户亲手发起的派发：没有 Hook 的 Agent 也接收，并按手动来源入队。
+    pub(crate) fn norma_assign_workspace_task_with(
+        &mut self,
+        workspace_id: &str,
+        area_id: &str,
+        node_id: canvas::NodeId,
+        task: &str,
+        user_initiated: bool,
+        cx: &mut Context<Self>,
+    ) -> Result<AdapterResult, AdapterError> {
         if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
             let source_id = cx.entity().entity_id();
             let target_is_source = host
@@ -231,23 +243,33 @@ impl MultisoulApp {
                     host.read(cx)
                         .workspace_task_project_name(workspace_id, area_id, task)?;
                 let agent_name = agent_name_for_node(self, node_id)?;
-                let submitted = self.submit_tracked_agent_text(node_id, task, cx);
-                return host.update(cx, |host, cx| {
-                    host.finish_workspace_task_submission(
-                        workspace_id,
-                        &project_name,
-                        &agent_name,
-                        node_id,
-                        submitted,
-                        cx,
-                    )
-                });
+                let submitted = self.submit_agent_text(node_id, task, user_initiated, cx);
+                return finish_workspace_task_submission(
+                    &project_name,
+                    &agent_name,
+                    node_id,
+                    submitted,
+                );
             }
             return host.update(cx, |host, cx| {
-                host.norma_assign_workspace_task_on_host(workspace_id, area_id, node_id, task, cx)
+                host.norma_assign_workspace_task_on_host(
+                    workspace_id,
+                    area_id,
+                    node_id,
+                    task,
+                    user_initiated,
+                    cx,
+                )
             });
         }
-        self.norma_assign_workspace_task_on_host(workspace_id, area_id, node_id, task, cx)
+        self.norma_assign_workspace_task_on_host(
+            workspace_id,
+            area_id,
+            node_id,
+            task,
+            user_initiated,
+            cx,
+        )
     }
 
     fn norma_assign_workspace_task_on_host(
@@ -256,6 +278,7 @@ impl MultisoulApp {
         area_id: &str,
         node_id: canvas::NodeId,
         task: &str,
+        user_initiated: bool,
         cx: &mut Context<Self>,
     ) -> Result<AdapterResult, AdapterError> {
         let project_name = self.workspace_task_project_name(workspace_id, area_id, task)?;
@@ -267,16 +290,9 @@ impl MultisoulApp {
             .ok_or_else(|| AdapterError::Rejected("Agent 会话尚未加载".into()))?;
         let agent_name = agent_name_for_node(&session.read(cx), node_id)?;
         let submitted = session.update(cx, |session, cx| {
-            session.submit_tracked_agent_text(node_id, task, cx)
+            session.submit_agent_text(node_id, task, user_initiated, cx)
         });
-        self.finish_workspace_task_submission(
-            workspace_id,
-            &project_name,
-            &agent_name,
-            node_id,
-            submitted,
-            cx,
-        )
+        finish_workspace_task_submission(&project_name, &agent_name, node_id, submitted)
     }
 
     fn workspace_task_project_name(
@@ -307,41 +323,22 @@ impl MultisoulApp {
         }
         Ok(project_name)
     }
+}
 
-    fn finish_workspace_task_submission(
-        &mut self,
-        workspace_id: &str,
-        project_name: &str,
-        agent_name: &str,
-        node_id: canvas::NodeId,
-        submitted: Result<AdapterResult, AdapterError>,
-        cx: &mut Context<Self>,
-    ) -> Result<AdapterResult, AdapterError> {
-        self.desktop_workspace
-            .dispatch_receipts
-            .entry(workspace_id.to_owned())
-            .or_default()
-            .push(DesktopDispatchReceipt {
-                project_name: project_name.to_owned(),
-                agent_name: agent_name.to_owned(),
-                status: match &submitted {
-                    Ok(_) => "已接收".into(),
-                    Err(error) => format!("失败：{error}"),
-                },
-                submitted: submitted.is_ok(),
-            });
-        cx.notify();
-        let accepted = submitted?;
-        Ok(
-            AdapterResult::accepted(format!("{project_name} 的 {agent_name} 已接收任务"))
-                .with_node_id(node_id)
-                .with_task_id(
-                    accepted.task_id.ok_or_else(|| {
-                        AdapterError::Failed("Agent 已接收但未返回任务身份".into())
-                    })?,
-                ),
-        )
-    }
+fn finish_workspace_task_submission(
+    project_name: &str,
+    agent_name: &str,
+    node_id: canvas::NodeId,
+    submitted: Result<AdapterResult, AdapterError>,
+) -> Result<AdapterResult, AdapterError> {
+    let accepted = submitted?;
+    Ok(
+        AdapterResult::accepted(format!("{project_name} 的 {agent_name} 已接收任务"))
+            .with_node_id(node_id)
+            .with_task_id(accepted.task_id.ok_or_else(|| {
+                AdapterError::AcceptedWithoutTaskId("Agent 已接收但未返回任务身份".into())
+            })?),
+    )
 }
 
 fn agent_name_for_node(

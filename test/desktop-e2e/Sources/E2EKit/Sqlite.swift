@@ -121,6 +121,42 @@ extension Catalog {
         )
     }
 
+    /// 仅在被测 App 停止时写入一条待办想法；列表按 position 排序。
+    public static func seedIdea(database url: URL, workspaceName: String, body: String, position: Int) throws {
+        let database = try SQLiteDB(path: url.path, write: true)
+        defer { database.close() }
+        let rows = try database.query("SELECT id FROM desktop_workspaces WHERE name=?1", bindings: [workspaceName]) { statement in
+            column(statement, 0)
+        }
+        guard let workspaceID = rows.first else {
+            throw E2EError.product("想法夹具找不到工作空间 \(workspaceName)")
+        }
+        let now = String(Int64(Date().timeIntervalSince1970))
+        try database.execute(
+            "INSERT INTO workspace_ideas(id,workspace_id,body,source,state,position,created_at_unix,updated_at_unix) VALUES(?1,?2,?3,'chat','todo',?4,?5,?5)",
+            bindings: [UUID().uuidString, workspaceID, body, String(position), now]
+        )
+    }
+
+    /// 想法正文 → 来源（chat / voice / manual）。
+    public static func ideaSources(database url: URL) throws -> [String: String] {
+        let database = try SQLiteDB(path: url.path, write: false)
+        defer { database.close() }
+        let rows = try database.query("SELECT body,source FROM workspace_ideas") { statement in
+            (column(statement, 0), column(statement, 1))
+        }
+        return Dictionary(rows, uniquingKeysWith: { first, _ in first })
+    }
+
+    /// 读取想法的正文、状态与任务引用，供拖拽投递后的数据断言。
+    public static func ideas(database url: URL) throws -> [(body: String, state: String, taskRef: String)] {
+        let database = try SQLiteDB(path: url.path, write: false)
+        defer { database.close() }
+        return try database.query("SELECT body,state,COALESCE(task_ref,'') FROM workspace_ideas ORDER BY position") { statement in
+            (column(statement, 0), column(statement, 1), column(statement, 2))
+        }
+    }
+
     public static func seedArea(database url: URL, workspaceName: String, root: URL, displayName: String) throws {
         let database = try SQLiteDB(path: url.path, write: true)
         defer { database.close() }

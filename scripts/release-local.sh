@@ -45,6 +45,17 @@ else
   OUTPUT_DIR="build"
 fi
 
+# 0. 卸载残留的本仓库 DMG 挂载卷：同名 /Volumes/Norma OS 会让 cargo-packager 的 DMG 布局步骤
+# 写入只读旧卷而失败（cp: .background/dmg-background.png: Read-only file system）。
+while IFS= read -r stale_dev; do
+  [ -n "$stale_dev" ] || continue
+  info "卸载残留 DMG 挂载: $stale_dev"
+  hdiutil detach "$stale_dev" -force >/dev/null 2>&1 || warn "无法卸载 $stale_dev，请手动弹出"
+done < <(hdiutil info | awk -v root="$ROOT/build/" '
+  /^image-path/ { img = index($0, root) > 0 }
+  /^\/dev\/disk[0-9]+[ \t]/ && img { print $1 }' | sort -u)
+rm -f "$OUTPUT_DIR"/rw.*.dmg
+
 # 1. 前置：codesign readiness
 bash scripts/check-codesign-readiness.sh
 
@@ -55,7 +66,7 @@ git lfs pull
 
 if [ "$AD_HOC" = true ]; then
   # ad-hoc 测试：不 notarize，用 Packager.dev.toml
-  [ -f target/release/norma-os ] || die "target/release/norma-os 不存在，先 cargo build --release -p app"
+  # 二进制由 Packager.dev.toml 的 before-packaging-command 以 production-data 重新构建，不复用旧产物。
   info "ad-hoc 打包（不 notarize）"
   env -u CI -u APPLE_API_KEY -u APPLE_API_ISSUER -u APPLE_API_KEY_PATH \
       -u APPLE_KEYCHAIN_PROFILE -u APPLE_ID -u APPLE_PASSWORD -u APPLE_TEAM_ID \

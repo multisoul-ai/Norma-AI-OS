@@ -316,3 +316,80 @@ fn remove_task_prevents_cancelled_pending_submission_from_later_enter() {
         "task 7 已移除，不得残留第二份待提交记录"
     );
 }
+
+/// 想法流星的暂缓：到点之前不可提交，到点后恰好可提交；更晚的暂缓不会被更早的覆盖。
+///
+/// 数据构造：node 7 在固定时刻 t0 暂缓 860ms 后再被要求暂缓 300ms；node 7 另排入 1 项任务。
+/// 执行过程：在 t0+300ms、t0+859ms、t0+860ms 查询到点节点。
+/// 预期结果：
+///   - 正断言：t0+860ms 时 node 7 到点。
+///   - 负断言：t0+300ms（较短的暂缓不能缩短已有的）和 t0+859ms 时没有到点节点。
+#[test]
+fn hold_until_keeps_the_later_deadline() {
+    let t0 = Instant::now();
+    let mut pending = PendingAgentSubmissions::default();
+    pending.hold_until(7, t0 + Duration::from_millis(860));
+    pending.hold_until(7, t0 + Duration::from_millis(300));
+    pending.enqueue(AgentDispatchReceipt {
+        task_id: 1,
+        task_ref: "test-runtime:1".to_string(),
+        root_task_ref: "test-runtime:1".to_string(),
+        parent_task_ref: None,
+        source_definition_id: None,
+        source_node_id: None,
+        definition_id: 1,
+        name: "Alan".to_string(),
+        node_id: 7,
+        task: "任务".to_string(),
+        state: AgentDispatchState::SubmittedUntracked,
+    });
+    assert!(pending
+        .due_node_ids(t0 + Duration::from_millis(300))
+        .is_empty());
+    assert!(pending
+        .due_node_ids(t0 + Duration::from_millis(859))
+        .is_empty());
+    assert_eq!(
+        pending.due_node_ids(t0 + Duration::from_millis(860)),
+        vec![7]
+    );
+}
+
+/// 派发失败撤销暂缓：不留下永远不会被消费的等待记录；但已有待输入任务或被别人改过的等待时间不能被误清。
+///
+/// 数据构造：node 7 暂缓后撤销；node 8 暂缓后排入任务再撤销；node 9 暂缓后被更晚的时间覆盖再用旧时间撤销。
+/// 预期结果：
+///   - 正断言：node 7 撤销后没有待处理记录。
+///   - 负断言：node 8（已有任务）与 node 9（等待时间已变）撤销后仍保留记录。
+#[test]
+fn release_hold_only_clears_its_own_idle_hold() {
+    let t0 = Instant::now();
+    let early = t0 + Duration::from_millis(860);
+    let late = t0 + Duration::from_millis(5_000);
+    let mut pending = PendingAgentSubmissions::default();
+    pending.hold_until(7, early);
+    pending.release_hold(7, early);
+    assert!(!pending.has_pending_for_node(7), "空闲暂缓应被撤销");
+
+    pending.hold_until(8, early);
+    pending.enqueue(AgentDispatchReceipt {
+        task_id: 2,
+        task_ref: "test-runtime:2".to_string(),
+        root_task_ref: "test-runtime:2".to_string(),
+        parent_task_ref: None,
+        source_definition_id: None,
+        source_node_id: None,
+        definition_id: 1,
+        name: "Alan".to_string(),
+        node_id: 8,
+        task: "任务".to_string(),
+        state: AgentDispatchState::SubmittedUntracked,
+    });
+    pending.release_hold(8, early);
+    assert!(pending.has_pending_for_node(8), "已有待输入任务时不能清除");
+
+    pending.hold_until(9, early);
+    pending.hold_until(9, late);
+    pending.release_hold(9, early);
+    assert!(pending.has_pending_for_node(9), "等待时间被改过时不能清除");
+}

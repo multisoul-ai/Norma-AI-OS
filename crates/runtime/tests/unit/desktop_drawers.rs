@@ -336,8 +336,8 @@ fn overview_float_layout_roundtrips_and_reclamps_to_the_current_canvas() {
     };
     let saved = overview_layout_json(&floating);
     assert_eq!(
-        saved, r#"{"floating":true,"left_view":"chat","offset_x":-40,"offset_y":20}"#,
-        "布局 JSON 应同时写下视图、悬浮和偏移"
+        saved, r#"{"floating":true,"left_view":"chat","offset_x":-40,"offset_y":20,"collapsed":0}"#,
+        "布局 JSON 应同时写下视图、悬浮、偏移和各栏折叠位"
     );
     let parsed = overview_layout_from_preference(Some(&saved));
     assert!(parsed.floating, "读回应仍是悬浮");

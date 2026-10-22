@@ -29,7 +29,7 @@ pub use tool_policy::{ToolCallBudget, ToolCallPolicy, MAX_TOOL_CALLS_PER_TURN};
 
 pub use adapter::{
     norma_tool_definitions, AdapterCommand, AdapterError, AdapterResult, AgentCardAdapter,
-    NormaToolRuntime, ToolContext, ToolDefinition, WorkspaceSnapshotScope,
+    IdeaTarget, NormaToolRuntime, ToolContext, ToolDefinition, WorkspaceSnapshotScope,
 };
 pub use conversation_tail::{
     compare_tails_for_context, render_conversation_tails, truncate_tail_message,

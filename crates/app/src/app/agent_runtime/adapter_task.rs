@@ -14,13 +14,20 @@ pub(super) fn dispatch_agent_task(
     agent: String,
     task: String,
     force_untracked: bool,
+    manual: bool,
 ) -> Result<AdapterResult, AdapterError> {
     let definition_id = app
         .agent_definitions
         .definition_by_address(&agent)
         .map(|definition| definition.id)
         .ok_or_else(|| AdapterError::Rejected(format!("未找到 Agent：{agent}")))?;
-    let result = commands::execute_agent_card_command_with_optional_window(
+    // 用户亲手派发（拖拽想法）按“手动”来源入队，不再叠加 Norma 指令栏的飞行效果。
+    let source = if manual {
+        agent::AgentDispatchSource::manual()
+    } else {
+        agent::AgentDispatchSource::norma()
+    };
+    let result = commands::execute_agent_card_command_with_source(
         app,
         window,
         CardCommand::DispatchAgentTasks {
@@ -30,6 +37,7 @@ pub(super) fn dispatch_agent_task(
             }],
             force_untracked,
         },
+        source,
     )
     .map_err(AdapterError::Rejected)?;
     let CardCommandResult::AgentTasksDispatched { receipts } = result else {
@@ -50,7 +58,9 @@ pub(super) fn dispatch_agent_task(
         .agent_task_coordinator
         .as_ref()
         .and_then(|coordinator| coordinator.task_id_for(definition_id, &task))
-        .ok_or_else(|| AdapterError::Failed("AgentCard 已接收但无法确定 task_id".to_string()))?;
+        .ok_or_else(|| {
+            AdapterError::AcceptedWithoutTaskId("AgentCard 已接收但无法确定 task_id".to_string())
+        })?;
     cx.notify();
     Ok(
         AdapterResult::accepted(format!("{} 的 AgentCard 已接收任务", receipt.name))

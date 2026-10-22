@@ -57,15 +57,6 @@ impl MultisoulApp {
         Some(session.read(cx).runtime.running_terminal_count())
     }
 
-    pub fn desktop_dispatch_statuses_for_e2e(&self, workspace_id: &str) -> Vec<String> {
-        self.desktop_workspace
-            .dispatch_receipts
-            .get(workspace_id)
-            .into_iter()
-            .flat_map(|receipts| receipts.iter().map(|receipt| receipt.status.clone()))
-            .collect()
-    }
-
     pub fn desktop_stop_area_runtime_for_e2e(
         &mut self,
         workspace_id: &str,

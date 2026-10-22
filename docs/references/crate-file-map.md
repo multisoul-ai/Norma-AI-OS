@@ -150,6 +150,7 @@ Important files:
 | Terminal | `terminal/pty.rs`, `grid.rs` | `app/cards/term/paint.rs` |
 | Input | `runtime/route.rs` | `app/app/keyboard.rs` |
 | Settings | `storage/settings_store.rs` | `app/settings/panel.rs` |
+| 工作空间想法 | `workspace/ideas.rs`（状态机）、`storage/ideas_store.rs` | `app/workspace/desktop/{ideas,ideas_rows,idea_drag,idea_drag_ui}.rs`、`drawers/ideas_*.rs`、`app/agent_runtime/idea_commands.rs` |
 
 **Directory sketch:**
 

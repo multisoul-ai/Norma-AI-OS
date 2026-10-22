@@ -15,6 +15,11 @@ mod chat;
 mod chat_message;
 pub(super) mod content;
 pub(in crate::workspace::desktop) mod float;
+mod ideas_assigned;
+mod ideas_keys;
+mod ideas_list;
+mod ideas_menu;
+mod ideas_row;
 mod layout_save;
 mod left_body;
 mod left_tabs;
@@ -24,6 +29,7 @@ pub(super) mod motion;
 pub(super) mod orb;
 mod overview_actions;
 mod overview_list;
+mod overview_parts;
 pub(super) mod resize;
 
 #[cfg(test)]
@@ -92,6 +98,7 @@ impl MultisoulApp {
             .drawer_motion
             .retarget(drawers.left_open, drawers.right_open);
         let layout = self.desktop_assistant_layout(window);
+        self.desktop_workspace.idea_flight_anchor = ((layout.left_width * 0.5).round() as i32, 240);
         let left_motion = &self.desktop_workspace.drawer_motion.left;
         let left_inset = left_motion.edge_inset(layout.left_width, 0.0, self.motion.reduce_motion);
         let left_opacity = left_motion.opacity(self.motion.reduce_motion);
@@ -142,6 +149,9 @@ impl MultisoulApp {
                 layer.child(panel)
             })
             .when_some(self.render_overview_drag_capture(cx), |layer, capture| {
+                layer.child(capture)
+            })
+            .when_some(self.render_idea_drag_layer(cx), |layer, capture| {
                 layer.child(capture)
             })
     }

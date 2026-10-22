@@ -28,6 +28,9 @@ impl MotionStore {
         target_node_id: NodeId,
         status: DispatchReceiptVisualStatus,
     ) -> DispatchEffectSpawnOutcome {
+        if self.dock_flight_suppressed && origin == DispatchVisualOrigin::CommandDock {
+            return DispatchEffectSpawnOutcome::Duplicate;
+        }
         self.dispatch_receipts.spawn(
             task_ref.into(),
             origin,
@@ -35,6 +38,10 @@ impl MotionStore {
             status,
             self.reduce_motion,
         )
+    }
+
+    pub(crate) fn set_dock_flight_suppressed(&mut self, suppressed: bool) {
+        self.dock_flight_suppressed = suppressed;
     }
 
     pub(crate) fn dispatch_receipt_presentations(&self) -> Vec<DispatchEffectPresentation> {

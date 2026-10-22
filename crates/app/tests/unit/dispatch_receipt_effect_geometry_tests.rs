@@ -1,7 +1,7 @@
 use super::dispatch_receipt::{
-    agent_card_launch_origin, agent_handoff_bezier_point_at_travel, bezier_point,
-    bezier_point_at_travel, build_paint_plan, command_dock_center, helix_offset,
-    impact_radius_scale, natural_flight_progress, screen_point_visible, DispatchEffectFrame,
+    agent_card_launch_origin, agent_handoff_bezier_point_at_travel, build_paint_plan,
+    command_dock_center, helix_offset, idea_shot_bezier_point_at_travel, impact_radius_scale,
+    natural_flight_progress, screen_point_visible, DispatchEffectFrame,
 };
 use crate::motion::{
     DispatchEffectPhase, DispatchEffectPresentation, DispatchImpactParticle,
@@ -44,7 +44,7 @@ fn test_dispatch_effect_origin_matches_command_dock_center() {
     );
 }
 
-/// DR-G-2：三次贝塞尔轨迹必须精确连接 Dock 起点与动态 Agent 终点。
+/// DR-G-2：指令栏派发的想法流星轨迹必须精确连接 Dock 起点与动态 Agent 终点。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   origin = (600, 752)
@@ -63,9 +63,9 @@ fn test_dispatch_effect_origin_matches_command_dock_center() {
 fn test_dispatch_bezier_connects_exact_source_and_target() {
     let origin = point(px(600.0), px(752.0));
     let target = point(px(300.0), px(220.0));
-    let start = bezier_point(origin, target, 0.0);
-    let midway = bezier_point(origin, target, 0.5);
-    let end = bezier_point(origin, target, 1.0);
+    let start = idea_shot_bezier_point_at_travel(origin, target, 0.0);
+    let midway = idea_shot_bezier_point_at_travel(origin, target, 0.5);
+    let end = idea_shot_bezier_point_at_travel(origin, target, 1.0);
 
     assert_eq!(start, origin, "Bezier t=0 必须精确从 Command Dock 中央起飞");
     assert_eq!(end, target, "Bezier t=1 必须精确命中 Agent Card 当前中央");
@@ -147,7 +147,7 @@ fn test_queued_dispatch_impact_uses_smaller_radius_than_submitted() {
     );
 }
 
-/// DR-G-5：离子飞行必须按曲线弧长推进，并用轻微前冲节奏避免参数曲线忽快忽慢。
+/// DR-G-5：Agent 间交接的离子飞行必须按曲线弧长推进，并用轻微前冲节奏避免参数曲线忽快忽慢。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   origin = (600, 752)，target = (300, 220)
@@ -189,11 +189,11 @@ fn test_dispatch_flight_uses_arc_length_and_natural_travel() {
         "自然飞行节奏必须精确收束到目标"
     );
 
-    let p0 = bezier_point_at_travel(origin, target, 0.0);
-    let p1 = bezier_point_at_travel(origin, target, 0.25);
-    let p2 = bezier_point_at_travel(origin, target, 0.50);
-    let p3 = bezier_point_at_travel(origin, target, 0.75);
-    let p4 = bezier_point_at_travel(origin, target, 1.0);
+    let p0 = agent_handoff_bezier_point_at_travel(origin, target, 0.0);
+    let p1 = agent_handoff_bezier_point_at_travel(origin, target, 0.25);
+    let p2 = agent_handoff_bezier_point_at_travel(origin, target, 0.50);
+    let p3 = agent_handoff_bezier_point_at_travel(origin, target, 0.75);
+    let p4 = agent_handoff_bezier_point_at_travel(origin, target, 1.0);
     let d1 = point_distance(p0, p1);
     let d2 = point_distance(p1, p2);
     let d3 = point_distance(p2, p3);
@@ -201,14 +201,14 @@ fn test_dispatch_flight_uses_arc_length_and_natural_travel() {
     let shortest = d1.min(d2).min(d3).min(d4);
     let longest = d1.max(d2).max(d3).max(d4);
 
-    assert_eq!(p0, origin, "弧长采样起点必须精确等于 Dock 中央");
+    assert_eq!(p0, origin, "弧长采样起点必须精确等于来源卡片边缘");
     assert_eq!(p4, target, "弧长采样终点必须精确等于 Agent 卡片中央");
     assert!(
         longest / shortest <= 1.30,
         "四段等路程采样的近似距离比例应≤1.30；实际为 {}",
         longest / shortest
     );
-    assert_ne!(p2, origin, "50% 弧长采样不得仍停留在 Dock");
+    assert_ne!(p2, origin, "50% 弧长采样不得仍停留在起点");
     assert_ne!(p2, target, "50% 弧长采样不得提前到达 Agent 中央");
 }
 
@@ -391,7 +391,7 @@ fn test_dispatch_ion_impact_stays_within_gpui_primitive_budget() {
             },
         },
         presentation: DispatchEffectPresentation {
-            origin: crate::motion::DispatchVisualOrigin::CommandDock,
+            origin: crate::motion::DispatchVisualOrigin::AgentNode(980),
             target_node_id: 981,
             status: DispatchReceiptVisualStatus::Submitted,
             phase: DispatchEffectPhase::Impact,

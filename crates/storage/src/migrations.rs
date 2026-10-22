@@ -120,6 +120,7 @@ pub fn migrate_app_db(connection: &Connection) -> StorageResult<()> {
         "#,
     )?;
     desktop::migrate(connection)?;
+    crate::ideas_store::migrate(connection)?;
     crate::desktop_workspace_store::mobile_configuration::migrate(connection)?;
     ensure_column(
         connection,

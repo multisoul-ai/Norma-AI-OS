@@ -87,6 +87,7 @@ struct WireReply: Decodable, Sendable {
         let plan: ProjectPlan?
         let decisions: [ProjectTodoDecision]?
         let plans: ProjectPlanPage?
+        let ideas: [WorkspaceIdea]?
         let pending: PairingPending?
         let grant: DeviceGrant?
         let projects: [ProjectSnapshot]?
@@ -108,7 +109,7 @@ struct WireReply: Decodable, Sendable {
         let approvalEvent: ApprovalFeedEvent?
         let planEvent: PlanFeedEvent?
         let deliveryEvent: DeliveryFeedEvent?
-        enum CodingKeys: String, CodingKey { case workspaceActivity = "workspace_activity", workspaceTerminal = "workspace_terminal", agentCreationReceipt = "agent_creation_receipt", workspaceCatalog = "workspace_catalog", workspaceReceipt = "workspace_receipt", workspaceEvents = "workspace_events", registrationProof = "registration_proof", voiceAuthorization = "voice_authorization", image, imageOffset = "image_offset", terminal, terminalEvent = "terminal_event", status, capabilities, threadReceipt = "thread_receipt", threadEvents = "thread_events", threadTask = "thread_task", threadFollowup = "thread_followup", threadAcceptance = "thread_acceptance", threadReview = "thread_review", threadTerminal = "thread_terminal", subscription, review, deliveries, plans, plan, decisions, workspaceID = "workspace_id", pending, grant, projects, agents, receipt, conversation, archive, approvals, event, fragment, conversationEvent = "conversation_event", approvalEvent = "approval_event", planEvent = "plan_event", deliveryEvent = "delivery_event", queuedMessage = "queued_message" }
+        enum CodingKeys: String, CodingKey { case workspaceActivity = "workspace_activity", workspaceTerminal = "workspace_terminal", agentCreationReceipt = "agent_creation_receipt", workspaceCatalog = "workspace_catalog", workspaceReceipt = "workspace_receipt", workspaceEvents = "workspace_events", registrationProof = "registration_proof", voiceAuthorization = "voice_authorization", image, imageOffset = "image_offset", terminal, terminalEvent = "terminal_event", status, capabilities, threadReceipt = "thread_receipt", threadEvents = "thread_events", threadTask = "thread_task", threadFollowup = "thread_followup", threadAcceptance = "thread_acceptance", threadReview = "thread_review", threadTerminal = "thread_terminal", subscription, review, deliveries, plans, ideas, plan, decisions, workspaceID = "workspace_id", pending, grant, projects, agents, receipt, conversation, archive, approvals, event, fragment, conversationEvent = "conversation_event", approvalEvent = "approval_event", planEvent = "plan_event", deliveryEvent = "delivery_event", queuedMessage = "queued_message" }
     }
     enum CodingKeys: String, CodingKey { case version, requestID = "request_id", error, result }
     // Older servers reject unknown action fields before extracting request_id. This is used only

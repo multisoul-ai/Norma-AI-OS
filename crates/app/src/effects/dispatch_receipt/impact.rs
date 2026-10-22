@@ -12,7 +12,18 @@ const GOLD: u32 = 0xffc857ff;
 
 pub(super) fn paint_impact(frame: DispatchEffectFrame, theme: Theme, plan: &mut DispatchPaintPlan) {
     let progress = frame.presentation.progress.clamp(0.0, 1.0);
-    let (color, intensity) = status_style(frame.presentation.status, theme);
+    let (status_color, intensity) = status_style(frame.presentation.status, theme);
+    // 想法流星撞击是白色的，与飞行时的白色光点衔接。
+    let idea_meteor = frame.presentation.origin.uses_idea_meteor();
+    let color = if idea_meteor {
+        0xeaf6ffff
+    } else {
+        status_color
+    };
+    if idea_meteor {
+        let curve = super::geometry::FlightCurve::new_idea_shot(frame.origin, frame.target);
+        super::meteor::paint_idea_afterglow(&curve, progress, plan);
+    }
     let fade = 1.0 - smoothstep(progress);
     let expansion = 3.0 + ease_out_cubic(progress) * 18.0;
     plan.quads.push(outline_quad(

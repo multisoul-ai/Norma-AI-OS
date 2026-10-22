@@ -71,13 +71,75 @@ pub fn suggestions(
     match words[0] {
         "/new" if words.len() <= 2 => agent_choices(words.get(1).copied().unwrap_or("")),
         "/add" => project_choices(&words[1..].join(" "), projects),
-        "/open" if words.len() == 1 => vec![browse_choice()],
         "/theme" if words.len() <= 2 => theme_choices(words.get(1).copied().unwrap_or(""), themes),
-        _ => all_choices(themes)
-            .into_iter()
-            .filter(|s| s.completion.starts_with(&query))
-            .collect(),
+        _ if words.len() == 1 => ranked(all_choices(themes), &words[0][1..]),
+        _ => Vec::new(),
     }
+}
+
+/// Fuzzy score of `query` against `key` (both lowercase); higher is more similar.
+/// Tiers: exact > prefix > word-start > substring > subsequence (3+ chars only).
+fn fuzzy_score(query: &str, key: &str) -> Option<i32> {
+    if query.is_empty() {
+        return Some(0);
+    }
+    let len_gap = key.chars().count().saturating_sub(query.chars().count()) as i32;
+    if key == query {
+        return Some(1000);
+    }
+    if key.starts_with(query) {
+        return Some(800 - len_gap);
+    }
+    if let Some(pos) = key.find(query) {
+        let word_start = key[..pos].ends_with([' ', '-', '/']);
+        let base = if word_start { 600 } else { 400 };
+        return Some(base - pos as i32 - len_gap);
+    }
+    if query.chars().count() < 3 {
+        return None;
+    }
+    let mut span_start = None;
+    let mut last = 0;
+    let mut wanted = query.chars().peekable();
+    for (i, c) in key.chars().enumerate() {
+        if wanted.peek() == Some(&c) {
+            span_start.get_or_insert(i);
+            last = i;
+            wanted.next();
+        }
+    }
+    if wanted.peek().is_some() {
+        return None;
+    }
+    let span = (last - span_start.unwrap_or(0) + 1) as i32;
+    Some(200 - span - len_gap)
+}
+
+/// Keep suggestions that fuzzy-match their command name or title, best match first.
+fn ranked(items: Vec<CommandSuggestion>, query: &str) -> Vec<CommandSuggestion> {
+    let mut scored: Vec<_> = items
+        .into_iter()
+        .filter_map(|s| {
+            let name = s.completion.trim_start_matches('/');
+            let name = name
+                .strip_prefix("new ")
+                .or_else(|| name.strip_prefix("theme "))
+                .unwrap_or(name);
+            let full =
+                fuzzy_score(query, s.completion.trim_start_matches('/')).filter(|n| *n >= 400);
+            let score = [
+                fuzzy_score(query, name),
+                fuzzy_score(query, &s.title.to_lowercase()),
+                full,
+            ]
+            .into_iter()
+            .flatten()
+            .max()?;
+            Some((score, s))
+        })
+        .collect();
+    scored.sort_by_key(|(score, _)| std::cmp::Reverse(*score));
+    scored.into_iter().map(|(_, s)| s).collect()
 }
 
 /// Every executable leaf, flat and grouped: Agents, Terminal, Projects, Themes, then Help.
@@ -96,11 +158,11 @@ fn leaf_matches(
     themes: &[CommandTheme],
     projects: &[CommandProject],
 ) -> Vec<CommandSuggestion> {
-    all_choices(themes)
+    let items = all_choices(themes)
         .into_iter()
         .chain(project_choices("", projects))
-        .filter(|s| s.title.to_lowercase().contains(query) || s.completion.contains(query))
-        .collect()
+        .collect();
+    ranked(items, query)
 }
 
 fn help_choice() -> CommandSuggestion {
@@ -118,11 +180,23 @@ fn browse_choice() -> CommandSuggestion {
 
 /// Matching repos by name or path, then the folder picker as the fallback.
 fn project_choices(filter: &str, projects: &[CommandProject]) -> Vec<CommandSuggestion> {
-    projects
+    let mut scored: Vec<_> = projects
         .iter()
-        .filter(|p| {
-            p.name.to_lowercase().contains(filter) || p.path.to_lowercase().contains(filter)
+        .filter_map(|p| {
+            let score = [
+                fuzzy_score(filter, &p.name.to_lowercase()),
+                p.path.to_lowercase().contains(filter).then_some(100),
+            ]
+            .into_iter()
+            .flatten()
+            .max()?;
+            Some((score, p))
         })
+        .collect();
+    scored.sort_by_key(|(score, _)| std::cmp::Reverse(*score));
+    scored
+        .into_iter()
+        .map(|(_, p)| p)
         .map(|p| {
             suggestion(
                 CommandGroup::Project,
@@ -159,7 +233,7 @@ fn suggestion(
 }
 
 fn agent_choices(filter: &str) -> Vec<CommandSuggestion> {
-    [
+    let all = [
         AgentProfile::Codex,
         AgentProfile::Claude,
         AgentProfile::OpenCode,
@@ -172,7 +246,6 @@ fn agent_choices(filter: &str) -> Vec<CommandSuggestion> {
         AgentProfile::Hermes,
     ]
     .into_iter()
-    .filter(|p| p.display_title().to_lowercase().starts_with(filter))
     .map(|p| {
         suggestion(
             CommandGroup::Agent,
@@ -181,7 +254,8 @@ fn agent_choices(filter: &str) -> Vec<CommandSuggestion> {
             Some(DockCommand::Agent(p)),
         )
     })
-    .collect()
+    .collect();
+    ranked(all, filter)
 }
 
 fn theme_choices(filter: &str, themes: &[CommandTheme]) -> Vec<CommandSuggestion> {

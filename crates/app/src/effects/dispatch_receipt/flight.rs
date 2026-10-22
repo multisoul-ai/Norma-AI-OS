@@ -3,7 +3,6 @@ use super::primitives::{
     centered_bounds, oriented_ellipse_path, round_quad, smoothstep, status_style, with_alpha,
 };
 use super::{DispatchEffectFrame, DispatchPaintPlan};
-use crate::motion::DispatchVisualOrigin;
 use gpui::{point, px, quad, rgba, Path, PathBuilder, Pixels, Point};
 use ui::Theme;
 
@@ -13,16 +12,18 @@ const TRAIL_LENGTH: f32 = 0.19;
 const CORAL: u32 = 0xff6b5eff;
 
 pub(super) fn paint_flight(frame: DispatchEffectFrame, theme: Theme, plan: &mut DispatchPaintPlan) {
+    // 想法与指令栏（语音）派发共用想法流星：白色、逐步加速、尾迹随速度拉长。
+    if frame.presentation.origin.uses_idea_meteor() {
+        let curve = FlightCurve::new_idea_shot(frame.origin, frame.target);
+        super::meteor::paint_idea_meteor(&curve, frame.presentation.progress, plan);
+        return;
+    }
     let travel = natural_flight_progress(frame.presentation.progress);
     if travel <= 0.0 {
         return;
     }
-    let curve = match frame.presentation.origin {
-        DispatchVisualOrigin::CommandDock => FlightCurve::new(frame.origin, frame.target),
-        DispatchVisualOrigin::AgentNode(_) => {
-            FlightCurve::new_agent_handoff(frame.origin, frame.target)
-        }
-    };
+    // 走到这里的只有 Agent 间交接。
+    let curve = FlightCurve::new_agent_handoff(frame.origin, frame.target);
     let (color, intensity) = status_style(frame.presentation.status, theme);
     let capture = smoothstep((travel - 0.84) / 0.16);
     let visible_trail = TRAIL_LENGTH * (1.0 - capture * 0.78);
@@ -47,10 +48,7 @@ pub(super) fn paint_flight(frame: DispatchEffectFrame, theme: Theme, plan: &mut 
 
     paint_helix(&curve, trail_start, travel, color, intensity, plan);
     paint_trail_motes(&curve, trail_start, travel, color, intensity, plan);
-    let launch_direction = match frame.presentation.origin {
-        DispatchVisualOrigin::CommandDock => (0.0, -1.0),
-        DispatchVisualOrigin::AgentNode(_) => curve.tangent_at_travel(0.0),
-    };
+    let launch_direction = curve.tangent_at_travel(0.0);
     paint_launch_plume(
         frame.origin,
         launch_direction,

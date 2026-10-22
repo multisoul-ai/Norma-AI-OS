@@ -11,6 +11,7 @@ use tokio_util::sync::CancellationToken;
 mod commands;
 use commands::parse_adapter_command;
 mod definitions;
+mod ideas;
 pub use definitions::norma_tool_definitions;
 mod delete_intent;
 use delete_intent::{
@@ -28,6 +29,21 @@ pub struct ToolContext {
     pub tool_call_id: String,
     pub operation_id: Option<String>,
     pub cancellation: CancellationToken,
+}
+
+/// 想法的派发目标：已有智能体（稳定三元定位）或在指定项目区域新建。
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub enum IdeaTarget {
+    Agent {
+        workspace_id: String,
+        area_id: String,
+        node_id: u64,
+    },
+    NewAgent {
+        workspace_id: String,
+        area_id: String,
+        profile: AgentProfile,
+    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -70,6 +86,14 @@ pub enum AdapterCommand {
     CreateAgent {
         profile: AgentProfile,
         task: Option<String>,
+    },
+    CaptureIdea {
+        body: String,
+    },
+    ListIdeas,
+    AssignIdea {
+        idea_id: String,
+        target: IdeaTarget,
     },
     AssignAgentTask {
         agent: String,
@@ -225,6 +249,9 @@ pub enum AdapterError {
     Rejected(String),
     #[error("adapter execution failed: {0}")]
     Failed(String),
+    /// 任务文本已经提交给智能体，只是没拿到任务编号：不是失败，调用方不能回滚或重发，否则会重复派发。
+    #[error("adapter accepted the task but returned no task id: {0}")]
+    AcceptedWithoutTaskId(String),
     #[error("{0}")]
     Unknown(String),
 }
@@ -304,6 +331,7 @@ impl NormaToolRuntime {
                 AdapterCommand::Memory(_)
                     | AdapterCommand::WorkspaceMemory { .. }
                     | AdapterCommand::FindAgentTasks { .. }
+                    | AdapterCommand::ListIdeas
             )
         {
             return Err(AdapterError::Rejected(
