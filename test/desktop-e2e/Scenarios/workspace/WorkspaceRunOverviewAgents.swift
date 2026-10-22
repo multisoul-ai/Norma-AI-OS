@@ -55,7 +55,7 @@ public enum WorkspaceRunOverviewAgents {
             return try session.prove(names: [workspace], areaCount: 2, linkedTo: workspace).summary
         }
 
-        try await session.step("进入项目并创建两个智能体") {
+        try await session.step("进入项目并创建六个智能体") {
             let launch = try await session.capture()
             if launch.contains("搜索工作空间") || launch.contains("Search workspaces") {
                 // 工作空间卡片右下角的「打开」按钮：文字识别会与项目占位文案混淆，改用位置点击。
@@ -69,7 +69,13 @@ public enum WorkspaceRunOverviewAgents {
             try await session.click(matching: ["E2E Project"], pick: .bottom)
             _ = try await session.wait(Expectation(allOf: ["E2E Project"], absent: ["项目目录不可用"], timeout: 15))
             try await Task.sleep(nanoseconds: 900_000_000)
-            for command in ["/new claude", "/new codex"] {
+            // 功能引导会盖住指令栏：先关掉，否则命令发不进去。
+            let guide = try await session.capture()
+            if guide.contains("Feature Guide") || guide.contains("功能引导") || guide.contains("Skip Guide") || guide.contains("跳过引导") {
+                try await session.shortcut(key: 53, modifiers: [])
+                try await Task.sleep(nanoseconds: 600_000_000)
+            }
+            for command in ["/new claude", "/new codex", "/new cursor", "/new opencode", "/new grok", "/new kimi"] {
                 let frame = try await session.capture()
                 try await session.click(
                     local: CGPoint(x: Double(frame.windowFrame.width) / 2, y: Double(frame.windowFrame.height) - 38),
@@ -106,6 +112,15 @@ public enum WorkspaceRunOverviewAgents {
             }
             guard !overview.contains("待审核，待审核"), !overview.contains("待审核 · 待审核") else {
                 throw E2EError.product("待审核行标题与芯片重复：\(overview.summary)")
+            }
+            return overview.summary
+        }
+
+        try await session.step("想法与当前项目同时展开时，当前项目行文字不重叠") {
+            let overview = try await session.capture()
+            try session.save(overview, "03-both-expanded.png")
+            guard overview.contains("Bella") else {
+                throw E2EError.product("当前项目没有六个智能体，无法验证重叠：\(overview.summary)")
             }
             return overview.summary
         }

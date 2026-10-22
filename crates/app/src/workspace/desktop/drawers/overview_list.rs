@@ -228,6 +228,8 @@ impl MultisoulApp {
             .id(ElementId::Name(id.clone().into()))
             .debug_selector(move || id.clone())
             .w_full()
+            // 栏内滚动容器里行不得被压缩到小于内容，否则相邻行文字会重叠。
+            .flex_none()
             .when(height <= 48.0, |row| row.h(px(height)))
             .min_h(px(height))
             .px(px(8.0))
