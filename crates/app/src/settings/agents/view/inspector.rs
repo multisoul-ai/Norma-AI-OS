@@ -38,7 +38,7 @@ pub(super) fn agent_drawer(
         .flex()
         .flex_col()
         .overflow_hidden()
-        .rounded_r(px(14.0))
+        .rounded_r(px(24.0))
         .border_l_1()
         .border_color(rgba(with_alpha(theme.edge_highlight, 0x28)))
         .bg(rgba(with_alpha(theme.panel_high, 0xff)))
@@ -50,10 +50,10 @@ pub(super) fn agent_drawer(
                 .min_h(px(0.0))
                 .overflow_y_scroll()
                 .px(px(20.0))
-                .pb(px(16.0))
+                .pb(px(12.0))
                 .flex()
                 .flex_col()
-                .gap(px(16.0))
+                .gap(px(12.0))
                 .child(editable_field(
                     theme,
                     state,
@@ -167,12 +167,12 @@ fn drawer_header(
         .items_center()
         .gap(px(14.0))
         .px(px(20.0))
-        .pt(px(18.0))
-        .pb(px(14.0))
+        .pt(px(20.0))
+        .pb(px(12.0))
         .child(if state.is_creating_new() {
             div()
-                .w(px(48.0))
-                .h(px(48.0))
+                .w(px(40.0))
+                .h(px(40.0))
                 .flex_none()
                 .flex()
                 .items_center()
@@ -183,7 +183,7 @@ fn drawer_header(
                     ui::component::Icon::new(IconName::Plus).text_color(rgba(theme.text_secondary)),
                 )
         } else {
-            avatar(&draft.name, draft.runtime_profile, 48.0)
+            avatar(&draft.name, draft.runtime_profile, 40.0)
         })
         .child(identity)
         .child(icon_button(
@@ -413,7 +413,7 @@ fn drawer_footer(
     div()
         .w_full()
         .flex_none()
-        .min_h(px(64.0))
+        .min_h(px(52.0))
         .flex()
         .flex_row()
         .items_center()

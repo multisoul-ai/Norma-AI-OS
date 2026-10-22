@@ -18,7 +18,6 @@ use ui::Theme;
 pub(crate) fn agents_settings(
     theme: Theme,
     state: &AgentDefinitionsState,
-    selected_agent_on_canvas: bool,
     on_canvas_ids: &HashSet<i64>,
     list_scroll: &ScrollHandle,
     window: &mut Window,
@@ -45,7 +44,6 @@ pub(crate) fn agents_settings(
         .child(master_detail(
             theme,
             state,
-            selected_agent_on_canvas,
             on_canvas_ids,
             list_scroll,
             window,
@@ -152,15 +150,11 @@ fn delete_agent_dialog(
 fn master_detail(
     theme: Theme,
     state: &AgentDefinitionsState,
-    selected_agent_on_canvas: bool,
     on_canvas_ids: &HashSet<i64>,
     list_scroll: &ScrollHandle,
     window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> AnyElement {
-    let drawer_open = state.is_drawer_open();
-    let drawer =
-        drawer_open.then(|| agent_drawer(theme, state, selected_agent_on_canvas, window, cx));
     div()
         .id("settings-agents-master-detail")
         .debug_selector(|| "settings-agents-master-detail".to_string())
@@ -175,14 +169,6 @@ fn master_detail(
         .border_1()
         .border_color(rgba(with_alpha(theme.edge_highlight, 0x30)))
         .bg(rgba(with_alpha(theme.node_fill, 0xb8)))
-        .on_key_down(cx.listener(move |app, event: &KeyDownEvent, _window, cx| {
-            // Esc 与点遮罩等价：有未保存修改时由 close_drawer 拒绝并提示。
-            if drawer_open && event.keystroke.key == "escape" {
-                app.agent_definitions.close_drawer();
-                cx.notify();
-                cx.stop_propagation();
-            }
-        }))
         .child(agent_library(
             theme,
             state,
@@ -191,9 +177,38 @@ fn master_detail(
             window,
             cx,
         ))
-        .when(drawer_open, |this| {
-            // Material 模态侧边栏：遮罩自己绘制圆角（overflow 只做矩形裁剪），点击遮罩关闭抽屉。
-            this.child(
+        .into_any_element()
+}
+
+/// 抽屉层盖住整个设置内容区（含页头）：遮罩自绘右侧圆角（overflow 只做矩形裁剪），点击遮罩或 Esc 关闭。
+pub(crate) fn agent_drawer_layer(
+    theme: Theme,
+    state: &AgentDefinitionsState,
+    selected_agent_on_canvas: bool,
+    window: &mut Window,
+    cx: &mut Context<MultisoulApp>,
+) -> Option<AnyElement> {
+    if !state.has_project_store() || !state.is_drawer_open() {
+        return None;
+    }
+    Some(
+        div()
+            .id("settings-agent-drawer-layer")
+            .absolute()
+            .top_0()
+            .left_0()
+            .right_0()
+            .bottom_0()
+            .rounded_r(px(24.0))
+            .on_key_down(cx.listener(|app, event: &KeyDownEvent, _window, cx| {
+                // Esc 与点遮罩等价：有未保存修改时由 close_drawer 拒绝并提示。
+                if event.keystroke.key == "escape" {
+                    app.agent_definitions.close_drawer();
+                    cx.notify();
+                    cx.stop_propagation();
+                }
+            }))
+            .child(
                 div()
                     .id("settings-agent-drawer-scrim")
                     .absolute()
@@ -201,8 +216,8 @@ fn master_detail(
                     .left_0()
                     .right_0()
                     .bottom_0()
-                    .rounded(px(14.0))
-                    .bg(rgba(0x00000052))
+                    .rounded_r(px(24.0))
+                    .bg(rgba(0x0000008c))
                     .occlude()
                     .on_mouse_down(
                         MouseButton::Left,
@@ -212,7 +227,13 @@ fn master_detail(
                         }),
                     ),
             )
-        })
-        .children(drawer)
-        .into_any_element()
+            .child(agent_drawer(
+                theme,
+                state,
+                selected_agent_on_canvas,
+                window,
+                cx,
+            ))
+            .into_any_element(),
+    )
 }

@@ -13,7 +13,7 @@ pub(crate) use state::{
     AgentDefinitionField, AgentDefinitionsState, AgentDeleteDialog, AgentStatusFilter,
     MAX_WORKFLOW_DESCRIPTION_CHARS,
 };
-pub(crate) use view::agents_settings;
+pub(crate) use view::{agent_drawer_layer, agents_settings};
 
 #[cfg(test)]
 #[path = "../../tests/unit/agent_settings_actions_tests.rs"]

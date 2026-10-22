@@ -1,6 +1,6 @@
 use super::{with_alpha, SettingsPanelState, SettingsSection};
 use crate::app::MultisoulApp;
-use crate::settings::agents::{agents_settings, AgentDefinitionsState};
+use crate::settings::agents::{agent_drawer_layer, agents_settings, AgentDefinitionsState};
 use crate::settings::appearance::theme_appearance;
 use crate::settings::orchestration::{orchestration_settings, OrchestrationSettingsState};
 use crate::settings::performance::{performance_settings, PerformanceSettingsState};
@@ -79,7 +79,19 @@ pub(super) fn settings_content(
     } else {
         PAGE_PADDING
     };
+    let agent_drawer = (panel.active_section == SettingsSection::Agents)
+        .then(|| {
+            agent_drawer_layer(
+                theme,
+                agent_definitions,
+                selected_agent_on_canvas,
+                window,
+                cx,
+            )
+        })
+        .flatten();
     div()
+        .relative()
         .flex_1()
         .min_w(px(0.0))
         .min_h(px(0.0))
@@ -147,7 +159,6 @@ pub(super) fn settings_content(
                     SettingsSection::Agents => agents_settings(
                         theme,
                         agent_definitions,
-                        selected_agent_on_canvas,
                         agent_on_canvas_ids,
                         agent_list_scroll,
                         window,
@@ -172,6 +183,7 @@ pub(super) fn settings_content(
                     SettingsSection::Runtime | SettingsSection::Skills => div(),
                 })
         })
+        .children(agent_drawer)
 }
 
 fn content_header(
