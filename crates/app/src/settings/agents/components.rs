@@ -47,26 +47,6 @@ pub(super) fn action_button(
         .into_any_element()
 }
 
-pub(super) fn disabled_action_button(
-    theme: Theme,
-    id: &'static str,
-    label: &'static str,
-) -> AnyElement {
-    div()
-        .id(id)
-        .debug_selector(move || id.to_string())
-        .px(px(12.0))
-        .py(px(8.0))
-        .rounded(px(8.0))
-        .border_1()
-        .border_color(rgba(with_alpha(theme.edge_highlight, 0x38)))
-        .bg(rgba(with_alpha(theme.panel_high, 0x38)))
-        .settings_font(TextRole::Control)
-        .text_color(rgba(with_alpha(theme.text_secondary, 0x70)))
-        .child(label)
-        .into_any_element()
-}
-
 pub(super) fn status_block(theme: Theme, message: &str, is_error: bool) -> Div {
     div()
         .rounded(px(8.0))
@@ -171,7 +151,7 @@ pub(super) fn primary_button(
     activatable(id, on_activate)
         .px(px(if compact { 10.0 } else { 14.0 }))
         .py(px(if compact { 5.0 } else { 7.0 }))
-        .rounded(px(8.0))
+        .rounded_full()
         .border_1()
         .border_color(rgba(accent))
         .bg(rgba(accent))
@@ -184,7 +164,7 @@ pub(super) fn primary_button(
         .into_any_element()
 }
 
-fn activatable(
+pub(super) fn activatable(
     id: &'static str,
     on_activate: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
 ) -> gpui::Stateful<Div> {
@@ -202,4 +182,124 @@ fn activatable(
                 cx.stop_propagation();
             }
         })
+}
+
+/// 文字按钮（Material text button）：无底色，hover/pressed 用语义色状态层，键盘焦点显示描边。
+pub(super) fn text_button(
+    theme: Theme,
+    id: &'static str,
+    label: &'static str,
+    color: u32,
+    on_activate: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+) -> AnyElement {
+    activatable(id, on_activate)
+        .h(px(36.0))
+        .px(px(14.0))
+        .flex()
+        .items_center()
+        .rounded_full()
+        .border_1()
+        .border_color(rgba(with_alpha(color, 0x00)))
+        .settings_font(TextRole::Control)
+        .text_color(rgba(color))
+        .hover(move |style| style.bg(rgba(with_alpha(color, 0x1a))))
+        .active(move |style| style.bg(rgba(with_alpha(color, 0x2e))))
+        .focus(move |style| style.border_color(rgba(with_alpha(theme.text_primary, 0xe0))))
+        .child(label)
+        .into_any_element()
+}
+
+/// 圆形图标按钮：36px 点击区域，状态层与文字按钮一致。
+pub(super) fn icon_button(
+    theme: Theme,
+    id: &'static str,
+    icon: ui::component::IconName,
+    on_activate: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+) -> AnyElement {
+    activatable(id, on_activate)
+        .w(px(36.0))
+        .h(px(36.0))
+        .flex_none()
+        .flex()
+        .items_center()
+        .justify_center()
+        .rounded_full()
+        .border_1()
+        .border_color(rgba(with_alpha(theme.text_primary, 0x00)))
+        .hover(move |style| style.bg(rgba(with_alpha(theme.text_primary, 0x14))))
+        .active(move |style| style.bg(rgba(with_alpha(theme.text_primary, 0x24))))
+        .focus(move |style| style.border_color(rgba(with_alpha(theme.text_primary, 0xe0))))
+        .child(ui::component::Icon::new(icon).text_color(rgba(theme.text_secondary)))
+        .into_any_element()
+}
+
+/// 小标签（运行时、画布状态）：`tone` 为 None 时使用中性底色。
+pub(super) fn tag(theme: Theme, label: impl Into<gpui::SharedString>, tone: Option<u32>) -> Div {
+    let (fg, bg) = match tone {
+        Some(color) => (color, with_alpha(color, 0x24)),
+        None => (theme.text_secondary, with_alpha(theme.text_primary, 0x14)),
+    };
+    div()
+        .flex_none()
+        .h(px(22.0))
+        .px(px(8.0))
+        .flex()
+        .items_center()
+        .rounded(px(8.0))
+        .bg(rgba(bg))
+        .settings_font(TextRole::Badge)
+        .text_color(rgba(fg))
+        .child(label.into())
+}
+
+/// 运行时 Choice Chip：左侧品牌色头像，选中时淡色底、强调描边与对勾。
+pub(super) fn runtime_chip(
+    theme: Theme,
+    id: &'static str,
+    label: &'static str,
+    profile: canvas::AgentProfile,
+    selected: bool,
+    on_activate: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+) -> AnyElement {
+    let accent = theme.accent_orange;
+    activatable(id, on_activate)
+        .h(px(32.0))
+        .pl(px(5.0))
+        .pr(px(12.0))
+        .flex()
+        .items_center()
+        .gap(px(6.0))
+        .rounded_full()
+        .border_1()
+        .border_color(rgba(if selected {
+            accent
+        } else {
+            with_alpha(theme.text_secondary, 0x80)
+        }))
+        .bg(rgba(if selected {
+            with_alpha(accent, 0x24)
+        } else {
+            with_alpha(theme.text_primary, 0x00)
+        }))
+        .settings_font(TextRole::Control)
+        .text_color(rgba(if selected {
+            theme.text_primary
+        } else {
+            theme.text_secondary
+        }))
+        .hover(move |style| {
+            if selected {
+                style
+            } else {
+                style.bg(rgba(with_alpha(theme.text_primary, 0x0d)))
+            }
+        })
+        .active(move |style| style.bg(rgba(with_alpha(accent, 0x38))))
+        .focus(move |style| style.border_color(rgba(with_alpha(theme.text_primary, 0xe0))))
+        .child(avatar(label, profile, 22.0))
+        .child(label)
+        .when(selected, |this| {
+            this.child(ui::component::Icon::new(ui::component::IconName::Check).size_3())
+        })
+        .into_any_element()
 }

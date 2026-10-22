@@ -1,5 +1,5 @@
 use super::components::with_alpha;
-use super::{AgentDefinitionField, AgentDefinitionsState};
+use super::{AgentDefinitionField, AgentDefinitionsState, MAX_WORKFLOW_DESCRIPTION_CHARS};
 use crate::app::MultisoulApp;
 use crate::settings::typography::{SettingsText, TextRole};
 use gpui::{
@@ -29,21 +29,27 @@ pub(super) fn editable_field(
         .debug_selector(move || id.to_string())
         .w_full()
         .min_h(px(min_height))
-        .p(px(12.0))
-        .rounded(px(8.0))
+        .px(px(14.0))
+        .py(px(10.0))
+        .flex()
+        .flex_col()
+        .gap(px(4.0))
+        .rounded(px(12.0))
         .border_1()
         .border_color(rgba(if editing {
             theme.accent_orange
         } else {
             theme.text_secondary
         }))
-        .bg(rgba(with_alpha(theme.panel_high, 0xb8)))
+        .bg(rgba(with_alpha(theme.text_primary, 0x0a)))
         .settings_font(TextRole::Body)
-        .text_color(rgba(if editing {
-            theme.accent_orange
-        } else {
-            theme.text_primary
-        }));
+        .text_color(rgba(theme.text_primary))
+        .child(
+            div()
+                .settings_text(TextRole::Label, theme)
+                .when(editing, |this| this.text_color(rgba(theme.accent_orange)))
+                .child(label),
+        );
 
     if editing {
         let (input, input_focus) = native_input(state, field, min_height, window, cx);
@@ -57,7 +63,7 @@ pub(super) fn editable_field(
     } else {
         surface = surface
             .cursor_pointer()
-            .hover(move |style| style.bg(rgba(with_alpha(theme.panel_high, 0xd4))))
+            .hover(move |style| style.bg(rgba(with_alpha(theme.text_primary, 0x14))))
             .tab_index(0)
             .focus(move |style| style.border_color(rgba(theme.accent_orange)))
             .on_click(cx.listener(move |app, event, window, cx| {
@@ -73,12 +79,26 @@ pub(super) fn editable_field(
             .child(state.row_value(field));
     }
 
+    let counter = (field == AgentDefinitionField::WorkflowDescription).then(|| {
+        let length = if editing {
+            state.edit_buffer().chars().count()
+        } else {
+            state.draft().workflow_description.chars().count()
+        };
+        div()
+            .w_full()
+            .flex()
+            .justify_end()
+            .settings_text(TextRole::Caption, theme)
+            .child(format!("{length} / {MAX_WORKFLOW_DESCRIPTION_CHARS}"))
+    });
+
     div()
         .flex()
         .flex_col()
-        .gap(px(8.0))
-        .child(div().settings_text(TextRole::Label, theme).child(label))
+        .gap(px(4.0))
         .child(surface)
+        .children(counter)
 }
 
 fn native_input(
@@ -150,7 +170,7 @@ fn native_input(
         .settings_font(TextRole::Body)
         .appearance(false);
     let editor = if field == AgentDefinitionField::WorkflowDescription {
-        editor.h(px((min_height - 24.0).max(20.0)))
+        editor.h(px((min_height - 20.0 - 15.0 - 4.0).max(20.0)))
     } else {
         editor
     };
