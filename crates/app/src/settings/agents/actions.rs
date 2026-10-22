@@ -104,6 +104,32 @@ impl MultisoulApp {
         cx.notify();
     }
 
+    pub(crate) fn on_agent_settings_close_drawer(
+        &mut self,
+        _: &ClickEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.agent_definitions.close_drawer();
+        cx.notify();
+    }
+
+    pub(crate) fn on_agent_settings_toggle_enabled_from_card(
+        &mut self,
+        id: i64,
+        cx: &mut Context<Self>,
+    ) {
+        if self.runtime.has_active_agent_definition(id) {
+            self.agent_definitions
+                .set_status(ui::i18n::LocalizedText::new(
+                    "settings.close_the_active_agent_card_before_changing_its_profile_or_enabled",
+                ));
+        } else {
+            self.agent_definitions.toggle_enabled_from_card(id);
+        }
+        cx.notify();
+    }
+
     pub(crate) fn on_agent_settings_cancel_card_edit(
         &mut self,
         _: &ClickEvent,

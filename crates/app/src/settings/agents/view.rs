@@ -1,13 +1,17 @@
 use crate::settings::typography::{SettingsText, TextRole};
 mod inspector;
 mod list;
+mod toolbar;
 
-use self::inspector::agent_inspector;
-use self::list::agent_list;
+use self::inspector::agent_drawer;
+use self::list::agent_library;
 use super::components::{action_button, status_block, with_alpha};
 use super::{AgentDefinitionsState, AgentDeleteDialog};
 use crate::app::MultisoulApp;
-use gpui::{div, prelude::*, px, rgba, AnyElement, Context, Div, ScrollHandle, Window};
+use gpui::{
+    div, prelude::*, px, rgba, AnyElement, Context, Div, MouseButton, MouseDownEvent, ScrollHandle,
+    Window,
+};
 use std::collections::HashSet;
 use ui::Theme;
 
@@ -100,7 +104,7 @@ fn delete_agent_dialog(
                 .id("settings-agent-delete-dialog-card")
                 .w(px(420.0))
                 .max_w_full()
-                .rounded(px(12.0))
+                .rounded(px(24.0))
                 .border_1()
                 .border_color(rgba(with_alpha(theme.edge_highlight, 0x58)))
                 .bg(rgba(theme.panel_high))
@@ -154,20 +158,24 @@ fn master_detail(
     window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> AnyElement {
+    let drawer_open = state.is_drawer_open();
+    let drawer =
+        drawer_open.then(|| agent_drawer(theme, state, selected_agent_on_canvas, window, cx));
     div()
         .id("settings-agents-master-detail")
         .debug_selector(|| "settings-agents-master-detail".to_string())
+        .relative()
         .w_full()
         .flex_1()
         .min_h(px(0.0))
         .flex()
         .flex_row()
         .overflow_hidden()
-        .rounded(px(10.0))
+        .rounded(px(14.0))
         .border_1()
         .border_color(rgba(with_alpha(theme.edge_highlight, 0x30)))
         .bg(rgba(with_alpha(theme.node_fill, 0xb8)))
-        .child(agent_list(
+        .child(agent_library(
             theme,
             state,
             on_canvas_ids,
@@ -175,39 +183,28 @@ fn master_detail(
             window,
             cx,
         ))
-        .child(agent_detail(
-            theme,
-            state,
-            selected_agent_on_canvas,
-            window,
-            cx,
-        ))
-        .into_any_element()
-}
-
-fn agent_detail(
-    theme: Theme,
-    state: &AgentDefinitionsState,
-    selected_agent_on_canvas: bool,
-    window: &mut Window,
-    cx: &mut Context<MultisoulApp>,
-) -> AnyElement {
-    div()
-        .id("settings-agent-detail")
-        .debug_selector(|| "settings-agent-detail".to_string())
-        .flex_1()
-        .min_w(px(0.0))
-        .min_h(px(0.0))
-        .h_full()
-        .overflow_hidden()
-        .rounded_r(px(10.0))
-        .p(px(20.0))
-        .child(agent_inspector(
-            theme,
-            state,
-            selected_agent_on_canvas,
-            window,
-            cx,
-        ))
+        .when(drawer_open, |this| {
+            // Material 模态侧边栏：遮罩自己绘制圆角（overflow 只做矩形裁剪），点击遮罩关闭抽屉。
+            this.child(
+                div()
+                    .id("settings-agent-drawer-scrim")
+                    .absolute()
+                    .top_0()
+                    .left_0()
+                    .right_0()
+                    .bottom_0()
+                    .rounded(px(14.0))
+                    .bg(rgba(0x00000052))
+                    .occlude()
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(|app, _: &MouseDownEvent, _window, cx| {
+                            app.agent_definitions.close_drawer();
+                            cx.notify();
+                        }),
+                    ),
+            )
+        })
+        .children(drawer)
         .into_any_element()
 }

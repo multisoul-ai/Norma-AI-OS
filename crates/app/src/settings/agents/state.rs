@@ -1,3 +1,4 @@
+mod drawer;
 mod editing;
 mod lifecycle;
 mod search;
@@ -55,6 +56,7 @@ pub(crate) struct AgentDefinitionsState {
     selected_definition_id: Option<i64>,
     selection_before_create: Option<i64>,
     creating_new: bool,
+    drawer_open: bool,
     delete_dialog: Option<AgentDeleteDialog>,
     editing: Option<AgentDefinitionField>,
     edit_buffer: String,
@@ -72,6 +74,7 @@ impl Default for AgentDefinitionsState {
             selected_definition_id: None,
             selection_before_create: None,
             creating_new: false,
+            drawer_open: false,
             delete_dialog: None,
             editing: None,
             edit_buffer: String::new(),
@@ -173,6 +176,7 @@ impl AgentDefinitionsState {
         self.selected_definition_id = None;
         self.selection_before_create = None;
         self.creating_new = false;
+        self.drawer_open = false;
         self.delete_dialog = None;
         self.editing = None;
         self.edit_buffer.clear();
@@ -292,6 +296,7 @@ impl AgentDefinitionsState {
                 let fallback_id = self.next_selection_after_delete(id);
                 self.reload();
                 self.select_after_reload(fallback_id);
+                self.drawer_open = false;
                 true
             }
             Ok(false) => {
@@ -310,7 +315,6 @@ impl AgentDefinitionsState {
         }
     }
 
-    #[cfg(test)]
     pub(crate) fn toggle_enabled(&mut self, id: i64) -> bool {
         let Some(definition) = self
             .definitions

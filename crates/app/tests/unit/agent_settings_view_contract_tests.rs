@@ -21,7 +21,10 @@
 fn test_agents_settings_view_uses_library_and_unified_inspector_contract() {
     let view_source = include_str!("../../src/settings/agents/view.rs");
     let inspector_source = include_str!("../../src/settings/agents/view/inspector.rs");
-    let list_source = include_str!("../../src/settings/agents/view/list.rs");
+    let list_source = concat!(
+        include_str!("../../src/settings/agents/view/list.rs"),
+        include_str!("../../src/settings/agents/view/toolbar.rs")
+    );
     let text_input_source = include_str!("../../src/settings/agents/text_input.rs");
     let actions_source = include_str!("../../src/settings/agents/actions.rs");
 
@@ -104,7 +107,10 @@ fn test_agents_settings_view_uses_library_and_unified_inspector_contract() {
 ///   - 负断言：Runtime Profile 不得继续使用 theme.text_tertiary。
 #[test]
 fn test_agent_list_runtime_profile_remains_legible_in_light_themes() {
-    let list_source = include_str!("../../src/settings/agents/view/list.rs");
+    let list_source = concat!(
+        include_str!("../../src/settings/agents/view/list.rs"),
+        include_str!("../../src/settings/agents/view/toolbar.rs")
+    );
     let paper_blue = ui::Theme::for_id(ui::ThemeId::PaperBlue);
     let linen_sage = ui::Theme::for_id(ui::ThemeId::LinenSage);
     let silver_violet = ui::Theme::for_id(ui::ThemeId::SilverViolet);
@@ -168,7 +174,10 @@ fn test_agent_list_runtime_profile_remains_legible_in_light_themes() {
 #[test]
 fn test_agent_form_and_search_have_visible_light_theme_boundaries() {
     let text_input_source = include_str!("../../src/settings/agents/text_input.rs");
-    let list_source = include_str!("../../src/settings/agents/view/list.rs");
+    let list_source = concat!(
+        include_str!("../../src/settings/agents/view/list.rs"),
+        include_str!("../../src/settings/agents/view/toolbar.rs")
+    );
     let field_anchor = text_input_source
         .find("let mut surface = div()")
         .expect("Agent 表单源码应保留 editable field surface");
@@ -218,7 +227,7 @@ fn test_agent_form_and_search_have_visible_light_theme_boundaries() {
 ///   - 负断言：未选中按钮不得继续使用 edge_highlight。
 #[test]
 fn test_unselected_runtime_profile_buttons_remain_visible_in_paper_blue() {
-    let inspector_source = include_str!("../../src/settings/agents/view/inspector.rs");
+    let inspector_source = include_str!("../../src/settings/agents/components.rs");
     let theme = ui::Theme::for_id(ui::ThemeId::PaperBlue);
     let inspector_surface = source_over(
         rgba_channels(with_test_alpha(theme.node_fill, 0xb8)),
@@ -237,8 +246,8 @@ fn test_unselected_runtime_profile_buttons_remain_visible_in_paper_blue() {
     let old_contrast = contrast_ratio(old_text, old_button_surface);
     let readable_contrast = contrast_ratio(readable_text, readable_button_surface);
     let profile_anchor = inspector_source
-        .find("fn profile_button(")
-        .expect("Agent Inspector 源码应保留 Runtime Profile 按钮函数");
+        .find("fn runtime_chip(")
+        .expect("Agent 组件源码应保留 Runtime Profile Chip 函数");
     let profile_source = &inspector_source[profile_anchor..];
 
     assert!(

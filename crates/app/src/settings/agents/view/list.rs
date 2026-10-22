@@ -1,25 +1,24 @@
-use super::super::components::{avatar, empty_list_message, primary_button, with_alpha};
+//! Agent 库：搜索与筛选工具栏 + Agent 卡片网格。
+
+use super::super::components::{avatar, empty_list_message, primary_button, tag, with_alpha};
 use super::super::grouping::{group_definitions, roster_summary};
-use super::super::{AgentDefinitionsState, AgentStatusFilter};
+use super::super::AgentDefinitionsState;
+use super::toolbar::{agent_search_input, agent_status_filter};
 use crate::app::MultisoulApp;
 use crate::settings::typography::{SettingsText, TextRole};
 use canvas::AgentProfile;
 use gpui::{
-    div, prelude::*, px, rgba, AnyElement, AppContext, Context, Div, Entity, Focusable,
-    KeyDownEvent, MouseButton, MouseDownEvent, ScrollHandle, Subscription, Window,
+    div, prelude::*, px, rgba, AnyElement, Context, Div, KeyDownEvent, MouseButton, MouseDownEvent,
+    ScrollHandle, Window,
 };
 use std::collections::HashSet;
 use storage::AgentDefinition;
-use ui::component::input::{Input, InputEvent, InputState};
-use ui::component::{Icon, IconName};
+use ui::component::switch::Switch;
+use ui::component::{Sizable, Size};
 use ui::Theme;
 
-struct AgentSearchInputState {
-    input: Entity<InputState>,
-    _subscription: Subscription,
-}
-
-pub(super) fn agent_list(
+/// 网格列数随窗口宽度变化；抽屉是覆盖其上的模态侧边栏，不挤压网格。
+pub(super) fn agent_library(
     theme: Theme,
     state: &AgentDefinitionsState,
     on_canvas_ids: &HashSet<i64>,
@@ -27,73 +26,81 @@ pub(super) fn agent_list(
     window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
-    let definitions = state.visible_definitions();
+    let drawer_open = state.is_drawer_open();
+    // 设置面板内容区约 620px：默认 2 列；窗口足够宽（面板 ≥ 1000px）时 3 列。
+    let columns = if window.viewport_size().width >= px(1500.0) {
+        3
+    } else {
+        2
+    };
     let on_canvas_total = state
         .definitions()
         .iter()
         .filter(|definition| on_canvas_ids.contains(&definition.id))
         .count();
     let summary = roster_summary(state.definitions().len(), on_canvas_total);
-    let groups = group_definitions(definitions, on_canvas_ids);
+    let groups = group_definitions(state.visible_definitions(), on_canvas_ids);
     let no_rows = groups.on_canvas.is_empty() && groups.library.is_empty();
+    let selected_id = if drawer_open {
+        state.selected_definition_id()
+    } else {
+        None
+    };
 
     div()
-        .w(px(264.0))
+        .flex_1()
+        .min_w(px(0.0))
         .h_full()
         .min_h(px(0.0))
-        .flex_none()
         .flex()
         .flex_col()
-        .overflow_hidden()
-        .rounded_l(px(10.0))
-        .border_r_1()
-        .border_color(rgba(with_alpha(theme.edge_highlight, 0x28)))
-        .bg(rgba(with_alpha(theme.panel_high, 0x72)))
-        .p(px(16.0))
-        .gap(px(12.0))
+        .p(px(20.0))
+        .gap(px(16.0))
         .child(
             div()
+                .w_full()
                 .flex()
-                .flex_row()
-                .items_start()
-                .justify_between()
-                .gap(px(8.0))
+                .flex_col()
+                .gap(px(10.0))
                 .child(
                     div()
+                        .w_full()
                         .flex()
-                        .flex_col()
-                        .gap(px(2.0))
-                        .child(
-                            div()
-                                .settings_text(TextRole::Headline, theme)
-                                .child(ui::i18n::text("settings.agents")),
-                        )
-                        .child(div().settings_text(TextRole::Helper, theme).child(summary)),
+                        .flex_row()
+                        .items_center()
+                        .gap(px(10.0))
+                        .child(agent_search_input(theme, state, window, cx))
+                        .child(primary_button(
+                            theme,
+                            "settings-agent-new",
+                            ui::i18n::text("settings.new_agent_2"),
+                            false,
+                            cx.listener(MultisoulApp::on_agent_settings_new_definition),
+                        )),
                 )
-                .child(primary_button(
-                    theme,
-                    "settings-agent-new",
-                    ui::i18n::text("settings.new_agent_2"),
-                    true,
-                    cx.listener(MultisoulApp::on_agent_settings_new_definition),
-                )),
+                .child(
+                    div()
+                        .w_full()
+                        .flex()
+                        .flex_row()
+                        .items_center()
+                        .justify_between()
+                        .gap(px(10.0))
+                        .child(agent_status_filter(theme, state.status_filter(), cx))
+                        .child(div().settings_text(TextRole::Helper, theme).child(summary)),
+                ),
         )
-        .child(agent_search_input(theme, state, window, cx))
-        .child(agent_status_filter(theme, state.status_filter(), cx))
         .child(
             div()
                 .id("settings-agents-list")
                 .debug_selector(|| "settings-agents-list".to_string())
                 .flex_1()
                 .min_h(px(0.0))
-                .flex()
-                .flex_col()
                 .overflow_y_scroll()
                 .track_scroll(list_scroll)
-                .gap(px(2.0))
-                .when(state.is_creating_new(), |this| {
-                    this.child(unsaved_agent_row(theme, &state.draft().name))
-                })
+                .flex()
+                .flex_col()
+                .gap(px(14.0))
                 .when(no_rows && !state.is_creating_new(), |this| {
                     this.child(empty_list_message(
                         theme,
@@ -104,251 +111,115 @@ pub(super) fn agent_list(
                         },
                     ))
                 })
-                .when(!groups.on_canvas.is_empty(), |this| {
-                    this.child(section_label(theme, ui::i18n::text("settings.on_canvas_3")))
-                })
-                .children(groups.on_canvas.into_iter().map(|definition| {
-                    agent_list_row(
-                        theme,
-                        definition,
-                        true,
-                        state.selected_definition_id() == Some(definition.id),
-                        cx,
-                    )
-                }))
-                .when(!groups.library.is_empty(), |this| {
-                    this.child(section_label(theme, "LIBRARY"))
-                })
-                .children(groups.library.into_iter().map(|definition| {
-                    agent_list_row(
-                        theme,
-                        definition,
-                        false,
-                        state.selected_definition_id() == Some(definition.id),
-                        cx,
-                    )
-                })),
-        )
-}
-
-fn section_label(theme: Theme, label: &'static str) -> AnyElement {
-    div()
-        .pt(px(8.0))
-        .pb(px(4.0))
-        .px(px(8.0))
-        .settings_text(TextRole::Eyebrow, theme)
-        .child(label)
-        .into_any_element()
-}
-
-fn unsaved_agent_row(theme: Theme, name: &str) -> AnyElement {
-    div()
-        .id("settings-agent-list-row-unsaved")
-        .debug_selector(|| "settings-agent-list-row-unsaved".to_string())
-        .h(px(56.0))
-        .flex_none()
-        .flex()
-        .flex_row()
-        .items_center()
-        .gap(px(10.0))
-        .px(px(8.0))
-        .rounded(px(8.0))
-        .bg(rgba(with_alpha(theme.accent_orange, 0x1f)))
-        .child(avatar(name, AgentProfile::Codex, 32.0))
-        .child(
-            div()
-                .min_w(px(0.0))
-                .flex_1()
-                .flex()
-                .flex_col()
-                .gap(px(2.0))
                 .child(
                     div()
-                        .truncate()
-                        .settings_text(TextRole::RowTitle, theme)
-                        .child(name.to_string()),
-                )
-                .child(
-                    div()
-                        .settings_font(TextRole::Label)
-                        .text_color(rgba(theme.accent_orange))
-                        .child(ui::i18n::text("settings.unsaved_codex")),
+                        .w_full()
+                        .grid()
+                        .grid_cols(columns)
+                        .gap(px(14.0))
+                        .when(state.is_creating_new(), |this| {
+                            this.child(unsaved_agent_card(theme, &state.draft().name))
+                        })
+                        .children(
+                            groups
+                                .on_canvas
+                                .into_iter()
+                                .map(|definition| (definition, true))
+                                .chain(
+                                    groups
+                                        .library
+                                        .into_iter()
+                                        .map(|definition| (definition, false)),
+                                )
+                                .map(|(definition, on_canvas)| {
+                                    agent_card(
+                                        theme,
+                                        definition,
+                                        on_canvas,
+                                        selected_id == Some(definition.id),
+                                        cx,
+                                    )
+                                }),
+                        )
+                        .child(new_agent_tile(theme, cx)),
                 ),
         )
+}
+
+fn card_surface(theme: Theme, selected: bool) -> Div {
+    div()
+        .min_h(px(132.0))
+        .min_w(px(0.0))
+        .p(px(16.0))
+        .flex()
+        .flex_col()
+        .gap(px(4.0))
+        .rounded(px(16.0))
+        .border_2()
+        .border_color(rgba(if selected {
+            theme.accent_orange
+        } else {
+            with_alpha(theme.accent_orange, 0x00)
+        }))
+        .bg(rgba(if selected {
+            with_alpha(theme.accent_orange, 0x1f)
+        } else {
+            with_alpha(theme.text_primary, 0x0a)
+        }))
+}
+
+fn unsaved_agent_card(theme: Theme, name: &str) -> AnyElement {
+    card_surface(theme, true)
+        .id("settings-agent-list-row-unsaved")
+        .debug_selector(|| "settings-agent-list-row-unsaved".to_string())
+        .child(avatar(name, AgentProfile::Codex, 44.0))
+        .child(
+            div()
+                .mt(px(8.0))
+                .truncate()
+                .settings_text(TextRole::Headline, theme)
+                .child(name.to_string()),
+        )
+        .child(
+            div()
+                .settings_font(TextRole::Helper)
+                .text_color(rgba(theme.accent_orange))
+                .child(ui::i18n::text("settings.unsaved_codex")),
+        )
         .into_any_element()
 }
 
-fn agent_status_filter(
-    theme: Theme,
-    selected: AgentStatusFilter,
-    cx: &mut Context<MultisoulApp>,
-) -> AnyElement {
-    div()
-        .id("settings-agent-status-filter")
-        .w_full()
-        .h(px(28.0))
-        .flex_none()
-        .flex()
-        .flex_row()
-        .rounded(px(8.0))
-        .bg(rgba(with_alpha(theme.text_primary, 0x0d)))
-        .p(px(2.0))
-        .gap(px(2.0))
-        .child(status_filter_button(
-            theme,
-            ui::i18n::text("settings.all"),
-            "settings-agent-filter-all",
-            AgentStatusFilter::All,
-            selected,
-            cx,
-        ))
-        .child(status_filter_button(
-            theme,
-            ui::i18n::text("settings.enabled"),
-            "settings-agent-filter-enabled",
-            AgentStatusFilter::Enabled,
-            selected,
-            cx,
-        ))
-        .child(status_filter_button(
-            theme,
-            ui::i18n::text("settings.disabled"),
-            "settings-agent-filter-disabled",
-            AgentStatusFilter::Disabled,
-            selected,
-            cx,
-        ))
-        .into_any_element()
-}
-
-fn status_filter_button(
-    theme: Theme,
-    label: &'static str,
-    selector: &'static str,
-    filter: AgentStatusFilter,
-    selected: AgentStatusFilter,
-    cx: &mut Context<MultisoulApp>,
-) -> AnyElement {
-    let is_selected = selected == filter;
-    div()
-        .id(selector)
-        .debug_selector(move || selector.to_string())
-        .flex_1()
-        .h_full()
-        .flex()
+fn new_agent_tile(theme: Theme, cx: &mut Context<MultisoulApp>) -> AnyElement {
+    card_surface(theme, false)
+        .id("settings-agent-new-tile")
+        .debug_selector(|| "settings-agent-new-tile".to_string())
         .items_center()
         .justify_center()
-        .rounded(px(6.0))
-        .border_1()
-        .border_color(rgba(with_alpha(theme.edge_highlight, 0x00)))
-        .bg(rgba(if is_selected {
-            theme.panel_high
-        } else {
-            with_alpha(theme.panel_high, 0x00)
-        }))
-        .when(is_selected, |this| this.shadow_sm())
-        .settings_font(TextRole::Control)
-        .text_color(rgba(if is_selected {
-            theme.text_primary
-        } else {
-            theme.text_secondary
-        }))
+        .gap(px(8.0))
+        .border_dashed()
+        .border_color(rgba(with_alpha(theme.text_secondary, 0x80)))
+        .bg(rgba(with_alpha(theme.text_primary, 0x00)))
         .cursor_pointer()
-        .hover(move |style| {
-            if is_selected {
-                style
-            } else {
-                style.bg(rgba(with_alpha(theme.text_primary, 0x0d)))
-            }
-        })
+        .hover(move |style| style.bg(rgba(with_alpha(theme.text_primary, 0x0d))))
         .active(move |style| style.bg(rgba(with_alpha(theme.accent_orange, 0x33))))
         .tab_index(0)
         .focus(move |style| style.border_color(rgba(theme.accent_orange)))
-        .on_click(cx.listener(move |app, event, window, cx| {
-            app.on_agent_settings_set_status_filter(filter, event, window, cx);
-        }))
-        .on_key_down(cx.listener(move |app, event: &KeyDownEvent, _window, cx| {
+        .on_click(cx.listener(MultisoulApp::on_agent_settings_new_definition))
+        .on_key_down(cx.listener(|app, event: &KeyDownEvent, window, cx| {
             if matches!(event.keystroke.key.as_str(), "enter" | "space") {
-                if app.agent_definitions.set_status_filter(filter) {
-                    cx.notify();
-                }
+                app.on_agent_settings_new_definition(&Default::default(), window, cx);
                 cx.stop_propagation();
             }
         }))
-        .child(label)
-        .into_any_element()
-}
-
-fn agent_search_input(
-    theme: Theme,
-    state: &AgentDefinitionsState,
-    window: &mut Window,
-    cx: &mut Context<MultisoulApp>,
-) -> AnyElement {
-    let app = cx.weak_entity();
-    let initial_value = state.search_query().to_string();
-    let search_state =
-        window.use_keyed_state("settings-agent-search-state", cx, move |window, cx| {
-            let input = cx.new(|cx| {
-                InputState::new(window, cx)
-                    .placeholder(ui::i18n::input_placeholder(
-                        "settings.search_agents",
-                        window,
-                        cx,
-                    ))
-                    .default_value(initial_value)
-            });
-            let subscription = cx.subscribe(&input, move |_, input, event: &InputEvent, cx| {
-                if !matches!(event, InputEvent::Change) {
-                    return;
-                }
-                let Some(app) = app.upgrade() else {
-                    return;
-                };
-                let query = input.read(cx).value().to_string();
-                app.update(cx, |app, cx| {
-                    if app.agent_definitions.set_search_query(query) {
-                        cx.notify();
-                    }
-                });
-            });
-            AgentSearchInputState {
-                input,
-                _subscription: subscription,
-            }
-        });
-    let input = search_state.read(cx).input.clone();
-    let focus = input.focus_handle(cx);
-
-    div()
-        .id("settings-agent-search-input")
-        .debug_selector(|| "settings-agent-search-input".to_string())
-        .w_full()
-        .h(px(32.0))
-        .flex_none()
-        .flex()
-        .items_center()
-        .px(px(8.0))
-        .rounded(px(8.0))
-        .border_1()
-        .border_color(rgba(theme.text_secondary))
-        .bg(rgba(with_alpha(theme.panel_high, 0x96)))
-        .settings_text(TextRole::Body, theme)
-        .on_mouse_down(MouseButton::Left, move |_, window, cx| {
-            focus.focus(window);
-            cx.stop_propagation();
-        })
         .child(
-            Input::new(&input)
-                .settings_font(TextRole::Body)
-                .appearance(false)
-                .cleanable(true)
-                .prefix(Icon::new(IconName::Search).text_color(rgba(theme.text_secondary))),
+            div()
+                .settings_text(TextRole::Control, theme)
+                .child(ui::i18n::text("settings.new_agent_2")),
         )
         .into_any_element()
 }
 
-fn agent_list_row(
+fn agent_card(
     theme: Theme,
     definition: &AgentDefinition,
     on_canvas: bool,
@@ -357,38 +228,23 @@ fn agent_list_row(
 ) -> AnyElement {
     let id = definition.id;
     let selector = format!("settings-agent-list-row-{id}");
-    let bg = if selected {
-        with_alpha(theme.accent_orange, 0x1f)
-    } else {
-        with_alpha(theme.text_primary, 0x00)
-    };
+    let enabled = definition.enabled;
+    let dim = if enabled { 1.0 } else { 0.5 };
 
-    div()
+    card_surface(theme, selected)
         .id(("settings-agent-list-row", id as u64))
         .debug_selector(move || selector.clone())
-        .h(px(56.0))
-        .flex_none()
-        .flex()
-        .flex_row()
-        .items_center()
-        .gap(px(10.0))
-        .px(px(8.0))
-        .rounded(px(8.0))
-        .border_2()
-        .border_color(rgba(with_alpha(theme.accent_orange, 0x00)))
-        .bg(rgba(bg))
-        .when(!definition.enabled, |this| this.opacity(0.5))
         .cursor_pointer()
         .hover(move |style| {
             if selected {
                 style
             } else {
-                style.bg(rgba(with_alpha(theme.text_primary, 0x0d)))
+                style.bg(rgba(with_alpha(theme.text_primary, 0x14)))
             }
         })
         .active(move |style| style.bg(rgba(with_alpha(theme.accent_orange, 0x33))))
         .tab_index(0)
-        .focus(move |style| style.border_color(rgba(theme.accent_orange)))
+        .focus(move |style| style.border_color(rgba(with_alpha(theme.text_primary, 0xe0))))
         .on_mouse_down(
             MouseButton::Left,
             cx.listener(move |app, event: &MouseDownEvent, window, cx| {
@@ -402,66 +258,67 @@ fn agent_list_row(
                 cx.stop_propagation();
             }
         }))
-        .child(avatar(&definition.name, definition.runtime_profile, 32.0))
         .child(
             div()
-                .min_w(px(0.0))
-                .flex_1()
                 .flex()
-                .flex_col()
-                .justify_center()
-                .gap(px(2.0))
+                .flex_row()
+                .items_start()
+                .justify_between()
+                .child(avatar(&definition.name, definition.runtime_profile, 44.0).opacity(dim))
                 .child(
                     div()
-                        .flex()
-                        .flex_row()
-                        .items_center()
-                        .gap(px(6.0))
+                        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                         .child(
-                            div()
-                                .min_w(px(0.0))
-                                .truncate()
-                                .settings_text(TextRole::RowTitle, theme)
-                                .child(definition.name.clone()),
-                        )
-                        .when(!definition.enabled, |this| {
-                            this.child(
-                                div()
-                                    .flex_none()
-                                    .px(px(6.0))
-                                    .rounded(px(8.0))
-                                    .bg(rgba(with_alpha(theme.text_primary, 0x14)))
-                                    .settings_text(TextRole::Badge, theme)
-                                    .child(ui::i18n::text("settings.off")),
-                            )
-                        }),
-                )
-                .child(
-                    div()
-                        .id(("settings-agent-list-runtime-profile", id as u64))
-                        .debug_selector(|| "settings-agent-list-runtime-profile".to_string())
-                        .truncate()
-                        .settings_font(TextRole::Helper)
-                        // Keeps the pre-unification tone: text_secondary fails 4.5:1 on light themes.
-                        .text_color(rgba(with_alpha(theme.text_primary, 0xc0)))
-                        .child(format!(
-                            "{} · {}",
-                            definition.runtime_profile.display_title(),
-                            workflow_summary(&definition.workflow_description)
-                        )),
+                            Switch::new(("settings-agent-card-switch", id as u64))
+                                .checked(enabled)
+                                .with_size(Size::Small)
+                                .on_click(cx.listener(move |app, _checked, _window, cx| {
+                                    app.on_agent_settings_toggle_enabled_from_card(id, cx);
+                                })),
+                        ),
                 ),
         )
-        .when(on_canvas, |this| {
-            this.child(
-                div()
-                    .id(("settings-agent-list-on-canvas-dot", id as u64))
-                    .w(px(8.0))
-                    .h(px(8.0))
-                    .flex_none()
-                    .rounded(px(4.0))
-                    .bg(rgba(theme.accent_green)),
-            )
-        })
+        .child(
+            div()
+                .mt(px(8.0))
+                .truncate()
+                .opacity(dim)
+                .settings_text(TextRole::Headline, theme)
+                .child(definition.name.clone()),
+        )
+        .child(
+            div()
+                .id(("settings-agent-list-runtime-profile", id as u64))
+                .debug_selector(|| "settings-agent-list-runtime-profile".to_string())
+                .line_clamp(2)
+                .opacity(dim)
+                .settings_font(TextRole::Helper)
+                // Keeps the pre-unification tone: text_secondary fails 4.5:1 on light themes.
+                .text_color(rgba(with_alpha(theme.text_primary, 0xc0)))
+                .child(workflow_summary(&definition.workflow_description)),
+        )
+        .child(
+            div()
+                .mt_auto()
+                .pt(px(8.0))
+                .flex()
+                .flex_row()
+                .gap(px(6.0))
+                .child(tag(theme, definition.runtime_profile.display_title(), None))
+                .when(!enabled, |this| {
+                    this.child(tag(theme, ui::i18n::text("settings.off"), None))
+                })
+                .when(on_canvas, |this| {
+                    this.child(
+                        tag(
+                            theme,
+                            ui::i18n::text("settings.on_canvas_2"),
+                            Some(theme.accent_cyan),
+                        )
+                        .id(("settings-agent-list-on-canvas-dot", id as u64)),
+                    )
+                }),
+        )
         .into_any_element()
 }
 
@@ -469,8 +326,8 @@ fn workflow_summary(workflow: &str) -> String {
     let trimmed = workflow.trim();
     if trimmed.is_empty() {
         ui::i18n::text("settings.no_workflow_instructions").to_string()
-    } else if trimmed.chars().count() > 64 {
-        format!("{}…", trimmed.chars().take(63).collect::<String>())
+    } else if trimmed.chars().count() > 96 {
+        format!("{}…", trimmed.chars().take(95).collect::<String>())
     } else {
         trimmed.to_string()
     }

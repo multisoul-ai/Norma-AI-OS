@@ -12,6 +12,7 @@ public enum SettingsModule {
             SettingsLiveConfiguration.name,
             SettingsShortcutCustomize.name,
             SettingsOrchestrationPathConvention.name,
+            SettingsAgentsLibrary.name,
         ],
         run: { scenario, session in
             switch scenario {
@@ -29,6 +30,8 @@ public enum SettingsModule {
                 try await SettingsShortcutCustomize.run(session)
             case SettingsOrchestrationPathConvention.name:
                 try await SettingsOrchestrationPathConvention.run(session)
+            case SettingsAgentsLibrary.name:
+                try await SettingsAgentsLibrary.run(session)
             default:
                 return false
             }

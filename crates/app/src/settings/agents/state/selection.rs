@@ -16,6 +16,7 @@ impl AgentDefinitionsState {
     pub(crate) fn select_definition(&mut self, id: i64) -> bool {
         if self.selected_definition_id == Some(id) {
             self.status = None;
+            self.drawer_open = true;
             return true;
         }
         if !self.ensure_clean_for_navigation() {
@@ -23,6 +24,7 @@ impl AgentDefinitionsState {
         }
         if self.load_draft_from_definition(id) {
             self.status = None;
+            self.drawer_open = true;
             true
         } else {
             self.status = Some(ui::i18n::LocalizedText::new(
@@ -244,6 +246,7 @@ impl AgentDefinitionsState {
             sort_order: 0,
         };
         self.creating_new = true;
+        self.drawer_open = true;
         self.selected_definition_id = None;
         self.selection_before_create = previous_selection;
         self.status = None;
