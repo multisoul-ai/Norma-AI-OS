@@ -4,11 +4,14 @@ use tokio_util::sync::CancellationToken;
 use ui::i18n::LocalizedText;
 
 pub(super) type RecordingInput = (u64, Receiver<Result<PcmAudioChunk, LocalizedText>>);
+/// 持续聆听的一次 Cmd+E：收音 id 与停止令牌。
+pub(super) type ListenRequest = (u64, CancellationToken);
 
 pub(super) struct SessionInput {
     pub events: Sender<super::plan::asr::SpeechEvent>,
     pub speech: Receiver<super::plan::asr::SpeechEvent>,
     pub recordings: Option<Receiver<RecordingInput>>,
+    pub listens: Option<Receiver<ListenRequest>>,
 }
 
 impl crate::app::MultisoulApp {
@@ -21,8 +24,8 @@ impl crate::app::MultisoulApp {
         if self.doubao.recording.is_some() {
             return;
         }
-        if !self.doubao.is_active() {
-            self.toggle_doubao_voice(window, cx);
+        if !self.start_doubao_channel(window, cx) {
+            return;
         }
         let (Some(recordings), Some(cancellation)) =
             (&self.doubao.recordings, &self.doubao.cancellation)
@@ -54,6 +57,38 @@ impl crate::app::MultisoulApp {
             self.doubao.status = super::DoubaoStatus::Connected;
         } else {
             finish.cancel();
+        }
+        cx.notify();
+    }
+
+    /// 持续聆听模式的 Cmd+E：只开关 ASR 与麦克风，播报通道保持常驻。
+    pub(crate) fn toggle_doubao_listening(
+        &mut self,
+        window: &mut gpui::Window,
+        cx: &mut gpui::Context<Self>,
+    ) {
+        if self.doubao.listening.is_some() {
+            self.stop_doubao_listening(cx);
+            return;
+        }
+        if !self.start_doubao_channel(window, cx) {
+            return;
+        }
+        let (Some(listens), Some(cancellation)) = (&self.doubao.listens, &self.doubao.cancellation)
+        else {
+            return;
+        };
+        self.doubao.recording_id = self.doubao.recording_id.wrapping_add(1);
+        let token = cancellation.child_token();
+        if listens
+            .try_send((self.doubao.recording_id, token.clone()))
+            .is_ok()
+        {
+            self.doubao.listening = Some(token);
+            // 通道已就绪时直接显示收音中；不借用 Connecting，避免快速开关后卡在连接中。
+            if matches!(self.doubao.status, super::DoubaoStatus::ListenFailed(_)) {
+                self.doubao.status = super::DoubaoStatus::Connected;
+            }
         }
         cx.notify();
     }

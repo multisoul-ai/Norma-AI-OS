@@ -43,6 +43,8 @@ impl AgentAnnouncements {
         self.pending.push_back(PendingAgentAnnouncement {
             announcement: AgentAnnouncement::terminal(node_id, agent_name, outcome),
             waiting_for_tts,
+            deferred: waiting_for_tts,
+            queued_at: std::time::Instant::now(),
         });
         tracing::info!(
             node_id,

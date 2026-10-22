@@ -261,6 +261,7 @@ impl MultisoulApp {
                     }
                     app.advance_session_reply_queue();
                     let runtime_events = app.runtime.take_events();
+                    app.reconcile_doubao_channel(cx);
                     app.handle_agent_runtime_events(&runtime_events, cx);
                     if runtime_changed
                         || !runtime_events.is_empty()

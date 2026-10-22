@@ -108,6 +108,11 @@ where
                             let _ = done.send((id, result)).await;
                         });
                     }
+                    Ok(SpeechEvent::ListenEnded(id, error)) => {
+                        // 收音结束（含失败）只解除说话占用，通道继续播报。
+                        user_speaking = false;
+                        let _ = events.send(DoubaoStatus::ListenEnded(id, error)).await;
+                    }
                     Err(_) => break (&mut asr_task).await.map_err(|_| LocalizedText::new("doubao.asr_interrupted"))?,
                 }
             }

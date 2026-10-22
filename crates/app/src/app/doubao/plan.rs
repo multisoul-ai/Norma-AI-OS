@@ -75,13 +75,23 @@ pub(super) async fn run_session(
     let speech_tx = input.events;
     let speech_rx = input.speech;
     let asr_cancellation = cancellation.clone();
+    // 收音按需开始：单次指令等按住录音，持续聆听等 Cmd+E；会话启动时不开麦克风。
     let asr_task = tokio::spawn(async move {
-        if let Some(recordings) = input.recordings {
-            asr::listen_recordings(key, speech_tx, asr_cancellation, recordings).await
-        } else {
-            asr::run(key, speech_tx, asr_cancellation, None).await
+        match (input.recordings, input.listens) {
+            (Some(recordings), _) => {
+                asr::listen_recordings(key, speech_tx, asr_cancellation, recordings).await
+            }
+            (None, Some(listens)) => {
+                asr::listen_continuous(key, speech_tx, asr_cancellation, listens).await
+            }
+            (None, None) => {
+                asr_cancellation.cancelled().await;
+                Ok(())
+            }
         }
     });
+    // 通道就绪：此后完成通知可立即播报。
+    let _ = events.send(DoubaoStatus::Connected).await;
     let status = events.clone();
     conversation::run(
         move |reply, token| {

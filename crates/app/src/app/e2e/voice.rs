@@ -32,7 +32,9 @@ impl MultisoulApp {
                 crate::app::doubao::DoubaoStatus::Idle => "idle",
                 crate::app::doubao::DoubaoStatus::Connecting => "connecting",
                 crate::app::doubao::DoubaoStatus::Connected
-                | crate::app::doubao::DoubaoStatus::RecordingResolved(_) => "connected",
+                | crate::app::doubao::DoubaoStatus::RecordingResolved(_)
+                | crate::app::doubao::DoubaoStatus::ListenEnded(..) => "connected",
+                crate::app::doubao::DoubaoStatus::ListenFailed(_) => "listen_failed",
                 crate::app::doubao::DoubaoStatus::Thinking
                 | crate::app::doubao::DoubaoStatus::UserTranscript(_) => "thinking",
                 crate::app::doubao::DoubaoStatus::Speaking
