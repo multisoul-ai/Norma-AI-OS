@@ -39,6 +39,8 @@ pub(super) fn shortcut_command_name(command: ShortcutCommandId) -> &'static str 
         ShortcutCommandId::ToggleSettings => "toggle_settings",
         ShortcutCommandId::ToggleRunOverview => "toggle_run_overview",
         ShortcutCommandId::ToggleIdeas => "toggle_ideas",
+        ShortcutCommandId::AssignIdeaToCard(_) => "assign_idea_to_card",
+        ShortcutCommandId::AssignIdeaToNewAgent(_) => "assign_idea_to_new_agent",
         ShortcutCommandId::VoiceInteraction => "voice_interaction",
     }
 }

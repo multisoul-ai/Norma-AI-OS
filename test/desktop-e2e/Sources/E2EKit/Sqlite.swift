@@ -138,6 +138,17 @@ extension Catalog {
         )
     }
 
+    /// 直接写一条应用设置（启动前预置，验证 App 启动后读回）。
+    public static func seedSetting(database url: URL, key: String, value: String) throws {
+        let database = try SQLiteDB(path: url.path, write: true)
+        defer { database.close() }
+        let now = String(Int64(Date().timeIntervalSince1970))
+        try database.execute(
+            "INSERT OR REPLACE INTO settings(key,value,updated_at_unix) VALUES(?1,?2,?3)",
+            bindings: [key, value, now]
+        )
+    }
+
     /// 想法正文 → 来源（chat / voice / manual）。
     public static func ideaSources(database url: URL) throws -> [String: String] {
         let database = try SQLiteDB(path: url.path, write: false)

@@ -1,7 +1,6 @@
 use crate::app::MultisoulApp;
 use gpui::Entity;
-use std::collections::HashMap;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::atomic::AtomicU64;
 use std::sync::{Arc, Mutex};
@@ -144,6 +143,7 @@ pub(crate) struct DesktopWorkspaceUiState {
     /// 上一次渲染时的待办条数（None 表示还没渲染过，首次不滚动）。
     pub(crate) ideas_seen_todo: Option<usize>,
     pub(crate) idea_drag: Option<idea_drag_ui::IdeaDragSession>,
+    pub(crate) ideas_aux: ideas::IdeasAux,
     pub(crate) overview_float_fade: drawers::float::OverviewFloatFade,
     pub(crate) overview_drag: Option<drawers::float::OverviewDrag>,
     pub(crate) overview_float_focus: Option<gpui::FocusHandle>,
@@ -316,6 +316,7 @@ impl DesktopWorkspaceUiState {
             ideas_input: None,
             ideas_seen_todo: None,
             idea_drag: None,
+            ideas_aux: Default::default(),
             overview_float_fade: drawers::float::OverviewFloatFade::default(),
             overview_drag: None,
             overview_float_focus: None,

@@ -67,11 +67,14 @@ impl MultisoulApp {
             return;
         }
         let input = cx.new(|cx| {
-            InputState::new(window, cx).placeholder(ui::i18n::input_placeholder(
-                "chrome.talk_to_norma_or_type_for_commands",
-                window,
-                cx,
-            ))
+            InputState::new(window, cx)
+                .placeholder(ui::i18n::input_placeholder(
+                    "chrome.talk_to_norma_or_type_for_commands",
+                    window,
+                    cx,
+                ))
+                // 单行输入框不接受换行：Enter 只触发 PressEnter，换行进入文本会让排版断言崩溃。
+                .validate(|value, _| !value.contains(['\n', '\r']))
         });
         let subscription = cx.subscribe_in(&input, window, |app, input, event, window, cx| {
             match event {

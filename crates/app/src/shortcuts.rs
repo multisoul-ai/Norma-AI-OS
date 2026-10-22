@@ -6,6 +6,7 @@ use std::fmt;
 use storage::SettingsStore;
 
 mod catalog;
+pub(crate) mod idea_assign;
 pub(crate) use catalog::{default_shortcut_entries, read_only_behaviors};
 
 const SHORTCUT_PREFS_KEY: &str = "keyboard.shortcuts.v1";
@@ -50,6 +51,10 @@ pub(crate) enum ShortcutCommandId {
     ToggleSettings,
     ToggleRunOverview,
     ToggleIdeas,
+    /// `⌃1…9`：把想法派给当前展开项目的第 N 张智能体卡片。
+    AssignIdeaToCard(u8),
+    /// `⌃0`（默认类型）与 `⌃⇧2…9`：新建智能体并派发，数字沿用 `⌘2…9` 的创建顺序。
+    AssignIdeaToNewAgent(u8),
     VoiceInteraction,
 }
 
@@ -202,7 +207,7 @@ impl ShortcutSettingsState {
     }
 
     pub(crate) fn command_for_keystroke(&self, keystroke: &Keystroke) -> Option<ShortcutCommandId> {
-        let source = keystroke.unparse();
+        let source = idea_assign::canonical_source(keystroke);
         self.effective.iter().find_map(|entry| {
             (entry.current_keystroke.as_deref() == Some(source.as_str())).then_some(entry.command)
         })
@@ -253,7 +258,7 @@ impl ShortcutSettingsState {
             return true;
         }
 
-        let source = keystroke.unparse();
+        let source = idea_assign::canonical_source(keystroke);
         match validate_shortcut_change(command, &source, &self.effective) {
             Ok(()) => {
                 self.prefs.set_override(command, source);

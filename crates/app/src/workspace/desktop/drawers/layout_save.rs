@@ -90,6 +90,7 @@ impl MultisoulApp {
             // 切换工作空间时清掉旧缓存并后台重读，标签角标才不会显示上一个空间的数量。
             self.desktop_workspace.ideas.clear();
             self.desktop_workspace.ideas_menu = None;
+            self.desktop_workspace.ideas_aux.picker = None;
             self.desktop_workspace.ideas_cursor = None;
             self.refresh_ideas(cx);
         }

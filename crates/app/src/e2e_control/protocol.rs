@@ -57,6 +57,11 @@ pub(super) enum Command {
     Key {
         keystroke: String,
     },
+    /// Holds exactly these modifiers (empty releases all), like pressing/releasing a modifier key.
+    Modifiers {
+        #[serde(default)]
+        modifiers: Vec<String>,
+    },
     Text {
         text: String,
     },
@@ -178,6 +183,13 @@ fn modifiers(names: &[String]) -> Modifiers {
         }
     }
     modifiers
+}
+
+pub(super) fn modifiers_input(names: &[String]) -> PlatformInput {
+    PlatformInput::ModifiersChanged(gpui::ModifiersChangedEvent {
+        modifiers: modifiers(names),
+        capslock: gpui::Capslock::default(),
+    })
 }
 
 pub(super) fn mouse_input(

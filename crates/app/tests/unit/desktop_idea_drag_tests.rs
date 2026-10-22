@@ -1,4 +1,4 @@
-use super::{CardTarget, DragEvent, DragOutcome, DragTargets, DropTarget, IdeaDrag, Rect};
+use super::{CardTarget, DragEvent, DragOutcome, DragTargets, DropTarget, IdeaDrag, Rect, RowSlot};
 
 fn card(area: &str, node: u64, x: f32, y: f32) -> CardTarget {
     CardTarget {
@@ -29,6 +29,26 @@ fn targets() -> DragTargets {
             w: 800.0,
             h: 740.0,
         },
+        // 想法栏 0..360 × 100..500，三条待办各 52 高、间隔 4：i1 在 y=110，i2 在 166，i3 在 222。
+        list: Rect {
+            x: 0.0,
+            y: 100.0,
+            w: 360.0,
+            h: 400.0,
+        },
+        rows: ["i1", "i2", "i3"]
+            .iter()
+            .enumerate()
+            .map(|(index, id)| RowSlot {
+                id: (*id).into(),
+                rect: Rect {
+                    x: 8.0,
+                    y: 110.0 + 56.0 * index as f32,
+                    w: 344.0,
+                    h: 52.0,
+                },
+            })
+            .collect(),
     }
 }
 
@@ -124,14 +144,14 @@ fn hover_reports_changes_only_when_target_changes() {
 fn new_zone_wins_overlap_and_offcanvas_cards_are_not_hittable() {
     let mut t = targets();
     t.cards.push(card("a1", 9, 650.0, 690.0));
-    t.cards.push(card("a1", 10, 100.0, 100.0));
+    t.cards.push(card("a1", 10, 1250.0, 100.0));
     assert_eq!(
         t.hit(700.0, 710.0),
         Some(DropTarget::NewAgent),
         "重叠处新建区优先"
     );
     assert_eq!(
-        t.hit(150.0, 150.0),
+        t.hit(1300.0, 150.0),
         None,
         "画布外的卡片不可命中，即使指针在卡片矩形内"
     );
@@ -175,4 +195,67 @@ fn release_delivers_on_target_otherwise_returns() {
         DragOutcome::Click,
         "未过阈值取消不应触发弹回"
     );
+}
+
+/// 栏内拖动是排序：指针在哪行上半部就插到该行之前，下半部落到下一行之前，最后一行下半部为末尾。
+///
+/// 数据构造：行中线 i1=136、i2=192、i3=248；指针 y 依次为 120、140、200、260。
+/// 预期结果：
+///   - 正断言：120 → 插到 i1 前；140 → 插到 i2 前（过了 i1 中线）；200 → 插到 i3 前；260 → 末尾（None）。
+///   - 负断言：栏外下方（y=600）与画布卡片区都不产生排序；松手结果为 Reorder 而不是 Deliver。
+#[test]
+fn pointer_inside_the_list_reorders_by_row_midpoints() {
+    let t = targets();
+    let before = |y: f32| match t.hit(100.0, y) {
+        Some(DropTarget::Reorder { before }) => before,
+        other => panic!("y={y} 应是排序目标，实际 {other:?}"),
+    };
+    assert_eq!(
+        before(120.0),
+        Some("i1".to_owned()),
+        "i1 上半部应插到 i1 前"
+    );
+    assert_eq!(
+        before(140.0),
+        Some("i2".to_owned()),
+        "过了 i1 中线应插到 i2 前"
+    );
+    assert_eq!(
+        before(200.0),
+        Some("i3".to_owned()),
+        "过了 i2 中线应插到 i3 前"
+    );
+    assert_eq!(before(260.0), None, "过了最后一行中线应排到末尾");
+    assert_eq!(t.hit(100.0, 600.0), None, "栏外下方不是目标");
+    assert_eq!(t.hit(900.0, 400.0), None, "画布空白处不是排序目标");
+    let mut dragging = drag();
+    dragging.moved(100.0, 260.0, &t);
+    assert_eq!(
+        dragging.released(100.0, 200.0, &t),
+        DragOutcome::Reorder {
+            before: Some("i3".to_owned())
+        },
+        "栏内松手应是 Reorder"
+    );
+}
+
+/// 没有展开项目时只有想法栏：仍可在栏内排序，但没有任何派发目标（含窗口原点）。
+///
+/// 数据构造：用 `targets()` 的想法栏与行，清掉卡片、新建区与画布（`DragTargets::list_only`）。
+/// 预期结果：
+///   - 正断言：栏内 y=140 → 插到 i2 前。
+///   - 负断言：窗口原点 (0,0)、画布位置、栏外都不是目标；松手栏外不产生任何投递。
+#[test]
+fn without_a_project_only_reordering_is_possible() {
+    let full = targets();
+    let t = DragTargets::list_only(full.list, full.rows.clone());
+    assert_eq!(
+        t.hit(100.0, 140.0),
+        Some(DropTarget::Reorder {
+            before: Some("i2".to_owned())
+        })
+    );
+    assert_eq!(t.hit(0.0, 0.0), None, "窗口原点不是新建区");
+    assert_eq!(t.hit(900.0, 400.0), None, "没有画布，也没有卡片");
+    assert_eq!(t.hit(100.0, 600.0), None, "栏外不是目标");
 }

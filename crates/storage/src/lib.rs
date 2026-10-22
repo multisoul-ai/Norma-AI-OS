@@ -29,6 +29,7 @@ pub mod desktop_content_tab_store;
 pub mod desktop_workspace_store;
 pub mod error;
 mod ideas_mobile;
+mod ideas_reorder;
 mod ideas_store;
 pub use ideas_mobile::MobileIdea;
 pub use ideas_store::{IdeasStore, Reconcile, StoredIdea};

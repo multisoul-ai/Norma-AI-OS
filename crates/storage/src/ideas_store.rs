@@ -7,7 +7,7 @@ use workspace::ideas::{
 };
 
 /// 相邻想法的排序间隔，为将来的手动排序留出空隙。
-const POSITION_STEP: i64 = 1024;
+pub(crate) const POSITION_STEP: i64 = 1024;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StoredIdea {
@@ -58,6 +58,10 @@ enum Patch<'a> {
 impl IdeasStore {
     pub fn new(path: PathBuf) -> Self {
         Self { path }
+    }
+
+    pub(crate) fn open(&self) -> StorageResult<Connection> {
+        open_app_connection(&self.path)
     }
 
     /// 由存储生成 ID 的 `add`，供对话/语音入口使用。

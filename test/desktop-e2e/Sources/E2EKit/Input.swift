@@ -144,6 +144,13 @@ extension Session {
         try await control(["op": "scroll", "x": Double(point.x), "y": Double(point.y), "dy": Double(pixels)])
     }
 
+    /// 按住（或传空数组松开）修饰键，对应 GPUI 的 ModifiersChanged；用于验证“按住时才出现”的提示。
+    public func holdModifiers(_ modifiers: [CGKeyCode]) async throws {
+        try await activate()
+        try await control(["op": "modifiers", "modifiers": try modifiers.map(modifierName)])
+        try await Task.sleep(nanoseconds: 250_000_000)
+    }
+
     private func hotkey(key: CGKeyCode, modifiers: [CGKeyCode]) async throws {
         try await activate()
         if appKitInput {
@@ -162,12 +169,17 @@ extension Session {
 /// 把场景使用的 macOS 虚拟键码转成 GPUI 按键描述，例如 Cmd+D → "cmd-d"。
 func keystroke(key: CGKeyCode, modifiers: [CGKeyCode]) throws -> String {
     let names: [CGKeyCode: String] = [
-        0: "a", 1: "s", 2: "d", 14: "e", 17: "t", 18: "1", 34: "i", 40: "k", 36: "enter", 43: ",", 48: "tab", 49: "space",
+        0: "a", 1: "s", 2: "d", 14: "e", 17: "t", 18: "1", 19: "2", 20: "3", 29: "0", 34: "i", 40: "k", 36: "enter", 43: ",", 48: "tab", 49: "space",
         51: "backspace", 53: "escape", 123: "left", 124: "right", 125: "down", 126: "up",
     ]
     let modifierNames: [CGKeyCode: String] = [0x37: "cmd", 0x38: "shift", 0x3A: "alt", 0x3B: "ctrl"]
     guard let name = names[key] else {
         throw E2EError.env("控制通道还不支持虚拟键码 \(key)，请在 keystroke(key:modifiers:) 中补充映射。")
+    }
+    // macOS 上 GPUI 对 ⌃⇧+数字上报“上档字符且清掉 shift 位”（US 布局 ⌃⇧3 → ctrl-#），按真实形态注入。
+    let shiftedDigits: [CGKeyCode: String] = [29: ")", 19: "@", 20: "#"]
+    if modifiers.sorted() == [0x38, 0x3B], let symbol = shiftedDigits[key] {
+        return "ctrl-" + symbol
     }
     let prefix = try modifiers.map { code -> String in
         guard let modifier = modifierNames[code] else {
@@ -181,7 +193,7 @@ func keystroke(key: CGKeyCode, modifiers: [CGKeyCode]) throws -> String {
 /// Characters an AppKit keyDown carries for the virtual key codes scenarios use.
 func keyCharacters(_ key: CGKeyCode) throws -> String {
     let table: [CGKeyCode: String] = [
-        0: "a", 1: "s", 2: "d", 14: "e", 17: "t", 18: "1", 34: "i", 40: "k", 36: "\r", 43: ",", 48: "\t", 49: " ", 51: "\u{7f}", 53: "\u{1b}",
+        0: "a", 1: "s", 2: "d", 14: "e", 17: "t", 18: "1", 19: "2", 20: "3", 29: "0", 34: "i", 40: "k", 36: "\r", 43: ",", 48: "\t", 49: " ", 51: "\u{7f}", 53: "\u{1b}",
         123: "\u{F702}", 124: "\u{F703}", 125: "\u{F701}", 126: "\u{F700}",
     ]
     guard let value = table[key] else {

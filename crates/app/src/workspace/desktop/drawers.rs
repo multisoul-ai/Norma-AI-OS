@@ -151,6 +151,12 @@ impl MultisoulApp {
             .when_some(self.render_overview_drag_capture(cx), |layer, capture| {
                 layer.child(capture)
             })
+            .when_some(self.render_idea_badges(window, cx), |layer, badges| {
+                layer.child(badges)
+            })
+            .when_some(self.render_idea_picker(window, cx), |layer, picker| {
+                layer.child(picker)
+            })
             .when_some(self.render_idea_drag_layer(cx), |layer, capture| {
                 layer.child(capture)
             })

@@ -6,7 +6,7 @@
 //! 减少动态效果下拖拽本身仍然跟手（直接操作不算装饰动效），只有流星改为无位移脉冲。
 
 use super::idea_drag::{
-    CardTarget, DragEvent, DragOutcome, DragTargets, DropTarget, IdeaDrag, Rect,
+    CardTarget, DragEvent, DragOutcome, DragTargets, DropTarget, IdeaDrag, Rect, RowSlot,
 };
 use super::ideas::IdeaUiTarget;
 use crate::app::MultisoulApp;
@@ -51,9 +51,21 @@ impl MultisoulApp {
         else {
             return;
         };
-        let Some((targets, names)) = self.idea_drag_targets(window, cx) else {
-            return;
-        };
+        // 没展开项目时也允许起拖：只有想法栏内的排序，没有卡片与新建区。
+        let (targets, names) = self.idea_drag_targets(window, cx).unwrap_or_else(|| {
+            (
+                DragTargets::list_only(
+                    Rect {
+                        x: 0.0,
+                        y: 0.0,
+                        w: 0.0,
+                        h: 0.0,
+                    },
+                    Vec::new(),
+                ),
+                Vec::new(),
+            )
+        });
         let start = (f32::from(event.position.x), f32::from(event.position.y));
         let row_origin = (start.0 - GRAB.0, start.1 - GRAB.1);
         self.desktop_workspace.idea_drag = Some(IdeaDragSession {
@@ -69,7 +81,7 @@ impl MultisoulApp {
     }
 
     /// 窗口坐标下的卡片、新建区与可见画布；只取当前展开项目的智能体卡片。
-    fn idea_drag_targets(
+    pub(super) fn idea_drag_targets(
         &self,
         window: &Window,
         cx: &Context<Self>,
@@ -125,12 +137,52 @@ impl MultisoulApp {
                 cards,
                 new_zone,
                 canvas,
+                list: Rect {
+                    x: 0.0,
+                    y: 0.0,
+                    w: 0.0,
+                    h: 0.0,
+                },
+                rows: Vec::new(),
             },
             names,
         ))
     }
 
+    /// 想法栏的行矩形来自上一帧的绘制结果；越过起拖阈值前每次移动都刷新，
+    /// 这样起拖那一刻用的是菜单已收起后的真实布局。起拖后栏被捕获层遮住、不会再滚动，矩形保持不变。
+    fn refresh_reorder_rows(&mut self) {
+        let list = self.ideas_scroll.bounds();
+        let rows: Vec<RowSlot> = self
+            .desktop_workspace
+            .ideas_aux
+            .row_bounds
+            .lock()
+            .map(|rows| {
+                rows.iter()
+                    .map(|(id, bounds)| RowSlot {
+                        id: id.clone(),
+                        rect: rect_of(bounds),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        let Some(session) = self.desktop_workspace.idea_drag.as_mut() else {
+            return;
+        };
+        session.targets.list = rect_of(&list);
+        session.targets.rows = rows;
+    }
+
     fn idea_drag_move(&mut self, x: f32, y: f32, cx: &mut Context<Self>) {
+        if self
+            .desktop_workspace
+            .idea_drag
+            .as_ref()
+            .is_some_and(|session| !session.drag.is_active())
+        {
+            self.refresh_reorder_rows();
+        }
         let Some(session) = self.desktop_workspace.idea_drag.as_mut() else {
             return;
         };
@@ -166,17 +218,25 @@ impl MultisoulApp {
                     screen.todo.iter().position(|row| row.id == id);
             }
             DragOutcome::Return => {}
+            DragOutcome::Reorder { before } => self.reorder_idea(&id, before.as_deref(), cx),
             DragOutcome::Deliver { target, from, .. } => {
                 let target = match target {
                     DropTarget::Existing { area_id, node_id } => {
                         IdeaUiTarget::Existing { area_id, node_id }
+                    }
+                    DropTarget::Reorder { .. } => {
+                        cx.notify();
+                        return;
                     }
                     DropTarget::NewAgent => {
                         let Some(area_id) = self.desktop_workspace.expanded_area_id.clone() else {
                             cx.notify();
                             return;
                         };
-                        IdeaUiTarget::New { area_id }
+                        IdeaUiTarget::New {
+                            area_id,
+                            profile: self.desktop_workspace.ideas_aux.default_profile,
+                        }
                     }
                 };
                 self.dispatch_idea(id, target, Some(from), window, cx);
@@ -232,13 +292,17 @@ impl MultisoulApp {
             let hot = matches!(&hover, Some(DropTarget::Existing { node_id, .. }) if *node_id == card.node_id);
             drop_outline(card.rect, format!("交给 {name}"), hot, "desktop-idea-drop-card")
         });
+        let line = reorder_line(session, &hover);
         let zone_hot = hover == Some(DropTarget::NewAgent);
-        let zone = drop_outline(
-            session.targets.new_zone,
-            "＋ 新建智能体来完成".to_owned(),
-            zone_hot,
-            "desktop-idea-drop-new",
-        );
+        // 没展开项目时没有新建区（矩形在无穷远），不画。
+        let zone = session.targets.new_zone.x.is_finite().then(|| {
+            drop_outline(
+                session.targets.new_zone,
+                "＋ 新建智能体来完成".to_owned(),
+                zone_hot,
+                "desktop-idea-drop-new",
+            )
+        });
         let ghost = div()
             .id("desktop-idea-ghost")
             .debug_selector(|| "desktop-idea-ghost".to_string())
@@ -257,7 +321,13 @@ impl MultisoulApp {
             .text_color(rgba(0xf1f9ffff))
             .overflow_hidden()
             .child(session.title.clone());
-        Some(layer.children(cards).child(zone).child(ghost))
+        Some(
+            layer
+                .children(cards)
+                .children(zone)
+                .children(line)
+                .child(ghost),
+        )
     }
 }
 
@@ -292,4 +362,49 @@ fn drop_outline(rect: Rect, label: String, hot: bool, id: &'static str) -> State
                 .text_color(rgba(if hot { 0xffffffff } else { 0xcfe8ffff }))
                 .child(label),
         )
+}
+
+fn rect_of(bounds: &gpui::Bounds<gpui::Pixels>) -> Rect {
+    Rect {
+        x: f32::from(bounds.origin.x),
+        y: f32::from(bounds.origin.y),
+        w: f32::from(bounds.size.width),
+        h: f32::from(bounds.size.height),
+    }
+}
+
+/// 排序的插入线：画在目标行之前（或最后一行之后）；落在原位置时不画，因为松手不会有任何变化。
+fn reorder_line(session: &IdeaDragSession, hover: &Option<DropTarget>) -> Option<Stateful<Div>> {
+    let Some(DropTarget::Reorder { before }) = hover else {
+        return None;
+    };
+    let rows = &session.targets.rows;
+    let own = rows.iter().position(|row| row.id == session.drag.idea_id)?;
+    let slot = match before {
+        Some(id) => rows.iter().position(|row| &row.id == id)?,
+        None => rows.len(),
+    };
+    if slot == own || slot == own + 1 {
+        return None;
+    }
+    let list = session.targets.list;
+    let y = match before {
+        Some(id) => rows.iter().find(|row| &row.id == id)?.rect.y - 2.0,
+        None => {
+            let last = rows.last()?;
+            last.rect.y + last.rect.h + 1.0
+        }
+    };
+    Some(
+        div()
+            .id("desktop-idea-reorder-line")
+            .debug_selector(|| "desktop-idea-reorder-line".to_string())
+            .absolute()
+            .left(px(list.x + 12.0))
+            .top(px(y))
+            .w(px((list.w - 24.0).max(1.0)))
+            .h(px(2.0))
+            .rounded_full()
+            .bg(rgba(0xbfe6ffff)),
+    )
 }

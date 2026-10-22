@@ -477,6 +477,11 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        let keys = (ev.modifiers.control, ev.modifiers.shift);
+        if self.desktop_workspace.ideas_aux.badge_keys != keys {
+            self.desktop_workspace.ideas_aux.badge_keys = keys;
+            cx.notify();
+        }
         self.forward_voice_modifiers_to_expanded_project(&ev.modifiers, window, cx);
         self.handle_configured_voice_modifier_release(&ev.modifiers, window, cx);
     }

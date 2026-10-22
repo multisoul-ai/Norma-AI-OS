@@ -100,7 +100,10 @@ impl MultisoulApp {
                         cx.stop_propagation();
                         if let Some(area_id) = new_area.clone() {
                             let from = Some(click_point(event));
-                            let target = IdeaUiTarget::New { area_id };
+                            let target = IdeaUiTarget::New {
+                                area_id,
+                                profile: app.desktop_workspace.ideas_aux.default_profile,
+                            };
                             app.dispatch_idea(id.clone(), target, from, window, cx);
                         }
                     }),
