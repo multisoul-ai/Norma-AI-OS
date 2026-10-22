@@ -17,9 +17,8 @@ const COPY_PRIMARY: u32 = 0xeef6ffff;
 const COPY_SECONDARY: u32 = 0xa9c0d5ff;
 const GRIP: u32 = 0x6f8ba3ff;
 const GRIP_ACTIVE: u32 = 0xbcd8f0ff;
-const SUB_TEXT: u32 = 0x8ea8bfff;
 
-/// 淡蓝底的主动作胶囊（指派、添加）。
+/// 淡蓝底的主动作胶囊（指派）。
 pub(super) fn idea_pill(id: impl Into<ElementId>, label: &'static str) -> Stateful<Div> {
     div()
         .id(id)
@@ -42,6 +41,38 @@ pub(super) fn idea_pill(id: impl Into<ElementId>, label: &'static str) -> Statef
         .child(label)
 }
 
+/// 输入框右下角的圆形发送按钮：有内容时填充强调色并可点，没有内容时只剩淡色箭头且不响应。
+pub(super) fn idea_send_button(enabled: bool) -> Stateful<Div> {
+    let icon = if enabled { 0x06182aff } else { 0x8ea8bf99 };
+    div()
+        .id("desktop-ideas-add-button")
+        .w(px(32.0))
+        .h(px(32.0))
+        .flex_none()
+        .flex()
+        .items_center()
+        .justify_center()
+        .rounded_full()
+        .when(enabled, |button| {
+            button
+                .bg(rgba(0x7cc0ffff))
+                .cursor_pointer()
+                .hover(|style| style.bg(rgba(0x9dd0ffff)))
+                .active(|style| style.bg(rgba(0xb8deffff)))
+        })
+        .when(!enabled, |button| {
+            button.border_1().border_color(rgba(0x8fcaff26))
+        })
+        .child(
+            svg()
+                .path("icons/arrow-up.svg")
+                .w(px(16.0))
+                .h(px(16.0))
+                .flex_none()
+                .text_color(rgba(icon)),
+        )
+}
+
 /// 28px 的图标按钮（删除）。
 fn idea_icon_button(id: impl Into<ElementId>, icon: &'static str) -> Stateful<Div> {
     div()
@@ -57,18 +88,6 @@ fn idea_icon_button(id: impl Into<ElementId>, icon: &'static str) -> Stateful<Di
         .hover(|style| style.bg(rgba(0x8fcaff2e)).text_color(rgba(0xffffffff)))
         .active(|style| style.bg(rgba(0x8fcaff48)))
         .child(svg().path(icon).w(px(13.0)).h(px(13.0)).flex_none())
-}
-
-/// 子分组小标题：「待办 3」，11px 次要色，26px 高。
-pub(super) fn idea_sub_heading(label: String) -> Div {
-    div()
-        .h(px(26.0))
-        .px(px(8.0))
-        .flex()
-        .items_center()
-        .text_size(px(11.0))
-        .text_color(rgba(SUB_TEXT))
-        .child(label)
 }
 
 /// 抓手：与原型一致的 grip 图标（14px），悬停行时提亮。

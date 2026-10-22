@@ -162,8 +162,8 @@ public enum WorkspaceIdeas {
         }
 
         try await session.step("手动添加：输入框里写一条并回车，库里是手动来源的待办") {
-            let frame = try await session.capture()
-            guard let input = frame.pick(["个想法，回车", "回车添加"], .top) else {
+            let frame = try await session.wait(Expectation(anyOf: ["写下一个想法", "写下一个", "下一个想法"], timeout: 8))
+            guard let input = frame.pick(["写下一个想法", "写下一个", "下一个想法"], .top) else {
                 throw E2EError.product("找不到想法输入框：\(frame.summary)")
             }
             try await session.click(local: input.center, on: frame)

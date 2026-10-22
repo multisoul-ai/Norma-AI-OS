@@ -63,7 +63,7 @@ public enum WorkspaceIdeasCompose {
                 _ = try await session.wait(Expectation(absent: ["Feature Guide", "Skip Guide"], timeout: 6))
             }
             try await session.shortcut(key: 34, modifiers: [0x37, 0x38])
-            _ = try await session.wait(Expectation(anyOf: ["个想法，回车", "回车添加"], timeout: 8))
+            _ = try await session.wait(Expectation(anyOf: ["写下一个想法", "写下一个", "下一个想法"], timeout: 8))
             for title in ["处理", "当前项目", "其他项目"] {
                 let frame = try await session.capture()
                 guard let heading = frame.texts.filter({ $0.value.contains(title) && $0.center.x < 440 }).first else {
@@ -76,8 +76,8 @@ public enum WorkspaceIdeasCompose {
         }
 
         func focusInput() async throws {
-            let frame = try await session.capture()
-            guard let input = frame.pick(["个想法，回车", "回车添加"], .top) else {
+            let frame = try await session.wait(Expectation(anyOf: ["写下一个想法", "写下一个", "下一个想法"], timeout: 8))
+            guard let input = frame.pick(["写下一个想法", "写下一个", "下一个想法"], .top) else {
                 throw E2EError.product("找不到想法输入框：\(frame.summary)")
             }
             try await session.click(local: input.center, on: frame)

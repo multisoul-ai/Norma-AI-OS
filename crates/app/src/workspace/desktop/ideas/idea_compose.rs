@@ -22,15 +22,22 @@ impl MultisoulApp {
         let input = cx.new(|cx| {
             InputState::new(window, cx)
                 .auto_grow(1, 5)
-                .placeholder("写下一个想法，回车添加，⇧回车换行；可粘贴图片和链接")
+                .placeholder("写下一个想法…")
         });
         // 多行输入框会先插入换行再发出 PressEnter：添加时正文会被去掉首尾空白，换行不会残留。
-        let subscription =
-            cx.subscribe_in(&input, window, |app, _, event: &InputEvent, window, cx| {
-                if matches!(event, InputEvent::PressEnter { .. }) {
-                    app.add_idea_from_input(window, cx);
+        let subscription = cx.subscribe_in(
+            &input,
+            window,
+            |app, _, event: &InputEvent, window, cx| match event {
+                InputEvent::PressEnter { .. } => app.add_idea_from_input(window, cx),
+                InputEvent::Focus | InputEvent::Blur => {
+                    app.desktop_workspace.ideas_aux.input_focused =
+                        matches!(event, InputEvent::Focus);
+                    cx.notify();
                 }
-            });
+                InputEvent::Change => cx.notify(),
+            },
+        );
         self.desktop_workspace.ideas_input = Some(input);
         self.desktop_ideas_input_subscription = Some(subscription);
     }

@@ -134,9 +134,8 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) ideas_pending_purge: std::collections::HashSet<String>,
     pub(crate) ideas_undo_timer: Option<gpui::Task<()>>,
     pub(crate) ideas_notice: Option<String>,
-    pub(crate) ideas_show_done: bool,
-    /// “已指派”分组是否折叠（只影响显示，新的指派不会自动展开）。
-    pub(crate) ideas_assigned_collapsed: bool,
+    /// 想法栏当前的分段（待办 / 已指派 / 已完成）。
+    pub(crate) ideas_tab: ideas_rows::IdeasTab,
     /// 左抽屉里想法行的大致位置（窗口坐标）：键盘、对话等没有具体行位置的派发，流星从这里出发。
     pub(crate) idea_flight_anchor: (i32, i32),
     pub(crate) ideas_input: Option<Entity<InputState>>,
@@ -310,8 +309,7 @@ impl DesktopWorkspaceUiState {
             ideas_pending_purge: std::collections::HashSet::new(),
             ideas_undo_timer: None,
             ideas_notice: None,
-            ideas_show_done: false,
-            ideas_assigned_collapsed: false,
+            ideas_tab: Default::default(),
             idea_flight_anchor: (140, 240),
             ideas_input: None,
             ideas_seen_todo: None,

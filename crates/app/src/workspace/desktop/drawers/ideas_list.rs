@@ -6,10 +6,10 @@
 //! - 删除可撤销（6 秒），不弹确认框；派发失败时在列表底部给出原因。
 //! - 状态同时用文字和颜色表达；拖到卡片的直接操作在后续切片加入。
 
-use super::super::overview_layout::OverviewGroup;
+use super::super::ideas_rows::IdeasTab;
 use super::super::overview_rows::overview_feedback;
-use super::ideas_row::{idea_pill, idea_sub_heading};
-use super::overview_list::group_empty;
+use super::ideas_row::idea_send_button;
+use super::ideas_tabs::{clear_row, tab_empty};
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div, ElementId, KeyDownEvent, Stateful};
 use ui::component::button::{Button, ButtonVariants};
@@ -17,8 +17,10 @@ use ui::component::input::{Input, Paste};
 use ui::component::Sizable;
 
 const COPY_PRIMARY: u32 = 0xeef6ffff;
-const GROUP_RULE: u32 = 0xcde8ff14;
 const NOTICE: u32 = 0xf6dfaaff;
+const HELPER: u32 = 0x7f98adff;
+const COMPOSER_REST: u32 = 0x83c4ff4d;
+const COMPOSER_FOCUS: u32 = 0x8fd0ffd9;
 
 impl MultisoulApp {
     /// 想法栏的内容区（栏标题与折叠由概览统一绘制）：清单、添加输入、提示与撤销。
@@ -29,16 +31,22 @@ impl MultisoulApp {
         let feedback = overview_feedback(theme);
         let cursor = self.desktop_workspace.ideas_cursor;
         let todo_count = screen.todo.len();
+        let tab = self.desktop_workspace.ideas_tab;
         // 条数变多说明有新想法：滚到末尾，让刚记下的那条可见。
         let scroll = self.ideas_scroll.clone();
-        if self
-            .desktop_workspace
-            .ideas_seen_todo
-            .is_some_and(|seen| todo_count > seen)
+        if tab == IdeasTab::Todo
+            && self
+                .desktop_workspace
+                .ideas_seen_todo
+                .is_some_and(|seen| todo_count > seen)
         {
-            // 按下标滚到最后一条待办：下标在布局时对照当前内容解析，不依赖上一帧的滚动范围。
-            let heading = usize::from(!screen.assigned.is_empty());
-            scroll.scroll_to_item(heading + todo_count.saturating_sub(1));
+            self.desktop_workspace.ideas_aux.stick_bottom_frames = 3;
+        }
+        if tab == IdeasTab::Todo && self.desktop_workspace.ideas_aux.stick_bottom_frames > 0 {
+            // 待办在列表末尾追加：连续几帧滚到底部，新记下的那条随即可见。
+            self.desktop_workspace.ideas_aux.stick_bottom_frames -= 1;
+            scroll.scroll_to_bottom();
+            cx.notify();
         }
         self.desktop_workspace.ideas_seen_todo = Some(todo_count);
         let menu_open = self.desktop_workspace.ideas_menu.clone();
@@ -71,6 +79,11 @@ impl MultisoulApp {
                     cx.stop_propagation();
                 }
             }))
+            .child(self.render_ideas_tabs(
+                [screen.todo.len(), screen.assigned.len(), screen.done.len()],
+                feedback,
+                cx,
+            ))
             .child(
                 div()
                     .id("desktop-ideas-list")
@@ -84,147 +97,105 @@ impl MultisoulApp {
                     .flex()
                     .flex_col()
                     .gap(px(4.0))
-                    .when(
-                        screen.todo.is_empty() && screen.assigned.is_empty(),
-                        |list| {
-                            list.child(group_empty(OverviewGroup::Ideas, screen.done.is_empty()))
-                        },
-                    )
-                    .when(!screen.todo.is_empty(), |list| {
-                        list.when(!screen.assigned.is_empty(), |list| {
-                            list.child(idea_sub_heading(format!("待办 {todo_count}")))
-                        })
-                        .child(
-                            div()
-                                .flex()
-                                .flex_col()
-                                .gap(px(4.0))
-                                .on_children_prepainted({
-                                    let ids: Vec<String> =
-                                        screen.todo.iter().map(|row| row.id.clone()).collect();
-                                    let cell = self.desktop_workspace.ideas_aux.row_bounds.clone();
-                                    move |bounds, _window, _cx| {
-                                        if let Ok(mut rows) = cell.lock() {
-                                            *rows = ids.iter().cloned().zip(bounds).collect();
-                                        }
-                                    }
-                                })
-                                .children(screen.todo.iter().enumerate().map(|(index, row)| {
-                                    let focused = cursor == Some(index);
-                                    let open = menu_open.as_deref() == Some(row.id.as_str());
-                                    self.render_todo_row(
-                                        row,
-                                        focused,
-                                        open,
-                                        &options,
-                                        areas.clone(),
-                                        feedback,
-                                        cx,
-                                    )
-                                })),
-                        )
-                    })
-                    .when(!screen.assigned.is_empty(), |list| {
-                        let collapsed = self.desktop_workspace.ideas_assigned_collapsed;
-                        list.child(div().h(px(1.0)).mt(px(4.0)).bg(rgba(GROUP_RULE)))
-                            .child(self.assigned_heading(
-                                screen.assigned.len(),
-                                collapsed,
-                                feedback,
-                                cx,
+                    .when(tab == IdeasTab::Todo, |list| {
+                        list.when(screen.todo.is_empty(), |list| {
+                            list.child(tab_empty(
+                                "还没有待办想法",
+                                "在下方写下一个想法，或对 Norma 说“记一下……”",
                             ))
-                            .when(!collapsed, |list| {
-                                list.children(screen.assigned.iter().enumerate().map(
-                                    |(index, row)| {
-                                        let focused = cursor == Some(todo_count + index);
-                                        self.render_assigned_row(row, focused, feedback, cx)
-                                    },
-                                ))
-                            })
+                        })
+                        .when(!screen.todo.is_empty(), |list| {
+                            list.child(
+                                div()
+                                    .flex()
+                                    .flex_col()
+                                    .gap(px(4.0))
+                                    .on_children_prepainted({
+                                        let ids: Vec<String> =
+                                            screen.todo.iter().map(|row| row.id.clone()).collect();
+                                        let cell =
+                                            self.desktop_workspace.ideas_aux.row_bounds.clone();
+                                        move |bounds, _window, _cx| {
+                                            if let Ok(mut rows) = cell.lock() {
+                                                *rows = ids.iter().cloned().zip(bounds).collect();
+                                            }
+                                        }
+                                    })
+                                    .children(screen.todo.iter().enumerate().map(
+                                        |(index, row)| {
+                                            let focused = cursor == Some(index);
+                                            let open =
+                                                menu_open.as_deref() == Some(row.id.as_str());
+                                            self.render_todo_row(
+                                                row,
+                                                focused,
+                                                open,
+                                                &options,
+                                                areas.clone(),
+                                                feedback,
+                                                cx,
+                                            )
+                                        },
+                                    )),
+                            )
+                        })
                     })
-                    .when(!screen.done.is_empty(), |list| {
-                        let show = self.desktop_workspace.ideas_show_done;
-                        list.child(
-                            div()
-                                .mt(px(4.0))
-                                .h(px(26.0))
-                                .px(px(8.0))
-                                .flex()
-                                .items_center()
-                                .justify_between()
-                                .child(
-                                    div()
-                                        .id("desktop-ideas-done-toggle")
-                                        .h(px(22.0))
-                                        .ml(px(-4.0))
-                                        .px(px(4.0))
-                                        .flex()
-                                        .items_center()
-                                        .gap(px(6.0))
-                                        .rounded(px(6.0))
-                                        .cursor_pointer()
-                                        .text_size(px(11.0))
-                                        .text_color(rgba(0x8ea8bfff))
-                                        .hover(move |style| {
-                                            style
-                                                .bg(rgba(feedback.hover))
-                                                .text_color(rgba(0xffffffff))
-                                        })
-                                        .active(move |style| style.bg(rgba(feedback.pressed)))
-                                        .on_click(cx.listener(|app, _, _, cx| {
-                                            cx.stop_propagation();
-                                            app.desktop_workspace.ideas_show_done =
-                                                !app.desktop_workspace.ideas_show_done;
-                                            cx.notify();
-                                        }))
-                                        .child(super::overview_parts::group_chevron(!show))
-                                        .child(format!("已完成 {}", screen.done.len())),
-                                )
-                                .when(show, |heading| {
-                                    heading.child(
-                                        div()
-                                            .id("desktop-ideas-done-clear")
-                                            .h(px(22.0))
-                                            .px(px(6.0))
-                                            .flex()
-                                            .items_center()
-                                            .rounded(px(6.0))
-                                            .cursor_pointer()
-                                            .text_size(px(11.0))
-                                            .font_weight(gpui::FontWeight::MEDIUM)
-                                            .text_color(rgba(0x9fc7eaff))
-                                            .hover(|style| {
-                                                style
-                                                    .bg(rgba(0x8fcaff24))
-                                                    .text_color(rgba(0xffffffff))
-                                            })
-                                            .on_click(cx.listener(|app, _, _, cx| {
-                                                cx.stop_propagation();
-                                                app.clear_done_ideas(cx);
-                                            }))
-                                            .child("清空"),
-                                    )
+                    .when(tab == IdeasTab::Assigned, |list| {
+                        list.when(screen.assigned.is_empty(), |list| {
+                            list.child(tab_empty(
+                                "还没有指派出去的想法",
+                                "把待办拖到智能体卡片上，或点“指派”",
+                            ))
+                        })
+                        .when(!screen.assigned.is_empty(), |list| {
+                            list.child(clear_row(
+                                "desktop-ideas-assigned-clear",
+                                "已交给智能体的想法",
+                                feedback,
+                                cx.listener(|app, _, _, cx| {
+                                    cx.stop_propagation();
+                                    app.clear_assigned_ideas(cx);
                                 }),
-                        )
-                        .when(show, |list| {
-                            list.children(screen.done.iter().map(|row| {
+                            ))
+                            .children(
+                                screen.assigned.iter().enumerate().map(|(index, row)| {
+                                    let focused = cursor == Some(index);
+                                    self.render_assigned_row(row, focused, feedback, cx)
+                                }),
+                            )
+                        })
+                    })
+                    .when(tab == IdeasTab::Done, |list| {
+                        list.when(screen.done.is_empty(), |list| {
+                            list.child(tab_empty("还没有完成的想法", "智能体完成后会出现在这里"))
+                        })
+                        .when(!screen.done.is_empty(), |list| {
+                            list.child(clear_row(
+                                "desktop-ideas-done-clear",
+                                "已完成的想法",
+                                feedback,
+                                cx.listener(|app, _, _, cx| {
+                                    cx.stop_propagation();
+                                    app.clear_done_ideas(cx);
+                                }),
+                            ))
+                            .children(screen.done.iter().map(|row| {
                                 div()
                                     .id(ElementId::Name(
                                         format!("desktop-idea-done-{}", row.id).into(),
                                     ))
-                                    .h(px(24.0))
-                                    .pl(px(14.0))
-                                    .pr(px(8.0))
+                                    .min_h(px(36.0))
+                                    .px(px(12.0))
                                     .flex()
                                     .items_center()
-                                    .gap(px(8.0))
-                                    .text_size(px(12.0))
-                                    .text_color(rgba(0x6f879cff))
+                                    .gap(px(10.0))
+                                    .text_size(px(13.0))
+                                    .text_color(rgba(0x8ea8bfff))
                                     .child(
                                         div()
                                             .flex_none()
-                                            .text_size(px(10.0))
-                                            .text_color(rgba(0x64dfd299))
+                                            .text_size(px(12.0))
+                                            .text_color(rgba(0x64dfd2cc))
                                             .child("✓"),
                                     )
                                     .child(
@@ -242,6 +213,9 @@ impl MultisoulApp {
             )
             .children(self.render_pending_idea_images(cx))
             .when_some(self.desktop_workspace.ideas_input.clone(), |body, input| {
+                let focused = self.desktop_workspace.ideas_aux.input_focused;
+                let has_draft = !input.read(cx).value().trim().is_empty()
+                    || !self.desktop_workspace.ideas_aux.pending_images.is_empty();
                 body.child(
                     div()
                         .id("desktop-ideas-add")
@@ -267,35 +241,55 @@ impl MultisoulApp {
                         }))
                         .flex_none()
                         .mx(px(8.0))
-                        .mt(px(4.0))
-                        .mb(px(2.0))
-                        .py(px(3.0))
-                        .pr(px(3.0))
-                        .pl(px(10.0))
-                        .flex()
-                        .items_center()
-                        .gap(px(6.0))
-                        .rounded(px(9.0))
-                        .border_1()
-                        .border_color(rgba(0x83c4ff40))
-                        .bg(rgba(0x0b1b2d99))
+                        .mt(px(6.0))
                         .child(
+                            // 输入面：焦点时描边加亮加粗（Material filled field 的 active indicator）。
                             div()
-                                .flex_1()
-                                .min_w(px(0.0))
-                                .min_h(px(28.0))
                                 .flex()
-                                .items_center()
-                                .text_size(px(12.0))
-                                .text_color(rgba(COPY_PRIMARY))
-                                .child(Input::new(&input).xsmall().appearance(false)),
+                                .items_end()
+                                .gap(px(6.0))
+                                .py(px(6.0))
+                                .pl(px(16.0))
+                                .pr(px(6.0))
+                                .rounded(px(22.0))
+                                .border_1()
+                                .border_color(rgba(if focused {
+                                    COMPOSER_FOCUS
+                                } else {
+                                    COMPOSER_REST
+                                }))
+                                .bg(rgba(if focused { 0x10283fe6 } else { 0x0d2035cc }))
+                                .hover(|style| style.bg(rgba(0x0e2237cc)))
+                                .child(
+                                    div()
+                                        .flex_1()
+                                        .min_w(px(0.0))
+                                        .min_h(px(32.0))
+                                        .flex()
+                                        .items_center()
+                                        .text_size(px(13.0))
+                                        .text_color(rgba(COPY_PRIMARY))
+                                        .child(Input::new(&input).xsmall().appearance(false)),
+                                )
+                                .child(idea_send_button(has_draft).when(has_draft, |button| {
+                                    button.on_click(cx.listener(|app, _, window, cx| {
+                                        cx.stop_propagation();
+                                        app.add_idea_from_input(window, cx);
+                                    }))
+                                })),
                         )
-                        .child(idea_pill("desktop-ideas-add-button", "添加").on_click(
-                            cx.listener(|app, _, window, cx| {
-                                cx.stop_propagation();
-                                app.add_idea_from_input(window, cx);
-                            }),
-                        )),
+                        .when(focused || has_draft, |composer| {
+                            composer.child(
+                                div()
+                                    .h(px(22.0))
+                                    .px(px(14.0))
+                                    .flex()
+                                    .items_center()
+                                    .text_size(px(11.0))
+                                    .text_color(rgba(HELPER))
+                                    .child("回车添加  ·  Shift+回车换行  ·  可粘贴图片和链接"),
+                            )
+                        }),
                 )
             })
             .when_some(

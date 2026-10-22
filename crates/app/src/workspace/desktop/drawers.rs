@@ -20,6 +20,7 @@ mod ideas_keys;
 mod ideas_list;
 mod ideas_menu;
 mod ideas_row;
+mod ideas_tabs;
 mod layout_save;
 mod left_body;
 mod left_tabs;

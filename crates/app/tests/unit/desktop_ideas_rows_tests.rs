@@ -1,4 +1,4 @@
-use super::{clamp_cursor, ideas_screen, relative_age, IdeaStatus};
+use super::{clamp_cursor, ideas_screen, relative_age, IdeaStatus, IdeasTab};
 use storage::{IdeaSource, StoredIdea};
 use workspace::ideas::IdeaState;
 use workspace::ideas::TaskPhase;
@@ -266,4 +266,22 @@ fn todo_row_shows_first_line_links_and_images() {
     let second = &screen.todo[1];
     assert_eq!(second.title, "图片", "纯图片想法用“图片”作标题");
     assert!(second.links.is_empty(), "没有链接时 links 应为空");
+}
+
+/// 分段按钮默认停在「待办」，三段顺序固定，标签与键互不重复。
+///
+/// 数据构造：取 `IdeasTab::default()` 与 `IdeasTab::ALL`。
+/// 执行过程：读取默认值、逐段取 label 与 key。
+/// 预期结果：
+///   - 正断言：默认是 Todo；顺序为 待办、已指派、已完成。
+///   - 负断言：三个 key 互不相同，避免元素 ID 冲突。
+#[test]
+fn ideas_tabs_default_to_todo_with_stable_order() {
+    assert_eq!(IdeasTab::default(), IdeasTab::Todo, "首次进入应先看到待办");
+    let labels: Vec<_> = IdeasTab::ALL.iter().map(|tab| tab.label()).collect();
+    assert_eq!(labels, ["待办", "已指派", "已完成"], "分段顺序应固定");
+    let mut keys: Vec<_> = IdeasTab::ALL.iter().map(|tab| tab.key()).collect();
+    keys.sort();
+    keys.dedup();
+    assert_eq!(keys.len(), 3, "三段的 key 不能重复");
 }

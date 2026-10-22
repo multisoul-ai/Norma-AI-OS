@@ -30,6 +30,10 @@ pub(crate) struct IdeasAux {
     pub(crate) profile_loaded: bool,
     /// 已粘贴、还没随想法保存的图片文件名（按粘贴顺序）。
     pub(crate) pending_images: Vec<String>,
+    /// 输入框是否拥有键盘焦点：用来绘制 Material 式的焦点描边。
+    pub(crate) input_focused: bool,
+    /// 新增待办后还要贴底滚动的帧数：输入框回落一行会让列表在下一帧变高，只滚一帧会差一行。
+    pub(crate) stick_bottom_frames: u8,
     pub(crate) row_bounds:
         std::sync::Arc<std::sync::Mutex<Vec<(String, gpui::Bounds<gpui::Pixels>)>>>,
 }
@@ -42,6 +46,8 @@ impl Default for IdeasAux {
             picker: None,
             profile_loaded: false,
             pending_images: Vec::new(),
+            input_focused: false,
+            stick_bottom_frames: 0,
             row_bounds: Default::default(),
         }
     }
