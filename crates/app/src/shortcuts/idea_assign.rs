@@ -23,6 +23,33 @@ pub(crate) fn new_agent_profile(slot: u8) -> Option<AgentProfile> {
     }
 }
 
+/// 把按键还原成规范写法再去匹配或保存。macOS 上 GPUI 对 shift+数字上报“上档字符且清掉 shift 位”
+/// （US 布局 ⌃⇧3 是 `ctrl-#`），而默认键与偏好里存的是 `ctrl-shift-3`；只还原仅带 ⌃ 的情形。
+/// 其他键盘布局的上档字符不同，那种布局下请在 Settings 里直接录制（录到什么就存什么）。
+pub(crate) fn canonical_source(keystroke: &gpui::Keystroke) -> String {
+    let modifiers = &keystroke.modifiers;
+    let digit = (modifiers.control
+        && !modifiers.shift
+        && !modifiers.alt
+        && !modifiers.platform
+        && !modifiers.function)
+        .then(|| ")!@#$%^&*(".find(keystroke.key.as_str()))
+        .flatten()
+        .filter(|_| keystroke.key.chars().count() == 1);
+    match digit {
+        Some(digit) => gpui::Keystroke {
+            modifiers: gpui::Modifiers {
+                shift: true,
+                ..*modifiers
+            },
+            key: digit.to_string(),
+            key_char: None,
+        }
+        .unparse(),
+        None => keystroke.unparse(),
+    }
+}
+
 /// 默认新建类型在设置库里的键；值见 [`profile_key`]。
 pub(crate) const DEFAULT_PROFILE_SETTING: &str = "ideas.new_agent_profile.v1";
 

@@ -172,3 +172,35 @@ fn default_profile_key_round_trips() {
     assert_eq!(profile_from_key("Codex"), None);
     assert_eq!(profile_from_key("Unknown"), None);
 }
+
+/// macOS 上 GPUI 对 shift+数字上报的是“上档字符且清掉 shift 位”（⌃⇧3 → `ctrl-#`）：
+/// 想法派发的 ⌃⇧ 默认键必须按这种真实形态也能命中；录制时存回规范的 `ctrl-shift-N`。
+///
+/// 数据构造：默认偏好；用真实形态 `ctrl-#`、`ctrl-)`、`ctrl-@` 构造按键（不是 `ctrl-shift-N`）。
+/// 预期结果：
+///   - 正断言：`ctrl-#` → 新建 Codex（槽位 3）；`ctrl-)` → 类型选择器（槽位 1）；`ctrl-@` → 槽位 2；录制 `ctrl-#` 存为 `ctrl-shift-3`。
+///   - 负断言：`ctrl-3` 仍是派给第 3 张卡片；带 ⌘ 的 `cmd-ctrl-#` 不命中。
+#[test]
+fn ctrl_shift_digit_matches_macos_shifted_symbol_form() {
+    let state = crate::shortcuts::ShortcutSettingsState::default();
+    let find =
+        |source: &str| state.command_for_keystroke(&Keystroke::parse(source).expect("有效按键"));
+    assert_eq!(
+        find("ctrl-#"),
+        Some(ShortcutCommandId::AssignIdeaToNewAgent(3))
+    );
+    assert_eq!(
+        find("ctrl-)"),
+        Some(ShortcutCommandId::AssignIdeaToNewAgent(1))
+    );
+    assert_eq!(
+        find("ctrl-@"),
+        Some(ShortcutCommandId::AssignIdeaToNewAgent(2))
+    );
+    assert_eq!(find("ctrl-3"), Some(ShortcutCommandId::AssignIdeaToCard(3)));
+    assert_eq!(find("cmd-ctrl-#"), None, "带 ⌘ 不是想法派发");
+    let recorded = crate::shortcuts::idea_assign::canonical_source(
+        &Keystroke::parse("ctrl-#").expect("有效按键"),
+    );
+    assert_eq!(recorded, "ctrl-shift-3");
+}

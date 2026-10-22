@@ -207,7 +207,7 @@ impl ShortcutSettingsState {
     }
 
     pub(crate) fn command_for_keystroke(&self, keystroke: &Keystroke) -> Option<ShortcutCommandId> {
-        let source = keystroke.unparse();
+        let source = idea_assign::canonical_source(keystroke);
         self.effective.iter().find_map(|entry| {
             (entry.current_keystroke.as_deref() == Some(source.as_str())).then_some(entry.command)
         })
@@ -258,7 +258,7 @@ impl ShortcutSettingsState {
             return true;
         }
 
-        let source = keystroke.unparse();
+        let source = idea_assign::canonical_source(keystroke);
         match validate_shortcut_change(command, &source, &self.effective) {
             Ok(()) => {
                 self.prefs.set_override(command, source);

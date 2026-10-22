@@ -130,6 +130,8 @@ impl MultisoulApp {
         if !matches!(self.screen, crate::app::AppScreen::DesktopWorkspace) {
             return;
         }
+        // 任何派发请求都先收起类型选择器：否则 ⌃N 等全局快捷键派发后浮层仍开着。
+        self.desktop_workspace.ideas_aux.picker = None;
         let screen = self.ideas_screen(cx);
         let todo_ids: Vec<String> = screen.todo.iter().map(|row| row.id.clone()).collect();
         let options = self.idea_target_options(cx);

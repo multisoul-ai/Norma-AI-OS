@@ -176,6 +176,11 @@ func keystroke(key: CGKeyCode, modifiers: [CGKeyCode]) throws -> String {
     guard let name = names[key] else {
         throw E2EError.env("控制通道还不支持虚拟键码 \(key)，请在 keystroke(key:modifiers:) 中补充映射。")
     }
+    // macOS 上 GPUI 对 ⌃⇧+数字上报“上档字符且清掉 shift 位”（US 布局 ⌃⇧3 → ctrl-#），按真实形态注入。
+    let shiftedDigits: [CGKeyCode: String] = [29: ")", 19: "@", 20: "#"]
+    if modifiers.sorted() == [0x38, 0x3B], let symbol = shiftedDigits[key] {
+        return "ctrl-" + symbol
+    }
     let prefix = try modifiers.map { code -> String in
         guard let modifier = modifierNames[code] else {
             throw E2EError.env("控制通道还不支持修饰键码 \(code)")
