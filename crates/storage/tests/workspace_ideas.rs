@@ -353,3 +353,138 @@ fn capture_generates_distinct_ids_for_identical_bodies() {
         "两条想法都应在清单里"
     );
 }
+
+/// 想法可以带图片：图片文件落在数据库同级的 idea-images 目录，想法只记文件名；
+/// 派发给智能体的文本 = 正文 + 图片的绝对路径。
+///
+/// 数据构造：保存 2 张图片字节；记一条“多行正文 + 2 张图”和一条“只有图”的想法；再尝试路径穿越的文件名。
+/// 执行过程：add_with_images → 重建 Store 列出 → 取 dispatch_text。
+/// 预期结果：
+///   - 正断言：重建后 images 保持顺序；图片文件内容与保存时一致；纯图片想法正文为空；
+///     派发文本以正文开头，并按顺序列出两张图的绝对路径；多行正文的换行保留。
+///   - 负断言：含 “..” 或分隔符的文件名、不在白名单里的扩展名都被拒绝；没有文字也没有图片被拒绝。
+#[test]
+fn ideas_keep_images_multiline_bodies_and_build_dispatch_text() {
+    let (_temp, db, workspace) = setup();
+    let store = IdeasStore::new(db.clone());
+    let first = store
+        .save_image(b"png-bytes", "png")
+        .expect("应保存第一张图");
+    let second = store
+        .save_image(b"jpg-bytes", "jpg")
+        .expect("应保存第二张图");
+    assert_ne!(first, second, "两张图应使用不同的文件名");
+    store
+        .add_with_images(
+            &workspace,
+            "i1",
+            "第一行\n第二行 https://example.com",
+            IdeaSource::Manual,
+            &[first.clone(), second.clone()],
+        )
+        .expect("应记下带图的想法");
+    store
+        .add_with_images(&workspace, "i2", "  ", IdeaSource::Manual, &[first.clone()])
+        .expect("只有图片的想法应被接受");
+    assert!(
+        store
+            .add_with_images(&workspace, "i3", "  ", IdeaSource::Manual, &[])
+            .is_err(),
+        "没有文字也没有图片不应落库"
+    );
+    assert!(
+        store.save_image(b"x", "exe").is_err(),
+        "不在白名单里的扩展名应被拒绝"
+    );
+    assert!(
+        store.image_path("../app.sqlite").is_err() && store.image_path("a/b.png").is_err(),
+        "带路径分隔符或 .. 的文件名应被拒绝"
+    );
+
+    let reopened = IdeasStore::new(db);
+    let ideas = reopened.list(&workspace).expect("应列出");
+    assert_eq!(
+        ideas[0].images,
+        [first.clone(), second.clone()],
+        "图片顺序应保持"
+    );
+    assert_eq!(
+        ideas[0].body, "第一行\n第二行 https://example.com",
+        "多行正文换行应保留"
+    );
+    assert_eq!(ideas[1].body, "", "纯图片想法正文为空");
+    let first_path = reopened.image_path(&first).expect("应解析路径");
+    assert_eq!(
+        std::fs::read(&first_path).expect("图片文件应存在"),
+        b"png-bytes",
+        "图片内容应与保存时一致"
+    );
+    let text = reopened.dispatch_text(&ideas[0]);
+    let second_path = reopened.image_path(&second).expect("应解析路径");
+    assert!(
+        text.starts_with("第一行\n第二行 https://example.com"),
+        "派发文本应以正文开头：{text}"
+    );
+    assert!(
+        text.find(first_path.to_str().unwrap()) < text.find(second_path.to_str().unwrap())
+            && text.contains(second_path.to_str().unwrap()),
+        "派发文本应按顺序列出两张图的绝对路径：{text}"
+    );
+    assert!(
+        reopened
+            .dispatch_text(&ideas[1])
+            .contains(first_path.to_str().unwrap()),
+        "纯图片想法的派发文本也要带上图片路径"
+    );
+}
+
+/// 想法被真正删除（清空已完成 / 过期清理）时，它的图片文件一并删除；未被删除的想法图片保留。
+///
+/// 数据构造：三条已完成想法各带一张图（A、B、C），一条待办带一张图（D）；A、B 走 delete_done 点名删除，C 走 purge_done_before。
+/// 执行过程：先把三条置为已完成，再分别删除；另对未关联的图片调用 discard_image。
+/// 预期结果：
+///   - 正断言：A、B、C 的文件都不存在；被丢弃的未关联图片文件不存在。
+///   - 负断言：待办 D 的图片仍在；删除不存在的文件名不报错。
+#[test]
+fn deleting_ideas_removes_their_image_files() {
+    let (_temp, db, workspace) = setup();
+    let store = IdeasStore::new(db);
+    let mut names = Vec::new();
+    for (id, task) in [("a", "t1"), ("b", "t2"), ("c", "t3"), ("d", "")] {
+        let image = store.save_image(id.as_bytes(), "png").expect("应保存图片");
+        store
+            .add_with_images(&workspace, id, id, IdeaSource::Manual, &[image.clone()])
+            .expect("应记下想法");
+        if !task.is_empty() {
+            store
+                .begin_dispatch(&workspace, id, task)
+                .expect("应开始派发");
+            store
+                .mark_assigned(&workspace, id, "area", 1, None)
+                .expect("应指派");
+            assert!(
+                store.complete_by_task_ref(task).expect("应完成"),
+                "{id} 应置为已完成"
+            );
+        }
+        names.push(image);
+    }
+    let exists = |name: &String| store.image_path(name).expect("路径").exists();
+    store
+        .delete_done(&workspace, &["a".to_owned(), "b".to_owned()])
+        .expect("应删除");
+    assert!(
+        !exists(&names[0]) && !exists(&names[1]),
+        "点名删除的想法图片应被删除"
+    );
+    assert!(exists(&names[2]), "未删除的已完成想法图片仍应保留");
+    store
+        .purge_done_before(&workspace, u64::MAX / 2)
+        .expect("应清理");
+    assert!(!exists(&names[2]), "过期清理的想法图片应被删除");
+    assert!(exists(&names[3]), "待办想法的图片必须保留");
+    let loose = store.save_image(b"x", "png").expect("应保存");
+    store.discard_image(&loose);
+    assert!(!exists(&loose), "丢弃未关联图片应删除文件");
+    store.discard_image("nope.png");
+}

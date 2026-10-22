@@ -129,6 +129,8 @@ pub(crate) fn assign_idea(
         user_initiated,
         "[idea-dispatch] begin"
     );
+    // 派发给智能体的文本 = 正文 + 附带图片的绝对路径。
+    let task_text = ideas.dispatch_text(&idea);
     // 流星要飞约 0.9 秒才落到卡片：任务正文等流星到了再输入，否则卡片会在流星抵达前就开始运行。
     let hold_until = std::time::Instant::now() + IDEA_DELIVERY_DELAY;
     let held_node = match &target {
@@ -147,7 +149,7 @@ pub(crate) fn assign_idea(
             &workspace_id,
             &area_id,
             node_id,
-            &idea.body,
+            &task_text,
             user_initiated,
             cx,
         ),
@@ -162,7 +164,7 @@ pub(crate) fn assign_idea(
                     window.as_deref_mut(),
                     cx,
                     profile,
-                    idea.body.clone(),
+                    task_text.clone(),
                     user_initiated,
                     user_initiated || input_source == AgentInputSource::DoubaoVoice,
                 )

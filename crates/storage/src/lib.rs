@@ -28,6 +28,8 @@ pub mod desktop_area_status_store;
 pub mod desktop_content_tab_store;
 pub mod desktop_workspace_store;
 pub mod error;
+mod ideas_codec;
+mod ideas_images;
 mod ideas_mobile;
 mod ideas_reorder;
 mod ideas_store;

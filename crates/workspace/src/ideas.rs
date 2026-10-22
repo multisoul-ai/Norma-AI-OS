@@ -3,6 +3,9 @@
 /// 想法正文上限（字符数，不是字节数）。
 pub const MAX_IDEA_CHARS: usize = 500;
 
+/// 单条想法最多附带的图片数。
+pub const MAX_IDEA_IMAGES: usize = 6;
+
 /// 想法的来源：对话文字、语音、手动添加。
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum IdeaSource {
@@ -34,6 +37,7 @@ impl IdeaSource {
 pub enum IdeaError {
     Empty,
     TooLong,
+    TooManyImages,
     InvalidTransition,
 }
 
@@ -90,6 +94,37 @@ pub fn normalize_body(raw: &str) -> Result<String, IdeaError> {
         return Err(IdeaError::TooLong);
     }
     Ok(body.to_owned())
+}
+
+/// 允许只有图片的想法：正文为空但至少带一张图片时返回空串；其余规则同 `normalize_body`。
+pub fn normalize_body_with_images(raw: &str, image_count: usize) -> Result<String, IdeaError> {
+    if image_count > MAX_IDEA_IMAGES {
+        return Err(IdeaError::TooManyImages);
+    }
+    match normalize_body(raw) {
+        Err(IdeaError::Empty) if image_count > 0 => Ok(String::new()),
+        other => other,
+    }
+}
+
+/// 按出现顺序取出正文里的 http/https 链接（去重），去掉尾随的标点与右括号。
+pub fn extract_links(body: &str) -> Vec<String> {
+    let mut links: Vec<String> = Vec::new();
+    for (start, _) in body.match_indices("http") {
+        let rest = &body[start..];
+        if !(rest.starts_with("http://") || rest.starts_with("https://")) {
+            continue;
+        }
+        let end = rest
+            .find(|c: char| c.is_whitespace() || "<>\"“”‘’「」（）()[]【】，。；！？、".contains(c))
+            .unwrap_or(rest.len());
+        let link = rest[..end].trim_end_matches(['.', ',', ';', ':', '!', '?', '\'', '"']);
+        let scheme = if link.starts_with("https://") { 8 } else { 7 };
+        if link.len() > scheme && !links.iter().any(|known| known == link) {
+            links.push(link.to_owned());
+        }
+    }
+    links
 }
 
 pub fn transition(state: IdeaState, event: IdeaEvent) -> Result<IdeaState, IdeaError> {

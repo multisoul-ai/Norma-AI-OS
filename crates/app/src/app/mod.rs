@@ -69,7 +69,7 @@ pub(crate) mod cef_process;
 mod chrome;
 pub(crate) use chrome::{brand_logo, top_bar_theme, BRAND_TOGGLE_LEFT, TOP_BAR_HEIGHT};
 pub(crate) mod assistant_conversation;
-mod clipboard_image;
+pub(crate) mod clipboard_image;
 pub(crate) mod command_dock;
 mod cpu_benchmark;
 mod cursor_animation;

@@ -27,6 +27,10 @@ pub(super) struct TodoRow {
     pub(super) title: String,
     pub(super) body: String,
     pub(super) meta: String,
+    /// 正文里的 http(s) 链接，按出现顺序。
+    pub(super) links: Vec<String>,
+    /// 附带图片的文件名，路径由存储解析。
+    pub(super) image_names: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -74,8 +78,10 @@ pub(super) fn ideas_screen(
         match idea.state {
             IdeaState::Todo => screen.todo.push(TodoRow {
                 id: idea.id.clone(),
-                title: title_of(&idea.body),
+                title: title_of(idea),
                 body: idea.body.clone(),
+                links: workspace::ideas::extract_links(&idea.body),
+                image_names: idea.images.clone(),
                 meta: format!(
                     "{} · {}",
                     relative_age(idea.created_at_unix, now_unix),
@@ -97,7 +103,7 @@ pub(super) fn ideas_screen(
                 };
                 screen.assigned.push(AssignedRow {
                     id: idea.id.clone(),
-                    title: title_of(&idea.body),
+                    title: title_of(idea),
                     status,
                     area_id: idea.assignee_area_id.clone(),
                     node_id: idea.assignee_node_id,
@@ -107,7 +113,7 @@ pub(super) fn ideas_screen(
             }
             IdeaState::Done => screen.done.push(DoneRow {
                 id: idea.id.clone(),
-                title: title_of(&idea.body),
+                title: title_of(idea),
             }),
             IdeaState::Dismissed => {}
         }
@@ -126,8 +132,16 @@ pub(super) fn clamp_cursor(cursor: Option<usize>, total: usize) -> Option<usize>
     cursor.filter(|index| *index < total)
 }
 
-fn title_of(body: &str) -> String {
-    let first = body.lines().next().unwrap_or_default().trim();
+fn title_of(idea: &StoredIdea) -> String {
+    let first = idea
+        .body
+        .lines()
+        .map(str::trim)
+        .find(|line| !line.is_empty())
+        .unwrap_or_default();
+    if first.is_empty() && !idea.images.is_empty() {
+        return "图片".to_owned();
+    }
     if first.chars().count() > TITLE_CHARS {
         let cut: String = first.chars().take(TITLE_CHARS).collect();
         format!("{cut}…")

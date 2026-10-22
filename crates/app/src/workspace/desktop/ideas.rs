@@ -3,6 +3,7 @@
 
 mod idea_assign;
 mod idea_badges;
+mod idea_compose;
 mod idea_picker;
 pub(in crate::workspace::desktop) mod idea_reorder;
 
@@ -15,7 +16,6 @@ use gpui::{AppContext as _, Context, Window};
 use norma::protocol::AgentProfile;
 use std::time::{SystemTime, UNIX_EPOCH};
 use storage::IdeasStore;
-use ui::component::input::{InputEvent, InputState};
 use workspace::ideas::{classify_task_state, TaskPhase};
 
 /// 想法栏的辅助状态：新建智能体的默认类型（拖到新建区、菜单新建、`⌃0` 共用），
@@ -28,6 +28,8 @@ pub(crate) struct IdeasAux {
     pub(crate) picker: Option<usize>,
     /// 默认类型已从设置库读回（或已被本次运行里的选择覆盖）；之后不再用库里的值回写界面。
     pub(crate) profile_loaded: bool,
+    /// 已粘贴、还没随想法保存的图片文件名（按粘贴顺序）。
+    pub(crate) pending_images: Vec<String>,
     pub(crate) row_bounds:
         std::sync::Arc<std::sync::Mutex<Vec<(String, gpui::Bounds<gpui::Pixels>)>>>,
 }
@@ -39,6 +41,7 @@ impl Default for IdeasAux {
             badge_keys: (false, false),
             picker: None,
             profile_loaded: false,
+            pending_images: Vec::new(),
             row_bounds: Default::default(),
         }
     }
@@ -177,65 +180,6 @@ impl MultisoulApp {
             {
                 tracing::warn!(%error, "failed to persist default idea agent type");
             }
-        })
-        .detach();
-    }
-
-    /// 想法清单顶部的输入框：回车或点“添加”记一条手动想法。创建需要窗口，所以在渲染前惰性建立。
-    pub(super) fn ensure_idea_input(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.desktop_workspace.ideas_input.is_some() {
-            return;
-        }
-        // 单行输入框不会过滤换行（粘贴多行文字或模拟输入的回车都可能带进来），
-        // 带换行的值在绘制时会触发 shape_line 的断言：用 validate 直接拒绝含换行的输入。
-        let input = cx.new(|cx| {
-            InputState::new(window, cx)
-                .placeholder("写下一个想法，回车添加")
-                .validate(|value, _| !value.contains(['\n', '\r']))
-        });
-        let subscription =
-            cx.subscribe_in(&input, window, |app, _, event: &InputEvent, window, cx| {
-                if matches!(event, InputEvent::PressEnter { .. }) {
-                    app.add_idea_from_input(window, cx);
-                }
-            });
-        self.desktop_workspace.ideas_input = Some(input);
-        self.desktop_ideas_input_subscription = Some(subscription);
-    }
-
-    /// 把输入框里的文字记成一条手动想法：写库在后台，完成后刷新清单；超长或为空给出提示。
-    pub(super) fn add_idea_from_input(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let (Some(input), Some(workspace_id)) = (
-            self.desktop_workspace.ideas_input.clone(),
-            self.desktop_workspace.active_id.clone(),
-        ) else {
-            return;
-        };
-        let text = input.read(cx).value().to_string();
-        let body = match workspace::ideas::normalize_body(&text) {
-            Ok(body) => body,
-            Err(workspace::ideas::IdeaError::Empty) => return,
-            Err(_) => {
-                self.desktop_workspace.ideas_notice = Some("想法太长了，最多 500 个字".to_owned());
-                cx.notify();
-                return;
-            }
-        };
-        input.update(cx, |state, cx| state.set_value("", window, cx));
-        self.desktop_workspace.ideas_notice = None;
-        let store = IdeasStore::new(self.database_paths.app_db_path().to_owned());
-        cx.spawn(async move |this, cx| {
-            let saved = cx
-                .background_spawn(async move {
-                    store.capture(&workspace_id, &body, storage::IdeaSource::Manual)
-                })
-                .await;
-            let _ = this.update(cx, |app, cx| {
-                if let Err(error) = saved {
-                    app.desktop_workspace.ideas_notice = Some(format!("没能记下：{error}"));
-                }
-                app.refresh_ideas(cx);
-            });
         })
         .detach();
     }

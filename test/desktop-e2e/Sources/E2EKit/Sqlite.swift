@@ -149,6 +149,19 @@ extension Catalog {
         )
     }
 
+    /// 想法正文 → 附带图片文件名（按添加顺序，空串表示没有图片）。
+    public static func ideaImages(database url: URL) throws -> [String: [String]] {
+        let database = try SQLiteDB(path: url.path, write: false)
+        defer { database.close() }
+        let rows = try database.query("SELECT body,images FROM workspace_ideas") { statement in
+            (column(statement, 0), column(statement, 1))
+        }
+        return Dictionary(
+            rows.map { ($0.0, $0.1.split(separator: "\n").map(String.init)) },
+            uniquingKeysWith: { first, _ in first }
+        )
+    }
+
     /// 想法正文 → 来源（chat / voice / manual）。
     public static func ideaSources(database url: URL) throws -> [String: String] {
         let database = try SQLiteDB(path: url.path, write: false)

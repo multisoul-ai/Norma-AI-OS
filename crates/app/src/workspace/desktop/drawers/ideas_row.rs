@@ -8,7 +8,8 @@ use super::super::ideas::IdeaTargetOption;
 use super::super::ideas_rows::TodoRow;
 use crate::app::MultisoulApp;
 use gpui::{
-    div, prelude::*, px, rgba, svg, Context, Div, ElementId, MouseButton, MouseDownEvent, Stateful,
+    div, img, prelude::*, px, rgba, svg, Context, Div, ElementId, MouseButton, MouseDownEvent,
+    ObjectFit, Stateful,
 };
 use ui::component::tooltip::Tooltip;
 
@@ -89,7 +90,92 @@ fn grip(active: bool) -> Div {
         )
 }
 
+/// 链接与图片的小标记：点一下用系统默认方式打开；按下时不触发行的拖动与选中。
+fn attachment_chip(id: String) -> Stateful<Div> {
+    div()
+        .id(ElementId::Name(id.into()))
+        .flex_none()
+        .flex()
+        .items_center()
+        .rounded(px(5.0))
+        .cursor_pointer()
+        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+}
+
+fn link_label(link: &str) -> String {
+    let rest = link.split_once("://").map_or(link, |(_, rest)| rest);
+    let host = rest.split('/').next().unwrap_or(rest);
+    let more = rest.len() > host.len();
+    let cut: String = host.chars().take(24).collect();
+    if more || cut.len() < host.len() {
+        format!("🔗 {cut}…")
+    } else {
+        format!("🔗 {cut}")
+    }
+}
+
 impl MultisoulApp {
+    /// 待办行里的链接（最多 2 个）与图片缩略图；都没有时不占位。
+    fn render_idea_attachments(&self, row: &TodoRow, cx: &mut Context<Self>) -> Option<Div> {
+        if row.links.is_empty() && row.image_names.is_empty() {
+            return None;
+        }
+        let store = storage::IdeasStore::new(self.database_paths.app_db_path().to_owned());
+        let links = row.links.iter().take(2).map(|link| {
+            let target = link.clone();
+            attachment_chip(format!("idea-link-{}-{link}", row.id))
+                .h(px(20.0))
+                .px(px(6.0))
+                .bg(rgba(0x58adff1f))
+                .text_size(px(11.0))
+                .text_color(rgba(0xbfe0ffff))
+                .hover(|style| style.bg(rgba(0x58adff3d)))
+                .active(|style| style.bg(rgba(0x58adff59)))
+                .tooltip({
+                    let link = link.clone();
+                    move |window, cx| Tooltip::new(link.clone()).build(window, cx)
+                })
+                .on_click(cx.listener(move |_, _, _, cx| {
+                    cx.stop_propagation();
+                    cx.open_url(&target);
+                }))
+                .child(link_label(link))
+        });
+        let images = row.image_names.iter().filter_map(|name| {
+            let path = store.image_path(name).ok()?;
+            let target = format!("file://{}", path.display());
+            Some(
+                attachment_chip(format!("idea-image-{}-{name}", row.id))
+                    .w(px(24.0))
+                    .h(px(24.0))
+                    .overflow_hidden()
+                    .border_1()
+                    .border_color(rgba(0x83c4ff40))
+                    .hover(|style| style.border_color(rgba(0x83c4ffa0)))
+                    .tooltip(|window, cx| Tooltip::new("打开图片").build(window, cx))
+                    .on_click(cx.listener(move |_, _, _, cx| {
+                        cx.stop_propagation();
+                        cx.open_url(&target);
+                    }))
+                    .child(
+                        img(path)
+                            .w(px(24.0))
+                            .h(px(24.0))
+                            .object_fit(ObjectFit::Cover),
+                    ),
+            )
+        });
+        Some(
+            div()
+                .flex()
+                .flex_wrap()
+                .items_center()
+                .gap(px(4.0))
+                .children(links)
+                .children(images),
+        )
+    }
+
     pub(super) fn render_todo_row(
         &self,
         row: &TodoRow,
@@ -228,7 +314,8 @@ impl MultisoulApp {
                                         .text_size(px(11.0))
                                         .text_color(rgba(COPY_SECONDARY))
                                         .child(row.meta.clone()),
-                                ),
+                                )
+                                .children(self.render_idea_attachments(row, cx)),
                         ),
                 )
                 .child(actions.children(popover)),

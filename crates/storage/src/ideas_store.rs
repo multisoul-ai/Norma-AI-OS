@@ -1,9 +1,10 @@
+use crate::ideas_codec::{convert, decode, read, SELECT};
 use crate::{migrations::open_app_connection, StorageError, StorageResult};
-use rusqlite::{params, Connection, OptionalExtension, Row, Transaction, TransactionBehavior};
+use rusqlite::{params, Connection, TransactionBehavior};
 use std::path::PathBuf;
 use workspace::ideas::{
-    idea_effect, normalize_body, transition, IdeaEffect, IdeaEvent, IdeaSource, IdeaState,
-    TaskPhase,
+    idea_effect, normalize_body_with_images, transition, IdeaEffect, IdeaEvent, IdeaSource,
+    IdeaState, TaskPhase,
 };
 
 /// 相邻想法的排序间隔，为将来的手动排序留出空隙。
@@ -20,6 +21,8 @@ pub struct StoredIdea {
     pub assignee_area_id: Option<String>,
     pub assignee_node_id: Option<u64>,
     pub position: i64,
+    /// 附带的图片文件名（按添加顺序），解析路径见 `IdeasStore::image_path`。
+    pub images: Vec<String>,
     pub created_at_unix: u64,
     pub updated_at_unix: u64,
 }
@@ -39,7 +42,7 @@ pub enum Reconcile {
 /// 返回 `Ok(None)` 表示想法不存在或当前状态不允许该事件（例如并发中输掉的一方）。
 #[derive(Clone, Debug)]
 pub struct IdeasStore {
-    path: PathBuf,
+    pub(crate) path: PathBuf,
 }
 
 enum Patch<'a> {
@@ -82,9 +85,23 @@ impl IdeasStore {
         body: &str,
         source: IdeaSource,
     ) -> StorageResult<StoredIdea> {
+        self.add_with_images(workspace_id, id, body, source, &[])
+    }
+
+    /// 正文可以为空，但此时必须至少带一张图片；图片文件须先由 `save_image` 保存。
+    pub fn add_with_images(
+        &self,
+        workspace_id: &str,
+        id: &str,
+        body: &str,
+        source: IdeaSource,
+        images: &[String],
+    ) -> StorageResult<StoredIdea> {
         crate::mobile_access_store::validate_id(id)?;
         crate::mobile_access_store::validate_id(workspace_id)?;
-        let body = normalize_body(body).map_err(|error| invalid(&format!("{error:?}")))?;
+        let body = normalize_body_with_images(body, images.len())
+            .map_err(|error| invalid(&format!("{error:?}")))?;
+        let stored_images = crate::ideas_images::encode_names(images)?;
         let mut connection = open_app_connection(&self.path)?;
         let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let position: i64 = tx.query_row(
@@ -94,9 +111,9 @@ impl IdeasStore {
         )?;
         let now = crate::current_unix_timestamp()? as i64;
         tx.execute(
-            "INSERT INTO workspace_ideas(id,workspace_id,body,source,state,position,created_at_unix,updated_at_unix)
-             VALUES(?1,?2,?3,?4,'todo',?5,?6,?6)",
-            params![id, workspace_id, body, source.as_str(), position, now],
+            "INSERT INTO workspace_ideas(id,workspace_id,body,source,state,position,created_at_unix,updated_at_unix,images)
+             VALUES(?1,?2,?3,?4,'todo',?5,?6,?6,?7)",
+            params![id, workspace_id, body, source.as_str(), position, now, stored_images],
         )?;
         let idea = read(&tx, workspace_id, id)?.ok_or(rusqlite::Error::QueryReturnedNoRows)?;
         tx.commit()?;
@@ -301,23 +318,36 @@ impl IdeasStore {
         let mut connection = open_app_connection(&self.path)?;
         let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let mut removed = 0;
+        let mut files = Vec::new();
         for id in ids {
+            files.extend(Self::images_where(
+                &tx,
+                "workspace_id=?1 AND id=?2 AND state='done'",
+                params![workspace_id, id],
+            )?);
             removed += tx.execute(
                 "DELETE FROM workspace_ideas WHERE workspace_id=?1 AND id=?2 AND state='done'",
                 params![workspace_id, id],
             )?;
         }
         tx.commit()?;
+        files.iter().for_each(|name| self.discard_image(name));
         Ok(removed)
     }
 
     /// 清理更新时间早于 `cutoff_unix` 的已完成想法，返回清理条数。
     pub fn purge_done_before(&self, workspace_id: &str, cutoff_unix: u64) -> StorageResult<usize> {
         let connection = open_app_connection(&self.path)?;
+        let files = Self::images_where(
+            &connection,
+            "workspace_id=?1 AND state='done' AND updated_at_unix<?2",
+            params![workspace_id, cutoff_unix as i64],
+        )?;
         let removed = connection.execute(
             "DELETE FROM workspace_ideas WHERE workspace_id=?1 AND state='done' AND updated_at_unix<?2",
             params![workspace_id, cutoff_unix as i64],
         )?;
+        files.iter().for_each(|name| self.discard_image(name));
         Ok(removed)
     }
 
@@ -391,67 +421,6 @@ impl IdeasStore {
     }
 }
 
-const SELECT: &str = "SELECT id,workspace_id,body,source,state,task_ref,assignee_area_id,assignee_node_id,position,created_at_unix,updated_at_unix FROM workspace_ideas";
-
-type Raw = (
-    String,
-    String,
-    String,
-    String,
-    String,
-    Option<String>,
-    Option<String>,
-    Option<i64>,
-    i64,
-    i64,
-    i64,
-);
-
-fn decode(row: &Row<'_>) -> rusqlite::Result<Raw> {
-    Ok((
-        row.get(0)?,
-        row.get(1)?,
-        row.get(2)?,
-        row.get(3)?,
-        row.get(4)?,
-        row.get(5)?,
-        row.get(6)?,
-        row.get(7)?,
-        row.get(8)?,
-        row.get(9)?,
-        row.get(10)?,
-    ))
-}
-
-fn convert(raw: Raw) -> StorageResult<StoredIdea> {
-    let (id, workspace_id, body, source, state, task_ref, area, node, position, created, updated) =
-        raw;
-    Ok(StoredIdea {
-        source: IdeaSource::parse(&source).ok_or_else(|| invalid("unknown source"))?,
-        state: IdeaState::parse(&state).ok_or_else(|| invalid("unknown state"))?,
-        id,
-        workspace_id,
-        body,
-        task_ref,
-        assignee_area_id: area,
-        assignee_node_id: node.map(|value| value as u64),
-        position,
-        created_at_unix: created as u64,
-        updated_at_unix: updated as u64,
-    })
-}
-
-fn read(tx: &Transaction<'_>, workspace_id: &str, id: &str) -> StorageResult<Option<StoredIdea>> {
-    tx.query_row(
-        &format!("{SELECT} WHERE workspace_id=?1 AND id=?2"),
-        params![workspace_id, id],
-        decode,
-    )
-    .optional()?
-    .map(convert)
-    .transpose()
-}
-
 /// 运行时 task_ref 形如 `<runtime-instance>:<id>`，不能套用只允许字母数字的 ID 规则。
 fn validate_task_ref(task_ref: &str) -> StorageResult<()> {
     if task_ref.is_empty() || task_ref.len() > 128 || task_ref.chars().any(char::is_control) {
@@ -460,29 +429,6 @@ fn validate_task_ref(task_ref: &str) -> StorageResult<()> {
     Ok(())
 }
 
-fn invalid(message: &str) -> StorageError {
+pub(crate) fn invalid(message: &str) -> StorageError {
     StorageError::InvalidIdea(message.into())
-}
-
-pub(crate) fn migrate(connection: &Connection) -> StorageResult<()> {
-    connection.execute_batch(
-        "CREATE TABLE IF NOT EXISTS workspace_ideas (
-            id TEXT PRIMARY KEY NOT NULL,
-            workspace_id TEXT NOT NULL REFERENCES desktop_workspaces(id) ON DELETE CASCADE,
-            body TEXT NOT NULL,
-            source TEXT NOT NULL,
-            state TEXT NOT NULL,
-            task_ref TEXT,
-            assignee_area_id TEXT,
-            assignee_node_id INTEGER,
-            position INTEGER NOT NULL,
-            created_at_unix INTEGER NOT NULL,
-            updated_at_unix INTEGER NOT NULL
-        );
-        CREATE INDEX IF NOT EXISTS idx_workspace_ideas_workspace
-        ON workspace_ideas(workspace_id, state, position);
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_workspace_ideas_task_ref
-        ON workspace_ideas(task_ref) WHERE task_ref IS NOT NULL;",
-    )?;
-    Ok(())
 }

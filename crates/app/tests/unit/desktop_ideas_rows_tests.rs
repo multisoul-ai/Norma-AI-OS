@@ -14,6 +14,7 @@ fn idea(id: &str, body: &str, state: IdeaState, created: u64) -> StoredIdea {
         assignee_area_id: None,
         assignee_node_id: None,
         position: 0,
+        images: Vec::new(),
         created_at_unix: created,
         updated_at_unix: created,
     }
@@ -233,4 +234,36 @@ fn stale_keyboard_cursor_is_dropped_when_rows_shrink() {
     assert_eq!(clamp_cursor(Some(2), 2), None, "光标超出末行应失效");
     assert_eq!(clamp_cursor(Some(0), 0), None, "空清单不能留着旧光标");
     assert_eq!(clamp_cursor(None, 5), None, "没有光标仍是 None");
+}
+
+/// 多行、带链接、带图片的想法在待办行里的呈现：标题取第一行，链接与图片数单独给出。
+///
+/// 数据构造：一条“两行正文 + 一个链接 + 2 张图片”的待办；一条只有图片（正文为空）的待办。
+/// 执行过程：生成视图。
+/// 预期结果：
+///   - 正断言：标题只取第一行；links 为正文里的链接；image_names 保持顺序；纯图片想法的标题为“图片”。
+///   - 负断言：第二行不进入标题；正文无链接时 links 为空。
+#[test]
+fn todo_row_shows_first_line_links_and_images() {
+    let mut rich = idea(
+        "i1",
+        "看这个设计\n细节在 https://example.com/spec 里",
+        IdeaState::Todo,
+        9_000,
+    );
+    rich.images = vec!["a.png".into(), "b.jpg".into()];
+    let mut only_image = idea("i2", "", IdeaState::Todo, 9_000);
+    only_image.images = vec!["c.png".into()];
+    let screen = ideas_screen(&[rich, only_image], 10_000, &|_, _| None, &|_| None);
+    let first = &screen.todo[0];
+    assert_eq!(first.title, "看这个设计", "标题只取第一行");
+    assert_eq!(
+        first.links,
+        ["https://example.com/spec"],
+        "应识别正文里的链接"
+    );
+    assert_eq!(first.image_names, ["a.png", "b.jpg"], "图片应保持顺序");
+    let second = &screen.todo[1];
+    assert_eq!(second.title, "图片", "纯图片想法用“图片”作标题");
+    assert!(second.links.is_empty(), "没有链接时 links 应为空");
 }
