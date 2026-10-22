@@ -62,6 +62,23 @@ pub(super) struct DragTargets {
 }
 
 impl DragTargets {
+    /// 没有展开项目：只有想法栏可排序。其余目标用无穷远的空矩形，任何有限坐标（含原点）都命不中。
+    pub(super) fn list_only(list: Rect, rows: Vec<RowSlot>) -> Self {
+        let nowhere = Rect {
+            x: f32::NEG_INFINITY,
+            y: f32::NEG_INFINITY,
+            w: 0.0,
+            h: 0.0,
+        };
+        Self {
+            cards: Vec::new(),
+            new_zone: nowhere,
+            canvas: nowhere,
+            list,
+            rows,
+        }
+    }
+
     pub(super) fn hit(&self, x: f32, y: f32) -> Option<DropTarget> {
         if self.new_zone.contains(x, y) {
             return Some(DropTarget::NewAgent);

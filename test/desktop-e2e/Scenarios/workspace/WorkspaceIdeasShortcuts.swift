@@ -18,6 +18,8 @@ public enum WorkspaceIdeasShortcuts {
         }
         let workspace = "IdeasKeys"
         let bodies = ["甲方案想法", "乙方案想法", "丙方案想法", "丁方案想法"]
+        // 先在没展开项目时把丁拖到最前（丁 甲 乙 丙），进入项目后再把丙拖到最前：派发队列就是 丙 丁 甲 乙。
+        let queue = [bodies[2], bodies[3], bodies[0], bodies[1]]
 
         try await session.step("建立含项目区与四条想法的隔离工作空间") {
             let shell = try FakeAgentShell.install()
@@ -51,33 +53,7 @@ public enum WorkspaceIdeasShortcuts {
             return "已写入 4 条想法"
         }
 
-        try await session.step("进入项目并创建一个智能体，打开想法栏") {
-            let launch = try await session.capture()
-            if launch.contains("搜索工作空间") || launch.contains("Search workspaces") {
-                try await session.click(local: CGPoint(x: Double(launch.windowFrame.width) - 111, y: 540), on: launch)
-                _ = try await session.wait(Expectation(absent: ["搜索工作空间", "Search workspaces"], timeout: 12))
-            }
-            _ = try await session.wait(Expectation(allOf: ["E2E Project"], timeout: 12))
-            try await session.click(matching: ["E2E Project"], pick: .bottom)
-            _ = try await session.wait(Expectation(allOf: ["E2E Project"], absent: ["项目目录不可用"], timeout: 15))
-            try await Task.sleep(nanoseconds: 900_000_000)
-            let entered = try await session.capture()
-            if entered.contains("Feature Guide") || entered.contains("Skip Guide") {
-                try await session.shortcut(key: 53, modifiers: [])
-                _ = try await session.wait(Expectation(absent: ["Feature Guide", "Skip Guide"], timeout: 6))
-            }
-            let frame = try await session.capture()
-            try await session.click(
-                local: CGPoint(x: Double(frame.windowFrame.width) / 2, y: Double(frame.windowFrame.height) - 38),
-                on: frame
-            )
-            try await session.selectAll()
-            try await session.type("/new claude")
-            try await session.shortcut(key: 36, modifiers: [])
-            try await Task.sleep(nanoseconds: 2_500_000_000)
-            try await session.shortcut(key: 34, modifiers: [0x37, 0x38])
-            let ideas = try await session.wait(Expectation(allOf: ["当前项目", String(bodies[0].prefix(2))], timeout: 8))
-            try session.save(ideas, "01-ideas.png")
+        func foldOtherGroups() async throws {
             // 折叠其余三栏，想法栏拿到全部剩余高度，四条想法都可见。
             for title in ["处理", "当前项目", "其他项目"] {
                 let frame = try await session.capture()
@@ -87,10 +63,7 @@ public enum WorkspaceIdeasShortcuts {
                 try await session.click(local: heading.center, on: frame)
                 try await Task.sleep(nanoseconds: 400_000_000)
             }
-            let folded = try await session.wait(Expectation(allOf: [String(bodies[0].prefix(2)), String(bodies[3].prefix(2))], timeout: 6))
-            return folded.summary
         }
-
         func ideaRows() throws -> [(body: String, state: String, taskRef: String)] {
             try Catalog.ideas(database: try session.databaseURL()).filter { bodies.contains($0.body) }
         }
@@ -102,16 +75,67 @@ public enum WorkspaceIdeasShortcuts {
             return text
         }
 
-        try await session.step("列表内拖动：把最后一条拖到第一条之前，库里顺序立即改变") {
-            let frame = try await session.capture()
+        try await session.step("没有展开项目：想法栏里仍可拖动排序，库里顺序立即改变") {
+            let launch = try await session.capture()
+            if launch.contains("搜索工作空间") || launch.contains("Search workspaces") {
+                try await session.click(local: CGPoint(x: Double(launch.windowFrame.width) - 111, y: 540), on: launch)
+                _ = try await session.wait(Expectation(absent: ["搜索工作空间", "Search workspaces"], timeout: 12))
+            }
+            _ = try await session.wait(Expectation(allOf: ["E2E Project"], timeout: 12))
+            try await Task.sleep(nanoseconds: 900_000_000)
+            let entered = try await session.capture()
+            if entered.contains("Feature Guide") || entered.contains("Skip Guide") {
+                try await session.shortcut(key: 53, modifiers: [])
+                _ = try await session.wait(Expectation(absent: ["Feature Guide", "Skip Guide"], timeout: 6))
+            }
+            try await session.shortcut(key: 34, modifiers: [0x37, 0x38])
+            let opened = try await session.wait(Expectation(allOf: [String(bodies[0].prefix(2))], timeout: 8))
+            try session.save(opened, "00-no-project.png")
+            try await foldOtherGroups()
+            let frame = try await session.wait(Expectation(allOf: [String(bodies[0].prefix(2)), String(bodies[3].prefix(2))], timeout: 6))
             let first = try row(frame, bodies[0])
             let last = try row(frame, bodies[3])
             try await session.drag(local: last.center, to: CGPoint(x: first.center.x, y: first.center.y - 14), on: frame)
             try await Task.sleep(nanoseconds: 1_200_000_000)
             let order = try ideaRows().map(\.body)
-            try session.save(try await session.capture(), "02-reordered.png")
+            try session.save(try await session.capture(), "00b-no-project-reordered.png")
             guard order == [bodies[3], bodies[0], bodies[1], bodies[2]] else {
-                throw E2EError.product("拖动后顺序应为 丁 甲 乙 丙，实际 \(order)")
+                throw E2EError.product("没展开项目时拖动后顺序应为 丁 甲 乙 丙，实际 \(order)")
+            }
+            guard try ideaRows().allSatisfy({ $0.state == "todo" }) else {
+                throw E2EError.product("排序不应派发任何想法：\(try ideaRows())")
+            }
+            return "\(order)"
+        }
+
+        try await session.step("进入项目并创建一个智能体，打开想法栏") {
+            try await session.click(matching: ["E2E Project"], pick: .bottom)
+            _ = try await session.wait(Expectation(allOf: ["E2E Project"], absent: ["项目目录不可用"], timeout: 15))
+            try await Task.sleep(nanoseconds: 900_000_000)
+            let entered = try await session.capture()
+            if entered.contains("Feature Guide") || entered.contains("Skip Guide") {
+                try await session.shortcut(key: 53, modifiers: [])
+                _ = try await session.wait(Expectation(absent: ["Feature Guide", "Skip Guide"], timeout: 6))
+            }
+            // ⌘2 新建 Claude 卡片（先前经底部指令栏输入 /new claude 回车时，应用曾在 Run Overview 打开的状态下崩溃：gpui shape_line 报 text argument should not contain newlines，来源未查明）。
+            try await session.shortcut(key: 19, modifiers: [0x37])
+            try await Task.sleep(nanoseconds: 2_500_000_000)
+            // 想法栏已在上一步打开并折叠过其余三栏：此时应仍是展开的同一布局。
+            let ideas = try await session.wait(Expectation(allOf: [String(bodies[0].prefix(2)), String(bodies[3].prefix(2))], timeout: 8))
+            try session.save(ideas, "01-ideas.png")
+            return ideas.summary
+        }
+
+        try await session.step("展开项目后列表内拖动：把最后一条（丙）拖到第一条之前，库里顺序立即改变") {
+            let frame = try await session.capture()
+            let first = try row(frame, bodies[3])
+            let last = try row(frame, bodies[2])
+            try await session.drag(local: last.center, to: CGPoint(x: first.center.x, y: first.center.y - 14), on: frame)
+            try await Task.sleep(nanoseconds: 1_200_000_000)
+            let order = try ideaRows().map(\.body)
+            try session.save(try await session.capture(), "02-reordered.png")
+            guard order == queue else {
+                throw E2EError.product("拖动后顺序应为 丙 丁 甲 乙，实际 \(order)")
             }
             guard try ideaRows().allSatisfy({ $0.state == "todo" }) else {
                 throw E2EError.product("列表内排序不应派发任何想法：\(try ideaRows())")
@@ -155,36 +179,36 @@ public enum WorkspaceIdeasShortcuts {
             return found.taskRef
         }
 
-        try await session.step("⌃1：队首想法（丁）派给第 1 张卡片") {
+        try await session.step("⌃1：队首想法（丙）派给第 1 张卡片") {
             try await session.shortcut(key: 18, modifiers: [0x3B])
-            let ref = try await assertAssigned(bodies[3], [bodies[0], bodies[1], bodies[2]])
+            let ref = try await assertAssigned(queue[0], Array(queue[1...]))
             try session.save(try await session.capture(), "03-ctrl1.png")
             return ref
         }
 
-        try await session.step("⌃⇧3：新建 Codex 智能体并派发队首想法（甲）") {
+        try await session.step("⌃⇧3：新建 Codex 智能体并派发队首想法（丁）") {
             try await session.shortcut(key: 20, modifiers: [0x3B, 0x38])
-            let ref = try await assertAssigned(bodies[0], [bodies[1], bodies[2]])
+            let ref = try await assertAssigned(queue[1], Array(queue[2...]))
             try session.save(try await session.capture(), "04-ctrl-shift3.png")
             return ref
         }
 
-        try await session.step("⌃0：新建已保存的默认类型（ZCode）智能体并派发队首想法（乙）") {
+        try await session.step("⌃0：新建已保存的默认类型（ZCode）智能体并派发队首想法（甲）") {
             try await session.shortcut(key: 29, modifiers: [0x3B])
-            let ref = try await assertAssigned(bodies[1], [bodies[2]])
+            let ref = try await assertAssigned(queue[2], [queue[3]])
             // 测试机没有 zcode 命令行：新卡片里会打印“ZCode CLI … was not found”，借此确认类型来自已保存的设置而不是 Codex。
             _ = try await session.wait(Expectation(anyOf: ["ZCode CLI", "zcode"], timeout: 6))
             try session.save(try await session.capture(), "05-ctrl0.png")
             return ref
         }
 
-        try await session.step("⌃⇧0：弹出类型选择器（高亮在已保存的 ZCode），↓ 选到 InfCode 回车，新建 InfCode 智能体并派发队首想法（丙）") {
+        try await session.step("⌃⇧0：弹出类型选择器（高亮在已保存的 ZCode），↓ 选到 InfCode 回车，新建 InfCode 智能体并派发队首想法（乙）") {
             try await session.shortcut(key: 29, modifiers: [0x3B, 0x38])
             let picker = try await session.wait(Expectation(allOf: ["Hermes", "ZCode", "OpenCode"], timeout: 5))
             try session.save(picker, "06-picker.png")
             try await session.shortcut(key: 125, modifiers: [])
             try await session.shortcut(key: 36, modifiers: [])
-            let ref = try await assertAssigned(bodies[2], [])
+            let ref = try await assertAssigned(queue[3], [])
             _ = try await session.wait(Expectation(absent: ["OpenCode"], timeout: 4))
             try session.save(try await session.capture(), "07-zcode.png")
             return ref

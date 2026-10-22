@@ -51,9 +51,21 @@ impl MultisoulApp {
         else {
             return;
         };
-        let Some((targets, names)) = self.idea_drag_targets(window, cx) else {
-            return;
-        };
+        // 没展开项目时也允许起拖：只有想法栏内的排序，没有卡片与新建区。
+        let (targets, names) = self.idea_drag_targets(window, cx).unwrap_or_else(|| {
+            (
+                DragTargets::list_only(
+                    Rect {
+                        x: 0.0,
+                        y: 0.0,
+                        w: 0.0,
+                        h: 0.0,
+                    },
+                    Vec::new(),
+                ),
+                Vec::new(),
+            )
+        });
         let start = (f32::from(event.position.x), f32::from(event.position.y));
         let row_origin = (start.0 - GRAB.0, start.1 - GRAB.1);
         self.desktop_workspace.idea_drag = Some(IdeaDragSession {
@@ -282,12 +294,15 @@ impl MultisoulApp {
         });
         let line = reorder_line(session, &hover);
         let zone_hot = hover == Some(DropTarget::NewAgent);
-        let zone = drop_outline(
-            session.targets.new_zone,
-            "＋ 新建智能体来完成".to_owned(),
-            zone_hot,
-            "desktop-idea-drop-new",
-        );
+        // 没展开项目时没有新建区（矩形在无穷远），不画。
+        let zone = session.targets.new_zone.x.is_finite().then(|| {
+            drop_outline(
+                session.targets.new_zone,
+                "＋ 新建智能体来完成".to_owned(),
+                zone_hot,
+                "desktop-idea-drop-new",
+            )
+        });
         let ghost = div()
             .id("desktop-idea-ghost")
             .debug_selector(|| "desktop-idea-ghost".to_string())
@@ -309,7 +324,7 @@ impl MultisoulApp {
         Some(
             layer
                 .children(cards)
-                .child(zone)
+                .children(zone)
                 .children(line)
                 .child(ghost),
         )

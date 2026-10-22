@@ -238,3 +238,24 @@ fn pointer_inside_the_list_reorders_by_row_midpoints() {
         "栏内松手应是 Reorder"
     );
 }
+
+/// 没有展开项目时只有想法栏：仍可在栏内排序，但没有任何派发目标（含窗口原点）。
+///
+/// 数据构造：用 `targets()` 的想法栏与行，清掉卡片、新建区与画布（`DragTargets::list_only`）。
+/// 预期结果：
+///   - 正断言：栏内 y=140 → 插到 i2 前。
+///   - 负断言：窗口原点 (0,0)、画布位置、栏外都不是目标；松手栏外不产生任何投递。
+#[test]
+fn without_a_project_only_reordering_is_possible() {
+    let full = targets();
+    let t = DragTargets::list_only(full.list, full.rows.clone());
+    assert_eq!(
+        t.hit(100.0, 140.0),
+        Some(DropTarget::Reorder {
+            before: Some("i2".to_owned())
+        })
+    );
+    assert_eq!(t.hit(0.0, 0.0), None, "窗口原点不是新建区");
+    assert_eq!(t.hit(900.0, 400.0), None, "没有画布，也没有卡片");
+    assert_eq!(t.hit(100.0, 600.0), None, "栏外不是目标");
+}
