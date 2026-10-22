@@ -2,6 +2,7 @@
 
 use super::super::ideas::idea_reorder::{keyboard_step, Step};
 use super::super::ideas::IdeaUiTarget;
+use super::super::ideas_rows::IdeasTab;
 use crate::app::MultisoulApp;
 use gpui::{Context, Focusable as _, Window};
 use runtime::desktop_drawers::DesktopDrawerEvent;
@@ -100,11 +101,17 @@ impl MultisoulApp {
             return true;
         }
         let screen = self.ideas_screen(cx);
-        let todo = screen.todo.len();
-        let visible_assigned = if self.desktop_workspace.ideas_assigned_collapsed {
-            0
+        // 分段按钮一次只显示一类：光标只在当前分段的行里移动（已完成行不可操作）。
+        let tab = self.desktop_workspace.ideas_tab;
+        let todo = if tab == IdeasTab::Todo {
+            screen.todo.len()
         } else {
+            0
+        };
+        let visible_assigned = if tab == IdeasTab::Assigned {
             screen.assigned.len()
+        } else {
+            0
         };
         let total = todo + visible_assigned;
         if self.desktop_workspace.ideas_menu.is_some() {

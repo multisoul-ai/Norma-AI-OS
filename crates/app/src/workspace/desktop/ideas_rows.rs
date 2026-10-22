@@ -7,6 +7,35 @@ use workspace::ideas::{IdeaState, TaskPhase};
 #[path = "../../../tests/unit/desktop_ideas_rows_tests.rs"]
 mod tests;
 
+/// 想法栏顶部分段按钮的三个视图，一次只显示一类。
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum IdeasTab {
+    #[default]
+    Todo,
+    Assigned,
+    Done,
+}
+
+impl IdeasTab {
+    pub(crate) const ALL: [IdeasTab; 3] = [IdeasTab::Todo, IdeasTab::Assigned, IdeasTab::Done];
+
+    pub(crate) fn label(self) -> &'static str {
+        match self {
+            IdeasTab::Todo => "待办",
+            IdeasTab::Assigned => "已指派",
+            IdeasTab::Done => "已完成",
+        }
+    }
+
+    pub(crate) fn key(self) -> &'static str {
+        match self {
+            IdeasTab::Todo => "todo",
+            IdeasTab::Assigned => "assigned",
+            IdeasTab::Done => "done",
+        }
+    }
+}
+
 /// 列表里标题的字符上限（按字符数，不是字节数）。
 const TITLE_CHARS: usize = 40;
 
