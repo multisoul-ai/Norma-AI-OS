@@ -13,7 +13,7 @@ use std::time::Duration;
 ///   窗口 = 1280×800；项目原点 = (14, 52+12) = (14,64)。
 ///   Dock 中心 = (1280/2, 800-22-52/2) = (640,752)，在项目画布外。
 ///   特效覆盖区域必须为窗口 (0,0,1280,800)，而非项目 (14,64,1252,645)。
-///   单帧上限 50ms；19×50ms = 950ms > Flight(480ms) + Impact(430ms) = 910ms。
+///   单帧上限 50ms；27×50ms = 1350ms > Flight(900ms) + Impact(430ms) = 1330ms。
 ///   Reduce Motion 收束：4×50ms = 200ms > ReducedPulse(150ms)。
 ///   隐藏项目收到新回执后发出 1 次通知，宿主流星重绘通知应为 0 次。
 ///
@@ -142,8 +142,8 @@ fn desktop_workspace_dispatch_receipt_is_painted_over_shared_dock() {
         "流星不能被项目 Scene 偏移和裁剪"
     );
     project.update(cx, |app, cx| {
-        // tick 单帧截断至 50ms；19×50=950ms > 480+430=910ms，确保特效结束。
-        for _ in 0..19 {
+        // tick 单帧截断至 50ms；27×50=1350ms > 900+430=1330ms，确保特效结束。
+        for _ in 0..27 {
             app.motion.tick(Duration::from_millis(50));
         }
         cx.notify();

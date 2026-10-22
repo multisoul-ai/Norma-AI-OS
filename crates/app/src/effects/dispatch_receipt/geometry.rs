@@ -20,11 +20,6 @@ pub(super) struct FlightCurve {
 }
 
 impl FlightCurve {
-    pub(super) fn new(origin: Point<Pixels>, target: Point<Pixels>) -> Self {
-        let (control_a, control_b) = control_points(origin, target);
-        Self::from_control_points(origin, control_a, control_b, target)
-    }
-
     pub(super) fn new_agent_handoff(origin: Point<Pixels>, target: Point<Pixels>) -> Self {
         let (control_a, control_b) = agent_handoff_control_points(origin, target);
         Self::from_control_points(origin, control_a, control_b, target)
@@ -106,25 +101,6 @@ impl FlightCurve {
 }
 
 #[cfg(test)]
-pub(crate) fn bezier_point(
-    origin: Point<Pixels>,
-    target: Point<Pixels>,
-    progress: f32,
-) -> Point<Pixels> {
-    let (control_a, control_b) = control_points(origin, target);
-    cubic_point(origin, control_a, control_b, target, progress)
-}
-
-#[cfg(test)]
-pub(crate) fn bezier_point_at_travel(
-    origin: Point<Pixels>,
-    target: Point<Pixels>,
-    travel: f32,
-) -> Point<Pixels> {
-    FlightCurve::new(origin, target).point_at_travel(travel)
-}
-
-#[cfg(test)]
 pub(crate) fn idea_shot_bezier_point_at_travel(
     origin: Point<Pixels>,
     target: Point<Pixels>,
@@ -157,18 +133,6 @@ pub(crate) fn helix_offset(ratio: f32, phase: f32) -> f32 {
     }
     let envelope = (std::f32::consts::PI * ratio).sin();
     (ratio * std::f32::consts::PI * HELIX_COILS + phase).sin() * envelope * HELIX_RADIUS
-}
-
-fn control_points(origin: Point<Pixels>, target: Point<Pixels>) -> (Point<Pixels>, Point<Pixels>) {
-    let horizontal = f32::from(target.x - origin.x);
-    let vertical = f32::from(origin.y - target.y).max(0.0);
-    let direct_distance = horizontal.hypot(f32::from(target.y - origin.y));
-    let lift = (direct_distance * 0.34).clamp(150.0, 252.0);
-    let settle = (vertical * 0.17).clamp(68.0, 132.0);
-    (
-        point(origin.x + px(horizontal * 0.045), origin.y - px(lift)),
-        point(target.x - px(horizontal * 0.18), target.y + px(settle)),
-    )
 }
 
 fn idea_shot_control_points(

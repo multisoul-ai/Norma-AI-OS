@@ -14,18 +14,13 @@ pub(super) fn paint_impact(frame: DispatchEffectFrame, theme: Theme, plan: &mut 
     let progress = frame.presentation.progress.clamp(0.0, 1.0);
     let (status_color, intensity) = status_style(frame.presentation.status, theme);
     // 想法流星撞击是白色的，与飞行时的白色光点衔接。
-    let color = if matches!(
-        frame.presentation.origin,
-        crate::motion::DispatchVisualOrigin::IdeaRow { .. }
-    ) {
+    let idea_meteor = frame.presentation.origin.uses_idea_meteor();
+    let color = if idea_meteor {
         0xeaf6ffff
     } else {
         status_color
     };
-    if matches!(
-        frame.presentation.origin,
-        crate::motion::DispatchVisualOrigin::IdeaRow { .. }
-    ) {
+    if idea_meteor {
         let curve = super::geometry::FlightCurve::new_idea_shot(frame.origin, frame.target);
         super::meteor::paint_idea_afterglow(&curve, progress, plan);
     }

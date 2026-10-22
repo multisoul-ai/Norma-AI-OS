@@ -5,23 +5,23 @@ use std::time::Duration;
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   target_node_id = 901
-///   previous flight boundary = 250ms = 5 × 50ms
-///   flight duration = 480ms = 250ms + 4 × 50ms + 30ms
+///   previous flight boundary = 480ms = 9 × 50ms + 30ms
+///   flight duration = 900ms = 480ms + 8 × 50ms + 20ms（与想法流星一致）
 ///   previous impact boundary = 260ms = 5 × 50ms + 10ms
 ///   impact duration = 430ms = 260ms + 3 × 50ms + 20ms
 ///   active effects = 1 → 0
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 向空 MotionStore 写入一条 Submitted receipt。
-///   2. 先推进旧 Flight 边界 250ms，确认仍未提前命中，再推进到 480ms。
+///   2. 先推进旧 Flight 边界 480ms，确认仍未提前命中，再推进到 900ms。
 ///   3. 先推进旧 Impact 边界 260ms，确认仍未提前消失，再推进到 430ms。
 ///   4. 读取 presentation 与 activity summary，确认 effect 在新边界被回收。
 ///
 /// 预期结果：
 ///   - 正断言：spawn 后存在唯一 Flight presentation，目标为 901。
-///   - 正断言：480ms 后进入 Impact，且 Canvas 仍保持 active。
+///   - 正断言：900ms 后进入 Impact，且 Canvas 仍保持 active。
 ///   - 正断言：再过 430ms 后 presentation 为空且 Canvas 回到 idle。
-///   - 负断言：旧 250ms/260ms 边界不能提前切相或卸载，结束后不能继续请求动画帧。
+///   - 负断言：旧 480ms/260ms 边界不能提前切相或卸载，结束后不能继续请求动画帧。
 #[test]
 fn test_dispatch_receipt_runs_flight_impact_then_returns_canvas_to_idle() {
     let mut store = MotionStore::new(false);
@@ -63,36 +63,40 @@ fn test_dispatch_receipt_runs_flight_impact_then_returns_canvas_to_idle() {
         "Flight 首帧不得提前显示命中爆发"
     );
 
-    // previous boundary = 250ms = 5 × 50ms；新节奏在此仍须保持 Flight。
-    for _ in 0..5 {
+    // previous boundary = 480ms = 9 × 50ms + 30ms；新节奏在此仍须保持 Flight。
+    for _ in 0..9 {
         assert!(
             store.tick(Duration::from_millis(50)),
             "Flight 每个 50ms 帧都应推进 presentation"
         );
     }
+    assert!(
+        store.tick(Duration::from_millis(30)),
+        "Flight 应继续推进剩余 30ms 到旧 480ms 边界"
+    );
     let former_flight_boundary = store.dispatch_receipt_presentations();
     assert_eq!(
         former_flight_boundary[0].phase,
         DispatchEffectPhase::Flight,
-        "Flight 在旧 250ms 边界不得提前进入 Impact"
+        "Flight 在旧 480ms 边界不得提前进入 Impact"
     );
 
-    // remaining flight = 480ms - 250ms = 230ms = 4 × 50ms + 30ms。
-    for _ in 0..4 {
+    // remaining flight = 900ms - 480ms = 420ms = 8 × 50ms + 20ms。
+    for _ in 0..8 {
         assert!(
             store.tick(Duration::from_millis(50)),
             "延长后的 Flight 每个 50ms 帧都应继续推进 presentation"
         );
     }
     assert!(
-        store.tick(Duration::from_millis(30)),
-        "Flight 最后 30ms 必须推进到 480ms 命中边界"
+        store.tick(Duration::from_millis(20)),
+        "Flight 最后 20ms 必须推进到 900ms 命中边界"
     );
     let impact = store.dispatch_receipt_presentations();
     assert_eq!(
         impact[0].phase,
         DispatchEffectPhase::Impact,
-        "Flight 累计 480ms 后必须进入 Impact"
+        "Flight 累计 900ms 后必须进入 Impact"
     );
     assert!(
         store.activity_summary().canvas_active,
@@ -360,8 +364,8 @@ fn test_dispatch_receipt_deduplicates_and_bounds_burst_capacity() {
 /// 数据构造（含关键数值的推导过程）：
 ///   supplied delta = 1000ms
 ///   max accepted delta = 50ms
-///   flight duration = 480ms
-///   expected progress = 50 / 480 ≈ 0.10416667
+///   flight duration = 900ms
+///   expected progress = 50 / 900 ≈ 0.05555556
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 创建一条 Flight effect。
@@ -369,14 +373,14 @@ fn test_dispatch_receipt_deduplicates_and_bounds_burst_capacity() {
 ///   3. 读取 effect 当前 phase 与 progress。
 ///
 /// 预期结果：
-///   - 正断言：progress 精确限制在约 0.10416667。
+///   - 正断言：progress 精确限制在约 0.05555556。
 ///   - 负断言：effect 不得跳到 Impact，也不得在一帧内结束。
 #[test]
 fn test_dispatch_receipt_clamps_long_frame_delta() {
     let mut store = MotionStore::new(false);
     store.spawn_dispatch_receipt("runtime-c:1", 941, DispatchReceiptVisualStatus::Submitted);
 
-    // applied = min(supplied 1000ms, max 50ms) = 50ms；progress = 50 / 480 ≈ 0.10416667。
+    // applied = min(supplied 1000ms, max 50ms) = 50ms；progress = 50 / 900 ≈ 0.05555556。
     assert!(
         store.tick(Duration::from_millis(1_000)),
         "超长 delta 仍应推进一个受限动画帧"
@@ -389,8 +393,8 @@ fn test_dispatch_receipt_clamps_long_frame_delta() {
         "1000ms 输入经 clamp 后仍必须停留在 Flight"
     );
     assert!(
-        (presentation.progress - 0.104_166_67).abs() < f32::EPSILON,
-        "progress 应为 50ms / 480ms ≈ 0.10416667，实际为 {}",
+        (presentation.progress - 0.055_555_56).abs() < f32::EPSILON,
+        "progress 应为 50ms / 900ms ≈ 0.05555556，实际为 {}",
         presentation.progress
     );
     assert_ne!(

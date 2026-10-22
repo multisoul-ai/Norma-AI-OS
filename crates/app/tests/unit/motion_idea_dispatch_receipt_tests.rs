@@ -166,3 +166,50 @@ fn test_dock_flight_can_be_suppressed_without_touching_idea_flights() {
         "解除后指令栏飞行应恢复，实际 {later:?}"
     );
 }
+
+/// 指令栏（语音）派发与想法派发共用 900ms 的蓄势-冲刺飞行时长。
+///
+/// 数据构造：两个独立 MotionStore（避免 40ms 发射错峰），分别 spawn 一条 CommandDock 与一条 IdeaRow；每次推进 50ms。
+///   900ms = 18 × 50ms；第 17 帧（850ms）两条都仍在 Flight，第 18 帧（900ms）同时进入 Impact。
+/// 预期结果：
+///   - 正断言：两条 effect 在每一帧的 phase 与 progress 完全一致；900ms 时进入 Impact。
+///   - 负断言：CommandDock 不得在旧 480ms 边界提前进入 Impact。
+#[test]
+fn test_command_dock_flight_matches_idea_meteor_duration() {
+    let mut dock = MotionStore::new(false);
+    dock.spawn_dispatch_receipt("voice:1", 11, DispatchReceiptVisualStatus::Submitted);
+    let mut idea = MotionStore::new(false);
+    idea.spawn_dispatch_receipt_from(
+        "idea:1",
+        DispatchVisualOrigin::IdeaRow { x: 1, y: 2 },
+        12,
+        DispatchReceiptVisualStatus::Submitted,
+    );
+    for frame in 1..=18 {
+        dock.tick(std::time::Duration::from_millis(50));
+        idea.tick(std::time::Duration::from_millis(50));
+        let (dock_shown, idea_shown) = (
+            dock.dispatch_receipt_presentations()[0],
+            idea.dispatch_receipt_presentations()[0],
+        );
+        assert_eq!(
+            dock_shown.phase, idea_shown.phase,
+            "第 {frame} 帧相位应一致"
+        );
+        assert!(
+            (dock_shown.progress - idea_shown.progress).abs() < f32::EPSILON,
+            "第 {frame} 帧进度应一致"
+        );
+        let expected = if frame < 18 {
+            DispatchEffectPhase::Flight
+        } else {
+            DispatchEffectPhase::Impact
+        };
+        assert_eq!(
+            dock_shown.phase,
+            expected,
+            "第 {frame} 帧（{}ms）相位错误",
+            frame * 50
+        );
+    }
+}

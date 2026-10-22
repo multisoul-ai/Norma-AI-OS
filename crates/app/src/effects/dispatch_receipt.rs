@@ -7,8 +7,8 @@ mod primitives;
 use self::flight::paint_flight;
 #[cfg(test)]
 pub(super) use self::geometry::{
-    agent_handoff_bezier_point_at_travel, bezier_point, bezier_point_at_travel, helix_offset,
-    idea_shot_bezier_point_at_travel, natural_flight_progress,
+    agent_handoff_bezier_point_at_travel, helix_offset, idea_shot_bezier_point_at_travel,
+    natural_flight_progress,
 };
 use self::impact::paint_impact;
 #[cfg(test)]

@@ -46,6 +46,13 @@ pub(crate) enum DispatchVisualOrigin {
     },
 }
 
+impl DispatchVisualOrigin {
+    /// 想法派发与指令栏（语音）派发共用想法流星：白色光点、蓄势后冲刺、900ms；Agent 间交接保留离子画法。
+    pub(crate) fn uses_idea_meteor(self) -> bool {
+        matches!(self, Self::CommandDock | Self::IdeaRow { .. })
+    }
+}
+
 #[cfg(any(test, feature = "e2e-test-support"))]
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(crate) struct DispatchEffectCounts {
@@ -317,9 +324,10 @@ impl DispatchEffect {
     }
 
     fn flight_duration(&self) -> Duration {
-        match self.origin {
-            DispatchVisualOrigin::IdeaRow { .. } => IDEA_FLIGHT_DURATION,
-            _ => FLIGHT_DURATION,
+        if self.origin.uses_idea_meteor() {
+            IDEA_FLIGHT_DURATION
+        } else {
+            FLIGHT_DURATION
         }
     }
 
