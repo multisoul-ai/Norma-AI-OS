@@ -313,6 +313,7 @@ impl MultisoulApp {
                         if let Some(state) = &mut app.command_dock {
                             state.selected = index;
                         }
+                        app.trace_command_dock("candidate_clicked", window, cx);
                         app.execute_dock_suggestion(window, cx);
                     }))
                     .child(toolbar_icon(icon, theme.text_primary, 20.0))
@@ -405,8 +406,9 @@ impl MultisoulApp {
                 .bg(rgba(theme.dock))
                 .text_color(rgba(theme.text_primary))
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                .on_mouse_down_out(cx.listener(|app, _, _, cx| {
+                .on_mouse_down_out(cx.listener(|app, _, window, cx| {
                     app.hide_command_suggestions();
+                    app.trace_command_dock("outside_click", window, cx);
                     cx.notify();
                 }))
                 .child(
