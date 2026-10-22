@@ -172,11 +172,24 @@ impl Render for MultisoulApp {
             } else {
                 root = root.child(self.render_desktop_dock(window, cx));
             }
-            if matches!(self.screen, AppScreen::DesktopWorkspace)
-                && !self.desktop_directory_zoom_active()
-            {
-                root = root.child(self.render_desktop_workspace_top_bar(window, cx));
-                root = root.child(self.render_desktop_assistant_drawers(window, cx));
+            if matches!(self.screen, AppScreen::DesktopWorkspace) {
+                if !self.desktop_directory_zoom_active() {
+                    root = root.child(self.render_desktop_workspace_top_bar(window, cx));
+                    root = root.child(self.render_desktop_assistant_drawers(window, cx));
+                } else if let Some(fade) = self.desktop_workspace_chrome_fade_in(window) {
+                    // 侧栏随工作空间放大淡入，而不是缩放结束后整块弹出。
+                    let top_bar = self.render_desktop_workspace_top_bar(window, cx);
+                    let drawers = self.render_desktop_assistant_drawers(window, cx);
+                    root = root.child(
+                        div()
+                            .id("desktop-workspace-chrome-fade")
+                            .absolute()
+                            .inset_0()
+                            .opacity(fade)
+                            .child(top_bar)
+                            .child(drawers),
+                    );
+                }
             }
         }
 

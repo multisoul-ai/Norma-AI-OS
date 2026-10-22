@@ -12,6 +12,7 @@ fn idea(id: &str, state: IdeaState) -> StoredIdea {
         assignee_area_id: None,
         assignee_node_id: None,
         position: 0,
+        images: Vec::new(),
         created_at_unix: 0,
         updated_at_unix: 0,
     }

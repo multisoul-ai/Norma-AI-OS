@@ -113,7 +113,7 @@ impl MultisoulApp {
         }
         self.desktop_workspace.left_view_slide = super::left_view_slide::LeftViewSlide::settled();
         if before != self.desktop_workspace.drawers {
-            self.desktop_workspace.drawer_motion.retarget(
+            self.desktop_workspace.drawer_motion.settle(
                 self.desktop_workspace.drawers.left_open,
                 self.desktop_workspace.drawers.right_open,
             );

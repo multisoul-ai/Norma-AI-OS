@@ -129,6 +129,17 @@ impl MultisoulApp {
         ))
     }
 
+    /// Opacity of the destination workspace's drawers while its camera expands from
+    /// the directory. `None` when no directory-to-workspace zoom is running.
+    pub(crate) fn desktop_workspace_chrome_fade_in(&self, window: &gpui::Window) -> Option<f32> {
+        if !self.desktop_workspace_zoom_active() {
+            return None;
+        }
+        let id = self.desktop_directory_workspace_id()?;
+        let overview = self.desktop_directory_chrome_opacity(id, window.viewport_size())?;
+        Some((1.0 - overview).clamp(0.0, 1.0))
+    }
+
     pub(super) fn desktop_directory_workspace_id(&self) -> Option<&str> {
         let transition = self.desktop_workspace.transition.as_ref()?;
         match &transition.subject {

@@ -183,8 +183,10 @@ impl MultisoulApp {
         ) {
             return;
         }
-        self.begin_desktop_workspace_zoom(&id, false, window, cx);
         self.detach_visible_desktop_area(cx);
+        // 侧栏先按目标空间落定，相机终点才是最终布局。
+        self.activate_desktop_workspace_view(&id, cx);
+        self.begin_desktop_workspace_zoom(&id, false, window, cx);
         self.hide_desktop_content_browsers();
         self.start_desktop_status_refresh(cx);
         self.desktop_workspace.workspace_load_generation = self
@@ -195,7 +197,6 @@ impl MultisoulApp {
             .desktop_workspace
             .content_tab_generation
             .wrapping_add(1);
-        self.activate_desktop_workspace_view(&id, cx);
         self.desktop_workspace.areas.clear();
         self.desktop_workspace.workbench = Default::default();
         self.desktop_workspace.content_tabs.clear();

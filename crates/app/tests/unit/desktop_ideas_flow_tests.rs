@@ -231,40 +231,73 @@ fn manual_idea_is_added_listed_and_dispatched_end_to_end() {
     });
 }
 
-/// 想法输入框拒绝含换行的输入：换行进入单行输入框的值会在绘制时触发断言崩溃（真实 App 的 e2e 抓到过）。
+/// 想法输入框接受多行文字，并能连同已粘贴的图片一起记成一条想法。
 ///
-/// 数据构造：建立输入框；先提交 "ab"，再提交 "x\ny"（模拟粘贴多行文字或模拟回车），再提交 "c"。
+/// 数据构造：建立输入框并创建桌面空间；先把一张图片存进想法图片目录并登记为“待添加”；
+///   输入框依次写入 "ab"、"x\ny"、"c"（模拟粘贴多行文字）。
+/// 执行过程：调用 add_idea_from_input，等后台写库与刷新完成，读取库里的想法与输入框。
 /// 预期结果：
-///   - 正断言：普通文字 "ab"、"c" 被接受，值为 "abc"。
-///   - 负断言：带换行的提交被整体拒绝，值里始终不含换行。
+///   - 正断言：库里恰好一条想法，正文为 "abx\nyc"（换行保留）、带 1 张图片且内容与保存时一致；
+///     输入框清空，待添加图片列表清空。
+///   - 负断言：再次点添加（输入与图片都为空）不产生第二条想法。
 #[test]
-fn idea_input_rejects_newlines() {
+fn idea_input_keeps_newlines_and_pending_images() {
     use gpui::EntityInputHandler as _;
     let temp = tempfile::tempdir().expect("应创建隔离目录");
     let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
     let store = storage::AppStore::initialize(&paths).expect("应初始化隔离存储");
+    let workspace = store
+        .desktop_workspace_store()
+        .create("Multi")
+        .expect("应创建桌面空间");
+    let ideas_db = storage::IdeasStore::new(paths.app_db_path().to_owned());
+    let image = ideas_db.save_image(b"img", "png").expect("应保存图片");
     let mut test = TestAppContext::single();
     let (host, cx) =
         test.add_window_view(|_, cx| MultisoulApp::new_with_database_context(cx, paths, store));
-    host.update_in(cx, |app, window, cx| app.ensure_idea_input(window, cx));
+    host.update_in(cx, |app, window, cx| {
+        app.desktop_workspace.active_id = Some(workspace.id.clone());
+        app.desktop_workspace.ideas_aux.pending_images = vec![image.clone()];
+        app.ensure_idea_input(window, cx);
+    });
     let input = host.read_with(cx, |app, _| {
         app.desktop_workspace
             .ideas_input
             .clone()
             .expect("应建立输入框")
     });
-    let insert = |text: &str, cx: &mut gpui::VisualTestContext| {
+    for text in ["ab", "x\ny", "c"] {
         input.update_in(cx, |state, window, cx| {
             state.replace_text_in_range(None, text, window, cx)
         });
-    };
-    insert("ab", cx);
-    insert("x\ny", cx);
-    insert("\r", cx);
-    insert("c", cx);
-    let value = input.read_with(cx, |state, _| state.value().to_string());
+    }
+    host.update_in(cx, |app, window, cx| app.add_idea_from_input(window, cx));
+    cx.run_until_parked();
+    let stored = ideas_db.list(&workspace.id).expect("应列出");
+    assert_eq!(stored.len(), 1, "应恰好记下一条想法：{stored:?}");
+    assert_eq!(stored[0].body, "abx\nyc", "多行正文的换行应保留");
+    assert_eq!(stored[0].images, [image.clone()], "应带上待添加的图片");
     assert_eq!(
-        value, "abc",
-        "带换行的提交应被整体拒绝，普通文字照常进入，实际 {value:?}"
+        std::fs::read(ideas_db.image_path(&image).expect("应解析路径")).expect("图片应存在"),
+        b"img",
+        "图片内容应与保存时一致"
+    );
+    assert_eq!(
+        input.read_with(cx, |state, _| state.value().to_string()),
+        "",
+        "添加后输入框应清空"
+    );
+    host.read_with(cx, |app, _| {
+        assert!(
+            app.desktop_workspace.ideas_aux.pending_images.is_empty(),
+            "添加后待添加图片应清空"
+        );
+    });
+    host.update_in(cx, |app, window, cx| app.add_idea_from_input(window, cx));
+    cx.run_until_parked();
+    assert_eq!(
+        ideas_db.list(&workspace.id).expect("应列出").len(),
+        1,
+        "输入与图片都为空时不应再生成想法"
     );
 }

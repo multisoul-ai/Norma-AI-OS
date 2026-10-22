@@ -13,7 +13,7 @@ use super::overview_list::group_empty;
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div, ElementId, KeyDownEvent, Stateful};
 use ui::component::button::{Button, ButtonVariants};
-use ui::component::input::Input;
+use ui::component::input::{Input, Paste};
 use ui::component::Sizable;
 
 const COPY_PRIMARY: u32 = 0xeef6ffff;
@@ -240,11 +240,31 @@ impl MultisoulApp {
                         })
                     }),
             )
+            .children(self.render_pending_idea_images(cx))
             .when_some(self.desktop_workspace.ideas_input.clone(), |body, input| {
                 body.child(
                     div()
                         .id("desktop-ideas-add")
                         .debug_selector(|| "desktop-ideas-add".to_string())
+                        // ⇧回车换行（普通回车由输入框发出 PressEnter 来添加）。
+                        .capture_key_down(cx.listener(|app, event: &KeyDownEvent, window, cx| {
+                            let modifiers = &event.keystroke.modifiers;
+                            if event.keystroke.key == "enter"
+                                && modifiers.shift
+                                && !modifiers.platform
+                                && !modifiers.control
+                                && !modifiers.alt
+                            {
+                                app.insert_idea_newline(window, cx);
+                                cx.stop_propagation();
+                            }
+                        }))
+                        // 剪贴板只有图片时由想法栏接管粘贴；有文字时交还输入框。
+                        .capture_action(cx.listener(|app, _: &Paste, _, cx| {
+                            if app.paste_idea_image(cx) {
+                                cx.stop_propagation();
+                            }
+                        }))
                         .flex_none()
                         .mx(px(8.0))
                         .mt(px(4.0))
@@ -263,7 +283,7 @@ impl MultisoulApp {
                             div()
                                 .flex_1()
                                 .min_w(px(0.0))
-                                .h(px(28.0))
+                                .min_h(px(28.0))
                                 .flex()
                                 .items_center()
                                 .text_size(px(12.0))

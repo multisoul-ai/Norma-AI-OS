@@ -208,3 +208,60 @@ fn task_states_map_to_phases_and_only_success_or_cancel_change_the_idea() {
         );
     }
 }
+
+/// 想法可以只有图片：正文为空但带图片时放行，且保留正文里的换行。
+///
+/// 数据构造：空白正文配 0 张 / 1 张图片；带换行的多行正文；超过上限的图片数。
+/// 执行过程：调用 normalize_body_with_images。
+/// 预期结果：
+///   - 正断言：1 张图片 + 空白正文返回空串；多行正文只去首尾空白，中间换行原样保留。
+///   - 负断言：0 张图片 + 空白报 Empty；图片数超过 MAX_IDEA_IMAGES 报 TooManyImages。
+#[test]
+fn image_only_idea_is_allowed_and_newlines_survive() {
+    use workspace::ideas::{normalize_body_with_images, MAX_IDEA_IMAGES};
+    assert_eq!(
+        normalize_body_with_images("  \n", 1).as_deref(),
+        Ok(""),
+        "只有图片的想法正文应为空串"
+    );
+    assert_eq!(
+        normalize_body_with_images("  \n", 0),
+        Err(IdeaError::Empty),
+        "没有文字也没有图片不应生成想法"
+    );
+    assert_eq!(
+        normalize_body_with_images("第一行\n\n第三行\n", 0).as_deref(),
+        Ok("第一行\n\n第三行"),
+        "多行正文中间的换行必须保留"
+    );
+    assert_eq!(
+        normalize_body_with_images("x", MAX_IDEA_IMAGES + 1),
+        Err(IdeaError::TooManyImages),
+        "图片数超过上限应被拒绝"
+    );
+}
+
+/// 正文里的链接要被识别出来，供想法行展示与点击。
+///
+/// 数据构造：中英文混排、带尾随标点和括号、多行、重复链接、非 http 协议。
+/// 执行过程：调用 extract_links。
+/// 预期结果：
+///   - 正断言：按出现顺序返回 http/https 链接，去掉尾随的标点与右括号，重复只保留一次。
+///   - 负断言：不识别 javascript:/file: 等协议，也不把普通单词当链接。
+#[test]
+fn links_are_extracted_in_order_without_trailing_punctuation() {
+    use workspace::ideas::extract_links;
+    let body = "看看 https://example.com/a?b=1，还有（http://foo.bar/x）。\n再来一次 https://example.com/a?b=1\njavascript:alert(1) file:///etc/passwd example.com";
+    assert_eq!(
+        extract_links(body),
+        vec![
+            "https://example.com/a?b=1".to_owned(),
+            "http://foo.bar/x".to_owned()
+        ],
+        "应按顺序返回去重后的 http(s) 链接，并去掉尾随标点"
+    );
+    assert!(
+        extract_links("没有链接 example.com").is_empty(),
+        "没有协议头的文字不是链接"
+    );
+}
