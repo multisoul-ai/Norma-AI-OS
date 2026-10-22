@@ -252,7 +252,7 @@ impl MultisoulApp {
                     app.delete_idea(&delete_id, cx);
                 })),
             );
-        div().flex().flex_col().child(
+        div().flex().flex_none().flex_col().child(
             div()
                 .id(ElementId::Name(element_id.clone().into()))
                 .debug_selector(move || element_id.clone())
