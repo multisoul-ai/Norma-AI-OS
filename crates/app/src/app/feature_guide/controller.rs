@@ -70,9 +70,17 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        let before = self.feature_guide.presentation;
+        let blockers = self.feature_guide_blockers();
         self.feature_guide.open_manually();
-        self.feature_guide
-            .sync_blockers(self.feature_guide_blockers());
+        self.feature_guide.sync_blockers(blockers);
+        tracing::info!(stage = "guide_open_result", entity = ?cx.entity_id(), ?before,
+            presentation = ?self.feature_guide.presentation, status = ?self.feature_guide.status,
+            topic = ?self.feature_guide.topic, child_canvas = self.desktop_host.is_some(),
+            settings_open = blockers.settings_open, voice_active = blockers.voice_active,
+            confirmation_open = blockers.confirmation_open,
+            workspace_error_visible = blockers.workspace_error_visible,
+            "[help-diag] manual guide open result");
         self.feature_guide_media.manually_paused = false;
         self.queue_feature_guide_persistence(cx);
         self.revalidate_feature_guide_media(cx);
@@ -81,6 +89,12 @@ impl MultisoulApp {
             self.focus_handle.focus(window);
         }
         cx.notify();
+        cx.on_next_frame(window, |app, _, cx| {
+            tracing::info!(stage = "guide_next_frame", entity = ?cx.entity_id(),
+                presentation = ?app.feature_guide.presentation,
+                renders_here = app.desktop_host.is_none() && app.feature_guide.should_render(),
+                "[help-diag] guide state on next frame");
+        });
         cx.stop_propagation();
     }
 
@@ -130,8 +144,14 @@ impl MultisoulApp {
 
     pub(crate) fn sync_feature_guide_blockers(&mut self, cx: &mut Context<Self>) {
         let was_visible = self.feature_guide.is_visible();
-        self.feature_guide
-            .sync_blockers(self.feature_guide_blockers());
+        let before = self.feature_guide.presentation;
+        let blockers = self.feature_guide_blockers();
+        self.feature_guide.sync_blockers(blockers);
+        if before != self.feature_guide.presentation {
+            tracing::info!(stage = "guide_visibility_changed", entity = ?cx.entity_id(), ?before,
+                presentation = ?self.feature_guide.presentation, ?blockers,
+                "[help-diag] guide visibility changed");
+        }
         if was_visible && !self.feature_guide.is_visible() {
             self.pause_feature_guide_media(false, cx);
         } else if !was_visible && self.feature_guide.is_visible() {
@@ -141,6 +161,7 @@ impl MultisoulApp {
     }
 
     pub(crate) fn close_feature_guide_for_session(&mut self, cx: &mut Context<Self>) {
+        tracing::info!(entity = ?cx.entity_id(), "[help-diag] stage=guide_closed");
         self.feature_guide.close_for_session();
         self.feature_guide_media.clear_playback();
         self.queue_feature_guide_persistence(cx);
