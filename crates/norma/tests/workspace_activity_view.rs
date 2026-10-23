@@ -398,6 +398,7 @@ fn group(
                     raw_state: (*raw_state).into(),
                     status: *status,
                     task_title: Some("实现功能".into()),
+                    latest_prompt: None,
                     progress: None,
                     started_at_unix_ms: None,
                     run_id: Some("run-1".into()),

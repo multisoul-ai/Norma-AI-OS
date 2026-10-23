@@ -71,6 +71,8 @@ pub struct RunOverviewAgent {
     pub presence: RunOverviewPresence,
     pub approval_count: u32,
     pub task: Option<String>,
+    /// Latest user prompt of the session; `task` stays the session's first prompt.
+    pub latest_prompt: Option<String>,
     pub action: Option<String>,
     pub progress: Option<TaskProgress>,
     pub started_at_unix_ms: Option<u64>,
@@ -222,6 +224,7 @@ fn agent_row(
             })
             .count() as u32,
         task: agent.task_title.clone(),
+        latest_prompt: agent.latest_prompt.clone(),
         action,
         progress,
         started_at_unix_ms: agent.started_at_unix_ms,

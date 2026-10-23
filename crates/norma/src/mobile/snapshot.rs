@@ -13,6 +13,9 @@ pub struct CardSnapshot {
     #[serde(default)]
     pub turn_id: Option<String>,
     pub task_title: Option<String>,
+    /// Most recent user prompt of this session (bounded excerpt); `task_title` stays the first one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub latest_prompt: Option<String>,
     /// Display capability only. None preserves older clients; the Runtime always checks the actual session.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub can_interrupt: Option<bool>,

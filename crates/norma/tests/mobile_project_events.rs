@@ -15,6 +15,7 @@ fn project() -> ProjectSnapshot {
         session_id: None,
         turn_id: None,
         task_title: None,
+        latest_prompt: None,
     };
     ProjectSnapshot {
         workspace_id: "project-a".into(),

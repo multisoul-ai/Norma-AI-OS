@@ -19,6 +19,9 @@ use overview_copy::{
 #[path = "../../../tests/unit/run_overview_groups_tests.rs"]
 mod group_tests;
 #[cfg(test)]
+#[path = "../../../tests/unit/run_overview_prompt_tests.rs"]
+mod prompt_tests;
+#[cfg(test)]
 #[path = "../../../tests/unit/run_overview_rows_tests.rs"]
 mod tests;
 
@@ -425,12 +428,24 @@ fn agent_row(
             },
         )
     };
+    // 主标题是会话名称（首条提示词），第二行是最新输入；卡片名退到项目标签里。
+    let title = agent.task.as_deref().and_then(single_line);
+    let latest = agent
+        .latest_prompt
+        .as_deref()
+        .and_then(single_line)
+        .filter(|latest| Some(latest) != title.as_ref());
+    let project_tag = match (agent.project.is_empty(), title.is_some()) {
+        (true, _) => None,
+        (false, true) => Some(format!("{} · {}", agent.project, agent.name)),
+        (false, false) => Some(agent.project.clone()),
+    };
     OverviewRow {
-        primary: agent.name.clone(),
+        primary: title.unwrap_or_else(|| agent.name.clone()),
         secondary: String::new(),
         detail,
-        task_line: agent.task.clone().filter(|task| !task.is_empty()),
-        project_tag: Some(agent.project.clone()).filter(|project| !project.is_empty()),
+        task_line: latest,
+        project_tag,
         is_agent: true,
         action_label: action_label.into(),
         action,
@@ -446,6 +461,12 @@ fn agent_row(
             progress: agent.progress.is_some(),
         }),
     }
+}
+
+/// 提示词可能含换行和多余空白，概览里折成单行再交给视图截断。
+fn single_line(text: &str) -> Option<String> {
+    let folded = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    (!folded.is_empty()).then_some(folded)
 }
 
 fn project_row(project: &RunOverviewProject, now_ms: u64) -> OverviewRow {

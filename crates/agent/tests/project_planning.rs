@@ -44,6 +44,7 @@ async fn live_planner_changes_agent_with_user_direction() {
             session_id: None,
             turn_id: None,
             task_title: None,
+            latest_prompt: None,
         },
         CardSnapshot {
             node_id: 8,
@@ -59,6 +60,7 @@ async fn live_planner_changes_agent_with_user_direction() {
             session_id: None,
             turn_id: None,
             task_title: None,
+            latest_prompt: None,
         },
     ];
     let context = "这是验收样例：SwiftUI页面原型已实现，断线重连和深色布局均尚未验收。两张卡片均空闲，尚未执行任务。";
@@ -270,6 +272,7 @@ async fn check_planning_transport(native: bool, prioritized: bool) {
         session_id: None,
         turn_id: None,
         task_title: None,
+        latest_prompt: None,
     };
     let priority = agent::PlanTodo {
         target: card.clone(),
@@ -324,6 +327,7 @@ fn plans_bind_only_supplied_controlled_cards_without_claiming_execution() {
         session_id: Some("session-a".into()),
         turn_id: None,
         task_title: Some("实现登录".into()),
+        latest_prompt: None,
     };
     let mut claude = codex.clone();
     claude.node_id = 8;

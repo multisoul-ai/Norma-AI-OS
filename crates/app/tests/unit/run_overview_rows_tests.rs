@@ -84,13 +84,14 @@ fn overview_rows_use_prototype_copy_without_percentages() {
     assert_eq!(agents[0].status_label.as_deref(), Some("运行中"));
     assert_eq!(agents[0].approval_badge.as_deref(), Some("1 待审核"));
     assert_eq!(
-        agents[0].task_line.as_deref(),
-        Some("调整原型布局与透明材质")
+        agents[0].primary, "调整原型布局与透明材质",
+        "主标题是会话名称"
     );
+    assert!(agents[0].task_line.is_none(), "没有更新的输入就不画第二行");
     assert_eq!(
         agents[0].project_tag.as_deref(),
-        Some("Norma-AI-OS"),
-        "智能体行用项目标签标明归属"
+        Some("Norma-AI-OS · Bella"),
+        "智能体行用项目标签标明归属并保留卡片名"
     );
     assert_eq!(
         agents[0].detail.as_deref(),
@@ -458,6 +459,7 @@ fn agent(
         presence,
         approval_count: approvals,
         task: task.map(str::to_string),
+        latest_prompt: None,
         action: task.map(str::to_string),
         progress,
         started_at_unix_ms: started,

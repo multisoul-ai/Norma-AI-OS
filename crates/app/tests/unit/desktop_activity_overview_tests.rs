@@ -183,6 +183,7 @@ fn entry(
         raw_state: raw_state.into(),
         status: WorkspaceActivityStatus::Idle,
         task_title: task.map(str::to_string),
+        latest_prompt: None,
         progress: None,
         started_at_unix_ms: None,
         run_id: run_id.map(str::to_string),

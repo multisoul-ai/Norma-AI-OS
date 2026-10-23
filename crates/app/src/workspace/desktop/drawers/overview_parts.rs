@@ -43,7 +43,7 @@ pub(super) fn row_copy(row: &OverviewRow, color: u32, theme: ui::Theme) -> Div {
                         })
                         // 文字需要 flex_1：没有定宽的 flex 子项会被量成零宽，逐字换行并撑高整列。
                         .when(!text.is_empty(), |line| {
-                            line.child(div().flex_1().min_w(px(0.0)).overflow_hidden().child(text))
+                            line.child(div().flex_1().min_w(px(0.0)).truncate().child(text))
                         }),
                 )
             },
@@ -72,6 +72,8 @@ pub(super) fn primary_line(row: &OverviewRow, color: u32, _theme: ui::Theme) -> 
         .child(
             div()
                 .flex_shrink()
+                .min_w(px(0.0))
+                .truncate()
                 .text_size(px(OVERVIEW_TEXT_PRIMARY))
                 .font_weight(gpui::FontWeight::MEDIUM)
                 .text_color(rgba(COPY_PRIMARY))

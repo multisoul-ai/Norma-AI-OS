@@ -168,6 +168,7 @@ impl Runtime {
 
     /// On-demand display projection; never reads transcripts, drains PTYs, or starts an executor.
     pub fn mobile_card_snapshots(&self) -> Vec<norma::mobile::CardSnapshot> {
+        let clip = |text: String| text.chars().take(1024).collect::<String>();
         let mut cards: Vec<_> = self
             .document
             .nodes()
@@ -241,9 +242,8 @@ impl Runtime {
                             .and_then(|host| host.turn_id.clone())
                             .or_else(|| run.prompt_id.clone())
                     }),
-                    task_title: self
-                        .agent_task_title(node.id)
-                        .map(|s| s.chars().take(1024).collect()),
+                    task_title: self.agent_task_title(node.id).map(clip),
+                    latest_prompt: self.agent_latest_prompt(node.id).map(clip),
                 })
             })
             .collect();

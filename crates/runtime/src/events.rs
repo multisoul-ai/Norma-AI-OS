@@ -108,6 +108,7 @@ pub(crate) struct RuntimeEvents {
     states: HashMap<NodeId, NodeRunState>,
     agent_task_states: HashMap<NodeId, AgentTaskState>,
     agent_task_titles: HashMap<NodeId, String>,
+    agent_latest_prompts: HashMap<NodeId, String>,
     card_attention: HashMap<NodeId, CardAttentionState>,
     queue: VecDeque<RuntimeEvent>,
 }
@@ -145,6 +146,7 @@ impl RuntimeEvents {
         if node_type == NodeType::Agent {
             self.agent_task_states.remove(&node_id);
             self.agent_task_titles.remove(&node_id);
+            self.agent_latest_prompts.remove(&node_id);
             self.card_attention.remove(&node_id);
         }
         let state = NodeRunState::Running;
@@ -171,6 +173,7 @@ impl RuntimeEvents {
     pub(crate) fn remove(&mut self, node_id: NodeId) {
         self.agent_task_states.remove(&node_id);
         self.agent_task_titles.remove(&node_id);
+        self.agent_latest_prompts.remove(&node_id);
         self.card_attention.remove(&node_id);
         if let Some(previous_state) = self.states.remove(&node_id) {
             self.push(RuntimeEvent::NodeRemoved {
@@ -183,6 +186,7 @@ impl RuntimeEvents {
     pub(crate) fn remove_all(&mut self) {
         self.agent_task_states.clear();
         self.agent_task_titles.clear();
+        self.agent_latest_prompts.clear();
         self.card_attention.clear();
         let removed: Vec<_> = self.states.drain().collect();
         for (node_id, previous_state) in removed {
@@ -241,6 +245,7 @@ impl RuntimeEvents {
         // This allows the next UserPromptSubmit to write a fresh title.
         if to == AgentTaskState::Ready {
             self.agent_task_titles.remove(&node_id);
+            self.agent_latest_prompts.remove(&node_id);
         }
         let from = previous.unwrap_or(AgentTaskState::Ready);
         self.update_attention_for_agent_task(node_id, &to);
@@ -328,6 +333,10 @@ impl Runtime {
         self.events.agent_task_title(node_id)
     }
 
+    pub fn agent_latest_prompt(&self, node_id: NodeId) -> Option<String> {
+        self.events.agent_latest_prompts.get(&node_id).cloned()
+    }
+
     pub fn card_attention(&self, node_id: NodeId) -> Option<CardAttentionState> {
         self.events.card_attention(node_id)
     }
@@ -388,6 +397,8 @@ impl Runtime {
                     self.cancel_mobile_approvals(update.node_id);
                 }
                 if let Some(title) = update.task_title {
+                    let latest = &mut self.events.agent_latest_prompts;
+                    latest.insert(update.node_id, title.clone());
                     self.events
                         .set_agent_task_title_if_absent(update.node_id, title);
                 }

@@ -446,6 +446,7 @@ fn card_from_status(
         session_id: None,
         turn_id: agent.turn_id.clone(),
         task_title: agent.task.clone(),
+        latest_prompt: None,
         can_interrupt: None,
         task_timing: None,
         task_progress: None,

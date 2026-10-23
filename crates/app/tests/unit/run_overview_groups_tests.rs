@@ -128,7 +128,12 @@ fn cross_project_agents_carry_a_project_tag_and_unloaded_rows_do_not_count() {
         NOW,
     );
     let cora = &screen.sections[1].rows[0];
-    assert_eq!(cora.project_tag.as_deref(), Some("设计草稿"));
+    assert_eq!(
+        cora.project_tag.as_deref(),
+        Some("设计草稿 · Cora"),
+        "有会话名称时标签同时写项目与卡片名"
+    );
+    assert_eq!(cora.primary, "整理色板", "主标题是会话名称");
     assert!(matches!(
         cora.action,
         OverviewAction::LocateAgent { ref area_id, node_id: 5 } if area_id == "area-other"
@@ -237,6 +242,7 @@ fn agent(
         },
         approval_count: 0,
         task: Some("整理色板".into()),
+        latest_prompt: None,
         action: None,
         progress: None,
         started_at_unix_ms: None,
