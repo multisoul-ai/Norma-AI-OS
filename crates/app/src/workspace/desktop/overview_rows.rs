@@ -307,11 +307,12 @@ fn attention_row(row: &RunOverviewAttention) -> OverviewRow {
     let (prefix, tone) = match row.kind {
         RunOverviewAttentionKind::Failed => ("出错", OverviewStatusTone::Failed),
         RunOverviewAttentionKind::Approval => ("待审核", OverviewStatusTone::Approval),
+        RunOverviewAttentionKind::Takeover => ("等待接管", OverviewStatusTone::Approval),
         RunOverviewAttentionKind::Review => ("成果待查看", OverviewStatusTone::Review),
         RunOverviewAttentionKind::File => ("待查看文件", OverviewStatusTone::File),
     };
     let enabled = match row.kind {
-        RunOverviewAttentionKind::Failed => true,
+        RunOverviewAttentionKind::Failed | RunOverviewAttentionKind::Takeover => true,
         RunOverviewAttentionKind::Approval => {
             row.loaded && !row.run_id.is_empty() && !row.turn_id.is_empty()
         }
@@ -319,13 +320,17 @@ fn attention_row(row: &RunOverviewAttention) -> OverviewRow {
     };
     let action = match row.kind {
         // 未加载项目里没有卡片可定位，只能先切换过去。
-        RunOverviewAttentionKind::Failed if !row.loaded => OverviewAction::SwitchProject {
-            area_id: row.area_id.clone(),
-        },
-        RunOverviewAttentionKind::Failed => OverviewAction::LocateAgent {
-            area_id: row.area_id.clone(),
-            node_id: row.node_id,
-        },
+        RunOverviewAttentionKind::Failed | RunOverviewAttentionKind::Takeover if !row.loaded => {
+            OverviewAction::SwitchProject {
+                area_id: row.area_id.clone(),
+            }
+        }
+        RunOverviewAttentionKind::Failed | RunOverviewAttentionKind::Takeover => {
+            OverviewAction::LocateAgent {
+                area_id: row.area_id.clone(),
+                node_id: row.node_id,
+            }
+        }
         RunOverviewAttentionKind::Approval => OverviewAction::LocateApproval {
             area_id: row.area_id.clone(),
             node_id: row.node_id,
@@ -345,8 +350,12 @@ fn attention_row(row: &RunOverviewAttention) -> OverviewRow {
         },
     };
     let action_label = match row.kind {
-        RunOverviewAttentionKind::Failed if !row.loaded => "切换",
-        RunOverviewAttentionKind::Failed | RunOverviewAttentionKind::Approval => "定位",
+        RunOverviewAttentionKind::Failed | RunOverviewAttentionKind::Takeover if !row.loaded => {
+            "切换"
+        }
+        RunOverviewAttentionKind::Failed
+        | RunOverviewAttentionKind::Takeover
+        | RunOverviewAttentionKind::Approval => "定位",
         RunOverviewAttentionKind::Review | RunOverviewAttentionKind::File => "打开",
     };
     OverviewRow {
