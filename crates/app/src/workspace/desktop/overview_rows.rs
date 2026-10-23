@@ -38,7 +38,8 @@ pub(super) fn overview_row_height(kind: OverviewRowKind) -> f32 {
         OverviewRowKind::Attention | OverviewRowKind::Project => 48.0,
         // 名称、项目标签行、状态行三行，比只有名称和状态时多一行。
         OverviewRowKind::Agent { progress: false } => 72.0,
-        OverviewRowKind::Agent { progress: true } => 86.0,
+        // 名称、项目标签行、步骤条、进度详情四行。
+        OverviewRowKind::Agent { progress: true } => 108.0,
     }
 }
 

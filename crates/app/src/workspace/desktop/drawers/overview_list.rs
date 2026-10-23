@@ -125,7 +125,10 @@ impl MultisoulApp {
         } else {
             style.flex_grow = Some(group.grow());
             style.flex_shrink = Some(1.0);
-            style.flex_basis = Some(px(group.base_height()).into());
+            let heights: Vec<f32> = section
+                .map(|section| section.rows.iter().map(|row| row.height).collect())
+                .unwrap_or_default();
+            style.flex_basis = Some(px(group.basis_height(&heights)).into());
             style.min_size.height = Some(px(MIN_GROUP_HEIGHT).into());
         }
         shell
@@ -154,11 +157,11 @@ impl MultisoulApp {
             .filter(|idea| idea.state == workspace::ideas::IdeaState::Todo)
             .count();
         let aside = match (group, section) {
-            (OverviewGroup::Ideas, _) => (todo > 0).then(|| count_badge(todo, false)),
-            // 只有“需要你处理”用琥珀色：它是要你介入的数量，其余是普通计数。
+            (OverviewGroup::Ideas, _) => (todo > 0).then(|| count_badge(todo, BadgeTone::Neutral)),
+            // 琥珀色只给“需要你处理”（要你介入）；运行中用青色，待开始用灰蓝，与原型一致。
             (_, Some(section)) => section
                 .count
-                .map(|count| count_badge(count, group == OverviewGroup::Attention)),
+                .map(|count| count_badge(count, BadgeTone::of(group))),
             _ => None,
         };
         div()
@@ -265,13 +268,37 @@ impl MultisoulApp {
     }
 }
 
-/// 计数角标：`amber` 为需要你处理（琥珀），否则为普通计数（中性蓝灰）。
-fn count_badge(count: usize, amber: bool) -> Div {
-    let (background, foreground) = if amber {
-        (AMBER_TINT, AMBER_TEXT)
-    } else {
-        (0x8fcaff2e, 0xd4eaffff)
-    };
+#[derive(Clone, Copy)]
+enum BadgeTone {
+    Amber,
+    Running,
+    Idle,
+    Neutral,
+}
+
+impl BadgeTone {
+    fn of(group: OverviewGroup) -> Self {
+        match group {
+            OverviewGroup::Attention => Self::Amber,
+            OverviewGroup::Running => Self::Running,
+            OverviewGroup::Idle => Self::Idle,
+            OverviewGroup::Ideas => Self::Neutral,
+        }
+    }
+
+    fn colors(self) -> (u32, u32) {
+        match self {
+            Self::Amber => (AMBER_TINT, AMBER_TEXT),
+            Self::Running => (0x36dce824, 0x7ee9eeff),
+            Self::Idle => (0x9fb8cf24, 0xb3c6d8ff),
+            Self::Neutral => (0x8fcaff2e, 0xd4eaffff),
+        }
+    }
+}
+
+/// 计数角标：按栏着色，琥珀＝要你介入，青色＝运行中，灰蓝＝待开始，中性蓝＝想法。
+fn count_badge(count: usize, tone: BadgeTone) -> Div {
+    let (background, foreground) = tone.colors();
     div()
         .min_w(px(18.0))
         .h(px(18.0))

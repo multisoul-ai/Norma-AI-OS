@@ -3,7 +3,7 @@ use super::*;
 /// 概览四栏的顺序和基准高度是固定的：需要你处理 → 运行中 → 待开始 → 想法。
 ///
 /// 预期结果：
-///   - 正断言：ORDER 恰为四栏且顺序固定；基准高度依次 170 / 230 / 120 / 220。
+///   - 正断言：ORDER 恰为四栏且顺序固定；基准高度依次 200 / 260 / 200 / 250。
 ///   - 负断言：任何栏的基准高度都不低于最小高度，保证至少容得下标题和一行内容。
 #[test]
 fn groups_keep_a_fixed_order_and_base_heights() {
@@ -18,7 +18,7 @@ fn groups_keep_a_fixed_order_and_base_heights() {
         "栏目顺序是产品约定，不随内容变化"
     );
     let heights = OverviewGroup::ORDER.map(OverviewGroup::base_height);
-    assert_eq!(heights, [170.0, 230.0, 120.0, 220.0]);
+    assert_eq!(heights, [200.0, 260.0, 200.0, 250.0]);
     assert!(
         heights.iter().all(|height| *height >= MIN_GROUP_HEIGHT),
         "基准高度不能低于最小高度"
@@ -113,5 +113,39 @@ fn legacy_collapse_bits_keep_their_meaning() {
         assert_eq!(seen & state.bits(), 0, "折叠位不能重复");
         assert_eq!(state.bits() & !0b1111, 0, "折叠位必须落在低四位");
         seen |= state.bits();
+    }
+}
+
+/// 状态栏起始高度按内容定：内容少就紧凑，内容多封顶到基准高度，想法栏不按内容。
+///
+/// 数据构造：一行 48px 的待处理、一行 72px 的智能体、七行 72px 的智能体、没有行。
+/// 执行过程：分别取各栏的起始高度。
+/// 预期结果：
+///   - 正断言：待处理一行不超过基准且不低于最小高度；待开始一行恰好容得下标题加一整行（34 + 74）；
+///     七行封顶到基准高度；空栏按空态高度但不超过基准。
+///   - 负断言：想法栏不随行高变化，始终是基准高度；任何栏都不低于最小高度。
+#[test]
+fn basis_height_follows_content_and_is_capped_by_base() {
+    assert_eq!(
+        OverviewGroup::Attention.basis_height(&[48.0]),
+        MIN_GROUP_HEIGHT
+    );
+    assert_eq!(OverviewGroup::Idle.basis_height(&[72.0]), 34.0 + 72.0 + 2.0);
+    assert_eq!(
+        OverviewGroup::Running.basis_height(&[72.0; 7]),
+        OverviewGroup::Running.base_height(),
+        "内容多了封顶，超出部分栏内滚动"
+    );
+    assert_eq!(
+        OverviewGroup::Idle.basis_height(&[]),
+        OverviewGroup::Idle.base_height().min(120.0)
+    );
+    assert_eq!(
+        OverviewGroup::Ideas.basis_height(&[72.0; 7]),
+        OverviewGroup::Ideas.base_height()
+    );
+    for group in OverviewGroup::ORDER {
+        assert!(group.basis_height(&[]) >= MIN_GROUP_HEIGHT);
+        assert!(group.basis_height(&[10.0]) >= MIN_GROUP_HEIGHT);
     }
 }

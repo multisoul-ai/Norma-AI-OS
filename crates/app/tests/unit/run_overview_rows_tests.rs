@@ -178,8 +178,9 @@ fn overview_rows_use_prototype_copy_without_percentages() {
     assert_eq!(overview_row_height(OverviewRowKind::Attention), 48.0);
     assert_eq!(overview_row_height(OverviewRowKind::Project), 48.0);
     assert!(
-        overview_row_height(OverviewRowKind::Agent { progress: true }) > 48.0,
-        "进度条行高于 48px"
+        overview_row_height(OverviewRowKind::Agent { progress: true })
+            > overview_row_height(OverviewRowKind::Agent { progress: false }),
+        "带进度条的智能体行比没有进度条的更高"
     );
     assert!(
         overview_row_height(OverviewRowKind::Agent { progress: false }) >= 72.0,
