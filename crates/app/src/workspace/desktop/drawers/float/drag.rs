@@ -245,7 +245,7 @@ impl MultisoulApp {
         )
     }
 
-    pub(in crate::workspace::desktop::drawers::float) fn overview_float_focus(
+    pub(in crate::workspace::desktop::drawers) fn overview_float_focus(
         &mut self,
         cx: &mut Context<Self>,
     ) -> gpui::FocusHandle {
