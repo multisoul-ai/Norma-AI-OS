@@ -25,6 +25,7 @@ mod mobile;
 mod motion;
 mod network_crypto;
 mod norma;
+mod panic_hook;
 mod performance_monitor;
 mod preview;
 mod settings;
@@ -109,6 +110,7 @@ pub fn run_norma_os() {
     network_crypto::install_network_crypto_provider();
 
     // Guard must outlive GPUI so buffered file logs are flushed during shutdown.
+    panic_hook::install();
     let _logging_guard = logging::initialize();
     app::browser::initialize_safari_browser_identity();
 
