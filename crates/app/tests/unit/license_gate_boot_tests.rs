@@ -184,3 +184,31 @@ fn test_invalid_without_skip_opens_activation() {
         "签名无效的凭证不得绕过已启用的 License 硬门控"
     );
 }
+
+/// 登录页叠加在 License 决策之上：只有 License 已放行且需要登录时才进入登录页。
+///
+/// 数据构造：license_phase ∈ {Activation, Workbench} × show_login ∈ {true, false} 共 4 种组合。
+/// 预期结果：
+///   - 正断言：(Workbench, true) → Login；(Workbench, false) → Workbench
+///   - 负断言：License 未放行（Activation）时无论是否需要登录都保持 Activation（先激活、后登录）
+#[test]
+fn test_login_phase_layers_on_top_of_license_phase() {
+    use super::boot::{decide_phase_with_login, BootPhase};
+    assert_eq!(
+        decide_phase_with_login(BootPhase::Workbench, true),
+        BootPhase::Login,
+        "License 放行且需要登录时应进入登录页"
+    );
+    assert_eq!(
+        decide_phase_with_login(BootPhase::Workbench, false),
+        BootPhase::Workbench,
+        "不需要登录时应直接进入工作台"
+    );
+    for show_login in [true, false] {
+        assert_eq!(
+            decide_phase_with_login(BootPhase::Activation, show_login),
+            BootPhase::Activation,
+            "License 未放行时必须先激活，show_login={show_login}"
+        );
+    }
+}

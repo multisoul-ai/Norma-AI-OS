@@ -78,6 +78,7 @@ media_store = { path = "crates/media_store" }
 tts = { path = "crates/tts" }
 asr = { path = "crates/asr" }
 license = { path = "crates/license" }
+account = { path = "crates/account" }
 agent = { path = "crates/agent" }
 dialogue = { path = "crates/dialogue" }
 canvas = { path = "crates/canvas" }

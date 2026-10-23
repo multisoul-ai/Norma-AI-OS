@@ -30,6 +30,8 @@ pub enum FailReason {
     StateMismatch,
     InvalidCallback,
     Exchange(String),
+    /// 本机回环监听无法建立。
+    Listener(String),
     TimedOut,
 }
 
@@ -54,6 +56,7 @@ pub enum FlowEvent {
     ExchangeFailed(String),
     Cancel,
     TimedOut,
+    ListenerFailed(String),
     SignOut,
 }
 
@@ -128,6 +131,11 @@ impl Flow {
             (FlowState::AwaitingBrowser(attempt), FlowEvent::TimedOut) => {
                 let provider = attempt.provider;
                 self.fail(provider, FailReason::TimedOut);
+                None
+            }
+            (FlowState::AwaitingBrowser(attempt), FlowEvent::ListenerFailed(message)) => {
+                let provider = attempt.provider;
+                self.fail(provider, FailReason::Listener(message));
                 None
             }
             (FlowState::Exchanging(_), FlowEvent::ExchangeSucceeded(session)) => {

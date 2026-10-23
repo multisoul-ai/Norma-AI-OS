@@ -306,3 +306,31 @@ fn test_signed_in_blocks_begin_and_sign_out_clears() {
         "未登录时退出登录无动作"
     );
 }
+
+/// 本机回环监听失败：等待浏览器时进入 Failed(Listener)，其它状态忽略。
+///
+/// 数据构造：AwaitingBrowser 下收到 ListenerFailed("addr in use")；Idle 与 Exchanging 下同样事件。
+/// 预期结果：正断言：等待中 → Failed(Listener("addr in use"))；负断言：Idle、Exchanging 状态不变。
+#[test]
+fn test_listener_failure_only_applies_while_waiting() {
+    let mut flow = awaiting(1);
+    flow.handle(FlowEvent::ListenerFailed("addr in use".to_string()));
+    assert_eq!(
+        flow.state(),
+        &FlowState::Failed {
+            provider: Provider::GitHub,
+            reason: FailReason::Listener("addr in use".to_string())
+        },
+        "等待浏览器时监听失败应进入 Failed(Listener)"
+    );
+    let mut idle = Flow::new();
+    idle.handle(FlowEvent::ListenerFailed("x".to_string()));
+    assert_eq!(idle.state(), &FlowState::Idle, "空闲时忽略监听失败");
+    let mut busy = exchanging(1);
+    busy.handle(FlowEvent::ListenerFailed("x".to_string()));
+    assert_eq!(
+        busy.state(),
+        &FlowState::Exchanging(Provider::GitHub),
+        "交换中忽略监听失败"
+    );
+}

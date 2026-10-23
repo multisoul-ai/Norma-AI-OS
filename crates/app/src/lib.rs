@@ -3,6 +3,7 @@
 //!
 //! 模块声明保持私有（`mod`，非 `pub mod`）：内部模块树无需对外暴露，仅通过
 //! 下方 `pub use` 释放 e2e / bin 所需的公开 API，避免泄漏 `pub(crate)` 类型。
+mod account;
 mod app;
 mod assets;
 mod browser_auth_host;

@@ -5,6 +5,7 @@ use super::boot::BootPhase;
 use super::config::{license_base_url, public_key_hex};
 use super::machine_id::current_machine_id;
 use super::token_store::{default_token_path, write_token};
+use crate::account::{AccountController, AccountHandle};
 #[cfg(target_os = "macos")]
 use crate::app::video_wallpaper::{
     decide_video_sync, poll_video_wallpaper, replace_video_wallpaper, video_wallpaper_surface,
@@ -31,6 +32,9 @@ use ui::Theme;
 
 #[cfg(target_os = "macos")]
 const LICENSE_BACKGROUND_VIDEO_ASSET: &str = "wallpapers/license-gate.mp4";
+/// 登录页与 Launchpad 共用的专用壁纸。
+#[cfg(target_os = "macos")]
+const LOGIN_BACKGROUND_VIDEO_ASSET: &str = "wallpapers/home.mp4";
 const INTERNAL_BETA_LICENSE_KEY: &str = "KG-WACEHBCB-2ZL4AM23-JBJQJZBG-YVT55VDN";
 
 #[derive(Clone, Debug)]
@@ -40,7 +44,13 @@ enum ShellStatus {
     Error(ui::i18n::LocalizedText),
 }
 
+mod login;
+mod open;
 mod workbench;
+
+pub use open::open_gated_window;
+#[cfg(feature = "e2e-test-support")]
+pub use open::{build_activation_root_e2e, build_configured_unlicensed_root_e2e};
 
 pub struct GateRoot {
     phase: BootPhase,
@@ -51,6 +61,10 @@ pub struct GateRoot {
     status: ShellStatus,
     theme: Theme,
     focus_handle: FocusHandle,
+    /// 账号控制器（`account-login` 开启时由 `open_gated_window` 注入全局）。
+    account: Option<Entity<AccountController>>,
+    /// License 激活成功后是否还需先经过登录页。
+    login_after_activation: bool,
     #[cfg(target_os = "macos")]
     license_video_wallpaper: Option<VideoWallpaperState>,
 }
@@ -74,9 +88,16 @@ impl GateRoot {
             status: ShellStatus::Idle,
             theme: Theme::glass_dark(),
             focus_handle: cx.focus_handle(),
+            account: cx
+                .try_global::<AccountHandle>()
+                .map(|handle| handle.0.clone()),
+            login_after_activation: false,
             #[cfg(target_os = "macos")]
             license_video_wallpaper: None,
         };
+        if let Some(account) = root.account.clone() {
+            cx.observe(&account, |_, _, cx| cx.notify()).detach();
+        }
         if phase == BootPhase::Workbench {
             root.mount_workbench(window, cx);
         }
@@ -137,7 +158,11 @@ impl GateRoot {
             this.update(cx, |this, cx| match result {
                 Ok(()) => {
                     this.status = ShellStatus::Idle;
-                    this.enter_workbench = true;
+                    if this.login_after_activation {
+                        this.phase = BootPhase::Login;
+                    } else {
+                        this.enter_workbench = true;
+                    }
                     cx.notify();
                 }
                 Err(err) => {
@@ -152,7 +177,7 @@ impl GateRoot {
 
     #[cfg(target_os = "macos")]
     fn sync_license_video_background(&mut self, cx: &mut Context<Self>) {
-        let path = license_background_video_path();
+        let path = background_video_path(self.phase);
         match decide_video_sync(self.license_video_wallpaper.as_ref(), true, path.as_deref()) {
             VideoSyncAction::Keep => {}
             VideoSyncAction::Clear => {
@@ -223,8 +248,12 @@ impl GateRoot {
 }
 
 #[cfg(target_os = "macos")]
-fn license_background_video_path() -> Option<PathBuf> {
-    resolve_builtin_asset(LICENSE_BACKGROUND_VIDEO_ASSET)
+fn background_video_path(phase: BootPhase) -> Option<PathBuf> {
+    let asset = match phase {
+        BootPhase::Login => LOGIN_BACKGROUND_VIDEO_ASSET,
+        _ => LICENSE_BACKGROUND_VIDEO_ASSET,
+    };
+    resolve_builtin_asset(asset)
 }
 
 impl Focusable for GateRoot {
@@ -253,6 +282,10 @@ impl Render for GateRoot {
 
         #[cfg(target_os = "macos")]
         self.sync_license_video_background(cx);
+
+        if self.phase == BootPhase::Login {
+            return self.render_login(cx);
+        }
 
         let status_text = match &self.status {
             ShellStatus::Idle => SharedString::from(
@@ -418,47 +451,4 @@ fn shell_button(
         .active(move |button| button.bg(gpui::rgba(active)))
         .child(label)
         .on_click(on_click)
-}
-
-pub fn open_gated_window(cx: &mut App) -> anyhow::Result<WindowHandle<Root>> {
-    let phase = super::resolve::resolve_initial_boot_phase();
-    open_gated_window_with_phase(phase, cx)
-}
-
-fn open_gated_window_with_phase(
-    phase: BootPhase,
-    cx: &mut App,
-) -> anyhow::Result<WindowHandle<Root>> {
-    let title = title_for_initial_state(&InitialWindowState::Launchpad);
-    let (width, height) = crate::workspace::windowing::initial_window_dimensions(
-        crate::workspace::windowing::visual_preview_name(),
-    );
-    let display = crate::workspace::windowing::initial_display(cx);
-    let bounds = gpui::Bounds::centered(display, gpui::size(px(width), px(height)), cx);
-    let handle = cx.open_window(window_options(title, bounds, display), |window, cx| {
-        cx.new(|cx| build_gated_root(phase, window, cx))
-    })?;
-    Ok(handle)
-}
-
-fn build_gated_root(phase: BootPhase, window: &mut Window, cx: &mut Context<Root>) -> Root {
-    let gate = cx.new(|cx| GateRoot::new(phase, window, cx));
-    Root::new(gate, window, cx)
-}
-
-#[cfg(feature = "e2e-test-support")]
-pub fn build_activation_root_e2e(window: &mut Window, cx: &mut Context<Root>) -> Root {
-    ui::init_components(cx);
-    build_gated_root(BootPhase::Activation, window, cx)
-}
-
-#[cfg(feature = "e2e-test-support")]
-pub fn build_configured_unlicensed_root_e2e(window: &mut Window, cx: &mut Context<Root>) -> Root {
-    ui::init_components(cx);
-    let missing_status = license::LocalLicenseStatus::Invalid {
-        reason: license::LicenseInvalidReason::Missing,
-    };
-    let phase =
-        super::boot::decide_boot_phase(super::config::LICENSES_ENABLED, false, &missing_status);
-    build_gated_root(phase, window, cx)
 }

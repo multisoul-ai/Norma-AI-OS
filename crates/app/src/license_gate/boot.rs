@@ -6,6 +6,8 @@ use license::{evaluate_local_license, LocalLicenseStatus};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BootPhase {
     Activation,
+    /// 账号登录页：位于 License 放行之后、工作台之前（仅在 `account-login` 开启时出现）。
+    Login,
     Workbench,
 }
 
@@ -21,6 +23,15 @@ pub fn decide_boot_phase(
     match status {
         LocalLicenseStatus::Activated { .. } => BootPhase::Workbench,
         LocalLicenseStatus::Invalid { .. } => BootPhase::Activation,
+    }
+}
+
+/// 在 License 决策之上叠加登录页：License 未放行时仍先激活（登录延后）；
+/// 放行且需要登录时进入登录页；否则保持原阶段。
+pub fn decide_phase_with_login(license_phase: BootPhase, show_login: bool) -> BootPhase {
+    match license_phase {
+        BootPhase::Workbench if show_login => BootPhase::Login,
+        other => other,
     }
 }
 
