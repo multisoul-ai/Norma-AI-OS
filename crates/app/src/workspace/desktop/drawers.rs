@@ -31,6 +31,7 @@ pub(super) mod orb;
 mod overview_actions;
 mod overview_list;
 mod overview_parts;
+mod overview_summary;
 pub(super) mod resize;
 
 #[cfg(test)]

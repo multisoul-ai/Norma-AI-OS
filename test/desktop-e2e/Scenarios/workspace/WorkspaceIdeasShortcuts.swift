@@ -17,8 +17,8 @@ public enum WorkspaceIdeasShortcuts {
             if let fakeShell { try? FileManager.default.removeItem(at: fakeShell) }
         }
         let workspace = "IdeasKeys"
-        let bodies = ["甲方案想法", "乙方案想法", "丙方案想法", "丁方案想法"]
-        // 先在没展开项目时把丁拖到最前（丁 甲 乙 丙），进入项目后再把丙拖到最前：派发队列就是 丙 丁 甲 乙。
+        let bodies = ["一号想法", "二号想法", "三号想法", "四号想法"]
+        // 先在没展开项目时把四号拖到最前（四 一 二 三），进入项目后再把三号拖到最前：派发队列就是 三 四 一 二。（用数字而不是甲乙丙丁：OCR 会把“丁方”读成“丁万”。）
         let queue = [bodies[2], bodies[3], bodies[0], bodies[1]]
 
         try await session.step("建立含项目区与四条想法的隔离工作空间") {
@@ -54,10 +54,10 @@ public enum WorkspaceIdeasShortcuts {
         }
 
         func foldOtherGroups() async throws {
-            // 折叠其余三栏，想法栏拿到全部剩余高度，四条想法都可见。
-            for title in ["处理", "当前项目", "其他项目"] {
+            // 折叠其余三栏（需要你处理 / 运行中 / 待开始），想法栏拿到全部剩余高度，四条想法都可见。
+            for title in ["要你处理", "运行中", "待开始"] {
                 let frame = try await session.capture()
-                guard let heading = frame.texts.filter({ $0.value.contains(title) && $0.center.x < 440 }).first else {
+                guard let heading = frame.texts.filter({ $0.value.contains(title) && $0.center.x < 100 }).min(by: { $0.center.y < $1.center.y }) else {
                     throw E2EError.product("找不到栏标题「\(title)」：\(frame.summary)")
                 }
                 try await session.click(local: heading.center, on: frame)
@@ -101,7 +101,7 @@ public enum WorkspaceIdeasShortcuts {
             let order = try ideaRows().map(\.body)
             try session.save(try await session.capture(), "00b-no-project-reordered.png")
             guard order == [bodies[3], bodies[0], bodies[1], bodies[2]] else {
-                throw E2EError.product("没展开项目时拖动后顺序应为 丁 甲 乙 丙，实际 \(order)")
+                throw E2EError.product("没展开项目时拖动后顺序应为 四 一 二 三，实际 \(order)")
             }
             guard try ideaRows().allSatisfy({ $0.state == "todo" }) else {
                 throw E2EError.product("排序不应派发任何想法：\(try ideaRows())")
@@ -137,7 +137,7 @@ public enum WorkspaceIdeasShortcuts {
             let order = try ideaRows().map(\.body)
             try session.save(try await session.capture(), "02-reordered.png")
             guard order == queue else {
-                throw E2EError.product("拖动后顺序应为 丙 丁 甲 乙，实际 \(order)")
+                throw E2EError.product("拖动后顺序应为 三 四 一 二，实际 \(order)")
             }
             guard try ideaRows().allSatisfy({ $0.state == "todo" }) else {
                 throw E2EError.product("列表内排序不应派发任何想法：\(try ideaRows())")

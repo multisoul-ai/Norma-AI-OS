@@ -1,8 +1,8 @@
 //! 概览行的组成部件：行首圆点、文案、状态角标、步骤条与操作文字。
 
 use super::super::overview_rows::{
-    OverviewAction, OverviewRow, OverviewStatusTone, ProgressMark, OVERVIEW_TEXT_COPY,
-    OVERVIEW_TEXT_PRIMARY, OVERVIEW_TEXT_SECONDARY, TONE_RUNNING,
+    OverviewRow, OverviewStatusTone, ProgressMark, OVERVIEW_TEXT_COPY, OVERVIEW_TEXT_PRIMARY,
+    OVERVIEW_TEXT_SECONDARY, TONE_RUNNING,
 };
 use gpui::{div, prelude::*, px, rgba, Div};
 use ui::component::StyledExt;
@@ -25,18 +25,26 @@ pub(super) fn row_copy(row: &OverviewRow, color: u32, theme: ui::Theme) -> Div {
         .gap(px(3.0))
         .child(primary_line(row, color, theme))
         .when(
-            row.task_line.is_some() || !row.secondary.is_empty(),
+            row.task_line.is_some() || !row.secondary.is_empty() || row.project_tag.is_some(),
             |copy| {
+                let text = row
+                    .task_line
+                    .clone()
+                    .unwrap_or_else(|| row.secondary.clone());
                 copy.child(
                     div()
+                        .flex()
+                        .items_center()
+                        .gap(px(6.0))
                         .text_size(px(OVERVIEW_TEXT_COPY))
                         .text_color(rgba(COPY_SECONDARY))
-                        .overflow_hidden()
-                        .child(
-                            row.task_line
-                                .clone()
-                                .unwrap_or_else(|| row.secondary.clone()),
-                        ),
+                        .when_some(row.project_tag.clone(), |line, project| {
+                            line.child(project_chip(&project))
+                        })
+                        // 文字需要 flex_1：没有定宽的 flex 子项会被量成零宽，逐字换行并撑高整列。
+                        .when(!text.is_empty(), |line| {
+                            line.child(div().flex_1().min_w(px(0.0)).overflow_hidden().child(text))
+                        }),
                 )
             },
         )
@@ -55,10 +63,7 @@ pub(super) fn row_copy(row: &OverviewRow, color: u32, theme: ui::Theme) -> Div {
 }
 
 pub(super) fn primary_line(row: &OverviewRow, color: u32, _theme: ui::Theme) -> Div {
-    let agent_row = matches!(
-        row.action,
-        OverviewAction::LocateAgent { .. } | OverviewAction::StopEgo { .. }
-    );
+    let agent_row = row.is_agent;
     div()
         .flex()
         .items_center()
@@ -87,6 +92,18 @@ pub(super) fn primary_line(row: &OverviewRow, color: u32, _theme: ui::Theme) -> 
         .when_some(row.approval_badge.clone(), |line, badge| {
             line.child(status_chip(&badge, AMBER_TINT, AMBER_TEXT))
         })
+}
+
+/// 智能体行里标明所属项目的小标签：浅蓝底、不抢状态色。
+fn project_chip(label: &str) -> Div {
+    div()
+        .flex_none()
+        .px(px(6.0))
+        .rounded(px(5.0))
+        .bg(rgba(0x8fcaff1f))
+        .text_size(px(OVERVIEW_TEXT_SECONDARY))
+        .text_color(rgba(0xc4dcf0ff))
+        .child(label.to_owned())
 }
 
 pub(super) fn status_chip(label: &str, background: u32, foreground: u32) -> Div {

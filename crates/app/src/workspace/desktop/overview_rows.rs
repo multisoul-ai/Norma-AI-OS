@@ -16,6 +16,9 @@ use overview_copy::{
 };
 
 #[cfg(test)]
+#[path = "../../../tests/unit/run_overview_groups_tests.rs"]
+mod group_tests;
+#[cfg(test)]
 #[path = "../../../tests/unit/run_overview_rows_tests.rs"]
 mod tests;
 
@@ -33,8 +36,10 @@ pub(super) enum OverviewRowKind {
 pub(super) fn overview_row_height(kind: OverviewRowKind) -> f32 {
     match kind {
         OverviewRowKind::Attention | OverviewRowKind::Project => 48.0,
-        OverviewRowKind::Agent { progress: false } => 64.0,
-        OverviewRowKind::Agent { progress: true } => 86.0,
+        // 名称、项目标签行、状态行三行，比只有名称和状态时多一行。
+        OverviewRowKind::Agent { progress: false } => 72.0,
+        // 名称、项目标签行、步骤条、进度详情四行。
+        OverviewRowKind::Agent { progress: true } => 108.0,
     }
 }
 
@@ -94,6 +99,10 @@ pub(super) struct OverviewRow {
     pub secondary: String,
     pub detail: Option<String>,
     pub task_line: Option<String>,
+    /// 智能体行所属项目，渲染成任务行前的小标签；项目行与待处理行没有。
+    pub project_tag: Option<String>,
+    /// 智能体行（带状态角标、可含步骤条）；待处理与项目行为 false。
+    pub is_agent: bool,
     pub action_label: String,
     pub action: OverviewAction,
     pub status_label: Option<String>,
@@ -110,7 +119,6 @@ pub(super) struct OverviewRow {
 #[derive(Clone, Debug, PartialEq)]
 pub(super) struct OverviewSection {
     pub title: String,
-    pub meta: Option<String>,
     pub count: Option<usize>,
     pub rows: Vec<OverviewRow>,
 }
@@ -124,11 +132,22 @@ impl OverviewScreen {
     pub(super) fn empty() -> Self {
         Self {
             sections: vec![
-                section("需要你处理", None, Some(0), Vec::new()),
-                section("当前项目", Some("0 个智能体".into()), None, Vec::new()),
-                section("其他项目", Some("上次状态".into()), None, Vec::new()),
+                section("需要你处理", Some(0), Vec::new()),
+                section("运行中", Some(0), Vec::new()),
+                section("待开始", Some(0), Vec::new()),
             ],
         }
+    }
+
+    /// 统计卡：待你处理、运行中、待开始的数量，与分组标题的计数同源。
+    pub(super) fn summary(&self) -> [usize; 3] {
+        let count = |index: usize| {
+            self.sections
+                .get(index)
+                .and_then(|section| section.count)
+                .unwrap_or(0)
+        };
+        [count(0), count(1), count(2)]
     }
 
     pub(super) fn row_count(&self) -> usize {
@@ -238,51 +257,47 @@ pub(super) fn present_overview(
     ego_stops: &[(String, u64, u64)],
     now_ms: u64,
 ) -> OverviewScreen {
-    let current_title = match overview.current_project.as_deref() {
-        Some(name) if !name.is_empty() => format!("当前项目 · {name}"),
-        _ => "当前项目".into(),
-    };
+    let idle_agents = overview.idle.len();
+    let mut idle_rows: Vec<OverviewRow> = overview
+        .idle
+        .iter()
+        .map(|agent| agent_row(agent, ego_stops, now_ms))
+        .collect();
+    // 未加载项目只有上次状态，排在智能体之后，不计入“待开始”的数量。
+    idle_rows.extend(
+        overview
+            .unloaded_projects
+            .iter()
+            .map(|project| project_row(project, now_ms)),
+    );
     OverviewScreen {
         sections: vec![
             section(
                 "需要你处理",
-                None,
                 Some(overview.attention.len()),
                 overview.attention.iter().map(attention_row).collect(),
             ),
             section(
-                current_title,
-                Some(format!("{} 个智能体", overview.current_agents.len())),
-                None,
+                "运行中",
+                Some(overview.running.len()),
                 overview
-                    .current_agents
+                    .running
                     .iter()
                     .map(|agent| agent_row(agent, ego_stops, now_ms))
                     .collect(),
             ),
-            section(
-                "其他项目",
-                Some("上次状态".into()),
-                None,
-                overview
-                    .other_projects
-                    .iter()
-                    .map(|project| project_row(project, now_ms))
-                    .collect(),
-            ),
+            section("待开始", Some(idle_agents), idle_rows),
         ],
     }
 }
 
 fn section(
     title: impl Into<String>,
-    meta: Option<String>,
     count: Option<usize>,
     rows: Vec<OverviewRow>,
 ) -> OverviewSection {
     OverviewSection {
         title: title.into(),
-        meta,
         count,
         rows,
     }
@@ -290,17 +305,27 @@ fn section(
 
 fn attention_row(row: &RunOverviewAttention) -> OverviewRow {
     let (prefix, tone) = match row.kind {
+        RunOverviewAttentionKind::Failed => ("出错", OverviewStatusTone::Failed),
         RunOverviewAttentionKind::Approval => ("待审核", OverviewStatusTone::Approval),
         RunOverviewAttentionKind::Review => ("成果待查看", OverviewStatusTone::Review),
         RunOverviewAttentionKind::File => ("待查看文件", OverviewStatusTone::File),
     };
     let enabled = match row.kind {
+        RunOverviewAttentionKind::Failed => true,
         RunOverviewAttentionKind::Approval => {
             row.loaded && !row.run_id.is_empty() && !row.turn_id.is_empty()
         }
         RunOverviewAttentionKind::Review | RunOverviewAttentionKind::File => true,
     };
     let action = match row.kind {
+        // 未加载项目里没有卡片可定位，只能先切换过去。
+        RunOverviewAttentionKind::Failed if !row.loaded => OverviewAction::SwitchProject {
+            area_id: row.area_id.clone(),
+        },
+        RunOverviewAttentionKind::Failed => OverviewAction::LocateAgent {
+            area_id: row.area_id.clone(),
+            node_id: row.node_id,
+        },
         RunOverviewAttentionKind::Approval => OverviewAction::LocateApproval {
             area_id: row.area_id.clone(),
             node_id: row.node_id,
@@ -320,7 +345,8 @@ fn attention_row(row: &RunOverviewAttention) -> OverviewRow {
         },
     };
     let action_label = match row.kind {
-        RunOverviewAttentionKind::Approval => "定位",
+        RunOverviewAttentionKind::Failed if !row.loaded => "切换",
+        RunOverviewAttentionKind::Failed | RunOverviewAttentionKind::Approval => "定位",
         RunOverviewAttentionKind::Review | RunOverviewAttentionKind::File => "打开",
     };
     OverviewRow {
@@ -328,6 +354,8 @@ fn attention_row(row: &RunOverviewAttention) -> OverviewRow {
         secondary: format!("{} · {}", row.agent, row.project),
         detail: None,
         task_line: None,
+        project_tag: None,
+        is_agent: false,
         action_label: action_label.into(),
         action,
         status_label: Some(prefix.into()),
@@ -392,11 +420,9 @@ fn agent_row(
         primary: agent.name.clone(),
         secondary: String::new(),
         detail,
-        task_line: agent
-            .task
-            .as_ref()
-            .filter(|task| !task.is_empty())
-            .map(|task| format!("任务 · {task}")),
+        task_line: agent.task.clone().filter(|task| !task.is_empty()),
+        project_tag: Some(agent.project.clone()).filter(|project| !project.is_empty()),
+        is_agent: true,
         action_label: action_label.into(),
         action,
         status_label: Some(status_label.into()),
@@ -419,6 +445,8 @@ fn project_row(project: &RunOverviewProject, now_ms: u64) -> OverviewRow {
         secondary: project_secondary(project, now_ms),
         detail: None,
         task_line: None,
+        project_tag: None,
+        is_agent: false,
         action_label: "切换".into(),
         action: OverviewAction::SwitchProject {
             area_id: project.area_id.clone(),

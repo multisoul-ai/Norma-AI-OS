@@ -1,4 +1,5 @@
-//! Group a cached activity view into the three run-overview sections.
+//! Group a cached activity view into the run-overview sections: attention,
+//! running agents, idle agents and unloaded-project summaries.
 //! Elapsed time is not formatted here; the renderer converts `started_at_unix_ms`.
 
 use super::{TaskProgress, WorkspaceActivityStatus, WorkspaceActivityView};
@@ -23,6 +24,7 @@ pub struct RunOverviewProjectPresence {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RunOverviewAttentionKind {
+    Failed,
     Approval,
     Review,
     File,
@@ -54,6 +56,9 @@ pub struct RunOverviewAttention {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RunOverviewAgent {
     pub area_id: String,
+    pub project: String,
+    /// True when the agent belongs to the project currently on screen.
+    pub current: bool,
     pub node_id: u64,
     pub name: String,
     pub raw_state: String,
@@ -79,10 +84,33 @@ pub struct RunOverviewProject {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RunOverview {
+    /// Failed agents first, then approvals, reviews and files, workspace-wide.
     pub attention: Vec<RunOverviewAttention>,
-    pub current_project: Option<String>,
-    pub current_agents: Vec<RunOverviewAgent>,
-    pub other_projects: Vec<RunOverviewProject>,
+    /// Loaded projects' running agents; current project first, longest-running first.
+    pub running: Vec<RunOverviewAgent>,
+    /// Loaded projects' idle agents, ordered like `running`.
+    pub idle: Vec<RunOverviewAgent>,
+    /// Projects without a live runtime: one summary row each, never expanded.
+    pub unloaded_projects: Vec<RunOverviewProject>,
+}
+
+/// Workspace-wide counts shown by the status capsule and the drawer's summary cards.
+/// Agents count once per row; unloaded-project summary rows are not agents and are excluded.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct RunOverviewSummary {
+    pub attention: usize,
+    pub running: usize,
+    pub idle: usize,
+}
+
+impl RunOverview {
+    pub fn summary(&self) -> RunOverviewSummary {
+        RunOverviewSummary {
+            attention: self.attention.len(),
+            running: self.running.len(),
+            idle: self.idle.len(),
+        }
+    }
 }
 
 pub fn project_run_overview(
@@ -92,24 +120,29 @@ pub fn project_run_overview(
     presence: &[RunOverviewProjectPresence],
 ) -> RunOverview {
     let attention = attention_rows(view, files, presence);
-    let current = view
-        .groups
-        .iter()
-        .find(|group| group.area_id == current_area_id);
-    let current_agents = current
-        .map(|group| {
-            group
-                .agents
-                .iter()
-                .map(|agent| agent_row(agent, &attention))
-                .collect()
-        })
-        .unwrap_or_default();
-    let other_projects = view
+    let loaded = |area_id: &str| area_id == current_area_id || is_loaded(presence, area_id);
+    let mut running = Vec::new();
+    let mut idle = Vec::new();
+    for group in view.groups.iter().filter(|group| loaded(&group.area_id)) {
+        for agent in &group.agents {
+            let mut row = agent_row(agent, &attention);
+            row.project = group.name.clone();
+            row.current = group.area_id == current_area_id;
+            match row.presence {
+                RunOverviewPresence::Running => running.push(row),
+                RunOverviewPresence::Idle => idle.push(row),
+                // Failed agents already own an attention row.
+                RunOverviewPresence::Failed => {}
+            }
+        }
+    }
+    sort_agents(&mut running);
+    sort_agents(&mut idle);
+    let unloaded_projects = view
         .groups
         .iter()
         .enumerate()
-        .filter(|(_, group)| group.area_id != current_area_id)
+        .filter(|(_, group)| !loaded(&group.area_id))
         .map(|(position, group)| {
             let side = presence.iter().find(|item| item.area_id == group.area_id);
             RunOverviewProject {
@@ -118,17 +151,23 @@ pub fn project_run_overview(
                 name: group.name.clone(),
                 agent_count: group.agents.len(),
                 status: project_status(group),
-                loaded: side.is_some_and(|item| item.loaded),
+                loaded: false,
                 updated_at_unix_ms: side.and_then(|item| item.updated_at_unix_ms),
             }
         })
         .collect();
     RunOverview {
         attention,
-        current_project: current.map(|group| group.name.clone()),
-        current_agents,
-        other_projects,
+        running,
+        idle,
+        unloaded_projects,
     }
+}
+
+/// Current project first, then longest-running first; agents without a start time sort last.
+/// The sort is stable, so equal keys keep the workspace order.
+fn sort_agents(agents: &mut [RunOverviewAgent]) {
+    agents.sort_by_key(|agent| (!agent.current, agent.started_at_unix_ms.unwrap_or(u64::MAX)));
 }
 
 fn project_status(group: &super::WorkspaceActivityProjectGroup) -> super::WorkspaceActivityStatus {
@@ -153,6 +192,31 @@ fn attention_rows(
 ) -> Vec<RunOverviewAttention> {
     let mut rows = Vec::new();
     let mut covered = Vec::new();
+    for group in &view.groups {
+        for agent in &group.agents {
+            if presence_of(&agent.raw_state) != RunOverviewPresence::Failed {
+                continue;
+            }
+            rows.push(RunOverviewAttention {
+                kind: RunOverviewAttentionKind::Failed,
+                area_id: agent.area_id.clone(),
+                node_id: agent.node_id,
+                project: group.name.clone(),
+                agent: agent.name.clone(),
+                title: agent
+                    .task_title
+                    .clone()
+                    .filter(|title| !title.is_empty())
+                    .unwrap_or_else(|| "任务出错".into()),
+                run_id: agent.run_id.clone().unwrap_or_default(),
+                turn_id: agent.turn_id.clone().unwrap_or_default(),
+                request_id: None,
+                fingerprint: None,
+                paths: Vec::new(),
+                loaded: is_loaded(presence, &agent.area_id),
+            });
+        }
+    }
     for item in view.pending.iter().filter(|item| item.kind == "approval") {
         covered.push((item.area_id.clone(), item.node_id));
         let agent = find_agent(view, &item.area_id, item.node_id);
@@ -300,7 +364,7 @@ fn agent_row(
     agent: &super::WorkspaceActivityAgentEntry,
     attention: &[RunOverviewAttention],
 ) -> RunOverviewAgent {
-    let presence = presence(&agent.raw_state);
+    let presence = presence_of(&agent.raw_state);
     let progress = agent.progress.clone().filter(progress_is_usable);
     let action = progress
         .as_ref()
@@ -312,6 +376,8 @@ fn agent_row(
         });
     RunOverviewAgent {
         area_id: agent.area_id.clone(),
+        project: String::new(),
+        current: false,
         node_id: agent.node_id,
         name: agent.name.clone(),
         raw_state: agent.raw_state.clone(),
@@ -331,7 +397,7 @@ fn agent_row(
     }
 }
 
-fn presence(raw: &str) -> RunOverviewPresence {
+fn presence_of(raw: &str) -> RunOverviewPresence {
     match raw {
         "failed" | "ego_failed" => RunOverviewPresence::Failed,
         "thinking" | "running_tool" | "preparing" | "interrupting" | "collecting"

@@ -1,10 +1,10 @@
 //! Canvas status capsule.
 //!
 //! 参考 apple-design：浮动控件留在现有顶栏右簇，和抽屉重开按钮同一玻璃材质、同一 32px 行高。
-//! 悬停与按下立即换色，不加弹簧或装饰动效。左右抽屉把画布挤窄时只留环、数字和角标，
-//! 名字进入悬停提示和读屏文字。拒绝另做一条画布顶栏。悬浮图钉属于后续工单，这里不画。
+//! 悬停与按下立即换色，不加弹簧或装饰动效。内容是跨项目汇总（运行中 / 待开始 / 待处理），
+//! 与抽屉统计同一份投影；左右抽屉把画布挤窄时只留环、数字和角标，状态词进入悬停提示和读屏文字。拒绝另做一条画布顶栏。悬浮图钉属于后续工单，这里不画。
 
-use super::{glass_button_variant, GLASS_TEXT, GLASS_TEXT_MUTED};
+use super::{glass_button_variant, GLASS_TEXT};
 use crate::app::MultisoulApp;
 use gpui::{
     canvas, div, point, prelude::*, px, rgba, svg, AnyElement, ClickEvent, Context, PathBuilder,
@@ -18,7 +18,6 @@ use ui::icons::with_alpha;
 
 const AMBER: u32 = 0xf2c773ff;
 const COMPACT_CANVAS_WIDTH: f32 = 680.0;
-const STEP_TEAL: u32 = 0x7ee9eeff;
 const STATUS_WORD: u32 = 0xa9bfd1ff;
 const RING_TRACK: u32 = 0xcde8ff2e;
 
@@ -50,7 +49,8 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) -> Option<AnyElement> {
         let capsule = self.desktop_workspace.activity_capsule.clone()?;
-        if capsule.chips.is_empty() && capsule.overflow == 0 && capsule.pending_count == 0 {
+        let summary = capsule.summary;
+        if summary.attention + summary.running + summary.idle == 0 {
             return None;
         }
         let layout = self.desktop_assistant_layout(window);
@@ -61,7 +61,7 @@ impl MultisoulApp {
         let chrome = capsule_chrome(theme);
         let spoken = capsule.accessibility_label.clone();
         let status_focus = self.run_status_focus(cx);
-        let pending = capsule.pending_count;
+        let pending = summary.attention;
         Some(
             div()
                 .id("desktop-status-capsule-slot")
@@ -88,58 +88,20 @@ impl MultisoulApp {
                                         .text_size(px(1.0))
                                         .child(spoken),
                                 )
-                                .children(capsule.chips.iter().map(|chip| {
-                                    let fraction = match (chip.completed, chip.total) {
-                                        (Some(done), Some(total)) if total > 0 => {
-                                            Some(done as f32 / total as f32)
-                                        }
-                                        _ => None,
-                                    };
-                                    let show_count = !compact || chip.count_label.contains('/');
-                                    div()
-                                        .flex()
-                                        .items_center()
-                                        .gap(px(6.0))
-                                        .child(progress_ring(
-                                            fraction,
-                                            chip.waiting_mark,
-                                            chrome.ring,
-                                            with_alpha(chrome.focus, 0x88),
-                                        ))
-                                        .when(!compact, |row| {
-                                            row.child(
-                                                div()
-                                                    .text_size(px(12.0))
-                                                    .font_weight(gpui::FontWeight::MEDIUM)
-                                                    .text_color(rgba(0xe4f1fdff))
-                                                    .child(chip.display_name.clone()),
-                                            )
-                                        })
-                                        .when(show_count, |row| {
-                                            let counted = chip.count_label.contains('/');
-                                            row.child(
-                                                div()
-                                                    .text_size(px(11.0))
-                                                    .when(counted, |count| {
-                                                        count
-                                                            .font_family("Menlo")
-                                                            .text_color(rgba(STEP_TEAL))
-                                                    })
-                                                    .when(!counted, |count| {
-                                                        count.text_color(rgba(STATUS_WORD))
-                                                    })
-                                                    .child(chip.count_label.clone()),
-                                            )
-                                        })
-                                }))
-                                .when(capsule.overflow > 0, |row| {
-                                    row.child(
-                                        div()
-                                            .text_size(px(12.0))
-                                            .text_color(rgba(GLASS_TEXT_MUTED))
-                                            .child(format!("+{}", capsule.overflow)),
-                                    )
-                                })
+                                .child(count_chip(
+                                    summary.running,
+                                    "运行中",
+                                    Some(1.0),
+                                    (chrome.ring, with_alpha(chrome.focus, 0x88)),
+                                    compact,
+                                ))
+                                .child(count_chip(
+                                    summary.idle,
+                                    "待开始",
+                                    None,
+                                    (chrome.ring, with_alpha(chrome.focus, 0x88)),
+                                    compact,
+                                ))
                                 .when(pending > 0, |row| {
                                     row.child(div().w(px(1.0)).h(px(14.0)).bg(rgba(0xcde8ff33)))
                                         .child(
@@ -197,7 +159,7 @@ impl MultisoulApp {
             .activity_capsule
             .as_ref()
             .is_some_and(|capsule| {
-                !capsule.chips.is_empty() || capsule.overflow > 0 || capsule.pending_count > 0
+                capsule.summary.attention + capsule.summary.running + capsule.summary.idle > 0
             })
     }
 
@@ -294,6 +256,36 @@ impl MultisoulApp {
             }
         });
     }
+}
+
+/// 汇总条的一段：环 + 数量 + 状态词。运行中是满环，待开始是空环；窄画布只留环和数量。
+fn count_chip(
+    count: usize,
+    word: &'static str,
+    fraction: Option<f32>,
+    (ring, track): (u32, u32),
+    compact: bool,
+) -> gpui::Div {
+    div()
+        .flex()
+        .items_center()
+        .gap(px(6.0))
+        .child(progress_ring(fraction, false, ring, track))
+        .child(
+            div()
+                .text_size(px(12.0))
+                .font_weight(gpui::FontWeight::MEDIUM)
+                .text_color(rgba(0xe4f1fdff))
+                .child(count.to_string()),
+        )
+        .when(!compact, |chip| {
+            chip.child(
+                div()
+                    .text_size(px(12.0))
+                    .text_color(rgba(STATUS_WORD))
+                    .child(word),
+            )
+        })
 }
 
 /// 16px 的环：底环与进度弧在同一个画布里绘制，线宽 3px，和原型的圆环蒙版一致。

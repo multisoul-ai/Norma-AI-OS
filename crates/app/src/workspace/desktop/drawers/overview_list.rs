@@ -3,8 +3,8 @@
 
 use super::super::overview_layout::{OverviewGroup, MIN_GROUP_HEIGHT};
 use super::super::overview_rows::{
-    overview_feedback, overview_tone, OverviewAction, OverviewRow, OverviewSection,
-    OVERVIEW_TEXT_COPY, OVERVIEW_TEXT_PRIMARY, OVERVIEW_TEXT_SECONDARY,
+    overview_feedback, overview_tone, OverviewRow, OverviewSection, OVERVIEW_TEXT_COPY,
+    OVERVIEW_TEXT_PRIMARY, OVERVIEW_TEXT_SECONDARY,
 };
 use super::overview_parts::{action_label, group_chevron, row_copy, row_lead, tone_color};
 use crate::app::MultisoulApp;
@@ -19,7 +19,7 @@ const COPY_STEP: u32 = 0xcfe3f4ff;
 const GROUP_RULE: u32 = 0xcde8ff14;
 
 impl MultisoulApp {
-    /// 四栏固定顺序：需要你处理 → 当前项目 → 想法 → 其他项目。每栏有基准高度，
+    /// 顶部三张统计卡，其后四栏固定顺序：需要你处理 → 运行中 → 待开始 → 想法。每栏有基准高度，
     /// 内容多了栏内滚动；折叠的栏只剩一行标题，空出的高度让给其余栏。
     pub(super) fn render_run_overview(&mut self, cx: &mut Context<Self>) -> Stateful<Div> {
         let screen = self.presented_overview();
@@ -27,9 +27,9 @@ impl MultisoulApp {
         let sections = OverviewGroup::ORDER.map(|group| {
             let section = match group {
                 OverviewGroup::Attention => screen.sections.first(),
-                OverviewGroup::Current => screen.sections.get(1),
+                OverviewGroup::Running => screen.sections.get(1),
+                OverviewGroup::Idle => screen.sections.get(2),
                 OverviewGroup::Ideas => None,
-                OverviewGroup::Other => screen.sections.get(2),
             };
             (group, section)
         });
@@ -51,6 +51,7 @@ impl MultisoulApp {
             .flex()
             .flex_col()
             .gap(px(4.0))
+            .child(self.render_overview_summary(screen.summary(), cx))
             .children(groups)
     }
 
@@ -124,7 +125,10 @@ impl MultisoulApp {
         } else {
             style.flex_grow = Some(group.grow());
             style.flex_shrink = Some(1.0);
-            style.flex_basis = Some(px(group.base_height()).into());
+            let heights: Vec<f32> = section
+                .map(|section| section.rows.iter().map(|row| row.height).collect())
+                .unwrap_or_default();
+            style.flex_basis = Some(px(group.basis_height(&heights)).into());
             style.min_size.height = Some(px(MIN_GROUP_HEIGHT).into());
         }
         shell
@@ -153,16 +157,11 @@ impl MultisoulApp {
             .filter(|idea| idea.state == workspace::ideas::IdeaState::Todo)
             .count();
         let aside = match (group, section) {
-            (OverviewGroup::Ideas, _) => (todo > 0).then(|| count_badge(todo, false)),
-            (_, Some(section)) => match section.count {
-                Some(count) => Some(count_badge(count, true)),
-                None => section.meta.clone().map(|meta| {
-                    div()
-                        .text_size(px(OVERVIEW_TEXT_SECONDARY))
-                        .text_color(rgba(GROUP_META))
-                        .child(meta)
-                }),
-            },
+            (OverviewGroup::Ideas, _) => (todo > 0).then(|| count_badge(todo, BadgeTone::Neutral)),
+            // 琥珀色只给“需要你处理”（要你介入）；运行中用青色，待开始用灰蓝，与原型一致。
+            (_, Some(section)) => section
+                .count
+                .map(|count| count_badge(count, BadgeTone::of(group))),
             _ => None,
         };
         div()
@@ -220,10 +219,7 @@ impl MultisoulApp {
         let hover = feedback.hover;
         let pressed = feedback.pressed;
         let height = row.height;
-        let agent_row = matches!(
-            row.action,
-            OverviewAction::LocateAgent { .. } | OverviewAction::StopEgo { .. }
-        );
+        let agent_row = row.is_agent;
         div()
             .id(ElementId::Name(id.clone().into()))
             .debug_selector(move || id.clone())
@@ -272,13 +268,37 @@ impl MultisoulApp {
     }
 }
 
-/// 计数角标：`amber` 为需要你处理（琥珀），否则为普通计数（中性蓝灰）。
-fn count_badge(count: usize, amber: bool) -> Div {
-    let (background, foreground) = if amber {
-        (AMBER_TINT, AMBER_TEXT)
-    } else {
-        (0x8fcaff2e, 0xd4eaffff)
-    };
+#[derive(Clone, Copy)]
+enum BadgeTone {
+    Amber,
+    Running,
+    Idle,
+    Neutral,
+}
+
+impl BadgeTone {
+    fn of(group: OverviewGroup) -> Self {
+        match group {
+            OverviewGroup::Attention => Self::Amber,
+            OverviewGroup::Running => Self::Running,
+            OverviewGroup::Idle => Self::Idle,
+            OverviewGroup::Ideas => Self::Neutral,
+        }
+    }
+
+    fn colors(self) -> (u32, u32) {
+        match self {
+            Self::Amber => (AMBER_TINT, AMBER_TEXT),
+            Self::Running => (0x36dce824, 0x7ee9eeff),
+            Self::Idle => (0x9fb8cf24, 0xb3c6d8ff),
+            Self::Neutral => (0x8fcaff2e, 0xd4eaffff),
+        }
+    }
+}
+
+/// 计数角标：按栏着色，琥珀＝要你介入，青色＝运行中，灰蓝＝待开始，中性蓝＝想法。
+fn count_badge(count: usize, tone: BadgeTone) -> Div {
+    let (background, foreground) = tone.colors();
     div()
         .min_w(px(18.0))
         .h(px(18.0))
@@ -326,7 +346,7 @@ pub(super) fn group_empty(group: OverviewGroup, fill: bool) -> Stateful<Div> {
                 .text_color(rgba(COPY_STEP))
                 .child(title),
         )
-        .when(group != OverviewGroup::Other, |empty| {
+        .when(group != OverviewGroup::Idle, |empty| {
             empty.child(
                 div()
                     .text_size(px(OVERVIEW_TEXT_COPY))

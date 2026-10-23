@@ -23,7 +23,7 @@ pub use capsule::{
 pub use run_overview::{
     project_run_overview, RunOverview, RunOverviewAgent, RunOverviewAttention,
     RunOverviewAttentionKind, RunOverviewFile, RunOverviewPresence, RunOverviewProject,
-    RunOverviewProjectPresence,
+    RunOverviewProjectPresence, RunOverviewSummary,
 };
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
