@@ -944,6 +944,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "brain"
+version = "0.1.76"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tracing",
+]
+
+[[package]]
 name = "bstr"
 version = "1.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

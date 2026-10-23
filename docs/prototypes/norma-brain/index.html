@@ -1,0 +1,630 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Norma 大脑与语音汇报</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* 布局：顶部标签切换四个视图（原型 / 架构 / 设置 / 决策）；原型模仿桌面工作台：左概览、中画布、底部播报条 */
+:root{
+  color-scheme:dark;
+  --bg:#0b0e13; --panel:#121720; --panel2:#171d28; --line:#243041; --fg:#e4e9f1; --muted:#8792a3; --dim:#5a6576;
+  --cyan:#5fd0ff; --brain:#a68bff; --fast:#43d7c6; --warn:#ffb15c; --danger:#ff6b6b; --ok:#6fdc8c;
+  --cyan-bg:rgba(95,208,255,.10); --brain-bg:rgba(166,139,255,.12); --fast-bg:rgba(67,215,198,.12); --warn-bg:rgba(255,177,92,.12); --danger-bg:rgba(255,107,107,.12); --ok-bg:rgba(111,220,140,.12);
+  --sans:"Noto Sans SC",-apple-system,"PingFang SC",sans-serif; --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14px;line-height:1.6}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:20px;padding-block:24px 64px;display:flex;flex-direction:column;gap:20px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-size:22px;margin:0;font-weight:700;text-wrap:balance}
+.sub{color:var(--muted);margin:2px 0 0;font-size:13px}
+.tabs{display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px;flex-wrap:wrap}
+.tabs button{all:unset;cursor:pointer;padding:6px 14px;border-radius:7px;color:var(--muted);font-size:13px}
+.tabs button:hover{color:var(--fg);background:var(--panel2)}
+.tabs button:focus-visible{outline:2px solid var(--cyan);outline-offset:1px}
+.tabs button[aria-selected="true"]{background:var(--cyan-bg);color:var(--cyan)}
+.view[hidden]{display:none!important}
+h2{font-size:17px;margin:0 0 6px}
+h3{font-size:14px;margin:0 0 6px}
+p{margin:0}
+.muted{color:var(--muted)}
+code,.mono{font-family:var(--mono);font-size:12px}
+.btn{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--fg);font-size:13px;white-space:nowrap}
+.btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.btn:active{transform:translateY(1px)}
+.btn:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.btn[disabled]{opacity:.4;pointer-events:none}
+.btn.primary{background:var(--cyan-bg);border-color:var(--cyan);color:var(--cyan)}
+.btn.ok{border-color:var(--ok);color:var(--ok)}
+.btn.no{border-color:var(--danger);color:var(--danger)}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:2px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex:none}
+
+/* ===== 原型 ===== */
+.app{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:radial-gradient(1200px 500px at 60% -10%,rgba(95,208,255,.07),transparent 60%),var(--bg)}
+.titlebar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.lights{display:flex;gap:6px}.lights i{width:11px;height:11px;border-radius:50%;background:#3a4252;display:block}
+.titlebar .ws{font-size:13px;color:var(--muted)}
+.titlebar .grow{flex:1}
+.toggle{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;padding:5px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel)}
+.toggle:hover{border-color:var(--cyan)}
+.toggle:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.switch{width:30px;height:17px;border-radius:999px;background:#2b3444;position:relative;transition:background .15s}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#cdd5e1;transition:transform .15s}
+.toggle[aria-checked="true"] .switch{background:var(--cyan)}
+.toggle[aria-checked="true"] .switch::after{transform:translateX(13px);background:#08202c}
+.brainpill{border-color:rgba(166,139,255,.5);color:var(--brain)}
+.body{display:grid;grid-template-columns:280px 1fr;min-height:520px}
+.drawer{border-right:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:12px;background:rgba(18,23,32,.6);min-width:0}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.stat{border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--panel)}
+.stat b{display:block;font-size:18px;font-variant-numeric:tabular-nums}
+.stat span{font-size:11px;color:var(--muted)}
+.stat.attn b{color:var(--warn)}
+.group h4{font-size:12px;color:var(--muted);margin:0 0 6px;font-weight:500;letter-spacing:.04em}
+.row{display:flex;gap:8px;align-items:flex-start;padding:8px;border-radius:8px;border:1px solid transparent;font-size:13px}
+.row:hover{background:var(--panel2)}
+.row .meta{font-size:11px;color:var(--muted)}
+.row.attn{border-color:rgba(255,177,92,.35);background:var(--warn-bg)}
+.row.attn.fresh{animation:pulse 1.2s ease-out 2}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,177,92,.5)}100%{box-shadow:0 0 0 10px rgba(255,177,92,0)}}
+.row .acts{display:flex;gap:6px;margin-top:6px}
+.row .acts .btn{padding:3px 9px;font-size:12px}
+.badge{font-size:11px;padding:0 6px;border-radius:5px;white-space:nowrap}
+.b-run{background:var(--cyan-bg);color:var(--cyan)}
+.b-ok{background:var(--ok-bg);color:var(--ok)}
+.b-warn{background:var(--warn-bg);color:var(--warn)}
+.b-brain{background:var(--brain-bg);color:var(--brain)}
+.b-err{background:var(--danger-bg);color:var(--danger)}
+.canvas{position:relative;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.card{border:1px solid var(--line);border-radius:10px;background:var(--panel);overflow:hidden;transition:border-color .2s}
+.card.hl{border-color:var(--cyan)}
+.card.hl-warn{border-color:var(--warn)}
+.card .hd{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:7px 10px;border-bottom:1px solid var(--line);font-size:12px}
+.card .term{font-family:var(--mono);font-size:11px;color:var(--muted);padding:8px 10px;height:92px;overflow:hidden;white-space:pre-wrap;word-break:break-all}
+.card .term .y{color:var(--warn)}.card .term .g{color:var(--ok)}.card .term .c{color:var(--cyan)}
+/* 播报条 */
+.report{margin-top:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:12px;display:flex;flex-direction:column;gap:10px}
+.report .top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.wave{display:flex;gap:2px;align-items:center;height:18px}
+.wave i{width:3px;border-radius:2px;background:var(--dim);height:4px;transition:height .15s}
+.speaking .wave i{background:var(--cyan);animation:w 0.9s ease-in-out infinite}
+.wave i:nth-child(2){animation-delay:.1s}.wave i:nth-child(3){animation-delay:.2s}.wave i:nth-child(4){animation-delay:.3s}.wave i:nth-child(5){animation-delay:.4s}
+@keyframes w{0%,100%{height:4px}50%{height:16px}}
+.caption{font-size:15px;min-height:24px}
+.caption .who{color:var(--cyan);font-size:12px;margin-right:6px}
+.queue{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--muted)}
+.qchip{font-size:11px;padding:1px 8px;border-radius:6px;border:1px solid var(--line)}
+.qchip.hi{border-color:var(--danger);color:var(--danger)}
+.log{max-height:150px;overflow:auto;display:flex;flex-direction:column;gap:4px;font-size:12px;border-top:1px solid var(--line);padding-top:8px}
+.log div{display:flex;gap:8px;align-items:baseline}
+.log time{font-family:var(--mono);color:var(--dim);font-variant-numeric:tabular-nums;flex:none}
+.ctrl{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.ctrl .hint{font-size:12px;color:var(--muted)}
+.off-note{color:var(--muted);font-size:13px}
+
+/* ===== 架构 ===== */
+.arch-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+svg text{font-family:var(--sans)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;gap:6px;align-items:center}
+.legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.box{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:14px;min-width:0}
+.box ul{margin:6px 0 0;padding-left:18px;color:var(--muted)}
+.box li{margin:3px 0}
+.box li b{color:var(--fg);font-weight:500}
+table{border-collapse:collapse;width:100%;font-size:13px}
+.tbl{overflow-x:auto}
+th,td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:500;white-space:nowrap}
+
+/* ===== 设置 ===== */
+.settings{display:grid;grid-template-columns:200px 1fr;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--panel)}
+.snav{border-right:1px solid var(--line);padding:12px;display:flex;flex-direction:column;gap:2px;font-size:13px;color:var(--muted)}
+.snav div{padding:6px 10px;border-radius:7px}
+.snav .on{background:var(--cyan-bg);color:var(--cyan)}
+.spane{padding:20px;display:flex;flex-direction:column;gap:18px;min-width:0}
+.field{display:grid;grid-template-columns:160px 1fr;gap:12px;align-items:start}
+.field label{color:var(--muted);font-size:13px;padding-top:6px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex-wrap:wrap}
+.seg button{all:unset;cursor:pointer;padding:6px 12px;font-size:13px;color:var(--muted);border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button:hover{color:var(--fg);background:var(--panel2)}
+.seg button:focus-visible{outline:2px solid var(--cyan);outline-offset:-2px}
+.seg button[aria-pressed="true"]{background:var(--cyan-bg);color:var(--cyan)}
+select{background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font:inherit;font-size:13px;min-width:220px;max-width:100%}
+select:focus-visible{outline:2px solid var(--cyan)}
+.backends{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.be{border:1px solid var(--line);border-radius:9px;padding:9px 10px;cursor:pointer;background:var(--panel2);font-size:13px}
+.be:hover{border-color:var(--cyan)}
+.be:focus-visible{outline:2px solid var(--cyan)}
+.be[aria-checked="true"]{border-color:var(--cyan);background:var(--cyan-bg)}
+.be small{display:block;font-size:11px;color:var(--muted)}
+.be.na{opacity:.5;cursor:not-allowed}
+.checks{display:flex;flex-direction:column;gap:6px;font-size:13px}
+.checks label{display:flex;gap:8px;align-items:center;cursor:pointer}
+.checks input{accent-color:#5fd0ff}
+.hr-list{display:flex;flex-wrap:wrap;gap:6px}
+.hr-list span{font-size:12px;padding:2px 9px;border-radius:6px;background:var(--danger-bg);color:var(--danger)}
+.routing{font-size:12px;color:var(--muted);border-left:2px solid var(--line);padding-left:10px}
+
+/* 分层架构 */
+.layers{display:flex;flex-direction:column;gap:0}
+.band{display:grid;grid-template-columns:110px 1fr;gap:14px;align-items:center;border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:14px}
+.band .ln{display:flex;flex-direction:column;gap:2px}
+.band .ln b{font-size:15px}
+.band .ln span{font-size:12px;color:var(--muted)}
+.lane{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-width:0}
+.m{border:1px solid var(--line);border-radius:9px;padding:7px 11px;background:var(--panel2);font-size:13px;min-width:0}
+.m small{display:block;font-size:11px;color:var(--muted)}
+.m.old{border-color:rgba(95,208,255,.55)}
+.m.new{border-color:var(--brain);background:var(--brain-bg)}
+.m.ext{border-color:var(--fast);background:var(--fast-bg)}
+.m.hu{border-color:var(--warn);background:var(--warn-bg)}
+.to{color:var(--dim);font-size:16px}
+.sub2{display:flex;flex-direction:column;gap:6px}
+.down{display:flex;align-items:center;gap:10px;padding:6px 0 6px 56px;color:var(--muted);font-size:12px}
+.down::before{content:"↓";font-size:18px;color:var(--dim)}
+.judge{display:flex;flex-direction:column;gap:2px}
+.judge .sec{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--brain)}
+@media (max-width:820px){
+  .band{grid-template-columns:1fr}
+  .down{padding-left:12px}
+  .body{grid-template-columns:1fr}
+  .drawer{border-right:0;border-bottom:1px solid var(--line)}
+  .settings{grid-template-columns:1fr}
+  .snav{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line)}
+  .field{grid-template-columns:1fr;gap:4px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+<header>
+  <div>
+    <h1>Norma 大脑与语音汇报</h1>
+    <p class="sub">前台对话由实时语音模型或 NormaSession 快速回答；后台由 ACP 大脑处理事件、审批和派活；hook 事件负责感知。本期只做桌面端，以下数据都是示例。</p>
+  </div>
+  <div class="tabs" role="tablist">
+    <button role="tab" aria-selected="true" data-tab="proto">原型</button>
+    <button role="tab" aria-selected="false" data-tab="arch">架构</button>
+    <button role="tab" aria-selected="false" data-tab="set">大脑设置</button>
+    <button role="tab" aria-selected="false" data-tab="dec">决策与待定</button>
+  </div>
+</header>
+
+<!-- ================= 原型 ================= -->
+<section class="view" id="v-proto">
+  <div class="app">
+    <div class="titlebar">
+      <div class="lights"><i></i><i></i><i></i></div>
+      <span class="ws">工作空间 · Norma OS ／ 项目 · desktop-app</span>
+      <span class="grow"></span>
+      <span class="pill brainpill" title="大脑后端与策略"><span class="dot"></span><span id="brainLabel">Claude Code · 自动策略</span></span>
+      <div class="toggle" role="switch" tabindex="0" aria-checked="false" id="reportToggle"><span class="switch"></span>语音汇报</div>
+    </div>
+    <div class="body">
+      <aside class="drawer">
+        <div class="stats">
+          <div class="stat"><b id="sRun">3</b><span>运行中</span></div>
+          <div class="stat"><b id="sIdle">1</b><span>待开始</span></div>
+          <div class="stat attn"><b id="sAttn">0</b><span>需要你处理</span></div>
+        </div>
+        <div class="group" id="attnGroup" hidden>
+          <h4>需要你处理</h4>
+          <div id="attnList"></div>
+        </div>
+        <div class="group" id="judgeGroup" hidden>
+          <h4>Norma 判断中</h4>
+          <div id="judgeList"></div>
+        </div>
+        <div class="group">
+          <h4>运行中</h4>
+          <div id="runList"></div>
+        </div>
+        <div class="group">
+          <h4>Norma 自主处理 · 最近</h4>
+          <div id="autoList"><div class="row"><span class="meta">开启语音汇报后，Norma 自行处理的事项会记录在这里，可以追问原因、让同类操作以后先问你，或停止对应 Agent。</span></div></div>
+        </div>
+      </aside>
+      <main class="canvas">
+        <div class="cards" id="cards"></div>
+        <div class="report" id="report">
+          <div class="top">
+            <div class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+            <span class="pill" id="voiceState"><span class="dot"></span>汇报已关闭</span>
+            <button class="btn" id="modePill" title="切换语音模式，看前台由谁回答" style="padding:2px 10px;font-size:12px;border-radius:999px">语音模式 · 豆包</button>
+            <span class="queue" id="queue"></span>
+          </div>
+          <div class="caption" id="caption"><span class="off-note">打开右上角的“语音汇报”后，点“演示一段”，看 Norma 怎样处理三件事：派活、普通审批、高风险审批。</span></div>
+          <div class="ctrl">
+            <button class="btn primary" id="playBtn" disabled>▶ 演示一段</button>
+            <button class="btn" id="talkBtn" disabled>🎙 模拟你插话</button>
+            <span class="hint" id="hint">演示速度为真实的 4 倍</span>
+          </div>
+          <div class="log" id="log" aria-live="polite"></div>
+        </div>
+      </main>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 架构 ================= -->
+<section class="view" id="v-arch" hidden>
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div>
+      <h2>总体架构</h2>
+      <p class="muted">Norma App 同时担任三个角色：hook 事件的汇聚点、ACP client（拉起大脑并审查它的每一次工具调用）、<code>norma</code> CLI 的服务端。大脑本身没有文件和终端权限，只能通过 <code>norma</code> 命令行动。</p>
+    </div>
+    <div class="legend">
+      <span><i style="background:rgba(95,208,255,.15);border:1px solid #5fd0ff"></i>现有</span>
+      <span><i style="background:rgba(67,215,198,.25);border:1px solid #43d7c6"></i>扩展现有</span>
+      <span><i style="background:rgba(166,139,255,.25);border:1px solid #a68bff"></i>新增</span>
+      <span><i style="background:rgba(255,177,92,.25);border:1px solid #ffb15c"></i>交给你</span>
+    </div>
+    <div class="layers">
+      <div class="band">
+        <div class="ln"><b>① 感知</b><span>知道发生了什么</span></div>
+        <div class="lane">
+          <div class="m old">Agent 卡片<small>Claude / Codex / Cursor / Kimi …</small></div><span class="to">→</span>
+          <div class="m old">hook 事件收集<small>状态、最终输出、审批请求</small></div>
+        </div>
+      </div>
+      <div class="down">进度事件 ／ 审批请求</div>
+      <div class="band">
+        <div class="ln"><b>② 决策</b><span>两个大脑分工</span></div>
+        <div class="sub2">
+          <div class="lane">
+            <span class="pill" style="min-width:86px">前台 · 对话</span>
+            <div class="m old">实时语音模型<small>豆包 ／ GPT-Live 自己回答</small></div>
+            <div class="m ext">NormaSession<small>Legacy 语音、Dock 文字、ACP 不可用时兜底</small></div>
+            <span class="to">→</span>
+            <div class="m ext">需要派活或深度判断<small>交给后台，先回一句“我去看看”</small></div>
+          </div>
+          <div class="lane">
+            <span class="pill" style="min-width:86px">后台 · ACP 大脑</span>
+            <div class="m new">事件分流<small>去抖、定时摘要、前台转来的任务</small></div><span class="to">→</span>
+            <div class="sub2">
+              <div class="m new">主会话 · 强模型<small>整理进度、派后续、停卡死的 Agent、读代码回答</small></div>
+              <div class="m new">审批会话 · 快模型<small>放行 ／ 拒绝 ／ 交给你；不设固定时限</small></div>
+            </div>
+          </div>
+          <div class="lane">
+            <span class="pill" style="min-width:86px">共用</span>
+            <div class="m ext">Norma 记忆 + 目标摘要<small>前台和后台说法一致</small></div>
+          </div>
+        </div>
+      </div>
+      <div class="down">ACP 大脑只能执行 <code>norma</code> 命令，并只读工作空间内的项目文件；NormaSession 沿用内置工具</div>
+      <div class="band">
+        <div class="ln"><b>③ 执行</b><span>Norma 真正动手</span></div>
+        <div class="lane">
+          <div class="m ext">norma 命令<small>派活、停止、审批、播报</small></div><span class="to">→</span>
+          <div class="m new">安全闸门<small>高风险规则；大脑只能升级不能降级</small></div><span class="to">→</span>
+          <div class="sub2">
+            <div class="m old">回到 Agent 卡片<small>派活、停止、放行或拒绝</small></div>
+            <div class="m hu">需要你处理<small>高风险、大脑拿不准或出错</small></div>
+          </div>
+        </div>
+      </div>
+      <div class="down">播报文本</div>
+      <div class="band">
+        <div class="ln"><b>④ 表达</b><span>说给你听</span></div>
+        <div class="lane">
+          <div class="m ext">播报队列<small>排序、合并、你开口时让路</small></div><span class="to">→</span>
+          <div class="m old">当前语音模式<small>豆包 ／ GPT-Live ／ Legacy</small></div><span class="to">⇄</span>
+          <div class="m hu">你<small>说话或打字先到前台对话</small></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="box">
+        <h3>一次审批的生命周期</h3>
+        <ul>
+          <li><b>先查规则</b>：安全闸门先判断是否高风险。命中就不经过大脑，直接用语音问你</li>
+          <li><b>大脑判断</b>：未命中时交给审批会话，左侧显示“Norma 判断中 · 已等 N 秒”，不设固定时限</li>
+          <li><b>随时接管</b>：判断过程中你可以点“我来处理”，之后大脑再给出的结论作废</li>
+          <li><b>有结论</b>：大脑执行 <code>norma approval decide</code> 才算结论，放行的操作记入“Norma 自主处理”</li>
+          <li><b>转给你</b>：大脑拿不准、出错崩溃、快到 hook 的 120 秒上限，这三种情况会转到“需要你处理”</li>
+          <li><b>首版范围</b>：审批代理只覆盖 Claude Code 卡片，其他 Agent 只汇报进度</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h3>大脑看到什么</h3>
+        <ul>
+          <li><b>推送</b>：结构化的 hook 事件（完成、出错、工具调用、空闲），以及每轮最终回复的摘录</li>
+          <li><b>按需拉取</b>：<code>norma agent tail &lt;agent&gt;</code> 读取卡片上下文（需新增）</li>
+          <li><b>派活依据</b>：卡片上下文，加上只读的项目文件和文档（plan、README、相关代码）</li>
+          <li><b>去抖</b>：同一 Agent 1s 内的多条进度事件合并后再推送，定时摘要只发变化量</li>
+          <li><b>上下文</b>：主会话定期压缩，并把目标摘要写入 <code>~/.norma/brain/</code>，崩溃后可据此重建</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h3>你说话时</h3>
+        <ul>
+          <li>检测到你开口，立即停止播报，ReportQueue 暂停</li>
+          <li>前台对话先回答：豆包 / GPT-Live 由实时模型自己答，Legacy 和 Dock 文字由 NormaSession 答</li>
+          <li>需要派活或读代码时，前台先说“我去看看”，把任务转给后台主会话，结果再经 <code>norma report</code> 播报</li>
+          <li>对话结束后，主会话把这期间积压的播报合并成一句</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h3>crate 落点（草案）</h3>
+        <ul>
+          <li><b>新 crate <code>brain</code></b>：事件分流、两个会话、ACP client、ACP 权限白名单、高风险规则（纯函数），不依赖 GPUI，可以独立测试</li>
+          <li><b><code>norma</code></b>：CLI 新增子命令，protocol 增加 approval、stop、report；权限桥后续扩展到 Claude 以外</li>
+          <li><b><code>app</code> 新增</b>：<code>brain_host</code>（在后台执行器上运行 brain）、<code>approval_broker</code>（挂起的审批、接管、120 秒上限）、安全闸门</li>
+          <li><b><code>app</code></b>：扩展 ReportQueue，在 <code>agent_announcements</code> 中接入播报，新增设置页与概览 Attention 类型</li>
+          <li><b><code>agent</code></b>：NormaSession 保留，负责前台快速对话和兜底；新增“转给后台”工具；记忆与 brain 共用</li>
+          <li><b><code>app/gpt_live</code></b>：派活改为交给 ACP 大脑，不再由 NormaSession 做规划</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 设置 ================= -->
+<section class="view" id="v-set" hidden>
+  <div class="settings">
+    <nav class="snav"><div>通用</div><div>语音</div><div class="on">Norma 大脑</div><div>Agent</div><div>键盘快捷键</div></nav>
+    <div class="spane">
+      <div><h2>Norma 大脑</h2><p class="muted">Norma 通过 ACP 调用你已安装的编码 Agent 来整理进度和做决策。大脑只能执行 <code>norma</code> 命令、只读工作空间内的项目文件，不会改动任何文件。普通对话仍由“语音”设置里的模型负责，速度不受影响。</p></div>
+      <div class="field"><label>后端</label>
+        <div class="backends" role="radiogroup" id="backends">
+          <div class="be" role="radio" tabindex="0" aria-checked="true" data-name="Claude Code">Claude Code<small>已安装 · claude-code-acp</small></div>
+          <div class="be" role="radio" tabindex="0" aria-checked="false" data-name="Codex">Codex<small>已安装 · codex-acp</small></div>
+          <div class="be" role="radio" tabindex="0" aria-checked="false" data-name="OpenCode">OpenCode<small>已安装 · 原生 ACP</small></div>
+          <div class="be na" role="radio" aria-disabled="true" aria-checked="false">Kimi<small>未检测到 ACP 适配器</small></div>
+        </div>
+      </div>
+      <div class="field"><label>策略</label>
+        <div>
+          <div class="seg" id="strategy">
+            <button aria-pressed="false" data-s="速度优先">速度优先</button>
+            <button aria-pressed="true" data-s="自动策略">自动</button>
+            <button aria-pressed="false" data-s="质量优先">质量优先</button>
+          </div>
+          <p class="routing" id="routingNote" style="margin-top:8px">自动：审批与定时摘要用快模型，派活与回答你的问题用强模型。</p>
+        </div>
+      </div>
+      <div class="field"><label>主会话模型</label><select id="mainModel"><option>claude-opus-5-5</option><option>claude-sonnet-5-5</option><option>跟随 CLI 默认</option></select></div>
+      <div class="field"><label>审批会话模型</label><select id="fastModel"><option>claude-haiku-5-5</option><option>claude-sonnet-5-5</option><option>跟随 CLI 默认</option></select></div>
+      <div class="field"><label>定时摘要</label><select><option>每 5 分钟，仅在有变化时</option><option>每 10 分钟，仅在有变化时</option><option>关闭，只播关键事件</option></select></div>
+      <div class="field"><label>Norma 可自行决定</label>
+        <div class="checks">
+          <label><input type="checkbox" checked>批准只读、测试、构建类操作</label>
+          <label><input type="checkbox" checked>批准在项目目录内写文件</label>
+          <label><input type="checkbox" checked>给空闲的 Agent 派后续任务</label>
+          <label><input type="checkbox" checked>停止或重启卡住的 Agent</label>
+        </div>
+      </div>
+      <div class="field"><label>始终先问你</label>
+        <div class="hr-list"><span>git push / 合并</span><span>删除文件</span><span>写项目外路径</span><span>部署与发布</span><span>密钥与凭据</span><span>付费操作</span></div>
+      </div>
+      <div class="field"><label>判断较慢时</label><select><option>只在概览显示已等待时长</option><option>超过 60 秒时语音提醒一次</option><option>不提醒</option></select></div>
+      <div class="field"><label>多个审批同时到达</label><select><option>审批会话并行处理</option><option>排队逐个处理</option></select></div>
+      <div class="field"><label>审批代理范围</label><p class="routing" style="padding-top:6px">首版只代理 Claude Code 卡片的审批，其他 Agent 只汇报进度。大脑判断时没有固定时限；如果它拿不准、出错，或等待快到 hook 的 120 秒上限，会转到“需要你处理”。</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 决策 ================= -->
+<section class="view" id="v-dec" hidden>
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div class="box tbl">
+      <h3>已确认</h3>
+      <table>
+        <thead><tr><th>维度</th><th>决定</th></tr></thead>
+        <tbody>
+          <tr><td>播报节奏</td><td>事件驱动（完成、出错、需审批立即播）加定时摘要；没有变化时不说话</td></tr>
+          <tr><td>两个大脑分工</td><td>前台对话：实时语音模型或 NormaSession 快速回答；后台工作：ACP 大脑处理事件、审批、派后续和需要读代码的问题；两者共用记忆和目标摘要</td></tr>
+          <tr><td>NormaSession</td><td>保留。负责 Legacy 语音、Dock 文字对话，以及 ACP 不可用时的兜底；GPT-Live 派活改由 ACP 大脑处理</td></tr>
+          <tr><td>派活依据</td><td>卡片上下文，加上相关文件和文档</td></tr>
+          <tr><td>大脑权限</td><td>执行 <code>norma</code> 命令，只读工作空间内的项目文件；写文件和其他命令全部禁止</td></tr>
+          <tr><td>关闭语音汇报</td><td>大脑继续处理审批和派活，只是不说话</td></tr>
+          <tr><td>自主处理记录</td><td>“撤回”改成“以后这类先问我”和“停止该 Agent”（按建议，可再改）</td></tr>
+          <tr><td>自主权</td><td>只读、测试和项目内写文件的审批，派后续任务，停止或重启卡住的 Agent</td></tr>
+          <tr><td>高风险</td><td>push/合并、删除、写项目外路径、部署、涉及密钥、付费 → 用语音问你，没回应则进入“需要你处理”</td></tr>
+          <tr><td>高风险规则</td><td>在大脑之前检查，命中就直接问你；大脑只能把审批升级给你，不能把高风险降级放行</td></tr>
+          <tr><td>审批判断</td><td>未命中规则的审批全部交给大脑，不设固定时限；判断中的审批可见，你随时可以接管；大脑拿不准、出错或快到 hook 120 秒上限时转给你</td></tr>
+          <tr><td>审批范围</td><td>首版只代理 Claude Code 卡片（现有权限桥只支持 Claude）</td></tr>
+          <tr><td>能力接入</td><td><code>norma</code> CLI 加 skill；作为 ACP client 的权限闸门只放行 <code>norma</code> 命令</td></tr>
+          <tr><td>会话形态</td><td>常驻主会话（强模型）加审批快车道（快模型），通过目标摘要保持口径一致</td></tr>
+          <tr><td>大脑输入</td><td>hook 事件和最终输出摘录，终端尾部按需拉取</td></tr>
+          <tr><td>选择粒度</td><td>全局一个大脑；可选后端、两个模型和策略（速度优先 / 自动 / 质量优先）</td></tr>
+          <tr><td>发声</td><td>跟随当前语音模式</td></tr>
+          <tr><td>冲突</td><td>你开口时播报立即停止，结束后把积压内容合并成一句再播；高风险确认排在最前</td></tr>
+          <tr><td>首版范围</td><td>只做桌面端闭环，iOS 不在本期</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="grid2">
+      <div class="box">
+        <h3>风险</h3>
+        <ul>
+          <li><b>审批延迟</b>：快模型通常 2–5s 完成，但所有 Agent 的每次审批都要经过大脑，高峰期需要并发处理或批量合并</li>
+          <li><b>ACP 适配器差异</b>：Claude Code 和 Codex 依赖第三方 ACP 适配器，权限请求的字段和工具名需要逐个对齐</li>
+          <li><b>大脑误放行</b>：自主权较大，每个决定都需要可追溯，并能一键停止对应 Agent</li>
+          <li><b>成本</b>：两个常驻会话加定时摘要，需要在设置页显示用量</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h3>还需要你确认</h3>
+        <ul>
+          <li>判断较慢时是否提醒你：只在概览显示（推荐），还是超过 60 秒后语音提醒一次</li>
+          <li>多个审批同时到达时，并行处理（推荐）还是排队逐个处理</li>
+          <li>需要验证：hook 120 秒超时后，Claude Code 会不会退回终端里的权限提示</li>
+          <li>需要实测：Claude Code 通过 ACP 回答一句话的首字延迟</li>
+          <li>“Norma 自主处理”记录要保留多久，是否需要每天汇总一次</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+</div>
+
+<script>
+(function(){
+  // 标签切换
+  const tabs=[...document.querySelectorAll('.tabs button')];
+  tabs.forEach(b=>b.addEventListener('click',()=>{
+    tabs.forEach(t=>t.setAttribute('aria-selected',t===b));
+    document.querySelectorAll('.view').forEach(v=>v.hidden=v.id!=='v-'+b.dataset.tab);
+  }));
+
+  // 设置交互
+  const brainLabel=document.getElementById('brainLabel');
+  let backend='Claude Code', strategy='自动策略';
+  const notes={'速度优先':'速度优先：所有环节都用快模型，延迟最低，复杂派活可能不够周全。','自动策略':'自动：审批与定时摘要用快模型，派活与回答你的问题用强模型。','质量优先':'质量优先：所有环节都用强模型，审批更慢，判断中的等待时间会更长。'};
+  function syncLabel(){brainLabel.textContent='后台 · '+backend+' · '+strategy}
+  syncLabel();
+  document.querySelectorAll('.be:not(.na)').forEach(el=>{
+    const pick=()=>{document.querySelectorAll('.be').forEach(x=>x.setAttribute('aria-checked',x===el));backend=el.dataset.name;syncLabel()};
+    el.addEventListener('click',pick);el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pick()}});
+  });
+  document.querySelectorAll('#strategy button').forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll('#strategy button').forEach(x=>x.setAttribute('aria-pressed',x===b));
+    strategy=b.dataset.s;document.getElementById('routingNote').textContent=notes[strategy];syncLabel();
+  }));
+
+  // 原型数据（审批代理首版只覆盖 Claude Code 卡片）
+  const INIT={
+    claude:{name:'Claude Code · 设置页',state:'运行中',tone:'b-run',term:'<span class="c">●</span> 编辑 settings/brain.rs\n<span class="c">●</span> 新增 BrainSettings 视图\n…'},
+    codex:{name:'Codex · ACP client',state:'运行中',tone:'b-run',term:'<span class="c">●</span> 实现 session/prompt\n<span class="c">●</span> 写 acp_client_tests.rs\n…'},
+    release:{name:'Claude Code · 发布',state:'运行中',tone:'b-run',term:'<span class="c">●</span> 更新 scripts/release.sh\n…'},
+    cursor:{name:'Cursor · 空闲',state:'待开始',tone:'b-ok',term:'等待任务…'}
+  };
+  let agents=JSON.parse(JSON.stringify(INIT));
+  const $=id=>document.getElementById(id);
+  const cardsEl=$('cards');
+  function renderCards(hl){
+    cardsEl.innerHTML=Object.entries(agents).map(([k,a])=>`<div class="card ${hl&&hl[0]===k?hl[1]:''}" id="c-${k}"><div class="hd"><span>${a.name}</span><span class="badge ${a.tone}">${a.state}</span></div><div class="term">${a.term}</div></div>`).join('');
+    const run=Object.values(agents).filter(a=>a.state!=='待开始'&&a.state!=='已完成');
+    $('runList').innerHTML=run.map(a=>`<div class="row"><span class="badge ${a.tone}">${a.state}</span><div>${a.name}</div></div>`).join('');
+    $('sRun').textContent=run.length;
+    $('sIdle').textContent=Object.values(agents).filter(a=>a.state==='待开始').length;
+  }
+  renderCards();
+
+  const toggle=$('reportToggle'),playBtn=$('playBtn'),talkBtn=$('talkBtn');
+  const report=$('report'),caption=$('caption'),voiceState=$('voiceState'),logEl=$('log'),queueEl=$('queue');
+  let on=false,timers=[],t0=0,queue=[],userTalking=false,running=false;
+  const SPEED=4; // 演示 1 秒 = 真实 4 秒
+  const real=()=>Math.round((Date.now()-t0)/1000*SPEED);
+  function setOn(v){
+    on=v;toggle.setAttribute('aria-checked',v);playBtn.disabled=!v||running;talkBtn.disabled=!v;
+    voiceState.innerHTML='<span class="dot"></span>'+(v?'汇报中 · 等待事件':'汇报已关闭');
+    voiceState.style.color=v?'var(--cyan)':'';
+    if(!v){stop();caption.innerHTML='<span class="off-note">语音汇报已关闭。大脑仍会在后台处理审批，但不会开口。</span>'}
+    else caption.innerHTML='<span class="off-note">没有新事件时 Norma 保持安静。点“演示一段”查看一组事件的处理过程。</span>';
+  }
+  toggle.addEventListener('click',()=>setOn(!on));
+  toggle.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setOn(!on)}});
+
+  function log(html){const d=document.createElement('div');d.innerHTML=`<time>+${String(real()).padStart(2,'0')}s</time><span>${html}</span>`;logEl.prepend(d)}
+  function speak(text,hi){
+    if(userTalking){queue.push({text,hi});renderQueue();return}
+    report.classList.add('speaking');voiceState.innerHTML='<span class="dot"></span>正在播报';
+    caption.innerHTML='<span class="who">Norma</span>'+text;
+    later(()=>{report.classList.remove('speaking');if(!userTalking)voiceState.innerHTML='<span class="dot"></span>汇报中 · 等待事件'},2600);
+  }
+  function renderQueue(){queueEl.innerHTML=queue.length?'待播：'+queue.map(q=>`<span class="qchip ${q.hi?'hi':''}">${q.text.slice(0,10)}…</span>`).join(''):''}
+  function later(fn,ms){timers.push(setTimeout(fn,ms))}
+  let ticker=null;
+  function stop(){timers.forEach(clearTimeout);timers=[];clearInterval(ticker);ticker=null;running=false;report.classList.remove('speaking');playBtn.disabled=!on}
+  function setCard(k,state,tone,line,hl){agents[k].state=state;agents[k].tone=tone;if(line)agents[k].term+='\n'+line;renderCards(hl?[k,hl]:null)}
+  function auto(html){const l=$('autoList');if(!l.dataset.used){l.innerHTML='';l.dataset.used=1}const d=document.createElement('div');d.className='row';d.innerHTML=`<span class="badge b-brain">自主</span><div>${html}<div class="meta">刚刚 · <a href="#" style="color:var(--cyan)" onclick="return false">为什么</a> · <a href="#" style="color:var(--cyan)" onclick="return false">以后这类先问我</a> · <a href="#" style="color:var(--cyan)" onclick="return false">停止该 Agent</a></div></div>`;l.prepend(d)}
+
+  // 判断中：不设固定时限，可随时接管
+  const judging={};
+  function renderJudge(){
+    const ks=Object.keys(judging);$('judgeGroup').hidden=!ks.length;
+    $('judgeList').innerHTML=ks.map(k=>{const j=judging[k];return `<div class="row"><span class="badge b-brain">判断中</span><div class="judge"><div>${agents[k].name.split(' · ')[0]} 想执行 <code>${j.cmd}</code></div><div class="meta">安全闸门未命中 · 已等 <span class="sec">${real()-j.at}</span> 秒</div><div class="acts"><button class="btn" data-take="${k}">我来处理</button></div></div></div>`}).join('');
+    $('judgeList').querySelectorAll('[data-take]').forEach(b=>b.onclick=()=>takeover(b.dataset.take));
+  }
+  function startJudge(k,cmd){judging[k]={cmd,at:real()};renderJudge();if(!ticker)ticker=setInterval(()=>{if(Object.keys(judging).length)renderJudge()},250)}
+  function brainDecides(k,okText){
+    if(!judging[k]){log('<span class="badge b-brain">审批会话</span> 结论晚到：你已接管，大脑结论作废');return}
+    const waited=real()-judging[k].at;delete judging[k];renderJudge();
+    setCard(k,'运行中','b-run','<span class="g">✓ Norma 已放行</span>');
+    auto(okText);log(`<span class="badge b-brain">审批会话</span> 放行，用时 ${waited} 秒（没有固定时限，结论照常采用，不播报）`);
+  }
+  function takeover(k){
+    const j=judging[k];if(!j)return;delete judging[k];renderJudge();
+    log('你接管了这条审批，之后大脑的结论会作废');
+    attention(k,j.cmd,'你从“判断中”接管，Norma 停止判断。');
+  }
+
+  // 需要你处理
+  const attn={};
+  function attention(k,cmd,reason){
+    attn[k]={cmd,reason};renderAttn(k);
+  }
+  function renderAttn(fresh){
+    const ks=Object.keys(attn);$('attnGroup').hidden=!ks.length;$('sAttn').textContent=ks.length;
+    $('attnList').innerHTML=ks.map(k=>`<div class="row attn ${k===fresh?'fresh':''}"><span class="badge b-warn">请你确认</span><div>${agents[k].name.split(' · ')[0]} 想执行 <code>${attn[k].cmd}</code><div class="meta">${attn[k].reason}</div><div class="acts"><button class="btn ok" data-ok="${k}">允许</button><button class="btn no" data-no="${k}">拒绝</button><button class="btn" data-loc="${k}">定位卡片</button></div></div></div>`).join('');
+    $('attnList').querySelectorAll('[data-ok]').forEach(b=>b.onclick=()=>resolve(b.dataset.ok,true));
+    $('attnList').querySelectorAll('[data-no]').forEach(b=>b.onclick=()=>resolve(b.dataset.no,false));
+    $('attnList').querySelectorAll('[data-loc]').forEach(b=>b.onclick=()=>renderCards([b.dataset.loc,'hl-warn']));
+  }
+  function resolve(k,ok){
+    const cmd=attn[k].cmd;delete attn[k];renderAttn();
+    setCard(k,ok?'运行中':'待开始',ok?'b-run':'b-ok',ok?`<span class="g">✓ 你已允许</span>`:`<span class="y">✗ 你已拒绝，已停下</span>`);
+    log(ok?`你允许了 <code>${cmd}</code>`:`你拒绝了 <code>${cmd}</code>，大脑让该 Agent 换做法`);
+    speak(ok?'好的，已经放行。':'收到，已经拦下来了。');
+  }
+
+  playBtn.addEventListener('click',()=>{
+    if(!on)return;stop();running=true;playBtn.disabled=true;logEl.innerHTML='';t0=Date.now();
+    agents=JSON.parse(JSON.stringify(INIT));renderCards();
+    Object.keys(judging).forEach(k=>delete judging[k]);renderJudge();
+    Object.keys(attn).forEach(k=>delete attn[k]);renderAttn();
+    // 1 Codex 完成 → 主会话整理并派活（Codex 只汇报，不代理审批）
+    later(()=>{setCard('codex','已完成','b-ok','<span class="g">✓ 12 个测试通过</span>','hl');log('<span class="badge b-run">hook</span> Codex 本轮结束，附最终输出摘录')},400);
+    later(()=>log('<span class="badge b-brain">主会话</span> ACP client 已完成，下一步是安全闸门 → 派给空闲的 Cursor'),1200);
+    later(()=>{setCard('cursor','运行中','b-run','<span class="c">●</span> 收到 Norma 任务：实现安全闸门','hl');agents.cursor.name='Cursor · 安全闸门';renderCards(['cursor','hl']);auto('把“实现安全闸门”派给 Cursor');log('<span class="mono">norma agent task assign Cursor --task …</span>')},1900);
+    later(()=>speak('Codex 把 ACP client 做完了，12 个测试都通过。我已经让 Cursor 接着做安全闸门。'),2300);
+    // 2 Claude 普通审批 → 大脑判断约 20 秒，照常采用
+    later(()=>{setCard('claude','等待审批','b-warn','<span class="y">? 允许运行 cargo test -p app？</span>','hl-warn');log('<span class="badge b-warn">审批</span> Claude Code 请求 <code>cargo test -p app</code> → 安全闸门未命中 → 交给审批会话');startJudge('claude','cargo test -p app')},3200);
+    later(()=>brainDecides('claude','放行 Claude Code 运行 <code>cargo test -p app</code>（测试类）'),8200);
+    // 3 Claude 发布：命中高风险 → 不经过大脑，直接问你
+    later(()=>{setCard('release','等待审批','b-warn','<span class="y">? 允许执行 git push origin release？</span>','hl-warn');log('<span class="badge b-warn">审批</span> Claude Code · 发布 请求 <code>git push origin release</code>')},5200);
+    later(()=>{log('<span class="badge b-err">安全闸门</span> 命中高风险（push），不经过大脑，插到播报最前');speak('需要你确认：发布那张卡想把 release 分支推到远端，测试都过了。可以推吗？',true)},5600);
+    later(()=>{if(agents.release.state!=='等待审批'||attn.release)return;log('<span class="badge b-warn">无应答</span> 你没有回应，已放到“需要你处理”');attention('release','git push origin release','命中高风险规则：推送到远端。Norma 没有替你决定。');speak('推送那件事我先放在左边的“需要你处理”里了。')},10500);
+    later(()=>{running=false;playBtn.disabled=!on},11000);
+  });
+
+  // 语音模式决定前台由谁回答
+  const MODES=['豆包','GPT-Live','Legacy'];let mode=0;
+  const front=()=>MODES[mode]==='Legacy'?'NormaSession':MODES[mode]+' 实时模型';
+  $('modePill').addEventListener('click',()=>{mode=(mode+1)%MODES.length;$('modePill').textContent='语音模式 · '+MODES[mode];if(on&&!userTalking&&!running)caption.innerHTML=`<span class="off-note">切换到 ${MODES[mode]}：前台对话由 ${front()} 回答，后台仍是 ACP 大脑。</span>`});
+
+  talkBtn.addEventListener('click',()=>{
+    if(!on)return;
+    if(!userTalking){
+      userTalking=true;talkBtn.textContent='■ 结束插话';report.classList.remove('speaking');
+      voiceState.innerHTML='<span class="dot"></span>正在听你说';voiceState.style.color='var(--warn)';
+      caption.innerHTML='<span class="who" style="color:var(--warn)">你</span>现在几个在跑？顺便让 Codex 把 ACP 的文档补上。';
+      log('你开口了：播报立即让路，后面的播报先暂存');
+      later(()=>{if(!userTalking)return;
+        caption.innerHTML+=`<br><span class="who">Norma</span>${$('sRun').textContent} 个在运行，${$('sAttn').textContent} 件等你处理。补文档的事我交给后台去安排。<span class="muted">（前台：${front()}，约 1 秒）</span>`;
+        log(`<span class="badge b-run">前台</span> ${front()} 直接回答状态；派活转给后台主会话`);
+      },900);
+    }else{
+      userTalking=false;talkBtn.textContent='🎙 模拟你插话';voiceState.style.color='var(--cyan)';voiceState.innerHTML='<span class="dot"></span>汇报中 · 等待事件';
+      if(queue.length){const n=queue.length,hi=queue.some(q=>q.hi);queue=[];renderQueue();log(`主会话把积压的 ${n} 条播报合并成一句`);speak('刚才你说话的时候'+(n>1?`有 ${n} 件事`:'有一件事')+(hi?'，最要紧的是发布卡的推送在等你确认。':'，都已经处理好了。'))}
+      later(()=>log('<span class="badge b-brain">主会话</span> 读 Codex 卡片上下文和 docs/ 目录，确定要补的文档范围'),1200);
+      later(()=>{setCard('codex','运行中','b-run','<span class="c">●</span> 收到 Norma 任务：补 ACP client 文档','hl');auto('把“补 ACP client 文档”派给 Codex');log('<span class="mono">norma agent task assign Codex --task …</span>');speak('补文档的事已经交给 Codex 了，范围是 ACP client 的接入说明。')},3000);
+    }
+  });
+})();
+</script>
+</body>
+</html>

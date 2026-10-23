@@ -12,6 +12,7 @@ members = [
   "crates/live_voice",
   "crates/voice_input",
   "crates/agent",
+  "crates/brain",
   "crates/dialogue",
   "crates/canvas",
   "crates/storage",
