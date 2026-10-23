@@ -1,10 +1,7 @@
 use crate::app::{AppScreen, MultisoulApp};
 #[cfg(any(test, feature = "e2e-test-support"))]
 use gpui::Entity;
-use gpui::{
-    px, size, App, AppContext as _, Bounds, Context, Global, TitlebarOptions,
-    WindowBackgroundAppearance, WindowBounds, WindowHandle, WindowOptions,
-};
+use gpui::{px, size, App, AppContext as _, Bounds, Context, Global, WindowHandle};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -68,7 +65,8 @@ fn open_multisoul_window(
     let app_store = storage::AppStore::initialize(&database_paths)?;
     let title = title_for_initial_state(&state);
     let (width, height) = initial_window_dimensions(visual_preview_name());
-    let bounds = Bounds::centered(None, size(px(width), px(height)), cx);
+    let display = initial_display(cx);
+    let bounds = Bounds::centered(display, size(px(width), px(height)), cx);
     let mut app_entity = None;
     let opening_workspace = !matches!(&state, InitialWindowState::Launchpad);
     let desktop_database = database_paths.app_db_path().to_owned();
@@ -78,7 +76,7 @@ fn open_multisoul_window(
         }
         InitialWindowState::Launchpad => super::desktop::sessions::detached(&desktop_database, cx),
     };
-    let root_handle = cx.open_window(window_options(title, bounds), |window, cx| {
+    let root_handle = cx.open_window(window_options(title, bounds, display), |window, cx| {
         let app = if let Some(app) = existing {
             app.update(cx, |app, cx| {
                 if opening_workspace {
@@ -183,18 +181,7 @@ pub(crate) fn title_for_initial_state(state: &InitialWindowState) -> String {
     }
 }
 
-pub(crate) fn window_options(title: String, bounds: Bounds<gpui::Pixels>) -> WindowOptions {
-    WindowOptions {
-        window_bounds: Some(WindowBounds::Windowed(bounds)),
-        titlebar: Some(TitlebarOptions {
-            title: Some(title.into()),
-            appears_transparent: true,
-            traffic_light_position: None,
-        }),
-        window_background: WindowBackgroundAppearance::Blurred,
-        ..Default::default()
-    }
-}
+pub(crate) use super::window_placement::{initial_display, window_options};
 
 impl MultisoulApp {
     pub(crate) fn unregister_workspace_window_if_needed(&mut self, cx: &mut App) {

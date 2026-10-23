@@ -181,6 +181,17 @@ extension Catalog {
         }
     }
 
+    /// 把功能引导标为已关闭（与用户点“跳过引导”相同），供不验收引导的场景使用。
+    /// 自 82de07aa 起，进入项目画布会自动弹出引导并盖住画布。调用时 App 不得占用数据库。
+    public static func suppressFeatureGuide(database url: URL) throws {
+        let database = try SQLiteDB(path: url.path, write: true)
+        defer { database.close() }
+        try database.execute(
+            "INSERT INTO settings(key,value,updated_at_unix) VALUES('feature_guide.status.v1','suppressed',0) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            bindings: []
+        )
+    }
+
     public static func seedArea(database url: URL, workspaceName: String, root: URL, displayName: String) throws {
         let database = try SQLiteDB(path: url.path, write: true)
         defer { database.close() }

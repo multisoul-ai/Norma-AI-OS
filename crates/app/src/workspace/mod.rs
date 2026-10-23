@@ -7,4 +7,5 @@ pub mod persistence;
 pub(crate) mod project_picker;
 pub(crate) mod sessions;
 pub mod state;
+mod window_placement;
 pub mod windowing;

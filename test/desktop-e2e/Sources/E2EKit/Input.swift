@@ -5,15 +5,18 @@ import Foundation
 /// 点击、拖拽、滚动和按键都通过 App 控制通道派发到隔离窗口内，坐标为窗口内坐标。
 /// 事件只进入本次启动的 Norma，不会落到用户的其他窗口，也不占用系统键鼠。
 extension Session {
-    /// 把隔离窗口抬到前台，使渲染持续刷新；输入本身不依赖前台状态。
+    /// 默认只在 App 内把隔离窗口标记为 active，不抢系统前台、键盘或鼠标；
+    /// 设 `NORMA_E2E_FOREGROUND=1` 才会真正激活 Norma（旧行为）。
     public func activate() async throws {
         try ensureRunning()
-        // X5: NORMA_E2E_NO_ACTIVATE=1 leaves the window wherever the system put it.
-        if ProcessInfo.processInfo.environment["NORMA_E2E_NO_ACTIVATE"] == "1" { return }
-        if let pid = app?.processIdentifier, let running = NSRunningApplication(processIdentifier: pid) {
+        let env = ProcessInfo.processInfo.environment
+        if env["NORMA_E2E_NO_ACTIVATE"] == "1" { return }
+        if env["NORMA_E2E_FOREGROUND"] == "1",
+           let pid = app?.processIdentifier, let running = NSRunningApplication(processIdentifier: pid) {
             _ = running.activate(from: NSRunningApplication.current, options: [.activateAllWindows])
         }
         try await control(["op": "activate"])
+        // 控制通道在窗口绘制出 active 帧后才应答，输入不依赖固定等待。
     }
 
     public func click(matching candidates: [String], pick: TextPick) async throws {

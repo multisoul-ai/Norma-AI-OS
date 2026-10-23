@@ -433,8 +433,9 @@ fn open_gated_window_with_phase(
     let (width, height) = crate::workspace::windowing::initial_window_dimensions(
         crate::workspace::windowing::visual_preview_name(),
     );
-    let bounds = gpui::Bounds::centered(None, gpui::size(px(width), px(height)), cx);
-    let handle = cx.open_window(window_options(title, bounds), |window, cx| {
+    let display = crate::workspace::windowing::initial_display(cx);
+    let bounds = gpui::Bounds::centered(display, gpui::size(px(width), px(height)), cx);
+    let handle = cx.open_window(window_options(title, bounds, display), |window, cx| {
         cx.new(|cx| build_gated_root(phase, window, cx))
     })?;
     Ok(handle)
