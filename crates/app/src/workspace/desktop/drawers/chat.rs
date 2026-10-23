@@ -24,6 +24,7 @@ impl MultisoulApp {
     ) -> Stateful<Div> {
         let theme = self.desktop_theme();
         let frost = self.render_drawer_frost(true, width, edge_inset, window);
+        let chat_visible = self.desktop_workspace.left_chat_visible;
         let chat_input = if let Some(project) = self.desktop_drawer_chat_project() {
             project.update(cx, |project, cx| {
                 project.ensure_command_input(window, cx);
@@ -142,81 +143,84 @@ impl MultisoulApp {
                             ),
                     ),
             )
-            .child(self.render_left_drawer_tabs(cx))
+            .when(chat_visible, |this| {
+                this.child(self.render_left_drawer_tabs(cx))
+            })
             .child(self.render_left_drawer_body(width, window, cx))
-            .child(
-                div()
-                    .id("desktop-assistant-chat-input")
-                    .debug_selector(|| "desktop-assistant-chat-input".to_string())
-                    .h(px(52.0))
-                    .mx(px(18.0))
-                    .mb(px(12.0))
-                    .px(px(12.0))
-                    .flex()
-                    .items_center()
-                    .gap(px(8.0))
-                    .rounded(px(26.0))
-                    .border_1()
-                    .border_color(rgba(0xb7d4ee1f))
-                    .bg(rgba(0x151e28d0))
-                    .text_size(px(12.0))
-                    .text_color(rgba(GLASS_TEXT_SECONDARY))
-                    .on_mouse_down(
-                        MouseButton::Left,
-                        cx.listener(|app, _, _, cx| {
-                            app.mark_desktop_assistant_chat_input(cx);
-                            cx.stop_propagation();
-                        }),
-                    )
-                    .when_some(chat_input, |composer, input| {
-                        composer.child(
-                            div()
-                                .flex_1()
-                                .min_w(px(0.0))
-                                .child(Input::new(&input).appearance(false).text_size(px(12.0))),
+            .when(chat_visible, |this| {
+                this.child(
+                    div()
+                        .id("desktop-assistant-chat-input")
+                        .debug_selector(|| "desktop-assistant-chat-input".to_string())
+                        .h(px(52.0))
+                        .mx(px(18.0))
+                        .mb(px(12.0))
+                        .px(px(12.0))
+                        .flex()
+                        .items_center()
+                        .gap(px(8.0))
+                        .rounded(px(26.0))
+                        .border_1()
+                        .border_color(rgba(0xb7d4ee1f))
+                        .bg(rgba(0x151e28d0))
+                        .text_size(px(12.0))
+                        .text_color(rgba(GLASS_TEXT_SECONDARY))
+                        .on_mouse_down(
+                            MouseButton::Left,
+                            cx.listener(|app, _, _, cx| {
+                                app.mark_desktop_assistant_chat_input(cx);
+                                cx.stop_propagation();
+                            }),
                         )
-                    })
-                    .child(
-                        div()
-                            .id("desktop-assistant-voice")
-                            .tab_index(0)
-                            .border_1()
-                            .border_color(rgba(0x00000000))
-                            .focus(|style| style.border_color(rgba(0x83c4ffcc)))
-                            .debug_selector(|| "desktop-assistant-voice".to_string())
-                            .w(px(34.0))
-                            .h(px(34.0))
-                            .flex_none()
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .rounded(px(9.0))
-                            .cursor_pointer()
-                            .hover(|style| style.bg(rgba(0x8dd5ed13)))
-                            .active(|style| style.bg(rgba(0x8dd5ed26)))
-                            .tooltip({
-                                let label = format!(
-                                    "语音对话 · {}",
-                                    self.shortcuts.voice_interaction_label()
-                                );
-                                move |window, cx| {
-                                    ui::component::tooltip::Tooltip::new(label.clone())
-                                        .build(window, cx)
-                                }
-                            })
-                            .on_click(cx.listener(|app, _, window, cx| {
-                                app.activate_desktop_assistant_voice(window, cx);
-                            }))
-                            .child(
-                                svg()
-                                    .path("icons/microphone.svg")
-                                    .w(px(17.0))
-                                    .h(px(17.0))
-                                    .text_color(rgba(0x9ec3d5ff)),
-                            ),
-                    )
-                    .child(send_button),
-            )
+                        .when_some(chat_input, |composer, input| {
+                            composer.child(
+                                div().flex_1().min_w(px(0.0)).child(
+                                    Input::new(&input).appearance(false).text_size(px(12.0)),
+                                ),
+                            )
+                        })
+                        .child(
+                            div()
+                                .id("desktop-assistant-voice")
+                                .tab_index(0)
+                                .border_1()
+                                .border_color(rgba(0x00000000))
+                                .focus(|style| style.border_color(rgba(0x83c4ffcc)))
+                                .debug_selector(|| "desktop-assistant-voice".to_string())
+                                .w(px(34.0))
+                                .h(px(34.0))
+                                .flex_none()
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .rounded(px(9.0))
+                                .cursor_pointer()
+                                .hover(|style| style.bg(rgba(0x8dd5ed13)))
+                                .active(|style| style.bg(rgba(0x8dd5ed26)))
+                                .tooltip({
+                                    let label = format!(
+                                        "语音对话 · {}",
+                                        self.shortcuts.voice_interaction_label()
+                                    );
+                                    move |window, cx| {
+                                        ui::component::tooltip::Tooltip::new(label.clone())
+                                            .build(window, cx)
+                                    }
+                                })
+                                .on_click(cx.listener(|app, _, window, cx| {
+                                    app.activate_desktop_assistant_voice(window, cx);
+                                }))
+                                .child(
+                                    svg()
+                                        .path("icons/microphone.svg")
+                                        .w(px(17.0))
+                                        .h(px(17.0))
+                                        .text_color(rgba(0x9ec3d5ff)),
+                                ),
+                        )
+                        .child(send_button),
+                )
+            })
     }
 
     /// 输入框里有没有待发送的文字（决定发送按钮是否可用）。

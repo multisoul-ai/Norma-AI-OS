@@ -85,6 +85,7 @@ fn drawer_empty_surface_matches_conversation_and_content_layout() {
         app.motion.reduce_motion = true;
         app.open_desktop_workspace(workspace.id.clone(), window, cx);
         app.finish_desktop_zoom(window, cx);
+        app.desktop_workspace.left_chat_visible = true;
         app.toggle_desktop_drawer(DesktopDrawerEvent::ToggleLeft, cx);
         app.toggle_desktop_drawer(DesktopDrawerEvent::ToggleRight, cx);
     });
@@ -192,6 +193,7 @@ fn assistant_orb_activates_existing_voice_entry() {
         app.motion.reduce_motion = true;
         app.open_desktop_workspace(workspace.id, window, cx);
         app.finish_desktop_zoom(window, cx);
+        app.desktop_workspace.left_chat_visible = true;
         app.toggle_desktop_drawer(DesktopDrawerEvent::ToggleLeft, cx);
     });
     cx.run_until_parked();

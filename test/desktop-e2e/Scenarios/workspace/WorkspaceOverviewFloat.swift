@@ -23,41 +23,51 @@ public enum WorkspaceOverviewFloat {
             return overview.summary
         }
 
-        try await session.step("点图钉后概览悬浮，左栏回到对话") {
+        try await session.step("点图钉后概览悬浮到画布右侧") {
             let frame = try await session.capture()
-            guard let tab = frame.pick(["Run Overview", "运行概览"], .top) else {
-                throw E2EError.product("抽屉概览标签没有出现。可见：\(frame.summary)")
+            guard let heading = frame.pick(["Run Overview", "运行概览"], .top) else {
+                throw E2EError.product("抽屉概览标题没有出现。可见：\(frame.summary)")
             }
-            let pinY = tab.center.y + 42
             let drawerRight = min(max(frame.windowFrame.width * 0.31, 366), 438)
             try await session.click(
-                local: CGPoint(x: drawerRight - 26, y: pinY),
+                local: CGPoint(x: drawerRight - 26, y: heading.center.y),
                 on: frame
             )
-            let floating = try await session.wait(
-                Expectation(anyOf: ["和 Norma 聊聊", "Talk to Norma"], allOf: ["要你处理"], timeout: 6)
-            )
+            try await Task.sleep(nanoseconds: 900_000_000)
+            let floating = try await session.capture()
+            guard let title = floating.pick(["Run Overview", "运行概览"], .right),
+                  title.center.x > floating.windowFrame.width * 0.5 else {
+                throw E2EError.product("点图钉后画布上没有出现悬浮概览。可见：\(floating.summary)")
+            }
             try session.save(floating, "02-floating-overview.png")
             let unchanged = try session.prove(names: [name], areaCount: 0)
             return unchanged.summary
         }
 
-        try await session.step("拖动悬浮标题后点运行概览标签收回") {
-            try await Task.sleep(nanoseconds: 700_000_000)
+        try await session.step("拖动悬浮标题后点悬浮面板图钉收回") {
             let frame = try await session.capture()
             guard let title = frame.pick(["Run Overview", "运行概览"], .right) else {
                 throw E2EError.product("悬浮概览标题没有出现。可见：\(frame.summary)")
             }
             let destination = CGPoint(x: title.center.x - 80, y: title.center.y + 36)
             try await session.drag(local: title.center, to: destination, on: frame)
-            try await session.click(matching: ["Run Overview", "运行概览"], pick: .left)
-            let docked = try await session.wait(
-                Expectation(
-                    allOf: ["要你处理"],
-                    absent: ["和 Norma 聊聊"],
-                    timeout: 6
-                )
+            try await Task.sleep(nanoseconds: 700_000_000)
+            let moved = try await session.capture()
+            guard let movedTitle = moved.pick(["Run Overview", "运行概览"], .right),
+                  movedTitle.center.x > moved.windowFrame.width * 0.5 else {
+                throw E2EError.product("拖动后悬浮概览标题消失。可见：\(moved.summary)")
+            }
+            // 悬浮面板宽 360，标题左对齐于面板内边距 16，图钉在面板右侧约 29px 处。
+            try await session.click(
+                local: CGPoint(x: movedTitle.rect.minX + 315, y: movedTitle.center.y + 10),
+                on: moved
             )
+            try await Task.sleep(nanoseconds: 900_000_000)
+            let docked = try await session.capture()
+            if let leftover = docked.pick(["Run Overview", "运行概览"], .right),
+               leftover.center.x > docked.windowFrame.width * 0.5 {
+                throw E2EError.product("点图钉后悬浮面板没有收回。可见：\(docked.summary)")
+            }
             try session.save(docked, "03-docked-overview.png")
             return docked.summary
         }

@@ -40,6 +40,9 @@ mod surface_tests;
 #[cfg(test)]
 #[path = "../../../tests/unit/desktop_assistant_conversation_surface_tests.rs"]
 mod conversation_surface_tests;
+#[cfg(test)]
+#[path = "../../../tests/unit/desktop_left_chat_hidden_tests.rs"]
+mod left_chat_hidden_tests;
 
 #[cfg(test)]
 #[path = "../../../tests/unit/desktop_new_card_reflow_tests.rs"]

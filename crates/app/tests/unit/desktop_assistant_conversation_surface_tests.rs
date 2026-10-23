@@ -27,6 +27,7 @@ fn workspace_starts_with_left_drawer_collapsed_and_reopens_on_click() {
         app.motion.reduce_motion = true;
         app.open_desktop_workspace(workspace.id, window, cx);
         app.finish_desktop_zoom(window, cx);
+        app.desktop_workspace.left_chat_visible = true;
         assert!(
             !app.desktop_workspace.drawers.left_open,
             "工作空间左栏应默认收起"
@@ -85,6 +86,7 @@ fn left_drawer_renders_all_current_session_messages() {
         app.motion.reduce_motion = true;
         app.open_desktop_workspace(workspace.id, window, cx);
         app.finish_desktop_zoom(window, cx);
+        app.desktop_workspace.left_chat_visible = true;
         app.toggle_desktop_drawer(DesktopDrawerEvent::ToggleLeft, cx);
         app.assistant_conversation.user("第一个问题");
         app.assistant_conversation.norma("第一条回复");
@@ -94,22 +96,14 @@ fn left_drawer_renders_all_current_session_messages() {
     });
     cx.run_until_parked();
     cx.update(|window, cx| window.draw(cx).clear());
-    assert!(
-        cx.debug_bounds("desktop-assistant-message-1").is_some(),
-        "第一轮用户消息应可见"
-    );
-    assert!(
-        cx.debug_bounds("desktop-assistant-message-2").is_some(),
-        "第一轮 Norma 回复应可见"
-    );
-    assert!(
-        cx.debug_bounds("desktop-assistant-message-3").is_some(),
-        "第二轮用户消息应可见"
-    );
-    assert!(
-        cx.debug_bounds("desktop-assistant-message-4").is_some(),
-        "第二轮 Norma 回复应可见"
-    );
+    for (id, label) in [
+        ("desktop-assistant-message-1", "第一轮用户消息应可见"),
+        ("desktop-assistant-message-2", "第一轮 Norma 回复应可见"),
+        ("desktop-assistant-message-3", "第二轮用户消息应可见"),
+        ("desktop-assistant-message-4", "第二轮 Norma 回复应可见"),
+    ] {
+        assert!(cx.debug_bounds(id).is_some(), "{label}");
+    }
     let user = cx
         .debug_bounds("desktop-assistant-message-3")
         .expect("第二轮用户气泡应有边界");
@@ -419,6 +413,7 @@ fn workspace_and_project_share_assistant_conversation_history() {
         app.motion.reduce_motion = true;
         app.open_desktop_workspace(workspace.id, window, cx);
         app.finish_desktop_zoom(window, cx);
+        app.desktop_workspace.left_chat_visible = true;
         app.assistant_conversation.user("总览中的问题");
     });
     cx.run_until_parked();
