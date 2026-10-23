@@ -13,21 +13,21 @@ pub(super) const MIN_GROUP_HEIGHT: f32 = 84.0;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum OverviewGroup {
     Attention,
-    Current,
+    Running,
+    Idle,
     Ideas,
-    Other,
 }
 
 impl OverviewGroup {
-    /// 产品约定的固定顺序，不随内容变化。
-    pub(super) const ORDER: [Self; 4] = [Self::Attention, Self::Current, Self::Ideas, Self::Other];
+    /// 产品约定的固定顺序，不随内容变化：先看要处理的，再看谁在跑、谁待开始，最后是想法。
+    pub(super) const ORDER: [Self; 4] = [Self::Attention, Self::Running, Self::Idle, Self::Ideas];
 
     pub(super) fn base_height(self) -> f32 {
         match self {
-            Self::Attention => 190.0,
-            Self::Current => 210.0,
-            Self::Ideas => 236.0,
-            Self::Other => 88.0,
+            Self::Attention => 170.0,
+            Self::Running => 230.0,
+            Self::Idle => 120.0,
+            Self::Ideas => 220.0,
         }
     }
 
@@ -35,32 +35,40 @@ impl OverviewGroup {
     pub(super) fn grow(self) -> f32 {
         match self {
             Self::Attention => 1.0,
-            Self::Current => 1.2,
-            Self::Ideas => 1.4,
-            Self::Other => 0.6,
+            Self::Running => 1.5,
+            Self::Idle => 0.7,
+            Self::Ideas => 1.3,
         }
     }
 
     pub(super) fn key(self) -> &'static str {
         match self {
             Self::Attention => "attention",
-            Self::Current => "current",
+            Self::Running => "running",
+            Self::Idle => "idle",
             Self::Ideas => "ideas",
-            Self::Other => "other",
         }
     }
 
+    /// 折叠位固定编号并写进持久化状态（运行时只保留低四位），不随枚举顺序变化。
+    /// 位 1、2 沿用旧版“当前项目”“想法”的编号；位 3 旧版是“其他项目”，
+    /// 它的行现在并入“待开始”，所以旧偏好折叠了“其他项目”的人会看到“待开始”仍是折叠的。
     fn bit(self) -> u8 {
-        1 << (self as u8)
+        match self {
+            Self::Attention => 1 << 0,
+            Self::Running => 1 << 1,
+            Self::Ideas => 1 << 2,
+            Self::Idle => 1 << 3,
+        }
     }
 
     /// 空态顶部的小图标字符。
     pub(super) fn empty_icon(self) -> &'static str {
         match self {
             Self::Attention => "✓",
-            Self::Current => "◌",
+            Self::Running => "◌",
+            Self::Idle => "✓",
             Self::Ideas => "💡",
-            Self::Other => "▫",
         }
     }
 
@@ -68,15 +76,15 @@ impl OverviewGroup {
     pub(super) fn empty_copy(self) -> (&'static str, &'static str) {
         match self {
             Self::Attention => ("没有需要你处理的事", "审核、成果和待查看文件会出现在这里"),
-            Self::Current => (
-                "当前项目还没有智能体",
-                "对 Norma 说“新建一个 Claude”，或在画布上添加",
+            Self::Running => (
+                "没有正在运行的智能体",
+                "对 Norma 说“新建一个 Claude”，或把想法拖给智能体",
             ),
+            Self::Idle => ("没有待开始的智能体", "所有智能体都在工作"),
             Self::Ideas => (
                 "还没有想法",
                 "对 Norma 说“记一下：…”，或在下方输入；记下后拖到智能体卡片即可开工",
             ),
-            Self::Other => ("没有其他项目", "新建或打开项目后显示在这里"),
         }
     }
 }

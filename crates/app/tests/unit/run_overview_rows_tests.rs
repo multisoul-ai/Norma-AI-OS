@@ -1,7 +1,7 @@
 use super::{
     move_overview_cursor, overview_action_keeps_overview, overview_action_starts_project,
-    overview_feedback, overview_row_height, overview_subtitle, overview_tone, present_overview,
-    OverviewAction, OverviewCursor, OverviewKey, OverviewRowKind, OverviewStatusTone, ProgressMark,
+    overview_feedback, overview_row_height, overview_tone, present_overview, OverviewAction,
+    OverviewCursor, OverviewKey, OverviewRowKind, OverviewStatusTone, ProgressMark,
     OVERVIEW_TEXT_PRIMARY, OVERVIEW_TEXT_SECONDARY,
 };
 use norma::mobile::{
@@ -30,10 +30,19 @@ fn overview_rows_use_prototype_copy_without_percentages() {
     assert_eq!(screen.sections.len(), 3, "必须有三组");
     assert_eq!(screen.sections[0].title, "需要你处理");
     assert_eq!(screen.sections[0].count, Some(4), "待处理计数等于行数");
-    assert_eq!(screen.sections[1].title, "当前项目 · Norma-AI-OS");
-    assert_eq!(screen.sections[1].meta.as_deref(), Some("3 个智能体"));
-    assert_eq!(screen.sections[2].title, "其他项目");
-    assert_eq!(screen.sections[2].meta.as_deref(), Some("上次状态"));
+    assert_eq!(screen.sections[1].title, "运行中");
+    assert_eq!(screen.sections[1].count, Some(2), "运行中按智能体计数");
+    assert_eq!(screen.sections[2].title, "待开始");
+    assert_eq!(
+        screen.sections[2].count,
+        Some(1),
+        "待开始只数智能体，未加载项目行不计入"
+    );
+    assert_eq!(
+        screen.sections[2].rows.len(),
+        2,
+        "待开始组尾部跟着未加载项目行"
+    );
     let attention = &screen.sections[0].rows;
     assert_eq!(attention[0].primary, "待审核 · 抽屉视觉方案");
     assert_eq!(attention[0].secondary, "Bella · Norma-AI-OS");
@@ -76,7 +85,12 @@ fn overview_rows_use_prototype_copy_without_percentages() {
     assert_eq!(agents[0].approval_badge.as_deref(), Some("1 待审核"));
     assert_eq!(
         agents[0].task_line.as_deref(),
-        Some("任务 · 调整原型布局与透明材质")
+        Some("调整原型布局与透明材质")
+    );
+    assert_eq!(
+        agents[0].project_tag.as_deref(),
+        Some("Norma-AI-OS"),
+        "智能体行用项目标签标明归属"
     );
     assert_eq!(
         agents[0].detail.as_deref(),
@@ -103,10 +117,11 @@ fn overview_rows_use_prototype_copy_without_percentages() {
         Some("运行中 · 读取画布 · 已运行不到 1 分")
     );
     assert!(agents[1].approval_badge.is_none(), "Rio 没有待审核标记");
-    assert_eq!(agents[2].status_label.as_deref(), Some("待开始"));
-    assert_eq!(agents[2].detail.as_deref(), Some("尚未开始"));
-    assert!(agents[2].progress.is_none(), "待开始不画进度条");
-    let other = &screen.sections[2].rows[0];
+    let idle = &screen.sections[2].rows[0];
+    assert_eq!(idle.status_label.as_deref(), Some("待开始"));
+    assert_eq!(idle.detail.as_deref(), Some("尚未开始"));
+    assert!(idle.progress.is_none(), "待开始不画进度条");
+    let other = &screen.sections[2].rows[1];
     assert_eq!(other.primary, "设计草稿");
     assert_eq!(
         other.secondary,
@@ -139,9 +154,9 @@ fn overview_rows_use_prototype_copy_without_percentages() {
     let blocked = super::present_overview(
         &RunOverview {
             attention: vec![unloaded],
-            current_project: None,
-            current_agents: Vec::new(),
-            other_projects: Vec::new(),
+            running: Vec::new(),
+            idle: Vec::new(),
+            unloaded_projects: Vec::new(),
         },
         &[],
         now,
@@ -166,6 +181,10 @@ fn overview_rows_use_prototype_copy_without_percentages() {
         overview_row_height(OverviewRowKind::Agent { progress: true }) > 48.0,
         "进度条行高于 48px"
     );
+    assert!(
+        overview_row_height(OverviewRowKind::Agent { progress: false }) >= 72.0,
+        "无进度条的智能体行要容得下名称、项目标签与状态三行"
+    );
 }
 
 /// 场景：可停止的 Ego 行用停止任务替换定位。
@@ -177,12 +196,12 @@ fn overview_rows_use_prototype_copy_without_percentages() {
 fn stoppable_ego_row_uses_the_existing_stop_action() {
     let now = 1_800_000_000_000;
     let mut overview = sample(now);
-    overview.current_agents.truncate(1);
-    overview.current_agents[0].raw_state = "ego_working".into();
-    overview.current_agents[0].node_id = 3;
-    overview.current_agents[0].area_id = "area-current".into();
-    overview.current_agents[0].progress = None;
-    overview.current_agents[0].presence = RunOverviewPresence::Running;
+    overview.running.truncate(1);
+    overview.running[0].raw_state = "ego_working".into();
+    overview.running[0].node_id = 3;
+    overview.running[0].area_id = "area-current".into();
+    overview.running[0].progress = None;
+    overview.running[0].presence = RunOverviewPresence::Running;
     let stopped = present_overview(&overview, &[("area-current".into(), 3, 9)], now);
     match &stopped.sections[1].rows[0].action {
         OverviewAction::StopEgo {
@@ -353,8 +372,7 @@ fn sample(now: u64) -> RunOverview {
                 vec!["docs/prototypes/norma-assistant/index.html".into()],
             ),
         ],
-        current_project: Some("Norma-AI-OS".into()),
-        current_agents: vec![
+        running: vec![
             agent(
                 "Bella",
                 1,
@@ -373,17 +391,17 @@ fn sample(now: u64) -> RunOverview {
                 0,
                 Some("读取画布"),
             ),
-            agent(
-                "Bruno",
-                8,
-                RunOverviewPresence::Idle,
-                None,
-                None,
-                0,
-                Some("检查抽屉响应式布局"),
-            ),
         ],
-        other_projects: vec![RunOverviewProject {
+        idle: vec![agent(
+            "Bruno",
+            8,
+            RunOverviewPresence::Idle,
+            None,
+            None,
+            0,
+            Some("检查抽屉响应式布局"),
+        )],
+        unloaded_projects: vec![RunOverviewProject {
             area_id: "area-other".into(),
             order: 2,
             name: "设计草稿".into(),
@@ -431,6 +449,8 @@ fn agent(
 ) -> RunOverviewAgent {
     RunOverviewAgent {
         area_id: "area-current".into(),
+        project: "Norma-AI-OS".into(),
+        current: true,
         node_id,
         name: name.into(),
         raw_state: "thinking".into(),
@@ -473,20 +493,4 @@ fn color_distance(left: (u8, u8, u8), right: (u8, u8, u8)) -> i32 {
     (left.0 as i32 - right.0 as i32).abs()
         + (left.1 as i32 - right.1 as i32).abs()
         + (left.2 as i32 - right.2 as i32).abs()
-}
-
-/// 场景：概览副标题在有投影时间时追加「· 刚刚更新」，没有时间或没有名字时只退回名字。
-#[test]
-fn overview_subtitle_appends_update_age() {
-    let now = 10_000_000u64;
-    assert_eq!(
-        overview_subtitle("Norma", Some(now as i64 - 5_000), now),
-        "Norma · 刚刚更新"
-    );
-    assert_eq!(
-        overview_subtitle("Norma", Some(now as i64 - 180_000), now),
-        "Norma · 3 分钟前更新"
-    );
-    assert_eq!(overview_subtitle("Norma", None, now), "Norma");
-    assert_eq!(overview_subtitle("", Some(now as i64), now), "");
 }

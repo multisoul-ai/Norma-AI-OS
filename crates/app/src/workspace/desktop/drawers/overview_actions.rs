@@ -21,8 +21,8 @@ impl MultisoulApp {
         // 折叠的栏不显示行，键盘上下也不应落到看不见的行上。
         let groups = [
             OverviewGroup::Attention,
-            OverviewGroup::Current,
-            OverviewGroup::Other,
+            OverviewGroup::Running,
+            OverviewGroup::Idle,
         ];
         for (section, group) in screen.sections.iter_mut().zip(groups) {
             if self.overview_collapse().is_collapsed(group) {
@@ -30,6 +30,33 @@ impl MultisoulApp {
             }
         }
         screen
+    }
+
+    /// 统计卡点击：展开目标分组，并把键盘光标放到它的第一行（没有行就只展开）。
+    pub(super) fn jump_to_overview_group(&mut self, group: OverviewGroup, cx: &mut Context<Self>) {
+        self.update_overview_collapse(|collapse| collapse.reveal(group), cx);
+        let index = match group {
+            OverviewGroup::Attention => 0,
+            OverviewGroup::Running => 1,
+            OverviewGroup::Idle => 2,
+            OverviewGroup::Ideas => return,
+        };
+        let screen = self.presented_overview();
+        if screen
+            .sections
+            .get(index)
+            .is_some_and(|item| item.rows.is_empty())
+        {
+            return;
+        }
+        let first: usize = screen.sections[..index]
+            .iter()
+            .map(|item| item.rows.len())
+            .sum();
+        self.desktop_workspace.overview_cursor = Some(first);
+        let target = screen.row(first).and_then(|row| row.prelight.clone());
+        self.prelight_overview(target, cx);
+        cx.notify();
     }
 
     pub(super) fn handle_run_overview_key(

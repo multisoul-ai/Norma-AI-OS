@@ -3,8 +3,8 @@
 
 use super::super::overview_layout::{OverviewGroup, MIN_GROUP_HEIGHT};
 use super::super::overview_rows::{
-    overview_feedback, overview_tone, OverviewAction, OverviewRow, OverviewSection,
-    OVERVIEW_TEXT_COPY, OVERVIEW_TEXT_PRIMARY, OVERVIEW_TEXT_SECONDARY,
+    overview_feedback, overview_tone, OverviewRow, OverviewSection, OVERVIEW_TEXT_COPY,
+    OVERVIEW_TEXT_PRIMARY, OVERVIEW_TEXT_SECONDARY,
 };
 use super::overview_parts::{action_label, group_chevron, row_copy, row_lead, tone_color};
 use crate::app::MultisoulApp;
@@ -19,7 +19,7 @@ const COPY_STEP: u32 = 0xcfe3f4ff;
 const GROUP_RULE: u32 = 0xcde8ff14;
 
 impl MultisoulApp {
-    /// 四栏固定顺序：需要你处理 → 当前项目 → 想法 → 其他项目。每栏有基准高度，
+    /// 顶部三张统计卡，其后四栏固定顺序：需要你处理 → 运行中 → 待开始 → 想法。每栏有基准高度，
     /// 内容多了栏内滚动；折叠的栏只剩一行标题，空出的高度让给其余栏。
     pub(super) fn render_run_overview(&mut self, cx: &mut Context<Self>) -> Stateful<Div> {
         let screen = self.presented_overview();
@@ -27,9 +27,9 @@ impl MultisoulApp {
         let sections = OverviewGroup::ORDER.map(|group| {
             let section = match group {
                 OverviewGroup::Attention => screen.sections.first(),
-                OverviewGroup::Current => screen.sections.get(1),
+                OverviewGroup::Running => screen.sections.get(1),
+                OverviewGroup::Idle => screen.sections.get(2),
                 OverviewGroup::Ideas => None,
-                OverviewGroup::Other => screen.sections.get(2),
             };
             (group, section)
         });
@@ -51,6 +51,7 @@ impl MultisoulApp {
             .flex()
             .flex_col()
             .gap(px(4.0))
+            .child(self.render_overview_summary(screen.summary(), cx))
             .children(groups)
     }
 
@@ -154,15 +155,10 @@ impl MultisoulApp {
             .count();
         let aside = match (group, section) {
             (OverviewGroup::Ideas, _) => (todo > 0).then(|| count_badge(todo, false)),
-            (_, Some(section)) => match section.count {
-                Some(count) => Some(count_badge(count, true)),
-                None => section.meta.clone().map(|meta| {
-                    div()
-                        .text_size(px(OVERVIEW_TEXT_SECONDARY))
-                        .text_color(rgba(GROUP_META))
-                        .child(meta)
-                }),
-            },
+            // 只有“需要你处理”用琥珀色：它是要你介入的数量，其余是普通计数。
+            (_, Some(section)) => section
+                .count
+                .map(|count| count_badge(count, group == OverviewGroup::Attention)),
             _ => None,
         };
         div()
@@ -220,10 +216,7 @@ impl MultisoulApp {
         let hover = feedback.hover;
         let pressed = feedback.pressed;
         let height = row.height;
-        let agent_row = matches!(
-            row.action,
-            OverviewAction::LocateAgent { .. } | OverviewAction::StopEgo { .. }
-        );
+        let agent_row = row.is_agent;
         div()
             .id(ElementId::Name(id.clone().into()))
             .debug_selector(move || id.clone())
@@ -326,7 +319,7 @@ pub(super) fn group_empty(group: OverviewGroup, fill: bool) -> Stateful<Div> {
                 .text_color(rgba(COPY_STEP))
                 .child(title),
         )
-        .when(group != OverviewGroup::Other, |empty| {
+        .when(group != OverviewGroup::Idle, |empty| {
             empty.child(
                 div()
                     .text_size(px(OVERVIEW_TEXT_COPY))

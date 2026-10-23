@@ -128,11 +128,13 @@ fn project_activity(input: ActivityInput) -> ActivityOutput {
         .map(|elapsed| elapsed.as_secs())
         .unwrap_or(0);
     let view = WorkspaceActivityView::from_facts(&input.facts);
-    let capsule = status_capsule(&input.facts, &input.current_area_id);
+    let mut capsule = status_capsule(&input.facts, &input.current_area_id);
     let summary = WorkspaceActivitySummary::from_facts("desktop", input.facts, now);
     let areas = overview_areas_from_activity(&input.area_ids, &view, &input.presentation);
     let overview =
         project_run_overview(&input.current_area_id, &view, &input.files, &input.presence);
+    // 状态条与抽屉统计同源：数字都从这一份概览投影里来。
+    capsule.apply_run_overview(&overview);
     ActivityOutput {
         generation: input.generation,
         summary,
@@ -254,8 +256,9 @@ impl MultisoulApp {
                     app.desktop_workspace.activity_run_overview = Some(projected.overview.clone());
                     app.desktop_workspace.activity_updated_at_ms = Some(overview_clock_ms() as i64);
                     let count = projected.overview.attention.len()
-                        + projected.overview.current_agents.len()
-                        + projected.overview.other_projects.len();
+                        + projected.overview.running.len()
+                        + projected.overview.idle.len()
+                        + projected.overview.unloaded_projects.len();
                     if app
                         .desktop_workspace
                         .overview_cursor

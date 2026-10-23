@@ -1,6 +1,6 @@
 //! Capsule derived from one workspace activity projection. No storage or UI.
 
-use super::WorkspaceActivityFacts;
+use super::{RunOverview, RunOverviewSummary, WorkspaceActivityFacts};
 
 /// Sort order for the canvas status capsule: waiting, then failure, then running, then not started.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -51,7 +51,25 @@ pub struct StatusCapsule {
     pub titles: Vec<StatusCapsuleTitle>,
     pub overflow: usize,
     pub pending_count: usize,
+    /// Workspace-wide counts taken from the run overview; zero until `apply_run_overview`.
+    pub summary: RunOverviewSummary,
     pub accessibility_label: String,
+}
+
+impl StatusCapsule {
+    /// Make the capsule count exactly what the drawer counts: one projection, one set of numbers.
+    pub fn apply_run_overview(&mut self, overview: &RunOverview) {
+        let summary = overview.summary();
+        self.summary = summary;
+        self.pending_count = summary.attention;
+        self.accessibility_label = format!(
+            "共 {} 个智能体，{} 个运行中，{} 个待开始；共 {} 项待处理",
+            summary.running + summary.idle,
+            summary.running,
+            summary.idle,
+            summary.attention
+        );
+    }
 }
 
 /// Card-title copy. Progress is the agent's own completed/total, never an estimate.
@@ -213,6 +231,7 @@ pub fn status_capsule(facts: &WorkspaceActivityFacts, current_area_id: &str) -> 
         titles,
         overflow,
         pending_count,
+        summary: RunOverviewSummary::default(),
         accessibility_label: spoken.join("；"),
     }
 }

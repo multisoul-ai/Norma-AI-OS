@@ -5,7 +5,7 @@ use gpui::TestAppContext;
 /// 概览栏的折叠状态随工作空间保存：折叠后写入库，重新进入该工作空间时还原。
 ///
 /// 数据构造：一个桌面空间；宿主处于该空间，全部栏展开。
-/// 执行过程：折叠「当前项目」与「其他项目」；等后台写完；读库；再把宿主的抽屉状态重置为默认并按库里的布局还原。
+/// 执行过程：折叠「运行中」与「待开始」；等后台写完；读库；再把宿主的抽屉状态重置为默认并按库里的布局还原。
 /// 预期结果：
 ///   - 正断言：折叠后立即生效（内存里的状态与布局 JSON 都带折叠位）；库里保存的布局带同样的折叠位；还原后仍是这两栏折叠。
 ///   - 负断言：未折叠的「需要你处理」「想法」在还原后仍展开；再次折叠同一栏的「展开」操作能把它恢复。
@@ -25,15 +25,15 @@ fn overview_collapse_is_saved_with_the_workspace_and_restored() {
         app.screen = crate::app::AppScreen::DesktopWorkspace;
         app.desktop_workspace.active_id = Some(workspace.id.clone());
         app.desktop_workspace.workspaces = vec![workspace.clone()];
-        app.update_overview_collapse(|collapse| collapse.toggle(OverviewGroup::Current), cx);
-        app.update_overview_collapse(|collapse| collapse.toggle(OverviewGroup::Other), cx);
+        app.update_overview_collapse(|collapse| collapse.toggle(OverviewGroup::Running), cx);
+        app.update_overview_collapse(|collapse| collapse.toggle(OverviewGroup::Idle), cx);
     });
     cx.run_until_parked();
 
     host.read_with(cx, |app, _| {
         let collapse = app.overview_collapse();
-        assert!(collapse.is_collapsed(OverviewGroup::Current));
-        assert!(collapse.is_collapsed(OverviewGroup::Other));
+        assert!(collapse.is_collapsed(OverviewGroup::Running));
+        assert!(collapse.is_collapsed(OverviewGroup::Idle));
         assert!(!collapse.is_collapsed(OverviewGroup::Attention));
         assert!(!collapse.is_collapsed(OverviewGroup::Ideas));
     });
@@ -56,20 +56,17 @@ fn overview_collapse_is_saved_with_the_workspace_and_restored() {
     host.update(cx, |app, cx| {
         let collapse = app.overview_collapse();
         assert!(
-            collapse.is_collapsed(OverviewGroup::Current),
+            collapse.is_collapsed(OverviewGroup::Running),
             "还原后应仍折叠"
         );
-        assert!(
-            collapse.is_collapsed(OverviewGroup::Other),
-            "还原后应仍折叠"
-        );
+        assert!(collapse.is_collapsed(OverviewGroup::Idle), "还原后应仍折叠");
         assert!(
             !collapse.is_collapsed(OverviewGroup::Ideas),
             "未折叠的栏应保持展开"
         );
-        app.update_overview_collapse(|collapse| collapse.toggle(OverviewGroup::Current), cx);
+        app.update_overview_collapse(|collapse| collapse.toggle(OverviewGroup::Running), cx);
         assert!(
-            !app.overview_collapse().is_collapsed(OverviewGroup::Current),
+            !app.overview_collapse().is_collapsed(OverviewGroup::Running),
             "再次点击应展开"
         );
     });
