@@ -9,6 +9,7 @@ public enum ScenarioCatalog {
         ContentModule.manifest,
         SettingsModule.manifest,
         VoiceModule.manifest,
+        AccountModule.manifest,
     ]
 
     public static func names(matching selector: String) -> [String]? {

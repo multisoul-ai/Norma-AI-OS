@@ -34,6 +34,8 @@
 | `settings` | `settings-live-configuration` | GPT-Live模式切换、缺Key禁用、音色持久化、重启恢复和深浅主题。 |
 | `settings` | `settings-orchestration-path-convention` | 编排页“文件路径输出约定”开关：默认开启（未写库），点击后保存 false，再点击保存 true，开关外观随之变化。 |
 | `voice` | `voice-live-call`、`voice-live-acoustic` | 前者验连接/静音/用量；后者原依赖字幕OCR，用户移除浮层后在启动/连接前返回ENV，避免无效云端用量。真人声学按统一验收清单执行。 |
+| `account` | `account-login-gate` | 启动登录页（`NORMA_ACCOUNT_LOGIN=1` 调试开关）：壁纸与居中卡片、点击 GitHub 进入等待并可取消（`NORMA_E2E_NO_BROWSER=1` 不打开系统浏览器）、「稍后再说」进入工作台并写入 `account.login_prompt.dismissed`、设置 → Account 页登录卡片、重启不再弹出。不覆盖真实 OAuth（见规格 L3 人工验收）。 |
+| `account` | `account-login-flow` | 完整登录闭环：本机假提供方的 norma-cloud auth（`services/norma-cloud/scripts/dev-auth-server.mjs`，端口 18793），驱动从剪贴板取授权链接并代替浏览器跟随重定向，回跳落到 App 回环监听；核对欢迎页、会话入库、重启保持登录、设置页资料展示、退出登录清除会话。 |
 
 ## 预留模块
 

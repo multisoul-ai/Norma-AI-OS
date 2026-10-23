@@ -197,7 +197,7 @@ type NavigationGroup = (&'static str, &'static [SettingsSection]);
 fn navigation_groups() -> Vec<NavigationGroup> {
     let mut groups: Vec<NavigationGroup> = Vec::new();
     if crate::account::account_login_enabled() {
-        groups.push(("settings.account", ACCOUNT_SECTIONS));
+        groups.push(("", ACCOUNT_SECTIONS));
     }
     groups.extend(NAVIGATION_GROUPS);
     groups

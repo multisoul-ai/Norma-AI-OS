@@ -64,7 +64,7 @@ public final class Session {
         dataRoot = data
     }
 
-    public func launch(language: String? = nil) throws {
+    public func launch(language: String? = nil, environment extra: [String: String] = [:]) throws {
         guard let dataRoot, let output else {
             throw E2EError.env("运行目录尚未建立")
         }
@@ -82,6 +82,7 @@ public final class Session {
         }
         let channel = ControlChannel.make()
         environment.merge(channel.environment) { _, new in new }
+        environment.merge(extra) { _, new in new }
         process.environment = environment
         // 默认跟随系统偏好；文案写死中文的场景传 language: "zh-Hans"，NORMA_E2E_LANGUAGE 优先于二者。
         if let language = ProcessInfo.processInfo.environment["NORMA_E2E_LANGUAGE"] ?? language {

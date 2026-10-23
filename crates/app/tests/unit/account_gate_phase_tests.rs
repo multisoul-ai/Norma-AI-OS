@@ -1,4 +1,4 @@
-use super::gate_phase::{parse_skip_login, should_show_login, LoginGateInputs};
+use super::gate_phase::{login_enabled_from, parse_skip_login, should_show_login, LoginGateInputs};
 
 fn inputs(enabled: bool, skip: bool, has_session: bool, dismissed: bool) -> LoginGateInputs {
     LoginGateInputs {
@@ -46,4 +46,38 @@ fn test_skip_login_env_parsing() {
     assert!(!parse_skip_login(None), "缺失应为假");
     assert!(!parse_skip_login(Some("0".into())), "0 应为假");
     assert!(!parse_skip_login(Some(String::new())), "空串应为假");
+}
+
+/// 发布开关：feature 开启则始终启用；否则仅调试构建可用 NORMA_ACCOUNT_LOGIN 运行时开启。
+///
+/// 数据构造：feature ∈ {开, 关} × 调试构建 ∈ {是, 否} × 环境变量 ∈ {缺失, "1"} 共 8 种组合。
+/// 预期结果：
+///   - 正断言：feature 开启时全部启用；feature 关闭时只有「调试构建且环境变量为 1」启用
+///   - 负断言：发行构建（非调试）下环境变量不能开启功能，避免终端用户误开未就绪的登录
+#[test]
+fn test_login_enabled_matrix() {
+    for debug in [true, false] {
+        for env in [None, Some("1".to_string())] {
+            assert!(
+                login_enabled_from(true, debug, env.clone()),
+                "feature 开启时必须启用，debug={debug}, env={env:?}"
+            );
+        }
+    }
+    assert!(
+        login_enabled_from(false, true, Some("1".into())),
+        "调试构建 + 环境变量 1 应启用"
+    );
+    assert!(
+        !login_enabled_from(false, true, None),
+        "调试构建缺环境变量不应启用"
+    );
+    assert!(
+        !login_enabled_from(false, false, Some("1".into())),
+        "发行构建不得被环境变量开启"
+    );
+    assert!(
+        !login_enabled_from(false, false, None),
+        "默认发行构建必须关闭"
+    );
 }

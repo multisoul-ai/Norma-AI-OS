@@ -3,7 +3,7 @@
 //! 决策全部在 `Flow` 中；这里只做副作用（回环监听、网络、持久化、打开浏览器）。
 //! 每个异步结果都带「代数」，取消或重新开始后迟到的结果会被丢弃。
 
-use super::{LoopbackError, LoopbackListener};
+use super::{browser_launch_suppressed, LoopbackError, LoopbackListener};
 use account::{
     random_state, start_url, AccountSessionStore, Attempt, AuthApi, AuthorizeRequest, Flow,
     FlowAction, FlowEvent, FlowState, Pkce, Provider, Session,
@@ -112,7 +112,7 @@ impl AccountController {
 
     pub(crate) fn reopen_browser(&self, cx: &mut Context<Self>) {
         if let Some(url) = &self.authorize_url {
-            cx.open_url(url);
+            open_in_browser(url, cx);
         }
     }
 
@@ -175,7 +175,7 @@ impl AccountController {
                 if this.generation != generation {
                     return false;
                 }
-                cx.open_url(&url);
+                open_in_browser(&url, cx);
                 this.authorize_url = Some(url);
                 true
             });
@@ -233,5 +233,11 @@ impl AccountController {
             }
             Some(FlowAction::OpenBrowser(_) | FlowAction::ClearSession) | None => {}
         }
+    }
+}
+
+fn open_in_browser(url: &str, cx: &mut Context<AccountController>) {
+    if !browser_launch_suppressed() {
+        cx.open_url(url);
     }
 }

@@ -31,6 +31,7 @@ Norma 目前没有任何用户身份：授权靠 License Key，手机靠配对�
 | 协议版本 | 路由 `/v1/`，会话带 `schema_version`，保留 `refresh`、`me`、`logout` | 旧版 App 需持续兼容 |
 | 变更通知 | `app` 层 `AccountState` 全局状态 + 变更通知 | 后续功能订阅即可，不散读 AppDB |
 | 跳过后再提示 | 跳过或退出登录后不再自动弹出启动登录页 | 账号可选，避免反复打扰；入口保留在设置 |
+| 发布开关 | 默认关闭：`account-login` Cargo feature 开启；调试构建另可用 `NORMA_ACCOUNT_LOGIN=1` 运行时开启，发行构建忽略该变量；`NORMA_SKIP_LOGIN=1` 跳过登录页 | OAuth 凭据与服务端未就绪前不得对终端用户露出；与 License `licenses` 开关同一做法 |
 | 本期不做 | 偏好同步、跨设备数据、iOS 登录、头像弹层、账号关联入口 | 无对应云端存储；原型里「同步偏好」文案不得上线 |
 
 ## User Stories
@@ -62,9 +63,9 @@ Norma 目前没有任何用户身份：授权靠 License Key，手机靠配对�
 
 ### 设置 → 账号（原型变体 A）
 
-- 导航：设置侧栏最前新增「账号」分组，其下一项「账号」；已登录时侧栏条目显示头像与昵称。
+- 导航：设置侧栏最前新增独立一项「账号」（无分组标题；随发布开关出现）。侧栏条目不随登录状态变化，头像与昵称只在页内显示。
 - 未登录：居中登录卡片（Logo、两个按钮、隐私说明「仅读取头像、昵称与邮箱 · 浏览器中授权」）。不展示尚未实现的权益说明块；原型中的「登录后可以」两项为占位，实施时删除或改为真实能力。
-- 已登录：封面 + 头像 + 昵称 + 邮箱 + `已登录`；「登录方式」只读列表（显示当前登录方式，无「关联」按钮）；退出登录按钮及说明「只清除本机会话，不影响 License 与项目数据」。
+- 已登录：头像（显示名首字母，本期不加载远程头像图片，避免渲染路径上的网络 IO）+ 昵称 + 邮箱 + `已登录`；「登录方式」只读列表（显示当前登录方式，无「关联」按钮）；退出登录按钮及说明「只清除本机会话，不影响 License 与项目数据」。
 - 原型中「此设备」列表（Mac / iPhone）与「会话保存在系统钥匙串」文案不实施：设备列表无数据来源；会话存放以 ADR-0028 为准，文案写「本机」。
 
 ### Apple / Material 原则落地（CLAUDE.md §8）
@@ -104,15 +105,17 @@ crates/account/tests/{unit,support}/
 crates/app/src/account/
 ├── mod.rs
 ├── loopback.rs   # 127.0.0.1 随机端口单次监听、超时、取消
-├── browser.rs    # 打开授权页、重新打开、复制链接
 ├── client.rs     # 实现 AuthApi，后台执行网络
 ├── store.rs      # 实现 AccountSessionStore，写 AppDB
-├── state.rs      # AccountState 全局状态与变更通知
-├── controller.rs # 串联 flow 与副作用
-└── gate_phase.rs # 纯函数 (license, session, dismissed) -> 启动阶段
+├── controller.rs # 串联 flow 与副作用；AccountHandle 全局句柄并在状态变化时通知/刷新窗口（承担 AccountState 职责）
+├── gate_phase.rs # 纯函数 should_show_login 与发布开关解析
+├── install.rs    # 启动时安装控制器并决定是否显示登录页
+├── ui.rs         # 启动页与设置页共用的提供方按钮、失败文案、头像首字母
+└── logos.rs      # 提供方品牌图标与设置导航图标资源
 
+crates/app/src/license_gate/boot.rs              # BootPhase::Login 与 decide_phase_with_login 纯函数
 crates/app/src/license_gate/gate_root/login.rs   # 启动登录页
-crates/app/src/settings/account/                 # 设置 → 账号页
+crates/app/src/settings/account.rs               # 设置 → 账号页
 crates/ui/locales/account.{en,zh-CN}.json
 
 services/norma-cloud/auth/
@@ -127,7 +130,7 @@ docs/adr/0029-account-identity-via-norma-cloud.md
 
 ### `account` crate 职责
 
-- **状态机**：`Idle → AwaitingBrowser → Exchanging → SignedIn | Failed(reason)`，取消回到 `Idle`，另含超时；输入为事件，输出为新状态与待执行动作，不做 IO。
+- **状态机**：`Idle → AwaitingBrowser → Exchanging → SignedIn | Failed(reason)`，取消回到 `Idle`，另含超时与本机监听失败（`ListenerFailed`）；输入为事件，输出为新状态与待执行动作，不做 IO。
 - **PKCE**：`code_verifier` 43–128 字符 base64url，`code_challenge = S256`，`state` ≥128 位随机，校验使用常量时间比较。
 - **回调解析**：纯函数解析 `code`、`state`、`error`，缺失或 `state` 不匹配即拒绝。
 - **端口**：`AccountSessionStore`（读/写/清除会话与「已跳过」标记）与 `AuthApi`（`exchange`、`refresh`、`me`、`logout`）。`app` 提供真实实现，测试使用内存假实现。

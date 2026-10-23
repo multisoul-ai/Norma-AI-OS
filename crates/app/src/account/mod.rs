@@ -15,7 +15,8 @@ mod ui;
 pub(crate) use client::{account_base_url, CloudAuthApi};
 pub(crate) use controller::{AccountController, AccountHandle};
 pub(crate) use gate_phase::{
-    account_login_enabled, should_show_login, skip_login_requested, LoginGateInputs,
+    account_login_enabled, browser_launch_suppressed, should_show_login, skip_login_requested,
+    LoginGateInputs,
 };
 pub(crate) use install::install_account_controller;
 pub(crate) use logos::{account_asset, logo_asset, ACCOUNT_NAV_ASSET};

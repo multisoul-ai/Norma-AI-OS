@@ -62,7 +62,7 @@ impl GateRoot {
                     .rounded(px(20.0))
                     .border_1()
                     .border_color(gpui::rgba(0xffffff2e))
-                    .bg(gpui::rgba(0x0a182861))
+                    .bg(gpui::rgba(0x0a1828d9))
                     .child(card),
             );
 
@@ -75,6 +75,15 @@ impl GateRoot {
             .relative()
             .overflow_hidden()
             .bg(gpui::rgb(0x071324))
+            .child(
+                // 视频首帧出画之前的静态壁纸，避免空白闪烁。
+                img(crate::assets::HOME_BACKGROUND_ASSET)
+                    .absolute()
+                    .top(px(0.0))
+                    .left(px(0.0))
+                    .size_full()
+                    .object_fit(gpui::ObjectFit::Cover),
+            )
             .child(video_background)
             .child(
                 div()
@@ -83,7 +92,7 @@ impl GateRoot {
                     .left(px(0.0))
                     .right(px(0.0))
                     .bottom(px(0.0))
-                    .bg(gpui::rgba(0x07132466)),
+                    .bg(gpui::rgba(0x071324b8)),
             )
             .child(content)
             .on_action(cx.listener(|_this, _: &QuitNormaOs, _w, cx| {
@@ -187,12 +196,15 @@ impl GateRoot {
         div()
             .id("login-waiting")
             .debug_selector(|| "login-waiting".to_string())
+            .w_full()
             .flex()
             .flex_col()
             .items_center()
             .gap(px(8.0))
             .child(
                 div()
+                    .w_full()
+                    .text_center()
                     .text_size(px(15.0))
                     .font_weight(gpui::FontWeight::SEMIBOLD)
                     .child(
@@ -202,6 +214,8 @@ impl GateRoot {
             )
             .child(
                 div()
+                    .w_full()
+                    .text_center()
                     .mb(px(6.0))
                     .text_size(px(12.5))
                     .text_color(gpui::rgba(0xeff7ffa6))
@@ -210,6 +224,8 @@ impl GateRoot {
             .child(
                 div()
                     .flex()
+                    .flex_wrap()
+                    .justify_center()
                     .gap(px(8.0))
                     .child(
                         Button::new("login-reopen")

@@ -271,7 +271,18 @@ fn methods_card(theme: Theme, profile: &Profile) -> Stateful<Div> {
                 .when(index > 0, |row| {
                     row.border_t_1().border_color(rgba(theme.node_stroke))
                 })
-                .child(img(logo_asset(identity.provider)).size(px(20.0)))
+                // 品牌图标是深色/彩色，放在浅色圆角底上，深浅主题都清晰。
+                .child(
+                    div()
+                        .flex_none()
+                        .size(px(32.0))
+                        .rounded(px(8.0))
+                        .bg(gpui::rgb(0xf0f6fc))
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .child(img(logo_asset(identity.provider)).size(px(18.0))),
+                )
                 .child(
                     div()
                         .flex_1()
