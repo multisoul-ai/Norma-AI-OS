@@ -49,6 +49,55 @@ fn failed_agents_are_attention_rows_with_failed_tone() {
     assert!(rows.iter().all(|row| row.approval_badge.is_none()));
 }
 
+/// 场景：等你接管的智能体在“需要你处理”里是琥珀色一行，已加载时定位到卡片，未加载时只能切换项目。
+///
+/// 数据构造：Bruno 在 Norma-AI-OS（已加载）等待接管，任务「检查抽屉响应式布局」；Eli 在设计草稿（未加载）等待接管。
+/// 执行过程：把两条接管事项交给概览行投影。
+/// 预期结果：
+///   - 正断言：主文案以「等待接管 ·」开头，副文案写智能体与项目；色调为琥珀（Approval 色）；
+///     Bruno 行定位到智能体且可用；Eli 行动作是切换项目且可用。
+///   - 负断言：不带「待审核」徽标，也不使用出错的红色。
+#[test]
+fn takeover_rows_are_amber_and_locate_or_switch() {
+    let mut loaded = failed(
+        "Bruno",
+        2,
+        "area-current",
+        "Norma-AI-OS",
+        "检查抽屉响应式布局",
+        true,
+    );
+    loaded.kind = RunOverviewAttentionKind::Takeover;
+    let mut unloaded = failed("Eli", 5, "area-other", "设计草稿", "整理品牌色板", false);
+    unloaded.kind = RunOverviewAttentionKind::Takeover;
+    let screen = present_overview(
+        &overview(vec![loaded, unloaded], Vec::new(), Vec::new(), Vec::new()),
+        &[],
+        NOW,
+    );
+    let rows = &screen.sections[0].rows;
+    assert_eq!(rows[0].primary, "等待接管 · 检查抽屉响应式布局");
+    assert_eq!(rows[0].secondary, "Bruno · Norma-AI-OS");
+    assert_eq!(
+        rows[0].status_tone,
+        OverviewStatusTone::Approval,
+        "与审批同一档紧急程度"
+    );
+    assert_ne!(rows[0].status_tone, OverviewStatusTone::Failed, "不是出错");
+    assert!(rows[0].enabled);
+    assert!(matches!(
+        rows[0].action,
+        OverviewAction::LocateAgent { node_id: 2, .. }
+    ));
+    assert_eq!(rows[1].action_label, "切换", "未加载项目只能先切换过去");
+    assert!(rows[1].enabled);
+    assert!(matches!(
+        rows[1].action,
+        OverviewAction::SwitchProject { ref area_id } if area_id == "area-other"
+    ));
+    assert!(rows.iter().all(|row| row.approval_badge.is_none()));
+}
+
 /// 场景：其他已加载项目里的智能体和当前项目的一样进入状态分组，用项目标签标明归属，点击直达卡片。
 ///
 /// 数据构造：Cora 在设计草稿（已加载）运行中；Bruno 在 Norma-AI-OS 待开始，
