@@ -1,4 +1,0 @@
-module Fixtures {
-header "Fixtures-Swift.h"
-export *
-}
