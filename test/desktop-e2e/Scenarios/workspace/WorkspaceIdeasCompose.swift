@@ -64,9 +64,9 @@ public enum WorkspaceIdeasCompose {
             }
             try await session.shortcut(key: 34, modifiers: [0x37, 0x38])
             _ = try await session.wait(Expectation(anyOf: ["写下一个想法", "写下一个", "下一个想法"], timeout: 8))
-            for title in ["处理", "当前项目", "其他项目"] {
+            for title in ["要你处理", "运行中", "待开始"] {
                 let frame = try await session.capture()
-                guard let heading = frame.texts.filter({ $0.value.contains(title) && $0.center.x < 440 }).first else {
+                guard let heading = frame.texts.filter({ $0.value.contains(title) && $0.center.x < 100 }).min(by: { $0.center.y < $1.center.y }) else {
                     throw E2EError.product("找不到栏标题「\(title)」：\(frame.summary)")
                 }
                 try await session.click(local: heading.center, on: frame)
@@ -77,7 +77,8 @@ public enum WorkspaceIdeasCompose {
 
         func focusInput() async throws {
             let frame = try await session.wait(Expectation(anyOf: ["写下一个想法", "写下一个", "下一个想法"], timeout: 8))
-            guard let input = frame.pick(["写下一个想法", "写下一个", "下一个想法"], .top) else {
+            // 空态提示「在下方写下一个想法…」也含这几个字且在输入框上方，所以取最下面的那个才是输入框。
+            guard let input = frame.pick(["写下一个想法", "写下一个", "下一个想法"], .bottom) else {
                 throw E2EError.product("找不到想法输入框：\(frame.summary)")
             }
             try await session.click(local: input.center, on: frame)

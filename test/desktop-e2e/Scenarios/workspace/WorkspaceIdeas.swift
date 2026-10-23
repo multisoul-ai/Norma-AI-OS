@@ -90,26 +90,26 @@ public enum WorkspaceIdeas {
         try await session.step("⌘⇧I 打开运行概览的想法栏，四栏顺序固定，看到待办") {
             try await session.shortcut(key: 34, modifiers: [0x37, 0x38])
             let ideas = try await session.wait(
-                Expectation(allOf: ["当前项目", "其他项目", String(first.dropFirst(2).prefix(2))], timeout: 8)
+                Expectation(allOf: ["运行中", "待开始", String(first.dropFirst(2).prefix(2))], timeout: 8)
             )
             try session.save(ideas, "01-ideas.png")
             func top(_ text: String) throws -> Double {
-                guard let found = ideas.texts.filter({ $0.value.contains(text) && $0.center.x < 440 }).first else {
+                guard let found = ideas.texts.filter({ $0.value.contains(text) && $0.center.x < (["要你处理", "运行中", "待开始"].contains(text) ? 100 : 440) }).min(by: { $0.center.y < $1.center.y }) else {
                     throw E2EError.product("概览里找不到栏目「\(text)」：\(ideas.summary)")
                 }
                 return Double(found.center.y)
             }
-            let order = [try top("处理"), try top("当前项目"), try top(String(first.dropFirst(2).prefix(2))), try top("其他项目")]
+            let order = [try top("要你处理"), try top("运行中"), try top("待开始"), try top(String(first.dropFirst(2).prefix(2)))]
             guard order == order.sorted() else {
-                throw E2EError.product("栏目顺序应为 需要你处理 → 当前项目 → 想法 → 其他项目：\(order)")
+                throw E2EError.product("栏目顺序应为 需要你处理 → 运行中 → 待开始 → 想法：\(order)")
             }
             return ideas.summary
         }
 
         try await session.step("折叠其余三栏：想法栏分到全部剩余高度，六条想法都可见") {
-            for title in ["处理", "当前项目", "其他项目"] {
+            for title in ["要你处理", "运行中", "待开始"] {
                 let frame = try await session.capture()
-                guard let heading = frame.texts.filter({ $0.value.contains(title) && $0.center.x < 440 }).first else {
+                guard let heading = frame.texts.filter({ $0.value.contains(title) && $0.center.x < 100 }).min(by: { $0.center.y < $1.center.y }) else {
                     throw E2EError.product("找不到栏标题「\(title)」：\(frame.summary)")
                 }
                 try await session.click(local: heading.center, on: frame)

@@ -17,7 +17,7 @@ public enum WorkspaceOverviewFloat {
             _ = try await session.wait(Expectation(allOf: [name], timeout: 12))
             try await session.shortcut(key: 14, modifiers: [0x37, 0x38])
             let overview = try await session.wait(
-                Expectation(allOf: ["当前项目", "其他项目"], timeout: 6)
+                Expectation(allOf: ["运行中", "待开始"], timeout: 6)
             )
             try session.save(overview, "01-drawer-overview.png")
             return overview.summary

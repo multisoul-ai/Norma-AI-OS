@@ -89,7 +89,7 @@ public enum WorkspaceRunOverviewAgents {
             return try await session.capture().summary
         }
 
-        try await session.step("右上角状态胶囊显示运行中与已完成数") {
+        try await session.step("右上角状态胶囊显示跨项目汇总（运行中 / 待开始 / 待处理）") {
             try await Task.sleep(nanoseconds: 9_000_000_000)
             let capsule = try await session.capture()
             try session.save(capsule, "01-capsule.png")
@@ -116,11 +116,11 @@ public enum WorkspaceRunOverviewAgents {
             return overview.summary
         }
 
-        try await session.step("想法与当前项目同时展开时，当前项目行文字不重叠") {
+        try await session.step("想法与运行中同时展开时，智能体行文字不重叠") {
             let overview = try await session.capture()
             try session.save(overview, "03-both-expanded.png")
             guard overview.contains("Bella") else {
-                throw E2EError.product("当前项目没有六个智能体，无法验证重叠：\(overview.summary)")
+                throw E2EError.product("运行中没有智能体，无法验证重叠：\(overview.summary)")
             }
             return overview.summary
         }
