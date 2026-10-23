@@ -9,7 +9,7 @@ public enum WorkspaceDrawerTabs {
         let name = "DrawerTabs"
         defer { session.stop() }
 
-        try await session.step("创建工作空间并看到左栏分段") {
+        try await session.step("创建工作空间") {
             try session.launch()
             try await openCreateDialog(session, entry: ["创建工作空间", "Create Workspace"])
             try await fill(session, name)
@@ -29,12 +29,22 @@ public enum WorkspaceDrawerTabs {
             return unchanged.summary
         }
 
-        try await session.step("再次 ⌘⇧E 回到对话") {
+        try await session.step("再次 ⌘⇧E 仍是运行概览，Chat 标签与对话输入保持隐藏") {
             try await session.shortcut(key: 14, modifiers: [0x37, 0x38])
-            let chat = try await session.wait(
-                Expectation(anyOf: ["和 Norma 聊聊", "Talk to Norma"], absent: ["当前项目", "尚无已加载的智能体"], timeout: 6)
+            let overview = try await session.wait(
+                Expectation(
+                    allOf: ["当前项目", "其他项目"],
+                    absent: ["Chat", "和 Norma 聊聊"],
+                    timeout: 6
+                )
             )
-            try session.save(chat, "02-back-to-chat.png")
+            // 画布底部 Dock 也有同名占位符；只判左栏范围内不应有对话输入框。
+            let frame = try await session.capture()
+            if let input = frame.pick(["Talk to Norma", "和 Norma 聊聊"], .left),
+               input.center.x < frame.windowFrame.width * 0.3 {
+                throw E2EError.product("左栏不应出现对话输入框。可见：\(frame.summary)")
+            }
+            try session.save(overview, "02-chat-hidden.png")
             let unchanged = try session.prove(names: [name], areaCount: 0)
             return unchanged.summary
         }

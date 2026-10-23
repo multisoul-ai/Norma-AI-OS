@@ -60,6 +60,8 @@ impl MultisoulApp {
                 .doubao_credential_ref()
                 .is_some()
                 && !self.doubao.is_blocked()
+                // 后台项目没有窗口，断开后无法重建通道；不让通知排队空等。
+                && !self.background_project
             {
                 AgentAnnouncementTtsAvailability::Waiting
             } else {

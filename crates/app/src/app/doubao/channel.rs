@@ -14,6 +14,8 @@ mod tests;
 mod app_tests;
 
 const MAX_RETRY_DELAY_SECS: u64 = 60;
+/// 连接维持这么久才断开，视为偶发断线，退避从头开始。
+const STABLE_CHANNEL: Duration = Duration::from_secs(30);
 
 /// 鉴权与凭据问题重连也不会成功；等用户修改设置或手动按 Cmd+E。
 const PERMANENT_FAILURES: [&str; 7] = [
@@ -132,6 +134,12 @@ impl DoubaoVoiceState {
     }
 
     pub(super) fn note_channel_ended(&mut self, reason: &LocalizedText, now: Instant) {
+        let stable = self.connected_at.take().is_some_and(|connected_at| {
+            now.saturating_duration_since(connected_at) >= STABLE_CHANNEL
+        });
+        if stable {
+            self.retry_attempt = 0;
+        }
         if is_permanent_failure(reason) {
             self.blocked = true;
             self.retry_at = None;
@@ -162,21 +170,7 @@ impl DoubaoVoiceState {
 impl MultisoulApp {
     /// 每个运行时帧调用：只做字段比较，需要启动时经项目窗口句柄异步拿到 `Window`。
     pub(crate) fn reconcile_doubao_channel(&mut self, cx: &mut Context<Self>) {
-        let values = self.voice_settings.values();
-        let project = self
-            .runtime
-            .workspace_root()
-            .map(|root| root.display().to_string());
-        let inputs = ChannelInputs {
-            doubao_mode: values.desktop_mode() == crate::settings::voice::DesktopVoiceMode::Doubao,
-            credential: values.doubao_credential_ref().is_some(),
-            project: project.as_deref(),
-            window: self
-                .project_window
-                .map(|window| window.window_id().as_u64()),
-            now: Instant::now(),
-        };
-        match channel_action(&self.doubao, &inputs) {
+        match self.doubao_channel_action() {
             ChannelAction::Keep => {}
             ChannelAction::Stop => {
                 tracing::info!(target: "norma_voice", "Doubao report channel no longer wanted");
@@ -191,6 +185,24 @@ impl MultisoulApp {
         }
     }
 
+    fn doubao_channel_action(&self) -> ChannelAction {
+        let values = self.voice_settings.values();
+        let project = self
+            .runtime
+            .workspace_root()
+            .map(|root| root.display().to_string());
+        let inputs = ChannelInputs {
+            doubao_mode: values.desktop_mode() == crate::settings::voice::DesktopVoiceMode::Doubao,
+            credential: values.doubao_credential_ref().is_some(),
+            project: project.as_deref(),
+            window: self
+                .project_window
+                .map(|window| window.window_id().as_u64()),
+            now: Instant::now(),
+        };
+        channel_action(&self.doubao, &inputs)
+    }
+
     fn schedule_doubao_channel_start(&mut self, cx: &mut Context<Self>) {
         let Some(handle) = self.project_window else {
             return;
@@ -200,7 +212,8 @@ impl MultisoulApp {
             let started = handle.update(cx, |_, window, cx| {
                 this.update(cx, |app, cx| {
                     app.doubao.start_pending = false;
-                    if !app.doubao.is_active() {
+                    // 排队期间设置或项目可能已变化：重新判断是否仍需启动。
+                    if app.doubao_channel_action() == ChannelAction::Start {
                         app.start_doubao_channel(window, cx);
                     }
                 })

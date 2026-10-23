@@ -116,3 +116,13 @@ Upstream exposes `Window::dispatch_event` as `pub` but returns the
 struct is now `pub` with its fields unchanged. Only the debug-build desktop E2E
 control channel (`crates/app/src/e2e_control/`) uses it to inject mouse and
 scroll input into its own window; release builds do not compile that caller.
+
+## `Window::set_active_for_e2e` (2026-10-21)
+
+Adds a public method that marks the window active (and runs activation observers
+on the first change) without activating the application or changing the AppKit
+key window, then refreshes. The focus path is only established for active
+windows, so injected keystrokes would otherwise miss focused inputs while the
+isolated E2E window stays in the background. Only the debug-build desktop E2E
+control channel (`crates/app/src/e2e_control/`) calls it; a later real
+key-status change still overwrites the flag.

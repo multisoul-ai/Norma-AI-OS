@@ -13,9 +13,6 @@ use ui::component::{
 };
 use ui::icons::with_alpha;
 
-/// 左栏「对话」入口（Chat/Run Overview 切换条与底部输入框）暂时隐藏。
-pub(super) const LEFT_CHAT_ENTRY_VISIBLE: bool = false;
-
 impl MultisoulApp {
     pub(super) fn render_assistant_left(
         &mut self,
@@ -27,6 +24,7 @@ impl MultisoulApp {
     ) -> Stateful<Div> {
         let theme = self.desktop_theme();
         let frost = self.render_drawer_frost(true, width, edge_inset, window);
+        let chat_visible = self.desktop_workspace.left_chat_visible;
         let chat_input = if let Some(project) = self.desktop_drawer_chat_project() {
             project.update(cx, |project, cx| {
                 project.ensure_command_input(window, cx);
@@ -145,10 +143,12 @@ impl MultisoulApp {
                             ),
                     ),
             )
-            .children(LEFT_CHAT_ENTRY_VISIBLE.then(|| self.render_left_drawer_tabs(cx)))
+            .when(chat_visible, |this| {
+                this.child(self.render_left_drawer_tabs(cx))
+            })
             .child(self.render_left_drawer_body(width, window, cx))
-            .when(LEFT_CHAT_ENTRY_VISIBLE, |drawer| {
-                drawer.child(
+            .when(chat_visible, |this| {
+                this.child(
                     div()
                         .id("desktop-assistant-chat-input")
                         .debug_selector(|| "desktop-assistant-chat-input".to_string())

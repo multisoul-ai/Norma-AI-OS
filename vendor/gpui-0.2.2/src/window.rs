@@ -1746,6 +1746,18 @@ impl Window {
         self.active.get()
     }
 
+    /// Debug E2E only: mark the window active without activating the application or
+    /// changing the OS key window, so injected input keeps the focus path without
+    /// taking the foreground from the user's own apps.
+    pub fn set_active_for_e2e(&mut self, cx: &mut App) {
+        if !self.active.replace(true) {
+            self.activation_observers
+                .clone()
+                .retain(&(), |callback| callback(self, cx));
+        }
+        self.refresh();
+    }
+
     /// Returns whether this window is considered to be the window
     /// that currently owns the mouse cursor.
     /// On mac, this is equivalent to `is_window_active`.

@@ -37,6 +37,7 @@ fn desktop_command_dock_keeps_suggestions_and_keyboard_on_the_project() {
     cx.run_until_parked();
     let project = host.update_in(cx, |app, window, cx| {
         app.finish_desktop_zoom(window, cx);
+        app.desktop_workspace.left_chat_visible = true;
         app.expand_desktop_project_area(area.id.clone(), window, cx);
         app.finish_desktop_zoom(window, cx);
         app.desktop_workspace.sessions[&(workspace.id.clone(), area.id.clone())].clone()

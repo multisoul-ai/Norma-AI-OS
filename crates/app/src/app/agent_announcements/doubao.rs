@@ -21,7 +21,8 @@ impl MultisoulApp {
         else {
             return;
         };
-        let (report, completed) = DoubaoReport::new(announcement.text.clone());
+        let (mut report, completed) = DoubaoReport::new(announcement.text.clone());
+        report.expires_at = Some(queued_at + super::freshness::ANNOUNCEMENT_TTL);
         self.agent_announcement_playback.generation =
             self.agent_announcement_playback.generation.wrapping_add(1);
         let generation = self.agent_announcement_playback.generation;
@@ -54,7 +55,9 @@ impl MultisoulApp {
                     completed,
                     "Doubao agent announcement playback finished"
                 );
-                if !completed {
+                // 过期而未播的通知不再回队，直接轮到下一条。
+                let fresh = queued_at.elapsed() < super::freshness::ANNOUNCEMENT_TTL;
+                if !completed && fresh {
                     // Pending capacity stays 32: keep this older interrupted report plus at most 31 later reports.
                     app.agent_announcements
                         .pending

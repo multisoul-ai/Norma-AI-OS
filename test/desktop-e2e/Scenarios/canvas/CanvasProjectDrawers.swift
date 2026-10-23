@@ -18,21 +18,30 @@ public enum CanvasProjectDrawers {
         try await session.step("建立含项目区的隔离工作空间") {
             try session.launch(language: "zh-Hans")
             _ = try await session.wait(Expectation(anyOf: ["创建工作空间", "Create Workspace"], timeout: 25))
-            try await session.click(matching: ["创建工作空间", "Create Workspace"], pick: .bottom)
-            _ = try await session.wait(Expectation(anyOf: ["工作空间名称", "Workspace name"], timeout: 4))
+            // 欢迎页入场过渡中的中文按钮可能识别成乱码；重试点击直到对话框出现。
+            _ = try await session.act("打开新建工作空间对话框", attempts: 4, expect: Expectation(anyOf: ["工作空间名称", "Workspace name"], timeout: 4)) {
+                try await session.click(matching: ["创建工作空间", "Create Workspace"], pick: .bottom)
+            }
             let dialog = try await session.capture()
             guard let input = dialog.pick(["网站改版", "Website redesign"], .bottom) else {
                 throw E2EError.product("找不到工作空间名称输入框：\(dialog.summary)")
             }
             try await session.click(local: input.center, on: dialog)
             try await session.type(workspace)
-            try await session.click(matching: ["创建工作空间", "Create Workspace"], pick: .bottom)
+            // 中文对话框按钮偶尔被 Vision 识别成乱码；识别不到时用 Return 提交，与键盘用户路径一致。
+            let filled = try await session.capture()
+            if let create = filled.pick(["创建工作空间", "Create Workspace"], .bottom) {
+                try await session.click(local: create.center, on: filled)
+            } else {
+                try await session.shortcut(key: 36, modifiers: [])
+            }
             _ = try await session.wait(Expectation(allOf: [workspace], timeout: 12))
             session.stop()
             guard let dataRoot = session.dataRoot else {
                 throw E2EError.env("隔离数据目录丢失")
             }
             projectRoot = try CanvasProjectFixture.install(dataRoot: dataRoot, workspaceName: workspace)
+            try Catalog.suppressFeatureGuide(database: dataRoot.appendingPathComponent("app.sqlite"))
             try session.launch(language: "zh-Hans")
             _ = try await session.wait(Expectation(allOf: [workspace], timeout: 20))
             return try session.prove(names: [workspace], areaCount: 1, linkedTo: workspace).summary
@@ -216,7 +225,12 @@ private func waitForRealAgent(_ session: Session) async throws -> Frame {
     while Date() < deadline {
         let frame = try await session.capture()
         last = frame.summary
-        if (frame.contains("Agent Alan") || frame.exact("Agent") != nil || frame.exact("Codex") != nil)
+        // 卡片标签前的状态圆点常被 OCR 连读成 "• Agent"，去掉前导符号再比对。
+        let agentChip = frame.texts.contains { text in
+            let token = text.value.trimmingCharacters(in: CharacterSet(charactersIn: "•●·. ").union(.whitespaces))
+            return token == "Agent" || token == "Codex"
+        }
+        if (frame.contains("Agent Alan") || agentChip)
             && !frame.contains("新建 Agent")
             && !frame.contains("操作失败") {
             return frame

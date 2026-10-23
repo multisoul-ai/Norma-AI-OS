@@ -1,5 +1,6 @@
 //! Command Dock input state and adaptation to existing app actions.
 mod conversation;
+mod diagnostics;
 mod keys;
 mod motion;
 mod view;
@@ -96,6 +97,10 @@ impl MultisoulApp {
                     if !state.pending_reply {
                         state.reply = None;
                     }
+                    if state.draft.trim().starts_with('/') {
+                        app.trace_command_dock("input_changed", window, cx);
+                        app.schedule_help_diagnostic(window, cx);
+                    }
                 }
                 InputEvent::Focus => {
                     app.refresh_command_projects(cx);
@@ -108,11 +113,18 @@ impl MultisoulApp {
                     if let Some(state) = &mut app.command_dock {
                         state.set_visible(true);
                     }
+                    app.trace_command_dock("input_focus", window, cx);
                 }
-                InputEvent::Blur => app.hide_command_suggestions(),
+                InputEvent::Blur => {
+                    app.hide_command_suggestions();
+                    app.trace_command_dock("input_blur", window, cx);
+                }
                 InputEvent::PressEnter { .. } => {
+                    app.trace_command_dock("input_enter", window, cx);
                     if !app.command_input_composing(window, cx) {
                         app.execute_dock_suggestion(window, cx);
+                    } else {
+                        app.trace_command_dock("input_enter_composing", window, cx);
                     }
                 }
             }
@@ -138,6 +150,7 @@ impl MultisoulApp {
     }
 
     pub(crate) fn focus_command_input(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.trace_command_dock("focus_requested", window, cx);
         if !matches!(
             self.screen,
             AppScreen::Canvas | AppScreen::DesktopWorkspace | AppScreen::Launchpad
@@ -160,6 +173,7 @@ impl MultisoulApp {
             state.set_visible(true);
             state.input.focus_handle(cx).focus(window);
         }
+        self.trace_command_dock("focus_applied", window, cx);
         cx.notify();
     }
 
@@ -222,13 +236,20 @@ impl MultisoulApp {
     }
 
     pub(crate) fn execute_dock_suggestion(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.trace_command_dock("execute_requested", window, cx);
         let Some(state) = &self.command_dock else {
             return;
         };
-        if !state.visible || self.command_input_composing(window, cx) {
+        if !state.visible {
+            self.trace_command_dock("execute_hidden", window, cx);
+            return;
+        }
+        if self.command_input_composing(window, cx) {
+            self.trace_command_dock("execute_composing", window, cx);
             return;
         }
         let Some(candidate) = state.suggestions().get(state.selected).cloned() else {
+            self.trace_command_dock("execute_no_candidate", window, cx);
             if !state.draft.trim().starts_with('/') {
                 self.submit_dock_conversation(window, cx);
             }
@@ -267,10 +288,14 @@ impl MultisoulApp {
                 // A desktop project canvas is a clipped child of the host; the guide must be
                 // presented by the host so it covers the whole window instead of the canvas.
                 if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
+                    tracing::info!(source = ?cx.entity_id(), host = ?host.entity_id(),
+                        "[help-diag] stage=help_dispatch_host");
                     host.update(cx, |host, cx| {
                         host.on_open_feature_guide(&OpenFeatureGuide, window, cx)
                     });
                 } else {
+                    tracing::info!(source = ?cx.entity_id(), stale_host = self.desktop_host.is_some(),
+                        "[help-diag] stage=help_dispatch_self");
                     self.on_open_feature_guide(&OpenFeatureGuide, window, cx);
                 }
                 return;
@@ -362,3 +387,7 @@ mod tests;
 #[cfg(test)]
 #[path = "../../tests/unit/command_panel_theme_tests.rs"]
 mod panel_theme_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/help_diagnostic_tests.rs"]
+mod help_diagnostic_tests;

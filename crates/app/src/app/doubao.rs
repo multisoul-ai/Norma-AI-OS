@@ -15,6 +15,8 @@ pub(crate) struct DoubaoReport {
     pub(crate) text: String,
     pub(crate) cancellation: CancellationToken,
     pub(crate) completed: tokio::sync::oneshot::Sender<()>,
+    /// 超过该时刻仍未开播即丢弃（通知有效期）。
+    pub(crate) expires_at: Option<Instant>,
 }
 
 impl DoubaoReport {
@@ -25,6 +27,7 @@ impl DoubaoReport {
                 text,
                 cancellation: CancellationToken::new(),
                 completed,
+                expires_at: None,
             },
             completion,
         )
@@ -106,6 +109,8 @@ pub(crate) struct DoubaoVoiceState {
     start_pending: bool,
     retry_attempt: u32,
     retry_at: Option<Instant>,
+    /// 本次通道首次就绪的时刻；用来判断断线前是否稳定连接过。
+    connected_at: Option<Instant>,
     blocked: bool,
     speech: Option<async_channel::Sender<plan::asr::SpeechEvent>>,
     activation: Option<gpui::Subscription>,
@@ -132,6 +137,7 @@ impl Default for DoubaoVoiceState {
             start_pending: false,
             retry_attempt: 0,
             retry_at: None,
+            connected_at: None,
             blocked: false,
             speech: None,
             activation: None,
@@ -158,6 +164,9 @@ impl DoubaoVoiceState {
         if let DoubaoStatus::ListenEnded(id, error) = status {
             self.end_listen(id, error);
             return;
+        }
+        if status == DoubaoStatus::Connected && self.connected_at.is_none() {
+            self.connected_at = Some(Instant::now());
         }
         if let DoubaoStatus::RecordingResolved(id) = status {
             if id == self.recording_id {
@@ -188,6 +197,7 @@ impl DoubaoVoiceState {
         self.start_pending = false;
         self.retry_attempt = 0;
         self.retry_at = None;
+        self.connected_at = None;
         self.blocked = false;
         self.status = DoubaoStatus::Idle;
     }

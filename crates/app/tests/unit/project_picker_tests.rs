@@ -15,7 +15,7 @@ fn open_component_root_launchpad(
         let mut app_entity = None;
         let root_handle = cx
             .open_window(
-                window_options("Project Picker Test".to_string(), bounds),
+                window_options("Project Picker Test".to_string(), bounds, None),
                 |window, cx| {
                     let app = cx.new(|cx| {
                         MultisoulApp::new_with_database_context(cx, database_paths, app_store)

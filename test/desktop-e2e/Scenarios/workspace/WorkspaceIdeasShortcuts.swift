@@ -68,8 +68,9 @@ public enum WorkspaceIdeasShortcuts {
             try Catalog.ideas(database: try session.databaseURL()).filter { bodies.contains($0.body) }
         }
         func row(_ frame: Frame, _ body: String) throws -> VisibleText {
-            let key = String(body.prefix(2))
-            guard let text = frame.texts.filter({ $0.value.contains(key) && $0.center.x < 440 }).first else {
+            // OCR 会把「丙」读成「内」，两种读法都算同一行。
+            let keys = [String(body.prefix(2))] + (body.hasPrefix("丙") ? ["内方"] : [])
+            guard let text = frame.texts.filter({ text in keys.contains { text.value.contains($0) } && text.center.x < 440 }).first else {
                 throw E2EError.product("找不到想法行「\(body)」：\(frame.summary)")
             }
             return text

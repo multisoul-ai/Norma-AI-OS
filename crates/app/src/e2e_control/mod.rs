@@ -7,6 +7,10 @@
 //! and is not compiled into release builds.
 mod capture;
 mod ns_input;
+mod placement;
+
+pub(crate) use placement::target_display;
+use placement::{park_window, stay_in_background};
 mod protocol;
 
 #[cfg(test)]
@@ -61,15 +65,25 @@ pub(crate) fn install(cx: &mut App) {
         tracing::error!(%error, "desktop E2E control thread unavailable");
         return;
     }
+    if !foreground_requested() {
+        stay_in_background();
+    }
     cx.spawn(async move |cx| {
         while let Ok(job) = receiver.recv().await {
             let outcome = match job.command {
                 Command::NsMouse { .. } | Command::NsText { .. } | Command::NsKey { .. } => {
                     execute_native(job.command, cx)
                 }
-                command => cx
-                    .update(|cx| execute(command, cx))
-                    .unwrap_or_else(|_| Outcome::Done(Response::error("app unavailable"))),
+                command => {
+                    let activates = matches!(command, Command::Activate);
+                    let outcome = cx
+                        .update(|cx| execute(command, cx))
+                        .unwrap_or_else(|_| Outcome::Done(Response::error("app unavailable")));
+                    if activates && !foreground_requested() {
+                        settle_frames(cx).await;
+                    }
+                    outcome
+                }
             };
             let _ = job.reply.send(outcome).await;
         }
@@ -212,8 +226,13 @@ fn execute_in(command: Command, window: &mut Window, cx: &mut App) -> Outcome {
     match command {
         Command::Window => done(window_info(window).map_or_else(Response::error, Response::window)),
         Command::Activate => {
-            cx.activate(true);
-            window.activate_window();
+            if foreground_requested() {
+                cx.activate(true);
+                window.activate_window();
+            } else {
+                window.set_active_for_e2e(cx);
+                park_window(window);
+            }
             done(Response::ok())
         }
         Command::Mouse {
@@ -263,6 +282,44 @@ fn execute_in(command: Command, window: &mut Window, cx: &mut App) -> Outcome {
             Err(error) => done(Response::error(error)),
         },
     }
+}
+
+/// Wait until a frame has been painted after the window was marked active, so the focus
+/// path and input handler exist before the next injected event. Bounded so a window that
+/// cannot paint cannot hang the driver.
+async fn settle_frames(cx: &mut AsyncApp) {
+    let (painted, wait) = async_channel::bounded::<()>(1);
+    let queued = cx
+        .update(|cx| {
+            let Some(handle) = target_window(cx) else {
+                return false;
+            };
+            handle
+                .update(cx, |_, window, _| {
+                    window.on_next_frame(move |window, _| {
+                        window.on_next_frame(move |_, _| {
+                            let _ = painted.try_send(());
+                        });
+                    });
+                })
+                .is_ok()
+        })
+        .unwrap_or(false);
+    if !queued {
+        return;
+    }
+    let timeout = cx.background_executor().timer(FRAME_SETTLE_TIMEOUT);
+    futures::pin_mut!(timeout);
+    let wait = wait.recv();
+    futures::pin_mut!(wait);
+    futures::future::select(wait, timeout).await;
+}
+
+const FRAME_SETTLE_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(500);
+
+/// `NORMA_E2E_FOREGROUND=1` restores the old behaviour of taking the OS foreground.
+pub(super) fn foreground_requested() -> bool {
+    placement::flag_enabled(std::env::var("NORMA_E2E_FOREGROUND").ok().as_deref())
 }
 
 fn press(keystroke: Keystroke, window: &mut Window, cx: &mut App) {

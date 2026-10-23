@@ -66,3 +66,45 @@ fn doubao_shortcut_toggles_listening_without_closing_channel() {
     });
     assert!(listen_rx.try_recv().is_err(), "停止收音不能再下发新的收音");
 }
+
+/// 已排队的通道启动在执行前若不再需要（切到 GPT Live），不能再启动豆包会话。
+///
+/// 数据构造：豆包模式 + 不存在的凭据引用 + 已打开的项目 + 当前窗口作为项目窗口。
+/// 执行过程：reconcile 排队启动 → 执行前切到 GPT Live 并停止豆包 → 运行到空闲。
+/// 预期结果：豆包通道未启动，状态仍为 Idle，没有多余的错误状态。
+#[test]
+fn doubao_scheduled_start_rechecks_settings() {
+    let workspace = tempfile::tempdir().expect("应创建隔离工作区");
+    let mut test = TestAppContext::single();
+    let (host, cx) = test.add_window_view(|_, cx| {
+        MultisoulApp::new_with_pty_factory(
+            cx,
+            Box::new(|_, _, _, tx| Ok(Box::new(terminal::TestPtyBackend::echo(tx)))),
+        )
+    });
+    host.update_in(cx, |app, window, cx| {
+        app.enter_canvas_for_test(workspace.path(), cx);
+        app.project_window = Some(window.window_handle());
+        app.voice_settings = settings(DesktopVoiceMode::Doubao);
+        app.reconcile_doubao_channel(cx);
+        assert!(app.doubao.start_pending, "项目就绪应排队启动通道");
+        app.voice_settings = settings(DesktopVoiceMode::GptLive);
+        app.doubao.stop();
+    });
+    cx.run_until_parked();
+    host.read_with(cx, |app, _| {
+        assert!(!app.doubao.is_active(), "已不需要的排队启动不能再建立通道");
+        assert_eq!(app.doubao.status, DoubaoStatus::Idle, "不能留下多余状态");
+    });
+}
+
+fn settings(mode: DesktopVoiceMode) -> VoiceSettingsState {
+    VoiceSettingsState::from_sources(
+        SavedVoiceSettings {
+            desktop_mode: Some(mode),
+            doubao_credential_ref: Some("not-saved-test-account".into()),
+            ..Default::default()
+        },
+        EnvVoiceSettings::default(),
+    )
+}

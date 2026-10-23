@@ -21,12 +21,12 @@ impl MultisoulApp {
         let slide = self.desktop_workspace.left_view_slide;
         let offset = slide.offset(reduce);
         let opacity = slide.opacity();
-        // 对话入口暂时隐藏：左栏固定显示运行概览，持久化的 Chat 视图也不再渲染。
+        // Chat 暂时隐藏（left_chat_visible 默认 false）：左栏只呈现运行概览。
+        let chat_visible = self.desktop_workspace.left_chat_visible;
         let body = match self.desktop_workspace.drawers.left_view {
-            DesktopLeftView::Chat if super::chat::LEFT_CHAT_ENTRY_VISIBLE => {
-                self.render_left_chat_body(width, cx)
-            }
-            _ => self.render_left_overview_body(window, cx),
+            DesktopLeftView::Overview => self.render_left_overview_body(window, cx),
+            DesktopLeftView::Chat if chat_visible => self.render_left_chat_body(width, cx),
+            DesktopLeftView::Chat => self.render_left_overview_body(window, cx),
         };
         div()
             .id("desktop-left-view-body")
