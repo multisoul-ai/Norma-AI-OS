@@ -192,3 +192,14 @@ test('顶部抽屉入口语义清晰', () => {
   assert.doesNotMatch(body, /视觉示例 · 未连接真实会话/, '画布顶栏的示例说明应移除');
   assert.match(body, /<footer class="bottom-bar" hidden>/, '底部状态栏应从可见布局中移除');
 });
+
+/// 场景：左栏的「对话」标签与底部对话输入框暂时隐藏，与 App 一致。
+/// 数据构造：读取页面源码。
+/// 执行过程：检查隐藏开关、强制运行概览与隐藏样式。
+/// 预期结果：开关为 true；setLeftView 把任何视图都落到运行概览；标签条与对话输入区样式隐藏；DOM 结构仍保留以便恢复。
+test('左栏隐藏对话标签与输入框，只呈现运行概览', () => {
+  assert.match(html, /const LEFT_CHAT_HIDDEN=true;/, '隐藏开关');
+  assert.match(html, /if\(LEFT_CHAT_HIDDEN\)view='overview';/, 'setLeftView 强制落到运行概览');
+  assert.match(html, /data-chat-hidden=true\] \.drawer-switch[^{]*\.composer-area\{display:none\}/, '标签条与对话输入区隐藏');
+  assert.match(html, /<nav class="drawer-switch"/, 'DOM 保留，开关改回 false 即可恢复');
+});

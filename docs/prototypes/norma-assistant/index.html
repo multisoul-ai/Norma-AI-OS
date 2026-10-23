@@ -417,6 +417,7 @@ summary::-webkit-details-marker{display:none}
 .run-chevron{width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid currentColor;transition:transform 140ms var(--ease)}
 .run-group.is-collapsed .run-chevron{transform:rotate(-90deg)}
 .run-overview[data-mode=floating] .run-sections{height:min(560px,calc(100vh - 260px));flex:none}
+.app[data-chat-hidden=true] .drawer-switch,.app[data-chat-hidden=true] .conversation-panel .composer-area{display:none}
 .idea-tabs{flex:none;display:flex;height:32px;margin:4px 12px 8px;border:1px solid #83c4ff40;border-radius:16px;overflow:hidden}
 .idea-tab{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;font-size:12px;font-weight:520;color:#a9c0d5;transition:background 80ms ease,color 80ms ease}.idea-tab+.idea-tab{border-left:1px solid #83c4ff40}.idea-tab small{font-size:11px;opacity:.8}
 .idea-tab:hover{background:#8fcaff17;color:#fff}.idea-tab:active{background:#8fcaff2a}.idea-tab:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
@@ -1804,7 +1805,10 @@ function syncProgressStatus() {
 }
 // 左侧抽屉在“对话 / 运行概览”间切换；抽屉收起时先展开，输入区两种视图共用。
 const leftViews=['chat','overview'],leftTabIds={chat:'drawer-tab-chat',overview:'drawer-tab-overview'};
+// 与 App 一致：左栏的「对话」标签和底部对话输入框暂时隐藏，左栏只呈现运行概览。
+const LEFT_CHAT_HIDDEN=true;
 function setLeftView(view,{animate=true,focusFirst=false}={}) {
+  if(LEFT_CHAT_HIDDEN)view='overview';
   if(!state.chatOpen){
     const next=AssistantDrawers.set({chat:state.chatOpen,reader:state.readerOpen},'chat',true,window.matchMedia('(max-width: 760px)').matches);
     if(!next.reader&&state.readerOpen){if(state.presentation)state.tabScroll.set(state.activeTabId,$('viewer-content').scrollTop);restoreVideoCard();state.presentation=null;}
@@ -1908,6 +1912,8 @@ $('progress-body').addEventListener('click',event=>{
   const project=event.target.closest('[data-progress-project]');if(project)toast('示意：将切换到「设计草稿」项目页，加载后显示实时状态');
 });
 (()=>{let saved=null;try{saved=JSON.parse(preferenceStorage?.getItem('norma.prototype.runOverview')||'null');}catch{saved=null;}
+  $('app').dataset.chatHidden=String(LEFT_CHAT_HIDDEN);
+  if(LEFT_CHAT_HIDDEN&&state.chatOpen&&!saved?.floating)setLeftView('overview',{animate:false});
   if(saved?.floating){setProgressFloating(true,{animate:false});requestAnimationFrame(()=>setProgressOffset(Number(saved.x)||0,Number(saved.y)||0));}
   else if(['overview','ideas'].includes(saved?.view)&&state.chatOpen)setLeftView('overview',{animate:false});
   syncProgressStatus();
