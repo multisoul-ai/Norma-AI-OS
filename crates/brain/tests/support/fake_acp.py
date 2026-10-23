@@ -77,9 +77,9 @@ def main():
                     choice = request_permission(session_id, command)
                     log(("allowed: " if choice == "allow-once" else "rejected: ") + command)
             # 审批提示里要求执行 decide 命令：模拟大脑照做
-            found = re.search(r"([^\s`]+) approval decide (\S+) allow\|deny\|escalate", text)
+            found = re.search(r"([^\s`]+) brain decide (\S+) allow\|deny\|escalate", text)
             if found:
-                command = f"{found.group(1)} approval decide {found.group(2)} allow --reason ok"
+                command = f"{found.group(1)} brain decide {found.group(2)} allow --reason ok"
                 choice = request_permission(session_id, command)
                 log(("allowed: " if choice == "allow-once" else "rejected: ") + command)
             send({"jsonrpc": "2.0", "method": "session/update", "params": {

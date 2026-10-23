@@ -11,7 +11,7 @@ pub enum Outcome {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ApprovalRequest {
-    /// 审批的稳定标识，`norma approval decide` 用它定位。
+    /// 审批的稳定标识，`norma brain decide` 用它定位。
     pub id: String,
     pub agent: String,
     pub subject: ApprovalSubject,

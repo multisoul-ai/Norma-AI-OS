@@ -4,6 +4,7 @@ use crate::protocol::{
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use std::ffi::OsString;
 use std::path::PathBuf;
+mod brain_command;
 mod operation;
 mod output;
 mod task_command;
@@ -58,6 +59,8 @@ enum TopCommand {
     Agent(AgentArgs),
     Present(PresentArgs),
     Ego(EgoArgs),
+    /// 后台大脑使用的命令。
+    Brain(brain_command::BrainArgs),
 }
 
 #[derive(Debug, Args)]
@@ -361,6 +364,14 @@ impl NormaArgs {
             }
             TopCommand::Present(present) => CliInvocation {
                 command: present.into_command(),
+                format: explicit_format.unwrap_or(OutputFormat::Json),
+                wait_timeout_seconds: None,
+                target_workspace_id: None,
+                operation_id: None,
+                project_self: false,
+            },
+            TopCommand::Brain(brain) => CliInvocation {
+                command: brain.into_command(),
                 format: explicit_format.unwrap_or(OutputFormat::Json),
                 wait_timeout_seconds: None,
                 target_workspace_id: None,

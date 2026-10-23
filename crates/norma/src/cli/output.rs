@@ -10,6 +10,7 @@ use std::ffi::OsString;
 
 pub fn format_result(result: &CardCommandResult) -> String {
     match result {
+        CardCommandResult::Brain { output } => output.clone(),
         CardCommandResult::Doctor { report } => format!(
             "App {}\nCLI {}\nProtocol {}\nSocket {}\nHook ingress {}\nProvider health {}\nSkill health {}\nOpen workspaces {}",
             report.app_version,

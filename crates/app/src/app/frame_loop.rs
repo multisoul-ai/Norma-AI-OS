@@ -249,6 +249,11 @@ impl MultisoulApp {
                     let speak_agent_completions = app.dialogue.is_active()
                         && app.voice_settings.values().interaction_mode()
                             == crate::settings::voice::VoiceInteractionMode::ContinuousListening;
+                    let finished_excerpts: Vec<(u64, Option<String>)> = agent_hook_report
+                        .terminal_tasks
+                        .iter()
+                        .map(|terminal| (terminal.node_id, terminal.result.text.clone()))
+                        .collect();
                     for terminal in agent_hook_report.terminal_tasks {
                         let node_id = terminal.node_id;
                         if speak_agent_completions {
@@ -262,6 +267,7 @@ impl MultisoulApp {
                     app.advance_session_reply_queue();
                     let runtime_events = app.runtime.take_events();
                     app.reconcile_doubao_channel(cx);
+                    app.brain_tick(&runtime_events, &finished_excerpts, cx);
                     app.handle_agent_runtime_events(&runtime_events, cx);
                     if runtime_changed
                         || !runtime_events.is_empty()

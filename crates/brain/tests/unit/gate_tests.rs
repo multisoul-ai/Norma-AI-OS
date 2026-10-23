@@ -24,26 +24,28 @@ fn read(path: &str) -> PermissionRequest {
     }
 }
 
-/// 只放行恰好一条、由 norma 可执行文件发起的命令。
+/// 只放行恰好一条、由 norma 可执行文件发起的 brain 子命令。
 ///
 /// 数据构造：norma 路径 /opt/norma/bin/norma。
 /// 执行过程：判断四条命令。
 /// 预期结果：
-///   - 正断言：`norma agent list --format json` 放行
-///   - 负断言：管道、组合、重定向、其他可执行文件、同名但路径不同的 norma 都被拒绝
+///   - 正断言：`norma brain agents` 放行
+///   - 负断言：管道、组合、重定向、card send 与 agent task 等其他子命令、其他可执行文件、同名但路径不同的 norma 都被拒绝
 #[test]
 fn only_a_single_norma_command_is_allowed() {
     let g = gate();
     assert_eq!(
-        g.judge(&bash("/opt/norma/bin/norma agent list --format json")),
+        g.judge(&bash("/opt/norma/bin/norma brain agents")),
         Verdict::Allow
     );
     for cmd in [
-        "/opt/norma/bin/norma agent list | head",
-        "/opt/norma/bin/norma agent list && rm -rf x",
-        "/opt/norma/bin/norma report --text hi > /etc/x",
+        "/opt/norma/bin/norma brain agents | head",
+        "/opt/norma/bin/norma brain agents && rm -rf x",
+        "/opt/norma/bin/norma brain report --text hi > /etc/x",
+        "/opt/norma/bin/norma card send 3 \"rm -rf ~\" --submit",
+        "/opt/norma/bin/norma agent task assign X --task y",
         "rm -rf x",
-        "/tmp/evil/norma agent list",
+        "/tmp/evil/norma brain agents",
         "echo $(whoami)",
     ] {
         assert!(
@@ -110,22 +112,22 @@ fn write_and_unknown_tools_are_rejected() {
 #[test]
 fn permission_requests_are_parsed_from_both_adapter_shapes() {
     let claude = json!({
-        "toolCall": {"name": "Bash", "kind": "execute", "rawInput": {"command": "norma report"}},
+        "toolCall": {"name": "Bash", "kind": "execute", "rawInput": {"command": "norma brain report"}},
         "options": [{"optionId": "allow-once", "kind": "allow_once"}, {"optionId": "reject", "kind": "reject_once"}]
     });
     let codex = json!({
-        "toolCall": {"kind": "execute", "rawInput": {"command": ["bash", "-lc", "norma report"]}},
+        "toolCall": {"kind": "execute", "rawInput": {"command": ["bash", "-lc", "norma brain report"]}},
         "options": [{"optionId": "approved", "kind": "allow_once"}, {"optionId": "abort", "kind": "reject_once"}]
     });
     let a = PermissionRequest::from_params(&claude);
     assert_eq!(
         (a.tool.as_str(), a.command.as_deref()),
-        ("Bash", Some("norma report"))
+        ("Bash", Some("norma brain report"))
     );
     let b = PermissionRequest::from_params(&codex);
     assert_eq!(
         (b.tool.as_str(), b.command.as_deref()),
-        ("Bash", Some("bash -lc norma report"))
+        ("Bash", Some("bash -lc norma brain report"))
     );
     assert_eq!(
         pick_option(&claude, &Verdict::Allow).as_deref(),

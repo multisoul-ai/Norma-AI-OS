@@ -191,6 +191,7 @@ dependencies = [
  "audio",
  "base64",
  "block2",
+ "brain",
  "canvas",
  "cef",
  "core-foundation 0.10.0",

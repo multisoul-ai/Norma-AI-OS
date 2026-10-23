@@ -25,6 +25,7 @@ impl AgentAnnouncement {
             text: format!("{agent_name}, {outcome_word}"),
             agent_name: agent_name.to_string(),
             outcome_word,
+            report: false,
         }
     }
 
@@ -39,6 +40,7 @@ impl AgentAnnouncement {
             agent_name: agent_name.to_string(),
             outcome_word: outcome_word.to_string(),
             text,
+            report: false,
         }
     }
 }
@@ -100,6 +102,25 @@ pub(super) fn synthesize_agent_terminal_announcement_with_cached_segments(
     assemble_cached_agent_terminal_announcement(CachedAnnouncementSegmentLookup {
         name: Some(name),
         outcome: Some(outcome),
+    })
+}
+
+/// 大脑的播报：整段文字一次合成，不进名字和结果的分段缓存。
+pub(super) fn synthesize_report_text(
+    tts: &mut dyn tts::TtsClient,
+    text: &str,
+) -> Result<SynthesizedAgentTerminalAnnouncement, voice_sherpa::SpeechError> {
+    let segments = collect_tts_segments(tts, &[text])
+        .map_err(|error| voice_sherpa::SpeechError::Recognizer(error.to_string()))?
+        .into_iter()
+        .next()
+        .unwrap_or_default();
+    let pcm = merge_segment_chunks(segments)?;
+    let shared = Arc::new(pcm.clone());
+    Ok(SynthesizedAgentTerminalAnnouncement {
+        name: Arc::clone(&shared),
+        outcome: shared,
+        pcm,
     })
 }
 

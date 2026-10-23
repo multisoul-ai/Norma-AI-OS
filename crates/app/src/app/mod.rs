@@ -44,6 +44,7 @@ mod agent_announcements;
 mod agent_close;
 mod agent_queue;
 mod agent_runtime;
+mod brain_host;
 mod memory;
 pub(crate) mod native_input;
 pub(crate) use agent_runtime::assign_idea_for_ui;
@@ -192,6 +193,7 @@ pub struct MultisoulApp {
     pub(crate) workspace_id: Option<String>,
     pub(crate) workspace_route_id: Option<String>,
     agent_announcements: agent_announcements::AgentAnnouncements,
+    brain: brain_host::BrainHostState,
     agent_announcement_playback: agent_announcements::AgentAnnouncementPlayback,
     agent_announcement_audio_cache: agent_announcements::AgentAnnouncementAudioCache,
     pub(crate) screen: AppScreen,

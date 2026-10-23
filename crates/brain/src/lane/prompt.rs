@@ -73,7 +73,7 @@ pub fn approval(request: &ApprovalRequest, norma_bin: &str) -> String {
         .or_else(|| subject.file_path.as_ref().map(|p| p.display().to_string()))
         .unwrap_or_default();
     format!(
-        "【审批】审批 {id}：{agent} 请求使用 {tool}：{what}\n项目目录：{root}\n判断是否应放行，然后执行恰好一条命令：\n`{bin} approval decide {id} allow|deny|escalate --reason \"一句话理由\"`\n拿不准就用 escalate。",
+        "【审批】审批 {id}：{agent} 请求使用 {tool}：{what}\n项目目录：{root}\n判断是否应放行，然后执行恰好一条命令：\n`{bin} brain decide {id} allow|deny|escalate --reason \"一句话理由\"`\n拿不准就用 escalate。",
         bin = norma_bin,
         id = request.id,
         agent = request.agent,
@@ -91,7 +91,7 @@ pub fn primer(role: Role, norma_bin: &str, goal: Option<&str>) -> String {
     };
     let goal = goal.map(|g| format!("\n当前目标：{g}")).unwrap_or_default();
     format!(
-        "{duty}\n只能通过终端执行 `{norma_bin}` 命令行动，一次一条，不要使用管道、重定向或其他命令；不要修改任何文件。\n常用命令：`{norma_bin} agent list --format json`、`{norma_bin} agent task assign <agent> --task <文字> --operation-id <uuid>`、`{norma_bin} report --text <文字> [--priority now|normal]`。\n汇报要简短口语化，一两句话，不要念路径和命令。没有变化就不要汇报。{goal}\n回复“收到”即可。"
+        "{duty}\n只能通过终端执行 `{norma_bin}` 命令行动，一次一条，不要使用管道、重定向或其他命令；不要修改任何文件。\n常用命令：`{norma_bin} brain agents`、`{norma_bin} brain assign <agent> --task <文字>`、`{norma_bin} brain report --text <文字> [--priority now]`、`{norma_bin} brain approvals`。\n汇报要简短口语化，一两句话，不要念路径和命令。没有变化就不要汇报。{goal}\n回复“收到”即可。"
     )
 }
 

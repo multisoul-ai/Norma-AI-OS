@@ -79,6 +79,7 @@ tts = { path = "crates/tts" }
 asr = { path = "crates/asr" }
 license = { path = "crates/license" }
 agent = { path = "crates/agent" }
+brain = { path = "crates/brain" }
 dialogue = { path = "crates/dialogue" }
 canvas = { path = "crates/canvas" }
 storage = { path = "crates/storage" }

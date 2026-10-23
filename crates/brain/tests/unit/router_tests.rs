@@ -48,7 +48,7 @@ fn ordinary_approval_goes_to_approval_lane() {
             assert_eq!(*lane, Lane::Approval, "审批走审批会话");
             assert_eq!(approval_id.as_deref(), Some("a1"));
             assert!(
-                text.contains("norma approval decide a1"),
+                text.contains("brain decide a1"),
                 "提示要告诉大脑如何给结论：{text}"
             );
         }

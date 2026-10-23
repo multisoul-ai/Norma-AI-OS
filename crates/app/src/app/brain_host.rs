@@ -1,0 +1,278 @@
+//! 把 `brain` 接到项目窗口：事件进、状态出、审批和播报的落地。
+
+mod approvals;
+mod config;
+mod ops;
+
+use crate::app::MultisoulApp;
+use brain::risk::ApprovalSubject;
+use brain::{ApprovalRequest, BrainConfig, BrainEvent, BrainService, BrainStatus, Outcome};
+use gpui::Context;
+use norma::mobile::ApprovalTarget;
+use runtime::{AgentTaskState, RuntimeEvent};
+use std::collections::{HashMap, HashSet};
+use std::sync::mpsc::Receiver;
+use std::time::{Duration, Instant};
+
+#[cfg(test)]
+#[path = "../../tests/unit/brain_host_tests.rs"]
+mod brain_host_tests;
+
+const APPROVAL_POLL: Duration = Duration::from_millis(500);
+const START_RETRY: Duration = Duration::from_secs(10);
+
+pub(crate) struct Tracked {
+    pub(super) target: ApprovalTarget,
+    pub(super) agent: String,
+    pub(super) subject: ApprovalSubject,
+    pub(super) escalated: bool,
+}
+
+struct BrainHost {
+    service: Option<BrainService>,
+    status: Receiver<BrainStatus>,
+    token: String,
+}
+
+impl Drop for BrainHost {
+    fn drop(&mut self) {
+        // 关闭会等线程退出，放到后台，避免阻塞前台。
+        if let Some(service) = self.service.take() {
+            std::thread::spawn(move || service.shutdown());
+        }
+    }
+}
+
+pub(crate) struct BrainHostState {
+    settings: Option<config::BrainSettings>,
+    host: Option<BrainHost>,
+    next_start: Instant,
+    last_poll: Instant,
+    tracked: HashMap<String, Tracked>,
+}
+
+impl BrainHostState {
+    pub(crate) fn new() -> Self {
+        let now = Instant::now();
+        Self {
+            settings: None,
+            host: None,
+            next_start: now,
+            last_poll: now,
+            tracked: HashMap::new(),
+        }
+    }
+
+    pub(crate) fn token_matches(&self, token: &str) -> bool {
+        !token.is_empty() && self.host.as_ref().is_some_and(|host| host.token == token)
+    }
+}
+
+impl MultisoulApp {
+    /// 每帧调用：按需启动大脑，转发事件，处理大脑的状态，并定期读取待处理审批。
+    pub(crate) fn brain_tick(
+        &mut self,
+        events: &[RuntimeEvent],
+        excerpts: &[(u64, Option<String>)],
+        cx: &mut Context<Self>,
+    ) {
+        if self.brain.settings.is_none() {
+            self.brain.settings = Some(config::load_settings());
+        }
+        if self.brain.host.is_none() {
+            self.try_start_brain();
+        }
+        if self.brain.host.is_none() {
+            return;
+        }
+        for event in events {
+            self.forward_runtime_event(event, excerpts);
+        }
+        self.drain_brain_status(cx);
+        if self.brain.last_poll.elapsed() >= APPROVAL_POLL {
+            self.brain.last_poll = Instant::now();
+            self.poll_approvals();
+        }
+    }
+
+    fn try_start_brain(&mut self) {
+        let now = Instant::now();
+        if now < self.brain.next_start || !self.brain.settings.as_ref().is_some_and(|s| s.enabled) {
+            return;
+        }
+        self.brain.next_start = now + START_RETRY;
+        let (Some(root), Some(workspace_id), Some(route_id)) = (
+            self.runtime.workspace_root().map(|root| root.to_path_buf()),
+            self.workspace_id.clone(),
+            self.workspace_route_id.clone(),
+        ) else {
+            return;
+        };
+        let settings = self.brain.settings.clone().expect("设置已加载");
+        let Some(backend) = config::pick_backend(&settings) else {
+            tracing::warn!("没有找到可用的 ACP 后端，大脑未启动；见 ~/.norma/brain/adapters");
+            return;
+        };
+        let Some(state_dir) = config::state_dir() else {
+            return;
+        };
+        let Ok(paths) = norma::orchestration::InstallPaths::for_current_process() else {
+            tracing::warn!("无法定位 norma 命令行，大脑未启动");
+            return;
+        };
+        let token = uuid::Uuid::new_v4().simple().to_string();
+        let mut brain_config = BrainConfig::new(backend, paths.bundled_cli, root, state_dir);
+        brain_config.strategy = settings.strategy;
+        brain_config.env = config::adapter_env(&token, &workspace_id, &route_id);
+        let (service, status) = BrainService::start(brain_config);
+        tracing::info!("Norma 大脑已启动");
+        self.brain.host = Some(BrainHost {
+            service: Some(service),
+            status,
+            token,
+        });
+    }
+
+    fn push_brain(&self, event: BrainEvent) {
+        if let Some(service) = self
+            .brain
+            .host
+            .as_ref()
+            .and_then(|host| host.service.as_ref())
+        {
+            service.push(event);
+        }
+    }
+
+    fn forward_runtime_event(&mut self, event: &RuntimeEvent, excerpts: &[(u64, Option<String>)]) {
+        let RuntimeEvent::AgentTaskStateChanged { node_id, to, .. } = event else {
+            return;
+        };
+        let Some(agent) = self.agent_announcement_name(*node_id) else {
+            return;
+        };
+        let outcome = match to {
+            AgentTaskState::Done => Outcome::Succeeded,
+            AgentTaskState::Failed { .. } => Outcome::Failed,
+            AgentTaskState::Thinking => {
+                let text = self
+                    .runtime
+                    .agent_latest_prompt(*node_id)
+                    .unwrap_or_else(|| "开始处理".into());
+                self.push_brain(BrainEvent::AgentProgress { agent, text });
+                return;
+            }
+            _ => return,
+        };
+        let excerpt = excerpts
+            .iter()
+            .find(|(id, _)| id == node_id)
+            .and_then(|(_, text)| text.clone())
+            .or_else(|| self.runtime.agent_latest_prompt(*node_id))
+            .unwrap_or_default();
+        self.push_brain(BrainEvent::AgentFinished {
+            agent,
+            outcome,
+            excerpt,
+        });
+    }
+
+    fn drain_brain_status(&mut self, cx: &mut Context<Self>) {
+        loop {
+            let status = match self.brain.host.as_ref().map(|host| host.status.try_recv()) {
+                Some(Ok(status)) => status,
+                _ => break,
+            };
+            match status {
+                BrainStatus::Ready => tracing::info!("大脑会话就绪"),
+                BrainStatus::BackendDown { reason } => {
+                    tracing::warn!(%reason, "大脑后端不可用");
+                    let pending: Vec<String> = self.brain.tracked.keys().cloned().collect();
+                    for id in pending {
+                        self.escalate(&id, "大脑暂时不可用", cx);
+                    }
+                }
+                BrainStatus::Escalate { id, reason } => {
+                    self.escalate(&id, &format!("命中高风险规则：{reason}"), cx)
+                }
+                BrainStatus::ApprovalTurnEnded { id } => {
+                    if self.brain.tracked.get(&id).is_some_and(|t| !t.escalated) {
+                        self.escalate(&id, "我拿不准", cx);
+                    }
+                }
+            }
+        }
+    }
+
+    /// 把审批留给用户：它仍在“需要你处理”里，这里只负责开口提醒。
+    pub(super) fn escalate(&mut self, id: &str, reason: &str, cx: &mut Context<Self>) {
+        let Some(tracked) = self.brain.tracked.get_mut(id) else {
+            return;
+        };
+        if tracked.escalated {
+            return;
+        }
+        tracked.escalated = true;
+        let text = format!(
+            "需要你确认：{} 想执行 {}。{reason}。",
+            tracked.agent,
+            approvals::summarize(&tracked.subject)
+        );
+        self.speak_brain_report(text, norma::protocol::ReportPriority::Now, cx);
+    }
+
+    fn poll_approvals(&mut self) {
+        let Some(root) = self.runtime.workspace_root().map(|root| root.to_path_buf()) else {
+            return;
+        };
+        let waiting: Vec<u64> = self
+            .runtime
+            .mobile_card_snapshots()
+            .into_iter()
+            .filter(|card| card.mobile_control && card.state == "waiting_approval")
+            .map(|card| card.node_id)
+            .collect();
+        let mut seen = HashSet::new();
+        for node_id in waiting {
+            let Ok(snapshots) = self.runtime.mobile_approval_snapshots(node_id) else {
+                continue;
+            };
+            for snapshot in snapshots.into_iter().filter(|s| !s.decisions.is_empty()) {
+                let id = approvals::encode_id(&snapshot.target);
+                seen.insert(id.clone());
+                if self.brain.tracked.contains_key(&id) {
+                    continue;
+                }
+                let subject = approvals::subject_of(&snapshot, &root);
+                let agent = self
+                    .agent_announcement_name(node_id)
+                    .unwrap_or_else(|| snapshot.card_title.clone());
+                self.brain.tracked.insert(
+                    id.clone(),
+                    Tracked {
+                        target: snapshot.target.clone(),
+                        agent: agent.clone(),
+                        subject: subject.clone(),
+                        escalated: false,
+                    },
+                );
+                self.push_brain(BrainEvent::ApprovalRequested(ApprovalRequest {
+                    id,
+                    agent,
+                    subject,
+                }));
+            }
+        }
+        let closed: Vec<String> = self
+            .brain
+            .tracked
+            .keys()
+            .filter(|id| !seen.contains(*id))
+            .cloned()
+            .collect();
+        for id in closed {
+            self.brain.tracked.remove(&id);
+            self.push_brain(BrainEvent::ApprovalClosed { id });
+        }
+    }
+}

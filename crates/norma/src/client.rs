@@ -163,6 +163,14 @@ impl ClientRequestContext {
     }
 
     fn from_current_process(command: &CardCommand) -> Result<Self, ClientError> {
+        if matches!(command, CardCommand::Brain { .. }) {
+            // 大脑进程不是 Agent 卡片：不带 Provider 授权，只带 App 下发的 Workspace 身份。
+            return Ok(Self {
+                source_workspace_id: env::var(WORKSPACE_ID_ENV).ok(),
+                source_workspace_route_id: env::var(WORKSPACE_ROUTE_ID_ENV).ok(),
+                ..Self::default()
+            });
+        }
         let orchestration_command = is_orchestration_command(command);
         if !orchestration_command {
             return Ok(Self::default());

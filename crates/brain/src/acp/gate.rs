@@ -75,11 +75,14 @@ impl Gate {
         let Some(argv) = command.and_then(single_command) else {
             return Verdict::Reject("只允许单条 norma 命令，不允许管道、重定向或组合".into());
         };
-        if Path::new(&argv[0]) == self.norma_bin {
-            Verdict::Allow
-        } else {
-            Verdict::Reject(format!("只允许执行 {}", self.norma_bin.display()))
+        if Path::new(&argv[0]) != self.norma_bin {
+            return Verdict::Reject(format!("只允许执行 {}", self.norma_bin.display()));
         }
+        // 只开放 brain 子命令，避免大脑通过 card send 之类的命令向终端注入输入。
+        if argv.get(1).map(String::as_str) != Some("brain") {
+            return Verdict::Reject("只允许 norma brain 子命令".into());
+        }
+        Verdict::Allow
     }
 
     fn judge_read(&self, path: Option<&str>) -> Verdict {
