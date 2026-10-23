@@ -3,25 +3,29 @@ import {pathToFileURL} from 'node:url';
 import {makeCloudGateway} from './voice/gateway.mjs';
 import {fetchPlan} from './voice/plan.mjs';
 import {createPushRelay} from './push/relay.mjs';
+import {createAuth} from './auth/routes.mjs';
 
 export {behaviorTool, doubaoSession} from './voice/gateway.mjs';
 
-export function makeGateway({pushRelay, ...options} = {}) {
+export function makeGateway({pushRelay, auth, ...options} = {}) {
   pushRelay ??= createPushRelay(options.env || process.env);
   let gateway;
-  try { gateway = makeCloudGateway(options); }
-  catch (error) {pushRelay?.emit('close'); throw error;}
-  if (!pushRelay) return gateway;
+  try {
+    gateway = makeCloudGateway(options);
+    if (auth === undefined) auth = createAuth(options.env || process.env);
+  } catch (error) {pushRelay?.emit('close'); gateway?.emit('close'); throw error;}
+  if (!pushRelay && !auth) return gateway;
   const server = createServer({maxHeaderSize: 8192}, (req, res) => {
     const path = (req.url || '').split('?')[0];
-    const target = path === '/healthz' || path === '/v1/notifications' ? pushRelay : gateway;
+    if (auth && path.startsWith('/v1/auth/')) return auth.handle(req, res);
+    const target = pushRelay && (path === '/healthz' || path === '/v1/notifications') ? pushRelay : gateway;
     target.emit('request', req, res);
   });
   server.headersTimeout = gateway.headersTimeout;
   server.requestTimeout = gateway.requestTimeout;
-  server.maxConnections = pushRelay.maxConnections;
+  if (pushRelay) server.maxConnections = pushRelay.maxConnections;
   server.on('upgrade', (req, socket, head) => gateway.emit('upgrade', req, socket, head));
-  server.on('close', () => {gateway.emit('close'); pushRelay.emit('close');});
+  server.on('close', () => {gateway.emit('close'); pushRelay?.emit('close');});
   return server;
 }
 
