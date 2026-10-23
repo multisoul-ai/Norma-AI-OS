@@ -82,7 +82,7 @@ fn claude_approvals_map_tool_input_to_a_subject() {
 ///
 /// 数据构造：commandExecution + command 数组；fileChange；未知方法。
 /// 预期结果：
-///   - 正断言：命令数组按空格连接；fileChange 归为 Write；未知方法原样保留
+///   - 正断言：命令数组按空格连接；`bash -lc` 包装取里面的命令；fileChange 归为 Write；未知方法原样保留
 ///   - 负断言：未知方法不会被当成 Bash
 #[test]
 fn codex_approvals_map_method_names_to_tools() {
@@ -97,6 +97,18 @@ fn codex_approvals_map_method_names_to_tools() {
     assert_eq!(
         (exec.tool_name.as_str(), exec.command.as_deref()),
         ("Bash", Some("cargo test"))
+    );
+    let wrapped = subject_of(
+        &snapshot(
+            "item/commandExecution/requestApproval",
+            json!({"command": ["bash", "-lc", "cargo test -p app"]}),
+        ),
+        root,
+    );
+    assert_eq!(
+        wrapped.command.as_deref(),
+        Some("cargo test -p app"),
+        "bash -lc 包装要取里面的命令"
     );
     let patch = subject_of(
         &snapshot(
@@ -152,4 +164,58 @@ fn settings_parse_defaults_to_disabled() {
         None,
         "未知后端不选"
     );
+}
+
+/// 配置写入后再解析，得到同样的后端、策略与开关；目录不存在时会自动创建。
+///
+/// 数据构造：临时目录下的子目录 brain；设置为开启、Codex、质量优先。
+/// 预期结果：
+///   - 正断言：config.json 存在，解析结果与写入一致
+///   - 负断言：写入 Claude 后端并关闭时，解析出的 enabled 为 false，不会残留上一次的值
+#[test]
+fn saved_settings_round_trip() {
+    let root = tempfile::tempdir().unwrap();
+    let dir = root.path().join("brain");
+    let on = super::config::BrainSettings {
+        enabled: true,
+        backend: Some(BackendKind::Codex),
+        strategy: Strategy::Quality,
+    };
+    super::config::save_settings_to(&dir, &on).expect("应能写入配置");
+    let text = std::fs::read_to_string(dir.join("config.json")).expect("配置文件应存在");
+    let read = parse_settings(&text);
+    assert!(read.enabled, "enabled 应保持开启");
+    assert_eq!(read.backend, Some(BackendKind::Codex));
+    assert_eq!(read.strategy, Strategy::Quality);
+    let off = super::config::BrainSettings {
+        enabled: false,
+        backend: Some(BackendKind::ClaudeCode),
+        strategy: Strategy::Speed,
+    };
+    super::config::save_settings_to(&dir, &off).expect("应能覆盖写入");
+    let read = parse_settings(&std::fs::read_to_string(dir.join("config.json")).unwrap());
+    assert!(!read.enabled, "覆盖后 enabled 应为 false");
+    assert_eq!(read.backend, Some(BackendKind::ClaudeCode));
+}
+
+/// `norma brain` 命令的令牌校验：没有运行中的大脑、空令牌、错误令牌都不通过，只有正确令牌通过。
+///
+/// 数据构造：先是没有大脑的状态；再装入令牌为 `abc` 的大脑（不启动真实服务）。
+/// 预期结果：
+///   - 正断言：令牌 `abc` 通过
+///   - 负断言：没有大脑时任何令牌都不通过；`abd`、空字符串、`ABC` 都不通过
+#[test]
+fn only_the_issued_token_authorizes_brain_commands() {
+    let mut state = super::BrainHostState::new();
+    assert!(!state.token_matches("abc"), "没有大脑时不应放行任何令牌");
+    let (_tx, status) = std::sync::mpsc::channel();
+    state.host = Some(super::BrainHost {
+        service: None,
+        status,
+        token: "abc".into(),
+    });
+    assert!(state.token_matches("abc"), "正确令牌应通过");
+    for wrong in ["abd", "", "ABC", "abcd"] {
+        assert!(!state.token_matches(wrong), "令牌 {wrong:?} 不应通过");
+    }
 }

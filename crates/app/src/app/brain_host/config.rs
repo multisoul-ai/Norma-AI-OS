@@ -51,6 +51,32 @@ pub(super) fn parse_settings(text: &str) -> BrainSettings {
     }
 }
 
+pub(super) fn save_settings(settings: &BrainSettings) -> std::io::Result<()> {
+    let dir = state_dir().ok_or_else(|| std::io::Error::other("找不到用户目录"))?;
+    save_settings_to(&dir, settings)
+}
+
+pub(super) fn save_settings_to(
+    dir: &std::path::Path,
+    settings: &BrainSettings,
+) -> std::io::Result<()> {
+    std::fs::create_dir_all(dir)?;
+    let value = serde_json::json!({
+        "enabled": settings.enabled,
+        "backend": settings.backend.map(|kind| match kind {
+            BackendKind::ClaudeCode => "claude",
+            BackendKind::Codex => "codex",
+            BackendKind::OpenCode => "opencode",
+        }),
+        "strategy": match settings.strategy {
+            Strategy::Speed => "speed",
+            Strategy::Auto => "auto",
+            Strategy::Quality => "quality",
+        },
+    });
+    std::fs::write(dir.join("config.json"), serde_json::to_vec_pretty(&value)?)
+}
+
 /// GUI 启动的进程 PATH 很短，补上 Homebrew 和 nvm 的 node 目录，适配器是 node 脚本。
 pub(super) fn search_dirs() -> Vec<PathBuf> {
     let mut dirs: Vec<PathBuf> = std::env::var_os("PATH")

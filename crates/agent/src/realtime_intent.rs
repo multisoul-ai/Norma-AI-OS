@@ -223,6 +223,7 @@ pub fn realtime_command_authorized(command: &AdapterCommand, input: &str) -> boo
         | AdapterCommand::FindAgentTasks { .. } => return false,
         AdapterCommand::WorkspaceSnapshot { .. }
         | AdapterCommand::AssignWorkspaceTask { .. }
+        | AdapterCommand::HandoffToBrain { .. }
         | AdapterCommand::OpenWorkspaceArtifact { .. }
         | AdapterCommand::LocateWorkspaceAgent { .. } => &[
             "实现",

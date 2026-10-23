@@ -3,6 +3,8 @@
 mod approvals;
 mod config;
 mod ops;
+mod settings;
+pub(crate) use settings::BrainSettingsView;
 
 use crate::app::MultisoulApp;
 use brain::risk::ApprovalSubject;
@@ -49,6 +51,9 @@ pub(crate) struct BrainHostState {
     next_start: Instant,
     last_poll: Instant,
     tracked: HashMap<String, Tracked>,
+    installed: Vec<brain::BackendKind>,
+    installing: bool,
+    install_error: Option<String>,
 }
 
 impl BrainHostState {
@@ -60,6 +65,9 @@ impl BrainHostState {
             next_start: now,
             last_poll: now,
             tracked: HashMap::new(),
+            installed: Vec::new(),
+            installing: false,
+            install_error: None,
         }
     }
 
@@ -126,6 +134,8 @@ impl MultisoulApp {
         brain_config.env = config::adapter_env(&token, &workspace_id, &route_id);
         let (service, status) = BrainService::start(brain_config);
         tracing::info!("Norma 大脑已启动");
+        // 新的大脑不认识旧审批：清掉记录，下一次轮询会把仍在等待的审批重新交给它。
+        self.brain.tracked.clear();
         self.brain.host = Some(BrainHost {
             service: Some(service),
             status,
@@ -133,7 +143,7 @@ impl MultisoulApp {
         });
     }
 
-    fn push_brain(&self, event: BrainEvent) {
+    pub(super) fn push_brain(&self, event: BrainEvent) {
         if let Some(service) = self
             .brain
             .host
@@ -178,11 +188,7 @@ impl MultisoulApp {
     }
 
     fn drain_brain_status(&mut self, cx: &mut Context<Self>) {
-        loop {
-            let status = match self.brain.host.as_ref().map(|host| host.status.try_recv()) {
-                Some(Ok(status)) => status,
-                _ => break,
-            };
+        while let Some(Ok(status)) = self.brain.host.as_ref().map(|host| host.status.try_recv()) {
             match status {
                 BrainStatus::Ready => tracing::info!("大脑会话就绪"),
                 BrainStatus::BackendDown { reason } => {

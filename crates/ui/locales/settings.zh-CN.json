@@ -194,5 +194,22 @@
   "settings.built_in": "内置壁纸",
   "settings.your_wallpapers": "你的壁纸",
   "settings.path_convention_title": "文件路径输出约定",
-  "settings.path_convention_hint": "让 Norma 启动的智能体用统一格式输出文件路径，回复里的路径即可在右侧文件栏点击打开。仅对之后新启动的智能体生效。"
+  "settings.path_convention_hint": "让 Norma 启动的智能体用统一格式输出文件路径，回复里的路径即可在右侧文件栏点击打开。仅对之后新启动的智能体生效。",
+  "settings.brain": "Norma 大脑",
+  "settings.brain_subtitle": "让你已安装的编码 Agent 在后台整理进度、判断审批、派后续任务。",
+  "settings.brain_enable": "启用后台大脑",
+  "settings.brain_enable_hint": "修改后会重启大脑。push、删除、部署等高风险操作始终先问你。",
+  "settings.brain_running": "运行中",
+  "settings.brain_stopped": "未运行",
+  "settings.brain_backend": "后端",
+  "settings.brain_backend_hint": "使用你已安装的编码 Agent。Norma 只允许它执行 norma 命令和读取项目文件。",
+  "settings.brain_not_installed": "未安装",
+  "settings.brain_install": "安装 Claude Code 适配器",
+  "settings.brain_installing": "安装中…",
+  "settings.brain_install_failed": "安装失败：%{reason}",
+  "settings.brain_strategy": "策略",
+  "settings.brain_strategy_hint": "自动：审批用快模型，规划和回答用强模型。",
+  "settings.brain_strategy_speed": "速度优先",
+  "settings.brain_strategy_auto": "自动",
+  "settings.brain_strategy_quality": "质量优先"
 }

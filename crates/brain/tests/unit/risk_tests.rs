@@ -372,3 +372,74 @@ fn inline_interpreter_code_is_high_risk() {
     );
     assert_eq!(bash("node index.js"), RiskClass::Normal);
 }
+
+/// 包装命令带选项时不能掩盖真实命令；大小写不同在 macOS 默认文件系统上仍会运行同一个程序。
+///
+/// 数据构造：`env -i rm x`、`env -u HOME rm x`、`nohup -p rm x`、`command -p rm x`、`time -p git push`、`RM -rf x`、`GIT push`。
+/// 预期结果：
+///   - 正断言：分别命中 Delete、Delete、Delete、Delete、GitPublish、Delete、GitPublish
+///   - 负断言：`env -i cargo test` 仍是 Normal
+#[test]
+fn wrapper_options_and_command_case_do_not_hide_commands() {
+    assert_eq!(bash("env -i rm x"), high(HighRiskReason::Delete));
+    assert_eq!(bash("env -u HOME rm x"), high(HighRiskReason::Delete));
+    assert_eq!(bash("nohup -p rm x"), high(HighRiskReason::Delete));
+    assert_eq!(bash("command -p rm x"), high(HighRiskReason::Delete));
+    assert_eq!(bash("time -p git push"), high(HighRiskReason::GitPublish));
+    assert_eq!(
+        bash("RM -rf x"),
+        high(HighRiskReason::Delete),
+        "大小写不同的命令名要归一化"
+    );
+    assert_eq!(bash("GIT push"), high(HighRiskReason::GitPublish));
+    assert_eq!(
+        bash("env -i cargo test"),
+        RiskClass::Normal,
+        "包装本身不是风险"
+    );
+}
+
+/// 会再启动其他命令的包装程序无法静态判断，按高风险处理；git 的 -c 配置能把别名变成 shell 命令。
+///
+/// 数据构造：`nice -n 5 rm x`、`timeout 5 rm x`、`git -c alias.x=!rm x`。
+/// 预期结果：
+///   - 正断言：都是 High(UnparseableCommand)
+///   - 负断言：`git -C /work/proj status` 仍是 Normal
+#[test]
+fn launcher_wrappers_and_git_config_overrides_are_unparseable() {
+    for cmd in [
+        "nice -n 5 rm x",
+        "timeout 5 rm x",
+        "git -c alias.x=!rm x",
+        "git -c core.sshCommand=evil fetch",
+    ] {
+        assert_eq!(
+            bash(cmd),
+            high(HighRiskReason::UnparseableCommand),
+            "{cmd} 应为 UnparseableCommand"
+        );
+    }
+    assert_eq!(bash("git -C /work/proj status"), RiskClass::Normal);
+}
+
+/// 解压、同步类命令写到项目外同样算项目外写入。
+///
+/// 数据构造：`tar -xf a.tar -C /etc`、`unzip a.zip -d /tmp/x`、`rsync -a src/ /tmp/out`。
+/// 预期结果：
+///   - 正断言：都是 High(OutsideProject)
+///   - 负断言：`tar -xf a.tar -C sub` 在项目内，是 Normal
+#[test]
+fn archive_and_sync_writes_outside_the_project_are_high_risk() {
+    for cmd in [
+        "tar -xf a.tar -C /etc",
+        "unzip a.zip -d /tmp/x",
+        "rsync -a src/ /tmp/out",
+    ] {
+        assert_eq!(
+            bash(cmd),
+            high(HighRiskReason::OutsideProject),
+            "{cmd} 应为 OutsideProject"
+        );
+    }
+    assert_eq!(bash("tar -xf a.tar -C sub"), RiskClass::Normal);
+}

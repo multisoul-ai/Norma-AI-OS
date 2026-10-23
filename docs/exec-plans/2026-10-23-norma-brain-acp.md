@@ -42,12 +42,20 @@ crates/app/src/settings/brain/             设置页
 
 | 阶段 | 内容 | 验证 | 状态 |
 | --- | --- | --- | --- |
-| 0 实测 | 真实 Claude Code ACP 的首字延迟；hook 等满 120 秒后 Claude Code 是否退回终端权限提示；确认 `claude-agent-acp`（包 `@agentclientprotocol/claude-agent-acp`）、`codex-acp` 的包名、安装方式、权限请求字段 | 记录写入 `docs/research/` | 待做 |
-| 1 纯逻辑 | 新建 `brain` crate；`risk.rs`；`event.rs`；`router.rs`（去抖、定时摘要） | `cargo test -p brain` | 风险规则完成，事件与分流待做 |
-| 2 协议 | `norma` 协议与 CLI：`approval list/decide`、`agent stop`、`report`、`agent tail`，托管 skill 同步 | `cargo test -p norma` | 待做 |
-| 3 ACP client | `acp/client.rs`、`acp/gate.rs`、`backend.rs`、`goal.rs`、两条 lane；用脚本化的假适配器进程测试大脑超时、崩溃、拿不准 | `cargo test -p brain` | 待做 |
-| 4 App 接入 | `brain_host`、`approval_broker`、`high_risk_guard`、播报队列优先级与让路、概览“Norma 判断中”和“请你确认”、`NormaSession` 的 `BackgroundHandoff` | 受影响 crate 测试；desktop-e2e | 待做 |
-| 5 设置与验收 | 大脑设置页；GPT-Live 派活改走 ACP 大脑；真实 App 验收 | desktop-e2e；真实 Claude Code 全流程 | 待做 |
+| 0 实测 | Claude Code ACP 的首字延迟与权限请求形态；确认适配器包名 | `docs/research/2026-10-23-acp-adapters-probe.md` | 完成；hook 满 120 秒后的行为、Codex 适配器未测 |
+| 1 纯逻辑 | `brain` crate：`risk`、`event`、`router` | `cargo test -p brain` | 完成 |
+| 2 协议 | `norma brain report/approvals/decide/agents/assign`；client 带 Workspace 身份 | `cargo test -p norma --test brain_cli_tests` | 完成（没有做 `agent tail`、`agent stop`：停止沿用现有 `agent task cancel` 的内部路径，大脑暂不需要） |
+| 3 ACP client | 手写 client、闸门、后端检测、目标摘要、两条 lane、服务 | `cargo test -p brain`（假适配器）；真实 Claude Code 冒烟 | 完成 |
+| 4 App 接入 | `brain_host`、审批轮询与决定、播报接入、概览“Norma 判断中”、`handoff_to_brain` | `cargo test -p app --lib`、`cargo test -p agent` | 完成 |
+| 5 设置与验收 | 设置页（开关、后端、策略、安装适配器）；真实 App 验收 | `scripts/desktop-e2e.sh brain-report` | 见下方记录 |
+
+## 实施偏差
+
+- ACP client 手写，没有引入 `agent-client-protocol` crate。
+- 大脑命令走 `norma brain …`，不复用 `agent …`：后者要求调用方是 Agent 卡片。
+- 审批代理只覆盖带手机控制的卡片，Claude 与 Codex 都支持；普通桌面卡片的权限提示无法拦截。
+- GPT-Live 的派活没有改走大脑，仍由 `NormaSession` 规划；前台新增 `handoff_to_brain`。
+- 审批会话目前每条 lane 串行；“多个审批并行处理”未做。
 
 ## 约束
 

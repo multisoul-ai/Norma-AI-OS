@@ -28,18 +28,19 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) -> bool {
         let text = text.trim().to_string();
+        let preview: String = text.chars().take(80).collect();
         if text.is_empty()
             || !self
                 .voice_settings
                 .values()
                 .agent_task_announcements_enabled()
         {
-            tracing::info!("大脑播报被跳过：文字为空或语音汇报未开启");
+            tracing::info!(%preview, "大脑播报被跳过：文字为空或语音汇报未开启");
             return false;
         }
         let availability = self.agent_announcement_tts_availability();
         if availability == AgentAnnouncementTtsAvailability::Unavailable {
-            tracing::info!("大脑播报被跳过：TTS 不可用");
+            tracing::info!(%preview, "大脑播报被跳过：TTS 不可用");
             return false;
         }
         let pending = PendingAgentAnnouncement {
@@ -56,7 +57,7 @@ impl MultisoulApp {
             ReportPriority::Now => queue.push_front(pending),
             ReportPriority::Normal => queue.push_back(pending),
         }
-        tracing::info!(?priority, pending_count = queue.len(), "大脑播报已入队");
+        tracing::info!(%preview, ?priority, pending_count = queue.len(), "大脑播报已入队");
         self.start_next_agent_announcement(cx);
         true
     }

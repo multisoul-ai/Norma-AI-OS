@@ -27,6 +27,16 @@ fn main() {
     let mut config = BrainConfig::new(backend, norma.into(), project.clone().into(), state);
     config.prompt_timeout = Duration::from_secs(120);
     let (service, status) = BrainService::start(config);
+    if std::env::var("SMOKE_EVENT").as_deref() == Ok("finished") {
+        service.push(BrainEvent::AgentFinished {
+            agent: "Alan".into(),
+            outcome: brain::Outcome::Succeeded,
+            excerpt: "登录页已经做完，12 个测试全部通过。".into(),
+        });
+        std::thread::sleep(Duration::from_secs(60));
+        service.shutdown();
+        return;
+    }
     service.push(BrainEvent::ApprovalRequested(ApprovalRequest {
         id: "smoke-1".into(),
         agent: "Claude".into(),

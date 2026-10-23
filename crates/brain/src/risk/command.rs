@@ -6,7 +6,23 @@ use super::HighRiskReason as Reason;
 use std::path::Path;
 
 const SHELLS: [&str; 5] = ["sh", "bash", "zsh", "dash", "fish"];
+/// 只转发给下一个命令的包装；后面的选项要跳过。
 const WRAPPERS: [&str; 6] = ["command", "builtin", "exec", "nohup", "time", "env"];
+/// 会再启动其他命令、参数含义因程序而异的包装，无法静态判断。
+const LAUNCHERS: [&str; 10] = [
+    "nice",
+    "timeout",
+    "stdbuf",
+    "setsid",
+    "caffeinate",
+    "arch",
+    "ionice",
+    "chroot",
+    "watch",
+    "script",
+];
+/// `env` 的选项里带值的那几个。
+const ENV_VALUE_OPTIONS: [&str; 4] = ["-u", "-C", "-S", "--unset"];
 const INTERPRETERS: [&str; 7] = ["python", "python3", "node", "perl", "ruby", "php", "deno"];
 const INLINE_FLAGS: [&str; 4] = ["-c", "-e", "-p", "--eval"];
 const DELETERS: [&str; 6] = ["rm", "rmdir", "unlink", "shred", "trash", "srm"];
@@ -14,8 +30,9 @@ const DEPLOYERS: [&str; 7] = [
     "vercel", "netlify", "firebase", "ssh", "scp", "sftp", "flyctl",
 ];
 /// 会写入参数路径的命令；任何一个路径参数在项目外都算高风险。
-const WRITERS: [&str; 10] = [
-    "cp", "mv", "tee", "touch", "mkdir", "chmod", "chown", "ln", "install", "truncate",
+const WRITERS: [&str; 13] = [
+    "cp", "mv", "tee", "touch", "mkdir", "chmod", "chown", "ln", "install", "truncate", "tar",
+    "unzip", "rsync",
 ];
 
 pub(super) fn classify(command: &str, root: &Path) -> Option<Reason> {
@@ -37,7 +54,11 @@ fn segment_risk(segment: &Segment, root: &Path) -> Option<Reason> {
         }
     }
     let argv = strip_prefixes(&segment.argv);
-    let name = Path::new(argv.first()?).file_name()?.to_str()?;
+    let lowered = Path::new(argv.first()?)
+        .file_name()?
+        .to_str()?
+        .to_ascii_lowercase();
+    let name = lowered.as_str();
     let args = &argv[1..];
     if SHELLS.contains(&name) {
         return Some(if segment.piped {
@@ -55,16 +76,24 @@ fn segment_risk(segment: &Segment, root: &Path) -> Option<Reason> {
     writes_outside(name, args, root).then_some(Reason::OutsideProject)
 }
 
-/// 去掉 `KEY=VAL` 前缀和 `env`、`nohup` 等包装。
+/// 去掉 `KEY=VAL` 前缀，以及 `env`、`nohup` 等包装和它们的选项。
 fn strip_prefixes(argv: &[String]) -> &[String] {
     let mut rest = argv;
     while let Some(first) = rest.first() {
         let is_assignment = first.contains('=') && !first.starts_with('=') && !first.contains('/');
-        let is_wrapper = WRAPPERS.contains(&first.as_str());
-        if !is_assignment && !is_wrapper {
+        if is_assignment {
+            rest = &rest[1..];
+            continue;
+        }
+        let wrapper = first.to_ascii_lowercase();
+        if !WRAPPERS.contains(&wrapper.as_str()) {
             break;
         }
         rest = &rest[1..];
+        while let Some(option) = rest.first().filter(|a| a.starts_with('-')) {
+            let takes_value = wrapper == "env" && ENV_VALUE_OPTIONS.contains(&option.as_str());
+            rest = &rest[if takes_value { 2.min(rest.len()) } else { 1 }..];
+        }
     }
     rest
 }
@@ -74,6 +103,7 @@ fn by_name(name: &str, args: &[String]) -> Option<Reason> {
     match name {
         "sudo" | "doas" | "su" => Some(Reason::Privilege),
         "eval" | "source" | "." | "xargs" => Some(Reason::UnparseableCommand),
+        n if LAUNCHERS.contains(&n) => Some(Reason::UnparseableCommand),
         n if DELETERS.contains(&n) => Some(Reason::Delete),
         n if DEPLOYERS.contains(&n) => Some(Reason::Deploy),
         n if INTERPRETERS.contains(&n) && INLINE_FLAGS.iter().any(|f| has(f)) => {
@@ -124,7 +154,11 @@ fn git_risk(args: &[String]) -> Option<Reason> {
     let mut iter = args.iter();
     let sub = loop {
         let arg = iter.next()?;
-        if ["-C", "-c", "--git-dir", "--work-tree", "--namespace"].contains(&arg.as_str()) {
+        // -c 能把别名改成 shell 命令（alias.x=!…），无法静态判断。
+        if arg == "-c" {
+            return Some(Reason::UnparseableCommand);
+        }
+        if ["-C", "--git-dir", "--work-tree", "--namespace"].contains(&arg.as_str()) {
             iter.next();
         } else if !arg.starts_with('-') {
             break arg.as_str();

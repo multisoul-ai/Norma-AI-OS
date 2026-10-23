@@ -21,13 +21,22 @@ pub(super) fn encode_id(target: &ApprovalTarget) -> String {
 fn text_of(value: &Value) -> Option<String> {
     match value {
         Value::String(text) => Some(text.clone()),
-        Value::Array(items) => Some(
-            items
-                .iter()
-                .filter_map(Value::as_str)
-                .collect::<Vec<_>>()
-                .join(" "),
-        ),
+        Value::Array(items) => {
+            let words: Vec<&str> = items.iter().filter_map(Value::as_str).collect();
+            // Codex 常把命令包成 `["bash", "-lc", "<真正的命令>"]`，判断时看里面那条。
+            match words.as_slice() {
+                [shell, flag, inner]
+                    if matches!(
+                        *shell,
+                        "bash" | "sh" | "zsh" | "/bin/bash" | "/bin/sh" | "/bin/zsh"
+                    ) && flag.starts_with('-')
+                        && flag.ends_with('c') =>
+                {
+                    Some((*inner).to_string())
+                }
+                _ => Some(words.join(" ")),
+            }
+        }
         _ => None,
     }
 }

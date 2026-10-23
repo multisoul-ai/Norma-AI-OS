@@ -44,7 +44,7 @@ impl Connection {
             .envs(env.iter().map(|(k, v)| (k, v)))
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null())
+            .stderr(adapter_stderr())
             .spawn()?;
         let stdin = child
             .stdin
@@ -116,6 +116,19 @@ impl Drop for Connection {
     fn drop(&mut self) {
         self.kill();
     }
+}
+
+/// 排查用：设置 `NORMA_BRAIN_ADAPTER_LOG` 后，适配器的 stderr 追加写入该文件，否则丢弃。
+fn adapter_stderr() -> Stdio {
+    std::env::var_os("NORMA_BRAIN_ADAPTER_LOG")
+        .and_then(|path| {
+            std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(path)
+                .ok()
+        })
+        .map_or_else(Stdio::null, Stdio::from)
 }
 
 fn parse(line: &str) -> Option<Incoming> {

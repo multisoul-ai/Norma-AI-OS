@@ -24,6 +24,22 @@ fn output(value: serde_json::Value) -> OpResult {
 }
 
 impl MultisoulApp {
+    /// 前台对话转来的请求：交给后台大脑。大脑没有运行时如实告知，不假装接收。
+    pub(crate) fn handoff_to_brain(
+        &mut self,
+        request: String,
+    ) -> Result<agent::AdapterResult, agent::AdapterError> {
+        if self.brain.host.is_none() {
+            return Err(agent::AdapterError::Rejected(
+                "后台大脑没有运行，无法交接".into(),
+            ));
+        }
+        self.push_brain(brain::BrainEvent::UserRequest { text: request });
+        Ok(agent::AdapterResult::accepted(
+            "已交给后台大脑，结果会稍后播报",
+        ))
+    }
+
     pub(crate) fn execute_brain_command(
         &mut self,
         token: &str,

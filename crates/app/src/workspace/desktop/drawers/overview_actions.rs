@@ -18,6 +18,7 @@ impl MultisoulApp {
             Some(overview) => present_overview(overview, &stops, now),
             None => OverviewScreen::empty(),
         };
+        super::overview_judging::relabel_judging(&mut screen, &self.brain_judging_nodes());
         // 折叠的栏不显示行，键盘上下也不应落到看不见的行上。
         let groups = [
             OverviewGroup::Attention,

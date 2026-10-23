@@ -45,6 +45,7 @@ pub(super) struct SettingsContentContext<'a> {
     pub(super) memory: gpui::Entity<crate::settings::norma::MemoryView>,
     pub(super) persona: gpui::Entity<crate::settings::norma::persona::PersonaView>,
     pub(super) mobile: gpui::Entity<crate::mobile::controller::MobileController>,
+    pub(super) brain: crate::app::BrainSettingsView,
 }
 
 pub(super) fn settings_content(
@@ -72,6 +73,7 @@ pub(super) fn settings_content(
         mobile,
         memory,
         persona,
+        brain,
     } = content;
     let compact = width < 600.0 || height < 640.0;
     let padding = if compact {
@@ -174,6 +176,9 @@ pub(super) fn settings_content(
                         width - padding * 2.0,
                         cx,
                     ),
+                    SettingsSection::NormaBrain => {
+                        crate::settings::brain::settings(theme, &brain, cx)
+                    }
                     SettingsSection::Mobile => {
                         crate::settings::mobile::settings(theme, &mobile, cx)
                     }
@@ -273,6 +278,7 @@ fn content_title(section: SettingsSection) -> &'static str {
 fn content_subtitle(section: SettingsSection, voice_shortcut_label: &str) -> String {
     match section {
         SettingsSection::General => ui::i18n::text("general.subtitle").into(),
+        SettingsSection::NormaBrain => ui::i18n::text("settings.brain_subtitle").to_string(),
         SettingsSection::Mobile => {
             ui::i18n::text("settings.connect_your_iphone_over_a_local_network_or_tailscale")
                 .to_string()

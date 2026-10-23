@@ -93,6 +93,7 @@ pub(crate) fn execute_norma_adapter_command_with_source(
             node_id,
             task,
         } => app.norma_assign_workspace_task(&workspace_id, &area_id, node_id, &task, cx),
+        AdapterCommand::HandoffToBrain { request } => app.handoff_to_brain(request),
         AdapterCommand::OpenWorkspaceArtifact {
             workspace_id,
             area_id,

@@ -31,6 +31,7 @@ public enum SettingsNavigation {
             ("agents", ["Agents"], ["Create, organize", "Create, Organize", "Create, organize and"]),
             ("orchestration", ["Orchestration"], ["Install Skill + CLI"]),
             ("mobile", ["Mobile Connection"], ["Connect your iPhone"]),
+            ("brain", ["Norma Brain"], ["Enable background brain"]),
         ]
         for (index, page) in pages.enumerated() {
             try await session.step("进入 \(page.0)") {
