@@ -95,11 +95,28 @@ test('想法清单入口、拖拽等价路径与减少动态效果均已接入',
   assert.ok(order.every((at) => at > 0) && order.every((at, i) => i === 0 || at > order[i - 1]), '栏目顺序：需要你处理、当前项目、想法、其他项目');
   assert.match(html, /\.run-group-body\{[^}]*min-height:0;overflow-y:auto/, '每栏内容区固定高度，内容多了栏内滚动');
   assert.match(html, /data-group="ideas"[\s\S]{0,400}aria-controls="ideas-scroll"/, '想法栏可折叠');
-  assert.match(html, /data-clear-assigned[\s\S]{0,40}清空/, '已指派可清空');
-  assert.match(html, /data-toggle-assigned/, '已指派可折叠');
+  assert.match(html, /data-clear-tab[\s\S]{0,40}清空/, '已指派、已完成分段可清空');
+  assert.match(html, /id="idea-tabs"[^>]*role="tablist"/, '想法栏顶部应有分段按钮');
+  for (const key of ['todo', 'assigned', 'done']) assert.match(html, new RegExp(`\\['${key}','`), `分段 ${key} 应存在`);
+  assert.doesNotMatch(html, /data-toggle-assigned|assignedCollapsed/, '不再用折叠的已指派分组，改为分段切换');
   assert.match(html, /id="idea-newzone"/, '应有“新建智能体”投放区');
   assert.match(html, /setAttribute\('role','menu'\)/,'应有指派菜单作为键盘与触屏路径');
   assert.match(html, /keyEvent\.key==='Escape'[\s\S]{0,120}cancelIdeaDrag/, 'Esc 应取消拖拽');
   assert.match(html, /if\(reduced\.matches\)\{land\(\);return;\}/, '减少动态效果时不播放流星，直接落地');
   assert.match(html, /@media\(prefers-reduced-motion:reduce\)\{\.idea-row\.is-new/, '应有减少动态效果样式');
+});
+
+/// 场景：想法分组新增“已完成”：执行者状态为 done 的想法从“已指派”中分出。
+/// 数据构造：三条想法，一条待办、一条交给 Bella 运行中、一条交给 Bruno 且状态 done。
+/// 执行过程：调用 groups。
+/// 预期结果：待办 1 条、已指派 1 条（Bella）、已完成 1 条（Bruno），互不重叠。
+test('groups 把已完成的想法从已指派中分出', () => {
+  const base = {createdAt: 1, source: 'chat'};
+  const list = [
+    {...base, id: 'a', title: '待办', assignee: null},
+    {...base, id: 'b', title: '运行中', assignee: {id: 'c1', name: 'Bella', state: 'running'}},
+    {...base, id: 'c', title: '做完了', assignee: {id: 'c2', name: 'Bruno', state: 'done'}},
+  ];
+  const { todo, assigned, done } = ideas().groups(list);
+  assert.deepEqual([todo.map((i) => i.id), assigned.map((i) => i.id), done.map((i) => i.id)], [['a'], ['b'], ['c']]);
 });
