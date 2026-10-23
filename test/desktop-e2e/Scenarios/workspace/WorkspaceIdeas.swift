@@ -15,7 +15,7 @@ public enum WorkspaceIdeas {
             if let projectRoot { try? FileManager.default.removeItem(at: projectRoot) }
             if let fakeShell { try? FileManager.default.removeItem(at: fakeShell) }
         }
-        let workspace = "IdeasCheck"
+        let workspace = "IDEASRUN"
         let first = "检查登录方案"
         let second = "整理注册流程"
         let blank = "空白落点想法"
