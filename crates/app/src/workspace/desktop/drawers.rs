@@ -66,6 +66,9 @@ mod orb_motion_tests;
 mod material_tests;
 
 #[cfg(test)]
+#[path = "../../../tests/unit/overview_focus_tests.rs"]
+mod overview_focus_tests;
+#[cfg(test)]
 #[path = "../../../tests/unit/desktop_run_overview_shortcut_tests.rs"]
 mod run_overview_shortcut_tests;
 

@@ -33,6 +33,15 @@ impl MultisoulApp {
     }
 
     /// 统计卡点击：展开目标分组，并把键盘光标放到它的第一行（没有行就只展开）。
+    /// 当前正在显示的那份概览的焦点句柄：悬浮时是悬浮面板，否则是左栏。
+    pub(super) fn visible_overview_focus(&mut self, cx: &mut Context<Self>) -> gpui::FocusHandle {
+        if self.desktop_workspace.drawers.overview_floating {
+            self.overview_float_focus(cx)
+        } else {
+            self.left_overview_focus(cx)
+        }
+    }
+
     pub(super) fn jump_to_overview_group(
         &mut self,
         group: OverviewGroup,
@@ -62,7 +71,7 @@ impl MultisoulApp {
         let target = screen.row(first).and_then(|row| row.prelight.clone());
         self.prelight_overview(target, cx);
         // 焦点回到概览，后续方向键直接在刚跳到的分组里移动。
-        let focus = self.left_overview_focus(cx);
+        let focus = self.visible_overview_focus(cx);
         window.focus(&focus);
         cx.notify();
     }
@@ -118,7 +127,7 @@ impl MultisoulApp {
     ) {
         if overview_action_keeps_overview(&action) {
             self.perform_overview_action(action, window, cx);
-            let focus = self.left_overview_focus(cx);
+            let focus = self.visible_overview_focus(cx);
             window.focus(&focus);
             return;
         }

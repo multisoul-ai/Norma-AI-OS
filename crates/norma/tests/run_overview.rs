@@ -233,6 +233,87 @@ fn status_capsule_counts_follow_the_run_overview() {
     );
 }
 
+/// 场景：当前项目的 presence 缺项时，待处理行与状态分组对“已加载”的判断一致。
+///
+/// 数据构造：presence 列表里没有当前项目 area-current（只有未加载的设计草稿）；
+///   当前项目里 Dee 出错、Bella 有一条可执行审批。
+/// 执行过程：投影概览。
+/// 预期结果：
+///   - 正断言：Dee 的出错行和 Bella 的审批行 loaded 为真（当前项目一律视为已加载），
+///     Bella 仍在运行中、Bruno 在待开始；设计草稿保持未加载。
+///   - 负断言：不能出现“智能体在运行中却被当成未加载、定位按钮被禁用”的矛盾。
+#[test]
+fn current_project_is_loaded_for_attention_rows_even_without_presence() {
+    let view = WorkspaceActivityView::from_facts(&facts());
+    let only_other: Vec<_> = presence()
+        .into_iter()
+        .filter(|item| item.area_id != "area-current")
+        .collect();
+    let overview = project_run_overview("area-current", &view, &[], &only_other);
+    let failed = overview
+        .attention
+        .iter()
+        .find(|row| row.kind == RunOverviewAttentionKind::Failed)
+        .expect("Dee 的出错行");
+    assert!(failed.loaded, "当前项目的出错行必须可定位");
+    let approval = overview
+        .attention
+        .iter()
+        .find(|row| row.kind == RunOverviewAttentionKind::Approval && row.node_id == 1)
+        .expect("Bella 的审批行");
+    assert!(approval.loaded, "当前项目的审批行必须可处理");
+    assert_eq!(
+        overview
+            .running
+            .iter()
+            .map(|a| a.node_id)
+            .collect::<Vec<_>>(),
+        vec![1]
+    );
+    assert_eq!(
+        overview.idle.iter().map(|a| a.node_id).collect::<Vec<_>>(),
+        vec![2]
+    );
+    assert_eq!(overview.unloaded_projects.len(), 1, "设计草稿仍是未加载");
+}
+
+/// 场景：没有开始时间的智能体排在有开始时间的后面；当前项目不在视图里时不崩溃，也没有“当前”智能体。
+///
+/// 数据构造：Bruno 与 Bella 都 thinking，Bruno 没有开始时间，Bella 有；另一次把当前项目设成不存在的 area-missing。
+/// 执行过程：投影概览。
+/// 预期结果：
+///   - 正断言：运行中顺序为 Bella、Bruno；area-missing 作为当前项目时所有已加载智能体的 current 为假。
+///   - 负断言：不存在的当前项目不会让任何智能体被标成 current，也不会丢掉已加载项目的智能体。
+#[test]
+fn agents_without_start_time_sort_last_and_missing_current_project_is_safe() {
+    let mut value = facts_json();
+    value["workspace"]["projects"][0]["agents"][1]["card"]["state"] = json!("thinking");
+    value["workspace"]["projects"][0]["agents"][1]["card"]["task_timing"] = json!(null);
+    let facts: WorkspaceActivityFacts = serde_json::from_value(value).expect("概览事实");
+    let view = WorkspaceActivityView::from_facts(&facts);
+    let overview = project_run_overview("area-current", &view, &[], &presence());
+    assert_eq!(
+        overview
+            .running
+            .iter()
+            .map(|a| a.node_id)
+            .collect::<Vec<_>>(),
+        vec![1, 2],
+        "有开始时间的在前，没有的排最后"
+    );
+    let mut loaded = presence();
+    loaded[1].loaded = true;
+    let missing = project_run_overview("area-missing", &view, &[], &loaded);
+    assert!(
+        missing.running.iter().all(|agent| !agent.current),
+        "不存在的当前项目下没有 current 智能体"
+    );
+    assert!(
+        !missing.running.is_empty(),
+        "已加载项目的智能体不能因此丢失"
+    );
+}
+
 /// 场景：待审核没有任务名时，事项改用审批工具名。
 ///
 /// 数据构造：节点 8 的 task_title 为空，审批工具为 Bash，request_id=req-tool。

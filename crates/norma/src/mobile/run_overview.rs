@@ -119,8 +119,8 @@ pub fn project_run_overview(
     files: &[RunOverviewFile],
     presence: &[RunOverviewProjectPresence],
 ) -> RunOverview {
-    let attention = attention_rows(view, files, presence);
-    let loaded = |area_id: &str| area_id == current_area_id || is_loaded(presence, area_id);
+    let attention = attention_rows(view, files, presence, current_area_id);
+    let loaded = |area_id: &str| is_loaded(presence, current_area_id, area_id);
     let mut running = Vec::new();
     let mut idle = Vec::new();
     for group in view.groups.iter().filter(|group| loaded(&group.area_id)) {
@@ -189,7 +189,10 @@ fn attention_rows(
     view: &WorkspaceActivityView,
     files: &[RunOverviewFile],
     presence: &[RunOverviewProjectPresence],
+    current_area_id: &str,
 ) -> Vec<RunOverviewAttention> {
+    // 与状态分组同一个口径（见 `is_loaded`）。
+    let loaded = |area_id: &str| is_loaded(presence, current_area_id, area_id);
     let mut rows = Vec::new();
     let mut covered = Vec::new();
     for group in &view.groups {
@@ -213,7 +216,7 @@ fn attention_rows(
                 request_id: None,
                 fingerprint: None,
                 paths: Vec::new(),
-                loaded: is_loaded(presence, &agent.area_id),
+                loaded: loaded(&agent.area_id),
             });
         }
     }
@@ -235,7 +238,7 @@ fn attention_rows(
             request_id: item.request_id.clone(),
             fingerprint: None,
             paths: Vec::new(),
-            loaded: is_loaded(presence, &item.area_id),
+            loaded: loaded(&item.area_id),
         });
     }
     for group in &view.groups {
@@ -264,7 +267,7 @@ fn attention_rows(
                 request_id: None,
                 fingerprint: None,
                 paths: Vec::new(),
-                loaded: is_loaded(presence, &agent.area_id),
+                loaded: loaded(&agent.area_id),
             });
         }
     }
@@ -287,7 +290,7 @@ fn attention_rows(
             request_id: None,
             fingerprint: item.fingerprint.clone(),
             paths: paths_for(files, &item.area_id, item.node_id, &item.turn_id),
-            loaded: is_loaded(presence, &item.area_id),
+            loaded: loaded(&item.area_id),
         });
     }
     for file in files {
@@ -327,7 +330,7 @@ fn attention_rows(
             request_id: None,
             fingerprint: Some(file.fingerprint.clone()),
             paths: paths_for(files, &file.area_id, file.node_id, &file.turn_id),
-            loaded: is_loaded(presence, &file.area_id),
+            loaded: loaded(&file.area_id),
         });
     }
     for file in files.iter().filter(|file| !file.path.is_empty()) {
@@ -354,7 +357,7 @@ fn attention_rows(
             request_id: None,
             fingerprint: Some(file.fingerprint.clone()),
             paths: vec![file.path.clone()],
-            loaded: is_loaded(presence, &file.area_id),
+            loaded: loaded(&file.area_id),
         });
     }
     rows
@@ -448,11 +451,17 @@ fn paths_for(files: &[RunOverviewFile], area_id: &str, node_id: u64, turn_id: &s
         .collect()
 }
 
-fn is_loaded(presence: &[RunOverviewProjectPresence], area_id: &str) -> bool {
-    presence
-        .iter()
-        .find(|item| item.area_id == area_id)
-        .is_some_and(|item| item.loaded)
+/// 状态分组与待处理行共用的“已加载”口径：当前项目一律视为已加载，其余项目看是否有会话。
+fn is_loaded(
+    presence: &[RunOverviewProjectPresence],
+    current_area_id: &str,
+    area_id: &str,
+) -> bool {
+    area_id == current_area_id
+        || presence
+            .iter()
+            .find(|item| item.area_id == area_id)
+            .is_some_and(|item| item.loaded)
 }
 
 fn file_name(path: &str) -> &str {
