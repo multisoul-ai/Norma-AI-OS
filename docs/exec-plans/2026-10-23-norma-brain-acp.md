@@ -42,7 +42,7 @@ crates/app/src/settings/brain/             设置页
 
 | 阶段 | 内容 | 验证 | 状态 |
 | --- | --- | --- | --- |
-| 0 实测 | 真实 Claude Code ACP 的首字延迟；hook 等满 120 秒后 Claude Code 是否退回终端权限提示；确认 `claude-code-acp`、`codex-acp` 的包名、安装方式、权限请求字段 | 记录写入 `docs/research/` | 待做 |
+| 0 实测 | 真实 Claude Code ACP 的首字延迟；hook 等满 120 秒后 Claude Code 是否退回终端权限提示；确认 `claude-agent-acp`（包 `@agentclientprotocol/claude-agent-acp`）、`codex-acp` 的包名、安装方式、权限请求字段 | 记录写入 `docs/research/` | 待做 |
 | 1 纯逻辑 | 新建 `brain` crate；`risk.rs`；`event.rs`；`router.rs`（去抖、定时摘要） | `cargo test -p brain` | 风险规则完成，事件与分流待做 |
 | 2 协议 | `norma` 协议与 CLI：`approval list/decide`、`agent stop`、`report`、`agent tail`，托管 skill 同步 | `cargo test -p norma` | 待做 |
 | 3 ACP client | `acp/client.rs`、`acp/gate.rs`、`backend.rs`、`goal.rs`、两条 lane；用脚本化的假适配器进程测试大脑超时、崩溃、拿不准 | `cargo test -p brain` | 待做 |

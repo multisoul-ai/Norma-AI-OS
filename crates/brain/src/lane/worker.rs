@@ -1,0 +1,150 @@
+//! 一条 lane 的工作线程：串行处理 prompt，会话失败时退避重建。
+
+use super::prompt::{primer, Role};
+use crate::acp::client::{AcpError, AcpSession, SessionOptions};
+use crate::acp::gate::Gate;
+use crate::backend::{self, Backend};
+use crate::event::BrainStatus;
+use crate::goal::GoalStore;
+use std::collections::HashSet;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
+
+const MAX_BACKOFF: Duration = Duration::from_secs(60);
+
+pub struct Job {
+    pub text: String,
+    pub approval_id: Option<String>,
+}
+
+pub struct LaneEnv {
+    pub role: Role,
+    pub backend: Backend,
+    pub model: Option<String>,
+    pub gate: Gate,
+    pub goal: Arc<GoalStore>,
+    pub status: Sender<BrainStatus>,
+    pub open: Arc<Mutex<HashSet<String>>>,
+    pub stop: Arc<AtomicBool>,
+    pub env: Vec<(String, String)>,
+    pub prompt_timeout: Duration,
+    pub retry_backoff: Duration,
+    /// 超过这个轮数就重建会话，避免上下文无限增长。
+    pub max_turns: u32,
+}
+
+impl LaneEnv {
+    fn session_options(&self) -> SessionOptions {
+        SessionOptions {
+            program: self.backend.program.clone(),
+            args: self.backend.args.clone(),
+            cwd: self.gate.project_root.clone(),
+            env: self.env.clone(),
+            meta: backend::session_meta(self.backend.kind, self.model.as_deref()),
+            mode: backend::session_mode(self.backend.kind).map(str::to_string),
+            handshake_timeout: Duration::from_secs(60),
+        }
+    }
+
+    fn is_open(&self, id: &str) -> bool {
+        self.open.lock().expect("open lock").contains(id)
+    }
+
+    fn sleep(&self, total: Duration) {
+        let end = Instant::now() + total;
+        while Instant::now() < end && !self.stop.load(Ordering::Relaxed) {
+            std::thread::sleep(Duration::from_millis(25));
+        }
+    }
+
+    fn finish(&self, job: &Job) {
+        if let Some(id) = &job.approval_id {
+            let _ = self
+                .status
+                .send(BrainStatus::ApprovalTurnEnded { id: id.clone() });
+        }
+    }
+}
+
+pub fn run(env: LaneEnv, jobs: Receiver<Job>) {
+    let mut session: Option<AcpSession> = None;
+    let mut turns = 0u32;
+    let mut primed = false;
+    let mut failures = 0u32;
+    while !env.stop.load(Ordering::Relaxed) {
+        let job = match jobs.recv_timeout(Duration::from_millis(100)) {
+            Ok(job) => job,
+            Err(RecvTimeoutError::Timeout) => continue,
+            Err(RecvTimeoutError::Disconnected) => break,
+        };
+        if job
+            .approval_id
+            .as_deref()
+            .is_some_and(|id| !env.is_open(id))
+        {
+            continue;
+        }
+        if session.is_none() || turns >= env.max_turns {
+            session = None;
+            match AcpSession::start(&env.session_options()) {
+                Ok(started) => {
+                    session = Some(started);
+                    turns = 0;
+                    primed = false;
+                    let _ = env.status.send(BrainStatus::Ready);
+                }
+                Err(error) => {
+                    failures += 1;
+                    down(&env, &error);
+                    env.finish(&job);
+                    env.sleep(
+                        (env.retry_backoff * 2u32.saturating_pow(failures - 1)).min(MAX_BACKOFF),
+                    );
+                    continue;
+                }
+            }
+        }
+        let text = if primed {
+            job.text.clone()
+        } else {
+            let bin = env.gate.norma_bin.display().to_string();
+            format!(
+                "{}\n\n{}",
+                primer(env.role, &bin, env.goal.goal().as_deref()),
+                job.text
+            )
+        };
+        let active = session.as_mut().expect("会话刚创建");
+        match active.prompt(&text, &env.gate, &env.stop, env.prompt_timeout) {
+            Ok(reply) => {
+                turns += 1;
+                primed = true;
+                failures = 0;
+                env.goal.append_decision(
+                    &serde_json::json!({"lane": format!("{:?}", env.role), "reply": reply})
+                        .to_string(),
+                );
+            }
+            Err(error) => {
+                session = None;
+                failures += 1;
+                if !matches!(error, AcpError::Cancelled) {
+                    down(&env, &error);
+                }
+                env.finish(&job);
+                env.sleep((env.retry_backoff * 2u32.saturating_pow(failures - 1)).min(MAX_BACKOFF));
+                continue;
+            }
+        }
+        env.finish(&job);
+    }
+}
+
+fn down(env: &LaneEnv, error: &AcpError) {
+    tracing::warn!(%error, "大脑后端不可用");
+    let _ = env.status.send(BrainStatus::BackendDown {
+        reason: error.to_string(),
+    });
+}

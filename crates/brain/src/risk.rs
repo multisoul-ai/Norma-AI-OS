@@ -36,6 +36,24 @@ pub enum RiskClass {
     High(HighRiskReason),
 }
 
+/// 恰好一条、没有管道、重定向和组合的命令，返回其 argv；否则返回 `None`。
+pub fn single_command(command: &str) -> Option<Vec<String>> {
+    let mut segments = shell::parse(command)?;
+    if segments.len() != 1 {
+        return None;
+    }
+    let segment = segments.remove(0);
+    (segment.redirects.is_empty() && !segment.argv.is_empty()).then_some(segment.argv)
+}
+
+pub fn is_secret_path(raw: &str) -> bool {
+    path::is_secret(raw)
+}
+
+pub fn is_inside_project(root: &std::path::Path, raw: &str) -> bool {
+    path::is_inside(root, raw)
+}
+
 const READ_ONLY_TOOLS: [&str; 8] = [
     "Read",
     "Glob",

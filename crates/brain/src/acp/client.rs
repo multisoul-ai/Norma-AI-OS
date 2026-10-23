@@ -1,0 +1,180 @@
+//! 一个 ACP 会话：握手、创建会话、发 prompt，并处理期间的权限请求。
+
+use super::gate::{pick_option, Gate, PermissionRequest, Verdict};
+use super::wire::{Connection, Incoming};
+use serde_json::{json, Value};
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, Instant};
+
+#[derive(Debug, thiserror::Error)]
+pub enum AcpError {
+    #[error("无法启动适配器：{0}")]
+    Spawn(std::io::Error),
+    #[error("适配器已退出")]
+    Closed,
+    #[error("适配器返回错误：{0}")]
+    Remote(String),
+    #[error("等待适配器超时")]
+    Timeout,
+    #[error("已取消")]
+    Cancelled,
+}
+
+#[derive(Clone, Debug)]
+pub struct SessionOptions {
+    pub program: PathBuf,
+    pub args: Vec<String>,
+    pub cwd: PathBuf,
+    pub env: Vec<(String, String)>,
+    /// 放进 `session/new` 的 `_meta`，用于锁定权限模式和禁用写工具。
+    pub meta: Option<Value>,
+    pub mode: Option<String>,
+    pub handshake_timeout: Duration,
+}
+
+pub struct AcpSession {
+    conn: Connection,
+    session_id: String,
+}
+
+impl AcpSession {
+    pub fn start(options: &SessionOptions) -> Result<Self, AcpError> {
+        let mut conn =
+            Connection::spawn(&options.program, &options.args, &options.cwd, &options.env)
+                .map_err(AcpError::Spawn)?;
+        let deadline = Instant::now() + options.handshake_timeout;
+        call(
+            &mut conn,
+            "initialize",
+            json!({"protocolVersion": 1, "clientCapabilities": {"fs": {"readTextFile": false, "writeTextFile": false}, "terminal": false}}),
+            deadline,
+        )?;
+        let mut params = json!({"cwd": options.cwd, "mcpServers": []});
+        if let Some(meta) = &options.meta {
+            params["_meta"] = meta.clone();
+        }
+        let created = call(&mut conn, "session/new", params, deadline)?;
+        let session_id = created["sessionId"]
+            .as_str()
+            .ok_or_else(|| AcpError::Remote("session/new 没有返回 sessionId".into()))?
+            .to_string();
+        if let Some(mode) = &options.mode {
+            call(
+                &mut conn,
+                "session/set_mode",
+                json!({"sessionId": session_id, "modeId": mode}),
+                deadline,
+            )?;
+        }
+        Ok(Self { conn, session_id })
+    }
+
+    /// 发一条 prompt，返回助手的文字回复。期间的权限请求交给 `gate`。
+    pub fn prompt(
+        &mut self,
+        text: &str,
+        gate: &Gate,
+        cancel: &AtomicBool,
+        timeout: Duration,
+    ) -> Result<String, AcpError> {
+        let id = self
+            .conn
+            .send_request(
+                "session/prompt",
+                json!({"sessionId": self.session_id, "prompt": [{"type": "text", "text": text}]}),
+            )
+            .map_err(|_| AcpError::Closed)?;
+        let deadline = Instant::now() + timeout;
+        let mut reply = String::new();
+        loop {
+            if cancel.load(Ordering::Relaxed) {
+                self.abort();
+                return Err(AcpError::Cancelled);
+            }
+            if Instant::now() >= deadline {
+                self.abort();
+                return Err(AcpError::Timeout);
+            }
+            let incoming = match self.conn.recv(Duration::from_millis(100)) {
+                Ok(incoming) => incoming,
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
+                Err(_) => return Err(AcpError::Closed),
+            };
+            match incoming {
+                Incoming::Response { id: rid, result } if rid == id => {
+                    return result
+                        .map(|_| reply)
+                        .map_err(|e| AcpError::Remote(e.to_string()));
+                }
+                Incoming::Notification { method, params } if method == "session/update" => {
+                    let update = &params["update"];
+                    if update["sessionUpdate"] == "agent_message_chunk" {
+                        reply.push_str(update["content"]["text"].as_str().unwrap_or_default());
+                    }
+                }
+                Incoming::Request { id, method, params } => {
+                    self.answer(&id, &method, &params, gate)?;
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn answer(
+        &mut self,
+        id: &Value,
+        method: &str,
+        params: &Value,
+        gate: &Gate,
+    ) -> Result<(), AcpError> {
+        let sent = if method == "session/request_permission" {
+            let verdict = gate.judge(&PermissionRequest::from_params(params));
+            if let Verdict::Reject(reason) = &verdict {
+                tracing::info!(%reason, "大脑的权限请求被拒绝");
+            }
+            let outcome = match pick_option(params, &verdict) {
+                Some(option_id) => json!({"outcome": "selected", "optionId": option_id}),
+                None => json!({"outcome": "cancelled"}),
+            };
+            self.conn.respond(id, json!({"outcome": outcome}))
+        } else {
+            self.conn.respond_error(id, -32601, "unsupported")
+        };
+        sent.map_err(|_| AcpError::Closed)
+    }
+
+    fn abort(&mut self) {
+        let _ = self
+            .conn
+            .notify("session/cancel", json!({"sessionId": self.session_id}));
+        self.conn.kill();
+    }
+}
+
+fn call(
+    conn: &mut Connection,
+    method: &str,
+    params: Value,
+    deadline: Instant,
+) -> Result<Value, AcpError> {
+    let id = conn
+        .send_request(method, params)
+        .map_err(|_| AcpError::Closed)?;
+    loop {
+        let wait = deadline.saturating_duration_since(Instant::now());
+        if wait.is_zero() {
+            return Err(AcpError::Timeout);
+        }
+        match conn.recv(wait.min(Duration::from_millis(200))) {
+            Ok(Incoming::Response { id: rid, result }) if rid == id => {
+                return result.map_err(|e| AcpError::Remote(e.to_string()));
+            }
+            Ok(Incoming::Request { id, .. }) => {
+                let _ = conn.respond_error(&id, -32601, "unsupported");
+            }
+            Ok(_) | Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+            Err(_) => return Err(AcpError::Closed),
+        }
+    }
+}
