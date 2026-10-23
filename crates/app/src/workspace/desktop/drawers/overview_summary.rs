@@ -6,9 +6,13 @@
 use super::super::overview_layout::OverviewGroup;
 use super::super::overview_rows::overview_feedback;
 use crate::app::MultisoulApp;
-use gpui::{div, prelude::*, px, rgba, Context, Div, ElementId};
+use gpui::{div, prelude::*, px, rgba, Context, Div, ElementId, KeyDownEvent};
 use ui::component::StyledExt;
 use ui::icons::with_alpha;
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/overview_summary_tests.rs"]
+mod tests;
 
 // 卡片内容：上下内边距 10 + 数字行 28 + 间隙 2 + 标签行 16 = 66。行高显式给定，不依赖默认行高，
 // 否则 22px 的数字与 12px 的标签会超出卡片高度而贴边。
@@ -23,6 +27,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) -> Div {
         let feedback = overview_feedback(self.desktop_theme());
+        let focus_ring = feedback.focus;
         // （分组，标签，底色，数字色）：底色按类型固定，数量为 0 时只把数字调淡，卡片不变灰。
         let cards = [
             (
@@ -60,14 +65,30 @@ impl MultisoulApp {
                             .flex_col()
                             .gap(px(2.0))
                             .rounded(px(12.0))
+                            .border_1()
+                            .border_color(rgba(0x0000_0000))
                             .bg(rgba(tint))
                             .cursor_pointer()
+                            // 只给 id 与 tab_index：GPUI 会在元素状态里自动创建带 tab stop 的焦点句柄。
+                            .tab_index(0)
                             .hover(move |style| style.bg(rgba(hover)))
                             .active(move |style| style.bg(rgba(pressed)))
-                            .on_click(cx.listener(move |app, _, _, cx| {
+                            .focus(move |style| style.border_color(rgba(focus_ring)))
+                            .on_click(cx.listener(move |app, _, window, cx| {
                                 cx.stop_propagation();
-                                app.jump_to_overview_group(group, cx);
+                                app.jump_to_overview_group(group, window, cx);
                             }))
+                            .on_key_down(cx.listener(
+                                move |app, event: &KeyDownEvent, window, cx| {
+                                    if summary_key_activates(
+                                        event.keystroke.key.as_str(),
+                                        event.keystroke.modifiers.modified(),
+                                    ) {
+                                        cx.stop_propagation();
+                                        app.jump_to_overview_group(group, window, cx);
+                                    }
+                                },
+                            ))
                             .child(
                                 div()
                                     .h(px(NUMBER_LINE))
@@ -93,4 +114,9 @@ impl MultisoulApp {
                     }),
             )
     }
+}
+
+/// 统计卡的键盘激活：回车和空格与点击等价；带修饰键的留给快捷键，其余按键交给焦点移动与概览导航。
+pub(super) fn summary_key_activates(key: &str, modified: bool) -> bool {
+    !modified && matches!(key, "enter" | "space")
 }

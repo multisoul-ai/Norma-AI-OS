@@ -116,9 +116,32 @@ public enum WorkspaceRunOverviewAgents {
             return overview.summary
         }
 
+        try await session.step("键盘：Tab 依次到达统计卡，回车跳到分组并聚焦第一行，↓ 继续在分组内移动") {
+            let frame = try await session.capture()
+            guard let title = frame.pick(["运行概览"], .top) else {
+                throw E2EError.product("找不到概览标题，无法把焦点放进抽屉：\(frame.summary)")
+            }
+            try await session.click(local: title.center, on: frame)
+            try await Task.sleep(nanoseconds: 400_000_000)
+            // Tab 顺序：图钉 → 三张统计卡。第四下落在「待开始」卡上。
+            for _ in 1...4 {
+                try await session.shortcut(key: 48, modifiers: [])
+                try await Task.sleep(nanoseconds: 300_000_000)
+            }
+            try session.save(try await session.capture(), "03-keyboard-card-focused.png")
+            try await session.shortcut(key: 36, modifiers: [])
+            try await Task.sleep(nanoseconds: 700_000_000)
+            try session.save(try await session.capture(), "04-keyboard-jumped.png")
+            try await session.shortcut(key: 125, modifiers: [])
+            try await Task.sleep(nanoseconds: 500_000_000)
+            let moved = try await session.capture()
+            try session.save(moved, "05-keyboard-moved.png")
+            return moved.summary
+        }
+
         try await session.step("想法与运行中同时展开时，智能体行文字不重叠") {
             let overview = try await session.capture()
-            try session.save(overview, "03-both-expanded.png")
+            try session.save(overview, "06-both-expanded.png")
             guard overview.contains("Bella") else {
                 throw E2EError.product("运行中没有智能体，无法验证重叠：\(overview.summary)")
             }

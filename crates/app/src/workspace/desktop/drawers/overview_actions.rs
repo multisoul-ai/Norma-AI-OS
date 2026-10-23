@@ -33,7 +33,12 @@ impl MultisoulApp {
     }
 
     /// 统计卡点击：展开目标分组，并把键盘光标放到它的第一行（没有行就只展开）。
-    pub(super) fn jump_to_overview_group(&mut self, group: OverviewGroup, cx: &mut Context<Self>) {
+    pub(super) fn jump_to_overview_group(
+        &mut self,
+        group: OverviewGroup,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.update_overview_collapse(|collapse| collapse.reveal(group), cx);
         let index = match group {
             OverviewGroup::Attention => 0,
@@ -56,6 +61,9 @@ impl MultisoulApp {
         self.desktop_workspace.overview_cursor = Some(first);
         let target = screen.row(first).and_then(|row| row.prelight.clone());
         self.prelight_overview(target, cx);
+        // 焦点回到概览，后续方向键直接在刚跳到的分组里移动。
+        let focus = self.left_overview_focus(cx);
+        window.focus(&focus);
         cx.notify();
     }
 
