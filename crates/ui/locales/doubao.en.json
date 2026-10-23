@@ -1,4 +1,5 @@
 {
+  "doubao.listen_failed": "Listening failed",
   "doubao.auth_failed": "Ark API Key failed ASR 2.0 authentication; check the key and resource permissions",
   "doubao.resource_denied": "The Ark account does not have access to ASR 2.0 resources",
   "doubao.connection_failed": "Could not connect to Doubao ASR 2.0; check the network and resource permissions",

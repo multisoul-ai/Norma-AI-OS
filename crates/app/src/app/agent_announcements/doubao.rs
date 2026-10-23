@@ -15,7 +15,10 @@ impl MultisoulApp {
         let Some(sender) = self.doubao.reports.as_ref() else {
             return;
         };
-        let Some(announcement) = self.agent_announcements.take_next_ready() else {
+        let Some((announcement, queued_at)) = self
+            .agent_announcements
+            .take_ready_batch(std::time::Instant::now())
+        else {
             return;
         };
         let (report, completed) = DoubaoReport::new(announcement.text.clone());
@@ -25,6 +28,7 @@ impl MultisoulApp {
         self.agent_announcement_playback.phase = AgentAnnouncementPlaybackPhase::Reporting {
             announcement,
             cancellation: report.cancellation.clone(),
+            queued_at,
         };
         let _ = sender.try_send(report);
         cx.spawn(async move |this, cx| {
@@ -37,7 +41,12 @@ impl MultisoulApp {
                     &mut app.agent_announcement_playback.phase,
                     AgentAnnouncementPlaybackPhase::Idle,
                 );
-                let AgentAnnouncementPlaybackPhase::Reporting { announcement, .. } = phase else {
+                let AgentAnnouncementPlaybackPhase::Reporting {
+                    announcement,
+                    queued_at,
+                    ..
+                } = phase
+                else {
                     return;
                 };
                 tracing::info!(
@@ -55,6 +64,8 @@ impl MultisoulApp {
                         .push_front(PendingAgentAnnouncement {
                             announcement,
                             waiting_for_tts: true,
+                            deferred: true,
+                            queued_at,
                         });
                 } else {
                     app.start_next_agent_announcement(cx);

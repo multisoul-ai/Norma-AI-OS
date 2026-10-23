@@ -88,15 +88,20 @@ test('新智能体名字避让、时间文案与存储容错', () => {
 /// 场景：想法清单作为运行概览里的一栏接入（不再有独立标签），并提供拖拽以外的等价路径。
 /// 数据构造：读取页面源码。
 /// 执行过程：检查标签、面板、新建智能体投放区、指派菜单与键盘/减少动态效果分支。
-/// 预期结果：只剩对话/运行概览两个标签；想法栏位于当前项目与其他项目之间且每栏有固定高度的滚动内容区；投放区存在；菜单、Esc 取消拖拽、减少动态效果时跳过流星。
+/// 预期结果：左栏不再有对话标签；想法分三段切换；想法栏位于智能体状态分组之后且每栏有固定高度的滚动内容区；投放区存在；菜单、Esc 取消拖拽、减少动态效果时跳过流星。
 test('想法清单入口、拖拽等价路径与减少动态效果均已接入', () => {
   assert.doesNotMatch(html, /id="drawer-tab-ideas"/, '想法不再是独立标签');
-  const order = ['run-group-attention', 'run-group-current', 'id="ideas-body"', 'run-group-other'].map((key) => html.indexOf(key));
-  assert.ok(order.every((at) => at > 0) && order.every((at, i) => i === 0 || at > order[i - 1]), '栏目顺序：需要你处理、当前项目、想法、其他项目');
+  const order = ['run-group-attention', 'run-group-running', 'run-group-idle', 'id="ideas-body"'].map((key) => html.indexOf(key));
+  assert.ok(order.every((at) => at > 0) && order.every((at, i) => i === 0 || at > order[i - 1]), '栏目顺序：需要你处理、运行中、待开始、想法');
   assert.match(html, /\.run-group-body\{[^}]*min-height:0;overflow-y:auto/, '每栏内容区固定高度，内容多了栏内滚动');
   assert.match(html, /data-group="ideas"[\s\S]{0,400}aria-controls="ideas-scroll"/, '想法栏可折叠');
-  assert.match(html, /data-clear-assigned[\s\S]{0,40}清空/, '已指派可清空');
-  assert.match(html, /data-toggle-assigned/, '已指派可折叠');
+  assert.match(html, /data-idea-tab="todo"[\s\S]*?data-idea-tab="assigned"[\s\S]*?data-idea-tab="done"/, '想法栏顶部为 待办 / 已指派 / 已完成 分段切换');
+  assert.match(html, /role="tablist" aria-label="想法分类"/, '分段切换是 tablist');
+  assert.match(html, /data-clear-assigned[\s\S]{0,200}data-clear-done|clearRow\('已交给智能体的想法','data-clear-assigned'\)/, '已指派可清空');
+  assert.match(html, /clearRow\('已完成的想法','data-clear-done'\)/, '已完成可清空');
+  assert.doesNotMatch(html, /data-toggle-assigned/, '分段取代了已指派折叠');
+  assert.match(html, /还没有待办想法[\s\S]*?还没有指派出去的想法[\s\S]*?还没有完成的想法/, '每个分段有各自的空状态');
+  assert.match(html, /\.idea-add:focus-within \.idea-hint\{opacity:1\}/, '输入框聚焦时才显示提示行');
   assert.match(html, /id="idea-newzone"/, '应有“新建智能体”投放区');
   assert.match(html, /setAttribute\('role','menu'\)/,'应有指派菜单作为键盘与触屏路径');
   assert.match(html, /keyEvent\.key==='Escape'[\s\S]{0,120}cancelIdeaDrag/, 'Esc 应取消拖拽');

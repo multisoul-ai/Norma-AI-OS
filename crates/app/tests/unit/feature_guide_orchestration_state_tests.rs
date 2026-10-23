@@ -34,8 +34,8 @@ fn feature_guide_orchestration_is_first_and_persists_stable_progress() {
 
     assert_eq!(
         FeatureGuideTopic::ALL.len(),
-        6,
-        "加入两段官网 Demo 后 Feature Guide 必须严格包含 6 项，不能遗漏或重复主题"
+        7,
+        "加入快捷键速查页后 Feature Guide 必须严格包含 7 项，不能遗漏或重复主题"
     );
     assert_eq!(
         guide.topic,
@@ -45,7 +45,7 @@ fn feature_guide_orchestration_is_first_and_persists_stable_progress() {
     assert_eq!(
         FeatureGuideTopic::ALL.first().copied(),
         Some(FeatureGuideTopic::AgentOrchestration),
-        "Agent Orchestration 必须位于 ALL 第 1 项，进度才能显示 1 / 6"
+        "Agent Orchestration 必须位于 ALL 第 1 项，进度才能显示 1 / 7"
     );
     assert_eq!(
         FeatureGuideTopic::ALL.get(1).copied(),
@@ -65,12 +65,27 @@ fn feature_guide_orchestration_is_first_and_persists_stable_progress() {
     assert_eq!(
         FeatureGuideTopic::ALL.get(5).copied(),
         Some(FeatureGuideTopic::AgentNotifications),
-        "现有 Agent Notifications 必须保留为第 6 项和最终完成页"
+        "Agent Notifications 必须保留为第 6 项"
     );
     assert_eq!(
-        FeatureGuideTopic::ALL.get(6),
+        FeatureGuideTopic::ALL.get(6).copied(),
+        Some(FeatureGuideTopic::ShortcutCheatSheet),
+        "快捷键速查必须是第 7 项和最终完成页"
+    );
+    assert_eq!(
+        FeatureGuideTopic::ALL.get(7),
         None,
-        "Feature Guide 不得渲染或推进到不存在的第 7 项"
+        "Feature Guide 不得渲染或推进到不存在的第 8 项"
+    );
+    assert!(
+        FeatureGuideTopic::ShortcutCheatSheet.is_last()
+            && !FeatureGuideTopic::AgentNotifications.is_last(),
+        "只有速查页是最后一页，Next 才能变为开始使用"
+    );
+    assert_eq!(
+        FeatureGuideState::load(Some("in_progress"), Some("shortcut_cheat_sheet"), true).topic,
+        FeatureGuideTopic::ShortcutCheatSheet,
+        "速查页必须用稳定的 shortcut_cheat_sheet 值恢复"
     );
 
     guide.next_topic();

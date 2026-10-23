@@ -50,17 +50,23 @@ pub(crate) enum FeatureGuideTopic {
     LiveNodeShortcuts,
     WorkspaceLayouts,
     AgentNotifications,
+    ShortcutCheatSheet,
 }
 
 impl FeatureGuideTopic {
-    pub(crate) const ALL: [Self; 6] = [
+    pub(crate) const ALL: [Self; 7] = [
         Self::AgentOrchestration,
         Self::VoiceGroupControl,
         Self::AgentCollaboration,
         Self::LiveNodeShortcuts,
         Self::WorkspaceLayouts,
         Self::AgentNotifications,
+        Self::ShortcutCheatSheet,
     ];
+
+    pub(crate) fn is_last(self) -> bool {
+        self == Self::ShortcutCheatSheet
+    }
 
     fn from_saved(value: &str) -> Option<Self> {
         match value {
@@ -70,6 +76,7 @@ impl FeatureGuideTopic {
             "live_node_shortcuts" => Some(Self::LiveNodeShortcuts),
             "workspace_layouts" => Some(Self::WorkspaceLayouts),
             "agent_notifications" => Some(Self::AgentNotifications),
+            "shortcut_cheat_sheet" => Some(Self::ShortcutCheatSheet),
             _ => None,
         }
     }
@@ -282,6 +289,7 @@ impl FeatureGuideState {
             FeatureGuideTopic::LiveNodeShortcuts => "live_node_shortcuts",
             FeatureGuideTopic::WorkspaceLayouts => "workspace_layouts",
             FeatureGuideTopic::AgentNotifications => "agent_notifications",
+            FeatureGuideTopic::ShortcutCheatSheet => "shortcut_cheat_sheet",
         }
     }
 }

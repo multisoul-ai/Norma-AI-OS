@@ -127,12 +127,11 @@ fn voice_context_refreshes_cards_between_requests() {
     app.update(cx, |app, cx| {
         app.enter_canvas_for_test(workspace.path(), cx)
     });
-    let context = cx.update(|window, app_cx| {
+    let context = cx.update(|_, app_cx| {
         app.update(app_cx, |app, cx| {
             app.start_doubao_context_requests(
                 app.doubao.generation,
                 Some(workspace.path().display().to_string()),
-                window,
                 cx,
             )
         })
@@ -232,12 +231,11 @@ fn voice_context_refreshes_completed_reply_between_requests() {
     app.update(cx, |app, _| {
         app.conversation_tail_memory.load_stored(vec![tail.clone()]);
     });
-    let context = cx.update(|window, app_cx| {
+    let context = cx.update(|_, app_cx| {
         app.update(app_cx, |app, cx| {
             app.start_doubao_context_requests(
                 app.doubao.generation,
                 Some(workspace.path().display().to_string()),
-                window,
                 cx,
             )
         })
@@ -301,12 +299,11 @@ fn voice_context_rejects_requests_after_call_ends() {
     app.update(cx, |app, cx| {
         app.enter_canvas_for_test(workspace.path(), cx)
     });
-    let context = cx.update(|window, app_cx| {
+    let context = cx.update(|_, app_cx| {
         app.update(app_cx, |app, cx| {
             app.start_doubao_context_requests(
                 app.doubao.generation,
                 Some(workspace.path().display().to_string()),
-                window,
                 cx,
             )
         })
@@ -350,12 +347,11 @@ fn voice_context_rejects_requests_after_project_changes() {
     app.update(cx, |app, cx| {
         app.enter_canvas_for_test(workspace.path(), cx)
     });
-    let context = cx.update(|window, app_cx| {
+    let context = cx.update(|_, app_cx| {
         app.update(app_cx, |app, cx| {
             app.start_doubao_context_requests(
                 app.doubao.generation,
                 Some(workspace.path().display().to_string()),
-                window,
                 cx,
             )
         })

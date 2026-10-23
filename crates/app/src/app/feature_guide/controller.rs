@@ -51,7 +51,7 @@ impl MultisoulApp {
                 "up" => self.previous_feature_guide_topic(cx),
                 "down" => self.next_feature_guide_topic(cx),
                 "enter" | "space" if self.feature_guide_primary_focus.is_focused(window) => {
-                    if self.feature_guide.topic == FeatureGuideTopic::AgentNotifications {
+                    if self.feature_guide.topic.is_last() {
                         self.complete_feature_guide(cx);
                     } else {
                         self.next_feature_guide_topic(cx);

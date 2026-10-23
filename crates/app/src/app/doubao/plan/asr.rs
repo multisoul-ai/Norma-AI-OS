@@ -13,7 +13,11 @@ use super::{plan_url, request_id};
 #[cfg(test)]
 #[path = "../../../../tests/unit/doubao_hold_asr_tests.rs"]
 mod hold_tests;
+mod listen;
 mod protocol;
+#[cfg(test)]
+use listen::listen_recordings_at;
+pub(in crate::app::doubao) use listen::{listen_continuous, listen_recordings};
 pub(crate) use protocol::decode;
 
 pub(in crate::app::doubao) enum SpeechEvent {
@@ -23,6 +27,8 @@ pub(in crate::app::doubao) enum SpeechEvent {
     HeldReady(u64),
     HeldFinal(u64, String),
     Final(String),
+    /// 一次收音（按住录音或持续聆听）结束；`Some` 表示识别或麦克风失败。
+    ListenEnded(u64, Option<LocalizedText>),
 }
 
 pub(crate) fn encode_start() -> Result<Vec<u8>, LocalizedText> {
@@ -63,7 +69,8 @@ fn encode(kind: u8, sequence: i32, data: &[u8]) -> Result<Vec<u8>, LocalizedText
     Ok(frame)
 }
 
-pub(super) async fn run(
+#[cfg(test)]
+async fn run(
     key: String,
     events: Sender<SpeechEvent>,
     cancellation: CancellationToken,
@@ -74,67 +81,6 @@ pub(super) async fn run(
         "wss://openspeech.bytedance.com/api/v3/plan/sauc/bigmodel_async",
     );
     run_at(url, key, events, cancellation, input).await
-}
-
-pub(super) async fn listen_recordings(
-    key: String,
-    events: Sender<SpeechEvent>,
-    cancellation: CancellationToken,
-    recordings: async_channel::Receiver<super::super::input::RecordingInput>,
-) -> Result<(), LocalizedText> {
-    let url = plan_url(
-        "NORMA_DOUBAO_ASR_URL",
-        "wss://openspeech.bytedance.com/api/v3/plan/sauc/bigmodel_async",
-    );
-    listen_recordings_at(url, key, events, cancellation, recordings).await
-}
-
-async fn listen_recordings_at(
-    url: String,
-    key: String,
-    events: Sender<SpeechEvent>,
-    cancellation: CancellationToken,
-    recordings: async_channel::Receiver<super::super::input::RecordingInput>,
-) -> Result<(), LocalizedText> {
-    let mut next = None;
-    loop {
-        let input = if let Some(input) = next.take() {
-            input
-        } else {
-            tokio::select! {
-                biased;
-                _ = cancellation.cancelled() => return Ok(()),
-                input = recordings.recv() => match input { Ok(input) => input, Err(_) => return Ok(()) },
-            }
-        };
-        let token = cancellation.child_token();
-        let request = run_at(
-            url.clone(),
-            key.clone(),
-            events.clone(),
-            token.clone(),
-            Some(input),
-        );
-        tokio::pin!(request);
-        next = tokio::select! {
-            // 新输入优先于旧请求完成，旧连接错误不能终止已开始的新录音。
-            biased;
-            _ = cancellation.cancelled() => {
-                token.cancel();
-                let _ = request.await;
-                return Ok(());
-            },
-            input = recordings.recv() => {
-                token.cancel();
-                let _ = request.await;
-                match input { Ok(input) => Some(input), Err(_) => return Ok(()) }
-            },
-            result = &mut request => {
-                result?;
-                None
-            },
-        };
-    }
 }
 
 async fn run_at(

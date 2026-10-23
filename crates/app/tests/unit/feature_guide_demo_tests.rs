@@ -22,15 +22,15 @@ use std::sync::{
 ///   3. 读取第 3 项 Agent 协作的正文、视频与海报路径。
 ///
 /// 预期结果：
-///   - 正断言：编排保持第 1 项，语音群控与 Agent 协作严格位于第 2、3 项，总数为 6。
+///   - 正断言：编排保持第 1 项，语音群控与 Agent 协作严格位于第 2、3 项，总数为 7。
 ///   - 正断言：两项新 Demo 的标题、正文及 MP4/WebP 路径与官网数据一致。
 ///   - 负断言：旧 Live Node Shortcuts 不得继续占据第 2 项。
 #[test]
 fn new_voice_and_agent_collaboration_demos_are_second_and_third() {
     assert_eq!(
         FeatureGuideTopic::ALL.len(),
-        6,
-        "Feature Guide 必须包含编排首屏、两段新 Demo 和原有三段 Demo，共 6 项"
+        7,
+        "Feature Guide 必须包含编排首屏、两段新 Demo、原有三段 Demo 和快捷键速查页，共 7 项"
     );
     assert_eq!(
         FeatureGuideTopic::ALL[0].title(),
@@ -106,8 +106,8 @@ fn new_voice_and_agent_collaboration_demos_are_second_and_third() {
 fn existing_feature_guide_topics_remain_after_new_website_product_demos() {
     assert_eq!(
         FeatureGuideTopic::ALL.len(),
-        6,
-        "Feature Guide 应包含 1 个编排首屏和官网的 5 段产品 Demo"
+        7,
+        "Feature Guide 应包含 1 个编排首屏、官网的 5 段产品 Demo 和 1 页快捷键速查"
     );
     let orchestration = FeatureGuideTopic::ALL[0];
     let shortcuts = FeatureGuideTopic::ALL[3];

@@ -57,8 +57,25 @@ public enum WorkspaceFeatureGuide {
                 local: CGPoint(x: Double(before.windowFrame.width) - 171, y: Double(before.windowFrame.height) - 54),
                 on: before
             )
-            let frame = try await session.wait(Expectation(anyOf: ["2 / 6", "2/6"], timeout: 6))
+            let frame = try await session.wait(Expectation(anyOf: ["2 / 7", "2/7"], timeout: 6))
             try session.save(frame, "02-next.png")
+            return "已截图"
+        }
+
+        try await session.step("方向键翻到最后一页：快捷键速查") {
+            for _ in 0..<5 {
+                try await session.shortcut(key: 125, modifiers: [])
+                try await Task.sleep(nanoseconds: 350_000_000)
+            }
+            // 页码小字 OCR 会把 "7 / 7" 读成 "717"，改用最后一页独有的主按钮与标题。
+            _ = try await session.wait(Expectation(allOf: ["Get Started", "Cheat Sheet"], timeout: 6))
+            // 页面切换有交叉淡入，等落稳后再截图。
+            try await Task.sleep(nanoseconds: 900_000_000)
+            let settled = try await session.capture()
+            for word in ["Workspaces", "Projects", "Dispatch ideas"] where !settled.contains(word) {
+                throw E2EError.product("速查页缺少分组「\(word)」。可见：\(settled.summary)")
+            }
+            try session.save(settled, "02b-cheat-sheet.png")
             return "已截图"
         }
 

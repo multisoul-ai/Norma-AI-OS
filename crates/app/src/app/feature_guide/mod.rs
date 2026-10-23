@@ -1,3 +1,4 @@
+mod cheat_sheet;
 mod content;
 mod controller;
 mod controls;
@@ -28,6 +29,10 @@ mod tests;
 #[cfg(test)]
 #[path = "../../../tests/unit/feature_guide_demo_tests.rs"]
 mod demo_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/feature_guide_cheat_sheet_tests.rs"]
+mod cheat_sheet_tests;
 
 #[cfg(test)]
 #[path = "../../../tests/unit/feature_guide_orchestration_state_tests.rs"]

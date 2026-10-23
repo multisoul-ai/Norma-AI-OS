@@ -163,7 +163,8 @@ impl MultisoulApp {
     }
 
     pub(crate) fn detach_project_window(&mut self, cx: &mut Context<Self>) {
-        self.stop_doubao_voice(cx);
+        // 豆包播报通道随后台项目常驻；只停止收音。
+        self.stop_doubao_listening(cx);
         self.stop_gpt_live_voice(cx);
         self.project_window = None;
         self.background_project = true;

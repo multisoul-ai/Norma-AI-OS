@@ -1,4 +1,5 @@
 mod header;
+use super::cheat_sheet::render_cheat_sheet;
 use super::controls::{guide_button, is_unmodified_activation, GuideButtonKind};
 use super::demo::{render_demo, FeatureGuideDemo};
 use super::orchestration::{guide_navigation_badge, render_orchestration_setup};
@@ -327,6 +328,8 @@ impl MultisoulApp {
             )
             .child(if topic == FeatureGuideTopic::AgentOrchestration {
                 render_orchestration_setup(self, compact, theme, palette, cx).into_any_element()
+            } else if topic == FeatureGuideTopic::ShortcutCheatSheet {
+                render_cheat_sheet(compact, theme, palette)
             } else {
                 render_demo(FeatureGuideDemo {
                     topic,
@@ -355,7 +358,8 @@ impl MultisoulApp {
         window: &Window,
         cx: &mut Context<Self>,
     ) -> Div {
-        let is_last = topic == FeatureGuideTopic::AgentNotifications;
+        let is_last = topic.is_last();
+        let has_demo = topic.video_asset().is_some();
         let action_label = if is_last {
             ui::i18n::text("guide.get_started")
         } else {
@@ -383,37 +387,30 @@ impl MultisoulApp {
                     .flex()
                     .items_center()
                     .gap(px(10.0))
-                    .when(
-                        topic != FeatureGuideTopic::AgentOrchestration
-                            && !self.motion.reduce_motion,
-                        |actions| {
-                            actions.child(guide_button(
-                                GuideButtonKind::Playback,
-                                if self.feature_guide_media.playing {
-                                    ui::i18n::text("guide.pause_demo")
-                                } else {
-                                    ui::i18n::text("guide.play_demo")
-                                },
-                                theme,
-                                palette,
-                                cx,
-                                |app, cx| app.toggle_feature_guide_demo_playback(cx),
-                            ))
-                        },
-                    )
-                    .when(
-                        topic != FeatureGuideTopic::AgentOrchestration && self.motion.reduce_motion,
-                        |actions| {
-                            actions.child(
-                                div()
-                                    .debug_selector(|| "feature-guide-reduced-motion".to_string())
-                                    .px(px(10.0))
-                                    .text_size(px(11.0))
-                                    .text_color(rgba(palette.metadata_text))
-                                    .child(ui::i18n::text("guide.reduced_motion")),
-                            )
-                        },
-                    )
+                    .when(has_demo && !self.motion.reduce_motion, |actions| {
+                        actions.child(guide_button(
+                            GuideButtonKind::Playback,
+                            if self.feature_guide_media.playing {
+                                ui::i18n::text("guide.pause_demo")
+                            } else {
+                                ui::i18n::text("guide.play_demo")
+                            },
+                            theme,
+                            palette,
+                            cx,
+                            |app, cx| app.toggle_feature_guide_demo_playback(cx),
+                        ))
+                    })
+                    .when(has_demo && self.motion.reduce_motion, |actions| {
+                        actions.child(
+                            div()
+                                .debug_selector(|| "feature-guide-reduced-motion".to_string())
+                                .px(px(10.0))
+                                .text_size(px(11.0))
+                                .text_color(rgba(palette.metadata_text))
+                                .child(ui::i18n::text("guide.reduced_motion")),
+                        )
+                    })
                     .child(
                         div()
                             .track_focus(&self.feature_guide_primary_focus)

@@ -11,6 +11,7 @@ impl FeatureGuideTopic {
             Self::LiveNodeShortcuts => ui::i18n::text("guide.jump_to_any_live_node"),
             Self::WorkspaceLayouts => ui::i18n::text("guide.reflow_your_workspace"),
             Self::AgentNotifications => ui::i18n::text("guide.know_when_an_agent_needs_you"),
+            Self::ShortcutCheatSheet => ui::i18n::text("guide.shortcut_cheat_sheet_title"),
         }
     }
 
@@ -22,6 +23,7 @@ impl FeatureGuideTopic {
             Self::LiveNodeShortcuts => ui::i18n::text("guide.live_node_shortcuts"),
             Self::WorkspaceLayouts => ui::i18n::text("guide.workspace_layouts"),
             Self::AgentNotifications => ui::i18n::text("guide.agent_notifications"),
+            Self::ShortcutCheatSheet => ui::i18n::text("guide.shortcut_cheat_sheet"),
         }
     }
 
@@ -33,6 +35,7 @@ impl FeatureGuideTopic {
             Self::LiveNodeShortcuts => ui::i18n::text("guide.live_node_shortcuts_2"),
             Self::WorkspaceLayouts => ui::i18n::text("guide.spatial_workspace"),
             Self::AgentNotifications => ui::i18n::text("guide.agent_notifications_2"),
+            Self::ShortcutCheatSheet => ui::i18n::text("guide.shortcut_cheat_sheet_eyebrow"),
         }
     }
 
@@ -44,12 +47,13 @@ impl FeatureGuideTopic {
             Self::LiveNodeShortcuts => ui::i18n::text("guide.press_1_6_to_bring_a_specific_live_node_forward_instantly"),
             Self::WorkspaceLayouts => ui::i18n::text("guide.press_m_to_switch_between_focused_and_overview_layouts_every_running"),
             Self::AgentNotifications => ui::i18n::text("guide.completion_and_attention_indicators_appear_directly_on_the_relevant_live_node"),
+            Self::ShortcutCheatSheet => ui::i18n::text("guide.shortcut_cheat_sheet_summary"),
         }
     }
 
     pub(super) fn video_asset(self) -> Option<&'static str> {
         match self {
-            Self::AgentOrchestration => None,
+            Self::AgentOrchestration | Self::ShortcutCheatSheet => None,
             Self::VoiceGroupControl => Some("feature-guide/demo-voice-command.mp4"),
             Self::AgentCollaboration => Some("feature-guide/demo-agent-collaboration.mp4"),
             Self::LiveNodeShortcuts => Some("feature-guide/demo-live-node-shortcuts.mp4"),
@@ -60,7 +64,7 @@ impl FeatureGuideTopic {
 
     pub(super) fn poster_asset(self) -> Option<&'static str> {
         match self {
-            Self::AgentOrchestration => None,
+            Self::AgentOrchestration | Self::ShortcutCheatSheet => None,
             Self::VoiceGroupControl => Some("feature-guide/demo-voice-command.webp"),
             Self::AgentCollaboration => Some("feature-guide/demo-agent-collaboration.webp"),
             Self::LiveNodeShortcuts => Some("feature-guide/demo-live-node-shortcuts.webp"),

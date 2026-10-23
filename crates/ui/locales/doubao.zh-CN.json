@@ -1,4 +1,5 @@
 {
+  "doubao.listen_failed": "收音失败",
   "doubao.auth_failed": "方舟 API Key 未通过 ASR 2.0 鉴权；请检查 Key 与资源权限",
   "doubao.resource_denied": "方舟账号尚未获得 ASR 2.0 资源权限",
   "doubao.connection_failed": "豆包 ASR 2.0 连接失败，请检查网络和资源权限",

@@ -7,7 +7,7 @@ use crate::settings::voice::{
 use gpui::TestAppContext;
 use tokio_util::sync::CancellationToken;
 
-/// 按住豆包录音时切项目：旧项目不会收到松键，切换入口必须主动停止旧采集和通话。
+/// 按住豆包录音时切项目：旧项目收不到松键，切换入口必须主动结束旧采集；播报通道随后台项目常驻。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   1 个桌面工作空间含 2 张已加载画布 A/B，共享同一窗口；只使用隔离目录。
@@ -17,9 +17,10 @@ use tokio_util::sync::CancellationToken;
 /// 执行过程：
 ///   1. 经生产加载入口创建 A/B，A 模拟按住录音，B 持有独立通话状态。
 ///   2. 通过生产 expand_desktop_project_area 从 A 切到 B，不向 A 发送松键事件。
-///   3. 核对旧令牌、generation、通道和项目窗口绑定，确认 B 未被误停。
+///   3. 核对旧录音令牌、通道、generation 和项目窗口绑定，确认 B 未被误停。
 ///
-/// 预期结果：A 的会话及录音均取消、输出通道清空；B 展开且会话令牌仍有效。
+/// 预期结果：A 的录音取消、录音令牌清空；A 的播报通道、输出通道与 generation 保持不变，
+///   后台完成通知仍可即时播报；B 展开且会话令牌仍有效。
 #[test]
 fn switching_project_cancels_old_doubao_hold_without_key_up() {
     let temp = tempfile::tempdir().expect("应创建隔离目录");
@@ -88,16 +89,19 @@ fn switching_project_cancels_old_doubao_hold_without_key_up() {
     cx.run_until_parked();
     a.read_with(cx, |app, _| {
         assert!(
-            session.is_cancelled(),
-            "切项目必须停止旧通话，不能等旧项目收不到的松键事件"
+            recording.is_cancelled(),
+            "旧麦克风采集必须取消，不能等收不到的松键事件"
         );
-        assert!(recording.is_cancelled(), "旧麦克风采集必须取消");
-        assert!(!app.doubao.is_active(), "后台旧项目不能继续持有通话");
         assert!(app.doubao.recording.is_none(), "旧项目不能保留录音令牌");
-        assert!(app.doubao.reports.is_none(), "旧通话不能保留输出通道");
-        assert_ne!(
+        assert!(!session.is_cancelled(), "后台项目的播报通道应常驻");
+        assert!(app.doubao.is_active(), "后台项目应继续持有播报通道");
+        assert!(
+            app.doubao.reports.is_some(),
+            "后台项目应保留输出通道，完成通知即时播报"
+        );
+        assert_eq!(
             app.doubao.generation, old_generation,
-            "旧通话迟到状态必须失效"
+            "只停止收音时通道 generation 不应变化"
         );
         assert!(app.project_window.is_none(), "旧项目应解除窗口绑定");
     });

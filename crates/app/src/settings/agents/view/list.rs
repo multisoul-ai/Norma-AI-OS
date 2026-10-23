@@ -54,8 +54,8 @@ pub(super) fn agent_library(
         .min_h(px(0.0))
         .flex()
         .flex_col()
-        .p(px(20.0))
-        .gap(px(16.0))
+        .p(px(16.0))
+        .gap(px(12.0))
         .child(
             div()
                 .w_full()

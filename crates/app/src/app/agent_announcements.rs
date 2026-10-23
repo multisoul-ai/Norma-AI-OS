@@ -8,12 +8,13 @@ use canvas::{CanvasNodeKind, NodeId};
 use gpui::Context;
 use runtime::{AgentTaskState, RuntimeEvent};
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::time::SystemTime;
+use std::time::{Instant, SystemTime};
 
 mod availability;
 mod cache;
 mod dispatch;
 mod doubao;
+mod freshness;
 mod playback;
 mod queue;
 mod synthesis;
@@ -112,6 +113,9 @@ struct AgentTaskRound {
 struct PendingAgentAnnouncement {
     announcement: AgentAnnouncement,
     waiting_for_tts: bool,
+    /// 曾因 TTS/通道未就绪而积压；只有积压的通知会在放行时合并。
+    deferred: bool,
+    queued_at: Instant,
 }
 
 #[derive(Debug, Default)]
@@ -206,6 +210,7 @@ impl AgentAnnouncements {
     }
 
     fn take_next_ready(&mut self) -> Option<AgentAnnouncement> {
+        self.discard_expired(Instant::now());
         if self.pending.front()?.waiting_for_tts {
             return None;
         }

@@ -329,3 +329,14 @@ fn linear_srgb(channel: f64) -> f64 {
         ((channel + 0.055) / 1.055).powf(2.4)
     }
 }
+
+#[test]
+fn test_agent_drawer_closes_on_escape_through_close_drawer() {
+    let view_source = include_str!("../../src/settings/agents/view.rs");
+    // Esc 必须走与遮罩点击相同的 close_drawer，才能继承未保存修改的拦截。
+    assert!(
+        view_source.contains("event.keystroke.key == \"escape\"")
+            && view_source.contains("app.agent_definitions.close_drawer()"),
+        "master_detail must route Esc to close_drawer"
+    );
+}

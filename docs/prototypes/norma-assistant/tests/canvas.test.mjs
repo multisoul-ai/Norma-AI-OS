@@ -80,38 +80,36 @@ test('运行概览位于左侧抽屉，右上角保留状态显示', () => {
 /// 数据构造：读取抽屉顶部切换控件、视图隐藏样式与切换脚本。
 /// 执行过程：检查两个 tab 的选中语义与待处理角标，切换函数会在抽屉收起时先展开，再次点击状态回到对话；方向键可在 tab 间移动；视图进入有方向感动效并有减少动态效果回退。
 /// 预期结果：默认对话；概览 tab 显示 3；切换不丢失输入区；状态按钮的 aria-expanded 与概览可见性一致。
-test('左侧抽屉可在对话与运行概览间切换，右上角状态一键切换', () => {
+test('左侧抽屉固定显示运行概览，对话入口隐藏，右上角状态一键展开', () => {
   const tabs = sidebar.match(/<nav class="drawer-switch"[\s\S]*?<\/nav>/)?.[0] || '';
-  assert.match(tabs, /role="tablist"/, '切换控件应为 tablist');
-  assert.match(tabs, /id="drawer-tab-chat"[^>]*role="tab"[^>]*aria-selected="true"/, '默认显示对话');
-  assert.match(tabs, /id="drawer-tab-overview"[^>]*role="tab"[^>]*aria-selected="false"[^>]*aria-controls="progress-body"[\s\S]*?class="progress-badge"[^>]*>3</, '概览 tab 应控制概览面板并显示待处理数');
-  assert.ok(sidebar.indexOf(tabs) < sidebar.indexOf(overview), '切换控件位于抽屉顶部');
-  assert.match(overview, /role="tabpanel"[^>]*aria-labelledby="drawer-tab-overview"[^>]*hidden/, '概览面板初始隐藏');
-  assert.match(html, /function setLeftView\(/, '应有统一的视图切换函数');
+  assert.match(tabs, /<nav class="drawer-switch" id="drawer-switch" hidden/, '对话 / 概览切换控件隐藏（与产品一致）');
+  assert.match(overviewCss, /\.drawer-switch\[hidden\]\{display:none\}/, 'hidden 必须真正生效，不被 display:grid 覆盖');
+  assert.match(html, /data-left-view="overview"/, '默认就是运行概览');
+  assert.doesNotMatch(overview, /role="tabpanel"[^>]*hidden/, '概览面板默认可见');
+  assert.match(html, /const LEFT_CHAT_ENTRY_VISIBLE=false;[\s\S]*?function setLeftView\([^)]*\)\s*\{\s*if\(!LEFT_CHAT_ENTRY_VISIBLE\)view='overview'/, '对话视图不可达：任何切换都落在概览');
   const statusClick = html.match(/\$\('progress-toggle'\)\.addEventListener\('click'[\s\S]*?\n\}\);/)?.[0] || '';
-  assert.match(statusClick, /setLeftView\(showing\?'chat':'overview'/, '状态按钮应在概览与对话间切换左侧视图');
-  assert.match(html, /function setLeftView\([\s\S]*?AssistantDrawers\.set\([^)]*'chat',true/, '抽屉收起时切到概览应先展开抽屉');
-  assert.match(html, /\$\('drawer-switch'\)\.addEventListener\('keydown'[\s\S]*?ArrowRight/, '方向键可在两个 tab 间切换');
-  assert.match(overviewCss, /\.app\[data-left-view=overview\] \.conversation-heading[^{]*\.orb-zone[^{]*\.conversation-scroll\{display:none\}/, '概览视图隐藏对话专属内容但保留输入区');
-  assert.match(overviewCss, /@keyframes left-view-in/, '视图切换应有进入动效');
-  assert.match(overviewCss, /prefers-reduced-motion:reduce[^\n]*animation-name:left-view-fade/, '减少动态效果时只淡入');
+  assert.match(statusClick, /setLeftView\('overview'/, '状态按钮展开左侧概览');
+  assert.match(html, /function setLeftView\([\s\S]*?AssistantDrawers\.set\([^)]*'chat',true/, '抽屉收起时先展开抽屉');
+  assert.match(overviewCss, /@keyframes left-view-in/, '保留视图进入动效定义');
 });
 
-/// 场景：用户打开概览先看到需要自己处理的事，再看智能体状态，最后才是其他项目。
+/// 场景：用户以工作空间为单位管理智能体：先看哪些需要自己处理，再看哪些在运行、哪些待开始，不论智能体属于哪个项目。
 /// 数据构造：读取概览中的三个分组标题和行内容。
 /// 执行过程：比较分组顺序，并检查每行写明事项、提交 Agent 和所属项目。
 /// 预期结果：待处理 3 项排在最前；Bella/Bruno 任务与状态明确；其他项目只显示上次状态，不自动加载。
-test('概览按待处理、当前项目智能体、其他项目排序且归属明确', () => {
+test('概览按待处理、运行中、待开始跨项目分组且归属明确', () => {
   const pending = overview.indexOf('需要你处理');
-  const agents = overview.indexOf('当前项目 · Norma-AI-OS');
-  const others = overview.indexOf('其他项目');
-  assert.ok(pending > 0 && pending < agents && agents < others, '分组顺序应为 待处理 → 当前项目 → 其他项目');
+  const agents = overview.indexOf('data-group="running"');
+  const others = overview.indexOf('data-group="idle"');
+  assert.ok(pending > 0 && pending < agents && agents < others, '分组顺序应为 待处理 → 运行中 → 待开始');
   assert.match(overview, /待审核 · 抽屉视觉方案[\s\S]*?Bella · Norma-AI-OS/, '审核项应写明提交 Agent 与项目');
   assert.match(overview, /成果待查看 · 布局验收结果[\s\S]*?Bella/, '成果应写明提交 Agent');
   assert.match(overview, /待查看文件 · index\.html[\s\S]*?Bella/, '文件应写明提交 Agent');
   assert.match(overview, /Bella[\s\S]*?运行中[\s\S]*?调整原型布局与透明材质/, 'Bella 应有状态与任务');
   assert.match(overview, /Bruno[\s\S]*?待开始[\s\S]*?检查抽屉响应式布局/, 'Bruno 应有状态与任务');
-  assert.match(overview, /设计草稿[\s\S]*?上次状态[\s\S]*?未加载/, '其他项目只展示上次状态并标明未加载');
+  assert.match(overview, /Cora[\s\S]*?运行中[\s\S]*?设计草稿[\s\S]*?上次状态[\s\S]*?未加载/, '其他项目的智能体并入运行中分组，标明所属项目、上次状态与未加载');
+  assert.match(overview, /id="run-summary"[\s\S]*?data-jump="attention"[\s\S]*?data-jump="running"[\s\S]*?data-jump="idle"/, '顶部状态概览应给出待处理、运行中、待开始三类数量并可跳转');
+  assert.match(html, /function refreshRunCounts\(/, '状态变化后应刷新分组计数');
   assert.doesNotMatch(overview, /\d+%/, '没有可靠步骤时不显示完成百分比');
 });
 
@@ -129,7 +127,7 @@ test('概览每行只有一个直达动作且目标真实存在', () => {
   }
   assert.match(overview, /<button[^>]*class="run-row[^"]*"[^>]*data-progress-project="design"/, '其他项目行应可切换');
   const rows = [...overview.matchAll(/<button[^>]*class="run-row[^"]*"[^>]*>([\s\S]*?)<\/button>/g)];
-  assert.equal(rows.length, 6, '3 项待处理 + 2 个智能体 + 1 个其他项目，共 6 行');
+  assert.equal(rows.length, 6, '3 项待处理 + 3 个智能体（含设计草稿项目的 Cora），共 6 行');
   assert.ok(rows.every(([, inner]) => !inner.includes('<button')), '行内不应嵌套第二个按钮');
   assert.match(html, /\$\('progress-body'\)\.addEventListener\('click'/, '概览应有事件委托');
   assert.match(html, /data-progress-file[^\n]*openPresentation/, '文件行应打开右侧预览');
@@ -142,9 +140,10 @@ test('概览每行只有一个直达动作且目标真实存在', () => {
 /// 执行过程：检查状态按钮逐个智能体显示状态与步骤（Bella 运行中 4/6 且有待审标记；Bruno 待开始），概览行有 6 段步骤条（4 段完成、第 5 段为当前），画布卡片标题同步状态。
 /// 预期结果：三处状态与步骤一致；数字为已完成数 n/m，概览行写“第 n+1/m 项”指向进行中项，不显示无依据的百分比；读屏文字包含相同信息。
 test('一眼可读：右上角状态、概览行与画布卡片同步显示智能体状态和步骤进度', () => {
-  assert.match(status, /aria-label="[^"]*Bella 运行中，已完成 4\/6，1 项待你审核[^"]*Bruno 待开始/, '状态按钮读屏文字应逐个说明智能体状态与步骤');
-  assert.match(status, /class="run-agent-chip is-running"[^>]*style="--step:4;--steps:6"[\s\S]*?Bella[\s\S]*?4\/6[\s\S]*?run-agent-alert/, 'Bella 应显示进度环、步骤与待审标记');
-  assert.match(status, /class="run-agent-chip is-idle"[\s\S]*?Bruno[\s\S]*?待开始/, 'Bruno 应显示待开始');
+  assert.match(status, /aria-label="[^"]*工作空间共 3 个智能体，2 个运行中，1 个待开始/, '状态按钮读屏文字应汇总跨项目智能体状态');
+  assert.match(status, /class="run-agent-chip is-running"[\s\S]*?data-top="running">2<[\s\S]*?运行中/, '右上角应汇总运行中数量');
+  assert.match(status, /class="run-agent-chip is-idle"[\s\S]*?data-top="idle">1<[\s\S]*?待开始/, '右上角应汇总待开始数量');
+  assert.doesNotMatch(status, /Bella|Bruno/, '右上角不再逐个列出智能体');
   assert.match(status, /class="progress-badge"[^>]*>3</, '状态按钮应显示待处理数');
   const bella = overview.match(/<button class="run-row is-agent"[^>]*data-progress-node="agent-bella"[\s\S]*?<\/button>/)?.[0] || '';
   const bruno = overview.match(/<button class="run-row is-agent is-idle"[^>]*data-progress-node="agent-bruno"[\s\S]*?<\/button>/)?.[0] || '';
@@ -164,13 +163,13 @@ test('一眼可读：右上角状态、概览行与画布卡片同步显示智�
 /// 执行过程：检查悬浮按钮的切换语义、移动与收回按钮仅在悬浮时出现、拖动限制在画布区域内且可复位、偏好安全持久化。
 /// 预期结果：悬浮后抽屉回到对话、面板常驻画布上方且可移动；收回后回到抽屉概览；存储不可用时页面仍正常。
 test('概览可从抽屉弹出为悬浮固定面板，可拖动并记住位置', () => {
-  assert.match(overview, /id="progress-pin"[^>]*aria-pressed="false"[^>]*aria-label="悬浮固定运行概览"/, '头部应有悬浮固定按钮');
+  assert.match(overview, /id="progress-pin"[^>]*hidden[^>]*aria-pressed="false"[^>]*aria-label="悬浮固定运行概览"/, '悬浮固定入口随对话一并隐藏，逻辑保留');
   assert.match(overview, /id="progress-move"[^>]*aria-label="移动运行概览[^"]*"[^>]*hidden/, '移动手柄只在悬浮时出现');
   assert.match(header + html.match(/<section class="workspace-panel"[\s\S]*?<\/section>\s*<aside class="reader-panel"/)?.[0], /id="run-float-layer"/, '画布区应有悬浮层');
   assert.match(overviewCss, /\.run-overview\[data-mode=floating\]\{[^}]*position:absolute[^}]*translate\(var\(--run-x/, '悬浮面板按拖动偏移定位');
   assert.match(overviewCss, /\.is-dragging[^{]*\{[^}]*transition:none/, '拖动时应 1:1 跟手');
   assert.match(html, /function setProgressFloating\(/, '应有悬浮状态切换逻辑');
-  assert.match(html, /function setProgressFloating\([\s\S]*?run-float-layer[\s\S]*?setLeftView\('chat'/, '弹出后面板移到画布悬浮层，抽屉回到对话');
+  assert.match(html, /function setProgressFloating\([\s\S]*?run-float-layer[\s\S]*?setLeftView\('overview'/, '弹出后面板移到画布悬浮层');
   assert.match(html, /function clampProgressOffset\(/, '拖动偏移应限制在画布区域内');
   assert.match(html, /setPointerCapture/, '拖动应捕获指针');
   assert.match(html, /\$\('progress-move'\)\.addEventListener\('keydown'[\s\S]*?Arrow/, '移动手柄应支持方向键');
