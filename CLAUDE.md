@@ -16,6 +16,7 @@ Workspace crates:
 - `terminal` - domain crate for PTY process handling, ANSI terminal grid parsing, input encoding, and terminal sessions.
 - `runtime` - domain crate for focus state, input routing, LiveNode registry, and node lifecycle glue.
 - `agent` - GPUI/Storage-free NormaSession runtime using Rig providers, typed tools, and an injected AgentCardAdapter.
+- `account` - GPUI/Storage/network-free account domain: login state machine, PKCE, session model, and norma-cloud `/v1` protocol types; side effects are injected via `AccountSessionStore` / `AuthApi` ([ADR-0029](docs/adr/0029-account-identity-via-norma-cloud.md)).
 - `asr` - GPUI/Storage/Keychain-free provider registry, recognition protocol, Local Sherpa, Cloud Azure, model installation, and integrity.
 - `voice_input` - provider-neutral microphone permission/device/capture/resampling/PCM/VAD primitives.
 - `model_store` - GPUI/network-free shared local-model archive, manifest, integrity, and atomic-install primitives.
@@ -151,6 +152,7 @@ bash scripts/check-max-file-lines.sh
 bash scripts/check-no-allow.sh
 bash scripts/check-agent-guide-lines.sh
 bash scripts/check-storage-boundaries.sh
+bash scripts/check-account-boundaries.sh
 bash scripts/check-performance-guardrails.sh
 bash scripts/check-codesign-readiness.sh
 python3 scripts/check-video-wallpaper-performance.py

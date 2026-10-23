@@ -3,6 +3,17 @@
 version = 4
 
 [[package]]
+name = "account"
+version = "0.1.76"
+dependencies = [
+ "base64",
+ "rand 0.8.6",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "addr2line"
 version = "0.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

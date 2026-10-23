@@ -175,3 +175,13 @@ The hook runs staged file-size, `#[allow(...)]`, agent-guide line, performance g
 cargo check --workspace --quiet
 cargo fmt --check
 ```
+
+## R-account · Account Domain Stays UI- And Storage-Free
+
+| | |
+|---|---|
+| Script | [`scripts/check-account-boundaries.sh`](../../scripts/check-account-boundaries.sh) |
+| Scope | `cargo tree -p account` and `cargo tree -p storage` |
+| Rule | `account` must not depend on `app`, `runtime`, `storage`, `ui`, `gpui`, `gpui-component`, or `rusqlite`; `storage` must not depend on `account`. |
+| Failure signal | `Account boundary violations:` |
+| Fix | Move side effects behind the `AccountSessionStore` / `AuthApi` ports and implement them in `crates/app/src/account/`. |

@@ -8,6 +8,7 @@ members = [
   "crates/tts",
   "crates/asr",
   "crates/license",
+  "crates/account",
   "crates/audio",
   "crates/live_voice",
   "crates/voice_input",

@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PROTOTYPE · GitHub / Google 登录</title>
+<!-- PROTOTYPE（可丢弃）：回答「账号登录入口放哪里、长什么样」。三个变体用 ?variant=a|b|c 切换；
+     令牌取自 crates/ui/src/theme.rs 的 Sapphire Night（深）与 Paper Blue（浅）。无持久化，状态仅在内存。 -->
+<style>
+:root{
+  --graphite:#071324;--canvas-from:#071324;--canvas-to:#0e2338;--panel:rgba(14,35,56,.62);--panel-high:rgba(11,29,46,.82);
+  --stroke:rgba(175,218,255,.30);--hair:rgba(175,218,255,.14);--text:#eff7ff;--text2:rgba(220,235,249,.62);--text3:rgba(203,220,237,.43);
+  --accent:#54a2ff;--accent-ink:#04101e;--success:#64e0b5;--destructive:#ff6b7a;--title:rgba(24,49,72,.42);--dock:rgba(4,14,26,.76);
+  --shadow:0 20px 48px -20px rgba(0,6,16,.6);--hover:rgba(255,255,255,.07);--press:rgba(255,255,255,.12);--sel:rgba(84,162,255,.18);--scrim:rgba(3,9,18,.55);
+  --gh-bg:#f0f6fc;--gh-fg:#0d1117;--gg-bg:#ffffff;--gg-fg:#1f1f1f;
+}
+[data-theme=light]{
+  --graphite:#313d44;--canvas-from:#fffefb;--canvas-to:#f5f4f1;--panel:rgba(255,255,255,.72);--panel-high:rgba(255,254,251,.9);
+  --stroke:rgba(255,255,255,.72);--hair:rgba(49,61,68,.12);--text:#313d44;--text2:rgba(49,61,68,.58);--text3:rgba(49,61,68,.42);
+  --accent:#2f80ed;--accent-ink:#fff;--success:#1fa97a;--destructive:#d93a4a;--title:rgba(212,234,247,.55);--dock:rgba(49,61,68,.8);
+  --shadow:0 22px 54px -18px rgba(49,61,68,.28);--hover:rgba(49,61,68,.06);--press:rgba(49,61,68,.11);--sel:rgba(47,128,237,.12);--scrim:rgba(49,61,68,.28);
+  --gh-bg:#24292f;--gh-fg:#fff;--gg-bg:#fff;--gg-fg:#1f1f1f;
+}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:#0b0f14;font:13px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;color:var(--text);display:flex;flex-direction:column;align-items:center;padding:16px 16px 96px}
+[data-theme=light] body{background:#dfe3e6}
+button{font:inherit;color:inherit;cursor:pointer}
+.stage{position:relative;width:min(100%,1180px);height:700px;border-radius:12px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.5);border:1px solid var(--hair);
+  background:radial-gradient(900px 500px at 70% 20%,rgba(84,162,255,.16),transparent 60%),linear-gradient(160deg,var(--canvas-from),var(--canvas-to))}
+[data-theme=light] .stage{background:radial-gradient(900px 500px at 70% 20%,rgba(212,234,247,.8),transparent 60%),linear-gradient(160deg,var(--canvas-from),var(--canvas-to))}
+.dots{position:absolute;inset:0;background-image:radial-gradient(var(--hair) 1px,transparent 1px);background-size:24px 24px}
+.titlebar{position:absolute;top:0;left:0;right:0;height:40px;background:var(--title);backdrop-filter:blur(20px);border-bottom:1px solid var(--hair);display:flex;align-items:center;padding:0 14px;gap:8px;z-index:5}
+.tl{width:12px;height:12px;border-radius:50%}.tl.r{background:#ff5f57}.tl.y{background:#febc2e}.tl.g{background:#28c840}
+.ttl{position:absolute;left:0;right:0;text-align:center;color:var(--text2);font-weight:500;pointer-events:none}
+.spacer{flex:1}
+.node{position:absolute;border-radius:14px;background:var(--panel);border:1px solid var(--stroke);box-shadow:var(--shadow);backdrop-filter:blur(18px);overflow:hidden}
+.node .nh{height:34px;background:var(--title);display:flex;align-items:center;gap:8px;padding:0 12px;font-weight:600;border-bottom:1px solid var(--hair)}
+.node .nb{padding:12px;font:12px/1.6 ui-monospace,"SF Mono",Menlo,monospace;color:var(--text2)}
+.nb b{color:var(--success);font-weight:500}.nb i{color:var(--accent);font-style:normal}
+.dock{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:6px;padding:8px;border-radius:18px;background:var(--dock);border:1px solid var(--hair);backdrop-filter:blur(20px);z-index:4}
+.dock span{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;font-size:13px;font-weight:600;background:rgba(255,255,255,.08);color:#fff}
+/* controls */
+.btn{height:36px;padding:0 14px;border-radius:9px;border:1px solid var(--hair);background:transparent;display:inline-flex;align-items:center;justify-content:center;gap:9px;font-weight:500;transition:background .1s,transform .1s,border-color .1s}
+.btn:hover{background:var(--hover)}.btn:active{background:var(--press);transform:scale(.98)}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent}.btn.primary:hover{filter:brightness(1.08)}
+.btn.danger{color:var(--destructive)}.btn.sm{height:28px;padding:0 10px;font-size:12px;border-radius:7px}
+.btn[disabled]{opacity:.4;pointer-events:none}
+.prov{width:100%;height:40px;font-weight:600;border:1px solid transparent}
+.prov.gh{background:var(--gh-bg);color:var(--gh-fg)}.prov.gg{background:var(--gg-bg);color:var(--gg-fg);border-color:rgba(0,0,0,.12)}
+.prov:hover{filter:brightness(.94)}.prov:active{filter:brightness(.88);transform:scale(.985)}
+.prov svg{width:18px;height:18px;flex:none}
+.muted{color:var(--text2)}.tiny{font-size:11.5px;color:var(--text3)}
+.stack{display:flex;flex-direction:column;gap:10px}
+.avatar{width:var(--s,44px);height:var(--s,44px);border-radius:50%;flex:none;display:grid;place-items:center;font-weight:700;color:#fff;font-size:calc(var(--s,44px)*.4);background:linear-gradient(135deg,#8b7cff,#54a2ff);box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
+.chip{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 8px;border-radius:10px;font-size:11px;background:var(--sel);color:var(--accent);font-weight:600}
+.chip.ok{background:rgba(100,224,181,.16);color:var(--success)}
+.spin{width:30px;height:30px;border-radius:50%;border:3px solid var(--hair);border-top-color:var(--accent);animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none;border-top-color:var(--accent);border-right-color:var(--accent)}.pop,.sheet{animation:none!important}}
+.card{background:var(--panel-high);border:1px solid var(--hair);border-radius:12px;padding:16px}
+.row{display:flex;align-items:center;gap:12px}
+.divider{height:1px;background:var(--hair);margin:4px 0}
+.err{color:var(--destructive);display:flex;gap:8px;align-items:flex-start;background:rgba(255,107,122,.1);border:1px solid rgba(255,107,122,.3);border-radius:9px;padding:9px 11px;font-size:12.5px}
+/* Variant A: settings */
+.settings{position:absolute;inset:60px 90px 40px;border-radius:14px;background:var(--panel-high);border:1px solid var(--stroke);box-shadow:var(--shadow);backdrop-filter:blur(30px);display:flex;overflow:hidden;z-index:6}
+.side{width:220px;border-right:1px solid var(--hair);padding:14px 10px;overflow:auto}
+.grp{font-size:11px;color:var(--text3);padding:12px 10px 4px;font-weight:600}
+.nav{display:flex;align-items:center;gap:9px;width:100%;height:32px;padding:0 10px;border-radius:8px;background:none;border:0;text-align:left;color:var(--text2)}
+.nav:hover{background:var(--hover)}.nav.on{background:var(--sel);color:var(--text);font-weight:600}
+.nav i{width:16px;text-align:center;font-style:normal}
+.content{flex:1;padding:28px 36px;overflow:auto}
+.content h1{font-size:22px;margin:0 0 4px;font-weight:700;letter-spacing:-.01em}
+.max{max-width:520px}
+/* Variant B: first-run sheet */
+.scrim{position:absolute;inset:0;background:var(--scrim);backdrop-filter:blur(6px);z-index:8;display:grid;place-items:center}
+.sheet{width:400px;padding:30px 30px 22px;border-radius:18px;background:var(--panel-high);border:1px solid var(--stroke);box-shadow:var(--shadow);animation:pop .22s cubic-bezier(.2,.9,.3,1.1);text-align:center}
+@keyframes pop{from{opacity:0;transform:scale(.96) translateY(6px)}}
+.logo{display:block;width:56px;height:56px;object-fit:contain;margin:0 auto 14px;filter:drop-shadow(0 8px 16px rgba(0,0,0,.35))}
+.sheet h2{margin:0 0 6px;font-size:19px}
+/* Variant C: avatar chip + popover */
+.acct{position:relative;z-index:7}
+.acctbtn{display:flex;align-items:center;gap:7px;height:28px;padding:0 10px 0 4px;border-radius:14px;border:1px solid var(--hair);background:transparent}
+.acctbtn:hover{background:var(--hover)}.acctbtn[aria-expanded=true]{background:var(--sel)}
+.acctbtn.out{padding:0 12px}
+.pop{position:absolute;top:36px;right:0;width:300px;padding:14px;border-radius:14px;background:var(--panel-high);border:1px solid var(--stroke);box-shadow:var(--shadow);backdrop-filter:blur(30px);animation:pop .16s ease-out;transform-origin:top right}
+.menu{display:flex;flex-direction:column;margin:4px -6px -6px}
+.mi{display:flex;align-items:center;gap:9px;height:30px;padding:0 8px;border-radius:7px;background:none;border:0;text-align:left;color:var(--text)}
+.mi:hover{background:var(--hover)}.mi .k{margin-left:auto;color:var(--text3);font-size:11.5px}
+
+/* Variant D: launchpad */
+.lp{position:absolute;inset:0;overflow:hidden;background:radial-gradient(700px 500px at 82% 12%,rgba(84,162,255,.28),transparent 60%),radial-gradient(600px 460px at 8% 100%,rgba(139,124,255,.22),transparent 60%),radial-gradient(500px 360px at 55% 60%,rgba(39,215,234,.10),transparent 60%),linear-gradient(160deg,var(--canvas-from),var(--canvas-to))}
+[data-theme=light] .lp{background:radial-gradient(700px 500px at 82% 12%,rgba(47,128,237,.18),transparent 60%),radial-gradient(600px 460px at 8% 100%,rgba(106,92,255,.12),transparent 60%),linear-gradient(160deg,var(--canvas-from),var(--canvas-to))}
+.ring{position:absolute;border-radius:50%;border:1px solid rgba(39,215,234,.22);pointer-events:none}
+.ring.o{border-color:rgba(255,166,77,.18)}
+.lp-top{position:absolute;top:40px;left:0;right:0;height:52px;display:flex;align-items:center;padding:0 28px;gap:10px;z-index:3}
+.lp-main{position:absolute;top:92px;bottom:0;left:0;right:0;display:grid;grid-template-columns:minmax(380px,460px) 1fr;gap:48px;padding:20px 56px 40px;z-index:2}
+.brand{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+.brand .logo{margin:0;width:46px;height:46px}
+.hero{font-size:34px;line-height:1.12;letter-spacing:-.025em;font-weight:750;margin:0 0 10px}
+.hero em{font-style:normal;background:linear-gradient(90deg,#54a2ff,#8b7cff 60%,#27d7ea);-webkit-background-clip:text;background-clip:text;color:transparent}
+.glass{background:var(--panel);border:1px solid var(--stroke);backdrop-filter:blur(28px);border-radius:16px;box-shadow:var(--shadow)}
+.signin{padding:16px;margin:20px 0 14px;position:relative}
+.signin .or{display:flex;align-items:center;gap:10px;color:var(--text3);font-size:11.5px}
+.signin .or:before,.signin .or:after{content:"";flex:1;height:1px;background:var(--hair)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.two .prov{height:40px}
+.welcome{display:flex;align-items:center;gap:12px;padding:14px 16px;margin:20px 0 14px}
+.recent{margin-top:6px}
+.rp{display:flex;align-items:center;gap:10px;height:38px;padding:0 10px;border-radius:9px;color:var(--text);background:none;border:0;width:100%;text-align:left}
+.rp:hover{background:var(--hover)}.rp .p{margin-left:auto;color:var(--text3);font-size:11.5px}
+.rp .dot{width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.right{position:relative}
+.right .node{backdrop-filter:blur(22px)}
+.accent-line{position:absolute;left:0;right:0;bottom:36px;height:1px;background:linear-gradient(90deg,transparent,rgba(255,166,77,.5),rgba(39,215,234,.5),transparent)}
+.skip{background:none;border:0;color:var(--text2);padding:4px 6px;border-radius:6px;font-size:12px}.skip:hover{background:var(--hover);color:var(--text)}
+.lead{color:var(--text2);font-size:14px;max-width:400px;margin:0}
+
+/* account page */
+.acc{max-width:560px;display:flex;flex-direction:column;gap:18px}
+.banner{position:relative;border-radius:16px;overflow:hidden;border:1px solid var(--hair);background:var(--panel)}
+.banner .cover{height:84px;background:radial-gradient(260px 120px at 15% 0%,rgba(84,162,255,.55),transparent 70%),radial-gradient(260px 120px at 90% 100%,rgba(139,124,255,.5),transparent 70%),linear-gradient(120deg,rgba(84,162,255,.25),rgba(139,124,255,.25))}
+.banner .meta{display:flex;align-items:flex-end;gap:14px;padding:0 20px 18px;margin-top:-30px}
+.banner .avatar{box-shadow:0 0 0 4px var(--panel-high),0 8px 20px -6px rgba(0,0,0,.4)}
+.banner .nm{font-size:19px;font-weight:700;letter-spacing:-.01em;line-height:1.2}
+.sec{font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;padding:0 4px 6px}
+.list{border:1px solid var(--hair);border-radius:12px;background:var(--panel);overflow:hidden}
+.li{display:flex;align-items:center;gap:12px;min-height:54px;padding:8px 14px}
+.li+.li{border-top:1px solid var(--hair)}
+.ico{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;flex:none;background:var(--hover)}
+.ico svg{width:18px;height:18px}
+.ico.gh{background:var(--gh-bg);color:var(--gh-fg)}.ico.gg{background:#fff}
+.li .t{font-weight:600}.li .d{font-size:12px;color:var(--text2)}
+.perks{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.perk{display:flex;gap:10px;padding:12px;border-radius:12px;border:1px solid var(--hair);background:var(--panel)}
+.perk .ico{background:var(--sel);color:var(--accent)}
+.hero-out{text-align:center;padding:30px 28px 24px;border-radius:18px;border:1px solid var(--stroke);background:radial-gradient(360px 160px at 50% 0%,rgba(84,162,255,.22),transparent 70%),var(--panel-high)}
+.hero-out .logo{margin-bottom:12px}
+.hero-out h2{margin:0 0 4px;font-size:18px}
+.hero-out .two{max-width:380px;margin:18px auto 0}
+.privacy{display:flex;gap:8px;align-items:center;justify-content:center;margin-top:12px}
+
+/* D minimal launch */
+.lp2{position:absolute;inset:0;background:#071324 url('../../../crates/app/assets/wallpapers/norma-blue-horizon.png') center/cover;overflow:hidden}
+.bgv{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.veil{position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(7,19,36,.15),rgba(7,19,36,.55) 80%),linear-gradient(rgba(7,19,36,.25),rgba(7,19,36,.45))}
+[data-theme=light] .veil{background:radial-gradient(ellipse at center,rgba(255,254,251,.05),rgba(49,61,68,.35) 85%)}
+.center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#eff7ff;padding-top:30px}
+.center .logo{width:84px;height:84px;margin:0 0 12px}
+.wm{font-size:30px;font-weight:700;letter-spacing:.01em;margin-bottom:26px;text-shadow:0 2px 20px rgba(0,0,0,.4)}
+.panel2{width:340px;padding:24px 24px 20px;border-radius:20px;background:rgba(10,24,40,.38);border:1px solid rgba(255,255,255,.18);backdrop-filter:blur(28px) saturate(1.3);box-shadow:0 24px 60px -20px rgba(0,6,16,.6);color:#eff7ff}
+.ttl2{font-size:16px;font-weight:650;margin-bottom:3px}.sub2{font-size:12.5px;color:rgba(239,247,255,.65);margin-bottom:16px}
+.center .skip{color:rgba(239,247,255,.65)}.center .skip:hover{background:rgba(255,255,255,.1);color:#fff}
+.glassbtn{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:#fff}.glassbtn:hover{background:rgba(255,255,255,.18)}
+.btn.big{height:42px;width:260px;font-size:14px}
+.foot{position:absolute;bottom:22px;left:0;right:0;text-align:center;font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:rgba(239,247,255,.5)}
+.tl-float{position:absolute;top:14px;left:14px;display:flex;gap:8px;z-index:5}
+.center{padding-top:0!important}
+/* control bar */
+.bar{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:14px;align-items:center;padding:8px 12px;border-radius:14px;background:rgba(20,24,30,.92);border:1px solid rgba(255,255,255,.12);color:#fff;z-index:99;backdrop-filter:blur(14px);flex-wrap:wrap;justify-content:center;max-width:calc(100vw - 24px)}
+.seg{display:flex;background:rgba(255,255,255,.08);border-radius:8px;padding:2px}
+.seg button{background:none;border:0;padding:5px 11px;border-radius:6px;color:rgba(255,255,255,.65)}
+.seg button.on{background:rgba(255,255,255,.18);color:#fff;font-weight:600}
+.bar small{color:rgba(255,255,255,.45)}
+.note{width:min(100%,1180px);margin:12px 0 0;color:#9aa6b2;font-size:12.5px}
+[data-theme=light] .note{color:#55606a}
+</style>
+</head>
+<body>
+<div class="stage" id="stage"></div>
+<p class="note" id="note"></p>
+<div class="bar">
+  <small>变体</small><div class="seg" id="vseg"></div>
+  <small>状态</small><div class="seg" id="sseg"></div>
+  <small>主题</small><div class="seg" id="tseg"></div>
+</div>
+<script>
+const GH='<svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38v-1.33c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.22 1.88.87 2.33.66.07-.52.28-.87.5-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>';
+const GG='<svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.2 5.5-4.7 7.2l7.6 5.9c4.4-4.1 6.9-10.1 6.9-17.6z"/><path fill="#FBBC05" d="M10.5 28.7a14.5 14.5 0 0 1 0-9.4l-7.9-6.1a24 24 0 0 0 0 21.6l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>';
+const NAMES={github:'GitHub',google:'Google'};
+const USERS={github:{name:'Zhou Kai',sub:'@zhoukai · GitHub',mail:'zhoukai@users.noreply.github.com',av:'Z'},google:{name:'周凯',sub:'zhoukai@gmail.com · Google',mail:'zhoukai@gmail.com',av:'周'}};
+const S={variant:'d',state:'out',theme:'dark',prov:'github',t:null,menu:false,tab:'account',dismissed:false};
+const q=new URLSearchParams(location.search);if(q.get('variant'))S.variant=q.get('variant');if(q.get('state'))S.state=q.get('state');
+const $=id=>document.getElementById(id);
+const u=()=>USERS[S.prov];
+function provBtns(){return `<div class="stack"><button class="btn prov gh" data-act="start" data-p="github">${GH}使用 GitHub 继续</button><button class="btn prov gg" data-act="start" data-p="google">${GG}使用 Google 继续</button></div>`}
+function waiting(){return `<div class="stack" style="align-items:center;text-align:center;padding:6px 0"><div class="spin" role="status" aria-label="等待授权"></div><div style="font-weight:600;font-size:15px">正在等待 ${NAMES[S.prov]} 授权…</div><div class="muted" style="max-width:300px">已在默认浏览器中打开授权页。完成后会自动回到 Norma，无需复制任何代码。</div><div class="row" style="gap:8px"><button class="btn sm" data-act="reopen">重新打开浏览器</button><button class="btn sm" data-act="copy">复制链接</button><button class="btn sm" data-act="cancel">取消</button></div><div class="tiny">授权页由 ${NAMES[S.prov]} 提供，Norma 不会看到你的密码</div></div>`}
+function errView(){return `<div class="stack"><div class="err" role="alert"><span>⚠︎</span><span><b>${NAMES[S.prov]} 授权未完成。</b><br>授权被取消，或回调超时（5 分钟）。你的 License 与本地数据不受影响。</span></div>${provBtns()}</div>`}
+function profile(compact){const x=u();return `<div class="row"><div class="avatar" style="--s:${compact?40:52}px">${x.av}</div><div style="min-width:0"><div style="font-weight:700;font-size:${compact?14:16}px">${x.name}</div><div class="muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x.sub}</div></div></div>`}
+function body(compact){return S.state==='out'?provBtns():S.state==='wait'?waiting():S.state==='err'?errView():''}
+function bg(){return `<div class="dots"></div>
+<div class="node" style="left:70px;top:90px;width:430px;height:260px"><div class="nh"><span style="color:var(--accent)">◆</span>Claude · norma-os</div><div class="nb"><b>✓</b> 已读取 AGENTS.md<br><i>●</i> 正在实现设置页账号入口…<br>&nbsp;&nbsp;edit crates/app/src/settings/account.rs<br>&nbsp;&nbsp;cargo check -p app<br><b>✓</b> 3 个测试通过</div></div>
+<div class="node" style="left:540px;top:130px;width:400px;height:230px"><div class="nh"><span>›_</span>Terminal</div><div class="nb">~/norma-os $ git status<br>On branch dev<br>nothing to commit, working tree clean<br>~/norma-os $ <span style="background:var(--text2);color:transparent">_</span></div></div>
+<div class="node" style="left:230px;top:390px;width:380px;height:170px"><div class="nh"><span style="color:var(--accent_violet,#8b7cff)">◆</span>Codex · ios-companion</div><div class="nb"><i>●</i> 等待你的确认：是否重构 PairingProbe？</div></div>
+<div class="dock"><span>⌘1</span><span style="background:#d97757">C</span><span style="background:#10a37f">X</span><span style="background:#6a5cff">Cu</span><span style="background:#444">Oc</span></div>`}
+function titlebar(extra){return `<div class="titlebar"><i class="tl r"></i><i class="tl y"></i><i class="tl g"></i><div class="ttl">Norma OS — norma-os</div><div class="spacer"></div>${extra||''}</div>`}
+
+/* D */
+function varD(){
+ const W='../../../crates/app/assets/wallpapers/';
+ let c;
+ if(S.state==='in')c=`<div class="avatar" style="--s:64px;margin:0 auto 14px">${u().av}</div><div class="ttl2">欢迎回来，${u().name}</div><div class="sub2">已通过 ${NAMES[S.prov]} 登录</div><button class="btn primary big" data-act="done">进入 Norma</button><button class="skip" data-act="signout">切换账号</button>`;
+ else if(S.state==='wait')c=`<div class="ttl2" style="margin-bottom:6px">正在等待 ${NAMES[S.prov]} 授权…</div><div class="sub2">已在浏览器中打开授权页，完成后自动返回</div><div class="spin" style="margin:6px auto 18px" role="status"></div><div class="row" style="justify-content:center;gap:8px"><button class="btn sm glassbtn" data-act="reopen">重新打开浏览器</button><button class="btn sm glassbtn" data-act="cancel">取消</button></div>`;
+ else c=`<div class="ttl2">登录 Norma</div><div class="sub2">${S.state==='err'?'':'一次授权，跨设备识别你'}</div>${S.state==='err'?`<div class="err" role="alert" style="margin:0 auto 14px;text-align:left"><span>⚠︎</span><span>${NAMES[S.prov]} 授权未完成，请重试</span></div>`:''}<div class="stack" style="width:260px;margin:0 auto"><button class="btn prov gh" data-act="start" data-p="github">${GH}使用 GitHub 继续</button><button class="btn prov gg" data-act="start" data-p="google">${GG}使用 Google 继续</button></div><button class="skip" style="margin-top:14px" data-act="skip">稍后再说</button>`;
+ return `<div class="tl-float"><i class="tl r"></i><i class="tl y"></i><i class="tl g"></i></div><div class="lp2">
+  <video class="bgv" autoplay muted loop playsinline poster="${W}norma-blue-horizon.png"><source src="${W}home.mp4" type="video/mp4"></video>
+  <div class="veil"></div>
+  <div class="center"><img class="logo" src="../../../crates/app/assets/icons/app-icon.png" alt="Norma"><div class="wm">Norma OS</div><div class="panel2">${c}</div></div>
+  <div class="foot">Live Node on Infinite Canvas</div></div>`;
+}
+/* A */
+function settingsContent(){
+ if(S.tab!=='account')return `<h1>${{basic:'基础设置'}[S.tab]||'设置'}</h1><p class="muted">（其它设置页保持不变）</p>`;
+ const ic=(p)=>`<span class="ico ${p==='github'?'gh':'gg'}">${p==='github'?GH:GG}</span>`;
+ const other=S.prov==='github'?'google':'github';
+ let h=`<h1>账号</h1><p class="muted" style="margin:0 0 18px">账号只用于识别身份；授权由 License 单独管理，不登录也能完整使用。</p><div class="acc">`;
+ if(S.state==='in'){
+  h+=`<div class="banner"><div class="cover"></div><div class="meta"><div class="avatar" style="--s:68px">${u().av}</div><div style="flex:1;padding-bottom:4px"><div class="nm">${u().name}</div><div class="muted">${u().mail}</div></div><span class="chip ok" style="margin-bottom:8px">● 已登录</span></div></div>
+  <div><div class="sec">登录方式</div><div class="list">
+   <div class="li">${ic(S.prov)}<div style="flex:1"><div class="t">${NAMES[S.prov]}</div><div class="d">${u().sub.split(' · ')[0]}</div></div><span class="chip">主要</span></div>
+   <div class="li">${ic(other)}<div style="flex:1"><div class="t">${NAMES[other]}</div><div class="d">未关联 · 关联后可用任一方式登录</div></div><button class="btn sm" data-act="start" data-p="${other}">关联</button></div></div></div>
+  <div><div class="sec">此设备</div><div class="list">
+   <div class="li"><span class="ico">💻</span><div style="flex:1"><div class="t">这台 Mac</div><div class="d">会话保存在本机 · 刚刚登录</div></div></div>
+   <div class="li"><span class="ico">📱</span><div style="flex:1"><div class="t">iPhone 17 Pro</div><div class="d">通过手机连接配对 · 与账号无关</div></div></div></div></div>
+  <div class="row" style="justify-content:space-between"><span class="tiny">退出只清除本机会话，不影响 License 与项目数据</span><button class="btn danger" data-act="signout">退出登录</button></div>`;
+ }else{
+  h+=`<div class="hero-out"><img class="logo" src="../../../crates/app/assets/icons/app-icon.png" alt="Norma"><h2>登录 Norma</h2><div class="muted">用你常用的账号，一次授权。</div>`;
+  if(S.state==='wait')h+=`<div style="margin-top:18px">${waiting()}</div>`;
+  else{
+   if(S.state==='err')h+=`<div class="err" role="alert" style="margin:16px auto 0;max-width:380px;text-align:left"><span>⚠︎</span><span><b>${NAMES[S.prov]} 授权未完成。</b> 授权被取消或超时，可重试。</span></div>`;
+   h+=`<div class="two"><button class="btn prov gh" data-act="start" data-p="github">${GH}GitHub</button><button class="btn prov gg" data-act="start" data-p="google">${GG}Google</button></div><div class="tiny privacy">🔒 仅读取头像、昵称与邮箱 · 浏览器中授权</div>`;
+  }
+  h+=`</div>`;
+  if(S.state!=='wait')h+=`<div><div class="sec">登录后可以</div><div class="perks">
+   <div class="perk"><span class="ico">⇄</span><div><div class="t" style="font-weight:600">识别同一个你</div><div class="d muted" style="font-size:12px">在多台设备上保持身份一致</div></div></div>
+   <div class="perk"><span class="ico">☁︎</span><div><div class="t" style="font-weight:600">同步偏好</div><div class="d muted" style="font-size:12px">人设与外观随账号保存</div></div></div></div></div>`;
+ }
+ return h+'</div>';
+}
+function varA(){
+ const items=[['General','基础设置','basic','⚙︎'],['Norma','人设','p','☺︎'],['Norma','记忆','m','◔'],['Norma','语音','v','♪'],['Input','快捷键','k','⌘'],['AI','Agents','ag','◆']];
+ return `${titlebar()}${bg()}<div class="settings"><div class="side">
+  <div class="grp" style="padding-top:2px">账号</div><button class="nav ${S.tab==='account'?'on':''}" data-act="tab" data-t="account"><i>${S.state==='in'?`<span class="avatar" style="--s:18px;display:inline-grid">${u().av}</span>`:'◉'}</i>${S.state==='in'?u().name:'账号'}</button>
+  <div class="grp">通用</div><button class="nav ${S.tab==='basic'?'on':''}" data-act="tab" data-t="basic"><i>⚙︎</i>基础设置</button><button class="nav"><i>◐</i>主题</button><button class="nav"><i>▤</i>壁纸</button>
+  <div class="grp">Norma</div><button class="nav"><i>☺︎</i>人设</button><button class="nav"><i>◔</i>记忆</button><button class="nav"><i>♪</i>语音</button>
+  <div class="grp">输入与控制</div><button class="nav"><i>⌘</i>快捷键</button>
+  <div class="grp">AI 与自动化</div><button class="nav"><i>◆</i>Agents</button><button class="nav"><i>▣</i>手机连接</button></div>
+  <div class="content">${settingsContent()}</div></div>`;
+}
+/* B */
+function varB(){
+ const inner=S.state==='in'?`<div class="logo" style="background:none;box-shadow:none;filter:none"><div class="avatar" style="--s:56px">${u().av}</div></div><h2>欢迎，${u().name}</h2><p class="muted" style="margin:0 0 18px">已通过 ${NAMES[S.prov]} 登录。</p><button class="btn primary" style="width:100%;height:40px" data-act="done">开始使用</button>`
+ :`<img class="logo" src="../../../crates/app/assets/icons/app-icon.png" alt="Norma"><h2>登录 Norma</h2><p class="muted" style="margin:0 0 18px">${S.state==='wait'?'':'用 GitHub 或 Google 账号识别你的身份。'}</p>${body()}${S.state==='wait'?'':'<button class="btn" style="width:100%;margin-top:10px;border-color:transparent;color:var(--text2)" data-act="done">稍后再说</button><div class="tiny" style="margin-top:6px">随时可在 设置 → 账号 中登录。无需登录即可使用全部功能。</div>'}`;
+ return `${titlebar()}${bg()}${S.dismissed?'':`<div class="scrim"><div class="sheet" role="dialog" aria-label="登录 Norma">${inner}</div></div>`}${S.dismissed?'<div style="position:absolute;left:0;right:0;top:56px;text-align:center" class="tiny">引导已关闭 — 点击下方「状态」重置</div>':''}`;
+}
+/* C */
+function varC(){
+ const btn=S.state==='in'?`<button class="acctbtn" data-act="menu" aria-expanded="${S.menu}" aria-haspopup="menu"><span class="avatar" style="--s:20px">${u().av}</span>${u().name}</button>`
+ :`<button class="acctbtn out" data-act="menu" aria-expanded="${S.menu}" aria-haspopup="dialog">登录</button>`;
+ let pop='';
+ if(S.menu){
+  pop=S.state==='in'?`<div class="pop" role="menu">${profile(true)}<div class="menu" style="margin-top:10px"><div class="divider" style="margin:0 6px 4px"></div><button class="mi" data-act="goset">账号设置…<span class="k">⌘,</span></button><button class="mi">关联其它登录方式</button><div class="divider" style="margin:4px 6px"></div><button class="mi" style="color:var(--destructive)" data-act="signout">退出登录</button></div></div>`
+  :`<div class="pop" role="dialog"><div style="font-weight:600;font-size:14px;margin-bottom:10px">${S.state==='wait'?'':'登录 Norma'}</div>${body()}${S.state==='out'?'<div class="tiny" style="margin-top:8px">可选 · 不登录也能使用全部功能</div>':''}</div>`;
+ }
+ return `${titlebar(`<div class="acct">${btn}${pop}</div>`)}${bg()}`;
+}
+function render(){
+ document.documentElement.dataset.theme=S.theme;
+ $('stage').innerHTML={a:varA,b:varB,c:varC,d:varD}[S.variant]();
+ const seg=(id,arr,key)=>$(id).innerHTML=arr.map(([v,l])=>`<button class="${S[key]===v?'on':''}" data-set="${key}" data-v="${v}">${l}</button>`).join('');
+ seg('vseg',[['d','D 启动页'],['a','A 设置页'],['b','B 引导弹窗'],['c','C 标题栏头像']],'variant');
+ seg('sseg',[['out','未登录'],['wait','等待授权'],['err','授权失败'],['in','已登录']],'state');
+ seg('tseg',[['dark','Sapphire Night'],['light','Paper Blue']],'theme');
+ $('note').textContent={d:'D · 启动页（推荐）：沿用 Launchpad 专用壁纸 home.mp4，仅居中显示 Logo 与登录按钮；可「稍后再说」，登录后显示欢迎并进入。',a:'A · 设置 → 账号：新增首个导航目的地，沿用现有侧栏与卡片；适合管理（关联/退出），发现性最低。',b:'B · 首次引导 Sheet：License 激活后出现一次，可「稍后再说」；发现性最高，但打断首次进入工作台。',c:'C · 标题栏头像 + 弹层：常驻、一键直达、不离开画布；符合 macOS 习惯（类似 Safari/系统账户入口）。'}[S.variant];
+ try{history.replaceState(null,'',`?variant=${S.variant}&state=${S.state}`)}catch(e){}
+}
+function startAuth(p){S.prov=p;S.state='wait';clearTimeout(S.t);S.t=setTimeout(()=>{if(S.state==='wait'){S.state='in';if(S.variant==='c')S.menu=true;render()}},2400);}
+document.addEventListener('click',e=>{
+ const s=e.target.closest('[data-set]');if(s){S[s.dataset.set]=s.dataset.v;if(s.dataset.set==='state'){clearTimeout(S.t);S.dismissed=false;if(S.state==='wait')S.t=setTimeout(()=>{if(S.state==='wait'){S.state='in';render()}},2400);S.menu=S.variant==='c'&&S.state!=='out'?true:S.menu}render();return}
+ const a=e.target.closest('[data-act]');if(!a)return;const k=a.dataset.act;
+ if(k==='start')startAuth(a.dataset.p);
+ else if(k==='cancel'){clearTimeout(S.t);S.state='out'}
+ else if(k==='signout'){S.state='out';S.menu=false}
+ else if(k==='menu')S.menu=!S.menu;
+ else if(k==='tab')S.tab=a.dataset.t;
+ else if(k==='done')S.dismissed=true;
+ else if(k==='skip'){S.state='out'}
+ else if(k==='goset'){S.variant='a';S.tab='account';S.menu=false}
+ render();
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.menu){S.menu=false;render()}});
+if(S.state==='wait')startAuth(S.prov);
+render();
+</script>
+</body>
+</html>
