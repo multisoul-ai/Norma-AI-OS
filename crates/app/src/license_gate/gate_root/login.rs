@@ -1,31 +1,13 @@
 //! 启动登录页：Launchpad 专用壁纸 + 居中品牌与磨砂卡片（原型变体 D）。
 
 use super::*;
-use crate::account::logo_asset;
-use account::{FailReason, FlowState, Provider};
-use gpui::{img, AnyElement, Hsla, Rgba};
-use ui::component::button::{Button, ButtonCustomVariant, ButtonVariants as _};
+use crate::account::{failure_text, provider_button};
+use account::{FlowState, Provider};
+use gpui::{img, AnyElement};
+use ui::component::button::{Button, ButtonVariants as _};
 
 const CARD_WIDTH: f32 = 340.0;
 const BUTTON_WIDTH: f32 = 260.0;
-
-fn hsla(color: u32) -> Hsla {
-    Rgba::from(gpui::rgb(color)).into()
-}
-
-fn failure_text(provider: Provider, reason: &FailReason) -> ui::i18n::LocalizedText {
-    let name = provider.display_name().to_string();
-    match reason {
-        FailReason::ProviderDenied(_) => {
-            ui::i18n::message("account.failed_denied", &[("provider", name)])
-        }
-        FailReason::TimedOut => ui::i18n::LocalizedText::new("account.failed_timeout"),
-        FailReason::StateMismatch => ui::i18n::LocalizedText::new("account.failed_state"),
-        FailReason::InvalidCallback => ui::i18n::LocalizedText::new("account.failed_invalid"),
-        FailReason::Exchange(_) => ui::i18n::LocalizedText::new("account.failed_exchange"),
-        FailReason::Listener(_) => ui::i18n::LocalizedText::new("account.failed_listener"),
-    }
-}
 
 impl GateRoot {
     pub(super) fn render_login(&mut self, cx: &mut Context<Self>) -> AnyElement {
@@ -158,8 +140,20 @@ impl GateRoot {
             );
         }
         column
-            .child(self.provider_button(account, Provider::GitHub, cx))
-            .child(self.provider_button(account, Provider::Google, cx))
+            .child(provider_button(
+                "login-github",
+                Provider::GitHub,
+                BUTTON_WIDTH,
+                account,
+                cx,
+            ))
+            .child(provider_button(
+                "login-google",
+                Provider::Google,
+                BUTTON_WIDTH,
+                account,
+                cx,
+            ))
             .child(
                 Button::new("login-skip")
                     .ghost()
@@ -178,62 +172,6 @@ impl GateRoot {
                     .text_size(px(11.0))
                     .text_color(gpui::rgba(0xeff7ff80))
                     .child(ui::i18n::text("account.privacy_note")),
-            )
-            .into_any_element()
-    }
-
-    fn provider_button(
-        &self,
-        account: &Entity<AccountController>,
-        provider: Provider,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
-        let (id, label, background, foreground, hover, active) = match provider {
-            Provider::GitHub => (
-                "login-github",
-                ui::i18n::text("account.continue_with_github"),
-                0xf0f6fc,
-                0x0d1117,
-                0xdfe8f1,
-                0xcfd9e4,
-            ),
-            Provider::Google => (
-                "login-google",
-                ui::i18n::text("account.continue_with_google"),
-                0xffffff,
-                0x1f1f1f,
-                0xeceff1,
-                0xdde1e4,
-            ),
-        };
-        let style = ButtonCustomVariant::new(cx)
-            .color(hsla(background))
-            .foreground(hsla(foreground))
-            .border(hsla(background))
-            .hover(hsla(hover))
-            .active(hsla(active));
-        let account = account.clone();
-        div()
-            .debug_selector(move || id.to_string())
-            .w(px(BUTTON_WIDTH))
-            .child(
-                Button::new(id)
-                    .custom(style)
-                    .w_full()
-                    .h(px(40.0))
-                    .rounded(px(10.0))
-                    .child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .gap(px(9.0))
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
-                            .child(img(logo_asset(provider)).size(px(18.0)))
-                            .child(label),
-                    )
-                    .on_click(move |_, _, cx| {
-                        account.update(cx, |account, cx| account.begin(provider, cx))
-                    }),
             )
             .into_any_element()
     }

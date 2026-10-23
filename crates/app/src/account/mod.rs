@@ -10,6 +10,7 @@ mod install;
 mod logos;
 mod loopback;
 mod store;
+mod ui;
 
 pub(crate) use client::{account_base_url, CloudAuthApi};
 pub(crate) use controller::{AccountController, AccountHandle};
@@ -17,9 +18,10 @@ pub(crate) use gate_phase::{
     account_login_enabled, should_show_login, skip_login_requested, LoginGateInputs,
 };
 pub(crate) use install::install_account_controller;
-pub(crate) use logos::{logo_asset, provider_logo};
+pub(crate) use logos::{account_asset, logo_asset, ACCOUNT_NAV_ASSET};
 pub(crate) use loopback::{LoopbackError, LoopbackListener};
 pub(crate) use store::AppDbAccountStore;
+pub(crate) use ui::{avatar_initial, failure_text, provider_button};
 
 #[cfg(test)]
 #[path = "../../tests/unit/account_client_tests.rs"]
@@ -33,3 +35,6 @@ mod account_loopback_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/account_store_tests.rs"]
 mod account_store_tests;
+#[cfg(test)]
+#[path = "../../tests/unit/account_ui_tests.rs"]
+mod account_ui_tests;

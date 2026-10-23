@@ -177,6 +177,7 @@ pub(super) fn settings_content(
                     SettingsSection::Mobile => {
                         crate::settings::mobile::settings(theme, &mobile, cx)
                     }
+                    SettingsSection::Account => crate::settings::account::settings(theme, cx),
                     // Mock-only sections are hidden from the sidebar; keep a blank
                     // fallback so stale state or tests cannot route to old placeholders.
                     #[cfg(test)]
@@ -273,6 +274,7 @@ fn content_title(section: SettingsSection) -> &'static str {
 fn content_subtitle(section: SettingsSection, voice_shortcut_label: &str) -> String {
     match section {
         SettingsSection::General => ui::i18n::text("general.subtitle").into(),
+        SettingsSection::Account => ui::i18n::text("settings.account_subtitle").into(),
         SettingsSection::Mobile => {
             ui::i18n::text("settings.connect_your_iphone_over_a_local_network_or_tailscale")
                 .to_string()

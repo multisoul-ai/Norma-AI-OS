@@ -1,3 +1,4 @@
+pub(crate) mod account;
 pub(crate) mod agent_hook_ingress;
 pub(crate) mod agent_hooks;
 pub(crate) mod agents;

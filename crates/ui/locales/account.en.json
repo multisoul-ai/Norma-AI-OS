@@ -20,5 +20,13 @@
   "account.welcome_back": "Welcome back, %{name}",
   "account.signed_in_via": "Signed in with %{provider}",
   "account.enter_norma": "Enter Norma",
-  "account.switch_account": "Switch account"
+  "account.switch_account": "Switch account",
+  "settings.account": "Account",
+  "settings.account_subtitle": "Your account only identifies you. Your License is managed separately, and Norma works fully without signing in.",
+  "account.signed_in_badge": "Signed in",
+  "account.sign_in_methods": "Sign-in methods",
+  "account.primary": "Primary",
+  "account.sign_out": "Sign out",
+  "account.sign_out_note": "Only clears the session on this Mac. Your License and project data are not affected.",
+  "account.session_local_note": "Session stored on this Mac"
 }

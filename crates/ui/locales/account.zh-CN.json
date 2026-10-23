@@ -20,5 +20,13 @@
   "account.welcome_back": "欢迎回来，%{name}",
   "account.signed_in_via": "已通过 %{provider} 登录",
   "account.enter_norma": "进入 Norma",
-  "account.switch_account": "切换账号"
+  "account.switch_account": "切换账号",
+  "settings.account": "账号",
+  "settings.account_subtitle": "账号只用于识别身份；授权由 License 单独管理，不登录也能完整使用。",
+  "account.signed_in_badge": "已登录",
+  "account.sign_in_methods": "登录方式",
+  "account.primary": "主要",
+  "account.sign_out": "退出登录",
+  "account.sign_out_note": "只清除本机会话，不影响 License 与项目数据",
+  "account.session_local_note": "会话保存在本机"
 }

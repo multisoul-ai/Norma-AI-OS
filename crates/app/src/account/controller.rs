@@ -6,7 +6,7 @@
 use super::{LoopbackError, LoopbackListener};
 use account::{
     random_state, start_url, AccountSessionStore, Attempt, AuthApi, AuthorizeRequest, Flow,
-    FlowAction, FlowEvent, FlowState, Pkce, Profile, Provider, Session,
+    FlowAction, FlowEvent, FlowState, Pkce, Provider, Session,
 };
 use gpui::{ClipboardItem, Context, Entity, Global};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -55,15 +55,14 @@ impl AccountController {
         }
     }
 
-    pub(crate) fn state(&self) -> &FlowState {
-        self.flow.state()
+    /// 状态变化：通知自身观察者，并刷新窗口让设置页等外部视图重绘（登录事件很少，开销可忽略）。
+    fn changed(&self, cx: &mut Context<Self>) {
+        cx.notify();
+        cx.refresh_windows();
     }
 
-    pub(crate) fn profile(&self) -> Option<&Profile> {
-        match self.flow.state() {
-            FlowState::SignedIn(profile) => Some(profile),
-            _ => None,
-        }
+    pub(crate) fn state(&self) -> &FlowState {
+        self.flow.state()
     }
 
     pub(crate) fn has_session(&self) -> bool {
@@ -97,7 +96,7 @@ impl AccountController {
         self.generation += 1;
         self.authorize_url = None;
         let action = self.flow.handle(FlowEvent::Begin(attempt));
-        cx.notify();
+        self.changed(cx);
         if let Some(FlowAction::OpenBrowser(request)) = action {
             self.launch(request, cx);
         }
@@ -108,7 +107,7 @@ impl AccountController {
         self.generation += 1;
         self.authorize_url = None;
         self.flow.handle(FlowEvent::Cancel);
-        cx.notify();
+        self.changed(cx);
     }
 
     pub(crate) fn reopen_browser(&self, cx: &mut Context<Self>) {
@@ -127,7 +126,7 @@ impl AccountController {
     pub(crate) fn sign_out(&mut self, cx: &mut Context<Self>) {
         let token = self.session.take().map(|session| session.access_token);
         let action = self.flow.handle(FlowEvent::SignOut);
-        cx.notify();
+        self.changed(cx);
         if !matches!(action, Some(FlowAction::ClearSession)) {
             return;
         }
@@ -204,7 +203,7 @@ impl AccountController {
             return;
         }
         let action = self.flow.handle(event);
-        cx.notify();
+        self.changed(cx);
         match action {
             Some(FlowAction::ExchangeCode(request)) => {
                 let api = self.api.clone();

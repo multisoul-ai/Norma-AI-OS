@@ -55,6 +55,7 @@ pub(crate) enum SettingsSection {
     Orchestration,
     Wallpaper,
     Mobile,
+    Account,
 }
 
 #[derive(Clone, Copy)]
@@ -153,6 +154,12 @@ impl SettingsSection {
                 index: 9,
                 debug_selector: "settings-section-mobile",
             },
+            Self::Account => SettingsSectionMetadata {
+                title: ui::i18n::text("settings.account"),
+                icon_asset: Some(crate::account::ACCOUNT_NAV_ASSET),
+                index: 13,
+                debug_selector: "settings-section-account",
+            },
         }
     }
 }
@@ -181,6 +188,20 @@ const NAVIGATION_GROUPS: [(&str, &[SettingsSection]); 4] = [
     ("settings.input_controls", INPUT_SECTIONS),
     ("settings.ai_automation", AUTOMATION_SECTIONS),
 ];
+
+const ACCOUNT_SECTIONS: &[SettingsSection] = &[SettingsSection::Account];
+
+type NavigationGroup = (&'static str, &'static [SettingsSection]);
+
+/// 账号分组随 `account-login` 发布开关出现，位于所有分组之前。
+fn navigation_groups() -> Vec<NavigationGroup> {
+    let mut groups: Vec<NavigationGroup> = Vec::new();
+    if crate::account::account_login_enabled() {
+        groups.push(("settings.account", ACCOUNT_SECTIONS));
+    }
+    groups.extend(NAVIGATION_GROUPS);
+    groups
+}
 
 fn group_label(key: &'static str) -> &'static str {
     if key.is_empty() || key == "Norma" {
@@ -228,7 +249,7 @@ fn sidebar_navigation(
         .gap(px(if compact { 14.0 } else { SIDEBAR_GROUP_SPACING }))
         .mt(px(if compact { 14.0 } else { SIDEBAR_GROUP_SPACING }));
 
-    for (group, sections) in NAVIGATION_GROUPS {
+    for (group, sections) in navigation_groups() {
         groups = groups.child(sidebar_group(
             theme,
             group_label(group),
@@ -312,7 +333,7 @@ fn top_bar_navigation(
         .border_color(rgba(with_alpha(theme.edge_highlight, 0x24)))
         .bg(rgba(with_alpha(theme.node_fill, 0xf2)));
 
-    for (group, sections) in NAVIGATION_GROUPS {
+    for (group, sections) in navigation_groups() {
         navigation = navigation.child(
             div()
                 .flex_none()
