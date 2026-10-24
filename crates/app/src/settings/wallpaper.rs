@@ -10,7 +10,7 @@ mod current;
 pub(crate) mod delete_dialog;
 pub(crate) mod dirs;
 mod import;
-mod layout;
+pub(crate) mod layout;
 pub(crate) mod preview;
 mod scope_view;
 pub(crate) mod scoped;

@@ -54,12 +54,13 @@ pub struct DispatchReceiptEffectE2eSnapshot {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DispatchReceiptEffectItemE2eSnapshot {
     pub origin: &'static str,
+    /// 实际播放的款式 id（meteor / fireworks …）。
+    pub style: &'static str,
     pub origin_node_id: Option<u64>,
     pub target_node_id: u64,
     pub status: &'static str,
     pub phase: &'static str,
     pub progress_milli: u16,
-    pub reduce_motion: bool,
     pub particle_count: usize,
 }
 
@@ -109,9 +110,12 @@ impl MultisoulApp {
                     origin: match presentation.origin {
                         crate::motion::DispatchVisualOrigin::CommandDock => "dock",
                         crate::motion::DispatchVisualOrigin::AgentNode(_) => "agent",
+                        crate::motion::DispatchVisualOrigin::IdeaRow { .. } => "idea",
                     },
+                    style: presentation.style.id(),
                     origin_node_id: match presentation.origin {
-                        crate::motion::DispatchVisualOrigin::CommandDock => None,
+                        crate::motion::DispatchVisualOrigin::CommandDock
+                        | crate::motion::DispatchVisualOrigin::IdeaRow { .. } => None,
                         crate::motion::DispatchVisualOrigin::AgentNode(node_id) => Some(node_id),
                     },
                     target_node_id: presentation.target_node_id,
@@ -125,7 +129,6 @@ impl MultisoulApp {
                         crate::motion::DispatchEffectPhase::Impact => "impact",
                     },
                     progress_milli: opacity_to_milli(presentation.progress),
-                    reduce_motion: presentation.reduce_motion,
                     particle_count: presentation.particle_count,
                 })
                 .collect(),

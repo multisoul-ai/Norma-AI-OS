@@ -73,6 +73,7 @@ pub(super) fn migrate(connection: &Connection) -> StorageResult<()> {
     )?;
     migrate_content_workbench(connection)?;
     migrate_wallpapers(connection)?;
+    migrate_dispatch_effects(connection)?;
     migrate_project_instances(connection)?;
     Ok(())
 }
@@ -124,6 +125,18 @@ fn has_unique_project(connection: &Connection) -> StorageResult<bool> {
         [],
         |row| row.get(0),
     ).map_err(Into::into)
+}
+
+fn migrate_dispatch_effects(connection: &Connection) -> StorageResult<()> {
+    for table in ["desktop_workspaces", "desktop_project_areas"] {
+        super::ensure_column(
+            connection,
+            table,
+            "dispatch_effect_json",
+            "dispatch_effect_json TEXT",
+        )?;
+    }
+    Ok(())
 }
 
 fn migrate_wallpapers(connection: &Connection) -> StorageResult<()> {

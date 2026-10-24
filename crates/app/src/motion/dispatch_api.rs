@@ -1,8 +1,9 @@
+use super::dispatch_receipt::DispatchSpawn;
 #[cfg(any(test, feature = "e2e-test-support"))]
 use super::DispatchEffectCounts;
 use super::{
-    DispatchEffectPresentation, DispatchEffectSpawnOutcome, DispatchReceiptVisualStatus,
-    DispatchVisualOrigin, MotionStore,
+    DispatchEffectPresentation, DispatchEffectSpawnOutcome, DispatchEffectStyle,
+    DispatchReceiptVisualStatus, DispatchVisualOrigin, MotionStore, StyleSelection,
 };
 use canvas::{CanvasRect, NodeId};
 
@@ -28,16 +29,39 @@ impl MotionStore {
         target_node_id: NodeId,
         status: DispatchReceiptVisualStatus,
     ) -> DispatchEffectSpawnOutcome {
+        let task_ref = task_ref.into();
+        let style = self.dispatch_style_selection.style_for(origin, &task_ref);
+        self.spawn_dispatch_receipt_styled(task_ref, origin, target_node_id, status, style)
+    }
+
+    /// 之后发出的 effect 按它解析款式；已在飞的不受影响。
+    pub(crate) fn set_dispatch_style_selection(&mut self, selection: StyleSelection) {
+        self.dispatch_style_selection = selection;
+    }
+
+    pub(crate) fn spawn_dispatch_receipt_styled(
+        &mut self,
+        task_ref: impl Into<String>,
+        origin: DispatchVisualOrigin,
+        target_node_id: NodeId,
+        status: DispatchReceiptVisualStatus,
+        style: DispatchEffectStyle,
+    ) -> DispatchEffectSpawnOutcome {
         if self.dock_flight_suppressed && origin == DispatchVisualOrigin::CommandDock {
             return DispatchEffectSpawnOutcome::Duplicate;
         }
-        self.dispatch_receipts.spawn(
-            task_ref.into(),
+        self.dispatch_receipts.spawn_styled(DispatchSpawn {
+            task_ref: task_ref.into(),
             origin,
             target_node_id,
             status,
-            self.reduce_motion,
-        )
+            style,
+        })
+    }
+
+    /// 时长倍率，来自设置页的播放速度；只影响之后发出的 effect。
+    pub(crate) fn set_dispatch_speed(&mut self, speed: f32) {
+        self.dispatch_receipts.set_speed(speed);
     }
 
     pub(crate) fn set_dock_flight_suppressed(&mut self, suppressed: bool) {

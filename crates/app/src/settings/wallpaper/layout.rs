@@ -1,5 +1,5 @@
 /// Material's adaptive grid keeps comfortable targets instead of squeezing four columns.
-pub(super) struct WallpaperLayout {
+pub(crate) struct WallpaperLayout {
     pub width: f32,
     pub columns: usize,
     pub cell_width: f32,

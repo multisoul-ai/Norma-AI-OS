@@ -40,6 +40,7 @@ pub(super) struct SettingsContentContext<'a> {
     pub(super) content_scroll: &'a ScrollHandle,
     pub(super) agent_list_scroll: &'a ScrollHandle,
     pub(super) wallpaper_state: &'a WallpaperSettingsState,
+    pub(super) effects: crate::settings::effects::page::EffectsPageData,
     pub(super) wallpaper_previews: &'a mut PreviewCache,
     pub(super) shortcuts: &'a ShortcutSettingsState,
     pub(super) memory: gpui::Entity<crate::settings::norma::MemoryView>,
@@ -68,6 +69,7 @@ pub(super) fn settings_content(
         content_scroll,
         agent_list_scroll,
         wallpaper_state,
+        effects,
         wallpaper_previews,
         shortcuts,
         mobile,
@@ -179,6 +181,13 @@ pub(super) fn settings_content(
                     SettingsSection::NormaBrain => {
                         crate::settings::brain::settings(theme, &brain, cx)
                     }
+                    SettingsSection::Effects => crate::settings::effects::effects_settings(
+                        theme,
+                        &effects,
+                        width - padding * 2.0,
+                        window,
+                        cx,
+                    ),
                     SettingsSection::Mobile => {
                         crate::settings::mobile::settings(theme, &mobile, cx)
                     }
@@ -317,6 +326,7 @@ fn content_subtitle(section: SettingsSection, voice_shortcut_label: &str) -> Str
         )
         .to_string(),
         SettingsSection::Wallpaper => String::new(),
+        SettingsSection::Effects => ui::i18n::text("effects.subtitle").to_string(),
     }
 }
 

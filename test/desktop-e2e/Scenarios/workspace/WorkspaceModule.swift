@@ -16,6 +16,7 @@ public enum WorkspaceModule {
             WorkspaceIdeasShortcuts.name,
             WorkspaceIdeasCompose.name,
             WorkspaceFeatureGuide.name,
+            WorkspaceDispatchEffects.name,
         ],
         run: { scenario, session in
             switch scenario {
@@ -48,6 +49,9 @@ public enum WorkspaceModule {
                 return true
             case WorkspaceIdeasCompose.name:
                 try await WorkspaceIdeasCompose.run(session)
+                return true
+            case WorkspaceDispatchEffects.name:
+                try await WorkspaceDispatchEffects.run(session)
                 return true
             case WorkspaceFeatureGuide.name:
                 try await WorkspaceFeatureGuide.run(session)

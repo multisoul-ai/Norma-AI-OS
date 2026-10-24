@@ -9,6 +9,8 @@ pub enum StorageError {
     InvalidLiveOperation(String),
     #[error("invalid wallpaper reference")]
     InvalidWallpaperReference,
+    #[error("invalid dispatch effect preference")]
+    InvalidDispatchEffect,
     #[error("invalid desktop workspace name: {0}")]
     InvalidDesktopWorkspaceName(String),
     #[error("invalid idea: {0}")]

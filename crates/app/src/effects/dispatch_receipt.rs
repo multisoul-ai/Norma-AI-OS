@@ -3,6 +3,7 @@ mod geometry;
 mod impact;
 mod meteor;
 mod primitives;
+mod styles;
 
 use self::flight::paint_flight;
 #[cfg(test)]
@@ -40,13 +41,107 @@ pub(super) struct DispatchEffectFrame {
     pub(super) target: Point<Pixels>,
     pub(super) target_bounds: Bounds<Pixels>,
     pub(super) presentation: DispatchEffectPresentation,
+    /// 线宽、半径、速度等绝对尺寸的缩放；画布上是 1.0，设置页缩略图更小。
+    pub(super) scale: f32,
 }
 
-pub(super) struct DispatchPaintPlan {
+impl DispatchPaintPlan {
+    #[cfg(test)]
+    pub(super) fn empty_for_test() -> Self {
+        Self {
+            paths: Vec::new(),
+            quads: Vec::new(),
+            effect_count: 0,
+            build_elapsed: Duration::ZERO,
+        }
+    }
+}
+
+pub(crate) struct DispatchPaintPlan {
     pub(super) paths: Vec<(Path<Pixels>, Background)>,
     pub(super) quads: Vec<PaintQuad>,
     effect_count: usize,
     build_elapsed: Duration,
+}
+
+/// 设置页缩略图的参考宽度：原型里整张迷你画布的宽，线宽与粒子尺寸按它缩放。
+const PREVIEW_REFERENCE_WIDTH: f32 = 480.0;
+
+/// 缩略图在各款式时间轴上的定格位置（ms），选在画面最有代表性的时刻。
+pub(crate) fn preview_still_ms(style: crate::motion::DispatchEffectStyle) -> f32 {
+    use crate::motion::DispatchEffectStyle as S;
+    match style {
+        S::Meteor | S::Firefly => 760.0,
+        S::Plane => 720.0,
+        S::Ribbon => 500.0,
+        S::Fireworks | S::Vortex => 860.0,
+        S::Lightning => 200.0,
+        S::Ion => 300.0,
+    }
+}
+
+pub(crate) fn preview_total_ms(style: crate::motion::DispatchEffectStyle) -> f32 {
+    let timing = style.timing(1.0);
+    (timing.flight + timing.impact).as_secs_f32() * 1000.0
+}
+
+/// 在 `bounds` 里画一帧迷你场景（指令栏在底部中间，目标卡片在右上）。
+/// 与画布上同一套绘制代码，只是几何和缩放不同。
+pub(crate) fn preview_plan(
+    style: crate::motion::DispatchEffectStyle,
+    t_ms: f32,
+    bounds: Bounds<Pixels>,
+    theme: Theme,
+    seed: u64,
+) -> DispatchPaintPlan {
+    let (w, h) = (f32::from(bounds.size.width), f32::from(bounds.size.height));
+    let card = Bounds {
+        origin: point(px(w * 0.5583), px(h * 0.1259)),
+        size: Size {
+            width: px(w * 0.375),
+            height: px(h * 0.3704),
+        },
+    };
+    let timing = style.timing(1.0);
+    let flight = timing.flight.as_secs_f32() * 1000.0;
+    let impact = (timing.impact.as_secs_f32() * 1000.0).max(1.0);
+    let t = t_ms.clamp(0.0, flight + impact);
+    let (phase, progress) = if t < flight {
+        (DispatchEffectPhase::Flight, t / flight.max(1.0))
+    } else {
+        (DispatchEffectPhase::Impact, (t - flight) / impact)
+    };
+    let frame = DispatchEffectFrame {
+        origin: point(px(w * 0.5), px(h * 0.8741)),
+        origin_bounds: None,
+        target: point(
+            card.origin.x + card.size.width / 2.0,
+            card.origin.y + card.size.height / 2.0,
+        ),
+        target_bounds: card,
+        scale: (w / PREVIEW_REFERENCE_WIDTH).clamp(0.2, 1.0),
+        presentation: DispatchEffectPresentation {
+            style,
+            seed,
+            origin: DispatchVisualOrigin::CommandDock,
+            target_node_id: 0,
+            status: crate::motion::DispatchReceiptVisualStatus::Submitted,
+            phase,
+            progress: progress.clamp(0.0, 1.0),
+            particles: [crate::motion::DispatchImpactParticle::default(); 28],
+            particle_count: 0,
+        },
+    };
+    build_paint_plan(bounds, &[frame], theme)
+}
+
+pub(crate) fn paint_preview_plan(plan: DispatchPaintPlan, window: &mut Window) {
+    for (path, background) in plan.paths {
+        window.paint_path(path, background);
+    }
+    for quad in plan.quads {
+        window.paint_quad(quad);
+    }
 }
 
 pub(crate) fn command_dock_center(viewport: Size<Pixels>) -> Point<Pixels> {
@@ -124,6 +219,7 @@ pub(crate) fn render_with_canvas_offset(
                 target,
                 target_bounds,
                 presentation,
+                scale: 1.0,
             })
         })
         .collect::<Vec<_>>();
@@ -186,6 +282,9 @@ pub(super) fn build_paint_plan(
     };
     for frame in frames {
         let frame = offset_frame(*frame, overlay_bounds.origin);
+        if styles::paint_styled(&frame, theme, &mut plan) {
+            continue;
+        }
         match frame.presentation.phase {
             DispatchEffectPhase::Flight => paint_flight(frame, theme, &mut plan),
             DispatchEffectPhase::Impact => paint_impact(frame, theme, &mut plan),
@@ -267,17 +366,11 @@ pub(super) fn screen_point_visible(point: Point<Pixels>, viewport: Size<Pixels>)
 #[cfg(feature = "e2e-test-support")]
 fn visual_preview_frame(app: &MultisoulApp, origin: Point<Pixels>) -> Option<DispatchEffectFrame> {
     let preview = std::env::var("NORMA_VISUAL_PREVIEW").ok()?;
-    let (requested_phase, progress, agent_handoff) = match preview.as_str() {
+    let (phase, progress, agent_handoff) = match preview.as_str() {
         "dispatch-receipt-flight" => (DispatchEffectPhase::Flight, 0.62, false),
         "dispatch-receipt-impact" => (DispatchEffectPhase::Impact, 0.28, false),
         "dispatch-agent-handoff-flight" => (DispatchEffectPhase::Flight, 0.56, true),
         _ => return None,
-    };
-    let reduce_motion = app.motion.reduce_motion;
-    let phase = if reduce_motion {
-        DispatchEffectPhase::Impact
-    } else {
-        requested_phase
     };
     let mut agent_nodes = app
         .runtime
@@ -324,19 +417,21 @@ fn visual_preview_frame(app: &MultisoulApp, origin: Point<Pixels>) -> Option<Dis
         origin_bounds,
         target,
         target_bounds,
+        scale: 1.0,
         presentation: DispatchEffectPresentation {
+            seed: 0x5eed,
+            style: if agent_handoff {
+                crate::motion::DispatchEffectStyle::Ion
+            } else {
+                crate::motion::DispatchEffectStyle::Meteor
+            },
             origin: visual_origin,
             target_node_id: node.id,
             status: DispatchReceiptVisualStatus::Submitted,
             phase,
             progress,
-            reduce_motion,
             particles: visual_preview_particles(),
-            particle_count: if reduce_motion {
-                0
-            } else {
-                MAX_PARTICLES_PER_EFFECT
-            },
+            particle_count: MAX_PARTICLES_PER_EFFECT,
         },
     })
 }
