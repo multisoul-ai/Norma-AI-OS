@@ -158,7 +158,7 @@ impl SettingsSection {
             Self::Effects => SettingsSectionMetadata {
                 title: ui::i18n::text("effects.title"),
                 icon_asset: Some(crate::assets::SETTINGS_NAV_EFFECTS_ASSET),
-                index: 13,
+                index: 14,
                 debug_selector: "settings-section-effects",
             },
             Self::Mobile => SettingsSectionMetadata {

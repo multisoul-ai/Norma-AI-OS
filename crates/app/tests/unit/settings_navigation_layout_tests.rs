@@ -115,3 +115,22 @@ fn settings_navigation_has_four_groups_and_twelve_unique_pages() {
         "通用应显示分组标题，独立外观分组应被合并"
     );
 }
+
+/// 导航项的元素 id 来自 `metadata.index`，重复会让两个按钮抢同一个点击目标。
+///
+/// 数据构造：取生产导航里全部可见页面。
+/// 执行过程：收集每页的 `index` 与 `debug_selector`。
+/// 预期结果：两者在可见页面间都不重复（曾因 NormaBrain 与 Effects 同为 13 导致点击失效）。
+#[test]
+fn settings_navigation_item_ids_are_unique() {
+    let metadata: Vec<_> = super::NAVIGATION_GROUPS
+        .iter()
+        .flat_map(|(_, sections)| sections.iter().map(|section| section.metadata()))
+        .collect();
+    for (i, item) in metadata.iter().enumerate() {
+        for other in &metadata[..i] {
+            assert_ne!(item.index, other.index, "导航 index 重复: {}", item.index);
+            assert_ne!(item.debug_selector, other.debug_selector);
+        }
+    }
+}
