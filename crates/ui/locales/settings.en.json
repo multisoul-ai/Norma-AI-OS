@@ -198,7 +198,7 @@
   "settings.brain": "Norma Brain",
   "settings.brain_subtitle": "Norma asks a coding agent you already installed, over ACP, to organize progress and make decisions. It can only run norma commands and read project files, and never changes any file. Everyday conversation still uses the model in Voice settings, so it stays fast.",
   "settings.brain_enable": "Enable background brain",
-  "settings.brain_enable_hint": "Changes restart the brain. High-risk actions such as push, delete and deploy always ask you first.",
+  "settings.brain_enable_hint": "Changes restart the brain. The brain judges each approval's risk itself and only asks you when unsure. There is no fixed block list: add a kind to \"Always ask you\" to keep it from being approved automatically.",
   "settings.brain_running": "Running",
   "settings.brain_stopped": "Stopped",
   "settings.brain_backend": "Backend",

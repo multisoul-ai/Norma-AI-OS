@@ -198,7 +198,7 @@
   "settings.brain": "Norma 大脑",
   "settings.brain_subtitle": "Norma 通过 ACP 调用你已安装的编码 Agent 来整理进度和做决策。大脑只能执行 norma 命令、只读工作空间内的项目文件，不会改动任何文件。普通对话仍由“语音”设置里的模型负责，速度不受影响。",
   "settings.brain_enable": "启用后台大脑",
-  "settings.brain_enable_hint": "修改后会重启大脑。push、删除、部署等高风险操作始终先问你。",
+  "settings.brain_enable_hint": "修改后会重启大脑。每条审批的风险由大脑自己判断，拿不准才问你；没有固定的拦截清单。想让某类操作不被自动放行，把它加进“始终先问你”。",
   "settings.brain_running": "运行中",
   "settings.brain_stopped": "未运行",
   "settings.brain_backend": "后端",

@@ -117,7 +117,6 @@ impl BrainService {
             ),
             goal,
             open,
-            status: status_tx,
             main: main_tx,
             approval: approval_tx,
             stop: stop.clone(),
@@ -151,7 +150,6 @@ struct Dispatcher {
     router: Router,
     goal: Arc<GoalStore>,
     open: Arc<Mutex<HashSet<String>>>,
-    status: Sender<BrainStatus>,
     main: Sender<Job>,
     approval: Sender<Job>,
     stop: Arc<AtomicBool>,
@@ -200,29 +198,23 @@ impl Dispatcher {
     }
 
     fn dispatch(&self, actions: Vec<Action>) {
-        for action in actions {
-            match action {
-                Action::Prompt {
-                    lane,
-                    text,
-                    approval_id,
-                } => {
-                    let tx = if lane == Lane::Main {
-                        &self.main
-                    } else {
-                        &self.approval
-                    };
-                    // 主会话的每条提示都带上当前目标，不只在首条说明里说一次。
-                    let text = match (lane, self.goal.summary()) {
-                        (Lane::Main, Some(goals)) => prompt::with_goals(&text, &goals),
-                        _ => text,
-                    };
-                    let _ = tx.send(Job { text, approval_id });
-                }
-                Action::Escalate { id, reason } => {
-                    let _ = self.status.send(BrainStatus::Escalate { id, reason });
-                }
-            }
+        for Action {
+            lane,
+            text,
+            approval_id,
+        } in actions
+        {
+            let tx = if lane == Lane::Main {
+                &self.main
+            } else {
+                &self.approval
+            };
+            // 主会话的每条提示都带上当前目标，不只在首条说明里说一次。
+            let text = match (lane, self.goal.summary()) {
+                (Lane::Main, Some(goals)) => prompt::with_goals(&text, &goals),
+                _ => text,
+            };
+            let _ = tx.send(Job { text, approval_id });
         }
     }
 }

@@ -279,9 +279,6 @@ impl MultisoulApp {
                         self.escalate(&id, "大脑暂时不可用", cx);
                     }
                 }
-                BrainStatus::Escalate { id, reason } => {
-                    self.escalate(&id, &format!("命中高风险规则：{reason}"), cx)
-                }
                 BrainStatus::Trace(entry) => self.brain.trace.push(entry),
                 BrainStatus::ApprovalTurnEnded { id } => {
                     if self.brain.tracked.get(&id).is_some_and(|t| !t.escalated) {

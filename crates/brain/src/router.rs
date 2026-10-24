@@ -1,8 +1,7 @@
-//! 事件分流：去抖、定时摘要、高风险直通人工。纯逻辑，时间由调用方传入。
+//! 事件分流：去抖、静默池、定时摘要、审批分发。纯逻辑，时间由调用方传入。
 
 use crate::event::{ApprovalRequest, BrainEvent, Outcome};
 use crate::lane::prompt;
-use crate::risk::{risk_class, RiskClass};
 use crate::triage::{triage, Verdict};
 use std::collections::{BTreeMap, HashSet};
 use std::time::{Duration, Instant};
@@ -15,16 +14,13 @@ pub enum Lane {
     Approval,
 }
 
+/// 交给某条会话的一条提示。
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum Action {
-    Prompt {
-        lane: Lane,
-        text: String,
-        /// 审批提示带上审批标识，便于在发送前检查是否已关闭。
-        approval_id: Option<String>,
-    },
-    /// 命中高风险规则：不经过大脑，直接转人工。
-    Escalate { id: String, reason: String },
+pub struct Action {
+    pub lane: Lane,
+    pub text: String,
+    /// 审批提示带上审批标识，便于在发送前检查是否已关闭。
+    pub approval_id: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -121,7 +117,7 @@ impl Router {
                 self.open_approvals.remove(&id);
                 vec![]
             }
-            BrainEvent::UserRequest { text } => vec![Action::Prompt {
+            BrainEvent::UserRequest { text } => vec![Action {
                 lane: Lane::Main,
                 text: prompt::user_request(&text),
                 approval_id: None,
@@ -132,14 +128,8 @@ impl Router {
     }
 
     fn route_approval(&mut self, request: ApprovalRequest) -> Vec<Action> {
-        if let RiskClass::High(reason) = risk_class(&request.subject) {
-            return vec![Action::Escalate {
-                id: request.id,
-                reason: format!("{reason:?}"),
-            }];
-        }
         self.open_approvals.insert(request.id.clone());
-        vec![Action::Prompt {
+        vec![Action {
             lane: Lane::Approval,
             text: prompt::approval(&request, &self.config.norma_bin),
             approval_id: Some(request.id),
@@ -152,7 +142,7 @@ impl Router {
         if let Some(batch) = &self.finished {
             if now >= batch.first_at + self.config.debounce {
                 let batch = self.finished.take().expect("批次刚检查过存在");
-                actions.push(Action::Prompt {
+                actions.push(Action {
                     lane: Lane::Main,
                     text: prompt::urgent_batch(&batch.lines),
                     approval_id: None,
@@ -163,7 +153,7 @@ impl Router {
         if let Some(batch) = &self.quiet {
             if now >= batch.first_at + self.config.quiet_window {
                 let batch = self.quiet.take().expect("静默批次刚检查过存在");
-                actions.push(Action::Prompt {
+                actions.push(Action {
                     lane: Lane::Main,
                     text: prompt::quiet_batch(&batch.lines),
                     approval_id: None,
@@ -175,7 +165,7 @@ impl Router {
             if now >= self.last_summary + every {
                 self.last_summary = now;
                 if !self.digest.is_empty() {
-                    actions.push(Action::Prompt {
+                    actions.push(Action {
                         lane: Lane::Main,
                         text: prompt::summary(&self.digest),
                         approval_id: None,

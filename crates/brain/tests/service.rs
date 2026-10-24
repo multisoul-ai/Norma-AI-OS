@@ -123,23 +123,23 @@ fn approval_lane_runs_the_decide_command_through_the_gate() {
     h.service.shutdown();
 }
 
-/// 命中高风险规则的审批不交给大脑。
+/// `git push` 这类命令也交给大脑判断：提示发给了审批会话，并带着风险评估要求。
 ///
 /// 数据构造：`git push origin main`。
 /// 预期结果：
-///   - 正断言：收到 Escalate(a2)
-///   - 负断言：假适配器日志里没有 a2 的提示
+///   - 正断言：假适配器日志里有 a2 的提示，含“可逆”；本轮结束后收到 ApprovalTurnEnded
+///   - 负断言：没有任何绕过大脑的直接转人工
 #[test]
-fn high_risk_approval_is_escalated_without_asking_the_brain() {
+fn git_push_approval_is_judged_by_the_brain() {
     let h = start();
     h.service.push(approval("a2", "git push origin main"));
-    h.wait_status(|s| matches!(s, BrainStatus::Escalate { id, .. } if id == "a2"));
-    std::thread::sleep(Duration::from_millis(300));
+    h.wait_status(|s| matches!(s, BrainStatus::ApprovalTurnEnded { id } if id == "a2"));
+    let log = h.log();
     assert!(
-        !h.log().contains("a2"),
-        "高风险审批不应发给大脑：\n{}",
-        h.log()
+        log.contains("审批 a2") && log.contains("git push origin main"),
+        "{log}"
     );
+    assert!(log.contains("可逆"), "提示要带风险评估要求：{log}");
     h.service.shutdown();
 }
 

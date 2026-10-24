@@ -53,11 +53,6 @@ pub enum BrainStatus {
     BackendDown {
         reason: String,
     },
-    /// 命中高风险规则，没有交给大脑。
-    Escalate {
-        id: String,
-        reason: String,
-    },
     /// 审批会话处理完一条审批；调用方检查它是否仍在等待，若是则转人工。
     ApprovalTurnEnded {
         id: String,

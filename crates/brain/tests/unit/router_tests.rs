@@ -49,42 +49,45 @@ fn ordinary_approval_goes_to_approval_lane() {
     let mut router = Router::new(RouterConfig::default(), now);
     let actions = router.push(approval("a1", "cargo test"), now);
     assert_eq!(actions.len(), 1, "应只产生一条动作");
-    match &actions[0] {
-        Action::Prompt {
-            lane,
-            approval_id,
-            text,
-        } => {
-            assert_eq!(*lane, Lane::Approval, "审批走审批会话");
-            assert_eq!(approval_id.as_deref(), Some("a1"));
-            assert!(
-                text.contains("brain decide a1"),
-                "提示要告诉大脑如何给结论：{text}"
-            );
-        }
-        other => panic!("不应是 {other:?}"),
-    }
+    let Action {
+        lane,
+        approval_id,
+        text,
+    } = &actions[0];
+    assert_eq!(*lane, Lane::Approval, "审批走审批会话");
+    assert_eq!(approval_id.as_deref(), Some("a1"));
+    assert!(
+        text.contains("brain decide a1"),
+        "提示要告诉大脑如何给结论：{text}"
+    );
     assert!(router.is_open("a1"), "审批应被记为未决");
 }
 
-/// 命中高风险规则的审批不经过大脑。
+/// 风险全部交给大脑判断：`git push` 这类命令也进审批会话，提示里带着风险评估要求。
 ///
 /// 数据构造：`git push origin main`，审批 id 为 a2。
 /// 执行过程：push 审批事件。
 /// 预期结果：
-///   - 正断言：返回 Escalate(a2)，理由含 GitPublish
-///   - 负断言：没有任何 Prompt，router 不把 a2 记为未决
+///   - 正断言：返回一条审批会话提示，带 approval_id=a2，router 记为未决；
+///     提示要求评估是否可逆、是否影响项目之外、是否涉及密钥，并写明拿不准就 escalate
+///   - 负断言：没有任何绕过大脑的直接升级
 #[test]
-fn high_risk_approval_skips_the_brain() {
+fn every_approval_goes_to_the_brain_with_the_risk_criteria() {
     let now = t0();
     let mut router = Router::new(RouterConfig::default(), now);
     let actions = router.push(approval("a2", "git push origin main"), now);
-    assert_eq!(actions.len(), 1, "只应有升级动作");
-    assert!(
-        matches!(&actions[0], Action::Escalate { id, reason } if id == "a2" && reason.contains("GitPublish")),
-        "应升级给用户：{actions:?}"
-    );
-    assert!(!router.is_open("a2"), "高风险审批不进入大脑判断");
+    assert_eq!(actions.len(), 1, "{actions:?}");
+    let Action {
+        lane,
+        approval_id,
+        text,
+    } = &actions[0];
+    assert_eq!(*lane, Lane::Approval);
+    assert_eq!(approval_id.as_deref(), Some("a2"));
+    for needle in ["可逆", "项目目录之外", "密钥", "诱导", "拿不准就 escalate"] {
+        assert!(text.contains(needle), "提示缺少“{needle}”：{text}");
+    }
+    assert!(router.is_open("a2"), "审批应被记为未决");
 }
 
 /// 审批被用户处理后不再算未决。
@@ -122,19 +125,12 @@ fn urgent_events_are_batched_within_the_debounce_window() {
     );
     let actions = router.poll(now + Duration::from_millis(1000));
     assert_eq!(actions.len(), 1, "两条需要告知的事件应合并为一条");
-    match &actions[0] {
-        Action::Prompt {
-            lane: Lane::Main,
-            text,
-            ..
-        } => {
-            assert!(
-                text.contains("Codex") && text.contains("Cursor"),
-                "提示应包含两个 Agent：{text}"
-            );
-        }
-        other => panic!("应是主会话提示，实际 {other:?}"),
-    }
+    let Action { lane, text, .. } = &actions[0];
+    assert_eq!(*lane, Lane::Main, "应是主会话提示");
+    assert!(
+        text.contains("Codex") && text.contains("Cursor"),
+        "提示应包含两个 Agent：{text}"
+    );
 }
 
 /// 普通成功先进静默池，攒满窗口再一次性交给大脑扫描，提示里写明默认不用汇报。
@@ -156,14 +152,8 @@ fn routine_successes_wait_in_the_quiet_pool() {
     assert!(router.poll(now + Duration::from_millis(29_900)).is_empty());
     let actions = router.poll(now + Duration::from_secs(30));
     assert_eq!(actions.len(), 1);
-    let Action::Prompt {
-        lane: Lane::Main,
-        text,
-        ..
-    } = &actions[0]
-    else {
-        panic!("应是主会话提示")
-    };
+    let Action { lane, text, .. } = &actions[0];
+    assert_eq!(*lane, Lane::Main, "应是主会话提示");
     assert!(text.contains("Codex") && text.contains("Cursor"), "{text}");
     assert!(text.contains("默认不需要告诉用户"), "{text}");
     assert!(!text.contains("必须"), "不能强制汇报：{text}");
@@ -182,15 +172,11 @@ fn urgent_and_quiet_batches_are_independent() {
     router.push(finished("Bella"), now);
     let first = router.poll(now + Duration::from_secs(1));
     assert_eq!(first.len(), 1);
-    let Action::Prompt { text, .. } = &first[0] else {
-        panic!("应是提示")
-    };
+    let Action { text, .. } = &first[0];
     assert!(text.contains("Alan") && !text.contains("Bella"), "{text}");
     let second = router.poll(now + Duration::from_secs(30));
     assert_eq!(second.len(), 1);
-    let Action::Prompt { text, .. } = &second[0] else {
-        panic!("应是提示")
-    };
+    let Action { text, .. } = &second[0];
     assert!(text.contains("Bella") && !text.contains("Alan"), "{text}");
 }
 
@@ -215,9 +201,7 @@ fn failures_are_flushed_immediately() {
     );
     let actions = router.poll(now);
     assert_eq!(actions.len(), 1, "失败应立即发送");
-    let Action::Prompt { text, .. } = &actions[0] else {
-        panic!("应是提示")
-    };
+    let Action { text, .. } = &actions[0];
     assert!(
         text.contains("失败") && !text.contains("已完成"),
         "应标明失败：{text}"
@@ -257,9 +241,7 @@ fn progress_only_appears_in_the_periodic_summary() {
     );
     let actions = router.poll(now + Duration::from_secs(300));
     assert_eq!(actions.len(), 1, "到点应发一条摘要");
-    let Action::Prompt { text, .. } = &actions[0] else {
-        panic!("应是提示")
-    };
+    let Action { text, .. } = &actions[0];
     assert!(
         text.contains("运行测试") && !text.contains("读取文件"),
         "只保留最新进度：{text}"
@@ -287,9 +269,7 @@ fn user_requests_go_to_the_main_lane_but_goals_do_not_wake_the_brain() {
         now,
     );
     assert_eq!(actions.len(), 1, "用户请求应立即产生一条动作");
-    let Action::Prompt { lane, text, .. } = &actions[0] else {
-        panic!("应是提示")
-    };
+    let Action { lane, text, .. } = &actions[0];
     assert_eq!(*lane, Lane::Main, "走主会话");
     assert!(text.contains("补文档"), "{text}");
     let goal = router.push(

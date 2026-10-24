@@ -1,7 +1,6 @@
 //! `norma brain …` 命令的执行：播报、审批、读 Agent、派任务。
 
 use super::{approvals, ask_key, AutoAction, AutoKind, BrainHostState, MultisoulApp, ASSIGN_KEY};
-use brain::risk::{risk_class, RiskClass};
 use gpui::{Context, Window};
 use norma::mobile::ApprovalTarget;
 use norma::protocol::{
@@ -165,7 +164,6 @@ impl MultisoulApp {
             return Err(reject("approval_closed：这条审批已经处理或失效"));
         };
         let target: ApprovalTarget = tracked.target.clone();
-        let high_risk = matches!(risk_class(&tracked.subject), RiskClass::High(_));
         let autonomy = self.brain_autonomy();
         let permitted = approvals::autonomy_allows(&autonomy, &tracked.subject.tool_name);
         let key = ask_key(&tracked.subject);
@@ -178,11 +176,6 @@ impl MultisoulApp {
             BrainDecision::Escalate => {
                 self.escalate(id, reason, cx);
                 return output(json!({"decision": "escalate"}));
-            }
-            // 大脑只能升级，不能把高风险操作降级放行。
-            BrainDecision::Allow if high_risk => {
-                self.escalate(id, "命中高风险规则", cx);
-                return Err(reject("high_risk：命中高风险规则，已转交用户"));
             }
             // 用户没有勾选这类操作的自主权：交给用户。
             BrainDecision::Allow if !permitted => {
