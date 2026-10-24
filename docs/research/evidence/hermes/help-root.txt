@@ -1,5 +1,5 @@
 Hermes Agent v0.22.2 (2026.9.24) · stable · local d923a5eb487a
-Install directory: /Users/openclawd/.hermes/hermes-agent
+Install directory: /Users/user/.hermes/hermes-agent
 Install method: git
 Python: 3.14.7
 OpenAI SDK: 2.24.0

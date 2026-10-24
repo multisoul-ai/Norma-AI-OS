@@ -20,10 +20,10 @@ GPT-Live 已接入独立通话、项目工具和持久回执。真人声音、�
 | 更正保护 | 点击“准备语音检测”，成功后重新连接 |
 | 设备 | 先用耳机，再用外放分别测试 |
 
-验收启动器：`/Users/openclawd/.codex/artifacts/gpt-live-20261018/run-gpt-live.command`。双击运行，或用下列命令。启动器使用独立数据目录，关闭后保留本轮测试配置。
+验收启动器：`/Users/user/.codex/artifacts/gpt-live-20261018/run-gpt-live.command`。双击运行，或用下列命令。启动器使用独立数据目录，关闭后保留本轮测试配置。
 
 ```bash
-bash /Users/openclawd/.codex/artifacts/gpt-live-20261018/run-gpt-live.command
+bash /Users/user/.codex/artifacts/gpt-live-20261018/run-gpt-live.command
 ```
 
 本机 Ollama 在此前检查时未运行。后台未就绪应明确提示，语音聊天仍可连接。
@@ -103,6 +103,6 @@ bash /Users/openclawd/.codex/artifacts/gpt-live-20261018/run-gpt-live.command
 
 真实设置页只实际点击了缺Key的连接按钮。静音和停止播报的禁用外观已看图；它们的真人交互和完整键盘行为留待统一验收。
 
-![最终Release的操作核对入口](/Users/openclawd/Documents/code/norma-os/Norma-AI-OS/.worktrees/gpt-live-duplex/artifacts/desktop-workspace-e2e/2026-10-18T08-49-01Z/03b-review-dark.png)
+![最终Release的操作核对入口](/Users/user/Documents/code/norma-os/Norma-AI-OS/.worktrees/gpt-live-duplex/artifacts/desktop-workspace-e2e/2026-10-18T08-49-01Z/03b-review-dark.png)
 
 悬浮框已按用户要求移除；本次71项相关回归及Check、严格Clippy、Release构建通过。新版真实设置回归前5/6步通过，6张已保存截图看图符合；最后一步因窗口截图不可用失败，整体未计通过。浮层隐藏由有转写的隔离App渲染回归证明，真人通话仍需本次统一验收。原自动Goal已由用户清除。

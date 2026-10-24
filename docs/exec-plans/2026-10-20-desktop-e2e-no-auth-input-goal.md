@@ -145,7 +145,7 @@ X3 补了两处：
 
 ### 文档文件夹弹窗的来源（已定位）
 
-TCC 日志里，这次请求的访问方（`accessing`）是 `stage/norma-os`，也就是 Norma 本身，不是驱动。被访问的路径在日志里是 `<private>`，所以用进程内拦截库（`DYLD_INSERT_LIBRARIES` 注入 `open`、`stat` 等调用，记录以 `/Users/openclawd/Documents` 开头的路径，附调用栈）在完整场景里复现：
+TCC 日志里，这次请求的访问方（`accessing`）是 `stage/norma-os`，也就是 Norma 本身，不是驱动。被访问的路径在日志里是 `<private>`，所以用进程内拦截库（`DYLD_INSERT_LIBRARIES` 注入 `open`、`stat` 等调用，记录以 `/Users/user/Documents` 开头的路径，附调用栈）在完整场景里复现：
 
 - 整个场景里 Norma 只访问了一个受保护路径：`<仓库>/crates/app/assets/home/earth-horizon.png`（首页壁纸）。驱动 `norma-e2e` 没有访问任何 `~/Documents` 路径。
 - 调用栈一：`MultisoulApp::render` → `render_workspace_backdrop` → `wallpaper_img` → `WallpaperSettingsState::image_source_for_selection` → `wallpaper_resolvers::resolve_builtin_asset` → `Path::is_file`（`stat`）。一次场景里约 340 次，即每次渲染都会在前台线程 `stat` 一次。

@@ -57,7 +57,7 @@
 
 独立只读审查指出的旧授权抢跑、松键截尾、上传提前放行和持续静音阻塞释放问题均已修正并复核。Rust 行数、禁止 `#[allow]` 和 `git diff --check` 通过。
 
-日志根目录：`/Users/openclawd/.codex/artifacts/gpt-live-20261018/`。主要记录为 `config-final-tests.log`、`config-doubao-regression.log`、`config-ui-tests.log`、`config-capture-tests.log`、`config-release-build.log`。
+日志根目录：`/Users/user/.codex/artifacts/gpt-live-20261018/`。主要记录为 `config-final-tests.log`、`config-doubao-regression.log`、`config-ui-tests.log`、`config-capture-tests.log`、`config-release-build.log`。
 
 ## 尚未验收
 
@@ -65,4 +65,4 @@
 - 真人通过 DJI 麦克风创建智能体卡片、连续派任务、查询结果和插话。
 - 耳机／外放的声学效果。以上留给用户统一测试，不能以本地受控测试替代。
 
-测试启动器：`/Users/openclawd/.codex/artifacts/gpt-live-20261018/run-gpt-live.command`。测试包与原隔离验收数据绑定，沿用已保存 Key；本轮未读取其内容。
+测试启动器：`/Users/user/.codex/artifacts/gpt-live-20261018/run-gpt-live.command`。测试包与原隔离验收数据绑定，沿用已保存 Key；本轮未读取其内容。

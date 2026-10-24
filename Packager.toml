@@ -23,7 +23,7 @@ resources = [
 icons = ["assets/AppIcon.icns"]
 out-dir = "build"
 binaries-dir = "."
-before-packaging-command = "scripts/release-version.sh >/dev/null && scripts/prepare-release-media.sh && scripts/prepare-sparkle.sh && scripts/prepare-app-icon.sh && scripts/prepare-release-info-plist.sh && NORMA_POSTHOG_KEY=phc_uYNFWjdETXbLrtHd4jeUSJAyBSFDmoD8sk4CoKegmPxu cargo build --release -p app --no-default-features --features production-data && cargo build --release -p norma --bins"
+before-packaging-command = "scripts/release-version.sh >/dev/null && scripts/prepare-release-media.sh && scripts/prepare-sparkle.sh && scripts/prepare-app-icon.sh && scripts/prepare-release-info-plist.sh && cargo build --release -p app --no-default-features --features production-data && cargo build --release -p norma --bins"
 
 [dmg]
 background = "assets/dmg-background.png"
