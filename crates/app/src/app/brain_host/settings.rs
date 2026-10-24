@@ -38,8 +38,8 @@ impl MultisoulApp {
             .collect()
     }
 
-    /// 标题栏的“语音汇报”开关只在启用了大脑时出现。
-    pub(crate) fn brain_toggle_visible(&self) -> bool {
+    /// 启用幕僚后，概览才显示“Norma 自主处理”栏。
+    pub(crate) fn brain_enabled(&self) -> bool {
         self.brain
             .settings
             .as_ref()

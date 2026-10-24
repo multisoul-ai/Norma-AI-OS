@@ -11,7 +11,6 @@ pub(super) const TOP: f32 = 0.0;
 pub(super) const BOTTOM: f32 = 0.0;
 
 mod artifacts;
-mod brain_toggle;
 mod brain_trace;
 mod chat;
 mod chat_message;

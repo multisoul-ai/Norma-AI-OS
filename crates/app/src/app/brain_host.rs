@@ -314,7 +314,7 @@ impl MultisoulApp {
                     tracing::warn!(%reason, "大脑后端不可用");
                     let pending: Vec<String> = self.brain.tracked.keys().cloned().collect();
                     for id in pending {
-                        self.escalate(&id, "大脑暂时不可用", cx);
+                        self.escalate(&id, "幕僚暂时不可用", cx);
                     }
                 }
                 BrainStatus::Trace(entry) => self.brain.trace.push(entry),

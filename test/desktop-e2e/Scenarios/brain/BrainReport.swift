@@ -101,40 +101,6 @@ public enum BrainReport {
             }
             return "日志与决策记录都出现了大脑的汇报"
         }
-
-        try await session.step("标题栏的“语音汇报”开关：点一下关闭，再点一下打开，配置随之改变") {
-            guard let brainDir else { throw E2EError.env("大脑目录丢失") }
-            let config = brainDir.appendingPathComponent("config.json")
-            try session.save(try await session.capture(), "02-voice-report-on.png")
-            try await clickToggle(session)
-            try await waitConfig(config, contains: "\"speak\": false")
-            try session.save(try await session.capture(), "03-voice-report-off.png")
-            try await clickToggle(session)
-            try await waitConfig(config, contains: "\"speak\": true")
-            return "speak 先变 false 再变 true"
-        }
-    }
-
-
-    /// 开关在标题栏右侧；选中时是蓝底，文字识别常认不出，所以识别不到就按位置点（宽度的 92%，高度的 3%）。
-    private static func clickToggle(_ session: Session) async throws {
-        let frame = try await session.capture()
-        if let label = frame.pick(["语音汇报"], .top), label.center.y < Double(frame.windowFrame.height) * 0.1 {
-            try await session.click(local: label.center, on: frame)
-        } else {
-            try await session.click(
-                local: CGPoint(x: Double(frame.windowFrame.width) * 0.92, y: Double(frame.windowFrame.height) * 0.03),
-                on: frame)
-        }
-    }
-
-    private static func waitConfig(_ url: URL, contains needle: String) async throws {
-        let deadline = Date().addingTimeInterval(6)
-        while Date() < deadline {
-            if let text = try? String(contentsOf: url, encoding: .utf8), text.contains(needle) { return }
-            try await Task.sleep(nanoseconds: 200_000_000)
-        }
-        throw E2EError.product("配置里 6 秒内没有出现 \(needle)")
     }
 
     private static func appLog(_ session: Session) throws -> URL {

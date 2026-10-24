@@ -1,457 +1,336 @@
-//! 设置 → Norma 大脑：按原型的表单排布，所有选项都落到 `~/.norma/brain/config.json`。
+//! 设置 → 幕僚：顶部状态卡加五个分组（汇报、下一步与自主权、始终先问你、模型、高级），
+//! 按 Material 3 的列表排布。所有选项都落到 `~/.norma/brain/config.json`。
 
+mod models;
 mod widgets;
 
 use crate::app::{BrainSettings, BrainSettingsView, MultisoulApp, SlowReminder, SummaryEvery};
-use crate::settings::typography::{control_label, SettingsText, TextRole};
-use brain::{BackendKind, Strategy};
-use gpui::{div, prelude::*, px, rgba, Context, Div};
-use ui::component::button::Button;
-use ui::component::checkbox::Checkbox;
-use ui::component::switch::Switch;
-use ui::component::{Disableable, Sizable as _, Size};
+use crate::settings::typography::{SettingsText, TextRole};
+use gpui::{div, prelude::*, px, rgba, AnyElement, Context, Div};
+use models::{model_name, model_rows, BACKENDS};
+use ui::component::Disableable;
+use ui::icons::with_alpha;
 use ui::Theme;
-use widgets::{backend_card, chip, form_row, note, segment, wrap_row};
+use widgets::{chip, note, row, section, segmented, switch, Segment};
 
-const BACKENDS: [(&str, &str, BackendKind, &str); 3] = [
+pub(super) fn t(key: &'static str) -> &'static str {
+    ui::i18n::text(key)
+}
+
+/// 一个分段选项，点击后改一项设置。
+pub(super) fn seg(
+    id: &'static str,
+    label: &'static str,
+    selected: bool,
+    apply: impl Fn(&mut BrainSettings) + 'static,
+) -> Segment {
     (
-        "settings-brain-backend-claude",
-        "Claude Code",
-        BackendKind::ClaudeCode,
-        "claude-agent-acp",
-    ),
-    (
-        "settings-brain-backend-codex",
-        "Codex",
-        BackendKind::Codex,
-        "codex-acp",
-    ),
-    (
-        "settings-brain-backend-opencode",
-        "OpenCode",
-        BackendKind::OpenCode,
-        "opencode acp",
-    ),
-];
+        id,
+        label,
+        selected,
+        Box::new(move |app, cx| app.update_brain_settings(|s| apply(s), cx)),
+    )
+}
 
 pub(super) fn settings(
     theme: Theme,
     view: &BrainSettingsView,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
-    let settings = &view.settings;
-    let claude = view.chosen_backend() == Some(BackendKind::ClaudeCode);
-    let mut form = div()
+    let s = &view.settings;
+    div()
         .w_full()
         .flex()
         .flex_col()
-        .gap(px(18.0))
-        .px(px(18.0))
-        .py(px(18.0))
-        .rounded(px(16.0))
-        .border_1()
-        .border_color(rgba(theme.node_stroke))
-        .bg(rgba(theme.panel_high))
-        .child(enable_row(theme, view, cx))
-        .child(form_row(
+        .gap(px(28.0))
+        .child(hero(theme, view, cx))
+        .child(section(
             theme,
-            ui::i18n::text("settings.brain_backend"),
-            backend_control(theme, view, cx),
+            t("settings.brain_section_report"),
+            report_rows(theme, s, cx),
         ))
-        .child(form_row(
+        .child(section(
             theme,
-            ui::i18n::text("settings.brain_strategy"),
-            strategy_control(theme, settings, cx),
-        ));
-    form = form
-        .child(form_row(
-            theme,
-            ui::i18n::text("settings.brain_main_model"),
-            model_control(theme, claude, settings.main_model.clone(), true, cx),
+            t("settings.brain_section_next"),
+            next_rows(theme, s, cx),
         ))
-        .child(form_row(
+        .child(section(
             theme,
-            ui::i18n::text("settings.brain_approval_model"),
-            model_control(theme, claude, settings.approval_model.clone(), false, cx),
+            t("settings.brain_always_ask"),
+            ask_rows(theme),
         ))
-        .child(form_row(
+        .child(section(
             theme,
-            ui::i18n::text("settings.brain_summary"),
-            summary_control(settings, cx),
+            t("settings.brain_section_models"),
+            model_rows(theme, view, cx),
         ))
-        .child(form_row(
+        .child(section(
             theme,
-            ui::i18n::text("settings.brain_autonomy"),
-            autonomy_control(settings, cx),
+            t("settings.brain_section_advanced"),
+            advanced_rows(theme, s, cx),
         ))
-        .child(form_row(
-            theme,
-            ui::i18n::text("settings.brain_always_ask"),
-            always_ask(theme),
-        ))
-        .child(form_row(
-            theme,
-            ui::i18n::text("settings.brain_slow"),
-            slow_control(settings, cx),
-        ))
-        .child(form_row(
-            theme,
-            ui::i18n::text("settings.brain_parallel"),
-            parallel_control(settings, cx),
-        ))
-        .child(form_row(
-            theme,
-            ui::i18n::text("settings.brain_scope"),
-            div()
-                .settings_text(TextRole::Helper, theme)
-                .max_w(px(560.0))
-                .child(ui::i18n::text("settings.brain_scope_note")),
-        ));
-    div().w_full().flex().flex_col().gap(px(14.0)).child(form)
 }
 
-fn enable_row(theme: Theme, view: &BrainSettingsView, cx: &mut Context<MultisoulApp>) -> Div {
-    let app = cx.weak_entity();
-    let status = if view.running {
-        ui::i18n::text("settings.brain_running")
+/// 状态卡：只回答“开没开、在不在跑、用的什么”，总开关也在这里。
+fn hero(theme: Theme, view: &BrainSettingsView, cx: &mut Context<MultisoulApp>) -> Div {
+    let on = view.settings.enabled && view.running;
+    let (dot, status) = if on {
+        (theme.success, t("settings.brain_running"))
     } else {
-        ui::i18n::text("settings.brain_stopped")
+        (theme.text_tertiary, t("settings.brain_stopped"))
     };
+    let backend = BACKENDS
+        .iter()
+        .find(|(_, _, kind, _)| view.chosen_backend() == Some(*kind))
+        .map_or("—", |(_, name, _, _)| *name);
+    let meta = format!(
+        "{backend} · {} · {}",
+        model_name(view),
+        t("settings.brain_enable_hint")
+    );
     div()
+        .w_full()
+        .px(px(20.0))
+        .py(px(16.0))
+        .rounded(px(16.0))
+        .border_1()
+        .border_color(rgba(with_alpha(theme.text_primary, 0x1f)))
+        .bg(rgba(theme.panel_high))
         .flex()
         .flex_row()
         .items_center()
-        .gap(px(20.0))
+        .gap(px(16.0))
+        .child(
+            div()
+                .size(px(10.0))
+                .flex_none()
+                .rounded_full()
+                .bg(rgba(dot))
+                .border_4()
+                .border_color(rgba(with_alpha(dot, 0x33))),
+        )
         .child(
             div()
                 .flex_1()
                 .min_w(px(0.0))
                 .flex()
                 .flex_col()
-                .gap(px(5.0))
+                .gap(px(2.0))
                 .child(
                     div()
                         .flex()
-                        .flex_row()
                         .items_center()
-                        .gap(px(9.0))
+                        .gap(px(8.0))
                         .child(
                             div()
-                                .settings_text(TextRole::RowTitle, theme)
-                                .child(ui::i18n::text("settings.brain_enable")),
+                                .settings_text(TextRole::Headline, theme)
+                                .child(t("settings.brain_enable")),
                         )
                         .child(
                             div()
                                 .px(px(8.0))
-                                .py(px(3.0))
-                                .rounded(px(9.0))
-                                .bg(rgba(theme.panel))
+                                .py(px(2.0))
+                                .rounded(px(8.0))
+                                .bg(rgba(with_alpha(dot, 0x26)))
                                 .settings_text(TextRole::Badge, theme)
+                                .text_color(rgba(dot))
                                 .child(status),
                         ),
                 )
-                .child(
-                    div()
-                        .max_w(px(570.0))
-                        .settings_text(TextRole::Helper, theme)
-                        .child(ui::i18n::text("settings.brain_enable_hint")),
-                ),
+                .child(div().settings_text(TextRole::Helper, theme).child(meta)),
         )
-        .child(
-            div()
-                .w(px(36.0))
-                .h(px(20.0))
-                .flex_none()
-                .flex()
-                .items_center()
-                .justify_center()
-                .child(
-                    Switch::new("settings-brain-enabled")
-                        .checked(view.settings.enabled)
-                        .with_size(Size::Medium)
-                        .on_click(move |checked, _window, cx| {
-                            let enabled = *checked;
-                            let _ = app.update(cx, |app, cx| {
-                                app.update_brain_settings(move |s| s.enabled = enabled, cx)
-                            });
-                        }),
-                ),
-        )
+        .child(switch(
+            "settings-brain-enabled",
+            view.settings.enabled,
+            cx,
+            |app, v, cx| app.update_brain_settings(move |s| s.enabled = v, cx),
+        ))
 }
 
-fn backend_control(theme: Theme, view: &BrainSettingsView, cx: &mut Context<MultisoulApp>) -> Div {
-    let mut cards = wrap_row();
-    for (id, name, kind, program) in BACKENDS {
-        let installed = view.installed.contains(&kind);
-        let status = if installed {
-            format!(
-                "{} · {program}",
-                ui::i18n::text("settings.brain_backend_installed")
-            )
-        } else {
-            ui::i18n::text("settings.brain_backend_no_adapter").to_string()
-        };
-        cards = cards.child(backend_card(
+fn report_rows(theme: Theme, s: &BrainSettings, cx: &mut Context<MultisoulApp>) -> Vec<AnyElement> {
+    let summary = s.summary;
+    let slow = s.slow_reminder;
+    vec![
+        row(
             theme,
-            id,
-            name,
-            status,
-            installed && view.chosen_backend() == Some(kind),
-            installed,
-            cx,
-            move |app, cx| app.update_brain_settings(move |s| s.backend = Some(kind), cx),
-        ));
-    }
-    let mut column = div().flex().flex_col().gap(px(10.0)).child(cards);
-    if !view.installed.contains(&BackendKind::ClaudeCode) {
-        let label = if view.installing {
-            ui::i18n::text("settings.brain_installing")
-        } else {
-            ui::i18n::text("settings.brain_install")
-        };
-        column = column.child(
-            div().flex().flex_row().child(
-                Button::new("settings-brain-install")
-                    .child(control_label(label))
-                    .outline()
-                    .disabled(view.installing)
-                    .on_click(cx.listener(|app, _, _, cx| app.install_brain_adapter(cx))),
-            ),
-        );
-    }
-    if let Some(reason) = &view.install_error {
-        column = column.child(div().settings_text(TextRole::Helper, theme).child(
-            ui::i18n::format(
-                "settings.brain_install_failed",
-                &[("reason", reason.clone())],
-            ),
-        ));
-    }
-    column
-}
-
-fn strategy_control(theme: Theme, settings: &BrainSettings, cx: &mut Context<MultisoulApp>) -> Div {
-    let current = settings.strategy;
-    let option = |id, strategy: Strategy, label, cx: &mut Context<MultisoulApp>| {
-        segment(id, label, current == strategy, false, cx, move |app, cx| {
-            app.update_brain_settings(move |s| s.strategy = strategy, cx)
-        })
-    };
-    let note_key = match current {
-        Strategy::Speed => "settings.brain_strategy_note_speed",
-        Strategy::Auto => "settings.brain_strategy_note_auto",
-        Strategy::Quality => "settings.brain_strategy_note_quality",
-    };
-    div()
-        .child(
-            wrap_row()
-                .child(option(
-                    "settings-brain-strategy-speed",
-                    Strategy::Speed,
-                    ui::i18n::text("settings.brain_strategy_speed"),
-                    cx,
-                ))
-                .child(option(
-                    "settings-brain-strategy-auto",
-                    Strategy::Auto,
-                    ui::i18n::text("settings.brain_strategy_auto"),
-                    cx,
-                ))
-                .child(option(
-                    "settings-brain-strategy-quality",
-                    Strategy::Quality,
-                    ui::i18n::text("settings.brain_strategy_quality"),
-                    cx,
-                )),
+            t("settings.brain_voice"),
+            Some(t("settings.brain_voice_hint").into()),
+            switch("settings-brain-voice", s.speak, cx, |app, v, cx| {
+                app.set_brain_speaking(v, cx)
+            }),
         )
-        .child(note(theme, ui::i18n::text(note_key)))
-}
-
-/// 模型只对 Claude Code 可选（别名 opus、sonnet、haiku）；其他后端跟随各自 CLI。
-fn model_control(
-    theme: Theme,
-    claude: bool,
-    current: Option<String>,
-    main: bool,
-    cx: &mut Context<MultisoulApp>,
-) -> Div {
-    if !claude {
-        return div()
-            .pt(px(6.0))
-            .settings_text(TextRole::Helper, theme)
-            .child(ui::i18n::text("settings.brain_model_cli_default"));
-    }
-    let choices: [(&'static str, Option<&'static str>, &'static str); 4] = [
-        (
-            "follow",
-            None,
-            ui::i18n::text("settings.brain_model_follow_strategy"),
-        ),
-        ("opus", Some("opus"), "Opus"),
-        ("sonnet", Some("sonnet"), "Sonnet"),
-        ("haiku", Some("haiku"), "Haiku"),
-    ];
-    let mut row = wrap_row();
-    for (key, alias, label) in choices {
-        let id: &'static str = match (main, key) {
-            (true, "follow") => "settings-brain-main-model-follow",
-            (true, "opus") => "settings-brain-main-model-opus",
-            (true, "sonnet") => "settings-brain-main-model-sonnet",
-            (true, _) => "settings-brain-main-model-haiku",
-            (false, "follow") => "settings-brain-approval-model-follow",
-            (false, "opus") => "settings-brain-approval-model-opus",
-            (false, "sonnet") => "settings-brain-approval-model-sonnet",
-            (false, _) => "settings-brain-approval-model-haiku",
-        };
-        let selected = current.as_deref() == alias;
-        row = row.child(segment(id, label, selected, false, cx, move |app, cx| {
-            let value = alias.map(str::to_string);
-            app.update_brain_settings(
-                move |s| {
-                    if main {
-                        s.main_model = value;
-                    } else {
-                        s.approval_model = value;
-                    }
-                },
+        .into_any_element(),
+        row(
+            theme,
+            t("settings.brain_summary"),
+            Some(t("settings.brain_summary_hint").into()),
+            segmented(
+                "settings-brain-summary",
+                vec![
+                    seg(
+                        "settings-brain-summary-5m",
+                        t("settings.brain_summary_5m"),
+                        summary == SummaryEvery::FiveMinutes,
+                        |s| s.summary = SummaryEvery::FiveMinutes,
+                    ),
+                    seg(
+                        "settings-brain-summary-10m",
+                        t("settings.brain_summary_10m"),
+                        summary == SummaryEvery::TenMinutes,
+                        |s| s.summary = SummaryEvery::TenMinutes,
+                    ),
+                    seg(
+                        "settings-brain-summary-off",
+                        t("settings.brain_summary_off"),
+                        summary == SummaryEvery::Off,
+                        |s| s.summary = SummaryEvery::Off,
+                    ),
+                ],
                 cx,
-            )
-        }));
-    }
-    row
+            ),
+        )
+        .into_any_element(),
+        row(
+            theme,
+            t("settings.brain_slow"),
+            Some(t("settings.brain_slow_hint").into()),
+            segmented(
+                "settings-brain-slow",
+                vec![
+                    seg(
+                        "settings-brain-slow-overview",
+                        t("settings.brain_slow_overview"),
+                        slow == SlowReminder::OverviewOnly,
+                        |s| s.slow_reminder = SlowReminder::OverviewOnly,
+                    ),
+                    seg(
+                        "settings-brain-slow-voice",
+                        t("settings.brain_slow_voice"),
+                        slow == SlowReminder::VoiceAfter60s,
+                        |s| s.slow_reminder = SlowReminder::VoiceAfter60s,
+                    ),
+                    seg(
+                        "settings-brain-slow-off",
+                        t("settings.brain_slow_off"),
+                        slow == SlowReminder::Off,
+                        |s| s.slow_reminder = SlowReminder::Off,
+                    ),
+                ],
+                cx,
+            ),
+        )
+        .into_any_element(),
+    ]
 }
 
-fn summary_control(settings: &BrainSettings, cx: &mut Context<MultisoulApp>) -> Div {
-    let current = settings.summary;
-    let option = |id, value: SummaryEvery, label, cx: &mut Context<MultisoulApp>| {
-        segment(id, label, current == value, false, cx, move |app, cx| {
-            app.update_brain_settings(move |s| s.summary = value, cx)
-        })
-    };
-    wrap_row()
-        .child(option(
-            "settings-brain-summary-5m",
-            SummaryEvery::FiveMinutes,
-            ui::i18n::text("settings.brain_summary_5m"),
-            cx,
-        ))
-        .child(option(
-            "settings-brain-summary-10m",
-            SummaryEvery::TenMinutes,
-            ui::i18n::text("settings.brain_summary_10m"),
-            cx,
-        ))
-        .child(option(
-            "settings-brain-summary-off",
-            SummaryEvery::Off,
-            ui::i18n::text("settings.brain_summary_off"),
-            cx,
-        ))
-}
-
-fn autonomy_control(settings: &BrainSettings, cx: &mut Context<MultisoulApp>) -> Div {
-    let a = settings.autonomy;
-    let app = cx.weak_entity();
-    let check = move |id: &'static str,
-                      label: &'static str,
-                      checked: bool,
-                      apply: fn(&mut BrainSettings, bool)| {
-        let app = app.clone();
-        Checkbox::new(id)
-            .label(label)
-            .checked(checked)
-            .on_click(move |value, _window, cx| {
-                let value = *value;
-                let _ = app.update(cx, |app, cx| {
-                    app.update_brain_settings(move |s| apply(s, value), cx)
-                });
-            })
-    };
-    div()
-        .flex()
-        .flex_col()
-        .gap(px(8.0))
-        .child(check(
-            "settings-brain-autonomy-readonly",
-            ui::i18n::text("settings.brain_autonomy_readonly"),
-            a.readonly_commands,
-            |s, v| s.autonomy.readonly_commands = v,
-        ))
-        .child(check(
-            "settings-brain-autonomy-writes",
-            ui::i18n::text("settings.brain_autonomy_writes"),
-            a.project_writes,
-            |s, v| s.autonomy.project_writes = v,
-        ))
-        .child(check(
-            "settings-brain-autonomy-assign",
-            ui::i18n::text("settings.brain_autonomy_assign"),
-            a.assign_followups,
-            |s, v| s.autonomy.assign_followups = v,
-        ))
-        .child(
-            Checkbox::new("settings-brain-autonomy-stop")
-                .label(ui::i18n::text("settings.brain_autonomy_stop"))
+fn next_rows(theme: Theme, s: &BrainSettings, cx: &mut Context<MultisoulApp>) -> Vec<AnyElement> {
+    let a = s.autonomy;
+    vec![
+        row(
+            theme,
+            t("settings.brain_followups"),
+            Some(t("settings.brain_followups_hint").into()),
+            segmented(
+                "settings-brain-followups",
+                vec![
+                    seg(
+                        "settings-brain-followups-ask",
+                        t("settings.brain_followups_ask"),
+                        !a.assign_followups,
+                        |s| s.autonomy.assign_followups = false,
+                    ),
+                    seg(
+                        "settings-brain-followups-auto",
+                        t("settings.brain_followups_auto"),
+                        a.assign_followups,
+                        |s| s.autonomy.assign_followups = true,
+                    ),
+                ],
+                cx,
+            ),
+        )
+        .into_any_element(),
+        row(
+            theme,
+            t("settings.brain_autonomy_readonly"),
+            Some(t("settings.brain_autonomy_readonly_hint").into()),
+            switch(
+                "settings-brain-autonomy-readonly",
+                a.readonly_commands,
+                cx,
+                |app, v, cx| {
+                    app.update_brain_settings(move |s| s.autonomy.readonly_commands = v, cx)
+                },
+            ),
+        )
+        .into_any_element(),
+        row(
+            theme,
+            t("settings.brain_autonomy_writes"),
+            Some(t("settings.brain_autonomy_writes_hint").into()),
+            switch(
+                "settings-brain-autonomy-writes",
+                a.project_writes,
+                cx,
+                |app, v, cx| app.update_brain_settings(move |s| s.autonomy.project_writes = v, cx),
+            ),
+        )
+        .into_any_element(),
+        row(
+            theme,
+            t("settings.brain_autonomy_stop"),
+            Some(t("settings.brain_coming_soon").into()),
+            ui::component::switch::Switch::new("settings-brain-autonomy-stop")
                 .checked(false)
                 .disabled(true),
         )
+        .opacity(0.55)
+        .into_any_element(),
+    ]
 }
 
-fn always_ask(theme: Theme) -> Div {
-    wrap_row()
-        .child(chip(theme, ui::i18n::text("settings.brain_ask_push")))
-        .child(chip(theme, ui::i18n::text("settings.brain_ask_delete")))
-        .child(chip(theme, ui::i18n::text("settings.brain_ask_outside")))
-        .child(chip(theme, ui::i18n::text("settings.brain_ask_deploy")))
-        .child(chip(theme, ui::i18n::text("settings.brain_ask_secrets")))
-        .child(chip(theme, ui::i18n::text("settings.brain_ask_privilege")))
+fn ask_rows(theme: Theme) -> Vec<AnyElement> {
+    let chips = [
+        "settings.brain_ask_push",
+        "settings.brain_ask_delete",
+        "settings.brain_ask_outside",
+        "settings.brain_ask_deploy",
+        "settings.brain_ask_secrets",
+        "settings.brain_ask_privilege",
+    ];
+    vec![
+        div()
+            .w_full()
+            .px(px(20.0))
+            .pt(px(14.0))
+            .pb(px(16.0))
+            .flex()
+            .flex_wrap()
+            .gap(px(8.0))
+            .children(chips.map(|key| chip(theme, t(key))))
+            .into_any_element(),
+        note(theme, t("settings.brain_always_ask_note")).into_any_element(),
+    ]
 }
 
-fn slow_control(settings: &BrainSettings, cx: &mut Context<MultisoulApp>) -> Div {
-    let current = settings.slow_reminder;
-    let option = |id, value: SlowReminder, label, cx: &mut Context<MultisoulApp>| {
-        segment(id, label, current == value, false, cx, move |app, cx| {
-            app.update_brain_settings(move |s| s.slow_reminder = value, cx)
-        })
-    };
-    wrap_row()
-        .child(option(
-            "settings-brain-slow-overview",
-            SlowReminder::OverviewOnly,
-            ui::i18n::text("settings.brain_slow_overview"),
-            cx,
-        ))
-        .child(option(
-            "settings-brain-slow-voice",
-            SlowReminder::VoiceAfter60s,
-            ui::i18n::text("settings.brain_slow_voice"),
-            cx,
-        ))
-        .child(option(
-            "settings-brain-slow-off",
-            SlowReminder::Off,
-            ui::i18n::text("settings.brain_slow_off"),
-            cx,
-        ))
-}
-
-fn parallel_control(settings: &BrainSettings, cx: &mut Context<MultisoulApp>) -> Div {
-    let current = settings.parallel_approvals;
-    wrap_row()
-        .child(segment(
-            "settings-brain-parallel-on",
-            ui::i18n::text("settings.brain_parallel_on"),
-            current,
-            false,
-            cx,
-            |app, cx| app.update_brain_settings(|s| s.parallel_approvals = true, cx),
-        ))
-        .child(segment(
-            "settings-brain-parallel-off",
-            ui::i18n::text("settings.brain_parallel_off"),
-            !current,
-            false,
-            cx,
-            |app, cx| app.update_brain_settings(|s| s.parallel_approvals = false, cx),
-        ))
+fn advanced_rows(
+    theme: Theme,
+    s: &BrainSettings,
+    cx: &mut Context<MultisoulApp>,
+) -> Vec<AnyElement> {
+    vec![
+        row(
+            theme,
+            t("settings.brain_parallel"),
+            Some(t("settings.brain_parallel_hint").into()),
+            switch(
+                "settings-brain-parallel",
+                s.parallel_approvals,
+                cx,
+                |app, v, cx| app.update_brain_settings(move |s| s.parallel_approvals = v, cx),
+            ),
+        )
+        .into_any_element(),
+        note(theme, t("settings.brain_scope_note")).into_any_element(),
+    ]
 }

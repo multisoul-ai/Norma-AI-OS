@@ -30,13 +30,11 @@ impl MultisoulApp {
     ) -> Result<agent::AdapterResult, agent::AdapterError> {
         if self.brain.host.is_none() {
             return Err(agent::AdapterError::Rejected(
-                "后台大脑没有运行，无法交接".into(),
+                "幕僚没有运行，无法交接".into(),
             ));
         }
         self.push_brain(brain::BrainEvent::UserRequest { text: request });
-        Ok(agent::AdapterResult::accepted(
-            "已交给后台大脑，结果会稍后播报",
-        ))
+        Ok(agent::AdapterResult::accepted("已交给幕僚，结果会稍后播报"))
     }
 
     pub(crate) fn execute_brain_command(
@@ -166,7 +164,7 @@ impl MultisoulApp {
             node_id,
             summary,
             reason: if kind == AutoKind::UserDispatched {
-                "你批准了大脑的提议".into()
+                "你批准了幕僚的提议".into()
             } else {
                 "该 Agent 空闲，按当前目标派后续任务".into()
             },

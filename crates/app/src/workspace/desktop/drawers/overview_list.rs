@@ -39,7 +39,7 @@ impl MultisoulApp {
         });
         let mut flat = 0usize;
         let mut groups = Vec::with_capacity(sections.len());
-        let brain_visible = self.brain_toggle_visible();
+        let brain_visible = self.brain_enabled();
         for (group, section) in sections {
             // 没有启用大脑时不显示“Norma 自主处理”栏。
             if group == OverviewGroup::Brain && !brain_visible {
