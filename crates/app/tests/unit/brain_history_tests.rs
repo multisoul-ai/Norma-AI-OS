@@ -124,7 +124,7 @@ fn conversation_items_map_to_history_items() {
 /// 预期结果：30、5、30、30、30、8 秒。
 #[test]
 fn quiet_window_defaults_and_validates_the_override() {
-    use super::config::parse_quiet_secs;
+    use super::super::config::parse_quiet_secs;
     let secs = |v| parse_quiet_secs(v).as_secs();
     assert_eq!(secs(None), 30);
     assert_eq!(secs(Some("5")), 5);
