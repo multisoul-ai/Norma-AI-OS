@@ -120,6 +120,22 @@ public enum BrainAutonomy {
             throw E2EError.product("配置里没有出现 assign_followups=false")
         }
 
+        try await session.step("大脑用 history 读 Alan 的对话：假 Agent 没有手机控制，应如实说读不了") {
+            guard let brainDir else { throw E2EError.env("大脑目录丢失") }
+            let out = brainDir.appendingPathComponent("history.out")
+            let deadline = Date().addingTimeInterval(10)
+            while Date() < deadline {
+                if let text = try? String(contentsOf: out, encoding: .utf8), !text.isEmpty {
+                    guard text.contains("还没有给出会话文件") || text.contains("只支持带手机控制") || text.contains("没有打开的卡片") else {
+                        throw E2EError.product("history 的输出不是预期的“读不了”说明：\(text)")
+                    }
+                    return text
+                }
+                try await Task.sleep(nanoseconds: 300_000_000)
+            }
+            throw E2EError.product("大脑没有执行 history 命令（history.out 为空）")
+        }
+
         try await session.step("⌘⇧B 弹出大脑活动窗口，展开一轮看到输入与工具，Esc 关闭") {
             try await session.shortcut(key: 11, modifiers: [0x37, 0x38])
             let opened = try await session.wait(Expectation(anyOf: ["大脑活动"], timeout: 8))

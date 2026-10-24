@@ -13,7 +13,7 @@ use std::io::Write;
 
 type OpResult = Result<CardCommandResult, CardCommandError>;
 
-fn reject(message: &str) -> CardCommandError {
+pub(super) fn reject(message: &str) -> CardCommandError {
     CardCommandError::agent(AgentErrorCode::InternalError, message, false)
 }
 
@@ -57,6 +57,8 @@ impl MultisoulApp {
                 let spoken = self.speak_brain_report(text, priority, cx);
                 output(json!({"queued": spoken}))
             }
+            // 读对话要在后台完成，由端点异步处理，不会走到这里。
+            BrainOp::History { .. } => Err(reject("history 由端点异步处理")),
             BrainOp::Approvals => output(self.approvals_json()),
             BrainOp::Decide {
                 approval_id,

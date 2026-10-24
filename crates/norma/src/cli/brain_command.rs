@@ -38,6 +38,16 @@ enum BrainCliCommand {
         #[arg(long, value_parser = non_blank_task)]
         task: String,
     },
+    /// 读某个 Agent 最近的完整对话（摘要不够判断时用）。
+    History {
+        agent: String,
+        /// 最近几轮，默认 6，最多 20。
+        #[arg(long)]
+        last: Option<u32>,
+        /// 只看含这个词的轮次，不区分大小写。
+        #[arg(long)]
+        grep: Option<String>,
+    },
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -79,6 +89,9 @@ impl BrainArgs {
             },
             BrainCliCommand::Agents => BrainOp::Agents,
             BrainCliCommand::Assign { agent, task } => BrainOp::Assign { agent, task },
+            BrainCliCommand::History { agent, last, grep } => {
+                BrainOp::History { agent, last, grep }
+            }
         };
         let token = self
             .token

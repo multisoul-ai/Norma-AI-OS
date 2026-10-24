@@ -2,6 +2,7 @@
 
 mod approvals;
 mod config;
+mod history;
 mod log;
 mod ops;
 mod settings;

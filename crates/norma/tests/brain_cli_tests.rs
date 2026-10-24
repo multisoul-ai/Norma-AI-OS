@@ -175,3 +175,39 @@ fn brain_commands_default_to_json_output() {
         "不带跨 Workspace 目标"
     );
 }
+
+/// `norma brain history` 带上 Agent 名、轮数和关键词。
+///
+/// 数据构造：一次给全参数，一次只给 Agent 名。
+/// 预期结果：
+///   - 正断言：全参数时 last=3、grep 原样；只给名字时 last 与 grep 都是 None
+///   - 负断言：不带 --last 时不会被填成某个默认数，默认值由 App 决定
+#[test]
+fn history_parses_agent_last_and_grep() {
+    let full = parse(&[
+        "norma", "brain", "--token", "t0", "history", "Alan", "--last", "3", "--grep", "error",
+    ]);
+    assert_eq!(
+        full,
+        CardCommand::Brain {
+            token: "t0".into(),
+            op: BrainOp::History {
+                agent: "Alan".into(),
+                last: Some(3),
+                grep: Some("error".into())
+            },
+        }
+    );
+    let bare = parse(&["norma", "brain", "--token", "t0", "history", "Alan"]);
+    assert_eq!(
+        bare,
+        CardCommand::Brain {
+            token: "t0".into(),
+            op: BrainOp::History {
+                agent: "Alan".into(),
+                last: None,
+                grep: None
+            },
+        }
+    );
+}

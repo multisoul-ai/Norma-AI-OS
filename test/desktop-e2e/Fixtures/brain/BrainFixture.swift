@@ -71,6 +71,13 @@ public enum BrainFixture {
                 command = exe + " brain assign Bella --task '补上登录页的测试'"
                 if permission("scripted", command):
                     subprocess.run([exe, "brain", "assign", "Bella", "--task", "补上登录页的测试"], env=os.environ, timeout=30)
+                # 再读一次 Alan 的对话：e2e 里的假 Agent 没有手机控制，应当得到如实的“读不了”。
+                read_command = exe + " brain history Alan --last 2"
+                if permission("scripted", read_command):
+                    result = subprocess.run([exe, "brain", "history", "Alan", "--last", "2"], env=os.environ,
+                                            timeout=30, capture_output=True, text=True)
+                    with open(os.path.join(os.environ.get("NORMA_BRAIN_DIR", "/tmp"), "history.out"), "w") as f:
+                        f.write(result.stdout + result.stderr)
             send({"jsonrpc": "2.0", "id": mid, "result": {"stopReason": "end_turn"}})
         elif mid is not None: send({"jsonrpc": "2.0", "id": mid, "error": {"code": -32601, "message": "unsupported"}})
     """

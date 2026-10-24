@@ -6,6 +6,7 @@ pub mod acp;
 pub mod backend;
 pub mod event;
 pub mod goal;
+pub mod history;
 pub mod lane;
 pub mod risk;
 pub mod router;

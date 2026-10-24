@@ -38,4 +38,10 @@ pub enum BrainOp {
         agent: String,
         task: String,
     },
+    /// 读某个 Agent 卡片最近的对话。`last` 缺省由 App 决定。
+    History {
+        agent: String,
+        last: Option<u32>,
+        grep: Option<String>,
+    },
 }
