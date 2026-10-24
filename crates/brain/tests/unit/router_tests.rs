@@ -326,3 +326,76 @@ fn prompts_point_the_brain_to_the_history_command() {
     let primer = crate::lane::prompt::primer(crate::lane::prompt::Role::Main, "/bin/norma", None);
     assert!(primer.contains("brain history"), "{primer}");
 }
+
+/// 用户离开一阵再回来：把这段时间的完成记录交给大脑做一次摘要；离开前的不算。
+///
+/// 数据构造：t=0 Alan 完成（离开前），t=100s Bella 完成、t=200s Cora 失败；t=300s 用户回来，离开了 250 秒。
+/// 预期结果：
+///   - 正断言：回来时产生一条主会话提示，含 Bella 与 Cora，写明离开的分钟数，要求只说关键结论
+///   - 负断言：不含离开前就完成的 Alan
+#[test]
+fn returning_user_gets_a_digest_of_what_happened_while_away() {
+    let now = t0();
+    let mut router = Router::new(RouterConfig::default(), now);
+    router.push(finished("Alan"), now);
+    router.push(finished("Bella"), now + Duration::from_secs(100));
+    router.push(
+        BrainEvent::AgentFinished {
+            agent: "Cora".into(),
+            outcome: Outcome::Failed,
+            excerpt: "编译错误".into(),
+            from_result: true,
+        },
+        now + Duration::from_secs(200),
+    );
+    let actions = router.push(
+        BrainEvent::UserReturned {
+            away: Duration::from_secs(250),
+        },
+        now + Duration::from_secs(300),
+    );
+    assert_eq!(actions.len(), 1, "{actions:?}");
+    let Action { lane, text, .. } = &actions[0];
+    assert_eq!(*lane, Lane::Main);
+    assert!(text.contains("Bella") && text.contains("Cora"), "{text}");
+    assert!(!text.contains("Alan"), "离开前的不该出现：{text}");
+    assert!(text.contains("4 分钟"), "写明离开了多久：{text}");
+    assert!(text.contains("report"), "要求用 report 汇总：{text}");
+}
+
+/// 离开期间什么都没发生，回来时不叫醒大脑。
+#[test]
+fn returning_user_with_nothing_new_does_not_wake_the_brain() {
+    let now = t0();
+    let mut router = Router::new(RouterConfig::default(), now);
+    let actions = router.push(
+        BrainEvent::UserReturned {
+            away: Duration::from_secs(900),
+        },
+        now + Duration::from_secs(1000),
+    );
+    assert!(actions.is_empty(), "{actions:?}");
+}
+
+/// 记录有上限，只留最近的，不会无限增长。
+///
+/// 数据构造：在离开期间完成 60 个 Agent。
+/// 预期结果：摘要里最多 30 行，最新的一个在，最早的几个不在。
+#[test]
+fn the_activity_record_is_capped() {
+    let now = t0();
+    let mut router = Router::new(RouterConfig::default(), now);
+    for n in 0..60 {
+        router.push(finished(&format!("A{n:02}")), now + Duration::from_secs(n));
+    }
+    let actions = router.push(
+        BrainEvent::UserReturned {
+            away: Duration::from_secs(600),
+        },
+        now + Duration::from_secs(100),
+    );
+    let Action { text, .. } = &actions[0];
+    assert!(text.contains("A59"), "{text}");
+    assert!(!text.contains("A00"), "最早的应被丢弃：{text}");
+    assert!(text.lines().filter(|l| l.starts_with("- A")).count() <= 30);
+}

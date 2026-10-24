@@ -19,6 +19,12 @@ extension Session {
         // 控制通道在窗口绘制出 active 帧后才应答，输入不依赖固定等待。
     }
 
+    /// 模拟用户离开：只在 App 内把隔离窗口标记为不活跃。之后任何输入都会重新激活它。
+    public func deactivate() async throws {
+        try ensureRunning()
+        try await control(["op": "deactivate"])
+    }
+
     public func click(matching candidates: [String], pick: TextPick) async throws {
         let frame = try await capture()
         guard let text = frame.pick(candidates, pick) else {

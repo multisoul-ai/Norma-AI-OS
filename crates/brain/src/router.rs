@@ -7,6 +7,8 @@ use std::collections::{BTreeMap, HashSet};
 use std::time::{Duration, Instant};
 
 const MAX_DIGEST_LINES: usize = 40;
+/// 回来摘要最多回顾多少条完成记录。
+const MAX_ACTIVITY: usize = 30;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Lane {
@@ -58,6 +60,8 @@ pub struct Router {
     /// 静默池：正常完成、默认不打扰。
     quiet: Option<FinishedBatch>,
     digest: BTreeMap<String, String>,
+    /// 最近的完成记录（含静默的），用于用户回来时的摘要。
+    activity: std::collections::VecDeque<(Instant, String)>,
     last_summary: Instant,
     open_approvals: HashSet<String>,
 }
@@ -69,6 +73,7 @@ impl Router {
             finished: None,
             quiet: None,
             digest: BTreeMap::new(),
+            activity: std::collections::VecDeque::new(),
             last_summary: now,
             open_approvals: HashSet::new(),
         }
@@ -95,6 +100,11 @@ impl Router {
                 ..
             } => {
                 self.digest.remove(&agent);
+                self.activity
+                    .push_back((now, prompt::finished_line(&agent, outcome, &excerpt)));
+                while self.activity.len() > MAX_ACTIVITY {
+                    self.activity.pop_front();
+                }
                 let slot = match verdict {
                     Verdict::Speak(_) => &mut self.finished,
                     Verdict::Quiet => &mut self.quiet,
@@ -111,6 +121,23 @@ impl Router {
                     batch.first_at = now - self.config.debounce;
                 }
                 vec![]
+            }
+            BrainEvent::UserReturned { away } => {
+                let since = now.checked_sub(away).unwrap_or(now);
+                let lines: Vec<String> = self
+                    .activity
+                    .iter()
+                    .filter(|(at, _)| *at >= since)
+                    .map(|(_, line)| line.clone())
+                    .collect();
+                if lines.is_empty() {
+                    return vec![];
+                }
+                vec![Action {
+                    lane: Lane::Main,
+                    text: prompt::on_return(away.as_secs() / 60, &lines),
+                    approval_id: None,
+                }]
             }
             BrainEvent::ApprovalRequested(request) => self.route_approval(request),
             BrainEvent::ApprovalClosed { id } => {

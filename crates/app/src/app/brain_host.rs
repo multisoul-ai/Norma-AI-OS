@@ -1,6 +1,7 @@
 //! 把 `brain` 接到项目窗口：事件进、状态出、审批和播报的落地。
 
 mod approvals;
+mod away;
 mod config;
 mod history;
 mod log;
@@ -80,6 +81,9 @@ pub(crate) struct BrainHostState {
     pub(crate) own_prompts: own_prompts::OwnPrompts,
     /// 大脑活动窗口是否打开（只在工作空间窗口上使用）。
     pub(crate) trace_open: bool,
+    /// 窗口失焦与回来的跟踪，以及等着通知大脑的“回来”事件。
+    pub(crate) away: away::AwayTracker,
+    pub(crate) pending_return: Option<std::time::Duration>,
     /// 活动窗口自己的焦点：打开时抢走焦点，Esc 才不会被聚焦的终端吃掉。
     pub(crate) trace_focus: Option<gpui::FocusHandle>,
     /// 活动窗口里展开的卡片：（项目，会话，轮次）。
@@ -116,6 +120,8 @@ impl BrainHostState {
             trace: trace::TraceBuffer::default(),
             own_prompts: own_prompts::OwnPrompts::default(),
             trace_open: false,
+            away: away::AwayTracker::default(),
+            pending_return: None,
             trace_focus: None,
             trace_expanded: HashSet::new(),
         }
@@ -143,6 +149,13 @@ impl MultisoulApp {
         {
             self.brain.overview_at = Instant::now();
             self.refresh_brain_overview(cx);
+        }
+        if let Some(away) = self.brain.pending_return.take() {
+            let event = BrainEvent::UserReturned { away };
+            for session in self.desktop_workspace.sessions.values() {
+                session.read(cx).push_brain(event.clone());
+            }
+            self.push_brain(event);
         }
         if self.brain.host.is_none() {
             self.try_start_brain();

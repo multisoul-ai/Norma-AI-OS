@@ -1758,6 +1758,17 @@ impl Window {
         self.refresh();
     }
 
+    /// Debug E2E only: the inverse of `set_active_for_e2e`. Marks the window inactive and
+    /// runs activation observers on the first change, to simulate the user leaving.
+    pub fn set_inactive_for_e2e(&mut self, cx: &mut App) {
+        if self.active.replace(false) {
+            self.activation_observers
+                .clone()
+                .retain(&(), |callback| callback(self, cx));
+        }
+        self.refresh();
+    }
+
     /// Returns whether this window is considered to be the window
     /// that currently owns the mouse cursor.
     /// On mac, this is equivalent to `is_window_active`.

@@ -36,6 +36,10 @@ pub enum BrainEvent {
     ApprovalClosed {
         id: String,
     },
+    /// 用户离开一阵后回到窗口：让大脑把这段时间的关键进展汇总一次。
+    UserReturned {
+        away: std::time::Duration,
+    },
     /// 前台对话转来的任务或问题。
     UserRequest {
         text: String,
