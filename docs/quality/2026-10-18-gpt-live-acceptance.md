@@ -8,7 +8,7 @@
 
 - 实施：`.worktrees/gpt-live-duplex`，分支 `feat/gpt-live-duplex`，基准 `b643d177e355846337842c2ec4b4152043bf5c03`，worktree 已锁定。
 - 未提交、推送或替换用户常驻 App。只停止 desktop-e2e 的 owned PID；`/Applications/Norma OS.app` 与其他开发实例均保留。
-- 源码及日志备份：`/Users/openclawd/.codex/artifacts/gpt-live-20261018/`。变更文件数量与SHA256以最新source-manifest.json为准。不要运行旧恢复脚本覆盖新源码。
+- 源码及日志备份：`/Users/user/.codex/artifacts/gpt-live-20261018/`。变更文件数量与SHA256以最新source-manifest.json为准。不要运行旧恢复脚本覆盖新源码。
 - 开发构建缓存统一为上述目录的 `build/app`；旧 `build/domain` 已移除。曾仅清理本任务增量缓存及重复缓存以恢复磁盘空间，不清理其他工作区。
 - HTML 方案和 Goal 文件已保留。Chrome 对 `file://` 访问曾被 URL 安全策略拒绝，未改用本地 HTTP、exec/open 或 CDP 绕过；文件链接不代表已成功在浏览器打开。
 
@@ -32,7 +32,7 @@
 统一开发参数：
 
 ```bash
-CARGO_TARGET_DIR=/Users/openclawd/.codex/artifacts/gpt-live-20261018/build/app \
+CARGO_TARGET_DIR=/Users/user/.codex/artifacts/gpt-live-20261018/build/app \
 CARGO_BUILD_JOBS=2 CARGO_INCREMENTAL=0 \
 cargo test -p app --lib gpt_live --features e2e-test-support \
   --config 'profile.dev.package."*".opt-level=0' \
@@ -64,7 +64,7 @@ cargo test -p app --lib gpt_live --features e2e-test-support \
 
 最新通过运行：`2026-10-18T05-11-03Z`，退出0，1/1场景，5步全部通过，13.38秒。7张最新截图已逐张打开；前一轮 `04-57-57Z` 也为1/1。证据目录：
 
-`/Users/openclawd/Documents/code/norma-os/Norma-AI-OS/.worktrees/gpt-live-duplex/artifacts/desktop-workspace-e2e/2026-10-18T05-11-03Z/`
+`/Users/user/Documents/code/norma-os/Norma-AI-OS/.worktrees/gpt-live-duplex/artifacts/desktop-workspace-e2e/2026-10-18T05-11-03Z/`
 
 | 步骤 | 实际结果 |
 | --- | --- |
@@ -92,7 +92,7 @@ cargo test -p app --lib gpt_live --features e2e-test-support \
 
 示例截图：
 
-![GPT-Live深色设置](/Users/openclawd/Documents/code/norma-os/Norma-AI-OS/.worktrees/gpt-live-duplex/artifacts/desktop-workspace-e2e/2026-10-18T05-11-03Z/01-live-dark.png)
+![GPT-Live深色设置](/Users/user/Documents/code/norma-os/Norma-AI-OS/.worktrees/gpt-live-duplex/artifacts/desktop-workspace-e2e/2026-10-18T05-11-03Z/01-live-dark.png)
 
 最终文案和异常用量补丁后的重跑已退出0，见 `desktop-settings-live-latest.log`。上表引用最新截图；该场景不覆盖真实通话、完整键盘遍历或物理音频。
 
@@ -211,7 +211,7 @@ v6已显示字幕，脚本因只等待“全文”而未接受默认已展开的
 
 v7证据：`artifacts/desktop-workspace-e2e/2026-10-18T07-03-21Z/`。三图均实际打开：`01-acoustic-ready.png`一份字幕位于Dock上方，通话/聆听/收起清晰；`02-acoustic-input-missing.png`仍无用户原文，不能判通过；`03-acoustic-closed.png`连接恢复、静音禁用、最终36.00秒，无Key明文。
 
-![真实桌面的GPT-Live字幕](/Users/openclawd/Documents/code/norma-os/Norma-AI-OS/.worktrees/gpt-live-duplex/artifacts/desktop-workspace-e2e/2026-10-18T07-03-21Z/01-acoustic-ready.png)
+![真实桌面的GPT-Live字幕](/Users/user/Documents/code/norma-os/Norma-AI-OS/.worktrees/gpt-live-duplex/artifacts/desktop-workspace-e2e/2026-10-18T07-03-21Z/01-acoustic-ready.png)
 
 更早的v1/v3仅在工作空间名称输入处失败，未连接云端；声学场景随后改用隔离工作空间/项目夹具作为前置条件，不宣称完成工作空间创建流程。v2重启首帧截图失败，原脚手架将所有截图失败误标权限ENV；现先检查截图权限和锁屏，真实环境失效立即停，权限有效的未就绪窗口由既有wait重新取帧。没有换截图通道或跳过权限检查。独立reviewer已核对清理、真假输入与渲染层级，未见该增量新高风险问题。
 
@@ -296,7 +296,7 @@ Vision稳定漏读深色禁用的“停止播报”，5秒重试也失败，但�
 | 06-doubao-regression.png | 符合 | 豆包选中，原交互和连接区域可见，GPT配置未混入。 |
 | 07-legacy-regression.png | 符合 | 语音指令选中，原识别引导可见，GPT没有高亮。 |
 
-![最终Release核对入口](/Users/openclawd/Documents/code/norma-os/Norma-AI-OS/.worktrees/gpt-live-duplex/artifacts/desktop-workspace-e2e/2026-10-18T08-49-01Z/03b-review-dark.png)
+![最终Release核对入口](/Users/user/Documents/code/norma-os/Norma-AI-OS/.worktrees/gpt-live-duplex/artifacts/desktop-workspace-e2e/2026-10-18T08-49-01Z/03b-review-dark.png)
 
 最终可运行文件及配套helper位于外部备份目录的`bin/`。`run-gpt-live.command`启动独立持久验收目录，不替换常驻App。源码快照、tracked patch与二进制SHA256由最终manifest索引。真人、云端项目、完整键盘/hover和用量准确性仍按用户安排待验，原自动Goal已由用户清除。
 
@@ -321,4 +321,4 @@ Vision稳定漏读深色禁用的“停止播报”，5秒重试也失败，但�
 
 第二轮6张关键图均已实际打开：`01-live-dark.png`与`02-live-disabled.png`符合（GPT选中、缺Key、三按钮禁用）；`03-audio-dark.png`符合（Cedar勾选、设备与核对区域清晰）；`03b-review-dark.png`符合（无项目提示与工具后台分组可辨）；`04-live-light.png`与`05-audio-light.png`符合（浅色恢复GPT/Cedar与禁用样式）。没有06/07图，不给其视觉通过结论。两次app.log与report.json均保留于对应目录。没有修改产品或测试场景来迎合失败。
 
-![本次真实设置窗口：项目工具入口，未连接通话](/Users/openclawd/Documents/code/norma-os/Norma-AI-OS/.worktrees/gpt-live-duplex/artifacts/desktop-workspace-e2e/2026-10-18T12-13-27Z/03b-review-dark.png)
+![本次真实设置窗口：项目工具入口，未连接通话](/Users/user/Documents/code/norma-os/Norma-AI-OS/.worktrees/gpt-live-duplex/artifacts/desktop-workspace-e2e/2026-10-18T12-13-27Z/03b-review-dark.png)

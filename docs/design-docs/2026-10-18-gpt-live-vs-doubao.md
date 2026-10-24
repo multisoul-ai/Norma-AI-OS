@@ -96,7 +96,7 @@ GPT-Live Key 管实时通话。项目工具下的供应商和模型，管 NormaS
 
 当前 GPT 页只展示后台供应商和模型选择。Base URL、Key 与连接验证尚未完整呈现在这里，首次配置入口需要改善。
 
-![当前测试版的项目工具入口，未连接通话](/Users/openclawd/Documents/code/norma-os/Norma-AI-OS/.worktrees/gpt-live-duplex/artifacts/desktop-workspace-e2e/2026-10-18T12-13-27Z/03b-review-dark.png)
+![当前测试版的项目工具入口，未连接通话](/Users/user/Documents/code/norma-os/Norma-AI-OS/.worktrees/gpt-live-duplex/artifacts/desktop-workspace-e2e/2026-10-18T12-13-27Z/03b-review-dark.png)
 
 ## F 哪些能力在复用
 

@@ -14,11 +14,11 @@
 ## 1. 安装方式、版本、二进制路径（已验证）
 
 ```
-$ which hermes            -> /Users/openclawd/.local/bin/hermes
+$ which hermes            -> /Users/user/.local/bin/hermes
 $ hermes --version        -> Hermes Agent v0.22.2 (2026.9.24) · stable · local d923a5eb487a
-                             Install directory: /Users/openclawd/.hermes/hermes-agent
+                             Install directory: /Users/user/.hermes/hermes-agent
                              Install method: git     Python: 3.14.7   OpenAI SDK: 2.24.0
-$ cat ~/.local/bin/hermes -> #!/bin/sh\nexec /Users/openclawd/.hermes/hermes-agent/.hermes/bin/hermes "$@"
+$ cat ~/.local/bin/hermes -> #!/bin/sh\nexec /Users/user/.hermes/hermes-agent/.hermes/bin/hermes "$@"
 ```
 
 - `~/.local/bin/hermes` 是一个 `sh` 包装脚本，最终 `exec` 到 Python 3.14 进程。因此 `zsh -lic "exec hermes"` 的 PTY 子进程链是 zsh（被 exec 替换）→ sh（被 exec 替换）→ python3.14，**最终只有一个进程**（已验证：`ps` 取 pane_pid 的后代，仅返回 pane_pid 自身）。

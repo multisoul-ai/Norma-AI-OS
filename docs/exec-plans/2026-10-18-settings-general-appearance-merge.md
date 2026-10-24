@@ -157,7 +157,7 @@ bash scripts/check-performance-guardrails.sh
 ## 最终验收（2026-10-18）
 
 - `cargo build -p app`：退出码 0（恢复工作目录后重建 16m32s）。
-- `cargo build -p app --release --target-dir /Users/openclawd/.cache/norma-settings-delivery-20261018/release-target --jobs 4`：退出码 0，29m04s。
+- `cargo build -p app --release --target-dir /Users/user/.cache/norma-settings-delivery-20261018/release-target --jobs 4`：退出码 0，29m04s。
 - 正常 pre-commit：行数、no-allow、指南行数、性能、签名就绪、视频壁纸护栏、`cargo check --workspace --quiet` 与 `cargo fmt --check` 均通过；没有绕过 hook。
 - UI 与设置测试沿用本任务前段已完成的 13 项 UI 通过、246 项设置通过和 1 项基线失败；目录恢复后的重复测试为优先提交而停止，不将该次未完成运行记为通过。
 - `bash scripts/desktop-e2e.sh settings`：退出码 0，3/3 通过。navigation 92.84s、basic-preferences 51.11s、responsive-keyboard 28.68s；无 ENV 失败。
@@ -165,7 +165,7 @@ bash scripts/check-performance-guardrails.sh
 - 第三场景首次运行在恢复 1280×800 时未达到系统窗口尺寸要求，键盘与两个窄窗口步骤已通过。浅色切换前改用已通过的 720×760 中间尺寸，最终仍严格验 560×760；完整三场景随后通过。未改产品代码或放宽最终尺寸断言。
 - 独立 subagent 对新增场景及调整复审，未发现需修复问题。
 
-证据根目录：`/Users/openclawd/.cache/norma-settings-delivery-20261018/work/artifacts/desktop-workspace-e2e/`。逐张打开并核对以下清单，26 张结论均为符合；响应式顶部导航保留横向滚动，长内容保留纵向滚动。
+证据根目录：`/Users/user/.cache/norma-settings-delivery-20261018/work/artifacts/desktop-workspace-e2e/`。逐张打开并核对以下清单，26 张结论均为符合；响应式顶部导航保留横向滚动，长内容保留纵向滚动。
 
 | 场景目录 | 已核对截图（全部符合） |
 | --- | --- |

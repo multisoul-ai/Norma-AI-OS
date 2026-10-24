@@ -60,7 +60,7 @@ Key 不进入仓库、命令参数、日志、HTML、截图或 fixture。
 本任务定义不包含发布、推送或安装替换常驻 App。
 ```
 
-当前 worktree 为 `.worktrees/gpt-live-duplex`，分支 `feat/gpt-live-duplex`，基准 `b643d177`，已加实施锁。两次外部清理后，源码从会话补丁恢复，持久备份保存于 `/Users/openclawd/.codex/artifacts/gpt-live-20261018`。恢复后的检查须重跑。整体 Goal 未完成。
+当前 worktree 为 `.worktrees/gpt-live-duplex`，分支 `feat/gpt-live-duplex`，基准 `b643d177`，已加实施锁。两次外部清理后，源码从会话补丁恢复，持久备份保存于 `/Users/user/.codex/artifacts/gpt-live-20261018`。恢复后的检查须重跑。整体 Goal 未完成。
 
 ## C 分阶段交付与检查点
 
@@ -209,7 +209,7 @@ bash scripts/desktop-e2e.sh agent
 
 ## I 当前实施记录
 
-- 工作目录：`.worktrees/gpt-live-duplex`；分支 `feat/gpt-live-duplex`；未提交、推送或替换常驻App。源码与日志备份位于 `/Users/openclawd/.codex/artifacts/gpt-live-20261018/`。
+- 工作目录：`.worktrees/gpt-live-duplex`；分支 `feat/gpt-live-duplex`；未提交、推送或替换常驻App。源码与日志备份位于 `/Users/user/.codex/artifacts/gpt-live-20261018/`。
 - Live域层与Agent来源/授权已有测试。GPT-Live不使用Doubao的删除豁免；从累计已观察原文准备语义规划，不等待API不存在的完整话语信号。
 - 真实WS假上游测试已解码麦克风PCM，同时验证双向字幕、连续上行和最终用量。上传时钟优先于普通输入/下行；静音释放旧采集并只发送合成零PCM。
 - Live播放器额外限制1秒排队及已schedule音频；预算在硬件完成或确认停止后释放，异常回调也不提前释放。豆包保持原预算路径。

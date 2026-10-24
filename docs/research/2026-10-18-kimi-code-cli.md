@@ -2,7 +2,7 @@
 
 > 调研日期：2026-10-18
 > 分支：`feat/new-cli-cards/kimi`（基线 `45b42992`）
-> 被测对象：Kimi Code CLI **2.2.0**（`/Users/openclawd/.kimi-code/bin/kimi`，Mach-O arm64 单文件可执行）
+> 被测对象：Kimi Code CLI **2.2.0**（`/Users/user/.kimi-code/bin/kimi`，Mach-O arm64 单文件可执行）
 > 证据目录：[`docs/research/evidence/kimi/`](evidence/kimi/)
 > 规则：每条结论标「已验证」（附命令与关键输出）或「未验证」（附原因，对应能力写成“不支持”并给出降级）。官方源码仅作为解释“为什么”的旁证，状态结论以真机输出为准。
 
@@ -20,7 +20,7 @@
 ## 1. 安装方式、版本、二进制路径（已验证）
 
 ```text
-$ which kimi            -> /Users/openclawd/.kimi-code/bin/kimi
+$ which kimi            -> /Users/user/.kimi-code/bin/kimi
 $ kimi --version        -> 2.2.0
 $ file $(readlink -f ~/.kimi-code/bin/kimi) -> Mach-O 64-bit executable arm64
 ```

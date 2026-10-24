@@ -28,7 +28,7 @@ GPT 专属错误分类将稳定错误码 `invalid_function_parameters` 解释为
 
 错误提示测试同样先在真实 App 测试目标上失败于误报“模型权限或网络”，再修复并通过。附加删除测试首次使用了不表示稳定编号的“卡片2”，已改用原执行器支持的“卡片编号2”；生产授权逻辑没有为测试放宽。原失败日志保留。
 
-日志与哈希根目录：`/Users/openclawd/.codex/artifacts/gpt-live-20261018/diagnosis/tool-schema-20261018/`。
+日志与哈希根目录：`/Users/user/.codex/artifacts/gpt-live-20261018/diagnosis/tool-schema-20261018/`。
 
 ## 验收边界
 
@@ -38,8 +38,8 @@ GPT 专属错误分类将稳定错误码 `invalid_function_parameters` 解释为
 
 `cargo build -p app --release --bins --tests`、`cargo check -p app --release` 均通过。App 回归直接执行本次新构建的原生测试目标，并使用独立测试目录。Rust 格式、500 行、禁止 allow、差异空白检查通过。
 
-已更新 `/Users/openclawd/.codex/artifacts/gpt-live-20261018/Norma GPT-Live Test.app` 及兼容的 `bin/norma-os`。新包通过本地签名严格校验；保留原 Info.plist、隔离数据目录和已保存的 Key，未替换正式安装的 App。原包和旧二进制保存在本轮 `preserved/before-tool-schema-*` 目录。
+已更新 `/Users/user/.codex/artifacts/gpt-live-20261018/Norma GPT-Live Test.app` 及兼容的 `bin/norma-os`。新包通过本地签名严格校验；保留原 Info.plist、隔离数据目录和已保存的 Key，未替换正式安装的 App。原包和旧二进制保存在本轮 `preserved/before-tool-schema-*` 目录。
 
-`run-gpt-live.command` 已实测启动新包，并通过 Computer Use 确认测试 App 窗口打开。最新构建哈希、测试结果、备份位置及日志索引见 `/Users/openclawd/.codex/artifacts/gpt-live-20261018/tool-schema-fix-manifest.json`。没有自动开始麦克风通话。
+`run-gpt-live.command` 已实测启动新包，并通过 Computer Use 确认测试 App 窗口打开。最新构建哈希、测试结果、备份位置及日志索引见 `/Users/user/.codex/artifacts/gpt-live-20261018/tool-schema-fix-manifest.json`。没有自动开始麦克风通话。
 
 后续同路径测试包已继续修复口语创建被本地门禁误拒的问题，当前交付见 [GPT-Live 口语创建授权修复](2026-10-19-gpt-live-spoken-creation-fix.md) 及其 `spoken-creation-fix-manifest.json`；本文保留工具协议修复当时的验证记录。
