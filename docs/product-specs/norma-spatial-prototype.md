@@ -1,5 +1,7 @@
 # Norma Spatial：自由画布上的 AI 开发团队
 
+> 2026-10-24 归档说明：本文涉及的 spike 源码已按用户确认移除；以下为历史记录，原文件可从 Git 提交 `0aed07c2` 查阅。现行入口见 `docs/README.md`。
+
 原型位置：`spikes/norma-spatial-prototype/`。使用 `prototype` 技能的 UI 分支，先探索三个结构不同的方案，当前按反馈默认进入 VR 空间。Norma OS 当前是 Rust/GPUI macOS 应用，没有可承载 VR 探索的 Web 页面，因此原型独立放在 `spikes/`，没有改变生产运行时。
 
 ## 当前产品结构：执行状态与阅读内容分开

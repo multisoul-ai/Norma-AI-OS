@@ -33,7 +33,7 @@
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-wrapper_manifest="$repo_root/tools/cargo-packager-wrapper/Cargo.toml"
+wrapper_manifest="$repo_root/packaging/cargo-packager-wrapper/Cargo.toml"
 cargo_config="$repo_root/.cargo/config.toml"
 
 fail() {
@@ -41,7 +41,7 @@ fail() {
   exit 1
 }
 
-grep -Fq 'packager = "run --quiet --manifest-path tools/cargo-packager-wrapper/Cargo.toml --"' "$cargo_config" \
+grep -Fq 'packager = "run --quiet --manifest-path packaging/cargo-packager-wrapper/Cargo.toml --"' "$cargo_config" \
   || fail "cargo packager must route through the project wrapper"
 
 tmp_dir=$(mktemp -d)

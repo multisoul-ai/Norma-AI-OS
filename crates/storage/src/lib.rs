@@ -111,7 +111,7 @@ pub use desktop_content_tab_store::{
 };
 pub use desktop_workspace_store::{
     DesktopAreaPreview, DesktopProjectArea, DesktopWorkspace, DesktopWorkspaceStore,
-    WallpaperReference, WallpaperUsage,
+    DispatchEffectPreference, DispatchEffectSnapshot, WallpaperReference, WallpaperUsage,
 };
 pub use error::{StorageError, StorageResult};
 pub use layout_store::{LayoutMode, LayoutOriginalBounds, LayoutStateSnapshot, LayoutStore};

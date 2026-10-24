@@ -47,3 +47,7 @@ mod motion_agent_dispatch_receipt_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/motion_idea_dispatch_receipt_tests.rs"]
 mod motion_idea_dispatch_receipt_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/dispatch_effect_style_tests.rs"]
+mod dispatch_effect_style_tests;

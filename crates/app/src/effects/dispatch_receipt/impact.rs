@@ -14,7 +14,8 @@ pub(super) fn paint_impact(frame: DispatchEffectFrame, theme: Theme, plan: &mut 
     let progress = frame.presentation.progress.clamp(0.0, 1.0);
     let (status_color, intensity) = status_style(frame.presentation.status, theme);
     // 想法流星撞击是白色的，与飞行时的白色光点衔接。
-    let idea_meteor = frame.presentation.origin.uses_idea_meteor();
+    let style = frame.presentation.style;
+    let idea_meteor = style == crate::motion::DispatchEffectStyle::Meteor;
     let color = if idea_meteor {
         0xeaf6ffff
     } else {
@@ -33,11 +34,6 @@ pub(super) fn paint_impact(frame: DispatchEffectFrame, theme: Theme, plan: &mut 
         1.5,
     ));
 
-    if frame.presentation.reduce_motion {
-        paint_reduced_pulse(frame, color, intensity, progress, plan);
-        return;
-    }
-
     paint_central_flash(frame.target, color, intensity, progress, plan);
     paint_shockwave(frame.target, color, intensity, progress, plan);
     paint_star_rays(frame.target, color, intensity, progress, plan);
@@ -52,33 +48,6 @@ pub(super) fn paint_impact(frame: DispatchEffectFrame, theme: Theme, plan: &mut 
         progress,
         plan,
     );
-}
-
-fn paint_reduced_pulse(
-    frame: DispatchEffectFrame,
-    color: u32,
-    intensity: f32,
-    progress: f32,
-    plan: &mut DispatchPaintPlan,
-) {
-    let source_alpha = with_alpha(color, alpha(0x88, (1.0 - progress) * intensity));
-    if let Some(origin_bounds) = frame.origin_bounds {
-        let expansion = 2.0 + ease_out_cubic(progress) * 8.0;
-        plan.quads.push(outline_quad(
-            expanded_bounds(origin_bounds, expansion),
-            18.0 + expansion,
-            source_alpha,
-            1.25,
-        ));
-    } else {
-        let dock_size = 12.0 + ease_out_cubic(progress) * 10.0;
-        plan.quads.push(outline_quad(
-            centered_bounds(frame.origin, dock_size, dock_size),
-            dock_size / 2.0,
-            source_alpha,
-            1.25,
-        ));
-    }
 }
 
 fn paint_central_flash(

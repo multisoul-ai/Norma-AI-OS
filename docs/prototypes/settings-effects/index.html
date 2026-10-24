@@ -1,0 +1,852 @@
+<title>Norma 特效设置</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..24,400,0..1,0&display=block">
+<style>
+/* 布局：macOS 设置窗口 = 左侧导航抽屉 + 右侧内容（与壁纸页同构：范围 → 当前特效 → 特效库 → 场景 → 播放） */
+:root{
+  /* Material 3 色彩角色，取值来自 Norma 主题 token（primary = accent_blue） */
+  --page:#e9e8e3; --window:#fbfaf7; --surface:#fbfaf7; --sc-low:#f5f4f0; --sc:#efeee9; --sc-high:#e8e7e2; --sc-highest:#e1e0db;
+  --on-surface:#313d44; --on-surface-v:#5c676d; --outline:#8b9499; --outline-v:rgba(49,61,68,.14);
+  --primary:#2f80ed; --on-primary:#ffffff; --primary-c:#d9e7fc; --on-primary-c:#0b3a73;
+  --secondary-c:#dde6ef; --on-secondary-c:#1d2b35; --state:49,61,68; --pstate:47,128,237;
+  --scrim:rgba(20,26,30,.92); --on-scrim:#eef2f5; --inverse-primary:#9cc3ff;
+  --scene-a:#fffefb; --scene-b:#e3edf2; --mcard:rgba(255,255,255,.9); --mcard-line:rgba(49,61,68,.10); --mdock:rgba(49,61,68,.88);
+  --fx-core:#1f6fe0; --fx-glow:#7fb2f7; --fx-cyan:#0fa3bd; --fx-violet:#6a5cff; --fx-fly:#df9a00;
+  --fx-paper:#ffffff; --fx-paper-shade:#dbe6f2; --fx-ok:#1f9e72; --fx-gold:#e08a00; --fx-rose:#e5487d; --fx-blend:source-over;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Hiragino Sans GB","Helvetica Neue",sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --page:#080c0f; --window:#11181d; --surface:#11181d; --sc-low:#151d22; --sc:#19232a; --sc-high:#202b32; --sc-highest:#28343c;
+  --on-surface:#e3e9ee; --on-surface-v:#a3aeb5; --outline:#75818a; --outline-v:rgba(227,233,238,.12);
+  --primary:#9cc3ff; --on-primary:#062e5f; --primary-c:#1d4a85; --on-primary-c:#d6e5ff;
+  --secondary-c:#2a3742; --on-secondary-c:#d7e2ec; --state:227,233,238; --pstate:156,195,255;
+  --scrim:rgba(226,232,237,.95); --on-scrim:#1b252c; --inverse-primary:#2f80ed;
+  --scene-a:#141d23; --scene-b:#070c10; --mcard:rgba(30,40,47,.92); --mcard-line:rgba(255,255,255,.07); --mdock:rgba(48,60,68,.95);
+  --fx-core:#f2f9ff; --fx-glow:#96cdff; --fx-cyan:#27d7ea; --fx-violet:#8f86ff; --fx-fly:#d6ff3b;
+  --fx-paper:#f3f6f9; --fx-paper-shade:#aebdcc; --fx-ok:#64e0b5; --fx-gold:#ffd37a; --fx-rose:#ff7aa8; --fx-blend:lighter; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --page:#080c0f; --window:#11181d; --surface:#11181d; --sc-low:#151d22; --sc:#19232a; --sc-high:#202b32; --sc-highest:#28343c;
+  --on-surface:#e3e9ee; --on-surface-v:#a3aeb5; --outline:#75818a; --outline-v:rgba(227,233,238,.12);
+  --primary:#9cc3ff; --on-primary:#062e5f; --primary-c:#1d4a85; --on-primary-c:#d6e5ff;
+  --secondary-c:#2a3742; --on-secondary-c:#d7e2ec; --state:227,233,238; --pstate:156,195,255;
+  --scrim:rgba(226,232,237,.95); --on-scrim:#1b252c; --inverse-primary:#2f80ed;
+  --scene-a:#141d23; --scene-b:#070c10; --mcard:rgba(30,40,47,.92); --mcard-line:rgba(255,255,255,.07); --mdock:rgba(48,60,68,.95);
+  --fx-core:#f2f9ff; --fx-glow:#96cdff; --fx-cyan:#27d7ea; --fx-violet:#8f86ff; --fx-fly:#d6ff3b;
+  --fx-paper:#f3f6f9; --fx-paper-shade:#aebdcc; --fx-ok:#64e0b5; --fx-gold:#ffd37a; --fx-rose:#ff7aa8; --fx-blend:lighter; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--page);color:var(--on-surface);font-family:var(--sans);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+.ms{font-family:"Material Symbols Rounded";font-weight:400;font-style:normal;font-size:20px;line-height:1;letter-spacing:normal;text-transform:none;white-space:nowrap;direction:ltr;-webkit-font-feature-settings:"liga";font-feature-settings:"liga";font-variation-settings:"FILL" 0,"opsz" 20;user-select:none;flex:none}
+.ms.fill{font-variation-settings:"FILL" 1,"opsz" 20}
+.outer{max-width:1180px;margin:0 auto;padding-inline:20px;padding-block:28px 40px;display:grid;gap:20px}
+
+/* 窗口 */
+.win{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:760px;border-radius:14px;overflow:hidden;background:var(--window);
+  box-shadow:0 30px 80px -30px rgba(0,0,0,.35),0 0 0 1px var(--outline-v)}
+.side{background:var(--sc-low);border-right:1px solid var(--outline-v);padding:14px 12px;display:flex;flex-direction:column;gap:4px}
+.lights{display:flex;gap:8px;padding:2px 6px 14px}
+.lights i{width:12px;height:12px;border-radius:50%;background:#ff5f57}.lights i:nth-child(2){background:#febc2e}.lights i:nth-child(3){background:#28c840}
+.side h1{font-size:20px;font-weight:600;margin:0 10px 10px}
+.ngroup{font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--on-surface-v);padding:14px 16px 6px}
+.nav{position:relative;display:flex;align-items:center;gap:12px;height:40px;padding:0 14px;border-radius:20px;color:var(--on-surface-v);font-size:13.5px;font-weight:500;cursor:pointer;border:0;background:none;width:100%;text-align:left;font-family:inherit}
+.nav::before,.st::before{content:"";position:absolute;inset:0;border-radius:inherit;background:rgb(var(--state));opacity:0;transition:opacity .12s;pointer-events:none}
+.nav:hover::before,.st:hover::before{opacity:.08}
+.nav:active::before,.st:active::before{opacity:.12}
+.nav:focus-visible{outline:2px solid var(--primary);outline-offset:-2px}
+.nav[aria-current="page"]{background:var(--secondary-c);color:var(--on-secondary-c);font-weight:600}
+.nav[aria-current="page"] .ms{font-variation-settings:"FILL" 1,"opsz" 20}
+.badge{margin-left:auto;font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:99px;background:var(--primary);color:var(--on-primary)}
+.brand{margin-top:auto;display:flex;align-items:center;gap:10px;padding:12px 12px 4px;color:var(--on-surface-v);font-size:12px}
+.brand b{display:block;color:var(--on-surface);font-size:13px}
+.logo{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#2f80ed,#6a5cff)}
+
+.content{min-width:0;overflow:auto;padding:28px 32px 48px}
+.page{max-width:856px;display:grid;gap:24px}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--on-surface-v)}
+.headline{font-size:22px;font-weight:600;line-height:1.25;letter-spacing:-.005em;margin:0}
+.title{font-size:16px;font-weight:600;margin:0}
+.helper{font-size:13px;color:var(--on-surface-v)}
+.caption{font-size:12px;color:var(--on-surface-v)}
+
+/* 分段按钮（M3 segmented button：选中项带勾） */
+.seg{display:inline-flex;border:1px solid var(--outline);border-radius:20px;overflow:hidden;flex:none}
+.seg button{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;min-width:96px;padding:0 14px;border:0;background:transparent;
+  color:var(--on-surface);font:500 13px var(--sans);cursor:pointer}
+.seg button+button{border-left:1px solid var(--outline)}
+.seg button::before{content:"";position:absolute;inset:0;background:rgb(var(--state));opacity:0;transition:opacity .12s}
+.seg button:hover::before{opacity:.08}.seg button:active::before{opacity:.12}
+.seg button:focus-visible{outline:2px solid var(--primary);outline-offset:-3px}
+.seg button[aria-pressed="true"]{background:var(--secondary-c);color:var(--on-secondary-c)}
+.seg button .ms{font-size:18px;width:0;overflow:hidden;transition:width .15s}
+.seg button[aria-pressed="true"] .ms{width:18px}
+.seg button:disabled{color:var(--outline);cursor:default}.seg button:disabled::before{display:none}
+.seg.sm button{height:32px;min-width:72px;font-size:12.5px}
+
+.scope{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+
+/* 当前特效卡（与“当前壁纸”同构） */
+.current{display:flex;gap:20px;align-items:center;padding:16px;border-radius:16px;background:var(--sc);border:1px solid var(--outline-v)}
+.current .scene{width:300px;flex:none;border-radius:12px}
+.cinfo{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.chip{display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:8px;border:1px solid var(--outline-v);font-size:12px;color:var(--on-surface-v);background:var(--surface)}
+.cactions{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;align-items:center}
+.btn{position:relative;display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 16px 0 12px;border-radius:18px;border:0;font:500 13px var(--sans);cursor:pointer;overflow:hidden}
+.btn::before{content:"";position:absolute;inset:0;background:currentColor;opacity:0;transition:opacity .12s}
+.btn:hover::before{opacity:.08}.btn:active::before{opacity:.12}
+.btn:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.btn .ms{font-size:18px}
+.btn.tonal{background:var(--primary-c);color:var(--on-primary-c)}
+.btn.text{background:transparent;color:var(--primary);padding:0 12px}
+.saved{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--on-surface-v)}
+.saved .ms{font-size:16px}
+
+/* 迷你画布场景 */
+.scene{position:relative;aspect-ratio:16/9;max-width:100%;overflow:hidden;border-radius:10px;
+  background:radial-gradient(rgba(var(--state),.10) .8px,transparent 1px) 0 0/12px 12px,linear-gradient(160deg,var(--scene-a),var(--scene-b))}
+.scene canvas{position:absolute;inset:0;width:100%;height:100%}
+.mcard{position:absolute;border-radius:8px;background:var(--mcard);border:1px solid var(--mcard-line);box-shadow:0 4px 10px -6px rgba(0,0,0,.3)}
+.mcard::before{content:"";position:absolute;left:8%;top:10%;width:9%;aspect-ratio:1;border-radius:2px;background:var(--c,#d97757)}
+.mcard::after{content:"";position:absolute;left:8%;right:8%;top:32%;bottom:10%;border-radius:5px;background:#0e151d;opacity:.9}
+.mcard.t{left:55.83%;top:12.59%;width:37.5%;height:37.04%}
+.mcard.d{left:6.67%;top:17.04%;width:31.25%;height:31.1%;--c:#3fae8c;opacity:.75}
+.mcard.hit{animation:hit .38s cubic-bezier(.2,.8,.2,1)}
+@keyframes hit{40%{transform:scale(1.035)}}
+.mdock{position:absolute;left:29.17%;top:81.85%;width:41.67%;height:12.59%;border-radius:99px;background:var(--mdock)}
+.mdock::before{content:"";position:absolute;left:2.5%;top:15%;height:70%;aspect-ratio:1;border-radius:50%;background:#2f80ed}
+
+/* 特效库网格（与壁纸库同构：自适应列，最多 4 列） */
+.libhead{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:12px;margin-top:-12px}
+.grid.dim{opacity:.55;pointer-events:none}
+.tile{position:relative;display:flex;flex-direction:column;gap:8px;padding:6px 6px 10px;border-radius:14px;cursor:pointer;outline:none;border:1px solid transparent}
+.tile::before{content:"";position:absolute;inset:0;border-radius:inherit;background:rgb(var(--state));opacity:0;transition:opacity .12s;pointer-events:none}
+.tile:hover::before{opacity:.06}.tile:active::before{opacity:.1}
+.tile:focus-visible{border-color:var(--primary)}
+.tile .scene{border-radius:10px;box-shadow:0 0 0 1px var(--outline-v)}
+.tile[aria-checked="true"] .scene{box-shadow:0 0 0 2px var(--primary)}
+.tsel{position:absolute;top:12px;right:12px;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--primary);color:var(--on-primary);
+  transform:scale(0);transition:transform .18s cubic-bezier(.2,.8,.2,1);z-index:2}
+.tsel .ms{font-size:16px;font-variation-settings:"FILL" 1,"wght" 600,"opsz" 20}
+.tile[aria-checked="true"] .tsel{transform:scale(1)}
+.tmeta{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:0 4px}
+.tname{font-size:13.5px;font-weight:500}
+.tile[aria-checked="true"] .tname{color:var(--primary);font-weight:600}
+.tdur{font:11.5px var(--mono);color:var(--on-surface-v);font-variant-numeric:tabular-nums}
+.tsub{font-size:12px;color:var(--on-surface-v);padding:0 4px;margin-top:-6px}
+.glyph{position:absolute;inset:0;display:grid;place-items:center;color:var(--on-surface-v)}
+.glyph .ms{font-size:34px}
+.play-hint{position:absolute;left:8px;bottom:8px;display:flex;align-items:center;gap:2px;font-size:11px;padding:2px 8px 2px 4px;border-radius:99px;
+  background:rgba(0,0,0,.45);color:#fff;opacity:0;transition:opacity .15s}
+.play-hint .ms{font-size:16px}
+.tile:hover .play-hint,.tile:focus-visible .play-hint{opacity:0}
+.tile:not(:hover):not(:focus-visible) .play-hint{opacity:1}
+
+/* 列表组（M3 list） */
+.group{border-radius:16px;background:var(--sc-low);border:1px solid var(--outline-v);overflow:visible}
+.row{position:relative;display:flex;align-items:center;gap:16px;min-height:64px;padding:10px 16px}
+.row+.row{border-top:1px solid var(--outline-v)}
+.row .lead{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--sc-high);color:var(--on-surface-v);flex:none}
+.rtext{flex:1;min-width:0}
+.rtext b{display:block;font-size:14px;font-weight:500}
+.rtext span{display:block;font-size:12.5px;color:var(--on-surface-v)}
+
+/* 菜单触发器 + 浮层（遵循 docs/design-docs/material-menus.md） */
+.mwrap{position:relative;flex:none}
+.trigger{position:relative;display:flex;align-items:center;gap:8px;width:220px;height:40px;padding:0 8px 0 12px;border-radius:8px;border:1px solid var(--outline);
+  background:var(--surface);color:var(--on-surface);font:500 13px var(--sans);cursor:pointer;text-align:left}
+.trigger:hover{border-color:var(--on-surface)}
+.trigger:focus-visible,.trigger[aria-expanded="true"]{outline:2px solid var(--primary);outline-offset:-1px;border-color:transparent}
+.trigger .val{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trigger .val small{color:var(--on-surface-v);font-weight:400}
+.trigger .ms{color:var(--on-surface-v);transition:transform .15s}
+.trigger[aria-expanded="true"] .ms{transform:rotate(180deg)}
+.menu{position:absolute;right:0;top:calc(100% + 4px);width:280px;max-height:336px;overflow:auto;padding:6px 0;border-radius:12px;background:var(--sc-high);
+  box-shadow:0 8px 24px -6px rgba(0,0,0,.28),0 2px 6px rgba(0,0,0,.12);z-index:20}
+.menu[hidden]{display:none}
+.mi{position:relative;display:flex;align-items:center;gap:12px;height:48px;padding:0 12px;cursor:pointer;font-size:13.5px}
+.mi::before{content:"";position:absolute;inset:0;background:rgb(var(--state));opacity:0}
+.mi:hover::before{opacity:.08}.mi.active::before{opacity:.12}
+.mi .sw{width:28px;height:16px;border-radius:4px;flex:none;background:var(--c)}
+.mi .mt{flex:1;min-width:0;display:grid;line-height:1.25}
+.mi .mt small{color:var(--on-surface-v);font-size:11.5px}
+.mi .chk{color:var(--primary);visibility:hidden}
+.mi[aria-selected="true"] .chk{visibility:visible}
+.mi[aria-selected="true"]{color:var(--primary);font-weight:600}
+.mdiv{height:1px;background:var(--outline-v);margin:6px 0}
+
+/* M3 开关 */
+.switch{position:relative;width:52px;height:32px;border-radius:16px;border:2px solid var(--outline);background:var(--sc-highest);cursor:pointer;flex:none;padding:0;transition:background .15s,border-color .15s}
+.switch i{position:absolute;top:50%;left:6px;width:16px;height:16px;border-radius:50%;background:var(--outline);transform:translateY(-50%);transition:all .18s cubic-bezier(.2,.8,.2,1);display:grid;place-items:center}
+.switch i .ms{font-size:16px;opacity:0;color:var(--primary-c)}
+.switch[aria-checked="true"]{background:var(--primary);border-color:var(--primary)}
+.switch[aria-checked="true"] i{left:22px;width:24px;height:24px;background:var(--on-primary)}
+.switch[aria-checked="true"] i .ms{opacity:1;color:var(--primary)}
+.switch:hover i{box-shadow:0 0 0 8px rgba(var(--state),.08)}
+.switch:focus-visible{outline:2px solid var(--primary);outline-offset:3px}
+
+/* Snackbar */
+.snack{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translate(-50%,16px);opacity:0;pointer-events:none;
+  display:flex;align-items:center;gap:8px;min-height:48px;padding:6px 8px 6px 16px;border-radius:8px;background:var(--scrim);color:var(--on-scrim);font-size:13.5px;
+  box-shadow:0 6px 18px rgba(0,0,0,.25);transition:all .2s cubic-bezier(.2,.8,.2,1);max-width:calc(100% - 32px);z-index:50}
+.snack.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+.snack button{height:36px;padding:0 12px;border:0;border-radius:18px;background:transparent;color:var(--inverse-primary);font:600 13px var(--sans);cursor:pointer}
+.snack button:hover{background:rgba(127,127,127,.15)}
+
+.notes{max-width:856px;padding:18px 20px;border-radius:16px;border:1px dashed var(--outline-v);color:var(--on-surface-v);font-size:13px}
+.notes b{color:var(--on-surface)}
+.notes ul{margin:8px 0 0;padding-left:18px;display:grid;gap:4px}
+.notes code{font:12px var(--mono);color:var(--on-surface)}
+
+@media (max-width:820px){
+  .win{grid-template-columns:1fr;min-height:0}
+  .side{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--outline-v);padding:10px;gap:4px}
+  .lights,.side h1,.ngroup,.brand{display:none}
+  .nav{width:auto;flex:none}
+  .content{padding:20px 16px 32px}
+  .current{flex-direction:column;align-items:stretch}
+  .current .scene{width:100%}
+  .row{flex-wrap:wrap}
+  .row .mwrap,.row .seg{margin-left:56px}
+  .trigger{width:min(260px,calc(100vw - 120px))}
+}
+@media (max-width:480px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.row .mwrap,.row .seg{margin-left:0}}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="outer">
+  <div class="win">
+    <nav class="side" aria-label="设置分区">
+      <div class="lights" aria-hidden="true"><i></i><i></i><i></i></div>
+      <h1>设置</h1>
+      <div class="ngroup">通用</div>
+      <button class="nav" type="button"><span class="ms">tune</span>基础设置</button>
+      <button class="nav" type="button"><span class="ms">palette</span>主题</button>
+      <button class="nav" type="button"><span class="ms">wallpaper</span>壁纸</button>
+      <button class="nav" type="button" aria-current="page"><span class="ms">auto_awesome</span>特效<span class="badge">新</span></button>
+      <div class="ngroup">Norma</div>
+      <button class="nav" type="button"><span class="ms">face</span>人格</button>
+      <button class="nav" type="button"><span class="ms">psychology</span>记忆</button>
+      <button class="nav" type="button"><span class="ms">graphic_eq</span>语音</button>
+      <div class="ngroup">输入与控制</div>
+      <button class="nav" type="button"><span class="ms">keyboard</span>键盘快捷键</button>
+      <div class="ngroup">AI 与自动化</div>
+      <button class="nav" type="button"><span class="ms">smart_toy</span>智能体</button>
+      <button class="nav" type="button"><span class="ms">account_tree</span>编排</button>
+      <button class="nav" type="button"><span class="ms">smartphone</span>手机连接</button>
+      <div class="brand"><span class="logo"></span><div><b>Norma OS</b>0.42.0</div></div>
+    </nav>
+
+    <main class="content">
+      <div class="page">
+        <section class="scope">
+          <div style="min-width:0">
+            <div class="eyebrow">个性化</div>
+            <h2 class="headline" id="scopeName">norma-os</h2>
+          </div>
+          <div class="seg" role="group" aria-label="设置范围">
+            <button type="button" id="scWs" aria-pressed="true"><span class="ms">check</span>工作空间</button>
+            <button type="button" id="scPj" aria-pressed="false"><span class="ms">check</span>项目</button>
+          </div>
+        </section>
+
+        <section class="current" aria-label="当前特效">
+          <div class="scene" id="hero"><div class="mcard d"></div><div class="mcard t"></div><div class="mdock"></div><canvas></canvas></div>
+          <div class="cinfo">
+            <div class="eyebrow">当前派发特效</div>
+            <h3 class="headline" id="curName">声纹</h3>
+            <div class="helper" id="curLine"></div>
+            <div class="chips" id="curChips"></div>
+            <div id="followRow" hidden>
+              <div class="row" style="padding:6px 0;min-height:44px">
+                <div class="rtext"><b>跟随工作空间</b><span>关闭后可为此项目单独选择特效</span></div>
+                <button class="switch" type="button" role="switch" id="follow" aria-checked="true" aria-label="跟随工作空间"><i><span class="ms">check</span></i></button>
+              </div>
+            </div>
+            <div class="helper" id="curScope">用于跟随此工作空间设置的项目。</div>
+            <div class="cactions">
+              <button class="btn tonal" type="button" id="replay"><span class="ms">replay</span>重播</button>
+              <span class="saved" id="saved"><span class="ms">cloud_done</span>更改自动保存</span>
+            </div>
+          </div>
+        </section>
+
+        <section style="display:grid;gap:24px">
+          <div class="libhead">
+            <h3 class="headline">派发特效</h3>
+          </div>
+          <div class="helper" style="margin-top:-18px">想法派发给智能体时播放。悬停或聚焦卡片即可预览，点击后立即生效。</div>
+          <div class="eyebrow" style="margin-bottom:0">内置特效</div>
+          <div class="grid" id="grid" role="radiogroup" aria-label="派发特效"></div>
+        </section>
+
+        <section style="display:grid;gap:12px">
+          <h3 class="title">按派发来源</h3>
+          <div class="helper" style="margin-top:-6px">不同来源可以用不同特效，默认都跟随上面的选择。</div>
+          <div class="group" id="scenes"></div>
+        </section>
+
+        <section style="display:grid;gap:12px">
+          <h3 class="title">播放</h3>
+          <div class="group">
+            <div class="row">
+              <div class="lead"><span class="ms">speed</span></div>
+              <div class="rtext"><b>播放速度</b><span>只影响飞行与命中时长，不改变派发本身</span></div>
+              <div class="seg sm" role="group" aria-label="播放速度" id="speed">
+                <button type="button" data-v="1.33" aria-pressed="false"><span class="ms">check</span>舒缓</button>
+                <button type="button" data-v="1" aria-pressed="true"><span class="ms">check</span>标准</button>
+                <button type="button" data-v="0.75" aria-pressed="false"><span class="ms">check</span>利落</button>
+              </div>
+            </div>
+            <div class="row">
+              <div class="lead"><span class="ms">stacks</span></div>
+              <div class="rtext"><b>连续派发时简化</b><span>1 秒内多次派发，后续改为卡片描边脉冲，避免画面堆叠</span></div>
+              <button class="switch" type="button" role="switch" aria-checked="true" aria-label="连续派发时简化"><i><span class="ms">check</span></i></button>
+            </div>
+            <div class="row">
+              <div class="lead"><span class="ms">accessibility_new</span></div>
+              <div class="rtext"><b>遵循系统“减少动态效果”</b><span>系统开启该选项时，所有特效统一回落为描边脉冲</span></div>
+              <button class="switch" type="button" role="switch" aria-checked="true" aria-label="遵循系统减少动态效果"><i><span class="ms">check</span></i></button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="notes">
+    <b>设计说明</b>
+    <ul>
+      <li>结构沿用壁纸页：范围（工作空间 / 项目）→ 当前特效大预览 → 特效库网格（自适应列，最多 4 列，最宽 856px），项目可“跟随工作空间”。</li>
+      <li>Material 3：导航抽屉的胶囊激活指示、带勾的分段按钮、选中卡片的 2px 主色描边 + 勾标、48px 菜单项、M3 开关、带“撤销”的 Snackbar；hover 8% / pressed 12% 状态层。颜色复用 Norma 主题 token，不引入 Google 品牌色。</li>
+      <li>渐进展示：卡片静止时显示特效的定格帧，悬停或键盘聚焦才循环播放；当前特效在上方持续循环，系统减少动态效果时只在点“重播”后播放。</li>
+      <li>按来源覆盖用菜单而不是第二个网格：语音、想法清单、Agent 交接三行，默认“跟随当前特效”。</li>
+      <li>GPUI 落地：新增 <code>SettingsSection::Effects</code> 放在“通用”组的壁纸之后；网格复用 <code>WallpaperLayout</code> 的列计算；预览直接复用 <code>effects::dispatch_receipt</code> 的绘制函数，只换成缩小后的坐标系。</li>
+    </ul>
+  </div>
+</div>
+
+<div class="snack" id="snack" role="status" aria-live="polite"><span id="snackText"></span><button type="button" id="undo">撤销</button></div>
+
+<script>
+let ctx = null, W = 480, H = 270;
+// ---------- 调色板（随主题读取 CSS token） ----------
+let P = {};
+function readPalette(){
+  const s = getComputedStyle(document.documentElement), g = n => s.getPropertyValue(n).trim();
+  P = { core:g('--fx-core'), glow:g('--fx-glow'), cyan:g('--fx-cyan'), violet:g('--fx-violet'), fly:g('--fx-fly'),
+        paper:g('--fx-paper'), shade:g('--fx-paper-shade'), ok:g('--fx-ok'), gold:g('--fx-gold'), rose:g('--fx-rose'), accent:g('--accent'), blend:g('--fx-blend') || 'source-over' };
+}
+readPalette();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readPalette);
+new MutationObserver(readPalette).observe(document.documentElement, { attributes:true, attributeFilter:['data-theme'] });
+const rgbCache = {};
+function c(hex, a){
+  let v = rgbCache[hex];
+  if(!v){ const h = hex.replace('#',''); v = rgbCache[hex] = [0,2,4].map(i => parseInt(h.slice(i,i+2),16)); }
+  return `rgba(${v[0]},${v[1]},${v[2]},${Math.max(0,Math.min(1,a)).toFixed(3)})`;
+}
+
+// ---------- 数学 ----------
+const clamp = (v,a=0,b=1) => Math.max(a, Math.min(b, v));
+const seg = (t,a,b) => clamp((t-a)/(b-a));
+const lerp = (a,b,t) => ({ x:a.x+(b.x-a.x)*t, y:a.y+(b.y-a.y)*t });
+const E = {
+  inQuart:t=>t**4, inCubic:t=>t**3, outCubic:t=>1-(1-t)**3,
+  inOutCubic:t=>t<.5?4*t*t*t:1-(-2*t+2)**3/2, inOutSine:t=>-(Math.cos(Math.PI*t)-1)/2,
+  outBack:t=>{const k=1.70158;return 1+(k+1)*(t-1)**3+k*(t-1)**2}, outExpo:t=>t>=1?1:1-2**(-10*t), smooth:t=>t*t*(3-2*t),
+};
+const qb = (a,k,b,t) => { const u=1-t; return { x:u*u*a.x+2*u*t*k.x+t*t*b.x, y:u*u*a.y+2*u*t*k.y+t*t*b.y }; };
+const cb = (a,k1,k2,b,t) => { const u=1-t; return { x:u*u*u*a.x+3*u*u*t*k1.x+3*u*t*t*k2.x+t*t*t*b.x, y:u*u*u*a.y+3*u*u*t*k1.y+3*u*t*t*k2.y+t*t*t*b.y }; };
+function bowCtrl(a,b,k,max=170){
+  const dx=b.x-a.x, dy=b.y-a.y, d=Math.hypot(dx,dy)||1, bow=Math.min(max,d*Math.abs(k))*Math.sign(k)*(dx>=0?1:-1);
+  return { x:(a.x+b.x)/2+(-dy/d)*bow, y:(a.y+b.y)/2+(dx/d)*bow };
+}
+// 按弧长取点的折线：at(u) 取点和切线角，range(u0,u1) 取一段（保留拐点）。
+function polyline(pts){
+  const len=[0];
+  for(let i=1;i<pts.length;i++) len.push(len[i-1]+Math.hypot(pts[i].x-pts[i-1].x, pts[i].y-pts[i-1].y));
+  const total = len[len.length-1] || 1;
+  const idx = d => { let lo=0, hi=pts.length-1; while(hi-lo>1){ const m=(lo+hi)>>1; if(len[m]<d) lo=m; else hi=m; } return lo; };
+  function at(u){
+    const d=clamp(u)*total, i=idx(d), a=pts[i], b=pts[i+1]||a, f=(d-len[i])/((len[i+1]-len[i])||1);
+    return { x:a.x+(b.x-a.x)*f, y:a.y+(b.y-a.y)*f, ang:Math.atan2(b.y-a.y, b.x-a.x) };
+  }
+  function range(u0,u1){
+    u0=clamp(u0); u1=clamp(u1); if(u1<=u0) return [];
+    const d0=u0*total, d1=u1*total, out=[at(u0)];
+    for(let i=1;i<pts.length-1;i++) if(len[i]>d0 && len[i]<d1) out.push(pts[i]);
+    out.push(at(u1)); return out;
+  }
+  return { at, range, total };
+}
+const sampled = (fn,n=96) => polyline(Array.from({length:n+1}, (_,i) => fn(i/n)));
+// ---------- 画笔 ----------
+function line(a,b,w,col){ ctx.lineWidth=w; ctx.strokeStyle=col; ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); }
+function dot(p,r,col){ if(r<=0) return; ctx.fillStyle=col; ctx.beginPath(); ctx.arc(p.x,p.y,r,0,6.2832); ctx.fill(); }
+function ring(p,r,w,col){ if(r<=0||w<=0) return; ctx.lineWidth=w; ctx.strokeStyle=col; ctx.beginPath(); ctx.arc(p.x,p.y,r,0,6.2832); ctx.stroke(); }
+function strokePts(pts,w,col){ if(pts.length<2) return; ctx.lineWidth=w; ctx.strokeStyle=col; ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y); for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i].x,pts[i].y); ctx.stroke(); }
+function rrect(x,y,w,h,r){ r=Math.min(r,w/2,h/2); ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function cardOutline(card,ex,w,col,dx=0){ rrect(card.x-ex+dx,card.y-ex,card.w+2*ex,card.h+2*ex,14+ex); ctx.lineWidth=w; ctx.strokeStyle=col; ctx.stroke(); }
+const spriteCache = {};
+// 柔光点：预渲染径向渐变贴图；GPUI 里对应带模糊阴影的圆形 quad。
+function glow(p,r,hex,a){
+  if(r<=0||a<=0) return;
+  let s=spriteCache[hex];
+  if(!s){ s=spriteCache[hex]=document.createElement('canvas'); s.width=s.height=64; const g=s.getContext('2d'), gr=g.createRadialGradient(32,32,0,32,32,32);
+    gr.addColorStop(0,c(hex,1)); gr.addColorStop(.25,c(hex,.45)); gr.addColorStop(1,c(hex,0)); g.fillStyle=gr; g.fillRect(0,0,64,64); }
+  ctx.globalAlpha=Math.min(1,a); ctx.drawImage(s,p.x-r,p.y-r,2*r,2*r); ctx.globalAlpha=1;
+}
+const hash = i => { const v=Math.sin(i*12.9898)*43758.547; return v-Math.floor(v); };
+
+// ---------- 五款 + 基线 ----------
+const MAKERS = {
+  meteor({top,from,card}){
+    const o={x:from.x,y:top+4}, T={x:card.x+card.w/2,y:card.y+card.h/2}, path=sampled(t=>qb(o,bowCtrl(o,T,.22),T,t),80);
+    const F=900, I=430, TAIL=.42;
+    const parts=Array.from({length:22},(_,i)=>{const a=i/22*6.2832+Math.random()*.25;return{dx:Math.cos(a),dy:Math.sin(a),d:70+Math.random()*60,s:1.2+Math.random()*1.6,dl:Math.random()*.1}});
+    function trail(s0,s1,fade){
+      if(s1-s0<.002) return;
+      for(let i=0;i<28;i++){
+        const a=path.at(s0+(s1-s0)*i/28), b=path.at(s0+(s1-s0)*(i+1)/28), life=(i+1)/28, w=.6+7.4*life**1.8;
+        line(a,b,w*5,c(P.glow,.07*life**1.5*fade)); line(a,b,w*2.2,c(P.glow,.26*life*fade)); line(a,b,w,c(P.core,.95*life**.8*fade));
+      }
+      for(let i=0;i<18;i++){
+        const al=(i+.5)/18, p=path.at(s0+(s1-s0)*al), side=(hash(i)-.5)*2*(3+15*(1-al)), back=hash(i+40)*6*(1-al);
+        dot({x:p.x-Math.sin(p.ang)*side-Math.cos(p.ang)*back, y:p.y+Math.cos(p.ang)*side-Math.sin(p.ang)*back}, .5+1.2*al, c(P.core,.8*al*fade));
+      }
+    }
+    return { total:F+I, landAt:F, draw(t){
+      if(t<F){
+        const p=t/F, tr=E.inQuart(p); trail(E.inQuart(Math.max(0,p-TAIL)),tr,1);
+        const h=path.at(tr); dot(h,18,c(P.glow,.12)); dot(h,9,c(P.glow,.32)); dot(h,3.4,c(P.core,1));
+        return;
+      }
+      const q=seg(t,F,F+I), tf=E.inQuart(1-TAIL), oc=E.outCubic(q);
+      trail(tf+(1-tf)*q,1,1-q);
+      cardOutline(card,3+oc*18,1.5,c(P.core,.78*(1-E.smooth(q))));
+      dot(T,6+26*oc,c(P.glow,.5*(1-q)**2)); ring(T,18+110*oc,2.2*(1-q),c(P.core,.5*(1-q)));
+      for(let k=0;k<8;k++){ const a=k*Math.PI/4+Math.PI/8, r=10+50*oc, l=(1-q)*40*(k%2?.6:1);
+        line({x:T.x+Math.cos(a)*r,y:T.y+Math.sin(a)*r},{x:T.x+Math.cos(a)*(r+l),y:T.y+Math.sin(a)*(r+l)},1.5,c(P.core,.7*(1-q))); }
+      for(const pt of parts){ const pq=seg(q,pt.dl,1), d1=pt.d*E.outCubic(pq), d0=pt.d*E.outCubic(Math.max(0,pq-.12));
+        line({x:T.x+pt.dx*d0,y:T.y+pt.dy*d0},{x:T.x+pt.dx*d1,y:T.y+pt.dy*d1},pt.s,c(P.core,.85*(1-pq))); }
+    }};
+  },
+
+  plane({top,from,card}){
+    const L={x:from.x,y:top-30}, T={x:card.x+card.w/2,y:card.y+16};
+    const d=Math.hypot(T.x-L.x,T.y-L.y), sg=T.x>=L.x?1:-1;
+    const path=sampled(t=>cb(L,{x:L.x+sg*d*.08,y:L.y-Math.max(90,d*.42)},{x:T.x-sg*d*.32,y:T.y-80},T,t),90);
+    const FOLD=220, FLY=800, END=600, a0=path.at(.002).ang;
+    const DIA=[[8,0],[0,-8],[-8,0],[0,8]], PLN=[[12,0],[-8,-8],[-4,0],[-8,8]];
+    function plane(x,y,ang,s,m,roll,al){
+      const pts=DIA.map((p,i)=>[p[0]+(PLN[i][0]-p[0])*m, p[1]+(PLN[i][1]-p[1])*m]);
+      ctx.save(); ctx.translate(x,y); ctx.rotate(ang); ctx.scale(s,s*(1-.5*Math.abs(roll))); ctx.globalAlpha=al;
+      const tri=(a,b,col)=>{ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);ctx.lineTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.closePath();ctx.fillStyle=col;ctx.fill();};
+      tri(pts[1],pts[2],roll>0?P.shade:P.paper); tri(pts[2],pts[3],roll>0?P.paper:P.shade);
+      ctx.beginPath(); pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1])); ctx.closePath();
+      ctx.lineJoin='round'; ctx.lineWidth=1.2/s; ctx.strokeStyle=c(P.accent,.9); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]); ctx.lineTo(pts[2][0],pts[2][1]); ctx.strokeStyle=c(P.accent,.45); ctx.stroke();
+      ctx.restore();
+    }
+    return { total:FOLD+FLY+END, landAt:FOLD+FLY, blend:'source-over', draw(t){
+      if(t<FOLD){
+        const f=t/FOLD, m=E.smooth(seg(t,60,FOLD));
+        plane(L.x, L.y+(1-E.outCubic(f))*24, -Math.PI/2+(a0+Math.PI/2)*m, E.outBack(clamp(f*1.3))*1.5, m, 0, clamp(f*3));
+        return;
+      }
+      if(t<FOLD+FLY){
+        const s=E.inOutSine((t-FOLD)/FLY), pt=path.at(s), ah=path.at(Math.min(1,s+.03));
+        let turn=ah.ang-pt.ang; if(turn>Math.PI) turn-=6.2832; if(turn<-Math.PI) turn+=6.2832;
+        ctx.setLineDash([5,6]);
+        for(let k=0;k<12;k++){ // 虚线尾迹按弧长锚定，不随飞机滑动
+          const ua=Math.max(0,s-.3*(k+1)/12), ub=Math.max(0,s-.3*k/12); if(ub<=ua) continue;
+          ctx.lineDashOffset=ua*path.total; strokePts(path.range(ua,ub),1.6,c(P.accent,.55*(1-k/12)));
+        }
+        ctx.setLineDash([]);
+        plane(pt.x,pt.y,pt.ang,1.5-.5*s,1,clamp(turn*6,-1,1),1);
+        return;
+      }
+      const q=t-FOLD-FLY, lq=seg(q,0,260), end=path.at(1);
+      if(lq<1) plane(T.x+Math.cos(end.ang)*8*lq, T.y+Math.sin(end.ang)*8*lq, end.ang, 1-E.inCubic(lq), 1, 0, 1-lq);
+      const bq=q/END, fade=1-E.smooth(seg(bq,.7,1)), r=9*E.outBack(clamp(bq*3));
+      ring(T,9+14*E.outCubic(clamp(bq*2)),1.4,c(P.ok,.45*(1-clamp(bq*2))));
+      dot(T,r,c(P.ok,fade));
+      const cp=clamp(bq*3-.4); if(cp>0){
+        const A={x:T.x-3.6,y:T.y+.2}, B={x:T.x-1,y:T.y+2.8}, C={x:T.x+4,y:T.y-2.6};
+        ctx.lineCap='round'; ctx.lineJoin='round';
+        strokePts(cp<.4?[A,lerp(A,B,cp/.4)]:[A,B,lerp(B,C,(cp-.4)/.6)],1.8,`rgba(255,255,255,${fade})`);
+      }
+    }};
+  },
+
+  ribbon({top,from,card}){
+    const O={x:from.x,y:top+2};
+    const C=card.y+card.h<O.y-10 ? {x:clamp(O.x,card.x+30,card.x+card.w-30),y:card.y+card.h} : {x:card.x+card.w/2,y:card.y+card.h/2};
+    const path=sampled(t=>qb(O,bowCtrl(O,C,.16),C,t),100), RUN=720, EQ0=660, EQ=700, seeds=Array.from({length:20},Math.random);
+    return { total:EQ0+EQ, landAt:EQ0, draw(t){
+      const g=ctx.createLinearGradient(O.x,O.y,C.x,C.y); g.addColorStop(0,P.cyan); g.addColorStop(1,P.violet);
+      const p=clamp(t/RUN), head=E.outCubic(clamp(p/.72)), tail=E.inCubic(clamp((p-.28)/.72));
+      if(head-tail>.003){
+        [[2.4,.95,1],[1.6,.6,.62],[1.1,.45,.38]].forEach(([w,al,amp],k)=>{
+          ctx.beginPath();
+          for(let i=0;i<=72;i++){
+            const u=tail+(head-tail)*i/72, pt=path.at(u), loc=i/72;
+            const env=Math.sin(Math.PI*loc)**.8*(1-u)**.5*(.45+.55*Math.abs(Math.sin(u*19+1.3)*Math.cos(u*6.2)));
+            const disp=13*env*amp*Math.sin(u*path.total/28*6.2832-t*.02+k*2.1);
+            const x=pt.x-Math.sin(pt.ang)*disp, y=pt.y+Math.cos(pt.ang)*disp; i?ctx.lineTo(x,y):ctx.moveTo(x,y);
+          }
+          ctx.strokeStyle=g; ctx.globalAlpha=al; ctx.lineWidth=w; ctx.stroke();
+          if(k===0){ ctx.globalAlpha=.12; ctx.lineWidth=8; ctx.stroke(); }
+          ctx.globalAlpha=1;
+        });
+      }
+      if(t<EQ0) return;
+      const q=seg(t,EQ0,EQ0+EQ), env=q<.18?E.outCubic(q/.18):1-E.inCubic((q-.18)/.82);
+      const g2=ctx.createLinearGradient(card.x,0,card.x+card.w,0); g2.addColorStop(0,P.cyan); g2.addColorStop(1,P.violet);
+      ctx.strokeStyle=g2; ctx.lineWidth=2.4;
+      for(let i=0;i<20;i++){
+        const x=card.x+20+(card.w-40)*i/19, prox=1-Math.min(1,Math.abs(x-C.x)/(card.w*.6));
+        const h=(4+22*prox*(.4+.6*Math.abs(Math.sin(t*.03+seeds[i]*6))))*env;
+        ctx.beginPath(); ctx.moveTo(x,C.y-h/2); ctx.lineTo(x,C.y+h/2); ctx.stroke();
+      }
+      cardOutline(card,0,6,c(P.cyan,.1*env)); cardOutline(card,0,1.5,c(P.cyan,.7*env));
+    }};
+  },
+
+  firefly({top,from,card}){
+    const O={x:from.x,y:top-6}, N=14, order=[...Array(N).keys()].sort(()=>Math.random()-.5);
+    const START=280, DUR=640, BLOOM=320;
+    const motes=order.map((o,i)=>{
+      const a=-Math.PI/2+(Math.random()-.5)*Math.PI*1.3, r=12+Math.random()*30;
+      const cloud={x:O.x+Math.cos(a)*r*1.4,y:O.y-26+Math.sin(a)*r*.8};
+      const land={x:card.x+22+Math.random()*(card.w-44),y:card.y+34+Math.random()*Math.max(10,card.h-54)};
+      return {cloud,land,ctrl:bowCtrl(cloud,land,(Math.random()-.5)*.7,220),delay:o*26,size:1.5+Math.random()*1.1,ph:Math.random()*6.28,gd:Math.random()*120};
+    });
+    return { total:START+(N-1)*26+DUR+BLOOM, landAt:START+DUR, draw(t){
+      for(const m of motes){
+        const g=E.outCubic(seg(t,m.gd*.5,300)); if(g<=0) continue;
+        const st=START+m.delay, p=clamp((t-st)/DUR), fl=.72+.28*Math.sin(t*.022+m.ph);
+        const wob={x:Math.sin(t*.006+m.ph)*2.5,y:Math.cos(t*.005+m.ph)*2};
+        if(p<1){
+          const s=E.inOutCubic(p), base=p>0?qb(m.cloud,m.ctrl,m.land,s):lerp(O,m.cloud,g);
+          const pos={x:base.x+wob.x*(1-s),y:base.y+wob.y*(1-s)};
+          if(p>0) for(let k=1;k<=5;k++) dot(qb(m.cloud,m.ctrl,m.land,E.inOutCubic(Math.max(0,p-.028*k))),m.size*(1-k/6),c(P.fly,.3*(1-k/6)*fl));
+          dot(pos,m.size*4.5,c(P.fly,.16*fl*g)); dot(pos,m.size,c(P.fly,.95*fl*g));
+        } else {
+          const bq=seg(t,st+DUR,st+DUR+BLOOM); if(bq>=1) continue;
+          ring(m.land,2+11*E.outCubic(bq),1.2,c(P.fly,.7*(1-bq))); dot(m.land,m.size*(1-bq),c(P.fly,1-bq));
+        }
+      }
+    }};
+  },
+
+  fireworks({top,from,card}){
+    const O={x:from.x,y:top-4}, B={x:card.x+card.w/2,y:Math.max(36,card.y-Math.min(64,card.y*.6))};
+    const ctrl={x:O.x+(B.x-O.x)*.15,y:B.y+(O.y-B.y)*.25}, LAUNCH=520;
+    const pal=[P.gold,P.rose,P.cyan].sort(()=>Math.random()-.5), inner=pal[0], outer=pal[1];
+    let parts=[], last=0, burst=false, crackled=false;
+    const emit=(x,y,vx,vy,o)=>parts.push({x,y,vx,vy,age:0,hist:[],drag:2.2,g:150,trail:6,tw:0,hot:.15,...o});
+    function explode(){
+      for(let i=0;i<72;i++){ const a=i/72*6.2832+Math.random()*.06, v=230*(.85+.15*Math.random());
+        emit(B.x,B.y,Math.cos(a)*v,Math.sin(a)*v,{life:1+Math.random()*.3,col:outer,size:1.7,drag:2.4,g:110,trail:7,tw:1}); }
+      for(let i=0;i<26;i++){ const a=Math.random()*6.2832, v=60+Math.random()*70;
+        emit(B.x,B.y,Math.cos(a)*v,Math.sin(a)*v,{life:.7+Math.random()*.3,col:inner,size:1.4,drag:2.8,g:90,trail:4}); }
+    }
+    return { total:1900, landAt:LAUNCH+80, draw(t){
+      const dt=Math.min(.05,(t-last)/1000); last=t;
+      if(t<LAUNCH){
+        const s=1-(1-t/LAUNCH)**2, p=qb(O,ctrl,B,s), pb=qb(O,ctrl,B,Math.max(0,s-.05));
+        for(let k=0;k<2;k++) emit(p.x+Math.random()-.5,p.y,(Math.random()-.5)*40,20+Math.random()*40,{life:.35+Math.random()*.25,col:P.gold,size:1.1,drag:3,g:120,trail:0,tw:1,hot:0});
+        line(pb,p,2.2,c(P.gold,.8)); glow(p,12,P.gold,.7); dot(p,1.9,c(P.core,1));
+      } else if(!burst){ burst=true; explode(); }
+      if(!crackled && t>LAUNCH+650){ crackled=true; // 余烬“噼啪”：外圈随机几颗再碎成小白点
+        parts.filter(p=>p.tw&&p.trail>6).sort(()=>Math.random()-.5).slice(0,12).forEach(p=>{
+          for(let k=0;k<6;k++){ const a=Math.random()*6.2832, v=40+Math.random()*50; emit(p.x,p.y,Math.cos(a)*v,Math.sin(a)*v,{life:.22,col:P.core,size:.9,trail:0,g:40,hot:0}); } });
+      }
+      if(t>=LAUNCH){ const f=1-seg(t,LAUNCH,LAUNCH+260), e=E.outCubic(seg(t,LAUNCH,LAUNCH+500));
+        glow(B,70*(.6+.4*(1-f)),P.core,.55*f*f); ring(B,10+90*e,1.5,c(outer,.4*(1-e))); }
+      for(const p of parts){
+        p.age+=dt; const k=p.age/p.life; if(k>=1) continue;
+        const dg=Math.exp(-p.drag*dt); p.vx*=dg; p.vy=p.vy*dg+p.g*dt;
+        p.hist.unshift({x:p.x,y:p.y}); if(p.hist.length>p.trail) p.hist.pop();
+        p.x+=p.vx*dt; p.y+=p.vy*dt;
+        let al=k<.7?1:1-(k-.7)/.3; if(p.tw&&k>.55&&Math.random()<.35) al*=.15;
+        const col=p.age<p.hot?P.core:p.col, pts=[{x:p.x,y:p.y},...p.hist];
+        for(let j=0;j<pts.length-1;j++){ const f=1-j/pts.length; line(pts[j],pts[j+1],p.size*1.6*f,c(col,al*f*.8)); }
+        glow(p,p.size*5,p.col,.3*al); dot(p,p.size,c(p.age<p.hot?P.core:p.col,al));
+      }
+      parts=parts.filter(p=>p.age<p.life);
+    }};
+  },
+
+  lightning({top,from,card}){
+    const O={x:from.x,y:top-2};
+    const C=card.y+card.h<O.y-10?{x:clamp(O.x,card.x+30,card.x+card.w-30),y:card.y+card.h}:{x:card.x+card.w/2,y:card.y+card.h/2};
+    const len=Math.hypot(C.x-O.x,C.y-O.y);
+    // 中点位移法生成折线：每一层把每段中点沿法线随机推开，推开幅度逐层减半。
+    function bolt(a,b,disp,depth){
+      let pts=[a,b];
+      for(let d=0;d<depth;d++){ const n=[pts[0]];
+        for(let i=1;i<pts.length;i++){ const p=pts[i-1], q=pts[i], dx=q.x-p.x, dy=q.y-p.y, l=Math.hypot(dx,dy)||1, o=(Math.random()-.5)*disp;
+          n.push({x:(p.x+q.x)/2-dy/l*o,y:(p.y+q.y)/2+dx/l*o}, q); }
+        pts=n; disp*=.55; }
+      return pts;
+    }
+    function strike(){
+      const main=bolt(O,C,len*.22,6), branches=[];
+      for(let i=0;i<3;i++){ const s=main[10+Math.floor(Math.random()*main.length*.55)], a=Math.atan2(C.y-O.y,C.x-O.x)+(Math.random()<.5?-1:1)*(.4+Math.random()*.5), L=len*(.12+Math.random()*.13);
+        branches.push(bolt(s,{x:s.x+Math.cos(a)*L,y:s.y+Math.sin(a)*L},L*.3,4)); }
+      return {main,branches};
+    }
+    function cardArc(){ const per=Math.random(), {x,y,w,h}=card; let p, tg;
+      if(per<.25){p={x:x+w*per*4,y};tg={x:1,y:0}} else if(per<.5){p={x:x+w,y:y+h*(per-.25)*4};tg={x:0,y:1}}
+      else if(per<.75){p={x:x+w*(1-(per-.5)*4),y:y+h};tg={x:-1,y:0}} else {p={x,y:y+h*(1-(per-.75)*4)};tg={x:0,y:-1}}
+      const L=18+Math.random()*22; return bolt(p,{x:p.x+tg.x*L,y:p.y+tg.y*L},10,3); }
+    let cur=strike(), restruck=false, arcs=[], arcAt=-1, sparks=[], last=0, sparked=0;
+    const drawBolt=(b,v,th)=>{ ctx.lineJoin='round';
+      strokePts(b.main,12,c(P.violet,.13*v)); strokePts(b.main,4.5,c(P.glow,.38*v)); strokePts(b.main,1.8*th,c(P.core,v));
+      for(const br of b.branches){ strokePts(br,6,c(P.violet,.1*v)); strokePts(br,2.4,c(P.glow,.3*v)); strokePts(br,1*th,c(P.core,.8*v)); } };
+    return { total:760, landAt:170, draw(t){
+      const dt=Math.min(.05,(t-last)/1000); last=t;
+      if(t<180){ const g=t/180; glow(O,10+16*g,P.violet,.55*g);
+        for(let k=0;k<2;k++){ const a=Math.random()*6.2832, r=8+14*g; strokePts(bolt(O,{x:O.x+Math.cos(a)*r,y:O.y+Math.sin(a)*r},6,3),1,c(P.core,.8)); } }
+      if(t>=270&&!restruck){ restruck=true; cur=strike(); }
+      const v=t<160?0:t<230?1:t<270?.25:t<330?1:1-E.outCubic(seg(t,330,620));
+      if(v>0){
+        if((t>=160&&t<230)||(t>=270&&t<320)){ ctx.fillStyle=c(P.glow,.07); ctx.fillRect(0,0,W,H); }
+        drawBolt(cur,v,t<330?1:1-seg(t,330,620)*.6); glow(C,42,P.glow,.6*v);
+      }
+      for(const at of [160,270]) if(t>=at&&sparked<(at===160?1:2)){ sparked++;
+        for(let k=0;k<16;k++){ const a=-Math.PI*(.1+Math.random()*.8)+(C.y>card.y+card.h-1?Math.PI:0), sp=120+Math.random()*180;
+          sparks.push({x:C.x,y:C.y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,age:0,life:.3+Math.random()*.25,px:C.x,py:C.y}); } }
+      for(const s of sparks){ s.age+=dt; if(s.age>=s.life) continue; s.px=s.x; s.py=s.y; s.vy+=300*dt; s.x+=s.vx*dt; s.y+=s.vy*dt;
+        line({x:s.px,y:s.py},s,1.4,c(P.core,1-s.age/s.life)); }
+      const af=1-seg(t,200,720);
+      if(t>=200&&af>0){
+        if(t-arcAt>45){ arcAt=t; arcs=Array.from({length:4},cardArc); }
+        cardOutline(card,0,1.5,c(P.glow,.8*af));
+        for(const a of arcs){ strokePts(a,4,c(P.glow,.25*af)); strokePts(a,1.2,c(P.core,af)); }
+      }
+    }};
+  },
+
+  vortex({top,from,card}){
+    const O={x:from.x,y:top-30}, T={x:card.x+card.w/2,y:card.y+card.h/2};
+    const path=sampled(t=>qb(O,bowCtrl(O,T,.22),T,t),90), G=360, TR0=340, TR1=980, AR=200, IN0=1180, IMP=1420, END=1760;
+    const ps=Array.from({length:90},(_,i)=>({r0:46+hash(i+1)*74,a0:hash(i+2)*6.2832,lag:hash(i+3)**1.5*.32,sz:.8+hash(i+4)*1.4,col:hash(i+5)<.5,kx:.6+hash(i+6)*.5,sp:.8+hash(i+7)*.5,big:i%6===0}));
+    // 每颗星尘的位置是时间的解析函数：中心沿弧线飞（有各自的滞后，拉出螺旋尾巴），半径先收成小星盘，到达后撑成卡片大小的椭圆，再加速坍缩。
+    function pos(p,t){
+      const tl=t-p.lag*620, c0=path.at(E.inOutCubic(seg(tl,TR0,TR1)));
+      const r=p.r0*(1-.72*E.outCubic(clamp(t/G)))*(1+.18*Math.sin(t*.004+p.a0));
+      let rx=r, ry=r*.42; const k=E.outCubic(seg(tl,TR1,TR1+AR));
+      rx+=(card.w*.5*p.kx-rx)*k; ry+=(card.h*.5*p.kx-ry)*k;
+      const u=E.inCubic(seg(t,IN0,IMP)); rx*=1-u; ry*=1-u;
+      const th=p.a0+t*.005*p.sp+(t/1000)**2*5*p.sp+u*6;
+      return {x:c0.x+Math.cos(th)*rx,y:c0.y+Math.sin(th)*ry};
+    }
+    return { total:END, landAt:IMP, draw(t){
+      const fi=E.outCubic(seg(t,0,220)), fo=1-seg(t,IMP,IMP+60);
+      if(fo>0){
+        const cc=path.at(E.inOutCubic(seg(t,TR0,TR1))), of=fi*(1-seg(t,TR1,TR1+200));
+        glow(cc,28,P.violet,.5*of); glow(cc,12,P.core,.6*of);
+        for(const p of ps){ const a=pos(p,t), b=pos(p,t-18), col=p.col?P.cyan:P.violet;
+          line(b,a,p.sz*1.3,c(col,.85*fi*fo)); dot(a,p.sz*.7,c(P.core,.9*fi*fo)); if(p.big) glow(a,7,col,.3*fi*fo); }
+      }
+      const q=seg(t,IMP,END); if(q<=0||q>=1) return;
+      const e=E.outCubic(q);
+      glow(T,30+70*e,P.core,.7*(1-q)**2); ring(T,8+card.w*.6*e,2*(1-q),c(P.glow,.6*(1-q)));
+      cardOutline(card,2+10*e,1.4,c(P.cyan,.7*(1-q)));
+      for(let k=0;k<8;k++){ const a=k*Math.PI/4+Math.PI/8, r=14+60*e, l=(1-q)*34;
+        line({x:T.x+Math.cos(a)*r,y:T.y+Math.sin(a)*r},{x:T.x+Math.cos(a)*(r+l),y:T.y+Math.sin(a)*(r+l)},1.4,c(P.core,.7*(1-q))); }
+    }};
+  },
+};
+
+// 减少动态效果：所有款式统一回落为卡片描边脉冲 + 指令栏一圈。
+function reducedMaker({from,card}, fx){
+  return { total:320, landAt:0, draw(t){
+    const q=clamp(t/320), col=P.accent;
+    cardOutline(card,2+8*E.outCubic(q),1.4,c(col,.6*(1-q)));
+    ring(from,14+10*E.outCubic(q),1.25,c(col,.5*(1-q)));
+  }};
+}
+
+
+
+const VW=480, VH=270, GEOM={top:221, from:{x:240,y:238}, card:{x:268,y:34,w:180,h:100}};
+const FX=[
+  {id:'meteor',name:'流星',dur:1.33,line:'白色光点蓄势后猛冲，撞进卡片炸开光环。',mood:['冲击','速度感'],still:760,tag:'原版'},
+  {id:'plane',name:'纸飞机',dur:1.62,line:'折成纸飞机滑翔侧倾，钻进标题栏亮起确认勾。',mood:['投递','友好'],still:720},
+  {id:'ribbon',name:'声纹',dur:1.36,line:'说话的波形展开成丝带，送到卡片化成音柱。',mood:['语音原生','连续'],still:500},
+  {id:'firefly',name:'萤火',dur:1.58,line:'光点升起聚拢，再各自飘进卡片逐个亮起。',mood:['温暖','有机'],still:760},
+  {id:'fireworks',name:'烟花',dur:1.9,line:'火箭升空，在卡片上方炸成双色菊花，余烬噼啪落下。',mood:['庆祝','绚烂'],still:860},
+  {id:'lightning',name:'闪电',dur:.76,line:'蓄电后一道分叉闪电劈下，卡片边缘爬满电弧。',mood:['果断','瞬间'],still:200},
+  {id:'vortex',name:'星漩',dur:1.76,line:'星尘旋成小星系拖着螺旋尾巴飞来，绕卡坍缩成闪光。',mood:['宇宙感','沉浸'],still:860},
+  {id:'random',name:'随机',dur:null,line:'每次派发随机挑一款，保持新鲜感。',mood:['新鲜感'],glyph:'shuffle'},
+];
+const byId=id=>FX.find(f=>f.id===id);
+const POOL=FX.filter(f=>f.dur&&f.id!=='off').map(f=>f.id);
+const reduceSys=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const S={scope:'ws', ws:'ribbon', pj:'fireworks', follow:true, speed:1, scenes:{voice:'follow',idea:'follow',handoff:'lightning'}};
+const current=()=>S.scope==='pj'&&!S.follow?S.pj:S.ws;
+
+// ---------- 迷你画布播放器 ----------
+class Player{
+  constructor(scene,id){ this.scene=scene; this.cv=scene.querySelector('canvas'); this.c2=this.cv.getContext('2d'); this.card=scene.querySelector('.mcard.t'); this.id=id; this.inst=null; this.playing=false; }
+  fit(){ const r=this.cv.getBoundingClientRect(), d=Math.min(2,devicePixelRatio||1), w=Math.max(1,Math.round(r.width*d)), h=Math.max(1,Math.round(r.height*d));
+    if(this.cv.width!==w||this.cv.height!==h){ this.cv.width=w; this.cv.height=h; } this.k=w/VW; }
+  spawn(){ const id=this.id==='random'?POOL[Math.floor(Math.random()*POOL.length)]:this.id; this.shown=id;
+    this.inst=id==='off'?reducedMaker(GEOM,{}):MAKERS[id](GEOM); this.t=0; this.wait=0; this.landed=false; return id; }
+  render(){ if(!this.inst) return; ctx=this.c2; ctx.setTransform(this.k,0,0,this.k,0,0); ctx.clearRect(0,0,VW,VH); ctx.lineCap='round';
+    ctx.globalCompositeOperation=this.inst.blend||P.blend; ctx.save(); this.inst.draw(Math.min(this.t,this.inst.total)); ctx.restore(); }
+  still(){ this.fit(); if(this.id==='random') return; this.spawn(); const end=byId(this.id).still; for(let t=0;t<=end;t+=16){ this.t=t; this.render(); } }
+  step(dt){
+    if(!this.inst) this.spawn();
+    if(this.t>=this.inst.total){ this.wait+=dt; ctx=this.c2; ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,this.cv.width,this.cv.height);
+      if(this.wait>520){ this.spawn(); this.onSpawn&&this.onSpawn(this.shown); } return; }
+    this.t+=dt;
+    if(!this.landed&&this.t>=this.inst.landAt){ this.landed=true; this.card.classList.remove('hit'); void this.card.offsetWidth; this.card.classList.add('hit'); }
+    this.render();
+  }
+}
+
+const grid=document.getElementById('grid');
+grid.innerHTML=FX.map(f=>`
+  <div class="tile" role="radio" tabindex="-1" aria-checked="false" data-id="${f.id}" aria-label="${f.name}">
+    <div class="scene"><div class="mcard d"></div><div class="mcard t"></div><div class="mdock"></div>
+      ${f.glyph?`<div class="glyph"><span class="ms">${f.glyph}</span></div>`:''}<canvas></canvas>
+      ${f.dur&&f.id!=='off'?'<span class="play-hint"><span class="ms fill">play_arrow</span>预览</span>':''}</div>
+    <span class="tsel"><span class="ms">check</span></span>
+    <div class="tmeta"><span class="tname">${f.name}</span><span class="tdur">${f.dur?f.dur.toFixed(2)+'s':'—'}</span></div>
+    <div class="tsub">${f.tag||f.mood[0]}</div>
+  </div>`).join('');
+const tiles=[...grid.querySelectorAll('.tile')];
+const players=new Map(tiles.map(t=>[t,new Player(t.querySelector('.scene'),t.dataset.id)]));
+const hero=new Player(document.getElementById('hero'),current());
+hero.onSpawn=id=>{ if(hero.id==='random') document.getElementById('curName').textContent=`随机 · 本次${byId(id).name}`; };
+let heroOn=!reduceSys, hovered=new Set();
+
+let raf=0,last=0;
+function loop(now){
+  const dt=Math.min(50,now-last)/S.speed; last=now;
+  if(heroOn) hero.step(dt);
+  for(const t of hovered) players.get(t).step(dt);
+  raf=(heroOn||hovered.size)?requestAnimationFrame(loop):0;
+}
+const kick=()=>{ if(!raf){ last=performance.now(); raf=requestAnimationFrame(loop); } };
+function preview(tile,on){
+  const p=players.get(tile);
+  if(on&&!reduceSys&&tile.dataset.id!=='random'){ if(!hovered.has(tile)){ hovered.add(tile); p.fit(); p.spawn(); kick(); } }
+  else if(!on&&hovered.has(tile)){ hovered.delete(tile); p.still(); }
+}
+
+// ---------- 状态渲染 ----------
+function renderCurrent(){
+  const id=current(), f=byId(id);
+  tiles.forEach(t=>{ const on=t.dataset.id===id; t.setAttribute('aria-checked',on); t.tabIndex=on?0:-1; });
+  document.getElementById('curName').textContent=f.name;
+  document.getElementById('curLine').textContent=`${f.line}${f.dur?` · ${(f.dur*S.speed).toFixed(2)}s`:''}`;
+  document.getElementById('curChips').innerHTML=f.mood.map(m=>`<span class="chip">${m}</span>`).join('');
+  const pj=S.scope==='pj';
+  document.getElementById('followRow').hidden=!pj;
+  document.getElementById('scopeName').textContent=pj?'norma-os / ios':'norma-os';
+  document.getElementById('curScope').textContent=pj?(S.follow?'跟随工作空间：工作空间更换特效时，此项目同步更换。':'仅此项目使用。'):'用于跟随此工作空间设置的项目。';
+  grid.classList.toggle('dim',pj&&S.follow);
+  hero.fit(); hero.id=id; hero.spawn(); hero.onSpawn(hero.shown);
+  if(!heroOn) hero.still(); else kick();
+  renderScenes();
+}
+let undoState=null, snackTimer=0;
+function snack(text){ const s=document.getElementById('snack'); document.getElementById('snackText').textContent=text; s.classList.add('on'); clearTimeout(snackTimer); snackTimer=setTimeout(()=>s.classList.remove('on'),4000); }
+function choose(id){
+  if(id===current()) return;
+  undoState=JSON.parse(JSON.stringify(S));
+  if(S.scope==='pj') S.pj=id; else S.ws=id;
+  renderCurrent();
+  snack(`已为${S.scope==='pj'?'项目 ios':'工作空间 norma-os'}换成「${byId(id).name}」`);
+}
+document.getElementById('undo').addEventListener('click',()=>{ if(!undoState) return; Object.assign(S,undoState); undoState=null; syncScope(); renderCurrent(); document.getElementById('snack').classList.remove('on'); });
+
+tiles.forEach((t,i)=>{
+  t.addEventListener('click',()=>choose(t.dataset.id));
+  t.addEventListener('mouseenter',()=>preview(t,true)); t.addEventListener('mouseleave',()=>{ if(document.activeElement!==t) preview(t,false); });
+  t.addEventListener('focus',()=>preview(t,true)); t.addEventListener('blur',()=>preview(t,false));
+  t.addEventListener('keydown',e=>{
+    if(e.key==='Enter'||e.key===' '){ e.preventDefault(); choose(t.dataset.id); return; }
+    const cols=Math.max(1,Math.round(grid.clientWidth/(t.offsetWidth+12)));
+    const d={ArrowRight:1,ArrowLeft:-1,ArrowDown:cols,ArrowUp:-cols}[e.key]; if(!d) return;
+    e.preventDefault(); const n=tiles[Math.min(tiles.length-1,Math.max(0,i+d))]; t.tabIndex=-1; n.tabIndex=0; n.focus();
+  });
+});
+document.getElementById('replay').addEventListener('click',()=>{ hero.spawn(); hero.onSpawn(hero.shown); if(reduceSys){ heroOn=true; setTimeout(()=>{heroOn=false;},(hero.inst.total+400)*S.speed); } kick(); });
+
+function syncScope(){ document.getElementById('scWs').setAttribute('aria-pressed',S.scope==='ws'); document.getElementById('scPj').setAttribute('aria-pressed',S.scope==='pj');
+  document.getElementById('follow').setAttribute('aria-checked',S.follow); }
+document.getElementById('scWs').addEventListener('click',()=>{ S.scope='ws'; syncScope(); renderCurrent(); });
+document.getElementById('scPj').addEventListener('click',()=>{ S.scope='pj'; syncScope(); renderCurrent(); });
+document.querySelectorAll('.switch').forEach(sw=>sw.addEventListener('click',()=>{
+  const on=sw.getAttribute('aria-checked')!=='true'; sw.setAttribute('aria-checked',on);
+  if(sw.id==='follow'){ S.follow=on; renderCurrent(); }
+}));
+document.querySelectorAll('#speed button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#speed button').forEach(x=>x.setAttribute('aria-pressed',x===b)); S.speed=+b.dataset.v; renderCurrent();
+}));
+
+// ---------- 按来源覆盖：Material 菜单 ----------
+const SCENES=[
+  {k:'voice',icon:'mic',name:'语音派发',sub:'在指令栏说出的想法'},
+  {k:'idea',icon:'lightbulb',name:'想法清单派发',sub:'从想法清单点击或拖到卡片'},
+  {k:'handoff',icon:'swap_horiz',name:'Agent 间交接',sub:'一个智能体把任务交给另一个'},
+];
+const SW={meteor:'linear-gradient(90deg,#96cdff,#f2f9ff)',plane:'linear-gradient(90deg,#dbe6f2,#2f80ed)',ribbon:'linear-gradient(90deg,#27d7ea,#8f86ff)',firefly:'radial-gradient(circle,#d6ff3b 30%,#df9a00)',
+  fireworks:'conic-gradient(#ffd37a,#ff7aa8,#27d7ea,#ffd37a)',lightning:'linear-gradient(120deg,#8f86ff,#f2f9ff,#8f86ff)',vortex:'radial-gradient(circle,#f2f9ff,#8f86ff 50%,#27d7ea)',random:'repeating-linear-gradient(45deg,#8b9499 0 4px,transparent 4px 8px)',off:'transparent'};
+const optLabel=v=>v==='follow'?`跟随当前特效 <small>· ${byId(current()).name}</small>`:byId(v).name;
+function renderScenes(){
+  document.getElementById('scenes').innerHTML=SCENES.map(s=>`
+    <div class="row">
+      <div class="lead"><span class="ms">${s.icon}</span></div>
+      <div class="rtext"><b>${s.name}</b><span>${s.sub}</span></div>
+      <div class="mwrap">
+        <button class="trigger" type="button" aria-haspopup="listbox" aria-expanded="false" data-k="${s.k}" aria-label="${s.name}特效"><span class="val">${optLabel(S.scenes[s.k])}</span><span class="ms">expand_more</span></button>
+        <div class="menu" role="listbox" hidden aria-label="${s.name}特效">
+          ${['follow',...FX.map(f=>f.id)].map((v,i)=>`${i===1?'<div class="mdiv"></div>':''}
+            <div class="mi" role="option" data-v="${v}" aria-selected="${S.scenes[s.k]===v}">
+              <span class="sw" style="--c:${v==='follow'?'var(--primary-c)':SW[v]};${v==='off'?'box-shadow:inset 0 0 0 1.5px var(--outline)':''}"></span>
+              <span class="mt">${v==='follow'?`跟随当前特效<small>现在是「${byId(current()).name}」</small>`:`${byId(v).name}<small>${byId(v).dur?byId(v).dur.toFixed(2)+'s · ':''}${byId(v).mood.join(' · ')}</small>`}</span>
+              <span class="ms chk">check</span></div>`).join('')}
+        </div>
+      </div>
+    </div>`).join('');
+}
+let openMenu=null;
+function closeMenu(focusTrigger){ if(!openMenu) return; const {trigger,menu}=openMenu; menu.hidden=true; trigger.setAttribute('aria-expanded','false'); openMenu=null; if(focusTrigger) trigger.focus(); }
+function openFor(trigger){
+  closeMenu(false); const menu=trigger.nextElementSibling; menu.hidden=false; trigger.setAttribute('aria-expanded','true');
+  const items=[...menu.querySelectorAll('.mi')]; let idx=Math.max(0,items.findIndex(i=>i.getAttribute('aria-selected')==='true'));
+  openMenu={trigger,menu,items,idx}; highlight(idx);
+}
+function highlight(i){ const m=openMenu; m.items.forEach(x=>x.classList.remove('active')); m.idx=(i+m.items.length)%m.items.length; const it=m.items[m.idx]; it.classList.add('active'); it.scrollIntoView({block:'nearest'}); }
+function commit(item){ const k=openMenu.trigger.dataset.k; S.scenes[k]=item.dataset.v; const name=SCENES.find(s=>s.k===k).name; closeMenu(true); renderScenes();
+  document.querySelector(`.trigger[data-k="${k}"]`).focus(); snack(`${name}改为「${item.dataset.v==='follow'?'跟随当前特效':byId(item.dataset.v).name}」`); }
+document.getElementById('scenes').addEventListener('click',e=>{
+  const tr=e.target.closest('.trigger'); if(tr){ openMenu&&openMenu.trigger===tr?closeMenu(true):openFor(tr); return; }
+  const it=e.target.closest('.mi'); if(it&&openMenu) commit(it);
+});
+document.getElementById('scenes').addEventListener('mouseover',e=>{ const it=e.target.closest('.mi'); if(it&&openMenu) highlight(openMenu.items.indexOf(it)); });
+document.addEventListener('keydown',e=>{
+  const tr=e.target.closest&&e.target.closest('.trigger');
+  if(!openMenu){ if(tr&&['Enter',' ','ArrowDown'].includes(e.key)){ e.preventDefault(); openFor(tr); } return; }
+  if(e.key==='ArrowDown'){ e.preventDefault(); highlight(openMenu.idx+1); }
+  else if(e.key==='ArrowUp'){ e.preventDefault(); highlight(openMenu.idx-1); }
+  else if(e.key==='Enter'||e.key===' '){ e.preventDefault(); commit(openMenu.items[openMenu.idx]); }
+  else if(e.key==='Escape'){ e.preventDefault(); closeMenu(true); }
+  else if(e.key==='Tab'){ closeMenu(false); }
+});
+document.addEventListener('mousedown',e=>{ if(openMenu&&!e.target.closest('.mwrap')) closeMenu(false); });
+
+// 首帧：所有卡片画定格帧，当前特效开始循环。
+requestAnimationFrame(()=>{ for(const p of players.values()) p.still(); renderCurrent(); });
+new ResizeObserver(()=>{ for(const [t,p] of players) if(!hovered.has(t)) p.still(); if(!heroOn) hero.still(); }).observe(grid);
+</script>

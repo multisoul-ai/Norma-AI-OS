@@ -1,2 +1,0 @@
-# Spike-only dependency for Ed25519 offline token verification.
-PyNaCl>=1.5.0,<2

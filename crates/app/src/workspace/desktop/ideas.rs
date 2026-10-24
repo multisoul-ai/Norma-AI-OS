@@ -85,6 +85,7 @@ impl MultisoulApp {
         let mut lookup = DispatchLookup {
             live: Vec::new(),
             project_dbs: Vec::new(),
+            unavailable_projects: false,
         };
         let Some(workspace_id) = self.desktop_workspace.active_id.as_deref() else {
             return lookup;
@@ -128,7 +129,17 @@ impl MultisoulApp {
         let db_path = self.database_paths.app_db_path().to_owned();
         let store = IdeasStore::new(db_path.clone());
         self.desktop_workspace.ideas_refresh = Some(cx.spawn(async move |this, cx| {
-            let Ok(lookup) = this.update(cx, |app, cx| app.idea_task_sources(cx)) else {
+            let Ok((mut lookup, paths, roots)) = this.update(cx, |app, cx| {
+                (
+                    app.idea_task_sources(cx),
+                    app.database_paths.clone(),
+                    app.desktop_workspace
+                        .areas
+                        .iter()
+                        .map(|area| area.root.clone())
+                        .collect::<Vec<_>>(),
+                )
+            }) else {
                 return;
             };
             let id = workspace_id.clone();
@@ -138,6 +149,7 @@ impl MultisoulApp {
                         .duration_since(UNIX_EPOCH)
                         .map(|elapsed| elapsed.as_secs())
                         .unwrap_or_default();
+                    lookup.prepare_projects(&paths, &roots);
                     let list = sync_ideas(&store, &id, &lookup, now, STUCK_AFTER_SECS);
                     let saved = storage::SettingsStore::new(db_path)
                         .get_string(crate::shortcuts::idea_assign::DEFAULT_PROFILE_SETTING)

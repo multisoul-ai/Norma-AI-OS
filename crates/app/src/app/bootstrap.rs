@@ -231,6 +231,7 @@ impl MultisoulApp {
             pending_agent_close_confirmation: None,
             focus_handle,
             wallpaper_settings,
+            effects_ui: Default::default(),
             wallpaper_previews: crate::settings::wallpaper::PreviewCache::default(),
             #[cfg(target_os = "macos")]
             video_wallpaper: None,
@@ -280,6 +281,7 @@ impl MultisoulApp {
         #[cfg(not(feature = "e2e-test-support"))]
         let visual_preview = false;
         if !background {
+            app.load_effect_settings(cx);
             app.refresh_desktop_previews(cx);
             app.refresh_asr_model_states(cx);
             if !visual_preview {

@@ -26,7 +26,7 @@
 #   - Positive: bundle identifier is com.norma.os.
 #   - Positive: the main app binary path is target/release/norma-os.
 #   - Positive: the hook binary path is present in [[binaries]].
-#   - Positive: the OpenAI card planner helper is packaged as a resource.
+#   - Negative: the retired OpenAI card planner helper is not packaged.
 #   - Positive: before-packaging-command validates the persisted release version without mutating it.
 #   - Positive: before-packaging-command invokes `cargo build --release -p app`.
 #   - Positive: normal and packaged builds both leave the License feature disabled.
@@ -113,8 +113,8 @@ if ! grep -Fq 'path = "target/release/multisoul-agent-hook"' "$config"; then
 fi
 
 for resource_config in "$config" "$dev_config"; do
-  if ! grep -Fq '"sidecars/openai-card-planner/openai-card-planner.mjs"' "$resource_config"; then
-    fail "$(basename "$resource_config") must package the OpenAI card planner helper resource"
+  if grep -Fq '"sidecars/openai-card-planner/openai-card-planner.mjs"' "$resource_config"; then
+    fail "$(basename "$resource_config") must not package the retired OpenAI card planner helper"
   fi
   if ! grep -Fq '{ src = "build/release-media/feature-guide", target = "feature-guide" }' "$resource_config"; then
     fail "$(basename "$resource_config") must package verified Feature Guide staging media"

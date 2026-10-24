@@ -109,6 +109,20 @@ public enum CanvasContentTabs {
             return "App 重启后从持久化记录恢复两个标签及选中项"
         }
 
+        try await session.step("打开与重启后数据库留在全局目录") {
+            guard let projectRoot, let dataRoot = session.dataRoot,
+                  FileManager.default.fileExists(atPath: dataRoot.appendingPathComponent("app.sqlite").path),
+                  let files = projectFiles(projectRoot) else {
+                throw E2EError.product("项目或全局数据库目录不可读取")
+            }
+            for file in files {
+                guard !["sqlite", "sqlite3", "db"].contains(file.pathExtension) else {
+                    throw E2EError.product("真实 App 在项目目录创建了数据库：\(file.path)")
+                }
+            }
+            return "全局数据库存在；真实打开与重启后，项目目录未生成数据库"
+        }
+
         try await session.step("来源项目移除后标签仍能查看") {
             let before = try await session.capture()
             let width = Double(before.windowFrame.width)
@@ -157,6 +171,11 @@ public enum CanvasContentTabs {
             return "文件标签记录已删除，磁盘文件保持原样"
         }
     }
+}
+
+private func projectFiles(_ root: URL) -> [URL]? {
+    FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil)?
+        .allObjects.compactMap { $0 as? URL }
 }
 
 @MainActor

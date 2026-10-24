@@ -1,4 +1,4 @@
-use super::{sync_ideas, TaskLookup};
+use super::{sync_ideas, DispatchLookup, TaskLookup};
 use std::collections::{HashMap, HashSet};
 use storage::{DesktopWorkspaceStore, IdeaSource, IdeasStore, Reconcile};
 use workspace::ideas::{IdeaState, TaskPhase};
@@ -38,6 +38,43 @@ fn setup() -> (tempfile::TempDir, IdeasStore, String) {
         .expect("应创建")
         .id;
     (temp, IdeasStore::new(db), ws)
+}
+
+/// 场景：旧项目目录不可用时仍读取工作空间想法，不能误判未派发并回退。
+/// 数据构造：一个派发中想法，关联一个已离线且尚无全局库的项目。
+/// 执行过程：后台准备项目来源后，从真实 DispatchLookup 对账并读取清单。
+/// 预期结果：清单仍包含原想法；无法查询的任务保持派发中，查找结果为 Unknown。
+#[test]
+fn unavailable_legacy_project_does_not_hide_ideas_or_reset_dispatch() {
+    let (temp, store, ws) = setup();
+    store
+        .add(&ws, "pending", "处理离线项目", IdeaSource::Chat)
+        .expect("应添加想法");
+    store
+        .begin_dispatch(&ws, "pending", "operation-a")
+        .expect("应进入派发中")
+        .expect("想法应存在");
+    let paths = storage::DatabasePaths::isolated_test(temp.path());
+    let missing = temp.path().join("offline-project");
+    let mut lookup = DispatchLookup {
+        live: Vec::new(),
+        project_dbs: vec![paths.project_db_path(&missing)],
+        unavailable_projects: false,
+    };
+    lookup.prepare_projects(&paths, &[missing]);
+    let ideas = sync_ideas(&store, &ws, &lookup, 1_000, 0).expect("离线项目不能阻断清单读取");
+
+    assert_eq!(ideas.len(), 1, "工作空间想法不能因单个项目离线而消失");
+    assert_eq!(
+        ideas[0].state,
+        IdeaState::Dispatching,
+        "未知派发结果不能被回退到待办"
+    );
+    assert_eq!(
+        lookup.find_sent("处理离线项目", &HashSet::new()),
+        Reconcile::Unknown,
+        "无法读取来源时只能返回未知"
+    );
 }
 
 fn assign(store: &IdeasStore, ws: &str, id: &str, body: &str, task_ref: &str) {

@@ -215,6 +215,9 @@ async fn run_at(
                             }
                         }
                         if final_text.len() > 2_000 { break Err(LocalizedText::new("doubao.asr_transcript_large")); }
+                        tracing::info!(target: "norma_voice", %request_id, %provider_logid,
+                            final_chars = final_text.chars().count(), audio_frames = sequence - 2,
+                            "held ASR final result received");
                         if final_text.trim().is_empty() {
                             let _ = events.send(SpeechEvent::HeldReady(recording_id)).await;
                         } else {

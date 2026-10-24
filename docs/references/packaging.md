@@ -24,7 +24,7 @@ one codegen unit, and symbol stripping. Keep these settings covered by
 Rust/macOS binary materially larger.
 
 仓库里的 `.cargo/config.toml` 会把 `cargo packager ...` 路由到
-`tools/cargo-packager-wrapper`，再由 wrapper 调用真实的 `cargo-packager`。
+`packaging/cargo-packager-wrapper/`，再由 wrapper 调用真实的 `cargo-packager`。
 默认执行 `cargo packager --release -c Packager.toml` 时，wrapper 会清掉
 `APPLE_API_*`、`APPLE_KEYCHAIN_PROFILE`、`APPLE_ID`、`APPLE_PASSWORD`、
 `APPLE_TEAM_ID`，因此只做 Developer ID 签名打包，不提交 Apple 公证。
@@ -308,8 +308,7 @@ contains 9 static images, 2 GIFs, and 5 MP4s; `home.mp4` and
 **git-lfs** (see root `.gitattributes`); `git lfs pull` materializes the real
 bytes before `release-local.sh` packages them.
 
-`Packager.toml` / `Packager.dev.toml` 在签名前从可信清单生成的 staging 目录复制媒体，
-并保留 realtime card planner helper：
+`Packager.toml` / `Packager.dev.toml` 在签名前从可信清单生成的 staging 目录复制媒体：
 
 ```toml
 resources = [
@@ -317,12 +316,11 @@ resources = [
   { src = "build/release-media/feature-guide", target = "feature-guide" },
   { src = "build/release-media/wallpaper-previews", target = "wallpaper-previews" },
   "build/release-media/media-catalog.json",
-  "sidecars/openai-card-planner/openai-card-planner.mjs",
 ]
 ```
 
 不再需要手动 `copy-wallpaper-resources.sh`——`resources` glob 在 cargo-packager
-签名 pass 之前执行，确保 wallpapers 和 card planner helper 进入已签名 bundle。
+签名 pass 之前执行，确保发布媒体进入已签名 bundle。
 
 ### 按需媒体与轻量包
 

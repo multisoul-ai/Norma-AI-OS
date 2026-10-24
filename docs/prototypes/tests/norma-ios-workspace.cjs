@@ -1,7 +1,7 @@
 // Run: node docs/prototypes/tests/norma-ios-workspace.cjs
 const assert = require('node:assert/strict');
 const path = require('node:path');
-const {chromium} = require('../../../spikes/norma-spatial-prototype/node_modules/playwright');
+const {chromium} = require('playwright');
 
 /// [九屏主流程]：参考图 W01–W09 都能从可见控件抵达，且点击后显示对应设计图。
 /// 数据构造（含关键数值的推导过程）：9 张参考图 = W01 列表 + W02 设备 + W03 项目 + W04 对话 + W05 简报 + W06 任务 + W07 通话 + W08 收件箱 + W09 成果。

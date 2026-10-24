@@ -1,0 +1,13 @@
+{
+  "name": "norma-doc-prototypes",
+  "private": true,
+  "scripts": {
+    "test": "node tests/norma-ios-ideas-workspaces.cjs && node tests/norma-ios-workspace.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

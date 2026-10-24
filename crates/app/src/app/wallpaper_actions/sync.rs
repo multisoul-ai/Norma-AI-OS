@@ -31,6 +31,7 @@ impl MultisoulApp {
         self.wallpaper_settings
             .set_effective_selection(selection, self.motion.reduce_motion);
         self.refresh_optional_media(cx);
+        self.sync_all_dispatch_effects(cx);
     }
 
     pub(super) fn publish_wallpaper(

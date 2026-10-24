@@ -1,10 +1,12 @@
 # SPEC：软件 License 硬门控接入（Keygate）
 
+> 2026-10-24 归档说明：本文涉及的 spike 源码已按用户确认移除；以下为历史记录，原文件可从 Git 提交 `0aed07c2` 查阅。现行入口见 `docs/README.md`。
+
 日期：2026-07-14  
 状态：ready-for-agent（grilling 已定案；Keygate spike GO）  
 设计：已并入本文。原文见 git 历史 `docs/design-docs/2026-07-14-software-licensing.md`。  
 ADR：[`0014`](../adr/0014-spike-keygate-before-app-licensing.md)（spike GO）、[`0015`](../adr/0015-license-hard-gate-outside-workbench.md)（硬门控 + GateRoot）  
-Spike：[`spikes/keygate-mvp/README.md`](../../spikes/keygate-mvp/README.md)
+Spike：[`spikes/keygate-mvp/README.md`](../README.md#history)
 
 > 历史：见 git 提交。原文路径：`docs/design-docs/2026-07-14-software-licensing.md`。
 

@@ -435,6 +435,8 @@ _Avoid_: 每次启动联网校验、无离线凭证的纯在线门禁
 **Keygate 本机 spike 环境**：
 可行性验证阶段仅在本机用 Docker Compose 运行 Keygate（及依赖如 Postgres），客户端指向 localhost；不上云、不要求公网域名与生产级备份。时间盒尽量压到约半天（上限 1 个工作日）：起服务、后台发证、脚本激活、断网复验；过则薄接入 App，不过则停 Keygate 改评其他方案，不追加沉没成本。spike 客户端为脚本级（shell/curl），材料放在仓库 `spikes/keygate-mvp/`，不进 `crates/`。若判定 no-go，下一手优先试 Keygen CE（脚本/API 验证；Portal 可后补），再不行才考虑自建 Ed25519。
 **2026-07-14 结论：GO**（详见 `spikes/keygate-mvp/README.md` 与 ADR 0014 Outcome）；下一手硬门控接入。
+
+2026-10-24 更新：上述本机 spike 已按用户确认从当前树移除，原始材料保留于 Git 提交 `0aed07c2`；授权实现继续由 license 与 app 管理。
 _Avoid_: spike 阶段上 VPS、生产 HTTPS 与收款联调、多日打磨 spike、spike 内先做 Rust/GPUI、no-go 后无默认换道方案
 
 **硬门控**：

@@ -14,7 +14,7 @@ use std::time::Duration;
 ///   Dock 中心 = (1280/2, 800-22-52/2) = (640,752)，在项目画布外。
 ///   特效覆盖区域必须为窗口 (0,0,1280,800)，而非项目 (14,64,1252,645)。
 ///   单帧上限 50ms；27×50ms = 1350ms > Flight(900ms) + Impact(430ms) = 1330ms。
-///   Reduce Motion 收束：4×50ms = 200ms > ReducedPulse(150ms)。
+///   减少动态效果下仍完整播放：27×50ms = 1350ms > 900+430=1330ms。
 ///   隐藏项目收到新回执后发出 1 次通知，宿主流星重绘通知应为 0 次。
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -155,18 +155,18 @@ fn desktop_workspace_dispatch_receipt_is_painted_over_shared_dock() {
         "特效结束后宿主必须移除旧覆盖层"
     );
     project.update(cx, |app, _| app.motion.reduce_motion = true);
-    dispatch("验证减少动态效果反馈", cx);
+    dispatch("验证减少动态效果仍保留流星", cx);
     project.update(cx, |app, _| {
         let effects = app.motion.dispatch_receipt_presentations();
         assert_eq!(
             effects[0].phase,
-            DispatchEffectPhase::Impact,
-            "Reduce Motion 必须保留命中反馈"
+            DispatchEffectPhase::Flight,
+            "减少动态效果也必须保留原有飞行"
         );
         assert_ne!(
             effects[0].phase,
-            DispatchEffectPhase::Flight,
-            "Reduce Motion 不得跨屏飞行"
+            DispatchEffectPhase::Impact,
+            "不得直接跳到命中脉冲"
         );
     });
     assert!(
@@ -184,8 +184,8 @@ fn desktop_workspace_dispatch_receipt_is_painted_over_shared_dock() {
     });
     project.update(cx, |app, cx| {
         assert!(app.background_project, "返回目录后项目必须进入后台");
-        // 每帧最多 50ms；4×50=200ms > ReducedPulse(150ms)，清除上一条回执。
-        for _ in 0..4 {
+        // 每帧最多 50ms；27×50=1350ms > 900+430=1330ms，清除完整回执。
+        for _ in 0..27 {
             app.motion.tick(Duration::from_millis(50));
         }
         cx.notify();

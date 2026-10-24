@@ -4,9 +4,12 @@ pub(crate) mod breathing;
 pub(crate) mod diagnostics;
 mod dispatch_api;
 pub(crate) mod dispatch_receipt;
+pub(crate) mod dispatch_style;
 pub(crate) mod initialization;
 pub(crate) mod node_visual;
 pub(crate) mod scalar;
+mod system;
+pub(crate) use system::system_reduce_motion;
 #[cfg(test)]
 mod tests;
 pub(crate) mod tokens;
@@ -25,6 +28,7 @@ pub(crate) use crate::motion::dispatch_receipt::{
     DispatchImpactParticle, DispatchImpactParticleKind, DispatchReceiptVisualStatus,
     DispatchVisualOrigin,
 };
+pub(crate) use crate::motion::dispatch_style::{DispatchEffectStyle, StyleSelection};
 pub(crate) use crate::motion::initialization::{
     InitializationAnimation, InitializationAnimationKind, InitializationPresentation,
 };
@@ -39,8 +43,8 @@ use crate::motion::tokens::MotionTokens;
 #[cfg(test)]
 use crate::motion::util::mix_color;
 use crate::motion::util::{
-    approx_rect, duration_progress, ease_out_cubic, lerp_rect, reduce_motion_from_env_value,
-    EPSILON,
+    approx_rect, consume_repaint_interval, duration_progress, ease_out_cubic, lerp_rect,
+    reduce_motion_from_env_value, EPSILON,
 };
 pub use crate::motion::visual::{ResolvedNodeVisual, VisualPriority};
 use crate::motion::working::WORKING_SNAKE_PERIOD_SECS;
@@ -51,15 +55,6 @@ use ui::Theme;
 /// 稳定状态动效最多 15fps：1000ms / 15 = 66.67ms，向上取整为 67ms。
 pub(crate) const AMBIENT_REPAINT_INTERVAL: Duration = Duration::from_millis(67);
 
-fn consume_repaint_interval(elapsed: &mut Duration, interval: Duration) -> bool {
-    if *elapsed < interval {
-        return false;
-    }
-    let remainder_nanos = elapsed.as_nanos() % interval.as_nanos();
-    *elapsed = Duration::from_nanos(remainder_nanos as u64);
-    true
-}
-
 #[derive(Debug, Clone)]
 pub struct MotionStore {
     tokens: MotionTokens,
@@ -67,6 +62,7 @@ pub struct MotionStore {
     nodes: BTreeMap<NodeId, NodeMotion>,
     initializations: BTreeMap<NodeId, InitializationAnimation>,
     dispatch_receipts: dispatch_receipt::DispatchEffectStore,
+    dispatch_style_selection: StyleSelection,
     /// 想法派发期间为真：跳过指令栏起点的飞行，只播想法自己的流星。
     dock_flight_suppressed: bool,
 }
@@ -83,6 +79,7 @@ impl MotionStore {
             nodes: BTreeMap::new(),
             initializations: BTreeMap::new(),
             dispatch_receipts: dispatch_receipt::DispatchEffectStore::default(),
+            dispatch_style_selection: StyleSelection::default(),
             dock_flight_suppressed: false,
         }
     }

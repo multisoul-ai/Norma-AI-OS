@@ -54,6 +54,7 @@ pub(crate) enum SettingsSection {
     Skills,
     Orchestration,
     Wallpaper,
+    Effects,
     Mobile,
 }
 
@@ -147,6 +148,12 @@ impl SettingsSection {
                 index: 7,
                 debug_selector: "settings-section-wallpaper",
             },
+            Self::Effects => SettingsSectionMetadata {
+                title: ui::i18n::text("effects.title"),
+                icon_asset: Some(crate::assets::SETTINGS_NAV_EFFECTS_ASSET),
+                index: 13,
+                debug_selector: "settings-section-effects",
+            },
             Self::Mobile => SettingsSectionMetadata {
                 title: ui::i18n::text("settings.mobile_connection"),
                 icon_asset: Some("icons/settings-nav-mobile.svg"),
@@ -161,6 +168,7 @@ const GENERAL_SECTIONS: &[SettingsSection] = &[
     SettingsSection::General,
     SettingsSection::Themes,
     SettingsSection::Wallpaper,
+    SettingsSection::Effects,
 ];
 const INPUT_SECTIONS: &[SettingsSection] = &[SettingsSection::Keyboard];
 const AUTOMATION_SECTIONS: &[SettingsSection] = &[

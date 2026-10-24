@@ -1,0 +1,733 @@
+<title>Norma 派发特效</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* 布局：左侧特效清单 + 右侧模拟 Norma 画布舞台，舞台下方是该特效的阶段时间轴与规格 */
+:root{
+  --bg:#efeee9; --surface:#fbfaf7; --surface-2:#f3f2ee; --ink:#2c373d; --ink-2:#5c676d; --ink-3:#8b9499;
+  --line:rgba(44,55,61,.12); --line-2:rgba(44,55,61,.22);
+  --accent:#2f80ed; --accent-ink:#ffffff; --accent-soft:rgba(47,128,237,.11);
+  --stage-a:#fffefb; --stage-b:#e9f0f3; --dot:rgba(49,61,68,.14);
+  --card:rgba(255,255,255,.80); --card-line:rgba(255,255,255,.95); --card-shadow:rgba(49,61,68,.16);
+  --term:#0e151d; --term-fg:#cfd8e2; --term-dim:#6f7d89; --term-new:#8fc3ff;
+  --dock:rgba(49,61,68,.92); --dock-fg:#f2f5f7; --dock-dim:rgba(242,245,247,.55);
+  --ok:#1f9e72;
+  --fx-core:#1f6fe0; --fx-glow:#7fb2f7; --fx-cyan:#0fa3bd; --fx-violet:#6a5cff; --fx-fly:#df9a00;
+  --fx-paper:#ffffff; --fx-paper-shade:#dbe6f2; --fx-ok:#1f9e72; --fx-gold:#e08a00; --fx-rose:#e5487d; --fx-blend:source-over;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Hiragino Sans GB","Helvetica Neue",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0c1215; --surface:#131b20; --surface-2:#19232a; --ink:#e6ecf1; --ink-2:#a3aeb5; --ink-3:#6f7b82;
+  --line:rgba(230,236,241,.09); --line-2:rgba(230,236,241,.2);
+  --accent:#4b95f5; --accent-ink:#06121f; --accent-soft:rgba(75,149,245,.14);
+  --stage-a:#121b21; --stage-b:#091014; --dot:rgba(230,236,241,.08);
+  --card:rgba(24,33,39,.84); --card-line:rgba(255,255,255,.07); --card-shadow:rgba(0,0,0,.45);
+  --dock:rgba(34,44,51,.94); --ok:#64e0b5;
+  --fx-core:#f2f9ff; --fx-glow:#96cdff; --fx-cyan:#27d7ea; --fx-violet:#8f86ff; --fx-fly:#d6ff3b;
+  --fx-paper:#f3f6f9; --fx-paper-shade:#aebdcc; --fx-ok:#64e0b5; --fx-gold:#ffd37a; --fx-rose:#ff7aa8; --fx-blend:lighter; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0c1215; --surface:#131b20; --surface-2:#19232a; --ink:#e6ecf1; --ink-2:#a3aeb5; --ink-3:#6f7b82;
+  --line:rgba(230,236,241,.09); --line-2:rgba(230,236,241,.2);
+  --accent:#4b95f5; --accent-ink:#06121f; --accent-soft:rgba(75,149,245,.14);
+  --stage-a:#121b21; --stage-b:#091014; --dot:rgba(230,236,241,.08);
+  --card:rgba(24,33,39,.84); --card-line:rgba(255,255,255,.07); --card-shadow:rgba(0,0,0,.45);
+  --dock:rgba(34,44,51,.94); --ok:#64e0b5;
+  --fx-core:#f2f9ff; --fx-glow:#96cdff; --fx-cyan:#27d7ea; --fx-violet:#8f86ff; --fx-fly:#d6ff3b;
+  --fx-paper:#f3f6f9; --fx-paper-shade:#aebdcc; --fx-ok:#64e0b5; --fx-gold:#ffd37a; --fx-rose:#ff7aa8; --fx-blend:lighter; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1240px;margin:0 auto;padding-inline:20px;padding-block:28px 48px;display:grid;gap:22px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+.eyebrow{font:500 11px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+h1{margin:6px 0 0;font-size:26px;line-height:1.15;font-weight:650;letter-spacing:-.01em;text-wrap:balance}
+.lede{margin:6px 0 0;color:var(--ink-2);max-width:62ch}
+.keys{color:var(--ink-3);font-size:12px;display:flex;gap:10px;flex-wrap:wrap}
+kbd{font:500 11px/1 var(--mono);padding:3px 6px;border-radius:5px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink-2)}
+
+.bench{display:grid;grid-template-columns:290px minmax(0,1fr);gap:20px;align-items:start}
+.list{display:grid;gap:8px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px)}
+.fx-item{position:relative;display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--surface);cursor:pointer;transition:background .15s,border-color .15s,transform .1s}
+.fx-item:hover{background:var(--surface-2);border-color:var(--line-2)}
+.fx-item:active{transform:scale(.99)}
+.fx-item input{position:absolute;opacity:0;pointer-events:none}
+.fx-item:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+.fx-item:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+.fx-name{font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px}
+.fx-tag{font:500 10px/1 var(--mono);padding:3px 6px;border-radius:99px;background:var(--line);color:var(--ink-2)}
+.fx-code{font:12px/1.4 var(--mono);color:var(--ink-3)}
+.fx-ms{font:500 12px/1.6 var(--mono);color:var(--ink-2);text-align:right;font-variant-numeric:tabular-nums}
+.fx-line{grid-column:1/-1;color:var(--ink-2);font-size:12.5px;line-height:1.45;margin-top:4px}
+.fx-item kbd{position:absolute;right:12px;bottom:10px;opacity:.7}
+
+.main{display:grid;gap:14px;min-width:0}
+.stage{position:relative;height:clamp(440px,62vh,620px);border-radius:18px;overflow:hidden;border:1px solid var(--line);
+  background:radial-gradient(var(--dot) 1px,transparent 1.2px) 0 0/22px 22px,linear-gradient(160deg,var(--stage-a),var(--stage-b));user-select:none}
+#fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5}
+.card{position:absolute;left:var(--x);top:var(--y);width:var(--w);border-radius:14px;background:var(--card);border:1px solid var(--card-line);
+  box-shadow:0 10px 28px -12px var(--card-shadow),0 1px 2px var(--card-shadow);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  cursor:pointer;transform-origin:50% 50%;transition:box-shadow .15s,border-color .15s;outline:none}
+.card:hover{border-color:var(--line-2);box-shadow:0 14px 34px -12px var(--card-shadow),0 0 0 1px var(--line-2)}
+.card:focus-visible{box-shadow:0 0 0 2px var(--accent)}
+.tb{display:flex;align-items:center;gap:7px;height:32px;padding:0 10px;min-width:0}
+.av{width:9px;height:9px;border-radius:3px;background:var(--c);flex:none}
+.tb b{font-size:12.5px;font-weight:600}
+.tb .sub{font:11px var(--mono);color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.st{margin-left:auto;flex:none;display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--ink-2);padding:2px 8px 2px 6px;border-radius:99px;background:var(--line)}
+.st::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--ink-3)}
+.st[data-s="got"]{color:var(--accent);background:var(--accent-soft)}
+.st[data-s="got"]::before{background:var(--accent)}
+.st[data-s="run"]::before{background:var(--ok);animation:blink 1.2s ease-in-out infinite}
+@keyframes blink{50%{opacity:.3}}
+.term{margin:0 6px 6px;padding:8px 10px;border-radius:9px;background:var(--term);font:11px/1.6 var(--mono);color:var(--term-fg);min-height:70px}
+.ln{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ln.dim{color:var(--term-dim)}
+.ln.new{color:var(--term-new)}
+.dock{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);height:52px;width:min(460px,88%);border-radius:26px;background:var(--dock);
+  display:flex;align-items:center;gap:10px;padding:0 8px 0 8px;color:var(--dock-fg);box-shadow:0 12px 30px -10px rgba(0,0,0,.35);z-index:4}
+.mic{width:36px;height:36px;border-radius:50%;background:var(--accent);display:grid;place-items:center;flex:none}
+.mic svg{width:16px;height:16px;fill:var(--accent-ink)}
+.bars{display:flex;align-items:center;gap:2px;height:20px;flex:none}
+.bars i{width:3px;height:6px;border-radius:2px;background:var(--dock-dim)}
+.dock.send .bars i{animation:wave .5s ease-out}
+.dock.send .bars i:nth-child(2){animation-delay:.04s}.dock.send .bars i:nth-child(3){animation-delay:.08s}
+.dock.send .bars i:nth-child(4){animation-delay:.12s}.dock.send .bars i:nth-child(5){animation-delay:.16s}
+@keyframes wave{40%{height:18px;background:var(--dock-fg)}}
+.dtext{flex:1;min-width:0;display:grid;line-height:1.25}
+.dtext span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}
+.dtext small{font:11px var(--mono);color:var(--dock-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dock kbd{background:transparent;border-color:rgba(242,245,247,.25);color:var(--dock-dim);margin-right:6px}
+
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
+button{font:inherit}
+.btn{height:34px;padding:0 14px;border-radius:9px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink);font-size:13px;font-weight:550;cursor:pointer;transition:background .15s,transform .1s}
+.btn:hover{background:var(--surface-2)}
+.btn:active{transform:scale(.97)}
+.btn:focus-visible,.seg label:has(input:focus-visible),.chk:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.07);background:var(--accent)}
+.seg{display:inline-flex;padding:2px;border-radius:9px;background:var(--surface-2);border:1px solid var(--line)}
+.seg label{position:relative;padding:5px 10px;border-radius:7px;font:500 12px var(--mono);color:var(--ink-2);cursor:pointer}
+.seg label:hover{color:var(--ink)}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg label:has(input:checked){background:var(--surface);color:var(--ink);box-shadow:0 1px 2px var(--card-shadow)}
+.chk{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--ink-2);cursor:pointer;border-radius:6px}
+.chk input{accent-color:var(--accent);width:15px;height:15px;margin:0}
+.hint{color:var(--ink-3);font-size:12px;margin-left:auto}
+
+.spec{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:18px;padding:18px;border-radius:16px;background:var(--surface);border:1px solid var(--line)}
+.spec h2{margin:0;font-size:18px;font-weight:650;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.spec h2 code{font:12px var(--mono);color:var(--ink-3);font-weight:400}
+.spec p{margin:6px 0 12px;color:var(--ink-2);max-width:60ch}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.chips span{font-size:12px;padding:3px 9px;border-radius:99px;border:1px solid var(--line-2);color:var(--ink-2)}
+.gantt{display:grid;gap:7px;--ph:0}
+.grow{display:grid;grid-template-columns:118px minmax(0,1fr) 92px;gap:10px;align-items:center}
+.gl{font-size:12.5px;line-height:1.25}
+.gl small{display:block;font:10.5px var(--mono);color:var(--ink-3)}
+.gt{position:relative;height:10px;border-radius:5px;background:var(--surface-2);border:1px solid var(--line)}
+.gt i{position:absolute;top:-1px;bottom:-1px;border-radius:5px;background:var(--accent);opacity:.85}
+.gantt.playing .gt::after{content:"";position:absolute;top:-4px;bottom:-4px;width:2px;border-radius:1px;left:calc(var(--ph) * 100%);background:var(--ink)}
+.gm{font:11px var(--mono);color:var(--ink-3);text-align:right;font-variant-numeric:tabular-nums}
+dl{margin:0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:9px 14px;align-content:start}
+dt{font-size:12px;color:var(--ink-3);padding-top:1px}
+dd{margin:0;font-size:13px}
+.ship{padding:16px 18px;border-radius:16px;border:1px dashed var(--line-2);color:var(--ink-2);font-size:13px}
+.ship b{color:var(--ink)}
+.ship ul{margin:8px 0 0;padding-left:18px;display:grid;gap:4px}
+.ship code{font:12px var(--mono);color:var(--ink)}
+
+@media (max-width:860px){
+  .bench{grid-template-columns:1fr}
+  .list{position:static;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .fx-line{display:none}
+  .fx-item kbd{display:none}
+  .spec{grid-template-columns:1fr}
+}
+@media (max-width:520px){
+  .wrap{padding-inline:16px}
+  .tb .sub{display:none}
+  .term{min-height:58px;font-size:10px}
+  .grow{grid-template-columns:92px minmax(0,1fr) 76px}
+  .hint{margin-left:0}
+}
+@media (prefers-reduced-motion: reduce){.dock.send .bars i,.st[data-s="run"]::before{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow">Norma · 语音想法派发</div>
+      <h1>派发特效</h1>
+      <p class="lede">想法从指令栏派发给 Agent 卡片时的反馈动效。当前的流星作为基线，另有六款候选，选中即预览；点击任意卡片可定向派发。</p>
+    </div>
+    <div class="keys"><span><kbd>1</kbd>–<kbd>7</kbd> 切换</span><span><kbd>Space</kbd> 派发</span><span><kbd>S</kbd> 慢放</span></div>
+  </header>
+
+  <div class="bench">
+    <div class="list" role="radiogroup" aria-label="派发特效" id="list"></div>
+
+    <div class="main">
+      <div class="stage" id="stage">
+        <div class="card" data-name="Claude" style="--x:4%;--y:7%;--w:36%" tabindex="0" role="button" aria-label="派发到 Claude">
+          <div class="tb"><i class="av" style="--c:#d97757"></i><b>Claude</b><span class="sub">norma-os</span><span class="st" data-s="idle">空闲</span></div>
+          <div class="term"><div class="ln">✓ 读取 crates/app/src/main.rs</div><div class="ln">✓ cargo check -p app</div><div class="ln dim">$ _</div></div>
+        </div>
+        <div class="card" data-name="Codex" style="--x:61%;--y:5%;--w:35%" tabindex="0" role="button" aria-label="派发到 Codex">
+          <div class="tb"><i class="av" style="--c:#3fae8c"></i><b>Codex</b><span class="sub">analytics</span><span class="st" data-s="idle">空闲</span></div>
+          <div class="term"><div class="ln">● 跑 cargo test -p analytics</div><div class="ln">  42 passed</div><div class="ln dim">$ _</div></div>
+        </div>
+        <div class="card" data-name="Cursor" style="--x:8%;--y:46%;--w:32%" tabindex="0" role="button" aria-label="派发到 Cursor">
+          <div class="tb"><i class="av" style="--c:#7d8a93"></i><b>Cursor</b><span class="sub">ios</span><span class="st" data-s="idle">空闲</span></div>
+          <div class="term"><div class="ln">✓ xcodegen generate</div><div class="ln">● 等待下一条指令</div><div class="ln dim">$ _</div></div>
+        </div>
+        <div class="card" data-name="Kimi" style="--x:57%;--y:43%;--w:36%" tabindex="0" role="button" aria-label="派发到 Kimi">
+          <div class="tb"><i class="av" style="--c:#6a5cff"></i><b>Kimi</b><span class="sub">docs</span><span class="st" data-s="idle">空闲</span></div>
+          <div class="term"><div class="ln">✓ 更新 docs/exec-plans</div><div class="ln">● 等待下一条指令</div><div class="ln dim">$ _</div></div>
+        </div>
+        <div class="dock" id="dock">
+          <div class="mic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3.5 3.5 0 0 0 3.5-3.5v-6a3.5 3.5 0 1 0-7 0v6A3.5 3.5 0 0 0 12 15Zm6-3.6a1 1 0 1 0-2 0 4 4 0 0 1-8 0 1 1 0 1 0-2 0 6 6 0 0 0 5 5.9V20H9a1 1 0 1 0 0 2h6a1 1 0 1 0 0-2h-2v-2.7a6 6 0 0 0 5-5.9Z"/></svg></div>
+          <div class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="dtext"><span id="dockText">说出你的想法…</span><small id="dockMeta">按住 Fn 说话</small></div>
+          <kbd>Space</kbd>
+        </div>
+        <canvas id="fx" aria-hidden="true"></canvas>
+      </div>
+
+      <div class="controls">
+        <button class="btn primary" id="go" type="button">派发</button>
+        <button class="btn" id="burst" type="button">连发 ×3</button>
+        <div class="seg" role="radiogroup" aria-label="播放速度">
+          <label><input type="radio" name="speed" id="sp1" value="1" checked>1×</label>
+          <label><input type="radio" name="speed" id="sp2" value="0.5">0.5×</label>
+          <label><input type="radio" name="speed" id="sp3" value="0.2">0.2×</label>
+        </div>
+        <label class="chk"><input type="checkbox" id="reduce">减少动态效果</label>
+        <span class="hint">点击卡片定向派发</span>
+      </div>
+
+      <section class="spec" id="spec" aria-live="polite"></section>
+
+      <div class="ship">
+        <b>接入 Norma 的方式</b>
+        <ul>
+          <li>新增 <code>DispatchEffectStyle</code> 设置项（Settings → 外观 → 派发特效），设置页复用这里的即时预览。</li>
+          <li>飞行与命中时长改由 style 提供，替换 <code>motion/dispatch_receipt.rs</code> 里固定的 <code>IDEA_FLIGHT_DURATION</code>；<code>build_paint_plan</code> 按 style 分发到各自的 <code>paint_*</code>。</li>
+          <li>所有款式都只用 <code>PathBuilder</code> 描边/填充和 <code>PaintQuad</code>，与现有流星同一套 GPUI 原语，不需要模糊或着色器。</li>
+          <li>减少动态效果时统一回落为卡片描边脉冲；Agent 间交接仍可单独保留离子画法。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const FX = [
+  { id:'meteor', name:'流星', code:'Meteor', tag:'当前', total:1330,
+    line:'白色光点沿弧线蓄势，突然加速撞进卡片中心，炸开光环与碎屑。',
+    mood:['冲击','速度感','高能'],
+    phases:[{n:'蓄势 + 冲刺',e:'easeInQuart',a:0,b:900},{n:'命中光环',e:'easeOutCubic',a:900,b:1330}],
+    cost:'约 90 条描边 + 40 个 quad / 帧（尾迹 28 段 × 3 层）', fit:'首次使用、演示场景；连续派发时偏吵', reduce:'卡片描边脉冲' },
+  { id:'plane', name:'纸飞机', code:'PaperPlane', total:1620,
+    line:'想法折成一架纸飞机，滑翔、侧倾转弯，钻进卡片标题栏，亮起一个确认勾。',
+    mood:['投递','轻巧','友好'],
+    phases:[{n:'折叠成形',e:'easeOutBack',a:0,b:220},{n:'滑翔 + 侧倾',e:'easeInOutSine',a:220,b:1020},{n:'落入 + 确认勾',e:'easeOutBack',a:1020,b:1620}],
+    cost:'约 30 条路径 / 帧（机身两片三角 + 12 段虚线尾迹）', fit:'日常派发、浅色主题；“发出去了”的语义最直白', reduce:'卡片描边脉冲 + 确认勾' },
+  { id:'ribbon', name:'声纹', code:'VoiceRibbon', total:1360,
+    line:'说话的波形从指令栏展开成一条丝带，送到卡片底边，化成一排跳动的音柱。',
+    mood:['语音原生','连续','品牌感'],
+    phases:[{n:'波形展开',e:'头 easeOutCubic',a:0,b:520},{n:'尾部收拢',e:'尾 easeInCubic',a:200,b:720},{n:'音柱 + 描边',e:'快起慢落',a:660,b:1360}],
+    cost:'3 条折线（各约 72 点）+ 20 根音柱', fit:'语音派发专属，和指令栏录音波形同源', reduce:'卡片描边脉冲' },
+  { id:'firefly', name:'萤火', code:'Fireflies', total:1580,
+    line:'十几粒光点从指令栏升起、聚成一团，再各自沿不同弧线飘进卡片，落点逐个亮起。',
+    mood:['有机','温暖','想法的火花'],
+    phases:[{n:'升起聚拢',e:'easeOutCubic',a:0,b:300},{n:'错峰飘散',e:'easeInOutCubic · 每粒 +26ms',a:280,b:1260},{n:'落点绽放',e:'easeOutCubic',a:920,b:1580}],
+    cost:'14 粒 ×（2 个圆 + 5 个尾点）≈ 100 个 quad', fit:'想法清单批量派发；多个同时飞也不显乱', reduce:'卡片描边脉冲' },
+  { id:'fireworks', name:'烟花', code:'Fireworks', total:1900,
+    line:'火箭拖着金色碎屑从指令栏升空，在卡片上方炸成一朵双色菊花，余烬噼啪闪烁着落向卡片。',
+    mood:['庆祝','绚烂','惊喜'],
+    phases:[{n:'升空 + 金屑',e:'easeOutQuad',a:0,b:520},{n:'炸开',e:'初速 230px/s · 空气阻力',a:520,b:780},{n:'下坠 + 噼啪',e:'重力 110px/s² · 闪烁',a:780,b:1900}],
+    cost:'约 100 颗星 × 7 段尾迹 + 发光阴影 quad；最重的一款', fit:'重要任务、里程碑，想要一点庆祝感的时候', reduce:'卡片描边脉冲' },
+  { id:'lightning', name:'闪电', code:'Lightning', total:760,
+    line:'指令栏先蓄电噼啪作响，一道带分叉的闪电劈向卡片，连闪两下，卡片边缘爬满电弧。',
+    mood:['果断','力量','瞬间'],
+    phases:[{n:'蓄电',e:'线性',a:0,b:180},{n:'劈下 + 二次闪',e:'硬切',a:160,b:330},{n:'余辉 + 电弧',e:'easeOutCubic',a:330,b:720}],
+    cost:'主干约 65 点 + 3 条分叉，各 3 层描边；电弧每 45ms 重新生成', fit:'紧急任务、高频派发；够快，不拖节奏', reduce:'卡片描边脉冲' },
+  { id:'vortex', name:'星漩', code:'Vortex', total:1760,
+    line:'九十颗星尘在指令栏旋成一个小星系，拖着螺旋尾巴飞向卡片，绕卡片转一圈后坍缩成一道闪光。',
+    mood:['宇宙感','吸入','沉浸'],
+    phases:[{n:'旋聚成星盘',e:'easeOutCubic',a:0,b:360},{n:'螺旋飞行',e:'easeInOutCubic · 逐颗滞后',a:340,b:1180},{n:'绕卡坍缩',e:'easeInCubic',a:1180,b:1420},{n:'闪光',e:'easeOutCubic',a:1420,b:1760}],
+    cost:'90 条动态短线 + 15 个发光 quad', fit:'深色主题、星空壁纸；连续派发给同一个 Agent', reduce:'卡片描边脉冲' },
+];
+
+const $ = s => document.querySelector(s);
+const stage = $('#stage'), cvs = $('#fx'), ctx = cvs.getContext('2d'), dockEl = $('#dock');
+const cards = [...document.querySelectorAll('.card')];
+const reduceEl = $('#reduce');
+reduceEl.checked = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ---------- 调色板（随主题读取 CSS token） ----------
+let P = {};
+function readPalette(){
+  const s = getComputedStyle(document.documentElement), g = n => s.getPropertyValue(n).trim();
+  P = { core:g('--fx-core'), glow:g('--fx-glow'), cyan:g('--fx-cyan'), violet:g('--fx-violet'), fly:g('--fx-fly'),
+        paper:g('--fx-paper'), shade:g('--fx-paper-shade'), ok:g('--fx-ok'), gold:g('--fx-gold'), rose:g('--fx-rose'), accent:g('--accent'), blend:g('--fx-blend') || 'source-over' };
+}
+readPalette();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readPalette);
+new MutationObserver(readPalette).observe(document.documentElement, { attributes:true, attributeFilter:['data-theme'] });
+const rgbCache = {};
+function c(hex, a){
+  let v = rgbCache[hex];
+  if(!v){ const h = hex.replace('#',''); v = rgbCache[hex] = [0,2,4].map(i => parseInt(h.slice(i,i+2),16)); }
+  return `rgba(${v[0]},${v[1]},${v[2]},${Math.max(0,Math.min(1,a)).toFixed(3)})`;
+}
+
+// ---------- 数学 ----------
+const clamp = (v,a=0,b=1) => Math.max(a, Math.min(b, v));
+const seg = (t,a,b) => clamp((t-a)/(b-a));
+const lerp = (a,b,t) => ({ x:a.x+(b.x-a.x)*t, y:a.y+(b.y-a.y)*t });
+const E = {
+  inQuart:t=>t**4, inCubic:t=>t**3, outCubic:t=>1-(1-t)**3,
+  inOutCubic:t=>t<.5?4*t*t*t:1-(-2*t+2)**3/2, inOutSine:t=>-(Math.cos(Math.PI*t)-1)/2,
+  outBack:t=>{const k=1.70158;return 1+(k+1)*(t-1)**3+k*(t-1)**2}, outExpo:t=>t>=1?1:1-2**(-10*t), smooth:t=>t*t*(3-2*t),
+};
+const qb = (a,k,b,t) => { const u=1-t; return { x:u*u*a.x+2*u*t*k.x+t*t*b.x, y:u*u*a.y+2*u*t*k.y+t*t*b.y }; };
+const cb = (a,k1,k2,b,t) => { const u=1-t; return { x:u*u*u*a.x+3*u*u*t*k1.x+3*u*t*t*k2.x+t*t*t*b.x, y:u*u*u*a.y+3*u*u*t*k1.y+3*u*t*t*k2.y+t*t*t*b.y }; };
+function bowCtrl(a,b,k,max=170){
+  const dx=b.x-a.x, dy=b.y-a.y, d=Math.hypot(dx,dy)||1, bow=Math.min(max,d*Math.abs(k))*Math.sign(k)*(dx>=0?1:-1);
+  return { x:(a.x+b.x)/2+(-dy/d)*bow, y:(a.y+b.y)/2+(dx/d)*bow };
+}
+// 按弧长取点的折线：at(u) 取点和切线角，range(u0,u1) 取一段（保留拐点）。
+function polyline(pts){
+  const len=[0];
+  for(let i=1;i<pts.length;i++) len.push(len[i-1]+Math.hypot(pts[i].x-pts[i-1].x, pts[i].y-pts[i-1].y));
+  const total = len[len.length-1] || 1;
+  const idx = d => { let lo=0, hi=pts.length-1; while(hi-lo>1){ const m=(lo+hi)>>1; if(len[m]<d) lo=m; else hi=m; } return lo; };
+  function at(u){
+    const d=clamp(u)*total, i=idx(d), a=pts[i], b=pts[i+1]||a, f=(d-len[i])/((len[i+1]-len[i])||1);
+    return { x:a.x+(b.x-a.x)*f, y:a.y+(b.y-a.y)*f, ang:Math.atan2(b.y-a.y, b.x-a.x) };
+  }
+  function range(u0,u1){
+    u0=clamp(u0); u1=clamp(u1); if(u1<=u0) return [];
+    const d0=u0*total, d1=u1*total, out=[at(u0)];
+    for(let i=1;i<pts.length-1;i++) if(len[i]>d0 && len[i]<d1) out.push(pts[i]);
+    out.push(at(u1)); return out;
+  }
+  return { at, range, total };
+}
+const sampled = (fn,n=96) => polyline(Array.from({length:n+1}, (_,i) => fn(i/n)));
+// ---------- 画笔 ----------
+function line(a,b,w,col){ ctx.lineWidth=w; ctx.strokeStyle=col; ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); }
+function dot(p,r,col){ if(r<=0) return; ctx.fillStyle=col; ctx.beginPath(); ctx.arc(p.x,p.y,r,0,6.2832); ctx.fill(); }
+function ring(p,r,w,col){ if(r<=0||w<=0) return; ctx.lineWidth=w; ctx.strokeStyle=col; ctx.beginPath(); ctx.arc(p.x,p.y,r,0,6.2832); ctx.stroke(); }
+function strokePts(pts,w,col){ if(pts.length<2) return; ctx.lineWidth=w; ctx.strokeStyle=col; ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y); for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i].x,pts[i].y); ctx.stroke(); }
+function rrect(x,y,w,h,r){ r=Math.min(r,w/2,h/2); ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function cardOutline(card,ex,w,col,dx=0){ rrect(card.x-ex+dx,card.y-ex,card.w+2*ex,card.h+2*ex,14+ex); ctx.lineWidth=w; ctx.strokeStyle=col; ctx.stroke(); }
+const spriteCache = {};
+// 柔光点：预渲染径向渐变贴图；GPUI 里对应带模糊阴影的圆形 quad。
+function glow(p,r,hex,a){
+  if(r<=0||a<=0) return;
+  let s=spriteCache[hex];
+  if(!s){ s=spriteCache[hex]=document.createElement('canvas'); s.width=s.height=64; const g=s.getContext('2d'), gr=g.createRadialGradient(32,32,0,32,32,32);
+    gr.addColorStop(0,c(hex,1)); gr.addColorStop(.25,c(hex,.45)); gr.addColorStop(1,c(hex,0)); g.fillStyle=gr; g.fillRect(0,0,64,64); }
+  ctx.globalAlpha=Math.min(1,a); ctx.drawImage(s,p.x-r,p.y-r,2*r,2*r); ctx.globalAlpha=1;
+}
+const hash = i => { const v=Math.sin(i*12.9898)*43758.547; return v-Math.floor(v); };
+
+// ---------- 五款 + 基线 ----------
+const MAKERS = {
+  meteor({top,from,card}){
+    const o={x:from.x,y:top+4}, T={x:card.x+card.w/2,y:card.y+card.h/2}, path=sampled(t=>qb(o,bowCtrl(o,T,.22),T,t),80);
+    const F=900, I=430, TAIL=.42;
+    const parts=Array.from({length:22},(_,i)=>{const a=i/22*6.2832+Math.random()*.25;return{dx:Math.cos(a),dy:Math.sin(a),d:70+Math.random()*60,s:1.2+Math.random()*1.6,dl:Math.random()*.1}});
+    function trail(s0,s1,fade){
+      if(s1-s0<.002) return;
+      for(let i=0;i<28;i++){
+        const a=path.at(s0+(s1-s0)*i/28), b=path.at(s0+(s1-s0)*(i+1)/28), life=(i+1)/28, w=.6+7.4*life**1.8;
+        line(a,b,w*5,c(P.glow,.07*life**1.5*fade)); line(a,b,w*2.2,c(P.glow,.26*life*fade)); line(a,b,w,c(P.core,.95*life**.8*fade));
+      }
+      for(let i=0;i<18;i++){
+        const al=(i+.5)/18, p=path.at(s0+(s1-s0)*al), side=(hash(i)-.5)*2*(3+15*(1-al)), back=hash(i+40)*6*(1-al);
+        dot({x:p.x-Math.sin(p.ang)*side-Math.cos(p.ang)*back, y:p.y+Math.cos(p.ang)*side-Math.sin(p.ang)*back}, .5+1.2*al, c(P.core,.8*al*fade));
+      }
+    }
+    return { total:F+I, landAt:F, draw(t){
+      if(t<F){
+        const p=t/F, tr=E.inQuart(p); trail(E.inQuart(Math.max(0,p-TAIL)),tr,1);
+        const h=path.at(tr); dot(h,18,c(P.glow,.12)); dot(h,9,c(P.glow,.32)); dot(h,3.4,c(P.core,1));
+        return;
+      }
+      const q=seg(t,F,F+I), tf=E.inQuart(1-TAIL), oc=E.outCubic(q);
+      trail(tf+(1-tf)*q,1,1-q);
+      cardOutline(card,3+oc*18,1.5,c(P.core,.78*(1-E.smooth(q))));
+      dot(T,6+26*oc,c(P.glow,.5*(1-q)**2)); ring(T,18+110*oc,2.2*(1-q),c(P.core,.5*(1-q)));
+      for(let k=0;k<8;k++){ const a=k*Math.PI/4+Math.PI/8, r=10+50*oc, l=(1-q)*40*(k%2?.6:1);
+        line({x:T.x+Math.cos(a)*r,y:T.y+Math.sin(a)*r},{x:T.x+Math.cos(a)*(r+l),y:T.y+Math.sin(a)*(r+l)},1.5,c(P.core,.7*(1-q))); }
+      for(const pt of parts){ const pq=seg(q,pt.dl,1), d1=pt.d*E.outCubic(pq), d0=pt.d*E.outCubic(Math.max(0,pq-.12));
+        line({x:T.x+pt.dx*d0,y:T.y+pt.dy*d0},{x:T.x+pt.dx*d1,y:T.y+pt.dy*d1},pt.s,c(P.core,.85*(1-pq))); }
+    }};
+  },
+
+  plane({top,from,card}){
+    const L={x:from.x,y:top-30}, T={x:card.x+card.w/2,y:card.y+16};
+    const d=Math.hypot(T.x-L.x,T.y-L.y), sg=T.x>=L.x?1:-1;
+    const path=sampled(t=>cb(L,{x:L.x+sg*d*.08,y:L.y-Math.max(90,d*.42)},{x:T.x-sg*d*.32,y:T.y-80},T,t),90);
+    const FOLD=220, FLY=800, END=600, a0=path.at(.002).ang;
+    const DIA=[[8,0],[0,-8],[-8,0],[0,8]], PLN=[[12,0],[-8,-8],[-4,0],[-8,8]];
+    function plane(x,y,ang,s,m,roll,al){
+      const pts=DIA.map((p,i)=>[p[0]+(PLN[i][0]-p[0])*m, p[1]+(PLN[i][1]-p[1])*m]);
+      ctx.save(); ctx.translate(x,y); ctx.rotate(ang); ctx.scale(s,s*(1-.5*Math.abs(roll))); ctx.globalAlpha=al;
+      const tri=(a,b,col)=>{ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);ctx.lineTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.closePath();ctx.fillStyle=col;ctx.fill();};
+      tri(pts[1],pts[2],roll>0?P.shade:P.paper); tri(pts[2],pts[3],roll>0?P.paper:P.shade);
+      ctx.beginPath(); pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1])); ctx.closePath();
+      ctx.lineJoin='round'; ctx.lineWidth=1.2/s; ctx.strokeStyle=c(P.accent,.9); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]); ctx.lineTo(pts[2][0],pts[2][1]); ctx.strokeStyle=c(P.accent,.45); ctx.stroke();
+      ctx.restore();
+    }
+    return { total:FOLD+FLY+END, landAt:FOLD+FLY, blend:'source-over', draw(t){
+      if(t<FOLD){
+        const f=t/FOLD, m=E.smooth(seg(t,60,FOLD));
+        plane(L.x, L.y+(1-E.outCubic(f))*24, -Math.PI/2+(a0+Math.PI/2)*m, E.outBack(clamp(f*1.3))*1.5, m, 0, clamp(f*3));
+        return;
+      }
+      if(t<FOLD+FLY){
+        const s=E.inOutSine((t-FOLD)/FLY), pt=path.at(s), ah=path.at(Math.min(1,s+.03));
+        let turn=ah.ang-pt.ang; if(turn>Math.PI) turn-=6.2832; if(turn<-Math.PI) turn+=6.2832;
+        ctx.setLineDash([5,6]);
+        for(let k=0;k<12;k++){ // 虚线尾迹按弧长锚定，不随飞机滑动
+          const ua=Math.max(0,s-.3*(k+1)/12), ub=Math.max(0,s-.3*k/12); if(ub<=ua) continue;
+          ctx.lineDashOffset=ua*path.total; strokePts(path.range(ua,ub),1.6,c(P.accent,.55*(1-k/12)));
+        }
+        ctx.setLineDash([]);
+        plane(pt.x,pt.y,pt.ang,1.5-.5*s,1,clamp(turn*6,-1,1),1);
+        return;
+      }
+      const q=t-FOLD-FLY, lq=seg(q,0,260), end=path.at(1);
+      if(lq<1) plane(T.x+Math.cos(end.ang)*8*lq, T.y+Math.sin(end.ang)*8*lq, end.ang, 1-E.inCubic(lq), 1, 0, 1-lq);
+      const bq=q/END, fade=1-E.smooth(seg(bq,.7,1)), r=9*E.outBack(clamp(bq*3));
+      ring(T,9+14*E.outCubic(clamp(bq*2)),1.4,c(P.ok,.45*(1-clamp(bq*2))));
+      dot(T,r,c(P.ok,fade));
+      const cp=clamp(bq*3-.4); if(cp>0){
+        const A={x:T.x-3.6,y:T.y+.2}, B={x:T.x-1,y:T.y+2.8}, C={x:T.x+4,y:T.y-2.6};
+        ctx.lineCap='round'; ctx.lineJoin='round';
+        strokePts(cp<.4?[A,lerp(A,B,cp/.4)]:[A,B,lerp(B,C,(cp-.4)/.6)],1.8,`rgba(255,255,255,${fade})`);
+      }
+    }};
+  },
+
+  ribbon({top,from,card}){
+    const O={x:from.x,y:top+2};
+    const C=card.y+card.h<O.y-10 ? {x:clamp(O.x,card.x+30,card.x+card.w-30),y:card.y+card.h} : {x:card.x+card.w/2,y:card.y+card.h/2};
+    const path=sampled(t=>qb(O,bowCtrl(O,C,.16),C,t),100), RUN=720, EQ0=660, EQ=700, seeds=Array.from({length:20},Math.random);
+    return { total:EQ0+EQ, landAt:EQ0, draw(t){
+      const g=ctx.createLinearGradient(O.x,O.y,C.x,C.y); g.addColorStop(0,P.cyan); g.addColorStop(1,P.violet);
+      const p=clamp(t/RUN), head=E.outCubic(clamp(p/.72)), tail=E.inCubic(clamp((p-.28)/.72));
+      if(head-tail>.003){
+        [[2.4,.95,1],[1.6,.6,.62],[1.1,.45,.38]].forEach(([w,al,amp],k)=>{
+          ctx.beginPath();
+          for(let i=0;i<=72;i++){
+            const u=tail+(head-tail)*i/72, pt=path.at(u), loc=i/72;
+            const env=Math.sin(Math.PI*loc)**.8*(1-u)**.5*(.45+.55*Math.abs(Math.sin(u*19+1.3)*Math.cos(u*6.2)));
+            const disp=13*env*amp*Math.sin(u*path.total/28*6.2832-t*.02+k*2.1);
+            const x=pt.x-Math.sin(pt.ang)*disp, y=pt.y+Math.cos(pt.ang)*disp; i?ctx.lineTo(x,y):ctx.moveTo(x,y);
+          }
+          ctx.strokeStyle=g; ctx.globalAlpha=al; ctx.lineWidth=w; ctx.stroke();
+          if(k===0){ ctx.globalAlpha=.12; ctx.lineWidth=8; ctx.stroke(); }
+          ctx.globalAlpha=1;
+        });
+      }
+      if(t<EQ0) return;
+      const q=seg(t,EQ0,EQ0+EQ), env=q<.18?E.outCubic(q/.18):1-E.inCubic((q-.18)/.82);
+      const g2=ctx.createLinearGradient(card.x,0,card.x+card.w,0); g2.addColorStop(0,P.cyan); g2.addColorStop(1,P.violet);
+      ctx.strokeStyle=g2; ctx.lineWidth=2.4;
+      for(let i=0;i<20;i++){
+        const x=card.x+20+(card.w-40)*i/19, prox=1-Math.min(1,Math.abs(x-C.x)/(card.w*.6));
+        const h=(4+22*prox*(.4+.6*Math.abs(Math.sin(t*.03+seeds[i]*6))))*env;
+        ctx.beginPath(); ctx.moveTo(x,C.y-h/2); ctx.lineTo(x,C.y+h/2); ctx.stroke();
+      }
+      cardOutline(card,0,6,c(P.cyan,.1*env)); cardOutline(card,0,1.5,c(P.cyan,.7*env));
+    }};
+  },
+
+  firefly({top,from,card}){
+    const O={x:from.x,y:top-6}, N=14, order=[...Array(N).keys()].sort(()=>Math.random()-.5);
+    const START=280, DUR=640, BLOOM=320;
+    const motes=order.map((o,i)=>{
+      const a=-Math.PI/2+(Math.random()-.5)*Math.PI*1.3, r=12+Math.random()*30;
+      const cloud={x:O.x+Math.cos(a)*r*1.4,y:O.y-26+Math.sin(a)*r*.8};
+      const land={x:card.x+22+Math.random()*(card.w-44),y:card.y+34+Math.random()*Math.max(10,card.h-54)};
+      return {cloud,land,ctrl:bowCtrl(cloud,land,(Math.random()-.5)*.7,220),delay:o*26,size:1.5+Math.random()*1.1,ph:Math.random()*6.28,gd:Math.random()*120};
+    });
+    return { total:START+(N-1)*26+DUR+BLOOM, landAt:START+DUR, draw(t){
+      for(const m of motes){
+        const g=E.outCubic(seg(t,m.gd*.5,300)); if(g<=0) continue;
+        const st=START+m.delay, p=clamp((t-st)/DUR), fl=.72+.28*Math.sin(t*.022+m.ph);
+        const wob={x:Math.sin(t*.006+m.ph)*2.5,y:Math.cos(t*.005+m.ph)*2};
+        if(p<1){
+          const s=E.inOutCubic(p), base=p>0?qb(m.cloud,m.ctrl,m.land,s):lerp(O,m.cloud,g);
+          const pos={x:base.x+wob.x*(1-s),y:base.y+wob.y*(1-s)};
+          if(p>0) for(let k=1;k<=5;k++) dot(qb(m.cloud,m.ctrl,m.land,E.inOutCubic(Math.max(0,p-.028*k))),m.size*(1-k/6),c(P.fly,.3*(1-k/6)*fl));
+          dot(pos,m.size*4.5,c(P.fly,.16*fl*g)); dot(pos,m.size,c(P.fly,.95*fl*g));
+        } else {
+          const bq=seg(t,st+DUR,st+DUR+BLOOM); if(bq>=1) continue;
+          ring(m.land,2+11*E.outCubic(bq),1.2,c(P.fly,.7*(1-bq))); dot(m.land,m.size*(1-bq),c(P.fly,1-bq));
+        }
+      }
+    }};
+  },
+
+  fireworks({top,from,card}){
+    const O={x:from.x,y:top-4}, B={x:card.x+card.w/2,y:Math.max(36,card.y-Math.min(64,card.y*.6))};
+    const ctrl={x:O.x+(B.x-O.x)*.15,y:B.y+(O.y-B.y)*.25}, LAUNCH=520;
+    const pal=[P.gold,P.rose,P.cyan].sort(()=>Math.random()-.5), inner=pal[0], outer=pal[1];
+    let parts=[], last=0, burst=false, crackled=false;
+    const emit=(x,y,vx,vy,o)=>parts.push({x,y,vx,vy,age:0,hist:[],drag:2.2,g:150,trail:6,tw:0,hot:.15,...o});
+    function explode(){
+      for(let i=0;i<72;i++){ const a=i/72*6.2832+Math.random()*.06, v=230*(.85+.15*Math.random());
+        emit(B.x,B.y,Math.cos(a)*v,Math.sin(a)*v,{life:1+Math.random()*.3,col:outer,size:1.7,drag:2.4,g:110,trail:7,tw:1}); }
+      for(let i=0;i<26;i++){ const a=Math.random()*6.2832, v=60+Math.random()*70;
+        emit(B.x,B.y,Math.cos(a)*v,Math.sin(a)*v,{life:.7+Math.random()*.3,col:inner,size:1.4,drag:2.8,g:90,trail:4}); }
+    }
+    return { total:1900, landAt:LAUNCH+80, draw(t){
+      const dt=Math.min(.05,(t-last)/1000); last=t;
+      if(t<LAUNCH){
+        const s=1-(1-t/LAUNCH)**2, p=qb(O,ctrl,B,s), pb=qb(O,ctrl,B,Math.max(0,s-.05));
+        for(let k=0;k<2;k++) emit(p.x+Math.random()-.5,p.y,(Math.random()-.5)*40,20+Math.random()*40,{life:.35+Math.random()*.25,col:P.gold,size:1.1,drag:3,g:120,trail:0,tw:1,hot:0});
+        line(pb,p,2.2,c(P.gold,.8)); glow(p,12,P.gold,.7); dot(p,1.9,c(P.core,1));
+      } else if(!burst){ burst=true; explode(); }
+      if(!crackled && t>LAUNCH+650){ crackled=true; // 余烬“噼啪”：外圈随机几颗再碎成小白点
+        parts.filter(p=>p.tw&&p.trail>6).sort(()=>Math.random()-.5).slice(0,12).forEach(p=>{
+          for(let k=0;k<6;k++){ const a=Math.random()*6.2832, v=40+Math.random()*50; emit(p.x,p.y,Math.cos(a)*v,Math.sin(a)*v,{life:.22,col:P.core,size:.9,trail:0,g:40,hot:0}); } });
+      }
+      if(t>=LAUNCH){ const f=1-seg(t,LAUNCH,LAUNCH+260), e=E.outCubic(seg(t,LAUNCH,LAUNCH+500));
+        glow(B,70*(.6+.4*(1-f)),P.core,.55*f*f); ring(B,10+90*e,1.5,c(outer,.4*(1-e))); }
+      for(const p of parts){
+        p.age+=dt; const k=p.age/p.life; if(k>=1) continue;
+        const dg=Math.exp(-p.drag*dt); p.vx*=dg; p.vy=p.vy*dg+p.g*dt;
+        p.hist.unshift({x:p.x,y:p.y}); if(p.hist.length>p.trail) p.hist.pop();
+        p.x+=p.vx*dt; p.y+=p.vy*dt;
+        let al=k<.7?1:1-(k-.7)/.3; if(p.tw&&k>.55&&Math.random()<.35) al*=.15;
+        const col=p.age<p.hot?P.core:p.col, pts=[{x:p.x,y:p.y},...p.hist];
+        for(let j=0;j<pts.length-1;j++){ const f=1-j/pts.length; line(pts[j],pts[j+1],p.size*1.6*f,c(col,al*f*.8)); }
+        glow(p,p.size*5,p.col,.3*al); dot(p,p.size,c(p.age<p.hot?P.core:p.col,al));
+      }
+      parts=parts.filter(p=>p.age<p.life);
+    }};
+  },
+
+  lightning({top,from,card}){
+    const O={x:from.x,y:top-2};
+    const C=card.y+card.h<O.y-10?{x:clamp(O.x,card.x+30,card.x+card.w-30),y:card.y+card.h}:{x:card.x+card.w/2,y:card.y+card.h/2};
+    const len=Math.hypot(C.x-O.x,C.y-O.y);
+    // 中点位移法生成折线：每一层把每段中点沿法线随机推开，推开幅度逐层减半。
+    function bolt(a,b,disp,depth){
+      let pts=[a,b];
+      for(let d=0;d<depth;d++){ const n=[pts[0]];
+        for(let i=1;i<pts.length;i++){ const p=pts[i-1], q=pts[i], dx=q.x-p.x, dy=q.y-p.y, l=Math.hypot(dx,dy)||1, o=(Math.random()-.5)*disp;
+          n.push({x:(p.x+q.x)/2-dy/l*o,y:(p.y+q.y)/2+dx/l*o}, q); }
+        pts=n; disp*=.55; }
+      return pts;
+    }
+    function strike(){
+      const main=bolt(O,C,len*.22,6), branches=[];
+      for(let i=0;i<3;i++){ const s=main[10+Math.floor(Math.random()*main.length*.55)], a=Math.atan2(C.y-O.y,C.x-O.x)+(Math.random()<.5?-1:1)*(.4+Math.random()*.5), L=len*(.12+Math.random()*.13);
+        branches.push(bolt(s,{x:s.x+Math.cos(a)*L,y:s.y+Math.sin(a)*L},L*.3,4)); }
+      return {main,branches};
+    }
+    function cardArc(){ const per=Math.random(), {x,y,w,h}=card; let p, tg;
+      if(per<.25){p={x:x+w*per*4,y};tg={x:1,y:0}} else if(per<.5){p={x:x+w,y:y+h*(per-.25)*4};tg={x:0,y:1}}
+      else if(per<.75){p={x:x+w*(1-(per-.5)*4),y:y+h};tg={x:-1,y:0}} else {p={x,y:y+h*(1-(per-.75)*4)};tg={x:0,y:-1}}
+      const L=18+Math.random()*22; return bolt(p,{x:p.x+tg.x*L,y:p.y+tg.y*L},10,3); }
+    let cur=strike(), restruck=false, arcs=[], arcAt=-1, sparks=[], last=0, sparked=0;
+    const drawBolt=(b,v,th)=>{ ctx.lineJoin='round';
+      strokePts(b.main,12,c(P.violet,.13*v)); strokePts(b.main,4.5,c(P.glow,.38*v)); strokePts(b.main,1.8*th,c(P.core,v));
+      for(const br of b.branches){ strokePts(br,6,c(P.violet,.1*v)); strokePts(br,2.4,c(P.glow,.3*v)); strokePts(br,1*th,c(P.core,.8*v)); } };
+    return { total:760, landAt:170, draw(t){
+      const dt=Math.min(.05,(t-last)/1000); last=t;
+      if(t<180){ const g=t/180; glow(O,10+16*g,P.violet,.55*g);
+        for(let k=0;k<2;k++){ const a=Math.random()*6.2832, r=8+14*g; strokePts(bolt(O,{x:O.x+Math.cos(a)*r,y:O.y+Math.sin(a)*r},6,3),1,c(P.core,.8)); } }
+      if(t>=270&&!restruck){ restruck=true; cur=strike(); }
+      const v=t<160?0:t<230?1:t<270?.25:t<330?1:1-E.outCubic(seg(t,330,620));
+      if(v>0){
+        if((t>=160&&t<230)||(t>=270&&t<320)){ ctx.fillStyle=c(P.glow,.07); ctx.fillRect(0,0,W,H); }
+        drawBolt(cur,v,t<330?1:1-seg(t,330,620)*.6); glow(C,42,P.glow,.6*v);
+      }
+      for(const at of [160,270]) if(t>=at&&sparked<(at===160?1:2)){ sparked++;
+        for(let k=0;k<16;k++){ const a=-Math.PI*(.1+Math.random()*.8)+(C.y>card.y+card.h-1?Math.PI:0), sp=120+Math.random()*180;
+          sparks.push({x:C.x,y:C.y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,age:0,life:.3+Math.random()*.25,px:C.x,py:C.y}); } }
+      for(const s of sparks){ s.age+=dt; if(s.age>=s.life) continue; s.px=s.x; s.py=s.y; s.vy+=300*dt; s.x+=s.vx*dt; s.y+=s.vy*dt;
+        line({x:s.px,y:s.py},s,1.4,c(P.core,1-s.age/s.life)); }
+      const af=1-seg(t,200,720);
+      if(t>=200&&af>0){
+        if(t-arcAt>45){ arcAt=t; arcs=Array.from({length:4},cardArc); }
+        cardOutline(card,0,1.5,c(P.glow,.8*af));
+        for(const a of arcs){ strokePts(a,4,c(P.glow,.25*af)); strokePts(a,1.2,c(P.core,af)); }
+      }
+    }};
+  },
+
+  vortex({top,from,card}){
+    const O={x:from.x,y:top-30}, T={x:card.x+card.w/2,y:card.y+card.h/2};
+    const path=sampled(t=>qb(O,bowCtrl(O,T,.22),T,t),90), G=360, TR0=340, TR1=980, AR=200, IN0=1180, IMP=1420, END=1760;
+    const ps=Array.from({length:90},(_,i)=>({r0:46+hash(i+1)*74,a0:hash(i+2)*6.2832,lag:hash(i+3)**1.5*.32,sz:.8+hash(i+4)*1.4,col:hash(i+5)<.5,kx:.6+hash(i+6)*.5,sp:.8+hash(i+7)*.5,big:i%6===0}));
+    // 每颗星尘的位置是时间的解析函数：中心沿弧线飞（有各自的滞后，拉出螺旋尾巴），半径先收成小星盘，到达后撑成卡片大小的椭圆，再加速坍缩。
+    function pos(p,t){
+      const tl=t-p.lag*620, c0=path.at(E.inOutCubic(seg(tl,TR0,TR1)));
+      const r=p.r0*(1-.72*E.outCubic(clamp(t/G)))*(1+.18*Math.sin(t*.004+p.a0));
+      let rx=r, ry=r*.42; const k=E.outCubic(seg(tl,TR1,TR1+AR));
+      rx+=(card.w*.5*p.kx-rx)*k; ry+=(card.h*.5*p.kx-ry)*k;
+      const u=E.inCubic(seg(t,IN0,IMP)); rx*=1-u; ry*=1-u;
+      const th=p.a0+t*.005*p.sp+(t/1000)**2*5*p.sp+u*6;
+      return {x:c0.x+Math.cos(th)*rx,y:c0.y+Math.sin(th)*ry};
+    }
+    return { total:END, landAt:IMP, draw(t){
+      const fi=E.outCubic(seg(t,0,220)), fo=1-seg(t,IMP,IMP+60);
+      if(fo>0){
+        const cc=path.at(E.inOutCubic(seg(t,TR0,TR1))), of=fi*(1-seg(t,TR1,TR1+200));
+        glow(cc,28,P.violet,.5*of); glow(cc,12,P.core,.6*of);
+        for(const p of ps){ const a=pos(p,t), b=pos(p,t-18), col=p.col?P.cyan:P.violet;
+          line(b,a,p.sz*1.3,c(col,.85*fi*fo)); dot(a,p.sz*.7,c(P.core,.9*fi*fo)); if(p.big) glow(a,7,col,.3*fi*fo); }
+      }
+      const q=seg(t,IMP,END); if(q<=0||q>=1) return;
+      const e=E.outCubic(q);
+      glow(T,30+70*e,P.core,.7*(1-q)**2); ring(T,8+card.w*.6*e,2*(1-q),c(P.glow,.6*(1-q)));
+      cardOutline(card,2+10*e,1.4,c(P.cyan,.7*(1-q)));
+      for(let k=0;k<8;k++){ const a=k*Math.PI/4+Math.PI/8, r=14+60*e, l=(1-q)*34;
+        line({x:T.x+Math.cos(a)*r,y:T.y+Math.sin(a)*r},{x:T.x+Math.cos(a)*(r+l),y:T.y+Math.sin(a)*(r+l)},1.4,c(P.core,.7*(1-q))); }
+    }};
+  },
+};
+
+// 减少动态效果：所有款式统一回落为卡片描边脉冲 + 指令栏一圈。
+function reducedMaker({from,card}, fx){
+  return { total:320, landAt:0, draw(t){
+    const q=clamp(t/320), col=P.accent;
+    cardOutline(card,2+8*E.outCubic(q),1.4,c(col,.6*(1-q)));
+    ring(from,14+10*E.outCubic(q),1.25,c(col,.5*(1-q)));
+  }};
+}
+
+// 卡片落点动画（真实 App 里对应 motion 层的节点脉冲）。
+const LAND = {
+  meteor: () => [{transform:'scale(1)'},{transform:'scale(1.022)',filter:'brightness(1.08)'},{transform:'scale(1)'}],
+  plane: () => [{transform:'translateY(0)'},{transform:'translateY(3px)'},{transform:'translateY(-1px)'},{transform:'translateY(0)'}],
+  ribbon: () => [{filter:'brightness(1)'},{filter:'brightness(1.08)'},{filter:'brightness(1)'}],
+  firefly: el => { const b=getComputedStyle(el).boxShadow; return [{boxShadow:b},{boxShadow:`${b}, 0 0 0 6px ${c(P.fly,.22)}`},{boxShadow:b}]; },
+  fireworks: el => { const b=getComputedStyle(el).boxShadow; return [{boxShadow:b},{boxShadow:`${b}, 0 0 0 8px ${c(P.gold,.2)}`},{boxShadow:b}]; },
+  lightning: () => [0,-2,2,-1.5,1,0].map(x=>({transform:`translateX(${x}px)`})),
+  vortex: () => [{transform:'scale(.97)'},{transform:'scale(1.025)'},{transform:'scale(1)'}],
+};
+
+// ---------- 舞台与循环 ----------
+let W=0, H=0, DPR=1;
+function resize(){ const r=stage.getBoundingClientRect(); W=r.width; H=r.height; DPR=Math.min(2,devicePixelRatio||1); cvs.width=Math.round(W*DPR); cvs.height=Math.round(H*DPR); }
+new ResizeObserver(resize).observe(stage); resize();
+const rel = el => { const s=stage.getBoundingClientRect(), r=el.getBoundingClientRect(); return {x:r.left-s.left,y:r.top-s.top,w:r.width,h:r.height}; };
+
+let current=FX[0], speed=1, active=[], raf=0, last=0, lastInst=null, rr=0, phraseI=0;
+const PHRASES=['把登录页的错误提示改成中文','给设置页加一个导出按钮','修复画布缩放时的闪烁','为 analytics 补单元测试','整理 README 的安装步骤','检查 PTY 退出时的清理'];
+
+function dispatch(cardEl){
+  readPalette();
+  cardEl = cardEl || cards[rr++ % cards.length];
+  const card=rel(cardEl), d=rel(dockEl), from={x:d.x+d.w/2,y:d.y+d.h/2};
+  const phrase=PHRASES[phraseI++ % PHRASES.length], reduce=reduceEl.checked;
+  const spec = reduce ? reducedMaker({from,card},current) : MAKERS[current.id]({top:d.y,from,card});
+  const inst = {...spec, t:0, landed:false, cardEl, fx:current, reduce, phrase};
+  if(active.length>=6) active.shift();
+  active.push(inst); lastInst=inst;
+  $('#dockText').textContent=`“${phrase}”`; $('#dockMeta').textContent=`→ ${cardEl.dataset.name}`;
+  dockEl.classList.remove('send'); void dockEl.offsetWidth; dockEl.classList.add('send');
+  if(!raf){ last=performance.now(); raf=requestAnimationFrame(loop); }
+}
+
+function land(inst){
+  const el=inst.cardEl, kf=LAND[inst.fx.id];
+  if(!inst.reduce && kf) el.animate(kf(el),{duration:380/speed,easing:'cubic-bezier(.2,.8,.2,1)'});
+  const st=el.querySelector('.st'), term=el.querySelector('.term');
+  clearTimeout(el._t1); clearTimeout(el._t2);
+  st.dataset.s='got'; st.textContent='收到任务';
+  term.querySelectorAll('.ln.new').forEach(n=>n.classList.remove('new'));
+  const ln=document.createElement('div'); ln.className='ln new'; ln.textContent='› '+inst.phrase;
+  term.insertBefore(ln, term.lastElementChild);
+  while(term.children.length>3) term.firstElementChild.remove();
+  el._t1=setTimeout(()=>{st.dataset.s='run'; st.textContent='执行中';},1300);
+  el._t2=setTimeout(()=>{st.dataset.s='idle'; st.textContent='空闲';},5200);
+}
+
+const gantt = () => document.querySelector('.gantt');
+function loop(now){
+  const dt=Math.min(50,now-last)*speed; last=now;
+  ctx.setTransform(DPR,0,0,DPR,0,0); ctx.clearRect(0,0,W,H); ctx.lineCap='round';
+  for(const inst of active){
+    inst.t+=dt;
+    if(!inst.landed && inst.t>=inst.landAt){ inst.landed=true; land(inst); }
+    ctx.globalCompositeOperation = inst.reduce ? 'source-over' : (inst.blend || P.blend);
+    ctx.save(); inst.draw(Math.min(inst.t,inst.total)); ctx.restore();
+  }
+  active=active.filter(i=>i.t<i.total);
+  const g=gantt();
+  if(g){ const on=lastInst && lastInst.fx===current && !lastInst.reduce && lastInst.t<lastInst.total;
+    g.classList.toggle('playing',!!on); if(on) g.style.setProperty('--ph',(lastInst.t/lastInst.total).toFixed(4)); }
+  if(active.length) raf=requestAnimationFrame(loop);
+  else { raf=0; ctx.clearRect(0,0,W,H); g&&g.classList.remove('playing'); }
+}
+
+// ---------- 清单与规格 ----------
+$('#list').innerHTML = FX.map((f,i)=>`
+  <label class="fx-item">
+    <input type="radio" name="fx" id="fx-${f.id}" value="${f.id}" ${i?'':'checked'}>
+    <span class="fx-name">${f.name}${f.tag?`<span class="fx-tag">${f.tag}</span>`:''}</span>
+    <span class="fx-ms">${(f.total/1000).toFixed(2)}s</span>
+    <span class="fx-code">${f.code}</span>
+    <span class="fx-line">${f.line}</span>
+    <kbd>${i+1}</kbd>
+  </label>`).join('');
+
+function renderSpec(f){
+  $('#spec').innerHTML = `
+    <div>
+      <h2>${f.name}<code>DispatchEffectStyle::${f.code}</code></h2>
+      <p>${f.line}</p>
+      <div class="chips">${f.mood.map(m=>`<span>${m}</span>`).join('')}</div>
+      <div class="gantt">${f.phases.map(p=>`
+        <div class="grow"><span class="gl">${p.n}<small>${p.e}</small></span>
+          <div class="gt"><i style="left:${p.a/f.total*100}%;width:${(p.b-p.a)/f.total*100}%"></i></div>
+          <span class="gm">${p.a}–${p.b} ms</span></div>`).join('')}
+      </div>
+    </div>
+    <dl>
+      <dt>总时长</dt><dd>${f.total} ms</dd>
+      <dt>绘制成本</dt><dd>${f.cost}</dd>
+      <dt>适合</dt><dd>${f.fit}</dd>
+      <dt>减少动态</dt><dd>${f.reduce}</dd>
+    </dl>`;
+}
+
+function select(id, preview=true){
+  current=FX.find(f=>f.id===id); $('#fx-'+id).checked=true; renderSpec(current);
+  try{ localStorage.setItem('norma-dispatch-fx',id); }catch(e){}
+  if(preview) dispatch();
+}
+$('#list').addEventListener('change', e=>select(e.target.value));
+$('#go').addEventListener('click', ()=>dispatch());
+$('#burst').addEventListener('click', ()=>{ const start=rr; [0,1,2].forEach(i=>setTimeout(()=>dispatch(cards[(start+i)%cards.length]), i*120/speed)); rr=start+3; });
+document.querySelectorAll('input[name=speed]').forEach(r=>r.addEventListener('change',()=>speed=+r.value));
+cards.forEach(el=>{
+  el.addEventListener('click',()=>dispatch(el));
+  el.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); dispatch(el); } });
+});
+document.addEventListener('keydown',e=>{
+  if(e.metaKey||e.ctrlKey||e.altKey) return;
+  const tag=e.target.tagName;
+  if(e.key===' ' && tag!=='BUTTON' && tag!=='INPUT'){ e.preventDefault(); dispatch(); }
+  else if(/^[1-7]$/.test(e.key)) select(FX[+e.key-1].id);
+  else if(e.key==='s'||e.key==='S'){ const next=speed===1?'sp3':'sp1'; $('#'+next).checked=true; speed=+$('#'+next).value; }
+});
+
+let saved='meteor'; try{ saved=localStorage.getItem('norma-dispatch-fx')||'meteor'; }catch(e){}
+select(FX.some(f=>f.id===saved)?saved:'meteor', false);
+setTimeout(()=>dispatch(cards[1]), 600);
+</script>

@@ -160,7 +160,10 @@ fn save_during_deferred_restore_preserves_agent_binding_and_terminal_cwd() {
     let workspace = temp.path().join("workspace");
     std::fs::create_dir(&workspace).expect("延迟恢复保存测试应创建 workspace");
     let project_store =
-        storage::ProjectStore::for_workspace(&workspace).expect("ProjectStore 应可初始化");
+        storage::ProjectStore::for_database_paths(
+            &storage::DatabasePaths::isolated_test(workspace.parent().expect("测试项目应有父目录")),
+            &workspace,
+        ).expect("ProjectStore 应可初始化");
     project_store
         .migrate()
         .expect("ProjectStore 应完成 node_sessions migration");

@@ -1,7 +1,7 @@
 // Run: BROWSER_CHANNEL=chrome node docs/prototypes/tests/norma-ios-ideas-workspaces.cjs
 const assert = require('node:assert/strict');
 const path = require('node:path');
-const {chromium} = require('../../../spikes/norma-spatial-prototype/node_modules/playwright');
+const {chromium} = require('playwright');
 
 /// [想法与工作空间分离]：文字和语音想法只进入想法库，工作空间数量与配置保持独立。
 /// 数据构造（含关键数值的推导过程）：初始 2 条想法、2 个工作空间；新增文字 1 条与语音转写 1 条后，应有 4 条想法、仍只有 2 个工作空间。

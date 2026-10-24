@@ -64,6 +64,22 @@ pub(super) struct DispatchLookup {
     /// 协调器快照：(task_ref, 任务正文, 阶段)。
     pub(super) live: Vec<(String, String, TaskPhase)>,
     pub(super) project_dbs: Vec<PathBuf>,
+    pub(super) unavailable_projects: bool,
+}
+
+impl DispatchLookup {
+    /// Background-only: a failed legacy import must not hide the workspace's idea list.
+    pub(super) fn prepare_projects(&mut self, paths: &storage::DatabasePaths, roots: &[PathBuf]) {
+        for root in roots {
+            if paths.project_db_path(root).is_file() {
+                continue;
+            }
+            if let Err(error) = storage::ProjectStore::for_database_paths(paths, root) {
+                self.unavailable_projects = true;
+                tracing::warn!(%error, path = %root.display(), "project history unavailable during idea sync");
+            }
+        }
+    }
 }
 
 impl TaskLookup for DispatchLookup {
@@ -118,6 +134,10 @@ impl TaskLookup for DispatchLookup {
                 return Reconcile::Sent(task.task_ref.clone());
             }
         }
-        Reconcile::NotSent
+        if self.unavailable_projects {
+            Reconcile::Unknown
+        } else {
+            Reconcile::NotSent
+        }
     }
 }

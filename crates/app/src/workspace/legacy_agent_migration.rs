@@ -163,7 +163,11 @@ mod tests {
     #[test]
     fn concurrent_legacy_cards_get_distinct_fallback_names() {
         let temp = tempfile::tempdir().expect("应创建隔离项目");
-        let store = ProjectStore::for_workspace(temp.path()).expect("应打开项目存储");
+        let store = ProjectStore::for_database_paths(
+            &storage::DatabasePaths::isolated_test(temp.path()),
+            temp.path(),
+        )
+        .expect("应打开项目存储");
         let definitions = store.agent_definition_store();
         let barrier = Arc::new(Barrier::new(12));
         let created = std::thread::scope(|scope| {
@@ -216,7 +220,11 @@ mod tests {
     #[test]
     fn legacy_agent_cards_use_fallback_names_when_builtins_are_exhausted() {
         let temp = tempfile::tempdir().expect("应创建隔离项目");
-        let store = ProjectStore::for_workspace(temp.path()).expect("应打开项目存储");
+        let store = ProjectStore::for_database_paths(
+            &storage::DatabasePaths::isolated_test(temp.path()),
+            temp.path(),
+        )
+        .expect("应打开项目存储");
         for name in agent::builtin_agent_names()
             .iter()
             .map(|name| name.name())
@@ -305,8 +313,11 @@ mod tests {
         let temp = tempfile::tempdir().expect("测试应创建临时目录");
         let workspace = temp.path().join("legacy-agent-workspace");
         std::fs::create_dir(&workspace).expect("测试应创建 workspace 目录");
-        let project_store =
-            ProjectStore::for_workspace(&workspace).expect("project store 应成功打开");
+        let project_store = ProjectStore::for_database_paths(
+            &storage::DatabasePaths::isolated_test(workspace.parent().expect("测试项目应有父目录")),
+            &workspace,
+        )
+        .expect("project store 应成功打开");
         project_store.migrate().expect("project store 应成功迁移");
         let mut runtime = Runtime::new();
         runtime.document.add_node(
@@ -395,7 +406,11 @@ mod tests {
     #[test]
     fn migration_purges_leaked_quick_definitions_but_keeps_bound_ones() {
         let temp = tempfile::tempdir().expect("应创建隔离项目");
-        let store = ProjectStore::for_workspace(temp.path()).expect("应打开项目存储");
+        let store = ProjectStore::for_database_paths(
+            &storage::DatabasePaths::isolated_test(temp.path()),
+            temp.path(),
+        )
+        .expect("应打开项目存储");
         let definitions = store.agent_definition_store();
         let new = |name: &str| NewAgentDefinition {
             name: name.to_string(),

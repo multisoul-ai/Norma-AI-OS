@@ -1,5 +1,7 @@
 # Norma OS 后台系统、管理面板与统计能力全景调研
 
+> 2026-10-24 归档说明：本文涉及的 spike 源码已按用户确认移除；以下为历史记录，原文件可从 Git 提交 `0aed07c2` 查阅。现行入口见 `docs/README.md`。
+
 > 调研日期：2026-08-01
 > 调研范围：当前源码、产品 SPEC、设计文档、ADR、历史 Superpowers SDD/计划、研究文档、原型/图片文件名与可运行 spike。
 > 证据原则：项目状态只以本仓库为准；Keygate 的“平台原生能力”额外按仓库钉死的上游 `v0.1.1`（commit `40f59cd`）核对，并与 Norma 当前接入严格分开。
@@ -9,8 +11,8 @@
 
 ### 1.1 最重要的结论
 
-1. **调研时唯一已经进入实际系统链路的业务后台是 Keygate License 管理后台。** 仓库有一个已通过 GO 验证的本机 Docker spike，并把激活请求指向生产 Keygate 地址。Keygate 后台服务器源码本身没有 vendored 到 Norma 仓库；本机环境从上游 `v0.1.1` 构建。2026-08-11 起 App 默认关闭 License 硬门控，发行打包也显式禁用默认 features；Keygate 代码仅作显式 `licenses` feature 的可选链路保留。[spike 结论](../../spikes/keygate-mvp/README.md#L30-L59) · [上游版本 pin](../../spikes/keygate-mvp/docker-compose.yml#L1-L20) · [License feature](../../crates/app/Cargo.toml#L8-L14) · [生产地址约束](../../crates/app/src/license_gate/config.rs#L126-L145)
-2. **Keygate 平台原生能力明显强于 Norma 当前使用范围。** 上游后台原生具备 products、plans、licenses、customers/users、usage metering、analytics、audit logs 等管理页面和 API，也能统计 License 状态、激活数、席位数、激活趋势、功能用量和按 License 去重的 `unique_users`；但 Norma App 当前只调用 `/api/v1/license/activate`，spike 也只硬验证 License 列表与 `stats.total_licenses`。因此不能把上游已有 usage/analytics 页面写成“Norma 已有功能使用数据”。[Keygate 上游功能总览](https://github.com/tabloy/keygate/blob/40f59cd518b46a8b61830e7834567ab31dfa42a8/README.md#L49-L89) · [上游管理/分析路由](https://github.com/tabloy/keygate/blob/40f59cd518b46a8b61830e7834567ab31dfa42a8/cmd/server/main.go#L820-L902) · [Norma 激活调用](../../crates/app/src/license_gate/activate_http.rs#L40-L105) · [spike 实际断言](../../spikes/keygate-mvp/scripts/check.sh#L26-L46)
+1. **调研时唯一已经进入实际系统链路的业务后台是 Keygate License 管理后台。** 仓库有一个已通过 GO 验证的本机 Docker spike，并把激活请求指向生产 Keygate 地址。Keygate 后台服务器源码本身没有 vendored 到 Norma 仓库；本机环境从上游 `v0.1.1` 构建。2026-08-11 起 App 默认关闭 License 硬门控，发行打包也显式禁用默认 features；Keygate 代码仅作显式 `licenses` feature 的可选链路保留。[spike 结论](../README.md#history) · [上游版本 pin](../README.md#history) · [License feature](../../crates/app/Cargo.toml#L8-L14) · [生产地址约束](../../crates/app/src/license_gate/config.rs#L126-L145)
+2. **Keygate 平台原生能力明显强于 Norma 当前使用范围。** 上游后台原生具备 products、plans、licenses、customers/users、usage metering、analytics、audit logs 等管理页面和 API，也能统计 License 状态、激活数、席位数、激活趋势、功能用量和按 License 去重的 `unique_users`；但 Norma App 当前只调用 `/api/v1/license/activate`，spike 也只硬验证 License 列表与 `stats.total_licenses`。因此不能把上游已有 usage/analytics 页面写成“Norma 已有功能使用数据”。[Keygate 上游功能总览](https://github.com/tabloy/keygate/blob/40f59cd518b46a8b61830e7834567ab31dfa42a8/README.md#L49-L89) · [上游管理/分析路由](https://github.com/tabloy/keygate/blob/40f59cd518b46a8b61830e7834567ab31dfa42a8/cmd/server/main.go#L820-L902) · [Norma 激活调用](../../crates/app/src/license_gate/activate_http.rs#L40-L105) · [spike 实际断言](../README.md#history)
 3. **目前没有产品级用户注册系统。** License 激活设计明确允许用户“不创建账号”而用 Key 激活；当前客户端请求只包含 `license_key`、机器标识、标识类型和标签，不包含用户邮箱、姓名或账号 ID。产品 SQLite 也没有 `users`、`accounts`、`registrations` 或 `analytics_events` 表。[无账号激活用户故事](../product-specs/2026-07-14-SPEC-software-licensing.md#L17-L20) · [激活 DTO](../../crates/license/src/activate.rs#L1-L18) · [当前 SQLite 表](../../crates/storage/src/migrations.rs#L26-L55) [续](../../crates/storage/src/migrations.rs#L57-L169)
 4. **目前没有产品使用分析接入。** 2026-07-28 的调研推荐 PostHog Cloud，并设计了 `app_session_started`、`feature_used`、Terminal/Agent/Voice 等最小事件，但这些仍是建议；Cargo 依赖、源码和 SQLite schema 中都没有 PostHog 或任何其他候选平台的 adapter、发送队列、事件表或 Analytics Settings 开关。[建议架构](2026-07-28-independent-developer-product-analytics-platforms.md#L196-L208) · [建议事件而非实现](2026-07-28-independent-developer-product-analytics-platforms.md#L210-L234) · [当前 workspace 依赖](../../Cargo.toml#L30-L80)
 5. **目前没有 Norma 社区模块，也没有社区活跃度统计。** 仓库不存在帖子、评论、群组、社区成员或社区事件模型；提议的最小分析事件也没有 community/post/comment/member 事件。Keygate 上游 README 中的 Discussions/Issues 是 Keygate 自身开源社区入口，不是 Norma 的社区功能。[建议事件清单](2026-07-28-independent-developer-product-analytics-platforms.md#L210-L223) · [Keygate 自身社区](https://github.com/tabloy/keygate/blob/40f59cd518b46a8b61830e7834567ab31dfa42a8/README.md#L144-L153)
@@ -83,8 +85,8 @@ Norma Rust License 客户端
   └─ Ed25519 本地验签 → 进入 Workbench
 ```
 
-- 本机 spike 使用 Docker Compose，从 GitHub `tabloy/keygate@v0.1.1` 构建 Keygate，并使用 PostgreSQL 16；端口为 `9000`，开发环境可 `dev-login`。[Compose](../../spikes/keygate-mvp/docker-compose.yml#L1-L46)
-- spike 的 GO 证据是：能启动、自助/脚本发买断 License、列出 License、读取 admin stats、在线激活并在断网状态本地验签。[README](../../spikes/keygate-mvp/README.md#L7-L15) [结论](../../spikes/keygate-mvp/README.md#L34-L47)
+- 本机 spike 使用 Docker Compose，从 GitHub `tabloy/keygate@v0.1.1` 构建 Keygate，并使用 PostgreSQL 16；端口为 `9000`，开发环境可 `dev-login`。[Compose](../README.md#history)
+- spike 的 GO 证据是：能启动、自助/脚本发买断 License、列出 License、读取 admin stats、在线激活并在断网状态本地验签。[README](../README.md#history) [结论](../README.md#history)
 - 2026-08-11 起 App 的 `licenses` feature 默认关闭，启动决策会在读取本地凭证前直接进入工作台；发行打包同时显式使用 `--no-default-features`。只有显式使用 `--features licenses` 的专用构建才会无凭证显示激活壳。[feature](../../crates/app/Cargo.toml#L8-L14) · [App 启动](../../crates/app/src/lib.rs#L65-L86)。当时的 E2E 证据已随旧套件移除，可从 Git 历史查阅。
 - 当前发行客户端的嵌入地址被测试锁定为 `https://soulvoiceai.com/keygate`，说明激活链路不再只是 localhost spike；但仓库没有该线上 Keygate 的部署脚本、数据快照或生产运维面板验收记录。[生产 URL 测试](../../crates/app/src/license_gate/config.rs#L126-L145)
 
@@ -107,9 +109,9 @@ Norma Rust License 客户端
 
 | 能力 | 平台原生可做 | Norma 当前有数据/接入吗 | 证据 |
 |---|---:|---:|---|
-| 手工创建客户 License | 是 | **是，spike 已验证** | bootstrap 以 `email/plan/product/notes` 创建 License。[脚本](../../spikes/keygate-mvp/scripts/bootstrap.sh#L136-L156) |
-| License 列表 | 是 | **是，spike 已验证至少 1 行** | [硬断言](../../spikes/keygate-mvp/scripts/check.sh#L26-L39) |
-| 总 License 数 | 是 | **是，spike 已验证 `total_licenses >= 1`** | [硬断言](../../spikes/keygate-mvp/scripts/check.sh#L41-L46) |
+| 手工创建客户 License | 是 | **是，spike 已验证** | bootstrap 以 `email/plan/product/notes` 创建 License。[脚本](../README.md#history) |
+| License 列表 | 是 | **是，spike 已验证至少 1 行** | [硬断言](../README.md#history) |
+| 总 License 数 | 是 | **是，spike 已验证 `total_licenses >= 1`** | [硬断言](../README.md#history) |
 | 客户/用户详情页 | 是 | **平台有；Norma 没有账号同步或 App 查询** | Norma 激活请求无用户字段。[DTO](../../crates/license/src/activate.rs#L3-L18) |
 | 注册量 | 平台可列 User，也可统计 License/激活 | **没有 Norma 注册事件；只能把 License/激活当商业代理指标** | License 设计允许无账号激活。[SPEC](../product-specs/2026-07-14-SPEC-software-licensing.md#L17-L20) |
 | 激活趋势 | 是 | **激活 API 会产生激活记录；仓库没有生产数据/趋势验收** | App 只 POST activate。[客户端](../../crates/app/src/license_gate/activate_http.rs#L40-L57) |
@@ -121,8 +123,8 @@ Norma Rust License 客户端
 #### Keygate 服务/后台
 
 - **部署形态**：上游单个 Go binary + PostgreSQL；前端为 React 19 + TypeScript + Vite，使用 TanStack Query、React Router、Recharts 与 Radix UI。[上游架构说明](https://github.com/tabloy/keygate/blob/40f59cd518b46a8b61830e7834567ab31dfa42a8/README.md#L87-L89) · [前端依赖](https://github.com/tabloy/keygate/blob/40f59cd518b46a8b61830e7834567ab31dfa42a8/web/package.json#L14-L46) · [Go 依赖](https://github.com/tabloy/keygate/blob/40f59cd518b46a8b61830e7834567ab31dfa42a8/go.mod#L1-L15)
-- **Norma 仓库内的服务 harness**：`spikes/keygate-mvp/docker-compose.yml`、`scripts/bootstrap.sh`、`scripts/check.sh`、`scripts/activate.sh`、`scripts/offline_verify.sh`。[脚本职责表](../../spikes/keygate-mvp/README.md#L49-L57)
-- **边界**：Keygate 的 Go/React 源码不在 Norma 仓库；Compose 通过 GitHub tag 拉取并构建，所以业务后台不能在 `crates/` 内修改。[Compose pin](../../spikes/keygate-mvp/docker-compose.yml#L1-L9)
+- **Norma 仓库内的服务 harness**：`spikes/keygate-mvp/docker-compose.yml`、`scripts/bootstrap.sh`、`scripts/check.sh`、`scripts/activate.sh`、`scripts/offline_verify.sh`。[脚本职责表](../README.md#history)
+- **边界**：Keygate 的 Go/React 源码不在 Norma 仓库；Compose 通过 GitHub tag 拉取并构建，所以业务后台不能在 `crates/` 内修改。[Compose pin](../README.md#history)
 
 #### Norma 客户端
 

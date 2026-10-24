@@ -41,10 +41,16 @@ fn test_agent_definitions_state_bind_project_store_clears_stale_draft_before_sav
     std::fs::create_dir(&workspace_a).expect("test should create workspace A");
     std::fs::create_dir(&workspace_b).expect("test should create workspace B");
 
-    let project_a =
-        ProjectStore::for_workspace(&workspace_a).expect("workspace A store should open");
-    let project_b =
-        ProjectStore::for_workspace(&workspace_b).expect("workspace B store should open");
+    let project_a = ProjectStore::for_database_paths(
+        &storage::DatabasePaths::isolated_test(workspace_a.parent().expect("测试项目应有父目录")),
+        &workspace_a,
+    )
+    .expect("workspace A store should open");
+    let project_b = ProjectStore::for_database_paths(
+        &storage::DatabasePaths::isolated_test(workspace_b.parent().expect("测试项目应有父目录")),
+        &workspace_b,
+    )
+    .expect("workspace B store should open");
     project_a
         .migrate()
         .expect("workspace A project store should migrate");

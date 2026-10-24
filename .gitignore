@@ -36,3 +36,5 @@ apps/quest/outputs/
 
 # 桌面 E2E 的 Xcode 构建产物
 test/desktop-e2e/.build/
+
+.claude/

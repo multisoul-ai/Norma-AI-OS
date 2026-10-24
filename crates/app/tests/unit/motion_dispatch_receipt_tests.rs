@@ -146,70 +146,69 @@ fn test_dispatch_receipt_runs_flight_impact_then_returns_canvas_to_idle() {
     );
 }
 
-/// DR-M-2：Reduce Motion 必须取消跨屏飞行，只保留短促的命中脉冲反馈。
+/// DR-M-2：减少动态效果开启时仍播放原有流星的完整飞行与命中。
 ///
-/// 数据构造（含关键数值的推导过程）：
-///   reduce_motion = true
-///   target_node_id = 902
-///   reduced pulse duration = 150ms = 3 × 50ms
-///   spatial flight frames = 0
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 在 Reduce Motion MotionStore 中写入一条 Queued receipt。
-///   2. 立即读取首帧 presentation。
-///   3. 连续推进 3 个 50ms 帧到达 reduced pulse 终点。
-///
-/// 预期结果：
-///   - 正断言：首帧直接处于 Impact，并保留 Queued 状态和目标 902。
-///   - 正断言：150ms 后 effect 被清理。
-///   - 负断言：Reduce Motion 下任何首帧都不能进入 Flight。
+/// 数据构造：MotionStore::new(true)，Queued 回执目标 902；流星飞行 900ms、命中 430ms。
+/// 完整粒子预算 = 20 个主粒子 + 8 个次级火花 = 28。
+/// 执行过程：读取首帧，推进旧脉冲终点 150ms，再推进至 900ms 命中及 1330ms 收尾。
+/// 预期结果：首帧是 Flight、保留 Queued 状态和 28 粒子；150ms 后仍飞行，完整播放后回收。
 #[test]
-fn test_dispatch_receipt_reduce_motion_skips_flight_and_keeps_short_pulse() {
+fn test_dispatch_receipt_reduce_motion_keeps_full_meteor() {
     let mut store = MotionStore::new(true);
-
     store.spawn_dispatch_receipt("runtime-a:18", 902, DispatchReceiptVisualStatus::Queued);
     let initial = store.dispatch_receipt_presentations();
-
+    assert_eq!(initial.len(), 1, "减少动态效果下仍应创建一条完整回执");
     assert_eq!(
-        initial.len(),
-        1,
-        "Reduce Motion 下仍应保留一次非空间位移反馈"
+        initial[0].style,
+        DispatchEffectStyle::Meteor,
+        "默认款式仍为流星"
     );
+    assert_eq!(initial[0].target_node_id, 902, "完整回执必须保留目标");
     assert_eq!(
         initial[0].phase,
-        DispatchEffectPhase::Impact,
-        "Reduce Motion 首帧必须直接进入目标脉冲阶段"
+        DispatchEffectPhase::Flight,
+        "必须从飞行开始"
     );
     assert_eq!(
         initial[0].status,
         DispatchReceiptVisualStatus::Queued,
-        "Reduced presentation 必须保留 Queued 的克制视觉语义"
+        "必须保留回执状态"
     );
-    assert_eq!(
-        initial[0].particle_count, 0,
-        "Reduce Motion 必须把空间爆炸粒子预算降为零"
-    );
-    assert_ne!(
-        initial[0].phase,
-        DispatchEffectPhase::Flight,
-        "Reduce Motion 不得出现从 Dock 跨屏飞向卡片的位移"
-    );
+    assert_eq!(initial[0].particle_count, 28, "必须保留完整粒子预算");
 
-    // reduced pulse = 150ms = 3 × 50ms；每帧均不超过 clamp。
+    // 旧脉冲 150ms = 3 × 50ms；此时流星飞行应继续存在。
     for _ in 0..3 {
-        assert!(
-            store.tick(Duration::from_millis(50)),
-            "Reduced pulse 的三个 50ms 帧都应推进透明度反馈"
-        );
+        store.tick(Duration::from_millis(50));
     }
-
+    let after_pulse = store.dispatch_receipt_presentations();
+    assert_eq!(after_pulse.len(), 1, "不能在旧脉冲终点提前结束");
+    assert_eq!(
+        after_pulse[0].phase,
+        DispatchEffectPhase::Flight,
+        "150ms 时仍应飞行"
+    );
+    // 剩余飞行 900 - 150 = 750ms = 15 × 50ms。
+    for _ in 0..15 {
+        store.tick(Duration::from_millis(50));
+    }
+    assert_eq!(
+        store.dispatch_receipt_presentations()[0].phase,
+        DispatchEffectPhase::Impact,
+        "900ms 后才进入完整命中"
+    );
+    // 命中 430ms = 8 × 50ms + 30ms。
+    for _ in 0..8 {
+        store.tick(Duration::from_millis(50));
+    }
+    assert!(store.has_dispatch_receipts(), "命中 400ms 时还不能提前结束");
+    store.tick(Duration::from_millis(30));
     assert!(
         store.dispatch_receipt_presentations().is_empty(),
-        "Reduced pulse 累计 150ms 后必须被清理"
+        "完整命中结束后必须回收"
     );
     assert!(
         !store.activity_summary().canvas_active,
-        "Reduced pulse 结束后不得残留 Canvas 动画活动"
+        "回收后不能残留帧活动"
     );
 }
 

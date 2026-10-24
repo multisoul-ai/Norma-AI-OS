@@ -267,6 +267,11 @@ impl MultisoulApp {
                 content_scroll: &self.settings_viewport.content_scroll,
                 agent_list_scroll: &self.settings_viewport.agent_list_scroll,
                 wallpaper_state: &self.wallpaper_settings,
+                effects: if self.settings_panel.active_section == SettingsSection::Effects {
+                    self.effects_page_data(cx)
+                } else {
+                    Default::default()
+                },
                 wallpaper_previews: &mut self.wallpaper_previews,
                 shortcuts: &self.shortcuts,
                 mobile: self.mobile.clone(),

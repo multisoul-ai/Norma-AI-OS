@@ -23,7 +23,11 @@ use storage::{NewAgentDefinition, ProjectStore};
 #[test]
 fn test_agent_definitions_state_cancel_new_restores_previous_selection() {
     let temp = tempfile::tempdir().expect("取消 New Agent 测试应创建临时目录");
-    let project = ProjectStore::for_workspace(temp.path()).expect("测试 project store 应打开");
+    let project = ProjectStore::for_database_paths(
+        &storage::DatabasePaths::isolated_test(temp.path()),
+        temp.path(),
+    )
+    .expect("测试 project store 应打开");
     project
         .migrate()
         .expect("取消 New Agent 测试应完成 migration");

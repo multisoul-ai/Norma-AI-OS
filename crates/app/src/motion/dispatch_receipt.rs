@@ -1,12 +1,8 @@
+use super::dispatch_style::DispatchEffectStyle;
 use canvas::NodeId;
 use std::collections::{HashSet, VecDeque};
 use std::time::{Duration, Instant};
 
-const FLIGHT_DURATION: Duration = Duration::from_millis(480);
-/// 想法流星飞得更久一些：前半程蓄势，需要时间铺开“先缓后猛”的过程。
-const IDEA_FLIGHT_DURATION: Duration = Duration::from_millis(900);
-const IMPACT_DURATION: Duration = Duration::from_millis(430);
-const REDUCED_PULSE_DURATION: Duration = Duration::from_millis(150);
 const MAX_TICK_DELTA: Duration = Duration::from_millis(50);
 const LAUNCH_STAGGER: Duration = Duration::from_millis(40);
 const MAX_ACTIVE_EFFECTS: usize = 3;
@@ -46,13 +42,6 @@ pub(crate) enum DispatchVisualOrigin {
     },
 }
 
-impl DispatchVisualOrigin {
-    /// 想法派发与指令栏（语音）派发共用想法流星：白色光点、蓄势后冲刺、900ms；Agent 间交接保留离子画法。
-    pub(crate) fn uses_idea_meteor(self) -> bool {
-        matches!(self, Self::CommandDock | Self::IdeaRow { .. })
-    }
-}
-
 #[cfg(any(test, feature = "e2e-test-support"))]
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(crate) struct DispatchEffectCounts {
@@ -62,12 +51,14 @@ pub(crate) struct DispatchEffectCounts {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct DispatchEffectPresentation {
+    pub(crate) style: DispatchEffectStyle,
+    /// 由 task_ref 与目标节点派生：同一次派发的随机形状固定。
+    pub(crate) seed: u64,
     pub(crate) origin: DispatchVisualOrigin,
     pub(crate) target_node_id: NodeId,
     pub(crate) status: DispatchReceiptVisualStatus,
     pub(crate) phase: DispatchEffectPhase,
     pub(crate) progress: f32,
-    pub(crate) reduce_motion: bool,
     pub(crate) particles: [DispatchImpactParticle; MAX_PARTICLES_PER_EFFECT],
     pub(crate) particle_count: usize,
 }
@@ -101,7 +92,6 @@ pub(super) struct DispatchEffectDiagnostics {
     pub(super) capacity_skips: u64,
     pub(super) unavailable_skips: u64,
     pub(super) cancelled_effects: u64,
-    pub(super) reduced_motion_effects: u64,
     pub(super) last_update_elapsed: Duration,
 }
 
@@ -113,6 +103,7 @@ pub(super) struct DispatchEffectStore {
     seen: HashSet<DispatchEffectKey>,
     since_last_launch: Duration,
     metrics: DispatchEffectDiagnostics,
+    speed: f32,
 }
 
 impl Default for DispatchEffectStore {
@@ -124,19 +115,24 @@ impl Default for DispatchEffectStore {
             seen: HashSet::with_capacity(MAX_DEDUPE_KEYS),
             since_last_launch: Duration::ZERO,
             metrics: DispatchEffectDiagnostics::default(),
+            speed: 1.0,
         }
     }
 }
 
 impl DispatchEffectStore {
-    pub(super) fn spawn(
-        &mut self,
-        task_ref: String,
-        origin: DispatchVisualOrigin,
-        target_node_id: NodeId,
-        status: DispatchReceiptVisualStatus,
-        reduce_motion: bool,
-    ) -> DispatchEffectSpawnOutcome {
+    pub(super) fn set_speed(&mut self, speed: f32) {
+        self.speed = speed;
+    }
+
+    pub(super) fn spawn_styled(&mut self, request: DispatchSpawn) -> DispatchEffectSpawnOutcome {
+        let DispatchSpawn {
+            task_ref,
+            origin,
+            target_node_id,
+            status,
+            style,
+        } = request;
         let key = DispatchEffectKey {
             task_ref,
             target_node_id,
@@ -145,7 +141,7 @@ impl DispatchEffectStore {
             self.metrics.duplicate_skips = self.metrics.duplicate_skips.saturating_add(1);
             return DispatchEffectSpawnOutcome::Duplicate;
         }
-        let effect = DispatchEffect::new(&key, origin, status, reduce_motion);
+        let effect = DispatchEffect::new(&key, origin, status, style, self.speed);
         if self.active.is_empty()
             || (self.active.len() < MAX_ACTIVE_EFFECTS
                 && self.pending.is_empty()
@@ -154,7 +150,6 @@ impl DispatchEffectStore {
             self.active.push(effect);
             self.since_last_launch = Duration::ZERO;
             self.remember(key);
-            self.record_reduced_motion(reduce_motion);
             return DispatchEffectSpawnOutcome::Spawned;
         }
         if self.pending.len() >= MAX_PENDING_EFFECTS {
@@ -164,7 +159,6 @@ impl DispatchEffectStore {
         }
         self.pending.push_back(effect);
         self.remember(key);
-        self.record_reduced_motion(reduce_motion);
         DispatchEffectSpawnOutcome::Queued
     }
 
@@ -268,13 +262,14 @@ impl DispatchEffectStore {
             }
         }
     }
+}
 
-    fn record_reduced_motion(&mut self, reduce_motion: bool) {
-        if reduce_motion {
-            self.metrics.reduced_motion_effects =
-                self.metrics.reduced_motion_effects.saturating_add(1);
-        }
-    }
+pub(super) struct DispatchSpawn {
+    pub(super) task_ref: String,
+    pub(super) origin: DispatchVisualOrigin,
+    pub(super) target_node_id: NodeId,
+    pub(super) status: DispatchReceiptVisualStatus,
+    pub(super) style: DispatchEffectStyle,
 }
 
 #[derive(Debug, Clone, Eq, Hash, PartialEq)]
@@ -285,12 +280,14 @@ struct DispatchEffectKey {
 
 #[derive(Debug, Clone)]
 struct DispatchEffect {
+    style: DispatchEffectStyle,
+    seed: u64,
+    speed: f32,
     origin: DispatchVisualOrigin,
     target_node_id: NodeId,
     status: DispatchReceiptVisualStatus,
     phase: DispatchEffectPhase,
     elapsed: Duration,
-    reduce_motion: bool,
     particles: [DispatchImpactParticle; MAX_PARTICLES_PER_EFFECT],
     particle_count: usize,
 }
@@ -300,35 +297,25 @@ impl DispatchEffect {
         key: &DispatchEffectKey,
         origin: DispatchVisualOrigin,
         status: DispatchReceiptVisualStatus,
-        reduce_motion: bool,
+        style: DispatchEffectStyle,
+        speed: f32,
     ) -> Self {
-        let particle_count = if reduce_motion {
-            0
-        } else {
-            MAX_PARTICLES_PER_EFFECT
-        };
         Self {
+            style,
+            seed: key_seed(key),
+            speed,
             origin,
             target_node_id: key.target_node_id,
             status,
-            phase: if reduce_motion {
-                DispatchEffectPhase::Impact
-            } else {
-                DispatchEffectPhase::Flight
-            },
+            phase: DispatchEffectPhase::Flight,
             elapsed: Duration::ZERO,
-            reduce_motion,
             particles: build_particles(key),
-            particle_count,
+            particle_count: MAX_PARTICLES_PER_EFFECT,
         }
     }
 
     fn flight_duration(&self) -> Duration {
-        if self.origin.uses_idea_meteor() {
-            IDEA_FLIGHT_DURATION
-        } else {
-            FLIGHT_DURATION
-        }
+        self.style.timing(self.speed).flight
     }
 
     fn tick(&mut self, delta: Duration) {
@@ -341,27 +328,24 @@ impl DispatchEffect {
     }
 
     fn finished(&self) -> bool {
-        let impact_duration = if self.reduce_motion {
-            REDUCED_PULSE_DURATION
-        } else {
-            IMPACT_DURATION
-        };
+        let impact_duration = self.style.timing(self.speed).impact;
         self.phase == DispatchEffectPhase::Impact && self.elapsed >= impact_duration
     }
 
     fn presentation(&self) -> DispatchEffectPresentation {
+        let timing = self.style.timing(self.speed);
         let duration = match self.phase {
-            DispatchEffectPhase::Flight => self.flight_duration(),
-            DispatchEffectPhase::Impact if self.reduce_motion => REDUCED_PULSE_DURATION,
-            DispatchEffectPhase::Impact => IMPACT_DURATION,
+            DispatchEffectPhase::Flight => timing.flight,
+            DispatchEffectPhase::Impact => timing.impact,
         };
         DispatchEffectPresentation {
+            style: self.style,
+            seed: self.seed,
             origin: self.origin,
             target_node_id: self.target_node_id,
             status: self.status,
             phase: self.phase,
             progress: (self.elapsed.as_secs_f32() / duration.as_secs_f32()).clamp(0.0, 1.0),
-            reduce_motion: self.reduce_motion,
             particles: self.particles,
             particle_count: self.particle_count,
         }
@@ -369,11 +353,7 @@ impl DispatchEffect {
 }
 
 fn build_particles(key: &DispatchEffectKey) -> [DispatchImpactParticle; MAX_PARTICLES_PER_EFFECT] {
-    let mut seed = 0xcbf29ce484222325_u64;
-    for byte in key.task_ref.bytes().chain(key.target_node_id.to_le_bytes()) {
-        seed ^= u64::from(byte);
-        seed = seed.wrapping_mul(0x100000001b3);
-    }
+    let mut seed = key_seed(key);
     let mut particles = [DispatchImpactParticle::default(); MAX_PARTICLES_PER_EFFECT];
     for (index, particle) in particles.iter_mut().enumerate() {
         seed = seed.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
@@ -421,4 +401,13 @@ fn build_particles(key: &DispatchEffectKey) -> [DispatchImpactParticle; MAX_PART
         };
     }
     particles
+}
+
+fn key_seed(key: &DispatchEffectKey) -> u64 {
+    let mut seed = 0xcbf29ce484222325_u64;
+    for byte in key.task_ref.bytes().chain(key.target_node_id.to_le_bytes()) {
+        seed ^= u64::from(byte);
+        seed = seed.wrapping_mul(0x100000001b3);
+    }
+    seed
 }

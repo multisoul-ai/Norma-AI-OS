@@ -44,6 +44,17 @@ extension Session {
         }.first
     }
 
+    /// 工作空间的派发特效设置（JSON 原文），未设置为 nil。
+    public func workspaceDispatchEffect(named name: String) throws -> String? {
+        let database = try SQLiteDB(path: databaseURL().path, write: false)
+        defer { database.close() }
+        return try database.query(
+            "SELECT dispatch_effect_json FROM desktop_workspaces WHERE name=?1", bindings: [name]
+        ) { statement in
+            sqlite3_column_type(statement, 0) == SQLITE_NULL ? nil : column(statement, 0)
+        }.first ?? nil
+    }
+
     public func waitCatalog(timeout: TimeInterval, _ ready: (Catalog) -> Bool) async throws -> Catalog {
         let deadline = Date().addingTimeInterval(timeout)
         var last = ""
@@ -135,6 +146,16 @@ extension Catalog {
         try database.execute(
             "INSERT INTO workspace_ideas(id,workspace_id,body,source,state,position,created_at_unix,updated_at_unix) VALUES(?1,?2,?3,'chat','todo',?4,?5,?5)",
             bindings: [UUID().uuidString, workspaceID, body, String(position), now]
+        )
+    }
+
+    /// 仅在被测 App 停止时给工作空间写入派发特效设置（JSON 原文）。
+    public static func seedWorkspaceDispatchEffect(database url: URL, workspaceName: String, json: String) throws {
+        let database = try SQLiteDB(path: url.path, write: true)
+        defer { database.close() }
+        try database.execute(
+            "UPDATE desktop_workspaces SET dispatch_effect_json=?1 WHERE name=?2",
+            bindings: [json, workspaceName]
         )
     }
 

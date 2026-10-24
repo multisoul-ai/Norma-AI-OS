@@ -120,7 +120,7 @@ crates/terminal/src/
 ```text
 crates/storage/src/
 ├── app_store.rs       # 用户级 app.sqlite
-├── project_store.rs   # workspace/.multisoul/project.sqlite
+├── project_store.rs   # App 数据目录/projects/<项目路径哈希>/project.sqlite
 ├── migrations.rs      # app/project schema migration
 ├── recent_store.rs    # 最近项目
 ├── settings_store.rs  # 全局设置
@@ -133,7 +133,8 @@ crates/storage/src/
 主要职责：
 
 - 管理用户级 `~/Library/Application Support/Norma OS/app.sqlite`
-- 管理项目级 `<workspace>/.multisoul/project.sqlite`
+- 项目库统一位于 App 数据目录的 `projects/<规范化项目路径 SHA256>/project.sqlite`；Test 模式使用自己的数据根与 `project.test.sqlite`，不在项目目录建库
+- 首次打开时以 SQLite backup 导入对应模式的旧 `.multisoul` 项目库（包含已提交 WAL）；原库保留，新库存在时不重复导入，见 `docs/design-docs/2026-10-24-global-project-storage.md`
 - 读写 recent/settings/canvas snapshot/session checkpoint、Agent 定义与委派 journal
 - 保持底层依赖，不反向依赖 `app/runtime/ui`
 

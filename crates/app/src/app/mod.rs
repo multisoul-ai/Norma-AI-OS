@@ -116,6 +116,7 @@ mod voice;
 pub(crate) use voice::caption::VoiceWaveformState;
 #[cfg(not(feature = "e2e-test-support"))]
 pub(crate) use voice::recognition::AsrRecordingSession;
+pub(crate) mod effects_actions;
 mod optional_media;
 mod voice_window_inset;
 mod wallpaper_actions;
@@ -227,6 +228,7 @@ pub struct MultisoulApp {
     pub(crate) pending_agent_close_confirmation: Option<NodeId>,
     pub focus_handle: FocusHandle,
     pub(crate) wallpaper_settings: WallpaperSettingsState,
+    pub(crate) effects_ui: crate::settings::effects::ui_state::EffectsUiState,
     pub(crate) wallpaper_previews: crate::settings::wallpaper::PreviewCache,
     #[cfg(target_os = "macos")]
     pub(crate) video_wallpaper: Option<video_wallpaper::VideoWallpaperState>,

@@ -18,7 +18,6 @@ resources = [
   { src = "build/release-media/wallpaper-previews", target = "wallpaper-previews" },
   "build/release-media/media-catalog.json",
   "crates/app/assets/browser-auth-extension",
-  "sidecars/openai-card-planner/openai-card-planner.mjs",
 ]
 icons = ["assets/AppIcon.icns"]
 out-dir = "build"

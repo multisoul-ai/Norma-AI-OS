@@ -17,6 +17,8 @@
 
 ## 历史材料
 
+2026-10-24 按用户确认移除了 `spikes/` 和 `sidecars/openai-card-planner/`，同时取消旧 planner 的发布资源项。根目录的 `workflows/` 已按用户最新决定恢复并保留。删除前的材料可从 Git 提交 `0aed07c2` 查阅，例如 `git show 0aed07c2:spikes/keygate-mvp/README.md`。旧文档中的对应路径只表示历史位置；仍保留的 iOS 原型测试依赖已迁至 `docs/prototypes/package.json`。GitHub CI 的 `.github/workflows/` 继续使用。
+
 被替代的 Ideas Vault、Realtime Card Task 方案以及旧 Rust `e2e` 套件已从当前树移除。这些材料以及 2026-06-28 的 e2e 规格与实施计划，仍可从 Git 提交 `366284b4` 及其后的删除提交查阅。2026-10-17 的文档整合还删除了 `docs/superpowers/` 下的旧施工计划、与规格重复的执行步骤，以及已被统一云服务取代的部署记录。清单见 [文档整合计划](exec-plans/2026-10-17-docs-consolidation.md)。
 
 保留在 `docs/` 的旧规格和执行记录只解释当时的决策、命令与验收，不作为当前实施指令；新需求使用受影响 crate 的测试和真实 App 验收。
