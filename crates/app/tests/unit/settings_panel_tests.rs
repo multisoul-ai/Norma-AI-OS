@@ -369,6 +369,7 @@ fn test_settings_sidebar_exposes_only_implemented_configuration_pages() {
         "SettingsSection::Orchestration",
         "SettingsSection::Wallpaper",
         "SettingsSection::Mobile",
+        "SettingsSection::Account",
     ];
 
     for section in visible_sections {

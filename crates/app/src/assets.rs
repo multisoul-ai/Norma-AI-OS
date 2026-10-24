@@ -75,6 +75,9 @@ impl AssetSource for EmbeddedAssets {
         if let Some(frame) = orb_frames::frame(path) {
             return Ok(Some(Cow::Borrowed(frame)));
         }
+        if let Some(logo) = crate::account::account_asset(path) {
+            return Ok(Some(Cow::Borrowed(logo)));
+        }
         match path {
             "icons/file-document.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
                 "../assets/icons/file-document.svg"

@@ -11,6 +11,8 @@ chromium-browser = ["dep:cef"]
 # License hard-gate switch. It stays available for explicit opt-in builds,
 # while normal development and release packages bypass the startup gate.
 licenses = []
+# Account login (GitHub / Google) startup prompt rollout switch. Enable once norma-cloud auth has OAuth credentials.
+account-login = []
 production-data = []
 # Loopback transport for isolated real-App media acceptance; excluded from normal releases.
 media-download-qa = []
@@ -64,6 +66,7 @@ dialogue.workspace = true
 audio.workspace = true
 asr.workspace = true
 license.workspace = true
+account.workspace = true
 tts.workspace = true
 agent.workspace = true
 live_voice.workspace = true

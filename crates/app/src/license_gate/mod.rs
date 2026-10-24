@@ -10,6 +10,11 @@ mod token_store;
 
 pub use gate_root::open_gated_window;
 
+/// 与 License 跳过开关共用的真值解析，供其他启动开关复用。
+pub(crate) fn config_truthy(raw: Option<String>) -> bool {
+    config::parse_truthy_env(raw)
+}
+
 #[cfg(feature = "e2e-test-support")]
 pub use gate_root::{build_activation_root_e2e, build_configured_unlicensed_root_e2e};
 

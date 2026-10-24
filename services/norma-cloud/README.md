@@ -11,6 +11,7 @@ norma-cloud/
 ├── voice/              # 实时语音、豆包协议、Plan ASR/Chat/TTS
 ├── text/               # 设备准入、文字流与配对登记
 ├── collaboration/      # Mac / iPhone 在线字节中继
+├── auth/               # GitHub / Google 账号登录（OAuth 中转、会话、账号存储）
 ├── cloud/              # Vercel Redis 会话与工具通道
 ├── api/                # 现有 Vercel 入口
 ├── deploy/             # 一个 systemd 单元与统一 Nginx 配置
@@ -32,6 +33,7 @@ norma-cloud/
 |---|---|
 | `/norma/v1/notifications` | `127.0.0.1:8789/v1/notifications` |
 | `/norma/healthz` | `127.0.0.1:8789/healthz` |
+| `/norma/v1/auth/*` | `127.0.0.1:8789/v1/auth/*`（仅放行文档化路由，不记访问日志） |
 | `/norma/voice/*` | `127.0.0.1:8789/*` |
 
 Nginx 只引入 `deploy/nginx-front.conf` 一次，并移除旧 push/voice 片段的 include，避免重复 location。`/norma/` 只放行推送及其健康路径，禁止通过它访问云端管理接口；`/norma/voice/v1/admin/` 仍返回 404。推送请求限制保持 4 KiB / 12 秒，文字请求保持 32 KiB / 流式不缓冲。

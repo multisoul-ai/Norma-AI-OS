@@ -16,6 +16,7 @@ Workspace 分层：
 - `crates/storage/` - 零 GPUI 存储层：SQLite store、migration、recent/settings/canvas/session checkpoint。
 - `crates/workspace/` - 零 GPUI 元数据层：最近项目类型、workspace source、路径展示。
 - `crates/agent/` - 零 GPUI/Storage Agent Runtime：NormaSession、Rig Provider、typed tools、AgentCardAdapter 与预算。
+- `crates/account/` - 零 GPUI/Storage/网络账号域层：登录状态机、PKCE、会话模型与 norma-cloud `/v1` 协议类型。
 - `crates/asr/` - 零 GPUI/Storage/Keychain ASR 领域层：provider、识别协议、Local Sherpa、Cloud Azure、模型安装与完整性。
 - `crates/voice_input/` - provider 中立的音频输入层：权限、设备、采集、重采样、PCM 流与共享 VAD。
 - `crates/model_store/` - 零 GPUI/网络的共享本地模型安装原语：受控解压、哈希、manifest 与原子提升。
@@ -161,6 +162,7 @@ Workspace 分层：
 | 域层依赖边界 | `cargo tree -p canvas -p terminal -p runtime | grep -i gpui` 应无输出 |
 | TTS Provider 网络边界 | `bash scripts/check-tts-provider-boundaries.sh` |
 | 存储层依赖与热路径边界 | `bash scripts/check-storage-boundaries.sh` |
+| 账号域层依赖边界 | `bash scripts/check-account-boundaries.sh` |
 | 拖拽/关闭/session 扫描性能护栏 | `bash scripts/check-performance-guardrails.sh` |
 | 视频壁纸低拷贝护栏 | `python3 scripts/check-video-wallpaper-performance.py` |
 | 构建与运行时 SOCKS 代理支持 | `bash scripts/check-socks-proxy-support.sh` |
@@ -176,6 +178,7 @@ cargo test -p canvas -p terminal -p runtime -p storage -p model_store -p tts
 cargo test --workspace
 cargo check -p app
 bash scripts/check-storage-boundaries.sh
+bash scripts/check-account-boundaries.sh
 bash scripts/check-performance-guardrails.sh
 bash scripts/check-tts-provider-boundaries.sh
 python3 scripts/check-video-wallpaper-performance.py
