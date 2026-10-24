@@ -65,7 +65,7 @@ impl MultisoulApp {
     pub(crate) fn brain_settings_view(&self) -> BrainSettingsView {
         BrainSettingsView {
             settings: self.brain.settings.clone().unwrap_or_default(),
-            running: self.brain.host.is_some(),
+            running: self.brain.host.is_some() || self.brain.overview.running,
             installed: self.brain.installed.clone(),
             installing: self.brain.installing,
             install_error: self.brain.install_error.clone(),
@@ -164,6 +164,7 @@ impl MultisoulApp {
         let mut snapshot = super::OverviewSnapshot::default();
         for ((_, area_id), session) in &self.desktop_workspace.sessions {
             let app = session.read(cx);
+            snapshot.running |= app.brain.host.is_some();
             snapshot.judging.extend(
                 app.brain_judging_nodes()
                     .into_iter()

@@ -77,6 +77,8 @@ pub(crate) struct OverviewSnapshot {
     pub judging: HashSet<(String, u64)>,
     /// 各项目的自主处理记录，新的在前：（项目区域 id，记录）。
     pub actions: Vec<(String, AutoAction)>,
+    /// 至少一个项目里的大脑在运行；工作空间窗口自己不跑大脑，设置页靠它显示“运行中”。
+    pub running: bool,
 }
 
 impl BrainHostState {
@@ -115,7 +117,7 @@ impl MultisoulApp {
             self.brain.settings = Some(config::load_settings());
         }
         // 工作空间窗口没有大脑，但要汇总各项目的状态给概览。
-        if !self.desktop_workspace.sessions.is_empty()
+        if (!self.desktop_workspace.sessions.is_empty() || self.brain.overview.running)
             && self.brain.overview_at.elapsed() >= APPROVAL_POLL
         {
             self.brain.overview_at = Instant::now();
