@@ -38,6 +38,39 @@ impl MultisoulApp {
             .collect()
     }
 
+    /// 标题栏的“语音汇报”开关只在启用了大脑时出现。
+    pub(crate) fn brain_toggle_visible(&self) -> bool {
+        self.brain
+            .settings
+            .as_ref()
+            .is_some_and(|settings| settings.enabled)
+    }
+
+    pub(crate) fn brain_speaking(&self) -> bool {
+        self.brain
+            .settings
+            .as_ref()
+            .is_some_and(|settings| settings.enabled && settings.speak)
+    }
+
+    /// 只改“是否出声”，不重启大脑：关闭后大脑继续处理审批和派活。
+    pub(crate) fn set_brain_speaking(&mut self, speak: bool, cx: &mut Context<Self>) {
+        let mut settings = self.brain.settings.clone().unwrap_or_default();
+        settings.speak = speak;
+        self.brain.settings = Some(settings.clone());
+        if !speak {
+            self.cancel_agent_announcements();
+        }
+        cx.background_executor()
+            .spawn(async move {
+                if let Err(error) = config::save_settings(&settings) {
+                    tracing::warn!(%error, "保存大脑配置失败");
+                }
+            })
+            .detach();
+        cx.notify();
+    }
+
     pub(crate) fn brain_autonomy(&self) -> Autonomy {
         self.brain.settings.clone().unwrap_or_default().autonomy
     }

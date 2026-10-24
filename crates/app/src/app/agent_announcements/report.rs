@@ -20,7 +20,7 @@ impl AgentAnnouncement {
 }
 
 impl MultisoulApp {
-    /// 返回是否进入了播报队列。关闭了“Agent 播报”或 TTS 不可用时丢弃。
+    /// 返回是否进入了播报队列。语音汇报关闭或 TTS 不可用时丢弃。
     pub(crate) fn speak_brain_report(
         &mut self,
         text: String,
@@ -29,12 +29,7 @@ impl MultisoulApp {
     ) -> bool {
         let text = text.trim().to_string();
         let preview: String = text.chars().take(80).collect();
-        if text.is_empty()
-            || !self
-                .voice_settings
-                .values()
-                .agent_task_announcements_enabled()
-        {
+        if text.is_empty() || !self.brain_speaking() {
             tracing::info!(%preview, "大脑播报被跳过：文字为空或语音汇报未开启");
             return false;
         }

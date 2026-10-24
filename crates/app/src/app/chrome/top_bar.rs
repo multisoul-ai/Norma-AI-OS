@@ -192,6 +192,9 @@ impl MultisoulApp {
                     })
                     .when_some(self.render_status_capsule(window, cx), |row, capsule| {
                         row.child(capsule)
+                    })
+                    .when_some(self.render_brain_toggle(cx), |row, toggle| {
+                        row.child(toggle)
                     }),
             )
     }

@@ -246,6 +246,7 @@ fn extended_settings_round_trip_and_defaults() {
         },
         slow_reminder: SlowReminder::VoiceAfter60s,
         parallel_approvals: false,
+        speak: false,
     };
     super::config::save_settings_to(root.path(), &custom).expect("应能写入");
     let read = parse_settings(&std::fs::read_to_string(root.path().join("config.json")).unwrap());
@@ -262,6 +263,7 @@ fn extended_settings_round_trip_and_defaults() {
     );
     assert_eq!(defaults.slow_reminder, SlowReminder::OverviewOnly);
     assert!(defaults.parallel_approvals, "默认并行处理审批");
+    assert!(defaults.speak, "默认出声汇报");
     assert_eq!(
         parse_settings(r#"{"main_model":"gpt-9"}"#).main_model,
         None,

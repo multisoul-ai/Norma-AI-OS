@@ -81,5 +81,7 @@
   "chrome.open_previews": "Open a project before previewing files.",
   "chrome.invalid_reply_phase": "Speech error: invalid reply phase",
   "chrome.reply_inactive": "Speech error: reply is no longer active",
-  "chrome.reply_segment_too_large": "Speech error: dialogue produced an oversized speech segment"
+  "chrome.reply_segment_too_large": "Speech error: dialogue produced an oversized speech segment",
+  "chrome.brain_voice_report": "Voice report",
+  "chrome.brain_voice_report_tip": "Norma reports agent progress by voice. Turning it off keeps the brain working, just silent."
 }

@@ -24,10 +24,12 @@ impl MultisoulApp {
         {
             return;
         }
+        // 关闭“智能体任务播报”只停固定词播报；大脑的汇报由标题栏的“语音汇报”开关管。
         if !self
             .voice_settings
             .values()
             .agent_task_announcements_enabled()
+            && !self.brain_speaking()
         {
             self.cancel_agent_announcements();
             return;

@@ -143,7 +143,7 @@ participants: 用户, 前台对话, 播报队列, 主会话, Agent
 
 ## G 实施记录与已知限制
 
-**启用步骤**：本机已安装并登录 Claude Code。打开设置，进入 Norma 下的“Norma 大脑”。点“安装 Claude Code 适配器”，装好后选择后端和策略，再打开“启用后台大脑”。发声用语音设置里的“智能体任务播报”开关和当前语音模式。该开关关闭时，大脑的汇报会被丢弃。
+**启用步骤**：本机已安装并登录 Claude Code。打开设置，进入 Norma 下的“Norma 大脑”。点“安装 Claude Code 适配器”，装好后选择后端和策略，再打开“启用后台大脑”。启用后，标题栏右侧出现“语音汇报”开关。打开时，大脑的汇报用当前语音模式念出来。关闭时，大脑照常工作，只是不说话。它与语音设置里的“智能体任务播报”互不影响。
 
 - **ACP client 手写**：只用到 `initialize`、`session/new`、`session/set_mode`、`session/prompt`、`session/request_permission`，所以没有引入 `agent-client-protocol` crate，权限处理完全自己掌控。
 - **适配器**：Claude Code 用 `@agentclientprotocol/claude-agent-acp@0.94.0`，设置页的“安装”按钮会装到 `~/.norma/brain/adapters`；OpenCode 自带 `opencode acp`；Codex 的 `@zed-industries/codex-acp` 已识别但未实测。
@@ -154,7 +154,10 @@ participants: 用户, 前台对话, 播报队列, 主会话, Agent
   - 挡不住：`npm install`、`make`、`python script.py` 这类执行项目内代码的命令，它们算普通操作。
   - 大脑只能放行规则判为普通的审批；审批里的命令和路径始终当作数据，不当作指令。
 - **每个项目一个大脑**：每个打开的项目窗口各启动一个大脑（两条 lane，各一个适配器进程）。同时打开很多项目会占用更多内存和额度。
-- **设置与配置**：设置 → Norma → Norma 大脑；配置保存在 `~/.norma/brain/config.json`，`NORMA_BRAIN_DIR` 可改位置。修改后重启大脑。
+- **设置页**：设置 → Norma → Norma 大脑，按原型排布。
+  - 选项：启用、后端卡片、策略与说明、主会话与审批会话模型、定时摘要、自行决定、始终先问你、判断较慢时、多个审批同时到达、审批范围。
+  - 自行决定里有三项生效：只读命令、项目内写文件、派后续任务。“停止或重启卡住的 Agent”没有提供，灰显。
+  - 配置保存在 `~/.norma/brain/config.json`，`NORMA_BRAIN_DIR` 可改位置。除“语音汇报”外，修改后都会重启大脑。
 - **记录**：大脑的回复写入 `decisions.jsonl`，放行或拒绝的审批写入 `approvals.jsonl`，目标摘要在 `goal.md`。
 - **真实 App 验收**：`scripts/desktop-e2e.sh brain-report`。假 `claude` 完成任务后，真实 Claude Code 适配器收到事件，通过 `norma brain report` 把汇报交回 App。隔离数据目录里没有 TTS，所以日志显示“TTS 不可用”而没有真正发声。
 

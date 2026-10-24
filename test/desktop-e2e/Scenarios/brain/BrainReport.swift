@@ -71,15 +71,23 @@ public enum BrainReport {
             _ = try await session.wait(Expectation(allOf: ["E2E Project"], absent: ["项目目录不可用"], timeout: 15))
             try await Task.sleep(nanoseconds: 900_000_000)
             try await dismissGuide(session)
-            let frame = try await session.capture()
-            try await session.click(
-                local: CGPoint(x: Double(frame.windowFrame.width) / 2, y: Double(frame.windowFrame.height) - 38),
-                on: frame
-            )
-            try await session.selectAll()
-            try await session.type("/new claude")
-            try await session.shortcut(key: 36, modifiers: [])
-            try await Task.sleep(nanoseconds: 1_500_000_000)
+            // 命令可能被刚弹出的引导吞掉：最多重试三次，直到画布上出现智能体卡片。
+            var created = false
+            for _ in 0..<3 {
+                let frame = try await session.capture()
+                try await session.click(
+                    local: CGPoint(x: Double(frame.windowFrame.width) / 2, y: Double(frame.windowFrame.height) - 38),
+                    on: frame
+                )
+                try await session.selectAll()
+                try await session.type("/new claude")
+                try await session.shortcut(key: 36, modifiers: [])
+                try await Task.sleep(nanoseconds: 2_500_000_000)
+                let after = try await session.capture()
+                if after.contains("运行中") || after.contains("待开始") { created = true; break }
+                try await dismissGuide(session)
+            }
+            guard created else { throw E2EError.product("三次尝试后画布上仍没有智能体卡片") }
             return try await session.capture().summary
         }
 
@@ -103,16 +111,54 @@ public enum BrainReport {
             }
             return "日志与决策记录都出现了大脑的汇报"
         }
+
+        try await session.step("标题栏的“语音汇报”开关：点一下关闭，再点一下打开，配置随之改变") {
+            guard let brainDir else { throw E2EError.env("大脑目录丢失") }
+            let config = brainDir.appendingPathComponent("config.json")
+            try session.save(try await session.capture(), "02-voice-report-on.png")
+            try await clickToggle(session)
+            try await waitConfig(config, contains: "\"speak\": false")
+            try session.save(try await session.capture(), "03-voice-report-off.png")
+            try await clickToggle(session)
+            try await waitConfig(config, contains: "\"speak\": true")
+            return "speak 先变 false 再变 true"
+        }
     }
 
+    /// 功能引导会盖住画面：点“跳过引导”；识别不到按钮时退回 Esc。
     private static func dismissGuide(_ session: Session) async throws {
-        for _ in 0..<3 {
+        for _ in 0..<4 {
             try await Task.sleep(nanoseconds: 1_500_000_000)
             let frame = try await session.capture()
             let showing = ["Feature Guide", "功能引导", "功能引号", "Skip Guide", "跳过引导"].contains { frame.contains($0) }
             guard showing else { return }
-            try await session.shortcut(key: 53, modifiers: [])
+            if frame.contains("跳过引导") || frame.contains("Skip Guide") {
+                try await session.click(matching: ["跳过引导", "Skip Guide"], pick: .bottom)
+            } else {
+                try await session.shortcut(key: 53, modifiers: [])
+            }
         }
+    }
+
+    /// 开关在标题栏右侧；选中时是蓝底，文字识别常认不出，所以识别不到就按位置点（宽度的 92%，高度的 3%）。
+    private static func clickToggle(_ session: Session) async throws {
+        let frame = try await session.capture()
+        if let label = frame.pick(["语音汇报"], .top), label.center.y < Double(frame.windowFrame.height) * 0.1 {
+            try await session.click(local: label.center, on: frame)
+        } else {
+            try await session.click(
+                local: CGPoint(x: Double(frame.windowFrame.width) * 0.92, y: Double(frame.windowFrame.height) * 0.03),
+                on: frame)
+        }
+    }
+
+    private static func waitConfig(_ url: URL, contains needle: String) async throws {
+        let deadline = Date().addingTimeInterval(6)
+        while Date() < deadline {
+            if let text = try? String(contentsOf: url, encoding: .utf8), text.contains(needle) { return }
+            try await Task.sleep(nanoseconds: 200_000_000)
+        }
+        throw E2EError.product("配置里 6 秒内没有出现 \(needle)")
     }
 
     private static func appLog(_ session: Session) throws -> URL {
