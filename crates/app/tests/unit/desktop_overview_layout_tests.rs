@@ -1,9 +1,9 @@
 use super::*;
 
-/// 概览四栏的顺序和基准高度是固定的：需要你处理 → 运行中 → 待开始 → 想法。
+/// 概览五栏的顺序和基准高度是固定的：需要你处理 → 运行中 → 待开始 → Norma 自主处理 → 想法。
 ///
 /// 预期结果：
-///   - 正断言：ORDER 恰为四栏且顺序固定；基准高度依次 200 / 260 / 200 / 250。
+///   - 正断言：ORDER 恰为五栏且顺序固定；基准高度依次 200 / 260 / 200 / 190 / 250。
 ///   - 负断言：任何栏的基准高度都不低于最小高度，保证至少容得下标题和一行内容。
 #[test]
 fn groups_keep_a_fixed_order_and_base_heights() {
@@ -13,12 +13,13 @@ fn groups_keep_a_fixed_order_and_base_heights() {
             OverviewGroup::Attention,
             OverviewGroup::Running,
             OverviewGroup::Idle,
+            OverviewGroup::Brain,
             OverviewGroup::Ideas
         ],
         "栏目顺序是产品约定，不随内容变化"
     );
     let heights = OverviewGroup::ORDER.map(OverviewGroup::base_height);
-    assert_eq!(heights, [200.0, 260.0, 200.0, 250.0]);
+    assert_eq!(heights, [200.0, 260.0, 200.0, 190.0, 250.0]);
     assert!(
         heights.iter().all(|height| *height >= MIN_GROUP_HEIGHT),
         "基准高度不能低于最小高度"
@@ -93,7 +94,7 @@ fn every_group_has_a_distinct_empty_state() {
 /// 执行过程：用旧位还原折叠状态。
 /// 预期结果：
 ///   - 正断言：旧“当前项目”位仍折叠“运行中”；旧“其他项目”位折叠“待开始”（项目行已并入这一组）；
-///     四个栏的折叠位互不重复，且都在运行时保留的低四位以内。
+///     五个栏的折叠位互不重复，且都在运行时保留的低五位以内（新增的大脑栏占第 5 位）。
 ///   - 负断言：这两个旧位不会折叠“需要你处理”和“想法”。
 #[test]
 fn legacy_collapse_bits_keep_their_meaning() {
@@ -111,7 +112,7 @@ fn legacy_collapse_bits_keep_their_meaning() {
         let mut state = OverviewCollapse::default();
         state.toggle(group);
         assert_eq!(seen & state.bits(), 0, "折叠位不能重复");
-        assert_eq!(state.bits() & !0b1111, 0, "折叠位必须落在低四位");
+        assert_eq!(state.bits() & !0b11111, 0, "折叠位必须落在低五位");
         seen |= state.bits();
     }
 }

@@ -13,6 +13,8 @@ BROWSER_CHANNEL=chrome node docs/prototypes/tests/norma-ios-ideas-workspaces.cjs
 
 [旧版九屏原型](archive/2026-09-28-norma-ios-workspace/norma-ios-workspace.html)已归档，可运行 `BROWSER_CHANNEL=chrome node docs/prototypes/tests/norma-ios-workspace.cjs` 验证。旧版截图与记录见 [验收记录](assets/norma-ios-workspace/validation.md)。
 
+[Norma 大脑与语音汇报原型](norma-brain/README.md)：演示语音汇报模式、ACP 后台大脑的审批与派活、前台对话与后台的分工，以及分层架构和大脑设置页。对应设计文档为 [`2026-10-23-norma-brain-acp.md`](../design-docs/2026-10-23-norma-brain-acp.md)。
+
 此前的 [实时虚拟人指挥台](norma-realtime.html) 仍保留作历史方案参考。
 
 v28 手机工作台（项目 / 决策 / 配对）已于 2026-09-20 归档，见 [archive/2026-09-06-norma-ios](archive/2026-09-06-norma-ios/README.md)。

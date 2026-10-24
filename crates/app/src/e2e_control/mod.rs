@@ -235,6 +235,10 @@ fn execute_in(command: Command, window: &mut Window, cx: &mut App) -> Outcome {
             }
             done(Response::ok())
         }
+        Command::Deactivate => {
+            window.set_inactive_for_e2e(cx);
+            done(Response::ok())
+        }
         Command::Mouse {
             phase,
             x,

@@ -124,7 +124,7 @@ fn overview_collapse_bits_round_trip_with_the_layout() {
     let wild = r#"{"left_view":"overview","collapsed":255}"#;
     assert_eq!(
         overview_layout_from_preference(Some(wild)).collapsed,
-        0b1111,
-        "越界位应被屏蔽"
+        0b11111,
+        "越界位应被屏蔽（五栏：处理、运行、待开始、想法、大脑）"
     );
 }

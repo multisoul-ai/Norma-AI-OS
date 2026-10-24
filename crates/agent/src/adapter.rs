@@ -63,6 +63,10 @@ pub enum AdapterCommand {
         node_id: u64,
         task: String,
     },
+    /// 把需要读代码、整理或派后续任务的请求交给后台大脑，前台只先回一句。
+    HandoffToBrain {
+        request: String,
+    },
     OpenWorkspaceArtifact {
         workspace_id: String,
         area_id: String,

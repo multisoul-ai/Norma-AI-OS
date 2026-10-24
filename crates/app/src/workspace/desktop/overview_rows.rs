@@ -70,6 +70,8 @@ pub(super) enum OverviewAction {
         node_id: u64,
         run_id: String,
         turn_id: String,
+        /// 有请求标识才能在概览里直接允许或拒绝。
+        request_id: Option<String>,
     },
     OpenReview {
         area_id: String,
@@ -339,6 +341,7 @@ fn attention_row(row: &RunOverviewAttention) -> OverviewRow {
             node_id: row.node_id,
             run_id: row.run_id.clone(),
             turn_id: row.turn_id.clone(),
+            request_id: row.request_id.clone(),
         },
         RunOverviewAttentionKind::Review => OverviewAction::OpenReview {
             area_id: row.area_id.clone(),

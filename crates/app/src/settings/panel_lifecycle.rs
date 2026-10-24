@@ -36,6 +36,9 @@ impl MultisoulApp {
                 .is_some_and(|context| context.area.is_some());
             self.refresh_wallpaper_library(cx);
         }
+        if section == SettingsSection::NormaBrain {
+            self.refresh_brain_settings(cx);
+        }
         if section == SettingsSection::Mobile {
             self.mobile.update(cx, |host, cx| {
                 host.request(crate::mobile::controller::Command::Reload, cx)

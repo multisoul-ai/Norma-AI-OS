@@ -13,6 +13,7 @@ members = [
   "crates/live_voice",
   "crates/voice_input",
   "crates/agent",
+  "crates/brain",
   "crates/dialogue",
   "crates/canvas",
   "crates/storage",
@@ -80,6 +81,7 @@ asr = { path = "crates/asr" }
 license = { path = "crates/license" }
 analytics = { path = "crates/analytics" }
 agent = { path = "crates/agent" }
+brain = { path = "crates/brain" }
 dialogue = { path = "crates/dialogue" }
 canvas = { path = "crates/canvas" }
 storage = { path = "crates/storage" }

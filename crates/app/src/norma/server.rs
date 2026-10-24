@@ -59,6 +59,13 @@ impl MultisoulApp {
             command,
             ..
         } = request;
+        let command = match command {
+            CardCommand::Brain { token, op } => {
+                let result = self.execute_brain_command(&token, op, window, cx);
+                return WireResponse::new(request_id, result);
+            }
+            other => other,
+        };
         let managed_command = is_managed_agent_command(&command);
         let managed_started = managed_command.then(Instant::now);
         let logged_command = managed_command.then(|| command.clone());
@@ -339,6 +346,7 @@ pub(crate) fn execute_card_command_for_area_with_strategy(
         | CardCommand::CreateAgent { .. }
         | CardCommand::ActivateAgent { .. }
         | CardCommand::DispatchAgentTasks { .. }
+        | CardCommand::Brain { .. }
         | CardCommand::Ego { .. } => Err(CardCommandError::Unsupported {
             message: "high-level Agent commands require the project Agent coordinator".into(),
         }),

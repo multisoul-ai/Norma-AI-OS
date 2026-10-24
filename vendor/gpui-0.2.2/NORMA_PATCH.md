@@ -126,3 +126,11 @@ windows, so injected keystrokes would otherwise miss focused inputs while the
 isolated E2E window stays in the background. Only the debug-build desktop E2E
 control channel (`crates/app/src/e2e_control/`) calls it; a later real
 key-status change still overwrites the flag.
+
+## `Window::set_inactive_for_e2e` (2026-10-24)
+
+The inverse of `set_active_for_e2e`: marks the window inactive (running the
+activation observers on the first change) and refreshes, so the desktop E2E
+control channel can simulate the user leaving and coming back without touching
+the OS foreground. Only the debug-build control channel
+(`crates/app/src/e2e_control/`) calls it.

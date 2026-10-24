@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>幕僚设置</title>
+<style>
+:root {
+  --bg: #08111c; --surface: #0e1a28; --surface-2: #13233a; --surface-3: #1a2d47;
+  --outline: #2b405c; --outline-soft: #1f3149;
+  --on: #e6eef8; --on-2: #a9bccf; --on-3: #7f93a8;
+  --primary: #8cc4ff; --on-primary: #00315a; --primary-container: #17426b; --on-primary-container: #d2e6ff;
+  --ok: #7ad6a6; --ok-container: #123a2a; --warn: #f2c773; --warn-container: #3d2f12;
+  --state-hover: rgba(205, 232, 255, .08); --state-press: rgba(205, 232, 255, .14); --focus: #8cc4ff;
+}
+:root[data-theme="light"] {
+  --bg: #eef2f7; --surface: #ffffff; --surface-2: #f3f6fa; --surface-3: #e7edf5;
+  --outline: #c3cedb; --outline-soft: #dde4ed;
+  --on: #121c27; --on-2: #46566a; --on-3: #6b7b8e;
+  --primary: #1f62a8; --on-primary: #ffffff; --primary-container: #d4e5fb; --on-primary-container: #0b2e52;
+  --ok: #1d7a4f; --ok-container: #d6f2e3; --warn: #8a5d00; --warn-container: #fbecc8;
+  --state-hover: rgba(18, 28, 39, .06); --state-press: rgba(18, 28, 39, .11); --focus: #1f62a8;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--on); font: 14px/1.45 -apple-system, BlinkMacSystemFont, "PingFang SC", system-ui, sans-serif; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.topbar { display: flex; align-items: center; justify-content: space-between; max-width: 1100px; margin: 0 auto; padding: 16px; gap: 12px; flex-wrap: wrap; }
+.topbar h1 { font-size: 15px; font-weight: 600; margin: 0; color: var(--on-2); }
+.theme-toggle { border: 1px solid var(--outline); background: transparent; border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+.theme-toggle:hover { background: var(--state-hover); }
+
+.window { max-width: 1100px; margin: 0 auto 32px; display: grid; grid-template-columns: 240px 1fr; background: var(--surface); border: 1px solid var(--outline-soft); border-radius: 20px; overflow: hidden; min-height: 760px; }
+.nav { background: var(--surface); border-right: 1px solid var(--outline-soft); padding: 20px 12px; }
+.nav h2 { font-size: 20px; margin: 4px 12px 20px; }
+.nav .group { font-size: 12px; color: var(--on-3); margin: 16px 12px 6px; font-weight: 600; }
+.nav a { display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 12px; border-radius: 999px; color: var(--on-2); text-decoration: none; }
+.nav a:hover { background: var(--state-hover); }
+.nav a.active { background: var(--primary-container); color: var(--on-primary-container); font-weight: 600; }
+
+.content { padding: 24px 32px 40px; overflow: auto; }
+.page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.page-head h3 { font-size: 24px; font-weight: 500; margin: 0 0 4px; }
+.page-head p { margin: 0; color: var(--on-2); max-width: 620px; }
+
+/* 状态卡：页面最重要的信息与总开关 */
+.hero { margin-top: 20px; background: var(--surface-2); border-radius: 16px; padding: 16px 20px; display: flex; align-items: center; gap: 16px; }
+.hero .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 4px var(--ok-container); flex: none; }
+.hero.off .dot { background: var(--on-3); box-shadow: 0 0 0 4px var(--surface-3); }
+.hero .text { flex: 1; min-width: 0; }
+.hero .title { font-size: 16px; font-weight: 600; }
+.hero .meta { color: var(--on-2); font-size: 13px; }
+.chip-status { font-size: 12px; padding: 2px 10px; border-radius: 8px; background: var(--ok-container); color: var(--ok); font-weight: 600; }
+.hero.off .chip-status { background: var(--surface-3); color: var(--on-3); }
+
+section { margin-top: 28px; }
+section > h4 { font-size: 13px; font-weight: 600; color: var(--primary); margin: 0 0 8px 4px; letter-spacing: .02em; }
+.card { background: var(--surface-2); border-radius: 16px; overflow: hidden; }
+.row { display: flex; align-items: center; gap: 16px; padding: 14px 20px; min-height: 64px; }
+.row + .row { border-top: 1px solid var(--outline-soft); }
+.row.clickable { cursor: pointer; }
+.row.clickable:hover { background: var(--state-hover); }
+.row.clickable:active { background: var(--state-press); }
+.row .label { flex: 1; min-width: 0; }
+.row .label .t { font-size: 15px; }
+.row .label .s { font-size: 13px; color: var(--on-2); margin-top: 2px; }
+.row .new { font-size: 11px; color: var(--primary); border: 1px solid var(--primary); border-radius: 6px; padding: 0 6px; margin-left: 8px; vertical-align: 2px; }
+.row.disabled { opacity: .5; cursor: default; }
+
+/* M3 switch */
+.switch { position: relative; width: 52px; height: 32px; flex: none; border-radius: 999px; border: 2px solid var(--outline); background: var(--surface-3); cursor: pointer; padding: 0; transition: background .15s; }
+.switch::after { content: ""; position: absolute; top: 50%; left: 6px; width: 16px; height: 16px; border-radius: 50%; background: var(--on-3); transform: translateY(-50%); transition: left .15s, width .15s, height .15s; }
+.switch[aria-checked="true"] { background: var(--primary); border-color: var(--primary); }
+.switch[aria-checked="true"]::after { left: 24px; width: 24px; height: 24px; background: var(--on-primary); }
+.switch:hover::after { box-shadow: 0 0 0 8px var(--state-hover); }
+.switch:disabled { opacity: .38; cursor: default; }
+@media (prefers-reduced-motion: reduce) { .switch, .switch::after { transition: none; } }
+
+/* M3 segmented button */
+.seg { display: inline-flex; border: 1px solid var(--outline); border-radius: 999px; overflow: hidden; flex: none; }
+.seg button { border: 0; background: transparent; padding: 0 16px; height: 36px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.seg button + button { border-left: 1px solid var(--outline); }
+.seg button:hover { background: var(--state-hover); }
+.seg button[aria-pressed="true"] { background: var(--primary-container); color: var(--on-primary-container); font-weight: 600; }
+.seg button[aria-pressed="true"]::before { content: "✓"; font-size: 12px; }
+
+/* 下拉（exposed dropdown menu） */
+.select { position: relative; flex: none; }
+.select > button { min-width: 176px; height: 40px; border: 1px solid var(--outline); background: transparent; border-radius: 8px; padding: 0 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; }
+.select > button:hover { background: var(--state-hover); }
+.select > button::after { content: "▾"; color: var(--on-2); }
+.menu { position: absolute; right: 0; top: 44px; min-width: 220px; background: var(--surface-3); border-radius: 12px; padding: 6px 0; box-shadow: 0 8px 24px rgba(0,0,0,.35); z-index: 10; display: none; }
+.menu.open { display: block; }
+.menu div { height: 48px; padding: 0 12px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+.menu div:hover { background: var(--state-hover); }
+.menu div small { color: var(--on-3); margin-left: 8px; }
+.menu div[aria-selected="true"]::after { content: "✓"; color: var(--primary); }
+
+/* 后端：单选列表 */
+.radio { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--on-2); flex: none; display: grid; place-items: center; }
+.radio.on { border-color: var(--primary); }
+.radio.on::after { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--primary); }
+.badge { font-size: 12px; color: var(--on-3); }
+.text-btn { border: 0; background: transparent; color: var(--primary); font-weight: 600; padding: 0 12px; height: 36px; border-radius: 999px; cursor: pointer; }
+.text-btn:hover { background: var(--state-hover); }
+
+/* 过滤 chip */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 20px 18px; }
+.chip { height: 32px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--outline); background: transparent; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.chip:hover { background: var(--state-hover); }
+.chip[aria-pressed="true"] { background: var(--primary-container); border-color: transparent; color: var(--on-primary-container); }
+.chip[aria-pressed="true"]::before { content: "✓"; font-size: 12px; }
+
+.note { display: flex; gap: 10px; padding: 12px 20px; color: var(--on-2); font-size: 13px; background: var(--surface); border-top: 1px solid var(--outline-soft); }
+.note b { color: var(--on); font-weight: 600; }
+
+/* 右侧改动说明 */
+.notes { max-width: 1100px; margin: 0 auto 48px; padding: 0 16px; color: var(--on-2); }
+.notes h4 { color: var(--on); margin: 0 0 8px; }
+.notes li { margin: 4px 0; }
+
+@media (max-width: 760px) {
+  .window { grid-template-columns: 1fr; }
+  .nav { display: none; }
+  .content { padding: 16px; }
+  .row { flex-wrap: wrap; }
+  .select > button { min-width: 140px; }
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>原型 · 幕僚设置（Material 3）</h1>
+  <button class="theme-toggle" id="theme">切换浅色 / 深色</button>
+</div>
+
+<div class="window">
+  <nav class="nav" aria-label="设置">
+    <h2>设置</h2>
+    <div class="group">通用</div>
+    <a href="#">基本设置</a><a href="#">主题</a><a href="#">壁纸</a>
+    <div class="group">Norma</div>
+    <a href="#">人设</a><a href="#">记忆</a><a href="#">语音</a>
+    <a href="#" class="active" aria-current="page">幕僚</a>
+  </nav>
+
+  <main class="content">
+    <div class="page-head">
+      <div>
+        <h3>幕僚</h3>
+        <p>幕僚在后台用你已安装的编码 Agent 整理进度、提议下一步，把需要你拍板的事递给你。它只能执行 norma 命令、读项目文件，不会改动任何文件。</p>
+      </div>
+    </div>
+
+    <!-- 总开关 + 状态：页面第一眼只回答“开没开、在不在跑” -->
+    <div class="hero" id="hero">
+      <span class="dot"></span>
+      <div class="text">
+        <div class="title">幕僚 <span class="chip-status" id="status">运行中</span></div>
+        <div class="meta" id="meta">Claude Code · Opus · 修改后自动重启</div>
+      </div>
+      <button class="switch" role="switch" aria-checked="true" aria-label="启用幕僚" id="master"></button>
+    </div>
+
+    <div id="body">
+    <section>
+      <h4>汇报</h4>
+      <div class="card">
+        <div class="row clickable" data-switch="voice">
+          <div class="label"><div class="t">语音汇报 <span class="new">从标题栏移到这里</span></div><div class="s">关键进展用语音告诉你；关闭后幕僚照常工作，只是不说话</div></div>
+          <button class="switch" role="switch" aria-checked="true" aria-label="语音汇报" id="voice"></button>
+        </div>
+        <div class="row">
+          <div class="label"><div class="t">定时摘要</div><div class="s">按间隔汇总一次整体进度</div></div>
+          <div class="seg" role="group" aria-label="定时摘要">
+            <button aria-pressed="true">5 分钟</button><button aria-pressed="false">10 分钟</button><button aria-pressed="false">关闭</button>
+          </div>
+        </div>
+        <div class="row">
+          <div class="label"><div class="t">判断较慢时</div><div class="s">审批超过 60 秒还没结论时怎么提醒</div></div>
+          <div class="select">
+            <button aria-haspopup="listbox" aria-expanded="false">只在概览显示</button>
+            <div class="menu" role="listbox">
+              <div role="option" aria-selected="true">只在概览显示</div>
+              <div role="option" aria-selected="false">语音提醒一次</div>
+              <div role="option" aria-selected="false">不提醒</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h4>下一步与自主权</h4>
+      <div class="card">
+        <div class="row">
+          <div class="label"><div class="t">后续任务</div><div class="s">Agent 完成后，幕僚拟好的下一步怎么处理</div></div>
+          <div class="seg" role="group" aria-label="后续任务">
+            <button aria-pressed="true">先问我</button><button aria-pressed="false">直接派发</button>
+          </div>
+        </div>
+        <div class="row clickable" data-switch="ro">
+          <div class="label"><div class="t">放行只读、测试、构建</div><div class="s">例如 cargo test、git status</div></div>
+          <button class="switch" role="switch" aria-checked="true" aria-label="放行只读、测试、构建"></button>
+        </div>
+        <div class="row clickable" data-switch="wr">
+          <div class="label"><div class="t">放行项目内写文件</div><div class="s">项目目录之外的写入始终问你</div></div>
+          <button class="switch" role="switch" aria-checked="true" aria-label="放行项目内写文件"></button>
+        </div>
+        <div class="row disabled">
+          <div class="label"><div class="t">停止或重启卡住的 Agent</div><div class="s">即将支持</div></div>
+          <button class="switch" role="switch" aria-checked="false" disabled aria-label="停止或重启卡住的 Agent"></button>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h4>始终先问你</h4>
+      <div class="card">
+        <div class="chips">
+          <button class="chip" aria-pressed="true">git push / 合并</button>
+          <button class="chip" aria-pressed="true">删除文件</button>
+          <button class="chip" aria-pressed="false">写项目外路径</button>
+          <button class="chip" aria-pressed="true">部署与发布</button>
+          <button class="chip" aria-pressed="true">密钥与凭据</button>
+          <button class="chip" aria-pressed="false">提权与未知工具</button>
+        </div>
+        <div class="note">选中的操作即使幕僚判断安全，也会放进“需要你处理”。</div>
+      </div>
+    </section>
+
+    <section>
+      <h4>模型</h4>
+      <div class="card">
+        <div class="row clickable" data-radio>
+          <span class="radio on"></span>
+          <div class="label"><div class="t">Claude Code</div><div class="s">已安装 · claude-agent-acp</div></div>
+        </div>
+        <div class="row clickable" data-radio>
+          <span class="radio"></span>
+          <div class="label"><div class="t">OpenCode</div><div class="s">已安装 · opencode acp</div></div>
+        </div>
+        <div class="row disabled">
+          <span class="radio"></span>
+          <div class="label"><div class="t">Codex</div><div class="s">未检测到 ACP 适配器</div></div>
+          <button class="text-btn">安装适配器</button>
+        </div>
+        <div class="row">
+          <div class="label"><div class="t">策略</div><div class="s" id="strategy-note">自动：审批用快模型，规划和回答用强模型</div></div>
+          <div class="seg" role="group" aria-label="策略" id="strategy">
+            <button aria-pressed="false" data-note="速度优先：所有环节都用快模型，延迟最低">速度</button>
+            <button aria-pressed="true" data-note="自动：审批用快模型，规划和回答用强模型">自动</button>
+            <button aria-pressed="false" data-note="质量优先：所有环节都用强模型，审批更慢">质量</button>
+          </div>
+        </div>
+        <div class="row">
+          <div class="label"><div class="t">主会话模型</div><div class="s">整理进度、提议下一步、回答你</div></div>
+          <div class="select">
+            <button aria-haspopup="listbox" aria-expanded="false">跟随策略</button>
+            <div class="menu" role="listbox">
+              <div role="option" aria-selected="true">跟随策略<small>当前 Opus</small></div>
+              <div role="option" aria-selected="false">Opus</div>
+              <div role="option" aria-selected="false">Sonnet</div>
+              <div role="option" aria-selected="false">Haiku</div>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="label"><div class="t">审批会话模型</div><div class="s">判断 Agent 的权限请求</div></div>
+          <div class="select">
+            <button aria-haspopup="listbox" aria-expanded="false">跟随策略</button>
+            <div class="menu" role="listbox">
+              <div role="option" aria-selected="true">跟随策略<small>当前 Haiku</small></div>
+              <div role="option" aria-selected="false">Opus</div>
+              <div role="option" aria-selected="false">Sonnet</div>
+              <div role="option" aria-selected="false">Haiku</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h4>高级</h4>
+      <div class="card">
+        <div class="row clickable" data-switch="par">
+          <div class="label"><div class="t">并行处理审批</div><div class="s">多个审批同时到达时一起判断；关闭则排队</div></div>
+          <button class="switch" role="switch" aria-checked="true" aria-label="并行处理审批"></button>
+        </div>
+        <div class="note"><span>ⓘ</span><span><b>审批代理范围</b>：只代理带手机控制的 Claude Code 与 Codex 卡片；其他 Agent 只汇报进度。拿不准、出错或快到时限时，转到“需要你处理”。</span></div>
+      </div>
+    </section>
+    </div>
+  </main>
+</div>
+
+<div class="notes">
+  <h4>和现在相比改了什么</h4>
+  <ul>
+    <li>模块改名“幕僚”（英文 Chief of Staff）：设置页标题、状态卡、⌘⇧B 弹窗“幕僚活动”一起改；“Norma 自主处理”不变，代码里仍叫 brain。</li>
+    <li>顶部状态卡只回答“开没开、在不在跑、用的什么”，总开关放在这里；关闭后下面整页变灰。</li>
+    <li>按“汇报 → 下一步与自主权 → 始终先问你 → 模型 → 高级”排序：常改的在上，装好后很少改的模型和后端放到下面。</li>
+    <li>“语音汇报”从标题栏移到“汇报”分组第一行。</li>
+    <li>每组用一张 Material 卡片，行高 64、一行一个设置，开关统一用 switch，三选一用分段按钮，四个以上选项用下拉菜单，多选用 filter chip；取代原来的大块按钮、复选框和标签混用。</li>
+    <li>“给空闲 Agent 派后续任务”改成“后续任务：先问我 / 直接派发”，和刚做的提议流程一致。</li>
+    <li>长说明收进行内副标题或底部提示，页面上不再出现成段文字。</li>
+  </ul>
+</div>
+
+<script>
+const root = document.documentElement;
+document.getElementById('theme').onclick = () => {
+  root.dataset.theme = root.dataset.theme === 'light' ? 'dark' : 'light';
+};
+const flip = el => el.setAttribute('aria-checked', el.getAttribute('aria-checked') !== 'true');
+document.querySelectorAll('.row.clickable[data-switch]').forEach(row => {
+  row.addEventListener('click', e => { const s = row.querySelector('.switch'); if (e.target !== s) flip(s); });
+});
+document.querySelectorAll('.switch:not(#master)').forEach(s => s.addEventListener('click', e => { e.stopPropagation(); flip(s); }));
+const master = document.getElementById('master');
+master.onclick = () => {
+  flip(master);
+  const on = master.getAttribute('aria-checked') === 'true';
+  document.getElementById('hero').classList.toggle('off', !on);
+  document.getElementById('status').textContent = on ? '运行中' : '已关闭';
+  document.getElementById('body').style.opacity = on ? 1 : .45;
+  document.getElementById('body').inert = !on;
+};
+document.querySelectorAll('.seg').forEach(seg => seg.addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  seg.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  if (seg.id === 'strategy') document.getElementById('strategy-note').textContent = b.dataset.note;
+}));
+document.querySelectorAll('.chip').forEach(c => c.onclick = () => c.setAttribute('aria-pressed', c.getAttribute('aria-pressed') !== 'true'));
+document.querySelectorAll('.row[data-radio]').forEach(row => row.onclick = () => {
+  document.querySelectorAll('.row[data-radio] .radio').forEach(r => r.classList.remove('on'));
+  row.querySelector('.radio').classList.add('on');
+  document.getElementById('meta').textContent = row.querySelector('.t').textContent + ' · 修改后自动重启';
+});
+document.querySelectorAll('.select').forEach(sel => {
+  const btn = sel.querySelector('button'), menu = sel.querySelector('.menu');
+  btn.onclick = e => { e.stopPropagation(); const open = !menu.classList.contains('open');
+    document.querySelectorAll('.menu.open').forEach(m => m.classList.remove('open')); menu.classList.toggle('open', open); btn.setAttribute('aria-expanded', open); };
+  menu.querySelectorAll('[role=option]').forEach(opt => opt.onclick = () => {
+    menu.querySelectorAll('[role=option]').forEach(o => o.setAttribute('aria-selected', o === opt));
+    btn.textContent = opt.childNodes[0].textContent; menu.classList.remove('open'); btn.setAttribute('aria-expanded', false); btn.focus();
+  });
+});
+document.addEventListener('click', () => document.querySelectorAll('.menu.open').forEach(m => m.classList.remove('open')));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.menu.open').forEach(m => m.classList.remove('open')); });
+</script>
+</body>
+</html>

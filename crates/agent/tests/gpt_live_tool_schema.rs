@@ -229,7 +229,7 @@ fn non_gpt_authorization_retains_original_strict_creation_requests() {
 /// 场景：既有普通语音、豆包来源和文字会话不得启用GPT的Schema适配。
 /// 构造：三种原有来源；每次让真实HTTP客户端完成一次Terminal工具往返。
 /// 执行：公开turn_streaming入口，逐项对比实际发送参数与未修改的公共注册表。
-/// 预期：原有16项工具定义逐项一致，删除工具仍有oneOf，且Terminal正常执行。
+/// 预期：原有16项工具定义逐项一致，另有后台大脑交接工具 handoff_to_brain 共17项，删除工具仍有oneOf，且Terminal正常执行。
 #[tokio::test]
 async fn existing_voice_sources_keep_original_tool_definitions_and_execution() {
     for source in [
@@ -260,8 +260,8 @@ async fn existing_voice_sources_keep_original_tool_definitions_and_execution() {
         let definitions = agent::norma_tool_definitions();
         assert_eq!(
             tools.len(),
-            16,
-            "原有桌面来源工具集合不能增删，17项公共定义中workspace_memory仅手机使用"
+            17,
+            "原有桌面来源工具集合除新增 handoff_to_brain 外不能增删；公共定义中workspace_memory仅手机使用"
         );
         for tool in tools {
             let name = tool["function"]["name"].as_str().expect("工具名称");

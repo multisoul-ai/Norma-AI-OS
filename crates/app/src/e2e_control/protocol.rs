@@ -38,6 +38,8 @@ pub(super) enum MousePhase {
 pub(super) enum Command {
     Window,
     Activate,
+    /// 模拟用户离开：把窗口标记为不活跃。
+    Deactivate,
     Mouse {
         phase: MousePhase,
         x: f32,

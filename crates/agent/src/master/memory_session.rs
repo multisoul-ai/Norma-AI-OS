@@ -87,7 +87,9 @@ where
         return builder.build();
     }
     let delete = DeleteCanvasCardTool::new(tools.clone());
+    // 个人会话没有项目，也就没有后台大脑可交接。
     let builder = builder
+        .tool(crate::rig_tools::HandoffToBrainTool::new(tools.clone()))
         .tool(FindAgentTasksTool::new(tools.clone()))
         .tool(CreateAgentTool::new(tools.clone()))
         .tool(AssignAgentTaskTool::new(tools.clone()))

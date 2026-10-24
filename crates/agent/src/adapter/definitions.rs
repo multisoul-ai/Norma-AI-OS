@@ -200,6 +200,14 @@ pub fn norma_tool_definitions() -> Vec<ToolDefinition> {
             &["idea_id", "workspace_id", "area_id"],
         ),
     ));
+    tools.push(definition(
+        "handoff_to_brain",
+        "把需读代码或文档、整理多个 Agent 进度、派后续任务的请求交给后台大脑。调用后只说“我去看看”，结果稍后播报。简单状态问题不要交接。",
+        object_schema(
+            json!({"request": {"type": "string", "minLength": 1}}),
+            &["request"],
+        ),
+    ));
     tools
 }
 

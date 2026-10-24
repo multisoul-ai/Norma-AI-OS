@@ -16,6 +16,7 @@ Workspace 分层：
 - `crates/storage/` - 零 GPUI 存储层：SQLite store、migration、recent/settings/canvas/session checkpoint。
 - `crates/workspace/` - 零 GPUI 元数据层：最近项目类型、workspace source、路径展示。
 - `crates/agent/` - 零 GPUI/Storage Agent Runtime：NormaSession、Rig Provider、typed tools、AgentCardAdapter 与预算。
+- `crates/brain/` - 零 GPUI/Storage/Runtime/Agent 的后台幕僚：事件分流、ACP 会话、权限闸门与提议；只依赖 `norma` 协议类型，动作一律经 `norma` CLI。
 - `crates/asr/` - 零 GPUI/Storage/Keychain ASR 领域层：provider、识别协议、Local Sherpa、Cloud Azure、模型安装与完整性。
 - `crates/voice_input/` - provider 中立的音频输入层：权限、设备、采集、重采样、PCM 流与共享 VAD。
 - `crates/model_store/` - 零 GPUI/网络的共享本地模型安装原语：受控解压、哈希、manifest 与原子提升。
@@ -25,7 +26,7 @@ Workspace 分层：
 - `crates/ui/` - GPUI 主题与共享 UI 基础。
 - `crates/app/` - GPUI/Metal 壳层：窗口、菜单、快捷键、画布与 cards 渲染。
 
-依赖方向：`app -> {ui, runtime, canvas, terminal, storage, asr, voice_input, tts, voice_sherpa, media_store, analytics}`，`voice_sherpa -> {asr, voice_input, tts, dialogue, audio}`，`dialogue -> voice_input`，`tts -> {model_store, audio}`，`runtime -> {canvas, terminal, storage}`，`storage -> {agent, canvas, workspace}`；`asr/model_store/tts/agent/voice_input` 不得依赖 `app/runtime/storage/ui`，且 `tts` 不得依赖 Sherpa；`tts` 的网络协议只能位于 `tts::providers`；`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。
+依赖方向：`brain -> norma`，`app -> {brain, ui, runtime, canvas, terminal, storage, asr, voice_input, tts, voice_sherpa, media_store, analytics}`，`voice_sherpa -> {asr, voice_input, tts, dialogue, audio}`，`dialogue -> voice_input`，`tts -> {model_store, audio}`，`runtime -> {canvas, terminal, storage}`，`storage -> {agent, canvas, workspace}`；`asr/model_store/tts/agent/voice_input` 不得依赖 `app/runtime/storage/ui`，且 `tts` 不得依赖 Sherpa；`tts` 的网络协议只能位于 `tts::providers`；`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。
 
 ### 源码组织
 
@@ -121,6 +122,7 @@ Workspace 分层：
 | Workspace 元数据、路径展示 | [`crates/workspace/src/`](crates/workspace/src/) |
 | 主题色 | [`crates/ui/src/theme.rs`](crates/ui/src/theme.rs) |
 | iOS 原生页面、组件、色彩与动效样式规范 | [`docs/design-docs/norma-ios-style-guide.md`](docs/design-docs/norma-ios-style-guide.md)；[HTML 视觉速览](docs/design-docs/norma-ios-style-guide.html) |
+| Norma 大脑（ACP 后台决策、语音汇报） | [`docs/design-docs/2026-10-23-norma-brain-acp.md`](docs/design-docs/2026-10-23-norma-brain-acp.md)；[实施计划](docs/exec-plans/2026-10-23-norma-brain-acp.md)；[原型](docs/prototypes/norma-brain/README.md) |
 | GUI 组件库（优先使用） | [`docs/references/gpui-component.md`](docs/references/gpui-component.md) |
 | UI 菜单/按钮 hover、focus、pressed、selected 规范 | [`docs/quality/ui-interaction-feedback.md`](docs/quality/ui-interaction-feedback.md) |
 | Google Material 菜单与选择器设计偏好 | [`docs/design-docs/material-menus.md`](docs/design-docs/material-menus.md) |

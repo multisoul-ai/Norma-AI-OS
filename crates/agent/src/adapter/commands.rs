@@ -31,6 +31,12 @@ struct AssignWorkspaceTaskArgs {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct HandoffToBrainArgs {
+    request: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct OpenWorkspaceArtifactArgs {
     workspace_id: String,
     area_id: String,
@@ -149,6 +155,12 @@ pub(super) fn parse_adapter_command(
         return result;
     }
     match name {
+        "handoff_to_brain" => {
+            let args: HandoffToBrainArgs = parse(arguments)?;
+            Ok(AdapterCommand::HandoffToBrain {
+                request: require_text("request", args.request)?,
+            })
+        }
         "locate_workspace_agent" => {
             let args: LocateWorkspaceAgentArgs = parse(arguments)?;
             require_positive("node_id", args.node_id)?;
