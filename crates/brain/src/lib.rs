@@ -13,7 +13,8 @@ pub mod router;
 pub mod service;
 pub mod triage;
 
-pub use backend::{Backend, BackendKind, Strategy};
+pub use acp::client::discover_models;
+pub use backend::{Backend, BackendKind, ModelChoice, Strategy};
 pub use event::{ApprovalRequest, BrainEvent, BrainStatus, Outcome};
 pub use risk::ApprovalSubject;
 pub use risk::{is_inside_project, is_secret_path, single_command};

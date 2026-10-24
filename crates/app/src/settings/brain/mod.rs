@@ -1,6 +1,7 @@
 //! 设置 → 幕僚：顶部状态卡加五个分组（汇报、下一步与自主权、始终先问你、模型、高级），
 //! 按 Material 3 的列表排布。所有选项都落到 `~/.norma/brain/config.json`。
 
+mod backend_models;
 mod models;
 mod widgets;
 

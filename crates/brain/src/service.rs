@@ -74,10 +74,8 @@ impl BrainService {
         let open = Arc::new(Mutex::new(HashSet::new()));
         let goal = Arc::new(GoalStore::open(config.state_dir.clone()));
         let mut models = backend::models_for(config.backend.kind, config.strategy);
-        if config.backend.kind == backend::BackendKind::ClaudeCode {
-            models.main = config.main_model.clone().or(models.main);
-            models.approval = config.approval_model.clone().or(models.approval);
-        }
+        models.main = config.main_model.clone().or(models.main);
+        models.approval = config.approval_model.clone().or(models.approval);
         let gate = Gate {
             norma_bin: config.norma_bin.clone(),
             project_root: config.project_root.clone(),
@@ -86,6 +84,8 @@ impl BrainService {
             role,
             backend: config.backend.clone(),
             model,
+            effort: backend::effort_for(config.backend.kind, config.strategy, role == Role::Main)
+                .map(str::to_string),
             gate: gate.clone(),
             goal: goal.clone(),
             status: status_tx.clone(),

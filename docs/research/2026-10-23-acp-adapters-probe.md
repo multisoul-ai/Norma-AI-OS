@@ -59,3 +59,10 @@
 - Codex 发来的 `rawInput.command` 会把整条命令再用双引号包一层，闸门需要拆开一层再检查。
 - 结论：幕僚用 Codex 时会话切到 `read-only`；与 Claude Code 不同，Codex 的只读命令（读文件、列目录）不经过 Norma 闸门，只受 Codex 只读沙箱约束，可能读到项目目录之外的文件。
 - 真实 App 验收：`NORMA_BRAIN_E2E_BACKEND=codex NORMA_BRAIN_E2E_ADAPTERS=<装有 codex-acp 的目录> scripts/desktop-e2e.sh brain-report` 通过。
+
+## 2026-10-24 补测：OpenCode（`opencode acp`）
+
+- 默认 `build` 模式下，执行命令、写文件、连 socket 都**不发**权限请求，闸门失效；`plan` 模式只是模型自己拒绝，不是强制拦截。
+- 启动时注入 `OPENCODE_CONFIG_CONTENT={"permission":{"bash":"ask","edit":"deny","webfetch":"deny"}}` 后，每条命令都会发权限请求（选项 `once` / `always` / `reject`），交由 Norma 闸门判断。
+- 模型列表：三个适配器的 `session/new` 回复里都有 `configOptions` 中 id 为 `model` 的一项，可用 `session/set_config_option` 切换；Codex 另有 `reasoning_effort`。
+- 真实 App 验收：`NORMA_BRAIN_E2E_BACKEND=opencode scripts/desktop-e2e.sh brain-report` 通过。

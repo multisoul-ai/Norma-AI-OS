@@ -16,6 +16,8 @@ pub(crate) struct BrainSettingsView {
     pub installing: Option<BackendKind>,
     /// 上一次安装失败的后端与原因。
     pub install_error: Option<(BackendKind, String)>,
+    /// Codex、OpenCode 可选的模型。
+    pub model_lists: std::collections::HashMap<BackendKind, super::ModelList>,
 }
 
 impl BrainSettingsView {
@@ -78,6 +80,7 @@ impl MultisoulApp {
             installed: self.brain.installed.clone(),
             installing: self.brain.installing,
             install_error: self.brain.install_error.clone(),
+            model_lists: self.brain.model_lists.clone(),
         }
     }
 
@@ -85,19 +88,17 @@ impl MultisoulApp {
     pub(crate) fn refresh_brain_settings(&mut self, cx: &mut Context<Self>) {
         let work = cx.background_executor().spawn(async move {
             let dir = config::state_dir();
-            let installed: Vec<BackendKind> = dir
+            let backends = dir
                 .map(|dir| brain::backend::detect(&dir.join("adapters"), &config::search_dirs()))
-                .unwrap_or_default()
-                .into_iter()
-                .map(|backend| backend.kind)
-                .collect();
-            (config::load_settings(), installed)
+                .unwrap_or_default();
+            (config::load_settings(), backends)
         });
         cx.spawn(async move |this, cx| {
-            let (settings, installed) = work.await;
+            let (settings, backends) = work.await;
             let _ = this.update(cx, |app, cx| {
                 app.brain.settings = Some(settings);
-                app.brain.installed = installed;
+                app.brain.installed = backends.iter().map(|backend| backend.kind).collect();
+                app.discover_brain_models(backends, cx);
                 cx.notify();
             });
         })

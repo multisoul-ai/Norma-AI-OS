@@ -2,6 +2,7 @@
 
 use brain::{Backend, BackendKind, Strategy};
 use serde_json::{json, Value};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -42,6 +43,13 @@ pub(crate) struct Autonomy {
     pub assign_followups: bool,
 }
 
+/// 一个后端的主会话与审批会话模型；`None` 交给后端自己的默认值或策略。
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub(crate) struct ModelPair {
+    pub main: Option<String>,
+    pub approval: Option<String>,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct BrainSettings {
     pub enabled: bool,
@@ -59,6 +67,29 @@ pub(crate) struct BrainSettings {
     pub speak: bool,
     /// 用户点过“以后这类先问我”的操作类别，见 `log::ask_key`。
     pub always_ask: Vec<String>,
+    /// Codex、OpenCode 的模型，按后端分别保存；Claude Code 用 `main_model` 与 `approval_model`。
+    pub backend_models: HashMap<BackendKind, ModelPair>,
+}
+
+impl BrainSettings {
+    /// 所选后端要用的模型。
+    pub(crate) fn models_for(&self, kind: BackendKind) -> ModelPair {
+        match kind {
+            BackendKind::ClaudeCode => ModelPair {
+                main: self.main_model.clone(),
+                approval: self.approval_model.clone(),
+            },
+            other => self.backend_models.get(&other).cloned().unwrap_or_default(),
+        }
+    }
+}
+
+fn kind_key(kind: BackendKind) -> &'static str {
+    match kind {
+        BackendKind::ClaudeCode => "claude",
+        BackendKind::Codex => "codex",
+        BackendKind::OpenCode => "opencode",
+    }
 }
 
 impl Default for BrainSettings {
@@ -80,6 +111,7 @@ impl Default for BrainSettings {
             parallel_approvals: true,
             speak: true,
             always_ask: Vec::new(),
+            backend_models: HashMap::new(),
         }
     }
 }
@@ -174,6 +206,22 @@ pub(super) fn parse_settings(text: &str) -> BrainSettings {
                     .collect()
             })
             .unwrap_or_default(),
+        backend_models: [BackendKind::Codex, BackendKind::OpenCode]
+            .into_iter()
+            .filter_map(|kind| {
+                let entry = &value["backend_models"][kind_key(kind)];
+                let text = |key: &str| entry[key].as_str().map(str::to_string);
+                entry.is_object().then(|| {
+                    (
+                        kind,
+                        ModelPair {
+                            main: text("main"),
+                            approval: text("approval"),
+                        },
+                    )
+                })
+            })
+            .collect(),
     }
 }
 
@@ -186,11 +234,7 @@ pub(super) fn save_settings_to(dir: &Path, settings: &BrainSettings) -> std::io:
     std::fs::create_dir_all(dir)?;
     let value = json!({
         "enabled": settings.enabled,
-        "backend": settings.backend.map(|kind| match kind {
-            BackendKind::ClaudeCode => "claude",
-            BackendKind::Codex => "codex",
-            BackendKind::OpenCode => "opencode",
-        }),
+        "backend": settings.backend.map(kind_key),
         "strategy": match settings.strategy {
             Strategy::Speed => "speed",
             Strategy::Auto => "auto",
@@ -216,6 +260,16 @@ pub(super) fn save_settings_to(dir: &Path, settings: &BrainSettings) -> std::io:
         "parallel_approvals": settings.parallel_approvals,
         "speak": settings.speak,
         "always_ask": settings.always_ask,
+        "backend_models": settings
+            .backend_models
+            .iter()
+            .map(|(kind, pair)| {
+                (
+                    kind_key(*kind).to_string(),
+                    json!({"main": pair.main, "approval": pair.approval}),
+                )
+            })
+            .collect::<serde_json::Map<_, _>>(),
     });
     std::fs::write(dir.join("config.json"), serde_json::to_vec_pretty(&value)?)
 }
@@ -271,3 +325,7 @@ pub(super) fn adapter_env(
         ("NORMA_WORKSPACE_ROUTE_ID".into(), route_id.into()),
     ]
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/brain_config_models_tests.rs"]
+mod brain_config_models_tests;

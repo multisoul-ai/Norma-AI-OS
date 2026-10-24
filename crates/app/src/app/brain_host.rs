@@ -5,6 +5,7 @@ mod away;
 mod config;
 mod history;
 mod log;
+mod model_lists;
 mod ops;
 mod own_prompts;
 mod proposal_actions;
@@ -17,6 +18,7 @@ pub(crate) use trace::TurnCard;
 mod user_actions;
 pub(crate) use config::{BrainSettings, SlowReminder, SummaryEvery};
 pub(crate) use log::{ask_key, AutoAction, AutoKind, ASSIGN_KEY};
+pub(crate) use model_lists::ModelList;
 pub(crate) use settings::{adapter_package, BrainSettingsView};
 
 use crate::app::MultisoulApp;
@@ -69,6 +71,8 @@ pub(crate) struct BrainHostState {
     tracked: HashMap<String, Tracked>,
     installed: Vec<brain::BackendKind>,
     installing: Option<brain::BackendKind>,
+    /// 设置页列出的 Codex、OpenCode 模型。
+    model_lists: HashMap<brain::BackendKind, ModelList>,
     install_error: Option<(brain::BackendKind, String)>,
     /// 本项目里大脑自行处理过的事项。
     log: log::AutoLog,
@@ -130,6 +134,7 @@ impl BrainHostState {
             tracked: HashMap::new(),
             installed: Vec::new(),
             installing: None,
+            model_lists: HashMap::new(),
             install_error: None,
             log: log::AutoLog::default(),
             overview: OverviewSnapshot::default(),
@@ -231,10 +236,11 @@ impl MultisoulApp {
             return;
         };
         let token = uuid::Uuid::new_v4().simple().to_string();
+        let models = settings.models_for(backend.kind);
         let mut brain_config = BrainConfig::new(backend, paths.bundled_cli, root, state_dir);
         brain_config.strategy = settings.strategy;
-        brain_config.main_model = settings.main_model.clone();
-        brain_config.approval_model = settings.approval_model.clone();
+        brain_config.main_model = models.main;
+        brain_config.approval_model = models.approval;
         brain_config.approval_workers = if settings.parallel_approvals { 3 } else { 1 };
         brain_config.router.summary_every = settings.summary.duration();
         brain_config.router.quiet_window = config::quiet_window();

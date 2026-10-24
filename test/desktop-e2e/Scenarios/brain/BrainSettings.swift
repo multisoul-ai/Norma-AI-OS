@@ -25,6 +25,10 @@ public enum BrainSettings {
         let adapter = bin.appendingPathComponent("claude-agent-acp")
         try Data("#!/bin/sh\n".utf8).write(to: adapter)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: adapter.path)
+        // 假的 Codex 适配器：只回答握手和建会话，报两个模型，供设置页读取。
+        let codex = bin.appendingPathComponent("codex-acp")
+        try Data(fakeCodex.utf8).write(to: codex)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: codex.path)
 
         try await session.step("打开设置，进入幕僚") {
             setenv("NORMA_BRAIN_DIR", root.path, 1)
@@ -89,6 +93,30 @@ public enum BrainSettings {
             return (try? String(contentsOf: config, encoding: .utf8)) ?? ""
         }
 
+        try await session.step("选 Codex 作后端，从下拉菜单选主会话模型，配置按后端保存") {
+            try await BrainSupport.clickScrolling(session, "Codex")
+            try await waitConfig(config, contains: "\"backend\": \"codex\"")
+            for _ in 0..<15 {
+                if try await session.capture().contains("CLI default") { break }
+                try await Task.sleep(nanoseconds: 400_000_000)
+            }
+            let frame = try await session.capture()
+            // 主会话那一行的下拉按钮在审批会话之上，取最上面的一个。
+            guard let trigger = frame.pick(["CLI default"], .top) else {
+                throw E2EError.product("没有出现模型下拉菜单：\(frame.summary)")
+            }
+            try await session.click(local: trigger.center, on: frame)
+            let menu = try await session.wait(Expectation(allOf: ["Fake Sol"], timeout: 5))
+            try session.save(menu, "07-codex-model-menu.png")
+            try await session.click(matching: ["Fake Sol"], pick: .bottom)
+            try await waitConfig(config, contains: "\"main\": \"fake-sol\"")
+            // 菜单关闭（看不到另一项 Fake Luna），按钮文字换成 Fake Sol。
+            let after = try await session.wait(
+                Expectation(allOf: ["Fake Sol"], absent: ["Fake Luna"], timeout: 5))
+            try session.save(after, "08-codex-model-picked.png")
+            return (try? String(contentsOf: config, encoding: .utf8)) ?? ""
+        }
+
         try await session.step("切到浅色主题 Paper Blue，回到幕僚页看上下两部分") {
             // “Paper Blue”是浅色主题（纸白 · 钴蓝）。
             _ = try await SettingsSupport.select(session, labels: ["Themes"], content: ["Paper Blue"])
@@ -117,6 +145,18 @@ public enum BrainSettings {
         }
         throw E2EError.product("滚动后仍找不到「\(label)」")
     }
+
+    private static let fakeCodex = """
+    #!/usr/bin/env python3
+    import json, sys
+    def send(o): sys.stdout.write(json.dumps(o) + "\\n"); sys.stdout.flush()
+    for line in sys.stdin:
+        m = json.loads(line); method, mid = m.get("method"), m.get("id")
+        if method == "initialize": send({"jsonrpc": "2.0", "id": mid, "result": {"protocolVersion": 1, "agentCapabilities": {}}})
+        elif method == "session/new": send({"jsonrpc": "2.0", "id": mid, "result": {"sessionId": "fake", "configOptions": [
+            {"id": "model", "currentValue": "fake-luna", "options": [{"value": "fake-sol", "name": "Fake Sol"}, {"value": "fake-luna", "name": "Fake Luna"}]}]}})
+        elif mid is not None: send({"jsonrpc": "2.0", "id": mid, "result": {}})
+    """
 
     private static func waitConfig(_ url: URL, contains needle: String) async throws {
         let deadline = Date().addingTimeInterval(6)

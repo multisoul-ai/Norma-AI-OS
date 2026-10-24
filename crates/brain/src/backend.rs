@@ -3,7 +3,7 @@
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum BackendKind {
     ClaudeCode,
     Codex,
@@ -120,6 +120,51 @@ pub fn session_mode(kind: BackendKind) -> Option<&'static str> {
         BackendKind::Codex => Some("read-only"),
         BackendKind::OpenCode => None,
     }
+}
+
+/// 会话进程额外的环境变量。OpenCode 默认的 build 模式执行命令不发权限请求，
+/// 注入配置让每条命令都先请求批准，并禁止它改文件和联网。
+pub fn session_env(kind: BackendKind) -> Vec<(String, String)> {
+    if kind != BackendKind::OpenCode {
+        return Vec::new();
+    }
+    let config = json!({"permission": {"bash": "ask", "edit": "deny", "webfetch": "deny"}});
+    vec![("OPENCODE_CONFIG_CONTENT".into(), config.to_string())]
+}
+
+/// Codex 的推理强度：主会话随策略取 low、medium、high，审批会话始终 low。其他后端不设。
+pub fn effort_for(kind: BackendKind, strategy: Strategy, main: bool) -> Option<&'static str> {
+    if kind != BackendKind::Codex {
+        return None;
+    }
+    Some(match (main, strategy) {
+        (false, _) | (true, Strategy::Speed) => "low",
+        (true, Strategy::Auto) => "medium",
+        (true, Strategy::Quality) => "high",
+    })
+}
+
+/// 后端会话里可选的一个模型。
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ModelChoice {
+    pub id: String,
+    pub name: String,
+}
+
+/// 从 `session/new` 的回复里读出模型列表：取 `configOptions` 中 id 为 `model` 的那一项。
+pub fn model_choices(created: &Value) -> Vec<ModelChoice> {
+    created["configOptions"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|option| option["id"] == "model")
+        .flat_map(|option| option["options"].as_array().cloned().unwrap_or_default())
+        .filter_map(|choice| {
+            let id = choice["value"].as_str()?.to_string();
+            let name = choice["name"].as_str().unwrap_or(&id).to_string();
+            Some(ModelChoice { id, name })
+        })
+        .collect()
 }
 
 #[cfg(test)]

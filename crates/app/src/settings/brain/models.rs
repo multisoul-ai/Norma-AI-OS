@@ -28,11 +28,16 @@ pub(super) const BACKENDS: [(&str, &str, BackendKind, &str); 3] = [
     ),
 ];
 
-/// 状态卡里显示的主会话模型：只有 Claude Code 能选，其他后端跟随各自 CLI。
+/// 状态卡里显示的主会话模型。
 pub(super) fn model_name(view: &BrainSettingsView) -> String {
-    let kind = view.chosen_backend();
-    if kind != Some(BackendKind::ClaudeCode) {
+    let Some(kind) = view.chosen_backend() else {
         return t("settings.brain_model_cli").to_string();
+    };
+    if kind != BackendKind::ClaudeCode {
+        return view.settings.models_for(kind).main.map_or_else(
+            || t("settings.brain_model_cli").to_string(),
+            |id| super::backend_models::display_name(view.model_lists.get(&kind), &id),
+        );
     }
     let alias = view.settings.main_model.clone().or_else(|| {
         brain::backend::models_for(BackendKind::ClaudeCode, view.settings.strategy).main
@@ -97,16 +102,29 @@ pub(super) fn model_rows(
         }));
     }
     let strategy = s.strategy;
-    let note_key = match strategy {
-        Strategy::Speed => "settings.brain_strategy_note_speed",
-        Strategy::Auto => "settings.brain_strategy_note_auto",
-        Strategy::Quality => "settings.brain_strategy_note_quality",
+    let chosen = view.chosen_backend();
+    let note: gpui::SharedString = match (chosen, strategy) {
+        (Some(BackendKind::Codex), strategy) => ui::i18n::format(
+            "settings.brain_strategy_note_codex",
+            &[(
+                "effort",
+                brain::backend::effort_for(BackendKind::Codex, strategy, true)
+                    .unwrap_or_default()
+                    .to_string(),
+            )],
+        )
+        .into(),
+        (_, Strategy::Speed) => t("settings.brain_strategy_note_speed").into(),
+        (_, Strategy::Auto) => t("settings.brain_strategy_note_auto").into(),
+        (_, Strategy::Quality) => t("settings.brain_strategy_note_quality").into(),
     };
-    rows.push(
+    // OpenCode 没有可随策略调的参数，只按选的模型跑。
+    let show_strategy = chosen != Some(BackendKind::OpenCode);
+    rows.extend(show_strategy.then(|| {
         row(
             theme,
             t("settings.brain_strategy"),
-            Some(t(note_key).into()),
+            Some(note.clone()),
             segmented(
                 "settings-brain-strategy",
                 vec![
@@ -132,21 +150,26 @@ pub(super) fn model_rows(
                 cx,
             ),
         )
-        .into_any_element(),
-    );
-    let claude = view.chosen_backend() == Some(BackendKind::ClaudeCode);
-    rows.push(model_row(theme, claude, s.main_model.clone(), true, cx));
-    rows.push(model_row(
-        theme,
-        claude,
-        s.approval_model.clone(),
-        false,
-        cx,
-    ));
+        .into_any_element()
+    }));
+    match chosen {
+        Some(kind @ (BackendKind::Codex | BackendKind::OpenCode)) => {
+            rows.push(super::backend_models::model_row(
+                theme, view, kind, true, cx,
+            ));
+            rows.push(super::backend_models::model_row(
+                theme, view, kind, false, cx,
+            ));
+        }
+        _ => {
+            rows.push(model_row(theme, true, s.main_model.clone(), true, cx));
+            rows.push(model_row(theme, true, s.approval_model.clone(), false, cx));
+        }
+    }
     rows
 }
 
-/// 模型只对 Claude Code 可选（别名 opus、sonnet、haiku）；其他后端跟随各自 CLI。
+/// Claude Code 的模型：固定的三个别名加“跟随策略”。
 fn model_row(
     theme: Theme,
     claude: bool,

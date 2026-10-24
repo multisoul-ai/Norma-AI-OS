@@ -34,12 +34,16 @@ pub struct SessionOptions {
     /// 建好会话后再用 `session/set_config_option` 切一次模型：适配器会让用户自己的
     /// Claude Code 设置覆盖 `_meta` 里的模型。
     pub model: Option<String>,
+    /// Codex 的推理强度，用 `session/set_config_option` 的 `reasoning_effort` 设置。
+    pub effort: Option<String>,
     pub handshake_timeout: Duration,
 }
 
 pub struct AcpSession {
     conn: Connection,
     session_id: String,
+    /// `session/new` 的回复，用来读出可选的模型。
+    created: Value,
 }
 
 impl AcpSession {
@@ -71,18 +75,32 @@ impl AcpSession {
                 deadline,
             )?;
         }
-        if let Some(model) = &options.model {
-            // 切不过去时沿用适配器选的模型，不让会话因此建不起来。
+        let configs = [
+            ("model", &options.model),
+            ("reasoning_effort", &options.effort),
+        ];
+        for (config_id, value) in configs {
+            let Some(value) = value else { continue };
+            // 切不过去时沿用适配器的默认值，不让会话因此建不起来。
             if let Err(error) = call(
                 &mut conn,
                 "session/set_config_option",
-                json!({"sessionId": session_id, "configId": "model", "value": model}),
+                json!({"sessionId": session_id, "configId": config_id, "value": value}),
                 deadline,
             ) {
-                tracing::warn!(%error, model, "大脑会话切换模型失败");
+                tracing::warn!(%error, config_id, value, "大脑会话设置失败");
             }
         }
-        Ok(Self { conn, session_id })
+        Ok(Self {
+            conn,
+            session_id,
+            created,
+        })
+    }
+
+    /// 这个会话里可选的模型。
+    pub fn model_choices(&self) -> Vec<crate::backend::ModelChoice> {
+        crate::backend::model_choices(&self.created)
     }
 
     /// 发一条 prompt，返回助手的文字回复。期间的权限请求交给 `gate`。
@@ -237,4 +255,27 @@ fn call(
             Err(_) => return Err(AcpError::Closed),
         }
     }
+}
+
+/// 建一次会话读出后端可选的模型，然后关掉。用于设置页列出 Codex、OpenCode 的模型。
+pub fn discover_models(
+    backend: &crate::backend::Backend,
+    cwd: PathBuf,
+    env: Vec<(String, String)>,
+) -> Result<Vec<crate::backend::ModelChoice>, AcpError> {
+    let options = SessionOptions {
+        program: backend.program.clone(),
+        args: backend.args.clone(),
+        cwd,
+        env: env
+            .into_iter()
+            .chain(crate::backend::session_env(backend.kind))
+            .collect(),
+        meta: crate::backend::session_meta(backend.kind, None),
+        mode: None,
+        model: None,
+        effort: None,
+        handshake_timeout: Duration::from_secs(60),
+    };
+    Ok(AcpSession::start(&options)?.model_choices())
 }

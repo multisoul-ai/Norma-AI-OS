@@ -248,6 +248,7 @@ fn extended_settings_round_trip_and_defaults() {
         parallel_approvals: false,
         speak: false,
         always_ask: vec!["Bash:cargo".into(), "Write".into()],
+        backend_models: Default::default(),
     };
     super::config::save_settings_to(root.path(), &custom).expect("应能写入");
     let read = parse_settings(&std::fs::read_to_string(root.path().join("config.json")).unwrap());

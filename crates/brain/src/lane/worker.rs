@@ -24,6 +24,7 @@ pub struct LaneEnv {
     pub role: Role,
     pub backend: Backend,
     pub model: Option<String>,
+    pub effort: Option<String>,
     pub gate: Gate,
     pub goal: Arc<GoalStore>,
     pub status: Sender<BrainStatus>,
@@ -42,12 +43,16 @@ impl LaneEnv {
             program: self.backend.program.clone(),
             args: self.backend.args.clone(),
             cwd: self.gate.project_root.clone(),
-            env: self.env.clone(),
+            env: self
+                .env
+                .iter()
+                .cloned()
+                .chain(backend::session_env(self.backend.kind))
+                .collect(),
             meta: backend::session_meta(self.backend.kind, self.model.as_deref()),
             mode: backend::session_mode(self.backend.kind).map(str::to_string),
-            model: (self.backend.kind == backend::BackendKind::ClaudeCode)
-                .then(|| self.model.clone())
-                .flatten(),
+            model: self.model.clone(),
+            effort: self.effort.clone(),
             handshake_timeout: Duration::from_secs(60),
         }
     }

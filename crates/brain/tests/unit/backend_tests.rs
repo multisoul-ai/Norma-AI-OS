@@ -86,3 +86,82 @@ fn claude_sessions_ignore_user_settings_and_disable_write_tools() {
             && session_mode(BackendKind::OpenCode).is_none()
     );
 }
+
+/// OpenCode 默认的 build 模式执行命令不发权限请求；注入配置让每条命令都先请求批准、禁止改文件和联网。
+///
+/// 预期结果：
+///   - 正断言：OpenCode 的环境变量里有 OPENCODE_CONFIG_CONTENT，bash 为 ask，edit 与 webfetch 为 deny
+///   - 负断言：其他后端不注入环境变量
+#[test]
+fn opencode_sessions_ask_before_every_command() {
+    let env = session_env(BackendKind::OpenCode);
+    let (_, content) = env
+        .iter()
+        .find(|(key, _)| key == "OPENCODE_CONFIG_CONTENT")
+        .expect("要注入 OpenCode 配置");
+    let config: serde_json::Value = serde_json::from_str(content).expect("应是 JSON");
+    assert_eq!(config["permission"]["bash"], "ask");
+    assert_eq!(config["permission"]["edit"], "deny");
+    assert_eq!(config["permission"]["webfetch"], "deny");
+    assert!(session_env(BackendKind::ClaudeCode).is_empty());
+    assert!(session_env(BackendKind::Codex).is_empty());
+}
+
+/// Codex 的策略对应推理强度：主会话按速度、自动、质量取 low、medium、high，审批会话始终 low。
+///
+/// 预期结果：
+///   - 正断言：Codex 各档取值如上
+///   - 负断言：Claude Code 与 OpenCode 不设推理强度
+#[test]
+fn codex_strategy_maps_to_reasoning_effort() {
+    let main = |s| effort_for(BackendKind::Codex, s, true);
+    assert_eq!(main(Strategy::Speed), Some("low"));
+    assert_eq!(main(Strategy::Auto), Some("medium"));
+    assert_eq!(main(Strategy::Quality), Some("high"));
+    assert_eq!(
+        effort_for(BackendKind::Codex, Strategy::Quality, false),
+        Some("low")
+    );
+    assert_eq!(
+        effort_for(BackendKind::ClaudeCode, Strategy::Quality, true),
+        None
+    );
+    assert_eq!(
+        effort_for(BackendKind::OpenCode, Strategy::Auto, true),
+        None
+    );
+}
+
+/// 从 session/new 的 configOptions 里读出模型列表：取 id 为 model 的那一项。
+///
+/// 数据构造：仿 Codex 的回复，含 mode 与 model 两项；另给一个没有 model 项的回复。
+/// 预期结果：
+///   - 正断言：得到 (值, 名称) 列表，顺序不变；没有名称时用值
+///   - 负断言：mode 的选项不会混进来；没有 model 项时为空
+#[test]
+fn model_choices_come_from_the_model_config_option() {
+    let created = serde_json::json!({
+        "sessionId": "s",
+        "configOptions": [
+            {"id": "mode", "options": [{"value": "read-only", "name": "Read-only"}]},
+            {"id": "model", "currentValue": "gpt-6-astra", "options": [
+                {"value": "gpt-6.1-sol", "name": "6.1 Sol"},
+                {"value": "gpt-6-astra"}
+            ]}
+        ]
+    });
+    assert_eq!(
+        model_choices(&created),
+        vec![
+            ModelChoice {
+                id: "gpt-6.1-sol".into(),
+                name: "6.1 Sol".into()
+            },
+            ModelChoice {
+                id: "gpt-6-astra".into(),
+                name: "gpt-6-astra".into()
+            },
+        ]
+    );
+    assert!(model_choices(&serde_json::json!({"sessionId": "s"})).is_empty());
+}

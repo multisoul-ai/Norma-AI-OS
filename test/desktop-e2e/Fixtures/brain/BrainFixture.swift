@@ -4,23 +4,27 @@ import Foundation
 public enum BrainFixture {
     /// 建一个隔离的大脑目录：config.json 开启大脑，`adapters` 指向已装好 ACP 适配器的目录。
     /// 适配器目录由环境变量 NORMA_BRAIN_E2E_ADAPTERS 给出，默认 `~/.norma/brain/adapters`；
-    /// NORMA_BRAIN_E2E_BACKEND=codex 时用 Codex。
+    /// NORMA_BRAIN_E2E_BACKEND=codex 或 opencode 时换后端。
     public static func installBrainDirectory() throws -> URL {
         let adapters = ProcessInfo.processInfo.environment["NORMA_BRAIN_E2E_ADAPTERS"]
             .map { URL(fileURLWithPath: $0, isDirectory: true) }
             ?? FileManager.default.homeDirectoryForCurrentUser
                 .appendingPathComponent(".norma/brain/adapters", isDirectory: true)
         // NORMA_BRAIN_E2E_BACKEND=codex 时改用 Codex 适配器（codex-acp）。
-        let codex = ProcessInfo.processInfo.environment["NORMA_BRAIN_E2E_BACKEND"] == "codex"
-        let bin = adapters.appendingPathComponent(
-            codex ? "node_modules/.bin/codex-acp" : "node_modules/.bin/claude-agent-acp")
-        guard FileManager.default.isExecutableFile(atPath: bin.path) else {
-            throw BrainFixtureError.missingAdapter(bin.path)
+        // NORMA_BRAIN_E2E_BACKEND=opencode 时用 PATH 里的 opencode，不检查适配器目录。
+        let chosen = ProcessInfo.processInfo.environment["NORMA_BRAIN_E2E_BACKEND"] ?? "claude"
+        let codex = chosen == "codex"
+        if chosen != "opencode" {
+            let bin = adapters.appendingPathComponent(
+                codex ? "node_modules/.bin/codex-acp" : "node_modules/.bin/claude-agent-acp")
+            guard FileManager.default.isExecutableFile(atPath: bin.path) else {
+                throw BrainFixtureError.missingAdapter(bin.path)
+            }
         }
         let root = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
             .appendingPathComponent("norma-brain-e2e-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        let backend = codex ? "codex" : "claude"
+        let backend = ["codex", "opencode"].contains(chosen) ? chosen : "claude"
         try Data(#"{"enabled": true, "backend": "\#(backend)", "strategy": "speed"}"#.utf8)
             .write(to: root.appendingPathComponent("config.json"))
         try FileManager.default.createSymbolicLink(
