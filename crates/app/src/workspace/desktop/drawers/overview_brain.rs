@@ -35,7 +35,7 @@ impl MultisoulApp {
         cx.notify();
     }
 
-    fn with_overview_session<R>(
+    pub(super) fn with_overview_session<R>(
         &mut self,
         area_id: &str,
         cx: &mut Context<Self>,
@@ -128,8 +128,10 @@ impl MultisoulApp {
         let verb = match action.kind {
             AutoKind::Approved => "放行",
             AutoKind::Denied => "拒绝",
-            AutoKind::Assigned => "派发",
+            AutoKind::Assigned | AutoKind::UserDispatched => "派发",
         };
+        // 用户自己批准的派发没有“以后先问我”的意义。
+        let by_user = action.kind == AutoKind::UserDispatched;
         let id = action.id;
         let node_id = action.node_id;
         let key = action.ask_key.clone();
@@ -208,7 +210,11 @@ impl MultisoulApp {
                             .bg(rgba(BRAIN_TINT))
                             .text_size(px(OVERVIEW_TEXT_SECONDARY))
                             .text_color(rgba(BRAIN_TEXT))
-                            .child(ui::i18n::text("chrome.brain_auto_badge")),
+                            .child(ui::i18n::text(if by_user {
+                                "chrome.brain_user_badge"
+                            } else {
+                                "chrome.brain_auto_badge"
+                            })),
                     )
                     .child(
                         div()
@@ -236,7 +242,14 @@ impl MultisoulApp {
                             &[("reason", action.reason.clone())],
                         )),
                 )
-                .child(div().flex().flex_wrap().gap(px(4.0)).child(ask).child(stop))
+                .child(
+                    div()
+                        .flex()
+                        .flex_wrap()
+                        .gap(px(4.0))
+                        .when(!by_user, |row| row.child(ask))
+                        .child(stop),
+                )
             })
     }
 }

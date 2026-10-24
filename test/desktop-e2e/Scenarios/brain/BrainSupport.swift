@@ -55,6 +55,41 @@ enum BrainSupport {
         try await session.click(local: CGPoint(x: text.rect.maxX - 14, y: text.rect.midY), on: frame)
     }
 
+    /// 从启动页进入“E2E Project”，用 `/new claude` 建 `count` 个智能体。
+    static func openProjectWithAgents(_ session: Session, count: Int) async throws {
+        let launch = try await session.capture()
+        if launch.contains("搜索工作空间") || launch.contains("Search workspaces") {
+            try await session.click(
+                local: CGPoint(x: Double(launch.windowFrame.width) - 111, y: 540), on: launch)
+            _ = try await session.wait(Expectation(absent: ["搜索工作空间", "Search workspaces"], timeout: 12))
+        }
+        _ = try await session.wait(Expectation(allOf: ["E2E Project"], timeout: 12))
+        try await session.click(matching: ["E2E Project"], pick: .bottom)
+        try await dismissGuide(session)
+        _ = try await session.wait(Expectation(allOf: ["E2E Project"], absent: ["项目目录不可用"], timeout: 15))
+        try await dismissGuide(session)
+        for _ in 0..<count {
+            let frame = try await session.capture()
+            try await session.click(
+                local: CGPoint(x: Double(frame.windowFrame.width) / 2, y: Double(frame.windowFrame.height) - 38),
+                on: frame)
+            try await session.selectAll()
+            try await session.type("/new claude")
+            try await session.shortcut(key: 36, modifiers: [])
+            try await Task.sleep(nanoseconds: 2_500_000_000)
+            try await dismissGuide(session)
+        }
+    }
+
+    /// ⌘⇧E 打开运行概览；快捷键偶尔被刚结束的输入吞掉，没看到“运行概览”就再按，最多三次。
+    static func openOverview(_ session: Session) async throws {
+        for _ in 0..<3 {
+            try await session.shortcut(key: 14, modifiers: [0x37, 0x38])
+            try await Task.sleep(nanoseconds: 1_200_000_000)
+            if try await session.capture().contains("运行概览") { return }
+        }
+    }
+
     /// 功能引导会盖住画面：点“跳过引导”；识别不到按钮时退回 Esc。
     static func dismissGuide(_ session: Session) async throws {
         for _ in 0..<4 {

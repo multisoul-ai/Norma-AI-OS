@@ -35,6 +35,7 @@ mod overview_brain;
 mod overview_judging;
 mod overview_list;
 mod overview_parts;
+mod overview_proposals;
 mod overview_summary;
 pub(super) mod resize;
 

@@ -44,6 +44,11 @@ pub enum BrainEvent {
     UserRequest {
         text: String,
     },
+    /// 用户在概览里忽略了大脑的提议；只记录，不单独叫醒大脑。
+    ProposalDeclined {
+        agent: String,
+        title: String,
+    },
     /// 用户发给某个 Agent 的任务，记作目标；只记录，不单独叫醒大脑。
     Goal {
         agent: String,

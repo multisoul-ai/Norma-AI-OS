@@ -226,7 +226,7 @@ fn only_the_issued_token_authorizes_brain_commands() {
 ///
 /// 数据构造：主会话 opus、审批 haiku、摘要 10 分钟、关闭“写文件”和“派后续”、语音提醒、串行审批。
 /// 预期结果：
-///   - 正断言：读回的值与写入一致；`{}` 解析出默认值（摘要 5 分钟、三项自主权全开、仅概览提醒、并行）
+///   - 正断言：读回的值与写入一致；`{}` 解析出默认值（摘要 5 分钟、放行命令与写文件开、自行派任务关、仅概览提醒、并行）
 ///   - 负断言：模型写成 "gpt-9" 时读回 None，不会把任意字符串当作模型别名传给后端
 #[test]
 fn extended_settings_round_trip_and_defaults() {
@@ -259,8 +259,9 @@ fn extended_settings_round_trip_and_defaults() {
         Autonomy {
             readonly_commands: true,
             project_writes: true,
-            assign_followups: true
-        }
+            assign_followups: false
+        },
+        "默认只提议下一步，由用户确认后派发"
     );
     assert_eq!(defaults.slow_reminder, SlowReminder::OverviewOnly);
     assert!(defaults.parallel_approvals, "默认并行处理审批");

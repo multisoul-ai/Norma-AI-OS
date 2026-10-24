@@ -182,8 +182,12 @@ impl Dispatcher {
             BrainEvent::ApprovalClosed { id } => Some(id.clone()),
             _ => None,
         };
-        if let BrainEvent::Goal { agent, text } = &event {
-            self.goal.record(agent, text);
+        match &event {
+            BrainEvent::Goal { agent, text } => {
+                self.goal.record(agent, text);
+            }
+            BrainEvent::ProposalDeclined { agent, title } => self.goal.decline(agent, title),
+            _ => {}
         }
         let actions = self.router.push(event, Instant::now());
         if let Some(id) = approval_id {
@@ -212,6 +216,10 @@ impl Dispatcher {
             // 主会话的每条提示都带上当前目标，不只在首条说明里说一次。
             let text = match (lane, self.goal.summary()) {
                 (Lane::Main, Some(goals)) => prompt::with_goals(&text, &goals),
+                _ => text,
+            };
+            let text = match (lane, self.goal.declined_summary()) {
+                (Lane::Main, Some(declined)) => prompt::with_declined(&text, &declined),
                 _ => text,
             };
             let _ = tx.send(Job { text, approval_id });

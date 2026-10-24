@@ -7,6 +7,8 @@ mod history;
 mod log;
 mod ops;
 mod own_prompts;
+mod proposal_actions;
+pub(crate) mod proposals;
 mod settings;
 mod trace;
 mod trace_state;
@@ -88,6 +90,12 @@ pub(crate) struct BrainHostState {
     pub(crate) trace_focus: Option<gpui::FocusHandle>,
     /// 活动窗口里展开的卡片：（项目，会话，轮次）。
     pub(crate) trace_expanded: HashSet<(String, String, u64)>,
+    /// 大脑提议、等用户确认的下一步；读过文件后 `proposals_path` 才有值。
+    pub(crate) proposals: proposals::Proposals,
+    proposals_path: Option<std::path::PathBuf>,
+    proposal_writer: proposals::Writer,
+    /// 概览里展开的提议：（项目区域 id，提议 id）。
+    pub(crate) proposal_open: Option<(String, u64)>,
 }
 
 /// 概览需要的、分散在各项目会话里的大脑状态。
@@ -99,6 +107,16 @@ pub(crate) struct OverviewSnapshot {
     pub actions: Vec<(String, AutoAction)>,
     /// 至少一个项目里的大脑在运行；工作空间窗口自己不跑大脑，设置页靠它显示“运行中”。
     pub running: bool,
+    /// 等用户确认的下一步，新的在前。
+    pub proposals: Vec<OverviewProposal>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct OverviewProposal {
+    pub area_id: String,
+    pub proposal: proposals::Proposal,
+    /// 目标 Agent 还没有卡片，派发时会新建。
+    pub new_card: bool,
 }
 
 impl BrainHostState {
@@ -124,6 +142,10 @@ impl BrainHostState {
             pending_return: None,
             trace_focus: None,
             trace_expanded: HashSet::new(),
+            proposals: proposals::Proposals::default(),
+            proposals_path: None,
+            proposal_writer: proposals::Writer::default(),
+            proposal_open: None,
         }
     }
 
@@ -156,6 +178,9 @@ impl MultisoulApp {
                 session.read(cx).push_brain(event.clone());
             }
             self.push_brain(event);
+        }
+        if self.brain.settings.as_ref().is_some_and(|s| s.enabled) {
+            self.load_brain_proposals();
         }
         if self.brain.host.is_none() {
             self.try_start_brain();

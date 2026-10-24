@@ -73,7 +73,8 @@ impl Default for BrainSettings {
             autonomy: Autonomy {
                 readonly_commands: true,
                 project_writes: true,
-                assign_followups: true,
+                // 默认只提议下一步，用户在概览里确认后才派发。
+                assign_followups: false,
             },
             slow_reminder: SlowReminder::OverviewOnly,
             parallel_approvals: true,
@@ -155,7 +156,7 @@ pub(super) fn parse_settings(text: &str) -> BrainSettings {
         autonomy: Autonomy {
             readonly_commands: flag(&["autonomy", "readonly_commands"], true),
             project_writes: flag(&["autonomy", "project_writes"], true),
-            assign_followups: flag(&["autonomy", "assign_followups"], true),
+            assign_followups: flag(&["autonomy", "assign_followups"], false),
         },
         slow_reminder: match value["slow_reminder"].as_str() {
             Some("voice60") => SlowReminder::VoiceAfter60s,

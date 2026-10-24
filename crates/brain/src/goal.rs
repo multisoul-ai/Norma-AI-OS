@@ -1,6 +1,7 @@
 //! 目标摘要与决策日志，落盘后大脑崩溃或会话压缩时可据此重建。
 
 use serde::{Deserialize, Serialize};
+use std::collections::VecDeque;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
@@ -23,6 +24,8 @@ pub struct Goal {
 pub struct GoalStore {
     dir: PathBuf,
     goals: Mutex<Vec<Goal>>,
+    /// 用户没采纳的提议，只放内存。
+    declined: Mutex<VecDeque<String>>,
 }
 
 impl GoalStore {
@@ -34,6 +37,7 @@ impl GoalStore {
         Self {
             dir,
             goals: Mutex::new(goals),
+            declined: Mutex::new(VecDeque::new()),
         }
     }
 
@@ -92,6 +96,21 @@ impl GoalStore {
             })
             .collect();
         Some(lines.join("\n"))
+    }
+
+    /// 记一条用户没采纳的提议，只留最近 5 条。
+    pub fn decline(&self, agent: &str, title: &str) {
+        let flat = title.split_whitespace().collect::<Vec<_>>().join(" ");
+        let mut declined = self.declined.lock().expect("declined lock");
+        declined.push_back(format!("- {agent}：{flat}"));
+        while declined.len() > MAX_GOALS {
+            declined.pop_front();
+        }
+    }
+
+    pub fn declined_summary(&self) -> Option<String> {
+        let declined = self.declined.lock().expect("declined lock");
+        (!declined.is_empty()).then(|| declined.iter().cloned().collect::<Vec<_>>().join("\n"))
     }
 
     /// 追加一条决策记录（一行 JSON）。写失败只记日志，不影响大脑。

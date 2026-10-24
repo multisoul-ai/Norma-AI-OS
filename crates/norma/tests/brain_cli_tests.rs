@@ -211,3 +211,47 @@ fn history_parses_agent_last_and_grep() {
         }
     );
 }
+
+/// `norma brain propose` 解析成待用户确认的下一步。
+///
+/// 数据构造：给 Alan 提议“补测试”，带完整指令与理由；另一次缺 `--why`，一次 `--task` 只有空白。
+/// 预期结果：
+///   - 正断言：agent、title、task、why 原样带上
+///   - 负断言：缺理由或指令为空白时解析失败，不会生成一条空提议
+#[test]
+fn propose_parses_title_task_and_why() {
+    let command = parse(&[
+        "norma",
+        "brain",
+        "--token",
+        "t0",
+        "propose",
+        "Alan",
+        "--title",
+        "补测试",
+        "--task",
+        "为概览搜索补单元测试；cargo test 通过即完成",
+        "--why",
+        "搜索没有测试",
+    ]);
+    assert_eq!(
+        command,
+        CardCommand::Brain {
+            token: "t0".into(),
+            op: BrainOp::Propose {
+                agent: "Alan".into(),
+                title: "补测试".into(),
+                task: "为概览搜索补单元测试；cargo test 通过即完成".into(),
+                why: "搜索没有测试".into(),
+            },
+        }
+    );
+    let missing_why = parse_invocation_from([
+        "norma", "brain", "propose", "Alan", "--title", "t", "--task", "x",
+    ]);
+    assert!(missing_why.is_err(), "缺 --why 应解析失败");
+    let blank_task = parse_invocation_from([
+        "norma", "brain", "propose", "Alan", "--title", "t", "--task", "  ", "--why", "w",
+    ]);
+    assert!(blank_task.is_err(), "空白指令应解析失败");
+}

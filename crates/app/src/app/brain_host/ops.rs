@@ -67,9 +67,26 @@ impl MultisoulApp {
             BrainOp::Agents => output(self.agents_json()),
             BrainOp::Assign { agent, task } => {
                 if !self.brain_autonomy().assign_followups {
-                    return Err(reject("not_authorized：用户没有允许大脑自行派任务"));
+                    return Err(reject(
+                        "not_authorized：用户没有允许大脑自行派任务，请改用 propose 提议",
+                    ));
                 }
-                self.assign_task(agent, task, window)
+                self.assign_task(agent, task, window, AutoKind::Assigned)
+            }
+            BrainOp::Propose {
+                agent,
+                title,
+                task,
+                why,
+            } => {
+                let draft = super::proposals::Draft {
+                    agent,
+                    title,
+                    task,
+                    why,
+                };
+                let id = self.propose_next_step(draft, cx).map_err(|e| reject(&e))?;
+                output(json!({"proposal": id, "status": "waiting_user"}))
             }
         }
     }
@@ -110,11 +127,12 @@ impl MultisoulApp {
         json!({ "agents": items })
     }
 
-    fn assign_task(
+    pub(super) fn assign_task(
         &mut self,
         agent: String,
         task: String,
         window: Option<&mut Window>,
+        kind: AutoKind,
     ) -> OpResult {
         let area = self.mobile_canvas_area(window);
         let zoom = self.runtime.document.viewport.zoom;
@@ -143,11 +161,15 @@ impl MultisoulApp {
         self.brain.log.push(AutoAction {
             id: 0,
             at: std::time::SystemTime::now(),
-            kind: AutoKind::Assigned,
+            kind,
             agent: who,
             node_id,
             summary,
-            reason: "该 Agent 空闲，按当前目标派后续任务".into(),
+            reason: if kind == AutoKind::UserDispatched {
+                "你批准了大脑的提议".into()
+            } else {
+                "该 Agent 空闲，按当前目标派后续任务".into()
+            },
             ask_key: ASSIGN_KEY.into(),
         });
         output(json!({"result": format!("{result:?}")}))

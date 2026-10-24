@@ -23,15 +23,25 @@ public enum BrainFixture {
         return root
     }
 
-    /// 脚本化的大脑：不用真实模型，收到完成事件后通过权限闸门执行一条 `norma brain assign`，
-    /// 让“Norma 自主处理”记录可重复地出现。适配器放在 `adapters/node_modules/.bin/claude-agent-acp`。
-    public static func installScriptedBrainDirectory() throws -> URL {
+    /// 脚本化大脑收到完成事件后做什么。
+    public enum ScriptedMode: String {
+        /// 直接派活（`norma brain assign`），配置里打开“自行派任务”。
+        case assign
+        /// 只提议（`norma brain propose`），等用户在概览里确认。
+        case propose
+    }
+
+    /// 脚本化的大脑：不用真实模型，收到完成事件后通过权限闸门执行 `norma brain assign` 或 `propose`，
+    /// 让概览里的记录可重复地出现。适配器放在 `adapters/node_modules/.bin/claude-agent-acp`。
+    public static func installScriptedBrainDirectory(mode: ScriptedMode = .assign) throws -> URL {
         let root = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
             .appendingPathComponent("norma-brain-scripted-\(UUID().uuidString)", isDirectory: true)
         let bin = root.appendingPathComponent("adapters/node_modules/.bin", isDirectory: true)
         try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
-        try Data(#"{"enabled": true, "backend": "claude", "strategy": "speed"}"#.utf8)
+        let assign = mode == .assign ? "true" : "false"
+        try Data(#"{"enabled": true, "backend": "claude", "strategy": "speed", "autonomy": {"assign_followups": \#(assign)}}"#.utf8)
             .write(to: root.appendingPathComponent("config.json"))
+        try Data(mode.rawValue.utf8).write(to: root.appendingPathComponent("mode"))
         let script = bin.appendingPathComponent("claude-agent-acp")
         try Data(scriptedAdapter.utf8).write(to: script)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
@@ -70,9 +80,19 @@ public enum BrainFixture {
             if ("【事件】" in text or "【静默记录】" in text) and found and not done[0]:
                 done[0] = True
                 exe = found.group(1)
-                command = exe + " brain assign Bella --task '补上登录页的测试'"
-                if permission("scripted", command):
-                    subprocess.run([exe, "brain", "assign", "Bella", "--task", "补上登录页的测试"], env=os.environ, timeout=30)
+                mode = open(os.path.join(os.environ.get("NORMA_BRAIN_DIR", "/tmp"), "mode")).read().strip()
+                if mode == "propose":
+                    for args in (["Bella", "--title", "补登录页测试", "--task", "补上登录页的测试，cargo test 通过即完成", "--why", "登录页还没有测试"],
+                                 ["Alan", "--title", "写登录接口文档", "--task", "为登录接口写使用文档", "--why", "接口刚改过"]):
+                        argv = [exe, "brain", "propose"] + args
+                        if permission("scripted", " ".join(argv)):
+                            result = subprocess.run(argv, env=os.environ, timeout=30, capture_output=True, text=True)
+                            with open(os.path.join(os.environ.get("NORMA_BRAIN_DIR", "/tmp"), "propose.out"), "a") as f:
+                                f.write(result.stdout + result.stderr + "\\n")
+                else:
+                    command = exe + " brain assign Bella --task '补上登录页的测试'"
+                    if permission("scripted", command):
+                        subprocess.run([exe, "brain", "assign", "Bella", "--task", "补上登录页的测试"], env=os.environ, timeout=30)
                 # 再读一次 Alan 的对话：e2e 里的假 Agent 没有手机控制，应当得到如实的“读不了”。
                 read_command = exe + " brain history Alan --last 2"
                 if permission("scripted", read_command):

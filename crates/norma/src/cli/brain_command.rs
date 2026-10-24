@@ -38,6 +38,19 @@ enum BrainCliCommand {
         #[arg(long, value_parser = non_blank_task)]
         task: String,
     },
+    /// 提议下一步，用户在概览里确认后才派发。
+    Propose {
+        agent: String,
+        /// 一行标题，概览里收起时显示。
+        #[arg(long, value_parser = non_blank_task)]
+        title: String,
+        /// 派发时原样发给 Agent 的完整指令，写清怎样算完成。
+        #[arg(long, value_parser = non_blank_task)]
+        task: String,
+        /// 为什么建议做这件事。
+        #[arg(long, value_parser = non_blank_task)]
+        why: String,
+    },
     /// 读某个 Agent 最近的完整对话（摘要不够判断时用）。
     History {
         agent: String,
@@ -89,6 +102,17 @@ impl BrainArgs {
             },
             BrainCliCommand::Agents => BrainOp::Agents,
             BrainCliCommand::Assign { agent, task } => BrainOp::Assign { agent, task },
+            BrainCliCommand::Propose {
+                agent,
+                title,
+                task,
+                why,
+            } => BrainOp::Propose {
+                agent,
+                title,
+                task,
+                why,
+            },
             BrainCliCommand::History { agent, last, grep } => {
                 BrainOp::History { agent, last, grep }
             }

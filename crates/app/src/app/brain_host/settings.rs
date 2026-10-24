@@ -177,7 +177,23 @@ impl MultisoulApp {
                     .into_iter()
                     .map(|a| (area_id.clone(), a)),
             );
+            snapshot
+                .proposals
+                .extend(
+                    app.brain
+                        .proposals
+                        .items()
+                        .iter()
+                        .map(|p| super::OverviewProposal {
+                            area_id: area_id.clone(),
+                            new_card: app.proposal_needs_card(&p.agent),
+                            proposal: p.clone(),
+                        }),
+                );
         }
+        snapshot
+            .proposals
+            .sort_by(|a, b| b.proposal.at.cmp(&a.proposal.at));
         snapshot.actions.sort_by(|a, b| b.1.at.cmp(&a.1.at));
         snapshot.actions.truncate(20);
         if snapshot != self.brain.overview {

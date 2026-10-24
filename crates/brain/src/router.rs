@@ -150,7 +150,7 @@ impl Router {
                 approval_id: None,
             }],
             // 目标由 Dispatcher 记录，随后续提示一起发给大脑，这里不触发一轮。
-            BrainEvent::Goal { .. } => vec![],
+            BrainEvent::Goal { .. } | BrainEvent::ProposalDeclined { .. } => vec![],
         }
     }
 

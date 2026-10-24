@@ -72,3 +72,25 @@ fn summary_lists_one_line_per_goal() {
     store.record("Bella", &"长".repeat(500));
     assert!(store.summary().unwrap().chars().count() < 450);
 }
+
+/// 记住用户没采纳的提议，只留最近 5 条，只放内存。
+///
+/// 数据构造：依次记 6 条没采纳的提议；另开一个同目录的 GoalStore。
+/// 预期结果：
+///   - 正断言：清单含最近 5 条，每行 `- Agent：标题`
+///   - 负断言：最早一条已被挤掉；新开的 GoalStore 没有这份清单
+#[test]
+fn declined_proposals_are_remembered_briefly() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let store = GoalStore::open(dir.path().to_path_buf());
+    assert!(store.declined_summary().is_none());
+    for n in 1..=6 {
+        store.decline("Alan", &format!("提议{n}"));
+    }
+    let summary = store.declined_summary().expect("应有清单");
+    assert!(summary.contains("- Alan：提议6"), "{summary}");
+    assert!(summary.contains("- Alan：提议2"), "{summary}");
+    assert!(!summary.contains("提议1"), "最早的应被挤掉：{summary}");
+    let reopened = GoalStore::open(dir.path().to_path_buf());
+    assert!(reopened.declined_summary().is_none(), "只放内存");
+}

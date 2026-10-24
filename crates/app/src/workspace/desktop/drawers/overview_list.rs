@@ -25,6 +25,8 @@ impl MultisoulApp {
     /// 内容多了栏内滚动；折叠的栏只剩一行标题，空出的高度让给其余栏。
     pub(super) fn render_run_overview(&mut self, cx: &mut Context<Self>) -> Stateful<Div> {
         let screen = self.presented_overview();
+        let mut counts = screen.summary();
+        counts[0] += self.brain_overview().proposals.len();
         let cursor = self.desktop_workspace.overview_cursor;
         let sections = OverviewGroup::ORDER.map(|group| {
             let section = match group {
@@ -58,7 +60,7 @@ impl MultisoulApp {
             .flex()
             .flex_col()
             .gap(px(4.0))
-            .child(self.render_overview_summary(screen.summary(), cx))
+            .child(self.render_overview_summary(counts, cx))
             .children(groups)
     }
 
@@ -79,6 +81,12 @@ impl MultisoulApp {
             self.desktop_workspace.ideas_seen_todo = None;
         }
         let heading = self.group_heading(group, section, collapsed, feedback, cx);
+        // 大脑提议的下一步排在“需要你处理”最前面。
+        let proposals = if group == OverviewGroup::Attention && !collapsed {
+            self.render_proposal_rows(feedback, cx)
+        } else {
+            Vec::new()
+        };
         let body = match (group, section) {
             (OverviewGroup::Ideas, _) => self.render_ideas_group_body(cx).into_any_element(),
             (OverviewGroup::Brain, _) => self
@@ -94,9 +102,10 @@ impl MultisoulApp {
                 .flex()
                 .flex_col()
                 .gap(px(2.0))
-                .when(section.rows.is_empty(), |body| {
+                .when(section.rows.is_empty() && proposals.is_empty(), |body| {
                     body.child(group_empty(group, true))
                 })
+                .children(proposals)
                 .children(section.rows.iter().enumerate().map(|(offset, row)| {
                     self.render_overview_row(
                         row,
@@ -134,12 +143,19 @@ impl MultisoulApp {
             style.flex_shrink = Some(0.0);
         } else {
             style.flex_grow = Some(group.grow());
-            style.flex_shrink = Some(1.0);
+            // 展开的提议要完整可见（指令与理由），这时“需要你处理”不让出高度，由其余栏收缩。
+            let keep = group == OverviewGroup::Attention && self.brain_proposal_open().is_some();
+            style.flex_shrink = Some(if keep { 0.0 } else { 1.0 });
             let heights: Vec<f32> = match (group, section) {
                 // 大脑栏的行自带一行操作按钮，比普通行高。
                 (OverviewGroup::Brain, _) => {
                     vec![BRAIN_ROW_HEIGHT; self.brain_overview().actions.len()]
                 }
+                (OverviewGroup::Attention, Some(section)) => self
+                    .proposal_heights()
+                    .into_iter()
+                    .chain(section.rows.iter().map(|row| row.height))
+                    .collect(),
                 (_, Some(section)) => section.rows.iter().map(|row| row.height).collect(),
                 _ => Vec::new(),
             };
@@ -179,6 +195,14 @@ impl MultisoulApp {
                 (count > 0).then(|| count_badge(count, BadgeTone::Neutral))
             }
             // 琥珀色只给“需要你处理”（要你介入）；运行中用青色，待开始用灰蓝，与原型一致。
+            (OverviewGroup::Attention, Some(section)) => {
+                let extra = self.brain_overview().proposals.len();
+                section
+                    .count
+                    .map(|count| count + extra)
+                    .or((extra > 0).then_some(extra))
+                    .map(|count| count_badge(count, BadgeTone::Amber))
+            }
             (_, Some(section)) => section
                 .count
                 .map(|count| count_badge(count, BadgeTone::of(group))),

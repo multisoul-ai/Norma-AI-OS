@@ -38,6 +38,14 @@ pub enum BrainOp {
         agent: String,
         task: String,
     },
+    /// 提议下一步：进入“需要你处理”，用户点“派发”后才派给 `agent`。
+    /// `agent` 可以是还没有卡片的 Agent，派发时新建卡片。
+    Propose {
+        agent: String,
+        title: String,
+        task: String,
+        why: String,
+    },
     /// 读某个 Agent 卡片最近的对话。`last` 缺省由 App 决定。
     History {
         agent: String,

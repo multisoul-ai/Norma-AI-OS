@@ -11,6 +11,8 @@ pub(crate) enum AutoKind {
     Approved,
     Denied,
     Assigned,
+    /// 用户在概览里批准了大脑的提议，由 App 派发。
+    UserDispatched,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
