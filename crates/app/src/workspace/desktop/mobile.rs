@@ -96,6 +96,7 @@ pub(crate) fn ensure(
                 session.register_loaded_project_route(None, cx)
             });
             app.desktop_workspace.sessions.insert(key, session.clone());
+            app.sync_all_dispatch_effects(cx);
             app.mark_workspace_activity_dirty(cx);
             cx.notify();
             Ok(session)

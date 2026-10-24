@@ -33,6 +33,7 @@ pub const TOOLBAR_WORKSPACES_ASSET: &str = "icons/toolbar-workspaces.svg";
 pub const SETTINGS_NAV_THEMES_ASSET: &str = "icons/settings-nav-themes.svg";
 pub const SETTINGS_NAV_WALLPAPER_ASSET: &str = "icons/settings-nav-wallpaper.svg";
 pub const SETTINGS_NAV_KEYBOARD_ASSET: &str = "icons/settings-nav-keyboard.svg";
+pub const SETTINGS_NAV_EFFECTS_ASSET: &str = "icons/settings-nav-effects.svg";
 pub const SETTINGS_NAV_VOICE_ASSET: &str = "icons/settings-nav-voice.svg";
 pub const SETTINGS_NAV_AGENTS_ASSET: &str = "icons/settings-nav-agents.svg";
 pub const SETTINGS_NAV_HOOKS_ASSET: &str = "icons/settings-nav-hooks.svg";
@@ -61,6 +62,8 @@ const TOOLBAR_WORKSPACES_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-
 const SETTINGS_NAV_THEMES_BYTES: &[u8] = include_bytes!("../assets/icons/settings-nav-themes.svg");
 const SETTINGS_NAV_WALLPAPER_BYTES: &[u8] =
     include_bytes!("../assets/icons/settings-nav-wallpaper.svg");
+const SETTINGS_NAV_EFFECTS_BYTES: &[u8] =
+    include_bytes!("../assets/icons/settings-nav-effects.svg");
 const SETTINGS_NAV_KEYBOARD_BYTES: &[u8] =
     include_bytes!("../assets/icons/settings-nav-keyboard.svg");
 const SETTINGS_NAV_VOICE_BYTES: &[u8] = include_bytes!("../assets/icons/settings-nav-voice.svg");
@@ -197,6 +200,7 @@ impl AssetSource for EmbeddedAssets {
             SETTINGS_NAV_THEMES_ASSET => Ok(Some(Cow::Borrowed(SETTINGS_NAV_THEMES_BYTES))),
             SETTINGS_NAV_WALLPAPER_ASSET => Ok(Some(Cow::Borrowed(SETTINGS_NAV_WALLPAPER_BYTES))),
             SETTINGS_NAV_KEYBOARD_ASSET => Ok(Some(Cow::Borrowed(SETTINGS_NAV_KEYBOARD_BYTES))),
+            SETTINGS_NAV_EFFECTS_ASSET => Ok(Some(Cow::Borrowed(SETTINGS_NAV_EFFECTS_BYTES))),
             SETTINGS_NAV_VOICE_ASSET => Ok(Some(Cow::Borrowed(SETTINGS_NAV_VOICE_BYTES))),
             "icons/settings-nav-memory.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
                 "../assets/icons/settings-nav-memory.svg"
@@ -263,6 +267,7 @@ impl AssetSource for EmbeddedAssets {
                     SharedString::from("settings-nav-themes.svg"),
                     SharedString::from("settings-nav-wallpaper.svg"),
                     SharedString::from("settings-nav-keyboard.svg"),
+                    SharedString::from("settings-nav-effects.svg"),
                     SharedString::from("settings-nav-voice.svg"),
                     SharedString::from("settings-nav-memory.svg"),
                     SharedString::from("settings-nav-persona.svg"),

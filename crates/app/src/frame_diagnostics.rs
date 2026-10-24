@@ -301,7 +301,6 @@ pub(crate) fn log_motion_sample(diagnostics: MotionDiagnostics) {
         dispatch_capacity_skips = diagnostics.dispatch_capacity_skips,
         dispatch_unavailable_skips = diagnostics.dispatch_unavailable_skips,
         dispatch_cancelled_effects = diagnostics.dispatch_cancelled_effects,
-        dispatch_reduced_motion_effects = diagnostics.dispatch_reduced_motion_effects,
         dispatch_update_ms = diagnostics.dispatch_last_update_elapsed.as_secs_f64() * 1000.0,
         "motion_sample"
     );

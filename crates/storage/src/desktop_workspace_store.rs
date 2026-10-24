@@ -2,8 +2,10 @@ use crate::{
     migrations::open_app_connection, project_store::desktop_canvas_path,
     workspace_identity_store::random_workspace_id,
 };
+mod dispatch_effect;
 pub(crate) mod mobile_configuration;
 pub(crate) mod wallpaper;
+pub use dispatch_effect::{DispatchEffectPreference, DispatchEffectSnapshot};
 pub use wallpaper::{WallpaperReference, WallpaperUsage};
 
 use crate::{StorageError, StorageResult};

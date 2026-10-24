@@ -22,7 +22,6 @@ pub(crate) struct MotionDiagnostics {
     pub dispatch_capacity_skips: u64,
     pub dispatch_unavailable_skips: u64,
     pub dispatch_cancelled_effects: u64,
-    pub dispatch_reduced_motion_effects: u64,
     pub dispatch_last_update_elapsed: Duration,
 }
 
@@ -69,7 +68,6 @@ impl MotionStore {
         diagnostics.dispatch_capacity_skips = dispatch.capacity_skips;
         diagnostics.dispatch_unavailable_skips = dispatch.unavailable_skips;
         diagnostics.dispatch_cancelled_effects = dispatch.cancelled_effects;
-        diagnostics.dispatch_reduced_motion_effects = dispatch.reduced_motion_effects;
         diagnostics.dispatch_last_update_elapsed = dispatch.last_update_elapsed;
 
         diagnostics

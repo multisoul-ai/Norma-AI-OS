@@ -13,7 +13,7 @@ const CORAL: u32 = 0xff6b5eff;
 
 pub(super) fn paint_flight(frame: DispatchEffectFrame, theme: Theme, plan: &mut DispatchPaintPlan) {
     // 想法与指令栏（语音）派发共用想法流星：白色、逐步加速、尾迹随速度拉长。
-    if frame.presentation.origin.uses_idea_meteor() {
+    if frame.presentation.style == crate::motion::DispatchEffectStyle::Meteor {
         let curve = FlightCurve::new_idea_shot(frame.origin, frame.target);
         super::meteor::paint_idea_meteor(&curve, frame.presentation.progress, plan);
         return;

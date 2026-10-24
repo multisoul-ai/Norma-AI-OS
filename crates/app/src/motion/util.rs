@@ -4,6 +4,7 @@
 
 use canvas::{CanvasRect, Vec2};
 use std::ffi::OsStr;
+use std::time::Duration;
 
 use crate::motion::VisualPriority;
 
@@ -100,4 +101,13 @@ pub(crate) fn reduce_motion_from_env_value(value: Option<impl AsRef<OsStr>>) -> 
             matches!(value.as_str(), "1" | "true" | "yes" | "on")
         })
         .unwrap_or(false)
+}
+
+pub(crate) fn consume_repaint_interval(elapsed: &mut Duration, interval: Duration) -> bool {
+    if *elapsed < interval {
+        return false;
+    }
+    let remainder_nanos = elapsed.as_nanos() % interval.as_nanos();
+    *elapsed = Duration::from_nanos(remainder_nanos as u64);
+    true
 }

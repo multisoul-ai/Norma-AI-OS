@@ -3,6 +3,7 @@ pub(crate) mod agent_hooks;
 pub(crate) mod agents;
 mod appearance;
 mod brain;
+pub(crate) mod effects;
 pub(crate) mod general;
 pub(crate) mod orchestration;
 pub(crate) mod panel;

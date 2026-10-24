@@ -35,7 +35,6 @@ fn test_idea_row_origin_is_preserved_and_deduplicated() {
         DispatchEffectPhase::Flight,
         "新 effect 应从飞行相位开始"
     );
-    assert!(!shown[0].reduce_motion, "默认不应是减少动态效果");
     let again = store.spawn_dispatch_receipt_from(
         "idea:i1",
         origin,
@@ -93,14 +92,15 @@ fn test_idea_row_effect_survives_unrelated_changes_and_cancels_with_target() {
     );
 }
 
-/// 减少动态效果：想法流星走既有的无位移脉冲路径。
+/// 减少动态效果也不改变想法清单派发的流星。
 ///
-/// 数据构造：MotionStore::new(true)。
+/// 数据构造：MotionStore::new(true)；完整预算为 20 个主粒子 + 8 个次级火花 = 28。
 /// 预期结果：
-///   - 正断言：presentation 标记 reduce_motion，起点仍是 IdeaRow（供落点定位）。
-///   - 负断言：不会因为起点类型而绕过减少动态效果。
+/// 执行过程：从想法行派发到目标 972，读取首帧款式、起点与相位。
+///   - 正断言：Meteor 从 IdeaRow 起飞，保留完整粒子预算。
+///   - 负断言：不会跳到 Impact 或省略粒子。
 #[test]
-fn test_idea_row_effect_honors_reduced_motion() {
+fn test_idea_row_effect_keeps_meteor_with_reduced_motion() {
     let mut store = MotionStore::new(true);
     let origin = DispatchVisualOrigin::IdeaRow { x: 5, y: 6 };
     store.spawn_dispatch_receipt_from(
@@ -110,8 +110,18 @@ fn test_idea_row_effect_honors_reduced_motion() {
         DispatchReceiptVisualStatus::Submitted,
     );
     let shown = store.dispatch_receipt_presentations();
-    assert_eq!(shown.len(), 1, "减少动态效果下仍应有落点反馈");
-    assert!(shown[0].reduce_motion, "必须沿用减少动态效果路径");
+    assert_eq!(shown.len(), 1, "减少动态效果下仍应有完整流星");
+    assert_eq!(
+        shown[0].style,
+        DispatchEffectStyle::Meteor,
+        "必须保留原有流星"
+    );
+    assert_eq!(
+        shown[0].phase,
+        DispatchEffectPhase::Flight,
+        "必须从想法行起飞"
+    );
+    assert_eq!(shown[0].particle_count, 28, "不得省略命中粒子");
     assert_eq!(shown[0].origin, origin, "起点仍应保留");
 }
 
