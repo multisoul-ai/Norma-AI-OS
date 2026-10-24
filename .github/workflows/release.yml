@@ -79,7 +79,6 @@ jobs:
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
           APP_STORE_CONNECT_API_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_API_PRIVATE_KEY }}
           SPARKLE_PUBLIC_ED_KEY: ${{ vars.SPARKLE_PUBLIC_ED_KEY }}
-          NORMA_POSTHOG_KEY: ${{ secrets.NORMA_POSTHOG_KEY }}
         run: |
           set -euo pipefail
           RELEASE_TMP=$(mktemp -d "${RUNNER_TEMP}/norma-release.XXXXXX")
