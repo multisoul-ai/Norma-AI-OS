@@ -151,6 +151,7 @@ impl MultisoulApp {
             self.workspace_id.clone(),
             self.workspace_route_id.clone(),
         ) else {
+            tracing::warn!("项目缺少工作空间根目录或 Norma 路由（常见原因：另一个 Norma 进程占用了端点），大脑未启动");
             return;
         };
         let settings = self.brain.settings.clone().expect("设置已加载");
