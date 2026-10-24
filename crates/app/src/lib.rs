@@ -30,6 +30,7 @@ mod performance_monitor;
 mod preview;
 mod settings;
 mod shortcuts;
+mod telemetry;
 mod updater;
 mod workspace;
 
@@ -134,6 +135,7 @@ pub fn run_norma_os() {
         settings::agent_hook_ingress::install(cx)
             .expect("failed to start App-global Agent Hook ingress");
         updater::install(cx);
+        telemetry::install(cx);
         if let Err(error) = norma::endpoint::install(cx) {
             tracing::error!(
                 %error,

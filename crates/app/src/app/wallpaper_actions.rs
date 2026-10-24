@@ -70,6 +70,7 @@ impl MultisoulApp {
             return;
         }
         self.wallpaper_settings.scoped.busy = true;
+        crate::telemetry::feature_used(analytics::Feature::Wallpaper);
         self.wallpaper_settings.scoped.revision += 1;
         self.publish_wallpaper(&target, reference.clone(), Some("Saving…".into()), cx);
         let catalog = self.desktop_workspace.store.clone();

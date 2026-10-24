@@ -344,6 +344,7 @@ impl MultisoulApp {
         match spawn {
             Ok(node_id) => {
                 tracing::info!(?node_id, ?profile, "spawned agent node");
+                crate::telemetry::agent_card_created(profile);
                 spawn_focus::activate_spawned_node(&mut self.runtime, node_id);
                 self.motion.spawn_node(node_id, bounds);
                 self.motion.start_initialization(

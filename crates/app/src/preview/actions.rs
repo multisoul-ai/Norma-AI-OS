@@ -147,6 +147,7 @@ impl MultisoulApp {
         zoom: f32,
         cx: &mut Context<Self>,
     ) -> NodeId {
+        crate::telemetry::preview_opened();
         let node_id = self
             .runtime
             .spawn_preview_from_path(path, explicit_type, bounds);
@@ -166,7 +167,10 @@ impl MultisoulApp {
             .runtime
             .spawn_preview_from_paths(paths, explicit_type, bounds)
         {
-            Ok(node_id) => node_id,
+            Ok(node_id) => {
+                crate::telemetry::preview_opened();
+                node_id
+            }
             Err(error) => {
                 self.workspace_state.error = Some(
                     ui::i18n::LocalizedText::new("common.operation_failed")

@@ -229,6 +229,7 @@ impl MultisoulApp {
                         app.mark_session_dirty();
                     }
                     for event in &agent_hook_report.events {
+                        crate::telemetry::agent_hook(event);
                         app.ingest_hook_conversation_observation(event);
                         app.record_native_mobile_event(event, cx);
                         app.bind_realtime_delivery(event, cx);

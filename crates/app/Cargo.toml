@@ -64,6 +64,7 @@ dialogue.workspace = true
 audio.workspace = true
 asr.workspace = true
 license.workspace = true
+analytics.workspace = true
 tts.workspace = true
 agent.workspace = true
 live_voice.workspace = true

@@ -96,6 +96,7 @@ impl GateRoot {
         }
 
         self.status = ShellStatus::Activating;
+        let identity_seed = key.clone();
         cx.notify();
 
         let base_url = license_base_url();
@@ -136,11 +137,13 @@ impl GateRoot {
             let result = work.await;
             this.update(cx, |this, cx| match result {
                 Ok(()) => {
+                    crate::telemetry::license_activated(true, Some(&identity_seed));
                     this.status = ShellStatus::Idle;
                     this.enter_workbench = true;
                     cx.notify();
                 }
                 Err(err) => {
+                    crate::telemetry::license_activated(false, None);
                     this.status = ShellStatus::Error(err);
                     cx.notify();
                 }
