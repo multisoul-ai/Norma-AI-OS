@@ -3,6 +3,7 @@
 use crate::event::{ApprovalRequest, BrainEvent, Outcome};
 use crate::lane::prompt;
 use crate::risk::{risk_class, RiskClass};
+use crate::triage::{triage, Verdict};
 use std::collections::{BTreeMap, HashSet};
 use std::time::{Duration, Instant};
 
@@ -28,7 +29,10 @@ pub enum Action {
 
 #[derive(Clone, Debug)]
 pub struct RouterConfig {
+    /// 需要告知用户的事件的去抖窗口。
     pub debounce: Duration,
+    /// 普通成功先进静默池，攒满这么久再交给大脑扫一遍。
+    pub quiet_window: Duration,
     /// `None` 表示不发定时摘要。
     pub summary_every: Option<Duration>,
     /// 提示里要求大脑执行的 `norma` 命令路径，必须与权限闸门的白名单一致。
@@ -39,6 +43,7 @@ impl Default for RouterConfig {
     fn default() -> Self {
         Self {
             debounce: Duration::from_secs(1),
+            quiet_window: Duration::from_secs(30),
             summary_every: Some(Duration::from_secs(300)),
             norma_bin: "norma".into(),
         }
@@ -52,7 +57,10 @@ struct FinishedBatch {
 
 pub struct Router {
     config: RouterConfig,
+    /// 需要告知用户的完成事件。
     finished: Option<FinishedBatch>,
+    /// 静默池：正常完成、默认不打扰。
+    quiet: Option<FinishedBatch>,
     digest: BTreeMap<String, String>,
     last_summary: Instant,
     open_approvals: HashSet<String>,
@@ -63,6 +71,7 @@ impl Router {
         Self {
             config,
             finished: None,
+            quiet: None,
             digest: BTreeMap::new(),
             last_summary: now,
             open_approvals: HashSet::new(),
@@ -74,6 +83,7 @@ impl Router {
     }
 
     pub fn push(&mut self, event: BrainEvent, now: Instant) -> Vec<Action> {
+        let verdict = triage(&event);
         match event {
             BrainEvent::AgentProgress { agent, text } => {
                 self.digest.insert(agent, text);
@@ -86,15 +96,21 @@ impl Router {
                 agent,
                 outcome,
                 excerpt,
+                ..
             } => {
                 self.digest.remove(&agent);
-                let batch = self.finished.get_or_insert(FinishedBatch {
+                let slot = match verdict {
+                    Verdict::Speak(_) => &mut self.finished,
+                    Verdict::Quiet => &mut self.quiet,
+                };
+                let batch = slot.get_or_insert(FinishedBatch {
                     first_at: now,
                     lines: vec![],
                 });
                 batch
                     .lines
                     .push(prompt::finished_line(&agent, outcome, &excerpt));
+                // 失败不等窗口：把批次的起点提前，下一次 poll 就发。
                 if outcome == Outcome::Failed && batch.first_at + self.config.debounce > now {
                     batch.first_at = now - self.config.debounce;
                 }
@@ -138,7 +154,18 @@ impl Router {
                 let batch = self.finished.take().expect("批次刚检查过存在");
                 actions.push(Action::Prompt {
                     lane: Lane::Main,
-                    text: prompt::finished_batch(&batch.lines),
+                    text: prompt::urgent_batch(&batch.lines),
+                    approval_id: None,
+                });
+                self.last_summary = now;
+            }
+        }
+        if let Some(batch) = &self.quiet {
+            if now >= batch.first_at + self.config.quiet_window {
+                let batch = self.quiet.take().expect("静默批次刚检查过存在");
+                actions.push(Action::Prompt {
+                    lane: Lane::Main,
+                    text: prompt::quiet_batch(&batch.lines),
                     approval_id: None,
                 });
                 self.last_summary = now;
@@ -166,10 +193,14 @@ impl Router {
             .finished
             .as_ref()
             .map(|b| b.first_at + self.config.debounce);
+        let quiet = self
+            .quiet
+            .as_ref()
+            .map(|b| b.first_at + self.config.quiet_window);
         let summary = (!self.digest.is_empty())
             .then(|| self.config.summary_every.map(|e| self.last_summary + e))
             .flatten();
-        [finished, summary].into_iter().flatten().min()
+        [finished, quiet, summary].into_iter().flatten().min()
     }
 }
 

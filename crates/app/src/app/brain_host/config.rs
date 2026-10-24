@@ -83,6 +83,20 @@ impl Default for BrainSettings {
     }
 }
 
+/// 静默池窗口：普通成功攒这么久再交给大脑扫一遍。默认 30 秒；
+/// `NORMA_BRAIN_QUIET_SECS` 可改，供真实 App 验收缩短等待，取值 1 到 600。
+pub(super) fn quiet_window() -> std::time::Duration {
+    parse_quiet_secs(std::env::var("NORMA_BRAIN_QUIET_SECS").ok().as_deref())
+}
+
+pub(super) fn parse_quiet_secs(value: Option<&str>) -> std::time::Duration {
+    let secs = value
+        .and_then(|raw| raw.trim().parse::<u64>().ok())
+        .filter(|secs| (1..=600).contains(secs))
+        .unwrap_or(30);
+    std::time::Duration::from_secs(secs)
+}
+
 /// 默认 `~/.norma/brain`；`NORMA_BRAIN_DIR` 可整体改位置，用于隔离测试。
 pub(super) fn state_dir() -> Option<PathBuf> {
     if let Some(dir) = std::env::var_os("NORMA_BRAIN_DIR").filter(|dir| !dir.is_empty()) {

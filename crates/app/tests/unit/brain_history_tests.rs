@@ -117,3 +117,19 @@ fn conversation_items_map_to_history_items() {
         Some("[{\"type\":\"tool_use\"}]")
     );
 }
+
+/// 静默窗口默认 30 秒；环境变量只接受 1 到 600 的整数，其余一律回到默认。
+///
+/// 数据构造：不设、设 5、设 0、设 9999、设“abc”、设带空格的 8。
+/// 预期结果：30、5、30、30、30、8 秒。
+#[test]
+fn quiet_window_defaults_and_validates_the_override() {
+    use super::config::parse_quiet_secs;
+    let secs = |v| parse_quiet_secs(v).as_secs();
+    assert_eq!(secs(None), 30);
+    assert_eq!(secs(Some("5")), 5);
+    assert_eq!(secs(Some("0")), 30);
+    assert_eq!(secs(Some("9999")), 30);
+    assert_eq!(secs(Some("abc")), 30);
+    assert_eq!(secs(Some(" 8 ")), 8);
+}

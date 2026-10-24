@@ -32,6 +32,7 @@ fn main() {
             agent: "Alan".into(),
             outcome: brain::Outcome::Succeeded,
             excerpt: "登录页已经做完，12 个测试全部通过。".into(),
+            from_result: true,
         });
         let started = std::time::Instant::now();
         // 打印全部状态，包括 ACP 过程记录，用来确认真实适配器实际会发哪些更新。

@@ -67,7 +67,7 @@ public enum BrainFixture {
             with open(os.path.join(os.environ.get("NORMA_BRAIN_DIR", "/tmp"), "prompt.log"), "a") as f:
                 f.write(text.replace("\\n", " ⏎ ") + "\\n")
             found = re.search(r"`([^`\\s]+) brain agents`", text)
-            if "【事件】" in text and found and not done[0]:
+            if ("【事件】" in text or "【静默记录】" in text) and found and not done[0]:
                 done[0] = True
                 exe = found.group(1)
                 command = exe + " brain assign Bella --task '补上登录页的测试'"
@@ -85,14 +85,18 @@ public enum BrainFixture {
     """
 
     /// 假 `claude`：启动后提交一条提示，几秒后以 Stop 结束，并带最终回复。
-    public static func installFakeAgents() throws -> URL {
+    /// `finalMessage` 是第一张卡片完成时给出的最终回复：带“需要你”之类的词会走立即汇报，
+    /// 平平的结果走静默池。
+    public static func installFakeAgents(
+        finalMessage: String = "登录页已经做完，12 个测试全部通过，但需要你确认是否保留旧的登录接口。"
+    ) throws -> URL {
         let root = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
             .appendingPathComponent("norma-brain-fake-agents-\(UUID().uuidString)", isDirectory: true)
         let bin = root.appendingPathComponent("bin", isDirectory: true)
         try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
         try Data("export PATH=\"\(bin.path):$PATH\"\n".utf8).write(to: root.appendingPathComponent(".zshrc"))
         let script = bin.appendingPathComponent("claude")
-        try Data(claude.utf8).write(to: script)
+        try Data(claude.replacingOccurrences(of: "__FINAL__", with: finalMessage).utf8).write(to: script)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
         return root
     }
@@ -116,7 +120,7 @@ public enum BrainFixture {
     time.sleep(2)
     post("UserPromptSubmit", {"prompt": "实现登录页并补测试"})
     time.sleep(6)
-    post("Stop", {"last_assistant_message": "登录页已经做完，12 个测试全部通过。"})
+    post("Stop", {"last_assistant_message": "__FINAL__"})
     time.sleep(3600)
     """
 }

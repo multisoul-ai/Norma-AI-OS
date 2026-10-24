@@ -38,6 +38,7 @@ fn start() -> Harness {
     config.retry_backoff = Duration::from_millis(50);
     config.router = RouterConfig {
         debounce: Duration::from_millis(50),
+        quiet_window: Duration::from_millis(50),
         summary_every: None,
         norma_bin: String::new(),
     };
@@ -229,6 +230,7 @@ fn finished_agents_are_batched_and_goal_is_included() {
             agent: agent.into(),
             outcome: brain::Outcome::Succeeded,
             excerpt: "完成".into(),
+            from_result: true,
         });
     }
     h.wait_log("Cursor 已完成");
@@ -270,6 +272,7 @@ fn start_with(workers: usize) -> Harness {
     config.retry_backoff = Duration::from_millis(50);
     config.router = RouterConfig {
         debounce: Duration::from_millis(50),
+        quiet_window: Duration::from_millis(50),
         summary_every: None,
         norma_bin: String::new(),
     };

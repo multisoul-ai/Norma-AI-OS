@@ -11,6 +11,7 @@ pub mod lane;
 pub mod risk;
 pub mod router;
 pub mod service;
+pub mod triage;
 
 pub use backend::{Backend, BackendKind, Strategy};
 pub use event::{ApprovalRequest, BrainEvent, BrainStatus, Outcome};

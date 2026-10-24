@@ -199,6 +199,7 @@ impl MultisoulApp {
         brain_config.approval_model = settings.approval_model.clone();
         brain_config.approval_workers = if settings.parallel_approvals { 3 } else { 1 };
         brain_config.router.summary_every = settings.summary.duration();
+        brain_config.router.quiet_window = config::quiet_window();
         brain_config.env = config::adapter_env(&token, &workspace_id, &route_id);
         let (service, status) = BrainService::start(brain_config);
         tracing::info!("Norma 大脑已启动");
@@ -253,13 +254,17 @@ impl MultisoulApp {
         let excerpt = excerpts
             .iter()
             .find(|(id, _)| id == node_id)
-            .and_then(|(_, text)| text.clone())
+            .and_then(|(_, text)| text.clone());
+        // 拿不到 Agent 给的结果时退回用户发的话；这种摘要不参与关键词判断。
+        let from_result = excerpt.is_some();
+        let excerpt = excerpt
             .or_else(|| self.runtime.agent_latest_prompt(*node_id))
             .unwrap_or_default();
         self.push_brain(BrainEvent::AgentFinished {
             agent,
             outcome,
             excerpt,
+            from_result,
         });
     }
 

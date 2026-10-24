@@ -28,6 +28,8 @@ pub enum BrainEvent {
         agent: String,
         outcome: Outcome,
         excerpt: String,
+        /// 摘要是 Agent 给出的结果；`false` 表示拿不到结果、退回成了用户发的话。
+        from_result: bool,
     },
     ApprovalRequested(ApprovalRequest),
     /// 审批已被用户处理或已失效，大脑不必再判断。
