@@ -19,6 +19,9 @@ public enum BrainSettings {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         brainDir = root
         let config = root.appendingPathComponent("config.json")
+        try Data("""
+        {"backend":"claude","backend_models":{"codex":{"main":"saved-codex-model","approval":null}}}
+        """.utf8).write(to: config)
         // 放一个空的适配器可执行文件，让设置页把 Claude Code 判为“已安装”。
         let bin = root.appendingPathComponent("adapters/node_modules/.bin", isDirectory: true)
         try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
@@ -93,38 +96,32 @@ public enum BrainSettings {
             return (try? String(contentsOf: config, encoding: .utf8)) ?? ""
         }
 
-        try await session.step("选 Codex 作后端，从下拉菜单选主会话模型，配置按后端保存") {
+        try await session.step("未完成隔离的后端显示不可用，不能选中或启动，旧模型选择仍保留") {
             try await BrainSupport.clickScrolling(session, "Codex")
-            try await waitConfig(config, contains: "\"backend\": \"codex\"")
-            for _ in 0..<15 {
-                if try await session.capture().contains("CLI default") { break }
-                try await Task.sleep(nanoseconds: 400_000_000)
+            let frame = try await session.wait(Expectation(allOf: ["Temporarily unavailable"], timeout: 5))
+            try session.save(frame, "07-backends-unavailable.png")
+            let object = try JSONSerialization.jsonObject(with: Data(contentsOf: config)) as? [String: Any]
+            let models = object?["backend_models"] as? [String: [String: Any]]
+            guard object?["backend"] as? String == "claude",
+                  models?["codex"]?["main"] as? String == "saved-codex-model",
+                  !FileManager.default.fileExists(atPath: root.appendingPathComponent("codex-started").path) else {
+                throw E2EError.product("禁用后端被选中、启动，或覆盖了旧模型选择")
             }
-            let frame = try await session.capture()
-            // 主会话那一行的下拉按钮在审批会话之上，取最上面的一个。
-            guard let trigger = frame.pick(["CLI default"], .top) else {
-                throw E2EError.product("没有出现模型下拉菜单：\(frame.summary)")
-            }
-            try await session.click(local: trigger.center, on: frame)
-            let menu = try await session.wait(Expectation(allOf: ["Fake Sol"], timeout: 5))
-            try session.save(menu, "07-codex-model-menu.png")
-            try await session.click(matching: ["Fake Sol"], pick: .bottom)
-            try await waitConfig(config, contains: "\"main\": \"fake-sol\"")
-            // 菜单关闭（看不到另一项 Fake Luna），按钮文字换成 Fake Sol。
-            let after = try await session.wait(
-                Expectation(allOf: ["Fake Sol"], absent: ["Fake Luna"], timeout: 5))
-            try session.save(after, "08-codex-model-picked.png")
-            return (try? String(contentsOf: config, encoding: .utf8)) ?? ""
+            return "不可用原因可见，后端未启动，按后端保存的模型未丢失"
         }
 
         try await session.step("切到浅色主题 Paper Blue，回到幕僚页看上下两部分") {
             // “Paper Blue”是浅色主题（纸白 · 钴蓝）。
-            _ = try await SettingsSupport.select(session, labels: ["Themes"], content: ["Paper Blue"])
-            try await session.click(matching: ["Paper Blue"], pick: .bottom)
+            _ = try await SettingsSupport.select(session, labels: ["Themes"], content: ["Bright palettes"])
+            // OCR 偶尔丢掉首字母 P；截图仍须核对实际切到浅色主题。
+            try await session.click(matching: ["aper Blue"], pick: .bottom)
             try await Task.sleep(nanoseconds: 800_000_000)
             let top = try await SettingsSupport.select(
                 session, labels: ["Chief of Staff"], content: ["Restarts when changed"])
             try session.save(top, "05-brain-light-top.png")
+            try await BrainSupport.clickScrolling(session, "Codex")
+            let backends = try await session.wait(Expectation(allOf: ["OpenCode", "Codex", "Temporarily unavailable"], timeout: 5))
+            try session.save(backends, "08-backends-unavailable-light.png")
             for _ in 0..<6 { try await session.scroll(xFraction: 0.7, yFraction: 0.65, deltaY: -260) }
             try session.save(try await session.capture(), "06-brain-light-bottom.png")
             return "浅色主题截图已保存"
@@ -148,7 +145,8 @@ public enum BrainSettings {
 
     private static let fakeCodex = """
     #!/usr/bin/env python3
-    import json, sys
+    import json, os, sys
+    open(os.path.join(os.environ["NORMA_BRAIN_DIR"], "codex-started"), "w").write("started")
     def send(o): sys.stdout.write(json.dumps(o) + "\\n"); sys.stdout.flush()
     for line in sys.stdin:
         m = json.loads(line); method, mid = m.get("method"), m.get("id")

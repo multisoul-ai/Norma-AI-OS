@@ -206,6 +206,8 @@
   "settings.brain_not_installed": "not installed",
   "settings.brain_install": "Install adapter",
   "settings.brain_opencode_missing": "OpenCode not found. Install the OpenCode CLI first",
+  "settings.brain_codex_unavailable": "Temporarily unavailable: project file isolation is not supported",
+  "settings.brain_opencode_unavailable": "Temporarily unavailable: permission checks are not compatible",
   "settings.brain_installing": "Installing…",
   "settings.brain_install_failed": "Install failed: %{reason}",
   "settings.brain_strategy": "Strategy",

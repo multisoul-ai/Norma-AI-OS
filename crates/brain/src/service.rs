@@ -71,6 +71,19 @@ impl BrainService {
         let (events, inbox) = mpsc::channel();
         let (status_tx, status_rx) = mpsc::channel();
         let stop = Arc::new(AtomicBool::new(false));
+        if let Some(reason) = backend::unavailable_reason(config.backend.kind) {
+            let _ = status_tx.send(BrainStatus::BackendDown {
+                reason: reason.into(),
+            });
+            return (
+                Self {
+                    events,
+                    stop,
+                    threads: Vec::new(),
+                },
+                status_rx,
+            );
+        }
         let open = Arc::new(Mutex::new(HashSet::new()));
         let goal = Arc::new(GoalStore::open(config.state_dir.clone()));
         let mut models = backend::models_for(config.backend.kind, config.strategy);

@@ -55,6 +55,37 @@ fn only_a_single_norma_command_is_allowed() {
     }
 }
 
+/// 闸门不得把输入、输出或文件描述符重定向当成普通参数。
+/// 数据构造：同一条合法 agents 命令，分别附加四类 shell 重定向。
+/// 执行过程：逐条经 Gate 判断，并以没有重定向的命令作对照。
+/// 预期结果：普通命令放行，所有重定向拒绝，避免 shell 在 CLI 执行前截断文件。
+#[test]
+fn every_shell_redirection_is_rejected() {
+    let g = gate();
+    assert_eq!(
+        g.judge(&bash("/opt/norma/bin/norma brain agents")),
+        Verdict::Allow,
+        "没有重定向的命令仍应放行"
+    );
+    for suffix in [
+        ">&/tmp/fixture",
+        "2>&1",
+        "<&0",
+        "< /tmp/fixture",
+        "&>/tmp/fixture",
+        "|",
+        "&",
+        ";",
+        "&&",
+    ] {
+        let command = format!("/opt/norma/bin/norma brain agents {suffix}");
+        assert!(
+            matches!(g.judge(&bash(&command)), Verdict::Reject(_)),
+            "重定向必须被拒绝：{command}"
+        );
+    }
+}
+
 /// 读取只限工作空间内，且不能读密钥。
 ///
 /// 数据构造：项目根 /work/proj。
@@ -63,9 +94,18 @@ fn only_a_single_norma_command_is_allowed() {
 ///   - 负断言：/etc/hosts、`../x`、/work/proj/.env、缺路径都被拒绝
 #[test]
 fn reads_are_limited_to_the_project_and_never_secrets() {
-    let g = gate();
-    assert_eq!(g.judge(&read("/work/proj/docs/a.md")), Verdict::Allow);
-    assert_eq!(g.judge(&read("src/a.rs")), Verdict::Allow);
+    let dir = tempfile::tempdir().expect("应创建项目夹具");
+    std::fs::create_dir_all(dir.path().join("src")).expect("应创建源码目录");
+    std::fs::write(dir.path().join("src/a.rs"), "fixture").expect("应创建项目文件");
+    let g = Gate {
+        project_root: dir.path().to_path_buf(),
+        ..gate()
+    };
+    assert_eq!(
+        g.judge(&read("src/a.rs")),
+        Verdict::Allow,
+        "项目内实际文件应放行"
+    );
     for path in ["/etc/hosts", "../x", "/work/proj/.env"] {
         assert!(
             matches!(g.judge(&read(path)), Verdict::Reject(_)),
@@ -81,6 +121,70 @@ fn reads_are_limited_to_the_project_and_never_secrets() {
         matches!(g.judge(&missing), Verdict::Reject(_)),
         "缺路径应被拒绝"
     );
+}
+
+/// 项目内的普通名称不能通过符号链接读取项目外文件或项目内凭据。
+/// 数据构造：真实项目文件、项目外文件及 .env，再为后两者创建无敏感字样的链接。
+/// 执行过程：分别请求真实文件和两个链接。
+/// 预期结果：真实文件放行，两个伪装链接及不存在的路径拒绝。
+#[test]
+fn symlinked_and_missing_reads_are_rejected() {
+    let dir = tempfile::tempdir().expect("应创建夹具目录");
+    let root = dir.path().join("project");
+    std::fs::create_dir(&root).expect("应创建项目");
+    std::fs::write(root.join("safe.txt"), "safe").expect("应创建正常文件");
+    std::fs::write(root.join(".env"), "fake").expect("应创建伪凭据");
+    std::fs::write(dir.path().join("outside.txt"), "outside").expect("应创建项目外夹具");
+    std::os::unix::fs::symlink(dir.path().join("outside.txt"), root.join("outside-link"))
+        .expect("应创建越界链接");
+    std::os::unix::fs::symlink(root.join(".env"), root.join("innocent.txt"))
+        .expect("应创建凭据链接");
+    let g = Gate {
+        project_root: root,
+        ..gate()
+    };
+    assert_eq!(g.judge(&read("safe.txt")), Verdict::Allow, "正常文件应放行");
+    for path in ["outside-link", "innocent.txt", "missing.txt"] {
+        assert!(
+            matches!(g.judge(&read(path)), Verdict::Reject(_)),
+            "不能放行 {path}"
+        );
+    }
+}
+
+/// 目录授权不能覆盖目录内的凭据、链接或任意搜索目标。
+/// 数据构造：项目根内有正常源码；四种工具分别请求读取根目录。
+/// 执行过程：读取正常文件作正对照，再判断目录与递归工具请求。
+/// 预期结果：只允许逐个普通文件的 Read，不允许目录或搜索工具。
+#[test]
+fn directory_and_recursive_reads_are_rejected() {
+    let dir = tempfile::tempdir().expect("应创建项目");
+    std::fs::write(dir.path().join("safe.txt"), "safe").expect("应写入正常文件");
+    let g = Gate {
+        project_root: dir.path().into(),
+        ..gate()
+    };
+    assert_eq!(
+        g.judge(&read("safe.txt")),
+        Verdict::Allow,
+        "逐文件读取正常文件应放行"
+    );
+    for (tool, path) in [
+        ("Read", "."),
+        ("Glob", "."),
+        ("Grep", "safe.txt"),
+        ("LS", "."),
+    ] {
+        let request = PermissionRequest {
+            tool: tool.into(),
+            path: Some(path.into()),
+            command: None,
+        };
+        assert!(
+            matches!(g.judge(&request), Verdict::Reject(_)),
+            "不能授予目录或递归访问：{request:?}"
+        );
+    }
 }
 
 /// 写类工具和未知工具一律拒绝。
@@ -127,7 +231,8 @@ fn permission_requests_are_parsed_from_both_adapter_shapes() {
     let b = PermissionRequest::from_params(&codex);
     assert_eq!(
         (b.tool.as_str(), b.command.as_deref()),
-        ("Bash", Some("bash -lc norma brain report"))
+        ("Bash", Some("'bash' '-lc' 'norma brain report'")),
+        "argv 边界必须通过引号保留"
     );
     assert_eq!(
         pick_option(&claude, &Verdict::Allow).as_deref(),
@@ -176,27 +281,92 @@ fn codex_report_request_is_allowed() {
     assert_eq!(gate().judge(&request), Verdict::Allow, "{request:?}");
 }
 
-/// Codex 把整条命令再用双引号包一层发来；拆开一层后照常检查，组合命令仍被拒绝。
+/// 引号包住整条命令表示一个带空格的可执行文件名，不能再拆成受信任的 norma argv。
 ///
 /// 数据构造：包了一层双引号的 norma brain report；包了一层的 `norma brain agents; rm -rf ~`。
 /// 预期结果：
-///   - 正断言：前者放行
-///   - 负断言：后者被拒绝；包了两层的不再拆
+/// 执行过程：判断合法命令、单层与双层引号命令。
+///   - 正断言：未包裹的 norma 命令放行
+///   - 负断言：所有整条包裹的命令均拒绝
 #[test]
-fn codex_quoted_command_is_unwrapped_once() {
+fn quoted_executable_names_are_never_reinterpreted_as_commands() {
     let g = gate();
     assert_eq!(
-        g.judge(&bash(
-            r#""/opt/norma/bin/norma brain report --text '做完了，需要你确认。'""#
-        )),
-        Verdict::Allow
+        g.judge(&bash("/opt/norma/bin/norma brain agents")),
+        Verdict::Allow,
+        "正常命令应继续放行"
     );
-    assert!(matches!(
-        g.judge(&bash(r#""/opt/norma/bin/norma brain agents; rm -rf ~""#)),
-        Verdict::Reject(_)
-    ));
-    assert!(matches!(
-        g.judge(&bash(r#"'"/opt/norma/bin/norma brain agents"'"#)),
-        Verdict::Reject(_)
-    ));
+    assert!(
+        matches!(
+            g.judge(&bash(r#""/opt/norma/bin/norma brain agents""#)),
+            Verdict::Reject(_)
+        ),
+        "不能把带空格的可执行文件名拆成 norma 命令"
+    );
+    assert!(
+        matches!(
+            g.judge(&bash(r#""/opt/norma/bin/norma brain agents; rm -rf ~""#)),
+            Verdict::Reject(_)
+        ),
+        "引号内的组合文本不能重新解释成命令"
+    );
+    assert!(
+        matches!(
+            g.judge(&bash(r#"'"/opt/norma/bin/norma brain agents"'"#)),
+            Verdict::Reject(_)
+        ),
+        "多层引号不能触发递归拆包"
+    );
+}
+
+/// ACP argv 数组的参数边界必须保留，不能把一个参数重新拆成子命令。
+/// 数据构造：相同 norma 程序的正常 argv 与把 brain/agents 合成一项的 argv。
+/// 执行过程：经 ACP 解析后交给 Gate。
+/// 预期结果：正常 argv 放行，合并参数和非字符串参数拒绝。
+#[test]
+fn argv_boundaries_survive_permission_decoding() {
+    let check = |argv: Value| {
+        gate().judge(&PermissionRequest::from_params(&json!({
+            "toolCall": {"kind": "execute", "rawInput": {"command": argv}}
+        })))
+    };
+    assert_eq!(
+        check(json!(["/opt/norma/bin/norma", "brain", "agents"])),
+        Verdict::Allow,
+        "正常 argv 应放行"
+    );
+    for argv in [
+        json!(["/opt/norma/bin/norma", "brain agents"]),
+        json!(["/opt/norma/bin/norma", null, "brain", "agents"]),
+    ] {
+        assert!(
+            matches!(check(argv), Verdict::Reject(_)),
+            "不能重新解释或丢弃 argv 元素"
+        );
+    }
+}
+
+/// 单次审批不能升级为整会话允许。
+/// 数据构造：allow_always 排在 allow_once 前，以及仅包含 allow_always 的选项。
+/// 执行过程：为 Allow 判定选择返回选项。
+/// 预期结果：只选 allow_once；没有单次允许时取消。
+#[test]
+fn permission_grants_never_outlive_the_current_call() {
+    let options = json!({"options": [
+        {"kind": "allow_always", "optionId": "session"},
+        {"kind": "allow_once", "optionId": "once"}
+    ]});
+    assert_eq!(
+        pick_option(&options, &Verdict::Allow).as_deref(),
+        Some("once"),
+        "每条命令都必须重新经过闸门"
+    );
+    assert_eq!(
+        pick_option(
+            &json!({"options": [{"kind":"allow_always","optionId":"session"}]}),
+            &Verdict::Allow
+        ),
+        None,
+        "不得降级到整会话授权"
+    );
 }

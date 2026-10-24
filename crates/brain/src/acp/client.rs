@@ -263,6 +263,9 @@ pub fn discover_models(
     cwd: PathBuf,
     env: Vec<(String, String)>,
 ) -> Result<Vec<crate::backend::ModelChoice>, AcpError> {
+    if let Some(reason) = crate::backend::unavailable_reason(backend.kind) {
+        return Err(AcpError::Remote(reason.into()));
+    }
     let options = SessionOptions {
         program: backend.program.clone(),
         args: backend.args.clone(),

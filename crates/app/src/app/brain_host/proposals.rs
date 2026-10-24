@@ -1,10 +1,9 @@
 //! 大脑提议的下一步：放在“需要你处理”里，用户点“派发”后才派给 Agent。
-//! 写入 `<大脑目录>/proposals/<项目>.json`，重启后仍在。
+//! 写入 `<大脑目录>/projects/<工作空间哈希>/proposals.json`，重启后仍在。
 
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
 pub(crate) const MAX_PROPOSALS: usize = 5;
@@ -84,31 +83,49 @@ impl Proposals {
         json!({ "next_id": self.next_id, "items": items }).to_string()
     }
 
-    /// 损坏或缺字段的内容按没有提议处理。
-    pub(crate) fn from_json(text: &str) -> Self {
-        let Ok(value) = serde_json::from_str::<Value>(text) else {
-            return Self::default();
-        };
-        let items: Vec<Proposal> = value["items"]
-            .as_array()
+    /// 损坏内容必须报错，让磁盘拥有者保留原文件。
+    pub(crate) fn from_json(text: &str) -> Result<Self, String> {
+        #[derive(serde::Deserialize)]
+        struct Saved {
+            next_id: u64,
+            items: Vec<SavedItem>,
+        }
+        #[derive(serde::Deserialize)]
+        struct SavedItem {
+            id: u64,
+            agent: String,
+            title: String,
+            task: String,
+            why: String,
+            at: u64,
+        }
+        let saved: Saved =
+            serde_json::from_str(text).map_err(|e| format!("提议文件格式错误：{e}"))?;
+        let items: Vec<Proposal> = saved
+            .items
             .into_iter()
-            .flatten()
-            .filter_map(|item| {
-                Some(Proposal {
-                    id: item["id"].as_u64()?,
-                    agent: item["agent"].as_str()?.to_string(),
-                    title: item["title"].as_str()?.to_string(),
-                    task: item["task"].as_str()?.to_string(),
-                    why: item["why"].as_str()?.to_string(),
-                    at: SystemTime::UNIX_EPOCH + Duration::from_secs(item["at"].as_u64()?),
+            .map(|item| {
+                let at = SystemTime::UNIX_EPOCH
+                    .checked_add(Duration::from_secs(item.at))
+                    .ok_or_else(|| "提议时间超出系统范围".to_string())?;
+                Ok(Proposal {
+                    id: item.id,
+                    agent: item.agent,
+                    title: item.title,
+                    task: item.task,
+                    why: item.why,
+                    at,
                 })
             })
-            .collect();
+            .collect::<Result<_, String>>()?;
         let highest = items.iter().map(|p| p.id).max().unwrap_or(0);
-        Self {
-            next_id: value["next_id"].as_u64().unwrap_or(0).max(highest),
-            items,
+        if saved.next_id.max(highest) == u64::MAX {
+            return Err("提议编号超出范围".into());
         }
+        Ok(Self {
+            next_id: saved.next_id.max(highest),
+            items,
+        })
     }
 }
 
@@ -145,44 +162,14 @@ pub(crate) fn check_target(roster: &[RosterLite], agent: &str) -> Result<(), Str
     Ok(())
 }
 
-/// 每个项目一个文件，用项目根目录的哈希命名。
+/// 旧版按项目根目录哈希命名的文件，仅用于一次性迁移。
 pub(crate) fn file_for(state_dir: &Path, root: &Path) -> PathBuf {
     let digest = Sha256::digest(root.to_string_lossy().as_bytes());
     let name: String = digest.iter().take(8).map(|b| format!("{b:02x}")).collect();
     state_dir.join("proposals").join(format!("{name}.json"))
 }
 
-/// 后台写文件。写入可能乱序完成，只让最新的一次落盘。
-#[derive(Clone, Debug, Default)]
-pub(crate) struct Writer {
-    issued: Arc<Mutex<u64>>,
-    written: Arc<Mutex<u64>>,
-}
-
-impl Writer {
-    pub(crate) fn save(&self, path: PathBuf, text: String) {
-        let version = {
-            let mut issued = self.issued.lock().unwrap_or_else(|e| e.into_inner());
-            *issued += 1;
-            *issued
-        };
-        let written = self.written.clone();
-        std::thread::spawn(move || {
-            let mut done = written.lock().unwrap_or_else(|e| e.into_inner());
-            if *done > version {
-                return;
-            }
-            let result = path
-                .parent()
-                .map_or(Ok(()), std::fs::create_dir_all)
-                .and_then(|_| std::fs::write(&path, text));
-            match result {
-                Ok(()) => *done = version,
-                Err(error) => tracing::warn!(%error, "写入大脑提议失败"),
-            }
-        });
-    }
-}
+pub(crate) use brain::persistence::Writer;
 
 #[cfg(test)]
 #[path = "../../../tests/unit/brain_proposals_tests.rs"]

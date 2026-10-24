@@ -90,7 +90,8 @@ public enum BrainFixture {
                 done[0] = True
                 exe = found.group(1)
                 mode = open(os.path.join(os.environ.get("NORMA_BRAIN_DIR", "/tmp"), "mode")).read().strip()
-                if mode == "propose":
+                marker = os.path.join(os.environ.get("NORMA_BRAIN_DIR", "/tmp"), "proposed.once")
+                if mode == "propose" and not os.path.exists(marker):
                     for args in (["Bella", "--title", "补登录页测试", "--task", "补上登录页的测试，cargo test 通过即完成", "--why", "登录页还没有测试"],
                                  ["Alan", "--title", "写登录接口文档", "--task", "为登录接口写使用文档", "--why", "接口刚改过"]):
                         argv = [exe, "brain", "propose"] + args
@@ -98,7 +99,8 @@ public enum BrainFixture {
                             result = subprocess.run(argv, env=os.environ, timeout=30, capture_output=True, text=True)
                             with open(os.path.join(os.environ.get("NORMA_BRAIN_DIR", "/tmp"), "propose.out"), "a") as f:
                                 f.write(result.stdout + result.stderr + "\\n")
-                else:
+                    open(marker, "w").write("done")
+                elif mode != "propose":
                     command = exe + " brain assign Bella --task '补上登录页的测试'"
                     if permission("scripted", command):
                         subprocess.run([exe, "brain", "assign", "Bella", "--task", "补上登录页的测试"], env=os.environ, timeout=30)
@@ -132,8 +134,16 @@ public enum BrainFixture {
 
     private static let claude = """
     #!/usr/bin/env python3
-    import json, os, time, urllib.request
+    import json, os, re, sys, threading, time, urllib.request
     node = int(os.environ["MULTISOUL_NODE_ID"])
+    def receive():
+        for line in sys.stdin:
+            task = re.sub(r"\\x1b\\[(?:200|201)~", "", line).strip()
+            if not task: continue
+            path = os.path.join(os.environ["NORMA_BRAIN_DIR"], "received.jsonl")
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({"node": node, "task": task}, ensure_ascii=False) + "\\n")
+    threading.Thread(target=receive, daemon=True).start()
     def post(event, raw):
         raw = dict(raw, hook_event_name=event, session_id="brain-e2e", prompt_id="brain-e2e-turn")
         body = {"node_id": node, "profile": "Claude", "provider_event": event,

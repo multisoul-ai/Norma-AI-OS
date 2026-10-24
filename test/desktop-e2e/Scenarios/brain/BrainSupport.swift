@@ -5,6 +5,10 @@ import Foundation
 /// brain 模块各场景共用的步骤：建工作空间（点击偶尔没反应时重试）、关掉功能引导。
 @MainActor
 enum BrainSupport {
+    static func stateFiles(_ dir: URL, named name: String) -> [URL] {
+        (FileManager.default.enumerator(at: dir, includingPropertiesForKeys: nil)?.allObjects as? [URL] ?? [])
+            .filter { $0.lastPathComponent == name }
+    }
     /// 在启动页建一个叫 `name` 的工作空间：点“创建工作空间”后没弹出对话框就重点，最多三次。
     static func createWorkspace(_ session: Session, name: String) async throws {
         _ = try await session.wait(Expectation(anyOf: ["创建工作空间", "Create Workspace"], timeout: 25))
@@ -12,7 +16,12 @@ enum BrainSupport {
         try await Task.sleep(nanoseconds: 2_000_000_000)
         var opened = false
         for _ in 0..<3 {
-            try await session.click(matching: ["创建工作空间", "Create Workspace"], pick: .bottom)
+            let before = try await session.capture()
+            guard let button = before.pick(["创建工作空间", "Create Workspace"], .bottom) else {
+                try session.save(before, "workspace-button-missing.png")
+                throw E2EError.product("未识别到创建工作空间按钮：\(before.summary)")
+            }
+            try await session.click(local: button.center, on: before)
             let frame = try await session.capture()
             if frame.contains("工作空间名称") || frame.contains("Workspace name") { opened = true; break }
             try await Task.sleep(nanoseconds: 1_500_000_000)
@@ -57,7 +66,8 @@ enum BrainSupport {
 
     /// 从启动页进入“E2E Project”，用 `/new claude` 建 `count` 个智能体。
     static func openProjectWithAgents(_ session: Session, count: Int) async throws {
-        let launch = try await session.capture()
+        // 重启后首帧可能仍为空白；必须等启动页可操作，不能把预览里的项目名当成已进入画布。
+        let launch = try await session.wait(Expectation(anyOf: ["搜索工作空间", "Search workspaces"], timeout: 20))
         if launch.contains("搜索工作空间") || launch.contains("Search workspaces") {
             try await session.click(
                 local: CGPoint(x: Double(launch.windowFrame.width) - 111, y: 540), on: launch)

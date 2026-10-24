@@ -11,6 +11,7 @@ mod own_prompts;
 mod proposal_actions;
 pub(crate) mod proposals;
 mod settings;
+mod startup;
 mod trace;
 mod trace_state;
 
@@ -23,10 +24,12 @@ pub(crate) use settings::{adapter_package, BrainSettingsView};
 
 use crate::app::MultisoulApp;
 use brain::risk::ApprovalSubject;
-use brain::{ApprovalRequest, BrainConfig, BrainEvent, BrainService, BrainStatus, Outcome};
+use brain::{ApprovalRequest, BrainEvent, BrainService, BrainStatus, Outcome};
 use gpui::Context;
 use norma::mobile::ApprovalTarget;
 use runtime::{AgentTaskState, RuntimeEvent};
+use std::cell::RefCell;
+use std::collections::VecDeque;
 use std::collections::{HashMap, HashSet};
 use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
@@ -34,6 +37,10 @@ use std::time::{Duration, Instant};
 #[cfg(test)]
 #[path = "../../tests/unit/brain_host_tests.rs"]
 mod brain_host_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/brain_dispatch_tests.rs"]
+mod brain_dispatch_tests;
 
 const APPROVAL_POLL: Duration = Duration::from_millis(500);
 const START_RETRY: Duration = Duration::from_secs(10);
@@ -65,6 +72,11 @@ impl Drop for BrainHost {
 
 pub(crate) struct BrainHostState {
     settings: Option<config::BrainSettings>,
+    settings_loading: bool,
+    settings_revision: u64,
+    start_generation: u64,
+    starting: Option<u64>,
+    pending_events: RefCell<VecDeque<BrainEvent>>,
     host: Option<BrainHost>,
     next_start: Instant,
     last_poll: Instant,
@@ -97,6 +109,11 @@ pub(crate) struct BrainHostState {
     /// 大脑提议、等用户确认的下一步；读过文件后 `proposals_path` 才有值。
     pub(crate) proposals: proposals::Proposals,
     proposals_path: Option<std::path::PathBuf>,
+    proposals_loading: bool,
+    proposals_ready: bool,
+    proposals_retry_at: Instant,
+    proposals_dirty: bool,
+    proposals_save: Option<Receiver<Result<(), String>>>,
     proposal_writer: proposals::Writer,
     /// 概览里展开的提议：（项目区域 id，提议 id）。
     pub(crate) proposal_open: Option<(String, u64)>,
@@ -128,6 +145,11 @@ impl BrainHostState {
         let now = Instant::now();
         Self {
             settings: None,
+            settings_loading: false,
+            settings_revision: 0,
+            start_generation: 0,
+            starting: None,
+            pending_events: RefCell::new(VecDeque::new()),
             host: None,
             next_start: now,
             last_poll: now,
@@ -149,7 +171,12 @@ impl BrainHostState {
             trace_expanded: HashSet::new(),
             proposals: proposals::Proposals::default(),
             proposals_path: None,
-            proposal_writer: proposals::Writer::default(),
+            proposals_loading: false,
+            proposals_ready: false,
+            proposals_retry_at: now,
+            proposals_dirty: false,
+            proposals_save: None,
+            proposal_writer: brain::persistence::shared_writer().clone(),
             proposal_open: None,
         }
     }
@@ -167,13 +194,17 @@ impl MultisoulApp {
         excerpts: &[(u64, Option<String>)],
         cx: &mut Context<Self>,
     ) {
+        self.poll_brain_proposal_save(cx);
         if self.brain.settings.is_none() {
-            self.brain.settings = Some(config::load_settings());
+            if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
+                self.brain.settings = host.read(cx).brain.settings.clone();
+            }
+            if self.brain.settings.is_none() {
+                self.refresh_brain_settings(cx);
+            }
         }
         // 工作空间窗口没有大脑，但要汇总各项目的状态给概览。
-        if (!self.desktop_workspace.sessions.is_empty() || self.brain.overview.running)
-            && self.brain.overview_at.elapsed() >= APPROVAL_POLL
-        {
+        if self.brain.overview_at.elapsed() >= APPROVAL_POLL {
             self.brain.overview_at = Instant::now();
             self.refresh_brain_overview(cx);
         }
@@ -185,16 +216,16 @@ impl MultisoulApp {
             self.push_brain(event);
         }
         if self.brain.settings.as_ref().is_some_and(|s| s.enabled) {
-            self.load_brain_proposals();
+            self.load_brain_proposals(cx);
         }
         if self.brain.host.is_none() {
-            self.try_start_brain();
-        }
-        if self.brain.host.is_none() {
-            return;
+            self.try_start_brain(cx);
         }
         for event in events {
             self.forward_runtime_event(event, excerpts);
+        }
+        if self.brain.host.is_none() {
+            return;
         }
         self.drain_brain_status(cx);
         if self.brain.last_poll.elapsed() >= APPROVAL_POLL {
@@ -202,58 +233,6 @@ impl MultisoulApp {
             self.poll_approvals();
             self.remind_slow_judgements(cx);
         }
-    }
-
-    fn try_start_brain(&mut self) {
-        let now = Instant::now();
-        if now < self.brain.next_start || !self.brain.settings.as_ref().is_some_and(|s| s.enabled) {
-            return;
-        }
-        self.brain.next_start = now + START_RETRY;
-        let (Some(root), Some(workspace_id), Some(route_id)) = (
-            self.runtime.workspace_root().map(|root| root.to_path_buf()),
-            self.workspace_id.clone(),
-            self.workspace_route_id.clone(),
-        ) else {
-            // 工作空间窗口本来就没有项目根目录，只有项目会话缺路由才值得提示。
-            if self.runtime.workspace_root().is_some() {
-                tracing::warn!(
-                    "项目缺少 Norma 路由（常见原因：另一个 Norma 进程占用了端点），大脑未启动"
-                );
-            }
-            return;
-        };
-        let settings = self.brain.settings.clone().expect("设置已加载");
-        let Some(backend) = config::pick_backend(&settings) else {
-            tracing::warn!("没有找到可用的 ACP 后端，大脑未启动；见 ~/.norma/brain/adapters");
-            return;
-        };
-        let Some(state_dir) = config::state_dir() else {
-            return;
-        };
-        let Ok(paths) = norma::orchestration::InstallPaths::for_current_process() else {
-            tracing::warn!("无法定位 norma 命令行，大脑未启动");
-            return;
-        };
-        let token = uuid::Uuid::new_v4().simple().to_string();
-        let models = settings.models_for(backend.kind);
-        let mut brain_config = BrainConfig::new(backend, paths.bundled_cli, root, state_dir);
-        brain_config.strategy = settings.strategy;
-        brain_config.main_model = models.main;
-        brain_config.approval_model = models.approval;
-        brain_config.approval_workers = if settings.parallel_approvals { 3 } else { 1 };
-        brain_config.router.summary_every = settings.summary.duration();
-        brain_config.router.quiet_window = config::quiet_window();
-        brain_config.env = config::adapter_env(&token, &workspace_id, &route_id);
-        let (service, status) = BrainService::start(brain_config);
-        tracing::info!("Norma 大脑已启动");
-        // 新的大脑不认识旧审批：清掉记录，下一次轮询会把仍在等待的审批重新交给它。
-        self.brain.tracked.clear();
-        self.brain.host = Some(BrainHost {
-            service: Some(service),
-            status,
-            token,
-        });
     }
 
     pub(super) fn push_brain(&self, event: BrainEvent) {
@@ -264,6 +243,17 @@ impl MultisoulApp {
             .and_then(|host| host.service.as_ref())
         {
             service.push(event);
+        } else if self
+            .brain
+            .settings
+            .as_ref()
+            .is_none_or(|settings| settings.enabled)
+        {
+            let mut pending = self.brain.pending_events.borrow_mut();
+            pending.push_back(event);
+            if pending.len() > 200 {
+                pending.pop_front();
+            }
         }
     }
 

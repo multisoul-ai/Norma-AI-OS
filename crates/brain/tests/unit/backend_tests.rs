@@ -1,6 +1,31 @@
 use super::*;
 use std::fs;
 
+/// 内置只读工具也必须经过权限请求，不能递归读取整个项目绕过逐文件检查。
+/// 数据构造：Claude 会话配置，不包含任何用户设置。
+/// 执行过程：检查工具白名单、逐次询问规则和跳过权限开关。
+/// 预期结果：只暴露 Bash/Read，每次都询问，禁用跳过权限与额外 MCP 配置。
+#[test]
+fn claude_requires_permission_for_every_exposed_tool() {
+    let meta = session_meta(BackendKind::ClaudeCode, None).expect("应有 Claude 配置");
+    let options = &meta["claudeCode"]["options"];
+    assert_eq!(
+        options["tools"],
+        serde_json::json!(["Bash", "Read"]),
+        "不能暴露递归搜索或其他工具"
+    );
+    assert_eq!(
+        options["settings"]["permissions"]["ask"],
+        serde_json::json!(["Bash", "Read"]),
+        "内置安全规则也必须转到 ACP 询问"
+    );
+    assert_eq!(
+        options["allowDangerouslySkipPermissions"], false,
+        "不能允许跳过权限"
+    );
+    assert_eq!(options["strictMcpConfig"], true, "不能加载用户的 MCP 工具");
+}
+
 /// 在适配器目录和 PATH 中检测后端，并保持固定顺序。
 ///
 /// 数据构造：临时目录里放 node_modules/.bin/claude-agent-acp，PATH 目录里放 opencode。
@@ -87,13 +112,14 @@ fn claude_sessions_ignore_user_settings_and_disable_write_tools() {
     );
 }
 
-/// OpenCode 默认的 build 模式执行命令不发权限请求；注入配置让每条命令都先请求批准、禁止改文件和联网。
+/// OpenCode 候选配置包含 ask/deny 规则；这里只验证序列化，不证明后端遵守规则。
+/// 服务层在完成实际协议和权限验证前拒绝启动该后端。
 ///
 /// 预期结果：
 ///   - 正断言：OpenCode 的环境变量里有 OPENCODE_CONFIG_CONTENT，bash 为 ask，edit 与 webfetch 为 deny
 ///   - 负断言：其他后端不注入环境变量
 #[test]
-fn opencode_sessions_ask_before_every_command() {
+fn opencode_configuration_contains_requested_permissions() {
     let env = session_env(BackendKind::OpenCode);
     let (_, content) = env
         .iter()

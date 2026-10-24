@@ -8,3 +8,5 @@
 | `04-brain-changed.png` | 改过的开关与“10 min”分段已更新 | 点了没有任何变化 |
 | `05-brain-light-top.png` | 浅色主题下状态卡、分组卡片与页面背景有可分辨的层次；文字、分段按钮选中态、开关都清楚可读 | 卡片与背景同色看不出边界、文字对比度不足 |
 | `06-brain-light-bottom.png` | 浅色主题下“Always ask you first”标签、后端单选圈、说明条清楚可读 | 描边或单选圈在浅色下消失 |
+| `07-backends-unavailable.png` | Codex/OpenCode 行显示暂不可用原因，禁用态与可用的 Claude Code 可区分 | 禁用后端出现选中态、模型菜单或安装中的假状态 |
+| `08-backends-unavailable-light.png` | 浅色主题下两个不可用后端的名称、原因和未选中单选圈完整可读 | 禁用原因被裁切，或与可用 Claude Code 无法区分 |

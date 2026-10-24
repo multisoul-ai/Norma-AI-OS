@@ -28,13 +28,16 @@ impl PermissionRequest {
             });
         let command = match &raw["command"] {
             Value::String(s) => Some(s.clone()),
-            Value::Array(items) => Some(
-                items
-                    .iter()
-                    .filter_map(Value::as_str)
-                    .collect::<Vec<_>>()
-                    .join(" "),
-            ),
+            Value::Array(items) => items
+                .iter()
+                .map(Value::as_str)
+                .collect::<Option<Vec<_>>>()
+                .map(|argv| {
+                    argv.into_iter()
+                        .map(|arg| format!("'{}'", arg.replace('\'', "'\\''")))
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                }),
             _ => None,
         };
         let path = raw["file_path"]
@@ -66,26 +69,15 @@ impl Gate {
     pub fn judge(&self, request: &PermissionRequest) -> Verdict {
         match request.tool.as_str() {
             "Bash" => self.judge_command(request.command.as_deref()),
-            "Read" | "Glob" | "Grep" | "LS" => self.judge_read(request.path.as_deref()),
+            "Read" => self.judge_read(request.path.as_deref()),
             other => Verdict::Reject(format!("大脑不能使用 {other}")),
         }
     }
 
     fn judge_command(&self, command: Option<&str>) -> Verdict {
-        let Some(mut argv) = command.and_then(single_command) else {
+        let Some(argv) = command.and_then(single_command) else {
             return Verdict::Reject("只允许单条 norma 命令，不允许管道、重定向或组合".into());
         };
-        // Codex 会把整条命令再用引号包一层发来：拆开一层，再按同样的规则检查。
-        if let [whole] = argv.as_slice() {
-            if whole.contains(char::is_whitespace) {
-                let Some(inner) = single_command(whole) else {
-                    return Verdict::Reject(
-                        "只允许单条 norma 命令，不允许管道、重定向或组合".into(),
-                    );
-                };
-                argv = inner;
-            }
-        }
         if Path::new(&argv[0]) != self.norma_bin {
             return Verdict::Reject(format!("只允许执行 {}", self.norma_bin.display()));
         }
@@ -103,20 +95,31 @@ impl Gate {
         if is_secret_path(path) {
             return Verdict::Reject("不允许读取密钥或凭据文件".into());
         }
-        if crate::risk::is_inside_project(&self.project_root, path) {
-            Verdict::Allow
-        } else {
-            Verdict::Reject("只允许读取工作空间内的文件".into())
+        let root = self.project_root.canonicalize();
+        let candidate = self.project_root.join(path).canonicalize();
+        if let (Ok(root), Ok(candidate)) = (root, candidate) {
+            if candidate.is_file()
+                && candidate.starts_with(root)
+                && !is_secret_path(&candidate.to_string_lossy())
+                && crate::risk::is_inside_project(&self.project_root, path)
+            {
+                return Verdict::Allow;
+            }
         }
+        Verdict::Reject("只允许读取工作空间内实际存在的非凭据文件".into())
     }
 }
 
 /// 在 `options` 里找出与结论对应的选项 id。
 pub fn pick_option(params: &Value, verdict: &Verdict) -> Option<String> {
-    let want_allow = matches!(verdict, Verdict::Allow);
+    let wanted = if matches!(verdict, Verdict::Allow) {
+        "allow_once"
+    } else {
+        "reject_once"
+    };
     params["options"].as_array()?.iter().find_map(|option| {
         let kind = option["kind"].as_str().unwrap_or_default();
-        (kind.starts_with("allow") == want_allow && !kind.is_empty())
+        (kind == wanted)
             .then(|| option["optionId"].as_str().map(str::to_string))
             .flatten()
     })

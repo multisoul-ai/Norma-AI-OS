@@ -70,7 +70,11 @@ impl GoalStore {
         }
         if fs::create_dir_all(&self.dir).is_ok() {
             if let Ok(json) = serde_json::to_string(&*goals) {
-                let _ = fs::write(self.dir.join("goals.json"), json);
+                if let Err(error) =
+                    crate::persistence::atomic_write(&self.dir.join("goals.json"), json.as_bytes())
+                {
+                    tracing::warn!(%error, "保存幕僚目标失败");
+                }
             }
         }
         true

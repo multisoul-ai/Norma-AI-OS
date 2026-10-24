@@ -86,6 +86,11 @@ impl MultisoulApp {
 
     /// 打开设置页时调用：读一次配置并刷新已安装的后端（后台线程，不阻塞前台）。
     pub(crate) fn refresh_brain_settings(&mut self, cx: &mut Context<Self>) {
+        if self.brain.settings_loading {
+            return;
+        }
+        self.brain.settings_loading = true;
+        let revision = self.brain.settings_revision;
         let work = cx.background_executor().spawn(async move {
             let dir = config::state_dir();
             let backends = dir
@@ -96,7 +101,10 @@ impl MultisoulApp {
         cx.spawn(async move |this, cx| {
             let (settings, backends) = work.await;
             let _ = this.update(cx, |app, cx| {
-                app.brain.settings = Some(settings);
+                app.brain.settings_loading = false;
+                if app.brain.settings.is_none() && revision == app.brain.settings_revision {
+                    app.brain.settings = Some(settings);
+                }
                 app.brain.installed = backends.iter().map(|backend| backend.kind).collect();
                 app.discover_brain_models(backends, cx);
                 cx.notify();
@@ -129,13 +137,29 @@ impl MultisoulApp {
             let copy = settings.clone();
             session.update(cx, |app, cx| app.apply_brain_settings(copy, restart, cx));
         }
-        cx.background_executor()
-            .spawn(async move {
-                if let Err(error) = config::save_settings(&settings) {
-                    tracing::warn!(%error, "保存大脑配置失败");
-                }
-            })
-            .detach();
+        let revision = self.brain.settings_revision;
+        match config::save_settings(&settings) {
+            Ok(done) => {
+                let work = cx.background_executor().spawn(async move {
+                    done.recv().unwrap_or_else(|_| Err("保存线程已关闭".into()))
+                });
+                cx.spawn(async move |this, cx| {
+                    if let Err(error) = work.await {
+                        let _ = this.update(cx, |app, cx| {
+                            if app.brain.settings_revision == revision {
+                                app.desktop_workspace.error =
+                                    Some(format!("保存幕僚设置失败：{error}").into());
+                                cx.notify();
+                            }
+                        });
+                    }
+                })
+                .detach();
+            }
+            Err(error) => {
+                self.desktop_workspace.error = Some(format!("保存幕僚设置失败：{error}").into())
+            }
+        }
     }
 
     /// 接收新的设置；`restart` 为真时丢弃正在运行的大脑，下一帧按新配置启动。
@@ -146,9 +170,12 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         let silenced = !settings.speak;
+        self.brain.settings_revision += 1;
         self.brain.settings = Some(settings);
         if restart {
+            self.brain.start_generation += 1;
             self.brain.host = None;
+            self.brain.starting = None;
             self.brain.next_start = Instant::now();
         }
         if silenced {
@@ -172,9 +199,12 @@ impl MultisoulApp {
     /// 工作空间窗口：汇总各项目会话里的大脑状态，供概览渲染。变化时才通知重绘。
     pub(crate) fn refresh_brain_overview(&mut self, cx: &mut Context<Self>) {
         let mut snapshot = super::OverviewSnapshot::default();
-        for ((_, area_id), session) in &self.desktop_workspace.sessions {
+        for ((workspace_id, area_id), session) in &self.desktop_workspace.sessions {
             let app = session.read(cx);
             snapshot.running |= app.brain.host.is_some();
+            if self.desktop_workspace.active_id.as_ref() != Some(workspace_id) {
+                continue;
+            }
             snapshot.judging.extend(
                 app.brain_judging_nodes()
                     .into_iter()
@@ -201,9 +231,13 @@ impl MultisoulApp {
                         }),
                 );
         }
-        snapshot
-            .proposals
-            .sort_by(|a, b| b.proposal.at.cmp(&a.proposal.at));
+        snapshot.proposals.sort_by(|a, b| {
+            b.proposal
+                .at
+                .cmp(&a.proposal.at)
+                .then_with(|| b.proposal.id.cmp(&a.proposal.id))
+                .then_with(|| a.area_id.cmp(&b.area_id))
+        });
         snapshot.actions.sort_by(|a, b| b.1.at.cmp(&a.1.at));
         snapshot.actions.truncate(20);
         if snapshot != self.brain.overview {

@@ -2,8 +2,10 @@
 
 use brain::{Backend, BackendKind, Strategy};
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::mpsc::Receiver;
 use std::time::Duration;
 
 /// 定时摘要的间隔。
@@ -225,13 +227,22 @@ pub(super) fn parse_settings(text: &str) -> BrainSettings {
     }
 }
 
-pub(super) fn save_settings(settings: &BrainSettings) -> std::io::Result<()> {
+pub(super) fn save_settings(
+    settings: &BrainSettings,
+) -> std::io::Result<Receiver<Result<(), String>>> {
     let dir = state_dir().ok_or_else(|| std::io::Error::other("找不到用户目录"))?;
-    save_settings_to(&dir, settings)
+    Ok(brain::persistence::shared_writer().save(dir.join("config.json"), settings_json(settings)?))
 }
 
+#[cfg(test)]
 pub(super) fn save_settings_to(dir: &Path, settings: &BrainSettings) -> std::io::Result<()> {
-    std::fs::create_dir_all(dir)?;
+    brain::persistence::atomic_write(
+        &dir.join("config.json"),
+        settings_json(settings)?.as_bytes(),
+    )
+}
+
+fn settings_json(settings: &BrainSettings) -> std::io::Result<String> {
     let value = json!({
         "enabled": settings.enabled,
         "backend": settings.backend.map(kind_key),
@@ -271,7 +282,14 @@ pub(super) fn save_settings_to(dir: &Path, settings: &BrainSettings) -> std::io:
             })
             .collect::<serde_json::Map<_, _>>(),
     });
-    std::fs::write(dir.join("config.json"), serde_json::to_vec_pretty(&value)?)
+    Ok(serde_json::to_string_pretty(&value)?)
+}
+
+/// 桌面画布拥有稳定 workspace 身份；同一目录的两个画布不能共享任务或目标。
+pub(super) fn session_dir(dir: &Path, workspace_id: &str) -> PathBuf {
+    let digest = Sha256::digest(workspace_id.as_bytes());
+    let name: String = digest.iter().map(|byte| format!("{byte:02x}")).collect();
+    dir.join("projects").join(name)
 }
 
 /// GUI 启动的进程 PATH 很短，补上 Homebrew 和 nvm 的 node 目录，适配器是 node 脚本。
@@ -299,7 +317,9 @@ pub(super) fn search_dirs() -> Vec<PathBuf> {
 /// 按配置挑后端；没有指定时按 Claude Code、Codex、OpenCode 的顺序取第一个。
 pub(super) fn pick_backend(settings: &BrainSettings) -> Option<Backend> {
     let dir = state_dir()?.join("adapters");
-    let found = brain::backend::detect(&dir, &search_dirs());
+    let found = brain::backend::detect(&dir, &search_dirs())
+        .into_iter()
+        .filter(|backend| brain::backend::unavailable_reason(backend.kind).is_none());
     match settings.backend {
         Some(kind) => found.into_iter().find(|backend| backend.kind == kind),
         None => found.into_iter().next(),

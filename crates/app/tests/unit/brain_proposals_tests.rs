@@ -68,12 +68,12 @@ fn take_removes_and_ids_are_not_reused() {
     assert!(third > second, "编号不复用");
 }
 
-/// 写入再读回，内容与编号都保留；损坏的文件当作没有提议。
+/// 写入再读回，内容与编号都保留；损坏的文件返回错误。
 ///
 /// 数据构造：两条提议（时间不同）序列化后再解析；另给一段非 JSON 文本。
 /// 预期结果：
 ///   - 正断言：读回的提议与原来逐字段相同，下一个编号接着往后
-///   - 负断言：损坏的文本得到空列表，不会崩溃
+///   - 负断言：损坏的文本报错，不会当成空列表覆盖
 #[test]
 fn round_trips_through_json() {
     let mut proposals = Proposals::default();
@@ -86,11 +86,50 @@ fn round_trips_through_json() {
             SystemTime::UNIX_EPOCH + Duration::from_secs(90),
         )
         .unwrap();
-    let mut back = Proposals::from_json(&proposals.to_json());
-    assert_eq!(back.items(), proposals.items());
+    let mut back = Proposals::from_json(&proposals.to_json()).expect("应解析有效快照");
+    assert_eq!(back.items(), proposals.items(), "完整内容必须恢复");
     let next = back.add(draft("C", "三"), SystemTime::UNIX_EPOCH).unwrap();
     assert!(next > 2, "编号接着往后：{next}");
-    assert!(Proposals::from_json("not json").items().is_empty());
+    assert!(
+        Proposals::from_json("not json").is_err(),
+        "损坏文件不能当成空列表"
+    );
+}
+
+/// 合法 JSON 里任一提议坏掉时也必须整份拒绝，不能静默删除该条。
+/// 数据构造：一份正常快照，分别删除 why、改错 at 类型、破坏顶层 items。
+/// 执行过程：逐份解析损坏副本，并以正常快照作对照。
+/// 预期结果：正常文件恢复一条；各损坏副本报错，调用者得以保留磁盘原件。
+#[test]
+fn structurally_invalid_json_is_never_loaded_as_an_empty_list() {
+    let mut proposals = Proposals::default();
+    proposals
+        .add(draft("A", "完整提议"), SystemTime::UNIX_EPOCH)
+        .unwrap();
+    let value: Value = serde_json::from_str(&proposals.to_json()).unwrap();
+    assert_eq!(
+        Proposals::from_json(&value.to_string())
+            .unwrap()
+            .items()
+            .len(),
+        1,
+        "正常快照应恢复"
+    );
+    let mut missing = value.clone();
+    missing["items"][0].as_object_mut().unwrap().remove("why");
+    let mut wrong = value;
+    wrong["items"][0]["at"] = json!("oops");
+    for invalid in [
+        missing,
+        wrong,
+        json!({"next_id": 1}),
+        json!({"next_id": 1, "items": null}),
+    ] {
+        assert!(
+            Proposals::from_json(&invalid.to_string()).is_err(),
+            "不能静默丢弃损坏条目：{invalid}"
+        );
+    }
 }
 
 /// 提议的目标必须是存在且启用的 Agent；只有没有空闲卡片时才可以提议给还没有卡片的 Agent。

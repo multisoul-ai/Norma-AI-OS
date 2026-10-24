@@ -18,11 +18,14 @@ impl MultisoulApp {
         let Some(dir) = config::state_dir() else {
             return;
         };
-        let path = std::env::join_paths(config::search_dirs())
-            .map(|joined| joined.to_string_lossy().into_owned())
-            .unwrap_or_default();
         for backend in backends {
             let kind = backend.kind;
+            if let Some(reason) = brain::backend::unavailable_reason(kind) {
+                self.brain
+                    .model_lists
+                    .insert(kind, ModelList::Failed(reason.into()));
+                continue;
+            }
             let known = matches!(
                 self.brain.model_lists.get(&kind),
                 Some(ModelList::Loading | ModelList::Ready(_))
@@ -31,8 +34,12 @@ impl MultisoulApp {
                 continue;
             }
             self.brain.model_lists.insert(kind, ModelList::Loading);
-            let (cwd, env) = (dir.clone(), vec![("PATH".to_string(), path.clone())]);
+            let cwd = dir.clone();
             let work = cx.background_executor().spawn(async move {
+                let path = std::env::join_paths(config::search_dirs())
+                    .map(|joined| joined.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                let env = vec![("PATH".to_string(), path)];
                 brain::discover_models(&backend, cwd, env).map_err(|error| error.to_string())
             });
             cx.spawn(async move |this, cx| {

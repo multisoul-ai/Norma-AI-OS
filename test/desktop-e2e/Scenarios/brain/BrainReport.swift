@@ -17,7 +17,7 @@ public enum BrainReport {
             if let brainDir, let output = session.output {
                 for name in ["decisions.jsonl", "approvals.jsonl", "adapter.log"] {
                     try? FileManager.default.copyItem(
-                        at: brainDir.appendingPathComponent(name),
+                        at: BrainSupport.stateFiles(brainDir, named: name).first ?? brainDir.appendingPathComponent(name),
                         to: output.appendingPathComponent("brain-\(name)"))
                 }
             }
@@ -86,18 +86,18 @@ public enum BrainReport {
             try await waitForLog(log, containing: "Norma 大脑已启动", timeout: 20)
             // Agent 约 4 秒后 Stop；大脑用真实 Claude Code 处理，首次约 10 到 40 秒。
             try await waitForLog(log, containing: "大脑播报", timeout: 150)
-            guard let brainDir, let output = session.output else { throw E2EError.env("大脑目录丢失") }
+            guard let brainDir else { throw E2EError.env("大脑目录丢失") }
             // 日志里出现汇报时，这一轮可能还没结束；等主会话把回复写进决策记录。
-            let decisions = brainDir.appendingPathComponent("decisions.jsonl")
             var text = ""
             let deadline = Date().addingTimeInterval(90)
             while Date() < deadline {
-                text = (try? String(contentsOf: decisions, encoding: .utf8)) ?? ""
+                let files = BrainSupport.stateFiles(brainDir, named: "decisions.jsonl")
+                text = files.compactMap { try? String(contentsOf: $0, encoding: .utf8) }.joined(separator: "\n")
                 if text.contains("Main") { break }
                 try await Task.sleep(nanoseconds: 500_000_000)
             }
             guard text.contains("Main") else {
-                throw E2EError.product("决策日志里没有主会话的回复：\(decisions.path)")
+                throw E2EError.product("画布状态目录的决策日志里没有主会话的回复")
             }
             return "日志与决策记录都出现了大脑的汇报"
         }

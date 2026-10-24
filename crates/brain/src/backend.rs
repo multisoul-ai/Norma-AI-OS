@@ -50,6 +50,17 @@ impl BackendKind {
     }
 }
 
+/// 只有经过验证、能维持幕僚权限边界的后端可以启动；保留其他后端的模型设置。
+pub fn unavailable_reason(kind: BackendKind) -> Option<&'static str> {
+    match kind {
+        BackendKind::ClaudeCode => None,
+        BackendKind::Codex => Some("Codex ACP 尚不支持项目读取隔离，幕僚暂不启动此后端"),
+        BackendKind::OpenCode => {
+            Some("OpenCode ACP 的权限隔离和命令协议尚未验证，幕僚暂不启动此后端")
+        }
+    }
+}
+
 /// 在适配器目录（`<dir>/node_modules/.bin`）和 PATH 目录中找可用后端。
 pub fn detect(adapter_dir: &Path, path_dirs: &[PathBuf]) -> Vec<Backend> {
     let mut dirs = vec![adapter_dir.join("node_modules").join(".bin")];
@@ -99,21 +110,31 @@ pub fn models_for(kind: BackendKind, strategy: Strategy) -> Models {
     }
 }
 
-/// `session/new` 的 `_meta`：忽略用户自己的权限设置（可能是 bypassPermissions），禁用写工具。
+/// `session/new` 的 `_meta`：仅暴露逐文件 Read 和 Bash，且每次都必须向 ACP 请求权限。
+/// 默认安全读取也可能不触发 canUseTool，所以除了隔离用户设置，还需要显式 ask 规则。
 pub fn session_meta(kind: BackendKind, model: Option<&str>) -> Option<Value> {
     if kind != BackendKind::ClaudeCode {
         return None;
     }
-    let mut options = json!({"settingSources": [], "disallowedTools": DISALLOWED_TOOLS});
+    let mut options = json!({
+        "settingSources": [],
+        "disallowedTools": DISALLOWED_TOOLS,
+        "tools": ["Bash", "Read"],
+        "strictMcpConfig": true,
+        "allowDangerouslySkipPermissions": false,
+        "settings": {"permissions": {
+            "ask": ["Bash", "Read"],
+            "disableBypassPermissionsMode": "disable"
+        }}
+    });
     if let Some(model) = model {
         options["model"] = json!(model);
     }
     Some(json!({"claudeCode": {"options": options}}))
 }
 
-/// 会话创建后切到需要确认的模式，让写入和越出沙箱的操作都发 request_permission。
-/// Codex 默认的 Auto review 会直接执行命令；只读模式下只读命令在沙箱里跑，
-/// 写文件、连 norma 的 socket 都要先请求批准。
+/// Claude 使用 default，并由 session_meta 的逐次 ask 规则补齐默认只读工具。
+/// 保留 Codex 的候选模式，但它不足以保证读取隔离，不能据此启用该后端。
 pub fn session_mode(kind: BackendKind) -> Option<&'static str> {
     match kind {
         BackendKind::ClaudeCode => Some("default"),
@@ -122,8 +143,8 @@ pub fn session_mode(kind: BackendKind) -> Option<&'static str> {
     }
 }
 
-/// 会话进程额外的环境变量。OpenCode 默认的 build 模式执行命令不发权限请求，
-/// 注入配置让每条命令都先请求批准，并禁止它改文件和联网。
+/// OpenCode 的候选配置；它可能被 Agent 级权限覆盖，不能据此保证逐次询问。
+/// 该后端仍由 unavailable_reason 失败关闭。
 pub fn session_env(kind: BackendKind) -> Vec<(String, String)> {
     if kind != BackendKind::OpenCode {
         return Vec::new();

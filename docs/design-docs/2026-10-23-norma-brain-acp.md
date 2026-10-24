@@ -10,6 +10,12 @@ status: 桌面端已实施 · 真实 Claude Code 验收通过 · 见 H 节的限
 
 ## 2026-10-24 更新：以下几处以本节为准
 
+**交叉审查后的运行边界**：后台幕僚目前只启用 Claude Code。Codex 的只读模式不能保证项目读取隔离；OpenCode 的环境配置可能被 Agent 权限规则覆盖，且 ACP 权限／模型协议尚未完成验证，因此两者在设置页禁选、服务层拒绝启动，已有模型配置继续保留。这不影响 Claude／Codex 智能体卡片本身。
+
+Claude 会话隔离用户设置、禁止 bypass，仅暴露 `Bash` 和逐文件 `Read`，并用显式 `permissions.ask` 让两者每次都发 ACP 权限请求。闸门拒绝组合、重定向、整条命令引号二次拆包与持久授权；读取检查真实路径，仅放行项目内存在的普通文件，拒绝已知凭据路径和递归目录工具。这个边界依赖适配器遵守配置，不是操作系统沙箱，也无法识别任意名称的秘密或消除检查与读取之间的文件变化。
+
+目标、提议、审批和决策日志改为按稳定工作空间 ID 隔离，保存在 `~/.norma/brain/projects/<workspace-id-hash>/`；同一目录的不同画布不会共享提议。旧提议文件只原子迁移给一个画布。设置和提议通过进程共享队列有序写入，快照原子替换；关闭后重开先等待旧写入完成。JSON 语法或任一条目损坏时保留整份原件并重试；提议保存失败向工作空间报错，保留最新内存快照重试。派发失败回执保留原提议，只有实际接收／排队后才记成功。文件读取、写入、适配器扫描与进程启动均在后台。磁盘故障期间强制退出仍可能丢失待保存状态，PTY 派发与文件保存不构成跨进程事务。
+
 ```callout warn 高风险规则已删除
 正文里“命中高风险规则的审批由规则拦截”和“大脑不能把高风险操作降级放行”已不再成立。现在每条审批都交给大脑判断风险。提示要求它评估三件事：是否可逆、是否影响项目之外、是否涉及密钥。它还要识别命令里的诱导文字。
 
@@ -176,8 +182,8 @@ participants: 用户, 前台对话, 播报队列, 主会话, Agent
 启用后，标题栏右侧出现“语音汇报”开关。打开时，大脑的汇报用当前语音模式念出来。关闭时，大脑照常工作，只是不说话。它与语音设置里的“智能体任务播报”互不影响。
 
 - **ACP client 手写**：只用到 `initialize`、`session/new`、`session/set_mode`、`session/prompt`、`session/request_permission`，所以没有引入 `agent-client-protocol` crate，权限处理完全自己掌控。
-- **适配器**：Claude Code 用 `@agentclientprotocol/claude-agent-acp@0.94.0`，设置页的“安装”按钮会装到 `~/.norma/brain/adapters`；OpenCode 自带 `opencode acp`；Codex 的 `@zed-industries/codex-acp` 已识别但未实测。
-- **用户设置会让闸门失效**：用户的 Claude Code 设置里 `defaultMode` 为 `bypassPermissions` 时适配器不会发权限请求。所以大脑会话强制 `settingSources: []`、切到 `default` 模式并禁用写类工具，见 `docs/research/2026-10-23-acp-adapters-probe.md`。
+- **适配器**：Claude Code 用 `@agentclientprotocol/claude-agent-acp@0.94.0`，设置页的“安装”按钮会装到 `~/.norma/brain/adapters`；Codex 和 OpenCode 暂不允许作为幕僚后端启动，原因见本页更新。
+- **权限请求**：仅切到 `default` 并不足以让安全读取逐次询问；还必须隔离用户设置、禁用 bypass、限制工具列表并显式配置 `permissions.ask`。历史探测见 `docs/research/2026-10-23-acp-adapters-probe.md`。
 - **审批代理范围**：只有带手机控制的卡片有可代理的审批。普通桌面卡片的权限提示留在终端里，Norma 无法拦截。要覆盖它们，得给所有卡片装阻塞式权限 hook，这是单独的一项工作。
 - **高风险规则是启发式，不是沙箱**：它只看命令文字。
   - 能挡住：push、删除、部署、密钥、提权、项目外写入、解释器内联代码，以及 `env -i rm`、`GIT push`、`git -c alias…` 这类绕写法。
@@ -189,7 +195,7 @@ participants: 用户, 前台对话, 播报队列, 主会话, Agent
   - 另有：判断较慢时的提醒、并行审批、审批范围。
   - 自行决定里有三项生效：只读命令、项目内写文件、派后续任务。“停止或重启卡住的 Agent”没有提供，灰显。
   - 配置保存在 `~/.norma/brain/config.json`，`NORMA_BRAIN_DIR` 可改位置。除“语音汇报”外，修改后都会重启大脑。
-- **记录**：大脑的回复写入 `decisions.jsonl`，放行或拒绝的审批写入 `approvals.jsonl`，目标摘要在 `goal.md`。
+- **记录**：大脑的回复写入 `decisions.jsonl`，放行或拒绝的审批写入 `approvals.jsonl`，目标摘要在 `goal.md`，提议在 `proposals.json`；均位于上文按工作空间隔离的目录。
 - **真实 App 验收**：`scripts/desktop-e2e.sh brain-report`。假 `claude` 完成任务后，真实 Claude Code 适配器收到事件，通过 `norma brain report` 把汇报交回 App。隔离数据目录里没有 TTS，所以日志显示“TTS 不可用”而没有真正发声。
 
 ## H 待完成

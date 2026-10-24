@@ -4,11 +4,10 @@ use super::{approvals, ask_key, AutoAction, AutoKind, BrainHostState, MultisoulA
 use gpui::{Context, Window};
 use norma::mobile::ApprovalTarget;
 use norma::protocol::{
-    AgentErrorCode, AgentTaskAssignment, BrainDecision, BrainOp, CardCommand, CardCommandError,
-    CardCommandResult,
+    AgentErrorCode, AgentTaskAssignment, AgentTaskReceiptStatus, BrainDecision, BrainOp,
+    CardCommand, CardCommandError, CardCommandResult,
 };
 use serde_json::json;
-use std::io::Write;
 
 type OpResult = Result<CardCommandResult, CardCommandError>;
 
@@ -134,17 +133,13 @@ impl MultisoulApp {
     ) -> OpResult {
         let area = self.mobile_canvas_area(window);
         let zoom = self.runtime.document.viewport.zoom;
-        let node_id = self
-            .agent_roster_for_provider()
-            .iter()
-            .find(|entry| entry.name == agent)
-            .and_then(|entry| entry.active_node_id)
-            .unwrap_or(0);
         let summary: String = task.chars().take(80).collect();
-        self.brain.own_prompts.remember(&task);
         let who = agent.clone();
         let command = CardCommand::DispatchAgentTasks {
-            assignments: vec![AgentTaskAssignment { name: agent, task }],
+            assignments: vec![AgentTaskAssignment {
+                name: agent,
+                task: task.clone(),
+            }],
             force_untracked: false,
         };
         let result = crate::app::execute_high_level_agent_command(
@@ -156,12 +151,25 @@ impl MultisoulApp {
             None,
         )
         .map_err(|error| reject(&error.to_string()))?;
+        let CardCommandResult::AgentTasksDispatched { receipts } = &result else {
+            return Err(reject("派发没有返回任务回执"));
+        };
+        let [receipt] = receipts.as_slice() else {
+            return Err(reject("派发回执数量不正确"));
+        };
+        if receipt.status == AgentTaskReceiptStatus::Failed {
+            return Err(reject(&format!(
+                "{} 未接收任务，请处理卡片后重试",
+                receipt.name
+            )));
+        }
+        self.brain.own_prompts.remember(&task);
         self.brain.log.push(AutoAction {
             id: 0,
             at: std::time::SystemTime::now(),
             kind,
             agent: who,
-            node_id,
+            node_id: receipt.node_id,
             summary,
             reason: if kind == AutoKind::UserDispatched {
                 "你批准了幕僚的提议".into()
@@ -236,7 +244,8 @@ impl MultisoulApp {
         }
         let removed = self.brain.tracked.remove(id);
         let summary = removed.as_ref().map(|t| approvals::summarize(&t.subject));
-        BrainHostState::log_decision(id, decision, reason, summary.as_deref());
+        self.brain
+            .log_decision(id, decision, reason, summary.as_deref());
         if let Some(tracked) = removed {
             self.brain.log.push(AutoAction {
                 id: 0,
@@ -259,20 +268,12 @@ impl MultisoulApp {
 
 impl BrainHostState {
     /// 追加一条决策记录，用户可以据此追问“为什么放行”。
-    fn log_decision(id: &str, decision: BrainDecision, reason: &str, summary: Option<&str>) {
-        let Some(dir) = super::config::state_dir() else {
+    fn log_decision(&self, id: &str, decision: BrainDecision, reason: &str, summary: Option<&str>) {
+        let Some(dir) = self.proposals_path.as_ref().and_then(|path| path.parent()) else {
             return;
         };
         let line = json!({"approval": id, "decision": format!("{decision:?}"), "reason": reason, "what": summary});
-        let result = std::fs::create_dir_all(&dir).and_then(|_| {
-            let mut file = std::fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(dir.join("approvals.jsonl"))?;
-            writeln!(file, "{line}")
-        });
-        if let Err(error) = result {
-            tracing::warn!(%error, "写入审批记录失败");
-        }
+        self.proposal_writer
+            .append(dir.join("approvals.jsonl"), line.to_string());
     }
 }

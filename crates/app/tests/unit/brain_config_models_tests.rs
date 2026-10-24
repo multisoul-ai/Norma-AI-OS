@@ -63,3 +63,39 @@ fn models_for_backend_follow_the_chosen_backend() {
         ModelPair::default()
     );
 }
+
+/// 同一项目目录的不同画布拥有独立目标和提议，重启读取也不能串用。
+/// 数据构造：两个稳定画布身份，分别保存 A/B 目标与提议文本。
+/// 执行过程：通过会话目录接口定位文件，写入后重新打开目标存储。
+/// 预期结果：目录不同，每个画布只恢复自己的目标和提议。
+#[test]
+fn canvas_state_survives_restart_without_crossing_ownership() {
+    let dir = tempfile::tempdir().expect("应创建隔离状态目录");
+    let a = session_dir(dir.path(), "desktop:A:area");
+    let b = session_dir(dir.path(), "desktop:B:area");
+    assert_ne!(a, b, "相同项目目录的不同画布不能共享状态目录");
+    for (path, name) in [(&a, "A"), (&b, "B")] {
+        let goals = brain::goal::GoalStore::open(path.clone());
+        goals.record("Alan", &format!("只处理 {name} 项目的目标"));
+        brain::persistence::atomic_write(&path.join("proposals.json"), name.as_bytes()).unwrap();
+    }
+    let reopened_a = brain::goal::GoalStore::open(a.clone());
+    assert!(
+        reopened_a.summary().unwrap().contains("A 项目"),
+        "应恢复 A 目标"
+    );
+    assert!(
+        !reopened_a.summary().unwrap().contains("B 项目"),
+        "不能带入 B 目标"
+    );
+    assert_eq!(
+        std::fs::read_to_string(a.join("proposals.json")).unwrap(),
+        "A",
+        "应保留 A 提议"
+    );
+    assert_eq!(
+        std::fs::read_to_string(b.join("proposals.json")).unwrap(),
+        "B",
+        "不能覆盖 B 提议"
+    );
+}

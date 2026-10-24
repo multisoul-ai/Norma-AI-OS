@@ -8,6 +8,7 @@ pub mod event;
 pub mod goal;
 pub mod history;
 pub mod lane;
+pub mod persistence;
 pub mod risk;
 pub mod router;
 pub mod service;
