@@ -219,6 +219,9 @@ impl Render for MultisoulApp {
                 }
             }
         }
+        if self.desktop_host.is_none() && self.brain_trace_open() {
+            root = root.child(self.render_brain_trace(cx));
+        }
         if self.clone_project.is_open() {
             root = root.child(self.render_clone_project_dialog(window, cx));
         }

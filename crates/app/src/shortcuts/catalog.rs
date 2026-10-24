@@ -261,6 +261,13 @@ const DEFAULT_SHORTCUT_ENTRIES: &[ShortcutEntry] = &[
         Some("cmd-shift-i"),
     ),
     entry(
+        ShortcutCommandId::ToggleBrainTrace,
+        "common.workspace",
+        "shortcuts.toggle_brain_trace",
+        "shortcuts.show_what_the_background_brain_is_doing",
+        Some("cmd-shift-b"),
+    ),
+    entry(
         ShortcutCommandId::AssignIdeaToCard(1),
         "common.workspace",
         "shortcuts.assign_idea_to_card_1",

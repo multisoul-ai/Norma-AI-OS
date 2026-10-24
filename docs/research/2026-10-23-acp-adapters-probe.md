@@ -36,3 +36,18 @@
 
 - Codex 适配器的权限请求字段。`PermissionRequest::from_params` 按 `kind` 和 `rawInput.command` 数组做了兼容，但没有用真实 Codex 实测。
 - hook 等满 120 秒后 Claude Code 是否退回终端权限提示。
+
+## 2026-10-24 补充：真实适配器发出的更新类型
+
+用 `brain_smoke`（`SMOKE_EVENT=finished`）对 `claude-agent-acp@0.94.0` 跑一轮“Agent 已完成”事件，统计活动窗口收到的记录：
+
+| 更新 | 次数 | 说明 |
+|---|---|---|
+| `agent_message_chunk` | 1 | 回复，合并后一条 |
+| `tool_call` / `tool_call_update` | 3 / 9 | 工具调用与结果；本次的 `norma` 不是真实服务，结果为 failed |
+| `session/request_permission` | 3 | 权限请求，闸门全部放行 |
+| `usage_update` | 10 | 用量；只保留相邻同类的最新一条 |
+| `available_commands_update` | 1 | 可用命令 |
+| `agent_thought_chunk`、`plan` | 0 | 这一轮没有出现，不能据此断定适配器不发 |
+
+只测了 Claude Code 适配器的一轮。Codex、OpenCode 适配器没有实测。

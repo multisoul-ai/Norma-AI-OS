@@ -119,5 +119,7 @@
   "shortcuts.assign_idea_to_new_agent_kimi": "Assign idea to a new Kimi agent",
   "shortcuts.assign_idea_to_new_agent_pi": "Assign idea to a new Pi agent",
   "shortcuts.assign_idea_to_new_agent_hermes": "Assign idea to a new Hermes agent",
-  "shortcuts.assign_idea_to_new_agent_hint": "Create a new agent card and send the cursor idea (or the first to-do) to it"
+  "shortcuts.assign_idea_to_new_agent_hint": "Create a new agent card and send the cursor idea (or the first to-do) to it",
+  "shortcuts.toggle_brain_trace": "Show brain activity",
+  "shortcuts.show_what_the_background_brain_is_doing": "Show what the background brain is doing: input, thinking, tool calls and output"
 }

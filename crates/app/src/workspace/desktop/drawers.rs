@@ -12,6 +12,7 @@ pub(super) const BOTTOM: f32 = 0.0;
 
 mod artifacts;
 mod brain_toggle;
+mod brain_trace;
 mod chat;
 mod chat_message;
 pub(super) mod content;

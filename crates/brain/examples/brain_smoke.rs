@@ -33,7 +33,15 @@ fn main() {
             outcome: brain::Outcome::Succeeded,
             excerpt: "登录页已经做完，12 个测试全部通过。".into(),
         });
-        std::thread::sleep(Duration::from_secs(60));
+        let started = std::time::Instant::now();
+        // 打印全部状态，包括 ACP 过程记录，用来确认真实适配器实际会发哪些更新。
+        while let Ok(event) = status.recv_timeout(Duration::from_secs(90)) {
+            println!("[{:>5.1}s] {event:?}", started.elapsed().as_secs_f32());
+            let ended = matches!(&event, BrainStatus::Trace(t) if t.item.kind == brain::acp::trace::TraceKind::Turn && t.turn > 1);
+            if ended || started.elapsed() > Duration::from_secs(120) {
+                break;
+            }
+        }
         service.shutdown();
         return;
     }

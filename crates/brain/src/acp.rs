@@ -3,4 +3,5 @@
 
 pub mod client;
 pub mod gate;
+pub mod trace;
 pub mod wire;

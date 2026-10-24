@@ -3,6 +3,7 @@
 use super::prompt::{primer, Role};
 use crate::acp::client::{AcpError, AcpSession, SessionOptions};
 use crate::acp::gate::Gate;
+use crate::acp::trace::{AcpTrace, TraceItem, TraceKind};
 use crate::backend::{self, Backend};
 use crate::event::BrainStatus;
 use crate::goal::GoalStore;
@@ -10,7 +11,7 @@ use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 const MAX_BACKOFF: Duration = Duration::from_secs(60);
 
@@ -59,6 +60,15 @@ impl LaneEnv {
         }
     }
 
+    fn trace(&self, turn: u64, item: TraceItem) {
+        let _ = self.status.send(BrainStatus::Trace(AcpTrace {
+            at: SystemTime::now(),
+            lane: format!("{:?}", self.role),
+            turn,
+            item,
+        }));
+    }
+
     fn finish(&self, job: &Job) {
         if let Some(id) = &job.approval_id {
             let _ = self
@@ -76,6 +86,7 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
     let mut turns = 0u32;
     let mut primed = false;
     let mut failures = 0u32;
+    let mut turn_no = 0u64;
     while !env.stop.load(Ordering::Relaxed) {
         let received = jobs
             .lock()
@@ -100,10 +111,18 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
                     session = Some(started);
                     turns = 0;
                     primed = false;
+                    env.trace(
+                        turn_no,
+                        TraceItem::new(TraceKind::Lifecycle, "会话已创建", ""),
+                    );
                     let _ = env.status.send(BrainStatus::Ready);
                 }
                 Err(error) => {
                     failures += 1;
+                    env.trace(
+                        turn_no,
+                        TraceItem::new(TraceKind::Error, "会话创建失败", error.to_string()),
+                    );
                     down(&env, &error);
                     env.finish(&job);
                     env.sleep(
@@ -124,7 +143,20 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
             )
         };
         let active = session.as_mut().expect("会话刚创建");
-        match active.prompt(&text, &env.gate, &env.stop, env.prompt_timeout) {
+        turn_no += 1;
+        env.trace(
+            turn_no,
+            TraceItem::new(TraceKind::Prompt, "发给大脑", text.clone()),
+        );
+        let this_turn = turn_no;
+        let result = active.prompt(
+            &text,
+            &env.gate,
+            &env.stop,
+            env.prompt_timeout,
+            &mut |item| env.trace(this_turn, item),
+        );
+        match result {
             Ok(reply) => {
                 turns += 1;
                 primed = true;
@@ -137,6 +169,10 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
             Err(error) => {
                 session = None;
                 failures += 1;
+                env.trace(
+                    turn_no,
+                    TraceItem::new(TraceKind::Error, "本轮失败", error.to_string()),
+                );
                 if !matches!(error, AcpError::Cancelled) {
                     down(&env, &error);
                 }

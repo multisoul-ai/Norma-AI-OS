@@ -1,5 +1,6 @@
 //! 用脚本化的假 ACP 适配器测试 BrainService 的完整链路。
 
+use brain::acp::trace::{AcpTrace, TraceKind};
 use brain::risk::ApprovalSubject;
 use brain::{
     ApprovalRequest, Backend, BackendKind, BrainConfig, BrainEvent, BrainService, BrainStatus,
@@ -318,4 +319,63 @@ fn approval_workers_decide_how_many_approvals_run_in_parallel() {
         }
         h.service.shutdown();
     }
+}
+
+/// ACP 过程被完整记录：输入、思考、工具调用与结果、计划、未知类型、输出、轮次结束，且按发生顺序。
+///
+/// 数据构造：用户请求带 FAKE_TRACE，假适配器依次发出思考两段、工具调用、结果、计划、未知更新、回复两段。
+/// 预期结果：
+///   - 正断言：第一条是 Prompt 且含完整提示；思考合并为“想想看”；回复合并为“先收到”；
+///     工具调用、结果、计划、未知类型各一条；最后是 Turn；lane 为 Main，轮次为 1
+///   - 负断言：思考与回复没有被拆成多条
+#[test]
+fn acp_process_is_traced_in_order() {
+    let h = start();
+    h.service.push(BrainEvent::UserRequest {
+        text: "FAKE_TRACE 请回答".into(),
+    });
+    let mut traces: Vec<AcpTrace> = Vec::new();
+    let deadline = Instant::now() + Duration::from_secs(15);
+    loop {
+        let left = deadline.saturating_duration_since(Instant::now());
+        match h.status.recv_timeout(left) {
+            Ok(BrainStatus::Trace(trace)) => {
+                let done = trace.item.kind == TraceKind::Turn;
+                traces.push(trace);
+                if done {
+                    break;
+                }
+            }
+            Ok(_) => {}
+            Err(_) => panic!("等不到 Turn 记录，已收到：{traces:#?}"),
+        }
+    }
+    let main: Vec<&AcpTrace> = traces.iter().filter(|t| t.turn == 1).collect();
+    let kinds: Vec<TraceKind> = main.iter().map(|t| t.item.kind).collect();
+    assert_eq!(
+        kinds,
+        vec![
+            TraceKind::Prompt,
+            TraceKind::Thought,
+            TraceKind::ToolCall,
+            TraceKind::ToolResult,
+            TraceKind::Plan,
+            TraceKind::Unknown,
+            TraceKind::Reply,
+            TraceKind::Turn,
+        ],
+        "顺序与种类：{main:#?}"
+    );
+    assert!(main[0].item.text.contains("FAKE_TRACE 请回答"));
+    assert!(
+        main[0].item.text.contains("你是 Norma 的后台大脑"),
+        "首轮提示含角色说明"
+    );
+    assert_eq!(main[1].item.text, "想想看");
+    assert!(main[2].item.text.contains("norma brain agents"));
+    assert!(main[3].item.text.contains("agents-ok"));
+    assert_eq!(main[6].item.text, "先收到");
+    assert!(main[7].item.text.contains("end_turn"));
+    assert!(main.iter().all(|t| t.lane == "Main"));
+    h.service.shutdown();
 }

@@ -1,6 +1,7 @@
 //! 一个 ACP 会话：握手、创建会话、发 prompt，并处理期间的权限请求。
 
 use super::gate::{pick_option, Gate, PermissionRequest, Verdict};
+use super::trace::{classify_update, Merger, TraceItem, TraceKind};
 use super::wire::{Connection, Incoming};
 use serde_json::{json, Value};
 use std::path::PathBuf;
@@ -77,7 +78,10 @@ impl AcpSession {
         gate: &Gate,
         cancel: &AtomicBool,
         timeout: Duration,
+        sink: &mut dyn FnMut(TraceItem),
     ) -> Result<String, AcpError> {
+        let started = Instant::now();
+        let mut merger = Merger::default();
         let id = self
             .conn
             .send_request(
@@ -103,6 +107,22 @@ impl AcpSession {
             };
             match incoming {
                 Incoming::Response { id: rid, result } if rid == id => {
+                    if let Some(item) = merger.flush() {
+                        sink(item);
+                    }
+                    let stop = result
+                        .as_ref()
+                        .ok()
+                        .and_then(|value| value["stopReason"].as_str())
+                        .unwrap_or("error");
+                    sink(TraceItem::new(
+                        TraceKind::Turn,
+                        "本轮结束",
+                        format!(
+                            "stopReason={stop}，用时 {} 毫秒",
+                            started.elapsed().as_millis()
+                        ),
+                    ));
                     return result
                         .map(|_| reply)
                         .map_err(|e| AcpError::Remote(e.to_string()));
@@ -112,9 +132,17 @@ impl AcpSession {
                     if update["sessionUpdate"] == "agent_message_chunk" {
                         reply.push_str(update["content"]["text"].as_str().unwrap_or_default());
                     }
+                    if let Some(item) = classify_update(update) {
+                        for out in merger.push(item) {
+                            sink(out);
+                        }
+                    }
                 }
                 Incoming::Request { id, method, params } => {
-                    self.answer(&id, &method, &params, gate)?;
+                    if let Some(item) = merger.flush() {
+                        sink(item);
+                    }
+                    self.answer(&id, &method, &params, gate, sink)?;
                 }
                 _ => {}
             }
@@ -127,9 +155,27 @@ impl AcpSession {
         method: &str,
         params: &Value,
         gate: &Gate,
+        sink: &mut dyn FnMut(TraceItem),
     ) -> Result<(), AcpError> {
         let sent = if method == "session/request_permission" {
-            let verdict = gate.judge(&PermissionRequest::from_params(params));
+            let request = PermissionRequest::from_params(params);
+            let verdict = gate.judge(&request);
+            let wanted = request
+                .command
+                .clone()
+                .or_else(|| request.path.clone())
+                .unwrap_or_default();
+            let (title, result) = match &verdict {
+                Verdict::Allow => ("权限请求：放行".to_string(), String::new()),
+                Verdict::Reject(reason) => {
+                    ("权限请求：拒绝".to_string(), format!("\n原因：{reason}"))
+                }
+            };
+            sink(TraceItem::new(
+                TraceKind::Permission,
+                title,
+                format!("{}：{wanted}{result}", request.tool),
+            ));
             if let Verdict::Reject(reason) = &verdict {
                 tracing::info!(%reason, "大脑的权限请求被拒绝");
             }

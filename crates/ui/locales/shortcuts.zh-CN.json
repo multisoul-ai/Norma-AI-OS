@@ -119,5 +119,7 @@
   "shortcuts.assign_idea_to_new_agent_kimi": "派发想法到新建 Kimi 智能体",
   "shortcuts.assign_idea_to_new_agent_pi": "派发想法到新建 Pi 智能体",
   "shortcuts.assign_idea_to_new_agent_hermes": "派发想法到新建 Hermes 智能体",
-  "shortcuts.assign_idea_to_new_agent_hint": "新建一张智能体卡片，并把光标所在想法（没有则取首个待办）派给它"
+  "shortcuts.assign_idea_to_new_agent_hint": "新建一张智能体卡片，并把光标所在想法（没有则取首个待办）派给它",
+  "shortcuts.toggle_brain_trace": "大脑活动",
+  "shortcuts.show_what_the_background_brain_is_doing": "查看后台大脑在做什么：输入、思考、工具调用和输出"
 }

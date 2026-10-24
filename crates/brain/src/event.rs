@@ -1,5 +1,6 @@
 //! 大脑的输入事件与输出状态。
 
+use crate::acp::trace::AcpTrace;
 use crate::risk::ApprovalSubject;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -58,4 +59,6 @@ pub enum BrainStatus {
     ApprovalTurnEnded {
         id: String,
     },
+    /// ACP 过程里的一条记录，供活动窗口显示。
+    Trace(AcpTrace),
 }

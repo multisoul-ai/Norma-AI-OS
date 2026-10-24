@@ -324,3 +324,40 @@ fn toggle_ideas_shortcut_defaults_records_and_rejects_conflicts() {
         "恢复默认后自定义键不再命中"
     );
 }
+
+/// ⌘⇧B 打开大脑活动窗口，可在 Settings 里录制和恢复，且不与已有键位冲突。
+///
+/// 执行过程：解析默认键；检查条目可编辑；尝试已占用的键位。
+/// 预期结果：
+///   - 正断言：⌘⇧B 命中 ToggleBrainTrace；条目出现在 Settings 且可编辑；可改成未占用的 ⌘⇧U
+///   - 负断言：⌘⇧E 仍是运行概览；不能被改成已占用的 ⌘⇧E
+#[test]
+fn toggle_brain_trace_shortcut_is_configurable_and_conflict_free() {
+    let state = ShortcutSettingsState::default();
+    let command = |key| state.command_for_keystroke(&Keystroke::parse(key).expect("测试键位合法"));
+    assert_eq!(
+        command("cmd-shift-b"),
+        Some(ShortcutCommandId::ToggleBrainTrace)
+    );
+    assert_eq!(
+        command("cmd-shift-e"),
+        Some(ShortcutCommandId::ToggleRunOverview)
+    );
+    let effective = effective_shortcuts(&state.prefs);
+    assert!(effective
+        .iter()
+        .find(|entry| entry.command == ShortcutCommandId::ToggleBrainTrace)
+        .is_some_and(|entry| entry.editable));
+    assert!(validate_shortcut_change(
+        ShortcutCommandId::ToggleBrainTrace,
+        "cmd-shift-e",
+        &effective
+    )
+    .is_err());
+    assert!(validate_shortcut_change(
+        ShortcutCommandId::ToggleBrainTrace,
+        "cmd-shift-u",
+        &effective
+    )
+    .is_ok());
+}

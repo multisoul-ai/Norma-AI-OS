@@ -385,6 +385,7 @@ fn shortcut_row_id(command: ShortcutCommandId) -> &'static str {
         ShortcutCommandId::ToggleSettings => "settings-shortcut-toggle-settings",
         ShortcutCommandId::ToggleRunOverview => "settings-shortcut-toggle-run-overview",
         ShortcutCommandId::ToggleIdeas => "settings-shortcut-toggle-ideas",
+        ShortcutCommandId::ToggleBrainTrace => "settings-shortcut-toggle-brain-trace",
         ShortcutCommandId::VoiceInteraction => "settings-shortcut-voice-interaction",
         ShortcutCommandId::AssignIdeaToCard(_) | ShortcutCommandId::AssignIdeaToNewAgent(_) => {
             "settings-shortcut-assign-idea-unknown"
@@ -442,6 +443,7 @@ fn shortcut_restore_id(command: ShortcutCommandId) -> &'static str {
         ShortcutCommandId::ToggleSettings => "settings-shortcut-restore-toggle-settings",
         ShortcutCommandId::ToggleRunOverview => "settings-shortcut-restore-toggle-run-overview",
         ShortcutCommandId::ToggleIdeas => "settings-shortcut-restore-toggle-ideas",
+        ShortcutCommandId::ToggleBrainTrace => "settings-shortcut-restore-toggle-brain-trace",
         ShortcutCommandId::VoiceInteraction => "settings-shortcut-restore-voice-interaction",
         ShortcutCommandId::AssignIdeaToCard(_) | ShortcutCommandId::AssignIdeaToNewAgent(_) => {
             "settings-shortcut-restore-assign-idea-unknown"

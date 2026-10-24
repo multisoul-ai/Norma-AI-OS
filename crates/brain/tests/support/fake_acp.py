@@ -82,6 +82,19 @@ def main():
                 command = f"{found.group(1)} brain decide {found.group(2)} allow --reason ok"
                 choice = request_permission(session_id, command)
                 log(("allowed: " if choice == "allow-once" else "rejected: ") + command)
+            if "FAKE_TRACE" in text:
+                def update(body):
+                    send({"jsonrpc": "2.0", "method": "session/update",
+                          "params": {"sessionId": session_id, "update": body}})
+                update({"sessionUpdate": "agent_thought_chunk", "content": {"type": "text", "text": "想想"}})
+                update({"sessionUpdate": "agent_thought_chunk", "content": {"type": "text", "text": "看"}})
+                update({"sessionUpdate": "tool_call", "toolCallId": "t9", "title": "norma brain agents",
+                        "kind": "execute", "status": "pending", "rawInput": {"command": "norma brain agents"}})
+                update({"sessionUpdate": "tool_call_update", "toolCallId": "t9", "status": "completed",
+                        "content": [{"type": "content", "content": {"type": "text", "text": "agents-ok"}}]})
+                update({"sessionUpdate": "plan", "entries": [{"content": "汇报", "status": "pending"}]})
+                update({"sessionUpdate": "brand_new_kind", "payload": 7})
+                update({"sessionUpdate": "agent_message_chunk", "content": {"type": "text", "text": "先"}})
             send({"jsonrpc": "2.0", "method": "session/update", "params": {
                 "sessionId": session_id,
                 "update": {"sessionUpdate": "agent_message_chunk", "content": {"type": "text", "text": "收到"}}}})

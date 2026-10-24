@@ -119,5 +119,24 @@ public enum BrainAutonomy {
             }
             throw E2EError.product("配置里没有出现 assign_followups=false")
         }
+
+        try await session.step("⌘⇧B 弹出大脑活动窗口，展开一轮看到输入与工具，Esc 关闭") {
+            try await session.shortcut(key: 11, modifiers: [0x37, 0x38])
+            let opened = try await session.wait(Expectation(anyOf: ["大脑活动"], timeout: 8))
+            try session.save(opened, "04-brain-trace.png")
+            guard opened.contains("主会话") else {
+                throw E2EError.product("窗口里没有看到“主会话”卡片：\(opened.summary)")
+            }
+            try await session.click(matching: ["主会话"], pick: .top)
+            try await Task.sleep(nanoseconds: 600_000_000)
+            let expanded = try await session.capture()
+            try session.save(expanded, "05-brain-trace-expanded.png")
+            guard expanded.contains("brain assign") || expanded.contains("补上登录页的测试") else {
+                throw E2EError.product("展开后没有看到大脑执行的命令：\(expanded.summary)")
+            }
+            try await session.shortcut(key: 53, modifiers: [])
+            _ = try await session.wait(Expectation(absent: ["大脑活动"], timeout: 6))
+            return "窗口弹出、展开、关闭都正常"
+        }
     }
 }

@@ -46,7 +46,8 @@ mod agent_queue;
 mod agent_runtime;
 mod brain_host;
 pub(crate) use brain_host::{
-    AutoAction, AutoKind, BrainSettings, BrainSettingsView, SlowReminder, SummaryEvery, ASSIGN_KEY,
+    AutoAction, AutoKind, BrainSettings, BrainSettingsView, SlowReminder, SummaryEvery, TurnCard,
+    ASSIGN_KEY,
 };
 mod memory;
 pub(crate) mod native_input;

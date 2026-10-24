@@ -5,6 +5,10 @@ mod config;
 mod log;
 mod ops;
 mod settings;
+mod trace;
+mod trace_state;
+
+pub(crate) use trace::TurnCard;
 mod user_actions;
 pub(crate) use config::{BrainSettings, SlowReminder, SummaryEvery};
 pub(crate) use log::{ask_key, AutoAction, AutoKind, ASSIGN_KEY};
@@ -68,6 +72,14 @@ pub(crate) struct BrainHostState {
     overview_at: Instant,
     /// 概览里展开了“为什么”的那条自主处理记录：（项目区域 id，记录 id）。
     pub(crate) why_open: Option<(String, u64)>,
+    /// 本项目里大脑与 ACP 适配器的往来记录，只放内存。
+    pub(crate) trace: trace::TraceBuffer,
+    /// 大脑活动窗口是否打开（只在工作空间窗口上使用）。
+    pub(crate) trace_open: bool,
+    /// 活动窗口自己的焦点：打开时抢走焦点，Esc 才不会被聚焦的终端吃掉。
+    pub(crate) trace_focus: Option<gpui::FocusHandle>,
+    /// 活动窗口里展开的卡片：（项目，会话，轮次）。
+    pub(crate) trace_expanded: HashSet<(String, String, u64)>,
 }
 
 /// 概览需要的、分散在各项目会话里的大脑状态。
@@ -97,6 +109,10 @@ impl BrainHostState {
             overview: OverviewSnapshot::default(),
             overview_at: now,
             why_open: None,
+            trace: trace::TraceBuffer::default(),
+            trace_open: false,
+            trace_focus: None,
+            trace_expanded: HashSet::new(),
         }
     }
 
@@ -248,6 +264,7 @@ impl MultisoulApp {
                 BrainStatus::Escalate { id, reason } => {
                     self.escalate(&id, &format!("命中高风险规则：{reason}"), cx)
                 }
+                BrainStatus::Trace(entry) => self.brain.trace.push(entry),
                 BrainStatus::ApprovalTurnEnded { id } => {
                     if self.brain.tracked.get(&id).is_some_and(|t| !t.escalated) {
                         self.escalate(&id, "我拿不准", cx);
