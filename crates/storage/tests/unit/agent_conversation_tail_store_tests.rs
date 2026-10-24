@@ -25,7 +25,11 @@ fn sample_tail(definition_id: i64, session_id: &str, node_id: u64) -> StoredAgen
 #[test]
 fn project_migration_creates_agent_conversation_tails_table() {
     let root = tempdir().expect("temp workspace");
-    let store = ProjectStore::for_workspace(root.path()).expect("project store");
+    let store = ProjectStore::for_database_paths(
+        &crate::DatabasePaths::isolated_test(root.path()),
+        root.path(),
+    )
+    .expect("project store");
     store.migrate().expect("migrate project db");
 
     let connection = crate::migrations::open_project_connection(store.path()).expect("open db");
@@ -58,8 +62,16 @@ fn project_migration_creates_agent_conversation_tails_table() {
 fn upsert_tail_overwrites_same_definition_session_and_isolates_projects() {
     let root_a = tempdir().expect("project a");
     let root_b = tempdir().expect("project b");
-    let store_a = ProjectStore::for_workspace(root_a.path()).expect("store a");
-    let store_b = ProjectStore::for_workspace(root_b.path()).expect("store b");
+    let store_a = ProjectStore::for_database_paths(
+        &crate::DatabasePaths::isolated_test(root_a.path()),
+        root_a.path(),
+    )
+    .expect("store a");
+    let store_b = ProjectStore::for_database_paths(
+        &crate::DatabasePaths::isolated_test(root_b.path()),
+        root_b.path(),
+    )
+    .expect("store b");
     store_a.migrate().expect("migrate a");
     store_b.migrate().expect("migrate b");
 
@@ -107,7 +119,11 @@ fn upsert_tail_overwrites_same_definition_session_and_isolates_projects() {
 #[test]
 fn delete_tail_on_session_end_or_card_removal() {
     let root = tempdir().expect("workspace");
-    let store = ProjectStore::for_workspace(root.path()).expect("store");
+    let store = ProjectStore::for_database_paths(
+        &crate::DatabasePaths::isolated_test(root.path()),
+        root.path(),
+    )
+    .expect("store");
     store.migrate().expect("migrate");
     store
         .agent_definition_store()

@@ -34,8 +34,8 @@ fn test_enter_workspace_defers_live_terminal_restore_for_saved_card() {
     let database_paths = storage::DatabasePaths::production_for_home(temp.path());
     let workspace_path = temp.path().join("restored-live-terminal");
     std::fs::create_dir(&workspace_path).expect("test should create workspace dir");
-    let project_store =
-        ProjectStore::for_workspace(&workspace_path).expect("project store should open");
+    let project_store = ProjectStore::for_database_paths(&database_paths, &workspace_path)
+        .expect("project store should open");
     let snapshot = DocumentSnapshot {
         nodes: vec![CanvasNodeSnapshot {
             id: 6,
@@ -167,8 +167,8 @@ fn test_enter_workspace_starts_profile_specific_intro_for_restored_live_cards() 
     let database_paths = storage::DatabasePaths::production_for_home(temp.path());
     let workspace_path = temp.path().join("restored-brand-intros");
     std::fs::create_dir(&workspace_path).expect("test should create workspace dir");
-    let project_store =
-        ProjectStore::for_workspace(&workspace_path).expect("project store should open");
+    let project_store = ProjectStore::for_database_paths(&database_paths, &workspace_path)
+        .expect("project store should open");
     let snapshot = DocumentSnapshot {
         nodes: vec![
             CanvasNodeSnapshot {
@@ -332,8 +332,8 @@ fn test_enter_workspace_restores_saved_master_layout_state() {
     let database_paths = storage::DatabasePaths::production_for_home(temp.path());
     let workspace_path = temp.path().join("restored-master-layout");
     std::fs::create_dir(&workspace_path).expect("test should create workspace dir");
-    let project_store =
-        ProjectStore::for_workspace(&workspace_path).expect("project store should open");
+    let project_store = ProjectStore::for_database_paths(&database_paths, &workspace_path)
+        .expect("project store should open");
     let a_bounds = CanvasRect::new(10.0, 20.0, 100.0, 80.0);
     let b_bounds = CanvasRect::new(140.0, 20.0, 100.0, 80.0);
     let snapshot = DocumentSnapshot {

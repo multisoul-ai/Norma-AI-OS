@@ -322,7 +322,7 @@ fn test_app_bootstrap_reads_only_the_explicit_test_app_database() {
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 用显式 Test DatabasePaths 构造 headless App。
 ///   2. 通过公开 `enter_canvas_for_test` 进入临时 workspace。
-///   3. 检查 `.multisoul` 下两个候选项目数据库文件。
+///   3. 检查全局项目数据库文件及项目目录。
 ///
 /// 预期结果：
 ///   - 正断言：Test 项目数据库被创建并可用于后续持久化。
@@ -334,7 +334,7 @@ fn test_app_workspace_binding_uses_only_the_test_project_database() {
     std::fs::create_dir(&workspace).expect("测试应创建临时 workspace");
     let test_paths = DatabasePaths::isolated_test(&temp.path().join("data"));
     let production_db = workspace.join(".multisoul").join("project.sqlite");
-    let test_db = workspace.join(".multisoul").join("project.test.sqlite");
+    let test_db = test_paths.project_db_path(&workspace.canonicalize().expect("项目应能规范化"));
 
     let mut test_cx = TestAppContext::single();
     let (app, cx) = test_cx.add_window_view(|_window, cx| {
@@ -348,11 +348,11 @@ fn test_app_workspace_binding_uses_only_the_test_project_database() {
 
     assert!(
         test_db.is_file(),
-        "显式 Test App 进入 workspace 后必须创建 project.test.sqlite"
+        "显式 Test App 必须在全局数据目录创建项目数据库"
     );
     assert!(
-        !production_db.exists(),
-        "显式 Test App 进入 workspace 后不得创建 Production project.sqlite"
+        !production_db.exists() && !workspace.join(".multisoul").exists(),
+        "显式 Test App 进入 workspace 后不得在项目目录创建数据库或状态目录"
     );
 }
 

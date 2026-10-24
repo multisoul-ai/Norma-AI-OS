@@ -314,7 +314,7 @@ fn test_enter_workspace_records_recent_and_switches_to_canvas() {
     let canonical_workspace = workspace_path
         .canonicalize()
         .expect("workspace should canonicalize");
-    let project_store = ProjectStore::for_workspace(&workspace_path)
+    let project_store = ProjectStore::for_database_paths(&database_paths, &workspace_path)
         .expect("project store should open for workspace-local agent setup");
     project_store
         .migrate()

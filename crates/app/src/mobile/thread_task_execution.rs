@@ -26,9 +26,12 @@ pub(super) fn read(
     };
     // Match the app's existing production/test filename; never guess a phone-supplied path or fall
     // back to a production database when an isolated test database is missing.
-    let paths = crate::database::default_database_paths().map_err(|_| "unavailable")?;
-    let database = paths.project_db_path(&project.canonical_root);
-    let Some(stored) = ProjectStore::new(database)
+    let paths = crate::database::default_database_paths()
+        .map_err(|_| "unavailable")?
+        .with_app_db_path(app.path().to_owned());
+    let project_store = ProjectStore::for_database_paths(&paths, &project.canonical_root)
+        .map_err(|_| "unavailable")?;
+    let Some(stored) = project_store
         .agent_dispatch_task_store()
         .get_by_task_ref(reference)
         .map_err(|_| "unavailable")?

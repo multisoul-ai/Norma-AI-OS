@@ -11,6 +11,7 @@ use ui::component::Root;
 mod e2e;
 
 const APP_DISPLAY_NAME: &str = "Norma OS";
+mod project_storage;
 
 #[derive(Default)]
 pub(crate) struct WorkspaceWindowRegistry {
@@ -212,7 +213,7 @@ impl MultisoulApp {
         }
     }
 
-    pub(super) fn open_workspace_in_project_window_with_state(
+    fn open_prepared_project_window(
         &mut self,
         path: PathBuf,
         close_current_launchpad: bool,

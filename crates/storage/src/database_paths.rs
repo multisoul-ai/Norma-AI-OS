@@ -1,4 +1,5 @@
 use crate::{StorageError, StorageResult};
+use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 
 const APP_DB_FILENAME: &str = "app.sqlite";
@@ -69,7 +70,26 @@ impl DatabasePaths {
         &self.app_db_path
     }
 
+    pub fn with_app_db_path(mut self, app_db_path: PathBuf) -> Self {
+        self.app_db_path = app_db_path;
+        self
+    }
+
+    /// Resolve a canonical project root inside this App's global data directory.
     pub fn project_db_path(&self, workspace: &Path) -> PathBuf {
+        let key = format!(
+            "{:x}",
+            Sha256::digest(workspace.as_os_str().as_encoded_bytes())
+        );
+        self.app_db_path
+            .parent()
+            .unwrap_or_else(|| Path::new(""))
+            .join("projects")
+            .join(key)
+            .join(self.project_db_filename)
+    }
+
+    pub(crate) fn legacy_project_db_path(&self, workspace: &Path) -> PathBuf {
         workspace.join(".multisoul").join(self.project_db_filename)
     }
 

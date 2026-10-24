@@ -50,13 +50,18 @@ impl ProjectStore {
     }
 
     pub fn for_workspace(root: &Path) -> StorageResult<Self> {
-        require_workspace_dir(root)?;
-        Ok(Self::new(root.join(".multisoul").join("project.sqlite")))
+        Self::for_database_paths(&DatabasePaths::production()?, root)
     }
 
+    /// Background-only: import legacy data before exposing writable child stores.
     pub fn for_database_paths(paths: &DatabasePaths, root: &Path) -> StorageResult<Self> {
         require_workspace_dir(root)?;
-        Ok(Self::new(paths.project_db_path(root)))
+        let root = root.canonicalize()?;
+        let store = Self::new(paths.project_db_path(&root));
+        import_legacy_project(paths, &root, store.path()).map_err(|source| {
+            project_initialization_error(paths, store.path().to_owned(), source)
+        })?;
+        Ok(store)
     }
 
     pub fn initialize_for_database_paths(
@@ -66,9 +71,9 @@ impl ProjectStore {
         let path = paths.project_db_path(root);
         let store = Self::for_database_paths(paths, root)
             .map_err(|source| project_initialization_error(paths, path.clone(), source))?;
-        store
-            .migrate()
-            .map_err(|source| project_initialization_error(paths, path, source))?;
+        store.migrate().map_err(|source| {
+            project_initialization_error(paths, store.path().to_owned(), source)
+        })?;
         Ok(store)
     }
 
@@ -150,6 +155,33 @@ impl ProjectStore {
     pub fn agent_conversation_tail_store(&self) -> AgentConversationTailStore {
         AgentConversationTailStore::new(self.path.clone())
     }
+}
+
+fn import_legacy_project(paths: &DatabasePaths, root: &Path, target: &Path) -> StorageResult<()> {
+    if target.try_exists()? {
+        return Ok(());
+    }
+    let legacy = paths.legacy_project_db_path(root);
+    if !legacy.try_exists()? {
+        return Ok(());
+    }
+    let parent = target
+        .parent()
+        .ok_or_else(|| StorageError::InvalidAppDatabasePath(target.to_owned()))?;
+    std::fs::create_dir_all(parent)?;
+    let staged = tempfile::NamedTempFile::new_in(parent)?;
+    // SQLite backup includes committed WAL pages without modifying the legacy database.
+    let source =
+        rusqlite::Connection::open_with_flags(legacy, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+    source.backup(rusqlite::DatabaseName::Main, staged.path(), None)?;
+    drop(crate::migrations::open_project_connection(staged.path())?);
+    staged.as_file().sync_all()?;
+    match staged.persist_noclobber(target) {
+        Ok(_) => std::fs::File::open(parent)?.sync_all()?,
+        Err(error) if error.error.kind() == std::io::ErrorKind::AlreadyExists => {}
+        Err(error) => return Err(error.error.into()),
+    }
+    Ok(())
 }
 
 pub(crate) fn desktop_canvas_path(
