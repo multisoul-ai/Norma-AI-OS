@@ -1,12 +1,12 @@
 {
   "cmd": [
-    "/Users/openclawd/.local/bin/pi",
+    "/Users/user/.local/bin/pi",
     "--offline",
     "--no-skills",
     "--no-context-files",
     "--no-prompt-templates",
     "-e",
-    "/Users/openclawd/.pi/agent/extensions/norma-probe-7f1l_gyq.ts",
+    "/Users/user/.pi/agent/extensions/norma-probe-7f1l_gyq.ts",
     "--model",
     "norma-probe/fixture",
     "-e",

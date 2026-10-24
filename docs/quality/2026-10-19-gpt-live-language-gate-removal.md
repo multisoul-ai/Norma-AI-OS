@@ -43,7 +43,7 @@ GPT-Live 的原始转写与对话背景交给模型理解。模型根据 Norma �
 | 转写不触发本地静音 | App 真实回环 WS → `run_audio_loop` → 可观测 sink：四条固定话术原样转发，零 `OutputBlocked`，PCM 正常播放 |
 | 显式播放控制保留 | 原真实音频循环测试仍验证 UI 停播期间继续上传麦克风，恢复后不补播旧音频 |
 
-诊断证据：`/Users/openclawd/.codex/artifacts/gpt-live-20261018/diagnosis/language-gate-removal-20261019/`。`model-tools-red.log` 先复现原词表拒绝；`model-routing-red.log` 回放移除前直接寻址分支，证明模型被跳过；`audio-keyword-red.log` 使用原生产检测器证明固定话术会自行改变播放。`before/` 保存原源码。
+诊断证据：`/Users/user/.codex/artifacts/gpt-live-20261018/diagnosis/language-gate-removal-20261019/`。`model-tools-red.log` 先复现原词表拒绝；`model-routing-red.log` 回放移除前直接寻址分支，证明模型被跳过；`audio-keyword-red.log` 使用原生产检测器证明固定话术会自行改变播放。`before/` 保存原源码。
 
 独立只读审查已覆盖全仓生产调用点和以上保留边界，未发现 GPT 路径残留的原话关键词执行门禁。完整 Agent 回归 `agent-final.log`：116 项通过、0 失败、2 项跳过，含 doc-tests。原 GPT 词表拒绝测试按新需求替换为模型选择工具、无工具不执行与保留执行保护的行为测试；其他来源严格入口和原工具定义回归保持。
 
@@ -53,8 +53,8 @@ App 真实新构建的原生单元测试目标：GPT-Live 63 项通过；豆包 
 
 初次构建同时链接主程序和大型 App 测试目标时遇到本机内存交换压力，曾串行化自己的两个链接任务；随后停止无关真实云端集成测试目标的额外构建。保留 `app-all-test-build-superseded.log` 作为中断记录。最终使用上述正常运行包构建，以及 Cargo `--lib --no-run --message-format=json` 确认的最新原生测试目标进行验收；其路径、SHA-256 和分组结果见 `app-test-summary.json`。
 
-测试包 `/Users/openclawd/.codex/artifacts/gpt-live-20261018/Norma GPT-Live Test.app` 已更新并通过本地签名严格验证，保留原 Info.plist、隔离数据和已保存的 Key，未替换正式 `/Applications/Norma OS.app`。旧包备份在 `preserved/before-language-gate-removal-20261018T182214Z/`。
+测试包 `/Users/user/.codex/artifacts/gpt-live-20261018/Norma GPT-Live Test.app` 已更新并通过本地签名严格验证，保留原 Info.plist、隔离数据和已保存的 Key，未替换正式 `/Applications/Norma OS.app`。旧包备份在 `preserved/before-language-gate-removal-20261018T182214Z/`。
 
-`run-gpt-live.command` 已实测启动新包，Computer Use 确认真实测试 App 窗口打开，未自动开始麦克风通话。最新源码、可执行文件、原生测试目标哈希、实际启动 PID 与结果见 `/Users/openclawd/.codex/artifacts/gpt-live-20261018/language-gate-removal-manifest.json`；上一轮 manifest 已标记后继记录。
+`run-gpt-live.command` 已实测启动新包，Computer Use 确认真实测试 App 窗口打开，未自动开始麦克风通话。最新源码、可执行文件、原生测试目标哈希、实际启动 PID 与结果见 `/Users/user/.codex/artifacts/gpt-live-20261018/language-gate-removal-manifest.json`；上一轮 manifest 已标记后继记录。
 
 本地 HTTP／WS 测试验证客户端行为与工具执行边界，不代表已完成云端模型语义质量、真人麦克风或实际画布操作验收。本轮无需读取或重新传输用户 Key。

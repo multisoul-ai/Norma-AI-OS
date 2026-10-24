@@ -1,6 +1,6 @@
 # Kimi Code CLI 2.2.0 技能（skill）发现目录实测
 
-日期：2026-10-18　CLI：`/Users/openclawd/.kimi-code/bin/kimi`（`kimi --version` 输出 `2.2.0`）
+日期：2026-10-18　CLI：`/Users/user/.kimi-code/bin/kimi`（`kimi --version` 输出 `2.2.0`）
 
 ## 结论
 

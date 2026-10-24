@@ -6,6 +6,7 @@ impl Render for MultisoulApp {
         let window_active = window.is_window_active();
         if self.window_active != window_active {
             self.window_active = window_active;
+            self.note_window_activity_for_brain(window_active);
         }
         if !matches!(self.screen, AppScreen::Canvas) {
             // 离开 Canvas 后丢弃局部 Snake Entity；其 on_next_frame 回调随 Entity
@@ -218,6 +219,9 @@ impl Render for MultisoulApp {
                     );
                 }
             }
+        }
+        if self.desktop_host.is_none() && self.brain_trace_open() {
+            root = root.child(self.render_brain_trace(cx));
         }
         if self.clone_project.is_open() {
             root = root.child(self.render_clone_project_dialog(window, cx));

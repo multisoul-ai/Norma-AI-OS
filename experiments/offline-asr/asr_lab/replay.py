@@ -15,10 +15,11 @@ class ReplayChunk:
 
 
 def replay_chunks(samples, sample_rate: int, chunk_samples: int, *,
-                  realtime: bool, now=time.perf_counter_ns, sleep=time.sleep):
+                  realtime: bool, now=time.perf_counter_ns, sleep=time.sleep,
+                  origin_ns=None):
     if sample_rate <= 0 or chunk_samples <= 0:
         raise ValueError("sample rate and chunk size must be positive")
-    origin = now()
+    origin = now() if origin_ns is None else origin_ns
     for start in range(0, len(samples), chunk_samples):
         end = min(start + chunk_samples, len(samples))
         deadline = origin + round(end * 1_000_000_000 / sample_rate)

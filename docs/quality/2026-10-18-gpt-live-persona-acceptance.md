@@ -33,7 +33,7 @@
 
 格式检查、单文件行数和禁止 `#[allow]` 检查已通过。独立审查指出的启动快照与固定记忆规则遗漏均已修正并复核。
 
-本地红灯记录、规则原文比较与源码 manifest 位于 `/Users/openclawd/.codex/artifacts/gpt-live-20261018/diagnosis/prompt-integration/`。
+本地红灯记录、规则原文比较与源码 manifest 位于 `/Users/user/.codex/artifacts/gpt-live-20261018/diagnosis/prompt-integration/`。
 
 ## 生效与验证边界
 

@@ -15,7 +15,7 @@
   },
   "shell_unchanged": false,
   "note": "本任务只执行 npm --prefix 用户目录安装，未执行 curl installer，未写 shell 配置。同期 .zshrc 哈希变化，来源未验证；未回滚用户文件。",
-  "removed_extension": "/Users/openclawd/.pi/agent/extensions/norma-probe-7f1l_gyq.ts",
+  "removed_extension": "/Users/user/.pi/agent/extensions/norma-probe-7f1l_gyq.ts",
   "extension_absent": true,
   "pi_config_files_after": [
     ".pi/agent/settings.json",

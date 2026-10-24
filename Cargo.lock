@@ -207,6 +207,7 @@ dependencies = [
  "audio",
  "base64",
  "block2",
+ "brain",
  "canvas",
  "cef",
  "core-foundation 0.10.0",
@@ -957,6 +958,17 @@ dependencies = [
  "futures-io",
  "futures-lite 2.6.1",
  "piper",
+]
+
+[[package]]
+name = "brain"
+version = "0.1.76"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tracing",
 ]
 
 [[package]]

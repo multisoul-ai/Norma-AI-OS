@@ -1,6 +1,6 @@
 # 完全离线中英混合 ASR 实验
 
-状态：P1 基准设施开发。当前 runner 仅覆盖 Zipformer 引擎与文件回放；不能据此宣称真实麦克风、自动断句或 App 端到端达标。完整目标见 `docs/exec-plans/2026-10-24-offline-mixed-asr-experiment.md`，语料来源见 `docs/research/2026-10-24-offline-asr-corpus.md`。
+状态：P2 开发集初筛。当前 runner 覆盖 Zipformer、SenseVoice 引擎与文件回放；不能据此宣称真实麦克风、自动断句或 App 端到端达标。完整目标见 `docs/exec-plans/2026-10-24-offline-mixed-asr-experiment.md`，语料来源见 `docs/research/2026-10-24-offline-asr-corpus.md`，阶段实测见 `docs/research/2026-10-24-offline-asr-results.md`。
 
 ## 环境
 
@@ -51,6 +51,8 @@ bash run-offline.sh \
 默认配置对照当前 Sherpa 1.13.3：CPU、2 threads、双语 Zipformer、modified beam search、8 active paths、JAVA/KOTLIN 热词、score=2、同样的 BPE 词表。Python 引擎基线与生产 Rust/App 的采集和调度链路不同，正式对比还需补产品接入证据。可用 `--no-hotwords` 比较 greedy，无热词结果是独立配置，不能混入默认基线。
 
 ## 评分与计时口径
+
+SenseVoice 对照使用 `--engine sensevoice --model-dir models/sensevoice-int8-20240717`，其余 manifest/realtime/output 参数相同。固定来源及哈希保存在本地 `models/sensevoice-int8-20240717/source.json`；language=auto、ITN关闭。离线引擎收齐音频后才解码，不生成伪 partial。选型还需核实上游权重 MODEL_LICENSE。
 
 中文按字、英文按词，NFKC/casefold 后按固定规则计算 token 编辑距离；英文内部撇号保留。标点不计，不做翻译、简繁转换、数字口语改写。MER 使用总错误数/总参考 token 数，负例另报误出字率。失败/空输出仍计删除错误，不能只对成功样本求平均。
 

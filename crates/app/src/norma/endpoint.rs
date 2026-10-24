@@ -13,6 +13,7 @@ use std::io::Read;
 use std::path::PathBuf;
 use std::time::Duration;
 
+mod brain_history;
 mod routing;
 mod task_control;
 mod task_dispatch;
@@ -348,6 +349,16 @@ fn dispatch_request(server_request: NormaServerRequest, cx: &mut App) {
             "App 全局编排健康检查尚未完成",
             true,
         ));
+        return;
+    }
+    if matches!(
+        request.command,
+        CardCommand::Brain {
+            op: norma::protocol::BrainOp::History { .. },
+            ..
+        }
+    ) {
+        brain_history::dispatch(request, response, cx);
         return;
     }
     if matches!(request.command, CardCommand::DispatchAgentTasks { .. }) {

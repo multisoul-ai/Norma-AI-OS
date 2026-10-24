@@ -51,7 +51,7 @@ fn desktop_tool_descriptions_match_drawer_and_cached_status_contract() {
 ///   - 正断言：派发工具仅要求 agent 与 task，创建 Agent 工具允许 Grok profile
 ///   - 负断言：不再暴露 `open_agent`，模型也不能提供 name/activate 或未知 profile
 #[test]
-fn norma_exposes_exactly_twenty_four_narrow_tool_schemas() {
+fn norma_exposes_exactly_twenty_five_narrow_tool_schemas() {
     let definitions = norma_tool_definitions();
     let names = definitions
         .iter()
@@ -82,11 +82,12 @@ fn norma_exposes_exactly_twenty_four_narrow_tool_schemas() {
         "capture_idea",
         "list_ideas",
         "assign_idea",
+        "handoff_to_brain",
     ];
 
     assert_eq!(
         names, expected,
-        "Norma should expose only the twenty-four supported narrow tools in deterministic order"
+        "Norma should expose only the twenty-five supported narrow tools in deterministic order"
     );
     assert!(
         !names.contains(&"open_agent"),

@@ -17,6 +17,7 @@ mod doubao;
 mod freshness;
 mod playback;
 mod queue;
+mod report;
 mod synthesis;
 pub(super) use cache::AgentAnnouncementAudioCache;
 pub(crate) use playback::AgentAnnouncementPlayback;
@@ -75,6 +76,8 @@ pub(super) struct AgentAnnouncement {
     text: String,
     agent_name: String,
     outcome_word: String,
+    /// 大脑下发的整段文字，不走“名字 + 结果”的分段缓存。
+    report: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -384,7 +387,7 @@ impl MultisoulApp {
         cx.notify();
     }
 
-    fn agent_announcement_name(&self, node_id: NodeId) -> Option<String> {
+    pub(crate) fn agent_announcement_name(&self, node_id: NodeId) -> Option<String> {
         let CanvasNodeKind::Agent(spec) = &self.runtime.document.node(node_id)?.kind else {
             return None;
         };

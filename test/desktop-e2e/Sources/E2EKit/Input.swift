@@ -19,6 +19,12 @@ extension Session {
         // 控制通道在窗口绘制出 active 帧后才应答，输入不依赖固定等待。
     }
 
+    /// 模拟用户离开：只在 App 内把隔离窗口标记为不活跃。之后任何输入都会重新激活它。
+    public func deactivate() async throws {
+        try ensureRunning()
+        try await control(["op": "deactivate"])
+    }
+
     public func click(matching candidates: [String], pick: TextPick) async throws {
         let frame = try await capture()
         guard let text = frame.pick(candidates, pick) else {
@@ -172,7 +178,7 @@ extension Session {
 /// 把场景使用的 macOS 虚拟键码转成 GPUI 按键描述，例如 Cmd+D → "cmd-d"。
 func keystroke(key: CGKeyCode, modifiers: [CGKeyCode]) throws -> String {
     let names: [CGKeyCode: String] = [
-        0: "a", 1: "s", 2: "d", 9: "v", 14: "e", 17: "t", 18: "1", 19: "2", 20: "3", 29: "0", 34: "i", 40: "k", 36: "enter", 43: ",", 48: "tab", 49: "space",
+        0: "a", 1: "s", 2: "d", 9: "v", 11: "b", 14: "e", 17: "t", 18: "1", 19: "2", 20: "3", 29: "0", 34: "i", 40: "k", 36: "enter", 43: ",", 48: "tab", 49: "space",
         51: "backspace", 53: "escape", 123: "left", 124: "right", 125: "down", 126: "up",
     ]
     let modifierNames: [CGKeyCode: String] = [0x37: "cmd", 0x38: "shift", 0x3A: "alt", 0x3B: "ctrl"]
@@ -196,7 +202,7 @@ func keystroke(key: CGKeyCode, modifiers: [CGKeyCode]) throws -> String {
 /// Characters an AppKit keyDown carries for the virtual key codes scenarios use.
 func keyCharacters(_ key: CGKeyCode) throws -> String {
     let table: [CGKeyCode: String] = [
-        0: "a", 1: "s", 2: "d", 9: "v", 14: "e", 17: "t", 18: "1", 19: "2", 20: "3", 29: "0", 34: "i", 40: "k", 36: "\r", 43: ",", 48: "\t", 49: " ", 51: "\u{7f}", 53: "\u{1b}",
+        0: "a", 1: "s", 2: "d", 9: "v", 11: "b", 14: "e", 17: "t", 18: "1", 19: "2", 20: "3", 29: "0", 34: "i", 40: "k", 36: "\r", 43: ",", 48: "\t", 49: " ", 51: "\u{7f}", 53: "\u{1b}",
         123: "\u{F702}", 124: "\u{F703}", 125: "\u{F701}", 126: "\u{F700}",
     ]
     guard let value = table[key] else {

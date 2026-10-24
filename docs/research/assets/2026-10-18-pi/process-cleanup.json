@@ -1,7 +1,7 @@
 {
   "pty": {
     "cmd": [
-      "/Users/openclawd/.local/bin/pi",
+      "/Users/user/.local/bin/pi",
       "--offline",
       "--no-skills",
       "--no-context-files",

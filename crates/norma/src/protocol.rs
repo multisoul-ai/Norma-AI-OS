@@ -1,10 +1,12 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+mod brain;
 mod ego;
 mod errors;
 mod workspace;
 
+pub use brain::{BrainDecision, BrainOp, ReportPriority};
 pub use ego::{
     EgoCaptureMode, EgoCardStatus, EgoCommand, EgoCommandFailure, EgoErrorCode, EgoOwnership,
     EgoPhase, EgoPresentationDisposition,
@@ -115,6 +117,11 @@ pub enum CardCommand {
         node_id: NodeId,
     },
     List,
+    /// 后台大脑的命令，用 App 下发的 token 鉴权。
+    Brain {
+        token: String,
+        op: BrainOp,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -193,6 +200,10 @@ impl Eq for CardBounds {}
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum CardCommandResult {
+    /// 大脑命令的结果，是一段 JSON 文本。
+    Brain {
+        output: String,
+    },
     Doctor {
         report: OrchestrationDoctorReport,
     },

@@ -64,17 +64,20 @@ fn sidebar_navigation_items_use_canonical_thirty_nine_pixel_height() {
     );
 }
 
-/// 通用合并外观后保持四组十一页，基础设置、主题、壁纸和特效均为通用的直接目的地。
+/// 通用合并外观后保持四组十二页，基础设置、主题、壁纸和特效均为通用的直接目的地。
 ///
-/// 数据构造：通用 4 页 + Norma 3 页 + 输入 1 页 + 自动化 3 页 = 11 页，4 个分组。
+/// 数据构造：通用 4 页 + Norma 4 页（含 Norma 大脑）+ 输入 1 页 + 自动化 3 页 = 12 页，4 个分组。
 /// 执行过程：逐组核对生产导航的顺序和页面归属，再检查扁平化后的唯一性与隐藏项。
 /// 预期结果：完整结构与用户确认的两级菜单一致；没有独立外观组、重复页面或测试占位页。
 #[test]
-fn settings_navigation_has_four_groups_and_eleven_unique_pages() {
+fn settings_navigation_has_four_groups_and_twelve_unique_pages() {
     use super::SettingsSection::*;
     let expected: &[(&str, &[super::SettingsSection])] = &[
         ("general.title", &[General, Themes, Wallpaper, Effects]),
-        ("Norma", &[NormaPersona, NormaMemory, NormaVoice]),
+        (
+            "Norma",
+            &[NormaPersona, NormaMemory, NormaVoice, NormaBrain],
+        ),
         ("settings.input_controls", &[Keyboard]),
         ("settings.ai_automation", &[Agents, Orchestration, Mobile]),
     ];
@@ -96,7 +99,7 @@ fn settings_navigation_has_four_groups_and_eleven_unique_pages() {
         .iter()
         .flat_map(|(_, sections)| sections.iter().copied())
         .collect();
-    assert_eq!(pages.len(), 11, "页面总数应为 4 + 3 + 1 + 3 = 11");
+    assert_eq!(pages.len(), 12, "页面总数应为 4 + 4 + 1 + 3 = 12");
     for (index, page) in pages.iter().enumerate() {
         assert!(!pages[..index].contains(page), "页面 {page:?} 只能出现一次");
     }

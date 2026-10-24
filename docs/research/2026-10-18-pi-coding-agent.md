@@ -35,7 +35,7 @@ bin.pi: dist/bundle/cli.js
 repository: https://github.com/earendil-works/pi.git (packages/coding-agent)
 license: MIT
 added 118 packages in 43s
-/Users/openclawd/.local/bin/pi
+/Users/user/.local/bin/pi
 1.3.0
 ```
 
@@ -140,7 +140,7 @@ To resume this session: pi --session 01a14cb5-4b48-71eb-af74-53296bd903ff
 ```text
 cwd=/private/var/folders/…/norma-pi-probe-7f1l_gyq/work
 sessionId=01a14cb3-5411-7655-a4bf-9e266417ec61
-sessionFile=/Users/openclawd/.pi/agent/sessions/--private-var-folders-…-work--/2026-10-18T01-49-43-314Z_01a14cb3-5411-7655-a4bf-9e266417ec61.jsonl
+sessionFile=/Users/user/.pi/agent/sessions/--private-var-folders-…-work--/2026-10-18T01-49-43-314Z_01a14cb3-5411-7655-a4bf-9e266417ec61.jsonl
 ```
 
 完整未改写 context 见 [unauth-default-events.jsonl](assets/2026-10-18-pi/unauth-default-events.jsonl)。`PI_CODING_AGENT_DIR` 改到临时目录后，文件也落在该目录的 `sessions/<编码 cwd>/` 下。
@@ -347,7 +347,7 @@ blue  .     .     yellow
 
 ## 复核记录与阶段状态（2026-10-18 第二次复核）
 
-**已复核（本机重跑）**：`pi --version` 为 1.3.0，路径 `/Users/openclawd/.local/bin/pi`；`/bin/zsh -lic 'pi --help'` 仍列出 `--continue/-c`、`--resume/-r`、`--session <path|id>`、`--session-id <id>`（“Use exact project session ID, creating it if missing”）、`--approve/-a`、`--no-approve/-na`；`~/.pi/agent/` 下只有 `auth.json(2 字节)/bin/models-store.json/sessions/settings.json`，没有 `extensions/` 目录，测试扩展已清理。
+**已复核（本机重跑）**：`pi --version` 为 1.3.0，路径 `/Users/user/.local/bin/pi`；`/bin/zsh -lic 'pi --help'` 仍列出 `--continue/-c`、`--resume/-r`、`--session <path|id>`、`--session-id <id>`（“Use exact project session ID, creating it if missing”）、`--approve/-a`、`--no-approve/-na`；`~/.pi/agent/` 下只有 `auth.json(2 字节)/bin/models-store.json/sessions/settings.json`，没有 `extensions/` 目录，测试扩展已清理。
 
 **与初稿的差异（已验证）**：此次执行 `pi auth check --provider anthropic --json --no-refresh` 返回 `{"status":"ready","provider":"anthropic","authType":"api_key"}`，与初稿的 `not_ready` 不同。原因：本会话进程环境继承了 `ANTHROPIC_AUTH_TOKEN/ANTHROPIC_BASE_URL`（仅核对变量名，未读取值），而 `auth.json` 只有 2 字节。即“是否已登录”取决于继承的环境变量，不是 Pi 自己存储的凭据。初稿“未登录界面”结论是在无这些变量的环境得到的，不变；本次未用该环境发起真实模型请求，真实模型任务仍为未验证。
 

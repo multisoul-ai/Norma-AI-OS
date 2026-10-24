@@ -47,6 +47,12 @@ class OnlineSession:
             self.recognizer.decode_stream(self.stream)
         return self.recognizer.get_result(self.stream)
 
+    def finish(self):
+        self.stream.input_finished()
+        while self.recognizer.is_ready(self.stream):
+            self.recognizer.decode_stream(self.stream)
+        return self.recognizer.get_result(self.stream)
+
 
 class SenseVoiceEngine:
     def __init__(self, root: Path, *, threads=2):
@@ -61,6 +67,35 @@ class SenseVoiceEngine:
         self.recognizer = sherpa_onnx.OfflineRecognizer.from_sense_voice(
             **{key: str(path) for key, path in self.files.items()},
             num_threads=threads, provider="cpu", language="auto", use_itn=False)
+
+    def new_session(self):
+        return OfflineSession(self.recognizer)
+
+
+class QwenEngine:
+    def __init__(self, root: Path, *, threads=2):
+        self.files = {name: root / filename for name, filename in {
+            "conv_frontend": "conv_frontend.onnx", "encoder": "encoder.int8.onnx",
+            "decoder": "decoder.int8.onnx", "tokenizer_vocab": "tokenizer/vocab.json",
+            "tokenizer_merges": "tokenizer/merges.txt",
+            "tokenizer_config": "tokenizer/tokenizer_config.json",
+        }.items()}
+        for path in self.files.values():
+            if not path.is_file():
+                raise FileNotFoundError(f"local model artifact missing: {path.name}")
+        for path in sorted((root / "tokenizer").rglob("*")):
+            if path.is_file():
+                self.files[str(path.relative_to(root))] = path
+        import sherpa_onnx
+        self.config = {"engine": "qwen3-asr-0.6b-2026-03-25-int8", "provider": "cpu",
+                       "num_threads": threads, "max_total_len": 1024, "max_new_tokens": 512,
+                       "temperature": 1e-6, "top_p": 0.8, "seed": 42,
+                       "decoding_method": "greedy_search", "hotwords": "",
+                       "native_streaming": False}
+        self.recognizer = sherpa_onnx.OfflineRecognizer.from_qwen3_asr(
+            **{key: str(self.files[key]) for key in ("conv_frontend", "encoder", "decoder")},
+            tokenizer=str(root / "tokenizer"), num_threads=threads, provider="cpu",
+            max_total_len=1024, max_new_tokens=512, temperature=1e-6, top_p=0.8, seed=42)
 
     def new_session(self):
         return OfflineSession(self.recognizer)
@@ -81,9 +116,3 @@ class OfflineSession:
         stream.accept_waveform(16000, np.concatenate(self.chunks).astype(np.float32, copy=False))
         self.recognizer.decode_stream(stream)
         return stream.result.text
-
-    def finish(self):
-        self.stream.input_finished()
-        while self.recognizer.is_ready(self.stream):
-            self.recognizer.decode_stream(self.stream)
-        return self.recognizer.get_result(self.stream)

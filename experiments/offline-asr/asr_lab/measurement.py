@@ -16,7 +16,7 @@ def measure_utterance(recognizer, samples, *, realtime: bool, chunk_samples=320,
     events, last_text = [], ""
     decode_ns, max_lag_ns = 0, 0
     for frame in replay_chunks(samples, 16000, chunk_samples, realtime=realtime,
-                               now=now, sleep=sleep):
+                               now=now, sleep=sleep, origin_ns=origin):
         max_lag_ns = max(max_lag_ns, frame.delivered_ns - frame.deadline_ns)
         started = now()
         text = recognizer.accept(frame.samples).strip()

@@ -244,6 +244,7 @@ impl MultisoulApp {
             .id
             .is_some_and(|id| self.runtime.has_active_agent_definition(id));
         let agent_on_canvas_ids = self.runtime.active_agent_definition_ids();
+        let brain_view = self.brain_settings_view();
         let content = settings_content(
             SettingsContentContext {
                 width: layout.content_width() - 2.0, // Exclude the panel border.
@@ -275,6 +276,7 @@ impl MultisoulApp {
                 wallpaper_previews: &mut self.wallpaper_previews,
                 shortcuts: &self.shortcuts,
                 mobile: self.mobile.clone(),
+                brain: brain_view,
                 persona: self
                     .norma_persona
                     .as_ref()

@@ -28,7 +28,7 @@ Google Material 落地为紧凑设置行、4/8px 间距、明确主操作、克�
 | 深浅主题、配置精简、诊断、保存 Key、模式隔离 | `settings-live-configuration` 真实 App 场景，逐图检查 |
 | 无语音运行时回归 | 本轮 125 个受保护文件 SHA256 对比；GPT-Live／豆包／旧语音测试 |
 
-证据目录：`/Users/openclawd/.codex/artifacts/gpt-live-20261018/diagnosis/settings-material-20261019/`。
+证据目录：`/Users/user/.codex/artifacts/gpt-live-20261018/diagnosis/settings-material-20261019/`。
 
 ## 原生回归结果
 

@@ -11,6 +11,7 @@ pub(super) const TOP: f32 = 0.0;
 pub(super) const BOTTOM: f32 = 0.0;
 
 mod artifacts;
+mod brain_trace;
 mod chat;
 mod chat_message;
 pub(super) mod content;
@@ -29,8 +30,11 @@ pub(super) mod material;
 pub(super) mod motion;
 pub(super) mod orb;
 mod overview_actions;
+mod overview_brain;
+mod overview_judging;
 mod overview_list;
 mod overview_parts;
+mod overview_proposals;
 mod overview_summary;
 pub(super) mod resize;
 

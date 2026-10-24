@@ -25,6 +25,7 @@ impl AgentCardAdapter for LiveSmokeAdapter {
                 | AdapterCommand::WorkspaceMemory { .. }
                 | AdapterCommand::WorkspaceSnapshot { .. }
                 | AdapterCommand::AssignWorkspaceTask { .. }
+                | AdapterCommand::HandoffToBrain { .. }
                 | AdapterCommand::OpenWorkspaceArtifact { .. }
                 | AdapterCommand::LocateWorkspaceAgent { .. }
                 | AdapterCommand::CaptureIdea { .. }

@@ -67,6 +67,7 @@ license.workspace = true
 analytics.workspace = true
 tts.workspace = true
 agent.workspace = true
+brain.workspace = true
 live_voice.workspace = true
 anyhow.workspace = true
 serde.workspace = true

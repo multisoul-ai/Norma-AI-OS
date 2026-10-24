@@ -20,7 +20,7 @@ GPT-Live 的 `CreateAgent` 授权判断识别问候、填充词和明确请求�
 
 ## 验收记录
 
-诊断根目录：`/Users/openclawd/.codex/artifacts/gpt-live-20261018/diagnosis/spoken-agent-creation-20261019/`。
+诊断根目录：`/Users/user/.codex/artifacts/gpt-live-20261018/diagnosis/spoken-agent-creation-20261019/`。
 
 | 验收项 | 对应证据 |
 | --- | --- |
@@ -36,11 +36,11 @@ GPT-Live 的 `CreateAgent` 授权判断识别问候、填充词和明确请求�
 
 完整 Agent 回归：`agent-release-final.log`，120 项通过、0 失败、2 项跳过，已完成 doc-tests。未复跑旧版 App 测试二进制，以免把旧构建结果记为本轮证据；本轮通过 Agent 公开委派入口验证工具命令和来源隔离，另外重新构建实际 App。
 
-`cargo build -p app --release --bins` 通过；Rust 格式、单文件 500 行、禁止 allow 与 diff 空白检查通过。真实测试包已更新到 `/Users/openclawd/.codex/artifacts/gpt-live-20261018/Norma GPT-Live Test.app`，本地签名严格校验通过。保留原 Info.plist、隔离测试数据和已保存的 Key；正式 `/Applications/Norma OS.app` 的可执行文件 SHA-256 保持不变。
+`cargo build -p app --release --bins` 通过；Rust 格式、单文件 500 行、禁止 allow 与 diff 空白检查通过。真实测试包已更新到 `/Users/user/.codex/artifacts/gpt-live-20261018/Norma GPT-Live Test.app`，本地签名严格校验通过。保留原 Info.plist、隔离测试数据和已保存的 Key；正式 `/Applications/Norma OS.app` 的可执行文件 SHA-256 保持不变。
 
-原包备份：`/Users/openclawd/.codex/artifacts/gpt-live-20261018/preserved/before-spoken-creation-20261018T172540Z/`。兼容入口 `bin/norma-os` 同步更新并保留旧版本。`run-gpt-live.command` 已实测启动新包，Computer Use 确认“Norma GPT-Live Test”的真实窗口打开；未自动开始麦克风通话。
+原包备份：`/Users/user/.codex/artifacts/gpt-live-20261018/preserved/before-spoken-creation-20261018T172540Z/`。兼容入口 `bin/norma-os` 同步更新并保留旧版本。`run-gpt-live.command` 已实测启动新包，Computer Use 确认“Norma GPT-Live Test”的真实窗口打开；未自动开始麦克风通话。
 
-最新构建、源码、签名后可执行文件的独立哈希及实际启动 PID 见 `/Users/openclawd/.codex/artifacts/gpt-live-20261018/spoken-creation-fix-manifest.json`。上一轮 `tool-schema-fix-manifest.json` 已标记后继记录，保留原验收证据。
+最新构建、源码、签名后可执行文件的独立哈希及实际启动 PID 见 `/Users/user/.codex/artifacts/gpt-live-20261018/spoken-creation-fix-manifest.json`。上一轮 `tool-schema-fix-manifest.json` 已标记后继记录，保留原验收证据。
 
 ## 验收限制
 

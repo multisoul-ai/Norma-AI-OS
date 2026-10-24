@@ -14,7 +14,7 @@ import subprocess
 import sys
 import time
 
-from .engines import SenseVoiceEngine, ZipformerEngine
+from .engines import QwenEngine, SenseVoiceEngine, ZipformerEngine
 from .manifest import file_sha256, load_manifest
 from .measurement import measure_utterance
 from .offline import verify_network_denied
@@ -40,7 +40,8 @@ def run(args):
     else:
         if args.no_hotwords:
             raise ValueError("--no-hotwords only applies to zipformer")
-        engine = SenseVoiceEngine(args.model_dir, threads=args.threads)
+        engine_type = {"sensevoice": SenseVoiceEngine, "qwen": QwenEngine}[args.engine]
+        engine = engine_type(args.model_dir, threads=args.threads)
     load_ms = (time.perf_counter() - started) * 1000
     root = Path(__file__).resolve().parent
     source_snapshot = args.output / "source"
@@ -115,7 +116,7 @@ def positive_int(value):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, required=True)
-    parser.add_argument("--engine", choices=("zipformer", "sensevoice"), default="zipformer")
+    parser.add_argument("--engine", choices=("zipformer", "sensevoice", "qwen"), default="zipformer")
     parser.add_argument("--model-dir", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--threads", type=positive_int, default=2)

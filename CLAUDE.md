@@ -15,6 +15,7 @@ Workspace crates:
 - `canvas` - domain crate for geometry, document state, node models, selection, hit testing, and viewport transforms.
 - `terminal` - domain crate for PTY process handling, ANSI terminal grid parsing, input encoding, and terminal sessions.
 - `runtime` - domain crate for focus state, input routing, LiveNode registry, and node lifecycle glue.
+- `brain` - GPUI/Storage/Runtime/Agent-free background chief of staff: event routing, ACP sessions, permission gate, and proposals; depends only on `norma` protocol types and acts through the `norma` CLI. See [design](docs/design-docs/2026-10-23-norma-brain-acp.md).
 - `agent` - GPUI/Storage-free NormaSession runtime using Rig providers, typed tools, and an injected AgentCardAdapter.
 - `asr` - GPUI/Storage/Keychain-free provider registry, recognition protocol, Local Sherpa, Cloud Azure, model installation, and integrity.
 - `voice_input` - provider-neutral microphone permission/device/capture/resampling/PCM/VAD primitives.
@@ -29,7 +30,8 @@ Core Cargo dependency direction is:
 
 ```text
 agent -> norma
-app -> {ui, runtime, canvas, terminal, storage, asr, voice_input, tts, voice_sherpa, media_store, analytics}
+brain -> norma
+app -> {brain, ui, runtime, canvas, terminal, storage, asr, voice_input, tts, voice_sherpa, media_store, analytics}
 voice_sherpa -> {asr, voice_input, tts, dialogue, audio}
 dialogue -> voice_input
 tts -> {model_store, audio}
@@ -38,7 +40,7 @@ storage -> {agent, canvas, workspace, rusqlite}
 ui -> {gpui, gpui-component}
 ```
 
-`asr`, `voice_input`, `model_store`, `tts`, `canvas`, `terminal`, and `runtime` must remain free of GPUI dependencies and should stay independently testable. `asr` may host engine/network-specific providers but must remain free of Storage and Keychain. `tts` remains free of Sherpa; local engine configuration belongs in `voice_sherpa`, and remote TTS networking is allowed only below `tts::providers`. `model_store` and `tts` must not depend on app/runtime/storage/ui.
+`brain` must not depend on `gpui`, `runtime`, `storage`, `ui`, or `agent`; `agent` must not depend on `brain`. `asr`, `voice_input`, `model_store`, `tts`, `canvas`, `terminal`, and `runtime` must remain free of GPUI dependencies and should stay independently testable. `asr` may host engine/network-specific providers but must remain free of Storage and Keychain. `tts` remains free of Sherpa; local engine configuration belongs in `voice_sherpa`, and remote TTS networking is allowed only below `tts::providers`. `model_store` and `tts` must not depend on app/runtime/storage/ui.
 
 ## 2. Key Constraints
 
@@ -175,9 +177,10 @@ Dependency boundary check:
 
 ```bash
 cargo tree -p canvas -p terminal -p runtime | grep -i gpui
+cargo tree -p brain | grep -iE "gpui|runtime|storage|agent "
 ```
 
-The dependency boundary check should print nothing.
+The dependency boundary checks should print nothing.
 
 Trace logging:
 
