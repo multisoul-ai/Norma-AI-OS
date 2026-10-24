@@ -45,6 +45,9 @@ impl LaneEnv {
             env: self.env.clone(),
             meta: backend::session_meta(self.backend.kind, self.model.as_deref()),
             mode: backend::session_mode(self.backend.kind).map(str::to_string),
+            model: (self.backend.kind == backend::BackendKind::ClaudeCode)
+                .then(|| self.model.clone())
+                .flatten(),
             handshake_timeout: Duration::from_secs(60),
         }
     }

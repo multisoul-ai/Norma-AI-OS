@@ -64,6 +64,9 @@ def main():
         elif method == "session/set_mode":
             log("set_mode " + msg["params"]["modeId"])
             send({"jsonrpc": "2.0", "id": mid, "result": {}})
+        elif method == "session/set_config_option":
+            log("set_config " + msg["params"]["configId"] + "=" + msg["params"]["value"])
+            send({"jsonrpc": "2.0", "id": mid, "result": {"configOptions": []}})
         elif method == "session/prompt":
             text = "".join(p.get("text", "") for p in msg["params"]["prompt"])
             log("prompt: " + text)

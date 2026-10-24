@@ -52,3 +52,22 @@ fn primer_does_not_tell_the_brain_to_only_acknowledge() {
         assert!(!text.contains("回复“收到”即可"), "{text}");
     }
 }
+
+/// 完成提示每轮都要给出下一步的结论：要么提议，要么说明为什么没有；不能只回“收到”。
+///
+/// 数据构造：一条完成记录，渲染“需要告知”“静默记录”两种提示。
+/// 预期结果：
+///   - 正断言：都要求最后写“已提议：”或“没有下一步：”；都说明提议不会打扰用户；
+///     都说明“按要求没做”不代表以后不要
+///   - 负断言：都不再出现“只回复“收到””
+#[test]
+fn finished_prompts_require_a_next_step_verdict() {
+    let lines = ["- Alan 已完成：写好了，还没有测试".to_string()];
+    for text in [urgent_batch(&lines), quiet_batch(&lines)] {
+        assert!(text.contains("已提议："), "{text}");
+        assert!(text.contains("没有下一步："), "{text}");
+        assert!(text.contains("不会打扰用户"), "{text}");
+        assert!(text.contains("不代表以后不要"), "{text}");
+        assert!(!text.contains("只回复“收到”"), "{text}");
+    }
+}

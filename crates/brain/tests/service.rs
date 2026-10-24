@@ -99,7 +99,7 @@ fn approval(id: &str, command: &str) -> BrainEvent {
 /// 数据构造：审批 a1（cargo test）。假适配器看到提示里的 decide 命令后发起权限请求。
 /// 预期结果：
 ///   - 正断言：日志出现 `allowed:` 加 brain decide；收到 ApprovalTurnEnded(a1)；
-///     会话创建时带了 settingSources 空数组，并切到 default 模式
+///     会话创建时带了 settingSources 空数组，切到 default 模式，并明确切到按策略选的模型
 ///   - 负断言：没有 Escalate
 #[test]
 fn approval_lane_runs_the_decide_command_through_the_gate() {
@@ -118,6 +118,11 @@ fn approval_lane_runs_the_decide_command_through_the_gate() {
     assert!(
         log.contains("set_mode default"),
         "要切到 default 模式：\n{log}"
+    );
+    // 用户自己的 Claude Code 设置会覆盖 `_meta` 里的模型，所以建好会话后要再明确切一次。
+    assert!(
+        log.contains("set_config model=haiku"),
+        "审批会话要明确切到 haiku：\n{log}"
     );
     assert!(!log.contains("rejected:"), "没有请求应被拒绝：\n{log}");
     h.service.shutdown();

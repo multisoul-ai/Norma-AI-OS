@@ -31,6 +31,9 @@ pub struct SessionOptions {
     /// 放进 `session/new` 的 `_meta`，用于锁定权限模式和禁用写工具。
     pub meta: Option<Value>,
     pub mode: Option<String>,
+    /// 建好会话后再用 `session/set_config_option` 切一次模型：适配器会让用户自己的
+    /// Claude Code 设置覆盖 `_meta` 里的模型。
+    pub model: Option<String>,
     pub handshake_timeout: Duration,
 }
 
@@ -67,6 +70,17 @@ impl AcpSession {
                 json!({"sessionId": session_id, "modeId": mode}),
                 deadline,
             )?;
+        }
+        if let Some(model) = &options.model {
+            // 切不过去时沿用适配器选的模型，不让会话因此建不起来。
+            if let Err(error) = call(
+                &mut conn,
+                "session/set_config_option",
+                json!({"sessionId": session_id, "configId": "model", "value": model}),
+                deadline,
+            ) {
+                tracing::warn!(%error, model, "大脑会话切换模型失败");
+            }
         }
         Ok(Self { conn, session_id })
     }
