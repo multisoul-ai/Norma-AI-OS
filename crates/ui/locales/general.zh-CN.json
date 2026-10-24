@@ -6,5 +6,7 @@
   "general.follow_system": "跟随系统",
   "general.language_hint": "立即应用到所有窗口。AI 回复保持现有语言行为。",
   "general.save_failed": "无法保存语言设置（%{path}）：%{reason}",
-  "general.storage_unavailable": "语言已切换，但设置存储不可用。重新启动 Norma 后可能无法保留此选择。"
+  "general.storage_unavailable": "语言已切换，但设置存储不可用。重新启动 Norma 后可能无法保留此选择。",
+  "general.analytics_title": "使用统计",
+  "general.analytics_hint": "共享匿名的使用事件（使用了哪些功能、App 版本、活跃时长）以帮助改进 Norma。绝不收集命令、提示词、文件名或路径。立即生效。"
 }

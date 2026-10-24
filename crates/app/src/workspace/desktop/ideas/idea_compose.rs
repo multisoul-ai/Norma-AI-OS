@@ -84,6 +84,7 @@ impl MultisoulApp {
         self.desktop_workspace.ideas_aux.pending_images.clear();
         self.desktop_workspace.ideas_notice = None;
         let store = IdeasStore::new(self.database_paths.app_db_path().to_owned());
+        crate::telemetry::idea_created();
         cx.spawn(async move |this, cx| {
             let saved = cx
                 .background_spawn(async move {

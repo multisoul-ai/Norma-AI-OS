@@ -15,13 +15,14 @@ Workspace crates:
 - `canvas` - domain crate for geometry, document state, node models, selection, hit testing, and viewport transforms.
 - `terminal` - domain crate for PTY process handling, ANSI terminal grid parsing, input encoding, and terminal sessions.
 - `runtime` - domain crate for focus state, input routing, LiveNode registry, and node lifecycle glue.
-- `brain` - GPUI/Storage/Runtime/Agent-free background brain: event routing, ACP sessions, high-risk rules; depends only on `norma` protocol types and acts through the `norma` CLI. See [design](docs/design-docs/2026-10-23-norma-brain-acp.md).
+- `brain` - GPUI/Storage/Runtime/Agent-free background chief of staff: event routing, ACP sessions, permission gate, and proposals; depends only on `norma` protocol types and acts through the `norma` CLI. See [design](docs/design-docs/2026-10-23-norma-brain-acp.md).
 - `agent` - GPUI/Storage-free NormaSession runtime using Rig providers, typed tools, and an injected AgentCardAdapter.
 - `asr` - GPUI/Storage/Keychain-free provider registry, recognition protocol, Local Sherpa, Cloud Azure, model installation, and integrity.
 - `voice_input` - provider-neutral microphone permission/device/capture/resampling/PCM/VAD primitives.
 - `model_store` - GPUI/network-free shared local-model archive, manifest, integrity, and atomic-install primitives.
 - `media_store` - GPUI/network-free media catalog, streaming integrity checks, atomic cache installs, and transfer state.
 - `tts` - GPUI/Storage/Sherpa-free TTS capability: built-in provider registry, reply-level streaming, local model policy, and remote provider protocols.
+- `analytics` - GPUI/Storage-free product analytics: typed events with allow-listed properties, offline queue, PostHog batch sink (no-op without `NORMA_POSTHOG_KEY`). Never upload commands, prompts, paths, file names, or transcripts.
 - `ui` - GPUI-facing shared UI: theme, icons, and `gpui-component` re-export (`ui::component`).
 - `app` - GPUI/Metal shell: window boot, menus, key bindings, canvas interaction, and terminal rendering.
 
@@ -30,7 +31,7 @@ Core Cargo dependency direction is:
 ```text
 agent -> norma
 brain -> norma
-app -> {brain, ui, runtime, canvas, terminal, storage, asr, voice_input, tts, voice_sherpa, media_store}
+app -> {brain, ui, runtime, canvas, terminal, storage, asr, voice_input, tts, voice_sherpa, media_store, analytics}
 voice_sherpa -> {asr, voice_input, tts, dialogue, audio}
 dialogue -> voice_input
 tts -> {model_store, audio}

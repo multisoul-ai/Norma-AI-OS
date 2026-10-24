@@ -3,7 +3,10 @@ use crate::settings::typography::{control_label, SettingsText, TextRole};
 use gpui::{div, prelude::*, px, rgba, App, Context, Div, Global};
 use storage::SettingsStore;
 use ui::i18n::{text, LanguagePreference, Locale, LocalizedText};
-use ui::{component::radio::Radio, Theme};
+use ui::{
+    component::{radio::Radio, switch::Switch, Sizable as _, Size},
+    Theme,
+};
 
 mod persistence;
 use persistence::LanguagePersistence;
@@ -230,6 +233,8 @@ pub(super) fn general_settings(theme: Theme, cx: &mut Context<crate::app::Multis
     let language = cx.try_global::<AppLanguage>();
     let preference = language.map(|state| state.preference).unwrap_or_default();
     let error = language.and_then(|state| state.save_error.clone());
+    let analytics = analytics::global().filter(|a| a.is_available());
+    let app = cx.weak_entity();
     div()
         .flex()
         .flex_col()
@@ -279,6 +284,48 @@ pub(super) fn general_settings(theme: Theme, cx: &mut Context<crate::app::Multis
                     .child(error.to_string()),
             )
         })
+        .when_some(analytics, |view, analytics| {
+            view.child(analytics_section(theme, analytics.is_enabled(), app))
+        })
+}
+
+fn analytics_section(
+    theme: Theme,
+    enabled: bool,
+    app: gpui::WeakEntity<crate::app::MultisoulApp>,
+) -> Div {
+    div()
+        .flex()
+        .flex_col()
+        .gap(px(8.0))
+        .child(
+            div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .justify_between()
+                .child(
+                    div()
+                        .settings_text(TextRole::Headline, theme)
+                        .child(text("general.analytics_title")),
+                )
+                .child(
+                    Switch::new("settings-usage-analytics-switch")
+                        .checked(enabled)
+                        .with_size(Size::Medium)
+                        .on_click(move |checked, _window, cx| {
+                            if let Some(analytics) = analytics::global() {
+                                analytics.set_enabled(*checked);
+                            }
+                            let _ = app.update(cx, |_, cx| cx.notify());
+                        }),
+                ),
+        )
+        .child(
+            div()
+                .settings_text(TextRole::Helper, theme)
+                .child(text("general.analytics_hint")),
+        )
 }
 
 #[cfg(test)]

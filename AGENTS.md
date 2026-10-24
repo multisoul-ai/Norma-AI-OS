@@ -16,16 +16,17 @@ Workspace 分层：
 - `crates/storage/` - 零 GPUI 存储层：SQLite store、migration、recent/settings/canvas/session checkpoint。
 - `crates/workspace/` - 零 GPUI 元数据层：最近项目类型、workspace source、路径展示。
 - `crates/agent/` - 零 GPUI/Storage Agent Runtime：NormaSession、Rig Provider、typed tools、AgentCardAdapter 与预算。
-- `crates/brain/` - 零 GPUI/Storage/Runtime/Agent 后台大脑：事件分流、ACP 会话、高风险规则；只依赖 `norma` 协议类型，动作一律经 `norma` CLI。
+- `crates/brain/` - 零 GPUI/Storage/Runtime/Agent 的后台幕僚：事件分流、ACP 会话、权限闸门与提议；只依赖 `norma` 协议类型，动作一律经 `norma` CLI。
 - `crates/asr/` - 零 GPUI/Storage/Keychain ASR 领域层：provider、识别协议、Local Sherpa、Cloud Azure、模型安装与完整性。
 - `crates/voice_input/` - provider 中立的音频输入层：权限、设备、采集、重采样、PCM 流与共享 VAD。
 - `crates/model_store/` - 零 GPUI/网络的共享本地模型安装原语：受控解压、哈希、manifest 与原子提升。
 - `crates/media_store/` - 零 GPUI/网络的媒体域层：可信目录、流式校验、原子缓存与下载状态机。
 - `crates/tts/` - 零 GPUI/Storage/Sherpa TTS 能力层：供应商注册表、回复级流接口、本地模型策略与内置远程 Providers。
+- `crates/analytics/` - 零 GPUI/Storage 产品分析层：强类型事件、白名单属性、离线队列与 PostHog 批量发送；无 `NORMA_POSTHOG_KEY` 的构建为 no-op。
 - `crates/ui/` - GPUI 主题与共享 UI 基础。
 - `crates/app/` - GPUI/Metal 壳层：窗口、菜单、快捷键、画布与 cards 渲染。
 
-依赖方向：`brain -> norma`，`app -> {brain, ui, runtime, canvas, terminal, storage, asr, voice_input, tts, voice_sherpa, media_store}`，`voice_sherpa -> {asr, voice_input, tts, dialogue, audio}`，`dialogue -> voice_input`，`tts -> {model_store, audio}`，`runtime -> {canvas, terminal, storage}`，`storage -> {agent, canvas, workspace}`；`asr/model_store/tts/agent/voice_input` 不得依赖 `app/runtime/storage/ui`，且 `tts` 不得依赖 Sherpa；`tts` 的网络协议只能位于 `tts::providers`；`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。
+依赖方向：`brain -> norma`，`app -> {brain, ui, runtime, canvas, terminal, storage, asr, voice_input, tts, voice_sherpa, media_store, analytics}`，`voice_sherpa -> {asr, voice_input, tts, dialogue, audio}`，`dialogue -> voice_input`，`tts -> {model_store, audio}`，`runtime -> {canvas, terminal, storage}`，`storage -> {agent, canvas, workspace}`；`asr/model_store/tts/agent/voice_input` 不得依赖 `app/runtime/storage/ui`，且 `tts` 不得依赖 Sherpa；`tts` 的网络协议只能位于 `tts::providers`；`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。
 
 ### 源码组织
 

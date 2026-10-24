@@ -66,6 +66,7 @@ impl MultisoulApp {
         if !self.voice.begin_recording(trigger) {
             return;
         }
+        crate::telemetry::feature_used(analytics::Feature::Voice);
         self.dialogue.dismiss_error();
         let recording_generation = self.voice.recording_generation();
         if matches!(

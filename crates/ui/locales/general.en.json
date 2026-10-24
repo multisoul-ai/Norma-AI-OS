@@ -6,5 +6,7 @@
   "general.follow_system": "Follow System",
   "general.language_hint": "Applies immediately to all windows. AI replies keep their current language behavior.",
   "general.save_failed": "Could not save language settings (%{path}): %{reason}",
-  "general.storage_unavailable": "Language changed, but settings storage is unavailable. This choice may not survive restarting Norma."
+  "general.storage_unavailable": "Language changed, but settings storage is unavailable. This choice may not survive restarting Norma.",
+  "general.analytics_title": "Usage Analytics",
+  "general.analytics_hint": "Share anonymous usage events (which features you use, app version, active time) to help improve Norma. Commands, prompts, file names and paths are never collected. Takes effect immediately."
 }

@@ -312,6 +312,7 @@ impl MultisoulApp {
         match self.runtime.spawn_terminal(bounds, "/bin/zsh", cols, rows) {
             Ok(node_id) => {
                 tracing::info!(?node_id, "spawned terminal node");
+                crate::telemetry::terminal_created();
                 spawn_focus::activate_spawned_node(&mut self.runtime, node_id);
                 self.motion.spawn_node(node_id, bounds);
                 self.motion.start_initialization(

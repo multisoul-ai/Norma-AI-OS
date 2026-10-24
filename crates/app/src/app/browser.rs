@@ -132,6 +132,7 @@ impl MultisoulApp {
             .visible_canvas_rect(window)
             .inset(self.layout_gap_canvas());
         let node_id = self.runtime.spawn_browser(url, None, bounds);
+        crate::telemetry::browser_created();
         self.motion.spawn_node(node_id, bounds);
         let area = self.visible_canvas_rect(window);
         let zoom = self.runtime.document.viewport.zoom;
