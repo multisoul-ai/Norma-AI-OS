@@ -19,6 +19,11 @@ use std::time::{Duration, Instant};
 pub struct BrainConfig {
     pub backend: Backend,
     pub strategy: Strategy,
+    /// 覆盖策略映射出的模型；`None` 表示按策略（非 Claude 后端始终跟随 CLI 默认）。
+    pub main_model: Option<String>,
+    pub approval_model: Option<String>,
+    /// 审批会话的个数；大于 1 时多条审批并行判断。
+    pub approval_workers: usize,
     pub norma_bin: PathBuf,
     pub project_root: PathBuf,
     pub state_dir: PathBuf,
@@ -40,6 +45,9 @@ impl BrainConfig {
         Self {
             backend,
             strategy: Strategy::Auto,
+            main_model: None,
+            approval_model: None,
+            approval_workers: 1,
             norma_bin,
             project_root,
             state_dir,
@@ -65,7 +73,11 @@ impl BrainService {
         let stop = Arc::new(AtomicBool::new(false));
         let open = Arc::new(Mutex::new(HashSet::new()));
         let goal = Arc::new(GoalStore::open(config.state_dir.clone()));
-        let models = backend::models_for(config.backend.kind, config.strategy);
+        let mut models = backend::models_for(config.backend.kind, config.strategy);
+        if config.backend.kind == backend::BackendKind::ClaudeCode {
+            models.main = config.main_model.clone().or(models.main);
+            models.approval = config.approval_model.clone().or(models.approval);
+        }
         let gate = Gate {
             norma_bin: config.norma_bin.clone(),
             project_root: config.project_root.clone(),
@@ -87,11 +99,14 @@ impl BrainService {
         let (main_tx, main_rx) = mpsc::channel();
         let (approval_tx, approval_rx) = mpsc::channel();
         let main_env = lane(Role::Main, models.main);
-        let approval_env = lane(Role::Approval, models.approval);
-        let mut threads = vec![
-            std::thread::spawn(move || worker::run(main_env, main_rx)),
-            std::thread::spawn(move || worker::run(approval_env, approval_rx)),
-        ];
+        let main_jobs = Arc::new(Mutex::new(main_rx));
+        let mut threads = vec![std::thread::spawn(move || worker::run(main_env, main_jobs))];
+        let approval_jobs = Arc::new(Mutex::new(approval_rx));
+        for _ in 0..config.approval_workers.max(1) {
+            let approval_env = lane(Role::Approval, models.approval.clone());
+            let jobs = approval_jobs.clone();
+            threads.push(std::thread::spawn(move || worker::run(approval_env, jobs)));
+        }
         let dispatcher = Dispatcher {
             router: Router::new(
                 RouterConfig {

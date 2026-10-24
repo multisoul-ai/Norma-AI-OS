@@ -68,13 +68,20 @@ impl LaneEnv {
     }
 }
 
-pub fn run(env: LaneEnv, jobs: Receiver<Job>) {
+/// 多个 worker 共用一个队列：谁空闲谁取下一条，所以并行度就是 worker 个数。
+pub type SharedJobs = Arc<Mutex<Receiver<Job>>>;
+
+pub fn run(env: LaneEnv, jobs: SharedJobs) {
     let mut session: Option<AcpSession> = None;
     let mut turns = 0u32;
     let mut primed = false;
     let mut failures = 0u32;
     while !env.stop.load(Ordering::Relaxed) {
-        let job = match jobs.recv_timeout(Duration::from_millis(100)) {
+        let received = jobs
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .recv_timeout(Duration::from_millis(100));
+        let job = match received {
             Ok(job) => job,
             Err(RecvTimeoutError::Timeout) => continue,
             Err(RecvTimeoutError::Disconnected) => break,

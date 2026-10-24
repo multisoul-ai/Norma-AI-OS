@@ -4,6 +4,7 @@ mod approvals;
 mod config;
 mod ops;
 mod settings;
+pub(crate) use config::{BrainSettings, SlowReminder, SummaryEvery};
 pub(crate) use settings::BrainSettingsView;
 
 use crate::app::MultisoulApp;
@@ -22,12 +23,15 @@ mod brain_host_tests;
 
 const APPROVAL_POLL: Duration = Duration::from_millis(500);
 const START_RETRY: Duration = Duration::from_secs(10);
+const SLOW_AFTER: Duration = Duration::from_secs(60);
 
 pub(crate) struct Tracked {
     pub(super) target: ApprovalTarget,
     pub(super) agent: String,
     pub(super) subject: ApprovalSubject,
     pub(super) escalated: bool,
+    pub(super) since: Instant,
+    pub(super) reminded: bool,
 }
 
 struct BrainHost {
@@ -100,6 +104,7 @@ impl MultisoulApp {
         if self.brain.last_poll.elapsed() >= APPROVAL_POLL {
             self.brain.last_poll = Instant::now();
             self.poll_approvals();
+            self.remind_slow_judgements(cx);
         }
     }
 
@@ -131,6 +136,10 @@ impl MultisoulApp {
         let token = uuid::Uuid::new_v4().simple().to_string();
         let mut brain_config = BrainConfig::new(backend, paths.bundled_cli, root, state_dir);
         brain_config.strategy = settings.strategy;
+        brain_config.main_model = settings.main_model.clone();
+        brain_config.approval_model = settings.approval_model.clone();
+        brain_config.approval_workers = if settings.parallel_approvals { 3 } else { 1 };
+        brain_config.router.summary_every = settings.summary.duration();
         brain_config.env = config::adapter_env(&token, &workspace_id, &route_id);
         let (service, status) = BrainService::start(brain_config);
         tracing::info!("Norma 大脑已启动");
@@ -227,6 +236,36 @@ impl MultisoulApp {
         self.speak_brain_report(text, norma::protocol::ReportPriority::Now, cx);
     }
 
+    /// 判断超过 60 秒还没结论，按设置用语音提醒一次；概览里的“Norma 判断中”始终可见。
+    fn remind_slow_judgements(&mut self, cx: &mut Context<Self>) {
+        let voice = self
+            .brain
+            .settings
+            .as_ref()
+            .is_some_and(|settings| settings.slow_reminder == SlowReminder::VoiceAfter60s);
+        let slow: Vec<String> = self
+            .brain
+            .tracked
+            .iter()
+            .filter(|(_, t)| !t.escalated && !t.reminded && t.since.elapsed() >= SLOW_AFTER)
+            .map(|(id, _)| id.clone())
+            .collect();
+        for id in slow {
+            let Some(tracked) = self.brain.tracked.get_mut(&id) else {
+                continue;
+            };
+            tracked.reminded = true;
+            if voice {
+                let text = format!(
+                    "{} 想执行 {}，我还在判断，你也可以在左边直接处理。",
+                    tracked.agent,
+                    approvals::summarize(&tracked.subject)
+                );
+                self.speak_brain_report(text, norma::protocol::ReportPriority::Normal, cx);
+            }
+        }
+    }
+
     fn poll_approvals(&mut self) {
         let Some(root) = self.runtime.workspace_root().map(|root| root.to_path_buf()) else {
             return;
@@ -260,6 +299,8 @@ impl MultisoulApp {
                         agent: agent.clone(),
                         subject: subject.clone(),
                         escalated: false,
+                        since: Instant::now(),
+                        reminded: false,
                     },
                 );
                 self.push_brain(BrainEvent::ApprovalRequested(ApprovalRequest {

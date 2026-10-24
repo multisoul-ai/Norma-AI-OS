@@ -1,21 +1,28 @@
 //! 设置页对大脑的读写：配置落盘、重启大脑、安装适配器。
 
-use super::config;
+use super::config::{self, Autonomy, BrainSettings};
 use crate::app::MultisoulApp;
-use brain::{BackendKind, Strategy};
+use brain::BackendKind;
 use gpui::Context;
 use std::time::Instant;
 
 /// 设置页渲染所需的快照。后端检测结果有缓存，渲染时不做文件 IO。
 #[derive(Clone)]
 pub(crate) struct BrainSettingsView {
-    pub enabled: bool,
+    pub settings: BrainSettings,
     pub running: bool,
-    pub backend: Option<BackendKind>,
-    pub strategy: Strategy,
     pub installed: Vec<BackendKind>,
     pub installing: bool,
     pub install_error: Option<String>,
+}
+
+impl BrainSettingsView {
+    /// 实际使用的后端：用户选的；没选时取第一个已安装的。
+    pub(crate) fn chosen_backend(&self) -> Option<BackendKind> {
+        self.settings
+            .backend
+            .or_else(|| self.installed.first().copied())
+    }
 }
 
 const CLAUDE_ADAPTER: &str = "@agentclientprotocol/claude-agent-acp@0.94.0";
@@ -31,17 +38,14 @@ impl MultisoulApp {
             .collect()
     }
 
+    pub(crate) fn brain_autonomy(&self) -> Autonomy {
+        self.brain.settings.clone().unwrap_or_default().autonomy
+    }
+
     pub(crate) fn brain_settings_view(&self) -> BrainSettingsView {
-        let settings = self
-            .brain
-            .settings
-            .clone()
-            .unwrap_or_else(|| config::parse_settings(""));
         BrainSettingsView {
-            enabled: settings.enabled,
+            settings: self.brain.settings.clone().unwrap_or_default(),
             running: self.brain.host.is_some(),
-            backend: settings.backend,
-            strategy: settings.strategy,
             installed: self.brain.installed.clone(),
             installing: self.brain.installing,
             install_error: self.brain.install_error.clone(),
@@ -71,19 +75,15 @@ impl MultisoulApp {
         .detach();
     }
 
-    fn change_brain_settings(
+    /// 修改并保存设置，然后丢弃正在运行的大脑，下一帧按新配置重新启动。
+    pub(crate) fn update_brain_settings(
         &mut self,
-        change: impl FnOnce(&mut config::BrainSettings),
+        change: impl FnOnce(&mut BrainSettings),
         cx: &mut Context<Self>,
     ) {
-        let mut settings = self
-            .brain
-            .settings
-            .clone()
-            .unwrap_or_else(|| config::parse_settings(""));
+        let mut settings = self.brain.settings.clone().unwrap_or_default();
         change(&mut settings);
         self.brain.settings = Some(settings.clone());
-        // 丢弃正在运行的大脑，下一帧按新配置重新启动。
         self.brain.host = None;
         self.brain.next_start = Instant::now();
         cx.background_executor()
@@ -94,22 +94,6 @@ impl MultisoulApp {
             })
             .detach();
         cx.notify();
-    }
-
-    pub(crate) fn set_brain_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
-        self.change_brain_settings(|settings| settings.enabled = enabled, cx);
-    }
-
-    pub(crate) fn set_brain_backend(
-        &mut self,
-        backend: Option<BackendKind>,
-        cx: &mut Context<Self>,
-    ) {
-        self.change_brain_settings(|settings| settings.backend = backend, cx);
-    }
-
-    pub(crate) fn set_brain_strategy(&mut self, strategy: Strategy, cx: &mut Context<Self>) {
-        self.change_brain_settings(|settings| settings.strategy = strategy, cx);
     }
 
     /// 用户点击后才安装：把 Claude Code 的 ACP 适配器装进 `~/.norma/brain/adapters`。

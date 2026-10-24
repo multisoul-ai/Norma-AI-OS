@@ -63,6 +63,16 @@ pub(super) fn subject_of(snapshot: &ApprovalSnapshot, root: &Path) -> ApprovalSu
     }
 }
 
+/// 用户是否允许大脑自行放行这类操作：命令看“只读、测试、构建”，写文件看“项目内写文件”。
+/// 没有归入这两类的工具不在这里放行（风险规则会把未知工具判为高风险）。
+pub(super) fn autonomy_allows(autonomy: &super::config::Autonomy, tool_name: &str) -> bool {
+    match tool_name {
+        "Bash" => autonomy.readonly_commands,
+        "Write" | "Edit" | "MultiEdit" | "NotebookEdit" => autonomy.project_writes,
+        _ => true,
+    }
+}
+
 /// 播报用的一句话：谁想做什么。
 pub(super) fn summarize(subject: &ApprovalSubject) -> String {
     let what = subject

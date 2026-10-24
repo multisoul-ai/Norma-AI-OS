@@ -19,6 +19,12 @@ public enum BrainSettings {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         brainDir = root
         let config = root.appendingPathComponent("config.json")
+        // 放一个空的适配器可执行文件，让设置页把 Claude Code 判为“已安装”。
+        let bin = root.appendingPathComponent("adapters/node_modules/.bin", isDirectory: true)
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        let adapter = bin.appendingPathComponent("claude-agent-acp")
+        try Data("#!/bin/sh\n".utf8).write(to: adapter)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: adapter.path)
 
         try await session.step("打开设置，进入 Norma 大脑") {
             setenv("NORMA_BRAIN_DIR", root.path, 1)
@@ -27,12 +33,12 @@ public enum BrainSettings {
             let frame = try await SettingsSupport.select(
                 session, labels: ["Norma Brain"], content: ["Enable background brain"])
             try session.save(frame, "01-brain-page.png")
-            for needle in ["Backend", "Strategy", "Speed first", "Quality first"] {
+            for needle in ["Backend", "Strategy", "Speed first", "Quality first", "Main session model", "Claude Code"] {
                 guard frame.contains(needle) else {
                     throw E2EError.product("页面缺少「\(needle)」：\(frame.summary)")
                 }
             }
-            return "页面显示开关、后端与策略"
+            return "页面上半部分：开关、后端、策略、主会话模型"
         }
 
         try await session.step("点开关，配置写入 enabled=true") {
@@ -54,6 +60,38 @@ public enum BrainSettings {
         try await session.step("选择“速度优先”，配置写入 strategy=speed") {
             try await session.click(matching: ["Speed first"], pick: .bottom)
             try await waitConfig(config, contains: "\"strategy\": \"speed\"")
+            return (try? String(contentsOf: config, encoding: .utf8)) ?? ""
+        }
+
+        try await session.step("向下滚动，核对其余选项都在") {
+            var frame = try await session.capture()
+            var seen = Set<String>()
+            let needles = ["Approval session model", "Periodic summary", "Norma may decide",
+                           "Always ask you first", "When judging is slow", "Several approvals at once", "Approval scope"]
+            for _ in 0..<8 {
+                for needle in needles where frame.contains(needle) { seen.insert(needle) }
+                if seen.count == needles.count { break }
+                try await session.scroll(xFraction: 0.7, yFraction: 0.65, deltaY: -260)
+                frame = try await session.capture()
+            }
+            try session.save(frame, "03-brain-bottom.png")
+            let missing = needles.filter { !seen.contains($0) }
+            guard missing.isEmpty else { throw E2EError.product("向下滚动后仍缺少：\(missing)") }
+            return "其余选项都在"
+        }
+
+        try await session.step("取消勾选“批准在项目目录内写文件”，配置写入 project_writes=false") {
+            try await session.click(matching: ["Approve file writes inside the project"], pick: .bottom)
+            try await waitConfig(config, contains: "\"project_writes\": false")
+            return (try? String(contentsOf: config, encoding: .utf8)) ?? ""
+        }
+
+        try await session.step("选择“每 10 分钟”与“排队逐个处理”，配置随之改变") {
+            try await session.click(matching: ["Every 10 min"], pick: .bottom)
+            try await waitConfig(config, contains: "\"summary\": \"10m\"")
+            try await session.click(matching: ["One at a time"], pick: .bottom)
+            try await waitConfig(config, contains: "\"parallel_approvals\": false")
+            try session.save(try await session.capture(), "04-brain-changed.png")
             return (try? String(contentsOf: config, encoding: .utf8)) ?? ""
         }
     }

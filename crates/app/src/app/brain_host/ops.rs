@@ -64,7 +64,12 @@ impl MultisoulApp {
                 reason,
             } => self.decide_approval(&approval_id, decision, &reason, cx),
             BrainOp::Agents => output(self.agents_json()),
-            BrainOp::Assign { agent, task } => self.assign_task(agent, task, window),
+            BrainOp::Assign { agent, task } => {
+                if !self.brain_autonomy().assign_followups {
+                    return Err(reject("not_authorized：用户没有允许大脑自行派任务"));
+                }
+                self.assign_task(agent, task, window)
+            }
         }
     }
 
@@ -140,6 +145,8 @@ impl MultisoulApp {
         };
         let target: ApprovalTarget = tracked.target.clone();
         let high_risk = matches!(risk_class(&tracked.subject), RiskClass::High(_));
+        let autonomy = self.brain_autonomy();
+        let permitted = approvals::autonomy_allows(&autonomy, &tracked.subject.tool_name);
         let outcome = match decision {
             BrainDecision::Escalate => {
                 self.escalate(id, reason, cx);
@@ -149,6 +156,13 @@ impl MultisoulApp {
             BrainDecision::Allow if high_risk => {
                 self.escalate(id, "命中高风险规则", cx);
                 return Err(reject("high_risk：命中高风险规则，已转交用户"));
+            }
+            // 用户没有勾选这类操作的自主权：交给用户。
+            BrainDecision::Allow if !permitted => {
+                self.escalate(id, "这类操作需要你确认", cx);
+                return Err(reject(
+                    "not_authorized：用户没有允许大脑自行放行这类操作，已转交用户",
+                ));
             }
             BrainDecision::Allow => norma::agent_hook::ApprovalDecision::Allow,
             BrainDecision::Deny => norma::agent_hook::ApprovalDecision::Deny,

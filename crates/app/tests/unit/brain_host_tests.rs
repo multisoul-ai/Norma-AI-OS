@@ -180,6 +180,7 @@ fn saved_settings_round_trip() {
         enabled: true,
         backend: Some(BackendKind::Codex),
         strategy: Strategy::Quality,
+        ..Default::default()
     };
     super::config::save_settings_to(&dir, &on).expect("应能写入配置");
     let text = std::fs::read_to_string(dir.join("config.json")).expect("配置文件应存在");
@@ -191,6 +192,7 @@ fn saved_settings_round_trip() {
         enabled: false,
         backend: Some(BackendKind::ClaudeCode),
         strategy: Strategy::Speed,
+        ..Default::default()
     };
     super::config::save_settings_to(&dir, &off).expect("应能覆盖写入");
     let read = parse_settings(&std::fs::read_to_string(dir.join("config.json")).unwrap());
@@ -218,4 +220,98 @@ fn only_the_issued_token_authorizes_brain_commands() {
     for wrong in ["abd", "", "ABC", "abcd"] {
         assert!(!state.token_matches(wrong), "令牌 {wrong:?} 不应通过");
     }
+}
+
+/// 新增的选项（模型、定时摘要、自主权、提醒、并行）能写入再读回；缺失字段取默认值；非法模型别名被忽略。
+///
+/// 数据构造：主会话 opus、审批 haiku、摘要 10 分钟、关闭“写文件”和“派后续”、语音提醒、串行审批。
+/// 预期结果：
+///   - 正断言：读回的值与写入一致；`{}` 解析出默认值（摘要 5 分钟、三项自主权全开、仅概览提醒、并行）
+///   - 负断言：模型写成 "gpt-9" 时读回 None，不会把任意字符串当作模型别名传给后端
+#[test]
+fn extended_settings_round_trip_and_defaults() {
+    use super::config::{Autonomy, SlowReminder, SummaryEvery};
+    let root = tempfile::tempdir().unwrap();
+    let custom = super::config::BrainSettings {
+        enabled: true,
+        backend: Some(BackendKind::ClaudeCode),
+        strategy: Strategy::Auto,
+        main_model: Some("opus".into()),
+        approval_model: Some("haiku".into()),
+        summary: SummaryEvery::TenMinutes,
+        autonomy: Autonomy {
+            readonly_commands: true,
+            project_writes: false,
+            assign_followups: false,
+        },
+        slow_reminder: SlowReminder::VoiceAfter60s,
+        parallel_approvals: false,
+    };
+    super::config::save_settings_to(root.path(), &custom).expect("应能写入");
+    let read = parse_settings(&std::fs::read_to_string(root.path().join("config.json")).unwrap());
+    assert_eq!(read, custom, "写入后读回应完全一致");
+    let defaults = parse_settings("{}");
+    assert_eq!(defaults.summary, SummaryEvery::FiveMinutes);
+    assert_eq!(
+        defaults.autonomy,
+        Autonomy {
+            readonly_commands: true,
+            project_writes: true,
+            assign_followups: true
+        }
+    );
+    assert_eq!(defaults.slow_reminder, SlowReminder::OverviewOnly);
+    assert!(defaults.parallel_approvals, "默认并行处理审批");
+    assert_eq!(
+        parse_settings(r#"{"main_model":"gpt-9"}"#).main_model,
+        None,
+        "非法别名要忽略"
+    );
+}
+
+/// 自主权开关按操作类别生效：命令看“只读、测试、构建”，写文件看“项目内写文件”，读类工具不受限。
+///
+/// 数据构造：只读命令开、写文件关；以及相反的组合。
+/// 预期结果：
+///   - 正断言：Bash 随 readonly_commands，Write/Edit 随 project_writes
+///   - 负断言：关掉对应开关后，该类工具不再被允许；Read 不受任何开关影响
+#[test]
+fn autonomy_switches_apply_per_tool_category() {
+    use super::approvals::autonomy_allows;
+    use super::config::Autonomy;
+    let commands_only = Autonomy {
+        readonly_commands: true,
+        project_writes: false,
+        assign_followups: true,
+    };
+    assert!(
+        autonomy_allows(&commands_only, "Bash"),
+        "命令开关打开时应允许"
+    );
+    assert!(
+        !autonomy_allows(&commands_only, "Write"),
+        "写文件开关关闭时不应允许 Write"
+    );
+    assert!(
+        !autonomy_allows(&commands_only, "Edit"),
+        "写文件开关关闭时不应允许 Edit"
+    );
+    let writes_only = Autonomy {
+        readonly_commands: false,
+        project_writes: true,
+        assign_followups: true,
+    };
+    assert!(
+        !autonomy_allows(&writes_only, "Bash"),
+        "命令开关关闭时不应允许 Bash"
+    );
+    assert!(autonomy_allows(&writes_only, "MultiEdit"));
+    assert!(autonomy_allows(
+        &Autonomy {
+            readonly_commands: false,
+            project_writes: false,
+            assign_followups: false
+        },
+        "Read"
+    ));
 }

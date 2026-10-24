@@ -239,3 +239,83 @@ fn finished_agents_are_batched_and_goal_is_included() {
     assert_eq!(batched.len(), 1, "两条完成应合并在同一条 prompt：\n{log}");
     h.service.shutdown();
 }
+
+fn start_with(workers: usize) -> Harness {
+    let dir = tempfile::tempdir().unwrap();
+    let log = dir.path().join("fake.log");
+    let script = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/support/fake_acp.py");
+    let backend = Backend {
+        kind: BackendKind::ClaudeCode,
+        program: "python3".into(),
+        args: vec![script.display().to_string()],
+    };
+    let mut config = BrainConfig::new(
+        backend,
+        NORMA.into(),
+        dir.path().to_path_buf(),
+        dir.path().join("state"),
+    );
+    config.env = vec![("FAKE_LOG".into(), log.display().to_string())];
+    config.retry_backoff = Duration::from_millis(50);
+    config.router = RouterConfig {
+        debounce: Duration::from_millis(50),
+        summary_every: None,
+        norma_bin: String::new(),
+    };
+    config.approval_workers = workers;
+    let (service, status) = BrainService::start(config);
+    Harness {
+        service,
+        status,
+        log,
+        _dir: dir,
+    }
+}
+
+/// 把两条各要处理 0.6 秒的审批同时交给审批会话，并行时总耗时接近一条，串行时接近两条。
+///
+/// 数据构造：a5、a6 的命令都含 FAKE_SLEEP（假适配器处理前先睡 0.6 秒）。分别用 1 个和 2 个审批 worker 测。
+/// 执行过程：先放一条预热审批让每个会话都启动完，再同时放 a5、a6 并计时到两条都结束。
+/// 预期结果：
+///   - 正断言：2 个 worker 时两条都在 1.1 秒内结束（0.6 + 余量，小于串行下限 1.2）
+///   - 负断言：1 个 worker 时耗时不少于 1.2 秒（两次 0.6 秒串行）
+#[test]
+fn approval_workers_decide_how_many_approvals_run_in_parallel() {
+    for (workers, parallel) in [(2usize, true), (1usize, false)] {
+        let h = start_with(workers);
+        h.service.push(approval("warm", "cargo check"));
+        h.wait_status(|s| matches!(s, BrainStatus::ApprovalTurnEnded { id } if id == "warm"));
+        if workers > 1 {
+            // 第二个 worker 的会话要等它自己拿到一条活才会启动，先喂一条让它热起来。
+            h.service.push(approval("warm2", "cargo check"));
+            h.service.push(approval("warm3", "cargo check"));
+            h.wait_status(|s| matches!(s, BrainStatus::ApprovalTurnEnded { id } if id == "warm3"));
+        }
+        let started = Instant::now();
+        h.service.push(approval("a5", "cargo test FAKE_SLEEP"));
+        h.service.push(approval("a6", "cargo test FAKE_SLEEP"));
+        let mut ended = 0;
+        while ended < 2 {
+            if let BrainStatus::ApprovalTurnEnded { id } =
+                h.wait_status(|s| matches!(s, BrainStatus::ApprovalTurnEnded { .. }))
+            {
+                if id == "a5" || id == "a6" {
+                    ended += 1;
+                }
+            }
+        }
+        let elapsed = started.elapsed();
+        if parallel {
+            assert!(
+                elapsed < Duration::from_millis(1100),
+                "2 个 worker 应并行，实际耗时 {elapsed:?}"
+            );
+        } else {
+            assert!(
+                elapsed >= Duration::from_millis(1200),
+                "1 个 worker 应串行，实际耗时 {elapsed:?}"
+            );
+        }
+        h.service.shutdown();
+    }
+}

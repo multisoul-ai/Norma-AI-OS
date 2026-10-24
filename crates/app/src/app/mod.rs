@@ -45,7 +45,7 @@ mod agent_close;
 mod agent_queue;
 mod agent_runtime;
 mod brain_host;
-pub(crate) use brain_host::BrainSettingsView;
+pub(crate) use brain_host::{BrainSettings, BrainSettingsView, SlowReminder, SummaryEvery};
 mod memory;
 pub(crate) mod native_input;
 pub(crate) use agent_runtime::assign_idea_for_ui;

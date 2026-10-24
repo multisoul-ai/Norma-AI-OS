@@ -1,13 +1,80 @@
 //! 大脑的本地配置：`~/.norma/brain/config.json`，以及后端和适配器进程的运行环境。
 
 use brain::{Backend, BackendKind, Strategy};
-use std::path::PathBuf;
+use serde_json::{json, Value};
+use std::path::{Path, PathBuf};
+use std::time::Duration;
 
-#[derive(Clone, Debug)]
-pub(super) struct BrainSettings {
+/// 定时摘要的间隔。
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum SummaryEvery {
+    FiveMinutes,
+    TenMinutes,
+    Off,
+}
+
+impl SummaryEvery {
+    pub(crate) fn duration(self) -> Option<Duration> {
+        match self {
+            Self::FiveMinutes => Some(Duration::from_secs(300)),
+            Self::TenMinutes => Some(Duration::from_secs(600)),
+            Self::Off => None,
+        }
+    }
+}
+
+/// 判断较慢时是否提醒用户。
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum SlowReminder {
+    OverviewOnly,
+    VoiceAfter60s,
+    Off,
+}
+
+/// 大脑可以自行决定的事；没勾选的一律交给用户。
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct Autonomy {
+    /// 批准只读、测试、构建类的命令。
+    pub readonly_commands: bool,
+    /// 批准在项目目录内写文件。
+    pub project_writes: bool,
+    /// 给空闲的 Agent 派后续任务。
+    pub assign_followups: bool,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct BrainSettings {
     pub enabled: bool,
     pub backend: Option<BackendKind>,
     pub strategy: Strategy,
+    /// Claude Code 的模型别名（opus、sonnet、haiku）；`None` 按策略。
+    pub main_model: Option<String>,
+    pub approval_model: Option<String>,
+    pub summary: SummaryEvery,
+    pub autonomy: Autonomy,
+    pub slow_reminder: SlowReminder,
+    /// 多个审批同时到达时并行判断。
+    pub parallel_approvals: bool,
+}
+
+impl Default for BrainSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            backend: None,
+            strategy: Strategy::Auto,
+            main_model: None,
+            approval_model: None,
+            summary: SummaryEvery::FiveMinutes,
+            autonomy: Autonomy {
+                readonly_commands: true,
+                project_writes: true,
+                assign_followups: true,
+            },
+            slow_reminder: SlowReminder::OverviewOnly,
+            parallel_approvals: true,
+        }
+    }
 }
 
 /// 默认 `~/.norma/brain`；`NORMA_BRAIN_DIR` 可整体改位置，用于隔离测试。
@@ -21,22 +88,32 @@ pub(super) fn state_dir() -> Option<PathBuf> {
 /// 读取配置；文件不存在或损坏时大脑保持关闭。
 pub(super) fn load_settings() -> BrainSettings {
     let Some(path) = state_dir().map(|dir| dir.join("config.json")) else {
-        return parse_settings("");
+        return BrainSettings::default();
     };
     parse_settings(&std::fs::read_to_string(path).unwrap_or_default())
 }
 
-/// 空文本或无效 JSON 都视为关闭。
+fn model_alias(value: &Value) -> Option<String> {
+    value
+        .as_str()
+        .filter(|alias| ["opus", "sonnet", "haiku"].contains(alias))
+        .map(str::to_string)
+}
+
+/// 空文本或无效 JSON 都视为关闭；缺失的字段取默认值。
 pub(super) fn parse_settings(text: &str) -> BrainSettings {
-    let Ok(value) = serde_json::from_str::<serde_json::Value>(text) else {
-        return BrainSettings {
-            enabled: false,
-            backend: None,
-            strategy: Strategy::Auto,
-        };
+    let Ok(value) = serde_json::from_str::<Value>(text) else {
+        return BrainSettings::default();
+    };
+    let default = BrainSettings::default();
+    let flag = |path: &[&str], fallback: bool| {
+        path.iter()
+            .try_fold(&value, |v, key| v.get(key))
+            .and_then(Value::as_bool)
+            .unwrap_or(fallback)
     };
     BrainSettings {
-        enabled: value["enabled"].as_bool().unwrap_or(false),
+        enabled: flag(&["enabled"], false),
         backend: match value["backend"].as_str() {
             Some("claude") => Some(BackendKind::ClaudeCode),
             Some("codex") => Some(BackendKind::Codex),
@@ -48,6 +125,24 @@ pub(super) fn parse_settings(text: &str) -> BrainSettings {
             Some("quality") => Strategy::Quality,
             _ => Strategy::Auto,
         },
+        main_model: model_alias(&value["main_model"]),
+        approval_model: model_alias(&value["approval_model"]),
+        summary: match value["summary"].as_str() {
+            Some("10m") => SummaryEvery::TenMinutes,
+            Some("off") => SummaryEvery::Off,
+            _ => default.summary,
+        },
+        autonomy: Autonomy {
+            readonly_commands: flag(&["autonomy", "readonly_commands"], true),
+            project_writes: flag(&["autonomy", "project_writes"], true),
+            assign_followups: flag(&["autonomy", "assign_followups"], true),
+        },
+        slow_reminder: match value["slow_reminder"].as_str() {
+            Some("voice60") => SlowReminder::VoiceAfter60s,
+            Some("off") => SlowReminder::Off,
+            _ => default.slow_reminder,
+        },
+        parallel_approvals: flag(&["parallel_approvals"], true),
     }
 }
 
@@ -56,12 +151,9 @@ pub(super) fn save_settings(settings: &BrainSettings) -> std::io::Result<()> {
     save_settings_to(&dir, settings)
 }
 
-pub(super) fn save_settings_to(
-    dir: &std::path::Path,
-    settings: &BrainSettings,
-) -> std::io::Result<()> {
+pub(super) fn save_settings_to(dir: &Path, settings: &BrainSettings) -> std::io::Result<()> {
     std::fs::create_dir_all(dir)?;
-    let value = serde_json::json!({
+    let value = json!({
         "enabled": settings.enabled,
         "backend": settings.backend.map(|kind| match kind {
             BackendKind::ClaudeCode => "claude",
@@ -73,6 +165,24 @@ pub(super) fn save_settings_to(
             Strategy::Auto => "auto",
             Strategy::Quality => "quality",
         },
+        "main_model": settings.main_model,
+        "approval_model": settings.approval_model,
+        "summary": match settings.summary {
+            SummaryEvery::FiveMinutes => "5m",
+            SummaryEvery::TenMinutes => "10m",
+            SummaryEvery::Off => "off",
+        },
+        "autonomy": {
+            "readonly_commands": settings.autonomy.readonly_commands,
+            "project_writes": settings.autonomy.project_writes,
+            "assign_followups": settings.autonomy.assign_followups,
+        },
+        "slow_reminder": match settings.slow_reminder {
+            SlowReminder::OverviewOnly => "overview",
+            SlowReminder::VoiceAfter60s => "voice60",
+            SlowReminder::Off => "off",
+        },
+        "parallel_approvals": settings.parallel_approvals,
     });
     std::fs::write(dir.join("config.json"), serde_json::to_vec_pretty(&value)?)
 }
