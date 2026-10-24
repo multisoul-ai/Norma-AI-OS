@@ -72,9 +72,20 @@ impl Gate {
     }
 
     fn judge_command(&self, command: Option<&str>) -> Verdict {
-        let Some(argv) = command.and_then(single_command) else {
+        let Some(mut argv) = command.and_then(single_command) else {
             return Verdict::Reject("只允许单条 norma 命令，不允许管道、重定向或组合".into());
         };
+        // Codex 会把整条命令再用引号包一层发来：拆开一层，再按同样的规则检查。
+        if let [whole] = argv.as_slice() {
+            if whole.contains(char::is_whitespace) {
+                let Some(inner) = single_command(whole) else {
+                    return Verdict::Reject(
+                        "只允许单条 norma 命令，不允许管道、重定向或组合".into(),
+                    );
+                };
+                argv = inner;
+            }
+        }
         if Path::new(&argv[0]) != self.norma_bin {
             return Verdict::Reject(format!("只允许执行 {}", self.norma_bin.display()));
         }

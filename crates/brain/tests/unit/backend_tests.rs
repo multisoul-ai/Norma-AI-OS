@@ -79,6 +79,8 @@ fn claude_sessions_ignore_user_settings_and_disable_write_tools() {
     );
     assert_eq!(options["model"], "haiku");
     assert_eq!(session_mode(BackendKind::ClaudeCode), Some("default"));
+    // Codex 默认的 Auto review 模式跑命令不发权限请求，闸门会失效；只读模式下写入和连 socket 都要请求批准。
+    assert_eq!(session_mode(BackendKind::Codex), Some("read-only"));
     assert!(
         session_meta(BackendKind::Codex, None).is_none()
             && session_mode(BackendKind::OpenCode).is_none()

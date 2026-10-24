@@ -54,34 +54,36 @@ pub(super) fn model_rows(
     let mut rows = Vec::new();
     for (id, name, kind, program) in BACKENDS {
         let installed = view.installed.contains(&kind);
+        let packaged = crate::app::brain_adapter_package(kind).is_some();
+        let failed = view
+            .install_error
+            .as_ref()
+            .filter(|(failed, _)| *failed == kind)
+            .map(|(_, reason)| reason.clone());
         let status = if installed {
             format!("{} · {program}", t("settings.brain_backend_installed"))
-        } else if kind == BackendKind::ClaudeCode {
-            view.install_error.as_ref().map_or_else(
-                || t("settings.brain_backend_no_adapter").to_string(),
-                |reason| {
-                    ui::i18n::format(
-                        "settings.brain_install_failed",
-                        &[("reason", reason.clone())],
-                    )
-                },
-            )
-        } else {
+        } else if let Some(reason) = failed {
+            ui::i18n::format("settings.brain_install_failed", &[("reason", reason)])
+        } else if packaged {
             t("settings.brain_backend_no_adapter").to_string()
+        } else {
+            t("settings.brain_opencode_missing").to_string()
         };
-        let install = (kind == BackendKind::ClaudeCode && !installed).then(|| {
-            let label = if view.installing {
+        let install = (packaged && !installed).then(|| {
+            let busy = view.installing.is_some();
+            let label = if view.installing == Some(kind) {
                 t("settings.brain_installing")
             } else {
                 t("settings.brain_install")
             };
-            text_button(
-                "settings-brain-install",
-                label,
-                view.installing,
-                cx,
-                |app, cx| app.install_brain_adapter(cx),
-            )
+            let id = if kind == BackendKind::Codex {
+                "settings-brain-install-codex"
+            } else {
+                "settings-brain-install"
+            };
+            text_button(id, label, busy, cx, move |app, cx| {
+                app.install_brain_adapter(kind, cx)
+            })
         });
         let item = BackendItem {
             id,

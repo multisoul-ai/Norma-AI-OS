@@ -191,7 +191,7 @@ impl AcpSession {
                 format!("{}：{wanted}{result}", request.tool),
             ));
             if let Verdict::Reject(reason) = &verdict {
-                tracing::info!(%reason, "大脑的权限请求被拒绝");
+                tracing::info!(%reason, wanted = %wanted, "大脑的权限请求被拒绝");
             }
             let outcome = match pick_option(params, &verdict) {
                 Some(option_id) => json!({"outcome": "selected", "optionId": option_id}),

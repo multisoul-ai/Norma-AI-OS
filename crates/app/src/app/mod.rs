@@ -45,6 +45,7 @@ mod agent_close;
 mod agent_queue;
 mod agent_runtime;
 mod brain_host;
+pub(crate) use brain_host::adapter_package as brain_adapter_package;
 pub(crate) use brain_host::{
     AutoAction, AutoKind, BrainSettings, BrainSettingsView, OverviewProposal, SlowReminder,
     SummaryEvery, TurnCard, ASSIGN_KEY,

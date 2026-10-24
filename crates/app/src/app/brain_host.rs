@@ -17,7 +17,7 @@ pub(crate) use trace::TurnCard;
 mod user_actions;
 pub(crate) use config::{BrainSettings, SlowReminder, SummaryEvery};
 pub(crate) use log::{ask_key, AutoAction, AutoKind, ASSIGN_KEY};
-pub(crate) use settings::BrainSettingsView;
+pub(crate) use settings::{adapter_package, BrainSettingsView};
 
 use crate::app::MultisoulApp;
 use brain::risk::ApprovalSubject;
@@ -68,8 +68,8 @@ pub(crate) struct BrainHostState {
     last_poll: Instant,
     tracked: HashMap<String, Tracked>,
     installed: Vec<brain::BackendKind>,
-    installing: bool,
-    install_error: Option<String>,
+    installing: Option<brain::BackendKind>,
+    install_error: Option<(brain::BackendKind, String)>,
     /// 本项目里大脑自行处理过的事项。
     log: log::AutoLog,
     /// 工作空间窗口汇总各项目后的快照，概览渲染读它。
@@ -129,7 +129,7 @@ impl BrainHostState {
             last_poll: now,
             tracked: HashMap::new(),
             installed: Vec::new(),
-            installing: false,
+            installing: None,
             install_error: None,
             log: log::AutoLog::default(),
             overview: OverviewSnapshot::default(),

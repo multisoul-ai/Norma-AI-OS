@@ -51,3 +51,11 @@
 | `agent_thought_chunk`、`plan` | 0 | 这一轮没有出现，不能据此断定适配器不发 |
 
 只测了 Claude Code 适配器的一轮。Codex、OpenCode 适配器没有实测。
+
+## 2026-10-24 补测：Codex（`@agentclientprotocol/codex-acp@2.2.2`）
+
+- 握手、建会话、发 prompt 都正常；会话默认模式是 `agent`（Auto review），执行 `echo hi` **不发** `session/request_permission`，Norma 的闸门不起作用。
+- 切到 `read-only` 后：只读命令仍在沙箱里直接执行；写文件（`touch`）和连 unix socket（`norma` 命令要连 App 的 socket）先被沙箱拦下，再发权限请求，选项为 `allow_once` / `allow_always` / `reject_once`，批准后执行成功。
+- Codex 发来的 `rawInput.command` 会把整条命令再用双引号包一层，闸门需要拆开一层再检查。
+- 结论：幕僚用 Codex 时会话切到 `read-only`；与 Claude Code 不同，Codex 的只读命令（读文件、列目录）不经过 Norma 闸门，只受 Codex 只读沙箱约束，可能读到项目目录之外的文件。
+- 真实 App 验收：`NORMA_BRAIN_E2E_BACKEND=codex NORMA_BRAIN_E2E_ADAPTERS=<装有 codex-acp 的目录> scripts/desktop-e2e.sh brain-report` 通过。

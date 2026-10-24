@@ -148,3 +148,55 @@ fn permission_requests_are_parsed_from_both_adapter_shapes() {
         "没有 allow 选项时不能硬选"
     );
 }
+
+/// Codex 适配器的权限请求：没有 name，kind 为 execute，命令是字符串并附带 cwd；
+/// 中文文字和全角标点放在单引号里，仍是一条 norma brain 命令。
+///
+/// 数据构造：照搬 codex-acp 2.2.2 实际发来的 report 请求。
+/// 预期结果：
+///   - 正断言：放行
+///   - 负断言：无
+#[test]
+fn codex_report_request_is_allowed() {
+    let params = json!({
+        "sessionId": "s",
+        "toolCall": {
+            "toolCallId": "exec-1",
+            "title": "Run command",
+            "kind": "execute",
+            "status": "pending",
+            "rawInput": {
+                "command": "/opt/norma/bin/norma brain report --text 'Alan 的登录页已完成，12 个测试全部通过。还需要你确认一下：旧登录接口要保留还是移除？'",
+                "cwd": "/work/proj"
+            }
+        },
+        "options": []
+    });
+    let request = PermissionRequest::from_params(&params);
+    assert_eq!(gate().judge(&request), Verdict::Allow, "{request:?}");
+}
+
+/// Codex 把整条命令再用双引号包一层发来；拆开一层后照常检查，组合命令仍被拒绝。
+///
+/// 数据构造：包了一层双引号的 norma brain report；包了一层的 `norma brain agents; rm -rf ~`。
+/// 预期结果：
+///   - 正断言：前者放行
+///   - 负断言：后者被拒绝；包了两层的不再拆
+#[test]
+fn codex_quoted_command_is_unwrapped_once() {
+    let g = gate();
+    assert_eq!(
+        g.judge(&bash(
+            r#""/opt/norma/bin/norma brain report --text '做完了，需要你确认。'""#
+        )),
+        Verdict::Allow
+    );
+    assert!(matches!(
+        g.judge(&bash(r#""/opt/norma/bin/norma brain agents; rm -rf ~""#)),
+        Verdict::Reject(_)
+    ));
+    assert!(matches!(
+        g.judge(&bash(r#"'"/opt/norma/bin/norma brain agents"'"#)),
+        Verdict::Reject(_)
+    ));
+}

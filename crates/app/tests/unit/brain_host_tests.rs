@@ -381,3 +381,23 @@ fn the_autonomy_log_keeps_the_newest_twenty() {
     );
     assert!(items.iter().all(|item| item.id > 5), "最早的 5 条应被丢弃");
 }
+
+/// 能一键安装的适配器：Claude Code 与 Codex 各有 npm 包；OpenCode 的 ACP 由它自己的 CLI 提供。
+///
+/// 数据构造：三种后端。
+/// 预期结果：
+///   - 正断言：Claude Code、Codex 返回固定版本的包名
+///   - 负断言：OpenCode 没有包，不会去装全局软件
+#[test]
+fn adapter_packages_are_pinned_per_backend() {
+    use super::settings::adapter_package;
+    assert_eq!(
+        adapter_package(BackendKind::ClaudeCode),
+        Some("@agentclientprotocol/claude-agent-acp@0.94.0")
+    );
+    assert_eq!(
+        adapter_package(BackendKind::Codex),
+        Some("@agentclientprotocol/codex-acp@2.2.2")
+    );
+    assert_eq!(adapter_package(BackendKind::OpenCode), None);
+}

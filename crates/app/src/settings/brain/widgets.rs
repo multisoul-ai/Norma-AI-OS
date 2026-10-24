@@ -183,7 +183,6 @@ pub(super) fn backend_row(
                 .active(move |style| style.bg(rgba(pressed)))
                 .on_click(cx.listener(move |app, _, _, cx| on_click(app, cx)))
         })
-        .when(!installed, |row| row.opacity(0.6))
         .child(
             div()
                 .size(px(20.0))
@@ -196,7 +195,8 @@ pub(super) fn backend_row(
                 .justify_center()
                 .when(selected, |dot| {
                     dot.child(div().size(px(10.0)).rounded_full().bg(rgba(theme.accent)))
-                }),
+                })
+                .when(!installed, |dot| dot.opacity(0.6)),
         )
         .child(
             div()
@@ -205,6 +205,7 @@ pub(super) fn backend_row(
                 .flex()
                 .flex_col()
                 .gap(px(2.0))
+                .when(!installed, |label| label.opacity(0.6))
                 .child(div().settings_text(TextRole::RowTitle, theme).child(name))
                 .child(div().settings_text(TextRole::Helper, theme).child(status)),
         )

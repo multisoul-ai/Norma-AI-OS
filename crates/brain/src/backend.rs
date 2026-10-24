@@ -111,9 +111,15 @@ pub fn session_meta(kind: BackendKind, model: Option<&str>) -> Option<Value> {
     Some(json!({"claudeCode": {"options": options}}))
 }
 
-/// 会话创建后切到需要确认的模式，保证每次工具调用都会发 request_permission。
+/// 会话创建后切到需要确认的模式，让写入和越出沙箱的操作都发 request_permission。
+/// Codex 默认的 Auto review 会直接执行命令；只读模式下只读命令在沙箱里跑，
+/// 写文件、连 norma 的 socket 都要先请求批准。
 pub fn session_mode(kind: BackendKind) -> Option<&'static str> {
-    (kind == BackendKind::ClaudeCode).then_some("default")
+    match kind {
+        BackendKind::ClaudeCode => Some("default"),
+        BackendKind::Codex => Some("read-only"),
+        BackendKind::OpenCode => None,
+    }
 }
 
 #[cfg(test)]

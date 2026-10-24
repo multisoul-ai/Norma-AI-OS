@@ -3,20 +3,25 @@ import Foundation
 /// 后台大脑验收用的夹具：隔离的大脑目录、假 `claude`（完成时上报 Stop）。
 public enum BrainFixture {
     /// 建一个隔离的大脑目录：config.json 开启大脑，`adapters` 指向已装好 ACP 适配器的目录。
-    /// 适配器目录由环境变量 NORMA_BRAIN_E2E_ADAPTERS 给出，默认 `~/.norma/brain/adapters`。
+    /// 适配器目录由环境变量 NORMA_BRAIN_E2E_ADAPTERS 给出，默认 `~/.norma/brain/adapters`；
+    /// NORMA_BRAIN_E2E_BACKEND=codex 时用 Codex。
     public static func installBrainDirectory() throws -> URL {
         let adapters = ProcessInfo.processInfo.environment["NORMA_BRAIN_E2E_ADAPTERS"]
             .map { URL(fileURLWithPath: $0, isDirectory: true) }
             ?? FileManager.default.homeDirectoryForCurrentUser
                 .appendingPathComponent(".norma/brain/adapters", isDirectory: true)
-        let bin = adapters.appendingPathComponent("node_modules/.bin/claude-agent-acp")
+        // NORMA_BRAIN_E2E_BACKEND=codex 时改用 Codex 适配器（codex-acp）。
+        let codex = ProcessInfo.processInfo.environment["NORMA_BRAIN_E2E_BACKEND"] == "codex"
+        let bin = adapters.appendingPathComponent(
+            codex ? "node_modules/.bin/codex-acp" : "node_modules/.bin/claude-agent-acp")
         guard FileManager.default.isExecutableFile(atPath: bin.path) else {
             throw BrainFixtureError.missingAdapter(bin.path)
         }
         let root = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
             .appendingPathComponent("norma-brain-e2e-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        try Data(#"{"enabled": true, "backend": "claude", "strategy": "speed"}"#.utf8)
+        let backend = codex ? "codex" : "claude"
+        try Data(#"{"enabled": true, "backend": "\#(backend)", "strategy": "speed"}"#.utf8)
             .write(to: root.appendingPathComponent("config.json"))
         try FileManager.default.createSymbolicLink(
             at: root.appendingPathComponent("adapters"), withDestinationURL: adapters)

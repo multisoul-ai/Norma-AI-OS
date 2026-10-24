@@ -12,8 +12,10 @@ pub(crate) struct BrainSettingsView {
     pub settings: BrainSettings,
     pub running: bool,
     pub installed: Vec<BackendKind>,
-    pub installing: bool,
-    pub install_error: Option<String>,
+    /// 正在安装的后端。
+    pub installing: Option<BackendKind>,
+    /// 上一次安装失败的后端与原因。
+    pub install_error: Option<(BackendKind, String)>,
 }
 
 impl BrainSettingsView {
@@ -25,7 +27,14 @@ impl BrainSettingsView {
     }
 }
 
-const CLAUDE_ADAPTER: &str = "@agentclientprotocol/claude-agent-acp@0.94.0";
+/// 能一键装进 `~/.norma/brain/adapters` 的 ACP 适配器；OpenCode 的 ACP 由它自己的 CLI 提供。
+pub(crate) fn adapter_package(kind: BackendKind) -> Option<&'static str> {
+    match kind {
+        BackendKind::ClaudeCode => Some("@agentclientprotocol/claude-agent-acp@0.94.0"),
+        BackendKind::Codex => Some("@agentclientprotocol/codex-acp@2.2.2"),
+        BackendKind::OpenCode => None,
+    }
+}
 
 impl MultisoulApp {
     /// 大脑正在判断（还没升级给用户）的审批所属的 Agent 卡片。
@@ -202,12 +211,15 @@ impl MultisoulApp {
         }
     }
 
-    /// 用户点击后才安装：把 Claude Code 的 ACP 适配器装进 `~/.norma/brain/adapters`。
-    pub(crate) fn install_brain_adapter(&mut self, cx: &mut Context<Self>) {
-        if self.brain.installing {
+    /// 用户点击后才安装：把对应后端的 ACP 适配器装进 `~/.norma/brain/adapters`。
+    pub(crate) fn install_brain_adapter(&mut self, kind: BackendKind, cx: &mut Context<Self>) {
+        let Some(package) = adapter_package(kind) else {
+            return;
+        };
+        if self.brain.installing.is_some() {
             return;
         }
-        self.brain.installing = true;
+        self.brain.installing = Some(kind);
         self.brain.install_error = None;
         let work = cx.background_executor().spawn(async move {
             let dir = config::state_dir()
@@ -219,7 +231,7 @@ impl MultisoulApp {
             let output = std::process::Command::new("npm")
                 .args(["install", "--no-audit", "--no-fund", "--prefix"])
                 .arg(&dir)
-                .arg(CLAUDE_ADAPTER)
+                .arg(package)
                 .env("PATH", path)
                 .output()
                 .map_err(|error| format!("无法运行 npm：{error}"))?;
@@ -236,8 +248,8 @@ impl MultisoulApp {
         cx.spawn(async move |this, cx| {
             let result = work.await;
             let _ = this.update(cx, |app, cx| {
-                app.brain.installing = false;
-                app.brain.install_error = result.err();
+                app.brain.installing = None;
+                app.brain.install_error = result.err().map(|reason| (kind, reason));
                 app.refresh_brain_settings(cx);
             });
         })
