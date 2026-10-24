@@ -120,6 +120,20 @@ public enum BrainAutonomy {
             throw E2EError.product("配置里没有出现 assign_followups=false")
         }
 
+        try await session.step("完成提示里带着用户交给 Agent 的任务（目标），且不是大脑自己派的 Bella 任务") {
+            guard let brainDir else { throw E2EError.env("大脑目录丢失") }
+            let log = brainDir.appendingPathComponent("prompt.log")
+            let text = (try? String(contentsOf: log, encoding: .utf8)) ?? ""
+            guard text.contains("用户最近交给各 Agent 的任务"), text.contains("实现登录页并补测试") else {
+                throw E2EError.product("发给大脑的提示里没有目标：\(text.prefix(600))")
+            }
+            let goalPart = text.components(separatedBy: "用户最近交给各 Agent 的任务").last ?? ""
+            guard !goalPart.contains("补上登录页的测试") else {
+                throw E2EError.product("大脑自己派的任务被当成了目标：\(goalPart.prefix(400))")
+            }
+            return "目标进入了提示"
+        }
+
         try await session.step("大脑用 history 读 Alan 的对话：假 Agent 没有手机控制，应如实说读不了") {
             guard let brainDir else { throw E2EError.env("大脑目录丢失") }
             let out = brainDir.appendingPathComponent("history.out")

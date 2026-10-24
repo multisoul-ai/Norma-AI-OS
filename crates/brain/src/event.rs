@@ -38,8 +38,9 @@ pub enum BrainEvent {
     UserRequest {
         text: String,
     },
-    /// 用户设定的目标。
+    /// 用户发给某个 Agent 的任务，记作目标；只记录，不单独叫醒大脑。
     Goal {
+        agent: String,
         text: String,
     },
 }

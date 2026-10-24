@@ -138,7 +138,7 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
             let bin = env.gate.norma_bin.display().to_string();
             format!(
                 "{}\n\n{}",
-                primer(env.role, &bin, env.goal.goal().as_deref()),
+                primer(env.role, &bin, env.goal.summary().as_deref()),
                 job.text
             )
         };

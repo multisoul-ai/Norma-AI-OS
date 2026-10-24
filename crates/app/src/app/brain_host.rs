@@ -5,6 +5,7 @@ mod config;
 mod history;
 mod log;
 mod ops;
+mod own_prompts;
 mod settings;
 mod trace;
 mod trace_state;
@@ -75,6 +76,8 @@ pub(crate) struct BrainHostState {
     pub(crate) why_open: Option<(String, u64)>,
     /// 本项目里大脑与 ACP 适配器的往来记录，只放内存。
     pub(crate) trace: trace::TraceBuffer,
+    /// 大脑自己派出去的任务，不当作用户的目标。
+    pub(crate) own_prompts: own_prompts::OwnPrompts,
     /// 大脑活动窗口是否打开（只在工作空间窗口上使用）。
     pub(crate) trace_open: bool,
     /// 活动窗口自己的焦点：打开时抢走焦点，Esc 才不会被聚焦的终端吃掉。
@@ -111,6 +114,7 @@ impl BrainHostState {
             overview_at: now,
             why_open: None,
             trace: trace::TraceBuffer::default(),
+            own_prompts: own_prompts::OwnPrompts::default(),
             trace_open: false,
             trace_focus: None,
             trace_expanded: HashSet::new(),
@@ -229,10 +233,18 @@ impl MultisoulApp {
             AgentTaskState::Done => Outcome::Succeeded,
             AgentTaskState::Failed { .. } => Outcome::Failed,
             AgentTaskState::Thinking => {
-                let text = self
-                    .runtime
-                    .agent_latest_prompt(*node_id)
-                    .unwrap_or_else(|| "开始处理".into());
+                let prompt = self.runtime.agent_latest_prompt(*node_id);
+                // 用户发给 Agent 的任务是大脑判断下一步的依据；大脑自己派的不算。
+                if let Some(text) = prompt
+                    .as_ref()
+                    .filter(|t| !self.brain.own_prompts.contains(t))
+                {
+                    self.push_brain(BrainEvent::Goal {
+                        agent: agent.clone(),
+                        text: text.clone(),
+                    });
+                }
+                let text = prompt.unwrap_or_else(|| "开始处理".into());
                 self.push_brain(BrainEvent::AgentProgress { agent, text });
                 return;
             }

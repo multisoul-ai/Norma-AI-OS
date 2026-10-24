@@ -110,11 +110,8 @@ impl Router {
                 text: prompt::user_request(&text),
                 approval_id: None,
             }],
-            BrainEvent::Goal { text } => vec![Action::Prompt {
-                lane: Lane::Main,
-                text: prompt::goal(&text),
-                approval_id: None,
-            }],
+            // 目标由 Dispatcher 记录，随后续提示一起发给大脑，这里不触发一轮。
+            BrainEvent::Goal { .. } => vec![],
         }
     }
 

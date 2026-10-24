@@ -64,6 +64,8 @@ public enum BrainFixture {
         elif method == "session/set_mode": send({"jsonrpc": "2.0", "id": mid, "result": {}})
         elif method == "session/prompt":
             text = "".join(p.get("text", "") for p in m["params"]["prompt"])
+            with open(os.path.join(os.environ.get("NORMA_BRAIN_DIR", "/tmp"), "prompt.log"), "a") as f:
+                f.write(text.replace("\\n", " ⏎ ") + "\\n")
             found = re.search(r"`([^`\\s]+) brain agents`", text)
             if "【事件】" in text and found and not done[0]:
                 done[0] = True

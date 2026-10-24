@@ -126,6 +126,7 @@ impl MultisoulApp {
             .and_then(|entry| entry.active_node_id)
             .unwrap_or(0);
         let summary: String = task.chars().take(80).collect();
+        self.brain.own_prompts.remember(&task);
         let who = agent.clone();
         let command = CardCommand::DispatchAgentTasks {
             assignments: vec![AgentTaskAssignment { name: agent, task }],

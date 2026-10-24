@@ -211,19 +211,19 @@ fn approvals_closed_while_queued_are_skipped() {
     h.service.shutdown();
 }
 
-/// 多条完成事件合并成一次主会话提示，且提示里带上设定的目标。
+/// 多条完成事件合并成一次主会话提示，且提示里带上已记录的目标；目标本身不单独触发一轮。
 ///
-/// 数据构造：先设目标，再在去抖窗口内连续完成两个 Agent。
+/// 数据构造：先记录目标，再在去抖窗口内连续完成两个 Agent。
 /// 预期结果：
-///   - 正断言：日志里只有一条含“Codex”和“Cursor”的 prompt，且包含目标文字
-///   - 负断言：不会各自单独发一条
+///   - 正断言：日志里只有一条含“Codex”和“Cursor”的 prompt，且这条里带着目标文字
+///   - 负断言：不会各自单独发一条；目标没有单独成为一条 prompt
 #[test]
 fn finished_agents_are_batched_and_goal_is_included() {
     let h = start();
     h.service.push(BrainEvent::Goal {
-        text: "今天发布 0.2".into(),
+        agent: "Alan".into(),
+        text: "今天发布 0.2，之后补测试".into(),
     });
-    h.wait_log("今天发布 0.2");
     for agent in ["Codex", "Cursor"] {
         h.service.push(BrainEvent::AgentFinished {
             agent: agent.into(),
@@ -238,6 +238,16 @@ fn finished_agents_are_batched_and_goal_is_included() {
         .filter(|l| l.contains("Codex 已完成") && l.contains("Cursor 已完成"))
         .collect();
     assert_eq!(batched.len(), 1, "两条完成应合并在同一条 prompt：\n{log}");
+    assert!(
+        batched[0].contains("今天发布 0.2，之后补测试"),
+        "提示里要带目标：{}",
+        batched[0]
+    );
+    let alone = log
+        .lines()
+        .filter(|l| l.starts_with("prompt:") && l.contains("【目标】"))
+        .count();
+    assert_eq!(alone, 0, "目标不应单独成为一条 prompt：\n{log}");
     h.service.shutdown();
 }
 

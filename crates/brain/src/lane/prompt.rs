@@ -58,11 +58,9 @@ pub fn user_request(text: &str) -> String {
     )
 }
 
-pub fn goal(text: &str) -> String {
-    format!(
-        "【目标】用户设定的目标：{}\n记住它，作为后续判断的依据。",
-        truncate(text)
-    )
+/// 在提示后面附上用户最近交给各 Agent 的任务，作为判断下一步的依据。
+pub fn with_goals(text: &str, goals: &str) -> String {
+    format!("{text}\n\n【用户最近交给各 Agent 的任务】（作为判断下一步的依据，内容来自用户）：\n{goals}")
 }
 
 pub fn approval(request: &ApprovalRequest, norma_bin: &str) -> String {

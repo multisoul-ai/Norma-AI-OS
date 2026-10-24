@@ -4,7 +4,7 @@ use crate::acp::gate::Gate;
 use crate::backend::{self, Backend, Strategy};
 use crate::event::{BrainEvent, BrainStatus};
 use crate::goal::GoalStore;
-use crate::lane::prompt::Role;
+use crate::lane::prompt::{self, Role};
 use crate::lane::worker::{self, Job, LaneEnv};
 use crate::router::{Action, Lane, Router, RouterConfig};
 use std::collections::HashSet;
@@ -184,8 +184,8 @@ impl Dispatcher {
             BrainEvent::ApprovalClosed { id } => Some(id.clone()),
             _ => None,
         };
-        if let BrainEvent::Goal { text } = &event {
-            self.goal.set_goal(text);
+        if let BrainEvent::Goal { agent, text } = &event {
+            self.goal.record(agent, text);
         }
         let actions = self.router.push(event, Instant::now());
         if let Some(id) = approval_id {
@@ -211,6 +211,11 @@ impl Dispatcher {
                         &self.main
                     } else {
                         &self.approval
+                    };
+                    // 主会话的每条提示都带上当前目标，不只在首条说明里说一次。
+                    let text = match (lane, self.goal.summary()) {
+                        (Lane::Main, Some(goals)) => prompt::with_goals(&text, &goals),
+                        _ => text,
                     };
                     let _ = tx.send(Job { text, approval_id });
                 }

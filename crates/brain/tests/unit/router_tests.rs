@@ -209,31 +209,29 @@ fn progress_only_appears_in_the_periodic_summary() {
 ///   - 正断言：各产生一条主会话提示，内容包含原文
 ///   - 负断言：不走审批会话
 #[test]
-fn user_requests_and_goals_go_to_the_main_lane() {
+fn user_requests_go_to_the_main_lane_but_goals_do_not_wake_the_brain() {
     let now = t0();
     let mut router = Router::new(RouterConfig::default(), now);
-    for (event, needle) in [
-        (
-            BrainEvent::UserRequest {
-                text: "补文档".into(),
-            },
-            "补文档",
-        ),
-        (
-            BrainEvent::Goal {
-                text: "今天发布 0.2".into(),
-            },
-            "今天发布 0.2",
-        ),
-    ] {
-        let actions = router.push(event, now);
-        assert_eq!(actions.len(), 1, "应立即产生一条动作");
-        let Action::Prompt { lane, text, .. } = &actions[0] else {
-            panic!("应是提示")
-        };
-        assert_eq!(*lane, Lane::Main, "走主会话");
-        assert!(text.contains(needle), "应包含原文 {needle}：{text}");
-    }
+    let actions = router.push(
+        BrainEvent::UserRequest {
+            text: "补文档".into(),
+        },
+        now,
+    );
+    assert_eq!(actions.len(), 1, "用户请求应立即产生一条动作");
+    let Action::Prompt { lane, text, .. } = &actions[0] else {
+        panic!("应是提示")
+    };
+    assert_eq!(*lane, Lane::Main, "走主会话");
+    assert!(text.contains("补文档"), "{text}");
+    let goal = router.push(
+        BrainEvent::Goal {
+            agent: "Alan".into(),
+            text: "今天发布 0.2".into(),
+        },
+        now,
+    );
+    assert!(goal.is_empty(), "目标只记录，不单独叫醒大脑：{goal:?}");
 }
 
 /// next_deadline 指向最近需要 poll 的时刻。
