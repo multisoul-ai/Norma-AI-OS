@@ -25,8 +25,13 @@ fn test_scheduler_debounces_canvas_snapshot_flush() {
     let temp = tempfile::tempdir().expect("test should create temp dir");
     let workspace_root = temp.path().join("workspace");
     std::fs::create_dir(&workspace_root).expect("test should create workspace dir");
-    let project_store =
-        ProjectStore::for_workspace(&workspace_root).expect("project store should open");
+    let project_store = ProjectStore::for_database_paths(
+        &storage::DatabasePaths::isolated_test(
+            workspace_root.parent().expect("测试项目应有父目录"),
+        ),
+        &workspace_root,
+    )
+    .expect("project store should open");
     project_store
         .migrate()
         .expect("initialize schema before the background writer starts");
@@ -112,8 +117,13 @@ fn test_flush_now_without_dirty_state_does_not_touch_node_sessions() {
     let temp = tempfile::tempdir().expect("test should create temp dir");
     let workspace_root = temp.path().join("workspace");
     std::fs::create_dir(&workspace_root).expect("test should create workspace dir");
-    let project_store =
-        ProjectStore::for_workspace(&workspace_root).expect("project store should open");
+    let project_store = ProjectStore::for_database_paths(
+        &storage::DatabasePaths::isolated_test(
+            workspace_root.parent().expect("测试项目应有父目录"),
+        ),
+        &workspace_root,
+    )
+    .expect("project store should open");
     project_store
         .migrate()
         .expect("project store schema should migrate");
@@ -228,7 +238,11 @@ fn test_save_state_recovers_after_successful_flush() {
 #[test]
 fn background_flush_preserves_inactive_checkpoints_and_removes_deleted_nodes() {
     let temp = tempfile::tempdir().expect("隔离数据库");
-    let store = ProjectStore::for_workspace(temp.path()).expect("存储");
+    let store = ProjectStore::for_database_paths(
+        &storage::DatabasePaths::isolated_test(temp.path()),
+        temp.path(),
+    )
+    .expect("存储");
     store.migrate().expect("schema");
     let mut runtime = Runtime::new();
     let node = runtime.document.add_node(

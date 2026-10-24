@@ -7,7 +7,11 @@ fn seeded_state(workspace_name: &str) -> (AgentDefinitionsState, i64, i64) {
     let workspace = temp.path().join(workspace_name);
     std::fs::create_dir(&workspace).expect("test should create workspace dir");
     std::mem::forget(temp);
-    let project = ProjectStore::for_workspace(&workspace).expect("project store should open");
+    let project = ProjectStore::for_database_paths(
+        &storage::DatabasePaths::isolated_test(workspace.parent().expect("测试项目应有父目录")),
+        &workspace,
+    )
+    .expect("project store should open");
     project.migrate().expect("project store should migrate");
     let store = project.agent_definition_store();
     let first = store

@@ -1,5 +1,7 @@
 # 数据库生产与测试环境隔离 SPEC
 
+> 2026-10-24 路径更新：项目数据库现已统一存放在 Norma 全局数据目录；本文中的 `.multisoul/project.sqlite` 与 `.multisoul/project.test.sqlite` 仅为旧位置和迁移来源。现行路径、兼容迁移与验收见 `docs/design-docs/2026-10-24-global-project-storage.md`，Production/Test 隔离要求继续有效。
+
 > 日期：2026-07-25
 > 状态：已实施（2026-07-26）
 > 来源：采访式需求梳理（`interview-spec`）

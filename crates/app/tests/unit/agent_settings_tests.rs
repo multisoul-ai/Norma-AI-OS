@@ -74,7 +74,7 @@ fn test_agent_definitions_state_validates_name_and_optional_workflow() {
 /// 数据构造（含关键数值的推导过程）：
 ///   workspace A defs = 1 条，name = "WorkspaceA"
 ///   workspace B defs = 1 条，name = "WorkspaceB"
-///   两个 workspace 各有独立 .multisoul/project.sqlite
+///   两个 workspace 在隔离全局目录中各有独立项目数据库
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 创建两个真实 temp workspace，并各自 migrate project store
@@ -93,10 +93,16 @@ fn test_agent_definitions_state_loads_project_local_definitions() {
     std::fs::create_dir(&workspace_a).expect("test should create workspace A");
     std::fs::create_dir(&workspace_b).expect("test should create workspace B");
 
-    let project_a =
-        ProjectStore::for_workspace(&workspace_a).expect("workspace A store should open");
-    let project_b =
-        ProjectStore::for_workspace(&workspace_b).expect("workspace B store should open");
+    let project_a = ProjectStore::for_database_paths(
+        &storage::DatabasePaths::isolated_test(workspace_a.parent().expect("测试项目应有父目录")),
+        &workspace_a,
+    )
+    .expect("workspace A store should open");
+    let project_b = ProjectStore::for_database_paths(
+        &storage::DatabasePaths::isolated_test(workspace_b.parent().expect("测试项目应有父目录")),
+        &workspace_b,
+    )
+    .expect("workspace B store should open");
     project_a
         .migrate()
         .expect("workspace A project store should migrate");
@@ -177,7 +183,11 @@ fn test_agent_voice_context_includes_enabled_agents_only() {
     let temp = tempfile::tempdir().expect("test should create temp dir");
     let workspace = temp.path().join("voice-context-workspace");
     std::fs::create_dir(&workspace).expect("test should create workspace dir");
-    let project = ProjectStore::for_workspace(&workspace).expect("project store should open");
+    let project = ProjectStore::for_database_paths(
+        &storage::DatabasePaths::isolated_test(workspace.parent().expect("测试项目应有父目录")),
+        &workspace,
+    )
+    .expect("project store should open");
     project
         .migrate()
         .expect("project store should migrate before writes");

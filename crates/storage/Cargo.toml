@@ -8,7 +8,7 @@ license.workspace = true
 agent.workspace = true
 canvas.workspace = true
 dirs.workspace = true
-rusqlite.workspace = true
+rusqlite = { workspace = true, features = ["backup"] }
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
@@ -16,6 +16,4 @@ thiserror.workspace = true
 workspace.workspace = true
 tracing.workspace = true
 libc = "0.2"
-
-[dev-dependencies]
 tempfile.workspace = true

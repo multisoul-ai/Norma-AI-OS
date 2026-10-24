@@ -49,7 +49,7 @@ Purpose: persist app/workspace state through SQLite without depending on GPUI or
 Important files:
 
 - `app_store.rs` - user-level `app.sqlite`.
-- `project_store.rs` - project-level `.multisoul/project.sqlite`.
+- `project_store.rs` - project state in the App data directory (`projects/<canonical-root SHA256>/project.sqlite`); imports legacy project-local databases without overwriting existing global data.
 - `migrations.rs` - idempotent app/project schema setup.
 - `recent_store.rs` - recent workspace records.
 - `settings_store.rs` - string settings.

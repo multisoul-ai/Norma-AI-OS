@@ -39,10 +39,11 @@ fn test_agent_task_update_caches_session_id_for_node_session_snapshot() {
     let temp = tempfile::tempdir().expect("test should create temp dir");
     let workspace = temp.path().join("workspace");
     std::fs::create_dir(&workspace).expect("test should create workspace dir");
-    std::fs::create_dir(workspace.join(".multisoul"))
-        .expect("test should create project store dir");
     let project_store =
-        storage::ProjectStore::for_workspace(&workspace).expect("project store should open");
+        storage::ProjectStore::for_database_paths(
+            &storage::DatabasePaths::isolated_test(workspace.parent().expect("测试项目应有父目录")),
+            &workspace,
+        ).expect("project store should open");
     project_store
         .migrate()
         .expect("project store migration should create schema");

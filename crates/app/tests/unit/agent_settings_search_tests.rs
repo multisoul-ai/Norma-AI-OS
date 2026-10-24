@@ -24,8 +24,11 @@ use storage::{NewAgentDefinition, ProjectStore};
 #[test]
 fn test_agent_definitions_state_filters_visible_agents_without_mutating_definitions() {
     let temp = tempfile::tempdir().expect("Agent 搜索测试应创建临时目录");
-    let project =
-        ProjectStore::for_workspace(temp.path()).expect("Agent 搜索 project store 应打开");
+    let project = ProjectStore::for_database_paths(
+        &storage::DatabasePaths::isolated_test(temp.path()),
+        temp.path(),
+    )
+    .expect("Agent 搜索 project store 应打开");
     project
         .migrate()
         .expect("Agent 搜索 project store 应完成 migration");
@@ -143,8 +146,11 @@ fn test_agent_definitions_state_filters_visible_agents_without_mutating_definiti
 #[test]
 fn test_agent_definitions_state_combines_status_filter_with_workflow_search() {
     let temp = tempfile::tempdir().expect("Agent 状态筛选测试应创建临时目录");
-    let project =
-        ProjectStore::for_workspace(temp.path()).expect("Agent 状态筛选 project store 应打开");
+    let project = ProjectStore::for_database_paths(
+        &storage::DatabasePaths::isolated_test(temp.path()),
+        temp.path(),
+    )
+    .expect("Agent 状态筛选 project store 应打开");
     project
         .migrate()
         .expect("Agent 状态筛选 project store 应完成 migration");

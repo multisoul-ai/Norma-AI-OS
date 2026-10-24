@@ -13,7 +13,7 @@ use std::path::Path;
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 用相同 HOME 构造 Production 路径 → 全局库进入 `Norma OS`。
 ///   2. 用相同 HOME 构造 Test 路径 → 全局库进入 `Norma OS Test`。
-///   3. 分别解析同一 workspace 的项目库 → 使用不同文件名。
+///   3. 分别解析同一 workspace 的项目库 → 进入各模式全局 projects 目录。
 ///
 /// 预期结果：
 ///   - 正断言：Production 使用既有 `app.sqlite` 和 `project.sqlite`。
@@ -39,8 +39,8 @@ fn production_and_local_test_database_paths_are_physically_isolated() {
     );
     assert_eq!(
         production.project_db_path(workspace),
-        Path::new("/work/project/.multisoul/project.sqlite"),
-        "Production 项目数据库必须保持现有 project.sqlite 文件名"
+        Path::new("/Users/tester/Library/Application Support/Norma OS/projects/65d80d2c48b3d23b89fb7644fbb034a40f899515baa72f5ae8d871bd81823e11/project.sqlite"),
+        "Production 项目数据库必须进入 Production 全局目录"
     );
     assert_eq!(
         test.mode(),
@@ -54,7 +54,7 @@ fn production_and_local_test_database_paths_are_physically_isolated() {
     );
     assert_eq!(
         test.project_db_path(workspace),
-        Path::new("/work/project/.multisoul/project.test.sqlite"),
+        Path::new("/Users/tester/Library/Application Support/Norma OS Test/projects/65d80d2c48b3d23b89fb7644fbb034a40f899515baa72f5ae8d871bd81823e11/project.test.sqlite"),
         "本地 Test 项目数据库必须使用 project.test.sqlite"
     );
     assert_ne!(
@@ -69,7 +69,7 @@ fn production_and_local_test_database_paths_are_physically_isolated() {
     );
 }
 
-/// DP-2：自动化测试显式提供数据根时，全局库和临时 workspace 项目库必须留在测试边界内。
+/// DP-2：自动化测试显式提供数据根时，全局库和项目库必须留在测试边界内。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   data root = /tmp/norma-case-1
@@ -104,8 +104,8 @@ fn isolated_test_paths_stay_under_the_explicit_test_boundary() {
     );
     assert_eq!(
         paths.project_db_path(&workspace),
-        Path::new("/tmp/norma-case-1/workspace/.multisoul/project.test.sqlite"),
-        "自动化测试项目库必须位于临时 workspace 且使用测试文件名"
+        Path::new("/tmp/norma-case-1/projects/260637378a9c752fed42b44759168e7455d0e2b178404463b597ec672b4109e1/project.test.sqlite"),
+        "自动化测试项目库必须位于隔离数据根的 projects 目录"
     );
     assert!(
         !paths
@@ -157,7 +157,7 @@ fn isolated_test_database_preserves_the_explicit_app_database_file() {
     );
     assert_eq!(
         paths.project_db_path(workspace),
-        Path::new("/tmp/norma-case-2/workspace/.multisoul/project.test.sqlite"),
+        Path::new("/tmp/norma-case-2/projects/790eb0401f4b30771627a4009f7dc29ce7c5738d1f376b23187acf99e49dc99a/project.test.sqlite"),
         "显式测试 app DB 仍必须配套使用 project.test.sqlite"
     );
     assert_ne!(
@@ -172,7 +172,7 @@ fn isolated_test_database_preserves_the_explicit_app_database_file() {
 /// 数据构造（含关键数值的推导过程）：
 ///   workspace = temp/workspace，已存在目录
 ///   Production project DB = .multisoul/project.sqlite，初始不存在
-///   Test project DB = .multisoul/project.test.sqlite，初始不存在
+///   Test project DB = data/projects/<项目路径哈希>/project.test.sqlite，初始不存在
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 用隔离 Test 路径和临时 workspace 构造 ProjectStore。
@@ -189,7 +189,7 @@ fn test_project_store_migration_never_creates_the_production_project_db() {
     std::fs::create_dir(&workspace).expect("测试应创建临时 workspace");
     let paths = DatabasePaths::isolated_test(temp.path());
     let production_db = workspace.join(".multisoul").join("project.sqlite");
-    let test_db = workspace.join(".multisoul").join("project.test.sqlite");
+    let test_db = paths.project_db_path(&workspace.canonicalize().expect("项目应能规范化"));
 
     let store =
         ProjectStore::for_database_paths(&paths, &workspace).expect("Test ProjectStore 应构造成功");
@@ -210,16 +210,16 @@ fn test_project_store_migration_never_creates_the_production_project_db() {
     );
 }
 
-/// DP-5：Test 项目数据库不可初始化时必须报告模式和目标文件，不能回退 Production。
+/// DP-5：全局 Test 项目数据库不可初始化时必须报告模式和目标文件，不能回退 Production。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   workspace = temp/workspace，真实目录
-///   blocked path = workspace/.multisoul，类型为普通文件
-///   Test project DB = .multisoul/project.test.sqlite
+///   blocked path = data/projects，类型为普通文件
+///   Test project DB = data/projects/<项目路径哈希>/project.test.sqlite
 ///   Production project DB = .multisoul/project.sqlite
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 用普通文件占用 `.multisoul` 目录位置。
+///   1. 用普通文件占用全局 `projects` 目录位置。
 ///   2. 通过 Test DatabasePaths 初始化 ProjectStore。
 ///   3. 检查错误信息与 Production 候选文件。
 ///
@@ -231,11 +231,10 @@ fn test_project_store_initialization_failure_reports_test_path_without_fallback(
     let temp = tempfile::tempdir().expect("测试应创建隔离根目录");
     let workspace = temp.path().join("workspace");
     std::fs::create_dir(&workspace).expect("测试应创建临时 workspace");
-    let blocked_multisoul = workspace.join(".multisoul");
-    std::fs::write(&blocked_multisoul, b"not-a-directory")
-        .expect("测试应以普通文件阻塞 .multisoul 目录");
     let paths = DatabasePaths::isolated_test(temp.path());
-    let test_db = paths.project_db_path(&workspace);
+    std::fs::write(temp.path().join("projects"), b"not-a-directory")
+        .expect("测试应以普通文件阻塞全局 projects 目录");
+    let test_db = paths.project_db_path(&workspace.canonicalize().expect("项目应能规范化"));
     let production_db = workspace.join(".multisoul").join("project.sqlite");
 
     let error = ProjectStore::initialize_for_database_paths(&paths, &workspace)
@@ -253,5 +252,59 @@ fn test_project_store_initialization_failure_reports_test_path_without_fallback(
     assert!(
         !production_db.exists(),
         "Test 项目初始化失败不得创建 Production project.sqlite"
+    );
+}
+
+/// DP-6：手机服务绑定实际 AppStore 后，项目库必须使用该实例的数据根且保留运行模式。
+/// 数据构造：默认 HOME=/Users/tester，实际 app DB=/isolated/data/app.sqlite；模式为 Production 与 Test 两种。
+/// 执行过程：重绑定 App 数据库路径，再解析同一项目的数据库位置。
+/// 预期结果：两种项目库均进入 /isolated/data/projects；文件名与模式不变，不能回到默认用户目录。
+#[test]
+fn rebinding_app_database_preserves_mode_and_uses_the_actual_instance_directory() {
+    let home = Path::new("/Users/tester");
+    let app_db = Path::new("/isolated/data/app.sqlite");
+    let root = Path::new("/work/project");
+    let production = DatabasePaths::production_for_home(home).with_app_db_path(app_db.to_owned());
+    let test = DatabasePaths::local_test_for_home(home).with_app_db_path(app_db.to_owned());
+
+    assert_eq!(
+        production.app_db_path(),
+        app_db,
+        "Production 必须绑定服务实际持有的 App 数据库"
+    );
+    assert_eq!(
+        test.app_db_path(),
+        app_db,
+        "Test 必须绑定服务实际持有的 App 数据库"
+    );
+    assert_eq!(
+        production.mode(),
+        DatabaseMode::Production,
+        "重绑定路径不得把 Production 降为 Test"
+    );
+    assert_eq!(test.mode(), DatabaseMode::Test, "Test 模式必须保持不变");
+    assert!(
+        production
+            .project_db_path(root)
+            .starts_with("/isolated/data/projects"),
+        "正式项目库不得写入默认用户目录"
+    );
+    assert!(
+        test.project_db_path(root)
+            .starts_with("/isolated/data/projects"),
+        "测试项目库不得写入默认用户目录"
+    );
+    assert!(
+        production.project_db_path(root).ends_with("project.sqlite"),
+        "Production 必须保留正式库文件名"
+    );
+    assert!(
+        test.project_db_path(root).ends_with("project.test.sqlite"),
+        "Test 必须保留测试库文件名"
+    );
+    assert_ne!(
+        production.project_db_path(root),
+        test.project_db_path(root),
+        "同一数据根的不同模式仍不得混用项目库"
     );
 }
