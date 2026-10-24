@@ -37,3 +37,18 @@ fn declined_proposals_are_appended() {
     assert!(text.contains("- Alan：补测试"), "{text}");
     assert!(text.contains("不要再提"), "{text}");
 }
+
+/// 首条说明总是和第一条事件拼在一起发出，不能再叫大脑“只回复收到”，否则第一条事件会被忽略。
+///
+/// 数据构造：主会话与审批会话的首条说明。
+/// 预期结果：
+///   - 正断言：仍说明只能用 norma 命令行动
+///   - 负断言：不含“回复“收到”即可”
+#[test]
+fn primer_does_not_tell_the_brain_to_only_acknowledge() {
+    for role in [Role::Main, Role::Approval] {
+        let text = primer(role, "/bin/norma", None);
+        assert!(text.contains("只能通过终端执行"), "{text}");
+        assert!(!text.contains("回复“收到”即可"), "{text}");
+    }
+}
