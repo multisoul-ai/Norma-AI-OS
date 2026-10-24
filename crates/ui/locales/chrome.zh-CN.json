@@ -83,5 +83,9 @@
   "chrome.reply_inactive": "语音错误：回复已结束",
   "chrome.reply_segment_too_large": "语音错误：对话生成的语音片段过长",
   "chrome.brain_voice_report": "语音汇报",
-  "chrome.brain_voice_report_tip": "Norma 用语音汇报各 Agent 的进度。关闭后大脑照常工作，只是不说话。"
+  "chrome.brain_voice_report_tip": "Norma 用语音汇报各 Agent 的进度。关闭后大脑照常工作，只是不说话。",
+  "chrome.brain_auto_badge": "自主",
+  "chrome.brain_reason": "理由：%{reason}",
+  "chrome.brain_approval_closed": "这条审批已被处理或已失效",
+  "chrome.brain_agent_not_found": "找不到这个 Agent，无法停止"
 }

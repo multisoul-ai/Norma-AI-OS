@@ -29,7 +29,8 @@ impl MultisoulApp {
             app.decide_approval_by_user(node_id, run_id, request_id, allow)
         });
         if applied != Some(true) {
-            self.desktop_workspace.error = Some("这条审批已被处理或已失效".into());
+            self.desktop_workspace.error =
+                Some(ui::i18n::text("chrome.brain_approval_closed").into());
         }
         cx.notify();
     }
@@ -69,7 +70,8 @@ impl MultisoulApp {
             .with_overview_session(area_id, cx, |app, _| app.interrupt_agent_by_user(node_id))
             .unwrap_or(false);
         if !stopped {
-            self.desktop_workspace.error = Some("找不到这个 Agent，无法停止".into());
+            self.desktop_workspace.error =
+                Some(ui::i18n::text("chrome.brain_agent_not_found").into());
         }
         cx.notify();
     }
@@ -206,7 +208,7 @@ impl MultisoulApp {
                             .bg(rgba(BRAIN_TINT))
                             .text_size(px(OVERVIEW_TEXT_SECONDARY))
                             .text_color(rgba(BRAIN_TEXT))
-                            .child("自主"),
+                            .child(ui::i18n::text("chrome.brain_auto_badge")),
                     )
                     .child(
                         div()
@@ -229,7 +231,10 @@ impl MultisoulApp {
                         .pl(px(8.0))
                         .text_size(px(OVERVIEW_TEXT_COPY))
                         .text_color(rgba(COPY))
-                        .child(format!("理由：{}", action.reason)),
+                        .child(ui::i18n::format(
+                            "chrome.brain_reason",
+                            &[("reason", action.reason.clone())],
+                        )),
                 )
                 .child(div().flex().flex_wrap().gap(px(4.0)).child(ask).child(stop))
             })
