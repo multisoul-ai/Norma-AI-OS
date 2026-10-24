@@ -57,6 +57,8 @@ pub(crate) struct BrainSettings {
     pub parallel_approvals: bool,
     /// 大脑的汇报是否出声；关闭后大脑照常工作，只是不说话。
     pub speak: bool,
+    /// 用户点过“以后这类先问我”的操作类别，见 `log::ask_key`。
+    pub always_ask: Vec<String>,
 }
 
 impl Default for BrainSettings {
@@ -76,6 +78,7 @@ impl Default for BrainSettings {
             slow_reminder: SlowReminder::OverviewOnly,
             parallel_approvals: true,
             speak: true,
+            always_ask: Vec::new(),
         }
     }
 }
@@ -147,6 +150,15 @@ pub(super) fn parse_settings(text: &str) -> BrainSettings {
         },
         parallel_approvals: flag(&["parallel_approvals"], true),
         speak: flag(&["speak"], true),
+        always_ask: value["always_ask"]
+            .as_array()
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(|v| v.as_str().map(str::to_string))
+                    .collect()
+            })
+            .unwrap_or_default(),
     }
 }
 
@@ -188,6 +200,7 @@ pub(super) fn save_settings_to(dir: &Path, settings: &BrainSettings) -> std::io:
         },
         "parallel_approvals": settings.parallel_approvals,
         "speak": settings.speak,
+        "always_ask": settings.always_ask,
     });
     std::fs::write(dir.join("config.json"), serde_json::to_vec_pretty(&value)?)
 }

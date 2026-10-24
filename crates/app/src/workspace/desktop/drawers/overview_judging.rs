@@ -5,18 +5,21 @@ use std::collections::HashSet;
 
 pub(super) const JUDGING_LABEL: &str = "Norma 判断中";
 
-pub(super) fn relabel_judging(screen: &mut OverviewScreen, judging_nodes: &HashSet<u64>) {
-    if judging_nodes.is_empty() {
+pub(super) fn relabel_judging(screen: &mut OverviewScreen, judging: &HashSet<(String, u64)>) {
+    if judging.is_empty() {
         return;
     }
     let Some(attention) = screen.sections.first_mut() else {
         return;
     };
     for row in &mut attention.rows {
-        let OverviewAction::LocateApproval { node_id, .. } = &row.action else {
+        let OverviewAction::LocateApproval {
+            area_id, node_id, ..
+        } = &row.action
+        else {
             continue;
         };
-        if !judging_nodes.contains(node_id) {
+        if !judging.contains(&(area_id.clone(), *node_id)) {
             continue;
         }
         let title = row

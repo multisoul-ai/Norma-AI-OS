@@ -40,7 +40,7 @@ pub struct DesktopDrawerState {
 }
 
 /// 折叠位只有四个栏。
-const OVERVIEW_COLLAPSE_MASK: u8 = 0b1111;
+const OVERVIEW_COLLAPSE_MASK: u8 = 0b11111;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DesktopDrawerEvent {

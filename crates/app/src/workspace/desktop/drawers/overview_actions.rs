@@ -18,7 +18,7 @@ impl MultisoulApp {
             Some(overview) => present_overview(overview, &stops, now),
             None => OverviewScreen::empty(),
         };
-        super::overview_judging::relabel_judging(&mut screen, &self.brain_judging_nodes());
+        super::overview_judging::relabel_judging(&mut screen, &self.brain_overview().judging);
         // 折叠的栏不显示行，键盘上下也不应落到看不见的行上。
         let groups = [
             OverviewGroup::Attention,
@@ -54,7 +54,7 @@ impl MultisoulApp {
             OverviewGroup::Attention => 0,
             OverviewGroup::Running => 1,
             OverviewGroup::Idle => 2,
-            OverviewGroup::Ideas => return,
+            OverviewGroup::Brain | OverviewGroup::Ideas => return,
         };
         let screen = self.presented_overview();
         if screen
@@ -166,6 +166,7 @@ impl MultisoulApp {
                 node_id,
                 run_id,
                 turn_id,
+                ..
             } => {
                 self.locate_desktop_approval(
                     &area_id,

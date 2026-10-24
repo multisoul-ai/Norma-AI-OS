@@ -81,15 +81,15 @@ public enum BrainSettings {
         }
 
         try await session.step("取消勾选“批准在项目目录内写文件”，配置写入 project_writes=false") {
-            try await session.click(matching: ["Approve file writes inside the project"], pick: .bottom)
+            try await BrainSupport.clickScrolling(session, "Approve file writes inside the project")
             try await waitConfig(config, contains: "\"project_writes\": false")
             return (try? String(contentsOf: config, encoding: .utf8)) ?? ""
         }
 
         try await session.step("选择“每 10 分钟”与“排队逐个处理”，配置随之改变") {
-            try await session.click(matching: ["Every 10 min"], pick: .bottom)
+            try await BrainSupport.clickScrolling(session, "Every 10 min")
             try await waitConfig(config, contains: "\"summary\": \"10m\"")
-            try await session.click(matching: ["One at a time"], pick: .bottom)
+            try await BrainSupport.clickScrolling(session, "One at a time")
             try await waitConfig(config, contains: "\"parallel_approvals\": false")
             try session.save(try await session.capture(), "04-brain-changed.png")
             return (try? String(contentsOf: config, encoding: .utf8)) ?? ""

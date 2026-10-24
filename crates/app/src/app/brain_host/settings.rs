@@ -55,20 +55,7 @@ impl MultisoulApp {
 
     /// 只改“是否出声”，不重启大脑：关闭后大脑继续处理审批和派活。
     pub(crate) fn set_brain_speaking(&mut self, speak: bool, cx: &mut Context<Self>) {
-        let mut settings = self.brain.settings.clone().unwrap_or_default();
-        settings.speak = speak;
-        self.brain.settings = Some(settings.clone());
-        if !speak {
-            self.cancel_agent_announcements();
-        }
-        cx.background_executor()
-            .spawn(async move {
-                if let Err(error) = config::save_settings(&settings) {
-                    tracing::warn!(%error, "保存大脑配置失败");
-                }
-            })
-            .detach();
-        cx.notify();
+        self.update_brain_settings_with(move |s| s.speak = speak, false, cx);
     }
 
     pub(crate) fn brain_autonomy(&self) -> Autonomy {
@@ -114,11 +101,24 @@ impl MultisoulApp {
         change: impl FnOnce(&mut BrainSettings),
         cx: &mut Context<Self>,
     ) {
+        self.update_brain_settings_with(change, true, cx);
+    }
+
+    /// 只有工作空间窗口保存配置；各项目会话只接收，避免各自保存互相覆盖。
+    pub(crate) fn update_brain_settings_with(
+        &mut self,
+        change: impl FnOnce(&mut BrainSettings),
+        restart: bool,
+        cx: &mut Context<Self>,
+    ) {
         let mut settings = self.brain.settings.clone().unwrap_or_default();
         change(&mut settings);
-        self.brain.settings = Some(settings.clone());
-        self.brain.host = None;
-        self.brain.next_start = Instant::now();
+        self.apply_brain_settings(settings.clone(), restart, cx);
+        let sessions: Vec<_> = self.desktop_workspace.sessions.values().cloned().collect();
+        for session in sessions {
+            let copy = settings.clone();
+            session.update(cx, |app, cx| app.apply_brain_settings(copy, restart, cx));
+        }
         cx.background_executor()
             .spawn(async move {
                 if let Err(error) = config::save_settings(&settings) {
@@ -126,7 +126,63 @@ impl MultisoulApp {
                 }
             })
             .detach();
+    }
+
+    /// 接收新的设置；`restart` 为真时丢弃正在运行的大脑，下一帧按新配置启动。
+    pub(crate) fn apply_brain_settings(
+        &mut self,
+        settings: BrainSettings,
+        restart: bool,
+        cx: &mut Context<Self>,
+    ) {
+        let silenced = !settings.speak;
+        self.brain.settings = Some(settings);
+        if restart {
+            self.brain.host = None;
+            self.brain.next_start = Instant::now();
+        }
+        if silenced {
+            self.cancel_agent_announcements();
+        }
         cx.notify();
+    }
+
+    pub(crate) fn brain_why(&self) -> Option<&(String, u64)> {
+        self.brain.why_open.as_ref()
+    }
+
+    pub(crate) fn set_brain_why(&mut self, open: Option<(String, u64)>) {
+        self.brain.why_open = open;
+    }
+
+    pub(crate) fn brain_overview(&self) -> &super::OverviewSnapshot {
+        &self.brain.overview
+    }
+
+    /// 工作空间窗口：汇总各项目会话里的大脑状态，供概览渲染。变化时才通知重绘。
+    pub(crate) fn refresh_brain_overview(&mut self, cx: &mut Context<Self>) {
+        let mut snapshot = super::OverviewSnapshot::default();
+        for ((_, area_id), session) in &self.desktop_workspace.sessions {
+            let app = session.read(cx);
+            snapshot.judging.extend(
+                app.brain_judging_nodes()
+                    .into_iter()
+                    .map(|node_id| (area_id.clone(), node_id)),
+            );
+            snapshot.actions.extend(
+                app.brain
+                    .log
+                    .items()
+                    .into_iter()
+                    .map(|a| (area_id.clone(), a)),
+            );
+        }
+        snapshot.actions.sort_by(|a, b| b.1.at.cmp(&a.1.at));
+        snapshot.actions.truncate(20);
+        if snapshot != self.brain.overview {
+            self.brain.overview = snapshot;
+            cx.notify();
+        }
     }
 
     /// 用户点击后才安装：把 Claude Code 的 ACP 适配器装进 `~/.norma/brain/adapters`。

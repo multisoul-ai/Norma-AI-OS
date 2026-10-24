@@ -2,9 +2,12 @@
 
 mod approvals;
 mod config;
+mod log;
 mod ops;
 mod settings;
+mod user_actions;
 pub(crate) use config::{BrainSettings, SlowReminder, SummaryEvery};
+pub(crate) use log::{ask_key, AutoAction, AutoKind, ASSIGN_KEY};
 pub(crate) use settings::BrainSettingsView;
 
 use crate::app::MultisoulApp;
@@ -58,6 +61,22 @@ pub(crate) struct BrainHostState {
     installed: Vec<brain::BackendKind>,
     installing: bool,
     install_error: Option<String>,
+    /// 本项目里大脑自行处理过的事项。
+    log: log::AutoLog,
+    /// 工作空间窗口汇总各项目后的快照，概览渲染读它。
+    pub(crate) overview: OverviewSnapshot,
+    overview_at: Instant,
+    /// 概览里展开了“为什么”的那条自主处理记录：（项目区域 id，记录 id）。
+    pub(crate) why_open: Option<(String, u64)>,
+}
+
+/// 概览需要的、分散在各项目会话里的大脑状态。
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct OverviewSnapshot {
+    /// 大脑正在判断的审批：（项目区域 id，卡片 id）。
+    pub judging: HashSet<(String, u64)>,
+    /// 各项目的自主处理记录，新的在前：（项目区域 id，记录）。
+    pub actions: Vec<(String, AutoAction)>,
 }
 
 impl BrainHostState {
@@ -72,6 +91,10 @@ impl BrainHostState {
             installed: Vec::new(),
             installing: false,
             install_error: None,
+            log: log::AutoLog::default(),
+            overview: OverviewSnapshot::default(),
+            overview_at: now,
+            why_open: None,
         }
     }
 
@@ -90,6 +113,13 @@ impl MultisoulApp {
     ) {
         if self.brain.settings.is_none() {
             self.brain.settings = Some(config::load_settings());
+        }
+        // 工作空间窗口没有大脑，但要汇总各项目的状态给概览。
+        if !self.desktop_workspace.sessions.is_empty()
+            && self.brain.overview_at.elapsed() >= APPROVAL_POLL
+        {
+            self.brain.overview_at = Instant::now();
+            self.refresh_brain_overview(cx);
         }
         if self.brain.host.is_none() {
             self.try_start_brain();

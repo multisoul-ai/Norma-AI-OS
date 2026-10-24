@@ -17,6 +17,8 @@ const GROUP_TITLE: u32 = 0xa9c3daff;
 const GROUP_META: u32 = 0x8ea8bfff;
 const COPY_STEP: u32 = 0xcfe3f4ff;
 const GROUP_RULE: u32 = 0xcde8ff14;
+/// “Norma 自主处理”每条记录收起时的高度：两行文字；展开后多出理由和操作，栏内滚动。
+const BRAIN_ROW_HEIGHT: f32 = 52.0;
 
 impl MultisoulApp {
     /// 顶部三张统计卡，其后四栏固定顺序：需要你处理 → 运行中 → 待开始 → 想法。每栏有基准高度，
@@ -29,13 +31,18 @@ impl MultisoulApp {
                 OverviewGroup::Attention => screen.sections.first(),
                 OverviewGroup::Running => screen.sections.get(1),
                 OverviewGroup::Idle => screen.sections.get(2),
-                OverviewGroup::Ideas => None,
+                OverviewGroup::Brain | OverviewGroup::Ideas => None,
             };
             (group, section)
         });
         let mut flat = 0usize;
         let mut groups = Vec::with_capacity(sections.len());
+        let brain_visible = self.brain_toggle_visible();
         for (group, section) in sections {
+            // 没有启用大脑时不显示“Norma 自主处理”栏。
+            if group == OverviewGroup::Brain && !brain_visible {
+                continue;
+            }
             let start = flat;
             flat += section.map_or(0, |section| section.rows.len());
             groups.push(self.render_overview_group(group, section, start, cursor, cx));
@@ -74,6 +81,9 @@ impl MultisoulApp {
         let heading = self.group_heading(group, section, collapsed, feedback, cx);
         let body = match (group, section) {
             (OverviewGroup::Ideas, _) => self.render_ideas_group_body(cx).into_any_element(),
+            (OverviewGroup::Brain, _) => self
+                .render_brain_group_body(feedback, cx)
+                .into_any_element(),
             (_, Some(section)) => div()
                 .id(ElementId::Name(
                     format!("desktop-run-body-{}", group.key()).into(),
@@ -125,9 +135,14 @@ impl MultisoulApp {
         } else {
             style.flex_grow = Some(group.grow());
             style.flex_shrink = Some(1.0);
-            let heights: Vec<f32> = section
-                .map(|section| section.rows.iter().map(|row| row.height).collect())
-                .unwrap_or_default();
+            let heights: Vec<f32> = match (group, section) {
+                // 大脑栏的行自带一行操作按钮，比普通行高。
+                (OverviewGroup::Brain, _) => {
+                    vec![BRAIN_ROW_HEIGHT; self.brain_overview().actions.len()]
+                }
+                (_, Some(section)) => section.rows.iter().map(|row| row.height).collect(),
+                _ => Vec::new(),
+            };
             style.flex_basis = Some(px(group.basis_height(&heights)).into());
             style.min_size.height = Some(px(MIN_GROUP_HEIGHT).into());
         }
@@ -147,6 +162,7 @@ impl MultisoulApp {
         let pressed = feedback.pressed;
         let title = match (group, section) {
             (OverviewGroup::Ideas, _) => "想法".to_owned(),
+            (OverviewGroup::Brain, _) => "Norma 自主处理".to_owned(),
             (_, Some(section)) => section.title.clone(),
             _ => String::new(),
         };
@@ -158,6 +174,10 @@ impl MultisoulApp {
             .count();
         let aside = match (group, section) {
             (OverviewGroup::Ideas, _) => (todo > 0).then(|| count_badge(todo, BadgeTone::Neutral)),
+            (OverviewGroup::Brain, _) => {
+                let count = self.brain_overview().actions.len();
+                (count > 0).then(|| count_badge(count, BadgeTone::Neutral))
+            }
             // 琥珀色只给“需要你处理”（要你介入）；运行中用青色，待开始用灰蓝，与原型一致。
             (_, Some(section)) => section
                 .count
@@ -264,6 +284,7 @@ impl MultisoulApp {
             }))
             .child(row_lead(row, color, agent_row))
             .child(row_copy(row, color, theme))
+            .children(decision_buttons(row, index, cx))
             .child(action_label(&row.action_label, agent_row))
     }
 }
@@ -282,7 +303,7 @@ impl BadgeTone {
             OverviewGroup::Attention => Self::Amber,
             OverviewGroup::Running => Self::Running,
             OverviewGroup::Idle => Self::Idle,
-            OverviewGroup::Ideas => Self::Neutral,
+            OverviewGroup::Brain | OverviewGroup::Ideas => Self::Neutral,
         }
     }
 
@@ -355,3 +376,67 @@ pub(super) fn group_empty(group: OverviewGroup, fill: bool) -> Stateful<Div> {
             )
         })
 }
+
+/// 概览里可直接处理的审批：（项目区域，卡片，run，请求标识）。没有请求标识或行不可用时没有。
+pub(super) fn decision_target(row: &OverviewRow) -> Option<(String, u64, String, String)> {
+    use super::super::overview_rows::OverviewAction;
+    let OverviewAction::LocateApproval {
+        area_id,
+        node_id,
+        run_id,
+        request_id: Some(request_id),
+        ..
+    } = &row.action
+    else {
+        return None;
+    };
+    row.enabled.then(|| {
+        (
+            area_id.clone(),
+            *node_id,
+            run_id.clone(),
+            request_id.clone(),
+        )
+    })
+}
+
+/// 能直接处理的审批行右侧的“允许 / 拒绝”。点击只处理审批，不触发整行的“定位”。
+fn decision_buttons(
+    row: &OverviewRow,
+    index: usize,
+    cx: &mut Context<MultisoulApp>,
+) -> Option<Div> {
+    use super::overview_brain::{pill, PillStyle};
+    let (area_id, node_id, run_id, request_id) = decision_target(row)?;
+    let make =
+        |tag: &'static str, label: &'static str, allow: bool, cx: &mut Context<MultisoulApp>| {
+            let (area_id, run_id, request_id) =
+                (area_id.clone(), run_id.clone(), request_id.clone());
+            pill(
+                ElementId::Name(format!("overview-{tag}-{index}").into()),
+                label,
+                if allow {
+                    PillStyle::Primary
+                } else {
+                    PillStyle::Quiet
+                },
+            )
+            .on_click(cx.listener(move |app, _, _, cx| {
+                cx.stop_propagation();
+                app.decide_overview_approval(&area_id, node_id, &run_id, &request_id, allow, cx);
+            }))
+        };
+    Some(
+        div()
+            .flex_none()
+            .flex()
+            .items_center()
+            .gap(px(4.0))
+            .child(make("allow", "允许", true, cx))
+            .child(make("deny", "拒绝", false, cx)),
+    )
+}
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/overview_decision_tests.rs"]
+mod decision_tests;

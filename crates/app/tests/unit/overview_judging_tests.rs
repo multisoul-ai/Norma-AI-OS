@@ -17,6 +17,7 @@ fn approval_row(node_id: u64) -> OverviewRow {
             node_id,
             run_id: "r".into(),
             turn_id: "t".into(),
+            request_id: Some("req".into()),
         },
         status_label: Some("待审核".into()),
         lead_label: None,
@@ -41,14 +42,14 @@ fn screen(rows: Vec<OverviewRow>) -> OverviewScreen {
 
 /// 大脑正在判断的审批改标为“Norma 判断中”，其他审批不变，点击动作仍是定位。
 ///
-/// 数据构造：两条审批行，node 3 与 node 4；大脑只在判断 node 3。
+/// 数据构造：两条审批行（区域 a），node 3 与 node 4；大脑只在判断（a，3）。
 /// 预期结果：
 ///   - 正断言：node 3 的标题为“Norma 判断中 · 运行测试”，状态标签同名，色调是 Running，动作仍是 LocateApproval
 ///   - 负断言：node 4 保持“待审核”，色调仍是 Approval
 #[test]
 fn only_judged_approvals_are_relabelled() {
     let mut view = screen(vec![approval_row(3), approval_row(4)]);
-    relabel_judging(&mut view, &HashSet::from([3]));
+    relabel_judging(&mut view, &HashSet::from([("a".to_string(), 3)]));
     let judged = &view.sections[0].rows[0];
     assert_eq!(judged.primary, "Norma 判断中 · 运行测试", "标题前缀应替换");
     assert_eq!(judged.status_label.as_deref(), Some(JUDGING_LABEL));

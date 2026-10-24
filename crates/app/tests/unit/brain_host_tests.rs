@@ -247,6 +247,7 @@ fn extended_settings_round_trip_and_defaults() {
         slow_reminder: SlowReminder::VoiceAfter60s,
         parallel_approvals: false,
         speak: false,
+        always_ask: vec!["Bash:cargo".into(), "Write".into()],
     };
     super::config::save_settings_to(root.path(), &custom).expect("应能写入");
     let read = parse_settings(&std::fs::read_to_string(root.path().join("config.json")).unwrap());
@@ -316,4 +317,66 @@ fn autonomy_switches_apply_per_tool_category() {
         },
         "Read"
     ));
+}
+
+/// “以后这类先问我”的类别键：命令按程序名（忽略路径和大小写），写文件统一成 Write，其他工具按工具名。
+///
+/// 数据构造：`cargo test`、`/usr/bin/CARGO build`、`git status`；Write 与 Edit；一个 MCP 工具。
+/// 预期结果：
+///   - 正断言：前两个都是 `Bash:cargo`；Write 与 Edit 都是 `Write`；MCP 工具保持原名
+///   - 负断言：`git status` 的键不等于 cargo 的键，避免“先问 cargo”误伤 git
+#[test]
+fn ask_keys_group_commands_by_program_and_writes_together() {
+    use super::ask_key;
+    let subject = |tool: &str, command: Option<&str>| brain::risk::ApprovalSubject {
+        tool_name: tool.into(),
+        command: command.map(str::to_string),
+        file_path: None,
+        project_root: "/p".into(),
+    };
+    assert_eq!(
+        ask_key(&subject("Bash", Some("cargo test -p app"))),
+        "Bash:cargo"
+    );
+    assert_eq!(
+        ask_key(&subject("Bash", Some("/usr/bin/CARGO build"))),
+        "Bash:cargo"
+    );
+    assert_ne!(ask_key(&subject("Bash", Some("git status"))), "Bash:cargo");
+    assert_eq!(ask_key(&subject("Write", None)), "Write");
+    assert_eq!(ask_key(&subject("Edit", None)), "Write");
+    assert_eq!(ask_key(&subject("mcp__x__y", None)), "mcp__x__y");
+}
+
+/// 自主处理记录最多保留 20 条，新的在前，每条有递增的标识。
+///
+/// 数据构造：连续放入 25 条。
+/// 预期结果：
+///   - 正断言：只剩 20 条；第一条是最后放入的（标识 25）；标识严格递减排列
+///   - 负断言：最早的 5 条（标识 1 到 5）已被丢弃
+#[test]
+fn the_autonomy_log_keeps_the_newest_twenty() {
+    use super::log::AutoLog;
+    use super::{AutoAction, AutoKind};
+    let mut log = AutoLog::default();
+    for n in 0..25 {
+        log.push(AutoAction {
+            id: 0,
+            at: std::time::SystemTime::now(),
+            kind: AutoKind::Approved,
+            agent: "Claude".into(),
+            node_id: 1,
+            summary: format!("事项 {n}"),
+            reason: "r".into(),
+            ask_key: "Bash:cargo".into(),
+        });
+    }
+    let items = log.items();
+    assert_eq!(items.len(), 20, "最多 20 条");
+    assert_eq!(items[0].id, 25, "最新的排最前");
+    assert!(
+        items.windows(2).all(|pair| pair[0].id > pair[1].id),
+        "标识应严格递减"
+    );
+    assert!(items.iter().all(|item| item.id > 5), "最早的 5 条应被丢弃");
 }

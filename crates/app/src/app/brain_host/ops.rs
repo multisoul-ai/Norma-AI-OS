@@ -1,6 +1,6 @@
 //! `norma brain …` 命令的执行：播报、审批、读 Agent、派任务。
 
-use super::{approvals, BrainHostState, MultisoulApp};
+use super::{approvals, ask_key, AutoAction, AutoKind, BrainHostState, MultisoulApp, ASSIGN_KEY};
 use brain::risk::{risk_class, RiskClass};
 use gpui::{Context, Window};
 use norma::mobile::ApprovalTarget;
@@ -117,11 +117,19 @@ impl MultisoulApp {
     ) -> OpResult {
         let area = self.mobile_canvas_area(window);
         let zoom = self.runtime.document.viewport.zoom;
+        let node_id = self
+            .agent_roster_for_provider()
+            .iter()
+            .find(|entry| entry.name == agent)
+            .and_then(|entry| entry.active_node_id)
+            .unwrap_or(0);
+        let summary: String = task.chars().take(80).collect();
+        let who = agent.clone();
         let command = CardCommand::DispatchAgentTasks {
             assignments: vec![AgentTaskAssignment { name: agent, task }],
             force_untracked: false,
         };
-        crate::app::execute_high_level_agent_command(
+        let result = crate::app::execute_high_level_agent_command(
             self,
             command,
             area,
@@ -129,8 +137,18 @@ impl MultisoulApp {
             agent::AgentDispatchSource::norma(),
             None,
         )
-        .map_err(|error| reject(&error.to_string()))
-        .and_then(|result| output(json!({"result": format!("{result:?}")})))
+        .map_err(|error| reject(&error.to_string()))?;
+        self.brain.log.push(AutoAction {
+            id: 0,
+            at: std::time::SystemTime::now(),
+            kind: AutoKind::Assigned,
+            agent: who,
+            node_id,
+            summary,
+            reason: "该 Agent 空闲，按当前目标派后续任务".into(),
+            ask_key: ASSIGN_KEY.into(),
+        });
+        output(json!({"result": format!("{result:?}")}))
     }
 
     fn decide_approval(
@@ -147,6 +165,12 @@ impl MultisoulApp {
         let high_risk = matches!(risk_class(&tracked.subject), RiskClass::High(_));
         let autonomy = self.brain_autonomy();
         let permitted = approvals::autonomy_allows(&autonomy, &tracked.subject.tool_name);
+        let key = ask_key(&tracked.subject);
+        let asked = self
+            .brain
+            .settings
+            .as_ref()
+            .is_some_and(|settings| settings.always_ask.contains(&key));
         let outcome = match decision {
             BrainDecision::Escalate => {
                 self.escalate(id, reason, cx);
@@ -162,6 +186,12 @@ impl MultisoulApp {
                 self.escalate(id, "这类操作需要你确认", cx);
                 return Err(reject(
                     "not_authorized：用户没有允许大脑自行放行这类操作，已转交用户",
+                ));
+            }
+            BrainDecision::Allow if asked => {
+                self.escalate(id, "你设置了这类先问你", cx);
+                return Err(reject(
+                    "not_authorized：用户要求这类操作先问用户，已转交用户",
                 ));
             }
             BrainDecision::Allow => norma::agent_hook::ApprovalDecision::Allow,
@@ -188,12 +218,25 @@ impl MultisoulApp {
         if !applied {
             return Err(reject("approval_closed：这条审批已经处理或失效"));
         }
-        let summary = self
-            .brain
-            .tracked
-            .remove(id)
-            .map(|t| approvals::summarize(&t.subject));
+        let removed = self.brain.tracked.remove(id);
+        let summary = removed.as_ref().map(|t| approvals::summarize(&t.subject));
         BrainHostState::log_decision(id, decision, reason, summary.as_deref());
+        if let Some(tracked) = removed {
+            self.brain.log.push(AutoAction {
+                id: 0,
+                at: std::time::SystemTime::now(),
+                kind: if decision == BrainDecision::Allow {
+                    AutoKind::Approved
+                } else {
+                    AutoKind::Denied
+                },
+                agent: tracked.agent,
+                node_id: tracked.target.node_id,
+                summary: approvals::summarize(&tracked.subject),
+                reason: reason.to_string(),
+                ask_key: ask_key(&tracked.subject),
+            });
+        }
         output(json!({"decision": format!("{decision:?}")}))
     }
 }

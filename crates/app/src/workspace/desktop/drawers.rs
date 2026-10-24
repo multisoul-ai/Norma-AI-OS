@@ -30,6 +30,7 @@ pub(super) mod material;
 pub(super) mod motion;
 pub(super) mod orb;
 mod overview_actions;
+mod overview_brain;
 mod overview_judging;
 mod overview_list;
 mod overview_parts;
