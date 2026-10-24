@@ -74,8 +74,15 @@ impl Sink for PostHogSink {
     fn send(&mut self, batch: &[Queued]) -> SendOutcome {
         let body = batch_body(&self.project_key, batch);
         match self.agent.post(&self.url).send_json(body) {
-            Ok(response) => classify_status(response.status().as_u16()),
-            Err(_) => SendOutcome::Retry,
+            Ok(response) => {
+                let status = response.status().as_u16();
+                tracing::debug!(status, "analytics PostHog response");
+                classify_status(status)
+            }
+            Err(error) => {
+                tracing::warn!(%error, "analytics PostHog request failed");
+                SendOutcome::Retry
+            }
         }
     }
 }

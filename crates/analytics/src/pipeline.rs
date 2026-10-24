@@ -94,6 +94,12 @@ impl<S: Sink> Pipeline<S> {
         let take = self.queue.len().min(BATCH_SIZE);
         let batch: Vec<Queued> = self.queue.iter().take(take).cloned().collect();
         let outcome = self.sink.send(&batch);
+        tracing::info!(
+            count = batch.len(),
+            ?outcome,
+            left = self.queue.len(),
+            "analytics batch sent"
+        );
         match outcome {
             SendOutcome::Sent | SendOutcome::Drop => {
                 self.queue.drain(..take);
