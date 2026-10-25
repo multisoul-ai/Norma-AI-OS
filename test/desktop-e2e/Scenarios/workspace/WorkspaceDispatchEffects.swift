@@ -149,9 +149,14 @@ public enum WorkspaceDispatchEffects {
         let baseline = try await session.snapshot()
         // 卡片自己有运行中的边框动画：连续取几帧，把其中最大的变化当作背景噪声。
         var noise = 0
+        var clearanceNoise = 0
+        // 假终端只在顶部回显命令；下部包含飞行走廊和卡片中心，可与派发前的独立基线比较。
+        let clearanceArea = CGRect(x: geo.drawer + 4, y: 180, width: geo.width - geo.drawer - 8, height: geo.height - 270)
         for _ in 0..<6 {
             try await Task.sleep(nanoseconds: 200_000_000)
-            noise = max(noise, changedPixels(baseline, try await session.snapshot(), in: canvasArea(geo), windowSize: size))
+            let idle = try await session.snapshot()
+            noise = max(noise, changedPixels(baseline, idle, in: canvasArea(geo), windowSize: size))
+            clearanceNoise = max(clearanceNoise, changedPixels(baseline, idle, in: clearanceArea, windowSize: size))
         }
         try await session.shortcut(key: 18, modifiers: [0x3B])
         let marks: [UInt64] = Array(stride(from: 150, through: 2700, by: 150))
@@ -171,6 +176,7 @@ public enum WorkspaceDispatchEffects {
         guard finalChange <= noise + 150 else {
             throw E2EError.product("\(tag)：取样结束后画布仍在变化（噪声 \(noise)，变化 \(finalChange)）")
         }
+        try requireAnimationCleared(reference: baseline, final: settled, in: clearanceArea, windowSize: size, tolerance: clearanceNoise + 150)
         for (index, image) in samples.enumerated() where index % 2 == 0 { try session.saveSnapshot(image, "\(tag)-\(index).png") }
         let active = changes.enumerated().filter { $0.element > noise + 150 }.map { times[$0.offset] }
         guard let first = active.first, let last = active.last, last > first else {

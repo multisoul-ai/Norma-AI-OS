@@ -1,6 +1,6 @@
 # 派发特效可切换 + 设置页「特效」分区
 
-状态：S0–S6、S8 已实现并通过单测与真实 App 验收（见 §12）；S7（统计）未做；`workspace-dispatch-effects` 场景写好但因屏幕锁定尚未跑通。基线为本地 `dev`。视觉与交互以两份原型为准，本文只定义生产实现的分层、切片与验收：
+状态：S0–S6 已实现，设置页与实际派发已有真实 App 证据；S7（统计）未做。提交时基于 `origin/dev` 的 `5ac797a5` 集成，保留 Norma 大脑设置入口。下文 §12 为历史施工记录，最新行为与验收范围以本节为准。视觉与交互以两份原型为准，本文只定义生产实现的分层、切片与验收：
 
 - 特效本身：[`docs/prototypes/dispatch-effects/index.html`](../prototypes/dispatch-effects/index.html)（流星、纸飞机、声纹、萤火、烟花、闪电、星漩）
 - 设置页：[`docs/prototypes/settings-effects/index.html`](../prototypes/settings-effects/index.html)（Material 3，结构同壁纸页）
@@ -11,7 +11,7 @@
 
 本次验证：派发相关单测 79 条、设置状态单测 8 条、UI 单元/国际化测试 13 条全部通过；`cargo check -p app --locked`、`cargo build -p app --locked`、`cargo build -p app --release --locked`、格式/行数/no-allow/性能护栏通过。真实设置页 `settings-dispatch-effects` 8/8 步骤通过（93s），证据 `artifacts/desktop-workspace-e2e/2026-10-24T17-19-38Z/report.json`；已核对深浅主题播放区截图，只保留速度。实际派发在 `MULTISOUL_REDUCE_MOTION=1` 下跑 `workspace-dispatch-effects`，6/6 步骤通过（84s），证据 `artifacts/desktop-workspace-e2e/2026-10-24T17-26-49Z/report.json`；烟花/闪电/星漩可见活动跨度分别为 1505/302/848ms，三条想法均已指派。视觉核对确认烟花爆发、闪电分叉、星漩飞行均使用完整款式。
 
-实际派发场景首次运行因旧测试的固定基线差分误判失败（`artifacts/desktop-workspace-e2e/2026-10-24T17-22-07Z/report.json`）：最后五张截图逐字节相同，仍被计为持续动画。已改成与收尾帧差分，使用单调时钟记录真实采样时间，并断言最后两帧已静止；修正后重跑通过。
+实际派发场景首次运行因旧测试的固定基线差分误判失败（`artifacts/desktop-workspace-e2e/2026-10-24T17-22-07Z/report.json`）：最后五张截图逐字节相同，仍被计为持续动画。已改成与收尾帧差分，使用单调时钟记录真实采样时间，并断言最后两帧已静止；修正后重跑通过。后续 review 发现“最后两帧静止”仍会放过冻结残留；提交时新增独立派发前基线的消失断言（排除假终端顶部文字区，覆盖飞行走廊与卡片中心）及 400 像素冻结残留回归测试。新版场景的运行结果在提交验收记录中补充。
 
 ## 1. 目标与非目标
 
@@ -196,4 +196,3 @@ app/settings effects/：设置页视图与状态；保存走 background_executor
   - 这台机器的 OCR 读不了中文，新场景全部用英文界面；想法栏标题是固定中文，所以派发场景用快捷键而不是读想法行。
 - **未做**：S7 统计事件；独立 subagent 的对抗式代码审查；`NORMA_VISUAL_PREVIEW` 按款式定格。
 - **设置页不提供“仅脉冲”**（2026-10-24 按产品要求）：脉冲只作内部回落；旧版本若存过 `pulse`，读取时当作未设置。
-- **范围收窄（2026-10-24）**：按产品要求删除脉冲款式、“连续派发简化”与“遵循系统减少动态效果”两个开关，播放区只保留速度；上文 §4 的 `effects.simplify_burst` / `effects.follow_system_reduce_motion` 与 §5.6–5.7 不再适用，系统“减少动态效果”只影响设置页预览是否自动播放。

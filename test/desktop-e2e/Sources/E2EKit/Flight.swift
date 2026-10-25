@@ -88,3 +88,11 @@ public func changedPixels(_ a: CGImage, _ b: CGImage, in rect: CGRect, windowSiz
     }
     return count
 }
+
+/// 收尾必须恢复到独立的无特效基线；最后两帧相同也可能是冻结残留。
+public func requireAnimationCleared(reference: CGImage, final: CGImage, in area: CGRect, windowSize: CGSize, tolerance: Int) throws {
+    let residual = changedPixels(reference, final, in: area, windowSize: windowSize)
+    guard residual <= tolerance else {
+        throw E2EError.product("动画结束后仍残留 \(residual) 个变化像素（容差 \(tolerance)）")
+    }
+}
