@@ -254,6 +254,31 @@ impl SnakePaintReport {
     }
 }
 
+pub(crate) struct RunEffectPaintReport {
+    pub node_id: NodeId,
+    pub style: &'static str,
+    pub prim_count: usize,
+    pub build_elapsed: Duration,
+    pub paint_elapsed: Duration,
+}
+
+impl RunEffectPaintReport {
+    pub(crate) fn log_if_enabled(self) {
+        if !enabled() {
+            return;
+        }
+        tracing::debug!(
+            target: "multisoul_frame",
+            node_id = self.node_id,
+            style = self.style,
+            prim_count = self.prim_count,
+            build_ms = self.build_elapsed.as_secs_f64() * 1000.0,
+            paint_ms = self.paint_elapsed.as_secs_f64() * 1000.0,
+            "run_effect_paint"
+        );
+    }
+}
+
 pub(crate) struct DispatchEffectPaintReport {
     pub effect_count: usize,
     pub path_count: usize,

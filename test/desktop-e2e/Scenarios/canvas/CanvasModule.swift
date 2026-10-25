@@ -4,7 +4,7 @@ import E2EKit
 public enum CanvasModule {
     public static let manifest = DesktopModule(
         name: "canvas",
-        scenarioNames: [CanvasDrawers.name, CanvasProjectDrawers.name, CanvasContentTabs.name, CanvasDeleteReflow.name, CanvasCommandDock.name],
+        scenarioNames: [CanvasDrawers.name, CanvasProjectDrawers.name, CanvasContentTabs.name, CanvasDeleteReflow.name, CanvasCommandDock.name, CanvasRunEffects.name],
         run: { scenario, session in
             switch scenario {
             case CanvasDrawers.name:
@@ -21,6 +21,9 @@ public enum CanvasModule {
                 return true
             case CanvasCommandDock.name:
                 try await CanvasCommandDock.run(session)
+                return true
+            case CanvasRunEffects.name:
+                try await CanvasRunEffects.run(session)
                 return true
             default:
                 return false

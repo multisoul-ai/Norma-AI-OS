@@ -6,6 +6,7 @@ pub mod browser;
 pub mod chrome;
 pub(crate) mod intro;
 pub mod preview;
+pub(crate) mod run_effect;
 pub(crate) mod snake;
 pub mod term;
 mod title;

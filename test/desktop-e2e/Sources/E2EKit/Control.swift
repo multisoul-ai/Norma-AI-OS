@@ -93,6 +93,11 @@ extension Session {
         }
     }
 
+    /// 运行特效验收：让 App 切到画布并摆出六张不同运行状态的 Agent 卡片。
+    public func installRunEffectsFixture() async throws {
+        try await control(["op": "run_effects_fixture"])
+    }
+
     func controlWindow(_ response: [String: Any]) throws -> ControlWindow {
         guard let window = response["window"] as? [String: Any],
               let number = window["number"] as? NSNumber,

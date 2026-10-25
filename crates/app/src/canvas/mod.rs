@@ -5,6 +5,7 @@ pub(crate) mod layout_strategy;
 pub mod master_layout;
 mod node_label;
 pub(crate) mod overlays;
+mod run_effects;
 pub mod scroll;
 pub mod spawn_focus;
 pub mod terminal_hit;

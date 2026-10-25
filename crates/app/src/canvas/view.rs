@@ -4,6 +4,7 @@
 use super::events;
 use super::node_label::node_type_label;
 use super::overlays::swap_highlight_overlay;
+use super::run_effects::{self, RunEffectSync};
 use super::working_snakes::{self, WorkingSnakeGeometry};
 use crate::app::browser::native::BROWSER_NATIVE_BORDER_INSET_PX;
 use crate::app::browser::{browser_native_view_bounds, native_browser_views_visible};
@@ -18,7 +19,6 @@ use crate::canvas::geometry::{apply_canvas_wheel_scroll, click_event_for_node, i
 use crate::canvas::geometry::{node_card_radius_px, node_content_radius_px};
 #[cfg(test)]
 use crate::canvas::interaction::InteractionState;
-use crate::cards::agent::card::{agent_breathing_intent, agent_chase_intent};
 use crate::cards::agent::queue::{
     render_badge as render_agent_queue_badge, waiting_count as agent_waiting_count,
 };
@@ -90,6 +90,9 @@ pub fn render_canvas(
     let node_ids: Vec<NodeId> = app.runtime.document.nodes().iter().map(|n| n.id).collect();
     app.motion.retain_nodes(node_ids.iter().copied());
     let mut snake_view_set_changed = working_snakes::retain_live_views(app, &node_ids);
+    snake_view_set_changed |= run_effects::retain_live_views(app, &node_ids);
+    let run_style = crate::app::run_effects_actions::run_style(cx);
+    let run_reduce = run_effects::reduce_motion(app, run_style);
     for id in node_ids {
         let Some((canonical_rect, selected, node_type)) =
             app.runtime.document.node(id).map(|node| {
@@ -111,9 +114,9 @@ pub fn render_canvas(
         app.motion.set_selection_focus(id, selected, focused);
         let is_agent = node_type == NodeType::Agent;
         let agent_state = is_agent.then(|| app.runtime.agent_task_state(id)).flatten();
-        let chase_active = is_agent && agent_chase_intent(agent_state.clone());
         let card_attention = app.runtime.card_attention(id);
-        let breathing_intent = agent_breathing_intent(agent_state.clone(), card_attention);
+        let (chase_active, breathing_intent) =
+            run_effects::classic_intents(run_style, is_agent, agent_state.clone(), card_attention);
         app.motion.set_breathing_intent(id, breathing_intent);
         if app
             .interaction
@@ -135,23 +138,27 @@ pub fn render_canvas(
             || top_left.x > win_w
             || top_left.y > win_h);
         if is_agent {
-            snake_view_set_changed |= working_snakes::synchronize_view(
-                app,
-                id,
-                chase_active,
+            let geometry = WorkingSnakeGeometry {
+                visible,
+                left_px: top_left.x,
+                top_px: top_left.y,
+                width_px: w,
+                height_px: h,
+                opacity: visual.opacity,
+                zoom: vp.zoom,
+                node_radius_px: node_radius,
+            };
+            snake_view_set_changed |=
+                working_snakes::synchronize_view(app, id, chase_active, theme, geometry, cx);
+            let sync = RunEffectSync {
+                style: run_style,
+                state: agent_state.as_ref(),
+                attention: card_attention,
                 theme,
-                WorkingSnakeGeometry {
-                    visible,
-                    left_px: top_left.x,
-                    top_px: top_left.y,
-                    width_px: w,
-                    height_px: h,
-                    opacity: visual.opacity,
-                    zoom: vp.zoom,
-                    node_radius_px: node_radius,
-                },
-                cx,
-            );
+                geometry,
+                reduce_motion: run_reduce,
+            };
+            snake_view_set_changed |= run_effects::synchronize_view(app, id, sync, cx);
         }
 
         if !visible {

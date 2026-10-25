@@ -99,6 +99,8 @@ pub(super) enum Command {
     DoubaoTranscript {
         text: String,
     },
+    /// 运行特效验收：宿主窗口切到画布，摆出六张处于不同运行状态的 Agent 卡片。
+    RunEffectsFixture,
 }
 
 fn single_click() -> usize {

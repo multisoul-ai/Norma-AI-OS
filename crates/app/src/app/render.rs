@@ -12,6 +12,7 @@ impl Render for MultisoulApp {
             // 离开 Canvas 后丢弃局部 Snake Entity；其 on_next_frame 回调随 Entity
             // 生命周期结束，不能在 Launchpad 后台继续唤醒。
             self.working_snake_views.clear();
+            self.run_effect_views.clear();
         }
         self.restore_root_focus_if_unfocused(window, cx);
         self.sync_feature_guide_blockers(cx);
@@ -28,6 +29,13 @@ impl Render for MultisoulApp {
             .nodes()
             .iter()
             .filter_map(|node| self.working_snake_views.get(&node.id).cloned())
+            .collect();
+        let ordered_run_effect_views: Vec<_> = self
+            .runtime
+            .document
+            .nodes()
+            .iter()
+            .filter_map(|node| self.run_effect_views.get(&node.id).cloned())
             .collect();
         self.start_animation_frame_driver_if_needed(window, cx);
         let feature_guide_visible = self.feature_guide.is_visible();
@@ -129,12 +137,25 @@ impl Render for MultisoulApp {
                 );
             }
             AppScreen::Canvas => {
+                // 灵光、磁流体画在所有卡片之下（壁纸之上），外扩部分不会盖住相邻卡片；
+                // 一道光在卡片内部，画在卡片之上。所以壁纸从缓存的画布层挪到这里。
+                let under = crate::app::run_effects_actions::run_style(cx).draws_under_cards();
+                let (run_under, run_over) = if under {
+                    (ordered_run_effect_views, Vec::new())
+                } else {
+                    (Vec::new(), ordered_run_effect_views)
+                };
                 root = root
+                    .when(self.desktop_host.is_none(), |root| {
+                        root.child(self.render_workspace_backdrop())
+                    })
+                    .children(run_under)
                     .child(
                         gpui::AnyView::from(self.canvas_surface.clone())
                             .cached(gpui::StyleRefinement::default().absolute().size_full()),
                     )
-                    .children(ordered_snake_views);
+                    .children(ordered_snake_views)
+                    .children(run_over);
                 if !desktop_project_zoom && self.desktop_host.is_none() {
                     root = root
                         .child(render_canvas_overlays(self, window, cx))
@@ -269,9 +290,6 @@ impl MultisoulApp {
             .debug_selector(|| "canvas-surface".to_string())
             .relative()
             .size_full()
-            .when(self.desktop_host.is_none(), |this| {
-                this.child(self.render_workspace_backdrop())
-            })
             .child(render_canvas(self, window, cx))
     }
 
@@ -294,7 +312,11 @@ impl MultisoulApp {
         let working_snake_active = self
             .working_snake_views
             .values()
-            .any(|view| view.read(cx).is_active_animation());
+            .any(|view| view.read(cx).is_active_animation())
+            || self
+                .run_effect_views
+                .values()
+                .any(|view| view.read(cx).is_active_animation());
         if activity.canvas_motion_active || working_snake_active || video_animation_active {
             return PerformanceState::Animation;
         }
