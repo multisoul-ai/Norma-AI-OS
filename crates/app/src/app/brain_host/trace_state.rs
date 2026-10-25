@@ -1,8 +1,6 @@
-//! 大脑活动窗口的状态入口：`brain` 字段对其他模块不可见，界面通过这里读写。
+//! 幕僚活动窗口的开关与焦点：`brain` 字段对其他模块不可见，界面通过这里读写。
 
-use super::trace::{group_turns, TurnCard};
 use crate::app::MultisoulApp;
-use brain::acp::trace::AcpTrace;
 use gpui::{Context, FocusHandle, Window};
 
 impl MultisoulApp {
@@ -14,6 +12,9 @@ impl MultisoulApp {
         }
         self.brain.trace_open = !self.brain.trace_open;
         if self.brain.trace_open {
+            // 打开即读库，并把动作标为已读：入口上的数字随之清零。
+            self.brain.activity.unseen = 0;
+            self.refresh_brain_activity(true, cx);
             let handle = self.brain_trace_focus(cx);
             window.focus(&handle);
         } else {
@@ -44,32 +45,5 @@ impl MultisoulApp {
 
     pub(crate) fn brain_trace_open(&self) -> bool {
         self.brain.trace_open
-    }
-
-    /// 各项目会话里的记录，分好轮，新的在前。没有项目会话时取自己的。
-    pub(crate) fn brain_trace_cards(&self, cx: &gpui::App) -> Vec<TurnCard> {
-        let mut entries: Vec<(String, AcpTrace)> = Vec::new();
-        for ((_, area_id), session) in &self.desktop_workspace.sessions {
-            let app = session.read(cx);
-            entries.extend(
-                app.brain
-                    .trace
-                    .items()
-                    .map(|t| (area_id.clone(), t.clone())),
-            );
-        }
-        entries.extend(self.brain.trace.items().map(|t| (String::new(), t.clone())));
-        group_turns(&entries)
-    }
-
-    pub(crate) fn trace_card_expanded(&self, key: &(String, String, u64)) -> bool {
-        self.brain.trace_expanded.contains(key)
-    }
-
-    pub(crate) fn toggle_trace_card(&mut self, key: (String, String, u64), cx: &mut Context<Self>) {
-        if !self.brain.trace_expanded.remove(&key) {
-            self.brain.trace_expanded.insert(key);
-        }
-        cx.notify();
     }
 }

@@ -270,5 +270,10 @@
   "settings.brain_always_ask_note": "These get extra care when approvals are judged; when unsure, they go to you. To always be asked about a kind of action, click \"Ask me first\" on its record in the run overview.",
   "settings.brain_main_model_hint": "Tracks progress, proposes next steps, answers you",
   "settings.brain_approval_model_hint": "Judges agents' permission requests",
-  "settings.brain_parallel_hint": "Judge several at once; when off, one at a time"
+  "settings.brain_parallel_hint": "Judge several at once; when off, one at a time",
+  "settings.brain_section_activity": "Brain activity log",
+  "settings.brain_activity_clear": "Clear brain activity log",
+  "settings.brain_activity_clear_hint": "The log is kept on this Mac for 7 days. Clearing cannot be undone.",
+  "settings.brain_activity_clear_button": "Clear",
+  "settings.brain_activity_clear_confirm": "Confirm clear"
 }

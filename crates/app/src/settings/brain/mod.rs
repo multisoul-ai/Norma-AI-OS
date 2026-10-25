@@ -12,7 +12,7 @@ use models::{model_name, model_rows, BACKENDS};
 use ui::component::Disableable;
 use ui::icons::with_alpha;
 use ui::Theme;
-use widgets::{chip, note, row, section, segmented, switch, Segment};
+use widgets::{chip, note, row, section, segmented, switch, text_button, Segment};
 
 pub(super) fn t(key: &'static str) -> &'static str {
     ui::i18n::text(key)
@@ -69,6 +69,11 @@ pub(super) fn settings(
             theme,
             t("settings.brain_section_advanced"),
             advanced_rows(theme, s, cx),
+        ))
+        .child(section(
+            theme,
+            t("settings.brain_section_activity"),
+            activity_rows(theme, view.confirm_clear_activity, cx),
         ))
 }
 
@@ -334,4 +339,30 @@ fn advanced_rows(
         .into_any_element(),
         note(theme, t("settings.brain_scope_note")).into_any_element(),
     ]
+}
+
+/// 幕僚活动记录：保留 7 天，这里只提供清除；要点两次，第二次按钮变成“确认清除”。
+fn activity_rows(
+    theme: Theme,
+    confirming: bool,
+    cx: &mut Context<MultisoulApp>,
+) -> Vec<AnyElement> {
+    let label = if confirming {
+        t("settings.brain_activity_clear_confirm")
+    } else {
+        t("settings.brain_activity_clear_button")
+    };
+    vec![row(
+        theme,
+        t("settings.brain_activity_clear"),
+        Some(t("settings.brain_activity_clear_hint").into()),
+        text_button(
+            "settings-brain-activity-clear",
+            label,
+            false,
+            cx,
+            |app, cx| app.request_clear_brain_activity(cx),
+        ),
+    )
+    .into_any_element()]
 }

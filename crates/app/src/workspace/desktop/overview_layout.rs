@@ -21,20 +21,13 @@ pub(super) enum OverviewGroup {
     Attention,
     Running,
     Idle,
-    /// 后台大脑自行处理过的事项；只在启用了大脑时显示。
-    Brain,
     Ideas,
 }
 
 impl OverviewGroup {
-    /// 产品约定的固定顺序，不随内容变化：先看要处理的，再看谁在跑、谁待开始，然后是大脑自行处理的事项，最后是想法。
-    pub(super) const ORDER: [Self; 5] = [
-        Self::Attention,
-        Self::Running,
-        Self::Idle,
-        Self::Brain,
-        Self::Ideas,
-    ];
+    /// 产品约定的固定顺序，不随内容变化：先看要处理的，再看谁在跑、谁待开始，最后是想法。
+    /// 幕僚活动不占一栏，入口行固定插在想法栏之前。
+    pub(super) const ORDER: [Self; 4] = [Self::Attention, Self::Running, Self::Idle, Self::Ideas];
 
     /// 栏高上限（想法栏为固定基准高度）。状态栏实际起始高度见 `basis_height`，内容少时更矮。
     pub(super) fn base_height(self) -> f32 {
@@ -42,7 +35,6 @@ impl OverviewGroup {
             Self::Attention => 200.0,
             Self::Running => 260.0,
             Self::Idle => 200.0,
-            Self::Brain => 190.0,
             Self::Ideas => 250.0,
         }
     }
@@ -53,7 +45,6 @@ impl OverviewGroup {
             Self::Attention => 0.1,
             Self::Running => 0.2,
             Self::Idle => 0.1,
-            Self::Brain => 0.2,
             Self::Ideas => 1.5,
         }
     }
@@ -81,7 +72,6 @@ impl OverviewGroup {
             Self::Attention => "attention",
             Self::Running => "running",
             Self::Idle => "idle",
-            Self::Brain => "brain",
             Self::Ideas => "ideas",
         }
     }
@@ -95,7 +85,6 @@ impl OverviewGroup {
             Self::Running => 1 << 1,
             Self::Ideas => 1 << 2,
             Self::Idle => 1 << 3,
-            Self::Brain => 1 << 4,
         }
     }
 
@@ -105,7 +94,6 @@ impl OverviewGroup {
             Self::Attention => "✓",
             Self::Running => "◌",
             Self::Idle => "✓",
-            Self::Brain => "✦",
             Self::Ideas => "💡",
         }
     }
@@ -119,10 +107,6 @@ impl OverviewGroup {
                 "对 Norma 说“新建一个 Claude”，或把想法拖给智能体",
             ),
             Self::Idle => ("没有空闲的智能体", "所有智能体都在工作"),
-            Self::Brain => (
-                "Norma 还没有自行处理过事项",
-                "它自行放行的审批和派发的任务会记录在这里",
-            ),
             Self::Ideas => (
                 "还没有想法",
                 "对 Norma 说“记一下：…”，或在下方输入；记下后拖到智能体卡片即可开工",

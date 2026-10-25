@@ -38,6 +38,9 @@
 | `brain` | `brain-settings` | 设置 → Norma 大脑：页面内容，点开关与点策略后配置文件里的值。 |
 | `voice` | `voice-live-call`、`voice-live-acoustic`、`voice-doubao-direct` | `voice-doubao-direct`：假 Key + 本机假方舟，经控制通道注入转写，验豆包按卡片名/别名直呼派任务、未命中回落模型（无需云端 Key）。`voice-live-call` 验连接/静音/用量；后者原依赖字幕OCR，用户移除浮层后在启动/连接前返回ENV，避免无效云端用量。真人声学按统一验收清单执行。 |
 
+
+| `brain` | `brain-claude-quota` | 无网络 Claude 0.94.0 consumer 回放：额度正文和 error 结束；设置重启保留已收到正文及 cancelled 结束；新轮隔离与 App 重开后的持久化面板。不验证服务端真实额度或语音。 |
+
 ## 预留模块
 
 下面这些目录还没有场景。第一条用例落进去时再创建目录，并在本表补一行。不要把它们的步骤塞进 `workspace`。

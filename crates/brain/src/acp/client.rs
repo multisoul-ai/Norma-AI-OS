@@ -24,6 +24,7 @@ pub enum AcpError {
 
 #[derive(Clone, Debug)]
 pub struct SessionOptions {
+    pub kind: crate::backend::BackendKind,
     pub program: PathBuf,
     pub args: Vec<String>,
     pub cwd: PathBuf,
@@ -48,9 +49,14 @@ pub struct AcpSession {
 
 impl AcpSession {
     pub fn start(options: &SessionOptions) -> Result<Self, AcpError> {
-        let mut conn =
-            Connection::spawn(&options.program, &options.args, &options.cwd, &options.env)
-                .map_err(AcpError::Spawn)?;
+        let mut conn = Connection::spawn(
+            &options.program,
+            &options.args,
+            &options.cwd,
+            &options.env,
+            options.kind,
+        )
+        .map_err(AcpError::Spawn)?;
         let deadline = Instant::now() + options.handshake_timeout;
         call(
             &mut conn,
@@ -98,6 +104,10 @@ impl AcpSession {
         })
     }
 
+    pub fn session_id(&self) -> &str {
+        &self.session_id
+    }
+
     /// 这个会话里可选的模型。
     pub fn model_choices(&self) -> Vec<crate::backend::ModelChoice> {
         crate::backend::model_choices(&self.created)
@@ -114,71 +124,80 @@ impl AcpSession {
     ) -> Result<String, AcpError> {
         let started = Instant::now();
         let mut merger = Merger::default();
-        let id = self
+        let mut stop_reason = None;
+        let result = (|| {
+            let id = self
             .conn
             .send_request(
                 "session/prompt",
                 json!({"sessionId": self.session_id, "prompt": [{"type": "text", "text": text}]}),
             )
             .map_err(|_| AcpError::Closed)?;
-        let deadline = Instant::now() + timeout;
-        let mut reply = String::new();
-        loop {
-            if cancel.load(Ordering::Relaxed) {
-                self.abort();
-                return Err(AcpError::Cancelled);
-            }
-            if Instant::now() >= deadline {
-                self.abort();
-                return Err(AcpError::Timeout);
-            }
-            let incoming = match self.conn.recv(Duration::from_millis(100)) {
-                Ok(incoming) => incoming,
-                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
-                Err(_) => return Err(AcpError::Closed),
-            };
-            match incoming {
-                Incoming::Response { id: rid, result } if rid == id => {
-                    if let Some(item) = merger.flush() {
-                        sink(item);
-                    }
-                    let stop = result
-                        .as_ref()
-                        .ok()
-                        .and_then(|value| value["stopReason"].as_str())
-                        .unwrap_or("error");
-                    sink(TraceItem::new(
-                        TraceKind::Turn,
-                        "本轮结束",
-                        format!(
-                            "stopReason={stop}，用时 {} 毫秒",
-                            started.elapsed().as_millis()
-                        ),
-                    ));
-                    return result
-                        .map(|_| reply)
-                        .map_err(|e| AcpError::Remote(e.to_string()));
+            let deadline = Instant::now() + timeout;
+            let mut reply = String::new();
+            loop {
+                if cancel.load(Ordering::Relaxed) {
+                    self.abort();
+                    return Err(AcpError::Cancelled);
                 }
-                Incoming::Notification { method, params } if method == "session/update" => {
-                    let update = &params["update"];
-                    if update["sessionUpdate"] == "agent_message_chunk" {
-                        reply.push_str(update["content"]["text"].as_str().unwrap_or_default());
+                if Instant::now() >= deadline {
+                    self.abort();
+                    return Err(AcpError::Timeout);
+                }
+                let incoming = match self.conn.recv(Duration::from_millis(100)) {
+                    Ok(incoming) => incoming,
+                    Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
+                    Err(_) => return Err(AcpError::Closed),
+                };
+                match incoming {
+                    Incoming::Response { id: rid, result } if rid == id => {
+                        let stop = result
+                            .as_ref()
+                            .ok()
+                            .and_then(|value| value["stopReason"].as_str())
+                            .unwrap_or("error");
+                        stop_reason = Some(stop.to_owned());
+                        if stop == "cancelled" {
+                            return Err(AcpError::Cancelled);
+                        }
+                        return result
+                            .map(|_| reply)
+                            .map_err(|e| AcpError::Remote(e.to_string()));
                     }
-                    if let Some(item) = classify_update(update) {
-                        for out in merger.push(item) {
-                            sink(out);
+                    Incoming::Notification { method, params } if method == "session/update" => {
+                        let update = &params["update"];
+                        if update["sessionUpdate"] == "agent_message_chunk" {
+                            reply.push_str(update["content"]["text"].as_str().unwrap_or_default());
+                        }
+                        if let Some(item) = classify_update(update) {
+                            for out in merger.push(item) {
+                                sink(out);
+                            }
                         }
                     }
-                }
-                Incoming::Request { id, method, params } => {
-                    if let Some(item) = merger.flush() {
-                        sink(item);
+                    Incoming::Request { id, method, params } => {
+                        if let Some(item) = merger.flush() {
+                            sink(item);
+                        }
+                        self.answer(&id, &method, &params, gate, sink)?;
                     }
-                    self.answer(&id, &method, &params, gate, sink)?;
+                    _ => {}
                 }
-                _ => {}
             }
+        })();
+        if let Some(item) = merger.flush() {
+            sink(item);
         }
+        let stop = stop_reason.as_deref().unwrap_or(match &result {
+            Err(AcpError::Cancelled) => "cancelled",
+            Err(AcpError::Timeout) => "timeout",
+            _ => "error",
+        });
+        sink(TraceItem::turn_end(
+            stop,
+            started.elapsed().as_millis() as u64,
+        ));
+        result
     }
 
     fn answer(
@@ -196,6 +215,12 @@ impl AcpSession {
                 .command
                 .clone()
                 .or_else(|| request.path.clone())
+                // 解码失败仍保留请求原文；用于审计，绝不拿它重新做放行判定。
+                .or_else(|| {
+                    params["toolCall"]["rawInput"]
+                        .get("command")
+                        .map(Value::to_string)
+                })
                 .unwrap_or_default();
             let (title, result) = match &verdict {
                 Verdict::Allow => ("权限请求：放行".to_string(), String::new()),
@@ -209,7 +234,8 @@ impl AcpSession {
                 format!("{}：{wanted}{result}", request.tool),
             ));
             if let Verdict::Reject(reason) = &verdict {
-                tracing::info!(%reason, wanted = %wanted, "大脑的权限请求被拒绝");
+                tracing::info!(session_id = %self.session_id, permission_id = %id,
+                    %reason, wanted = %wanted, "大脑的权限请求被拒绝");
             }
             let outcome = match pick_option(params, &verdict) {
                 Some(option_id) => json!({"outcome": "selected", "optionId": option_id}),
@@ -264,6 +290,7 @@ pub fn discover_models(
     env: Vec<(String, String)>,
 ) -> Result<Vec<crate::backend::ModelChoice>, AcpError> {
     let options = SessionOptions {
+        kind: backend.kind,
         program: backend.program.clone(),
         args: backend.args.clone(),
         cwd,

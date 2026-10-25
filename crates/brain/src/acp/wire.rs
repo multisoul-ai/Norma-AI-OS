@@ -29,6 +29,7 @@ pub struct Connection {
     stdin: ChildStdin,
     rx: Receiver<Incoming>,
     next_id: u64,
+    _adapter: Option<super::codex_compat::Adapter>,
 }
 
 impl Connection {
@@ -37,7 +38,14 @@ impl Connection {
         args: &[String],
         cwd: &Path,
         env: &[(String, String)],
+        kind: crate::backend::BackendKind,
     ) -> io::Result<Self> {
+        let adapter = (kind == crate::backend::BackendKind::Codex)
+            .then(|| super::codex_compat::Adapter::prepare(program, args))
+            .transpose()?;
+        let (program, args) = adapter.as_ref().map_or((program, args), |adapter| {
+            (adapter.program.as_path(), adapter.args.as_slice())
+        });
         let mut child = Command::new(program)
             .args(args)
             .current_dir(cwd)
@@ -71,6 +79,7 @@ impl Connection {
             stdin,
             rx,
             next_id: 0,
+            _adapter: adapter,
         })
     }
 

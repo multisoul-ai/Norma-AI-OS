@@ -1,10 +1,7 @@
-//! 大脑自行处理过的事项（“Norma 自主处理”）及其“以后这类先问我”的类别键。
+//! 大脑自行处理过的事项（自主动作）的类型，及其“以后这类先问我”的类别键。
 
 use brain::risk::ApprovalSubject;
-use std::collections::VecDeque;
 use std::time::SystemTime;
-
-const MAX_LOG: usize = 20;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum AutoKind {
@@ -15,9 +12,20 @@ pub(crate) enum AutoKind {
     UserDispatched,
 }
 
+impl AutoKind {
+    /// 持久化用的稳定键。
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::Approved => "approved",
+            Self::Denied => "denied",
+            Self::Assigned => "assigned",
+            Self::UserDispatched => "user",
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct AutoAction {
-    pub id: u64,
     pub at: SystemTime,
     pub kind: AutoKind,
     pub agent: String,
@@ -28,25 +36,6 @@ pub(crate) struct AutoAction {
     pub reason: String,
     /// “以后这类先问我”要加入的类别键。
     pub ask_key: String,
-}
-
-#[derive(Debug, Default)]
-pub(crate) struct AutoLog {
-    next_id: u64,
-    items: VecDeque<AutoAction>,
-}
-
-impl AutoLog {
-    pub(crate) fn push(&mut self, mut action: AutoAction) {
-        self.next_id += 1;
-        action.id = self.next_id;
-        self.items.push_front(action);
-        self.items.truncate(MAX_LOG);
-    }
-
-    pub(crate) fn items(&self) -> Vec<AutoAction> {
-        self.items.iter().cloned().collect()
-    }
 }
 
 /// 派后续任务这一类的键。

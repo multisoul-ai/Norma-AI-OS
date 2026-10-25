@@ -54,7 +54,7 @@ impl MultisoulApp {
             OverviewGroup::Attention => 0,
             OverviewGroup::Running => 1,
             OverviewGroup::Idle => 2,
-            OverviewGroup::Brain | OverviewGroup::Ideas => return,
+            OverviewGroup::Ideas => return,
         };
         let screen = self.presented_overview();
         if screen

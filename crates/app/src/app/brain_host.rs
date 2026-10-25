@@ -1,21 +1,26 @@
 //! 把 `brain` 接到项目窗口：事件进、状态出、审批和播报的落地。
 
+mod activity_feed;
+mod activity_sink;
+mod activity_view;
 mod approvals;
 mod away;
 mod config;
 mod history;
+mod lifecycle;
 mod log;
 mod model_lists;
 mod ops;
 mod own_prompts;
+mod panel;
+mod panel_parts;
+mod panel_rows;
 mod proposal_actions;
 pub(crate) mod proposals;
 mod settings;
 mod startup;
-mod trace;
 mod trace_state;
 
-pub(crate) use trace::TurnCard;
 mod user_actions;
 pub(crate) use config::{BrainSettings, SlowReminder, SummaryEvery};
 pub(crate) use log::{ask_key, AutoAction, AutoKind, ASSIGN_KEY};
@@ -78,6 +83,8 @@ pub(crate) struct BrainHostState {
     starting: Option<u64>,
     pending_events: RefCell<VecDeque<BrainEvent>>,
     host: Option<BrainHost>,
+    /// 已撤销令牌的服务仍在后台停止；排空其迟到记录后再释放通道。
+    retiring: Vec<Receiver<BrainStatus>>,
     next_start: Instant,
     last_poll: Instant,
     tracked: HashMap<String, Tracked>,
@@ -86,15 +93,17 @@ pub(crate) struct BrainHostState {
     /// 设置页列出的 Codex、OpenCode 模型。
     model_lists: HashMap<brain::BackendKind, ModelList>,
     install_error: Option<(brain::BackendKind, String)>,
-    /// 本项目里大脑自行处理过的事项。
-    log: log::AutoLog,
     /// 工作空间窗口汇总各项目后的快照，概览渲染读它。
     pub(crate) overview: OverviewSnapshot,
     overview_at: Instant,
-    /// 概览里展开了“为什么”的那条自主处理记录：（项目区域 id，记录 id）。
-    pub(crate) why_open: Option<(String, u64)>,
-    /// 本项目里大脑与 ACP 适配器的往来记录，只放内存。
-    pub(crate) trace: trace::TraceBuffer,
+    /// 本项目里大脑与 ACP 适配器的往来、自主动作，先进发件箱，等外壳取走落库。
+    activity_outbox: activity_sink::Outbox,
+    /// 幕僚活动面板读到的内容与界面状态。
+    pub(crate) activity: activity_view::ActivityView,
+    /// 各会话最近一轮的轮次号，给动作标注“来自第几轮”。
+    last_turn: HashMap<String, u64>,
+    /// 外壳上一次提交被拒（队列满）而退回的动作，下次一起重试。
+    activity_retry: storage::BrainActivityBatch,
     /// 大脑自己派出去的任务，不当作用户的目标。
     pub(crate) own_prompts: own_prompts::OwnPrompts,
     /// 大脑活动窗口是否打开（只在工作空间窗口上使用）。
@@ -104,8 +113,6 @@ pub(crate) struct BrainHostState {
     pub(crate) pending_return: Option<std::time::Duration>,
     /// 活动窗口自己的焦点：打开时抢走焦点，Esc 才不会被聚焦的终端吃掉。
     pub(crate) trace_focus: Option<gpui::FocusHandle>,
-    /// 活动窗口里展开的卡片：（项目，会话，轮次）。
-    pub(crate) trace_expanded: HashSet<(String, String, u64)>,
     /// 大脑提议、等用户确认的下一步；读过文件后 `proposals_path` 才有值。
     pub(crate) proposals: proposals::Proposals,
     proposals_path: Option<std::path::PathBuf>,
@@ -124,8 +131,6 @@ pub(crate) struct BrainHostState {
 pub(crate) struct OverviewSnapshot {
     /// 大脑正在判断的审批：（项目区域 id，卡片 id）。
     pub judging: HashSet<(String, u64)>,
-    /// 各项目的自主处理记录，新的在前：（项目区域 id，记录）。
-    pub actions: Vec<(String, AutoAction)>,
     /// 至少一个项目里的大脑在运行；工作空间窗口自己不跑大脑，设置页靠它显示“运行中”。
     pub running: bool,
     /// 等用户确认的下一步，新的在前。
@@ -151,6 +156,7 @@ impl BrainHostState {
             starting: None,
             pending_events: RefCell::new(VecDeque::new()),
             host: None,
+            retiring: Vec::new(),
             next_start: now,
             last_poll: now,
             tracked: HashMap::new(),
@@ -158,17 +164,17 @@ impl BrainHostState {
             installing: None,
             model_lists: HashMap::new(),
             install_error: None,
-            log: log::AutoLog::default(),
             overview: OverviewSnapshot::default(),
             overview_at: now,
-            why_open: None,
-            trace: trace::TraceBuffer::default(),
+            activity_outbox: activity_sink::Outbox::default(),
+            activity: activity_view::ActivityView::default(),
+            last_turn: HashMap::new(),
+            activity_retry: storage::BrainActivityBatch::default(),
             own_prompts: own_prompts::OwnPrompts::default(),
             trace_open: false,
             away: away::AwayTracker::default(),
             pending_return: None,
             trace_focus: None,
-            trace_expanded: HashSet::new(),
             proposals: proposals::Proposals::default(),
             proposals_path: None,
             proposals_loading: false,
@@ -179,6 +185,29 @@ impl BrainHostState {
             proposal_writer: brain::persistence::shared_writer().clone(),
             proposal_open: None,
         }
+    }
+
+    pub(super) fn record_trace(&mut self, entry: brain::acp::trace::AcpTrace) {
+        self.last_turn.insert(entry.lane.clone(), entry.turn);
+        self.activity_outbox
+            .push(activity_sink::Pending::Trace(entry));
+    }
+
+    /// 记一条自主动作，放进发件箱等待落库。放行与拒绝来自审批会话，派发来自主会话；
+    /// 标注的是该会话最近一轮，是尽力而为的对应，用户自己批准的派发没有来源轮次。
+    pub(super) fn record_action(&mut self, action: AutoAction) {
+        let lane = match action.kind {
+            AutoKind::Approved | AutoKind::Denied => Some("Approval"),
+            AutoKind::Assigned => Some("Main"),
+            AutoKind::UserDispatched => None,
+        };
+        let via = lane.and_then(|lane| {
+            self.last_turn
+                .get(lane)
+                .map(|turn| (lane.to_owned(), *turn))
+        });
+        self.activity_outbox
+            .push(activity_sink::Pending::Action { action, via });
     }
 
     pub(crate) fn token_matches(&self, token: &str) -> bool {
@@ -195,6 +224,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.poll_brain_proposal_save(cx);
+        self.brain.drain_retired();
         if self.brain.settings.is_none() {
             if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
                 self.brain.settings = host.read(cx).brain.settings.clone();
@@ -207,6 +237,8 @@ impl MultisoulApp {
         if self.brain.overview_at.elapsed() >= APPROVAL_POLL {
             self.brain.overview_at = Instant::now();
             self.refresh_brain_overview(cx);
+            self.flush_brain_activity(cx);
+            self.refresh_brain_activity(false, cx);
         }
         if let Some(away) = self.brain.pending_return.take() {
             let event = BrainEvent::UserReturned { away };
@@ -233,6 +265,34 @@ impl MultisoulApp {
             self.poll_approvals();
             self.remind_slow_judgements(cx);
         }
+    }
+
+    /// 退出时等后台写入线程把幕僚活动写完，最多等 1 秒。
+    pub(crate) fn shutdown_brain_activity() {
+        activity_sink::shutdown_shared(Duration::from_secs(1));
+    }
+
+    /// 外壳（或没有外壳时的自己）把各会话的待落库记录取走，交给后台写入线程。
+    fn flush_brain_activity(&mut self, cx: &mut Context<Self>) {
+        // 项目会话的记录由外壳统一取，避免重复写入。
+        if self.desktop_host.is_some() {
+            return;
+        }
+        let writer = activity_sink::shared(self.database_paths.app_db_path().to_path_buf());
+        let launch = writer.launch_id();
+        let mut batch = std::mem::take(&mut self.brain.activity_retry);
+        activity_sink::merge(
+            &mut batch,
+            activity_sink::build_batch(launch, "", self.brain.activity_outbox.take()),
+        );
+        for ((_, area_id), session) in &self.desktop_workspace.sessions {
+            let pending = session.read(cx).brain.activity_outbox.take();
+            activity_sink::merge(
+                &mut batch,
+                activity_sink::build_batch(launch, area_id, pending),
+            );
+        }
+        self.brain.activity_retry = writer.submit(batch).unwrap_or_default();
     }
 
     pub(super) fn push_brain(&self, event: BrainEvent) {
@@ -313,7 +373,7 @@ impl MultisoulApp {
                         self.escalate(&id, "幕僚暂时不可用", cx);
                     }
                 }
-                BrainStatus::Trace(entry) => self.brain.trace.push(entry),
+                BrainStatus::Trace(entry) => self.brain.record_trace(entry),
                 BrainStatus::ApprovalTurnEnded { id } => {
                     if self.brain.tracked.get(&id).is_some_and(|t| !t.escalated) {
                         self.escalate(&id, "我拿不准", cx);

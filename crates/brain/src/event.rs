@@ -69,3 +69,62 @@ pub enum BrainStatus {
     /// ACP 过程里的一条记录，供活动窗口显示。
     Trace(AcpTrace),
 }
+
+/// 是什么让大脑开了这一轮。持久化用 `as_str` 存稳定的英文键。
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TriggerKind {
+    AgentFinished,
+    ApprovalRequest,
+    UserRequest,
+    UserReturned,
+    /// 定时摘要等没有外部事件的唤醒。
+    Scheduled,
+    Unknown,
+}
+
+impl TriggerKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::AgentFinished => "agent_finished",
+            Self::ApprovalRequest => "approval_request",
+            Self::UserRequest => "user_request",
+            Self::UserReturned => "user_returned",
+            Self::Scheduled => "scheduled",
+            Self::Unknown => "unknown",
+        }
+    }
+
+    /// 不认识的键（新版本写入、旧版本读取）退回 `Unknown`。
+    pub fn parse(key: &str) -> Self {
+        [
+            Self::AgentFinished,
+            Self::ApprovalRequest,
+            Self::UserRequest,
+            Self::UserReturned,
+            Self::Scheduled,
+        ]
+        .into_iter()
+        .find(|kind| kind.as_str() == key)
+        .unwrap_or(Self::Unknown)
+    }
+}
+
+/// 触发源：种类，加上相关的 Agent 名（多个用顿号连接；与 Agent 无关时为空）。
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Trigger {
+    pub kind: TriggerKind,
+    pub who: String,
+}
+
+impl Trigger {
+    pub fn new(kind: TriggerKind, who: impl Into<String>) -> Self {
+        Self {
+            kind,
+            who: who.into(),
+        }
+    }
+
+    pub fn unknown() -> Self {
+        Self::new(TriggerKind::Unknown, "")
+    }
+}

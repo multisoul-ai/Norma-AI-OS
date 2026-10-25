@@ -270,5 +270,10 @@
   "settings.brain_always_ask_note": "幕僚判断审批时会特别留意这些操作，拿不准就交给你。要让某类操作一律先问你，在“Norma 自主处理”的记录上点“以后这类先问我”。",
   "settings.brain_main_model_hint": "整理进度、提议下一步、回答你",
   "settings.brain_approval_model_hint": "判断 Agent 的权限请求",
-  "settings.brain_parallel_hint": "多个审批同时到达时一起判断；关闭则排队"
+  "settings.brain_parallel_hint": "多个审批同时到达时一起判断；关闭则排队",
+  "settings.brain_section_activity": "幕僚活动记录",
+  "settings.brain_activity_clear": "清除幕僚活动记录",
+  "settings.brain_activity_clear_hint": "记录保留最近 7 天，保存在本机。清除后无法恢复。",
+  "settings.brain_activity_clear_button": "清除",
+  "settings.brain_activity_clear_confirm": "确认清除"
 }

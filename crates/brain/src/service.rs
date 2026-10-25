@@ -206,6 +206,7 @@ impl Dispatcher {
             lane,
             text,
             approval_id,
+            trigger,
         } in actions
         {
             let tx = if lane == Lane::Main {
@@ -222,7 +223,11 @@ impl Dispatcher {
                 (Lane::Main, Some(declined)) => prompt::with_declined(&text, &declined),
                 _ => text,
             };
-            let _ = tx.send(Job { text, approval_id });
+            let _ = tx.send(Job {
+                text,
+                approval_id,
+                trigger,
+            });
         }
     }
 }

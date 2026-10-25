@@ -164,8 +164,7 @@ impl MultisoulApp {
             )));
         }
         self.brain.own_prompts.remember(&task);
-        self.brain.log.push(AutoAction {
-            id: 0,
+        self.brain.record_action(AutoAction {
             at: std::time::SystemTime::now(),
             kind,
             agent: who,
@@ -247,8 +246,7 @@ impl MultisoulApp {
         self.brain
             .log_decision(id, decision, reason, summary.as_deref());
         if let Some(tracked) = removed {
-            self.brain.log.push(AutoAction {
-                id: 0,
+            self.brain.record_action(AutoAction {
                 at: std::time::SystemTime::now(),
                 kind: if decision == BrainDecision::Allow {
                     AutoKind::Approved

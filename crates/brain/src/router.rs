@@ -1,6 +1,6 @@
 //! 事件分流：去抖、静默池、定时摘要、审批分发。纯逻辑，时间由调用方传入。
 
-use crate::event::{ApprovalRequest, BrainEvent, Outcome};
+use crate::event::{ApprovalRequest, BrainEvent, Outcome, Trigger, TriggerKind};
 use crate::lane::prompt;
 use crate::triage::{triage, Verdict};
 use std::collections::{BTreeMap, HashSet};
@@ -23,6 +23,7 @@ pub struct Action {
     pub text: String,
     /// 审批提示带上审批标识，便于在发送前检查是否已关闭。
     pub approval_id: Option<String>,
+    pub trigger: Trigger,
 }
 
 #[derive(Clone, Debug)]
@@ -51,6 +52,14 @@ impl Default for RouterConfig {
 struct FinishedBatch {
     first_at: Instant,
     lines: Vec<String>,
+    /// 批里出现过的 Agent，按首次出现的顺序去重。
+    agents: Vec<String>,
+}
+
+impl FinishedBatch {
+    fn trigger(&self) -> Trigger {
+        Trigger::new(TriggerKind::AgentFinished, self.agents.join("、"))
+    }
 }
 
 pub struct Router {
@@ -112,10 +121,14 @@ impl Router {
                 let batch = slot.get_or_insert(FinishedBatch {
                     first_at: now,
                     lines: vec![],
+                    agents: vec![],
                 });
                 batch
                     .lines
                     .push(prompt::finished_line(&agent, outcome, &excerpt));
+                if !batch.agents.contains(&agent) {
+                    batch.agents.push(agent.clone());
+                }
                 // 失败不等窗口：把批次的起点提前，下一次 poll 就发。
                 if outcome == Outcome::Failed && batch.first_at + self.config.debounce > now {
                     batch.first_at = now - self.config.debounce;
@@ -137,6 +150,7 @@ impl Router {
                     lane: Lane::Main,
                     text: prompt::on_return(away.as_secs() / 60, &lines),
                     approval_id: None,
+                    trigger: Trigger::new(TriggerKind::UserReturned, ""),
                 }]
             }
             BrainEvent::ApprovalRequested(request) => self.route_approval(request),
@@ -148,6 +162,7 @@ impl Router {
                 lane: Lane::Main,
                 text: prompt::user_request(&text),
                 approval_id: None,
+                trigger: Trigger::new(TriggerKind::UserRequest, ""),
             }],
             // 目标由 Dispatcher 记录，随后续提示一起发给大脑，这里不触发一轮。
             BrainEvent::Goal { .. } | BrainEvent::ProposalDeclined { .. } => vec![],
@@ -159,6 +174,7 @@ impl Router {
         vec![Action {
             lane: Lane::Approval,
             text: prompt::approval(&request, &self.config.norma_bin),
+            trigger: Trigger::new(TriggerKind::ApprovalRequest, request.agent),
             approval_id: Some(request.id),
         }]
     }
@@ -173,6 +189,7 @@ impl Router {
                     lane: Lane::Main,
                     text: prompt::urgent_batch(&batch.lines),
                     approval_id: None,
+                    trigger: batch.trigger(),
                 });
                 self.last_summary = now;
             }
@@ -184,6 +201,7 @@ impl Router {
                     lane: Lane::Main,
                     text: prompt::quiet_batch(&batch.lines),
                     approval_id: None,
+                    trigger: batch.trigger(),
                 });
                 self.last_summary = now;
             }
@@ -196,6 +214,7 @@ impl Router {
                         lane: Lane::Main,
                         text: prompt::summary(&self.digest),
                         approval_id: None,
+                        trigger: Trigger::new(TriggerKind::Scheduled, ""),
                     });
                     self.digest.clear();
                 }

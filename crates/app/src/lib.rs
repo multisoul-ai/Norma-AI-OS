@@ -165,6 +165,7 @@ pub fn run_norma_os() {
         .detach();
         cx.on_app_quit(|cx| {
             media::shutdown(cx);
+            app::MultisoulApp::shutdown_brain_activity();
             workspace::desktop::sessions::shutdown(cx);
             workspace::sessions::shutdown(cx);
             async {}

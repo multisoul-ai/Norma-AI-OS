@@ -47,8 +47,7 @@ mod agent_runtime;
 mod brain_host;
 pub(crate) use brain_host::adapter_package as brain_adapter_package;
 pub(crate) use brain_host::{
-    AutoAction, AutoKind, BrainSettings, BrainSettingsView, ModelList, OverviewProposal,
-    SlowReminder, SummaryEvery, TurnCard, ASSIGN_KEY,
+    BrainSettings, BrainSettingsView, ModelList, OverviewProposal, SlowReminder, SummaryEvery,
 };
 mod memory;
 pub(crate) mod native_input;

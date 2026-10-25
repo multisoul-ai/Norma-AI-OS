@@ -5,19 +5,23 @@ use crate::acp::client::{AcpError, AcpSession, SessionOptions};
 use crate::acp::gate::Gate;
 use crate::acp::trace::{AcpTrace, TraceItem, TraceKind};
 use crate::backend::{self, Backend};
-use crate::event::BrainStatus;
+use crate::event::{BrainStatus, Trigger};
 use crate::goal::GoalStore;
 use std::collections::HashSet;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime};
+
+// 与 App 进程的 launch_id 配合：重启服务和并行审批不能复用轮次号。
+static NEXT_TURN: AtomicU64 = AtomicU64::new(1);
 
 const MAX_BACKOFF: Duration = Duration::from_secs(60);
 
 pub struct Job {
     pub text: String,
     pub approval_id: Option<String>,
+    pub trigger: Trigger,
 }
 
 pub struct LaneEnv {
@@ -40,6 +44,7 @@ pub struct LaneEnv {
 impl LaneEnv {
     fn session_options(&self) -> SessionOptions {
         SessionOptions {
+            kind: self.backend.kind,
             program: self.backend.program.clone(),
             args: self.backend.args.clone(),
             cwd: self.gate.project_root.clone(),
@@ -68,11 +73,12 @@ impl LaneEnv {
         }
     }
 
-    fn trace(&self, turn: u64, item: TraceItem) {
+    fn trace(&self, turn: u64, trigger: &Trigger, item: TraceItem) {
         let _ = self.status.send(BrainStatus::Trace(AcpTrace {
             at: SystemTime::now(),
             lane: format!("{:?}", self.role),
             turn,
+            trigger: trigger.clone(),
             item,
         }));
     }
@@ -94,7 +100,6 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
     let mut turns = 0u32;
     let mut primed = false;
     let mut failures = 0u32;
-    let mut turn_no = 0u64;
     while !env.stop.load(Ordering::Relaxed) {
         let received = jobs
             .lock()
@@ -112,24 +117,28 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
         {
             continue;
         }
+        let turn_no = NEXT_TURN.fetch_add(1, Ordering::Relaxed);
         if session.is_none() || turns >= env.max_turns {
             session = None;
+            let connecting = Instant::now();
             match AcpSession::start(&env.session_options()) {
                 Ok(started) => {
                     session = Some(started);
                     turns = 0;
                     primed = false;
-                    env.trace(
-                        turn_no,
-                        TraceItem::new(TraceKind::Lifecycle, "会话已创建", ""),
-                    );
                     let _ = env.status.send(BrainStatus::Ready);
                 }
                 Err(error) => {
                     failures += 1;
                     env.trace(
                         turn_no,
+                        &job.trigger,
                         TraceItem::new(TraceKind::Error, "会话创建失败", error.to_string()),
+                    );
+                    env.trace(
+                        turn_no,
+                        &job.trigger,
+                        TraceItem::turn_end("error", connecting.elapsed().as_millis() as u64),
                     );
                     down(&env, &error);
                     env.finish(&job);
@@ -151,9 +160,21 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
             )
         };
         let active = session.as_mut().expect("会话刚创建");
-        turn_no += 1;
+        let identity = format!(
+            "backend={:?} session_id={}",
+            env.backend.kind,
+            active.session_id()
+        );
+        tracing::info!(turn = turn_no, lane = ?env.role, backend = ?env.backend.kind,
+            session_id = active.session_id(), "大脑轮次开始");
         env.trace(
             turn_no,
+            &job.trigger,
+            TraceItem::new(TraceKind::Lifecycle, "会话关联", identity),
+        );
+        env.trace(
+            turn_no,
+            &job.trigger,
             TraceItem::new(TraceKind::Prompt, "发给大脑", text.clone()),
         );
         let this_turn = turn_no;
@@ -162,7 +183,7 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
             &env.gate,
             &env.stop,
             env.prompt_timeout,
-            &mut |item| env.trace(this_turn, item),
+            &mut |item| env.trace(this_turn, &job.trigger, item),
         );
         match result {
             Ok(reply) => {
@@ -179,6 +200,7 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
                 failures += 1;
                 env.trace(
                     turn_no,
+                    &job.trigger,
                     TraceItem::new(TraceKind::Error, "本轮失败", error.to_string()),
                 );
                 if !matches!(error, AcpError::Cancelled) {

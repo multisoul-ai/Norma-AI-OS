@@ -70,11 +70,32 @@ def main():
         elif method == "session/prompt":
             text = "".join(p.get("text", "") for p in msg["params"]["prompt"])
             log("prompt: " + text)
+            if "FAKE_QUOTA" in text:
+                # Captured from installed Claude ACP 0.94.0 consumer replay; no provider call.
+                body = "You've hit your session limit · resets 6:30am (America/Los_Angeles)"
+                send({"jsonrpc": "2.0", "method": "session/update", "params": {
+                    "sessionId": session_id, "update": {"sessionUpdate": "agent_message_chunk",
+                    "content": {"type": "text", "text": body}}}})
+                send({"jsonrpc": "2.0", "id": mid, "error": {"code": -32603,
+                    "message": "Internal error: " + body, "data": {"errorKind": "rate_limit"}}})
+                continue
+            if "FAKE_REMOTE_CANCEL" in text:
+                send({"jsonrpc": "2.0", "id": mid, "result": {"stopReason": "cancelled"}})
+                continue
+            if "FAKE_PARTIAL_SLEEP" in text:
+                send({"jsonrpc": "2.0", "method": "session/update", "params": {
+                    "sessionId": session_id, "update": {"sessionUpdate": "agent_message_chunk",
+                    "content": {"type": "text", "text": "取消前的部分输出"}}}})
+                log("partial-output-sent")
+                time.sleep(0.6)
             if "FAKE_CRASH" in text:
                 sys.exit(3)
             if "FAKE_SLEEP" in text:
                 time.sleep(0.6)
             for line in text.splitlines():
+                if "FAKE_ENVELOPE: " in line:
+                    command = {"normaShellCommand": line.split("FAKE_ENVELOPE: ", 1)[1]}
+                    request_permission(session_id, command)
                 if "FAKE_RUN: " in line:
                     command = line.split("FAKE_RUN: ", 1)[1]
                     choice = request_permission(session_id, command)

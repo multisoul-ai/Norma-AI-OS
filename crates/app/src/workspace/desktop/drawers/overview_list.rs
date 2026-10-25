@@ -17,8 +17,6 @@ const GROUP_TITLE: u32 = 0xa9c3daff;
 const GROUP_META: u32 = 0x8ea8bfff;
 const COPY_STEP: u32 = 0xcfe3f4ff;
 const GROUP_RULE: u32 = 0xcde8ff14;
-/// “Norma 自主处理”每条记录收起时的高度：两行文字；展开后多出理由和操作，栏内滚动。
-const BRAIN_ROW_HEIGHT: f32 = 52.0;
 
 impl MultisoulApp {
     /// 顶部三张统计卡，其后四栏固定顺序：需要你处理 → 运行中 → 待开始 → 想法。每栏有基准高度，
@@ -33,17 +31,16 @@ impl MultisoulApp {
                 OverviewGroup::Attention => screen.sections.first(),
                 OverviewGroup::Running => screen.sections.get(1),
                 OverviewGroup::Idle => screen.sections.get(2),
-                OverviewGroup::Brain | OverviewGroup::Ideas => None,
+                OverviewGroup::Ideas => None,
             };
             (group, section)
         });
         let mut flat = 0usize;
         let mut groups = Vec::with_capacity(sections.len());
-        let brain_visible = self.brain_enabled();
         for (group, section) in sections {
-            // 没有启用大脑时不显示“Norma 自主处理”栏。
-            if group == OverviewGroup::Brain && !brain_visible {
-                continue;
+            // 幕僚活动的入口紧挨在想法栏之前；没有启用大脑时不显示。
+            if group == OverviewGroup::Ideas && self.brain_enabled() {
+                groups.push(self.render_brain_entry(cx));
             }
             let start = flat;
             flat += section.map_or(0, |section| section.rows.len());
@@ -89,9 +86,6 @@ impl MultisoulApp {
         };
         let body = match (group, section) {
             (OverviewGroup::Ideas, _) => self.render_ideas_group_body(cx).into_any_element(),
-            (OverviewGroup::Brain, _) => self
-                .render_brain_group_body(feedback, cx)
-                .into_any_element(),
             (_, Some(section)) => div()
                 .id(ElementId::Name(
                     format!("desktop-run-body-{}", group.key()).into(),
@@ -147,10 +141,6 @@ impl MultisoulApp {
             let keep = group == OverviewGroup::Attention && self.brain_proposal_open().is_some();
             style.flex_shrink = Some(if keep { 0.0 } else { 1.0 });
             let heights: Vec<f32> = match (group, section) {
-                // 大脑栏的行自带一行操作按钮，比普通行高。
-                (OverviewGroup::Brain, _) => {
-                    vec![BRAIN_ROW_HEIGHT; self.brain_overview().actions.len()]
-                }
                 (OverviewGroup::Attention, Some(section)) => self
                     .proposal_heights()
                     .into_iter()
@@ -178,7 +168,6 @@ impl MultisoulApp {
         let pressed = feedback.pressed;
         let title = match (group, section) {
             (OverviewGroup::Ideas, _) => "想法".to_owned(),
-            (OverviewGroup::Brain, _) => "Norma 自主处理".to_owned(),
             (_, Some(section)) => section.title.clone(),
             _ => String::new(),
         };
@@ -190,10 +179,6 @@ impl MultisoulApp {
             .count();
         let aside = match (group, section) {
             (OverviewGroup::Ideas, _) => (todo > 0).then(|| count_badge(todo, BadgeTone::Neutral)),
-            (OverviewGroup::Brain, _) => {
-                let count = self.brain_overview().actions.len();
-                (count > 0).then(|| count_badge(count, BadgeTone::Neutral))
-            }
             // 琥珀色只给“需要你处理”（要你介入）；运行中用青色，待开始用灰蓝，与原型一致。
             (OverviewGroup::Attention, Some(section)) => {
                 let extra = self.brain_overview().proposals.len();
@@ -327,7 +312,7 @@ impl BadgeTone {
             OverviewGroup::Attention => Self::Amber,
             OverviewGroup::Running => Self::Running,
             OverviewGroup::Idle => Self::Idle,
-            OverviewGroup::Brain | OverviewGroup::Ideas => Self::Neutral,
+            OverviewGroup::Ideas => Self::Neutral,
         }
     }
 

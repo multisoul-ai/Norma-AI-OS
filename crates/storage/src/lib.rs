@@ -46,9 +46,16 @@ pub mod memory;
 mod memory_access;
 pub use memory::{MemoryError, MemoryResult, MemorySnapshot, MemoryStore};
 pub use memory_access::{MemoryAccess, MemorySourceDetail};
+mod brain_activity_preview;
+mod brain_activity_store;
+pub use brain_activity_preview::BrainTurnPreview;
 pub mod migrations;
 pub mod mobile_access_store;
 mod mobile_activity_store;
+pub use brain_activity_store::{
+    BrainActionRow, BrainActivityBatch, BrainActivityStore, BrainItemRow, BrainTurnUpsert,
+    PruneReport, BRAIN_ACTIVITY_MAX_TEXT_BYTES, BRAIN_ACTIVITY_RETENTION_MS,
+};
 mod mobile_push_store;
 pub use mobile_activity_store::{
     ActivityJournal, MobileActivityRegistration, MobileActivityState, MobileActivityStore,

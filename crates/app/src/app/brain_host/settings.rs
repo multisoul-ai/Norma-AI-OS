@@ -18,6 +18,8 @@ pub(crate) struct BrainSettingsView {
     pub install_error: Option<(BackendKind, String)>,
     /// Codex、OpenCode 可选的模型。
     pub model_lists: std::collections::HashMap<BackendKind, super::ModelList>,
+    /// “清除幕僚活动记录”已点过一次，等待确认。
+    pub confirm_clear_activity: bool,
 }
 
 impl BrainSettingsView {
@@ -81,6 +83,7 @@ impl MultisoulApp {
             installing: self.brain.installing,
             install_error: self.brain.install_error.clone(),
             model_lists: self.brain.model_lists.clone(),
+            confirm_clear_activity: self.brain.activity.confirm_clear,
         }
     }
 
@@ -174,7 +177,7 @@ impl MultisoulApp {
         self.brain.settings = Some(settings);
         if restart {
             self.brain.start_generation += 1;
-            self.brain.host = None;
+            self.brain.retire_host();
             self.brain.starting = None;
             self.brain.next_start = Instant::now();
         }
@@ -182,14 +185,6 @@ impl MultisoulApp {
             self.cancel_agent_announcements();
         }
         cx.notify();
-    }
-
-    pub(crate) fn brain_why(&self) -> Option<&(String, u64)> {
-        self.brain.why_open.as_ref()
-    }
-
-    pub(crate) fn set_brain_why(&mut self, open: Option<(String, u64)>) {
-        self.brain.why_open = open;
     }
 
     pub(crate) fn brain_overview(&self) -> &super::OverviewSnapshot {
@@ -209,13 +204,6 @@ impl MultisoulApp {
                 app.brain_judging_nodes()
                     .into_iter()
                     .map(|node_id| (area_id.clone(), node_id)),
-            );
-            snapshot.actions.extend(
-                app.brain
-                    .log
-                    .items()
-                    .into_iter()
-                    .map(|a| (area_id.clone(), a)),
             );
             snapshot
                 .proposals
@@ -238,8 +226,6 @@ impl MultisoulApp {
                 .then_with(|| b.proposal.id.cmp(&a.proposal.id))
                 .then_with(|| a.area_id.cmp(&b.area_id))
         });
-        snapshot.actions.sort_by(|a, b| b.1.at.cmp(&a.1.at));
-        snapshot.actions.truncate(20);
         if snapshot != self.brain.overview {
             self.brain.overview = snapshot;
             cx.notify();

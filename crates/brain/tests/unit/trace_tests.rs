@@ -81,11 +81,23 @@ fn update_without_a_type_is_ignored() {
 }
 
 fn reply(text: &str) -> TraceItem {
-    TraceItem {
-        kind: TraceKind::Reply,
-        title: String::new(),
-        text: text.into(),
-    }
+    TraceItem::new(TraceKind::Reply, "", text)
+}
+
+/// 一轮结束条目携带结构化的停止原因与用时，持久化不必再解析中文文案。
+#[test]
+fn turn_end_item_carries_stop_reason_and_elapsed() {
+    let item = TraceItem::turn_end("end_turn", 1234);
+    assert_eq!(item.kind, TraceKind::Turn);
+    assert_eq!(
+        item.end,
+        Some(TurnEnd {
+            stop_reason: "end_turn".into(),
+            elapsed_ms: 1234
+        })
+    );
+    assert!(item.text.contains("end_turn") && item.text.contains("1234"));
+    assert_eq!(TraceItem::new(TraceKind::Reply, "", "x").end, None);
 }
 
 #[test]
@@ -102,11 +114,7 @@ fn consecutive_chunks_merge_into_one_item() {
 fn a_different_kind_flushes_the_pending_text_first() {
     let mut merger = Merger::default();
     merger.push(reply("先说一句"));
-    let tool = TraceItem {
-        kind: TraceKind::ToolCall,
-        title: "t".into(),
-        text: String::new(),
-    };
+    let tool = TraceItem::new(TraceKind::ToolCall, "t", "");
     let out = merger.push(tool.clone());
     assert_eq!(out.len(), 2);
     assert_eq!(out[0].text, "先说一句");
@@ -116,22 +124,14 @@ fn a_different_kind_flushes_the_pending_text_first() {
 #[test]
 fn reply_and_thought_do_not_merge_with_each_other() {
     let mut merger = Merger::default();
-    merger.push(TraceItem {
-        kind: TraceKind::Thought,
-        title: String::new(),
-        text: "想".into(),
-    });
+    merger.push(TraceItem::new(TraceKind::Thought, "", "想"));
     let out = merger.push(reply("说"));
     assert_eq!(out.len(), 1);
     assert_eq!(out[0].kind, TraceKind::Thought);
 }
 
 fn unknown(title: &str, text: &str) -> TraceItem {
-    TraceItem {
-        kind: TraceKind::Unknown,
-        title: title.into(),
-        text: text.into(),
-    }
+    TraceItem::new(TraceKind::Unknown, title, text)
 }
 
 /// 真实适配器每个 token 批次发一次 usage_update，一轮能有十几条；相邻的同类状态更新只留最新一条。

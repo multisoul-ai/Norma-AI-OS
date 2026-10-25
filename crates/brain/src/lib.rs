@@ -16,7 +16,7 @@ pub mod triage;
 
 pub use acp::client::discover_models;
 pub use backend::{Backend, BackendKind, ModelChoice, Strategy};
-pub use event::{ApprovalRequest, BrainEvent, BrainStatus, Outcome};
+pub use event::{ApprovalRequest, BrainEvent, BrainStatus, Outcome, Trigger, TriggerKind};
 pub use risk::ApprovalSubject;
 pub use risk::{is_inside_project, is_secret_path, single_command};
 pub use router::{Action, Lane, Router, RouterConfig};

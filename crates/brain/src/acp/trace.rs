@@ -1,5 +1,6 @@
 //! ACP 过程的观察口：把 `session/update` 整理成可展示的条目。纯数据与纯函数。
 
+use crate::event::Trigger;
 use serde_json::Value;
 use std::time::SystemTime;
 
@@ -26,11 +27,19 @@ pub enum TraceKind {
     Unknown,
 }
 
+/// 一轮结束时的结构化信息，只出现在 `TraceKind::Turn` 条目上。
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TurnEnd {
+    pub stop_reason: String,
+    pub elapsed_ms: u64,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TraceItem {
     pub kind: TraceKind,
     pub title: String,
     pub text: String,
+    pub end: Option<TurnEnd>,
 }
 
 impl TraceItem {
@@ -39,6 +48,22 @@ impl TraceItem {
             kind,
             title: title.into(),
             text: text.into(),
+            end: None,
+        }
+    }
+
+    pub fn turn_end(stop_reason: impl Into<String>, elapsed_ms: u64) -> Self {
+        let stop_reason = stop_reason.into();
+        Self {
+            end: Some(TurnEnd {
+                stop_reason: stop_reason.clone(),
+                elapsed_ms,
+            }),
+            ..Self::new(
+                TraceKind::Turn,
+                "本轮结束",
+                format!("stopReason={stop_reason}，用时 {elapsed_ms} 毫秒"),
+            )
         }
     }
 }
@@ -49,6 +74,8 @@ pub struct AcpTrace {
     pub at: SystemTime,
     pub lane: String,
     pub turn: u64,
+    /// 开这一轮的触发源；会话创建等不属于任何一轮的记录为 `Unknown`。
+    pub trigger: Trigger,
     pub item: TraceItem,
 }
 

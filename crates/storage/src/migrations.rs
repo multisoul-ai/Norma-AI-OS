@@ -170,6 +170,7 @@ pub fn migrate_app_db(connection: &Connection) -> StorageResult<()> {
     crate::mobile_access_store::migrate(connection)?;
     crate::mobile_push_store::migrate(connection)?;
     crate::mobile_activity_store::migrate(connection)?;
+    crate::brain_activity_store::migrate(connection)?;
     crate::project_plan_store::migrate(connection)?;
     crate::mobile_task_baseline_store::migrate(connection)?;
     crate::mobile_task_delivery_store::migrate(connection)?;

@@ -4,13 +4,19 @@ use brain::acp::trace::{AcpTrace, TraceKind};
 use brain::risk::ApprovalSubject;
 use brain::{
     ApprovalRequest, Backend, BackendKind, BrainConfig, BrainEvent, BrainService, BrainStatus,
-    RouterConfig,
+    RouterConfig, Trigger, TriggerKind,
 };
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
 
 const NORMA: &str = "/opt/norma/bin/norma";
+
+#[path = "unit/service_lifecycle_tests.rs"]
+mod lifecycle;
+
+#[path = "unit/service_quota_tests.rs"]
+mod quota;
 
 struct Harness {
     service: BrainService,
@@ -344,7 +350,7 @@ fn approval_workers_decide_how_many_approvals_run_in_parallel() {
 /// 数据构造：用户请求带 FAKE_TRACE，假适配器依次发出思考两段、工具调用、结果、计划、未知更新、回复两段。
 /// 预期结果：
 ///   - 正断言：第一条是 Prompt 且含完整提示；思考合并为“想想看”；回复合并为“先收到”；
-///     工具调用、结果、计划、未知类型各一条；最后是 Turn；lane 为 Main，轮次为 1
+///     工具调用、结果、计划、未知类型各一条；最后是 Turn；lane 为 Main，轮次非零且一致
 ///   - 负断言：思考与回复没有被拆成多条
 #[test]
 fn acp_process_is_traced_in_order() {
@@ -368,7 +374,29 @@ fn acp_process_is_traced_in_order() {
             Err(_) => panic!("等不到 Turn 记录，已收到：{traces:#?}"),
         }
     }
-    let main: Vec<&AcpTrace> = traces.iter().filter(|t| t.turn == 1).collect();
+    let main: Vec<&AcpTrace> = traces
+        .iter()
+        .filter(|t| t.item.kind != TraceKind::Lifecycle)
+        .collect();
+    let identity = traces
+        .iter()
+        .find(|t| t.item.kind == TraceKind::Lifecycle)
+        .expect("每轮可关联 ACP 会话");
+    assert!(
+        identity
+            .item
+            .text
+            .contains("backend=ClaudeCode session_id=fake-session"),
+        "保存后端及会话身份"
+    );
+    assert_eq!(
+        identity.turn, main[0].turn,
+        "会话身份与输入同轮，不产生虚假的第 0 轮"
+    );
+    assert!(
+        main.iter().all(|t| t.turn == main[0].turn && t.turn > 0),
+        "同轮记录使用相同非零标识"
+    );
     let kinds: Vec<TraceKind> = main.iter().map(|t| t.item.kind).collect();
     assert_eq!(
         kinds,
@@ -395,5 +423,12 @@ fn acp_process_is_traced_in_order() {
     assert_eq!(main[6].item.text, "先收到");
     assert!(main[7].item.text.contains("end_turn"));
     assert!(main.iter().all(|t| t.lane == "Main"));
+    // 同一轮的每条记录都带触发源；结束条目带结构化停止原因与用时。
+    assert!(main
+        .iter()
+        .all(|t| t.trigger == Trigger::new(TriggerKind::UserRequest, "")));
+    let end = main[7].item.end.as_ref().expect("Turn 条目带结束信息");
+    assert_eq!(end.stop_reason, "end_turn");
+    assert!(main[..7].iter().all(|t| t.item.end.is_none()));
     h.service.shutdown();
 }

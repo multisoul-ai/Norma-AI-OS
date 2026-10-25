@@ -92,7 +92,10 @@ fn failed_dispatch_keeps_the_proposal_and_does_not_log_success() {
             1,
             "原提议应保留供用户重试"
         );
-        assert!(app.brain.log.items().is_empty(), "不能生成成功派发记录");
+        assert!(
+            app.brain.activity_outbox.take().is_empty(),
+            "不能生成成功派发记录"
+        );
     });
 }
 

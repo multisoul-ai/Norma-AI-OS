@@ -1,6 +1,9 @@
 //! 只接受一条字面量命令；任何未加引号的 shell 运算符都失败关闭。
 
 pub(super) fn parse(command: &str) -> Option<Vec<String>> {
+    if command.contains(['\0', '\r']) || command.contains("\\\n") {
+        return None;
+    }
     let chars: Vec<char> = command.chars().collect();
     let mut i = 0;
     let mut argv = Vec::new();
@@ -26,8 +29,7 @@ fn read_word(chars: &[char], i: &mut usize) -> Option<String> {
     while let Some(&c) = chars.get(*i) {
         match c {
             ' ' | '\t' | '\n' | ';' | '|' | '&' | '<' | '>' => break,
-            '(' | ')' | '`' => return None,
-            '$' if chars.get(*i + 1) == Some(&'(') => return None,
+            '(' | ')' | '`' | '$' => return None,
             '\\' => {
                 word.push(*chars.get(*i + 1)?);
                 *i += 2;
@@ -45,11 +47,16 @@ fn read_word(chars: &[char], i: &mut usize) -> Option<String> {
                 loop {
                     match *chars.get(*i)? {
                         '"' => break,
-                        '`' => return None,
-                        '$' if chars.get(*i + 1) == Some(&'(') => return None,
+                        '`' | '$' => return None,
                         '\\' => {
-                            word.push(*chars.get(*i + 1)?);
-                            *i += 1;
+                            let next = *chars.get(*i + 1)?;
+                            // 双引号里只有这四个字符可由反斜杠转义；不能把 \q 变成 q。
+                            if matches!(next, '\\' | '"' | '$' | '`') {
+                                word.push(next);
+                                *i += 1;
+                            } else {
+                                word.push('\\');
+                            }
                         }
                         other => word.push(other),
                     }

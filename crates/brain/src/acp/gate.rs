@@ -17,7 +17,7 @@ impl PermissionRequest {
         let call = &params["toolCall"];
         let raw = &call["rawInput"];
         let kind = call["kind"].as_str().unwrap_or_default();
-        let tool = call["name"]
+        let mut tool = call["name"]
             .as_str()
             .map(str::to_string)
             .unwrap_or_else(|| match kind {
@@ -28,6 +28,10 @@ impl PermissionRequest {
             });
         let command = match &raw["command"] {
             Value::String(s) => Some(s.clone()),
+            Value::Object(fields) if fields.len() == 1 => fields
+                .get("normaShellCommand")
+                .and_then(Value::as_str)
+                .and_then(shell_script),
             Value::Array(items) => items
                 .iter()
                 .map(Value::as_str)
@@ -40,6 +44,13 @@ impl PermissionRequest {
                 }),
             _ => None,
         };
+        if tool == "exec_command"
+            && kind == "execute"
+            && raw["command"]["normaShellCommand"].is_string()
+            && command.is_some()
+        {
+            tool = "Bash".into();
+        }
         let path = raw["file_path"]
             .as_str()
             .or_else(|| raw["path"].as_str())
@@ -51,6 +62,19 @@ impl PermissionRequest {
             path,
         }
     }
+}
+
+/// 只解码适配器保留下来的原始 shell argv。裸字符串里的引号仍代表可执行文件名，
+/// 不能猜测它曾经是 shell 包装，更不能递归拆包。
+fn shell_script(command: &str) -> Option<String> {
+    let argv = single_command(command)?;
+    if argv.len() != 3
+        || !matches!(argv[0].as_str(), "/bin/sh" | "/bin/bash" | "/bin/zsh")
+        || !matches!(argv[1].as_str(), "-c" | "-lc")
+    {
+        return None;
+    }
+    Some(argv[2].clone())
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -128,3 +152,7 @@ pub fn pick_option(params: &Value, verdict: &Verdict) -> Option<String> {
 #[cfg(test)]
 #[path = "../../tests/unit/gate_tests.rs"]
 mod gate_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/gate_shell_tests.rs"]
+mod gate_shell_tests;
