@@ -98,6 +98,10 @@ impl MultisoulApp {
             "chrome.brain_trace_lane_main"
         });
         let meta = match turn.finished_ms {
+            _ if turn.is_session_event() => ui::i18n::format(
+                "chrome.brain_feed_meta_session",
+                &[("lane", lane.to_string())],
+            ),
             Some(end) => ui::i18n::format(
                 "chrome.brain_feed_meta",
                 &[
@@ -134,7 +138,9 @@ impl MultisoulApp {
                     .text_color(rgba(theme.text_secondary))
                     .child(meta),
             )
-            .child(badge(trigger, 0xffffff14))
+            .when(!turn.is_session_event(), |d| {
+                d.child(badge(trigger, 0xffffff14))
+            })
             .when(turn.needs_you, |d| {
                 d.child(badge(
                     ui::i18n::text("chrome.brain_feed_needs_badge").to_string(),

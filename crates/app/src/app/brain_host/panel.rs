@@ -44,12 +44,12 @@ impl MultisoulApp {
             }
             entries.push(Entry::Row(Box::new(row)));
         }
-        if let Some(target) = self.activity().scroll_to.clone() {
+        if let Some(target) = self.activity().scroll_target() {
             let index = entries
                 .iter()
                 .position(|e| matches!(e, Entry::Row(row) if row_key(row) == target));
             if let Some(index) = index {
-                self.activity().scroll.scroll_to_item(index);
+                self.activity().scroll.scroll_to_top_of_item(index);
             }
             self.activity_mut().scroll_to = None;
         }

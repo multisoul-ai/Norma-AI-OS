@@ -13,6 +13,13 @@ pub(crate) enum FeedTrigger {
     UserApproved,
 }
 
+impl FeedTurn {
+    /// 会话创建、失败重建等记在第 0 轮，不是一轮对话。
+    pub(crate) fn is_session_event(&self) -> bool {
+        self.key.3 == 0
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct FeedTurn {
     pub key: TurnKey,

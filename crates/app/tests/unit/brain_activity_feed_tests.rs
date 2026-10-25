@@ -258,3 +258,27 @@ fn clock_and_day_buckets_follow_the_local_offset() {
         "偏移 +9 时 now 已是 26 日，24 小时前是 25 日"
     );
 }
+
+/// 会话创建等事件落在“第 0 轮”：它不是一轮对话，不显示轮次号、用时和“进行中”。
+///
+/// 数据构造：第 0 轮（生命周期事件，没有结束时间）与正常的第 1 轮。
+/// 预期结果：第 0 轮是会话事件；第 1 轮不是。
+#[test]
+fn turn_zero_is_a_session_event_not_a_numbered_turn() {
+    let rows = build_feed(
+        vec![
+            turn(0, "Main", 1000, "unknown", "", None),
+            turn(1, "Main", 2000, "agent_finished", "Alan", Some(2100)),
+        ],
+        vec![],
+        vec![],
+    );
+    let flags: Vec<(i64, bool)> = rows
+        .iter()
+        .filter_map(|r| match r {
+            FeedRow::Turn(t) => Some((t.key.3, t.is_session_event())),
+            FeedRow::Action(_) => None,
+        })
+        .collect();
+    assert_eq!(flags, vec![(1, false), (0, true)]);
+}

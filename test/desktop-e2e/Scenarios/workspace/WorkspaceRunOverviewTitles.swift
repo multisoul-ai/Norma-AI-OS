@@ -88,7 +88,7 @@ public enum WorkspaceRunOverviewTitles {
             try await session.shortcut(key: 14, modifiers: [0x37, 0x38])
             _ = try await session.wait(Expectation(allOf: [FakeTitledAgentShell.claudePrompt], timeout: 20))
             // 待开始分组高度有限，三行放不下：先折叠其余分组，让三行都可见。
-            for (header, pick) in [("需要你处理", TextPick.top), ("想法", .top), ("Norma 自主处理", .top)] {
+            for (header, pick) in [("需要你处理", TextPick.top), ("想法", .top)] {
                 let frame = try await session.capture()
                 if let item = frame.pick([header], pick) {
                     try await session.click(local: item.center, on: frame)

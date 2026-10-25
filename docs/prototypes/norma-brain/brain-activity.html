@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>幕僚活动合并原型</title>
+<style>
+/* 目的：把左抽屉“Norma 自主处理”并入“幕僚活动”，并补上触发时间与触发源。数据全是本地示例。 */
+:root{color-scheme:dark;--bg:#0b0e13;--panel:#121b27;--line:#243041;--fg:#e4e9f1;--muted:#8d9bb0;--dim:#66758a;
+--blue:#58adff;--brain:#a68bff;--ok:#6fdc8c;--warn:#ffb15c;--danger:#ff7a7a;--cyan:#5fd0ff;
+--sans:-apple-system,"PingFang SC","Noto Sans SC",sans-serif;--mono:ui-monospace,Menlo,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.55 var(--sans)}
+.wrap{max-width:1100px;margin:0 auto;padding:24px 16px 64px;display:flex;flex-direction:column;gap:14px}
+h1{font-size:20px;margin:0}.note{color:var(--muted);margin:0}
+.stage{display:grid;grid-template-columns:240px 1fr;gap:14px;align-items:start}
+@media(max-width:820px){.stage{grid-template-columns:1fr}}
+button{all:unset;cursor:pointer;box-sizing:border-box}
+button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+/* 左抽屉：移除自主处理栏后，只留一个入口 */
+.drawer{background:#0f1620;border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.drawer h3{margin:0;font-size:12px;color:var(--dim);font-weight:500}
+.dgroup{display:flex;justify-content:space-between;padding:7px 9px;border-radius:8px;background:#ffffff08;color:var(--muted)}
+.entry{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:9px;background:#a68bff1a;color:#d6c9ff;border:1px solid #a68bff40}
+.entry:hover{background:#a68bff2e}.entry:active{background:#a68bff44}
+.entry .dot{margin-left:auto;background:var(--brain);color:#14102a;border-radius:999px;font-size:11px;padding:0 7px}
+.entry kbd{font:11px var(--mono);color:var(--dim)}
+.removed{border:1px dashed #ff7a7a66;border-radius:9px;padding:8px 10px;color:#ff9c9c;text-decoration:line-through;opacity:.7}
+/* 活动面板 */
+.panel{background:rgba(18,27,39,.97);border:1px solid var(--line);border-radius:16px;display:flex;flex-direction:column;min-height:620px;max-height:760px}
+.head{display:flex;align-items:center;gap:12px;padding:14px 18px 8px;flex-wrap:wrap}
+.head b{font-size:17px}.head .meta{color:var(--dim);font-size:12px}.head .esc{margin-left:auto;color:var(--dim);font-size:12px}
+.tools{display:flex;gap:8px;padding:0 18px 10px;flex-wrap:wrap;align-items:center}
+.seg{display:flex;gap:2px;background:#ffffff0a;border-radius:9px;padding:2px}
+.seg button{padding:4px 11px;border-radius:7px;color:var(--muted);font-size:12px}
+.seg button:hover{background:#ffffff10;color:var(--fg)}
+.seg button[aria-pressed=true]{background:#58adff2e;color:#cfe6ff}
+.seg .n{margin-left:5px;color:var(--dim)}
+select,.search{background:#ffffff0a;border:1px solid var(--line);color:var(--fg);border-radius:8px;padding:4px 8px;font:12px var(--sans)}
+.list{flex:1;min-height:0;overflow-y:auto;padding:4px 14px 16px;display:flex;flex-direction:column;gap:6px}
+.day{position:sticky;top:0;background:#121b27;padding:6px 4px 2px;color:var(--dim);font-size:11px;letter-spacing:.04em;z-index:1}
+/* 一行 = 一件事：时间列 + 内容 */
+.row{display:grid;grid-template-columns:76px 1fr;gap:10px;padding:9px 10px;border-radius:11px;background:#ffffff08}
+.row:hover{background:#ffffff10}
+.row.act{border-left:3px solid var(--brain);border-top-left-radius:4px;border-bottom-left-radius:4px}
+.row.needs{border-left-color:var(--warn)}
+.t{font:12px var(--mono);color:var(--fg);padding-top:1px}.t small{display:block;color:var(--dim);font:11px var(--sans)}
+.top{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.proj{font-weight:600}.sub{color:var(--muted);font-size:12px}
+.trig{font-size:11px;padding:1px 7px;border-radius:5px;background:#ffffff12;color:var(--muted)}
+.trig::before{content:"触发 · ";color:var(--dim)}
+.badge{font-size:11px;padding:1px 7px;border-radius:5px}
+.b-ok{background:#6fdc8c26;color:var(--ok)}.b-no{background:#ff7a7a26;color:var(--danger)}
+.b-as{background:#a68bff2e;color:#cdbfff}.b-me{background:#58adff2e;color:#a9d3ff}
+.chips{margin-left:auto;display:flex;gap:4px}
+.chip{font-size:11px;padding:1px 6px;border-radius:5px;background:#ffffff12}
+.chip.in{background:#58adff33}.chip.tool{background:#fb923c33}.chip.res{background:#4ade8033}.chip.perm{background:#facc1533}
+.sum{color:#c8d3e2;margin-top:3px}
+.dur{color:var(--dim);font-size:11px}
+.more{margin-top:8px;display:flex;flex-direction:column;gap:6px;border-top:1px solid #ffffff10;padding-top:8px}
+.why{color:var(--muted)}
+.acts{display:flex;gap:6px;flex-wrap:wrap}
+.pill{padding:3px 9px;border-radius:6px;background:#cde8ff14;color:#cfe3f4;font-size:12px}
+.pill:hover{background:#cde8ff2e}.pill:active{background:#cde8ff44}.pill[aria-disabled=true]{opacity:.4;pointer-events:none}
+.pill.on{background:#58adff40;color:#eef6ff}
+.link{color:var(--blue);font-size:12px}.link:hover{text-decoration:underline}
+.toggle{margin-left:auto;color:var(--dim);font-size:12px}.toggle:hover{color:var(--fg)}
+.flash{outline:2px solid var(--brain);transition:outline-color .8s}
+.empty{padding:60px;text-align:center;color:var(--dim)}
+.toast{color:var(--ok);font-size:12px;min-height:18px}
+.legend{color:var(--dim);font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <h1>幕僚活动：合并“自主处理”，补全触发信息</h1>
+    <p class="note">左：抽屉移除“Norma 自主处理”栏，只留带未读数的入口。右：幕僚活动按时间统一列出“对话轮次”和“自主动作”。点行展开；点“来自第 N 轮”跳到源头。</p>
+  </div>
+  <div class="stage">
+    <aside class="drawer" aria-label="运行概览抽屉">
+      <h3>运行概览</h3>
+      <div class="dgroup"><span>需要你</span><span>1</span></div>
+      <div class="dgroup"><span>运行中</span><span>3</span></div>
+      <div class="dgroup"><span>已完成</span><span>5</span></div>
+      <div class="removed">Norma 自主处理 · 4</div>
+      <button class="entry" id="open" aria-label="打开幕僚活动">幕僚活动 <kbd>⌘⇧B</kbd><span class="dot" id="unread">4</span></button>
+      <div class="legend">入口的数字 = 上次打开后新增的自主动作；点开即清零。</div>
+    </aside>
+    <section class="panel" aria-label="幕僚活动">
+      <div class="head"><b>幕僚活动</b><span class="meta" id="count"></span><span class="esc">Esc 关闭</span></div>
+      <div class="tools">
+        <div class="seg" id="filter" role="group" aria-label="类型">
+          <button data-f="all" aria-pressed="true">全部<span class="n"></span></button>
+          <button data-f="act" aria-pressed="false">自主动作<span class="n"></span></button>
+          <button data-f="turn" aria-pressed="false">对话轮次<span class="n"></span></button>
+          <button data-f="needs" aria-pressed="false">需要你<span class="n"></span></button>
+        </div>
+        <select id="proj" aria-label="项目"><option value="">全部项目</option></select>
+        <select id="trig" aria-label="触发源"><option value="">全部触发源</option></select>
+        <span class="toast" id="toast" role="status"></span>
+      </div>
+      <div class="list" id="list"></div>
+    </section>
+  </div>
+</div>
+<script>
+// 示例数据：m = 距今分钟数。trig = 触发源。turn 行来自 ACP 的一轮；act 行来自 AutoLog，via 指向产生它的轮次。
+const NOW = new Date();
+const D = [
+  {id:'t39',k:'turn',m:3,proj:'Norma-AI-OS',lane:'主会话',n:39,trig:'Agent 完成',who:'Chloe',dur:'12 秒',chips:[['输入 1','in'],['其他 2',''],['输出 1',''],['结束 1','']],sum:'没有下一步：本地 dev 已按用户要求同步完，没有冲突，cargo check 通过。不需要汇报。',detail:'触发事件：Chloe 的任务“同步本地 dev”结束（exit 0）。\n大脑判断：无剩余待办，不打扰用户。'},
+  {id:'a4',k:'act',kind:'assign',m:14,proj:'Norma-AI-OS',agent:'Alan',trig:'Agent 完成',via:'t35',sum:'按 CLAUDE.md §2、§7 用 scripts/desktop-e2e.sh 在真实 App 上验收卡片标题。先读测试控制通道确认能否注入 hook 事',why:'Alan 的实现已提交，只差真实 App 验收；CLAUDE.md 要求页面变更走 desktop-e2e。',key:'assign',node:7},
+  {id:'a3',k:'act',kind:'assign',m:15,proj:'Norma-AI-OS',agent:'Chloe',trig:'Agent 完成',via:'t35',sum:'在干净基线（用新的 git worktree 检出不含你改动的提交，不要用 git stash）上单独跑 command_dock_pending_pre',why:'用户的未提交改动会污染基线结果，所以让 Chloe 在独立 worktree 里复现。',key:'assign',node:3},
+  {id:'t38',k:'turn',m:21,proj:'Norma-AI-OS',lane:'主会话',n:38,trig:'Agent 完成',who:'Chloe',dur:'41 秒',chips:[['输入 1','in'],['其他 3',''],['工具 1','tool'],['结果 3','res'],['权限 1','perm'],['输出 1',''],['结束 1','']],sum:'剩下的两件事（修 GitHub 账单、决定本地 dev 怎么同步）都得用户自己拍板，Agent 去动分叉的本地 dev 有风险，所以没提议。',detail:'触发事件：Chloe 完成“豆包直呼 e2e”。\n工具：git log --oneline -20\n权限：只读命令，闸门放行。'},
+  {id:'a2',k:'act',kind:'approve',m:34,proj:'Norma-AI-OS',agent:'Chloe',trig:'审批请求',via:'t37',sum:'cargo test -p brain',why:'只读测试命令，不改文件、不联网，属于低风险，直接放行。',key:'Bash:cargo',node:3},
+  {id:'t37',k:'turn',m:35,proj:'Norma-AI-OS',lane:'审批',n:37,trig:'审批请求',who:'Chloe',dur:'6 秒',chips:[['输入 1','in'],['权限 1','perm'],['输出 1',''],['结束 1','']],sum:'Chloe 申请运行 cargo test -p brain：低风险，已放行。',detail:'触发事件：Chloe 的权限弹窗。\n闸门：未命中高风险清单。'},
+  {id:'n1',k:'turn',needs:true,m:52,proj:'Norma-AI-OS',lane:'审批',n:36,trig:'审批请求',who:'Alan',dur:'4 秒',chips:[['输入 1','in'],['权限 1','perm'],['结束 1','']],sum:'Alan 申请 git push origin dev：命中高风险规则，交给你决定。',detail:'触发事件：Alan 的权限弹窗。\n闸门：git push 在“一律先问我”清单里，大脑不放行。',pending:true},
+  {id:'a1',k:'act',kind:'user',m:95,proj:'Norma-AI-OS',agent:'Chloe',trig:'你批准提议',via:'t35',sum:'补注入转写操作和 e2e 场景',why:'你在概览里点了“批准”，由 App 派发。',key:'',node:3},
+  {id:'t35',k:'turn',m:96,proj:'Norma-AI-OS',lane:'主会话',n:35,trig:'Agent 完成',who:'Chloe',dur:'18 秒',chips:[['输入 1','in'],['其他 3',''],['工具 1','tool'],['结果 3','res'],['权限 1','perm'],['输出 1',''],['结束 1','']],sum:'已汇报：Chloe 的豆包直呼 e2e 场景真机 3/3 通过并已提交，项目画布直呼不触发的缺陷也修好了。',detail:'触发事件：Chloe 提交 d60447fd。\n输出：语音汇报一句。'},
+  {id:'t0',k:'turn',m:60*26,proj:'Multisoul',lane:'主会话',n:4,trig:'定时巡检',who:'—',dur:'9 秒',chips:[['输入 1','in'],['其他 1',''],['结束 1','']],sum:'没有新进展，这次不汇报。',detail:'触发事件：每 30 分钟的空闲巡检，所有 Agent 均无新结果。'}
+];
+const KIND = {approve:['放行','b-ok'],deny:['拒绝','b-no'],assign:['派发','b-as'],user:['你批准','b-me']};
+const state = {f:'all',proj:'',trig:'',open:new Set(),asked:new Set(),unread:4};
+const $ = s => document.querySelector(s);
+const pad = n => String(n).padStart(2,'0');
+const at = m => new Date(NOW.getTime() - m*60000);
+const hms = d => `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+// 相对时间不再统一写“稍早”：<1 分钟“刚刚”，其后按分钟/小时，旁边永远带绝对时刻。
+const rel = m => m < 1 ? '刚刚' : m < 60 ? `${m} 分钟前` : m < 1440 ? `${Math.floor(m/60)} 小时前` : `${Math.floor(m/1440)} 天前`;
+const day = m => { const d = at(m), t = new Date(NOW); t.setHours(0,0,0,0);
+  return d >= t ? '今天' : d >= new Date(t - 864e5) ? '昨天' : `${d.getMonth()+1} 月 ${d.getDate()} 日`; };
+const esc = s => s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+function fill(sel, vals){ const el = $(sel); vals.forEach(v => el.insertAdjacentHTML('beforeend', `<option>${esc(v)}</option>`)); }
+fill('#proj', [...new Set(D.map(d => d.proj))]);
+fill('#trig', [...new Set(D.map(d => d.trig))]);
+
+function visible(){
+  return D.filter(d => (state.f==='all' || (state.f==='needs' ? d.needs : d.k===state.f))
+    && (!state.proj || d.proj===state.proj) && (!state.trig || d.trig===state.trig));
+}
+function row(d){
+  const open = state.open.has(d.id), d0 = at(d.m);
+  const time = `<div class="t">${hms(d0)}<small>${rel(d.m)}</small></div>`;
+  const tog = `<span class="toggle">${open ? '收起' : (d.k==='act' ? '为什么' : '展开')}</span>`;
+  let head, body = '';
+  if (d.k === 'act') {
+    const [label, cls] = KIND[d.kind];
+    head = `<div class="top"><span class="badge ${cls}">${label}</span><span class="proj">${esc(d.proj)}</span><span class="sub">${esc(d.agent)}</span><span class="trig">${esc(d.trig)}</span>${tog}</div>
+      <div class="sum">${esc(d.sum)}</div>`;
+    if (open) body = `<div class="more"><div class="why">理由：${esc(d.why)}</div>
+      <div class="acts">${d.kind!=='user' ? `<button class="pill ${state.asked.has(d.key)?'on':''}" data-ask="${d.key}">${state.asked.has(d.key)?'已设为先问我':'以后这类先问我'}</button>`:''}
+      <button class="pill" data-stop="${d.id}" ${d.node?'':'aria-disabled="true"'}>停止该 Agent</button>
+      <button class="link" data-via="${d.via}">来自第 ${D.find(x=>x.id===d.via).n} 轮 ↗</button></div></div>`;
+  } else {
+    const kids = D.filter(x => x.via === d.id).length;
+    head = `<div class="top"><span class="proj">${esc(d.proj)}</span><span class="sub">${d.lane} · 第 ${d.n} 轮 · 用时 ${d.dur}</span><span class="trig">${esc(d.trig)}${d.who!=='—'?'：'+esc(d.who):''}</span>
+      ${d.needs ? '<span class="badge b-no">需要你</span>' : ''}${kids ? `<span class="badge b-as">产生 ${kids} 个动作</span>` : ''}
+      <span class="chips">${d.chips.map(([t,c]) => `<span class="chip ${c}">${t}</span>`).join('')}</span>${tog}</div>
+      <div class="sum">${esc(d.sum)}</div>`;
+    if (open) body = `<div class="more"><div class="why" style="white-space:pre-wrap">${esc(d.detail)}</div>
+      <div class="acts"><button class="pill" data-copy>复制本轮</button>${d.pending ? '<button class="pill on">去处理</button>' : ''}</div></div>`;
+  }
+  return `<div class="row ${d.k==='act'?'act':''} ${d.needs?'needs':''}" id="r-${d.id}" data-id="${d.id}" role="button" tabindex="0" aria-expanded="${open}">${time}<div>${head}${body}</div></div>`;
+}
+function render(){
+  const rows = visible(); let html = '', last = '';
+  rows.forEach(d => { const g = day(d.m); if (g !== last) { html += `<div class="day">${g}</div>`; last = g; } html += row(d); });
+  $('#list').innerHTML = html || '<div class="empty">没有符合条件的记录</div>';
+  $('#count').textContent = `${D.length} 条 · 只保存在内存，重启后清空`;
+  const c = {all:D.length, act:D.filter(d=>d.k==='act').length, turn:D.filter(d=>d.k==='turn').length, needs:D.filter(d=>d.needs).length};
+  document.querySelectorAll('#filter button').forEach(b => { b.querySelector('.n').textContent = c[b.dataset.f]; b.setAttribute('aria-pressed', b.dataset.f===state.f); });
+  $('#unread').textContent = state.unread; $('#unread').hidden = !state.unread;
+}
+function toast(t){ $('#toast').textContent = t; clearTimeout(toast.h); toast.h = setTimeout(() => $('#toast').textContent = '', 2200); }
+function toggle(id){ state.open.has(id) ? state.open.delete(id) : state.open.add(id); render(); }
+
+$('#filter').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { state.f = b.dataset.f; render(); } });
+$('#proj').onchange = e => { state.proj = e.target.value; render(); };
+$('#trig').onchange = e => { state.trig = e.target.value; render(); };
+$('#open').onclick = () => { state.unread = 0; state.f = 'act'; render(); toast('已清零未读，并筛到“自主动作”'); };
+$('#list').addEventListener('click', e => {
+  const t = e.target;
+  if (t.dataset.ask !== undefined) { state.asked.add(t.dataset.ask); render(); return toast('已记住：这类审批以后先问你'); }
+  if (t.dataset.stop) return toast('已发送停止指令（示例）');
+  if (t.dataset.via) { const id = t.dataset.via; state.f='all'; state.proj=''; state.trig=''; $('#proj').value=''; $('#trig').value=''; state.open.add(id); render();
+    const el = document.getElementById('r-'+id); el.scrollIntoView({block:'center'}); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 900); return; }
+  if (t.dataset.copy !== undefined) return toast('已复制（示例）');
+  const r = t.closest('.row'); if (r && !t.closest('button')) toggle(r.dataset.id);
+});
+$('#list').addEventListener('keydown', e => { const r = e.target.closest?.('.row'); if (r && e.target === r && (e.key==='Enter'||e.key===' ')) { e.preventDefault(); toggle(r.dataset.id); } });
+render();
+</script>
+</body>
+</html>

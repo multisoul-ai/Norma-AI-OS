@@ -159,5 +159,6 @@
   "chrome.brain_feed_verb_user": "You approved",
   "chrome.brain_entry_title": "Brain activity",
   "chrome.brain_entry_hint": "Every turn and autonomous action",
-  "chrome.brain_feed_loading": "Loading…"
+  "chrome.brain_feed_loading": "Loading…",
+  "chrome.brain_feed_meta_session": "%{lane} · session event"
 }

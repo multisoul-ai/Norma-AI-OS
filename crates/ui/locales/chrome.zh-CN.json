@@ -159,5 +159,6 @@
   "chrome.brain_feed_verb_user": "你批准",
   "chrome.brain_entry_title": "幕僚活动",
   "chrome.brain_entry_hint": "每一轮与自主处理",
-  "chrome.brain_feed_loading": "正在读取…"
+  "chrome.brain_feed_loading": "正在读取…",
+  "chrome.brain_feed_meta_session": "%{lane} · 会话事件"
 }

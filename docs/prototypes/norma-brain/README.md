@@ -1,6 +1,6 @@
 # Norma 大脑与语音汇报原型
 
-入口：[index.html](index.html)。单文件，无需构建，直接用浏览器打开。设计文档见 [`docs/design-docs/2026-10-23-norma-brain-acp.md`](../../design-docs/2026-10-23-norma-brain-acp.md)。
+入口：[index.html](index.html)。幕僚活动与“自主处理”合并的方案见 [brain-activity.html](brain-activity.html)（时间列、触发源、动作与轮次互链）。单文件，无需构建，直接用浏览器打开。设计文档见 [`docs/design-docs/2026-10-23-norma-brain-acp.md`](../../design-docs/2026-10-23-norma-brain-acp.md)。
 
 页面有四个标签：
 

@@ -223,3 +223,36 @@ fn clearing_needs_a_second_click() {
     assert!(view.request_clear(), "第二次才执行");
     assert!(!view.confirm_clear, "执行后恢复");
 }
+
+/// 跳转后的滚动要等展开那一轮的正文读到再执行：正文一到行高就变，提前滚会停在行的中部。
+///
+/// 数据构造：跳到第 1 轮（正文还没读到），随后快照带着该轮正文到达。
+/// 预期结果：正文到达前没有可执行的滚动目标；到达后目标是第 1 轮；动作行没有正文依赖，立即可滚。
+#[test]
+fn the_jump_scroll_waits_for_the_turn_body() {
+    let mut view = view_with_rows();
+    assert!(view.jump_to(&source_key()));
+    assert_eq!(view.scroll_target(), None, "正文还没到，不能滚");
+    let mut details = std::collections::HashMap::new();
+    details.insert(
+        source_key(),
+        vec![brain::acp::trace::TraceItem::new(
+            brain::acp::trace::TraceKind::Prompt,
+            "",
+            "p",
+        )],
+    );
+    view.apply(ActivitySnapshot {
+        rows: view.rows.clone(),
+        details,
+        ..Default::default()
+    });
+    assert_eq!(view.scroll_target(), Some(RowKey::Turn(source_key())));
+    view.scroll_to = Some(row_key(&view.rows[0]));
+    let first_is_action = matches!(&view.rows[0], FeedRow::Action(_));
+    assert_eq!(
+        view.scroll_target().is_some(),
+        first_is_action,
+        "动作行不依赖正文"
+    );
+}

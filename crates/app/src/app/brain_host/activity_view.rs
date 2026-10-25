@@ -178,6 +178,16 @@ impl ActivityView {
         true
     }
 
+    /// 现在就该滚到的行：展开的轮次要等正文读到，行高定了再滚。
+    pub(crate) fn scroll_target(&self) -> Option<RowKey> {
+        let target = self.scroll_to.as_ref()?;
+        let ready = match target {
+            RowKey::Turn(key) => self.details.contains_key(key),
+            RowKey::Action(_) => true,
+        };
+        ready.then(|| target.clone())
+    }
+
     pub(crate) fn flashing(&self, key: &RowKey, now: Instant) -> bool {
         self.flash
             .as_ref()

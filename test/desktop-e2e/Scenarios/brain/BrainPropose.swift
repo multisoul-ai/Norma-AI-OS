@@ -4,7 +4,7 @@ import Fixtures
 import Foundation
 
 /// 大脑只提议下一步：脚本化的大脑在 Alan 完成后提两条（给 Bella、给 Alan），
-/// 概览“需要你处理”里出现两行；忽略一条、派发一条，派发后“Norma 自主处理”出现记录。
+/// 概览“需要你处理”里出现两行；忽略一条、派发一条，派发后幕僚活动面板里出现“你批准”的记录。
 @MainActor
 public enum BrainPropose {
     public nonisolated static let name = "brain-propose"
@@ -111,9 +111,15 @@ public enum BrainPropose {
             guard !frame.contains("给 Bella") else {
                 throw E2EError.product("派发后提议仍在“需要你处理”里：\(frame.summary)")
             }
-            guard frame.contains("Norma 自主处理"), frame.contains("补上登录") else {
-                throw E2EError.product("派发后“Norma 自主处理”没有出现记录：\(frame.summary)")
-            }
+            // 派发记录现在在幕僚活动面板里：由用户批准的标“你批准”，没有“以后这类先问我”。
+            try await session.shortcut(key: 11, modifiers: [0x37, 0x38])
+            let panel = try await session.wait(Expectation(allOf: ["保留最近", "你批准", "补上登录"], timeout: 15))
+            try session.save(panel, "05b-dispatched-panel.png")
+            try await session.click(matching: ["补上登录"], pick: .top)
+            let detail = try await session.wait(Expectation(allOf: ["理由"], absent: ["以后这类先问我"], timeout: 8))
+            try session.save(detail, "05c-dispatched-detail.png")
+            try await session.shortcut(key: 53, modifiers: [])
+            _ = try await session.wait(Expectation(absent: ["保留最近"], timeout: 6))
             guard try await savedProposals(brainDir, expect: 0) == 0 else {
                 throw E2EError.product("处理完后提议文件里仍有内容")
             }
