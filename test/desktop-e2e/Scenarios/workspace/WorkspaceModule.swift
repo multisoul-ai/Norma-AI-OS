@@ -10,6 +10,7 @@ public enum WorkspaceModule {
             WorkspaceRunOverview.name,
             WorkspaceStatusCapsule.name,
             WorkspaceRunOverviewAgents.name,
+            WorkspaceRunOverviewTitles.name,
             WorkspaceOverviewFloat.name,
             WorkspaceTitlebarBrand.name,
             WorkspaceIdeas.name,
@@ -31,6 +32,9 @@ public enum WorkspaceModule {
                 return true
             case WorkspaceRunOverviewAgents.name:
                 try await WorkspaceRunOverviewAgents.run(session)
+                return true
+            case WorkspaceRunOverviewTitles.name:
+                try await WorkspaceRunOverviewTitles.run(session)
                 return true
             case WorkspaceStatusCapsule.name:
                 try await WorkspaceStatusCapsule.run(session)

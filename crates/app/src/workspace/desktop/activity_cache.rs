@@ -217,7 +217,7 @@ impl MultisoulApp {
         }
     }
 
-    fn note_workspace_activity_changed(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn note_workspace_activity_changed(&mut self, cx: &mut Context<Self>) {
         if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
             let _ = host.update(cx, |host, cx| host.mark_workspace_activity_dirty(cx));
             return;

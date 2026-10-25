@@ -31,6 +31,7 @@ mod orchestration_commands;
 pub(super) mod pending;
 mod reply_adapter;
 mod session_reply_queue;
+mod session_titles;
 
 pub(crate) use conversation_tails::{ConversationTailMemory, ConversationTailWriter};
 pub(crate) use identity::{self_dispatch_forbidden_error, AgentIdentitySnapshot};

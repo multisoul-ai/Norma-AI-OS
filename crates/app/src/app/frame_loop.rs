@@ -237,6 +237,7 @@ impl MultisoulApp {
                             app.clear_conversation_tail_for_node(event.node_id);
                         }
                     }
+                    app.refresh_session_titles(&agent_hook_report.events, cx);
                     let mut queue_changed = false;
                     for started in agent_hook_report.started_tasks {
                         queue_changed |=

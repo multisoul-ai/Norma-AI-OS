@@ -10,6 +10,8 @@ mod agent_session_binding_tests;
 mod agent_session_snapshot_tests;
 #[path = "../tests/unit/agent_latest_prompt_tests.rs"]
 mod agent_latest_prompt_tests;
+#[path = "../tests/unit/agent_session_title_tests.rs"]
+mod agent_session_title_tests;
 #[path = "../tests/unit/agent_task_event_tests.rs"]
 mod agent_task_event_tests;
 #[path = "../tests/unit/runtime_event_tests.rs"]
