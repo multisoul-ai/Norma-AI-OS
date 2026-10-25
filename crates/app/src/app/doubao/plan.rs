@@ -17,12 +17,19 @@ mod tts;
 #[path = "../../../tests/unit/doubao_hold_real_pipeline_tests.rs"]
 mod hold_real_tests;
 
+/// 端点覆盖只存在于 e2e/debug 构建，release 与 production-data 始终走生产地址。
 fn plan_url(env: &str, production: &str) -> String {
-    #[cfg(feature = "e2e-test-support")]
+    #[cfg(any(
+        feature = "e2e-test-support",
+        all(debug_assertions, not(feature = "production-data"))
+    ))]
     {
         std::env::var(env).unwrap_or_else(|_| production.into())
     }
-    #[cfg(not(feature = "e2e-test-support"))]
+    #[cfg(not(any(
+        feature = "e2e-test-support",
+        all(debug_assertions, not(feature = "production-data"))
+    )))]
     {
         let _ = env;
         production.into()

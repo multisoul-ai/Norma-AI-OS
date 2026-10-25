@@ -41,7 +41,7 @@ bash scripts/desktop-e2e.sh workspace-lifecycle --repeat 5
 
 `crates/app/src/e2e_control/` 只编进 macOS debug 构建（`debug_assertions` 且未启用 `production-data`），release 与打包产物里没有这段代码。启动时同时设置 `NORMA_E2E_CONTROL_SOCKET` 和不短于 32 字符的 `NORMA_E2E_CONTROL_TOKEN` 才会监听；socket 权限为 `0600`，只接受同一用户的连接，每条请求都要带 token。
 
-通道只提供原始输入与画面：鼠标移动/按下/抬起、滚轮、按键、文字、窗口尺寸、激活和导出本窗口 PNG。它不读取产品内部状态，断言仍靠 OCR、隔离 SQLite 和文件。输入经 GPUI `Window::dispatch_event` / `dispatch_keystroke` 进入窗口，截图用 macOS 允许进程读取自身窗口的接口，所以都不需要系统授权。
+通道只提供原始输入与画面：鼠标移动/按下/抬起、滚轮、按键、文字、窗口尺寸、激活和导出本窗口 PNG；另有一个语音专用操作 `doubao_transcript`，把一句转写当作豆包 ASR 最终结果注入当前项目会话（ASR 无法在真实 App 里稳定复现，其余回复、直呼路由和工具执行仍走生产路径）。它不读取产品内部状态，断言仍靠 OCR、隔离 SQLite 和文件。输入经 GPUI `Window::dispatch_event` / `dispatch_keystroke` 进入窗口，截图用 macOS 允许进程读取自身窗口的接口，所以都不需要系统授权。
 
 ### 与旧路径对比
 
@@ -65,7 +65,7 @@ bash scripts/desktop-e2e.sh workspace-lifecycle --repeat 5
 | `NORMA_E2E_NO_ACTIVATE=1` | 连 App 内的 active 标记也不做，仅用于验证非活动窗口行为。焦点路径缺失时部分输入会被丢掉，正常验收不要设置。 |
 | `NORMA_E2E_AUDIO_FIXTURE=<wav>` | debug 构建里用这段 WAV 代替麦克风（按实时节奏回放，播完后输出静音），并报告麦克风已授权，不会触发系统授权。release 构建不含这段代码。本地 Sherpa 听写走的 `AudioCapture` 路径不支持，会直接报错。诊断示例：`cargo run -p voice_input --example e2e_fixture_probe`。 |
 
-`voice-live-call` 的云端部分仍需要 `NORMA_LIVE_TEST_KEY_FILE`。
+`voice-live-call` 的云端部分仍需要 `NORMA_LIVE_TEST_KEY_FILE`。`voice-doubao-direct` 不需要：debug 构建下 `NORMA_DOUBAO_CHAT_URL` / `NORMA_DOUBAO_TTS_URL` 可指向本机假方舟（release 与 `production-data` 构建忽略这些变量）。
 
 ### 不打扰用户
 

@@ -281,6 +281,17 @@ fn execute_in(command: Command, window: &mut Window, cx: &mut App) -> Outcome {
         Command::NsMouse { .. } | Command::NsText { .. } | Command::NsKey { .. } => done(
             Response::error("native input runs outside the window lease"),
         ),
+        Command::DoubaoTranscript { text } => {
+            let injected = crate::workspace::desktop::sessions::windowed(cx)
+                .ok_or_else(|| "no windowed project host".to_string())
+                .and_then(|app| {
+                    app.update(cx, |app, cx| app.inject_doubao_transcript(text, window, cx))
+                });
+            done(match injected {
+                Ok(()) => Response::ok(),
+                Err(error) => Response::error(error),
+            })
+        }
         Command::Capture { path } => match window_info(window) {
             Ok(window) => Outcome::Capture { window, path },
             Err(error) => done(Response::error(error)),

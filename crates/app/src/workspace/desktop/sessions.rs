@@ -25,6 +25,16 @@ pub(crate) fn hosts(database: &Path, cx: &App) -> Vec<Entity<MultisoulApp>> {
         .unwrap_or_default()
 }
 
+/// 桌面 E2E 控制通道用：隔离运行里只有一个带窗口的项目宿主。
+#[cfg(all(debug_assertions, not(feature = "production-data")))]
+pub(crate) fn windowed(cx: &App) -> Option<Entity<MultisoulApp>> {
+    cx.try_global::<DesktopHosts>()?
+        .0
+        .iter()
+        .find(|host| host.window.is_some())
+        .map(|host| host.app.clone())
+}
+
 pub(crate) fn detached(database: &Path, cx: &App) -> Option<Entity<MultisoulApp>> {
     cx.try_global::<DesktopHosts>()?
         .0

@@ -155,6 +155,7 @@ impl ChatRuntime {
         if transcript.trim().is_empty() {
             return Ok(());
         }
+        tracing::info!(target: "norma_voice", turn, "Doubao reply turn started");
         let memory = if let Some(tools) = &self.tools {
             tools
                 .memory_context()
@@ -341,10 +342,17 @@ impl ChatRuntime {
             .await
             .map_err(|_| LocalizedText::new("doubao.call_ended"))?;
         let calls = match direct::plan(transcript, &roster, desktop.as_ref()) {
-            agent::DirectPlan::Skip => return Ok(None),
-            agent::DirectPlan::Say(text) => return Ok(Some(text)),
+            agent::DirectPlan::Skip => {
+                tracing::info!(target: "norma_voice", turn, "Doubao direct route skipped; asking model");
+                return Ok(None);
+            }
+            agent::DirectPlan::Say(text) => {
+                tracing::info!(target: "norma_voice", turn, "Doubao direct route answered without side effects");
+                return Ok(Some(text));
+            }
             agent::DirectPlan::Calls(calls) => calls,
         };
+        tracing::info!(target: "norma_voice", turn, calls = calls.len(), "Doubao direct route dispatching");
         let Some(runtime) = &self.tools else {
             return Ok(None);
         };
