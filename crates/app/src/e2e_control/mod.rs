@@ -17,6 +17,10 @@ mod protocol;
 #[path = "../../tests/unit/e2e_control_tests.rs"]
 mod tests;
 
+#[cfg(test)]
+#[path = "../../tests/unit/e2e_text_input_tests.rs"]
+mod text_input_tests;
+
 use gpui::{
     px, size, AnyWindowHandle, App, AsyncApp, KeyUpEvent, Keystroke, PlatformInput, Window,
 };
@@ -70,26 +74,68 @@ pub(crate) fn install(cx: &mut App) {
     }
     cx.spawn(async move |cx| {
         while let Ok(job) = receiver.recv().await {
-            let outcome = match job.command {
-                Command::NsMouse { .. } | Command::NsText { .. } | Command::NsKey { .. } => {
-                    execute_native(job.command, cx)
-                }
-                command => {
-                    let activates = matches!(command, Command::Activate);
-                    let outcome = cx
-                        .update(|cx| execute(command, cx))
-                        .unwrap_or_else(|_| Outcome::Done(Response::error("app unavailable")));
-                    if activates && !foreground_requested() {
-                        settle_frames(cx).await;
-                    }
-                    outcome
-                }
-            };
+            let activates = matches!(job.command, Command::Activate);
+            let outcome = execute_command(job.command, cx);
+            if activates && !foreground_requested() {
+                settle_frames(cx).await;
+            }
             let _ = job.reply.send(outcome).await;
         }
     })
     .detach();
     tracing::warn!(socket = %config.socket.display(), "desktop E2E control channel enabled");
+}
+
+fn execute_command(command: Command, cx: &mut AsyncApp) -> Outcome {
+    match command {
+        Command::Key { keystroke } => match Keystroke::parse(&keystroke) {
+            Ok(key) => execute_keys(vec![key], cx),
+            Err(error) => Outcome::Done(Response::error(error.to_string())),
+        },
+        Command::Text { text } => execute_keys(text_keystrokes(&text), cx),
+        Command::NsMouse { .. } | Command::NsText { .. } | Command::NsKey { .. } => {
+            execute_native(command, cx)
+        }
+        command => cx
+            .update(|cx| execute(command, cx))
+            .unwrap_or_else(|_| Outcome::Done(Response::error("app unavailable"))),
+    }
+}
+
+/// Each native event ends an App update before the next event can redraw the window.
+/// Keep that boundary here too: a KeyUp redraw must see InputEvent::Change effects
+/// from KeyDown, otherwise controlled inputs can restore their stale model value.
+fn execute_keys(keys: Vec<Keystroke>, cx: &mut AsyncApp) -> Outcome {
+    let handle = match cx.update(target_window) {
+        Ok(Some(handle)) => handle,
+        Ok(None) => return Outcome::Done(Response::error("no window")),
+        Err(_) => return Outcome::Done(Response::error("app unavailable")),
+    };
+    for (index, key) in keys.into_iter().enumerate() {
+        for phase in ["down", "up"] {
+            let outcome = cx.update(|cx| {
+                handle.update(cx, |_, window, cx| {
+                    if phase == "down" {
+                        window.dispatch_keystroke(key.clone(), cx);
+                    } else {
+                        window.dispatch_event(
+                            PlatformInput::KeyUp(KeyUpEvent {
+                                keystroke: key.clone(),
+                            }),
+                            cx,
+                        );
+                    }
+                })
+            });
+            let error = match outcome {
+                Ok(Ok(())) => continue,
+                Ok(Err(_)) => "window closed",
+                Err(_) => "app unavailable",
+            };
+            return Outcome::Done(Response::error(format!("key[{index}] {phase}: {error}")));
+        }
+    }
+    Outcome::Done(Response::ok())
 }
 
 fn bind(path: &Path) -> std::io::Result<UnixListener> {
@@ -257,21 +303,11 @@ fn execute_in(command: Command, window: &mut Window, cx: &mut App) -> Outcome {
             window.dispatch_event(scroll_input(x, y, dy), cx);
             done(Response::ok())
         }
-        Command::Key { keystroke } => match Keystroke::parse(&keystroke) {
-            Ok(keystroke) => {
-                press(keystroke, window, cx);
-                done(Response::ok())
-            }
-            Err(error) => done(Response::error(error.to_string())),
-        },
+        Command::Key { .. } | Command::Text { .. } => done(Response::error(
+            "keyboard input requires an App update boundary between events",
+        )),
         Command::Modifiers { modifiers } => {
             window.dispatch_event(modifiers_input(&modifiers), cx);
-            done(Response::ok())
-        }
-        Command::Text { text } => {
-            for keystroke in text_keystrokes(&text) {
-                press(keystroke, window, cx);
-            }
             done(Response::ok())
         }
         Command::Resize { width, height } => {
@@ -335,11 +371,6 @@ const FRAME_SETTLE_TIMEOUT: std::time::Duration = std::time::Duration::from_mill
 /// `NORMA_E2E_FOREGROUND=1` restores the old behaviour of taking the OS foreground.
 pub(super) fn foreground_requested() -> bool {
     placement::flag_enabled(std::env::var("NORMA_E2E_FOREGROUND").ok().as_deref())
-}
-
-fn press(keystroke: Keystroke, window: &mut Window, cx: &mut App) {
-    window.dispatch_keystroke(keystroke.clone(), cx);
-    window.dispatch_event(PlatformInput::KeyUp(KeyUpEvent { keystroke }), cx);
 }
 
 fn window_info(window: &Window) -> Result<WindowInfo, &'static str> {

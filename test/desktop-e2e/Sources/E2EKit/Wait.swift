@@ -61,34 +61,14 @@ extension Session {
         expect: Expectation,
         action: () async throws -> Void
     ) async throws -> Frame {
-        var last: Error?
-        for attempt in 1...attempts {
-            do {
-                let frame = try await peek()
-                if frame.satisfies(expect) { return frame }
-            } catch let error as E2EError where error.kind == .env {
-                throw error
-            } catch {
-                last = error
-            }
-            do {
-                try await action()
-            } catch let error as E2EError {
-                if error.kind == .env { throw error }
-                last = error
-            } catch {
-                last = error
-            }
-            let slice = Expectation(anyOf: expect.anyOf, allOf: expect.allOf, absent: expect.absent, timeout: expect.timeout)
-            do {
-                return try await wait(slice, saveFailure: attempt == attempts)
-            } catch let error as E2EError where error.kind == .env {
-                throw error
-            } catch {
-                last = error
-            }
-        }
-        throw last ?? E2EError.product("\(name) 在 \(attempts) 次尝试后仍未达到期望")
+        try await retryAction(name, attempts: attempts, peek: {
+            let frame = try await peek()
+            return frame.satisfies(expect) ? frame : nil
+        }, action: action, wait: { lastAttempt in
+            try await wait(expect, saveFailure: lastAttempt)
+        }, record: { attempt, stage, detail in
+            recordDriverEvent("action", stage, "\(name) attempt=\(attempt): \(detail)")
+        })
     }
 
     private func peek() async throws -> Frame {
@@ -99,4 +79,46 @@ extension Session {
             throw error
         }
     }
+}
+
+/// The retry boundary joins an observed precondition, actual input, and its postcondition.
+@MainActor
+func retryAction<Result>(
+    _ name: String,
+    attempts: Int,
+    peek: () async throws -> Result?,
+    action: () async throws -> Void,
+    wait: (Bool) async throws -> Result,
+    record: (Int, String, String) -> Void = { _, _, _ in }
+) async throws -> Result {
+    var last: Error?
+    for attempt in 1...attempts {
+        do {
+            if let ready = try await peek() { return ready }
+        } catch {
+            record(attempt, "observation-failed", "\(error)")
+            if let failure = error as? E2EError, failure.kind == .env {
+                record(attempt, "action-not-started", "本次 actionInvoked=false；\(error)")
+                throw error
+            }
+            last = error
+        }
+        do {
+            try await action()
+            record(attempt, "action-completed", "动作已完成，开始核对后置状态")
+        } catch {
+            record(attempt, "action-failed", "\(error)")
+            if let failure = error as? E2EError, failure.kind == .env { throw error }
+            last = error
+            continue
+        }
+        do {
+            return try await wait(attempt == attempts)
+        } catch {
+            record(attempt, "postcondition-failed", "\(error)")
+            if let failure = error as? E2EError, failure.kind == .env { throw error }
+            last = error
+        }
+    }
+    throw last ?? E2EError.product("\(name) 在 \(attempts) 次尝试后仍未达到期望")
 }

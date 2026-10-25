@@ -26,15 +26,17 @@ extension Session {
     }
 
     public func click(matching candidates: [String], pick: TextPick) async throws {
-        let frame = try await capture()
-        guard let text = frame.pick(candidates, pick) else {
-            throw E2EError.product("未识别到可点击文字：\(candidates.joined(separator: " / "))。可见：\(frame.summary)")
+        try await sendClick {
+            let frame = try await capture()
+            guard let text = frame.pick(candidates, pick) else {
+                throw E2EError.product("未识别到可点击文字：\(candidates.joined(separator: " / "))。可见：\(frame.summary)")
+            }
+            return try await clickPoint(local: text.center, on: frame, requery: candidates, pick: pick)
         }
-        try await click(local: text.center, on: frame, requery: candidates, pick: pick)
     }
 
     public func click(local: CGPoint, on frame: Frame) async throws {
-        try await click(local: local, on: frame, requery: nil, pick: nil)
+        try await sendClick { try await clickPoint(local: local, on: frame, requery: nil, pick: nil) }
     }
 
     /// 在本次隔离窗口里连续拖动，供抽屉、卡片等真实指针交互验收。
@@ -117,7 +119,16 @@ extension Session {
         try await click(local: local, on: frame)
     }
 
-    private func click(local: CGPoint, on frame: Frame, requery: [String]?, pick: TextPick?) async throws {
+    private func sendClick(resolve: () async throws -> CGPoint) async throws {
+        let clickID = UUID().uuidString
+        try await deliverClick(resolve: resolve, send: { phase, point in
+            try await mouse(phase, point)
+        }, record: { stage, detail in
+            recordDriverEvent("click", stage, "id=\(clickID) \(detail)")
+        })
+    }
+
+    private func clickPoint(local: CGPoint, on frame: Frame, requery: [String]?, pick: TextPick?) async throws -> CGPoint {
         try await activate()
         var point = local
         let window = try await currentWindow()
@@ -131,11 +142,7 @@ extension Session {
             }
             point = text.center
         }
-        try await mouse("move", point)
-        try await Task.sleep(nanoseconds: 160_000_000)
-        try await mouse("down", point)
-        try await Task.sleep(nanoseconds: 40_000_000)
-        try await mouse("up", point)
+        return point
     }
 
     /// Spike: NORMA_E2E_INPUT=ns routes mouse/text through AppKit NSWindow.sendEvent.

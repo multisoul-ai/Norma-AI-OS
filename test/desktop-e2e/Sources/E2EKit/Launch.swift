@@ -44,6 +44,7 @@ public final class Session {
     let started = Date()
     var steps: [StepRecord] = []
     var screenshotNames: [String] = []
+    var driverEvents: [[String: Any]] = []
     private var logHandle: FileHandle?
 
     public init(scenario: String, appPath: String, artifactRoot: String) {

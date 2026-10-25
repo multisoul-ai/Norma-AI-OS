@@ -8,16 +8,19 @@ public struct E2EError: Error, CustomStringConvertible {
 
     public let kind: Kind
     public let message: String
+    public let layer: String
 
-    public init(_ kind: Kind, _ message: String) {
+    public init(_ kind: Kind, _ message: String, layer: String? = nil) {
         self.kind = kind
         self.message = message
+        self.layer = layer ?? (kind == .env ? "environment" : "product")
     }
 
     public var description: String { "[\(kind.rawValue.uppercased())] \(message)" }
 
     public static func env(_ message: String) -> E2EError { E2EError(.env, message) }
     public static func product(_ message: String) -> E2EError { E2EError(.product, message) }
+    public static func driver(_ message: String) -> E2EError { E2EError(.env, message, layer: "driver") }
 }
 
 struct StepRecord {
@@ -28,6 +31,15 @@ struct StepRecord {
 }
 
 extension Session {
+    /// Keep recovery causes and input acknowledgements in both the console and final report.
+    func recordDriverEvent(_ category: String, _ stage: String, _ detail: String) {
+        driverEvents.append([
+            "seconds": Date().timeIntervalSince(started), "category": category,
+            "stage": stage, "detail": detail,
+        ])
+        print("DRIVER \(category) \(stage): \(detail)")
+    }
+
     func record(_ name: String, _ passed: Bool, since start: Date, _ detail: String) {
         let seconds = Date().timeIntervalSince(start)
         steps.append(StepRecord(name: name, passed: passed, seconds: seconds, detail: detail))
@@ -56,14 +68,14 @@ extension Session {
 
     public func finishFailure(_ error: Error) {
         let kind = (error as? E2EError)?.kind ?? .product
-        try? writeReport(result: "fail", kind: kind, message: "\(error)")
+        try? writeReport(result: "fail", kind: kind, message: "\(error)", layer: (error as? E2EError)?.layer)
         fputs("FAIL \(scenario): \(error)\n", stderr)
         if let output {
             fputs("证据 \(output.path)\n", stderr)
         }
     }
 
-    func writeReport(result: String, kind: E2EError.Kind?, message: String) throws {
+    func writeReport(result: String, kind: E2EError.Kind?, message: String, layer: String? = nil) throws {
         let root = output ?? artifactRoot
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let seconds = Date().timeIntervalSince(started)
@@ -73,6 +85,7 @@ extension Session {
             "seconds": seconds,
             "message": message,
             "screenshots": screenshotNames,
+            "driverEvents": driverEvents,
             "steps": steps.map { step in
                 [
                     "name": step.name,
@@ -83,6 +96,7 @@ extension Session {
             },
         ]
         if let kind { payload["kind"] = kind.rawValue }
+        if let layer { payload["failureLayer"] = layer }
         if let output { payload["output"] = output.path }
         if let dataRoot { payload["dataRoot"] = dataRoot.path }
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys])

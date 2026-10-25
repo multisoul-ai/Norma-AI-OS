@@ -6,6 +6,15 @@ import Scenarios
 struct Main {
     static func main() async {
         let arguments = CommandLine.arguments
+        if arguments.count == 3, arguments[1] == "recognize" {
+            do {
+                try writeAccurateRecognition(pngPath: arguments[2])
+                exit(0)
+            } catch {
+                fputs("\(error)\n", stderr)
+                exit(3)
+            }
+        }
         if arguments.count >= 2, arguments[1] == "list" {
             let selector = arguments.count >= 3 ? arguments[2] : nil
             let code = await MainActor.run { () -> Int32 in

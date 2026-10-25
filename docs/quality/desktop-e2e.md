@@ -26,6 +26,10 @@ bash scripts/desktop-e2e.sh workspace-lifecycle --repeat 5
 
 退出码：`0` 通过，`1` 产品断言失败，`3` 环境失败。环境失败应停下来处理锁屏、构建或控制通道问题，不要换一种输入方式绕过。
 
+识别和输入驱动故障也使用退出码 `3`，报告标记 `kind=env`、`failureLayer=driver`。Vision 默认精确识别执行失败时，依次尝试同进程 CPU 精确识别和独立进程 CPU 精确识别；独立进程读取当前原始 PNG，20 秒超时后收尾。全部精确路径失败时，快速 OCR 只留作诊断，不能支持 present / absent 断言，并保存 `failure-ocr-*.png`。原始识别错误与恢复结果保存在 `report.json` 的 `driverEvents` 和控制台日志。
+
+点击证据按同一个 `id` 串联：`not-sent` 表示定位或准备失败、尚未调用鼠标传输；`dispatch-attempted` 表示开始调用；`acknowledged` 表示控制通道确认；`delivery-unknown` 表示调用失败、无法确认送达。完整 move/down/up 确认后仍必须检查产品后置状态。动作抛错时不会等待该动作的后置条件，每次重试的原始错误独立留存，不能用后置超时覆盖未发送点击的原因。
+
 ## 谁判什么
 
 | 层 | 判据 |
@@ -42,6 +46,8 @@ bash scripts/desktop-e2e.sh workspace-lifecycle --repeat 5
 `crates/app/src/e2e_control/` 只编进 macOS debug 构建（`debug_assertions` 且未启用 `production-data`），release 与打包产物里没有这段代码。启动时同时设置 `NORMA_E2E_CONTROL_SOCKET` 和不短于 32 字符的 `NORMA_E2E_CONTROL_TOKEN` 才会监听；socket 权限为 `0600`，只接受同一用户的连接，每条请求都要带 token。
 
 通道只提供原始输入与画面：鼠标移动/按下/抬起、滚轮、按键、文字、窗口尺寸、激活和导出本窗口 PNG；另有一个语音专用操作 `doubao_transcript`，把一句转写当作豆包 ASR 最终结果注入当前项目会话（ASR 无法在真实 App 里稳定复现，其余回复、直呼路由和工具执行仍走生产路径）。它不读取产品内部状态，断言仍靠 OCR、隔离 SQLite 和文件。输入经 GPUI `Window::dispatch_event` / `dispatch_keystroke` 进入窗口，截图用 macOS 允许进程读取自身窗口的接口，所以都不需要系统授权。
+
+默认键盘投递必须在每个 KeyDown、KeyUp 之间结束一次 `App.update`，让输入控件的 Change 订阅先更新模型，再允许下一事件触发重绘。不能把整段文字和按键抬起塞进同一个更新，否则受控输入可能在重绘时被旧模型值清空。通道 ACK 只证明命令处理完成；焦点、输入框实际文字和过滤后的列表须分别取证，不能只凭点击 ACK 将输入后置失败判为产品故障。
 
 ### 与旧路径对比
 

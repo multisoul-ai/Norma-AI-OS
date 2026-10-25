@@ -1,10 +1,11 @@
 import AppKit
 import CoreGraphics
+import CoreML
 import Foundation
 import ImageIO
 import Vision
 
-public struct VisibleText {
+public struct VisibleText: Codable {
     public let value: String
     public let rect: CGRect
 
@@ -70,29 +71,70 @@ func retryCapture<T>(
     return nil
 }
 
-/// Recover from Vision's occasional compute model failure without turning it into a product verdict.
+/// Only accurate recognition can support presence/absence assertions. Fast results are diagnostic.
 func recoverVisionRecognition<T>(
     accurate: () throws -> T,
+    cpuAccurate: (() throws -> T)? = nil,
+    isolatedAccurate: (() throws -> T)? = nil,
+    record: (String, String) -> Void = { _, _ in },
+    describe: (T) -> String = { String(describing: $0) },
     fast: () throws -> T
 ) throws -> T {
+    var failures: [String] = []
     do {
         return try accurate()
-    } catch let accurateError {
+    } catch {
+        failures.append("精确模式：\(error)")
+        record("accurate-failed", "\(error)")
+    }
+    if let cpuAccurate {
         do {
-            return try fast()
-        } catch let fastError {
-            throw E2EError.env("macOS Vision 文字识别不可用；精确模式：\(accurateError)；快速模式：\(fastError)")
+            let result = try cpuAccurate()
+            record("cpu-accurate-recovered", describe(result))
+            return result
+        } catch {
+            failures.append("CPU 精确模式：\(error)")
+            record("cpu-accurate-failed", "\(error)")
         }
     }
+    if let isolatedAccurate {
+        do {
+            let result = try isolatedAccurate()
+            record("isolated-accurate-recovered", describe(result))
+            return result
+        } catch {
+            failures.append("独立进程精确模式：\(error)")
+            record("isolated-accurate-failed", "\(error)")
+        }
+    }
+    do {
+        failures.append("快速模式（仅诊断，不参与断言）：\(describe(try fast()))")
+    } catch {
+        failures.append("快速模式：\(error)")
+    }
+    let detail = failures.joined(separator: "；")
+    record("recognition-unavailable", detail)
+    throw E2EError.driver("macOS Vision 精确文字识别不可用；\(detail)")
 }
 
-private func recognizeText(_ image: CGImage, level: VNRequestTextRecognitionLevel) throws -> [VNRecognizedTextObservation] {
+func recognizeText(_ image: CGImage, level: VNRequestTextRecognitionLevel, cpuOnly: Bool = false) throws -> [VisibleText] {
     let request = VNRecognizeTextRequest()
     request.recognitionLevel = level
     request.recognitionLanguages = ["zh-Hans", "en-US"]
     request.usesLanguageCorrection = false
+    if cpuOnly {
+        for (stage, devices) in try request.supportedComputeStageDevices {
+            guard let cpu = devices.first(where: { if case .cpu = $0 { return true }; return false }) else {
+                throw E2EError.driver("Vision 的 \(stage) 阶段没有 CPU 计算设备")
+            }
+            request.setComputeDevice(cpu, for: stage)
+        }
+    }
     try VNImageRequestHandler(cgImage: image).perform([request])
-    return request.results ?? []
+    return (request.results ?? []).compactMap { item in
+        guard let value = item.topCandidates(1).first?.string else { return nil }
+        return VisibleText(value: value, rect: item.boundingBox)
+    }
 }
 
 extension Session {
@@ -109,14 +151,25 @@ extension Session {
                   let pngData = try? Data(contentsOf: png) else {
                 return nil
             }
-            let observations = try recoverVisionRecognition(
-                accurate: { try recognizeText(image, level: .accurate) },
-                fast: { try recognizeText(image, level: .fast) }
-            )
-            let texts = observations.compactMap { item -> VisibleText? in
-                guard let value = item.topCandidates(1).first?.string else { return nil }
-                let box = item.boundingBox
-                return VisibleText(value: value, rect: CGRect(
+            let observations: [VisibleText]
+            do {
+                observations = try recoverVisionRecognition(
+                    accurate: { try recognizeText(image, level: .accurate) },
+                    cpuAccurate: { try recognizeText(image, level: .accurate, cpuOnly: true) },
+                    isolatedAccurate: { try isolatedAccurateRecognition(png: png) },
+                    record: { mode, detail in self.recordDriverEvent("ocr", mode, detail) },
+                    describe: { $0.map(\.value).joined(separator: " | ") },
+                    fast: { try recognizeText(image, level: .fast) }
+                )
+            } catch {
+                let diagnostic = Frame(windowID: window.id, windowFrame: window.frame, image: image, pngData: pngData, texts: [])
+                do { try save(diagnostic, "failure-ocr-\(screenshotNames.count).png") }
+                catch { recordDriverEvent("ocr", "failed-frame-save-failed", "\(error)") }
+                throw error
+            }
+            let texts = observations.map { item in
+                let box = item.rect
+                return VisibleText(value: item.value, rect: CGRect(
                     x: box.minX * window.frame.width,
                     y: (1 - box.maxY) * window.frame.height,
                     width: box.width * window.frame.width,
