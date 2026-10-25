@@ -50,15 +50,9 @@ impl BackendKind {
     }
 }
 
-/// 只有经过验证、能维持幕僚权限边界的后端可以启动；保留其他后端的模型设置。
-pub fn unavailable_reason(kind: BackendKind) -> Option<&'static str> {
-    match kind {
-        BackendKind::ClaudeCode => None,
-        BackendKind::Codex => Some("Codex ACP 尚不支持项目读取隔离，幕僚暂不启动此后端"),
-        BackendKind::OpenCode => {
-            Some("OpenCode ACP 的权限隔离和命令协议尚未验证，幕僚暂不启动此后端")
-        }
-    }
+/// 当前所有后端均允许启动；Codex/OpenCode 的读取隔离尚未验证，由用户决定放开（见 brain 设计文档）。
+pub fn unavailable_reason(_kind: BackendKind) -> Option<&'static str> {
+    None
 }
 
 /// 在适配器目录（`<dir>/node_modules/.bin`）和 PATH 目录中找可用后端。

@@ -292,25 +292,25 @@ pub(super) fn session_dir(dir: &Path, workspace_id: &str) -> PathBuf {
     dir.join("projects").join(name)
 }
 
-/// GUI 启动的进程 PATH 很短，补上 Homebrew 和 nvm 的 node 目录，适配器是 node 脚本。
+/// GUI 启动的进程 PATH 很短，适配器又是 node 脚本；nvm 的 node 排最前，其次继承的 PATH，再补 Homebrew。
 pub(super) fn search_dirs() -> Vec<PathBuf> {
-    let mut dirs: Vec<PathBuf> = std::env::var_os("PATH")
-        .map(|path| std::env::split_paths(&path).collect())
-        .unwrap_or_default();
+    let home = dirs::home_dir();
+    let mut dirs: Vec<PathBuf> = home
+        .iter()
+        .flat_map(|home| std::fs::read_dir(home.join(".nvm").join("versions").join("node")))
+        .flatten()
+        .flatten()
+        .map(|entry| entry.path().join("bin"))
+        .collect();
+    dirs.sort();
+    dirs.reverse();
+    dirs.extend(
+        std::env::var_os("PATH")
+            .map(|path| std::env::split_paths(&path).collect::<Vec<_>>())
+            .unwrap_or_default(),
+    );
     dirs.extend(["/opt/homebrew/bin", "/usr/local/bin"].map(PathBuf::from));
-    if let Some(home) = dirs::home_dir() {
-        let versions = home.join(".nvm").join("versions").join("node");
-        let mut found: Vec<PathBuf> = std::fs::read_dir(versions)
-            .into_iter()
-            .flatten()
-            .flatten()
-            .map(|entry| entry.path().join("bin"))
-            .collect();
-        found.sort();
-        found.reverse();
-        dirs.extend(found);
-        dirs.push(home.join(".local").join("bin"));
-    }
+    dirs.extend(home.map(|home| home.join(".local").join("bin")));
     dirs
 }
 

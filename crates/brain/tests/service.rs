@@ -12,36 +12,20 @@ use std::time::{Duration, Instant};
 
 const NORMA: &str = "/opt/norma/bin/norma";
 
-/// 尚未满足读取隔离或逐条权限检查的后端不得启动适配器。
-/// 数据构造：Codex 和 OpenCode 使用一个不存在的程序路径，主会话收到普通请求。
-/// 执行过程：启动服务、提交请求、读取状态并关闭服务。
-/// 预期结果：立即说明隔离能力不足，而不是尝试启动程序后报进程错误。
+/// 所有后端都允许启动适配器；不再因隔离能力不足提前拒绝。
+/// 数据构造：Claude/Codex/OpenCode 各给一个不存在的程序路径。
+/// 预期结果：不存在“隔离”类的不可用原因。
 #[test]
-fn unsupported_backends_fail_closed_before_spawning() {
-    for kind in [BackendKind::Codex, BackendKind::OpenCode] {
-        let dir = tempfile::tempdir().expect("应创建隔离目录");
-        let config = BrainConfig::new(
-            Backend {
-                kind,
-                program: dir.path().join("must-not-run"),
-                args: vec![],
-            },
-            NORMA.into(),
-            dir.path().into(),
-            dir.path().join("state"),
-        );
-        let (service, status) = BrainService::start(config);
-        service.push(BrainEvent::UserRequest {
-            text: "查看项目状态".into(),
-        });
-        let down = status
-            .recv_timeout(Duration::from_secs(2))
-            .expect("应立即报告不可用");
+fn all_backends_are_allowed_to_start() {
+    for kind in [
+        BackendKind::ClaudeCode,
+        BackendKind::Codex,
+        BackendKind::OpenCode,
+    ] {
         assert!(
-            matches!(down, BrainStatus::BackendDown { ref reason } if reason.contains("隔离")),
-            "未完成权限隔离的后端不能启动：{down:?}"
+            brain::backend::unavailable_reason(kind).is_none(),
+            "{kind:?}"
         );
-        service.shutdown();
     }
 }
 
