@@ -50,6 +50,7 @@ pub use current_context::{
 };
 pub use desktop_context::DesktopContext;
 pub use direct_address::{parse_direct_address, AddressedAgent, DirectAddressIntent};
+pub use direct_address_turn::{direct_call_speech, plan_direct_address, DirectCall, DirectPlan};
 pub use environment::{render_norma_environment, render_norma_environment_with_hints};
 pub use identity::{
     builtin_agent_names, AgentName, AgentNameError, AgentNameRegistry, BuiltinAgentName,
