@@ -5,6 +5,8 @@ use tokio_util::sync::CancellationToken;
 use ui::i18n::LocalizedText;
 
 mod channel;
+#[cfg(all(debug_assertions, not(feature = "production-data")))]
+mod e2e;
 mod input;
 mod plan;
 pub(super) mod playback;

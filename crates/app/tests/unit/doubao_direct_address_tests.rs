@@ -88,19 +88,44 @@ fn unmatched_transcript_falls_back_to_model() {
     }
 }
 
-/// 桌面工作空间使用跨项目工具，直呼路由必须让位给模型。
+/// 总览与切换中没有可靠的单项目名册，直呼路由必须让位给模型。
 ///
-/// 数据构造：同一条可命中的转写，desktop 为 WorkspaceOverview。
-/// 预期结果：Skip。
+/// 数据构造：同一条可命中的转写，desktop 分别为 WorkspaceOverview 与 Switching。
+/// 预期结果：两者都是 Skip。
 #[test]
-fn desktop_workspace_never_uses_direct_route() {
-    let desktop = DesktopContext::WorkspaceOverview {
+fn overview_and_switching_never_use_direct_route() {
+    let overview = DesktopContext::WorkspaceOverview {
         workspace_id: "w".into(),
         workspace_name: "W".into(),
     };
+    let switching = DesktopContext::Switching {
+        workspace_id: "w".into(),
+        workspace_name: "W".into(),
+    };
+    for desktop in [overview, switching] {
+        assert_eq!(
+            plan("Alan，修复登录页的 bug", &roster(false), Some(&desktop)),
+            DirectPlan::Skip,
+            "没有单一项目名册时应保持模型路径：{desktop:?}"
+        );
+    }
+}
+
+/// 项目画布是桌面工作空间里用户实际说话的场景，必须走直呼。
+///
+/// 数据构造：desktop 为 ProjectCanvas，Alan 未激活，转写“Alan，修复登录页的 bug”。
+/// 预期结果：由代码派发 assign_agent_task，而不是回落到模型。
+#[test]
+fn project_canvas_uses_direct_route() {
+    let desktop = DesktopContext::ProjectCanvas {
+        workspace_id: "w".into(),
+        workspace_name: "W".into(),
+        area_id: "a".into(),
+        project_name: "P".into(),
+    };
     assert_eq!(
         plan("Alan，修复登录页的 bug", &roster(false), Some(&desktop)),
-        DirectPlan::Skip,
-        "桌面工作空间应保持模型 + 跨项目工具"
+        call("assign_agent_task", "task", "修复登录页的 bug"),
+        "项目画布内的卡片名直呼必须由代码派发"
     );
 }

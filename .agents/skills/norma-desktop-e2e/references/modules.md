@@ -36,7 +36,7 @@
 | `brain` | `brain-report` | 后台大脑：假 `claude` 通过真实 Hook 上报完成，真实 Claude Code ACP 适配器收到事件，经 `norma brain report` 把汇报交回 App。核对 App 日志里的“大脑已启动”“大脑会话就绪”“大脑播报”和大脑目录里的 `decisions.jsonl`。需要 `NORMA_BRAIN_E2E_ADAPTERS` 指向装有 `@agentclientprotocol/claude-agent-acp` 的目录，并使用本机 Claude Code 的登录。隔离数据里没有 TTS，只验到播报队列。 |
 | `brain` | `brain-autonomy` | 脚本化的大脑（不用真实模型）在第一个智能体完成后，经权限闸门给第二个智能体派后续任务：概览出现“Norma 自主处理”栏和这一条，“为什么”展开理由，“以后这类先问我”把 `autonomy.assign_followups` 写成 false。 |
 | `brain` | `brain-settings` | 设置 → Norma 大脑：页面内容，点开关与点策略后配置文件里的值。 |
-| `voice` | `voice-live-call`、`voice-live-acoustic` | 前者验连接/静音/用量；后者原依赖字幕OCR，用户移除浮层后在启动/连接前返回ENV，避免无效云端用量。真人声学按统一验收清单执行。 |
+| `voice` | `voice-live-call`、`voice-live-acoustic`、`voice-doubao-direct` | `voice-doubao-direct`：假 Key + 本机假方舟，经控制通道注入转写，验豆包按卡片名/别名直呼派任务、未命中回落模型（无需云端 Key）。`voice-live-call` 验连接/静音/用量；后者原依赖字幕OCR，用户移除浮层后在启动/连接前返回ENV，避免无效云端用量。真人声学按统一验收清单执行。 |
 
 ## 预留模块
 

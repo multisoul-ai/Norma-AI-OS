@@ -95,6 +95,10 @@ pub(super) enum Command {
     NsText {
         text: String,
     },
+    /// 豆包语音：把一句转写当作 ASR 最终结果注入会话（必要时先启动播报通道）。
+    DoubaoTranscript {
+        text: String,
+    },
 }
 
 fn single_click() -> usize {
