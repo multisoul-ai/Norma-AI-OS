@@ -295,15 +295,21 @@ pub(super) fn session_dir(dir: &Path, workspace_id: &str) -> PathBuf {
 /// GUI 启动的进程 PATH 很短，适配器又是 node 脚本；nvm 的 node 排最前，其次继承的 PATH，再补 Homebrew。
 pub(super) fn search_dirs() -> Vec<PathBuf> {
     let home = dirs::home_dir();
-    let mut dirs: Vec<PathBuf> = home
+    let mut nvm: Vec<_> = home
         .iter()
         .flat_map(|home| std::fs::read_dir(home.join(".nvm").join("versions").join("node")))
         .flatten()
         .flatten()
-        .map(|entry| entry.path().join("bin"))
+        .filter_map(|entry| {
+            let version = node_version(&entry.file_name().to_string_lossy())?;
+            let bin = entry.path().join("bin");
+            // 适配器要求 node >=22；更旧的版本让位给其后的 PATH 和 Homebrew。
+            (version.0 >= 22 && bin.join("node").is_file()).then_some((version, bin))
+        })
         .collect();
-    dirs.sort();
-    dirs.reverse();
+    nvm.sort();
+    nvm.reverse();
+    let mut dirs: Vec<PathBuf> = nvm.into_iter().map(|(_, bin)| bin).collect();
     dirs.extend(
         std::env::var_os("PATH")
             .map(|path| std::env::split_paths(&path).collect::<Vec<_>>())
@@ -317,9 +323,7 @@ pub(super) fn search_dirs() -> Vec<PathBuf> {
 /// 按配置挑后端；没有指定时按 Claude Code、Codex、OpenCode 的顺序取第一个。
 pub(super) fn pick_backend(settings: &BrainSettings) -> Option<Backend> {
     let dir = state_dir()?.join("adapters");
-    let found = brain::backend::detect(&dir, &search_dirs())
-        .into_iter()
-        .filter(|backend| brain::backend::unavailable_reason(backend.kind).is_none());
+    let found = brain::backend::detect(&dir, &search_dirs());
     match settings.backend {
         Some(kind) => found.into_iter().find(|backend| backend.kind == kind),
         None => found.into_iter().next(),
@@ -349,3 +353,28 @@ pub(super) fn adapter_env(
 #[cfg(test)]
 #[path = "../../../tests/unit/brain_config_models_tests.rs"]
 mod brain_config_models_tests;
+
+/// 解析 nvm 目录名 `v22.22.0`；按数值而不是字典序比较，避免 v9 排在 v22 前面。
+fn node_version(name: &str) -> Option<(u32, u32, u32)> {
+    let mut parts = name.strip_prefix('v')?.split('.').map(|p| p.parse().ok());
+    Some((parts.next()??, parts.next()??, parts.next()??))
+}
+
+/// 适配器路径含空格（如 `Norma OS.app`）时，Codex 会把整条命令再包一层引号，闸门无法还原；
+/// 改用状态目录下无空格的符号链接作为大脑看到的 norma 路径。
+pub(super) fn shell_safe_bin(state_dir: &Path, bin: PathBuf) -> PathBuf {
+    let safe = |c: char| c.is_ascii_alphanumeric() || "/._-+@:".contains(c);
+    if bin.to_string_lossy().chars().all(safe) {
+        return bin;
+    }
+    let link = state_dir.join("bin").join("norma");
+    let fresh = std::fs::read_link(&link).is_ok_and(|target| target == bin);
+    if !fresh {
+        let _ = std::fs::create_dir_all(state_dir.join("bin"));
+        let _ = std::fs::remove_file(&link);
+        if std::os::unix::fs::symlink(&bin, &link).is_err() {
+            return bin;
+        }
+    }
+    link
+}

@@ -58,22 +58,14 @@ pub(super) fn model_rows(
     let s = &view.settings;
     let mut rows = Vec::new();
     for (id, name, kind, program) in BACKENDS {
-        let unavailable = brain::backend::unavailable_reason(kind).is_some();
-        let installed = view.installed.contains(&kind) && !unavailable;
+        let installed = view.installed.contains(&kind);
         let packaged = crate::app::brain_adapter_package(kind).is_some();
         let failed = view
             .install_error
             .as_ref()
             .filter(|(failed, _)| *failed == kind)
             .map(|(_, reason)| reason.clone());
-        let status = if unavailable {
-            t(if kind == BackendKind::Codex {
-                "settings.brain_codex_unavailable"
-            } else {
-                "settings.brain_opencode_unavailable"
-            })
-            .to_string()
-        } else if installed {
+        let status = if installed {
             format!("{} · {program}", t("settings.brain_backend_installed"))
         } else if let Some(reason) = failed {
             ui::i18n::format("settings.brain_install_failed", &[("reason", reason)])
@@ -82,7 +74,7 @@ pub(super) fn model_rows(
         } else {
             t("settings.brain_opencode_missing").to_string()
         };
-        let install = (packaged && !installed && !unavailable).then(|| {
+        let install = (packaged && !installed).then(|| {
             let busy = view.installing.is_some();
             let label = if view.installing == Some(kind) {
                 t("settings.brain_installing")
@@ -111,9 +103,6 @@ pub(super) fn model_rows(
     }
     let strategy = s.strategy;
     let chosen = view.chosen_backend();
-    if chosen.is_some_and(|kind| brain::backend::unavailable_reason(kind).is_some()) {
-        return rows;
-    }
     let note: gpui::SharedString = match (chosen, strategy) {
         (Some(BackendKind::Codex), strategy) => ui::i18n::format(
             "settings.brain_strategy_note_codex",

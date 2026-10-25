@@ -10,7 +10,7 @@ status: 桌面端已实施 · 真实 Claude Code 验收通过 · 见 H 节的限
 
 ## 2026-10-24 更新：以下几处以本节为准
 
-**交叉审查后的运行边界**：后台幕僚目前只启用 Claude Code。Codex 的只读模式不能保证项目读取隔离；OpenCode 的环境配置可能被 Agent 权限规则覆盖，且 ACP 权限／模型协议尚未完成验证，因此两者在设置页禁选、服务层拒绝启动，已有模型配置继续保留。这不影响 Claude／Codex 智能体卡片本身。
+**运行边界（2026-10-25 更新）**：Claude Code、Codex、OpenCode 均可作为幕僚后端，不再在服务层或设置页拒绝启动。已知并被用户接受的缺口：Codex 的 read-only 模式只限制写入，其读命令不经 Norma 闸门，可读项目目录之外的文件；OpenCode 仅注入 `bash:ask / edit:deny / webfetch:deny`，其余工具默认放行。只有 Claude Code 的逐条读取审批是完整的。这不影响 Claude／Codex 智能体卡片本身。
 
 Claude 会话隔离用户设置、禁止 bypass，仅暴露 `Bash` 和逐文件 `Read`，并用显式 `permissions.ask` 让两者每次都发 ACP 权限请求。闸门拒绝组合、重定向、整条命令引号二次拆包与持久授权；读取检查真实路径，仅放行项目内存在的普通文件，拒绝已知凭据路径和递归目录工具。这个边界依赖适配器遵守配置，不是操作系统沙箱，也无法识别任意名称的秘密或消除检查与读取之间的文件变化。
 
@@ -182,7 +182,7 @@ participants: 用户, 前台对话, 播报队列, 主会话, Agent
 启用后，标题栏右侧出现“语音汇报”开关。打开时，大脑的汇报用当前语音模式念出来。关闭时，大脑照常工作，只是不说话。它与语音设置里的“智能体任务播报”互不影响。
 
 - **ACP client 手写**：只用到 `initialize`、`session/new`、`session/set_mode`、`session/prompt`、`session/request_permission`，所以没有引入 `agent-client-protocol` crate，权限处理完全自己掌控。
-- **适配器**：Claude Code 用 `@agentclientprotocol/claude-agent-acp@0.94.0`，设置页的“安装”按钮会装到 `~/.norma/brain/adapters`；Codex 和 OpenCode 暂不允许作为幕僚后端启动，原因见本页更新。
+- **适配器**：Claude Code 用 `@agentclientprotocol/claude-agent-acp@0.94.0`，设置页的“安装”按钮会装到 `~/.norma/brain/adapters`；Codex 和 OpenCode 已放开启动，读取隔离缺口见上文运行边界。norma 路径含空格时，大脑使用 `~/.norma/brain/bin/norma` 符号链接，避免 Codex 的命令包装让闸门无法还原路径。
 - **权限请求**：仅切到 `default` 并不足以让安全读取逐次询问；还必须隔离用户设置、禁用 bypass、限制工具列表并显式配置 `permissions.ask`。历史探测见 `docs/research/2026-10-23-acp-adapters-probe.md`。
 - **审批代理范围**：只有带手机控制的卡片有可代理的审批。普通桌面卡片的权限提示留在终端里，Norma 无法拦截。要覆盖它们，得给所有卡片装阻塞式权限 hook，这是单独的一项工作。
 - **高风险规则是启发式，不是沙箱**：它只看命令文字。

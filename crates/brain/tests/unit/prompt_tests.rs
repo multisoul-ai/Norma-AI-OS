@@ -71,3 +71,17 @@ fn finished_prompts_require_a_next_step_verdict() {
         assert!(!text.contains("只回复“收到”"), "{text}");
     }
 }
+
+/// 路径含空格时，提示里的命令必须加引号，闸门才能解析出完整的可执行文件路径。
+/// 数据构造：App 包路径 `/Applications/Norma OS.app/Contents/MacOS/norma`。
+/// 预期结果：primer 中的命令被单引号包住，普通路径保持原样。
+#[test]
+fn bin_path_with_spaces_is_quoted_in_primer() {
+    let text = primer(
+        Role::Main,
+        "/Applications/Norma OS.app/Contents/MacOS/norma",
+        None,
+    );
+    assert!(text.contains("'/Applications/Norma OS.app/Contents/MacOS/norma' brain report"));
+    assert!(primer(Role::Main, "/bin/norma", None).contains("`/bin/norma` 命令"));
+}

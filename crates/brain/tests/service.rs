@@ -12,23 +12,6 @@ use std::time::{Duration, Instant};
 
 const NORMA: &str = "/opt/norma/bin/norma";
 
-/// 所有后端都允许启动适配器；不再因隔离能力不足提前拒绝。
-/// 数据构造：Claude/Codex/OpenCode 各给一个不存在的程序路径。
-/// 预期结果：不存在“隔离”类的不可用原因。
-#[test]
-fn all_backends_are_allowed_to_start() {
-    for kind in [
-        BackendKind::ClaudeCode,
-        BackendKind::Codex,
-        BackendKind::OpenCode,
-    ] {
-        assert!(
-            brain::backend::unavailable_reason(kind).is_none(),
-            "{kind:?}"
-        );
-    }
-}
-
 struct Harness {
     service: BrainService,
     status: Receiver<BrainStatus>,

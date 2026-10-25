@@ -20,12 +20,6 @@ impl MultisoulApp {
         };
         for backend in backends {
             let kind = backend.kind;
-            if let Some(reason) = brain::backend::unavailable_reason(kind) {
-                self.brain
-                    .model_lists
-                    .insert(kind, ModelList::Failed(reason.into()));
-                continue;
-            }
             let known = matches!(
                 self.brain.model_lists.get(&kind),
                 Some(ModelList::Loading | ModelList::Ready(_))

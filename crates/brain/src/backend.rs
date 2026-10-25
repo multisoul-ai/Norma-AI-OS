@@ -50,11 +50,6 @@ impl BackendKind {
     }
 }
 
-/// 当前所有后端均允许启动；Codex/OpenCode 的读取隔离尚未验证，由用户决定放开（见 brain 设计文档）。
-pub fn unavailable_reason(_kind: BackendKind) -> Option<&'static str> {
-    None
-}
-
 /// 在适配器目录（`<dir>/node_modules/.bin`）和 PATH 目录中找可用后端。
 pub fn detect(adapter_dir: &Path, path_dirs: &[PathBuf]) -> Vec<Backend> {
     let mut dirs = vec![adapter_dir.join("node_modules").join(".bin")];
@@ -128,7 +123,7 @@ pub fn session_meta(kind: BackendKind, model: Option<&str>) -> Option<Value> {
 }
 
 /// Claude 使用 default，并由 session_meta 的逐次 ask 规则补齐默认只读工具。
-/// 保留 Codex 的候选模式，但它不足以保证读取隔离，不能据此启用该后端。
+/// Codex 使用 read-only：只限制写入，不限制读取，已知的读取隔离缺口由用户接受。
 pub fn session_mode(kind: BackendKind) -> Option<&'static str> {
     match kind {
         BackendKind::ClaudeCode => Some("default"),
@@ -138,7 +133,6 @@ pub fn session_mode(kind: BackendKind) -> Option<&'static str> {
 }
 
 /// OpenCode 的候选配置；它可能被 Agent 级权限覆盖，不能据此保证逐次询问。
-/// 该后端仍由 unavailable_reason 失败关闭。
 pub fn session_env(kind: BackendKind) -> Vec<(String, String)> {
     if kind != BackendKind::OpenCode {
         return Vec::new();

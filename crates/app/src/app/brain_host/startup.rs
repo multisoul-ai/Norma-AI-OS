@@ -28,8 +28,8 @@ impl MultisoulApp {
         let settings = self.brain.settings.clone().expect("设置已加载");
         let identity = workspace_id.clone();
         let work = cx.background_executor().spawn(async move {
-            let backend = config::pick_backend(&settings)
-                .ok_or_else(|| "没有可用且满足权限隔离要求的 ACP 后端".to_string())?;
+            let backend =
+                config::pick_backend(&settings).ok_or_else(|| "没有可用的 ACP 后端".to_string())?;
             let state_dir = config::state_dir().ok_or_else(|| "找不到幕僚状态目录".to_string())?;
             let paths = norma::orchestration::InstallPaths::for_current_process()
                 .map_err(|e| e.to_string())?;
@@ -37,7 +37,7 @@ impl MultisoulApp {
             let models = settings.models_for(backend.kind);
             let mut config = BrainConfig::new(
                 backend,
-                paths.bundled_cli,
+                config::shell_safe_bin(&state_dir, paths.bundled_cli),
                 root,
                 config::session_dir(&state_dir, &workspace_id),
             );

@@ -206,8 +206,6 @@
   "settings.brain_not_installed": "未安装",
   "settings.brain_install": "安装适配器",
   "settings.brain_opencode_missing": "未检测到 OpenCode，请先安装 OpenCode CLI",
-  "settings.brain_codex_unavailable": "暂不可用：尚不支持项目文件读取隔离",
-  "settings.brain_opencode_unavailable": "暂不可用：权限检查协议尚未兼容",
   "settings.brain_installing": "安装中…",
   "settings.brain_install_failed": "安装失败：%{reason}",
   "settings.brain_strategy": "策略",

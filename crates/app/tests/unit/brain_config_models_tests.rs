@@ -99,3 +99,29 @@ fn canvas_state_survives_restart_without_crossing_ownership() {
         "不能覆盖 B 提议"
     );
 }
+
+/// nvm 版本目录按数值比较，v9 不能排在 v22 前面；非版本目录被忽略。
+/// 预期结果：解析出数值元组，排序后 v22 大于 v9。
+#[test]
+fn node_versions_compare_numerically() {
+    assert_eq!(super::node_version("v22.22.0"), Some((22, 22, 0)));
+    assert_eq!(super::node_version("default"), None);
+    assert!(super::node_version("v22.0.0") > super::node_version("v9.11.2"));
+}
+
+/// 含空格的 norma 路径改用状态目录下的无空格符号链接，普通路径原样返回。
+/// 数据构造：临时状态目录和一个名为 `Norma OS.app` 的假可执行文件。
+/// 预期结果：返回链接路径、不含空格、指向原文件；重复调用得到同一路径。
+#[test]
+fn spaced_norma_bin_gets_a_shell_safe_link() {
+    let dir = tempfile::tempdir().unwrap();
+    let real = dir.path().join("Norma OS.app");
+    std::fs::write(&real, "").unwrap();
+    let state = dir.path().join("state");
+    let link = super::shell_safe_bin(&state, real.clone());
+    assert!(!link.to_string_lossy().contains(' '));
+    assert_eq!(std::fs::read_link(&link).unwrap(), real);
+    assert_eq!(super::shell_safe_bin(&state, real), link);
+    let plain = std::path::PathBuf::from("/bin/norma");
+    assert_eq!(super::shell_safe_bin(&state, plain.clone()), plain);
+}
