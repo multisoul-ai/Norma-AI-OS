@@ -54,7 +54,7 @@ public enum BrainPropose {
             try session.save(frame, "01-proposals.png")
             // 栏有高度上限，第二条在栏内下方；它是否存在看文件，忽略第一条后再看界面。
             // 小号的“下一步”标签常被识别成“一步”。
-            for needle in ["需要你处理", "一步", "写登录接口文档", "给 Alan"] {
+            for needle in ["需要你处理", "一步", "写登录接口文档", "给 Alan", "拒绝", "采纳"] {
                 guard frame.contains(needle) else {
                     let out = brainDir.flatMap { try? String(contentsOf: $0.appendingPathComponent("propose.out"), encoding: .utf8) } ?? ""
                     throw E2EError.product("概览里缺少「\(needle)」：\(frame.summary)；propose 输出：\(out)")
@@ -80,11 +80,11 @@ public enum BrainPropose {
             return "提议已从磁盘恢复，未提前派发"
         }
 
-        try await session.step("展开“写登录接口文档”，点“忽略”，这一行消失") {
+        try await session.step("展开“写登录接口文档”，点“拒绝”，这一行消失") {
             try await session.click(matching: ["写登录接口文档"], pick: .top)
-            let expanded = try await session.wait(Expectation(allOf: ["忽略", "为登录接口写使用文档"], timeout: 6))
+            let expanded = try await session.wait(Expectation(allOf: ["拒绝", "为登录接口写使用文档"], timeout: 6))
             try session.save(expanded, "02-expanded.png")
-            try await session.click(matching: ["忽略"], pick: .bottom)
+            try await session.click(matching: ["拒绝"], pick: .top)
             let after = try await session.wait(Expectation(absent: ["写登录接口文档"], timeout: 6))
             try session.save(after, "03-ignored.png")
             // 中文标题偶尔被识别错字（“页”认成“贡”），用“给 Bella”判断。
@@ -94,12 +94,11 @@ public enum BrainPropose {
             return "忽略生效"
         }
 
-        try await session.step("展开“补登录页测试”，看到完整指令与理由，点“派发”") {
-            try await session.click(matching: ["给 Bella"], pick: .top)
-            let expanded = try await session.wait(
-                Expectation(allOf: ["cargo test", "登录页还没有测试", "派发"], timeout: 6))
-            try session.save(expanded, "04-dispatch-ready.png")
-            try await session.click(matching: ["派发"], pick: .bottom)
+        try await session.step("“补登录页测试”收起时已有采纳按钮且未展开，直接点“采纳”") {
+            let collapsed = try await session.wait(
+                Expectation(allOf: ["给 Bella", "采纳", "拒绝"], absent: ["登录页还没有测试"], timeout: 6))
+            try session.save(collapsed, "04-dispatch-ready.png")
+            try await session.click(matching: ["采纳"], pick: .bottom)
             let deadline = Date().addingTimeInterval(10)
             var frame = try await session.capture()
             while Date() < deadline {
