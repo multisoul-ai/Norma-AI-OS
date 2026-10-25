@@ -37,6 +37,8 @@ public final class Session {
     public let scenario: String
     public let appPath: String
     public let artifactRoot: URL
+    public let visualReview: Bool
+    var visualCheckCount = 0
     public private(set) var output: URL?
     public private(set) var dataRoot: URL?
     public private(set) var app: Process?
@@ -47,10 +49,11 @@ public final class Session {
     var driverEvents: [[String: Any]] = []
     private var logHandle: FileHandle?
 
-    public init(scenario: String, appPath: String, artifactRoot: String) {
+    public init(scenario: String, appPath: String, artifactRoot: String, visualReview: Bool = false) {
         self.scenario = scenario
         self.appPath = appPath
         self.artifactRoot = URL(fileURLWithPath: artifactRoot, isDirectory: true)
+        self.visualReview = visualReview
     }
 
     public func begin() throws {

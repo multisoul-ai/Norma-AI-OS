@@ -5,6 +5,7 @@ public enum CanvasModule {
     public static let manifest = DesktopModule(
         name: "canvas",
         scenarioNames: [CanvasDrawers.name, CanvasProjectDrawers.name, CanvasContentTabs.name, CanvasDeleteReflow.name, CanvasCommandDock.name, CanvasRunEffects.name, CanvasPresentationLayout.name],
+        visualScenarioNames: [CanvasPresentationLayout.name],
         run: { scenario, session in
             switch scenario {
             case CanvasDrawers.name:

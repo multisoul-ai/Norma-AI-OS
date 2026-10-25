@@ -16,17 +16,23 @@ bash scripts/desktop-e2e.sh workspace-lifecycle --repeat 5
 
 旧命令 `scripts/desktop-workspace-e2e.sh` 只转发到 `workspace-lifecycle`。
 
+## 模型直接看图
+
+`bash scripts/desktop-e2e.sh canvas-presentation-layout --visual` 复用同一真实 App 场景，将定位和画面判断交给当前多模态 Agent。此模式不调用 Vision，不需要额外 API Key；隔离启动、真实输入、CLI 回执与数据断言保持。当前只接入这一场景，其他场景明确拒绝，不能静默回退。
+
+驱动逐项发布原始 PNG 与问题，等待 Agent 实际查看并响应。缺项、错图、越界、看不清和无响应都不能通过；尚在加载可有界重截，不重放操作。报告标记 `verification=model-assisted`，区别于 `ocr-scripted`；需要 Agent 参与，不是无人值守脚本。协议见 `.agents/skills/norma-desktop-e2e/references/model-vision.md`。
+
 ## 一次运行
 
 1. 前置检查：未锁屏、测试二进制存在。发现其他 Norma 只记录，不结束；`owned.json` 里上次由本脚手架留下的 PID，且可执行文件就是本次测试二进制时，才会被结束。
 2. 用独立的 `NORMA_TEST_DATA_ROOT`、`NORMA_SOCKET` 和本次随机生成的控制通道 socket / token 启动，避免碰到用户数据和默认 socket。输入只进入本次隔离窗口，不占用系统键鼠，因此不同 git worktree 可以同时跑。窗口默认开在驱动创建的私有虚拟显示器上，不出现在用户屏幕、不抢前台（见下文“不打扰用户”）。
-3. 场景步骤都是“动作 → 期望的后置状态 → 有限次重试”。点击前重取窗口尺寸并重新 OCR，先移动鼠标再按下。
+3. 场景步骤都是“动作 → 期望的后置状态 → 有限次重试”。点击前重取窗口尺寸，先移动鼠标再按下；OCR 模式按文字定位，模型模式按当前截图定位。
 4. 硬断言同时看画面文字、`desktop_workspaces` / `desktop_project_areas`，以及 `keep-me.txt`。
 5. 证据写到 `artifacts/desktop-workspace-e2e/<时间戳>/`，含截图、`report.json` 和 `app.log`。该目录被仓库根 `.gitignore` 的 `artifacts/` 忽略。
 
 退出码：`0` 通过，`1` 产品断言失败，`3` 环境失败。环境失败应停下来处理锁屏、构建或控制通道问题，不要换一种输入方式绕过。
 
-识别和输入驱动故障也使用退出码 `3`，报告标记 `kind=env`、`failureLayer=driver`。Vision 默认精确识别执行失败时，依次尝试同进程 CPU 精确识别和独立进程 CPU 精确识别；独立进程读取当前原始 PNG，20 秒超时后收尾。全部精确路径失败时，快速 OCR 只留作诊断，不能支持 present / absent 断言，并保存 `failure-ocr-*.png`。原始识别错误与恢复结果保存在 `report.json` 的 `driverEvents` 和控制台日志。
+OCR 模式的识别和输入驱动故障也使用退出码 `3`，报告标记 `kind=env`、`failureLayer=driver`。Vision 默认精确识别执行失败时，依次尝试同进程 CPU 精确识别和独立进程 CPU 精确识别；独立进程读取当前原始 PNG，20 秒超时后收尾。全部精确路径失败时，快速 OCR 只留作诊断，不能支持 present / absent 断言，并保存 `failure-ocr-*.png`。原始识别错误与恢复结果保存在 `report.json` 的 `driverEvents` 和控制台日志。
 
 点击证据按同一个 `id` 串联：`not-sent` 表示定位或准备失败、尚未调用鼠标传输；`dispatch-attempted` 表示开始调用；`acknowledged` 表示控制通道确认；`delivery-unknown` 表示调用失败、无法确认送达。完整 move/down/up 确认后仍必须检查产品后置状态。动作抛错时不会等待该动作的后置条件，每次重试的原始错误独立留存，不能用后置超时覆盖未发送点击的原因。
 
@@ -34,7 +40,7 @@ bash scripts/desktop-e2e.sh workspace-lifecycle --repeat 5
 
 | 层 | 判据 |
 | --- | --- |
-| 画面 | OCR 的 present / absent，只负责复现点击和文字是否出现 |
+| 画面 | 模型逐项读原图并写观察理由；OCR 模式按 present / absent 定位与检查文字 |
 | 数据 | 隔离库 `app.sqlite` 的工作空间名称和项目区行 |
 | 文件 | 项目目录里的 `keep-me.txt` 在删除和重启后仍在 |
 | 视觉 | Agent 查看本次验收范围内的关键图，按 `checks/<模块>/*.checks.md` 给出符合、不符合或不确定；读图边界见 [visual-checks.md](../../.agents/skills/norma-desktop-e2e/references/visual-checks.md) |

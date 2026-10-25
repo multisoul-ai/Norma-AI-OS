@@ -4,15 +4,18 @@ import E2EKit
 public struct DesktopModule {
     public let name: String
     public let scenarioNames: [String]
+    public let visualScenarioNames: [String]
     public let run: @MainActor (String, Session) async throws -> Bool
 
     public init(
         name: String,
         scenarioNames: [String],
+        visualScenarioNames: [String] = [],
         run: @escaping @MainActor (String, Session) async throws -> Bool
     ) {
         self.name = name
         self.scenarioNames = scenarioNames
+        self.visualScenarioNames = visualScenarioNames
         self.run = run
     }
 }

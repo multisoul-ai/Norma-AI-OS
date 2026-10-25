@@ -35,10 +35,7 @@ public enum CanvasPresentationLayout {
             setenv("ZDOTDIR", fake.path, 1)
             try session.launch(language: "zh-Hans", homeDirectory: fake)
             try await session.resize(width: 1440, height: 840)
-            _ = try await session.wait(Expectation(allOf: [workspace], timeout: 20))
-            try await session.click(matching: ["打开", "Open"], pick: .bottom)
-            _ = try await session.wait(Expectation(allOf: ["E2E Project"], timeout: 15))
-            try await session.click(matching: ["E2E Project"], pick: .bottom)
+            try await openProject(session, workspace: workspace)
             return "固定 1440×840，使用隔离工作空间及假 Agent"
         }
         try await session.step("创建六张 Agent 和两张终端，记录展示前布局") {
@@ -52,7 +49,11 @@ public enum CanvasPresentationLayout {
             return "六张 Agent 和两张终端正文可见，画布没有细条或隐藏空档"
         }
         try await session.step("合法可见终端 Master") {
-            try await session.click(matching: ["LAYOUT TERMINAL 1"], pick: .top)
+            if session.visualReview {
+                try await CanvasPresentationVisual.master(session)
+                return "模型核对合法 Master 的主区和七张 detail，并验证退出后的八卡布局"
+            }
+            try await session.click(matching: ["TERMONE"], pick: .top)
             try await session.shortcut(key: 53, modifiers: [])
             try await session.shortcut(key: 46, modifiers: [0x37])
             let deadline = Date().addingTimeInterval(15)
@@ -91,15 +92,15 @@ public enum CanvasPresentationLayout {
                 try requireReceipt(browser, kind: "browser")
                 try requireReuse(browser, iteration: iteration, previousID: &browserID)
                 try saveReceipt(session, browser, "browser-\(iteration)")
-                let page = try await session.wait(Expectation(allOf: ["BROWSER FIRST E2E"], timeout: 15))
+                let page = try await content(session, text: "BROWSER FIRST E2E", browser: true)
                 if iteration == 1 { try session.save(page, "02-browser-content.png") }
-                _ = try await healthyLayout(session)
+                if !session.visualReview { _ = try await healthyLayout(session) }
                 let preview = try await present(fake, node: node, args: ["present", "preview", root.appendingPathComponent("Present.txt").path, "--type", "markdown"])
                 try requireReceipt(preview, kind: "preview")
                 try requireReuse(preview, iteration: iteration, previousID: &previewID)
                 try saveReceipt(session, preview, "preview-\(iteration)")
-                let shown = try await session.wait(Expectation(allOf: ["PRESENTATION FILE CONTENT"], timeout: 15))
-                _ = try await healthyLayout(session)
+                let shown = try await content(session, text: "PRESENTATION FILE CONTENT", browser: false)
+                if !session.visualReview { _ = try await healthyLayout(session) }
                 try session.save(shown, "02-present-\(iteration).png")
                 return "网页和文件回执均为 content_drawer；可见卡片正文和位置正常"
             }
@@ -113,10 +114,10 @@ public enum CanvasPresentationLayout {
                   (result["node_id"] as? NSNumber)?.uint64Value != previewID else {
                 throw E2EError.product("--new 未创建独立表面并返回 created")
             }
-            _ = try await session.wait(Expectation(allOf: ["PRESENTATION FILE CONTENT"], timeout: 15))
+            let shown = try await content(session, text: session.visualReview ? "# PRESENTATION FILE CONTENT" : "PRESENTATION FILE CONTENT", browser: false)
             let tabs = try session.contentTabs(workspaceName: workspace)
             guard tabs.filter({ $0.kind == "file" }).count == 2 else { throw E2EError.product("--new 没有保留两个独立文件标签") }
-            let frame = try await healthyLayout(session)
+            let frame = session.visualReview ? shown : try await healthyLayout(session)
             try session.save(frame, "03-independent-preview.png")
             return "--new 保留独立身份，--type text 可显示原始正文"
         }
@@ -127,10 +128,7 @@ public enum CanvasPresentationLayout {
             session.stop()
             try session.launch(language: "zh-Hans", homeDirectory: fake)
             try await session.resize(width: 1440, height: 840)
-            _ = try await session.wait(Expectation(allOf: [workspace], timeout: 20))
-            try await session.click(matching: ["打开", "Open"], pick: .bottom)
-            _ = try await session.wait(Expectation(allOf: ["E2E Project"], timeout: 15))
-            try await session.click(matching: ["E2E Project"], pick: .bottom)
+            try await openProject(session, workspace: workspace)
             try await restartTerminalOutput(session)
             let restored = try await healthyLayout(session)
             try session.save(restored, "05-after-restart.png")
@@ -142,10 +140,7 @@ public enum CanvasPresentationLayout {
             try CanvasPresentationFixture.seedLegacyMaster(dataRoot: data, project: root)
             try session.launch(language: "zh-Hans", homeDirectory: fake)
             try await session.resize(width: 1440, height: 840)
-            _ = try await session.wait(Expectation(allOf: [workspace], timeout: 20))
-            try await session.click(matching: ["打开", "Open"], pick: .bottom)
-            _ = try await session.wait(Expectation(allOf: ["E2E Project"], timeout: 15))
-            try await session.click(matching: ["E2E Project"], pick: .bottom)
+            try await openProject(session, workspace: workspace)
             try await restartTerminalOutput(session)
             let recovered = try await healthyLayout(session)
             try session.save(recovered, "06-legacy-master-recovered.png")
@@ -153,14 +148,41 @@ public enum CanvasPresentationLayout {
         }
     }
 
+    private static func openProject(_ session: Session, workspace: String) async throws {
+        if session.visualReview {
+            try await session.visualClick("确认工作空间 \(workspace) 的目录卡片可见，定位该卡片的打开按钮")
+            try await session.visualClick("确认已进入工作空间，在项目区定位 E2E Project 的打开入口")
+        } else {
+            _ = try await session.wait(Expectation(allOf: [workspace], timeout: 20))
+            try await session.click(matching: ["打开", "Open"], pick: .bottom)
+            _ = try await session.wait(Expectation(allOf: ["E2E Project"], timeout: 15))
+            try await session.click(matching: ["E2E Project"], pick: .bottom)
+        }
+    }
+
+    private static func content(_ session: Session, text: String, browser: Bool) async throws -> Frame {
+        if session.visualReview {
+            return try await CanvasPresentationVisual.layout(session, content: text, browser: browser)
+        }
+        return try await session.wait(Expectation(allOf: [text], timeout: 15))
+    }
+
     private static func startTerminalOutput(_ session: Session, index: Int) async throws {
         // 持续输出让终端经历真实 resize 后仍有新正文可验，避免依赖一次输出的回卷位置。
-        // 编号通过参数生成，命令回显自身不包含完整 marker，只有真实执行输出能匹配。
-        try await session.type("while :; do printf 'LAYOUT TERMINAL %s\\n' \(index); sleep 1; done")
+        // 单词标记避免 Vision 把重复行分成纵向文字列；后缀经参数生成，命令回显不能匹配。
+        let suffix = index == 1 ? "ONE" : "TWO"
+        try await session.type("while :; do printf 'TERM%s\\n' \(suffix); sleep 1; done")
         try await session.shortcut(key: 36, modifiers: [])
     }
 
     private static func restartTerminalOutput(_ session: Session) async throws {
+        if session.visualReview {
+            for (index, side) in [(1, "左侧"), (2, "右侧")] {
+                try await session.visualClick("确认项目已恢复六张 Agent 和两张终端；定位末行\(side)终端的正文输入区域，避开标题栏")
+                try await startTerminalOutput(session, index: index)
+            }
+            return
+        }
         // 生产恢复重建 fresh shell，不重放用户输入；真实点击终端正文后重新启动夹具输出。
         let deadline = Date().addingTimeInterval(15)
         var last = ""
@@ -194,11 +216,12 @@ public enum CanvasPresentationLayout {
     }
 
     private static func terminalMarkers(_ frame: Frame, index: Int) -> [VisibleText] {
-        frame.texts.filter { $0.value.trimmingCharacters(in: .whitespacesAndNewlines) == "LAYOUT TERMINAL \(index)" }
+        let marker = index == 1 ? "TERMONE" : "TERMTWO"
+        return frame.texts.filter { $0.value.trimmingCharacters(in: .whitespacesAndNewlines) == marker }
     }
 
     private static func command(_ session: Session, _ text: String) async throws {
-        let frame = try await session.capture()
+        let frame = try await (session.visualReview ? session.capturePixels() : session.capture())
         try await session.click(local: CGPoint(x: frame.windowFrame.width / 2, y: frame.windowFrame.height - 38), on: frame)
         try await session.selectAll()
         try await session.type(text)
@@ -207,6 +230,7 @@ public enum CanvasPresentationLayout {
     }
 
     private static func healthyLayout(_ session: Session) async throws -> Frame {
+        if session.visualReview { return try await CanvasPresentationVisual.layout(session) }
         let deadline = Date().addingTimeInterval(15)
         var last = ""
         var lastFrame: Frame?

@@ -34,12 +34,18 @@ struct Main {
             }
             exit(code)
         }
-        guard arguments.count == 5, arguments[1] == "run" else {
-            fputs("用法：norma-e2e list [module|scenario]\n      norma-e2e run <scenario> <app-binary> <artifact-root>\n", stderr)
+        guard arguments.count == 5, ["run", "visual"].contains(arguments[1]) else {
+            fputs("用法：norma-e2e list [module|scenario]\n      norma-e2e run|visual <scenario> <app-binary> <artifact-root>\n", stderr)
             exit(2)
         }
         let scenario = arguments[2]
-        let session = Session(scenario: scenario, appPath: arguments[3], artifactRoot: arguments[4])
+        let visual = arguments[1] == "visual"
+        let supported = await MainActor.run { ScenarioCatalog.modules.flatMap(\.visualScenarioNames).contains(scenario) }
+        if visual && !supported {
+            fputs("场景 \(scenario) 尚未接入模型看图，不能隐式退回 OCR。\n", stderr)
+            exit(2)
+        }
+        let session = Session(scenario: scenario, appPath: arguments[3], artifactRoot: arguments[4], visualReview: visual)
         do {
             try Preflight.check(appPath: session.appPath, artifactRoot: session.artifactRoot)
             try session.begin()

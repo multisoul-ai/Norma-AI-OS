@@ -11,7 +11,7 @@ description: 为本次 UI 或用户流程差异补充真实 macOS Norma App 验�
 
 1. 读 [`references/preflight.md`](references/preflight.md)。锁屏或控制通道不可用时停下来说明，等用户处理后再跑。
 2. 确认被测二进制是 `target/debug/norma-os`，不是 `/Applications/Norma OS.app`。不要结束用户已经打开的 Norma。
-3. 按 [`references/modules.md`](references/modules.md) 选择覆盖本次差异的最小现有场景，用 `bash scripts/desktop-e2e.sh <场景>` 执行；完整模块验收才用 `<模块>` 跑全部场景。需要验证稳定性时加 `--repeat 5`。默认在私有虚拟显示器后台运行；用户要亲自观看或验收时，告诉用户用 `NORMA_E2E_VISIBLE=1`（或 `NORMA_E2E_FOREGROUND=1`）自行运行，见 [desktop-e2e.md](../../../docs/quality/desktop-e2e.md)“关闭后台模式”。
+3. 按 [`references/modules.md`](references/modules.md) 选择覆盖本次差异的最小现有场景，已接入模型看图的场景优先用 `bash scripts/desktop-e2e.sh <场景> --visual`，按 [`references/model-vision.md`](references/model-vision.md) 实际读图并逐项响应；其他场景用 `bash scripts/desktop-e2e.sh <场景>` 执行；完整模块验收才用 `<模块>` 跑全部场景。需要验证稳定性时加 `--repeat 5`。默认在私有虚拟显示器后台运行；用户要亲自观看或验收时，告诉用户用 `NORMA_E2E_VISIBLE=1`（或 `NORMA_E2E_FOREGROUND=1`）自行运行，见 [desktop-e2e.md](../../../docs/quality/desktop-e2e.md)“关闭后台模式”。
 4. 退出码 `3` 按 [`references/triage.md`](references/triage.md) 记为 ENV 并停止。退出码 `1` 记为 PRODUCT，附 `report.json`、失败截图和 `app.log`。
 5. 从 `checks/<模块>/*.checks.md` 选取本次范围内的关键图并查看，不因场景额外产图扩大读图范围。每张给符合、不符合或不确定；方式见 [`references/visual-checks.md`](references/visual-checks.md)。
 6. 记录本次范围、复用证据、实际运行的退出码/耗时/通过率，以及必要的视觉结论与证据路径。面向用户汇报摘要，详细记录按需链接。

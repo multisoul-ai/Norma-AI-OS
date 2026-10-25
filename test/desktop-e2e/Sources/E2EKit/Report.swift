@@ -61,6 +61,7 @@ extension Session {
     }
 
     public func finishSuccess() throws {
+        guard !visualReview || visualCheckCount > 0 else { throw E2EError.driver("模型模式没有完成视觉后置检查，不能报告通过") }
         try writeReport(result: "pass", kind: nil, message: "场景通过")
         let seconds = Date().timeIntervalSince(started)
         print("PASS \(scenario) \(String(format: "%.2f", seconds))s 证据 \(output?.path ?? artifactRoot.path)")
@@ -81,6 +82,8 @@ extension Session {
         let seconds = Date().timeIntervalSince(started)
         var payload: [String: Any] = [
             "scenario": scenario,
+            "verification": visualReview ? "model-assisted" : "ocr-scripted",
+            "visualChecks": visualCheckCount,
             "result": result,
             "seconds": seconds,
             "message": message,

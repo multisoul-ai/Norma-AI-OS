@@ -139,6 +139,7 @@ func recognizeText(_ image: CGImage, level: VNRequestTextRecognitionLevel, cpuOn
 
 extension Session {
     public func capture() async throws -> Frame {
+        guard !visualReview else { throw E2EError.driver("模型模式禁止隐式 OCR；请使用 capturePixels / visualCheck / visualClick") }
         try ensureRunning()
         try ensureCaptureEnvironment()
         var lastEmptyFrame: Frame?
@@ -188,7 +189,7 @@ extension Session {
         throw E2EError.env("App 控制通道连续 3 次未能导出窗口画面。请检查隔离窗口是否可见。")
     }
 
-    private func ensureCaptureEnvironment() throws {
+    func ensureCaptureEnvironment() throws {
         if let state = CGSessionCopyCurrentDictionary() as NSDictionary?,
            (state["CGSSessionScreenIsLocked"] as? NSNumber)?.boolValue == true {
             throw E2EError.env("屏幕已锁定，请解锁后重跑。")

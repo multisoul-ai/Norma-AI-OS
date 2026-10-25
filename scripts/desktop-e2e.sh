@@ -5,9 +5,14 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 scenario="workspace-lifecycle"
 repeat=1
+mode=run
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --visual)
+      mode=visual
+      shift
+      ;;
     --repeat)
       repeat="${2:?缺少 --repeat 的次数}"
       shift 2
@@ -17,7 +22,8 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     -h|--help)
-      echo "用法：scripts/desktop-e2e.sh [module|scenario] [--repeat N]"
+      echo "用法：scripts/desktop-e2e.sh [module|scenario] [--repeat N] [--visual]"
+      echo "--visual 由当前多模态 Agent 看图并写响应，当前支持 canvas-presentation-layout。"
       echo "默认场景：workspace-lifecycle"
       echo "传入模块名时，按该模块登记顺序跑完全部场景。"
       exit 0
@@ -73,7 +79,7 @@ for ((i = 1; i <= repeat; i++)); do
     echo "===== ${scenario_name} 第 ${i}/${repeat} 次 ====="
     seconds_start=$(date +%s)
     set +e
-    "$driver" run "$scenario_name" "$app_binary" "$artifact_root"
+    "$driver" "$mode" "$scenario_name" "$app_binary" "$artifact_root"
     code=$?
     set -e
     elapsed=$(( $(date +%s) - seconds_start ))
