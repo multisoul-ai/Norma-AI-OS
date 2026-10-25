@@ -6,6 +6,8 @@ mod grid;
 pub(crate) mod page;
 mod playback;
 mod preview;
+mod run_preview;
+pub(crate) mod run_section;
 mod scope;
 pub(crate) mod sources;
 pub(crate) mod state;

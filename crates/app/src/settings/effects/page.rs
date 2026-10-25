@@ -17,6 +17,7 @@ pub(crate) struct EffectsPageData {
     pub menu: Option<Source>,
     pub menu_cursor: usize,
     pub replay_started: Option<Instant>,
+    pub run: super::ui_state::RunPreviewUi,
 }
 
 impl EffectsPageData {

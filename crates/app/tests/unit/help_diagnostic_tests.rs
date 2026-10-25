@@ -38,6 +38,10 @@ fn help_diagnostics_explain_blockers_without_logging_user_text() {
             ui::component::Root::new(entity, window, cx)
         });
         let app = app.expect("应创建 App");
+        // 并行测试的其他线程可能在本线程装好订阅者之前首次命中 [help-diag] callsite，
+        // 与订阅者注册赛跑后把它缓存成“不关心”，导致本测试收不到日志。此时其他线程的注册
+        // 早已完成，重建一次兴趣缓存即可让这些 callsite 重新按本线程的订阅者判断。
+        tracing::callsite::rebuild_interest_cache();
         app.update_in(cx, |app, window, cx| app.focus_command_input(window, cx));
         cx.simulate_input("/private/PRIVATE-CANARY");
         cx.simulate_keystrokes("cmd-a");

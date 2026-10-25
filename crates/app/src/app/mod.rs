@@ -10,6 +10,7 @@ use crate::canvas::master_layout::{term_grid_size_for_card, MasterLayoutState};
 use crate::canvas::overlays::render_canvas_overlays;
 use crate::canvas::spawn_focus;
 use crate::canvas::view::render_canvas;
+use crate::cards::run_effect::RunEffectView;
 use crate::cards::snake::WorkingSnakeView;
 use crate::cards::term::render_cache::TerminalRenderCacheHandle;
 use crate::motion::MotionStore;
@@ -123,6 +124,9 @@ pub(crate) use voice::caption::VoiceWaveformState;
 pub(crate) use voice::recognition::AsrRecordingSession;
 pub(crate) mod effects_actions;
 mod optional_media;
+pub(crate) mod run_effects_actions;
+#[cfg(all(debug_assertions, not(feature = "production-data")))]
+pub(crate) mod run_effects_fixture;
 mod voice_window_inset;
 mod wallpaper_actions;
 pub(crate) mod wallpaper_resolvers;
@@ -271,6 +275,7 @@ pub struct MultisoulApp {
     pub(crate) desktop_directory_scroll: gpui::ScrollHandle,
     canvas_surface: gpui::Entity<canvas_surface::CanvasSurfaceView>,
     pub(crate) working_snake_views: HashMap<NodeId, gpui::Entity<WorkingSnakeView>>,
+    pub(crate) run_effect_views: HashMap<NodeId, gpui::Entity<RunEffectView>>,
     voice_window_inset_events: voice_window_inset::VoiceWindowInsetEventBus,
     voice_window_inset_view: gpui::Entity<voice_window_inset::VoiceWindowInsetView>,
     voice_window_inset_window_visible: bool,

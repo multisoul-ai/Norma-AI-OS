@@ -211,9 +211,9 @@ fn command_dock_suggestions_require_nonblank_input() {
 ///
 /// 数据构造：空 workspace、echo PTY；oneshot 保留原生文件窗口尚未返回的状态。
 ///   Codex 1 张 + 迟到的 Markdown 预览 1 张 + 终端 1 张 = baseline + 3 张。
-/// 执行过程：预览等待 → 再次预览得到提示 → 实际键路由输入 Codex 并回车 → 输入终端指令 →
-///   预览迟到完成 → 终端回车；记录每步草稿和卡片数。
-/// 预期结果：重复预览被提示拦截；Codex 只创建一次；迟到结果保留终端草稿且终端仍能执行。
+/// 执行过程：预览等待 → 再按回车（`/preview` 已于 9524d38a 移出指令候选，回车不会再触发预览）→
+///   实际键路由输入 Codex 并回车 → 输入终端指令 → 预览迟到完成 → 终端回车；记录每步草稿和卡片数。
+/// 预期结果：等待中再回车不建卡、不开第二个文件窗口；Codex 只创建一次；迟到结果保留终端草稿且终端仍能执行。
 #[test]
 fn command_dock_pending_preview_does_not_block_new_commands() {
     let workspace = tempfile::tempdir().expect("临时 workspace 应可创建");
@@ -250,9 +250,13 @@ fn command_dock_pending_preview_does_not_block_new_commands() {
     cx.simulate_keystrokes("cmd-k enter");
     app.read_with(cx, |app, _| {
         assert_eq!(
-            app.command_dock.as_ref().unwrap().error.as_deref(),
-            Some("Finish or cancel the open file picker first"),
-            "重复预览必须解释等待原因"
+            app.command_dock
+                .as_ref()
+                .unwrap()
+                .pending_preview
+                .as_deref(),
+            Some("/preview"),
+            "等待中的预览不能被再次回车替换或释放"
         );
         assert_eq!(
             app.runtime.document.nodes().len(),

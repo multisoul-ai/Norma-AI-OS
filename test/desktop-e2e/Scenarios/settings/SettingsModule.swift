@@ -14,6 +14,7 @@ public enum SettingsModule {
             SettingsOrchestrationPathConvention.name,
             SettingsAgentsLibrary.name,
             SettingsDispatchEffects.name,
+            SettingsRunEffects.name,
         ],
         run: { scenario, session in
             switch scenario {
@@ -35,6 +36,8 @@ public enum SettingsModule {
                 try await SettingsAgentsLibrary.run(session)
             case SettingsDispatchEffects.name:
                 try await SettingsDispatchEffects.run(session)
+            case SettingsRunEffects.name:
+                try await SettingsRunEffects.run(session)
             default:
                 return false
             }

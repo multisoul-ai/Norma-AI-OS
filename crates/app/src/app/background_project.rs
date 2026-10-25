@@ -182,6 +182,7 @@ impl MultisoulApp {
         self.video_wallpaper = None;
         self.feature_guide_media = super::feature_guide::FeatureGuideMediaState::default();
         self.working_snake_views.clear();
+        self.run_effect_views.clear();
         self.terminal_render_cache.borrow_mut().clear();
         self.runtime.focus.exit_to_canvas();
         self.wake_animation_frame_loop();
