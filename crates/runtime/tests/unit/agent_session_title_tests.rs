@@ -104,3 +104,12 @@ fn restored_sessions_without_title_are_probed_once() {
         "同一会话只读一次"
     );
 }
+
+/// 场景：后台读取会话名期间节点被删除，结果才返回。
+/// 预期：不写入，也不在映射里留下已删除节点的残留。
+#[test]
+fn session_title_for_removed_node_is_dropped() {
+    let mut runtime = Runtime::new();
+    assert!(!runtime.set_agent_session_title(999, "迟到的标题".into()));
+    assert!(!runtime.has_agent_session_title(999));
+}

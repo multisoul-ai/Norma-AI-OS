@@ -51,6 +51,9 @@ pub fn session_title_by_id(profile: AgentProfile, session_id: &str) -> Option<St
 
 /// `projects` 下每个项目目录里找 `<id>.jsonl`，取其最后的 ai-title。
 pub fn claude_title_in(projects: &Path, session_id: &str) -> Option<String> {
+    if session_id.is_empty() || session_id.contains(['/', '\\']) || session_id.contains("..") {
+        return None;
+    }
     std::fs::read_dir(projects)
         .ok()?
         .flatten()
@@ -86,6 +89,10 @@ fn clean(raw: &str) -> Option<String> {
 
 /// 从文件尾部向前找第一条 `pick` 返回 `Some` 的 JSON 行。
 fn last_line_value(path: &Path, pick: impl Fn(&Value) -> Option<String>) -> Option<String> {
+    // hook 给的路径不可信：FIFO 等特殊文件 open 会永久阻塞后台线程。
+    if !std::fs::metadata(path).ok()?.is_file() {
+        return None;
+    }
     let mut file = File::open(path).ok()?;
     let len = file.metadata().ok()?.len();
     let start = len.saturating_sub(TAIL_BYTES);

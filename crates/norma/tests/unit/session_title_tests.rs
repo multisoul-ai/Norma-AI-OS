@@ -153,3 +153,18 @@ fn claude_title_found_by_session_id_across_project_dirs() {
     );
     assert_eq!(claude_title_in(dir.path(), "missing"), None);
 }
+
+/// 场景：hook 传来的 transcript_path 不可信，session id 也可能含路径分隔符。
+/// 预期：目录、含 `..` 的 id 都返回 None，不会读到项目目录之外的文件，也不会卡在非普通文件上。
+#[test]
+fn untrusted_paths_and_ids_are_rejected() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(dir.path().join("proj")).unwrap();
+    write(
+        dir.path(),
+        "secret.jsonl",
+        &[r#"{"type":"ai-title","aiTitle":"越界"}"#],
+    );
+    assert_eq!(claude_title_in(&dir.path().join("proj"), "../secret"), None);
+    assert_eq!(claude_ai_title(dir.path()), None, "目录不是 transcript");
+}

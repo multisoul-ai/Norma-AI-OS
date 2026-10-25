@@ -366,6 +366,9 @@ impl Runtime {
 
     /// 记录 CLI 的会话名；标题没变时返回 false。
     pub fn set_agent_session_title(&mut self, node_id: NodeId, title: String) -> bool {
+        if self.document.node(node_id).is_none() {
+            return false; // 后台读取期间节点已被删除
+        }
         self.events.set_agent_session_title(node_id, title)
     }
 

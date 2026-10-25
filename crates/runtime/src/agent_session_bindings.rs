@@ -132,16 +132,14 @@ impl AgentSessionBindings {
 impl Runtime {
     /// 已绑定会话但还没有会话名的智能体（例如刚打开项目恢复出来的）；会话名被清掉后会再次返回。
     pub fn take_unprobed_session_titles(&mut self) -> Vec<(NodeId, AgentProfile, String)> {
-        let candidates: Vec<_> = self
-            .agent_session_bindings
+        let events = &mut self.events;
+        self.agent_session_bindings
             .by_node
             .iter()
-            .filter(|(node, _)| !self.events.has_agent_session_title(**node))
+            .filter(|(node, _)| {
+                !events.has_agent_session_title(**node) && events.claim_session_title_probe(**node)
+            })
             .map(|(node, bound)| (*node, bound.profile, bound.session_id.clone()))
-            .collect();
-        candidates
-            .into_iter()
-            .filter(|(node, _, _)| self.events.claim_session_title_probe(*node))
             .collect()
     }
 

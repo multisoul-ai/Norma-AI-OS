@@ -53,7 +53,10 @@ impl MultisoulApp {
             {
                 card.state = "collecting".into();
             }
-            if card.task_summary.is_none() {
+            // 失败态的 task_summary 是失败原因，实时动作只在真正运行时填。
+            if card.task_summary.is_none()
+                && matches!(card.state.as_str(), "thinking" | "running_tool")
+            {
                 card.task_summary = self
                     .runtime
                     .agent_task_state(card.node_id)
