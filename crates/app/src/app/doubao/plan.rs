@@ -10,6 +10,7 @@ use ui::i18n::LocalizedText;
 pub(super) mod asr;
 pub(super) mod chat;
 mod conversation;
+mod direct;
 mod tts;
 
 #[cfg(test)]
