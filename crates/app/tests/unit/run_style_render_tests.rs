@@ -189,9 +189,12 @@ fn ferrofluid_offsets_drop_and_drip_limits() {
     );
 }
 
-/// 减少动态效果：灵光、磁流体回落为底部 3px 状态色细条；准备状态不画。
+/// 减少动态效果：灵光、磁流体回落为卡片底边外的 3px 状态色细条；准备状态不画。
 ///
-/// 预期：思考时 1 个 Bar，高 3px，贴卡片底边；准备时为空。
+/// 数据：frame() 卡片底边 y = 56 + 420 = 476。
+/// 执行过程：思考状态 tick 一次（减少动态效果直接落到目标值）后构建图元。
+/// 预期：思考时 1 个 Bar，高 3px，顶边在 476 + 2 = 478（卡片外、8px 布局间距内，
+///       否则会被画在其上的卡片正文挡住）；准备时为空。
 #[test]
 fn reduce_motion_falls_back_to_bottom_bar() {
     let p = palette();
@@ -203,8 +206,12 @@ fn reduce_motion_falls_back_to_bottom_bar() {
             [RunPrim::Bar { y, height, .. }] => {
                 assert_eq!(*height, 3.0, "{style:?} 细条高 3px");
                 assert!(
-                    (y + height - (f.y + f.h)).abs() < 1e-4,
-                    "{style:?} 细条贴卡片底边"
+                    (y - (f.y + f.h + 2.0)).abs() < 1e-4,
+                    "{style:?} 细条在卡片底边外 2px，实际 y={y}"
+                );
+                assert!(
+                    y + height <= f.y + f.h + 8.0,
+                    "{style:?} 细条不能超出 8px 布局间距"
                 );
             }
             other => panic!("{style:?} 减少动态效果应只有一条细条: {other:?}"),

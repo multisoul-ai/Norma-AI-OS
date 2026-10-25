@@ -162,52 +162,50 @@ pub(super) fn run_scene(scene: RunScene) -> Div {
         };
         root = root.child(render_glow_ring(card, radius, zoom, border, glow, 1.0));
     }
-    root = root.child(
-        div()
-            .absolute()
-            .left(px(card.origin.x))
-            .top(px(card.origin.y))
-            .w(px(card.size.x))
-            .h(px(card.size.y))
-            .rounded(px(radius))
-            .border_1()
-            .border_color(rgba(border))
-            .bg(rgba(theme.panel_high))
-            .overflow_hidden()
-            .child(
-                div()
-                    .h(px(title_h))
-                    .px(px(8.0 * zoom))
-                    .flex()
-                    .items_center()
-                    .gap(px(5.0 * zoom))
-                    .border_b_1()
-                    .border_color(rgba((theme.edge_highlight & 0xffffff00) | 0x70))
-                    .child(
-                        div()
-                            .size(px((6.0 * zoom).max(3.0)))
-                            .rounded_full()
-                            .bg(rgba(status)),
-                    )
-                    .child(placeholder(0.32)),
-            )
-            .child(
-                div()
-                    .p(px(8.0 * zoom))
-                    .flex()
-                    .flex_col()
-                    .gap(px(5.0 * zoom))
-                    .child(placeholder(0.7))
-                    .child(placeholder(0.5))
-                    .child(placeholder(0.6)),
-            ),
-    );
+    let card_el = div()
+        .absolute()
+        .left(px(card.origin.x))
+        .top(px(card.origin.y))
+        .w(px(card.size.x))
+        .h(px(card.size.y))
+        .rounded(px(radius))
+        .border_1()
+        .border_color(rgba(border))
+        .bg(rgba(theme.panel_high))
+        .overflow_hidden()
+        .child(
+            div()
+                .h(px(title_h))
+                .px(px(8.0 * zoom))
+                .flex()
+                .items_center()
+                .gap(px(5.0 * zoom))
+                .border_b_1()
+                .border_color(rgba((theme.edge_highlight & 0xffffff00) | 0x70))
+                .child(
+                    div()
+                        .size(px((6.0 * zoom).max(3.0)))
+                        .rounded_full()
+                        .bg(rgba(status)),
+                )
+                .child(placeholder(0.32)),
+        )
+        .child(
+            div()
+                .p(px(8.0 * zoom))
+                .flex()
+                .flex_col()
+                .gap(px(5.0 * zoom))
+                .child(placeholder(0.7))
+                .child(placeholder(0.5))
+                .child(placeholder(0.6)),
+        );
     if classic {
         let snake = matches!(state, RunState::Thinking | RunState::Tool)
             .then(|| resolve_working_snake(theme, 1.0, (t / 1200.0).fract()))
             .flatten()
             .filter(|_| !reduce_motion);
-        root = root.when_some(snake, |root, snake| {
+        root = root.child(card_el).when_some(snake, |root, snake| {
             root.child(
                 div()
                     .absolute()
@@ -232,22 +230,26 @@ pub(super) fn run_scene(scene: RunScene) -> Div {
     };
     let prims = run_style::build(style, &motion, &frame, reduce_motion);
     let keep_going = playing && !reduce_motion;
-    root.child(
-        canvas(
-            move |_, _, _| prims,
-            move |bounds, prims, window, _| {
-                paint_prims(&prims, bounds.origin, window);
-                if keep_going {
-                    window.request_animation_frame();
-                }
-            },
-        )
-        .absolute()
-        .left(px(card.origin.x - margin))
-        .top(px(card.origin.y - margin))
-        .w(px(card.size.x + margin * 2.0))
-        .h(px(card.size.y + margin * 2.0)),
+    let effect = canvas(
+        move |_, _, _| prims,
+        move |bounds, prims, window, _| {
+            paint_prims(&prims, bounds.origin, window);
+            if keep_going {
+                window.request_animation_frame();
+            }
+        },
     )
+    .absolute()
+    .left(px(card.origin.x - margin))
+    .top(px(card.origin.y - margin))
+    .w(px(card.size.x + margin * 2.0))
+    .h(px(card.size.y + margin * 2.0));
+    // 与画布一致：灵光、磁流体画在卡片之下，一道光画在卡片之上。
+    if style.draws_under_cards() {
+        root.child(effect).child(card_el)
+    } else {
+        root.child(card_el).child(effect)
+    }
 }
 
 /// 经典预览没有自己的 canvas，用一个空 canvas 在播放时持续请求帧。

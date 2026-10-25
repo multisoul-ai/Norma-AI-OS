@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agent 卡片运行特效风格</title>
+<style>
+:root{--bg:#f2f2f5;--panel:#fff;--card:#fbfbfd;--ink:#1d1d1f;--sub:#6e6e73;--line:#d9d9de;--accent:#0a84ff;--shadow:0 8px 30px rgba(0,0,0,.10)}
+:root[data-theme=dark]{--bg:#0f0f12;--panel:#1c1c20;--card:#232328;--ink:#f5f5f7;--sub:#98989f;--line:#38383d;--shadow:0 8px 30px rgba(0,0,0,.5)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,"SF Pro Text","PingFang SC",sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:20px;margin:0 0 4px}.sub{color:var(--sub);margin:0 0 16px}
+.ctl{position:sticky;top:0;z-index:5;background:var(--bg);padding:10px 0 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button{font:inherit;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:6px 12px;border-radius:8px;cursor:pointer;transition:background .12s,transform .1s}
+button:hover{background:var(--line)}button:active{transform:scale(.97)}button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.ctl label{color:var(--sub);font-size:13px;margin-left:6px}
+.sec{background:var(--panel);border-radius:16px;box-shadow:var(--shadow);padding:16px 16px 12px;margin-bottom:18px}.sh{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}.sh button{margin-left:auto;padding:3px 10px;font-size:12px}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:8px}@media(max-width:900px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:520px){.grid{grid-template-columns:1fr}}
+.lab{text-align:center;font-size:12px;color:var(--sub);margin-top:-6px}
+.cell{min-width:0}.sec h2{font-size:17px;margin:0}.sec p{margin:2px 0 0;color:var(--sub);font-size:12.5px;flex-basis:100%}
+.stage{container-type:inline-size;position:relative;width:100%;max-width:460px;aspect-ratio:460/330;margin:0 auto}
+.stage canvas{z-index:2;position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.card{position:absolute;left:13.04%;top:18.18%;width:73.9%;height:63.64%;border-radius:14px;background:var(--card);box-shadow:0 6px 18px rgba(0,0,0,.14);cursor:pointer;overflow:hidden}
+.bar{display:flex;align-items:center;gap:8px;height:18%;padding:0 4%;border-bottom:1px solid var(--line);font-weight:600;font-size:3cqw}
+.dot{width:2.2cqw;height:2.2cqw;border-radius:50%;background:var(--sub);flex:none;transition:background .16s}
+.chip{margin-left:auto;font:500 2.4cqw ui-monospace,Menlo,monospace;color:var(--sub);background:var(--bg);padding:2px 8px;border-radius:99px;white-space:nowrap}
+.body{padding:4%;color:var(--sub);font:2.6cqw/1.7 ui-monospace,Menlo,monospace}
+.body b{color:var(--ink);font-weight:500}
+.tags{display:flex;gap:6px;flex-wrap:wrap}.tags span{font-size:11px;color:var(--sub);border:1px solid var(--line);border-radius:99px;padding:1px 8px}
+.note{margin-top:20px;background:var(--panel);border-radius:16px;padding:14px;box-shadow:var(--shadow);color:var(--sub);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Agent 卡片运行特效 · 五套风格 v4</h1>
+<p class="sub">极简三向(一个点 / 一条线 / 一道光)+ 灵光 · 等高线 · 磁流体 · 声振 · 扫描。按风格分组:每套风格一行,依次展示 准备 / 思考 / 工具调用 / 等待审批 / 完成 / 失败 六个状态。完成与失败的转场只播放一次,点各组的「重播」再看。</p>
+<div class="ctl" id="ctl"><a href="settings.html" style="margin-left:auto;order:9;color:var(--accent)">设置页原型 →</a></div>
+<div id="grid"></div>
+<div class="note">共用语义:蓝 = 思考/工具,琥珀 = 等待你,绿 = 完成(未查看前保留),红 = 失败。点击卡片 = 标记已查看。「减少动态效果」下五套统一降级为底部状态色细条的淡变。</div>
+</div>
+<script src="run-styles.js"></script>
+<script>
+reduce=()=>document.getElementById('rm').checked;
+/* ---------- 页面 ---------- */
+const root=document.getElementById('grid');
+const ctl=document.getElementById('ctl');
+const all=$('button','',ctl);all.textContent='↻ 全部重播';all.onclick=()=>cards.forEach(g=>g.replay());
+ctl.insertAdjacentHTML('beforeend','<label><input type="checkbox" id="rm"> 减少动态效果</label><label><input type="checkbox" id="th"> 深色</label>');
+document.getElementById('th').onchange=e=>document.documentElement.dataset.theme=e.target.checked?'dark':'light';
+document.getElementById('rm').checked=matchMedia('(prefers-reduced-motion: reduce)').matches;
+if(matchMedia('(prefers-color-scheme: dark)').matches){document.getElementById('th').checked=true;document.documentElement.dataset.theme='dark'}
+const ONLY=new URLSearchParams(location.search).get('only');STYLES.filter(s=>!ONLY||s.key===ONLY).forEach(style=>{
+ const sec=$('section','sec',root);const sh=$('div','sh',sec);
+ $('h2','',sh).textContent=style.name;const rb=$('button','',sh);rb.textContent='↻ 重播';
+ $('p','',sh).textContent=style.desc;const tg=$('div','tags',sec);tg.style.marginTop='6px';style.tags.forEach(t=>$('span','',tg).textContent=t);
+ const grid=$('div','grid',sec);const mine=STATES.map(([k,l])=>makeCard(style,grid,k,l));
+ rb.onclick=()=>mine.forEach(g=>g.replay())});
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
