@@ -2,9 +2,10 @@
 //! 派发路径只读各窗口 `MotionStore` 里已解析好的选择，不碰 SQLite。
 
 use crate::app::MultisoulApp;
+use crate::motion::run_style::RunStyle;
 use crate::settings::effects::page::EffectsPageData;
 use crate::settings::effects::state::{
-    EffectsSettingsState, EffectsTarget, PlaybackSpeed, Source, KEY_SPEED,
+    EffectsSettingsState, EffectsTarget, PlaybackSpeed, Source, KEY_RUN_STYLE, KEY_SPEED,
 };
 use gpui::{App, Context};
 use storage::DispatchEffectPreference as Pref;
@@ -25,6 +26,7 @@ pub(crate) fn effects_snapshot(cx: &App) -> EffectsSettingsState {
 struct LoadedEffects {
     snapshot: storage::DispatchEffectSnapshot,
     speed: PlaybackSpeed,
+    run_style: Option<String>,
 }
 
 impl MultisoulApp {
@@ -42,6 +44,7 @@ impl MultisoulApp {
                 speed: PlaybackSpeed::from_key(
                     settings.get_string(KEY_SPEED).ok().flatten().as_deref(),
                 ),
+                run_style: settings.get_string(KEY_RUN_STYLE).ok().flatten(),
             }
         });
         cx.spawn(async move |this, cx| {
@@ -50,7 +53,13 @@ impl MultisoulApp {
                 with_effects(cx, |state| {
                     state.load_snapshot(loaded.snapshot);
                     state.speed = loaded.speed;
+                    // 用户在读取完成前已经点选过，就不要用旧值覆盖。
+                    if state.run_generation == 0 {
+                        state.run_style = RunStyle::from_id(loaded.run_style.as_deref());
+                        state.run_saved = state.run_style;
+                    }
                 });
+                app.notify_run_style_hosts(cx);
                 app.sync_all_dispatch_effects(cx);
                 cx.notify();
             });
@@ -357,6 +366,7 @@ impl MultisoulApp {
             menu: self.effects_ui.menu,
             menu_cursor: self.effects_ui.menu_cursor,
             replay_started: self.effects_ui.replay_started,
+            run: self.effects_ui.run,
             state,
         }
     }

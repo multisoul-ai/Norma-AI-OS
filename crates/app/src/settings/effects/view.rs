@@ -1,4 +1,4 @@
-//! 特效页：范围 → 当前特效 → 特效库 → 按来源 → 播放（与壁纸页同构）。
+//! 特效页：范围 → 当前特效 → 特效库 → 按来源 → 播放（与壁纸页同构），之后是卡片运行特效。
 
 use super::page::EffectsPageData;
 use crate::app::MultisoulApp;
@@ -30,4 +30,5 @@ pub(crate) fn effects_settings(
         .child(super::grid::grid_section(theme, data, &layout, cx))
         .child(super::sources::sources_section(theme, data, window, cx))
         .child(super::playback::playback_section(theme, data, cx))
+        .child(super::run_section::run_section(theme, data, &layout, cx))
 }

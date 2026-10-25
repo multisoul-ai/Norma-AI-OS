@@ -273,6 +273,7 @@ impl MultisoulApp {
             desktop_directory_scroll: gpui::ScrollHandle::new(),
             canvas_surface,
             working_snake_views: std::collections::HashMap::new(),
+            run_effect_views: std::collections::HashMap::new(),
             voice_window_inset_events,
             voice_window_inset_view,
             voice_window_inset_window_visible: true,

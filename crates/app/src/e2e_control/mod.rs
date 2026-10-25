@@ -328,6 +328,20 @@ fn execute_in(command: Command, window: &mut Window, cx: &mut App) -> Outcome {
                 Err(error) => Response::error(error),
             })
         }
+        Command::RunEffectsFixture => {
+            let installed = crate::workspace::desktop::sessions::windowed(cx)
+                .ok_or_else(|| "no windowed host".to_string())
+                .map(|app| {
+                    app.update(cx, |app, cx| {
+                        crate::app::run_effects_fixture::install(app);
+                        cx.notify();
+                    })
+                });
+            done(match installed {
+                Ok(()) => Response::ok(),
+                Err(error) => Response::error(error),
+            })
+        }
         Command::Capture { path } => match window_info(window) {
             Ok(window) => Outcome::Capture { window, path },
             Err(error) => done(Response::error(error)),

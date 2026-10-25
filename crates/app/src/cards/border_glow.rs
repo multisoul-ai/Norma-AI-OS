@@ -23,31 +23,47 @@ pub(crate) fn render_border_glow(
     visual: ResolvedNodeVisual,
 ) -> Option<AnyElement> {
     let glow = visual.border_glow?;
+    Some(render_glow_ring(
+        rect,
+        radius,
+        zoom,
+        visual.stroke_color,
+        glow,
+        visual.opacity,
+    ))
+}
+
+/// 外缘柔光本体；设置页的经典预览复用它。
+pub(crate) fn render_glow_ring(
+    rect: CanvasRect,
+    radius: f32,
+    zoom: f32,
+    color: u32,
+    glow: BorderGlow,
+    opacity: f32,
+) -> AnyElement {
     let (x, y, width, height) = (rect.origin.x, rect.origin.y, rect.size.x, rect.size.y);
-    let bands = glow_bands(glow, zoom, visual.opacity);
-    let color = visual.stroke_color;
-    Some(
-        canvas(
-            move |bounds, _window, _cx| {
-                let card = Bounds {
-                    origin: point(bounds.left() + px(MARGIN_PX), bounds.top() + px(MARGIN_PX)),
-                    size: size(px(width), px(height)),
-                };
-                bands.map(|band| glow_quad(card, radius, color, band))
-            },
-            move |_bounds, quads, window, _cx| {
-                for quad in quads {
-                    window.paint_quad(quad);
-                }
-            },
-        )
-        .absolute()
-        .left(px(x - MARGIN_PX))
-        .top(px(y - MARGIN_PX))
-        .w(px(width + MARGIN_PX * 2.0))
-        .h(px(height + MARGIN_PX * 2.0))
-        .into_any_element(),
+    let bands = glow_bands(glow, zoom, opacity);
+    canvas(
+        move |bounds, _window, _cx| {
+            let card = Bounds {
+                origin: point(bounds.left() + px(MARGIN_PX), bounds.top() + px(MARGIN_PX)),
+                size: size(px(width), px(height)),
+            };
+            bands.map(|band| glow_quad(card, radius, color, band))
+        },
+        move |_bounds, quads, window, _cx| {
+            for quad in quads {
+                window.paint_quad(quad);
+            }
+        },
     )
+    .absolute()
+    .left(px(x - MARGIN_PX))
+    .top(px(y - MARGIN_PX))
+    .w(px(width + MARGIN_PX * 2.0))
+    .h(px(height + MARGIN_PX * 2.0))
+    .into_any_element()
 }
 
 fn glow_bands(glow: BorderGlow, zoom: f32, opacity: f32) -> [GlowBand; 3] {

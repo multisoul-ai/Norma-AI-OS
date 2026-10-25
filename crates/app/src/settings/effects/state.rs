@@ -1,5 +1,6 @@
 //! 特效设置的缓存与纯逻辑：谁生效、怎么改。渲染与派发只读这里的缓存，不碰 SQLite。
 
+use crate::motion::run_style::RunStyle;
 use crate::motion::StyleSelection;
 use std::collections::HashMap;
 use storage::{DispatchEffectPreference as Pref, DispatchEffectSnapshot};
@@ -72,6 +73,8 @@ impl PlaybackSpeed {
 }
 
 pub(crate) const KEY_SPEED: &str = "effects.speed";
+/// 卡片运行特效风格：全局偏好，所有项目共用。
+pub(crate) const KEY_RUN_STYLE: &str = "effects.run_style";
 
 #[derive(Clone, Debug)]
 pub(crate) struct EffectsSettingsState {
@@ -84,6 +87,14 @@ pub(crate) struct EffectsSettingsState {
     pub busy: bool,
     /// 最近一次修改，供“撤销”恢复。
     pub undo: Option<(EffectsTarget, Option<Pref>)>,
+    pub run_style: RunStyle,
+    /// 运行特效分区自己的状态行与撤销值，和派发特效互不干扰。
+    pub run_status: Option<String>,
+    pub run_undo: Option<RunStyle>,
+    /// 最近一次确认写入数据库的风格与其序号；`run_generation` 是最新一次保存的序号。
+    pub run_saved: RunStyle,
+    pub run_saved_generation: u64,
+    pub run_generation: u64,
 }
 
 impl Default for EffectsSettingsState {
@@ -96,6 +107,12 @@ impl Default for EffectsSettingsState {
             status: None,
             busy: false,
             undo: None,
+            run_style: RunStyle::default(),
+            run_status: None,
+            run_undo: None,
+            run_saved: RunStyle::default(),
+            run_saved_generation: 0,
+            run_generation: 0,
         }
     }
 }

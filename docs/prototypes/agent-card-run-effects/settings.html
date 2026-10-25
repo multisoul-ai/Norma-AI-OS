@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>运行特效设置</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..24,400,0..1,0&display=block">
+<style>
+/* 视觉 token 与 docs/prototypes/settings-effects 一致:同一个“特效”设置页,新增“卡片运行特效”分区 */
+:root{
+  --page:#e9e8e3; --window:#fbfaf7; --surface:#fbfaf7; --sc-low:#f5f4f0; --sc:#efeee9; --sc-high:#e8e7e2; --sc-highest:#e1e0db;
+  --on-surface:#313d44; --on-surface-v:#5c676d; --outline:#8b9499; --outline-v:rgba(49,61,68,.14);
+  --primary:#2f80ed; --on-primary:#ffffff; --primary-c:#d9e7fc; --on-primary-c:#0b3a73;
+  --secondary-c:#dde6ef; --on-secondary-c:#1d2b35; --state:49,61,68;
+  --scrim:rgba(20,26,30,.92); --on-scrim:#eef2f5; --inverse-primary:#9cc3ff;
+  --scene-a:#fffefb; --scene-b:#e3edf2; --mcard:#ffffff; --mcard-line:rgba(49,61,68,.12);
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Hiragino Sans GB","Helvetica Neue",sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --page:#080c0f; --window:#11181d; --surface:#11181d; --sc-low:#151d22; --sc:#19232a; --sc-high:#202b32; --sc-highest:#28343c;
+  --on-surface:#e3e9ee; --on-surface-v:#a3aeb5; --outline:#75818a; --outline-v:rgba(227,233,238,.12);
+  --primary:#9cc3ff; --on-primary:#062e5f; --primary-c:#1d4a85; --on-primary-c:#d6e5ff;
+  --secondary-c:#2a3742; --on-secondary-c:#d7e2ec; --state:227,233,238;
+  --scrim:rgba(226,232,237,.95); --on-scrim:#1b252c; --inverse-primary:#2f80ed;
+  --scene-a:#141d23; --scene-b:#070c10; --mcard:#1e282f; --mcard-line:rgba(255,255,255,.08); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --page:#080c0f; --window:#11181d; --surface:#11181d; --sc-low:#151d22; --sc:#19232a; --sc-high:#202b32; --sc-highest:#28343c;
+  --on-surface:#e3e9ee; --on-surface-v:#a3aeb5; --outline:#75818a; --outline-v:rgba(227,233,238,.12);
+  --primary:#9cc3ff; --on-primary:#062e5f; --primary-c:#1d4a85; --on-primary-c:#d6e5ff;
+  --secondary-c:#2a3742; --on-secondary-c:#d7e2ec; --state:227,233,238;
+  --scrim:rgba(226,232,237,.95); --on-scrim:#1b252c; --inverse-primary:#2f80ed;
+  --scene-a:#141d23; --scene-b:#070c10; --mcard:#1e282f; --mcard-line:rgba(255,255,255,.08); color-scheme:dark}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--on-surface);font-family:var(--sans);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+.ms{font-family:"Material Symbols Rounded";font-weight:400;font-style:normal;font-size:20px;line-height:1;white-space:nowrap;-webkit-font-feature-settings:"liga";font-feature-settings:"liga";font-variation-settings:"FILL" 0,"opsz" 20;user-select:none;flex:none}
+.outer{max-width:1180px;margin:0 auto;padding:16px 16px 40px;display:grid;gap:16px}
+.toolbar{display:flex;gap:16px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--on-surface-v)}
+.toolbar b{color:var(--on-surface);font-size:13px}
+.toolbar label{display:inline-flex;gap:6px;align-items:center;cursor:pointer}
+.toolbar a{color:var(--primary);margin-left:auto}
+
+/* 窗口 */
+.win{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:760px;border-radius:14px;overflow:hidden;background:var(--window);box-shadow:0 30px 80px -30px rgba(0,0,0,.35),0 0 0 1px var(--outline-v)}
+.side{background:var(--sc-low);border-right:1px solid var(--outline-v);padding:14px 12px;display:flex;flex-direction:column;gap:4px}
+.lights{display:flex;gap:8px;padding:2px 6px 14px}
+.lights i{width:12px;height:12px;border-radius:50%;background:#ff5f57}.lights i:nth-child(2){background:#febc2e}.lights i:nth-child(3){background:#28c840}
+.side h1{font-size:20px;font-weight:600;margin:0 10px 10px}
+.ngroup{font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--on-surface-v);padding:14px 16px 6px}
+.nav{position:relative;display:flex;align-items:center;gap:12px;height:40px;padding:0 14px;border-radius:20px;color:var(--on-surface-v);font:500 13.5px var(--sans);cursor:pointer;border:0;background:none;width:100%;text-align:left}
+.nav::before,.tile::before,.st::before{content:"";position:absolute;inset:0;border-radius:inherit;background:rgb(var(--state));opacity:0;transition:opacity .12s;pointer-events:none}
+.nav:hover::before{opacity:.08}.nav:active::before{opacity:.12}
+.nav:focus-visible{outline:2px solid var(--primary);outline-offset:-2px}
+.nav[aria-current="page"]{background:var(--secondary-c);color:var(--on-secondary-c);font-weight:600}
+.nav[aria-current="page"] .ms{font-variation-settings:"FILL" 1,"opsz" 20}
+
+.content{min-width:0;overflow:auto;padding:28px 32px 48px}
+.page{max-width:856px;display:grid;gap:24px}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--on-surface-v)}
+.headline{font-size:22px;font-weight:600;line-height:1.25;margin:0}
+.title{font-size:16px;font-weight:600;margin:0}
+.helper{font-size:13px;color:var(--on-surface-v)}
+
+/* 列表组 */
+.group{border-radius:16px;background:var(--sc-low);border:1px solid var(--outline-v)}
+.row{position:relative;display:flex;align-items:center;gap:16px;min-height:64px;padding:10px 16px}
+.row+.row{border-top:1px solid var(--outline-v)}
+.lead{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--sc-high);color:var(--on-surface-v);flex:none}
+.rtext{flex:1;min-width:0}
+.rtext b{display:block;font-size:14px;font-weight:500}
+.rtext span{display:block;font-size:12.5px;color:var(--on-surface-v)}
+.collapsed{opacity:.7}
+.collapsed .ms.go{color:var(--on-surface-v)}
+
+/* 当前运行特效(大预览) */
+.current{display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);gap:20px;align-items:center;padding:16px;border-radius:16px;background:var(--sc);border:1px solid var(--outline-v)}
+.cinfo{min-width:0;display:flex;flex-direction:column;gap:6px}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.tag{display:inline-flex;align-items:center;height:24px;padding:0 9px;border-radius:8px;border:1px solid var(--outline-v);font-size:12px;color:var(--on-surface-v);background:var(--surface)}
+.cactions{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;align-items:center}
+.btn{position:relative;display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 16px 0 12px;border-radius:18px;border:0;font:500 13px var(--sans);cursor:pointer;overflow:hidden;background:var(--primary-c);color:var(--on-primary-c)}
+.btn::before{content:"";position:absolute;inset:0;background:currentColor;opacity:0;transition:opacity .12s}
+.btn:hover::before{opacity:.08}.btn:active::before{opacity:.12}
+.btn:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.btn .ms{font-size:18px}
+.saved{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--on-surface-v)}
+.saved .ms{font-size:16px}
+
+/* 状态时间轴:M3 filter chips,自动轮播时带进度 */
+.states{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.st{position:relative;display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:8px;border:1px solid var(--outline);background:transparent;color:var(--on-surface);font:500 12.5px var(--sans);cursor:pointer;overflow:hidden}
+.st:hover::before{opacity:.08}.st:active::before{opacity:.12}
+.st:focus-visible{outline:2px solid var(--primary);outline-offset:1px}
+.st i{width:8px;height:8px;border-radius:50%;background:var(--c)}
+.st[aria-pressed="true"]{background:var(--secondary-c);color:var(--on-secondary-c);border-color:transparent}
+.st .bar{position:absolute;left:0;bottom:0;height:2px;background:var(--primary);width:0}
+.st.auto .ms{font-size:16px}
+
+/* 预览舞台:沿用风格对比原型的卡片尺寸,文字按容器缩放 */
+.scene{border-radius:12px;overflow:hidden;background:radial-gradient(rgba(var(--state),.10) .8px,transparent 1px) 0 0/12px 12px,linear-gradient(160deg,var(--scene-a),var(--scene-b))}
+.stage{container-type:inline-size;position:relative;width:100%;aspect-ratio:460/330;margin:0 auto}
+.stage canvas{z-index:2;position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.stage .card{position:absolute;left:13.04%;top:18.18%;width:73.9%;height:63.64%;border-radius:3cqw;background:var(--mcard);box-shadow:0 0 0 1px var(--mcard-line),0 6px 18px rgba(0,0,0,.14);cursor:pointer;overflow:hidden}
+.stage .bar{display:flex;align-items:center;gap:1.8cqw;height:18%;padding:0 4%;border-bottom:1px solid var(--mcard-line);font-weight:600;font-size:3cqw}
+.stage .dot{width:2.2cqw;height:2.2cqw;border-radius:50%;flex:none;transition:background .16s}
+.stage .chip{margin-left:auto;font:500 2.4cqw var(--mono);color:var(--on-surface-v);background:var(--sc-high);padding:.4cqw 1.8cqw;border-radius:99px;white-space:nowrap}
+.stage .body{padding:4%;color:var(--on-surface-v);font:2.6cqw/1.7 var(--mono)}
+.stage .body b{color:var(--on-surface);font-weight:500}
+
+/* 风格库网格(与派发特效同构) */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.grid.dim{opacity:.55;pointer-events:none}
+.tile{position:relative;display:flex;flex-direction:column;gap:8px;padding:6px 6px 10px;border-radius:14px;cursor:pointer;outline:none;border:1px solid transparent}
+.tile:hover::before{opacity:.06}.tile:active::before{opacity:.1}
+.tile:focus-visible{border-color:var(--primary)}
+.tile .scene{border-radius:10px;box-shadow:0 0 0 1px var(--outline-v);position:relative}
+.tile[aria-checked="true"] .scene{box-shadow:0 0 0 2px var(--primary)}
+.tile .card{cursor:inherit}
+.tsel{position:absolute;top:12px;right:12px;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--primary);color:var(--on-primary);transform:scale(0);transition:transform .18s cubic-bezier(.2,.8,.2,1);z-index:3}
+.tsel .ms{font-size:16px;font-variation-settings:"FILL" 1,"wght" 600,"opsz" 20}
+.tile[aria-checked="true"] .tsel{transform:scale(1)}
+.tmeta{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:0 4px}
+.tname{font-size:13.5px;font-weight:500}
+.tile[aria-checked="true"] .tname{color:var(--primary);font-weight:600}
+.tbadge{font-size:11px;color:var(--on-surface-v)}
+.tsub{font-size:12px;color:var(--on-surface-v);padding:0 4px;margin-top:-6px}
+.hint{position:absolute;left:8px;bottom:8px;z-index:3;display:flex;align-items:center;gap:2px;font-size:11px;padding:2px 8px 2px 4px;border-radius:99px;background:rgba(0,0,0,.45);color:#fff;transition:opacity .15s}
+.hint .ms{font-size:16px}
+.tile:hover .hint,.tile:focus-visible .hint,.rm .hint{opacity:0}
+
+/* M3 开关 */
+.switch{position:relative;width:52px;height:32px;border-radius:16px;border:2px solid var(--outline);background:var(--sc-highest);cursor:pointer;flex:none;padding:0;transition:background .15s,border-color .15s}
+.switch i{position:absolute;top:50%;left:6px;width:16px;height:16px;border-radius:50%;background:var(--outline);transform:translateY(-50%);transition:all .18s cubic-bezier(.2,.8,.2,1);display:grid;place-items:center}
+.switch i .ms{font-size:16px;opacity:0}
+.switch[aria-checked="true"]{background:var(--primary);border-color:var(--primary)}
+.switch[aria-checked="true"] i{left:22px;width:24px;height:24px;background:var(--on-primary)}
+.switch[aria-checked="true"] i .ms{opacity:1;color:var(--primary)}
+.switch:hover i{box-shadow:0 0 0 8px rgba(var(--state),.08)}
+.switch:focus-visible{outline:2px solid var(--primary);outline-offset:3px}
+
+.snack{position:fixed;left:50%;bottom:24px;transform:translate(-50%,16px);opacity:0;pointer-events:none;display:flex;align-items:center;gap:8px;min-height:48px;padding:6px 8px 6px 16px;border-radius:8px;background:var(--scrim);color:var(--on-scrim);font-size:13.5px;box-shadow:0 6px 18px rgba(0,0,0,.25);transition:all .2s cubic-bezier(.2,.8,.2,1);max-width:calc(100% - 32px);z-index:50}
+.snack.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+.snack button{height:36px;padding:0 12px;border:0;border-radius:18px;background:transparent;color:var(--inverse-primary);font:600 13px var(--sans);cursor:pointer}
+.snack button:hover{background:rgba(127,127,127,.15)}
+
+.notes{max-width:856px;padding:18px 20px;border-radius:16px;border:1px dashed var(--outline-v);color:var(--on-surface-v);font-size:13px}
+.notes b{color:var(--on-surface)}
+.notes ul{margin:8px 0 0;padding-left:18px;display:grid;gap:4px}
+.notes code{font:12px var(--mono);color:var(--on-surface)}
+
+@media (max-width:820px){
+  .win{grid-template-columns:1fr;min-height:0}
+  .side{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--outline-v);padding:10px}
+  .lights,.side h1,.ngroup{display:none}
+  .nav{width:auto;flex:none}
+  .content{padding:20px 16px 32px}
+  .current{grid-template-columns:1fr}
+  .row{flex-wrap:wrap}
+}
+@media (max-width:480px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="outer">
+  <div class="toolbar">
+    <b>原型控制</b>
+    <label><input type="checkbox" id="th"> 深色</label>
+    <label><input type="checkbox" id="sysrm"> 模拟系统“减少动态效果”</label>
+    <a href="index.html">← 风格对比</a>
+  </div>
+
+  <div class="win">
+    <nav class="side" aria-label="设置分区">
+      <div class="lights" aria-hidden="true"><i></i><i></i><i></i></div>
+      <h1>设置</h1>
+      <div class="ngroup">通用</div>
+      <button class="nav" type="button"><span class="ms">tune</span>基础设置</button>
+      <button class="nav" type="button"><span class="ms">palette</span>主题</button>
+      <button class="nav" type="button"><span class="ms">wallpaper</span>壁纸</button>
+      <button class="nav" type="button" aria-current="page"><span class="ms">auto_awesome</span>特效</button>
+      <div class="ngroup">Norma</div>
+      <button class="nav" type="button"><span class="ms">face</span>人格</button>
+      <button class="nav" type="button"><span class="ms">graphic_eq</span>语音</button>
+      <div class="ngroup">输入与控制</div>
+      <button class="nav" type="button"><span class="ms">keyboard</span>键盘快捷键</button>
+      <div class="ngroup">AI 与自动化</div>
+      <button class="nav" type="button"><span class="ms">smart_toy</span>智能体</button>
+      <button class="nav" type="button"><span class="ms">account_tree</span>编排</button>
+    </nav>
+
+    <main class="content">
+      <div class="page">
+        <!-- 已有的派发特效分区,原型里折叠成一行表示位置 -->
+        <div class="group collapsed" aria-label="派发特效(已有)">
+          <div class="row">
+            <div class="lead"><span class="ms">send</span></div>
+            <div class="rtext"><b>派发特效</b><span>已有分区,此原型折叠;见 docs/prototypes/settings-effects</span></div>
+            <span class="ms go">expand_more</span>
+          </div>
+        </div>
+
+        <section style="display:grid;gap:8px">
+          <h2 class="headline">卡片运行特效</h2>
+          <div class="helper">智能体卡片在思考、调用工具、等你批准、完成或失败时的表现。所有项目共用,更改立即作用于画布上的卡片。</div>
+        </section>
+
+        <section class="current" aria-label="当前运行特效">
+          <div class="scene"><div class="stage-host" id="hero"></div></div>
+          <div class="cinfo">
+            <div class="eyebrow">当前</div>
+            <h3 class="headline" id="curName"></h3>
+            <div class="helper" id="curDesc"></div>
+            <div class="tags" id="curTags"></div>
+            <div class="cactions">
+              <button class="btn" type="button" id="replay"><span class="ms">replay</span>重播</button>
+              <span class="saved"><span class="ms">cloud_done</span>更改自动保存</span>
+            </div>
+          </div>
+          <div class="states" role="group" aria-label="预览状态" id="states"></div>
+        </section>
+
+        <section style="display:grid;gap:12px">
+          <div class="eyebrow">极简 · 低干扰</div>
+          <div class="grid" role="radiogroup" aria-label="极简风格" id="gMin"></div>
+          <div class="eyebrow" style="margin-top:8px">表现力</div>
+          <div class="grid" role="radiogroup" aria-label="表现力风格" id="gRich"></div>
+        </section>
+
+        <section style="display:grid;gap:12px">
+          <h3 class="title">行为</h3>
+          <div class="group">
+            <div class="row">
+              <div class="lead"><span class="ms">mark_email_unread</span></div>
+              <div class="rtext"><b>完成提示保留到查看</b><span>关闭后完成提示 2 秒内自动消失;失败提示总是保留到下一次任务</span></div>
+              <button class="switch" type="button" role="switch" id="keep" aria-checked="true" aria-label="完成提示保留到查看"><i><span class="ms">check</span></i></button>
+            </div>
+            <div class="row">
+              <div class="lead"><span class="ms">accessibility_new</span></div>
+              <div class="rtext"><b>遵循系统“减少动态效果”</b><span>系统开启时去掉位移与节奏:极简风格只保留颜色,其余风格统一回落为卡片底部的状态色细条</span></div>
+              <button class="switch" type="button" role="switch" id="follow" aria-checked="true" aria-label="遵循系统减少动态效果"><i><span class="ms">check</span></i></button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="notes">
+    <b>设计说明</b>
+    <ul>
+      <li>位置:设置 → 通用 → 特效,放在已有“派发特效”分区之后;同一页、同一套结构(当前大预览 → 风格库网格 → 行为),用户不用学新布局。</li>
+      <li>大预览默认自动轮播六个状态,下方状态芯片带进度条;点某个状态即固定在该状态,点“自动”恢复轮播。切换状态时颜色与强度从当前值平滑过去,演示真实的可中断表现。点击预览卡 = 标记已查看。</li>
+      <li>风格库按“极简 / 表现力”两组:静止时是定格帧并显示“预览”提示,悬停或键盘聚焦才循环播放;点击、回车或空格立即生效,Snackbar 提供撤销。方向键在组内移动焦点。</li>
+      <li>减少动态效果时:风格库不自动播放;大预览仍随状态变色(颜色变化不算动效)。</li>
+      <li>GPUI 落地:在 <code>crates/app/src/settings/effects/</code> 新增 <code>run_style.rs</code>(分区)与预览复用 <code>motion/run_style</code> 的纯函数;网格列数复用 <code>WallpaperLayout</code>;偏好键 <code>agent_card.run_style</code>,默认 <code>classic</code>,保存走后台线程。</li>
+    </ul>
+  </div>
+</div>
+
+<div class="snack" id="snack" role="status" aria-live="polite"><span id="snackText"></span><button type="button" id="undo">撤销</button></div>
+
+<script src="run-styles.js"></script>
+<script>
+const SYS=document.getElementById('sysrm'),FOLLOW=document.getElementById('follow'),KEEP=document.getElementById('keep');
+reduce=()=>SYS.checked&&FOLLOW.getAttribute('aria-checked')==='true';
+SYS.checked=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const TH=document.getElementById('th');
+TH.checked=matchMedia('(prefers-color-scheme: dark)').matches;
+const QT=new URLSearchParams(location.search).get('theme');if(QT)TH.checked=QT==='dark';
+const applyTheme=()=>document.documentElement.dataset.theme=TH.checked?'dark':'light';TH.onchange=applyTheme;applyTheme();
+
+const byKey=k=>STYLES.find(s=>s.key===k);
+const MIN=['classic','dot','hairline','underline'],RICH=['aura','contour','ferro','cymatics','scanner'];
+const BADGE={classic:'当前默认',dot:'推荐'};
+const SHORT={classic:'光蛇绕边框',dot:'只动状态点',hairline:'1px 边框流光',underline:'标题分隔线',aura:'边缘光谱柔光',contour:'内部等高线',ferro:'外缘液态金属',cymatics:'内部沙粒图案',scanner:'终端扫描线'};
+const SEQ=['ready','thinking','tool','approval','done','failed'];
+const DUR={ready:1200,thinking:3000,tool:3800,approval:3000,done:2800,failed:2600};
+const LABEL={ready:'准备',thinking:'思考',tool:'工具调用',approval:'等你批准',done:'完成',failed:'失败'};
+let current='classic';
+
+/* ---------- 大预览 ---------- */
+const hero=makeCard(byKey(current),document.getElementById('hero'),'ready','');
+hero.stage.parentElement.querySelector('.lab').remove();
+let pinned=null,since=performance.now();
+const statesEl=document.getElementById('states'),chips={};
+const auto=$('button','st auto',statesEl);auto.type='button';auto.innerHTML='<span class="ms">autoplay</span>自动';
+auto.onclick=()=>{pinned=null;since=performance.now();renderChips()};
+SEQ.forEach(k=>{const b=$('button','st',statesEl);b.type='button';b.style.setProperty('--c',`rgb(${ST[k].c})`);b.innerHTML=`<i></i>${LABEL[k]}<span class="bar"></span>`;
+ b.onclick=()=>{pinned=k;hero.set(k);renderChips()};chips[k]=b});
+function renderChips(){auto.setAttribute('aria-pressed',pinned===null);SEQ.forEach(k=>{chips[k].setAttribute('aria-pressed',pinned?pinned===k:hero.name===k);chips[k].querySelector('.bar').style.width=0})}
+document.getElementById('replay').onclick=()=>{if(pinned){hero.replay();return}hero.replay();hero.set('ready');since=performance.now();renderChips()};
+function showCurrent(){const s=byKey(current);document.getElementById('curName').textContent=s.name;document.getElementById('curDesc').textContent=s.desc;
+ const tg=document.getElementById('curTags');tg.innerHTML='';(BADGE[current]?[BADGE[current],...s.tags]:s.tags).forEach(t=>$('span','tag',tg).textContent=t);hero.setStyle(s)}
+
+/* ---------- 风格库 ---------- */
+const tiles=[];
+function makeTile(key,box){
+ const s=byKey(key),tile=$('div','tile',box);tile.tabIndex=0;tile.setAttribute('role','radio');tile.dataset.key=key;
+ const sc=$('div','scene',tile),g=makeCard(s,sc,'thinking','');sc.querySelector('.lab').remove();
+ sc.insertAdjacentHTML('beforeend','<span class="tsel"><span class="ms">check</span></span><span class="hint"><span class="ms">play_arrow</span>预览</span>');
+ tile.insertAdjacentHTML('beforeend',`<div class="tmeta"><span class="tname">${s.name.replace('极简 · ','')}</span><span class="tbadge">${BADGE[key]||''}</span></div><div class="tsub">${SHORT[key]}</div>`);
+ const T={key,tile,g,hot:false,since:0,stillAt:performance.now()+900};
+ const enter=()=>{if(reduce())return;T.hot=true;T.since=performance.now();g.paused=false;g.replay();g.set('thinking')};
+ const leave=()=>{if(tile.matches(':hover')||document.activeElement===tile)return;T.hot=false;g.set('thinking');T.stillAt=performance.now()+700};
+ tile.onmouseenter=enter;tile.onmouseleave=leave;tile.onfocus=enter;tile.onblur=leave;
+ tile.onclick=()=>pick(key);
+ tile.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pick(key)}
+  const d={ArrowRight:1,ArrowDown:1,ArrowLeft:-1,ArrowUp:-1}[e.key];if(d){e.preventDefault();const all=tiles.map(t=>t.tile),i=all.indexOf(tile);all[(i+d+all.length)%all.length].focus()}};
+ tiles.push(T)}
+MIN.forEach(k=>makeTile(k,document.getElementById('gMin')));RICH.forEach(k=>makeTile(k,document.getElementById('gRich')));
+function renderTiles(){tiles.forEach(t=>t.tile.setAttribute('aria-checked',t.key===current))}
+
+/* ---------- 选择 + 撤销 ---------- */
+const snack=document.getElementById('snack');let prev=null,snackTimer=0;
+function pick(key,silent){if(key===current)return;prev=current;current=key;renderTiles();showCurrent();
+ if(silent)return;document.getElementById('snackText').textContent=`运行特效已切换为「${byKey(key).name}」`;snack.classList.add('on');clearTimeout(snackTimer);snackTimer=setTimeout(()=>snack.classList.remove('on'),4000)}
+document.getElementById('undo').onclick=()=>{snack.classList.remove('on');if(prev)pick(prev,true)};
+
+/* ---------- 开关 ---------- */
+document.querySelectorAll('.switch').forEach(sw=>sw.onclick=()=>{sw.setAttribute('aria-checked',sw.getAttribute('aria-checked')!=='true');syncRm()});
+SYS.onchange=syncRm;
+function syncRm(){document.body.classList.toggle('rm',reduce());if(reduce())tiles.forEach(t=>{t.hot=false;t.g.set('thinking');t.stillAt=performance.now()+300})}
+
+/* ---------- 轮播调度 ---------- */
+function tick(now){
+ if(pinned===null){const d=DUR[hero.name];const p=(now-since)/d;chips[hero.name]?.querySelector('.bar').style.setProperty('width',Math.min(100,p*100)+'%');
+  if(p>=1){hero.set(SEQ[(SEQ.indexOf(hero.name)+1)%SEQ.length]);since=now;renderChips()}}
+ if(hero.name==='done'&&!hero.viewed&&KEEP.getAttribute('aria-checked')!=='true'&&now-hero.t0>2000)hero.viewed=true;
+ tiles.forEach(t=>{const g=t.g;
+  if(t.hot){if(now-t.since>DUR[g.name]*.6){g.set(SEQ[(SEQ.indexOf(g.name)%5)+1]);t.since=now}}
+  else if(!g.paused&&now>t.stillAt)g.paused=true});
+ requestAnimationFrame(tick)}
+showCurrent();renderTiles();renderChips();syncRm();
+requestAnimationFrame(frame);requestAnimationFrame(tick);
+</script>
+</body>
+</html>
