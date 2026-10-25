@@ -218,3 +218,29 @@ fn responses_serialize_as_single_lines() {
         "失败响应不应含 window：{failed}"
     );
 }
+
+/// 场景：豆包转写注入请求按 token 校验并原样保留中文文本。
+///
+/// 数据构造：一条带正确 token 的 doubao_transcript 请求，text 为“Alan，整理 README”；
+///   一条缺少 text 字段的同类请求。
+///
+/// 执行过程：分别调用 `parse_request`。
+///
+/// 预期结果：
+///   - 正断言：解析为 `Command::DoubaoTranscript`，文本逐字相同。
+///   - 负断言：缺少 text 的请求返回错误，不产生命令。
+#[test]
+fn doubao_transcript_command_carries_text() {
+    let good =
+        format!(r#"{{"token":"{TOKEN}","op":"doubao_transcript","text":"Alan，整理 README"}}"#);
+    let parsed = parse_request(&good, TOKEN).expect("带 token 的转写注入应被接受");
+    assert!(
+        matches!(&parsed, Command::DoubaoTranscript { text } if text == "Alan，整理 README"),
+        "应原样保留转写文本，实际 {parsed:?}"
+    );
+    let missing = format!(r#"{{"token":"{TOKEN}","op":"doubao_transcript"}}"#);
+    assert!(
+        parse_request(&missing, TOKEN).is_err(),
+        "缺少 text 的请求必须拒绝"
+    );
+}

@@ -7,7 +7,7 @@ use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 use ui::i18n::LocalizedText;
 
-use super::{plan_url, tts};
+use super::{direct, plan_url, tts};
 use crate::app::doubao::{
     playback::PlaybackQueue, tools, ContextRequest, ContextRequests, DoubaoStatus,
 };
@@ -121,14 +121,7 @@ pub(crate) async fn request_with_current_context(
     let mut prompt =
         agent::norma_system_prompt_base_with_desktop(&canvas, &roster, desktop.as_ref());
     prompt.push_str(instructions);
-    let desktop_active = matches!(
-        desktop,
-        Some(
-            agent::DesktopContext::WorkspaceOverview { .. }
-                | agent::DesktopContext::ProjectCanvas { .. }
-                | agent::DesktopContext::Switching { .. }
-        )
-    );
+    let desktop_active = direct::desktop_active(desktop.as_ref());
     let mut body = bounded_request(&prompt, history, include_tools, personal && !desktop_active)?;
     if personal && desktop_active {
         if let Some(tools) = body["tools"].as_array_mut() {
@@ -162,6 +155,7 @@ impl ChatRuntime {
         if transcript.trim().is_empty() {
             return Ok(());
         }
+        tracing::info!(target: "norma_voice", turn, "Doubao reply turn started");
         let memory = if let Some(tools) = &self.tools {
             tools
                 .memory_context()
@@ -197,6 +191,11 @@ impl ChatRuntime {
         trim_history(&mut history);
         let mut messages = history.clone();
         drop(history);
+        if self.tools.is_some() && self.project.is_some() {
+            if let Some(reply) = self.direct_route(&transcript, turn, &cancellation).await? {
+                return self.finish(reply, &cancellation, &status).await;
+            }
+        }
         let mut tool_count = 0;
         let reply = loop {
             if cancellation.is_cancelled() {
@@ -303,7 +302,16 @@ impl ChatRuntime {
                     .push(json!({"role":"tool","tool_call_id":id,"content":output.to_string()}));
             }
         };
-        if !publish_reply(&self.history, &reply, &cancellation, &status).await {
+        self.finish(reply, &cancellation, &status).await
+    }
+
+    async fn finish(
+        &self,
+        reply: String,
+        cancellation: &CancellationToken,
+        status: &Sender<DoubaoStatus>,
+    ) -> Result<(), LocalizedText> {
+        if !publish_reply(&self.history, &reply, cancellation, status).await {
             return Ok(());
         }
         tts::speak(
@@ -312,9 +320,92 @@ impl ChatRuntime {
             &reply,
             self.voice,
             &self.playback,
-            &cancellation,
+            cancellation,
         )
         .await
+    }
+
+    /// 指令模式同款确定性直呼：命中 Agent 名称/别名时由代码选择工具，不交给模型。
+    /// 返回 `None` 表示未命中，回落到模型。
+    async fn direct_route(
+        &self,
+        transcript: &str,
+        turn: u64,
+        cancellation: &CancellationToken,
+    ) -> Result<Option<String>, LocalizedText> {
+        let (response, received) = tokio::sync::oneshot::channel();
+        self.context
+            .send(ContextRequest::Model(response))
+            .await
+            .map_err(|_| LocalizedText::new("doubao.call_ended"))?;
+        let (_, roster, desktop) = received
+            .await
+            .map_err(|_| LocalizedText::new("doubao.call_ended"))?;
+        let calls = match direct::plan(transcript, &roster, desktop.as_ref()) {
+            agent::DirectPlan::Skip => {
+                tracing::info!(target: "norma_voice", turn, "Doubao direct route skipped; asking model");
+                return Ok(None);
+            }
+            agent::DirectPlan::Say(text) => {
+                tracing::info!(target: "norma_voice", turn, "Doubao direct route answered without side effects");
+                return Ok(Some(text));
+            }
+            agent::DirectPlan::Calls(calls) => calls,
+        };
+        tracing::info!(target: "norma_voice", turn, calls = calls.len(), "Doubao direct route dispatching");
+        let Some(runtime) = &self.tools else {
+            return Ok(None);
+        };
+        let mut parts = Vec::new();
+        for (index, direct_call) in calls.into_iter().enumerate() {
+            if cancellation.is_cancelled() {
+                return Ok(Some(String::new()));
+            }
+            let runtime = Arc::clone(runtime);
+            let database = self.database.clone();
+            let project = self.project.clone().unwrap_or_default();
+            let session = self.session.clone();
+            let transcript = transcript.to_owned();
+            let call = json!({
+                "call_id": format!("direct-{turn}-{index}"),
+                "name": direct_call.tool,
+                "arguments": direct_call.arguments.to_string(),
+            });
+            let tool_cancellation = cancellation.clone();
+            let task = tokio::spawn(async move {
+                tools::execute_call(
+                    &runtime,
+                    &database,
+                    &project,
+                    &session,
+                    &transcript,
+                    turn,
+                    tools::VoiceToolCall {
+                        call,
+                        cancellation: tool_cancellation,
+                    },
+                )
+                .await
+            });
+            let output = tokio::select! {
+                _ = cancellation.cancelled() => return Ok(Some(String::new())),
+                result = task => result.map_err(|_| LocalizedText::new("doubao.tool_interrupted"))?,
+            };
+            if output["status"] == "unknown" {
+                return Err(LocalizedText::new("doubao.tool_result_unknown"));
+            }
+            parts.push(agent::direct_call_speech(
+                direct_call.tool,
+                output["message"].as_str().unwrap_or_default(),
+                output["reply_status"].as_str(),
+            ));
+        }
+        let spoken: String = parts.into_iter().collect();
+        Ok(Some(if spoken.is_empty() {
+            "处理完了。".into()
+        } else {
+            spoken
+        }))
     }
 }
 
