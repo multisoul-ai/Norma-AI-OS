@@ -204,7 +204,12 @@ fn agent_row(
         .and_then(|item| item.current_step.clone())
         .or_else(|| {
             (presence == RunOverviewPresence::Running)
-                .then(|| agent.task_title.clone())
+                .then(|| {
+                    agent
+                        .task_summary
+                        .clone()
+                        .or_else(|| agent.task_title.clone())
+                })
                 .flatten()
         });
     RunOverviewAgent {

@@ -15,13 +15,45 @@ impl MultisoulApp {
         for event in events
             .iter()
             .filter(|event| session_title::should_refresh(event))
+            // 工具调用很频繁：已有会话名时只在提交提示词和一轮结束时重读。
+            .filter(|event| {
+                event.provider_event != "PostToolUse"
+                    || !self.runtime.has_agent_session_title(event.node_id)
+            })
         {
             let (node_id, event) = (event.node_id, event.clone());
             let read = cx
                 .background_executor()
                 .spawn(async move { session_title::session_title(&event) });
             cx.spawn(async move |this, cx| {
-                let Some(title) = read.await else {
+                let title = read.await;
+                tracing::debug!(node_id, ?title, "session title probe");
+                let Some(title) = title else {
+                    return;
+                };
+                let _ = this.update(cx, |app, cx| {
+                    if app.runtime.set_agent_session_title(node_id, title) {
+                        crate::mobile::project_events::changed();
+                        app.note_workspace_activity_changed(cx);
+                        cx.notify();
+                    }
+                });
+            })
+            .detach();
+        }
+    }
+
+    /// 打开项目恢复出的会话没有 hook 事件，按绑定的会话 id 读一次 CLI 的会话名。
+    pub(crate) fn refresh_restored_session_titles(&mut self, cx: &mut Context<Self>) {
+        for (node_id, profile, session_id) in self.runtime.take_unprobed_session_titles() {
+            let profile = super::identity::norma_agent_profile(profile);
+            let read = cx
+                .background_executor()
+                .spawn(async move { session_title::session_title_by_id(profile, &session_id) });
+            cx.spawn(async move |this, cx| {
+                let title = read.await;
+                tracing::debug!(node_id, ?title, "session title probe");
+                let Some(title) = title else {
                     return;
                 };
                 let _ = this.update(cx, |app, cx| {

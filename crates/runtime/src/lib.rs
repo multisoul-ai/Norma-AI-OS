@@ -2,6 +2,7 @@
 pub mod agent_hooks;
 mod agent_install_hint;
 mod agent_session_bindings;
+mod agent_task_label;
 pub mod command;
 pub mod desktop_drawers;
 pub mod desktop_navigation;

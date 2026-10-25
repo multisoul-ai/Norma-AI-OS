@@ -238,6 +238,7 @@ impl MultisoulApp {
                         }
                     }
                     app.refresh_session_titles(&agent_hook_report.events, cx);
+                    app.refresh_restored_session_titles(cx);
                     let mut queue_changed = false;
                     for started in agent_hook_report.started_tasks {
                         queue_changed |=

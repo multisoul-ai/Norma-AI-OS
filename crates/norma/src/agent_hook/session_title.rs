@@ -12,9 +12,12 @@ use std::path::{Path, PathBuf};
 const TAIL_BYTES: u64 = 2 * 1024 * 1024;
 const MAX_TITLE_CHARS: usize = 120;
 
-/// 这些事件之后 CLI 才可能写入或更新会话名：提交提示词时和一轮结束时。
+/// 这些事件之后 CLI 才可能写入或更新会话名：会话（恢复）启动时运行时会清掉旧会话名，须重读；提交提示词、工具调用后（运行中途首次拿到标题）和一轮结束时。
 pub fn should_refresh(event: &AgentHookEvent) -> bool {
-    matches!(event.provider_event.as_str(), "UserPromptSubmit" | "Stop")
+    matches!(
+        event.provider_event.as_str(),
+        "SessionStart" | "UserPromptSubmit" | "PostToolUse" | "Stop"
+    )
 }
 
 /// 按事件所属的 CLI 取会话名；其他后端暂无稳定来源，返回 `None`。
@@ -29,6 +32,31 @@ pub fn session_title(event: &AgentHookEvent) -> Option<String> {
         ),
         _ => None,
     }
+}
+
+/// 只知道会话 id（打开项目恢复会话时还没有 hook 事件）时读会话名。
+/// Claude 的 transcript 在 `~/.claude/projects/<编码后的路径>/<id>.jsonl`，逐个项目目录找。
+pub fn session_title_by_id(profile: AgentProfile, session_id: &str) -> Option<String> {
+    match profile {
+        AgentProfile::Claude => claude_title_in(
+            &dirs::home_dir()?.join(".claude").join("projects"),
+            session_id,
+        ),
+        AgentProfile::Codex => {
+            codex_thread_name(&codex_home()?.join("session_index.jsonl"), session_id)
+        }
+        _ => None,
+    }
+}
+
+/// `projects` 下每个项目目录里找 `<id>.jsonl`，取其最后的 ai-title。
+pub fn claude_title_in(projects: &Path, session_id: &str) -> Option<String> {
+    std::fs::read_dir(projects)
+        .ok()?
+        .flatten()
+        .map(|dir| dir.path().join(format!("{session_id}.jsonl")))
+        .find(|path| path.is_file())
+        .and_then(|path| claude_ai_title(&path))
 }
 
 fn codex_home() -> Option<PathBuf> {

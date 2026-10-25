@@ -53,6 +53,12 @@ impl MultisoulApp {
             {
                 card.state = "collecting".into();
             }
+            if card.task_summary.is_none() {
+                card.task_summary = self
+                    .runtime
+                    .agent_task_state(card.node_id)
+                    .and_then(|state| state.live_label());
+            }
         }
         cards
     }

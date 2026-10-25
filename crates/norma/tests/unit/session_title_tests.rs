@@ -106,6 +106,16 @@ fn refresh_events_and_per_profile_dispatch() {
         json!({"transcript_path": path.to_string_lossy()}),
     );
     assert!(should_refresh(&claude));
+    assert!(should_refresh(&event(
+        AgentProfile::Codex,
+        "SessionStart",
+        json!({})
+    )));
+    assert!(should_refresh(&event(
+        AgentProfile::Codex,
+        "PostToolUse",
+        json!({})
+    )));
     assert!(!should_refresh(&event(
         AgentProfile::Claude,
         "PreToolUse",
@@ -122,4 +132,24 @@ fn refresh_events_and_per_profile_dispatch() {
         json!({"transcript_path": path.to_string_lossy()}),
     );
     assert_eq!(session_title(&opencode), None);
+}
+
+/// 场景：打开项目恢复 Claude 会话，只知道会话 id，不知道在哪个项目目录。
+/// 数据构造：projects 下有两个项目目录，只有 proj-b 里有 s1.jsonl（含 ai-title「恢复的标题」）。
+/// 预期：能跨项目目录找到并读到标题；找不到的 id 返回 None。
+#[test]
+fn claude_title_found_by_session_id_across_project_dirs() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(dir.path().join("proj-a")).unwrap();
+    std::fs::create_dir_all(dir.path().join("proj-b")).unwrap();
+    write(
+        &dir.path().join("proj-b"),
+        "s1.jsonl",
+        &[r#"{"type":"ai-title","aiTitle":"恢复的标题"}"#],
+    );
+    assert_eq!(
+        claude_title_in(dir.path(), "s1").as_deref(),
+        Some("恢复的标题")
+    );
+    assert_eq!(claude_title_in(dir.path(), "missing"), None);
 }

@@ -1,7 +1,7 @@
 //! Runtime event queue and live node run-state registry.
 
 use canvas::{AgentProfile, CanvasNodeKind, NodeId, NodeType};
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use terminal::TerminalStatus;
 
 use crate::runtime::Runtime;
@@ -110,6 +110,8 @@ pub(crate) struct RuntimeEvents {
     agent_task_titles: HashMap<NodeId, String>,
     /// CLI 自己生成的会话名（Claude ai-title、Codex thread_name）；优先于首条提示词作为标题。
     agent_session_titles: HashMap<NodeId, String>,
+    /// 已按绑定会话读过会话名的节点；会话名被清掉（重启会话）时同步清除，允许重读。
+    session_title_probed: HashSet<NodeId>,
     agent_latest_prompts: HashMap<NodeId, String>,
     card_attention: HashMap<NodeId, CardAttentionState>,
     queue: VecDeque<RuntimeEvent>,
@@ -136,6 +138,20 @@ impl RuntimeEvents {
         self.agent_session_titles.insert(node_id, title.clone()) != Some(title)
     }
 
+    fn forget_session_title(&mut self, node_id: NodeId) {
+        self.agent_session_titles.remove(&node_id);
+        self.session_title_probed.remove(&node_id);
+    }
+
+    /// 首次对该节点探测时返回 true；会话名被清掉后可再次探测。
+    pub(crate) fn claim_session_title_probe(&mut self, node_id: NodeId) -> bool {
+        self.session_title_probed.insert(node_id)
+    }
+
+    pub(crate) fn has_agent_session_title(&self, node_id: NodeId) -> bool {
+        self.agent_session_titles.contains_key(&node_id)
+    }
+
     pub(crate) fn set_agent_task_title_if_absent(&mut self, node_id: NodeId, title: String) {
         self.agent_task_titles.entry(node_id).or_insert(title);
     }
@@ -156,7 +172,7 @@ impl RuntimeEvents {
         if node_type == NodeType::Agent {
             self.agent_task_states.remove(&node_id);
             self.agent_task_titles.remove(&node_id);
-            self.agent_session_titles.remove(&node_id);
+            self.forget_session_title(node_id);
             self.agent_latest_prompts.remove(&node_id);
             self.card_attention.remove(&node_id);
         }
@@ -184,7 +200,7 @@ impl RuntimeEvents {
     pub(crate) fn remove(&mut self, node_id: NodeId) {
         self.agent_task_states.remove(&node_id);
         self.agent_task_titles.remove(&node_id);
-        self.agent_session_titles.remove(&node_id);
+        self.forget_session_title(node_id);
         self.agent_latest_prompts.remove(&node_id);
         self.card_attention.remove(&node_id);
         if let Some(previous_state) = self.states.remove(&node_id) {
@@ -199,6 +215,7 @@ impl RuntimeEvents {
         self.agent_task_states.clear();
         self.agent_task_titles.clear();
         self.agent_session_titles.clear();
+        self.session_title_probed.clear();
         self.agent_latest_prompts.clear();
         self.card_attention.clear();
         let removed: Vec<_> = self.states.drain().collect();
@@ -258,7 +275,7 @@ impl RuntimeEvents {
         // This allows the next UserPromptSubmit to write a fresh title.
         if to == AgentTaskState::Ready {
             self.agent_task_titles.remove(&node_id);
-            self.agent_session_titles.remove(&node_id);
+            self.forget_session_title(node_id);
             self.agent_latest_prompts.remove(&node_id);
         }
         let from = previous.unwrap_or(AgentTaskState::Ready);
@@ -350,6 +367,10 @@ impl Runtime {
     /// 记录 CLI 的会话名；标题没变时返回 false。
     pub fn set_agent_session_title(&mut self, node_id: NodeId, title: String) -> bool {
         self.events.set_agent_session_title(node_id, title)
+    }
+
+    pub fn has_agent_session_title(&self, node_id: NodeId) -> bool {
+        self.events.has_agent_session_title(node_id)
     }
 
     pub fn agent_latest_prompt(&self, node_id: NodeId) -> Option<String> {

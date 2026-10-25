@@ -234,3 +234,33 @@ fn agents_without_start_time_sort_last_and_missing_current_project_is_safe() {
         "已加载项目的智能体不能因此丢失"
     );
 }
+
+/// 场景：运行中的智能体没有待办进度，只有 hook 给出的实时动作。
+/// 数据构造：Bruno（节点 2）state=thinking、无 task_timing，卡片 task_summary=「调用 Bash」，任务名保持不变。
+/// 预期结果：
+///   - 正断言：Bruno 的 action 是「调用 Bash」；
+///   - 负断言：清掉 task_summary 后回退为任务名，而不是空白。
+#[test]
+fn running_agent_action_prefers_live_summary_over_task_title() {
+    let mut value = facts_json();
+    let card = &mut value["workspace"]["projects"][0]["agents"][1]["card"];
+    card["state"] = json!("thinking");
+    card["task_summary"] = json!("调用 Bash");
+    let run = |value: &serde_json::Value| {
+        let facts: WorkspaceActivityFacts =
+            serde_json::from_value(value.clone()).expect("概览事实");
+        let view = WorkspaceActivityView::from_facts(&facts);
+        let overview = project_run_overview("area-current", &view, &[], &presence());
+        overview
+            .running
+            .into_iter()
+            .find(|a| a.node_id == 2)
+            .expect("Bruno")
+    };
+    let live = run(&value);
+    assert_eq!(live.action.as_deref(), Some("调用 Bash"));
+    value["workspace"]["projects"][0]["agents"][1]["card"]["task_summary"] = json!(null);
+    let fallback = run(&value);
+    assert_eq!(fallback.action, fallback.task, "没有实时动作时回退任务名");
+    assert!(fallback.task.is_some());
+}
