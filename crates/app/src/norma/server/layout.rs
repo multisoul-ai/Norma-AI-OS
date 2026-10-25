@@ -62,7 +62,9 @@ pub(super) fn apply_layout_for_new_node_or_master(
     {
         return;
     }
-    apply_new_workspace_node_layout_for_area(runtime, motion, node_id, area, zoom, strategy);
+    if apply_new_workspace_node_layout_for_area(runtime, motion, node_id, area, zoom, strategy) {
+        master_layout.clear();
+    }
 }
 
 pub(super) fn resolve_bounds(
@@ -77,3 +79,7 @@ pub(super) fn resolve_bounds(
         Placement::Bounds(bounds) => card_bounds_to_canvas(bounds),
     }
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/desktop_pending_layout_tests.rs"]
+mod pending_layout_tests;

@@ -13,6 +13,7 @@ mod chrome_controls;
 mod chrome_format;
 mod home;
 mod home_tools;
+mod open;
 mod preview_load;
 mod render;
 mod tabs;
@@ -93,3 +94,7 @@ mod reader_chrome_format_tests;
 #[cfg(test)]
 #[path = "../../../../tests/unit/desktop_content_home_surface_tests.rs"]
 mod home_surface_tests;
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/desktop_presentation_endpoint_tests.rs"]
+mod presentation_endpoint_tests;

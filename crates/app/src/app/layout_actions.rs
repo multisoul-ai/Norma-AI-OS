@@ -102,7 +102,7 @@ impl MultisoulApp {
             .iter()
             .filter(|node| {
                 self.desktop_host.is_none()
-                    || crate::canvas::view::embedded_node_visible(node.kind.node_type(), true)
+                    || crate::canvas::visibility::embedded_node_visible(node.kind.node_type(), true)
             })
             .count();
         workspace_bounds_for_index(
@@ -188,18 +188,21 @@ impl MultisoulApp {
             } else {
                 area
             };
-            let _ = reapply_master_layout_for_area(
+            let reapplied = reapply_master_layout_for_area(
                 &mut self.master_layout,
                 &mut self.runtime,
                 &mut self.motion,
                 layout_area,
                 zoom,
             );
-            if self.desktop_host.is_some() {
-                self.refresh_desktop_presentation_for_area(area, zoom);
+            if reapplied {
+                if self.desktop_host.is_some() {
+                    self.refresh_desktop_presentation_for_area(area, zoom);
+                }
+                return;
             }
-            return;
         }
+        self.master_layout.clear();
         self.apply_tiled_nodes(window);
     }
 }

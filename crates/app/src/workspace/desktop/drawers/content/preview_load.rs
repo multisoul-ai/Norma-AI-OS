@@ -47,6 +47,12 @@ impl MultisoulApp {
         let id = tab.id.clone();
         let workspace_id = tab.workspace_id.clone();
         let tab_resource = tab.resource.clone();
+        let expected_tab = tab.clone();
+        let load_id = self.desktop_workspace.content_load_sequence.wrapping_add(1);
+        self.desktop_workspace.content_load_sequence = load_id;
+        self.desktop_workspace
+            .content_load_versions
+            .insert(id.clone(), load_id);
         let work = if let Some(encoded) = tab.version.as_deref() {
             let (Some(area_id), Ok(version)) = (
                 tab.source_area_id.as_deref(),
@@ -109,6 +115,10 @@ impl MultisoulApp {
                     Err("该二进制文件暂不支持内嵌预览".into())
                 }
             })
+        } else if let Some(preview_type) = tab.preview_type {
+            let path = self.resolved_content_path(&tab);
+            cx.background_executor()
+                .spawn(async move { load_presented_file(path, preview_type) })
         } else {
             let resource = tab.resource;
             let root = tab
@@ -165,13 +175,17 @@ impl MultisoulApp {
         cx.spawn(async move |this, cx| {
             let result = work.await;
             let _ = this.update(cx, |app, cx| {
+                if app.desktop_workspace.content_load_versions.get(&id) != Some(&load_id) {
+                    return;
+                }
                 app.desktop_workspace.content_loading.remove(&id);
                 if app.desktop_workspace.active_id.as_deref() != Some(workspace_id.as_str())
-                    || !app
-                        .desktop_workspace
-                        .content_tabs
-                        .iter()
-                        .any(|tab| tab.id == id)
+                    || !app.desktop_workspace.content_tabs.iter().any(|tab| {
+                        tab.id == id
+                            && tab.resource == expected_tab.resource
+                            && tab.preview_type == expected_tab.preview_type
+                            && tab.version == expected_tab.version
+                    })
                 {
                     return;
                 }
@@ -208,3 +222,32 @@ impl MultisoulApp {
         .detach();
     }
 }
+
+fn load_presented_file(
+    path: std::path::PathBuf,
+    preview_type: canvas::PreviewType,
+) -> Result<LoadedContent, String> {
+    let path = path.canonicalize().map_err(|error| error.to_string())?;
+    let text = if preview_type != canvas::PreviewType::Image {
+        // Reuse Preview's bounded, UTF-8 checked reader for the explicitly presented file.
+        crate::preview::load_preview_content(path.clone(), Some(preview_type))
+            .map_err(|error| format!("{error:?}"))?
+            .text_source()
+            .map(str::to_owned)
+    } else {
+        None
+    };
+    if preview_type == canvas::PreviewType::Text {
+        return Ok(LoadedContent::Text(text.unwrap_or_default()));
+    }
+    let preview = LocalPreview::presented(&path, text.as_deref(), preview_type)?;
+    Ok(LoadedContent::Rich {
+        text,
+        preview,
+        snapshot: None,
+    })
+}
+
+#[cfg(test)]
+#[path = "../../../../../tests/unit/desktop_presentation_preview_tests.rs"]
+mod presentation_preview_tests;

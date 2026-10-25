@@ -236,7 +236,7 @@ impl MultisoulApp {
                                 session.motion.reduce_motion,
                             );
                             session.layout_strategy.chrome_in_parent = true;
-                            session.master_layout.chrome_in_parent = true;
+                            session.master_layout.bind_desktop(&session.runtime);
                             session.apply_theme(app.theme_id, cx);
                             session
                         });

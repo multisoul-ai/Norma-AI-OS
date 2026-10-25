@@ -18,7 +18,7 @@ pub use errors::{
 pub use workspace::{OrchestrationDoctorReport, WorkspaceSummary};
 
 pub type NodeId = u64;
-pub const CURRENT_PROTOCOL_VERSION: u32 = 3;
+pub const CURRENT_PROTOCOL_VERSION: u32 = 4;
 
 fn legacy_protocol_version() -> u32 {
     1
@@ -285,6 +285,7 @@ pub enum PresentationDisposition {
 #[serde(rename_all = "snake_case")]
 pub enum PresentationLayout {
     Master,
+    ContentDrawer,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

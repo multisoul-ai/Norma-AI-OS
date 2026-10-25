@@ -65,7 +65,7 @@ public final class Session {
         dataRoot = data
     }
 
-    public func launch(language: String? = nil) throws {
+    public func launch(language: String? = nil, homeDirectory: URL? = nil) throws {
         guard let dataRoot, let output else {
             throw E2EError.env("运行目录尚未建立")
         }
@@ -76,6 +76,8 @@ public final class Session {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: appPath)
         var environment = ProcessInfo.processInfo.environment
+        // Provider 安装夹具仅重定向子进程的用户目录，驱动和用户的真实 HOME 不变。
+        if let homeDirectory { environment["HOME"] = homeDirectory.path }
         environment["NORMA_TEST_DATA_ROOT"] = dataRoot.path
         environment["NORMA_SOCKET"] = isolatedSocketPath(identifier: UUID().uuidString)
         if let display = isolatedDisplayID() {

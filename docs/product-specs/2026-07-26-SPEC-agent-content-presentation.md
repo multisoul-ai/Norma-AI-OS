@@ -1,6 +1,6 @@
-# SPEC：Agent 内容展示、Browser 与 Preview Master Layout
+# SPEC：Agent 内容展示、Browser 与 Preview
 
-- 日期：2026-07-26
+- 日期：2026-07-26；桌面内容抽屉修订：2026-10-25
 - 状态：Implemented
 - 关联规格：
   [`2026-07-25-SPEC-agent-orchestration-installation-and-task-delegation.md`](2026-07-25-SPEC-agent-orchestration-installation-and-task-delegation.md)
@@ -8,8 +8,8 @@
 ## 1. Summary
 
 已安装 Orchestration 集成的外部 Agent，可以通过受保护的 Norma CLI 命令把 Browser
-或只读 Preview 卡片展示到当前项目。展示会创建或复用目标卡片，并立即令其成为
-Master；原 Master 降为 Detail。
+或只读 Preview 展示到当前项目所在桌面的右侧内容抽屉。展示创建或复用持久化标签，
+保留来源项目，不新增画布节点，不改变可见 Master。非桌面经典画布保留原 Master 展示。
 
 本能力只增加内容展示，不开放通用 Canvas 控制、批量布局、Terminal 操作或
 `Cmd+M` 模拟。
@@ -28,12 +28,12 @@ Master；原 Master 降为 Detail。
 
 ### 2.2 布局与焦点
 
-- 每次成功展示后，目标立即成为 Master。
-- 已存在的 Master 自动降为 Detail。
-- 新目标成为唯一选中卡片，但应用保持 Canvas 输入焦点，不聚焦 Browser 地址栏、
-  网页或 Preview。
-- 用户正在输入不会延迟展示。
-- 展示生成的卡片是普通持久化 Canvas 节点；项目重开后仍存在。
+- 桌面 Browser/Preview 与终端链接统一进入右侧内容抽屉，选中真实标签并打开抽屉后返回成功。
+- 保留画布输入焦点，不聚焦网页或文件；通知沿用现有展示反馈。
+- 只有实际绘制的 Agent/Terminal 参与桌面平铺与 Master 布局；隐藏节点不占格位。
+- 旧隐藏或已被清理的 Master，在首次获取画布尺寸后修复并异步保存。首次展开前保存
+  仍保留待修复的原布局快照；合法可见 Master 保留。
+- 内容标签持久化。`--new` 使用独立实例身份，显式预览类型一并保存；重启后可恢复。
 
 ### 2.3 通知
 
@@ -72,12 +72,14 @@ norma present preview <path> [--type markdown|text|image] [--new] [--format json
     "node_id": 17,
     "kind": "browser",
     "disposition": "reused",
-    "layout": "master"
+    "layout": "content_drawer"
   }
 }
 ```
 
-成功表示卡片已经创建或复用且 Master Layout 已应用，不表示网页或文件已经加载完成。
+成功表示真实内容标签已经创建或复用、安装到当前桌面并打开抽屉，不表示内容已经加载完成。
+`node_id` 是对应内容表面的稳定 ID，桌面中不是画布节点 ID。非桌面经典画布返回
+`master`。协议版本升级为 4，旧版本 CLI 由既有版本检查明确拒绝。
 
 稳定 Presentation 错误码：
 
@@ -136,7 +138,9 @@ Settings 继续显示一个 Skill 聚合组件。两个文件都是当前版本�
 
 ## 6. Persistence, Logging and Privacy
 
-- 创建或复用后的 Canvas 与 Master Layout 通过现有持久化调度保存，不新增 migration。
+- 桌面内容通过后台串行存储队列保存，迁移保留旧标签身份、顺序、选中状态与来源。
+- `instance_id` 区分同址副本，`preview_type` 保存有效预览类型；不占用产物 version 字段。
+- Preview token 只授权指定文件，不能借此读取项目外相邻文件。
 - `norma_presentation` 日志记录 request id、provider、source node、command、
   node id、created/reused、结果和耗时。
 - Browser 目标只记录 scheme、host 与完整目标的 SHA-256；不记录完整 URL 或 query。
@@ -145,15 +149,13 @@ Settings 继续显示一个 Skill 聚合组件。两个文件都是当前版本�
 
 ## 7. Acceptance Evidence
 
-| 验收行为 | 自动化证据 |
-|---|---|
-| CLI 命令、默认 JSON、URL/路径预检和稳定错误码 | `crates/norma/tests/presentation_cli_tests.rs` |
-| 双 Skill 安装、旧安装修复和安全卸载 | `crates/norma/tests/orchestration_installer_tests.rs` |
-| URL/path 复用、`--new` 与 Master 切换 | `crates/app/tests/unit/norma_presentation_command_tests.rs` |
-| Token/来源校验、Preview loader 与通知合并 | `crates/app/tests/unit/norma_presentation_lifecycle_tests.rs` |
-| Browser A→B 导航后的当前 URL 复用 | `crates/app/tests/unit/browser_location_tests.rs`；`crates/e2e/src/e2e_12_agent_presentation.rs` |
-| WireRequest 到 Browser/Preview/Master/通知的用户流程 | `crates/e2e/src/e2e_12_agent_presentation.rs` |
-| 真实 `.app` 的通知、Master/Detail 和焦点视觉状态 | Computer Use 验收截图与报告 |
+- CLI 协议与预检：`crates/norma/tests/presentation_cli_tests.rs`、`crates/norma/tests/presentation_drawer.rs`。
+- 抽屉存储兼容：`crates/storage/tests/desktop_presentation.rs`。
+- 生产 Master/恢复入口：`crates/app/tests/unit/desktop_master_visibility_tests.rs`。
+- 展示回执与来源复核：`crates/app/tests/unit/desktop_presentation_endpoint_tests.rs`。
+- 显式类型及外部单文件权限：`crates/app/tests/unit/desktop_presentation_preview_tests.rs`。
+- 真实 App：`test/desktop-e2e/Scenarios/canvas/CanvasPresentationLayout.swift`。
+- 本次红绿日志及最终验收记录：`artifacts/layout-collapse-20261025/`。
 
 ## 8. Out of Scope
 

@@ -210,6 +210,8 @@ fn workbench_preview_fits_remaining_space_below_notice() {
         app.desktop_workspace.drawers.right_open = true;
         app.desktop_workspace.drawer_motion.retarget(false, true);
         app.desktop_workspace.content_tabs = vec![DesktopContentTab {
+            instance_id: String::new(),
+            preview_type: None,
             id: "abcd1234".into(),
             workspace_id: workspace.id.clone(),
             source_area_id: None,

@@ -41,9 +41,7 @@ use std::time::Instant;
 use ui::icons::with_alpha;
 static CANVAS_OPEN_RENDER_PENDING: AtomicBool = AtomicBool::new(false);
 
-pub(crate) fn embedded_node_visible(node_type: NodeType, embedded_desktop: bool) -> bool {
-    !embedded_desktop || matches!(node_type, NodeType::Agent | NodeType::Term)
-}
+use super::visibility::embedded_node_visible;
 
 pub(crate) fn mark_canvas_open_render_pending() {
     CANVAS_OPEN_RENDER_PENDING.store(true, Ordering::Release);

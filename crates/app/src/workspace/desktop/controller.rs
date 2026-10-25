@@ -193,17 +193,9 @@ impl MultisoulApp {
             .desktop_workspace
             .workspace_load_generation
             .wrapping_add(1);
-        self.desktop_workspace.content_tab_generation = self
-            .desktop_workspace
-            .content_tab_generation
-            .wrapping_add(1);
+        self.reset_desktop_content_tabs();
         self.desktop_workspace.areas.clear();
         self.desktop_workspace.workbench = Default::default();
-        self.desktop_workspace.content_tabs.clear();
-        self.desktop_workspace.content_previews.clear();
-        self.desktop_workspace.content_snapshots.clear();
-        self.desktop_workspace.content_resources.clear();
-        self.desktop_workspace.content_loading.clear();
         self.desktop_workspace.content_artifacts.clear();
         self.desktop_workspace.status_cache.clear();
         self.desktop_workspace.status_live_seen.clear();

@@ -2,8 +2,9 @@ pub(crate) use self::conversion::canvas_preview_type;
 use self::layout::{
     apply_layout_for_new_node_or_master, resolve_bounds, summarize_cards, CardCreationState,
 };
+use self::orchestration::is_presentation_command;
+pub(crate) use self::orchestration::log_managed_request;
 pub(crate) use self::orchestration::{is_managed_agent_command, ValidatedOrchestrationCommand};
-use self::orchestration::{is_presentation_command, log_managed_request};
 use crate::app::{AppScreen, MultisoulApp};
 use crate::canvas::layout_strategy::CanvasLayoutStrategy;
 use crate::canvas::master_layout::{

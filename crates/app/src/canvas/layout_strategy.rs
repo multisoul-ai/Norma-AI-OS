@@ -118,6 +118,12 @@ pub(crate) fn apply_workspace_reflow_for_area(
         .document
         .nodes()
         .iter()
+        .filter(|node| {
+            crate::canvas::visibility::embedded_node_visible(
+                node.kind.node_type(),
+                strategy.chrome_in_parent,
+            )
+        })
         .map(|node| node.id)
         .collect();
     apply_workspace_reflow_for_ids(runtime, motion, &ordered_ids, area, zoom, strategy);
@@ -135,7 +141,9 @@ pub(crate) fn apply_embedded_project_reflow_for_area(
         .document
         .nodes()
         .iter()
-        .filter(|node| crate::canvas::view::embedded_node_visible(node.kind.node_type(), true))
+        .filter(|node| {
+            crate::canvas::visibility::embedded_node_visible(node.kind.node_type(), true)
+        })
         .map(|node| node.id)
         .collect();
     apply_workspace_reflow_for_ids(runtime, motion, &ordered_ids, area, zoom, strategy);

@@ -9,6 +9,8 @@ struct WorkbenchHost {
 impl Render for WorkbenchHost {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let tab = storage::DesktopContentTab {
+            instance_id: String::new(),
+            preview_type: None,
             id: "files".into(),
             kind: storage::DesktopContentKind::ProjectFiles,
             resource: "project-files".into(),

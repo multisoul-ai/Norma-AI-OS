@@ -39,7 +39,7 @@ fn visible_hit(
                 .get(&node.id)
                 .unwrap_or(&node.bounds)
                 .contains(point)
-                && super::view::embedded_node_visible(node.kind.node_type(), true)
+                && super::visibility::embedded_node_visible(node.kind.node_type(), true)
         })
         .max_by_key(|node| node.z_index)
         .map(|node| node.id)
@@ -61,7 +61,7 @@ pub(super) fn on_scroll(
         .iter()
         .filter(|node| {
             app.desktop_host.is_none()
-                || super::view::embedded_node_visible(node.kind.node_type(), true)
+                || super::visibility::embedded_node_visible(node.kind.node_type(), true)
         })
         .map(|node| {
             let mut node = node.clone();

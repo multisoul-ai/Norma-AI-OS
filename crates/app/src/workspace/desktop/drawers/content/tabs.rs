@@ -4,7 +4,6 @@ use super::super::content_node_id;
 use crate::app::{AppScreen, MultisoulApp};
 use agent::AdapterError;
 use gpui::Context;
-use runtime::desktop_drawers::{route_drawer, DesktopDrawerEvent};
 use storage::{DesktopContentKind, NewDesktopContentTab};
 
 impl MultisoulApp {
@@ -132,54 +131,7 @@ impl MultisoulApp {
             version,
             title,
         };
-        let store =
-            storage::DesktopContentTabStore::new(self.database_paths.app_db_path().to_owned());
-        let load_workspace_id = workspace_id.clone();
-        self.desktop_workspace.content_tab_generation = self
-            .desktop_workspace
-            .content_tab_generation
-            .wrapping_add(1);
-        let generation = self.desktop_workspace.content_tab_generation;
-        let previous = self.desktop_workspace.content_tab_task.take();
-        self.desktop_workspace.content_tab_task = Some(cx.spawn(async move |this, cx| {
-            if let Some(previous) = previous {
-                previous.await;
-            }
-            let result = cx
-                .background_executor()
-                .spawn(async move {
-                    store.open_or_select(request)?;
-                    store.list(&load_workspace_id)
-                })
-                .await;
-            let _ = this.update(cx, |app, cx| {
-                if app.desktop_workspace.active_id.as_deref() != Some(workspace_id.as_str())
-                    || app.desktop_workspace.content_tab_generation != generation
-                {
-                    return;
-                }
-                match result {
-                    Ok(tabs) => {
-                        app.hide_desktop_content_browsers();
-                        app.desktop_workspace.content_tabs = tabs;
-                        app.desktop_workspace.drawers = route_drawer(
-                            app.desktop_workspace.drawers,
-                            DesktopDrawerEvent::OpenArtifact,
-                        );
-                        app.desktop_workspace.drawer_motion.retarget(
-                            app.desktop_workspace.drawers.left_open,
-                            app.desktop_workspace.drawers.right_open,
-                        );
-                        app.load_selected_desktop_content(cx);
-                        app.wake_animation_frame_loop();
-                    }
-                    Err(error) => {
-                        app.desktop_workspace.error = Some(format!("无法打开内容：{error}").into());
-                    }
-                }
-                cx.notify();
-            });
-        }));
+        self.enqueue_desktop_content_open(request, false, None, None, cx);
     }
 
     pub(crate) fn hide_desktop_content_browsers(&mut self) {
@@ -297,6 +249,7 @@ impl MultisoulApp {
                             &tab_id,
                             &tab.resource,
                             tab.version.as_deref(),
+                            &tab.instance_id,
                         )?;
                     } else {
                         store.select(&workspace_id, &tab_id)?;
@@ -358,6 +311,7 @@ impl MultisoulApp {
         self.desktop_workspace.content_snapshots.remove(&tab_id);
         self.desktop_workspace.content_resources.remove(&tab_id);
         self.desktop_workspace.content_loading.remove(&tab_id);
+        self.desktop_workspace.content_load_versions.remove(&tab_id);
         self.desktop_workspace.content_tab_generation = self
             .desktop_workspace
             .content_tab_generation

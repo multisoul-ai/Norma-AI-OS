@@ -14,6 +14,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 mod brain_history;
+pub(crate) mod presentation;
 mod routing;
 mod task_control;
 mod task_dispatch;
@@ -372,6 +373,18 @@ fn dispatch_request(server_request: NormaServerRequest, cx: &mut App) {
             | CardCommand::AgentTaskCancel { .. }
     ) {
         spawn_global_task_control(request, response, cx);
+        return;
+    }
+
+    if matches!(
+        request.command,
+        CardCommand::Present {
+            target: norma::protocol::PresentationTarget::Browser { .. }
+                | norma::protocol::PresentationTarget::Preview { .. },
+            ..
+        }
+    ) {
+        presentation::dispatch(request, response, cx);
         return;
     }
 

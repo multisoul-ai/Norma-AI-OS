@@ -34,6 +34,8 @@ pub struct NewDesktopContentTab {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DesktopContentTab {
+    pub instance_id: String,
+    pub preview_type: Option<canvas::PreviewType>,
     pub id: String,
     pub workspace_id: String,
     pub source_area_id: Option<String>,
@@ -60,7 +62,7 @@ pub struct DesktopContentTabStore {
 
 const SELECT_TAB: &str = "SELECT t.id,t.workspace_id,t.source_area_id,t.source_project_name,\
     t.kind,t.resource,t.version,t.title,t.position,t.selected,\
-    CASE WHEN t.source_area_id IS NULL THEN 0 WHEN a.id IS NULL THEN 1 ELSE 0 END \
+    CASE WHEN t.source_area_id IS NULL THEN 0 WHEN a.id IS NULL THEN 1 ELSE 0 END,t.instance_id,t.preview_type \
     FROM desktop_content_tabs t LEFT JOIN desktop_project_areas a \
     ON a.desktop_workspace_id=t.workspace_id AND a.id=t.source_area_id";
 
@@ -103,43 +105,64 @@ impl DesktopContentTabStore {
         &self,
         request: NewDesktopContentTab,
     ) -> StorageResult<DesktopContentTab> {
+        self.open_for_presentation(request, false, None)
+            .map(|(tab, _)| tab)
+    }
+
+    /// Open an independently addressable copy when requested; otherwise reuse the selected match.
+    /// The frozen artifact version remains independent of tab identity and preview format.
+    pub fn open_for_presentation(
+        &self,
+        request: NewDesktopContentTab,
+        create_new: bool,
+        preview_type: Option<canvas::PreviewType>,
+    ) -> StorageResult<(DesktopContentTab, bool)> {
         let mut connection = open_app_connection(&self.path)?;
         let transaction = connection.transaction()?;
         let kind = request.kind.as_str();
         let version = request.version.as_deref().unwrap_or("");
-        let existing: Option<String> = transaction
+        let existing: Option<String> = if create_new {
+            None
+        } else {
+            transaction
             .query_row(
-                "SELECT id FROM desktop_content_tabs WHERE workspace_id=?1 AND kind=?2 AND resource=?3 AND version=?4",
+                "SELECT id FROM desktop_content_tabs WHERE workspace_id=?1 AND kind=?2 AND resource=?3 AND version=?4 ORDER BY selected DESC,position DESC,id LIMIT 1",
                 params![request.workspace_id, kind, request.resource, version],
                 |row| row.get(0),
             )
-            .optional()?;
+            .optional()?
+        };
+        let created = existing.is_none();
+        let preview_type = preview_type
+            .map(|value| serde_json::to_string(&value))
+            .transpose()?;
         transaction.execute(
             "UPDATE desktop_content_tabs SET selected=0 WHERE workspace_id=?1 AND selected=1",
             [&request.workspace_id],
         )?;
         let id = if let Some(id) = existing {
             transaction.execute(
-                "UPDATE desktop_content_tabs SET source_area_id=?2,source_project_name=?3,title=?4,selected=1 WHERE id=?1",
-                params![id, request.source_area_id, request.source_project_name, request.title],
+                "UPDATE desktop_content_tabs SET source_area_id=?2,source_project_name=?3,title=?4,selected=1,preview_type=?5 WHERE id=?1",
+                params![id, request.source_area_id, request.source_project_name, request.title, preview_type],
             )?;
             id
         } else {
             let id = random_workspace_id()?;
+            let instance_id = if create_new { id.as_str() } else { "" };
             let position: i64 = transaction.query_row(
                 "SELECT COALESCE(MAX(position)+1,0) FROM desktop_content_tabs WHERE workspace_id=?1",
                 [&request.workspace_id],
                 |row| row.get(0),
             )?;
             transaction.execute(
-                "INSERT INTO desktop_content_tabs(id,workspace_id,source_area_id,source_project_name,kind,resource,version,title,position,selected) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,1)",
-                params![id, request.workspace_id, request.source_area_id, request.source_project_name, kind, request.resource, version, request.title, position],
+                "INSERT INTO desktop_content_tabs(id,workspace_id,source_area_id,source_project_name,kind,resource,version,title,position,selected,instance_id,preview_type) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,1,?10,?11)",
+                params![id, request.workspace_id, request.source_area_id, request.source_project_name, kind, request.resource, version, request.title, position, instance_id, preview_type],
             )?;
             id
         };
         let tab = load_tab(&transaction, &request.workspace_id, &id)?;
         transaction.commit()?;
-        Ok(tab)
+        Ok((tab, created))
     }
 
     pub fn select(&self, workspace_id: &str, tab_id: &str) -> StorageResult<()> {
@@ -171,6 +194,7 @@ impl DesktopContentTabStore {
         tab_id: &str,
         resource: &str,
         version: Option<&str>,
+        instance_id: &str,
     ) -> StorageResult<bool> {
         let mut connection = open_app_connection(&self.path)?;
         let transaction = connection.transaction()?;
@@ -183,8 +207,8 @@ impl DesktopContentTabStore {
             .optional()?
             .or(transaction
                 .query_row(
-                    "SELECT id FROM desktop_content_tabs WHERE workspace_id=?1 AND kind='browser' AND resource=?2 AND version=?3",
-                    params![workspace_id, resource, version.unwrap_or("")],
+                    "SELECT id FROM desktop_content_tabs WHERE workspace_id=?1 AND kind='browser' AND resource=?2 AND version=?3 AND instance_id=?4",
+                    params![workspace_id, resource, version.unwrap_or(""), instance_id],
                     |row| row.get(0),
                 )
                 .optional()?);
@@ -212,14 +236,14 @@ impl DesktopContentTabStore {
     ) -> StorageResult<DesktopBrowserLocationUpdate> {
         let mut connection = open_app_connection(&self.path)?;
         let transaction = connection.transaction()?;
-        let current: Option<(String, bool, String)> = transaction
+        let current: Option<(String, bool, String, String)> = transaction
             .query_row(
-                "SELECT resource,selected,version FROM desktop_content_tabs WHERE workspace_id=?1 AND id=?2 AND kind='browser'",
+                "SELECT resource,selected,version,instance_id FROM desktop_content_tabs WHERE workspace_id=?1 AND id=?2 AND kind='browser'",
                 params![workspace_id, tab_id],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
             )
             .optional()?;
-        let Some((current_resource, current_selected, version)) = current else {
+        let Some((current_resource, current_selected, version, instance_id)) = current else {
             return Ok(DesktopBrowserLocationUpdate {
                 changed: false,
                 removed_tab_id: None,
@@ -233,8 +257,8 @@ impl DesktopContentTabStore {
         }
         let duplicate: Option<(String, bool)> = transaction
             .query_row(
-                "SELECT id,selected FROM desktop_content_tabs WHERE workspace_id=?1 AND kind='browser' AND resource=?2 AND id<>?3 AND version=?4",
-                params![workspace_id, resource, tab_id, version],
+                "SELECT id,selected FROM desktop_content_tabs WHERE workspace_id=?1 AND kind='browser' AND resource=?2 AND id<>?3 AND version=?4 AND instance_id=?5",
+                params![workspace_id, resource, tab_id, version, instance_id],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
             .optional()?;
@@ -322,7 +346,21 @@ fn read_tab(row: &Row<'_>) -> rusqlite::Result<DesktopContentTab> {
         }
     };
     let version: String = row.get(6)?;
+    let preview_json: Option<String> = row.get(12)?;
+    let preview_type = preview_json
+        .map(|value| {
+            serde_json::from_str(&value).map_err(|error| {
+                rusqlite::Error::FromSqlConversionFailure(
+                    12,
+                    rusqlite::types::Type::Text,
+                    error.into(),
+                )
+            })
+        })
+        .transpose()?;
     Ok(DesktopContentTab {
+        instance_id: row.get(11)?,
+        preview_type,
         id: row.get(0)?,
         workspace_id: row.get(1)?,
         source_area_id: row.get(2)?,

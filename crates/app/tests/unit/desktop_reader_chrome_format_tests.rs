@@ -9,6 +9,8 @@ use storage::DesktopContentKind;
 #[test]
 fn browser_context_title_matches_prototype_host_and_page() {
     let web = storage::DesktopContentTab {
+        instance_id: String::new(),
+        preview_type: None,
         id: "apple".into(),
         workspace_id: "space".into(),
         source_area_id: None,

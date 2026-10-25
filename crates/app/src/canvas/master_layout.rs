@@ -13,162 +13,14 @@ use canvas::{
 };
 use gpui::{Context, Window};
 use runtime::{route, InputEvent, InputMode, NodeResize, Route, Runtime};
-use std::collections::BTreeMap;
-use storage::{LayoutMode, LayoutOriginalBounds, LayoutStateSnapshot};
+#[cfg(test)]
+use storage::{LayoutMode, LayoutStateSnapshot};
 
 const LAYOUT_MAX_COLUMNS: usize = 3;
 const LAYOUT_MIN_COLUMN_SCREEN_PX: f32 = 320.0;
 
-#[derive(Debug, Default, Clone)]
-pub(crate) struct MasterLayoutState {
-    active: Option<ActiveMasterLayout>,
-    pub(crate) chrome_in_parent: bool,
-}
-
-#[derive(Debug, Clone)]
-struct ActiveMasterLayout {
-    master_id: NodeId,
-    original_bounds: BTreeMap<NodeId, CanvasRect>,
-}
-
-impl MasterLayoutState {
-    pub(crate) fn is_active(&self) -> bool {
-        self.active.is_some()
-    }
-
-    pub(crate) fn master_id(&self) -> Option<NodeId> {
-        self.active.as_ref().map(|active| active.master_id)
-    }
-
-    pub(crate) fn clear(&mut self) {
-        self.active = None;
-    }
-
-    pub(crate) fn forget_removed_node(&mut self, node_id: NodeId) {
-        if self.master_id() == Some(node_id) {
-            self.clear();
-        } else if let Some(active) = &mut self.active {
-            active.original_bounds.remove(&node_id);
-        }
-    }
-
-    pub(crate) fn to_snapshot(&self) -> LayoutStateSnapshot {
-        match &self.active {
-            Some(active) => LayoutStateSnapshot {
-                mode: LayoutMode::MasterDetail,
-                master_id: Some(active.master_id),
-                original_bounds: active
-                    .original_bounds
-                    .iter()
-                    .map(|(node_id, bounds)| LayoutOriginalBounds {
-                        node_id: *node_id,
-                        bounds: *bounds,
-                    })
-                    .collect(),
-            },
-            None => LayoutStateSnapshot {
-                mode: LayoutMode::Tiled,
-                master_id: None,
-                original_bounds: Vec::new(),
-            },
-        }
-    }
-
-    pub(crate) fn restore_from_snapshot(
-        &mut self,
-        snapshot: LayoutStateSnapshot,
-        runtime: &Runtime,
-    ) -> bool {
-        if snapshot.mode == LayoutMode::Tiled {
-            self.clear();
-            return false;
-        }
-
-        let Some(master_id) = snapshot.master_id else {
-            self.clear();
-            return false;
-        };
-        if runtime.document.node(master_id).is_none() {
-            self.clear();
-            return false;
-        }
-
-        let original_bounds = snapshot
-            .original_bounds
-            .into_iter()
-            .filter(|entry| runtime.document.node(entry.node_id).is_some())
-            .map(|entry| (entry.node_id, entry.bounds))
-            .collect();
-        self.active = Some(ActiveMasterLayout {
-            master_id,
-            original_bounds,
-        });
-        true
-    }
-
-    fn has_current_nodes_outside_snapshot(&self, runtime: &Runtime) -> bool {
-        let Some(active) = &self.active else {
-            return false;
-        };
-        runtime
-            .document
-            .nodes()
-            .iter()
-            .any(|node| !active.original_bounds.contains_key(&node.id))
-    }
-
-    fn begin(&mut self, master_id: NodeId, runtime: &Runtime) -> bool {
-        if runtime.document.node(master_id).is_none() {
-            return false;
-        }
-
-        let original_bounds = runtime
-            .document
-            .nodes()
-            .iter()
-            .map(|node| (node.id, node.bounds))
-            .collect();
-        self.active = Some(ActiveMasterLayout {
-            master_id,
-            original_bounds,
-        });
-        true
-    }
-
-    fn restore(&mut self, runtime: &mut Runtime, motion: &mut MotionStore, zoom: f32) {
-        let Some(active) = self.active.take() else {
-            return;
-        };
-
-        for (node_id, bounds) in active.original_bounds {
-            if runtime.document.node(node_id).is_none() {
-                continue;
-            }
-            let node_type = runtime.document.node(node_id).map(|node| {
-                motion.ensure_node(node_id, node.bounds);
-                node.kind.node_type()
-            });
-            runtime.document.set_node_bounds(node_id, bounds);
-            motion.set_layout_target(node_id, bounds);
-            resize_node_for_bounds(runtime, node_id, node_type, bounds, zoom);
-        }
-    }
-
-    fn apply(
-        &self,
-        runtime: &mut Runtime,
-        motion: &mut MotionStore,
-        area: CanvasRect,
-        zoom: f32,
-    ) -> bool {
-        let Some(active) = &self.active else {
-            return false;
-        };
-        let mut config = workspace_reflow_config_for_zoom(zoom);
-        config.safe_area = workspace_safe_area_for_zoom(zoom, self.chrome_in_parent);
-        apply_master_detail_for_area(runtime, motion, active.master_id, area, zoom, config)
-    }
-}
+mod state;
+pub(crate) use state::MasterLayoutState;
 
 pub(crate) fn workspace_reflow_config_for_zoom(zoom: f32) -> ResponsiveGridConfig {
     let zoom = zoom.max(0.001);
@@ -231,7 +83,7 @@ pub(crate) fn switch_master_layout_for_area(
     area: CanvasRect,
     zoom: f32,
 ) -> bool {
-    if runtime.document.node(master_id).is_none() {
+    if !state.accepts(runtime, master_id) {
         return false;
     }
 
@@ -369,6 +221,7 @@ pub(crate) fn close_node_and_update_layout_for_area(
         }
     } else {
         apply_workspace_reflow_for_area(runtime, motion, area, zoom, strategy);
+        state.clear();
     }
     true
 }
@@ -380,11 +233,18 @@ fn apply_master_detail_for_area(
     area: CanvasRect,
     zoom: f32,
     config: ResponsiveGridConfig,
+    embedded_desktop: bool,
 ) -> bool {
     let ordered_ids: Vec<_> = runtime
         .document
         .nodes()
         .iter()
+        .filter(|node| {
+            crate::canvas::visibility::embedded_node_visible(
+                node.kind.node_type(),
+                embedded_desktop,
+            )
+        })
         .map(|node| node.id)
         .collect();
     let assignments = compute_master_detail_layout(&ordered_ids, master_id, area, config);
@@ -475,3 +335,7 @@ mod master_layout_persistence_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/master_layout_exit_tests.rs"]
 mod master_layout_exit_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/desktop_master_visibility_tests.rs"]
+mod desktop_master_visibility_tests;

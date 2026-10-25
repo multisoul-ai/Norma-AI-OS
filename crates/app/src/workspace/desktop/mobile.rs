@@ -89,7 +89,7 @@ pub(crate) fn ensure(
                 session.background_project = true;
                 session.window_active = false;
                 session.layout_strategy.chrome_in_parent = true;
-                session.master_layout.chrome_in_parent = true;
+                session.master_layout.bind_desktop(&session.runtime);
                 session
             });
             session.update(cx, |session, cx| {

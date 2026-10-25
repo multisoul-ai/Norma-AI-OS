@@ -15,6 +15,7 @@ struct Source {
     project: Project,
     html: String,
     only_file: Option<String>,
+    image_mime: Option<(String, &'static str)>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -44,6 +45,15 @@ pub(crate) fn kind(path: &str) -> Kind {
     }
 }
 
+pub(crate) fn preview_kind(path: &str, explicit: Option<canvas::PreviewType>) -> Kind {
+    match explicit {
+        Some(canvas::PreviewType::Markdown) => Kind::Markdown,
+        Some(canvas::PreviewType::Text) => Kind::Text,
+        Some(canvas::PreviewType::Image) => Kind::Image,
+        None => kind(path),
+    }
+}
+
 pub(crate) struct LocalPreview {
     token: String,
     pub url: String,
@@ -51,7 +61,7 @@ pub(crate) struct LocalPreview {
 
 impl LocalPreview {
     pub fn new(root: &Path, path: &str, text: Option<&str>) -> Result<Self, String> {
-        Self::create(root, path, text, false)
+        Self::create(root, path, text, false, kind(path))
     }
 
     pub fn snapshot(path: &Path, text: Option<&str>) -> Result<Self, String> {
@@ -60,16 +70,62 @@ impl LocalPreview {
             .file_name()
             .and_then(|s| s.to_str())
             .ok_or("版本文件名无效")?;
-        Self::create(parent, name, text, true)
+        Self::create(parent, name, text, true, kind(name))
     }
 
-    fn create(root: &Path, path: &str, text: Option<&str>, isolated: bool) -> Result<Self, String> {
+    /// A Present target is already canonical and authorized as a file, including outside the project.
+    pub(crate) fn presented(
+        path: &Path,
+        text: Option<&str>,
+        preview_type: canvas::PreviewType,
+    ) -> Result<Self, String> {
+        let parent = path.parent().ok_or("预览文件缺少父目录")?;
+        let name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or("预览文件名无效")?;
+        Self::create(
+            parent,
+            name,
+            text,
+            true,
+            preview_kind(name, Some(preview_type)),
+        )
+    }
+
+    fn create(
+        root: &Path,
+        path: &str,
+        text: Option<&str>,
+        isolated: bool,
+        preview_kind: Kind,
+    ) -> Result<Self, String> {
         let project = Project::open(root)?;
         // Validate before registering a URL, including symlink targets.
         let target = project.resolve(Path::new(path))?;
         if !target.starts_with(project.root()) {
             return Err("文件位于项目外部".into());
         }
+        let image_mime = if preview_kind == Kind::Image {
+            let mut prefix = Vec::new();
+            std::fs::File::open(&target)
+                .map_err(|error| error.to_string())?
+                .take(512)
+                .read_to_end(&mut prefix)
+                .map_err(|error| error.to_string())?;
+            let mime = image::guess_format(&prefix)
+                .ok()
+                .map(|format| format.to_mime_type())
+                .or_else(|| {
+                    std::str::from_utf8(&prefix)
+                        .ok()
+                        .filter(|text| text.contains("<svg"))
+                        .map(|_| "image/svg+xml")
+                });
+            mime.map(|mime| (path.to_string(), mime))
+        } else {
+            None
+        };
         let token = uuid::Uuid::new_v4().simple().to_string();
         let mut url =
             url::Url::parse(&format!("norma-content://{token}/")).map_err(|e| e.to_string())?;
@@ -79,7 +135,7 @@ impl LocalPreview {
                 .map(|s| s.to_string_lossy().into_owned()),
         );
         let asset_url = url.to_string();
-        let body = match kind(path) {
+        let body = match preview_kind {
             Kind::Markdown => {
                 let options = pulldown_cmark::Options::ENABLE_TABLES
                     | pulldown_cmark::Options::ENABLE_STRIKETHROUGH
@@ -122,6 +178,7 @@ impl LocalPreview {
                     project,
                     html,
                     only_file: isolated.then(|| path.to_string()),
+                    image_mime,
                 }),
             );
         Ok(Self {
@@ -259,6 +316,12 @@ fn resource(request: &Request<Vec<u8>>) -> Result<Response<Vec<u8>>, String> {
         "woff2" => "font/woff2",
         _ => "application/octet-stream",
     };
+    let mime = source
+        .image_mime
+        .as_ref()
+        .filter(|(path, _)| relative.to_string_lossy() == path.as_str())
+        .map(|(_, mime)| *mime)
+        .unwrap_or(mime);
     let mut response = Response::builder()
         .status(status)
         .header("Content-Type", mime)

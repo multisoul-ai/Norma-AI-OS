@@ -93,24 +93,8 @@ pub(crate) enum DesktopDeleteTarget {
     },
 }
 
-#[derive(Clone)]
-pub(crate) struct DesktopArtifact {
-    pub(crate) area_id: String,
-    pub(crate) node_id: canvas::NodeId,
-    pub(crate) agent_profile: String,
-    pub(crate) turn_id: String,
-    pub(crate) path: PathBuf,
-    pub(crate) source_path: String,
-    pub(crate) version: String,
-    pub(crate) saved_at_unix: u64,
-}
-
-#[derive(serde::Deserialize, serde::Serialize)]
-pub(crate) struct DesktopArtifactVersion {
-    pub(crate) node_id: canvas::NodeId,
-    pub(crate) fingerprint: String,
-    pub(crate) source_path: String,
-}
+mod content_state;
+pub(crate) use content_state::{DesktopArtifact, DesktopArtifactVersion};
 
 pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) store: DesktopWorkspaceStore,
@@ -161,11 +145,14 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) content_browser: drawers::content::browser_toolbar::ContentBrowserState,
     pub(crate) content_tab_task: Option<gpui::Task<()>>,
     pub(crate) content_tab_generation: u64,
+    pub(crate) content_workspace_epoch: u64,
     pub(crate) workspace_load_generation: u64,
     pub(crate) content_previews: HashMap<String, Result<String, String>>,
     pub(crate) content_snapshots: HashMap<String, tempfile::TempPath>,
     pub(crate) content_resources: HashMap<String, crate::preview::local_content::LocalPreview>,
     pub(crate) content_loading: HashSet<String>,
+    pub(crate) content_load_sequence: u64,
+    pub(crate) content_load_versions: HashMap<String, u64>,
     pub(crate) content_artifacts: Vec<DesktopArtifact>,
     pub(crate) artifact_revision: u64,
     pub(crate) artifact_refreshing: bool,
@@ -334,11 +321,14 @@ impl DesktopWorkspaceUiState {
             content_browser: Default::default(),
             content_tab_task: None,
             content_tab_generation: 0,
+            content_workspace_epoch: 0,
             workspace_load_generation: 0,
             content_previews: HashMap::new(),
             content_snapshots: HashMap::new(),
             content_resources: HashMap::new(),
             content_loading: HashSet::new(),
+            content_load_sequence: 0,
+            content_load_versions: HashMap::new(),
             content_artifacts: Vec::new(),
             artifact_revision: 0,
             artifact_refreshing: false,

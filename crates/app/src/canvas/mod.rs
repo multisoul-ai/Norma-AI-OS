@@ -13,4 +13,5 @@ pub(crate) mod terminal_link;
 pub(crate) mod terminal_path_cache;
 pub mod text_selection;
 pub mod view;
+pub(crate) mod visibility;
 mod working_snakes;

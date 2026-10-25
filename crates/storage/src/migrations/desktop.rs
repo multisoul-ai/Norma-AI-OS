@@ -1,5 +1,7 @@
 use crate::StorageResult;
 use rusqlite::Connection;
+#[path = "content_present.rs"]
+mod content_present;
 
 pub(super) fn migrate(connection: &Connection) -> StorageResult<()> {
     connection.execute_batch(
@@ -72,6 +74,7 @@ pub(super) fn migrate(connection: &Connection) -> StorageResult<()> {
         "drawer_layout_json TEXT",
     )?;
     migrate_content_workbench(connection)?;
+    content_present::migrate(connection)?;
     migrate_wallpapers(connection)?;
     migrate_dispatch_effects(connection)?;
     migrate_project_instances(connection)?;

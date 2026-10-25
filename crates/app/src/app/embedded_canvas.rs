@@ -16,7 +16,9 @@ pub(crate) fn embedded_presentation_layout(
 ) -> HashMap<NodeId, CanvasRect> {
     let visible: Vec<_> = nodes
         .iter()
-        .filter(|node| crate::canvas::view::embedded_node_visible(node.kind.node_type(), true))
+        .filter(|node| {
+            crate::canvas::visibility::embedded_node_visible(node.kind.node_type(), true)
+        })
         .collect();
     let narrow = area.size.x * zoom <= 650.0;
     let overflow = visible.iter().any(|node| {
@@ -131,19 +133,25 @@ impl MultisoulApp {
         .size;
         // Drawer width only changes the presentation canvas. Window resize changes the
         // stable save/reflow area and must rewrite FitViewport grid slots.
-        // First sync only records the baseline size — do not reflow restored nodes on open.
+        // First sync preserves restored free/tiled coordinates. Restored Master layouts
+        // and invalid legacy layouts reapply once through repair_pending below.
         let reflow_changed = self.desktop_embedded_reflow_size.is_some_and(|prev| {
             (prev.x - new_reflow.x).abs() > 0.5 || (prev.y - new_reflow.y).abs() > 0.5
         });
+        let repair_pending = self.master_layout.take_repair_pending();
         let canvas_changed = self.desktop_embedded_canvas_size != Some(size);
         self.desktop_embedded_reflow_size = Some(new_reflow);
-        if !canvas_changed && !reflow_changed {
+        if !canvas_changed && !reflow_changed && !repair_pending {
             return false;
         }
         self.desktop_embedded_canvas_size = Some(size);
         self.last_reflow_window_size = Some((size.x, size.y));
-        if reflow_changed {
+        if reflow_changed || repair_pending {
             self.apply_layout_for_current_mode(window);
+            if repair_pending {
+                self.mark_canvas_dirty();
+                self.wake_animation_frame_loop();
+            }
         } else {
             self.refresh_desktop_presentation(window);
         }

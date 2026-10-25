@@ -1,7 +1,7 @@
 //! Shared browser and file previews for user navigation and assistant-opened tabs.
 use super::super::content_node_id;
 use crate::app::MultisoulApp;
-use crate::preview::local_content::{kind, Kind};
+use crate::preview::local_content::{preview_kind, Kind};
 use gpui::{div, prelude::*, px, AnyElement, Context};
 use storage::{DesktopContentKind, DesktopContentTab};
 
@@ -41,7 +41,9 @@ impl MultisoulApp {
         let text = self.desktop_workspace.content_previews.get(&tab.id);
         let message = match text {
             Some(Err(error)) => error.clone(),
-            Some(Ok(text)) if kind(&tab.resource) == Kind::Text => text.clone(),
+            Some(Ok(text)) if preview_kind(&tab.resource, tab.preview_type) == Kind::Text => {
+                text.clone()
+            }
             _ => "正在打开文件…".to_string(),
         };
         if matches!(text, Some(Err(_))) && tab.version.is_none() {

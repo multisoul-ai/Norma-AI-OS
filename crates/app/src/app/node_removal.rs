@@ -31,7 +31,7 @@ impl MultisoulApp {
             .iter()
             .filter(|node| {
                 self.desktop_host.is_none()
-                    || crate::canvas::view::embedded_node_visible(node.kind.node_type(), true)
+                    || crate::canvas::visibility::embedded_node_visible(node.kind.node_type(), true)
             })
             .cloned()
             .collect();

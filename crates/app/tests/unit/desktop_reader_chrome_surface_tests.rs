@@ -45,6 +45,8 @@ fn open_browser_tab_uses_prototype_reader_chrome() {
     host.update_in(cx, |app, _, cx| {
         app.browsers.disable_native_views();
         app.desktop_workspace.content_tabs = vec![storage::DesktopContentTab {
+            instance_id: String::new(),
+            preview_type: None,
             id: "apple".into(),
             workspace_id: workspace.id.clone(),
             source_area_id: None,

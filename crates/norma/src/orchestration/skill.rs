@@ -215,6 +215,11 @@ fn presentation_skill_source(
 
 Use this capability to show Browser, external Ego Lite, or read-only Preview cards in Norma OS:
 
+Desktop Browser and Preview appear as tabs in the right content drawer. They do not become
+Canvas Master or change the live-card layout. A successful `content_drawer` receipt means the
+tab is installed and the drawer opened; `node_id` identifies that content surface, not a Canvas
+card. Content may still be loading. Classic Canvas sessions retain the `master` receipt.
+
 - When the user explicitly asks to open, show, view, or preview content, you must present it.
 - You may proactively present a generated deliverable or key evidence when seeing it materially helps.
 - Present at most 3 items per user turn, serially and in the user's order. If there are more than

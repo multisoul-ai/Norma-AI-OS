@@ -331,7 +331,7 @@ pub(super) fn managed_error_code(error: &CardCommandError) -> &'static str {
     }
 }
 
-pub(super) fn log_managed_request(
+pub(crate) fn log_managed_request(
     request_id: u64,
     command: &CardCommand,
     authorization: Option<&ProviderAuthorization>,
