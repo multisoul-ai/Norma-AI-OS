@@ -1,4 +1,4 @@
-//! “需要你处理”里大脑提议的下一步：收起时一行标题，展开后显示完整指令、理由与“忽略 / 派发”。
+//! “需要你处理”里大脑提议的下一步：标题行右侧始终是“拒绝 / 采纳”，点行展开完整指令与理由。
 //! 派发和忽略都在拥有该提议的项目会话里执行，不经过大脑。
 
 use super::super::overview_rows::{
@@ -71,16 +71,8 @@ impl MultisoulApp {
             },
             &[("agent", item.proposal.agent.clone())],
         );
-        // 展开后按钮放在标题行右侧：栏有高度上限，放在指令下面常常要滚动才看得到。
-        let aside = if expanded {
-            self.proposal_buttons(&area, id, &tag, cx)
-        } else {
-            div()
-                .flex_none()
-                .text_size(px(OVERVIEW_TEXT_COPY))
-                .text_color(rgba(META))
-                .child(ui::i18n::text("chrome.brain_proposal_expand"))
-        };
+        // 采纳 / 拒绝始终在标题行右侧；点行其余部分展开详情。
+        let aside = self.proposal_buttons(&area, id, &tag, cx);
         let selector = format!("desktop-brain-proposal-{id}");
         let head = div()
             .flex()
