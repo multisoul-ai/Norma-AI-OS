@@ -74,6 +74,7 @@ pub(super) async fn run_session(
         context,
         history: Default::default(),
         memory_epoch: Default::default(),
+        memory_revisions: Default::default(),
         tools: tools.map(Arc::new),
         project: project_id,
         database,

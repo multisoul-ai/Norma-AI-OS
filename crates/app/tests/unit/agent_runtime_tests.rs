@@ -250,6 +250,7 @@ fn test_agent_card_command_adapter_creates_multiple_terminals_in_real_runtime() 
     app.update(cx, |app, cx| {
         app.enter_canvas_for_test(workspace.path(), cx)
     });
+    super::prepare_shared_context(&app, cx);
 
     let results = (0..2)
         .map(|_| {
@@ -324,6 +325,7 @@ fn test_norma_adapter_creates_builtin_agent_and_dispatches_without_confirmation(
     app.update(cx, |app, cx| {
         app.enter_canvas_for_test(workspace.path(), cx)
     });
+    super::prepare_shared_context(&app, cx);
 
     let created = cx.update(|window, app_cx| {
         app.update(app_cx, |app, cx| {

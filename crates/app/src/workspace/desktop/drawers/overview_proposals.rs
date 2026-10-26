@@ -177,7 +177,7 @@ impl MultisoulApp {
             let area = area.to_owned();
             cx.listener(move |app, _, _, cx| {
                 cx.stop_propagation();
-                app.dispatch_overview_proposal(&area, id, cx);
+                app.dispatch_overview_proposal(&area, id, cx).detach();
             })
         });
         div()
@@ -188,22 +188,99 @@ impl MultisoulApp {
             .child(dispatch)
     }
 
-    fn dispatch_overview_proposal(&mut self, area_id: &str, id: u64, cx: &mut Context<Self>) {
-        let result = self.with_overview_session(area_id, cx, |app, cx| {
-            let result = app.dispatch_brain_proposal(id);
-            cx.notify();
-            result
+    pub(crate) fn dispatch_overview_proposal(
+        &mut self,
+        area_id: &str,
+        id: u64,
+        cx: &mut Context<Self>,
+    ) -> gpui::Task<()> {
+        let workspace = self.desktop_workspace.active_id.clone();
+        let prepared = self.with_overview_session(area_id, cx, |app, cx| {
+            app.shared_context_service()
+                .map(|service| (cx.entity().entity_id(), service))
         });
-        match result {
-            Some(Ok(())) => {}
-            Some(Err(message)) => self.desktop_workspace.error = Some(message.into()),
-            None => {
-                self.desktop_workspace.error =
-                    Some(ui::i18n::text("chrome.brain_proposal_closed").into());
+        let (source, service) = match prepared {
+            Some(Ok(prepared)) => prepared,
+            other => {
+                self.desktop_workspace.error = Some(match other {
+                    Some(Err(error)) => error.to_string().into(),
+                    _ => ui::i18n::text("chrome.brain_proposal_closed").into(),
+                });
+                cx.notify();
+                return gpui::Task::ready(());
             }
-        }
-        self.refresh_brain_overview(cx);
-        cx.notify();
+        };
+        let area_id = area_id.to_owned();
+        cx.spawn(async move |this, cx| {
+            let timeout = cx
+                .background_executor()
+                .timer(std::time::Duration::from_secs(2));
+            let loaded = match futures::future::select(
+                Box::pin(service.snapshot()),
+                Box::pin(timeout),
+            )
+            .await
+            {
+                futures::future::Either::Left((result, _)) => {
+                    result.map(|_| ()).map_err(|error| error.to_string())
+                }
+                futures::future::Either::Right(_) => {
+                    Err("context_prepare_timeout：状态读取超时，请稍后重试".into())
+                }
+            };
+            let dispatched = this.update(cx, |host, cx| {
+                // A late load must not dispatch into another workspace or replacement session.
+                if host.desktop_workspace.active_id != workspace {
+                    return None;
+                }
+                let result = loaded.and_then(|()| {
+                    host.with_overview_session(&area_id, cx, |app, cx| {
+                        if cx.entity().entity_id() != source
+                            || !app
+                                .shared_context_service()
+                                .is_ok_and(|current| current.scope() == service.scope())
+                        {
+                            return Err("context_scope_mismatch：来源项目已改变".into());
+                        }
+                        let result = app.dispatch_brain_proposal(id);
+                        cx.notify();
+                        result
+                    })
+                    .unwrap_or_else(|| {
+                        Err(ui::i18n::text("chrome.brain_proposal_closed").to_string())
+                    })
+                });
+                if let Err(message) = &result {
+                    host.desktop_workspace.error = Some(message.clone().into());
+                }
+                host.refresh_brain_overview(cx);
+                cx.notify();
+                result.ok()
+            });
+            if let Ok(Some((op, mut receipt))) = dispatched {
+                // The proposal is already consumed. Saving sources cannot replay its action.
+                if !service.save_brain_action_result(op, &mut receipt).await {
+                    let _ = this.update(cx, |host, cx| {
+                        if host.desktop_workspace.active_id != workspace {
+                            return;
+                        }
+                        let current = host
+                            .with_overview_session(&area_id, cx, |app, cx| {
+                                cx.entity().entity_id() == source
+                                    && app
+                                        .shared_context_service()
+                                        .is_ok_and(|current| current.scope() == service.scope())
+                            })
+                            .unwrap_or(false);
+                        if current {
+                            host.desktop_workspace.error =
+                                Some("任务已接收，但来源未确认保存；请勿重复派发".into());
+                            cx.notify();
+                        }
+                    });
+                }
+            }
+        })
     }
 
     fn decline_overview_proposal(&mut self, area_id: &str, id: u64, cx: &mut Context<Self>) {

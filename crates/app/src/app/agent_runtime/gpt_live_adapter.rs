@@ -21,6 +21,12 @@ pub(crate) fn start_gpt_live_adapter(
     let (sender, requests) = async_channel::bounded::<NormaAdapterRequest>(16);
     cx.spawn_in(window, async move |this, cx| {
         while let Ok(request) = requests.recv().await {
+            if let Err(error) =
+                context_guard::prepare(&this, cx, &request.command, &request.context).await
+            {
+                let _ = request.result_tx.send(Err(error));
+                continue;
+            }
             let result = this
                 .update_in(cx, |app, window, cx| {
                     execute_live_command(

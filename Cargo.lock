@@ -964,6 +964,7 @@ dependencies = [
 name = "brain"
 version = "0.1.76"
 dependencies = [
+ "norma",
  "serde",
  "serde_json",
  "tempfile",

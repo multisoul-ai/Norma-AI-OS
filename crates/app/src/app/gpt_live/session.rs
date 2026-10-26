@@ -24,6 +24,7 @@ pub(super) enum CaptureEvent {
 }
 
 pub(super) enum CallCommand {
+    BrainReport(super::native_report::NativeReport),
     SetMuted(bool),
     SetInputEnabled {
         enabled: bool,
@@ -136,6 +137,7 @@ pub(super) async fn run_audio_loop(
     let uploaded = control.observe_uploaded_audio();
     let mut microphone = std::collections::VecDeque::new();
     let mut output_blocked = false;
+    let mut reports = super::native_report::NativeReports::default();
     let mut mode = *capture_mode.borrow();
     let mut input_enabled = !mode.muted;
     let mut user_muted = false;
@@ -184,11 +186,16 @@ pub(super) async fn run_audio_loop(
                         }
                         CallCommand::SetOutputBlocked(blocked) => {
                             output_blocked = blocked;
+                            if blocked { reports.clear(); }
                             super::output::set_blocked(blocked, &playback, &control, &events)?;
                             continue;
                         }
                         CallCommand::AppendResult{event_id,kind,delegation_id,content}=> {
                             control.send_command(&live_voice::LiveCommand::Append{event_id,kind,delegation_id,content})?;
+                            continue;
+                        }
+                        CallCommand::BrainReport(report) => {
+                            if !output_blocked { reports.push(report); }
                             continue;
                         }
                     };
@@ -199,6 +206,7 @@ pub(super) async fn run_audio_loop(
                     capture_mode.send_replace(mode);
                 }
                 _ = clock.tick() => {
+                    reports.pump(|command, scope| control.send_scoped_append(command, scope))?;
                     if user_muted || microphone.is_empty() { control.send_silence(320)?; submitted_samples += 320; }
                     else {
                         let mut bytes = vec![0;640];
@@ -247,7 +255,10 @@ pub(super) async fn run_audio_loop(
                         send_event(CallEvent::Transcript(part))?;
                     },
                     Some(live_voice::LiveEvent::Closed { .. }) | None => return Ok(()),
-                    Some(live_voice::LiveEvent::Acknowledged {client_event_id, kind:live_voice::Acknowledgement::Appended(_)} ) => send_event(CallEvent::AppendAcknowledged(client_event_id))?,
+                    Some(live_voice::LiveEvent::Acknowledged {client_event_id, kind:live_voice::Acknowledgement::Appended(kind)} ) => {
+                        reports.acknowledge(&client_event_id, kind);
+                        send_event(CallEvent::AppendAcknowledged(client_event_id))?;
+                    },
                     Some(live_voice::LiveEvent::Rejected { .. }) => return Err("Live service rejected a session command".into()),
                     _ => {},
                 },
@@ -258,6 +269,11 @@ pub(super) async fn run_audio_loop(
     // Stop local sound immediately; final cloud usage may take up to the protocol close deadline.
     let requested_close = cancellation.is_cancelled();
     cancellation.cancel();
+    reports.clear();
+    commands.close();
+    while let Ok(command) = commands.try_recv() {
+        drop(command);
+    }
     playback.end();
     control.close();
     let outcome = connection.finish().await;
@@ -272,3 +288,7 @@ pub(super) async fn run_audio_loop(
 #[cfg(test)]
 #[path = "../../../tests/unit/gpt_live_output_audio_tests.rs"]
 mod output_audio_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/gpt_live_native_report_audio_tests.rs"]
+mod native_report_audio_tests;

@@ -23,9 +23,16 @@ pub enum BrainDecision {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum BrainOp {
+    /// Read an immutable event; does not replay operations or expand read scope.
+    Context {
+        reference: super::ContextRef,
+    },
     Report {
         text: String,
         priority: ReportPriority,
+        /// Empty means unavailable linkage for legacy reports; never infer a decision.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        sources: Vec<super::ContextRef>,
     },
     Approvals,
     Decide {

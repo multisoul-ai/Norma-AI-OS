@@ -44,6 +44,10 @@ pub enum BrainEvent {
     UserRequest {
         text: String,
     },
+    ContextRequest {
+        text: String,
+        reference: norma::protocol::ContextRef,
+    },
     /// 用户在概览里忽略了大脑的提议；只记录，不单独叫醒大脑。
     ProposalDeclined {
         agent: String,

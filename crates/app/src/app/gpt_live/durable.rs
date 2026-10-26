@@ -79,6 +79,12 @@ impl LiveDurableAdapter {
 }
 
 impl AgentCardAdapter for LiveDurableAdapter {
+    fn shared_context<'a>(
+        &'a self,
+        context: &'a ToolContext,
+    ) -> BoxFuture<'a, Result<Option<agent::context::ContextFrame>, AdapterError>> {
+        self.delegate.shared_context(context)
+    }
     fn memory_context(
         &self,
     ) -> BoxFuture<'_, Result<Option<agent::MemorySessionContext>, AdapterError>> {

@@ -31,6 +31,8 @@ enum CallStatus {
 
 #[derive(Default)]
 pub(crate) struct GptLiveVoiceState {
+    pub(super) context_scope: Option<agent::context::ContextScope>,
+    pub(super) report_cancellation: CancellationToken,
     pub(super) vad_ready: bool,
     pub(super) reconciliation: Option<(String, String)>,
     pub(super) reconciliation_generation: u64,
@@ -78,6 +80,8 @@ impl GptLiveVoiceState {
     }
 
     pub(crate) fn stop(&mut self) {
+        self.cancel_brain_reports();
+        self.context_scope = None;
         self.generation = self.generation.wrapping_add(1);
         if let Some(cancellation) = self.cancellation.take() {
             cancellation.cancel();
@@ -137,6 +141,17 @@ impl GptLiveVoiceState {
 
     pub(crate) fn is_active(&self) -> bool {
         self.cancellation.is_some()
+    }
+    pub(super) fn can_report(&self) -> bool {
+        self.is_active()
+            && matches!(self.status, CallStatus::Connected)
+            && !self.output_blocked
+            && !self.output_pending
+    }
+
+    pub(crate) fn cancel_brain_reports(&mut self) {
+        self.report_cancellation.cancel();
+        self.report_cancellation = CancellationToken::new();
     }
     pub(crate) fn matches_generation(&self, generation: u64) -> bool {
         self.generation == generation && self.is_active()
@@ -292,6 +307,8 @@ impl GptLiveVoiceState {
         if self.generation != generation {
             return false;
         }
+        self.cancel_brain_reports();
+        self.context_scope = None;
         if let Some(cancellation) = self.cancellation.take() {
             cancellation.cancel();
         }

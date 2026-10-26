@@ -61,6 +61,12 @@ fn failed_dispatch_keeps_the_proposal_and_does_not_log_success() {
     else {
         panic!("必须返回卡片编号：{created:?}");
     };
+    // Production overview prepares cold shared state off-thread before entering this gate.
+    let context = entity.update(cx, |app, _| app.shared_context_service().unwrap());
+    crate::app::shared_tokio_runtime()
+        .unwrap()
+        .block_on(context.snapshot())
+        .unwrap();
     entity.update(cx, |app, _| {
         app.pending_agent_submissions.mark_ready(node);
         let id = app

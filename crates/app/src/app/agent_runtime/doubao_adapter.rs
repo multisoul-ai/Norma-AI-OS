@@ -5,12 +5,15 @@ pub(crate) fn start_doubao_adapter(
     generation: u64,
     paths: storage::DatabasePaths,
     root: Option<std::path::PathBuf>,
+    shared: super::super::shared_context::SharedContext,
     window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> Arc<dyn agent::AgentCardAdapter> {
     let (sender, requests) = async_channel::bounded(16);
     start_doubao_adapter_pump(project_id, generation, requests, window, cx);
-    super::super::memory::adapter(Arc::new(ChannelAgentCardAdapter { sender }), paths, root)
+    let delegate =
+        super::super::memory::adapter(Arc::new(ChannelAgentCardAdapter { sender }), paths, root);
+    super::super::shared_context::adapter::wrap(delegate, shared)
 }
 
 fn start_doubao_adapter_pump(
@@ -22,8 +25,17 @@ fn start_doubao_adapter_pump(
 ) {
     cx.spawn_in(window, async move |this, cx| {
         while let Ok(request) = requests.recv().await {
+            if let Err(error) =
+                context_guard::prepare(&this, cx, &request.command, &request.context).await
+            {
+                let _ = request.result_tx.send(Err(error));
+                continue;
+            }
             let result = this
                 .update_in(cx, |app, window, cx| {
+                    if request.context.cancellation.is_cancelled() {
+                        return Err(AdapterError::Cancelled);
+                    }
                     let current_project = app
                         .runtime
                         .workspace_root()

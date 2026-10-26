@@ -58,6 +58,20 @@ pub(super) fn start(
     };
     let project = scope.project.clone();
     let delegate = start_gpt_live_adapter(scope, app.database_paths.clone(), window, cx);
+    let shared = match app.shared_context_service() {
+        Ok(shared) => shared,
+        Err(_) => {
+            let _ = finished.try_send(DelegatedCompletion {
+                work,
+                report: DelegatedReport {
+                    planner: Err(PlannerFailure::Runtime),
+                    ..Default::default()
+                },
+            });
+            return;
+        }
+    };
+    let delegate = crate::app::shared_context::adapter::wrap(delegate, shared);
     let durable = Arc::new(LiveDurableAdapter::new(
         delegate,
         app.database_paths.app_db_path().to_path_buf(),

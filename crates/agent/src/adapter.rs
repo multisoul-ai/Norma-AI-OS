@@ -48,6 +48,19 @@ pub enum IdeaTarget {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub enum AdapterCommand {
+    HandoffWithContext {
+        request: String,
+        reference: crate::context::ContextRef,
+    },
+    UpdateWorkingState(Box<crate::context::ContextStateUpdate>),
+    ReadSharedContext {
+        reference: crate::context::ContextRef,
+        offset: usize,
+    },
+    /// Host-only lifecycle check. No model tool parses this variant.
+    ContextCheckpoint {
+        scope: crate::context::ContextScope,
+    },
     Memory(crate::MemoryCommand),
     WorkspaceMemory {
         area_id: String,
@@ -261,6 +274,12 @@ pub enum AdapterError {
 }
 
 pub trait AgentCardAdapter: Send + Sync {
+    fn shared_context<'a>(
+        &'a self,
+        _context: &'a ToolContext,
+    ) -> BoxFuture<'a, Result<Option<crate::context::ContextFrame>, AdapterError>> {
+        Box::pin(async { Ok(None) })
+    }
     fn memory_context(
         &self,
     ) -> BoxFuture<'_, Result<Option<crate::MemorySessionContext>, AdapterError>> {
@@ -297,6 +316,13 @@ impl NormaToolRuntime {
         &self,
     ) -> Result<Option<crate::MemorySessionContext>, AdapterError> {
         self.adapter.memory_context().await
+    }
+
+    pub async fn shared_context(
+        &self,
+        context: &ToolContext,
+    ) -> Result<Option<crate::context::ContextFrame>, AdapterError> {
+        self.adapter.shared_context(context).await
     }
 
     pub async fn execute(

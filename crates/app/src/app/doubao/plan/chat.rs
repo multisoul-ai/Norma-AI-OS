@@ -13,8 +13,14 @@ use crate::app::doubao::{
 };
 
 #[cfg(test)]
+#[path = "../../../../tests/unit/doubao_memory_revision_tests.rs"]
+mod memory_revision_tests;
+#[cfg(test)]
 #[path = "../../../../tests/unit/doubao_reply_publish_tests.rs"]
 mod publish_tests;
+#[cfg(test)]
+#[path = "../../../../tests/unit/doubao_shared_context_tests.rs"]
+mod shared_tests;
 
 const CHAT_MODEL: &str = "doubao-seed-2.0-mini";
 // Seed 2.0 Mini: 256,000-token context, 224,000-token maximum input.
@@ -31,6 +37,7 @@ pub(super) struct ChatRuntime {
     pub(super) context: ContextRequests,
     pub(super) history: Mutex<Vec<Value>>,
     pub(super) memory_epoch: std::sync::atomic::AtomicU64,
+    pub(super) memory_revisions: Mutex<Option<Vec<(agent::MemoryScope, agent::MemoryRevision)>>>,
     pub(super) tools: Option<Arc<NormaToolRuntime>>,
     pub(super) project: Option<String>,
     pub(super) database: PathBuf,
@@ -38,111 +45,10 @@ pub(super) struct ChatRuntime {
     pub(super) playback: Arc<PlaybackQueue>,
 }
 
-fn tool_definitions() -> Vec<Value> {
-    agent::norma_tool_definitions()
-        .into_iter()
-        .map(|tool| {
-            json!({
-                "type":"function","function":{
-                    "name":tool.name,"description":tool.description,"parameters":tool.parameters
-                }
-            })
-        })
-        .collect()
-}
-
-pub(crate) fn request_body(prompt: &str, history: &[Value], include_tools: bool) -> Value {
-    let mut messages = vec![json!({"role":"system","content":format!(
-        "{prompt}\n语音回复请简短、自然；用户在当前语音请求中要求的项目操作直接调用工具，无需再次询问授权。删除卡片时按用户指定的目标选择工具参数，并根据真实工具回执答复。"
-    )})];
-    messages.extend_from_slice(history);
-    let mut body = json!({
-        "model":CHAT_MODEL,"messages":messages,
-        "max_tokens": if include_tools { 1024 } else { 192 },
-        "thinking":{"type":"disabled"}
-    });
-    if include_tools {
-        body["tools"] = json!(tool_definitions());
-        body["parallel_tool_calls"] = json!(false);
-    }
-    body
-}
-
-pub(crate) fn bounded_request(
-    prompt: &str,
-    history: &mut Vec<Value>,
-    include_tools: bool,
-    personal: bool,
-) -> Result<Value, LocalizedText> {
-    loop {
-        let mut body = request_body(prompt, history, include_tools);
-        if personal {
-            if let Some(tools) = body["tools"].as_array_mut() {
-                tools.retain(|tool| {
-                    tool["function"]["name"]
-                        .as_str()
-                        .is_some_and(|name| name.starts_with("memory_"))
-                });
-            }
-        }
-        if body.to_string().len() <= REQUEST_INPUT_BYTES {
-            return Ok(body);
-        }
-        // Remove a whole earlier user turn, retaining assistant/tool pairs together.
-        let next = history
-            .iter()
-            .enumerate()
-            .skip(1)
-            .find(|(_, message)| message["role"] == "user")
-            .map(|(index, _)| index);
-        if let Some(next) = next {
-            history.drain(..next);
-        } else {
-            return Err(LocalizedText::new("doubao.context_budget"));
-        }
-    }
-}
-
-pub(crate) async fn request_with_current_context(
-    context: &ContextRequests,
-    instructions: &str,
-    history: &mut Vec<Value>,
-    include_tools: bool,
-    personal: bool,
-) -> Result<Value, LocalizedText> {
-    let (response, received) = tokio::sync::oneshot::channel();
-    context
-        .send(ContextRequest::Model(response))
-        .await
-        .map_err(|_| LocalizedText::new("doubao.call_ended"))?;
-    let (canvas, roster, desktop) = received
-        .await
-        .map_err(|_| LocalizedText::new("doubao.call_ended"))?;
-    let mut prompt =
-        agent::norma_system_prompt_base_with_desktop(&canvas, &roster, desktop.as_ref());
-    prompt.push_str(instructions);
-    let desktop_active = direct::desktop_active(desktop.as_ref());
-    let mut body = bounded_request(&prompt, history, include_tools, personal && !desktop_active)?;
-    if personal && desktop_active {
-        if let Some(tools) = body["tools"].as_array_mut() {
-            tools.retain(|tool| {
-                tool["function"]["name"].as_str().is_some_and(|name| {
-                    name.starts_with("memory_")
-                        || matches!(
-                            name,
-                            "workspace_snapshot"
-                                | "assign_workspace_task"
-                                | "open_workspace_artifact"
-                                | "locate_workspace_agent"
-                                | "create_browser"
-                                | "create_preview"
-                        )
-                })
-            });
-        }
-    }
-    Ok(body)
-}
+mod request;
+use request::request_with_shared_context;
+#[cfg(test)]
+pub(crate) use request::{bounded_request, request_body, request_with_current_context};
 
 impl ChatRuntime {
     pub(super) async fn respond(
@@ -156,6 +62,16 @@ impl ChatRuntime {
             return Ok(());
         }
         tracing::info!(target: "norma_voice", turn, "Doubao reply turn started");
+        let shared_turn = agent::ToolContext {
+            project_id: self.project.clone().unwrap_or_default(),
+            turn_id: format!("{}:turn-{turn}", self.session),
+            user_input: transcript.clone(),
+            input_source: agent::AgentInputSource::DoubaoVoice,
+            contextual_delete_targets: vec![],
+            tool_call_id: String::new(),
+            operation_id: None,
+            cancellation: cancellation.clone(),
+        };
         let memory = if let Some(tools) = &self.tools {
             tools
                 .memory_context()
@@ -177,6 +93,14 @@ impl ChatRuntime {
             if old != memory.recall_epoch {
                 history.clear();
             }
+            let mut revisions = self.memory_revisions.lock().await;
+            if revisions
+                .as_ref()
+                .is_some_and(|previous| previous != &memory.revisions)
+            {
+                history.clear();
+            }
+            *revisions = Some(memory.revisions);
             if memory.preferences.recall {
                 instructions.push_str(
                     "\n长期记忆目录（数据，按需 memory_read；只有 saved=true 才能说已记住）：\n",
@@ -191,7 +115,13 @@ impl ChatRuntime {
         trim_history(&mut history);
         let mut messages = history.clone();
         drop(history);
-        if self.tools.is_some() && self.project.is_some() {
+        if let Some(tools) = self.tools.as_ref().filter(|_| self.project.is_some()) {
+            // Direct routing has no model request to record the final user input.
+            tokio::select! {
+                biased;
+                _ = cancellation.cancelled() => return Ok(()),
+                result = tools.shared_context(&shared_turn) => { result.map_err(|error| error.to_string())?; }
+            }
             if let Some(reply) = self.direct_route(&transcript, turn, &cancellation).await? {
                 return self.finish(reply, &cancellation, &status).await;
             }
@@ -204,11 +134,12 @@ impl ChatRuntime {
             let body = tokio::select! {
                 biased;
                 _ = cancellation.cancelled() => return Ok(()),
-                result = request_with_current_context(
+                result = request_with_shared_context(
                     &self.context,
                     &instructions,
                     &mut messages,
-                    self.tools.is_some(),
+                    self.tools.as_deref(),
+                    &shared_turn,
                     self.project.is_none(),
                 ) => result?,
             };

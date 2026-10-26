@@ -15,6 +15,7 @@ mod cache;
 mod dispatch;
 mod doubao;
 mod freshness;
+mod legacy;
 mod playback;
 mod queue;
 mod report;
@@ -78,6 +79,7 @@ pub(super) struct AgentAnnouncement {
     outcome_word: String,
     /// 大脑下发的整段文字，不走“名字 + 结果”的分段缓存。
     report: bool,
+    delivery: Option<super::shared_context::report::ReportDeliveryHandle>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -329,6 +331,11 @@ impl MultisoulApp {
                 started,
             } if !*started => {
                 *started = true;
+                if self.agent_announcement_playback.control.is_none() {
+                    if let Some(delivery) = &announcement.delivery {
+                        delivery.set(agent::context::ReportDelivery::Playing);
+                    }
+                }
                 Some((announcement.node_id, announcement.outcome_word.clone()))
             }
             _ => None,
@@ -359,6 +366,7 @@ impl MultisoulApp {
             &mut self.agent_announcement_playback.phase,
             AgentAnnouncementPlaybackPhase::Idle,
         );
+        let worker_owned = self.agent_announcement_playback.control.is_some();
         if let Some(control) = self.agent_announcement_playback.control.take() {
             cx.background_executor()
                 .spawn(async move { drop(control) })
@@ -374,8 +382,24 @@ impl MultisoulApp {
                 } else {
                     TtsPlaybackEvent::Interrupted
                 });
+        } else if matches!(&phase, AgentAnnouncementPlaybackPhase::Playing { .. }) {
+            self.agent_announcement_playback
+                .push_playback_event(TtsPlaybackEvent::DiscardQueued);
         }
-        if let AgentAnnouncementPlaybackPhase::Playing { announcement, .. } = &phase {
+        if let AgentAnnouncementPlaybackPhase::Playing {
+            announcement,
+            started,
+        } = &phase
+        {
+            if let Some(delivery) = announcement.delivery.as_ref().filter(|_| !worker_owned) {
+                if completed && *started {
+                    delivery.set(agent::context::ReportDelivery::Completed);
+                } else if *started {
+                    delivery.cancel();
+                } else {
+                    delivery.set(agent::context::ReportDelivery::Failed);
+                }
+            }
             tracing::info!(
                 node_id = announcement.node_id,
                 outcome = %announcement.outcome_word,
@@ -453,3 +477,7 @@ mod doubao_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/doubao_task_results_tests.rs"]
 mod task_results_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/report_delivery_callback_tests.rs"]
+mod report_delivery_tests;

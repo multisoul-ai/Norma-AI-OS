@@ -30,6 +30,7 @@ fn report_parses_text_and_priority() {
             token: "t0".into(),
             op: BrainOp::Report {
                 text: "Codex 完成了".into(),
+                sources: Vec::new(),
                 priority: ReportPriority::Normal
             },
         },

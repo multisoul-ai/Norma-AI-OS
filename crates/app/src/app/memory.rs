@@ -6,7 +6,14 @@ use agent::{
 use futures::future::BoxFuture;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+mod workspace;
+#[cfg(test)]
+#[path = "../../tests/unit/workspace_memory_scope_tests.rs"]
+mod workspace_scope_tests;
 
+#[cfg(test)]
+#[path = "../../tests/unit/norma_memory_revision_tests.rs"]
+mod revision_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/norma_memory_adapter_tests.rs"]
 mod tests;
@@ -17,6 +24,9 @@ struct MemoryState {
     recalled: bool,
     epoch: u64,
     catalog_epoch: u64,
+    has_project: bool,
+    revisions: Vec<(agent::MemoryScope, agent::MemoryRevision)>,
+    workspace: Option<workspace::WorkspaceMemory>,
 }
 struct MemoryAdapter {
     delegate: Arc<dyn AgentCardAdapter>,
@@ -30,27 +40,31 @@ pub(super) fn adapter(
     paths: storage::DatabasePaths,
     root: Option<PathBuf>,
 ) -> Arc<dyn AgentCardAdapter> {
-    build_adapter(delegate, paths, root, false)
+    build_adapter(delegate, paths, root, None)
 }
 
 pub(super) fn workspace_adapter(
     delegate: Arc<dyn AgentCardAdapter>,
     paths: storage::DatabasePaths,
+    roots: Arc<Mutex<Vec<PathBuf>>>,
 ) -> Arc<dyn AgentCardAdapter> {
-    build_adapter(delegate, paths, None, true)
+    build_adapter(delegate, paths, None, Some(roots))
 }
 
 fn build_adapter(
     delegate: Arc<dyn AgentCardAdapter>,
     paths: storage::DatabasePaths,
     root: Option<PathBuf>,
-    workspace: bool,
+    workspace: Option<Arc<Mutex<Vec<PathBuf>>>>,
 ) -> Arc<dyn AgentCardAdapter> {
     Arc::new(MemoryAdapter {
         delegate,
         settings: storage::SettingsStore::new(paths.app_db_path().to_path_buf()),
-        personal: root.is_none() && !workspace,
+        personal: root.is_none() && workspace.is_none(),
         state: Arc::new(Mutex::new(MemoryState {
+            has_project: root.is_some(),
+            revisions: Vec::new(),
+            workspace: workspace.map(|roots| workspace::WorkspaceMemory::new(paths.clone(), roots)),
             access: storage::MemoryAccess::new(paths, root),
             catalog: None,
             recalled: false,
@@ -73,11 +87,30 @@ impl AgentCardAdapter for MemoryAdapter {
                         .map_err(|_| AdapterError::Failed("记忆服务锁损坏".into()))?;
                     let (preferences, epoch) = state.access.recall_state()?;
                     let catalog_epoch = state.access.catalog_epoch()?;
+                    let mut revisions = Vec::new();
+                    if preferences.recall {
+                        for alias in [
+                            agent::MemoryScopeAlias::Personal,
+                            agent::MemoryScopeAlias::Project,
+                            agent::MemoryScopeAlias::Worktree,
+                        ] {
+                            if alias == agent::MemoryScopeAlias::Personal || state.has_project {
+                                let snapshot = state.access.settings_snapshot(alias)?;
+                                revisions.push((snapshot.scope().clone(), snapshot.revision()));
+                            }
+                        }
+                    }
+                    if preferences.recall {
+                        if let Some(workspace) = &mut state.workspace {
+                            revisions.extend(workspace.revisions()?);
+                        }
+                    }
                     let persona = crate::settings::norma::persona::load_profile(&settings)
                         .map_err(AdapterError::Failed)?;
                     if !preferences.recall
                         || state.epoch != epoch
                         || state.catalog_epoch != catalog_epoch
+                        || state.revisions != revisions
                     {
                         state.catalog = None;
                     }
@@ -87,7 +120,9 @@ impl AgentCardAdapter for MemoryAdapter {
                     state.recalled = preferences.recall;
                     state.epoch = epoch;
                     state.catalog_epoch = catalog_epoch;
+                    state.revisions = revisions.clone();
                     Ok(Some(MemorySessionContext {
+                        revisions,
                         persona,
                         catalog: state.catalog.clone().unwrap_or_default(),
                         preferences,
@@ -137,7 +172,7 @@ impl AgentCardAdapter for MemoryAdapter {
                     .await
                     .map_err(|error| AdapterError::Failed(error.to_string()))?;
             }
-            if self.personal {
+            if self.personal && !matches!(command, AdapterCommand::ContextCheckpoint { .. }) {
                 return Err(AdapterError::Rejected(
                     "个人会话没有项目或画布工具权限".into(),
                 ));

@@ -3,6 +3,66 @@ use crate::app::MultisoulApp;
 use agent::{AdapterCommand, AgentInputSource};
 use gpui::{Context, Window};
 
+/// Preparation does not claim the execution lease. execute_now rechecks the route,
+/// deadline and revocation immediately before it accepts the actual operation.
+pub(super) fn prepare(
+    database: std::path::PathBuf,
+    call: crate::mobile::LiveCommandRequest,
+    cx: &mut gpui::App,
+) {
+    let target = cx
+        .try_global::<super::NormaEndpointHost>()
+        .and_then(|host| {
+            host.routes
+                .resolve(&call.request.workspace_id, &call.request.route_id)
+                .ok()
+        })
+        .cloned();
+    let Some(target) = target else {
+        let _ = call.reply.try_send(Err("route_expired"));
+        return;
+    };
+    let crate::mobile::MobileCommand::RealtimeTool { command } = &call.request.command else {
+        return;
+    };
+    let prepared = target
+        .app
+        .update(cx, |app, cx| {
+            if app.database_paths.app_db_path() != database
+                || app.workspace_id.as_deref() != Some(&call.request.workspace_id)
+                || app.workspace_route_id.as_deref() != Some(&call.request.route_id)
+            {
+                return Err("route_expired");
+            }
+            crate::app::prepare_context_services(app, command, cx)
+                .map_err(|_| "context_state_unavailable")
+        })
+        .unwrap_or(Err("route_expired"));
+    let services = match prepared {
+        Ok(services) => services,
+        Err(code) => {
+            let _ = call.reply.try_send(Err(code));
+            return;
+        }
+    };
+    cx.spawn(async move |cx| {
+        for service in services {
+            if service.snapshot().await.is_err() {
+                let _ = call.reply.try_send(Err("context_state_unavailable"));
+                return;
+            }
+        }
+        let reply = call.reply.clone();
+        if cx
+            .update(|cx| super::mobile_command::execute_now(database, call, cx))
+            .is_err()
+        {
+            let _ = reply.try_send(Err("route_expired"));
+        }
+    })
+    .detach();
+}
+
 /// Execute a validated mobile command through the existing optional-window adapter.
 /// The mobile command owner reserves the operation before entering here and persists its result.
 pub(super) fn start(
@@ -34,7 +94,15 @@ pub(super) fn start(
     )
     // Creation + dispatch can fail after creating a card. Once the adapter starts, an error
     // cannot prove zero side effects; preserve the durable unknown receipt instead of retrying.
-    .map_err(|_| "outcome_unknown")?;
+    .map_err(|error| match error {
+        agent::AdapterError::Rejected(code) if code == "context_operation_restricted" => {
+            "context_operation_restricted"
+        }
+        agent::AdapterError::Rejected(code) if code == "context_state_unavailable" => {
+            "context_state_unavailable"
+        }
+        _ => "outcome_unknown",
+    })?;
     if result.status == "unknown" {
         return Err("outcome_unknown");
     }

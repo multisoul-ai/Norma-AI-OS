@@ -130,9 +130,17 @@ pub(super) fn reply_to_card(
         .into_iter()
         .find(|c| c.node_id == target.node_id)
         .ok_or("target_missing")?;
-    let waiting = session
-        .update(cx, |app, cx| app.send_workspace_chat(&card, text, cx))
-        .map_err(str::to_owned)?;
+    let waiting = session.update(cx, |app, cx| {
+        let service = app
+            .shared_context_service()
+            .map_err(|error| error.to_string())?;
+        service
+            .execute(agent::context::ContextOperation::DispatchTask, None, || {
+                Ok(app.send_workspace_chat(&card, text, cx))
+            })
+            .map_err(|error| error.to_string())?
+            .map_err(str::to_owned)
+    })?;
     let workspace = session
         .read(cx)
         .workspace_id

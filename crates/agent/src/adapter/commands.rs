@@ -37,6 +37,14 @@ struct HandoffToBrainArgs {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct ContextReadArgs {
+    reference: crate::context::ContextRef,
+    #[serde(default)]
+    offset: usize,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct OpenWorkspaceArtifactArgs {
     workspace_id: String,
     area_id: String,
@@ -155,6 +163,16 @@ pub(super) fn parse_adapter_command(
         return result;
     }
     match name {
+        "context_update" => Ok(AdapterCommand::UpdateWorkingState(Box::new(parse(
+            arguments,
+        )?))),
+        "context_read" => {
+            let args: ContextReadArgs = parse(arguments)?;
+            Ok(AdapterCommand::ReadSharedContext {
+                reference: args.reference,
+                offset: args.offset,
+            })
+        }
         "handoff_to_brain" => {
             let args: HandoffToBrainArgs = parse(arguments)?;
             Ok(AdapterCommand::HandoffToBrain {
@@ -415,7 +433,10 @@ fn require_positive(field: &str, value: u64) -> Result<(), AdapterError> {
 impl AdapterCommand {
     pub fn is_read_only(&self) -> bool {
         match self {
-            Self::FindAgentTasks { .. } | Self::ListIdeas => true,
+            Self::FindAgentTasks { .. }
+            | Self::ListIdeas
+            | Self::ReadSharedContext { .. }
+            | Self::ContextCheckpoint { .. } => true,
             Self::Memory(command) | Self::WorkspaceMemory { command, .. } => {
                 !matches!(command, crate::MemoryCommand::Write { .. })
             }

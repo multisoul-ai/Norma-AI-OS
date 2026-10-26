@@ -28,18 +28,20 @@ fn desktop_tool_descriptions_match_drawer_and_cached_status_contract() {
     );
 }
 
-/// TOOL-1：Norma 只向模型暴露二十一个窄工具及其精确必填参数。
+/// TOOL-1：Norma 只向模型暴露二十七个窄工具及其精确必填参数。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   Existing tools = 10（查询、创建 Agent、派发、取消任务、建 Terminal/Browser/Preview、聚焦、输入、删除）
 ///   Session reply tools = 2（reply_agent + cancel_agent_reply）
 ///   Memory tools = 4（目录、搜索、读取、写入）
-///   Expected tools = 10 + 2 + 4 + 1 + 1 + 1 + 1 + 1 = 21（工作空间记忆、快照、稳定目标派活、成果打开、Agent 定位）
+///   Workspace tools = 5（工作空间记忆、快照、稳定目标派活、成果打开、Agent 定位）
+///   Ideas / Brain / Context tools = 3 + 1 + 2（想法、幕僚交接、共享上下文读写）
+///   Expected tools = 10 + 2 + 4 + 5 + 3 + 1 + 2 = 27
 ///   `assign_agent_task` required fields = 2（agent + task）
 ///   `reply_agent` required fields = 2（agent + message）
 ///   `create_browser` required fields = 0（无 URL 时使用产品默认首页）
 ///   `create_preview` required fields = 1（path）
-///   `create_agent.profile` enum 数 = 9（Codex / Claude / OpenCode / Cursor / Grok / Kimi / ZCode / Pi / Hermes）
+///   `create_agent.profile` enum 数 = 10（Codex / Claude / OpenCode / InfCode / Cursor / Grok / Kimi / ZCode / Pi / Hermes）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 从生产工具注册表读取所有模型可见 definition
@@ -47,11 +49,11 @@ fn desktop_tool_descriptions_match_drawer_and_cached_status_contract() {
 ///   3. 检查 `assign_agent_task`、`reply_agent` 和 `create_agent` 的 JSON Schema
 ///
 /// 预期结果：
-///   - 正断言：二十一个工具全部存在且名称准确
+///   - 正断言：二十七个工具全部存在且名称准确
 ///   - 正断言：派发工具仅要求 agent 与 task，创建 Agent 工具允许 Grok profile
 ///   - 负断言：不再暴露 `open_agent`，模型也不能提供 name/activate 或未知 profile
 #[test]
-fn norma_exposes_exactly_twenty_five_narrow_tool_schemas() {
+fn norma_exposes_exactly_twenty_seven_narrow_tool_schemas() {
     let definitions = norma_tool_definitions();
     let names = definitions
         .iter()
@@ -83,11 +85,13 @@ fn norma_exposes_exactly_twenty_five_narrow_tool_schemas() {
         "list_ideas",
         "assign_idea",
         "handoff_to_brain",
+        "context_read",
+        "context_update",
     ];
 
     assert_eq!(
         names, expected,
-        "Norma should expose only the twenty-five supported narrow tools in deterministic order"
+        "Norma should expose only the twenty-seven supported narrow tools in deterministic order"
     );
     assert!(
         !names.contains(&"open_agent"),

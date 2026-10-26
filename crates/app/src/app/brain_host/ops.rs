@@ -48,11 +48,46 @@ impl MultisoulApp {
                 message: "大脑令牌无效".into(),
             });
         }
+        use agent::context::ContextOperation;
+        let restriction = match &op {
+            BrainOp::Assign { .. } => Some((ContextOperation::DispatchTask, None)),
+            BrainOp::Decide {
+                approval_id,
+                decision: BrainDecision::Allow,
+                ..
+            } => Some((
+                ContextOperation::ApproveOperation,
+                self.brain
+                    .tracked
+                    .get(approval_id)
+                    .map(|tracked| tracked.target.node_id.to_string()),
+            )),
+            _ => None,
+        };
+        if let Some((operation, target)) = restriction {
+            let service = self
+                .shared_context_service()
+                .map_err(|e| reject(&e.to_string()))?;
+            return service
+                .execute(operation, target.as_deref(), || {
+                    Ok(self.execute_brain_command_unchecked(op, window, cx))
+                })
+                .map_err(|e| reject(&e.to_string()))?;
+        }
+        self.execute_brain_command_unchecked(op, window, cx)
+    }
+
+    fn execute_brain_command_unchecked(
+        &mut self,
+        op: BrainOp,
+        window: Option<&mut Window>,
+        cx: &mut Context<Self>,
+    ) -> OpResult {
         match op {
-            BrainOp::Report { text, priority } => {
-                let spoken = self.speak_brain_report(text, priority, cx);
-                output(json!({"queued": spoken}))
-            }
+            BrainOp::Context { .. } => Err(CardCommandError::Unsupported {
+                message: "context 由端点异步处理".into(),
+            }),
+            BrainOp::Report { .. } => Err(reject("report 由端点异步保存后交付")),
             // 读对话要在后台完成，由端点异步处理，不会走到这里。
             BrainOp::History { .. } => Err(reject("history 由端点异步处理")),
             BrainOp::Approvals => output(self.approvals_json()),
@@ -164,20 +199,23 @@ impl MultisoulApp {
             )));
         }
         self.brain.own_prompts.remember(&task);
+        let decision_reason = if kind == AutoKind::UserDispatched {
+            "你批准了幕僚的提议"
+        } else {
+            "幕僚按当前目标派发后续任务，宿主已通过执行校验"
+        };
         self.brain.record_action(AutoAction {
             at: std::time::SystemTime::now(),
             kind,
             agent: who,
             node_id: receipt.node_id,
             summary,
-            reason: if kind == AutoKind::UserDispatched {
-                "你批准了幕僚的提议".into()
-            } else {
-                "该 Agent 空闲，按当前目标派后续任务".into()
-            },
+            reason: decision_reason.into(),
             ask_key: ASSIGN_KEY.into(),
         });
-        output(json!({"result": format!("{result:?}")}))
+        output(
+            json!({"result": format!("{result:?}"), "receipt": receipt, "decision_reason": decision_reason}),
+        )
     }
 
     fn decide_approval(

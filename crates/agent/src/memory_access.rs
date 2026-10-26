@@ -92,6 +92,9 @@ impl Default for MemoryPreferences {
 pub struct MemorySessionContext {
     pub persona: crate::NormaPersona,
     pub recall_epoch: u64,
+    /// Current published versions for the host's readable scopes, in stable order.
+    /// Independent of the recall switch and of publication journal/cache updates.
+    pub revisions: Vec<(crate::MemoryScope, MemoryRevision)>,
     pub catalog: String,
     pub preferences: MemoryPreferences,
 }

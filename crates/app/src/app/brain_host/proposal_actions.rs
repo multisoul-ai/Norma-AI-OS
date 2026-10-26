@@ -4,7 +4,7 @@ use super::proposals::{check_target, file_for, Draft, Proposals, RosterLite};
 use super::{config, AutoKind};
 use crate::app::MultisoulApp;
 use gpui::Context;
-use norma::protocol::ReportPriority;
+use norma::protocol::{BrainOp, CardCommandResult, ReportPriority};
 use std::time::SystemTime;
 
 impl MultisoulApp {
@@ -184,7 +184,24 @@ impl MultisoulApp {
     }
 
     /// 用户点“派发”：按提议原文派给目标 Agent。Agent 正忙或派发失败时提议保留，返回原因。
-    pub(crate) fn dispatch_brain_proposal(&mut self, id: u64) -> Result<(), String> {
+    pub(crate) fn dispatch_brain_proposal(
+        &mut self,
+        id: u64,
+    ) -> Result<(BrainOp, CardCommandResult), String> {
+        let service = self
+            .shared_context_service()
+            .map_err(|error| error.to_string())?;
+        service
+            .execute(agent::context::ContextOperation::DispatchTask, None, || {
+                Ok(self.dispatch_brain_proposal_checked(id))
+            })
+            .map_err(|error| error.to_string())?
+    }
+
+    fn dispatch_brain_proposal_checked(
+        &mut self,
+        id: u64,
+    ) -> Result<(BrainOp, CardCommandResult), String> {
         let Some(proposal) = self
             .brain
             .proposals
@@ -205,16 +222,21 @@ impl MultisoulApp {
                 &[("agent", proposal.agent)],
             ));
         }
-        self.assign_task(
-            proposal.agent,
-            proposal.task,
-            None,
-            AutoKind::UserDispatched,
-        )
-        .map_err(|error| error.to_string())?;
+        let op = BrainOp::Assign {
+            agent: proposal.agent.clone(),
+            task: proposal.task.clone(),
+        };
+        let result = self
+            .assign_task(
+                proposal.agent,
+                proposal.task,
+                None,
+                AutoKind::UserDispatched,
+            )
+            .map_err(|error| error.to_string())?;
         self.brain.proposals.take(id);
         self.save_brain_proposals();
-        Ok(())
+        Ok((op, result))
     }
 
     /// 用户点“忽略”：移除提议，并告诉大脑别再提同样的事。

@@ -14,6 +14,11 @@ fn cancel_queued_realtime_task(adapter: bool) {
     app.update(cx, |app, cx| {
         app.enter_canvas_for_test(workspace.path(), cx)
     });
+    let service = app.update(cx, |app, _| app.shared_context_service().unwrap());
+    crate::app::shared_tokio_runtime()
+        .unwrap()
+        .block_on(service.snapshot())
+        .expect("测试正式同步入口前准备共享状态");
     app.update(cx, |app, cx| {
         let created = execute_norma_adapter_command_with_source(
             app,

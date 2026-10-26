@@ -41,6 +41,7 @@ fn test_norma_adapter_closes_agent_card_by_speech_alias_and_preserves_definition
     app.update(cx, |app, cx| {
         app.enter_canvas_for_test(workspace.path(), cx)
     });
+    super::prepare_shared_context(&app, cx);
 
     let created = cx
         .update(|window, app_cx| {
@@ -143,6 +144,7 @@ fn test_norma_adapter_requires_second_close_for_busy_named_agent() {
     app.update(cx, |app, cx| {
         app.enter_canvas_for_test(workspace.path(), cx)
     });
+    super::prepare_shared_context(&app, cx);
 
     let created = cx
         .update(|window, app_cx| {
@@ -283,6 +285,7 @@ fn test_doubao_voice_closes_busy_agent_card_without_second_confirmation() {
     app.update(cx, |app, cx| {
         app.enter_canvas_for_test(workspace.path(), cx)
     });
+    super::prepare_shared_context(&app, cx);
     let created = cx
         .update(|window, app_cx| {
             app.update(app_cx, |app, _| {
