@@ -146,14 +146,10 @@ fn truncate(message: &str, limit: usize) -> String {
 #[cfg(test)]
 #[path = "../../../tests/unit/gpt_live_report_tests.rs"]
 mod tests;
-pub(super) fn admission(
-    project: Option<&str>,
-    backend_ready: bool,
-    vad_ready: bool,
-) -> Option<&'static str> {
-    if project.is_none_or(str::is_empty) {
-        Some("请先打开项目。未执行任何操作，实时聊天仍可继续。")
-    } else if !backend_ready {
+/// Project-less (personal/overview) calls are admitted too: their adapter scope only
+/// allows the read-only context checkpoint, so project actions are still refused there.
+pub(super) fn admission(backend_ready: bool, vad_ready: bool) -> Option<&'static str> {
+    if !backend_ready {
         Some("GPT-Live API Key尚未保存就绪，请重新连接。未执行任何操作，实时聊天仍可继续。")
     } else if !vad_ready {
         Some("语音检测自动准备失败，请结束通话后重新连接以重试。未执行任何操作，实时聊天仍可继续。")

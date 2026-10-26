@@ -264,7 +264,6 @@ impl MultisoulApp {
                         }
                         if let CallEvent::Delegation(notice) = event {
                             if let Some(reason) = report::admission(
-                                project.as_deref(),
                                 app.voice_settings.gpt_live_delegation_ready(),
                                 app.gpt_live.vad_ready,
                             ) {
@@ -314,7 +313,6 @@ impl MultisoulApp {
                     if reports.is_empty() && app.gpt_live.input_complete() {
                         if let Some(work) = bridge.claim_next() {
                             if let Some(reason) = report::admission(
-                                project.as_deref(),
                                 app.voice_settings.gpt_live_delegation_ready(),
                                 app.gpt_live.vad_ready,
                             ) {
@@ -325,9 +323,10 @@ impl MultisoulApp {
                                     app.gpt_live.fail(error);
                                     return false;
                                 }
-                            } else if let Some(project) = &project {
+                            } else {
                                 let scope = super::agent_runtime::LiveAdapterScope {
-                                    project: project.clone(),
+                                    // Empty means personal/overview: read-only context only.
+                                    project: project.clone().unwrap_or_default(),
                                     generation,
                                     timeline: bridge.timeline.clone(),
                                     snapshot: work.snapshot.clone(),

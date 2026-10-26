@@ -291,6 +291,7 @@ impl MultisoulApp {
     }
 
     pub(crate) fn cancel_agent_announcements(&mut self) {
+        self.agent_announcement_playback.delivery_epoch += 1;
         let active_node_id = self.agent_announcement_playback.active_node_id();
         let cleared_pending = self.agent_announcements.clear_pending();
         if active_node_id.is_some() || cleared_pending > 0 {
@@ -304,6 +305,7 @@ impl MultisoulApp {
     }
 
     pub(crate) fn reset_agent_announcements(&mut self) {
+        self.agent_announcement_playback.delivery_epoch += 1;
         self.agent_announcements.reset();
         self.agent_announcement_playback.cancel_active();
     }

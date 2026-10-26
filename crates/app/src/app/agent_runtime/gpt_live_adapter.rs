@@ -65,9 +65,18 @@ fn execute_live_command(
         .runtime
         .workspace_root()
         .map(|root| root.display().to_string());
-    if scope.project.is_empty()
-        || project.as_deref() != Some(scope.project.as_str())
-        || context.project_id != scope.project
+    // Personal/overview Live calls may only verify shared state, never run project actions.
+    let personal = scope.project.is_empty();
+    if personal && !matches!(command, AdapterCommand::ContextCheckpoint { .. }) {
+        return Err(AdapterError::Rejected(
+            "请先打开项目。个人／总览实时通话只能核验共享状态，未执行任何操作".into(),
+        ));
+    }
+    if (if personal {
+        project.is_some()
+    } else {
+        project.as_deref() != Some(scope.project.as_str())
+    }) || context.project_id != scope.project
         || !app.gpt_live.matches_generation(scope.generation)
         || !app.gpt_live.input_complete()
         || context.input_source != AgentInputSource::GptLiveVoice

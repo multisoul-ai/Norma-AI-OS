@@ -22,6 +22,7 @@ pub(super) fn dispatch(
     else {
         return;
     };
+    let ticket;
     let target = match resolve_targets(&request, cx) {
         Ok(routed) => routed.target,
         Err(error) => {
@@ -29,11 +30,14 @@ pub(super) fn dispatch(
             return;
         }
     };
-    let service = match target
-        .app
-        .update(cx, |app, _| app.prepare_brain_context(&token))
-    {
-        Ok(Ok(service)) => service,
+    let service = match target.app.update(cx, |app, _| {
+        app.prepare_brain_context(&token)
+            .map(|service| (service, app.brain_report_ticket()))
+    }) {
+        Ok(Ok((service, ticket_at_arrival))) => {
+            ticket = ticket_at_arrival;
+            service
+        }
         other => {
             let message = match other {
                 Ok(Err(error)) => error.to_string(),
@@ -75,6 +79,11 @@ pub(super) fn dispatch(
                     .is_ok_and(|current| current.scope() == service.scope())
                 {
                     return None;
+                }
+                // A saved report whose delivery qualification lapsed is Skipped, not an error.
+                if !app.brain_report_ticket_valid(ticket) {
+                    tracker.cancel();
+                    return Some(false);
                 }
                 Some(app.speak_saved_brain_report(text, priority, tracker.clone(), cx))
             })

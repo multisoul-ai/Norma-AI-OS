@@ -159,3 +159,108 @@ fn workspace_context_prepares_cold_dispatch_and_guards_model_replies() {
         );
     });
 }
+
+/// 场景：手机/群聊 ReplyAgent 回复已有卡片前，经共享上下文服务取得当前状态并拼接交接正文。
+/// 构造：真实共享上下文服务；依次保存 communicated 约束、纠正、撤销，最后保存 enforced 暂停。
+/// 执行：按 reply_to_card 的同一入口 execute_with_state(DispatchTask) 调用 handoff_reply。
+/// 预期：正文始终以用户原话开头；含当前约束及来源；纠正后只含新约束；撤销后与原话完全相同；enforced 在交接前被拒绝。
+#[test]
+fn workspace_reply_handoff_follows_constraint_add_correct_revoke_and_enforced_gate() {
+    let dir = tempfile::tempdir().unwrap();
+    let paths = storage::DatabasePaths::isolated_test(&dir.path().join("data"));
+    let mut test = TestAppContext::single();
+    let (entity, cx) = test.add_window_view(|_, cx| {
+        MultisoulApp::new_with_pty_factory_and_database_paths(
+            cx,
+            Box::new(|_, _, _, tx| Ok(Box::new(terminal::TestPtyBackend::echo(tx)))),
+            paths,
+        )
+    });
+    let service = entity.update(cx, |app, cx| {
+        app.enter_canvas_for_test(dir.path(), cx);
+        app.shared_context_service().unwrap()
+    });
+    let save = |change: ContextStateChange, key: &'static str, said: &'static str| {
+        crate::app::shared_tokio_runtime()
+            .unwrap()
+            .block_on(service.run(Some(key.into()), move |access| {
+                let change = change.clone();
+                let input = access.record_input(key, ContextOrigin::Voice, said)?;
+                access.update(
+                    key,
+                    &input.reference,
+                    &ContextStateUpdate {
+                        input: input.reference.clone(),
+                        expected_revision: input.reference.revision,
+                        change,
+                    },
+                )
+            }))
+            .unwrap()
+    };
+    let reply = || {
+        service.execute_with_state(ContextOperation::DispatchTask, None, |state| {
+            monitor::handoff_reply(state, "继续")
+        })
+    };
+    let constraint = |text: &str, enforcement| ContextStateChange::Constraint {
+        key: "scope".into(),
+        text: text.into(),
+        supersedes: None,
+        enforcement,
+    };
+    let first = save(
+        constraint("只修改前端", ConstraintEnforcement::Communicated),
+        "limit",
+        "只修改前端",
+    );
+    let sent = reply().unwrap();
+    assert!(
+        sent.starts_with("继续\n")
+            && sent.contains("只修改前端")
+            && sent.contains(&first.reference.event_id),
+        "回复必须保留原话并携带当前约束及来源：{sent}"
+    );
+    let corrected = save(
+        ContextStateChange::Constraint {
+            key: "scope".into(),
+            text: "只修改后端".into(),
+            supersedes: Some(first.reference.clone()),
+            enforcement: ConstraintEnforcement::Communicated,
+        },
+        "correct",
+        "只修改后端",
+    );
+    let sent = reply().unwrap();
+    assert!(
+        sent.contains("只修改后端") && !sent.contains("只修改前端"),
+        "纠正后只能携带新约束：{sent}"
+    );
+    save(
+        ContextStateChange::RevokeConstraint {
+            key: "scope".into(),
+            supersedes: corrected.reference,
+        },
+        "revoke",
+        "取消限制scope",
+    );
+    assert_eq!(reply().unwrap(), "继续", "撤销后不得补入旧约束或空上下文块");
+    save(
+        ContextStateChange::Constraint {
+            key: "pause".into(),
+            text: "不要派发任务".into(),
+            supersedes: None,
+            enforcement: ConstraintEnforcement::Enforced {
+                operation: ContextOperation::DispatchTask,
+                target: None,
+            },
+        },
+        "pause",
+        "不要派发任务",
+    );
+    let error = reply().unwrap_err();
+    assert!(
+        error.to_string().contains("context_operation_restricted"),
+        "enforced 暂停必须在交接前拒绝：{error}"
+    );
+}

@@ -82,6 +82,20 @@ impl MultisoulApp {
         );
     }
 
+    /// Delivery eligibility at arrival: `None` when reports are muted, so a report
+    /// received while muted can never be replayed after the user re-enables speech.
+    pub(crate) fn brain_report_ticket(&self) -> Option<u64> {
+        self.brain_speaking()
+            .then_some(self.agent_announcement_playback.delivery_epoch)
+    }
+
+    /// A stop, mute or mode switch after the ticket was taken invalidates it.
+    pub(crate) fn brain_report_ticket_valid(&self, ticket: Option<u64>) -> bool {
+        ticket.is_some_and(|epoch| {
+            epoch == self.agent_announcement_playback.delivery_epoch && self.brain_speaking()
+        })
+    }
+
     fn save_and_speak_brain_report(
         &mut self,
         text: String,
@@ -102,6 +116,7 @@ impl MultisoulApp {
             }
         };
         let report_id = uuid::Uuid::new_v4().to_string();
+        let ticket = self.brain_report_ticket();
         cx.spawn(async move |this, cx| {
             let report_text = text.clone();
             let saved = service
@@ -156,6 +171,7 @@ impl MultisoulApp {
                     if !app
                         .shared_context_service()
                         .is_ok_and(|current| current.scope() == service.scope())
+                        || !app.brain_report_ticket_valid(ticket)
                     {
                         return false;
                     }

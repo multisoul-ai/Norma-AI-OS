@@ -59,3 +59,7 @@ impl MultisoulApp {
         Ok(agent::AdapterResult::accepted("已交给幕僚，结果会稍后播报"))
     }
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/brain_report_epoch_tests.rs"]
+mod report_epoch_tests;

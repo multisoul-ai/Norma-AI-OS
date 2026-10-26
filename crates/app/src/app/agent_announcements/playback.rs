@@ -37,6 +37,8 @@ pub(super) enum AgentAnnouncementPlaybackPhase {
 
 pub(crate) struct AgentAnnouncementPlayback {
     pub(crate) generation: u64,
+    /// Bumped only by explicit stop/mode/mute cancellation, never by normal playback.
+    pub(super) delivery_epoch: u64,
     pub(super) phase: AgentAnnouncementPlaybackPhase,
     pub(super) control: Option<AgentAnnouncementAudioControl>,
     stopping: Option<Arc<PlaybackQueue>>,
@@ -54,6 +56,7 @@ impl Default for AgentAnnouncementPlayback {
     fn default() -> Self {
         Self {
             generation: 0,
+            delivery_epoch: 0,
             phase: AgentAnnouncementPlaybackPhase::Idle,
             control: None,
             stopping: None,
