@@ -3,12 +3,14 @@ import Fixtures
 import Foundation
 
 /// 后台大脑：Agent 完成后，真实的 ACP 适配器（Claude Code）收到事件，
-/// 通过 `norma brain report` 把汇报文字交回 App 的播报队列。
+/// 通过 `norma brain report` 把汇报文字交回 App，并在幕僚活动里核对正文。
+/// 默认没有 TTS；brain-report-voice 只在隔离数据库选择本机已有的本地 TTS。
 @MainActor
 public enum BrainReport {
     public nonisolated static let name = "brain-report"
+    public nonisolated static let voiceName = "brain-report-voice"
 
-    public static func run(_ session: Session) async throws {
+    public static func run(_ session: Session, speech: Bool = false) async throws {
         var projectRoot: URL?
         var fakeShell: URL?
         var brainDir: URL?
@@ -29,7 +31,19 @@ public enum BrainReport {
         let workspace = "BrainCheck"
 
         try await session.step("建立含项目区的隔离工作空间，开启大脑") {
-            fakeShell = try BrainFixture.installFakeAgents()
+            let cli = URL(fileURLWithPath: session.appPath).deletingLastPathComponent().appendingPathComponent("norma")
+            guard FileManager.default.isExecutableFile(atPath: cli.path) else {
+                throw E2EError.env("缺少配套 norma CLI；请先 cargo build -p norma，再运行 brain-report")
+            }
+            if speech {
+                let model = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/Norma OS/models/tts/matcha-icefall-zh-en/installation.json")
+                guard FileManager.default.fileExists(atPath: model.path) else {
+                    throw E2EError.env("实际播音需要本机已安装 Matcha Chinese-English；请先在语音设置安装该本地模型")
+                }
+            }
+            fakeShell = try BrainFixture.installFakeAgents(finalMessage: speech
+                ? "登录页完成，需要你确认旧接口是否保留。"
+                : "登录页已经做完，12 个测试全部通过，但需要你确认是否保留旧的登录接口。")
             brainDir = try BrainFixture.installBrainDirectory()
             setenv("ZDOTDIR", fakeShell!.path, 1)
             setenv("NORMA_BRAIN_DIR", brainDir!.path, 1)
@@ -40,6 +54,14 @@ public enum BrainReport {
             session.stop()
             guard let dataRoot = session.dataRoot else { throw E2EError.env("隔离数据目录丢失") }
             projectRoot = try CanvasProjectFixture.install(dataRoot: dataRoot, workspaceName: workspace)
+            if speech {
+                // 只写已停止的测试数据库；不复制凭据，不改用户数据库或系统输出设备。
+                try SQLRaw.execute(database: session.databaseURL(), statements: [
+                    ("voice.desktop.mode", "legacy"), ("voice.tts.active_provider_id", "local"),
+                    ("voice.tts.model_id", "matcha-icefall-zh-en"), ("voice.tts.voice_id", "default"),
+                    ("voice.agent_task_announcements_enabled", "false"),
+                ].map { (sql: "INSERT INTO settings(key,value,updated_at_unix) VALUES(?1,?2,0) ON CONFLICT(key) DO UPDATE SET value=excluded.value", bindings: [$0.0, $0.1]) })
+            }
             try session.launch()
             _ = try await session.wait(Expectation(allOf: [workspace], timeout: 20))
             return try session.prove(names: [workspace], areaCount: 1, linkedTo: workspace).summary
@@ -81,11 +103,16 @@ public enum BrainReport {
             return try await session.capture().summary
         }
 
-        try await session.step("大脑启动，并在 Agent 完成后通过 norma brain report 交回播报") {
+        try await session.step(speech ? "真实大脑汇报入队，并通过 macOS 音频设备播完" : "真实大脑交回汇报；无 TTS 时明确跳过语音，不能记为已入队") {
             let log = try appLog(session)
             try await waitForLog(log, containing: "Norma 大脑已启动", timeout: 20)
             // Agent 约 4 秒后 Stop；大脑用真实 Claude Code 处理，首次约 10 到 40 秒。
-            try await waitForLog(log, containing: "大脑播报", timeout: 150)
+            try await waitForLog(log, containing: speech ? "大脑播报已入队" : "大脑播报被跳过：TTS 不可用", timeout: 150)
+            if speech {
+                // 45s = 本地冷启动合成预算 30s + 短句播放 10s + 调度余量 5s。
+                try await waitForLog(log, containing: "agent announcement playback started node_id=0 outcome=Report", timeout: 45)
+                try await waitForLog(log, containing: "agent announcement playback finished node_id=0 outcome=Report completed=true", timeout: 45)
+            }
             guard let brainDir else { throw E2EError.env("大脑目录丢失") }
             // 日志里出现汇报时，这一轮可能还没结束；等主会话把回复写进决策记录。
             var text = ""
@@ -99,7 +126,47 @@ public enum BrainReport {
             guard text.contains("Main") else {
                 throw E2EError.product("画布状态目录的决策日志里没有主会话的回复")
             }
-            return "日志与决策记录都出现了大脑的汇报"
+            let database = try session.databaseURL()
+            let finished = Date().addingTimeInterval(10)
+            while try SQLRaw.scalar(database: database, "SELECT COUNT(*) FROM brain_turns WHERE lane='Main' AND stop_reason='end_turn'") != 1 {
+                guard Date() < finished else { throw E2EError.product("主会话没有持久化成功结束") }
+                try await Task.sleep(nanoseconds: 200_000_000)
+            }
+            let allowed = try SQLRaw.scalar(database: database, "SELECT COUNT(*) FROM brain_trace_items WHERE kind='permission' AND title='权限请求：放行' AND instr(text,' brain report --text ')>0") ?? 0
+            let queued = speech ? "true" : "false"
+            let received = try SQLRaw.scalar(database: database, #"SELECT COUNT(*) FROM brain_trace_items WHERE kind='tool_result' AND title LIKE '% completed' AND instr(text,'"ok":true')>0 AND instr(replace(replace(text,'\',''),' ',''),'"queued":\#(queued)')>0"#) ?? 0
+            guard allowed > 0, received > 0 else { throw E2EError.product("缺少合法 report 的成功回执 queued=\(queued)") }
+            let errors = try SQLRaw.scalar(database: database, "SELECT COUNT(*) FROM brain_trace_items WHERE kind='error'") ?? 0
+            guard errors == 0 else { throw E2EError.product("真实模型轮次出现错误，不能记为成功") }
+            return speech ? "queued=true；真实本地 TTS 合成并收到 macOS DataPlayedBack 完成回调" : "真实 report 经权限闸门送达 App，queued=false；模型正常结束，无 TTS、未播音"
+        }
+
+        try await session.step("打开真实幕僚活动，展开汇报正文与 App 回执") {
+            let panel = try await BrainActivity.openPanel(session)
+            guard let turn = panel.pick(["第1轮", "第 1 轮", "主会话"], .top) else {
+                throw E2EError.product("面板中没有真实主会话：\(panel.summary)")
+            }
+            try await session.click(local: turn.center, on: panel)
+            let identity = try await session.wait(Expectation(allOf: ["会话关联"], timeout: 10))
+            try session.save(identity, "report-identity.png")
+            var commandVisible = false, receiptVisible = false
+            for _ in 0..<30 {
+                let frame = try await session.capture()
+                if !commandVisible && frame.contains("report --text") && frame.contains("接口") && frame.contains("放行") {
+                    try session.save(frame, "report-delivered.png")
+                    commandVisible = true
+                }
+                if !receiptVisible && frame.contains("queued") && frame.contains(speech ? "true" : "false") {
+                    try session.save(frame, "report-receipt.png")
+                    receiptVisible = true
+                }
+                if commandVisible && receiptVisible { break }
+                try await session.scroll(xFraction: 0.65, yFraction: 0.6, deltaY: -200)
+            }
+            guard commandVisible, receiptVisible else {
+                throw E2EError.product("真实面板缺少汇报正文或回执：command=\(commandVisible), receipt=\(receiptVisible)")
+            }
+            return "幕僚活动中可见汇报正文、权限放行及 queued=\(speech) 回执"
         }
     }
 

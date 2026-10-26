@@ -184,6 +184,7 @@ participants: 用户, 前台对话, 播报队列, 主会话, Agent
 - **ACP client 手写**：只用到 `initialize`、`session/new`、`session/set_mode`、`session/prompt`、`session/request_permission`，所以没有引入 `agent-client-protocol` crate，权限处理完全自己掌控。
 - **适配器**：Claude Code 用 `@agentclientprotocol/claude-agent-acp@0.94.0`，设置页的“安装”按钮会装到 `~/.norma/brain/adapters`；Codex 和 OpenCode 已放开启动，读取隔离缺口见上文运行边界。norma 路径含空格时，大脑使用 `~/.norma/brain/bin/norma` 符号链接，避免 Codex 的命令包装让闸门无法还原路径。
 - **权限请求**：仅切到 `default` 并不足以让安全读取逐次询问；还必须隔离用户设置、禁用 bypass、限制工具列表并显式配置 `permissions.ask`。历史探测见 `docs/research/2026-10-23-acp-adapters-probe.md`。
+- **Claude 认证**：保持 `settingSources: []`，启动时只从 `CLAUDE_CONFIG_DIR/settings.json`（默认 `~/.claude/settings.json`）提取 `ANTHROPIC_BASE_URL`、`ANTHROPIC_AUTH_TOKEN`、`ANTHROPIC_API_KEY`、`CLAUDE_CODE_OAUTH_TOKEN` 给 Claude 子进程；不导入其他环境变量、权限或 hooks。进程已有显式认证时整组沿用，避免把不同来源的地址和凭证混配；没有用户配置时保留默认 OAuth/Keychain 流程。
 - **审批代理范围**：只有带手机控制的卡片有可代理的审批。普通桌面卡片的权限提示留在终端里，Norma 无法拦截。要覆盖它们，得给所有卡片装阻塞式权限 hook，这是单独的一项工作。
 - **高风险规则是启发式，不是沙箱**：它只看命令文字。
   - 能挡住：push、删除、部署、密钥、提权、项目外写入、解释器内联代码，以及 `env -i rm`、`GIT push`、`git -c alias…` 这类绕写法。

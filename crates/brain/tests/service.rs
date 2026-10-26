@@ -40,7 +40,10 @@ fn start() -> Harness {
         dir.path().to_path_buf(),
         dir.path().join("state"),
     );
-    config.env = vec![("FAKE_LOG".into(), log.display().to_string())];
+    config.env = vec![
+        ("FAKE_LOG".into(), log.display().to_string()),
+        ("CLAUDE_CONFIG_DIR".into(), dir.path().display().to_string()),
+    ];
     config.retry_backoff = Duration::from_millis(50);
     config.router = RouterConfig {
         debounce: Duration::from_millis(50),
@@ -279,7 +282,10 @@ fn start_with(workers: usize) -> Harness {
         dir.path().to_path_buf(),
         dir.path().join("state"),
     );
-    config.env = vec![("FAKE_LOG".into(), log.display().to_string())];
+    config.env = vec![
+        ("FAKE_LOG".into(), log.display().to_string()),
+        ("CLAUDE_CONFIG_DIR".into(), dir.path().display().to_string()),
+    ];
     config.retry_backoff = Duration::from_millis(50);
     config.router = RouterConfig {
         debounce: Duration::from_millis(50),

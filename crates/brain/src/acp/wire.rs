@@ -46,14 +46,16 @@ impl Connection {
         let (program, args) = adapter.as_ref().map_or((program, args), |adapter| {
             (adapter.program.as_path(), adapter.args.as_slice())
         });
-        let mut child = Command::new(program)
+        let mut command = Command::new(program);
+        command
             .args(args)
             .current_dir(cwd)
             .envs(env.iter().map(|(k, v)| (k, v)))
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(adapter_stderr())
-            .spawn()?;
+            .stderr(adapter_stderr());
+        super::claude_auth::configure(&mut command, kind)?;
+        let mut child = command.spawn()?;
         let stdin = child
             .stdin
             .take()

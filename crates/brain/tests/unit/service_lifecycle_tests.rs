@@ -168,7 +168,7 @@ fn every_abnormal_prompt_exit_finishes_once() {
             .display()
             .to_string()],
         cwd: dir.path().into(),
-        env: vec![],
+        env: vec![("CLAUDE_CONFIG_DIR".into(), dir.path().display().to_string())],
         meta: None,
         mode: None,
         model: None,

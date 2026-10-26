@@ -35,7 +35,8 @@
 | `settings` | `settings-shortcut-defaults` | 键位互换后 Settings → Keyboard Shortcuts 的默认显示（无覆盖写入、无 Restore），以及既有自定义（切换工作空间 ⌃⌥J、新建浏览器 ⇧⌘K）原样保留且优先生效：⌃⌥J 打开切换器，⇧⌘↑ / ⇧⌘K 不触发默认行为；浅色与深色。 |
 | `settings` | `settings-live-configuration` | GPT-Live模式切换、缺Key禁用、音色持久化、重启恢复和深浅主题。 |
 | `settings` | `settings-orchestration-path-convention` | 编排页“文件路径输出约定”开关：默认开启（未写库），点击后保存 false，再点击保存 true，开关外观随之变化。 |
-| `brain` | `brain-report` | 后台大脑：假 `claude` 通过真实 Hook 上报完成，真实 Claude Code ACP 适配器收到事件，经 `norma brain report` 把汇报交回 App。核对 App 日志里的“大脑已启动”“大脑会话就绪”“大脑播报”和大脑目录里的 `decisions.jsonl`。需要 `NORMA_BRAIN_E2E_ADAPTERS` 指向装有 `@agentclientprotocol/claude-agent-acp` 的目录，并使用本机 Claude Code 的登录。隔离数据里没有 TTS，只验到播报队列。 |
+| `brain` | `brain-report` | 后台大脑：假 `claude` 通过真实 Hook 上报完成，真实 Claude Code ACP 经权限闸门执行 `norma brain report`，App 成功接收。核对模型成功结束、CLI 成功回执，并在真实幕僚活动中看见汇报正文与回执。先 `cargo build -p app -p norma`；需要 `NORMA_BRAIN_E2E_ADAPTERS` 指向真实适配器目录，使用本机 Claude 登录或网关认证。隔离数据没有 TTS，明确验收跳过语音及 `queued=false`，不代表进入队列或实际播音。 |
+| `brain` | `brain-report-voice` | 沿用真实 Claude 汇报链路，在隔离数据库选择本机已安装的 Matcha Chinese-English、本地 default 音色；不读取 TTS 云端凭据、不修改用户配置或系统输出设备。要求 `queued=true`、Report 的播放开始及 macOS DataPlayedBack 完成回调、活动面板正文和回执；入队不等于播完。退出码覆盖到原生回调；要求可回放声音时须另有被测 PID 的非静音采集证据。 |
 | `brain` | `brain-autonomy` | 脚本化的大脑（不用真实模型）在第一个智能体完成后，经权限闸门给第二个智能体派后续任务：概览出现“Norma 自主处理”栏和这一条，“为什么”展开理由，“以后这类先问我”把 `autonomy.assign_followups` 写成 false。 |
 | `brain` | `brain-settings` | 设置 → Norma 大脑：页面内容，点开关与点策略后配置文件里的值。 |
 | `voice` | `voice-live-call`、`voice-live-acoustic`、`voice-doubao-direct` | `voice-doubao-direct`：假 Key + 本机假方舟，经控制通道注入转写，验豆包按卡片名/别名直呼派任务、未命中回落模型（无需云端 Key）。`voice-live-call` 验连接/静音/用量；后者原依赖字幕OCR，用户移除浮层后在启动/连接前返回ENV，避免无效云端用量。真人声学按统一验收清单执行。 |
