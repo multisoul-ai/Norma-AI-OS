@@ -55,6 +55,24 @@ pub(crate) fn execute_norma_adapter_command_with_source(
         let destination = destination(app, &command, cx)?;
         service.execute_with_state(operation, target.as_deref(), |source_state| {
             let action = |states: &[(&str, &agent::context::WorkingState)]| {
+                // Idea text lives in storage, so it is decorated where it is read.
+                if let AdapterCommand::AssignIdea { idea_id, target } = command {
+                    return super::idea_commands::assign_idea_with_states(
+                        app,
+                        window,
+                        cx,
+                        &idea_id,
+                        input_source,
+                        super::idea_commands::IdeaDelivery {
+                            target,
+                            flight: super::idea_commands::IdeaFlight {
+                                origin: super::idea_commands::drawer_origin(app, cx),
+                                user_initiated: false,
+                            },
+                            states,
+                        },
+                    );
+                }
                 let command = handoff_command(command, states)?;
                 super::execute_norma_adapter_command_unchecked(
                     app,

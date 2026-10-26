@@ -134,6 +134,7 @@ impl SharedContext {
 
     /// Hold the same lock until the synchronous host side effect has been accepted.
     /// A background state write cannot begin between this check and that acceptance.
+    #[cfg(test)]
     pub(crate) fn execute<T>(
         &self,
         operation: ContextOperation,

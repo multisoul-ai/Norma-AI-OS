@@ -80,13 +80,41 @@ pub(super) fn drawer_origin(
 
 pub(crate) fn assign_idea(
     app: &mut MultisoulApp,
-    mut window: Option<&mut Window>,
+    window: Option<&mut Window>,
     cx: &mut Context<MultisoulApp>,
     idea_id: &str,
     target: IdeaTarget,
     input_source: AgentInputSource,
     flight: IdeaFlight,
 ) -> Result<AdapterResult, AdapterError> {
+    let delivery = IdeaDelivery {
+        target,
+        flight,
+        states: &[],
+    };
+    assign_idea_with_states(app, window, cx, idea_id, input_source, delivery)
+}
+
+/// `states`: goal/constraints at the guarded boundary; idea text lives in storage, so it is decorated here.
+pub(crate) struct IdeaDelivery<'a> {
+    pub target: IdeaTarget,
+    pub flight: IdeaFlight,
+    pub states: &'a [(&'a str, &'a agent::context::WorkingState)],
+}
+
+pub(crate) fn assign_idea_with_states(
+    app: &mut MultisoulApp,
+    mut window: Option<&mut Window>,
+    cx: &mut Context<MultisoulApp>,
+    idea_id: &str,
+    input_source: AgentInputSource,
+    delivery: IdeaDelivery<'_>,
+) -> Result<AdapterResult, AdapterError> {
+    let IdeaDelivery {
+        target,
+        flight,
+        states,
+    } = delivery;
     let IdeaFlight {
         origin,
         user_initiated,
@@ -130,7 +158,16 @@ pub(crate) fn assign_idea(
         "[idea-dispatch] begin"
     );
     // 派发给智能体的文本 = 正文 + 附带图片的绝对路径。
-    let task_text = ideas.dispatch_text(&idea);
+    let task_text = match agent::context::context_task_handoff(&ideas.dispatch_text(&idea), states)
+    {
+        Ok(text) => text,
+        Err(error) => {
+            if let Err(rollback) = ideas.fail_dispatch(&workspace_id, idea_id) {
+                tracing::warn!(%rollback, idea_id, "idea handoff rejected and could not be rolled back");
+            }
+            return Err(AdapterError::Rejected(error.into()));
+        }
+    };
     // 流星要飞约 0.9 秒才落到卡片：任务正文等流星到了再输入，否则卡片会在流星抵达前就开始运行。
     let hold_until = std::time::Instant::now() + IDEA_DELIVERY_DELAY;
     let held_node = match &target {
@@ -457,3 +494,7 @@ fn spawn_idea_flight(
 #[cfg(test)]
 #[path = "../../../tests/unit/desktop_idea_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/idea_context_handoff_tests.rs"]
+mod handoff_tests;
