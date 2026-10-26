@@ -192,15 +192,18 @@ impl MultisoulApp {
             .shared_context_service()
             .map_err(|error| error.to_string())?;
         service
-            .execute(agent::context::ContextOperation::DispatchTask, None, || {
-                Ok(self.dispatch_brain_proposal_checked(id))
-            })
+            .execute_with_state(
+                agent::context::ContextOperation::DispatchTask,
+                None,
+                |state| Ok(self.dispatch_brain_proposal_checked(id, state)),
+            )
             .map_err(|error| error.to_string())?
     }
 
     fn dispatch_brain_proposal_checked(
         &mut self,
         id: u64,
+        state: &agent::context::WorkingState,
     ) -> Result<(BrainOp, CardCommandResult), String> {
         let Some(proposal) = self
             .brain
@@ -232,6 +235,7 @@ impl MultisoulApp {
                 proposal.task,
                 None,
                 AutoKind::UserDispatched,
+                state,
             )
             .map_err(|error| error.to_string())?;
         self.brain.proposals.take(id);

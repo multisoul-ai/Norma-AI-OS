@@ -69,12 +69,12 @@ impl MultisoulApp {
                 .shared_context_service()
                 .map_err(|e| reject(&e.to_string()))?;
             return service
-                .execute(operation, target.as_deref(), || {
-                    Ok(self.execute_brain_command_unchecked(op, window, cx))
+                .execute_with_state(operation, target.as_deref(), |state| {
+                    Ok(self.execute_brain_command_unchecked(op, window, cx, Some(state)))
                 })
                 .map_err(|e| reject(&e.to_string()))?;
         }
-        self.execute_brain_command_unchecked(op, window, cx)
+        self.execute_brain_command_unchecked(op, window, cx, None)
     }
 
     fn execute_brain_command_unchecked(
@@ -82,6 +82,7 @@ impl MultisoulApp {
         op: BrainOp,
         window: Option<&mut Window>,
         cx: &mut Context<Self>,
+        state: Option<&agent::context::WorkingState>,
     ) -> OpResult {
         match op {
             BrainOp::Context { .. } => Err(CardCommandError::Unsupported {
@@ -103,7 +104,8 @@ impl MultisoulApp {
                         "not_authorized：用户没有允许大脑自行派任务，请改用 propose 提议",
                     ));
                 }
-                self.assign_task(agent, task, window, AutoKind::Assigned)
+                let state = state.ok_or_else(|| reject("context_state_missing"))?;
+                self.assign_task(agent, task, window, AutoKind::Assigned, state)
             }
             BrainOp::Propose {
                 agent,
@@ -165,7 +167,12 @@ impl MultisoulApp {
         task: String,
         window: Option<&mut Window>,
         kind: AutoKind,
+        state: &agent::context::WorkingState,
     ) -> OpResult {
+        // Same final-host-boundary handoff as Adapter dispatches; `task` stays the brain's original.
+        let handed =
+            agent::context::context_task_handoff(&task, &[("source_and_destination", state)])
+                .map_err(reject)?;
         let area = self.mobile_canvas_area(window);
         let zoom = self.runtime.document.viewport.zoom;
         let summary: String = task.chars().take(80).collect();
@@ -173,7 +180,7 @@ impl MultisoulApp {
         let command = CardCommand::DispatchAgentTasks {
             assignments: vec![AgentTaskAssignment {
                 name: agent,
-                task: task.clone(),
+                task: handed.clone(),
             }],
             force_untracked: false,
         };
@@ -198,7 +205,7 @@ impl MultisoulApp {
                 receipt.name
             )));
         }
-        self.brain.own_prompts.remember(&task);
+        self.brain.own_prompts.remember(&handed);
         let decision_reason = if kind == AutoKind::UserDispatched {
             "你批准了幕僚的提议"
         } else {

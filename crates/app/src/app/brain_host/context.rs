@@ -63,3 +63,7 @@ impl MultisoulApp {
 #[cfg(test)]
 #[path = "../../../tests/unit/brain_report_epoch_tests.rs"]
 mod report_epoch_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/brain_task_handoff_tests.rs"]
+mod task_handoff_tests;

@@ -115,6 +115,12 @@ impl AgentCardAdapter for LiveDurableAdapter {
                 }
                 return result;
             }
+            // Personal/overview calls are verification-only: refuse before the ledger or effects flag.
+            if self.scope.project.is_empty() {
+                return Err(AdapterError::Rejected(
+                    "请先打开项目。个人／总览实时通话只能核验共享状态，未执行任何操作".into(),
+                ));
+            }
             let operation = operation_step(context)?;
             self.effects.store(true, Ordering::Release);
             let (delegate, store, scope, receipts, context) = (
