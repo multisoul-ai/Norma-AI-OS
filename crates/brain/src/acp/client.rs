@@ -20,6 +20,9 @@ pub enum AcpError {
     Timeout,
     #[error("已取消")]
     Cancelled,
+    /// 后端报告线程处于 systemError（如 429 限流）：这一轮没有真正完成，值得重试。
+    #[error("后端临时故障：{0}")]
+    Transient(String),
 }
 
 #[derive(Clone, Debug)]
@@ -125,6 +128,7 @@ impl AcpSession {
         let started = Instant::now();
         let mut merger = Merger::default();
         let mut stop_reason = None;
+        let mut system_error = false;
         let result = (|| {
             let id = self
             .conn
@@ -156,9 +160,12 @@ impl AcpSession {
                             .ok()
                             .and_then(|value| value["stopReason"].as_str())
                             .unwrap_or("error");
-                        stop_reason = Some(stop.to_owned());
+                        stop_reason = Some(if system_error { "error" } else { stop }.to_owned());
                         if stop == "cancelled" {
                             return Err(AcpError::Cancelled);
+                        }
+                        if system_error {
+                            return Err(AcpError::Transient(reply.trim().to_owned()));
                         }
                         return result
                             .map(|_| reply)
@@ -166,6 +173,9 @@ impl AcpSession {
                     }
                     Incoming::Notification { method, params } if method == "session/update" => {
                         let update = &params["update"];
+                        if update["_meta"]["codex"]["threadStatus"]["type"] == "systemError" {
+                            system_error = true;
+                        }
                         if update["sessionUpdate"] == "agent_message_chunk" {
                             reply.push_str(update["content"]["text"].as_str().unwrap_or_default());
                         }

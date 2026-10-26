@@ -5,6 +5,7 @@
   FAKE_RUN: <命令>   发起一次 session/request_permission，并把结果写进 $FAKE_LOG
   FAKE_SLEEP         处理这条 prompt 前先睡 0.6 秒
   FAKE_CRASH         立刻退出进程
+  FAKE_429_ONCE      第一次回 429 + threadStatus=systemError（仍以 end_turn 结束），之后正常
 每条 prompt 的原文也写进 $FAKE_LOG（行首 prompt:）。
 """
 import json, os, re, sys, time
@@ -78,6 +79,16 @@ def main():
                     "content": {"type": "text", "text": body}}}})
                 send({"jsonrpc": "2.0", "id": mid, "error": {"code": -32603,
                     "message": "Internal error: " + body, "data": {"errorKind": "rate_limit"}}})
+                continue
+            if "FAKE_429_ONCE" in text and "429-sent" not in open(LOG, encoding="utf-8").read():
+                log("429-sent")
+                send({"jsonrpc": "2.0", "method": "session/update", "params": {
+                    "sessionId": session_id, "update": {"sessionUpdate": "session_info_update",
+                    "_meta": {"codex": {"threadStatus": {"type": "systemError"}}}}}})
+                send({"jsonrpc": "2.0", "method": "session/update", "params": {
+                    "sessionId": session_id, "update": {"sessionUpdate": "agent_message_chunk",
+                    "content": {"type": "text", "text": "exceeded retry limit, last status: 429 Too Many Requests"}}}})
+                send({"jsonrpc": "2.0", "id": mid, "result": {"stopReason": "end_turn"}})
                 continue
             if "FAKE_REMOTE_CANCEL" in text:
                 send({"jsonrpc": "2.0", "id": mid, "result": {"stopReason": "cancelled"}})

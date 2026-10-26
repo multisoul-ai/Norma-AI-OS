@@ -78,3 +78,31 @@ fn quota_error_is_readable_finishes_once_and_does_not_poison_the_next_turn() {
     );
     h.service.shutdown();
 }
+
+/// 场景：Codex 遇到 429 限流时以 end_turn 结束，只在 threadStatus 里标 systemError。
+/// 数据构造：假适配器第一次回 429 正文 + systemError，第二次起正常。
+/// 预期结果：这一轮按失败处理（不记成成功），同一条任务在新会话里自动重发并最终成功。
+#[test]
+fn rate_limited_turn_is_retried_instead_of_dropped() {
+    let h = start();
+    h.service.push(BrainEvent::UserRequest {
+        text: "FAKE_429_ONCE".into(),
+    });
+    let done = h.wait_status(|s| {
+        matches!(s, BrainStatus::Trace(t)
+            if t.item.end.as_ref().is_some_and(|e| e.stop_reason == "end_turn"))
+    });
+    assert!(matches!(done, BrainStatus::Trace(_)));
+    let log = h.log();
+    assert_eq!(
+        log.matches("prompt: ").count(),
+        2,
+        "同一条任务应发两次：{log}"
+    );
+    assert_eq!(
+        log.matches("session/new").count(),
+        2,
+        "限流后重建会话：{log}"
+    );
+    h.service.shutdown();
+}
