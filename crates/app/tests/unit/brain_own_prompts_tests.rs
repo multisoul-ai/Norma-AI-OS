@@ -18,3 +18,23 @@ fn own_tasks_are_recognised_and_capped() {
     assert!(!own.contains("补上登录页的测试"), "最早的已被挤掉");
     assert!(!own.contains("用户自己说的话"));
 }
+
+/// 场景：幕僚派发的任务带约束后超过 60 字符，hook 只回传截断标题。
+/// 构造：记住“任务+约束块”长文本，取 extract_prompt_text 同样的 60 字符加省略号。
+/// 执行：对截断标题与不相关的 60 字符标题调用 contains。
+/// 预期：截断标题识别为幕僚自己的提示；无关标题不识别。
+#[test]
+fn own_prompt_matches_hook_truncated_title_of_handed_off_task() {
+    let mut own = OwnPrompts::default();
+    let full = format!(
+        "检查边界条件\n\n当前用户目标与约束：{}",
+        "只修改前端".repeat(20)
+    );
+    own.remember(&full);
+    let title = format!("{}…", full.chars().take(60).collect::<String>());
+    assert!(own.contains(&title), "截断后的自派任务必须仍被识别");
+    assert!(
+        !own.contains(&format!("{}…", "别的".repeat(30))),
+        "无关提示不能误判"
+    );
+}

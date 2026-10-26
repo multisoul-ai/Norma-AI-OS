@@ -95,7 +95,6 @@ pub(crate) fn assign_idea(
     assign_idea_with_states(app, window, cx, idea_id, input_source, delivery)
 }
 
-/// `states`: goal/constraints at the guarded boundary; idea text lives in storage, so it is decorated here.
 pub(crate) struct IdeaDelivery<'a> {
     pub target: IdeaTarget,
     pub flight: IdeaFlight,
@@ -108,13 +107,12 @@ pub(crate) fn assign_idea_with_states(
     cx: &mut Context<MultisoulApp>,
     idea_id: &str,
     input_source: AgentInputSource,
-    delivery: IdeaDelivery<'_>,
-) -> Result<AdapterResult, AdapterError> {
-    let IdeaDelivery {
+    IdeaDelivery {
         target,
         flight,
         states,
-    } = delivery;
+    }: IdeaDelivery<'_>,
+) -> Result<AdapterResult, AdapterError> {
     let IdeaFlight {
         origin,
         user_initiated,
@@ -158,7 +156,9 @@ pub(crate) fn assign_idea_with_states(
         "[idea-dispatch] begin"
     );
     // 派发给智能体的文本 = 正文 + 附带图片的绝对路径。
-    let task_text = match agent::context::context_task_handoff(&ideas.dispatch_text(&idea), states)
+    let task_text = match (!states.is_empty())
+        .then(|| agent::context::context_task_handoff(&ideas.dispatch_text(&idea), states))
+        .unwrap_or_else(|| Ok(ideas.dispatch_text(&idea)))
     {
         Ok(text) => text,
         Err(error) => {

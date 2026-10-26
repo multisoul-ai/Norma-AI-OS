@@ -435,3 +435,17 @@ T04 的具体边界：`desktop_context_for_provider` 读取当前宿主焦点，
 独立只读对抗审查核验了执行锁/幂等边界、记忆授权与失效、Live 入口生命周期和测试观察点。按复核意见，WS 测试逐包校验报告 ID，并在最终 ACK 后继续拒绝旧报告片段。
 
 本轮不将 headless GPUI 生产实体、回环 WS 或受控 sink 计为真实 `.app`、供应商或音频设备验收。仍待验证 Live 增量替换/时序、来源摘要、外部/模型记忆写入后的在途即时失效、六向模式切换及真实 App/手机/音频/p95。旧 TaskReporter 的 AppendResult 仍使用控制队列，本轮只隔离新增 NativeReport 负载。
+
+### PR #153 第二轮修复（2026-10-26，Chloe）
+
+基于 `01b178b7` 另建工作树 `chloe/shared-context-fixes`，PR 仍面向 `dev`、保持 Draft、不合并。以下均为本地单元/集成证据，没有真实 `.app`、供应商、物理手机或音频验收。
+
+| 项 | 修复 | 证据（均先 RED 后 GREEN） |
+|---|---|---|
+| F1 手机/群聊 ReplyAgent | `reply_to_card` 改用 `execute_with_state`，经 `handoff_reply` 拼接当前目标与约束；原话、operation_id、权限不变 | `workspace_reply_handoff_follows_constraint_add_correct_revoke_and_enforced_gate`：增加／纠正／撤销与 enforced 拒绝。限制：断言在 `reply_to_card` 同一入口的交接函数，未驱动暖卡片 PTY 的最终字节（需要完整 Provider 附着夹具），需真机验收 |
+| F2 个人/总览 Live 核验 | 无项目通话可委派；适配器作用域只放行只读 `ContextCheckpoint`，其余命令（含写入）在耐久账本之前明确拒绝，不记 effects | `gpt_live_personal_scope_verifies_context_but_rejects_project_actions`、`gpt_live_durable_personal_scope_rejects_writes_without_pending_effects` |
+| F3 保存期间取消 | 保存前取得交付 ticket（仅在播报开启时有效），`cancel_agent_announcements`/`reset` 递增独立 `delivery_epoch`；保存后复验，失效则保存事实并记 Skipped，CLI 回执 `queued=false` | `brain_report_closed_then_reopened_during_save…`、`brain_report_received_while_muted…`、`brain_report_without_cancellation…`（内部与 CLI 两入口，存储屏障） |
+| 幕僚自主派工与提议采纳 | 经 `execute_with_state` 将约束拼入真实任务文本，`own_prompts` 记录拼接后文本 | `brain_autonomous_assign_carries_communicated_constraint`、`brain_proposal_adoption_carries_communicated_constraint` |
+| AssignIdea（模型路径） | 读取想法正文后拼接来源/目标状态；UI 拖拽路径保持原行为 | `assign_idea_carries_source_constraint_to_target_card` |
+
+已知限制：`cancel_agent_announcements` 也被「关闭任务播报开关」等入口调用，会连带让正在保存的幕僚报告记为 Skipped（正文仍保存）；Live 个人通话的只读核验依赖模型通过 client 委派，供应商时序未验收。仍待验证：Live 增量替换/供应商即时状态时序、来源摘要、模型/外部记忆写入后的在途即时失效、六向模式切换及真实 App/手机/音频/p95。
