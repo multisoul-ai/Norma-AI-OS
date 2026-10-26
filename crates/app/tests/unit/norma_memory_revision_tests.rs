@@ -112,3 +112,74 @@ async fn memory_revision_invalidates_old_facts_in_actual_model_requests() {
         );
     }
 }
+
+/// 场景：暖缓存只检查修订元数据，不应逐轮重读所有主题正文。
+/// 构造：真实持久化个人主题并预热生产适配器，临时移走该修订的 topics。
+/// 执行：复用暖缓存，再显式 read 和冷启动；恢复 topics 后再次 read。
+/// 预期：暖缓存版本/目录不变，真正正文访问仍校验完整性，恢复后可读。
+#[tokio::test]
+async fn warm_memory_revision_check_does_not_read_topic_bodies() {
+    let dir = tempfile::tempdir().unwrap();
+    let paths = storage::DatabasePaths::isolated_test(dir.path());
+    let mut access = storage::MemoryAccess::new(paths.clone(), None);
+    let saved = access
+        .settings_save(
+            MemoryScopeAlias::Personal,
+            agent::MemoryRevision::INITIAL,
+            vec![("preference".into(), "简洁中文".into())],
+            "偏好",
+            "seed",
+        )
+        .unwrap();
+    let host = adapter(Arc::new(NoTools), paths.clone(), None);
+    let initial = host.memory_context().await.unwrap().unwrap();
+    let topics = storage::MemoryStore::open(&paths)
+        .unwrap()
+        .root()
+        .join(format!(
+            "personal/revisions/{:020}/topics",
+            saved.revision.number()
+        ));
+    let moved = topics.with_file_name("topics-fixture-hidden");
+    std::fs::rename(&topics, &moved).unwrap();
+    let warm = host
+        .memory_context()
+        .await
+        .expect("暖缓存版本检查不应读取 topics")
+        .unwrap();
+    assert_eq!(warm.revisions, initial.revisions, "版本没有改变");
+    assert_eq!(warm.catalog, initial.catalog, "继续使用已验证的目录缓存");
+    let command = || {
+        AdapterCommand::Memory(agent::MemoryCommand::Read {
+            scope: MemoryScopeAlias::Personal,
+            id: "preference".into(),
+            offset: 0,
+        })
+    };
+    let context = ToolContext {
+        project_id: String::new(),
+        turn_id: "s:read".into(),
+        user_input: "查偏好".into(),
+        input_source: agent::AgentInputSource::Other,
+        contextual_delete_targets: vec![],
+        tool_call_id: "read".into(),
+        operation_id: None,
+        cancellation: Default::default(),
+    };
+    assert!(
+        host.execute(command(), &context).await.is_err(),
+        "显式读取必须检查正文完整性"
+    );
+    assert!(
+        adapter(Arc::new(NoTools), paths, None)
+            .memory_context()
+            .await
+            .is_err(),
+        "冷启动不可绕过正文完整性检查"
+    );
+    std::fs::rename(&moved, &topics).unwrap();
+    assert!(
+        host.execute(command(), &context).await.is_ok(),
+        "恢复后显式读取成功"
+    );
+}

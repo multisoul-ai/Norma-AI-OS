@@ -38,9 +38,9 @@ impl WorkspaceMemory {
                 .entry(root.clone())
                 .or_insert_with(|| storage::MemoryAccess::new(self.paths.clone(), Some(root)));
             for alias in [MemoryScopeAlias::Project, MemoryScopeAlias::Worktree] {
-                let snapshot = access.settings_snapshot(alias)?;
-                if !revisions.iter().any(|(scope, _)| scope == snapshot.scope()) {
-                    revisions.push((snapshot.scope().clone(), snapshot.revision()));
+                let revision = access.scope_revision(alias)?;
+                if !revisions.iter().any(|(scope, _)| scope == &revision.0) {
+                    revisions.push(revision);
                 }
             }
         }

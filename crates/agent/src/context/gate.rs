@@ -33,8 +33,17 @@ impl ContextExecutionGate {
         operation: ContextOperation,
         target: Option<&str>,
     ) -> Result<(), &'static str> {
+        self.checked_state(operation, target).map(|_| ())
+    }
+
+    pub fn checked_state(
+        &self,
+        operation: ContextOperation,
+        target: Option<&str>,
+    ) -> Result<&WorkingState, &'static str> {
         let state = self.state.as_ref().ok_or("context_state_unavailable")?;
         check_context_operation(state, operation, target)
-            .map_err(|_| "context_operation_restricted")
+            .map_err(|_| "context_operation_restricted")?;
+        Ok(state)
     }
 }

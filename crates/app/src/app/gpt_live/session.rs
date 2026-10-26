@@ -24,7 +24,6 @@ pub(super) enum CaptureEvent {
 }
 
 pub(super) enum CallCommand {
-    BrainReport(super::native_report::NativeReport),
     SetMuted(bool),
     SetInputEnabled {
         enabled: bool,
@@ -124,6 +123,7 @@ pub(super) async fn run_audio_loop(
     capture: CaptureInput,
     playback: crate::app::doubao::playback::PlaybackQueue,
     commands: async_channel::Receiver<CallCommand>,
+    report_input: async_channel::Receiver<super::native_report::NativeReport>,
     events: async_channel::Sender<CallEvent>,
     cancellation: tokio_util::sync::CancellationToken,
 ) -> CallEnd {
@@ -138,6 +138,7 @@ pub(super) async fn run_audio_loop(
     let mut microphone = std::collections::VecDeque::new();
     let mut output_blocked = false;
     let mut reports = super::native_report::NativeReports::default();
+    let mut report_input_open = true;
     let mut mode = *capture_mode.borrow();
     let mut input_enabled = !mode.muted;
     let mut user_muted = false;
@@ -186,16 +187,17 @@ pub(super) async fn run_audio_loop(
                         }
                         CallCommand::SetOutputBlocked(blocked) => {
                             output_blocked = blocked;
-                            if blocked { reports.clear(); }
+                            if blocked {
+                                reports.clear();
+                                // Controls have priority over the separate report ingress.
+                                // Discard backlog here, before a queued unblock can run.
+                                while let Ok(report) = report_input.try_recv() { drop(report); }
+                            }
                             super::output::set_blocked(blocked, &playback, &control, &events)?;
                             continue;
                         }
                         CallCommand::AppendResult{event_id,kind,delegation_id,content}=> {
                             control.send_command(&live_voice::LiveCommand::Append{event_id,kind,delegation_id,content})?;
-                            continue;
-                        }
-                        CallCommand::BrainReport(report) => {
-                            if !output_blocked { reports.push(report); }
                             continue;
                         }
                     };
@@ -262,7 +264,10 @@ pub(super) async fn run_audio_loop(
                     Some(live_voice::LiveEvent::Rejected { .. }) => return Err("Live service rejected a session command".into()),
                     _ => {},
                 },
-
+                report = report_input.recv(), if report_input_open => match report {
+                    Ok(report) => { if !output_blocked { reports.push(report); } }
+                    Err(_) => report_input_open = false,
+                },
             }
         }
     }.await;
@@ -270,6 +275,10 @@ pub(super) async fn run_audio_loop(
     let requested_close = cancellation.is_cancelled();
     cancellation.cancel();
     reports.clear();
+    report_input.close();
+    while let Ok(report) = report_input.try_recv() {
+        drop(report);
+    }
     commands.close();
     while let Ok(command) = commands.try_recv() {
         drop(command);

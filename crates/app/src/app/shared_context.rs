@@ -140,10 +140,20 @@ impl SharedContext {
         target: Option<&str>,
         action: impl FnOnce() -> Result<T, AdapterError>,
     ) -> Result<T, AdapterError> {
+        self.execute_with_state(operation, target, |_| action())
+    }
+
+    pub(crate) fn execute_with_state<T>(
+        &self,
+        operation: ContextOperation,
+        target: Option<&str>,
+        action: impl FnOnce(&WorkingState) -> Result<T, AdapterError>,
+    ) -> Result<T, AdapterError> {
         let gate = self.coordination.gate.lock().map_err(failed)?;
-        gate.check(operation, target)
+        let state = gate
+            .checked_state(operation, target)
             .map_err(|e| AdapterError::Rejected(e.into()))?;
-        action()
+        action(state)
     }
 }
 

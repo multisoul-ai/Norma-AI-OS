@@ -53,8 +53,9 @@ pub(crate) fn execute_norma_adapter_command_with_source(
     if let Some((operation, target)) = restriction {
         let service = app.shared_context_service()?;
         let destination = destination(app, &command, cx)?;
-        service.execute(operation, target.as_deref(), || {
-            let action = || {
+        service.execute_with_state(operation, target.as_deref(), |source_state| {
+            let action = |states: &[(&str, &agent::context::WorkingState)]| {
+                let command = handoff_command(command, states)?;
                 super::execute_norma_adapter_command_unchecked(
                     app,
                     window,
@@ -66,14 +67,38 @@ pub(crate) fn execute_norma_adapter_command_with_source(
             if let Some(destination) =
                 destination.filter(|destination| destination.scope() != service.scope())
             {
-                destination.execute(operation, target.as_deref(), action)
+                destination.execute_with_state(operation, target.as_deref(), |target_state| {
+                    action(&[("source", source_state), ("destination", target_state)])
+                })
             } else {
-                action()
+                action(&[("source_and_destination", source_state)])
             }
         })
     } else {
         super::execute_norma_adapter_command_unchecked(app, window, cx, command, input_source)
     }
+}
+
+// Only decorate at the final host boundary. Outer operation fingerprints and
+// ToolContext retain the original user input, so retries keep their existing identity.
+fn handoff_command(
+    mut command: AdapterCommand,
+    states: &[(&str, &agent::context::WorkingState)],
+) -> Result<AdapterCommand, AdapterError> {
+    let text = match &mut command {
+        AdapterCommand::AssignAgentTask { task, .. }
+        | AdapterCommand::AssignWorkspaceTask { task, .. }
+        | AdapterCommand::CreateAgent {
+            task: Some(task), ..
+        } => Some(task),
+        AdapterCommand::ReplyAgent { message, .. } => Some(message),
+        _ => None,
+    };
+    if let Some(text) = text {
+        *text = agent::context::context_task_handoff(text, states)
+            .map_err(|error| AdapterError::Rejected(error.into()))?;
+    }
+    Ok(command)
 }
 
 /// Resolve the actual destination before taking either execution lock. Same-area calls
@@ -165,3 +190,7 @@ fn restriction(
         _ => None,
     }
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/context_dispatch_handoff_tests.rs"]
+mod handoff_tests;

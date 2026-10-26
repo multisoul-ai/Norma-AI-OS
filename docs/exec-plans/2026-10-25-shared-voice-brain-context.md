@@ -416,3 +416,22 @@ T04 的具体边界：`desktop_context_for_provider` 读取当前宿主焦点，
 - `cargo check -p app` 通过。保留既有 `crates/app/src/settings/content.rs:191` 的 unreachable-pattern 警告，未扩展本轮范围。
 - 行数、禁止 allow、存储边界、性能护栏和相关 diff 空白检查均通过。命令、日志和已测源码 SHA-256 记录于 `artifacts/shared-context-20261025/evidence.json`。
 - 本轮未启动真实 App，未做云端、物理手机或音频硬件验收；未构建 release、未提交或发布。实际供应商时序与三模式兼容仍是交付前置条件。
+
+### PR #153 交叉审查修复（2026-10-26）
+
+本轮只处理交叉审查确认的四项问题；PR 仍面向 `dev`，保持 Draft，不合并。
+
+| 问题 | 修复与边界 | 行为证据 |
+|---|---|---|
+| 确定性直呼漏传文本约束 | 在宿主最终执行边界、同一次 gate 锁内附加当前目标/约束及完整引用；同 scope 一份，跨 scope 分来源/目标两份。不改变原始 command 的外层幂等身份、ToolContext 或权限检查 | 实际协调器任务包含约束及来源；回复使用纠正后的约束，撤销后原文不附空块；空任务与合成超限在建卡前拒绝 |
+| 豆包个人/总览缺 context 工具 | 两种工具白名单增加 context_read/context_update，保留既有 memory 工具 | 真实请求 JSON 同时包含上下文和记忆工具，不包含项目派工/终端输入 |
+| 每轮版本检查读取全部记忆正文 | CURRENT + manifest 轻量版本接口，仍验证 digest、schema、scope、revision、parent 和 Binding；版本变化后继续完整激活 | 暖缓存不依赖 topics 可读；显式 read 和冷激活仍检查正文；纠正/删除仍使旧历史失效 |
+| Live 报告挤占控制队列 | 新增独立容量 8 的报告入口，控制/音频优先；停播同时清内部及入口积压，关闭入口停用接收分支，退出关闭并清空 | 8 条积压后第 9 条拒绝，静音/停播/松键仍提交；本地 WS 验证恢复后不补播旧报告、关闭报告入口后仍完成 ACK/PCM/挂断 |
+
+任务交接正文（包括原任务、标签及 JSON 转义后的来源）统一限制为 32 KiB；即使无共享状态，超过此上限的原任务也明确拒绝，不静默截断。有界 writer 限制前台中间分配；没有新增 GPUI 前台 IO。此次正文交接覆盖 AssignAgentTask、ReplyAgent、CreateAgent 的初始任务和 AssignWorkspaceTask；AssignIdea、幕僚自主派工与提议采纳仍只有原执行 gate，本轮不宣称这些入口已附加文本约束。
+
+真实行为 RED：豆包白名单缺 context_read；暖记忆缓存仍打开被移走的 topics；最终派发正文缺“只修改前端”；报告积压导致静音控制失败。日志在 `artifacts/shared-context-review-fixes/`。修复后的四项核心测试已通过；App 组合回归 298 项通过、2 项忽略；agent + storage 完整回归 421 项通过、2 项忽略。普通工具入口额外回归 66 项通过；提交钩子结果记录于同目录证据文件；各组有重叠，不相加作为唯一用例数。
+
+独立只读对抗审查核验了执行锁/幂等边界、记忆授权与失效、Live 入口生命周期和测试观察点。按复核意见，WS 测试逐包校验报告 ID，并在最终 ACK 后继续拒绝旧报告片段。
+
+本轮不将 headless GPUI 生产实体、回环 WS 或受控 sink 计为真实 `.app`、供应商或音频设备验收。仍待验证 Live 增量替换/时序、来源摘要、外部/模型记忆写入后的在途即时失效、六向模式切换及真实 App/手机/音频/p95。旧 TaskReporter 的 AppendResult 仍使用控制队列，本轮只隔离新增 NativeReport 负载。

@@ -135,6 +135,9 @@ fn turn() -> ToolContext {
     }
 }
 fn environment() -> ContextRequests {
+    environment_at(None)
+}
+fn environment_at(desktop: Option<agent::DesktopContext>) -> ContextRequests {
     let (requests, incoming): (ContextRequests, _) = async_channel::bounded(1);
     tokio::spawn(async move {
         while let Ok(ContextRequest::Model(reply)) = incoming.recv().await {
@@ -147,11 +150,70 @@ fn environment() -> ContextRequests {
                     conversation_tails: vec![],
                 },
                 vec![],
-                None,
+                desktop.clone(),
             ));
         }
     });
     requests
+}
+
+/// 场景：无项目与桌面总览中的豆包也能保存工作状态、按引用补读共享资料。
+/// 构造：真实请求装配入口、带共享快照的 adapter，两种无项目环境。
+/// 执行：生成实际请求 JSON，检查工具列表和资料消息。
+/// 预期：两种环境均保留 context_read/update；不因此开放单项目派工或终端工具。
+#[tokio::test]
+async fn doubao_personal_and_overview_keep_shared_context_tools() {
+    for desktop in [
+        None,
+        Some(agent::DesktopContext::WorkspaceOverview {
+            workspace_id: "w".into(),
+            workspace_name: "工作空间".into(),
+        }),
+    ] {
+        let runtime = NormaToolRuntime::new(Arc::new(Frames {
+            reads: AtomicUsize::new(0),
+            large: false,
+            escaped: false,
+            invalidated: None,
+        }));
+        let turn = turn();
+        let mut history = vec![json!({"role":"user","content":turn.user_input})];
+        let body = request_with_shared_context(
+            &environment_at(desktop),
+            "",
+            &mut history,
+            Some(&runtime),
+            &turn,
+            true,
+        )
+        .await
+        .unwrap();
+        let names: Vec<_> = body["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|tool| tool["function"]["name"].as_str())
+            .collect();
+        for name in ["context_read", "context_update", "memory_read"] {
+            assert!(
+                names.contains(&name),
+                "共享资料必须配备可用工具 {name}：{names:?}"
+            );
+        }
+        for name in ["assign_agent_task", "send_terminal_input"] {
+            assert!(
+                !names.contains(&name),
+                "共享工具不能扩大项目执行权限：{name}"
+            );
+        }
+        assert!(
+            body["messages"][1]["content"]
+                .as_str()
+                .unwrap()
+                .contains("shared_context_data"),
+            "工具必须与本轮共享资料一起发送"
+        );
+    }
 }
 
 /// 场景：豆包同一回合调用工具后，后续模型请求要读最新共享状态。

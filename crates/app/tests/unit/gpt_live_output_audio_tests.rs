@@ -70,7 +70,7 @@ async fn gpt_live_output_stop_keeps_microphone_and_resume_drops_old_audio() {
         let (commands,controls)=async_channel::bounded(8);
         let (events,visible)=async_channel::bounded(32);
         let cancellation=CancellationToken::new();
-        let worker=tokio::spawn(run_audio_loop(connection,CaptureInput {captured,capture_mode,vad:None},playback,controls,events,cancellation.clone()));
+        let worker=tokio::spawn(run_audio_loop(connection,CaptureInput {captured,capture_mode,vad:None},playback,controls,async_channel::bounded(1).1,events,cancellation.clone()));
         assert_eq!(played.recv().await.expect("首PCM已到sink"),0x11,"初始声音正常");
         commands.send(CallCommand::SetOutputBlocked(true)).await.expect("停止播报");
         output_state(&visible,true).await;
@@ -122,7 +122,7 @@ async fn gpt_live_transcripts_do_not_trigger_keyword_playback_controls() {
         let (_commands, controls) = async_channel::bounded(4);
         let (events, visible) = async_channel::bounded(32);
         let cancellation = CancellationToken::new();
-        let worker = tokio::spawn(run_audio_loop(connection, CaptureInput { captured, capture_mode, vad: None }, playback, controls, events, cancellation.clone()));
+        let worker = tokio::spawn(run_audio_loop(connection, CaptureInput { captured, capture_mode, vad: None }, playback, controls, async_channel::bounded(1).1, events, cancellation.clone()));
         let mut forwarded = Vec::new();
         let mut blocked = Vec::new();
         loop {

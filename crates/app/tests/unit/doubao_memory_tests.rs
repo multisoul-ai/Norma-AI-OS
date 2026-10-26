@@ -14,7 +14,7 @@ use serde_json::json;
 ///   3. 读取最终 HTTP 正文和个人工具列表。
 ///
 /// 预期结果：
-///   - 正断言：本轮保留，个人只声明 4 种记忆工具。
+///   - 正断言：本轮保留，个人只声明 4 种记忆工具和 2 种上下文工具。
 ///   - 负断言：旧长文、旧 tool_call 与旧 tool_result 都不存在。
 #[test]
 fn voice_memory_request_prunes_complete_turns() {
@@ -32,9 +32,23 @@ fn voice_memory_request_prunes_complete_turns() {
     assert!(!messages.contains("旧结果"), "旧工具结果必须随回合删除");
     assert!(!messages.contains("old"), "不应留下孤立tool_call");
     assert!(!messages.contains("旧旧"), "旧 user 长文必须随整个回合删除");
+    let mut names: Vec<_> = body["tools"]
+        .as_array()
+        .expect("工具")
+        .iter()
+        .map(|tool| tool["function"]["name"].as_str().expect("工具名称"))
+        .collect();
+    names.sort();
     assert_eq!(
-        body["tools"].as_array().expect("工具").len(),
-        4,
-        "个人仅限记忆工具"
+        names,
+        [
+            "context_read",
+            "context_update",
+            "memory_list",
+            "memory_read",
+            "memory_search",
+            "memory_write"
+        ],
+        "个人只允许记忆与共享上下文，不能开放项目工具"
     );
 }

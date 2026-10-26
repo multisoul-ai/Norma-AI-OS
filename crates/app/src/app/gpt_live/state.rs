@@ -42,6 +42,7 @@ pub(crate) struct GptLiveVoiceState {
     last_call_generation: Option<u64>,
     cancellation: Option<CancellationToken>,
     pub(super) commands: Option<async_channel::Sender<CallCommand>>,
+    pub(super) reports: Option<async_channel::Sender<super::native_report::NativeReport>>,
     pub(super) task: Option<tokio::task::JoinHandle<()>>,
     pub(super) activation: Option<gpui::Subscription>,
     pub(super) planning: Option<CancellationToken>,
@@ -87,6 +88,7 @@ impl GptLiveVoiceState {
             cancellation.cancel();
         }
         self.commands = None;
+        self.reports = None;
         self.activation = None;
         self.planning = None;
         self.recording_from_shortcut = false;
@@ -313,6 +315,7 @@ impl GptLiveVoiceState {
             cancellation.cancel();
         }
         self.commands = None;
+        self.reports = None;
         self.mute_pending = false;
         self.activation = None;
         self.planning = None;

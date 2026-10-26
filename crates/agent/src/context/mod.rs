@@ -1,7 +1,9 @@
 //! Shared context domain. No database, network, UI, or audio dependencies.
 mod assembly;
 mod gate;
+mod handoff;
 mod history;
+pub use handoff::context_task_handoff;
 mod projection;
 mod read;
 pub use read::context_read_result;

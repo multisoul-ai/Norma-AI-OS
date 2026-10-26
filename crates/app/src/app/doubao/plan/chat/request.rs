@@ -121,11 +121,7 @@ pub(crate) fn bounded_request(
         let mut body = request_body(prompt, history, include_tools);
         if personal {
             if let Some(tools) = body["tools"].as_array_mut() {
-                tools.retain(|tool| {
-                    tool["function"]["name"]
-                        .as_str()
-                        .is_some_and(|name| name.starts_with("memory_"))
-                });
+                tools.retain(|tool| tool["function"]["name"].as_str().is_some_and(personal_tool));
             }
         }
         if body.to_string().len() <= REQUEST_INPUT_BYTES {
@@ -162,7 +158,7 @@ pub(crate) async fn request_with_current_context(
         if let Some(tools) = body["tools"].as_array_mut() {
             tools.retain(|tool| {
                 tool["function"]["name"].as_str().is_some_and(|name| {
-                    name.starts_with("memory_")
+                    personal_tool(name)
                         || matches!(
                             name,
                             "workspace_snapshot"
@@ -177,4 +173,8 @@ pub(crate) async fn request_with_current_context(
         }
     }
     Ok(body)
+}
+
+fn personal_tool(name: &str) -> bool {
+    name.starts_with("memory_") || matches!(name, "context_read" | "context_update")
 }

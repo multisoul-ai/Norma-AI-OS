@@ -1,6 +1,5 @@
 //! Native report delivery. Context fragments are acknowledged before commentary.
 //! The protocol cannot identify which report owns output audio: never claim playback.
-use super::session::CallCommand;
 use crate::app::{shared_context::report::ReportDeliveryHandle, MultisoulApp};
 use agent::context::ReportDelivery;
 use live_voice::{AppendKind, LiveCommand, LiveError};
@@ -230,9 +229,9 @@ impl MultisoulApp {
         );
         delivery.set(ReportDelivery::Queued);
         self.gpt_live
-            .commands
+            .reports
             .as_ref()
-            .is_some_and(|commands| commands.try_send(CallCommand::BrainReport(report)).is_ok())
+            .is_some_and(|reports| reports.try_send(report).is_ok())
     }
 }
 

@@ -132,7 +132,10 @@ impl MultisoulApp {
                 app.release_gpt_live_input(cx);
             }
         }));
+        let (reports, report_input) = async_channel::bounded(8);
+        self.gpt_live.reports = Some(reports);
         let config = startup::CallConfig {
+            reports: report_input,
             shared_context,
             session_id: session_id.clone(),
             input_enabled,

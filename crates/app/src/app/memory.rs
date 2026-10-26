@@ -95,8 +95,7 @@ impl AgentCardAdapter for MemoryAdapter {
                             agent::MemoryScopeAlias::Worktree,
                         ] {
                             if alias == agent::MemoryScopeAlias::Personal || state.has_project {
-                                let snapshot = state.access.settings_snapshot(alias)?;
-                                revisions.push((snapshot.scope().clone(), snapshot.revision()));
+                                revisions.push(state.access.scope_revision(alias)?);
                             }
                         }
                     }
