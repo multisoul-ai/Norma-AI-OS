@@ -29,7 +29,7 @@ fn check_switcher_motion(expanded: bool, interrupt: bool) {
             app.expand_desktop_project_area(area.id.clone(), window, cx);
             app.finish_desktop_zoom(window, cx);
         }
-        // 与 Dock 和 ⌘⇧K 共用真实入口；测试不复制导航状态机。
+        // 与 Dock 和 ⌘⇧↑ 共用真实入口；测试不复制导航状态机。
         app.open_desktop_switcher(window, cx);
         assert!(
             app.desktop_workspace.switcher_open,
@@ -69,7 +69,7 @@ fn check_switcher_motion(expanded: bool, interrupt: bool) {
                 "目录落定不得持续重复动画"
             );
         }
-        // 再次 ⌘⇧K 返回打开切换器前的画布。
+        // 再次 ⌘⇧↑ 返回打开切换器前的画布。
         app.open_desktop_switcher(window, cx);
         assert!(
             !app.desktop_workspace.switcher_open,

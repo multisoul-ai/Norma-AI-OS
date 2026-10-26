@@ -41,7 +41,7 @@ const DEFAULT_SHORTCUT_ENTRIES: &[ShortcutEntry] = &[
         "common.workspace",
         "shortcuts.switch_workspace",
         "shortcuts.switch_canvases_in_the_current_window",
-        Some("cmd-shift-k"),
+        Some("cmd-shift-up"),
     ),
     entry(
         ShortcutCommandId::PreviousWorkspace,
@@ -90,7 +90,7 @@ const DEFAULT_SHORTCUT_ENTRIES: &[ShortcutEntry] = &[
         "common.workspace",
         "shortcuts.all_workspaces",
         "shortcuts.show_the_workspace_directory_in_this_window",
-        Some("cmd-shift-up"),
+        Some("cmd-shift-k"),
     ),
     entry(
         ShortcutCommandId::NewTerminal,

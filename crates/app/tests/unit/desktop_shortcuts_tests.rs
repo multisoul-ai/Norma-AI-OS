@@ -5,7 +5,7 @@ use super::*;
 /// 数据构造：6 个导航动作 = 工作空间前后 2 + 项目前后 2 + 两级总览 2；
 ///   使用空偏好与 Cmd+Shift+J 自定义键位，不涉及时间或 token 预算。
 /// 执行过程：逐一分派默认键位；将下一个项目录制为自定义键并序列化重载；恢复默认。
-/// 预期结果：六个动作正确分派（项目 Cmd+←/→/↑，工作空间 Cmd+Shift+←/→/↑），裸方向键、Ctrl+Right 与旧的 Ctrl/Alt+Cmd 键位均不命中；恢复后自定义键失效。
+/// 预期结果：六个动作正确分派（项目 Cmd+←/→/↑，工作空间 Cmd+Shift+←/→，Cmd+Shift+↑ 为切换工作空间、Cmd+Shift+K 为全部工作空间），裸方向键、Ctrl+Right 与旧的 Ctrl/Alt+Cmd 键位均不命中；恢复后自定义键失效。
 #[test]
 fn desktop_shortcuts_defaults_record_and_restore() {
     let mut state = ShortcutSettingsState::default();
@@ -40,8 +40,13 @@ fn desktop_shortcuts_defaults_record_and_restore() {
     );
     assert_eq!(
         name("cmd-shift-up").as_deref(),
+        Some("\"switch_workspace\""),
+        "⇧⌘↑ 打开工作空间切换器"
+    );
+    assert_eq!(
+        name("cmd-shift-k").as_deref(),
         Some("\"show_workspace_directory\""),
-        "向上返回空间目录"
+        "⇧⌘K 返回空间目录（与切换器键位互换）"
     );
     assert_eq!(command(&state, "left"), None, "不能抢占裸方向键");
     assert_eq!(

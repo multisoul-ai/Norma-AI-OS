@@ -52,7 +52,7 @@
   "chrome.collapse_full_voice_transcript": "Collapse full voice transcript",
   "chrome.show_the_full_voice_transcript": "Show the full voice transcript",
   "chrome.workspaces": "Workspaces",
-  "chrome.switch_workspace_k": "Switch Workspace  ⌘⇧K",
+  "chrome.switch_workspace_k": "Switch Workspace  ⌘⇧↑",
   "chrome.save_issue": "Save issue",
   "chrome.canvas_saved": "Canvas saved",
   "chrome.all_workspaces": "All workspaces",

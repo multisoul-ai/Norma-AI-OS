@@ -126,7 +126,7 @@ fn desktop_navigation_shortcuts_work_from_project_focus() {
             "子项目不能持有命名表单"
         );
     });
-    cx.simulate_keystrokes("cmd-shift-up");
+    cx.simulate_keystrokes("cmd-shift-k");
     cx.run_until_parked();
     host.update(cx, |app, _| {
         assert!(
@@ -196,7 +196,7 @@ fn desktop_navigation_shortcuts_work_from_project_focus() {
             "项目列表仍在当前空间"
         );
     });
-    cx.simulate_keystrokes("cmd-shift-up");
+    cx.simulate_keystrokes("cmd-shift-k");
     cx.run_until_parked();
     host.update_in(cx, |app, window, cx| {
         assert!(

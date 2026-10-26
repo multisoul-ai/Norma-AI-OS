@@ -22,9 +22,9 @@ pub(super) const GROUPS: [CheatGroup; 4] = [
         title_key: "guide.cheat_group_workspace",
         rows: &[
             row(&["⌘N"], "guide.cheat_new_workspace"),
-            row(&["⇧⌘K"], "guide.cheat_workspace_switcher"),
+            row(&["⇧⌘↑"], "guide.cheat_workspace_switcher"),
             row(&["⇧⌘←", "⇧⌘→"], "guide.cheat_workspace_prev_next"),
-            row(&["⇧⌘↑"], "guide.cheat_all_workspaces"),
+            row(&["⇧⌘K"], "guide.cheat_all_workspaces"),
         ],
     },
     CheatGroup {

@@ -52,7 +52,7 @@
   "chrome.collapse_full_voice_transcript": "收起完整语音转写",
   "chrome.show_the_full_voice_transcript": "显示完整语音转写",
   "chrome.workspaces": "工作空间",
-  "chrome.switch_workspace_k": "切换工作空间  ⌘⇧K",
+  "chrome.switch_workspace_k": "切换工作空间  ⌘⇧↑",
   "chrome.save_issue": "保存异常",
   "chrome.canvas_saved": "画布已保存",
   "chrome.all_workspaces": "全部工作空间",
