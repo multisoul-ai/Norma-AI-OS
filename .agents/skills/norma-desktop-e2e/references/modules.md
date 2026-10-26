@@ -25,12 +25,14 @@
 | `workspace` | `workspace-run-overview-agents` | 项目画布里有智能体运行时：假 `claude`（经 ZDOTDIR 放进 PATH）通过真实 Hook 上报 1/3 待办进度，核对右上角胶囊、卡片标题「运行中 1/3」与 ⌘⇧E 打开的概览行（三段进度条、「第 2/3 项」）。不覆盖浅色/深色与减少动态效果。 |
 | `workspace` | `workspace-overview-float` | 运行概览图钉：从抽屉弹出到画布，左栏回到对话，拖动标题后点标签收回。 |
 | `workspace` | `workspace-ideas` | 想法清单：⌘⇧I 打开；手动输入添加（来源 manual）；拖到空白处与拖动中按 Esc 都保持待办；拖到智能体卡片后库里已指派并带真实 task_ref，且松手后流星从左抽屉穿过画布、底部指令栏无飞行（像素差判断）；拖到「新建智能体来完成」与点「指派」走菜单都能派发；不同想法不共用任务引用。 |
+| `workspace` | `workspace-switch-shortcuts` | 切换工作空间 / 全部工作空间键位互换：浅色与深色下 ⇧⌘↑ 打开切换器、⇧⌘K 回到目录，Dock 悬浮提示与 `/help` 速查表显示新键位。键帽符号靠看图清单判定。 |
 | `canvas` | `canvas-drawers`、`canvas-project-drawers`、`canvas-content-tabs`、`canvas-delete-reflow` | 桌面画布外壳：左右抽屉独立开合及拖宽自动收起、悬浮概览折叠、真实项目画布与输入位置；右侧内容标签的恢复、切换与来源移除；删除第一张卡片后其余卡片补进空出的格子。 |
 
 | `content` | `content-workbench`、`content-home` | 右抽屉空态（`content-home`）：胶囊地址栏、六个工具磁贴与快捷键提示、推荐区、未实现入口的“即将支持”提示、文件磁贴打开工作台。工作台（`content-workbench`）：项目文件树、编辑保存、Git 暂存/提交（核对真实索引与 HEAD）、Markdown/HTML、图片缩放、视频播放与隐藏暂停、浏览器导航/会话保留、深浅主题。 |
 | `content` | `content-terminal-path-link` | 终端里 Agent 回复的反引号路径（相对路径、含空格路径）点击后在右抽屉打开 Markdown 预览，并持久化文件标签。 |
 | `settings` | `settings-navigation`、`settings-basic-preferences`、`settings-responsive-keyboard`、`settings-space-wallpapers` | 两级导航、基础设置中的语言与节能、主题切换、太空壁纸选择与预览、持久化与重启恢复，以及键盘和窄窗口。 |
 
+| `settings` | `settings-shortcut-defaults` | 键位互换后 Settings → Keyboard Shortcuts 的默认显示（无覆盖写入、无 Restore），以及既有自定义（切换工作空间 ⌃⌥J、新建浏览器 ⇧⌘K）原样保留且优先生效：⌃⌥J 打开切换器，⇧⌘↑ / ⇧⌘K 不触发默认行为；浅色与深色。 |
 | `settings` | `settings-live-configuration` | GPT-Live模式切换、缺Key禁用、音色持久化、重启恢复和深浅主题。 |
 | `settings` | `settings-orchestration-path-convention` | 编排页“文件路径输出约定”开关：默认开启（未写库），点击后保存 false，再点击保存 true，开关外观随之变化。 |
 | `brain` | `brain-report` | 后台大脑：假 `claude` 通过真实 Hook 上报完成，真实 Claude Code ACP 适配器收到事件，经 `norma brain report` 把汇报交回 App。核对 App 日志里的“大脑已启动”“大脑会话就绪”“大脑播报”和大脑目录里的 `decisions.jsonl`。需要 `NORMA_BRAIN_E2E_ADAPTERS` 指向装有 `@agentclientprotocol/claude-agent-acp` 的目录，并使用本机 Claude Code 的登录。隔离数据里没有 TTS，只验到播报队列。 |

@@ -210,9 +210,17 @@ impl ShortcutSettingsState {
 
     pub(crate) fn command_for_keystroke(&self, keystroke: &Keystroke) -> Option<ShortcutCommandId> {
         let source = idea_assign::canonical_source(keystroke);
-        self.effective.iter().find_map(|entry| {
-            (entry.current_keystroke.as_deref() == Some(source.as_str())).then_some(entry.command)
-        })
+        let matches = |entry: &&EffectiveShortcutEntry| {
+            entry.current_keystroke.as_deref() == Some(source.as_str())
+        };
+        let custom = self
+            .effective
+            .iter()
+            .filter(|entry| entry.modified)
+            .find(matches);
+        custom
+            .or_else(|| self.effective.iter().find(matches))
+            .map(|entry| entry.command)
     }
 
     pub(crate) fn current_keystroke(&self, command: ShortcutCommandId) -> Option<&str> {

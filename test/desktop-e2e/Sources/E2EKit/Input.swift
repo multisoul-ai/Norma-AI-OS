@@ -39,6 +39,19 @@ extension Session {
         try await sendClick { try await clickPoint(local: local, on: frame, requery: nil, pick: nil) }
     }
 
+    /// 把指针移到窗口内某点并停留，供悬浮提示验收；不按下按键。
+    public func hover(local point: CGPoint, on frame: Frame, dwell: UInt64 = 1_200_000_000) async throws {
+        try await activate()
+        let window = try await currentWindow()
+        guard window.id == frame.windowID else {
+            throw E2EError.product("悬浮前窗口已切换，请重新截图定位。")
+        }
+        try await mouse("move", CGPoint(x: point.x - 6, y: point.y))
+        try await Task.sleep(nanoseconds: 80_000_000)
+        try await mouse("move", point)
+        try await Task.sleep(nanoseconds: dwell)
+    }
+
     /// 在本次隔离窗口里连续拖动，供抽屉、卡片等真实指针交互验收。
     public func drag(local start: CGPoint, to end: CGPoint, on frame: Frame) async throws {
         try await activate()
@@ -185,7 +198,7 @@ extension Session {
 /// 把场景使用的 macOS 虚拟键码转成 GPUI 按键描述，例如 Cmd+D → "cmd-d"。
 func keystroke(key: CGKeyCode, modifiers: [CGKeyCode]) throws -> String {
     let names: [CGKeyCode: String] = [
-        0: "a", 1: "s", 2: "d", 9: "v", 11: "b", 14: "e", 17: "t", 18: "1", 19: "2", 20: "3", 29: "0", 34: "i", 37: "l", 40: "k", 46: "m", 36: "enter", 43: ",", 48: "tab", 49: "space",
+        0: "a", 1: "s", 2: "d", 9: "v", 11: "b", 14: "e", 17: "t", 18: "1", 19: "2", 20: "3", 29: "0", 34: "i", 37: "l", 38: "j", 40: "k", 46: "m", 36: "enter", 43: ",", 48: "tab", 49: "space",
         51: "backspace", 53: "escape", 123: "left", 124: "right", 125: "down", 126: "up",
     ]
     let modifierNames: [CGKeyCode: String] = [0x37: "cmd", 0x38: "shift", 0x3A: "alt", 0x3B: "ctrl"]
@@ -209,7 +222,7 @@ func keystroke(key: CGKeyCode, modifiers: [CGKeyCode]) throws -> String {
 /// Characters an AppKit keyDown carries for the virtual key codes scenarios use.
 func keyCharacters(_ key: CGKeyCode) throws -> String {
     let table: [CGKeyCode: String] = [
-        0: "a", 1: "s", 2: "d", 9: "v", 11: "b", 14: "e", 17: "t", 18: "1", 19: "2", 20: "3", 29: "0", 34: "i", 37: "l", 40: "k", 46: "m", 36: "\r", 43: ",", 48: "\t", 49: " ", 51: "\u{7f}", 53: "\u{1b}",
+        0: "a", 1: "s", 2: "d", 9: "v", 11: "b", 14: "e", 17: "t", 18: "1", 19: "2", 20: "3", 29: "0", 34: "i", 37: "l", 38: "j", 40: "k", 46: "m", 36: "\r", 43: ",", 48: "\t", 49: " ", 51: "\u{7f}", 53: "\u{1b}",
         123: "\u{F702}", 124: "\u{F703}", 125: "\u{F701}", 126: "\u{F700}",
     ]
     guard let value = table[key] else {

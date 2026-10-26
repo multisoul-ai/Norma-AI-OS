@@ -11,6 +11,7 @@ public enum SettingsModule {
             SettingsSpaceWallpapers.name,
             SettingsLiveConfiguration.name,
             SettingsShortcutCustomize.name,
+            SettingsShortcutDefaults.name,
             SettingsOrchestrationPathConvention.name,
             SettingsAgentsLibrary.name,
             SettingsDispatchEffects.name,
@@ -30,6 +31,8 @@ public enum SettingsModule {
                 try await SettingsLiveConfiguration.run(session)
             case SettingsShortcutCustomize.name:
                 try await SettingsShortcutCustomize.run(session)
+            case SettingsShortcutDefaults.name:
+                try await SettingsShortcutDefaults.run(session)
             case SettingsOrchestrationPathConvention.name:
                 try await SettingsOrchestrationPathConvention.run(session)
             case SettingsAgentsLibrary.name:

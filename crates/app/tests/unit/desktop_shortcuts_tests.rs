@@ -366,3 +366,59 @@ fn toggle_brain_trace_shortcut_is_configurable_and_conflict_free() {
     )
     .is_ok());
 }
+
+/// 场景：互换默认键位后，旧版本留下的自定义键位若与新默认键位同键，用户的自定义必须优先生效。
+///
+/// 数据构造（互换前的两种合法历史偏好，目录顺序 SwitchWorkspace=#6 < ShowWorkspaceDirectory=#13 < NewTerminal=#14 < NewBrowser=#15）：
+///   甲：用户把 SwitchWorkspace 改为 ⌃⌥J（释放旧默认 ⇧⌘K），再把 NewBrowser 设为 ⇧⌘K（当时空闲，校验通过）。
+///       互换后 ShowWorkspaceDirectory 未改键，新默认 ⇧⌘K 与 NewBrowser 的自定义键同键，且目录顺序更靠前。
+///   乙：用户把 ShowWorkspaceDirectory 改为 ⌃⌥H（释放旧默认 ⇧⌘↑），再把 NewTerminal 设为 ⇧⌘↑。
+///       互换后 SwitchWorkspace 未改键，新默认 ⇧⌘↑ 与 NewTerminal 的自定义键同键，且目录顺序更靠前。
+///
+/// 执行过程：
+///   1. 分别用甲、乙偏好构造 ShortcutSettingsState。
+///   2. 让冲突键位经过 command_for_keystroke 分派。
+///
+/// 预期结果：
+///   - 甲：⇧⌘K 命中用户自定义的 NewBrowser，而不是新默认的 ShowWorkspaceDirectory。
+///   - 乙：⇧⌘↑ 命中用户自定义的 NewTerminal，而不是新默认的 SwitchWorkspace。
+///   - 自定义过的 SwitchWorkspace、ShowWorkspaceDirectory 仍由各自的自定义键触发。
+#[test]
+fn custom_shortcut_wins_over_swapped_default_with_same_keystroke() {
+    let dispatch = |state: &ShortcutSettingsState, key: &str| {
+        state.command_for_keystroke(&Keystroke::parse(key).expect("测试键位合法"))
+    };
+
+    let mut prefs_a = ShortcutPreferences::default();
+    prefs_a.set_override(ShortcutCommandId::SwitchWorkspace, "ctrl-alt-j".to_string());
+    prefs_a.set_override(ShortcutCommandId::NewBrowser, "cmd-shift-k".to_string());
+    let state_a = ShortcutSettingsState::new(prefs_a, None);
+    assert_eq!(
+        dispatch(&state_a, "cmd-shift-k"),
+        Some(ShortcutCommandId::NewBrowser),
+        "⇧⌘K 被用户自定义给 NewBrowser，不应被新默认的 ShowWorkspaceDirectory 抢走"
+    );
+    assert_eq!(
+        dispatch(&state_a, "ctrl-alt-j"),
+        Some(ShortcutCommandId::SwitchWorkspace),
+        "SwitchWorkspace 的自定义键 ⌃⌥J 仍应生效"
+    );
+
+    let mut prefs_b = ShortcutPreferences::default();
+    prefs_b.set_override(
+        ShortcutCommandId::ShowWorkspaceDirectory,
+        "ctrl-alt-h".to_string(),
+    );
+    prefs_b.set_override(ShortcutCommandId::NewTerminal, "cmd-shift-up".to_string());
+    let state_b = ShortcutSettingsState::new(prefs_b, None);
+    assert_eq!(
+        dispatch(&state_b, "cmd-shift-up"),
+        Some(ShortcutCommandId::NewTerminal),
+        "⇧⌘↑ 被用户自定义给 NewTerminal，不应被新默认的 SwitchWorkspace 抢走"
+    );
+    assert_eq!(
+        dispatch(&state_b, "ctrl-alt-h"),
+        Some(ShortcutCommandId::ShowWorkspaceDirectory),
+        "ShowWorkspaceDirectory 的自定义键 ⌃⌥H 仍应生效"
+    );
+}
