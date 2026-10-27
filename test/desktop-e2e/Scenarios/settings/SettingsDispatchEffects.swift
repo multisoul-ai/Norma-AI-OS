@@ -57,7 +57,7 @@ public enum SettingsDispatchEffects {
             try await session.click(matching: ["Fireworks"], pick: .right)
             try await proveEffect(session, contains: "\"voice\":\"fireworks\"")
             try await expectSaved(session)
-            return "style=ribbon、voice=fireworks；交接仍为离子（首次保存时固定）"
+            return "style=ribbon、voice=fireworks；交接不再固定为离子，未单独设置时跟随当前款式"
         }
         try await session.step("播放速度保留，脉冲降级选项已移除") {
             try await session.scroll(xFraction: 0.7, yFraction: 0.5, deltaY: -3000)

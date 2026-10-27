@@ -83,11 +83,11 @@ fn selected_style_defaults_to_meteor_and_follows() {
     assert!(!state.follows_workspace(&project("w1", "a1")));
 }
 
-/// 换款式时保留来源覆盖；第一次保存时把交接固定为离子，避免交接外观被悄悄改掉。
+/// 换款式时保留来源覆盖；第一次保存不再把交接固定为旧的离子，交接跟随当前款式（与语音一致）。
 ///
 /// 数据构造：无设置 → 选 ribbon；已有 {fireworks, voice=plane, handoff=lightning} → 选 ribbon。
 /// 预期结果：
-///   - 正断言：首次保存得到 {ribbon, handoff=ion}；已有设置只改 style，voice/handoff 原样保留。
+///   - 正断言：首次保存得到 {ribbon, handoff=None}；已有设置只改 style，voice/handoff 原样保留。
 ///   - 负断言：首次保存的语音与想法来源仍为 None（跟随）。
 #[test]
 fn picking_a_style_preserves_source_overrides() {
@@ -99,7 +99,7 @@ fn picking_a_style_preserves_source_overrides() {
             style: "ribbon".into(),
             voice: None,
             idea: None,
-            handoff: Some("ion".into())
+            handoff: None
         }
     );
 
@@ -156,7 +156,7 @@ fn source_override_can_be_set_and_cleared() {
 /// 数据构造：工作空间 {ribbon, handoff=ion}；项目无覆盖。
 /// 预期结果：
 ///   - 正断言：关闭跟随得到与工作空间相同的设置；对已有覆盖的项目开启跟随得到 None。
-///   - 负断言：工作空间无设置时关闭跟随得到默认 {meteor, handoff=ion}，不是空值。
+///   - 负断言：工作空间无设置时关闭跟随得到默认 {meteor, handoff=None}，不是空值。
 #[test]
 fn follow_toggle_copies_or_clears() {
     let mut state = EffectsSettingsState::default();
@@ -166,7 +166,7 @@ fn follow_toggle_copies_or_clears() {
             style: "meteor".into(),
             voice: None,
             idea: None,
-            handoff: Some("ion".into())
+            handoff: None
         }
     );
     let base = Pref {
@@ -250,7 +250,7 @@ fn selection_resolves_from_effective_preference() {
             none.style_for(O::CommandDock, "t"),
             none.style_for(O::AgentNode(1), "t")
         ),
-        (S::Meteor, S::Ion)
+        (S::Meteor, S::Meteor)
     );
 }
 
