@@ -112,6 +112,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.settings_panel.codex_hook_status = toggle_status_for(HookTarget::Codex);
+        self.refresh_startup_watch_profiles();
         cx.notify();
     }
 
@@ -122,6 +123,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.settings_panel.claude_hook_status = toggle_status_for(HookTarget::Claude);
+        self.refresh_startup_watch_profiles();
         cx.notify();
     }
 
@@ -132,6 +134,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.settings_panel.opencode_hook_status = toggle_status_for(HookTarget::OpenCode);
+        self.refresh_startup_watch_profiles();
         cx.notify();
     }
 
@@ -142,6 +145,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.settings_panel.cursor_hook_status = toggle_status_for(HookTarget::Cursor);
+        self.refresh_startup_watch_profiles();
         cx.notify();
     }
 
@@ -152,6 +156,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.settings_panel.grok_hook_status = toggle_status_for(HookTarget::Grok);
+        self.refresh_startup_watch_profiles();
         cx.notify();
     }
 }

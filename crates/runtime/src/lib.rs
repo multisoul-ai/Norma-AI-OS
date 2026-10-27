@@ -20,6 +20,7 @@ mod runtime_support;
 pub(crate) mod session_restore;
 pub mod session_snapshot;
 pub mod snapshot;
+pub mod startup_watch;
 mod zcode_launch;
 
 pub use agent_hooks::{

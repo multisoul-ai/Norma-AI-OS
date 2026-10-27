@@ -27,6 +27,7 @@ mod definition_identity;
 mod input;
 mod mobile_cards;
 mod restore;
+mod startup;
 pub use mobile_cards::{
     CodexExternalApproval, MobileAgentLaunch, MobileArchiveRead, MobileClaudeHistoryRead,
     MobileNativeApproval, MobileTerminalInterrupt, NativeAgentLaunch, PreparedMobileAgent,
@@ -46,6 +47,7 @@ pub struct Runtime {
     archive_reads: mobile_cards::ArchiveReads,
     pub(crate) events: RuntimeEvents,
     pub(crate) agent_hook_config: Option<crate::agent_hooks::AgentHookRuntimeConfig>,
+    startup_watchdog: startup::StartupWatchdog,
     terminal_shells: HashMap<NodeId, String>,
     pub(crate) agent_session_bindings: AgentSessionBindings,
     pub(crate) agent_launch_cwds: HashMap<NodeId, PathBuf>,
@@ -75,6 +77,7 @@ impl Runtime {
             archive_reads: mobile_cards::ArchiveReads::default(),
             events: RuntimeEvents::default(),
             agent_hook_config: None,
+            startup_watchdog: startup::StartupWatchdog::default(),
             terminal_shells: HashMap::new(),
             agent_session_bindings: AgentSessionBindings::default(),
             agent_launch_cwds: HashMap::new(),
@@ -127,6 +130,7 @@ impl Runtime {
         self.selection.clear();
         self.focus.exit_to_canvas();
         self.live.clear();
+        self.startup_watchdog.clear_watches();
         self.terminal_shells.clear();
         self.agent_session_bindings.clear();
         self.agent_launch_cwds.clear();
@@ -256,6 +260,7 @@ impl Runtime {
                     .operation_failed(None, "spawn_agent", error.to_string());
             })?;
         self.register_agent_live_node(node_id, live);
+        self.arm_startup_watch(node_id, profile);
         if let Some(cwd) = cwd {
             self.agent_launch_cwds.insert(node_id, cwd);
         }

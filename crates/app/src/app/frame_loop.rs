@@ -222,6 +222,7 @@ impl MultisoulApp {
                     if runtime_changed {
                         app.performance.note_terminal_activity();
                     }
+                    let startup_stalled = app.runtime.tick_startup_stalls(Instant::now());
                     let browser_changed = app.drain_browser_events(cx);
                     let agent_hook_report =
                         app.agent_hook_server.drain_into_runtime(&mut app.runtime);
@@ -292,7 +293,7 @@ impl MultisoulApp {
                         tracing::debug!(?event, "runtime event");
                     }
                     let report = RuntimeFrameReport {
-                        runtime_changed: runtime_changed || browser_changed,
+                        runtime_changed: runtime_changed || browser_changed || startup_stalled,
                         runtime_event_count: runtime_events.len(),
                         agent_hook_changed: agent_hook_report.changed || queue_changed,
                         agent_hook_pending: app.agent_hook_server.has_pending(),

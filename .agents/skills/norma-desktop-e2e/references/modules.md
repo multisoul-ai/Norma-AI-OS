@@ -45,6 +45,7 @@
 | `canvas` | `canvas-presentation-layout` | 固定窗口、六张 Agent 和终端下重复生产 CLI 网页/预览展示，核对抽屉回执、--new、--type、手动重排及重启布局。 |
 
 | `brain` | `brain-claude-quota` | 无网络 Claude 0.94.0 consumer 回放：额度正文和 error 结束；设置重启保留已收到正文及 cancelled 结束；新轮隔离与 App 重开后的持久化面板。不验证服务端真实额度或语音。 |
+| `agent` | `agent-startup-watchdog` | Agent 卡片启动看门狗：HOME 重定向到已安装 hook 的假目录；假 `codex` 有首屏但不发 hook，约 15 秒后标题栏出现「迟迟未收到会话启动信号」徽标，发出 SessionStart 后消失；假 `claude` 启动即发 SessionStart，等过 15 秒也不出现徽标。不覆盖会话恢复路径与浅色/深色。 |
 
 ## 预留模块
 
@@ -53,6 +54,5 @@
 | 模块 | 以后验收什么 |
 | --- | --- |
 | `terminal` | Terminal 节点的创建、输入、输出和焦点进出 |
-| `agent` | Agent 卡片的创建、状态和可见回复 |
 
 导航可以穿过别的模块，例如从工作空间目录打开画布。断言仍只写本模块的后置状态。跨模块的用户流程拆成各自模块里的场景，或在本表新增一行说明它为什么必须跨模块。
