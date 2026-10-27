@@ -23,6 +23,10 @@ pub use mobile_turn_store::{
 pub mod background_agent_dispatch;
 pub mod background_conversation_tail;
 pub mod canvas_store;
+mod context_store;
+pub use context_store::ContextStore;
+mod context_access;
+pub use context_access::ContextAccess;
 pub mod database_paths;
 pub mod desktop_area_status_store;
 pub mod desktop_content_tab_store;

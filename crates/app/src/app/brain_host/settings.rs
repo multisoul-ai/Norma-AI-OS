@@ -172,7 +172,7 @@ impl MultisoulApp {
         restart: bool,
         cx: &mut Context<Self>,
     ) {
-        let silenced = !settings.speak;
+        let silenced = !settings.speak || !settings.enabled;
         self.brain.settings_revision += 1;
         self.brain.settings = Some(settings);
         if restart {
@@ -182,6 +182,7 @@ impl MultisoulApp {
             self.brain.next_start = Instant::now();
         }
         if silenced {
+            self.gpt_live.cancel_brain_reports();
             self.cancel_agent_announcements();
         }
         cx.notify();

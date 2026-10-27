@@ -61,6 +61,7 @@ fn test_force_untracked_clears_typed_pending_before_replacement() {
         app.disable_agent_hook_for_test();
         app.enter_canvas_for_test(workspace.path(), cx);
     });
+    super::prepare_shared_context(&app, cx);
     let created = cx.update(|window, app_cx| {
         app.update(app_cx, |app, _cx| {
             execute_agent_card_command(
@@ -192,6 +193,7 @@ fn test_doubao_replaces_busy_untracked_agent_without_authorization() {
         app.disable_agent_hook_for_test();
         app.enter_canvas_for_test(workspace.path(), cx);
     });
+    super::prepare_shared_context(&app, cx);
     cx.update(|window, app_cx| {
         app.update(app_cx, |app, _| {
             execute_agent_card_command(

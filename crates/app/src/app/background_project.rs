@@ -9,6 +9,7 @@ pub(crate) struct PreparedProject {
     paths: DatabasePaths,
     store: AppStore,
     identity: WorkspaceIdentity,
+    context_scope: Option<norma::protocol::ContextScope>,
     project: ProjectStore,
     settings: StoredBootstrap,
     document: Option<canvas::DocumentSnapshot>,
@@ -60,6 +61,16 @@ impl PreparedProject {
                 .resolve_or_create(&area.root, &workspace::display_name_for_path(&area.root))?;
             // CLI routing belongs to this canvas, even when another canvas uses the same root.
             // Keep the persisted project identity unchanged for legacy/mobile project lookup.
+            let context_scope = norma::protocol::ContextScope {
+                workspace_id: area.desktop_workspace_id.clone(),
+                area_id: area.id.clone(),
+                project: norma::protocol::ContextProject::Project {
+                    project_id: identity.workspace_id.clone(),
+                    worktree: identity.canonical_root.to_string_lossy().into_owned(),
+                },
+                task_id: None,
+                conversation_id: None,
+            };
             identity.workspace_id = format!("desktop:{}:{}", area.desktop_workspace_id, area.id);
             let project = ProjectStore::initialize_for_desktop_area(
                 &paths,
@@ -85,7 +96,10 @@ impl PreparedProject {
                 false,
             )
             .map_err(anyhow::Error::msg)?;
-            Self::finish_load(paths, store, identity, project, definitions_store)
+            let mut prepared =
+                Self::finish_load(paths, store, identity, project, definitions_store)?;
+            prepared.context_scope = Some(context_scope);
+            Ok(prepared)
         };
         load().map_err(|error| error.to_string())
     }
@@ -109,6 +123,7 @@ impl PreparedProject {
             paths,
             store,
             identity,
+            context_scope: None,
             project,
             settings,
             document,
@@ -149,6 +164,7 @@ impl MultisoulApp {
             prepared.sessions,
         ));
         app.workspace_id = Some(prepared.identity.workspace_id);
+        app.shared_context_scope = prepared.context_scope;
         app.workspace_state.current_root = Some(prepared.identity.canonical_root);
         app.screen = super::AppScreen::Canvas;
         if let Some(layout) = prepared.layout {

@@ -22,6 +22,8 @@ impl MultisoulApp {
             return;
         };
         let (mut report, completed) = DoubaoReport::new(announcement.text.clone());
+        report.delivery = announcement.delivery.clone();
+        let delivery = report.delivery.clone();
         report.expires_at = Some(queued_at + super::freshness::ANNOUNCEMENT_TTL);
         self.agent_announcement_playback.generation =
             self.agent_announcement_playback.generation.wrapping_add(1);
@@ -31,7 +33,13 @@ impl MultisoulApp {
             cancellation: report.cancellation.clone(),
             queued_at,
         };
-        let _ = sender.try_send(report);
+        if sender.try_send(report).is_ok() {
+            if let Some(delivery) = &delivery {
+                delivery.set(agent::context::ReportDelivery::Sent);
+            }
+        } else if let Some(delivery) = &delivery {
+            delivery.set(agent::context::ReportDelivery::Failed);
+        }
         cx.spawn(async move |this, cx| {
             let completed = completed.await.is_ok();
             let _ = this.update(cx, |app, cx| {
@@ -57,6 +65,12 @@ impl MultisoulApp {
                 );
                 // 过期而未播的通知不再回队，直接轮到下一条。
                 let fresh = queued_at.elapsed() < super::freshness::ANNOUNCEMENT_TTL;
+                if announcement.delivery.is_some() {
+                    // The audio worker owns terminal evidence; this receiver only frees UI state.
+                    app.start_next_agent_announcement(cx);
+                    cx.notify();
+                    return;
+                }
                 if !completed && fresh {
                     // Pending capacity stays 32: keep this older interrupted report plus at most 31 later reports.
                     app.agent_announcements

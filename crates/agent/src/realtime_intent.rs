@@ -218,12 +218,16 @@ pub fn realtime_command_authorized(command: &AdapterCommand, input: &str) -> boo
         ],
         AdapterCommand::AssignIdea { .. } => &["把", "交给", "派给", "指派", "分给", "assign "],
         AdapterCommand::Memory(_)
+        | AdapterCommand::UpdateWorkingState(_)
+        | AdapterCommand::ReadSharedContext { .. }
+        | AdapterCommand::ContextCheckpoint { .. }
         | AdapterCommand::WorkspaceMemory { .. }
         | AdapterCommand::ListIdeas
         | AdapterCommand::FindAgentTasks { .. } => return false,
         AdapterCommand::WorkspaceSnapshot { .. }
         | AdapterCommand::AssignWorkspaceTask { .. }
         | AdapterCommand::HandoffToBrain { .. }
+        | AdapterCommand::HandoffWithContext { .. }
         | AdapterCommand::OpenWorkspaceArtifact { .. }
         | AdapterCommand::LocateWorkspaceAgent { .. } => &[
             "实现",

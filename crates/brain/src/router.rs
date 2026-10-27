@@ -164,6 +164,12 @@ impl Router {
                 approval_id: None,
                 trigger: Trigger::new(TriggerKind::UserRequest, ""),
             }],
+            BrainEvent::ContextRequest { text, reference } => vec![Action {
+                lane: Lane::Main,
+                text: prompt::context_request(&text, &reference),
+                approval_id: None,
+                trigger: Trigger::new(TriggerKind::UserRequest, ""),
+            }],
             // 目标由 Dispatcher 记录，随后续提示一起发给大脑，这里不触发一轮。
             BrainEvent::Goal { .. } | BrainEvent::ProposalDeclined { .. } => vec![],
         }

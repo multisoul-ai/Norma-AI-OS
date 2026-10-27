@@ -4,6 +4,13 @@ mod document;
 mod import;
 mod library;
 pub(crate) mod persona;
+#[cfg(test)]
+#[path = "../../../tests/unit/norma_memory_publish_tests.rs"]
+mod publish_tests;
+mod revocation;
+#[cfg(test)]
+#[path = "../../../tests/unit/norma_memory_revoke_tests.rs"]
+mod revoke_tests;
 mod view;
 use agent::{MemoryPreferences, MemoryRevision, MemoryScopeAlias, MemorySummary};
 use gpui::{App, AppContext, Context, Entity, EventEmitter, Subscription, Window};
@@ -11,8 +18,8 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use ui::component::input::{InputEvent, InputState};
 
-pub(crate) struct MemoryRecallRevoked;
-impl EventEmitter<MemoryRecallRevoked> for MemoryView {}
+pub(crate) struct MemoryContextInvalidated;
+impl EventEmitter<MemoryContextInvalidated> for MemoryView {}
 
 #[derive(Clone)]
 struct PendingSave {
@@ -206,11 +213,8 @@ impl crate::app::MultisoulApp {
             let paths = self.database_paths.clone();
             let view = cx.new(|cx| MemoryView::new(self.theme, paths, root, window, cx));
             cx.observe(&view, |_, _, cx| cx.notify()).detach();
-            cx.subscribe(&view, |app, _, _: &MemoryRecallRevoked, cx| {
-                if let Some(runtime) = &app.agent_runtime {
-                    let _ = runtime.submit(agent::AgentCommand::CancelLatest);
-                }
-                app.stop_doubao_voice(cx);
+            cx.subscribe(&view, |app, _, _: &MemoryContextInvalidated, cx| {
+                app.revoke_memory_context(cx);
             })
             .detach();
             self.norma_memory = Some(view);

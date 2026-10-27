@@ -13,7 +13,9 @@ use std::io::Read;
 use std::path::PathBuf;
 use std::time::Duration;
 
+mod brain_context;
 mod brain_history;
+mod brain_report;
 pub(crate) mod presentation;
 mod routing;
 mod task_control;
@@ -362,6 +364,53 @@ fn dispatch_request(server_request: NormaServerRequest, cx: &mut App) {
         brain_history::dispatch(request, response, cx);
         return;
     }
+    if matches!(
+        request.command,
+        CardCommand::Brain {
+            op: norma::protocol::BrainOp::Context { .. },
+            ..
+        }
+    ) {
+        brain_context::dispatch(request, response, cx);
+        return;
+    }
+    if matches!(
+        request.command,
+        CardCommand::Brain {
+            op: norma::protocol::BrainOp::Report { .. },
+            ..
+        }
+    ) {
+        brain_report::dispatch(request, response, cx);
+        return;
+    }
+    if matches!(
+        request.command,
+        CardCommand::Brain {
+            op: norma::protocol::BrainOp::Decide {
+                decision: norma::protocol::BrainDecision::Deny,
+                ..
+            },
+            ..
+        }
+    ) {
+        brain_context::dispatch_denied(request, response, cx);
+        return;
+    }
+    if matches!(
+        request.command,
+        CardCommand::Brain {
+            op: norma::protocol::BrainOp::Assign { .. }
+                | norma::protocol::BrainOp::Decide {
+                    decision: norma::protocol::BrainDecision::Allow,
+                    ..
+                },
+            ..
+        }
+    ) {
+        brain_context::dispatch_guarded(request, response, cx);
+        return;
+    }
     if matches!(request.command, CardCommand::DispatchAgentTasks { .. }) {
         spawn_global_dispatch(request, response, cx);
         return;
@@ -397,4 +446,13 @@ fn dispatch_request(server_request: NormaServerRequest, cx: &mut App) {
         Err(error) => routing_error_response(request_id, error),
     };
     let _ = response.send(wire_response);
+}
+
+#[cfg(test)]
+pub(crate) fn dispatch_test_request(
+    request: norma::protocol::WireRequest,
+    response: crossbeam_channel::Sender<WireResponse>,
+    cx: &mut App,
+) {
+    dispatch_request(NormaServerRequest { request, response }, cx);
 }

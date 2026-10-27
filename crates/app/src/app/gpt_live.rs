@@ -2,9 +2,11 @@
 mod backend;
 mod bridge;
 mod capture;
+mod context;
 mod dispatch;
 mod durable;
 mod input;
+mod native_report;
 mod output;
 mod prompt;
 mod reconciliation;
@@ -20,6 +22,10 @@ use crate::{
 use gpui::{Context, Window};
 use session::{CallEnd, CallEvent};
 pub(crate) use state::{GptLiveVoiceState, LiveCallView};
+
+#[cfg(test)]
+#[path = "../../tests/unit/gpt_live_brain_report_tests.rs"]
+mod brain_report_tests;
 
 impl MultisoulApp {
     pub(crate) fn select_desktop_voice_mode(
@@ -103,7 +109,18 @@ impl MultisoulApp {
             .runtime
             .workspace_root()
             .map(|root| root.display().to_string());
+        let shared_context = match self.shared_context_service() {
+            Ok(service) => service,
+            Err(error) => {
+                self.gpt_live.fail(error.to_string());
+                cx.notify();
+                return;
+            }
+        };
+        let context_scope = shared_context.scope().clone();
+        let session_id = format!("live-call-{}", uuid::Uuid::new_v4());
         let (generation, cancellation) = self.gpt_live.begin();
+        self.gpt_live.context_scope = Some(context_scope.clone());
         self.gpt_live.configure_input(
             self.voice_settings.values().gpt_live_interaction_mode()
                 == crate::settings::voice::VoiceInteractionMode::SingleVoiceCommand,
@@ -115,7 +132,12 @@ impl MultisoulApp {
                 app.release_gpt_live_input(cx);
             }
         }));
+        let (reports, report_input) = async_channel::bounded(8);
+        self.gpt_live.reports = Some(reports);
         let config = startup::CallConfig {
+            reports: report_input,
+            shared_context,
+            session_id: session_id.clone(),
             input_enabled,
             account,
             voice: self
@@ -160,10 +182,7 @@ impl MultisoulApp {
         self.gpt_live.commands = Some(commands);
         let (events, updates) = async_channel::bounded(64);
         let (delegated, completions) = async_channel::bounded(16);
-        let mut bridge = bridge::LiveBridge::new(
-            format!("live-call-{}", uuid::Uuid::new_v4()),
-            cancellation.clone(),
-        );
+        let mut bridge = bridge::LiveBridge::new(session_id, cancellation.clone());
         self.gpt_live.bind_timeline(bridge.timeline.clone());
         let (finished, outcome) = tokio::sync::oneshot::channel();
         let runtime = match super::shared_tokio_runtime() {
@@ -220,6 +239,9 @@ impl MultisoulApp {
                         .workspace_root()
                         .map(|root| root.display().to_string())
                         != project
+                        || !app
+                            .shared_context_service()
+                            .is_ok_and(|service| service.scope() == &context_scope)
                         || app.voice_settings.values().desktop_mode() != DesktopVoiceMode::GptLive
                     {
                         app.stop_gpt_live_voice(cx);
@@ -242,7 +264,6 @@ impl MultisoulApp {
                         }
                         if let CallEvent::Delegation(notice) = event {
                             if let Some(reason) = report::admission(
-                                project.as_deref(),
                                 app.voice_settings.gpt_live_delegation_ready(),
                                 app.gpt_live.vad_ready,
                             ) {
@@ -292,7 +313,6 @@ impl MultisoulApp {
                     if reports.is_empty() && app.gpt_live.input_complete() {
                         if let Some(work) = bridge.claim_next() {
                             if let Some(reason) = report::admission(
-                                project.as_deref(),
                                 app.voice_settings.gpt_live_delegation_ready(),
                                 app.gpt_live.vad_ready,
                             ) {
@@ -303,9 +323,10 @@ impl MultisoulApp {
                                     app.gpt_live.fail(error);
                                     return false;
                                 }
-                            } else if let Some(project) = &project {
+                            } else {
                                 let scope = super::agent_runtime::LiveAdapterScope {
-                                    project: project.clone(),
+                                    // Empty means personal/overview: read-only context only.
+                                    project: project.clone().unwrap_or_default(),
                                     generation,
                                     timeline: bridge.timeline.clone(),
                                     snapshot: work.snapshot.clone(),

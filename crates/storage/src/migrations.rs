@@ -29,6 +29,7 @@ fn open_connection(path: &Path) -> StorageResult<Connection> {
     Ok(connection)
 }
 pub fn migrate_app_db(connection: &Connection) -> StorageResult<()> {
+    crate::context_store::migrate(connection)?;
     crate::live_operation_store::migrate(connection)?;
     crate::workspace_chat_store::migrate(connection)?;
     crate::agent_creation_store::migrate(connection)?;

@@ -14,6 +14,7 @@ mod session;
 mod tools;
 
 pub(crate) struct DoubaoReport {
+    pub(crate) delivery: Option<super::shared_context::report::ReportDeliveryHandle>,
     pub(crate) text: String,
     pub(crate) cancellation: CancellationToken,
     pub(crate) completed: tokio::sync::oneshot::Sender<()>,
@@ -30,6 +31,7 @@ impl DoubaoReport {
                 cancellation: CancellationToken::new(),
                 completed,
                 expires_at: None,
+                delivery: None,
             },
             completion,
         )

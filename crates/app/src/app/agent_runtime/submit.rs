@@ -68,13 +68,21 @@ impl MultisoulApp {
             .as_ref()
             .map(|root| root.display().to_string())
             .unwrap_or_default();
-        let must_replace = self
-            .agent_runtime
-            .as_ref()
-            .is_none_or(|runtime| !runtime.matches_project(&project_id));
+        let shared = self
+            .shared_context_service()
+            .map_err(|error| error.to_string())?;
+        let must_replace = self.agent_runtime.as_ref().is_none_or(|runtime| {
+            !runtime.matches_project(&project_id)
+                || runtime.context_scope.as_ref() != Some(shared.scope())
+        });
         if must_replace {
-            let (runtime, adapter, events) =
-                ProjectAgentRuntime::spawn(project_id, config, self.database_paths.clone(), root)?;
+            let (runtime, adapter, events) = ProjectAgentRuntime::spawn(
+                project_id,
+                config,
+                self.database_paths.clone(),
+                root,
+                shared,
+            )?;
             let runtime_id = runtime.id();
             self.dialogue
                 .set_dialogue_stream_cancellation(runtime.dialogue_cancel_handle());

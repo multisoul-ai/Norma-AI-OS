@@ -11,6 +11,10 @@ use std::{
 };
 use storage::{MobileCommandReservation, MobileCommandStore, NewMobileCommand};
 
+#[cfg(test)]
+#[path = "../../tests/unit/mobile_context_prepare_tests.rs"]
+mod context_prepare_tests;
+
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct MobileCommandRequest {

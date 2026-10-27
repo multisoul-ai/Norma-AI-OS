@@ -9,12 +9,16 @@ use ui::i18n::LocalizedText;
 
 impl MultisoulApp {
     pub(super) fn start_doubao_context_requests(
-        &self,
+        &mut self,
         generation: u64,
         project_id: Option<String>,
         cx: &mut Context<Self>,
     ) -> ContextRequests {
         let (requests, incoming): (ContextRequests, _) = async_channel::bounded(1);
+        let scope = self
+            .shared_context_service()
+            .ok()
+            .map(|service| service.scope().clone());
         // 实体级任务：项目转入后台、窗口关闭后仍能回答模型的上下文请求。
         cx.spawn(async move |this, cx| {
             while let Ok(request) = incoming.recv().await {
@@ -25,6 +29,12 @@ impl MultisoulApp {
                             .workspace_root()
                             .map(|root| root.display().to_string());
                         if app.doubao.generation != generation || current_project != project_id {
+                            return None;
+                        }
+                        if scope.as_ref().is_none_or(|scope| {
+                            !app.shared_context_service()
+                                .is_ok_and(|current| current.scope() == scope)
+                        }) {
                             return None;
                         }
                         let canvas =
@@ -82,11 +92,20 @@ impl MultisoulApp {
         self.doubao.blocked = false;
         self.doubao.retry_at = None;
         let generation = self.doubao.generation;
+        let shared = match self.shared_context_service() {
+            Ok(shared) => shared,
+            Err(error) => {
+                self.doubao.status = DoubaoStatus::Disconnected(error.to_string().into());
+                cx.notify();
+                return false;
+            }
+        };
         let tool_adapter = crate::app::agent_runtime::start_doubao_adapter(
             project_id.clone().unwrap_or_default(),
             generation,
             self.database_paths.clone(),
             self.workspace_state.current_root.clone(),
+            shared,
             window,
             cx,
         );

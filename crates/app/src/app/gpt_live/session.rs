@@ -123,6 +123,7 @@ pub(super) async fn run_audio_loop(
     capture: CaptureInput,
     playback: crate::app::doubao::playback::PlaybackQueue,
     commands: async_channel::Receiver<CallCommand>,
+    report_input: async_channel::Receiver<super::native_report::NativeReport>,
     events: async_channel::Sender<CallEvent>,
     cancellation: tokio_util::sync::CancellationToken,
 ) -> CallEnd {
@@ -136,6 +137,8 @@ pub(super) async fn run_audio_loop(
     let uploaded = control.observe_uploaded_audio();
     let mut microphone = std::collections::VecDeque::new();
     let mut output_blocked = false;
+    let mut reports = super::native_report::NativeReports::default();
+    let mut report_input_open = true;
     let mut mode = *capture_mode.borrow();
     let mut input_enabled = !mode.muted;
     let mut user_muted = false;
@@ -184,6 +187,12 @@ pub(super) async fn run_audio_loop(
                         }
                         CallCommand::SetOutputBlocked(blocked) => {
                             output_blocked = blocked;
+                            if blocked {
+                                reports.clear();
+                                // Controls have priority over the separate report ingress.
+                                // Discard backlog here, before a queued unblock can run.
+                                while let Ok(report) = report_input.try_recv() { drop(report); }
+                            }
                             super::output::set_blocked(blocked, &playback, &control, &events)?;
                             continue;
                         }
@@ -199,6 +208,7 @@ pub(super) async fn run_audio_loop(
                     capture_mode.send_replace(mode);
                 }
                 _ = clock.tick() => {
+                    reports.pump(|command, scope| control.send_scoped_append(command, scope))?;
                     if user_muted || microphone.is_empty() { control.send_silence(320)?; submitted_samples += 320; }
                     else {
                         let mut bytes = vec![0;640];
@@ -247,17 +257,32 @@ pub(super) async fn run_audio_loop(
                         send_event(CallEvent::Transcript(part))?;
                     },
                     Some(live_voice::LiveEvent::Closed { .. }) | None => return Ok(()),
-                    Some(live_voice::LiveEvent::Acknowledged {client_event_id, kind:live_voice::Acknowledgement::Appended(_)} ) => send_event(CallEvent::AppendAcknowledged(client_event_id))?,
+                    Some(live_voice::LiveEvent::Acknowledged {client_event_id, kind:live_voice::Acknowledgement::Appended(kind)} ) => {
+                        reports.acknowledge(&client_event_id, kind);
+                        send_event(CallEvent::AppendAcknowledged(client_event_id))?;
+                    },
                     Some(live_voice::LiveEvent::Rejected { .. }) => return Err("Live service rejected a session command".into()),
                     _ => {},
                 },
-
+                report = report_input.recv(), if report_input_open => match report {
+                    Ok(report) => { if !output_blocked { reports.push(report); } }
+                    Err(_) => report_input_open = false,
+                },
             }
         }
     }.await;
     // Stop local sound immediately; final cloud usage may take up to the protocol close deadline.
     let requested_close = cancellation.is_cancelled();
     cancellation.cancel();
+    reports.clear();
+    report_input.close();
+    while let Ok(report) = report_input.try_recv() {
+        drop(report);
+    }
+    commands.close();
+    while let Ok(command) = commands.try_recv() {
+        drop(command);
+    }
     playback.end();
     control.close();
     let outcome = connection.finish().await;
@@ -272,3 +297,7 @@ pub(super) async fn run_audio_loop(
 #[cfg(test)]
 #[path = "../../../tests/unit/gpt_live_output_audio_tests.rs"]
 mod output_audio_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/gpt_live_native_report_audio_tests.rs"]
+mod native_report_audio_tests;

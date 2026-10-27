@@ -6,6 +6,7 @@ mod activity_view;
 mod approvals;
 mod away;
 mod config;
+mod context;
 mod history;
 mod lifecycle;
 mod log;
@@ -397,7 +398,7 @@ impl MultisoulApp {
             tracked.agent,
             approvals::summarize(&tracked.subject)
         );
-        self.speak_brain_report(text, norma::protocol::ReportPriority::Now, cx);
+        self.speak_brain_confirmation_report(text, format!("approval:{id}"), reason.to_owned(), cx);
     }
 
     /// 判断超过 60 秒还没结论，按设置用语音提醒一次；概览里的“Norma 判断中”始终可见。

@@ -1,5 +1,5 @@
 use super::operation::non_blank_task;
-use crate::protocol::{BrainDecision, BrainOp, CardCommand, ReportPriority};
+use crate::protocol::{BrainDecision, BrainOp, CardCommand, ContextRef, ReportPriority};
 use clap::{Args, Subcommand, ValueEnum};
 
 #[derive(Debug, Args)]
@@ -13,12 +13,20 @@ pub(super) struct BrainArgs {
 
 #[derive(Debug, Subcommand)]
 enum BrainCliCommand {
+    /// 按宿主提供的 JSON 引用补读共享上下文，不执行动作。
+    Context {
+        #[arg(long = "ref", value_parser = parse_context_ref)]
+        reference: ContextRef,
+    },
     /// 请求播报一段话。
     Report {
         #[arg(long)]
         text: String,
         #[arg(long, value_enum, default_value_t = PriorityValue::Normal)]
         priority: PriorityValue,
+        /// 宿主返回的来源 JSON 引用，可重复指定；不填表示来源关联不可用。
+        #[arg(long = "context-ref", value_parser = parse_context_ref)]
+        sources: Vec<ContextRef>,
     },
     /// 列出等待处理的审批。
     Approvals,
@@ -79,8 +87,14 @@ enum DecisionValue {
 impl BrainArgs {
     pub(super) fn into_command(self) -> CardCommand {
         let op = match self.command {
-            BrainCliCommand::Report { text, priority } => BrainOp::Report {
+            BrainCliCommand::Context { reference } => BrainOp::Context { reference },
+            BrainCliCommand::Report {
                 text,
+                priority,
+                sources,
+            } => BrainOp::Report {
+                text,
+                sources,
                 priority: match priority {
                     PriorityValue::Normal => ReportPriority::Normal,
                     PriorityValue::Now => ReportPriority::Now,
@@ -123,4 +137,16 @@ impl BrainArgs {
             .unwrap_or_default();
         CardCommand::Brain { token, op }
     }
+}
+
+fn parse_context_ref(value: &str) -> Result<ContextRef, String> {
+    let reference: ContextRef =
+        serde_json::from_str(value).map_err(|_| "无效的上下文引用 JSON".to_owned())?;
+    if reference.event_id.trim().is_empty()
+        || reference.revision == 0
+        || !reference.scope.is_valid()
+    {
+        return Err("上下文引用缺少有效身份或版本".into());
+    }
+    Ok(reference)
 }
