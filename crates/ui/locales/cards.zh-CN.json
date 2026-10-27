@@ -18,6 +18,7 @@
   "cards.tool": "工具",
   "cards.approval": "待批准",
   "cards.ended": "已结束",
+  "cards.agent.startup_slow": "迟迟未收到会话启动信号，可能是网络问题",
   "cards.ego_disconnected": "Ego 已断开",
   "cards.canvas_preview_interact_in_ego": "画布预览 · 在 Ego 中交互",
   "cards.open_ego": "打开 Ego",

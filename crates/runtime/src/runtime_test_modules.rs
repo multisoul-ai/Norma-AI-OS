@@ -22,6 +22,8 @@ mod preview_tests;
 mod runtime_test_helpers;
 #[path = "../tests/unit/runtime_scroll_tests.rs"]
 mod scroll_tests;
+#[path = "../tests/unit/startup_unarmed_tests.rs"]
+mod startup_unarmed_tests;
 #[path = "../tests/unit/runtime_storage_tests.rs"]
 mod storage_tests;
 #[path = "../tests/unit/runtime_tests.rs"]

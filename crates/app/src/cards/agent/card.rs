@@ -51,7 +51,12 @@ impl Card for AgentCard {
             title,
             title_detail,
             refreshable: false,
-            task_badge: agent_task_badge(state, progress, preparing),
+            task_badge: chrome_task_badge(
+                state,
+                progress,
+                preparing,
+                runtime.agent_startup_stalled(node.id),
+            ),
         }
     }
 
@@ -105,6 +110,20 @@ fn single_line_task_title(title: &str) -> Option<String> {
         single_line.push_str(word);
     }
     Some(single_line)
+}
+
+fn chrome_task_badge(
+    state: Option<AgentTaskState>,
+    progress: Option<TaskProgress>,
+    preparing: bool,
+    startup_stalled: bool,
+) -> Option<CardChromeTaskBadge> {
+    agent_task_badge(state, progress, preparing).or_else(|| {
+        startup_stalled.then(|| CardChromeTaskBadge {
+            label: ui::i18n::text("cards.agent.startup_slow").to_string(),
+            tone: CardChromeTaskTone::Warning,
+        })
+    })
 }
 
 fn agent_task_badge(
@@ -197,3 +216,7 @@ mod tests;
 #[cfg(test)]
 #[path = "../../../tests/unit/cards/agent/breathing_tests.rs"]
 mod breathing_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/cards/agent/startup_badge_tests.rs"]
+mod startup_badge_tests;
