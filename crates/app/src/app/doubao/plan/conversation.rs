@@ -124,17 +124,31 @@ where
                 if let Ok(report) = report {
                     // 交给会话后仍可能等用户说完；过期的通知直接丢弃，不迟到播报。
                     if report.cancellation.is_cancelled()
-                        || report.expires_at.is_some_and(|expires_at| std::time::Instant::now() >= expires_at) { continue; }
+                        || report.expires_at.is_some_and(|expires_at| std::time::Instant::now() >= expires_at) {
+                        if let Some(delivery) = &report.delivery { delivery.cancel(); }
+                        continue;
+                    }
                     reply_id = reply_id.wrapping_add(1);
                     reply_active = true;
                     let _ = events.send(DoubaoStatus::Speaking).await;
                     let id = reply_id;
+                    let delivery = report.delivery.clone();
+                    if let Some(delivery) = &delivery {
+                        if let Err(error) = playback.track_report(playback.generation(), delivery.clone()) {
+                            delivery.set(agent::context::ReportDelivery::Failed);
+                            break Err(error);
+                        }
+                    }
                     let token = report.cancellation;
                     reply_token = Some(token.clone());
                     let reply = Arc::clone(&reply);
                     let done = done_tx.clone();
                     tokio::spawn(async move {
                         let result = reply(Reply::Report(report.text), token.clone()).await;
+                        if let Some(delivery) = &delivery {
+                            // Cancellation is classified by the audio worker after hardware stop.
+                            if result.is_err() && !token.is_cancelled() { delivery.set(agent::context::ReportDelivery::Failed); }
+                        }
                         if result.is_ok() && !token.is_cancelled() {
                             let _ = report.completed.send(());
                         }

@@ -105,8 +105,8 @@ fn test_random_style_is_deterministic_and_covers_all_drawn_styles() {
 ///
 /// 数据构造：Dock 起点与 AgentNode 起点各 1 条 effect。
 /// 预期结果：
-///   - 正断言：Dock → Meteor，Agent → Ion。
-///   - 负断言：离子飞行 480ms 时已进入命中；流星同一时刻仍在飞行。
+///   - 正断言：Dock → Meteor，Agent → Meteor。
+///   - 负断言：交接不再是 480ms 即命中的离子。
 #[test]
 fn test_default_styles_keep_existing_behavior() {
     let mut store = MotionStore::new(false);
@@ -121,7 +121,11 @@ fn test_default_styles_keep_existing_behavior() {
     store.tick(Duration::from_millis(50));
     let shown = store.dispatch_receipt_presentations();
     assert_eq!(shown[0].style, DispatchEffectStyle::Meteor, "语音默认流星");
-    assert_eq!(shown[1].style, DispatchEffectStyle::Ion, "交接默认离子");
+    assert_eq!(
+        shown[1].style,
+        DispatchEffectStyle::Meteor,
+        "交接默认与语音一致"
+    );
     for _ in 0..10 {
         store.tick(Duration::from_millis(48));
     }
@@ -133,8 +137,8 @@ fn test_default_styles_keep_existing_behavior() {
     );
     assert_eq!(
         shown[1].phase,
-        DispatchEffectPhase::Impact,
-        "离子 480ms 已命中"
+        DispatchEffectPhase::Flight,
+        "交接与语音同为流星，480ms 仍在飞行"
     );
 }
 
@@ -238,12 +242,12 @@ const DOCK: DispatchVisualOrigin = DispatchVisualOrigin::CommandDock;
 const IDEA: DispatchVisualOrigin = DispatchVisualOrigin::IdeaRow { x: 1, y: 2 };
 const AGENT: DispatchVisualOrigin = DispatchVisualOrigin::AgentNode(9);
 
-/// 没有任何设置时沿用现状：语音和想法是流星，交接是离子。
+/// 没有任何设置时沿用现状：语音、想法和交接都是流星。
 ///
 /// 数据构造：默认选择（未设置）× 3 种起点 = 3 个结果。
 /// 预期结果：
-///   - 正断言：Dock/IdeaRow → Meteor，AgentNode → Ion。
-///   - 负断言：交接不会因为默认流星而变成流星。
+///   - 正断言：Dock/IdeaRow → Meteor，AgentNode → Meteor。
+///   - 负断言：交接不再是旧的离子。
 #[test]
 fn test_selection_default_keeps_existing_behavior() {
     let selection = StyleSelection::default();
@@ -251,8 +255,8 @@ fn test_selection_default_keeps_existing_behavior() {
     assert_eq!(selection.style_for(IDEA, "t"), DispatchEffectStyle::Meteor);
     assert_eq!(
         selection.style_for(AGENT, "t"),
-        DispatchEffectStyle::Ion,
-        "交接默认仍是离子"
+        DispatchEffectStyle::Meteor,
+        "交接默认与语音一致"
     );
 }
 
@@ -260,7 +264,7 @@ fn test_selection_default_keeps_existing_behavior() {
 ///
 /// 数据构造：base=ribbon；覆盖组合 4 组 × 3 个来源 = 12 个断言。
 /// 预期结果：
-///   - 正断言：无覆盖时三者都是 ribbon；voice=fireworks 只改语音；handoff=ion 只改交接；idea=lightning 只改想法。
+///   - 正断言：无覆盖时三者都是 ribbon；voice=fireworks 改语音并被未单独设置的交接跟随；handoff=ion 只改交接；idea=lightning 只改想法。
 ///   - 负断言：未被覆盖的来源不受影响。
 #[test]
 fn test_selection_follow_and_source_overrides() {
@@ -269,7 +273,7 @@ fn test_selection_follow_and_source_overrides() {
         (pref("ribbon", None, None, None), [Ribbon, Ribbon, Ribbon]),
         (
             pref("ribbon", Some("fireworks"), None, None),
-            [Fireworks, Ribbon, Ribbon],
+            [Fireworks, Ribbon, Fireworks],
         ),
         (
             pref("ribbon", None, None, Some("ion")),
@@ -353,7 +357,7 @@ fn test_motion_store_resolves_style_at_spawn() {
 /// 数据构造：偏好 style="pulse"，语音覆盖 "pulse"。
 /// 执行过程：解析旧偏好并读取语音与交接来源的实际款式。
 /// 预期结果：
-///   - 正断言：选择等同默认（语音流星、交接离子）；from_id("pulse") 也不再解析出可绘制款式。
+///   - 正断言：选择等同默认（语音与交接均为流星）；from_id("pulse") 也不再解析出可绘制款式。
 ///   - 负断言：不会变成 Pulse。
 #[test]
 fn test_pulse_is_not_user_selectable() {
@@ -370,8 +374,8 @@ fn test_pulse_is_not_user_selectable() {
     );
     assert_eq!(
         selection.style_for(AGENT, "t"),
-        DispatchEffectStyle::Ion,
-        "交接应恢复原有离子"
+        DispatchEffectStyle::Meteor,
+        "交接应跟随语音流星"
     );
     assert_eq!(
         DispatchEffectStyle::from_id("pulse"),

@@ -322,6 +322,8 @@ impl MemoryView {
             edit,
         });
         self.pending_save = Some(submission.clone());
+        let database = self.paths.app_db_path().to_owned();
+        let app_cx = cx.to_async();
         self.busy = true;
         self.saving = true;
         self.status = ui::i18n::LocalizedText::new("norma.saving");
@@ -344,7 +346,17 @@ impl MemoryView {
         });
         cx.spawn_in(window, async move |this, cx| {
             let result = task.await;
+            // Native contexts cannot retract already-delivered facts. A missing
+            // receipt may follow a committed publication, so retire those too.
+            let invalidated = result.as_ref().is_ok_and(|output| output.saved)
+                || matches!(&result, Err(agent::AdapterError::Unknown(_)));
+            if invalidated {
+                let _ = app_cx.update(|cx| revocation::revoke_for_database(&database, cx));
+            }
             let _ = this.update_in(cx, |view, window, cx| {
+                if invalidated {
+                    cx.emit(MemoryContextInvalidated);
+                }
                 view.busy = false;
                 view.saving = false;
                 match result {
@@ -392,6 +404,7 @@ impl MemoryView {
         }
 
         let service = self.service.clone();
+        let database = self.paths.app_db_path().to_owned();
         self.busy = true;
         let task = cx.background_executor().spawn(async move {
             let mut access = service
@@ -406,13 +419,16 @@ impl MemoryView {
         });
         cx.spawn(async move |this, cx| {
             let result = task.await;
+            if result.is_ok() && recall && !value {
+                let _ = cx.update(|cx| revocation::revoke_for_database(&database, cx));
+            }
             let _ = this.update(cx, |view, cx| {
                 view.busy = false;
                 match result {
                     Ok(preferences) => {
                         view.preferences = preferences;
                         if recall && !value {
-                            cx.emit(MemoryRecallRevoked);
+                            cx.emit(MemoryContextInvalidated);
                         }
                         view.error = false;
                         view.status = ui::i18n::LocalizedText::new("norma.settings_saved");

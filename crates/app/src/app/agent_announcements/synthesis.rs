@@ -26,6 +26,7 @@ impl AgentAnnouncement {
             agent_name: agent_name.to_string(),
             outcome_word,
             report: false,
+            delivery: None,
         }
     }
 
@@ -41,6 +42,7 @@ impl AgentAnnouncement {
             outcome_word: outcome_word.to_string(),
             text,
             report: false,
+            delivery: None,
         }
     }
 }

@@ -194,6 +194,8 @@ impl MultisoulApp {
             agent_hook_server,
             workspace_identity_store,
             workspace_id: None,
+            shared_context_scope: None,
+            shared_context: None,
             workspace_route_id: None,
             agent_announcements: super::agent_announcements::AgentAnnouncements::default(),
             agent_announcement_playback,

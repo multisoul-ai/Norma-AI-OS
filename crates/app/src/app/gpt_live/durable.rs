@@ -79,6 +79,12 @@ impl LiveDurableAdapter {
 }
 
 impl AgentCardAdapter for LiveDurableAdapter {
+    fn shared_context<'a>(
+        &'a self,
+        context: &'a ToolContext,
+    ) -> BoxFuture<'a, Result<Option<agent::context::ContextFrame>, AdapterError>> {
+        self.delegate.shared_context(context)
+    }
     fn memory_context(
         &self,
     ) -> BoxFuture<'_, Result<Option<agent::MemorySessionContext>, AdapterError>> {
@@ -108,6 +114,12 @@ impl AgentCardAdapter for LiveDurableAdapter {
                     observed.push(result.clone());
                 }
                 return result;
+            }
+            // Personal/overview calls are verification-only: refuse before the ledger or effects flag.
+            if self.scope.project.is_empty() {
+                return Err(AdapterError::Rejected(
+                    "请先打开项目。个人／总览实时通话只能核验共享状态，未执行任何操作".into(),
+                ));
             }
             let operation = operation_step(context)?;
             self.effects.store(true, Ordering::Release);

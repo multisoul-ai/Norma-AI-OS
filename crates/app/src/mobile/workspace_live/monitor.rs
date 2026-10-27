@@ -114,6 +114,14 @@ pub(super) fn monitor_result(
     Ok(receiver)
 }
 
+pub(super) fn handoff_reply(
+    state: &agent::context::WorkingState,
+    text: &str,
+) -> Result<String, agent::AdapterError> {
+    agent::context::context_task_handoff(text, &[("source_and_destination", state)])
+        .map_err(|error| agent::AdapterError::Rejected(error.into()))
+}
+
 /// Replies use the existing card's acknowledged turn, never the previous task's completion.
 pub(super) fn reply_to_card(
     database: PathBuf,
@@ -130,9 +138,24 @@ pub(super) fn reply_to_card(
         .into_iter()
         .find(|c| c.node_id == target.node_id)
         .ok_or("target_missing")?;
-    let waiting = session
-        .update(cx, |app, cx| app.send_workspace_chat(&card, text, cx))
-        .map_err(str::to_owned)?;
+    let waiting = session.update(cx, |app, cx| {
+        let service = app
+            .shared_context_service()
+            .map_err(|error| error.to_string())?;
+        // The card receives the same goal/constraint handoff as desktop replies; the
+        // operation id and permission checks stay keyed on the user's original text.
+        service
+            .execute_with_state(
+                agent::context::ContextOperation::DispatchTask,
+                None,
+                |state| {
+                    let text = handoff_reply(state, &text)?;
+                    Ok(app.send_workspace_chat(&card, text, cx))
+                },
+            )
+            .map_err(|error| error.to_string())?
+            .map_err(str::to_owned)
+    })?;
     let workspace = session
         .read(cx)
         .workspace_id

@@ -68,6 +68,8 @@ fn finished_prompts_require_a_next_step_verdict() {
         assert!(text.contains("没有下一步："), "{text}");
         assert!(text.contains("不会打扰用户"), "{text}");
         assert!(text.contains("不代表以后不要"), "{text}");
+        assert!(text.contains("刚完成任务的那个 Agent 本人"), "{text}");
+        assert!(!text.contains("优先选有卡片且空闲"), "{text}");
         assert!(!text.contains("只回复“收到”"), "{text}");
     }
 }

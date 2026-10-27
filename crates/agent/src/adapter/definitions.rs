@@ -208,6 +208,7 @@ pub fn norma_tool_definitions() -> Vec<ToolDefinition> {
             &["request"],
         ),
     ));
+    tools.extend(crate::context::tools::definitions());
     tools
 }
 

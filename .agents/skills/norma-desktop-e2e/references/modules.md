@@ -25,6 +25,7 @@
 | `workspace` | `workspace-run-overview-agents` | 项目画布里有智能体运行时：假 `claude`（经 ZDOTDIR 放进 PATH）通过真实 Hook 上报 1/3 待办进度，核对右上角胶囊、卡片标题「运行中 1/3」与 ⌘⇧E 打开的概览行（三段进度条、「第 2/3 项」）。不覆盖浅色/深色与减少动态效果。 |
 | `workspace` | `workspace-overview-float` | 运行概览图钉：从抽屉弹出到画布，左栏回到对话，拖动标题后点标签收回。 |
 | `workspace` | `workspace-ideas` | 想法清单：⌘⇧I 打开；手动输入添加（来源 manual）；拖到空白处与拖动中按 Esc 都保持待办；拖到智能体卡片后库里已指派并带真实 task_ref，且松手后流星从左抽屉穿过画布、底部指令栏无飞行（像素差判断）；拖到「新建智能体来完成」与点「指派」走菜单都能派发；不同想法不共用任务引用。 |
+| `workspace` | `workspace-handoff-effects` | Agent 交接（`agent task assign`，即 `/ask-norma`）的派发特效：源卡片经生产 CLI 派给目标卡片；未自定义→流星，只设语音→交接跟随语音（烟花），显式设交接→保留覆盖（闪电）；浅色（亮壁纸）与深色各一轮；核对落点、起点、时长区间与结束无残留。 |
 | `workspace` | `workspace-switch-shortcuts` | 切换工作空间 / 全部工作空间键位互换：浅色与深色下 ⇧⌘↑ 打开切换器、⇧⌘K 回到目录，Dock 悬浮提示与 `/help` 速查表显示新键位。键帽符号靠看图清单判定。 |
 | `canvas` | `canvas-drawers`、`canvas-project-drawers`、`canvas-content-tabs`、`canvas-delete-reflow` | 桌面画布外壳：左右抽屉独立开合及拖宽自动收起、悬浮概览折叠、真实项目画布与输入位置；右侧内容标签的恢复、切换与来源移除；删除第一张卡片后其余卡片补进空出的格子。 |
 

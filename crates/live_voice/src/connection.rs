@@ -33,6 +33,12 @@ struct AudioFrame {
     _permit: OwnedSemaphorePermit,
 }
 
+#[derive(Debug)]
+struct CommandFrame {
+    message: String,
+    scope: Option<CancellationToken>,
+}
+
 /// Local transport observation, not a service acknowledgement or a playback receipt.
 pub struct UploadedAudio {
     pub pcm: PcmAudioChunk,
@@ -67,7 +73,7 @@ struct EventFrame {
 #[derive(Clone)]
 pub struct LiveControl {
     audio: mpsc::Sender<AudioFrame>,
-    commands: mpsc::Sender<String>,
+    commands: mpsc::Sender<CommandFrame>,
     session: Arc<Mutex<LiveSession>>,
     budget: Arc<Semaphore>,
     input_gate: Arc<Mutex<InputGate>>,
@@ -75,6 +81,18 @@ pub struct LiveControl {
 }
 
 impl LiveControl {
+    /// Admit an append owned by a narrower lifecycle than the call.
+    pub fn send_scoped_append(
+        &self,
+        command: &LiveCommand,
+        scope: &CancellationToken,
+    ) -> Result<(), LiveError> {
+        if !matches!(command, LiveCommand::Append { .. }) {
+            return Err(LiveError::InvalidCommand);
+        }
+        self.enqueue_command(command, Some(scope.clone()))
+    }
+
     /// Subscribe before sending PCM. The sole consumer must drain these bounded observations.
     pub fn observe_uploaded_audio(&self) -> Result<mpsc::Receiver<UploadedAudio>, LiveError> {
         let mut gate = self.input_gate.lock().expect("Live input gate lock");
@@ -87,17 +105,33 @@ impl LiveControl {
     }
 
     pub fn send_command(&self, command: &LiveCommand) -> Result<(), LiveError> {
+        self.enqueue_command(command, None)
+    }
+
+    fn enqueue_command(
+        &self,
+        command: &LiveCommand,
+        scope: Option<CancellationToken>,
+    ) -> Result<(), LiveError> {
         if self.cancellation.is_cancelled() {
             return Err(LiveError::NotReady);
         }
+        if scope.as_ref().is_some_and(CancellationToken::is_cancelled) {
+            return Err(LiveError::Cancelled);
+        }
         let mut gate = self.input_gate.lock().expect("Live input gate lock");
+        // All command admissions share this lock. Optional reports cannot consume
+        // the last four slots needed by mute/output/delegation controls.
+        if scope.is_some() && self.commands.capacity() <= 4 {
+            return Err(LiveError::Capacity);
+        }
         let message = self
             .session
             .lock()
             .expect("Live session lock")
             .command_message(command)?;
         self.commands
-            .try_send(message)
+            .try_send(CommandFrame { message, scope })
             .map_err(|_| LiveError::Capacity)?;
         if let LiveCommand::Mute { muted, .. } = command {
             gate.muted = *muted;
@@ -323,7 +357,7 @@ async fn run(
     socket: openai::Socket,
     session: Arc<Mutex<LiveSession>>,
     input: mpsc::Receiver<AudioFrame>,
-    commands: mpsc::Receiver<String>,
+    commands: mpsc::Receiver<CommandFrame>,
     output: mpsc::Sender<EventFrame>,
     input_gate: Arc<Mutex<InputGate>>,
     cancellation: CancellationToken,
@@ -401,3 +435,7 @@ async fn run(
 #[cfg(test)]
 #[path = "../tests/unit/upload_shutdown.rs"]
 mod upload_shutdown;
+
+#[cfg(test)]
+#[path = "../tests/unit/scoped_write.rs"]
+mod scoped_write;

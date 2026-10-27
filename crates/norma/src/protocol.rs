@@ -2,11 +2,13 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 mod brain;
+mod context;
 mod ego;
 mod errors;
 mod workspace;
 
 pub use brain::{BrainDecision, BrainOp, ReportPriority};
+pub use context::*;
 pub use ego::{
     EgoCaptureMode, EgoCardStatus, EgoCommand, EgoCommandFailure, EgoErrorCode, EgoOwnership,
     EgoPhase, EgoPresentationDisposition,

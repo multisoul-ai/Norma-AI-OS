@@ -138,7 +138,7 @@ async fn live_audio_loop_streams_both_directions_and_releases_playback() {
         let (capture_mode,_mode)=tokio::sync::watch::channel(CaptureMode{generation:0,muted:false});
         let cancellation=CancellationToken::new();
         let capture = CaptureInput {captured,capture_mode,vad:Some(voice_input::SherpaVadClient::deterministic_for_tests())};
-        let worker=tokio::spawn(run_audio_loop(connection,capture,playback,controls,events,cancellation.clone()));
+        let worker=tokio::spawn(run_audio_loop(connection,capture,playback,controls,async_channel::bounded(1).1,events,cancellation.clone()));
         verified.await.expect("真实WS双工");
         played.recv().await.expect("PCM已真正进入sink");
         cancellation.cancel();
@@ -247,6 +247,7 @@ async fn live_audio_due_tick_precedes_ready_capture_burst() {
         },
         playback,
         controls,
+        async_channel::bounded(1).1,
         events,
         cancellation.clone(),
     );

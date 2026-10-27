@@ -240,3 +240,36 @@ async fn gpt_live_durable_unknown_stops_new_steps_after_partial_effect() {
         "新step不能绕过unknown重复执行"
     );
 }
+
+/// 场景：个人／总览 Live 委派（空项目）里模型调用写命令，如记忆写入或建卡。
+/// 构造：空项目的耐久 Adapter，委托方一旦被调用就 panic；上下文 project_id 为空。
+/// 执行：执行一个写命令（CreateBrowser）。
+/// 预期：明确拒绝“只能核验共享状态”，不碰委托方、不标记 effects，也没有“待核对”回执。
+#[tokio::test]
+async fn gpt_live_durable_personal_scope_rejects_writes_without_pending_effects() {
+    struct Unreachable;
+    impl AgentCardAdapter for Unreachable {
+        fn execute<'a>(&'a self, _: AdapterCommand, _: &'a ToolContext) -> BoxFuture<'a, Outcome> {
+            panic!("个人通话的写命令不得到达委托 Adapter")
+        }
+    }
+    let directory = tempfile::tempdir().expect("隔离目录");
+    let adapter = LiveDurableAdapter::new(
+        Arc::new(Unreachable),
+        directory.path().join("personal.sqlite"),
+        String::new(),
+        "stable-intent".into(),
+        "owner".into(),
+    );
+    let mut personal = context();
+    personal.project_id = String::new();
+    let error = adapter
+        .execute(AdapterCommand::CreateBrowser { url: None }, &personal)
+        .await
+        .expect_err("个人通话不能执行写命令");
+    assert!(
+        error.to_string().contains("只能核验共享状态"),
+        "拒绝原因必须明确：{error}"
+    );
+    assert!(!adapter.has_effects(), "拒绝不能被汇报成可能已执行");
+}

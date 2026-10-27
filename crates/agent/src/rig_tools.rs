@@ -219,3 +219,5 @@ define_rig_tool!(CaptureIdeaTool, "capture_idea", 21);
 define_rig_tool!(ListIdeasTool, "list_ideas", 22);
 define_rig_tool!(AssignIdeaTool, "assign_idea", 23);
 define_rig_tool!(HandoffToBrainTool, "handoff_to_brain", 24);
+define_rig_tool!(ReadSharedContextTool, "context_read", 25);
+define_rig_tool!(UpdateWorkingStateTool, "context_update", 26);

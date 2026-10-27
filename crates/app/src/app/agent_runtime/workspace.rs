@@ -21,6 +21,24 @@ struct WorkspaceRuntime {
 #[derive(Default)]
 struct WorkspaceRuntimes(HashMap<(PathBuf, String), WorkspaceRuntime>);
 impl Global for WorkspaceRuntimes {}
+mod execute;
+#[cfg(test)]
+#[path = "../../../tests/unit/workspace_memory_revision_tests.rs"]
+mod memory_revision_tests;
+use execute::execute_ready;
+#[cfg(test)]
+#[path = "../../../tests/unit/workspace_memory_revoke_tests.rs"]
+mod memory_revoke_tests;
+
+pub(crate) fn revoke_workspace_memory(database: &std::path::Path, cx: &mut App) {
+    if cx.has_global::<WorkspaceRuntimes>() {
+        // Drop cancels independently of the bounded actor queue. Only new user
+        // input may create a fresh session; pre-revocation work cannot resume.
+        cx.global_mut::<WorkspaceRuntimes>()
+            .0
+            .retain(|(path, _), _| path != database);
+    }
+}
 
 pub(crate) fn submit_workspace_turn(
     database: PathBuf,
@@ -48,18 +66,22 @@ pub(crate) fn submit_workspace_turn(
         .contains_key(&key)
     {
         let (runtime, adapter, events) =
-            ProjectAgentRuntime::spawn_scoped("".into(), config.clone(), paths, None, true)?;
+            ProjectAgentRuntime::spawn_scoped("".into(), config.clone(), paths, None, true, None)?;
         let scopes: Arc<Mutex<HashMap<String, Scope>>> = Arc::new(Mutex::new(HashMap::new()));
         let memory: Arc<Mutex<HashMap<String, storage::MemoryAccess>>> =
             Arc::new(Mutex::new(HashMap::new()));
         let pump_scopes = scopes.clone();
+        let pump_cancelled = runtime.cancelled.clone();
         let pump_database = database.clone();
         let workspace = message.desktop_workspace_id.clone();
         cx.spawn(async move|cx| {
             while let Ok(request)=adapter.recv().await {
                 let op=request.context.user_input.lines().next().and_then(|line|line.strip_prefix("@mobile-turn:"));
                 let scope=op.and_then(|op|pump_scopes.lock().ok()?.get(op).cloned());
-                let result=if let Some(scope)=scope {
+                let result=if pump_cancelled.is_cancelled() || request.context.cancellation.is_cancelled() {
+                    Err(AdapterError::Cancelled)
+                } else if let Some(scope)=scope {
+                    let prepared = crate::mobile::workspace_live::prepare_scoped(&pump_database, &scope.areas, &request.command, cx).await;
                     let auth_scope=scope.clone();let auth_database=pump_database.clone();let auth_workspace=workspace.clone();
                     let authorized=cx.background_executor().spawn(async move {
                         let app=storage::AppStore::new(auth_database.clone());
@@ -68,19 +90,20 @@ pub(crate) fn submit_workspace_turn(
                         let current_matches=current.len()==auth_scope.areas.len() && auth_scope.areas.iter().all(|a|grant.allows(&a.project_id,true) && current.iter().any(|c|c.id==a.area.id && c.root==a.area.root && c.project_key==a.area.project_key));
                         current_matches && (!auth_scope.areas.is_empty() || grant.all_projects_access==Some(storage::MobilePermission::Control))
                     }).await;
-                    if !authorized {Err(AdapterError::Rejected("设备授权或空间配置已失效".into()))} else {
+                    if !authorized {Err(AdapterError::Rejected("设备授权或空间配置已失效".into()))} else if let Err(error) = prepared {Err(error)} else {
                         let result=if let AdapterCommand::WorkspaceMemory{area_id,command}=&request.command {
                             let bound=scope.areas.iter().find(|a|a.area.id==*area_id).cloned();
                             if let Some(bound)=bound {
-                                let accesses=memory.clone();let paths=memory_paths.clone();let command=command.clone();let context=request.context.clone();
+                                let accesses=memory.clone();let paths=memory_paths.clone();let command=command.clone();let context=request.context.clone();let lifetime=pump_cancelled.clone();
                                 cx.background_executor().spawn(async move {
                                     let mut accesses=accesses.lock().map_err(|_|AdapterError::Failed("记忆服务不可用".into()))?;
+                                    if lifetime.is_cancelled() || context.cancellation.is_cancelled() { return Err(AdapterError::Cancelled); }
                                     let access=accesses.entry(format!("{}:{}",bound.area.id,bound.area.root.display())).or_insert_with(||storage::MemoryAccess::new(paths,Some(bound.area.root)));
                                     let output=access.execute(command,&context)?;
                                     let mut result=AdapterResult::succeeded("项目记忆读取完成");result.memory=Some(output);Ok(result)
                                 }).await
                             } else {Err(AdapterError::Rejected("项目区域不在当前工作空间".into()))}
-                        } else {cx.update(|cx|crate::mobile::workspace_live::execute_scoped(&pump_database,&scope.areas,&scope.device,&scope.operation,request.command,cx)).unwrap_or_else(|e|Err(AdapterError::Unknown(e.to_string())))};
+                        } else {cx.update(|cx|execute_ready(&pump_database,&scope,request.command,&pump_cancelled,&request.context.cancellation,cx)).unwrap_or_else(|e|Err(AdapterError::Unknown(e.to_string())))};
                         if let Ok(receipt)=&result { if receipt.memory.is_none() {
                             let store=storage::WorkspaceChatStore::new(pump_database.clone());
                             let payload=json!({"sender":"Norma","text":receipt.message,"tasks":receipt.tasks,"state":"submitted"}).to_string();
@@ -100,6 +123,7 @@ pub(crate) fn submit_workspace_turn(
             .insert(key.clone(), WorkspaceRuntime { runtime, scopes });
     }
     let facts = crate::mobile::workspace_live::catalog(&database, &areas, cx)?;
+    let history = crate::mobile::workspace_live::history_for_model(&history);
     let addresses:Vec<_>=facts.as_array().into_iter().flatten().flat_map(|p| {
         let area=p["project"]["area_id"].as_str().unwrap_or_default();
         p["project"]["agents"].as_array().into_iter().flatten().map(move|a|json!({"address":format!("{area}/{}",a["card"]["node_id"]),"name":a["name"],"project":p["project"]["name"]}))
@@ -113,6 +137,14 @@ pub(crate) fn submit_workspace_turn(
     if !state.runtime.uses_config(&config) {
         let _ = state.runtime.submit(AgentCommand::SwitchModel(config));
     }
+    // These roots are the caller's authenticated workspace scope, never model paths.
+    // Only metadata is prepared here; snapshot IO belongs to MemoryAdapter's worker.
+    *state
+        .runtime
+        .workspace_memory_roots
+        .lock()
+        .map_err(|_| "scope_unavailable")? =
+        areas.iter().map(|bound| bound.area.root.clone()).collect();
     state
         .scopes
         .lock()

@@ -1,16 +1,11 @@
 use super::cache::CachedAnnouncementSegments;
-use super::playback::{
-    await_playback_completion_or_timeout, completion_timeout_for_chunk,
-    AgentAnnouncementAudioControl, AgentAnnouncementPlaybackPhase,
-};
+use super::playback::AgentAnnouncementPlaybackPhase;
 use super::synthesis::{
     assemble_cached_agent_terminal_announcement,
     synthesize_agent_terminal_announcement_with_cached_segments, synthesize_report_text,
     SynthesizedAgentTerminalAnnouncement,
 };
-use super::AgentAnnouncement;
 use crate::app::dialogue::create_tts_client_for_selection;
-use crate::app::voice_window_inset::{PcmEnergyTimeline, TtsPlaybackEvent};
 use crate::app::MultisoulApp;
 use dialogue::DialoguePhase;
 use gpui::Context;
@@ -147,6 +142,9 @@ impl MultisoulApp {
         let synthesized = match result {
             Ok(synthesized) => synthesized,
             Err(error) => {
+                if let Some(delivery) = &announcement.delivery {
+                    delivery.set(agent::context::ReportDelivery::Failed);
+                }
                 tracing::warn!(
                     node_id = announcement.node_id,
                     outcome = %announcement.outcome_word,
@@ -175,92 +173,13 @@ impl MultisoulApp {
                 SystemTime::now(),
             );
         }
-        let chunk = synthesized.pcm;
-        let control = Arc::new(AgentAnnouncementAudioControl::new());
-        self.agent_announcement_playback.control = Some(Arc::clone(&control));
-        self.agent_announcement_playback.phase =
-            AgentAnnouncementPlaybackPhase::Synthesizing(announcement.clone());
-        let playback_work = cx.background_executor().spawn(async move {
-            let playback = control.play_with_completion(&chunk);
-            (control, chunk, playback)
-        });
-        cx.spawn(async move |this, cx| {
-            let (control, chunk, playback) = playback_work.await;
-            let _ = this.update(cx, |app, cx| {
-                app.finish_agent_announcement_scheduling(
-                    generation,
-                    announcement,
-                    control,
-                    chunk,
-                    playback,
-                    cx,
-                );
-            });
-        })
-        .detach();
-    }
-
-    fn finish_agent_announcement_scheduling(
-        &mut self,
-        generation: u64,
-        announcement: AgentAnnouncement,
-        control: Arc<AgentAnnouncementAudioControl>,
-        chunk: audio::PcmAudioChunk,
-        playback: Result<(async_channel::Receiver<()>, async_channel::Receiver<()>), String>,
-        cx: &mut Context<Self>,
-    ) {
-        if generation != self.agent_announcement_playback.generation {
-            control.cancel();
-            return;
-        }
-        let (started_rx, finished_rx) = match playback {
-            Ok(receivers) => receivers,
-            Err(error) => {
-                tracing::warn!(
-                    node_id = announcement.node_id,
-                    outcome = %announcement.outcome_word,
-                    %error,
-                    "agent announcement playback failed"
-                );
-                self.agent_announcement_playback.control = None;
-                self.agent_announcement_playback.phase = AgentAnnouncementPlaybackPhase::Idle;
-                self.start_next_agent_announcement(cx);
-                return;
-            }
-        };
-        self.agent_announcement_playback
-            .push_playback_event(TtsPlaybackEvent::PcmQueued(PcmEnergyTimeline::from_pcm(
-                &chunk,
-            )));
-        self.agent_announcement_playback.phase = AgentAnnouncementPlaybackPhase::Playing {
+        self.start_legacy_announcement_playback(
+            generation,
             announcement,
-            started: false,
-        };
-        let completion_timeout = completion_timeout_for_chunk(&chunk);
-        let executor = cx.background_executor().clone();
-        cx.spawn(async move |this, cx| {
-            if started_rx.recv().await.is_ok() {
-                let _ = this.update(cx, |app, cx| {
-                    if app.mark_agent_announcement_started(generation) {
-                        cx.notify();
-                    }
-                });
-            }
-            let completed =
-                await_playback_completion_or_timeout(executor, finished_rx, completion_timeout)
-                    .await;
-            if !completed {
-                tracing::warn!(
-                    generation,
-                    watchdog_ms = completion_timeout.as_millis(),
-                    "agent announcement playback ended without a completion callback"
-                );
-            }
-            let _ = this.update(cx, |app, cx| {
-                app.finish_agent_announcement_playback(generation, completed, cx);
-            });
-        })
-        .detach();
+            synthesized.pcm,
+            crate::app::dialogue::create_assistant_audio_sink,
+            cx,
+        );
     }
 }
 

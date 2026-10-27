@@ -1,5 +1,17 @@
 use super::*;
 
+/// Direct executor tests bypass the async model adapter, so perform its real
+/// persisted-state preparation outside the GPUI entity update before acting.
+fn prepare_shared_context(app: &gpui::Entity<MultisoulApp>, cx: &mut gpui::VisualTestContext) {
+    let service = app
+        .update(cx, |app, _| app.shared_context_service())
+        .expect("test source scope");
+    shared_tokio_runtime()
+        .unwrap()
+        .block_on(service.snapshot())
+        .expect("load persisted constraints before executing");
+}
+
 #[path = "../../../tests/unit/agent_runtime_tests.rs"]
 mod agent_runtime_tests;
 

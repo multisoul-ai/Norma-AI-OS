@@ -48,7 +48,7 @@ async fn live_hold_audio_gates_pcm_without_overriding_manual_mute() {
         let (commands, controls) = async_channel::bounded(8);
         let (events, visible) = async_channel::bounded(32);
         let cancellation = CancellationToken::new();
-        let worker = tokio::spawn(run_audio_loop(connection, CaptureInput { captured, capture_mode, vad: None }, playback, controls, events, cancellation.clone()));
+        let worker = tokio::spawn(run_audio_loop(connection, CaptureInput { captured, capture_mode, vad: None }, playback, controls, async_channel::bounded(1).1, events, cancellation.clone()));
         assert_eq!(pcm(&packet(&wire, "session.input_audio.append").await), vec![0;640], "尚未按键只发送协议静音");
         commands.send(CallCommand::SetInputEnabled { enabled: true, revision: 1 }).await.expect("按下");
         mode.changed().await.expect("采集门控更新");
@@ -146,6 +146,7 @@ async fn live_hold_waits_for_transport_to_send_the_last_frame() {
         },
         playback,
         controls,
+        async_channel::bounded(1).1,
         events,
         cancellation.clone(),
     );

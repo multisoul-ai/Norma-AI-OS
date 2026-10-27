@@ -6,6 +6,9 @@ use crate::app::voice_window_inset::VoiceWindowInsetEventSink;
 use tokio_util::sync::CancellationToken;
 
 pub(super) struct CallConfig {
+    pub reports: async_channel::Receiver<super::native_report::NativeReport>,
+    pub shared_context: crate::app::shared_context::SharedContext,
+    pub session_id: String,
     pub input_enabled: bool,
     pub account: String,
     pub voice: String,
@@ -50,6 +53,22 @@ pub(super) async fn run_call(
                     Err(error) => error.to_string(),
                     _ => unreachable!(),
                 }),
+            }
+        }
+    };
+    let live_config = match super::context::prepare(
+        live_config,
+        &config.shared_context,
+        &config.session_id,
+        &cancellation,
+    )
+    .await
+    {
+        Ok(config) => config,
+        Err(error) => {
+            return CallEnd {
+                usage: Default::default(),
+                error: Some(error),
             }
         }
     };
@@ -101,6 +120,7 @@ pub(super) async fn run_call(
         },
         playback,
         commands,
+        config.reports,
         events,
         cancellation,
     )

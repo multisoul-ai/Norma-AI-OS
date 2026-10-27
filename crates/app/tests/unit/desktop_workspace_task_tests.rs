@@ -1,5 +1,6 @@
 use super::*;
 use crate::app::background_project::PreparedProject;
+use crate::app::doubao_adapter_fixture;
 use crate::app::AppScreen;
 use gpui::{AppContext as _, TestAppContext};
 use std::sync::{Arc, Mutex};
@@ -57,6 +58,13 @@ fn workspace_task_tool_targets_exact_agent_through_coordinator() {
     };
     let session_a = make_session(prepared_a, writes_a.clone(), cx);
     let session_b = make_session(prepared_b, writes_b.clone(), cx);
+    for session in [&session_a] {
+        let service = session.update(cx, |app, _| app.shared_context_service().unwrap());
+        crate::app::shared_tokio_runtime()
+            .unwrap()
+            .block_on(service.snapshot())
+            .unwrap();
+    }
     host.update(cx, |app, _| {
         app.screen = AppScreen::DesktopWorkspace;
         app.desktop_workspace.active_id = Some(workspace.id.clone());
@@ -110,10 +118,23 @@ fn workspace_task_tool_targets_exact_agent_through_coordinator() {
         writes_b.lock().expect("应读取 B 写入").is_empty(),
         "拒绝过期目标时不能写入 B 的 PTY"
     );
-    let accepted = host.update(cx, |app, cx| {
-        app.norma_assign_workspace_task(&workspace.id, &area_b.id, node_b, "检查登录方案", cx)
-            .expect("稳定 ID 指向 B 时应提交")
-    });
+    // B has no shared service yet: exercise the real asynchronous voice adapter,
+    // without fixture preloading, so its first dispatch must await B's state.
+    assert!(
+        doubao_adapter_fixture::is_cold(&session_b, cx),
+        "目标 B 必须保持冷状态"
+    );
+    let accepted = doubao_adapter_fixture::execute(
+        &session_a,
+        cx,
+        agent::AdapterCommand::AssignWorkspaceTask {
+            workspace_id: workspace.id.clone(),
+            area_id: area_b.id.clone(),
+            node_id: node_b,
+            task: "检查登录方案".into(),
+        },
+    )
+    .expect("冷目标的首次正式工具调用应等待状态准备再派发");
     assert_eq!(accepted.status, "accepted", "成功派活必须给出真实接收回执");
     assert_eq!(
         accepted.node_id,
@@ -229,6 +250,84 @@ fn workspace_task_tool_targets_exact_agent_through_coordinator() {
     assert!(
         same_project.task_id.is_some(),
         "同项目派活也应返回可追踪任务 ID"
+    );
+    // 场景：来源 A 允许派发，目标 B 已明确禁止；跨项目不可借用 A 的权限。
+    // 构造：在 B 的真实 scope 持久化“不要派发任务”，A 不设置该限制。
+    // 执行：从 A 的正式工具入口再次派给 B，随后派给 A 自己。
+    // 预期：B 的任务数不变且返回拒绝；A 的任务仍可被接收。
+    let service = session_b.update(cx, |app, _| app.shared_context_service().unwrap());
+    crate::app::shared_tokio_runtime()
+        .unwrap()
+        .block_on(service.run(None, |access| {
+            use agent::context::*;
+            let input = access.record_input("restrict-b", ContextOrigin::Voice, "不要派发任务")?;
+            access.update(
+                "restrict-b",
+                &input.reference,
+                &ContextStateUpdate {
+                    input: input.reference.clone(),
+                    expected_revision: input.reference.revision,
+                    change: ContextStateChange::Constraint {
+                        key: "stop-dispatch".into(),
+                        text: "不要派发任务".into(),
+                        supersedes: None,
+                        enforcement: ConstraintEnforcement::Enforced {
+                            operation: ContextOperation::DispatchTask,
+                            target: None,
+                        },
+                    },
+                },
+            )
+        }))
+        .unwrap();
+    let count_before = session_b.read_with(cx, |app, _| {
+        app.agent_task_coordinator.as_ref().unwrap().tasks().len()
+    });
+    let cross_restricted = session_a.update(cx, |app, cx| {
+        crate::app::execute_norma_adapter_command_with_source(
+            app,
+            None,
+            cx,
+            agent::AdapterCommand::AssignWorkspaceTask {
+                workspace_id: workspace.id.clone(),
+                area_id: area_b.id.clone(),
+                node_id: node_b,
+                task: "不可进入B".into(),
+            },
+            agent::AgentInputSource::Voice,
+        )
+    });
+    assert!(
+        cross_restricted.is_err(),
+        "跨画布派发必须检查目标 B 的有效限制"
+    );
+    assert_eq!(
+        session_b.read_with(cx, |app, _| app
+            .agent_task_coordinator
+            .as_ref()
+            .unwrap()
+            .tasks()
+            .len()),
+        count_before,
+        "受限目标不能产生新任务"
+    );
+    let source_allowed = session_a.update(cx, |app, cx| {
+        crate::app::execute_norma_adapter_command_with_source(
+            app,
+            None,
+            cx,
+            agent::AdapterCommand::AssignWorkspaceTask {
+                workspace_id: workspace.id.clone(),
+                area_id: area_a.id.clone(),
+                node_id: node_a,
+                task: "A仍可派发".into(),
+            },
+            agent::AgentInputSource::Voice,
+        )
+    });
+    assert!(
+        source_allowed.is_ok(),
+        "B 的限制不能污染 A 或造成同 scope 重入死锁"
     );
     // 场景：A 项目会话请求定位 B 的 Agent，导航需要先分离仍在更新的 A。
     // 数据构造：A 是当前项目，B 的 Codex 卡片已经加载。
