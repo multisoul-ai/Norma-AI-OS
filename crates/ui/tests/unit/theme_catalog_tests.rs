@@ -1,95 +1,60 @@
 use super::{Theme, ThemeId};
 
-/// Core UI V2 主题目录：六个稳定 id 必须按设计基线完整暴露，并精确映射关键色值。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   light themes = 3（Paper Blue / Linen Sage / Silver Violet）
-///   dark themes  = 3（Sapphire Night / Midnight Violet / Forest Mint）
-///   total        = 3 + 3 = 6
-///   每套主题的 Base / Text / Accent / Signal 均直接取自
-///   `docs/design-docs/core-ui-v2/README.md`，不由实现代码重新计算。
-///   默认主题 = Sapphire Night（用户指定）；默认 token 分别由 id 与 Theme 构造。
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 读取 `ThemeId::ALL`，逐项检查稳定 id 与显示名称。
-///   2. 对每个 id 调用 `Theme::for_id`，检查 Base、Text、Accent 与 Signal。
-///   3. 检查三浅三深分组，并确认两个默认入口均使用 Sapphire Night。
-///
-/// 预期结果：
-///   - 正断言：六个主题按设计文档顺序完整存在，关键字面量逐一匹配。
-///   - 正断言：Sapphire Night 是默认主题，默认配色包含深蓝底、浅色文字与蓝色强调色。
-///   - 正断言：前三项为浅色、后三项为深色。
-///   - 负断言：默认主题不得继续使用 Paper Blue 的浅色画布。
-///   - 负断言：不得继续暴露已淘汰的 `ceramic-mist` 等旧主题 id。
+/// 场景：六个可选主题全部为深色，首次使用墨黑。
+/// 数据构造：三套中性色与三套已有深色；字面色值来自深色系列设计记录。
+/// 执行过程：验证目录、默认入口、显示名与关键材质，不依赖系统外观。
+/// 预期结果：默认墨黑、六套配色各自可辨，旧浅色不在可选目录。
 #[test]
 fn test_core_ui_v2_catalog_matches_reviewed_theme_literals() {
     assert_eq!(
         ThemeId::ALL,
         [
-            ThemeId::PaperBlue,
-            ThemeId::LinenSage,
-            ThemeId::SilverViolet,
+            ThemeId::InkBlack,
+            ThemeId::Graphite,
+            ThemeId::WarmObsidian,
             ThemeId::SapphireNight,
-            ThemeId::MidnightViolet,
-            ThemeId::ForestMint,
+            ThemeId::Moonstone,
+            ThemeId::DeepPetrol,
         ],
-        "Core UI V2 主题目录应按三浅三深顺序完整暴露六套主题"
+        "主题目录应按三中性加三彩色深色顺序暴露"
     );
-    assert_eq!(
-        ThemeId::default(),
-        ThemeId::SapphireNight,
-        "默认主题必须是用户指定的 Sapphire Night"
-    );
+    assert_eq!(ThemeId::default(), ThemeId::InkBlack, "默认墨黑");
     let default_theme = Theme::default();
-    assert_eq!(
-        default_theme.canvas_from, 0x071324ff,
-        "Theme 默认入口必须使用 Sapphire Night 的深蓝画布"
-    );
-    assert_eq!(
-        default_theme.text_primary, 0xeff7ffff,
-        "Theme 默认入口必须使用 Sapphire Night 的浅色文字"
-    );
-    assert_eq!(
-        default_theme.accent, 0x54a2ffff,
-        "Theme 默认入口必须使用 Sapphire Night 的蓝色强调色"
-    );
-    assert_ne!(
-        default_theme.canvas_from, 0xfffefbff,
-        "默认画布不得继续使用 Paper Blue 的浅色底"
-    );
-
+    assert_eq!(default_theme.canvas_from, 0x0c0c0eff, "墨黑画布应近中性黑");
+    assert_eq!(default_theme.text_primary, 0xe9e9ecff, "墨黑使用柔白文字");
+    assert_ne!(default_theme.canvas_from, 0xf6f8fcff, "默认不能是旧浅色");
     assert_theme(ThemeExpectation {
-        id: ThemeId::PaperBlue,
-        stable_id: "paper-blue",
-        display_name: "Paper Blue",
-        dark: false,
-        base: 0xfffefbff,
-        raised: 0xf5f4f1ff,
-        text: 0x313d44ff,
-        accent: 0x2f80edff,
-        signal: 0x64e0b5ff,
+        id: ThemeId::InkBlack,
+        stable_id: "ink-black",
+        display_name: "Ink Black",
+        dark: true,
+        base: 0x0c0c0eff,
+        raised: 0x1a1a1dff,
+        text: 0xe9e9ecff,
+        accent: 0xc4ccd9ff,
+        signal: 0x8bc6a3ff,
     });
     assert_theme(ThemeExpectation {
-        id: ThemeId::LinenSage,
-        stable_id: "linen-sage",
-        display_name: "Linen Sage",
-        dark: false,
-        base: 0xf9f8f3ff,
-        raised: 0xebede6ff,
-        text: 0x1d231fff,
-        accent: 0x3d9978ff,
-        signal: 0x64e0b5ff,
+        id: ThemeId::Graphite,
+        stable_id: "graphite",
+        display_name: "Graphite",
+        dark: true,
+        base: 0x17191cff,
+        raised: 0x282c31ff,
+        text: 0xe5e8edff,
+        accent: 0x9ab8d3ff,
+        signal: 0x8bc6a3ff,
     });
     assert_theme(ThemeExpectation {
-        id: ThemeId::SilverViolet,
-        stable_id: "silver-violet",
-        display_name: "Silver Violet",
-        dark: false,
-        base: 0xfafaf9ff,
-        raised: 0xf0f0f2ff,
-        text: 0x232328ff,
-        accent: 0x6a5cffff,
-        signal: 0x64e0b5ff,
+        id: ThemeId::WarmObsidian,
+        stable_id: "warm-obsidian",
+        display_name: "Warm Obsidian",
+        dark: true,
+        base: 0x151210ff,
+        raised: 0x27221dff,
+        text: 0xeee6daff,
+        accent: 0xddb780ff,
+        signal: 0x8bc6a3ff,
     });
     assert_theme(ThemeExpectation {
         id: ThemeId::SapphireNight,
@@ -103,26 +68,26 @@ fn test_core_ui_v2_catalog_matches_reviewed_theme_literals() {
         signal: 0x64e0b5ff,
     });
     assert_theme(ThemeExpectation {
-        id: ThemeId::MidnightViolet,
-        stable_id: "midnight-violet",
-        display_name: "Midnight Violet",
+        id: ThemeId::Moonstone,
+        stable_id: "moonstone",
+        display_name: "Moonstone",
         dark: true,
-        base: 0x0c0c1bff,
-        raised: 0x231f3cff,
-        text: 0xf8f5ffff,
-        accent: 0x8b7cffff,
-        signal: 0x64e0b5ff,
+        base: 0x111117ff,
+        raised: 0x292830ff,
+        text: 0xe9e7efff,
+        accent: 0xc1b9d5ff,
+        signal: 0x8bc6a3ff,
     });
     assert_theme(ThemeExpectation {
-        id: ThemeId::ForestMint,
-        stable_id: "forest-mint",
-        display_name: "Forest Mint",
+        id: ThemeId::DeepPetrol,
+        stable_id: "deep-petrol",
+        display_name: "Deep Petrol",
         dark: true,
-        base: 0x091716ff,
-        raised: 0x112d27ff,
-        text: 0xf1fcf8ff,
-        accent: 0x64e0b5ff,
-        signal: 0xd6ff3bff,
+        base: 0x0d1619ff,
+        raised: 0x1e3036ff,
+        text: 0xe3edf0ff,
+        accent: 0x94bdc5ff,
+        signal: 0x8bc6a3ff,
     });
 
     assert!(
@@ -195,7 +160,7 @@ fn assert_theme(expected: ThemeExpectation) {
     assert_eq!(theme.success, signal, "{display_name} 的 Signal 应精确匹配");
     assert!(
         (theme.term_bg & 0xff) >= 0xcc,
-        "{display_name} 的 Terminal 必须保持至少 80% 不透明的深色内容井"
+        "{display_name} 的 Terminal 必须保持至少 80% 不透明的稳定内容面"
     );
     assert_ne!(
         theme.term_bg, theme.node_fill,

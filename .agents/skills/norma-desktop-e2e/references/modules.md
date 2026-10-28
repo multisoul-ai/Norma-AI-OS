@@ -31,6 +31,7 @@
 
 | `content` | `content-workbench`、`content-home` | 右抽屉空态（`content-home`）：胶囊地址栏、六个工具磁贴与快捷键提示、推荐区、未实现入口的“即将支持”提示、文件磁贴打开工作台。工作台（`content-workbench`）：项目文件树、编辑保存、Git 暂存/提交（核对真实索引与 HEAD）、Markdown/HTML、图片缩放、视频播放与隐藏暂停、浏览器导航/会话保留、深浅主题。 |
 | `content` | `content-terminal-path-link` | 终端里 Agent 回复的反引号路径（相对路径、含空格路径）点击后在右抽屉打开 Markdown 预览，并持久化文件标签。 |
+| `settings` | `settings-theme-consistency` | 六主题在同一真实进程切换：首页、双抽屉、项目外框、选中/焦点/悬停/按下/空输入状态；SQLite 保存值与抽屉背景像素均需匹配。 |
 | `settings` | `settings-navigation`、`settings-basic-preferences`、`settings-responsive-keyboard`、`settings-space-wallpapers` | 两级导航、基础设置中的语言与节能、主题切换、太空壁纸选择与预览、持久化与重启恢复，以及键盘和窄窗口。 |
 
 | `settings` | `settings-shortcut-defaults` | 键位互换后 Settings → Keyboard Shortcuts 的默认显示（无覆盖写入、无 Restore），以及既有自定义（切换工作空间 ⌃⌥J、新建浏览器 ⇧⌘K）原样保留且优先生效：⌃⌥J 打开切换器，⇧⌘↑ / ⇧⌘K 不触发默认行为；浅色与深色。 |

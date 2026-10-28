@@ -122,7 +122,16 @@ impl MultisoulApp {
                 linear_color_stop(rgba(theme.graphite), 1.0),
             ));
 
-        backdrop.child(self.render_wallpaper_layer())
+        backdrop.child(self.render_wallpaper_layer()).when_some(
+            theme.wallpaper_veil(),
+            |backdrop, (from, to)| {
+                backdrop.child(div().absolute().inset_0().bg(linear_gradient(
+                    155.0,
+                    linear_color_stop(rgba(from), 0.0),
+                    linear_color_stop(rgba(to), 1.0),
+                )))
+            },
+        )
     }
 
     /// Render the wallpaper layer, branching on the current [`WallpaperKind`].

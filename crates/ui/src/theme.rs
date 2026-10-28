@@ -1,64 +1,97 @@
 //! Core UI V2 主题 token（颜色使用 `0xRRGGBBAA`）。
 
-/// 用户可选的稳定主题标识。
+#[path = "theme/mineral.rs"]
+mod mineral;
+#[path = "theme/neutral.rs"]
+mod neutral;
+
+/// Stable theme identifiers. `ALL` is the user-selectable catalog; light variants are legacy fixtures.
 #[derive(Debug, Clone, Copy, Default, Eq, Hash, PartialEq)]
 pub enum ThemeId {
+    /// Legacy light profile, excluded from the selectable catalog.
     PaperBlue,
     LinenSage,
     SilverViolet,
     #[default]
+    InkBlack,
+    Graphite,
+    WarmObsidian,
     SapphireNight,
-    MidnightViolet,
-    ForestMint,
+    Moonstone,
+    DeepPetrol,
 }
 
 impl ThemeId {
     pub const ALL: [Self; 6] = [
-        Self::PaperBlue,
-        Self::LinenSage,
-        Self::SilverViolet,
+        Self::InkBlack,
+        Self::Graphite,
+        Self::WarmObsidian,
         Self::SapphireNight,
-        Self::MidnightViolet,
-        Self::ForestMint,
+        Self::Moonstone,
+        Self::DeepPetrol,
     ];
+
+    /// Restore a saved preference, migrating retired palettes to their selected replacements.
+    pub fn from_saved_id(saved: &str) -> Option<Self> {
+        match saved {
+            "paper-blue" | "linen-sage" | "silver-violet" => Some(Self::InkBlack),
+            "midnight-violet" => Some(Self::Moonstone),
+            "forest-mint" => Some(Self::DeepPetrol),
+            _ => Self::ALL.into_iter().find(|id| id.as_str() == saved),
+        }
+    }
 
     pub const fn as_str(self) -> &'static str {
         match self {
+            Self::InkBlack => "ink-black",
+            Self::Graphite => "graphite",
+            Self::WarmObsidian => "warm-obsidian",
             Self::PaperBlue => "paper-blue",
             Self::LinenSage => "linen-sage",
             Self::SilverViolet => "silver-violet",
             Self::SapphireNight => "sapphire-night",
-            Self::MidnightViolet => "midnight-violet",
-            Self::ForestMint => "forest-mint",
+            Self::Moonstone => "moonstone",
+            Self::DeepPetrol => "deep-petrol",
         }
     }
 
     pub fn display_name(self) -> &'static str {
         match self {
+            Self::InkBlack => crate::i18n::text("theme.ink_black"),
+            Self::Graphite => crate::i18n::text("theme.graphite"),
+            Self::WarmObsidian => crate::i18n::text("theme.warm_obsidian"),
             Self::PaperBlue => crate::i18n::text("theme.paper_blue"),
             Self::LinenSage => crate::i18n::text("theme.linen_sage"),
             Self::SilverViolet => crate::i18n::text("theme.silver_violet"),
             Self::SapphireNight => crate::i18n::text("theme.sapphire_night"),
-            Self::MidnightViolet => crate::i18n::text("theme.midnight_violet"),
-            Self::ForestMint => crate::i18n::text("theme.forest_mint"),
+            Self::Moonstone => crate::i18n::text("theme.moonstone"),
+            Self::DeepPetrol => crate::i18n::text("theme.deep_petrol"),
         }
     }
 
     pub fn description(self) -> &'static str {
         match self {
+            Self::InkBlack => crate::i18n::text("theme.ink_black_description"),
+            Self::Graphite => crate::i18n::text("theme.graphite_description"),
+            Self::WarmObsidian => crate::i18n::text("theme.warm_obsidian_description"),
             Self::PaperBlue => crate::i18n::text("theme.paper_white_cobalt"),
             Self::LinenSage => crate::i18n::text("theme.linen_sage_mint"),
             Self::SilverViolet => crate::i18n::text("theme.silver_graphite_violet"),
             Self::SapphireNight => crate::i18n::text("theme.sapphire_cobalt"),
-            Self::MidnightViolet => crate::i18n::text("theme.midnight_violet_description"),
-            Self::ForestMint => crate::i18n::text("theme.deep_sage_mint"),
+            Self::Moonstone => crate::i18n::text("theme.moonstone_description"),
+            Self::DeepPetrol => crate::i18n::text("theme.deep_petrol_description"),
         }
     }
 
     pub const fn is_dark(self) -> bool {
         matches!(
             self,
-            Self::SapphireNight | Self::MidnightViolet | Self::ForestMint
+            Self::InkBlack
+                | Self::Graphite
+                | Self::WarmObsidian
+                | Self::SapphireNight
+                | Self::Moonstone
+                | Self::DeepPetrol
         )
     }
 }
@@ -103,51 +136,67 @@ pub struct Theme {
 }
 
 impl Theme {
+    pub const fn is_light(self) -> bool {
+        (self.canvas_from >> 24) > 128
+    }
+
+    /// A shared reading veil for wallpaper and its frosted samples; dark themes retain the original wallpaper.
+    pub const fn wallpaper_veil(self) -> Option<(u32, u32)> {
+        if self.is_light() {
+            Some((self.canvas_overlay_from, self.canvas_overlay_to))
+        } else {
+            None
+        }
+    }
+
     pub const fn for_id(id: ThemeId) -> Self {
         match id {
+            ThemeId::InkBlack => Self::ink_black(),
+            ThemeId::Graphite => Self::graphite(),
+            ThemeId::WarmObsidian => Self::warm_obsidian(),
             ThemeId::PaperBlue => Self::paper_blue(),
             ThemeId::LinenSage => Self::linen_sage(),
             ThemeId::SilverViolet => Self::silver_violet(),
             ThemeId::SapphireNight => Self::sapphire_night(),
-            ThemeId::MidnightViolet => Self::midnight_violet(),
-            ThemeId::ForestMint => Self::forest_mint(),
+            ThemeId::Moonstone => Self::moonstone(),
+            ThemeId::DeepPetrol => Self::deep_petrol(),
         }
     }
 
     pub const fn paper_blue() -> Self {
         Self {
-            graphite: 0x313d44ff,
-            panel: 0xffffff66,
-            panel_high: 0xfffefbd1,
-            canvas_from: 0xfffefbff,
-            canvas_to: 0xf5f4f1ff,
-            canvas_overlay_from: 0xfffefbeb,
-            canvas_overlay_to: 0xd4eaf7d6,
-            node_fill: 0xffffff66,
-            node_stroke: 0xffffffb8,
-            selected_stroke: 0x2f80edc8,
-            focused_stroke: 0x2f80edff,
-            edge_highlight: 0xfffffff0,
-            text_primary: 0x313d44ff,
-            text_secondary: 0x313d4494,
-            text_tertiary: 0x313d446b,
-            accent: 0x2f80edff,
-            success: 0x64e0b5ff,
-            accent_orange: 0x2f80edff,
-            accent_cyan: 0x27d7eaff,
-            accent_green: 0x64e0b5ff,
-            accent_violet: 0x6a5cffff,
-            accent_blue: 0x2f80edff,
-            accent_warm: 0xd6ff3bff,
-            destructive: 0xff6b7aff,
-            term_fg: 0xe7edf5ff,
-            term_bg: 0x0e151deb,
-            term_exit_fg: 0xff6b7aff,
-            title_bar: 0xd4eaf752,
-            text: 0x313d44ff,
-            dock: 0x313d44cc,
-            dock_line: 0xffffff57,
-            shadow_color: 0x313d442b,
+            graphite: 0x202938ff,
+            panel: 0xf6f8fced,
+            panel_high: 0xfffffffa,
+            canvas_from: 0xf6f8fcff,
+            canvas_to: 0xeaf0f8ff,
+            canvas_overlay_from: 0xeaf0f6d9,
+            canvas_overlay_to: 0xeff6ffbd,
+            node_fill: 0xf6f8fcf0,
+            node_stroke: 0xb8c5d699,
+            selected_stroke: 0x2563ebc8,
+            focused_stroke: 0x2563ebff,
+            edge_highlight: 0xffffffcc,
+            text_primary: 0x202938ff,
+            text_secondary: 0x4b5a70ff,
+            text_tertiary: 0x637086ff,
+            accent: 0x2563ebff,
+            success: 0x16784bff,
+            accent_orange: 0x2563ebff,
+            accent_cyan: 0x086b80ff,
+            accent_green: 0x16784bff,
+            accent_violet: 0x7054cfff,
+            accent_blue: 0x2563ebff,
+            accent_warm: 0x8a6414ff,
+            destructive: 0xbb3547ff,
+            term_fg: 0x28364aff,
+            term_bg: 0xfafcfff8,
+            term_exit_fg: 0xbb3547ff,
+            title_bar: 0xeaf0f8fa,
+            text: 0x202938ff,
+            dock: 0xf6f8fcf5,
+            dock_line: 0xb8c5d699,
+            shadow_color: 0x20355220,
             shadow_y: 22.0,
             shadow_blur: 54.0,
             shadow_spread: -18.0,
@@ -156,38 +205,38 @@ impl Theme {
 
     pub const fn linen_sage() -> Self {
         Self {
-            graphite: 0x1d231fff,
-            panel: 0xfafcf869,
-            panel_high: 0xfafbf7d1,
-            canvas_from: 0xf9f8f3ff,
-            canvas_to: 0xebede6ff,
-            canvas_overlay_from: 0xf9f8f3eb,
-            canvas_overlay_to: 0xcdd8ced9,
-            node_fill: 0xfafcf869,
-            node_stroke: 0xffffffe0,
-            selected_stroke: 0x3d9978c8,
-            focused_stroke: 0x3d9978ff,
-            edge_highlight: 0xffffffe8,
-            text_primary: 0x1d231fff,
-            text_secondary: 0x1d231f94,
-            text_tertiary: 0x1d231f6b,
-            accent: 0x3d9978ff,
-            success: 0x64e0b5ff,
-            accent_orange: 0x3d9978ff,
-            accent_cyan: 0x27d7eaff,
-            accent_green: 0x64e0b5ff,
-            accent_violet: 0x6a5cffff,
-            accent_blue: 0x3d9978ff,
-            accent_warm: 0xd6ff3bff,
-            destructive: 0xff6b7aff,
-            term_fg: 0xe7edf5ff,
-            term_bg: 0x0e151deb,
-            term_exit_fg: 0xff6b7aff,
-            title_bar: 0xcdd8ce57,
-            text: 0x1d231fff,
-            dock: 0x2a302cd1,
-            dock_line: 0xffffff57,
-            shadow_color: 0x37463d2b,
+            graphite: 0x29372fff,
+            panel: 0xf8f7f2ed,
+            panel_high: 0xfffefafa,
+            canvas_from: 0xf8f7f2ff,
+            canvas_to: 0xeeefe6ff,
+            canvas_overlay_from: 0xf2f2e6d9,
+            canvas_overlay_to: 0xe7eeddbd,
+            node_fill: 0xf8f7f2f0,
+            node_stroke: 0xbac7bb99,
+            selected_stroke: 0x42745ac8,
+            focused_stroke: 0x42745aff,
+            edge_highlight: 0xfffefacc,
+            text_primary: 0x29372fff,
+            text_secondary: 0x506256ff,
+            text_tertiary: 0x637166ff,
+            accent: 0x42745aff,
+            success: 0x247147ff,
+            accent_orange: 0x42745aff,
+            accent_cyan: 0x246e71ff,
+            accent_green: 0x247147ff,
+            accent_violet: 0x785d9dff,
+            accent_blue: 0x42745aff,
+            accent_warm: 0x86611fff,
+            destructive: 0xb13f3fff,
+            term_fg: 0x29372fff,
+            term_bg: 0xfdfcf7f8,
+            term_exit_fg: 0xb13f3fff,
+            title_bar: 0xeeefe6fa,
+            text: 0x29372fff,
+            dock: 0xf8f7f2f5,
+            dock_line: 0xbac7bb99,
+            shadow_color: 0x34453220,
             shadow_y: 22.0,
             shadow_blur: 54.0,
             shadow_spread: -18.0,
@@ -196,38 +245,38 @@ impl Theme {
 
     pub const fn silver_violet() -> Self {
         Self {
-            graphite: 0x232328ff,
-            panel: 0xfcfcfd69,
-            panel_high: 0xfcfcfcd1,
-            canvas_from: 0xfafaf9ff,
-            canvas_to: 0xf0f0f2ff,
-            canvas_overlay_from: 0xfafaf9ed,
-            canvas_overlay_to: 0xdcdde1db,
-            node_fill: 0xfcfcfd69,
-            node_stroke: 0xffffffe0,
-            selected_stroke: 0x6a5cffc8,
-            focused_stroke: 0x6a5cffff,
-            edge_highlight: 0xffffffe8,
-            text_primary: 0x232328ff,
-            text_secondary: 0x23232891,
-            text_tertiary: 0x23232869,
-            accent: 0x6a5cffff,
-            success: 0x64e0b5ff,
-            accent_orange: 0x6a5cffff,
-            accent_cyan: 0x27d7eaff,
-            accent_green: 0x64e0b5ff,
-            accent_violet: 0x6a5cffff,
-            accent_blue: 0x6a5cffff,
-            accent_warm: 0xd6ff3bff,
-            destructive: 0xff6b7aff,
-            term_fg: 0xe7edf5ff,
-            term_bg: 0x0e151deb,
-            term_exit_fg: 0xff6b7aff,
-            title_bar: 0xe2e1e85c,
-            text: 0x232328ff,
-            dock: 0x2a2a2fd1,
-            dock_line: 0xffffff57,
-            shadow_color: 0x34333d2b,
+            graphite: 0x2f2d3cff,
+            panel: 0xf7f7fbed,
+            panel_high: 0xfefefffa,
+            canvas_from: 0xf7f7fbff,
+            canvas_to: 0xeeeef6ff,
+            canvas_overlay_from: 0xeeecf6d9,
+            canvas_overlay_to: 0xede9f8bd,
+            node_fill: 0xf7f7fbf0,
+            node_stroke: 0xc7c0d899,
+            selected_stroke: 0x7054cfc8,
+            focused_stroke: 0x7054cfff,
+            edge_highlight: 0xfefeffcc,
+            text_primary: 0x2f2d3cff,
+            text_secondary: 0x5a546cff,
+            text_tertiary: 0x706a80ff,
+            accent: 0x7054cfff,
+            success: 0x347651ff,
+            accent_orange: 0x7054cfff,
+            accent_cyan: 0x386e85ff,
+            accent_green: 0x347651ff,
+            accent_violet: 0x7054cfff,
+            accent_blue: 0x7054cfff,
+            accent_warm: 0x85601cff,
+            destructive: 0xb63853ff,
+            term_fg: 0x302d42ff,
+            term_bg: 0xfcfbfff8,
+            term_exit_fg: 0xb63853ff,
+            title_bar: 0xeeeef6fa,
+            text: 0x2f2d3cff,
+            dock: 0xf7f7fbf5,
+            dock_line: 0xc7c0d899,
+            shadow_color: 0x42335c20,
             shadow_y: 22.0,
             shadow_blur: 54.0,
             shadow_spread: -18.0,
@@ -268,86 +317,6 @@ impl Theme {
             dock: 0x040e1ac2,
             dock_line: 0xafdaff4d,
             shadow_color: 0x0006107a,
-            shadow_y: 20.0,
-            shadow_blur: 48.0,
-            shadow_spread: -20.0,
-        }
-    }
-
-    pub const fn midnight_violet() -> Self {
-        Self {
-            graphite: 0x0c0c1bff,
-            panel: 0x231f3c61,
-            panel_high: 0x19162db8,
-            canvas_from: 0x0c0c1bff,
-            canvas_to: 0x231f3cff,
-            canvas_overlay_from: 0x0c0c1bd1,
-            canvas_overlay_to: 0x23183ac2,
-            node_fill: 0x231f3c61,
-            node_stroke: 0xc4b8ff4d,
-            selected_stroke: 0x8b7cffcc,
-            focused_stroke: 0x8b7cffff,
-            edge_highlight: 0xdcd3ff8f,
-            text_primary: 0xf8f5ffff,
-            text_secondary: 0xe4dcf599,
-            text_tertiary: 0xd3c9e86e,
-            accent: 0x8b7cffff,
-            success: 0x64e0b5ff,
-            accent_orange: 0x8b7cffff,
-            accent_cyan: 0x27d7eaff,
-            accent_green: 0x64e0b5ff,
-            accent_violet: 0x8b7cffff,
-            accent_blue: 0x8b7cffff,
-            accent_warm: 0xd6ff3bff,
-            destructive: 0xff6b7aff,
-            term_fg: 0xe7edf5ff,
-            term_bg: 0x070713d6,
-            term_exit_fg: 0xff6b7aff,
-            title_bar: 0x342d526b,
-            text: 0xf8f5ffff,
-            dock: 0x0a0818c7,
-            dock_line: 0xc4b8ff4d,
-            shadow_color: 0x02010c80,
-            shadow_y: 20.0,
-            shadow_blur: 48.0,
-            shadow_spread: -20.0,
-        }
-    }
-
-    pub const fn forest_mint() -> Self {
-        Self {
-            graphite: 0x091716ff,
-            panel: 0x112d2761,
-            panel_high: 0x0e2621b8,
-            canvas_from: 0x091716ff,
-            canvas_to: 0x112d27ff,
-            canvas_overlay_from: 0x091716d1,
-            canvas_overlay_to: 0x151f1bc7,
-            node_fill: 0x112d2761,
-            node_stroke: 0x9de4cd4a,
-            selected_stroke: 0x64e0b5cc,
-            focused_stroke: 0x64e0b5ff,
-            edge_highlight: 0xc7f4e48c,
-            text_primary: 0xf1fcf8ff,
-            text_secondary: 0xd2ebe299,
-            text_tertiary: 0xc1dcd26e,
-            accent: 0x64e0b5ff,
-            success: 0xd6ff3bff,
-            accent_orange: 0x64e0b5ff,
-            accent_cyan: 0x27d7eaff,
-            accent_green: 0xd6ff3bff,
-            accent_violet: 0x8b7cffff,
-            accent_blue: 0x64e0b5ff,
-            accent_warm: 0xd6ff3bff,
-            destructive: 0xff6b7aff,
-            term_fg: 0xe7edf5ff,
-            term_bg: 0x04110ed6,
-            term_exit_fg: 0xff6b7aff,
-            title_bar: 0x1d3d356e,
-            text: 0xf1fcf8ff,
-            dock: 0x051410c7,
-            dock_line: 0x9de4cd4a,
-            shadow_color: 0x010c0980,
             shadow_y: 20.0,
             shadow_blur: 48.0,
             shadow_spread: -20.0,
@@ -416,3 +385,7 @@ mod product_ui_theme_tests;
 #[cfg(test)]
 #[path = "../tests/unit/theme_catalog_tests.rs"]
 mod theme_catalog_tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/light_theme_material_tests.rs"]
+mod light_theme_material_tests;

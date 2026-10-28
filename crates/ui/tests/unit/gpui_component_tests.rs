@@ -87,3 +87,43 @@ fn sync_component_theme_aligns_input_text_with_norma_theme() {
         );
     });
 }
+
+/// 场景：深色主题的浅亮强调按钮不能继续叠白色文字。
+/// 数据构造：遍历六套产品主题，取组件实际 primary 与 primary_foreground；4.5 为小字对比下限。
+/// 执行过程：同步主题，再以 WCAG sRGB 亮度计算最终不透明前后景对比。
+/// 预期结果：六套主题均达到 4.5:1，尤其墨黑银灰按钮不出现白字。
+#[test]
+fn dark_accent_button_foregrounds_remain_readable() {
+    fn luminance(color: gpui::Hsla) -> f32 {
+        let rgba: gpui::Rgba = color.into();
+        let [r, g, b] = [rgba.r, rgba.g, rgba.b].map(|v| {
+            if v <= 0.04045 {
+                v / 12.92
+            } else {
+                ((v + 0.055) / 1.055).powf(2.4)
+            }
+        });
+        r * 0.2126 + g * 0.7152 + b * 0.0722
+    }
+    let cx = TestAppContext::single();
+    cx.update(|cx| {
+        for id in ThemeId::ALL {
+            sync_component_theme(id, cx);
+            let colors = &crate::component::Theme::global(cx).colors;
+            let foreground = luminance(colors.primary_foreground);
+            for background_color in [colors.primary, colors.primary_hover, colors.primary_active] {
+                let background = luminance(background_color);
+                let ratio =
+                    (background.max(foreground) + 0.05) / (background.min(foreground) + 0.05);
+                assert!(
+                    ratio >= 4.5,
+                    "{id:?} 强调按钮对比应至少 4.5:1，实际 {ratio}"
+                );
+            }
+            assert_ne!(
+                colors.primary, colors.primary_foreground,
+                "{id:?} 文字不能融入强调底色"
+            );
+        }
+    });
+}

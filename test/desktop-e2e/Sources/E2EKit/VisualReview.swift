@@ -36,6 +36,14 @@ extension Session {
         try save(try await capturePixels(), "visual/\(response.requestID)-after-click.png")
     }
 
+    /// 为悬停和按住等非点击操作定位；返回与坐标绑定的当前截图，后置状态仍须验收。
+    public func visualLocate(_ instruction: String) async throws -> (frame: Frame, point: CGPoint) {
+        let (frame, response) = try await reviewImage(kind: "locate", criteria: [VisualCriterion(id: "target", text: instruction)])
+        guard let point = response.point else { throw E2EError.driver("模型未返回定位点") }
+        recordDriverEvent("visual", "located", "requestID=\(response.requestID)")
+        return (frame, point)
+    }
+
     private func reviewImage(kind: String, criteria: [VisualCriterion]) async throws -> (Frame, VisualResponse) {
         try await retryVisualReview { try await self.reviewImageOnce(kind: kind, criteria: criteria) }
     }

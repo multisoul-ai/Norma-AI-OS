@@ -13,13 +13,12 @@ use gpui::{
 };
 use ui::component::tooltip::Tooltip;
 
-const COPY_PRIMARY: u32 = 0xeef6ffff;
-const COPY_SECONDARY: u32 = 0xa9c0d5ff;
-const GRIP: u32 = 0x6f8ba3ff;
-const GRIP_ACTIVE: u32 = 0xbcd8f0ff;
-
 /// 淡蓝底的主动作胶囊（指派）。
-pub(super) fn idea_pill(id: impl Into<ElementId>, label: &'static str) -> Stateful<Div> {
+pub(super) fn idea_pill(
+    theme: ui::Theme,
+    id: impl Into<ElementId>,
+    label: &'static str,
+) -> Stateful<Div> {
     div()
         .id(id)
         .h(px(28.0))
@@ -29,21 +28,25 @@ pub(super) fn idea_pill(id: impl Into<ElementId>, label: &'static str) -> Statef
         .justify_center()
         .gap(px(4.0))
         .rounded(px(7.0))
-        .bg(rgba(0x58adff26))
+        .bg(rgba(ui::icons::with_alpha(theme.accent, 0x26)))
         .border_1()
-        .border_color(rgba(0x83c4ff55))
+        .border_color(rgba(ui::icons::with_alpha(theme.accent, 0x55)))
         .text_size(px(11.0))
         .font_weight(gpui::FontWeight::MEDIUM)
-        .text_color(rgba(0xdff0ffff))
+        .text_color(rgba(theme.text_primary))
         .cursor_pointer()
-        .hover(|style| style.bg(rgba(0x58adff40)))
-        .active(|style| style.bg(rgba(0x58adff59)))
+        .hover(|style| style.bg(rgba(ui::icons::with_alpha(theme.accent, 0x40))))
+        .active(|style| style.bg(rgba(ui::icons::with_alpha(theme.accent, 0x59))))
         .child(label)
 }
 
 /// 输入框右下角的圆形发送按钮：有内容时填充强调色并可点，没有内容时只剩淡色箭头且不响应。
-pub(super) fn idea_send_button(enabled: bool) -> Stateful<Div> {
-    let icon = if enabled { 0x06182aff } else { 0x8ea8bf99 };
+pub(super) fn idea_send_button(theme: ui::Theme, enabled: bool) -> Stateful<Div> {
+    let icon = if enabled {
+        crate::workspace::desktop::surface_theme::on_accent(theme)
+    } else {
+        theme.text_tertiary
+    };
     div()
         .id("desktop-ideas-add-button")
         .w(px(32.0))
@@ -55,13 +58,27 @@ pub(super) fn idea_send_button(enabled: bool) -> Stateful<Div> {
         .rounded_full()
         .when(enabled, |button| {
             button
-                .bg(rgba(0x7cc0ffff))
+                .bg(rgba(theme.accent))
                 .cursor_pointer()
-                .hover(|style| style.bg(rgba(0x9dd0ffff)))
-                .active(|style| style.bg(rgba(0xb8deffff)))
+                .hover(|style| {
+                    style.bg(rgba(crate::workspace::desktop::surface_theme::mix(
+                        theme.accent,
+                        theme.text_primary,
+                        25,
+                    )))
+                })
+                .active(|style| {
+                    style.bg(rgba(crate::workspace::desktop::surface_theme::mix(
+                        theme.accent,
+                        theme.text_primary,
+                        45,
+                    )))
+                })
         })
         .when(!enabled, |button| {
-            button.border_1().border_color(rgba(0x8fcaff26))
+            button
+                .border_1()
+                .border_color(rgba(ui::icons::with_alpha(theme.accent, 0x26)))
         })
         .child(
             svg()
@@ -74,7 +91,11 @@ pub(super) fn idea_send_button(enabled: bool) -> Stateful<Div> {
 }
 
 /// 28px 的图标按钮（删除）。
-fn idea_icon_button(id: impl Into<ElementId>, icon: &'static str) -> Stateful<Div> {
+fn idea_icon_button(
+    theme: ui::Theme,
+    id: impl Into<ElementId>,
+    icon: &'static str,
+) -> Stateful<Div> {
     div()
         .id(id)
         .w(px(28.0))
@@ -83,15 +104,19 @@ fn idea_icon_button(id: impl Into<ElementId>, icon: &'static str) -> Stateful<Di
         .items_center()
         .justify_center()
         .rounded(px(7.0))
-        .text_color(rgba(0xbcd8f0ff))
+        .text_color(rgba(theme.text_secondary))
         .cursor_pointer()
-        .hover(|style| style.bg(rgba(0x8fcaff2e)).text_color(rgba(0xffffffff)))
-        .active(|style| style.bg(rgba(0x8fcaff48)))
+        .hover(|style| {
+            style
+                .bg(rgba(ui::icons::with_alpha(theme.accent, 0x2e)))
+                .text_color(rgba(theme.text_primary))
+        })
+        .active(|style| style.bg(rgba(ui::icons::with_alpha(theme.accent, 0x48))))
         .child(svg().path(icon).w(px(13.0)).h(px(13.0)).flex_none())
 }
 
 /// 抓手：与原型一致的 grip 图标（14px），悬停行时提亮。
-fn grip(active: bool) -> Div {
+fn grip(theme: ui::Theme, active: bool) -> Div {
     div()
         .w(px(18.0))
         .h(px(28.0))
@@ -99,7 +124,11 @@ fn grip(active: bool) -> Div {
         .flex()
         .items_center()
         .justify_center()
-        .text_color(rgba(if active { GRIP_ACTIVE } else { GRIP }))
+        .text_color(rgba(if active {
+            theme.text_primary
+        } else {
+            theme.text_tertiary
+        }))
         .child(
             svg()
                 .path("icons/grip.svg")
@@ -136,6 +165,7 @@ fn link_label(link: &str) -> String {
 impl MultisoulApp {
     /// 待办行里的链接（最多 2 个）与图片缩略图；都没有时不占位。
     fn render_idea_attachments(&self, row: &TodoRow, cx: &mut Context<Self>) -> Option<Div> {
+        let theme = self.desktop_theme();
         if row.links.is_empty() && row.image_names.is_empty() {
             return None;
         }
@@ -145,11 +175,11 @@ impl MultisoulApp {
             attachment_chip(format!("idea-link-{}-{link}", row.id))
                 .h(px(20.0))
                 .px(px(6.0))
-                .bg(rgba(0x58adff1f))
+                .bg(rgba(ui::icons::with_alpha(theme.accent, 0x1f)))
                 .text_size(px(11.0))
-                .text_color(rgba(0xbfe0ffff))
-                .hover(|style| style.bg(rgba(0x58adff3d)))
-                .active(|style| style.bg(rgba(0x58adff59)))
+                .text_color(rgba(theme.text_secondary))
+                .hover(|style| style.bg(rgba(ui::icons::with_alpha(theme.accent, 0x3d))))
+                .active(|style| style.bg(rgba(ui::icons::with_alpha(theme.accent, 0x59))))
                 .tooltip({
                     let link = link.clone();
                     move |window, cx| Tooltip::new(link.clone()).build(window, cx)
@@ -169,8 +199,10 @@ impl MultisoulApp {
                     .h(px(24.0))
                     .overflow_hidden()
                     .border_1()
-                    .border_color(rgba(0x83c4ff40))
-                    .hover(|style| style.border_color(rgba(0x83c4ffa0)))
+                    .border_color(rgba(ui::icons::with_alpha(theme.accent, 0x40)))
+                    .hover(|style| {
+                        style.border_color(rgba(ui::icons::with_alpha(theme.accent, 0xa0)))
+                    })
                     .tooltip(|window, cx| Tooltip::new("打开图片").build(window, cx))
                     .on_click(cx.listener(move |_, _, _, cx| {
                         cx.stop_propagation();
@@ -205,6 +237,7 @@ impl MultisoulApp {
         feedback: super::super::overview_rows::OverviewFeedback,
         cx: &mut Context<Self>,
     ) -> Div {
+        let theme = self.desktop_theme();
         let id = row.id.clone();
         let element_id = format!("desktop-idea-row-{}", row.id);
         let group = format!("idea-group-{}", row.id);
@@ -245,6 +278,7 @@ impl MultisoulApp {
             .group_hover(group.clone(), |style| style.visible())
             .child(
                 idea_pill(
+                    theme,
                     ElementId::Name(format!("idea-assign-{assign_id}").into()),
                     if menu_open {
                         "指派 ▴"
@@ -262,6 +296,7 @@ impl MultisoulApp {
             )
             .child(
                 idea_icon_button(
+                    theme,
                     ElementId::Name(format!("idea-delete-{delete_id}").into()),
                     "icons/close.svg",
                 )
@@ -310,7 +345,7 @@ impl MultisoulApp {
                                 app.begin_idea_drag(&drag_id, event, window, cx);
                             }),
                         )
-                        .child(grip(menu_open || focused))
+                        .child(grip(theme, menu_open || focused))
                         .child(
                             div()
                                 .flex_1()
@@ -325,13 +360,13 @@ impl MultisoulApp {
                                         .line_height(px(16.0))
                                         .max_h(px(32.0))
                                         .overflow_hidden()
-                                        .text_color(rgba(COPY_PRIMARY))
+                                        .text_color(rgba(theme.text_primary))
                                         .child(row.title.clone()),
                                 )
                                 .child(
                                     div()
                                         .text_size(px(11.0))
-                                        .text_color(rgba(COPY_SECONDARY))
+                                        .text_color(rgba(theme.text_secondary))
                                         .child(row.meta.clone()),
                                 )
                                 .children(self.render_idea_attachments(row, cx)),

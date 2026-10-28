@@ -1,6 +1,5 @@
 //! Chat and run-overview bodies share the drawer. Only the body slides.
 
-use super::{GLASS_TEXT_MUTED, GLASS_TEXT_SECONDARY};
 use crate::app::assistant_conversation::Speaker;
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div, KeyDownEvent, Stateful, Window};
@@ -81,7 +80,7 @@ impl MultisoulApp {
                                     .child(
                                         div()
                                             .text_size(px(10.0))
-                                            .text_color(rgba(GLASS_TEXT_MUTED))
+                                            .text_color(rgba(theme.text_tertiary))
                                             .child("当前对话"),
                                     )
                                     .child(
@@ -98,7 +97,7 @@ impl MultisoulApp {
                                     .gap(px(5.0))
                                     .mr(px(48.0))
                                     .text_size(px(9.0))
-                                    .text_color(rgba(GLASS_TEXT_SECONDARY))
+                                    .text_color(rgba(theme.text_secondary))
                                     .child(
                                         div()
                                             .w(px(4.0))
@@ -129,10 +128,10 @@ impl MultisoulApp {
                                     .custom(
                                         ButtonCustomVariant::new(cx)
                                             .color(rgba(0x00000000).into())
-                                            .foreground(rgba(super::GLASS_TEXT).into())
+                                            .foreground(rgba(theme.text_primary).into())
                                             .border(rgba(0x00000000).into())
-                                            .hover(rgba(0x7bc7ff12).into())
-                                            .active(rgba(0x7bc7ff25).into()),
+                                            .hover(rgba(ui::icons::with_alpha(theme.accent, 0x12)).into())
+                                            .active(rgba(ui::icons::with_alpha(theme.accent, 0x25)).into()),
                                     )
                                     .tooltip(format!(
                                         "语音对话 · {}",
@@ -173,7 +172,7 @@ impl MultisoulApp {
                                     .child(
                                         div()
                                             .text_size(px(11.0))
-                                            .text_color(rgba(GLASS_TEXT_SECONDARY))
+                                            .text_color(rgba(theme.text_secondary))
                                             .child("有什么想一起做的？"),
                                     ),
                             ),
@@ -193,7 +192,7 @@ impl MultisoulApp {
                     .flex()
                     .flex_col()
                     .gap(px(20.0))
-                    .child(super::chat_message::conversation_message(
+                    .child(super::chat_message::conversation_message(theme,
                         0,
                         Speaker::Norma,
                         "你好，我是 Norma。左边和我聊天，中间看项目画布，右边可用标签浏览网页、文件、图片和视频。".to_owned(),
@@ -201,7 +200,7 @@ impl MultisoulApp {
                         width,
                     ))
                     .children(messages.into_iter().enumerate().map(|(index, message)| {
-                        super::chat_message::conversation_message(
+                        super::chat_message::conversation_message(theme,
                             index + 1,
                             message.speaker,
                             message.text,

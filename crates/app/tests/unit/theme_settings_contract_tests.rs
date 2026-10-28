@@ -66,3 +66,29 @@ fn test_settings_panel_and_theme_previews_use_tokens_not_hardcoded_palette() {
         "Settings 不应保留上一版 mock 边线或深蓝文字常量"
     );
 }
+
+/// 场景：选中色圆点中的小勾必须与六主题强调底色可分辨。
+/// 数据构造：生产选择标记前景与真实 accent，3:1 是非文字图形最小对比。
+/// 执行过程：线性化 sRGB，再计算两色亮度比。
+/// 预期结果：每套主题至少 3:1，不能在浅强调色上保留白勾。
+#[test]
+fn theme_selection_marker_contrast() {
+    fn luma(c: u32) -> f32 {
+        let v = [24, 16, 8].map(|shift| {
+            let v = ((c >> shift) & 255) as f32 / 255.0;
+            if v <= 0.04045 {
+                v / 12.92
+            } else {
+                ((v + 0.055) / 1.055).powf(2.4)
+            }
+        });
+        v[0] * 0.2126 + v[1] * 0.7152 + v[2] * 0.0722
+    }
+    for id in ui::ThemeId::ALL {
+        let theme = ui::Theme::for_id(id);
+        let ink = super::selection_ink(theme);
+        let (a, b) = (luma(ink), luma(theme.accent));
+        let ratio = (a.max(b) + 0.05) / (a.min(b) + 0.05);
+        assert!(ratio >= 3.0, "{id:?} 选中勾对比应至少3:1，实际{ratio}");
+    }
+}
