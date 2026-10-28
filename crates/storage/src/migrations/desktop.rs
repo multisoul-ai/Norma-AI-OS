@@ -143,9 +143,22 @@ fn migrate_dispatch_effects(connection: &Connection) -> StorageResult<()> {
 }
 
 fn migrate_wallpapers(connection: &Connection) -> StorageResult<()> {
+    let complete: bool = connection.query_row(
+        "SELECT EXISTS(SELECT 1 FROM settings WHERE key='wallpaper.desktop_migrated.v1')
+         AND EXISTS(SELECT 1 FROM pragma_table_info('desktop_workspaces') WHERE name='wallpaper_json')
+         AND EXISTS(SELECT 1 FROM pragma_table_info('desktop_project_areas') WHERE name='wallpaper_json')",
+        [],
+        |row| row.get(0),
+    )?;
+    if complete {
+        return Ok(());
+    }
     // Columns and backfill commit together; the marker prevents future global changes
     // from overwriting independent selections, including intentionally empty values.
-    let transaction = connection.unchecked_transaction()?;
+    // Acquire the write lock before schema/marker reads to avoid a Deferred
+    // read-to-write upgrade racing another background opener.
+    let transaction =
+        rusqlite::Transaction::new_unchecked(connection, rusqlite::TransactionBehavior::Immediate)?;
     super::ensure_column(
         &transaction,
         "desktop_workspaces",
@@ -179,14 +192,14 @@ fn migrate_wallpapers(connection: &Connection) -> StorageResult<()> {
 }
 
 fn migrate_content_workbench(connection: &Connection) -> StorageResult<()> {
-    let sql: String = connection.query_row(
-        "SELECT sql FROM sqlite_master WHERE type='table' AND name='desktop_content_tabs'",
-        [],
-        |row| row.get(0),
-    )?;
-    if !sql.contains("project_files") {
-        connection.execute_batch("SAVEPOINT content_workbench;
-            ALTER TABLE desktop_content_tabs RENAME TO desktop_content_tabs_old;
+    if !content_schema_contains(connection, "project_files")? {
+        let transaction = rusqlite::Transaction::new_unchecked(
+            connection,
+            rusqlite::TransactionBehavior::Immediate,
+        )?;
+        // Do not rebuild a schema that another opener has already advanced.
+        if !content_schema_contains(&transaction, "project_files")? {
+            transaction.execute_batch("ALTER TABLE desktop_content_tabs RENAME TO desktop_content_tabs_old;
             CREATE TABLE desktop_content_tabs (
                 id TEXT PRIMARY KEY NOT NULL,
                 workspace_id TEXT NOT NULL REFERENCES desktop_workspaces(id) ON DELETE CASCADE,
@@ -199,7 +212,9 @@ fn migrate_content_workbench(connection: &Connection) -> StorageResult<()> {
             DROP TABLE desktop_content_tabs_old;
             CREATE INDEX idx_desktop_content_tabs_workspace ON desktop_content_tabs(workspace_id,position);
             CREATE UNIQUE INDEX idx_desktop_content_tabs_selected ON desktop_content_tabs(workspace_id) WHERE selected=1;
-            RELEASE content_workbench;")?;
+            ")?;
+        }
+        transaction.commit()?;
     }
     connection.execute_batch(
         "CREATE TABLE IF NOT EXISTS desktop_content_state (
@@ -208,3 +223,16 @@ fn migrate_content_workbench(connection: &Connection) -> StorageResult<()> {
     )?;
     Ok(())
 }
+
+fn content_schema_contains(connection: &Connection, feature: &str) -> StorageResult<bool> {
+    let sql: String = connection.query_row(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='desktop_content_tabs'",
+        [],
+        |row| row.get(0),
+    )?;
+    Ok(sql.contains(feature))
+}
+
+#[cfg(test)]
+#[path = "../../tests/unit/wallpaper_migration_concurrency_tests.rs"]
+mod tests;

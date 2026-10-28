@@ -282,6 +282,7 @@ impl MultisoulApp {
                             runtime::AgentTaskState::Thinking
                             | runtime::AgentTaskState::RunningTool { .. },
                         ) => ("运行中", true),
+                        Some(runtime::AgentTaskState::WaitingQuestion) => ("等待回答", false),
                         Some(runtime::AgentTaskState::WaitingApproval { .. }) => {
                             ("等待审批", false)
                         }

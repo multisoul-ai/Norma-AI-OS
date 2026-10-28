@@ -15,12 +15,15 @@ storage.workspace = true
 terminal.workspace = true
 tracing.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 tempfile.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
 libc = "0.2"
 
+
 [dev-dependencies]
+tracing-subscriber.workspace = true
 filetime = "0.2"
 tungstenite.workspace = true
 rusqlite.workspace = true

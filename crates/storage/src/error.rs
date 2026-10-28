@@ -5,6 +5,8 @@ pub type StorageResult<T> = Result<T, StorageError>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum StorageError {
+    #[error("invalid question delivery: {0}")]
+    InvalidQuestionDelivery(String),
     #[error("shared context: {0}")]
     InvalidContext(String),
     #[error("invalid live operation: {0}")]

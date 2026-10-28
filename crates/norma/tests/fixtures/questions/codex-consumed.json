@@ -1,0 +1,12 @@
+{
+  "method": "rawResponseItem/completed",
+  "params": {
+    "threadId": "codex-question-test-thread",
+    "turnId": "codex-question-test-turn",
+    "item": {
+      "type": "function_call_output",
+      "call_id": "codex-question-test-call",
+      "output": "{\"answers\":{\"label\":{\"answers\":[\"Green\"]}}}"
+    }
+  }
+}

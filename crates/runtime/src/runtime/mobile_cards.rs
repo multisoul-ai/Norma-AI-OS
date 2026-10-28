@@ -34,7 +34,7 @@ mod delete;
 mod delete_tests;
 mod history;
 mod interrupt;
-mod launch;
+pub(crate) mod launch;
 #[cfg(test)]
 #[path = "../../tests/unit/mobile_message_tests.rs"]
 mod message_tests;
@@ -46,6 +46,7 @@ pub use native_launch::NativeAgentLaunch;
 mod native_approval;
 mod native_approval_action;
 mod progress;
+mod snapshots;
 mod summary;
 #[cfg(test)]
 #[path = "../../tests/unit/mobile_task_progress_tests.rs"]
@@ -153,102 +154,18 @@ mod claude_audit_tests;
 
 impl Runtime {
     pub fn mobile_agent_is_preparing(&self, node_id: NodeId) -> bool {
-        self.mobile_runs.get(&node_id).is_some_and(|run| {
-            run.run_id.is_none()
-                || run
-                    .native_input
-                    .resume
-                    .pending
-                    .as_ref()
-                    .is_some_and(|p| !p.ready)
-                || run.message.is_some()
-                || (run.native && !self.live.contains_key(&node_id))
-        })
-    }
-
-    /// On-demand display projection; never reads transcripts, drains PTYs, or starts an executor.
-    pub fn mobile_card_snapshots(&self) -> Vec<norma::mobile::CardSnapshot> {
-        let clip = |text: String| text.chars().take(1024).collect::<String>();
-        let mut cards: Vec<_> = self
-            .document
-            .nodes()
-            .iter()
-            .filter_map(|node| {
-                let CanvasNodeKind::Agent(spec) = &node.kind else {
-                    return None;
-                };
-                use crate::AgentTaskState;
-                let preparing = self.mobile_agent_is_preparing(node.id);
-                let interrupting = self.mobile_runs.get(&node.id).is_some_and(|run| {
-                    run.interrupt.is_some()
-                        || run
-                            .run_id
-                            .as_deref()
-                            .is_some_and(|id| self.mobile_codex_interrupt_pending(node.id, id))
-                });
-                let state = match self.agent_task_state(node.id) {
-                    _ if interrupting => "interrupting",
-                    _ if preparing => "preparing",
-                    Some(AgentTaskState::Ready) => "ready",
-                    Some(AgentTaskState::Thinking) => "thinking",
-                    Some(AgentTaskState::RunningTool { .. }) => "running_tool",
-                    Some(AgentTaskState::WaitingApproval { .. }) => "waiting_approval",
-                    Some(AgentTaskState::Done) => "done",
-                    Some(AgentTaskState::Failed { .. }) => "failed",
-                    Some(AgentTaskState::Ended) => "ended",
-                    None if self.native_prompt_ready(node.id) => "ready",
-                    None if self.node_run_state(node.id).is_none() => "idle",
-                    None => "unknown",
-                };
-                Some(norma::mobile::CardSnapshot {
-                    node_id: node.id,
-                    profile: spec.profile.display_title().into(),
-                    title: node.kind.display_title().chars().take(256).collect(),
-                    mobile_control: matches!(
-                        spec.profile,
-                        AgentProfile::Claude | AgentProfile::Codex | AgentProfile::Cursor
-                    ) || self
-                        .mobile_runs
-                        .get(&node.id)
-                        .is_some_and(MobileRun::is_native),
-                    can_interrupt: self.mobile_runs.get(&node.id).filter(|run| run.native).map(
-                        |run| {
-                            spec.profile == AgentProfile::Codex
-                                || (spec.profile == AgentProfile::Claude
-                                    && run.transcript_path.is_some())
-                        },
-                    ),
-                    task_timing: self.mobile_runs.get(&node.id).and_then(|run| {
-                        run.codex
-                            .as_ref()
-                            .map(|host| &host.task_clock)
-                            .unwrap_or(&run.task_clock)
-                            .snapshot()
-                    }),
-                    task_progress: self.mobile_task_progress(node.id),
-                    task_summary: self.mobile_runs.get(&node.id).and_then(|run| {
-                        run.codex
-                            .as_ref()
-                            .map(|host| &host.task_summary)
-                            .unwrap_or(&run.task_summary)
-                            .snapshot()
-                    }),
-                    state: state.into(),
-                    run_id: self.mobile_agent_run_id(node.id).map(str::to_owned),
-                    session_id: self.agent_session_id(node.id),
-                    turn_id: self.mobile_runs.get(&node.id).and_then(|run| {
-                        run.codex
-                            .as_ref()
-                            .and_then(|host| host.turn_id.clone())
-                            .or_else(|| run.prompt_id.clone())
-                    }),
-                    task_title: self.agent_task_title(node.id).map(clip),
-                    latest_prompt: self.agent_latest_prompt(node.id).map(clip),
-                })
+        self.cursor_launch_pending(node_id)
+            || self.mobile_runs.get(&node_id).is_some_and(|run| {
+                run.run_id.is_none()
+                    || run
+                        .native_input
+                        .resume
+                        .pending
+                        .as_ref()
+                        .is_some_and(|p| !p.ready)
+                    || run.message.is_some()
+                    || (run.native && !self.live.contains_key(&node_id))
             })
-            .collect();
-        cards.sort_by_key(|card| card.node_id);
-        cards
     }
 
     pub(super) fn end_mobile_run(&mut self, node_id: NodeId) {

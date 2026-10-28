@@ -1,0 +1,57 @@
+{
+  "id": "que_17e75982b001NeZTkThM7kKPiT",
+  "sessionID": "ses_e818a6dfbffehqPKTZcQvWJCLL",
+  "questions": [
+    {
+      "question": "Color?",
+      "header": "Color",
+      "options": [
+        {
+          "label": "Blue",
+          "description": "First"
+        },
+        {
+          "label": "Green",
+          "description": "Second"
+        }
+      ]
+    },
+    {
+      "question": "Platforms?",
+      "header": "Platforms",
+      "options": [
+        {
+          "label": "macOS",
+          "description": "Mac"
+        },
+        {
+          "label": "iOS",
+          "description": "Phone"
+        },
+        {
+          "label": "Linux",
+          "description": "Linux"
+        }
+      ],
+      "multiple": true
+    },
+    {
+      "question": "Custom marker?",
+      "header": "Marker",
+      "options": [
+        {
+          "label": "One",
+          "description": "First"
+        },
+        {
+          "label": "Two",
+          "description": "Second"
+        }
+      ]
+    }
+  ],
+  "tool": {
+    "messageID": "msg_17e75941b001T1QHqv9Yh4SYrA",
+    "callID": "fixture_question_7f2"
+  }
+}

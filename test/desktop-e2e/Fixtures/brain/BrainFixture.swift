@@ -155,7 +155,18 @@ public enum BrainFixture {
         urllib.request.build_opener(urllib.request.ProxyHandler({})).open(request, timeout=3).read()
     # 第一张卡片会完成任务；其余卡片一直待命，用来接后续任务。
     if node != 1:
-        time.sleep(3600)
+        marker = os.path.join(os.environ["NORMA_BRAIN_DIR"], "waiting-" + str(node))
+        waiting = False
+        while True:
+            blocked = os.path.exists(marker)
+            if blocked and not waiting:
+                post("UserPromptSubmit", {"prompt": "确认当前任务"})
+                post("PermissionRequest", {"tool_name": "AskUserQuestion"})
+                print("请先回答当前问题", flush=True)
+            elif waiting and not blocked:
+                post("Stop", {"last_assistant_message": "确认已处理"})
+            waiting = blocked
+            time.sleep(0.1)
     time.sleep(2)
     post("UserPromptSubmit", {"prompt": "实现登录页并补测试"})
     time.sleep(6)

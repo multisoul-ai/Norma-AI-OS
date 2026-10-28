@@ -218,6 +218,7 @@ pub(crate) fn map_task_state(state: &AgentTaskState) -> AgentConversationTaskSta
         AgentTaskState::Thinking => AgentConversationTaskState::Thinking,
         AgentTaskState::RunningTool { .. } => AgentConversationTaskState::RunningTool,
         AgentTaskState::WaitingApproval { .. } => AgentConversationTaskState::WaitingApproval,
+        AgentTaskState::WaitingQuestion => AgentConversationTaskState::WaitingQuestion,
         AgentTaskState::Done => AgentConversationTaskState::Done,
         AgentTaskState::Failed { .. } => AgentConversationTaskState::Failed,
         AgentTaskState::Ended => AgentConversationTaskState::Ended,

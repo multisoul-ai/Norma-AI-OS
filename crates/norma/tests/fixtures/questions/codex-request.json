@@ -1,0 +1,30 @@
+{
+  "method": "item/tool/requestUserInput",
+  "id": 0,
+  "params": {
+    "threadId": "codex-question-test-thread",
+    "turnId": "codex-question-test-turn",
+    "itemId": "codex-question-test-call",
+    "questions": [
+      {
+        "id": "label",
+        "header": "Label",
+        "question": "Which label should the native test use?",
+        "isOther": true,
+        "isSecret": false,
+        "options": [
+          {
+            "label": "Blue",
+            "description": "Use the Blue label."
+          },
+          {
+            "label": "Green",
+            "description": "Use the Green label."
+          }
+        ]
+      }
+    ],
+    "isBlocking": true,
+    "autoResolutionMs": null
+  }
+}

@@ -33,7 +33,10 @@ fn restored_agent_session_keeps_the_owning_norma_socket() {
     let agent_session_bindings = AgentSessionBindings::default();
     let mut events = RuntimeEvents::default();
     let mut next_session_id = 1;
+    let question_processes = HashMap::from([(45, "restored-process".to_owned())]);
     let restore_ctx = RestoreCtx {
+        question_processes: &question_processes,
+        pty_factory: None,
         live: &mut live,
         terminal_shells: &mut terminal_shells,
         agent_session_bindings: &agent_session_bindings,
@@ -57,6 +60,13 @@ fn restored_agent_session_keeps_the_owning_norma_socket() {
         AgentProfile::Codex,
         Some(&hook_env),
         Some(Path::new("/tmp/workspace-alpha")),
+    );
+    assert!(
+        command
+            .env
+            .iter()
+            .any(|(key, value)| key == "NORMA_CONTROL_RUN_ID" && value == "restored-process"),
+        "恢复命令必须带spawn前登记的原生进程身份"
     );
 
     assert!(

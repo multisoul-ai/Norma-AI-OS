@@ -224,8 +224,19 @@ impl MultisoulApp {
                     }
                     let startup_stalled = app.runtime.tick_startup_stalls(Instant::now());
                     let browser_changed = app.drain_browser_events(cx);
-                    let agent_hook_report =
-                        app.agent_hook_server.drain_into_runtime(&mut app.runtime);
+                    let question_project = app
+                        .shared_context_scope
+                        .as_ref()
+                        .and_then(|scope| match &scope.project {
+                            norma::protocol::ContextProject::Project { project_id, .. } => {
+                                Some(project_id.clone())
+                            }
+                            norma::protocol::ContextProject::Personal => None,
+                        })
+                        .or_else(|| app.workspace_id.clone());
+                    let agent_hook_report = app
+                        .agent_hook_server
+                        .drain_into_runtime(&mut app.runtime, question_project.as_deref());
                     if agent_hook_report.session_binding_changed {
                         app.mark_session_dirty();
                     }

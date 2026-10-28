@@ -74,3 +74,54 @@ async fn doubao_stale_listen_end_keeps_current_hold() {
     assert!(call.stop().await.is_ok(), "停止应正常释放会话");
     spoken.complete.send(Ok(())).expect("应释放通知请求");
 }
+
+/// 场景：已委托回执播完后，下一句语音或挂断仍须撤销尚未发送的原题授权。
+/// 构造：生产conversation循环，完成明确委托回复，再播一条独立报告以覆盖reply_token。
+/// 执行：分别发送Started和取消整通电话，等待原用户reply token取消。
+/// 预期：正常播完不撤权，下一次用户输入/挂断及时撤权，报告不能丢失原授权的取消链。
+#[tokio::test]
+async fn doubao_completed_question_grant_remains_revocable() {
+    for speech in [true, false] {
+        let mut call = Conversation::start();
+        call.speech
+            .send(SpeechEvent::Final("这题你直接回答".into()))
+            .await
+            .unwrap();
+        call.expect_user_transcript("这题你直接回答").await;
+        assert_eq!(call.status().await, DoubaoStatus::Thinking, "进入用户回复");
+        let user = call.reply().await;
+        let token = user.token.clone();
+        user.complete.send(Ok(())).unwrap();
+        assert_eq!(
+            call.status().await,
+            DoubaoStatus::Connected,
+            "委托回执已播完"
+        );
+        assert!(!token.is_cancelled(), "正常播完后原题委托仍有效");
+        call.reports.send(report("后台报告")).await.unwrap();
+        assert_eq!(call.status().await, DoubaoStatus::Speaking, "独立报告开始");
+        call.reply().await.complete.send(Ok(())).unwrap();
+        assert_eq!(
+            call.status().await,
+            DoubaoStatus::Connected,
+            "独立报告已完成"
+        );
+        if speech {
+            call.speech.send(SpeechEvent::Started).await.unwrap();
+            assert_eq!(
+                call.status().await,
+                DoubaoStatus::Connected,
+                "新语音已被循环接收"
+            );
+        } else {
+            call.cancellation.cancel();
+        }
+        assert!(
+            tokio::time::timeout(super::support::WAIT, token.cancelled())
+                .await
+                .is_ok(),
+            "完成后的原题授权仍须响应下一句/挂断"
+        );
+        assert!(call.stop().await.is_ok(), "会话正常收口");
+    }
+}

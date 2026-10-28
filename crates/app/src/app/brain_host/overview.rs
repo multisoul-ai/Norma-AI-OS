@@ -1,0 +1,34 @@
+use super::{proposals, questions::AnswerSuggestion};
+use std::collections::HashSet;
+
+/// 概览需要的、分散在各项目会话里的大脑状态。
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct OverviewSnapshot {
+    /// 大脑正在判断的审批：（项目区域 id，卡片 id）。
+    pub judging: HashSet<(String, u64)>,
+    /// 至少一个项目里的大脑在运行；工作空间窗口自己不跑大脑，设置页靠它显示“运行中”。
+    pub running: bool,
+    /// 等用户确认的下一步，新的在前。
+    pub proposals: Vec<OverviewProposal>,
+    pub questions: Vec<OverviewQuestion>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct OverviewProposal {
+    pub area_id: String,
+    pub proposal: proposals::Proposal,
+    /// 目标 Agent 还没有卡片，派发时会新建。
+    pub new_card: bool,
+    pub block: Option<proposals::ProposalBlock>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct OverviewQuestion {
+    pub area_id: String,
+    pub agent: String,
+    pub snapshot: norma::protocol::QuestionSnapshot,
+    pub suggestion: Option<AnswerSuggestion>,
+    pub available: bool,
+    pub delegated: bool,
+    pub can_delegate: bool,
+}

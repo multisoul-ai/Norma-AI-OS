@@ -1,0 +1,50 @@
+{
+  "hook_event_name": "PostToolUse",
+  "tool_name": "AskUserQuestion",
+  "tool_input": {
+    "questions": [
+      {
+        "question": "Which label should the test use?",
+        "header": "Label",
+        "options": [
+          {
+            "label": "Blue",
+            "description": "Use the Blue label for the test."
+          },
+          {
+            "label": "Green",
+            "description": "Use the Green label for the test."
+          }
+        ],
+        "multiSelect": false
+      }
+    ],
+    "answers": {
+      "Which label should the test use?": "Green"
+    }
+  },
+  "tool_response": {
+    "questions": [
+      {
+        "question": "Which label should the test use?",
+        "header": "Label",
+        "options": [
+          {
+            "label": "Blue",
+            "description": "Use the Blue label for the test."
+          },
+          {
+            "label": "Green",
+            "description": "Use the Green label for the test."
+          }
+        ],
+        "multiSelect": false
+      }
+    ],
+    "answers": {
+      "Which label should the test use?": "Green"
+    }
+  },
+  "tool_use_id": "toolu_01VFkZ9MM6QnA3bScYaJhaCw",
+  "session_id": "claude-native-fixture-session"
+}

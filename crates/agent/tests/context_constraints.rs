@@ -1,5 +1,58 @@
 use agent::context::*;
 
+/// 场景：代答限制独立于派任务和批准操作，必须来自用户原文。
+/// 构造：用户“不要代答问题”的来源事件及AnswerQuestion限制；另构造幕僚同文事件。
+/// 执行：核验限制、投影到工作状态，再分别检查三个操作。
+/// 预期：仅代答被拒；幕僚无法自行修改限制，不能把审批/派发权限借给代答。
+#[test]
+fn question_answering_has_a_separate_user_constraint() {
+    let input = record(
+        "input",
+        1,
+        ContextOrigin::Voice,
+        ContextPayload::UserInput {
+            text: "不要代答问题".into(),
+        },
+    );
+    let update = ContextStateUpdate {
+        input: input.reference.clone(),
+        expected_revision: 1,
+        change: ContextStateChange::Constraint {
+            key: "questions".into(),
+            text: "不要代答问题".into(),
+            enforcement: ConstraintEnforcement::Enforced {
+                operation: ContextOperation::AnswerQuestion,
+                target: None,
+            },
+            supersedes: None,
+        },
+    };
+    let payload = validate_state_update(&input, &update).expect("用户明确的代答限制须可核验");
+    let state = project_event(
+        &WorkingState::default(),
+        &record("constraint", 2, ContextOrigin::Voice, payload),
+    )
+    .unwrap();
+    assert!(
+        check_context_operation(&state, ContextOperation::AnswerQuestion, Some("7")).is_err(),
+        "代答必须遵守对应限制"
+    );
+    assert!(
+        check_context_operation(&state, ContextOperation::ApproveOperation, Some("7")).is_ok(),
+        "问答限制不冒充审批限制"
+    );
+    assert!(
+        check_context_operation(&state, ContextOperation::DispatchTask, Some("7")).is_ok(),
+        "问答限制不冒充派发限制"
+    );
+    let mut forged = input.clone();
+    forged.event.source.origin = ContextOrigin::Brain;
+    assert!(
+        validate_state_update(&forged, &update).is_err(),
+        "模型自身原文不能冒充用户约束来源"
+    );
+}
+
 fn record(
     id: &str,
     revision: u64,

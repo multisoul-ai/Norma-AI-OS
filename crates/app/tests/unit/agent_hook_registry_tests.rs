@@ -19,8 +19,8 @@ use norma::agent_hook::{parse_hook_event, HookSource};
 #[test]
 fn hook_tokens_route_same_node_id_to_distinct_workspace_mailboxes() {
     let mut registry = AgentHookRegistry::default();
-    let (alpha_token, alpha_receiver, _, _) = registry.register().expect("应可注册安全 token");
-    let (beta_token, beta_receiver, _, _) = registry.register().expect("应可注册安全 token");
+    let (alpha_token, alpha_receiver, _, _, _) = registry.register().expect("应可注册安全 token");
+    let (beta_token, beta_receiver, _, _, _) = registry.register().expect("应可注册安全 token");
     let alpha_event = parse_hook_event(
         HookSource::Codex,
         7,
@@ -89,7 +89,7 @@ fn hook_tokens_route_same_node_id_to_distinct_workspace_mailboxes() {
 #[test]
 fn retired_hook_token_rejects_late_event_without_false_acceptance() {
     let mut registry = AgentHookRegistry::default();
-    let (token, receiver, _, _) = registry.register().expect("应可注册安全 token");
+    let (token, receiver, _, _, _) = registry.register().expect("应可注册安全 token");
     let removed = registry.unregister(&token);
     let event = parse_hook_event(
         HookSource::Codex,

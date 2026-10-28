@@ -79,6 +79,7 @@ fn explicit_restriction(text: &str, operation: ContextOperation, target: Option<
         (ContextOperation::DispatchTask, None) => "不要派发任务".into(),
         (ContextOperation::SendTerminalInput, None) => "不要向终端输入".into(),
         (ContextOperation::ApproveOperation, None) => "不要批准操作".into(),
+        (ContextOperation::AnswerQuestion, None) => "不要代答问题".into(),
         _ => return false,
     };
     text.trim() == expected

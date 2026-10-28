@@ -39,6 +39,11 @@ impl DoubaoReport {
 }
 
 pub(super) enum ContextRequest {
+    Question {
+        transcript: String,
+        cancellation: CancellationToken,
+        response: tokio::sync::oneshot::Sender<Result<String, String>>,
+    },
     Model(
         tokio::sync::oneshot::Sender<(
             agent::CurrentCanvasContext,

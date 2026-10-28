@@ -24,6 +24,7 @@ pub enum AgentTaskState {
     Thinking,
     RunningTool { tool_name: Option<String> },
     WaitingApproval { tool_name: Option<String> },
+    WaitingQuestion,
     Done,
     Failed { message: String },
     Ended,
@@ -326,6 +327,7 @@ impl RuntimeEvents {
             | AgentTaskState::Thinking
             | AgentTaskState::RunningTool { .. }
             | AgentTaskState::WaitingApproval { .. }
+            | AgentTaskState::WaitingQuestion
             | AgentTaskState::Failed { .. }
             | AgentTaskState::Ended => {
                 self.card_attention.remove(&node_id);
@@ -340,6 +342,7 @@ fn is_active_agent_task_state(state: &AgentTaskState) -> bool {
         AgentTaskState::Thinking
             | AgentTaskState::RunningTool { .. }
             | AgentTaskState::WaitingApproval { .. }
+            | AgentTaskState::WaitingQuestion
     )
 }
 
@@ -408,7 +411,11 @@ impl Runtime {
         };
         match &node.kind {
             CanvasNodeKind::Agent(agent) if agent.profile == update.profile => {
-                if agent.mobile_control
+                if (agent.mobile_control
+                    || !self.question_accepts_task_session(
+                        update.node_id,
+                        update.session_id.as_deref(),
+                    ))
                     && (update.session_id.is_none()
                         || self.agent_session_id(update.node_id).as_deref()
                             != update.session_id.as_deref())
@@ -445,11 +452,10 @@ impl Runtime {
                     self.events
                         .set_agent_task_title_if_absent(update.node_id, title);
                 }
-                let task_state_changed = self.events.update_agent_task_state(
-                    update.node_id,
-                    update.to,
-                    update.provider_event,
-                );
+                let to = self.project_question_task_state(update.node_id, update.to);
+                let task_state_changed =
+                    self.events
+                        .update_agent_task_state(update.node_id, to, update.provider_event);
                 AgentTaskUpdateOutcome {
                     task_state_changed,
                     session_binding_changed,

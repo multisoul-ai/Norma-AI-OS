@@ -25,6 +25,7 @@ impl MultisoulApp {
                 AgentTaskState::Thinking
                     | AgentTaskState::RunningTool { .. }
                     | AgentTaskState::WaitingApproval { .. }
+                    | AgentTaskState::WaitingQuestion
             )
         );
         let coordinated_busy = self
