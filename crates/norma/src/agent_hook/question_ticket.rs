@@ -7,6 +7,9 @@ use std::io;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+mod guard;
+pub use guard::QuestionSendGuard;
+
 pub const QUESTION_TIMEOUT: Duration = Duration::from_secs(120);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -41,6 +44,7 @@ struct State {
     delivery_id: Option<String>,
     answers: Option<Vec<QuestionAnswer>>,
     native_send: NativeSendStatus,
+    send_rejection: Option<&'static str>,
 }
 
 #[derive(Clone, Debug)]
@@ -89,6 +93,7 @@ struct Invocation {
     adapter: NativeQuestion,
     expires_at: Instant,
     state: Mutex<State>,
+    guard: Mutex<guard::SendGuard>,
 }
 
 impl HookQuestion {
@@ -116,7 +121,9 @@ impl HookQuestion {
                 delivery_id: None,
                 answers: None,
                 native_send: NativeSendStatus::Unsent,
+                send_rejection: None,
             }),
+            guard: Mutex::new(guard::SendGuard::default()),
         })))
     }
 
@@ -210,19 +217,30 @@ impl HookQuestion {
         now: Instant,
         write: impl FnOnce() -> io::Result<bool>,
     ) -> io::Result<bool> {
-        let mut state = self.0.state.lock().expect("question state poisoned");
-        self.expire(&mut state, now);
-        if state.status != QuestionHookStatus::Responding {
-            return Err(io::Error::new(
-                io::ErrorKind::Interrupted,
-                "question response revoked",
-            ));
-        }
-        let complete = write()?;
-        if complete {
-            state.status = QuestionHookStatus::Responded;
-        }
-        Ok(complete)
+        self.guarded_send(matches!(self.0.adapter, NativeQuestion::Claude(_)), || {
+            let mut state = self.0.state.lock().expect("question state poisoned");
+            self.expire(&mut state, now);
+            if state.status != QuestionHookStatus::Responding {
+                return Err(io::Error::new(
+                    io::ErrorKind::Interrupted,
+                    "question response revoked",
+                ));
+            }
+            let result = write();
+            if matches!(self.0.adapter, NativeQuestion::Claude(_)) {
+                state.native_send = match &result {
+                    Ok(true) => NativeSendStatus::Sent,
+                    Ok(false) => NativeSendStatus::Writing,
+                    Err(error) if error.kind() == io::ErrorKind::WouldBlock => state.native_send,
+                    Err(_) => NativeSendStatus::Unknown,
+                };
+            }
+            if matches!(result, Ok(true)) {
+                state.status = QuestionHookStatus::Responded;
+            }
+            result
+        })
+        .map_err(|reason| io::Error::new(io::ErrorKind::PermissionDenied, reason))?
     }
 
     pub fn matches_delivery(&self, delivery_id: &str, answers: &[QuestionAnswer]) -> bool {
@@ -273,20 +291,22 @@ impl HookQuestion {
         delivery_id: &str,
         now: Instant,
     ) -> Result<NativeHttpDelivery, &'static str> {
-        let mut state = self.0.state.lock().expect("question state poisoned");
-        self.expire(&mut state, now);
-        if !matches!(self.0.adapter, NativeQuestion::OpenCode { .. })
-            || state.delivery_id.as_deref() != Some(delivery_id)
-            || state.status != QuestionHookStatus::Responding
-            || state.native_send != NativeSendStatus::Unsent
-        {
-            return Err("question_send_revoked");
-        }
-        state.native_send = NativeSendStatus::Writing;
-        Ok(NativeHttpDelivery {
-            ticket: self.clone(),
-            finished: false,
-        })
+        self.guarded_send(true, || {
+            let mut state = self.0.state.lock().expect("question state poisoned");
+            self.expire(&mut state, now);
+            if !matches!(self.0.adapter, NativeQuestion::OpenCode { .. })
+                || state.delivery_id.as_deref() != Some(delivery_id)
+                || state.status != QuestionHookStatus::Responding
+                || state.native_send != NativeSendStatus::Unsent
+            {
+                return Err("question_send_revoked");
+            }
+            state.native_send = NativeSendStatus::Writing;
+            Ok(NativeHttpDelivery {
+                ticket: self.clone(),
+                finished: false,
+            })
+        })?
     }
 
     /// Shared by the owning relay and Runtime. Cancellation wins until the first bounded write.
@@ -308,36 +328,41 @@ impl HookQuestion {
         prepare: impl FnOnce() -> Result<T, &'static str>,
         write: impl FnOnce(T) -> io::Result<bool>,
     ) -> io::Result<bool> {
-        let mut state = self.0.state.lock().expect("question state poisoned");
-        self.expire(&mut state, now);
-        if !matches!(
-            self.0.adapter,
-            NativeQuestion::Codex { .. } | NativeQuestion::Cursor { .. }
-        ) || state.delivery_id.as_deref() != Some(delivery_id)
-            || !matches!(
-                state.status,
-                QuestionHookStatus::Responding | QuestionHookStatus::Responded
-            )
-            || !matches!(
-                state.native_send,
-                NativeSendStatus::Unsent | NativeSendStatus::Writing
-            )
-        {
-            return Err(io::Error::new(
-                io::ErrorKind::Interrupted,
-                "question send revoked",
-            ));
-        }
-        let prepared =
-            prepare().map_err(|message| io::Error::new(io::ErrorKind::InvalidInput, message))?;
-        state.native_send = NativeSendStatus::Writing;
-        let result = write(prepared);
-        state.native_send = match &result {
-            Ok(true) => NativeSendStatus::Sent,
-            Ok(false) => NativeSendStatus::Writing,
-            Err(_) => NativeSendStatus::Unknown,
-        };
-        result
+        // An accepted Codex frame must finish flushing even after permission is revoked.
+        let first = self.native_send_status() == NativeSendStatus::Unsent;
+        self.guarded_send(first, || {
+            let mut state = self.0.state.lock().expect("question state poisoned");
+            self.expire(&mut state, now);
+            if !matches!(
+                self.0.adapter,
+                NativeQuestion::Codex { .. } | NativeQuestion::Cursor { .. }
+            ) || state.delivery_id.as_deref() != Some(delivery_id)
+                || !matches!(
+                    state.status,
+                    QuestionHookStatus::Responding | QuestionHookStatus::Responded
+                )
+                || !matches!(
+                    state.native_send,
+                    NativeSendStatus::Unsent | NativeSendStatus::Writing
+                )
+            {
+                return Err(io::Error::new(
+                    io::ErrorKind::Interrupted,
+                    "question send revoked",
+                ));
+            }
+            let prepared = prepare()
+                .map_err(|message| io::Error::new(io::ErrorKind::InvalidInput, message))?;
+            state.native_send = NativeSendStatus::Writing;
+            let result = write(prepared);
+            state.native_send = match &result {
+                Ok(true) => NativeSendStatus::Sent,
+                Ok(false) => NativeSendStatus::Writing,
+                Err(_) => NativeSendStatus::Unknown,
+            };
+            result
+        })
+        .map_err(|reason| io::Error::new(io::ErrorKind::PermissionDenied, reason))?
     }
 
     /// Terminal steps are interruptible between writes. A partial operation is never replayable.
@@ -354,9 +379,21 @@ impl HookQuestion {
     }
 
     fn expire(&self, state: &mut State, now: Instant) {
+        // RPC/HTTP requests live until their owning transport observes cancellation or
+        // consumption. The 120s deadline belongs to the blocking Claude Hook, not to
+        // the time a user may spend reading a native question. Authorization expires
+        // separately at the host's final send gate.
+        if matches!(
+            self.0.adapter,
+            NativeQuestion::Codex { .. } | NativeQuestion::OpenCode { .. }
+        ) {
+            return;
+        }
         if !(matches!(self.0.adapter, NativeQuestion::Claude(_))
             && state.status == QuestionHookStatus::Responded)
-            && state.native_send == NativeSendStatus::Unsent
+            && (state.native_send == NativeSendStatus::Unsent
+                || matches!(self.0.adapter, NativeQuestion::Claude(_))
+                    && state.native_send == NativeSendStatus::Writing)
             && now >= self.0.expires_at
             && matches!(
                 state.status,

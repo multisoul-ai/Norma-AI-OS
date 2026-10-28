@@ -79,12 +79,15 @@ pub(super) fn prepare(
             let result = launch(command, node, process, &slot, &control, sender.clone());
             match result {
                 Ok(host) if !control.is_cancelled() => {
-                    if host_sender
-                        .send(crate::live::NativeQuestionHost::Codex(host))
-                        .is_err()
-                    {
-                        control.cancel();
+                    if let Some(host) = host {
+                        if host_sender
+                            .send(crate::live::NativeQuestionHost::Codex(host))
+                            .is_err()
+                        {
+                            control.cancel();
+                        }
                     }
+                    drop(host_sender);
                     slot.maintain_sizes();
                 }
                 Ok(_) => control.cancel(),
@@ -122,7 +125,7 @@ fn launch(
     slot: &deferred::Preparation,
     control: &Arc<LaunchControl>,
     output: crossbeam_channel::Sender<PtyEvent>,
-) -> Result<CodexQuestionHost, PtyError> {
+) -> Result<Option<CodexQuestionHost>, PtyError> {
     check_launch(control)?;
     let directory = tempfile::Builder::new()
         .prefix("norma-question-")
@@ -131,12 +134,27 @@ fn launch(
     let relay_path = directory.path().join("native.sock");
     let listener = UnixListener::bind(&relay_path)?;
     listener.set_nonblocking(true)?;
-    let (server, native) = launch_commands(&command, &server_path, &relay_path)?;
-    control.spawn_native_host(server, directory)?;
-    let deadline = Instant::now() + Duration::from_secs(15);
-    while !server_path.exists() {
-        wait_launch(control, deadline)?;
-    }
+    let (server, mut native) = launch_commands(&command, &server_path, &relay_path)?;
+    let binding = directory.path().join("version");
+    let quote = crate::session_snapshot::shell_quote;
+    // Probe in the same shell/environment that will exec the original TUI. Unknown
+    // versions retain the original command, cwd and resume; no server is launched.
+    native.args[1] = format!(
+        r#"
+norma_codex_version=$(codex --version 2>/dev/null)
+if [[ "$norma_codex_version" != 'codex-cli 0.162.1' ]]; then
+    printf 'unsupported' > {binding}
+    {original}
+fi
+printf 'supported' > {binding}
+while [[ ! -S {server_path} ]]; do sleep 0.02; done
+{remote}
+"#,
+        binding = quote(&binding.to_string_lossy()),
+        server_path = quote(&server_path.to_string_lossy()),
+        original = command.args[1],
+        remote = native.args[1],
+    );
     let (sender, receiver) = crossbeam_channel::bounded(64);
     let (cols, rows) = slot.dimensions();
     let native_pty = control.spawn_pty(native, cols, rows, sender)?;
@@ -152,6 +170,22 @@ fn launch(
             }
             exit_control.cancel();
         })?;
+    let deadline = Instant::now() + Duration::from_secs(15);
+    loop {
+        check_launch(control)?;
+        match std::fs::read(&binding).as_deref() {
+            Ok(b"unsupported") => {
+                slot.install(native_pty)?;
+                return Ok(None);
+            }
+            Ok(b"supported") => break,
+            _ => wait_launch(control, deadline)?,
+        }
+    }
+    control.spawn_native_host(server, directory)?;
+    while !server_path.exists() {
+        wait_launch(control, deadline)?;
+    }
     let native_socket = loop {
         check_launch(control)?;
         match listener.accept() {
@@ -166,7 +200,7 @@ fn launch(
         .map_err(PtyError::Spawn)?;
     let host = CodexQuestionHost::start(relay, node, process).map_err(PtyError::Spawn)?;
     slot.install(native_pty)?;
-    Ok(host)
+    Ok(Some(host))
 }
 
 fn check_launch(control: &LaunchControl) -> Result<(), PtyError> {

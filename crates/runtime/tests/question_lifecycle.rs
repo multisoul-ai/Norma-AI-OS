@@ -364,7 +364,7 @@ fn late_consumption_cannot_restore_removed_or_reloaded_node_state() {
 /// 场景：超过历史容量后，同连接已回答的请求不能再次取得发送资格。
 /// 构造：同一个活会话内依次登记并确认256道不同请求（当前registry上限）。
 /// 执行：尝试登记第257题后重放第一题，再次claim。
-/// 预期：可以拒绝新题或安全压缩，但第一题绝不能再次可发送。
+/// 预期：已完成历史不占活问题容量，新题可答，但第一题绝不能再次可发送。
 #[test]
 fn history_capacity_never_resurrects_answered_request() {
     let (mut runtime, original) = setup();
@@ -380,10 +380,14 @@ fn history_capacity_never_resurrects_answered_request() {
         runtime
             .confirm_question_answer(&submission, &answers(), "tool result")
             .unwrap();
+        runtime.acknowledge_question_receipt(&submission);
     }
     let mut extra = original.clone();
     extra.target.request_id = QuestionRequestId::String("tool-extra".into());
-    let _ = runtime.register_question(extra);
+    assert!(
+        runtime.register_question(extra).is_ok(),
+        "已完成的256条历史不得阻塞后续新题"
+    );
     let mut replay = original;
     replay.target.request_id = QuestionRequestId::String("tool-0".into());
     let _ = runtime.register_question(replay.clone());
@@ -436,3 +440,6 @@ fn discovery_hydration_and_native_hook_preserve_waiting_session() {
         );
     }
 }
+
+#[path = "unit/question_history_tests.rs"]
+mod history_tests;

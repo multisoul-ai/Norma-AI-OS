@@ -48,6 +48,7 @@ impl MultisoulApp {
                         .questions
                         .ready_receipts
                         .push((lease, outcome, evidence));
+                    self.runtime.acknowledge_question_receipt(&submission);
                     continue;
                 }
             }

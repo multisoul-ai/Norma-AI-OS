@@ -16,6 +16,10 @@ mod overview;
 mod receipts;
 mod user_input;
 
+#[cfg(test)]
+#[path = "../../../tests/unit/brain_question_send_guard_tests.rs"]
+mod send_guard_tests;
+
 #[derive(Default)]
 pub(super) struct QuestionHost {
     suggestions: Vec<AnswerSuggestion>,
@@ -43,6 +47,7 @@ pub(crate) struct AuthorizedAnswer {
     answers: Vec<QuestionAnswer>,
     scope: ContextScope,
     deadline: Instant,
+    cancellation: Option<tokio_util::sync::CancellationToken>,
 }
 
 impl MultisoulApp {
@@ -120,6 +125,7 @@ impl MultisoulApp {
             answers,
             scope: service.scope().clone(),
             deadline: Instant::now() + Duration::from_secs(120),
+            cancellation: None,
         })
     }
 
@@ -145,6 +151,10 @@ impl MultisoulApp {
         let service = self.question_context(target)?;
         if service.scope() != &permit.scope
             || Instant::now() >= permit.deadline
+            || permit
+                .cancellation
+                .as_ref()
+                .is_some_and(|token| token.is_cancelled())
             || self
                 .runtime
                 .question(target)
@@ -228,9 +238,25 @@ impl MultisoulApp {
         service: &SharedContext,
         prepared: Result<QuestionDeliveryReservation, String>,
     ) -> Result<(), String> {
-        let lease = match prepared? {
+        let prepared = match prepared {
+            Ok(prepared) => prepared,
+            Err(error) => {
+                if !self
+                    .brain
+                    .questions
+                    .receipts
+                    .iter()
+                    .any(|(pending, _)| pending == submission)
+                {
+                    self.runtime.acknowledge_question_receipt(submission);
+                }
+                return Err(error);
+            }
+        };
+        let lease = match prepared {
             QuestionDeliveryReservation::Claimed(lease) => lease,
             QuestionDeliveryReservation::Existing(receipt) => {
+                self.runtime.acknowledge_question_receipt(submission);
                 self.runtime
                     .hold_prior_question_delivery(submission, &receipt.delivery_id)?;
                 return Ok(());
@@ -248,6 +274,10 @@ impl MultisoulApp {
         }
         let sent = (|| {
             if Instant::now() >= permit.deadline
+                || permit
+                    .cancellation
+                    .as_ref()
+                    .is_some_and(|token| token.is_cancelled())
                 || self.question_context(submission.target())?.scope() != &permit.scope
             {
                 return Err("question_authorization_expired".into());
@@ -273,6 +303,19 @@ impl MultisoulApp {
                                         service.clone(),
                                         submission.target().node_id,
                                         permit.deadline,
+                                        permit.cancellation.clone(),
+                                    ),
+                                )
+                                .map_err(|reason| agent::AdapterError::Rejected(reason.into()))?;
+                        } else {
+                            self.runtime
+                                .set_question_send_guard(
+                                    submission,
+                                    send_guard(
+                                        service.clone(),
+                                        submission.target().node_id,
+                                        permit.deadline,
+                                        permit.cancellation.clone(),
                                     ),
                                 )
                                 .map_err(|reason| agent::AdapterError::Rejected(reason.into()))?;
@@ -314,9 +357,14 @@ fn terminal_answer_guard(
     service: SharedContext,
     node: u64,
     deadline: Instant,
+    cancellation: Option<tokio_util::sync::CancellationToken>,
 ) -> runtime::runtime::QuestionTerminalGuard {
     std::sync::Arc::new(move |write| {
-        if Instant::now() >= deadline {
+        if Instant::now() >= deadline
+            || cancellation
+                .as_ref()
+                .is_some_and(|token| token.is_cancelled())
+        {
             return Err("question_authorization_expired");
         }
         service
@@ -366,3 +414,42 @@ mod privacy_tests;
 #[cfg(test)]
 #[path = "../../../tests/unit/brain_question_claude_real_tests.rs"]
 mod claude_real_tests;
+
+fn send_guard(
+    service: SharedContext,
+    node: u64,
+    deadline: Instant,
+    cancellation: Option<tokio_util::sync::CancellationToken>,
+) -> norma::agent_hook::QuestionSendGuard {
+    std::sync::Arc::new(move |send| {
+        service
+            .execute_with_state(
+                ContextOperation::AnswerQuestion,
+                Some(&node.to_string()),
+                |_| {
+                    if Instant::now() >= deadline
+                        || cancellation
+                            .as_ref()
+                            .is_some_and(|token| token.is_cancelled())
+                    {
+                        return Err(agent::AdapterError::Rejected(
+                            "question_authorization_expired".into(),
+                        ));
+                    }
+                    send();
+                    Ok(())
+                },
+            )
+            .map_err(|_| {
+                if Instant::now() >= deadline
+                    || cancellation
+                        .as_ref()
+                        .is_some_and(|token| token.is_cancelled())
+                {
+                    "question_authorization_expired"
+                } else {
+                    "question_context_restricted"
+                }
+            })
+    })
+}

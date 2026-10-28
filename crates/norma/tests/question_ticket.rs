@@ -121,3 +121,91 @@ fn partial_response_remains_revocable_until_last_byte() {
         "部分响应不能成为已传输"
     );
 }
+
+/// 场景：Claude已部分写出时撤销授权，后续字节不得继续，且不能伪称安全未发送。
+/// 构造：原Hook、可切换内存gate和部分写入闭包。
+/// 执行：首段允许、撤权、尝试补齐；检查票据状态及实际写入次数。
+/// 预期：第二段零写入，状态Unknown，保留明确拒绝原因且不能重放。
+#[test]
+fn claude_final_gate_stops_partial_response_without_false_unsent() {
+    use std::sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    };
+    let now = Instant::now();
+    let ticket = HookQuestion::new(request(), now).unwrap();
+    let revoked = Arc::new(AtomicBool::new(false));
+    let gate = revoked.clone();
+    ticket.set_send_guard(Arc::new(move |send| {
+        if gate.load(Ordering::Acquire) {
+            return Err("revoked");
+        }
+        send();
+        Ok(())
+    }));
+    ticket.submit_answer(&answer(), now).unwrap();
+    ticket.take_response(now).unwrap();
+    assert!(
+        !ticket.with_response_write(now, || Ok(false)).unwrap(),
+        "首段不完整"
+    );
+    revoked.store(true, Ordering::Release);
+    let mut wrote = false;
+    assert!(
+        ticket
+            .with_response_write(now, || {
+                wrote = true;
+                Ok(true)
+            })
+            .is_err(),
+        "最终gate阻止补齐"
+    );
+    assert!(!wrote, "撤销后没有副作用");
+    assert_eq!(
+        ticket.native_send_status(),
+        norma::agent_hook::NativeSendStatus::Unknown,
+        "部分写出不能伪称未发送"
+    );
+    assert_eq!(ticket.send_rejection(), Some("revoked"), "拒绝原因保留");
+    assert!(!ticket.transport_sent(), "不完整写出不是已发送");
+}
+
+/// 场景：Claude socket正常背压不能吞掉Hook的120秒期限。
+/// 构造：部分响应后模拟WouldBlock，再把时钟推进到Hook期限。
+/// 执行：先两次有界写入，再尝试到期补齐。
+/// 预期：背压保持Writing，到期取消且不执行补齐闭包。
+#[test]
+fn claude_backpressure_preserves_expiry_after_partial_write() {
+    let now = Instant::now();
+    let ticket = HookQuestion::new(request(), now).unwrap();
+    ticket.submit_answer(&answer(), now).unwrap();
+    ticket.take_response(now).unwrap();
+    ticket.with_response_write(now, || Ok(false)).unwrap();
+    let result = ticket.with_response_write(now, || Err(std::io::ErrorKind::WouldBlock.into()));
+    assert_eq!(
+        result.unwrap_err().kind(),
+        std::io::ErrorKind::WouldBlock,
+        "背压向poll报告可重试"
+    );
+    assert_eq!(
+        ticket.native_send_status(),
+        norma::agent_hook::NativeSendStatus::Writing,
+        "正常背压仍是部分写出"
+    );
+    let mut wrote = false;
+    assert!(
+        ticket
+            .with_response_write(now + QUESTION_TIMEOUT, || {
+                wrote = true;
+                Ok(true)
+            })
+            .is_err(),
+        "到期禁止补齐"
+    );
+    assert!(!wrote, "到期后的副作用为零");
+    assert_eq!(
+        ticket.status(now + QUESTION_TIMEOUT),
+        QuestionHookStatus::Cancelled,
+        "Hook期限仍生效"
+    );
+}

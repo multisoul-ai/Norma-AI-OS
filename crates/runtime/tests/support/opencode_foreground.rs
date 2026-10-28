@@ -26,6 +26,7 @@ pub struct Server {
     pub endpoint: String,
     stop: Arc<AtomicBool>,
     pub posts: Arc<AtomicUsize>,
+    pub queries: Arc<AtomicUsize>,
     pub consumed: Arc<AtomicBool>,
     worker: Option<std::thread::JoinHandle<()>>,
 }
@@ -36,6 +37,8 @@ impl Server {
         let endpoint = format!("http://{}", listener.local_addr().unwrap());
         let stop = Arc::new(AtomicBool::new(false));
         let posts = Arc::new(AtomicUsize::new(0));
+        let queries = Arc::new(AtomicUsize::new(0));
+        let observed = queries.clone();
         let offline = Arc::new(AtomicBool::new(false));
         let worker_offline = offline.clone();
         let consumed = Arc::new(AtomicBool::new(false));
@@ -80,6 +83,7 @@ impl Server {
                     continue;
                 }
                 let body = if first.starts_with("GET /question?") {
+                    observed.fetch_add(1, Ordering::AcqRel);
                     let mut a: Value = serde_json::from_str(include_str!(
                         "../../../norma/tests/fixtures/questions/opencode-request.json"
                     ))
@@ -121,6 +125,7 @@ impl Server {
             consumed,
             stop,
             posts,
+            queries,
             worker: Some(worker),
         }
     }

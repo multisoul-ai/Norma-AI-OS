@@ -27,7 +27,9 @@ impl Runtime {
             AgentProfile::Claude | AgentProfile::Cursor
         ) && !revoked
         {
-            return Err("question_submission_in_flight");
+            // Delivery is irreversible, but locating the original card is still safe.
+            // Keep its state, ticket and input blocker intact.
+            return Ok(());
         }
         if hook.status(Instant::now()) != QuestionHookStatus::Responded {
             if matches!(

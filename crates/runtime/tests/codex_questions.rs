@@ -5,6 +5,62 @@ use runtime::{AgentHookRuntimeConfig, AgentTaskState, AgentTaskUpdate, Runtime};
 use serde_json::{json, Value};
 use std::time::Instant;
 
+/// 场景：原 RPC 已写出或结果未知时，用户仍需通过原卡片入口查看和接管。
+/// 构造：真实 Codex 题面，分别模拟完整发送和写入后断连。
+/// 执行：点击对应的 Runtime 释放/定位入口，再尝试重复发送与普通任务输入。
+/// 预期：允许 UI 定位，保留原传输结局，既不重发也不把新任务写进待答控件。
+#[test]
+fn native_navigation_survives_sent_and_unknown_answers() {
+    for unknown in [false, true] {
+        let (mut runtime, ticket, target, _) = fixture();
+        let submission = runtime
+            .claim_question_answer(
+                &target,
+                vec![QuestionAnswer {
+                    key: "question-0".into(),
+                    selected: vec!["option-1".into()],
+                    text: None,
+                }],
+                "in-flight",
+            )
+            .unwrap()
+            .unwrap();
+        runtime.deliver_native_question(&submission).unwrap();
+        ticket.take_response(Instant::now()).unwrap();
+        let _ = ticket.with_native_send("in-flight", Instant::now(), || {
+            if unknown {
+                Err(std::io::Error::other("ack lost"))
+            } else {
+                Ok(true)
+            }
+        });
+        let before = ticket.native_send_status();
+        assert!(
+            runtime.release_question_to_native(&target).is_ok(),
+            "已发送或未知仍必须允许原卡片定位"
+        );
+        assert_eq!(
+            ticket.native_send_status(),
+            before,
+            "导航不得伪造取消或成功"
+        );
+        assert!(
+            !runtime.native_question_available(&target),
+            "原答案不得重复采用"
+        );
+        assert!(
+            runtime.deliver_native_question(&submission).is_err(),
+            "原票据不能重新提交"
+        );
+        assert!(
+            runtime
+                .send_agent_task_text(target.node_id, "new task")
+                .is_err(),
+            "未确认原题仍阻止普通任务输入"
+        );
+    }
+}
+
 /// 场景：Codex原题复用宿主的持久化后提交入口，并以同连接精确工具结果确认消费。
 /// 构造：真实去标识RPC/source/result，录制PTY，明确node/run/session/connection身份。
 /// 执行：登记原题、占有Green、向原ticket响应；错连接回执被拒，正确结果才确认。

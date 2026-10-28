@@ -61,7 +61,7 @@ impl Server {
             skipped.clone(),
         );
         let worker = std::thread::spawn(move || {
-            while run.load(Ordering::Acquire) {
+            'connections: while run.load(Ordering::Acquire) {
                 let mut socket = match listener.accept() {
                     Ok((socket, _)) => socket,
                     Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
@@ -70,16 +70,22 @@ impl Server {
                     }
                     Err(error) => panic!("本机server失败:{error}"),
                 };
+                socket.set_nonblocking(false).unwrap();
                 socket
-                    .set_read_timeout(Some(Duration::from_secs(3)))
+                    .set_read_timeout(Some(Duration::from_millis(200)))
                     .unwrap();
                 let mut reader = BufReader::new(socket.try_clone().unwrap());
                 let mut first = String::new();
-                reader.read_line(&mut first).unwrap();
+                // Clients may abandon a preconnected socket without a request.
+                if reader.read_line(&mut first).is_err() || first.is_empty() {
+                    continue;
+                }
                 let mut length = 0;
                 loop {
                     let mut line = String::new();
-                    reader.read_line(&mut line).unwrap();
+                    if reader.read_line(&mut line).is_err() || line.is_empty() {
+                        continue 'connections;
+                    }
                     if line == "\r\n" {
                         break;
                     }
@@ -89,7 +95,9 @@ impl Server {
                 }
                 assert!(length < 8192, "请求体有界");
                 let mut body = vec![0; length];
-                reader.read_exact(&mut body).unwrap();
+                if reader.read_exact(&mut body).is_err() {
+                    continue;
+                }
                 let value = if first.starts_with("GET /question?") {
                     if done.load(Ordering::Acquire) {
                         json!([])
@@ -163,18 +171,23 @@ impl Server {
 impl Drop for Server {
     fn drop(&mut self) {
         self.running.store(false, Ordering::Release);
-        self.worker.take().unwrap().join().unwrap();
+        let result = self.worker.take().unwrap().join();
+        if !std::thread::panicking() {
+            result.expect("本机 HTTP fixture 不得 panic");
+        }
     }
 }
 
 /// 场景：OpenCode原instance宿主后台发现题目、提交一次并用原message/call的工具结果确认。
-/// 构造：本机鉴权HTTP模拟真实三题，另一个分支由人工先回答；同ticket由宿主独占。
+/// 构造：本机鉴权HTTP模拟真实三题，并保留一条未发送请求的预连接；另一分支由人工先回答。
 /// 执行：取题，宿主提交或让人工先消费，等待精确终态并检查实际POST次数。
 /// 预期：本次发送才有delivery身份；人工同答案仍为Elsewhere且零POST；完成后解除输入占有。
 #[test]
 fn native_host_answers_once_and_reconciles_original_tool_consumption() {
     for manual in [false, true] {
         let server = Server::new(false);
+        let _idle = std::net::TcpStream::connect(server.endpoint.trim_start_matches("http://"))
+            .expect("构造尚未发送请求的预连接");
         let host = server.host();
         let ticket = loop {
             if let OpenCodeNativeEvent::Question(ticket) =
@@ -194,13 +207,18 @@ fn native_host_answers_once_and_reconciles_original_tool_consumption() {
                 "首次提交成功"
             );
         }
+        let mut observed = Vec::new();
         loop {
+            let event = host.events().recv_timeout(Duration::from_secs(5)).unwrap_or_else(|error| {
+                panic!("原调用未完成：manual={manual} posts={} send={:?} events={observed:?} error={error}", server.posts.load(Ordering::Acquire), ticket.native_send_status())
+            });
+            observed.push(format!("{event:?}"));
             if let OpenCodeNativeEvent::Changed {
                 state,
                 delivery_id,
                 evidence,
                 ..
-            } = host.events().recv_timeout(Duration::from_secs(5)).unwrap()
+            } = event
             {
                 if matches!(
                     state,

@@ -33,7 +33,10 @@ async fn prepare_turn(
         tokio::time::timeout(std::time::Duration::from_secs(2), requests.recv())
             .await
             .expect("必须实际经过生产上下文准备")
-            .unwrap();
+            .unwrap()
+    else {
+        panic!("expected model context request");
+    };
     drop(reply); // End at the environment boundary, before any network/TTS work.
     assert!(
         task.await.unwrap().is_err(),

@@ -22,40 +22,64 @@ impl MultisoulApp {
         // 实体级任务：项目转入后台、窗口关闭后仍能回答模型的上下文请求。
         cx.spawn(async move |this, cx| {
             while let Ok(request) = incoming.recv().await {
-                let context = this
+                let keep = this
                     .update(cx, |app, cx| {
                         let current_project = app
                             .runtime
                             .workspace_root()
                             .map(|root| root.display().to_string());
-                        if app.doubao.generation != generation || current_project != project_id {
-                            return None;
+                        if app.doubao.generation != generation
+                            || current_project != project_id
+                            || scope.as_ref().is_none_or(|scope| {
+                                !app.shared_context_service()
+                                    .is_ok_and(|current| current.scope() == scope)
+                            })
+                        {
+                            return false;
                         }
-                        if scope.as_ref().is_none_or(|scope| {
-                            !app.shared_context_service()
-                                .is_ok_and(|current| current.scope() == scope)
-                        }) {
-                            return None;
+                        match request {
+                            ContextRequest::Question {
+                                transcript,
+                                cancellation,
+                                response,
+                            } => {
+                                let result =
+                                    if cancellation.is_cancelled() || !app.doubao.is_active() {
+                                        Err("本次语音已取消，未委托代答。".into())
+                                    } else {
+                                        app.question_delegation_from_voice(
+                                            &transcript,
+                                            Some(cancellation),
+                                        )
+                                        .unwrap_or_else(|| Err("请完整说明本次原题委托。".into()))
+                                    };
+                                let _ = response.send(result);
+                                cx.notify();
+                            }
+                            ContextRequest::Model(response) => {
+                                let canvas = app
+                                    .current_canvas_context_for_provider()
+                                    .unwrap_or_else(|| agent::CurrentCanvasContext {
+                                        project_name: "未打开项目".into(),
+                                        workspace_root: "未打开项目；项目操作不可用".into(),
+                                        total_cards: 0,
+                                        cards: Vec::new(),
+                                        conversation_tails: Vec::new(),
+                                    });
+                                let desktop = app.desktop_context_for_provider(cx);
+                                let _ = response.send((
+                                    canvas,
+                                    app.agent_roster_for_provider(),
+                                    desktop,
+                                ));
+                            }
                         }
-                        let canvas =
-                            app.current_canvas_context_for_provider()
-                                .unwrap_or_else(|| agent::CurrentCanvasContext {
-                                    project_name: "未打开项目".into(),
-                                    workspace_root: "未打开项目；项目操作不可用".into(),
-                                    total_cards: 0,
-                                    cards: Vec::new(),
-                                    conversation_tails: Vec::new(),
-                                });
-                        let desktop = app.desktop_context_for_provider(cx);
-                        Some((canvas, app.agent_roster_for_provider(), desktop))
+                        true
                     })
-                    .ok()
-                    .flatten();
-                let Some(context) = context else {
+                    .unwrap_or(false);
+                if !keep {
                     break;
-                };
-                let ContextRequest::Model(response) = request;
-                let _ = response.send(context);
+                }
             }
         })
         .detach();

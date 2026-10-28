@@ -56,9 +56,9 @@ fn fixture() -> (Runtime, AgentHookEvent, QuestionRef) {
     (runtime, pre, target)
 }
 
-/// 场景：记录容量达到256条后，新原生问答回退人工仍必须阻塞普通任务。
-/// 构造：同卡片当前run内256个已完成问题，再到达一个新的Claude Hook。
-/// 执行：登记失败、尝试派任务、人工键入，再投递对应的工具终态。
+/// 场景：未决问题容量达到256条后，新原生问答回退人工仍必须阻塞普通任务。
+/// 构造：同卡片当前run内256个未决问题，再到达一个新的Claude Hook。
+/// 执行：登记失败后完成其余256题、尝试派任务、人工键入，再投递对应的工具终态。
 /// 预期：不提供代答但仍阻止任务覆盖；人工可操作，精确终态后解除阻塞。
 #[test]
 fn question_capacity_fallback_still_protects_native_prompt() {
@@ -80,14 +80,6 @@ fn question_capacity_fallback_still_protects_native_prompt() {
                 items: items.clone(),
             })
             .unwrap();
-        let submission = runtime
-            .claim_question_answer(&old, answers.clone(), &format!("delivery-{index}"))
-            .unwrap()
-            .unwrap();
-        runtime.start_question_delivery(&submission).unwrap();
-        runtime
-            .confirm_question_answer(&submission, &answers, "test completed question")
-            .unwrap();
     }
     let ticket = HookQuestion::new(
         HookQuestionRequest {
@@ -101,6 +93,20 @@ fn question_capacity_fallback_still_protects_native_prompt() {
         runtime.accept_native_question(ticket.clone(), "p").is_err(),
         "达到容量时不接管新问题"
     );
+    // Resolve the 256 admitted questions so the rejected native prompt is the only blocker.
+    for index in 0..256 {
+        let mut old = target.clone();
+        old.request_id = QuestionRequestId::String(format!("old-{index}"));
+        let submission = runtime
+            .claim_question_answer(&old, answers.clone(), &format!("delivery-{index}"))
+            .unwrap()
+            .unwrap();
+        runtime.start_question_delivery(&submission).unwrap();
+        runtime
+            .confirm_question_answer(&submission, &answers, "test completed question")
+            .unwrap();
+        runtime.acknowledge_question_receipt(&submission);
+    }
     assert!(
         runtime.has_pending_question(target.node_id),
         "容量拒绝不能丢失原生问答阻塞"

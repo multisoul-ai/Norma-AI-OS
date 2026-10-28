@@ -5,6 +5,17 @@ pub(super) struct AnswerDelegation {
     pub(super) question: PendingQuestion,
     scope: ContextScope,
     deadline: Instant,
+    pub(super) cancellation: Option<tokio_util::sync::CancellationToken>,
+}
+
+impl AnswerDelegation {
+    pub(super) fn valid(&self) -> bool {
+        Instant::now() < self.deadline
+            && self
+                .cancellation
+                .as_ref()
+                .is_none_or(|token| !token.is_cancelled())
+    }
 }
 
 impl MultisoulApp {
@@ -16,10 +27,7 @@ impl MultisoulApp {
         if !self.runtime.native_question_available(target) {
             return Err("question_not_available".into());
         }
-        self.brain
-            .questions
-            .delegated
-            .retain(|grant| Instant::now() < grant.deadline);
+        self.brain.questions.delegated.retain(|grant| grant.valid());
         if self
             .brain
             .questions
@@ -42,6 +50,7 @@ impl MultisoulApp {
             question,
             scope: service.scope().clone(),
             deadline: Instant::now() + Duration::from_secs(120),
+            cancellation: None,
         });
         Ok(true)
     }
@@ -56,7 +65,7 @@ impl MultisoulApp {
             .questions
             .delegated
             .iter()
-            .position(|grant| grant.question.target == *target && Instant::now() < grant.deadline)
+            .position(|grant| grant.question.target == *target && grant.valid())
             .ok_or("question_not_authorized：请先明确委托当前问题")?;
         let mut permit = self.authorize_question_answer(target, answers)?;
         let grant = &self.brain.questions.delegated[index];
@@ -64,6 +73,7 @@ impl MultisoulApp {
             return Err("question_authorization_expired".into());
         }
         permit.deadline = grant.deadline;
+        permit.cancellation = grant.cancellation.clone();
         self.brain.questions.delegated.remove(index);
         Ok(permit)
     }
@@ -73,7 +83,7 @@ impl MultisoulApp {
             .questions
             .delegated
             .iter()
-            .any(|grant| grant.question.target == *target && Instant::now() < grant.deadline)
+            .any(|grant| grant.question.target == *target && grant.valid())
     }
 
     pub(crate) fn delegate_overview_question(
@@ -123,7 +133,7 @@ impl MultisoulApp {
             .prepared
             .retain(|(submission, _)| self.runtime.native_question_preparation_valid(submission));
         self.brain.questions.delegated.retain(|grant| {
-            Instant::now() < grant.deadline
+            grant.valid()
                 && self
                     .runtime
                     .native_question_available(&grant.question.target)

@@ -8,7 +8,7 @@ pub use native_question::{NativeQuestion, NativeQuestionReply};
 mod question_ticket;
 pub use question_ticket::{
     HookQuestion, HookQuestionRequest, NativeHttpDelivery, NativeSendStatus, QuestionHookStatus,
-    QUESTION_TIMEOUT,
+    QuestionSendGuard, QUESTION_TIMEOUT,
 };
 mod question_forward;
 pub use question_forward::{forward_native_question, forward_question};

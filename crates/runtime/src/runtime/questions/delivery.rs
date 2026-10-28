@@ -1,6 +1,24 @@
 use super::*;
 
 impl Runtime {
+    pub fn set_question_send_guard(
+        &mut self,
+        submission: &QuestionSubmission,
+        guard: norma::agent_hook::QuestionSendGuard,
+    ) -> Result<(), &'static str> {
+        self.validate_question_connection(submission.target())?;
+        let entry = self.question_submission_mut(submission)?;
+        let hook = entry.hook.as_ref().ok_or("question_hook_missing")?;
+        if entry.snapshot.state != QuestionState::Submitting
+            || hook.status(std::time::Instant::now())
+                != norma::agent_hook::QuestionHookStatus::Pending
+        {
+            return Err("question_not_submitting");
+        }
+        hook.set_send_guard(guard);
+        Ok(())
+    }
+
     /// A retained durable lease is valid while the same live submission remains unsent.
     pub fn native_question_preparation_valid(&self, submission: &QuestionSubmission) -> bool {
         self.validate_question_connection(submission.target())
@@ -31,6 +49,7 @@ impl Runtime {
             return Err("question_not_failed");
         }
         entry.snapshot.state = QuestionState::Submitting;
+        entry.receipt_pending = Some(submission.delivery_id().into());
         entry.snapshot.error = None;
         Ok(())
     }

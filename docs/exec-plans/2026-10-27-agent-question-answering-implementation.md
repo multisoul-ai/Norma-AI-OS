@@ -17,6 +17,23 @@
 
 同一题的建议、按钮和明确文字/语音委托使用同一 QuestionRef 与提交入口；普通事件只生成建议。以下记录按时间保留，过往中间失败和实验能力不能替代本矩阵。
 
+## 非 iOS 交叉审查修复（2026-10-28）
+
+按用户范围排除 F1 iOS。F2–F6 与 R1 已实施，当前行为如下：
+
+- **F2 / Codex 兼容**：原登录 shell 精确核验 `codex-cli 0.162.1`，未知/旧版或探测失败保留原命令、cwd、resume 和人工输入，不启动 app-server。受支持版本的宿主启动故障不在此回退承诺内。
+- **F3 / 最终授权**：队列接收不代表已发送。Claude 每段有界非阻塞写入、Codex 首帧、OpenCode 准备 GET 之后都复核上下文限制、授权期限和语音取消；HTTP 网络 IO 不持上下文锁。未写出拒绝为 Failed，部分写出不伪装未发送；Codex 同一已接受帧允许完成 flush。Claude WouldBlock 保留此前写入状态及 Hook 超时。
+- **F4 / 语音入口**：豆包和 GPT Live 的完整明确原话通过同一宿主单题授权入口，不派普通任务。授权取消链贯穿消费、准备及最终发送；豆包播完回执/后台报告之后仍可由新输入或挂断撤权，GPT Live 完成前后迟到转写均撤销未发送授权。GPT Live 混有尚未结算的闲聊/否定内容时保守拒绝并要求完整重述；已结算旧命令不误拦下一普通任务。Live 不具备可靠最终转写屏障，实际已送达后的修订无法撤回。
+- **F5 / 原卡片入口**：Sent/Unknown 仍可定位原卡片；保持原状态与输入保护，不宣称撤回已发答案、不重发。
+- **F6 / 活问题期限**：Codex/OpenCode 原问题由真实 transport 消费/取消管理，不套用 Claude Hook 的120秒期限；宿主单次授权仍独立限时。Claude Hook 到期保持人工回退。
+- **R1 / 长期容量**：256只限制未决问题；保留最近64条可移交终态详情，其余压缩为防重放身份。未交接回执保留独立 delivery 保护；OpenCode 已消费原调用跨连接/run 轮换不可复活，合法新修订与新 turn 仍可登记。
+
+增量自动验证：`cargo test -p norma` 293通过；`cargo test -p runtime` 324通过/9忽略；App `question_` 28通过/1忽略、`doubao_` 81通过/2忽略、`gpt_live` 80通过（筛选集合有重叠，不相加）。OpenCode HTTP fixture 会忽略放弃/不完整连接，失败时记录原调用事件；并发四测试连续5轮通过。三位独立审查者已核验最后的撤权、超时及测试假绿修复，无新确定阻塞。真实 App、当前构建与提交检查结果见本轮证据 `artifacts/agent-question-fixes-20261028/validation.md`。
+
+当前 `cargo check -p app` 和 debug App/CLI 构建通过；本机 Codex 启动与退出回收4.97秒通过；真实 `brain-questions-ui` 退出0（87.77秒），四题按 Green / Blue / Green / Cobalt blue 各消费一次，无新任务输入。已读取01问答建议及04委托完成关键图，内容/按钮清晰、完成后无待答残留；本轮未修改视觉布局，其余深浅主题和短面板视觉证据复用M7。
+
+语音新增路径目前以生产宿主/对话循环/LiveBridge 的确定性集成测试为证据，不宣称真实麦克风或远端模型验收。Cursor 生产代答继续禁用，iOS 未改，四家整体适配不计作完成。
+
 ## 实施记录（2026-10-27）
 
 - M0 Claude 原生 TUI：PreToolUse 回填与同 tool_use_id 的 PostToolUse 消费确认通过；onFailure continue 的 exit 1 / timeout 均恢复原生人工问答。记录 `artifacts/agent-question-adapters-20261027/m0-claude-native.md`。
@@ -174,7 +191,7 @@ Pending → Submitting → Submitted → Answered
 
 **上下文与授权**：新增明确的 AnswerQuestion 上下文操作，接入 `crates/norma/src/protocol/context.rs` 和 `crates/agent/src/context/` 的限制检查。采用答案需要当前问题的有效宿主授权；终端路径同时服从既有“不要向终端输入”约束。AnswerQuestion 不借用 DispatchTask 或 ApproveOperation 的授权。
 
-**UI 行为**：同一问题展示原题、选项、建议及理由；采用、编辑、原卡片处理都操作同一 QuestionRef；只有支持的题型可提交。提交中显示进度并防连点；未确认显示“已提交，等待确认”；失败原因行内可见。`在原卡片处理` 先释放/撤销代答控制，再定位原交互。
+**UI 行为**：同一问题展示原题、选项、建议及理由；采用、编辑、原卡片处理都操作同一 QuestionRef；只有支持的题型可提交。提交中显示进度并防连点；未确认显示“已提交，等待确认”；失败原因行内可见。`在原卡片处理` 撤销尚未发送的代答后定位原交互；已经发送或结果不明时仍允许定位，保留原状态与输入保护，不伪造取消。
 
 **先失败的用例**：没有用户批准只保存建议；语音明确指向当前问题后才直接回答；上下文被更新为禁止输入时旧授权失效；旧模型结果不能覆盖新问题；采用答案不调用 DispatchAgentTasks；后续任务不在回答完成后自动派发；一次问题只计一个待处理项。
 

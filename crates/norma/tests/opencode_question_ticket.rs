@@ -148,3 +148,30 @@ fn http_send_lease_is_once_only_without_holding_ticket_lock() {
         );
     }
 }
+
+/// 场景：OpenCode 原 HTTP 问题仍 pending 时，超过 Hook 期限仍可取得新的答题授权。
+/// 构造：真实三题票据，将调用时间推进 121 秒，超过 120 秒 Hook 等待期限。
+/// 执行：首次提交、取出答案并取得 HTTP 发送许可，确认后再次尝试发送。
+/// 预期：长时间阅读不会关闭活问题，已发送结果仍不允许重试。
+#[test]
+fn live_opencode_question_outlives_hook_timeout_without_replay() {
+    let ticket = ticket();
+    let later = Instant::now() + std::time::Duration::from_secs(121);
+    assert!(
+        ticket.submit_delivery(&answers(), "late", later).unwrap(),
+        "活 HTTP 问题仍可回答"
+    );
+    assert!(
+        ticket.take_response(later).is_some(),
+        "当前授权可以取出答案"
+    );
+    ticket
+        .begin_http_delivery("late", later)
+        .expect("原问题可以发送一次")
+        .accepted();
+    assert!(ticket.transport_sent(), "明确接纳后报告已发送");
+    assert!(
+        ticket.begin_http_delivery("late", later).is_err(),
+        "延长问题寿命不能允许重发"
+    );
+}

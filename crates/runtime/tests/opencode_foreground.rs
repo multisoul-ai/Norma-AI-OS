@@ -139,3 +139,146 @@ fn runtime_tracks_foreground_and_settles_retired_original_receipt() {
     );
     runtime.kill_all();
 }
+
+/// 场景：OpenCode人工消费后压缩历史，再A→B→A更换run，不能重新授权同一原调用。
+/// 构造：真实HTTP宿主与echo Runtime；claim后人工消费使delivery归属清空，再确认70条历史。
+/// 执行：交接无delivery归属的回执，压缩详情，回到A重放原request，观察至少两轮真实GET。
+/// 预期：旧详情可回收，但稳定原调用仍被防重放；新run不能使旧题Pending，全程零POST。
+#[test]
+fn opencode_consumed_history_survives_run_rotation_and_receipt_handoff() {
+    let server = Server::new(false);
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("route.json");
+    route(&path, 1, Some("ses_a"));
+    let mut runtime = Runtime::new_for_workspace("/tmp/original");
+    runtime.set_agent_hook_config(Some(AgentHookRuntimeConfig {
+        endpoint: "http://127.0.0.1:9/agent-hooks".into(),
+        token: "test".into(),
+        workspace_id: "w".into(),
+        workspace_route_id: "r".into(),
+        norma_socket: "/tmp/unused.sock".into(),
+    }));
+    runtime.set_pty_factory(Box::new(|_, _, _, tx| {
+        Ok(Box::new(terminal::TestPtyBackend::echo(tx)))
+    }));
+    let node = runtime
+        .spawn_agent(
+            canvas::AgentProfile::OpenCode,
+            canvas::CanvasRect::new(0., 0., 640., 400.),
+            80,
+            24,
+        )
+        .unwrap();
+    let process = runtime.mobile_agent_run_id(node).unwrap().to_owned();
+    let client = OpenCodeQuestionClient::new(
+        &server.endpoint,
+        "/tmp/original",
+        "ses_a",
+        "opencode",
+        "secret",
+    )
+    .unwrap();
+    let host =
+        OpenCodeQuestionHost::start_following(client, node, process, path.clone(), "owned".into())
+            .unwrap();
+    runtime.adopt_opencode_question_host(host, "p").unwrap();
+    wait(&mut runtime, |r| {
+        r.questions()
+            .iter()
+            .any(|q| q.question.target.session_id == "ses_a" && q.state == QuestionState::Pending)
+    });
+    let target = runtime.questions()[0].question.target.clone();
+    let answers = vec![
+        QuestionAnswer {
+            key: "question-0".into(),
+            selected: vec!["option-1".into()],
+            text: None,
+        },
+        QuestionAnswer {
+            key: "question-1".into(),
+            selected: vec!["option-0".into()],
+            text: None,
+        },
+        QuestionAnswer {
+            key: "question-2".into(),
+            selected: vec![],
+            text: Some("marker".into()),
+        },
+    ];
+    let submission = runtime
+        .claim_question_answer(&target, answers.clone(), "waiting-reserve")
+        .unwrap()
+        .unwrap();
+    server.consumed.store(true, Ordering::Release);
+    wait(&mut runtime, |r| {
+        r.question_snapshot(&target).unwrap().state == QuestionState::AnsweredElsewhere
+    });
+    assert!(
+        runtime
+            .question_snapshot(&target)
+            .unwrap()
+            .delivery_id
+            .is_none(),
+        "人工终态不冒认delivery"
+    );
+    runtime.acknowledge_question_receipt(&submission);
+    route(&path, 2, Some("ses_b"));
+    wait(&mut runtime, |r| {
+        r.questions()
+            .iter()
+            .any(|q| q.question.target.session_id == "ses_b" && q.state == QuestionState::Pending)
+    });
+    let current = runtime
+        .questions()
+        .into_iter()
+        .find(|q| q.question.target.session_id == "ses_b")
+        .unwrap()
+        .question;
+    for index in 0..70 {
+        let mut question = current.clone();
+        question.target.request_id =
+            norma::protocol::QuestionRequestId::String(format!("history-{index}"));
+        runtime.register_question(question.clone()).unwrap();
+        let submission = runtime
+            .claim_question_answer(
+                &question.target,
+                answers.clone(),
+                &format!("delivery-{index}"),
+            )
+            .unwrap()
+            .unwrap();
+        runtime.start_question_delivery(&submission).unwrap();
+        runtime
+            .confirm_question_answer(&submission, &answers, "tool result")
+            .unwrap();
+        runtime.acknowledge_question_receipt(&submission);
+    }
+    assert!(
+        runtime.question(&target).is_none(),
+        "无delivery归属的回执移交后允许压缩详情"
+    );
+    server.consumed.store(false, Ordering::Release);
+    route(&path, 3, Some("ses_a"));
+    wait(&mut runtime, |r| {
+        r.agent_session_id(node).as_deref() == Some("ses_a")
+            && r.mobile_agent_run_id(node) != Some(target.run_id.as_str())
+    });
+    let queries = server.queries.load(Ordering::Acquire);
+    wait(&mut runtime, |_| {
+        server.queries.load(Ordering::Acquire) >= queries + 2
+    });
+    runtime.drain_native_question_hosts("p");
+    assert!(
+        !runtime
+            .questions()
+            .iter()
+            .any(|q| q.question.target.session_id == "ses_a" && q.state.blocks_input()),
+        "新run不得复活已消费原调用"
+    );
+    assert_eq!(
+        server.posts.load(Ordering::Acquire),
+        0,
+        "人工消费及重放均不提交POST"
+    );
+    runtime.kill_all();
+}

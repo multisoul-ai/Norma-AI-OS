@@ -161,3 +161,17 @@ fn question_user_intent_ignores_retired_session_unknown_receipts() {
         assert!(!app.question_delegated(&old), "不授权历史未确认意图");
     });
 }
+
+impl MultisoulApp {
+    pub(crate) fn install_question_brain_for_test(&mut self) {
+        self.brain.host = Some(crate::app::brain_host::BrainHost {
+            service: None,
+            status: std::sync::mpsc::channel().1,
+            token: "voice-question".into(),
+        });
+    }
+
+    pub(crate) fn question_delegated_for_test(&self, target: &QuestionRef) -> bool {
+        self.question_delegated(target)
+    }
+}

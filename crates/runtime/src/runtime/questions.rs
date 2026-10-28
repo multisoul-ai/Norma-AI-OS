@@ -12,6 +12,7 @@ mod codex_host;
 mod cursor_host;
 mod delivery;
 mod fallback;
+mod history;
 mod lifecycle;
 mod opencode_host;
 
@@ -30,6 +31,7 @@ pub(super) struct Questions {
         std::collections::VecDeque<(std::time::Instant, norma::agent_hook::AgentHookEvent)>,
     connections: HashMap<NodeId, QuestionRef>,
     entries: Vec<Entry>,
+    history: history::QuestionHistory,
     provider_states: HashMap<NodeId, crate::AgentTaskState>,
 }
 
@@ -46,6 +48,7 @@ struct Entry {
     submission: Option<QuestionSubmission>,
     hook: Option<norma::agent_hook::HookQuestion>,
     terminal_guard: Option<QuestionTerminalGuard>,
+    receipt_pending: Option<String>,
 }
 
 impl Entry {
@@ -64,6 +67,10 @@ impl Entry {
                         snapshot
                             .error
                             .get_or_insert_with(|| "question_transport_closed".into());
+                    }
+                    QuestionHookStatus::Cancelled if hook.send_rejection().is_some() => {
+                        snapshot.state = QuestionState::Failed;
+                        snapshot.error = hook.send_rejection().map(str::to_owned);
                     }
                     QuestionHookStatus::Cancelled => {
                         snapshot.state = QuestionState::Unknown;
@@ -122,7 +129,7 @@ fn same_request(a: &QuestionRef, b: &QuestionRef) -> bool {
         && a.project_id == b.project_id
         && a.node_id == b.node_id
         && a.provider == b.provider
-        && a.run_id == b.run_id
+        && (a.run_id == b.run_id || a.provider == norma::protocol::AgentProfile::OpenCode)
         && a.session_id == b.session_id
         && a.turn_id == b.turn_id
         && a.request_id == b.request_id
@@ -227,6 +234,7 @@ impl Runtime {
                 Err("question_revision_conflict")
             };
         }
+        self.questions.history.check(&question.target)?;
         for entry in &self.questions.entries {
             let old = &entry.snapshot;
             if !same_request(&old.question.target, &question.target) {
@@ -249,9 +257,15 @@ impl Runtime {
                 return Err("question_revision_stale");
             }
         }
-        // Completed references are replay tombstones, not disposable UI history.
-        // Saturation fails closed until this owning node/run is released.
-        if self.questions.entries.len() >= 256 {
+        self.questions.compact_history();
+        if self
+            .questions
+            .entries
+            .iter()
+            .filter(|entry| entry.snapshot.state.blocks_input())
+            .count()
+            >= 256
+        {
             return Err("question_capacity");
         }
         for entry in &mut self.questions.entries {
@@ -281,6 +295,7 @@ impl Runtime {
             submission: None,
             hook: None,
             terminal_guard: None,
+            receipt_pending: None,
         });
         self.events.update_agent_task_state(
             node_id,
@@ -327,6 +342,7 @@ impl Runtime {
             .retain(|(_, event)| event.node_id != node);
         self.questions.connections.remove(&node);
         self.questions.provider_states.remove(&node);
+        self.questions.history.remove_node(node);
         self.questions
             .entries
             .retain(|entry| entry.snapshot.question.target.node_id != node);
@@ -408,6 +424,7 @@ impl Runtime {
         entry.snapshot.state = QuestionState::Submitting;
         entry.snapshot.delivery_id = Some(delivery_id.into());
         entry.submission = Some(submission.clone());
+        entry.receipt_pending = Some(delivery_id.into());
         Ok(Some(submission))
     }
 }

@@ -366,3 +366,87 @@ fn reconnect_reconciles_pending_before_restoring_unsent_question() {
         "恢复查询不能自动提交"
     );
 }
+
+/// 场景：OpenCode发送前GET挂起期间撤权，不得沿用准备前的许可POST。
+/// 构造：真实本地HTTP宿主、原题、可控GET阻塞与内存授权gate。
+/// 执行：排队答案、确认GET挂起、撤权再放行GET，等待宿主终态事件。
+/// 预期：明确Failed及原因、POST为零，原生题仍存在且不能重复代答。
+#[test]
+fn final_send_gate_rechecks_after_slow_prepare_get() {
+    use norma::protocol::{QuestionAnswer, QuestionState};
+    use std::sync::{atomic::AtomicBool, Arc};
+    let server = Server::new(false);
+    let client = OpenCodeQuestionClient::new(
+        &server.endpoint,
+        "/tmp/original",
+        "ses_a",
+        "opencode",
+        "secret",
+    )
+    .unwrap();
+    let host = OpenCodeQuestionHost::start(client, 7, "process".into()).unwrap();
+    let ticket = question(&host);
+    let revoked = Arc::new(AtomicBool::new(false));
+    let gate = revoked.clone();
+    ticket.set_send_guard(Arc::new(move |send| {
+        if gate.load(Ordering::Acquire) {
+            return Err("context_revoked");
+        }
+        send();
+        Ok(())
+    }));
+    server.pending_gate.store(1, Ordering::Release);
+    let answers = vec![
+        QuestionAnswer {
+            key: "question-0".into(),
+            selected: vec!["option-1".into()],
+            text: None,
+        },
+        QuestionAnswer {
+            key: "question-1".into(),
+            selected: vec!["option-0".into()],
+            text: None,
+        },
+        QuestionAnswer {
+            key: "question-2".into(),
+            selected: vec![],
+            text: Some("test".into()),
+        },
+    ];
+    ticket
+        .submit_delivery(&answers, "once", Instant::now())
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(4);
+    while server.pending_gate.load(Ordering::Acquire) != 2 {
+        assert!(Instant::now() < deadline, "GET必须实际挂起");
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    revoked.store(true, Ordering::Release);
+    server.pending_gate.store(3, Ordering::Release);
+    loop {
+        if let Ok(OpenCodeNativeEvent::Changed { state, error, .. }) = host.events().try_recv() {
+            if state == QuestionState::Failed {
+                assert_eq!(
+                    error.as_deref(),
+                    Some("context_revoked"),
+                    "失败显式报告原因"
+                );
+                break;
+            }
+        }
+        assert!(Instant::now() < deadline, "拒绝不能永久Submitting");
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    assert_eq!(
+        server.posts.load(Ordering::Acquire),
+        0,
+        "撤权后POST必须为零"
+    );
+    assert!(host.input_pending(), "原题仍在等待人工处理");
+    assert!(
+        !ticket
+            .submit_delivery(&answers, "again", Instant::now())
+            .unwrap(),
+        "拒绝后的票据不可重放"
+    );
+}

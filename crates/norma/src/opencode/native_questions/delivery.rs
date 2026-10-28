@@ -26,10 +26,15 @@ pub(super) fn deliver(
         waiting.ticket.cancel();
         return None;
     }
-    let sending = waiting
+    let sending = match waiting
         .ticket
         .begin_http_delivery(&reply.delivery_id, Instant::now())
-        .ok()?;
+    {
+        Ok(sending) => sending,
+        Err(reason) => {
+            return Some(waiting.change(QuestionState::Failed, None, Some(reason.into())))
+        }
+    };
     match client.send_prepared(prepared) {
         Ok(()) => {
             sending.accepted();

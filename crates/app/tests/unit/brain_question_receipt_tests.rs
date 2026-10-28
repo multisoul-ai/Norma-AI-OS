@@ -60,7 +60,43 @@ fn question_receipt_tracks_unsent_intent_through_takeover_and_expiry() {
             );
         };
         if early {
-            source.update(cx, |app, _| finish_original(app));
+            source.update(cx, |app, _| {
+                finish_original(app);
+                // Reserve 尚未返回，宿主还未拿到 lease；70 > 64，真实触发详情压缩。
+                let original = app.runtime.question(&target).unwrap().question.clone();
+                for index in 0..70 {
+                    let mut question = original.clone();
+                    question.target.request_id =
+                        norma::protocol::QuestionRequestId::String(format!("history-{index}"));
+                    app.runtime.register_question(question.clone()).unwrap();
+                    let submission = app
+                        .runtime
+                        .claim_question_answer(
+                            &question.target,
+                            vec![QuestionAnswer {
+                                key: "question-0".into(),
+                                selected: vec!["option-1".into()],
+                                text: None,
+                            }],
+                            &format!("history-delivery-{index}"),
+                        )
+                        .unwrap()
+                        .unwrap();
+                    app.runtime.start_question_delivery(&submission).unwrap();
+                    app.runtime
+                        .confirm_question_answer(
+                            &submission,
+                            submission.answers(),
+                            "history tool result",
+                        )
+                        .unwrap();
+                    app.runtime.acknowledge_question_receipt(&submission);
+                }
+                assert!(
+                    app.runtime.question(&target).is_some(),
+                    "尚未交接的人工消费回执不能被压缩"
+                );
+            });
         }
         let (done, completed) = async_channel::bounded(1);
         cx.spawn(move |_| async move {

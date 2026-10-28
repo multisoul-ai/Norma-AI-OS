@@ -74,6 +74,110 @@ fn preparing_native_terminal_rejects_input_and_cancels_late_spawn() {
     );
 }
 
+/// 场景：未经验证或探测失败的 Codex 不能因不支持 remote/unix 而失去原卡片。
+/// 构造：隔离 CLI 和登录 shell 替身，记录参数；覆盖旧版、未来版及探测失败。
+/// 执行：生产 prepare 启动带 resume 的原 TUI，等待提示并显式关闭自有进程。
+/// 预期：仅探测版本和执行原命令，无 app-server/remote，原 cwd、resume 与参数保留。
+#[test]
+fn unsupported_codex_preserves_original_tui_and_resume() {
+    use crate::LiveNode;
+    use std::os::unix::fs::PermissionsExt;
+    for version in ["codex-cli 0.100.0", "codex-cli 99.0.0", "probe-failed"] {
+        let dir = tempfile::tempdir().unwrap();
+        let binary = dir.path().join("codex");
+        let shell = dir.path().join("shell");
+        let log = dir.path().join("calls.txt");
+        let cwd_log = dir.path().join("cwd.txt");
+        std::fs::write(
+            &binary,
+            r#"#!/bin/sh
+printf '%s\n' "$*" >> "$NORMA_CODEX_TEST_LOG"
+if [ "$1" = '--version' ]; then
+    [ "$NORMA_CODEX_TEST_VERSION" = 'probe-failed' ] && exit 1
+    printf '%s\n' "$NORMA_CODEX_TEST_VERSION"; exit 0
+fi
+case "$*" in *app-server*|*--remote*) exit 2;; esac
+pwd > "$NORMA_CODEX_TEST_CWD"
+printf 'ORIGINAL_CODEX_READY\r\n'
+while IFS= read -r line; do printf 'CHILD_ACK:%s\r\n' "$line"; done
+"#,
+        )
+        .unwrap();
+        std::fs::write(
+            &shell,
+            "#!/bin/sh\nexport PATH=\"$NORMA_CODEX_TEST_BIN:$PATH\"\nexec /bin/zsh -fc \"$2\"\n",
+        )
+        .unwrap();
+        for path in [&binary, &shell] {
+            std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700)).unwrap();
+        }
+        let mut command = original().with_cwd(Some(dir.path()));
+        command.program = shell.to_string_lossy().into_owned();
+        command = command
+            .env("NORMA_CODEX_TEST_BIN", dir.path().to_string_lossy())
+            .env("NORMA_CODEX_TEST_LOG", log.to_string_lossy())
+            .env("NORMA_CODEX_TEST_CWD", cwd_log.to_string_lossy())
+            .env("NORMA_CODEX_TEST_VERSION", version);
+        let control = Arc::new(LaunchControl::default());
+        let mut live = prepare(1, command, 100, 24, control.clone())
+            .unwrap()
+            .into_live()
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(4);
+        let mut screen = String::new();
+        let mut host = None;
+        while Instant::now() < deadline {
+            live.drain();
+            if host.is_none() {
+                host = live.take_native_question_host();
+            }
+            if let Some(crate::NodeView::Term { snapshot, .. }) = live.view() {
+                screen = snapshot.rows.iter().flatten().map(|cell| cell.c).collect();
+            }
+            if screen.contains("ORIGINAL_CODEX_READY") && !live.native_question_host_pending() {
+                break;
+            }
+            if control.is_cancelled() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let input = live.input(crate::NodeInput::Text("FALLBACK_INPUT\r".into()));
+        let input_deadline = Instant::now() + Duration::from_secs(2);
+        while Instant::now() < input_deadline && !screen.contains("CHILD_ACK:FALLBACK_INPUT") {
+            live.drain();
+            if let Some(crate::NodeView::Term { snapshot, .. }) = live.view() {
+                screen = snapshot.rows.iter().flatten().map(|cell| cell.c).collect();
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let pid = live.child_pid();
+        live.kill();
+        let deadline = Instant::now() + Duration::from_secs(3);
+        let alive = || pid.is_some_and(|pid| unsafe { libc::kill(pid as i32, 0) == 0 });
+        while alive() && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert!(
+            input.is_ok() && screen.contains("CHILD_ACK:FALLBACK_INPUT"),
+            "原 TUI 实际接收输入并回显"
+        );
+        assert!(pid.is_some() && !alive(), "关闭必须回收实际子进程");
+        assert_eq!(
+            std::fs::read_to_string(cwd_log).unwrap().trim(),
+            dir.path().canonicalize().unwrap().to_str().unwrap(),
+            "原 cwd 保留"
+        );
+        let calls = std::fs::read_to_string(log).unwrap();
+        assert!(
+            screen.contains("ORIGINAL_CODEX_READY"),
+            "{version} 的原 TUI 必须可用：{screen}; calls={calls}"
+        );
+        assert!(host.is_none(), "未经验证的版本不开放代答");
+        assert_eq!(calls.lines().collect::<Vec<_>>(), vec!["--version", "-c disable_paste_burst=true --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust resume original-session"], "探测后完整保留原命令，不启动不支持的传输");
+    }
+}
+
 /// 场景：真实本机Codex CLI通过生产后台宿主启动，测试不发模型任务，仅核验准备与回收。
 /// 构造：沿用已信任仓库cwd、新建私有server/TUI，禁用本次测试Hook，不修改用户配置。
 /// 执行：启动TermLive、等待同进程宿主与首屏、验证已核验版本仍可观察，再kill并等待退出。
