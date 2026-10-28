@@ -1,6 +1,5 @@
 //! On-demand Git and listing options panel for the explorer sidebar.
 
-use super::document::LINE;
 use super::*;
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div};
@@ -10,6 +9,7 @@ use workspace::content::GitAction;
 impl MultisoulApp {
     /// On-demand panel: comparison mode, listing options and Git batch actions.
     pub(super) fn render_workbench_ops(&self, cx: &mut Context<Self>) -> Div {
+        let theme = self.desktop_theme();
         let s = &self.desktop_workspace.workbench;
         let local = s.saved.comparison == Comparison::Local;
         let mut panel = div()
@@ -19,9 +19,9 @@ impl MultisoulApp {
             .gap(px(6.0))
             .p(px(8.0))
             .rounded(px(9.0))
-            .bg(rgba(0xffffff0a))
+            .bg(rgba(ui::icons::with_alpha(theme.text_primary, 0x0a)))
             .border_1()
-            .border_color(rgba(LINE));
+            .border_color(rgba(theme.node_stroke));
         panel = panel.child(
             div()
                 .flex()

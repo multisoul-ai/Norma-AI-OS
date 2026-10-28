@@ -96,7 +96,7 @@ public enum WorkspaceFeatureGuide {
             return "已截图"
         }
 
-        let themes = ["paper-blue", "linen-sage", "silver-violet", "sapphire-night", "midnight-violet", "forest-mint"]
+        let themes = ["ink-black", "graphite", "warm-obsidian", "sapphire-night", "moonstone", "deep-petrol"]
         for (index, theme) in themes.enumerated() {
             try await session.step("\(theme)：切换主题并用 /help 重开引导") {
                 try await runDockCommand(session, "/theme \(theme)")

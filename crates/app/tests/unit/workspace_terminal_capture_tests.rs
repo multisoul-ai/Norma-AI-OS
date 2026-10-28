@@ -57,7 +57,19 @@ fn terminal_capture_preserves_color_wide_progress_and_cursor_without_mutation() 
     let first: WorkspaceTerminalFrame =
         serde_json::from_value(encode(capture_grid(&grid)).expect("首帧")).expect("网格");
     assert_eq!(first.rows[0][0].text, "中", "宽字必须仍在原格");
-    assert_eq!(first.rows[0][0].fg, 0xCC0000, "Mac调色板红色必须复用");
+    // GPUI HSLA 往返最多有 1/255 量化误差；Paper Blue 新 ANSI red = #a62636。
+    for shift in [16, 8, 0] {
+        let actual = ((first.rows[0][0].fg >> shift) & 255) as i32;
+        let expected = ((0xa62636_u32 >> shift) & 255) as i32;
+        assert!(
+            (actual - expected).abs() <= 1,
+            "手机应复用 Mac 浅色 ANSI 红色，channel={shift}"
+        );
+    }
+    assert_ne!(
+        first.rows[0][0].fg, 0xcc0000,
+        "浅色终端不能仍编码旧暗色 ANSI 红色"
+    );
     assert!(first.rows[0][1].flags & 32 != 0, "右半格应是spacer");
     grid.advance(b"\r20%");
     let progress: WorkspaceTerminalFrame =

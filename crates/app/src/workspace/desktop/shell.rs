@@ -165,7 +165,7 @@ impl MultisoulApp {
                                         .text_color(rgba(if is_selected {
                                             theme.accent_cyan
                                         } else {
-                                            super::GLASS_TEXT_SECONDARY
+                                            theme.text_secondary
                                         }))
                                         .child(number.clone()),
                                 )
@@ -245,7 +245,7 @@ fn project_switch_button(id: &str, selected: bool, theme: ui::Theme, cx: &gpui::
                     })
                     .into(),
                 )
-                .foreground(rgba(super::GLASS_TEXT).into())
+                .foreground(rgba(theme.text_primary).into())
                 .hover(rgba(with_alpha(theme.accent_cyan, 0x3c)).into())
                 .active(rgba(with_alpha(theme.accent_cyan, 0x62)).into()),
         )

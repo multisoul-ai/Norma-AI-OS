@@ -12,10 +12,6 @@ use gpui::{div, prelude::*, px, rgba, Context, Div, ElementId, Stateful};
 const PROPOSAL_ROW_HEIGHT: f32 = 52.0;
 /// 展开后多出指令（最多约三行）与理由一行，栏高按它分配，免得内容被栏裁掉。
 const PROPOSAL_EXPANDED_HEIGHT: f32 = 132.0;
-const COPY: u32 = 0xcfe3f4ff;
-const META: u32 = 0x8ea8bfff;
-const TINT: u32 = 0xf2c77326;
-const TEXT: u32 = 0xf6dfaaff;
 
 impl MultisoulApp {
     /// 各条提议在栏里占的高度，用来算“需要你处理”栏的起始高度。
@@ -58,6 +54,7 @@ impl MultisoulApp {
         feedback: OverviewFeedback,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
+        let theme = self.desktop_theme();
         let id = item.proposal.id;
         let area = item.area_id.clone();
         let tag = format!("{area}-{id}");
@@ -74,6 +71,10 @@ impl MultisoulApp {
         // 采纳 / 拒绝始终在标题行右侧；点行其余部分展开详情。
         let aside = self.proposal_buttons(&area, id, &tag, cx);
         let selector = format!("desktop-brain-proposal-{id}");
+        let (badge_fill, badge_ink) = super::overview_parts::status_colors(
+            theme,
+            super::super::overview_rows::OverviewStatusTone::Approval,
+        );
         let head = div()
             .flex()
             .items_start()
@@ -84,9 +85,9 @@ impl MultisoulApp {
                     .px(px(6.0))
                     .py(px(1.0))
                     .rounded(px(5.0))
-                    .bg(rgba(TINT))
+                    .bg(rgba(badge_fill))
                     .text_size(px(OVERVIEW_TEXT_SECONDARY))
-                    .text_color(rgba(TEXT))
+                    .text_color(rgba(badge_ink))
                     .child(ui::i18n::text("chrome.brain_proposal_badge")),
             )
             .child(
@@ -98,14 +99,14 @@ impl MultisoulApp {
                     .child(
                         div()
                             .text_size(px(OVERVIEW_TEXT_PRIMARY))
-                            .text_color(rgba(COPY))
+                            .text_color(rgba(theme.text_primary))
                             .truncate()
                             .child(item.proposal.title.clone()),
                     )
                     .child(
                         div()
                             .text_size(px(OVERVIEW_TEXT_COPY))
-                            .text_color(rgba(META))
+                            .text_color(rgba(theme.text_secondary))
                             .child(target),
                     ),
             )
@@ -139,14 +140,14 @@ impl MultisoulApp {
                     div()
                         .pl(px(8.0))
                         .text_size(px(OVERVIEW_TEXT_COPY))
-                        .text_color(rgba(COPY))
+                        .text_color(rgba(theme.text_primary))
                         .child(item.proposal.task.clone()),
                 )
                 .child(
                     div()
                         .pl(px(8.0))
                         .text_size(px(OVERVIEW_TEXT_COPY))
-                        .text_color(rgba(META))
+                        .text_color(rgba(theme.text_secondary))
                         .child(ui::i18n::format(
                             "chrome.brain_reason",
                             &[("reason", item.proposal.why.clone())],
@@ -156,7 +157,9 @@ impl MultisoulApp {
     }
 
     fn proposal_buttons(&mut self, area: &str, id: u64, tag: &str, cx: &mut Context<Self>) -> Div {
+        let theme = self.desktop_theme();
         let ignore = pill(
+            theme,
             ElementId::Name(format!("brain-proposal-ignore-{tag}").into()),
             ui::i18n::text("chrome.brain_proposal_ignore"),
             PillStyle::Quiet,
@@ -169,6 +172,7 @@ impl MultisoulApp {
             })
         });
         let dispatch = pill(
+            theme,
             ElementId::Name(format!("brain-proposal-dispatch-{tag}").into()),
             ui::i18n::text("chrome.brain_proposal_dispatch"),
             PillStyle::Primary,

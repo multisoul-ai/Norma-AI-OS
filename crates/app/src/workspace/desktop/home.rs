@@ -15,31 +15,17 @@ use ui::icons::{toolbar_icon, with_alpha, ToolbarIcon};
 pub(super) const POPOVER_ALPHA: u8 = 240;
 
 pub(crate) fn home_theme(id: ui::ThemeId) -> ui::Theme {
-    let mut theme = crate::app::top_bar_theme(ui::Theme::for_id(id));
-    theme.dock = 0x080d14ed;
-    theme.dock_line = 0xa0afbc4a;
-    theme.panel = 0x0d131be0;
-    theme.panel_high = 0x1c2732eb;
-    theme.node_fill = 0x253442f2;
-    theme.canvas_from = theme.panel;
-    theme.canvas_to = 0x080d15db;
-    theme.node_stroke = 0xa3b2bf59;
-    theme.edge_highlight = 0xb5c4cf88;
-    theme.focused_stroke = 0x89bde3ff;
-    theme.text_secondary = 0xcbd4dee8;
-    theme.text_tertiary = 0xb1becbc8;
-    theme.accent = 0x2b6aa5ff;
-    theme
+    crate::app::top_bar_theme(ui::Theme::for_id(id))
 }
 
 pub(crate) fn home_primary_button(theme: ui::Theme, cx: &gpui::App) -> ButtonCustomVariant {
     let accent = rgba(theme.accent);
     ButtonCustomVariant::new(cx)
         .color(accent.into())
-        .foreground(rgba(0xffffffff).into())
+        .foreground(rgba(super::surface_theme::on_accent(theme)).into())
         .border(rgba(with_alpha(theme.text_primary, 0x18)).into())
-        .hover(accent.blend(rgba(0x00000018)).into())
-        .active(accent.blend(rgba(0x00000038)).into())
+        .hover(rgba(super::surface_theme::accent_fill(theme, 24)).into())
+        .active(rgba(super::surface_theme::accent_fill(theme, 56)).into())
 }
 
 pub(super) fn home_secondary_button(theme: ui::Theme, cx: &gpui::App) -> ButtonCustomVariant {
@@ -269,14 +255,15 @@ impl MultisoulApp {
                         .absolute()
                         .inset_0()
                         .debug_selector(|| "desktop-home-wallpaper".to_string())
-                        .bg(rgba(0x030915ff))
+                        .bg(rgba(theme.canvas_from))
                         .child(
                             img(crate::assets::HOME_BACKGROUND_ASSET)
                                 .absolute()
                                 .inset_0()
                                 .size_full()
                                 .object_fit(ObjectFit::Cover),
-                        ),
+                        )
+                        .child(div().absolute().inset_0().bg(rgba(theme.panel))),
                 )
             })
             .child(page.opacity(chrome_opacity))
@@ -432,6 +419,7 @@ impl MultisoulApp {
                                 .text_size(px(14.0))
                                 .h(px(36.0))
                                 .custom(home_primary_button(theme, cx))
+                                .text_color(rgba(super::surface_theme::on_accent(theme)))
                                 .disabled(self.desktop_workspace.busy)
                                 .on_click(cx.listener(|app, _, window, cx| {
                                     app.create_desktop_workspace(window, cx)

@@ -72,7 +72,7 @@ impl VisualPreview {
             | Self::DispatchReceiptFlight
             | Self::DispatchReceiptImpact
             | Self::DispatchAgentHandoffFlight
-            | Self::FeatureGuide => Some(ThemeId::PaperBlue),
+            | Self::FeatureGuide => Some(ThemeId::InkBlack),
             Self::Orchestration => Some(ThemeId::SapphireNight),
             Self::Launchpad | Self::GithubClone => None,
             Self::VoiceSetup

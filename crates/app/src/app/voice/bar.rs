@@ -54,8 +54,8 @@ fn voice_pill(
         .text_color(rgba(palette.text))
         .text_size(px(11.0))
         .cursor_pointer()
-        .hover(|style| style.bg(rgba(0xffffff20)))
-        .active(|style| style.bg(rgba(0xffffff2c)))
+        .hover(move |style| style.bg(rgba(with_alpha(voice_ink(theme), 0x20))))
+        .active(move |style| style.bg(rgba(with_alpha(voice_ink(theme), 0x2c))))
         .tab_index(0)
         .focus(move |style| style.border_color(rgba(theme.accent_blue)))
         .on_click(cx.listener(MultisoulApp::on_voice_bar_click))
@@ -132,40 +132,40 @@ fn voice_palette(
         };
         return VoicePalette {
             icon: accent,
-            text: 0xffffffff,
-            fill: 0xffffff12,
+            text: voice_ink(theme),
+            fill: with_alpha(voice_ink(theme), 0x12),
             border: with_alpha(accent, 0x55),
         };
     }
     match visual {
         VoiceVisual::Idle => VoicePalette {
-            icon: 0xffffffd6,
-            text: 0xffffffff,
+            icon: with_alpha(voice_ink(theme), 0xd6),
+            text: voice_ink(theme),
             fill: 0xffffff00,
             border: 0xffffff00,
         },
         VoiceVisual::Recording => VoicePalette {
             icon: theme.accent_orange,
-            text: 0xffffffff,
-            fill: 0xffffff12,
+            text: voice_ink(theme),
+            fill: with_alpha(voice_ink(theme), 0x12),
             border: with_alpha(theme.accent_orange, 0x55),
         },
         VoiceVisual::Processing => VoicePalette {
             icon: theme.accent_warm,
-            text: 0xffffffff,
-            fill: 0xffffff12,
+            text: voice_ink(theme),
+            fill: with_alpha(voice_ink(theme), 0x12),
             border: with_alpha(theme.accent_warm, 0x4d),
         },
         VoiceVisual::Success => VoicePalette {
             icon: theme.accent_green,
-            text: 0xffffffff,
-            fill: 0xffffff12,
+            text: voice_ink(theme),
+            fill: with_alpha(voice_ink(theme), 0x12),
             border: with_alpha(theme.accent_green, 0x4d),
         },
         VoiceVisual::Error => VoicePalette {
             icon: theme.destructive,
-            text: 0xffffffff,
-            fill: 0xffffff12,
+            text: voice_ink(theme),
+            fill: with_alpha(voice_ink(theme), 0x12),
             border: with_alpha(theme.destructive, 0x55),
         },
     }
@@ -249,7 +249,7 @@ fn voice_content(
             div()
                 .flex()
                 .items_center()
-                .text_color(rgba(0xffffffff))
+                .text_color(rgba(voice_ink(theme)))
                 .child(label)
         }
         VoiceVisual::Recording => div()
@@ -260,7 +260,7 @@ fn voice_content(
             .child(
                 div()
                     .whitespace_nowrap()
-                    .text_color(rgba(0xffffffff))
+                    .text_color(rgba(voice_ink(theme)))
                     .child(app.effective_voice_dock_label()),
             )
             .child(
@@ -268,7 +268,11 @@ fn voice_content(
                     .id("workspace-voice-shortcut")
                     .debug_selector(|| "workspace-voice-shortcut".to_string())
                     .whitespace_nowrap()
-                    .text_color(rgba(0xffffff8a))
+                    .text_color(rgba(if theme.is_light() {
+                        theme.text_secondary
+                    } else {
+                        0xffffff8a
+                    }))
                     .child(app.shortcuts.voice_interaction_label()),
             ),
         VoiceVisual::Processing | VoiceVisual::Success => div()
@@ -399,7 +403,7 @@ fn microphone_settings_button(theme: Theme, cx: &mut Context<MultisoulApp>) -> i
         .border_color(rgba(with_alpha(theme.destructive, 0x70)))
         .bg(rgba(with_alpha(theme.destructive, 0x18)))
         .text_size(px(12.0))
-        .text_color(rgba(0xffffffff))
+        .text_color(rgba(voice_ink(theme)))
         .cursor_pointer()
         .on_click(cx.listener(MultisoulApp::on_voice_open_microphone_privacy_settings))
         .child(ui::i18n::text("chrome.open_microphone_settings"))
@@ -417,3 +421,15 @@ struct VoicePalette {
 fn with_alpha(color: u32, alpha: u8) -> u32 {
     (color & 0xffffff00) | u32::from(alpha)
 }
+
+fn voice_ink(theme: Theme) -> u32 {
+    if theme.is_light() {
+        theme.text_primary
+    } else {
+        0xffffffff
+    }
+}
+
+#[cfg(test)]
+#[path = "../../../tests/unit/voice_bar_ink_tests.rs"]
+mod voice_bar_ink_tests;

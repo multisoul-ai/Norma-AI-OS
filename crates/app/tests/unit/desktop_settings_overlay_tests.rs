@@ -59,7 +59,7 @@ fn desktop_settings_overlay_fits_window_and_reflows_themes() {
         "展开项目中的设置也必须默认展示Norma人设"
     );
     assert!(
-        cx.debug_bounds("settings-theme-paper-blue").is_none(),
+        cx.debug_bounds("settings-theme-ink-black").is_none(),
         "主题不能再作为默认目的地"
     );
     let themes = cx
@@ -67,20 +67,28 @@ fn desktop_settings_overlay_fits_window_and_reflows_themes() {
         .expect("主题应保留独立菜单");
     cx.simulate_click(themes.center(), Modifiers::none());
     cx.update(|window, cx| window.draw(cx).clear());
+    assert!(
+        cx.debug_bounds("settings-theme-group-light").is_none(),
+        "取消浅色后不能留下空的浅色分组标题"
+    );
+    assert!(
+        cx.debug_bounds("settings-theme-group-dark").is_some(),
+        "六套深色仍应保留主题分组与选择卡片"
+    );
     let wide = cx
-        .debug_bounds("settings-theme-paper-blue")
-        .expect("应展示浅色主题");
+        .debug_bounds("settings-theme-ink-black")
+        .expect("应展示墨黑主题");
     let wide_last = cx
-        .debug_bounds("settings-theme-silver-violet")
+        .debug_bounds("settings-theme-warm-obsidian")
         .expect("应展示第三个主题");
     assert_eq!(wide.top(), wide_last.top(), "宽窗口的三个主题应同排");
     cx.simulate_resize(size(px(700.0), px(700.0)));
     cx.update(|window, cx| window.draw(cx).clear());
     let medium = cx
-        .debug_bounds("settings-theme-paper-blue")
+        .debug_bounds("settings-theme-ink-black")
         .expect("中窗口应展示主题");
     let medium_last = cx
-        .debug_bounds("settings-theme-silver-violet")
+        .debug_bounds("settings-theme-warm-obsidian")
         .expect("第三张主题应换行");
     assert!(
         medium.size.width >= px(190.0),
@@ -94,10 +102,10 @@ fn desktop_settings_overlay_fits_window_and_reflows_themes() {
     cx.simulate_resize(size(px(420.0), px(520.0)));
     cx.update(|window, cx| window.draw(cx).clear());
     let first = cx
-        .debug_bounds("settings-theme-paper-blue")
+        .debug_bounds("settings-theme-ink-black")
         .expect("窄窗口应展示主题");
     let second = cx
-        .debug_bounds("settings-theme-linen-sage")
+        .debug_bounds("settings-theme-graphite")
         .expect("窄窗口应保留第二主题");
     assert!(second.top() > first.top(), "窄窗口应改为单列而非横向裁剪");
     let close = cx.debug_bounds("settings-close").expect("关闭按钮应保留");

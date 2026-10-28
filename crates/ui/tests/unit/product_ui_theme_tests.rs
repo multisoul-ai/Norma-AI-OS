@@ -1,72 +1,28 @@
 use super::{Theme, ThemeId};
 
-/// Product UI V2 浅色主题：Paper Blue 必须保持中性纸白、Cobalt 焦点与深色 Terminal。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   shell alpha       = 0x66 / 0xff = 40%（玻璃壳，不承载长文本）
-///   canvas overlay A  = 0xeb / 0xff ≈ 92%（压低壁纸彩度）
-///   terminal alpha    = 0xeb / 0xff ≈ 92%（独立深色内容井）
-///   terminal-shell 差 = 0xeb - 0x66 = 0x85 = 133 alpha levels
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 用 PaperBlue id 构造 Paper Blue。
-///   2. 检查环境 overlay、玻璃 shell、文字、Cobalt 与 Mint。
-///   3. 比较 Terminal 与 shell 的不透明度，确认两层没有合并。
-///
-/// 预期结果：
-///   - 正断言：Paper Blue 色值与 Core UI V2 设计基线精确匹配。
-///   - 正断言：Terminal 明显比玻璃 shell 更不透明。
-///   - 负断言：Paper Blue 不应回退到旧 `#111214` 文字或绿色焦点。
+/// 场景：浅色改版采用冷白与钴蓝，标题和终端均有稳定浅色阅读面。
+/// 数据构造：Paper Blue 由设计值构造，卡片 alpha=240/255、终端 alpha=248/255。
+/// 执行过程：读取实际 token，核对材质分层与强调色。
+/// 预期结果：纸白蓝保持蓝色身份，终端比外壳更稳定，壁纸提亮色可用。
 #[test]
 fn test_paper_blue_material_roles_match_core_ui_v2() {
     let theme = Theme::for_id(ThemeId::PaperBlue);
-
+    assert_eq!(theme.canvas_from, 0xf6f8fcff, "纸白蓝使用冷纸白底色");
+    assert_eq!(theme.canvas_to, 0xeaf0f8ff, "第二底色为淡蓝灰");
     assert_eq!(
-        theme.canvas_from, 0xfffefbff,
-        "Paper Blue Base 应为 #FFFEFB"
+        theme.canvas_overlay_to, 0xeff6ffbd,
+        "壁纸底部保留浅蓝透光层"
     );
-    assert_eq!(
-        theme.canvas_to, 0xf5f4f1ff,
-        "Paper Blue 第二 Base 应为 #F5F4F1"
-    );
-    assert_eq!(
-        theme.canvas_overlay_to, 0xd4eaf7d6,
-        "Paper Blue Environment 应为 #D4EAF7"
-    );
-    assert_eq!(
-        theme.text_primary, 0x313d44ff,
-        "Paper Blue Text 应为 #313D44"
-    );
-    assert_eq!(
-        theme.accent, 0x2f80edff,
-        "Paper Blue Accent 应为 Cobalt #2F80ED"
-    );
-    assert_eq!(
-        theme.success, 0x64e0b5ff,
-        "Paper Blue Signal 应为 Mint #64E0B5"
-    );
-    assert_eq!(
-        alpha(theme.node_fill),
-        0x66,
-        "Paper Blue shell 应保持 40% 玻璃透明度"
-    );
-    assert_eq!(
-        alpha(theme.term_bg),
-        0xeb,
-        "Paper Blue Terminal 应保持约 92% 不透明"
-    );
+    assert_eq!(theme.text_primary, 0x202938ff, "正文使用深蓝灰");
+    assert_eq!(theme.accent, 0x2563ebff, "强调色保持钴蓝身份");
+    assert_eq!(theme.success, 0x16784bff, "小字号状态绿保持对比");
+    assert_eq!(alpha(theme.node_fill), 240, "外壳提供稳定浅色背景");
+    assert_eq!(alpha(theme.term_bg), 248, "终端阅读面约 97% 不透明");
     assert!(
-        alpha(theme.term_bg) > alpha(theme.node_fill) + 100,
-        "Terminal 内容井必须显著比 shell 更不透明"
+        alpha(theme.term_bg) > alpha(theme.node_fill),
+        "终端比外壳更稳定"
     );
-    assert_ne!(
-        theme.text_primary, 0x111214ff,
-        "Paper Blue 文字不应回退到旧 Graphite 字面量"
-    );
-    assert_ne!(
-        theme.focused_stroke, 0x35d07fff,
-        "Paper Blue 焦点不应回退到旧绿色"
-    );
+    assert_ne!(theme.term_bg >> 8, 0x0e151d, "浅色终端不得保留旧深色底");
 }
 
 /// Dark 入口分层：用户主题走 Sapphire Night，历史 `glass_dark/dark` 保持动画兼容。

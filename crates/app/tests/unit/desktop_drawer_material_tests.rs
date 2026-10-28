@@ -4,6 +4,35 @@ use crate::settings::wallpaper::state::WallpaperSelection;
 use image::{Rgba, RgbaImage};
 use std::path::PathBuf;
 
+/// 场景：抽屉蒙层应跟随主题，不能在浅色或紫绿主题下继续使用固定深蓝。
+/// 数据构造：六个主题分别传入左右抽屉；目标不透明度 60% 按 8 位取整为 153。
+/// 执行过程：读取真正供 render_drawer_frost 使用的 tint。
+/// 预期结果：蒙层采用所选主题的表面色，左右与渐变两端均为约 60% 不透明度。
+#[test]
+fn desktop_drawer_tint_tracks_selected_theme() {
+    for id in ui::ThemeId::ALL {
+        let theme = ui::Theme::for_id(id);
+        for left in [false, true] {
+            let (top, bottom) = material::drawer_tint(theme, left);
+            assert_eq!(
+                top >> 8,
+                theme.canvas_from >> 8,
+                "{id:?} left={left} 顶部不得固定深蓝"
+            );
+            assert_eq!(
+                bottom >> 8,
+                theme.canvas_to >> 8,
+                "{id:?} left={left} 底部必须沿用同一主题"
+            );
+            assert_eq!(
+                (top & 0xff, bottom & 0xff),
+                (153, 153),
+                "{id:?} left={left} 蒙层应按 round(255 × 0.60) 透出约 40% 壁纸"
+            );
+        }
+    }
+}
+
 /// 场景：光环动画每帧重绘抽屉，壁纸来源不应每帧重新解析文件。
 /// 数据构造：默认内置壁纸连续出现两次，随后切换到一张自定义壁纸。
 /// 执行过程：按每次渲染顺序询问毛玻璃状态是否需要刷新。

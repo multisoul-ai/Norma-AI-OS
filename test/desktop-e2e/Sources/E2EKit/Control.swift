@@ -82,6 +82,9 @@ extension Session {
             if let response = try channel.send(payload) {
                 guard response["ok"] as? Bool == true else {
                     let reason = response["error"] as? String ?? "unknown"
+                    if reason.hasPrefix("E2E frame barrier:") {
+                        throw E2EError.driver(reason)
+                    }
                     throw E2EError.product("App 控制通道拒绝 \(payload["op"] ?? "")：\(reason)")
                 }
                 return response

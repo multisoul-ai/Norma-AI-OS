@@ -1,6 +1,6 @@
 //! Workspace-wide assistant surfaces. Open drawers reserve space beside the live canvas.
 
-use super::{glass_button_variant, GLASS_TEXT, GLASS_TEXT_MUTED, GLASS_TEXT_SECONDARY};
+use super::glass_button_variant;
 use crate::app::MultisoulApp;
 use canvas::NodeId;
 use gpui::{div, prelude::*, px, rgba, svg, Context, Div, Stateful, Window};
@@ -196,7 +196,7 @@ impl MultisoulApp {
                                 } else {
                                     "icons/panel-right-open.svg"
                                 })
-                                .text_color(rgba(GLASS_TEXT))
+                                .text_color(rgba(theme.text_primary))
                                 .w(px(17.0))
                                 .h(px(17.0)),
                         ),
@@ -310,3 +310,7 @@ pub(super) fn content_node_id(id: &str) -> NodeId {
 #[cfg(test)]
 #[path = "../../../tests/unit/desktop_reader_chrome_surface_tests.rs"]
 mod reader_chrome_surface_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/drawer_state_contrast_tests.rs"]
+mod drawer_state_contrast_tests;

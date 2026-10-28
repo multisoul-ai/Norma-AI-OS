@@ -1,6 +1,6 @@
 //! Tree row primitives for the explorer sidebar: glyphs, chevrons and interactive rows.
 
-use super::document::{tooltip_view, GREEN, TEXT, TEXT_MUTED, TEXT_SECONDARY};
+use super::document::tooltip_view;
 use crate::app::MultisoulApp;
 use gpui::{
     div, prelude::*, px, rgba, svg, Context, Div, ElementId, KeyDownEvent, Stateful, Window,
@@ -8,10 +8,6 @@ use gpui::{
 use std::rc::Rc;
 
 pub(super) const ROW_HEIGHT: f32 = 28.0;
-pub(super) const HOVER: u32 = 0xffffff14;
-pub(super) const SELECTED: u32 = 0xffffff1f;
-pub(super) const PRESSED: u32 = 0xffffff2a;
-pub(super) const FOCUS: u32 = 0x8db9ecaa;
 pub(super) const INDENT: f32 = 12.0;
 
 pub(super) type Action = Rc<dyn Fn(&mut MultisoulApp, &mut Window, &mut Context<MultisoulApp>)>;
@@ -36,7 +32,7 @@ pub(super) fn glyph_for(name: &str) -> Glyph {
     }
 }
 
-pub(super) fn glyph_element(glyph: Glyph) -> gpui::AnyElement {
+pub(super) fn glyph_element(theme: ui::Theme, glyph: Glyph) -> gpui::AnyElement {
     match glyph {
         Glyph::Markdown => div()
             .w(px(12.0))
@@ -44,7 +40,7 @@ pub(super) fn glyph_element(glyph: Glyph) -> gpui::AnyElement {
             .font_family("Menlo")
             .text_size(px(9.0))
             .font_weight(gpui::FontWeight::BOLD)
-            .text_color(rgba(GREEN))
+            .text_color(rgba(theme.success))
             .child("M↓")
             .into_any_element(),
         Glyph::GitDot => dot(false),
@@ -54,7 +50,7 @@ pub(super) fn glyph_element(glyph: Glyph) -> gpui::AnyElement {
             .w(px(12.0))
             .h(px(12.0))
             .flex_none()
-            .text_color(rgba(TEXT_MUTED))
+            .text_color(rgba(theme.text_tertiary))
             .into_any_element(),
     }
 }
@@ -70,13 +66,13 @@ fn dot(hollow: bool) -> gpui::AnyElement {
     }
 }
 
-pub(super) fn chevron(open: bool) -> gpui::AnyElement {
+pub(super) fn chevron(theme: ui::Theme, open: bool) -> gpui::AnyElement {
     let icon = svg()
         .path("icons/chevron-down.svg")
         .w(px(11.0))
         .h(px(11.0))
         .flex_none()
-        .text_color(rgba(TEXT_MUTED));
+        .text_color(rgba(theme.text_tertiary));
     if open {
         icon.into_any_element()
     } else {
@@ -116,6 +112,7 @@ impl MultisoulApp {
         activate: Action,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
+        let theme = self.desktop_theme();
         let click = activate.clone();
         div()
             .id(id)
@@ -131,13 +128,17 @@ impl MultisoulApp {
             .border_1()
             .border_color(rgba(0x00000000))
             .text_size(px(12.0))
-            .text_color(rgba(TEXT_SECONDARY))
+            .text_color(rgba(theme.text_secondary))
             .cursor_pointer()
             .tab_index(0)
-            .bg(rgba(if selected { SELECTED } else { 0x00000000 }))
-            .hover(|s| s.bg(rgba(HOVER)))
-            .active(|s| s.bg(rgba(PRESSED)))
-            .focus(|s| s.border_color(rgba(FOCUS)))
+            .bg(rgba(if selected {
+                ui::icons::with_alpha(theme.accent, 0x24)
+            } else {
+                0x00000000
+            }))
+            .hover(|s| s.bg(rgba(theme.panel_high)))
+            .active(|s| s.bg(rgba(theme.node_fill)))
+            .focus(|s| s.border_color(rgba(theme.focused_stroke)))
             .on_click(cx.listener(move |app, _, w, cx| click(app, w, cx)))
             .on_key_down(cx.listener(move |app, event: &KeyDownEvent, w, cx| {
                 match event.keystroke.key.as_str() {
@@ -166,6 +167,7 @@ impl MultisoulApp {
         action: Action,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
+        let theme = self.desktop_theme();
         let key_action = action.clone();
         div()
             .id(id)
@@ -180,13 +182,16 @@ impl MultisoulApp {
             .border_1()
             .border_color(rgba(0x00000000))
             .text_size(px(13.0))
-            .text_color(rgba(TEXT_MUTED))
+            .text_color(rgba(theme.text_tertiary))
             .cursor_pointer()
             .tab_index(0)
             .tooltip(tooltip_view(tip))
-            .hover(|s| s.bg(rgba(HOVER)).text_color(rgba(TEXT)))
-            .active(|s| s.bg(rgba(PRESSED)))
-            .focus(|s| s.border_color(rgba(FOCUS)))
+            .hover(|s| {
+                s.bg(rgba(theme.panel_high))
+                    .text_color(rgba(theme.text_primary))
+            })
+            .active(|s| s.bg(rgba(theme.node_fill)))
+            .focus(|s| s.border_color(rgba(theme.focused_stroke)))
             .on_click(cx.listener(move |app, _, w, cx| {
                 cx.stop_propagation();
                 action(app, w, cx)

@@ -94,29 +94,26 @@ fn assert_theme_palette_contrast(theme_id: ThemeId, label: &str) {
 ///
 /// 预期结果：
 ///   - 正断言：六套主题的六种关键颜色组合全部不低于 4.5:1。
-///   - 负断言：Forest Mint 不得继续使用固定白色主按钮文字。
+///   - 负断言：Deep Petrol 不得继续使用固定白色主按钮文字。
 ///   - 负断言：Hover/Active 背景必须保持不透明，不能退回 0x22/0x32 浅色叠层。
 #[test]
 fn feature_guide_palette_keeps_small_text_readable_in_every_theme() {
-    assert_theme_palette_contrast(ThemeId::PaperBlue, "Paper Blue");
-    assert_theme_palette_contrast(ThemeId::LinenSage, "Linen Sage");
-    assert_theme_palette_contrast(ThemeId::SilverViolet, "Silver Violet");
-    assert_theme_palette_contrast(ThemeId::SapphireNight, "Sapphire Night");
-    assert_theme_palette_contrast(ThemeId::MidnightViolet, "Midnight Violet");
-    assert_theme_palette_contrast(ThemeId::ForestMint, "Forest Mint");
+    for id in ThemeId::ALL {
+        assert_theme_palette_contrast(id, id.as_str());
+    }
 
-    let forest = FeatureGuidePalette::from_theme(Theme::for_id(ThemeId::ForestMint));
+    let petrol = FeatureGuidePalette::from_theme(Theme::for_id(ThemeId::DeepPetrol));
     assert_ne!(
-        forest.primary_foreground, 0xffffffff,
-        "Forest Mint 的亮薄荷背景不得继续使用固定白字，否则实际对比度只有约 1.9:1"
+        petrol.primary_foreground, 0xffffffff,
+        "Deep Petrol 的灰青强调背景不得使用固定白字"
     );
     assert_eq!(
-        forest.primary_hover & 0xff,
+        petrol.primary_hover & 0xff,
         0xff,
         "主按钮 Hover 背景必须保持不透明，不能使用原来的 0x22 alpha"
     );
     assert_eq!(
-        forest.primary_active & 0xff,
+        petrol.primary_active & 0xff,
         0xff,
         "主按钮 Active 背景必须保持不透明，不能使用原来的 0x32 alpha"
     );

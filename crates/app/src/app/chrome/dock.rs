@@ -207,16 +207,30 @@ fn chrome_icon_button(
     } else {
         0xffffff00
     };
-    let icon_color = if active { 0xffffffff } else { 0xffffffd6 };
+    let icon_color = dock_icon_color(theme, active);
     let hover_fill = if active {
         with_alpha(theme.accent_cyan, 0x40)
     } else {
-        0xffffff24
+        with_alpha(
+            if theme.is_light() {
+                theme.text_primary
+            } else {
+                0xffffffff
+            },
+            0x24,
+        )
     };
     let pressed_fill = if active {
         with_alpha(theme.accent_cyan, 0x54)
     } else {
-        0xffffff33
+        with_alpha(
+            if theme.is_light() {
+                theme.text_primary
+            } else {
+                0xffffffff
+            },
+            0x33,
+        )
     };
 
     div()
@@ -291,3 +305,21 @@ impl Render for TooltipView {
             .child(self.text)
     }
 }
+
+fn dock_icon_color(theme: Theme, active: bool) -> u32 {
+    if theme.is_light() {
+        if active {
+            theme.accent
+        } else {
+            theme.text_secondary
+        }
+    } else if active {
+        0xffffffff
+    } else {
+        0xffffffd6
+    }
+}
+
+#[cfg(test)]
+#[path = "../../../tests/unit/dock_ink_tests.rs"]
+mod dock_ink_tests;

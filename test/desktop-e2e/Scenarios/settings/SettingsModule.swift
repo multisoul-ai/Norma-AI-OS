@@ -5,6 +5,7 @@ public enum SettingsModule {
     public static let manifest = DesktopModule(
         name: "settings",
         scenarioNames: [
+            SettingsThemeConsistency.name,
             SettingsNavigation.name,
             SettingsBasicPreferences.name,
             SettingsResponsiveKeyboard.name,
@@ -17,8 +18,11 @@ public enum SettingsModule {
             SettingsDispatchEffects.name,
             SettingsRunEffects.name,
         ],
+        visualScenarioNames: [SettingsThemeConsistency.name],
         run: { scenario, session in
             switch scenario {
+            case SettingsThemeConsistency.name:
+                try await SettingsThemeConsistency.run(session)
             case SettingsNavigation.name:
                 try await SettingsNavigation.run(session)
             case SettingsBasicPreferences.name:

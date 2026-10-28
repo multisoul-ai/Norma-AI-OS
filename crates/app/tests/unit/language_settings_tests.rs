@@ -183,11 +183,11 @@ async fn language_repeated_choice_has_distinct_completion_sequence() {
     );
 }
 
-/// 通用设置在浅色主题的桌面上保持组件文字可读，不被桌面深色输入主题覆盖。
+/// 通用设置在墨黑主题的桌面上保持组件文字可读，不被桌面深色输入主题覆盖。
 ///
-/// 数据构造：一个隔离 App；取首个非深色主题；Settings 打开，桌面没有展开项目。
-/// 执行过程：设置浅色主题 → 打开通用设置 → 渲染桌面 → 读取组件库 foreground。
-/// 预期结果：组件文字等于浅色产品主题的深色文字；不等于桌面默认深色主题的浅色文字。
+/// 数据构造：一个隔离 App；使用默认墨黑主题；Settings 打开，桌面没有展开项目。
+/// 执行过程：设置墨黑主题 → 打开通用设置 → 渲染桌面 → 读取组件库 foreground。
+/// 预期结果：组件文字等于墨黑产品主题的柔白文字；不等于桌面默认深色主题的墨黑文字。
 #[test]
 fn language_controls_keep_settings_theme_over_desktop() {
     let mut test = gpui::TestAppContext::single();
@@ -199,10 +199,7 @@ fn language_controls_keep_settings_theme_over_desktop() {
             }),
         )
     });
-    let id = ui::ThemeId::ALL
-        .into_iter()
-        .find(|id| !id.is_dark())
-        .expect("应有浅色主题");
+    let id = ui::ThemeId::InkBlack;
     window
         .update(&mut test, |app, window, cx| {
             app.set_theme(id, cx);
@@ -213,10 +210,10 @@ fn language_controls_keep_settings_theme_over_desktop() {
             let actual = ui::component::Theme::global(cx).colors.foreground;
             let expected: gpui::Hsla = gpui::rgba(ui::Theme::for_id(id).text_primary).into();
             let desktop: gpui::Hsla = gpui::rgba(ui::Theme::sapphire_night().text_primary).into();
-            assert_eq!(actual, expected, "语言控件必须保持设置页的浅色主题文字");
+            assert_eq!(actual, expected, "语言控件必须保持设置页的墨黑主题文字");
             assert_ne!(
                 actual, desktop,
-                "桌面深色输入主题不能使浅色语言选项文字变白"
+                "桌面深色输入主题不能使墨黑语言选项文字变白"
             );
         })
         .expect("应能渲染设置背后的桌面");

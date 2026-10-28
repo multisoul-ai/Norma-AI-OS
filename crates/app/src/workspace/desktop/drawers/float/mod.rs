@@ -21,10 +21,6 @@ const FADE_MS: u64 = 180;
 const REDUCED_FADE_MS: u64 = 120;
 const DRAG_NOTIFY_INTERVAL: Duration = Duration::from_millis(16);
 const PANEL_RADIUS: f32 = 14.0;
-const GLASS_FILL: u32 = 0x0b1b2df5;
-const SOLID_FILL: u32 = 0x0b1a2aff;
-const PANEL_BORDER: u32 = 0x83c4ffa6;
-const PIN_ICON: u32 = 0x9fd2ffff;
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct OverviewFloatFade {
@@ -96,12 +92,11 @@ pub(crate) struct OverviewDrag {
     last_notify: Option<Instant>,
 }
 
-pub(crate) fn overview_panel_fill(reduce_transparency: bool) -> u32 {
-    if reduce_transparency {
-        SOLID_FILL
-    } else {
-        GLASS_FILL
-    }
+pub(crate) fn overview_panel_fill(theme: ui::Theme, reduce_transparency: bool) -> u32 {
+    ui::icons::with_alpha(
+        theme.canvas_from,
+        if reduce_transparency { 0xff } else { 0xf5 },
+    )
 }
 
 fn prefers_reduced_transparency() -> bool {
@@ -151,8 +146,8 @@ mod tests {
     /// 预期结果：实色 alpha 为 0xff；玻璃色 alpha 不是 0xff，且两者不相等。
     #[test]
     fn reduced_transparency_uses_an_opaque_panel_fill() {
-        let solid = overview_panel_fill(true);
-        let glass = overview_panel_fill(false);
+        let solid = overview_panel_fill(ui::Theme::paper_blue(), true);
+        let glass = overview_panel_fill(ui::Theme::paper_blue(), false);
         assert_eq!(solid & 0xff, 0xff, "减少透明度时背景应为实色");
         assert_ne!(glass & 0xff, 0xff, "默认玻璃背景应保留透明通道");
         assert_ne!(solid, glass, "两种偏好不能画成同一种填充");

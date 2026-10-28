@@ -13,7 +13,7 @@ pub(crate) struct TerminalPalette {
 
 impl TerminalPalette {
     pub(crate) fn from_theme(theme: Theme) -> Self {
-        let ansi_colors = [
+        let mut ansi_colors = [
             rgb_to_hsla(0x00, 0x00, 0x00),
             rgb_to_hsla(0xcc, 0x00, 0x00),
             rgb_to_hsla(0x4e, 0x9a, 0x06),
@@ -31,6 +31,15 @@ impl TerminalPalette {
             rgb_to_hsla(0x34, 0xe2, 0xe2),
             rgb_to_hsla(0xee, 0xee, 0xec),
         ];
+        if (theme.term_bg >> 24) > 128 {
+            // Light terminal profiles need readable named/16-color inks; explicit RGB and
+            // the 256-color cube remain application-owned and are resolved unchanged below.
+            ansi_colors = [
+                0x1b2430, 0xa62636, 0x1f6e43, 0x806000, 0x245dcc, 0x8250a1, 0x126d7c, 0x516172,
+                0x596779, 0xbd3142, 0x247c49, 0x906813, 0x2d63d5, 0x8e4cb2, 0x1c7485, 0x2e3b4c,
+            ]
+            .map(|color| rgb(color).into());
+        }
 
         let mut extended_colors = [Hsla::default(); 256];
         extended_colors[..16].copy_from_slice(&ansi_colors);
@@ -210,3 +219,7 @@ fn brighten_color(mut color: Hsla) -> Hsla {
     color.l = (color.l * 1.2).min(1.0);
     color
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/cards/term/light_palette_tests.rs"]
+mod light_palette_tests;

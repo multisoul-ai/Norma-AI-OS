@@ -18,7 +18,6 @@ mod tests;
 // 否则 22px 的数字与 12px 的标签会超出卡片高度而贴边。
 const NUMBER_LINE: f32 = 28.0;
 const LABEL_LINE: f32 = 16.0;
-const LABEL: u32 = 0xa9c3daff;
 
 impl MultisoulApp {
     pub(super) fn render_overview_summary(
@@ -26,6 +25,7 @@ impl MultisoulApp {
         counts: [usize; 3],
         cx: &mut Context<Self>,
     ) -> Div {
+        let theme = self.desktop_theme();
         let feedback = overview_feedback(self.desktop_theme());
         let focus_ring = feedback.focus;
         // （分组，标签，底色，数字色）：底色按类型固定，数量为 0 时只把数字调淡，卡片不变灰。
@@ -33,11 +33,21 @@ impl MultisoulApp {
             (
                 OverviewGroup::Attention,
                 "待你处理",
-                0xf2c7731c_u32,
-                0xf6dfaaff_u32,
+                ui::icons::with_alpha(theme.accent_warm, 0x1c),
+                theme.accent_warm,
             ),
-            (OverviewGroup::Running, "运行中", 0x36dce81a, 0x7ee9eeff),
-            (OverviewGroup::Idle, "待开始", 0x9fcfff14, 0xb3c6d8ff),
+            (
+                OverviewGroup::Running,
+                "运行中",
+                ui::icons::with_alpha(theme.accent_cyan, 0x1a),
+                theme.accent_cyan,
+            ),
+            (
+                OverviewGroup::Idle,
+                "待开始",
+                ui::icons::with_alpha(theme.accent, 0x14),
+                theme.text_secondary,
+            ),
         ];
         div()
             .flex_none()
@@ -107,7 +117,7 @@ impl MultisoulApp {
                                     .h(px(LABEL_LINE))
                                     .line_height(px(LABEL_LINE))
                                     .text_size(px(12.0))
-                                    .text_color(rgba(LABEL))
+                                    .text_color(rgba(theme.text_secondary))
                                     .overflow_hidden()
                                     .child(label),
                             )

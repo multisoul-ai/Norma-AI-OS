@@ -22,9 +22,21 @@ const MAX_DRAWER: f32 = 372.0;
 const INSET: f32 = 8.0;
 pub(crate) const DOCK_RADIUS: f32 = 18.0;
 
-/// The suggestion panel sits on the Dock material, which stays dark in light themes.
-pub(crate) fn command_panel_theme(theme: ui::Theme) -> ui::Theme {
-    crate::app::top_bar_theme(theme)
+/// The suggestion panel shares the Dock material and its foreground polarity.
+pub(crate) fn command_panel_theme(mut theme: ui::Theme) -> ui::Theme {
+    theme.title_bar = theme.dock;
+    if theme.is_light() {
+        theme.panel_high = with_alpha(theme.text_primary, 0x14);
+        theme.node_fill = with_alpha(theme.text_primary, 0x24);
+        return theme;
+    }
+    theme.text_primary = 0xffffffff;
+    theme.text_secondary = 0xffffffe6;
+    // 214/255 opacity keeps even the divider above 4.5:1 over white wallpaper.
+    theme.text_tertiary = 0xffffffd6;
+    theme.panel_high = 0xffffff24;
+    theme.node_fill = 0xffffff33;
+    theme
 }
 
 impl MultisoulApp {
