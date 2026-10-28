@@ -48,6 +48,11 @@ pub(crate) fn start_dialogue_listening_runtime(
     input_device_id: Option<String>,
     store: storage::SettingsStore,
 ) -> Result<DialogueListeningRuntime, DialogueStartError> {
+    if values.asr_provider() == asr::AsrProviderId::LocalA1 {
+        return Err(DialogueStartError::Provider(
+            ui::i18n::text("voice.a1_single_only").to_string(),
+        ));
+    }
     tracing::info!(
         target: "norma_voice",
         input_device_selected = input_device_id.is_some(),

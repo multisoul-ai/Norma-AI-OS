@@ -35,6 +35,7 @@
 
 | `settings` | `settings-shortcut-defaults` | 键位互换后 Settings → Keyboard Shortcuts 的默认显示（无覆盖写入、无 Restore），以及既有自定义（切换工作空间 ⌃⌥J、新建浏览器 ⇧⌘K）原样保留且优先生效：⌃⌥J 打开切换器，⇧⌘↑ / ⇧⌘K 不触发默认行为；浅色与深色。 |
 | `settings` | `settings-live-configuration` | GPT-Live模式切换、缺Key禁用、音色持久化、重启恢复和深浅主题。 |
+| `settings` | `settings-a1-configuration` | A1 可选识别来源的浏览（不激活、不加载模型），默认 provider 不变；切到 GPT-Live/豆包后页面保持独立。深浅主题。 |
 | `settings` | `settings-orchestration-path-convention` | 编排页“文件路径输出约定”开关：默认开启（未写库），点击后保存 false，再点击保存 true，开关外观随之变化。 |
 | `brain` | `brain-report` | 后台大脑：假 `claude` 通过真实 Hook 上报完成，真实 Claude Code ACP 经权限闸门执行 `norma brain report`，App 成功接收。核对模型成功结束、CLI 成功回执，并在真实幕僚活动中看见汇报正文与回执。先 `cargo build -p app -p norma`；需要 `NORMA_BRAIN_E2E_ADAPTERS` 指向真实适配器目录，使用本机 Claude 登录或网关认证。隔离数据没有 TTS，明确验收跳过语音及 `queued=false`，不代表进入队列或实际播音。 |
 | `brain` | `brain-report-voice` | 沿用真实 Claude 汇报链路，在隔离数据库选择本机已安装的 Matcha Chinese-English、本地 default 音色；不读取 TTS 云端凭据、不修改用户配置或系统输出设备。要求 `queued=true`、Report 的播放开始及 macOS DataPlayedBack 完成回调、活动面板正文和回执；入队不等于播完。退出码覆盖到原生回调；要求可回放声音时须另有被测 PID 的非静音采集证据。 |

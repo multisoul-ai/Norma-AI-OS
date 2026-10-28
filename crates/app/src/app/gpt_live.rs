@@ -42,6 +42,7 @@ impl MultisoulApp {
         self.voice.stop_for_model_switch();
         self.tts_preview.cancel();
         self.cancel_agent_announcements();
+        self.release_a1_runtime(cx);
         self.voice_settings.select_desktop_mode(mode);
         self.persist_voice_settings_in_background(cx);
         cx.notify();

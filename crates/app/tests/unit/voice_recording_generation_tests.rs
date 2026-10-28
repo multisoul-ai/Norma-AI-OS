@@ -61,3 +61,26 @@ fn test_stale_recording_start_and_result_are_rejected_after_release() {
         "第一次录音的迟到 final 不得覆盖第二次录音状态"
     );
 }
+
+/// 场景：开始录音但后台尚未取得麦克风时切换模式。
+/// 构造：begin 生成的真实 token；执行模式切换和下一次 begin。
+/// 预期：旧 token 同步取消，新 token 有效，旧任务不能开始模型加载。
+#[test]
+fn mode_switch_cancels_queued_recording_startup() {
+    let mut state = VoiceControlState::default();
+    assert!(
+        state.begin_recording(VoiceTrigger::Shortcut),
+        "应开始录音启动流程"
+    );
+    let old = state.startup_cancellation();
+    state.stop_for_model_switch();
+    assert!(old.is_cancelled(), "模式切换必须立即取消后台启动");
+    assert!(
+        state.begin_recording(VoiceTrigger::Shortcut),
+        "下一次录音应可开始"
+    );
+    assert!(
+        !state.startup_cancellation().is_cancelled(),
+        "新录音不能沿用旧取消状态"
+    );
+}

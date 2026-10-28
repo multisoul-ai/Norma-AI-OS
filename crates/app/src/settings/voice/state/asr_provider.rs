@@ -190,6 +190,7 @@ impl VoiceSettingsState {
         if !self.values.azure_asr_profile().is_ready() {
             return false;
         }
+        self.invalidate_a1_preparation();
         self.saved.asr_provider = Some(asr::AsrProviderId::CloudAzure);
         self.persist_string(KEY_ASR_PROVIDER, asr::AsrProviderId::CloudAzure.as_str());
         self.refresh_values();
@@ -197,6 +198,7 @@ impl VoiceSettingsState {
     }
 
     pub(crate) fn activate_local_sherpa_asr(&mut self) {
+        self.invalidate_a1_preparation();
         self.saved.asr_provider = Some(asr::AsrProviderId::LocalSherpa);
         self.persist_string(KEY_ASR_PROVIDER, asr::AsrProviderId::LocalSherpa.as_str());
         self.refresh_values();
@@ -208,6 +210,17 @@ pub(crate) fn resolve_builtin_asr_profile(
     model_root: &Path,
 ) -> Result<asr::BuiltinAsrProfile, String> {
     match values.asr_provider() {
+        asr::AsrProviderId::LocalA1 => {
+            if !values
+                .desktop_mode()
+                .supports_local_a1(values.interaction_mode())
+            {
+                return Err(ui::i18n::text("voice.a1_single_only").to_string());
+            }
+            asr::A1Config::from_model_root(model_root)
+                .map(asr::BuiltinAsrProfile::LocalA1)
+                .map_err(|e| e.to_string())
+        }
         asr::AsrProviderId::LocalSherpa => {
             let model = super::resolve_available_asr_model(values, model_root)
                 .map_err(|error| error.to_string())?;
