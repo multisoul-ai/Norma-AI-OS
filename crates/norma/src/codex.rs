@@ -10,6 +10,9 @@ use std::time::{Duration, Instant};
 use tungstenite::{protocol::WebSocketConfig, Error, Message, WebSocket};
 
 mod approvals;
+pub mod native_questions;
+pub mod questions;
+pub mod relay;
 pub use approvals::{CodexApproval, CodexApprovalChange, CodexApprovalState, CodexApprovals};
 
 type Reply = Result<Value, String>;

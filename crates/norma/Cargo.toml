@@ -25,10 +25,16 @@ hex.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
+rusqlite.workspace = true
+md-5 = "0.10"
 subtle = { version = "2.6", default-features = false }
 url.workspace = true
 tungstenite.workspace = true
 crossbeam-channel.workspace = true
+tracing.workspace = true
+ureq.workspace = true
+base64 = "0.22"
+libc = "0.2"
 rustls.workspace = true
 # Already used by mobile_pairing/rustls; X25519, HKDF and AES-GCM for opaque relay sessions.
 ring = "0.17"

@@ -1,6 +1,17 @@
 pub mod cli;
 
 mod approval;
+mod question;
+pub use question::ClaudeQuestion;
+mod native_question;
+pub use native_question::{NativeQuestion, NativeQuestionReply};
+mod question_ticket;
+pub use question_ticket::{
+    HookQuestion, HookQuestionRequest, NativeHttpDelivery, NativeSendStatus, QuestionHookStatus,
+    QUESTION_TIMEOUT,
+};
+mod question_forward;
+pub use question_forward::{forward_native_question, forward_question};
 mod approval_forward;
 mod atomic_file;
 mod conversation_observe;

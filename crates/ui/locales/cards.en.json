@@ -1,4 +1,5 @@
 {
+  "cards.waiting_question": "Waiting for answer",
   "cards.edit": "Edit",
   "cards.terminal": "Terminal",
   "cards.process_exited": "[process exited%{arg0}]",

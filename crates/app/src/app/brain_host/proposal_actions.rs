@@ -1,6 +1,6 @@
 //! 大脑提议的落地：接收、保存、用户点“派发”或“忽略”。
 
-use super::proposals::{check_target, file_for, Draft, Proposals, RosterLite};
+use super::proposals::{check_target, file_for, Draft, ProposalBlock, Proposals, RosterLite};
 use super::{config, AutoKind};
 use crate::app::MultisoulApp;
 use gpui::Context;
@@ -164,6 +164,51 @@ impl MultisoulApp {
             .any(|entry| entry.name == agent && !entry.has_card)
     }
 
+    /// 展示和点击时使用同一份实时检查；等待用户确认不能当作可派发的空闲。
+    pub(super) fn proposal_dispatch_block(&self, agent: &str) -> Option<ProposalBlock> {
+        let roster = self.agent_roster_for_provider();
+        let Some(target) = roster.iter().find(|entry| entry.name == agent) else {
+            return Some(ProposalBlock::Unavailable(format!("未找到 Agent：{agent}")));
+        };
+        if !target.enabled {
+            return Some(ProposalBlock::Unavailable(format!("Agent {agent} 已停用")));
+        }
+        if target.active_node_id.is_some_and(|node| {
+            matches!(
+                self.runtime.agent_task_state(node),
+                Some(
+                    runtime::AgentTaskState::WaitingApproval { .. }
+                        | runtime::AgentTaskState::WaitingQuestion
+                )
+            )
+        }) {
+            return Some(ProposalBlock::WaitingConfirmation);
+        }
+        target.busy.then_some(ProposalBlock::Busy)
+    }
+
+    pub(crate) fn brain_proposal_feedback(
+        &self,
+        area: &str,
+        id: u64,
+    ) -> Option<&super::proposals::ProposalFeedback> {
+        self.brain.proposal_feedback.get(&(area.to_owned(), id))
+    }
+
+    pub(crate) fn set_brain_proposal_feedback(
+        &mut self,
+        area: &str,
+        id: u64,
+        feedback: Option<super::proposals::ProposalFeedback>,
+    ) {
+        let key = (area.to_owned(), id);
+        if let Some(feedback) = feedback {
+            self.brain.proposal_feedback.insert(key, feedback);
+        } else {
+            self.brain.proposal_feedback.remove(&key);
+        }
+    }
+
     /// 大脑交来一条提议：校验目标后放进“需要你处理”，并提醒用户一句。
     pub(super) fn propose_next_step(
         &mut self,
@@ -215,15 +260,8 @@ impl MultisoulApp {
         else {
             return Err(ui::i18n::text("chrome.brain_proposal_closed").to_string());
         };
-        let busy = self
-            .proposal_roster()
-            .iter()
-            .any(|entry| entry.name == proposal.agent && entry.has_card && entry.busy);
-        if busy {
-            return Err(ui::i18n::format(
-                "chrome.brain_proposal_busy",
-                &[("agent", proposal.agent)],
-            ));
+        if let Some(block) = self.proposal_dispatch_block(&proposal.agent) {
+            return Err(block.message(&proposal.agent));
         }
         let op = BrainOp::Assign {
             agent: proposal.agent.clone(),

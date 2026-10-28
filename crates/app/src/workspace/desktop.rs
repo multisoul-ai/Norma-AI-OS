@@ -37,6 +37,7 @@ mod dialogs;
 mod dialogs_other;
 mod dispatch;
 mod drawers;
+pub(crate) use drawers::overview_questions::QuestionEditor;
 mod home;
 mod home_card;
 mod launchpad;

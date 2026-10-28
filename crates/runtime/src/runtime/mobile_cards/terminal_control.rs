@@ -139,6 +139,7 @@ impl Runtime {
         if lease.revoked.load(Ordering::Acquire) {
             return Err("terminal_control_expired");
         }
+        self.stop_cursor_question_input(key.node_id);
         Ok(())
     }
 

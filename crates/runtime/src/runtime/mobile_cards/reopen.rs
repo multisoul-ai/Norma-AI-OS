@@ -37,6 +37,7 @@ impl Runtime {
                         AgentTaskState::Thinking
                             | AgentTaskState::RunningTool { .. }
                             | AgentTaskState::WaitingApproval { .. }
+                            | AgentTaskState::WaitingQuestion
                     )
                 ))
         {

@@ -25,7 +25,11 @@ use terminal::{Cell, PtyError, TerminalSessionId};
 
 mod definition_identity;
 mod input;
+mod questions;
+mod terminal_interaction;
+pub use questions::{QuestionSubmission, QuestionTerminalGuard};
 mod mobile_cards;
+pub(crate) use mobile_cards::launch::{ControlledPty, LaunchControl};
 mod restore;
 mod startup;
 pub use mobile_cards::{
@@ -45,6 +49,7 @@ pub struct Runtime {
     live: HashMap<NodeId, Box<dyn LiveNode>>,
     mobile_runs: HashMap<NodeId, mobile_cards::MobileRun>,
     archive_reads: mobile_cards::ArchiveReads,
+    questions: questions::Questions,
     pub(crate) events: RuntimeEvents,
     pub(crate) agent_hook_config: Option<crate::agent_hooks::AgentHookRuntimeConfig>,
     startup_watchdog: startup::StartupWatchdog,
@@ -75,6 +80,7 @@ impl Runtime {
             live: HashMap::new(),
             mobile_runs: HashMap::new(),
             archive_reads: mobile_cards::ArchiveReads::default(),
+            questions: questions::Questions::default(),
             events: RuntimeEvents::default(),
             agent_hook_config: None,
             startup_watchdog: startup::StartupWatchdog::default(),
@@ -125,6 +131,7 @@ impl Runtime {
 
     pub fn restore_canvas_snapshot(&mut self, snapshot: DocumentSnapshot) {
         self.kill_all();
+        self.questions = questions::Questions::default();
         self.events.remove_all();
         self.document = Document::from_snapshot(snapshot);
         self.selection.clear();
@@ -248,6 +255,15 @@ impl Runtime {
         worktree: Option<&Path>,
     ) -> Result<NodeId, PtyError> {
         let node_id = self.add_agent_node(profile, definition_id, alias, bounds);
+        if matches!(
+            profile,
+            AgentProfile::Claude
+                | AgentProfile::Codex
+                | AgentProfile::Cursor
+                | AgentProfile::OpenCode
+        ) {
+            self.reserve_native_run(node_id);
+        }
         let sid = self.allocate_session_id();
         let cwd = worktree
             .map(Path::to_path_buf)
@@ -256,6 +272,7 @@ impl Runtime {
             .spawn_agent_live_for_profile(node_id, sid, profile, cols, rows, cwd.as_deref())
             .inspect_err(|error| {
                 self.document.remove_node(node_id);
+                self.mobile_runs.remove(&node_id);
                 self.events
                     .operation_failed(None, "spawn_agent", error.to_string());
             })?;
@@ -413,6 +430,7 @@ impl Runtime {
         }
 
         self.mobile_runs.remove(&node_id);
+        self.remove_node_questions(node_id);
         if let Some(mut node) = self.live.remove(&node_id) {
             node.kill();
         }

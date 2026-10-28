@@ -34,6 +34,7 @@ mod overview_judging;
 mod overview_list;
 mod overview_parts;
 mod overview_proposals;
+pub(super) mod overview_questions;
 mod overview_summary;
 pub(super) mod resize;
 

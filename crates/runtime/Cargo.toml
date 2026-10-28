@@ -21,6 +21,8 @@ tempfile.workspace = true
 libc = "0.2"
 
 [dev-dependencies]
+sha2.workspace = true
+tracing-subscriber.workspace = true
 filetime = "0.2"
 tungstenite.workspace = true
 rusqlite.workspace = true

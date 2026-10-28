@@ -141,6 +141,7 @@ fn agent_task_badge(
         AgentTaskState::Thinking
             | AgentTaskState::RunningTool { .. }
             | AgentTaskState::WaitingApproval { .. }
+            | AgentTaskState::WaitingQuestion
             | AgentTaskState::Failed { .. }
     );
     if preparing && !settled {
@@ -157,6 +158,10 @@ fn agent_task_badge(
         AgentTaskState::Thinking | AgentTaskState::RunningTool { .. } => (
             status_capsule_title(StatusCapsuleKind::Running, completed, total),
             CardChromeTaskTone::Active,
+        ),
+        AgentTaskState::WaitingQuestion => (
+            ui::i18n::text("cards.waiting_question").to_string(),
+            CardChromeTaskTone::Warning,
         ),
         AgentTaskState::WaitingApproval { .. } => (
             status_capsule_title(StatusCapsuleKind::Waiting, completed, total),
@@ -183,7 +188,9 @@ pub fn agent_breathing_intent(
         Some(AgentTaskState::Thinking) | Some(AgentTaskState::RunningTool { .. }) => {
             BreathingIntent::Inactive
         }
-        Some(AgentTaskState::WaitingApproval { .. }) => BreathingIntent::Warm,
+        Some(AgentTaskState::WaitingApproval { .. } | AgentTaskState::WaitingQuestion) => {
+            BreathingIntent::Warm
+        }
         Some(AgentTaskState::Done) => match attention {
             Some(CardAttentionState {
                 kind: CardAttentionKind::AgentTaskDone,
