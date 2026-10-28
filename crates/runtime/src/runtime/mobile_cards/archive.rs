@@ -234,7 +234,7 @@ impl MobileArchiveRead {
             command
         };
         control
-            .spawn_codex_host(command, directory)
+            .spawn_native_host(command, directory)
             .map_err(|e| e.to_string())?;
         let result = (|| {
             loop {

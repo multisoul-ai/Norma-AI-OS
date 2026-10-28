@@ -81,9 +81,21 @@ impl From<PtyError> for NodeError {
     }
 }
 
+pub enum NativeQuestionHost {
+    Codex(norma::codex::native_questions::CodexQuestionHost),
+    OpenCode(norma::opencode::native_questions::OpenCodeQuestionHost),
+    Cursor(norma::cursor::host::CursorQuestionHost),
+}
+
 pub trait LiveNode {
     fn caps(&self) -> Caps;
     fn drain(&mut self) -> bool;
+    fn native_question_host_pending(&self) -> bool {
+        false
+    }
+    fn take_native_question_host(&mut self) -> Option<NativeQuestionHost> {
+        None
+    }
     fn terminal_status(&self) -> Option<TerminalStatus> {
         None
     }

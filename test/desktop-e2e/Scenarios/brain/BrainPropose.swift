@@ -94,6 +94,25 @@ public enum BrainPropose {
             return "忽略生效"
         }
 
+        try await session.step("目标等待确认时，下一步解释原因且不能派发；处理后恢复可用") {
+            guard let brainDir else { throw E2EError.env("大脑夹具目录丢失") }
+            let marker = brainDir.appendingPathComponent("waiting-2")
+            try Data().write(to: marker)
+            _ = try await session.wait(Expectation(allOf: ["请先回答当前问题"], timeout: 10))
+            let blocked = try await session.wait(
+                Expectation(allOf: ["先处理卡片中的问题或审批", "等待确认"], timeout: 6))
+            try session.save(blocked, "04a-waiting-confirmation.png")
+            try await session.click(matching: ["等待确认"], pick: .top)
+            guard try received(brainDir).isEmpty,
+                  try await savedProposals(brainDir, expect: 1) == 1 else {
+                throw E2EError.product("等待确认时不得派发、覆盖问题或消费提议")
+            }
+            try FileManager.default.removeItem(at: marker)
+            _ = try await session.wait(
+                Expectation(allOf: ["采纳"], absent: ["先处理卡片中的问题或审批"], timeout: 10))
+            return "阻塞原因在提议旁可见，未派发；解除后采纳恢复"
+        }
+
         try await session.step("“补登录页测试”收起时已有采纳按钮且未展开，直接点“采纳”") {
             let collapsed = try await session.wait(
                 Expectation(allOf: ["给 Bella", "采纳", "拒绝"], absent: ["登录页还没有测试"], timeout: 6))

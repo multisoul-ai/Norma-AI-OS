@@ -260,7 +260,11 @@ fn session_reply_input_ready(state: Option<&AgentTaskState>) -> bool {
             | AgentTaskState::Thinking
             | AgentTaskState::RunningTool { .. },
         ) => true,
-        Some(AgentTaskState::WaitingApproval { .. } | AgentTaskState::Ended) => false,
+        Some(
+            AgentTaskState::WaitingApproval { .. }
+            | AgentTaskState::WaitingQuestion
+            | AgentTaskState::Ended,
+        ) => false,
     }
 }
 

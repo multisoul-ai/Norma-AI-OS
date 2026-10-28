@@ -27,6 +27,7 @@ use super::agent_hook_ingress::{read_authorized_event, AgentHookHttpError};
 pub(crate) struct AgentHookServer {
     receiver: Receiver<AgentHookEvent>,
     approvals: Receiver<norma::agent_hook::HookApproval>,
+    questions: Receiver<norma::agent_hook::HookQuestion>,
     #[cfg(feature = "e2e-test-support")]
     event_sender: Sender<AgentHookEvent>,
     #[cfg(feature = "e2e-test-support")]
@@ -63,6 +64,7 @@ impl AgentHookServer {
         Self {
             receiver: registration.receiver,
             approvals: registration.approvals,
+            questions: registration.questions,
             #[cfg(feature = "e2e-test-support")]
             event_sender: registration.sender,
             #[cfg(feature = "e2e-test-support")]
@@ -84,6 +86,7 @@ impl AgentHookServer {
         let registration = agent_hook_ingress::register(cx);
         self.receiver = registration.receiver;
         self.approvals = registration.approvals;
+        self.questions = registration.questions;
         #[cfg(feature = "e2e-test-support")]
         {
             self.event_sender = registration.sender;
@@ -93,7 +96,7 @@ impl AgentHookServer {
     }
 
     pub(crate) fn has_pending(&self) -> bool {
-        !self.receiver.is_empty() || !self.approvals.is_empty()
+        !self.receiver.is_empty() || !self.approvals.is_empty() || !self.questions.is_empty()
     }
 
     #[cfg(feature = "e2e-test-support")]
@@ -127,9 +130,18 @@ impl AgentHookServer {
         self.token = None;
     }
 
-    pub(crate) fn drain_into_runtime(&self, runtime: &mut Runtime) -> AgentHookDrainReport {
+    pub(crate) fn drain_into_runtime(
+        &self,
+        runtime: &mut Runtime,
+        project_id: Option<&str>,
+    ) -> AgentHookDrainReport {
         let mut report = AgentHookDrainReport::default();
+        if let Some(project_id) = project_id {
+            report.changed |= runtime.drain_native_question_hosts(project_id);
+            report.session_binding_changed |= runtime.take_native_question_session_changed();
+        }
         for event in self.receiver.try_iter() {
+            report.changed |= runtime.observe_native_question_result(&event);
             let previous_progress = runtime.mobile_task_progress(event.node_id);
             if !runtime.observe_mobile_hook(&event) {
                 continue;
@@ -186,6 +198,16 @@ impl AgentHookServer {
                 report.changed = true;
                 report.events.push(event.clone());
                 apply_agent_hook_event_with_outcome(runtime, event);
+            }
+        }
+        for question in self.questions.try_iter() {
+            let Some(project_id) = project_id else {
+                question.cancel();
+                continue;
+            };
+            match runtime.accept_native_question(question, project_id) {
+                Ok(_) => report.changed = true,
+                Err(reason) => tracing::debug!(reason, "native question registration rejected"),
             }
         }
         report
@@ -443,3 +465,7 @@ mod tests {
 #[cfg(test)]
 #[path = "../../tests/unit/agent_hook_session_binding_tests.rs"]
 mod session_binding_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/agent_hook_codex_host_tests.rs"]
+mod codex_host_tests;

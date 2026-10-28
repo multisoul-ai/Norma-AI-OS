@@ -31,7 +31,9 @@ async fn doubao_hold_real_pipeline_replies_after_release() {
     let (context, requests): (ContextRequests, _) = async_channel::unbounded();
     let context_task = tokio::spawn(async move {
         while let Ok(request) = requests.recv().await {
-            let ContextRequest::Model(response) = request;
+            let ContextRequest::Model(response) = request else {
+                panic!("expected model context request");
+            };
             let _ = response.send((
                 agent::CurrentCanvasContext {
                     project_name: "语音测试".into(),

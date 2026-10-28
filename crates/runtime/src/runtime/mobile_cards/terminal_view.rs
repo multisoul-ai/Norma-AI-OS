@@ -96,34 +96,7 @@ impl Runtime {
     // A precondition, not a credential: visual content/cursor and the original input counter
     // detect competing edits. Redrawing the same screen or blinking its cursor must not reject input.
     fn mobile_terminal_signature(&self, node: NodeId) -> Result<u64, &'static str> {
-        use std::hash::{Hash, Hasher};
-        let NodeView::Term { snapshot, .. } = self.node_view(node).ok_or("terminal_unavailable")?;
-        if snapshot.cols > 512 || snapshot.lines > 120 {
-            return Err("terminal_unavailable");
-        }
-        let mut hash = std::collections::hash_map::DefaultHasher::new();
-        (
-            snapshot.cols,
-            snapshot.lines,
-            snapshot.alt_screen,
-            snapshot.cursor_col,
-            // The cursor is in live-screen coordinates, independent of desktop scrollback.
-            snapshot.cursor_line,
-        )
-            .hash(&mut hash);
-        let rows = self
-            .node_terminal_rows(
-                node,
-                snapshot.history_size,
-                snapshot.history_size + snapshot.lines - 1,
-            )
-            .ok_or("terminal_unavailable")?;
-        for row in rows {
-            for cell in row {
-                cell.c.hash(&mut hash);
-            }
-        }
-        Ok(hash.finish())
+        Ok(self.native_terminal_frame(node)?.signature)
     }
 
     /// Explicit user terminal input: the receipt means bytes written, never task/approval completion.
@@ -225,6 +198,7 @@ impl Runtime {
                 .native_input
                 .controlled_draft = true;
         }
+        self.stop_cursor_question_input(current.node_id);
         self.write_node_input(current.node_id, input)
             .map_err(|_| "outcome_unknown")
     }

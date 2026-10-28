@@ -44,7 +44,9 @@ impl MultisoulApp {
             .debug_selector(|| "desktop-agent-overview-list".to_string())
             .flex_1()
             .min_h(px(0.0))
-            .overflow_hidden()
+            // Short drawers and floating panels can be smaller than the four groups' minima.
+            // Keep the lower groups reachable when a question reserves space for its actions.
+            .overflow_y_scroll()
             .px(px(4.0))
             .pb(px(8.0))
             .flex()
@@ -73,7 +75,9 @@ impl MultisoulApp {
         let heading = self.group_heading(group, section, collapsed, feedback, cx);
         // 大脑提议的下一步排在“需要你处理”最前面。
         let proposals = if group == OverviewGroup::Attention && !collapsed {
-            self.render_proposal_rows(feedback, cx)
+            let mut rows = self.render_question_rows(cx);
+            rows.extend(self.render_proposal_rows(feedback, cx));
+            rows
         } else {
             Vec::new()
         };
@@ -131,18 +135,33 @@ impl MultisoulApp {
         } else {
             style.flex_grow = Some(group.grow());
             // 展开的提议要完整可见（指令与理由），这时“需要你处理”不让出高度，由其余栏收缩。
-            let keep = group == OverviewGroup::Attention && self.brain_proposal_open().is_some();
+            let question_heights = self.question_heights();
+            let has_questions = group == OverviewGroup::Attention && !question_heights.is_empty();
+            // Ideas includes fixed tabs and a composer; shrinking it to a single
+            // status row would clip the composer even after the outer list scrolls.
+            let keep = (group == OverviewGroup::Attention
+                && (self.brain_proposal_open().is_some() || has_questions))
+                || (group == OverviewGroup::Ideas && !question_heights.is_empty());
             style.flex_shrink = Some(if keep { 0.0 } else { 1.0 });
             let heights: Vec<f32> = match (group, section) {
                 (OverviewGroup::Attention, Some(section)) => self
                     .proposal_heights()
                     .into_iter()
+                    .chain(self.question_heights())
                     .chain(section.rows.iter().map(|row| row.height))
                     .collect(),
                 (_, Some(section)) => section.rows.iter().map(|row| row.height).collect(),
                 _ => Vec::new(),
             };
-            style.flex_basis = Some(px(group.basis_height(&heights)).into());
+            let basis = if has_questions {
+                // Keep the current question's nearby actions visible. Longer questionnaires
+                // still scroll within this group instead of consuming every other section.
+                (34.0 + heights.iter().map(|height| height + 2.0).sum::<f32>())
+                    .clamp(MIN_GROUP_HEIGHT, 300.0)
+            } else {
+                group.basis_height(&heights)
+            };
+            style.flex_basis = Some(px(basis).into());
             style.min_size.height = Some(px(MIN_GROUP_HEIGHT).into());
         }
         shell

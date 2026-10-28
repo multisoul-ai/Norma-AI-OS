@@ -2,13 +2,13 @@ use super::*;
 use std::sync::Mutex;
 
 #[derive(Default)]
-pub(super) struct LaunchControl {
+pub(crate) struct LaunchControl {
     cancelled: AtomicBool,
     processes: Mutex<Vec<Arc<Mutex<PtyHandle>>>>,
 }
 
 /// Reuses the terminal backend; cancellation and an unclaimed prepared result both kill it.
-pub(super) struct ControlledPty(Arc<Mutex<PtyHandle>>);
+pub(crate) struct ControlledPty(Arc<Mutex<PtyHandle>>);
 
 impl terminal::PtyBackend for ControlledPty {
     fn write(&mut self, bytes: &[u8]) -> Result<(), PtyError> {
@@ -40,12 +40,24 @@ impl Drop for ControlledPty {
 }
 
 impl LaunchControl {
-    pub(super) fn is_cancelled(&self) -> bool {
+    #[cfg(test)]
+    pub(crate) fn owned_process_ids(&self) -> Vec<u32> {
+        self.processes
+            .lock()
+            .expect("process ownership poisoned")
+            .iter()
+            .filter_map(|pty| {
+                terminal::PtyBackend::child_pid(&*pty.lock().expect("controlled PTY poisoned"))
+            })
+            .collect()
+    }
+
+    pub(crate) fn is_cancelled(&self) -> bool {
         self.cancelled.load(Ordering::Acquire)
     }
 
     /// Background only; cancellation and spawn share ownership so quit cannot miss a late fork.
-    pub(super) fn spawn_pty(
+    pub(crate) fn spawn_pty(
         &self,
         command: PtyCommand,
         cols: u16,
@@ -65,7 +77,7 @@ impl LaunchControl {
     }
 
     /// Shared by active sessions and one-shot archive reads. All diagnostics are consumed off-thread.
-    pub(super) fn spawn_codex_host(
+    pub(crate) fn spawn_native_host(
         self: &Arc<Self>,
         command: PtyCommand,
         directory: tempfile::TempDir,
@@ -75,7 +87,7 @@ impl LaunchControl {
         let pty = self.spawn_pty(command, 80, 24, sender)?;
         let control = self.clone();
         let worker = std::thread::Builder::new()
-            .name("codex-host-output".into())
+            .name("native-host-output".into())
             .spawn(move || {
                 while !control.is_cancelled() {
                     match receiver.recv_timeout(std::time::Duration::from_millis(10)) {
@@ -96,7 +108,7 @@ impl LaunchControl {
         Ok(())
     }
 
-    pub(super) fn cancel(&self) {
+    pub(crate) fn cancel(&self) {
         // Keep ownership locked through kill: app quit must not interrupt another thread
         // halfway through the existing SIGSTOP → descendants → SIGKILL cleanup.
         let mut processes = self.processes.lock().expect("process ownership poisoned");

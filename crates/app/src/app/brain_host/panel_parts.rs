@@ -55,6 +55,7 @@ pub(super) fn trigger_label(trigger: FeedTrigger, who: &str) -> String {
     let key = match trigger {
         FeedTrigger::UserApproved => "chrome.brain_trigger_user_approved",
         FeedTrigger::Brain(TriggerKind::AgentFinished) => "chrome.brain_trigger_agent_finished",
+        FeedTrigger::Brain(TriggerKind::QuestionRequest) => "chrome.question_pending",
         FeedTrigger::Brain(TriggerKind::ApprovalRequest) => "chrome.brain_trigger_approval_request",
         FeedTrigger::Brain(TriggerKind::UserRequest) => "chrome.brain_trigger_user_request",
         FeedTrigger::Brain(TriggerKind::UserReturned) => "chrome.brain_trigger_user_returned",

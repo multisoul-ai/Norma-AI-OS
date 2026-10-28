@@ -3,7 +3,10 @@ use super::*;
 
 impl Runtime {
     pub fn restore_live_sessions(&mut self, checkpoints: &[SessionCheckpoint]) -> usize {
+        let prepared = self.prepare_question_restore();
         let mut ctx = crate::session_restore::RestoreCtx {
+            question_processes: &self.questions.processes,
+            pty_factory: self.pty_factory.as_ref(),
             live: &mut self.live,
             terminal_shells: &mut self.terminal_shells,
             agent_session_bindings: &self.agent_session_bindings,
@@ -14,7 +17,7 @@ impl Runtime {
         };
         let restored =
             crate::session_restore::restore_live_sessions(checkpoints, &self.document, &mut ctx);
-        self.track_restored_native_agents();
+        self.finish_question_restore(prepared);
         restored
     }
 
@@ -35,7 +38,10 @@ impl Runtime {
         node_sessions: &[NodeSession],
     ) -> usize {
         self.hydrate_agent_session_bindings(node_sessions);
+        let prepared = self.prepare_question_restore();
         let mut ctx = crate::session_restore::RestoreCtx {
+            question_processes: &self.questions.processes,
+            pty_factory: self.pty_factory.as_ref(),
             live: &mut self.live,
             terminal_shells: &mut self.terminal_shells,
             agent_session_bindings: &self.agent_session_bindings,
@@ -50,7 +56,7 @@ impl Runtime {
             &self.document,
             &mut ctx,
         );
-        self.track_restored_native_agents();
+        self.finish_question_restore(prepared);
         restored
     }
 
@@ -68,7 +74,10 @@ impl Runtime {
         {
             return self.start_native_agent_terminal(node_id, 80, 24).is_ok();
         }
+        let prepared = self.prepare_question_restore();
         let mut ctx = crate::session_restore::RestoreCtx {
+            question_processes: &self.questions.processes,
+            pty_factory: self.pty_factory.as_ref(),
             live: &mut self.live,
             terminal_shells: &mut self.terminal_shells,
             agent_session_bindings: &self.agent_session_bindings,
@@ -85,9 +94,7 @@ impl Runtime {
             &self.document,
             &mut ctx,
         );
-        if restored {
-            self.track_native_agent(node_id);
-        }
+        self.finish_question_restore(prepared);
         restored
     }
 }

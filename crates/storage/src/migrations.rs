@@ -1,3 +1,5 @@
+mod columns;
+pub(crate) use columns::ensure_column;
 mod desktop;
 pub(crate) mod desktop_canvas;
 use crate::{error::StorageError, StorageResult};
@@ -29,6 +31,7 @@ fn open_connection(path: &Path) -> StorageResult<Connection> {
     Ok(connection)
 }
 pub fn migrate_app_db(connection: &Connection) -> StorageResult<()> {
+    crate::question_delivery_store::migrate(connection)?;
     crate::context_store::migrate(connection)?;
     crate::live_operation_store::migrate(connection)?;
     crate::workspace_chat_store::migrate(connection)?;
@@ -460,24 +463,6 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
         "#,
     )?;
     connection.pragma_update(None, "user_version", 1)?;
-    Ok(())
-}
-
-pub(crate) fn ensure_column(
-    connection: &Connection,
-    table: &'static str,
-    column: &'static str,
-    definition: &'static str,
-) -> StorageResult<()> {
-    let mut statement = connection.prepare(&format!("PRAGMA table_info({table})"))?;
-    let rows = statement.query_map([], |row| row.get::<_, String>(1))?;
-    for row in rows {
-        if row? == column {
-            return Ok(());
-        }
-    }
-
-    connection.execute(&format!("ALTER TABLE {table} ADD COLUMN {definition}"), [])?;
     Ok(())
 }
 

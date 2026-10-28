@@ -18,7 +18,7 @@ fn fragmented_request_waits_even_when_accepted_socket_is_nonblocking() {
     let (server, _) = listener.accept().expect("应接收");
     server.set_nonblocking(true).expect("模拟继承非阻塞标志");
     let registry = Arc::new(Mutex::new(AgentHookRegistry::default()));
-    let (token, events, _, _) = registry
+    let (token, events, _, _, _) = registry
         .lock()
         .expect("应注册")
         .register()
@@ -130,7 +130,7 @@ fn permission_wait_does_not_block_event_workers_and_revoke_cancels() {
         listener.local_addr().expect("应有地址")
     );
     let registry = Arc::new(Mutex::new(AgentHookRegistry::default()));
-    let (token, _, _, approvals) = registry
+    let (token, _, _, approvals, _) = registry
         .lock()
         .expect("应可注册")
         .register()
@@ -226,7 +226,7 @@ fn disconnected_hook_revokes_an_unsent_allow() {
     let client = TcpStream::connect(listener.local_addr().expect("应有地址")).expect("应可连接");
     let (server, _) = listener.accept().expect("应接受连接");
     let registry = Arc::new(Mutex::new(AgentHookRegistry::default()));
-    let (token, _, _, _) = registry
+    let (token, _, _, _, _) = registry
         .lock()
         .expect("应可注册")
         .register()

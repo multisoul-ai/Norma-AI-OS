@@ -220,7 +220,10 @@ impl MultisoulApp {
         if self.runtime.agent_task_input_held(node_id)
             || matches!(
                 self.runtime.agent_task_state(node_id),
-                Some(runtime::AgentTaskState::WaitingApproval { .. })
+                Some(
+                    runtime::AgentTaskState::WaitingApproval { .. }
+                        | runtime::AgentTaskState::WaitingQuestion
+                )
             )
             || self
                 .pending_agent_submissions

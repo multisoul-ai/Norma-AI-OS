@@ -9,6 +9,7 @@ pub mod codex;
 #[cfg(unix)]
 pub mod cursor;
 pub mod mobile;
+pub mod opencode;
 pub mod orchestration;
 pub mod presentation;
 pub mod protocol;

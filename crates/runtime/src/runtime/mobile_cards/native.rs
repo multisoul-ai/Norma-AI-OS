@@ -2,6 +2,26 @@
 use super::*;
 
 impl MobileRun {
+    pub(in crate::runtime) fn follow_question_session(
+        &mut self,
+        session: Option<String>,
+    ) -> Result<(), &'static str> {
+        let run = fresh_control_id().map_err(|_| "question_identity_unavailable")?;
+        self.reset_native_session(run);
+        self.session_id = session;
+        Ok(())
+    }
+
+    pub(in crate::runtime) fn native_input_sequence(&self) -> Option<u64> {
+        self.native.then_some(self.native_input.sequence)
+    }
+
+    pub(in crate::runtime) fn acknowledge_question_input(&mut self, sequence: u64) {
+        if self.native && self.native_input.sequence == sequence {
+            self.native_input.acknowledge_resume();
+        }
+    }
+
     pub(super) fn is_native(&self) -> bool {
         self.native
     }
@@ -9,10 +29,11 @@ impl MobileRun {
 
 impl Runtime {
     pub(super) fn native_prompt_ready(&self, node: NodeId) -> bool {
-        if !self
-            .mobile_runs
-            .get(&node)
-            .is_some_and(MobileRun::is_native)
+        if self.native_question_host_pending(node)
+            || !self
+                .mobile_runs
+                .get(&node)
+                .is_some_and(MobileRun::is_native)
             || !matches!(self.document.node(node).map(|node| &node.kind), Some(CanvasNodeKind::Agent(spec)) if spec.profile == AgentProfile::Codex)
             || !self.live.get(&node).is_some_and(|live| {
                 live.terminal_status() == Some(TerminalStatus::Running)
@@ -90,13 +111,6 @@ impl Runtime {
             })
     }
 
-    pub(crate) fn track_restored_native_agents(&mut self) {
-        let nodes: Vec<_> = self.live.keys().copied().collect();
-        for node in nodes {
-            self.track_native_agent(node);
-        }
-    }
-
     pub(crate) fn track_native_agent(&mut self, node: NodeId) {
         if self.mobile_runs.contains_key(&node)
             || !self.live.contains_key(&node)
@@ -107,10 +121,11 @@ impl Runtime {
         self.reserve_native_run(node);
     }
 
-    pub(super) fn reserve_native_run(&mut self, node: NodeId) {
+    pub(in crate::runtime) fn reserve_native_run(&mut self, node: NodeId) {
         let Ok(run_id) = fresh_control_id() else {
             return;
         };
+        self.reserve_question_process(node, run_id.clone());
         self.mobile_runs.insert(
             node,
             MobileRun {
@@ -145,6 +160,11 @@ impl Runtime {
             return false;
         };
         if spec.profile.display_title() != format!("{:?}", event.profile) {
+            return false;
+        }
+        if !self.accept_question_lifecycle(event)
+            || !self.question_accepts_task_session(event.node_id, event.session_id.as_deref())
+        {
             return false;
         }
         let Some(session) = event.session_id.as_ref().filter(|id| !id.is_empty()) else {
@@ -236,7 +256,8 @@ impl Runtime {
                 run.finish_terminal_interrupt(Err(
                     "native session ended before interrupt confirmation".into(),
                 ));
-                run.control.cancel();
+                // /clear and /resume end a session while retaining this same native CLI.
+                // The PTY owner cancels on node/project close, not on a session Hook.
                 run.message.take();
                 run.prompt_id = None;
             }
@@ -245,6 +266,7 @@ impl Runtime {
         run.task_clock.observe_hook(event);
         run.task_steps.observe(event);
         run.task_summary.observe_hook(event);
+        self.retain_claude_question_blocker(event);
         true
     }
 

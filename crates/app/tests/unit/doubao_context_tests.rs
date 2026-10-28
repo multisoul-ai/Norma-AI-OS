@@ -14,7 +14,10 @@ use ui::i18n::LocalizedText;
 async fn doubao_model_request_uses_current_desktop_location() {
     let (context, requests): (ContextRequests, _) = async_channel::bounded(1);
     let responder = tokio::spawn(async move {
-        let ContextRequest::Model(response) = requests.recv().await.expect("模型请求应到达");
+        let ContextRequest::Model(response) = requests.recv().await.expect("模型请求应到达")
+        else {
+            panic!("expected model context request");
+        };
         let _ = response.send((
             agent::CurrentCanvasContext {
                 project_name: "上次项目".into(),
