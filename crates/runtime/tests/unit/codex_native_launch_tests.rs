@@ -232,3 +232,85 @@ fn native_codex_real_launch_and_cleanup() {
         "两个实际PID都必须退出，不能只检查取消标志：{owned:?}"
     );
 }
+
+/// 场景：原生 Codex 已启动后，用户通过 /resume 打开会话选择器。
+/// 构造：真实 CLI、独立 server/TUI 与已信任 cwd；禁用 Hook，不发送模型任务。
+/// 执行：等待首屏，两次输入 /resume 并用 Esc 返回，再关闭本测试拥有的进程。
+/// 预期：两次均显示会话列表并回到原会话；无连接错误，原问答宿主保持可用。
+#[test]
+#[ignore = "requires installed Codex; opens the native picker without model requests"]
+fn native_codex_real_session_picker_after_startup() {
+    use crate::{LiveNode, NodeInput};
+    let cwd = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let mut command = original().with_cwd(Some(&cwd));
+    command.args[1] =
+        "exec codex -c disable_paste_burst=true --disable hooks --no-alt-screen".into();
+    let control = Arc::new(LaunchControl::default());
+    let mut live = prepare(1, command, 120, 32, control.clone())
+        .unwrap()
+        .into_live()
+        .unwrap();
+    let mut host = None;
+    let mut screen = String::new();
+    let mut stage = 0;
+    let deadline = Instant::now() + Duration::from_secs(25);
+    while Instant::now() < deadline {
+        live.drain();
+        if host.is_none() {
+            host = live.take_native_question_host();
+        }
+        if let Some(crate::NodeView::Term { snapshot, .. }) = live.view() {
+            screen = snapshot.rows.iter().flatten().map(|cell| cell.c).collect();
+        }
+        if screen.contains("Failed to start TUI session picker") {
+            break;
+        }
+        if stage % 2 == 0 && host.is_some() && screen.contains("Ask Codex") {
+            if stage == 4 {
+                if matches!(&host, Some(crate::live::NativeQuestionHost::Codex(host)) if !host.input_pending())
+                {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(20));
+                continue;
+            }
+            live.input(NodeInput::Text("/resume".into())).unwrap();
+            std::thread::sleep(Duration::from_millis(200));
+            live.input(NodeInput::Key(terminal::KeyInput {
+                key: terminal::Key::Enter,
+                ctrl: false,
+                alt: false,
+                shift: false,
+            }))
+            .unwrap();
+            stage += 1;
+        } else if stage % 2 == 1 && screen.contains("Resume a previous session") {
+            live.input(NodeInput::Key(terminal::KeyInput {
+                key: terminal::Key::Escape,
+                ctrl: false,
+                alt: false,
+                shift: false,
+            }))
+            .unwrap();
+            stage += 1;
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    let available =
+        matches!(&host, Some(crate::live::NativeQuestionHost::Codex(host)) if host.is_available());
+    let input_held =
+        matches!(&host, Some(crate::live::NativeQuestionHost::Codex(host)) if host.input_pending());
+    live.kill();
+    drop(host);
+    assert!(
+        !screen.contains("Failed to start TUI session picker"),
+        "同一原生 TUI 的会话选择器必须能够连接：{screen}"
+    );
+    assert!(
+        stage == 4 && screen.contains("Ask Codex"),
+        "必须两次打开真实选择器并回到原会话，stage={stage}：{screen}"
+    );
+    assert!(available, "关闭辅助选择器不能使原问答宿主失效");
+    assert!(!input_held, "Esc 返回原会话后不能遗留选择器输入锁");
+    assert!(control.is_cancelled(), "测试必须回收自有 server/TUI");
+}

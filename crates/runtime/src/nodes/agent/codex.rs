@@ -198,7 +198,37 @@ while [[ ! -S {server_path} ]]; do sleep 0.02; done
     };
     let relay = CodexQuestionRelay::connect_verified(native_socket, &server_path)
         .map_err(PtyError::Spawn)?;
-    let host = CodexQuestionHost::start(relay, node, process).map_err(PtyError::Spawn)?;
+    let (connections, incoming) = crossbeam_channel::bounded(8);
+    let host = CodexQuestionHost::start_with_connections(relay, incoming, node, process)
+        .map_err(PtyError::Spawn)?;
+    let accept_control = control.clone();
+    std::thread::Builder::new()
+        .name("codex-native-connections".into())
+        .spawn(move || {
+            while !accept_control.is_cancelled() {
+                match listener.accept() {
+                    Ok((socket, _)) => {
+                        match CodexQuestionRelay::connect_verified_paused(socket, &server_path) {
+                            Ok(relay) => {
+                                if connections.send(relay).is_err() {
+                                    break;
+                                }
+                            }
+                            Err(reason) => {
+                                tracing::warn!(%reason, "native Codex connection failed")
+                            }
+                        }
+                    }
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        std::thread::sleep(Duration::from_millis(10));
+                    }
+                    Err(error) => {
+                        tracing::warn!(%error, "native Codex listener failed");
+                        break;
+                    }
+                }
+            }
+        })?;
     slot.install(native_pty)?;
     Ok(Some(host))
 }
