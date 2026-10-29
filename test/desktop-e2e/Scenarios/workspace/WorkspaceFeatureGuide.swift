@@ -45,7 +45,7 @@ public enum WorkspaceFeatureGuide {
         }
 
         try await session.step("首次进入工作空间自动出现功能引导") {
-            let frame = try await session.wait(Expectation(anyOf: ["Feature Guide", "Skip Guide", "Agent Orchestration", "Voice Group"], timeout: 20))
+            let frame = try await session.wait(Expectation(anyOf: ["Feature Guide", "Skip Guide", "Agent Orchestration", "Voice Interaction"], timeout: 20))
             try session.save(frame, "01-auto.png")
             return "已截图"
         }
@@ -57,17 +57,20 @@ public enum WorkspaceFeatureGuide {
                 local: CGPoint(x: Double(before.windowFrame.width) - 171, y: Double(before.windowFrame.height) - 54),
                 on: before
             )
-            let frame = try await session.wait(Expectation(anyOf: ["2 / 7", "2/7"], timeout: 6))
+            let frame = try await session.wait(Expectation(anyOf: ["2 / 11", "2/11"], timeout: 6))
             try session.save(frame, "02-next.png")
             return "已截图"
         }
 
         try await session.step("方向键翻到最后一页：快捷键速查") {
-            for _ in 0..<5 {
+            for page in 2...10 {
+                _ = try await session.wait(Expectation(allOf: ["Playing"], timeout: 10))
+                try await Task.sleep(nanoseconds: 900_000_000)
+                try session.save(try await session.capture(), "demo-en-\(page).png")
                 try await session.shortcut(key: 125, modifiers: [])
                 try await Task.sleep(nanoseconds: 350_000_000)
             }
-            // 页码小字 OCR 会把 "7 / 7" 读成 "717"，改用最后一页独有的主按钮与标题。
+            // 页码小字 OCR 会把 末页页码读错，改用最后一页独有的主按钮与标题。
             _ = try await session.wait(Expectation(allOf: ["Get Started", "Cheat Sheet"], timeout: 6))
             // 页面切换有交叉淡入，等落稳后再截图。
             try await Task.sleep(nanoseconds: 900_000_000)
@@ -109,7 +112,7 @@ public enum WorkspaceFeatureGuide {
                 if index == 0 { try session.save(try await session.capture(), "04-help-suggestion.png") }
                 try await session.shortcut(key: 36, modifiers: [])
                 // 浅色底上 OCR 会把标题读歪，用多个稳定词任一命中。
-                _ = try await session.wait(Expectation(anyOf: ["Feature Guide", "Skip Guide", "Voice Group", "Agent Collaboration"], timeout: 8))
+                _ = try await session.wait(Expectation(anyOf: ["Feature Guide", "Skip Guide", "Voice Interaction", "Agent Collaboration"], timeout: 8))
                 // 引导进场有缩放动效，等落稳后再截图。
                 try await Task.sleep(nanoseconds: 900_000_000)
                 try session.save(try await session.capture(), "theme-\(theme).png")
@@ -122,6 +125,30 @@ public enum WorkspaceFeatureGuide {
                 try await Task.sleep(nanoseconds: 600_000_000)
                 return "已截图"
             }
+        }
+
+        try await session.step("中文月石主题：九段终版演示可播放与暂停") {
+            session.stop()
+            try session.launch(language: "zh-CN")
+            _ = try await session.wait(Expectation(anyOf: [name, "搜索工作空间"], timeout: 20))
+            let home = try await session.capture()
+            if home.contains("搜索工作空间") {
+                try await session.click(matching: ["打开", "Open"], pick: .bottom)
+            }
+            try await runDockCommand(session, "/theme moonstone")
+            try await runDockCommand(session, "/help")
+            _ = try await session.wait(Expectation(anyOf: ["功能引导", "跳过引导"], timeout: 10))
+            for _ in 0..<11 { try await session.shortcut(key: 126, modifiers: []) }
+            for page in 2...10 {
+                try await session.shortcut(key: 125, modifiers: [])
+                _ = try await session.wait(Expectation(allOf: ["播放中"], timeout: 10))
+                try await Task.sleep(nanoseconds: 900_000_000)
+                try session.save(try await session.capture(), "demo-zh-\(page).png")
+            }
+            try await session.click(matching: ["暂停演示"], pick: .bottom)
+            let paused = try await session.wait(Expectation(allOf: ["已暂停"], timeout: 6))
+            try session.save(paused, "demo-zh-paused.png")
+            return "中文九段演示、暂停控制已验证"
         }
     }
 }

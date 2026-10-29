@@ -85,9 +85,9 @@ public enum WorkspaceSwitchShortcuts {
                 _ = try await session.wait(Expectation(anyOf: ["/help", "Help"], timeout: 6))
                 try await Task.sleep(nanoseconds: 700_000_000)
                 try await session.shortcut(key: 36, modifiers: [])
-                _ = try await session.wait(Expectation(anyOf: ["Feature Guide", "Skip Guide", "Voice Group", "Agent Collaboration"], timeout: 8))
-                // 引导从第 1 页开始，6 次下键到第 7 页（速查表）。
-                for _ in 0..<6 {
+                _ = try await session.wait(Expectation(anyOf: ["Feature Guide", "Skip Guide", "Voice Interaction", "Agent Collaboration"], timeout: 8))
+                // 引导从第 1 页开始，10 次下键到第 11 页（速查表）。
+                for _ in 0..<10 {
                     try await session.shortcut(key: 125, modifiers: [])
                     try await Task.sleep(nanoseconds: 350_000_000)
                 }

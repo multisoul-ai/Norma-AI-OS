@@ -8,34 +8,18 @@ use super::{
 use norma::orchestration::{AggregateStatus, OrchestrationProvider};
 use ui::{Theme, ThemeId};
 
-/// FG-ORCH-STATE-1：Agent 编排必须保持六项 Feature Guide 的首屏，两段新 Demo 紧随其后。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   existing topics = Live Node(1) + Workspace Layouts(1) + Agent Notifications(1) = 3
-///   new demo topics = Voice Group Control(1) + Agent Collaboration(1) = 2
-///   orchestration topic = 1
-///   Total = 3 + 2 + 1 = 6 topics
-///   default saved topic = 0（模拟首次打开，没有历史主题）
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 从没有持久化主题的新用户状态加载 Feature Guide。
-///   2. 读取 ALL 中第 1、2、3、6 项和越界的第 7 项。
-///   3. 从首屏执行一次 next_topic，并读取稳定序列化值。
-///   4. 用 agent_orchestration、voice_group_control 和 agent_collaboration 持久化值分别恢复状态。
-///
-/// 预期结果：
-///   - 正断言：默认主题和第 1 项都是 AgentOrchestration，总数严格为 6。
-///   - 正断言：第 2、3 项依次是 VoiceGroupControl、AgentCollaboration，第 6 项仍是 AgentNotifications。
-///   - 正断言：Next 从编排进入语音群控，三个新增/调整主题均可稳定持久化恢复。
-///   - 负断言：LiveNodeShortcuts 不得占据第 2 项，也不得存在第 7 项。
+/// 场景：安装页保持首屏，九段终版演示后以快捷键速查收尾。
+/// 数据：安装页 1 + 终版演示 9 + 速查页 1 = 11；保留既有语音、协作页持久化键。
+/// 执行：检查首尾、语音和协作顺序，前进一页并分别从三个既有键重载。
+/// 预期：默认页与保存进度保持一致，只有速查页是末页，不存在第 12 页。
 #[test]
 fn feature_guide_orchestration_is_first_and_persists_stable_progress() {
     let mut guide = FeatureGuideState::load(None, None, false);
 
     assert_eq!(
         FeatureGuideTopic::ALL.len(),
-        7,
-        "加入快捷键速查页后 Feature Guide 必须严格包含 7 项，不能遗漏或重复主题"
+        11,
+        "加入快捷键速查页后 Feature Guide 必须严格包含 11 项，不能遗漏或重复主题"
     );
     assert_eq!(
         guide.topic,
@@ -45,7 +29,7 @@ fn feature_guide_orchestration_is_first_and_persists_stable_progress() {
     assert_eq!(
         FeatureGuideTopic::ALL.first().copied(),
         Some(FeatureGuideTopic::AgentOrchestration),
-        "Agent Orchestration 必须位于 ALL 第 1 项，进度才能显示 1 / 7"
+        "Agent Orchestration 必须位于 ALL 第 1 项，进度才能显示 1 / 11"
     );
     assert_eq!(
         FeatureGuideTopic::ALL.get(1).copied(),
@@ -64,22 +48,22 @@ fn feature_guide_orchestration_is_first_and_persists_stable_progress() {
     );
     assert_eq!(
         FeatureGuideTopic::ALL.get(5).copied(),
-        Some(FeatureGuideTopic::AgentNotifications),
-        "Agent Notifications 必须保留为第 6 项"
+        Some(FeatureGuideTopic::ChiefOfStaff),
+        "幕僚演示必须位于第 6 项"
     );
     assert_eq!(
-        FeatureGuideTopic::ALL.get(6).copied(),
+        FeatureGuideTopic::ALL.get(10).copied(),
         Some(FeatureGuideTopic::ShortcutCheatSheet),
-        "快捷键速查必须是第 7 项和最终完成页"
+        "快捷键速查必须是第 11 项和最终完成页"
     );
     assert_eq!(
-        FeatureGuideTopic::ALL.get(7),
+        FeatureGuideTopic::ALL.get(11),
         None,
-        "Feature Guide 不得渲染或推进到不存在的第 8 项"
+        "Feature Guide 不得渲染或推进到不存在的第 12 项"
     );
     assert!(
         FeatureGuideTopic::ShortcutCheatSheet.is_last()
-            && !FeatureGuideTopic::AgentNotifications.is_last(),
+            && !FeatureGuideTopic::ChiefOfStaff.is_last(),
         "只有速查页是最后一页，Next 才能变为开始使用"
     );
     assert_eq!(
