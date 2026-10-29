@@ -84,6 +84,20 @@ impl Recognizer for Box<dyn Recognizer> {
 pub trait RecognizerFactory: Send + Sync + 'static {
     fn capabilities(&self) -> AsrProviderCapabilities;
     fn create(&self) -> Result<Box<dyn Recognizer>, AsrError>;
+    fn create_with_cancellation(
+        &self,
+        cancellation: RecognitionCancellation,
+    ) -> Result<Box<dyn Recognizer>, AsrError> {
+        if cancellation.is_cancelled() {
+            return Err(AsrError::SessionClosed);
+        }
+        let mut recognizer = self.create()?;
+        recognizer.set_cancellation_token(cancellation.clone());
+        if cancellation.is_cancelled() {
+            return Err(AsrError::SessionClosed);
+        }
+        Ok(recognizer)
+    }
 }
 
 #[derive(Clone, Debug)]

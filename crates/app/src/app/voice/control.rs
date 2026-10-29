@@ -70,6 +70,7 @@ pub(crate) struct VoiceControlState {
     result_application_delay: Option<std::time::Duration>,
     next_recording_generation: u64,
     active_recording_generation: Option<u64>,
+    startup_cancellation: asr::RecognitionCancellation,
     caption_expanded: bool,
 }
 
@@ -89,6 +90,7 @@ impl Default for VoiceControlState {
             result_application_delay: None,
             next_recording_generation: 0,
             active_recording_generation: None,
+            startup_cancellation: asr::RecognitionCancellation::new(),
             caption_expanded: DEFAULT_CAPTION_EXPANDED,
         }
     }
@@ -124,6 +126,9 @@ impl VoiceControlState {
             | VoicePhase::Executed { .. }
             | VoicePhase::TranscriptOnly { .. }
             | VoicePhase::Error { .. } => {
+                self.startup_cancellation.cancel();
+                self.startup_cancellation = asr::RecognitionCancellation::new();
+                self.partial_text.clear();
                 self.next_recording_generation = self.next_recording_generation.wrapping_add(1);
                 self.active_recording_generation = Some(self.next_recording_generation);
                 self.last_duration_limit_feedback = None;
@@ -136,6 +141,9 @@ impl VoiceControlState {
 
     pub(crate) fn finish_recording(&mut self, trigger: VoiceTrigger) -> bool {
         if self.is_recording_from(trigger) {
+            if self.speech_session.is_none() {
+                self.startup_cancellation.cancel();
+            }
             self.active_recording_generation = None;
             self.phase = VoicePhase::Transcribing;
             self.transcribing_message = None;
@@ -247,7 +255,11 @@ impl VoiceControlState {
     pub(crate) fn clear_speech_task(&mut self) {
         self.speech_task = None;
     }
+    pub(crate) fn startup_cancellation(&self) -> asr::RecognitionCancellation {
+        self.startup_cancellation.clone()
+    }
     pub(crate) fn cancel_speech_task(&mut self) {
+        self.startup_cancellation.cancel();
         self.speech_task = None;
         self.partials_task = None;
         self.duration_limit_task = None;

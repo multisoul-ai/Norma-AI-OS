@@ -20,12 +20,24 @@ impl AsrRecordingSession {
     pub(crate) fn start(
         input_device_id: Option<String>,
         factory: &dyn RecognizerFactory,
+        cancellation: asr::RecognitionCancellation,
     ) -> Result<(Self, async_channel::Receiver<String>), String> {
-        let recognizer = factory.create().map_err(|error| error.to_string())?;
+        let recognizer = factory
+            .create_with_cancellation(cancellation.clone())
+            .map_err(|error| error.to_string())?;
+        if cancellation.is_cancelled() {
+            return Err("recording startup cancelled".to_string());
+        }
         let (pcm_stream, pcm_rx) =
             voice_input::start_pcm_stream(input_device_id).map_err(|error| error.to_string())?;
-        let recognition =
-            Arc::new(RecognitionPipeline::new(factory.capabilities()).start(recognizer));
+        if cancellation.is_cancelled() {
+            pcm_stream.cancel();
+            return Err("recording startup cancelled".to_string());
+        }
+        let recognition = Arc::new(
+            RecognitionPipeline::new(factory.capabilities())
+                .start_with_cancellation(recognizer, cancellation),
+        );
         let forward_recognition = recognition.clone();
         let forward_thread = std::thread::Builder::new()
             .name("asr_pcm_forwarder".to_string())

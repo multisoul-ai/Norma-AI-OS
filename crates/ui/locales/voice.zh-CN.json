@@ -330,5 +330,15 @@
   "voice.live_microphone_missing": "未检测到麦克风，连接后请刷新。",
   "voice.live_microphone_hint": "使用系统声音设置中的输入设备。",
   "voice.live_open_sound_settings": "声音设置",
-  "voice.live_system_microphone": "系统输入：%{device}"
+  "voice.live_system_microphone": "系统输入：%{device}",
+  "voice.a1_name": "本地精准（A1）",
+  "voice.a1_selected": "本地精准 · 已选择",
+  "voice.a1_activate": "使用本地精准",
+  "voice.a1_validate": "检查本地文件",
+  "voice.a1_checking": "正在准备本地精准识别…",
+  "voice.a1_description": "完全离线，中英文混合。单次最长 60 秒；启用时准备模型，后续录音复用。",
+  "voice.a1_single_only": "本地精准仅用于本地单次语音指令，请先选择单次模式。豆包混合与 GPT-Live 使用各自的语音链路。",
+  "voice.a1_setup_required": "需先准备本地精准运行环境和模型文件，检查通过后可启用。",
+  "voice.a1_failed_preview": "精准识别失败，以下仅为预览，未发送：%{error}",
+  "voice.a1_prepare_failed": "本地精准识别暂不可用。请检查运行环境、模型文件和系统内存后重试。"
 }

@@ -1,0 +1,86 @@
+[
+  {
+    "role": "zipformer",
+    "name": "encoder-epoch-99-avg-1.int8.onnx",
+    "bytes": 181895032,
+    "sha256": "8fa764187a261844f859d7143ebaa563af5d10adfece4c18a8f414c88cba2a9b"
+  },
+  {
+    "role": "zipformer",
+    "name": "decoder-epoch-99-avg-1.onnx",
+    "bytes": 13876452,
+    "sha256": "2e3b5ec371f8899ee6acd829fd753ba45772df57a91bdf37cde3136354e7db7d"
+  },
+  {
+    "role": "zipformer",
+    "name": "joiner-epoch-99-avg-1.int8.onnx",
+    "bytes": 3228404,
+    "sha256": "1ed689c5ed19dbaa725d9d191bb4822b5f4855a39e1ffd28cbc1f340d25b2ee0"
+  },
+  {
+    "role": "zipformer",
+    "name": "tokens.txt",
+    "bytes": 56317,
+    "sha256": "a8e0e4ec53810e433789b54a5c0134a7eaa2ffca595a6334d54c00da858841d3"
+  },
+  {
+    "role": "zipformer",
+    "name": "bpe.vocab",
+    "bytes": 12564,
+    "sha256": "d0b642f3a2eacd5fadefdeff9e0e1358cab729647cbb7fe58cf738e1f7407029"
+  },
+  {
+    "role": "qwen",
+    "name": "model.safetensors",
+    "bytes": 1006229426,
+    "sha256": "b5bfe4abc1b4c6e58b633096682ec2b6297298add1527119936107d211adf0e8"
+  },
+  {
+    "role": "qwen",
+    "name": "config.json",
+    "bytes": 7187,
+    "sha256": "5d104a945fed08728ab010f12bf3ce5ab4d0794bba276d81bff5bd83ae9d2be0"
+  },
+  {
+    "role": "qwen",
+    "name": "preprocessor_config.json",
+    "bytes": 330,
+    "sha256": "45e120a4eda2c20c5d7f2ea9354e63536bf35e27aa573fb7cdf78017b378770d"
+  },
+  {
+    "role": "qwen",
+    "name": "tokenizer_config.json",
+    "bytes": 12487,
+    "sha256": "4942d005604266809309cabc9f4e9cb89ce855d59b14681fdc0e1cc62ea26c4c"
+  },
+  {
+    "role": "qwen",
+    "name": "vocab.json",
+    "bytes": 2776833,
+    "sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910"
+  },
+  {
+    "role": "qwen",
+    "name": "merges.txt",
+    "bytes": 1671853,
+    "sha256": "8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5"
+  },
+  {
+    "role": "qwen",
+    "name": "chat_template.json",
+    "bytes": 1161,
+    "sha256": "75a8cfca24f00de72d796fbfed6858fc9614ef3dabd8696684cc3bc03a9c58ff"
+  },
+  {
+    "role": "qwen",
+    "name": "generation_config.json",
+    "bytes": 142,
+    "sha256": "1da527824d81e07118facff437e03f2e24a23311e3bdeb2368973fe77e5f275c"
+  },
+  {
+    "role": "qwen",
+    "name": "model.safetensors.index.json",
+    "bytes": 71815,
+    "sha256": "caa32ece76c395ba241533eb4aceb0efbc72488ef3d8d2fd3c677ce068dad57d"
+  }
+]

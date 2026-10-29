@@ -3,10 +3,36 @@ use asr::{
     BuiltinAsrProfile,
 };
 
-/// AP-1：内置 ASR 注册表应只包含 Local Sherpa 与 Cloud Azure。
+/// 场景：A1 是独立、可持久化的可选本地 provider。
+/// 构造：稳定 ID local_a1；执行：通过公开注册表查询能力。
+/// 预期：支持预览、单次最多 60 秒，不能解析为旧 Sherpa 或 Azure。
+#[test]
+fn a1_is_a_distinct_bounded_local_provider() {
+    let id = AsrProviderId::from_stored("local_a1").expect("A1 应有独立稳定 ID");
+    let descriptor = asr::asr_provider_descriptor(id);
+    assert_eq!(id.as_str(), "local_a1", "存储 ID 必须稳定");
+    assert_ne!(id, AsrProviderId::LocalSherpa, "不能替换默认 Sherpa");
+    assert_ne!(id, AsrProviderId::CloudAzure, "不能替换 Azure");
+    assert_eq!(
+        descriptor.location(),
+        asr::AsrProviderLocation::Local,
+        "音频只在本地处理"
+    );
+    assert!(
+        descriptor.capabilities().partial_results(),
+        "A1 应支持流式预览"
+    );
+    assert_eq!(
+        descriptor.capabilities().max_utterance_seconds(),
+        Some(60),
+        "缓存必须有界"
+    );
+}
+
+/// AP-1：内置 ASR 注册表应包含 A1、Local Sherpa 与 Cloud Azure。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   built-in provider count = 2（1 个本地 + 1 个云端）
+///   built-in provider count = 3（2 个本地 + 1 个云端）
 ///   Local Sherpa = 支持 partial、无云端 60 秒上限
 ///   Cloud Azure = 不支持 partial、单次上限 60 秒
 ///
@@ -19,7 +45,7 @@ use asr::{
 ///   - 两个具体 Provider 都应存在且分类正确
 ///   - Local 应支持 partial，Azure 不应支持 partial
 ///   - Azure 上限应为 60 秒，Local 不应继承该限制
-///   - 不应出现第三个动态或未知 Provider
+///   - 不应出现动态或未知 Provider
 #[test]
 fn builtin_registry_exposes_local_sherpa_and_cloud_azure_capabilities() {
     let providers = builtin_asr_providers();
@@ -32,7 +58,7 @@ fn builtin_registry_exposes_local_sherpa_and_cloud_azure_capabilities() {
         .find(|provider| provider.id() == AsrProviderId::CloudAzure)
         .expect("内置 ASR 注册表应包含 Cloud Azure");
 
-    assert_eq!(providers.len(), 2, "首版注册表应恰好包含两个内置 Provider");
+    assert_eq!(providers.len(), 3, "注册表应包含两个本地与一个云 Provider");
     assert!(
         local.capabilities().partial_results(),
         "Local Sherpa 应保留现有 streaming partial 能力"
@@ -54,7 +80,7 @@ fn builtin_registry_exposes_local_sherpa_and_cloud_azure_capabilities() {
     assert!(
         providers.iter().all(|provider| matches!(
             provider.id(),
-            AsrProviderId::LocalSherpa | AsrProviderId::CloudAzure
+            AsrProviderId::LocalSherpa | AsrProviderId::CloudAzure | AsrProviderId::LocalA1
         )),
         "注册表不得包含动态或未知 Provider"
     );

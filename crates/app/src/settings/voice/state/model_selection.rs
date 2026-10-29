@@ -11,6 +11,7 @@ pub(crate) enum VoiceSetupDestination {
     AsrOnDevice,
     AsrModels,
     AsrAzure,
+    AsrA1,
     AgentProvider,
     SpokenReplies,
 }
@@ -33,6 +34,7 @@ impl VoiceSettingsState {
             VoiceSetupDestination::AsrOnDevice | VoiceSetupDestination::AsrModels => {
                 asr::AsrProviderId::LocalSherpa
             }
+            VoiceSetupDestination::AsrA1 => asr::AsrProviderId::LocalA1,
             VoiceSetupDestination::AsrAzure => asr::AsrProviderId::CloudAzure,
             VoiceSetupDestination::Overview
             | VoiceSetupDestination::AgentProvider

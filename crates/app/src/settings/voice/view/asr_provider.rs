@@ -12,6 +12,7 @@ pub(super) fn asr_provider_group(
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     let profile = state.values().azure_asr_profile();
+    let local_active = state.values().asr_provider() == asr::AsrProviderId::LocalSherpa;
     let azure_active = state.values().asr_provider() == asr::AsrProviderId::CloudAzure;
     let credential_configured = profile.credential_ref().is_some();
     settings_group(theme, ui::i18n::text("voice.speech_recognition_provider"))
@@ -29,12 +30,12 @@ pub(super) fn asr_provider_group(
                     .child(
                         action_button(
                             theme,
-                            if azure_active {
+                            if !local_active {
                                 ui::i18n::text("voice.use_local_sherpa")
                             } else {
                                 ui::i18n::text("voice.local_sherpa")
                             },
-                            if azure_active {
+                            if !local_active {
                                 theme.text_secondary
                             } else {
                                 theme.accent_green
@@ -236,6 +237,7 @@ impl MultisoulApp {
     ) {
         self.voice.stop_for_model_switch();
         self.dialogue.stop_shell();
+        self.release_a1_runtime(cx);
         self.voice_settings.activate_local_sherpa_asr();
         self.persist_voice_settings_in_background(cx);
         cx.notify();
@@ -248,6 +250,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         if self.voice_settings.activate_azure_asr() {
+            self.release_a1_runtime(cx);
             self.voice.stop_for_model_switch();
             self.dialogue.stop_shell();
             self.persist_voice_settings_in_background(cx);
@@ -361,8 +364,11 @@ impl MultisoulApp {
             {
                 voice_input::request_microphone_permission().map_err(|error| error.to_string())?;
                 let factory = asr::AzureSpeechRecognizerFactory::new(config);
-                let (session, _partials) =
-                    crate::app::AsrRecordingSession::start(input_device_id, &factory)?;
+                let (session, _partials) = crate::app::AsrRecordingSession::start(
+                    input_device_id,
+                    &factory,
+                    asr::RecognitionCancellation::new(),
+                )?;
                 std::thread::sleep(std::time::Duration::from_secs(3));
                 session.finish()
             }

@@ -29,6 +29,9 @@ pub(super) fn recognition_detail(
         .when(source == asr::AsrProviderId::LocalSherpa, |detail| {
             detail.child(local_detail(theme, state, cx))
         })
+        .when(source == asr::AsrProviderId::LocalA1, |detail| {
+            detail.child(super::a1::a1_detail(theme, state, cx))
+        })
         .when(source == asr::AsrProviderId::CloudAzure, |detail| {
             detail.child(azure_detail(theme, state, inputs, cx))
         })
@@ -102,6 +105,21 @@ fn source_selector(
                 ),
                 cx,
                 cx.listener(MultisoulApp::on_voice_setup_show_local_asr),
+            ))
+            .child(setup_action_button(
+                theme,
+                "voice-setup-asr-source-a1",
+                ui::i18n::text(if active == asr::AsrProviderId::LocalA1 {
+                    "voice.a1_selected"
+                } else {
+                    "voice.a1_name"
+                }),
+                source_tone(
+                    active == asr::AsrProviderId::LocalA1,
+                    source == asr::AsrProviderId::LocalA1,
+                ),
+                cx,
+                cx.listener(MultisoulApp::on_voice_setup_show_a1),
             ))
             .child(setup_action_button(
                 theme,

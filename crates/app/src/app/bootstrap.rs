@@ -65,8 +65,14 @@ impl MultisoulApp {
         })
         .detach();
         cx.on_app_quit(|app, cx| {
+            app.voice_settings.invalidate_a1_preparation();
+            app.voice.stop_for_model_switch();
             app.stop_project(cx);
-            async {}
+            let release = asr::begin_shared_a1_shutdown();
+            let cleanup = cx.background_executor().spawn(async move {
+                release.wait();
+            });
+            async move { cleanup.await }
         })
         .detach();
         let mobile = crate::mobile::controller::attach(app_store.clone(), cx);
