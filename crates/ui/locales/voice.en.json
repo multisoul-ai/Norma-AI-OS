@@ -330,5 +330,15 @@
   "voice.live_microphone_missing": "No microphone detected. Connect one and refresh.",
   "voice.live_microphone_hint": "Uses the input device from system sound settings.",
   "voice.live_open_sound_settings": "Sound settings",
-  "voice.live_system_microphone": "System input: %{device}"
+  "voice.live_system_microphone": "System input: %{device}",
+  "voice.a1_name": "On-device Accurate (A1)",
+  "voice.a1_selected": "Accurate · Selected",
+  "voice.a1_activate": "Use Accurate",
+  "voice.a1_validate": "Check local files",
+  "voice.a1_checking": "Preparing on-device Accurate…",
+  "voice.a1_description": "Fully offline, Chinese and English. Up to 60 seconds. Models are prepared on activation and reused.",
+  "voice.a1_single_only": "Accurate is available for local single voice commands. Doubao and GPT-Live keep their own voice pipelines.",
+  "voice.a1_setup_required": "Prepare the local Accurate runtime and models, then check the files to enable it.",
+  "voice.a1_failed_preview": "Accurate recognition failed. Preview only; not sent: %{error}",
+  "voice.a1_prepare_failed": "Accurate is unavailable. Check the local runtime, model files and available memory, then retry."
 }

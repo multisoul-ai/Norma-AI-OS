@@ -16,6 +16,8 @@ use ui::Theme;
 #[path = "../../../../tests/unit/voice_settings_redesign_tests.rs"]
 mod redesign_tests;
 
+#[path = "setup/a1.rs"]
+mod a1;
 #[path = "setup/components.rs"]
 mod components;
 #[path = "setup/models.rs"]

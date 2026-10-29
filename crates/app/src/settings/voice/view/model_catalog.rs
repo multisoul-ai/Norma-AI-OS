@@ -166,6 +166,15 @@ fn failure_message(state: &AsrModelInstallState) -> Option<String> {
 impl MultisoulApp {
     pub(crate) fn refresh_asr_model_states(&mut self, cx: &mut Context<Self>) {
         self.refresh_vad_requirement(cx);
+        if self.voice_settings.values().asr_provider() == asr::AsrProviderId::LocalA1
+            && self
+                .voice_settings
+                .values()
+                .desktop_mode()
+                .supports_local_a1(self.voice_settings.values().interaction_mode())
+        {
+            self.refresh_a1_requirement(cx);
+        }
         let generation = self.voice_settings.begin_asr_model_scan();
         let model_root = self.voice_settings.model_root().to_path_buf();
         let work = cx.background_executor().spawn(async move {

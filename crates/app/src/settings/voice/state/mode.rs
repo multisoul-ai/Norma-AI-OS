@@ -7,6 +7,10 @@ pub(crate) enum DesktopVoiceMode {
 }
 
 impl DesktopVoiceMode {
+    pub(crate) fn supports_local_a1(self, interaction: VoiceInteractionMode) -> bool {
+        self == Self::Legacy && interaction == VoiceInteractionMode::SingleVoiceCommand
+    }
+
     pub(crate) fn from_stored(value: &str) -> Option<Self> {
         match value.trim() {
             "legacy" => Some(Self::Legacy),

@@ -112,6 +112,12 @@ impl VoiceSettingsState {
         if snapshot == self.saved {
             return false;
         }
+        if snapshot.asr_provider != self.saved.asr_provider
+            || snapshot.desktop_mode != self.saved.desktop_mode
+            || snapshot.interaction_mode != self.saved.interaction_mode
+        {
+            self.invalidate_a1_preparation();
+        }
         let provider_changed = provider_configuration_differs(&snapshot, &self.saved);
         self.minimax_validated_selection = minimax_validated_selection(&snapshot);
         self.setup_was_completed |= snapshot.setup_completed.unwrap_or(false);

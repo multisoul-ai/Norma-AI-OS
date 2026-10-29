@@ -102,6 +102,24 @@ impl VoiceSettingsState {
     }
 
     fn selected_asr_requirement(&self) -> VoiceRequirementState {
+        if self.values.asr_provider() == asr::AsrProviderId::LocalA1 {
+            if !self
+                .values
+                .desktop_mode()
+                .supports_local_a1(self.values.interaction_mode())
+            {
+                return VoiceRequirementState::Failed;
+            }
+            return if self.a1_requirement == VoiceRequirementState::Ready {
+                if asr::shared_a1_ready() {
+                    self.vad_requirement
+                } else {
+                    VoiceRequirementState::Missing
+                }
+            } else {
+                self.a1_requirement
+            };
+        }
         if self.values.asr_provider() == asr::AsrProviderId::CloudAzure {
             return if self.values.azure_asr_profile().is_ready() {
                 self.vad_requirement

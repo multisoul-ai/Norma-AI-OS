@@ -11,6 +11,7 @@ public enum SettingsModule {
             SettingsResponsiveKeyboard.name,
             SettingsSpaceWallpapers.name,
             SettingsLiveConfiguration.name,
+            SettingsA1Configuration.name,
             SettingsShortcutCustomize.name,
             SettingsShortcutDefaults.name,
             SettingsOrchestrationPathConvention.name,
@@ -31,6 +32,8 @@ public enum SettingsModule {
                 try await SettingsResponsiveKeyboard.run(session)
             case SettingsSpaceWallpapers.name:
                 try await SettingsSpaceWallpapers.run(session)
+            case SettingsA1Configuration.name:
+                try await SettingsA1Configuration.run(session)
             case SettingsLiveConfiguration.name:
                 try await SettingsLiveConfiguration.run(session)
             case SettingsShortcutCustomize.name:
