@@ -99,6 +99,7 @@ impl MultisoulApp {
             config
         });
         self.runtime.set_agent_hook_config(runtime_config);
+        self.refresh_startup_watch_profiles();
         if self.desktop_host.is_none() {
             // Desktop canvases are retained and stopped by their desktop host.
             crate::workspace::sessions::register(

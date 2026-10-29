@@ -1,6 +1,6 @@
 use crossbeam_channel::{bounded, Receiver, Sender, TrySendError};
 use gpui::{App, Global};
-use norma::agent_hook::{fresh_control_id, AgentHookEvent, HookApproval};
+use norma::agent_hook::{fresh_control_id, AgentHookEvent, HookApproval, HookQuestion};
 mod approval_wait;
 mod http;
 use approval_wait::WaitingHook;
@@ -24,11 +24,16 @@ const CLIENT_WORKER_COUNT: usize = 4;
 #[path = "../../tests/unit/agent_hook_approval_transport_tests.rs"]
 mod approval_transport_tests;
 
+#[cfg(test)]
+#[path = "../../tests/unit/agent_hook_question_transport_tests.rs"]
+mod question_transport_tests;
+
 pub(crate) struct AgentHookRegistration {
     pub(crate) endpoint: Option<String>,
     pub(crate) token: Option<String>,
     pub(crate) receiver: Receiver<AgentHookEvent>,
     pub(crate) approvals: Receiver<HookApproval>,
+    pub(crate) questions: Receiver<HookQuestion>,
     #[cfg(feature = "e2e-test-support")]
     pub(crate) sender: Sender<AgentHookEvent>,
 }
@@ -50,6 +55,7 @@ struct AgentHookRegistry {
 struct HookRoute {
     events: Sender<AgentHookEvent>,
     approvals: Sender<HookApproval>,
+    questions: Sender<HookQuestion>,
 }
 
 type HookChannels = (
@@ -57,12 +63,14 @@ type HookChannels = (
     Receiver<AgentHookEvent>,
     Sender<AgentHookEvent>,
     Receiver<HookApproval>,
+    Receiver<HookQuestion>,
 );
 
 impl AgentHookRegistry {
     fn register(&mut self) -> std::io::Result<HookChannels> {
         let (sender, receiver) = bounded(EVENT_QUEUE_CAPACITY);
         let (approvals_sender, approvals) = bounded(approval_wait::CAPACITY);
+        let (questions_sender, questions) = bounded(approval_wait::CAPACITY);
         let mut token = fresh_control_id()?;
         while self.routes.contains_key(&token) || self.retired_tokens.contains(&token) {
             token = fresh_control_id()?;
@@ -72,9 +80,10 @@ impl AgentHookRegistry {
             HookRoute {
                 events: sender.clone(),
                 approvals: approvals_sender,
+                questions: questions_sender,
             },
         );
-        Ok((token, receiver, sender, approvals))
+        Ok((token, receiver, sender, approvals, questions))
     }
 
     fn unregister(&mut self, token: &str) -> bool {
@@ -166,6 +175,7 @@ pub(crate) fn register(cx: &mut App) -> AgentHookRegistration {
             token: None,
             receiver,
             approvals: bounded(1).1,
+            questions: bounded(1).1,
             #[cfg(feature = "e2e-test-support")]
             sender,
         };
@@ -176,7 +186,7 @@ pub(crate) fn register(cx: &mut App) -> AgentHookRegistration {
         .lock()
         .expect("Agent Hook registry mutex poisoned")
         .register();
-    let Ok((token, receiver, sender, approvals)) = registration else {
+    let Ok((token, receiver, sender, approvals, questions)) = registration else {
         tracing::error!("secure Hook token generation failed; control disabled");
         let (sender, receiver) = bounded(EVENT_QUEUE_CAPACITY);
         #[cfg(not(feature = "e2e-test-support"))]
@@ -186,6 +196,7 @@ pub(crate) fn register(cx: &mut App) -> AgentHookRegistration {
             token: None,
             receiver,
             approvals: bounded(1).1,
+            questions: bounded(1).1,
             #[cfg(feature = "e2e-test-support")]
             sender,
         };
@@ -197,6 +208,7 @@ pub(crate) fn register(cx: &mut App) -> AgentHookRegistration {
         token: Some(token),
         receiver,
         approvals,
+        questions,
         #[cfg(feature = "e2e-test-support")]
         sender,
     }
@@ -323,6 +335,34 @@ fn handle_stream(
         return;
     }
     let status = match read_hook_request(&stream) {
+        Ok((token, HookRequest::Question(request))) => {
+            let sender = registry
+                .lock()
+                .expect("Agent Hook registry mutex poisoned")
+                .routes
+                .get(&token)
+                .map(|route| route.questions.clone());
+            let Some(sender) = sender else {
+                write_status(&mut stream, "401 Unauthorized");
+                return;
+            };
+            let Ok(question) = HookQuestion::new(request, std::time::Instant::now()) else {
+                write_status(&mut stream, "400 Bad Request");
+                return;
+            };
+            if sender.try_send(question.clone()).is_err() {
+                question.cancel();
+                write_status(&mut stream, "503 Service Unavailable");
+                return;
+            }
+            match WaitingHook::new_question(stream, token, question.clone()) {
+                Ok(waiting) => {
+                    let _ = approvals.try_send(waiting);
+                }
+                Err(_) => question.cancel(),
+            }
+            return;
+        }
         Ok((token, HookRequest::Approval(request))) => {
             let sender = registry
                 .lock()

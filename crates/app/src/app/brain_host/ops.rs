@@ -85,6 +85,25 @@ impl MultisoulApp {
         state: Option<&agent::context::WorkingState>,
     ) -> OpResult {
         match op {
+            BrainOp::Questions => {
+                output(serde_json::json!({"questions": self.runtime.questions()}))
+            }
+            BrainOp::ProposeAnswer {
+                target,
+                answers,
+                reason,
+            } => {
+                self.propose_question_answer(target, answers, reason)
+                    .map_err(|error| reject(&error))?;
+                cx.notify();
+                output(json!({"status":"waiting_user"}))
+            }
+            BrainOp::Answer { target, answers } => {
+                let snapshot = self
+                    .answer_question_from_brain(target, answers, cx)
+                    .map_err(|error| reject(&error))?;
+                output(json!({"question":snapshot}))
+            }
             BrainOp::Context { .. } => Err(CardCommandError::Unsupported {
                 message: "context 由端点异步处理".into(),
             }),

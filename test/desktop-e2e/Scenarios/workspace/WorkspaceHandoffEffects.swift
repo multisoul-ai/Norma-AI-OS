@@ -5,7 +5,7 @@ import Foundation
 
 /// Agent 之间的交接（`/ask-norma` 背后的 `norma agent task assign`）在真实画布上的派发特效。
 /// 构造：隔离工作空间 + 三张假 Agent 卡片；源卡片经生产 CLI 把无副作用任务派给另一张卡片。
-/// 三种设置 × 浅/深主题：未自定义 → 流星；只设语音 → 交接跟随语音（烟花）；显式设交接 → 保留覆盖（闪电）。
+/// 三种设置 × 亮/暗壁纸：未自定义 → 流星；只设语音 → 交接跟随语音（烟花）；显式设交接 → 保留覆盖（闪电）。
 /// 预期：动画有明显起止并落在目标卡片附近，结束后无残留；时长落在各款式区间（闪电 < 流星 < 烟花）。
 @MainActor
 public enum WorkspaceHandoffEffects {
@@ -25,10 +25,10 @@ public enum WorkspaceHandoffEffects {
         Branch(tag: "voice-only", json: "{\"style\":\"meteor\",\"voice\":\"fireworks\"}", style: "fireworks", span: 1300...2300),
         Branch(tag: "handoff-override", json: "{\"style\":\"meteor\",\"voice\":\"fireworks\",\"handoff\":\"lightning\"}", style: "lightning", span: 0...520),
     ]
-    // 浅色组配最亮的内置壁纸，验证特效在亮背景上仍清晰；深色组保留默认太空壁纸。
+    // 亮壁纸组使用石墨灰，暗壁纸组使用月岩；仍覆盖内置最亮壁纸与默认太空壁纸。
     private static let themes = [
-        ("light", "paper-blue", "wallpapers/norma-silver-moonscape.png"),
-        ("dark", "midnight-violet", "wallpapers/desktop-earth.png"),
+        ("light", "graphite", "wallpapers/norma-silver-moonscape.png"),
+        ("dark", "moonstone", "wallpapers/desktop-earth.png"),
     ]
 
     public static func run(_ session: Session) async throws {

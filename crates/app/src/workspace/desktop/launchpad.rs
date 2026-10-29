@@ -1,4 +1,4 @@
-use super::{glass_button_variant, GLASS_TEXT_SECONDARY};
+use super::glass_button_variant;
 use crate::app::MultisoulApp;
 use gpui::{
     div, prelude::*, px, rgba, Context, Div, EntityInputHandler, Focusable, MouseButton, Stateful,
@@ -16,6 +16,10 @@ struct SearchInput {
 #[cfg(test)]
 #[path = "../../../tests/unit/desktop_home_tests.rs"]
 mod home_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/desktop_home_contrast_tests.rs"]
+mod contrast_tests;
 
 impl MultisoulApp {
     pub(crate) fn render_desktop_launchpad(
@@ -181,7 +185,7 @@ impl MultisoulApp {
                                 .pb(px(92.0))
                                 .flex()
                                 .justify_center()
-                                .text_color(rgba(GLASS_TEXT_SECONDARY))
+                                .text_color(rgba(theme.text_secondary))
                                 .child(if has_any {
                                     ui::i18n::text("workspace.no_workspaces_match_your_search")
                                 } else {
@@ -276,7 +280,7 @@ impl MultisoulApp {
                                 .child(
                                     div()
                                         .text_size(px(11.0))
-                                        .text_color(rgba(GLASS_TEXT_SECONDARY))
+                                        .text_color(rgba(theme.text_secondary))
                                         .child(ui::i18n::format("workspace.workspace_count", &[("count", self.desktop_workspace.workspaces.len().to_string())])),
                                 )
                                 .child(div().flex_1())

@@ -19,7 +19,7 @@
 | 模块 | 场景 | 验收范围 |
 | --- | --- | --- |
 | `workspace` | `workspace-lifecycle` | 工作空间目录：创建、列出、按名称搜索、重命名、取消删除、确认删除、项目目录保留、重启后不恢复。核对 `desktop_workspaces` 与 `desktop_project_areas`。 |
-| `workspace` | `workspace-home-preview` | 首页示意节点与真实保存布局对应；深浅主题/两壁纸；目录四方向选择、跨屏滚动、⌘↓进入选中工作空间。 |
+| `workspace` | `workspace-home-preview` | 首页示意节点与真实保存布局对应；Sapphire Night/Graphite主题/两壁纸；目录四方向选择、跨屏滚动、⌘↓进入选中工作空间。 |
 | `workspace` | `workspace-drawer-tabs` | 左栏「对话 / 运行概览」：⌘⇧E 进入运行概览，再按回到对话。只核对分段和两种视图，不覆盖概览内容重做。 |
 | `workspace` | `workspace-run-overview` | 空工作空间的运行概览内容：⌘⇧E 后看到「需要你处理 / 当前项目 / 其他项目」，不出现旧空态文案和百分比，且不启动项目。 |
 | `workspace` | `workspace-status-capsule` | 空工作空间的画布右上角不显示状态胶囊。有智能体时的环、名字、已完成数和紧凑态对照运行概览原型，不验收概览行内容或悬浮拖动。 |
@@ -32,6 +32,7 @@
 
 | `content` | `content-workbench`、`content-home` | 右抽屉空态（`content-home`）：胶囊地址栏、六个工具磁贴与快捷键提示、推荐区、未实现入口的“即将支持”提示、文件磁贴打开工作台；左右抽屉中英即时切换、已有输入框/错误更新和草稿保留。工作台（`content-workbench`）：项目文件树、编辑保存、Git 暂存/提交（核对真实索引与 HEAD）、Markdown/HTML、图片缩放、视频播放与隐藏暂停、浏览器导航/会话保留、深浅主题。 |
 | `content` | `content-terminal-path-link` | 终端里 Agent 回复的反引号路径（相对路径、含空格路径）点击后在右抽屉打开 Markdown 预览，并持久化文件标签。 |
+| `settings` | `settings-theme-consistency` | 六主题在同一真实进程切换：首页、双抽屉、项目外框、选中/焦点/悬停/按下/空输入状态；SQLite 保存值与抽屉背景像素均需匹配。 |
 | `settings` | `settings-navigation`、`settings-basic-preferences`、`settings-responsive-keyboard`、`settings-space-wallpapers` | 两级导航、基础设置中的语言与节能、主题切换、太空壁纸选择与预览、持久化与重启恢复，以及键盘和窄窗口。 |
 
 | `settings` | `settings-shortcut-defaults` | 键位互换后 Settings → Keyboard Shortcuts 的默认显示（无覆盖写入、无 Restore），以及既有自定义（切换工作空间 ⌃⌥J、新建浏览器 ⇧⌘K）原样保留且优先生效：⌃⌥J 打开切换器，⇧⌘↑ / ⇧⌘K 不触发默认行为；浅色与深色。 |
@@ -46,6 +47,7 @@
 | `canvas` | `canvas-presentation-layout` | 固定窗口、六张 Agent 和终端下重复生产 CLI 网页/预览展示，核对抽屉回执、--new、--type、手动重排及重启布局。 |
 
 | `brain` | `brain-claude-quota` | 无网络 Claude 0.94.0 consumer 回放：额度正文和 error 结束；设置重启保留已收到正文及 cancelled 结束；新轮隔离与 App 重开后的持久化面板。不验证服务端真实额度或语音。 |
+| `agent` | `agent-startup-watchdog` | Agent 卡片启动看门狗：HOME 重定向到已安装 hook 的假目录；假 `codex` 有首屏但不发 hook，约 15 秒后标题栏出现「迟迟未收到会话启动信号」徽标，发出 SessionStart 后消失；假 `claude` 启动即发 SessionStart，等过 15 秒也不出现徽标。不覆盖会话恢复路径与浅色/深色。 |
 
 ## 预留模块
 
@@ -54,9 +56,8 @@
 | 模块 | 以后验收什么 |
 | --- | --- |
 | `terminal` | Terminal 节点的创建、输入、输出和焦点进出 |
-| `agent` | Agent 卡片的创建、状态和可见回复 |
 
 导航可以穿过别的模块，例如从工作空间目录打开画布。断言仍只写本模块的后置状态。跨模块的用户流程拆成各自模块里的场景，或在本表新增一行说明它为什么必须跨模块。
 
 
-| `workspace` | `workspace-home-design` | Combo首页：深/浅主题×默认/Blue Horizon壁纸；12/1空间，默认/hover/Tab焦点/菜单/取消删除/搜索分组折叠/实时高亮/回车打开/Esc/无结果预填创建；命令输入隔离、面板按钮聚焦后关闭并跨帧保持关闭。 |
+| `workspace` | `workspace-home-design` | Combo首页：Sapphire Night/Graphite主题×默认/Blue Horizon壁纸；12/1空间，默认/hover/Tab焦点/菜单/取消删除/搜索分组折叠/实时高亮/回车打开/Esc/无结果预填创建；命令输入隔离、面板按钮聚焦后关闭并跨帧保持关闭。 |

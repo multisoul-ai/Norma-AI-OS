@@ -11,13 +11,6 @@ use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div, ElementId, Stateful};
 use ui::component::StyledExt;
 
-const AMBER_TINT: u32 = 0xf2c77326;
-const AMBER_TEXT: u32 = 0xf6dfaaff;
-const GROUP_TITLE: u32 = 0xa9c3daff;
-const GROUP_META: u32 = 0x8ea8bfff;
-const COPY_STEP: u32 = 0xcfe3f4ff;
-const GROUP_RULE: u32 = 0xcde8ff14;
-
 impl MultisoulApp {
     /// 顶部三张统计卡，其后四栏固定顺序：需要你处理 → 运行中 → 待开始 → 想法。每栏有基准高度，
     /// 内容多了栏内滚动；折叠的栏只剩一行标题，空出的高度让给其余栏。
@@ -51,7 +44,9 @@ impl MultisoulApp {
             .debug_selector(|| "desktop-agent-overview-list".to_string())
             .flex_1()
             .min_h(px(0.0))
-            .overflow_hidden()
+            // Short drawers and floating panels can be smaller than the four groups' minima.
+            // Keep the lower groups reachable when a question reserves space for its actions.
+            .overflow_y_scroll()
             .px(px(4.0))
             .pb(px(8.0))
             .flex()
@@ -80,7 +75,9 @@ impl MultisoulApp {
         let heading = self.group_heading(group, section, collapsed, feedback, cx);
         // 大脑提议的下一步排在“需要你处理”最前面。
         let proposals = if group == OverviewGroup::Attention && !collapsed {
-            self.render_proposal_rows(feedback, cx)
+            let mut rows = self.render_question_rows(cx);
+            rows.extend(self.render_proposal_rows(feedback, cx));
+            rows
         } else {
             Vec::new()
         };
@@ -97,7 +94,7 @@ impl MultisoulApp {
                 .flex_col()
                 .gap(px(2.0))
                 .when(section.rows.is_empty() && proposals.is_empty(), |body| {
-                    body.child(group_empty(group, true))
+                    body.child(group_empty(theme, group, true))
                 })
                 .children(proposals)
                 .children(section.rows.iter().enumerate().map(|(offset, row)| {
@@ -127,7 +124,7 @@ impl MultisoulApp {
                 shell
                     .pt(px(4.0))
                     .border_t_1()
-                    .border_color(rgba(GROUP_RULE))
+                    .border_color(rgba(theme.node_stroke))
             })
             .child(heading)
             .when(!collapsed, |shell| shell.child(body));
@@ -138,18 +135,33 @@ impl MultisoulApp {
         } else {
             style.flex_grow = Some(group.grow());
             // 展开的提议要完整可见（指令与理由），这时“需要你处理”不让出高度，由其余栏收缩。
-            let keep = group == OverviewGroup::Attention && self.brain_proposal_open().is_some();
+            let question_heights = self.question_heights();
+            let has_questions = group == OverviewGroup::Attention && !question_heights.is_empty();
+            // Ideas includes fixed tabs and a composer; shrinking it to a single
+            // status row would clip the composer even after the outer list scrolls.
+            let keep = (group == OverviewGroup::Attention
+                && (self.brain_proposal_open().is_some() || has_questions))
+                || (group == OverviewGroup::Ideas && !question_heights.is_empty());
             style.flex_shrink = Some(if keep { 0.0 } else { 1.0 });
             let heights: Vec<f32> = match (group, section) {
                 (OverviewGroup::Attention, Some(section)) => self
                     .proposal_heights()
                     .into_iter()
+                    .chain(self.question_heights())
                     .chain(section.rows.iter().map(|row| row.height))
                     .collect(),
                 (_, Some(section)) => section.rows.iter().map(|row| row.height).collect(),
                 _ => Vec::new(),
             };
-            style.flex_basis = Some(px(group.basis_height(&heights)).into());
+            let basis = if has_questions {
+                // Keep the current question's nearby actions visible. Longer questionnaires
+                // still scroll within this group instead of consuming every other section.
+                (34.0 + heights.iter().map(|height| height + 2.0).sum::<f32>())
+                    .clamp(MIN_GROUP_HEIGHT, 300.0)
+            } else {
+                group.basis_height(&heights)
+            };
+            style.flex_basis = Some(px(basis).into());
             style.min_size.height = Some(px(MIN_GROUP_HEIGHT).into());
         }
         shell
@@ -164,6 +176,7 @@ impl MultisoulApp {
         feedback: super::super::overview_rows::OverviewFeedback,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
+        let theme = self.desktop_theme();
         let hover = feedback.hover;
         let pressed = feedback.pressed;
         let title = match (group, section) {
@@ -178,7 +191,9 @@ impl MultisoulApp {
             .filter(|idea| idea.state == workspace::ideas::IdeaState::Todo)
             .count();
         let aside = match (group, section) {
-            (OverviewGroup::Ideas, _) => (todo > 0).then(|| count_badge(todo, BadgeTone::Neutral)),
+            (OverviewGroup::Ideas, _) => {
+                (todo > 0).then(|| count_badge(theme, todo, BadgeTone::Neutral))
+            }
             // 琥珀色只给“需要你处理”（要你介入）；运行中用青色，待开始用灰蓝，与原型一致。
             (OverviewGroup::Attention, Some(section)) => {
                 let extra = self.brain_overview().proposals.len();
@@ -186,11 +201,11 @@ impl MultisoulApp {
                     .count
                     .map(|count| count + extra)
                     .or((extra > 0).then_some(extra))
-                    .map(|count| count_badge(count, BadgeTone::Amber))
+                    .map(|count| count_badge(theme, count, BadgeTone::Amber))
             }
             (_, Some(section)) => section
                 .count
-                .map(|count| count_badge(count, BadgeTone::of(group))),
+                .map(|count| count_badge(theme, count, BadgeTone::of(group))),
             _ => None,
         };
         div()
@@ -223,8 +238,8 @@ impl MultisoulApp {
                     .gap(px(8.0))
                     .text_size(px(OVERVIEW_TEXT_SECONDARY))
                     .font_semibold()
-                    .text_color(rgba(GROUP_TITLE))
-                    .child(group_chevron(collapsed))
+                    .text_color(rgba(theme.text_secondary))
+                    .child(group_chevron(theme, collapsed))
                     .child(title),
             )
             .children(aside)
@@ -291,10 +306,10 @@ impl MultisoulApp {
                     app.prelight_overview(fallback, cx);
                 }
             }))
-            .child(row_lead(row, color, agent_row))
+            .child(row_lead(theme, row, color, agent_row))
             .child(row_copy(row, color, theme))
-            .children(decision_buttons(row, index, cx))
-            .child(action_label(&row.action_label, agent_row))
+            .children(decision_buttons(theme, row, index, cx))
+            .child(action_label(theme, &row.action_label, agent_row))
     }
 }
 
@@ -316,19 +331,37 @@ impl BadgeTone {
         }
     }
 
-    fn colors(self) -> (u32, u32) {
-        match self {
-            Self::Amber => (AMBER_TINT, AMBER_TEXT),
-            Self::Running => (0x36dce824, 0x7ee9eeff),
-            Self::Idle => (0x9fb8cf24, 0xb3c6d8ff),
-            Self::Neutral => (0x8fcaff2e, 0xd4eaffff),
+    fn colors(self, theme: ui::Theme) -> (u32, u32) {
+        let (fill, ink) = match self {
+            Self::Amber => (
+                ui::icons::with_alpha(theme.accent_warm, 0x26),
+                theme.text_primary,
+            ),
+            Self::Running => (
+                ui::icons::with_alpha(theme.accent_cyan, 0x24),
+                theme.text_primary,
+            ),
+            Self::Idle => (
+                ui::icons::with_alpha(theme.text_secondary, 0x24),
+                theme.text_primary,
+            ),
+            Self::Neutral => (
+                ui::icons::with_alpha(theme.accent, 0x2e),
+                theme.text_primary,
+            ),
+        };
+        if theme.is_light() {
+            (fill, ink)
+        } else {
+            let base = crate::workspace::desktop::surface_theme::mix(theme.canvas_from, fill, 38);
+            (ui::icons::with_alpha(base, 0xf5), ink)
         }
     }
 }
 
 /// 计数角标：按栏着色，琥珀＝要你介入，青色＝运行中，灰蓝＝待开始，中性蓝＝想法。
-fn count_badge(count: usize, tone: BadgeTone) -> Div {
-    let (background, foreground) = tone.colors();
+fn count_badge(theme: ui::Theme, count: usize, tone: BadgeTone) -> Div {
+    let (background, foreground) = tone.colors(theme);
     div()
         .min_w(px(18.0))
         .h(px(18.0))
@@ -346,7 +379,7 @@ fn count_badge(count: usize, tone: BadgeTone) -> Div {
 
 /// 栏内没有内容时的空态：标题加一行提示，在固定高度的栏内居中。
 /// `fill` 为真时占满所在的栏（栏里只有它）；为假时按内容高度排在其他内容之上（想法栏里还有「已完成」时）。
-pub(super) fn group_empty(group: OverviewGroup, fill: bool) -> Stateful<Div> {
+pub(super) fn group_empty(theme: ui::Theme, group: OverviewGroup, fill: bool) -> Stateful<Div> {
     let (title, hint) = group.empty_copy();
     div()
         .id(ElementId::Name(
@@ -366,21 +399,21 @@ pub(super) fn group_empty(group: OverviewGroup, fill: bool) -> Stateful<Div> {
         .child(
             div()
                 .text_size(px(16.0))
-                .text_color(rgba(0x7ea4c4ff))
+                .text_color(rgba(theme.text_tertiary))
                 .child(group.empty_icon()),
         )
         .child(
             div()
                 .text_size(px(OVERVIEW_TEXT_PRIMARY))
                 .font_weight(gpui::FontWeight::MEDIUM)
-                .text_color(rgba(COPY_STEP))
+                .text_color(rgba(theme.text_primary))
                 .child(title),
         )
         .when(group != OverviewGroup::Idle, |empty| {
             empty.child(
                 div()
                     .text_size(px(OVERVIEW_TEXT_COPY))
-                    .text_color(rgba(GROUP_META))
+                    .text_color(rgba(theme.text_tertiary))
                     .child(hint),
             )
         })
@@ -411,6 +444,7 @@ pub(super) fn decision_target(row: &OverviewRow) -> Option<(String, u64, String,
 
 /// 能直接处理的审批行右侧的“允许 / 拒绝”。点击只处理审批，不触发整行的“定位”。
 fn decision_buttons(
+    theme: ui::Theme,
     row: &OverviewRow,
     index: usize,
     cx: &mut Context<MultisoulApp>,
@@ -422,6 +456,7 @@ fn decision_buttons(
             let (area_id, run_id, request_id) =
                 (area_id.clone(), run_id.clone(), request_id.clone());
             pill(
+                theme,
                 ElementId::Name(format!("overview-{tag}-{index}").into()),
                 label,
                 if allow {
@@ -449,3 +484,7 @@ fn decision_buttons(
 #[cfg(test)]
 #[path = "../../../../tests/unit/overview_decision_tests.rs"]
 mod decision_tests;
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/overview_status_theme_tests.rs"]
+mod theme_tests;

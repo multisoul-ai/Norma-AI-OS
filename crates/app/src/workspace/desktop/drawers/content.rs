@@ -1,6 +1,6 @@
 //! The right content drawer and its workspace-scoped tabs.
 
-use super::{BOTTOM, GLASS_TEXT, GLASS_TEXT_SECONDARY, TOP};
+use super::{BOTTOM, TOP};
 use crate::app::MultisoulApp;
 use gpui::{
     div, point, prelude::*, px, rgba, BoxShadow, Context, Div, MouseButton, Stateful, Window,
@@ -56,12 +56,15 @@ impl MultisoulApp {
             .border_l_1()
             .border_color(rgba(with_alpha(theme.edge_highlight, 0x55)))
             .shadow(vec![BoxShadow {
-                color: rgba(0x00000070).into(),
+                color: rgba(crate::workspace::desktop::surface_theme::shadow_color(
+                    theme, 0x70,
+                ))
+                .into(),
                 offset: point(px(-14.0), px(0.0)),
                 blur_radius: px(48.0),
                 spread_radius: px(0.0),
             }])
-            .text_color(rgba(GLASS_TEXT))
+            .text_color(rgba(theme.text_primary))
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .child(frost)
             .child(self.render_reader_chrome(cx))

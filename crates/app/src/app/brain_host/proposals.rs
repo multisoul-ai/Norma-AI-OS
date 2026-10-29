@@ -8,6 +8,43 @@ use std::time::{Duration, SystemTime};
 
 pub(crate) const MAX_PROPOSALS: usize = 5;
 
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum ProposalBlock {
+    WaitingConfirmation,
+    Busy,
+    Unavailable(String),
+}
+
+impl ProposalBlock {
+    pub(crate) fn label(&self) -> &'static str {
+        ui::i18n::text(match self {
+            Self::WaitingConfirmation => "chrome.brain_proposal_waiting_label",
+            Self::Busy => "chrome.brain_proposal_busy_label",
+            Self::Unavailable(_) => "chrome.brain_proposal_unavailable_label",
+        })
+    }
+
+    pub(crate) fn message(&self, agent: &str) -> String {
+        match self {
+            Self::Unavailable(message) => message.clone(),
+            _ => ui::i18n::format(
+                if matches!(self, Self::WaitingConfirmation) {
+                    "chrome.brain_proposal_waiting"
+                } else {
+                    "chrome.brain_proposal_busy"
+                },
+                &[("agent", agent.to_owned())],
+            ),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum ProposalFeedback {
+    Dispatching,
+    Failed(String),
+}
+
 /// 大脑交来的提议内容。
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct Draft {

@@ -129,14 +129,14 @@ fn test_terminal_render_cache_misses_when_metrics_change_after_zoom() {
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   node_id = 105；revision = 11；zoom = 1.0；selection=None
-///   theme sequence = PaperBlue → ForestMint → ForestMint
+///   theme sequence = PaperBlue → DeepPetrol → DeepPetrol
 ///   terminal key token changes ≥ term_fg/term_bg/focused_stroke
 ///   expected prepares = old theme miss(1) + new theme miss(1) + same theme hit(0) = 2
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 用 PaperBlue resolve marker 61。
-///   2. 仅改为 ForestMint resolve marker 62。
-///   3. 相同 ForestMint 再 resolve，负对照闭包返回 marker 63。
+///   2. 仅改为 DeepPetrol resolve marker 62。
+///   3. 相同 DeepPetrol 再 resolve，负对照闭包返回 marker 63。
 ///
 /// 预期结果：
 ///   - 正断言：主题 token 变化为 Miss/新 Arc，稳定主题为 Hit/同 Arc。
@@ -147,7 +147,7 @@ fn test_terminal_render_cache_misses_when_terminal_theme_tokens_change() {
     let mut cache = TerminalRenderCache::<usize>::new_enabled();
     let metrics = terminal_render_metrics(1.0);
     let paper = TerminalRenderKey::new(105, 11, metrics, Theme::paper_blue(), None);
-    let forest = TerminalRenderKey::new(105, 11, metrics, Theme::forest_mint(), None);
+    let forest = TerminalRenderKey::new(105, 11, metrics, Theme::deep_petrol(), None);
 
     let (first, first_outcome) = cache.resolve(paper, || 61);
     let (second, second_outcome) = cache.resolve(forest, || 62);
@@ -161,7 +161,7 @@ fn test_terminal_render_cache_misses_when_terminal_theme_tokens_change() {
     assert_eq!(
         second_outcome,
         TerminalCacheOutcome::Miss,
-        "切换到 ForestMint 后 terminal 主题 token 变化必须触发 Miss"
+        "切换到 DeepPetrol 后 terminal 主题 token 变化必须触发 Miss"
     );
     assert!(
         !Arc::ptr_eq(&first, &second),
@@ -170,11 +170,11 @@ fn test_terminal_render_cache_misses_when_terminal_theme_tokens_change() {
     assert_eq!(
         third_outcome,
         TerminalCacheOutcome::Hit,
-        "相同 ForestMint 的负对照 resolve 必须命中"
+        "相同 DeepPetrol 的负对照 resolve 必须命中"
     );
     assert!(
         Arc::ptr_eq(&second, &third),
-        "稳定主题必须复用 ForestMint prepared frame"
+        "稳定主题必须复用 DeepPetrol prepared frame"
     );
     assert_eq!(*third, 62, "稳定主题必须保留 marker 62");
     assert_ne!(*third, 63, "稳定主题不得再次执行 marker 63 闭包");

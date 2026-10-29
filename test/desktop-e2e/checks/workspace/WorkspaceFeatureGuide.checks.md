@@ -13,4 +13,4 @@
 | `theme-<id>.png`（六个主题） | `/help` 重开后恢复到上次的 7 / 7；主按钮文字清晰（浅色主题为白字深色底）；面板边框、顶部与底部分隔线可见；指令输入已清空 | 黑字压中蓝底、浅色下分隔线或边框缺失、版式与首次不同 |
 | `theme-<id>-orchestration.png`（六个主题） | 第 1 页：安装状态行有描边容器、提示条、「Open Orchestration Settings」主按钮与「Why…」链接对比度足够；底部 Skip / Next 完整 | 行被裁切、按钮文字不可读、描边缺失 |
 
-六个主题：paper-blue、linen-sage、silver-violet（浅色），sapphire-night、midnight-violet、forest-mint（深色）。「Install failed」红行来自隔离环境未安装 CLI，不算缺陷。不确定时看同一次运行的 `app.log` 和 `report.json`。
+六个主题：ink-black、graphite、warm-obsidian、sapphire-night、moonstone、deep-petrol（全部深色）。「Install failed」红行来自隔离环境未安装 CLI，不算缺陷。不确定时看同一次运行的 `app.log` 和 `report.json`。

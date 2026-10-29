@@ -14,7 +14,7 @@ public enum WorkspaceHomePreview {
             session.stop()
             return "仅操作本场景数据"
         }
-        for (theme, label, alternate) in [("sapphire-night", "dark", false), ("paper-blue", "light", true)] {
+        for (theme, label, alternate) in [("sapphire-night", "dark", false), ("graphite", "graphite", true)] {
             try await session.step("\(label)：真实保存节点的示意预览") {
                 try HomeDesignFixture.install(database: session.databaseURL(), count: 12, theme: theme, alternate: alternate)
                 try HomeDesignFixture.seedPreviewNodes(database: session.databaseURL())

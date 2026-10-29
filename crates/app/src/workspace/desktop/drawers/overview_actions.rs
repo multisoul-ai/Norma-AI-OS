@@ -51,6 +51,13 @@ impl MultisoulApp {
             }
         }
         super::overview_judging::relabel_judging(&mut screen, &self.brain_overview().judging);
+        let targets = self
+            .brain_overview()
+            .questions
+            .iter()
+            .map(|row| (row.area_id.clone(), row.snapshot.question.target.node_id))
+            .collect::<Vec<_>>();
+        super::overview_questions::merge_question_counts(&mut screen, &targets);
         // 折叠的栏不显示行，键盘上下也不应落到看不见的行上。
         let groups = [
             OverviewGroup::Attention,

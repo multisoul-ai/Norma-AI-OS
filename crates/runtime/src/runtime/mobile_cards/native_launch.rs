@@ -2,19 +2,11 @@
 use super::*;
 
 pub struct PreparedNativeAgent {
-    launch: NativeAgentLaunch,
-    pty: launch::ControlledPty,
-    receiver: crossbeam_channel::Receiver<terminal::PtyEvent>,
+    terminal: crate::nodes::agent::PreparedAgentTerminal,
 }
 impl PreparedNativeAgent {
     pub fn into_live(self) -> Result<TermLive, PtyError> {
-        TermLive::from_session(TerminalSession::spawn_with_backend(
-            self.launch.terminal_id,
-            self.launch.cols,
-            self.launch.rows,
-            Box::new(self.pty),
-            self.receiver,
-        ))
+        self.terminal.into_live()
     }
 }
 
@@ -35,18 +27,17 @@ impl NativeAgentLaunch {
         if self.control.is_cancelled() {
             return Err(control_error("launch cancelled"));
         }
-        let (sender, receiver) = crossbeam_channel::unbounded();
-        let pty = self
-            .control
-            .spawn_pty(self.command.clone(), self.cols, self.rows, sender)?;
+        let terminal = crate::nodes::agent::prepare_agent_command(
+            self.terminal_id,
+            self.command,
+            self.cols,
+            self.rows,
+            self.control.clone(),
+        )?;
         if self.control.is_cancelled() {
             return Err(control_error("launch cancelled"));
         }
-        Ok(PreparedNativeAgent {
-            launch: self,
-            pty,
-            receiver,
-        })
+        Ok(PreparedNativeAgent { terminal })
     }
 
     pub(super) fn spawn_with_factory(
@@ -56,12 +47,13 @@ impl NativeAgentLaunch {
         if self.control.is_cancelled() {
             return Err(control_error("launch cancelled"));
         }
-        let mut live = crate::nodes::term::spawn_term_live(
-            factory,
+        let mut live = crate::nodes::agent::spawn_agent_command(
             self.terminal_id,
             self.command,
             self.cols,
             self.rows,
+            factory,
+            Some(self.control.clone()),
         )?;
         if self.control.is_cancelled() {
             live.kill();
@@ -74,6 +66,10 @@ impl NativeAgentLaunch {
 #[cfg(test)]
 #[path = "../../../tests/unit/native_launch_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/native_question_lifecycle_tests.rs"]
+mod question_lifecycle_tests;
 
 impl Runtime {
     /// Same TermLive and renderer as desktop cards. Opening the CLI does not submit a task.
@@ -166,9 +162,11 @@ impl Runtime {
             return Err(control_error("mobile Provider unavailable"));
         }
         let profile = spec.profile;
+        let mobile_control = spec.mobile_control;
+        self.reserve_native_run(node);
         let hook = self.agent_hook_env(node, profile);
         let session = self.agent_session_id(node);
-        let command = if spec.mobile_control {
+        let command = if mobile_control {
             crate::nodes::agent::mobile_agent_command(profile, session.as_deref(), hook.as_ref())?
                 .with_cwd(self.workspace_root())
         } else if let Some(session) = session.as_deref() {
@@ -186,7 +184,6 @@ impl Runtime {
         if let Some(mut exited) = self.live.remove(&node) {
             exited.kill();
         }
-        self.reserve_native_run(node);
         let run = self
             .mobile_runs
             .get(&node)

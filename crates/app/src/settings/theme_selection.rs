@@ -36,9 +36,7 @@ impl ThemeSettingsState {
                 }
             })
             .and_then(|saved| {
-                let theme_id = ThemeId::ALL
-                    .into_iter()
-                    .find(|theme_id| theme_id.as_str() == saved);
+                let theme_id = ThemeId::from_saved_id(&saved);
                 if theme_id.is_none() {
                     tracing::warn!(saved, "ignored unknown saved theme id");
                 }

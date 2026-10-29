@@ -1,5 +1,18 @@
 # 工作空间首页：Combo B+D 实施与验收
 
+## 推送时与远端 dev 集成（2026-10-28）
+
+用户已授权合并及推送。远端13个新增提交包含主题一致性改造，与新首页产生3处冲突。本次仅完成集成和定向验证，不回退已验收的新布局，也不重新实施全仓功能。
+
+- 首页保留用户明确指定的全局壁纸、66%深色玻璃、搜索面板与拆分结构；远端旧首页的固定背景和旧工具栏不恢复。
+- 保留远端全局主题、目录/弹窗配色和共享顶部材质；将上游拆出的对比测试与新版首页材质断言合并，保留顶部主题对比检查。首页材质额外覆盖3个旧浅色夹具。
+- 远端可选主题目录现为6个深色主题，旧paper-blue保存值会迁移为InkBlack；首页E2E第二主题改为Graphite并同步截图名/清单，不把旧浅色别名误报为真实浅色运行。
+- 集成验证范围：首页/目录/顶部材质聚焦单测与正常提交钩子。此前截图仅作为合并前证据，合并后的主题目录已变化，不能沿用为新主题视觉通过；本轮不重复完整E2E或release。
+- 主工作区保留其他任务未提交内容；集成和推送在独立工作树完成。命令输出与推送结果归档到 `artifacts/workspace-home-push-2026-10-28/`。
+- 首次集成回归31通过、1失败：全局壁纸绑定仍被旧首页默认图覆盖。对比确认上一笔提交遗漏了主工作区中已验收的 `app/wallpaper_actions/sync.rs` 修复，并非远端新引入；本次补入相同修复，失败日志保留为 `merged-tests.log`。
+- 补齐后 `cargo test -p app --lib -- desktop_home desktop_directory_ desktop_workspace_card desktop_surface_theme desktop_top_bar`：34 passed / 0 failed，7.40s；另跑 `cargo test -p app --lib surface_theme_tests`：3 passed / 0 failed。`git diff --cached --check origin/dev` 通过；设置页重复 `Effects` 匹配警告已确认存在于远端基线，不属于本次改动。
+
+
 ## 交叉审查修复计划（2026-10-28）
 
 本轮仅修复两项 P2：其他输入框被首页搜索抢焦点；从面板按钮关闭搜索后被下一帧 Focus 事件重新展开。沿用已授权的 GPUI Root 输入测试与真实 desktop-e2e 两个验证入口，采用 TDD、gpui-actions/testing、apple-design 和 norma-desktop-e2e：保持输入焦点归属，关闭可逆且最终状态稳定，不新增动效或控件。

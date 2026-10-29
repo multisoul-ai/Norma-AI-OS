@@ -91,6 +91,7 @@ pub mod orchestration_task_route_store;
 pub mod project_plan_store;
 pub mod project_store;
 pub use project_plan_store::{ProjectPlanPage, ProjectPlanStore, StoredProjectPlan};
+pub mod question_delivery_store;
 pub mod recent_store;
 pub mod session_store;
 pub mod settings_store;

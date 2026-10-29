@@ -14,11 +14,10 @@
 //! - GPUI 0.2.2 的 overflow_hidden 只做矩形裁剪。抽屉圆角为 0；分段轨道自己绘制圆角。
 //!   滑入层不是铺满圆角容器的不透明底。
 //! - 分段控件用裸 div，而不是 ui::component::Button：需要 tablist 的 ←/→、
-//!   选中与焦点同时可见，以及待处理角标。颜色取 `desktop_theme()`：浅色应用主题下
-//!   抽屉仍是深色玻璃，状态色跟这块玻璃走，避免浅色 token 贴在深底上发灰。
+//!   选中与焦点同时可见，以及待处理角标。颜色取 `desktop_theme()`，正文、表面和反馈同步跟随所选主题。
 
 use super::super::overview_layout::OverviewGroup;
-use super::GLASS_TEXT;
+
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div, KeyDownEvent, Stateful, Window};
 use runtime::desktop_drawers::{DesktopDrawerEvent, DesktopLeftView};
@@ -31,6 +30,7 @@ enum TabBadge {
 
 impl MultisoulApp {
     pub(super) fn render_left_drawer_tabs(&mut self, cx: &mut Context<Self>) -> Stateful<Div> {
+        let theme = self.desktop_theme();
         let selected = self.desktop_workspace.drawers.left_view;
         let pending = self.cached_workspace_pending_count();
         let chat_focus = self.left_chat_tab_focus(cx);
@@ -46,9 +46,9 @@ impl MultisoulApp {
             .p(px(3.0))
             .gap(px(2.0))
             .rounded(px(10.0))
-            .bg(rgba(0x9fcfff0f))
+            .bg(rgba(ui::icons::with_alpha(theme.accent, 0x0f)))
             .border_1()
-            .border_color(rgba(0xa9d4f42e))
+            .border_color(rgba(ui::icons::with_alpha(theme.text_primary, 0x2e)))
             .child(self.left_view_tab(
                 "desktop-left-tab-chat",
                 ui::i18n::text("workspace.left_tab_chat"),
@@ -82,9 +82,21 @@ impl MultisoulApp {
         } else {
             DesktopLeftView::Chat
         };
-        let rest = if selected { 0x58adff2e } else { 0x00000000 };
-        let hover = if selected { 0x58adff45 } else { 0x8fcaff17 };
-        let pressed = if selected { 0x58adff5c } else { 0x8fcaff2a };
+        let rest = if selected {
+            ui::icons::with_alpha(theme.accent, 0x2e)
+        } else {
+            0x00000000
+        };
+        let hover = if selected {
+            ui::icons::with_alpha(theme.accent, 0x45)
+        } else {
+            ui::icons::with_alpha(theme.accent, 0x17)
+        };
+        let pressed = if selected {
+            ui::icons::with_alpha(theme.accent, 0x5c)
+        } else {
+            ui::icons::with_alpha(theme.accent, 0x2a)
+        };
         div()
             .id(id)
             .debug_selector(move || id.to_string())
@@ -96,14 +108,22 @@ impl MultisoulApp {
             .gap(px(6.0))
             .rounded(px(8.0))
             .border_1()
-            .border_color(rgba(if selected { 0x83c4ff70 } else { 0x00000000 }))
+            .border_color(rgba(if selected {
+                ui::icons::with_alpha(theme.accent, 0x70)
+            } else {
+                0x00000000
+            }))
             .cursor_pointer()
             .tab_index(0)
             .track_focus(&focus)
             .bg(rgba(rest))
             .text_size(px(12.0))
             .font_weight(gpui::FontWeight::MEDIUM)
-            .text_color(rgba(if selected { GLASS_TEXT } else { 0xb9cfe3ff }))
+            .text_color(rgba(if selected {
+                theme.text_primary
+            } else {
+                theme.text_secondary
+            }))
             .hover(move |style| style.bg(rgba(hover)))
             .active(move |style| style.bg(rgba(pressed)))
             .focus(|style| style.border_color(rgba(theme.focused_stroke)))
@@ -123,7 +143,7 @@ impl MultisoulApp {
                     tab.child(
                         gpui::svg()
                             .path("icons/pin.svg")
-                            .text_color(rgba(0x9fd2ffff))
+                            .text_color(rgba(theme.accent))
                             .w(px(12.0))
                             .h(px(12.0)),
                     )
@@ -132,7 +152,11 @@ impl MultisoulApp {
             .when_some(badge, |tab, badge| {
                 let (count, fill, ink) = match badge {
                     // 待处理要你动手：琥珀；想法只是计数：中性蓝灰。
-                    TabBadge::Pending(count) => (count, 0xf2c773ff, 0x162638ff),
+                    TabBadge::Pending(count) => (
+                        count,
+                        theme.accent_warm,
+                        crate::workspace::desktop::surface_theme::on_color(theme.accent_warm),
+                    ),
                 };
                 tab.child(
                     div()

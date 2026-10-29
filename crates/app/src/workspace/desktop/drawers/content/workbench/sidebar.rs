@@ -4,10 +4,10 @@
 //! a green changed-file tree above the all-files tree, and low-frequency Git operations kept
 //! behind the section's "⋯" control. Both trees share one virtualized list.
 
-use super::document::{tooltip_view, GREEN, GUTTER, LINE, PANEL, TEXT_MUTED, TEXT_SECONDARY};
+use super::document::tooltip_view;
 use super::tree::{change_rows, row_is_staged, ChangeRow};
 use super::tree_row::{
-    activates, chevron, glyph_element, glyph_for, name_label, Action, FOCUS, ROW_HEIGHT,
+    activates, chevron, glyph_element, glyph_for, name_label, Action, ROW_HEIGHT,
 };
 use super::*;
 use crate::app::MultisoulApp;
@@ -45,6 +45,7 @@ impl MultisoulApp {
         close_button: bool,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
+        let theme = self.desktop_theme();
         let s = &self.desktop_workspace.workbench;
         let mut pane = div()
             .id("files-sidebar")
@@ -57,10 +58,10 @@ impl MultisoulApp {
             .gap(px(8.0))
             .px(px(10.0))
             .py(px(12.0))
-            .bg(rgba(PANEL))
+            .bg(rgba(theme.canvas_from))
             .border_l_1()
-            .border_color(rgba(LINE))
-            .text_color(rgba(TEXT_SECONDARY));
+            .border_color(rgba(theme.node_stroke))
+            .text_color(rgba(theme.text_secondary));
         let mut top = div().flex().items_center().gap(px(6.0));
         if let Some(picker) = &s.project_picker {
             top = top.child(
@@ -98,7 +99,7 @@ impl MultisoulApp {
                                 .path("icons/search.svg")
                                 .w(px(13.0))
                                 .h(px(13.0))
-                                .text_color(rgba(TEXT_MUTED)),
+                                .text_color(rgba(theme.text_tertiary)),
                         )
                         .cleanable(true),
                 ),
@@ -192,6 +193,7 @@ impl MultisoulApp {
     }
 
     fn render_sidebar_item(&self, item: &Item, cx: &mut Context<Self>) -> Stateful<Div> {
+        let theme = self.desktop_theme();
         let s = &self.desktop_workspace.workbench;
         match item {
             Item::ChangesHead { count } => {
@@ -247,7 +249,7 @@ impl MultisoulApp {
                 .items_center()
                 .px(px(24.0))
                 .text_size(px(11.0))
-                .text_color(rgba(TEXT_MUTED))
+                .text_color(rgba(theme.text_tertiary))
                 .child(text.clone()),
             Item::ChangeDir {
                 path,
@@ -275,8 +277,8 @@ impl MultisoulApp {
                     toggle,
                     cx,
                 )
-                .child(chevron(*open))
-                .child(name_label(label, TEXT_SECONDARY, path))
+                .child(chevron(theme, *open))
+                .child(name_label(label, theme.text_secondary, path))
             }
             Item::Change { index, depth, name } => self.render_change_row(*index, *depth, name, cx),
             Item::File(index) => self.render_file_row(*index, cx),
@@ -292,6 +294,7 @@ impl MultisoulApp {
         toggle: Action,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
+        let theme = self.desktop_theme();
         self.tree_row(
             ElementId::Name(id.into()),
             0,
@@ -302,14 +305,17 @@ impl MultisoulApp {
         )
         .debug_selector(move || id.to_string())
         .when(separated, |row| {
-            row.mt(px(6.0)).border_t_1().border_color(rgba(0xffffff12))
+            row.mt(px(6.0))
+                .border_t_1()
+                .border_color(rgba(theme.node_stroke))
         })
-        .text_color(rgba(TEXT_SECONDARY))
-        .child(chevron(open))
-        .child(name_label(title, TEXT_SECONDARY, title))
+        .text_color(rgba(theme.text_secondary))
+        .child(chevron(theme, open))
+        .child(name_label(title, theme.text_secondary, title))
     }
 
     fn render_file_row(&self, index: usize, cx: &mut Context<Self>) -> Stateful<Div> {
+        let theme = self.desktop_theme();
         let s = &self.desktop_workspace.workbench;
         let row = &s.rows[index];
         let path = row.path.clone();
@@ -340,12 +346,12 @@ impl MultisoulApp {
             cx,
         );
         if directory {
-            base.child(chevron(expanded))
+            base.child(chevron(theme, expanded))
         } else {
             base.child(div().w(px(11.0)).flex_none())
-                .child(glyph_element(glyph_for(&row.label)))
+                .child(glyph_element(theme, glyph_for(&row.label)))
         }
-        .child(name_label(&row.label, TEXT_SECONDARY, &path))
+        .child(name_label(&row.label, theme.text_secondary, &path))
     }
 
     fn filter_is_empty(&self, cx: &Context<Self>) -> bool {
@@ -363,6 +369,7 @@ impl MultisoulApp {
         name: &str,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
+        let theme = self.desktop_theme();
         let s = &self.desktop_workspace.workbench;
         let Some(change) = s.git.as_ref().and_then(|g| g.changes.get(index)) else {
             return div().id(ElementId::Name(format!("files-change-gone-{index}").into()));
@@ -386,14 +393,14 @@ impl MultisoulApp {
                 cx,
             )
             .child(div().w(px(11.0)).flex_none())
-            .child(glyph_element(glyph_for(name)))
-            .child(name_label(name, GREEN, &path));
+            .child(glyph_element(theme, glyph_for(name)))
+            .child(name_label(name, theme.success, &path));
         if !local {
             return row.child(
                 div()
                     .font_family("Menlo")
                     .text_size(px(10.0))
-                    .text_color(rgba(GREEN))
+                    .text_color(rgba(theme.success))
                     .child(change_status(change.status)),
             );
         }
@@ -426,10 +433,18 @@ impl MultisoulApp {
             .justify_center()
             .rounded(px(4.0))
             .border_1()
-            .border_color(rgba(if disabled { GUTTER } else { GREEN }))
+            .border_color(rgba(if disabled {
+                theme.text_tertiary
+            } else {
+                theme.success
+            }))
             .text_size(px(11.0))
             .line_height(px(11.0))
-            .text_color(rgba(if disabled { GUTTER } else { GREEN }))
+            .text_color(rgba(if disabled {
+                theme.text_tertiary
+            } else {
+                theme.success
+            }))
             .child(if staged { "−" } else { "+" });
         if !disabled {
             plus = plus
@@ -438,7 +453,7 @@ impl MultisoulApp {
                 .tooltip(tooltip_view(tip))
                 .hover(|s| s.bg(rgba(0x4cd37a33)))
                 .active(|s| s.bg(rgba(0x4cd37a55)))
-                .focus(|s| s.border_color(rgba(FOCUS)))
+                .focus(|s| s.border_color(rgba(theme.focused_stroke)))
                 .on_click(cx.listener(move |app, _, _, cx| {
                     cx.stop_propagation();
                     stage(app, &stage_path, cx);

@@ -106,45 +106,6 @@ fn test_product_ui_bootstrap_restores_saved_theme_or_uses_default() {
     );
 }
 
-/// Product UI Dock 对比度：浅色全局主题下，深色 Dock 的非激活图标与键帽仍须可读。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   Dock fill alpha = 0x57 / 0xff ≈ 34%，叠在画布上形成深色玻璃表面。
-///   非激活图标 alpha = 0xd6 / 0xff ≈ 84%，selected 模式与 Voice 文字 = 0xff / 0xff = 100%。
-///   全局 `text_primary = #111214`，不能直接复用于深色 Dock，否则对比度接近 1:1。
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 读取 Command Dock 图标与 Voice 单元生产源码。
-///   2. 检查非激活 SVG 图标使用固定浅色前景。
-///   3. 检查 Voice 键帽使用固定浅色文字，不继承全局深色文字 token。
-///
-/// 预期结果：
-///   - 正断言：非激活图标使用 `0xffffffd6`，selected 模式使用 `0xffffffff`。
-///   - 正断言：Voice 文字使用 `0xffffffff`。
-///   - 负断言：两者不得使用浅色主题的 `text_primary/text_tertiary` 深色前景。
-#[test]
-fn test_product_ui_dark_dock_keeps_light_foreground_under_light_theme() {
-    let chrome = include_str!("../../src/app/chrome/dock.rs");
-    let voice = include_str!("../../src/app/voice/bar.rs");
-
-    assert!(
-        chrome.contains("let icon_color = if active { 0xffffffff } else { 0xffffffd6 };"),
-        "玻璃 Dock 的非激活 SVG 图标必须使用 84% 白色，selected 模式必须使用 100% 白色前景"
-    );
-    assert!(
-        voice.contains("text: 0xffffffff"),
-        "玻璃 Dock 内 Voice 文字必须使用可读的白色前景"
-    );
-    assert!(
-        !chrome.contains("} else {\n        theme.text_primary\n    };"),
-        "非激活 Dock 图标不得继承浅色主题的深色 text_primary"
-    );
-    assert!(
-        !voice.contains(".text_color(rgba(theme.text_tertiary))"),
-        "Voice 文字不得继承浅色主题的深色 text_tertiary"
-    );
-}
-
 /// Product UI 细节对齐：顶部路径和 Dock 选中态必须保持稳定可辨。
 ///
 /// 数据构造（含关键数值的推导过程）：

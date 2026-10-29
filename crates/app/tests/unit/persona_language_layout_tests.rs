@@ -5,7 +5,7 @@ use gpui::{prelude::*, px, size, TestAppContext};
 ///
 /// 数据构造：窗口宽 780px，等于人格页最大宽度；三张卡片扣除两处 12px 间隔，平均 252px。
 ///   Warm 英文说明比中文长，一行宽度超过卡片内可用宽度；说明行高为 20px。
-/// 执行过程：安装英文和浅色组件主题 → 建立独立 PersonaView → 绘制 → 读取说明与卡片边界。
+/// 执行过程：安装英文和墨黑组件主题 → 建立独立 PersonaView → 绘制 → 读取说明与卡片边界。
 /// 预期结果：说明为两到三行（40–60px），宽度至少 160px；不能逐字竖排或超出自身及相邻卡片。
 #[test]
 fn english_persona_descriptions_wrap_inside_cards() {
@@ -13,23 +13,12 @@ fn english_persona_descriptions_wrap_inside_cards() {
     let temp = tempfile::tempdir().expect("应有隔离人格存储");
     test.update(|cx| {
         ui::i18n::set_app_locale(ui::i18n::Locale::En, cx);
-        ui::sync_component_theme(
-            ui::ThemeId::ALL
-                .into_iter()
-                .find(|id| !id.is_dark())
-                .expect("应有浅色主题"),
-            cx,
-        );
+        ui::sync_component_theme(ui::ThemeId::InkBlack, cx);
     });
     let (_, cx) = test.add_window_view(|window, cx| {
         let view = cx.new(|cx| {
             PersonaView::new(
-                ui::Theme::for_id(
-                    ui::ThemeId::ALL
-                        .into_iter()
-                        .find(|id| !id.is_dark())
-                        .unwrap(),
-                ),
+                ui::Theme::for_id(ui::ThemeId::InkBlack),
                 SettingsStore::new(temp.path().join("settings.sqlite")),
                 window,
                 cx,

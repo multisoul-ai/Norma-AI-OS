@@ -1,4 +1,4 @@
-use super::{glass_button_variant, GLASS_TEXT};
+use super::glass_button_variant;
 use crate::app::{AppScreen, MultisoulApp};
 use gpui::{div, prelude::*, px, rgba, Context, Div, Focusable, Stateful, Window};
 use ui::component::button::{Button, ButtonVariants};
@@ -173,7 +173,7 @@ impl MultisoulApp {
                         .border_1()
                         .border_color(rgba(theme.dock_line))
                         .bg(rgba(self.desktop_input_fill()))
-                        .text_color(rgba(GLASS_TEXT))
+                        .text_color(rgba(theme.text_primary))
                         .child(Input::new(&input).appearance(false).cleanable(true)),
                 )
             })

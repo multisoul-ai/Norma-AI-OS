@@ -1,5 +1,6 @@
 use super::operation::non_blank_task;
 use crate::protocol::{BrainDecision, BrainOp, CardCommand, ContextRef, ReportPriority};
+use crate::protocol::{QuestionAnswer, QuestionRef};
 use clap::{Args, Subcommand, ValueEnum};
 
 #[derive(Debug, Args)]
@@ -13,6 +14,24 @@ pub(super) struct BrainArgs {
 
 #[derive(Debug, Subcommand)]
 enum BrainCliCommand {
+    /// 列出当前项目的待答问题。
+    Questions,
+    /// 提出答案建议；用户采用后才提交。
+    ProposeAnswer {
+        #[arg(long, value_parser = parse_question_ref)]
+        target: QuestionRef,
+        #[arg(long, value_parser = parse_answers)]
+        answers_json: ParsedAnswers,
+        #[arg(long, value_parser = non_blank_task)]
+        reason: String,
+    },
+    /// 回答当前问题；仍需宿主对本题、本答案的有效授权。
+    Answer {
+        #[arg(long, value_parser = parse_question_ref)]
+        target: QuestionRef,
+        #[arg(long, value_parser = parse_answers)]
+        answers_json: ParsedAnswers,
+    },
     /// 按宿主提供的 JSON 引用补读共享上下文，不执行动作。
     Context {
         #[arg(long = "ref", value_parser = parse_context_ref)]
@@ -87,6 +106,23 @@ enum DecisionValue {
 impl BrainArgs {
     pub(super) fn into_command(self) -> CardCommand {
         let op = match self.command {
+            BrainCliCommand::Questions => BrainOp::Questions,
+            BrainCliCommand::ProposeAnswer {
+                target,
+                answers_json,
+                reason,
+            } => BrainOp::ProposeAnswer {
+                target,
+                answers: answers_json.0,
+                reason,
+            },
+            BrainCliCommand::Answer {
+                target,
+                answers_json,
+            } => BrainOp::Answer {
+                target,
+                answers: answers_json.0,
+            },
             BrainCliCommand::Context { reference } => BrainOp::Context { reference },
             BrainCliCommand::Report {
                 text,
@@ -149,4 +185,20 @@ fn parse_context_ref(value: &str) -> Result<ContextRef, String> {
         return Err("上下文引用缺少有效身份或版本".into());
     }
     Ok(reference)
+}
+
+fn parse_question_ref(value: &str) -> Result<QuestionRef, String> {
+    let target: QuestionRef =
+        serde_json::from_str(value).map_err(|_| "无效的问题引用 JSON".to_owned())?;
+    target.validate().map_err(str::to_owned)?;
+    Ok(target)
+}
+
+#[derive(Clone, Debug)]
+struct ParsedAnswers(Vec<QuestionAnswer>);
+
+fn parse_answers(value: &str) -> Result<ParsedAnswers, String> {
+    serde_json::from_str(value)
+        .map(ParsedAnswers)
+        .map_err(|_| "无效的答案 JSON".to_owned())
 }

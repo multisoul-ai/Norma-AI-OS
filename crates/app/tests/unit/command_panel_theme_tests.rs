@@ -32,16 +32,10 @@ fn contrast_over_dock(foreground: u32, dock: u32) -> f32 {
     (a.max(b) + 0.05) / (a.min(b) + 0.05)
 }
 
-/// 场景：浅色主题下快捷指令面板的标题、指令名与说明文字必须在深色 Dock 底上可读。
-///
-/// 数据构造：遍历 ThemeId::ALL；Dock 底色取 theme.dock，并按最不利的白色壁纸合成
-///   （Paper Blue：0x313d44cc，alpha 0xcc/255 = 0.8 → 底色约 0x535e63）。
-/// 执行过程：取 command_panel_theme(theme) 的 text_primary / text_secondary，
-///   分别与合成后的 Dock 底色计算 WCAG 对比度。
-///
-/// 预期结果：
-///   - 主文字对比度 ≥ 4.5：浅色主题下不能再用深色字叠深色 Dock，否则文字不可见。
-///   - 次要文字（说明、补全）对比度 ≥ 4.5：小字号同样必须可读。
+/// 场景：指令候选标题和说明在六主题 Dock 上均需可读。
+/// 数据构造：遍历六主题，将 Dock 与白壁纸合成；正文和说明需达到 4.5:1。
+/// 执行过程：调用生产 command_panel_theme，计算真实 token 的 WCAG 对比。
+/// 预期结果：浅色使用深字，深色使用浅字，说明不因透明度而丢失。
 #[test]
 fn command_panel_text_is_readable_on_dock_in_every_theme() {
     for id in ThemeId::ALL {

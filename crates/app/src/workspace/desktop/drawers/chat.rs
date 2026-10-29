@@ -1,6 +1,6 @@
 //! The left drawer: chat and run overview share one composer.
 
-use super::{glass_button_variant, BOTTOM, GLASS_TEXT, GLASS_TEXT_SECONDARY, TOP};
+use super::{glass_button_variant, BOTTOM, TOP};
 use crate::app::MultisoulApp;
 use gpui::{
     div, point, prelude::*, px, rgba, svg, BoxShadow, Context, Div, MouseButton, Stateful, Window,
@@ -38,7 +38,7 @@ impl MultisoulApp {
         let send_button = div()
             .id("desktop-assistant-send")
             .tab_index(0)
-            .focus(|style| style.border_color(rgba(0x83c4ffcc)))
+            .focus(|style| style.border_color(rgba(ui::icons::with_alpha(theme.accent, 0xcc))))
             .debug_selector(|| "desktop-assistant-send".to_string())
             .w(px(32.0))
             .h(px(32.0))
@@ -48,14 +48,14 @@ impl MultisoulApp {
             .justify_center()
             .rounded(px(9.0))
             .border_1()
-            .border_color(rgba(0xa6d2e916))
-            .bg(rgba(0xa6d2e91a))
-            .text_color(rgba(0xbbe3f4ff))
+            .border_color(rgba(ui::icons::with_alpha(theme.accent, 0x16)))
+            .bg(rgba(ui::icons::with_alpha(theme.accent, 0x1a)))
+            .text_color(rgba(theme.text_secondary))
             .when(has_draft, |button| {
                 button
                     .cursor_pointer()
-                    .hover(|style| style.bg(rgba(0xa6d2e933)))
-                    .active(|style| style.bg(rgba(0xa6d2e94d)))
+                    .hover(|style| style.bg(rgba(ui::icons::with_alpha(theme.accent, 0x33))))
+                    .active(|style| style.bg(rgba(ui::icons::with_alpha(theme.accent, 0x4d))))
                     .on_click(cx.listener(|app, _, window, cx| {
                         cx.stop_propagation();
                         app.submit_desktop_assistant_chat(window, cx);
@@ -68,7 +68,7 @@ impl MultisoulApp {
                     .w(px(15.0))
                     .h(px(15.0))
                     .flex_none()
-                    .text_color(rgba(0xbbe3f4ff)),
+                    .text_color(rgba(theme.text_secondary)),
             );
         div()
             .id("desktop-assistant-left")
@@ -86,12 +86,15 @@ impl MultisoulApp {
             .border_r_1()
             .border_color(rgba(with_alpha(theme.edge_highlight, 0x55)))
             .shadow(vec![BoxShadow {
-                color: rgba(0x00000070).into(),
+                color: rgba(crate::workspace::desktop::surface_theme::shadow_color(
+                    theme, 0x70,
+                ))
+                .into(),
                 offset: point(px(8.0), px(0.0)),
                 blur_radius: px(40.0),
                 spread_radius: px(0.0),
             }])
-            .text_color(rgba(GLASS_TEXT))
+            .text_color(rgba(theme.text_primary))
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .child(frost)
             .child(
@@ -116,7 +119,7 @@ impl MultisoulApp {
                             .child(
                                 svg()
                                     .path("icons/panel-left-close.svg")
-                                    .text_color(rgba(GLASS_TEXT))
+                                    .text_color(rgba(theme.text_primary))
                                     .w(px(17.0))
                                     .h(px(17.0)),
                             )
@@ -161,10 +164,10 @@ impl MultisoulApp {
                         .gap(px(8.0))
                         .rounded(px(26.0))
                         .border_1()
-                        .border_color(rgba(0xb7d4ee1f))
-                        .bg(rgba(0x151e28d0))
+                        .border_color(rgba(ui::icons::with_alpha(theme.text_primary, 0x1f)))
+                        .bg(rgba(theme.panel_high))
                         .text_size(px(12.0))
-                        .text_color(rgba(GLASS_TEXT_SECONDARY))
+                        .text_color(rgba(theme.text_secondary))
                         .on_mouse_down(
                             MouseButton::Left,
                             cx.listener(|app, _, _, cx| {
@@ -185,7 +188,12 @@ impl MultisoulApp {
                                 .tab_index(0)
                                 .border_1()
                                 .border_color(rgba(0x00000000))
-                                .focus(|style| style.border_color(rgba(0x83c4ffcc)))
+                                .focus(|style| {
+                                    style.border_color(rgba(ui::icons::with_alpha(
+                                        theme.accent,
+                                        0xcc,
+                                    )))
+                                })
                                 .debug_selector(|| "desktop-assistant-voice".to_string())
                                 .w(px(34.0))
                                 .h(px(34.0))
@@ -195,8 +203,12 @@ impl MultisoulApp {
                                 .justify_center()
                                 .rounded(px(9.0))
                                 .cursor_pointer()
-                                .hover(|style| style.bg(rgba(0x8dd5ed13)))
-                                .active(|style| style.bg(rgba(0x8dd5ed26)))
+                                .hover(|style| {
+                                    style.bg(rgba(ui::icons::with_alpha(theme.accent, 0x13)))
+                                })
+                                .active(|style| {
+                                    style.bg(rgba(ui::icons::with_alpha(theme.accent, 0x26)))
+                                })
                                 .tooltip({
                                     let label = ui::i18n::format(
                                         "drawers.voice_chat",
@@ -218,7 +230,7 @@ impl MultisoulApp {
                                         .path("icons/microphone.svg")
                                         .w(px(17.0))
                                         .h(px(17.0))
-                                        .text_color(rgba(0x9ec3d5ff)),
+                                        .text_color(rgba(theme.text_secondary)),
                                 ),
                         )
                         .child(send_button),

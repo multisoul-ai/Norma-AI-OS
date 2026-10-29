@@ -153,6 +153,7 @@ pub(super) fn ego_stop_agent(
             AgentTaskState::Thinking
                 | AgentTaskState::RunningTool { .. }
                 | AgentTaskState::WaitingApproval { .. }
+                | AgentTaskState::WaitingQuestion
         )
     ))
     .then_some(bound)
@@ -173,6 +174,7 @@ pub(super) fn live_agents(project: &MultisoulApp) -> Vec<DesktopAgentStatus> {
                     Some(AgentTaskState::Thinking) => "thinking",
                     Some(AgentTaskState::RunningTool { .. }) => "running_tool",
                     Some(AgentTaskState::WaitingApproval { .. }) => "waiting_approval",
+                    Some(AgentTaskState::WaitingQuestion) => "waiting_question",
                     Some(AgentTaskState::Done) => "done",
                     Some(AgentTaskState::Failed { .. }) => "failed",
                     Some(AgentTaskState::Ended) => "ended",

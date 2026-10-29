@@ -282,6 +282,9 @@ impl MultisoulApp {
                             runtime::AgentTaskState::Thinking
                             | runtime::AgentTaskState::RunningTool { .. },
                         ) => (ui::i18n::text("drawers.running"), true),
+                        Some(runtime::AgentTaskState::WaitingQuestion) => {
+                            (ui::i18n::text("drawers.waiting_answer"), false)
+                        }
                         Some(runtime::AgentTaskState::WaitingApproval { .. }) => {
                             (ui::i18n::text("drawers.waiting_approval"), false)
                         }

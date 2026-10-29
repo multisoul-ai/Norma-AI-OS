@@ -1,14 +1,12 @@
 use super::{
     glass_button_variant,
     preview_canvas::{project_canvas_rect, project_chrome_scale, project_stage_rect, project_tone},
-    GLASS_TEXT,
 };
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div, Stateful, Window};
 use storage::DesktopProjectArea;
 use ui::component::button::{Button, ButtonVariants};
 use ui::component::{Disableable, StyledExt};
-use ui::icons::with_alpha;
 
 fn project_area_open_target(
     area_index: usize,
@@ -120,7 +118,7 @@ impl MultisoulApp {
             .rounded(px(14.0 * chrome))
             .border_1()
             .border_color(rgba(theme.dock_line))
-            .bg(rgba(with_alpha(theme.dock, 0x8c)))
+            .bg(rgba(theme.panel))
             .opacity(shell_opacity)
             .child(
                 div()
@@ -130,7 +128,7 @@ impl MultisoulApp {
                     .flex()
                     .items_center()
                     .gap(px(7.0 * chrome))
-                    .text_color(rgba(GLASS_TEXT))
+                    .text_color(rgba(theme.text_primary))
                     .child(
                         div()
                             .size(px(6.0 * chrome))

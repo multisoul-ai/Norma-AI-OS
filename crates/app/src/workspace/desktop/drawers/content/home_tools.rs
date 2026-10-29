@@ -3,7 +3,6 @@
 //! 参考原型 `.nt-tool` / `.nt-rec`：40px 磁贴、左对齐图标 + 名称 + 快捷键，按下即时变色。
 //! 尚未实现的能力保持同样外观，点击只给出就地提示，不打开标签也不改变布局。
 
-use super::{GLASS_TEXT, GLASS_TEXT_SECONDARY};
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, svg, Context, Div, ElementId, KeyDownEvent, Stateful};
 use ui::icons::with_alpha;
@@ -145,7 +144,7 @@ impl MultisoulApp {
             .border_1()
             .border_color(rgba(0x00000000))
             .text_size(px(12.0))
-            .text_color(rgba(GLASS_TEXT))
+            .text_color(rgba(theme.text_primary))
             .cursor_pointer()
             .tab_index(0)
             .hover(move |style| style.bg(rgba(hover)))
@@ -166,7 +165,7 @@ impl MultisoulApp {
                     .w(px(15.0))
                     .h(px(15.0))
                     .flex_none()
-                    .text_color(rgba(GLASS_TEXT_SECONDARY)),
+                    .text_color(rgba(theme.text_secondary)),
             )
             .child(
                 div()
@@ -187,7 +186,7 @@ impl MultisoulApp {
                     .bg(rgba(with_alpha(theme.edge_highlight, 0x18)))
                     .font_family("Menlo")
                     .text_size(px(10.0))
-                    .text_color(rgba(GLASS_TEXT_SECONDARY))
+                    .text_color(rgba(theme.text_secondary))
                     .child(label),
             );
         }
@@ -227,7 +226,7 @@ impl MultisoulApp {
                     .border_1()
                     .border_color(rgba(0x00000000))
                     .text_size(px(11.0))
-                    .text_color(rgba(GLASS_TEXT_SECONDARY))
+                    .text_color(rgba(theme.text_secondary))
                     .cursor_pointer()
                     .tab_index(0)
                     .hover(move |style| style.bg(rgba(hover)))
@@ -251,7 +250,7 @@ impl MultisoulApp {
                                     .path(icon)
                                     .w(px(19.0))
                                     .h(px(19.0))
-                                    .text_color(rgba(GLASS_TEXT)),
+                                    .text_color(rgba(theme.text_primary)),
                             ),
                     )
                     .child(

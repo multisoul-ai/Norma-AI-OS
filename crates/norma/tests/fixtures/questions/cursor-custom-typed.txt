@@ -1,0 +1,42 @@
+                                                                                                                        
+                                                                                                                        
+  Cursor Agent                                                                                                          
+  v2026.10.18-ea085cb                                                                                                   
+  Tip: Use /skills to give Cursor specialized knowledge for tasks.                                                      
+                                                                                                                        
+                                                                                                                        
+  This is a bounded native terminal question integration test. Use AskQuestion exactly once, with these 3               
+  questions: q_single asks Color? with option IDs blue label Blue and green label Green, allow_multiple false;          
+  q_multi asks Platforms? with option IDs mac label macOS, ios label iOS, linux label Linux, allow_multiple true        
+  (use the exact snake_case tool argument allow_multiple: true, never allowMultiple); q_custom asks Custom              
+  marker? with option IDs one label One and two label Two, allow_multiple false. Wait for my selections in the          
+  actual question UI. Do not inspect files or call any other tools. After receiving all answers, reply exactly          
+  ANSWERS_RECEIVED followed by the literal answer values, including any freeform text. Do not ask for                   
+  confirmation or create a plan.                                                                                        
+                                                                                                                        
+                                                                                                                        
+  I'll ask those three questions in one form and wait for your selections.                                              
+                                                                                                                        
+ ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐ 
+ │ Clarifying Questions                                                                                               │ 
+ │                                                                                                                    │ 
+ │ Question 3 of 3                                                                                                    │ 
+ │                                                                                                                    │ 
+ │ 3. Custom marker?                                                                                                  │ 
+ │                                                                                                                    │ 
+ │     [ ] One                                                                                                        │ 
+ │     [ ] Two                                                                                                        │ 
+ │   › [x] Other:  NATIVE_ONLY_7F2                                                                                    │ 
+ │                                                                                                                    │ 
+ │ ↑/↓ option · ←/→ question · Space select · Enter next/submit · Esc to skip                                         │ 
+ └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘ 
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        

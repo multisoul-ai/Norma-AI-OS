@@ -22,6 +22,8 @@ enum Command {
         source: HookSource,
         #[arg(long)]
         request_approval: bool,
+        #[arg(long, conflicts_with = "request_approval")]
+        request_question: bool,
     },
     Install {
         #[arg(long, value_parser = parse_target_arg)]
@@ -37,8 +39,9 @@ pub fn main() -> anyhow::Result<()> {
         Command::Forward {
             source,
             request_approval,
+            request_question,
         } => {
-            let _ = forward_from_stdin(source, request_approval);
+            let _ = forward_from_stdin(source, request_approval, request_question);
             Ok(())
         }
         Command::Install {
@@ -56,7 +59,11 @@ pub fn main() -> anyhow::Result<()> {
     }
 }
 
-fn forward_from_stdin(source: HookSource, request_approval: bool) -> super::HookForwardOutcome {
+fn forward_from_stdin(
+    source: HookSource,
+    request_approval: bool,
+    request_question: bool,
+) -> super::HookForwardOutcome {
     let mut input = String::new();
     if std::io::stdin()
         .take(1_048_577)
@@ -75,18 +82,23 @@ fn forward_from_stdin(source: HookSource, request_approval: bool) -> super::Hook
             object.insert("_norma_control_run_id".into(), Value::String(run_id));
         }
     }
-    if request_approval {
+    if request_approval || request_question {
         let Some(env) = hook_forward_env_from_process() else {
             return super::HookForwardOutcome::Noop;
         };
         let Ok(run_id) = std::env::var(super::ENV_CONTROL_RUN_ID) else {
             return super::HookForwardOutcome::Noop;
         };
-        match super::forward_permission(source, raw_json, env, run_id) {
+        let result = if request_question {
+            super::forward_question(source, raw_json, env, run_id)
+        } else {
+            super::forward_permission(source, raw_json, env, run_id)
+        };
+        match result {
             Ok(Some(output)) => println!("{output}"),
             Ok(None) => {}
             Err(error) => {
-                eprintln!("multisoul-agent-hook: permission bridge unavailable: {error}");
+                eprintln!("multisoul-agent-hook: interaction bridge unavailable: {error}");
                 return super::HookForwardOutcome::FailedButIgnored;
             }
         }

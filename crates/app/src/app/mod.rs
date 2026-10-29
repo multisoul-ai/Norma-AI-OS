@@ -50,8 +50,10 @@ mod brain_host;
 #[path = "../../tests/support/doubao_adapter.rs"]
 pub(crate) mod doubao_adapter_fixture;
 pub(crate) use brain_host::adapter_package as brain_adapter_package;
+pub(crate) use brain_host::proposals::ProposalFeedback;
 pub(crate) use brain_host::{
-    BrainSettings, BrainSettingsView, ModelList, OverviewProposal, SlowReminder, SummaryEvery,
+    BrainSettings, BrainSettingsView, ModelList, OverviewProposal, OverviewQuestion, SlowReminder,
+    SummaryEvery,
 };
 mod memory;
 pub(crate) mod native_input;
@@ -276,6 +278,7 @@ pub struct MultisoulApp {
     pub(crate) desktop_host: Option<gpui::WeakEntity<MultisoulApp>>,
     pub(crate) desktop_switcher_subscription: Option<gpui::Subscription>,
     pub(crate) desktop_ideas_input_subscription: Option<gpui::Subscription>,
+    pub(crate) desktop_question_editor: Option<crate::workspace::desktop::QuestionEditor>,
     pub(crate) background_restore: Option<crate::workspace::flow::PendingLiveSessionRestore>,
     pub(crate) desktop_overview_scroll: HashMap<String, gpui::ScrollHandle>,
     /// 想法栏的滚动位置（ScrollHandle 非 Send，不能放进跨线程的桌面状态）；新增想法时滚到末尾。

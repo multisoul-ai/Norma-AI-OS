@@ -272,6 +272,7 @@ impl MultisoulApp {
         interactive: bool,
         cx: &mut Context<Self>,
     ) -> Div {
+        let theme = self.desktop_theme();
         div()
             .h(px(500.0 * scale))
             .flex()
@@ -283,13 +284,13 @@ impl MultisoulApp {
                 div()
                     .text_size(px(24.0 * scale))
                     .font_semibold()
-                    .text_color(rgba(super::GLASS_TEXT))
+                    .text_color(rgba(theme.text_primary))
                     .child(ui::i18n::text("workspace.a_canvas_for_your_projects")),
             )
             .child(
                 div()
                     .text_size(px(13.0 * scale))
-                    .text_color(rgba(super::GLASS_TEXT_SECONDARY))
+                    .text_color(rgba(theme.text_secondary))
                     .child(ui::i18n::text(
                         "workspace.add_a_project_area_to_start_working_with_its_agents",
                     )),

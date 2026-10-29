@@ -13,17 +13,6 @@ use std::rc::Rc;
 use storage::DesktopContentTab;
 use ui::component::input::Input;
 
-pub(super) const PANEL: u32 = 0x101114ff;
-pub(super) const PATH_BAR: u32 = 0x15171bff;
-pub(super) const TEXT: u32 = 0xe8f1ecff;
-pub(super) const TEXT_SECONDARY: u32 = 0xcdd5e0ff;
-pub(super) const TEXT_MUTED: u32 = 0x8e99a8ff;
-pub(super) const GUTTER: u32 = 0x6f7b8bff;
-pub(super) const LINE: u32 = 0xffffff14;
-const JUMP_LINE: u32 = 0x8db9ec2e;
-pub(super) const GREEN: u32 = 0x4cd37aff;
-pub(super) const RED: u32 = 0xff6b6bff;
-pub(super) const FOCUS: u32 = 0x8db9ecaa;
 pub(super) const LINE_HEIGHT: f32 = 22.8;
 const PATH_BAR_HEIGHT: f32 = 36.0;
 
@@ -58,6 +47,7 @@ impl MultisoulApp {
         compact: bool,
         cx: &mut Context<Self>,
     ) -> Div {
+        let theme = self.desktop_theme();
         let s = &self.desktop_workspace.workbench;
         let body = if s.diff.is_some() {
             self.render_workbench_diff(cx)
@@ -71,13 +61,14 @@ impl MultisoulApp {
             .flex()
             .flex_col()
             .min_w(px(0.0))
-            .bg(rgba(PANEL))
-            .text_color(rgba(TEXT_SECONDARY))
+            .bg(rgba(theme.canvas_from))
+            .text_color(rgba(theme.text_secondary))
             .child(self.render_workbench_path_bar(compact, cx))
             .child(body)
     }
 
     fn render_workbench_path_bar(&self, compact: bool, cx: &mut Context<Self>) -> Stateful<Div> {
+        let theme = self.desktop_theme();
         let s = &self.desktop_workspace.workbench;
         let key = s.draft_key();
         let draft = key.as_ref().and_then(|key| s.drafts.get(key));
@@ -92,9 +83,9 @@ impl MultisoulApp {
             .items_center()
             .gap(px(2.0))
             .px(px(10.0))
-            .bg(rgba(PATH_BAR))
+            .bg(rgba(theme.panel_high))
             .border_b_1()
-            .border_color(rgba(LINE));
+            .border_color(rgba(theme.node_stroke));
         if compact {
             bar = bar.child(self.tool_button(
                 "files-toggle-tree",
@@ -219,6 +210,7 @@ impl MultisoulApp {
         action: Action,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
+        let theme = self.desktop_theme();
         let key_action = action.clone();
         let base = div()
             .id(id)
@@ -235,14 +227,17 @@ impl MultisoulApp {
             .text_size(px(13.0))
             .tooltip(tooltip_view(tip));
         if disabled {
-            return base.text_color(rgba(GUTTER)).child(glyph);
+            return base.text_color(rgba(theme.text_tertiary)).child(glyph);
         }
-        base.text_color(rgba(TEXT_SECONDARY))
+        base.text_color(rgba(theme.text_secondary))
             .cursor_pointer()
             .tab_index(0)
-            .hover(|s| s.bg(rgba(0xffffff14)).text_color(rgba(TEXT)))
-            .active(|s| s.bg(rgba(0xffffff22)))
-            .focus(|s| s.border_color(rgba(FOCUS)))
+            .hover(|s| {
+                s.bg(rgba(ui::icons::with_alpha(theme.text_primary, 0x14)))
+                    .text_color(rgba(theme.text_primary))
+            })
+            .active(|s| s.bg(rgba(ui::icons::with_alpha(theme.text_primary, 0x22))))
+            .focus(|s| s.border_color(rgba(theme.focused_stroke)))
             .on_click(cx.listener(move |app, _, w, cx| action(app, w, cx)))
             .on_key_down(cx.listener(move |app, event: &KeyDownEvent, w, cx| {
                 if activates(event) {
@@ -258,6 +253,7 @@ impl MultisoulApp {
         tab: &DesktopContentTab,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let theme = self.desktop_theme();
         let s = &self.desktop_workspace.workbench;
         let key = s.draft_key();
         let draft = key.as_ref().and_then(|key| s.drafts.get(key));
@@ -298,12 +294,17 @@ impl MultisoulApp {
             .justify_center()
             .gap(px(8.0))
             .text_size(px(12.0))
-            .text_color(rgba(if s.error.is_some() { RED } else { TEXT_MUTED }))
+            .text_color(rgba(if s.error.is_some() {
+                theme.destructive
+            } else {
+                theme.text_tertiary
+            }))
             .child(message)
             .into_any_element()
     }
 
     fn render_text_lines(&self, cx: &mut Context<Self>) -> AnyElement {
+        let theme = self.desktop_theme();
         let s = &self.desktop_workspace.workbench;
         if let Some(file) = &s.file {
             let mut cache = s.text_index.borrow_mut();
@@ -329,8 +330,15 @@ impl MultisoulApp {
                 range
                     .map(|index| {
                         let line = cache.as_ref().map_or("", |c| c.line(text, index));
-                        let bg = (s.jump_line == Some(index)).then_some(JUMP_LINE);
-                        numbered_line(index + 1, GUTTER, display_line(line), TEXT, bg)
+                        let bg = (s.jump_line == Some(index))
+                            .then_some(ui::icons::with_alpha(theme.accent, 0x2e));
+                        numbered_line(
+                            index + 1,
+                            theme.text_tertiary,
+                            display_line(line),
+                            theme.text_primary,
+                            bg,
+                        )
                     })
                     .collect::<Vec<_>>()
             }),

@@ -359,7 +359,7 @@ fn overview_keyboard_moves_between_rows_and_enter_activates() {
 
 /// 场景：浅色和深色主题的行反馈都能和底色区分开。
 ///
-/// 数据构造：Paper Blue 的强调蓝是 0x2F80ED，Sapphire Night 的强调蓝是 0x54A2FF。
+/// 数据构造：Paper Blue 的强调蓝是 0x2563EB，Sapphire Night 的强调蓝是 0x54A2FF。
 ///   悬停透明度 0x2E，按下透明度 0x55。焦点用主题的 focused_stroke，不与悬停填充相同。
 /// 执行过程：取两种主题的反馈色，并把悬停色以透明度叠到面板高亮色上。
 /// 预期结果：悬停、按下、焦点三者互不相同；叠色后的结果和面板本身的距离大于 20。
@@ -367,8 +367,8 @@ fn overview_keyboard_moves_between_rows_and_enter_activates() {
 fn overview_row_feedback_is_distinct_in_light_and_dark_themes() {
     let paper = overview_feedback(Theme::paper_blue());
     assert_eq!(paper.rest, 0x0000_0000, "静息不铺底色");
-    assert_eq!(paper.hover, 0x2f80_ed2e, "浅色悬停是 0x2F80ED 的 0x2E");
-    assert_eq!(paper.pressed, 0x2f80_ed55, "浅色按下比悬停更深");
+    assert_eq!(paper.hover, 0x2563_eb2e, "浅色悬停是 0x2563EB 的 0x2E");
+    assert_eq!(paper.pressed, 0x2563_eb55, "浅色按下比悬停更深");
     assert_eq!(
         paper.focus,
         Theme::paper_blue().focused_stroke,

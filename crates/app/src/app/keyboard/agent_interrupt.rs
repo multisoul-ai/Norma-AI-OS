@@ -30,6 +30,7 @@ pub(super) fn end_active_agent_task_for_manual_interrupt(
             AgentTaskState::Thinking
                 | AgentTaskState::RunningTool { .. }
                 | AgentTaskState::WaitingApproval { .. }
+                | AgentTaskState::WaitingQuestion
         )
     ) {
         return;
@@ -59,6 +60,7 @@ impl MultisoulApp {
                 AgentTaskState::Thinking
                     | AgentTaskState::RunningTool { .. }
                     | AgentTaskState::WaitingApproval { .. }
+                    | AgentTaskState::WaitingQuestion
             )
         ) {
             return Err("Agent 任务已结束".into());

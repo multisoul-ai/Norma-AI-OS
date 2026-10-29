@@ -4,7 +4,7 @@
 //! 悬停与按下立即换色，不加弹簧或装饰动效。内容是跨项目汇总（运行中 / 待开始 / 待处理），
 //! 与抽屉统计同一份投影；左右抽屉把画布挤窄时只留环、数字和角标，状态词进入悬停提示和读屏文字。拒绝另做一条画布顶栏。悬浮图钉属于后续工单，这里不画。
 
-use super::{glass_button_variant, GLASS_TEXT};
+use super::glass_button_variant;
 use crate::app::MultisoulApp;
 use gpui::{
     canvas, div, point, prelude::*, px, rgba, svg, AnyElement, ClickEvent, Context, PathBuilder,
@@ -18,7 +18,6 @@ use ui::icons::with_alpha;
 
 const AMBER: u32 = 0xf2c773ff;
 const COMPACT_CANVAS_WIDTH: f32 = 680.0;
-const STATUS_WORD: u32 = 0xa9bfd1ff;
 const RING_TRACK: u32 = 0xcde8ff2e;
 
 #[derive(Clone, Copy)]
@@ -33,9 +32,9 @@ pub(super) struct CapsuleChrome {
 
 pub(super) fn capsule_chrome(theme: ui::Theme) -> CapsuleChrome {
     CapsuleChrome {
-        rest: with_alpha(theme.dock, 0xa0),
-        hover: with_alpha(theme.accent_blue, 0x78),
-        active: with_alpha(theme.accent_blue, 0x9c),
+        rest: theme.panel,
+        hover: theme.panel_high,
+        active: theme.node_fill,
         focus: theme.focused_stroke,
         ring: theme.accent_cyan,
         amber: AMBER,
@@ -89,6 +88,7 @@ impl MultisoulApp {
                                         .child(spoken),
                                 )
                                 .child(count_chip(
+                                    theme,
                                     summary.running,
                                     ui::i18n::text("drawers.running"),
                                     Some(1.0),
@@ -96,6 +96,7 @@ impl MultisoulApp {
                                     compact,
                                 ))
                                 .child(count_chip(
+                                    theme,
                                     summary.idle,
                                     ui::i18n::text("drawers.not_started"),
                                     None,
@@ -103,38 +104,38 @@ impl MultisoulApp {
                                     compact,
                                 ))
                                 .when(pending > 0, |row| {
-                                    row.child(div().w(px(1.0)).h(px(14.0)).bg(rgba(0xcde8ff33)))
-                                        .child(
-                                            div()
-                                                .flex()
-                                                .items_center()
-                                                .gap(px(6.0))
-                                                .child(
+                                    row.child(
+                                        div().w(px(1.0)).h(px(14.0)).bg(rgba(theme.node_stroke)),
+                                    )
+                                    .child(
+                                        div()
+                                            .flex()
+                                            .items_center()
+                                            .gap(px(6.0))
+                                            .child(
+                                                div()
+                                                    .min_w(px(18.0))
+                                                    .h(px(18.0))
+                                                    .px(px(5.0))
+                                                    .flex()
+                                                    .items_center()
+                                                    .justify_center()
+                                                    .rounded(px(9.0))
+                                                    .bg(rgba(chrome.amber))
+                                                    .text_size(px(11.0))
+                                                    .font_weight(gpui::FontWeight::BOLD)
+                                                    .text_color(rgba(0x162638ff))
+                                                    .child(pending.to_string()),
+                                            )
+                                            .when(!compact, |badge| {
+                                                badge.child(
                                                     div()
-                                                        .min_w(px(18.0))
-                                                        .h(px(18.0))
-                                                        .px(px(5.0))
-                                                        .flex()
-                                                        .items_center()
-                                                        .justify_center()
-                                                        .rounded(px(9.0))
-                                                        .bg(rgba(chrome.amber))
-                                                        .text_size(px(11.0))
-                                                        .font_weight(gpui::FontWeight::BOLD)
-                                                        .text_color(rgba(0x162638ff))
-                                                        .child(pending.to_string()),
+                                                        .text_size(px(12.0))
+                                                        .text_color(rgba(theme.accent_warm))
+                                                        .child(ui::i18n::text("drawers.pending")),
                                                 )
-                                                .when(!compact, |badge| {
-                                                    badge.child(
-                                                        div()
-                                                            .text_size(px(12.0))
-                                                            .text_color(rgba(0xf6dfaaff))
-                                                            .child(ui::i18n::text(
-                                                                "drawers.pending",
-                                                            )),
-                                                    )
-                                                }),
-                                        )
+                                            }),
+                                    )
                                 }),
                         )
                         .when(drawers.overview_floating, |button| {
@@ -143,7 +144,7 @@ impl MultisoulApp {
                                     .path("icons/pin.svg")
                                     .w(px(12.0))
                                     .h(px(12.0))
-                                    .text_color(rgba(GLASS_TEXT)),
+                                    .text_color(rgba(theme.text_primary)),
                             )
                         })
                         .on_click(cx.listener(|app, event: &ClickEvent, window, cx| {
@@ -262,6 +263,7 @@ impl MultisoulApp {
 
 /// 汇总条的一段：环 + 数量 + 状态词。运行中是满环，待开始是空环；窄画布只留环和数量。
 fn count_chip(
+    theme: ui::Theme,
     count: usize,
     word: &'static str,
     fraction: Option<f32>,
@@ -277,14 +279,14 @@ fn count_chip(
             div()
                 .text_size(px(12.0))
                 .font_weight(gpui::FontWeight::MEDIUM)
-                .text_color(rgba(0xe4f1fdff))
+                .text_color(rgba(theme.text_primary))
                 .child(count.to_string()),
         )
         .when(!compact, |chip| {
             chip.child(
                 div()
                     .text_size(px(12.0))
-                    .text_color(rgba(STATUS_WORD))
+                    .text_color(rgba(theme.text_secondary))
                     .child(word),
             )
         })
@@ -353,13 +355,17 @@ mod tests {
     /// 场景：状态胶囊的静止、悬停、按下和焦点在浅色与深色主题下都要能分开。
     ///
     /// 数据构造：paper_blue 与 sapphire_night 两套主题色。
-    ///   静止取 dock 的 0xa0，悬停取 accent_blue 的 0x78，按下取同一色的 0x9c。
+    ///   静止、悬停、按下分别使用 panel、panel_high、node_fill。
     /// 执行过程：分别计算两套胶囊色，并比较同一主题内的状态色。
     /// 预期结果：同一主题里静止、悬停、按下、焦点互不相同；两套主题的静止色和焦点色也不同。
     #[test]
     fn capsule_chrome_states_differ_in_light_and_dark() {
-        let light = capsule_chrome(ui::Theme::paper_blue());
-        let dark = capsule_chrome(ui::Theme::sapphire_night());
+        let light = capsule_chrome(crate::workspace::desktop::surface_theme::surface_theme(
+            ui::Theme::paper_blue(),
+        ));
+        let dark = capsule_chrome(crate::workspace::desktop::surface_theme::surface_theme(
+            ui::Theme::sapphire_night(),
+        ));
         for chrome in [light, dark] {
             assert_ne!(chrome.rest, chrome.hover, "悬停必须和静止底色不同");
             assert_ne!(chrome.hover, chrome.active, "按下必须比悬停更深");

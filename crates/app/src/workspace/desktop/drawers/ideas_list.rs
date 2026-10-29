@@ -16,12 +16,6 @@ use ui::component::button::{Button, ButtonVariants};
 use ui::component::input::{Input, Paste};
 use ui::component::Sizable;
 
-const COPY_PRIMARY: u32 = 0xeef6ffff;
-const NOTICE: u32 = 0xf6dfaaff;
-const HELPER: u32 = 0x7f98adff;
-const COMPOSER_REST: u32 = 0x83c4ff4d;
-const COMPOSER_FOCUS: u32 = 0x8fd0ffd9;
-
 impl MultisoulApp {
     /// 想法栏的内容区（栏标题与折叠由概览统一绘制）：清单、添加输入、提示与撤销。
     pub(super) fn render_ideas_group_body(&mut self, cx: &mut Context<Self>) -> Stateful<Div> {
@@ -100,6 +94,7 @@ impl MultisoulApp {
                     .when(tab == IdeasTab::Todo, |list| {
                         list.when(screen.todo.is_empty(), |list| {
                             list.child(tab_empty(
+                                theme,
                                 ui::i18n::text("drawers.no_todo"),
                                 ui::i18n::text("drawers.add_idea_hint"),
                             ))
@@ -143,12 +138,14 @@ impl MultisoulApp {
                     .when(tab == IdeasTab::Assigned, |list| {
                         list.when(screen.assigned.is_empty(), |list| {
                             list.child(tab_empty(
+                                theme,
                                 ui::i18n::text("drawers.no_assigned"),
                                 ui::i18n::text("drawers.assign_idea_hint"),
                             ))
                         })
                         .when(!screen.assigned.is_empty(), |list| {
                             list.child(clear_row(
+                                theme,
                                 "desktop-ideas-assigned-clear",
                                 ui::i18n::text("drawers.assigned_ideas"),
                                 feedback,
@@ -168,12 +165,14 @@ impl MultisoulApp {
                     .when(tab == IdeasTab::Done, |list| {
                         list.when(screen.done.is_empty(), |list| {
                             list.child(tab_empty(
+                                theme,
                                 ui::i18n::text("drawers.no_completed"),
                                 ui::i18n::text("drawers.completed_hint"),
                             ))
                         })
                         .when(!screen.done.is_empty(), |list| {
                             list.child(clear_row(
+                                theme,
                                 "desktop-ideas-done-clear",
                                 ui::i18n::text("drawers.done_ideas"),
                                 feedback,
@@ -193,12 +192,15 @@ impl MultisoulApp {
                                     .items_center()
                                     .gap(px(10.0))
                                     .text_size(px(13.0))
-                                    .text_color(rgba(0x8ea8bfff))
+                                    .text_color(rgba(theme.text_tertiary))
                                     .child(
                                         div()
                                             .flex_none()
                                             .text_size(px(12.0))
-                                            .text_color(rgba(0x64dfd2cc))
+                                            .text_color(rgba(ui::icons::with_alpha(
+                                                theme.success,
+                                                0xcc,
+                                            )))
                                             .child("✓"),
                                     )
                                     .child(
@@ -257,12 +259,16 @@ impl MultisoulApp {
                                 .rounded(px(22.0))
                                 .border_1()
                                 .border_color(rgba(if focused {
-                                    COMPOSER_FOCUS
+                                    theme.focused_stroke
                                 } else {
-                                    COMPOSER_REST
+                                    theme.node_stroke
                                 }))
-                                .bg(rgba(if focused { 0x10283fe6 } else { 0x0d2035cc }))
-                                .hover(|style| style.bg(rgba(0x0e2237cc)))
+                                .bg(rgba(if focused {
+                                    theme.node_fill
+                                } else {
+                                    theme.panel_high
+                                }))
+                                .hover(|style| style.bg(rgba(theme.node_fill)))
                                 .child(
                                     div()
                                         .flex_1()
@@ -271,15 +277,18 @@ impl MultisoulApp {
                                         .flex()
                                         .items_center()
                                         .text_size(px(13.0))
-                                        .text_color(rgba(COPY_PRIMARY))
+                                        .text_color(rgba(theme.text_primary))
                                         .child(Input::new(&input).xsmall().appearance(false)),
                                 )
-                                .child(idea_send_button(has_draft).when(has_draft, |button| {
-                                    button.on_click(cx.listener(|app, _, window, cx| {
-                                        cx.stop_propagation();
-                                        app.add_idea_from_input(window, cx);
-                                    }))
-                                })),
+                                .child(idea_send_button(theme, has_draft).when(
+                                    has_draft,
+                                    |button| {
+                                        button.on_click(cx.listener(|app, _, window, cx| {
+                                            cx.stop_propagation();
+                                            app.add_idea_from_input(window, cx);
+                                        }))
+                                    },
+                                )),
                         )
                         .when(focused || has_draft, |composer| {
                             composer.child(
@@ -289,7 +298,7 @@ impl MultisoulApp {
                                     .flex()
                                     .items_center()
                                     .text_size(px(11.0))
-                                    .text_color(rgba(HELPER))
+                                    .text_color(rgba(theme.text_tertiary))
                                     .child(ui::i18n::text("drawers.compose_hint")),
                             )
                         }),
@@ -306,9 +315,9 @@ impl MultisoulApp {
                             .px(px(10.0))
                             .py(px(8.0))
                             .rounded(px(8.0))
-                            .bg(rgba(0xf2c77326))
+                            .bg(rgba(ui::icons::with_alpha(theme.accent_warm, 0x26)))
                             .text_size(px(12.0))
-                            .text_color(rgba(NOTICE))
+                            .text_color(rgba(theme.accent_warm))
                             .child(notice),
                     )
                 },
@@ -328,9 +337,9 @@ impl MultisoulApp {
                             .justify_between()
                             .gap(px(8.0))
                             .rounded(px(8.0))
-                            .bg(rgba(0x8fcaff1f))
+                            .bg(rgba(ui::icons::with_alpha(theme.accent, 0x1f)))
                             .text_size(px(12.0))
-                            .text_color(rgba(COPY_PRIMARY))
+                            .text_color(rgba(theme.text_primary))
                             .child(
                                 div()
                                     .flex_1()

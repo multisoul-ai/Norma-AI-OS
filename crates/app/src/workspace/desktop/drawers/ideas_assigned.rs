@@ -1,13 +1,11 @@
 //! 想法清单里“已指派”行：执行者、任务阶段与失败重试。
 
 use super::super::ideas_rows::{AssignedRow, IdeaStatus};
-use super::super::overview_rows::{OverviewFeedback, TONE_RUNNING};
+use super::super::overview_rows::OverviewFeedback;
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div, ElementId, Stateful};
 use ui::component::button::{Button, ButtonVariants};
 use ui::component::Sizable;
-
-const COPY_SECONDARY: u32 = 0xa9c0d5ff;
 
 impl MultisoulApp {
     pub(super) fn render_assigned_row(
@@ -17,6 +15,7 @@ impl MultisoulApp {
         feedback: OverviewFeedback,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
+        let theme = self.desktop_theme();
         let element_id = format!("desktop-idea-assigned-{}", row.id);
         let hover = feedback.hover;
         let pressed = feedback.pressed;
@@ -78,19 +77,19 @@ impl MultisoulApp {
                                     .flex()
                                     .items_center()
                                     .justify_center()
-                                    .bg(rgba(ui::icons::with_alpha(TONE_RUNNING, 0x29)))
+                                    .bg(rgba(ui::icons::with_alpha(theme.accent_cyan, 0x29)))
                                     .child(
                                         div()
                                             .w(px(8.0))
                                             .h(px(8.0))
                                             .rounded_full()
-                                            .bg(rgba(TONE_RUNNING)),
+                                            .bg(rgba(theme.accent_cyan)),
                                     ),
                             )
                             .child(
                                 div()
                                     .text_size(px(13.0))
-                                    .text_color(rgba(0xc5d9eaff))
+                                    .text_color(rgba(theme.text_primary))
                                     .child(row.title.clone()),
                             ),
                     )
@@ -98,7 +97,7 @@ impl MultisoulApp {
                         div()
                             .pl(px(22.0))
                             .text_size(px(12.0))
-                            .text_color(rgba(COPY_SECONDARY))
+                            .text_color(rgba(theme.text_secondary))
                             .child(status),
                     ),
             )

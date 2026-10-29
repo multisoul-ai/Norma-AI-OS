@@ -15,7 +15,7 @@ public enum WorkspaceHomeDesign {
             session.stop()
             return "使用隔离数据，保留用户App"
         }
-        for (theme, themeName) in [("sapphire-night", "dark"), ("paper-blue", "light")] {
+        for (theme, themeName) in [("sapphire-night", "dark"), ("graphite", "graphite")] {
             for alternate in [false, true] {
                 let prefix = "\(themeName)-\(alternate ? "blue" : "default")"
                 try await session.step("\(prefix)：12个空间默认首页") {

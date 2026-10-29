@@ -1,6 +1,6 @@
 # WorkspaceHomeDesign 看图清单
 
-每种 dark/light × default/blue 的前缀都核对以下截图；比较同主题两壁纸确实不同。
+每种 dark/graphite × default/blue 的前缀都核对以下截图；比较同主题两壁纸确实不同。
 
 | 图 | 判断 |
 | --- | --- |
@@ -19,7 +19,7 @@
 | lifecycle-01-renamed | 单卡显示新名称，菜单未遮住标题，目录持久化断言通过 |
 | lifecycle-02-welcome | 删除最后空间后恢复现有欢迎页，重启保持为空 |
 
-焦点回归仅在 `dark-default` / `light-default` 组合补验：
+焦点回归仅在 `dark-default` / `graphite-default` 组合补验：
 
 | 图 | 判断 |
 | --- | --- |
