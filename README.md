@@ -83,41 +83,65 @@ While the app is running, background tasks can continue as you switch projects o
 
 ## See it in action
 
-These demos are real product recordings from the website. **Click a poster to watch the full video**, or visit the [website demo section](https://norma-os-desktop-site.vercel.app/#in-action). The original recordings retain their UI language; interfaces and shortcuts may vary by version. Current defaults are listed below.
+Nine final product recordings, updated October 29, 2026. **Click any GIF to watch the complete MP4 with audio.** GIFs are silent previews; the recordings retain their original UI language. Open `/help` in Norma for the same nine demos.
 
-### One instruction, six agents
+### Talk to Norma, coordinate your agents
 
-Tell Norma your goal. She turns a voice instruction into task assignments for six agents working in the same visible workspace.
+Give Norma a spoken instruction, assign work to multiple agents, and follow their progress in the same workspace.
 
 <p align="center">
-  <a href="https://norma-os-desktop-site.vercel.app/media/demo-voice-command.mp4">
-    <img src="docs/assets/readme/demo-voice-command.webp" alt="Watch voice orchestration: one spoken instruction assigns tasks to six agents" width="960" />
+  <a href="crates/app/assets/feature-guide/demo-voice-command.mp4?raw=true">
+    <img src="docs/assets/readme/demo-voice-command.gif" alt="Talk to Norma, coordinate your agents" width="960" />
   </a>
 </p>
 
 <table>
   <tr>
     <td width="50%" valign="top">
-      <h3>Agents working together</h3>
-      <a href="https://norma-os-desktop-site.vercel.app/media/demo-agent-collaboration.mp4"><img src="docs/assets/readme/demo-agent-collaboration.webp" alt="Watch agent collaboration: delegate a task and receive its result" width="480" /></a>
-      <p>Hand a clear subtask to another agent and receive the result in the same workspace.</p>
+      <h3>Agents delegate tasks to each other</h3>
+      <a href="crates/app/assets/feature-guide/demo-agent-collaboration.mp4?raw=true"><img src="docs/assets/readme/demo-agent-collaboration.gif" alt="Agents delegate tasks to each other" width="480" /></a>
+      <p>Ask one agent to delegate focused tasks. Other agents work in parallel and return their results to the delegator.</p>
     </td>
     <td width="50%" valign="top">
-      <h3>Build your workspace from the keyboard</h3>
-      <a href="https://norma-os-desktop-site.vercel.app/media/demo-live-node-shortcuts.mp4"><img src="docs/assets/readme/demo-live-node-shortcuts.webp" alt="Watch keyboard shortcuts create terminals and different agent Live Nodes" width="480" /></a>
-      <p>Create terminals and agents quickly, bringing your tools onto one canvas.</p>
+      <h3>Create agent cards in seconds</h3>
+      <a href="crates/app/assets/feature-guide/demo-live-node-shortcuts.mp4?raw=true"><img src="docs/assets/readme/demo-live-node-shortcuts.gif" alt="Create agent cards in seconds" width="480" /></a>
+      <p>Type / in the command bar to create an agent card. Give each card its own task and watch the agents work side by side.</p>
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <h3>One shortcut, a new layout</h3>
-      <a href="https://norma-os-desktop-site.vercel.app/media/demo-layout-command-m.mp4"><img src="docs/assets/readme/demo-layout-command-m.webp" alt="Watch layout switching between master-detail and tiled arrangements" width="480" /></a>
-      <p>Use ⌘M to switch between master-detail and tiled layouts, moving from the current task to the full picture.</p>
+      <h3>Expand a card with ⌘M</h3>
+      <a href="crates/app/assets/feature-guide/demo-layout-command-m.mp4?raw=true"><img src="docs/assets/readme/demo-layout-command-m.gif" alt="Expand a card with ⌘M" width="480" /></a>
+      <p>Select a card and press ⌘M to expand it. Press ⌘M again to return to the overview while the other cards keep running.</p>
     </td>
     <td width="50%" valign="top">
-      <h3>Know when it's your turn</h3>
-      <a href="https://norma-os-desktop-site.vercel.app/media/demo-agent-notifications.mp4"><img src="docs/assets/readme/demo-agent-notifications.webp" alt="Watch status notifications identify running and completed agents" width="480" /></a>
-      <p>Completion and attention indicators appear on the relevant nodes, so you can find what changed and keep going.</p>
+      <h3>Keep progress in view with the Chief of Staff</h3>
+      <a href="crates/app/assets/feature-guide/demo-chief-of-staff.mp4?raw=true"><img src="docs/assets/readme/demo-chief-of-staff.gif" alt="Keep progress in view with the Chief of Staff" width="480" /></a>
+      <p>Follow agent activity and task progress with Norma’s Chief of Staff, and review what needs your attention before deciding what comes next.</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>Files and webpages beside your agents</h3>
+      <a href="crates/app/assets/feature-guide/demo-right-drawer.mp4?raw=true"><img src="docs/assets/readme/demo-right-drawer.gif" alt="Files and webpages beside your agents" width="480" /></a>
+      <p>Open documents and live web previews in the right drawer while keeping your agents in view.</p>
+    </td>
+    <td width="50%" valign="top">
+      <h3>Move between projects and workspaces</h3>
+      <a href="crates/app/assets/feature-guide/demo-switch-workspaces.mp4?raw=true"><img src="docs/assets/readme/demo-switch-workspaces.gif" alt="Move between projects and workspaces" width="480" /></a>
+      <p>Use ⌘←/→ to switch projects, ⇧⌘←/→ to switch workspaces, or ⇧⌘↑ to open the workspace switcher.</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>Create and find your workspaces</h3>
+      <a href="crates/app/assets/feature-guide/demo-workspace-home.mp4?raw=true"><img src="docs/assets/readme/demo-workspace-home.gif" alt="Create and find your workspaces" width="480" /></a>
+      <p>Create a workspace from the home screen, return with ⇧⌘K, and search by name to find the work you want to continue.</p>
+    </td>
+    <td width="50%" valign="top">
+      <h3>Discover commands from one input</h3>
+      <a href="crates/app/assets/feature-guide/demo-slash-commands.mp4?raw=true"><img src="docs/assets/readme/demo-slash-commands.gif" alt="Discover commands from one input" width="480" /></a>
+      <p>Type / to browse commands, create agents and terminals, or change themes from the command bar. Use /help to reopen this guide.</p>
     </td>
   </tr>
 </table>

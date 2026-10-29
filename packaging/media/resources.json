@@ -118,72 +118,6 @@
       "sha256": "fb5cbbe7bcffb63eff9e0909c65ccde49dd07bd5aa75ffbaaee7a2d75a21f090"
     },
     {
-      "path": "feature-guide/README.md",
-      "policy": "core",
-      "bytes": 1317,
-      "sha256": "d71c0349bfa78fc624b20a468c2f232e4a220bb470188fc61409f517a90c29fd"
-    },
-    {
-      "path": "feature-guide/demo-agent-collaboration.mp4",
-      "policy": "tutorial-video",
-      "bytes": 5370854,
-      "sha256": "ba2bc6caf719b28e7abe4edc5c00d36a4274d544ff14e68e96f7d11c7fd07e57"
-    },
-    {
-      "path": "feature-guide/demo-agent-collaboration.webp",
-      "policy": "core",
-      "bytes": 156990,
-      "sha256": "992ddc2c9e0b574f1d65b4d64f99031304ee3fee1cac62fb81422922fd4be35d"
-    },
-    {
-      "path": "feature-guide/demo-agent-notifications.mp4",
-      "policy": "tutorial-video",
-      "bytes": 1996272,
-      "sha256": "b634f931877b8fe31a0fe5071642094623d15feb09b31e1bf3d13ae3d13e1ae7"
-    },
-    {
-      "path": "feature-guide/demo-agent-notifications.webp",
-      "policy": "core",
-      "bytes": 173272,
-      "sha256": "fbe406c6620a26b8d44b4b96f1a814eb28c433a9294187d71fc5b8026367751d"
-    },
-    {
-      "path": "feature-guide/demo-layout-command-m.mp4",
-      "policy": "tutorial-video",
-      "bytes": 1641819,
-      "sha256": "ac0c5cfd59b7af969ccaddda37a7b35dea6e68d2ac79d2c969606f3f12d4f3eb"
-    },
-    {
-      "path": "feature-guide/demo-layout-command-m.webp",
-      "policy": "core",
-      "bytes": 81096,
-      "sha256": "8958d10468f222a17339adf89d55dbb19eec0661ec958d92921b684f3a9e1be0"
-    },
-    {
-      "path": "feature-guide/demo-live-node-shortcuts.mp4",
-      "policy": "tutorial-video",
-      "bytes": 2112348,
-      "sha256": "735eb71edcc2f645fb5636be9b35c606980c88376a4a0d07521bd671d4d6b1ac"
-    },
-    {
-      "path": "feature-guide/demo-live-node-shortcuts.webp",
-      "policy": "core",
-      "bytes": 157970,
-      "sha256": "e0a728bc112a355b40ac375e6453d9a8a6984fed8923dbdbe209253246d275e1"
-    },
-    {
-      "path": "feature-guide/demo-voice-command.mp4",
-      "policy": "tutorial-video",
-      "bytes": 10936433,
-      "sha256": "2e4512c2576cb6ea608b17066b85f7b66a5c94f26e0763129f4cb4695e678f04"
-    },
-    {
-      "path": "feature-guide/demo-voice-command.webp",
-      "policy": "core",
-      "bytes": 193862,
-      "sha256": "bb4d5620ac83a183d3a9b64952f7190b3763af0b66c584ab00b517002bc259e5"
-    },
-    {
       "path": "wallpapers/norma-blue-horizon.png",
       "policy": "core",
       "bytes": 2089190,
@@ -212,6 +146,120 @@
       "policy": "core",
       "bytes": 2229752,
       "sha256": "f6e1e6fbb2d7d47ba711512b8d0f2e6fe5053720727a702409d522f5cdad3d7e"
+    },
+    {
+      "path": "feature-guide/README.md",
+      "policy": "core",
+      "bytes": 1951,
+      "sha256": "a0f5755f47d7a01d5b2baee592addb2faca13e4b85ecb7aec9b67eaeda2bcc24"
+    },
+    {
+      "path": "feature-guide/demo-agent-collaboration.mp4",
+      "policy": "tutorial-video",
+      "bytes": 1229677,
+      "sha256": "048d8deeb6f0465bf5047f3571a3bd7b123dc66e9c9e2e87f7f926e19b2c0f7f"
+    },
+    {
+      "path": "feature-guide/demo-agent-collaboration.webp",
+      "policy": "core",
+      "bytes": 95866,
+      "sha256": "11011733e6a6e51fc7ca9a7dab82103921257b2b608449ab4f66e00e65db7962"
+    },
+    {
+      "path": "feature-guide/demo-chief-of-staff.mp4",
+      "policy": "tutorial-video",
+      "bytes": 1578058,
+      "sha256": "40c1122e2c1f8e346c3afd903e22a951eb1fbba22ad5fcaeb027eb62b44f48c8"
+    },
+    {
+      "path": "feature-guide/demo-chief-of-staff.webp",
+      "policy": "core",
+      "bytes": 78120,
+      "sha256": "1745bef17fbbe0a1f4ff711ea30bc124c119fe5523a291a6a0f0336b4203a9d0"
+    },
+    {
+      "path": "feature-guide/demo-layout-command-m.mp4",
+      "policy": "tutorial-video",
+      "bytes": 1247191,
+      "sha256": "8bf090ae176ba847e1b9092fe0fd70d340cac0275efd744bac6cbad4b1e922c7"
+    },
+    {
+      "path": "feature-guide/demo-layout-command-m.webp",
+      "policy": "core",
+      "bytes": 77118,
+      "sha256": "8e793e2381c2a4e5df2f769dec9a765cd305108b4d563b89096f3e6f29d2005c"
+    },
+    {
+      "path": "feature-guide/demo-live-node-shortcuts.mp4",
+      "policy": "tutorial-video",
+      "bytes": 1279529,
+      "sha256": "ea302f626a6bbc8f49865777b6aa3147ca8e7e3626093dab54876bd221192f98"
+    },
+    {
+      "path": "feature-guide/demo-live-node-shortcuts.webp",
+      "policy": "core",
+      "bytes": 62742,
+      "sha256": "621d1847717ca219cdb08f848dfc4f7f1c004e92ed7813641c841d4f355a16e1"
+    },
+    {
+      "path": "feature-guide/demo-right-drawer.mp4",
+      "policy": "tutorial-video",
+      "bytes": 485042,
+      "sha256": "82c00d4bb7ac8f324d9aba22804004f7c5de6b7e75ae26b04df751b08de8fa86"
+    },
+    {
+      "path": "feature-guide/demo-right-drawer.webp",
+      "policy": "core",
+      "bytes": 97300,
+      "sha256": "4ee42155f4d03c90f3e7dce9946f829012bc46042cd1a2d455aa02664475db1c"
+    },
+    {
+      "path": "feature-guide/demo-slash-commands.mp4",
+      "policy": "tutorial-video",
+      "bytes": 791336,
+      "sha256": "98e5019b90dcf671bf7b1945a70f7321ddd506f0b671f618193352c4666ee6ef"
+    },
+    {
+      "path": "feature-guide/demo-slash-commands.webp",
+      "policy": "core",
+      "bytes": 53850,
+      "sha256": "750e432e27ce8bd43a341986b68784e83b53044d29adef5bde4d91acea456162"
+    },
+    {
+      "path": "feature-guide/demo-switch-workspaces.mp4",
+      "policy": "tutorial-video",
+      "bytes": 1488388,
+      "sha256": "1e91f1cbe17cf6d91f9beaabf46685f19b8a461e7078ff4de4956856c50050e1"
+    },
+    {
+      "path": "feature-guide/demo-switch-workspaces.webp",
+      "policy": "core",
+      "bytes": 68268,
+      "sha256": "e93a18feb0f238a6ed4dfa93c575601a95212b0dcaf1fd30d10090191015519f"
+    },
+    {
+      "path": "feature-guide/demo-voice-command.mp4",
+      "policy": "tutorial-video",
+      "bytes": 5675967,
+      "sha256": "13bed016b4dda0498473655071a4d382ac51cc0ac91121c6c23c7085526bc97d"
+    },
+    {
+      "path": "feature-guide/demo-voice-command.webp",
+      "policy": "core",
+      "bytes": 122456,
+      "sha256": "80de2f868ee1d4e502d00c8363c0c58be8d9816c0353ff21119479ca7ca7d0b8"
+    },
+    {
+      "path": "feature-guide/demo-workspace-home.mp4",
+      "policy": "tutorial-video",
+      "bytes": 697799,
+      "sha256": "a86d902c1ecc60d050d38b8f3cbac2afc1d7fa5f163654962d329980409038e8"
+    },
+    {
+      "path": "feature-guide/demo-workspace-home.webp",
+      "policy": "core",
+      "bytes": 56376,
+      "sha256": "fb88f382a71845ba14981a225870a5323057267a26a01a95480ff1717f8031fd"
     }
   ],
   "previews": [

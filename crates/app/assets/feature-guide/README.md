@@ -1,18 +1,32 @@
-# Feature Guide demo assets
+# Feature Guide 终版演示
 
-这些文件直接复制自 `norma-ai-os-site/public/media/`，未重新编码或改图。
+更新日期：2026-10-29。来源为用户提供的 `demo/终版/` 九段真实产品录屏。
+功能引导与 `/help` 共用这一组资源；中英文说明对应同一录屏，保留原始画面、字幕和声音。
 
-| 文件 | SHA-256 |
-|---|---|
-| `demo-voice-command.mp4` | `2e4512c2576cb6ea608b17066b85f7b66a5c94f26e0763129f4cb4695e678f04` |
-| `demo-voice-command.webp` | `bb4d5620ac83a183d3a9b64952f7190b3763af0b66c584ab00b517002bc259e5` |
-| `demo-agent-collaboration.mp4` | `ba2bc6caf719b28e7abe4edc5c00d36a4274d544ff14e68e96f7d11c7fd07e57` |
-| `demo-agent-collaboration.webp` | `992ddc2c9e0b574f1d65b4d64f99031304ee3fee1cac62fb81422922fd4be35d` |
-| `demo-live-node-shortcuts.mp4` | `735eb71edcc2f645fb5636be9b35c606980c88376a4a0d07521bd671d4d6b1ac` |
-| `demo-live-node-shortcuts.webp` | `e0a728bc112a355b40ac375e6453d9a8a6984fed8923dbdbe209253246d275e1` |
-| `demo-layout-command-m.mp4` | `ac0c5cfd59b7af969ccaddda37a7b35dea6e68d2ac79d2c969606f3f12d4f3eb` |
-| `demo-layout-command-m.webp` | `8958d10468f222a17339adf89d55dbb19eec0661ec958d92921b684f3a9e1be0` |
-| `demo-agent-notifications.mp4` | `b634f931877b8fe31a0fe5071642094623d15feb09b31e1bf3d13ae3d13e1ae7` |
-| `demo-agent-notifications.webp` | `fbe406c6620a26b8d44b4b96f1a814eb28c433a9294187d71fc5b8026367751d` |
+MP4 保留完整时长与原速，压缩为宽 1280 像素的 H.264 / yuv420p（CRF 23、slow），音频 AAC 96k，并启用 faststart。
+WebP 取同段录屏的中间帧（宽 1280，quality 85），用于加载回退和“减少动态效果”；不是动图。
+App 沿用后台解码和低拷贝 `surface()` 播放，支持暂停、隐藏停止与静态回退。
 
-MP4 用于允许动态效果时的低拷贝 `surface()` 播放；WebP 是首帧回退与“减少动态效果”模式的静态内容。
+| 资源前缀（MP4 / WebP） | 原始文件 | 内容 |
+| --- | --- | --- |
+| `demo-voice-command` | `语音交互.mp4` | 语音交互 |
+| `demo-agent-collaboration` | `05-multi-agent-collaboration.mp4` | 多 Agent 协作 |
+| `demo-live-node-shortcuts` | `01-quick-agent-cards.mp4` | 快速创建卡片 |
+| `demo-layout-command-m` | `02-cmd-m-expand.mp4` | 卡片展开 |
+| `demo-chief-of-staff` | `幕僚.mp4` | 幕僚 |
+| `demo-right-drawer` | `03-right-drawer.mp4` | 右侧抽屉 |
+| `demo-switch-workspaces` | `04-switch-projects-workspaces.mp4` | 项目与工作空间 |
+| `demo-workspace-home` | `07-home-create-search-workspace.mp4` | 工作空间首页 |
+| `demo-slash-commands` | `08-slash-commands.mp4` | 斜杠指令 |
+
+完整源文件与输出 SHA-256、字节数及 GIF 片段范围见 `docs/assets/readme/final-demos.json`。
+发布白名单与哈希在 `packaging/media/resources.json`；full 与 wallpapers-on-demand 包含全部视频，light 保留全部静态海报。
+
+生成命令（`SOURCE` 为单段原片，`OUTPUT` 为资源前缀）：
+
+```bash
+ffmpeg -i "$SOURCE" -map 0:v:0 -map '0:a?' -vf scale=1280:-2 \
+  -c:v libx264 -preset slow -crf 23 -pix_fmt yuv420p \
+  -c:a aac -b:a 96k -movflags +faststart "$OUTPUT.mp4"
+# 中间帧先由 FFmpeg 导出 PNG，再用 Pillow 保存 WebP（quality=85）。
+```

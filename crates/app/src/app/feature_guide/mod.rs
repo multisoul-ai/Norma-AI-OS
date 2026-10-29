@@ -37,3 +37,7 @@ mod cheat_sheet_tests;
 #[cfg(test)]
 #[path = "../../../tests/unit/feature_guide_orchestration_state_tests.rs"]
 mod orchestration_state_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/feature_guide_final_topics_tests.rs"]
+mod final_topics_tests;
