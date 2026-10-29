@@ -47,6 +47,7 @@ impl MultisoulApp {
         let project_count = workspace.project_count;
         let actions_open =
             self.desktop_workspace.actions_workspace_id.as_deref() == Some(workspace.id.as_str());
+        let selected = self.desktop_workspace.directory.selected.as_ref() == Some(&workspace.id);
         let preview = self
             .desktop_workspace
             .previews
@@ -202,6 +203,20 @@ impl MultisoulApp {
                         )
                     }),
             )
+            .when(selected && moving.is_none(), |this| {
+                this.child(
+                    div()
+                        .debug_selector(move || format!("desktop-directory-selected-{index}"))
+                        .absolute()
+                        .left(px(-1.0))
+                        .top(px(-1.0))
+                        .w(px(card_width))
+                        .h(px(card_height))
+                        .rounded(px(17.0 * scene_scale))
+                        .border_3()
+                        .border_color(rgba(theme.focused_stroke)),
+                )
+            })
             .when(actions_open && moving.is_none(), |this| {
                 this.child(
                     div()

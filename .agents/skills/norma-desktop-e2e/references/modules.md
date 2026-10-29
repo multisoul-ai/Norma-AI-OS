@@ -19,6 +19,7 @@
 | 模块 | 场景 | 验收范围 |
 | --- | --- | --- |
 | `workspace` | `workspace-lifecycle` | 工作空间目录：创建、列出、按名称搜索、重命名、取消删除、确认删除、项目目录保留、重启后不恢复。核对 `desktop_workspaces` 与 `desktop_project_areas`。 |
+| `workspace` | `workspace-home-preview` | 首页示意节点与真实保存布局对应；深浅主题/两壁纸；目录四方向选择、跨屏滚动、⌘↓进入选中工作空间。 |
 | `workspace` | `workspace-drawer-tabs` | 左栏「对话 / 运行概览」：⌘⇧E 进入运行概览，再按回到对话。只核对分段和两种视图，不覆盖概览内容重做。 |
 | `workspace` | `workspace-run-overview` | 空工作空间的运行概览内容：⌘⇧E 后看到「需要你处理 / 当前项目 / 其他项目」，不出现旧空态文案和百分比，且不启动项目。 |
 | `workspace` | `workspace-status-capsule` | 空工作空间的画布右上角不显示状态胶囊。有智能体时的环、名字、已完成数和紧凑态对照运行概览原型，不验收概览行内容或悬浮拖动。 |
@@ -56,3 +57,6 @@
 | `agent` | Agent 卡片的创建、状态和可见回复 |
 
 导航可以穿过别的模块，例如从工作空间目录打开画布。断言仍只写本模块的后置状态。跨模块的用户流程拆成各自模块里的场景，或在本表新增一行说明它为什么必须跨模块。
+
+
+| `workspace` | `workspace-home-design` | Combo首页：深/浅主题×默认/Blue Horizon壁纸；12/1空间，默认/hover/Tab焦点/菜单/取消删除/搜索分组折叠/实时高亮/回车打开/Esc/无结果预填创建；命令输入隔离、面板按钮聚焦后关闭并跨帧保持关闭。 |

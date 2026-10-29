@@ -125,5 +125,22 @@
   "workspace.left_tab_overview": "Run Overview",
   "workspace.overview_pin_float": "Pin the run overview onto the canvas",
   "workspace.overview_pin_dock": "Dock the run overview back into the drawer",
-  "workspace.overview_move": "Drag to move. Arrow keys move it. Double-click the title bar to reset."
+  "workspace.overview_move": "Drag to move. Arrow keys move it. Double-click the title bar to reset.",
+  "workspace.home_greeting": "Welcome back. Where shall we pick up?",
+  "workspace.home_running_greeting": "%{name} is still running. Jump back in?",
+  "workspace.home_search_greeting": "Which one? Just type its name.",
+  "workspace.home_recent": "Recently visited",
+  "workspace.home_all": "All %{count}",
+  "workspace.home_search": "Search %{count} workspaces",
+  "workspace.home_week": "Last 7 days",
+  "workspace.home_older": "Earlier",
+  "workspace.home_show_all": "Show all %{count}",
+  "workspace.home_collapse": "Show less",
+  "workspace.home_no_match": "No workspace named “%{name}”",
+  "workspace.home_create_query": "Create “%{name}”",
+  "workspace.home_keys": "↑ ↓ Select     ↩ Open     Esc Close",
+  "workspace.home_now": "Just now",
+  "workspace.home_days": "%{count} days ago",
+  "workspace.home_today": "Today",
+  "workspace.home_search_close": "Close search"
 }

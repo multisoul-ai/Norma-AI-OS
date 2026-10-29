@@ -63,7 +63,7 @@ ui -> {gpui, gpui-component}
 - **New configurable app shortcuts must appear in Settings**: register them in `shortcuts.rs` and support recording/restoring them in Settings → Keyboard Shortcuts.
 - **旧 e2e 套件已移除**：用户流程使用受影响 crate 的单元/集成测试与真实 App 验收；原型浏览器测试归各自原型目录维护。
 - **按实际行为验收**：使用受影响 crate 的单元/集成测试；`TestAppContext`/`simulate_click` 不等于启动真实 `.app`，要求真实程序的流程须操作真实 App 并检查最终结果。
-- **页面/样式验收优先 desktop-e2e**：本次实际改变的页面、布局、样式或视觉状态，优先用 `scripts/desktop-e2e.sh` 在真实 App 上定向验收；覆盖不到再降级 `computer-use:computer-use`。合并与已有证据复用按[执行规范](docs/quality/agent-execution-policy.md)确定范围，headless GPUI、单测和静态截图只能作补充。细则见 [`docs/quality/desktop-e2e.md`](docs/quality/desktop-e2e.md)。
+- **页面/样式验收优先 desktop-e2e**：本次实际改变的页面、布局、样式或视觉状态，优先用 `scripts/desktop-e2e.sh` 在真实 App 上定向验收；非必要不使用 Computer Use，仅在 E2E 无法表达所需交互时才降级，不能因 E2E 失败直接改为手动验收。合并与已有证据复用按[执行规范](docs/quality/agent-execution-policy.md)确定范围，headless GPUI、单测和静态截图只能作补充。细则见 [`docs/quality/desktop-e2e.md`](docs/quality/desktop-e2e.md)。
 - **新增 desktop-e2e 按模块划分**：场景放 `test/desktop-e2e/Scenarios/<模块>/`，看图清单放 `checks/<模块>/`，夹具放 `Fixtures/<模块>/`。同一模块只改该目录的 `<模块>Module.swift`；`Scenarios/Catalog.swift` 只追加模块 `manifest`。`scripts/desktop-e2e.sh <模块>` 跑完该模块，`<场景>` 只跑一条。边界见 [`.agents/skills/norma-desktop-e2e/references/modules.md`](.agents/skills/norma-desktop-e2e/references/modules.md)。
 - **TDD before feature or bugfix work**: add a focused failing test first where the behavior can be tested below the GPUI layer.
 - **No `#[allow(...)]`**: do not hide Rust diagnostics with allow attributes. Fix root causes instead.

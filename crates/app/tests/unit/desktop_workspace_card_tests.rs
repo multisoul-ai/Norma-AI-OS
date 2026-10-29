@@ -15,8 +15,57 @@ impl Render for DirectoryView {
 
 struct KeyboardCardView(Entity<MultisoulApp>, bool);
 
+/// 场景：首页整卡必须是独立的Tab停靠点。
+/// 数据：一个无项目工作空间，只渲染该卡及其更多按钮。
+/// 执行：清空焦点后前进一次，再发送完整Enter按下/松开。
+/// 预期：直接打开空间，不能只打开子菜单；防止Tab绕过父卡的假阳性。
+#[test]
+fn desktop_workspace_card_first_tab_opens_home_card() {
+    let temp = tempfile::tempdir().expect("隔离目录");
+    let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
+    let store = storage::AppStore::initialize(&paths).expect("初始化存储");
+    let workspace = store
+        .desktop_workspace_store()
+        .create("Keyboard")
+        .expect("创建空间");
+    let mut test = TestAppContext::single();
+    let (view, cx) = test.add_window_view(|_, cx| {
+        let app = cx.new(|cx| MultisoulApp::new_with_database_context(cx, paths, store));
+        app.update(cx, |app, _| {
+            app.screen = AppScreen::Launchpad;
+            app.desktop_workspace.home_directory = true;
+            app.desktop_workspace.workspaces = vec![workspace.clone()];
+            app.motion.reduce_motion = true;
+        });
+        KeyboardCardView(app, true)
+    });
+    let host = view.update(cx, |view, _| view.0.clone());
+    cx.run_until_parked();
+    cx.update(|window, cx| {
+        window.draw(cx).clear();
+        window.blur();
+        window.focus_next();
+        window.draw(cx).clear();
+    });
+    cx.simulate_keystrokes("enter");
+    cx.simulate_event(gpui::KeyUpEvent {
+        keystroke: gpui::Keystroke::parse("enter").expect("合法按键"),
+    });
+    host.read_with(cx, |app, _| {
+        assert_eq!(
+            app.desktop_workspace.active_id.as_deref(),
+            Some(workspace.id.as_str()),
+            "首次Tab应到整卡并打开空间"
+        );
+        assert!(
+            app.desktop_workspace.actions_workspace_id.is_none(),
+            "不能误开更多菜单"
+        );
+    });
+}
+
 impl Render for KeyboardCardView {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.0.update(cx, |app, cx| {
             let workspace = app.desktop_workspace.workspaces[0].clone();
             let card = if self.1 {
@@ -26,6 +75,7 @@ impl Render for KeyboardCardView {
                     canvas::Vec2::new(400., 250.),
                     canvas::Vec2::new(1280., 800.),
                     1.,
+                    window,
                     cx,
                 )
                 .into_any_element()
@@ -45,7 +95,7 @@ impl Render for KeyboardCardView {
 /// 两套目录中的卡片与子菜单按钮分别响应键盘，子按钮不得触发父卡片导航。
 ///
 /// 数据构造：每套目录各 1 个空工作空间；卡片400×250，保持1280/800宽高比；无运行进程。
-/// 执行过程：按 Tab 顺序聚焦菜单 → Enter 打开 → Space 关闭 → 聚焦父卡片 → Enter 打开空间。
+/// 执行过程：按 Tab 顺序聚焦菜单 → Enter 打开 → 首页Esc/普通目录Space关闭 → 聚焦父卡片 → Enter 打开空间。
 /// 预期结果：子按钮只切换菜单且不激活空间；父卡片仍能通过键盘进入正确空间。
 #[test]
 fn desktop_workspace_card_keyboard_does_not_open_from_child_buttons() {
@@ -111,17 +161,19 @@ fn desktop_workspace_card_keyboard_does_not_open_from_child_buttons() {
         view.update(cx, |_, cx| cx.notify());
         cx.update(|window, cx| window.draw(cx).clear());
         cx.simulate_event(gpui::KeyDownEvent {
-            keystroke: gpui::Keystroke::parse("space").expect("合法按键"),
+            keystroke: gpui::Keystroke::parse(if home { "escape" } else { "space" })
+                .expect("合法按键"),
             is_held: false,
         });
         cx.simulate_event(gpui::KeyUpEvent {
-            keystroke: gpui::Keystroke::parse("space").expect("合法按键"),
+            keystroke: gpui::Keystroke::parse(if home { "escape" } else { "space" })
+                .expect("合法按键"),
         });
         cx.update(|window, cx| window.draw(cx).clear());
         host.read_with(cx, |app, _| {
             assert!(
                 app.desktop_workspace.actions_workspace_id.is_none(),
-                "Space 应关闭已打开的菜单"
+                "取消键应关闭已打开的菜单"
             );
             assert_eq!(
                 app.screen,
@@ -131,7 +183,9 @@ fn desktop_workspace_card_keyboard_does_not_open_from_child_buttons() {
         });
         // 菜单按钮前一个可聚焦元素就是其父卡片，复用 GPUI 的 Tab 顺序。
         cx.update(|window, cx| {
-            window.focus_prev();
+            if !home {
+                window.focus_prev();
+            }
             window.draw(cx).clear();
         });
         view.update(cx, |_, cx| cx.notify());

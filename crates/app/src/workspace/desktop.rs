@@ -35,6 +35,7 @@ mod controller;
 mod creation;
 mod dialogs;
 mod dialogs_other;
+mod directory_navigation;
 mod dispatch;
 mod drawers;
 mod home;
@@ -175,6 +176,7 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) areas: Vec<DesktopProjectArea>,
     pub(crate) active_area_id: Option<String>,
     pub(crate) selected_area_id: Option<String>,
+    pub(crate) directory: directory_navigation::DirectorySelection,
     pub(crate) expanded_area_id: Option<String>,
     pub(crate) workspace_rects: Arc<Mutex<HashMap<String, canvas::CanvasRect>>>,
     workspace_motion_rects: HashMap<String, canvas::CanvasRect>,
@@ -192,6 +194,7 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) area_errors: HashMap<String, ui::i18n::LocalizedText>,
     pub(crate) sessions: HashMap<(String, String), Entity<MultisoulApp>>,
     pub(crate) search_query: String,
+    pub(crate) home: home::HomeState,
     pub(crate) error: Option<ui::i18n::LocalizedText>,
     pub(crate) busy: bool,
     pub(crate) rename_target: Option<DesktopRenameTarget>,
@@ -351,6 +354,7 @@ impl DesktopWorkspaceUiState {
             areas: Vec::new(),
             active_area_id: None,
             selected_area_id: None,
+            directory: Default::default(),
             expanded_area_id: None,
             workspace_rects: Arc::new(Mutex::new(HashMap::new())),
             workspace_motion_rects: HashMap::new(),
@@ -368,6 +372,7 @@ impl DesktopWorkspaceUiState {
             area_errors: HashMap::new(),
             sessions: HashMap::new(),
             search_query: String::new(),
+            home: Default::default(),
             error,
             busy: false,
             rename_target: None,

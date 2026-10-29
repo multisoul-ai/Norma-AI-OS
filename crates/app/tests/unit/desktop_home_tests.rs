@@ -31,7 +31,7 @@ fn home_text_contrast(text: u32, surface: u32, wallpaper: u32) -> f32 {
 /// 数据构造（含关键数值的推导过程）：
 ///   6 个现有主题；壁纸用纯白与纯黑覆盖 sRGB 亮度两端。
 ///   卡片使用固定墨黑材质；合成色 = 前景 × alpha + 背景 × (1-alpha)。
-///   不透明度范围 80%–92%：255×0.80≈204，255×0.92≈235，抑制地球高亮但保留层次。
+///   不透明度约66%：255×0.66≈168，保留设计稿玻璃材质。
 ///   WCAG 小字号对比下限 = 4.5:1；相对亮度按 sRGB 线性化及 0.2126/0.7152/0.0722 加权。
 /// 执行过程：
 ///   1. 读取首页卡片材质及两级辅助文字颜色。
@@ -46,10 +46,10 @@ fn desktop_home_card_text_remains_readable_over_wallpaper() {
     for id in ui::ThemeId::ALL {
         let theme = home_theme(id);
         let surface = theme.panel;
-        assert_eq!(surface, 0x0d131be0, "{id:?} 首页卡片应固定为墨黑材质");
+        assert_eq!(surface, 0x10161ea8, "{id:?} 首页卡片应固定为墨黑材质");
         let alpha = surface & 0xff;
-        assert!(alpha >= 204, "{id:?} 卡片材质需支撑亮壁纸上的文字");
-        assert!(alpha <= 235, "{id:?} 卡片必须透出壁纸，不能成为不透明色块");
+        assert!(alpha >= 167, "{id:?} 卡片材质需支撑亮壁纸上的文字");
+        assert!(alpha <= 169, "{id:?} 卡片必须透出壁纸，不能成为不透明色块");
         assert!(
             home_text_contrast(theme.text_secondary, surface, 0xffffffff) >= 4.5,
             "{id:?} 项目数量必须在纯白壁纸上保持至少 4.5:1 对比"
@@ -67,9 +67,8 @@ fn desktop_home_card_text_remains_readable_over_wallpaper() {
             "{id:?} 空态提示必须在纯黑壁纸上保持至少 4.5:1 对比"
         );
     }
-    let theme = home_theme(ui::ThemeId::SapphireNight);
     assert!(
-        home_text_contrast(0xffffffff, theme.accent, 0xffffffff) >= 4.5,
+        home_text_contrast(0xffffffff, 0x2b6aa5ff, 0xffffffff) >= 4.5,
         "实心蓝色主按钮的白色文字应达到 4.5:1 对比"
     );
 }
@@ -280,10 +279,11 @@ fn desktop_home_first_workspace_welcome_and_creation() {
         cx.debug_bounds("desktop-home-welcome").is_none(),
         "创建成功后不能继续显示首次欢迎态"
     );
-    host.update(cx, |app, cx| {
-        app.desktop_workspace.search_query = "missing workspace".into();
-        cx.notify();
-    });
+    let search = cx
+        .debug_bounds("desktop-workspace-search")
+        .expect("应有搜索");
+    cx.simulate_click(search.center(), Modifiers::none());
+    cx.simulate_input("missing workspace");
     cx.update(|window, cx| window.draw(cx).clear());
     assert!(
         cx.debug_bounds("desktop-workspace-search").is_some(),
@@ -294,32 +294,30 @@ fn desktop_home_first_workspace_welcome_and_creation() {
         "搜索无结果不能显示首次创建欢迎态"
     );
     assert!(
-        cx.debug_bounds("desktop-home-card-0").is_none(),
-        "搜索不能保留不匹配的工作空间"
+        cx.debug_bounds("desktop-home-search-empty").is_some(),
+        "搜索无结果应显示独立空态，最近访问留在背后"
     );
 }
 
-/// 场景：启动首页使用主预览和紧凑卡片，名称、搜索与新建入口随窄窗重排。
-///
-/// 数据构造：5 个独立空工作空间，窗口1280×800；窄窗420×600。
-///   3 个空间在首组，余下2个在第二组；窄窗只保留一列，不挤压名称。
-///   原型1586×992等比到1280×800：主卡高约370px，末行底部约758px。
-/// 执行过程：渲染首页 → 检查主卡/侧卡和工具栏 → 改主题、缩窗 → 滚到底 → 搜索 → 打开结果。
-/// 预期结果：主卡宽于侧卡，第三项与侧卡同列；预览占满底板；所有控件在窗口内；
-///   滚动区域不能覆盖工具栏；搜索只显示匹配项，点击后打开正确空间，不自动展开项目。
+/// 场景：首页固定四张最近卡，搜索原位展开且键盘打开正确空间。
+/// 数据：12个空空间，1440×900；标准卡252×204，搜索640×56。
+/// 执行：绘制→点击搜索→输入Workspace 11→下/回车；再返回首页。
+/// 预期：四张等宽卡；无旧标题/主按钮；面板不挪动搜索；回车仅打开匹配项。
 #[test]
-fn desktop_home_layout_search_and_navigation() {
+fn desktop_home_combo_search_and_keyboard_open() {
     let temp = tempfile::tempdir().expect("应创建隔离目录");
     let paths = storage::DatabasePaths::isolated_test(&temp.path().join("data"));
     let store = storage::AppStore::initialize(&paths).expect("应初始化存储");
     let catalog = store.desktop_workspace_store();
-    let first = catalog.create("Design").expect("应创建首空间");
-    catalog.create("Development").expect("应创建第二空间");
-    catalog
-        .create("Long workspace name for collaboration review")
-        .expect("应创建长名称空间");
-    catalog.create("Archive").expect("应创建第四空间");
-    catalog.create("Notes").expect("应创建第五空间");
+    let mut target = String::new();
+    for i in 0..12 {
+        let workspace = catalog
+            .create(&format!("Workspace {i:02}"))
+            .expect("应创建空间");
+        if i == 0 {
+            target = workspace.id;
+        }
+    }
     let mut test = TestAppContext::single();
     let mut host = None;
     let (_, cx) = test.add_window_view(|window, cx| {
@@ -327,173 +325,87 @@ fn desktop_home_layout_search_and_navigation() {
         host = Some(entity.clone());
         ui::component::Root::new(entity, window, cx)
     });
-    let host = host.expect("应创建宿主");
-    cx.simulate_resize(size(px(1280.0), px(800.0)));
+    let host = host.expect("应有宿主");
+    cx.simulate_resize(size(px(1440.0), px(900.0)));
     cx.run_until_parked();
     host.update(cx, |app, cx| {
-        app.screen = AppScreen::Launchpad;
-        app.desktop_workspace.workspaces = catalog.list().expect("应加载空间");
+        app.motion.reduce_motion = false;
         cx.notify();
     });
     cx.update(|window, cx| window.draw(cx).clear());
-    let wallpaper = cx
-        .debug_bounds("desktop-home-wallpaper")
-        .expect("首页必须使用设置中的壁纸层");
-    assert_eq!(
-        wallpaper.size,
-        size(px(1280.0), px(800.0)),
-        "壁纸必须覆盖整个首页，不能只画在缩略图中"
-    );
-    let featured = cx
-        .debug_bounds("desktop-home-card-0")
-        .expect("首页应有大预览卡");
-    let side = cx
-        .debug_bounds("desktop-home-card-1")
-        .expect("应有紧凑侧卡");
-    let next = cx
-        .debug_bounds("desktop-home-card-2")
-        .expect("应有第二张侧卡");
-    assert!(featured.size.width > side.size.width, "主预览应占更大宽度");
-    assert_eq!(side.left(), next.left(), "两张侧卡应同列");
-    assert!(next.top() > side.bottom(), "侧卡不能互相覆盖");
-    assert!(
-        featured.size.height <= px(375.0),
-        "主卡高度应接近原型的370px，不能撑高首屏"
-    );
-    let last = cx.debug_bounds("desktop-home-card-4").expect("应显示末卡");
-    assert!(
-        last.bottom() <= px(768.0),
-        "五个工作空间应在800px首屏内完整展示并保留至少32px边距"
-    );
-    let panel = cx
-        .debug_bounds("desktop-home-preview-panel-0")
-        .expect("主卡应有独立缩略图底板");
-    assert!(
-        panel.size.width >= featured.size.width - px(28.0),
-        "主预览底板必须铺满卡片宽度，仅留两侧内边距"
-    );
-    let content = cx
-        .debug_bounds("desktop-workspace-content-0")
-        .expect("主卡应绘制工作空间内容");
-    assert_eq!(
-        content, panel,
-        "主卡内容必须占满预览底板，不能因窗口纵横比留下大片空白"
-    );
-    let title = cx
-        .debug_bounds("desktop-home-title-0")
-        .expect("应显示主卡名称");
-    let count = cx
-        .debug_bounds("desktop-home-count-0")
-        .expect("应显示项目数量");
-    assert!(
-        (title.center().y - count.center().y).abs() <= px(4.0),
-        "宽窗主卡名称和项目数量应位于同一行"
-    );
-    assert!(
-        cx.debug_bounds("desktop-home-empty-1").is_some(),
-        "空空间应显示独立的空状态插画"
-    );
-    assert!(
-        cx.debug_bounds("desktop-canvas-command-bar").is_none(),
-        "首页不应保留旧底部搜索条"
-    );
-    for theme_id in ui::ThemeId::ALL {
-        host.update(cx, |app, cx| {
-            app.theme_id = theme_id;
-            app.theme = ui::Theme::for_id(theme_id);
-            cx.notify();
-        });
-        cx.update(|window, cx| window.draw(cx).clear());
-        cx.update(|_, cx| {
-            let foreground: gpui::Hsla = rgba(ui::Theme::for_id(theme_id).text_primary).into();
-            assert_eq!(
-                ui::component::Theme::global(cx).colors.foreground,
-                foreground,
-                "首页输入组件必须跟随当前主题 {theme_id:?}"
-            );
-        });
+    for selector in [
+        "desktop-home-card-0",
+        "desktop-home-card-1",
+        "desktop-home-card-2",
+        "desktop-home-card-3",
+    ] {
+        let card = cx.debug_bounds(selector).expect("应显示最近卡片");
+        assert_eq!(
+            card.size,
+            size(px(252.0), px(204.0)),
+            "所有最近卡片使用标准等宽尺寸"
+        );
     }
-    cx.simulate_resize(size(px(420.0), px(600.0)));
-    cx.update(|window, cx| window.draw(cx).clear());
-    let create = cx
-        .debug_bounds("desktop-workspace-create")
-        .expect("窄窗应保留新建入口");
+    assert!(
+        cx.debug_bounds("desktop-home-card-4").is_none(),
+        "首页不能堆砌全部12个空间"
+    );
+    assert!(
+        cx.debug_bounds("desktop-home-heading").is_none(),
+        "旧大标题必须移除"
+    );
+    assert!(
+        cx.debug_bounds("desktop-home-open").is_none(),
+        "移除独立打开按钮，整卡打开"
+    );
     let search = cx
         .debug_bounds("desktop-workspace-search")
-        .expect("窄窗应保留搜索");
-    assert!(create.right() <= px(420.0), "新建按钮不能越出窗口");
-    assert!(search.top() >= create.bottom(), "窄窗搜索应移到下一行");
-    let scroll = cx
-        .debug_bounds("desktop-workspace-scroll")
-        .expect("首页应保留滚动区域");
+        .expect("应显示搜索胶囊");
+    assert_eq!(search.size.width, px(640.0), "搜索宽640px");
     assert!(
-        scroll.top() >= search.bottom(),
-        "滚动卡片必须裁剪在搜索栏下方，不能透过玻璃工具栏形成文字重叠"
+        cx.debug_bounds("desktop-home-search-results").is_none(),
+        "静止不显示搜索面板"
     );
-    let side = cx
-        .debug_bounds("desktop-home-card-1")
-        .expect("窄窗应保留侧卡");
-    let featured = cx
-        .debug_bounds("desktop-home-card-0")
-        .expect("窄窗应保留主卡");
-    assert!(side.top() > featured.bottom(), "窄窗卡片应按单列排列");
-    let title = cx
-        .debug_bounds("desktop-home-title-0")
-        .expect("窄窗必须显示主卡标题");
-    let count = cx
-        .debug_bounds("desktop-home-count-0")
-        .expect("窄窗必须显示项目数量");
-    // 标题行高23px、数量行高20px，换行后必须分别容纳完整的一行文字。
-    assert!(
-        title.size.height >= px(23.0),
-        "窄窗主卡标题不能被数量挤压裁断"
-    );
-    assert!(title.bottom() <= count.top(), "窄窗主卡标题与数量不能重叠");
-    assert!(
-        count.bottom() <= featured.bottom() - px(10.0),
-        "数量必须留在卡片内并保留底边距"
-    );
-    host.update(cx, |app, cx| {
-        // 5 张卡片内容不足 2000px；请求 -10000px，验证滚动上限裁剪而非固定滚动量。
-        app.desktop_directory_scroll
-            .set_offset(gpui::point(px(0.0), px(-10000.0)));
-        cx.notify();
-    });
+    cx.simulate_click(search.center(), Modifiers::none());
+    cx.simulate_input("Workspace 00");
     cx.update(|window, cx| window.draw(cx).clear());
-    let last = cx
-        .debug_bounds("desktop-home-card-4")
-        .expect("滚到底应能显示最后一个空间");
+    assert!(
+        cx.debug_bounds("desktop-home-search-results").is_some(),
+        "聚焦与输入展开搜索"
+    );
     assert_eq!(
-        last.bottom(),
-        px(600.0 - 32.0),
-        "末卡下面只应保留32px留白，不能多出工具栏高度"
+        cx.debug_bounds("desktop-workspace-search")
+            .expect("搜索应保留")
+            .origin,
+        search.origin,
+        "展开原位向下生长"
     );
-    host.update(cx, |app, cx| {
-        app.desktop_directory_scroll
-            .set_offset(gpui::point(px(0.0), px(0.0)));
-        app.desktop_workspace.search_query = "Design".to_string();
-        app.motion.reduce_motion = true;
-        cx.notify();
-    });
-    cx.update(|window, cx| window.draw(cx).clear());
     assert!(
-        cx.debug_bounds("desktop-home-card-1").is_none(),
-        "不匹配的卡片应移除"
+        cx.debug_bounds("desktop-home-result-0").is_some(),
+        "应显示匹配结果"
     );
-    let result = cx
-        .debug_bounds("desktop-home-card-0")
-        .expect("应保留搜索结果");
-    cx.simulate_click(result.center(), Modifiers::none());
+    assert!(
+        cx.debug_bounds("desktop-home-result-1").is_none(),
+        "不能保留不匹配的结果"
+    );
+    cx.simulate_keystrokes("down enter");
+    host.read_with(cx, |app, _| {
+        assert!(
+            app.desktop_workspace.transition.is_none(),
+            "非最近卡没有可见来源，应直接进入"
+        )
+    });
     cx.run_until_parked();
     host.update(cx, |app, _| {
         assert_eq!(
             app.desktop_workspace.active_id.as_deref(),
-            Some(first.id.as_str()),
-            "必须打开搜索到的空间"
+            Some(target.as_str()),
+            "回车打开搜索选中的空间"
         );
-        assert!(
-            app.desktop_workspace.expanded_area_id.is_none(),
-            "打开空间不能自动展开项目"
+        assert_eq!(
+            app.screen,
+            AppScreen::DesktopWorkspace,
+            "确认后进入工作空间"
         );
     });
 }

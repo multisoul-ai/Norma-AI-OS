@@ -34,6 +34,11 @@ impl MultisoulApp {
                 self.open_desktop_add_project(window, cx);
             }
             ShortcutCommandId::SwitchWorkspace => self.open_desktop_switcher(window, cx),
+            ShortcutCommandId::ExpandSelectedProject
+                if matches!(self.screen, AppScreen::Launchpad) =>
+            {
+                self.enter_selected_desktop_workspace(window, cx);
+            }
             ShortcutCommandId::PreviousWorkspace | ShortcutCommandId::NextWorkspace => {
                 let current = match state.pending_navigation.as_ref() {
                     Some(DesktopNavigation::Workspace(id)) => Some(id.as_str()),
@@ -126,7 +131,7 @@ impl MultisoulApp {
     }
 
     /// 表单、Settings 与确认弹窗期间，桌面导航和总览选择都保持静止。
-    fn desktop_navigation_blocked(&self, cx: &Context<Self>) -> bool {
+    pub(super) fn desktop_navigation_blocked(&self, cx: &Context<Self>) -> bool {
         let state = &self.desktop_workspace;
         self.settings_panel.open
             || self
@@ -266,3 +271,7 @@ mod tests;
 #[cfg(test)]
 #[path = "../../../tests/unit/desktop_overview_selection_tests.rs"]
 mod overview_selection_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/desktop_directory_selection_tests.rs"]
+mod directory_selection_tests;

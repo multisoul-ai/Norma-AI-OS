@@ -260,55 +260,6 @@ impl MultisoulApp {
         );
     }
 
-    pub(super) fn desktop_workspace_directory_rect(
-        &mut self,
-        workspace_id: &str,
-        window: &Window,
-    ) -> Option<CanvasRect> {
-        let full = desktop_focus_rect(window);
-        if !self
-            .desktop_workspace
-            .filtered()
-            .iter()
-            .any(|item| item.id == workspace_id)
-        {
-            // A keyboard target can be outside the search results. Establish its real
-            // directory slot before zooming; a fabricated center rectangle has no source.
-            self.desktop_workspace.search_query.clear();
-            self.desktop_workspace.switcher_query.clear();
-        }
-        let workspaces = self.desktop_workspace.filtered();
-        let layout = if self.desktop_workspace.home_directory {
-            super::layout::home_layout(full.size.x, full.size.y, workspaces.len())
-                .into_iter()
-                .enumerate()
-                .map(|(index, card)| {
-                    let mut panel = super::layout::home_preview_panel_rect(card, index == 0);
-                    // The home card's 1px border offsets its positioned preview child.
-                    panel.origin.x += 1.0;
-                    panel.origin.y += 1.0;
-                    panel
-                })
-                .collect()
-        } else {
-            super::layout::workspace_layout(full.size.x, full.size.y, workspaces.len())
-        };
-        let scroll = self.desktop_directory_scroll.offset();
-        self.desktop_workspace.workspace_motion_rects = workspaces
-            .into_iter()
-            .zip(layout)
-            .map(|(workspace, mut rect)| {
-                rect.origin.x += f32::from(scroll.x);
-                rect.origin.y += f32::from(scroll.y);
-                (workspace.id.clone(), rect)
-            })
-            .collect();
-        self.desktop_workspace
-            .workspace_motion_rects
-            .get(workspace_id)
-            .copied()
-    }
-
     pub(super) fn begin_desktop_project_zoom(
         &mut self,
         workspace_id: &str,
@@ -466,11 +417,6 @@ impl MultisoulApp {
         self.schedule_desktop_zoom_frame(window, cx);
         cx.notify();
     }
-}
-
-fn desktop_focus_rect(window: &Window) -> CanvasRect {
-    let size = window.viewport_size();
-    CanvasRect::new(0.0, 0.0, f32::from(size.width), f32::from(size.height))
 }
 
 #[cfg(test)]
