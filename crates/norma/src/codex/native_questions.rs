@@ -8,9 +8,13 @@ use crossbeam_channel::{bounded, Receiver, Sender, TryRecvError};
 use serde_json::json;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
-    Arc,
+    Arc, Mutex,
 };
 use std::time::{Duration, Instant};
+
+mod connections;
+
+type InputPending = Arc<Mutex<Vec<Arc<AtomicBool>>>>;
 
 #[derive(Clone, Debug)]
 pub enum CodexNativeEvent {
@@ -29,7 +33,7 @@ pub struct CodexQuestionHost {
     events: Receiver<CodexNativeEvent>,
     running: Arc<AtomicBool>,
     available: Arc<AtomicBool>,
-    input_pending: Arc<AtomicBool>,
+    input_pending: InputPending,
     node_id: NodeId,
     process_id: String,
 }
@@ -40,13 +44,36 @@ impl CodexQuestionHost {
         node_id: NodeId,
         process_id: String,
     ) -> Result<Self, String> {
+        Self::start_inner(relay, None, node_id, process_id)
+    }
+
+    /// Additional native connections include the session picker and the resumed TUI.
+    /// Create additional relays with `connect_verified_paused` so their input guard is
+    /// registered before any protocol frames can reach the native terminal.
+    pub fn start_with_connections(
+        relay: CodexQuestionRelay,
+        connections: Receiver<CodexQuestionRelay>,
+        node_id: NodeId,
+        process_id: String,
+    ) -> Result<Self, String> {
+        Self::start_inner(relay, Some(connections), node_id, process_id)
+    }
+
+    fn start_inner(
+        relay: CodexQuestionRelay,
+        connections: Option<Receiver<CodexQuestionRelay>>,
+        node_id: NodeId,
+        process_id: String,
+    ) -> Result<Self, String> {
         if process_id.trim().is_empty() || process_id.len() > 128 {
             return Err("invalid_question_process".into());
         }
         let (sender, events) = bounded(128);
         let running = Arc::new(AtomicBool::new(true));
         let available = Arc::new(AtomicBool::new(true));
-        let input_pending = relay.input_pending.clone();
+        let input_pending = Arc::new(Mutex::new(vec![relay.input_pending.clone()]));
+        relay.start_forwarding();
+        let worker_input = input_pending.clone();
         let mut worker = Worker {
             relay,
             sender,
@@ -59,7 +86,11 @@ impl CodexQuestionHost {
         std::thread::Builder::new()
             .name("codex-question-host".into())
             .spawn(move || {
-                worker.pump();
+                if let Some(connections) = connections {
+                    worker.pump_connections(connections, worker_input);
+                } else {
+                    worker.pump();
+                }
                 worker.disable();
                 worker.running.store(false, Ordering::Release);
             })
@@ -89,7 +120,11 @@ impl CodexQuestionHost {
         &self.process_id
     }
     pub fn input_pending(&self) -> bool {
-        self.input_pending.load(Ordering::Acquire)
+        // Foreground reads never wait for connection handover. Contention holds input.
+        self.input_pending
+            .try_lock()
+            .map(|pending| pending.iter().any(|flag| flag.load(Ordering::Acquire)))
+            .unwrap_or(true)
     }
 }
 
@@ -117,28 +152,36 @@ struct Worker {
 impl Worker {
     fn pump(&mut self) {
         while self.running.load(Ordering::Acquire) {
-            for _ in 0..128 {
-                let Ok(event) = self.relay.events().try_recv() else {
-                    break;
-                };
-                self.observe(event);
-            }
-            if !self.relay.is_running() {
-                // Running=false is stored after the producer's last send. Drain that tail too.
-                while let Ok(event) = self.relay.events().try_recv() {
-                    self.observe(event);
-                }
+            if !self.poll() {
                 break;
-            }
-            if self.available.load(Ordering::Acquire) {
-                if !self.relay.is_observing() {
-                    self.disable();
-                } else {
-                    self.answer_ready();
-                }
             }
             std::thread::sleep(Duration::from_millis(5));
         }
+    }
+
+    fn poll(&mut self) -> bool {
+        for _ in 0..128 {
+            let Ok(event) = self.relay.events().try_recv() else {
+                break;
+            };
+            self.observe(event);
+        }
+        if !self.relay.is_running() {
+            // Running=false is stored after the producer's last send. Drain that tail too.
+            while let Ok(event) = self.relay.events().try_recv() {
+                self.observe(event);
+            }
+            self.disable();
+            return false;
+        }
+        if self.available.load(Ordering::Acquire) {
+            if !self.relay.is_observing() {
+                self.disable();
+            } else {
+                self.answer_ready();
+            }
+        }
+        true
     }
 
     fn observe(&mut self, event: CodexRelayEvent) {

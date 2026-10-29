@@ -95,23 +95,34 @@ pub struct CodexQuestionRelay {
     observing: Arc<AtomicBool>,
     owner: String,
     pub(super) input_pending: Arc<AtomicBool>,
+    forwarding: Arc<AtomicBool>,
 }
 
 impl CodexQuestionRelay {
     /// Handshakes perform IO. The caller must already be on a background thread.
     pub fn connect(native: UnixStream, server: &Path) -> Result<Self, String> {
-        Self::connect_inner(native, server, false)
+        Self::connect_inner(native, server, false, true)
     }
 
     /// Production attachment: require the tested server version on the native initialize reply.
     pub fn connect_verified(native: UnixStream, server: &Path) -> Result<Self, String> {
-        Self::connect_inner(native, server, true)
+        Self::connect_inner(native, server, true, true)
+    }
+
+    /// Complete transport handshakes, but let the host register input ownership before frames flow.
+    pub fn connect_verified_paused(native: UnixStream, server: &Path) -> Result<Self, String> {
+        Self::connect_inner(native, server, true, false)
+    }
+
+    pub(super) fn start_forwarding(&self) {
+        self.forwarding.store(true, Ordering::Release);
     }
 
     fn connect_inner(
         native: UnixStream,
         server: &Path,
         check_version: bool,
+        forwarding: bool,
     ) -> Result<Self, String> {
         let owner = crate::agent_hook::fresh_control_id().map_err(|error| error.to_string())?;
         let upstream = UnixStream::connect(server).map_err(|error| error.to_string())?;
@@ -150,6 +161,8 @@ impl CodexQuestionRelay {
         let worker_owner = owner.clone();
         let inputs = input::NativeInputs::default();
         let input_pending = inputs.blocked.clone();
+        let forwarding = Arc::new(AtomicBool::new(forwarding));
+        let worker_forwarding = forwarding.clone();
         std::thread::Builder::new()
             .name("codex-native-relay".into())
             .spawn(move || {
@@ -170,6 +183,11 @@ impl CodexQuestionRelay {
                     initialize: None,
                     version_verified: !check_version,
                 };
+                while relay.running.load(Ordering::Acquire)
+                    && !worker_forwarding.load(Ordering::Acquire)
+                {
+                    std::thread::sleep(Duration::from_millis(1));
+                }
                 let result = relay.pump();
                 if let Err(reason) = &result {
                     tracing::warn!(%reason, "native Codex relay disconnected");
@@ -191,6 +209,7 @@ impl CodexQuestionRelay {
             observing,
             owner,
             input_pending,
+            forwarding,
         })
     }
 
