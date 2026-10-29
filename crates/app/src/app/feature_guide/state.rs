@@ -49,18 +49,26 @@ pub(crate) enum FeatureGuideTopic {
     AgentCollaboration,
     LiveNodeShortcuts,
     WorkspaceLayouts,
-    AgentNotifications,
+    ChiefOfStaff,
+    RightDrawer,
+    SwitchWorkspaces,
+    WorkspaceHome,
+    SlashCommands,
     ShortcutCheatSheet,
 }
 
 impl FeatureGuideTopic {
-    pub(crate) const ALL: [Self; 7] = [
+    pub(crate) const ALL: [Self; 11] = [
         Self::AgentOrchestration,
         Self::VoiceGroupControl,
         Self::AgentCollaboration,
         Self::LiveNodeShortcuts,
         Self::WorkspaceLayouts,
-        Self::AgentNotifications,
+        Self::ChiefOfStaff,
+        Self::RightDrawer,
+        Self::SwitchWorkspaces,
+        Self::WorkspaceHome,
+        Self::SlashCommands,
         Self::ShortcutCheatSheet,
     ];
 
@@ -75,7 +83,11 @@ impl FeatureGuideTopic {
             "agent_collaboration" => Some(Self::AgentCollaboration),
             "live_node_shortcuts" => Some(Self::LiveNodeShortcuts),
             "workspace_layouts" => Some(Self::WorkspaceLayouts),
-            "agent_notifications" => Some(Self::AgentNotifications),
+            "agent_notifications" | "chief_of_staff" => Some(Self::ChiefOfStaff),
+            "right_drawer" => Some(Self::RightDrawer),
+            "switch_workspaces" => Some(Self::SwitchWorkspaces),
+            "workspace_home" => Some(Self::WorkspaceHome),
+            "slash_commands" => Some(Self::SlashCommands),
             "shortcut_cheat_sheet" => Some(Self::ShortcutCheatSheet),
             _ => None,
         }
@@ -288,7 +300,11 @@ impl FeatureGuideState {
             FeatureGuideTopic::AgentCollaboration => "agent_collaboration",
             FeatureGuideTopic::LiveNodeShortcuts => "live_node_shortcuts",
             FeatureGuideTopic::WorkspaceLayouts => "workspace_layouts",
-            FeatureGuideTopic::AgentNotifications => "agent_notifications",
+            FeatureGuideTopic::ChiefOfStaff => "chief_of_staff",
+            FeatureGuideTopic::RightDrawer => "right_drawer",
+            FeatureGuideTopic::SwitchWorkspaces => "switch_workspaces",
+            FeatureGuideTopic::WorkspaceHome => "workspace_home",
+            FeatureGuideTopic::SlashCommands => "slash_commands",
             FeatureGuideTopic::ShortcutCheatSheet => "shortcut_cheat_sheet",
         }
     }

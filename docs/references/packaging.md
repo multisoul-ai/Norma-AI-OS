@@ -329,7 +329,7 @@ resources = [
 `release-local.sh --notarize` 的线上发布默认使用 `light`；其他打包模式仍默认
 `full`，需要完整离线发布时可显式设置 `NORMA_MEDIA_PROFILE=full`。清单
 `packaging/media/resources.json` 固定原始文件大小、SHA-256、分类与资源版本。
-`light` 保留 18 项核心媒体、7 份动态壁纸静态预览和可信目录；12 项可选媒体
+`light` 保留 27 项核心资源（含九张教程海报）、7 份动态壁纸静态预览和可信目录；16 项可选媒体
 下载后经长度、SHA-256 校验及原子提升进入用户缓存，不转码原文件。
 
 `media-v1` 已在现有公开 [GitHub Releases](https://github.com/multisoul-ai/norma-os-releases/releases/tag/media-v1)

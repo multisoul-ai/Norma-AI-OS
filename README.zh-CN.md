@@ -83,15 +83,15 @@ Norma OS 用**无限画布上的 Live Node**承载真实工作：Agent 编写代
 
 ## 产品演示
 
-以下素材来自官网的真实产品录屏。**点击图片观看完整视频**，也可以进入[官网演示区](https://norma-os-desktop-site.vercel.app/zh-cn#in-action)。录屏中的界面与快捷键可能随版本变化，当前默认键位见下文。
+2026 年 10 月 29 日更新的九段终版产品录屏。**点击 GIF 可观看带声音的完整 MP4**。GIF 为静音预览，录屏保留原始界面语言；在 Norma 中输入 `/help` 可查看同一组九段演示。
 
-### 一句话，指挥六个 Agent
+### 开口交代，协调多个 Agent
 
-告诉 Norma 你的目标，她把语音指令转为任务派发，六个 Agent 在同一工作区分别执行，过程持续可见。
+通过语音向 Norma 交代任务，为多个 Agent 分工，并在同一工作空间跟进执行进度。
 
 <p align="center">
-  <a href="https://norma-os-desktop-site.vercel.app/media/demo-voice-command.mp4">
-    <img src="docs/assets/readme/demo-voice-command.webp" alt="观看语音群控演示：一条语音指令向六个 Agent 派发任务" width="960" />
+  <a href="crates/app/assets/feature-guide/demo-voice-command.mp4?raw=true">
+    <img src="docs/assets/readme/demo-voice-command.gif" alt="开口交代，协调多个 Agent" width="960" />
   </a>
 </p>
 
@@ -99,25 +99,49 @@ Norma OS 用**无限画布上的 Live Node**承载真实工作：Agent 编写代
   <tr>
     <td width="50%" valign="top">
       <h3>Agent 之间，直接协作</h3>
-      <a href="https://norma-os-desktop-site.vercel.app/media/demo-agent-collaboration.mp4"><img src="docs/assets/readme/demo-agent-collaboration.webp" alt="观看 Agent 协作演示：派发子任务并接收结果" width="480" /></a>
-      <p>把明确的子任务交给另一个 Agent，在原工作区接收结果。</p>
+      <a href="crates/app/assets/feature-guide/demo-agent-collaboration.mp4?raw=true"><img src="docs/assets/readme/demo-agent-collaboration.gif" alt="Agent 之间，直接协作" width="480" /></a>
+      <p>让一个 Agent 派发明确的子任务，其他 Agent 并行执行，再把结果交回发起者。</p>
     </td>
     <td width="50%" valign="top">
-      <h3>用键盘展开工作区</h3>
-      <a href="https://norma-os-desktop-site.vercel.app/media/demo-live-node-shortcuts.mp4"><img src="docs/assets/readme/demo-live-node-shortcuts.webp" alt="观看键盘操作演示：创建终端和不同类型的 Agent Live Node" width="480" /></a>
-      <p>快速创建终端与 Agent，把需要的工具带进同一画布。</p>
+      <h3>快速创建 Agent 卡片</h3>
+      <a href="crates/app/assets/feature-guide/demo-live-node-shortcuts.mp4?raw=true"><img src="docs/assets/readme/demo-live-node-shortcuts.gif" alt="快速创建 Agent 卡片" width="480" /></a>
+      <p>在指令栏输入 / 创建 Agent 卡片，为每张卡片分配任务，查看多个 Agent 并行工作。</p>
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <h3>一个快捷键，重排布局</h3>
-      <a href="https://norma-os-desktop-site.vercel.app/media/demo-layout-command-m.mp4"><img src="docs/assets/readme/demo-layout-command-m.webp" alt="观看布局演示：切换主从布局与平铺布局" width="480" /></a>
-      <p>用 ⌘M 切换主从与平铺布局，在当前任务和工作全貌之间移动。</p>
+      <h3>用 ⌘M 展开卡片</h3>
+      <a href="crates/app/assets/feature-guide/demo-layout-command-m.mp4?raw=true"><img src="docs/assets/readme/demo-layout-command-m.gif" alt="用 ⌘M 展开卡片" width="480" /></a>
+      <p>选中卡片后按 ⌘M 放大查看，再按一次回到全局；其他卡片继续运行。</p>
     </td>
     <td width="50%" valign="top">
-      <h3>知道何时轮到你</h3>
-      <a href="https://norma-os-desktop-site.vercel.app/media/demo-agent-notifications.mp4"><img src="docs/assets/readme/demo-agent-notifications.webp" alt="观看状态通知演示：识别正在执行和已经完成的 Agent" width="480" /></a>
-      <p>完成与注意力提示出现在对应节点上，找到变化，再接着推进。</p>
+      <h3>让幕僚帮你跟进进展</h3>
+      <a href="crates/app/assets/feature-guide/demo-chief-of-staff.mp4?raw=true"><img src="docs/assets/readme/demo-chief-of-staff.gif" alt="让幕僚帮你跟进进展" width="480" /></a>
+      <p>通过 Norma 幕僚查看 Agent 活动与任务进展，了解需要你处理的事项，再决定下一步。</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>在 Agent 旁查看文件与网页</h3>
+      <a href="crates/app/assets/feature-guide/demo-right-drawer.mp4?raw=true"><img src="docs/assets/readme/demo-right-drawer.gif" alt="在 Agent 旁查看文件与网页" width="480" /></a>
+      <p>在右侧抽屉打开文档和实时网页预览，同时保持 Agent 的执行过程可见。</p>
+    </td>
+    <td width="50%" valign="top">
+      <h3>快速切换项目与工作空间</h3>
+      <a href="crates/app/assets/feature-guide/demo-switch-workspaces.mp4?raw=true"><img src="docs/assets/readme/demo-switch-workspaces.gif" alt="快速切换项目与工作空间" width="480" /></a>
+      <p>用 ⌘←/→ 切换项目、⇧⌘←/→ 切换工作空间，或按 ⇧⌘↑ 打开工作空间切换器。</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>创建和查找工作空间</h3>
+      <a href="crates/app/assets/feature-guide/demo-workspace-home.mp4?raw=true"><img src="docs/assets/readme/demo-workspace-home.gif" alt="创建和查找工作空间" width="480" /></a>
+      <p>在首页创建工作空间，按 ⇧⌘K 返回全部工作空间，再按名称搜索要继续的工作。</p>
+    </td>
+    <td width="50%" valign="top">
+      <h3>在一个输入框中发现指令</h3>
+      <a href="crates/app/assets/feature-guide/demo-slash-commands.mp4?raw=true"><img src="docs/assets/readme/demo-slash-commands.gif" alt="在一个输入框中发现指令" width="480" /></a>
+      <p>输入 / 浏览指令，创建 Agent 和终端，或切换主题。输入 /help 可随时重新打开功能引导。</p>
     </td>
   </tr>
 </table>

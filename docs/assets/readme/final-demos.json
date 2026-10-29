@@ -1,0 +1,225 @@
+{
+  "date": "2026-10-29",
+  "video_encoding": "H.264, 1280px wide, original speed, CRF 23, AAC 96k, faststart",
+  "gif_encoding": "640px wide, 8 fps, 128 colors, Bayer dither, looping excerpts",
+  "recordings": [
+    {
+      "source": "语音交互.mp4",
+      "source_sha256": "45edc7e51670a955843dbb1e555ac280515dae7fab421d9be68c12a5e35915e9",
+      "poster_at": "midpoint",
+      "gif_start_seconds": 8,
+      "gif_duration_seconds": 16,
+      "outputs": [
+        {
+          "path": "crates/app/assets/feature-guide/demo-voice-command.mp4",
+          "bytes": 5675967,
+          "sha256": "13bed016b4dda0498473655071a4d382ac51cc0ac91121c6c23c7085526bc97d"
+        },
+        {
+          "path": "crates/app/assets/feature-guide/demo-voice-command.webp",
+          "bytes": 122456,
+          "sha256": "80de2f868ee1d4e502d00c8363c0c58be8d9816c0353ff21119479ca7ca7d0b8"
+        },
+        {
+          "path": "docs/assets/readme/demo-voice-command.gif",
+          "bytes": 4793102,
+          "sha256": "6c643fb358046acdad4159edc3cdea32f421a4e8ea83274fc6f0ef724111ced6"
+        }
+      ]
+    },
+    {
+      "source": "05-multi-agent-collaboration.mp4",
+      "source_sha256": "d4492cdc404da6ac1ae0a7f521ad32dcd2e3c94fe17d7576ffea93c616cf1cb4",
+      "poster_at": "midpoint",
+      "gif_start_seconds": 0,
+      "gif_duration_seconds": 17.2,
+      "outputs": [
+        {
+          "path": "crates/app/assets/feature-guide/demo-agent-collaboration.mp4",
+          "bytes": 1229677,
+          "sha256": "048d8deeb6f0465bf5047f3571a3bd7b123dc66e9c9e2e87f7f926e19b2c0f7f"
+        },
+        {
+          "path": "crates/app/assets/feature-guide/demo-agent-collaboration.webp",
+          "bytes": 95866,
+          "sha256": "11011733e6a6e51fc7ca9a7dab82103921257b2b608449ab4f66e00e65db7962"
+        },
+        {
+          "path": "docs/assets/readme/demo-agent-collaboration.gif",
+          "bytes": 4379277,
+          "sha256": "5ad72d6e3c062396340bc205767ccbf4a2ef2abf61e786c0bfb70eed148ddbaf"
+        }
+      ]
+    },
+    {
+      "source": "01-quick-agent-cards.mp4",
+      "source_sha256": "3aacb61193b9e6930e69a612ee87b7f2938b7fe39fceb45ad09557272a7fc065",
+      "poster_at": "midpoint",
+      "gif_start_seconds": 0,
+      "gif_duration_seconds": 18.4,
+      "outputs": [
+        {
+          "path": "crates/app/assets/feature-guide/demo-live-node-shortcuts.mp4",
+          "bytes": 1279529,
+          "sha256": "ea302f626a6bbc8f49865777b6aa3147ca8e7e3626093dab54876bd221192f98"
+        },
+        {
+          "path": "crates/app/assets/feature-guide/demo-live-node-shortcuts.webp",
+          "bytes": 62742,
+          "sha256": "621d1847717ca219cdb08f848dfc4f7f1c004e92ed7813641c841d4f355a16e1"
+        },
+        {
+          "path": "docs/assets/readme/demo-live-node-shortcuts.gif",
+          "bytes": 3886698,
+          "sha256": "b49aff06e4aa581f9aecbf73f0988e72fd291d314c7c48178b9afdf6f3e3ae64"
+        }
+      ]
+    },
+    {
+      "source": "02-cmd-m-expand.mp4",
+      "source_sha256": "833b499b37d2934ada3f7b719369511e9426420feb06a0b414d61a0bc4ec53ea",
+      "poster_at": "midpoint",
+      "gif_start_seconds": 0,
+      "gif_duration_seconds": 9.56,
+      "outputs": [
+        {
+          "path": "crates/app/assets/feature-guide/demo-layout-command-m.mp4",
+          "bytes": 1247191,
+          "sha256": "8bf090ae176ba847e1b9092fe0fd70d340cac0275efd744bac6cbad4b1e922c7"
+        },
+        {
+          "path": "crates/app/assets/feature-guide/demo-layout-command-m.webp",
+          "bytes": 77118,
+          "sha256": "8e793e2381c2a4e5df2f769dec9a765cd305108b4d563b89096f3e6f29d2005c"
+        },
+        {
+          "path": "docs/assets/readme/demo-layout-command-m.gif",
+          "bytes": 3264728,
+          "sha256": "cead43055f4a195a4db6eed5f33e2ab67f469675221eba0a4ffde414ae90b74e"
+        }
+      ]
+    },
+    {
+      "source": "幕僚.mp4",
+      "source_sha256": "80957d67ad4b62ec95fce3b63b33f548bf7c5fc9b81e08ac5d9a071e93a5810b",
+      "poster_at": "midpoint",
+      "gif_start_seconds": 0,
+      "gif_duration_seconds": 16,
+      "outputs": [
+        {
+          "path": "crates/app/assets/feature-guide/demo-chief-of-staff.mp4",
+          "bytes": 1578058,
+          "sha256": "40c1122e2c1f8e346c3afd903e22a951eb1fbba22ad5fcaeb027eb62b44f48c8"
+        },
+        {
+          "path": "crates/app/assets/feature-guide/demo-chief-of-staff.webp",
+          "bytes": 78120,
+          "sha256": "1745bef17fbbe0a1f4ff711ea30bc124c119fe5523a291a6a0f0336b4203a9d0"
+        },
+        {
+          "path": "docs/assets/readme/demo-chief-of-staff.gif",
+          "bytes": 2346102,
+          "sha256": "5e4f9022db51484f12ecc9f18a72eb3a002bec120fd9bfdd04313edb481e5b21"
+        }
+      ]
+    },
+    {
+      "source": "03-right-drawer.mp4",
+      "source_sha256": "d0247ab44bb8c96700c1f860fc3195468af881f1162519da20881e72d3de5a46",
+      "poster_at": "midpoint",
+      "gif_start_seconds": 0,
+      "gif_duration_seconds": 5.93,
+      "outputs": [
+        {
+          "path": "crates/app/assets/feature-guide/demo-right-drawer.mp4",
+          "bytes": 485042,
+          "sha256": "82c00d4bb7ac8f324d9aba22804004f7c5de6b7e75ae26b04df751b08de8fa86"
+        },
+        {
+          "path": "crates/app/assets/feature-guide/demo-right-drawer.webp",
+          "bytes": 97300,
+          "sha256": "4ee42155f4d03c90f3e7dce9946f829012bc46042cd1a2d455aa02664475db1c"
+        },
+        {
+          "path": "docs/assets/readme/demo-right-drawer.gif",
+          "bytes": 1397816,
+          "sha256": "a83b37862c1d19ad95575855aeb101bb4ecdfef401de2857ed58a3c9fa6d6b6b"
+        }
+      ]
+    },
+    {
+      "source": "04-switch-projects-workspaces.mp4",
+      "source_sha256": "acc6d4c9f2b63618e774822ea568c7c58deeb17506042639a5681ac12d4dbff0",
+      "poster_at": "midpoint",
+      "gif_start_seconds": 0,
+      "gif_duration_seconds": 9.73,
+      "outputs": [
+        {
+          "path": "crates/app/assets/feature-guide/demo-switch-workspaces.mp4",
+          "bytes": 1488388,
+          "sha256": "1e91f1cbe17cf6d91f9beaabf46685f19b8a461e7078ff4de4956856c50050e1"
+        },
+        {
+          "path": "crates/app/assets/feature-guide/demo-switch-workspaces.webp",
+          "bytes": 68268,
+          "sha256": "e93a18feb0f238a6ed4dfa93c575601a95212b0dcaf1fd30d10090191015519f"
+        },
+        {
+          "path": "docs/assets/readme/demo-switch-workspaces.gif",
+          "bytes": 3051416,
+          "sha256": "565bc55a405361e1de2c8de55128272072a59030a672bf9b7ace0161e90320d8"
+        }
+      ]
+    },
+    {
+      "source": "07-home-create-search-workspace.mp4",
+      "source_sha256": "730ea5102bed8ba9aad9f2dc7bf6ba026d785a42409c89a61e7f724bcd9ced39",
+      "poster_at": "midpoint",
+      "gif_start_seconds": 0,
+      "gif_duration_seconds": 8.76,
+      "outputs": [
+        {
+          "path": "crates/app/assets/feature-guide/demo-workspace-home.mp4",
+          "bytes": 697799,
+          "sha256": "a86d902c1ecc60d050d38b8f3cbac2afc1d7fa5f163654962d329980409038e8"
+        },
+        {
+          "path": "crates/app/assets/feature-guide/demo-workspace-home.webp",
+          "bytes": 56376,
+          "sha256": "fb88f382a71845ba14981a225870a5323057267a26a01a95480ff1717f8031fd"
+        },
+        {
+          "path": "docs/assets/readme/demo-workspace-home.gif",
+          "bytes": 2118236,
+          "sha256": "ece808542d87b32af06b3a0f9579dda6bef2dbdcf504ef9699353652926962c3"
+        }
+      ]
+    },
+    {
+      "source": "08-slash-commands.mp4",
+      "source_sha256": "bd7d3369af4f4f38b9ff37860a7184015d5a7324324c97df85d14085392468c6",
+      "poster_at": "midpoint",
+      "gif_start_seconds": 0,
+      "gif_duration_seconds": 16.06,
+      "outputs": [
+        {
+          "path": "crates/app/assets/feature-guide/demo-slash-commands.mp4",
+          "bytes": 791336,
+          "sha256": "98e5019b90dcf671bf7b1945a70f7321ddd506f0b671f618193352c4666ee6ef"
+        },
+        {
+          "path": "crates/app/assets/feature-guide/demo-slash-commands.webp",
+          "bytes": 53850,
+          "sha256": "750e432e27ce8bd43a341986b68784e83b53044d29adef5bde4d91acea456162"
+        },
+        {
+          "path": "docs/assets/readme/demo-slash-commands.gif",
+          "bytes": 2426632,
+          "sha256": "3432d5859979b7ef44bdf6fd2fb29d5c386d97f0a5e68c257266fe1dd41665f1"
+        }
+      ]
+    }
+  ],
+  "download_base_url": "https://github.com/multisoul-ai/norma-os-releases/releases/download/media-v1",
+  "download_naming": "MP4 assets use <output sha256>.mp4; existing assets are retained for older app versions."
+}

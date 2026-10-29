@@ -1,6 +1,6 @@
 # README 媒体来源
 
-用于根目录中英文 README 的展示素材。更新日期：2026-10-27。
+用于根目录中英文 README 的展示素材。更新日期：2026-10-29。
 
 ## 双语文档
 
@@ -80,25 +80,35 @@ Set the English headline large and confident with each supplied line unbroken; a
 
 ## 真实演示
 
-五张 WebP 海报均直接复制自官网仓库的 `public/media/`，未改写界面、状态或终端内容。两版 README 共享原始录屏，标题、说明和图片替代文本分别本地化。
+中英文 README 与 App 功能引导、`/help` 使用同一组九段终版产品录屏（2026-10-29）。README 直接展示静音 GIF，点击进入仓库内的完整 MP4，可在 GitHub 播放并听到原声；不再依赖旧官网视频链接。
 
-来源版本：[norma-os-desktop-site @ 1b0642b](https://github.com/multisoul-ai/norma-os-desktop-site/tree/1b0642be4db889a31a556dd1f36ae43bce221d87/public/media)。
+GIF 保持原速，宽 640 像素、8 fps、128 色 Bayer 调色；短片完整展示，较长的语音、幕僚和卡片创建录屏使用片段预览。准确起点、时长、源文件和输出校验值见 `final-demos.json`。完整 MP4 保留原片全部时长和音轨，压缩参数见 `crates/app/assets/feature-guide/README.md`。
 
-| 本地文件 | 对应官网视频 |
-| --- | --- |
-| `demo-voice-command.webp` | [语音群控](https://norma-os-desktop-site.vercel.app/media/demo-voice-command.mp4) |
-| `demo-agent-collaboration.webp` | [Agent 协作](https://norma-os-desktop-site.vercel.app/media/demo-agent-collaboration.mp4) |
-| `demo-live-node-shortcuts.webp` | [键盘创建节点](https://norma-os-desktop-site.vercel.app/media/demo-live-node-shortcuts.mp4) |
-| `demo-layout-command-m.webp` | [布局切换](https://norma-os-desktop-site.vercel.app/media/demo-layout-command-m.mp4) |
-| `demo-agent-notifications.webp` | [状态通知](https://norma-os-desktop-site.vercel.app/media/demo-agent-notifications.mp4) |
+| GIF | 完整视频 | 内容 |
+| --- | --- | --- |
+| `demo-voice-command.gif` | `crates/app/assets/feature-guide/demo-voice-command.mp4` | 语音交互 |
+| `demo-agent-collaboration.gif` | `crates/app/assets/feature-guide/demo-agent-collaboration.mp4` | 多 Agent 协作 |
+| `demo-live-node-shortcuts.gif` | `crates/app/assets/feature-guide/demo-live-node-shortcuts.mp4` | 快速创建卡片 |
+| `demo-layout-command-m.gif` | `crates/app/assets/feature-guide/demo-layout-command-m.mp4` | 卡片展开 |
+| `demo-chief-of-staff.gif` | `crates/app/assets/feature-guide/demo-chief-of-staff.mp4` | 幕僚 |
+| `demo-right-drawer.gif` | `crates/app/assets/feature-guide/demo-right-drawer.mp4` | 右侧抽屉 |
+| `demo-switch-workspaces.gif` | `crates/app/assets/feature-guide/demo-switch-workspaces.mp4` | 项目与工作空间 |
+| `demo-workspace-home.gif` | `crates/app/assets/feature-guide/demo-workspace-home.mp4` | 工作空间首页 |
+| `demo-slash-commands.gif` | `crates/app/assets/feature-guide/demo-slash-commands.mp4` | 斜杠指令 |
 
-GitHub README 使用可点击海报跳转完整 MP4，避免依赖会被 GitHub 过滤的自定义视频播放器，也不重复提交大体积视频。以上视频地址在本次更新时均返回 HTTP 200。
+GIF 使用 FFmpeg 的 palettegen / paletteuse 生成：
+
+```bash
+ffmpeg -ss "$START" -t "$DURATION" -i "$SOURCE" \
+  -filter_complex 'fps=8,scale=640:-2:flags=lanczos,split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=3' \
+  -loop 0 "$OUTPUT.gif"
+```
 
 ## 内容校准
 
 - 结构参考：[MultiSoul README](https://github.com/yakami129/multisoul)。参考其居中品牌区、视觉介绍、能力、上手与开发文档的组织方式。
 - Norma AI 的现行能力依据项目源码、[记忆接入记录](../../exec-plans/2026-10-03-norma-memory-access-and-settings.md)与[幕僚设计](../../design-docs/2026-10-23-norma-brain-acp.md)；[记忆与成长蓝图](../../design-docs/2026-10-02-norma-master-memory-and-growth.md)中的未完成能力明确标为规划。
-- 官网演示文案把 `⌘1–6` 描述为聚焦节点；本项目当前快捷键注册实际使用数字键创建终端及不同 Agent。README 以 `../../../crates/app/src/shortcuts/catalog.rs` 为准。
+- 终版快速创建演示使用 `/` 指令；⌘M 展开选中卡片。数字键快捷创建规则以 `../../../crates/app/src/shortcuts/catalog.rs` 为准。
 - Agent 可执行命令以 `../../../crates/runtime/src/nodes/agent.rs` 为准，包括 Cursor 的 `cursor-agent` 以及 Claude/Codex 的自动执行权限。
 - 开发签名要求以 `../../../scripts/run-macos-dev-app.sh` 为准。
 - 下载链接沿用官网的独立发布仓库。更新时最新公开版本为 v0.1.77；README 使用 latest 地址避免固定旧版本。

@@ -279,7 +279,7 @@ fn pending_auto_guide_waits_for_settings_to_close() {
 ///
 /// 预期结果：
 ///   - 正断言：跳过保存 suppressed，完成保存 completed。
-///   - 正断言：最后主题保存 agent_notifications，便于 Help 下次定位。
+///   - 正断言：最后主题保存 chief_of_staff，便于 Help 下次定位。
 ///   - 负断言：两条路径都不能继续保持 Visible 或误回到 not_seen。
 #[test]
 fn skip_and_complete_preserve_distinct_persisted_outcomes() {
@@ -287,8 +287,8 @@ fn skip_and_complete_preserve_distinct_persisted_outcomes() {
     let mut completed = FeatureGuideState::load(None, None, true);
     skipped.open_manually();
     completed.open_manually();
-    skipped.select_topic(FeatureGuideTopic::AgentNotifications);
-    completed.select_topic(FeatureGuideTopic::AgentNotifications);
+    skipped.select_topic(FeatureGuideTopic::ChiefOfStaff);
+    completed.select_topic(FeatureGuideTopic::ChiefOfStaff);
 
     skipped.suppress();
     completed.complete();
@@ -305,7 +305,7 @@ fn skip_and_complete_preserve_distinct_persisted_outcomes() {
     );
     assert_eq!(
         completed.serialized_topic(),
-        "agent_notifications",
+        "chief_of_staff",
         "用户最后查看的 AgentNotifications 主题应稳定序列化供 Help 恢复"
     );
     assert!(
