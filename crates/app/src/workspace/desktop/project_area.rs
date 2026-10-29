@@ -118,7 +118,7 @@ impl MultisoulApp {
             .rounded(px(14.0 * chrome))
             .border_1()
             .border_color(rgba(theme.dock_line))
-            .bg(rgba(theme.panel))
+            .bg(rgba(super::surface_theme::card_fill(theme)))
             .opacity(shell_opacity)
             .child(
                 div()

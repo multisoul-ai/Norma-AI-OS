@@ -16,8 +16,9 @@ impl MultisoulApp {
         viewport: gpui::Size<gpui::Pixels>,
         scene_scale: f32,
         cx: &mut Context<Self>,
-    ) -> impl IntoElement {
+    ) -> gpui::Stateful<gpui::Div> {
         let theme = self.desktop_theme();
+        let fill = super::surface_theme::card_fill(theme);
         let full_width = f32::from(viewport.width);
         let full_height = f32::from(viewport.height);
         let card_height = full_height * card_width / full_width;
@@ -102,12 +103,18 @@ impl MultisoulApp {
                     theme.dock_line
                 },
             ))
-            .bg(rgba(theme.panel))
+            .bg(rgba(fill))
             .opacity(shell_opacity)
             .shadow_lg()
             .cursor_pointer()
-            .hover(move |style| style.border_color(rgba(theme.accent_blue)))
-            .active(move |style| style.bg(rgba(with_alpha(theme.dock, 0xf0))))
+            .hover(move |style| {
+                style
+                    .border_color(rgba(theme.accent_blue))
+                    .bg(rgba(fill).blend(rgba(with_alpha(theme.text_primary, 0x14))))
+            })
+            .active(move |style| {
+                style.bg(rgba(fill).blend(rgba(with_alpha(theme.text_primary, 0x1f))))
+            })
             .tab_index(0)
             .focus(move |style| style.border_color(rgba(theme.focused_stroke)).shadow_lg())
             .on_click(cx.listener(move |app, _, window, cx| {

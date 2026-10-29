@@ -3,6 +3,13 @@
 use crate::app::MultisoulApp;
 use ui::icons::with_alpha;
 
+/// Drawers and wallpaper-facing cards retain 40% of the backdrop (153 / 255 = 60%).
+pub(super) const WALLPAPER_TINT_ALPHA: u8 = 0x99;
+
+pub(super) fn card_fill(theme: ui::Theme) -> u32 {
+    with_alpha(theme.canvas_from, WALLPAPER_TINT_ALPHA)
+}
+
 pub(super) fn is_light(theme: ui::Theme) -> bool {
     ((theme.canvas_from >> 24) & 0xff) > 128
 }

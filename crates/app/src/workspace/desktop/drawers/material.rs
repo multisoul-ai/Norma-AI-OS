@@ -22,11 +22,12 @@ use crate::settings::wallpaper::state::{
 const FROST_MAX_EDGE_PX: u32 = 1280;
 const FROST_SIGMA: f32 = 24.0;
 
-pub(super) fn drawer_tint(theme: ui::Theme, _left: bool) -> (u32, u32) {
+pub(in crate::workspace::desktop) fn drawer_tint(theme: ui::Theme, _left: bool) -> (u32, u32) {
     // 60% tint (round(255 * 0.60)) lets more blurred wallpaper show through both drawers.
+    let alpha = super::super::surface_theme::WALLPAPER_TINT_ALPHA;
     (
-        ui::icons::with_alpha(theme.canvas_from, 0x99),
-        ui::icons::with_alpha(theme.canvas_to, 0x99),
+        ui::icons::with_alpha(theme.canvas_from, alpha),
+        ui::icons::with_alpha(theme.canvas_to, alpha),
     )
 }
 

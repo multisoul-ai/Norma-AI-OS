@@ -70,7 +70,8 @@ impl MultisoulApp {
             .rounded(px(14.0 * chrome))
             .border_1()
             .border_color(rgba(theme.dock_line))
-            .bg(rgba(theme.panel))
+            // The workspace shell already owns the translucent background.
+            // Keep nested project previews clear so two layers cannot compound.
             .child(
                 div()
                     .absolute()
