@@ -52,6 +52,23 @@ extension Session {
         try await Task.sleep(nanoseconds: dwell)
     }
 
+    /// 保存真正的按下帧；无论截图是否成功，都在原窗口释放鼠标。
+    public func press(local point: CGPoint, on frame: Frame, whilePressed: () async throws -> Void) async throws {
+        try await activate()
+        let window = try await currentWindow()
+        guard window.id == frame.windowID else { throw E2EError.product("按下前窗口已切换") }
+        try await mouse("move", point)
+        do {
+            try await mouse("down", point)
+            // Mouse ACK now waits for the pressed frame; hold until review completes.
+            try await whilePressed()
+        } catch {
+            try? await mouse("up", point)
+            throw error
+        }
+        try await mouse("up", point)
+    }
+
     /// 在本次隔离窗口里连续拖动，供抽屉、卡片等真实指针交互验收。
     public func drag(local start: CGPoint, to end: CGPoint, on frame: Frame) async throws {
         try await activate()

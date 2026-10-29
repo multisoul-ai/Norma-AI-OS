@@ -6,14 +6,6 @@ use super::super::overview_rows::{
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div, ElementId, Stateful};
 
-const META: u32 = 0x8ea8bfff;
-const BRAIN_TINT: u32 = 0xa68bff26;
-const BRAIN_HOVER: u32 = 0xa68bff3d;
-const BRAIN_PRESSED: u32 = 0xa68bff55;
-const BRAIN_TEXT: u32 = 0xcbbcffff;
-const BRAIN_BADGE: u32 = 0xa68bffcc;
-const BRAIN_BADGE_TEXT: u32 = 0x14102aff;
-
 impl MultisoulApp {
     /// 概览审批行上的“允许 / 拒绝”：不经过大脑，直接在拥有该卡片的项目里处理。
     pub(super) fn decide_overview_approval(
@@ -52,6 +44,7 @@ impl MultisoulApp {
 
     /// 左抽屉里的“幕僚活动”入口：点开面板；数字是上次打开之后的新自主动作。
     pub(super) fn render_brain_entry(&mut self, cx: &mut Context<Self>) -> gpui::Stateful<Div> {
+        let theme = self.desktop_theme();
         let unseen = self.brain_unseen_actions();
         div()
             .id("desktop-brain-entry")
@@ -66,10 +59,10 @@ impl MultisoulApp {
             .items_center()
             .gap(px(8.0))
             .rounded(px(9.0))
-            .bg(rgba(BRAIN_TINT))
+            .bg(rgba(ui::icons::with_alpha(theme.accent_violet, 0x26)))
             .cursor_pointer()
-            .hover(|style| style.bg(rgba(BRAIN_HOVER)))
-            .active(|style| style.bg(rgba(BRAIN_PRESSED)))
+            .hover(|style| style.bg(rgba(ui::icons::with_alpha(theme.accent_violet, 0x3d))))
+            .active(|style| style.bg(rgba(ui::icons::with_alpha(theme.accent_violet, 0x55))))
             .on_click(cx.listener(|app, _, window, cx| {
                 cx.stop_propagation();
                 app.toggle_brain_trace(window, cx);
@@ -83,13 +76,13 @@ impl MultisoulApp {
                     .child(
                         div()
                             .text_size(px(OVERVIEW_TEXT_PRIMARY))
-                            .text_color(rgba(BRAIN_TEXT))
+                            .text_color(rgba(theme.text_primary))
                             .child(ui::i18n::text("chrome.brain_entry_title")),
                     )
                     .child(
                         div()
                             .text_size(px(OVERVIEW_TEXT_COPY))
-                            .text_color(rgba(META))
+                            .text_color(rgba(theme.text_secondary))
                             .child(ui::i18n::text("chrome.brain_entry_hint")),
                     ),
             )
@@ -99,9 +92,11 @@ impl MultisoulApp {
                         .flex_none()
                         .px(px(7.0))
                         .rounded(px(9.0))
-                        .bg(rgba(BRAIN_BADGE))
+                        .bg(rgba(theme.accent))
                         .text_size(px(OVERVIEW_TEXT_SECONDARY))
-                        .text_color(rgba(BRAIN_BADGE_TEXT))
+                        .text_color(rgba(crate::workspace::desktop::surface_theme::on_accent(
+                            theme,
+                        )))
                         .child(unseen.to_string()),
                 )
             })
@@ -115,17 +110,38 @@ pub(super) enum PillStyle {
     Disabled,
 }
 
+pub(super) fn pill_colors(theme: ui::Theme, style: PillStyle) -> (u32, u32, u32, u32) {
+    use super::super::surface_theme::{accent_fill, mix, on_accent};
+    match style {
+        PillStyle::Primary => (
+            theme.accent,
+            accent_fill(theme, 26),
+            accent_fill(theme, 48),
+            on_accent(theme),
+        ),
+        PillStyle::Quiet => (
+            ui::icons::with_alpha(mix(theme.canvas_from, theme.text_primary, 18), 0xf5),
+            ui::icons::with_alpha(mix(theme.canvas_from, theme.text_primary, 32), 0xf5),
+            ui::icons::with_alpha(mix(theme.canvas_from, theme.text_primary, 46), 0xf5),
+            theme.text_primary,
+        ),
+        PillStyle::Disabled => (
+            ui::icons::with_alpha(theme.text_primary, 0x0a),
+            ui::icons::with_alpha(theme.text_primary, 0x0a),
+            ui::icons::with_alpha(theme.text_primary, 0x0a),
+            theme.text_tertiary,
+        ),
+    }
+}
+
 /// 概览里的小胶囊按钮：整块可点，悬停与按下各有一档颜色；与想法清单的胶囊同一做法。
 pub(super) fn pill(
+    theme: ui::Theme,
     id: impl Into<ElementId>,
     label: &'static str,
     style: PillStyle,
 ) -> Stateful<Div> {
-    let (fill, hover, pressed, text) = match style {
-        PillStyle::Primary => (0x58adff40, 0x58adff66, 0x58adff88, 0xeef6ffff),
-        PillStyle::Quiet => (0xcde8ff14, 0xcde8ff2e, 0xcde8ff44, 0xcfe3f4ff),
-        PillStyle::Disabled => (0xcde8ff0a, 0xcde8ff0a, 0xcde8ff0a, 0x8ea8bf99),
-    };
+    let (fill, hover, pressed, text) = pill_colors(theme, style);
     div()
         .id(id)
         .h(px(22.0))

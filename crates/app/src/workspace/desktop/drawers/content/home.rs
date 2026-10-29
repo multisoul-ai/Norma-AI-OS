@@ -1,12 +1,10 @@
 //! Empty right drawer: the prototype's "new tab" page (address pill, tools, recommendations).
 
-use super::super::GLASS_TEXT_MUTED;
 use super::home_tools::{
     HomeTool, Recommendation, PLACEHOLDER_RECOMMENDATIONS, UPCOMING_NOTICE_KEY,
 };
-use super::{GLASS_TEXT, GLASS_TEXT_SECONDARY};
 use crate::app::MultisoulApp;
-use gpui::{div, prelude::*, px, rgba, Context, Div, Stateful, Window};
+use gpui::{div, prelude::*, px, rgba, Context, Div, Focusable, Stateful, Window};
 use std::time::Duration;
 use storage::DesktopContentKind;
 use ui::component::{
@@ -53,7 +51,7 @@ impl MultisoulApp {
                 .mb(px(10.0))
                 .text_size(px(11.0))
                 .font_semibold()
-                .text_color(rgba(GLASS_TEXT_SECONDARY))
+                .text_color(rgba(theme.text_secondary))
                 .child(text)
         };
         div()
@@ -78,9 +76,14 @@ impl MultisoulApp {
                     .flex()
                     .items_center()
                     .rounded(px(18.0))
+                    .track_focus(&input.read(cx).focus_handle(cx))
+                    .border_1()
+                    .border_color(rgba(theme.node_stroke))
                     .bg(rgba(with_alpha(theme.edge_highlight, 0x14)))
+                    .hover(|style| style.bg(rgba(theme.panel_high)))
+                    .focus(|style| style.border_color(rgba(theme.focused_stroke)))
                     .text_size(px(12.0))
-                    .text_color(rgba(GLASS_TEXT))
+                    .text_color(rgba(theme.text_primary))
                     .child(div().flex_1().child(Input::new(&input).appearance(false)))
                     .on_key_down(cx.listener(|app, event: &gpui::KeyDownEvent, _, cx| {
                         if event.keystroke.key == "enter" {
@@ -106,9 +109,12 @@ impl MultisoulApp {
                         .rounded(px(9.0))
                         .border_1()
                         .border_color(rgba(with_alpha(theme.edge_highlight, 0x40)))
-                        .bg(rgba(0x1d2026f2))
+                        .bg(rgba(ui::icons::with_alpha(
+                            self.desktop_theme().panel,
+                            0xfa,
+                        )))
                         .text_size(px(12.0))
-                        .text_color(rgba(GLASS_TEXT_MUTED))
+                        .text_color(rgba(theme.text_tertiary))
                         .child(text),
                 )
             })

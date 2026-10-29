@@ -61,6 +61,31 @@ impl ChatRuntime {
         if transcript.trim().is_empty() {
             return Ok(());
         }
+        if cancellation.is_cancelled() {
+            return Ok(());
+        }
+        if crate::app::MultisoulApp::is_question_delegation(&transcript) {
+            let (response, received) = tokio::sync::oneshot::channel();
+            tokio::select! {
+                biased;
+                _ = cancellation.cancelled() => return Ok(()),
+                result = self.context.send(ContextRequest::Question {
+                    transcript: transcript.clone(), cancellation: cancellation.clone(), response,
+                }) => result.map_err(|_| LocalizedText::new("doubao.call_ended"))?,
+            }
+            let reply = tokio::select! {
+                biased;
+                _ = cancellation.cancelled() => return Ok(()),
+                result = received => result.map_err(|_| LocalizedText::new("doubao.call_ended"))?,
+            }
+            .unwrap_or_else(|reason| reason);
+            {
+                let mut history = self.history.lock().await;
+                history.push(json!({"role":"user","content":transcript}));
+                trim_history(&mut history);
+            }
+            return self.finish(reply, &cancellation, &status).await;
+        }
         tracing::info!(target: "norma_voice", turn, "Doubao reply turn started");
         let shared_turn = agent::ToolContext {
             project_id: self.project.clone().unwrap_or_default(),
@@ -383,3 +408,7 @@ fn trim_history(history: &mut Vec<Value>) {
         history.remove(0);
     }
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/doubao_question_delegation_tests.rs"]
+mod question_tests;

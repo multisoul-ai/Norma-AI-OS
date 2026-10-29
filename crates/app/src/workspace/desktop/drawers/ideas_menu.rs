@@ -5,11 +5,6 @@ use super::super::overview_rows::OverviewFeedback;
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div, ElementId, Stateful, Window};
 
-const GROUP_TITLE: u32 = 0xa9c3daff;
-const GROUP_RULE: u32 = 0xcde8ff14;
-const MENU_FILL: u32 = 0x0d1d2ff2;
-const MENU_BORDER: u32 = 0x83c4ff66;
-
 impl MultisoulApp {
     pub(super) fn render_idea_menu(
         &self,
@@ -19,6 +14,7 @@ impl MultisoulApp {
         feedback: OverviewFeedback,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
+        let theme = self.desktop_theme();
         let cursor = self.desktop_workspace.ideas_menu_cursor;
         let new_area =
             expanded_area.or_else(|| options.first().map(|option| option.area_id.clone()));
@@ -32,22 +28,25 @@ impl MultisoulApp {
             .flex_col()
             .rounded(px(12.0))
             .shadow(vec![gpui::BoxShadow {
-                color: rgba(0x000000bb).into(),
+                color: rgba(crate::workspace::desktop::surface_theme::shadow_color(
+                    theme, 0xbb,
+                ))
+                .into(),
                 offset: gpui::point(px(0.0), px(18.0)),
                 blur_radius: px(44.0),
                 spread_radius: px(0.0),
             }])
             .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .border_1()
-            .border_color(rgba(MENU_BORDER))
-            .bg(rgba(MENU_FILL))
+            .border_color(rgba(theme.node_stroke))
+            .bg(rgba(ui::icons::with_alpha(theme.panel, 0xfa)))
             .child(
                 div()
                     .px(px(10.0))
                     .pt(px(4.0))
                     .pb(px(6.0))
                     .text_size(px(11.0))
-                    .text_color(rgba(GROUP_TITLE))
+                    .text_color(rgba(theme.text_secondary))
                     .child(ui::i18n::text("drawers.assign_to_whom")),
             )
             .children(options.iter().enumerate().map(|(index, option)| {
@@ -57,6 +56,7 @@ impl MultisoulApp {
                 };
                 let id = idea_id.to_owned();
                 menu_item(
+                    theme,
                     MenuItem {
                         id: format!("desktop-idea-target-{index}"),
                         label: option.name.clone(),
@@ -82,11 +82,12 @@ impl MultisoulApp {
                     .h(px(1.0))
                     .mx(px(4.0))
                     .my(px(4.0))
-                    .bg(rgba(GROUP_RULE)),
+                    .bg(rgba(theme.node_stroke)),
             )
             .child({
                 let id = idea_id.to_owned();
                 menu_item(
+                    theme,
                     MenuItem {
                         id: "desktop-idea-target-new".to_owned(),
                         label: ui::i18n::text("drawers.new_agent").to_owned(),
@@ -135,6 +136,7 @@ struct MenuItem {
 }
 
 fn menu_item(
+    theme: ui::Theme,
     item: MenuItem,
     feedback: super::super::overview_rows::OverviewFeedback,
     on_click: impl Fn(&gpui::ClickEvent, &mut Window, &mut gpui::App) + 'static,
@@ -164,27 +166,31 @@ fn menu_item(
         .hover(move |style| style.bg(rgba(hover)))
         .active(move |style| style.bg(rgba(pressed)))
         .on_click(on_click)
-        .child(dot_view(dot))
+        .child(dot_view(theme, dot))
         .child(
             div()
                 .flex_1()
                 .min_w(px(0.0))
                 .text_size(px(13.0))
-                .text_color(rgba(if accent { 0xbfe6ffff } else { 0xe8f3fdff }))
+                .text_color(rgba(if accent {
+                    theme.text_primary
+                } else {
+                    theme.text_primary
+                }))
                 .child(label),
         )
         .when_some(detail, |item, detail| {
             item.child(
                 div()
                     .text_size(px(11.0))
-                    .text_color(rgba(0x9fb8cfff))
+                    .text_color(rgba(theme.text_tertiary))
                     .child(detail),
             )
         })
 }
 
 /// 行首圆点：运行中青色、空闲灰蓝，「新建」是空心圆环。
-fn dot_view(dot: Dot) -> Div {
+fn dot_view(theme: ui::Theme, dot: Dot) -> Div {
     let cell = div()
         .w(px(14.0))
         .flex_none()
@@ -197,7 +203,7 @@ fn dot_view(dot: Dot) -> Div {
                 .w(px(8.0))
                 .h(px(8.0))
                 .rounded_full()
-                .bg(rgba(0x36dce8ff)),
+                .bg(rgba(theme.accent_cyan)),
         ),
         Dot::Idle => cell.child(
             div()
@@ -212,7 +218,7 @@ fn dot_view(dot: Dot) -> Div {
                 .h(px(8.0))
                 .rounded_full()
                 .border_2()
-                .border_color(rgba(0x9fd2ffff)),
+                .border_color(rgba(theme.accent)),
         ),
     }
 }

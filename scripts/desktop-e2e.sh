@@ -23,7 +23,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     -h|--help)
       echo "用法：scripts/desktop-e2e.sh [module|scenario] [--repeat N] [--visual]"
-      echo "--visual 由当前多模态 Agent 看图并写响应，当前支持 canvas-presentation-layout。"
+      echo "--visual 由当前多模态 Agent 看图并写响应，支持场景由各模块 visualScenarioNames 登记。"
       echo "默认场景：workspace-lifecycle"
       echo "传入模块名时，按该模块登记顺序跑完全部场景。"
       exit 0

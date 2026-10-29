@@ -1,0 +1,83 @@
+{
+  "id": "prt_17e7598240015aS6LtmbSEGIkc",
+  "sessionID": "ses_e818a6dfbffehqPKTZcQvWJCLL",
+  "messageID": "msg_17e75941b001T1QHqv9Yh4SYrA",
+  "type": "tool",
+  "callID": "fixture_question_7f2",
+  "tool": "question",
+  "state": {
+    "status": "completed",
+    "input": {
+      "questions": [
+        {
+          "header": "Color",
+          "question": "Color?",
+          "options": [
+            {
+              "label": "Blue",
+              "description": "First"
+            },
+            {
+              "label": "Green",
+              "description": "Second"
+            }
+          ]
+        },
+        {
+          "header": "Platforms",
+          "question": "Platforms?",
+          "multiple": true,
+          "options": [
+            {
+              "label": "macOS",
+              "description": "Mac"
+            },
+            {
+              "label": "iOS",
+              "description": "Phone"
+            },
+            {
+              "label": "Linux",
+              "description": "Linux"
+            }
+          ]
+        },
+        {
+          "header": "Marker",
+          "question": "Custom marker?",
+          "options": [
+            {
+              "label": "One",
+              "description": "First"
+            },
+            {
+              "label": "Two",
+              "description": "Second"
+            }
+          ]
+        }
+      ]
+    },
+    "output": "User has answered your questions: \"Color?\"=\"Green\", \"Platforms?\"=\"macOS, Linux\", \"Custom marker?\"=\"NATIVE_OPENCODE_7F2\". You can now continue with the user's answers in mind.",
+    "title": "Asked 3 questions",
+    "metadata": {
+      "answers": [
+        [
+          "Green"
+        ],
+        [
+          "macOS",
+          "Linux"
+        ],
+        [
+          "NATIVE_OPENCODE_7F2"
+        ]
+      ],
+      "truncated": false
+    },
+    "time": {
+      "start": 1793122998316,
+      "end": 1793123000485
+    }
+  }
+}

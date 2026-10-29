@@ -49,6 +49,7 @@ fn drain_reports_session_binding_change_when_task_state_stays_ready() {
         #[cfg(feature = "e2e-test-support")]
         event_tap: None,
         approvals: crossbeam_channel::bounded(1).1,
+        questions: crossbeam_channel::bounded(1).1,
         receiver,
         #[cfg(feature = "e2e-test-support")]
         event_sender,
@@ -59,11 +60,11 @@ fn drain_reports_session_binding_change_when_task_state_stays_ready() {
     sender
         .send(session_start(node_id, "session-a"))
         .expect("第一次 SessionStart 应进入测试 channel");
-    let first = server.drain_into_runtime(&mut runtime);
+    let first = server.drain_into_runtime(&mut runtime, None);
     sender
         .send(session_start(node_id, "session-b"))
         .expect("第二次 SessionStart 应进入测试 channel");
-    let second = server.drain_into_runtime(&mut runtime);
+    let second = server.drain_into_runtime(&mut runtime, None);
 
     assert!(
         first.session_binding_changed,
@@ -124,6 +125,7 @@ fn drain_reports_progress_without_task_state_change() {
         #[cfg(feature = "e2e-test-support")]
         event_sender: sender.clone(),
         approvals: crossbeam_channel::bounded(1).1,
+        questions: crossbeam_channel::bounded(1).1,
         receiver,
         endpoint: None,
         token: None,
@@ -139,14 +141,14 @@ fn drain_reports_progress_without_task_state_change() {
     sender
         .send(event("UserPromptSubmit", "start"))
         .expect("入队");
-    server.drain_into_runtime(&mut runtime);
+    server.drain_into_runtime(&mut runtime, None);
     sender.send(event("PostToolUse", "1")).expect("创建1");
     assert!(
-        server.drain_into_runtime(&mut runtime).changed,
+        server.drain_into_runtime(&mut runtime, None).changed,
         "首个计划应唤醒"
     );
     sender.send(event("PostToolUse", "2")).expect("创建2");
-    let next = server.drain_into_runtime(&mut runtime);
+    let next = server.drain_into_runtime(&mut runtime, None);
     assert!(next.changed, "Thinking不变仍必须立即进入250ms合并通道");
     assert!(
         !next.session_binding_changed,
@@ -160,7 +162,7 @@ fn drain_reports_progress_without_task_state_change() {
     );
     sender.send(event("PostToolUse", "2")).expect("重放");
     assert!(
-        !server.drain_into_runtime(&mut runtime).changed,
+        !server.drain_into_runtime(&mut runtime, None).changed,
         "重复事件不制造网络增量"
     );
 }

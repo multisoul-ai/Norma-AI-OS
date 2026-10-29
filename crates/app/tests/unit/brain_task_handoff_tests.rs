@@ -1,6 +1,6 @@
 use super::*;
 use agent::context::*;
-use gpui::TestAppContext;
+use gpui::{AppContext, TestAppContext};
 use std::sync::{Arc, Mutex};
 
 struct RecordPty(Arc<Mutex<Vec<u8>>>);
@@ -151,5 +151,183 @@ fn brain_proposal_adoption_carries_communicated_constraint() {
     assert!(
         sent.contains("检查边界条件") && sent.contains("只修改前端"),
         "采纳的提议任务必须携带当前约束：{sent}"
+    );
+}
+
+/// 场景：提议生成后，目标卡片开始等待用户确认，不能用下一步覆盖当前问题。
+/// 构造：真实 Alan 卡片、记录型 PTY、一条提议及 WaitingApproval 状态。
+/// 执行：先采纳并检查拒绝原因，再把卡片更新为 Done 后重新采纳。
+/// 预期：等待时明确要求先处理卡片，保留提议且不输入任务；解除后任务只派发一次。
+#[test]
+fn brain_proposal_waits_for_confirmation_then_dispatches() {
+    let (entity, mut cx, received, _dir, _test) = fixture();
+    received.lock().unwrap().clear();
+    entity.update(&mut cx, |app, _| {
+        let node = app
+            .agent_roster_for_provider()
+            .into_iter()
+            .find(|entry| entry.name == "Alan")
+            .unwrap()
+            .active_node_id
+            .unwrap();
+        let id = app
+            .brain
+            .proposals
+            .add(
+                super::super::proposals::Draft {
+                    agent: "Alan".into(),
+                    title: "补充测试".into(),
+                    task: "检查边界条件".into(),
+                    why: "先补验证".into(),
+                },
+                std::time::SystemTime::now(),
+            )
+            .unwrap();
+        let update = |to| runtime::AgentTaskUpdate {
+            node_id: node,
+            profile: canvas::AgentProfile::Codex,
+            provider_event: "confirmation-test".into(),
+            to,
+            task_title: None,
+            session_id: None,
+        };
+        app.runtime
+            .apply_agent_task_update(update(runtime::AgentTaskState::WaitingApproval {
+                tool_name: Some("AskUserQuestion".into()),
+            }));
+        let error = app.dispatch_brain_proposal(id).unwrap_err();
+        assert_eq!(
+            error,
+            ui::i18n::format("chrome.brain_proposal_waiting", &[("agent", "Alan".into())]),
+            "必须明确提示先处理原卡片的问题或审批"
+        );
+        assert_ne!(
+            error,
+            ui::i18n::format("chrome.brain_proposal_busy", &[("agent", "Alan".into())]),
+            "等待确认不能只显示通用忙碌提示"
+        );
+        assert_eq!(app.brain.proposals.items().len(), 1, "待确认时必须保留提议");
+        assert!(
+            !received_text(&received).contains("检查边界条件"),
+            "不能把任务写入问答输入"
+        );
+        app.runtime
+            .apply_agent_task_update(update(runtime::AgentTaskState::Done));
+        assert!(
+            app.dispatch_brain_proposal(id).is_ok(),
+            "解除确认后应能采纳"
+        );
+        assert!(app.brain.proposals.items().is_empty(), "成功后才消费提议");
+    });
+    cx.run_until_parked();
+    assert_eq!(
+        received_text(&received).matches("检查边界条件").count(),
+        1,
+        "恢复后只输入一次任务"
+    );
+}
+
+/// 场景：用户点击时空闲，后台准备期间目标开始等待确认；恢复后不能留下过期错误。
+/// 构造：隔离项目与概览宿主、记录型 PTY、同一条提议；首次派发前状态为 Ready。
+/// 执行：启动真实异步采纳入口、切为 WaitingApproval，等待失败，再切为 Done 刷新概览。
+/// 预期：等待原因由实时状态展示，不持久化为旧错误；恢复后可采纳，之前没有任务字节。
+#[test]
+fn brain_proposal_async_confirmation_feedback_recovers() {
+    let (source, mut cx, received, dir, _test) = fixture();
+    received.lock().unwrap().clear();
+    let host = cx.new(|cx| {
+        MultisoulApp::new_with_pty_factory_and_database_paths(
+            cx,
+            Box::new(|_, _, _, tx| Ok(Box::new(terminal::TestPtyBackend::echo(tx)))),
+            storage::DatabasePaths::isolated_test(&dir.path().join("host")),
+        )
+    });
+    let (node, id) = source.update(&mut cx, |app, _| {
+        let node = app
+            .agent_roster_for_provider()
+            .into_iter()
+            .find(|entry| entry.name == "Alan")
+            .unwrap()
+            .active_node_id
+            .unwrap();
+        let id = app
+            .brain
+            .proposals
+            .add(
+                super::super::proposals::Draft {
+                    agent: "Alan".into(),
+                    title: "补充测试".into(),
+                    task: "检查边界条件".into(),
+                    why: "先补验证".into(),
+                },
+                std::time::SystemTime::now(),
+            )
+            .unwrap();
+        (node, id)
+    });
+    host.update(&mut cx, |app, cx| {
+        app.desktop_workspace.active_id = Some("w".into());
+        app.desktop_workspace
+            .sessions
+            .insert(("w".into(), "a".into()), source.clone());
+        app.dispatch_overview_proposal("a", id, cx).detach();
+    });
+    let update = |to| runtime::AgentTaskUpdate {
+        node_id: node,
+        profile: canvas::AgentProfile::Codex,
+        provider_event: "confirmation-test".into(),
+        to,
+        task_title: None,
+        session_id: None,
+    };
+    source.update(&mut cx, |app, _| {
+        app.runtime
+            .apply_agent_task_update(update(runtime::AgentTaskState::WaitingApproval {
+                tool_name: None,
+            }));
+    });
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    loop {
+        cx.run_until_parked();
+        if host.read_with(&cx, |app, _| app.desktop_workspace.error.is_some()) {
+            break;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "异步派发必须返回明确失败"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(1));
+    }
+    host.read_with(&cx, |app, _| {
+        assert!(
+            matches!(
+                app.brain_overview().proposals[0].block,
+                Some(super::super::proposals::ProposalBlock::WaitingConfirmation)
+            ),
+            "概览必须展示当前阻塞"
+        );
+        assert!(
+            app.brain_proposal_feedback("a", id).is_none(),
+            "不能把可恢复的等待状态保存成永久错误"
+        );
+    });
+    source.update(&mut cx, |app, _| {
+        app.runtime
+            .apply_agent_task_update(update(runtime::AgentTaskState::Done));
+    });
+    host.update(&mut cx, |app, cx| {
+        app.refresh_brain_overview(cx);
+        assert!(
+            app.brain_overview().proposals[0].block.is_none(),
+            "恢复后可采纳"
+        );
+        assert!(
+            app.brain_proposal_feedback("a", id).is_none(),
+            "不能留下要求先回答的旧提示"
+        );
+    });
+    assert!(
+        !received_text(&received).contains("检查边界条件"),
+        "等待期间不得写入任务"
     );
 }

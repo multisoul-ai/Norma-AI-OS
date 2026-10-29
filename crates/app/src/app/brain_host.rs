@@ -12,12 +12,15 @@ mod lifecycle;
 mod log;
 mod model_lists;
 mod ops;
+mod overview;
 mod own_prompts;
+pub(crate) use overview::{OverviewProposal, OverviewQuestion, OverviewSnapshot};
 mod panel;
 mod panel_parts;
 mod panel_rows;
 mod proposal_actions;
 pub(crate) mod proposals;
+mod questions;
 mod settings;
 mod startup;
 mod trace_state;
@@ -77,6 +80,7 @@ impl Drop for BrainHost {
 }
 
 pub(crate) struct BrainHostState {
+    questions: questions::QuestionHost,
     settings: Option<config::BrainSettings>,
     settings_loading: bool,
     settings_revision: u64,
@@ -125,31 +129,14 @@ pub(crate) struct BrainHostState {
     proposal_writer: proposals::Writer,
     /// 概览里展开的提议：（项目区域 id，提议 id）。
     pub(crate) proposal_open: Option<(String, u64)>,
-}
-
-/// 概览需要的、分散在各项目会话里的大脑状态。
-#[derive(Clone, Debug, Default, PartialEq)]
-pub(crate) struct OverviewSnapshot {
-    /// 大脑正在判断的审批：（项目区域 id，卡片 id）。
-    pub judging: HashSet<(String, u64)>,
-    /// 至少一个项目里的大脑在运行；工作空间窗口自己不跑大脑，设置页靠它显示“运行中”。
-    pub running: bool,
-    /// 等用户确认的下一步，新的在前。
-    pub proposals: Vec<OverviewProposal>,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub(crate) struct OverviewProposal {
-    pub area_id: String,
-    pub proposal: proposals::Proposal,
-    /// 目标 Agent 还没有卡片，派发时会新建。
-    pub new_card: bool,
+    pub(crate) proposal_feedback: HashMap<(String, u64), proposals::ProposalFeedback>,
 }
 
 impl BrainHostState {
     pub(crate) fn new() -> Self {
         let now = Instant::now();
         Self {
+            questions: questions::QuestionHost::default(),
             settings: None,
             settings_loading: false,
             settings_revision: 0,
@@ -185,6 +172,7 @@ impl BrainHostState {
             proposals_save: None,
             proposal_writer: brain::persistence::shared_writer().clone(),
             proposal_open: None,
+            proposal_feedback: HashMap::new(),
         }
     }
 
@@ -224,6 +212,8 @@ impl MultisoulApp {
         excerpts: &[(u64, Option<String>)],
         cx: &mut Context<Self>,
     ) {
+        self.flush_question_receipts(cx);
+        self.poll_brain_questions();
         self.poll_brain_proposal_save(cx);
         self.brain.drain_retired();
         if self.brain.settings.is_none() {

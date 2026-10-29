@@ -1,11 +1,10 @@
 //! Project previews present the original live canvas at a uniform scale.
-use super::{GLASS_TEXT, GLASS_TEXT_MUTED};
+
 use crate::app::MultisoulApp;
 use canvas::{CanvasRect, Vec2};
 use gpui::{div, prelude::*, px, rgba, Context, Div};
 use storage::DesktopAreaPreview;
 use ui::component::StyledExt;
-use ui::icons::with_alpha;
 
 /// Keep chrome inside tiny thumbnails as well as full-size project regions.
 pub(super) fn project_chrome_scale(size: Vec2, scale: f32) -> f32 {
@@ -71,7 +70,7 @@ impl MultisoulApp {
             .rounded(px(14.0 * chrome))
             .border_1()
             .border_color(rgba(theme.dock_line))
-            .bg(rgba(with_alpha(theme.dock, 0x8c)))
+            .bg(rgba(theme.panel))
             .child(
                 div()
                     .absolute()
@@ -84,7 +83,7 @@ impl MultisoulApp {
                     .items_center()
                     .font_semibold()
                     .text_size(px(13.0 * chrome))
-                    .text_color(rgba(GLASS_TEXT))
+                    .text_color(rgba(theme.text_primary))
                     .overflow_hidden()
                     .child(div().min_w(px(0.0)).truncate().child(area.name.clone())),
             )
@@ -109,6 +108,7 @@ impl MultisoulApp {
         scale: f32,
         _cx: &mut Context<Self>,
     ) -> Div {
+        let theme = self.desktop_theme();
         let frame = project_canvas_rect(
             CanvasRect {
                 origin: Vec2::ZERO,
@@ -145,7 +145,7 @@ impl MultisoulApp {
                 .items_center()
                 .justify_center()
                 .text_size(px(12.0 * scale))
-                .text_color(rgba(GLASS_TEXT_MUTED))
+                .text_color(rgba(theme.text_tertiary))
                 .child(if loading {
                     ui::i18n::text("workspace.loading_canvas")
                 } else {

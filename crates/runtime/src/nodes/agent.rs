@@ -5,6 +5,34 @@ use crate::nodes::term::{PtyFactory, TermLive};
 use canvas::AgentProfile;
 use std::path::Path;
 use terminal::{PtyCommand, PtyError, TerminalSessionId};
+mod codex;
+mod cursor;
+mod deferred;
+mod opencode;
+
+pub(crate) struct PreparedAgentTerminal {
+    id: TerminalSessionId,
+    cols: u16,
+    rows: u16,
+    backend: Box<dyn terminal::PtyBackend + Send>,
+    receiver: crossbeam_channel::Receiver<terminal::PtyEvent>,
+    host: Option<crossbeam_channel::Receiver<crate::live::NativeQuestionHost>>,
+}
+impl PreparedAgentTerminal {
+    pub(crate) fn into_live(self) -> Result<TermLive, PtyError> {
+        let live = TermLive::from_session(terminal::TerminalSession::spawn_with_backend(
+            self.id,
+            self.cols,
+            self.rows,
+            self.backend,
+            self.receiver,
+        ))?;
+        Ok(match self.host {
+            Some(host) => live.with_native_question_host(host),
+            None => live,
+        })
+    }
+}
 
 pub(crate) fn spawn_agent_live(
     id: TerminalSessionId,
@@ -16,10 +44,59 @@ pub(crate) fn spawn_agent_live(
     pty_factory: Option<&PtyFactory>,
 ) -> Result<TermLive, PtyError> {
     let command = agent_command(profile, hook_env).with_cwd(cwd);
-    match pty_factory {
-        Some(factory) => TermLive::spawn_with_factory(id, command, cols, rows, factory),
-        None => TermLive::spawn_command(id, command, cols, rows),
+    spawn_agent_command(id, command, cols, rows, pty_factory, None)
+}
+
+pub(crate) fn spawn_agent_command(
+    id: TerminalSessionId,
+    command: PtyCommand,
+    cols: u16,
+    rows: u16,
+    factory: Option<&PtyFactory>,
+    control: Option<std::sync::Arc<crate::runtime::LaunchControl>>,
+) -> Result<TermLive, PtyError> {
+    if let Some(factory) = factory {
+        return TermLive::spawn_with_factory(id, command, cols, rows, factory);
     }
+    if codex::owned_identity(&command).is_some()
+        || opencode::owned_identity(&command).is_some()
+        || cursor::owned_identity(&command).is_some()
+    {
+        return prepare_agent_command(id, command, cols, rows, control.unwrap_or_default())?
+            .into_live();
+    }
+    if let Some(control) = control {
+        return prepare_agent_command(id, command, cols, rows, control)?.into_live();
+    }
+    TermLive::spawn_command(id, command, cols, rows)
+}
+
+pub(crate) fn prepare_agent_command(
+    id: TerminalSessionId,
+    command: PtyCommand,
+    cols: u16,
+    rows: u16,
+    control: std::sync::Arc<crate::runtime::LaunchControl>,
+) -> Result<PreparedAgentTerminal, PtyError> {
+    if codex::owned_identity(&command).is_some() {
+        return codex::prepare(id, command, cols, rows, control);
+    }
+    if opencode::owned_identity(&command).is_some() {
+        return opencode::prepare(id, command, cols, rows, control);
+    }
+    if cursor::owned_identity(&command).is_some() {
+        return cursor::prepare(id, command, cols, rows, control);
+    }
+    let (sender, receiver) = crossbeam_channel::unbounded();
+    let backend = Box::new(control.spawn_pty(command, cols, rows, sender)?);
+    Ok(PreparedAgentTerminal {
+        id,
+        cols,
+        rows,
+        backend,
+        receiver,
+        host: None,
+    })
 }
 
 pub(crate) fn agent_command(profile: AgentProfile, hook_env: Option<&AgentHookEnv>) -> PtyCommand {
@@ -205,6 +282,7 @@ mod tests {
     #[test]
     fn test_agent_command_injects_multisoul_hook_environment() {
         let hook_env = AgentHookEnv {
+            control_run_id: None,
             node_id: 42,
             profile: AgentProfile::Codex,
             endpoint: "http://127.0.0.1:49152/agent-hooks".to_string(),
@@ -280,6 +358,7 @@ mod tests {
     fn test_codex_command_bypasses_hook_trust_only_with_hook_env() {
         let codex_without_hook_env = agent_command(AgentProfile::Codex, None);
         let hook_env = AgentHookEnv {
+            control_run_id: None,
             node_id: 7,
             profile: AgentProfile::Codex,
             endpoint: "http://127.0.0.1:49153/agent-hooks".to_string(),
@@ -292,6 +371,7 @@ mod tests {
         let claude_with_hook_env = agent_command(
             AgentProfile::Claude,
             Some(&AgentHookEnv {
+                control_run_id: None,
                 node_id: 7,
                 profile: AgentProfile::Claude,
                 endpoint: "http://127.0.0.1:49153/agent-hooks".to_string(),
@@ -319,3 +399,11 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/opencode_native_launch_tests.rs"]
+mod opencode_native_launch_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/cursor_native_launch_tests.rs"]
+mod cursor_native_launch_tests;

@@ -216,7 +216,10 @@ fn agent_task_state_for_norma(
     match runtime_state {
         Some(runtime::AgentTaskState::Thinking)
         | Some(runtime::AgentTaskState::RunningTool { .. })
-        | Some(runtime::AgentTaskState::WaitingApproval { .. }) => agent::AgentTaskState::Busy,
+        | Some(
+            runtime::AgentTaskState::WaitingApproval { .. }
+            | runtime::AgentTaskState::WaitingQuestion,
+        ) => agent::AgentTaskState::Busy,
         Some(runtime::AgentTaskState::Ended) => agent::AgentTaskState::Ended,
         Some(
             runtime::AgentTaskState::Ready
@@ -260,7 +263,8 @@ pub(super) fn agent_completion_report(
         runtime::AgentTaskState::Ready
         | runtime::AgentTaskState::Thinking
         | runtime::AgentTaskState::RunningTool { .. }
-        | runtime::AgentTaskState::WaitingApproval { .. } => None,
+        | runtime::AgentTaskState::WaitingApproval { .. }
+        | runtime::AgentTaskState::WaitingQuestion => None,
     }
 }
 

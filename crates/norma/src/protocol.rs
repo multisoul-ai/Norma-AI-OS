@@ -5,6 +5,7 @@ mod brain;
 mod context;
 mod ego;
 mod errors;
+mod question;
 mod workspace;
 
 pub use brain::{BrainDecision, BrainOp, ReportPriority};
@@ -17,6 +18,7 @@ pub use errors::{
     AgentCommandFailure, AgentErrorCode, CardCommandError, PresentationCommandFailure,
     PresentationErrorCode,
 };
+pub use question::*;
 pub use workspace::{OrchestrationDoctorReport, WorkspaceSummary};
 
 pub type NodeId = u64;

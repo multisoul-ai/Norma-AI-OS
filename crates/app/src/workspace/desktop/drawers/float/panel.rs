@@ -2,10 +2,8 @@
 
 use super::super::super::activity_cache::overview_clock_ms;
 use super::super::super::overview_rows::overview_subtitle;
-use super::super::GLASS_TEXT;
-use super::{
-    overview_panel_fill, prefers_reduced_transparency, PANEL_BORDER, PANEL_RADIUS, PIN_ICON,
-};
+
+use super::{overview_panel_fill, prefers_reduced_transparency, PANEL_RADIUS};
 use crate::app::MultisoulApp;
 use gpui::{
     div, point, prelude::*, px, rgba, svg, BoxShadow, Context, Div, KeyDownEvent, MouseButton,
@@ -49,7 +47,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
         let theme = self.desktop_theme();
-        let fill = overview_panel_fill(prefers_reduced_transparency());
+        let fill = overview_panel_fill(theme, prefers_reduced_transparency());
         let focus = self.overview_float_focus(cx);
         div()
             .id("desktop-run-overview-float")
@@ -64,11 +62,14 @@ impl MultisoulApp {
             .flex_col()
             .rounded(px(PANEL_RADIUS))
             .border_1()
-            .border_color(rgba(PANEL_BORDER))
+            .border_color(rgba(theme.node_stroke))
             .bg(rgba(fill))
-            .text_color(rgba(GLASS_TEXT))
+            .text_color(rgba(theme.text_primary))
             .shadow(vec![BoxShadow {
-                color: rgba(0x000000bb).into(),
+                color: rgba(crate::workspace::desktop::surface_theme::shadow_color(
+                    theme, 0xbb,
+                ))
+                .into(),
                 offset: point(px(0.0), px(22.0)),
                 blur_radius: px(52.0),
                 spread_radius: px(0.0),
@@ -135,7 +136,7 @@ impl MultisoulApp {
             .when(floating, |header| {
                 header
                     .border_b_1()
-                    .border_color(rgba(0xcde8ff1c))
+                    .border_color(rgba(with_alpha(theme.text_primary, 0x1c)))
                     .cursor_grab()
                     .on_mouse_down(
                         MouseButton::Left,
@@ -156,14 +157,14 @@ impl MultisoulApp {
                         div()
                             .text_size(px(14.0))
                             .font_weight(gpui::FontWeight::SEMIBOLD)
-                            .text_color(rgba(0xf2f8ffff))
+                            .text_color(rgba(theme.text_primary))
                             .child(ui::i18n::text("workspace.left_tab_overview")),
                     )
                     .when(!subtitle.is_empty(), |title| {
                         title.child(
                             div()
                                 .text_size(px(11.0))
-                                .text_color(rgba(0x9fb8cfff))
+                                .text_color(rgba(theme.text_secondary))
                                 .child(subtitle),
                         )
                     }),
@@ -201,7 +202,11 @@ impl MultisoulApp {
             .child(
                 svg()
                     .path("icons/pin.svg")
-                    .text_color(rgba(if toggled { 0xeaf7ffff } else { PIN_ICON }))
+                    .text_color(rgba(if toggled {
+                        theme.text_primary
+                    } else {
+                        theme.accent
+                    }))
                     .w(px(14.0))
                     .h(px(14.0)),
             )
@@ -229,7 +234,7 @@ impl MultisoulApp {
             .child(
                 svg()
                     .path("icons/grip.svg")
-                    .text_color(rgba(0xa9c3daff))
+                    .text_color(rgba(theme.text_secondary))
                     .w(px(14.0))
                     .h(px(14.0)),
             )
@@ -258,16 +263,16 @@ fn pin_variant(theme: ui::Theme, toggled: bool, cx: &gpui::App) -> ButtonCustomV
     let hover = if toggled {
         with_alpha(theme.accent_blue, 0x77)
     } else {
-        0x8fcaff24
+        with_alpha(theme.accent, 0x24)
     };
     let pressed = if toggled {
         with_alpha(theme.accent_blue, 0x99)
     } else {
-        0x8fcaff3a
+        with_alpha(theme.accent, 0x3a)
     };
     ButtonCustomVariant::new(cx)
         .color(rgba(rest).into())
-        .foreground(rgba(GLASS_TEXT).into())
+        .foreground(rgba(theme.text_primary).into())
         .border(
             rgba(if toggled {
                 with_alpha(theme.accent_blue, 0x8c)

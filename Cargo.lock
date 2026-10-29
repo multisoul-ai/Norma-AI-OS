@@ -4658,20 +4658,26 @@ name = "norma"
 version = "0.1.77"
 dependencies = [
  "anyhow",
+ "base64",
  "clap",
  "crossbeam-channel",
  "dirs 6.0.0",
  "hex",
+ "libc",
+ "md-5",
  "mobile_pairing",
  "rcgen",
  "ring",
+ "rusqlite",
  "rustls",
  "serde",
  "serde_json",
  "sha2",
  "subtle",
  "tempfile",
+ "tracing",
  "tungstenite",
+ "ureq 3.3.0",
  "url",
 ]
 
@@ -6353,10 +6359,12 @@ dependencies = [
  "norma",
  "rusqlite",
  "serde_json",
+ "sha2",
  "storage",
  "tempfile",
  "terminal",
  "tracing",
+ "tracing-subscriber",
  "tungstenite",
 ]
 

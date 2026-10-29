@@ -9,6 +9,11 @@ use std::{
     path::Path,
 };
 
+pub mod host;
+pub mod questions;
+pub mod screen;
+pub mod store;
+
 const MAX_LINE: usize = 8 * 1024 * 1024;
 const MAX_SCAN: usize = 2 * MAX_LINE;
 

@@ -9,26 +9,14 @@ pub(super) fn theme_appearance(
     width: f32,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
-    div()
-        .flex()
-        .flex_col()
-        .gap(px(30.0))
-        .child(theme_group(
-            ui::i18n::text("settings.light"),
-            false,
-            active_theme,
-            theme,
-            width,
-            cx,
-        ))
-        .child(theme_group(
-            ui::i18n::text("settings.dark"),
-            true,
-            active_theme,
-            theme,
-            width,
-            cx,
-        ))
+    div().flex().flex_col().gap(px(30.0)).child(theme_group(
+        ui::i18n::text("settings.dark"),
+        true,
+        active_theme,
+        theme,
+        width,
+        cx,
+    ))
 }
 
 fn theme_group(
@@ -260,7 +248,7 @@ fn theme_choice_row(
                 }))
                 .bg(rgba(if selected { preview.accent } else { 0x00000000 }))
                 .text_size(px(12.0))
-                .text_color(rgba(0xffffffff))
+                .text_color(rgba(selection_ink(preview)))
                 .child(if selected { "✓" } else { "" }),
         )
         .child(
@@ -273,15 +261,15 @@ fn theme_choice_row(
         )
 }
 
+fn selection_ink(theme: Theme) -> u32 {
+    crate::workspace::desktop::surface_theme::on_color(theme.accent)
+}
+
 fn theme_index(id: ThemeId) -> usize {
-    match id {
-        ThemeId::PaperBlue => 0,
-        ThemeId::LinenSage => 1,
-        ThemeId::SilverViolet => 2,
-        ThemeId::SapphireNight => 3,
-        ThemeId::MidnightViolet => 4,
-        ThemeId::ForestMint => 5,
-    }
+    ThemeId::ALL
+        .iter()
+        .position(|candidate| *candidate == id)
+        .unwrap_or(0)
 }
 
 fn with_alpha(color: u32, alpha: u8) -> u32 {

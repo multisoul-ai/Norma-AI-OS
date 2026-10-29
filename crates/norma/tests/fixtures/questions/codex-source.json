@@ -1,0 +1,13 @@
+{
+  "method": "rawResponseItem/completed",
+  "params": {
+    "threadId": "codex-question-test-thread",
+    "turnId": "codex-question-test-turn",
+    "item": {
+      "type": "function_call",
+      "name": "request_user_input",
+      "arguments": "{\"questions\":[{\"header\":\"Label\",\"id\":\"label\",\"question\":\"Which label should the native test use?\",\"options\":[{\"label\":\"Blue\",\"description\":\"Use the Blue label.\"},{\"label\":\"Green\",\"description\":\"Use the Green label.\"}]}]}",
+      "call_id": "codex-question-test-call"
+    }
+  }
+}

@@ -3,12 +3,18 @@
   "theme.linen_sage": "亚麻绿",
   "theme.silver_violet": "银灰紫",
   "theme.sapphire_night": "蓝宝石之夜",
-  "theme.midnight_violet": "午夜紫",
-  "theme.forest_mint": "森林薄荷",
   "theme.paper_white_cobalt": "纸白 · 钴蓝",
   "theme.linen_sage_mint": "亚麻 · 鼠尾草 · 薄荷",
   "theme.silver_graphite_violet": "银灰 · 石墨 · 紫罗兰",
   "theme.sapphire_cobalt": "蓝宝石 · 钴蓝",
-  "theme.deep_sage_mint": "深鼠尾草 · 薄荷",
-  "theme.midnight_violet_description": "午夜 · 紫罗兰"
+  "theme.ink_black": "墨黑",
+  "theme.ink_black_description": "中性墨黑 · 银灰焦点",
+  "theme.graphite": "石墨灰",
+  "theme.graphite_description": "石墨灰 · 雾蓝焦点",
+  "theme.warm_obsidian": "暖曜黑",
+  "theme.warm_obsidian_description": "暖黑 · 香槟金焦点",
+  "theme.moonstone": "月岩",
+  "theme.deep_petrol": "深海石",
+  "theme.moonstone_description": "矿物黑 · 银灰微紫",
+  "theme.deep_petrol_description": "蓝黑 · 磨砂灰青"
 }

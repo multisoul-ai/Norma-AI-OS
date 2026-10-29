@@ -9,19 +9,19 @@ use storage::{DesktopAreaPreview, DesktopProjectArea, DesktopWorkspace, DesktopW
 use ui::component::button::ButtonCustomVariant;
 use ui::component::input::InputState;
 
-const GLASS_TEXT: u32 = 0xfffffff5;
-const GLASS_TEXT_SECONDARY: u32 = 0xffffffb8;
-const GLASS_TEXT_MUTED: u32 = 0xffffff85;
-
 fn glass_button_variant(theme: ui::Theme, cx: &gpui::App) -> ButtonCustomVariant {
     let chrome = status_capsule::capsule_chrome(theme);
     ButtonCustomVariant::new(cx)
         .color(gpui::rgba(chrome.rest).into())
-        .foreground(gpui::rgba(GLASS_TEXT).into())
+        .foreground(gpui::rgba(theme.text_primary).into())
         .border(gpui::rgba(theme.dock_line).into())
         .hover(gpui::rgba(chrome.hover).into())
         .active(gpui::rgba(chrome.active).into())
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/desktop_surface_theme_tests.rs"]
+mod surface_theme_tests;
 
 mod activity_cache;
 mod agent;
@@ -37,6 +37,7 @@ mod dialogs;
 mod dialogs_other;
 mod dispatch;
 mod drawers;
+pub(crate) use drawers::overview_questions::QuestionEditor;
 mod home;
 mod home_card;
 mod launchpad;
@@ -45,6 +46,7 @@ mod management;
 mod snapshot;
 mod status;
 mod status_capsule;
+pub(crate) mod surface_theme;
 use management::DesktopRenameTarget;
 mod idea_drag;
 mod idea_drag_ui;
@@ -406,37 +408,6 @@ impl DesktopWorkspaceUiState {
 }
 
 impl MultisoulApp {
-    pub(super) fn desktop_theme(&self) -> ui::Theme {
-        if self.theme_id.is_dark() {
-            self.theme
-        } else {
-            ui::Theme::sapphire_night()
-        }
-    }
-
-    pub(super) fn desktop_input_fill(&self) -> u32 {
-        self.desktop_theme().panel_high
-    }
-
-    pub(super) fn sync_desktop_input_theme(&self, expanded: bool, cx: &mut gpui::Context<Self>) {
-        let light_dialog_open = self.settings_panel.open
-            || self.clone_project.is_open()
-            || self.desktop_workspace.add_project_open
-            || self.desktop_workspace.pending_project_path.is_some()
-            || self.desktop_workspace.pending_delete.is_some()
-            || self.desktop_workspace.rename_target.is_some()
-            || self.desktop_workspace.create_input.is_some();
-        let id = if expanded || light_dialog_open || self.theme_id.is_dark() {
-            self.theme_id
-        } else {
-            ui::ThemeId::SapphireNight
-        };
-        let foreground: gpui::Hsla = gpui::rgba(ui::Theme::for_id(id).text_primary).into();
-        if ui::component::Theme::global(cx).colors.foreground != foreground {
-            ui::sync_component_theme(id, cx);
-        }
-    }
-
     pub(crate) fn detach_desktop_host_window(&mut self, cx: &mut gpui::Context<Self>) {
         self.stop_gpt_live_voice(cx);
         self.detach_visible_desktop_area(cx);

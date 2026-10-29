@@ -74,10 +74,18 @@ pub(crate) fn install(cx: &mut App) {
     }
     cx.spawn(async move |cx| {
         while let Ok(job) = receiver.recv().await {
-            let activates = matches!(job.command, Command::Activate);
-            let outcome = execute_command(job.command, cx);
-            if activates && !foreground_requested() {
-                settle_frames(cx).await;
+            let needs_frame = matches!(
+                job.command,
+                Command::Activate
+                    | Command::Mouse { .. }
+                    | Command::NsMouse { .. }
+                    | Command::Capture { .. }
+            );
+            let mut outcome = execute_command(job.command, cx);
+            if needs_frame {
+                if let Err(error) = settle_frames(cx).await {
+                    outcome = Outcome::Done(Response::error(error));
+                }
             }
             let _ = job.reply.send(outcome).await;
         }
@@ -349,10 +357,11 @@ fn execute_in(command: Command, window: &mut Window, cx: &mut App) -> Outcome {
     }
 }
 
-/// Wait until a frame has been painted after the window was marked active, so the focus
-/// path and input handler exist before the next injected event. Bounded so a window that
-/// cannot paint cannot hang the driver.
-async fn settle_frames(cx: &mut AsyncApp) {
+/// ACK input only after a GPUI draw/present submission cycle. GPUI installs MouseUp listeners
+/// while painting the pressed state, so Down and Up must not share the same old frame.
+/// Capture uses the same barrier before reading the window; visual checks must still
+/// verify pixels because Metal/WindowServer presentation is asynchronous.
+async fn settle_frames(cx: &mut AsyncApp) -> Result<(), &'static str> {
     let (painted, wait) = async_channel::bounded::<()>(1);
     let queued = cx
         .update(|cx| {
@@ -361,7 +370,11 @@ async fn settle_frames(cx: &mut AsyncApp) {
             };
             handle
                 .update(cx, |_, window, _| {
+                    window.refresh();
                     window.on_next_frame(move |window, _| {
+                        // Callbacks run before draw. Refresh here, then acknowledge on
+                        // the next callback: the first frame has now drawn/presented.
+                        window.refresh();
                         window.on_next_frame(move |_, _| {
                             let _ = painted.try_send(());
                         });
@@ -371,16 +384,22 @@ async fn settle_frames(cx: &mut AsyncApp) {
         })
         .unwrap_or(false);
     if !queued {
-        return;
+        return Err("E2E frame barrier: window unavailable");
     }
     let timeout = cx.background_executor().timer(FRAME_SETTLE_TIMEOUT);
     futures::pin_mut!(timeout);
     let wait = wait.recv();
     futures::pin_mut!(wait);
-    futures::future::select(wait, timeout).await;
+    match futures::future::select(wait, timeout).await {
+        futures::future::Either::Left((Ok(()), _)) => Ok(()),
+        futures::future::Either::Left((Err(_), _)) => {
+            Err("E2E frame barrier: window closed before paint")
+        }
+        futures::future::Either::Right(_) => Err("E2E frame barrier: paint timed out after 2s"),
+    }
 }
 
-const FRAME_SETTLE_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(500);
+const FRAME_SETTLE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
 
 /// `NORMA_E2E_FOREGROUND=1` restores the old behaviour of taking the OS foreground.
 pub(super) fn foreground_requested() -> bool {

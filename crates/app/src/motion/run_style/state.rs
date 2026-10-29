@@ -62,7 +62,9 @@ pub(crate) fn run_input(
             RunState::Tool,
             fingerprint(tool_name.as_deref().unwrap_or_default()),
         ),
-        Some(AgentTaskState::WaitingApproval { .. }) => (RunState::Approval, 0),
+        Some(AgentTaskState::WaitingApproval { .. } | AgentTaskState::WaitingQuestion) => {
+            (RunState::Approval, 0)
+        }
         Some(AgentTaskState::Done) => (RunState::Done, 0),
         Some(AgentTaskState::Failed { .. }) => (RunState::Failed, 0),
         Some(AgentTaskState::Ready | AgentTaskState::Ended) | None => (RunState::Ready, 0),

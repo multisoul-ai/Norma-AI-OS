@@ -98,7 +98,27 @@ fn proposal_acceptance_fixture(fail_receipt: bool) {
         app.desktop_workspace
             .sessions
             .insert(("w".into(), "a".into()), source.clone());
-        app.dispatch_overview_proposal("a", id, cx)
+        let work = app.dispatch_overview_proposal("a", id, cx);
+        assert!(
+            matches!(
+                app.brain_proposal_feedback("a", id),
+                Some(crate::app::ProposalFeedback::Dispatching)
+            ),
+            "点击后立即显示派发中"
+        );
+        app.desktop_workspace.active_id = Some("other".into());
+        app.refresh_brain_overview(cx);
+        app.desktop_workspace.active_id = Some("w".into());
+        app.refresh_brain_overview(cx);
+        assert!(
+            matches!(
+                app.brain_proposal_feedback("a", id),
+                Some(crate::app::ProposalFeedback::Dispatching)
+            ),
+            "切换工作空间不能解除未完成派发的防重复状态"
+        );
+        app.dispatch_overview_proposal("a", id, cx).detach();
+        work
     });
     let (done, completed) = async_channel::bounded(1);
     cx.spawn(move |_| async move {
@@ -123,6 +143,12 @@ fn proposal_acceptance_fixture(fail_receipt: bool) {
         app.agent_task_coordinator.as_ref().unwrap().tasks()
     });
     assert_eq!(tasks.len(), 1, "只能提交一个任务，不得额外排队重复任务");
+    if !fail_receipt {
+        assert!(
+            host.read_with(cx, |app, _| app.desktop_workspace.error.is_none()),
+            "连续点击不能在成功后产生已失效错误"
+        );
+    }
     assert_ne!(tasks[0].state, "queued", "任务必须实际进入提交状态");
     let snapshot = crate::app::shared_tokio_runtime()
         .unwrap()
@@ -274,6 +300,9 @@ fn brain_proposal_context_cold_overview_click_loads_source_restrictions() {
     loop {
         cx.run_until_parked();
         if let Some(error) = host.read_with(cx, |app, _| app.desktop_workspace.error.clone()) {
+            assert!(host.read_with(cx, |app, _| matches!(app.brain_proposal_feedback("a", id),
+                Some(crate::app::ProposalFeedback::Failed(message)) if message.contains("context_operation_restricted"))),
+                "失败原因必须绑定到原提议，供项目画布内就地展示");
             assert!(
                 error.contains("context_operation_restricted"),
                 "冷状态准备后应读到限制，实际 {error}"
@@ -335,6 +364,20 @@ fn brain_proposal_context_rejects_late_workspace_or_session_replacement() {
                 .insert(("w".into(), "a".into()), source.clone());
             let work = app.dispatch_overview_proposal("a", id, cx);
             if replace {
+                replacement.update(cx, |app, _| {
+                    app.brain
+                        .proposals
+                        .add(
+                            super::super::proposals::Draft {
+                                agent: "Alan".into(),
+                                title: "恢复的提议".into(),
+                                task: "同编号的新会话任务".into(),
+                                why: "持久化恢复".into(),
+                            },
+                            std::time::SystemTime::now(),
+                        )
+                        .unwrap();
+                });
                 app.desktop_workspace
                     .sessions
                     .insert(("w".into(), "a".into()), replacement.clone());
@@ -366,9 +409,14 @@ fn brain_proposal_context_rejects_late_workspace_or_session_replacement() {
             1,
             "不能消费旧会话的提议"
         );
+        assert_eq!(
+            replacement.read_with(cx, |app, _| app.brain.proposals.items().len()),
+            usize::from(replace),
+            "新会话的提议不能被旧派发消费或增加"
+        );
         assert!(
-            replacement.read_with(cx, |app, _| app.brain.proposals.items().is_empty()),
-            "新会话不能接收旧提议"
+            host.read_with(cx, |app, _| app.brain_proposal_feedback("a", id).is_none()),
+            "旧会话的反馈不能污染替代会话的同编号提议"
         );
         let error = host.read_with(cx, |app, _| app.desktop_workspace.error.clone());
         if replace {

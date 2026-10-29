@@ -1,8 +1,11 @@
 use super::*;
+use crate::AgentTaskState;
 
 impl Runtime {
     pub fn agent_task_input_held(&self, node_id: NodeId) -> bool {
-        self.mobile_terminal_is_controlled(node_id)
+        self.native_question_host_pending(node_id)
+            || self.has_pending_question(node_id)
+            || self.mobile_terminal_is_controlled(node_id)
             || self
                 .mobile_runs
                 .get(&node_id)
@@ -11,6 +14,25 @@ impl Runtime {
 
     /// Automatic task paste must not overwrite a human draft after control returns or expires.
     pub fn send_agent_task_text(&mut self, node_id: NodeId, text: &str) -> Result<(), NodeError> {
+        if self.native_question_host_pending(node_id) {
+            return self.fail_node_operation(
+                Some(node_id),
+                "input",
+                NodeError::Pty(terminal::PtyError::Io(std::io::Error::new(
+                    std::io::ErrorKind::WouldBlock,
+                    "Agent 正在准备，请稍候",
+                ))),
+            );
+        }
+        if self.has_pending_question(node_id) {
+            return self.fail_node_operation(
+                Some(node_id),
+                "input",
+                NodeError::Pty(terminal::PtyError::Io(std::io::Error::other(
+                    "请先回答原卡片中的问题",
+                ))),
+            );
+        }
         if self
             .mobile_runs
             .get(&node_id)
@@ -27,8 +49,16 @@ impl Runtime {
         self.send_node_input(node_id, NodeInput::Paste(text.into()))
     }
 
+    pub(super) fn native_question_host_pending(&self, node: NodeId) -> bool {
+        self.live
+            .get(&node)
+            .is_some_and(|live| live.native_question_host_pending())
+            || self.cursor_launch_pending(node)
+    }
+
     pub fn send_node_input(&mut self, node_id: NodeId, input: NodeInput) -> Result<(), NodeError> {
         self.track_native_agent(node_id);
+        self.stop_cursor_question_input(node_id);
         if self.mobile_terminal_is_controlled(node_id) {
             return self.fail_node_operation(
                 Some(node_id),
@@ -67,11 +97,21 @@ impl Runtime {
             false
         };
         let cancelled = matches!(&input, NodeInput::Key(key) if key.key == terminal::Key::Escape);
+        let question_resume = resume
+            && !self.has_pending_question(node_id)
+            && matches!(
+                self.agent_task_state(node_id),
+                Some(AgentTaskState::Ready | AgentTaskState::Done)
+            )
+            && matches!(self.document.node(node_id).map(|node| &node.kind), Some(CanvasNodeKind::Agent(spec)) if spec.profile == AgentProfile::Claude);
         self.track_native_resume_input(node_id, resume, cancelled);
         let Some(node) = self.live.get_mut(&node_id) else {
             return self.fail_node_operation(Some(node_id), "input", NodeError::MissingNode);
         };
         let result = node.input(input);
+        if result.is_ok() {
+            self.question_resume_written(node_id, question_resume, cancelled);
+        }
         self.finish_node_operation(Some(node_id), "input", result)
     }
 }

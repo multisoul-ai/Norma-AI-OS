@@ -4,6 +4,7 @@ use crate::runtime::Runtime;
 use canvas::{AgentProfile, NodeId};
 use std::sync::atomic::{AtomicBool, Ordering};
 use terminal::PtyCommand;
+mod question;
 
 /// 用户在“编排”设置里是否允许向 Agent 注入文件路径输出约定；默认开启。
 static PATH_CONVENTION_ENABLED: AtomicBool = AtomicBool::new(true);
@@ -28,6 +29,7 @@ pub struct AgentHookRuntimeConfig {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct AgentHookEnv {
+    pub(crate) control_run_id: Option<String>,
     pub(crate) node_id: NodeId,
     pub(crate) profile: AgentProfile,
     pub(crate) endpoint: String,
@@ -49,7 +51,7 @@ impl AgentHookEnv {
         command: PtyCommand,
         path_convention: bool,
     ) -> PtyCommand {
-        command
+        question::attach(command, self)
             .env(
                 "NORMA_PATH_CONVENTION",
                 if path_convention { "1" } else { "0" },
@@ -79,6 +81,7 @@ impl Runtime {
         profile: AgentProfile,
     ) -> Option<AgentHookEnv> {
         self.agent_hook_config.as_ref().map(|config| AgentHookEnv {
+            control_run_id: self.native_question_process_id(node_id).map(str::to_owned),
             node_id,
             profile,
             endpoint: config.endpoint.clone(),

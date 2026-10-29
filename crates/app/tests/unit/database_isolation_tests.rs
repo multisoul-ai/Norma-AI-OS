@@ -254,7 +254,7 @@ fn test_external_test_root_rejects_direct_and_symlinked_production_directory() {
 ///   4. 比较 Production SQLite 原始字节并重新读取主题，确认启动过程未改写它。
 ///
 /// 预期结果：
-///   - 正断言：App 启动主题为 Test 哨兵 `forest-mint`。
+///   - 正断言：App 启动主题为 Test 哨兵迁移后的 `deep-petrol`。
 ///   - 正断言：Production 哨兵仍为 `sapphire-night`。
 ///   - 负断言：App 不得加载 Production 哨兵，Production 文件字节不得变化。
 #[test]
@@ -289,7 +289,7 @@ fn test_app_bootstrap_reads_only_the_explicit_test_app_database() {
         .expect("Production 主题哨兵应保持可读");
 
     assert_eq!(
-        snapshot.active_theme_id, "forest-mint",
+        snapshot.active_theme_id, "deep-petrol",
         "显式 Test DatabasePaths 构造的 App 必须从 Test app DB 加载主题"
     );
     assert_ne!(

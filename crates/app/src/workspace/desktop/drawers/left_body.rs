@@ -1,6 +1,5 @@
 //! Chat and run-overview bodies share the drawer. Only the body slides.
 
-use super::{GLASS_TEXT_MUTED, GLASS_TEXT_SECONDARY};
 use crate::app::assistant_conversation::Speaker;
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div, KeyDownEvent, Stateful, Window};
@@ -81,7 +80,7 @@ impl MultisoulApp {
                                     .child(
                                         div()
                                             .text_size(px(10.0))
-                                            .text_color(rgba(GLASS_TEXT_MUTED))
+                                            .text_color(rgba(theme.text_tertiary))
                                             .child(ui::i18n::text("drawers.current_chat")),
                                     )
                                     .child(
@@ -98,7 +97,7 @@ impl MultisoulApp {
                                     .gap(px(5.0))
                                     .mr(px(48.0))
                                     .text_size(px(9.0))
-                                    .text_color(rgba(GLASS_TEXT_SECONDARY))
+                                    .text_color(rgba(theme.text_secondary))
                                     .child(
                                         div()
                                             .w(px(4.0))
@@ -129,10 +128,16 @@ impl MultisoulApp {
                                     .custom(
                                         ButtonCustomVariant::new(cx)
                                             .color(rgba(0x00000000).into())
-                                            .foreground(rgba(super::GLASS_TEXT).into())
+                                            .foreground(rgba(theme.text_primary).into())
                                             .border(rgba(0x00000000).into())
-                                            .hover(rgba(0x7bc7ff12).into())
-                                            .active(rgba(0x7bc7ff25).into()),
+                                            .hover(
+                                                rgba(ui::icons::with_alpha(theme.accent, 0x12))
+                                                    .into(),
+                                            )
+                                            .active(
+                                                rgba(ui::icons::with_alpha(theme.accent, 0x25))
+                                                    .into(),
+                                            ),
                                     )
                                     .tooltip(ui::i18n::format(
                                         "drawers.voice_chat",
@@ -176,7 +181,7 @@ impl MultisoulApp {
                                     .child(
                                         div()
                                             .text_size(px(11.0))
-                                            .text_color(rgba(GLASS_TEXT_SECONDARY))
+                                            .text_color(rgba(theme.text_secondary))
                                             .child(ui::i18n::text("drawers.what_to_do")),
                                     ),
                             ),
@@ -197,6 +202,7 @@ impl MultisoulApp {
                     .flex_col()
                     .gap(px(20.0))
                     .child(super::chat_message::conversation_message(
+                        theme,
                         0,
                         Speaker::Norma,
                         ui::i18n::text("drawers.welcome").to_owned(),
@@ -205,6 +211,7 @@ impl MultisoulApp {
                     ))
                     .children(messages.into_iter().enumerate().map(|(index, message)| {
                         super::chat_message::conversation_message(
+                            theme,
                             index + 1,
                             message.speaker,
                             message.text,

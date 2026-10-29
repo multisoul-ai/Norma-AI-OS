@@ -3,12 +3,18 @@
   "theme.linen_sage": "Linen Sage",
   "theme.silver_violet": "Silver Violet",
   "theme.sapphire_night": "Sapphire Night",
-  "theme.midnight_violet": "Midnight Violet",
-  "theme.forest_mint": "Forest Mint",
   "theme.paper_white_cobalt": "Paper white · cobalt",
   "theme.linen_sage_mint": "Linen · sage · mint",
   "theme.silver_graphite_violet": "Silver · graphite · violet",
   "theme.sapphire_cobalt": "Sapphire · cobalt",
-  "theme.deep_sage_mint": "Deep sage · mint",
-  "theme.midnight_violet_description": "Midnight · violet"
+  "theme.ink_black": "Ink Black",
+  "theme.ink_black_description": "Neutral black · silver",
+  "theme.graphite": "Graphite",
+  "theme.graphite_description": "Graphite · mist blue",
+  "theme.warm_obsidian": "Warm Obsidian",
+  "theme.warm_obsidian_description": "Warm black · champagne",
+  "theme.moonstone": "Moonstone",
+  "theme.deep_petrol": "Deep Petrol",
+  "theme.moonstone_description": "Mineral black · silver mauve",
+  "theme.deep_petrol_description": "Blue black · muted teal"
 }

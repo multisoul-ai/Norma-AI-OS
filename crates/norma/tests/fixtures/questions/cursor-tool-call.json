@@ -1,0 +1,58 @@
+{
+  "type": "tool-call",
+  "toolCallId": "call-59d517be-1c39-4d25-a941-d4e935d94202-0\nfc_874bf6f3-1eec-9700-b4ed-9c117b038178_0",
+  "toolName": "AskQuestion",
+  "args": {
+    "questions": [
+      {
+        "id": "q_single",
+        "prompt": "Color?",
+        "options": [
+          {
+            "id": "blue",
+            "label": "Blue"
+          },
+          {
+            "id": "green",
+            "label": "Green"
+          }
+        ],
+        "allow_multiple": false
+      },
+      {
+        "id": "q_multi",
+        "prompt": "Platforms?",
+        "options": [
+          {
+            "id": "mac",
+            "label": "macOS"
+          },
+          {
+            "id": "ios",
+            "label": "iOS"
+          },
+          {
+            "id": "linux",
+            "label": "Linux"
+          }
+        ],
+        "allow_multiple": true
+      },
+      {
+        "id": "q_custom",
+        "prompt": "Custom marker?",
+        "options": [
+          {
+            "id": "one",
+            "label": "One"
+          },
+          {
+            "id": "two",
+            "label": "Two"
+          }
+        ],
+        "allow_multiple": false
+      }
+    ]
+  }
+}

@@ -243,21 +243,14 @@ pub(super) struct OverviewTone {
     pub file: u32,
 }
 
-/// 抽屉在浅色主题下也是深色玻璃，状态色取原型的固定色，不跟浅色 token 走。
-pub(super) const TONE_RUNNING: u32 = 0x36dce8ff;
-pub(super) const TONE_IDLE: u32 = 0x7b9dbdff;
-pub(super) const TONE_AMBER: u32 = 0xf2c773ff;
-pub(super) const TONE_RESULT: u32 = 0x64dfd2ff;
-pub(super) const TONE_FILE: u32 = 0x80baffff;
-
 pub(super) fn overview_tone(theme: Theme) -> OverviewTone {
     OverviewTone {
-        running: TONE_RUNNING,
-        idle: TONE_IDLE,
+        running: theme.accent_cyan,
+        idle: theme.text_tertiary,
         failed: theme.destructive,
-        approval: TONE_AMBER,
-        review: TONE_RESULT,
-        file: TONE_FILE,
+        approval: theme.accent_warm,
+        review: theme.success,
+        file: theme.accent,
     }
 }
 

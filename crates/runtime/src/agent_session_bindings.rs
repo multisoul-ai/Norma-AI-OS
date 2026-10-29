@@ -147,6 +147,19 @@ impl Runtime {
         &mut self,
         sessions: &[NodeSession],
     ) -> AgentSessionHydrationReport {
+        let protected: Vec<_> = self
+            .document
+            .nodes()
+            .iter()
+            .map(|node| node.id)
+            .filter(|node| self.has_pending_question(*node))
+            .collect();
+        if !protected.is_empty() {
+            return AgentSessionHydrationReport {
+                bound_count: 0,
+                conflicting_node_ids: protected,
+            };
+        }
         self.agent_launch_cwds = sessions
             .iter()
             .filter_map(|session| {
@@ -166,6 +179,9 @@ impl Runtime {
     }
 
     pub fn bind_discovered_agent_session(&mut self, node_id: NodeId, session_id: &str) -> bool {
+        if !self.question_accepts_task_session(node_id, Some(session_id)) {
+            return false;
+        }
         let Some(CanvasNodeKind::Agent(spec)) = self.document.node(node_id).map(|node| &node.kind)
         else {
             return false;

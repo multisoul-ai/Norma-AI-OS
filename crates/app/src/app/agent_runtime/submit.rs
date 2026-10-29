@@ -58,6 +58,27 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Result<async_channel::Receiver<Result<Vec<AgentEvent>, String>>, String> {
+        if let AgentCommand::UserTurn {
+            input,
+            input_source,
+        } = &command
+        {
+            if let Some(result) = self.question_delegation_from_user(input) {
+                let text = result.unwrap_or_else(|reason| reason);
+                if *input_source == agent::AgentInputSource::Voice
+                    && self.dialogue.phase() == dialogue::DialoguePhase::Thinking
+                {
+                    self.dialogue.begin_static_reply_stream(text.clone(), cx);
+                }
+                let (sender, response) = async_channel::bounded(1);
+                let _ = sender.try_send(Ok(vec![
+                    AgentEvent::DialogueTextDelta { text },
+                    AgentEvent::DialogueStreamFinished,
+                ]));
+                cx.notify();
+                return Ok(response);
+            }
+        }
         let config = self
             .voice_settings
             .values()
