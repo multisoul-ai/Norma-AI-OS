@@ -4,10 +4,10 @@
 //! a green changed-file tree above the all-files tree, and low-frequency Git operations kept
 //! behind the section's "⋯" control. Both trees share one virtualized list.
 
-use super::document::{tooltip_view, GREEN, GUTTER, LINE, PANEL, TEXT_MUTED, TEXT_SECONDARY};
+use super::document::tooltip_view;
 use super::tree::{change_rows, row_is_staged, ChangeRow};
 use super::tree_row::{
-    activates, chevron, glyph_element, glyph_for, name_label, Action, FOCUS, ROW_HEIGHT,
+    activates, chevron, glyph_element, glyph_for, name_label, Action, ROW_HEIGHT,
 };
 use super::*;
 use crate::app::MultisoulApp;
@@ -45,6 +45,7 @@ impl MultisoulApp {
         close_button: bool,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
+        let theme = self.desktop_theme();
         let s = &self.desktop_workspace.workbench;
         let mut pane = div()
             .id("files-sidebar")
@@ -57,10 +58,10 @@ impl MultisoulApp {
             .gap(px(8.0))
             .px(px(10.0))
             .py(px(12.0))
-            .bg(rgba(PANEL))
+            .bg(rgba(theme.canvas_from))
             .border_l_1()
-            .border_color(rgba(LINE))
-            .text_color(rgba(TEXT_SECONDARY));
+            .border_color(rgba(theme.node_stroke))
+            .text_color(rgba(theme.text_secondary));
         let mut top = div().flex().items_center().gap(px(6.0));
         if let Some(picker) = &s.project_picker {
             top = top.child(
@@ -69,7 +70,7 @@ impl MultisoulApp {
                         .small()
                         .menu_width(px((width - 20.0).max(160.0)))
                         .w_full()
-                        .placeholder("选择项目")
+                        .placeholder(ui::i18n::text("drawers.select_project"))
                         .disabled(s.busy),
                 ),
             );
@@ -78,7 +79,7 @@ impl MultisoulApp {
             top = top.child(self.sidebar_icon_button(
                 "files-close-tree",
                 "×",
-                "返回文件",
+                ui::i18n::text("drawers.back_to_files"),
                 Rc::new(|app, _, cx| {
                     app.desktop_workspace.workbench.sidebar_open = false;
                     app.hide_desktop_content_browsers();
@@ -98,7 +99,7 @@ impl MultisoulApp {
                                 .path("icons/search.svg")
                                 .w(px(13.0))
                                 .h(px(13.0))
-                                .text_color(rgba(TEXT_MUTED)),
+                                .text_color(rgba(theme.text_tertiary)),
                         )
                         .cleanable(true),
                 ),
@@ -150,11 +151,11 @@ impl MultisoulApp {
             let rows = change_rows(&paths, &s.changes_dirs_closed, &query, allow.as_deref());
             if rows.is_empty() {
                 items.push(Item::Note(match (&s.git, &s.git_error) {
-                    (None, Some(e)) => e.clone(),
-                    (None, None) => "正在读取 Git…".into(),
-                    _ if total > 0 => "没有匹配的变更".into(),
-                    _ if s.turn_paths.is_some() => "本回合没有匹配的变更".into(),
-                    _ => "没有变更".into(),
+                    (None, Some(e)) => e.to_string(),
+                    (None, None) => ui::i18n::text("drawers.loading_git").into(),
+                    _ if total > 0 => ui::i18n::text("drawers.no_matching_changes").into(),
+                    _ if s.turn_paths.is_some() => ui::i18n::text("drawers.no_turn_changes").into(),
+                    _ => ui::i18n::text("drawers.no_changes").into(),
                 }));
             }
             items.extend(rows.into_iter().map(|row| match row {
@@ -176,11 +177,14 @@ impl MultisoulApp {
         if !s.files_section_closed {
             if s.rows.is_empty() {
                 items.push(Item::Note(if s.project.is_none() {
-                    s.error.clone().unwrap_or_else(|| "正在读取目录…".into())
+                    s.error
+                        .as_ref()
+                        .map(ToString::to_string)
+                        .unwrap_or_else(|| ui::i18n::text("drawers.loading_directory").into())
                 } else if query.trim().is_empty() {
-                    "目录为空".into()
+                    ui::i18n::text("drawers.empty_directory").into()
                 } else {
-                    "没有匹配的文件".into()
+                    ui::i18n::text("drawers.no_matching_files").into()
                 }));
             }
             items.extend((0..s.rows.len()).map(Item::File));
@@ -189,12 +193,13 @@ impl MultisoulApp {
     }
 
     fn render_sidebar_item(&self, item: &Item, cx: &mut Context<Self>) -> Stateful<Div> {
+        let theme = self.desktop_theme();
         let s = &self.desktop_workspace.workbench;
         match item {
             Item::ChangesHead { count } => {
                 let mut head = self.section_head(
                     "files-section-changes",
-                    "已更改的文件",
+                    ui::i18n::text("drawers.changed_files"),
                     !s.changes_section_closed,
                     false,
                     Rc::new(|app, _, cx| {
@@ -217,7 +222,7 @@ impl MultisoulApp {
                     self.sidebar_icon_button(
                         "files-ops-toggle",
                         "⋯",
-                        "Git 与列表选项",
+                        ui::i18n::text("drawers.git_options"),
                         Rc::new(|app, _, cx| {
                             app.desktop_workspace.workbench.ops_open ^= true;
                             cx.notify();
@@ -228,7 +233,7 @@ impl MultisoulApp {
             }
             Item::FilesHead => self.section_head(
                 "files-section-all",
-                "所有文件",
+                ui::i18n::text("drawers.all_files"),
                 !s.files_section_closed,
                 true,
                 Rc::new(|app, _, cx| {
@@ -244,7 +249,7 @@ impl MultisoulApp {
                 .items_center()
                 .px(px(24.0))
                 .text_size(px(11.0))
-                .text_color(rgba(TEXT_MUTED))
+                .text_color(rgba(theme.text_tertiary))
                 .child(text.clone()),
             Item::ChangeDir {
                 path,
@@ -272,8 +277,8 @@ impl MultisoulApp {
                     toggle,
                     cx,
                 )
-                .child(chevron(*open))
-                .child(name_label(label, TEXT_SECONDARY, path))
+                .child(chevron(theme, *open))
+                .child(name_label(label, theme.text_secondary, path))
             }
             Item::Change { index, depth, name } => self.render_change_row(*index, *depth, name, cx),
             Item::File(index) => self.render_file_row(*index, cx),
@@ -289,6 +294,7 @@ impl MultisoulApp {
         toggle: Action,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
+        let theme = self.desktop_theme();
         self.tree_row(
             ElementId::Name(id.into()),
             0,
@@ -299,14 +305,17 @@ impl MultisoulApp {
         )
         .debug_selector(move || id.to_string())
         .when(separated, |row| {
-            row.mt(px(6.0)).border_t_1().border_color(rgba(0xffffff12))
+            row.mt(px(6.0))
+                .border_t_1()
+                .border_color(rgba(theme.node_stroke))
         })
-        .text_color(rgba(TEXT_SECONDARY))
-        .child(chevron(open))
-        .child(name_label(title, TEXT_SECONDARY, title))
+        .text_color(rgba(theme.text_secondary))
+        .child(chevron(theme, open))
+        .child(name_label(title, theme.text_secondary, title))
     }
 
     fn render_file_row(&self, index: usize, cx: &mut Context<Self>) -> Stateful<Div> {
+        let theme = self.desktop_theme();
         let s = &self.desktop_workspace.workbench;
         let row = &s.rows[index];
         let path = row.path.clone();
@@ -337,12 +346,12 @@ impl MultisoulApp {
             cx,
         );
         if directory {
-            base.child(chevron(expanded))
+            base.child(chevron(theme, expanded))
         } else {
             base.child(div().w(px(11.0)).flex_none())
-                .child(glyph_element(glyph_for(&row.label)))
+                .child(glyph_element(theme, glyph_for(&row.label)))
         }
-        .child(name_label(&row.label, TEXT_SECONDARY, &path))
+        .child(name_label(&row.label, theme.text_secondary, &path))
     }
 
     fn filter_is_empty(&self, cx: &Context<Self>) -> bool {
@@ -360,6 +369,7 @@ impl MultisoulApp {
         name: &str,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
+        let theme = self.desktop_theme();
         let s = &self.desktop_workspace.workbench;
         let Some(change) = s.git.as_ref().and_then(|g| g.changes.get(index)) else {
             return div().id(ElementId::Name(format!("files-change-gone-{index}").into()));
@@ -383,19 +393,23 @@ impl MultisoulApp {
                 cx,
             )
             .child(div().w(px(11.0)).flex_none())
-            .child(glyph_element(glyph_for(name)))
-            .child(name_label(name, GREEN, &path));
+            .child(glyph_element(theme, glyph_for(name)))
+            .child(name_label(name, theme.success, &path));
         if !local {
             return row.child(
                 div()
                     .font_family("Menlo")
                     .text_size(px(10.0))
-                    .text_color(rgba(GREEN))
-                    .child(change.status.clone()),
+                    .text_color(rgba(theme.success))
+                    .child(change_status(change.status)),
             );
         }
         let stage_path = path.clone();
-        let tip = if staged { "取消暂存" } else { "暂存" };
+        let tip = if staged {
+            ui::i18n::text("drawers.unstage")
+        } else {
+            ui::i18n::text("drawers.stage")
+        };
         let key_path = path.clone();
         let stage = move |app: &mut MultisoulApp, path: &str, cx: &mut Context<MultisoulApp>| {
             app.workbench_git_action(
@@ -419,10 +433,18 @@ impl MultisoulApp {
             .justify_center()
             .rounded(px(4.0))
             .border_1()
-            .border_color(rgba(if disabled { GUTTER } else { GREEN }))
+            .border_color(rgba(if disabled {
+                theme.text_tertiary
+            } else {
+                theme.success
+            }))
             .text_size(px(11.0))
             .line_height(px(11.0))
-            .text_color(rgba(if disabled { GUTTER } else { GREEN }))
+            .text_color(rgba(if disabled {
+                theme.text_tertiary
+            } else {
+                theme.success
+            }))
             .child(if staged { "−" } else { "+" });
         if !disabled {
             plus = plus
@@ -431,7 +453,7 @@ impl MultisoulApp {
                 .tooltip(tooltip_view(tip))
                 .hover(|s| s.bg(rgba(0x4cd37a33)))
                 .active(|s| s.bg(rgba(0x4cd37a55)))
-                .focus(|s| s.border_color(rgba(FOCUS)))
+                .focus(|s| s.border_color(rgba(theme.focused_stroke)))
                 .on_click(cx.listener(move |app, _, _, cx| {
                     cx.stop_propagation();
                     stage(app, &stage_path, cx);

@@ -55,6 +55,7 @@ Workspace 分层：
 - **视频/动画壁纸低拷贝**：live 视频/动画帧不得每帧经 CPU RGBA/`RenderImage`/`img()` 路径上屏；解码推进必须后台化，上屏必须用 420f `surface()` 或等价低拷贝路径，并由 `scripts/check-video-wallpaper-performance.py` 护栏拦截回退。
 - **版本钉死需审慎**：`gpui =0.2.2`、`gpui-component =0.5.1`、`alacritty_terminal =0.26`，升级前先验证 API。
 - **GUI 优先 gpui-component**：`crates/app`/`crates/ui` 写控件时优先用 `ui::component`（Longbridge），非必要不造轮子；细节见 [`docs/references/gpui-component.md`](docs/references/gpui-component.md)。
+- **用户可见文案必须国际化**：UI（含抽屉、状态、空态、占位符、tooltip）及后端产生的用户提示/错误都须支持中英文，禁止硬编码；域层保留结构化状态与错误参数，在展示边界翻译，缓存提示和已有输入框须随语言切换，用户内容不翻译。修改后跑 `python3 scripts/check-i18n.py` 与双语定向验收；实现接口见 `crates/ui/src/i18n.rs`。
 - **交互元素必须有状态反馈**：菜单项、按钮、可点击列表行等必须覆盖适用的 hover、pressed、keyboard focus、selected/toggled 与 disabled 状态；hover 在全部主题下必须清晰可辨，完整规范见 [`docs/quality/ui-interaction-feedback.md`](docs/quality/ui-interaction-feedback.md)。
 - **菜单与选择器优先 Google Material 设计哲学**：采用清晰层级、紧凑密度、统一间距、柔和语义色与明确状态反馈；长列表使用紧凑触发器和可搜索浮层，已选值与键盘浏览状态分开，避免常驻大卡片和重复说明。保留 macOS 键盘习惯，浅色/深色均须真实 App 验收；细则见 [`docs/design-docs/material-menus.md`](docs/design-docs/material-menus.md)。
 - **其余页面与交互遵循 Apple 设计语言**：以 Apple Human Interface Guidelines 和 macOS 原生体验为设计基线，优先清晰层级、内容优先、直接操作、即时反馈、一致性与可访问性；新建或改版用户可见页面、布局、样式或交互前，必须先加载 `.agents/skills/apple-design`，涉及动效、手势或视觉打磨时按 [`CLAUDE.md`](CLAUDE.md) §8 选择相关本地设计 skill。方案和验收标准须说明技能如何落地；skill 中的 Web 示例仅作原则参考，GPUI 实现仍须以钉死版本和现有代码为准。
@@ -76,7 +77,7 @@ Workspace 分层：
 - **新增可配置快捷键必须进 Settings**：任何新的 app shortcut 都要注册到 `shortcuts.rs`，并在 Settings → Keyboard Shortcuts 支持录制与恢复。
 - **旧 e2e 套件已移除**：用户流程使用受影响 crate 的单元/集成测试与真实 App 验收；原型浏览器测试归各自原型目录维护。
 - **按实际行为验收**：使用受影响 crate 的单元/集成测试；`TestAppContext`/`simulate_click` 不等于启动真实 `.app`，要求真实程序的流程须操作真实 App 并检查最终结果。
-- **页面/样式验收优先 desktop-e2e**：本次实际改变的页面、布局、样式或视觉状态，优先用 `scripts/desktop-e2e.sh` 在真实 App 上定向验收；覆盖不到再降级 `computer-use:computer-use`。合并与已有证据复用按[执行规范](docs/quality/agent-execution-policy.md)确定范围，headless GPUI、单测和静态截图只能作补充。细则见 [`docs/quality/desktop-e2e.md`](docs/quality/desktop-e2e.md)。
+- **页面/样式验收优先 desktop-e2e**：本次实际改变的页面、布局、样式或视觉状态，优先用 `scripts/desktop-e2e.sh` 在真实 App 上定向验收；非必要不使用 Computer Use，仅在 E2E 无法表达所需交互时才降级，不能因 E2E 失败直接改为手动验收。合并与已有证据复用按[执行规范](docs/quality/agent-execution-policy.md)确定范围，headless GPUI、单测和静态截图只能作补充。细则见 [`docs/quality/desktop-e2e.md`](docs/quality/desktop-e2e.md)。
 - **新增 desktop-e2e 按模块划分**：场景放 `test/desktop-e2e/Scenarios/<模块>/`，看图清单放 `checks/<模块>/`，夹具放 `Fixtures/<模块>/`。同一模块只改该目录的 `<模块>Module.swift`；`Scenarios/Catalog.swift` 只追加模块 `manifest`。`scripts/desktop-e2e.sh <模块>` 跑完该模块，`<场景>` 只跑一条。边界见 [`.agents/skills/norma-desktop-e2e/references/modules.md`](.agents/skills/norma-desktop-e2e/references/modules.md)。
 - **不要把知识塞进地图**：`AGENTS.md` 只放指针；长说明沉淀到 `CLAUDE.md` 或未来 `docs/`。
 

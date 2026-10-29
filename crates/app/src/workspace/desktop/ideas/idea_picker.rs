@@ -139,7 +139,7 @@ impl MultisoulApp {
                     .pb(px(6.0))
                     .text_size(px(11.0))
                     .text_color(rgba(0xa9c3daff))
-                    .child("新建哪种智能体来完成"),
+                    .child(ui::i18n::text("drawers.choose_agent_type")),
             )
             .children(rows);
         // 全窗口透明底：点空白处收回，不让点击落到下面的画布。

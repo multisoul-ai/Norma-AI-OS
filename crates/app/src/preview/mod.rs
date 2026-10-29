@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 mod actions;
+pub(crate) mod content_copy;
 mod editing;
 mod editing_actions;
 pub(crate) mod local_content;

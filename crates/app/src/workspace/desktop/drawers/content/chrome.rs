@@ -7,7 +7,7 @@ pub(super) use super::chrome_format::{
     content_context_title, content_icon, content_kind_label, is_http_resource,
     reader_chrome_colors, ReaderChromeColors, READER_CHROME_HEIGHT, READER_TOOLBAR_HEIGHT,
 };
-use super::{GLASS_TEXT, GLASS_TEXT_SECONDARY};
+
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, svg, Context, Div, ElementId, KeyDownEvent, Stateful};
 use storage::{DesktopContentKind, DesktopContentTab};
@@ -43,6 +43,7 @@ impl MultisoulApp {
 
     /// No page carries a tool row, so new-web-page access lives at the strip's end.
     fn render_new_browser_tab(&self, colors: ReaderChromeColors, cx: &mut Context<Self>) -> Button {
+        let theme = self.desktop_theme();
         Button::new("desktop-content-new-browser")
             .debug_selector(|| "desktop-content-new-browser".to_string())
             .w(px(32.0))
@@ -53,17 +54,17 @@ impl MultisoulApp {
             .child(
                 svg()
                     .path("icons/toolbar-plus.svg")
-                    .text_color(rgba(GLASS_TEXT))
+                    .text_color(rgba(theme.text_primary))
                     .w(px(14.0))
                     .h(px(14.0)),
             )
             .custom(self.reader_control_variant(colors, cx))
-            .tooltip("新建网页")
+            .tooltip(ui::i18n::text("drawers.new_webpage"))
             .on_click(cx.listener(|app, _, _, cx| {
                 app.open_desktop_content_tab(
                     DesktopContentKind::Browser,
                     "about:blank".into(),
-                    "浏览器".into(),
+                    ui::i18n::text("drawers.browser").into(),
                     None,
                     cx,
                 )
@@ -97,17 +98,23 @@ impl MultisoulApp {
                     .path(content_icon(tab.kind))
                     .w(px(13.0))
                     .h(px(13.0))
-                    .text_color(rgba(GLASS_TEXT_SECONDARY)),
+                    .text_color(rgba(theme.text_secondary)),
             )
             .child(self.render_context_title(&title))
             .child(self.render_kind_badge(tab.kind, theme))
             .child(div().flex_1())
             .when(open_external, |row| {
-                row.child(self.render_context_action("打开原网页", true, theme, cx))
+                row.child(self.render_context_action(
+                    ui::i18n::text("drawers.open_original"),
+                    true,
+                    theme,
+                    cx,
+                ))
             })
     }
 
     fn render_reader_collapse(&self, colors: ReaderChromeColors, cx: &mut Context<Self>) -> Button {
+        let theme = self.desktop_theme();
         Button::new("desktop-close-right-drawer")
             .debug_selector(|| "desktop-close-right-drawer".to_string())
             .w(px(32.0))
@@ -118,12 +125,12 @@ impl MultisoulApp {
             .child(
                 svg()
                     .path("icons/panel-right-close.svg")
-                    .text_color(rgba(GLASS_TEXT))
+                    .text_color(rgba(theme.text_primary))
                     .w(px(16.0))
                     .h(px(16.0)),
             )
             .custom(self.reader_control_variant(colors, cx))
-            .tooltip("收起内容浏览器")
+            .tooltip(ui::i18n::text("drawers.collapse_content"))
             .on_click(cx.listener(|app, _, _, cx| {
                 app.toggle_desktop_drawer(
                     runtime::desktop_drawers::DesktopDrawerEvent::ToggleRight,
@@ -226,9 +233,9 @@ impl MultisoulApp {
                     .h(px(13.0))
                     .flex_none()
                     .text_color(rgba(if selected {
-                        GLASS_TEXT
+                        theme.text_primary
                     } else {
-                        GLASS_TEXT_SECONDARY
+                        theme.text_secondary
                     })),
             )
             .child(
@@ -240,11 +247,11 @@ impl MultisoulApp {
                     .whitespace_nowrap()
                     .text_size(px(11.0))
                     .text_color(rgba(if selected {
-                        GLASS_TEXT
+                        theme.text_primary
                     } else {
-                        GLASS_TEXT_SECONDARY
+                        theme.text_secondary
                     }))
-                    .child(tab.title.clone()),
+                    .child(super::chrome_format::content_tab_title(tab)),
             )
             .child(self.render_tab_close(&close_id, theme, cx))
     }
@@ -290,11 +297,12 @@ impl MultisoulApp {
                     .path("icons/close.svg")
                     .w(px(11.0))
                     .h(px(11.0))
-                    .text_color(rgba(GLASS_TEXT_SECONDARY)),
+                    .text_color(rgba(theme.text_secondary)),
             )
     }
 
     fn render_context_title(&self, title: &str) -> gpui::AnyElement {
+        let theme = self.desktop_theme();
         div()
             .id("desktop-content-context-title")
             .debug_selector(|| "desktop-content-context-title".to_string())
@@ -305,7 +313,7 @@ impl MultisoulApp {
             .text_ellipsis()
             .whitespace_nowrap()
             .text_size(px(11.0))
-            .text_color(rgba(GLASS_TEXT_SECONDARY))
+            .text_color(rgba(theme.text_secondary))
             .child(title.to_string())
             .into_any_element()
     }
@@ -342,7 +350,7 @@ impl MultisoulApp {
             .items_center()
             .rounded(px(6.0))
             .text_size(px(11.0))
-            .text_color(rgba(GLASS_TEXT_SECONDARY))
+            .text_color(rgba(theme.text_secondary))
             .cursor_pointer()
             .tab_index(0)
             .border_1()
@@ -350,7 +358,7 @@ impl MultisoulApp {
             .hover(move |style| {
                 style
                     .bg(rgba(with_alpha(theme.edge_highlight, 0x18)))
-                    .text_color(rgba(GLASS_TEXT))
+                    .text_color(rgba(theme.text_primary))
             })
             .active(move |style| style.bg(rgba(with_alpha(theme.accent_blue, 0x30))))
             .focus(move |style| style.border_color(rgba(theme.focused_stroke)))

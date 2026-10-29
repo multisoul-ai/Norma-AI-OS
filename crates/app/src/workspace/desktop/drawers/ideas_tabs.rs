@@ -10,10 +10,6 @@ use super::super::overview_rows::OverviewFeedback;
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div, ElementId};
 
-const OUTLINE: u32 = 0x83c4ff40;
-const SELECTED: u32 = 0x58adff38;
-const SELECTED_TEXT: u32 = 0xe3f1ffff;
-const IDLE_TEXT: u32 = 0xa9c0d5ff;
 const HEIGHT: f32 = 32.0;
 
 impl MultisoulApp {
@@ -34,6 +30,7 @@ impl MultisoulApp {
         feedback: OverviewFeedback,
         cx: &mut Context<Self>,
     ) -> Div {
+        let theme = self.desktop_theme();
         let current = self.desktop_workspace.ideas_tab;
         div()
             .flex_none()
@@ -47,12 +44,11 @@ impl MultisoulApp {
                     .flex()
                     .rounded(px(HEIGHT / 2.0))
                     .border_1()
-                    .border_color(rgba(OUTLINE))
+                    .border_color(rgba(theme.node_stroke))
                     .children(IdeasTab::ALL.into_iter().zip(counts).enumerate().map(
                         |(index, (tab, count))| {
                             let selected = tab == current;
-                            let hover = feedback.hover;
-                            let pressed = feedback.pressed;
+                            let states = tab_feedback(theme, selected, feedback);
                             let radius = px(HEIGHT / 2.0);
                             div()
                                 .id(ElementId::Name(
@@ -68,22 +64,25 @@ impl MultisoulApp {
                                 .when(index == 0, |segment| segment.rounded_l(radius))
                                 .when(index == 2, |segment| segment.rounded_r(radius))
                                 .when(index > 0, |segment| {
-                                    segment.border_l_1().border_color(rgba(OUTLINE))
+                                    segment.border_l_1().border_color(rgba(theme.node_stroke))
                                 })
                                 .text_size(px(12.0))
                                 .font_weight(gpui::FontWeight::MEDIUM)
                                 .cursor_pointer()
                                 .when(selected, |segment| {
-                                    segment.bg(rgba(SELECTED)).text_color(rgba(SELECTED_TEXT))
+                                    segment
+                                        .bg(rgba(states.rest))
+                                        .text_color(rgba(theme.text_primary))
                                 })
                                 .when(!selected, |segment| {
-                                    segment
-                                        .text_color(rgba(IDLE_TEXT))
-                                        .hover(move |style| {
-                                            style.bg(rgba(hover)).text_color(rgba(0xffffffff))
-                                        })
-                                        .active(move |style| style.bg(rgba(pressed)))
+                                    segment.text_color(rgba(theme.text_secondary))
                                 })
+                                .hover(move |style| {
+                                    style
+                                        .bg(rgba(states.hover))
+                                        .text_color(rgba(theme.text_primary))
+                                })
+                                .active(move |style| style.bg(rgba(states.pressed)))
                                 .on_click(cx.listener(move |app, _, _, cx| {
                                     cx.stop_propagation();
                                     app.set_ideas_tab(tab, cx);
@@ -101,8 +100,32 @@ impl MultisoulApp {
     }
 }
 
+pub(super) fn tab_feedback(
+    theme: ui::Theme,
+    selected: bool,
+    feedback: OverviewFeedback,
+) -> OverviewFeedback {
+    if selected {
+        let fill = |amount| {
+            ui::icons::with_alpha(
+                super::super::surface_theme::mix(theme.canvas_from, theme.accent, amount),
+                0xf5,
+            )
+        };
+        OverviewFeedback {
+            rest: fill(50),
+            hover: fill(70),
+            pressed: fill(90),
+            focus: feedback.focus,
+        }
+    } else {
+        feedback
+    }
+}
+
 /// 当前分段顶部的一行：左侧说明，右侧由带点击回调的「清空」文字按钮（已指派、已完成才有）。
 pub(super) fn clear_row(
+    theme: ui::Theme,
     id: &'static str,
     hint: &'static str,
     feedback: OverviewFeedback,
@@ -117,7 +140,7 @@ pub(super) fn clear_row(
         .items_center()
         .justify_between()
         .text_size(px(11.0))
-        .text_color(rgba(0x8ea8bfff))
+        .text_color(rgba(theme.text_tertiary))
         .child(hint)
         .child(
             div()
@@ -130,16 +153,16 @@ pub(super) fn clear_row(
                 .rounded(px(12.0))
                 .cursor_pointer()
                 .font_weight(gpui::FontWeight::MEDIUM)
-                .text_color(rgba(0x9fc7eaff))
-                .hover(move |style| style.bg(rgba(hover)).text_color(rgba(0xffffffff)))
+                .text_color(rgba(theme.text_secondary))
+                .hover(move |style| style.bg(rgba(hover)).text_color(rgba(theme.text_primary)))
                 .active(move |style| style.bg(rgba(pressed)))
                 .on_click(on_click)
-                .child("清空"),
+                .child(ui::i18n::text("drawers.clear")),
         )
 }
 
 /// 分段内没有内容时的居中提示。
-pub(super) fn tab_empty(title: &'static str, hint: &'static str) -> Div {
+pub(super) fn tab_empty(theme: ui::Theme, title: &'static str, hint: &'static str) -> Div {
     // flex_none + 较小的竖向留白：栏高不够时由列表滚动，而不是把提示压进输入框下面被截断。
     div()
         .w_full()
@@ -155,13 +178,13 @@ pub(super) fn tab_empty(title: &'static str, hint: &'static str) -> Div {
             div()
                 .text_size(px(13.0))
                 .font_weight(gpui::FontWeight::MEDIUM)
-                .text_color(rgba(0xdbe9f6ff))
+                .text_color(rgba(theme.text_primary))
                 .child(title),
         )
         .child(
             div()
                 .text_size(px(12.0))
-                .text_color(rgba(0x8ea8bfff))
+                .text_color(rgba(theme.text_tertiary))
                 .child(hint),
         )
 }

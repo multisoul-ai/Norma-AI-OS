@@ -9,7 +9,7 @@ pub(crate) enum DispatchEffectStyle {
     /// 语音与想法清单的默认款式。
     #[default]
     Meteor,
-    /// Agent 间交接的默认款式（现有离子画法）。
+    /// 旧的 Agent 交接画法；不再是默认，仅可在设置里显式选择。
     Ion,
     Plane,
     Ribbon,
@@ -50,14 +50,9 @@ impl DispatchEffectStyle {
         }
     }
 
-    /// 未显式指定款式时沿用现状：语音与想法是流星，Agent 交接是离子。
-    pub(crate) fn default_for(origin: DispatchVisualOrigin) -> Self {
-        match origin {
-            DispatchVisualOrigin::AgentNode(_) => Self::Ion,
-            DispatchVisualOrigin::CommandDock | DispatchVisualOrigin::IdeaRow { .. } => {
-                Self::Meteor
-            }
-        }
+    /// 未显式指定款式时，语音、想法与 Agent 交接（如 /ask-norma）统一是流星。
+    pub(crate) fn default_for(_origin: DispatchVisualOrigin) -> Self {
+        Self::Meteor
     }
 
     /// 未知 id（含 "random"，它是偏好而不是可绘制款式）返回 `None`，由调用方回落到默认。
@@ -154,7 +149,8 @@ impl StyleSelection {
         let source = match origin {
             DispatchVisualOrigin::CommandDock => self.voice,
             DispatchVisualOrigin::IdeaRow { .. } => self.idea,
-            DispatchVisualOrigin::AgentNode(_) => self.handoff,
+            // 交接未单独设置时跟随语音，保持与语音派发动画一致。
+            DispatchVisualOrigin::AgentNode(_) => self.handoff.or(self.voice),
         };
         source.or(self.base).map_or_else(
             || DispatchEffectStyle::default_for(origin),

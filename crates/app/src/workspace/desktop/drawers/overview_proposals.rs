@@ -5,17 +5,14 @@ use super::super::overview_rows::{
     OverviewFeedback, OVERVIEW_TEXT_COPY, OVERVIEW_TEXT_PRIMARY, OVERVIEW_TEXT_SECONDARY,
 };
 use super::overview_brain::{pill, PillStyle};
-use crate::app::{MultisoulApp, OverviewProposal};
+use crate::app::{MultisoulApp, OverviewProposal, ProposalFeedback};
 use gpui::{div, prelude::*, px, rgba, Context, Div, ElementId, Stateful};
 
 /// 收起时的行高：标题一行 + 说明一行。
 const PROPOSAL_ROW_HEIGHT: f32 = 52.0;
 /// 展开后多出指令（最多约三行）与理由一行，栏高按它分配，免得内容被栏裁掉。
 const PROPOSAL_EXPANDED_HEIGHT: f32 = 132.0;
-const COPY: u32 = 0xcfe3f4ff;
-const META: u32 = 0x8ea8bfff;
-const TINT: u32 = 0xf2c77326;
-const TEXT: u32 = 0xf6dfaaff;
+const PROPOSAL_FEEDBACK_HEIGHT: f32 = 48.0;
 
 impl MultisoulApp {
     /// 各条提议在栏里占的高度，用来算“需要你处理”栏的起始高度。
@@ -25,13 +22,29 @@ impl MultisoulApp {
             .proposals
             .iter()
             .map(|item| {
-                if open == Some(&(item.area_id.clone(), item.proposal.id)) {
+                let height = if open == Some(&(item.area_id.clone(), item.proposal.id)) {
                     PROPOSAL_EXPANDED_HEIGHT
                 } else {
                     PROPOSAL_ROW_HEIGHT
+                };
+                if self.proposal_hint(item).is_some() {
+                    height + PROPOSAL_FEEDBACK_HEIGHT
+                } else {
+                    height
                 }
             })
             .collect()
+    }
+
+    fn proposal_hint(&self, item: &OverviewProposal) -> Option<String> {
+        match self.brain_proposal_feedback(&item.area_id, item.proposal.id) {
+            Some(ProposalFeedback::Failed(message)) => Some(message.clone()),
+            Some(ProposalFeedback::Dispatching) => None,
+            None => item
+                .block
+                .as_ref()
+                .map(|block| block.message(&item.proposal.agent)),
+        }
     }
 
     pub(super) fn render_proposal_rows(
@@ -58,6 +71,7 @@ impl MultisoulApp {
         feedback: OverviewFeedback,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
+        let theme = self.desktop_theme();
         let id = item.proposal.id;
         let area = item.area_id.clone();
         let tag = format!("{area}-{id}");
@@ -72,8 +86,13 @@ impl MultisoulApp {
             &[("agent", item.proposal.agent.clone())],
         );
         // 采纳 / 拒绝始终在标题行右侧；点行其余部分展开详情。
-        let aside = self.proposal_buttons(&area, id, &tag, cx);
+        let hint = self.proposal_hint(item);
+        let aside = self.proposal_buttons(item, &tag, cx);
         let selector = format!("desktop-brain-proposal-{id}");
+        let (badge_fill, badge_ink) = super::overview_parts::status_colors(
+            theme,
+            super::super::overview_rows::OverviewStatusTone::Approval,
+        );
         let head = div()
             .flex()
             .items_start()
@@ -84,9 +103,9 @@ impl MultisoulApp {
                     .px(px(6.0))
                     .py(px(1.0))
                     .rounded(px(5.0))
-                    .bg(rgba(TINT))
+                    .bg(rgba(badge_fill))
                     .text_size(px(OVERVIEW_TEXT_SECONDARY))
-                    .text_color(rgba(TEXT))
+                    .text_color(rgba(badge_ink))
                     .child(ui::i18n::text("chrome.brain_proposal_badge")),
             )
             .child(
@@ -98,14 +117,14 @@ impl MultisoulApp {
                     .child(
                         div()
                             .text_size(px(OVERVIEW_TEXT_PRIMARY))
-                            .text_color(rgba(COPY))
+                            .text_color(rgba(theme.text_primary))
                             .truncate()
                             .child(item.proposal.title.clone()),
                     )
                     .child(
                         div()
                             .text_size(px(OVERVIEW_TEXT_COPY))
-                            .text_color(rgba(META))
+                            .text_color(rgba(theme.text_secondary))
                             .child(target),
                     ),
             )
@@ -134,19 +153,28 @@ impl MultisoulApp {
                 })
             })
             .child(head)
+            .when_some(hint, |row, message| {
+                row.child(
+                    div()
+                        .text_size(px(OVERVIEW_TEXT_COPY))
+                        .text_color(rgba(badge_ink))
+                        .line_clamp(3)
+                        .child(message),
+                )
+            })
             .when(expanded, |row| {
                 row.child(
                     div()
                         .pl(px(8.0))
                         .text_size(px(OVERVIEW_TEXT_COPY))
-                        .text_color(rgba(COPY))
+                        .text_color(rgba(theme.text_primary))
                         .child(item.proposal.task.clone()),
                 )
                 .child(
                     div()
                         .pl(px(8.0))
                         .text_size(px(OVERVIEW_TEXT_COPY))
-                        .text_color(rgba(META))
+                        .text_color(rgba(theme.text_secondary))
                         .child(ui::i18n::format(
                             "chrome.brain_reason",
                             &[("reason", item.proposal.why.clone())],
@@ -155,30 +183,69 @@ impl MultisoulApp {
             })
     }
 
-    fn proposal_buttons(&mut self, area: &str, id: u64, tag: &str, cx: &mut Context<Self>) -> Div {
+    fn proposal_buttons(
+        &mut self,
+        item: &OverviewProposal,
+        tag: &str,
+        cx: &mut Context<Self>,
+    ) -> Div {
+        let theme = self.desktop_theme();
+        let area = &item.area_id;
+        let id = item.proposal.id;
+        let pending = matches!(
+            self.brain_proposal_feedback(area, id),
+            Some(ProposalFeedback::Dispatching)
+        );
+        let enabled = !pending && item.block.is_none();
         let ignore = pill(
+            theme,
             ElementId::Name(format!("brain-proposal-ignore-{tag}").into()),
             ui::i18n::text("chrome.brain_proposal_ignore"),
-            PillStyle::Quiet,
+            if pending {
+                PillStyle::Disabled
+            } else {
+                PillStyle::Quiet
+            },
         )
-        .on_click({
-            let area = area.to_owned();
-            cx.listener(move |app, _, _, cx| {
-                cx.stop_propagation();
-                app.decline_overview_proposal(&area, id, cx);
+        .when(!pending, |button| {
+            button.on_click({
+                let area = area.to_owned();
+                cx.listener(move |app, _, _, cx| {
+                    cx.stop_propagation();
+                    app.decline_overview_proposal(&area, id, cx);
+                })
             })
         });
         let dispatch = pill(
+            theme,
             ElementId::Name(format!("brain-proposal-dispatch-{tag}").into()),
-            ui::i18n::text("chrome.brain_proposal_dispatch"),
-            PillStyle::Primary,
+            if pending {
+                ui::i18n::text("chrome.brain_proposal_dispatching")
+            } else if let Some(block) = &item.block {
+                block.label()
+            } else {
+                ui::i18n::text("chrome.brain_proposal_dispatch")
+            },
+            if enabled {
+                PillStyle::Primary
+            } else {
+                PillStyle::Disabled
+            },
         )
-        .on_click({
-            let area = area.to_owned();
-            cx.listener(move |app, _, _, cx| {
-                cx.stop_propagation();
-                app.dispatch_overview_proposal(&area, id, cx);
+        .when(enabled, |button| {
+            button.on_click({
+                let area = area.to_owned();
+                cx.listener(move |app, _, _, cx| {
+                    cx.stop_propagation();
+                    app.dispatch_overview_proposal(&area, id, cx).detach();
+                })
             })
+        })
+        // Disabled pills still consume the click, so it cannot expand the row underneath.
+        .when(!enabled, |button| {
+            button
+                .cursor_default()
+                .on_click(|_, _, cx| cx.stop_propagation())
         });
         div()
             .flex_none()
@@ -188,31 +255,147 @@ impl MultisoulApp {
             .child(dispatch)
     }
 
-    fn dispatch_overview_proposal(&mut self, area_id: &str, id: u64, cx: &mut Context<Self>) {
-        let result = self.with_overview_session(area_id, cx, |app, cx| {
-            let result = app.dispatch_brain_proposal(id);
-            cx.notify();
-            result
-        });
-        match result {
-            Some(Ok(())) => {}
-            Some(Err(message)) => self.desktop_workspace.error = Some(message.into()),
-            None => {
-                self.desktop_workspace.error =
-                    Some(ui::i18n::text("chrome.brain_proposal_closed").into());
-            }
+    pub(crate) fn dispatch_overview_proposal(
+        &mut self,
+        area_id: &str,
+        id: u64,
+        cx: &mut Context<Self>,
+    ) -> gpui::Task<()> {
+        if matches!(
+            self.brain_proposal_feedback(area_id, id),
+            Some(ProposalFeedback::Dispatching)
+        ) {
+            return gpui::Task::ready(());
         }
-        self.refresh_brain_overview(cx);
+        self.set_brain_proposal_feedback(area_id, id, Some(ProposalFeedback::Dispatching));
         cx.notify();
+        let workspace = self.desktop_workspace.active_id.clone();
+        let prepared = self.with_overview_session(area_id, cx, |app, cx| {
+            app.shared_context_service()
+                .map(|service| (cx.entity().entity_id(), service))
+        });
+        let (source, service) = match prepared {
+            Some(Ok(prepared)) => prepared,
+            other => {
+                let message = match other {
+                    Some(Err(error)) => error.to_string(),
+                    _ => ui::i18n::text("chrome.brain_proposal_closed").to_owned(),
+                };
+                self.set_brain_proposal_feedback(
+                    area_id,
+                    id,
+                    Some(ProposalFeedback::Failed(message.clone())),
+                );
+                self.desktop_workspace.error = Some(message.into());
+                cx.notify();
+                return gpui::Task::ready(());
+            }
+        };
+        let area_id = area_id.to_owned();
+        cx.spawn(async move |this, cx| {
+            let timeout = cx
+                .background_executor()
+                .timer(std::time::Duration::from_secs(2));
+            let loaded = match futures::future::select(
+                Box::pin(service.snapshot()),
+                Box::pin(timeout),
+            )
+            .await
+            {
+                futures::future::Either::Left((result, _)) => {
+                    result.map(|_| ()).map_err(|error| error.to_string())
+                }
+                futures::future::Either::Right(_) => {
+                    Err(ui::i18n::text("drawers.context_timeout").into())
+                }
+            };
+            let dispatched = this.update(cx, |host, cx| {
+                // A late load must not dispatch into another workspace or replacement session.
+                if host.desktop_workspace.active_id != workspace {
+                    host.set_brain_proposal_feedback(&area_id, id, None);
+                    return None;
+                }
+                if host.with_overview_session(&area_id, cx, |_, cx| cx.entity().entity_id())
+                    != Some(source)
+                {
+                    host.set_brain_proposal_feedback(&area_id, id, None);
+                    host.desktop_workspace.error =
+                        Some(ui::i18n::LocalizedText::new("drawers.context_mismatch"));
+                    cx.notify();
+                    return None;
+                }
+                let result = loaded.and_then(|()| {
+                    host.with_overview_session(&area_id, cx, |app, cx| {
+                        if cx.entity().entity_id() != source
+                            || !app
+                                .shared_context_service()
+                                .is_ok_and(|current| current.scope() == service.scope())
+                        {
+                            return Err(ui::i18n::text("drawers.context_mismatch").into());
+                        }
+                        let result = app.dispatch_brain_proposal(id);
+                        cx.notify();
+                        result
+                    })
+                    .unwrap_or_else(|| {
+                        Err(ui::i18n::text("chrome.brain_proposal_closed").to_string())
+                    })
+                });
+                if let Err(message) = &result {
+                    host.desktop_workspace.error = Some(message.clone().into());
+                }
+                host.set_brain_proposal_feedback(
+                    &area_id,
+                    id,
+                    result
+                        .as_ref()
+                        .err()
+                        .map(|message| ProposalFeedback::Failed(message.clone())),
+                );
+                host.refresh_brain_overview(cx);
+                cx.notify();
+                result.ok()
+            });
+            if let Ok(Some((op, mut receipt))) = dispatched {
+                // The proposal is already consumed. Saving sources cannot replay its action.
+                if !service.save_brain_action_result(op, &mut receipt).await {
+                    let _ = this.update(cx, |host, cx| {
+                        if host.desktop_workspace.active_id != workspace {
+                            return;
+                        }
+                        let current = host
+                            .with_overview_session(&area_id, cx, |app, cx| {
+                                cx.entity().entity_id() == source
+                                    && app
+                                        .shared_context_service()
+                                        .is_ok_and(|current| current.scope() == service.scope())
+                            })
+                            .unwrap_or(false);
+                        if current {
+                            host.desktop_workspace.error = Some(ui::i18n::LocalizedText::new(
+                                "drawers.assignment_unconfirmed",
+                            ));
+                            cx.notify();
+                        }
+                    });
+                }
+            }
+        })
     }
 
     fn decline_overview_proposal(&mut self, area_id: &str, id: u64, cx: &mut Context<Self>) {
+        if matches!(
+            self.brain_proposal_feedback(area_id, id),
+            Some(ProposalFeedback::Dispatching)
+        ) {
+            return;
+        }
         let declined = self
             .with_overview_session(area_id, cx, |app, _| app.decline_brain_proposal(id))
             .unwrap_or(false);
         if !declined {
             self.desktop_workspace.error =
-                Some(ui::i18n::text("chrome.brain_proposal_closed").into());
+                Some(ui::i18n::LocalizedText::new("chrome.brain_proposal_closed"));
         }
         self.refresh_brain_overview(cx);
         cx.notify();

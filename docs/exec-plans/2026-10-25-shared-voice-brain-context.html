@@ -1,0 +1,3307 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="shadcn" data-mode="light" data-style="80">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-qwC2biNEcgyecbiltRqW7IRXKbRzrNXGQNfjQpxbiXs=' 'sha256-vjQfZ+oX05M1l9ERqRkMpxLi1EZh23JhiYF5QAjG6aA='; style-src 'unsafe-inline'; img-src data:; font-src data:; media-src data:; connect-src 'self'; form-action 'none'; base-uri 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="Answer me with HTML 0.5.5">
+<title>语音与幕僚上下文融合 · 实施方案</title>
+<style>
+html[data-theme="blueprint"], html[data-theme="blueprint"][data-mode="light"] {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --radius: 0px;
+  --shadow: none;
+  --bw: 1.5px;
+  --head-font: var(--font-sans);
+  --bg: #f6f6f3;
+  --paper: #ffffff;
+  --ink: #16181d;
+  --ink-2: #4b5260;
+  --ink-3: #8b929e;
+  --line: #1d2026;
+  --line-2: #d6dae1;
+  --fill: #f3f5f8;
+  --accent: #1d5fbf;
+  --accent-bg: #e4ecf8;
+  --ok: #1d5fbf;
+  --ok-bg: #e4ecf8;
+  --err: #c62828;
+  --err-bg: #fbeaea;
+  --warn: #a8620a;
+  --warn-bg: #fdf3e2;
+  --head-bg: #16181d;
+  --head-fg: #ffffff;
+}
+html[data-theme="blueprint"][data-mode="dark"] {
+  --bg: #081322;
+  --paper: #0d1c31;
+  --ink: #e6edf7;
+  --ink-2: #a9b8cc;
+  --ink-3: #6b7f99;
+  --line: #c9d6e8;
+  --line-2: #23385a;
+  --fill: #12253f;
+  --accent: #6ea8ff;
+  --accent-bg: #16305a;
+  --ok: #6ea8ff;
+  --ok-bg: #16305a;
+  --err: #ff7070;
+  --err-bg: #3b1620;
+  --warn: #f0b14a;
+  --warn-bg: #3a2a10;
+  --head-bg: #e6edf7;
+  --head-fg: #081322;
+}
+@media (prefers-color-scheme: dark) {
+html[data-theme="blueprint"][data-mode="auto"] {
+  --bg: #081322;
+  --paper: #0d1c31;
+  --ink: #e6edf7;
+  --ink-2: #a9b8cc;
+  --ink-3: #6b7f99;
+  --line: #c9d6e8;
+  --line-2: #23385a;
+  --fill: #12253f;
+  --accent: #6ea8ff;
+  --accent-bg: #16305a;
+  --ok: #6ea8ff;
+  --ok-bg: #16305a;
+  --err: #ff7070;
+  --err-bg: #3b1620;
+  --warn: #f0b14a;
+  --warn-bg: #3a2a10;
+  --head-bg: #e6edf7;
+  --head-fg: #081322;
+}
+}
+
+html[data-theme="shadcn"], html[data-theme="shadcn"][data-mode="light"] {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --radius: 8px;
+  --shadow: 0 1px 2px 0 rgba(0,0,0,0.05);
+  --bw: 1px;
+  --head-font: var(--font-sans);
+  --bg: #fafafa;
+  --paper: #ffffff;
+  --ink: #09090b;
+  --ink-2: #71717a;
+  --ink-3: #a1a1aa;
+  --line: #e4e4e7;
+  --line-2: #f0f0f2;
+  --fill: #f4f4f5;
+  --accent: #2563eb;
+  --accent-bg: #eff6ff;
+  --ok: #16a34a;
+  --ok-bg: #f0fdf4;
+  --err: #dc2626;
+  --err-bg: #fef2f2;
+  --warn: #d97706;
+  --warn-bg: #fffbeb;
+  --head-bg: #18181b;
+  --head-fg: #fafafa;
+}
+html[data-theme="shadcn"][data-mode="dark"] {
+  --bg: #09090b;
+  --paper: #121215;
+  --ink: #fafafa;
+  --ink-2: #a1a1aa;
+  --ink-3: #71717a;
+  --line: #27272a;
+  --line-2: #1c1c1f;
+  --fill: #18181b;
+  --accent: #60a5fa;
+  --accent-bg: #172554;
+  --ok: #4ade80;
+  --ok-bg: #052e16;
+  --err: #f87171;
+  --err-bg: #450a0a;
+  --warn: #fbbf24;
+  --warn-bg: #451a03;
+  --head-bg: #fafafa;
+  --head-fg: #18181b;
+}
+@media (prefers-color-scheme: dark) {
+html[data-theme="shadcn"][data-mode="auto"] {
+  --bg: #09090b;
+  --paper: #121215;
+  --ink: #fafafa;
+  --ink-2: #a1a1aa;
+  --ink-3: #71717a;
+  --line: #27272a;
+  --line-2: #1c1c1f;
+  --fill: #18181b;
+  --accent: #60a5fa;
+  --accent-bg: #172554;
+  --ok: #4ade80;
+  --ok-bg: #052e16;
+  --err: #f87171;
+  --err-bg: #450a0a;
+  --warn: #fbbf24;
+  --warn-bg: #451a03;
+  --head-bg: #fafafa;
+  --head-fg: #18181b;
+}
+}
+
+html[data-theme="paper"], html[data-theme="paper"][data-mode="light"] {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Songti SC", "STSong", "Noto Serif CJK SC", "Source Han Serif SC", serif;
+  --radius: 2px;
+  --shadow: none;
+  --bw: 1px;
+  --head-font: var(--font-serif);
+  --bg: #f5f2ea;
+  --paper: #fdfbf6;
+  --ink: #1f1c17;
+  --ink-2: #57514a;
+  --ink-3: #8c867b;
+  --line: #cbc3b4;
+  --line-2: #e5dfd3;
+  --fill: #f3eee4;
+  --accent: #8c2f1e;
+  --accent-bg: #f5e5df;
+  --ok: #2e6a3b;
+  --ok-bg: #e4efe5;
+  --err: #a3251b;
+  --err-bg: #f7e3e0;
+  --warn: #7f5300;
+  --warn-bg: #f6ecd6;
+  --head-bg: #1f1c17;
+  --head-fg: #fdfbf6;
+}
+html[data-theme="paper"][data-mode="dark"] {
+  --bg: #15130f;
+  --paper: #1c1a15;
+  --ink: #ebe5d8;
+  --ink-2: #b5ad9e;
+  --ink-3: #7b7467;
+  --line: #4a443a;
+  --line-2: #2d2a24;
+  --fill: #242119;
+  --accent: #e59a7d;
+  --accent-bg: #3a2219;
+  --ok: #8cc79a;
+  --ok-bg: #1c3122;
+  --err: #f0928a;
+  --err-bg: #3a1d1a;
+  --warn: #e3b866;
+  --warn-bg: #352a13;
+  --head-bg: #ebe5d8;
+  --head-fg: #15130f;
+}
+@media (prefers-color-scheme: dark) {
+html[data-theme="paper"][data-mode="auto"] {
+  --bg: #15130f;
+  --paper: #1c1a15;
+  --ink: #ebe5d8;
+  --ink-2: #b5ad9e;
+  --ink-3: #7b7467;
+  --line: #4a443a;
+  --line-2: #2d2a24;
+  --fill: #242119;
+  --accent: #e59a7d;
+  --accent-bg: #3a2219;
+  --ok: #8cc79a;
+  --ok-bg: #1c3122;
+  --err: #f0928a;
+  --err-bg: #3a1d1a;
+  --warn: #e3b866;
+  --warn-bg: #352a13;
+  --head-bg: #ebe5d8;
+  --head-fg: #15130f;
+}
+}
+
+html:lang(zh-Hant)[data-theme][data-mode], html:lang(zh-TW)[data-theme][data-mode], html:lang(zh-HK)[data-theme][data-mode], html:lang(zh-MO)[data-theme][data-mode] {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Heiti TC", "Microsoft JhengHei", "Noto Sans CJK TC", "Noto Sans TC", "PingFang SC", "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+html:lang(ja)[data-theme][data-mode] {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", Meiryo, "Noto Sans CJK JP", "Noto Sans JP", "PingFang SC", "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+html:lang(he)[data-theme][data-mode] {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans Hebrew", "Arial Hebrew", Arial, Roboto, "Helvetica Neue", sans-serif;
+}
+
+/* Answer me with HTML base — uses theme variables only, never hard-coded colors (theme tokens and decorations: themes/<name>.js). Exception: the var() fallbacks of diagrams (flow / sequence) equal the blueprint light tokens, guarded by a test. */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-sans); font-size: 14px; line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+code, pre, kbd { font-family: var(--font-mono); }
+
+/* ── Toolbar ─────────────────────────────── */
+.am-toolbar {
+  position: fixed; top: 12px; inset-inline-end: 12px; z-index: 10; display: flex; gap: 6px;
+}
+.am-btn {
+  font: 12px/1 var(--font-sans); color: var(--ink); background: var(--paper);
+  border: 1px solid var(--line-2); border-radius: var(--radius); padding: 7px 10px; cursor: pointer;
+}
+.am-btn:hover { border-color: var(--ink-3); }
+.am-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Theme and mode lists: a label and a native select inside one button-like box */
+.am-pick {
+  display: flex; align-items: center; gap: 6px; font: 12px/1 var(--font-sans); color: var(--ink-2); background: var(--paper);
+  border: 1px solid var(--line-2); border-radius: var(--radius); padding-block: 0; padding-inline: 10px 4px;
+}
+.am-pick:hover { border-color: var(--ink-3); }
+.am-pick:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.am-pick select {
+  font: inherit; color: var(--ink); background: transparent; border: 0; padding: 6px 2px; cursor: pointer; outline: none;
+}
+.am-pick option { color: var(--ink); background: var(--paper); }
+
+/* ── Header ───────────────────────────────── */
+.am-head { margin: 0 0 20px; padding-inline-end: 300px; }
+.am-head h1 { margin: 0; font-size: 24px; line-height: 1.25; letter-spacing: -0.01em; }
+.am-sub { margin: 4px 0 0; color: var(--ink-2); }
+.am-head-meta { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 10px; font-size: 12px; color: var(--ink-2); }
+.am-head-meta b { font-family: var(--font-mono); font-weight: 400; color: var(--ink-3); margin-inline-end: 6px; }
+.am-intro { margin-top: 12px; max-width: 80ch; }
+
+/* ── sheet template ────────────────────────── */
+.am-sheet { max-width: 1680px; margin: 0 auto; padding: 32px 28px 40px; }
+.am-frame { position: relative; }
+.am-grid {
+  display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
+  gap: 20px; align-items: start;
+}
+.am-ruler { display: none; }
+.am-ruler span { flex: 1; display: flex; align-items: center; justify-content: center; }
+.am-ruler--top, .am-ruler--bottom { left: 18px; right: 18px; height: 18px; }
+.am-ruler--top { top: 0; }
+.am-ruler--bottom { bottom: 0; }
+.am-ruler--left, .am-ruler--right { top: 18px; bottom: 18px; width: 18px; flex-direction: column; }
+.am-ruler--left { left: 0; }
+.am-ruler--right { right: 0; }
+.am-ruler--top span + span, .am-ruler--bottom span + span { border-inline-start: 1px solid var(--line); }
+.am-ruler--left span + span, .am-ruler--right span + span { border-top: 1px solid var(--line); }
+
+/* ── Panels ───────────────────────────────── */
+.am-panel {
+  background: var(--paper); border: var(--bw) solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow); min-width: 0; overflow: hidden;
+}
+.am-panel-head {
+  display: flex; align-items: stretch; gap: 0; border-bottom: var(--bw) solid var(--line); min-height: 34px;
+}
+.am-panel-id {
+  display: flex; align-items: center; justify-content: center; min-width: 34px; padding: 0 8px;
+  background: var(--head-bg); color: var(--head-fg); font-weight: 600; font-size: 14px;
+}
+.am-panel-head h2 { margin: 0; padding: 7px 12px; font-size: 15px; font-weight: 600; flex: 1; display: flex; align-items: center; }
+.am-panel-meta { align-self: center; padding: 0 12px; font: 11px/1.3 var(--font-mono); color: var(--ink-2); text-align: end; }
+.am-panel-body { padding: 14px 16px 16px; }
+.am-panel-body > * + * { margin-top: 12px; }
+
+/* ── Markdown body ───────────────────────── */
+.am-md > :first-child { margin-top: 0; }
+.am-md > :last-child { margin-bottom: 0; }
+.am-md p { margin: 0 0 8px; }
+.am-md ul, .am-md ol { margin: 0 0 8px; padding-inline-start: 20px; }
+.am-md li + li { margin-top: 3px; }
+.am-md h3, .am-md h4 { margin: 14px 0 6px; font-size: 13px; }
+.am-md a { color: var(--accent); }
+.am-md blockquote { margin: 0 0 8px; padding: 2px 12px; border-inline-start: 3px solid var(--line-2); color: var(--ink-2); }
+.am-md :not(pre) > code { font-size: 0.9em; background: var(--fill); padding: 1px 5px; border-radius: 4px; }
+.am-md hr { border: 0; border-top: 1px solid var(--line-2); margin: 12px 0; }
+.am-md table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.am-md th {
+  text-align: start; font: 11px/1.3 var(--font-mono); color: var(--ink-2); font-weight: 400;
+  padding: 6px 10px; border-bottom: 1px solid var(--line-2);
+}
+/* th { text-align: start } outranks the align attribute from Markdown alignment, so restore right and center columns explicitly. */
+.am-md th[align="right"] { text-align: right; }
+.am-md th[align="center"] { text-align: center; }
+.am-md td { padding: 7px 10px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
+.am-md tbody tr:nth-child(even) td { background: var(--fill); }
+.am-table-wrap { overflow-x: auto; }
+/* Images scale down to the panel and never past 70% of the window height, keeping their shape. */
+.am-md img { max-width: 100%; max-height: 70vh; height: auto; }
+.am-figure { margin: 0; text-align: center; }
+.am-figure img { display: block; margin: 0 auto; border: 1px solid var(--line-2); border-radius: var(--radius); }
+.am-figure figcaption { margin-top: 6px; font-size: 12px; line-height: 1.4; color: var(--ink-2); }
+.am-code {
+  margin: 0; padding: 12px 14px; background: var(--fill); border: 1px solid var(--line-2);
+  border-radius: var(--radius); overflow-x: auto; font-size: 12.5px; line-height: 1.5;
+}
+/* Ask: a decision the reader makes; the suggested option starts selected */
+.am-ask { margin: 10px 0; padding: 10px 12px 8px; border: 1px solid var(--line-2); border-radius: var(--radius); background: var(--fill); min-width: 0; }
+/* The question floats inside the box, so a long question wraps like text instead of riding on the border */
+.am-ask-q { float: left; width: 100%; padding: 0; margin-bottom: 4px; font-weight: 600; }
+/* Two columns: the control, then the label, tag and note, which wrap under the label and never under the control */
+.am-ask-opt { clear: both; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 8px; align-items: baseline; padding: 5px 2px; cursor: pointer; }
+.am-ask-opt input { margin: 0; accent-color: var(--accent); position: relative; top: 2px; }
+.am-ask-tag { display: inline-block; font-size: 11px; line-height: 1.5; color: var(--accent); border: 1px solid var(--accent); border-radius: 999px; padding: 0 6px; white-space: nowrap; }
+.am-ask-note { display: block; color: var(--ink-2); }
+/* Comment box under each panel, and the Reply sheet */
+.am-comment-btn {
+  display: flex; flex-shrink: 0; align-self: center; margin-block: 0; margin-inline: auto 6px; color: var(--ink-3); background: transparent;
+  border: 1px solid transparent; border-radius: var(--radius); padding: 3px; cursor: pointer;
+}
+.am-panel-meta + .am-comment-btn { margin-inline-start: 0; }
+.am-panel:hover .am-comment-btn, .am-comment-btn:focus-visible, .am-comment-btn[aria-expanded="true"] { border-color: var(--line-2); color: var(--ink-2); }
+.am-panel .am-comment-btn.am-comment-btn--on { color: var(--accent); border-color: var(--accent); }
+.am-panel--bare { position: relative; }
+.am-panel--bare > .am-comment-btn { position: absolute; top: 4px; inset-inline-end: 0; }
+.am-comment { padding: 0 14px 12px; }
+.am-comment textarea, .am-reply textarea {
+  width: 100%; font: 13px/1.5 var(--font-sans); color: var(--ink); background: var(--paper);
+  border: 1px solid var(--line-2); border-radius: var(--radius); padding: 8px 10px; resize: vertical;
+}
+.am-comment textarea:focus-visible, .am-reply textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.am-btn--reply { color: var(--paper); background: var(--ink); border-color: var(--ink); }
+.am-btn--reply:hover { opacity: .88; }
+.am-reply {
+  width: min(640px, calc(100vw - 32px)); padding: 16px; color: var(--ink); background: var(--paper);
+  border: 1px solid var(--line-2); border-radius: var(--radius); box-shadow: 0 12px 40px rgba(0,0,0,.25);
+}
+.am-reply::backdrop { background: rgba(0,0,0,.35); }
+.am-reply-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-bottom: 10px; }
+.am-reply-head span { color: var(--ink-2); font-size: 13px; }
+.am-reply textarea { font-family: var(--font-mono); font-size: 12.5px; }
+.am-reply-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+.am-reply .am-btn:disabled { opacity: .5; cursor: default; }
+/* The sheet shows the reply drawn (src/runtime/reply-view.js), each line in its own direction; the Markdown that Copy copies sits under a fold. */
+.am-reply-view {
+  max-height: min(60vh, 26em); overflow: auto; padding: 10px 12px; font: 14px/1.6 var(--font-sans); color: var(--ink);
+  background: var(--paper); border: 1px solid var(--line-2); border-radius: var(--radius); overflow-wrap: anywhere;
+}
+.am-reply-view:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.am-reply-view > div { text-align: start; unicode-bidi: isolate; }
+.am-rv-gap { height: .5em; }
+.am-rv-h1 { font-weight: 700; font-size: 15px; }
+.am-rv-h2 { font-weight: 700; color: var(--ink-2); margin-top: 2px; }
+.am-rv-tag {
+  display: inline-block; min-width: 1.6em; padding: 0 4px; font-size: 12px; line-height: 1.5; text-align: center;
+  color: var(--ink-2); border: 1px solid var(--line-2); border-radius: var(--radius);
+}
+.am-rv-a { padding-inline-start: 1.6em; }
+.am-rv-a em { color: var(--ink-2); }
+.am-rv-quote { margin-inline-start: 1em; padding-inline-start: 10px; border-inline-start: 3px solid var(--line-2); color: var(--ink-2); white-space: pre-wrap; }
+.am-reply-raw summary { margin-top: 10px; margin-bottom: 6px; font-size: 12px; color: var(--ink-2); cursor: pointer; }
+/* The bar at the bottom of the page: counts and one-click copy, so the reader need not go to the Reply button at the top. */
+.am-reply-bar {
+  position: fixed; inset-block-end: 16px; inset-inline: 0; margin-inline: auto; width: max-content; max-width: calc(100vw - 24px);
+  z-index: 10; display: flex; align-items: center; gap: 10px; padding-block: 8px; padding-inline: 14px 8px; font-size: 13px;
+  color: var(--ink); background: var(--paper); border: 1px solid var(--line-2); border-radius: var(--radius); box-shadow: 0 6px 24px rgba(0,0,0,.18);
+}
+.am-reply-bar[hidden] { display: none; }
+.am-reply-bar-count { color: var(--ink-2); }
+.am-reply-bar .am-btn { flex: none; white-space: nowrap; }
+body.am-has-reply-bar { padding-block-end: 72px; }
+@media (max-width: 480px) {
+  .am-reply-bar { inset-inline: 12px; width: auto; justify-content: space-between; }
+}
+/* Code block: a header (title or path:lines, language, copy), then one span per line; numbered blocks show the line number in a gutter */
+.am-codeblock { margin: 10px 0; min-width: 0; }
+.am-codeblock .am-code { border-top-left-radius: 0; border-top-right-radius: 0; padding: 10px 0; }
+.am-code-head {
+  display: flex; align-items: center; gap: 8px; padding: 5px 6px 5px 12px; font: 12px/1.3 var(--font-sans); color: var(--ink-2);
+  background: var(--paper); border: 1px solid var(--line-2); border-bottom: 0; border-radius: var(--radius) var(--radius) 0 0;
+}
+.am-code-title { font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.am-code-lang { margin-left: auto; color: var(--ink-3); text-transform: lowercase; }
+.am-code-copy { font: 12px/1 var(--font-sans); color: var(--ink-2); background: transparent; border: 1px solid var(--line-2); border-radius: var(--radius); padding: 4px 8px; cursor: pointer; margin-left: auto; }
+.am-code-lang + .am-code-copy { margin-left: 0; }
+.am-code-copy:hover { border-color: var(--ink-3); color: var(--ink); }
+.am-code-copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.am-code code { display: block; min-width: max-content; }
+.am-ln { display: block; padding: 0 14px; min-height: 1.5em; white-space: pre; }
+.am-ln--hl { background: var(--accent-bg); box-shadow: inset 3px 0 0 var(--accent); }
+.am-code--num .am-ln::before {
+  content: attr(data-n); display: inline-block; width: 3.5ch; margin-right: 12px; text-align: right; color: var(--ink-3);
+  user-select: none; -webkit-user-select: none;
+}
+
+/* ── Status badges ok / no / warn ──────────────── */
+.am-status { white-space: nowrap; font-weight: 500; }
+.am-status--ok { color: var(--ok); }
+.am-status--no { color: var(--err); }
+.am-status--warn { color: var(--warn); }
+.am-status-icon { display: inline-block; width: 1.1em; font-weight: 700; }
+
+/* ── callout ─────────────────────────────── */
+.am-callout {
+  border: 1px solid var(--line-2); border-inline-start: 3px solid var(--accent); background: var(--accent-bg);
+  padding: 10px 14px; border-radius: var(--radius);
+}
+.am-callout--ok { border-inline-start-color: var(--ok); background: var(--ok-bg); }
+.am-callout--warn { border-inline-start-color: var(--warn); background: var(--warn-bg); }
+.am-callout--err { border-inline-start-color: var(--err); background: var(--err-bg); }
+.am-callout-title { font-weight: 600; margin-bottom: 4px; }
+
+/* ── kv title block ─────────────────────────── */
+.am-kv {
+  display: grid; grid-template-columns: repeat(var(--kv-cols, 2), minmax(0, 1fr)); margin: 0;
+  border-top: var(--bw) solid var(--line); border-inline-start: var(--bw) solid var(--line);
+}
+.am-kv-cell { border-inline-end: var(--bw) solid var(--line); border-bottom: var(--bw) solid var(--line); padding: 6px 10px 8px; min-width: 0; }
+.am-kv-cell--wide { grid-column: 1 / -1; }
+.am-kv dt { font: 11px/1.4 var(--font-mono); color: var(--ink-2); }
+.am-kv dd { margin: 2px 0 0; font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
+.am-kv-cell--wide dd { font-size: 17px; font-weight: 600; }
+
+/* ── timeline ────────────────────────────── */
+.am-timeline { list-style: none; margin: 0; padding: 0; }
+.am-timeline--h { display: grid; grid-template-columns: repeat(var(--n, 1), minmax(0, 1fr)); padding-top: 4px; }
+.am-timeline--h li { position: relative; text-align: center; padding: 0 6px; }
+.am-timeline--h li::before {
+  content: ""; position: absolute; top: 31px; left: 0; right: 0; border-top: var(--bw) solid var(--line);
+}
+.am-timeline--h li:first-child::before { inset-inline-start: 50%; }
+.am-timeline--h li:last-child::before { inset-inline-end: 50%; }
+.am-tl-when { display: block; font-size: 15px; font-weight: 500; height: 24px; }
+.am-tl-dot {
+  position: relative; display: block; width: 11px; height: 11px; margin: 2px auto 8px;
+  border: var(--bw) solid var(--line); border-radius: 50%; background: var(--paper);
+}
+.am-tl-item--hi .am-tl-dot { background: var(--hi-stroke, var(--accent)); border-color: var(--hi-stroke, var(--accent)); }
+.am-tl-title { display: block; font-size: 12.5px; font-weight: 500; }
+.am-tl-text { display: block; font-size: 12px; color: var(--ink-2); line-height: 1.45; }
+.am-timeline--v li { position: relative; padding: 0 0 14px; padding-inline-start: 22px; }
+.am-timeline--v li::before { content: ""; position: absolute; inset-inline-start: 5px; top: 6px; bottom: -6px; border-inline-start: var(--bw) solid var(--line-2); }
+.am-timeline--v li:last-child::before { display: none; }
+.am-timeline--v .am-tl-dot { position: absolute; inset-inline-start: 0; top: 4px; margin: 0; }
+.am-timeline--v .am-tl-when { display: inline; height: auto; font: 12px var(--font-mono); color: var(--ink-2); margin-inline-end: 8px; }
+.am-timeline--v .am-tl-title { display: inline; font-size: 14px; }
+.am-timeline--v .am-tl-text { margin-top: 2px; }
+/* .am-tl-wrap is the container (src/components/timeline.js): a horizontal timeline answers to the width it has, not to the width of the window, since a
+   sheet puts panels two or three to a row. Below 560 px (about 90 px for each of the six items a timeline has by default) its dates
+   wrap and the dots cover them, so it lays out like timeline v: line and dots at the start, text beside them. */
+.am-tl-wrap { container-type: inline-size; }
+@container (max-width: 560px) {
+  .am-timeline--h { display: block; padding-top: 0; }
+  .am-timeline--h li { text-align: start; padding: 0 0 14px; padding-inline-start: 22px; }
+  .am-timeline--h li::before, .am-timeline--h li:first-child::before {
+    top: 6px; bottom: -6px; inset-inline-start: 5px; inset-inline-end: auto; border-top: 0; border-inline-start: var(--bw) solid var(--line-2);
+  }
+  .am-timeline--h li:last-child::before { display: none; }
+  .am-timeline--h .am-tl-dot { position: absolute; inset-inline-start: 0; top: 4px; margin: 0; }
+  .am-timeline--h .am-tl-when { display: inline; height: auto; font: 12px var(--font-mono); color: var(--ink-2); margin-inline-end: 8px; }
+  .am-timeline--h .am-tl-title { display: inline; font-size: 14px; }
+  .am-timeline--h .am-tl-text { margin-top: 2px; }
+}
+
+/* ── annot sentence notes ──────────────────────── */
+.am-annot + .am-annot { border-top: 1px solid var(--line-2); padding-top: 12px; }
+.am-annot-head { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+.am-annot-meta { font: 11px var(--font-mono); font-weight: 400; color: var(--ink-2); }
+.am-annot-scroll { overflow-x: auto; }
+.am-annot-line {
+  position: relative; display: inline-block; white-space: pre; font: 14px/1.6 var(--font-mono);
+  padding-bottom: calc(var(--rows, 0) * 17px + 14px);
+}
+.am-annot-line--wrap { display: block; white-space: normal; padding-bottom: 10px; }
+.am-annot-line--wrap .am-seg { white-space: nowrap; }
+.am-seg { position: relative; }
+.am-seg::after {
+  content: ""; position: absolute; left: 1px; right: 1px; top: calc(100% + 1px); height: 5px;
+  border: 1px solid var(--accent); border-top: 0;
+}
+.am-seg-n {
+  position: absolute; inset-inline-start: 0; top: calc(100% + 8px + var(--row, 0) * 17px);
+  font: 11px/16px var(--font-sans); color: var(--accent); white-space: nowrap;
+}
+.am-seg--err { color: var(--err); }
+.am-seg--err::after { border-color: var(--err); }
+.am-seg--err .am-seg-n { color: var(--err); }
+.am-annot-caption { font-size: 12px; color: var(--ink-2); }
+
+/* ── limits bars ───────────────────────── */
+.am-lim + .am-lim { margin-top: 14px; }
+.am-lim-head { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; margin-bottom: 4px; }
+.am-lim-val { font: 12px var(--font-mono); color: var(--accent); white-space: nowrap; }
+.am-lim-track { position: relative; height: 12px; border: 1px solid var(--line-2); background: var(--fill); border-radius: calc(var(--radius) / 2); }
+.am-lim-fill { position: absolute; inset-inline-start: 0; top: 0; bottom: 0; background: var(--accent-bg); border-inline-end: 1px solid var(--accent); }
+.am-lim-mark { position: absolute; top: -4px; bottom: -4px; border-left: 2px solid var(--accent); }
+.am-lim.is-over .am-lim-fill { background: var(--err-bg); border-inline-end-color: var(--err); }
+.am-lim.is-over .am-lim-val { color: var(--err); }
+.am-lim-ticks { position: relative; height: 16px; font: 10px/16px var(--font-mono); color: var(--ink-3); }
+.am-lim-ticks span { position: absolute; transform: translateX(-50%); }
+.am-lim-ticks span:first-child { transform: none; }
+.am-lim-note { font-size: 11px; color: var(--ink-2); margin-inline-start: 6px; }
+
+/* ── tree ─────────────────────────── */
+.am-tree { font-size: 13px; }
+.am-tree-root { display: flex; justify-content: center; position: relative; padding-bottom: 18px; }
+.am-tree-root::after { content: ""; position: absolute; bottom: 0; left: 50%; height: 18px; border-left: var(--bw) solid var(--line); }
+.am-tree-root--solo { padding-bottom: 12px; }
+.am-tree-root--solo::after { display: none; }
+.am-tree-box {
+  border: var(--node-width, var(--bw)) solid var(--node-stroke, var(--line)); background: var(--node-fill, var(--paper)); padding: 6px 14px; text-align: center;
+  border-radius: var(--node-radius, var(--radius)); font-weight: 600; color: var(--node-text, inherit); filter: var(--node-shadow, none);
+}
+.am-tree-box small { display: block; font-weight: 400; color: var(--ink-2); font-size: 12px; }
+/* The root box and a highlighted box are emphasis: they take the highlight tokens. With none set the root box keeps its accent tint and a highlighted box looks like any other. */
+.am-tree-box--root, .am-tree-box--hi { border-color: var(--hi-stroke, var(--node-stroke, var(--line))); color: var(--hi-text, var(--node-text, inherit)); }
+.am-tree-box--root { background: var(--hi-fill, var(--accent-bg)); }
+.am-tree-box--hi { background: var(--hi-fill, var(--node-fill, var(--paper))); }
+.am-tree-box--root small, .am-tree-box--hi small { color: var(--hi-text, var(--ink-2)); }
+.am-tree-box--root { font-size: 15px; padding: 8px 28px; }
+.am-tree-cols { display: grid; grid-template-columns: repeat(var(--n, 1), minmax(0, 1fr)); }
+.am-tree-col { position: relative; padding: 18px 8px 0; min-width: 0; }
+.am-tree-col::before { content: ""; position: absolute; top: 0; left: 0; right: 0; border-top: var(--bw) solid var(--line); }
+.am-tree-col:first-child::before { inset-inline-start: 50%; }
+.am-tree-col:last-child::before { inset-inline-end: 50%; }
+.am-tree-col::after { content: ""; position: absolute; top: 0; left: 50%; height: 18px; border-left: var(--bw) solid var(--line); }
+.am-tree-list, .am-tree-list ul { list-style: none; margin: 0; padding: 0; }
+.am-tree-col > .am-tree-list { margin: 8px 0 0; margin-inline-start: 14px; }
+.am-tree-list ul { margin-inline-start: 16px; }
+.am-tree-list li { position: relative; padding: 3px 0; padding-inline-start: 18px; }
+.am-tree-list li::before { content: ""; position: absolute; inset-inline-start: 0; top: 0.95em; width: 12px; border-top: 1px solid var(--ink-3); }
+.am-tree-list li::after { content: ""; position: absolute; inset-inline-start: 0; top: 0; bottom: 0; border-inline-start: 1px solid var(--ink-3); }
+.am-tree-list li:last-child::after { bottom: auto; height: 0.95em; }
+.am-tree-tag { font: 11px var(--font-mono); color: var(--ink-3); margin-inline-end: 4px; }
+.am-tree code { font: 12px var(--font-mono); }
+.am-tree-sub { display: block; font-size: 11.5px; color: var(--ink-2); }
+.am-tree-hi > .am-tree-label { color: var(--accent); font-weight: 600; }
+
+/* ── Diagrams (flow / sequence) ───────────────── */
+.am-diagram { margin: 0; overflow-x: auto; text-align: center; }
+/* Embedded previews can lose html[data-theme]; the fallbacks keep diagrams readable, and defined theme variables still win. */
+.am-diagram svg { max-width: 100%; height: auto; font-family: var(--font-sans, sans-serif); }
+.am-diagram text { fill: var(--ink, #16181d); font-size: 13px; }
+/* Diagram tokens (docs/reference.md, "Diagram tokens"): each painted part reads an optional token and falls back to the look it always had,
+   so a theme that sets none of them draws the same diagram. Font family, size and weight are not tokens: diagram text is measured for the sans font. */
+.am-node-shape { fill: var(--node-fill, var(--paper, #ffffff)); stroke: var(--node-stroke, var(--line, #1d2026)); stroke-width: var(--node-width, var(--bw, 1.5px)); filter: var(--node-shadow, none); }
+/* A cylinder is two shapes (body, then cap): only the body casts the shadow. */
+.am-node-shape ~ .am-node-shape { filter: none; }
+/* The corner radius is an SVG attribute (the fallback for Safari before 17.4, which ignores a CSS rx); the default here equals the attribute. A pill and a diamond keep their shape. */
+.am-node--rect .am-node-shape, .am-node--er .am-node-shape { rx: var(--node-radius, 3px); }
+.am-node--hi .am-node-shape { fill: var(--hi-fill, var(--accent-bg, #e4ecf8)); stroke: var(--hi-stroke, var(--accent, #1d5fbf)); }
+.am-diagram .am-node-text { fill: var(--node-text, var(--ink, #16181d)); }
+.am-node--hi text { fill: var(--hi-text, var(--accent, #1d5fbf)); font-weight: 600; }
+.am-diagram .am-node--hi .am-node-text { fill: var(--hi-text, var(--accent, #1d5fbf)); }
+.am-edge { fill: none; stroke: var(--edge-color, var(--ink-2, #4b5260)); stroke-width: var(--edge-width, 1.3); }
+.am-edge--dashed { stroke-dasharray: 5 4; }
+.am-arrow { fill: var(--edge-color, var(--ink-2, #4b5260)); }
+.am-edge-label rect { fill: var(--paper, #ffffff); }
+.am-diagram .am-edge-label text { fill: var(--edge-label, var(--accent, #1d5fbf)); font-size: 11.5px; }
+.am-cluster { fill: var(--cluster-fill, var(--fill, #f3f5f8)); stroke: var(--cluster-stroke, var(--line-2, #d6dae1)); stroke-width: 1; stroke-dasharray: 4 3; }
+.am-diagram .am-cluster-label { fill: var(--ink-2, #4b5260); font: 11px var(--font-mono, monospace); }
+/* The PK / FK / UK marks of an entity follow the node text, and the highlighted text in a highlighted entity, so they stay readable on the theme's fills. */
+.am-diagram .am-er-key { fill: var(--node-text, var(--ink-2, #4b5260)); }
+.am-diagram .am-node--hi .am-er-key { fill: var(--hi-text, var(--ink-2, #4b5260)); }
+.am-lifeline { stroke: var(--lifeline-color, var(--ink-3, #8b929e)); stroke-width: 1; stroke-dasharray: 4 4; }
+/* An actor (and the box of a divider) looks like a node unless the theme sets the actor tokens. */
+.am-actor { fill: var(--actor-fill, var(--node-fill, var(--paper, #ffffff))); stroke: var(--actor-stroke, var(--node-stroke, var(--line, #1d2026))); stroke-width: var(--node-width, var(--bw, 1.5px)); filter: var(--node-shadow, none); rx: var(--node-radius, 2px); }
+.am-diagram .am-actor-text { fill: var(--actor-text, var(--node-text, var(--ink, #16181d))); }
+.am-note { fill: var(--note-fill, var(--warn-bg, #fdf3e2)); stroke: var(--note-stroke, var(--warn, #a8620a)); stroke-width: var(--note-width, 1); rx: var(--note-radius, 2px); }
+.am-diagram .am-step { fill: var(--ink-3, #8b929e); font: 10px var(--font-mono, monospace); }
+
+.am-diagram-expand {
+  /* In flow and sticky: it sits at the end edge (right on a left-to-right page) and stays in view when the diagram scrolls sideways.
+     It takes its own row above the drawing, so it never covers a node at the top-right corner of the drawing. */
+  position: sticky; inset-inline-start: calc(100% - 36px); z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; padding: 0; margin: 0 0 4px; margin-inline: auto 8px;
+  color: var(--ink-2); background: var(--paper);
+  border: var(--bw, 1px) solid var(--line-2); border-radius: var(--radius);
+  cursor: pointer; opacity: 0.72;
+  transition: opacity 0.15s, color 0.15s, border-color 0.15s, background 0.15s;
+}
+.am-diagram:hover .am-diagram-expand,
+.am-diagram-expand:focus-visible { opacity: 1; }
+.am-diagram-expand:hover {
+  opacity: 1; color: var(--ink); border-color: var(--accent); background: var(--fill);
+}
+.am-diagram-expand:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* ── Diagram Lightbox and Pan-Zoom Viewer ─────────── */
+.am-lightbox {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; flex-direction: column;
+  touch-action: none;
+}
+.am-lightbox[hidden] { display: none !important; }
+
+.am-lightbox-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.am-lightbox-header {
+  position: absolute; top: 12px; left: 24px; right: 24px; height: 36px;
+  display: flex; align-items: center; justify-content: space-between;
+  z-index: 10; pointer-events: none;
+}
+.am-lightbox-title {
+  display: inline-flex; align-items: center; gap: 8px;
+  color: rgba(255, 255, 255, 0.92);
+  font: 13px/1 var(--font-sans, sans-serif); font-weight: 500;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  pointer-events: auto;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60vw;
+}
+.am-lightbox-title svg { stroke: rgba(255, 255, 255, 0.85); flex-shrink: 0; }
+.am-lightbox-actions {
+  display: flex; align-items: center; gap: 8px; pointer-events: auto;
+}
+.am-lightbox-close {
+  width: 32px; height: 32px;
+  background: var(--paper);
+  border: var(--bw, 1px) solid var(--line-2);
+  border-radius: 50%;
+  color: var(--ink);
+  font-size: 15px; line-height: 1;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  transition: background 0.15s, color 0.15s, transform 0.15s, border-color 0.15s;
+}
+.am-lightbox-close:hover {
+  color: var(--accent); border-color: var(--accent); background: var(--fill); transform: scale(1.05);
+}
+.am-lightbox-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.am-lightbox-stage {
+  position: absolute;
+  top: 54px; bottom: 20px; left: 24px; right: 24px;
+  background: var(--paper);
+  border: var(--bw, 1px) solid var(--line-2);
+  border-radius: max(var(--radius), 14px);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.am-lightbox-stage.am-panning { cursor: grabbing; }
+
+.am-lightbox-canvas {
+  position: absolute; left: 0; top: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+  pointer-events: none;
+}
+.am-lightbox-canvas svg {
+  max-width: none !important;
+  max-height: none !important;
+  display: block;
+  font-family: var(--font-sans, sans-serif);
+}
+
+/* ── doc template ────────────────────────── */
+.am-doc { max-width: 1120px; margin: 0 auto; padding: 40px 28px 64px; }
+.am-doc-layout { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 32px; align-items: start; }
+.am-doc-layout--notoc { grid-template-columns: minmax(0, 1fr); max-width: 860px; }
+.am-toc { position: sticky; top: 24px; font-size: 13px; }
+.am-toc a { display: block; color: var(--ink-2); text-decoration: none; padding: 4px 0; padding-inline-start: 10px; border-inline-start: 2px solid var(--line-2); }
+.am-toc a:hover { color: var(--ink); border-inline-start-color: var(--accent); }
+.am-doc-body > .am-panel + .am-panel { margin-top: 20px; }
+
+/* ── Responsive and print ─────────────────────────── */
+@media (max-width: 1100px) {
+  .am-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .am-grid > .am-panel { grid-column: auto !important; }
+  .am-grid > .am-panel.am-span-wide { grid-column: 1 / -1 !important; }
+}
+@media (max-width: 760px) {
+  .am-sheet, .am-doc { padding: 56px 12px 24px; }
+  .am-head { padding-inline-end: 0; }
+  .am-grid { grid-template-columns: minmax(0, 1fr); }
+  .am-grid > .am-panel.am-span-wide { grid-column: auto !important; }
+  .am-doc-layout { grid-template-columns: minmax(0, 1fr); }
+  .am-toc { position: static; }
+  .am-tree-cols { grid-template-columns: minmax(0, 1fr); }
+  /* Tables and diagrams keep their size: the wrapper scrolls horizontally when they overflow. A cell is never narrower than about
+     two short words, so a phone does not stack them one per line. On wider screens the sheet layout (src/runtime/layout-dom.js)
+     gives a table panel the width its columns read well at. */
+  .am-md th, .am-md td { min-width: 8em; }
+  .am-diagram svg { max-width: none; }
+  .am-lightbox-header { top: 8px; left: 12px; right: 12px; }
+  .am-lightbox-stage { top: 46px; bottom: 12px; left: 12px; right: 12px; border-radius: max(var(--radius), 10px); }
+}
+.am-colophon { margin: 0 0 8px; font: 11px var(--font-mono); color: var(--ink-3); }
+.am-colophon a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+
+@media print {
+  .am-toolbar, .am-diagram-expand, .am-lightbox, .am-code-copy, .am-comment-btn, .am-comment, .am-reply, .am-reply-bar { display: none !important; }
+  body { background: var(--paper); }
+  .am-panel { break-inside: avoid; box-shadow: none; }
+}
+/* Printed on paper narrower than three columns, the two-column grid left a hole beside every panel next to a full-width one
+   (a wide table, a wide diagram): one panel per row instead. */
+@media print and (max-width: 1100px) {
+  .am-grid { grid-template-columns: minmax(0, 1fr); }
+  .am-grid > .am-panel { grid-column: auto !important; }
+}
+.am-panel--bare { border: 0; background: transparent; box-shadow: none; }
+.am-panel--bare > .am-panel-body { padding: 0; }
+.am-panel--bare .am-kv { background: var(--paper); }
+
+/* Remark mode: block marks with a note, collected into the Reply copy (src/runtime/remark.js). Each kind borrows a status colour of
+   the theme, so a mark reads in light and dark mode on every theme. */
+.am-btn--remark.is-on { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.am-btn--remark-clear { color: var(--err); }
+.am-btn--remark-clear.is-armed { background: var(--err-bg); border-color: var(--err); }
+.am-remark-hover { outline: 1px dashed var(--ink-3); outline-offset: 2px; cursor: pointer; }
+:is(.am-mark, .am-remark-kind)[data-kind="suggestion"] { --mark: var(--warn); --mark-bg: var(--warn-bg); }
+:is(.am-mark, .am-remark-kind)[data-kind="keep"] { --mark: var(--ok); --mark-bg: var(--ok-bg); }
+:is(.am-mark, .am-remark-kind)[data-kind="question"] { --mark: var(--accent); --mark-bg: var(--accent-bg); }
+:is(.am-mark, .am-remark-kind)[data-kind="concern"] { --mark: var(--err); --mark-bg: var(--err-bg); }
+.am-mark { border-inline-start: 3px solid var(--mark); padding-inline-start: 10px; background: var(--mark-bg); border-radius: 1px; }
+/* The note chip sits inside the marked block (a table takes it as its caption, a list item puts it before its sub-list), so lists and
+   grids keep their children. */
+.am-mark-note {
+  display: block; margin-block-start: 4px; font: 12px/1.5 var(--font-sans); letter-spacing: normal; text-transform: none;
+  color: var(--ink-2); white-space: pre-wrap; caption-side: bottom; text-align: start;
+}
+.am-mark-note b { color: var(--ink); font-weight: 600; }
+caption.am-mark-note { display: table-caption; }
+/* Table rows have their own backgrounds, so a tint on the table would show on every other row only: the bar marks a table. */
+table.am-mark { background: none; }
+.am-remark-pop {
+  position: absolute; z-index: 40; width: min(264px, calc(100vw - 16px)); padding: 8px; display: grid; gap: 6px;
+  color: var(--ink); background: var(--paper); border: 1px solid var(--line-2); border-radius: var(--radius); box-shadow: 0 6px 24px rgba(0, 0, 0, .14);
+}
+.am-remark-pop[hidden] { display: none; }
+.am-remark-kinds { display: flex; gap: 6px; flex-wrap: wrap; }
+.am-remark-kind { font: 12px/1 var(--font-sans); color: var(--ink-2); background: var(--paper); border: 1px solid var(--line-2); border-radius: 999px; padding: 4px 10px; cursor: pointer; }
+.am-remark-kind:hover { border-color: var(--ink-3); }
+.am-remark-kind[aria-pressed="true"] { color: var(--ink); border-color: var(--mark); background: var(--mark-bg); }
+.am-remark-kind:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.am-remark-pop textarea { font: 13px/1.5 var(--font-sans); color: var(--ink); background: var(--paper); border: 1px solid var(--line-2); border-radius: var(--radius); padding: 6px 8px; resize: vertical; }
+.am-remark-actions { display: flex; gap: 6px; }
+.am-remark-actions .am-btn:disabled { opacity: .5; cursor: default; }
+@media print { .am-remark-pop { display: none !important; } }
+
+
+/* New-version button and popover (src/render.js adds this file only to a page that has the button). The popover sits under the
+   toolbar and stays hidden unless open, so a browser without native popovers never shows it. */
+.am-btn--update { color: var(--ok); border-color: var(--ok); white-space: nowrap; }
+.am-update { display: none; }
+.am-update:popover-open {
+  display: block; position: fixed; inset-block: 52px auto; inset-inline: auto 12px; margin: 0; width: min(380px, calc(100vw - 24px));
+  padding: 14px 16px; font-size: 13px; color: var(--ink); background: var(--paper);
+  border: 1px solid var(--line-2); border-radius: var(--radius); box-shadow: 0 12px 40px rgba(0,0,0,.25);
+}
+.am-update p { margin: 0 0 8px; }
+.am-update-title { font-weight: 600; color: var(--ok); }
+.am-update-label { color: var(--ink-2); font-size: 12px; }
+.am-update-notes { margin: 0 0 12px; padding-inline-start: 18px; }
+.am-update-notes li { margin: 2px 0; }
+.am-update-notes code { font-size: 12px; }
+.am-update-row { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; }
+.am-update-row > :first-child {
+  flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; font-size: 12px; padding: 6px 8px;
+  background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.am-update a { color: var(--accent); font-size: 12px; }
+/* A phone has no room for the words: the button keeps only its dot, and its aria-label still names the version. */
+@media (max-width: 760px) {
+  .am-btn--update .am-update-text { display: none; }
+}
+@media print {
+  .am-update { display: none !important; }
+}
+
+
+html[data-theme="blueprint"] .am-frame { border: 1px solid var(--line); padding: 30px; }
+html[data-theme="blueprint"] .am-frame::before {
+  content: ""; position: absolute; inset: 18px; border: 1px solid var(--line); pointer-events: none;
+}
+html[data-theme="blueprint"] .am-ruler {
+  display: flex; position: absolute; font: 10px/1 var(--font-mono); color: var(--ink-3);
+}
+@media (max-width: 760px) {
+  html[data-theme="blueprint"] .am-frame { padding: 0; border: 0; }
+  html[data-theme="blueprint"] .am-frame::before, html[data-theme="blueprint"] .am-ruler { display: none; }
+}
+
+html[data-theme="shadcn"] .am-panel-id { border-radius: 6px; min-width: 24px; height: 24px; margin: 9px 0 9px 14px; font-size: 12px; }
+html[data-theme="shadcn"] .am-panel-head { border-bottom-width: 1px; }
+html[data-theme="shadcn"] .am-kv { border-color: var(--line); border-radius: var(--radius); overflow: hidden; }
+
+html[data-theme="paper"]:lang(zh-Hant)[data-mode], html[data-theme="paper"]:lang(zh-TW)[data-mode], html[data-theme="paper"]:lang(zh-HK)[data-mode], html[data-theme="paper"]:lang(zh-MO)[data-mode] { --font-serif: "Iowan Old Style", Palatino, Georgia, "Songti TC", "PMingLiU", "MingLiU", "Noto Serif CJK TC", "Noto Serif TC", "Source Han Serif TC", "Songti SC", serif; }
+html[data-theme="paper"]:lang(ja)[data-mode] { --font-serif: "Iowan Old Style", Palatino, Georgia, "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif CJK JP", "Noto Serif JP", "Songti SC", serif; }
+html[data-theme="paper"]:lang(he)[data-mode] { --font-serif: "Iowan Old Style", Palatino, Georgia, "Noto Serif Hebrew", "Frank Ruehl CLM", David, "Times New Roman", serif; }
+html[data-theme="paper"] .am-head h1, html[data-theme="paper"] .am-panel-head h2, html[data-theme="paper"] .am-md, html[data-theme="paper"] .am-intro, html[data-theme="paper"] .am-callout { font-family: var(--font-serif); }
+html[data-theme="paper"] .am-head h1 { font-weight: 600; letter-spacing: 0; }
+html[data-theme="paper"] .am-md p, html[data-theme="paper"] .am-md li, html[data-theme="paper"] .am-md blockquote, html[data-theme="paper"] .am-intro { font-size: 15.5px; line-height: 1.75; }
+html[data-theme="paper"] .am-md p { margin-bottom: 12px; }
+html[data-theme="paper"] .am-md table { font-family: var(--font-sans); }
+</style>
+</head>
+<body>
+<div class="am-toolbar" data-am-root-lang="zh-CN" data-am-root-theme="shadcn" data-am-root-mode="light" data-am-root-style="80">
+<button class="am-btn am-btn--update" type="button" data-am="update" popovertarget="am-update" aria-label="新版本 0.5.7" hidden>● <span class="am-update-text">新版本 <bdi>0.5.7</bdi></span></button>
+<label class="am-pick">主题<select data-am="theme"><option value="blueprint">图纸</option><option value="shadcn" selected>卡片</option><option value="paper">纸张</option></select></label>
+<label class="am-pick">明暗<select data-am="mode"><option value="auto">跟随系统</option><option value="light" selected>亮</option><option value="dark">暗</option></select></label>
+<button class="am-btn am-btn--reply" type="button" data-am="reply" data-ui="{&quot;button&quot;:&quot;回复&quot;,&quot;comment&quot;:&quot;评论&quot;,&quot;commentHint&quot;:&quot;对这个面板的意见&quot;,&quot;title&quot;:&quot;你的回复&quot;,&quot;hint&quot;:&quot;复制后粘贴回和 Agent 的对话，它会按你的选择和意见继续。&quot;,&quot;copy&quot;:&quot;复制回复&quot;,&quot;copyFailed&quot;:&quot;复制失败 — 请按 Cmd/Ctrl+C&quot;,&quot;close&quot;:&quot;关闭&quot;,&quot;suggested&quot;:&quot;建议&quot;,&quot;empty&quot;:&quot;先选择选项，或在面板上写评论。&quot;,&quot;decisions&quot;:&quot;决定&quot;,&quot;comments&quot;:&quot;评论&quot;,&quot;confirmed&quot;:&quot;确认了建议&quot;,&quot;untouched&quot;:&quot;未作答，保留建议&quot;,&quot;was&quot;:&quot;原为&quot;,&quot;typed&quot;:&quot;以 \&quot;&gt;\&quot; 开头的行是读者输入的文字。&quot;,&quot;raw&quot;:&quot;查看将复制的文本&quot;,&quot;preview&quot;:&quot;预览&quot;,&quot;count&quot;:{&quot;answered&quot;:&quot;已作答 {n} 项&quot;,&quot;comments&quot;:&quot;评论 {n} 条&quot;,&quot;remarks&quot;:&quot;标注 {n} 处&quot;},&quot;done&quot;:&quot;已复制 ✓&quot;,&quot;remarks&quot;:&quot;标注&quot;,&quot;kinds&quot;:{&quot;suggestion&quot;:&quot;建议&quot;,&quot;keep&quot;:&quot;保留&quot;,&quot;question&quot;:&quot;疑问&quot;,&quot;concern&quot;:&quot;关注&quot;}}">回复</button>
+<button class="am-btn am-btn--remark" type="button" data-am="remark" data-ui="{&quot;button&quot;:&quot;标注&quot;,&quot;hint&quot;:&quot;批注（可选）&quot;,&quot;save&quot;:&quot;保存&quot;,&quot;remove&quot;:&quot;删除&quot;,&quot;clear&quot;:&quot;清除所有标注&quot;,&quot;clearConfirm&quot;:&quot;再次点击以清除 {n} 条标注&quot;,&quot;section&quot;:&quot;标注&quot;,&quot;kinds&quot;:{&quot;suggestion&quot;:&quot;建议&quot;,&quot;keep&quot;:&quot;保留&quot;,&quot;question&quot;:&quot;疑问&quot;,&quot;concern&quot;:&quot;关注&quot;}}">标注</button>
+<button class="am-btn" type="button" data-am="copy" data-done="已复制 ✓">复制源稿</button>
+</div>
+<div class="am-update" id="am-update" popover>
+<p class="am-update-title">新版本 <bdi>0.5.7</bdi></p>
+<p>当前 <bdi>0.5.5</bdi>。生成此页时检测到新版本。</p>
+<p class="am-update-label">这次更新：</p>
+<ul class="am-update-notes"><li>草稿错误一次列全；stdin 草稿会保存下来，只改出错的行</li><li>表格缺少 |---| 分隔行时报错，不再输出成一行行竖线</li><li>flow 图里绕到外侧的长连线不再被裁掉</li></ul>
+<p class="am-update-label">在终端运行：</p>
+<div class="am-update-row"><code dir="ltr">npx skills update answer-me-with-html -y</code><button class="am-btn" type="button" data-am="copy-text" data-text="npx skills update answer-me-with-html -y" data-done="已复制 ✓">复制</button></div>
+<p class="am-update-label">或者告诉 Agent：</p>
+<div class="am-update-row"><span>更新 answer-me-with-html</span><button class="am-btn" type="button" data-am="copy-text" data-text="更新 answer-me-with-html" data-done="已复制 ✓">复制</button></div>
+<a href="https://github.com/QingYunA/answer-me-with-html/releases" target="_blank" rel="noopener">查看更新内容</a>
+</div>
+<main class="am-doc">
+<header class="am-head"><p class="am-colophon">Generated by <a href="https://github.com/QingYunA/answer-me-with-html" target="_blank" rel="noopener">Answer me with HTML</a> 0.5.5 · 2026-10-25 14:20 · <a href="https://github.com/QingYunA/answer-me-with-html" target="_blank" rel="noopener">★ Star on GitHub</a></p><h1>语音与幕僚上下文融合 · 实施方案</h1><p class="am-sub">唯一执行清单 · Legacy / 豆包 2.0 / GPT-Live · 2026-10-25</p></header>
+<div class="am-doc-layout">
+<nav class="am-toc" aria-label="目录"><a href="#panel-A">A · 交付目标与验收标准</a><a href="#panel-B">B · 目标结构与拼接契约</a><a href="#panel-C">C · 改动位置与职责</a><a href="#panel-D">D · 任务清单与实施顺序</a><a href="#panel-E">E · 关键流程与失败处理</a><a href="#panel-F">F · 三种模式的兼容要求</a><a href="#panel-G">G · 验证、性能与发布条件</a><a href="#panel-H">H · 进度与证据登记</a></nav><div class="am-doc-body">
+<section class="am-panel" id="panel-A">
+<header class="am-panel-head"><span class="am-panel-id">A</span><h2>交付目标与验收标准</h2></header>
+<div class="am-panel-body"><div class="am-callout am-callout--info" role="note"><div class="am-callout-title">状态：实施中，宿主接线尚未完成验收</div><div class="am-callout-body am-md"><p>首批覆盖三种对话模式，以及 GPT-Live 的后台规划入口。
+三种模式共享事实与有效约束，各自保留原生对话和音频管线。</p>
+<p>T01—T03 基础已通过聚焦测试。T04 已接入部分宿主读写、幕僚交接与工具限制；Legacy / Live 后台已接共享资料读取。豆包已接逐请求资料装配；Live 通话启动和原生报告已接线，增量与供应商时序仍待验证。当前不能视作融合功能已完成，性能数值仍为验收要求。</p>
+</div></div>
+<div class="am-md"><p>本文件是本需求的唯一执行清单。七组上下文图是设计依据，三模式核对文档是兼容性依据；执行进度与证据统一更新在本文件 H。</p>
+<div class="am-table-wrap"><table>
+<thead>
+<tr>
+<th>编号</th>
+<th>用户可见结果</th>
+<th>证据要求</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>AC01</td>
+<td>幕僚汇报后问“刚才为什么拦下”，三模式都能回答对应依据</td>
+<td>T03 / T05—T07；引用选择测试 + 三模式真实语音</td>
+</tr>
+<tr>
+<td>AC02</td>
+<td>用户修订目标或约束后，幕僚后续处理读到新值</td>
+<td>T02 / T04；状态投影、交接与执行校验测试</td>
+</tr>
+<tr>
+<td>AC03</td>
+<td>“不是这个任务，是另一个”能纠正指代，不改错任务</td>
+<td>T03 / T04；多候选、同项目双任务夹具 + 实机</td>
+</tr>
+<tr>
+<td>AC04</td>
+<td>三模式原有输入、直呼、工具、模型、音色及停止行为保持</td>
+<td>T05—T07 / T09；原有聚焦测试 + 模式实机</td>
+</tr>
+<tr>
+<td>AC05</td>
+<td>模式切换后可接续必要事实，不重复执行或补播旧内容</td>
+<td>T08 / T09；六个方向切换 + 迟到回调测试</td>
+</tr>
+<tr>
+<td>AC06</td>
+<td>当前用户输入与工具配对不被静默裁掉；超预算有明确结果</td>
+<td>T03；边界测试与请求内容检查</td>
+</tr>
+<tr>
+<td>AC07</td>
+<td>任务、项目、画布、会话之间按范围共享；同目录双画布不串用</td>
+<td>T01—T04 / T09；作用域与越界读取测试</td>
+</tr>
+<tr>
+<td>AC08</td>
+<td>记忆按需读取；关闭、纠正或删除后相关缓存与摘要失效</td>
+<td>T08；召回开关、删除传播、Live 会话恢复测试</td>
+</tr>
+<tr>
+<td>AC09</td>
+<td>区分等确认、拒绝、执行失败，以及入队、接收、播放与中断</td>
+<td>T02 / T04 / T07；决定与播报状态测试 + 实机</td>
+</tr>
+<tr>
+<td>AC10</td>
+<td>更新后立即追问，不以旧状态冒充当前事实</td>
+<td>T00 / T03 / T07；事件顺序测试 + Live 协议实测</td>
+</tr>
+<tr>
+<td>AC11</td>
+<td>已提交约束重启可恢复；未提交不声称已保存；恢复不重放操作</td>
+<td>T02 / T09；事务前后崩溃与故障注入</td>
+</tr>
+<tr>
+<td>AC12</td>
+<td>上下文等待有上限，可排查来源与耗时，语音延迟符合目标</td>
+<td>T00 / T03 / T09；基准对照 + ContextManifest</td>
+</tr>
+</tbody></table></div>
+<p>首批范围为 T00—T07，加上 T09 的基础回归和阶段验收。完整交付还须完成 T08 与 T09 全部项目。向量库、自动长期记忆写入和通用事件重放引擎不进入本次范围。</p>
+<p>现有记忆召回开关与 recall_epoch 失效行为在首批保留并回归。T08 扩展相关召回与跨层失效，不把现有隐私开关的正确性推迟到最后。</p>
+</div></div>
+</section>
+<section class="am-panel" id="panel-B">
+<header class="am-panel-head"><span class="am-panel-id">B</span><h2>目标结构与拼接契约</h2></header>
+<div class="am-panel-body"><figure class="am-diagram am-flow"><svg viewBox="0 0 748 276" width="748" height="276" role="img" aria-label="流程图：语音文字与幕僚事件、共享记录与有效状态、本次请求的筛选与预算、Legacy适配、豆包适配、Live通话适配、Live后台规划适配、幕僚按引用补读" xmlns="http://www.w3.org/2000/svg"><defs><marker id="am1-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="am-arrow" d="M0,0 L10,5 L0,10 z"/></marker></defs><g></g><g><g data-step="0"><path class="am-edge" d="M159,102.5 L170.5,102.5 Q182,102.5 193.5,102.5 L205,102.5" marker-end="url(#am1-arrow)"/></g><g data-step="1"><path class="am-edge" d="M324.6,120 L348.8,129 Q373,138 384.5,138 L396,138" marker-end="url(#am1-arrow)"/></g><g data-step="2"><path class="am-edge" d="M491.8,155.5 L534.4,200 Q577,244.5 597.1,244.5 L617.2,244.5" marker-end="url(#am1-arrow)"/></g><g data-step="3"><path class="am-edge" d="M525.3,155.5 L551.1,164.5 Q577,173.5 601.9,173.5 L626.8,173.5" marker-end="url(#am1-arrow)"/></g><g data-step="4"><path class="am-edge" d="M525.3,120.5 L551.1,111.5 Q577,102.5 595,102.5 L613,102.5" marker-end="url(#am1-arrow)"/></g><g data-step="5"><path class="am-edge" d="M491.8,120.5 L534.4,76 Q577,31.5 588.5,31.5 L600,31.5" marker-end="url(#am1-arrow)"/></g><g data-step="6"><path class="am-edge" d="M324.6,85 L348.8,76 Q373,67 394.3,67 L415.5,67" marker-end="url(#am1-arrow)"/></g></g><g><g class="am-node am-node--rect" data-key="语音文字与幕僚事件" data-step="0"><rect class="am-node-shape" x="14" y="85" width="145" height="35" rx="3"/><text x="86.5" y="102.5" text-anchor="middle" dominant-baseline="central" class="am-node-text">语音文字与幕僚事件</text></g><g class="am-node am-node--rect" data-key="共享记录与有效状态" data-step="0"><rect class="am-node-shape" x="205" y="85" width="145" height="35" rx="3"/><text x="277.5" y="102.5" text-anchor="middle" dominant-baseline="central" class="am-node-text">共享记录与有效状态</text></g><g class="am-node am-node--rect" data-key="本次请求的筛选与预算" data-step="1"><rect class="am-node-shape" x="396" y="120.5" width="158" height="35" rx="3"/><text x="475" y="138" text-anchor="middle" dominant-baseline="central" class="am-node-text">本次请求的筛选与预算</text></g><g class="am-node am-node--rect" data-key="Legacy适配" data-step="2"><rect class="am-node-shape" x="617.2" y="227" width="99.2" height="35" rx="3"/><text x="666.8" y="244.5" text-anchor="middle" dominant-baseline="central" class="am-node-text">Legacy适配</text></g><g class="am-node am-node--rect" data-key="豆包适配" data-step="3"><rect class="am-node-shape" x="626.8" y="156" width="80" height="35" rx="3"/><text x="666.8" y="173.5" text-anchor="middle" dominant-baseline="central" class="am-node-text">豆包适配</text></g><g class="am-node am-node--rect" data-key="Live通话适配" data-step="4"><rect class="am-node-shape" x="613" y="85" width="107.6" height="35" rx="3"/><text x="666.8" y="102.5" text-anchor="middle" dominant-baseline="central" class="am-node-text">Live通话适配</text></g><g class="am-node am-node--rect" data-key="Live后台规划适配" data-step="5"><rect class="am-node-shape" x="600" y="14" width="133.6" height="35" rx="3"/><text x="666.8" y="31.5" text-anchor="middle" dominant-baseline="central" class="am-node-text">Live后台规划适配</text></g><g class="am-node am-node--rect" data-key="幕僚按引用补读" data-step="6"><rect class="am-node-shape" x="415.5" y="49.5" width="119" height="35" rx="3"/><text x="475" y="67" text-anchor="middle" dominant-baseline="central" class="am-node-text">幕僚按引用补读</text></g></g></svg></figure>
+<div class="am-md"><h3>七组内容如何进入模型</h3>
+<div class="am-table-wrap"><table>
+<thead>
+<tr>
+<th>分组</th>
+<th>默认策略</th>
+<th>更新与裁剪规则</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>① 系统规则 + 个性</td>
+<td>固定稳定前缀</td>
+<td>保留公共规则与模式规则；配置变化后重建相应版本</td>
+</tr>
+<tr>
+<td>② 环境 + 卡片索引</td>
+<td>固定小快照</td>
+<td>保留当前范围和必要路由信息；其他卡片按需展开</td>
+</tr>
+<tr>
+<td>③ 当前目标 + 有效约束</td>
+<td>固定小快照</td>
+<td>带任务、来源、版本和撤销关系；附当前话题与最近相关播报引用</td>
+</tr>
+<tr>
+<td>④ 相关记忆</td>
+<td>本轮相关时才加入</td>
+<td>精确引用优先，现有关键词检索其次；摘要带来源，原文按需读</td>
+</tr>
+<tr>
+<td>⑤ 幕僚决定与播报</td>
+<td>本轮相关时才加入</td>
+<td>从话题、播报或任务引用查依据和真实回执；缺关联就明确缺失</td>
+</tr>
+<tr>
+<td>⑥ 近期历史</td>
+<td>保留各自原生形式</td>
+<td>Legacy / 豆包按完整轮次；Live 保留音频会话；后台使用时间线快照</td>
+</tr>
+<tr>
+<td>⑦ 当前输入</td>
+<td>保留各自原生形式</td>
+<td>Legacy / 豆包传 user 文本；Live 继续传音频，转写不重复提交</td>
+</tr>
+</tbody></table></div>
+<p>“固定”指每轮需要的逻辑内容，不表示 Chat 只发送一次。②—⑤是带来源的数据，不获得①的指令地位。播报记录不能伪装成用户发言。</p>
+<p>每次模型请求固定一个 snapshot。豆包工具后续请求仍刷新环境，并生成关联同一 turn 的新 snapshot。执行前再核验最新约束、任务和审批，不能仅靠请求开始时的版本。</p>
+<h3>最小数据契约</h3>
+<div class="am-table-wrap"><table>
+<thead>
+<tr>
+<th>类型</th>
+<th>内容与不变量</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>ContextScope</td>
+<td>workspace_id、area_id、project、worktree、task_id、conversation_id；无项目显式为 personal；稳定 ID 优先于目录名</td>
+</tr>
+<tr>
+<td>ContextEvent</td>
+<td>宿主生成 event_id；原始来源、序号、时间、scope、类型化内容、相关事件引用；重复 ID 幂等</td>
+</tr>
+<tr>
+<td>WorkingState</td>
+<td>有效目标、约束、待回应项、话题引用、相关播报；带 revision；任务完成状态只引用真实回执</td>
+</tr>
+<tr>
+<td>ContextRef</td>
+<td>指向特定作用域与版本；宿主检查可读范围；失效或已清理时返回明确结果</td>
+</tr>
+<tr>
+<td>ContextBundle</td>
+<td>consumer、turn_id、snapshot_id、各来源版本、七组材料与选中引用；不同消费者可有不同投影</td>
+</tr>
+<tr>
+<td>ContextManifest</td>
+<td>来源 ID、版本、入选理由、字节或 token 单位、裁剪与超时标记、耗时；默认不含私人正文</td>
+</tr>
+</tbody></table></div>
+<p>consumer 区分 Legacy、豆包、Live 通话、Live 后台规划与幕僚。模式切换仅携带允许共享的事实与必要摘要，不迁移旧工具调用、授权身份或播放任务。</p>
+<p>装配 Interface 接收输入、scope、consumer、预算及已读取材料，返回 ContextBundle 与 ContextManifest。纯装配不查数据库、不联网、不控制音频。宿主负责有界读取和最新状态核验。</p>
+</div></div>
+</section>
+<section class="am-panel" id="panel-C">
+<header class="am-panel-head"><span class="am-panel-id">C</span><h2>改动位置与职责</h2></header>
+<div class="am-panel-body"><div class="am-md"><p>以下“拟新增”是计划文件，不表示已经实现。新文件按职责拆分，Rust 源码保持不超过 500 行。</p>
+<div class="am-table-wrap"><table>
+<thead>
+<tr>
+<th>改动</th>
+<th>文件入口</th>
+<th>职责</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>中立契约与 CLI</td>
+<td>拟新增 <code>crates/norma/src/protocol/context.rs</code>；修改 <code>crates/norma/src/protocol/brain.rs</code>、<code>crates/norma/src/cli/brain_command.rs</code></td>
+<td>公共 DTO、Report 来源引用、只读 context 补读命令</td>
+</tr>
+<tr>
+<td>纯装配与约束归并</td>
+<td>拟新增 <code>crates/agent/src/context/mod.rs</code>；修改 <code>crates/agent/src/master/memory_session.rs</code></td>
+<td>七组组织、相关选择、冲突处理、预算；保留模式规则</td>
+</tr>
+<tr>
+<td>共享事件与状态存储</td>
+<td>拟新增 <code>crates/storage/src/context_store.rs</code>；修改 <code>crates/storage/src/migrations.rs</code>、<code>crates/storage/src/brain_activity_store.rs</code></td>
+<td>增量迁移、事件引用、状态 checkpoint、索引与清理</td>
+</tr>
+<tr>
+<td>后台编排</td>
+<td>拟新增 <code>crates/app/src/app/shared_context.rs</code></td>
+<td>收集事件、更新内存投影、异步持久化、缓存失效与分发</td>
+</tr>
+<tr>
+<td>幕僚交接与补读</td>
+<td>修改 <code>crates/brain/src/event.rs</code>、<code>crates/brain/src/lane/prompt.rs</code>、<code>crates/app/src/app/brain_host/ops.rs</code>；拟新增 <code>crates/app/src/norma/endpoint/brain_context.rs</code></td>
+<td>交接 context_ref；沿用 token 与 workspace 路由鉴权；后台补读</td>
+</tr>
+<tr>
+<td>工作状态更新入口</td>
+<td>修改 <code>crates/agent/src/adapter.rs</code>、<code>crates/agent/src/adapter/definitions.rs</code>、<code>crates/app/src/app/agent_runtime/adapter_pump.rs</code></td>
+<td>类型化候选更新、来源校验、执行限制；直呼也经过校验</td>
+</tr>
+<tr>
+<td>Legacy 与 Dock</td>
+<td>修改 <code>crates/app/src/app/agent_runtime/submit.rs</code>、<code>crates/app/src/app/dialogue/reply_loop.rs</code></td>
+<td>接入已准备快照；保持 Voice / Other 来源、原历史和输出方式</td>
+</tr>
+<tr>
+<td>豆包</td>
+<td>修改 <code>crates/app/src/app/doubao/plan/chat.rs</code>、<code>crates/app/src/app/doubao/plan.rs</code></td>
+<td>逐请求装配、Report 引用、保留原工具过滤与直呼</td>
+</tr>
+<tr>
+<td>GPT-Live</td>
+<td>修改 <code>crates/app/src/app/gpt_live/prompt.rs</code>、<code>crates/app/src/app/gpt_live/session.rs</code>、<code>crates/app/src/app/gpt_live/dispatch.rs</code>、<code>crates/app/src/app/gpt_live/report.rs</code></td>
+<td>通话与后台规划两处接入；有界追加、版本与交付状态</td>
+</tr>
+<tr>
+<td>播报事实</td>
+<td>修改 <code>crates/app/src/app/agent_announcements/report.rs</code>、<code>crates/app/src/app/agent_announcements/doubao.rs</code></td>
+<td>生成 report_id；生成、排队、播放、中断分别记录；按当前模式交付</td>
+</tr>
+</tbody></table></div>
+<p>依赖保持 brain → norma、agent → norma、storage → agent。app 负责适配与副作用；brain 不依赖 agent/storage；agent 不直接读取 SQLite。</p>
+<p>采用 codebase-design 的小 Interface 原则：装配复杂度集中在一个 Module，协议差异留在各 Adapter。数据库、网络和文件 IO 均在后台执行，避开 GPUI 前台及现有性能热路径。</p>
+</div></div>
+</section>
+<section class="am-panel" id="panel-D">
+<header class="am-panel-head"><span class="am-panel-id">D</span><h2>任务清单与实施顺序</h2></header>
+<div class="am-panel-body"><div class="am-md"><p>每项先补聚焦失败测试，再实现。完成后登记提交版本、命令、结果和证据；“文件已写”不能代替验收通过。</p>
+<div class="am-table-wrap"><table>
+<thead>
+<tr>
+<th>任务</th>
+<th>依赖</th>
+<th>实施内容</th>
+<th>完成条件与测试</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>T00 基线与 Live 能力验证</td>
+<td>无</td>
+<td>固定三模式配置与基线；验证追加、ACK、回复开始、插话、重连和输出阻断的关系</td>
+<td>记录供应商可保证的顺序；“更新后立即追问”实测；无法保证时走只读核验或关闭该能力，不能只用提示词兜底</td>
+</tr>
+<tr>
+<td>T01 类型与协议</td>
+<td>T00</td>
+<td>定义 scope、event、ref、bundle、manifest；扩展 Report 可选来源与 context 读取协议</td>
+<td>序列化、旧参数兼容、错误范围引用、未知能力返回值；旧记录无关联标 unavailable</td>
+</tr>
+<tr>
+<td>T02 存储与投影</td>
+<td>T01</td>
+<td>增量迁移；按来源幂等写事件；事务提交事件与 checkpoint；保留版本及撤销关系</td>
+<td>重复写、乱序、同目录双画布、提交前后崩溃、7 天活动清理不删除有效约束</td>
+</tr>
+<tr>
+<td>T03 统一装配</td>
+<td>T01</td>
+<td>①—⑦分组；指代、相关选择、去重、完整轮次预算；记录 manifest</td>
+<td>同输入同快照结果一致；多候选不猜；超预算明确失败；工具配对完整；材料不能升级为指令</td>
+</tr>
+<tr>
+<td>T04 共享宿主与幕僚</td>
+<td>T02 + T03</td>
+<td>接收状态候选；类型化执行限制；交接 context_ref；决定与播报关联；CLI 后台补读</td>
+<td>新约束影响后续处理；范围与来源核验；记录更新不自动派任务；等确认与拒绝不混淆</td>
+</tr>
+<tr>
+<td>T05 Legacy 接入</td>
+<td>T04</td>
+<td>NormaSession 读取共享快照；Report 供下轮取用；直呼校验；Dock 共用路径回归</td>
+<td>单次／持续聆听均能追问；所选模型和 TTS 保留；直呼不绕过限制；Dock 不被强制语音化</td>
+</tr>
+<tr>
+<td>T06 豆包接入</td>
+<td>T04</td>
+<td>Chat 逐请求装配；Report 带引用；保留常驻通道、输入优先和工具过滤</td>
+<td>创建卡片后的请求读到新环境；Report 后可追问；后台项目播报可继续；插话不误停新回复</td>
+</tr>
+<tr>
+<td>T07 Live 双入口接入</td>
+<td>T00 + T04</td>
+<td>通话启动与增量资料；后台 NormaSession 读取相关状态；原生播报；版本、ACK、过期结果处理</td>
+<td>对话与后台均使用有效约束；旧 TTS 禁用；单条追加符合本地上限；转写不重复提交；新状态生效有证据</td>
+</tr>
+<tr>
+<td>T08 记忆与长会话</td>
+<td>T05 + T06 + T07</td>
+<td>相关记忆召回；有来源的历史摘要；关闭、纠正与删除传播；跨模式摘要交接</td>
+<td>无关记忆不入请求；召回关闭缓存失效；Live 必要时重建；旧摘要不能恢复已删除事实</td>
+</tr>
+<tr>
+<td>T09 集成与发布验收</td>
+<td>分阶段覆盖 T01—T08</td>
+<td>三模式统一场景、六向切换、双项目、重启、性能与回退；记录完整证据</td>
+<td>AC01—AC12 均有结果；真实 App 覆盖三模式；问题修复后定向复验；检查通过后才发布</td>
+</tr>
+</tbody></table></div>
+<p>实施顺序为 T00 → T01 → T02 / T03 → T04 → T05 → T06 → T07 → T08 → T09。T02 与 T03 没有实现依赖；本计划默认顺序执行，不自动启动并行 Agent 或重型构建。</p>
+<p>若 T00 缺少可用凭据，登记未验证项；T01—T06 可继续本地开发与验证。T07 的真实 Live 验收仍是发布前置条件，模拟 ACK 不能替代供应商实测。</p>
+<p>建议以任务为提交单元。T05、T06、T07 可以分别验收和启用，但三者完成前不能宣称首批目标已完成。T09 的对应测试随各任务执行，不集中留到最后。</p>
+</div></div>
+</section>
+<section class="am-panel" id="panel-E">
+<header class="am-panel-head"><span class="am-panel-id">E</span><h2>关键流程与失败处理</h2></header>
+<div class="am-panel-body"><div class="am-md"><h3>1. 用户输入 → 有效工作状态</h3>
+<p>先记录最终用户输入及来源，再准备本轮上下文。现有模型回合通过拟新增的类型化工作状态工具提交候选，不额外增加一次分类模型请求。直接路由先读取当前有效限制；存在未解析修订时，暂停该次直接执行并回到现有解析流程。</p>
+<p>宿主验证来源事件、目标 scope、expected_revision 和允许的变更类型。同一条约束的修订保留 supersedes 关系；模型摘要不自动撤销用户规则。ASR 临时结果不写成长期事实，转写更正保留来源关系。</p>
+<p>工作状态区分两类：文本要求用于对话和任务交接；可执行限制绑定宿主已识别的操作与目标。宿主能校验的限制才标记为 enforced；其余标记为 communicated，不能声称已强制执行。</p>
+<p>例如“这次先别发布”保留原话并进入后续任务上下文。若无法可靠映射到具体动作，不自动放行相关操作。已经派给外部 Coding Agent 的任意内部命令，仍受现有执行与审批机制约束；本方案不宣称能拦截所有外部 shell 行为。</p>
+<p>限制性规则可在核验来源后收紧；放宽权限仍走现有用户授权与审批入口。用户说“刚才那个”有多个候选时，先澄清任务，不能以最后生成时间直接决定。</p>
+<p>内存接受和持久化成功分开记录。事务提交成功才可说“已保存”；失败保留待保存状态并有限重试。重启后若关键状态不完整，相关执行等待核验，不把缺记录解释为无限制。</p>
+<h3>2. 幕僚决定 → 播报 → 追问</h3>
+<p>宿主为决定、回执和汇报生成稳定引用。Report 可以引用多个决定，引用必须属于可读作用域。旧 Report 没有来源时保留正文，标记关联缺失，不根据相近文本补造关系。</p>
+<p>播报事实先进入共享记录，再由当前模式交付。Legacy 走原 TTS；豆包走常驻播报通道；Live 走原生追加与输出通道。语音关闭时记录 skipped；Live 未连接时记录未播，不自动开通话或麦克风。</p>
+<p>交付状态分为 created、queued、playing、completed，以及 skipped、interrupted、failed。Live 另记录 sent / acknowledged；协议接收不等于开始或完成播放。没有可靠的报告与音频对齐时，播放归属标 unknown，不伪造进度。</p>
+<p>用户追问优先结合当前话题、任务和实际播报状态，再沿 report → decision → receipt 取依据。生成过但没播出的汇报不能被默认当作“刚才说过”。记录读取不会触发重新执行。</p>
+<h3>3. Live 更新 → 当前回答</h3>
+<p>T00 实测协议是否支持在回复开始前完成更新、取消旧回复或读取响应关联。若可保证顺序，绑定上下文 revision 与当前 generation 后发送。不能证明顺序时，相关事实问答必须完成后台只读核验。</p>
+<p>如果供应商无法可靠完成上述核验与回答交接，该能力保持关闭，T07 不算通过。不能用本地静音、收到 ACK 或“请使用最新信息”的提示词代替时序保证。</p>
+<p>按 scope + revision 去重。当前本地 Append 单条上限为 500 UTF-8 字节；分段须计算完整内容，包括版本标签。追加失败、部分批次成功或超时应记入 manifest；不把部分材料标记为完整快照。</p>
+<p>只追加协议下的旧值作显式失效说明，宿主仍依据最新状态执行。累计材料达到阈值时按已验证的恢复能力重建；先保存有效事实，不重放旧操作或旧播报。</p>
+<h3>4. 预算、读取与降级</h3>
+<div class="am-table-wrap"><table>
+<thead>
+<tr>
+<th>情况</th>
+<th>行为</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>普通闲聊没有相关材料</td>
+<td>省略④⑤；只带必要状态和原生历史</td>
+</tr>
+<tr>
+<td>可选记忆检索超时</td>
+<td>省略该部分并记入 manifest，不阻塞整轮</td>
+</tr>
+<tr>
+<td>问题依赖的决定或约束缺失</td>
+<td>返回明确缺失／需核验状态，不以旧事实猜答</td>
+</tr>
+<tr>
+<td>有效规则、当前输入和必要工具配对已超窗口</td>
+<td>返回 BudgetExceeded，不发送残缺请求；提示缩小输入或分步处理</td>
+</tr>
+<tr>
+<td>来源引用越界或已失效</td>
+<td>返回 ScopeMismatch / Unavailable / StaleSnapshot；不自动扩大搜索范围</td>
+</tr>
+<tr>
+<td>工具已提交后插话</td>
+<td>按既有流程取消过时回复；保留已接受任务与真实回执，避免重复提交</td>
+</tr>
+</tbody></table></div>
+<p>先过滤范围，再按明确引用、当前话题、相关任务和关键词选取；去重后裁低相关片段及旧整轮历史。所有预算明确字节或 token 单位，输出和工具回执预留分别计算。不同模式采用各自上限。</p>
+</div></div>
+</section>
+<section class="am-panel" id="panel-F">
+<header class="am-panel-head"><span class="am-panel-id">F</span><h2>三种模式的兼容要求</h2></header>
+<div class="am-panel-body"><div class="am-md"><div class="am-table-wrap"><table>
+<thead>
+<tr>
+<th>模式</th>
+<th>接入位置</th>
+<th>必须保留</th>
+<th>定向回归</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Legacy</td>
+<td>NormaSession 装配；项目 Agent 提交；播报记录</td>
+<td>单次／持续聆听、原生历史、Voice 来源、直呼、所选 ASR / 模型 / TTS</td>
+<td>语音追问、约束修订、Dock 文字、回声抑制与停止</td>
+</tr>
+<tr>
+<td>豆包 2.0</td>
+<td>ChatRuntime 每次请求；Report 入口；直呼执行</td>
+<td>环境逐请求刷新、工具配对、个人／总览工具过滤、用户开口优先</td>
+<td>后台播报、收音失败后通道继续、工具后刷新、按住／持续输入</td>
+</tr>
+<tr>
+<td>GPT-Live</td>
+<td>通话 prompt 与增量；后台 dispatch 的 NormaSession</td>
+<td>原生音频、GptLiveVoice 来源、快照与授权校验、持久回执；旧 TTS 禁用</td>
+<td>双入口一致、插话、输入静音／输出停止、重连、不重复执行</td>
+</tr>
+</tbody></table></div>
+<p>幕僚汇报开关与任务播报开关各自判断。关闭收音不等于关闭播报；停止播音不等于取消已接受任务。共享层不能重新解释这些已有语义。</p>
+<h3>切换与后台项目</h3>
+<ul>
+<li>覆盖 Legacy → 豆包、豆包 → Legacy、Legacy → Live、Live → Legacy、豆包 → Live、Live → 豆包。</li>
+<li>切模式沿用旧通道停止流程，新通道使用新的 generation；共享事件引用可以延续。</li>
+<li>切项目保留既有后台生命周期；豆包后台播报仍可工作，记录归属原 area / project。</li>
+<li>同目录双画布按 area_id 分开；前台焦点只作指代线索，不改写后台来源。</li>
+<li>新模式按需读取摘要，标明来自旧模式；已播放内容不自动补播，旧工具调用不迁移。</li>
+</ul>
+<p>兼容性核对与已有测试入口见 <code>docs/exec-plans/2026-10-25-context-three-modes-compatibility.md</code>。</p>
+</div></div>
+</section>
+<section class="am-panel" id="panel-G">
+<header class="am-panel-head"><span class="am-panel-id">G</span><h2>验证、性能与发布条件</h2></header>
+<div class="am-panel-body"><div class="am-md"><h3>测试组织</h3>
+<div class="am-table-wrap"><table>
+<thead>
+<tr>
+<th>验证层</th>
+<th>计划测试位置</th>
+<th>覆盖任务</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>协议与旧 CLI</td>
+<td><code>crates/norma/tests/brain_cli_tests.rs</code>；拟新增 <code>crates/norma/tests/context_protocol.rs</code></td>
+<td>T01 / T04</td>
+</tr>
+<tr>
+<td>选择、预算、角色与约束</td>
+<td>拟新增 <code>crates/agent/tests/context_assembly.rs</code>、<code>crates/agent/tests/context_constraints.rs</code></td>
+<td>T03—T08</td>
+</tr>
+<tr>
+<td>存储与崩溃恢复</td>
+<td>拟新增 <code>crates/storage/tests/context_store.rs</code>、<code>crates/storage/tests/context_recovery.rs</code></td>
+<td>T02 / T08 / T09</td>
+</tr>
+<tr>
+<td>幕僚交接与状态引用</td>
+<td>拟新增 <code>crates/brain/tests/context_handoff.rs</code></td>
+<td>T04</td>
+</tr>
+<tr>
+<td>宿主与模式接入</td>
+<td>拟新增 <code>crates/app/tests/unit/shared_context_tests.rs</code>、<code>crates/app/tests/unit/context_mode_switch_tests.rs</code>；扩展三模式既有测试</td>
+<td>T04—T09</td>
+</tr>
+<tr>
+<td>真实 App 与语音</td>
+<td>按模块扩展 <code>test/desktop-e2e/Scenarios/brain/BrainModule.swift</code>、<code>test/desktop-e2e/Scenarios/voice/VoiceModule.swift</code></td>
+<td>AC01—AC05 / AC09 / AC10 / AC12</td>
+</tr>
+</tbody></table></div>
+<p>测试先从 Interface 注入固定快照与可控制的事件顺序，断言选中 ID、版本、实际调用次数与拒绝结果。不得只断言字符串存在，也不得把 mock 的成功当作真实播报完成。</p>
+<p>每个测试注明场景、构造、执行与预期；断言带说明。大型单元测试按 crate 放入 tests/unit，集成测试放入 tests。真实音频与供应商行为在实机验证，测试替身只验证本地分支。</p>
+<h3>执行检查</h3>
+<p>按变更范围运行 norma、agent、storage、brain、live_voice 的 crate 测试；app 先跑聚焦单元／集成测试并执行 <code>cargo check -p app</code>。跨 crate 集成完成后执行 <code>cargo test --workspace</code>。</p>
+<p>UI 或生命周期差异优先跑对应 desktop-e2e 场景。覆盖不足的真实录音、外放插话和供应商协议补实机证据。涉及 GPUI／打包时执行 <code>cargo build -p app --release</code>；同机重型构建顺序运行。</p>
+</div>
+<figure class="am-codeblock"><figcaption class="am-code-head"><span class="am-code-title">最终集成检查 · 按实际改动范围执行</span><span class="am-code-lang">bash</span><button class="am-code-copy" type="button" data-am="copy-code" data-done="已复制 ✓">复制</button></figcaption><pre class="am-code"><code data-lang="bash"><span class="am-ln">cargo test -p norma -p agent -p storage -p brain -p live_voice</span><span class="am-ln">cargo check -p app</span><span class="am-ln">cargo test --workspace</span><span class="am-ln">bash scripts/check-storage-boundaries.sh</span><span class="am-ln">bash scripts/check-performance-guardrails.sh</span><span class="am-ln">bash scripts/check-max-file-lines.sh</span><span class="am-ln">bash scripts/check-no-allow.sh</span></code></pre></figure>
+<div class="am-md"><p>修改 TTS provider 或依赖时补其边界检查。新增 UI 控件时先加载 Apple 设计 skill，使用现有组件与状态反馈，并做浅深色真实 App 验收。本计划不新增独立上下文设置页面；诊断信息先通过开发日志的元数据和现有诊断入口提供。</p>
+<h3>性能目标与基线</h3>
+<p>以下为首版建议目标，不是已测结果。T00 在同设备、模型、网络与测试语句下建立基线，并登记最终采用的阈值；变更阈值须记录原因。</p>
+<div class="am-table-wrap"><table>
+<thead>
+<tr>
+<th>指标</th>
+<th>首版建议目标</th>
+<th>测量方式</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>纯装配耗时</td>
+<td>p95 ≤ 20 ms，候选片段不超过 100 条</td>
+<td>固定夹具预热 50 轮，再测量 1000 轮；排除数据库和网络耗时</td>
+</tr>
+<tr>
+<td>可选检索等待</td>
+<td>截止时间 150 ms</td>
+<td>超时故障注入，确认本轮继续且 manifest 有记录</td>
+</tr>
+<tr>
+<td>首个有效语音延迟</td>
+<td>p95 相比同模式基线增加不超过 300 ms</td>
+<td>每模式至少 30 组对照，单列冷启动与后台核验；不把空白或填充音算有效回答</td>
+</tr>
+<tr>
+<td>错误引用与重复副作用</td>
+<td>具名验收夹具中为 0</td>
+<td>逐条核对来源 ID、版本、执行次数与真实回执</td>
+</tr>
+</tbody></table></div>
+<p>关键状态核验不受可选检索的 150 ms 省略规则影响。核验超时要明确反馈；不能为了延迟指标删掉有效约束。没有基线与实机证据时，不声称性能已达标。</p>
+<h3>发布与回退</h3>
+<p>数据库采用增量迁移，旧数据缺少关联时标 unavailable；不要伪造历史引用。新 CLI 能力探测失败时禁用相应读取，旧 Report 的 text / priority 形式继续兼容。新参数采用可选字段并验证往返序列化。</p>
+<p>共享装配按模式独立开关启用。先在开发环境完整跑三模式，再按通道逐步放量。回退可恢复旧装配路径，但宿主已接受的有效限制继续校验；无法校验的相关执行暂停。回退不做破坏性数据库降级，不重播或重放已发生的行为。</p>
+<p>发布前：AC01—AC12 均有证据；三模式与六向切换通过；未解决的时序、作用域、重复执行或权限回归阻止发布。代码审查时依仓库规范安排独立对抗式审查，并由实施者核验发现。</p>
+</div></div>
+</section>
+<section class="am-panel" id="panel-H">
+<header class="am-panel-head"><span class="am-panel-id">H</span><h2>进度与证据登记</h2></header>
+<div class="am-panel-body"><div class="am-md"><div class="am-table-wrap"><table>
+<thead>
+<tr>
+<th>任务</th>
+<th>当前状态</th>
+<th>完成后登记</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>T00 基线与 Live 能力</td>
+<td>部分验证</td>
+<td>HEAD 8d0eef02 + 现有工作区；Live 本地上下文/控制协议 17 项通过；未配置 NORMA_LIVE_TEST_KEY_FILE，云端时序和延迟基线待验</td>
+</tr>
+<tr>
+<td>T01 类型与协议</td>
+<td>基础实现已验证</td>
+<td>scope/event/ref/bundle/manifest、输入/决定/回执/播报、Report 来源与 context CLI；2 项协议 + 6 项旧 CLI 通过；宿主能力协商和端点读取随 T04 完成</td>
+</tr>
+<tr>
+<td>T02 存储与投影</td>
+<td>基础实现已验证</td>
+<td>6 项存储测试通过：幂等、CAS、乱序、范围、重开、checkpoint 事务故障、来源与播报状态；真实进程崩溃、并发和清理压力验收待补</td>
+</tr>
+<tr>
+<td>T03 统一装配</td>
+<td>基础实现已验证</td>
+<td>4 项装配 + 1 项约束测试通过：七组、引用/话题、歧义、范围、整轮工具配对、预算、Live 原生身份、冲突快照；OpenAI 实际请求预算已验；其他供应商、检索截止和性能待验</td>
+</tr>
+<tr>
+<td>T04 共享宿主与幕僚</td>
+<td>部分接线</td>
+<td>输入、候选、补读、恢复、执行限制及报告已有聚焦证据；等待确认、已接受 Allow / Deny / Assign 与用户采纳提议已记录来源。保存失败不重复动作，超时和等待者释放不取消已接受写入。真实 Runtime 审批、失败动作来源及实机仍待验</td>
+</tr>
+<tr>
+<td>T05 Legacy</td>
+<td>部分接线，未验收</td>
+<td>NormaSession 已读取共享资料；默认 16k 实际请求及续轮超限拦截通过；可选记忆不能挤掉工作状态；语音与 Dock 实机待验</td>
+</tr>
+<tr>
+<td>T06 豆包</td>
+<td>逐请求装配已接</td>
+<td>资料独立于系统规则与原生历史；100 项旧回归通过；转义预算与来源切换边界通过；播放中断与 Drop 竞态已修复，受控音频回调通过；实机待验</td>
+</tr>
+<tr>
+<td>T07 GPT-Live</td>
+<td>双入口部分接线</td>
+<td>启动共享资料与原生报告已接线；Live 回归 75 项、网络域 46 项通过。逐段 ACK、取消与控制容量已有本地证据。增量、供应商时序及真实 scope 切换仍待验</td>
+</tr>
+<tr>
+<td>T08 记忆与长会话</td>
+<td>部分实施，未验收</td>
+<td>桌面和手机撤销、拥塞与锁不可用时的取消已验证；手机项目／工作树下一轮版本失效及撤销后新派工拦截通过。无来源版本的群聊生成正文禁止重新注入 Norma 或指定卡片；设置页发布后的同库即时撤销已验证，含页面释放和未知回执。Live 增量修订、来源摘要与跨模式恢复仍待补</td>
+</tr>
+<tr>
+<td>T09 集成与发布</td>
+<td>分阶段验收中</td>
+<td>聚焦集成测试与静态护栏已有记录；AC 完整矩阵、六向切换、实机、性能及回退验收仍待完成</td>
+</tr>
+</tbody></table></div>
+<p>每条证据记录源码版本、测试命令、结果、时间和产物路径。截图存为文件，不能把浏览器原型或静态图当作真实语音验收。</p>
+<p>设计依据：<code>docs/design-docs/2026-10-25-prompt-groups-a4.md</code>、<code>docs/design-docs/2026-10-25-context-message-a4.md</code>。三模式代码核对依据：<code>docs/exec-plans/2026-10-25-context-three-modes-compatibility.md</code>。</p>
+<p>实施记录（2026-10-25）：独立 Cargo 缓存任务 <code>shared-context-20261025</code>；保留现有 dirty 工作区。</p>
+<ul>
+<li>基线：<code>test -p live_voice --test control_protocol --test context_snapshots --test context_offsets --test output_gate</code>，17 项通过；output_gate 在未开 test-support 时为 0 项，不计为通过证据。</li>
+<li>T01 red：新 context_protocol 测试因缺少 scope/ref/sources 失败；实现后 1 项通过，再补 context CLI red，随后 2 项通过。</li>
+<li>T01 green：<code>test -p norma --test context_protocol --test brain_cli_tests</code>，8 项通过。</li>
+<li>所有 Cargo 命令均通过 <code>python3 scripts/task-build-cache.py run shared-context-20261025 -- …</code> 执行。</li>
+<li>尚未完成真实三模式验收，未发布或切换默认装配；新的非空来源请求在宿主未接入前明确拒绝，不静默吞掉。</li>
+</ul>
+<h3>初始基础阶段（历史验证记录）</h3>
+<ul>
+<li><code>crates/norma/src/protocol/context.rs</code> 与 <code>crates/norma/src/protocol/context/assembly.rs</code>：中立数据契约。旧 Report 无来源时仍可读；新来源不自动推测决定。</li>
+<li><code>crates/storage/src/context_store.rs</code>：独立 SQLite 表，事件与 checkpoint 同事务；幂等回执、原始来源序号、expected_revision、精确引用与作用域校验。读取不执行操作。此处只在临时测试库验收，未操作用户真实库。</li>
+<li><code>crates/agent/src/context/</code>：纯状态投影、七组装配、指代和来源筛选、完整历史预算。固定组保留当前目标/约束及最多 4 条报告索引；报告正文按需加入。宿主仍须完成来源认证、最新状态读取和实际操作拦截。</li>
+<li>初始阶段 Enforced 仅有域契约。随后已接入宿主工具入口，但幕僚、跨目标与并发边界尚待补齐，不能宣称所有入口已强制实施限制。</li>
+<li><code>brain context</code> 已接后台补读并在回复前复核 token/scope。非空 Report 来源仍拒绝；旧记忆 recall_epoch 路径未改动。</li>
+</ul>
+<h3>对抗式审查与修复</h3>
+<p>依据仓库规定安排独立只读审查，复核确认已修复：</p>
+<ol>
+<li>未播取消不能变成“刚才说过”：只有 Playing → Interrupted；未播取消用 Skipped。</li>
+<li>活动报告不静默淘汰：索引满时明确失败，仅终态报告可腾出空间；不可变事件仍保留。</li>
+<li>无关报告正文不占固定预算：仅保留小型索引，正文进入按需组。</li>
+<li>一次请求不能混用相同 scope 的不同 revision；状态内部引用不得越 scope 或指向快照未来。</li>
+</ol>
+<p>新增聚焦测试共 13 项均通过；另有旧 CLI 6 项、Live 基线 17 项通过。存储故障测试为真实 SQLite 触发器注入，不等同于已经完成进程崩溃或断电验收。装配预算目前明确使用序列化 UTF-8 字节，供应商实际请求仍需在各适配器再次验算。</p>
+<p>后续继续 T04：补齐保存恢复与全部执行入口，再完成报告持久化和交付回调。之后依次完成三模式适配；当前部分接线尚未发布，不能当作完整默认路径验收。</p>
+<h3>完整基础回归</h3>
+<ul>
+<li><code>test -p norma -p agent -p storage</code>：619 项通过，0 失败，2 项忽略（完整日志：<code>artifacts/shared-context-20261025/foundation-tests.log</code>）。</li>
+<li><code>bash scripts/check-max-file-lines.sh</code>、<code>bash scripts/check-no-allow.sh</code>、<code>bash scripts/check-storage-boundaries.sh</code>：通过。</li>
+<li>本次相关文件 <code>git diff --check</code>：通过。</li>
+<li>宿主初次接线后的 App 编译检查已通过；后续修订仍需增量检查。全工作区、真实三模式、供应商时序和性能验收未完成。</li>
+</ul>
+<p>T04 的具体边界：<code>desktop_context_for_provider</code> 读取当前宿主焦点，不能拿它绑定后台事件的归属。必须从来源项目会话的稳定 workspace / area 身份建立共享 scope，再验证项目目录；同目录双画布和后台豆包播报仍各归原 area。</p>
+<h3>宿主接线后的审查进度</h3>
+<ul>
+<li>已复现并通过 6 项聚焦回归：约束不能隐式降级、非规范节点目标拒绝、16 KiB 输入保留。原话不重复检索，资料按实际字节预算。</li>
+<li>新增宿主 6 项测试通过：保存故障后不同 call ID 重试、取消等待者、checkpoint 非明确成功。另含同 scope 多实例、释放消费者后恢复、后台读取后的来源复验。跨画布首次派发测试另行通过，真实豆包 pump 等待冷目标状态准备。</li>
+<li>真实 HTTP 请求测试发现的默认 16k 回归已修复。4 项 Session 测试通过：正常发送、超限续轮不请求、资料不污染历史、可选记忆不挤占工作状态。每次请求计算序列化转义与工具回执预留。</li>
+<li>SQLite 故障仅使用临时测试库；没有操作用户真实数据库。</li>
+</ul>
+<h3>后续修复（持续更新，尚未完成融合）</h3>
+<ul>
+<li>实际 Rig OpenAI 请求中，共享资料作为 system 之后、原生历史之前的独立 user 文档消息；不是 system 指令，也不是供应商提供的 data role。资料不写入持久对话历史。</li>
+<li>3 项分页测试和 5 项存储边界测试通过：按 UTF-8 边界读取完整事件，预算包含外层 tool.content 转义；合法 32 KiB 输入不会因 JSON 转义被误拒绝。</li>
+<li>幕僚自动 Assign/Allow 已与语音共享 deny-only gate；限制不会阻止 Deny/Escalate，原自主权检查仍保留。端点异步加载后重新验证 token/scope。</li>
+<li>手机共用入口 2 项、只读刷新及恢复 7 项、桌面 adapter 59 项已通过。手机测试为临时库和记录型 PTY，不代表真实 App 验收。</li>
+<li>仍待完成：决定、回执与报告的完整来源链、真实播报回调、Live 原生通话、记忆失效与跨模式验收。</li>
+<li>本地测试均使用临时数据库；没有修改用户真实库。详细结果在 <code>artifacts/shared-context-20261025/evidence.json</code>。</li>
+</ul>
+<h3>报告交付接线（继续实施）</h3>
+<ul>
+<li>Report 端点先保存正文及精确来源，再进入原播报通道。关闭播报记录 Skipped，保存失败不交付。</li>
+<li>27 项上下文宿主测试通过，覆盖豆包请求预算、环境来源切换、报告保存与入队取消。</li>
+<li>3 项交付测试通过，覆盖 Legacy 宿主回调、报告独立分批、同进程写失败恢复；不代表硬件或进程重启验收。</li>
+<li>25 项报告回归通过：豆包调度不冒充开播，插话与 Drop 时等待停止并消费真实开始证据，再写 Skipped / Interrupted；迟到完成不能覆盖终态。测试使用受控 sink，不是扬声器实测。</li>
+<li>内部提醒已先保存再交付；关闭语音仍保存为 Skipped。无法证实的来源保持空。来源越界、版本错误、不存在和持久化失败均不会投递音频。</li>
+<li>手动采纳提议也使用共享执行限制。70 项幕僚测试通过，包含冷加载、等待期间工作区或会话替换、拒绝后保留提议。</li>
+<li>Legacy 共用后台音频队列的 4 项聚焦测试通过。调度期间插话保留真实开始证据。缺失开始回调仍触发 deadline。停止确认前不续队，App entity 释放主动停播。未开播失败发送 DiscardQueued，真实事件总线与 VoiceWindowInset 清理已验。App 释放测试以 22 秒 watchdog 对照 5 秒总时限，排除超时假阳性。</li>
+<li>播报模块 43 项、豆包 106 项（2 项忽略）、报告 29 项回归通过，计数有重叠；受控 sink 和 GPUI entity 测试不替代扬声器或真实 App 验收。有效 UI 清理 RED 在 legacy-events-red.log；此前观察错事件队列的两次失败不计证据。</li>
+<li>GPT-Live 原生交付、决定与回执链、跨模式与记忆失效仍未完成。</li>
+</ul>
+<h3>报告重启恢复（本地证据）</h3>
+<ul>
+<li><p>新 scope 宿主在首次业务前后台恢复遗留 created / queued / sent / acknowledged / playing 为 Unknown；不推断已播或未播，不重放音频。Unknown 是不可复活的未知终态，近期索引可淘汰，原报告及来源仍可读取。</p>
+</li>
+<li><p>同进程活跃 delivery worker 保持协调器；切换消费者不会误恢复当前播放。部分写失败不标初始化完成，下次先补恢复再接新业务。CAS 拒绝覆盖抢先提交的确定回执。</p>
+</li>
+<li><p>4 项宿主恢复测试通过，包括子进程 exit(73) 跳过 Drop 的真实退出；完整报告过滤回归 33 项通过。存储报告 4 项及 CAS 竞争 1 项通过。不是断电、真实语音或完整三模式重连验收。</p>
+</li>
+<li><p>播放共用队列的 Live 音频会话 7 项回归通过；错误的 gpt_live_playback 过滤器匹配 0 条，不作为证据。</p>
+</li>
+<li><p>独立只读审查已复核生命周期、故障重试、CAS 竞争及测试观察点；agent / storage 完整回归已通过：418 项成功，2 项忽略。</p>
+</li>
+<li><p>完整回归修复了示例适配器遗漏的四类上下文命令，以及仍按 25 项核对的工具清单。现有 27 项工具均显式列出；未连接宿主的示例明确拒绝上下文操作。</p>
+</li>
+</ul>
+<h3>等待确认的决定来源链</h3>
+<ul>
+<li>生产 escalate 在实际转交用户后，保存 AwaitingConfirmation 决定与 Accepted 回执。回执明确所请求操作尚未放行或执行。报告引用二者，回执引用决定；语音关闭时仍保存为 Skipped。</li>
+<li>新增三项宿主测试通过，全部幕僚回归 73 项通过。测试沿真实报告引用读回来源，避免仅检查展示文字。</li>
+<li>审查发现并复现了长审批编号和空白理由导致提醒丢失的问题。超过 256 字节的编号使用完整身份摘要，原标识保留供追溯；空白理由明确记录为“未提供理由”。</li>
+<li>此阶段完成等待确认分支；后续动作来源进展见下节。Live 通话、记忆与跨模式实机仍未完成。</li>
+</ul>
+<h3>动作回执与来源保存（继续实施）</h3>
+<ul>
+<li>CLI 派发返回真实任务回执及决定/回执引用。报告端点可直接引用这些来源。</li>
+<li>Runtime 接受 Allow / Deny 后才保存决定。Accepted 不表示所请求操作已执行完成。Deny 先到达 Runtime，再后台保存来源。</li>
+<li>保存失败保留实际动作回执，单独返回 saved=false 和 retry_action=false。故障测试确认正文只写一次，协调器也只有一个任务。</li>
+<li>审查复现了长空白地址可派发、但摘要超长的问题。来源现采用真实回执的规范名称，聚焦测试已通过。</li>
+<li>全部幕僚回归 80 项通过；brain 域完整回归 95 项通过、2 项忽略；App 编译检查通过。审批新增测试仅验证已接受回执的保存，不替代真实 Runtime 审批。</li>
+<li>用户采纳提议复用来源保存入口，真实派发成功后消费提议；保存失败不恢复提议或重复派发，并显示准确反馈。迟到错误复验工作区、来源实体与 scope。</li>
+<li>保存等待最多两秒，超时或等待者释放后已接受的后台写入继续完成；两种路径均有读回证据。实际存储错误仍如实返回失败，当前不自动重试动作来源保存。</li>
+<li>真实 Runtime 审批、保存期间切换来源后的迟到错误专项测试，以及三模式实机仍待验。此前生命周期测试的错误前缀断言不准确，已修正；不计作生产缺陷的失败证据。</li>
+</ul>
+<h3>Live 通话启动共享资料</h3>
+<ul>
+<li>启动捕获来源服务与同一个通话 ID，后台最多等待两秒读取。复用统一装配器的 LiveConversation / NativeAudio 契约；不生成虚假文本输入，也不重放历史或旧报告。</li>
+<li>固定组仅加入当前目标、有效约束和最近四条报告引用；正文及记忆仍按需读取。数据置于明确标注的 JSON 块内，保留现有稳定规则、人格和音色；Live 协议只有 instructions，不能称其拥有独立 data role。</li>
+<li>共享资料限制为 16 KiB，实际序列化 session.start 限制为 32 KiB，包含 JSON 二次转义；必需资料超限明确停止启动。这是本地预算策略，不是供应商 token 上限。大环境/会话尾部可能触发拒绝，尚未按层缩减这些既有可选材料。</li>
+<li>通话存活检查加入完整 scope，目录相同也不能冒用另一画布。该路径已有静态复核，尚无实际 scope 切换测试；取消令牌测试不替代切换验收。</li>
+<li>启动阶段 Live 相关回归共 70 项通过，含 4 项新增测试。覆盖范围隔离、不重放、两层预算及正常配置；另覆盖读取中取消和两秒超时。动作生命周期的独立 watchdog 已随 80 项幕僚回归通过。</li>
+<li>启动仍是快照；原生报告接线进展见下节。更新后立即追问的供应商顺序、增量、长期失效与真实语音仍未验收，不能声称 Live 已实时同步。</li>
+</ul>
+<h3>Live 原生幕僚报告与局部取消</h3>
+<ul>
+<li>已连接 Live 时，报告进入原生通道，不依赖旧 TTS 就绪状态。不自动开启通话；完整 scope 不匹配、输出阻断或未连接时不接收。</li>
+<li>GPUI 前台仅投递原文及句柄，分段在后台完成。每段含报告 ID、版本、序号和总数；完整 JSON 内容最多 500 UTF-8 字节，最多 64 段。</li>
+<li>逐段核对 ACK 的 ID 与类型。正文全部 ACK 后才发送 Commentary 提示；最终 ACK 记 Sent → Acknowledged → Unknown。普通音频不能证明该报告已开始或完成播放。</li>
+<li>未提交网络队列的报告被取消时记 Skipped，部分提交后取消记 Unknown。报告入队起 15 秒到期；慢 ACK 或长报告可能到期，当前尚未优化。</li>
+<li>网络队列中的报告带独立取消令牌。出队和等待 socket ready 均检查取消；帧已交给 socket 后完成 flush，不能撤回已经发送的字节。</li>
+<li>报告最多使用 12 个网络队列槽，保留 4 个给静音和停止输出控制。单份报告仅允许一段在途，容量不足只重试未被接收的命令。</li>
+<li>已复现并修复筛选后取消的竞态：报告取消曾冒泡为整通话错误。现在只释放本报告，其他连接错误仍传播；独立审查已复核。</li>
+<li>最新 Live 回归 75 项通过；live_voice 完整测试 46 项通过、4 项忽略。含本地 WebSocket、受控音频 sink、逐段 ACK 和实际音频循环；均不代表真实云端或扬声器验收。</li>
+<li>关闭幕僚播报会取消未写出的报告追加；已发送资料与迟到云端输出无法按报告撤回。供应商时序、上下文增量和真实取消语义仍是未通过项。</li>
+</ul>
+<h3>记忆版本与召回撤销（继续实施）</h3>
+<ul>
+<li>MemorySessionContext 记录完整 MemoryScope 身份及其发布版本。版本来自实际 MemoryStore 快照；个人、项目、工作树均在后台读取，GPUI 前台不查库。两个项目的数字版本相同也不会混用。</li>
+<li>Legacy / Live 后台 NormaSession 与豆包在下一轮版本变化时清理旧模型历史。当前没有逐消息来源标签，因此保守清理整段历史。版本稳定时仍保留；界面账本与已接受的任务不删除、不重放。</li>
+<li>手机通过已授权项目集合跟踪 Project / Worktree 版本。模型实际调用 workspace_memory 读取后，后续请求能识别纠正；默认上下文只含版本元数据，不额外拼入项目记忆正文或目录。</li>
+<li>关闭召回后，同库桌面、后台、嵌入会话和手机 WorkspaceRuntimes 均被撤销；不同数据库不受影响。数据库广播不依赖设置视图存活。关闭保存开关不取消通话；Live 由下一次用户输入重新开启。</li>
+<li>运行时使用独立生命周期取消。普通请求队列或事件队列塞满时仍可取消；session 锁不可用且不释放时，回合也能结束。待锁测试不声称已经观测到 worker 首次等待该锁。</li>
+<li>手机 adapter 在实际执行边界检查运行时与回合取消。撤销后不能新派工，已经接受的任务保持不变。测试覆盖最终执行边界，不替代整个异步 pump 竞态验收。</li>
+<li>持久化群聊账本缺少生成正文的记忆来源版本。Norma 模型入口只导入用户原话、任务引用及结构化状态，旧回答和任务总结不重新注入；账本保留原文。指定卡片的回复与派工已共用同一规则。这是保守降级，有来源摘要尚未实现。</li>
+<li>本地 HTTP + 真实隔离存储测试已覆盖个人记忆纠正／删除、手机项目和工作树纠正，以及持久化旧回答回流。手机项目直接底层删除尚未单独覆盖。</li>
+<li>设置发布修复后的 App 组合回归为 371 项通过、2 项忽略，记录于 <code>artifacts/shared-context-20261025/memory-publication-green.log</code>。MemoryScope 身份调整后的 agent 完整回归也已通过：145 项通过、2 项忽略，覆盖 42 个测试组。</li>
+<li>外部修改后的在途模型与工具续轮、Live 已交付资料修订仍未验收。其他摘要来源失效、六向模式切换及真实 App／手机／音频设备也未验收。当前不宣称 T08 或完整融合已完成。</li>
+</ul>
+<h3>设置页发布后的即时撤销（本地验证通过）</h3>
+<ul>
+<li>设置页保存或导入记忆后，确认发布成功时撤销同库旧上下文。缺少逐消息来源标签，当前保守撤销该数据库的旧会话；不同数据库保持不变。用户可重新发起对话，不自动打开麦克风。</li>
+<li>保存回执未知时，正文可能已经发布，因此也撤销旧上下文。界面仍显示未确认结果，保留草稿和待核验提交；不把 Unknown 改成“已保存”。明确未提交的失败不取消通话。</li>
+<li>通知先通过独立 AsyncApp 广播，再回填设置页。设置页释放后，已登记会话仍收到通知；页面存活时也通过事件覆盖来源会话。</li>
+<li>三个新用例覆盖生产 save、真实隔离存储、同库／异库以及页面释放。SQLite 触发器只阻断发布后的回执 UPDATE；测试读回 NEW-FACT 与新版本，确认不是发布前失败。</li>
+<li>原问题 RED：正文保存成功但旧通话未取消，两项失败。修复后 App 组合回归 371 项通过、2 项忽略。事件更名遗漏造成的一次编译失败已修复，不算行为失败证据。</li>
+<li>独立对抗式复核未发现剩余阻塞。新用例直接观察 Live 生命周期与子任务取消；Legacy、豆包及手机运行时复用已测撤销入口。这不等于三模式实机验收。</li>
+<li>尚未覆盖：模型记忆工具写入或外部 MemoryStore 发布后的即时撤销、Live 云端增量替换、其他来源摘要和六向模式交接。真实 Live 场景要求专用密钥文件，当前未配置 NORMA_LIVE_TEST_KEY_FILE；未读取用户现有密钥。</li>
+</ul>
+<h3>本轮最终检查</h3>
+<ul>
+<li>App 组合回归：371 项通过、2 项忽略。agent 完整回归：145 项通过、2 项忽略。两组数量不作为全 workspace 测试结果。</li>
+<li><code>cargo check -p app</code> 通过。保留既有 <code>crates/app/src/settings/content.rs:191</code> 的 unreachable-pattern 警告，未扩展本轮范围。</li>
+<li>行数、禁止 allow、存储边界、性能护栏和相关 diff 空白检查均通过。命令、日志和已测源码 SHA-256 记录于 <code>artifacts/shared-context-20261025/evidence.json</code>。</li>
+<li>本轮未启动真实 App，未做云端、物理手机或音频硬件验收；未构建 release、未提交或发布。实际供应商时序与三模式兼容仍是交付前置条件。</li>
+</ul>
+</div></div>
+</section>
+</div>
+</div>
+</main>
+<div class="am-lightbox" hidden aria-modal="true" role="dialog" aria-label="图表查看" data-expand="展开查看图表">
+<div class="am-lightbox-backdrop"></div>
+<div class="am-lightbox-header">
+<div class="am-lightbox-title">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+<span class="am-lightbox-title-text"></span>
+</div>
+<div class="am-lightbox-actions">
+<button class="am-lightbox-close" data-action="close" title="关闭" aria-label="关闭">✕</button>
+</div>
+</div>
+<div class="am-lightbox-stage">
+<div class="am-lightbox-canvas am-diagram"></div>
+</div>
+</div>
+<textarea id="am-source" hidden readonly aria-hidden="true">---
+title: 语音与幕僚上下文融合 · 实施方案
+subtitle: 唯一执行清单 · Legacy / 豆包 2.0 / GPT-Live · 2026-10-25
+lang: zh
+template: doc
+theme: shadcn
+mode: light
+---
+
+## A 交付目标与验收标准
+
+```callout info 状态：实施中，宿主接线尚未完成验收
+首批覆盖三种对话模式，以及 GPT-Live 的后台规划入口。
+三种模式共享事实与有效约束，各自保留原生对话和音频管线。
+
+T01—T03 基础已通过聚焦测试。T04 已接入部分宿主读写、幕僚交接与工具限制；Legacy / Live 后台已接共享资料读取。豆包已接逐请求资料装配；Live 通话启动和原生报告已接线，增量与供应商时序仍待验证。当前不能视作融合功能已完成，性能数值仍为验收要求。
+```
+
+本文件是本需求的唯一执行清单。七组上下文图是设计依据，三模式核对文档是兼容性依据；执行进度与证据统一更新在本文件 H。
+
+| 编号 | 用户可见结果 | 证据要求 |
+|---|---|---|
+| AC01 | 幕僚汇报后问“刚才为什么拦下”，三模式都能回答对应依据 | T03 / T05—T07；引用选择测试 + 三模式真实语音 |
+| AC02 | 用户修订目标或约束后，幕僚后续处理读到新值 | T02 / T04；状态投影、交接与执行校验测试 |
+| AC03 | “不是这个任务，是另一个”能纠正指代，不改错任务 | T03 / T04；多候选、同项目双任务夹具 + 实机 |
+| AC04 | 三模式原有输入、直呼、工具、模型、音色及停止行为保持 | T05—T07 / T09；原有聚焦测试 + 模式实机 |
+| AC05 | 模式切换后可接续必要事实，不重复执行或补播旧内容 | T08 / T09；六个方向切换 + 迟到回调测试 |
+| AC06 | 当前用户输入与工具配对不被静默裁掉；超预算有明确结果 | T03；边界测试与请求内容检查 |
+| AC07 | 任务、项目、画布、会话之间按范围共享；同目录双画布不串用 | T01—T04 / T09；作用域与越界读取测试 |
+| AC08 | 记忆按需读取；关闭、纠正或删除后相关缓存与摘要失效 | T08；召回开关、删除传播、Live 会话恢复测试 |
+| AC09 | 区分等确认、拒绝、执行失败，以及入队、接收、播放与中断 | T02 / T04 / T07；决定与播报状态测试 + 实机 |
+| AC10 | 更新后立即追问，不以旧状态冒充当前事实 | T00 / T03 / T07；事件顺序测试 + Live 协议实测 |
+| AC11 | 已提交约束重启可恢复；未提交不声称已保存；恢复不重放操作 | T02 / T09；事务前后崩溃与故障注入 |
+| AC12 | 上下文等待有上限，可排查来源与耗时，语音延迟符合目标 | T00 / T03 / T09；基准对照 + ContextManifest |
+
+首批范围为 T00—T07，加上 T09 的基础回归和阶段验收。完整交付还须完成 T08 与 T09 全部项目。向量库、自动长期记忆写入和通用事件重放引擎不进入本次范围。
+
+现有记忆召回开关与 recall_epoch 失效行为在首批保留并回归。T08 扩展相关召回与跨层失效，不把现有隐私开关的正确性推迟到最后。
+
+## B 目标结构与拼接契约
+
+```flow LR
+语音文字与幕僚事件 -&gt; 共享记录与有效状态
+共享记录与有效状态 -&gt; 本次请求的筛选与预算
+本次请求的筛选与预算 -&gt; Legacy适配
+本次请求的筛选与预算 -&gt; 豆包适配
+本次请求的筛选与预算 -&gt; Live通话适配
+本次请求的筛选与预算 -&gt; Live后台规划适配
+共享记录与有效状态 -&gt; 幕僚按引用补读
+```
+
+### 七组内容如何进入模型
+
+| 分组 | 默认策略 | 更新与裁剪规则 |
+|---|---|---|
+| ① 系统规则 + 个性 | 固定稳定前缀 | 保留公共规则与模式规则；配置变化后重建相应版本 |
+| ② 环境 + 卡片索引 | 固定小快照 | 保留当前范围和必要路由信息；其他卡片按需展开 |
+| ③ 当前目标 + 有效约束 | 固定小快照 | 带任务、来源、版本和撤销关系；附当前话题与最近相关播报引用 |
+| ④ 相关记忆 | 本轮相关时才加入 | 精确引用优先，现有关键词检索其次；摘要带来源，原文按需读 |
+| ⑤ 幕僚决定与播报 | 本轮相关时才加入 | 从话题、播报或任务引用查依据和真实回执；缺关联就明确缺失 |
+| ⑥ 近期历史 | 保留各自原生形式 | Legacy / 豆包按完整轮次；Live 保留音频会话；后台使用时间线快照 |
+| ⑦ 当前输入 | 保留各自原生形式 | Legacy / 豆包传 user 文本；Live 继续传音频，转写不重复提交 |
+
+“固定”指每轮需要的逻辑内容，不表示 Chat 只发送一次。②—⑤是带来源的数据，不获得①的指令地位。播报记录不能伪装成用户发言。
+
+每次模型请求固定一个 snapshot。豆包工具后续请求仍刷新环境，并生成关联同一 turn 的新 snapshot。执行前再核验最新约束、任务和审批，不能仅靠请求开始时的版本。
+
+### 最小数据契约
+
+| 类型 | 内容与不变量 |
+|---|---|
+| ContextScope | workspace_id、area_id、project、worktree、task_id、conversation_id；无项目显式为 personal；稳定 ID 优先于目录名 |
+| ContextEvent | 宿主生成 event_id；原始来源、序号、时间、scope、类型化内容、相关事件引用；重复 ID 幂等 |
+| WorkingState | 有效目标、约束、待回应项、话题引用、相关播报；带 revision；任务完成状态只引用真实回执 |
+| ContextRef | 指向特定作用域与版本；宿主检查可读范围；失效或已清理时返回明确结果 |
+| ContextBundle | consumer、turn_id、snapshot_id、各来源版本、七组材料与选中引用；不同消费者可有不同投影 |
+| ContextManifest | 来源 ID、版本、入选理由、字节或 token 单位、裁剪与超时标记、耗时；默认不含私人正文 |
+
+consumer 区分 Legacy、豆包、Live 通话、Live 后台规划与幕僚。模式切换仅携带允许共享的事实与必要摘要，不迁移旧工具调用、授权身份或播放任务。
+
+装配 Interface 接收输入、scope、consumer、预算及已读取材料，返回 ContextBundle 与 ContextManifest。纯装配不查数据库、不联网、不控制音频。宿主负责有界读取和最新状态核验。
+
+## C 改动位置与职责
+
+以下“拟新增”是计划文件，不表示已经实现。新文件按职责拆分，Rust 源码保持不超过 500 行。
+
+| 改动 | 文件入口 | 职责 |
+|---|---|---|
+| 中立契约与 CLI | 拟新增 `crates/norma/src/protocol/context.rs`；修改 `crates/norma/src/protocol/brain.rs`、`crates/norma/src/cli/brain_command.rs` | 公共 DTO、Report 来源引用、只读 context 补读命令 |
+| 纯装配与约束归并 | 拟新增 `crates/agent/src/context/mod.rs`；修改 `crates/agent/src/master/memory_session.rs` | 七组组织、相关选择、冲突处理、预算；保留模式规则 |
+| 共享事件与状态存储 | 拟新增 `crates/storage/src/context_store.rs`；修改 `crates/storage/src/migrations.rs`、`crates/storage/src/brain_activity_store.rs` | 增量迁移、事件引用、状态 checkpoint、索引与清理 |
+| 后台编排 | 拟新增 `crates/app/src/app/shared_context.rs` | 收集事件、更新内存投影、异步持久化、缓存失效与分发 |
+| 幕僚交接与补读 | 修改 `crates/brain/src/event.rs`、`crates/brain/src/lane/prompt.rs`、`crates/app/src/app/brain_host/ops.rs`；拟新增 `crates/app/src/norma/endpoint/brain_context.rs` | 交接 context_ref；沿用 token 与 workspace 路由鉴权；后台补读 |
+| 工作状态更新入口 | 修改 `crates/agent/src/adapter.rs`、`crates/agent/src/adapter/definitions.rs`、`crates/app/src/app/agent_runtime/adapter_pump.rs` | 类型化候选更新、来源校验、执行限制；直呼也经过校验 |
+| Legacy 与 Dock | 修改 `crates/app/src/app/agent_runtime/submit.rs`、`crates/app/src/app/dialogue/reply_loop.rs` | 接入已准备快照；保持 Voice / Other 来源、原历史和输出方式 |
+| 豆包 | 修改 `crates/app/src/app/doubao/plan/chat.rs`、`crates/app/src/app/doubao/plan.rs` | 逐请求装配、Report 引用、保留原工具过滤与直呼 |
+| GPT-Live | 修改 `crates/app/src/app/gpt_live/prompt.rs`、`crates/app/src/app/gpt_live/session.rs`、`crates/app/src/app/gpt_live/dispatch.rs`、`crates/app/src/app/gpt_live/report.rs` | 通话与后台规划两处接入；有界追加、版本与交付状态 |
+| 播报事实 | 修改 `crates/app/src/app/agent_announcements/report.rs`、`crates/app/src/app/agent_announcements/doubao.rs` | 生成 report_id；生成、排队、播放、中断分别记录；按当前模式交付 |
+
+依赖保持 brain → norma、agent → norma、storage → agent。app 负责适配与副作用；brain 不依赖 agent/storage；agent 不直接读取 SQLite。
+
+采用 codebase-design 的小 Interface 原则：装配复杂度集中在一个 Module，协议差异留在各 Adapter。数据库、网络和文件 IO 均在后台执行，避开 GPUI 前台及现有性能热路径。
+
+## D 任务清单与实施顺序
+
+每项先补聚焦失败测试，再实现。完成后登记提交版本、命令、结果和证据；“文件已写”不能代替验收通过。
+
+| 任务 | 依赖 | 实施内容 | 完成条件与测试 |
+|---|---|---|---|
+| T00 基线与 Live 能力验证 | 无 | 固定三模式配置与基线；验证追加、ACK、回复开始、插话、重连和输出阻断的关系 | 记录供应商可保证的顺序；“更新后立即追问”实测；无法保证时走只读核验或关闭该能力，不能只用提示词兜底 |
+| T01 类型与协议 | T00 | 定义 scope、event、ref、bundle、manifest；扩展 Report 可选来源与 context 读取协议 | 序列化、旧参数兼容、错误范围引用、未知能力返回值；旧记录无关联标 unavailable |
+| T02 存储与投影 | T01 | 增量迁移；按来源幂等写事件；事务提交事件与 checkpoint；保留版本及撤销关系 | 重复写、乱序、同目录双画布、提交前后崩溃、7 天活动清理不删除有效约束 |
+| T03 统一装配 | T01 | ①—⑦分组；指代、相关选择、去重、完整轮次预算；记录 manifest | 同输入同快照结果一致；多候选不猜；超预算明确失败；工具配对完整；材料不能升级为指令 |
+| T04 共享宿主与幕僚 | T02 + T03 | 接收状态候选；类型化执行限制；交接 context_ref；决定与播报关联；CLI 后台补读 | 新约束影响后续处理；范围与来源核验；记录更新不自动派任务；等确认与拒绝不混淆 |
+| T05 Legacy 接入 | T04 | NormaSession 读取共享快照；Report 供下轮取用；直呼校验；Dock 共用路径回归 | 单次／持续聆听均能追问；所选模型和 TTS 保留；直呼不绕过限制；Dock 不被强制语音化 |
+| T06 豆包接入 | T04 | Chat 逐请求装配；Report 带引用；保留常驻通道、输入优先和工具过滤 | 创建卡片后的请求读到新环境；Report 后可追问；后台项目播报可继续；插话不误停新回复 |
+| T07 Live 双入口接入 | T00 + T04 | 通话启动与增量资料；后台 NormaSession 读取相关状态；原生播报；版本、ACK、过期结果处理 | 对话与后台均使用有效约束；旧 TTS 禁用；单条追加符合本地上限；转写不重复提交；新状态生效有证据 |
+| T08 记忆与长会话 | T05 + T06 + T07 | 相关记忆召回；有来源的历史摘要；关闭、纠正与删除传播；跨模式摘要交接 | 无关记忆不入请求；召回关闭缓存失效；Live 必要时重建；旧摘要不能恢复已删除事实 |
+| T09 集成与发布验收 | 分阶段覆盖 T01—T08 | 三模式统一场景、六向切换、双项目、重启、性能与回退；记录完整证据 | AC01—AC12 均有结果；真实 App 覆盖三模式；问题修复后定向复验；检查通过后才发布 |
+
+实施顺序为 T00 → T01 → T02 / T03 → T04 → T05 → T06 → T07 → T08 → T09。T02 与 T03 没有实现依赖；本计划默认顺序执行，不自动启动并行 Agent 或重型构建。
+
+若 T00 缺少可用凭据，登记未验证项；T01—T06 可继续本地开发与验证。T07 的真实 Live 验收仍是发布前置条件，模拟 ACK 不能替代供应商实测。
+
+建议以任务为提交单元。T05、T06、T07 可以分别验收和启用，但三者完成前不能宣称首批目标已完成。T09 的对应测试随各任务执行，不集中留到最后。
+
+## E 关键流程与失败处理
+
+### 1. 用户输入 → 有效工作状态
+
+先记录最终用户输入及来源，再准备本轮上下文。现有模型回合通过拟新增的类型化工作状态工具提交候选，不额外增加一次分类模型请求。直接路由先读取当前有效限制；存在未解析修订时，暂停该次直接执行并回到现有解析流程。
+
+宿主验证来源事件、目标 scope、expected_revision 和允许的变更类型。同一条约束的修订保留 supersedes 关系；模型摘要不自动撤销用户规则。ASR 临时结果不写成长期事实，转写更正保留来源关系。
+
+工作状态区分两类：文本要求用于对话和任务交接；可执行限制绑定宿主已识别的操作与目标。宿主能校验的限制才标记为 enforced；其余标记为 communicated，不能声称已强制执行。
+
+例如“这次先别发布”保留原话并进入后续任务上下文。若无法可靠映射到具体动作，不自动放行相关操作。已经派给外部 Coding Agent 的任意内部命令，仍受现有执行与审批机制约束；本方案不宣称能拦截所有外部 shell 行为。
+
+限制性规则可在核验来源后收紧；放宽权限仍走现有用户授权与审批入口。用户说“刚才那个”有多个候选时，先澄清任务，不能以最后生成时间直接决定。
+
+内存接受和持久化成功分开记录。事务提交成功才可说“已保存”；失败保留待保存状态并有限重试。重启后若关键状态不完整，相关执行等待核验，不把缺记录解释为无限制。
+
+### 2. 幕僚决定 → 播报 → 追问
+
+宿主为决定、回执和汇报生成稳定引用。Report 可以引用多个决定，引用必须属于可读作用域。旧 Report 没有来源时保留正文，标记关联缺失，不根据相近文本补造关系。
+
+播报事实先进入共享记录，再由当前模式交付。Legacy 走原 TTS；豆包走常驻播报通道；Live 走原生追加与输出通道。语音关闭时记录 skipped；Live 未连接时记录未播，不自动开通话或麦克风。
+
+交付状态分为 created、queued、playing、completed，以及 skipped、interrupted、failed。Live 另记录 sent / acknowledged；协议接收不等于开始或完成播放。没有可靠的报告与音频对齐时，播放归属标 unknown，不伪造进度。
+
+用户追问优先结合当前话题、任务和实际播报状态，再沿 report → decision → receipt 取依据。生成过但没播出的汇报不能被默认当作“刚才说过”。记录读取不会触发重新执行。
+
+### 3. Live 更新 → 当前回答
+
+T00 实测协议是否支持在回复开始前完成更新、取消旧回复或读取响应关联。若可保证顺序，绑定上下文 revision 与当前 generation 后发送。不能证明顺序时，相关事实问答必须完成后台只读核验。
+
+如果供应商无法可靠完成上述核验与回答交接，该能力保持关闭，T07 不算通过。不能用本地静音、收到 ACK 或“请使用最新信息”的提示词代替时序保证。
+
+按 scope + revision 去重。当前本地 Append 单条上限为 500 UTF-8 字节；分段须计算完整内容，包括版本标签。追加失败、部分批次成功或超时应记入 manifest；不把部分材料标记为完整快照。
+
+只追加协议下的旧值作显式失效说明，宿主仍依据最新状态执行。累计材料达到阈值时按已验证的恢复能力重建；先保存有效事实，不重放旧操作或旧播报。
+
+### 4. 预算、读取与降级
+
+| 情况 | 行为 |
+|---|---|
+| 普通闲聊没有相关材料 | 省略④⑤；只带必要状态和原生历史 |
+| 可选记忆检索超时 | 省略该部分并记入 manifest，不阻塞整轮 |
+| 问题依赖的决定或约束缺失 | 返回明确缺失／需核验状态，不以旧事实猜答 |
+| 有效规则、当前输入和必要工具配对已超窗口 | 返回 BudgetExceeded，不发送残缺请求；提示缩小输入或分步处理 |
+| 来源引用越界或已失效 | 返回 ScopeMismatch / Unavailable / StaleSnapshot；不自动扩大搜索范围 |
+| 工具已提交后插话 | 按既有流程取消过时回复；保留已接受任务与真实回执，避免重复提交 |
+
+先过滤范围，再按明确引用、当前话题、相关任务和关键词选取；去重后裁低相关片段及旧整轮历史。所有预算明确字节或 token 单位，输出和工具回执预留分别计算。不同模式采用各自上限。
+
+## F 三种模式的兼容要求
+
+| 模式 | 接入位置 | 必须保留 | 定向回归 |
+|---|---|---|---|
+| Legacy | NormaSession 装配；项目 Agent 提交；播报记录 | 单次／持续聆听、原生历史、Voice 来源、直呼、所选 ASR / 模型 / TTS | 语音追问、约束修订、Dock 文字、回声抑制与停止 |
+| 豆包 2.0 | ChatRuntime 每次请求；Report 入口；直呼执行 | 环境逐请求刷新、工具配对、个人／总览工具过滤、用户开口优先 | 后台播报、收音失败后通道继续、工具后刷新、按住／持续输入 |
+| GPT-Live | 通话 prompt 与增量；后台 dispatch 的 NormaSession | 原生音频、GptLiveVoice 来源、快照与授权校验、持久回执；旧 TTS 禁用 | 双入口一致、插话、输入静音／输出停止、重连、不重复执行 |
+
+幕僚汇报开关与任务播报开关各自判断。关闭收音不等于关闭播报；停止播音不等于取消已接受任务。共享层不能重新解释这些已有语义。
+
+### 切换与后台项目
+
+- 覆盖 Legacy → 豆包、豆包 → Legacy、Legacy → Live、Live → Legacy、豆包 → Live、Live → 豆包。
+- 切模式沿用旧通道停止流程，新通道使用新的 generation；共享事件引用可以延续。
+- 切项目保留既有后台生命周期；豆包后台播报仍可工作，记录归属原 area / project。
+- 同目录双画布按 area_id 分开；前台焦点只作指代线索，不改写后台来源。
+- 新模式按需读取摘要，标明来自旧模式；已播放内容不自动补播，旧工具调用不迁移。
+
+兼容性核对与已有测试入口见 `docs/exec-plans/2026-10-25-context-three-modes-compatibility.md`。
+
+## G 验证、性能与发布条件
+
+### 测试组织
+
+| 验证层 | 计划测试位置 | 覆盖任务 |
+|---|---|---|
+| 协议与旧 CLI | `crates/norma/tests/brain_cli_tests.rs`；拟新增 `crates/norma/tests/context_protocol.rs` | T01 / T04 |
+| 选择、预算、角色与约束 | 拟新增 `crates/agent/tests/context_assembly.rs`、`crates/agent/tests/context_constraints.rs` | T03—T08 |
+| 存储与崩溃恢复 | 拟新增 `crates/storage/tests/context_store.rs`、`crates/storage/tests/context_recovery.rs` | T02 / T08 / T09 |
+| 幕僚交接与状态引用 | 拟新增 `crates/brain/tests/context_handoff.rs` | T04 |
+| 宿主与模式接入 | 拟新增 `crates/app/tests/unit/shared_context_tests.rs`、`crates/app/tests/unit/context_mode_switch_tests.rs`；扩展三模式既有测试 | T04—T09 |
+| 真实 App 与语音 | 按模块扩展 `test/desktop-e2e/Scenarios/brain/BrainModule.swift`、`test/desktop-e2e/Scenarios/voice/VoiceModule.swift` | AC01—AC05 / AC09 / AC10 / AC12 |
+
+测试先从 Interface 注入固定快照与可控制的事件顺序，断言选中 ID、版本、实际调用次数与拒绝结果。不得只断言字符串存在，也不得把 mock 的成功当作真实播报完成。
+
+每个测试注明场景、构造、执行与预期；断言带说明。大型单元测试按 crate 放入 tests/unit，集成测试放入 tests。真实音频与供应商行为在实机验证，测试替身只验证本地分支。
+
+### 执行检查
+
+按变更范围运行 norma、agent、storage、brain、live_voice 的 crate 测试；app 先跑聚焦单元／集成测试并执行 `cargo check -p app`。跨 crate 集成完成后执行 `cargo test --workspace`。
+
+UI 或生命周期差异优先跑对应 desktop-e2e 场景。覆盖不足的真实录音、外放插话和供应商协议补实机证据。涉及 GPUI／打包时执行 `cargo build -p app --release`；同机重型构建顺序运行。
+
+```bash title=&quot;最终集成检查 · 按实际改动范围执行&quot;
+cargo test -p norma -p agent -p storage -p brain -p live_voice
+cargo check -p app
+cargo test --workspace
+bash scripts/check-storage-boundaries.sh
+bash scripts/check-performance-guardrails.sh
+bash scripts/check-max-file-lines.sh
+bash scripts/check-no-allow.sh
+```
+
+修改 TTS provider 或依赖时补其边界检查。新增 UI 控件时先加载 Apple 设计 skill，使用现有组件与状态反馈，并做浅深色真实 App 验收。本计划不新增独立上下文设置页面；诊断信息先通过开发日志的元数据和现有诊断入口提供。
+
+### 性能目标与基线
+
+以下为首版建议目标，不是已测结果。T00 在同设备、模型、网络与测试语句下建立基线，并登记最终采用的阈值；变更阈值须记录原因。
+
+| 指标 | 首版建议目标 | 测量方式 |
+|---|---|---|
+| 纯装配耗时 | p95 ≤ 20 ms，候选片段不超过 100 条 | 固定夹具预热 50 轮，再测量 1000 轮；排除数据库和网络耗时 |
+| 可选检索等待 | 截止时间 150 ms | 超时故障注入，确认本轮继续且 manifest 有记录 |
+| 首个有效语音延迟 | p95 相比同模式基线增加不超过 300 ms | 每模式至少 30 组对照，单列冷启动与后台核验；不把空白或填充音算有效回答 |
+| 错误引用与重复副作用 | 具名验收夹具中为 0 | 逐条核对来源 ID、版本、执行次数与真实回执 |
+
+关键状态核验不受可选检索的 150 ms 省略规则影响。核验超时要明确反馈；不能为了延迟指标删掉有效约束。没有基线与实机证据时，不声称性能已达标。
+
+### 发布与回退
+
+数据库采用增量迁移，旧数据缺少关联时标 unavailable；不要伪造历史引用。新 CLI 能力探测失败时禁用相应读取，旧 Report 的 text / priority 形式继续兼容。新参数采用可选字段并验证往返序列化。
+
+共享装配按模式独立开关启用。先在开发环境完整跑三模式，再按通道逐步放量。回退可恢复旧装配路径，但宿主已接受的有效限制继续校验；无法校验的相关执行暂停。回退不做破坏性数据库降级，不重播或重放已发生的行为。
+
+发布前：AC01—AC12 均有证据；三模式与六向切换通过；未解决的时序、作用域、重复执行或权限回归阻止发布。代码审查时依仓库规范安排独立对抗式审查，并由实施者核验发现。
+
+## H 进度与证据登记
+
+| 任务 | 当前状态 | 完成后登记 |
+|---|---|---|
+| T00 基线与 Live 能力 | 部分验证 | HEAD 8d0eef02 + 现有工作区；Live 本地上下文/控制协议 17 项通过；未配置 NORMA_LIVE_TEST_KEY_FILE，云端时序和延迟基线待验 |
+| T01 类型与协议 | 基础实现已验证 | scope/event/ref/bundle/manifest、输入/决定/回执/播报、Report 来源与 context CLI；2 项协议 + 6 项旧 CLI 通过；宿主能力协商和端点读取随 T04 完成 |
+| T02 存储与投影 | 基础实现已验证 | 6 项存储测试通过：幂等、CAS、乱序、范围、重开、checkpoint 事务故障、来源与播报状态；真实进程崩溃、并发和清理压力验收待补 |
+| T03 统一装配 | 基础实现已验证 | 4 项装配 + 1 项约束测试通过：七组、引用/话题、歧义、范围、整轮工具配对、预算、Live 原生身份、冲突快照；OpenAI 实际请求预算已验；其他供应商、检索截止和性能待验 |
+| T04 共享宿主与幕僚 | 部分接线 | 输入、候选、补读、恢复、执行限制及报告已有聚焦证据；等待确认、已接受 Allow / Deny / Assign 与用户采纳提议已记录来源。保存失败不重复动作，超时和等待者释放不取消已接受写入。真实 Runtime 审批、失败动作来源及实机仍待验 |
+| T05 Legacy | 部分接线，未验收 | NormaSession 已读取共享资料；默认 16k 实际请求及续轮超限拦截通过；可选记忆不能挤掉工作状态；语音与 Dock 实机待验 |
+| T06 豆包 | 逐请求装配已接 | 资料独立于系统规则与原生历史；100 项旧回归通过；转义预算与来源切换边界通过；播放中断与 Drop 竞态已修复，受控音频回调通过；实机待验 |
+| T07 GPT-Live | 双入口部分接线 | 启动共享资料与原生报告已接线；Live 回归 75 项、网络域 46 项通过。逐段 ACK、取消与控制容量已有本地证据。增量、供应商时序及真实 scope 切换仍待验 |
+| T08 记忆与长会话 | 部分实施，未验收 | 桌面和手机撤销、拥塞与锁不可用时的取消已验证；手机项目／工作树下一轮版本失效及撤销后新派工拦截通过。无来源版本的群聊生成正文禁止重新注入 Norma 或指定卡片；设置页发布后的同库即时撤销已验证，含页面释放和未知回执。Live 增量修订、来源摘要与跨模式恢复仍待补 |
+| T09 集成与发布 | 分阶段验收中 | 聚焦集成测试与静态护栏已有记录；AC 完整矩阵、六向切换、实机、性能及回退验收仍待完成 |
+
+每条证据记录源码版本、测试命令、结果、时间和产物路径。截图存为文件，不能把浏览器原型或静态图当作真实语音验收。
+
+设计依据：`docs/design-docs/2026-10-25-prompt-groups-a4.md`、`docs/design-docs/2026-10-25-context-message-a4.md`。三模式代码核对依据：`docs/exec-plans/2026-10-25-context-three-modes-compatibility.md`。
+
+实施记录（2026-10-25）：独立 Cargo 缓存任务 `shared-context-20261025`；保留现有 dirty 工作区。
+
+- 基线：`test -p live_voice --test control_protocol --test context_snapshots --test context_offsets --test output_gate`，17 项通过；output_gate 在未开 test-support 时为 0 项，不计为通过证据。
+- T01 red：新 context_protocol 测试因缺少 scope/ref/sources 失败；实现后 1 项通过，再补 context CLI red，随后 2 项通过。
+- T01 green：`test -p norma --test context_protocol --test brain_cli_tests`，8 项通过。
+- 所有 Cargo 命令均通过 `python3 scripts/task-build-cache.py run shared-context-20261025 -- …` 执行。
+- 尚未完成真实三模式验收，未发布或切换默认装配；新的非空来源请求在宿主未接入前明确拒绝，不静默吞掉。
+
+
+### 初始基础阶段（历史验证记录）
+
+- `crates/norma/src/protocol/context.rs` 与 `crates/norma/src/protocol/context/assembly.rs`：中立数据契约。旧 Report 无来源时仍可读；新来源不自动推测决定。
+- `crates/storage/src/context_store.rs`：独立 SQLite 表，事件与 checkpoint 同事务；幂等回执、原始来源序号、expected_revision、精确引用与作用域校验。读取不执行操作。此处只在临时测试库验收，未操作用户真实库。
+- `crates/agent/src/context/`：纯状态投影、七组装配、指代和来源筛选、完整历史预算。固定组保留当前目标/约束及最多 4 条报告索引；报告正文按需加入。宿主仍须完成来源认证、最新状态读取和实际操作拦截。
+- 初始阶段 Enforced 仅有域契约。随后已接入宿主工具入口，但幕僚、跨目标与并发边界尚待补齐，不能宣称所有入口已强制实施限制。
+- `brain context` 已接后台补读并在回复前复核 token/scope。非空 Report 来源仍拒绝；旧记忆 recall_epoch 路径未改动。
+
+### 对抗式审查与修复
+
+依据仓库规定安排独立只读审查，复核确认已修复：
+
+1. 未播取消不能变成“刚才说过”：只有 Playing → Interrupted；未播取消用 Skipped。
+2. 活动报告不静默淘汰：索引满时明确失败，仅终态报告可腾出空间；不可变事件仍保留。
+3. 无关报告正文不占固定预算：仅保留小型索引，正文进入按需组。
+4. 一次请求不能混用相同 scope 的不同 revision；状态内部引用不得越 scope 或指向快照未来。
+
+新增聚焦测试共 13 项均通过；另有旧 CLI 6 项、Live 基线 17 项通过。存储故障测试为真实 SQLite 触发器注入，不等同于已经完成进程崩溃或断电验收。装配预算目前明确使用序列化 UTF-8 字节，供应商实际请求仍需在各适配器再次验算。
+
+后续继续 T04：补齐保存恢复与全部执行入口，再完成报告持久化和交付回调。之后依次完成三模式适配；当前部分接线尚未发布，不能当作完整默认路径验收。
+
+
+### 完整基础回归
+
+- `test -p norma -p agent -p storage`：619 项通过，0 失败，2 项忽略（完整日志：`artifacts/shared-context-20261025/foundation-tests.log`）。
+- `bash scripts/check-max-file-lines.sh`、`bash scripts/check-no-allow.sh`、`bash scripts/check-storage-boundaries.sh`：通过。
+- 本次相关文件 `git diff --check`：通过。
+- 宿主初次接线后的 App 编译检查已通过；后续修订仍需增量检查。全工作区、真实三模式、供应商时序和性能验收未完成。
+
+T04 的具体边界：`desktop_context_for_provider` 读取当前宿主焦点，不能拿它绑定后台事件的归属。必须从来源项目会话的稳定 workspace / area 身份建立共享 scope，再验证项目目录；同目录双画布和后台豆包播报仍各归原 area。
+
+### 宿主接线后的审查进度
+
+- 已复现并通过 6 项聚焦回归：约束不能隐式降级、非规范节点目标拒绝、16 KiB 输入保留。原话不重复检索，资料按实际字节预算。
+- 新增宿主 6 项测试通过：保存故障后不同 call ID 重试、取消等待者、checkpoint 非明确成功。另含同 scope 多实例、释放消费者后恢复、后台读取后的来源复验。跨画布首次派发测试另行通过，真实豆包 pump 等待冷目标状态准备。
+- 真实 HTTP 请求测试发现的默认 16k 回归已修复。4 项 Session 测试通过：正常发送、超限续轮不请求、资料不污染历史、可选记忆不挤占工作状态。每次请求计算序列化转义与工具回执预留。
+- SQLite 故障仅使用临时测试库；没有操作用户真实数据库。
+
+### 后续修复（持续更新，尚未完成融合）
+
+- 实际 Rig OpenAI 请求中，共享资料作为 system 之后、原生历史之前的独立 user 文档消息；不是 system 指令，也不是供应商提供的 data role。资料不写入持久对话历史。
+- 3 项分页测试和 5 项存储边界测试通过：按 UTF-8 边界读取完整事件，预算包含外层 tool.content 转义；合法 32 KiB 输入不会因 JSON 转义被误拒绝。
+- 幕僚自动 Assign/Allow 已与语音共享 deny-only gate；限制不会阻止 Deny/Escalate，原自主权检查仍保留。端点异步加载后重新验证 token/scope。
+- 手机共用入口 2 项、只读刷新及恢复 7 项、桌面 adapter 59 项已通过。手机测试为临时库和记录型 PTY，不代表真实 App 验收。
+- 仍待完成：决定、回执与报告的完整来源链、真实播报回调、Live 原生通话、记忆失效与跨模式验收。
+- 本地测试均使用临时数据库；没有修改用户真实库。详细结果在 `artifacts/shared-context-20261025/evidence.json`。
+
+### 报告交付接线（继续实施）
+
+- Report 端点先保存正文及精确来源，再进入原播报通道。关闭播报记录 Skipped，保存失败不交付。
+- 27 项上下文宿主测试通过，覆盖豆包请求预算、环境来源切换、报告保存与入队取消。
+- 3 项交付测试通过，覆盖 Legacy 宿主回调、报告独立分批、同进程写失败恢复；不代表硬件或进程重启验收。
+- 25 项报告回归通过：豆包调度不冒充开播，插话与 Drop 时等待停止并消费真实开始证据，再写 Skipped / Interrupted；迟到完成不能覆盖终态。测试使用受控 sink，不是扬声器实测。
+- 内部提醒已先保存再交付；关闭语音仍保存为 Skipped。无法证实的来源保持空。来源越界、版本错误、不存在和持久化失败均不会投递音频。
+- 手动采纳提议也使用共享执行限制。70 项幕僚测试通过，包含冷加载、等待期间工作区或会话替换、拒绝后保留提议。
+- Legacy 共用后台音频队列的 4 项聚焦测试通过。调度期间插话保留真实开始证据。缺失开始回调仍触发 deadline。停止确认前不续队，App entity 释放主动停播。未开播失败发送 DiscardQueued，真实事件总线与 VoiceWindowInset 清理已验。App 释放测试以 22 秒 watchdog 对照 5 秒总时限，排除超时假阳性。
+- 播报模块 43 项、豆包 106 项（2 项忽略）、报告 29 项回归通过，计数有重叠；受控 sink 和 GPUI entity 测试不替代扬声器或真实 App 验收。有效 UI 清理 RED 在 legacy-events-red.log；此前观察错事件队列的两次失败不计证据。
+- GPT-Live 原生交付、决定与回执链、跨模式与记忆失效仍未完成。
+
+### 报告重启恢复（本地证据）
+
+- 新 scope 宿主在首次业务前后台恢复遗留 created / queued / sent / acknowledged / playing 为 Unknown；不推断已播或未播，不重放音频。Unknown 是不可复活的未知终态，近期索引可淘汰，原报告及来源仍可读取。
+- 同进程活跃 delivery worker 保持协调器；切换消费者不会误恢复当前播放。部分写失败不标初始化完成，下次先补恢复再接新业务。CAS 拒绝覆盖抢先提交的确定回执。
+- 4 项宿主恢复测试通过，包括子进程 exit(73) 跳过 Drop 的真实退出；完整报告过滤回归 33 项通过。存储报告 4 项及 CAS 竞争 1 项通过。不是断电、真实语音或完整三模式重连验收。
+- 播放共用队列的 Live 音频会话 7 项回归通过；错误的 gpt_live_playback 过滤器匹配 0 条，不作为证据。
+- 独立只读审查已复核生命周期、故障重试、CAS 竞争及测试观察点；agent / storage 完整回归已通过：418 项成功，2 项忽略。
+
+- 完整回归修复了示例适配器遗漏的四类上下文命令，以及仍按 25 项核对的工具清单。现有 27 项工具均显式列出；未连接宿主的示例明确拒绝上下文操作。
+
+### 等待确认的决定来源链
+
+- 生产 escalate 在实际转交用户后，保存 AwaitingConfirmation 决定与 Accepted 回执。回执明确所请求操作尚未放行或执行。报告引用二者，回执引用决定；语音关闭时仍保存为 Skipped。
+- 新增三项宿主测试通过，全部幕僚回归 73 项通过。测试沿真实报告引用读回来源，避免仅检查展示文字。
+- 审查发现并复现了长审批编号和空白理由导致提醒丢失的问题。超过 256 字节的编号使用完整身份摘要，原标识保留供追溯；空白理由明确记录为“未提供理由”。
+- 此阶段完成等待确认分支；后续动作来源进展见下节。Live 通话、记忆与跨模式实机仍未完成。
+
+### 动作回执与来源保存（继续实施）
+
+- CLI 派发返回真实任务回执及决定/回执引用。报告端点可直接引用这些来源。
+- Runtime 接受 Allow / Deny 后才保存决定。Accepted 不表示所请求操作已执行完成。Deny 先到达 Runtime，再后台保存来源。
+- 保存失败保留实际动作回执，单独返回 saved=false 和 retry_action=false。故障测试确认正文只写一次，协调器也只有一个任务。
+- 审查复现了长空白地址可派发、但摘要超长的问题。来源现采用真实回执的规范名称，聚焦测试已通过。
+- 全部幕僚回归 80 项通过；brain 域完整回归 95 项通过、2 项忽略；App 编译检查通过。审批新增测试仅验证已接受回执的保存，不替代真实 Runtime 审批。
+- 用户采纳提议复用来源保存入口，真实派发成功后消费提议；保存失败不恢复提议或重复派发，并显示准确反馈。迟到错误复验工作区、来源实体与 scope。
+- 保存等待最多两秒，超时或等待者释放后已接受的后台写入继续完成；两种路径均有读回证据。实际存储错误仍如实返回失败，当前不自动重试动作来源保存。
+- 真实 Runtime 审批、保存期间切换来源后的迟到错误专项测试，以及三模式实机仍待验。此前生命周期测试的错误前缀断言不准确，已修正；不计作生产缺陷的失败证据。
+
+### Live 通话启动共享资料
+
+- 启动捕获来源服务与同一个通话 ID，后台最多等待两秒读取。复用统一装配器的 LiveConversation / NativeAudio 契约；不生成虚假文本输入，也不重放历史或旧报告。
+- 固定组仅加入当前目标、有效约束和最近四条报告引用；正文及记忆仍按需读取。数据置于明确标注的 JSON 块内，保留现有稳定规则、人格和音色；Live 协议只有 instructions，不能称其拥有独立 data role。
+- 共享资料限制为 16 KiB，实际序列化 session.start 限制为 32 KiB，包含 JSON 二次转义；必需资料超限明确停止启动。这是本地预算策略，不是供应商 token 上限。大环境/会话尾部可能触发拒绝，尚未按层缩减这些既有可选材料。
+- 通话存活检查加入完整 scope，目录相同也不能冒用另一画布。该路径已有静态复核，尚无实际 scope 切换测试；取消令牌测试不替代切换验收。
+- 启动阶段 Live 相关回归共 70 项通过，含 4 项新增测试。覆盖范围隔离、不重放、两层预算及正常配置；另覆盖读取中取消和两秒超时。动作生命周期的独立 watchdog 已随 80 项幕僚回归通过。
+- 启动仍是快照；原生报告接线进展见下节。更新后立即追问的供应商顺序、增量、长期失效与真实语音仍未验收，不能声称 Live 已实时同步。
+
+
+### Live 原生幕僚报告与局部取消
+
+- 已连接 Live 时，报告进入原生通道，不依赖旧 TTS 就绪状态。不自动开启通话；完整 scope 不匹配、输出阻断或未连接时不接收。
+- GPUI 前台仅投递原文及句柄，分段在后台完成。每段含报告 ID、版本、序号和总数；完整 JSON 内容最多 500 UTF-8 字节，最多 64 段。
+- 逐段核对 ACK 的 ID 与类型。正文全部 ACK 后才发送 Commentary 提示；最终 ACK 记 Sent → Acknowledged → Unknown。普通音频不能证明该报告已开始或完成播放。
+- 未提交网络队列的报告被取消时记 Skipped，部分提交后取消记 Unknown。报告入队起 15 秒到期；慢 ACK 或长报告可能到期，当前尚未优化。
+- 网络队列中的报告带独立取消令牌。出队和等待 socket ready 均检查取消；帧已交给 socket 后完成 flush，不能撤回已经发送的字节。
+- 报告最多使用 12 个网络队列槽，保留 4 个给静音和停止输出控制。单份报告仅允许一段在途，容量不足只重试未被接收的命令。
+- 已复现并修复筛选后取消的竞态：报告取消曾冒泡为整通话错误。现在只释放本报告，其他连接错误仍传播；独立审查已复核。
+- 最新 Live 回归 75 项通过；live_voice 完整测试 46 项通过、4 项忽略。含本地 WebSocket、受控音频 sink、逐段 ACK 和实际音频循环；均不代表真实云端或扬声器验收。
+- 关闭幕僚播报会取消未写出的报告追加；已发送资料与迟到云端输出无法按报告撤回。供应商时序、上下文增量和真实取消语义仍是未通过项。
+
+
+### 记忆版本与召回撤销（继续实施）
+
+- MemorySessionContext 记录完整 MemoryScope 身份及其发布版本。版本来自实际 MemoryStore 快照；个人、项目、工作树均在后台读取，GPUI 前台不查库。两个项目的数字版本相同也不会混用。
+- Legacy / Live 后台 NormaSession 与豆包在下一轮版本变化时清理旧模型历史。当前没有逐消息来源标签，因此保守清理整段历史。版本稳定时仍保留；界面账本与已接受的任务不删除、不重放。
+- 手机通过已授权项目集合跟踪 Project / Worktree 版本。模型实际调用 workspace_memory 读取后，后续请求能识别纠正；默认上下文只含版本元数据，不额外拼入项目记忆正文或目录。
+- 关闭召回后，同库桌面、后台、嵌入会话和手机 WorkspaceRuntimes 均被撤销；不同数据库不受影响。数据库广播不依赖设置视图存活。关闭保存开关不取消通话；Live 由下一次用户输入重新开启。
+- 运行时使用独立生命周期取消。普通请求队列或事件队列塞满时仍可取消；session 锁不可用且不释放时，回合也能结束。待锁测试不声称已经观测到 worker 首次等待该锁。
+- 手机 adapter 在实际执行边界检查运行时与回合取消。撤销后不能新派工，已经接受的任务保持不变。测试覆盖最终执行边界，不替代整个异步 pump 竞态验收。
+- 持久化群聊账本缺少生成正文的记忆来源版本。Norma 模型入口只导入用户原话、任务引用及结构化状态，旧回答和任务总结不重新注入；账本保留原文。指定卡片的回复与派工已共用同一规则。这是保守降级，有来源摘要尚未实现。
+- 本地 HTTP + 真实隔离存储测试已覆盖个人记忆纠正／删除、手机项目和工作树纠正，以及持久化旧回答回流。手机项目直接底层删除尚未单独覆盖。
+- 设置发布修复后的 App 组合回归为 371 项通过、2 项忽略，记录于 `artifacts/shared-context-20261025/memory-publication-green.log`。MemoryScope 身份调整后的 agent 完整回归也已通过：145 项通过、2 项忽略，覆盖 42 个测试组。
+- 外部修改后的在途模型与工具续轮、Live 已交付资料修订仍未验收。其他摘要来源失效、六向模式切换及真实 App／手机／音频设备也未验收。当前不宣称 T08 或完整融合已完成。
+
+### 设置页发布后的即时撤销（本地验证通过）
+
+- 设置页保存或导入记忆后，确认发布成功时撤销同库旧上下文。缺少逐消息来源标签，当前保守撤销该数据库的旧会话；不同数据库保持不变。用户可重新发起对话，不自动打开麦克风。
+- 保存回执未知时，正文可能已经发布，因此也撤销旧上下文。界面仍显示未确认结果，保留草稿和待核验提交；不把 Unknown 改成“已保存”。明确未提交的失败不取消通话。
+- 通知先通过独立 AsyncApp 广播，再回填设置页。设置页释放后，已登记会话仍收到通知；页面存活时也通过事件覆盖来源会话。
+- 三个新用例覆盖生产 save、真实隔离存储、同库／异库以及页面释放。SQLite 触发器只阻断发布后的回执 UPDATE；测试读回 NEW-FACT 与新版本，确认不是发布前失败。
+- 原问题 RED：正文保存成功但旧通话未取消，两项失败。修复后 App 组合回归 371 项通过、2 项忽略。事件更名遗漏造成的一次编译失败已修复，不算行为失败证据。
+- 独立对抗式复核未发现剩余阻塞。新用例直接观察 Live 生命周期与子任务取消；Legacy、豆包及手机运行时复用已测撤销入口。这不等于三模式实机验收。
+- 尚未覆盖：模型记忆工具写入或外部 MemoryStore 发布后的即时撤销、Live 云端增量替换、其他来源摘要和六向模式交接。真实 Live 场景要求专用密钥文件，当前未配置 NORMA_LIVE_TEST_KEY_FILE；未读取用户现有密钥。
+
+### 本轮最终检查
+
+- App 组合回归：371 项通过、2 项忽略。agent 完整回归：145 项通过、2 项忽略。两组数量不作为全 workspace 测试结果。
+- `cargo check -p app` 通过。保留既有 `crates/app/src/settings/content.rs:191` 的 unreachable-pattern 警告，未扩展本轮范围。
+- 行数、禁止 allow、存储边界、性能护栏和相关 diff 空白检查均通过。命令、日志和已测源码 SHA-256 记录于 `artifacts/shared-context-20261025/evidence.json`。
+- 本轮未启动真实 App，未做云端、物理手机或音频硬件验收；未构建 release、未提交或发布。实际供应商时序与三模式兼容仍是交付前置条件。
+</textarea>
+<script>
+(() => {
+// How a formula reads in a quote. MathML has no plain text, so src/math.js writes the formula as the draft wrote it, delimiters included, in
+// data-am-tex on the <math> element, and the Remark and Reply scripts read page text through this file. On a page without math there is no
+// such element, so formulaOf is null and every text comes out as it did before.
+// A plain ES module for tests; the page gets it with its `export` keyword dropped (src/runtime/compose.js).
+
+const TEX = 'data-am-tex';
+
+// The formula that holds a node, or null.
+const formulaOf = (node) => node.parentElement?.closest(`[${TEX}]`) ?? null;
+
+const firstText = (el) => {
+  for (const child of el.childNodes) {
+    const found = child.nodeType === 3 ? child : firstText(child);
+    if (found) return found;
+  }
+  return null;
+};
+
+// What a text node adds to a quote: its data. The first text node of a formula adds the formula, and the others add nothing.
+// (A formula in an error style is plain text with its delimiters, not a <math>, so it comes out once.)
+function nodeText(node) {
+  const math = formulaOf(node);
+  if (!math) return node.data;
+  return firstText(math) === node ? math.getAttribute(TEX) : '';
+}
+
+// The text of a node as textContent reads it, but with each formula as written.
+const textWithMath = (node) => (node.nodeType === 3 ? nodeText(node) : [...node.childNodes].map(textWithMath).join(''));
+
+(() => {
+  const root = document.documentElement;
+  // A host that serves this page inside its own document leaves the real root without the page's settings. The toolbar keeps a copy;
+  // set back what the root lacks, before anything below reads the root. A root's own value, even an empty one, is never replaced.
+  const carrier = document.querySelector('.am-toolbar');
+  for (const [attr, key] of [['lang', 'data-am-root-lang'], ['dir', 'data-am-root-dir'], ['data-theme', 'data-am-root-theme'], ['data-mode', 'data-am-root-mode'], ['data-style', 'data-am-root-style']]) {
+    if (root.getAttribute(attr) === null && carrier?.getAttribute(key) != null) root.setAttribute(attr, carrier.getAttribute(key));
+  }
+  // Each toolbar list sets one root attribute; its options name the values, so the runtime names no theme or mode.
+  for (const [name, attr] of [['theme', 'data-theme'], ['mode', 'data-mode']]) {
+    const select = document.querySelector(`select[data-am="${name}"]`);
+    if (!select) continue;
+    select.value = root.getAttribute(attr);
+    select.addEventListener('change', () => root.setAttribute(attr, select.value));
+  }
+
+  const copyText = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = Object.assign(document.createElement('textarea'), { value: text });
+      document.body.append(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+    }
+  };
+  // A button reads its label from data-done for a moment after a copy, then comes back to the label it started from. That label is
+  // read once, here: a second click inside the moment would otherwise read the copied label off the button and restore that instead,
+  // and the label would never come back. The moment starts again on each click: the timer of the previous one is left to fire and
+  // does nothing (a token, so this needs no timer bookkeeping the page scripts do not already have).
+  const flasher = (btn) => {
+    const idle = btn.textContent;
+    let clicks = 0;
+    return () => {
+      btn.textContent = btn.dataset.done;
+      const mine = ++clicks;
+      setTimeout(() => { if (mine === clicks) btn.textContent = idle; }, 1400);
+    };
+  };
+
+  const copyBtn = document.querySelector('[data-am="copy"]');
+  if (copyBtn) {
+    const flash = flasher(copyBtn);
+    copyBtn.addEventListener('click', async () => {
+      const nodes = document.querySelectorAll('#am-source');
+      await copyText(nodes[nodes.length - 1]?.value ?? '');
+      flash();
+    });
+  }
+
+  // Each code block copies its own lines, without the line numbers.
+  for (const btn of document.querySelectorAll('[data-am="copy-code"]')) {
+    const flash = flasher(btn);
+    btn.addEventListener('click', async () => {
+      const lines = btn.closest('.am-codeblock')?.querySelectorAll('.am-ln') ?? [];
+      await copyText([...lines].map((l) => l.textContent).join('\n'));
+      flash();
+    });
+  }
+
+  // ── Diagram Lightbox & Pan-Zoom Viewer ─────────────
+  const diagrams = document.querySelectorAll('.am-diagram:not(.am-lightbox-canvas)');
+  const lb = document.querySelector('.am-lightbox');
+  if (diagrams.length && lb) {
+    const backdrop = lb.querySelector('.am-lightbox-backdrop');
+    const titleText = lb.querySelector('.am-lightbox-title-text');
+    const stage = lb.querySelector('.am-lightbox-stage');
+    const canvas = lb.querySelector('.am-lightbox-canvas');
+    const closeBtn = lb.querySelector('.am-lightbox-close');
+    const expandLabel = lb.getAttribute('data-expand') || 'Expand diagram';
+
+    let scale = 1, x = 0, y = 0, fitScale = 1, curVw = 800, curVh = 600;
+    let isDragging = false, activePointerId = null, startX = 0, startY = 0, origX = 0, origY = 0;
+    let lastTrigger = null;
+
+    const apply = () => {
+      canvas.style.transform = `translate3d(${x.toFixed(2)}px, ${y.toFixed(2)}px, 0) scale(${scale.toFixed(4)})`;
+    };
+
+    const zoomTo = (newScale, pivotX, pivotY) => {
+      newScale = Math.max(0.2, Math.min(6.0, newScale));
+      if (Math.abs(newScale - scale) < 0.0001) return;
+      const r = newScale / scale;
+      x = pivotX - (pivotX - x) * r;
+      y = pivotY - (pivotY - y) * r;
+      scale = newScale;
+      apply();
+    };
+
+    const open = (diag, trigger) => {
+      const svg = [...diag.children].find((el) => el.tagName.toLowerCase() === 'svg');
+      if (!svg) return;
+      lastTrigger = trigger;
+
+      const panel = diag.closest('.am-panel');
+      const panelTitle = panel?.querySelector('.am-panel-head h2')?.textContent?.trim() || panel?.querySelector('h2')?.textContent?.trim() || lb.getAttribute('aria-label') || 'Diagram viewer';
+      if (titleText) titleText.textContent = panelTitle;
+
+      const clone = svg.cloneNode(true);
+      const defElements = clone.querySelectorAll('[id]');
+      if (defElements.length) {
+        const idMap = new Map();
+        defElements.forEach((el, i) => {
+          const oldId = el.id;
+          const newId = `${oldId}-lb-${i}`;
+          idMap.set(oldId, newId);
+          el.id = newId;
+        });
+        const urlAttrs = ['marker-start', 'marker-mid', 'marker-end', 'fill', 'stroke', 'filter', 'clip-path', 'mask'];
+        clone.querySelectorAll('*').forEach((el) => {
+          for (const attr of urlAttrs) {
+            const val = el.getAttribute(attr);
+            if (val && val.startsWith('url(#')) {
+              const id = val.slice(5, -1);
+              if (idMap.has(id)) el.setAttribute(attr, `url(#${idMap.get(id)})`);
+            }
+          }
+          const href = el.getAttribute('href') || el.getAttribute('xlink:href');
+          if (href && href.startsWith('#')) {
+            const id = href.slice(1);
+            if (idMap.has(id)) {
+              if (el.hasAttribute('href')) el.setAttribute('href', `#${idMap.get(id)}`);
+              if (el.hasAttribute('xlink:href')) el.setAttribute('xlink:href', `#${idMap.get(id)}`);
+            }
+          }
+        });
+      }
+
+      const vb = svg.viewBox?.baseVal;
+      curVw = (vb && vb.width > 0) ? vb.width : (parseFloat(svg.getAttribute('width')) || svg.clientWidth || 800);
+      curVh = (vb && vb.height > 0) ? vb.height : (parseFloat(svg.getAttribute('height')) || svg.clientHeight || 600);
+      clone.style.width = `${curVw}px`;
+      clone.style.height = `${curVh}px`;
+      canvas.innerHTML = '';
+      canvas.append(clone);
+      lb.removeAttribute('hidden');
+      document.body.style.overflow = 'hidden';
+
+      const rect = stage.getBoundingClientRect();
+      const pad = 48;
+      const availW = Math.max(100, rect.width - pad * 2);
+      const availH = Math.max(100, rect.height - pad * 2);
+      fitScale = Math.min(availW / curVw, availH / curVh, 1.0);
+      scale = fitScale;
+      x = (rect.width - curVw * scale) / 2;
+      y = (rect.height - curVh * scale) / 2;
+      apply();
+      closeBtn.focus();
+    };
+
+    const close = () => {
+      if (lb.hasAttribute('hidden')) return;
+      lb.setAttribute('hidden', '');
+      canvas.innerHTML = '';
+      document.body.style.overflow = '';
+      lastTrigger?.focus();
+    };
+
+    stage.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const rect = stage.getBoundingClientRect();
+      const dy = e.deltaMode === 1 ? e.deltaY * 16 : (e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY);
+      const factor = Math.exp(-Math.max(-200, Math.min(200, dy)) * 0.0015);
+      zoomTo(scale * factor, e.clientX - rect.left, e.clientY - rect.top);
+    }, { passive: false });
+
+    stage.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0 || isDragging) return;
+      isDragging = true;
+      activePointerId = e.pointerId;
+      startX = e.clientX;
+      startY = e.clientY;
+      origX = x;
+      origY = y;
+      stage.setPointerCapture(e.pointerId);
+      stage.classList.add('am-panning');
+    });
+
+    stage.addEventListener('pointermove', (e) => {
+      if (!isDragging || e.pointerId !== activePointerId) return;
+      x = origX + (e.clientX - startX);
+      y = origY + (e.clientY - startY);
+      apply();
+    });
+
+    const endDrag = (e) => {
+      if (!isDragging || e.pointerId !== activePointerId) return;
+      isDragging = false;
+      activePointerId = null;
+      stage.classList.remove('am-panning');
+      try { stage.releasePointerCapture(e.pointerId); } catch {}
+    };
+    stage.addEventListener('pointerup', endDrag);
+    stage.addEventListener('pointercancel', endDrag);
+
+    stage.addEventListener('dblclick', () => {
+      const rect = stage.getBoundingClientRect();
+      scale = fitScale;
+      x = (rect.width - curVw * scale) / 2;
+      y = (rect.height - curVh * scale) / 2;
+      apply();
+    });
+
+    closeBtn.addEventListener('click', close);
+    backdrop.addEventListener('click', close);
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !lb.hasAttribute('hidden')) close();
+    });
+
+    lb.addEventListener('keydown', (e) => {
+      if (e.key !== 'Tab') return;
+      const focusables = lb.querySelectorAll('button:not([disabled]), [tabindex]:not([tabindex="-1"])');
+      if (!focusables.length) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    });
+
+    const expandSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>';
+    diagrams.forEach((diag) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'am-diagram-expand';
+      btn.title = expandLabel;
+      btn.setAttribute('aria-label', expandLabel);
+      btn.innerHTML = expandSvg;
+      btn.addEventListener('click', () => open(diag, btn));
+      diag.prepend(btn);
+    });
+  }
+})();
+(() => {
+// The reply a reader copies from the page: one Markdown text with the decisions, the panel comments and the block remarks.
+// A plain ES module for tests; the page gets it with its `export` keyword dropped (src/runtime/compose.js).
+// decisions: [{ panel, question, picked: [label], suggested: [label], touched }]; comments: [{ panel, title, text }];
+// remarks: [{ panel, quote, kind, note }], where quote is the start of the marked block and kind is a key of ui.kinds.
+// Comment and remark text is quoted line by line, so text the reader typed cannot pass as part of the structure.
+// rtl: the page reads right to left, so the arrow before each answer points left, the way the text runs.
+function replyText({ title, decisions, comments, remarks = [], ui, rtl = false }) {
+  const arrow = rtl ? '←' : '→';
+  const out = [`# Re: ${title}`];
+  if (decisions.length) {
+    out.push('', `## ${ui.decisions}`);
+    decisions.forEach((d, i) => {
+      const answer = d.picked.length ? d.picked.map((l) => `**${l}**`).join(', ') : '**—**';
+      const same = d.picked.length === d.suggested.length && d.picked.every((l) => d.suggested.includes(l));
+      const why = same ? (d.touched ? ui.confirmed : ui.untouched) : `${ui.was}: ${d.suggested.join(', ') || '—'}`;
+      out.push(`${i + 1}. [${d.panel}] ${d.question}`, `   ${arrow} ${answer} _(${why})_`);
+    });
+  }
+  const written = comments.filter((c) => c.text.trim());
+  const quoted = (text) => (text.trim() ? text.trim().split('\n').map((l) => `  > ${l}`) : []);
+  if (written.length) {
+    out.push('', `## ${ui.comments}`);
+    for (const c of written) out.push(`- **${c.panel} · ${c.title}**`, ...quoted(c.text));
+  }
+  if (remarks.length) {
+    out.push('', `## ${ui.remarks}`);
+    for (const r of remarks) {
+      const label = [r.panel, ui.kinds?.[r.kind] ?? r.kind].filter(Boolean).join(' · ');
+      out.push(`- **${label}** "${r.quote}"`, ...quoted(r.note));
+    }
+  }
+  if (written.length || remarks.some((r) => r.note.trim())) out.push('', `_${ui.typed}_`);
+  return `${out.join('\n')}\n`;
+}
+
+// A letter of a right-to-left script. One definition for the page builder (src/bidi.js) and for the right-to-left page script
+// (src/runtime/reply-view.js), so the two cannot drift apart. A plain ES module; the page script gets this file in front of
+// reply-view.js, with its `export` keyword dropped and reply-view.js's import of it removed (src/runtime/compose.js).
+const RTL_LETTER = /[\p{Script=Hebrew}\p{Script=Arabic}\p{Script=Syriac}\p{Script=Thaana}\p{Script=Nko}\p{Script=Samaritan}\p{Script=Mandaic}]/u;
+
+// The reply as the reader sees it in the Reply sheet (src/runtime/reply.js): the Markdown that Copy copies, drawn as headings, bold answers
+// and quoted comments instead of raw "# Re: ...", "1. [E] ..." and "- **A · ...**" lines. Each line gets its own direction, so a
+// Hebrew reader sees Latin answers and paths in place; a line with no right-to-left letter reads left to right, as on any other page.
+// The raw Markdown stays in the sheet under a fold, so the copied text does not change.
+// A plain ES module for tests; the page gets it with its `export` keyword dropped and rtl-letter.js in front of it in place of the
+// import (src/runtime/compose.js).
+
+const escHtml = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+// A line with a right-to-left letter reads right to left; a line without one (an English comment, a path) reads left to right.
+const dirOf = (s) => (RTL_LETTER.test(s) ? 'rtl' : 'ltr');
+
+// The only inline Markdown src/runtime/reply-text.js writes: **answer**, _(note)_ and the "quote" of a remark. Each piece is isolated in its own direction,
+// so a Latin answer inside a Hebrew line keeps its place, and "A · title" still starts with the panel letter.
+const piece = (tag, text) => `<${tag}><bdi dir="${dirOf(text)}">${text}</bdi></${tag}>`;
+function inline(s) {
+  return escHtml(s)
+    .replace(/\*\*(.+?)\*\*/g, (_, t) => piece('strong', t))
+    .replace(/(^|\s)_(.+?)_(?=\s|$)/g, (_, pre, t) => pre + piece('em', t))
+    // The quoted start of a marked block ("- **A · concern** "text""): isolated, so Latin text in a Hebrew line keeps its place.
+    .replace(/&quot;(.+)&quot;$/, (_, t) => `&quot;<bdi dir="${dirOf(t)}">${t}</bdi>&quot;`);
+}
+
+// The reply text (src/runtime/reply-text.js) as HTML, one block per line.
+function replyViewHtml(text) {
+  return text
+    .replace(/\n$/, '')
+    .split('\n')
+    .map((line) => {
+      const dir = dirOf(line);
+      let m;
+      if (!line.trim()) return '<div class="am-rv-gap"></div>';
+      if ((m = line.match(/^(#{1,2}) (.*)$/))) return `<div class="am-rv-h${m[1].length}" dir="${dir}">${inline(m[2])}</div>`;
+      if ((m = line.match(/^(\d+)\. \[([^\]]*)\] (.*)$/))) {
+        return `<div class="am-rv-q" dir="${dir}"><bdi>${m[1]}.</bdi> <bdi class="am-rv-tag">${escHtml(m[2])}</bdi> ${inline(m[3])}</div>`;
+      }
+      if ((m = line.match(/^ {3}([←→]) (.*)$/))) return `<div class="am-rv-a" dir="${dir}">${m[1]} ${inline(m[2])}</div>`;
+      if ((m = line.match(/^- (.*)$/))) return `<div class="am-rv-c" dir="${dir}">${inline(m[1])}</div>`;
+      // A comment line is shown exactly as the reader typed it.
+      if ((m = line.match(/^ {2}> ?(.*)$/))) return `<div class="am-rv-quote" dir="${dirOf(m[1])}">${escHtml(m[1]) || '&nbsp;'}</div>`;
+      return `<div dir="${dir}">${inline(line)}</div>`;
+    })
+    .join('');
+}
+
+// Answer on the page: every panel gets a Comment box, and the Reply button collects the ask answers, the comments and the remarks
+// into one Markdown reply (replyText) to copy back to the agent. Answers and comments stay in localStorage across reloads.
+// The remark script (remark.js) adds the blocks the reader marked, through window.__amRemarkData, and tells this script about a change
+// with an "am-remark-change" event on the document.
+// The Reply sheet shows the reply drawn (replyViewHtml) with the Markdown that Copy copies under a fold. Once the reader has given any
+// input, a bar at the bottom of the page shows the counts and copies the reply in one click, so there is no trip to the top-right button.
+const replyBtn = document.querySelector('[data-am="reply"]');
+const COMMENT_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
+if (replyBtn) {
+  const ui = JSON.parse(replyBtn.dataset.ui);
+  const storeKey = `am-reply:${location.pathname}`;
+  const panels = [...document.querySelectorAll('.am-panel')];
+  const asks = [...document.querySelectorAll('.am-ask')];
+  // Answers are saved by question text, so they still match after am patch has renumbered the asks.
+  // Page text without the word joiners a right-to-left page puts after a Hebrew prefix hyphen (src/bidi.js): the reply and the saved
+  // answers hold the text as the draft wrote it, a formula too (src/runtime/math-text.js).
+  const WJ = new RegExp(String.fromCharCode(0x2060), 'g');
+  const textOf = (el) => el && textWithMath(el).replace(WJ, '').trim();
+  const keyOf = (ask) => textOf(ask.querySelector('legend')) ?? ask.dataset.ask;
+  const touched = new Set();
+  const boxes = new Map();
+  // The bar is built below with the sheet; the handlers that change the counts only call this.
+  let refreshBar = () => {};
+  // The textarea a failed copy keeps selected, so the reader can still use the keyboard shortcut.
+  let stuck = null;
+
+  const load = () => {
+    try {
+      return JSON.parse(localStorage.getItem(storeKey)) || {};
+    } catch {
+      return {};
+    }
+  };
+  const save = () => {
+    const state = {
+      asks: Object.fromEntries(asks.map((a) => [keyOf(a), { picked: picked(a), touched: touched.has(a) }])),
+      comments: Object.fromEntries([...boxes].map(([id, box]) => [id, box.value]).filter(([, text]) => text.trim())),
+    };
+    try {
+      localStorage.setItem(storeKey, JSON.stringify(state));
+    } catch {
+      // Storage may be off (private window, file:// policy); answers then last until the page closes.
+    }
+  };
+  const picked = (ask) => [...ask.querySelectorAll('input')].filter((i) => i.checked).map((i) => i.value);
+  const panelOf = (el) => {
+    const panel = el.closest('.am-panel');
+    return { id: panel?.id.replace(/^panel-/, '') ?? '', title: textOf(panel?.querySelector('.am-panel-head h2')) ?? '' };
+  };
+
+  const saved = load();
+  for (const ask of asks) {
+    const inputs = [...ask.querySelectorAll('input')];
+    const state = saved.asks?.[keyOf(ask)];
+    // A saved answer applies only while every picked option still exists on the page.
+    if (state && state.picked.every((v) => inputs.some((i) => i.value === v))) {
+      for (const input of inputs) input.checked = state.picked.includes(input.value);
+      if (state.touched) touched.add(ask);
+    }
+    // A click counts even on the option that is already picked: the reader confirms the suggestion.
+    const answer = () => {
+      touched.add(ask);
+      save();
+      refreshBar();
+    };
+    ask.addEventListener('change', answer);
+    ask.addEventListener('click', (e) => { if (e.target.matches('input')) answer(); });
+  }
+
+  for (const panel of panels) {
+    const id = panel.id.replace(/^panel-/, '');
+    // An icon only: narrow panels have no room for a word next to the title.
+    const btn = Object.assign(document.createElement('button'), { type: 'button', className: 'am-comment-btn', title: ui.comment, innerHTML: COMMENT_ICON });
+    btn.setAttribute('aria-label', `${ui.comment} ${id}`);
+    btn.setAttribute('aria-expanded', 'false');
+    const wrap = Object.assign(document.createElement('div'), { className: 'am-comment', hidden: true });
+    const box = Object.assign(document.createElement('textarea'), { rows: 3, placeholder: ui.commentHint, value: saved.comments?.[id] ?? '' });
+    box.setAttribute('aria-label', `${ui.comment} ${id}`);
+    wrap.append(box);
+    const show = (open) => {
+      wrap.hidden = !open;
+      btn.setAttribute('aria-expanded', String(open));
+    };
+    btn.addEventListener('click', () => {
+      show(wrap.hidden);
+      if (!wrap.hidden) box.focus();
+    });
+    box.addEventListener('input', () => {
+      btn.classList.toggle('am-comment-btn--on', Boolean(box.value.trim()));
+      save();
+      refreshBar();
+    });
+    btn.classList.toggle('am-comment-btn--on', Boolean(box.value.trim()));
+    if (box.value.trim()) show(true);
+    (panel.querySelector('.am-panel-head') ?? panel).append(btn);
+    panel.append(wrap);
+    boxes.set(id, box);
+  }
+
+  const sheet = document.createElement('dialog');
+  sheet.className = 'am-reply';
+  sheet.setAttribute('aria-label', ui.title);
+  sheet.innerHTML = '<div class="am-reply-head"><strong></strong><span></span></div><div class="am-reply-view" tabindex="0"></div><details class="am-reply-raw"><summary></summary><textarea readonly rows="10"></textarea></details><div class="am-reply-actions"><button type="button" class="am-btn" data-act="copy"></button><button type="button" class="am-btn" data-act="close"></button></div>';
+  sheet.querySelector('strong').textContent = ui.title;
+  sheet.querySelector('span').textContent = ui.hint;
+  sheet.querySelector('summary').textContent = ui.raw;
+  const view = sheet.querySelector('.am-reply-view');
+  const raw = sheet.querySelector('details');
+  const text = sheet.querySelector('textarea');
+  const copy = sheet.querySelector('[data-act="copy"]');
+  const close = sheet.querySelector('[data-act="close"]');
+  copy.textContent = ui.copy;
+  close.textContent = ui.close;
+  document.body.append(sheet);
+
+  const compose = () => {
+    const decisions = asks.map((ask) => ({
+      panel: panelOf(ask).id,
+      question: textOf(ask.querySelector('legend')) ?? '',
+      picked: picked(ask),
+      suggested: [...ask.querySelectorAll('input[data-suggested]')].map((i) => i.value),
+      touched: touched.has(ask),
+    }));
+    const comments = [...boxes].map(([id, box]) => ({ panel: id, title: panelOf(box).title, text: box.value }));
+    const remarks = window.__amRemarkData?.() ?? [];
+    const empty = !decisions.length && !comments.some((c) => c.text.trim()) && !remarks.length;
+    const title = textOf(document.querySelector('.am-head h1')) ?? document.title;
+    return empty ? '' : replyText({ title, decisions, comments, remarks, ui, rtl: document.documentElement.dir === 'rtl' });
+  };
+
+  // The text goes through the clipboard API; a page the browser treats as insecure (file://) falls back to selecting a temporary
+  // textarea, because the sheet's own textarea can sit inside a closed fold, where it cannot be selected.
+  // That fallback reports whether it worked. When it does not, the text stays selected (so Cmd/Ctrl+C still copies it) and the
+  // button says what to do instead of showing the "Copied ✓" label the reader cannot trust.
+  const copyText = async (str, btn) => {
+    stuck?.remove();
+    stuck = null;
+    try {
+      await navigator.clipboard.writeText(str);
+      // The close_after_reply script (close-after-reply.js) closes the tab once the reply is on the clipboard.
+      document.dispatchEvent(new Event('am-reply-copied'));
+    } catch {
+      const tmp = Object.assign(document.createElement('textarea'), { value: str });
+      tmp.style.cssText = 'position:fixed;top:-100px;opacity:0';
+      // Inside the sheet while it is open: while a modal dialog is open the rest of the document cannot take focus, so a textarea
+      // in the body can be selected but not focused, and the keyboard shortcut the reader is told to press would copy nothing.
+      // The bottom bar copies while the sheet is closed, and a closed dialog is not rendered, so there the textarea goes in the body.
+      (sheet.open ? sheet : document.body).append(tmp);
+      tmp.select();
+      let copied = false;
+      try {
+        copied = document.execCommand('copy');
+      } catch {
+        copied = false;
+      }
+      if (!copied) {
+        stuck = tmp;
+        btn.textContent = ui.copyFailed;
+        setTimeout(() => { btn.textContent = ui.copy; }, 3000);
+        return;
+      }
+      tmp.remove();
+    }
+    btn.textContent = ui.done;
+    setTimeout(() => { btn.textContent = ui.copy; }, 1400);
+  };
+
+  const open = () => {
+    const reply = compose();
+    if (reply) view.innerHTML = replyViewHtml(reply);
+    else view.textContent = ui.empty;
+    view.scrollTop = 0;
+    text.value = reply;
+    raw.open = false;
+    raw.hidden = !reply;
+    copy.disabled = !reply;
+    if (sheet.showModal) sheet.showModal();
+    else sheet.setAttribute('open', '');
+    (reply ? copy : close).focus();
+  };
+  replyBtn.addEventListener('click', open);
+  close.addEventListener('click', () => (sheet.close ? sheet.close() : sheet.removeAttribute('open')));
+  // A failed copy leaves the text selected for Cmd/Ctrl+C; closing the sheet drops that textarea.
+  sheet.addEventListener('close', () => { stuck?.remove(); stuck = null; });
+  copy.addEventListener('click', () => copyText(text.value, copy));
+
+  const bar = Object.assign(document.createElement('div'), { className: 'am-reply-bar', hidden: true });
+  bar.setAttribute('role', 'region');
+  bar.setAttribute('aria-label', ui.title);
+  const summary = Object.assign(document.createElement('span'), { className: 'am-reply-bar-count' });
+  summary.setAttribute('aria-live', 'polite');
+  const preview = Object.assign(document.createElement('button'), { type: 'button', className: 'am-btn', textContent: ui.preview });
+  const barCopy = Object.assign(document.createElement('button'), { type: 'button', className: 'am-btn am-btn--reply', textContent: ui.copy });
+  preview.addEventListener('click', open);
+  barCopy.addEventListener('click', () => copyText(compose(), barCopy));
+  bar.append(summary, preview, barCopy);
+  document.body.append(bar);
+
+  // The bar shows only the counts that are above zero, and only once there is any input at all.
+  refreshBar = () => {
+    const counts = {
+      answered: touched.size,
+      comments: [...boxes.values()].filter((box) => box.value.trim()).length,
+      remarks: (window.__amRemarkData?.() ?? []).length,
+    };
+    const parts = Object.entries(counts).filter(([, n]) => n > 0).map(([kind, n]) => ui.count[kind].replace('{n}', n));
+    summary.textContent = parts.join(' · ');
+    bar.hidden = !parts.length;
+    document.body.classList.toggle('am-has-reply-bar', parts.length > 0);
+  };
+  document.addEventListener('am-remark-change', () => refreshBar());
+  // Saved remarks are restored by remark.js, which runs after this script in the same <script> element: its data is not there yet.
+  // A microtask runs when that whole element has finished, so the first count includes them.
+  queueMicrotask(() => refreshBar());
+}
+})();
+(() => {
+// Text helpers for remark mode (src/runtime/remark.js): how a marked block is named and quoted.
+// A plain ES module for tests; the page gets it with its `export` keyword dropped (src/runtime/compose.js).
+// A block keeps its mark across `am patch` because the key is its panel, its tag and the start of its text, not its position.
+
+const collapse = (text) => String(text).replace(/\s+/g, ' ').trim();
+
+// The start of a block's text with whitespace collapsed: the readable identity of the block.
+function fingerprint(text, len = 80) {
+  return collapse(text).slice(0, len);
+}
+
+// What the reply quotes of a block: the start of its text, with an ellipsis when it is cut.
+function quote(text, len = 60) {
+  const t = collapse(text);
+  return t.length > len ? `${t.slice(0, len).trimEnd()}…` : t;
+}
+
+// Two blocks with the same text (two identical list items) get the same base key. The n-th one in the page gets "\t<n>" added;
+// a tab cannot be in a fingerprint, which has its whitespace collapsed, so the new key never meets another base key.
+function occurrenceKeys(bases) {
+  const seen = new Map();
+  return bases.map((base) => {
+    const n = seen.get(base) ?? 0;
+    seen.set(base, n + 1);
+    return n ? `${base}\t${n}` : base;
+  });
+}
+
+// Remark mode: the reader turns it on, clicks a block, tags it (suggestion, keep, question, concern) and may add a note.
+// A mark shows as a bar and a note chip inside the block, lives in localStorage like panel comments, and the Reply button carries it
+// back to the agent: reply.js calls window.__amRemarkData, and replyText (reply-text.js) writes the Remarks section.
+(() => {
+  const btn = document.querySelector('[data-am="remark"]');
+  if (!btn) return;
+  const ui = JSON.parse(btn.dataset.ui);
+  const KINDS = ['suggestion', 'keep', 'question', 'concern'];
+  const storeKey = `am-remark:${location.pathname}`;
+  // The one definition of a block a reader can mark: the content under <main>. The page and panel titles are left out, because the
+  // reply reads them as text; a panel has its Comment button.
+  // A $$ block on its own is a div; a $$ formula inside a sentence is a span of its paragraph.
+  const BLOCK = 'main :is(h1,h2,h3,h4,h5,h6,p,li,blockquote,pre,table,dd,dt,figure,div.am-math-block):not(.am-head *, .am-panel-head *)';
+  // A click on these does what it always did.
+  const LIVE = '.am-remark-pop, .am-toolbar, a, button, input, textarea, select, label';
+  const blockAt = (target) => (target.closest(LIVE) ? null : target.closest(BLOCK));
+
+  const WJ = new RegExp(String.fromCharCode(0x2060), 'g'); // word joiners of a right-to-left page (src/bidi.js); not part of the draft's text
+  // A narrow horizontal timeline shows its date and title inline (src/themes/base.css). They stay parts of their own, so a block key
+  // does not change with the width of the window (#194).
+  const OWN_BOX = '.am-timeline--h .am-tl-when, .am-timeline--h .am-tl-title';
+  const inlineBox = new WeakMap();
+  const isInline = (el) => {
+    if (!inlineBox.has(el)) inlineBox.set(el, !el.matches(OWN_BOX) && getComputedStyle(el).display.startsWith('inline'));
+    return inlineBox.get(el);
+  };
+  // The text of a block as the reader sees it: separate lines, cells and timeline parts are joined by a space (textContent would run
+  // "2026" and "Ship" together), and the note chip is not part of it. A formula is one box and reads as the TeX the draft wrote
+  // (src/runtime/math-text.js), not as the MathML tokens.
+  const blockText = (el) => {
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    let text = '';
+    let last = null;
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (node.parentElement.closest('.am-mark-note')) continue;
+      let box = formulaOf(node) ?? node.parentElement;
+      while (box !== el && isInline(box)) box = box.parentElement;
+      if (last && box !== last) text += ' ';
+      text += nodeText(node).replace(WJ, '');
+      last = box;
+    }
+    return text;
+  };
+
+  const panelOf = (el) => el.closest('.am-panel')?.id.replace(/^panel-/, '') ?? '';
+  // Block keys, in page order. Built when first needed: a page nobody marked pays nothing.
+  let keys = null;
+  const keyMap = () => {
+    if (!keys) {
+      const blocks = [...document.querySelectorAll(BLOCK)];
+      const ids = occurrenceKeys(blocks.map((el) => `${panelOf(el)}|${el.localName}|${fingerprint(blockText(el))}`));
+      keys = new Map(blocks.map((el, i) => [el, ids[i]]));
+    }
+    return keys;
+  };
+
+  const load = () => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(storeKey));
+      return Array.isArray(saved) ? saved.filter((m) => typeof m?.key === 'string' && KINDS.includes(m.kind)) : [];
+    } catch {
+      return [];
+    }
+  };
+  // A mark whose block is gone from the page stays stored (it may return with `am patch`); it is neither painted nor sent.
+  const marks = new Map(load().map((m) => [m.key, { key: m.key, kind: m.kind, note: String(m.note ?? '') }]));
+  const clearBtn = document.createElement('button');
+  clearBtn.type = 'button';
+  clearBtn.className = 'am-btn am-btn--remark-clear';
+  clearBtn.hidden = true;
+  clearBtn.textContent = ui.clear;
+  btn.insertAdjacentElement('afterend', clearBtn);
+  let clearTimer = null;
+  let clearArmed = false;
+  const resetClear = () => {
+    if (clearTimer !== null) clearTimeout(clearTimer);
+    clearTimer = null;
+    clearArmed = false;
+    clearBtn.classList.remove('is-armed');
+    clearBtn.textContent = ui.clear;
+    clearBtn.hidden = marks.size === 0;
+  };
+  const armClear = () => {
+    clearArmed = true;
+    clearBtn.classList.add('is-armed');
+    clearBtn.textContent = ui.clearConfirm.replace('{n}', marks.size);
+    clearTimer = setTimeout(resetClear, 4000);
+  };
+  clearBtn.addEventListener('click', () => {
+    if (!clearArmed) {
+      armClear();
+      return;
+    }
+    for (const el of document.querySelectorAll('.am-mark')) unpaint(el);
+    marks.clear();
+    try {
+      localStorage.removeItem(storeKey);
+    } catch {
+      // Storage may be off (private window, a sandboxed page); the in-memory marks still clear.
+    }
+    resetClear();
+    document.dispatchEvent(new Event('am-remark-change'));
+  });
+  const save = () => {
+    try {
+      localStorage.setItem(storeKey, JSON.stringify([...marks.values()]));
+    } catch {
+      // Storage may be off (private window, a sandboxed page); marks then last until the page closes.
+    }
+    // The reply bar (reply.js) shows the number of marks.
+    document.dispatchEvent(new Event('am-remark-change'));
+    clearBtn.hidden = marks.size === 0;
+  };
+
+  const chip = (el, mark) => {
+    const note = document.createElement(el.localName === 'table' ? 'caption' : 'span');
+    note.className = 'am-mark-note';
+    const kind = document.createElement('b');
+    kind.textContent = ui.kinds[mark.kind];
+    note.append(kind, mark.note ? ` ${mark.note}` : '');
+    return note;
+  };
+  const clearChip = (el) => el.querySelector(':scope > .am-mark-note')?.remove();
+  const paint = (el, mark) => {
+    clearChip(el);
+    el.classList.add('am-mark');
+    el.dataset.kind = mark.kind;
+    // Inside the block, so a list item stays a child of its list. A table takes it as its caption; a list item with a sub-list shows
+    // it under its own text, before the sub-list.
+    const sub = el.querySelector(':scope > ul, :scope > ol');
+    if (el.localName === 'table') el.prepend(chip(el, mark));
+    else if (sub) sub.before(chip(el, mark));
+    else el.append(chip(el, mark));
+  };
+  const unpaint = (el) => {
+    clearChip(el);
+    el.classList.remove('am-mark');
+    delete el.dataset.kind;
+  };
+  clearBtn.hidden = marks.size === 0;
+  if (marks.size) for (const [el, key] of keyMap()) if (marks.has(key)) paint(el, marks.get(key));
+
+  // The popover edits one block. Save stays off until a kind is picked.
+  const pop = document.createElement('div');
+  pop.className = 'am-remark-pop';
+  pop.hidden = true;
+  pop.setAttribute('role', 'dialog');
+  pop.setAttribute('aria-label', ui.button);
+  document.body.append(pop);
+  let opener = null;
+  let anchor = null;
+  const close = (restoreFocus) => {
+    if (pop.hidden) return;
+    pop.hidden = true;
+    if (restoreFocus) (opener?.isConnected && opener !== document.body ? opener : btn).focus();
+  };
+  const place = () => {
+    const rect = anchor.getBoundingClientRect();
+    const rtl = getComputedStyle(document.documentElement).direction === 'rtl';
+    const x = rtl ? rect.right - pop.offsetWidth : rect.left;
+    // Under the block; a block taller than the window gets the popover at the bottom of the window instead.
+    const y = Math.min(rect.bottom + 6, window.innerHeight - pop.offsetHeight - 8);
+    pop.style.left = `${window.scrollX + Math.min(Math.max(8, x), window.innerWidth - pop.offsetWidth - 8)}px`;
+    pop.style.top = `${window.scrollY + Math.max(8, y)}px`;
+  };
+  const make = (tag, props) => Object.assign(document.createElement(tag), props);
+  const open = (el) => {
+    const key = keyMap().get(el);
+    const mark = marks.get(key);
+    let kind = mark?.kind ?? '';
+    opener = document.activeElement;
+    anchor = el;
+
+    const note = make('textarea', { rows: 2, placeholder: ui.hint, value: mark?.note ?? '' });
+    note.setAttribute('aria-label', ui.hint);
+    const keep = make('button', { type: 'button', className: 'am-btn', textContent: ui.save, disabled: !kind });
+    keep.addEventListener('click', () => {
+      const saved = { key, kind, note: note.value.trim() };
+      marks.set(key, saved);
+      save();
+      paint(el, saved);
+      close(true);
+    });
+    const actions = make('div', { className: 'am-remark-actions' });
+    actions.append(keep);
+    if (mark) {
+      const drop = make('button', { type: 'button', className: 'am-btn', textContent: ui.remove });
+      drop.addEventListener('click', () => {
+        marks.delete(key);
+        save();
+        unpaint(el);
+        close(true);
+      });
+      actions.append(drop);
+    }
+    const kindBtns = KINDS.map((k) => {
+      const kb = make('button', { type: 'button', className: 'am-remark-kind', textContent: ui.kinds[k] });
+      kb.dataset.kind = k;
+      kb.setAttribute('aria-pressed', String(k === kind));
+      kb.addEventListener('click', () => {
+        kind = k;
+        for (const other of kindBtns) other.setAttribute('aria-pressed', String(other === kb));
+        keep.disabled = false;
+      });
+      return kb;
+    });
+    pop.replaceChildren(make('div', { className: 'am-remark-kinds' }), note, actions);
+    pop.firstChild.append(...kindBtns);
+    pop.hidden = false;
+    place();
+    (kindBtns.find((b) => b.dataset.kind === kind) ?? kindBtns[0]).focus({ preventScroll: true });
+  };
+
+  // Picking works only while remark mode is on. A click on a marked block edits its mark, on a plain block starts one.
+  // The block under the pointer gets an outline: the same blockAt decides what is outlined and what a click picks.
+  let hover = null;
+  const track = (e) => {
+    const el = e.type === 'mouseout' && e.relatedTarget === null ? null : blockAt(e.target);
+    if (el === hover) return;
+    hover?.classList.remove('am-remark-hover');
+    hover = el;
+    hover?.classList.add('am-remark-hover');
+  };
+  const pick = (e) => {
+    const el = blockAt(e.target);
+    if (el) open(el);
+  };
+  const setMode = (on) => {
+    btn.classList.toggle('is-on', on);
+    btn.setAttribute('aria-pressed', String(on));
+    const toggle = on ? 'addEventListener' : 'removeEventListener';
+    document.body[toggle]('click', pick);
+    document.body[toggle]('mouseover', track);
+    document.body[toggle]('mouseout', track);
+    if (!on) {
+      track({ type: 'mouseout', relatedTarget: null });
+      close(false);
+    }
+  };
+  btn.addEventListener('click', () => setMode(btn.getAttribute('aria-pressed') !== 'true'));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') close(true);
+  });
+  // A click outside the popover closes it; the same click may then start another mark.
+  document.addEventListener('click', (e) => {
+    if (!pop.hidden && !pop.contains(e.target)) close(false);
+  }, true);
+  setMode(false);
+
+  // What the Reply button reads: the marked blocks that are on the page, in page order.
+  window.__amRemarkData = () => {
+    if (!marks.size) return [];
+    const live = [];
+    for (const [el, key] of keyMap()) {
+      const mark = marks.get(key);
+      if (mark) live.push({ panel: panelOf(el), quote: quote(blockText(el)), kind: mark.kind, note: mark.note });
+    }
+    return live;
+  };
+})();
+})();
+(() => {
+// Pure planner for justified ("photo wall") rows on sheet pages. No DOM access.
+//
+// This file must stay inlinable into the page script: top-level declarations only, no imports, and the exports are
+// `planLayout` and the constants the DOM adapter shares (STEP, MAX_SCALE, MIN_SCALE). The page build strips the `export ` keyword,
+// and test/layout-plan.test.js checks that this still works.
+//
+// planLayout({ width, gap, cols, panels }) -> { rows: [{ columns: [{ panels: [index, ...], width }], height }] }
+//
+// Input (all lengths in px):
+//   width   container width
+//   gap     space between columns, and between two panels stacked in one column
+//   cols    most columns in one row (the planner never uses more than MAX_COLUMNS, but spans stay shares of `cols`)
+//   panels  one entry per panel, in reading order:
+//     samples   [{ w, h }] panel height at sampled widths, ascending by w (heights between samples are interpolated)
+//     minWidth  narrowest feasible width (clamped to `width`)
+//     maxWidth  widest useful width; beyond it the panel only gains empty space (default: no limit)
+//     natural   natural diagram width for a diagram-only panel (default: none)
+//     pad       panel width not used by the diagram (padding and border; default 0)
+//     span      the author's width hint in grid columns (default 1); span >= cols keeps the panel alone in its row
+//
+// Output: { rows, maxScale }. Rows are in reading order; a row is a list of columns (at most `cols`); a column holds one panel or two
+// consecutive panels, stacked. For integer inputs the column widths plus the gaps between them equal `width`.
+// Rows are chosen by dynamic programming over break points; widths by a search in STEP px steps. Cost per row:
+//   H = tallest column; waste = sum((H - columnHeight) * columnWidth) + sum over diagrams wider than maxWidth of (w - maxWidth) * h
+//   dev = sum(((w - preferred) / oneColumn)^2) + SCALE_WEIGHT * sum over diagrams of (ln(scale) / ln(MAX_SCALE))^2
+//   cost = waste / 1000 + PREF_WEIGHT * dev * H
+// Scale band: diagrams on one page stay at similar sizes. With the result's `maxScale` as the diagram size limit, a diagram is
+// shown at scale min(maxScale, (width - pad) / natural). The planner tries a few bands [lo, lo * BAND_RATIO] (lo in BAND_LOS) and
+// keeps the cheapest plan in which no diagram is narrower than scale lo and none is shown above the band's top, so the largest and
+// smallest diagram scale on the page differ by at most BAND_RATIO. A panel wider than its diagram's top size keeps the diagram at
+// that size, and the page script must set the diagram's max-width to natural * maxScale. The band starts no higher than the
+// largest scale the page allows the least roomy diagram, so one wide diagram lowers the band for the others.
+// If no band is feasible the plan is made without a band (maxScale = MAX_SCALE); if no plan fits (or the input is unusable) the
+// result is a single column: one panel per row at the full width.
+
+const STEP = 10;
+const MAX_SCALE = 1.25;
+const MIN_SCALE = 0.75; // the narrowest a diagram is shown, as a share of its natural width
+const MAX_COLUMNS = 6; // rows with more columns are unreadable, and the search grows steeply with the column count
+const BAND_RATIO = 1.25; // the largest and smallest diagram scale on a page differ by at most this
+const BAND_LOS = [MIN_SCALE, 0.85, 0.95, 1]; // lower ends tried for the band; lo * BAND_RATIO is the upper end (1.25 means no upper limit)
+const SCALE_WEIGHT = 3;
+const PREF_WEIGHT = 0.15;
+
+function heightAt(samples, w) {
+  const i = samples.findIndex((s) => s.w >= w);
+  if (i === -1) return samples[samples.length - 1].h;
+  if (i === 0) return samples[0].h;
+  const a = samples[i - 1];
+  const b = samples[i];
+  return a.h + ((b.h - a.h) * (w - a.w)) / (b.w - a.w);
+}
+
+// Every way to split `len` consecutive panels into columns of 1 or 2 panels, as lists of column sizes.
+function splits(len) {
+  if (len === 0) return [[]];
+  return [1, 2].filter((k) => k <= len).flatMap((k) => splits(len - k).map((rest) => [k, ...rest]));
+}
+
+function singleColumn(width, panels) {
+  return { rows: panels.map((_, i) => ({ columns: [{ panels: [i], width }], height: 0 })) };
+}
+
+function planLayout({ width, gap = 0, cols = 3, panels }) {
+  const usable = Number.isFinite(width) && width > 0 && panels.every((p) => Array.isArray(p.samples) && p.samples.length > 0);
+  if (!usable) return singleColumn(width, panels);
+
+  // `cols` stays the unit of the author's spans; no row gets more than MAX_COLUMNS columns however large `cols` is.
+  const maxColumns = Math.min(cols, MAX_COLUMNS);
+  const oneColumn = Math.max(1, (width - gap * (cols - 1)) / cols);
+  // Per-panel limits. With a band [lo, lo * BAND_RATIO], a diagram is no narrower than scale lo and shown at most at the top of the
+  // band: a wider panel keeps it at that size and gains empty space, which the cost counts as waste.
+  const prepare = (lo) => panels.map((p) => {
+    const pad = p.pad ?? 0;
+    const diagram = lo > 0 && p.natural > 0;
+    const scaleCap = diagram ? Math.min(MAX_SCALE, lo * BAND_RATIO) : MAX_SCALE;
+    return {
+      ...p,
+      minWidth: Math.min(width, Math.max(Math.ceil(p.minWidth || 0), diagram ? Math.ceil(p.natural * lo + pad) : 0)),
+      maxWidth: Math.min(p.maxWidth ?? Infinity, diagram ? p.natural * scaleCap + pad : Infinity),
+      scaleCap,
+      pad,
+      preferred: Math.min(width, (p.span ?? 1) * oneColumn + ((p.span ?? 1) - 1) * gap),
+      alone: (p.span ?? 1) >= cols,
+    };
+  });
+  let info = prepare(0);
+  // Beyond its maxWidth a panel only gains empty space, so its height stops changing there (matters when a band lowers maxWidth).
+  const heightOf = (p, w) => heightAt(p.samples, Math.min(w, p.maxWidth));
+  const columnHeight = (col, w) => col.reduce((h, k) => h + heightOf(info[k], w), 0) + gap * (col.length - 1);
+
+  function bestColumns(columns) {
+    const avail = width - gap * (columns.length - 1);
+    const mins = columns.map((c) => Math.max(...c.map((k) => info[k].minWidth)));
+    const minsFrom = mins.map((_, n) => mins.slice(n).reduce((s, w) => s + w, 0));
+    if (minsFrom[0] > avail) return null;
+    let best = null;
+    const evaluate = (ws) => {
+      const hs = ws.map((w, n) => columnHeight(columns[n], w));
+      const H = Math.max(...hs);
+      let waste = 0;
+      let dev = 0;
+      ws.forEach((w, n) => {
+        waste += (H - hs[n]) * w;
+        for (const k of columns[n]) {
+          const p = info[k];
+          if (w > p.maxWidth) waste += (w - p.maxWidth) * heightOf(p, w);
+          dev += ((w - p.preferred) / oneColumn) ** 2;
+          if (p.natural > 0) {
+            const scale = Math.min(p.scaleCap, Math.max(w - p.pad, 1) / p.natural);
+            dev += SCALE_WEIGHT * (Math.log(scale) / Math.log(MAX_SCALE)) ** 2;
+          }
+        }
+      });
+      const cost = waste / 1000 + PREF_WEIGHT * dev * H;
+      if (!best || cost < best.cost) best = { cost, ws, height: H, columns };
+    };
+    const choose = (n, used, ws) => {
+      if (n === columns.length - 1) {
+        const w = avail - used;
+        if (w >= mins[n]) evaluate([...ws, w]);
+        return;
+      }
+      for (let w = mins[n]; used + w + minsFrom[n + 1] <= avail; w += STEP) choose(n + 1, used + w, [...ws, w]);
+    };
+    choose(0, 0, []);
+    return best;
+  }
+
+  // Best columns for one row of panels i..j.
+  function bestRow(i, j) {
+    if (j > i && info.slice(i, j + 1).some((p) => p.alone)) return null;
+    let best = null;
+    for (const split of splits(j - i + 1)) {
+      if (split.length > maxColumns) continue;
+      let next = i;
+      const columns = split.map((size) => Array.from({ length: size }, () => next++));
+      const r = bestColumns(columns);
+      if (r && (!best || r.cost < best.cost)) best = r;
+    }
+    return best;
+  }
+
+  // Row breaks in reading order, for the band set up in `info`. A row holds at most 2 * maxColumns panels. Null if nothing fits.
+  function solve() {
+    const n = panels.length;
+    const total = Array(n + 1).fill(Infinity);
+    const from = Array(n + 1).fill(-1);
+    const chosen = Array(n + 1).fill(null);
+    total[0] = 0;
+    for (let j = 1; j <= n; j++) {
+      for (let i = Math.max(0, j - 2 * maxColumns); i < j; i++) {
+        if (total[i] === Infinity) continue;
+        const r = bestRow(i, j - 1);
+        if (r && total[i] + r.cost < total[j]) {
+          total[j] = total[i] + r.cost;
+          from[j] = i;
+          chosen[j] = r;
+        }
+      }
+    }
+    if (total[n] === Infinity) return null;
+    const rows = [];
+    for (let j = n; j > 0; j = from[j]) {
+      const r = chosen[j];
+      rows.unshift({ columns: r.columns.map((panelsInColumn, c) => ({ panels: panelsInColumn, width: r.ws[c] })), height: r.height });
+    }
+    return { rows, cost: total[n] };
+  }
+
+  let best = null;
+  const diagrams = panels.filter((p) => p.natural > 0);
+  if (diagrams.length > 1) {
+    // No diagram can be shown larger than the page allows, so the band cannot start above the smallest of those limits.
+    const reach = Math.min(...diagrams.map((p) => Math.min(MAX_SCALE, Math.max(width - (p.pad ?? 0), 1) / p.natural)));
+    for (const lo of new Set([...BAND_LOS.filter((x) => x < reach), reach])) {
+      info = prepare(lo);
+      const r = solve();
+      if (r && (!best || r.cost < best.cost)) best = { ...r, maxScale: Math.min(MAX_SCALE, lo * BAND_RATIO) };
+    }
+    info = prepare(0);
+  }
+  best ??= solve();
+  return best ? { rows: best.rows, maxScale: best.maxScale ?? MAX_SCALE } : singleColumn(width, panels);
+}
+
+// DOM adapter for the sheet's justified ("photo wall") layout. Not a module: compose.js puts it after src/runtime/layout-plan.js
+// (which defines planLayout and the shared STEP, MAX_SCALE, MIN_SCALE) inside one function scope of the page script.
+//
+// It measures every panel at sampled widths, asks planLayout for rows and column widths, and applies them with flexbox.
+// The rendered HTML keeps the plain CSS grid: with JavaScript off, at the single-column breakpoint, or while printing, the grid is what
+// shows (the planned widths belong to the screen width, so print never gets a mix of the two); after printing the layout comes back.
+
+const grid = document.querySelector('.am-grid');
+const panels = grid ? [...grid.children].filter((el) => el.classList.contains('am-panel')) : [];
+
+if (panels.length > 1) {
+  const SINGLE_COLUMN = '(max-width: 760px)'; // the single-column breakpoint in src/themes/base.css
+  const TWO_COLUMNS = '(max-width: 1100px)'; // below this the CSS grid has two columns
+  const SAMPLE_STEP = 20; // width sampling step, px; the planner interpolates between samples
+  const TEXT_MIN = 260; // text keeps at least about 16 CJK characters per line
+  const TABLE_COL_MIN = 96; // per table column, px
+  const TABLE_COL_COMFORT = 220; // a table column this wide reads three or four words per line
+  const KV_COL_MIN = 120; // per key-value column, px: a value of two short words stays on one line
+  const DIAGRAM_MIN = 160;
+  const RESIZE_DELAY = 150;
+  const OVERFLOWING = '.am-table-wrap, .am-diagram, .am-annot-scroll, pre';
+
+  // The first-row cells of each table carry the column widths fitTables() sets, so restore() resets them too.
+  const tables = [...grid.querySelectorAll('.am-table-wrap > table')];
+  const headCells = (table) => [...(table.rows[0]?.cells ?? [])];
+  const original = new Map([grid, ...panels, ...grid.querySelectorAll('.am-diagram > svg'), ...tables.flatMap(headCells)].map((el) => [el, el.getAttribute('style')]));
+  const restoreStyle = (el) => (original.get(el) === null ? el.removeAttribute('style') : el.setAttribute('style', original.get(el)));
+
+  // Back to the plain grid markup and styles.
+  const restore = () => {
+    for (const box of grid.querySelectorAll(':scope > .am-col')) box.replaceWith(...box.children);
+    for (const el of original.keys()) restoreStyle(el);
+  };
+
+  // The author's width hint, rendered as data-span only when the author wrote one. The inline grid-column is the no-JavaScript fallback
+  // and may hold spans the server added, so it is never read here.
+  const spanHint = (el) => Number(el.dataset.span) || 1;
+  const diagramOnly = (el) => {
+    const body = el.querySelector(':scope > .am-panel-body');
+    return body && body.children.length === 1 ? body.querySelector(':scope > .am-diagram > svg') : null;
+  };
+  const naturalWidth = (svg) => Number(svg.getAttribute('width')) || 0;
+
+  // The width each column of a table reads well at: its natural width, but no wider than TABLE_COL_COMFORT unless its longest word
+  // needs more. Below it the cells wrap one word per line, so a panel with a table is not planned narrower than the sum, and
+  // fitTables() keeps each column at its share (the browser would otherwise give the room to the longest column).
+  const columnWidths = new Map();
+  function comfortableWidth(table) {
+    const saved = table.getAttribute('style');
+    const columns = (width) => {
+      table.style.width = width;
+      return headCells(table).map((cell) => cell.getBoundingClientRect().width);
+    };
+    const most = columns('max-content');
+    const least = columns('min-content');
+    if (saved === null) table.removeAttribute('style');
+    else table.setAttribute('style', saved);
+    // A max-content column comes out a fraction under its text in Chrome, enough to wrap the last word, so it gets one pixel more.
+    const want = most.map((w, i) => Math.min(Math.ceil(w) + 1, Math.max(least[i], TABLE_COL_COMFORT)));
+    columnWidths.set(table, { least, want });
+    return want.reduce((sum, w) => sum + w, 0);
+  }
+
+  // After the layout: each column gets at least its comfortable width, scaled down toward its longest word when the panel came out
+  // narrower than planned (a page narrower than the table), so a table scrolls sideways only when even its longest words do not fit.
+  function fitTables() {
+    for (const [table, { least, want }] of columnWidths) {
+      // Each width is rounded up to a whole pixel (a column a fraction too narrow wraps its last word), so keep a pixel per column spare.
+      const room = table.parentElement.clientWidth - want.length;
+      const low = least.reduce((s, w) => s + w, 0);
+      const high = want.reduce((s, w) => s + w, 0);
+      const k = high > room ? Math.max(0, (room - low) / (high - low || 1)) : 1;
+      headCells(table).forEach((cell, i) => { cell.style.minWidth = `${Math.ceil(least[i] + (want[i] - least[i]) * k)}px`; });
+    }
+  }
+
+  // Height (and, for panels with tables or code, the narrowest width without sideways scrolling) at sampled widths.
+  // Only one panel is displayed while it is measured, so each width change lays out that panel alone.
+  function measure(width) {
+    grid.style.display = 'block';
+    for (const el of panels) {
+      el.style.display = 'none';
+      el.style.boxSizing = 'border-box';
+      for (const svg of el.querySelectorAll('.am-diagram > svg')) {
+        svg.style.width = '100%';
+        svg.style.maxWidth = `${naturalWidth(svg) * MAX_SCALE}px`;
+      }
+    }
+    const info = panels.map((el) => {
+      const svg = diagramOnly(el);
+      const svgs = [...el.querySelectorAll('.am-diagram > svg')];
+      const scrollers = el.querySelectorAll(OVERFLOWING);
+      const tableCols = Math.max(0, ...[...el.querySelectorAll('table tr:first-child')].map((tr) => tr.children.length));
+      el.style.display = '';
+      el.style.width = `${width}px`;
+      const pad = svg ? el.offsetWidth - svg.parentElement.clientWidth : 0;
+      const natural = svg ? naturalWidth(svg) : 0;
+      const shrunk = Math.max(0, ...svgs.map((s) => naturalWidth(s) * MIN_SCALE)) + (svg ? pad : 34);
+      const tableFloors = [...el.querySelectorAll('.am-table-wrap > table')].map((t) => comfortableWidth(t) + el.offsetWidth - t.parentElement.clientWidth);
+      // A key-value grid gets the same care: the room a table gains must not squeeze a neighbouring grid to one word per line.
+      const kvs = [...el.querySelectorAll('.am-kv')].map((kv) => (Number(kv.style.getPropertyValue('--kv-cols')) || 1) * KV_COL_MIN + el.offsetWidth - kv.clientWidth);
+      const floor = svg ? Math.max(DIAGRAM_MIN, natural * MIN_SCALE + pad) : Math.max(TEXT_MIN, shrunk, tableCols * TABLE_COL_MIN + 34, ...tableFloors, ...kvs);
+      const from = Math.min(width, Math.floor(floor / STEP) * STEP);
+      const samples = [];
+      let fits = null;
+      for (let w = from; ; w += SAMPLE_STEP) {
+        w = Math.min(w, width);
+        el.style.width = `${w}px`;
+        if (fits === null && !svg && scrollers.length && ![...scrollers].some((s) => s.scrollWidth > s.clientWidth + 1)) fits = w;
+        samples.push({ w, h: el.offsetHeight });
+        if (w === width) break;
+      }
+      el.style.display = 'none';
+      return {
+        samples,
+        minWidth: svg ? floor : Math.max(floor, fits ?? (scrollers.length ? width : 0)),
+        maxWidth: svg ? natural * MAX_SCALE + pad : Infinity,
+        natural,
+        pad,
+        span: spanHint(el),
+      };
+    });
+    for (const el of panels) {
+      el.style.display = '';
+      el.style.width = '';
+    }
+    return info;
+  }
+
+  // Each column gets a fixed width. A row adds up to the full width, so flex-wrap breaks rows by itself.
+  // Stacked panels go into a column wrapper whose last panel absorbs the extra height.
+  function apply(plan, gap) {
+    grid.style.display = 'flex';
+    grid.style.flexWrap = 'wrap';
+    grid.style.alignItems = 'stretch';
+    grid.style.gap = `${gap}px`;
+    for (const el of panels) {
+      el.style.gridColumn = '';
+      el.style.gridRow = '';
+      el.style.flex = '0 0 auto';
+    }
+    for (const row of plan.rows) {
+      for (const col of row.columns) {
+        const width = `${col.width}px`;
+        if (col.panels.length === 1) {
+          panels[col.panels[0]].style.width = width;
+          continue;
+        }
+        const box = document.createElement('div');
+        box.className = 'am-col';
+        box.style.cssText = `width:${width};flex:0 0 auto;display:flex;flex-direction:column;gap:${gap}px`;
+        panels[col.panels[0]].before(box);
+        for (const k of col.panels) {
+          panels[k].style.width = '';
+          box.append(panels[k]);
+        }
+        panels[col.panels[col.panels.length - 1]].style.flex = '1 1 auto';
+      }
+    }
+  }
+
+  // Diagram-only panels show their diagram at most at the top of the page's scale band; a wider panel gains empty space instead.
+  function capDiagrams(maxScale) {
+    for (const el of panels) {
+      const svg = diagramOnly(el);
+      if (svg) svg.style.maxWidth = `${naturalWidth(svg) * maxScale}px`;
+    }
+  }
+
+  const containerWidth = () => Math.floor(grid.getBoundingClientRect().width);
+
+  function justify() {
+    if (printing || printQuery.matches) return;
+    try {
+      // A vertical scrollbar can appear or vanish once the rows change height; plan again if the width moved.
+      let planned = -1;
+      for (let pass = 0; pass < 3 && planned !== containerWidth(); pass++) {
+        restore();
+        if (matchMedia(SINGLE_COLUMN).matches) return;
+        planned = containerWidth();
+        const gap = parseFloat(getComputedStyle(grid).columnGap) || 0;
+        const cols = Math.max(1, Number(getComputedStyle(grid).getPropertyValue('--cols')) || 3);
+        const plan = planLayout({ width: planned, gap, cols: matchMedia(TWO_COLUMNS).matches ? Math.min(cols, 2) : cols, panels: measure(planned) });
+        apply(plan, gap);
+        capDiagrams(plan.maxScale);
+        fitTables();
+      }
+      // The width never settled: columns planned for another width would overflow or leave gaps, so show the plain grid.
+      if (planned !== containerWidth()) restore();
+    } catch {
+      restore();
+    }
+  }
+
+  // Printing: back to the plain grid (spans and all), and the layout again afterwards. Browsers disagree on which of the
+  // `beforeprint` event and the print media query change fires first, or at all, so listen to both; both are idempotent.
+  // While `printing` is set (beforeprint to afterprint) justify() does nothing, so a late resize cannot bring flex widths into the print layout.
+  let printing = false;
+  const printQuery = matchMedia('print');
+  let timer = 0;
+  const later = () => {
+    clearTimeout(timer);
+    timer = setTimeout(justify, RESIZE_DELAY);
+  };
+  const toPrint = () => {
+    clearTimeout(timer);
+    restore();
+  };
+  justify();
+  addEventListener('resize', later);
+  addEventListener('beforeprint', () => {
+    printing = true;
+    toPrint();
+  });
+  addEventListener('afterprint', () => {
+    printing = false;
+    later();
+  });
+  printQuery.addEventListener('change', (e) => (e.matches ? toPrint() : later()));
+  // Late changes to panel heights: web fonts arriving, and images inside the grid finishing their load (load does not bubble, so capture it).
+  document.fonts?.ready.then(later);
+  grid.addEventListener('load', later, true);
+  // Switching theme changes paddings and fonts, hence panel heights.
+  document.querySelector('[data-am="theme"]')?.addEventListener('click', later);
+}
+})();
+})();
+// Pages with a new-version button only: src/render.js adds this script after the page script.
+// The button shows where the browser has native popovers (they open and close the popover with no script). A page that am serve
+// sends to another device has no button (src/serve.js), so this script does not look at the address.
+(() => {
+  const button = document.querySelector('[data-am="update"]');
+  if (!button || !Object.hasOwn(HTMLElement.prototype, 'popover')) return;
+  button.hidden = false;
+  // Each copy button copies its data-text and reads data-done for a moment, then comes back to the label it started from. That
+  // label is read once, here: a second click inside the moment would otherwise read the copied label off the button and restore
+  // that instead, and the label would never come back. The moment starts again on each click: the timer of the previous one is
+  // left to fire and does nothing.
+  for (const copy of document.querySelectorAll('[data-am="copy-text"]')) {
+    const idle = copy.textContent;
+    let clicks = 0;
+    copy.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(copy.dataset.text);
+      } catch {
+        return;
+      }
+      copy.textContent = copy.dataset.done;
+      const mine = ++clicks;
+      setTimeout(() => { if (mine === clicks) copy.textContent = idle; }, 1400);
+    });
+  }
+})();
+</script>
+</body>
+</html>

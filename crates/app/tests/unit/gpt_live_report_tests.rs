@@ -39,35 +39,25 @@ fn gpt_live_report_distinguishes_tool_schema_rejection_from_connectivity() {
     );
 }
 
-/// AC05/AC10：项目、后台配置及实际VAD任一缺失时应及时结束委派并说明原因。
-/// 构造：分别缺项目、后台和VAD，以及全部已就绪的四种组合。
+/// AC05/AC10：后台配置及实际VAD任一缺失时应及时结束委派并说明原因。
+/// 构造：分别缺后台和VAD，以及全部已就绪的四种组合。
 /// 执行：调用生产准入检查，不模拟服务端转写完成事件。
 /// 预期：缺项消息具体、就绪时放行；VAD只控制更正保护能力，不被当作转写水位。
 #[test]
 fn gpt_live_delegation_admission_reports_missing_dependencies() {
     assert!(
-        admission(None, true, true)
-            .expect("无项目应拒绝")
-            .contains("打开项目"),
-        "无项目不应无限等待"
-    );
-    assert!(
-        admission(Some("/project"), false, true)
+        admission(false, true)
             .expect("无后台应拒绝")
             .contains("GPT-Live API Key"),
         "后台就绪必须约束实际派工"
     );
     assert!(
-        admission(Some("/project"), true, false)
+        admission(true, false)
             .expect("VAD不可用应拒绝")
             .contains("语音检测"),
         "实际VAD失败应明确说明"
     );
-    assert_eq!(
-        admission(Some("/project"), true, true),
-        None,
-        "所有依赖就绪才允许派工"
-    );
+    assert_eq!(admission(true, true), None, "所有依赖就绪才允许派工");
 }
 
 /// AC10/AC12：后台配置、模型超时与澄清必须回传，不能全部变成泛化的“未执行”。

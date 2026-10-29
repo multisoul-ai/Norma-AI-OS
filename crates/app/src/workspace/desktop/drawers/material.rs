@@ -22,6 +22,15 @@ use crate::settings::wallpaper::state::{
 const FROST_MAX_EDGE_PX: u32 = 1280;
 const FROST_SIGMA: f32 = 24.0;
 
+pub(in crate::workspace::desktop) fn drawer_tint(theme: ui::Theme, _left: bool) -> (u32, u32) {
+    // 60% tint (round(255 * 0.60)) lets more blurred wallpaper show through both drawers.
+    let alpha = super::super::surface_theme::WALLPAPER_TINT_ALPHA;
+    (
+        ui::icons::with_alpha(theme.canvas_from, alpha),
+        ui::icons::with_alpha(theme.canvas_to, alpha),
+    )
+}
+
 #[derive(Default)]
 pub(crate) struct FrostedWallpaperState {
     selection: Option<WallpaperSelection>,
@@ -219,11 +228,7 @@ impl MultisoulApp {
         };
         // Keep enough tint for legible controls while letting the blurred
         // Earth Horizon colors read through both drawer surfaces.
-        let tint = if left {
-            (0x071423a0, 0x05111e9c)
-        } else {
-            (0x0714239c, 0x06152498)
-        };
+        let tint = drawer_tint(self.desktop_theme(), left);
         div()
             .id(if left {
                 "desktop-assistant-left-frost"
@@ -254,6 +259,16 @@ impl MultisoulApp {
                     )
                 },
             )
+            .when_some(
+                self.desktop_theme().wallpaper_veil(),
+                |layer, (from, to)| {
+                    layer.child(div().absolute().inset_0().bg(linear_gradient(
+                        155.0,
+                        linear_color_stop(rgba(from), 0.0),
+                        linear_color_stop(rgba(to), 1.0),
+                    )))
+                },
+            )
             .child(div().absolute().inset_0().bg(linear_gradient(
                 155.0,
                 linear_color_stop(rgba(tint.0), 0.0),
@@ -261,8 +276,14 @@ impl MultisoulApp {
             )))
             .child(div().absolute().inset_0().bg(linear_gradient(
                 145.0,
-                linear_color_stop(rgba(0xcde9ff0b), 0.0),
-                linear_color_stop(rgba(0x8ec9ff00), 0.6),
+                linear_color_stop(
+                    rgba(ui::icons::with_alpha(
+                        self.desktop_theme().text_primary,
+                        0x05,
+                    )),
+                    0.0,
+                ),
+                linear_color_stop(rgba(0x00000000), 0.6),
             )))
     }
 }

@@ -10,6 +10,10 @@ use crate::app::{
 use gpui::{Context, Window};
 use std::sync::Arc;
 
+#[cfg(test)]
+#[path = "../../../tests/unit/gpt_live_question_delegation_tests.rs"]
+mod question_tests;
+
 pub(super) struct DelegatedCompletion {
     pub work: DelegatedWork,
     pub report: DelegatedReport,
@@ -17,7 +21,7 @@ pub(super) struct DelegatedCompletion {
 
 pub(super) fn start(
     app: &mut MultisoulApp,
-    work: DelegatedWork,
+    mut work: DelegatedWork,
     scope: LiveAdapterScope,
     finished: async_channel::Sender<DelegatedCompletion>,
     window: &mut Window,
@@ -28,6 +32,12 @@ pub(super) fn start(
             work,
             report: DelegatedReport::default(),
         });
+        return;
+    }
+    if let Some(report) = super::question::delegate(app, &work, &scope) {
+        work.question_delegated = report.effects;
+        let _ = finished.try_send(DelegatedCompletion { work, report });
+        cx.notify();
         return;
     }
     let runtime = super::super::shared_tokio_runtime();
@@ -58,6 +68,20 @@ pub(super) fn start(
     };
     let project = scope.project.clone();
     let delegate = start_gpt_live_adapter(scope, app.database_paths.clone(), window, cx);
+    let shared = match app.shared_context_service() {
+        Ok(shared) => shared,
+        Err(_) => {
+            let _ = finished.try_send(DelegatedCompletion {
+                work,
+                report: DelegatedReport {
+                    planner: Err(PlannerFailure::Runtime),
+                    ..Default::default()
+                },
+            });
+            return;
+        }
+    };
+    let delegate = crate::app::shared_context::adapter::wrap(delegate, shared);
     let durable = Arc::new(LiveDurableAdapter::new(
         delegate,
         app.database_paths.app_db_path().to_path_buf(),

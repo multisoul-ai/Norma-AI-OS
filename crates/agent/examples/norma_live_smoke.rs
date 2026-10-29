@@ -26,12 +26,18 @@ impl AgentCardAdapter for LiveSmokeAdapter {
                 | AdapterCommand::WorkspaceSnapshot { .. }
                 | AdapterCommand::AssignWorkspaceTask { .. }
                 | AdapterCommand::HandoffToBrain { .. }
+                | AdapterCommand::HandoffWithContext { .. }
+                | AdapterCommand::UpdateWorkingState(_)
+                | AdapterCommand::ReadSharedContext { .. }
+                | AdapterCommand::ContextCheckpoint { .. }
                 | AdapterCommand::OpenWorkspaceArtifact { .. }
                 | AdapterCommand::LocateWorkspaceAgent { .. }
                 | AdapterCommand::CaptureIdea { .. }
                 | AdapterCommand::ListIdeas
                 | AdapterCommand::AssignIdea { .. } => {
-                    return Err(AdapterError::Rejected("示例未连接持久记忆宿主".into()))
+                    return Err(AdapterError::Rejected(
+                        "示例未连接持久记忆或共享上下文宿主".into(),
+                    ))
                 }
                 AdapterCommand::AssignAgentTask { agent, .. } => {
                     AdapterResult::accepted(format!("{agent} 的 AgentCard 已接收任务"))

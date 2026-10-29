@@ -116,7 +116,7 @@ impl CodexHost {
                     .cwd(&launch.cwd),
             )
             .env(ENV_CONTROL_RUN_ID, &run_id);
-        launch.control.spawn_codex_host(command, directory)?;
+        launch.control.spawn_native_host(command, directory)?;
         // Any prepare error must release a host even before a connection was established.
         let result = Self::connect_and_start(&launch, &socket_path, task, &run_id, audit);
         let host = match result {

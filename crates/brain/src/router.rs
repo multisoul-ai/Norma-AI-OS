@@ -154,6 +154,21 @@ impl Router {
                 }]
             }
             BrainEvent::ApprovalRequested(request) => self.route_approval(request),
+            BrainEvent::QuestionRequested {
+                agent,
+                question,
+                delegated,
+            } => {
+                if question.validate().is_err() {
+                    return vec![];
+                }
+                vec![Action {
+                    lane: Lane::Main,
+                    text: prompt::question_request(&question, delegated),
+                    approval_id: None,
+                    trigger: Trigger::new(TriggerKind::QuestionRequest, agent),
+                }]
+            }
             BrainEvent::ApprovalClosed { id } => {
                 self.open_approvals.remove(&id);
                 vec![]
@@ -161,6 +176,12 @@ impl Router {
             BrainEvent::UserRequest { text } => vec![Action {
                 lane: Lane::Main,
                 text: prompt::user_request(&text),
+                approval_id: None,
+                trigger: Trigger::new(TriggerKind::UserRequest, ""),
+            }],
+            BrainEvent::ContextRequest { text, reference } => vec![Action {
+                lane: Lane::Main,
+                text: prompt::context_request(&text, &reference),
                 approval_id: None,
                 trigger: Trigger::new(TriggerKind::UserRequest, ""),
             }],

@@ -17,8 +17,6 @@ pub(crate) const GRID_STYLES: [&str; 8] = [
     "random",
 ];
 const DEFAULT_STYLE: &str = "meteor";
-/// 第一次保存偏好时把交接固定为离子，保证现有的交接外观不会因为换了主款式而被悄悄改掉。
-const DEFAULT_HANDOFF: &str = "ion";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum EffectsTarget {
@@ -230,7 +228,7 @@ impl EffectsSettingsState {
                 style: DEFAULT_STYLE.into(),
                 voice: None,
                 idea: None,
-                handoff: Some(DEFAULT_HANDOFF.into()),
+                handoff: None,
             })
     }
 

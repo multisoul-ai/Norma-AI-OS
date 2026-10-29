@@ -32,6 +32,12 @@ pub enum BrainEvent {
         from_result: bool,
     },
     ApprovalRequested(ApprovalRequest),
+    /// 原问题；delegated 只能来自宿主明确的单题用户操作，不能从模型文本推断。
+    QuestionRequested {
+        agent: String,
+        question: norma::protocol::PendingQuestion,
+        delegated: bool,
+    },
     /// 审批已被用户处理或已失效，大脑不必再判断。
     ApprovalClosed {
         id: String,
@@ -43,6 +49,10 @@ pub enum BrainEvent {
     /// 前台对话转来的任务或问题。
     UserRequest {
         text: String,
+    },
+    ContextRequest {
+        text: String,
+        reference: norma::protocol::ContextRef,
     },
     /// 用户在概览里忽略了大脑的提议；只记录，不单独叫醒大脑。
     ProposalDeclined {
@@ -74,6 +84,7 @@ pub enum BrainStatus {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TriggerKind {
     AgentFinished,
+    QuestionRequest,
     ApprovalRequest,
     UserRequest,
     UserReturned,
@@ -86,6 +97,7 @@ impl TriggerKind {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::AgentFinished => "agent_finished",
+            Self::QuestionRequest => "question_request",
             Self::ApprovalRequest => "approval_request",
             Self::UserRequest => "user_request",
             Self::UserReturned => "user_returned",
@@ -98,6 +110,7 @@ impl TriggerKind {
     pub fn parse(key: &str) -> Self {
         [
             Self::AgentFinished,
+            Self::QuestionRequest,
             Self::ApprovalRequest,
             Self::UserRequest,
             Self::UserReturned,

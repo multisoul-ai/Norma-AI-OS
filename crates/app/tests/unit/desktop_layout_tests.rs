@@ -2,26 +2,33 @@ use super::*;
 use crate::canvas::layout_strategy::CanvasLayoutStrategy;
 use canvas::{compute_configurable_grid_layout, Vec2};
 
-/// 只有一个工作空间时，主卡使用整行宽度，避免右侧留下未使用的空白列。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   1280×800 窗口；宽屏左右边距各 54，内容宽 = 1280 - 2×54 = 1172。
-///   仅有 1 个工作空间，右侧没有需要预留位置的卡片。
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 计算首页布局 → 返回唯一一张主卡。
-///   2. 对比卡片右边界与内容区右边界。
-///
-/// 预期结果：
-///   - 正断言：主卡从 x=54 延伸到 x=1226，占满内容区。
-///   - 负断言：不会沿用多工作空间布局的 62% 列宽。
+/// 场景：最近访问使用四张等宽卡，少量空间为新建卡预留位置。
+/// 数据：1440×900，四卡总宽 4×252+3×16=1056，左边距192；
+/// 单空间与新建两卡总宽520，在1280窗口左边距380。
+/// 执行：计算12个、1个和0个空间的首页布局。
+/// 预期：最多四个252×204卡；单卡不铺满整行；零空间没有卡。
 #[test]
-fn desktop_single_workspace_fills_home_row() {
-    let cards = home_layout(1280.0, 800.0, 1);
-    assert_eq!(cards.len(), 1, "单工作空间首页应仅有一张卡片");
-    assert_eq!(cards[0].origin.x, 54.0, "唯一主卡应从内容区左边界开始");
-    assert_eq!(cards[0].size.x, 1172.0, "唯一主卡应占满全部可用宽度");
-    assert_eq!(cards[0].max().x, 1226.0, "主卡右边界应与内容区右边界一致");
-    assert_ne!(cards[0].size.x, 719.2, "单卡不能沿用多卡的 62% 列宽");
+fn desktop_home_recent_cards_are_equal_and_few_are_centered() {
+    let cards = home_layout(1440.0, 900.0, 12);
+    assert_eq!(cards.len(), 4, "最近访问最多显示四张卡");
+    assert_eq!(
+        cards[0],
+        CanvasRect::new(192.0, 466.0, 252.0, 204.0),
+        "第一卡应匹配Combo坐标"
+    );
+    assert_eq!(
+        cards[3],
+        CanvasRect::new(996.0, 466.0, 252.0, 204.0),
+        "第四卡同宽同高同一行"
+    );
+    let few = home_layout(1280.0, 800.0, 1);
+    assert_eq!(few.len(), 1, "新建卡由视图追加，不伪造工作空间");
+    assert_eq!(few[0].origin.x, 380.0, "一张空间加新建卡整体居中");
+    assert_eq!(few[0].size, Vec2::new(252.0, 204.0), "单卡保持标准尺寸");
+    assert!(
+        home_layout(1280.0, 800.0, 0).is_empty(),
+        "欢迎页不显示最近访问卡"
+    );
 }
 
 /// 首页主卡预览占满预览底板，六个项目在底板内紧凑排成两行。

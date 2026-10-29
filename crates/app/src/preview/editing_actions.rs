@@ -35,7 +35,7 @@ impl MultisoulApp {
             self.desktop_workspace.workbench.pending_close =
                 Some(crate::workspace::desktop::PendingWorkbenchAction::Quit);
             self.desktop_workspace.error =
-                Some("文件工作台有未保存修改或 Git 操作，请先处理后离开".into());
+                Some(ui::i18n::LocalizedText::new("drawers.workbench_busy"));
             self.reveal_workbench_prompt(cx);
             self.hide_desktop_content_browsers();
             cx.notify();

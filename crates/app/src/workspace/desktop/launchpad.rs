@@ -1,7 +1,8 @@
-use super::{glass_button_variant, GLASS_TEXT_SECONDARY};
+use super::glass_button_variant;
 use crate::app::MultisoulApp;
 use gpui::{
-    div, prelude::*, px, rgba, Context, Div, Focusable, MouseButton, Stateful, Subscription, Window,
+    div, prelude::*, px, rgba, Context, Div, EntityInputHandler, Focusable, MouseButton, Stateful,
+    Subscription, Window,
 };
 use ui::component::button::{Button, ButtonVariants};
 use ui::component::input::{Input, InputEvent, InputState};
@@ -16,13 +17,17 @@ struct SearchInput {
 #[path = "../../../tests/unit/desktop_home_tests.rs"]
 mod home_tests;
 
+#[cfg(test)]
+#[path = "../../../tests/unit/desktop_home_contrast_tests.rs"]
+mod contrast_tests;
+
 impl MultisoulApp {
     pub(crate) fn render_desktop_launchpad(
         &mut self,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
-        self.sync_desktop_input_theme(self.desktop_workspace.home_directory, cx);
+        self.sync_desktop_input_theme(false, cx);
         #[cfg(target_os = "macos")]
         self.sync_canvas_video_wallpaper(cx);
         let theme = self.desktop_theme();
@@ -44,13 +49,33 @@ impl MultisoulApp {
                 ))
             });
             let subscription = cx.subscribe(&input, move |_, input, event: &InputEvent, cx| {
-                if !matches!(event, InputEvent::Change) {
-                    return;
-                }
                 let query = input.read(cx).value().to_string();
                 if let Some(app) = app.upgrade() {
                     app.update(cx, |app, cx| {
-                        app.desktop_workspace.search_query = query;
+                        match event {
+                            InputEvent::Change => {
+                                app.desktop_workspace.search_query = query.clone();
+                                app.desktop_workspace.home.cursor = 0;
+                                if let Some(scroll) = &app.desktop_workspace.home.search_scroll {
+                                    scroll.read(cx).set_offset(gpui::point(px(0.0), px(0.0)));
+                                }
+                                if !query.is_empty() {
+                                    app.desktop_workspace.home.search_focus_dismissed = false;
+                                    app.desktop_workspace.home.search_open = true;
+                                }
+                            }
+                            InputEvent::Focus
+                                if app.desktop_workspace.home_directory
+                                    && !app.desktop_workspace.home.search_focus_dismissed =>
+                            {
+                                app.desktop_workspace.home.search_open = true;
+                                app.desktop_workspace.actions_workspace_id = None;
+                            }
+                            InputEvent::Blur => {
+                                app.desktop_workspace.home.search_focus_dismissed = false;
+                            }
+                            _ => {}
+                        }
                         cx.notify();
                     });
                 }
@@ -61,7 +86,13 @@ impl MultisoulApp {
             }
         });
         let input = search.read(cx).input.clone();
-        if input.read(cx).value().as_ref() != self.desktop_workspace.search_query.as_str() {
+        // IME composition notifies a redraw without emitting Change until committed.
+        // Keep the pending text instead of replacing it with the last committed query.
+        if input.read(cx).value().as_ref() != self.desktop_workspace.search_query.as_str()
+            && input.update(cx, |input, cx| {
+                input.marked_text_range(window, cx).is_none()
+            })
+        {
             let query = self.desktop_workspace.search_query.clone();
             input.update(cx, |input, cx| input.set_value(query, window, cx));
         }
@@ -69,6 +100,7 @@ impl MultisoulApp {
         if self.desktop_workspace.home_directory {
             return self.render_desktop_home(input, window, cx);
         }
+        self.desktop_workspace.directory.search_focus = Some(focus.clone());
         let workspaces: Vec<_> = self
             .desktop_workspace
             .filtered()
@@ -153,7 +185,7 @@ impl MultisoulApp {
                                 .pb(px(92.0))
                                 .flex()
                                 .justify_center()
-                                .text_color(rgba(GLASS_TEXT_SECONDARY))
+                                .text_color(rgba(theme.text_secondary))
                                 .child(if has_any {
                                     ui::i18n::text("workspace.no_workspaces_match_your_search")
                                 } else {
@@ -248,7 +280,7 @@ impl MultisoulApp {
                                 .child(
                                     div()
                                         .text_size(px(11.0))
-                                        .text_color(rgba(GLASS_TEXT_SECONDARY))
+                                        .text_color(rgba(theme.text_secondary))
                                         .child(ui::i18n::format("workspace.workspace_count", &[("count", self.desktop_workspace.workspaces.len().to_string())])),
                                 )
                                 .child(div().flex_1())

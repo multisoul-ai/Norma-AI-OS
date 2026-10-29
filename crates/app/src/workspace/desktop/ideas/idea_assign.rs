@@ -35,7 +35,7 @@ pub(super) enum AssignPlan {
     /// 校验通过，打开类型选择器。
     OpenPicker,
     /// 无法执行：把原因告诉用户，不静默忽略。
-    Notice(String),
+    Notice(ui::i18n::LocalizedText),
 }
 
 /// 光标落在待办行就派该行，否则（无光标、光标在已指派行）派待办队首。
@@ -51,10 +51,10 @@ pub(super) fn plan_assignment(
         .and_then(|index| todo_ids.get(index))
         .or_else(|| todo_ids.first())
     else {
-        return AssignPlan::Notice("没有待办想法可派发".to_owned());
+        return AssignPlan::Notice(ui::i18n::LocalizedText::new("drawers.no_ideas_to_assign"));
     };
     let Some(area_id) = expanded_area else {
-        return AssignPlan::Notice("先展开一个项目，再派发想法".to_owned());
+        return AssignPlan::Notice(ui::i18n::LocalizedText::new("drawers.expand_project_first"));
     };
     let target = match request {
         AssignRequest::Picker => return AssignPlan::OpenPicker,
@@ -74,7 +74,10 @@ pub(super) fn plan_assignment(
                     node_id: option.node_id,
                 },
                 None => {
-                    return AssignPlan::Notice(format!("当前项目没有第 {number} 张智能体卡片"));
+                    return AssignPlan::Notice(ui::i18n::message(
+                        "drawers.agent_number_missing",
+                        &[("number", (number).to_string())],
+                    ));
                 }
             }
         }

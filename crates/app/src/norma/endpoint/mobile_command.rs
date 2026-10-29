@@ -23,6 +23,8 @@ pub(super) enum Started {
 pub(crate) fn execute(database: PathBuf, call: LiveCommandRequest, cx: &mut App) {
     if call.request.command.message_target().is_some() {
         super::mobile_task_baseline::prepare(database, call, cx);
+    } else if matches!(call.request.command, MobileCommand::RealtimeTool { .. }) {
+        super::mobile_realtime::prepare(database, call, cx);
     } else {
         execute_now(database, call, cx);
     }

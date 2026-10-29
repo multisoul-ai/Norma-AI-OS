@@ -24,7 +24,13 @@ pub(super) fn progress_detail(
         .collect();
     let elapsed = started.map(|started| elapsed_label(started, now_ms));
     let text = if done < total {
-        let item = format!("第 {}/{} 项", done + 1, total);
+        let item = ui::i18n::format(
+            "drawers.progress_step",
+            &[
+                ("arg0", (done + 1).to_string()),
+                ("arg1", (total).to_string()),
+            ],
+        );
         let step = progress
             .current_step
             .as_deref()
@@ -38,15 +44,25 @@ pub(super) fn progress_detail(
         }
     } else {
         match elapsed {
-            Some(elapsed) => format!("已完成 {total} 项 · {elapsed}"),
-            None => format!("已完成 {total} 项"),
+            Some(elapsed) => ui::i18n::format(
+                "drawers.completed_elapsed",
+                &[
+                    ("total", (total).to_string()),
+                    ("elapsed", (elapsed).to_string()),
+                ],
+            ),
+            None => ui::i18n::format("drawers.completed_count", &[("total", (total).to_string())]),
         }
     };
     (text, marks)
 }
 
-pub(super) fn running_detail(action: Option<&str>, started: Option<u64>, now_ms: u64) -> String {
-    let mut parts = vec!["运行中".to_string()];
+pub(in crate::workspace::desktop) fn running_detail(
+    action: Option<&str>,
+    started: Option<u64>,
+    now_ms: u64,
+) -> String {
+    let mut parts = vec![ui::i18n::text("drawers.running").to_string()];
     if let Some(action) = action.map(str::trim).filter(|action| !action.is_empty()) {
         parts.push(action.to_string());
     }
@@ -57,10 +73,12 @@ pub(super) fn running_detail(action: Option<&str>, started: Option<u64>, now_ms:
 }
 
 pub(super) fn project_secondary(project: &RunOverviewProject, now_ms: u64) -> String {
-    let mut text = format!(
-        "{} 个智能体 · 上次状态 {}",
-        project.agent_count,
-        project_status(project.status)
+    let mut text = ui::i18n::format(
+        "drawers.project_status",
+        &[
+            ("arg0", (project.agent_count).to_string()),
+            ("arg1", (project_status(project.status)).to_string()),
+        ],
     );
     if let Some(updated) = project.updated_at_unix_ms {
         let when = relative_update(updated, now_ms);
@@ -70,18 +88,18 @@ pub(super) fn project_secondary(project: &RunOverviewProject, now_ms: u64) -> St
         }
     }
     if !project.loaded {
-        text.push_str(" · 未加载");
+        text.push_str(ui::i18n::text("drawers.not_loaded_suffix"));
     }
     text
 }
 
 pub(super) fn project_status(status: WorkspaceActivityStatus) -> &'static str {
     match status {
-        WorkspaceActivityStatus::Approval => "待审核",
-        WorkspaceActivityStatus::Failed => "出错",
-        WorkspaceActivityStatus::Review => "待查看",
-        WorkspaceActivityStatus::Running => "运行中",
-        WorkspaceActivityStatus::Idle => "空闲",
+        WorkspaceActivityStatus::Approval => ui::i18n::text("drawers.pending_approval"),
+        WorkspaceActivityStatus::Failed => ui::i18n::text("drawers.error"),
+        WorkspaceActivityStatus::Review => ui::i18n::text("drawers.pending_review"),
+        WorkspaceActivityStatus::Running => ui::i18n::text("drawers.running"),
+        WorkspaceActivityStatus::Idle => ui::i18n::text("drawers.idle"),
     }
 }
 
@@ -98,9 +116,12 @@ pub(super) fn project_tone(status: WorkspaceActivityStatus) -> OverviewStatusTon
 fn elapsed_label(started_at_unix_ms: u64, now_ms: u64) -> String {
     let minutes = now_ms.saturating_sub(started_at_unix_ms) / 60_000;
     if minutes == 0 {
-        "已运行不到 1 分".into()
+        ui::i18n::text("drawers.running_under_minute").into()
     } else {
-        format!("已运行 {minutes} 分")
+        ui::i18n::format(
+            "drawers.running_minutes",
+            &[("minutes", (minutes).to_string())],
+        )
     }
 }
 
@@ -110,10 +131,12 @@ pub(super) fn relative_update(updated_at_unix_ms: i64, now_ms: u64) -> String {
     }
     let age = now_ms.saturating_sub(updated_at_unix_ms as u64) / 1_000;
     match age {
-        0..=59 => "刚刚".into(),
-        60..=3_599 => format!("{} 分钟前", age / 60),
-        3_600..=86_399 => format!("{} 小时前", age / 3_600),
-        _ => format!("{} 天前", age / 86_400),
+        0..=59 => ui::i18n::text("drawers.just_now").into(),
+        60..=3_599 => ui::i18n::format("drawers.minutes_ago", &[("arg0", (age / 60).to_string())]),
+        3_600..=86_399 => {
+            ui::i18n::format("drawers.hours_ago", &[("arg0", (age / 3_600).to_string())])
+        }
+        _ => ui::i18n::format("drawers.days_ago", &[("arg0", (age / 86_400).to_string())]),
     }
 }
 
@@ -132,9 +155,31 @@ pub(in crate::workspace::desktop) fn overview_subtitle(
 }
 
 fn when_updated(when: &str) -> String {
-    if when == "刚刚" {
-        "刚刚更新".into()
+    if when == ui::i18n::text("drawers.just_now") {
+        ui::i18n::text("drawers.updated_now").into()
     } else {
-        format!("{when}更新")
+        ui::i18n::format("drawers.updated_when", &[("when", (when).to_string())])
     }
 }
+
+/// Translate structured runtime actions, preserving the provider's tool name.
+pub(in crate::workspace::desktop) fn localized_live_action(
+    state: &runtime::AgentTaskState,
+) -> Option<String> {
+    match state {
+        runtime::AgentTaskState::Thinking => Some(ui::i18n::text("drawers.thinking").into()),
+        runtime::AgentTaskState::RunningTool { tool_name } => {
+            Some(match tool_name.as_deref().filter(|name| !name.is_empty()) {
+                Some(tool) => {
+                    ui::i18n::format("drawers.calling_tool", &[("tool", tool.to_string())])
+                }
+                None => ui::i18n::text("drawers.running_tool").into(),
+            })
+        }
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+#[path = "../../../tests/unit/drawer_i18n_tests.rs"]
+mod drawer_i18n_tests;

@@ -15,7 +15,8 @@ impl MultisoulApp {
         let valid =
             self.desktop_approval_is_current(area_id, node_id, expected_run, expected_turn, cx);
         if !valid {
-            self.desktop_workspace.error = Some("审批请求已变化，请查看最新 Agent 状态".into());
+            self.desktop_workspace.error =
+                Some(ui::i18n::LocalizedText::new("drawers.approval_changed"));
             cx.notify();
             return;
         }

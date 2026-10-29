@@ -5,11 +5,13 @@ public enum SettingsModule {
     public static let manifest = DesktopModule(
         name: "settings",
         scenarioNames: [
+            SettingsThemeConsistency.name,
             SettingsNavigation.name,
             SettingsBasicPreferences.name,
             SettingsResponsiveKeyboard.name,
             SettingsSpaceWallpapers.name,
             SettingsLiveConfiguration.name,
+            SettingsA1Configuration.name,
             SettingsShortcutCustomize.name,
             SettingsShortcutDefaults.name,
             SettingsOrchestrationPathConvention.name,
@@ -17,8 +19,11 @@ public enum SettingsModule {
             SettingsDispatchEffects.name,
             SettingsRunEffects.name,
         ],
+        visualScenarioNames: [SettingsThemeConsistency.name],
         run: { scenario, session in
             switch scenario {
+            case SettingsThemeConsistency.name:
+                try await SettingsThemeConsistency.run(session)
             case SettingsNavigation.name:
                 try await SettingsNavigation.run(session)
             case SettingsBasicPreferences.name:
@@ -27,6 +32,8 @@ public enum SettingsModule {
                 try await SettingsResponsiveKeyboard.run(session)
             case SettingsSpaceWallpapers.name:
                 try await SettingsSpaceWallpapers.run(session)
+            case SettingsA1Configuration.name:
+                try await SettingsA1Configuration.run(session)
             case SettingsLiveConfiguration.name:
                 try await SettingsLiveConfiguration.run(session)
             case SettingsShortcutCustomize.name:

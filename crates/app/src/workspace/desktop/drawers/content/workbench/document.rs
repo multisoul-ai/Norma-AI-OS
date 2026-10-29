@@ -13,17 +13,6 @@ use std::rc::Rc;
 use storage::DesktopContentTab;
 use ui::component::input::Input;
 
-pub(super) const PANEL: u32 = 0x101114ff;
-pub(super) const PATH_BAR: u32 = 0x15171bff;
-pub(super) const TEXT: u32 = 0xe8f1ecff;
-pub(super) const TEXT_SECONDARY: u32 = 0xcdd5e0ff;
-pub(super) const TEXT_MUTED: u32 = 0x8e99a8ff;
-pub(super) const GUTTER: u32 = 0x6f7b8bff;
-pub(super) const LINE: u32 = 0xffffff14;
-const JUMP_LINE: u32 = 0x8db9ec2e;
-pub(super) const GREEN: u32 = 0x4cd37aff;
-pub(super) const RED: u32 = 0xff6b6bff;
-pub(super) const FOCUS: u32 = 0x8db9ecaa;
 pub(super) const LINE_HEIGHT: f32 = 22.8;
 const PATH_BAR_HEIGHT: f32 = 36.0;
 
@@ -58,6 +47,7 @@ impl MultisoulApp {
         compact: bool,
         cx: &mut Context<Self>,
     ) -> Div {
+        let theme = self.desktop_theme();
         let s = &self.desktop_workspace.workbench;
         let body = if s.diff.is_some() {
             self.render_workbench_diff(cx)
@@ -71,13 +61,14 @@ impl MultisoulApp {
             .flex()
             .flex_col()
             .min_w(px(0.0))
-            .bg(rgba(PANEL))
-            .text_color(rgba(TEXT_SECONDARY))
+            .bg(rgba(theme.canvas_from))
+            .text_color(rgba(theme.text_secondary))
             .child(self.render_workbench_path_bar(compact, cx))
             .child(body)
     }
 
     fn render_workbench_path_bar(&self, compact: bool, cx: &mut Context<Self>) -> Stateful<Div> {
+        let theme = self.desktop_theme();
         let s = &self.desktop_workspace.workbench;
         let key = s.draft_key();
         let draft = key.as_ref().and_then(|key| s.drafts.get(key));
@@ -92,14 +83,14 @@ impl MultisoulApp {
             .items_center()
             .gap(px(2.0))
             .px(px(10.0))
-            .bg(rgba(PATH_BAR))
+            .bg(rgba(theme.panel_high))
             .border_b_1()
-            .border_color(rgba(LINE));
+            .border_color(rgba(theme.node_stroke));
         if compact {
             bar = bar.child(self.tool_button(
                 "files-toggle-tree",
                 "☰",
-                "显示文件目录",
+                ui::i18n::text("drawers.show_directory"),
                 false,
                 Rc::new(|app, _, cx| {
                     app.desktop_workspace.workbench.sidebar_open = true;
@@ -121,7 +112,9 @@ impl MultisoulApp {
                 .text_size(px(12.0))
                 .child(format!(
                     "{}{}",
-                    selected.as_deref().unwrap_or("打开文件"),
+                    selected
+                        .as_deref()
+                        .unwrap_or(ui::i18n::text("drawers.open_file")),
                     if dirty { " ●" } else { "" }
                 )),
         );
@@ -129,7 +122,7 @@ impl MultisoulApp {
             bar = bar.child(self.tool_button(
                 "files-edit",
                 "✎",
-                "编辑",
+                ui::i18n::text("drawers.edit"),
                 false,
                 Rc::new(|app, w, cx| app.edit_workbench_file(w, cx)),
                 cx,
@@ -139,7 +132,7 @@ impl MultisoulApp {
             bar = bar.child(self.tool_button(
                 "files-save",
                 "✓",
-                "保存",
+                ui::i18n::text("drawers.save"),
                 draft.is_none_or(|d| !d.dirty || d.saving),
                 Rc::new(|app, _, cx| app.save_workbench_file(cx)),
                 cx,
@@ -149,7 +142,11 @@ impl MultisoulApp {
             bar = bar.child(self.tool_button(
                 "files-preview-mode",
                 if s.show_source { "◐" } else { "‹›" },
-                if s.show_source { "预览" } else { "源码" },
+                if s.show_source {
+                    ui::i18n::text("drawers.preview")
+                } else {
+                    ui::i18n::text("drawers.source")
+                },
                 false,
                 Rc::new(|app, _, cx| {
                     app.desktop_workspace.workbench.show_source ^= true;
@@ -163,7 +160,7 @@ impl MultisoulApp {
             bar = bar.child(self.tool_button(
                 "files-current-content",
                 "⇤",
-                "查看当前文件",
+                ui::i18n::text("drawers.view_current_file"),
                 false,
                 Rc::new(|app, _, cx| app.load_workbench_file(false, false, cx)),
                 cx,
@@ -173,7 +170,7 @@ impl MultisoulApp {
             bar = bar.child(self.tool_button(
                 "files-copy",
                 "⧉",
-                "复制全文",
+                ui::i18n::text("drawers.copy_all"),
                 false,
                 Rc::new(|app, _, cx| {
                     if let Some(file) = &app.desktop_workspace.workbench.file {
@@ -187,7 +184,7 @@ impl MultisoulApp {
             bar = bar.child(self.tool_button(
                 "files-open-system",
                 "↗",
-                "使用系统应用打开",
+                ui::i18n::text("drawers.open_system"),
                 false,
                 Rc::new(|app, _, cx| {
                     let s = &app.desktop_workspace.workbench;
@@ -213,6 +210,7 @@ impl MultisoulApp {
         action: Action,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
+        let theme = self.desktop_theme();
         let key_action = action.clone();
         let base = div()
             .id(id)
@@ -229,14 +227,17 @@ impl MultisoulApp {
             .text_size(px(13.0))
             .tooltip(tooltip_view(tip));
         if disabled {
-            return base.text_color(rgba(GUTTER)).child(glyph);
+            return base.text_color(rgba(theme.text_tertiary)).child(glyph);
         }
-        base.text_color(rgba(TEXT_SECONDARY))
+        base.text_color(rgba(theme.text_secondary))
             .cursor_pointer()
             .tab_index(0)
-            .hover(|s| s.bg(rgba(0xffffff14)).text_color(rgba(TEXT)))
-            .active(|s| s.bg(rgba(0xffffff22)))
-            .focus(|s| s.border_color(rgba(FOCUS)))
+            .hover(|s| {
+                s.bg(rgba(ui::icons::with_alpha(theme.text_primary, 0x14)))
+                    .text_color(rgba(theme.text_primary))
+            })
+            .active(|s| s.bg(rgba(ui::icons::with_alpha(theme.text_primary, 0x22))))
+            .focus(|s| s.border_color(rgba(theme.focused_stroke)))
             .on_click(cx.listener(move |app, _, w, cx| action(app, w, cx)))
             .on_key_down(cx.listener(move |app, event: &KeyDownEvent, w, cx| {
                 if activates(event) {
@@ -252,6 +253,7 @@ impl MultisoulApp {
         tab: &DesktopContentTab,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let theme = self.desktop_theme();
         let s = &self.desktop_workspace.workbench;
         let key = s.draft_key();
         let draft = key.as_ref().and_then(|key| s.drafts.get(key));
@@ -278,11 +280,11 @@ impl MultisoulApp {
             return self.render_text_lines(cx);
         }
         let message = if let Some(error) = &s.error {
-            error.clone()
+            error.to_string()
         } else if s.loading {
-            "正在打开文件…".to_string()
+            ui::i18n::text("drawers.opening_file").to_string()
         } else {
-            "从工作区目录树中选择文件".to_string()
+            ui::i18n::text("drawers.choose_file").to_string()
         };
         div()
             .flex_1()
@@ -292,12 +294,17 @@ impl MultisoulApp {
             .justify_center()
             .gap(px(8.0))
             .text_size(px(12.0))
-            .text_color(rgba(if s.error.is_some() { RED } else { TEXT_MUTED }))
+            .text_color(rgba(if s.error.is_some() {
+                theme.destructive
+            } else {
+                theme.text_tertiary
+            }))
             .child(message)
             .into_any_element()
     }
 
     fn render_text_lines(&self, cx: &mut Context<Self>) -> AnyElement {
+        let theme = self.desktop_theme();
         let s = &self.desktop_workspace.workbench;
         if let Some(file) = &s.file {
             let mut cache = s.text_index.borrow_mut();
@@ -323,8 +330,15 @@ impl MultisoulApp {
                 range
                     .map(|index| {
                         let line = cache.as_ref().map_or("", |c| c.line(text, index));
-                        let bg = (s.jump_line == Some(index)).then_some(JUMP_LINE);
-                        numbered_line(index + 1, GUTTER, display_line(line), TEXT, bg)
+                        let bg = (s.jump_line == Some(index))
+                            .then_some(ui::icons::with_alpha(theme.accent, 0x2e));
+                        numbered_line(
+                            index + 1,
+                            theme.text_tertiary,
+                            display_line(line),
+                            theme.text_primary,
+                            bg,
+                        )
                     })
                     .collect::<Vec<_>>()
             }),

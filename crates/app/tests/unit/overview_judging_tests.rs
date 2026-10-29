@@ -1,3 +1,7 @@
+#[path = "../support/drawer_locale.rs"]
+mod drawer_locale;
+use drawer_locale::expected_copy;
+
 use super::*;
 use crate::workspace::desktop::overview_rows::{
     overview_row_height, OverviewRow, OverviewRowKind, OverviewSection,
@@ -51,8 +55,15 @@ fn only_judged_approvals_are_relabelled() {
     let mut view = screen(vec![approval_row(3), approval_row(4)]);
     relabel_judging(&mut view, &HashSet::from([("a".to_string(), 3)]));
     let judged = &view.sections[0].rows[0];
-    assert_eq!(judged.primary, "Norma 判断中 · 运行测试", "标题前缀应替换");
-    assert_eq!(judged.status_label.as_deref(), Some(JUDGING_LABEL));
+    assert_eq!(
+        judged.primary,
+        expected_copy("Norma 判断中 · 运行测试", "Norma is deciding · 运行测试"),
+        "标题前缀应替换"
+    );
+    assert_eq!(
+        judged.status_label.as_deref(),
+        Some(ui::i18n::text(JUDGING_LABEL_KEY))
+    );
     assert_eq!(judged.status_tone, OverviewStatusTone::Running);
     assert!(
         matches!(

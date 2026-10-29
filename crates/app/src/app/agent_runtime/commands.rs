@@ -295,7 +295,10 @@ pub(super) fn execute_coordinated_agent_command(
                     || receipt.state == agent::AgentDispatchState::Queued
                     || matches!(
                         app.runtime.agent_task_state(receipt.node_id),
-                        Some(runtime::AgentTaskState::WaitingApproval { .. })
+                        Some(
+                            runtime::AgentTaskState::WaitingApproval { .. }
+                                | runtime::AgentTaskState::WaitingQuestion
+                        )
                     )
                 {
                     app.pending_agent_submissions

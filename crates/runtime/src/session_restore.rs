@@ -17,7 +17,6 @@ use crate::agent_session_bindings::AgentSessionBindings;
 use crate::events::RuntimeEvents;
 use crate::live::LiveNode;
 use crate::nodes::agent::{agent_command, spawn_agent_live};
-use crate::nodes::term::TermLive;
 use crate::runtime::{DEFAULT_SESSION_COLS, DEFAULT_SESSION_ROWS, DEFAULT_TERMINAL_SHELL};
 use crate::runtime_support::{checkpoint_grid_size, terminal_shell_command, usize_to_u16};
 use crate::{session_snapshot, NodeView};
@@ -127,6 +126,8 @@ pub fn merge_session_checkpoints(
 
 /// Context needed by restore functions to attach live nodes.
 pub struct RestoreCtx<'a> {
+    pub question_processes: &'a HashMap<NodeId, String>,
+    pub pty_factory: Option<&'a crate::PtyFactory>,
     pub live: &'a mut HashMap<NodeId, Box<dyn LiveNode>>,
     pub terminal_shells: &'a mut HashMap<NodeId, String>,
     pub agent_session_bindings: &'a AgentSessionBindings,
@@ -139,6 +140,7 @@ pub struct RestoreCtx<'a> {
 impl RestoreCtx<'_> {
     fn make_hook_env(&self, node_id: NodeId, profile: AgentProfile) -> Option<AgentHookEnv> {
         self.agent_hook_config.map(|config| AgentHookEnv {
+            control_run_id: self.question_processes.get(&node_id).cloned(),
             node_id,
             profile,
             endpoint: config.endpoint.clone(),
@@ -376,116 +378,5 @@ pub fn save_node_sessions(
     store.reconcile_sessions(&current_nodes, &sessions)
 }
 
-// ── Internal attach helpers ────────────────────────────────────────────────
-
-fn allocate_session_id(next: &mut u64) -> u64 {
-    let sid = *next;
-    *next += 1;
-    sid
-}
-
-fn live_grid_size(live: &HashMap<NodeId, Box<dyn LiveNode>>, node_id: NodeId) -> (u16, u16) {
-    let Some(NodeView::Term { snapshot, .. }) = live.get(&node_id).and_then(|n| n.view()) else {
-        return (DEFAULT_SESSION_COLS, DEFAULT_SESSION_ROWS);
-    };
-    (usize_to_u16(snapshot.cols), usize_to_u16(snapshot.lines))
-}
-
-fn attach_terminal_live(
-    node_id: NodeId,
-    shell: &str,
-    cols: u16,
-    rows: u16,
-    ctx: &mut RestoreCtx<'_>,
-) -> bool {
-    let command = terminal_shell_command(shell).with_cwd(ctx.workspace_root);
-    attach_terminal_live_with_command(node_id, shell, command, cols, rows, ctx)
-}
-
-fn attach_terminal_live_with_command(
-    node_id: NodeId,
-    shell: &str,
-    command: PtyCommand,
-    cols: u16,
-    rows: u16,
-    ctx: &mut RestoreCtx<'_>,
-) -> bool {
-    let sid = allocate_session_id(ctx.next_session_id);
-    match TermLive::spawn_command(sid, command, cols, rows) {
-        Ok(live) => {
-            ctx.terminal_shells.insert(node_id, shell.to_string());
-            ctx.live.insert(node_id, Box::new(live));
-            ctx.events.register(node_id, NodeType::Term);
-            true
-        }
-        Err(error) => {
-            tracing::warn!(
-                ?node_id,
-                %shell,
-                %error,
-                "failed to restore terminal live session"
-            );
-            false
-        }
-    }
-}
-
-fn attach_agent_live(
-    node_id: NodeId,
-    profile: AgentProfile,
-    cols: u16,
-    rows: u16,
-    ctx: &mut RestoreCtx<'_>,
-) -> bool {
-    let hook_env = ctx.make_hook_env(node_id, profile);
-    let sid = allocate_session_id(ctx.next_session_id);
-    match spawn_agent_live(
-        sid,
-        profile,
-        ctx.workspace_root,
-        hook_env.as_ref(),
-        cols,
-        rows,
-        None,
-    ) {
-        Ok(live) => {
-            ctx.live.insert(node_id, Box::new(live));
-            ctx.events.register(node_id, NodeType::Agent);
-            true
-        }
-        Err(error) => {
-            tracing::warn!(
-                ?node_id,
-                ?profile,
-                %error,
-                "failed to restore agent live session"
-            );
-            false
-        }
-    }
-}
-
-fn attach_agent_live_with_command(
-    node_id: NodeId,
-    command: PtyCommand,
-    cols: u16,
-    rows: u16,
-    ctx: &mut RestoreCtx<'_>,
-) -> bool {
-    let sid = allocate_session_id(ctx.next_session_id);
-    match TermLive::spawn_command(sid, command, cols, rows) {
-        Ok(live) => {
-            ctx.live.insert(node_id, Box::new(live));
-            ctx.events.register(node_id, NodeType::Agent);
-            true
-        }
-        Err(error) => {
-            tracing::warn!(
-                ?node_id,
-                %error,
-                "failed to restore agent live session with command"
-            );
-            false
-        }
-    }
-}
+mod attach;
+use attach::*;

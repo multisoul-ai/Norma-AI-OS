@@ -40,17 +40,17 @@ impl MultisoulApp {
         }
         let text = self.desktop_workspace.content_previews.get(&tab.id);
         let message = match text {
-            Some(Err(error)) => error.clone(),
+            Some(Err(error)) => error.to_string(),
             Some(Ok(text)) if preview_kind(&tab.resource, tab.preview_type) == Kind::Text => {
                 text.clone()
             }
-            _ => "正在打开文件…".to_string(),
+            _ => ui::i18n::text("drawers.opening_file").to_string(),
         };
         if matches!(text, Some(Err(_))) && tab.version.is_none() {
             let path = self.resolved_content_path(tab);
             content = content.child(
                 ui::component::button::Button::new("desktop-file-open-system")
-                    .label("使用系统应用打开")
+                    .label(ui::i18n::text("drawers.open_system"))
                     .on_click(cx.listener(move |_, _, _, cx| {
                         if let Ok(url) = url::Url::from_file_path(&path) {
                             cx.open_url(url.as_str());

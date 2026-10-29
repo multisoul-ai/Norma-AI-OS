@@ -65,8 +65,14 @@ impl MultisoulApp {
         })
         .detach();
         cx.on_app_quit(|app, cx| {
+            app.voice_settings.invalidate_a1_preparation();
+            app.voice.stop_for_model_switch();
             app.stop_project(cx);
-            async {}
+            let release = asr::begin_shared_a1_shutdown();
+            let cleanup = cx.background_executor().spawn(async move {
+                release.wait();
+            });
+            async move { cleanup.await }
         })
         .detach();
         let mobile = crate::mobile::controller::attach(app_store.clone(), cx);
@@ -194,6 +200,8 @@ impl MultisoulApp {
             agent_hook_server,
             workspace_identity_store,
             workspace_id: None,
+            shared_context_scope: None,
+            shared_context: None,
             workspace_route_id: None,
             agent_announcements: super::agent_announcements::AgentAnnouncements::default(),
             agent_announcement_playback,
@@ -267,6 +275,7 @@ impl MultisoulApp {
             desktop_presentation_bounds: std::collections::HashMap::new(),
             desktop_switcher_subscription: None,
             desktop_ideas_input_subscription: None,
+            desktop_question_editor: None,
             background_restore: None,
             desktop_overview_scroll: std::collections::HashMap::new(),
             ideas_scroll: gpui::ScrollHandle::new(),

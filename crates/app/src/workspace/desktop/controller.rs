@@ -360,6 +360,14 @@ impl MultisoulApp {
                 .set_offset(gpui::point(gpui::px(0.0), gpui::px(0.0)));
         }
         self.desktop_workspace.home_directory = home;
+        if !matches!(self.screen, AppScreen::Launchpad) {
+            self.desktop_workspace.directory.selected = self.desktop_workspace.active_id.clone();
+        }
+        if home {
+            self.desktop_workspace.home.search_open = false;
+            self.desktop_workspace.search_query.clear();
+            self.desktop_workspace.actions_workspace_id = None;
+        }
         self.focus_handle.focus(window);
         let project = self
             .desktop_workspace

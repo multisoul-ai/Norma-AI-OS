@@ -38,13 +38,14 @@ impl AgentAnnouncements {
             return None;
         }
         let first = self.pending.pop_front()?;
-        let merge_backlog = first.deferred;
+        let merge_backlog = first.deferred && first.announcement.delivery.is_none();
         let mut batch = vec![first];
         while merge_backlog
-            && self
-                .pending
-                .front()
-                .is_some_and(|pending| pending.deferred && !pending.waiting_for_tts)
+            && self.pending.front().is_some_and(|pending| {
+                pending.deferred
+                    && !pending.waiting_for_tts
+                    && pending.announcement.delivery.is_none()
+            })
         {
             let Some(next) = self.pending.pop_front() else {
                 break;

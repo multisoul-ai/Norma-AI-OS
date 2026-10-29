@@ -63,15 +63,31 @@ pub fn sync_component_theme(id: ThemeId, cx: &mut App) {
     colors.link_hover = rgba(with_alpha(theme.accent, 0xe8)).into();
     colors.link_active = rgba(with_alpha(theme.accent, 0xc8)).into();
     colors.primary = rgba(theme.accent).into();
-    colors.primary_hover = rgba(with_alpha(theme.accent, 0xe8)).into();
-    colors.primary_active = rgba(with_alpha(theme.accent, 0xc8)).into();
-    colors.primary_foreground = rgba(0xffffffff).into();
+    colors.primary_hover = rgba(primary_state_fill(theme.accent, 12, id.is_dark())).into();
+    colors.primary_active = rgba(primary_state_fill(theme.accent, 24, id.is_dark())).into();
+    // Bright dark-theme accents need a dark foreground (silver/champagne included).
+    colors.primary_foreground = rgba(if id.is_dark() {
+        theme.canvas_from
+    } else {
+        0xffffffff
+    })
+    .into();
     colors.secondary = rgba(with_alpha(theme.text_primary, 0x14)).into();
     colors.secondary_hover = rgba(with_alpha(theme.text_primary, 0x20)).into();
     colors.secondary_active = rgba(with_alpha(theme.text_primary, 0x2c)).into();
     colors.secondary_foreground = rgba(theme.text_primary).into();
     colors.popover = rgba(theme.panel_high).into();
     colors.popover_foreground = rgba(theme.text_primary).into();
+}
+
+// Filled-button feedback stays opaque, so its text contrast does not depend on wallpaper.
+fn primary_state_fill(color: u32, amount: u32, dark: bool) -> u32 {
+    let target = if dark { 255 } else { 0 };
+    let mut mixed = 255;
+    for shift in [24, 16, 8] {
+        mixed |= ((((color >> shift) & 255) * (255 - amount) + target * amount) / 255) << shift;
+    }
+    mixed
 }
 
 const fn with_alpha(color: u32, alpha: u8) -> u32 {

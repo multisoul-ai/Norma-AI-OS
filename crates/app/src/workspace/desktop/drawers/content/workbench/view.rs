@@ -1,4 +1,3 @@
-use super::document::{LINE, PANEL, RED, TEXT, TEXT_SECONDARY};
 use super::layout::explorer_layout;
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, AnyElement, Context, Div, Window};
@@ -15,6 +14,7 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let theme = self.desktop_theme();
         self.ensure_file_workbench(window, cx);
         let layout = explorer_layout(width);
         if !layout.compact {
@@ -29,8 +29,8 @@ impl MultisoulApp {
             .size_full()
             .flex()
             .flex_col()
-            .text_color(rgba(TEXT))
-            .bg(rgba(PANEL));
+            .text_color(rgba(theme.text_primary))
+            .bg(rgba(theme.canvas_from));
         if let Some(paths) = &s.confirm_discard {
             let paths = paths.clone();
             return root
@@ -40,22 +40,24 @@ impl MultisoulApp {
                         .flex()
                         .flex_col()
                         .gap(px(12.0))
-                        .child("撤销这些文件的未暂存修改？已暂存内容会保留。")
+                        .child(ui::i18n::text("drawers.discard_confirm"))
                         .child(paths.join("\n"))
                         .child(
                             Button::new("files-discard-confirm")
-                                .label("确认撤销")
+                                .label(ui::i18n::text("drawers.discard"))
                                 .on_click(cx.listener(move |app, _, _, cx| {
                                     app.desktop_workspace.workbench.confirm_discard = None;
                                     app.workbench_git_action(GitAction::Discard(paths.clone()), cx);
                                 })),
                         )
-                        .child(Button::new("files-discard-cancel").label("取消").on_click(
-                            cx.listener(|app, _, _, cx| {
-                                app.desktop_workspace.workbench.confirm_discard = None;
-                                cx.notify();
-                            }),
-                        )),
+                        .child(
+                            Button::new("files-discard-cancel")
+                                .label(ui::i18n::text("drawers.cancel"))
+                                .on_click(cx.listener(|app, _, _, cx| {
+                                    app.desktop_workspace.workbench.confirm_discard = None;
+                                    cx.notify();
+                                })),
+                        ),
                 )
                 .into_any_element();
         }
@@ -86,10 +88,11 @@ impl MultisoulApp {
 
     /// Transient feedback floats over the document so it never resizes the preview.
     fn render_workbench_toast(&self, cx: &mut Context<Self>) -> Option<Div> {
+        let theme = self.desktop_theme();
         let s = &self.desktop_workspace.workbench;
         let (text, color) = match (&s.error, &s.notice) {
-            (Some(error), _) => (error.clone(), RED),
-            (None, Some(notice)) => (notice.clone(), TEXT_SECONDARY),
+            (Some(error), _) => (error.clone(), theme.destructive),
+            (None, Some(notice)) => (notice.clone(), theme.text_secondary),
             _ => return None,
         };
         Some(
@@ -104,9 +107,12 @@ impl MultisoulApp {
                         .px(px(10.0))
                         .py(px(6.0))
                         .rounded(px(9.0))
-                        .bg(rgba(0x1d2026f2))
+                        .bg(rgba(ui::icons::with_alpha(
+                            self.desktop_theme().panel,
+                            0xfa,
+                        )))
                         .border_1()
-                        .border_color(rgba(LINE))
+                        .border_color(rgba(theme.node_stroke))
                         .text_size(px(12.0))
                         .text_color(rgba(color))
                         .cursor_pointer()
@@ -127,16 +133,16 @@ impl MultisoulApp {
             .flex()
             .flex_col()
             .gap(px(6.0))
-            .child("有未保存的修改，请保存或放弃后关闭。")
+            .child(ui::i18n::text("drawers.unsaved_changes"))
             .child(
                 Button::new("files-close-save")
-                    .label("保存全部")
+                    .label(ui::i18n::text("drawers.save_all"))
                     .disabled(self.desktop_workspace.workbench.busy)
                     .on_click(cx.listener(|app, _, _, cx| app.save_all_workbench_drafts(cx))),
             )
             .child(
                 Button::new("files-close-discard")
-                    .label("放弃草稿并继续")
+                    .label(ui::i18n::text("drawers.discard_drafts"))
                     .disabled(
                         self.desktop_workspace
                             .workbench
@@ -152,7 +158,7 @@ impl MultisoulApp {
             )
             .child(
                 Button::new("files-close-cancel")
-                    .label("取消")
+                    .label(ui::i18n::text("drawers.cancel"))
                     .on_click(cx.listener(|app, _, _, cx| {
                         app.desktop_workspace.workbench.pending_close = None;
                         cx.notify();

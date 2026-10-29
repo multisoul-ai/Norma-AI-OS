@@ -20,6 +20,7 @@ mod text_index;
 mod tree;
 mod tree_row;
 mod view;
+use crate::preview::content_copy::{change_status, content_error};
 use crate::preview::local_content as local_preview;
 
 #[derive(Default, serde::Serialize, serde::Deserialize)]
@@ -62,7 +63,7 @@ pub(crate) struct WorkbenchState {
     pub followed_area: Option<String>,
     pub rows: Vec<FileRow>,
     pub git: Option<GitSnapshot>,
-    pub git_error: Option<String>,
+    pub git_error: Option<ui::i18n::LocalizedText>,
     pub file: Option<TextFile>,
     pub preview: Option<local_preview::LocalPreview>,
     pub drafts: HashMap<String, Draft>,
@@ -87,8 +88,8 @@ pub(crate) struct WorkbenchState {
     pub persisted_json: Option<String>,
     pub loading: bool,
     pub busy: bool,
-    pub error: Option<String>,
-    pub notice: Option<String>,
+    pub error: Option<ui::i18n::LocalizedText>,
+    pub notice: Option<ui::i18n::LocalizedText>,
     pub filter: Option<Entity<InputState>>,
     pub commit: Option<Entity<InputState>>,
     pub timer: Option<Task<()>>,

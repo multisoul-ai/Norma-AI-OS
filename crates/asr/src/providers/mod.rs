@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "snake_case")]
 pub enum AsrProviderId {
     LocalSherpa,
+    LocalA1,
     CloudAzure,
 }
 
@@ -19,6 +20,7 @@ impl AsrProviderId {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::LocalSherpa => "local_sherpa",
+            Self::LocalA1 => "local_a1",
             Self::CloudAzure => "cloud_azure",
         }
     }
@@ -26,6 +28,7 @@ impl AsrProviderId {
     pub fn from_stored(value: &str) -> Option<Self> {
         match value.trim().to_ascii_lowercase().as_str() {
             "local_sherpa" => Some(Self::LocalSherpa),
+            "local_a1" => Some(Self::LocalA1),
             "cloud_azure" => Some(Self::CloudAzure),
             _ => None,
         }
@@ -64,7 +67,13 @@ impl AsrProviderDescriptor {
     }
 }
 
-const BUILTIN_PROVIDERS: [AsrProviderDescriptor; 2] = [
+const BUILTIN_PROVIDERS: [AsrProviderDescriptor; 3] = [
+    AsrProviderDescriptor {
+        id: AsrProviderId::LocalA1,
+        display_name: "On-device Accurate (A1)",
+        location: AsrProviderLocation::Local,
+        capabilities: AsrProviderCapabilities::new(true, Some(60)),
+    },
     AsrProviderDescriptor {
         id: AsrProviderId::LocalSherpa,
         display_name: "On-device (Sherpa)",
@@ -92,6 +101,7 @@ pub fn asr_provider_descriptor(id: AsrProviderId) -> &'static AsrProviderDescrip
 
 pub enum BuiltinAsrProfile {
     LocalSherpa(AvailableAsrModel),
+    LocalA1(A1Config),
     CloudAzure(AzureSpeechProfile),
 }
 
@@ -101,6 +111,7 @@ pub fn builtin_recognizer_factory(
 ) -> Result<Box<dyn RecognizerFactory>, AsrError> {
     match profile {
         BuiltinAsrProfile::LocalSherpa(model) => Ok(Box::new(SherpaRecognizerFactory::new(model))),
+        BuiltinAsrProfile::LocalA1(config) => Ok(Box::new(A1RecognizerFactory::new(config))),
         BuiltinAsrProfile::CloudAzure(profile) => {
             let secret = resolve_credential(&profile.credential_ref)?.ok_or_else(|| {
                 AsrError::Provider("Azure Speech API Key is missing from local storage".to_string())

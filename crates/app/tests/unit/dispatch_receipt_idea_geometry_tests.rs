@@ -134,7 +134,7 @@ fn paint_counts(origin: DispatchVisualOrigin, phase: DispatchEffectPhase) -> (us
 ///   想法流星飞行帧 = 尾焰 28 段 × 3 层 = 84 条 paths；火花 18 + 头部 4 = 22 个 quads。
 /// 预期结果：
 ///   - 正断言：CommandDock 的飞行帧与撞击帧图元数量与 IdeaRow 完全一致；飞行帧精确为 84 paths / 22 quads。
-///   - 负断言：CommandDock 飞行帧不再是离子核心（离子画法 paths 远少于 84）。
+///   - 负断言：Agent 交接帧与语音流星一致，不再是离子。
 #[test]
 fn command_dock_dispatch_uses_idea_meteor_painting() {
     let idea = DispatchVisualOrigin::IdeaRow { x: 600, y: 752 };
@@ -155,12 +155,12 @@ fn command_dock_dispatch_uses_idea_meteor_painting() {
         paint_counts(idea, DispatchEffectPhase::Impact),
         "指令栏撞击帧应与想法流星一致（白色光环 + 尾焰收拢）"
     );
-    assert_ne!(
+    assert_eq!(
         paint_counts(
             DispatchVisualOrigin::AgentNode(7),
             DispatchEffectPhase::Flight
         ),
         dock_flight,
-        "对照：Agent 间交接仍保留离子画法"
+        "Agent 间交接（/ask-norma）应与语音同为流星画法"
     );
 }

@@ -27,6 +27,28 @@ pub(crate) fn microphone_permission_recovery_url(error: &SpeechError) -> Option<
 }
 
 impl MultisoulApp {
+    pub(crate) fn release_a1_runtime(&mut self, cx: &mut Context<Self>) {
+        let release = asr::begin_shared_a1_shutdown();
+        let cleanup = cx.background_executor().spawn(async move {
+            release.wait();
+        });
+        cx.spawn(async move |this, cx| {
+            cleanup.await;
+            let _ = this.update(cx, |app, cx| {
+                if app.voice_settings.values().asr_provider() == asr::AsrProviderId::LocalA1
+                    && app
+                        .voice_settings
+                        .values()
+                        .desktop_mode()
+                        .supports_local_a1(app.voice_settings.values().interaction_mode())
+                {
+                    app.refresh_a1_requirement(cx);
+                }
+            });
+        })
+        .detach();
+    }
+
     pub(crate) fn complete_voice_setup_if_ready(&mut self, cx: &mut Context<Self>) {
         if !self.voice_settings.reconcile_setup_completion() {
             return;
@@ -73,6 +95,7 @@ impl MultisoulApp {
             voice_transcript_source(),
             VoiceTranscriptSource::AppleSpeech
         ) {
+            let cancellation = self.voice.startup_cancellation();
             let values = self.voice_settings.values().clone();
             let model_root = self.voice_settings.model_root().to_path_buf();
             let store = self
@@ -95,9 +118,18 @@ impl MultisoulApp {
                             &store,
                         )
                         .map_err(|error| SpeechError::Recognizer(error.to_string()))?;
+                        if cancellation.is_cancelled() {
+                            return Err(SpeechError::Recognizer(
+                                "recording startup cancelled".to_string(),
+                            ));
+                        }
                         voice_input::request_microphone_permission().map_err(SpeechError::from)?;
-                        recognition::AsrRecordingSession::start(input_device_id, factory.as_ref())
-                            .map_err(SpeechError::Recognizer)
+                        recognition::AsrRecordingSession::start(
+                            input_device_id,
+                            factory.as_ref(),
+                            cancellation,
+                        )
+                        .map_err(SpeechError::Recognizer)
                     })
                     .await;
                 let _ = this.update_in(cx, |app, window, cx| {
@@ -120,6 +152,13 @@ impl MultisoulApp {
                             let partials_task = cx.spawn(async move |this, cx| {
                                 while let Ok(text) = partials.recv().await {
                                     let _ = this.update(cx, |app, cx| {
+                                        if !app.voice.accepts_recording_start(recording_generation)
+                                            && !app
+                                                .voice
+                                                .accepts_recording_result(recording_generation)
+                                        {
+                                            return;
+                                        }
                                         app.voice.partial_text = text;
                                         cx.notify();
                                     });
@@ -258,12 +297,22 @@ impl MultisoulApp {
                     return;
                 }
                 app.voice.clear_speech_task();
-                app.voice.partial_text.clear();
+                let preview = std::mem::take(&mut app.voice.partial_text);
                 match result {
                     Ok(transcript) if !transcript.trim().is_empty() => {
                         app.handle_final_voice_text(transcript.trim().to_string(), window, cx)
                     }
                     Ok(_) => app.record_empty_voice_transcript(),
+                    Err(error)
+                        if app.voice_settings.values().asr_provider()
+                            == asr::AsrProviderId::LocalA1
+                            && !preview.trim().is_empty() =>
+                    {
+                        app.voice.set_transcript_only(
+                            preview,
+                            ui::i18n::format("voice.a1_failed_preview", &[("error", error)]),
+                        );
+                    }
                     Err(error) => app.voice.set_error(ui::i18n::message(
                         "chrome.speech_recognition_failed_error",
                         &[("error", (error).to_string())],

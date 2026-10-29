@@ -58,6 +58,27 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Result<async_channel::Receiver<Result<Vec<AgentEvent>, String>>, String> {
+        if let AgentCommand::UserTurn {
+            input,
+            input_source,
+        } = &command
+        {
+            if let Some(result) = self.question_delegation_from_user(input) {
+                let text = result.unwrap_or_else(|reason| reason);
+                if *input_source == agent::AgentInputSource::Voice
+                    && self.dialogue.phase() == dialogue::DialoguePhase::Thinking
+                {
+                    self.dialogue.begin_static_reply_stream(text.clone(), cx);
+                }
+                let (sender, response) = async_channel::bounded(1);
+                let _ = sender.try_send(Ok(vec![
+                    AgentEvent::DialogueTextDelta { text },
+                    AgentEvent::DialogueStreamFinished,
+                ]));
+                cx.notify();
+                return Ok(response);
+            }
+        }
         let config = self
             .voice_settings
             .values()
@@ -68,13 +89,21 @@ impl MultisoulApp {
             .as_ref()
             .map(|root| root.display().to_string())
             .unwrap_or_default();
-        let must_replace = self
-            .agent_runtime
-            .as_ref()
-            .is_none_or(|runtime| !runtime.matches_project(&project_id));
+        let shared = self
+            .shared_context_service()
+            .map_err(|error| error.to_string())?;
+        let must_replace = self.agent_runtime.as_ref().is_none_or(|runtime| {
+            !runtime.matches_project(&project_id)
+                || runtime.context_scope.as_ref() != Some(shared.scope())
+        });
         if must_replace {
-            let (runtime, adapter, events) =
-                ProjectAgentRuntime::spawn(project_id, config, self.database_paths.clone(), root)?;
+            let (runtime, adapter, events) = ProjectAgentRuntime::spawn(
+                project_id,
+                config,
+                self.database_paths.clone(),
+                root,
+                shared,
+            )?;
             let runtime_id = runtime.id();
             self.dialogue
                 .set_dialogue_stream_cancellation(runtime.dialogue_cancel_handle());

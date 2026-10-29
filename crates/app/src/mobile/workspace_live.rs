@@ -1,5 +1,8 @@
 //! GPUI bridge. Disk, model calls and waits run behind the foreground boundary.
 #[cfg(test)]
+#[path = "../../tests/unit/workspace_context_prepare_tests.rs"]
+mod context_prepare_tests;
+#[cfg(test)]
 #[path = "../../tests/unit/workspace_chat_completion_tests.rs"]
 mod workspace_chat_completion_tests;
 use super::workspace_chat::{LiveWorkspaceAction, LiveWorkspaceRequest, WorkspaceArea};
@@ -18,7 +21,11 @@ use std::{
 
 mod activity;
 mod catalog;
+mod context;
 mod creation;
+pub(crate) use context::prepare_scoped;
+mod history;
+pub(crate) use history::for_model as history_for_model;
 mod monitor;
 mod terminal_capture;
 use catalog::configure_agents;
@@ -123,6 +130,9 @@ pub(super) fn start(database: PathBuf, call: LiveWorkspaceRequest, cx: &mut App)
                 let _=call.reply.try_send(result);
             }
             LiveWorkspaceAction::Message {device,token,message} => {
+                let prepared_context = if let Some(target) = &message.target {
+                    context::prepare_area(&database, &call.areas, &target.area_id, cx).await
+                } else { Ok(()) };
                 let store=storage::WorkspaceChatStore::new(database.clone());
                 let operation=message.operation_id.clone();
                 let auth_device=device.clone();let auth_token=token.clone();let auth_areas=call.areas.clone();let auth_database=database.clone();
@@ -136,7 +146,7 @@ pub(super) fn start(database: PathBuf, call: LiveWorkspaceRequest, cx: &mut App)
                 let claim_store=store.clone();let claim_device=device.clone();let claim_operation=operation.clone();
                 let claimed=cx.background_executor().spawn(async move{claim_store.claim(&claim_device,&claim_operation)}).await;
                 if !matches!(claimed,Ok(true)) {return;}
-                let result=if !auth.0 {Err("unauthorized".into())} else {
+                let result=if !auth.0 {Err("unauthorized".into())} else if let Err(error) = prepared_context {Err(error.to_string())} else {
                     let started=cx.update(|cx|start_message(database.clone(),call.areas.clone(),device.clone(),token,message.clone(),auth.1,cx));
                     match started {Ok(Ok(receiver))=>receiver.recv().await.unwrap_or(Err("outcome_unknown".into())),Ok(Err(error))=>Err(error),Err(error)=>Err(error.to_string())}
                 };
@@ -291,6 +301,7 @@ fn completion_state(result: &Result<Value, String>) -> &'static str {
 }
 
 fn shared_card_input(text: &str, history: &Value) -> String {
+    let history = history_for_model(history);
     if history.as_array().is_none_or(Vec::is_empty) {
         return text.to_owned();
     }

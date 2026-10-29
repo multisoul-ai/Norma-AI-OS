@@ -20,7 +20,9 @@ impl MultisoulApp {
                 if host.screen != AppScreen::DesktopWorkspace
                     || host.desktop_workspace.active_id.is_none()
                 {
-                    return Err(AdapterError::Rejected("桌面工作空间已关闭".into()));
+                    return Err(AdapterError::Rejected(
+                        ui::i18n::text("drawers.desktop_closed").into(),
+                    ));
                 }
                 let source_area = host.desktop_workspace.sessions.iter().find_map(
                     |((workspace_id, area_id), session)| {
@@ -29,15 +31,18 @@ impl MultisoulApp {
                             .then(|| area_id.clone())
                     },
                 );
-                let source_area = source_area
-                    .ok_or_else(|| AdapterError::Rejected("来源项目已切换，请重新打开".into()))?;
+                let source_area = source_area.ok_or_else(|| {
+                    AdapterError::Rejected(ui::i18n::text("drawers.source_project_changed").into())
+                })?;
                 host.open_desktop_content_tab(kind, resource, title, Some(source_area), cx);
                 Ok(())
             });
         }
         if self.screen != AppScreen::DesktopWorkspace || self.desktop_workspace.active_id.is_none()
         {
-            return Err(AdapterError::Rejected("当前没有打开的桌面工作空间".into()));
+            return Err(AdapterError::Rejected(
+                ui::i18n::text("drawers.no_workspace").into(),
+            ));
         }
         self.open_desktop_content_tab(
             kind,
@@ -77,7 +82,7 @@ impl MultisoulApp {
         if !routed {
             self.workspace_state.error = Some(
                 ui::i18n::LocalizedText::new("common.operation_failed")
-                    .with_arg("reason", "项目已切换，请返回来源工作空间重试"),
+                    .with_arg("reason", ui::i18n::text("drawers.return_workspace")),
             );
             cx.notify();
         }
@@ -161,7 +166,7 @@ impl MultisoulApp {
         let title = url::Url::parse(&resource)
             .ok()
             .and_then(|url| url.host_str().map(ToOwned::to_owned))
-            .unwrap_or_else(|| "浏览器".to_string());
+            .unwrap_or_else(|| ui::i18n::text("drawers.browser").to_string());
         tab.resource = resource.clone();
         tab.title = title.clone();
         let tab_id = tab.id.clone();
@@ -202,8 +207,10 @@ impl MultisoulApp {
                         }
                     }
                     Err(error) => {
-                        app.desktop_workspace.error =
-                            Some(format!("无法保存网页地址：{error}").into());
+                        app.desktop_workspace.error = Some(ui::i18n::message(
+                            "drawers.save_url_failed",
+                            &[("error", (error).to_string())],
+                        ));
                     }
                 }
                 cx.notify();

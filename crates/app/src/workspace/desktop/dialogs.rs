@@ -1,4 +1,4 @@
-use super::{glass_button_variant, GLASS_TEXT};
+use super::glass_button_variant;
 use crate::app::{AppScreen, MultisoulApp};
 use gpui::{div, prelude::*, px, rgba, Context, Div, Focusable, Stateful, Window};
 use ui::component::button::{Button, ButtonVariants};
@@ -125,6 +125,31 @@ impl MultisoulApp {
         div()
             .id("desktop-workspace-switcher")
             .debug_selector(|| "desktop-workspace-switcher".to_string())
+            .capture_action(
+                cx.listener(|app, _: &ui::component::input::MoveLeft, window, cx| {
+                    app.capture_directory_input_key("left", window, cx)
+                }),
+            )
+            .capture_action(
+                cx.listener(|app, _: &ui::component::input::MoveRight, window, cx| {
+                    app.capture_directory_input_key("right", window, cx)
+                }),
+            )
+            .capture_action(
+                cx.listener(|app, _: &ui::component::input::MoveUp, window, cx| {
+                    app.capture_directory_input_key("up", window, cx)
+                }),
+            )
+            .capture_action(
+                cx.listener(|app, _: &ui::component::input::MoveDown, window, cx| {
+                    app.capture_directory_input_key("down", window, cx)
+                }),
+            )
+            .capture_action(
+                cx.listener(|app, _: &ui::component::input::MoveToEnd, window, cx| {
+                    app.capture_directory_input_key("cmd-down", window, cx)
+                }),
+            )
             .absolute()
             .top(px(0.0))
             .left(px(0.0))
@@ -148,7 +173,7 @@ impl MultisoulApp {
                         .border_1()
                         .border_color(rgba(theme.dock_line))
                         .bg(rgba(self.desktop_input_fill()))
-                        .text_color(rgba(GLASS_TEXT))
+                        .text_color(rgba(theme.text_primary))
                         .child(Input::new(&input).appearance(false).cleanable(true)),
                 )
             })

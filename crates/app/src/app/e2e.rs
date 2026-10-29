@@ -267,6 +267,13 @@ impl MultisoulApp {
             .bind_project_store(project_store.agent_definition_store());
         self.persistence.set_project_store(project_store);
         self.runtime.set_workspace_root(root.to_path_buf());
+        self.workspace_state.current_root = Some(root.to_path_buf());
+        self.workspace_id = Some(
+            self.workspace_identity_store
+                .resolve_or_create(root, "Test project")
+                .expect("test project requires the same stable identity as a loaded project")
+                .workspace_id,
+        );
         self.screen = AppScreen::Canvas;
         self.last_reflow_window_size = None;
         cx.notify();

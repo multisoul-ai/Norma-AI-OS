@@ -1,3 +1,9 @@
+mod context_session;
+mod request_budget;
+mod turn;
+use turn::run_turn;
+mod error;
+pub use error::NormaSessionError;
 mod delegation;
 mod memory_session;
 use crate::master_history::{history_char_budget, is_human_user_message, protocol_history_chars};
@@ -24,7 +30,6 @@ use rig_core::tool::ToolCallExtensions;
 use rig_core::wasm_compat::{WasmCompatSend, WasmCompatSync};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use thiserror::Error;
 use tokio_util::sync::CancellationToken;
 
 pub use crate::reply_visibility::visible_norma_reply;
@@ -94,6 +99,7 @@ impl NormaCancelHandle {
 pub struct NormaSession {
     project_id: String,
     model: NormaModel,
+    model_name: String,
     tools: NormaToolRuntime,
     canvas: CurrentCanvasContext,
     desktop_context: Option<DesktopContext>,
@@ -102,6 +108,7 @@ pub struct NormaSession {
     session_id: String,
     memory_enabled: bool,
     memory_epoch: u64,
+    memory_revisions: Vec<(crate::MemoryScope, crate::MemoryRevision)>,
     context_window_tokens: usize,
     history_char_budget: usize,
     next_turn_id: u64,
@@ -127,12 +134,14 @@ impl NormaSession {
             desktop_context: None,
             project_id,
             model,
+            model_name: config.model().to_owned(),
             tools: NormaToolRuntime::new(adapter),
             roster: Vec::new(),
             protocol_history: Vec::new(),
             session_id: uuid::Uuid::new_v4().to_string(),
             memory_enabled: false,
             memory_epoch: 0,
+            memory_revisions: Vec::new(),
             context_window_tokens: config.context_window_tokens().unwrap_or(16_384),
             history_char_budget: history_char_budget(config),
             next_turn_id: 1,
@@ -171,6 +180,7 @@ impl NormaSession {
         let replacement = ModelFactory::create(config)?;
         self.cancel_handle().cancel();
         self.model = replacement;
+        self.model_name = config.model().to_owned();
         self.context_window_tokens = config.context_window_tokens().unwrap_or(16_384);
         self.history_char_budget = history_char_budget(config);
         self.prune_protocol_history();
@@ -217,11 +227,6 @@ impl NormaSession {
             let model_input = delegation
                 .as_ref()
                 .map_or_else(|| input.to_string(), NormaDelegation::model_input);
-            let preamble = tokio::select! {
-                biased;
-                _ = cancellation.cancelled() => return Err(NormaSessionError::Cancelled),
-                preamble = self.memory_preamble(&model_input) => preamble?,
-            };
             let contextual_delete_targets = self
                 .canvas
                 .cards
@@ -238,6 +243,16 @@ impl NormaSession {
                 tool_call_id: String::new(),
                 operation_id: None,
                 cancellation: cancellation.clone(),
+            };
+            let frame = tokio::select! {
+                biased;
+                _ = cancellation.cancelled() => return Err(NormaSessionError::Cancelled),
+                frame = self.tools.shared_context(&context) => frame.map_err(|e| NormaSessionError::Runtime(e.to_string()))?,
+            };
+            let (preamble, context_data) = tokio::select! {
+                biased;
+                _ = cancellation.cancelled() => return Err(NormaSessionError::Cancelled),
+                preamble = self.memory_preamble(&model_input, &context, frame) => preamble?,
             };
             if let Some(final_text) = crate::direct_address_turn::maybe_handle_direct_address(
                 &self.tools,
@@ -259,6 +274,9 @@ impl NormaSession {
             let history = self.protocol_history.clone();
             let request = TurnRequest {
                 preamble,
+                context_data,
+                model_name: self.model_name.clone(),
+                max_input_bytes: request_budget::input_bytes(self.context_window_tokens),
                 input: model_input,
                 history,
                 context,
@@ -345,146 +363,17 @@ struct InternalTurnResult {
     new_messages: Vec<Message>,
 }
 
-#[derive(Debug, Error)]
-pub enum NormaSessionError {
-    #[error("invalid Norma model configuration: {0}")]
-    Configuration(String),
-    #[error("Norma input must not be empty")]
-    EmptyInput,
-    #[error("invalid external delegation identity or context size")]
-    InvalidDelegation,
-    #[error("Norma turn was cancelled")]
-    Cancelled,
-    #[error("Norma turn exceeded the 60 second budget")]
-    Timeout,
-    #[error("Norma exceeded the tool-call budget of {MAX_TOOL_CALLS}")]
-    ToolBudgetExceeded,
-    #[error("Norma stopped after 3 consecutive tool failures")]
-    ToolFailureBudgetExceeded,
-    #[error("Norma provider or tool loop failed: {0}")]
-    Runtime(String),
-    #[error("Norma returned no final response")]
-    MissingFinalResponse,
-    #[error("Norma tool side effect is unknown; the tool chain stopped without retrying")]
-    UnknownSideEffect,
-}
-
 struct TurnRequest {
     preamble: String,
+    context_data: Option<String>,
+    model_name: String,
+    max_input_bytes: usize,
     input: String,
     history: Vec<Message>,
     context: ToolContext,
     cancellation: CancellationToken,
     deltas: Option<tokio::sync::mpsc::Sender<String>>,
     desktop_active: bool,
-}
-
-async fn run_turn<M>(
-    model: M,
-    tools: NormaToolRuntime,
-    request: TurnRequest,
-) -> Result<InternalTurnResult, NormaSessionError>
-where
-    M: CompletionModel + Clone + 'static,
-    M::StreamingResponse: WasmCompatSend + WasmCompatSync + GetTokenUsage + Clone + Unpin,
-{
-    let TurnRequest {
-        preamble,
-        input,
-        history,
-        context,
-        cancellation,
-        deltas,
-        desktop_active,
-    } = request;
-    let future = async move {
-        let rig_context = RigToolContext::new(context);
-        let unknown_status = rig_context.clone();
-        let agent = build_agent(model, &preamble, tools, rig_context.clone(), desktop_active);
-        let mut extensions = ToolCallExtensions::new();
-        extensions.insert(rig_context);
-        let mut stream = agent
-            .stream_prompt(&input)
-            .history(history)
-            .tool_extensions(extensions)
-            .max_turns(MAX_MODEL_TURNS)
-            .tool_concurrency(1)
-            .await;
-        let mut tool_calls = 0usize;
-        let mut pending_raw = String::new();
-        let mut pending_visible = String::new();
-        let mut pending_deltas = Vec::new();
-        while let Some(item) = stream.next().await {
-            if unknown_status.unknown_seen() {
-                return Err(NormaSessionError::UnknownSideEffect);
-            }
-            if unknown_status.failure_budget_exhausted() {
-                return Err(NormaSessionError::ToolFailureBudgetExceeded);
-            }
-            let item = item.map_err(|error| NormaSessionError::Runtime(error.to_string()))?;
-            match item {
-                MultiTurnStreamItem::ToolExecutionStart { .. } => {
-                    pending_raw.clear();
-                    pending_visible.clear();
-                    pending_deltas.clear();
-                    tool_calls = tool_calls.saturating_add(1);
-                    if tool_calls > MAX_TOOL_CALLS {
-                        return Err(NormaSessionError::ToolBudgetExceeded);
-                    }
-                }
-                MultiTurnStreamItem::FinalResponse(response) => {
-                    let final_visible = visible_norma_reply(&response.output);
-                    if let Some(sender) = &deltas {
-                        for delta in
-                            finalize_stream_deltas(&final_visible, &pending_visible, pending_deltas)
-                        {
-                            let _ = sender.send(delta).await;
-                        }
-                    }
-                    return Ok(InternalTurnResult {
-                        final_text: response.output,
-                        tool_calls,
-                        new_messages: response.messages.unwrap_or_default(),
-                    });
-                }
-                MultiTurnStreamItem::StreamAssistantItem(StreamedAssistantContent::Text(text)) => {
-                    pending_raw.push_str(&text.text);
-                    let next_visible = visible_stream_snapshot(&pending_raw).trim().to_string();
-                    if let Some(delta) = next_visible.strip_prefix(&pending_visible) {
-                        if !delta.is_empty() {
-                            pending_deltas.push(delta.to_string());
-                            pending_visible = next_visible;
-                        }
-                    }
-                }
-                MultiTurnStreamItem::StreamAssistantItem(StreamedAssistantContent::ToolCall {
-                    tool_call,
-                    internal_call_id,
-                }) => {
-                    // Rig's OpenAI hook omits provider IDs; the completed stream item precedes it.
-                    unknown_status.record_streamed_call(&tool_call.id, &internal_call_id);
-                }
-                MultiTurnStreamItem::StreamAssistantItem(_)
-                | MultiTurnStreamItem::StreamUserItem(_)
-                | MultiTurnStreamItem::CompletionCall(_) => {}
-                _ => {}
-            }
-        }
-        if unknown_status.unknown_seen() {
-            return Err(NormaSessionError::UnknownSideEffect);
-        }
-        if unknown_status.failure_budget_exhausted() {
-            return Err(NormaSessionError::ToolFailureBudgetExceeded);
-        }
-        Err(NormaSessionError::MissingFinalResponse)
-    };
-
-    tokio::select! {
-        _ = cancellation.cancelled() => Err(NormaSessionError::Cancelled),
-        timed = tokio::time::timeout(TURN_TIMEOUT, future) => {
-            timed.map_err(|_| NormaSessionError::Timeout)?
-        }
-    }
 }
 
 use memory_session::build_agent;

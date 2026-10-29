@@ -1,3 +1,7 @@
+#[path = "../support/drawer_locale.rs"]
+mod drawer_locale;
+use drawer_locale::expected_copy;
+
 use super::home_tools::HomeTool;
 use crate::app::MultisoulApp;
 use crate::shortcuts::{default_shortcut_entries, ShortcutCommandId};
@@ -116,7 +120,7 @@ fn upcoming_home_tools_show_inline_notice_without_opening_tabs() {
             );
             assert_eq!(
                 app.desktop_workspace.content_browser.home_notice.as_deref(),
-                Some("即将支持"),
+                Some(expected_copy("即将支持", "Coming soon")),
                 "提示文案应为“即将支持”"
             );
         });

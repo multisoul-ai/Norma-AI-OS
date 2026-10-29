@@ -46,21 +46,29 @@ mod agent_close;
 mod agent_queue;
 mod agent_runtime;
 mod brain_host;
+#[cfg(test)]
+#[path = "../../tests/support/doubao_adapter.rs"]
+pub(crate) mod doubao_adapter_fixture;
 pub(crate) use brain_host::adapter_package as brain_adapter_package;
+pub(crate) use brain_host::proposals::ProposalFeedback;
 pub(crate) use brain_host::{
-    BrainSettings, BrainSettingsView, ModelList, OverviewProposal, SlowReminder, SummaryEvery,
+    BrainSettings, BrainSettingsView, ModelList, OverviewProposal, OverviewQuestion, SlowReminder,
+    SummaryEvery,
 };
 mod memory;
 pub(crate) mod native_input;
+mod shared_context;
 pub(crate) use agent_runtime::assign_idea_for_ui;
 pub(crate) use agent_runtime::execute_norma_adapter_command_with_source;
+pub(crate) use agent_runtime::prepare_context_services;
 pub(crate) use agent_runtime::shared_tokio_runtime;
-pub(crate) use agent_runtime::submit_workspace_turn;
 pub(crate) use agent_runtime::{
     execute_high_level_agent_command, execute_orchestration_agent_command,
     execute_orchestration_agent_command_with_visual_origin, self_dispatch_forbidden_error,
     AgentIdentitySnapshot,
 };
+pub(crate) use agent_runtime::{revoke_workspace_memory, submit_workspace_turn};
+pub(crate) use shared_context::brain_action_context_failure;
 mod bootstrap;
 pub(crate) use bootstrap::StoredBootstrap;
 pub(crate) mod background_project;
@@ -200,6 +208,8 @@ pub struct MultisoulApp {
     pub(crate) agent_hook_server: AgentHookServer,
     pub(crate) workspace_identity_store: storage::WorkspaceIdentityStore,
     pub(crate) workspace_id: Option<String>,
+    pub(crate) shared_context_scope: Option<norma::protocol::ContextScope>,
+    shared_context: Option<shared_context::SharedContext>,
     pub(crate) workspace_route_id: Option<String>,
     agent_announcements: agent_announcements::AgentAnnouncements,
     brain: brain_host::BrainHostState,
@@ -268,6 +278,7 @@ pub struct MultisoulApp {
     pub(crate) desktop_host: Option<gpui::WeakEntity<MultisoulApp>>,
     pub(crate) desktop_switcher_subscription: Option<gpui::Subscription>,
     pub(crate) desktop_ideas_input_subscription: Option<gpui::Subscription>,
+    pub(crate) desktop_question_editor: Option<crate::workspace::desktop::QuestionEditor>,
     pub(crate) background_restore: Option<crate::workspace::flow::PendingLiveSessionRestore>,
     pub(crate) desktop_overview_scroll: HashMap<String, gpui::ScrollHandle>,
     /// 想法栏的滚动位置（ScrollHandle 非 Send，不能放进跨线程的桌面状态）；新增想法时滚到末尾。

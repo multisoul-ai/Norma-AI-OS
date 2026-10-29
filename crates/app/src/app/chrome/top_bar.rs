@@ -1,4 +1,4 @@
-//! Full-width workspace title bar sharing the Command Dock's material.
+//! Full-width workspace title bar sharing the desktop surface theme.
 
 use crate::app::MultisoulApp;
 use crate::shortcuts::ShortcutCommandId;
@@ -34,16 +34,8 @@ pub(crate) fn brand_logo() -> Div {
         )
 }
 
-pub(crate) fn top_bar_theme(mut theme: ui::Theme) -> ui::Theme {
-    // The Dock remains dark in light themes, so its chrome needs light foregrounds.
-    theme.title_bar = theme.dock;
-    theme.text_primary = 0xffffffff;
-    theme.text_secondary = 0xffffffe6;
-    // 214/255 opacity keeps even the divider above 4.5:1 over white wallpaper.
-    theme.text_tertiary = 0xffffffd6;
-    theme.panel_high = 0xffffff24;
-    theme.node_fill = 0xffffff33;
-    theme
+pub(crate) fn top_bar_theme(theme: ui::Theme) -> ui::Theme {
+    crate::workspace::desktop::surface_theme::surface_theme(theme)
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -174,7 +166,7 @@ impl MultisoulApp {
                         row.child(
                             Button::new("desktop-topbar-add-project")
                                 .debug_selector(|| "desktop-topbar-add-project".to_string())
-                                .child(toolbar_icon(ToolbarIcon::Plus, 0xffffffff, 14.0))
+                                .child(toolbar_icon(ToolbarIcon::Plus, theme.text_primary, 14.0))
                                 .when(wide, |button| {
                                     button.label(ui::i18n::text("shortcuts.add_project"))
                                 })

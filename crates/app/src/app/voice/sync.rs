@@ -106,6 +106,12 @@ impl MultisoulApp {
         {
             self.stop_continuous_listening(cx);
             self.voice.stop_for_model_switch();
+            self.voice_settings.invalidate_a1_preparation();
+            if previous.asr_provider == Some(asr::AsrProviderId::LocalA1)
+                || latest.asr_provider != Some(asr::AsrProviderId::LocalA1)
+            {
+                self.release_a1_runtime(cx);
+            }
         }
         let tts_changed = tts_configuration_differs(previous, latest);
         if tts_changed {

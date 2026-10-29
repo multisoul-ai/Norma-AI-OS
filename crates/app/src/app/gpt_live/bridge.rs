@@ -16,6 +16,7 @@ use tokio_util::sync::CancellationToken;
 pub(super) struct DelegatedWork {
     pub snapshot: DelegationSnapshot,
     pub intent: String,
+    pub question_delegated: bool,
     pub cancellation: CancellationToken,
 }
 
@@ -24,6 +25,7 @@ pub(super) struct LiveBridge {
     call: String,
     call_cancellation: CancellationToken,
     pending: VecDeque<DelegationNotice>,
+    question_grants: Vec<CancellationToken>,
     active: Option<(DelegationNotice, DelegationSnapshot, CancellationToken)>,
 }
 
@@ -34,13 +36,20 @@ impl LiveBridge {
             call,
             call_cancellation,
             pending: VecDeque::new(),
+            question_grants: Vec::new(),
             active: None,
         }
     }
 
     pub fn transcript(&mut self, fragment: TranscriptFragment) -> Result<(), LiveError> {
         let mut timeline = self.timeline.lock().expect("Live context lock");
+        let user = fragment.speaker == live_voice::Speaker::User;
         timeline.observe(fragment)?;
+        if user {
+            for token in self.question_grants.drain(..) {
+                token.cancel();
+            }
+        }
         if let Some((_, snapshot, cancellation)) = &self.active {
             if !timeline.is_current(snapshot) {
                 cancellation.cancel();
@@ -51,6 +60,9 @@ impl LiveBridge {
 
     pub fn speech_started(&mut self) -> u64 {
         self.cancel_planning();
+        for token in self.question_grants.drain(..) {
+            token.cancel();
+        }
         self.timeline
             .lock()
             .expect("Live context lock")
@@ -90,6 +102,7 @@ impl LiveBridge {
             let cancellation = self.call_cancellation.child_token();
             self.active = Some((notice, snapshot.clone(), cancellation.clone()));
             return Some(DelegatedWork {
+                question_delegated: false,
                 intent: format!(
                     "{}:input-{:x}",
                     self.call,
@@ -113,6 +126,9 @@ impl LiveBridge {
         let (notice, _, _) = self.active.take().expect("matching active delegation");
         let mut timeline = self.timeline.lock().expect("Live context lock");
         let current = timeline.is_current(&work.snapshot) && !work.cancellation.is_cancelled();
+        if current && work.question_delegated && report.effects {
+            self.question_grants.push(work.cancellation.clone());
+        }
         // A receipt still in flight is a possible side effect, even with an empty completed list.
         if report.pending || report.effects || current {
             timeline.settle(&work.snapshot);
@@ -141,5 +157,8 @@ impl LiveBridge {
 impl Drop for LiveBridge {
     fn drop(&mut self) {
         self.cancel_planning();
+        for token in self.question_grants.drain(..) {
+            token.cancel();
+        }
     }
 }

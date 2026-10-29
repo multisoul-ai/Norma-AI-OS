@@ -17,6 +17,8 @@ use std::time::{Duration, Instant, SystemTime};
 static NEXT_TURN: AtomicU64 = AtomicU64::new(1);
 
 const MAX_BACKOFF: Duration = Duration::from_secs(60);
+/// 临时故障（如 429 限流）下同一条任务最多重试的次数，超过才放弃。
+const MAX_TRANSIENT_RETRIES: u32 = 3;
 
 pub struct Job {
     pub text: String,
@@ -100,15 +102,21 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
     let mut turns = 0u32;
     let mut primed = false;
     let mut failures = 0u32;
+    let mut retrying: Option<(Job, u32)> = None;
     while !env.stop.load(Ordering::Relaxed) {
-        let received = jobs
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .recv_timeout(Duration::from_millis(100));
-        let job = match received {
-            Ok(job) => job,
-            Err(RecvTimeoutError::Timeout) => continue,
-            Err(RecvTimeoutError::Disconnected) => break,
+        let (job, attempts) = match retrying.take() {
+            Some(again) => again,
+            None => {
+                let received = jobs
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner())
+                    .recv_timeout(Duration::from_millis(100));
+                match received {
+                    Ok(job) => (job, 0),
+                    Err(RecvTimeoutError::Timeout) => continue,
+                    Err(RecvTimeoutError::Disconnected) => break,
+                }
+            }
         };
         if job
             .approval_id
@@ -206,7 +214,12 @@ pub fn run(env: LaneEnv, jobs: SharedJobs) {
                 if !matches!(error, AcpError::Cancelled) {
                     down(&env, &error);
                 }
-                env.finish(&job);
+                if matches!(error, AcpError::Transient(_)) && attempts < MAX_TRANSIENT_RETRIES {
+                    // 限流等临时故障：退避后用新会话重发同一条任务，不能把它丢掉。
+                    retrying = Some((job, attempts + 1));
+                } else {
+                    env.finish(&job);
+                }
                 env.sleep((env.retry_backoff * 2u32.saturating_pow(failures - 1)).min(MAX_BACKOFF));
                 continue;
             }

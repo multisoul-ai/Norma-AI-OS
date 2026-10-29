@@ -39,6 +39,10 @@ pub(super) fn interaction_group(
                         app.stop_continuous_listening(cx);
                         app.voice_settings
                             .select_interaction_mode(VoiceInteractionMode::SingleVoiceCommand);
+                        if app.voice_settings.values().asr_provider() == asr::AsrProviderId::LocalA1
+                        {
+                            app.refresh_a1_requirement(cx);
+                        }
                         app.persist_voice_settings_in_background(cx);
                         cx.notify();
                     })),
@@ -53,6 +57,7 @@ pub(super) fn interaction_group(
                     )
                     .on_activate(cx.listener(|app, _, _, cx| {
                         app.voice.stop_for_model_switch();
+                        app.release_a1_runtime(cx);
                         app.voice_settings
                             .select_interaction_mode(VoiceInteractionMode::ContinuousListening);
                         app.persist_voice_settings_in_background(cx);

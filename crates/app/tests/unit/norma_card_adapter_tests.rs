@@ -45,6 +45,7 @@ fn test_norma_adapter_creates_browser_and_preview_canvas_cards() {
     app.update(cx, |app, cx| {
         app.enter_canvas_for_test(workspace.path(), cx)
     });
+    super::prepare_shared_context(&app, cx);
 
     let browser = cx.update(|window, app_cx| {
         app.update(app_cx, |app, cx| {
@@ -184,6 +185,7 @@ fn test_norma_adapter_deletes_only_card_at_position() {
     app.update(cx, |app, cx| {
         app.enter_canvas_for_test(workspace.path(), cx)
     });
+    super::prepare_shared_context(&app, cx);
 
     for url in [
         "https://first.example",
@@ -283,6 +285,7 @@ fn test_norma_adapter_rejects_out_of_range_position_without_deleting() {
     app.update(cx, |app, cx| {
         app.enter_canvas_for_test(workspace.path(), cx)
     });
+    super::prepare_shared_context(&app, cx);
 
     for url in ["https://first.example", "https://second.example"] {
         cx.update(|window, app_cx| {

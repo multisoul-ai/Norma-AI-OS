@@ -57,6 +57,16 @@ impl MemoryAccess {
     fn store(&self) -> Result<MemoryStore, AdapterError> {
         MemoryStore::open(&self.paths).map_err(failure)
     }
+    /// Version polling preserves scope authorization without refreshing read/write baselines.
+    pub fn scope_revision(
+        &mut self,
+        alias: MemoryScopeAlias,
+    ) -> Result<(MemoryScope, MemoryRevision), AdapterError> {
+        let scope = self.scope(alias)?;
+        let revision = self.store()?.current_revision(&scope).map_err(failure)?;
+        Ok((scope, revision))
+    }
+
     pub fn settings_snapshot(
         &mut self,
         alias: MemoryScopeAlias,

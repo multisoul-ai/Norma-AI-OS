@@ -1,4 +1,4 @@
-use super::{glass_button_variant, GLASS_TEXT, GLASS_TEXT_SECONDARY};
+use super::glass_button_variant;
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context};
 use ui::component::button::Button;
@@ -16,8 +16,9 @@ impl MultisoulApp {
         viewport: gpui::Size<gpui::Pixels>,
         scene_scale: f32,
         cx: &mut Context<Self>,
-    ) -> impl IntoElement {
+    ) -> gpui::Stateful<gpui::Div> {
         let theme = self.desktop_theme();
+        let fill = super::surface_theme::card_fill(theme);
         let full_width = f32::from(viewport.width);
         let full_height = f32::from(viewport.height);
         let card_height = full_height * card_width / full_width;
@@ -47,6 +48,7 @@ impl MultisoulApp {
         let project_count = workspace.project_count;
         let actions_open =
             self.desktop_workspace.actions_workspace_id.as_deref() == Some(workspace.id.as_str());
+        let selected = self.desktop_workspace.directory.selected.as_ref() == Some(&workspace.id);
         let preview = self
             .desktop_workspace
             .previews
@@ -101,12 +103,18 @@ impl MultisoulApp {
                     theme.dock_line
                 },
             ))
-            .bg(rgba(with_alpha(theme.dock, 0x8c)))
+            .bg(rgba(fill))
             .opacity(shell_opacity)
             .shadow_lg()
             .cursor_pointer()
-            .hover(move |style| style.border_color(rgba(theme.accent_blue)))
-            .active(move |style| style.bg(rgba(with_alpha(theme.dock, 0xf0))))
+            .hover(move |style| {
+                style
+                    .border_color(rgba(theme.accent_blue))
+                    .bg(rgba(fill).blend(rgba(with_alpha(theme.text_primary, 0x14))))
+            })
+            .active(move |style| {
+                style.bg(rgba(fill).blend(rgba(with_alpha(theme.text_primary, 0x1f))))
+            })
             .tab_index(0)
             .focus(move |style| style.border_color(rgba(theme.focused_stroke)).shadow_lg())
             .on_click(cx.listener(move |app, _, window, cx| {
@@ -146,7 +154,7 @@ impl MultisoulApp {
                             .min_w(px(0.0))
                             .truncate()
                             .font_semibold()
-                            .text_color(rgba(GLASS_TEXT))
+                            .text_color(rgba(theme.text_primary))
                             .tooltip(move |window, cx| {
                                 Tooltip::new(title_tooltip.clone()).build(window, cx)
                             })
@@ -157,7 +165,7 @@ impl MultisoulApp {
                             div()
                                 .flex_shrink_0()
                                 .text_size(px(11.0 * scene_scale))
-                                .text_color(rgba(GLASS_TEXT_SECONDARY))
+                                .text_color(rgba(theme.text_secondary))
                                 .child(ui::i18n::format(
                                     "workspace.project_count_projects_2",
                                     &[("project_count", (project_count).to_string())],
@@ -202,6 +210,20 @@ impl MultisoulApp {
                         )
                     }),
             )
+            .when(selected && moving.is_none(), |this| {
+                this.child(
+                    div()
+                        .debug_selector(move || format!("desktop-directory-selected-{index}"))
+                        .absolute()
+                        .left(px(-1.0))
+                        .top(px(-1.0))
+                        .w(px(card_width))
+                        .h(px(card_height))
+                        .rounded(px(17.0 * scene_scale))
+                        .border_3()
+                        .border_color(rgba(theme.focused_stroke)),
+                )
+            })
             .when(actions_open && moving.is_none(), |this| {
                 this.child(
                     div()
@@ -318,7 +340,7 @@ impl MultisoulApp {
                                     .items_center()
                                     .justify_center()
                                     .text_size(px(if compact_empty { 20.0 } else { 26.0 }))
-                                    .text_color(rgba(GLASS_TEXT))
+                                    .text_color(rgba(theme.text_primary))
                                     .child("+"),
                             )
                         })
@@ -332,7 +354,7 @@ impl MultisoulApp {
                                 .text_center()
                                 .text_size(px(if compact_empty { 16.0 } else { 18.0 }))
                                 .line_height(px(if compact_empty { 21.0 } else { 24.0 }))
-                                .text_color(rgba(GLASS_TEXT))
+                                .text_color(rgba(theme.text_primary))
                                 .child(ui::i18n::text("workspace.a_canvas_for_your_projects")),
                         )
                         .when(!compact_empty, |this| {
@@ -345,7 +367,7 @@ impl MultisoulApp {
                                 .text_center()
                                 .text_size(px(12.0))
                                 .line_height(px(17.0))
-                                .text_color(rgba(GLASS_TEXT_SECONDARY))
+                                .text_color(rgba(theme.text_secondary))
                                 .child(ui::i18n::text(
                                     "workspace.add_a_project_area_to_start_working_with_its_agents",
                                 )),

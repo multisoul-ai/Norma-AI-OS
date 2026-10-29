@@ -23,7 +23,10 @@ impl MultisoulApp {
         };
         match url.scheme() {
             "http" | "https" => {
-                let title = url.host_str().unwrap_or("网页").to_string();
+                let title = url
+                    .host_str()
+                    .unwrap_or(ui::i18n::text("drawers.web"))
+                    .to_string();
                 self.open_desktop_content_tab(
                     DesktopContentKind::Browser,
                     target,
@@ -85,7 +88,10 @@ impl MultisoulApp {
             return;
         };
         if matches!(url.scheme(), "http" | "https") {
-            let title = url.host_str().unwrap_or("网页").to_string();
+            let title = url
+                .host_str()
+                .unwrap_or(ui::i18n::text("drawers.web"))
+                .to_string();
             self.open_desktop_content_tab(
                 DesktopContentKind::Browser,
                 target,

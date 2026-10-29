@@ -1,0 +1,12 @@
+{
+  "type": "tool-result",
+  "toolCallId": "call-59d517be-1c39-4d25-a941-d4e935d94202-0\nfc_874bf6f3-1eec-9700-b4ed-9c117b038178_0",
+  "toolName": "AskQuestion",
+  "result": "User questions responses:\nQuestion q_single: Selected option(s) green\nQuestion q_multi: Selected option(s) mac, linux\nQuestion q_custom: NATIVE_ONLY_7F2",
+  "experimental_content": [
+    {
+      "type": "text",
+      "text": "User questions responses:\nQuestion q_single: Selected option(s) green\nQuestion q_multi: Selected option(s) mac, linux\nQuestion q_custom: NATIVE_ONLY_7F2"
+    }
+  ]
+}

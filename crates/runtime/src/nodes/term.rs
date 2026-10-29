@@ -26,6 +26,7 @@ pub type PtyFactory = Box<
 
 pub struct TermLive {
     session: TerminalSession,
+    question_host: Option<crossbeam_channel::Receiver<crate::live::NativeQuestionHost>>,
     cached_view: NodeView,
     revision: u64,
     #[cfg(test)]
@@ -56,11 +57,20 @@ impl TermLive {
         let cached_view = Self::view_from_session(&session, revision);
         Ok(Self {
             session,
+            question_host: None,
             cached_view,
             revision,
             #[cfg(test)]
             cached_view_refreshes: 1,
         })
+    }
+
+    pub(crate) fn with_native_question_host(
+        mut self,
+        receiver: crossbeam_channel::Receiver<crate::live::NativeQuestionHost>,
+    ) -> Self {
+        self.question_host = Some(receiver);
+        self
     }
 
     fn view_from_session(session: &TerminalSession, revision: u64) -> NodeView {
@@ -129,6 +139,23 @@ pub(crate) fn spawn_term_live(
 }
 
 impl LiveNode for TermLive {
+    fn native_question_host_pending(&self) -> bool {
+        self.question_host.is_some()
+    }
+    fn take_native_question_host(&mut self) -> Option<crate::live::NativeQuestionHost> {
+        let receiver = self.question_host.as_ref()?;
+        match receiver.try_recv() {
+            Ok(host) => {
+                self.question_host = None;
+                Some(host)
+            }
+            Err(crossbeam_channel::TryRecvError::Disconnected) => {
+                self.question_host = None;
+                None
+            }
+            Err(crossbeam_channel::TryRecvError::Empty) => None,
+        }
+    }
     fn caps(&self) -> Caps {
         Caps::TERM
     }
@@ -198,6 +225,7 @@ impl LiveNode for TermLive {
     }
 
     fn kill(&mut self) {
+        self.question_host = None;
         self.session.kill();
         self.refresh_cached_view();
     }

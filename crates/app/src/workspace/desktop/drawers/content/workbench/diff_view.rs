@@ -1,9 +1,7 @@
 //! Diff main view: summary pills, file header and a line-numbered, semantically colored body.
 
 use super::diff::{diff_stats, is_binary_patch, parse_diff_for_display, DiffKind, DiffLine};
-use super::document::{
-    display_line, numbered_line, GREEN, GUTTER, LINE, PATH_BAR, RED, TEXT, TEXT_MUTED,
-};
+use super::document::{display_line, numbered_line};
 use super::*;
 use crate::app::MultisoulApp;
 use gpui::{
@@ -11,11 +9,9 @@ use gpui::{
     ListHorizontalSizingBehavior,
 };
 
-const ADD_BG: u32 = 0x12281dff;
-const REMOVE_BG: u32 = 0x2b1618ff;
-
 impl MultisoulApp {
     pub(super) fn render_workbench_diff(&self, cx: &mut Context<Self>) -> AnyElement {
+        let theme = self.desktop_theme();
         let s = &self.desktop_workspace.workbench;
         let patch = s.diff.as_deref().unwrap_or_default();
         let lines = s
@@ -25,11 +21,14 @@ impl MultisoulApp {
         let (added, removed) = diff_stats(&lines);
         let local = s.saved.comparison == Comparison::Local;
         let scope = match (&s.saved.comparison, s.diff_staged) {
-            (Comparison::Local, true) => "已暂存".to_string(),
-            (Comparison::Local, false) => "未暂存".to_string(),
+            (Comparison::Local, true) => ui::i18n::text("drawers.staged").to_string(),
+            (Comparison::Local, false) => ui::i18n::text("drawers.unstaged").to_string(),
             (Comparison::Branch(target), _) => format!(
                 "{} → {target}",
-                s.git.as_ref().map(|g| g.branch.as_str()).unwrap_or("HEAD")
+                s.git
+                    .as_ref()
+                    .and_then(|g| g.branch.as_deref())
+                    .unwrap_or_else(|| ui::i18n::text("drawers.content_no_commits"))
             ),
         };
         let pill = |children: Vec<AnyElement>| {
@@ -40,15 +39,15 @@ impl MultisoulApp {
                 .h(px(32.0))
                 .px(px(13.0))
                 .rounded(px(16.0))
-                .bg(rgba(0xffffff10))
+                .bg(rgba(ui::icons::with_alpha(theme.text_primary, 0x10)))
                 .text_size(px(12.0))
-                .text_color(rgba(0xe4e9f1ff))
+                .text_color(rgba(theme.text_primary))
                 .children(children)
         };
         let counts = |bold: bool| {
             vec![
                 div()
-                    .text_color(rgba(GREEN))
+                    .text_color(rgba(theme.success))
                     .font_weight(if bold {
                         gpui::FontWeight::SEMIBOLD
                     } else {
@@ -57,18 +56,22 @@ impl MultisoulApp {
                     .child(format!("+{added}"))
                     .into_any_element(),
                 div()
-                    .text_color(rgba(RED))
+                    .text_color(rgba(theme.destructive))
                     .child(format!("-{removed}"))
                     .into_any_element(),
             ]
         };
         let mut summary = vec![pill(vec![div().child(scope).into_any_element()])];
         if !local {
-            let mut with_counts = vec![div().child("分支").into_any_element()];
+            let mut with_counts = vec![div()
+                .child(ui::i18n::text("drawers.branch"))
+                .into_any_element()];
             with_counts.extend(counts(true));
             summary.insert(0, pill(with_counts));
         } else {
-            let mut with_counts = vec![div().child("变更").into_any_element()];
+            let mut with_counts = vec![div()
+                .child(ui::i18n::text("drawers.changes"))
+                .into_any_element()];
             with_counts.extend(counts(true));
             summary.push(pill(with_counts));
         }
@@ -79,9 +82,9 @@ impl MultisoulApp {
             .gap(px(8.0))
             .px(px(12.0))
             .py(px(9.0))
-            .bg(rgba(PATH_BAR))
+            .bg(rgba(theme.panel_high))
             .border_y_1()
-            .border_color(rgba(LINE))
+            .border_color(rgba(theme.node_stroke))
             .text_size(px(12.0))
             .child(
                 div()
@@ -92,8 +95,16 @@ impl MultisoulApp {
                     .whitespace_nowrap()
                     .child(s.saved.selected.clone().unwrap_or_default()),
             )
-            .child(div().text_color(rgba(GREEN)).child(format!("+{added}")))
-            .child(div().text_color(rgba(RED)).child(format!("-{removed}")));
+            .child(
+                div()
+                    .text_color(rgba(theme.success))
+                    .child(format!("+{added}")),
+            )
+            .child(
+                div()
+                    .text_color(rgba(theme.destructive))
+                    .child(format!("-{removed}")),
+            );
         let body: AnyElement = if is_binary_patch(patch) || lines.is_empty() {
             div()
                 .flex_1()
@@ -101,11 +112,11 @@ impl MultisoulApp {
                 .items_center()
                 .justify_center()
                 .text_size(px(12.0))
-                .text_color(rgba(TEXT_MUTED))
+                .text_color(rgba(theme.text_tertiary))
                 .child(if is_binary_patch(patch) {
-                    "二进制文件，没有可显示的文本差异"
+                    ui::i18n::text("drawers.binary_diff")
                 } else {
-                    "没有可显示的差异"
+                    ui::i18n::text("drawers.no_diff")
                 })
                 .into_any_element()
         } else {
@@ -119,7 +130,9 @@ impl MultisoulApp {
                 "files-diff-lines",
                 count,
                 cx.processor(move |_, range: std::ops::Range<usize>, _, _| {
-                    range.map(|i| diff_row(&lines[i])).collect::<Vec<_>>()
+                    range
+                        .map(|i| diff_row(theme, &lines[i]))
+                        .collect::<Vec<_>>()
                 }),
             )
             .with_horizontal_sizing_behavior(ListHorizontalSizingBehavior::Unconstrained)
@@ -151,15 +164,27 @@ impl MultisoulApp {
     }
 }
 
-fn diff_row(line: &DiffLine) -> Div {
+fn diff_row(theme: ui::Theme, line: &DiffLine) -> Div {
     let text = display_line(&line.text);
     let number = line.number.unwrap_or(0);
     let (gutter, color, bg) = match line.kind {
-        DiffKind::Add => (0x7fa896ff, TEXT, Some(ADD_BG)),
-        DiffKind::Remove => (0xb98084ff, TEXT, Some(REMOVE_BG)),
-        DiffKind::Context => (GUTTER, TEXT, None),
-        DiffKind::Hunk => (GUTTER, 0x8db9ecff, Some(0xffffff0a)),
-        DiffKind::Meta => (GUTTER, TEXT_MUTED, None),
+        DiffKind::Add => (
+            theme.success,
+            theme.text_primary,
+            Some(ui::icons::with_alpha(theme.success, 0x18)),
+        ),
+        DiffKind::Remove => (
+            theme.destructive,
+            theme.text_primary,
+            Some(ui::icons::with_alpha(theme.destructive, 0x18)),
+        ),
+        DiffKind::Context => (theme.text_tertiary, theme.text_primary, None),
+        DiffKind::Hunk => (
+            theme.text_tertiary,
+            theme.text_secondary,
+            Some(ui::icons::with_alpha(theme.text_primary, 0x0a)),
+        ),
+        DiffKind::Meta => (theme.text_tertiary, theme.text_tertiary, None),
     };
     if line.number.is_none() {
         return numbered_line(0, 0x00000000, text, color, bg);

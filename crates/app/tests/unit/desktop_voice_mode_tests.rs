@@ -44,3 +44,29 @@ fn desktop_live_mode_roundtrips_without_changing_legacy_defaults() {
         );
     }
 }
+
+/// 场景：本地精准不能进入豆包混合、GPT-Live 或连续监听。
+/// 构造：3 桌面模式 × 2 交互模式；执行同一生产路由约束。
+/// 预期：仅 Legacy + SingleVoiceCommand 可用 A1，默认仍为 Legacy。
+#[test]
+fn a1_is_exclusive_to_legacy_single_command() {
+    assert!(
+        DesktopVoiceMode::Legacy.supports_local_a1(VoiceInteractionMode::SingleVoiceCommand),
+        "本地单次允许 A1"
+    );
+    assert!(
+        !DesktopVoiceMode::Legacy.supports_local_a1(VoiceInteractionMode::ContinuousListening),
+        "A1 不自动扩展连续监听"
+    );
+    for mode in [DesktopVoiceMode::Doubao, DesktopVoiceMode::GptLive] {
+        for interaction in [
+            VoiceInteractionMode::SingleVoiceCommand,
+            VoiceInteractionMode::ContinuousListening,
+        ] {
+            assert!(
+                !mode.supports_local_a1(interaction),
+                "云端对话入口不得加载 A1"
+            );
+        }
+    }
+}

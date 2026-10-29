@@ -26,69 +26,46 @@ pub(super) fn workspace_layout(width: f32, height: f32, count: usize) -> Vec<Can
         .collect()
 }
 
-/// Stable catalog order: opening a workspace never changes its slot or prominence.
+/// Combo's central stack is vertically balanced, with room for window controls.
+pub(super) fn home_brand_top(height: f32) -> f32 {
+    ((height - 508.0) * 0.5).max(84.0)
+}
+
+/// Stable equal-size recent cards. Small catalogs reserve a final creation slot.
 pub(super) fn home_layout(width: f32, height: f32, count: usize) -> Vec<CanvasRect> {
-    let margin = if width >= 900.0 { 54.0 } else { 20.0 };
-    let content = (width - margin * 2.0).clamp(1.0, 1344.0);
-    let left = (width - content) * 0.5;
-    let top = if width >= 640.0 { 202.0 } else { 246.0 };
-    let wide = width >= 900.0;
-    let hero = if wide {
-        (height * 0.46).clamp(300.0, 440.0)
-    } else {
-        300.0
-    };
-    let gap = 12.0;
-    let featured_width = if wide && count > 1 {
-        (content - gap) * 0.62
-    } else {
-        content
-    };
-    (0..count)
+    home_slots(width, height, count)
+        .into_iter()
+        .take(count.min(4))
+        .collect()
+}
+
+pub(super) fn home_slots(width: f32, height: f32, count: usize) -> Vec<CanvasRect> {
+    let slots = count.min(4) + usize::from((1..=2).contains(&count));
+    if slots == 0 {
+        return Vec::new();
+    }
+    let card_width = 252.0_f32.min((width - 40.0).max(1.0));
+    let columns = (((width - 24.0) / (card_width + 16.0)).floor() as usize).clamp(1, slots);
+    let grid_width = columns as f32 * card_width + (columns - 1) as f32 * 16.0;
+    (0..slots)
         .map(|index| {
-            if index == 0 {
-                CanvasRect::new(left, top, featured_width, hero)
-            } else if wide && index < 3 {
-                CanvasRect::new(
-                    left + featured_width + gap,
-                    top + (index - 1) as f32 * (hero + gap) * 0.5,
-                    content - featured_width - gap,
-                    (hero - gap) * 0.5,
-                )
-            } else {
-                let columns = if wide { 2 } else { 1 };
-                let offset = if wide { index - 3 } else { index - 1 };
-                let row_width = (content - gap * (columns - 1) as f32) / columns as f32;
-                // The second section gets a label; narrow layouts keep the first three together.
-                let section_gap = if wide || index >= 3 { 60.0 } else { gap };
-                CanvasRect::new(
-                    left + (offset % columns) as f32 * (row_width + gap),
-                    top + hero + section_gap + (offset / columns) as f32 * 140.0,
-                    row_width,
-                    128.0,
-                )
-            }
+            CanvasRect::new(
+                (width - grid_width) * 0.5 + (index % columns) as f32 * (card_width + 16.0),
+                home_brand_top(height) + 270.0 + (index / columns) as f32 * 220.0,
+                card_width,
+                204.0,
+            )
         })
         .collect()
 }
 
-pub(super) fn home_preview_panel_rect(card: CanvasRect, featured: bool) -> CanvasRect {
-    let padding = 12.0;
-    let width = if featured {
-        card.size.x - 2.0 * padding
-    } else {
-        (card.size.x * if card.size.y > 150.0 { 0.42 } else { 0.26 }).min(184.0)
-    };
-    let height = if featured {
-        card.size.y - if card.size.x >= 600.0 { 74.0 } else { 88.0 }
-    } else {
-        card.size.y - 2.0 * padding
-    };
+pub(super) fn home_preview_panel_rect(card: CanvasRect, _featured: bool) -> CanvasRect {
+    // 1px outer border plus 6px inset. Opaque preview owns its own 16px radii.
     CanvasRect::new(
-        card.origin.x + padding,
-        card.origin.y + padding,
-        width,
-        height,
+        card.origin.x + 6.0,
+        card.origin.y + 6.0,
+        (card.size.x - 14.0).max(1.0),
+        128.0,
     )
 }
 

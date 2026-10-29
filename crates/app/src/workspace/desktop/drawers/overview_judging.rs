@@ -3,7 +3,7 @@
 use super::super::overview_rows::{OverviewAction, OverviewScreen, OverviewStatusTone};
 use std::collections::HashSet;
 
-pub(super) const JUDGING_LABEL: &str = "Norma 判断中";
+pub(super) const JUDGING_LABEL_KEY: &str = "drawers.norma_judging";
 
 pub(super) fn relabel_judging(screen: &mut OverviewScreen, judging: &HashSet<(String, u64)>) {
     if judging.is_empty() {
@@ -26,8 +26,9 @@ pub(super) fn relabel_judging(screen: &mut OverviewScreen, judging: &HashSet<(St
             .primary
             .split_once(" · ")
             .map_or(row.primary.as_str(), |(_, rest)| rest);
-        row.primary = format!("{JUDGING_LABEL} · {title}");
-        row.status_label = Some(JUDGING_LABEL.into());
+        let label = ui::i18n::text(JUDGING_LABEL_KEY);
+        row.primary = format!("{label} · {title}");
+        row.status_label = Some(label.into());
         row.status_tone = OverviewStatusTone::Running;
     }
 }

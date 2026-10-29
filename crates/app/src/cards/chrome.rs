@@ -17,6 +17,13 @@ pub const TITLE_BAR_H: f32 = 32.0;
 /// cannot follow its corners in GPUI 0.2.2 and leave visible material seams.
 /// ponytail: tint only; true blur needs a GPU backdrop with a rounded mask.
 pub fn card_background(theme: Theme) -> Background {
+    if theme.is_light() {
+        return linear_gradient(
+            155.0,
+            linear_color_stop(rgba(theme.panel_high), 0.0),
+            linear_color_stop(rgba(theme.node_fill), 1.0),
+        );
+    }
     linear_gradient(
         155.0,
         linear_color_stop(rgba(with_alpha(theme.title_bar, 0x24)), 0.0),
@@ -26,6 +33,13 @@ pub fn card_background(theme: Theme) -> Background {
 
 /// A translucent title gradient over the continuous rounded card material.
 pub fn card_title_background(title_color: u32, theme: Theme) -> Background {
+    if theme.is_light() {
+        return linear_gradient(
+            165.0,
+            linear_color_stop(rgba(theme.title_bar), 0.0),
+            linear_color_stop(rgba(theme.canvas_to), 1.0),
+        );
+    }
     linear_gradient(
         165.0,
         linear_color_stop(rgba(title_color), 0.0),

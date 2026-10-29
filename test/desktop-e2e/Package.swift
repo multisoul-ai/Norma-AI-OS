@@ -45,7 +45,7 @@ let package = Package(
         ),
         .testTarget(
             name: "E2EKitTests",
-            dependencies: ["E2EKit"],
+            dependencies: ["E2EKit", "Fixtures"],
             path: "Tests/E2EKitTests"
         ),
     ]

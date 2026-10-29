@@ -19,7 +19,13 @@ impl OwnPrompts {
 
     pub(crate) fn contains(&self, text: &str) -> bool {
         let text = text.trim();
-        self.texts.iter().any(|own| own == text)
+        // Hooks report long prompts as their first 60 chars plus "…".
+        let truncated = text
+            .strip_suffix('…')
+            .filter(|head| head.chars().count() == 60);
+        self.texts
+            .iter()
+            .any(|own| own == text || truncated.is_some_and(|head| own.starts_with(head)))
     }
 }
 

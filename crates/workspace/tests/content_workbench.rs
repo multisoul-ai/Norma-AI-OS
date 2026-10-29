@@ -311,7 +311,10 @@ fn commit_runs_hooks_and_reports_rejection() {
     let error = p
         .git_action(&snapshot.version, GitAction::Commit("reject".into()))
         .expect_err("hook 应拒绝");
-    assert!(error.contains("REJECTED"), "展示 hook 的失败信息");
+    assert!(
+        matches!(error, workspace::content::ContentError::GitFailed(detail) if detail.contains("REJECTED")),
+        "保留 hook 的原始失败信息"
+    );
     assert_eq!(
         repo.head().expect("HEAD").target(),
         original,

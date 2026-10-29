@@ -42,26 +42,32 @@ fn revision_name(revision: MemoryRevision) -> String {
 }
 
 impl MemoryStore {
+    /// Validate publication metadata without opening the catalog or topic bodies.
+    /// Full integrity validation remains mandatory for snapshot/read/activation.
+    pub fn current_revision(&self, scope: &MemoryScope) -> MemoryResult<MemoryRevision> {
+        let directory = self.scope_directory(scope)?;
+        let Some(pointer) = read_pointer(&directory)? else {
+            return Ok(MemoryRevision::INITIAL);
+        };
+        read_manifest(scope, &directory, &pointer)?;
+        Ok(pointer.revision)
+    }
+
     pub(super) fn load_current(
         &self,
         scope: &MemoryScope,
         directory: &Directory,
     ) -> MemoryResult<MemorySnapshot> {
-        let bytes = match directory.read("CURRENT", MAX_POINTER_BYTES) {
-            Ok(bytes) => bytes,
-            Err(MemoryError::Io(error)) if error.kind() == std::io::ErrorKind::NotFound => {
-                return Ok(MemorySnapshot {
-                    root: self.root.clone(),
-                    scope: scope.clone(),
-                    revision: MemoryRevision::INITIAL,
-                    manifest_sha256: None,
-                    catalog: document::catalog(&BTreeMap::new())?,
-                    entries: BTreeMap::new(),
-                });
-            }
-            Err(error) => return Err(error),
+        let Some(pointer) = read_pointer(directory)? else {
+            return Ok(MemorySnapshot {
+                root: self.root.clone(),
+                scope: scope.clone(),
+                revision: MemoryRevision::INITIAL,
+                manifest_sha256: None,
+                catalog: document::catalog(&BTreeMap::new())?,
+                entries: BTreeMap::new(),
+            });
         };
-        let pointer: Pointer = serde_json::from_slice(&bytes)?;
         self.load_revision(scope, directory, &pointer)
     }
 
@@ -228,6 +234,21 @@ impl MemoryStore {
             Err(error) => Err(error),
         }
     }
+}
+
+fn read_pointer(directory: &Directory) -> MemoryResult<Option<Pointer>> {
+    let bytes = match directory.read("CURRENT", MAX_POINTER_BYTES) {
+        Ok(bytes) => bytes,
+        Err(MemoryError::Io(error)) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(None)
+        }
+        Err(error) => return Err(error),
+    };
+    let pointer: Pointer = serde_json::from_slice(&bytes)?;
+    if pointer.revision == MemoryRevision::INITIAL {
+        return Err(MemoryError::CorruptRevision);
+    }
+    Ok(Some(pointer))
 }
 
 fn read_manifest(

@@ -1,3 +1,4 @@
+use super::ContentError;
 use super::{files::fingerprint, Project, Result};
 use git2::{DiffOptions, Repository, Status, StatusOptions};
 use std::path::Path;
@@ -13,7 +14,7 @@ pub enum Comparison {
 pub struct Change {
     pub path: String,
     pub old_path: Option<String>,
-    pub status: String,
+    pub status: ChangeStatus,
     pub staged: bool,
     pub unstaged: bool,
     pub untracked: bool,
@@ -22,7 +23,7 @@ pub struct Change {
 
 #[derive(Clone, Debug)]
 pub struct GitSnapshot {
-    pub branch: String,
+    pub branch: Option<String>,
     pub version: String,
     pub branches: Vec<String>,
     pub default_target: Option<String>,
@@ -36,23 +37,23 @@ fn head_tree(repo: &Repository) -> Option<git2::Tree<'_>> {
 
 fn base_tree<'a>(repo: &'a Repository, target: &str) -> Result<git2::Tree<'a>> {
     if target.starts_with('-') {
-        return Err("无效比较分支".into());
+        return Err(ContentError::InvalidBranch);
     }
     let target = repo
         .revparse_single(target)
-        .map_err(|e| e.message().to_string())?
+        .map_err(|e| ContentError::Diagnostic(e.message().to_string()))?
         .peel_to_commit()
-        .map_err(|e| e.message().to_string())?;
+        .map_err(|e| ContentError::Diagnostic(e.message().to_string()))?;
     let head = repo
         .head()
         .and_then(|h| h.peel_to_commit())
-        .map_err(|e| e.message().to_string())?;
+        .map_err(|e| ContentError::Diagnostic(e.message().to_string()))?;
     let base = repo
         .merge_base(head.id(), target.id())
-        .map_err(|e| e.message().to_string())?;
+        .map_err(|e| ContentError::Diagnostic(e.message().to_string()))?;
     repo.find_commit(base)
         .and_then(|c| c.tree())
-        .map_err(|e| e.message().to_string())
+        .map_err(|e| ContentError::Diagnostic(e.message().to_string()))
 }
 
 impl Project {
@@ -66,7 +67,7 @@ impl Project {
             .renames_index_to_workdir(false);
         let statuses = repo
             .statuses(Some(&mut options))
-            .map_err(|e| e.message().to_string())?;
+            .map_err(|e| ContentError::Diagnostic(e.message().to_string()))?;
         let mut version = Vec::new();
         version.extend_from_slice(
             repo.head()
@@ -87,7 +88,7 @@ impl Project {
                 .and_then(|d| d.new_file().path())
                 .and_then(Path::to_str)
                 .or_else(|| entry.path())
-                .ok_or("文件名不是 UTF-8，暂不支持 Git 操作")?
+                .ok_or(ContentError::InvalidFilename)?
                 .to_string();
             let status = entry.status();
             version.extend_from_slice(path.as_bytes());
@@ -107,7 +108,7 @@ impl Project {
             } else if metadata.is_some_and(|m| m.is_file()) {
                 // Hash on the worker, without buffering large binaries in memory.
                 let oid = git2::Oid::hash_file(git2::ObjectType::Blob, &full)
-                    .map_err(|e| e.message().to_string())?;
+                    .map_err(|e| ContentError::Diagnostic(e.message().to_string()))?;
                 version.extend_from_slice(oid.as_bytes());
             }
             changes.push(Change {
@@ -119,17 +120,16 @@ impl Project {
                     .map(str::to_string),
                 path,
                 status: if status.is_conflicted() {
-                    "冲突"
+                    ChangeStatus::Conflicted
                 } else if status.contains(Status::WT_NEW) {
-                    "新增"
+                    ChangeStatus::Added
                 } else if status.intersects(Status::WT_DELETED | Status::INDEX_DELETED) {
-                    "删除"
+                    ChangeStatus::Deleted
                 } else if status.intersects(Status::WT_RENAMED | Status::INDEX_RENAMED) {
-                    "重命名"
+                    ChangeStatus::Renamed
                 } else {
-                    "修改"
-                }
-                .into(),
+                    ChangeStatus::Modified
+                },
                 staged: status.intersects(
                     Status::INDEX_NEW
                         | Status::INDEX_DELETED
@@ -153,7 +153,7 @@ impl Project {
         version.extend_from_slice(format!("{:?}", repo.state()).as_bytes());
         let branches = repo
             .branches(None)
-            .map_err(|e| e.message().to_string())?
+            .map_err(|e| ContentError::Diagnostic(e.message().to_string()))?
             .filter_map(|b| b.ok())
             .filter_map(|(b, _)| b.name().ok().flatten().map(str::to_string))
             .filter(|b| !b.ends_with("/HEAD"))
@@ -176,16 +176,16 @@ impl Project {
             version.extend_from_slice(base.id().as_bytes());
             version.extend_from_slice(
                 repo.revparse_single(target)
-                    .map_err(|e| e.message().to_string())?
+                    .map_err(|e| ContentError::Diagnostic(e.message().to_string()))?
                     .id()
                     .as_bytes(),
             );
             let head = head_tree(&repo);
             let mut diff = repo
                 .diff_tree_to_tree(Some(&base), head.as_ref(), None)
-                .map_err(|e| e.message().to_string())?;
+                .map_err(|e| ContentError::Diagnostic(e.message().to_string()))?;
             diff.find_similar(None)
-                .map_err(|e| e.message().to_string())?;
+                .map_err(|e| ContentError::Diagnostic(e.message().to_string()))?;
             changes = diff
                 .deltas()
                 .map(|d| Change {
@@ -197,7 +197,7 @@ impl Project {
                         .to_string_lossy()
                         .to_string(),
                     old_path: d.old_file().path().map(|p| p.to_string_lossy().to_string()),
-                    status: format!("{:?}", d.status()),
+                    status: ChangeStatus::from(d.status()),
                     staged: false,
                     unstaged: false,
                     untracked: false,
@@ -209,8 +209,7 @@ impl Project {
             branch: repo
                 .head()
                 .ok()
-                .and_then(|h| h.shorthand().map(str::to_string))
-                .unwrap_or_else(|| "尚无提交".into()),
+                .and_then(|h| h.shorthand().map(str::to_string)),
             version: fingerprint(&version),
             branches,
             default_target,
@@ -226,7 +225,7 @@ impl Project {
                 .components()
                 .any(|c| !matches!(c, std::path::Component::Normal(_)))
         {
-            return Err("无效文件路径".into());
+            return Err(ContentError::InvalidPath);
         }
         let repo = self.repository()?;
         let head = head_tree(&repo);
@@ -258,9 +257,9 @@ impl Project {
             }
             Comparison::Local => repo.diff_index_to_workdir(None, Some(&mut options)),
         }
-        .map_err(|e| e.message().to_string())?;
+        .map_err(|e| ContentError::Diagnostic(e.message().to_string()))?;
         diff.find_similar(None)
-            .map_err(|e| e.message().to_string())?;
+            .map_err(|e| ContentError::Diagnostic(e.message().to_string()))?;
         let mut text = Vec::new();
         let mut large = false;
         diff.print(git2::DiffFormat::Patch, |_, _, line| {
@@ -276,11 +275,44 @@ impl Project {
         })
         .map_err(|e| {
             if large {
-                "差异超过 1 MiB，请使用系统应用查看".into()
+                ContentError::DiffTooLarge
             } else {
-                e.message().to_string()
+                ContentError::Diagnostic(e.message().to_string())
             }
         })?;
-        String::from_utf8(text).map_err(|_| "二进制差异不可作为文本显示".into())
+        String::from_utf8(text).map_err(|_| ContentError::BinaryDiff)
+    }
+}
+
+/// File-change semantics shared by local and branch comparisons.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ChangeStatus {
+    Unchanged,
+    Added,
+    Deleted,
+    Modified,
+    Renamed,
+    Copied,
+    Ignored,
+    TypeChanged,
+    Unreadable,
+    Conflicted,
+}
+
+impl From<git2::Delta> for ChangeStatus {
+    fn from(value: git2::Delta) -> Self {
+        match value {
+            git2::Delta::Unmodified => Self::Unchanged,
+            git2::Delta::Added => Self::Added,
+            git2::Delta::Untracked => Self::Added,
+            git2::Delta::Deleted => Self::Deleted,
+            git2::Delta::Modified => Self::Modified,
+            git2::Delta::Renamed => Self::Renamed,
+            git2::Delta::Copied => Self::Copied,
+            git2::Delta::Ignored => Self::Ignored,
+            git2::Delta::Typechange => Self::TypeChanged,
+            git2::Delta::Unreadable => Self::Unreadable,
+            git2::Delta::Conflicted => Self::Conflicted,
+        }
     }
 }

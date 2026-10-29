@@ -1,6 +1,5 @@
 //! On-demand Git and listing options panel for the explorer sidebar.
 
-use super::document::LINE;
 use super::*;
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div};
@@ -10,6 +9,7 @@ use workspace::content::GitAction;
 impl MultisoulApp {
     /// On-demand panel: comparison mode, listing options and Git batch actions.
     pub(super) fn render_workbench_ops(&self, cx: &mut Context<Self>) -> Div {
+        let theme = self.desktop_theme();
         let s = &self.desktop_workspace.workbench;
         let local = s.saved.comparison == Comparison::Local;
         let mut panel = div()
@@ -19,9 +19,9 @@ impl MultisoulApp {
             .gap(px(6.0))
             .p(px(8.0))
             .rounded(px(9.0))
-            .bg(rgba(0xffffff0a))
+            .bg(rgba(ui::icons::with_alpha(theme.text_primary, 0x0a)))
             .border_1()
-            .border_color(rgba(LINE));
+            .border_color(rgba(theme.node_stroke));
         panel = panel.child(
             div()
                 .flex()
@@ -29,7 +29,7 @@ impl MultisoulApp {
                 .gap(px(4.0))
                 .child(
                     Button::new("files-local")
-                        .label("本地变更")
+                        .label(ui::i18n::text("drawers.local_changes"))
                         .small()
                         .selected(local)
                         .disabled(s.busy)
@@ -40,7 +40,7 @@ impl MultisoulApp {
                 )
                 .child(
                     Button::new("files-branch")
-                        .label("分支变更")
+                        .label(ui::i18n::text("drawers.branch_changes"))
                         .small()
                         .selected(!local)
                         .disabled(s.busy)
@@ -52,7 +52,9 @@ impl MultisoulApp {
                                 s.saved.comparison = Comparison::Branch(target);
                             } else {
                                 s.saved.comparison = Comparison::Branch(String::new());
-                                s.error = Some("请选择比较分支".into());
+                                s.error = Some(ui::i18n::LocalizedText::new(
+                                    "drawers.select_branch_first",
+                                ));
                             }
                             app.refresh_file_workbench(cx);
                         })),
@@ -65,7 +67,7 @@ impl MultisoulApp {
                         ui::component::select::Select::new(picker)
                             .small()
                             .w_full()
-                            .placeholder("选择比较分支"),
+                            .placeholder(ui::i18n::text("drawers.select_branch")),
                     ),
                 );
             }
@@ -77,7 +79,7 @@ impl MultisoulApp {
                 .gap(px(4.0))
                 .child(
                     Button::new("files-hidden")
-                        .label("隐藏文件")
+                        .label(ui::i18n::text("drawers.hidden_files"))
                         .small()
                         .selected(s.saved.hidden)
                         .on_click(cx.listener(|app, _, _, cx| {
@@ -87,7 +89,7 @@ impl MultisoulApp {
                 )
                 .child(
                     Button::new("files-ignored")
-                        .label("忽略文件")
+                        .label(ui::i18n::text("drawers.ignored_files"))
                         .small()
                         .selected(s.saved.ignored)
                         .on_click(cx.listener(|app, _, _, cx| {
@@ -97,7 +99,7 @@ impl MultisoulApp {
                 )
                 .child(
                     Button::new("files-refresh")
-                        .label("刷新")
+                        .label(ui::i18n::text("drawers.refresh"))
                         .small()
                         .on_click(cx.listener(|app, _, _, cx| app.refresh_file_workbench(cx))),
                 ),
@@ -126,7 +128,7 @@ impl MultisoulApp {
                 .gap(px(4.0))
                 .child(
                     Button::new("files-stage-all")
-                        .label("全部暂存")
+                        .label(ui::i18n::text("drawers.stage_all"))
                         .small()
                         .disabled(disabled || stage.is_empty())
                         .on_click(cx.listener(move |app, _, _, cx| {
@@ -135,7 +137,7 @@ impl MultisoulApp {
                 )
                 .child(
                     Button::new("files-unstage-all")
-                        .label("取消暂存")
+                        .label(ui::i18n::text("drawers.unstage"))
                         .small()
                         .disabled(disabled || !has_staged)
                         .on_click(cx.listener(move |app, _, _, cx| {
@@ -144,7 +146,7 @@ impl MultisoulApp {
                 )
                 .child(
                     Button::new("files-commit-toggle")
-                        .label("提交…")
+                        .label(ui::i18n::text("drawers.commit"))
                         .small()
                         .selected(s.commit_open)
                         .disabled(disabled || !has_staged)
@@ -160,7 +162,7 @@ impl MultisoulApp {
             }
             panel = panel.child(
                 Button::new("files-commit")
-                    .label("提交已暂存文件")
+                    .label(ui::i18n::text("drawers.commit_staged"))
                     .small()
                     .disabled(disabled || !has_staged)
                     .on_click(cx.listener(|app, _, _, cx| {

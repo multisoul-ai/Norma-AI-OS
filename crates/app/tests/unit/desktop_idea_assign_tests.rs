@@ -15,6 +15,22 @@ fn ids(list: &[&str]) -> Vec<String> {
     list.iter().map(|id| (*id).to_owned()).collect()
 }
 
+fn assert_bilingual_notice(plan: AssignPlan, chinese: &str, english: &str) {
+    let AssignPlan::Notice(notice) = plan else {
+        panic!("失败路径应返回提示，不能派发或打开选择器：{plan:?}");
+    };
+    assert_eq!(
+        notice.resolve_for(ui::i18n::Locale::ZhCn),
+        chinese,
+        "中文提示应点明失败原因"
+    );
+    assert_eq!(
+        notice.resolve_for(ui::i18n::Locale::En),
+        english,
+        "同一缓存提示应支持英文，不能保留硬编码中文"
+    );
+}
+
 /// `⌃N` 取展开项目的第 N 张卡片，忽略其他项目的卡片；光标在待办行时派该行。
 ///
 /// 数据构造：待办 [a, b, c]；项目 p1 有卡片 10、11，项目 p2 有卡片 20、21、22（顺序在 p1 之间穿插）；展开 p2。
@@ -76,7 +92,8 @@ fn falls_back_to_first_todo_without_a_todo_cursor() {
 /// 失败路径都给出可读提示，而不是静默忽略。
 ///
 /// 数据构造：分别构造无待办、未展开项目、卡片序号越界（0 与 3，项目只有 1 张）。
-/// 预期结果：全部为 Notice，文案点明原因。
+/// 执行过程：生成派发计划，再将同一缓存提示分别解析为中文与英文。
+/// 预期结果：全部为 Notice 而非派发或选择器，双语文案点明原因并保留卡片序号。
 #[test]
 fn failures_explain_themselves() {
     let options = [option("p1", 10)];
@@ -88,11 +105,7 @@ fn failures_explain_themselves() {
         Some("p1"),
         AgentProfile::Codex,
     );
-    assert_eq!(
-        none,
-        AssignPlan::Notice("没有待办想法可派发".to_owned()),
-        "无待办"
-    );
+    assert_bilingual_notice(none, "没有待办想法可派发", "No ideas to assign");
     let collapsed = plan_assignment(
         AssignRequest::NewAgent(0),
         &ids(&["a"]),
@@ -101,10 +114,10 @@ fn failures_explain_themselves() {
         None,
         AgentProfile::Codex,
     );
-    assert_eq!(
+    assert_bilingual_notice(
         collapsed,
-        AssignPlan::Notice("先展开一个项目，再派发想法".to_owned()),
-        "未展开项目"
+        "先展开一个项目，再派发想法",
+        "Expand a project before assigning ideas",
     );
     for number in [0, 3] {
         let plan = plan_assignment(
@@ -115,10 +128,10 @@ fn failures_explain_themselves() {
             Some("p1"),
             AgentProfile::Codex,
         );
-        assert_eq!(
+        assert_bilingual_notice(
             plan,
-            AssignPlan::Notice(format!("当前项目没有第 {number} 张智能体卡片")),
-            "序号 {number} 越界"
+            &format!("当前项目没有第 {number} 张智能体卡片"),
+            &format!("This project has no agent card {number}"),
         );
     }
 }

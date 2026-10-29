@@ -15,7 +15,7 @@ impl MultisoulApp {
         self.open_desktop_content_tab(
             DesktopContentKind::ProjectFiles,
             "project-files".into(),
-            "文件".into(),
+            ui::i18n::text("drawers.files").into(),
             None,
             cx,
         );
@@ -29,7 +29,13 @@ impl MultisoulApp {
 
     pub(crate) fn ensure_file_workbench(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.desktop_workspace.workbench.filter.is_none() {
-            let input = cx.new(|cx| InputState::new(window, cx).placeholder("筛选文件…"));
+            let input = cx.new(|cx| {
+                InputState::new(window, cx).placeholder(ui::i18n::input_placeholder(
+                    "drawers.filter_files",
+                    window,
+                    cx,
+                ))
+            });
             cx.subscribe(&input, |app, _, event: &InputEvent, cx| {
                 if matches!(event, InputEvent::Change) {
                     app.refresh_file_workbench(cx);
@@ -37,8 +43,13 @@ impl MultisoulApp {
             })
             .detach();
             self.desktop_workspace.workbench.filter = Some(input);
-            self.desktop_workspace.workbench.commit =
-                Some(cx.new(|cx| InputState::new(window, cx).placeholder("提交说明")));
+            self.desktop_workspace.workbench.commit = Some(cx.new(|cx| {
+                InputState::new(window, cx).placeholder(ui::i18n::input_placeholder(
+                    "drawers.commit_message",
+                    window,
+                    cx,
+                ))
+            }));
         }
         let current = self
             .desktop_workspace
@@ -110,7 +121,7 @@ impl MultisoulApp {
             .map(|a| a.root.clone())
         else {
             s.project = None;
-            s.error = Some("请先添加或选择项目".into());
+            s.error = Some(ui::i18n::LocalizedText::new("drawers.select_project_first"));
             return;
         };
         s.generation = s.generation.wrapping_add(1);
@@ -130,7 +141,7 @@ impl MultisoulApp {
         cx.spawn(async move |this, cx| {
             let result = cx
                 .background_spawn(async move {
-                    let project = Project::open(&root)?;
+                    let project = Project::open(&root).map_err(content_error)?;
                     let mut rows = Vec::new();
                     if query.trim().is_empty() {
                         append_directory(
@@ -143,7 +154,8 @@ impl MultisoulApp {
                         )?;
                     } else {
                         let hits = project
-                            .search(&query, options)?
+                            .search(&query, options)
+                            .map_err(content_error)?
                             .into_iter()
                             .map(|e| (e.path.to_string_lossy().to_string(), e.directory))
                             .collect::<Vec<_>>();
@@ -160,9 +172,9 @@ impl MultisoulApp {
                                     snapshot.writable = false;
                                 }
                                 git_error = Some(if target.is_empty() {
-                                    "请选择比较分支".into()
+                                    ui::i18n::LocalizedText::new("drawers.select_branch_first")
                                 } else {
-                                    error
+                                    content_error(error)
                                 });
                             }
                         }
@@ -171,7 +183,7 @@ impl MultisoulApp {
                         .as_ref()
                         .and_then(|p| project.read_text(Path::new(p)).ok())
                         .map(|f| f.version);
-                    Ok::<_, String>((project, rows, git, git_error, disk_version))
+                    Ok::<_, ui::i18n::LocalizedText>((project, rows, git, git_error, disk_version))
                 })
                 .await;
             let _ = this.update(cx, |app, cx| {
@@ -198,7 +210,7 @@ impl MultisoulApp {
                             }
                             Err(e) => {
                                 s.git = None;
-                                s.git_error = Some(e);
+                                s.git_error = Some(content_error(e));
                             }
                         }
                         let pending_diff = s.pending_turn_diff.clone().filter(|path| {
@@ -222,7 +234,7 @@ impl MultisoulApp {
                             disk_version.as_ref().is_some_and(|v| v != &f.version)
                         });
                         if external_change && dirty {
-                            s.notice = Some("文件已被外部修改；保存前请合并，草稿仍保留".into());
+                            s.notice = Some(ui::i18n::LocalizedText::new("drawers.file_changed"));
                         }
                         if let Some(path) = pending_diff {
                             app.select_workbench_path(path, true, false, cx);
@@ -241,7 +253,7 @@ impl MultisoulApp {
                         }
                     }
                     Err(error) => {
-                        s.error = Some(error);
+                        s.error = Some(error.into());
                         s.pending_open = None;
                     }
                 }
@@ -322,6 +334,7 @@ impl MultisoulApp {
                     if diff {
                         return project
                             .git_diff(&comparison, &path, staged)
+                            .map_err(content_error)
                             .map(|d| (Some(d), None, None));
                     }
                     let kind = local_preview::kind(&path);
@@ -331,7 +344,7 @@ impl MultisoulApp {
                             | local_preview::Kind::Markdown
                             | local_preview::Kind::Html
                     ) {
-                        Some(project.read_text(Path::new(&path))?)
+                        Some(project.read_text(Path::new(&path)).map_err(content_error)?)
                     } else {
                         None
                     };
@@ -344,7 +357,7 @@ impl MultisoulApp {
                     } else {
                         None
                     };
-                    Ok::<_, String>((None, text, preview))
+                    Ok::<_, ui::i18n::LocalizedText>((None, text, preview))
                 })
                 .await;
             let _ = this.update(cx, |app, cx| {
@@ -366,7 +379,7 @@ impl MultisoulApp {
                         s.file = text;
                         s.preview = preview;
                     }
-                    Err(e) => s.error = Some(e),
+                    Err(e) => s.error = Some(e.into()),
                 }
                 app.consume_workbench_scroll();
                 cx.notify();
@@ -398,10 +411,12 @@ impl MultisoulApp {
         let epoch = s.epoch;
         s.busy = true;
         s.error = None;
-        s.notice = Some("正在执行 Git 操作…".into());
+        s.notice = Some(ui::i18n::LocalizedText::new("drawers.git_running"));
         cx.spawn(async move |this, cx| {
             let result = cx
-                .background_spawn(async move { project.git_action(&version, action) })
+                .background_spawn(async move {
+                    project.git_action(&version, action).map_err(content_error)
+                })
                 .await;
             let _ = this.update(cx, |app, cx| {
                 let s = &mut app.desktop_workspace.workbench;
@@ -415,10 +430,10 @@ impl MultisoulApp {
                     return;
                 }
                 match result {
-                    Ok(_) => s.notice = Some("Git 操作完成".into()),
+                    Ok(_) => s.notice = Some(ui::i18n::LocalizedText::new("drawers.git_complete")),
                     Err(e) => {
                         s.notice = None;
-                        s.error = Some(e);
+                        s.error = Some(e.into());
                     }
                 }
                 app.refresh_file_workbench(cx);
@@ -438,11 +453,11 @@ fn append_directory(
     expanded: &BTreeSet<String>,
     options: FileOptions,
     rows: &mut Vec<FileRow>,
-) -> Result<(), String> {
+) -> Result<(), ui::i18n::LocalizedText> {
     if depth > 64 {
-        return Err("目录层级超过 64 层".into());
+        return Err(ui::i18n::LocalizedText::new("drawers.directory_depth"));
     }
-    for e in project.directory(path, options)? {
+    for e in project.directory(path, options).map_err(content_error)? {
         let path = e.path.to_string_lossy().to_string();
         let open = e.directory && expanded.contains(&path);
         rows.push(FileRow {

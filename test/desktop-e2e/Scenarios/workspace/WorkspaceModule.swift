@@ -6,6 +6,8 @@ public enum WorkspaceModule {
         name: "workspace",
         scenarioNames: [
             WorkspaceLifecycle.name,
+            WorkspaceHomeDesign.name,
+            WorkspaceHomePreview.name,
             WorkspaceDrawerTabs.name,
             WorkspaceRunOverview.name,
             WorkspaceStatusCapsule.name,
@@ -18,10 +20,17 @@ public enum WorkspaceModule {
             WorkspaceIdeasCompose.name,
             WorkspaceFeatureGuide.name,
             WorkspaceDispatchEffects.name,
+            WorkspaceHandoffEffects.name,
             WorkspaceSwitchShortcuts.name,
         ],
         run: { scenario, session in
             switch scenario {
+            case WorkspaceHomePreview.name:
+                try await WorkspaceHomePreview.run(session)
+                return true
+            case WorkspaceHomeDesign.name:
+                try await WorkspaceHomeDesign.run(session)
+                return true
             case WorkspaceLifecycle.name:
                 try await WorkspaceLifecycle.run(session)
                 return true
@@ -57,6 +66,9 @@ public enum WorkspaceModule {
                 return true
             case WorkspaceDispatchEffects.name:
                 try await WorkspaceDispatchEffects.run(session)
+                return true
+            case WorkspaceHandoffEffects.name:
+                try await WorkspaceHandoffEffects.run(session)
                 return true
             case WorkspaceSwitchShortcuts.name:
                 try await WorkspaceSwitchShortcuts.run(session)

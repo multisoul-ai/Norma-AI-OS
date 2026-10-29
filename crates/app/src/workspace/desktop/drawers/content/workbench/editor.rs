@@ -84,7 +84,9 @@ impl MultisoulApp {
         cx.spawn(async move |this, cx| {
             let result = cx
                 .background_spawn(async move {
-                    let saved = project.save_text(Path::new(&path), &version, &text)?;
+                    let saved = project
+                        .save_text(Path::new(&path), &version, &text)
+                        .map_err(content_error)?;
                     let preview = if matches!(
                         local_preview::kind(&path),
                         local_preview::Kind::Markdown | local_preview::Kind::Html
@@ -97,7 +99,7 @@ impl MultisoulApp {
                     } else {
                         None
                     };
-                    Ok::<_, String>((saved, preview))
+                    Ok::<_, ui::i18n::LocalizedText>((saved, preview))
                 })
                 .await;
             let _ = this.update(cx, |app, cx| {
@@ -120,12 +122,12 @@ impl MultisoulApp {
                                 s.preview = preview;
                             }
                         }
-                        s.notice = Some("文件已保存".into());
+                        s.notice = Some(ui::i18n::LocalizedText::new("drawers.file_saved"));
                         s.error = None;
                         app.refresh_file_workbench(cx);
                         app.finish_workbench_leaving(cx);
                     }
-                    Err(e) => s.error = Some(e),
+                    Err(e) => s.error = Some(e.into()),
                 }
                 cx.notify();
             });

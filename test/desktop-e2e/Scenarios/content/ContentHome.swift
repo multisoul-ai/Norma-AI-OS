@@ -47,6 +47,35 @@ public enum ContentHome {
             try session.save(frame, "02-home-tools.png")
             return "六个工具磁贴可见，独立“打开网页”按钮已移除"
         }
+        try await session.step("左右抽屉随语言即时切换，输入草稿保持原文") {
+            try await session.click(matching: ["搜索或输入网址"], pick: .right)
+            try await session.type("用户草稿 example.com")
+            try await session.shortcut(key: 43, modifiers: [0x37])
+            try await SettingsSupport.language(session, label: "English", saved: "en")
+            try await session.shortcut(key: 43, modifiers: [0x37])
+            let english = try await session.wait(Expectation(
+                allOf: ["Tools", "Recommended", "Project progress", "Not started", "用户草稿 example.com"],
+                absent: ["项目进度", "待开始", "手动添加"], timeout: 8))
+            try session.save(english, "05-drawers-english.png")
+            try await session.click(matching: ["用户草稿 example.com"], pick: .right)
+            try await session.selectAll()
+            try await session.shortcut(key: 51, modifiers: [])
+            _ = try await session.wait(Expectation(allOf: ["Search or enter a URL"], absent: ["搜索或输入网址"]))
+            try await session.type("file: /private/用户草稿.md")
+            try await session.shortcut(key: 36, modifiers: [])
+            _ = try await session.wait(Expectation(allOf: ["Use an HTTP or HTTPS URL"], absent: ["浏览器支持"]))
+            try await session.shortcut(key: 43, modifiers: [0x37])
+            try await SettingsSupport.language(session, label: "简体中文", saved: "zh-CN")
+            try await session.shortcut(key: 43, modifiers: [0x37])
+            let chinese = try await session.wait(Expectation(
+                allOf: ["项目进度", "待开始", "浏览器支持 HTTP"], absent: ["Project progress", "Use an HTTP"], timeout: 8))
+            try session.save(chinese, "06-drawers-chinese.png")
+            try await session.click(matching: ["file:"], pick: .right)
+            try await session.selectAll()
+            try await session.shortcut(key: 51, modifiers: [])
+            _ = try await session.wait(Expectation(allOf: ["搜索或输入网址"], absent: ["Search or enter a URL"]))
+            return "两侧抽屉、已有占位符和缓存错误即时切换；用户草稿不翻译"
+        }
         try await session.step("未实现工具给出就地提示") {
             try await session.click(matching: ["项目进度"], pick: .bottom)
             let frame = try await session.wait(Expectation(allOf: ["即将支持"], timeout: 6))

@@ -6,6 +6,7 @@ mod norma_route;
 pub mod persistence;
 pub(crate) mod project_picker;
 pub(crate) mod sessions;
+pub(crate) mod startup_watch;
 pub mod state;
 mod window_placement;
 pub mod windowing;

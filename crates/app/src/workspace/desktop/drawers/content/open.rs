@@ -58,7 +58,9 @@ impl MultisoulApp {
                 .update(cx, |app, cx| {
                     app.validate_content_open(&workspace_id, epoch, receipt.as_ref(), cx)
                 })
-                .unwrap_or_else(|_| Err(presentation_failed("展示窗口已关闭")));
+                .unwrap_or_else(|_| {
+                    Err(presentation_failed(ui::i18n::text("drawers.window_closed")))
+                });
             if let Err(error) = valid {
                 if let Some(receipt) = receipt {
                     receipt.finish(Err(error));
@@ -76,10 +78,16 @@ impl MultisoulApp {
                     let (tab, created) = store
                         .open_for_presentation(request, create_new, preview_type)
                         .map_err(|error| {
-                            presentation_failed(format!("无法保存内容标签：{error}"))
+                            presentation_failed(ui::i18n::format(
+                                "drawers.save_tab_failed",
+                                &[("error", (error).to_string())],
+                            ))
                         })?;
                     let tabs = store.list(&load_workspace).map_err(|error| {
-                        presentation_failed(format!("无法读取内容标签：{error}"))
+                        presentation_failed(ui::i18n::format(
+                            "drawers.read_tab_failed",
+                            &[("error", (error).to_string())],
+                        ))
                     })?;
                     Ok::<_, CardCommandError>((tab, created, tabs))
                 })
@@ -92,10 +100,15 @@ impl MultisoulApp {
                     if receipt.is_none()
                         && app.desktop_workspace.content_tab_generation != generation
                     {
-                        return Err(presentation_failed("内容打开已被后续操作替代"));
+                        return Err(presentation_failed(ui::i18n::text(
+                            "drawers.open_superseded",
+                        )));
                     }
                     let (tab, created, tabs) = opened.map_err(|error| {
-                        app.desktop_workspace.error = Some(format!("无法打开内容：{error}").into());
+                        app.desktop_workspace.error = Some(ui::i18n::message(
+                            "drawers.open_content_failed",
+                            &[("error", (error).to_string())],
+                        ));
                         cx.notify();
                         error
                     })?;
@@ -140,7 +153,9 @@ impl MultisoulApp {
                         layout: PresentationLayout::ContentDrawer,
                     })
                 })
-                .unwrap_or_else(|_| Err(presentation_failed("展示窗口已关闭")));
+                .unwrap_or_else(|_| {
+                    Err(presentation_failed(ui::i18n::text("drawers.window_closed")))
+                });
             if let Some(receipt) = receipt {
                 receipt.finish(result);
             }
@@ -157,7 +172,9 @@ impl MultisoulApp {
         if self.desktop_workspace.active_id.as_deref() != Some(workspace_id)
             || self.desktop_workspace.content_workspace_epoch != epoch
         {
-            return Err(presentation_failed("来源工作空间已切换，内容未展示"));
+            return Err(presentation_failed(ui::i18n::text(
+                "drawers.workspace_changed",
+            )));
         }
         if let Some(receipt) = receipt {
             receipt.validate(self, cx)?;
@@ -178,7 +195,7 @@ fn prepare_content_target(
             request.title = url::Url::parse(&url)
                 .ok()
                 .and_then(|url| url.host_str().map(str::to_owned))
-                .unwrap_or_else(|| "浏览器".into());
+                .unwrap_or_else(|| ui::i18n::text("drawers.browser").into());
             request.resource = url;
             Ok(None)
         }
@@ -190,14 +207,14 @@ fn prepare_content_target(
                 &path,
                 explicit_type.map(crate::norma::server::canvas_preview_type),
             )
-            .map_err(|_| presentation_failed("不支持的预览类型"))?;
+            .map_err(|_| presentation_failed(ui::i18n::text("drawers.unsupported_preview")))?;
             request.title = path
                 .file_name()
                 .map(|name| name.to_string_lossy().into_owned())
-                .unwrap_or_else(|| "预览".into());
+                .unwrap_or_else(|| ui::i18n::text("drawers.preview").into());
             request.resource = path.to_string_lossy().into_owned();
             Ok(Some(kind))
         }
-        PresentationTarget::Ego => Err(presentation_failed("Ego 使用独立展示路径")),
+        PresentationTarget::Ego => Err(presentation_failed(ui::i18n::text("drawers.ego_separate"))),
     }
 }

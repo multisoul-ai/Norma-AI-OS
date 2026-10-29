@@ -44,6 +44,7 @@ where
     let reply = Arc::new(reply);
     let (done_tx, done_rx) = async_channel::unbounded::<(u64, Result<(), LocalizedText>)>();
     let mut reply_token: Option<CancellationToken> = None;
+    let mut question_grant: Option<CancellationToken> = None;
     let mut reply_active = false;
     let mut user_speaking = false;
     let mut reports_open = true;
@@ -75,6 +76,7 @@ where
                     Ok(event @ (SpeechEvent::Started | SpeechEvent::HeldStarted(_))) => {
                         if let SpeechEvent::HeldStarted(id) = event { recording_id = id; held_id = Some(id); }
                         user_speaking = true;
+                        if let Some(token) = question_grant.take() { token.cancel(); }
                         if let Some(token) = reply_token.take() { token.cancel(); }
                         // Retire this reply before its cancelled network request can finish.
                         reply_id = reply_id.wrapping_add(1);
@@ -88,6 +90,7 @@ where
                             SpeechEvent::HeldFinal(id, text) if id == recording_id => text,
                             _ => continue,
                         };
+                        if let Some(token) = question_grant.take() { token.cancel(); }
                         // Retire old output before any status send can wait on a full UI queue.
                         if let Some(token) = reply_token.take() {
                             token.cancel();
@@ -103,7 +106,10 @@ where
                         reply_active = true;
                         let _ = events.send(DoubaoStatus::Thinking).await;
                         let id = reply_id;
-                        let token = CancellationToken::new();
+                        let token = cancellation.child_token();
+                        if crate::app::MultisoulApp::is_question_delegation(&transcript) {
+                            question_grant = Some(token.clone());
+                        }
                         reply_token = Some(token.clone());
                         let reply = Arc::clone(&reply);
                         let done = done_tx.clone();
@@ -124,17 +130,31 @@ where
                 if let Ok(report) = report {
                     // 交给会话后仍可能等用户说完；过期的通知直接丢弃，不迟到播报。
                     if report.cancellation.is_cancelled()
-                        || report.expires_at.is_some_and(|expires_at| std::time::Instant::now() >= expires_at) { continue; }
+                        || report.expires_at.is_some_and(|expires_at| std::time::Instant::now() >= expires_at) {
+                        if let Some(delivery) = &report.delivery { delivery.cancel(); }
+                        continue;
+                    }
                     reply_id = reply_id.wrapping_add(1);
                     reply_active = true;
                     let _ = events.send(DoubaoStatus::Speaking).await;
                     let id = reply_id;
+                    let delivery = report.delivery.clone();
+                    if let Some(delivery) = &delivery {
+                        if let Err(error) = playback.track_report(playback.generation(), delivery.clone()) {
+                            delivery.set(agent::context::ReportDelivery::Failed);
+                            break Err(error);
+                        }
+                    }
                     let token = report.cancellation;
                     reply_token = Some(token.clone());
                     let reply = Arc::clone(&reply);
                     let done = done_tx.clone();
                     tokio::spawn(async move {
                         let result = reply(Reply::Report(report.text), token.clone()).await;
+                        if let Some(delivery) = &delivery {
+                            // Cancellation is classified by the audio worker after hardware stop.
+                            if result.is_err() && !token.is_cancelled() { delivery.set(agent::context::ReportDelivery::Failed); }
+                        }
                         if result.is_ok() && !token.is_cancelled() {
                             let _ = report.completed.send(());
                         }

@@ -1,10 +1,11 @@
-use norma::agent_hook::{AgentHookEvent, HookApprovalRequest};
+use norma::agent_hook::{AgentHookEvent, HookApprovalRequest, HookQuestionRequest};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpStream;
 
 pub(super) enum HookRequest {
     Event(AgentHookEvent),
     Approval(HookApprovalRequest),
+    Question(HookQuestionRequest),
 }
 
 pub(super) fn read_hook_request(
@@ -14,9 +15,10 @@ pub(super) fn read_hook_request(
     let mut reader = BufReader::new(stream.take(16_384 + 1_048_576 + 1));
     let mut request_line = String::new();
     reader.read_line(&mut request_line)?;
-    let approval = match request_line.trim_end() {
-        "POST /agent-hooks HTTP/1.1" => false,
-        "POST /agent-hooks/approval HTTP/1.1" => true,
+    let kind = match request_line.trim_end() {
+        "POST /agent-hooks HTTP/1.1" => "event",
+        "POST /agent-hooks/approval HTTP/1.1" => "approval",
+        "POST /agent-hooks/question HTTP/1.1" => "question",
         _ => return Err(AgentHookHttpError::BadRequest),
     };
     let mut token = None;
@@ -71,7 +73,9 @@ pub(super) fn read_hook_request(
         .ok_or(AgentHookHttpError::BadRequest)?;
     let mut body = vec![0_u8; content_len];
     reader.read_exact(&mut body)?;
-    let request = if approval {
+    let request = if kind == "question" {
+        HookRequest::Question(serde_json::from_slice(&body).map_err(|_| AgentHookHttpError::Json)?)
+    } else if kind == "approval" {
         HookRequest::Approval(serde_json::from_slice(&body).map_err(|_| AgentHookHttpError::Json)?)
     } else {
         let mut event: AgentHookEvent =

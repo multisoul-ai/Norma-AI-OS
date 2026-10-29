@@ -1,4 +1,5 @@
 {
+  "cards.waiting_question": "Waiting for answer",
   "cards.edit": "Edit",
   "cards.terminal": "Terminal",
   "cards.process_exited": "[process exited%{arg0}]",
@@ -18,6 +19,7 @@
   "cards.tool": "Tool",
   "cards.approval": "Approval",
   "cards.ended": "Ended",
+  "cards.agent.startup_slow": "No session-start signal yet — check your network",
   "cards.ego_disconnected": "Ego disconnected",
   "cards.canvas_preview_interact_in_ego": "Canvas preview · Interact in Ego",
   "cards.open_ego": "Open Ego",

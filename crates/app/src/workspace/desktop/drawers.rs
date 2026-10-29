@@ -1,6 +1,6 @@
 //! Workspace-wide assistant surfaces. Open drawers reserve space beside the live canvas.
 
-use super::{glass_button_variant, GLASS_TEXT, GLASS_TEXT_MUTED, GLASS_TEXT_SECONDARY};
+use super::glass_button_variant;
 use crate::app::MultisoulApp;
 use canvas::NodeId;
 use gpui::{div, prelude::*, px, rgba, svg, Context, Div, Stateful, Window};
@@ -34,6 +34,7 @@ mod overview_judging;
 mod overview_list;
 mod overview_parts;
 mod overview_proposals;
+pub(super) mod overview_questions;
 mod overview_summary;
 pub(super) mod resize;
 
@@ -196,7 +197,7 @@ impl MultisoulApp {
                                 } else {
                                     "icons/panel-right-open.svg"
                                 })
-                                .text_color(rgba(GLASS_TEXT))
+                                .text_color(rgba(theme.text_primary))
                                 .w(px(17.0))
                                 .h(px(17.0)),
                         ),
@@ -204,9 +205,9 @@ impl MultisoulApp {
                     .custom(glass_button_variant(theme, cx))
                     .rounded(px(9.0))
                     .tooltip(if left {
-                        "展开 Norma 对话"
+                        ui::i18n::text("drawers.expand_chat")
                     } else {
-                        "展开内容浏览器"
+                        ui::i18n::text("drawers.expand_content")
                     })
                     .on_click(cx.listener(move |app, _, _, cx| {
                         cx.stop_propagation();
@@ -310,3 +311,7 @@ pub(super) fn content_node_id(id: &str) -> NodeId {
 #[cfg(test)]
 #[path = "../../../tests/unit/desktop_reader_chrome_surface_tests.rs"]
 mod reader_chrome_surface_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/drawer_state_contrast_tests.rs"]
+mod drawer_state_contrast_tests;

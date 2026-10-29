@@ -14,7 +14,10 @@ use ui::i18n::LocalizedText;
 async fn doubao_model_request_uses_current_desktop_location() {
     let (context, requests): (ContextRequests, _) = async_channel::bounded(1);
     let responder = tokio::spawn(async move {
-        let ContextRequest::Model(response) = requests.recv().await.expect("模型请求应到达");
+        let ContextRequest::Model(response) = requests.recv().await.expect("模型请求应到达")
+        else {
+            panic!("expected model context request");
+        };
         let _ = response.send((
             agent::CurrentCanvasContext {
                 project_name: "上次项目".into(),
@@ -367,5 +370,37 @@ fn voice_context_rejects_requests_after_project_changes() {
         result.expect_err("旧项目通道必须拒绝上下文读取"),
         LocalizedText::new("doubao.call_ended"),
         "项目切换后应明确终止旧通话请求"
+    );
+}
+
+/// 场景：overview 从 A 切到 B 再回 A，路径和通话 generation 均不变。
+/// 构造：隔离 App 的原生环境通道绑定 A，B 时发起一次请求，然后恢复 A 再请求。
+/// 执行：使用正式 GPUI 环境采集入口，不伪造 shared_context 校验结果。
+/// 预期：B 的环境不能返回给 A 的通道；首次失效后通道关闭，返回 A 也不能复活旧请求。
+#[test]
+fn voice_context_rejects_overview_scope_change_and_return() {
+    let mut gpui = TestAppContext::single();
+    let dir = tempfile::tempdir().unwrap();
+    let paths = storage::DatabasePaths::isolated_test(dir.path());
+    let store = storage::AppStore::initialize(&paths).unwrap();
+    let (app, cx) =
+        gpui.add_window_view(|_, cx| MultisoulApp::new_with_database_context(cx, paths, store));
+    let context = app.update(cx, |app, cx| {
+        app.desktop_workspace.active_id = Some("workspace-a".into());
+        app.start_doubao_context_requests(app.doubao.generation, None, cx)
+    });
+    assert!(request(&context, cx).is_ok(), "同 scope 首次环境请求应成功");
+    app.update(cx, |app, _| {
+        app.desktop_workspace.active_id = Some("workspace-b".into())
+    });
+    let changed = request(&context, cx);
+    app.update(cx, |app, _| {
+        app.desktop_workspace.active_id = Some("workspace-a".into())
+    });
+    let returned = request(&context, cx);
+    assert!(changed.is_err(), "B 的环境不得泄漏到绑定 A 的旧通道");
+    assert!(
+        returned.is_err(),
+        "已经失效的通道不能因回到 A 而重新返回上下文"
     );
 }

@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use storage::SettingsStore;
 use tts::{TtsModelId, TtsVoiceId};
 use voice_sherpa::{AudioInputDevice, SpeechError};
+mod a1;
 mod announcements;
 mod asr_provider;
 mod builders;
@@ -19,6 +20,7 @@ mod gpt_live_credentials;
 use gpt_live_credentials::GptLiveCredentialRollback;
 mod migration;
 mod mode;
+mod mode_selection;
 mod model_selection;
 mod persistence;
 mod provider_discovery;
@@ -47,9 +49,8 @@ pub(crate) use tts_picker::TtsActivationRollback;
 pub(crate) use tts_provider::MiniMaxConnectionFailureDisposition;
 pub(crate) use values::{EnvVoiceSettings, SavedVoiceSettings, VoiceSettingsValues};
 use values::{
-    KEY_ASR_MODEL_ID, KEY_DESKTOP_MODE, KEY_INPUT_DEVICE_ID, KEY_INTERACTION_MODE,
-    KEY_SINGLE_VOICE_COMMAND_TRIGGER, KEY_TRACE_ENABLED, KEY_TTS_MODEL_ID, KEY_TTS_VOICE_ID,
-    KEY_VOICE_SETUP_COMPLETED,
+    KEY_ASR_MODEL_ID, KEY_INPUT_DEVICE_ID, KEY_INTERACTION_MODE, KEY_SINGLE_VOICE_COMMAND_TRIGGER,
+    KEY_TRACE_ENABLED, KEY_TTS_MODEL_ID, KEY_TTS_VOICE_ID, KEY_VOICE_SETUP_COMPLETED,
 };
 use zipvoice_reference::ZipVoiceReferenceSettings;
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -99,6 +100,10 @@ pub(crate) struct VoiceSettingsState {
     asr_model_scan_generation: u64,
     vad_requirement: super::VoiceRequirementState,
     vad_validation_generation: u64,
+    a1_requirement: super::VoiceRequirementState,
+    a1_preparation_cancellation: asr::RecognitionCancellation,
+    a1_validation_generation: u64,
+    a1_validation_error: Option<String>,
     tts_model_manager: TtsModelManagerState,
     zipvoice_reference: ZipVoiceReferenceSettings,
     microphone_requirement: super::VoiceRequirementState,
@@ -194,6 +199,10 @@ impl VoiceSettingsState {
             asr_model_scan_generation: 0,
             vad_requirement: super::VoiceRequirementState::Missing,
             vad_validation_generation: 0,
+            a1_requirement: super::VoiceRequirementState::Missing,
+            a1_preparation_cancellation: asr::RecognitionCancellation::new(),
+            a1_validation_generation: 0,
+            a1_validation_error: None,
             tts_model_manager,
             zipvoice_reference: ZipVoiceReferenceSettings::default(),
             microphone_requirement: super::VoiceRequirementState::Missing,
@@ -240,25 +249,6 @@ impl VoiceSettingsState {
 
     pub(crate) fn close_input_device_picker(&mut self) {
         self.input_device_picker_expanded = false;
-    }
-
-    pub(crate) fn select_interaction_mode(&mut self, mode: VoiceInteractionMode) {
-        self.saved.interaction_mode = Some(mode);
-        self.persist_string(KEY_INTERACTION_MODE, mode.as_str());
-        self.refresh_values();
-    }
-
-    pub(crate) fn select_desktop_mode(&mut self, mode: DesktopVoiceMode) {
-        if self.values.desktop_mode() != mode {
-            self.status = None;
-            #[cfg(feature = "e2e-test-support")]
-            {
-                self.readiness_override = None;
-            }
-        }
-        self.saved.desktop_mode = Some(mode);
-        self.persist_string(KEY_DESKTOP_MODE, mode.as_str());
-        self.refresh_values();
     }
 
     fn save_doubao_credential(&mut self, secret: String) {

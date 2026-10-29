@@ -172,7 +172,7 @@ impl MultisoulApp {
         restart: bool,
         cx: &mut Context<Self>,
     ) {
-        let silenced = !settings.speak;
+        let silenced = !settings.speak || !settings.enabled;
         self.brain.settings_revision += 1;
         self.brain.settings = Some(settings);
         if restart {
@@ -182,6 +182,7 @@ impl MultisoulApp {
             self.brain.next_start = Instant::now();
         }
         if silenced {
+            self.gpt_live.cancel_brain_reports();
             self.cancel_agent_announcements();
         }
         cx.notify();
@@ -200,6 +201,9 @@ impl MultisoulApp {
             if self.desktop_workspace.active_id.as_ref() != Some(workspace_id) {
                 continue;
             }
+            snapshot
+                .questions
+                .extend(app.question_overview_rows(area_id));
             snapshot.judging.extend(
                 app.brain_judging_nodes()
                     .into_iter()
@@ -215,6 +219,7 @@ impl MultisoulApp {
                         .map(|p| super::OverviewProposal {
                             area_id: area_id.clone(),
                             new_card: app.proposal_needs_card(&p.agent),
+                            block: app.proposal_dispatch_block(&p.agent),
                             proposal: p.clone(),
                         }),
                 );
@@ -225,6 +230,24 @@ impl MultisoulApp {
                 .cmp(&a.proposal.at)
                 .then_with(|| b.proposal.id.cmp(&a.proposal.id))
                 .then_with(|| a.area_id.cmp(&b.area_id))
+        });
+        self.brain.proposal_feedback.retain(|(area, id), feedback| {
+            // 切换工作空间只隐藏行；实际派发完成之前不能解除防重复状态。
+            if matches!(feedback, super::proposals::ProposalFeedback::Dispatching) {
+                return true;
+            }
+            let Some(item) = snapshot
+                .proposals
+                .iter()
+                .find(|p| &p.area_id == area && p.proposal.id == *id)
+            else {
+                return false;
+            };
+            // 忙碌/待确认由实时状态展示，恢复后不能留下过期的同义错误。
+            !item.block.as_ref().is_some_and(|block| {
+                matches!(feedback, super::proposals::ProposalFeedback::Failed(message)
+                    if *message == block.message(&item.proposal.agent))
+            })
         });
         if snapshot != self.brain.overview {
             self.brain.overview = snapshot;

@@ -1,4 +1,5 @@
 use crate::app::MultisoulApp;
+use crate::preview::content_copy::content_error;
 use crate::preview::local_content::{kind, Kind, LocalPreview};
 use crate::workspace::desktop::DesktopArtifactVersion;
 use gpui::Context;
@@ -60,7 +61,7 @@ impl MultisoulApp {
             ) else {
                 self.desktop_workspace.content_previews.insert(
                     id,
-                    Err("旧产物标签缺少版本来源，请从运行概览重新打开".into()),
+                    Err(ui::i18n::LocalizedText::new("drawers.legacy_artifact")),
                 );
                 cx.notify();
                 return;
@@ -77,7 +78,7 @@ impl MultisoulApp {
                         &version.source_path,
                     )
                     .map_err(|error| error.to_string())?
-                    .ok_or_else(|| "任务成果版本已不可用".to_string())?;
+                    .ok_or_else(|| ui::i18n::LocalizedText::new("drawers.artifact_unavailable"))?;
                 if kind(&resource) != Kind::Text {
                     let suffix = std::path::Path::new(&resource)
                         .extension()
@@ -110,9 +111,9 @@ impl MultisoulApp {
                 } else if frozen.kind == ContentKind::Text {
                     String::from_utf8(frozen.bytes)
                         .map(LoadedContent::Text)
-                        .map_err(|error| error.to_string())
+                        .map_err(|error| error.to_string().into())
                 } else {
-                    Err("该二进制文件暂不支持内嵌预览".into())
+                    Err(ui::i18n::LocalizedText::new("drawers.binary_preview"))
                 }
             })
         } else if let Some(preview_type) = tab.preview_type {
@@ -142,17 +143,17 @@ impl MultisoulApp {
             cx.background_executor().spawn(async move {
                 let project_root = root
                     .or_else(|| path.parent().map(std::path::Path::to_path_buf))
-                    .ok_or("缺少文件来源目录")?;
-                let project = Project::open(&project_root)?;
+                    .ok_or(ui::i18n::LocalizedText::new("drawers.missing_file_source"))?;
+                let project = Project::open(&project_root).map_err(content_error)?;
                 let path = path.canonicalize().map_err(|e| e.to_string())?;
                 let relative = path
                     .strip_prefix(project.root())
-                    .map_err(|_| "文件不在来源项目内")?;
+                    .map_err(|_| ui::i18n::LocalizedText::new("drawers.outside_project"))?;
                 let text = if matches!(
                     kind(&tab_resource),
                     Kind::Text | Kind::Markdown | Kind::Html
                 ) {
-                    Some(project.read_text(relative)?.text)
+                    Some(project.read_text(relative).map_err(content_error)?.text)
                 } else {
                     None
                 };
@@ -226,7 +227,7 @@ impl MultisoulApp {
 fn load_presented_file(
     path: std::path::PathBuf,
     preview_type: canvas::PreviewType,
-) -> Result<LoadedContent, String> {
+) -> Result<LoadedContent, ui::i18n::LocalizedText> {
     let path = path.canonicalize().map_err(|error| error.to_string())?;
     let text = if preview_type != canvas::PreviewType::Image {
         // Reuse Preview's bounded, UTF-8 checked reader for the explicitly presented file.

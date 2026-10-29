@@ -1,19 +1,19 @@
 //! Observable run-overview rows. Grouping stays in the cached projection;
 //! this module only formats labels, progress segments, and keyboard movement.
 
-use norma::mobile::{
-    RunOverview, RunOverviewAgent, RunOverviewAttention, RunOverviewAttentionKind,
-    RunOverviewPresence, RunOverviewProject,
-};
+use norma::mobile::{RunOverview, RunOverviewAgent, RunOverviewPresence, RunOverviewProject};
 use ui::icons::with_alpha;
 use ui::Theme;
+
+#[path = "overview_attention.rs"]
+mod overview_attention;
+use overview_attention::attention_row;
 
 #[path = "overview_copy.rs"]
 mod overview_copy;
 pub(in crate::workspace::desktop) use overview_copy::overview_subtitle;
-use overview_copy::{
-    progress_detail, project_secondary, project_status, project_tone, running_detail,
-};
+pub(super) use overview_copy::{localized_live_action, running_detail};
+use overview_copy::{progress_detail, project_secondary, project_status, project_tone};
 
 #[cfg(test)]
 #[path = "../../../tests/unit/run_overview_groups_tests.rs"]
@@ -137,9 +137,13 @@ impl OverviewScreen {
     pub(super) fn empty() -> Self {
         Self {
             sections: vec![
-                section("需要你处理", Some(0), Vec::new()),
-                section("运行中", Some(0), Vec::new()),
-                section("待开始", Some(0), Vec::new()),
+                section(
+                    ui::i18n::text("drawers.needs_attention"),
+                    Some(0),
+                    Vec::new(),
+                ),
+                section(ui::i18n::text("drawers.running"), Some(0), Vec::new()),
+                section(ui::i18n::text("drawers.not_started"), Some(0), Vec::new()),
             ],
         }
     }
@@ -239,21 +243,14 @@ pub(super) struct OverviewTone {
     pub file: u32,
 }
 
-/// 抽屉在浅色主题下也是深色玻璃，状态色取原型的固定色，不跟浅色 token 走。
-pub(super) const TONE_RUNNING: u32 = 0x36dce8ff;
-pub(super) const TONE_IDLE: u32 = 0x7b9dbdff;
-pub(super) const TONE_AMBER: u32 = 0xf2c773ff;
-pub(super) const TONE_RESULT: u32 = 0x64dfd2ff;
-pub(super) const TONE_FILE: u32 = 0x80baffff;
-
 pub(super) fn overview_tone(theme: Theme) -> OverviewTone {
     OverviewTone {
-        running: TONE_RUNNING,
-        idle: TONE_IDLE,
+        running: theme.accent_cyan,
+        idle: theme.text_tertiary,
         failed: theme.destructive,
-        approval: TONE_AMBER,
-        review: TONE_RESULT,
-        file: TONE_FILE,
+        approval: theme.accent_warm,
+        review: theme.success,
+        file: theme.accent,
     }
 }
 
@@ -278,12 +275,12 @@ pub(super) fn present_overview(
     OverviewScreen {
         sections: vec![
             section(
-                "需要你处理",
+                ui::i18n::text("drawers.needs_attention"),
                 Some(overview.attention.len()),
                 overview.attention.iter().map(attention_row).collect(),
             ),
             section(
-                "运行中",
+                ui::i18n::text("drawers.running"),
                 Some(overview.running.len()),
                 overview
                     .running
@@ -291,7 +288,11 @@ pub(super) fn present_overview(
                     .map(|agent| agent_row(agent, ego_stops, now_ms))
                     .collect(),
             ),
-            section("待开始", Some(idle_agents), idle_rows),
+            section(
+                ui::i18n::text("drawers.not_started"),
+                Some(idle_agents),
+                idle_rows,
+            ),
         ],
     }
 }
@@ -308,91 +309,23 @@ fn section(
     }
 }
 
-fn attention_row(row: &RunOverviewAttention) -> OverviewRow {
-    let (prefix, tone) = match row.kind {
-        RunOverviewAttentionKind::Failed => ("出错", OverviewStatusTone::Failed),
-        RunOverviewAttentionKind::Approval => ("待审核", OverviewStatusTone::Approval),
-        RunOverviewAttentionKind::Takeover => ("等待接管", OverviewStatusTone::Approval),
-        RunOverviewAttentionKind::Review => ("成果待查看", OverviewStatusTone::Review),
-        RunOverviewAttentionKind::File => ("待查看文件", OverviewStatusTone::File),
-    };
-    let enabled = match row.kind {
-        RunOverviewAttentionKind::Failed | RunOverviewAttentionKind::Takeover => true,
-        RunOverviewAttentionKind::Approval => {
-            row.loaded && !row.run_id.is_empty() && !row.turn_id.is_empty()
-        }
-        RunOverviewAttentionKind::Review | RunOverviewAttentionKind::File => true,
-    };
-    let action = match row.kind {
-        // 未加载项目里没有卡片可定位，只能先切换过去。
-        RunOverviewAttentionKind::Failed | RunOverviewAttentionKind::Takeover if !row.loaded => {
-            OverviewAction::SwitchProject {
-                area_id: row.area_id.clone(),
-            }
-        }
-        RunOverviewAttentionKind::Failed | RunOverviewAttentionKind::Takeover => {
-            OverviewAction::LocateAgent {
-                area_id: row.area_id.clone(),
-                node_id: row.node_id,
-            }
-        }
-        RunOverviewAttentionKind::Approval => OverviewAction::LocateApproval {
-            area_id: row.area_id.clone(),
-            node_id: row.node_id,
-            run_id: row.run_id.clone(),
-            turn_id: row.turn_id.clone(),
-            request_id: row.request_id.clone(),
-        },
-        RunOverviewAttentionKind::Review => OverviewAction::OpenReview {
-            area_id: row.area_id.clone(),
-            direct_diff: row.paths.len() == 1,
-            paths: row.paths.clone(),
-        },
-        RunOverviewAttentionKind::File => OverviewAction::OpenFile {
-            area_id: row.area_id.clone(),
-            node_id: row.node_id,
-            path: row.paths.first().cloned().unwrap_or_default(),
-            fingerprint: row.fingerprint.clone().unwrap_or_default(),
-        },
-    };
-    let action_label = match row.kind {
-        RunOverviewAttentionKind::Failed | RunOverviewAttentionKind::Takeover if !row.loaded => {
-            "切换"
-        }
-        RunOverviewAttentionKind::Failed
-        | RunOverviewAttentionKind::Takeover
-        | RunOverviewAttentionKind::Approval => "定位",
-        RunOverviewAttentionKind::Review | RunOverviewAttentionKind::File => "打开",
-    };
-    OverviewRow {
-        primary: format!("{prefix} · {}", row.title),
-        secondary: format!("{} · {}", row.agent, row.project),
-        detail: None,
-        task_line: None,
-        project_tag: None,
-        is_agent: false,
-        action_label: action_label.into(),
-        action,
-        status_label: Some(prefix.into()),
-        lead_label: None,
-        status_tone: tone,
-        approval_badge: None,
-        progress: None,
-        prelight: Some((row.area_id.clone(), row.node_id)),
-        enabled,
-        height: overview_row_height(OverviewRowKind::Attention),
-    }
-}
-
 fn agent_row(
     agent: &RunOverviewAgent,
     ego_stops: &[(String, u64, u64)],
     now_ms: u64,
 ) -> OverviewRow {
     let (status_label, status_tone) = match agent.presence {
-        RunOverviewPresence::Running => ("运行中", OverviewStatusTone::Running),
-        RunOverviewPresence::Idle => ("待开始", OverviewStatusTone::Idle),
-        RunOverviewPresence::Failed => ("出错", OverviewStatusTone::Failed),
+        RunOverviewPresence::Running => (
+            ui::i18n::text("drawers.running"),
+            OverviewStatusTone::Running,
+        ),
+        RunOverviewPresence::Idle => (
+            ui::i18n::text("drawers.not_started"),
+            OverviewStatusTone::Idle,
+        ),
+        RunOverviewPresence::Failed => {
+            (ui::i18n::text("drawers.error"), OverviewStatusTone::Failed)
+        }
     };
     let (detail, progress) = match &agent.progress {
         Some(item) => {
@@ -407,15 +340,20 @@ fn agent_row(
             )),
             None,
         ),
-        None if agent.presence == RunOverviewPresence::Failed => (Some("出错".into()), None),
-        None => (Some("尚未开始".into()), None),
+        None if agent.presence == RunOverviewPresence::Failed => {
+            (Some(ui::i18n::text("drawers.error").into()), None)
+        }
+        None => (
+            Some(ui::i18n::text("drawers.not_started_detail").into()),
+            None,
+        ),
     };
     let stop = ego_stops
         .iter()
         .find(|item| item.0 == agent.area_id && item.1 == agent.node_id);
     let (action_label, action) = if let Some((_, _, agent_id)) = stop {
         (
-            "停止任务",
+            ui::i18n::text("drawers.stop_task"),
             OverviewAction::StopEgo {
                 area_id: agent.area_id.clone(),
                 node_id: agent.node_id,
@@ -424,7 +362,7 @@ fn agent_row(
         )
     } else {
         (
-            "定位",
+            ui::i18n::text("drawers.locate"),
             OverviewAction::LocateAgent {
                 area_id: agent.area_id.clone(),
                 node_id: agent.node_id,
@@ -455,8 +393,12 @@ fn agent_row(
         status_label: Some(status_label.into()),
         lead_label: None,
         status_tone,
-        approval_badge: (agent.approval_count > 0)
-            .then(|| format!("{} 待审核", agent.approval_count)),
+        approval_badge: (agent.approval_count > 0).then(|| {
+            ui::i18n::format(
+                "drawers.approval_count",
+                &[("arg0", (agent.approval_count).to_string())],
+            )
+        }),
         progress,
         prelight: Some((agent.area_id.clone(), agent.node_id)),
         enabled: true,
@@ -480,7 +422,7 @@ fn project_row(project: &RunOverviewProject, now_ms: u64) -> OverviewRow {
         task_line: None,
         project_tag: None,
         is_agent: false,
-        action_label: "切换".into(),
+        action_label: ui::i18n::text("drawers.switch").into(),
         action: OverviewAction::SwitchProject {
             area_id: project.area_id.clone(),
         },

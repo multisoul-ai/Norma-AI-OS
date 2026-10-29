@@ -1,6 +1,5 @@
 use crate::app::{AppScreen, MultisoulApp};
 use crate::settings::wallpaper::scoped::{WallpaperContext, WallpaperTarget};
-use crate::settings::wallpaper::state::WallpaperSelection;
 use gpui::Context;
 use storage::WallpaperReference;
 
@@ -19,15 +18,7 @@ impl MultisoulApp {
                 workspace,
             });
         self.wallpaper_settings.scoped.bind(context);
-        let selection = if matches!(self.screen, AppScreen::Launchpad)
-            && self.desktop_workspace.home_directory
-        {
-            WallpaperSelection::Builtin {
-                rel: crate::assets::HOME_BACKGROUND_ASSET,
-            }
-        } else {
-            self.wallpaper_settings.scoped.effective_selection()
-        };
+        let selection = self.wallpaper_settings.scoped.effective_selection();
         self.wallpaper_settings
             .set_effective_selection(selection, self.motion.reduce_motion);
         self.refresh_optional_media(cx);

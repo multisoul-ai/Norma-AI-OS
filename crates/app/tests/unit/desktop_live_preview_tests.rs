@@ -453,18 +453,21 @@ fn desktop_live_preview_scales_the_original_canvas_and_routes_input() {
         )
     });
     cx.update(|window, cx| window.draw(cx).clear());
-    let directory_title = cx
-        .debug_bounds("card-titlebar")
-        .expect("目录也必须复用真实卡片");
+    let schematic = cx
+        .debug_bounds("desktop-home-node-0-0-1")
+        .expect("首页应使用真实节点布局的示意卡");
     let first_preview = cx
         .debug_bounds("desktop-workspace-preview-0-0")
-        .expect("目录应保留第一个项目外壳");
-    assert!(first_preview.contains(&directory_title.center()), "第一个项目的真实卡片必须位于自身缩略壳内，不能复用相邻项目的镜头：{directory_title:?} / {first_preview:?}");
+        .expect("首页应保留第一个项目锚点");
     assert!(
-        directory_title.size.width < small_title.size.width,
-        "目录应整体再次缩小"
+        first_preview.contains(&schematic.center()),
+        "示意卡须位于自身项目区域内"
     );
-    cx.simulate_click(directory_title.center(), Modifiers::none());
+    assert!(
+        cx.debug_bounds("card-titlebar").is_none(),
+        "首页不能嵌入真实终端控件"
+    );
+    cx.simulate_click(schematic.center(), Modifiers::none());
     cx.run_until_parked();
     host.update(cx, |app, _| {
         assert_eq!(

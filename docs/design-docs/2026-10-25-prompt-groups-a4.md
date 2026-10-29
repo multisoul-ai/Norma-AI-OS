@@ -1,0 +1,134 @@
+---
+title: 提示词，按这 7 组放
+subtitle: 上一版提示词的分组精简稿 · A4 单页
+template: doc
+theme: shadcn
+lang: zh
+mode: light
+---
+
+## A 提示词分组 {bare}
+
+```html
+<style>
+/* Standard flow components cannot express this fixed A4 nested message envelope. */
+/* Keep the print geometry while using the CLI's existing document shell. */
+.am-toolbar,.am-doc>header,.am-toc,.am-panel-head,.am-comment-btn,.am-reply-bar,.am-colophon{display:none!important}
+body{background:#e9edf1!important;padding:0!important;margin:0!important}
+main.am-doc,.am-doc-layout,.am-doc-body,.am-panel,.am-panel-body{display:block!important;width:auto!important;max-width:none!important;margin:0!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important}
+.a4-sheet{width:min(794px,calc((100dvh - 24px)*794/1123),calc(100vw - 20px));margin:12px auto;box-shadow:0 7px 35px #26384a20;background:#fff}
+.a4-sheet svg{display:block;width:100%;height:auto}
+@page{size:A4 portrait;margin:0}
+@media print{html,body{width:210mm!important;height:297mm!important;margin:0!important;padding:0!important;background:white!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}.a4-sheet{width:210mm!important;height:297mm!important;margin:0!important;box-shadow:none!important}.a4-sheet svg{width:210mm!important;height:297mm!important}.am-panel{break-inside:avoid!important}.am-doc-footer,.am-footer{display:none!important}}
+</style>
+<figure class="a4-sheet" aria-label="提示词按七组展开：每组包含具体内容、拼接策略和实现状态。">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 794 1123" role="img" aria-labelledby="group-title group-desc">
+<title id="group-title">提示词，按这 7 组放</title>
+<desc id="group-desc">上一版完整提示词的分组精简稿。系统消息依次包含固定规则与个性、环境卡片、当前目标约束、相关记忆、幕僚决定与播报；随后接近期历史和当前用户输入。右侧说明拼接方式，工具定义独立于消息。所有业务数据为虚构。</desc>
+<defs><style>
+text{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;fill:#1c2b3d}
+.title{font-size:29px;font-weight:750;letter-spacing:-.6px}.sub{font-size:13px;fill:#627285}.heading{font-size:16px;font-weight:650}.body{font-size:13px}.small{font-size:11px;fill:#65758a}.mono{font-size:12px;font-family:'SFMono-Regular',Menlo,monospace;fill:#52657b}.tag{font-size:10px;font-weight:600}.blue{fill:#255b94}.amber{fill:#8a5c12}.muted{fill:#526579}
+</style><marker id="flow-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0L7 3.5L0 7" fill="none" stroke="#bc8d40" stroke-width="1.4"/></marker></defs>
+<rect width="794" height="1123" fill="white"/>
+
+<text x="36" y="33" class="small" style="letter-spacing:1.8px">NORMA / PROMPT · GROUPED EXAMPLE</text>
+<text x="36" y="70" class="title" >提示词，按这 7 组放</text>
+<text x="36" y="94" class="sub" >左侧放具体提示词内容，右侧说明怎样拼接。精简演示 · 现有规则 + 预期结构</text>
+<rect x="30" y="111" width="734" height="922" rx="14" fill="#fafbfc" stroke="#d2dbe5"/>
+<text x="46" y="134" class="mono" >REQUEST / messages[]</text>
+<text x="747" y="134" class="small" text-anchor="end">沿用原图分组 ①—⑦</text>
+<rect x="45" y="148" width="537" height="665" rx="11" fill="#fff" stroke="#a9bdd5"/>
+<text x="58" y="171" class="mono" >messages[0] · role: system</text>
+<rect x="57" y="184" width="511" height="195" rx="8" fill="#f0f6fd" stroke="#aac5e6"/>
+<text x="72" y="208" class="heading" >① 系统提示 + 个性</text>
+<rect x="452" y="194" width="101" height="20" rx="10" fill="#dceafa" stroke="none"/>
+<text x="502.5" y="208" class="tag blue" text-anchor="middle">固定 · 稳定</text>
+<text x="72" y="231" class="body" >你是 Norma，唯一面向用户的 Master；理解意图并选择工具。</text>
+<text x="72" y="250" class="body" >表达：简洁、自然，先给结论，保留必要事实。</text>
+<text x="72" y="269" class="body" >执行：目标明确且已授权就执行；工具串行，按真实回执答复。</text>
+<text x="72" y="288" class="body" >派发：已有会话 reply_agent；新任务或中断后 assign_agent_task。</text>
+<text x="72" y="307" class="body" >记忆写入：仅按用户明确要求保存；saved=true 才说已记住。</text>
+<text x="72" y="326" class="body" >共享：上下文不增加授权；有效用户约束需来源，本轮修订优先。</text>
+<text x="72" y="345" class="body" >播报：保留来源与播放状态；追问历史理由不触发重新执行。</text>
+<text x="72" y="397" class="small" >②—⑤是上下文数据；其中用户要求保留原始来源与有效状态。</text>
+<rect x="57" y="408" width="511" height="104" rx="8" fill="#f0f6fd" stroke="#aac5e6"/>
+<text x="72" y="432" class="heading" >② 环境信息 + 卡片索引</text>
+<rect x="452" y="418" width="101" height="20" rx="10" fill="#dceafa" stroke="none"/>
+<text x="502.5" y="432" class="tag blue" text-anchor="middle">固定 · 小快照</text>
+<text x="72" y="455" class="body" >项目：演示发布项目 / P1；语音会话：V1；记忆召回：开启。</text>
+<text x="72" y="474" class="body" >焦点：Codex #91001，可直接对话；快照：S42 / v42。</text>
+<text x="72" y="493" class="body" >只放当前项目相关卡片的定位信息，完整卡片会话按需读。</text>
+<rect x="57" y="522" width="511" height="104" rx="8" fill="#f0f6fd" stroke="#aac5e6"/>
+<text x="72" y="546" class="heading" >③ 当前目标 + 有效约束</text>
+<rect x="452" y="532" width="101" height="20" rx="10" fill="#dceafa" stroke="none"/>
+<text x="502.5" y="546" class="tag blue" text-anchor="middle">固定 · 小快照</text>
+<text x="72" y="569" class="body" >目标 G1：完成发布前准备；任务 T3：等待用户。</text>
+<text x="72" y="588" class="body" >约束 C2：「正式发布前先问我。」来源：用户消息 U1。</text>
+<text x="72" y="607" class="body" >待回应：是否允许正式发布；最近播报：R9。</text>
+<rect x="57" y="636" width="511" height="75" rx="8" fill="#fff9ee" stroke="#d5ac69" stroke-dasharray="5 4"/>
+<text x="72" y="660" class="heading" >④ 记忆部分</text>
+<rect x="452" y="646" width="101" height="20" rx="10" fill="#ffebc6" stroke="none"/>
+<text x="502.5" y="660" class="tag amber" text-anchor="middle">按需 · 可为空</text>
+<text x="72" y="683" class="body" >M7 / v2：preview 指预览验证；production 指正式发布。</text>
+<text x="72" y="702" class="body" >来源：U000；本轮只带这条相关摘要，不带全部记忆目录。</text>
+<rect x="57" y="721" width="511" height="78" rx="8" fill="#fff9ee" stroke="#d5ac69" stroke-dasharray="5 4"/>
+<text x="72" y="745" class="heading" >⑤ 幕僚决策部分</text>
+<rect x="452" y="731" width="101" height="20" rx="10" fill="#ffebc6" stroke="none"/>
+<text x="502.5" y="745" class="tag amber" text-anchor="middle">按需 · 可为空</text>
+<text x="72" y="768" class="body" >D17：拒绝本次正式发布。依据：C2 → U1；尚未获用户确认。</text>
+<text x="72" y="787" class="body" >E17：拒绝已执行。播报 R9 关联 D17，来源为幕僚，已播完。</text>
+<rect x="597" y="148" width="151" height="131" rx="9" fill="#f0edf8" stroke="#d4cce9"/>
+<text x="611" y="171" class="mono" >tools[]</text>
+<text x="611" y="195" class="heading" style="font-size:14px">与 messages 并列</text>
+<text x="611" y="218" class="mono" style="font-size:10px">memory_read</text>
+<text x="611" y="237" class="mono" style="font-size:10px">workspace_snapshot</text>
+<text x="611" y="256" class="mono" style="font-size:10px">handoff_to_brain</text>
+<text x="611" y="272" class="small" >只注册真实可用工具</text>
+<rect x="597" y="292" width="151" height="86" rx="9" fill="#f1f6fd" stroke="#d2dfef"/>
+<text x="611" y="315" class="heading" style="font-size:14px">① 稳定前缀</text>
+<text x="611" y="338" class="body" >身份 / 工具 / 个性</text>
+<text x="611" y="359" class="small" >配置变化才更新</text>
+<rect x="597" y="408" width="151" height="218" rx="9" fill="#f1f6fd" stroke="#d2dfef"/>
+<text x="611" y="432" class="heading" style="font-size:14px">②③ 每轮换快照</text>
+<text x="611" y="456" class="body" >保留最新有效值</text>
+<text x="611" y="476" class="body" >旧值不累积追加</text>
+<line x1="611" y1="490" x2="734" y2="490" stroke="#d2dfef"/>
+<text x="611" y="511" class="body" >② 环境已有</text>
+<text x="611" y="531" class="small" >版本与筛选待补</text>
+<text x="611" y="559" class="body" >③ 共享状态</text>
+<text x="611" y="579" class="small" >与约束投影待新增</text>
+<text x="611" y="609" class="small" >状态由宿主维护</text>
+<rect x="597" y="636" width="151" height="177" rx="9" fill="#fff5e4" stroke="#dfc18f"/>
+<text x="611" y="660" class="heading" style="font-size:14px">④⑤ 本轮选择器</text>
+<text x="611" y="685" class="body" style="font-size:12px">“刚才为什么拒绝？”</text>
+<text x="611" y="710" class="mono" style="font-size:11px">R9 → D17 → C2</text>
+<text x="611" y="735" class="body" style="font-size:12px">选相关 / 去重 / 限额</text>
+<text x="611" y="757" class="small" >无相关内容就省略</text>
+<text x="611" y="779" class="small" >④ 相关召回待接入</text>
+<text x="611" y="799" class="small" >⑤ 决策共享待接入</text>
+<path d="M597 699H589V674H570" fill="none" stroke="#bc8d40" marker-end="url(#flow-arrow)"/>
+<path d="M589 699V759H570" fill="none" stroke="#bc8d40" marker-end="url(#flow-arrow)"/>
+<path d="M313 813V825" fill="none" stroke="#a9bdd5"/>
+<rect x="45" y="827" width="537" height="96" rx="9" fill="#eef1f5" stroke="#c8d2de"/>
+<text x="59" y="849" class="heading" >⑥ 近期对话历史 · messages[1…2]</text>
+<text x="59" y="873" class="body" >user：「补充一个约束：正式发布前先问我。」</text>
+<text x="59" y="895" class="body" >assistant：「好，正式发布前我会先向你确认。」</text>
+<text x="59" y="914" class="small" >保留原生角色；不再复制一份放进 system。</text>
+<rect x="597" y="827" width="151" height="96" rx="9" fill="#fff" stroke="#d5dfe9"/>
+<text x="611" y="850" class="heading" style="font-size:12px">幕僚播报是外部事件</text>
+<text x="611" y="874" class="body" >本例已放在⑤</text>
+<text x="611" y="895" class="small" >不伪装成 assistant</text>
+<text x="611" y="913" class="small" >已播完 ≠ 用户已听见</text>
+<path d="M313 923V934" fill="none" stroke="#a9bdd5"/>
+<rect x="45" y="936" width="537" height="61" rx="9" fill="#e5effc" stroke="#87aee0"/>
+<text x="59" y="959" class="heading blue" >⑦ 当前用户消息 · messages[3] / user</text>
+<text x="59" y="983" class="body" >「刚才为什么拒绝了？」</text>
+<text x="611" y="957" class="body" >本轮问题参与</text>
+<text x="611" y="979" class="body" >上方内容选择 ↑</text>
+<text x="46" y="1020" class="small" >信息不足：assistant.tool_calls → tool 回执 → 再请求；调用与回执保持配对。</text>
+<text x="36" y="1055" class="body" font-weight="600">这页是上一版提示词的分组精简稿；完整规则未逐字装入 A4。</text>
+<text x="36" y="1076" class="small" >业务数据均为虚构；图中 ID 省略 demo- 前缀。①融合规则、③、④⑤共享结构尚待接入。</text>
+<text x="36" y="1096" class="small" >完整版仍在原 HTML 下方；本图的分组与顺序和完整示例一致。</text>
+</svg>
+</figure>
+```

@@ -51,7 +51,12 @@ impl Card for AgentCard {
             title,
             title_detail,
             refreshable: false,
-            task_badge: agent_task_badge(state, progress, preparing),
+            task_badge: chrome_task_badge(
+                state,
+                progress,
+                preparing,
+                runtime.agent_startup_stalled(node.id),
+            ),
         }
     }
 
@@ -107,6 +112,20 @@ fn single_line_task_title(title: &str) -> Option<String> {
     Some(single_line)
 }
 
+fn chrome_task_badge(
+    state: Option<AgentTaskState>,
+    progress: Option<TaskProgress>,
+    preparing: bool,
+    startup_stalled: bool,
+) -> Option<CardChromeTaskBadge> {
+    agent_task_badge(state, progress, preparing).or_else(|| {
+        startup_stalled.then(|| CardChromeTaskBadge {
+            label: ui::i18n::text("cards.agent.startup_slow").to_string(),
+            tone: CardChromeTaskTone::Warning,
+        })
+    })
+}
+
 fn agent_task_badge(
     state: Option<AgentTaskState>,
     progress: Option<TaskProgress>,
@@ -122,6 +141,7 @@ fn agent_task_badge(
         AgentTaskState::Thinking
             | AgentTaskState::RunningTool { .. }
             | AgentTaskState::WaitingApproval { .. }
+            | AgentTaskState::WaitingQuestion
             | AgentTaskState::Failed { .. }
     );
     if preparing && !settled {
@@ -138,6 +158,10 @@ fn agent_task_badge(
         AgentTaskState::Thinking | AgentTaskState::RunningTool { .. } => (
             status_capsule_title(StatusCapsuleKind::Running, completed, total),
             CardChromeTaskTone::Active,
+        ),
+        AgentTaskState::WaitingQuestion => (
+            ui::i18n::text("cards.waiting_question").to_string(),
+            CardChromeTaskTone::Warning,
         ),
         AgentTaskState::WaitingApproval { .. } => (
             status_capsule_title(StatusCapsuleKind::Waiting, completed, total),
@@ -164,7 +188,9 @@ pub fn agent_breathing_intent(
         Some(AgentTaskState::Thinking) | Some(AgentTaskState::RunningTool { .. }) => {
             BreathingIntent::Inactive
         }
-        Some(AgentTaskState::WaitingApproval { .. }) => BreathingIntent::Warm,
+        Some(AgentTaskState::WaitingApproval { .. } | AgentTaskState::WaitingQuestion) => {
+            BreathingIntent::Warm
+        }
         Some(AgentTaskState::Done) => match attention {
             Some(CardAttentionState {
                 kind: CardAttentionKind::AgentTaskDone,
@@ -197,3 +223,7 @@ mod tests;
 #[cfg(test)]
 #[path = "../../../tests/unit/cards/agent/breathing_tests.rs"]
 mod breathing_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/cards/agent/startup_badge_tests.rs"]
+mod startup_badge_tests;

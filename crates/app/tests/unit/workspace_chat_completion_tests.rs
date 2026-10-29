@@ -42,7 +42,7 @@ fn completed_transport_preserves_failed_task_outcome() {
 fn explicit_card_message_contains_shared_workspace_facts() {
     let input = shared_card_input(
         "请执行当前任务",
-        &json!([{"kind":"received","text":"沿用浅色样式"}]),
+        &json!([{"cursor":1,"kind":"received","text":"沿用浅色样式"}]),
     );
     assert!(
         input.starts_with("请执行当前任务\n"),
@@ -60,6 +60,41 @@ fn explicit_card_message_contains_shared_workspace_facts() {
         shared_card_input("只回复", &json!([])),
         "只回复",
         "empty history must not add unused context"
+    );
+}
+
+/// 场景：指定卡片不能通过群聊账本重新获得缺少来源版本的旧生成正文。
+/// 数据构造：带游标的原始用户消息、旧回复、含任务引用的旧结果各一条。
+/// 执行过程：调用生产卡片输入装配入口，检查交给卡片的实际文本和原账本。
+/// 预期结果：当前请求、用户原文和任务引用保留；旧生成正文不转发，账本不变。
+#[test]
+fn explicit_card_message_omits_generated_history_without_source_versions() {
+    let history = json!([
+        {"cursor":1,"kind":"received","text":"HISTORICAL-USER-REQUEST"},
+        {"cursor":2,"kind":"succeeded","text":"OBSOLETE-MEMORY-ANSWER"},
+        {"cursor":3,"kind":"task_result","text":"OBSOLETE-TASK-DETAIL","task_ref":"receipt-17","state":"succeeded"}
+    ]);
+    let input = shared_card_input("CURRENT-REQUEST", &history);
+    assert!(
+        input.starts_with("CURRENT-REQUEST\n"),
+        "当前请求必须保留在首行"
+    );
+    assert!(
+        input.contains("HISTORICAL-USER-REQUEST"),
+        "用户原始输入应作为有来源历史保留"
+    );
+    assert!(input.contains("receipt-17"), "结构化任务回执引用必须保留");
+    assert!(
+        !input.contains("OBSOLETE-MEMORY-ANSWER"),
+        "缺少来源版本的旧回答不能重新注入卡片"
+    );
+    assert!(
+        !input.contains("OBSOLETE-TASK-DETAIL"),
+        "缺少来源版本的任务结果正文不能重新注入卡片"
+    );
+    assert_eq!(
+        history[1]["text"], "OBSOLETE-MEMORY-ANSWER",
+        "过滤模型输入不能篡改持久化账本"
     );
 }
 

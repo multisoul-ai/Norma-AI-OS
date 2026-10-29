@@ -14,14 +14,14 @@ pub(crate) struct ContentBrowserState {
     pub input: Option<gpui::Entity<InputState>>,
     pub tab_id: Option<String>,
     pub location: Option<String>,
-    pub home_notice: Option<String>,
+    pub home_notice: Option<ui::i18n::LocalizedText>,
     pub home_notice_generation: u64,
 }
 
-pub(super) fn browser_input(draft: &str) -> Result<String, String> {
+pub(super) fn browser_input(draft: &str) -> Result<String, ui::i18n::LocalizedText> {
     let draft = draft.trim();
     if draft.is_empty() {
-        return Err("请输入网址或搜索内容".into());
+        return Err(ui::i18n::LocalizedText::new("drawers.enter_address"));
     }
     let blocked_scheme = draft.split_once(':').is_some_and(|(scheme, _)| {
         ["javascript", "data", "file"]
@@ -29,10 +29,10 @@ pub(super) fn browser_input(draft: &str) -> Result<String, String> {
             .any(|blocked| scheme.eq_ignore_ascii_case(blocked))
     });
     if blocked_scheme {
-        return Err("浏览器支持 HTTP 和 HTTPS 地址；项目文件请从文件入口打开".into());
+        return Err(ui::i18n::LocalizedText::new("drawers.http_only"));
     }
     if draft.starts_with('/') || draft.starts_with("~/") {
-        return Err("项目文件请使用文件入口打开".into());
+        return Err(ui::i18n::LocalizedText::new("drawers.open_local_files"));
     }
     let local = url::Url::parse(&format!("http://{draft}")).is_ok_and(|u| match u.host() {
         Some(url::Host::Domain(host)) => host.eq_ignore_ascii_case("localhost"),
@@ -55,10 +55,10 @@ pub(super) fn browser_input(draft: &str) -> Result<String, String> {
         draft.to_string()
     };
     let url = norma::presentation::normalize_browser_url(&candidate)
-        .map_err(|_| "网址无效，请使用 HTTP 或 HTTPS 地址".to_string())?;
+        .map_err(|_| ui::i18n::LocalizedText::new("drawers.invalid_url"))?;
     let parsed = url::Url::parse(&url).map_err(|e| e.to_string())?;
     if !matches!(parsed.scheme(), "http" | "https") && url != "about:blank" {
-        return Err("浏览器支持 HTTP、HTTPS 和 about:blank；项目文件请从文件入口打开".into());
+        return Err(ui::i18n::LocalizedText::new("drawers.supported_urls"));
     }
     Ok(url)
 }
@@ -91,7 +91,7 @@ impl MultisoulApp {
             let title = url::Url::parse(&url)
                 .ok()
                 .and_then(|u| u.host_str().map(str::to_string))
-                .unwrap_or_else(|| "浏览器".into());
+                .unwrap_or_else(|| ui::i18n::text("drawers.browser").into());
             self.open_desktop_content_tab(
                 DesktopContentKind::Browser,
                 url,
@@ -115,7 +115,11 @@ impl MultisoulApp {
         {
             self.desktop_workspace.content_browser.input = Some(cx.new(|cx| {
                 InputState::new(window, cx)
-                    .placeholder("输入网址或搜索…")
+                    .placeholder(ui::i18n::input_placeholder(
+                        "drawers.address_placeholder",
+                        window,
+                        cx,
+                    ))
                     .default_value(tab.resource.clone())
             }));
             self.desktop_workspace.content_browser.tab_id = Some(tab.id.clone());
@@ -145,7 +149,7 @@ impl MultisoulApp {
             .child(
                 Button::new("desktop-browser-back")
                     .label("‹")
-                    .tooltip("后退")
+                    .tooltip(ui::i18n::text("drawers.back"))
                     .small()
                     .when(compact, |button| button.w(px(24.0)).p(px(0.0)))
                     .on_click(cx.listener(move |app, _, _, cx| {
@@ -156,7 +160,7 @@ impl MultisoulApp {
             .child(
                 Button::new("desktop-browser-forward")
                     .label("›")
-                    .tooltip("前进")
+                    .tooltip(ui::i18n::text("drawers.forward"))
                     .small()
                     .when(compact, |button| button.w(px(24.0)).p(px(0.0)))
                     .on_click(cx.listener(move |app, _, _, cx| {
@@ -167,7 +171,7 @@ impl MultisoulApp {
             .child(
                 Button::new("desktop-browser-reload")
                     .label("↻")
-                    .tooltip("刷新")
+                    .tooltip(ui::i18n::text("drawers.refresh"))
                     .small()
                     .when(compact, |button| button.w(px(24.0)).p(px(0.0)))
                     .on_click(cx.listener(move |app, _, _, cx| {
@@ -205,7 +209,7 @@ impl MultisoulApp {
                     .flex_none()
                     .child(
                         Button::new("desktop-browser-navigate")
-                            .label("打开")
+                            .label(ui::i18n::text("drawers.open"))
                             .small()
                             .disabled(empty)
                             .on_click(

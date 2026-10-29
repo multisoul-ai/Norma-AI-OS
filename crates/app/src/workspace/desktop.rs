@@ -9,19 +9,19 @@ use storage::{DesktopAreaPreview, DesktopProjectArea, DesktopWorkspace, DesktopW
 use ui::component::button::ButtonCustomVariant;
 use ui::component::input::InputState;
 
-const GLASS_TEXT: u32 = 0xfffffff5;
-const GLASS_TEXT_SECONDARY: u32 = 0xffffffb8;
-const GLASS_TEXT_MUTED: u32 = 0xffffff85;
-
 fn glass_button_variant(theme: ui::Theme, cx: &gpui::App) -> ButtonCustomVariant {
     let chrome = status_capsule::capsule_chrome(theme);
     ButtonCustomVariant::new(cx)
         .color(gpui::rgba(chrome.rest).into())
-        .foreground(gpui::rgba(GLASS_TEXT).into())
+        .foreground(gpui::rgba(theme.text_primary).into())
         .border(gpui::rgba(theme.dock_line).into())
         .hover(gpui::rgba(chrome.hover).into())
         .active(gpui::rgba(chrome.active).into())
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/desktop_surface_theme_tests.rs"]
+mod surface_theme_tests;
 
 mod activity_cache;
 mod agent;
@@ -35,8 +35,10 @@ mod controller;
 mod creation;
 mod dialogs;
 mod dialogs_other;
+mod directory_navigation;
 mod dispatch;
 mod drawers;
+pub(crate) use drawers::overview_questions::QuestionEditor;
 mod home;
 mod home_card;
 mod launchpad;
@@ -45,6 +47,7 @@ mod management;
 mod snapshot;
 mod status;
 mod status_capsule;
+pub(crate) mod surface_theme;
 use management::DesktopRenameTarget;
 mod idea_drag;
 mod idea_drag_ui;
@@ -118,7 +121,7 @@ pub(crate) struct DesktopWorkspaceUiState {
     /// 清空「已完成」后、撤销窗口内暂不显示（也还没真正删除）的想法。
     pub(crate) ideas_pending_purge: std::collections::HashSet<String>,
     pub(crate) ideas_undo_timer: Option<gpui::Task<()>>,
-    pub(crate) ideas_notice: Option<String>,
+    pub(crate) ideas_notice: Option<ui::i18n::LocalizedText>,
     /// 想法栏当前的分段（待办 / 已指派 / 已完成）。
     pub(crate) ideas_tab: ideas_rows::IdeasTab,
     /// 左抽屉里想法行的大致位置（窗口坐标）：键盘、对话等没有具体行位置的派发，流星从这里出发。
@@ -147,7 +150,7 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) content_tab_generation: u64,
     pub(crate) content_workspace_epoch: u64,
     pub(crate) workspace_load_generation: u64,
-    pub(crate) content_previews: HashMap<String, Result<String, String>>,
+    pub(crate) content_previews: HashMap<String, Result<String, ui::i18n::LocalizedText>>,
     pub(crate) content_snapshots: HashMap<String, tempfile::TempPath>,
     pub(crate) content_resources: HashMap<String, crate::preview::local_content::LocalPreview>,
     pub(crate) content_loading: HashSet<String>,
@@ -175,6 +178,7 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) areas: Vec<DesktopProjectArea>,
     pub(crate) active_area_id: Option<String>,
     pub(crate) selected_area_id: Option<String>,
+    pub(crate) directory: directory_navigation::DirectorySelection,
     pub(crate) expanded_area_id: Option<String>,
     pub(crate) workspace_rects: Arc<Mutex<HashMap<String, canvas::CanvasRect>>>,
     workspace_motion_rects: HashMap<String, canvas::CanvasRect>,
@@ -192,6 +196,7 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) area_errors: HashMap<String, ui::i18n::LocalizedText>,
     pub(crate) sessions: HashMap<(String, String), Entity<MultisoulApp>>,
     pub(crate) search_query: String,
+    pub(crate) home: home::HomeState,
     pub(crate) error: Option<ui::i18n::LocalizedText>,
     pub(crate) busy: bool,
     pub(crate) rename_target: Option<DesktopRenameTarget>,
@@ -351,6 +356,7 @@ impl DesktopWorkspaceUiState {
             areas: Vec::new(),
             active_area_id: None,
             selected_area_id: None,
+            directory: Default::default(),
             expanded_area_id: None,
             workspace_rects: Arc::new(Mutex::new(HashMap::new())),
             workspace_motion_rects: HashMap::new(),
@@ -368,6 +374,7 @@ impl DesktopWorkspaceUiState {
             area_errors: HashMap::new(),
             sessions: HashMap::new(),
             search_query: String::new(),
+            home: Default::default(),
             error,
             busy: false,
             rename_target: None,
@@ -406,37 +413,6 @@ impl DesktopWorkspaceUiState {
 }
 
 impl MultisoulApp {
-    pub(super) fn desktop_theme(&self) -> ui::Theme {
-        if self.theme_id.is_dark() {
-            self.theme
-        } else {
-            ui::Theme::sapphire_night()
-        }
-    }
-
-    pub(super) fn desktop_input_fill(&self) -> u32 {
-        self.desktop_theme().panel_high
-    }
-
-    pub(super) fn sync_desktop_input_theme(&self, expanded: bool, cx: &mut gpui::Context<Self>) {
-        let light_dialog_open = self.settings_panel.open
-            || self.clone_project.is_open()
-            || self.desktop_workspace.add_project_open
-            || self.desktop_workspace.pending_project_path.is_some()
-            || self.desktop_workspace.pending_delete.is_some()
-            || self.desktop_workspace.rename_target.is_some()
-            || self.desktop_workspace.create_input.is_some();
-        let id = if expanded || light_dialog_open || self.theme_id.is_dark() {
-            self.theme_id
-        } else {
-            ui::ThemeId::SapphireNight
-        };
-        let foreground: gpui::Hsla = gpui::rgba(ui::Theme::for_id(id).text_primary).into();
-        if ui::component::Theme::global(cx).colors.foreground != foreground {
-            ui::sync_component_theme(id, cx);
-        }
-    }
-
     pub(crate) fn detach_desktop_host_window(&mut self, cx: &mut gpui::Context<Self>) {
         self.stop_gpt_live_voice(cx);
         self.detach_visible_desktop_area(cx);

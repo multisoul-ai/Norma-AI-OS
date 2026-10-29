@@ -125,5 +125,22 @@
   "workspace.left_tab_overview": "运行概览",
   "workspace.overview_pin_float": "弹出到画布上悬浮固定",
   "workspace.overview_pin_dock": "收回到左侧抽屉",
-  "workspace.overview_move": "拖动移动，方向键移动，双击标题栏复位"
+  "workspace.overview_move": "拖动移动，方向键移动，双击标题栏复位",
+  "workspace.home_greeting": "回来了？今天从哪里继续。",
+  "workspace.home_running_greeting": "%{name} 还在运行，要回去看看吗？",
+  "workspace.home_search_greeting": "要找哪一个？输入名字就行。",
+  "workspace.home_recent": "最近访问",
+  "workspace.home_all": "全部 %{count} 个",
+  "workspace.home_search": "搜索 %{count} 个工作空间",
+  "workspace.home_week": "最近 7 天",
+  "workspace.home_older": "更早",
+  "workspace.home_show_all": "显示全部 %{count} 个",
+  "workspace.home_collapse": "收起",
+  "workspace.home_no_match": "没有名为“%{name}”的工作空间",
+  "workspace.home_create_query": "新建“%{name}”",
+  "workspace.home_keys": "↑ ↓ 选择     ↩ 打开     Esc 关闭",
+  "workspace.home_now": "刚刚",
+  "workspace.home_days": "%{count} 天前",
+  "workspace.home_today": "今天",
+  "workspace.home_search_close": "关闭搜索"
 }

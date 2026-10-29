@@ -30,6 +30,21 @@ UNCHANGED = {
 }
 
 
+def drawer_literals(path, source):
+    """Catch indirect Chinese copy in the drawer's presentation helpers too."""
+    domain = "crates/workspace/src/content/" in path.as_posix()
+    if not domain:
+        if "workspace/desktop/" not in path.as_posix():
+            return []
+        if "drawers" not in path.parts and not path.stem.startswith(("ideas", "idea_", "overview_", "status")):
+            return []
+    # Test fixtures and comments may contain Chinese prose. Keep offsets for diagnostics.
+    source = re.split(r"#\[cfg\(test\)\]\s*mod\s+\w+\s*\{", source)[0]
+    tokens = re.finditer(r'//[^\n]*|/\*[\s\S]*?\*/|"((?:\\.|[^"\\])*)"', source)
+    return [(token[1], token.start()) for token in tokens
+            if token[1] is not None and re.search(r"[\u4e00-\u9fff]", token[1])]
+
+
 def conditional_literals(source):
     # Bound each sink at its closing parenthesis, skipping string contents.
     # Only bare branch results count; keys inside translation calls do not.
@@ -77,7 +92,7 @@ def check_catalogs(directory):
 
 def check_sources(root, keys):
     errors = []
-    for crate in ("app", "ui"):
+    for crate in ("app", "ui", "workspace"):
         for path in sorted((root / "crates" / crate / "src").rglob("*.rs")):
             if "e2e" in path.parts or path.name == "e2e.rs":
                 continue
@@ -88,13 +103,18 @@ def check_sources(root, keys):
             literals = [(match[1], match.start()) for pattern in (UI_LITERAL, CACHED_LITERAL)
                         for match in pattern.finditer(source)]
             literals += list(conditional_literals(source))
+            literals += drawer_literals(path, source)
             # This shared helper returns visible card badges to the UI sink.
             if path.name == "node_label.rs" and path.parent.name == "canvas":
                 literals += [(match[1], match.start()) for match in BRANCH_LITERAL.finditer(source)]
+            reported = set()
             for value, position in literals:
                 literal = re.sub(r"\{[^{}]*\}", "", value).replace(" MB", "")
                 if re.search(r"[A-Za-z\u4e00-\u9fff]", literal) and value not in UNCHANGED:
                     line = source.count("\n", 0, position) + 1
+                    if (line, value) in reported:
+                        continue
+                    reported.add((line, value))
                     errors.append(f"{path}:{line}: hardcoded UI copy {value!r}")
     return errors
 

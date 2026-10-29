@@ -3,12 +3,11 @@
 //! 参考原型 `.nt-tool` / `.nt-rec`：40px 磁贴、左对齐图标 + 名称 + 快捷键，按下即时变色。
 //! 尚未实现的能力保持同样外观，点击只给出就地提示，不打开标签也不改变布局。
 
-use super::{GLASS_TEXT, GLASS_TEXT_SECONDARY};
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, svg, Context, Div, ElementId, KeyDownEvent, Stateful};
 use ui::icons::with_alpha;
 
-pub(super) const UPCOMING_NOTICE: &str = "即将支持";
+pub(super) const UPCOMING_NOTICE_KEY: &str = "drawers.coming_soon";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum HomeTool {
@@ -44,12 +43,12 @@ impl HomeTool {
 
     fn label(self) -> &'static str {
         match self {
-            Self::Changes => "变更",
-            Self::Terminal => "终端",
-            Self::Files => "文件",
-            Self::Progress => "项目进度",
-            Self::Web => "网页",
-            Self::More => "更多工具…",
+            Self::Changes => ui::i18n::text("drawers.changes"),
+            Self::Terminal => ui::i18n::text("drawers.terminal"),
+            Self::Files => ui::i18n::text("drawers.files"),
+            Self::Progress => ui::i18n::text("drawers.project_progress"),
+            Self::Web => ui::i18n::text("drawers.web"),
+            Self::More => ui::i18n::text("drawers.more_tools"),
         }
     }
 
@@ -105,10 +104,10 @@ pub(super) enum Recommendation {
 }
 
 pub(super) const PLACEHOLDER_RECOMMENDATIONS: [(&str, &str); 4] = [
-    ("icons/globe.svg", "网页"),
-    ("icons/file-document.svg", "文件"),
-    ("icons/image.svg", "图片"),
-    ("icons/video.svg", "视频"),
+    ("icons/globe.svg", "drawers.web"),
+    ("icons/file-document.svg", "drawers.files"),
+    ("icons/image.svg", "drawers.images"),
+    ("icons/video.svg", "drawers.videos"),
 ];
 
 impl MultisoulApp {
@@ -145,7 +144,7 @@ impl MultisoulApp {
             .border_1()
             .border_color(rgba(0x00000000))
             .text_size(px(12.0))
-            .text_color(rgba(GLASS_TEXT))
+            .text_color(rgba(theme.text_primary))
             .cursor_pointer()
             .tab_index(0)
             .hover(move |style| style.bg(rgba(hover)))
@@ -166,7 +165,7 @@ impl MultisoulApp {
                     .w(px(15.0))
                     .h(px(15.0))
                     .flex_none()
-                    .text_color(rgba(GLASS_TEXT_SECONDARY)),
+                    .text_color(rgba(theme.text_secondary)),
             )
             .child(
                 div()
@@ -187,7 +186,7 @@ impl MultisoulApp {
                     .bg(rgba(with_alpha(theme.edge_highlight, 0x18)))
                     .font_family("Menlo")
                     .text_size(px(10.0))
-                    .text_color(rgba(GLASS_TEXT_SECONDARY))
+                    .text_color(rgba(theme.text_secondary))
                     .child(label),
             );
         }
@@ -209,7 +208,9 @@ impl MultisoulApp {
             .children(slots.into_iter().enumerate().map(move |(index, slot)| {
                 let (icon, label) = match &slot {
                     Recommendation::Artifact(_, name) => ("icons/file-document.svg", name.clone()),
-                    Recommendation::Upcoming(icon, label) => (*icon, (*label).to_string()),
+                    Recommendation::Upcoming(icon, label) => {
+                        (*icon, ui::i18n::text(label).to_string())
+                    }
                 };
                 div()
                     .id(ElementId::Name(format!("desktop-home-rec-{index}").into()))
@@ -225,7 +226,7 @@ impl MultisoulApp {
                     .border_1()
                     .border_color(rgba(0x00000000))
                     .text_size(px(11.0))
-                    .text_color(rgba(GLASS_TEXT_SECONDARY))
+                    .text_color(rgba(theme.text_secondary))
                     .cursor_pointer()
                     .tab_index(0)
                     .hover(move |style| style.bg(rgba(hover)))
@@ -249,7 +250,7 @@ impl MultisoulApp {
                                     .path(icon)
                                     .w(px(19.0))
                                     .h(px(19.0))
-                                    .text_color(rgba(GLASS_TEXT)),
+                                    .text_color(rgba(theme.text_primary)),
                             ),
                     )
                     .child(
