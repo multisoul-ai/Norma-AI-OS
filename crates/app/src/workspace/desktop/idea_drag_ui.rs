@@ -290,7 +290,7 @@ impl MultisoulApp {
         }
         let cards = session.targets.cards.iter().zip(&session.names).map(|(card, name)| {
             let hot = matches!(&hover, Some(DropTarget::Existing { node_id, .. }) if *node_id == card.node_id);
-            drop_outline(card.rect, format!("交给 {name}"), hot, "desktop-idea-drop-card")
+            drop_outline(card.rect, ui::i18n::format("drawers.handoff", &[("name", (name).to_string())]), hot, "desktop-idea-drop-card")
         });
         let line = reorder_line(session, &hover);
         let zone_hot = hover == Some(DropTarget::NewAgent);
@@ -298,7 +298,7 @@ impl MultisoulApp {
         let zone = session.targets.new_zone.x.is_finite().then(|| {
             drop_outline(
                 session.targets.new_zone,
-                "＋ 新建智能体来完成".to_owned(),
+                ui::i18n::text("drawers.new_agent_plus").to_owned(),
                 zone_hot,
                 "desktop-idea-drop-new",
             )

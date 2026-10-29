@@ -1,3 +1,4 @@
+use super::ContentError;
 pub(super) static WRITE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 use super::{Comparison, Project, Result};
@@ -19,19 +20,19 @@ impl Project {
         let _lock = WRITE_LOCK.lock().map_err(|e| e.to_string())?;
         let status = self.git_snapshot(&Comparison::Local)?;
         if status.version != expected {
-            return Err("仓库已改变，请刷新后重试".into());
+            return Err(ContentError::RepositoryChanged);
         }
         if !status.writable {
-            return Err("仓库存在冲突或正在合并/rebase，请先在终端完成操作".into());
+            return Err(ContentError::RepositoryBusy);
         }
         let paths = match &action {
             GitAction::Stage(p) | GitAction::Unstage(p) | GitAction::Discard(p) => p,
             GitAction::Commit(message) => {
                 if message.trim().is_empty() {
-                    return Err("请输入提交说明".into());
+                    return Err(ContentError::CommitMessageRequired);
                 }
                 if !status.changes.iter().any(|c| c.staged) {
-                    return Err("没有已暂存文件".into());
+                    return Err(ContentError::NothingStaged);
                 }
                 let mut file = tempfile::NamedTempFile::new().map_err(|e| e.to_string())?;
                 file.write_all(message.as_bytes())
@@ -41,13 +42,15 @@ impl Project {
                     &[
                         "commit",
                         "-F",
-                        file.path().to_str().ok_or("提交说明路径无效")?,
+                        file.path()
+                            .to_str()
+                            .ok_or(ContentError::InvalidCommitPath)?,
                     ],
                 );
             }
         };
         if paths.is_empty() {
-            return Err("请选择文件".into());
+            return Err(ContentError::FilesRequired);
         }
         let mut operation_paths = paths.clone();
         for path in paths {
@@ -56,15 +59,15 @@ impl Project {
                 .any(|c| !matches!(c, Component::Normal(_)))
                 || path.is_empty()
             {
-                return Err("无效文件路径".into());
+                return Err(ContentError::InvalidPath);
             }
             let change = status
                 .changes
                 .iter()
                 .find(|c| c.path == *path)
-                .ok_or("所选文件状态已改变")?;
+                .ok_or(ContentError::FileStatusChanged)?;
             if matches!(action, GitAction::Discard(_)) && (change.untracked || !change.unstaged) {
-                return Err("只能撤销已跟踪文件的未暂存修改".into());
+                return Err(ContentError::DiscardTrackedOnly);
             }
             if !matches!(action, GitAction::Discard(_)) {
                 if let Some(old) = &change.old_path {
@@ -80,7 +83,7 @@ impl Project {
             } else {
                 let mut parent = Path::new(path).parent().unwrap_or(Path::new(""));
                 while !self.root.join(parent).exists() {
-                    parent = parent.parent().ok_or("缺少项目根目录")?;
+                    parent = parent.parent().ok_or(ContentError::RootMissing)?;
                 }
                 self.resolve(parent)?;
             }

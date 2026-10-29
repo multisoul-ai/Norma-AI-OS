@@ -1,10 +1,12 @@
 //! Token-scoped local preview resources. No filesystem/Git bridge is exposed to pages.
+use super::content_copy::content_error;
 use std::{
     collections::HashMap,
     io::{Read, Seek, SeekFrom},
     path::Path,
     sync::{Arc, Mutex, OnceLock},
 };
+use ui::i18n::LocalizedText;
 use workspace::content::Project;
 use wry::http::{Request, Response};
 
@@ -60,16 +62,18 @@ pub(crate) struct LocalPreview {
 }
 
 impl LocalPreview {
-    pub fn new(root: &Path, path: &str, text: Option<&str>) -> Result<Self, String> {
+    pub fn new(root: &Path, path: &str, text: Option<&str>) -> Result<Self, LocalizedText> {
         Self::create(root, path, text, false, kind(path))
     }
 
-    pub fn snapshot(path: &Path, text: Option<&str>) -> Result<Self, String> {
-        let parent = path.parent().ok_or("版本文件缺少父目录")?;
+    pub fn snapshot(path: &Path, text: Option<&str>) -> Result<Self, LocalizedText> {
+        let parent = path
+            .parent()
+            .ok_or(LocalizedText::new("drawers.version_parent_missing"))?;
         let name = path
             .file_name()
             .and_then(|s| s.to_str())
-            .ok_or("版本文件名无效")?;
+            .ok_or(LocalizedText::new("drawers.version_name_invalid"))?;
         Self::create(parent, name, text, true, kind(name))
     }
 
@@ -78,12 +82,14 @@ impl LocalPreview {
         path: &Path,
         text: Option<&str>,
         preview_type: canvas::PreviewType,
-    ) -> Result<Self, String> {
-        let parent = path.parent().ok_or("预览文件缺少父目录")?;
+    ) -> Result<Self, LocalizedText> {
+        let parent = path
+            .parent()
+            .ok_or(LocalizedText::new("drawers.preview_parent_missing"))?;
         let name = path
             .file_name()
             .and_then(|name| name.to_str())
-            .ok_or("预览文件名无效")?;
+            .ok_or(LocalizedText::new("drawers.preview_name_invalid"))?;
         Self::create(
             parent,
             name,
@@ -99,12 +105,12 @@ impl LocalPreview {
         text: Option<&str>,
         isolated: bool,
         preview_kind: Kind,
-    ) -> Result<Self, String> {
-        let project = Project::open(root)?;
+    ) -> Result<Self, LocalizedText> {
+        let project = Project::open(root).map_err(content_error)?;
         // Validate before registering a URL, including symlink targets.
-        let target = project.resolve(Path::new(path))?;
+        let target = project.resolve(Path::new(path)).map_err(content_error)?;
         if !target.starts_with(project.root()) {
-            return Err("文件位于项目外部".into());
+            return Err(LocalizedText::new("drawers.outside_project"));
         }
         let image_mime = if preview_kind == Kind::Image {
             let mut prefix = Vec::new();
@@ -129,11 +135,13 @@ impl LocalPreview {
         let token = uuid::Uuid::new_v4().simple().to_string();
         let mut url =
             url::Url::parse(&format!("norma-content://{token}/")).map_err(|e| e.to_string())?;
-        url.path_segments_mut().map_err(|_| "本地地址无效")?.extend(
-            Path::new(path)
-                .iter()
-                .map(|s| s.to_string_lossy().into_owned()),
-        );
+        url.path_segments_mut()
+            .map_err(|_| LocalizedText::new("drawers.local_url_invalid"))?
+            .extend(
+                Path::new(path)
+                    .iter()
+                    .map(|s| s.to_string_lossy().into_owned()),
+            );
         let asset_url = url.to_string();
         let body = match preview_kind {
             Kind::Markdown => {
@@ -160,8 +168,8 @@ impl LocalPreview {
                 r#"<video controls playsinline preload="metadata" src="{}"></video><script>document.addEventListener('visibilitychange',()=>{{if(document.hidden)document.querySelector('video').pause()}});window.addEventListener('blur',()=>document.querySelector('video').pause());</script>"#,
                 escape(&asset_url)
             ),
-            Kind::Other => return Err("此格式暂不支持内嵌预览，请使用系统应用打开".into()),
-            Kind::Text => return Err("纯文本使用编辑器查看".into()),
+            Kind::Other => return Err(LocalizedText::new("drawers.preview_unsupported")),
+            Kind::Text => return Err(LocalizedText::new("drawers.text_in_editor")),
         };
         let base = url.join(".").map_err(|e| e.to_string())?;
         let html = format!(
@@ -244,7 +252,10 @@ fn resource(request: &Request<Vec<u8>>) -> Result<Response<Vec<u8>>, String> {
     {
         return Err("成果版本不包含此附属资源".into());
     }
-    let target = source.project.resolve(relative)?;
+    let target = source
+        .project
+        .resolve(relative)
+        .map_err(|error| content_error(error).to_string())?;
     if !target.starts_with(source.project.root())
         || relative.components().any(|c| c.as_os_str() == ".git")
     {

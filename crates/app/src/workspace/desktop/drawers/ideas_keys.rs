@@ -90,7 +90,10 @@ impl MultisoulApp {
                 self.desktop_workspace.ideas_aux.default_profile,
             );
             self.set_default_idea_profile(next, cx);
-            self.desktop_workspace.ideas_notice = Some(format!("新建智能体默认类型：{next:?}"));
+            self.desktop_workspace.ideas_notice = Some(ui::i18n::message(
+                "drawers.default_agent_type",
+                &[("next", format!("{next:?}"))],
+            ));
             cx.notify();
             return true;
         }

@@ -90,14 +90,14 @@ impl MultisoulApp {
                                 )
                                 .child(count_chip(
                                     summary.running,
-                                    "运行中",
+                                    ui::i18n::text("drawers.running"),
                                     Some(1.0),
                                     (chrome.ring, with_alpha(chrome.focus, 0x88)),
                                     compact,
                                 ))
                                 .child(count_chip(
                                     summary.idle,
-                                    "待开始",
+                                    ui::i18n::text("drawers.not_started"),
                                     None,
                                     (chrome.ring, with_alpha(chrome.focus, 0x88)),
                                     compact,
@@ -129,7 +129,9 @@ impl MultisoulApp {
                                                         div()
                                                             .text_size(px(12.0))
                                                             .text_color(rgba(0xf6dfaaff))
-                                                            .child("待处理"),
+                                                            .child(ui::i18n::text(
+                                                                "drawers.pending",
+                                                            )),
                                                     )
                                                 }),
                                         )

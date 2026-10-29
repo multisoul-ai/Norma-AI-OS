@@ -100,8 +100,8 @@ impl MultisoulApp {
                     .when(tab == IdeasTab::Todo, |list| {
                         list.when(screen.todo.is_empty(), |list| {
                             list.child(tab_empty(
-                                "还没有待办想法",
-                                "在下方写下一个想法，或对 Norma 说“记一下……”",
+                                ui::i18n::text("drawers.no_todo"),
+                                ui::i18n::text("drawers.add_idea_hint"),
                             ))
                         })
                         .when(!screen.todo.is_empty(), |list| {
@@ -143,14 +143,14 @@ impl MultisoulApp {
                     .when(tab == IdeasTab::Assigned, |list| {
                         list.when(screen.assigned.is_empty(), |list| {
                             list.child(tab_empty(
-                                "还没有指派出去的想法",
-                                "把待办拖到智能体卡片上，或点“指派”",
+                                ui::i18n::text("drawers.no_assigned"),
+                                ui::i18n::text("drawers.assign_idea_hint"),
                             ))
                         })
                         .when(!screen.assigned.is_empty(), |list| {
                             list.child(clear_row(
                                 "desktop-ideas-assigned-clear",
-                                "已交给智能体的想法",
+                                ui::i18n::text("drawers.assigned_ideas"),
                                 feedback,
                                 cx.listener(|app, _, _, cx| {
                                     cx.stop_propagation();
@@ -167,12 +167,15 @@ impl MultisoulApp {
                     })
                     .when(tab == IdeasTab::Done, |list| {
                         list.when(screen.done.is_empty(), |list| {
-                            list.child(tab_empty("还没有完成的想法", "智能体完成后会出现在这里"))
+                            list.child(tab_empty(
+                                ui::i18n::text("drawers.no_completed"),
+                                ui::i18n::text("drawers.completed_hint"),
+                            ))
                         })
                         .when(!screen.done.is_empty(), |list| {
                             list.child(clear_row(
                                 "desktop-ideas-done-clear",
-                                "已完成的想法",
+                                ui::i18n::text("drawers.done_ideas"),
                                 feedback,
                                 cx.listener(|app, _, _, cx| {
                                     cx.stop_propagation();
@@ -287,7 +290,7 @@ impl MultisoulApp {
                                     .items_center()
                                     .text_size(px(11.0))
                                     .text_color(rgba(HELPER))
-                                    .child("回车添加  ·  Shift+回车换行  ·  可粘贴图片和链接"),
+                                    .child(ui::i18n::text("drawers.compose_hint")),
                             )
                         }),
                 )
@@ -338,7 +341,7 @@ impl MultisoulApp {
                             .child(
                                 Button::new("desktop-ideas-undo-button")
                                     .ghost()
-                                    .child("撤销")
+                                    .child(ui::i18n::text("drawers.undo"))
                                     .on_click(cx.listener(|app, _, _, cx| {
                                         cx.stop_propagation();
                                         app.undo_last_idea_action(cx);

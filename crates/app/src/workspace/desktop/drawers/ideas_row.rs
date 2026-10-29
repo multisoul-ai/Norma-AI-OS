@@ -171,7 +171,9 @@ impl MultisoulApp {
                     .border_1()
                     .border_color(rgba(0x83c4ff40))
                     .hover(|style| style.border_color(rgba(0x83c4ffa0)))
-                    .tooltip(|window, cx| Tooltip::new("打开图片").build(window, cx))
+                    .tooltip(|window, cx| {
+                        Tooltip::new(ui::i18n::text("drawers.open_image")).build(window, cx)
+                    })
                     .on_click(cx.listener(move |_, _, _, cx| {
                         cx.stop_propagation();
                         cx.open_url(&target);
@@ -247,12 +249,14 @@ impl MultisoulApp {
                 idea_pill(
                     ElementId::Name(format!("idea-assign-{assign_id}").into()),
                     if menu_open {
-                        "指派 ▴"
+                        ui::i18n::text("drawers.assign_up")
                     } else {
-                        "指派 ▾"
+                        ui::i18n::text("drawers.assign_down")
                     },
                 )
-                .tooltip(|window, cx| Tooltip::new("指派给智能体 · 回车").build(window, cx))
+                .tooltip(|window, cx| {
+                    Tooltip::new(ui::i18n::text("drawers.assign_tooltip")).build(window, cx)
+                })
                 .on_click(cx.listener(move |app, _, window, cx| {
                     cx.stop_propagation();
                     // 鼠标点开菜单后，↑/↓/回车/Esc 也要能用：焦点交给想法栏。
@@ -265,7 +269,9 @@ impl MultisoulApp {
                     ElementId::Name(format!("idea-delete-{delete_id}").into()),
                     "icons/close.svg",
                 )
-                .tooltip(|window, cx| Tooltip::new("删除 · Delete").build(window, cx))
+                .tooltip(|window, cx| {
+                    Tooltip::new(ui::i18n::text("drawers.delete_tooltip")).build(window, cx)
+                })
                 .on_click(cx.listener(move |app, _, _, cx| {
                     cx.stop_propagation();
                     app.delete_idea(&delete_id, cx);

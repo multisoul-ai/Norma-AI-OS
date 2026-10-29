@@ -1,3 +1,4 @@
+use super::ContentError;
 use super::Result;
 use std::{
     io::{Read, Seek, SeekFrom},
@@ -34,16 +35,16 @@ pub(super) fn git(root: &Path, args: &[&str]) -> Result<String> {
     let outcome = loop {
         match child.try_wait() {
             Ok(Some(status)) => break Ok(status),
-            Err(e) => break Err(e.to_string()),
+            Err(e) => break Err(ContentError::Diagnostic(e.to_string())),
             Ok(None) => {}
         }
         if stdout.metadata().map(|m| m.len()).unwrap_or(0) > 2 * 1024 * 1024
             || stderr.metadata().map(|m| m.len()).unwrap_or(0) > 2 * 1024 * 1024
         {
-            break Err("Git 输出过多，操作已停止；请刷新并检查实际结果".into());
+            break Err(ContentError::GitOutputLimit);
         }
         if start.elapsed() > Duration::from_secs(60) {
-            break Err("Git 操作超时，请刷新并检查实际结果".into());
+            break Err(ContentError::GitTimeout);
         }
         std::thread::sleep(Duration::from_millis(20));
     };
@@ -72,6 +73,6 @@ pub(super) fn git(root: &Path, args: &[&str]) -> Result<String> {
     if status.success() {
         Ok(message)
     } else {
-        Err(format!("Git 操作失败：{message}"))
+        Err(ContentError::GitFailed(message))
     }
 }

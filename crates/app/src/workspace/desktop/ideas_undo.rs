@@ -27,8 +27,13 @@ impl IdeaUndo {
     /// 撤销提示条上的文字。
     pub(crate) fn message(&self) -> String {
         match self {
-            Self::Delete { title, .. } => format!("已删除「{title}」"),
-            Self::ClearDone { ids, .. } => format!("已清空 {} 条已完成", ids.len()),
+            Self::Delete { title, .. } => {
+                ui::i18n::format("drawers.idea_deleted", &[("title", (title).to_string())])
+            }
+            Self::ClearDone { ids, .. } => ui::i18n::format(
+                "drawers.completed_cleared",
+                &[("arg0", (ids.len()).to_string())],
+            ),
         }
     }
 }
@@ -58,7 +63,7 @@ impl MultisoulApp {
             .collect();
         if ids.is_empty() {
             self.desktop_workspace.ideas_notice =
-                Some("没有可清空的：已指派的任务仍在运行或排队".to_owned());
+                Some(ui::i18n::LocalizedText::new("drawers.nothing_to_clear"));
             cx.notify();
             return;
         }

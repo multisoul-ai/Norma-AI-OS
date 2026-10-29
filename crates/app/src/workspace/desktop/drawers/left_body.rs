@@ -82,13 +82,13 @@ impl MultisoulApp {
                                         div()
                                             .text_size(px(10.0))
                                             .text_color(rgba(GLASS_TEXT_MUTED))
-                                            .child("当前对话"),
+                                            .child(ui::i18n::text("drawers.current_chat")),
                                     )
                                     .child(
                                         div()
                                             .font_semibold()
                                             .text_size(px(20.0))
-                                            .child("和 Norma 聊聊"),
+                                            .child(ui::i18n::text("drawers.chat_with_norma")),
                                     ),
                             )
                             .child(
@@ -106,7 +106,7 @@ impl MultisoulApp {
                                             .rounded_full()
                                             .bg(rgba(theme.accent_cyan)),
                                     )
-                                    .child("在线"),
+                                    .child(ui::i18n::text("drawers.online")),
                             ),
                     )
                     .child(
@@ -134,9 +134,12 @@ impl MultisoulApp {
                                             .hover(rgba(0x7bc7ff12).into())
                                             .active(rgba(0x7bc7ff25).into()),
                                     )
-                                    .tooltip(format!(
-                                        "语音对话 · {}",
-                                        self.shortcuts.voice_interaction_label()
+                                    .tooltip(ui::i18n::format(
+                                        "drawers.voice_chat",
+                                        &[(
+                                            "arg0",
+                                            (self.shortcuts.voice_interaction_label()).to_string(),
+                                        )],
                                     ))
                                     .on_click(cx.listener(|app, _, window, cx| {
                                         cx.stop_propagation();
@@ -159,22 +162,22 @@ impl MultisoulApp {
                                         div()
                                             .text_size(px(9.0))
                                             .text_color(rgba(theme.accent_cyan))
-                                            .child(
-                                                status.unwrap_or_else(|| "随时为你".to_owned()),
-                                            ),
+                                            .child(status.unwrap_or_else(|| {
+                                                ui::i18n::text("drawers.here_for_you").to_owned()
+                                            })),
                                     )
                                     .child(
                                         div()
                                             .font_semibold()
                                             .text_size(px(17.0))
                                             .pr(px(16.0))
-                                            .child("我在，随时开口。"),
+                                            .child(ui::i18n::text("drawers.voice_ready")),
                                     )
                                     .child(
                                         div()
                                             .text_size(px(11.0))
                                             .text_color(rgba(GLASS_TEXT_SECONDARY))
-                                            .child("有什么想一起做的？"),
+                                            .child(ui::i18n::text("drawers.what_to_do")),
                                     ),
                             ),
                     ),
@@ -196,7 +199,7 @@ impl MultisoulApp {
                     .child(super::chat_message::conversation_message(
                         0,
                         Speaker::Norma,
-                        "你好，我是 Norma。左边和我聊天，中间看项目画布，右边可用标签浏览网页、文件、图片和视频。".to_owned(),
+                        ui::i18n::text("drawers.welcome").to_owned(),
                         true,
                         width,
                     ))

@@ -29,7 +29,7 @@
 | `workspace` | `workspace-switch-shortcuts` | 切换工作空间 / 全部工作空间键位互换：浅色与深色下 ⇧⌘↑ 打开切换器、⇧⌘K 回到目录，Dock 悬浮提示与 `/help` 速查表显示新键位。键帽符号靠看图清单判定。 |
 | `canvas` | `canvas-drawers`、`canvas-project-drawers`、`canvas-content-tabs`、`canvas-delete-reflow` | 桌面画布外壳：左右抽屉独立开合及拖宽自动收起、悬浮概览折叠、真实项目画布与输入位置；右侧内容标签的恢复、切换与来源移除；删除第一张卡片后其余卡片补进空出的格子。 |
 
-| `content` | `content-workbench`、`content-home` | 右抽屉空态（`content-home`）：胶囊地址栏、六个工具磁贴与快捷键提示、推荐区、未实现入口的“即将支持”提示、文件磁贴打开工作台。工作台（`content-workbench`）：项目文件树、编辑保存、Git 暂存/提交（核对真实索引与 HEAD）、Markdown/HTML、图片缩放、视频播放与隐藏暂停、浏览器导航/会话保留、深浅主题。 |
+| `content` | `content-workbench`、`content-home` | 右抽屉空态（`content-home`）：胶囊地址栏、六个工具磁贴与快捷键提示、推荐区、未实现入口的“即将支持”提示、文件磁贴打开工作台；左右抽屉中英即时切换、已有输入框/错误更新和草稿保留。工作台（`content-workbench`）：项目文件树、编辑保存、Git 暂存/提交（核对真实索引与 HEAD）、Markdown/HTML、图片缩放、视频播放与隐藏暂停、浏览器导航/会话保留、深浅主题。 |
 | `content` | `content-terminal-path-link` | 终端里 Agent 回复的反引号路径（相对路径、含空格路径）点击后在右抽屉打开 Markdown 预览，并持久化文件标签。 |
 | `settings` | `settings-navigation`、`settings-basic-preferences`、`settings-responsive-keyboard`、`settings-space-wallpapers` | 两级导航、基础设置中的语言与节能、主题切换、太空壁纸选择与预览、持久化与重启恢复，以及键盘和窄窗口。 |
 

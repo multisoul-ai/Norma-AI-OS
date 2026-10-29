@@ -1,5 +1,32 @@
 use super::browser_input;
 
+/// 场景：地址栏拒绝本地协议后，缓存提示仍随界面语言更新。
+/// 数据构造：包含中文路径的 file 地址，属于已禁止上传或搜索的输入。
+/// 执行过程：解析一次，分别以中英文读取同一个错误。
+/// 预期结果：提示双语完整；错误不包含输入路径，解析不能返回网址。
+#[test]
+fn drawer_i18n_browser_error_switches_language_after_validation() {
+    let result = browser_input("file: /Users/用户/private.md");
+    assert!(result.is_err(), "本地文件协议必须拒绝");
+    let error = result.expect_err("应返回可本地化的错误");
+    assert_eq!(
+        error.resolve_for(ui::i18n::Locale::En),
+        "Use an HTTP or HTTPS URL. Open project files from Files.",
+        "英文界面不得显示中文校验提示"
+    );
+    assert_eq!(
+        error.resolve_for(ui::i18n::Locale::ZhCn),
+        "浏览器支持 HTTP 和 HTTPS 地址；项目文件请从文件入口打开",
+        "已存在的错误切回中文后应更新"
+    );
+    assert!(
+        !error
+            .resolve_for(ui::i18n::Locale::En)
+            .contains("private.md"),
+        "错误模板不得泄漏本地路径"
+    );
+}
+
 /// 场景：同一地址栏接受开发服务器、普通网址和搜索词。
 /// 数据构造：无协议 localhost、显式 HTTPS、带空格的搜索词及危险/本地 URI。
 /// 执行过程：通过纯输入适配器解析。

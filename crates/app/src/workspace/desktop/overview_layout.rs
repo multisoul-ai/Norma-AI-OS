@@ -101,15 +101,21 @@ impl OverviewGroup {
     /// 栏内没有内容时的（标题，提示）。
     pub(super) fn empty_copy(self) -> (&'static str, &'static str) {
         match self {
-            Self::Attention => ("没有需要你处理的事", "审核、成果和待查看文件会出现在这里"),
-            Self::Running => (
-                "没有正在运行的智能体",
-                "对 Norma 说“新建一个 Claude”，或把想法拖给智能体",
+            Self::Attention => (
+                ui::i18n::text("drawers.no_attention"),
+                ui::i18n::text("drawers.attention_hint"),
             ),
-            Self::Idle => ("没有空闲的智能体", "所有智能体都在工作"),
+            Self::Running => (
+                ui::i18n::text("drawers.no_running"),
+                ui::i18n::text("drawers.start_agent_hint"),
+            ),
+            Self::Idle => (
+                ui::i18n::text("drawers.no_idle"),
+                ui::i18n::text("drawers.all_working"),
+            ),
             Self::Ideas => (
-                "还没有想法",
-                "对 Norma 说“记一下：…”，或在下方输入；记下后拖到智能体卡片即可开工",
+                ui::i18n::text("drawers.no_ideas"),
+                ui::i18n::text("drawers.ideas_hint"),
             ),
         }
     }

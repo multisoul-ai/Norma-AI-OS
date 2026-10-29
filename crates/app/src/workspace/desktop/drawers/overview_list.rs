@@ -22,7 +22,7 @@ impl MultisoulApp {
     /// 顶部三张统计卡，其后四栏固定顺序：需要你处理 → 运行中 → 待开始 → 想法。每栏有基准高度，
     /// 内容多了栏内滚动；折叠的栏只剩一行标题，空出的高度让给其余栏。
     pub(super) fn render_run_overview(&mut self, cx: &mut Context<Self>) -> Stateful<Div> {
-        let screen = self.presented_overview();
+        let screen = self.presented_overview(cx);
         let mut counts = screen.summary();
         counts[0] += self.brain_overview().proposals.len();
         let cursor = self.desktop_workspace.overview_cursor;
@@ -167,7 +167,7 @@ impl MultisoulApp {
         let hover = feedback.hover;
         let pressed = feedback.pressed;
         let title = match (group, section) {
-            (OverviewGroup::Ideas, _) => "想法".to_owned(),
+            (OverviewGroup::Ideas, _) => ui::i18n::text("drawers.ideas").to_owned(),
             (_, Some(section)) => section.title.clone(),
             _ => String::new(),
         };
@@ -284,7 +284,7 @@ impl MultisoulApp {
                     app.prelight_overview(prelight.clone(), cx);
                 } else if app.desktop_workspace.overview_prelight == prelight {
                     let fallback = app.desktop_workspace.overview_cursor.and_then(|index| {
-                        app.presented_overview()
+                        app.presented_overview(cx)
                             .row(index)
                             .and_then(|row| row.prelight.clone())
                     });
@@ -441,8 +441,8 @@ fn decision_buttons(
             .flex()
             .items_center()
             .gap(px(4.0))
-            .child(make("allow", "允许", true, cx))
-            .child(make("deny", "拒绝", false, cx)),
+            .child(make("allow", ui::i18n::text("drawers.allow"), true, cx))
+            .child(make("deny", ui::i18n::text("drawers.deny"), false, cx)),
     )
 }
 

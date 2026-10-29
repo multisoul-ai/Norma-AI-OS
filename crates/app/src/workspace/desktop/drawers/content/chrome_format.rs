@@ -41,20 +41,21 @@ pub(super) fn reader_chrome_colors(theme: ui::Theme) -> ReaderChromeColors {
 
 pub(super) fn content_kind_label(kind: DesktopContentKind) -> &'static str {
     match kind {
-        DesktopContentKind::Browser => "网页",
-        DesktopContentKind::File | DesktopContentKind::ProjectFiles => "文件",
+        DesktopContentKind::Browser => ui::i18n::text("drawers.web"),
+        DesktopContentKind::File | DesktopContentKind::ProjectFiles => {
+            ui::i18n::text("drawers.files")
+        }
     }
 }
 
 pub(super) fn content_context_title(tab: &DesktopContentTab) -> String {
     let base = match tab.kind {
         DesktopContentKind::Browser => browser_context_title(&tab.resource, &tab.title),
-        DesktopContentKind::File | DesktopContentKind::ProjectFiles => {
-            file_context_title(&tab.resource, &tab.title)
-        }
+        DesktopContentKind::ProjectFiles => ui::i18n::text("drawers.files").to_string(),
+        DesktopContentKind::File => file_context_title(&tab.resource, &tab.title),
     };
     if tab.source_removed {
-        format!("{base} · 来源已移除")
+        ui::i18n::format("drawers.source_removed", &[("base", (base).to_string())])
     } else {
         base
     }
@@ -74,6 +75,9 @@ pub(super) fn content_icon(kind: DesktopContentKind) -> &'static str {
 }
 
 fn browser_context_title(resource: &str, title: &str) -> String {
+    if resource == "about:blank" {
+        return ui::i18n::text("drawers.browser").to_string();
+    }
     let host = url::Url::parse(resource).ok().and_then(|url| {
         url.host_str()
             .map(|host| host.strip_prefix("www.").unwrap_or(host).to_string())
@@ -97,4 +101,15 @@ fn file_context_title(resource: &str, title: &str) -> String {
         .and_then(|name| name.to_str())
         .unwrap_or(resource)
         .to_string()
+}
+
+/// Only labels owned by the workbench or blank browser are translated.
+pub(super) fn content_tab_title(tab: &DesktopContentTab) -> String {
+    match tab.kind {
+        DesktopContentKind::ProjectFiles => ui::i18n::text("drawers.files").into(),
+        DesktopContentKind::Browser if tab.resource == "about:blank" => {
+            ui::i18n::text("drawers.browser").into()
+        }
+        _ => tab.title.clone(),
+    }
 }

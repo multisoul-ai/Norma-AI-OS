@@ -48,7 +48,7 @@ impl MultisoulApp {
                     .pb(px(6.0))
                     .text_size(px(11.0))
                     .text_color(rgba(GROUP_TITLE))
-                    .child("交给谁来做"),
+                    .child(ui::i18n::text("drawers.assign_to_whom")),
             )
             .children(options.iter().enumerate().map(|(index, option)| {
                 let target = IdeaUiTarget::Existing {
@@ -89,7 +89,7 @@ impl MultisoulApp {
                 menu_item(
                     MenuItem {
                         id: "desktop-idea-target-new".to_owned(),
-                        label: "新建智能体来完成".to_owned(),
+                        label: ui::i18n::text("drawers.new_agent").to_owned(),
                         detail: None,
                         accent: true,
                         dot: Dot::NewAgent,

@@ -40,22 +40,24 @@ impl MultisoulApp {
                         .flex()
                         .flex_col()
                         .gap(px(12.0))
-                        .child("撤销这些文件的未暂存修改？已暂存内容会保留。")
+                        .child(ui::i18n::text("drawers.discard_confirm"))
                         .child(paths.join("\n"))
                         .child(
                             Button::new("files-discard-confirm")
-                                .label("确认撤销")
+                                .label(ui::i18n::text("drawers.discard"))
                                 .on_click(cx.listener(move |app, _, _, cx| {
                                     app.desktop_workspace.workbench.confirm_discard = None;
                                     app.workbench_git_action(GitAction::Discard(paths.clone()), cx);
                                 })),
                         )
-                        .child(Button::new("files-discard-cancel").label("取消").on_click(
-                            cx.listener(|app, _, _, cx| {
-                                app.desktop_workspace.workbench.confirm_discard = None;
-                                cx.notify();
-                            }),
-                        )),
+                        .child(
+                            Button::new("files-discard-cancel")
+                                .label(ui::i18n::text("drawers.cancel"))
+                                .on_click(cx.listener(|app, _, _, cx| {
+                                    app.desktop_workspace.workbench.confirm_discard = None;
+                                    cx.notify();
+                                })),
+                        ),
                 )
                 .into_any_element();
         }
@@ -127,16 +129,16 @@ impl MultisoulApp {
             .flex()
             .flex_col()
             .gap(px(6.0))
-            .child("有未保存的修改，请保存或放弃后关闭。")
+            .child(ui::i18n::text("drawers.unsaved_changes"))
             .child(
                 Button::new("files-close-save")
-                    .label("保存全部")
+                    .label(ui::i18n::text("drawers.save_all"))
                     .disabled(self.desktop_workspace.workbench.busy)
                     .on_click(cx.listener(|app, _, _, cx| app.save_all_workbench_drafts(cx))),
             )
             .child(
                 Button::new("files-close-discard")
-                    .label("放弃草稿并继续")
+                    .label(ui::i18n::text("drawers.discard_drafts"))
                     .disabled(
                         self.desktop_workspace
                             .workbench
@@ -152,7 +154,7 @@ impl MultisoulApp {
             )
             .child(
                 Button::new("files-close-cancel")
-                    .label("取消")
+                    .label(ui::i18n::text("drawers.cancel"))
                     .on_click(cx.listener(|app, _, _, cx| {
                         app.desktop_workspace.workbench.pending_close = None;
                         cx.notify();

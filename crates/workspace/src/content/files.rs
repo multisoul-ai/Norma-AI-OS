@@ -1,3 +1,4 @@
+use super::ContentError;
 use super::{Project, Result};
 use std::{
     io::{Read, Write},
@@ -84,7 +85,7 @@ impl Project {
                     matches.push(entry);
                 }
                 if matches.len() > 20_000 {
-                    return Err("筛选结果过多，请输入更具体的文件名".into());
+                    return Err(ContentError::SearchLimit);
                 }
             }
         }
@@ -95,20 +96,20 @@ impl Project {
         let path = self.resolve(relative)?;
         let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
         if !file.metadata().map_err(|e| e.to_string())?.is_file() {
-            return Err("不是普通文件".into());
+            return Err(ContentError::NotRegularFile);
         }
         let mut bytes = Vec::new();
         file.take(MAX_TEXT_BYTES + 1)
             .read_to_end(&mut bytes)
             .map_err(|e| e.to_string())?;
         if bytes.len() as u64 > MAX_TEXT_BYTES {
-            return Err("文件超过 1 MiB，请使用系统应用打开".into());
+            return Err(ContentError::FileTooLarge);
         }
         if bytes.contains(&0) {
-            return Err("二进制文件不支持文本编辑".into());
+            return Err(ContentError::BinaryFile);
         }
         let version = fingerprint(&bytes);
-        let text = String::from_utf8(bytes).map_err(|_| "不是 UTF-8 文本，请使用系统应用打开")?;
+        let text = String::from_utf8(bytes).map_err(|_| ContentError::InvalidUtf8)?;
         Ok(TextFile { text, version })
     }
 
@@ -117,24 +118,25 @@ impl Project {
             .lock()
             .map_err(|e| e.to_string())?;
         if text.len() as u64 > MAX_TEXT_BYTES {
-            return Err("文本超过 1 MiB".into());
+            return Err(ContentError::TextTooLarge);
         }
         let target = self.resolve(relative)?;
         let permissions = std::fs::metadata(&target)
             .map_err(|e| e.to_string())?
             .permissions();
         if permissions.readonly() {
-            return Err("文件为只读".into());
+            return Err(ContentError::ReadOnly);
         }
-        let mut file = tempfile::NamedTempFile::new_in(target.parent().ok_or("缺少父目录")?)
-            .map_err(|e| e.to_string())?;
+        let mut file =
+            tempfile::NamedTempFile::new_in(target.parent().ok_or(ContentError::ParentMissing)?)
+                .map_err(|e| e.to_string())?;
         file.write_all(text.as_bytes()).map_err(|e| e.to_string())?;
         file.as_file()
             .set_permissions(permissions)
             .map_err(|e| e.to_string())?;
         file.as_file().sync_all().map_err(|e| e.to_string())?;
         if self.read_text(relative)?.version != version {
-            return Err("文件已被外部修改，草稿已保留；请重新载入后合并".into());
+            return Err(ContentError::FileChanged);
         }
         super::atomic::replace_checked(file, &target, version)?;
         Ok(TextFile {

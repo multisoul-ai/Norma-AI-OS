@@ -1,4 +1,64 @@
+#[path = "../support/drawer_locale.rs"]
+mod drawer_locale;
+use drawer_locale::expected_copy;
+
 use storage::DesktopContentKind;
+
+/// 场景：持久化的系统标签重新展示时随语言变化，文件/网页的用户标题保持原文。
+/// 数据构造：同一旧中文标签分别作为文件工作台、空白浏览器和真实文件标题。
+/// 执行过程：切换中英文后读取标签标题，最后恢复测试前语言。
+/// 预期结果：系统标签翻译；名为“文件”的真实文件不会因为碰巧同名而被翻译。
+#[test]
+fn drawer_i18n_persisted_system_tab_titles_follow_locale() {
+    let previous = ui::i18n::Locale::current();
+    let mut tab = storage::DesktopContentTab {
+        instance_id: String::new(),
+        preview_type: None,
+        id: "test".into(),
+        workspace_id: "workspace".into(),
+        source_area_id: None,
+        source_project_name: "用户项目".into(),
+        kind: DesktopContentKind::ProjectFiles,
+        resource: "project-files".into(),
+        version: None,
+        title: "文件".into(),
+        position: 0,
+        selected: true,
+        source_removed: false,
+    };
+    for (locale, files, browser) in [
+        (ui::i18n::Locale::En, "Files", "Browser"),
+        (ui::i18n::Locale::ZhCn, "文件", "浏览器"),
+    ] {
+        locale.apply();
+        tab.kind = DesktopContentKind::ProjectFiles;
+        assert_eq!(
+            super::chrome_format::content_tab_title(&tab),
+            files,
+            "工作台标题由类型决定"
+        );
+        tab.kind = DesktopContentKind::Browser;
+        tab.resource = "about:blank".into();
+        assert_eq!(
+            super::chrome_format::content_tab_title(&tab),
+            browser,
+            "空白页标签随语言切换"
+        );
+        tab.kind = DesktopContentKind::File;
+        tab.resource = "/tmp/文件".into();
+        assert_eq!(
+            super::chrome_format::content_tab_title(&tab),
+            "文件",
+            "用户标题始终保持原文"
+        );
+        assert_ne!(
+            super::chrome_format::content_tab_title(&tab),
+            "Files",
+            "不能根据文字匹配误译文件标题"
+        );
+    }
+    previous.apply();
+}
 
 /// 浏览器上下文标题应写成原型里的「主机名 · 页面名」，并去掉 www。
 ///
@@ -55,7 +115,10 @@ fn browser_context_title_matches_prototype_host_and_page() {
     };
     assert_eq!(
         super::chrome::content_context_title(&removed),
-        "apple.com · Apple Intelligence · 来源已移除",
+        expected_copy(
+            "apple.com · Apple Intelligence · 来源已移除",
+            "apple.com · Apple Intelligence · Source removed"
+        ),
         "来源项目移除后标题必须带说明"
     );
 }

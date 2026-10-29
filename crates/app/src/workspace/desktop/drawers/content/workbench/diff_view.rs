@@ -25,11 +25,14 @@ impl MultisoulApp {
         let (added, removed) = diff_stats(&lines);
         let local = s.saved.comparison == Comparison::Local;
         let scope = match (&s.saved.comparison, s.diff_staged) {
-            (Comparison::Local, true) => "已暂存".to_string(),
-            (Comparison::Local, false) => "未暂存".to_string(),
+            (Comparison::Local, true) => ui::i18n::text("drawers.staged").to_string(),
+            (Comparison::Local, false) => ui::i18n::text("drawers.unstaged").to_string(),
             (Comparison::Branch(target), _) => format!(
                 "{} → {target}",
-                s.git.as_ref().map(|g| g.branch.as_str()).unwrap_or("HEAD")
+                s.git
+                    .as_ref()
+                    .and_then(|g| g.branch.as_deref())
+                    .unwrap_or_else(|| ui::i18n::text("drawers.content_no_commits"))
             ),
         };
         let pill = |children: Vec<AnyElement>| {
@@ -64,11 +67,15 @@ impl MultisoulApp {
         };
         let mut summary = vec![pill(vec![div().child(scope).into_any_element()])];
         if !local {
-            let mut with_counts = vec![div().child("分支").into_any_element()];
+            let mut with_counts = vec![div()
+                .child(ui::i18n::text("drawers.branch"))
+                .into_any_element()];
             with_counts.extend(counts(true));
             summary.insert(0, pill(with_counts));
         } else {
-            let mut with_counts = vec![div().child("变更").into_any_element()];
+            let mut with_counts = vec![div()
+                .child(ui::i18n::text("drawers.changes"))
+                .into_any_element()];
             with_counts.extend(counts(true));
             summary.push(pill(with_counts));
         }
@@ -103,9 +110,9 @@ impl MultisoulApp {
                 .text_size(px(12.0))
                 .text_color(rgba(TEXT_MUTED))
                 .child(if is_binary_patch(patch) {
-                    "二进制文件，没有可显示的文本差异"
+                    ui::i18n::text("drawers.binary_diff")
                 } else {
-                    "没有可显示的差异"
+                    ui::i18n::text("drawers.no_diff")
                 })
                 .into_any_element()
         } else {

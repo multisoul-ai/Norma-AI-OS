@@ -12,6 +12,41 @@ spec.loader.exec_module(checker)
 
 
 class CatalogTests(unittest.TestCase):
+    # 场景：工作台后端的产品错误不能提前固化为中文。
+    # 数据构造：一个返回硬编码中文错误的领域文件。
+    # 执行过程：扫描 workspace 的生产源码。
+    # 预期结果：拦截错误提示，提醒使用语义错误类型供展示层翻译。
+    def test_workbench_domain_copy_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "crates/workspace/src/content/files.rs"
+            source.parent.mkdir(parents=True)
+            source.write_text('fn save() { Err("文件为只读".into()) }')
+            errors = checker.check_sources(root, set())
+            self.assertEqual(len(errors), 1, "领域产品提示也应被检查")
+            self.assertIn("文件为只读", errors[0], "须指出具体硬编码提示")
+
+    # 场景：抽屉状态 helper、工具表与缓存提示中的硬编码也必须被发现。
+    # 数据构造：返回值、数组、format 提示各一条，外加中文注释和测试断言。
+    # 执行过程：在隔离抽屉模块执行生产扫描入口。
+    # 预期结果：三条产品文字报错；注释、测试说明和合法文案键不报错。
+    def test_drawer_indirect_copy_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "crates/app/src/workspace/desktop/drawers/content/home_tools.rs"
+            source.parent.mkdir(parents=True)
+            source.write_text('fn label() { match state { Running => "运行中", _ => ui::i18n::text("drawer.ready") } }\n'
+                              'const TOOLS: &[&str] = &["项目进度"];\n'
+                              'state.notice = Some(format!("派发失败：{error}"));\n'
+                              '// 注释里的 "中文说明" 无需翻译\n'
+                              '#[cfg(test)]\nmod tests { assert!(true, "测试说明"); }')
+            errors = checker.check_sources(root, {"drawer.ready"})
+            self.assertEqual(len(errors), 3, "三条间接产品文案都必须被拦截")
+            for text in ["运行中", "项目进度", "派发失败"]:
+                self.assertTrue(any(text in error for error in errors), f"必须检出 {text}")
+            self.assertFalse(any("中文说明" in error or "测试说明" in error for error in errors),
+                             "注释及测试不是产品文案")
+
     # 场景：不完整双语键与命名占位符不一致必须被拦截。
     # 数据构造：英文 2 个键，中文 1 个键；same 的英文参数 path，中文参数 reason。
     # 执行过程：写入隔离词库 → 调用校验 → 读取两条具体错误。

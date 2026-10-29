@@ -118,7 +118,7 @@ pub(crate) struct DesktopWorkspaceUiState {
     /// 清空「已完成」后、撤销窗口内暂不显示（也还没真正删除）的想法。
     pub(crate) ideas_pending_purge: std::collections::HashSet<String>,
     pub(crate) ideas_undo_timer: Option<gpui::Task<()>>,
-    pub(crate) ideas_notice: Option<String>,
+    pub(crate) ideas_notice: Option<ui::i18n::LocalizedText>,
     /// 想法栏当前的分段（待办 / 已指派 / 已完成）。
     pub(crate) ideas_tab: ideas_rows::IdeasTab,
     /// 左抽屉里想法行的大致位置（窗口坐标）：键盘、对话等没有具体行位置的派发，流星从这里出发。
@@ -147,7 +147,7 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) content_tab_generation: u64,
     pub(crate) content_workspace_epoch: u64,
     pub(crate) workspace_load_generation: u64,
-    pub(crate) content_previews: HashMap<String, Result<String, String>>,
+    pub(crate) content_previews: HashMap<String, Result<String, ui::i18n::LocalizedText>>,
     pub(crate) content_snapshots: HashMap<String, tempfile::TempPath>,
     pub(crate) content_resources: HashMap<String, crate::preview::local_content::LocalPreview>,
     pub(crate) content_loading: HashSet<String>,

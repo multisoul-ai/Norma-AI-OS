@@ -228,7 +228,10 @@ pub(super) fn live_agents(project: &MultisoulApp) -> Vec<DesktopAgentStatus> {
                 Some(DesktopAgentStatus {
                     node_id: node.id,
                     name: "Ego Lite".into(),
-                    task: ego.task_space_name.clone().or(Some("网页任务".into())),
+                    task: ego
+                        .task_space_name
+                        .clone()
+                        .or(Some(ui::i18n::text("drawers.web_task").into())),
                     state: state.into(),
                     run_id: None,
                     turn_id: None,
@@ -241,25 +244,25 @@ pub(super) fn live_agents(project: &MultisoulApp) -> Vec<DesktopAgentStatus> {
 
 pub(super) fn state_label(state: &str) -> &'static str {
     match state {
-        "ready" => "待命",
-        "thinking" => "思考中",
-        "running_tool" => "执行中",
-        "waiting_approval" => "待审核",
-        "done" => "已完成",
-        "failed" => "失败",
-        "ended" => "已结束",
-        "ego_creating" => "创建中",
-        "ego_ready" => "待命",
-        "ego_preparing" => "准备中",
-        "ego_working" => "执行中",
-        "ego_awaiting_user" => "等待接管",
-        "ego_user_controlling" => "用户接管中",
-        "ego_resuming" => "恢复中",
-        "ego_completed" => "已完成",
-        "ego_failed" => "失败",
-        "ego_disconnected" => "已断开",
-        "ego_agent_stopped" => "Agent 已结束，网页状态待同步",
-        _ => "未运行",
+        "ready" => ui::i18n::text("drawers.ready"),
+        "thinking" => ui::i18n::text("drawers.thinking"),
+        "running_tool" => ui::i18n::text("drawers.working"),
+        "waiting_approval" => ui::i18n::text("drawers.pending_approval"),
+        "done" => ui::i18n::text("drawers.done"),
+        "failed" => ui::i18n::text("drawers.failed"),
+        "ended" => ui::i18n::text("drawers.ended"),
+        "ego_creating" => ui::i18n::text("drawers.creating"),
+        "ego_ready" => ui::i18n::text("drawers.ready"),
+        "ego_preparing" => ui::i18n::text("drawers.preparing"),
+        "ego_working" => ui::i18n::text("drawers.working"),
+        "ego_awaiting_user" => ui::i18n::text("drawers.awaiting_takeover"),
+        "ego_user_controlling" => ui::i18n::text("drawers.user_controlling"),
+        "ego_resuming" => ui::i18n::text("drawers.resuming"),
+        "ego_completed" => ui::i18n::text("drawers.done"),
+        "ego_failed" => ui::i18n::text("drawers.failed"),
+        "ego_disconnected" => ui::i18n::text("drawers.disconnected"),
+        "ego_agent_stopped" => ui::i18n::text("drawers.agent_stopped"),
+        _ => ui::i18n::text("drawers.not_running"),
     }
 }
 

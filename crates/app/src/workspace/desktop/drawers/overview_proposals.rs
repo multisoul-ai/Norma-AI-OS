@@ -225,7 +225,7 @@ impl MultisoulApp {
                     result.map(|_| ()).map_err(|error| error.to_string())
                 }
                 futures::future::Either::Right(_) => {
-                    Err("context_prepare_timeout：状态读取超时，请稍后重试".into())
+                    Err(ui::i18n::text("drawers.context_timeout").into())
                 }
             };
             let dispatched = this.update(cx, |host, cx| {
@@ -240,7 +240,7 @@ impl MultisoulApp {
                                 .shared_context_service()
                                 .is_ok_and(|current| current.scope() == service.scope())
                         {
-                            return Err("context_scope_mismatch：来源项目已改变".into());
+                            return Err(ui::i18n::text("drawers.context_mismatch").into());
                         }
                         let result = app.dispatch_brain_proposal(id);
                         cx.notify();
@@ -273,8 +273,9 @@ impl MultisoulApp {
                             })
                             .unwrap_or(false);
                         if current {
-                            host.desktop_workspace.error =
-                                Some("任务已接收，但来源未确认保存；请勿重复派发".into());
+                            host.desktop_workspace.error = Some(ui::i18n::LocalizedText::new(
+                                "drawers.assignment_unconfirmed",
+                            ));
                             cx.notify();
                         }
                     });
@@ -289,7 +290,7 @@ impl MultisoulApp {
             .unwrap_or(false);
         if !declined {
             self.desktop_workspace.error =
-                Some(ui::i18n::text("chrome.brain_proposal_closed").into());
+                Some(ui::i18n::LocalizedText::new("chrome.brain_proposal_closed"));
         }
         self.refresh_brain_overview(cx);
         cx.notify();

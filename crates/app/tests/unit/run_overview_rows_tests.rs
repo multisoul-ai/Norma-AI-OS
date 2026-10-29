@@ -1,3 +1,11 @@
+#[path = "../support/run_overview_rows.rs"]
+mod fixtures;
+use fixtures::sample;
+
+#[path = "../support/drawer_locale.rs"]
+mod drawer_locale;
+use drawer_locale::expected_copy;
+
 use super::{
     move_overview_cursor, overview_action_keeps_overview, overview_action_starts_project,
     overview_feedback, overview_row_height, overview_tone, present_overview, OverviewAction,
@@ -5,8 +13,7 @@ use super::{
     OVERVIEW_TEXT_PRIMARY, OVERVIEW_TEXT_SECONDARY,
 };
 use norma::mobile::{
-    RunOverview, RunOverviewAgent, RunOverviewAttention, RunOverviewAttentionKind,
-    RunOverviewPresence, RunOverviewProject, TaskProgress, WorkspaceActivityStatus,
+    RunOverview, RunOverviewAttention, RunOverviewAttentionKind, RunOverviewPresence,
 };
 use ui::Theme;
 
@@ -28,11 +35,23 @@ fn overview_rows_use_prototype_copy_without_percentages() {
     let now = 1_800_000_000_000;
     let screen = present_overview(&sample(now), &[], now);
     assert_eq!(screen.sections.len(), 3, "必须有三组");
-    assert_eq!(screen.sections[0].title, "需要你处理");
+    assert_eq!(
+        screen.sections[0].title,
+        expected_copy("需要你处理", "Needs attention"),
+        "产品文案应符合当前界面语言"
+    );
     assert_eq!(screen.sections[0].count, Some(4), "待处理计数等于行数");
-    assert_eq!(screen.sections[1].title, "运行中");
+    assert_eq!(
+        screen.sections[1].title,
+        expected_copy("运行中", "Running"),
+        "产品文案应符合当前界面语言"
+    );
     assert_eq!(screen.sections[1].count, Some(2), "运行中按智能体计数");
-    assert_eq!(screen.sections[2].title, "待开始");
+    assert_eq!(
+        screen.sections[2].title,
+        expected_copy("待开始", "Not started"),
+        "产品文案应符合当前界面语言"
+    );
     assert_eq!(
         screen.sections[2].count,
         Some(1),
@@ -44,9 +63,17 @@ fn overview_rows_use_prototype_copy_without_percentages() {
         "待开始组尾部跟着未加载项目行"
     );
     let attention = &screen.sections[0].rows;
-    assert_eq!(attention[0].primary, "待审核 · 抽屉视觉方案");
+    assert_eq!(
+        attention[0].primary,
+        expected_copy("待审核 · 抽屉视觉方案", "Needs approval · 抽屉视觉方案"),
+        "产品文案应符合当前界面语言"
+    );
     assert_eq!(attention[0].secondary, "Bella · Norma-AI-OS");
-    assert_eq!(attention[0].action_label, "定位");
+    assert_eq!(
+        attention[0].action_label,
+        expected_copy("定位", "Locate"),
+        "产品文案应符合当前界面语言"
+    );
     assert!(attention[0].enabled, "已加载的审核可以定位");
     assert_eq!(attention[0].height, 48.0, "待处理行高 48px");
     assert!(
@@ -75,14 +102,29 @@ fn overview_rows_use_prototype_copy_without_percentages() {
         }
         other => panic!("第二条成果也应打开变更，实际是 {other:?}"),
     }
-    assert_eq!(attention[3].primary, "待查看文件 · index.html");
+    assert_eq!(
+        attention[3].primary,
+        expected_copy(
+            "待查看文件 · index.html",
+            "File ready for review · index.html"
+        ),
+        "产品文案应符合当前界面语言"
+    );
     assert_eq!(
         attention[3].secondary, "Bella · Norma-AI-OS",
         "文件行写智能体和项目"
     );
     let agents = &screen.sections[1].rows;
-    assert_eq!(agents[0].status_label.as_deref(), Some("运行中"));
-    assert_eq!(agents[0].approval_badge.as_deref(), Some("1 待审核"));
+    assert_eq!(
+        agents[0].status_label.as_deref(),
+        Some(expected_copy("运行中", "Running")),
+        "产品文案应符合当前界面语言"
+    );
+    assert_eq!(
+        agents[0].approval_badge.as_deref(),
+        Some(expected_copy("1 待审核", "Needs approval: 1")),
+        "产品文案应符合当前界面语言"
+    );
     assert_eq!(
         agents[0].primary, "调整原型布局与透明材质",
         "主标题是会话名称"
@@ -95,7 +137,11 @@ fn overview_rows_use_prototype_copy_without_percentages() {
     );
     assert_eq!(
         agents[0].detail.as_deref(),
-        Some("第 5/6 项 · 原型交互验收 · 已运行 18 分")
+        Some(expected_copy(
+            "第 5/6 项 · 原型交互验收 · 已运行 18 分",
+            "Step 5/6 · 原型交互验收 · Running for 18 min"
+        )),
+        "产品文案应符合当前界面语言"
     );
     assert_eq!(
         agents[0].progress.as_deref(),
@@ -115,20 +161,40 @@ fn overview_rows_use_prototype_copy_without_percentages() {
     assert!(agents[1].progress.is_none(), "没有待办就不画进度条");
     assert_eq!(
         agents[1].detail.as_deref(),
-        Some("运行中 · 读取画布 · 已运行不到 1 分")
+        Some(expected_copy(
+            "运行中 · 读取画布 · 已运行不到 1 分",
+            "Running · 读取画布 · Running for less than 1 min"
+        )),
+        "产品文案应符合当前界面语言"
     );
     assert!(agents[1].approval_badge.is_none(), "Rio 没有待审核标记");
     let idle = &screen.sections[2].rows[0];
-    assert_eq!(idle.status_label.as_deref(), Some("待开始"));
-    assert_eq!(idle.detail.as_deref(), Some("尚未开始"));
+    assert_eq!(
+        idle.status_label.as_deref(),
+        Some(expected_copy("待开始", "Not started")),
+        "产品文案应符合当前界面语言"
+    );
+    assert_eq!(
+        idle.detail.as_deref(),
+        Some(expected_copy("尚未开始", "Not started yet")),
+        "产品文案应符合当前界面语言"
+    );
     assert!(idle.progress.is_none(), "待开始不画进度条");
     let other = &screen.sections[2].rows[1];
     assert_eq!(other.primary, "设计草稿");
     assert_eq!(
         other.secondary,
-        "1 个智能体 · 上次状态 空闲 · 12 分钟前 · 未加载"
+        expected_copy(
+            "1 个智能体 · 上次状态 空闲 · 12 分钟前 · 未加载",
+            "Agents: 1 · Last status: Idle · 12 min ago · Not loaded"
+        ),
+        "产品文案应符合当前界面语言"
     );
-    assert_eq!(other.action_label, "切换");
+    assert_eq!(
+        other.action_label,
+        expected_copy("切换", "Switch"),
+        "产品文案应符合当前界面语言"
+    );
     assert!(
         overview_action_starts_project(&other.action),
         "切换才会进入项目页"
@@ -214,7 +280,11 @@ fn stoppable_ego_row_uses_the_existing_stop_action() {
         }
         other => panic!("可停止的 Ego 应提供停止任务，实际是 {other:?}"),
     }
-    assert_eq!(stopped.sections[1].rows[0].action_label, "停止任务");
+    assert_eq!(
+        stopped.sections[1].rows[0].action_label,
+        expected_copy("停止任务", "Stop task"),
+        "产品文案应符合当前界面语言"
+    );
     let plain = present_overview(&overview, &[], now);
     assert!(
         matches!(
@@ -224,7 +294,8 @@ fn stoppable_ego_row_uses_the_existing_stop_action() {
         "没有绑定任务时仍定位卡片"
     );
     assert_ne!(
-        plain.sections[1].rows[0].action_label, "停止任务",
+        plain.sections[1].rows[0].action_label,
+        expected_copy("停止任务", "Stop task"),
         "没有可停止任务时不显示停止"
     );
 }
@@ -332,146 +403,6 @@ fn overview_row_feedback_is_distinct_in_light_and_dark_themes() {
     assert_ne!(night_tone.running, night_tone.idle);
     assert_ne!(night_tone.failed, night_tone.idle);
     let _ = OverviewStatusTone::Running;
-}
-
-fn sample(now: u64) -> RunOverview {
-    RunOverview {
-        attention: vec![
-            attention(
-                RunOverviewAttentionKind::Approval,
-                "抽屉视觉方案",
-                1,
-                true,
-                "run-1",
-                "turn-1",
-                vec![],
-            ),
-            attention(
-                RunOverviewAttentionKind::Review,
-                "布局验收结果",
-                1,
-                true,
-                "run-r",
-                "turn-r",
-                vec!["docs/prototypes/norma-assistant/index.html".into()],
-            ),
-            attention(
-                RunOverviewAttentionKind::Review,
-                "多文件成果",
-                1,
-                true,
-                "run-m",
-                "turn-m",
-                vec!["a.rs".into(), "b.rs".into()],
-            ),
-            attention(
-                RunOverviewAttentionKind::File,
-                "index.html",
-                1,
-                true,
-                "",
-                "turn-f",
-                vec!["docs/prototypes/norma-assistant/index.html".into()],
-            ),
-        ],
-        running: vec![
-            agent(
-                "Bella",
-                1,
-                RunOverviewPresence::Running,
-                Some(progress()),
-                Some(now - 1_080_000),
-                1,
-                Some("调整原型布局与透明材质"),
-            ),
-            agent(
-                "Rio",
-                2,
-                RunOverviewPresence::Running,
-                None,
-                Some(now - 30_000),
-                0,
-                Some("读取画布"),
-            ),
-        ],
-        idle: vec![agent(
-            "Bruno",
-            8,
-            RunOverviewPresence::Idle,
-            None,
-            None,
-            0,
-            Some("检查抽屉响应式布局"),
-        )],
-        unloaded_projects: vec![RunOverviewProject {
-            area_id: "area-other".into(),
-            order: 2,
-            name: "设计草稿".into(),
-            agent_count: 1,
-            status: WorkspaceActivityStatus::Idle,
-            loaded: false,
-            updated_at_unix_ms: Some((now - 720_000) as i64),
-        }],
-    }
-}
-
-fn attention(
-    kind: RunOverviewAttentionKind,
-    title: &str,
-    node_id: u64,
-    loaded: bool,
-    run_id: &str,
-    turn_id: &str,
-    paths: Vec<String>,
-) -> RunOverviewAttention {
-    RunOverviewAttention {
-        kind,
-        area_id: "area-current".into(),
-        node_id,
-        project: "Norma-AI-OS".into(),
-        agent: "Bella".into(),
-        title: title.into(),
-        run_id: run_id.into(),
-        turn_id: turn_id.into(),
-        request_id: None,
-        fingerprint: Some("fp".into()),
-        paths,
-        loaded,
-    }
-}
-
-fn agent(
-    name: &str,
-    node_id: u64,
-    presence: RunOverviewPresence,
-    progress: Option<TaskProgress>,
-    started: Option<u64>,
-    approvals: u32,
-    task: Option<&str>,
-) -> RunOverviewAgent {
-    RunOverviewAgent {
-        area_id: "area-current".into(),
-        project: "Norma-AI-OS".into(),
-        current: true,
-        node_id,
-        name: name.into(),
-        raw_state: "thinking".into(),
-        presence,
-        approval_count: approvals,
-        task: task.map(str::to_string),
-        latest_prompt: None,
-        action: task.map(str::to_string),
-        progress,
-        started_at_unix_ms: started,
-    }
-}
-
-fn progress() -> TaskProgress {
-    TaskProgress {
-        completed: 4,
-        total: 6,
-        current_step: Some("原型交互验收".into()),
-    }
 }
 
 fn blend(background: u32, foreground: u32) -> (u8, u8, u8) {

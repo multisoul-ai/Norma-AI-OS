@@ -121,7 +121,7 @@ impl MultisoulApp {
                                     .h(px(17.0)),
                             )
                             .custom(glass_button_variant(theme, cx))
-                            .tooltip("收起 Norma 对话")
+                            .tooltip(ui::i18n::text("drawers.collapse_chat"))
                             .on_click(cx.listener(|app, _, _, cx| {
                                 app.toggle_desktop_drawer(DesktopDrawerEvent::ToggleLeft, cx);
                             })),
@@ -198,9 +198,12 @@ impl MultisoulApp {
                                 .hover(|style| style.bg(rgba(0x8dd5ed13)))
                                 .active(|style| style.bg(rgba(0x8dd5ed26)))
                                 .tooltip({
-                                    let label = format!(
-                                        "语音对话 · {}",
-                                        self.shortcuts.voice_interaction_label()
+                                    let label = ui::i18n::format(
+                                        "drawers.voice_chat",
+                                        &[(
+                                            "arg0",
+                                            (self.shortcuts.voice_interaction_label()).to_string(),
+                                        )],
                                     );
                                     move |window, cx| {
                                         ui::component::tooltip::Tooltip::new(label.clone())
@@ -304,7 +307,7 @@ impl MultisoulApp {
                         .as_ref()
                         .or(dock.error.as_ref())
                         .map(ToString::to_string),
-                    Some("文字对话".to_owned()),
+                    Some(ui::i18n::text("drawers.text_chat").to_owned()),
                 );
             }
             if source.voice_settings.values().desktop_mode()

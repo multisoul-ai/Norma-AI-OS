@@ -45,7 +45,7 @@ pub(super) fn glyph_element(glyph: Glyph) -> gpui::AnyElement {
             .text_size(px(9.0))
             .font_weight(gpui::FontWeight::BOLD)
             .text_color(rgba(GREEN))
-            .child("M↓")
+            .child(ui::i18n::text("drawers.external_modified_badge"))
             .into_any_element(),
         Glyph::GitDot => dot(false),
         Glyph::CiDot => dot(true),

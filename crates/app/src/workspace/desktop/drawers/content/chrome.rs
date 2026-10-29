@@ -58,12 +58,12 @@ impl MultisoulApp {
                     .h(px(14.0)),
             )
             .custom(self.reader_control_variant(colors, cx))
-            .tooltip("新建网页")
+            .tooltip(ui::i18n::text("drawers.new_webpage"))
             .on_click(cx.listener(|app, _, _, cx| {
                 app.open_desktop_content_tab(
                     DesktopContentKind::Browser,
                     "about:blank".into(),
-                    "浏览器".into(),
+                    ui::i18n::text("drawers.browser").into(),
                     None,
                     cx,
                 )
@@ -103,7 +103,12 @@ impl MultisoulApp {
             .child(self.render_kind_badge(tab.kind, theme))
             .child(div().flex_1())
             .when(open_external, |row| {
-                row.child(self.render_context_action("打开原网页", true, theme, cx))
+                row.child(self.render_context_action(
+                    ui::i18n::text("drawers.open_original"),
+                    true,
+                    theme,
+                    cx,
+                ))
             })
     }
 
@@ -123,7 +128,7 @@ impl MultisoulApp {
                     .h(px(16.0)),
             )
             .custom(self.reader_control_variant(colors, cx))
-            .tooltip("收起内容浏览器")
+            .tooltip(ui::i18n::text("drawers.collapse_content"))
             .on_click(cx.listener(|app, _, _, cx| {
                 app.toggle_desktop_drawer(
                     runtime::desktop_drawers::DesktopDrawerEvent::ToggleRight,
@@ -244,7 +249,7 @@ impl MultisoulApp {
                     } else {
                         GLASS_TEXT_SECONDARY
                     }))
-                    .child(tab.title.clone()),
+                    .child(super::chrome_format::content_tab_title(tab)),
             )
             .child(self.render_tab_close(&close_id, theme, cx))
     }

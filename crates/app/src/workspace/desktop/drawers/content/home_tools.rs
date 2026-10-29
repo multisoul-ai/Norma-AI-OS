@@ -8,7 +8,7 @@ use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, svg, Context, Div, ElementId, KeyDownEvent, Stateful};
 use ui::icons::with_alpha;
 
-pub(super) const UPCOMING_NOTICE: &str = "即将支持";
+pub(super) const UPCOMING_NOTICE_KEY: &str = "drawers.coming_soon";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum HomeTool {
@@ -44,12 +44,12 @@ impl HomeTool {
 
     fn label(self) -> &'static str {
         match self {
-            Self::Changes => "变更",
-            Self::Terminal => "终端",
-            Self::Files => "文件",
-            Self::Progress => "项目进度",
-            Self::Web => "网页",
-            Self::More => "更多工具…",
+            Self::Changes => ui::i18n::text("drawers.changes"),
+            Self::Terminal => ui::i18n::text("drawers.terminal"),
+            Self::Files => ui::i18n::text("drawers.files"),
+            Self::Progress => ui::i18n::text("drawers.project_progress"),
+            Self::Web => ui::i18n::text("drawers.web"),
+            Self::More => ui::i18n::text("drawers.more_tools"),
         }
     }
 
@@ -105,10 +105,10 @@ pub(super) enum Recommendation {
 }
 
 pub(super) const PLACEHOLDER_RECOMMENDATIONS: [(&str, &str); 4] = [
-    ("icons/globe.svg", "网页"),
-    ("icons/file-document.svg", "文件"),
-    ("icons/image.svg", "图片"),
-    ("icons/video.svg", "视频"),
+    ("icons/globe.svg", "drawers.web"),
+    ("icons/file-document.svg", "drawers.files"),
+    ("icons/image.svg", "drawers.images"),
+    ("icons/video.svg", "drawers.videos"),
 ];
 
 impl MultisoulApp {
@@ -209,7 +209,9 @@ impl MultisoulApp {
             .children(slots.into_iter().enumerate().map(move |(index, slot)| {
                 let (icon, label) = match &slot {
                     Recommendation::Artifact(_, name) => ("icons/file-document.svg", name.clone()),
-                    Recommendation::Upcoming(icon, label) => (*icon, (*label).to_string()),
+                    Recommendation::Upcoming(icon, label) => {
+                        (*icon, ui::i18n::text(label).to_string())
+                    }
                 };
                 div()
                     .id(ElementId::Name(format!("desktop-home-rec-{index}").into()))

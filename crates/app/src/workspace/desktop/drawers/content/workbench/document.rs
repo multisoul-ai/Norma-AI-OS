@@ -99,7 +99,7 @@ impl MultisoulApp {
             bar = bar.child(self.tool_button(
                 "files-toggle-tree",
                 "☰",
-                "显示文件目录",
+                ui::i18n::text("drawers.show_directory"),
                 false,
                 Rc::new(|app, _, cx| {
                     app.desktop_workspace.workbench.sidebar_open = true;
@@ -121,7 +121,9 @@ impl MultisoulApp {
                 .text_size(px(12.0))
                 .child(format!(
                     "{}{}",
-                    selected.as_deref().unwrap_or("打开文件"),
+                    selected
+                        .as_deref()
+                        .unwrap_or(ui::i18n::text("drawers.open_file")),
                     if dirty { " ●" } else { "" }
                 )),
         );
@@ -129,7 +131,7 @@ impl MultisoulApp {
             bar = bar.child(self.tool_button(
                 "files-edit",
                 "✎",
-                "编辑",
+                ui::i18n::text("drawers.edit"),
                 false,
                 Rc::new(|app, w, cx| app.edit_workbench_file(w, cx)),
                 cx,
@@ -139,7 +141,7 @@ impl MultisoulApp {
             bar = bar.child(self.tool_button(
                 "files-save",
                 "✓",
-                "保存",
+                ui::i18n::text("drawers.save"),
                 draft.is_none_or(|d| !d.dirty || d.saving),
                 Rc::new(|app, _, cx| app.save_workbench_file(cx)),
                 cx,
@@ -149,7 +151,11 @@ impl MultisoulApp {
             bar = bar.child(self.tool_button(
                 "files-preview-mode",
                 if s.show_source { "◐" } else { "‹›" },
-                if s.show_source { "预览" } else { "源码" },
+                if s.show_source {
+                    ui::i18n::text("drawers.preview")
+                } else {
+                    ui::i18n::text("drawers.source")
+                },
                 false,
                 Rc::new(|app, _, cx| {
                     app.desktop_workspace.workbench.show_source ^= true;
@@ -163,7 +169,7 @@ impl MultisoulApp {
             bar = bar.child(self.tool_button(
                 "files-current-content",
                 "⇤",
-                "查看当前文件",
+                ui::i18n::text("drawers.view_current_file"),
                 false,
                 Rc::new(|app, _, cx| app.load_workbench_file(false, false, cx)),
                 cx,
@@ -173,7 +179,7 @@ impl MultisoulApp {
             bar = bar.child(self.tool_button(
                 "files-copy",
                 "⧉",
-                "复制全文",
+                ui::i18n::text("drawers.copy_all"),
                 false,
                 Rc::new(|app, _, cx| {
                     if let Some(file) = &app.desktop_workspace.workbench.file {
@@ -187,7 +193,7 @@ impl MultisoulApp {
             bar = bar.child(self.tool_button(
                 "files-open-system",
                 "↗",
-                "使用系统应用打开",
+                ui::i18n::text("drawers.open_system"),
                 false,
                 Rc::new(|app, _, cx| {
                     let s = &app.desktop_workspace.workbench;
@@ -278,11 +284,11 @@ impl MultisoulApp {
             return self.render_text_lines(cx);
         }
         let message = if let Some(error) = &s.error {
-            error.clone()
+            error.to_string()
         } else if s.loading {
-            "正在打开文件…".to_string()
+            ui::i18n::text("drawers.opening_file").to_string()
         } else {
-            "从工作区目录树中选择文件".to_string()
+            ui::i18n::text("drawers.choose_file").to_string()
         };
         div()
             .flex_1()

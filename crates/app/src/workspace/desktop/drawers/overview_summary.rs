@@ -32,12 +32,22 @@ impl MultisoulApp {
         let cards = [
             (
                 OverviewGroup::Attention,
-                "待你处理",
+                ui::i18n::text("drawers.your_attention"),
                 0xf2c7731c_u32,
                 0xf6dfaaff_u32,
             ),
-            (OverviewGroup::Running, "运行中", 0x36dce81a, 0x7ee9eeff),
-            (OverviewGroup::Idle, "待开始", 0x9fcfff14, 0xb3c6d8ff),
+            (
+                OverviewGroup::Running,
+                ui::i18n::text("drawers.running"),
+                0x36dce81a,
+                0x7ee9eeff,
+            ),
+            (
+                OverviewGroup::Idle,
+                ui::i18n::text("drawers.not_started"),
+                0x9fcfff14,
+                0xb3c6d8ff,
+            ),
         ];
         div()
             .flex_none()

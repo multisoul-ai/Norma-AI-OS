@@ -134,7 +134,7 @@ pub(super) fn clear_row(
                 .hover(move |style| style.bg(rgba(hover)).text_color(rgba(0xffffffff)))
                 .active(move |style| style.bg(rgba(pressed)))
                 .on_click(on_click)
-                .child("清空"),
+                .child(ui::i18n::text("drawers.clear")),
         )
 }
 

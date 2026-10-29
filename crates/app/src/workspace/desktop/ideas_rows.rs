@@ -21,9 +21,9 @@ impl IdeasTab {
 
     pub(crate) fn label(self) -> &'static str {
         match self {
-            IdeasTab::Todo => "待办",
-            IdeasTab::Assigned => "已指派",
-            IdeasTab::Done => "已完成",
+            IdeasTab::Todo => ui::i18n::text("drawers.todo"),
+            IdeasTab::Assigned => ui::i18n::text("drawers.assigned"),
+            IdeasTab::Done => ui::i18n::text("drawers.done"),
         }
     }
 
@@ -127,7 +127,7 @@ pub(super) fn ideas_screen(
                         .as_deref()
                         .zip(idea.assignee_node_id)
                         .and_then(|(area, node)| agent_name(area, node))
-                        .unwrap_or_else(|| "智能体".to_owned());
+                        .unwrap_or_else(|| ui::i18n::text("drawers.agent").to_owned());
                     IdeaStatus::AssignedTo { name, phase }
                 };
                 screen.assigned.push(AssignedRow {
@@ -149,9 +149,12 @@ pub(super) fn ideas_screen(
     }
     screen.badge = (!screen.todo.is_empty()).then_some(screen.todo.len());
     screen.subtitle = if screen.todo.is_empty() {
-        "对 Norma 说“记一下…”，她会帮你记下".to_owned()
+        ui::i18n::text("drawers.remember_hint").to_owned()
     } else {
-        format!("{} 条待办 · 拖到智能体卡片，或点“指派”", screen.todo.len())
+        ui::i18n::format(
+            "drawers.todo_count",
+            &[("arg0", (screen.todo.len()).to_string())],
+        )
     };
     screen
 }
@@ -169,7 +172,7 @@ fn title_of(idea: &StoredIdea) -> String {
         .find(|line| !line.is_empty())
         .unwrap_or_default();
     if first.is_empty() && !idea.images.is_empty() {
-        return "图片".to_owned();
+        return ui::i18n::text("drawers.images").to_owned();
     }
     if first.chars().count() > TITLE_CHARS {
         let cut: String = first.chars().take(TITLE_CHARS).collect();
@@ -181,18 +184,27 @@ fn title_of(idea: &StoredIdea) -> String {
 
 fn source_label(source: storage::IdeaSource) -> &'static str {
     match source {
-        storage::IdeaSource::Chat => "来自对话",
-        storage::IdeaSource::Voice => "来自语音",
-        storage::IdeaSource::Manual => "手动添加",
+        storage::IdeaSource::Chat => ui::i18n::text("drawers.from_chat"),
+        storage::IdeaSource::Voice => ui::i18n::text("drawers.from_voice"),
+        storage::IdeaSource::Manual => ui::i18n::text("drawers.manual"),
     }
 }
 
 pub(super) fn relative_age(created_unix: u64, now_unix: u64) -> String {
     let seconds = now_unix.saturating_sub(created_unix);
     match seconds {
-        0..=59 => "刚刚".to_owned(),
-        60..=3_599 => format!("{} 分钟前", seconds / 60),
-        3_600..=86_399 => format!("{} 小时前", seconds / 3_600),
-        _ => format!("{} 天前", seconds / 86_400),
+        0..=59 => ui::i18n::text("drawers.just_now").to_owned(),
+        60..=3_599 => ui::i18n::format(
+            "drawers.minutes_ago",
+            &[("arg0", (seconds / 60).to_string())],
+        ),
+        3_600..=86_399 => ui::i18n::format(
+            "drawers.hours_ago",
+            &[("arg0", (seconds / 3_600).to_string())],
+        ),
+        _ => ui::i18n::format(
+            "drawers.days_ago",
+            &[("arg0", (seconds / 86_400).to_string())],
+        ),
     }
 }

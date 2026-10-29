@@ -11,13 +11,45 @@ use gpui::{Context, Window};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 impl MultisoulApp {
-    pub(super) fn presented_overview(&self) -> OverviewScreen {
+    pub(super) fn presented_overview(&self, cx: &gpui::App) -> OverviewScreen {
         let now = unix_ms();
         let stops = self.overview_ego_stops();
         let mut screen = match &self.desktop_workspace.activity_run_overview {
             Some(overview) => present_overview(overview, &stops, now),
             None => OverviewScreen::empty(),
         };
+        // Runtime state is structured; localize it at render time instead of reusing
+        // the phone projection's cached product sentence or translating user text.
+        if let (Some(overview), Some(workspace_id)) = (
+            &self.desktop_workspace.activity_run_overview,
+            &self.desktop_workspace.active_id,
+        ) {
+            for (agent, row) in overview.running.iter().zip(&mut screen.sections[1].rows) {
+                if agent.progress.is_some() {
+                    continue;
+                }
+                let session = self
+                    .desktop_workspace
+                    .sessions
+                    .get(&(workspace_id.clone(), agent.area_id.clone()));
+                let action = session.and_then(|session| {
+                    session
+                        .read(cx)
+                        .runtime
+                        .agent_task_state(agent.node_id)
+                        .and_then(|state| {
+                            super::super::overview_rows::localized_live_action(&state)
+                        })
+                });
+                if let Some(action) = action {
+                    row.detail = Some(super::super::overview_rows::running_detail(
+                        Some(&action),
+                        agent.started_at_unix_ms,
+                        now,
+                    ));
+                }
+            }
+        }
         super::overview_judging::relabel_judging(&mut screen, &self.brain_overview().judging);
         // 折叠的栏不显示行，键盘上下也不应落到看不见的行上。
         let groups = [
@@ -56,7 +88,7 @@ impl MultisoulApp {
             OverviewGroup::Idle => 2,
             OverviewGroup::Ideas => return,
         };
-        let screen = self.presented_overview();
+        let screen = self.presented_overview(cx);
         if screen
             .sections
             .get(index)
@@ -95,7 +127,7 @@ impl MultisoulApp {
             "enter" => OverviewKey::Enter,
             _ => return false,
         };
-        let screen = self.presented_overview();
+        let screen = self.presented_overview(cx);
         let Some(effect) = move_overview_cursor(
             self.desktop_workspace.overview_cursor,
             screen.row_count(),
@@ -247,7 +279,9 @@ impl MultisoulApp {
             self.open_desktop_artifact(artifact, cx);
             return;
         }
-        self.desktop_workspace.error = Some("文件已不在待查看列表".into());
+        self.desktop_workspace.error = Some(ui::i18n::LocalizedText::new(
+            "drawers.file_no_longer_pending",
+        ));
         cx.notify();
     }
 

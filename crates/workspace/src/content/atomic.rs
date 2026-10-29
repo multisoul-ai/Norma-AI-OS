@@ -1,3 +1,4 @@
+use super::ContentError;
 use super::{files::fingerprint, Result};
 use std::{ffi::CString, io::Read, path::Path};
 
@@ -25,14 +26,11 @@ pub(super) fn replace_checked(
     let rollback = exchange(file.path(), target);
     let (_, recovery) = file.keep().map_err(|e| e.to_string())?;
     match rollback {
-        Ok(()) => Err(format!(
-            "保存时文件被外部修改，磁盘版本已恢复；草稿恢复副本：{}",
-            recovery.display()
-        )),
-        Err(error) => Err(format!(
-            "保存冲突，旧版本已保留于 {}；请检查磁盘：{error}",
-            recovery.display()
-        )),
+        Ok(()) => Err(ContentError::SaveConflictRestored { recovery }),
+        Err(error) => Err(ContentError::SaveConflictRecovery {
+            recovery,
+            detail: error.to_string(),
+        }),
     }
 }
 
@@ -57,12 +55,14 @@ fn exchange(left: &Path, right: &Path) -> Result<()> {
     #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     let result = {
         let _ = (left, right);
-        return Err("当前系统不支持安全的原子交换保存".into());
+        return Err(ContentError::AtomicUnsupported);
     };
     if result == 0 {
         Ok(())
     } else {
-        Err(std::io::Error::last_os_error().to_string())
+        Err(ContentError::Diagnostic(
+            std::io::Error::last_os_error().to_string(),
+        ))
     }
 }
 

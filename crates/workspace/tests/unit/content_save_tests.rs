@@ -13,7 +13,10 @@ fn exchange_preserves_external_edit_arriving_before_replace() {
     let mut draft = tempfile::NamedTempFile::new_in(temp.path()).expect("草稿");
     draft.write_all(b"draft").expect("写草稿");
     let error = replace_checked(draft, &target, &fingerprint(b"before")).expect_err("必须报告冲突");
-    assert!(error.contains("外部修改"), "冲突错误必须具体");
+    assert!(
+        matches!(error, ContentError::SaveConflictRestored { .. }),
+        "冲突错误必须保留恢复副本语义"
+    );
     assert_eq!(
         std::fs::read_to_string(&target).expect("磁盘"),
         "external",

@@ -94,7 +94,9 @@ impl MultisoulApp {
             .iter()
             .find(|area| area.id == artifact.area_id)
         else {
-            self.desktop_workspace.error = Some("来源项目已移除，无法打开该文件".into());
+            self.desktop_workspace.error = Some(ui::i18n::LocalizedText::new(
+                "drawers.source_project_removed",
+            ));
             cx.notify();
             return;
         };
@@ -119,7 +121,8 @@ impl MultisoulApp {
                     return;
                 }
                 if !valid {
-                    app.desktop_workspace.error = Some("文件已移动或不再可打开".into());
+                    app.desktop_workspace.error =
+                        Some(ui::i18n::LocalizedText::new("drawers.file_moved"));
                     cx.notify();
                     return;
                 }
@@ -127,7 +130,7 @@ impl MultisoulApp {
                     .path
                     .file_name()
                     .map(|name| name.to_string_lossy().into_owned())
-                    .unwrap_or_else(|| "文件".to_string());
+                    .unwrap_or_else(|| ui::i18n::text("drawers.files").to_string());
                 app.open_desktop_content_tab_with_version(
                     DesktopContentKind::File,
                     artifact.path.to_string_lossy().into_owned(),

@@ -1,3 +1,7 @@
+#[path = "../support/drawer_locale.rs"]
+mod drawer_locale;
+use drawer_locale::expected_copy;
+
 use super::{clamp_cursor, ideas_screen, relative_age, IdeaStatus, IdeasTab};
 use storage::{IdeaSource, StoredIdea};
 use workspace::ideas::IdeaState;
@@ -116,13 +120,41 @@ fn long_or_multiline_ideas_show_first_line_but_keep_full_body() {
 fn relative_age_uses_clear_boundaries() {
     let now = 1_000_000;
     let age = |delta: i64| relative_age((now as i64 - delta) as u64, now);
-    assert_eq!(age(59), "刚刚", "不足 1 分钟应为刚刚");
-    assert_eq!(age(60), "1 分钟前", "60 秒应为 1 分钟前");
-    assert_eq!(age(3_599), "59 分钟前", "3599 秒应为 59 分钟前");
-    assert_eq!(age(3_600), "1 小时前", "3600 秒应为 1 小时前");
-    assert_eq!(age(86_399), "23 小时前", "86399 秒应为 23 小时前");
-    assert_eq!(age(86_400), "1 天前", "86400 秒应为 1 天前");
-    assert_eq!(age(-5), "刚刚", "created 在未来时按刚刚处理");
+    assert_eq!(
+        age(59),
+        expected_copy("刚刚", "Just now"),
+        "不足 1 分钟应为刚刚"
+    );
+    assert_eq!(
+        age(60),
+        expected_copy("1 分钟前", "1 min ago"),
+        "60 秒应为 1 分钟前"
+    );
+    assert_eq!(
+        age(3_599),
+        expected_copy("59 分钟前", "59 min ago"),
+        "3599 秒应为 59 分钟前"
+    );
+    assert_eq!(
+        age(3_600),
+        expected_copy("1 小时前", "1 hr ago"),
+        "3600 秒应为 1 小时前"
+    );
+    assert_eq!(
+        age(86_399),
+        expected_copy("23 小时前", "23 hr ago"),
+        "86399 秒应为 23 小时前"
+    );
+    assert_eq!(
+        age(86_400),
+        expected_copy("1 天前", "1 d ago"),
+        "86400 秒应为 1 天前"
+    );
+    assert_eq!(
+        age(-5),
+        expected_copy("刚刚", "Just now"),
+        "created 在未来时按刚刚处理"
+    );
 }
 
 /// 副标题随清单状态变化，空清单教用户怎么记。
@@ -142,17 +174,21 @@ fn subtitle_reports_count_or_teaches_capture() {
         &|_| None,
     );
     assert!(
-        some.subtitle.contains("2 条待办"),
+        some.subtitle
+            .contains(expected_copy("2 条待办", "To do: 2")),
         "副标题应包含待办数量，实际：{}",
         some.subtitle
     );
     assert!(
-        !some.subtitle.contains("记一下"),
+        !some
+            .subtitle
+            .contains(expected_copy("记一下", "Remember this")),
         "有待办时不应显示空状态提示"
     );
     let none = ideas_screen(&[], 0, &|_, _| None, &|_| None);
     assert!(
-        none.subtitle.contains("记一下"),
+        none.subtitle
+            .contains(expected_copy("记一下", "Remember this")),
         "空清单应教用户说“记一下”，实际：{}",
         none.subtitle
     );
@@ -264,7 +300,11 @@ fn todo_row_shows_first_line_links_and_images() {
     );
     assert_eq!(first.image_names, ["a.png", "b.jpg"], "图片应保持顺序");
     let second = &screen.todo[1];
-    assert_eq!(second.title, "图片", "纯图片想法用“图片”作标题");
+    assert_eq!(
+        second.title,
+        expected_copy("图片", "Images"),
+        "纯图片想法用“图片”作标题"
+    );
     assert!(second.links.is_empty(), "没有链接时 links 应为空");
 }
 
@@ -279,7 +319,15 @@ fn todo_row_shows_first_line_links_and_images() {
 fn ideas_tabs_default_to_todo_with_stable_order() {
     assert_eq!(IdeasTab::default(), IdeasTab::Todo, "首次进入应先看到待办");
     let labels: Vec<_> = IdeasTab::ALL.iter().map(|tab| tab.label()).collect();
-    assert_eq!(labels, ["待办", "已指派", "已完成"], "分段顺序应固定");
+    assert_eq!(
+        labels,
+        [
+            expected_copy("待办", "To do"),
+            expected_copy("已指派", "Assigned"),
+            expected_copy("已完成", "Done")
+        ],
+        "分段顺序应固定"
+    );
     let mut keys: Vec<_> = IdeasTab::ALL.iter().map(|tab| tab.key()).collect();
     keys.sort();
     keys.dedup();

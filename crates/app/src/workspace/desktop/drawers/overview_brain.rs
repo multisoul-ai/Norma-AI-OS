@@ -30,7 +30,7 @@ impl MultisoulApp {
         });
         if applied != Some(true) {
             self.desktop_workspace.error =
-                Some(ui::i18n::text("chrome.brain_approval_closed").into());
+                Some(ui::i18n::LocalizedText::new("chrome.brain_approval_closed"));
         }
         cx.notify();
     }

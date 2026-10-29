@@ -1,3 +1,7 @@
+#[path = "../support/drawer_locale.rs"]
+mod drawer_locale;
+use drawer_locale::expected_copy;
+
 use super::{
     overview_subtitle, present_overview, OverviewAction, OverviewScreen, OverviewStatusTone,
 };
@@ -31,7 +35,11 @@ fn failed_agents_are_attention_rows_with_failed_tone() {
         NOW,
     );
     let rows = &screen.sections[0].rows;
-    assert_eq!(rows[0].primary, "出错 · 失败的任务");
+    assert_eq!(
+        rows[0].primary,
+        expected_copy("出错 · 失败的任务", "Error · 失败的任务"),
+        "产品文案应符合当前界面语言"
+    );
     assert_eq!(rows[0].secondary, "Dee · Norma-AI-OS");
     assert_eq!(rows[0].status_tone, OverviewStatusTone::Failed);
     assert!(rows[0].enabled, "已加载项目里的出错智能体可以定位");
@@ -39,7 +47,11 @@ fn failed_agents_are_attention_rows_with_failed_tone() {
         rows[0].action,
         OverviewAction::LocateAgent { node_id: 4, .. }
     ));
-    assert_eq!(rows[1].action_label, "切换", "未加载项目只能先切换过去");
+    assert_eq!(
+        rows[1].action_label,
+        expected_copy("切换", "Switch"),
+        "未加载项目只能先切换过去"
+    );
     assert!(rows[1].enabled, "切换项目的动作始终可用");
     assert!(matches!(
         rows[1].action,
@@ -76,7 +88,14 @@ fn takeover_rows_are_amber_and_locate_or_switch() {
         NOW,
     );
     let rows = &screen.sections[0].rows;
-    assert_eq!(rows[0].primary, "等待接管 · 检查抽屉响应式布局");
+    assert_eq!(
+        rows[0].primary,
+        expected_copy(
+            "等待接管 · 检查抽屉响应式布局",
+            "Awaiting takeover · 检查抽屉响应式布局"
+        ),
+        "产品文案应符合当前界面语言"
+    );
     assert_eq!(rows[0].secondary, "Bruno · Norma-AI-OS");
     assert_eq!(
         rows[0].status_tone,
@@ -89,7 +108,11 @@ fn takeover_rows_are_amber_and_locate_or_switch() {
         rows[0].action,
         OverviewAction::LocateAgent { node_id: 2, .. }
     ));
-    assert_eq!(rows[1].action_label, "切换", "未加载项目只能先切换过去");
+    assert_eq!(
+        rows[1].action_label,
+        expected_copy("切换", "Switch"),
+        "未加载项目只能先切换过去"
+    );
     assert!(rows[1].enabled);
     assert!(matches!(
         rows[1].action,
@@ -162,7 +185,15 @@ fn empty_screen_keeps_all_three_groups() {
         .iter()
         .map(|item| item.title.as_str())
         .collect();
-    assert_eq!(titles, ["需要你处理", "运行中", "待开始"]);
+    assert_eq!(
+        titles,
+        [
+            expected_copy("需要你处理", "Needs attention"),
+            expected_copy("运行中", "Running"),
+            expected_copy("待开始", "Not started")
+        ],
+        "产品文案应符合当前界面语言"
+    );
     assert!(screen.sections.iter().all(|item| item.count == Some(0)));
     assert_eq!(screen.summary(), [0, 0, 0]);
 }
@@ -173,11 +204,13 @@ fn overview_subtitle_appends_update_age() {
     let now = 10_000_000u64;
     assert_eq!(
         overview_subtitle("Norma", Some(now as i64 - 5_000), now),
-        "Norma · 刚刚更新"
+        expected_copy("Norma · 刚刚更新", "Norma · Just updated"),
+        "产品文案应符合当前界面语言"
     );
     assert_eq!(
         overview_subtitle("Norma", Some(now as i64 - 180_000), now),
-        "Norma · 3 分钟前更新"
+        expected_copy("Norma · 3 分钟前更新", "Norma · Updated 3 min ago"),
+        "产品文案应符合当前界面语言"
     );
     assert_eq!(overview_subtitle("Norma", None, now), "Norma");
     assert_eq!(overview_subtitle("", Some(now as i64), now), "");

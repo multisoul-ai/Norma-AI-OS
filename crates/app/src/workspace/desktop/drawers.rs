@@ -204,9 +204,9 @@ impl MultisoulApp {
                     .custom(glass_button_variant(theme, cx))
                     .rounded(px(9.0))
                     .tooltip(if left {
-                        "展开 Norma 对话"
+                        ui::i18n::text("drawers.expand_chat")
                     } else {
-                        "展开内容浏览器"
+                        ui::i18n::text("drawers.expand_content")
                     })
                     .on_click(cx.listener(move |app, _, _, cx| {
                         cx.stop_propagation();

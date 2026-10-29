@@ -281,11 +281,11 @@ impl MultisoulApp {
                         Some(
                             runtime::AgentTaskState::Thinking
                             | runtime::AgentTaskState::RunningTool { .. },
-                        ) => ("运行中", true),
+                        ) => (ui::i18n::text("drawers.running"), true),
                         Some(runtime::AgentTaskState::WaitingApproval { .. }) => {
-                            ("等待审批", false)
+                            (ui::i18n::text("drawers.waiting_approval"), false)
                         }
-                        _ => ("待开始", false),
+                        _ => (ui::i18n::text("drawers.not_started"), false),
                     };
                     options.push(IdeaTargetOption {
                         area_id: area.id.clone(),
@@ -369,7 +369,8 @@ impl MultisoulApp {
             .get(&(workspace_id, area_id))
             .cloned()
         else {
-            self.desktop_workspace.ideas_notice = Some("目标项目尚未加载".to_owned());
+            self.desktop_workspace.ideas_notice =
+                Some(ui::i18n::LocalizedText::new("drawers.project_not_loaded"));
             cx.notify();
             return;
         };
@@ -382,7 +383,10 @@ impl MultisoulApp {
             });
             let _ = host.update(cx, |app, cx| {
                 if let Err(error) = result {
-                    app.desktop_workspace.ideas_notice = Some(format!("派发失败：{error}"));
+                    app.desktop_workspace.ideas_notice = Some(ui::i18n::message(
+                        "drawers.assign_failed",
+                        &[("error", (error).to_string())],
+                    ));
                 }
                 app.refresh_ideas(cx);
             });

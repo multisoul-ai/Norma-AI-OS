@@ -1,7 +1,9 @@
 //! Empty right drawer: the prototype's "new tab" page (address pill, tools, recommendations).
 
 use super::super::GLASS_TEXT_MUTED;
-use super::home_tools::{HomeTool, Recommendation, PLACEHOLDER_RECOMMENDATIONS, UPCOMING_NOTICE};
+use super::home_tools::{
+    HomeTool, Recommendation, PLACEHOLDER_RECOMMENDATIONS, UPCOMING_NOTICE_KEY,
+};
 use super::{GLASS_TEXT, GLASS_TEXT_SECONDARY};
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div, Stateful, Window};
@@ -26,8 +28,13 @@ impl MultisoulApp {
         if self.desktop_workspace.content_browser.input.is_none()
             || self.desktop_workspace.content_browser.tab_id.is_some()
         {
-            self.desktop_workspace.content_browser.input =
-                Some(cx.new(|cx| InputState::new(window, cx).placeholder("搜索或输入网址")));
+            self.desktop_workspace.content_browser.input = Some(cx.new(|cx| {
+                InputState::new(window, cx).placeholder(ui::i18n::input_placeholder(
+                    "drawers.search_address",
+                    window,
+                    cx,
+                ))
+            }));
             self.desktop_workspace.content_browser.tab_id = None;
         }
         let theme = self.desktop_theme();
@@ -82,9 +89,9 @@ impl MultisoulApp {
                         }
                     })),
             )
-            .child(heading("工具"))
+            .child(heading(ui::i18n::text("drawers.tools")))
             .child(self.render_home_tool_grid(columns, cx).mb(px(26.0)))
-            .child(heading("推荐"))
+            .child(heading(ui::i18n::text("drawers.recommendations")))
             .child(self.render_home_recommendations(recommendations, cx))
             .when_some(notice, |page, text| {
                 page.child(
@@ -120,7 +127,7 @@ impl MultisoulApp {
                     .path
                     .file_name()
                     .map(|name| name.to_string_lossy().into_owned())
-                    .unwrap_or_else(|| "文件".to_owned());
+                    .unwrap_or_else(|| ui::i18n::text("drawers.files").to_owned());
                 Recommendation::Artifact(index, name)
             })
             .collect();
@@ -161,7 +168,7 @@ impl MultisoulApp {
             HomeTool::Web => self.open_desktop_content_tab(
                 DesktopContentKind::Browser,
                 "about:blank".into(),
-                "浏览器".into(),
+                ui::i18n::text("drawers.browser").into(),
                 None,
                 cx,
             ),
@@ -172,7 +179,7 @@ impl MultisoulApp {
     /// Inline, non-blocking feedback for entries that are designed but not built yet.
     fn show_home_notice(&mut self, cx: &mut Context<Self>) {
         let state = &mut self.desktop_workspace.content_browser;
-        state.home_notice = Some(UPCOMING_NOTICE.to_string());
+        state.home_notice = Some(ui::i18n::LocalizedText::new(UPCOMING_NOTICE_KEY));
         state.home_notice_generation = state.home_notice_generation.wrapping_add(1);
         let generation = state.home_notice_generation;
         cx.spawn(async move |this, cx| {

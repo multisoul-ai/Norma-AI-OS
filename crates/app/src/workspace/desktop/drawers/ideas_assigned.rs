@@ -23,10 +23,13 @@ impl MultisoulApp {
         let locate = row.area_id.clone().zip(row.node_id);
         let retry = row.retryable.then(|| row.id.clone());
         let status = match &row.status {
-            IdeaStatus::Sending => "投递中…".to_owned(),
+            IdeaStatus::Sending => ui::i18n::text("drawers.sending").to_owned(),
             IdeaStatus::AssignedTo { name, phase } => match phase_label(*phase) {
-                Some(label) => format!("已交给 {name} · {label}"),
-                None => format!("已交给 {name}"),
+                Some(label) => ui::i18n::format(
+                    "drawers.assigned_status",
+                    &[("name", (name).to_string()), ("label", (label).to_string())],
+                ),
+                None => ui::i18n::format("drawers.assigned_to", &[("name", (name).to_string())]),
             },
         };
         div()
@@ -104,8 +107,8 @@ impl MultisoulApp {
                     Button::new(ElementId::Name(format!("idea-retry-{id}").into()))
                         .ghost()
                         .small()
-                        .tooltip("退回待办，重新指派")
-                        .child("重试")
+                        .tooltip(ui::i18n::text("drawers.retry_assignment"))
+                        .child(ui::i18n::text("drawers.retry"))
                         .on_click(cx.listener(move |app, _, _, cx| {
                             cx.stop_propagation();
                             app.retry_idea(&id, cx);
@@ -118,11 +121,11 @@ impl MultisoulApp {
 fn phase_label(phase: Option<workspace::ideas::TaskPhase>) -> Option<&'static str> {
     use workspace::ideas::TaskPhase;
     match phase? {
-        TaskPhase::Running => Some("运行中"),
-        TaskPhase::Queued => Some("已排队"),
-        TaskPhase::Failed => Some("失败"),
-        TaskPhase::Succeeded => Some("已完成"),
-        TaskPhase::Cancelled => Some("已取消"),
-        TaskPhase::Untracked => Some("已发送，无法追踪完成"),
+        TaskPhase::Running => Some(ui::i18n::text("drawers.running")),
+        TaskPhase::Queued => Some(ui::i18n::text("drawers.queued")),
+        TaskPhase::Failed => Some(ui::i18n::text("drawers.failed")),
+        TaskPhase::Succeeded => Some(ui::i18n::text("drawers.done")),
+        TaskPhase::Cancelled => Some(ui::i18n::text("drawers.cancelled")),
+        TaskPhase::Untracked => Some(ui::i18n::text("drawers.untracked")),
     }
 }

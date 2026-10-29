@@ -19,11 +19,12 @@ impl MultisoulApp {
         if self.desktop_workspace.ideas_input.is_some() {
             return;
         }
-        let input = cx.new(|cx| {
-            InputState::new(window, cx)
-                .auto_grow(1, 5)
-                .placeholder("写下一个想法…")
-        });
+        let input =
+            cx.new(|cx| {
+                InputState::new(window, cx).auto_grow(1, 5).placeholder(
+                    ui::i18n::input_placeholder("drawers.write_idea", window, cx),
+                )
+            });
         // 多行输入框会先插入换行再发出 PressEnter：添加时正文会被去掉首尾空白，换行不会残留。
         let subscription = cx.subscribe_in(
             &input,
@@ -75,7 +76,8 @@ impl MultisoulApp {
                 return;
             }
             Err(_) => {
-                self.desktop_workspace.ideas_notice = Some("想法太长了，最多 500 个字".to_owned());
+                self.desktop_workspace.ideas_notice =
+                    Some(ui::i18n::LocalizedText::new("drawers.idea_too_long"));
                 cx.notify();
                 return;
             }
@@ -98,7 +100,10 @@ impl MultisoulApp {
                 .await;
             let _ = this.update(cx, |app, cx| {
                 if let Err(error) = saved {
-                    app.desktop_workspace.ideas_notice = Some(format!("没能记下：{error}"));
+                    app.desktop_workspace.ideas_notice = Some(ui::i18n::message(
+                        "drawers.idea_save_failed",
+                        &[("error", (error).to_string())],
+                    ));
                 }
                 app.refresh_ideas(cx);
             });
@@ -124,8 +129,10 @@ impl MultisoulApp {
         };
         let aux = &self.desktop_workspace.ideas_aux;
         if aux.pending_images.len() >= MAX_IDEA_IMAGES {
-            self.desktop_workspace.ideas_notice =
-                Some(format!("一条想法最多附 {MAX_IDEA_IMAGES} 张图片"));
+            self.desktop_workspace.ideas_notice = Some(ui::i18n::message(
+                "drawers.image_limit",
+                &[("MAX_IDEA_IMAGES", (MAX_IDEA_IMAGES).to_string())],
+            ));
             cx.notify();
             return true;
         }
@@ -140,7 +147,10 @@ impl MultisoulApp {
                 match saved {
                     Ok(name) => app.desktop_workspace.ideas_aux.pending_images.push(name),
                     Err(error) => {
-                        app.desktop_workspace.ideas_notice = Some(format!("没能保存图片：{error}"))
+                        app.desktop_workspace.ideas_notice = Some(ui::i18n::message(
+                            "drawers.image_save_failed",
+                            &[("error", (error).to_string())],
+                        ))
                     }
                 }
                 cx.notify();
