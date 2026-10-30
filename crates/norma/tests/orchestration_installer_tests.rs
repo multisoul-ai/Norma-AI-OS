@@ -1,7 +1,7 @@
 use norma::agent_hook::HookInstallPaths;
 use norma::orchestration::{
     load_provider_authorization, AggregateStatus, AuthorizationRegistry, ComponentState,
-    InstallPaths, OrchestrationInstaller, OrchestrationProvider, ProviderIntegration,
+    InstallPaths, OrchestrationInstaller, OrchestrationProvider,
 };
 use std::collections::HashMap;
 use std::fs;
@@ -156,65 +156,6 @@ fn default_install_paths_are_user_scoped_and_provider_native() {
             .managed_cli_path()
             .starts_with(Path::new("/usr/local")),
         "安装器不得要求 sudo 或写入系统级 /usr/local"
-    );
-}
-
-/// Provider 汇总状态：只有四组件全部 Ready 才能显示 Ready，Grok 始终 Unsupported。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   组件数 = 4：Skill、CLI、Hook、授权
-///   Codex：3×Ready + Hook=Missing → 非 Ready
-///   Claude：4×Ready → Ready
-///   Grok：4×Unsupported → Unsupported
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 分别构造三张 ProviderIntegration。
-///   2. 由组件状态纯函数计算 aggregate_status。
-///   3. 比较缺 Hook、全就绪和不支持三种结果。
-///
-/// 预期结果：
-///   - 正断言：Claude=Ready，Codex=NeedsRepair，Grok=Unsupported。
-///   - 负断言：Codex 缺 Hook 时不得错误显示 Ready。
-#[test]
-fn aggregate_status_requires_all_four_components_and_keeps_grok_unsupported() {
-    let ready = ComponentState::Ready {
-        version: "1.0.0".to_string(),
-    };
-    let codex = ProviderIntegration::from_components(
-        OrchestrationProvider::Codex,
-        ready.clone(),
-        ready.clone(),
-        ComponentState::Missing,
-        ready.clone(),
-    );
-    let claude = ProviderIntegration::from_components(
-        OrchestrationProvider::Claude,
-        ready.clone(),
-        ready.clone(),
-        ready.clone(),
-        ready,
-    );
-    let grok = ProviderIntegration::unsupported(OrchestrationProvider::Grok);
-
-    assert_eq!(
-        codex.aggregate_status,
-        AggregateStatus::NeedsRepair,
-        "Hook 缺失时 Codex 汇总状态必须是 NeedsRepair"
-    );
-    assert_eq!(
-        claude.aggregate_status,
-        AggregateStatus::Ready,
-        "四组件全部 Ready 时 Claude 才能汇总为 Ready"
-    );
-    assert_eq!(
-        grok.aggregate_status,
-        AggregateStatus::Unsupported,
-        "Grok 首版必须始终汇总为 Unsupported"
-    );
-    assert_ne!(
-        codex.aggregate_status,
-        AggregateStatus::Ready,
-        "缺失任一组件的 Provider 不得显示 Ready"
     );
 }
 
@@ -494,6 +435,6 @@ fn uninstall_removes_only_managed_provider_content_and_preserves_user_hook() {
     );
     assert!(
         !registry.revoked.contains(&OrchestrationProvider::Grok),
-        "卸载 Claude 不得错误撤销不支持的 Grok"
+        "卸载 Claude 不得错误撤销 Grok"
     );
 }

@@ -5,6 +5,47 @@ use super::{
 use norma::orchestration::OrchestrationProvider;
 use std::{fs, sync::Mutex};
 
+/// 场景：设置页初始扫描前，Grok 已可进入安装流程，扫描结果到达后可显示就绪。
+/// 数据构造：默认设置状态；Grok 四组件 Ready 的后台扫描结果。
+/// 执行过程：读取默认状态 → begin_refresh → apply_refresh → 再读取 Grok。
+/// 预期：初始 NotInstalled 而非 Unsupported；刷新后 Ready，能够走现有卸载/修复流程。
+#[test]
+fn grok_settings_accept_installation_and_refresh_results() {
+    use norma::orchestration::{AggregateStatus, ComponentState, ProviderIntegration};
+    let mut state = OrchestrationSettingsState::default();
+    let grok = OrchestrationProvider::Grok;
+    assert_eq!(
+        state.integration(grok).aggregate_status,
+        AggregateStatus::NotInstalled,
+        "Grok 初始必须提供安装入口"
+    );
+    assert_ne!(
+        state.integration(grok).aggregate_status,
+        AggregateStatus::Unsupported,
+        "Grok 不得再被永久禁用"
+    );
+    let ready = ComponentState::Ready {
+        version: "1.0.0".into(),
+    };
+    let integration = ProviderIntegration::from_components(
+        grok,
+        ready.clone(),
+        ready.clone(),
+        ready.clone(),
+        ready,
+    );
+    let generation = state.begin_refresh();
+    assert!(
+        state.apply_refresh(generation, vec![integration]),
+        "当前扫描结果应生效"
+    );
+    assert_eq!(
+        state.integration(grok).aggregate_status,
+        AggregateStatus::Ready,
+        "安装后 Grok 应显示就绪"
+    );
+}
+
 /// 编排授权存储：后台扫描必须沿用 App 已选定的 Test app DB。
 ///
 /// 数据构造（含关键数值的推导过程）：

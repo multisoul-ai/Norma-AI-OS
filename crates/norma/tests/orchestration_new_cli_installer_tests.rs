@@ -8,7 +8,8 @@ use std::ffi::OsString;
 use std::fs;
 use std::path::Path;
 
-const NEW_CLIS: [OrchestrationProvider; 5] = [
+const NEW_CLIS: [OrchestrationProvider; 6] = [
+    OrchestrationProvider::Grok,
     OrchestrationProvider::InfCode,
     OrchestrationProvider::Kimi,
     OrchestrationProvider::ZCode,
@@ -68,11 +69,11 @@ fn no_overrides() -> CliHomeOverrides {
 /// 新 CLI 进入 ALL 且各有 skill 路径与 hook 映射。
 ///
 /// 数据构造：ALL 原有 5 项（Codex、Claude、Cursor、OpenCode、Grok），新增 InfCode + 4 项后共 10 项，
-/// Grok 仍无 skill 路径，其余都必须有三个 skill 路径与 hook 映射。
+/// Grok 与其余 provider 都必须有三个 skill 路径与 hook 映射。
 /// 过程：遍历 ALL 查询 skill / presentation / ask-norma 路径。
-/// 预期：正断言 ALL 含新 CLI 且长度为 10；负断言 Grok 路径为 None（未被放宽）。
+/// 预期：ALL 含新 CLI 且长度为 10；Grok 同样提供技能路径。
 #[test]
-fn all_contains_new_clis_with_skill_paths_and_grok_stays_unsupported() {
+fn all_contains_new_clis_with_skill_paths_including_grok() {
     let temp = tempfile::tempdir().expect("应创建临时目录");
     let installer = setup(temp.path(), &no_overrides());
     let paths = installer.paths();
@@ -99,8 +100,8 @@ fn all_contains_new_clis_with_skill_paths_and_grok_stays_unsupported() {
     assert!(
         paths
             .presentation_skill_path(OrchestrationProvider::Grok)
-            .is_none(),
-        "Grok 不得获得 skill 路径"
+            .is_some(),
+        "Grok 必须获得 skill 路径"
     );
 }
 
@@ -146,6 +147,7 @@ fn skill_dirs_follow_verified_defaults_and_env_overrides() {
             kimi_code_home: Some(t.join("k").into_os_string()),
             pi_coding_agent_dir: Some(t.join("p").into_os_string()),
             hermes_home: Some(t.join("h").into_os_string()),
+            ..CliHomeOverrides::default()
         },
     );
     assert_eq!(
