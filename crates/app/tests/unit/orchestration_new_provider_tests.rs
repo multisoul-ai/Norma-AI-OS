@@ -5,7 +5,8 @@ use norma::orchestration::{InstallPaths, OrchestrationInstaller};
 use std::collections::HashSet;
 use ui::i18n::{text_for, Locale};
 
-const NEW_PROVIDERS: [OrchestrationProvider; 5] = [
+const NEW_PROVIDERS: [OrchestrationProvider; 6] = [
+    OrchestrationProvider::Grok,
     OrchestrationProvider::InfCode,
     OrchestrationProvider::Kimi,
     OrchestrationProvider::ZCode,
@@ -39,9 +40,9 @@ fn app_installer_enables_hermes_activation() {
     );
 }
 
-/// 场景：四个新 provider 带“委派链路未验证”标注，老 provider 不带；两种语言文案齐全。
+/// 场景：未验证的 provider 带“委派链路未验证”标注，老 provider 不带；两种语言文案齐全。
 /// 数据构造：遍历 ALL；en 与 zh-CN 各取标注 key。
-/// 预期：新 provider 为 Some 且非空；Codex/Claude/Cursor/OpenCode/Grok 为 None；
+/// 预期：新 provider 为 Some 且非空；Codex/Claude/Cursor/OpenCode 为 None；
 /// 两种语言文案都不等于 key 本身，且互不相同。
 #[test]
 fn delegation_unverified_notice_only_for_new_providers() {
@@ -57,7 +58,6 @@ fn delegation_unverified_notice_only_for_new_providers() {
         OrchestrationProvider::Claude,
         OrchestrationProvider::Cursor,
         OrchestrationProvider::OpenCode,
-        OrchestrationProvider::Grok,
     ] {
         assert!(
             delegation_notice(provider).is_none(),
@@ -74,7 +74,7 @@ fn delegation_unverified_notice_only_for_new_providers() {
 
 /// 场景：10 个 provider 的下标与选择器 id 全局唯一，描述覆盖新 provider。
 /// 预期：下标 0..10 互异；action 与 disclosure 选择器共 20 个互异；
-/// 新 provider 在 NotInstalled 状态有非空描述，且不带 Grok 的“不支持”文案。
+/// 新 provider 在 NotInstalled 状态有非空的委派说明。
 #[test]
 fn selectors_and_descriptions_cover_all_providers() {
     let all = OrchestrationProvider::ALL;
@@ -85,10 +85,13 @@ fn selectors_and_descriptions_cover_all_providers() {
         .flat_map(|p| [action_selector(*p), disclosure_selector(*p)])
         .collect();
     assert_eq!(selectors.len(), 20, "选择器 id 必须全局唯一");
-    let grok = provider_description(OrchestrationProvider::Grok, AggregateStatus::NotInstalled);
     for provider in NEW_PROVIDERS {
         let description = provider_description(provider, AggregateStatus::NotInstalled);
         assert!(!description.is_empty(), "{provider:?} 描述不应为空");
-        assert_ne!(description, grok, "{provider:?} 不得使用 Grok 的不支持文案");
+        assert_eq!(
+            description,
+            ui::i18n::text("settings.delegate_tasks_through_norma_os"),
+            "{provider:?} 应展示委派说明"
+        );
     }
 }

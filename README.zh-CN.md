@@ -23,7 +23,8 @@
   <a href="#产品演示">产品演示</a> ·
   <a href="#快速开始">快速开始</a> ·
   <a href="ARCHITECTURE.md">架构</a> ·
-  <a href="https://github.com/multisoul-ai/Norma-AI-OS/issues">反馈</a>
+  <a href="https://github.com/multisoul-ai/Norma-AI-OS/issues">反馈</a> ·
+  <a href="#联系我们">联系我们</a>
 </p>
 
 <p align="center">
@@ -295,6 +296,17 @@ Norma OS 的桌面端使用 **Rust + GPUI + Metal**。画布、终端、运行�
 | 构建与分发 | [打包指南](docs/references/packaging.md) |
 
 欢迎通过 [GitHub Issues](https://github.com/multisoul-ai/Norma-AI-OS/issues) 报告问题或提出想法。反馈问题时，请附上 macOS 与 Norma OS 版本、复现步骤，以及去除敏感信息后的日志片段。
+
+## 联系我们
+
+想试用 Norma、交流想法或合作推广，欢迎联系：
+
+- X（Twitter）：[@yakami0129](https://x.com/yakami0129)
+- 微信内测群（Norma OS 内测群）：扫描下方二维码加入。微信群二维码 7 天后失效，若已过期，请在 X 上私信 [@yakami0129](https://x.com/yakami0129) 获取邀请。
+
+<p align="center">
+  <img src="docs/assets/readme/wechat-group-qr.png" alt="微信群二维码：Norma OS 内测群" width="240" />
+</p>
 
 ## 许可
 

@@ -1,4 +1,4 @@
-use crate::agent_hook::{HookInstallPaths, HookSource, HookTarget};
+use crate::agent_hook::{grok_config_root_for, HookInstallPaths, HookSource, HookTarget};
 use crate::protocol::AgentProfile;
 use std::path::PathBuf;
 
@@ -66,7 +66,7 @@ impl OrchestrationProvider {
     pub const fn delegation_unverified(self) -> bool {
         matches!(
             self,
-            Self::InfCode | Self::Kimi | Self::ZCode | Self::Pi | Self::Hermes
+            Self::Grok | Self::InfCode | Self::Kimi | Self::ZCode | Self::Pi | Self::Hermes
         )
     }
 
@@ -96,7 +96,7 @@ impl OrchestrationProvider {
             Self::Kimi => Some(HookSource::Kimi),
             Self::ZCode => Some(HookSource::ZCode),
             Self::Hermes => Some(HookSource::Hermes),
-            Self::Grok => None,
+            Self::Grok => Some(HookSource::Grok),
         }
     }
 
@@ -111,7 +111,7 @@ impl OrchestrationProvider {
             Self::Kimi => Some(HookTarget::Kimi),
             Self::ZCode => Some(HookTarget::ZCode),
             Self::Hermes => Some(HookTarget::Hermes),
-            Self::Grok => None,
+            Self::Grok => Some(HookTarget::Grok),
         }
     }
 }
@@ -199,25 +199,12 @@ impl ProviderIntegration {
             last_error,
         }
     }
-
-    pub fn unsupported(provider: OrchestrationProvider) -> Self {
-        let reason = "Orchestration is not available for Grok Build in this release.".to_string();
-        let component = ComponentState::Unsupported {
-            reason: reason.clone(),
-        };
-        Self::from_components(
-            provider,
-            component.clone(),
-            component.clone(),
-            component.clone(),
-            component,
-        )
-    }
 }
 
 /// 各 CLI 官方支持的配置根覆盖环境变量取值（空字符串视同未设置）。
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct CliHomeOverrides {
+    pub grok_home: Option<std::ffi::OsString>,
     pub kimi_code_home: Option<std::ffi::OsString>,
     pub pi_coding_agent_dir: Option<std::ffi::OsString>,
     pub hermes_home: Option<std::ffi::OsString>,
@@ -242,6 +229,7 @@ impl InstallPaths {
             home,
             bundle_bin,
             &CliHomeOverrides {
+                grok_home: std::env::var_os("GROK_HOME"),
                 kimi_code_home: std::env::var_os("KIMI_CODE_HOME"),
                 pi_coding_agent_dir: std::env::var_os("PI_CODING_AGENT_DIR"),
                 hermes_home: std::env::var_os("HERMES_HOME"),
@@ -272,7 +260,8 @@ impl InstallPaths {
                 claude_settings: home.join(".claude/settings.json"),
                 codex_hooks: home.join(".codex/hooks.json"),
                 cursor_hooks: home.join(".cursor/hooks.json"),
-                grok_hooks: home.join(".grok/hooks.json"),
+                grok_hooks: grok_config_root_for(home, overrides.grok_home.clone())
+                    .join("hooks/multisoul-agent-hook.json"),
                 opencode_plugin: home.join(".config/opencode/plugins/multisoul-agent-hook.js"),
                 infcode_settings: home.join(".infcode/settings.json"),
                 pi_extension: pi_agent_dir
@@ -326,14 +315,16 @@ impl InstallPaths {
             .join(format!("{}.json", provider.slug()))
     }
 
-    /// 四个新 CLI 的 `skills/` 根目录，由各自已验证的 hook 路径推导，保证技能与 hook 位于同一配置根。
+    /// CLI 的 `skills/` 根目录，由各自已验证的 hook 路径推导，保证技能与 hook 位于同一配置根。
     ///
     /// - Kimi：`config.toml` 的父目录（`$KIMI_CODE_HOME` 或 `~/.kimi-code`）。
     /// - ZCode：`~/.zcode/cli/config.json` 上两级，即 `~/.zcode`。
     /// - Pi：`<agent_dir>/extensions/<file>` 上两级，即 `$PI_CODING_AGENT_DIR` 或 `~/.pi/agent`。
     /// - Hermes：`<HERMES_HOME>/plugins/<name>` 上两级，即 `$HERMES_HOME` 或 `~/.hermes`。
+    /// - Grok：`<grok_home>/hooks/multisoul-agent-hook.json` 上两级，即 `$GROK_HOME` 或 `~/.grok`。
     fn derived_skills_root(&self, provider: OrchestrationProvider) -> Option<PathBuf> {
         let base = match provider {
+            OrchestrationProvider::Grok => self.hook_paths.grok_hooks.parent()?.parent()?,
             OrchestrationProvider::Kimi => self.hook_paths.kimi_config.parent()?,
             OrchestrationProvider::ZCode => self.hook_paths.zcode_config.parent()?.parent()?,
             OrchestrationProvider::Pi => self.hook_paths.pi_extension.parent()?.parent()?,
@@ -352,8 +343,8 @@ impl InstallPaths {
             OrchestrationProvider::Cursor => Some(self.cursor_rule.clone()),
             OrchestrationProvider::OpenCode => Some(self.opencode_skill.clone()),
             OrchestrationProvider::InfCode => Some(self.infcode_skill.clone()),
-            OrchestrationProvider::Grok => None,
-            OrchestrationProvider::Kimi
+            OrchestrationProvider::Grok
+            | OrchestrationProvider::Kimi
             | OrchestrationProvider::ZCode
             | OrchestrationProvider::Pi
             | OrchestrationProvider::Hermes => Some(
@@ -372,11 +363,12 @@ impl InstallPaths {
                 self.opencode_skill.parent()?.parent()?.to_path_buf()
             }
             OrchestrationProvider::InfCode => self.infcode_skill.parent()?.parent()?.to_path_buf(),
-            OrchestrationProvider::Kimi
+            OrchestrationProvider::Grok
+            | OrchestrationProvider::Kimi
             | OrchestrationProvider::ZCode
             | OrchestrationProvider::Pi
             | OrchestrationProvider::Hermes => self.derived_skills_root(provider)?,
-            OrchestrationProvider::Cursor | OrchestrationProvider::Grok => return None,
+            OrchestrationProvider::Cursor => return None,
         };
         Some(skills_root.join(name).join("SKILL.md"))
     }

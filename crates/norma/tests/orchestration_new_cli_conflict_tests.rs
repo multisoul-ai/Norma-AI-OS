@@ -158,17 +158,17 @@ fn shared_config_providers_preserve_user_settings() {
 
 /// 只有四个新 provider 标注“委派链路未验证”。
 ///
-/// 数据构造：遍历 ALL。预期：InfCode/Kimi/ZCode/Pi/Hermes 为 true；Claude/Codex/Cursor/OpenCode/Grok 为 false。
+/// 数据构造：遍历 ALL。预期：Grok/InfCode/Kimi/ZCode/Pi/Hermes 为 true；Claude/Codex/Cursor/OpenCode 为 false。
 #[test]
 fn delegation_unverified_marks_only_new_clis() {
     use OrchestrationProvider::*;
-    for provider in [InfCode, Kimi, ZCode, Pi, Hermes] {
+    for provider in [Grok, InfCode, Kimi, ZCode, Pi, Hermes] {
         assert!(
             provider.delegation_unverified(),
             "{provider:?} 应标注未验证"
         );
     }
-    for provider in [Claude, Codex, Cursor, OpenCode, Grok] {
+    for provider in [Claude, Codex, Cursor, OpenCode] {
         assert!(
             !provider.delegation_unverified(),
             "{provider:?} 不得带未验证标注"

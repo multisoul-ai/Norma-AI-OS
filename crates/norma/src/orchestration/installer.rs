@@ -149,9 +149,6 @@ impl OrchestrationInstaller {
         provider: OrchestrationProvider,
         registry: &R,
     ) -> ProviderIntegration {
-        if provider == OrchestrationProvider::Grok {
-            return ProviderIntegration::unsupported(provider);
-        }
         ProviderIntegration::from_components(
             provider,
             self.inspect_skill(provider),
@@ -169,9 +166,6 @@ impl OrchestrationInstaller {
         provider: OrchestrationProvider,
         registry: &mut R,
     ) -> Result<ProviderIntegration, InstallerError> {
-        if provider == OrchestrationProvider::Grok {
-            return Err(InstallerError::UnsupportedProvider);
-        }
         let before = self.inspect(provider, registry);
         self.install_skills_if_owned(provider)?;
         if !matches!(before.cli_component, ComponentState::Ready { .. }) {
@@ -220,9 +214,6 @@ impl OrchestrationInstaller {
         provider: OrchestrationProvider,
         registry: &mut R,
     ) -> Result<ProviderIntegration, InstallerError> {
-        if provider == OrchestrationProvider::Grok {
-            return Err(InstallerError::UnsupportedProvider);
-        }
         registry
             .revoke(provider)
             .map_err(|error| InstallerError::Authorization(error.to_string()))?;
@@ -461,7 +452,7 @@ impl OrchestrationInstaller {
         provider: OrchestrationProvider,
     ) -> Result<bool, InstallerError> {
         for candidate in OrchestrationProvider::ALL {
-            if candidate == provider || candidate == OrchestrationProvider::Grok {
+            if candidate == provider {
                 continue;
             }
             if read_credential(self.paths.credential_path(candidate).as_path())?.is_some() {

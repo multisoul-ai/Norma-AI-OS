@@ -16,6 +16,10 @@ pub(crate) struct ValidatedOrchestrationCommand {
 }
 use std::time::Duration;
 
+#[cfg(test)]
+#[path = "../../../tests/unit/grok_orchestration_authorization_tests.rs"]
+mod grok_authorization_tests;
+
 pub(crate) fn is_managed_agent_command(command: &CardCommand) -> bool {
     matches!(
         command,
@@ -130,13 +134,6 @@ impl MultisoulApp {
             )
         })?;
         let provider = orchestration_provider(authorization.provider);
-        if provider == norma::orchestration::OrchestrationProvider::Grok {
-            return Err(CardCommandError::agent(
-                AgentErrorCode::ProviderNotInstalled,
-                "Grok Build 在当前版本不支持编排",
-                false,
-            ));
-        }
         if !self
             .orchestration_authorizations
             .is_authorized(provider.slug(), &authorization.token)
