@@ -279,8 +279,7 @@ pub fn default_install_paths() -> HookInstallPaths {
         claude_settings: home.join(".claude").join("settings.json"),
         codex_hooks: home.join(".codex").join("hooks.json"),
         cursor_hooks: home.join(".cursor").join("hooks.json"),
-        grok_hooks: home
-            .join(".grok")
+        grok_hooks: grok_config_root_for(&home, std::env::var_os("GROK_HOME"))
             .join("hooks")
             .join("multisoul-agent-hook.json"),
         opencode_plugin: home
@@ -304,6 +303,14 @@ pub fn default_install_paths() -> HookInstallPaths {
             .unwrap_or_else(|| hermes_plugin_dir_for_home(&home)),
         zcode_config: home.join(".zcode").join("cli").join("config.json"),
     }
+}
+
+/// Grok 技能与 Hook 共用的配置根：非空 `GROK_HOME` 优先，否则使用 `<home>/.grok`。
+pub fn grok_config_root_for(home: &Path, grok_home: Option<std::ffi::OsString>) -> PathBuf {
+    grok_home
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| home.join(".grok"))
 }
 
 /// `<hermes_home>/plugins/norma-agent-hook`，`hermes_home` 默认 `<home>/.hermes`。

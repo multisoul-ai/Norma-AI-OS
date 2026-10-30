@@ -12,9 +12,6 @@ pub(super) fn provider_description(
         | (_, AggregateStatus::InstallFailed) => {
             ui::i18n::text("settings.one_component_needs_attention")
         }
-        (OrchestrationProvider::Grok, _) => {
-            ui::i18n::text("settings.orchestration_is_not_supported_in_the_first_release")
-        }
         _ => ui::i18n::text("settings.delegate_tasks_through_norma_os"),
     }
 }

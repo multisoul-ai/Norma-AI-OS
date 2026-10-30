@@ -178,11 +178,11 @@ fn test_keyboard_shortcuts_settings_page_contains_editable_and_read_only_rows() 
 /// 数据构造（含关键数值的推导过程）：
 ///   source = settings_panel.rs + settings_content.rs + settings_orchestration.rs
 ///   nav anchor = Orchestration
-///   action anchors = Codex / Claude / Cursor / OpenCode 四个 Provider action id
+///   action anchors = Codex / Claude / Cursor / OpenCode / Grok 五个 Provider action id
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 拼接 Settings 生产渲染源码。
-///   2. 检查 Orchestration 导航、四组件和 Provider action id。
+///   2. 检查 Orchestration 导航、四组件和 Provider action id，并排除旧 Grok 不支持提示。
 ///
 /// 预期结果：
 ///   - 正断言：Orchestration 与五个 Provider、四组件、安装/修复/卸载操作都存在。
@@ -204,6 +204,7 @@ fn test_orchestration_settings_panel_contains_provider_components_and_actions() 
         "settings-orchestration-claude-action",
         "settings-orchestration-cursor-action",
         "settings-orchestration-opencode-action",
+        "settings-orchestration-grok-action",
         "Skill",
         "Norma CLI",
         "Agent Hook",
@@ -225,8 +226,12 @@ fn test_orchestration_settings_panel_contains_provider_components_and_actions() 
         "Orchestration 页面必须固定提示重启已有 Agent 会话"
     );
     assert!(
-        source.contains("settings.orchestration_is_not_supported_in_the_first_release"),
-        "Grok 行必须明确说明首版不支持编排"
+        source.contains("settings.delegate_tasks_through_norma_os"),
+        "包含 Grok 的可安装 Provider 应展示任务委派说明"
+    );
+    assert!(
+        !source.contains("settings.orchestration_is_not_supported_in_the_first_release"),
+        "Grok 支持安装后不得保留首版不支持编排的旧提示"
     );
     assert!(
         !source.contains("SettingsSection::Hooks"),

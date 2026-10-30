@@ -15,6 +15,7 @@ public enum SettingsModule {
             SettingsShortcutCustomize.name,
             SettingsShortcutDefaults.name,
             SettingsOrchestrationPathConvention.name,
+            SettingsGrokOrchestration.name,
             SettingsAgentsLibrary.name,
             SettingsDispatchEffects.name,
             SettingsRunEffects.name,
@@ -42,6 +43,8 @@ public enum SettingsModule {
                 try await SettingsShortcutDefaults.run(session)
             case SettingsOrchestrationPathConvention.name:
                 try await SettingsOrchestrationPathConvention.run(session)
+            case SettingsGrokOrchestration.name:
+                try await SettingsGrokOrchestration.run(session)
             case SettingsAgentsLibrary.name:
                 try await SettingsAgentsLibrary.run(session)
             case SettingsDispatchEffects.name:

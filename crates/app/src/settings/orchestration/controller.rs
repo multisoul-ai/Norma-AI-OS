@@ -182,7 +182,7 @@ pub(crate) fn canonical_preview_integrations() -> Vec<ProviderIntegration> {
         ),
         ready(OrchestrationProvider::OpenCode),
         ready(OrchestrationProvider::InfCode),
-        ProviderIntegration::unsupported(OrchestrationProvider::Grok),
+        missing_integration(OrchestrationProvider::Grok),
         ready(OrchestrationProvider::Kimi),
         ready(OrchestrationProvider::ZCode),
         ready(OrchestrationProvider::Pi),
@@ -395,17 +395,13 @@ impl AuthorizationRegistry for StorageAuthorizationRegistry {
 }
 
 fn missing_integration(provider: OrchestrationProvider) -> ProviderIntegration {
-    if provider == OrchestrationProvider::Grok {
-        ProviderIntegration::unsupported(provider)
-    } else {
-        ProviderIntegration::from_components(
-            provider,
-            ComponentState::Missing,
-            ComponentState::Missing,
-            ComponentState::Missing,
-            ComponentState::Missing,
-        )
-    }
+    ProviderIntegration::from_components(
+        provider,
+        ComponentState::Missing,
+        ComponentState::Missing,
+        ComponentState::Missing,
+        ComponentState::Missing,
+    )
 }
 
 #[cfg(test)]
