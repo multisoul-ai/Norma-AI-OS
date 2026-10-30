@@ -23,7 +23,8 @@
   <a href="#see-it-in-action">Demos</a> ·
   <a href="#quick-start">Quick start</a> ·
   <a href="ARCHITECTURE.md">Architecture</a> ·
-  <a href="https://github.com/multisoul-ai/Norma-AI-OS/issues">Feedback</a>
+  <a href="https://github.com/multisoul-ai/Norma-AI-OS/issues">Feedback</a> ·
+  <a href="#contact">Contact</a>
 </p>
 
 <p align="center">
@@ -297,6 +298,17 @@ Most detailed engineering documents linked below are currently in Chinese.
 | Building and distribution | [Packaging guide](docs/references/packaging.md) |
 
 Report bugs or share ideas through [GitHub Issues](https://github.com/multisoul-ai/Norma-AI-OS/issues). Include your macOS and Norma OS versions, reproduction steps, and log excerpts with sensitive information removed.
+
+## Contact
+
+Building with Norma, or want to try it early? Come say hi.
+
+- X (Twitter): [@yakami0129](https://x.com/yakami0129)
+- WeChat beta group (Norma OS 内测群): scan the QR code below. WeChat group codes expire after 7 days; if it no longer works, DM [@yakami0129](https://x.com/yakami0129) on X for an invite.
+
+<p align="center">
+  <img src="docs/assets/readme/wechat-group-qr.png" alt="WeChat group QR code: Norma OS beta group" width="240" />
+</p>
 
 ## License
 
