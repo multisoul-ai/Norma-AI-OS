@@ -53,6 +53,8 @@ pub struct GateRoot {
     focus_handle: FocusHandle,
     #[cfg(target_os = "macos")]
     license_video_wallpaper: Option<VideoWallpaperState>,
+    #[cfg(target_os = "macos")]
+    boot_splash: Option<Entity<crate::boot_splash::BootSplash>>,
 }
 
 impl GateRoot {
@@ -76,6 +78,8 @@ impl GateRoot {
             focus_handle: cx.focus_handle(),
             #[cfg(target_os = "macos")]
             license_video_wallpaper: None,
+            #[cfg(target_os = "macos")]
+            boot_splash: crate::boot_splash::BootSplash::for_cold_launch(cx),
         };
         if phase == BootPhase::Workbench {
             root.mount_workbench(window, cx);
@@ -241,6 +245,28 @@ impl Focusable for GateRoot {
 
 impl Render for GateRoot {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let gate = self.render_gate(window, cx);
+        self.with_boot_splash(gate)
+    }
+}
+
+impl GateRoot {
+    #[cfg(target_os = "macos")]
+    fn with_boot_splash(&self, gate: gpui::AnyElement) -> gpui::AnyElement {
+        div()
+            .relative()
+            .size_full()
+            .child(gate)
+            .children(self.boot_splash.clone())
+            .into_any_element()
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    fn with_boot_splash(&self, gate: gpui::AnyElement) -> gpui::AnyElement {
+        gate
+    }
+
+    fn render_gate(&mut self, window: &mut Window, cx: &mut Context<Self>) -> gpui::AnyElement {
         if self.enter_workbench && self.workbench.is_none() {
             self.mount_workbench(window, cx);
         }

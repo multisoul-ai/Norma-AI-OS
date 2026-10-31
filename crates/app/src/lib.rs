@@ -5,6 +5,7 @@
 //! 下方 `pub use` 释放 e2e / bin 所需的公开 API，避免泄漏 `pub(crate)` 类型。
 mod app;
 mod assets;
+mod boot_splash;
 mod browser_auth_host;
 mod canvas;
 mod cards;
