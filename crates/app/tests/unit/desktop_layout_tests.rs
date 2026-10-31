@@ -145,7 +145,7 @@ fn desktop_embedded_layout_does_not_reserve_chrome_twice() {
     );
     assert_eq!(
         rects[0].bounds.origin,
-        Vec2::new(8.0, 8.0),
+        Vec2::new(24.0, 24.0),
         "内嵌布局不能叠加旧 96/86 边距"
     );
     assert!(
@@ -154,7 +154,7 @@ fn desktop_embedded_layout_does_not_reserve_chrome_twice() {
     );
     assert_eq!(
         rects[1].bounds.max().y,
-        637.0,
+        621.0,
         "第二张卡片底部应在局部视区内"
     );
     assert!(

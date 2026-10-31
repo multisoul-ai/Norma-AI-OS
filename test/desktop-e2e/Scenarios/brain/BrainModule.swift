@@ -4,9 +4,18 @@ import E2EKit
 public enum BrainModule {
     public static let manifest = DesktopModule(
         name: "brain",
-        scenarioNames: [BrainReport.name, BrainReport.voiceName, BrainSettings.name, BrainAutonomy.name, BrainQuiet.name, BrainReturn.name, BrainPropose.name, BrainQuestions.name, BrainCodexPermission.name, BrainClaudeQuota.name, BrainActivity.name],
+        scenarioNames: [BrainApprovals.name, BrainReport.name, BrainReport.voiceName, BrainSettings.name, BrainAutonomy.name, BrainQuiet.name, BrainReturn.name, BrainPropose.name, BrainQuestions.name, BrainCodexPermission.name, BrainClaudeQuota.name, BrainActivity.name, BrainDockChat.name, BrainDockChat.englishName],
         run: { scenario, session in
             switch scenario {
+            case BrainApprovals.name:
+                try await BrainApprovals.run(session)
+                return true
+            case BrainDockChat.name:
+                try await BrainDockChat.run(session)
+                return true
+            case BrainDockChat.englishName:
+                try await BrainDockChat.run(session, english: true)
+                return true
             case BrainQuestions.name:
                 try await BrainQuestions.run(session)
                 return true

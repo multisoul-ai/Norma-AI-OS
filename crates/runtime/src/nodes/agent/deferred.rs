@@ -1,4 +1,4 @@
-//! No input queue: preparation cannot replay a click into an unknown future terminal screen.
+//! No input queue: input is accepted only once the native screen is visible, never replayed later.
 use super::*;
 use crate::runtime::ControlledPty;
 use crate::runtime::LaunchControl;
@@ -7,12 +7,53 @@ use std::sync::{
     atomic::{AtomicU32, Ordering},
     Mutex,
 };
-use std::time::Duration;
-#[cfg(test)]
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use terminal::PtyBackend;
 #[cfg(test)]
 use terminal::PtyEvent;
+
+/// Startup budget: idle time allowed without user input, and an absolute ceiling.
+#[derive(Clone, Copy)]
+pub(super) struct Limits {
+    pub(super) idle: Duration,
+    pub(super) cap: Duration,
+}
+impl Default for Limits {
+    fn default() -> Self {
+        Self {
+            idle: Duration::from_secs(60),
+            cap: Duration::from_secs(600),
+        }
+    }
+}
+
+/// Distinguishes a user answering a native prompt (e.g. update menu) from a stuck launch:
+/// only keyboard input extends the deadline; output alone never does.
+struct Handshake {
+    limits: Limits,
+    started: Instant,
+    state: Mutex<HandshakeState>,
+}
+#[derive(Default)]
+struct HandshakeState {
+    visible: bool,
+    marker_seen: bool,
+    /// Tail of the previous chunk, so a marker split across reads is still found.
+    tail: Vec<u8>,
+    last_input: Option<Instant>,
+}
+/// Printed by the launch wrapper right before it execs the native TUI. Output before it is
+/// login-shell noise (rc files, nvm) the user cannot answer; keys typed then would queue in the
+/// PTY line buffer and hit the first menu's default item.
+pub(super) const TUI_START_MARKER: &[u8] = b"\x1b]9999;norma-tui-start\x07";
+impl Handshake {
+    fn expired(&self) -> bool {
+        let now = Instant::now();
+        let last = self.state.lock().ok().and_then(|state| state.last_input);
+        let deadline = last.unwrap_or(self.started).max(self.started) + self.limits.idle;
+        now >= deadline.min(self.started + self.limits.cap)
+    }
+}
 
 pub(super) struct DeferredPty {
     slot: Preparation,
@@ -24,9 +65,22 @@ pub(super) struct Preparation {
     size: Arc<AtomicU32>,
     resize_wake: crossbeam_channel::Sender<()>,
     resize_requests: crossbeam_channel::Receiver<()>,
+    handshake: Arc<Handshake>,
 }
 impl DeferredPty {
+    /// Other agents accept input as soon as their backend is installed.
     pub(super) fn new(control: Arc<LaunchControl>, cols: u16, rows: u16) -> Self {
+        let backend = Self::with_limits(control, cols, rows, Limits::default());
+        backend.slot.mark_screen_visible();
+        backend
+    }
+    /// Native Codex: the backend is installed early, so input waits for the first visible output.
+    pub(super) fn with_limits(
+        control: Arc<LaunchControl>,
+        cols: u16,
+        rows: u16,
+        limits: Limits,
+    ) -> Self {
         let (resize_wake, resize_requests) = crossbeam_channel::bounded(1);
         Self {
             slot: Preparation {
@@ -35,6 +89,11 @@ impl DeferredPty {
                 size: Arc::new(AtomicU32::new(pack(cols, rows))),
                 resize_wake,
                 resize_requests,
+                handshake: Arc::new(Handshake {
+                    limits,
+                    started: Instant::now(),
+                    state: Mutex::new(HandshakeState::default()),
+                }),
             },
         }
     }
@@ -47,6 +106,49 @@ impl DeferredPty {
     }
 }
 impl Preparation {
+    /// Input is accepted once the native TUI itself has drawn something: the start marker
+    /// followed by at least one more byte.
+    pub(super) fn observe_output(&self, bytes: &[u8]) {
+        let Ok(mut state) = self.handshake.state.lock() else {
+            return;
+        };
+        if state.visible {
+            return;
+        }
+        if state.marker_seen {
+            state.visible = !bytes.is_empty();
+            return;
+        }
+        let mut window = std::mem::take(&mut state.tail);
+        window.extend_from_slice(bytes);
+        if let Some(at) = window
+            .windows(TUI_START_MARKER.len())
+            .position(|w| w == TUI_START_MARKER)
+        {
+            state.marker_seen = true;
+            state.visible = window.len() > at + TUI_START_MARKER.len();
+        } else {
+            let keep = TUI_START_MARKER.len() - 1;
+            state.tail = window[window.len().saturating_sub(keep)..].to_vec();
+        }
+    }
+    /// For backends that are not gated (everything except native Codex).
+    pub(super) fn mark_screen_visible(&self) {
+        if let Ok(mut state) = self.handshake.state.lock() {
+            state.visible = true;
+        }
+    }
+    pub(super) fn launch_expired(&self) -> bool {
+        self.handshake.expired()
+    }
+    pub(super) fn accepts_input(&self) -> bool {
+        self.handshake.state.lock().is_ok_and(|state| state.visible)
+    }
+    fn note_input(&self) {
+        if let Ok(mut state) = self.handshake.state.lock() {
+            state.last_input = Some(Instant::now());
+        }
+    }
     pub(super) fn dimensions(&self) -> (u16, u16) {
         let value = self.size.load(Ordering::Acquire);
         ((value >> 16) as u16, value as u16)
@@ -92,8 +194,13 @@ impl Preparation {
 impl PtyBackend for DeferredPty {
     fn write(&mut self, bytes: &[u8]) -> Result<(), PtyError> {
         check_launch(&self.slot.control)?;
+        if !self.slot.accepts_input() {
+            return Err(starting());
+        }
         let mut slot = self.slot.pty.try_lock().map_err(|_| starting())?;
-        slot.as_mut().ok_or_else(starting)?.write(bytes)
+        slot.as_mut().ok_or_else(starting)?.write(bytes)?;
+        self.slot.note_input();
+        Ok(())
     }
     fn resize(&mut self, cols: u16, rows: u16) -> Result<(), PtyError> {
         check_launch(&self.slot.control)?;

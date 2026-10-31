@@ -11,6 +11,10 @@ use norma::protocol::AgentProfile;
 #[path = "../../../../tests/unit/desktop_idea_assign_tests.rs"]
 mod tests;
 
+#[cfg(test)]
+#[path = "../../../../tests/unit/desktop_idea_assign_focus_tests.rs"]
+mod focus_tests;
+
 /// `ShortcutCommandId::AssignIdeaToNewAgent` 里代表类型选择器的槽位（`⌃⇧0`）。
 const PICKER_SLOT: u8 = 1;
 
@@ -112,8 +116,11 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
-            host.update(cx, |app, cx| {
-                app.assign_idea_by_shortcut(command, window, cx)
+            // 宿主生成想法清单时会读回子项目，必须先释放当前项目的可变借用。
+            window.defer(cx, move |window, cx| {
+                host.update(cx, |app, cx| {
+                    app.assign_idea_by_shortcut(command, window, cx)
+                });
             });
             return;
         }

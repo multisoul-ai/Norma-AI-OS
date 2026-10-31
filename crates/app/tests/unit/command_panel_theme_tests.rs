@@ -1,4 +1,4 @@
-use super::view::command_panel_theme;
+use super::view::{command_dock_surface, command_panel_theme};
 use ui::{Theme, ThemeId};
 
 fn linear_channel(channel: f32) -> f32 {
@@ -33,7 +33,8 @@ fn contrast_over_dock(foreground: u32, dock: u32) -> f32 {
 }
 
 /// 场景：指令候选标题和说明在六主题 Dock 上均需可读。
-/// 数据构造：遍历六主题，将 Dock 与白壁纸合成；正文和说明需达到 4.5:1。
+/// 数据构造：遍历六主题，将生产 Dock 底色（command_dock_surface）与白壁纸合成；
+/// 正文、说明与第三级文字需达到 4.5:1。
 /// 执行过程：调用生产 command_panel_theme，计算真实 token 的 WCAG 对比。
 /// 预期结果：浅色使用深字，深色使用浅字，说明不因透明度而丢失。
 #[test]
@@ -41,8 +42,10 @@ fn command_panel_text_is_readable_on_dock_in_every_theme() {
     for id in ThemeId::ALL {
         let original = Theme::for_id(id);
         let panel = command_panel_theme(original);
-        let primary = contrast_over_dock(panel.text_primary, original.dock);
-        let secondary = contrast_over_dock(panel.text_secondary, original.dock);
+        let dock = command_dock_surface(original);
+        let primary = contrast_over_dock(panel.text_primary, dock);
+        let secondary = contrast_over_dock(panel.text_secondary, dock);
+        let tertiary = contrast_over_dock(panel.text_tertiary, dock);
         assert!(
             primary >= 4.5,
             "{id:?} 的面板主文字对比度 {primary:.2} 低于 4.5:1，文字会淹没在 Dock 底色里"
@@ -50,6 +53,10 @@ fn command_panel_text_is_readable_on_dock_in_every_theme() {
         assert!(
             secondary >= 4.5,
             "{id:?} 的面板次要文字对比度 {secondary:.2} 低于 4.5:1，说明文字不可读"
+        );
+        assert!(
+            tertiary >= 4.5,
+            "{id:?} 的面板第三级文字对比度 {tertiary:.2} 低于 4.5:1"
         );
     }
 }

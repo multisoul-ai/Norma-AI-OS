@@ -23,6 +23,7 @@ use storage::{
 use terminal::PtyCommand;
 use terminal::{Cell, PtyError, TerminalSessionId};
 
+mod agent_process;
 mod definition_identity;
 mod input;
 mod questions;

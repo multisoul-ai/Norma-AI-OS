@@ -1,6 +1,6 @@
 //! Command Dock rendering and its local GPUI elements.
 
-use super::super::command_dock::DOCK_RADIUS;
+use super::super::command_dock::{command_dock_surface, DOCK_RADIUS};
 use super::super::{AppScreen, MultisoulApp};
 use super::bottom_voice_bar_visible;
 use crate::effects::dispatch_receipt::{COMMAND_DOCK_BOTTOM_PX, COMMAND_DOCK_HEIGHT_PX};
@@ -51,7 +51,7 @@ impl MultisoulApp {
                     .border_1()
                     .border_color(rgba(theme.dock_line))
                     .shadow(command_dock_shadow())
-                    .bg(rgba(theme.dock))
+                    .bg(rgba(command_dock_surface(theme)))
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .children(suggestions)
                     .child(
@@ -139,7 +139,7 @@ impl MultisoulApp {
                     .border_1()
                     .border_color(rgba(theme.dock_line))
                     .shadow(command_dock_shadow())
-                    .bg(rgba(theme.dock))
+                    .bg(rgba(command_dock_surface(theme)))
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .children(suggestions)
                     .child(

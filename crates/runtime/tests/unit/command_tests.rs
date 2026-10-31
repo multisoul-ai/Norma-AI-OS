@@ -139,8 +139,8 @@ fn common_phrases_and_theme_catalog_are_bounded() {
     let roots = suggestions("/", &themes, &[]);
     assert_eq!(
         roots.len(),
-        15,
-        "根列表平铺全部叶子指令，共 10 + 1 + 1 + 2 + 1 = 15 项"
+        16,
+        "根列表平铺全部叶子指令，共 10 + 1 + 1(ask) + 1 + 2 + 1 = 16 项"
     );
     assert!(
         roots
@@ -181,11 +181,18 @@ fn root_lists_flat_grouped_leaves_and_bare_words_filter() {
     ];
     let root = suggestions("", &themes, &[]);
     assert_eq!(root, suggestions("/", &themes, &[]), "空输入与 / 应一致");
-    assert!(root.iter().all(|s| s.command.is_some()), "不应再有分类项");
+    assert!(
+        root.iter()
+            .all(|s| s.command.is_some() || s.group == CommandGroup::Ask),
+        "除 ask 补全入口外不应再有分类项"
+    );
     let groups: Vec<_> = root.iter().map(|s| s.group).collect();
     let mut sorted = groups.clone();
     sorted.sort_by_key(|g| *g as u8);
-    assert_eq!(groups, sorted, "分组顺序应为 Agent、Terminal、Theme");
+    assert_eq!(
+        groups, sorted,
+        "分组顺序应为 Agent、Terminal、Ask、Project、Theme"
+    );
     let midnight = suggestions("midnight", &themes, &[]);
     assert_eq!(midnight.len(), 1, "裸词只命中一个主题");
     assert_eq!(
@@ -281,7 +288,7 @@ fn help_command_opens_feature_guide() {
         "多余参数不能静默执行"
     );
     let roots = suggestions("/", &[], &[]);
-    assert_eq!(roots.len(), 13, "10 + 1 + 1 + 1 = 13 项");
+    assert_eq!(roots.len(), 14, "10 + 1 + 1(ask) + 1 + 1 = 14 项");
     assert_eq!(
         roots.last().and_then(|item| item.command.clone()),
         Some(DockCommand::Help),
@@ -332,4 +339,26 @@ fn fuzzy_matching_ranks_most_similar_first() {
     );
     let pos = |c: &str| cod.iter().position(|s| s.completion == c);
     assert!(pos("/new codex") < pos("/new opencode"), "相似度高者在前");
+}
+
+/// 场景：`ask` 的发现与补全。
+/// 执行：查询根列表、`ask`、`/ask co`、`ask codex hello`。
+/// 预期：根列表有一条 ask 入口；`ask` 列出各类型且只补全不执行；输入消息后不再出候选，回车才能发送。
+#[test]
+fn ask_is_discoverable_and_completes_without_executing() {
+    assert!(
+        suggestions("", &[], &[])
+            .iter()
+            .any(|s| s.group == CommandGroup::Ask && s.completion == "ask "),
+        "根列表必须有 ask 入口"
+    );
+    let types = suggestions("ask", &[], &[]);
+    assert!(types.len() >= 5 && types.iter().all(|s| s.command.is_none()));
+    assert!(types.iter().any(|s| s.completion == "ask codex "));
+    let filtered = suggestions("/ask co", &[], &[]);
+    assert_eq!(
+        filtered.first().map(|s| s.completion.as_str()),
+        Some("ask codex ")
+    );
+    assert!(suggestions("ask codex hello", &[], &[]).is_empty());
 }

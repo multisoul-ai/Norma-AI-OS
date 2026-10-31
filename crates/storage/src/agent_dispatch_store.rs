@@ -1,6 +1,9 @@
 use crate::{
     current_unix_timestamp, migrations::open_project_connection, StorageError, StorageResult,
 };
+use codec::{decode_row, encode_state, encode_tracking};
+
+mod codec;
 use rusqlite::{params, OptionalExtension, TransactionBehavior};
 use std::path::PathBuf;
 
@@ -38,6 +41,8 @@ pub struct NewAgentDispatchTask {
 pub struct StoredAgentDispatchResult {
     pub text: Option<String>,
     pub truncated: bool,
+    #[serde(default)]
+    pub background_unsettled: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -155,7 +160,8 @@ impl AgentDispatchTaskStore {
             "SELECT id, runtime_instance_id, runtime_task_id, task_ref, root_task_ref,
                     parent_task_ref, source_definition_id, source_node_id, source_provider,
                     definition_id, node_id, original_instruction, task_text, state, tracking, error,
-                    result_captured, result_text, result_truncated
+                    result_captured, result_text, result_truncated,
+                    result_background_unsettled
              FROM agent_dispatch_tasks ORDER BY id",
         )?;
         let rows = statement.query_map([], decode_row)?;
@@ -179,7 +185,8 @@ impl AgentDispatchTaskStore {
                 "SELECT id, runtime_instance_id, runtime_task_id, task_ref, root_task_ref,
                         parent_task_ref, source_definition_id, source_node_id, source_provider,
                         definition_id, node_id, original_instruction, task_text, state, tracking, error,
-                        result_captured, result_text, result_truncated
+                        result_captured, result_text, result_truncated,
+                        result_background_unsettled
                  FROM agent_dispatch_tasks WHERE task_ref = ?1 ORDER BY id DESC LIMIT 1",
                 [task_ref],
                 decode_row,
@@ -219,13 +226,15 @@ impl AgentDispatchTaskStore {
             transaction.execute(
                 "UPDATE agent_dispatch_tasks
                  SET state = ?1, error = ?2, result_captured = ?3, result_text = ?4,
-                     result_truncated = ?5, updated_at_unix = ?6 WHERE id = ?7",
+                     result_truncated = ?5, result_background_unsettled = ?6,
+                     updated_at_unix = ?7 WHERE id = ?8",
                 params![
                     encode_state(state),
                     error,
                     result.is_some() as i64,
                     result.and_then(|value| value.text.as_deref()),
                     result.is_some_and(|value| value.truncated) as i64,
+                    result.is_some_and(|value| value.background_unsettled) as i64,
                     current_unix_timestamp()?,
                     id
                 ],
@@ -266,13 +275,15 @@ impl AgentDispatchTaskStore {
             connection.execute(
                 "UPDATE agent_dispatch_tasks
                  SET state = ?1, error = ?2, result_captured = ?3, result_text = ?4,
-                     result_truncated = ?5, updated_at_unix = ?6 WHERE id = ?7",
+                     result_truncated = ?5, result_background_unsettled = ?6,
+                     updated_at_unix = ?7 WHERE id = ?8",
                 params![
                     encode_state(state),
                     error,
                     result.is_some() as i64,
                     result.and_then(|value| value.text.as_deref()),
                     result.is_some_and(|value| value.truncated) as i64,
+                    result.is_some_and(|value| value.background_unsettled) as i64,
                     current_unix_timestamp()?,
                     id
                 ],
@@ -399,7 +410,8 @@ impl AgentDispatchTaskStore {
                 "SELECT id, runtime_instance_id, runtime_task_id, task_ref, root_task_ref,
                         parent_task_ref, source_definition_id, source_node_id, source_provider,
                         definition_id, node_id, original_instruction, task_text, state, tracking, error,
-                        result_captured, result_text, result_truncated
+                        result_captured, result_text, result_truncated,
+                        result_background_unsettled
                  FROM agent_dispatch_tasks WHERE id = ?1",
                 [id],
                 decode_row,
@@ -407,88 +419,6 @@ impl AgentDispatchTaskStore {
             .optional()
             .map_err(StorageError::from)
     }
-}
-
-fn decode_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<StoredAgentDispatchTask> {
-    let state: String = row.get(13)?;
-    let tracking: String = row.get(14)?;
-    let result_captured = row.get::<_, i64>(16)? != 0;
-    let result_text: Option<String> = row.get(17)?;
-    let result_truncated = row.get::<_, i64>(18)? != 0;
-    Ok(StoredAgentDispatchTask {
-        id: row.get(0)?,
-        runtime_instance_id: row.get(1)?,
-        runtime_task_id: row.get(2)?,
-        task_ref: row.get(3)?,
-        root_task_ref: row.get(4)?,
-        parent_task_ref: row.get(5)?,
-        source_definition_id: row.get(6)?,
-        source_node_id: row.get(7)?,
-        source_provider: row.get(8)?,
-        definition_id: row.get(9)?,
-        node_id: row.get(10)?,
-        original_instruction: row.get(11)?,
-        task_text: row.get(12)?,
-        state: decode_state(&state)?,
-        tracking: decode_tracking(&tracking)?,
-        error: row.get(15)?,
-        result: result_captured.then_some(StoredAgentDispatchResult {
-            text: result_text,
-            truncated: result_truncated,
-        }),
-    })
-}
-
-fn encode_state(state: AgentDispatchTaskState) -> &'static str {
-    match state {
-        AgentDispatchTaskState::Accepted => "accepted",
-        AgentDispatchTaskState::Submitted => "submitted",
-        AgentDispatchTaskState::Queued => "queued",
-        AgentDispatchTaskState::Untracked => "untracked",
-        AgentDispatchTaskState::Done => "done",
-        AgentDispatchTaskState::Failed => "failed",
-        AgentDispatchTaskState::CancelRequested => "cancel_requested",
-        AgentDispatchTaskState::Cancelled => "cancelled",
-        AgentDispatchTaskState::Interrupted => "interrupted",
-    }
-}
-
-fn decode_state(value: &str) -> rusqlite::Result<AgentDispatchTaskState> {
-    match value {
-        "accepted" => Ok(AgentDispatchTaskState::Accepted),
-        "submitted" => Ok(AgentDispatchTaskState::Submitted),
-        "queued" => Ok(AgentDispatchTaskState::Queued),
-        "untracked" => Ok(AgentDispatchTaskState::Untracked),
-        "done" => Ok(AgentDispatchTaskState::Done),
-        "failed" => Ok(AgentDispatchTaskState::Failed),
-        "cancel_requested" => Ok(AgentDispatchTaskState::CancelRequested),
-        "cancelled" => Ok(AgentDispatchTaskState::Cancelled),
-        "interrupted" => Ok(AgentDispatchTaskState::Interrupted),
-        other => Err(invalid_text(other)),
-    }
-}
-
-fn encode_tracking(tracking: AgentDispatchTracking) -> &'static str {
-    match tracking {
-        AgentDispatchTracking::Managed => "managed",
-        AgentDispatchTracking::Untracked => "untracked",
-    }
-}
-
-fn decode_tracking(value: &str) -> rusqlite::Result<AgentDispatchTracking> {
-    match value {
-        "managed" => Ok(AgentDispatchTracking::Managed),
-        "untracked" => Ok(AgentDispatchTracking::Untracked),
-        other => Err(invalid_text(other)),
-    }
-}
-
-fn invalid_text(value: &str) -> rusqlite::Error {
-    rusqlite::Error::FromSqlConversionFailure(
-        value.len(),
-        rusqlite::types::Type::Text,
-        Box::new(StorageError::InvalidAgentDispatchValue(value.to_string())),
-    )
 }
 
 #[cfg(test)]

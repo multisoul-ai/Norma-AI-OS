@@ -14,6 +14,11 @@ public struct DispatchTaskRow: Equatable {
 }
 
 extension Session {
+    /// 本地语音指令的 ASR 最终转写；回复和工具执行走生产路径。
+    public func voiceTranscript(_ text: String) async throws {
+        try await control(["op": "voice_transcript", "text": text])
+    }
+
     /// 把一句转写当作豆包 ASR 的最终结果注入真实会话；之后走生产的直呼/模型路径。
     public func doubaoTranscript(_ text: String) async throws {
         try await control(["op": "doubao_transcript", "text": text])

@@ -419,6 +419,12 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
         "result_truncated",
         "result_truncated INTEGER NOT NULL DEFAULT 0",
     )?;
+    ensure_column(
+        connection,
+        "agent_dispatch_tasks",
+        "result_background_unsettled",
+        "result_background_unsettled INTEGER NOT NULL DEFAULT 0",
+    )?;
     connection.execute(
         "CREATE INDEX IF NOT EXISTS idx_agent_dispatch_tasks_runtime_task
          ON agent_dispatch_tasks(runtime_task_id, id)",

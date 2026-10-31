@@ -6,7 +6,10 @@ use super::super::overview_rows::{
     overview_feedback, overview_tone, OverviewRow, OverviewSection, OVERVIEW_TEXT_COPY,
     OVERVIEW_TEXT_PRIMARY, OVERVIEW_TEXT_SECONDARY,
 };
-use super::overview_parts::{action_label, group_chevron, row_copy, row_lead, tone_color};
+use super::overview_decisions::{decision_buttons, decision_target};
+use super::overview_parts::{
+    action_label, content_tooltip, group_chevron, row_copy, row_lead, tone_color,
+};
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div, ElementId, Stateful};
 use ui::component::StyledExt;
@@ -16,6 +19,34 @@ impl MultisoulApp {
     /// 内容多了栏内滚动；折叠的栏只剩一行标题，空出的高度让给其余栏。
     pub(super) fn render_run_overview(&mut self, cx: &mut Context<Self>) -> Stateful<Div> {
         let screen = self.presented_overview(cx);
+        let mut keys: Vec<_> = self
+            .brain_overview()
+            .proposals
+            .iter()
+            .map(|item| {
+                super::overview_details::DetailKey::Proposal((
+                    item.area_id.clone(),
+                    item.proposal.id,
+                ))
+            })
+            .collect();
+        keys.extend(self.brain_overview().questions.iter().map(|row| {
+            super::overview_details::DetailKey::Question {
+                area_id: row.area_id.clone(),
+                target: Box::new(row.snapshot.question.target.clone()),
+            }
+        }));
+        keys.extend(
+            screen
+                .sections
+                .first()
+                .into_iter()
+                .flat_map(|s| &s.rows)
+                .filter_map(super::overview_decisions::detail_key),
+        );
+        self.desktop_workspace
+            .attention
+            .reconcile(self.desktop_workspace.active_id.as_deref(), &keys);
         let mut counts = screen.summary();
         counts[0] += self.brain_overview().proposals.len();
         let cursor = self.desktop_workspace.overview_cursor;
@@ -87,12 +118,24 @@ impl MultisoulApp {
                 .id(ElementId::Name(
                     format!("desktop-run-body-{}", group.key()).into(),
                 ))
-                .flex_1()
-                .min_h(px(0.0))
-                .overflow_y_scroll()
                 .flex()
                 .flex_col()
+                .when(group == OverviewGroup::Attention, |body| body.flex_none())
+                .when(group != OverviewGroup::Attention, |body| {
+                    body.flex_1().min_h(px(0.)).overflow_y_scroll()
+                })
                 .gap(px(2.0))
+                .when(
+                    group == OverviewGroup::Attention
+                        && (!section.rows.is_empty() || !proposals.is_empty()),
+                    |body| {
+                        body.gap(px(0.))
+                            .rounded(px(8.))
+                            .border_1()
+                            .border_color(rgba(theme.node_stroke))
+                            .bg(rgba(ui::icons::with_alpha(theme.text_primary, 0x04)))
+                    },
+                )
                 .when(section.rows.is_empty() && proposals.is_empty(), |body| {
                     body.child(group_empty(theme, group, true))
                 })
@@ -133,36 +176,22 @@ impl MultisoulApp {
             style.flex_grow = Some(0.0);
             style.flex_shrink = Some(0.0);
         } else {
-            style.flex_grow = Some(group.grow());
-            // 展开的提议要完整可见（指令与理由），这时“需要你处理”不让出高度，由其余栏收缩。
-            let question_heights = self.question_heights();
-            let has_questions = group == OverviewGroup::Attention && !question_heights.is_empty();
-            // Ideas includes fixed tabs and a composer; shrinking it to a single
-            // status row would clip the composer even after the outer list scrolls.
-            let keep = (group == OverviewGroup::Attention
-                && (self.brain_proposal_open().is_some() || has_questions))
-                || (group == OverviewGroup::Ideas && !question_heights.is_empty());
-            style.flex_shrink = Some(if keep { 0.0 } else { 1.0 });
-            let heights: Vec<f32> = match (group, section) {
-                (OverviewGroup::Attention, Some(section)) => self
-                    .proposal_heights()
-                    .into_iter()
-                    .chain(self.question_heights())
-                    .chain(section.rows.iter().map(|row| row.height))
-                    .collect(),
-                (_, Some(section)) => section.rows.iter().map(|row| row.height).collect(),
-                _ => Vec::new(),
-            };
-            let basis = if has_questions {
-                // Keep the current question's nearby actions visible. Longer questionnaires
-                // still scroll within this group instead of consuming every other section.
-                (34.0 + heights.iter().map(|height| height + 2.0).sum::<f32>())
-                    .clamp(MIN_GROUP_HEIGHT, 300.0)
+            if group == OverviewGroup::Attention {
+                style.flex_grow = Some(0.0);
+                style.flex_shrink = Some(0.0);
             } else {
-                group.basis_height(&heights)
-            };
-            style.flex_basis = Some(px(basis).into());
-            style.min_size.height = Some(px(MIN_GROUP_HEIGHT).into());
+                style.flex_grow = Some(group.grow());
+                style.flex_shrink = Some(if group == OverviewGroup::Ideas {
+                    0.0
+                } else {
+                    1.0
+                });
+                let heights: Vec<f32> = section
+                    .map(|s| s.rows.iter().map(|row| row.height).collect())
+                    .unwrap_or_default();
+                style.flex_basis = Some(px(group.basis_height(&heights)).into());
+                style.min_size.height = Some(px(MIN_GROUP_HEIGHT).into());
+            }
         }
         shell
     }
@@ -255,6 +284,9 @@ impl MultisoulApp {
         theme: ui::Theme,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
+        if decision_target(row).is_some() {
+            return self.render_approval_overview_row(row, index, focused, theme, cx);
+        }
         let color = tone_color(row.status_tone, tone);
         let action = row.action.clone();
         let prelight = row.prelight.clone();
@@ -264,9 +296,21 @@ impl MultisoulApp {
         let pressed = feedback.pressed;
         let height = row.height;
         let agent_row = row.is_agent;
+        let content = [
+            Some(row.primary.as_str()),
+            row.project_tag.as_deref(),
+            row.task_line.as_deref().or(Some(row.secondary.as_str())),
+            row.detail.as_deref(),
+        ]
+        .into_iter()
+        .flatten()
+        .filter(|text| !text.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n");
         div()
             .id(ElementId::Name(id.clone().into()))
             .debug_selector(move || id.clone())
+            .tooltip(content_tooltip(content))
             .w_full()
             // 栏内滚动容器里行不得被压缩到小于内容，否则相邻行文字会重叠。
             .flex_none()
@@ -385,6 +429,7 @@ pub(super) fn group_empty(theme: ui::Theme, group: OverviewGroup, fill: bool) ->
         .id(ElementId::Name(
             format!("desktop-run-empty-{}", group.key()).into(),
         ))
+        .tooltip(content_tooltip(format!("{title}\n{hint}")))
         .w_full()
         .when(fill, |empty| empty.h_full().min_h(px(0.0)))
         .when(!fill, |empty| empty.py(px(14.0)))
@@ -404,6 +449,9 @@ pub(super) fn group_empty(theme: ui::Theme, group: OverviewGroup, fill: bool) ->
         )
         .child(
             div()
+                .w_full()
+                .min_w(px(0.0))
+                .truncate()
                 .text_size(px(OVERVIEW_TEXT_PRIMARY))
                 .font_weight(gpui::FontWeight::MEDIUM)
                 .text_color(rgba(theme.text_primary))
@@ -412,73 +460,14 @@ pub(super) fn group_empty(theme: ui::Theme, group: OverviewGroup, fill: bool) ->
         .when(group != OverviewGroup::Idle, |empty| {
             empty.child(
                 div()
+                    .w_full()
+                    .min_w(px(0.0))
+                    .truncate()
                     .text_size(px(OVERVIEW_TEXT_COPY))
                     .text_color(rgba(theme.text_tertiary))
                     .child(hint),
             )
         })
-}
-
-/// 概览里可直接处理的审批：（项目区域，卡片，run，请求标识）。没有请求标识或行不可用时没有。
-pub(super) fn decision_target(row: &OverviewRow) -> Option<(String, u64, String, String)> {
-    use super::super::overview_rows::OverviewAction;
-    let OverviewAction::LocateApproval {
-        area_id,
-        node_id,
-        run_id,
-        request_id: Some(request_id),
-        ..
-    } = &row.action
-    else {
-        return None;
-    };
-    row.enabled.then(|| {
-        (
-            area_id.clone(),
-            *node_id,
-            run_id.clone(),
-            request_id.clone(),
-        )
-    })
-}
-
-/// 能直接处理的审批行右侧的“允许 / 拒绝”。点击只处理审批，不触发整行的“定位”。
-fn decision_buttons(
-    theme: ui::Theme,
-    row: &OverviewRow,
-    index: usize,
-    cx: &mut Context<MultisoulApp>,
-) -> Option<Div> {
-    use super::overview_brain::{pill, PillStyle};
-    let (area_id, node_id, run_id, request_id) = decision_target(row)?;
-    let make =
-        |tag: &'static str, label: &'static str, allow: bool, cx: &mut Context<MultisoulApp>| {
-            let (area_id, run_id, request_id) =
-                (area_id.clone(), run_id.clone(), request_id.clone());
-            pill(
-                theme,
-                ElementId::Name(format!("overview-{tag}-{index}").into()),
-                label,
-                if allow {
-                    PillStyle::Primary
-                } else {
-                    PillStyle::Quiet
-                },
-            )
-            .on_click(cx.listener(move |app, _, _, cx| {
-                cx.stop_propagation();
-                app.decide_overview_approval(&area_id, node_id, &run_id, &request_id, allow, cx);
-            }))
-        };
-    Some(
-        div()
-            .flex_none()
-            .flex()
-            .items_center()
-            .gap(px(4.0))
-            .child(make("allow", ui::i18n::text("drawers.allow"), true, cx))
-            .child(make("deny", ui::i18n::text("drawers.deny"), false, cx)),
-    )
 }
 
 #[cfg(test)]

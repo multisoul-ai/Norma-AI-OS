@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 mod brain;
+mod brain_copy;
 mod context;
 mod ego;
 mod errors;
@@ -9,6 +10,10 @@ mod question;
 mod workspace;
 
 pub use brain::{BrainDecision, BrainOp, ReportPriority};
+pub use brain_copy::{
+    validate_decision_copy, validate_proposal_copy, DecisionCopyError, DecisionCopyIssue,
+    DECISION_COPY_LIMIT,
+};
 pub use context::*;
 pub use ego::{
     EgoCaptureMode, EgoCardStatus, EgoCommand, EgoCommandFailure, EgoErrorCode, EgoOwnership,
@@ -361,12 +366,19 @@ pub enum AgentTaskResultAvailability {
     Unavailable,
 }
 
+fn skip_if_false(value: &bool) -> bool {
+    !*value
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AgentTaskResult {
     pub availability: AgentTaskResultAvailability,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
     pub truncated: bool,
+    /// 30 分钟兜底降级完成时为 true。缺省 false，旧客户端忽略该字段。
+    #[serde(default, skip_serializing_if = "skip_if_false")]
+    pub background_unsettled: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

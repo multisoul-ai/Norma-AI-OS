@@ -11,10 +11,12 @@ use serde_json::json;
 mod handover_tests;
 
 pub(super) struct OwnedHost {
-    host: CodexQuestionHost,
+    pub(super) host: CodexQuestionHost,
     unavailable: bool,
     blocked: bool,
     attaching: bool,
+    pub(super) active_turn: Option<String>,
+    pub(super) finished_turn: Option<String>,
 }
 
 impl Runtime {
@@ -38,6 +40,8 @@ impl Runtime {
                 unavailable: false,
                 blocked: false,
                 attaching: false,
+                active_turn: None,
+                finished_turn: None,
             },
         );
         Ok(())
@@ -85,6 +89,7 @@ impl Runtime {
                 continue;
             }
             changed |= match event {
+                CodexNativeEvent::Turn(turn) => self.observe_native_codex_turn(node, &turn),
                 CodexNativeEvent::Attached(attachment) => self
                     .attach_codex_questions(node, &process, project_id, &attachment)
                     .is_ok(),
@@ -161,6 +166,8 @@ impl Runtime {
         // prevent that binding from being established on this foreground drain.
         if let Some(owned) = self.questions.native_hosts.get_mut(&node) {
             owned.attaching = true;
+            owned.active_turn = None;
+            owned.finished_turn = None;
         }
         let result = self.bind_codex_attachment(node, process, project, attachment);
         if let Some(owned) = self.questions.native_hosts.get_mut(&node) {

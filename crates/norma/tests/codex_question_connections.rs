@@ -34,7 +34,7 @@ fn connection_mode(
     let (native, bridge) = UnixStream::pair().unwrap();
     let worker = std::thread::spawn(move || {
         if paused {
-            CodexQuestionRelay::connect_verified_paused(bridge, &path).unwrap()
+            CodexQuestionRelay::connect_verified_paused(bridge, &path, false).unwrap()
         } else {
             CodexQuestionRelay::connect(bridge, &path).unwrap()
         }

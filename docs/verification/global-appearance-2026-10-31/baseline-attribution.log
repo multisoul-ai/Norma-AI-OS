@@ -1,0 +1,7 @@
+base=bec4d2133df8b714ee51094a9c30850b7990491e
+HEAD: gap=8, visible detail height=909, baseline test expects 909
+workspace: gap=24, visible detail height=877, baseline test expects 909
+crates/app/src/canvas/master_layout.rs: identical_to_HEAD=True, sha256=6eea0fc0ab7c0f6c32699421ddd1e4575c7ae100f0636f89b69024831ecf57aa
+crates/canvas/src/layout.rs: identical_to_HEAD=True, sha256=a663a63e7a3f1b2d56a392563c047b1ced28b24659fd31d06511fce5aa269000
+crates/app/tests/unit/desktop_master_visibility_tests.rs: identical_to_HEAD=True, sha256=b4d432bde61ea51396bc03bb738335b17f93c8242c96ae642de9476e6fbdbe23
+crates/app/src/settings/voice/view/gpt_live.rs: identical_to_HEAD=True, sha256=fc653fa8cc582812517566de742c63cbcfb342cf180714761f0683ee1cc850c2

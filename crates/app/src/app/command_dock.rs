@@ -1,10 +1,11 @@
 //! Command Dock input state and adaptation to existing app actions.
+mod ask;
 mod conversation;
 mod diagnostics;
 mod keys;
 mod motion;
 mod view;
-pub(crate) use view::DOCK_RADIUS;
+pub(crate) use view::{command_dock_surface, DOCK_RADIUS};
 
 use super::{AppScreen, MultisoulApp, NewBrowser, NewTerminal};
 use crate::OpenFeatureGuide;
@@ -28,6 +29,8 @@ pub(crate) struct CommandDockState {
     pub error: Option<ui::i18n::LocalizedText>,
     pub reply: Option<ui::i18n::LocalizedText>,
     pub pending_reply: bool,
+    /// 刚把消息交给幕僚：下一条幕僚 report 作为这次对话的回复显示在 Dock。
+    pub awaiting_brain_reply: bool,
     pub reply_generation: u64,
     /// Recent repos offered by `/add`, refreshed whenever the dock gains input.
     pub projects: Vec<CommandProject>,
@@ -144,6 +147,7 @@ impl MultisoulApp {
             error: None,
             reply: None,
             pending_reply: false,
+            awaiting_brain_reply: false,
             reply_generation: 0,
             projects: Vec::new(),
         });
@@ -250,7 +254,7 @@ impl MultisoulApp {
         }
         let Some(candidate) = state.suggestions().get(state.selected).cloned() else {
             self.trace_command_dock("execute_no_candidate", window, cx);
-            if !state.draft.trim().starts_with('/') {
+            if !state.draft.trim().starts_with('/') || ask::parse(&state.draft).is_some() {
                 self.submit_dock_conversation(window, cx);
             }
             return;

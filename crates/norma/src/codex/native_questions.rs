@@ -20,6 +20,7 @@ type InputPending = Arc<Mutex<Vec<Arc<AtomicBool>>>>;
 pub enum CodexNativeEvent {
     Attached(CodexAttachment),
     SessionUsed(CodexAttachment),
+    Turn(super::relay::CodexTurnEvent),
     Question(HookQuestion),
     Changed(CodexRelayChange),
     DeliveryFailed {
@@ -191,6 +192,7 @@ impl Worker {
             return;
         }
         match event {
+            CodexRelayEvent::Turn(turn) => self.emit(CodexNativeEvent::Turn(turn)),
             CodexRelayEvent::SessionUsed(attachment) => {
                 self.emit(CodexNativeEvent::SessionUsed(attachment))
             }

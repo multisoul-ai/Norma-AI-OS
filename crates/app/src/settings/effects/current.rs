@@ -1,8 +1,7 @@
-//! 当前特效卡：大预览 + 名称、说明、重播与保存状态；项目范围多一个“跟随工作空间”开关。
+//! 当前特效卡：大预览 + 名称、说明、重播与保存状态。
 
 use super::page::EffectsPageData;
 use super::preview::{preview_scene, Preview, PreviewTime};
-use super::state::EffectsTarget;
 use crate::app::effects_actions::{style_chips, style_line, style_name};
 use crate::app::MultisoulApp;
 use crate::motion::DispatchEffectStyle;
@@ -13,8 +12,7 @@ use std::sync::OnceLock;
 use std::time::Instant;
 use ui::component::{
     button::{Button, ButtonVariants},
-    switch::Switch,
-    Icon, IconName,
+    Disableable, Icon, IconName,
 };
 use ui::Theme;
 
@@ -40,12 +38,7 @@ pub(super) fn current_section(
     layout: &WallpaperLayout,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
-    let Some(target) = data.target.clone() else {
-        return div();
-    };
-    let selected = data.state.selected_style(&target).to_owned();
-    let project = matches!(target, EffectsTarget::Project { .. });
-    let follows = data.state.follows_workspace(&target);
+    let selected = data.state.selected_style().to_owned();
     // 内容区够宽就左右并排，预览随容器在 200–272px 之间收缩；很窄时才上下堆叠并占满宽。
     let stacked = layout.width < 480.0;
     let width = if stacked {
@@ -53,11 +46,7 @@ pub(super) fn current_section(
     } else {
         (layout.width * 0.42).clamp(200.0, 272.0)
     };
-    let note = match (project, follows) {
-        (true, true) => ui::i18n::text("effects.note_following"),
-        (true, false) => ui::i18n::text("effects.note_project"),
-        (false, _) => ui::i18n::text("effects.note_workspace"),
-    };
+    let note = ui::i18n::text("effects.global_hint");
     let style = style_of(&selected);
     let seconds = style.map(|style| {
         let timing = style.timing(data.state.speed.multiplier());
@@ -69,8 +58,8 @@ pub(super) fn current_section(
     let status = data
         .state
         .status
-        .clone()
-        .unwrap_or_else(|| ui::i18n::text("settings.auto_save").to_owned());
+        .map(ui::i18n::text)
+        .unwrap_or_else(|| ui::i18n::text("settings.auto_save"));
     div()
         .flex()
         .items_center()
@@ -134,7 +123,6 @@ pub(super) fn current_section(
                             }),
                     ),
                 )
-                .when(project, |info| info.child(follow_row(theme, follows, cx)))
                 .child(div().settings_text(TextRole::Helper, theme).child(note))
                 .child(
                     div()
@@ -161,6 +149,7 @@ pub(super) fn current_section(
                         .when(undo, |row| {
                             row.child(
                                 Button::new("effects-undo")
+                                    .disabled(data.state.busy)
                                     .rounded(px(18.0))
                                     .child(control_label(ui::i18n::text("effects.undo")))
                                     .on_click(
@@ -185,37 +174,4 @@ pub(super) fn current_section(
                         ),
                 ),
         )
-}
-
-fn follow_row(theme: Theme, follows: bool, cx: &mut Context<MultisoulApp>) -> gpui::Stateful<Div> {
-    div()
-        .id("effects-follow-workspace")
-        .w_full()
-        .h(px(36.0))
-        .px(px(8.0))
-        .rounded(px(6.0))
-        .border_1()
-        .border_color(rgba(0x00000000))
-        .tab_index(0)
-        .flex()
-        .items_center()
-        .justify_between()
-        .gap(px(12.0))
-        .cursor_pointer()
-        .hover(move |style| style.bg(rgba(theme.panel)))
-        .active(move |style| style.bg(rgba(theme.node_stroke)))
-        .focus(move |style| style.border_color(rgba(theme.accent_blue)))
-        .child(
-            div()
-                .settings_font(TextRole::Body)
-                .child(ui::i18n::text("effects.follow_workspace")),
-        )
-        .child(Switch::new("effects-follow-workspace-switch").checked(follows))
-        .on_click(cx.listener(move |app, _, _, cx| app.set_effects_follow_workspace(!follows, cx)))
-        .on_key_down(cx.listener(move |app, event: &gpui::KeyDownEvent, _, cx| {
-            if matches!(event.keystroke.key.as_str(), "enter" | "space") {
-                app.set_effects_follow_workspace(!follows, cx);
-                cx.stop_propagation();
-            }
-        }))
 }

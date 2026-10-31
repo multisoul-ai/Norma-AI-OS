@@ -48,6 +48,8 @@ impl MultisoulApp {
                 message: "大脑令牌无效".into(),
             });
         }
+        op.validate_decision_copy()
+            .map_err(|error| reject(&super::decision_copy::format_error(error)))?;
         use agent::context::ContextOperation;
         let restriction = match &op {
             BrainOp::Assign { .. } => Some((ContextOperation::DispatchTask, None)),
@@ -115,7 +117,7 @@ impl MultisoulApp {
                 approval_id,
                 decision,
                 reason,
-            } => self.decide_approval(&approval_id, decision, &reason, cx),
+            } => self.decide_approval(&approval_id, decision, reason.trim(), cx),
             BrainOp::Agents => output(self.agents_json()),
             BrainOp::Assign { agent, task } => {
                 if !self.brain_autonomy().assign_followups {

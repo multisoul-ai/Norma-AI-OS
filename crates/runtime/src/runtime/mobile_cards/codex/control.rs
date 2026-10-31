@@ -6,6 +6,13 @@ impl Runtime {
         node_id: NodeId,
     ) -> Result<Vec<CodexApproval>, String> {
         self.drain_mobile_codex();
+        self.cached_mobile_codex_approvals(node_id)
+    }
+
+    pub(crate) fn cached_mobile_codex_approvals(
+        &mut self,
+        node_id: NodeId,
+    ) -> Result<Vec<CodexApproval>, String> {
         self.mobile_runs
             .get_mut(&node_id)
             .and_then(|run| run.codex.as_mut())

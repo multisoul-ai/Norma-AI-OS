@@ -31,14 +31,16 @@ public enum BrainQuestions {
             setenv("NORMA_BRAIN_DIR", fixture.brain.path, 1)
             setenv("NORMA_E2E_LANGUAGE", "zh-Hans", 1)
             try session.launch()
+            try await session.resize(width: 1440, height: 840)
             try await BrainSupport.createWorkspace(session, name: "Questions")
             session.stop()
             guard let root = session.dataRoot else { throw E2EError.env("隔离数据目录丢失") }
             project = try CanvasProjectFixture.install(dataRoot: root, workspaceName: "Questions")
             let theme = ProcessInfo.processInfo.environment["NORMA_QUESTION_UI_THEME"] ?? "sapphire-night"
-            guard ["paper-blue", "sapphire-night"].contains(theme) else { throw E2EError.env("未知问答测试主题") }
-            try Catalog.seedSetting(database: try session.databaseURL(), key: "appearance.theme.v1", value: theme)
+            guard ["paper-blue", "ink-black", "sapphire-night"].contains(theme) else { throw E2EError.env("未知问答测试主题") }
+            try Catalog.seedSetting(database: try session.databaseURL(), key: "appearance.theme.v1", value: theme == "paper-blue" ? "ink-black" : theme)
             try session.launch()
+            try await session.resize(width: 1440, height: 840)
             try await BrainSupport.openProjectWithAgents(session, count: 1)
             try await BrainSupport.openOverview(session)
             return "原卡片已创建；问答尚未开始"
@@ -46,7 +48,10 @@ public enum BrainQuestions {
         guard let brain else { throw E2EError.env("问答夹具目录丢失") }
         try await session.step("采用幕僚建议：原Hook收到Green，消费后问题消失") {
             try Data().write(to: brain.appendingPathComponent("question-1"))
-            let before = try await session.wait(Expectation(allOf: ["Choose color 1", "采用答案", "Green"], timeout: 45))
+            let collapsed = try await session.wait(Expectation(allOf: ["Choose color 1"], absent: ["采用答案", "Green"], timeout: 45))
+            try session.save(collapsed, "00-question-collapsed.png")
+            try await session.click(matching: ["Choose color 1"], pick: .top)
+            let before = try await session.wait(Expectation(allOf: ["Choose color 1", "采用答案", "Green"], timeout: 15))
             try session.save(before, "01-question-suggestion.png")
             guard try consumed(brain).isEmpty else { throw E2EError.product("用户采用前已发送答案") }
             try await session.click(matching: ["采用答案"], pick: .top)
@@ -57,10 +62,16 @@ public enum BrainQuestions {
         }
         try await session.step("编辑建议为Blue，提交完整原题答案") {
             try Data().write(to: brain.appendingPathComponent("question-2"))
-            _ = try await session.wait(Expectation(allOf: ["Choose color 2", "采用答案"], timeout: 45))
+            _ = try await session.wait(Expectation(allOf: ["Choose color 2"], absent: ["采用答案"], timeout: 45))
+            try await session.click(matching: ["Choose color 2"], pick: .top)
+            _ = try await session.wait(Expectation(allOf: ["采用答案"], timeout: 15))
             try await session.click(matching: ["编辑"], pick: .top)
             _ = try await session.wait(Expectation(allOf: ["提交答案", "Blue"], timeout: 6))
             try await session.click(matching: ["Blue"], pick: .top)
+            try await session.click(matching: ["Choose color 2"], pick: .top)
+            _ = try await session.wait(Expectation(absent: ["提交答案"], timeout: 6))
+            try await session.click(matching: ["Choose color 2"], pick: .top)
+            _ = try await session.wait(Expectation(allOf: ["提交答案", "Blue"], timeout: 6))
             // Let the selected control paint before capturing its visual state.
             try await Task.sleep(nanoseconds: 300_000_000)
             let edited = try await session.capture()
@@ -81,7 +92,9 @@ public enum BrainQuestions {
         }
         try await session.step("明确委托当前问题，幕僚只回答一次，不派发任务") {
             try Data().write(to: brain.appendingPathComponent("question-3"))
-            _ = try await session.wait(Expectation(allOf: ["Choose color 3", "交给幕僚回答"], timeout: 45))
+            _ = try await session.wait(Expectation(allOf: ["Choose color 3"], absent: ["交给幕僚回答"], timeout: 45))
+            try await session.click(matching: ["Choose color 3"], pick: .top)
+            _ = try await session.wait(Expectation(allOf: ["交给幕僚回答"], timeout: 15))
             try await session.click(matching: ["交给幕僚回答"], pick: .top)
             try await waitForAnswer(brain, cycle: 3, expected: "Green")
             let after = try await session.wait(Expectation(absent: ["Choose color 3"], timeout: 10))
@@ -90,7 +103,9 @@ public enum BrainQuestions {
         }
         try await session.step("自定义答案逐字输入，空格不被概览导航吞掉") {
             try Data().write(to: brain.appendingPathComponent("question-4"))
-            _ = try await session.wait(Expectation(allOf: ["Choose color 4", "采用答案"], timeout: 45))
+            _ = try await session.wait(Expectation(allOf: ["Choose color 4"], absent: ["采用答案"], timeout: 45))
+            try await session.click(matching: ["Choose color 4"], pick: .top)
+            _ = try await session.wait(Expectation(allOf: ["采用答案"], timeout: 15))
             try await session.click(matching: ["编辑"], pick: .top)
             _ = try await session.wait(Expectation(allOf: ["自定义答案", "提交答案"], timeout: 6))
             try await session.click(matching: ["自定义答案"], pick: .top)

@@ -35,7 +35,7 @@ pub(super) fn submit_agent_enter(
     runtime: &mut runtime::Runtime,
     node_id: canvas::NodeId,
 ) -> Result<(), AgentTaskSubmitError> {
-    if let Err(error) = runtime.send_node_input(
+    if let Err(error) = runtime.send_automated_input(
         node_id,
         runtime::NodeInput::Key(terminal::KeyInput {
             key: terminal::Key::Enter,
@@ -44,7 +44,7 @@ pub(super) fn submit_agent_enter(
             shift: false,
         }),
     ) {
-        let cleanup = runtime.send_node_input(
+        let cleanup = runtime.send_automated_input(
             node_id,
             runtime::NodeInput::Key(terminal::KeyInput {
                 key: terminal::Key::Char('u'),
@@ -74,7 +74,7 @@ pub(super) fn clear_agent_task_input(
     node_id: canvas::NodeId,
 ) -> Result<(), String> {
     runtime
-        .send_node_input(
+        .send_automated_input(
             node_id,
             runtime::NodeInput::Key(terminal::KeyInput {
                 key: terminal::Key::Char('u'),

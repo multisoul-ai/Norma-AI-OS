@@ -75,6 +75,8 @@ pub(crate) struct Proposals {
 impl Proposals {
     /// 同一个 Agent 只留最新一条；已满时拒绝。返回新提议的编号。
     pub(crate) fn add(&mut self, draft: Draft, at: SystemTime) -> Result<u64, String> {
+        norma::protocol::validate_proposal_copy(&draft.title, &draft.why)
+            .map_err(super::decision_copy::format_error)?;
         self.items.retain(|p| p.agent != draft.agent);
         if self.items.len() >= MAX_PROPOSALS {
             return Err(format!(
@@ -85,9 +87,9 @@ impl Proposals {
         self.items.push(Proposal {
             id: self.next_id,
             agent: draft.agent,
-            title: draft.title,
+            title: draft.title.trim().to_owned(),
             task: draft.task,
-            why: draft.why,
+            why: draft.why.trim().to_owned(),
             at,
         });
         Ok(self.next_id)

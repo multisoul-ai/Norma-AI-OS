@@ -422,6 +422,7 @@ fn unavailable_task_result() -> norma::protocol::AgentTaskResult {
         availability: norma::protocol::AgentTaskResultAvailability::Unavailable,
         text: None,
         truncated: false,
+        background_unsettled: false,
     }
 }
 

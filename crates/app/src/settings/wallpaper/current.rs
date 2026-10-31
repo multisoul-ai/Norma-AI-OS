@@ -22,14 +22,15 @@ pub(super) fn current_wallpaper(
         WallpaperSelection::Custom { .. } => false,
     };
     let footer = state
-        .scoped
+        .preferences
         .status
-        .as_deref()
-        .map(|status| match status {
-            "Saved" if pending => ui::i18n::text("media.wallpaper_selection_saved").to_owned(),
-            "Saved" => ui::i18n::text("norma.saved").to_owned(),
-            "Saving…" => ui::i18n::text("norma.saving").to_owned(),
-            message => message.to_owned(),
+        .as_ref()
+        .map(|status| {
+            if pending && status == &ui::i18n::message("norma.saved", &[]) {
+                ui::i18n::text("media.wallpaper_selection_saved").to_owned()
+            } else {
+                status.to_string()
+            }
         })
         .or_else(|| (!pending).then(|| ui::i18n::text("settings.auto_save").to_owned()));
     let (name, kind, path) = match &state.selection {
@@ -60,28 +61,12 @@ pub(super) fn current_wallpaper(
             (filename.clone(), kind, path)
         }
     };
-    let project = state.scoped.edit_project
-        && state
-            .scoped
-            .context
-            .as_ref()
-            .is_some_and(|ctx| ctx.area.is_some());
     let preview_width = if layout.stacked_preview {
         layout.width - 34.0
     } else {
         272.0
     };
-    let description = if project {
-        if state.scoped.follows_workspace() {
-            ui::i18n::text("settings.workspace_changes")
-        } else {
-            ui::i18n::text("settings.project_only")
-        }
-    } else if state.scoped.context.is_some() {
-        ui::i18n::text("settings.workspace_projects")
-    } else {
-        ui::i18n::text("settings.directory_background_description")
-    };
+    let description = ui::i18n::text("settings.global_wallpaper_hint");
     div()
         .flex()
         .items_center()
@@ -143,9 +128,6 @@ pub(super) fn current_wallpaper(
                             }
                         }),
                 )
-                .when(project, |info| {
-                    info.child(super::scope_view::follow_control(theme, &state.scoped, cx))
-                })
                 .child(
                     div()
                         .settings_text(TextRole::Helper, theme)

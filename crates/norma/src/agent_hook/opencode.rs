@@ -66,7 +66,16 @@ function textFromOutput(output) {
   );
 }
 
+// 子 Agent（task 工具）建的子会话：它的开始/空闲/结束不是这张卡片的回合。
+const childSessions = new Set();
+const LIFECYCLE_EVENTS = new Set(["SessionStart", "SessionEnd", "UserPromptSubmit", "Stop", "StopFailure"]);
+
+function rememberSession(info) {
+  if (info?.id && info?.parentID) childSessions.add(info.id);
+}
+
 async function postHook(providerEvent, sessionID, extra = {}) {
+  if (LIFECYCLE_EVENTS.has(providerEvent) && childSessions.has(sessionID)) return;
   const nodeID = Number(process.env.MULTISOUL_NODE_ID);
   const endpoint = process.env.MULTISOUL_HOOK_ENDPOINT;
   const token = process.env.MULTISOUL_HOOK_TOKEN;
@@ -164,6 +173,8 @@ export default async () => {
     event: async ({ event }) => {
       const type = event?.type;
       const properties = event?.properties || {};
+
+      if (type === "session.created" || type === "session.updated") rememberSession(properties.info);
 
       if (type === "session.created" && properties.info?.id) {
         await postHook("SessionStart", properties.info.id, {

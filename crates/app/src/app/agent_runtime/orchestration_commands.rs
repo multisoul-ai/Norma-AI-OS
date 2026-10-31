@@ -204,7 +204,7 @@ fn cancel_task(
         }
         TaskCancelKind::Running => {
             app.runtime
-                .send_node_input(
+                .send_automated_input(
                     task.target_node_id,
                     runtime::NodeInput::Key(terminal::KeyInput {
                         key: terminal::Key::Char('c'),
@@ -310,6 +310,7 @@ fn wire_task_status(task: agent::AgentCoordinatedTask) -> AgentTaskStatus {
                 availability: norma::protocol::AgentTaskResultAvailability::Unavailable,
                 text: None,
                 truncated: false,
+                background_unsettled: false,
             })
         }),
     }

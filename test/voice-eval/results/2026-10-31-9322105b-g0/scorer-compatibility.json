@@ -1,0 +1,7 @@
+{
+  "purpose": "historical scorer compatibility only; NOT a new A0 run",
+  "observations": 608,
+  "errors": 884,
+  "reference_units": 7872,
+  "mer": 0.11229674796747967
+}

@@ -13,7 +13,7 @@ pub(super) fn final_voice_text_action(mode: VoiceInteractionMode) -> FinalVoiceT
 }
 
 impl MultisoulApp {
-    pub(super) fn handle_final_voice_text(
+    pub(crate) fn handle_final_voice_text(
         &mut self,
         transcript: String,
         _window: &mut Window,

@@ -331,3 +331,20 @@ fn brain_proposal_async_confirmation_feedback_recovers() {
         "等待期间不得写入任务"
     );
 }
+
+/// 场景：Cmd+K 普通消息交接。预期：幕僚运行时接收，未运行时返回错误以便回退到前台对话。
+#[test]
+fn dock_plain_message_hands_off_only_when_brain_runs() {
+    let (entity, mut cx, _received, _dir, _test) = fixture();
+    entity.update(&mut cx, |app, _| {
+        assert!(
+            app.handoff_to_brain("今天进展如何".into()).is_ok(),
+            "幕僚运行时必须接收"
+        );
+        app.brain.host = None;
+        assert!(
+            app.handoff_to_brain("今天进展如何".into()).is_err(),
+            "幕僚未运行必须回退"
+        );
+    });
+}

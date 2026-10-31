@@ -1,5 +1,61 @@
 use super::*;
 
+/// 场景：完成事件与会话首条提示都约束决策文案，不能只在首轮要求简短。
+/// 构造：主/审批 primer 及静默/需要告知两种完成事件。
+/// 执行：检查 50 字符预算、明确行动及保留完整任务的要求。
+/// 预期：四种入口均要求简洁，下一步组合预算不变，不能截断完整指令。
+#[test]
+fn decision_prompts_require_short_clear_copy() {
+    let lines = ["- Henry 已完成：需要补测试".to_string()];
+    for text in [
+        primer(Role::Main, "/bin/norma", None),
+        primer(Role::Approval, "/bin/norma", None),
+        urgent_batch(&lines),
+        quiet_batch(&lines),
+    ] {
+        assert!(
+            text.contains("50 个字符"),
+            "每个入口都需明确长度上限：{text}"
+        );
+        assert!(
+            text.contains("简洁明确"),
+            "每个入口都需明确内容质量：{text}"
+        );
+        assert!(
+            text.contains("不能直接截断"),
+            "不能通过删掉句尾的风险限定满足预算：{text}"
+        );
+    }
+    let next = quiet_batch(&lines);
+    assert!(next.contains("title 与 why"), "下一步应约束两个字段合计");
+    assert!(next.contains("task 不受"), "完整执行载荷不受文案预算限制");
+}
+
+/// 场景：审批短理由仍需评估风险，不能把简洁要求误当作默认放行。
+/// 构造：项目中 cargo test 请求，审批标识 a1。
+/// 执行：构造审批提示并检查理由长度和升级要求。
+/// 预期：明确要求 50 字符；拿不准继续 escalate，命令保持完整。
+#[test]
+fn approval_copy_budget_keeps_risk_and_escalation() {
+    let request = ApprovalRequest {
+        id: "a1".into(),
+        agent: "Codex".into(),
+        subject: crate::risk::ApprovalSubject {
+            tool_name: "Bash".into(),
+            command: Some("cargo test -p norma".into()),
+            file_path: None,
+            project_root: "/work/project".into(),
+        },
+    };
+    let text = approval(&request, "/bin/norma");
+    assert!(text.contains("50 个字符"), "审批理由应限制长度");
+    assert!(text.contains("拿不准就 escalate"), "简短文案不改变风险兜底");
+    assert!(
+        text.contains("cargo test -p norma"),
+        "原始请求不得被文案要求改写"
+    );
+}
+
 /// 大脑只提议下一步，不直接派活：完成提示和首条说明都指向 propose。
 ///
 /// 数据构造：一条完成记录，分别渲染“需要告知”“静默记录”两种提示；再取主会话首条说明。

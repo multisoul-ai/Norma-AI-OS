@@ -2,6 +2,7 @@
 
 use super::super::ideas_rows::{AssignedRow, IdeaStatus};
 use super::super::overview_rows::OverviewFeedback;
+use super::overview_parts::content_tooltip;
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div, ElementId, Stateful};
 use ui::component::button::{Button, ButtonVariants};
@@ -34,6 +35,7 @@ impl MultisoulApp {
         div()
             .id(ElementId::Name(element_id.clone().into()))
             .debug_selector(move || element_id.clone())
+            .tooltip(content_tooltip(format!("{}\n{status}", row.body)))
             .w_full()
             .min_h(px(48.0))
             .px(px(8.0))

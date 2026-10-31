@@ -158,7 +158,10 @@ fn routine_successes_wait_in_the_quiet_pool() {
     assert_eq!(*lane, Lane::Main, "应是主会话提示");
     assert!(text.contains("Codex") && text.contains("Cursor"), "{text}");
     assert!(text.contains("默认不需要告诉用户"), "{text}");
-    assert!(!text.contains("必须"), "不能强制汇报：{text}");
+    assert!(
+        !text.contains("必须汇报") && !text.contains("必须告诉用户"),
+        "不能强制汇报；决策文案的格式要求不等于要求播报：{text}"
+    );
     assert!(router.poll(now + Duration::from_secs(60)).is_empty());
 }
 

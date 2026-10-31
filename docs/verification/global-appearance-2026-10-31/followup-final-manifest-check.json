@@ -1,0 +1,45 @@
+{
+  "recorded_at_utc": "2026-10-31T07:57:12.089419+00:00",
+  "files": {
+    "crates/app/src/app/appearance.rs": {
+      "recorded_sha256": "bbce3d754516cc5adc157510909b31d673a58906851b19d666d1ae05f0dd6f6d",
+      "current_sha256": "bbce3d754516cc5adc157510909b31d673a58906851b19d666d1ae05f0dd6f6d",
+      "matches": true
+    },
+    "crates/app/src/app/effects_actions.rs": {
+      "recorded_sha256": "8b3e1ba2740ebd1f1db5bcdcf56eae0ae39e8679464daa456a13472993804702",
+      "current_sha256": "8b3e1ba2740ebd1f1db5bcdcf56eae0ae39e8679464daa456a13472993804702",
+      "matches": true
+    },
+    "crates/app/src/app/wallpaper_actions.rs": {
+      "recorded_sha256": "38edd706777bd24a6a39e2e380d4087a3762bf68c38fce8e98fc7134d28273e6",
+      "current_sha256": "38edd706777bd24a6a39e2e380d4087a3762bf68c38fce8e98fc7134d28273e6",
+      "matches": true
+    },
+    "crates/app/src/settings/effects/state.rs": {
+      "recorded_sha256": "1d02bb9df46b3b4a6f16a843250d799622b5695a0751b4e7df0b21a032e438e0",
+      "current_sha256": "1d02bb9df46b3b4a6f16a843250d799622b5695a0751b4e7df0b21a032e438e0",
+      "matches": true
+    },
+    "crates/app/src/settings/wallpaper/preferences.rs": {
+      "recorded_sha256": "79557332f46e709bbf1f9e6c96350123f684b55f8f2aea1a8fc64226db431b02",
+      "current_sha256": "79557332f46e709bbf1f9e6c96350123f684b55f8f2aea1a8fc64226db431b02",
+      "matches": true
+    },
+    "crates/storage/src/migrations/global_appearance.rs": {
+      "recorded_sha256": "ffa08ff8cdd9348f9c36ed9ebe7c7f4c901d81ce9b59ae10842d02eb751d791b",
+      "current_sha256": "ffa08ff8cdd9348f9c36ed9ebe7c7f4c901d81ce9b59ae10842d02eb751d791b",
+      "matches": true
+    },
+    "crates/storage/src/migrations/desktop.rs": {
+      "recorded_sha256": "77ea59400dd722fecde8b1ac95fba2725675d6b745a4edddac1f620852f86b45",
+      "current_sha256": "77ea59400dd722fecde8b1ac95fba2725675d6b745a4edddac1f620852f86b45",
+      "matches": true
+    },
+    "target/debug/norma-os": {
+      "recorded_sha256": "fbb277da9db08a51cf4ef4497f23d97003dafada5f0e66422cd13216f391f527",
+      "current_sha256": "fb99ad1a85cce7fded1ed5afbc0d8ae7edae774db0ee8e4722d908c6050a9497",
+      "matches": false
+    }
+  }
+}

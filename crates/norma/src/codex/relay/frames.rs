@@ -21,10 +21,17 @@ impl Relay {
                 }
             }
             Some("thread/start" | "thread/resume" | "thread/fork") => {
+                // Independent of question observation: a dropped injection would downgrade YOLO.
+                if self.full_access && value["params"].is_object() {
+                    let params = &mut value["params"];
+                    params["approvalPolicy"] = "never".into();
+                    params["sandbox"] = "danger-full-access".into();
+                    params["permissions"] = Value::Null;
+                }
                 // The native TUI also starts temporary-structured helper threads on this
                 // connection. They are not a user attachment and must not revoke/hold its RPC.
                 if value["method"] == "thread/start" && value["params"]["ephemeral"] == true {
-                    return frame;
+                    return self.rewritten(frame, value);
                 }
                 if !self.version_verified {
                     self.disable("codex_question_version_unverified");
@@ -33,7 +40,7 @@ impl Relay {
                     || (!value["id"].is_string() && !value["id"].is_number())
                 {
                     self.disable("codex_question_session_request_overflow");
-                    return frame;
+                    return self.rewritten(frame, value);
                 }
                 self.starts.push((
                     value["id"].clone(),
@@ -50,6 +57,7 @@ impl Relay {
                     value["params"]["experimentalRawEvents"] = true.into();
                     return Message::Text(value.to_string().into());
                 }
+                return self.rewritten(frame, value);
             }
             _ => {
                 if let Some(ledger) = &mut self.ledger {
@@ -63,6 +71,14 @@ impl Relay {
         frame
     }
 
+    fn rewritten(&self, frame: Message, value: Value) -> Message {
+        if self.full_access {
+            Message::Text(value.to_string().into())
+        } else {
+            frame
+        }
+    }
+
     pub(super) fn server_frame(&mut self, frame: &Message) {
         let Message::Text(text) = frame else { return };
         let Ok(value) = serde_json::from_str::<Value>(text) else {
@@ -70,6 +86,11 @@ impl Relay {
             return;
         };
         self.inputs.observe(&value);
+        if let Some(turn) = self.turns.observe(&value) {
+            if self.events.try_send(CodexRelayEvent::Turn(turn)).is_err() {
+                self.disable("codex_question_event_gap");
+            }
+        }
         if let Some(thread_id) = self.inputs.take_used_session() {
             let attachment = CodexAttachment {
                 connection_id: format!("codex-relay:{}:{}", self.owner, self.generation),
@@ -92,9 +113,11 @@ impl Relay {
             {
                 self.initialize = None;
                 self.version_verified = value.get("error").is_none()
-                    && value["result"]["userAgent"]
-                        .as_str()
-                        .is_some_and(|agent| agent.starts_with("codex-tui/0.162.1 "));
+                    && value["result"]["userAgent"].as_str().is_some_and(|agent| {
+                        ["codex-tui/0.162.1 ", "codex-tui/0.166.0 "]
+                            .iter()
+                            .any(|version| agent.starts_with(version))
+                    });
                 if !self.version_verified {
                     self.disable("codex_question_version_unsupported");
                 }
@@ -126,6 +149,11 @@ impl Relay {
                     return;
                 };
                 self.generation = next;
+                self.turns.attach(CodexAttachment {
+                    connection_id: format!("codex-relay:{}:{}", self.owner, self.generation),
+                    thread_id: thread.into(),
+                    resumed,
+                });
                 let mut ledger = CodexQuestions::new(thread.into());
                 if !self.observing.load(Ordering::Acquire) {
                     ledger.disconnect();

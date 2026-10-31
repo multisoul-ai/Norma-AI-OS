@@ -76,6 +76,9 @@ impl MultisoulApp {
         answers: Vec<QuestionAnswer>,
         reason: String,
     ) -> Result<(), String> {
+        norma::protocol::validate_decision_copy("reason", &reason)
+            .map_err(super::decision_copy::format_error)?;
+        let reason = reason.trim().to_owned();
         self.question_context(&target)?;
         let current = self.runtime.question(&target).ok_or("question_not_found")?;
         if current.state != QuestionState::Pending {
@@ -85,9 +88,6 @@ impl MultisoulApp {
             return Err("question_requires_private_answer".into());
         }
         current.question.validate_answers(&answers)?;
-        if reason.trim().is_empty() || reason.len() > 4096 {
-            return Err("invalid_answer_reason".into());
-        }
         self.brain.questions.suggestions.retain(|suggestion| {
             suggestion.target != target
                 && self
