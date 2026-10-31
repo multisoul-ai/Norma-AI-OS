@@ -18,7 +18,7 @@ bash scripts/desktop-e2e.sh workspace-lifecycle --repeat 5
 
 ## 模型直接看图
 
-`bash scripts/desktop-e2e.sh canvas-presentation-layout --visual` 复用同一真实 App 场景，将定位和画面判断交给当前多模态 Agent。此模式不调用 Vision，不需要额外 API Key；隔离启动、真实输入、CLI 回执与数据断言保持。当前只接入这一场景，其他场景明确拒绝，不能静默回退。
+`bash scripts/desktop-e2e.sh canvas-presentation-layout --visual` 复用同一真实 App 场景，将定位和画面判断交给当前多模态 Agent。此模式不调用 Vision，不需要额外 API Key；隔离启动、真实输入、CLI 回执与数据断言保持。支持名单在各模块 `<模块>Module.swift` 的 `visualScenarioNames`（含 `canvas-presentation-layout`、`settings-theme-consistency`、`workspace-ideas-delete-undo`），未登记的场景明确拒绝，不能静默回退。新增页面场景默认同时提供看图版；OCR 的 Vision/e5rt 故障属 ENV，改跑 `--visual`，不降级 Computer Use。
 
 驱动逐项发布原始 PNG 与问题，等待 Agent 实际查看并响应。缺项、错图、越界、看不清和无响应都不能通过；尚在加载可有界重截，不重放操作。报告标记 `verification=model-assisted`，区别于 `ocr-scripted`；需要 Agent 参与，不是无人值守脚本。协议见 `.agents/skills/norma-desktop-e2e/references/model-vision.md`。
 

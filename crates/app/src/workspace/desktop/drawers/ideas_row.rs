@@ -96,6 +96,7 @@ fn idea_icon_button(
     id: impl Into<ElementId>,
     icon: &'static str,
 ) -> Stateful<Div> {
+    // Material 图标按钮：28px 圆形状态层，悬停 8%、按下 12% 的前景色叠加。
     div()
         .id(id)
         .w(px(28.0))
@@ -103,16 +104,18 @@ fn idea_icon_button(
         .flex()
         .items_center()
         .justify_center()
-        .rounded(px(7.0))
-        .text_color(rgba(theme.text_secondary))
+        .rounded_full()
         .cursor_pointer()
-        .hover(|style| {
-            style
-                .bg(rgba(ui::icons::with_alpha(theme.accent, 0x2e)))
-                .text_color(rgba(theme.text_primary))
-        })
-        .active(|style| style.bg(rgba(ui::icons::with_alpha(theme.accent, 0x48))))
-        .child(svg().path(icon).w(px(13.0)).h(px(13.0)).flex_none())
+        .hover(|style| style.bg(rgba(ui::icons::with_alpha(theme.text_primary, 0x14))))
+        .active(|style| style.bg(rgba(ui::icons::with_alpha(theme.text_primary, 0x1f))))
+        .child(
+            svg()
+                .path(icon)
+                .w(px(14.0))
+                .h(px(14.0))
+                .flex_none()
+                .text_color(rgba(theme.text_secondary)),
+        )
 }
 
 /// 抓手：与原型一致的 grip 图标（14px），悬停行时提亮。
