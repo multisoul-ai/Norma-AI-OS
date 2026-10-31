@@ -197,6 +197,8 @@ fn native_codex_real_launch_and_cleanup() {
     let deadline = Instant::now() + Duration::from_secs(25);
     let mut host = None;
     let mut screen = String::new();
+    let mut skipped = 0u8;
+    let mut last_down = None;
     while Instant::now() < deadline {
         live.drain();
         if host.is_none() {
@@ -205,6 +207,7 @@ fn native_codex_real_launch_and_cleanup() {
         if let Some(crate::NodeView::Term { snapshot, .. }) = live.view() {
             screen = snapshot.rows.iter().flatten().map(|cell| cell.c).collect();
         }
+        skip_update_prompt(&mut live, &screen, &mut skipped, &mut last_down);
         if host.is_some() && (screen.contains("Ask Codex") || screen.contains("model:")) {
             break;
         }
@@ -253,6 +256,8 @@ fn native_codex_real_session_picker_after_startup() {
     let mut host = None;
     let mut screen = String::new();
     let mut stage = 0;
+    let mut skipped = 0u8;
+    let mut last_down = None;
     let deadline = Instant::now() + Duration::from_secs(25);
     while Instant::now() < deadline {
         live.drain();
@@ -262,6 +267,7 @@ fn native_codex_real_session_picker_after_startup() {
         if let Some(crate::NodeView::Term { snapshot, .. }) = live.view() {
             screen = snapshot.rows.iter().flatten().map(|cell| cell.c).collect();
         }
+        skip_update_prompt(&mut live, &screen, &mut skipped, &mut last_down);
         if screen.contains("Failed to start TUI session picker") {
             break;
         }
@@ -313,4 +319,59 @@ fn native_codex_real_session_picker_after_startup() {
     assert!(available, "关闭辅助选择器不能使原问答宿主失效");
     assert!(!input_held, "Esc 返回原会话后不能遗留选择器输入锁");
     assert!(control.is_cancelled(), "测试必须回收自有 server/TUI");
+}
+
+/// 场景：非 Codex 的延迟后端（OpenCode/Cursor）装入后立即可输入，不依赖「首屏可见」门控。
+/// 构造：`DeferredPty::new` + 真实 /bin/cat。预期：装入后第一次 write 成功。
+#[test]
+fn non_codex_deferred_backend_accepts_input_once_installed() {
+    let control = Arc::new(LaunchControl::default());
+    let mut backend = deferred::DeferredPty::new(control.clone(), 80, 24);
+    let (sender, _receiver) = crossbeam_channel::unbounded();
+    backend
+        .preparation()
+        .install(
+            control
+                .spawn_pty(PtyCommand::new("/bin/cat"), 80, 24, sender)
+                .unwrap(),
+        )
+        .unwrap();
+    assert!(backend.write(b"hi\n").is_ok(), "装入后应可输入");
+    backend.kill();
+}
+
+/// 真实 Codex 若弹出「Update available」菜单（握手前），用 ↓ 选到 Skip 再回车。
+/// 绝不盲按回车：只有屏幕确认光标已在「2. Skip」才回车，否则会真的执行 `npm install -g`。
+/// ↓ 可能恰好落在 TUI 进入原始模式之前而丢失，所以光标仍在第 1 项时每 500ms 重发一次。
+/// `stage`：0 未处理，1 已发 ↓，2 已回车；`last_down` 为上次发 ↓ 的时刻。
+fn skip_update_prompt(
+    live: &mut TermLive,
+    screen: &str,
+    stage: &mut u8,
+    last_down: &mut Option<Instant>,
+) {
+    use crate::{LiveNode, NodeInput};
+    let key = |key| {
+        NodeInput::Key(terminal::KeyInput {
+            key,
+            ctrl: false,
+            alt: false,
+            shift: false,
+        })
+    };
+    match *stage {
+        0 | 1 if screen.contains("Update available") && screen.contains("› 1.") => {
+            let due = last_down.is_none_or(|at| at.elapsed() >= Duration::from_millis(500));
+            if due && live.input(key(terminal::Key::Down)).is_ok() {
+                *stage = 1;
+                *last_down = Some(Instant::now());
+            }
+        }
+        1 if screen.contains("› 2.") => {
+            if live.input(key(terminal::Key::Enter)).is_ok() {
+                *stage = 2;
+            }
+        }
+        _ => {}
+    }
 }

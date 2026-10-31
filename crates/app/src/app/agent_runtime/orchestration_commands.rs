@@ -204,7 +204,7 @@ fn cancel_task(
         }
         TaskCancelKind::Running => {
             app.runtime
-                .send_node_input(
+                .send_automated_input(
                     task.target_node_id,
                     runtime::NodeInput::Key(terminal::KeyInput {
                         key: terminal::Key::Char('c'),

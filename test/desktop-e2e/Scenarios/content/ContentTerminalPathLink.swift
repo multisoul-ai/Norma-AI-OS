@@ -21,14 +21,15 @@ public enum ContentTerminalPathLink {
             try FileManager.default.createDirectory(at: dir.appendingPathComponent("docs/my notes"), withIntermediateDirectories: true)
             try Data("# TERMINAL LINK E2E\n".utf8).write(to: dir.appendingPathComponent("docs/PlanLinkE2E.md"))
             try Data("# SPACED PATH E2E\n".utf8).write(to: dir.appendingPathComponent("docs/my notes/spaced note.md"))
+            try Data("# CJK PREFIX E2E\n".utf8).write(to: dir.appendingPathComponent("docs/Zebra.md"))
+            try Data("# CJK SUFFIX E2E\n".utf8).write(to: dir.appendingPathComponent("docs/Moon.md"))
             root = dir
             try Catalog.seedArea(database: data.appendingPathComponent("app.sqlite"), workspaceName: workspace, root: dir, displayName: "Link Project")
+            try Catalog.suppressFeatureGuide(database: data.appendingPathComponent("app.sqlite"))
             try session.launch(language: "zh-Hans")
             _ = try await session.wait(Expectation(allOf: [workspace], timeout: 20))
-            let frame = try await session.capture()
-            let open = frame.pick(["打开", "Open"], .bottom)?.center
-                ?? CGPoint(x: frame.windowFrame.width - 112, y: 540)
-            try await session.click(local: open, on: frame)
+            // 首页已改版为工作空间卡片，直接点击卡片标题进入。
+            try await session.click(matching: [workspace], pick: .bottom)
             try await Task.sleep(nanoseconds: 1_200_000_000)
             return "隔离项目已打开，右抽屉尚无内容标签"
         }
@@ -60,6 +61,24 @@ public enum ContentTerminalPathLink {
             let shown = try await session.wait(Expectation(allOf: ["SPACED PATH E2E"], timeout: 10))
             try session.save(shown, "03-spaced-path-opened.png")
             return "含空格路径整体可点击，右抽屉显示对应文件"
+        }
+        try await session.step("点击紧贴全角冒号的路径") {
+            try await session.type("printf '记：docs/Zebra.md\\n'")
+            try await session.shortcut(key: 36, modifiers: [])
+            _ = try await session.wait(Expectation(allOf: ["Zebra.md"], timeout: 12))
+            try await session.click(matching: ["Zebra.md"], pick: .bottom)
+            let shown = try await session.wait(Expectation(allOf: ["CJK PREFIX E2E"], timeout: 10))
+            try session.save(shown, "04-cjk-prefix-path-opened.png")
+            return "全角冒号后的路径不带中文前缀，点击后右抽屉显示对应文件"
+        }
+        try await session.step("点击被全角括号与句号包围的路径") {
+            try await session.type("printf '见（docs/Moon.md）。\\n'")
+            try await session.shortcut(key: 36, modifiers: [])
+            _ = try await session.wait(Expectation(allOf: ["Moon.md"], timeout: 12))
+            try await session.click(matching: ["Moon.md"], pick: .bottom)
+            let shown = try await session.wait(Expectation(allOf: ["CJK SUFFIX E2E"], timeout: 10))
+            try session.save(shown, "05-cjk-suffix-path-opened.png")
+            return "路径后的全角括号与句号不进入路径，点击后右抽屉显示对应文件"
         }
     }
 }

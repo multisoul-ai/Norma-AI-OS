@@ -34,9 +34,40 @@ const TRAILING_WRAPPERS: &[char] = &[
     ')', ']', '}', '>', '"', '\'', '`', '.', ',', ';', ':', '!', '?',
 ];
 
+/// 全角/CJK 标点：Agent 常把路径紧贴在「：」「（」之后输出，不带空格。
+fn is_fullwidth_punct(c: char) -> bool {
+    matches!(c,
+        '\u{2018}'..='\u{201F}' | '\u{2026}' | '\u{3000}'..='\u{303F}'
+        | '\u{FF01}'..='\u{FF0F}' | '\u{FF1A}'..='\u{FF20}'
+        | '\u{FF3B}'..='\u{FF40}' | '\u{FF5B}'..='\u{FF65}')
+}
+
+/// 按全角标点把 `[start, end)` 切成非空段（跳过宽字符占位格），自右向左排列。
+pub(super) fn fullwidth_segments(cells: &[Cell], start: usize, end: usize) -> Vec<(usize, usize)> {
+    let mut segments = Vec::new();
+    let mut seg_end = end;
+    for index in (start..=end).rev() {
+        if index == start || is_fullwidth_punct(cells[index - 1].c) {
+            let mut seg_start = index;
+            while seg_start < seg_end && cells[seg_start].attrs.wide_char_spacer {
+                seg_start += 1;
+            }
+            if seg_start < seg_end {
+                segments.push((seg_start, seg_end));
+            }
+            seg_end = index.saturating_sub(1);
+        }
+    }
+    segments
+}
+
+/// 路径在第一个全角标点处结束：`docs/a.md。`、`（docs/a.md）` 的收尾标点不属于路径。
+pub(super) fn cut_at_fullwidth_punct(text: &str) -> &str {
+    text.find(is_fullwidth_punct).map_or(text, |i| &text[..i])
+}
+
 pub fn parse_path_ref(text: &str) -> Option<PathRef> {
-    let raw = text
-        .trim_start_matches(LEADING_WRAPPERS)
+    let raw = cut_at_fullwidth_punct(text.trim_start_matches(LEADING_WRAPPERS))
         .trim_end_matches(TRAILING_WRAPPERS);
     if raw.is_empty() || (raw.contains("://") && !raw.starts_with("file://")) {
         return None;
@@ -200,6 +231,13 @@ fn token_span(cells: &[Cell], start: usize, end: usize) -> Option<PathRefSpan> {
     {
         return None;
     }
+    // 路径常紧贴全角标点（`验证记录：docs/a.md。`）：取最后一个能解析成路径的段。
+    fullwidth_segments(cells, start, end)
+        .into_iter()
+        .find_map(|(seg_start, seg_end)| segment_span(cells, seg_start, seg_end))
+}
+
+fn segment_span(cells: &[Cell], start: usize, end: usize) -> Option<PathRefSpan> {
     let mut left = start;
     while left < end && LEADING_WRAPPERS.contains(&cells[left].c) {
         left += 1;
@@ -224,3 +262,7 @@ fn token_span(cells: &[Cell], start: usize, end: usize) -> Option<PathRefSpan> {
 #[cfg(test)]
 #[path = "../../tests/unit/path_ref_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/fullwidth_prefix_tests.rs"]
+mod fullwidth_prefix_tests;

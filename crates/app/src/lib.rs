@@ -38,6 +38,9 @@ mod workspace;
 #[cfg(test)]
 #[path = "../tests/unit/menu_bar_tests.rs"]
 mod menu_bar_tests;
+#[cfg(test)]
+#[path = "../tests/unit/pinned_locale.rs"]
+mod pinned_locale;
 
 #[cfg(feature = "e2e-test-support")]
 pub use app::{
