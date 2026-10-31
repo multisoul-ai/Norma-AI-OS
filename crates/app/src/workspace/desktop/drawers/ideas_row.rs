@@ -6,6 +6,7 @@
 
 use super::super::ideas::IdeaTargetOption;
 use super::super::ideas_rows::TodoRow;
+use super::overview_parts::content_tooltip;
 use crate::app::MultisoulApp;
 use gpui::{
     div, img, prelude::*, px, rgba, svg, Context, Div, ElementId, MouseButton, MouseDownEvent,
@@ -342,6 +343,7 @@ impl MultisoulApp {
                 .child(
                     div()
                         .id(ElementId::Name(format!("idea-grab-{drag_id}").into()))
+                        .tooltip(content_tooltip(format!("{}\n{}", row.body, row.meta)))
                         .flex_1()
                         .min_w(px(0.0))
                         .flex()

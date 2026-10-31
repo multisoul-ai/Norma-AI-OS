@@ -10,6 +10,7 @@ use super::super::ideas_rows::IdeasTab;
 use super::super::overview_rows::overview_feedback;
 use super::ideas_row::idea_send_button;
 use super::ideas_tabs::{clear_row, tab_empty};
+use super::overview_parts::content_tooltip;
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div, ElementId, KeyDownEvent, Stateful};
 use ui::component::input::{Input, Paste};
@@ -185,6 +186,7 @@ impl MultisoulApp {
                                     .id(ElementId::Name(
                                         format!("desktop-idea-done-{}", row.id).into(),
                                     ))
+                                    .tooltip(content_tooltip(row.body.clone()))
                                     .min_h(px(36.0))
                                     .px(px(12.0))
                                     .flex()

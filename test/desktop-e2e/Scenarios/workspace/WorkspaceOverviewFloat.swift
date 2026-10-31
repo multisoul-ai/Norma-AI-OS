@@ -28,7 +28,7 @@ public enum WorkspaceOverviewFloat {
             guard let heading = frame.pick(["Run Overview", "运行概览"], .top) else {
                 throw E2EError.product("抽屉概览标题没有出现。可见：\(frame.summary)")
             }
-            let drawerRight = min(max(frame.windowFrame.width * 0.31, 366), 438)
+            let drawerRight = (min(max(frame.windowFrame.width * 0.31, 366), 438) - 150)
             try await session.click(
                 local: CGPoint(x: drawerRight - 26, y: heading.center.y),
                 on: frame

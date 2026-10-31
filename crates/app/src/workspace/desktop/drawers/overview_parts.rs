@@ -4,9 +4,24 @@ use super::super::overview_rows::{
     OverviewRow, OverviewStatusTone, ProgressMark, OVERVIEW_TEXT_COPY, OVERVIEW_TEXT_PRIMARY,
     OVERVIEW_TEXT_SECONDARY,
 };
-use gpui::{div, prelude::*, px, rgba, Div};
-use ui::component::StyledExt;
+use gpui::{div, prelude::*, px, rgba, AnyView, App, Div, Window};
+use ui::component::{tooltip::Tooltip, StyledExt};
 use ui::icons::with_alpha;
+
+pub(super) fn content_tooltip(content: String) -> impl Fn(&mut Window, &mut App) -> AnyView {
+    move |window, cx| {
+        Tooltip::element({
+            let content = content.clone();
+            move |_, _| {
+                div()
+                    .max_w(px(420.0))
+                    .whitespace_normal()
+                    .child(content.clone())
+            }
+        })
+        .build(window, cx)
+    }
+}
 
 pub(super) fn row_copy(row: &OverviewRow, color: u32, theme: ui::Theme) -> Div {
     div()
@@ -99,7 +114,9 @@ pub(super) fn status_colors(theme: ui::Theme, tone: OverviewStatusTone) -> (u32,
 /// 智能体行里标明所属项目的小标签：浅蓝底、不抢状态色。
 fn project_chip(theme: ui::Theme, label: &str) -> Div {
     div()
-        .flex_none()
+        .flex_shrink()
+        .min_w(px(0.0))
+        .truncate()
         .px(px(6.0))
         .rounded(px(5.0))
         .bg(rgba(ui::icons::with_alpha(theme.accent, 0x1f)))

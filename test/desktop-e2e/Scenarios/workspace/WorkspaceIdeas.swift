@@ -131,7 +131,7 @@ public enum WorkspaceIdeas {
         }
         func geometry(_ frame: Frame) -> (width: Double, height: Double, drawer: Double) {
             let width = Double(frame.windowFrame.width)
-            return (width, Double(frame.windowFrame.height), min(438, max(366, width * 0.31)))
+            return (width, Double(frame.windowFrame.height), (min(438, max(366, width * 0.31)) - 150))
         }
         func cardTarget(_ frame: Frame) throws -> CGPoint {
             // 假智能体卡片标题行含临时项目目录名；落点取标题行正下方的卡片正文区。

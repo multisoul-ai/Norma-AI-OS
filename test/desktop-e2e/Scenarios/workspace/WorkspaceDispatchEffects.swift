@@ -120,7 +120,7 @@ public enum WorkspaceDispatchEffects {
 
     private static func geometry(_ frame: Frame) -> (width: Double, height: Double, drawer: Double) {
         let width = Double(frame.windowFrame.width)
-        return (width, Double(frame.windowFrame.height), min(438, max(366, width * 0.31)))
+        return (width, Double(frame.windowFrame.height), (min(438, max(366, width * 0.31)) - 150))
     }
 
     /// 在设置页「特效」里点一个款式后关掉设置。

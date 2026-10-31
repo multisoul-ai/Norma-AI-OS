@@ -83,9 +83,9 @@ fn ideas_are_grouped_by_state_in_record_order() {
 
 /// 多行或过长的想法在列表里只显示首行并截断，完整正文保留给派发。
 ///
-/// 数据构造：正文三行；一条 50 个字符的单行（按字符不是字节，上限 40）。
+/// 数据构造：正文三行；一条 50 个字符的单行（按字符不是字节，上限 40）；同样的正文进入已指派和已完成。
 /// 预期结果：
-///   - 正断言：多行取首行；长行截成 40 字符加省略号；两种情形 body 都是完整原文。
+///   - 正断言：多行取首行；长行截成 40 字符加省略号；所有状态保留完整原文供悬停查看。
 ///   - 负断言：恰好 40 字符的正文不加省略号。
 #[test]
 fn long_or_multiline_ideas_show_first_line_but_keep_full_body() {
@@ -96,6 +96,8 @@ fn long_or_multiline_ideas_show_first_line_but_keep_full_body() {
         idea("a", multi, IdeaState::Todo, 0),
         idea("b", &long, IdeaState::Todo, 0),
         idea("c", &exact, IdeaState::Todo, 0),
+        idea("d", multi, IdeaState::Assigned, 0),
+        idea("e", &long, IdeaState::Done, 0),
     ];
     let screen = ideas_screen(&ideas, 0, &|_, _| None, &|_| None);
     assert_eq!(screen.todo[0].title, "第一行", "多行正文应只显示首行");
@@ -107,6 +109,14 @@ fn long_or_multiline_ideas_show_first_line_but_keep_full_body() {
     );
     assert_eq!(screen.todo[1].body, long, "截断只影响显示，不影响正文");
     assert_eq!(screen.todo[2].title, exact, "恰好 40 字符不应加省略号");
+    assert_eq!(
+        screen.assigned[0].body, multi,
+        "已指派想法的悬停内容须保留后续行"
+    );
+    assert_eq!(
+        screen.done[0].body, long,
+        "已完成想法的悬停内容须保留第 40 字符后的正文"
+    );
 }
 
 /// 相对时间的边界：按秒换算，未来时间不出现负数。
