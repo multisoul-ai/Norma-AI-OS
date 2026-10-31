@@ -8,16 +8,6 @@ const MAX_EXCERPT_CHARS: usize = 600;
 /// 下一步每轮都要回答：提议只进用户的待办，不打扰用户，所以不能用“收到”带过。
 const NEXT_STEP: &str = "下一步（每次都要回答）：提议只会进入用户的“需要你处理”，不会打扰用户，所以要认真想。Agent 说还缺的功能、没写或没跑的测试、需要复查或修的问题，都是下一步的候选；Agent 说“按要求没做”只表示这一轮没做，不代表以后不要。有下一步时，提议的对象只能是刚完成任务的那个 Agent 本人：它接着做自己这件事的后续，不要换成别的 Agent，也不要因为别的 Agent 空闲就派给它；多个 Agent 同时完成时，各自的后续分别提议给各自。再用 propose 命令提议，--task 写清完整指令和怎样算完成（例如哪条测试通过），--why 写一句理由；提议后不用再 report，App 会提醒用户。\n最后一行写结论（每次都要写）：提了就写“已提议：<标题>”，没提就写“没有下一步：<一句理由>”。";
 
-/// 只截断长度，保留换行；用于用户原话。
-fn truncate(text: &str) -> String {
-    let head: String = text.chars().take(MAX_EXCERPT_CHARS * 3).collect();
-    if head.chars().count() < text.chars().count() {
-        format!("{head}…")
-    } else {
-        head
-    }
-}
-
 fn clip(text: &str) -> String {
     let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
     if flat.chars().count() <= MAX_EXCERPT_CHARS {
@@ -66,10 +56,8 @@ pub fn summary(digest: &BTreeMap<String, String>) -> String {
 }
 
 pub fn user_request(text: &str) -> String {
-    format!(
-        "【用户】{}\n处理后用 report 命令（--priority now）回复用户。",
-        truncate(text)
-    )
+    // User requests are task input, not report excerpts: retain every constraint.
+    format!("【用户】{text}\n处理后用 report 命令（--priority now）回复用户。")
 }
 
 pub fn question_request(question: &norma::protocol::PendingQuestion, delegated: bool) -> String {
