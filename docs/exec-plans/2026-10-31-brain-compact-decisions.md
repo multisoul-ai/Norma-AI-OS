@@ -122,3 +122,11 @@ task 不受短文案预算限制，须保留完整目标、分点步骤和验收
 - 修复 Enter/Space 重复切换和操作按键冒泡定位，均有先失败后通过的聚焦回归。
 - 五轮最终 desktop-e2e 均通过：两轮审批、两轮问答、一轮下一步建议。关键图已人工核对；完整证据目录、构建和测试日志见 `artifacts/brain-compact-decisions/verification/summary.md`。
 - 全仓测试与全仓 i18n 检查仍有本次范围外失败，未标记为全仓通过；串行重跑结果及未解决项见同一记录。本次仅提交到本地 `dev`，不推送或发版。
+
+## 8. 用户截图后的原型一致性复验
+
+此前短任务样例只充分证明基础交互，不能证明真实长任务的信息层级与原型一致。后续复验确认并修复：编号步骤被静默丢弃、理由先于行动要点、原文入口拉宽居中，以及事项缺少连续列表层级。
+
+原生卡片现按行动要点、原因、交付与二级原文排列，动作标签强调，审批和采纳按钮继续常驻外层。显式任务事实的无损提取沉到 `crates/brain/src/task_outline.rs`，完整派发载荷不改写。新增编号步骤/历史内容回归，并将真实 App 样例改为三条编号步骤、否定限制与验收条件。
+
+最终四轮定向真实 App 场景通过：中文 Sapphire Night 与 Ink Black 的下一步、英文 Ink Black 审批、中文 Sapphire Night 问答。已查看本次卡片差异的关键原图；App check、brain/ui 测试和 release 构建通过，原有全仓 i18n 问题保留。本次修复独立提交到本地 `dev`，不推送或发版；详情、失败样例及证据路径见 `artifacts/brain-compact-decisions/verification/prototype-parity-summary.md`。

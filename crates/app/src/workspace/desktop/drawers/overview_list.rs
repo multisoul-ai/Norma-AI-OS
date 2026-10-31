@@ -123,6 +123,17 @@ impl MultisoulApp {
                     body.flex_1().min_h(px(0.)).overflow_y_scroll()
                 })
                 .gap(px(2.0))
+                .when(
+                    group == OverviewGroup::Attention
+                        && (!section.rows.is_empty() || !proposals.is_empty()),
+                    |body| {
+                        body.gap(px(0.))
+                            .rounded(px(8.))
+                            .border_1()
+                            .border_color(rgba(theme.node_stroke))
+                            .bg(rgba(ui::icons::with_alpha(theme.text_primary, 0x04)))
+                    },
+                )
                 .when(section.rows.is_empty() && proposals.is_empty(), |body| {
                     body.child(group_empty(theme, group, true))
                 })

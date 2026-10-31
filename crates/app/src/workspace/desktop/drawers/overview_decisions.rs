@@ -58,13 +58,16 @@ impl MultisoulApp {
             .flex()
             .flex_col()
             .on_key_down(super::overview_detail_view::isolate_navigation)
-            .rounded(px(8.))
-            .border_1()
+            .rounded(px(7.))
+            .border_b_1()
             .border_color(rgba(if focused {
                 theme.focused_stroke
             } else {
                 theme.node_stroke
             }))
+            .when(expanded, |row| {
+                row.bg(rgba(ui::icons::with_alpha(theme.text_primary, 0x07)))
+            })
             .child(
                 div()
                     .flex()

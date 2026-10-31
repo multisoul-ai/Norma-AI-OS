@@ -33,6 +33,8 @@ public enum BrainPropose {
             session.stop()
             guard let dataRoot = session.dataRoot else { throw E2EError.env("隔离数据目录丢失") }
             projectRoot = try CanvasProjectFixture.install(dataRoot: dataRoot, workspaceName: workspace)
+            let theme = ProcessInfo.processInfo.environment["NORMA_BRAIN_PROPOSAL_THEME"] ?? "ink-black"
+            try Catalog.seedSetting(database: try session.databaseURL(), key: "appearance.theme.v1", value: theme)
             try session.launch()
             try await session.resize(width: 1440, height: 840)
             _ = try await session.wait(Expectation(allOf: [workspace], timeout: 20))
@@ -71,11 +73,23 @@ public enum BrainPropose {
 
         try await session.step("重启 App 后两条提议仍在，确认前没有任务发给 Agent") {
             session.stop()
+            guard let brainDir else { throw E2EError.env("大脑夹具目录丢失") }
+            let finished = brainDir.appendingPathComponent("agent-finished-1")
+            try? FileManager.default.removeItem(at: finished)
             try session.launch()
             try await session.resize(width: 1440, height: 840)
             try await BrainSupport.openProjectWithAgents(session, count: 0)
             try await BrainSupport.openOverview(session)
-            _ = try await session.wait(Expectation(allOf: ["写登录接口文档"], timeout: 20))
+            // 恢复 PTY 会重放脚本 Agent 的真实 Hook。等 Stop 回执后再取点击坐标，
+            // 否则“忙碌中”提示在截图与按下之间消失，原文入口上移，可能误点下一行。
+            let deadline = Date().addingTimeInterval(20)
+            while !FileManager.default.fileExists(atPath: finished.path), Date() < deadline {
+                try await Task.sleep(nanoseconds: 100_000_000)
+            }
+            guard FileManager.default.fileExists(atPath: finished.path) else {
+                throw E2EError.product("恢复的 Agent 没有完成真实 Stop Hook")
+            }
+            _ = try await session.wait(Expectation(allOf: ["写登录接口文档", "采纳"], absent: ["忙碌中", "Alan 正在忙"], timeout: 10))
             _ = try await savedProposals(brainDir, expect: 2)
             guard try received(brainDir).isEmpty else {
                 throw E2EError.product("用户确认前 Agent 已收到任务")
@@ -85,10 +99,19 @@ public enum BrainPropose {
 
         try await session.step("展开“写登录接口文档”，点“拒绝”，这一行消失") {
             try await session.click(matching: ["写登录接口文档"], pick: .top)
-            _ = try await session.wait(Expectation(allOf: ["完整任务", "接口刚改过"], timeout: 6))
+            let summary = try await session.wait(Expectation(allOf: ["完整任务", "接口刚改过"], timeout: 6))
+            try session.save(summary, "02-expanded.png")
+            for needle in ["核对协议", "整理示例", "补充说明", "不得推送", "可运行示例"] {
+                guard summary.contains(needle) else {
+                    throw E2EError.product("展开摘要缺少原型中的行动/交付「\(needle)」：\(summary.summary)")
+                }
+            }
+            guard let original = summary.pick(["完整任务"], .top), original.center.x < 140 else {
+                throw E2EError.product("完整任务入口应靠左且保持文字宽度，不能拉宽居中")
+            }
             try await session.click(matching: ["完整任务"], pick: .top)
             let expanded = try await session.wait(Expectation(allOf: ["拒绝", "为登录接口写使用文档"], timeout: 6))
-            try session.save(expanded, "02-expanded.png")
+            try session.save(expanded, "02b-original.png")
             try await session.click(matching: ["拒绝"], pick: .top)
             let after = try await session.wait(Expectation(absent: ["写登录接口文档"], timeout: 6))
             try session.save(after, "03-ignored.png")
@@ -104,7 +127,7 @@ public enum BrainPropose {
             let marker = brainDir.appendingPathComponent("waiting-2")
             try Data().write(to: marker)
             let blocked = try await session.wait(
-                Expectation(allOf: ["先处理卡片中的问题或审批", "等待确认"], timeout: 6))
+                Expectation(allOf: ["先处理卡片", "问题或审批", "等待确认"], timeout: 6))
             try session.save(blocked, "04a-waiting-confirmation.png")
             try await session.click(matching: ["等待确认"], pick: .top)
             guard try received(brainDir).isEmpty,
@@ -113,7 +136,7 @@ public enum BrainPropose {
             }
             try FileManager.default.removeItem(at: marker)
             _ = try await session.wait(
-                Expectation(allOf: ["采纳"], absent: ["先处理卡片中的问题或审批"], timeout: 10))
+                Expectation(allOf: ["采纳"], absent: ["先处理卡片"], timeout: 10))
             return "阻塞原因在提议旁可见，未派发；解除后采纳恢复"
         }
 

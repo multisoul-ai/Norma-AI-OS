@@ -1,7 +1,9 @@
 //! Shared inline headers and secondary originals. Actions live beside the header, never inside it.
 use super::overview_details::{compact_title, DetailKey};
 use crate::app::MultisoulApp;
-use gpui::{div, prelude::*, px, rgba, Context, Div, ElementId, Stateful};
+use gpui::{
+    div, prelude::*, px, rgba, Context, Div, ElementId, HighlightStyle, Stateful, StyledText,
+};
 use ui::component::{
     button::{Button, ButtonCustomVariant, ButtonVariants},
     Sizable,
@@ -139,6 +141,80 @@ pub(super) fn body(theme: ui::Theme) -> Div {
         .text_color(rgba(theme.text_secondary))
 }
 
+pub(super) fn proposal_body(
+    item: &crate::app::OverviewProposal,
+    tag: &str,
+    app: &MultisoulApp,
+    cx: &mut Context<MultisoulApp>,
+) -> Div {
+    let theme = app.desktop_theme();
+    let summary = super::overview_details::task_summary(&item.proposal.task);
+    let mut view = body(theme).pt(px(4.)).gap(px(6.));
+    if summary.steps.is_empty() {
+        if let Some(goal) = summary.goal {
+            view = view.child(fact("chrome.brain_detail_goal", goal, theme));
+        }
+    }
+    for point in summary.steps {
+        let (text, emphasis) = if let Some((label, rest)) =
+            point.strip_prefix("**").and_then(|s| s.split_once("**"))
+        {
+            (format!("{label}{rest}"), 0..label.len())
+        } else {
+            (point.to_owned(), 0..0)
+        };
+        view =
+            view.child(
+                div()
+                    .flex()
+                    .items_start()
+                    .gap(px(8.))
+                    .child(div().flex_none().child("•"))
+                    .child(div().flex_1().min_w(px(0.)).child(
+                        StyledText::new(text).with_highlights([(
+                            emphasis,
+                            HighlightStyle {
+                                color: Some(rgba(theme.text_primary).into()),
+                                font_weight: Some(gpui::FontWeight::MEDIUM),
+                                ..Default::default()
+                            },
+                        )]),
+                    )),
+            );
+    }
+    view.child(fact(
+        "chrome.brain_detail_reason",
+        &item.proposal.why,
+        theme,
+    ))
+    .when_some(summary.output, |view, output| {
+        view.child(fact("chrome.brain_detail_output", output, theme))
+    })
+    .child(original(
+        format!("brain-proposal-original-{tag}"),
+        "chrome.brain_full_task",
+        format!("{}\n\n{}", item.proposal.title, item.proposal.task),
+        app,
+        cx,
+    ))
+}
+
+fn fact(label: &'static str, value: &str, theme: ui::Theme) -> Div {
+    div()
+        .flex()
+        .items_start()
+        .gap(px(7.))
+        .text_size(px(11.))
+        .child(
+            div()
+                .w(px(34.))
+                .flex_none()
+                .text_color(rgba(theme.text_tertiary))
+                .child(ui::i18n::text(label)),
+        )
+        .child(div().flex_1().min_w(px(0.)).child(value.to_owned()))
+}
+
 pub(super) fn original(
     id: String,
     label: &'static str,
@@ -153,12 +229,14 @@ pub(super) fn original(
     div()
         .flex()
         .flex_col()
+        .items_start()
         .gap(px(6.))
         .child(
             Button::new(ElementId::Name(id.into()))
                 .small()
                 .h(px(24.))
                 .px(px(3.))
+                .text_size(px(10.))
                 .label(format!("{glyph} {}", ui::i18n::text(label)))
                 .custom(
                     ButtonCustomVariant::new(cx)
@@ -180,6 +258,7 @@ pub(super) fn original(
                     .id(ElementId::Name(debug.clone().into()))
                     .debug_selector(move || debug)
                     .max_h(px(240.))
+                    .w_full()
                     .overflow_y_scroll()
                     .p(px(8.))
                     .rounded(px(5.))

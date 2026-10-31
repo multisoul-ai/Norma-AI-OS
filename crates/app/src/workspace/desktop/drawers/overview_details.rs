@@ -70,21 +70,9 @@ pub(super) fn compact_title<'a>(text: &'a str, fallback: &'a str) -> &'a str {
     }
 }
 
-/// Only actual, complete bullet lines are projected. Long instructions remain in the original.
-pub(super) fn task_points(task: &str) -> Vec<&str> {
-    task.lines()
-        .filter_map(|line| {
-            let line = line.trim();
-            let text = line
-                .strip_prefix("- ")
-                .or_else(|| line.strip_prefix("* "))?
-                .trim();
-            // At most three short lines keep the inline summary bounded without slicing a constraint.
-            (!text.is_empty() && text.chars().count() <= 80).then_some(text)
-        })
-        .take(3)
-        .collect()
-}
+pub(super) use brain::task_outline::parse as task_summary;
+#[cfg(test)]
+use brain::task_outline::task_points;
 
 #[cfg(test)]
 #[path = "../../../../tests/unit/overview_details_tests.rs"]

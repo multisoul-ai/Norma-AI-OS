@@ -83,9 +83,12 @@ impl MultisoulApp {
             .flex()
             .flex_col()
             .on_key_down(super::overview_detail_view::isolate_navigation)
-            .rounded(px(8.))
-            .border_1()
+            .rounded(px(7.))
+            .border_b_1()
             .border_color(rgba(theme.node_stroke))
+            .when(expanded, |row| {
+                row.bg(rgba(ui::icons::with_alpha(theme.text_primary, 0x07)))
+            })
             .child(
                 div()
                     .flex()
@@ -107,28 +110,9 @@ impl MultisoulApp {
                 )
             })
             .when(expanded, |row| {
-                let mut detail =
-                    super::overview_detail_view::body(theme).child(div().child(ui::i18n::format(
-                        "chrome.brain_reason",
-                        &[("reason", item.proposal.why.clone())],
-                    )));
-                for point in super::overview_details::task_points(&item.proposal.task) {
-                    detail = detail.child(
-                        div()
-                            .flex()
-                            .gap(px(6.))
-                            .child(div().flex_none().child("•"))
-                            .child(div().flex_1().min_w(px(0.)).child(point.to_owned())),
-                    );
-                }
-                detail = detail.child(super::overview_detail_view::original(
-                    format!("brain-proposal-original-{tag}"),
-                    "chrome.brain_full_task",
-                    format!("{}\n\n{}", item.proposal.title, item.proposal.task),
-                    self,
-                    cx,
-                ));
-                row.child(detail)
+                row.child(super::overview_detail_view::proposal_body(
+                    item, &tag, self, cx,
+                ))
             })
     }
 
