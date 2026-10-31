@@ -8,15 +8,23 @@ import Foundation
 public final class FakeArkServer: @unchecked Sendable {
     private let lock = NSLock()
     private var chats = 0
+    private var chatBodies: [Data] = []
     private var completions: [Data] = []
+    private var chatResponses: [String] = []
     private let listener: Int32
     public let port: UInt16
 
     public var chatURL: String { "http://127.0.0.1:\(port)/chat" }
     public var ttsURL: String { "http://127.0.0.1:\(port)/tts" }
     public var chatRequests: Int { lock.lock(); defer { lock.unlock() }; return chats }
+    public var chatRequestBodies: [Data] { lock.lock(); defer { lock.unlock() }; return chatBodies }
     public var completionRequests: [Data] { lock.lock(); defer { lock.unlock() }; return completions }
     public var completionURL: String { "http://127.0.0.1:\(port)/v1" }
+
+    public func enqueueChatResponse(_ response: String) {
+        lock.lock(); defer { lock.unlock() }
+        chatResponses.append(response)
+    }
 
     public init() throws {
         let fd = socket(AF_INET, SOCK_STREAM, 0)
@@ -82,8 +90,12 @@ public final class FakeArkServer: @unchecked Sendable {
             lock.unlock()
             body = "data: {\"id\":\"budget\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"fixture\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"VOICE BUDGET OK\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"budget\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"fixture\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n"
         } else if path == "/chat" {
-            lock.lock(); chats += 1; lock.unlock()
-            body = #"{"choices":[{"finish_reason":"stop","message":{"role":"assistant","content":"好的，我来处理。"}}]}"#
+            lock.lock()
+            chats += 1
+            chatBodies.append(Data(data[headerEnd.upperBound..<(headerEnd.upperBound + length)]))
+            let scripted = chatResponses.isEmpty ? nil : chatResponses.removeFirst()
+            lock.unlock()
+            body = scripted ?? #"{"choices":[{"finish_reason":"stop","message":{"role":"assistant","content":"好的，我来处理。"}}]}"#
         } else {
             let silence = Data(count: 9600).base64EncodedString()
             body = "{\"code\":0,\"data\":\"\(silence)\"}\n{\"code\":20000000}\n"
