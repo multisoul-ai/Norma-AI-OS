@@ -56,6 +56,8 @@
 | `agent` | `agent-background-completion` | Claude 后台 Bash：假 `claude` 经真实 Hook 上报 `run_in_background` 与非空 `background_tasks` 的 Stop。结清前卡片为「运行中」且没有 Done；task-notification 与空 Stop 经过确认窗口后才显示 Done。不发 SessionEnd，不覆盖语音播报、子 Agent 与其他 profile。 |
 | `boot` | `boot-sync-animation` | 冷启动开机动画（正式启动在 Sync / Awaken 间随机）：`NORMA_E2E_BOOT_ANIMATION=sync` 播 Sync（OCR 看到 HUD 文字），约 6 秒后自动淡出露出首页，播放中按键立即退场；`=awaken` 播 Awaken（9 秒），播放中首页被遮住、之后露出；未设置时（其他场景默认）不播放、首页直接可用。不覆盖「减少动态效果」（系统设置，e2e 不改）。 |
 
+| `agent` | `agent-codex-wait-completion` | 真实 Codex + 本机 Responses 回放：API等待、思考、真实后台终端等待持续运行；提前Stop不完成；原生回合结束后Done且幕僚只收一次最终回复。连续帧单独比较卡片边缘动效，不覆盖真实云端模型/TTS。 |
+
 ## 预留模块
 
 下面这些目录还没有场景。第一条用例落进去时再创建目录，并在本表补一行。不要把它们的步骤塞进 `workspace`。

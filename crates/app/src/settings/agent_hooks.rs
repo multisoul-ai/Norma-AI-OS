@@ -452,3 +452,7 @@ mod codex_host_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/agent_hook_completion_tests.rs"]
 mod completion_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/agent_hook_codex_turn_tests.rs"]
+mod codex_turn_tests;

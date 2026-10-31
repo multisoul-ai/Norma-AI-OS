@@ -18,6 +18,10 @@ impl AgentHookServer {
             report.changed |= runtime.drain_native_question_hosts(project_id);
             report.session_binding_changed |= runtime.take_native_question_session_changed();
         }
+        for (event, outcome) in runtime.take_native_agent_task_updates() {
+            report.changed |= runtime.observe_native_question_result(&event);
+            self.publish_accepted_event(&mut report, event, false, false, outcome);
+        }
         self.abandon_dead_agents(runtime);
         self.ingest_process_probes(runtime, now_ms, &mut report);
         for event in self.receiver.try_iter() {
@@ -138,6 +142,18 @@ impl AgentHookServer {
             return;
         }
         report.changed |= previous_progress != runtime.mobile_task_progress(event.node_id);
+        let outcome = apply_agent_hook_event_with_outcome(runtime, event.clone());
+        self.publish_accepted_event(report, event, background_unsettled, force_changed, outcome);
+    }
+
+    fn publish_accepted_event(
+        &self,
+        report: &mut AgentHookDrainReport,
+        event: norma::agent_hook::AgentHookEvent,
+        background_unsettled: bool,
+        force_changed: bool,
+        outcome: runtime::AgentTaskUpdateOutcome,
+    ) {
         #[cfg(feature = "e2e-test-support")]
         if let Some(tap) = &self.event_tap {
             let _ = tap.try_send(event.clone());
@@ -163,7 +179,6 @@ impl AgentHookServer {
             _ => None,
         };
         report.events.push(event.clone());
-        let outcome = apply_agent_hook_event_with_outcome(runtime, event);
         if outcome.changed() || force_changed {
             report.changed = true;
             report.session_binding_changed |= outcome.session_binding_changed;

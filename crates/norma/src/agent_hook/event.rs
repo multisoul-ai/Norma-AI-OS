@@ -82,6 +82,19 @@ pub fn task_state_for_provider_event(event: &AgentHookEvent) -> Option<AgentHook
                 .clone()
                 .unwrap_or_else(|| event.provider_event.clone()),
         }),
+        "turn/completed" if event.profile == AgentProfile::Codex => {
+            match event.raw_json["turn"]["status"].as_str()? {
+                "completed" => Some(AgentHookTaskState::Done),
+                "interrupted" => Some(AgentHookTaskState::Ended),
+                "failed" => Some(AgentHookTaskState::Failed {
+                    message: event
+                        .message
+                        .clone()
+                        .unwrap_or_else(|| "Codex turn failed".into()),
+                }),
+                _ => None,
+            }
+        }
         "Stop" => Some(AgentHookTaskState::Done),
         "SessionEnd" => Some(AgentHookTaskState::Ended),
         "SubagentStart" => Some(AgentHookTaskState::RunningTool {

@@ -86,6 +86,11 @@ impl Relay {
             return;
         };
         self.inputs.observe(&value);
+        if let Some(turn) = self.turns.observe(&value) {
+            if self.events.try_send(CodexRelayEvent::Turn(turn)).is_err() {
+                self.disable("codex_question_event_gap");
+            }
+        }
         if let Some(thread_id) = self.inputs.take_used_session() {
             let attachment = CodexAttachment {
                 connection_id: format!("codex-relay:{}:{}", self.owner, self.generation),
@@ -144,6 +149,11 @@ impl Relay {
                     return;
                 };
                 self.generation = next;
+                self.turns.attach(CodexAttachment {
+                    connection_id: format!("codex-relay:{}:{}", self.owner, self.generation),
+                    thread_id: thread.into(),
+                    resumed,
+                });
                 let mut ledger = CodexQuestions::new(thread.into());
                 if !self.observing.load(Ordering::Acquire) {
                     ledger.disconnect();

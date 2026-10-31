@@ -16,7 +16,9 @@ mod answers;
 mod frames;
 mod input;
 mod transport;
+mod turns;
 use transport::{flush, receive, send, ReadFrame};
+pub use turns::CodexTurnEvent;
 
 const CAPACITY: usize = 128;
 // A native configuration/context response is ~23 MiB on the tested installation.
@@ -29,6 +31,7 @@ type AnswerResult = Result<(), String>;
 pub enum CodexRelayEvent {
     Session(CodexAttachment),
     SessionUsed(CodexAttachment),
+    Turn(CodexTurnEvent),
     Question(CodexRelayChange),
     Unavailable(String),
 }
@@ -191,6 +194,7 @@ impl CodexQuestionRelay {
                     pending_send: None,
                     disabled: false,
                     inputs,
+                    turns: turns::NativeTurns::default(),
                     initialize: None,
                     version_verified: !check_version,
                     full_access,
@@ -289,6 +293,7 @@ struct Relay {
     owner: String,
     disabled: bool,
     inputs: input::NativeInputs,
+    turns: turns::NativeTurns,
     initialize: Option<Value>,
     version_verified: bool,
     full_access: bool,
