@@ -74,10 +74,9 @@ impl<M: CompletionModel> AgentHook<M> for RequestBudget {
             return Flow::terminate("ContextBudgetExceeded: context cannot be serialized");
         };
         // 512 B covers streaming/provider options and document normalization wrappers.
-        let required = core_bytes
-            .max(wire_bytes)
-            .saturating_add(512)
-            .saturating_add(crate::MEMORY_TOOL_BYTES);
+        // Completed tool receipts are already in chat_history. Do not charge a
+        // hypothetical future receipt against required input on every request.
+        let required = core_bytes.max(wire_bytes).saturating_add(512);
         if required > self.max_bytes {
             return Flow::terminate(format!(
                 "ContextBudgetExceeded: complete request needs {required} bytes, available {}",

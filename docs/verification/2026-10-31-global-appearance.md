@@ -160,3 +160,8 @@
 
 ![restored-wallpaper-chinese.png](global-appearance-2026-10-31/restored-wallpaper-chinese.png)
 
+## PR 提交与集成验证
+
+本次从共享工作区仅提取全局外观相关改动，在独立分支提交，未携带另一任务的 agent/brain、Dock、布局或运行特效差异。初次提交的正常 pre-commit 钩子通过，包括 staged 约束、性能/视频/签名护栏、`cargo check --workspace --quiet` 和 `cargo fmt --check`。日志随附于 `docs/verification/global-appearance-2026-10-31/pr-commit.log`。
+
+随后同步远端 `dev` 的 `ca0001f6` 基线更新，自动合并无冲突；这项已合入基线的语音上下文修复不计入本 PR 的外观差异。既有 ENV 停止状态持续有效，提交过程中未重新运行 GUI。
