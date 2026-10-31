@@ -4,15 +4,19 @@ import Foundation
 
 /// 本机回环上的假方舟服务：`/chat` 返回固定的 stop 回复并计数，`/tts` 返回一小段静音 PCM。
 /// 用来证明“未命中名字时请求确实回落到模型”以及“命中名字时模型一次都没被问到”。
+/// `/v1/chat/completions` 返回 SSE 并保留实际请求，供本地语音预算验收使用。
 public final class FakeArkServer: @unchecked Sendable {
     private let lock = NSLock()
     private var chats = 0
+    private var completions: [Data] = []
     private let listener: Int32
     public let port: UInt16
 
     public var chatURL: String { "http://127.0.0.1:\(port)/chat" }
     public var ttsURL: String { "http://127.0.0.1:\(port)/tts" }
     public var chatRequests: Int { lock.lock(); defer { lock.unlock() }; return chats }
+    public var completionRequests: [Data] { lock.lock(); defer { lock.unlock() }; return completions }
+    public var completionURL: String { "http://127.0.0.1:\(port)/v1" }
 
     public init() throws {
         let fd = socket(AF_INET, SOCK_STREAM, 0)
@@ -72,7 +76,12 @@ public final class FakeArkServer: @unchecked Sendable {
             data.append(contentsOf: buffer[0..<count])
         }
         let body: String
-        if path == "/chat" {
+        if path == "/v1/chat/completions" {
+            lock.lock()
+            completions.append(Data(data[headerEnd.upperBound..<(headerEnd.upperBound + length)]))
+            lock.unlock()
+            body = "data: {\"id\":\"budget\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"fixture\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"VOICE BUDGET OK\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"budget\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"fixture\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n"
+        } else if path == "/chat" {
             lock.lock(); chats += 1; lock.unlock()
             body = #"{"choices":[{"finish_reason":"stop","message":{"role":"assistant","content":"好的，我来处理。"}}]}"#
         } else {
@@ -80,7 +89,8 @@ public final class FakeArkServer: @unchecked Sendable {
             body = "{\"code\":0,\"data\":\"\(silence)\"}\n{\"code\":20000000}\n"
         }
         let payload = Data(body.utf8)
-        let header = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: \(payload.count)\r\nConnection: close\r\n\r\n"
+        let contentType = path == "/v1/chat/completions" ? "text/event-stream" : "application/json"
+        let header = "HTTP/1.1 200 OK\r\nContent-Type: \(contentType)\r\nContent-Length: \(payload.count)\r\nConnection: close\r\n\r\n"
         let response = Data(header.utf8) + payload
         response.withUnsafeBytes { raw in
             var offset = 0

@@ -65,6 +65,167 @@ fn desktop_session(endpoint: String, host: Arc<dyn AgentCardAdapter>) -> NormaSe
     session
 }
 
+fn populated_canvas() -> agent::CurrentCanvasContext {
+    agent::CurrentCanvasContext {
+        project_name: "项目".into(),
+        workspace_root: "/fixture/project".into(),
+        total_cards: 1,
+        cards: vec![agent::CanvasCardContext {
+            node_id: 7,
+            position: 1,
+            kind: agent::CanvasCardKind::Agent,
+            title: "Codex".into(),
+            selected: true,
+            focused: true,
+        }],
+        conversation_tails: vec![agent::AgentConversationTail {
+            definition_id: 1,
+            node_id: 7,
+            session_id: "fixture-session".into(),
+            agent_name: "Codex".into(),
+            profile: norma::protocol::AgentProfile::Codex,
+            task_state: agent::AgentConversationTaskState::Done,
+            last_user_message: Some(format!("USER_TAIL:{}", "文".repeat(1200))),
+            last_agent_message: Some(format!("AGENT_TAIL:{}", "答".repeat(1200))),
+            updated_at_unix: 1,
+            availability: agent::AgentConversationAvailability::Available,
+            user_message_truncated: false,
+            agent_message_truncated: false,
+        }],
+    }
+}
+
+/// 场景：画布已有智能体及中文会话时，语音指令仍应能发到模型。
+/// 构造：默认 16k 窗口、一张聚焦卡片、前后两条各 1,200 字的会话尾部。
+/// 执行：通过公开 turn_streaming(Voice) 查询项目，检查实际 HTTP 请求。
+/// 预期：保留用户原话、共享状态、卡片身份及可用会话片段，不报 available 0。
+/// 数值：两条尾部正文共 2 × 1,200 × 3 = 7,200 UTF-8 字节，尚未计算转义。
+#[tokio::test]
+async fn desktop_voice_with_populated_canvas_fits_default_window() {
+    let (endpoint, server) = sse::serve(vec![
+        serde_json::json!({"role":"assistant","content":"已读取当前会话。"}),
+    ])
+    .await;
+    let mut session = desktop_session(endpoint, Arc::new(Host));
+    session.update_environment(populated_canvas(), vec![]);
+    let (deltas, _received) = tokio::sync::mpsc::channel(16);
+    let result = session
+        .turn_streaming("当前项目有什么进展？", deltas, AgentInputSource::Voice)
+        .await;
+    assert!(
+        result.is_ok(),
+        "有会话的画布不能耗尽必需状态预算：{result:?}"
+    );
+    let requests = server.await.unwrap();
+    assert_eq!(requests.len(), 1, "一条问句只发一个模型请求");
+    let messages = requests[0]["messages"].to_string();
+    for required in [
+        "当前项目有什么进展？",
+        "shared_context_data",
+        "Codex",
+        "USER_TAIL:",
+        "AGENT_TAIL:",
+    ] {
+        assert!(messages.contains(required), "实际请求保留 {required}");
+    }
+    assert!(
+        !messages.contains(&"文".repeat(1200)),
+        "可选尾部应按实际字节预算缩减，不能占满固定状态空间"
+    );
+    assert!(
+        requests[0].to_string().len() + 512 <= 28_672,
+        "请求加协议余量不超过原默认窗口"
+    );
+}
+
+struct RequiredStateHost;
+impl AgentCardAdapter for RequiredStateHost {
+    fn shared_context<'a>(
+        &'a self,
+        context: &'a ToolContext,
+    ) -> BoxFuture<'a, Result<Option<ContextFrame>, AdapterError>> {
+        Box::pin(async move {
+            let mut frame = Host.shared_context(context).await?.unwrap();
+            frame.snapshot.state.goal = Some(ContextFact {
+                reference: frame.input.clone(),
+                text: format!("REQUIRED_GOAL:{}", "目标".repeat(320)),
+            });
+            Ok(Some(frame))
+        })
+    }
+    fn execute<'a>(
+        &'a self,
+        _: AdapterCommand,
+        _: &'a ToolContext,
+    ) -> BoxFuture<'a, Result<AdapterResult, AdapterError>> {
+        Box::pin(async { Ok(AdapterResult::succeeded("TOOL_RECEIPT")) })
+    }
+}
+
+/// 场景：多智能体的控制字符、引号和中文不能挤掉必需目标或阻断工具续轮。
+/// 构造：六份长尾部、聚焦第一张、1,920 字节目标；模型要求一次只读状态查询。
+/// 执行：公开语音入口发起工具回合，检查两次 HTTP 请求和模型返回的最终结果。
+/// 预期：完整目标、聚焦会话身份和真实工具回执保留；截断可选正文后仍满足原窗口。
+#[tokio::test]
+async fn desktop_voice_escaped_tails_yield_to_required_state_and_tool_receipt() {
+    let (endpoint, server) = sse::serve(vec![
+        serde_json::json!({"role":"assistant","tool_calls":[{
+            "index":0,"id":"snapshot-1","type":"function","function":{
+            "name":"workspace_snapshot","arguments":"{\"scope\":\"current_project\"}"}}]}),
+        serde_json::json!({"role":"assistant","content":"状态查询完成。"}),
+    ])
+    .await;
+    let mut session = desktop_session(endpoint, Arc::new(RequiredStateHost));
+    let mut canvas = populated_canvas();
+    let template = canvas.conversation_tails[0].clone();
+    canvas.conversation_tails = (0..6)
+        .map(|index| {
+            let mut tail = template.clone();
+            tail.node_id += index;
+            tail.session_id = format!("fixture-{index}");
+            tail.last_user_message = Some(format!(
+                "USER_TAIL:{index}:{}",
+                "\"\\\u{0001}文".repeat(300)
+            ));
+            tail.last_agent_message = Some(format!("AGENT_TAIL:{index}:{}", "答".repeat(1200)));
+            tail
+        })
+        .collect();
+    session.update_environment(canvas, vec![]);
+    let (deltas, _received) = tokio::sync::mpsc::channel(16);
+    let result = session
+        .turn_streaming("查询当前状态", deltas, AgentInputSource::Voice)
+        .await
+        .expect("长会话尾部应让位给必需状态并允许小型回执续轮");
+    assert_eq!(result.tool_calls, 1, "只执行一次只读查询");
+    let requests = server.await.unwrap();
+    assert_eq!(requests.len(), 2, "初始请求和工具续轮各一次");
+    for body in &requests {
+        let text = body["messages"].to_string();
+        assert!(
+            text.contains(&format!("REQUIRED_GOAL:{}", "目标".repeat(320))),
+            "必须保留完整目标"
+        );
+        assert!(text.contains("fixture-0"), "优先保留聚焦卡片的会话身份");
+        assert!(
+            !text.contains(&"答".repeat(1200)),
+            "完整可选正文不能挤占必需材料"
+        );
+        assert!(
+            body.to_string().len() + 512 <= 28_672,
+            "按实际转义后的请求守住窗口上限"
+        );
+    }
+    assert!(
+        requests[1]["messages"].to_string().contains("TOOL_RECEIPT"),
+        "保留真实工具回执"
+    );
+    assert!(
+        !requests[0]["messages"].to_string().contains("TOOL_RECEIPT"),
+        "首轮不能伪造回执"
+    );
+}
+
 /// 场景：桌面语音追问“按刚才的方案继续”需要上一轮用户原话和回答。
 /// 构造：默认 16,384 token 窗口、最小共享状态，以及仅出现在首轮的两种标识。
 /// 执行：同一公开 NormaSession 连续调用两次 turn_streaming(Voice)，检查实际 HTTP。

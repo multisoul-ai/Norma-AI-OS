@@ -336,6 +336,33 @@ fn execute_in(command: Command, window: &mut Window, cx: &mut App) -> Outcome {
                 Err(error) => Response::error(error),
             })
         }
+        Command::VoiceTranscript { text } => {
+            let host = crate::workspace::desktop::sessions::windowed(cx);
+            if let Some(host) = host {
+                host.update(cx, |app, cx| {
+                    let expanded = app
+                        .desktop_workspace
+                        .active_id
+                        .as_ref()
+                        .zip(app.desktop_workspace.expanded_area_id.as_ref())
+                        .and_then(|(workspace, area)| {
+                            app.desktop_workspace
+                                .sessions
+                                .get(&(workspace.clone(), area.clone()))
+                                .cloned()
+                        });
+                    if let Some(expanded) = expanded {
+                        expanded
+                            .update(cx, |app, cx| app.handle_final_voice_text(text, window, cx));
+                    } else {
+                        app.handle_final_voice_text(text, window, cx);
+                    }
+                });
+                done(Response::ok())
+            } else {
+                done(Response::error("no windowed project host"))
+            }
+        }
         Command::RunEffectsFixture => {
             let installed = crate::workspace::desktop::sessions::windowed(cx)
                 .ok_or_else(|| "no windowed host".to_string())

@@ -149,8 +149,10 @@ impl NormaSession {
         self.memory_enabled = enabled;
         self.memory_epoch = epoch;
         self.memory_revisions = revisions;
+        let mut canvas = self.canvas.clone();
+        let conversation_tails = std::mem::take(&mut canvas.conversation_tails);
         let mut preamble = crate::norma_system_prompt_base_with_desktop(
-            &self.canvas,
+            &canvas,
             &self.roster,
             self.desktop_context.as_ref(),
         );
@@ -194,6 +196,7 @@ impl NormaSession {
         if shared {
             preamble.push_str(crate::context::SHARED_CONTEXT_RULES);
         }
+        self.append_conversation_context(&mut preamble, conversation_tails);
         if let Some(memory) = memory.filter(|memory| memory.preferences.recall) {
             // Optional catalog yields tool-result headroom; conversation history
             // can use the actual remaining window and is pruned by whole turns.

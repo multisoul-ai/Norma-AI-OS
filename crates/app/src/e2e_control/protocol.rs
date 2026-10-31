@@ -99,6 +99,10 @@ pub(super) enum Command {
     DoubaoTranscript {
         text: String,
     },
+    /// 本地语音：将一句 ASR 最终转写送入生产语音指令链路。
+    VoiceTranscript {
+        text: String,
+    },
     /// 运行特效验收：宿主窗口切到画布，摆出六张处于不同运行状态的 Agent 卡片。
     RunEffectsFixture,
 }

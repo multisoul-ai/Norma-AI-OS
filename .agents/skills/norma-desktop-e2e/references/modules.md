@@ -45,6 +45,7 @@
 | `brain` | `brain-autonomy` | 脚本化的大脑（不用真实模型）在第一个智能体完成后，经权限闸门给第二个智能体派后续任务：概览出现“Norma 自主处理”栏和这一条，“为什么”展开理由，“以后这类先问我”把 `autonomy.assign_followups` 写成 false。 |
 | `brain` | `brain-settings` | 设置 → Norma 大脑：页面内容，点开关与点策略后配置文件里的值。 |
 | `voice` | `voice-live-call`、`voice-live-acoustic`、`voice-doubao-direct` | `voice-doubao-direct`：假 Key + 本机假方舟，经控制通道注入转写，验豆包按卡片名/别名直呼派任务、未命中回落模型（无需云端 Key）。`voice-live-call` 验连接/静音/用量；后者原依赖字幕OCR，用户移除浮层后在启动/连接前返回ENV，避免无效云端用量。真人声学按统一验收清单执行。 |
+| `voice` | `voice-command-budget` | 本地语音指令：真实 Hook 写入一张卡片的两条长中文会话，`voice_transcript` 注入 ASR 最终转写；核对实际模型请求保留共享状态、输入、截断会话且满足默认窗口，并在真实 App 对话中看到回复。不覆盖麦克风、真实云端模型和 TTS。 |
 
 | `canvas` | `canvas-presentation-layout` | 固定窗口、六张 Agent 和终端下重复生产 CLI 网页/预览展示，核对抽屉回执、--new、--type、手动重排及重启布局。 |
 
