@@ -217,6 +217,7 @@ impl MultisoulApp {
         node_id: NodeId,
         cx: &mut gpui::Context<Self>,
     ) -> bool {
+        tracing::info!(node_id, "agent task ready: trying to submit pending task");
         if self.runtime.agent_task_input_held(node_id)
             || matches!(
                 self.runtime.agent_task_state(node_id),
@@ -239,6 +240,10 @@ impl MultisoulApp {
         if self.mobile_delivery_pending(node_id)
             || !self.prepare_realtime_submission(pending.receipt.task_id, cx)
         {
+            tracing::info!(
+                node_id,
+                "agent task submission deferred: delivery capture in progress"
+            );
             // Keep the exact stage: a task already pasted must not be pasted a second time.
             self.pending_agent_submissions
                 .submissions

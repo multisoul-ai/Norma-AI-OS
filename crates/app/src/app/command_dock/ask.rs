@@ -102,6 +102,7 @@ impl MultisoulApp {
             None,
         )
         .map_err(|error| failed(error.to_string()))?;
+        tracing::info!(agent = %name, ?result, "dock ask dispatched");
         match result {
             CardCommandResult::AgentTasksDispatched { receipts }
                 if receipts

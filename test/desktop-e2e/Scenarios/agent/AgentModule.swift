@@ -9,6 +9,7 @@ public enum AgentModule {
             AgentCodexUpdateMenu.name,
             AgentCodexResumeFork.name,
             AgentBackgroundCompletion.name,
+            AgentAskReady.name,
         ],
         run: { scenario, session in
             switch scenario {
@@ -23,6 +24,9 @@ public enum AgentModule {
                 return true
             case AgentBackgroundCompletion.name:
                 try await AgentBackgroundCompletion.run(session)
+                return true
+            case AgentAskReady.name:
+                try await AgentAskReady.run(session)
                 return true
             default:
                 return false
