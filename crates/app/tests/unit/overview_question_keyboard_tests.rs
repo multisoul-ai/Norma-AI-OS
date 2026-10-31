@@ -110,8 +110,35 @@ fn overview_question_keyboard_is_single_activation_and_isolated() {
     });
     let source = source.unwrap();
     cx.update(|window, cx| window.draw(cx).clear());
-    // Tab through the two action buttons; the first enabled button is the edit action.
-    cx.update(|window, _| window.focus_next());
+    // The disclosure row is the first tab stop; opening it does not start editing.
+    cx.update(|window, cx| {
+        window.blur();
+        window.focus_next();
+        window.draw(cx).clear();
+    });
+    key_cycle(cx, "enter");
+    assert!(
+        source.read_with(cx, |app, _| app.desktop_workspace.attention.open.is_some()),
+        "Enter 展开原题"
+    );
+    assert!(
+        source.read_with(cx, |app, _| app.desktop_question_editor.is_none()),
+        "展开不应自动采用或编辑建议"
+    );
+    key_cycle(cx, "space");
+    assert!(
+        source.read_with(cx, |app, _| app.desktop_workspace.attention.open.is_none()),
+        "一次完整 Space 只能收起一次，不能被原生 key-up 再次展开"
+    );
+    key_cycle(cx, "enter");
+    assert!(
+        source.read_with(cx, |app, _| app.desktop_workspace.attention.open.is_some()),
+        "Enter 再次展开且不发生双切换"
+    );
+    cx.update(|window, cx| {
+        window.focus_next();
+        window.draw(cx).clear();
+    });
     key_cycle(cx, "enter");
     assert!(
         source.read_with(cx, |app, _| app.desktop_question_editor.is_some()),
@@ -134,7 +161,7 @@ fn overview_question_keyboard_is_single_activation_and_isolated() {
     // The pinned components prevent mouse focus; Tab traverses three radios before the checkbox.
     cx.update(|window, cx| {
         window.blur();
-        for _ in 0..4 {
+        for _ in 0..5 {
             window.focus_next();
         }
         window.draw(cx).clear();
@@ -150,7 +177,7 @@ fn overview_question_keyboard_is_single_activation_and_isolated() {
         window.draw(cx).clear();
         window.blur();
         // Three radios precede the newly visible custom text input.
-        for _ in 0..4 {
+        for _ in 0..5 {
             window.focus_next();
         }
         window.draw(cx).clear();
@@ -186,6 +213,7 @@ fn overview_question_keyboard_is_single_activation_and_isolated() {
     cx.update(|window, cx| {
         window.draw(cx).clear();
         window.blur();
+        window.focus_next();
         window.focus_next();
         window.draw(cx).clear();
     });

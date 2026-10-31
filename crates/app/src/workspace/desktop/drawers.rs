@@ -30,6 +30,9 @@ pub(super) mod motion;
 pub(super) mod orb;
 mod overview_actions;
 mod overview_brain;
+mod overview_decisions;
+mod overview_detail_view;
+pub(super) mod overview_details;
 mod overview_judging;
 mod overview_list;
 mod overview_parts;
@@ -41,6 +44,10 @@ pub(super) mod resize;
 #[cfg(test)]
 #[path = "../../../tests/unit/desktop_drawer_surface_tests.rs"]
 mod surface_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/overview_card_interaction_tests.rs"]
+mod card_interaction_tests;
 
 #[cfg(test)]
 #[path = "../../../tests/unit/desktop_assistant_conversation_surface_tests.rs"]

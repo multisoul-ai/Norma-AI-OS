@@ -3,28 +3,10 @@ use gpui::{div, prelude::*, px, rgba, Div, ElementId, Stateful};
 use norma::protocol::QuestionState;
 use ui::component::{
     button::{Button, ButtonCustomVariant, ButtonVariants},
-    Disableable, Sizable, StyledExt,
+    Disableable, Sizable,
 };
 
 impl MultisoulApp {
-    pub(in crate::workspace::desktop::drawers) fn question_heights(&self) -> Vec<f32> {
-        self.brain_overview()
-            .questions
-            .iter()
-            .map(|row| {
-                let editing = self
-                    .desktop_question_editor
-                    .as_ref()
-                    .is_some_and(|e| e.target() == &row.snapshot.question.target);
-                if editing {
-                    260.
-                } else {
-                    180.
-                }
-            })
-            .collect()
-    }
-
     pub(in crate::workspace::desktop::drawers) fn render_question_rows(
         &mut self,
         cx: &mut Context<Self>,
@@ -37,6 +19,10 @@ impl MultisoulApp {
         }) {
             self.desktop_question_editor = None;
         }
+        self.desktop_question_drafts.retain(|editor| {
+            rows.iter()
+                .any(|row| editor.target() == &row.snapshot.question.target)
+        });
         rows.iter()
             .enumerate()
             .map(|(index, row)| self.render_question_row(row, index, cx))
@@ -51,11 +37,18 @@ impl MultisoulApp {
     ) -> Stateful<Div> {
         let target = &row.snapshot.question.target;
         let tag = format!("{}-{}-{index}", row.area_id, target.node_id);
+        let key = super::super::overview_details::DetailKey::Question {
+            area_id: row.area_id.clone(),
+            target: Box::new(target.clone()),
+        };
+        let expanded = self.desktop_workspace.attention.is_open(&key);
+        let theme = self.desktop_theme();
         let editor = self.render_question_editor(row, &tag, cx);
         let editing = editor.is_some();
         let error = self
             .question_action_error(target)
-            .or(row.snapshot.error.as_deref());
+            .or(row.snapshot.error.as_deref())
+            .map(str::to_owned);
         let status = match row.snapshot.state {
             QuestionState::Pending if row.delegated => "chrome.question_delegated",
             QuestionState::Submitting => "chrome.question_submitting",
@@ -65,10 +58,37 @@ impl MultisoulApp {
             _ if !row.available => "chrome.question_native_only",
             _ => "chrome.question_pending",
         };
+        let prompt = row
+            .snapshot
+            .question
+            .items
+            .first()
+            .map(|item| item.prompt.as_str())
+            .unwrap_or_default();
+        let title =
+            super::super::overview_detail_view::title(prompt, "chrome.brain_question_title");
+        let head = super::super::overview_detail_view::header(
+            format!("question-toggle-{tag}"),
+            key,
+            title,
+            format!("{} · {}", row.agent, ui::i18n::text(status)),
+            "?",
+            theme.accent_cyan,
+            self,
+            cx,
+        );
         div()
             .id(ElementId::Name(format!("brain-question-{tag}").into()))
             .debug_selector(move || format!("desktop-brain-question-{index}"))
-            // Native controls activate once on key-up; keep key-down off overview navigation.
+            .w_full()
+            .flex_none()
+            .rounded(px(8.))
+            .border_1()
+            .border_color(rgba(theme.node_stroke))
+            .flex()
+            .flex_col()
+            .text_size(px(12.))
+            .text_color(rgba(theme.text_primary))
             .on_key_down(|event, _, cx| {
                 if !event.keystroke.modifiers.modified()
                     && matches!(
@@ -79,74 +99,63 @@ impl MultisoulApp {
                     cx.stop_propagation();
                 }
             })
-            .w_full()
-            .flex_none()
-            .p(px(8.))
-            .rounded(px(9.))
-            .border_1()
-            .border_color(rgba(0x83c4ff40))
-            .flex()
-            .flex_col()
-            .gap(px(6.))
-            .text_size(px(12.))
-            .text_color(rgba(0xeef6ffff))
-            .child(div().font_semibold().child(format!(
-                "{} · {}",
-                row.agent,
-                ui::i18n::text(status)
-            )))
-            .when(!editing, |view| {
-                view.children(row.snapshot.question.items.iter().map(|item| {
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap(px(3.))
-                        .child(item.prompt.clone())
-                        .child(
-                            div().text_color(rgba(0xa9c0d5ff)).child(
-                                item.options
-                                    .iter()
-                                    .map(|o| match &o.description {
-                                        Some(description) => {
-                                            format!("{} — {}", o.label, description)
-                                        }
-                                        None => o.label.clone(),
-                                    })
-                                    .collect::<Vec<_>>()
-                                    .join(" · "),
-                            ),
-                        )
-                }))
-            })
-            .when_some(
-                row.suggestion.as_ref().filter(|_| !editing),
-                |view, suggestion| {
-                    view.child(div().text_color(rgba(0xb9dcffff)).child(ui::i18n::format(
-                        "chrome.question_suggestion",
-                        &[(
-                            "answer",
-                            answer_summary(&row.snapshot.question, &suggestion.answers),
-                        )],
-                    )))
-                    .child(
+            .child(head)
+            .when(expanded, |view| {
+                let mut detail = super::super::overview_detail_view::body(theme);
+                if !editing {
+                    for item in &row.snapshot.question.items {
+                        detail = detail.child(
+                            div()
+                                .text_color(rgba(theme.text_primary))
+                                .child(item.prompt.clone()),
+                        );
+                        for option in &item.options {
+                            detail = detail.child(
+                                div()
+                                    .flex()
+                                    .gap(px(6.))
+                                    .child(div().flex_none().child("○"))
+                                    .child(div().flex_1().min_w(px(0.)).child(
+                                        match &option.description {
+                                            Some(description) => {
+                                                format!("{} — {description}", option.label)
+                                            }
+                                            None => option.label.clone(),
+                                        },
+                                    )),
+                            );
+                        }
+                    }
+                    if let Some(suggestion) = &row.suggestion {
+                        detail = detail
+                            .child(div().text_color(rgba(theme.accent_cyan)).child(
+                                ui::i18n::format(
+                                    "chrome.question_suggestion",
+                                    &[(
+                                        "answer",
+                                        answer_summary(&row.snapshot.question, &suggestion.answers),
+                                    )],
+                                ),
+                            ))
+                            .child(div().child(suggestion.reason.clone()));
+                    }
+                }
+                if let Some(editor) = editor {
+                    detail = detail.child(editor);
+                }
+                if error
+                    .as_deref()
+                    .is_some_and(|e| e != "question_native_takeover")
+                {
+                    detail = detail.child(
                         div()
-                            .text_color(rgba(0xa9c0d5ff))
-                            .child(suggestion.reason.clone()),
-                    )
-                },
-            )
-            .when_some(editor, |view, editor| view.child(editor))
-            .when(
-                error.is_some() && error != Some("question_native_takeover"),
-                |view| {
-                    view.child(
-                        div()
-                            .text_color(rgba(0xf6dfaaff))
+                            .text_color(rgba(theme.accent_warm))
                             .child(ui::i18n::text("chrome.question_action_failed")),
-                    )
-                },
-            )
-            .child(self.question_buttons(row, &tag, editing, cx))
+                    );
+                }
+                detail = detail.child(self.question_buttons(row, &tag, editing, cx));
+                view.child(detail)
+            })
     }
 
     fn question_buttons(
@@ -172,7 +181,7 @@ impl MultisoulApp {
             let area = row.area_id.clone();
             let target = row.snapshot.question.target.clone();
             buttons = buttons.child(
-                question_button(
+                self.question_button(
                     format!("question-submit-{tag}"),
                     if editing {
                         "chrome.question_send"
@@ -192,7 +201,7 @@ impl MultisoulApp {
         if !editing {
             let edit = row.clone();
             buttons = buttons.child(
-                question_button(
+                self.question_button(
                     format!("question-edit-{tag}"),
                     if row.suggestion.is_some() {
                         "chrome.question_edit"
@@ -213,7 +222,7 @@ impl MultisoulApp {
             let area = row.area_id.clone();
             let target = row.snapshot.question.target.clone();
             buttons = buttons.child(
-                question_button(
+                self.question_button(
                     format!("question-delegate-{tag}"),
                     "chrome.question_delegate",
                     cx,
@@ -226,7 +235,7 @@ impl MultisoulApp {
             );
         }
         buttons.child(
-            question_button(
+            self.question_button(
                 format!("question-native-{tag}"),
                 "chrome.question_native",
                 cx,
@@ -237,21 +246,22 @@ impl MultisoulApp {
             })),
         )
     }
-}
 
-fn question_button(id: String, key: &'static str, cx: &gpui::App) -> Button {
-    Button::new(ElementId::Name(id.clone().into()))
-        .debug_selector(move || id)
-        .label(ui::i18n::text(key))
-        .small()
-        .custom(
-            ButtonCustomVariant::new(cx)
-                .color(rgba(0x58adff26).into())
-                .foreground(rgba(0xeef6ffff).into())
-                .border(rgba(0x83c4ff55).into())
-                .hover(rgba(0x58adff40).into())
-                .active(rgba(0x58adff59).into()),
-        )
+    fn question_button(&self, id: String, key: &'static str, cx: &gpui::App) -> Button {
+        let theme = self.desktop_theme();
+        Button::new(ElementId::Name(id.clone().into()))
+            .debug_selector(move || id)
+            .label(ui::i18n::text(key))
+            .small()
+            .custom(
+                ButtonCustomVariant::new(cx)
+                    .color(rgba(ui::icons::with_alpha(theme.accent_cyan, 0x18)).into())
+                    .foreground(rgba(theme.text_primary).into())
+                    .border(rgba(theme.node_stroke).into())
+                    .hover(rgba(ui::icons::with_alpha(theme.text_primary, 0x20)).into())
+                    .active(rgba(ui::icons::with_alpha(theme.text_primary, 0x35)).into()),
+            )
+    }
 }
 
 fn answer_summary(question: &PendingQuestion, answers: &[QuestionAnswer]) -> String {

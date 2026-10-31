@@ -267,7 +267,13 @@ where
     I: IntoIterator<Item = T>,
     T: Into<OsString> + Clone,
 {
-    NormaArgs::try_parse_from(args).map(NormaArgs::into_invocation)
+    let invocation = NormaArgs::try_parse_from(args)?.into_invocation();
+    if let CardCommand::Brain { op, .. } = &invocation.command {
+        op.validate_decision_copy().map_err(|error| {
+            clap::Error::raw(clap::error::ErrorKind::ValueValidation, error.to_string())
+        })?;
+    }
+    Ok(invocation)
 }
 
 pub fn parse_process_invocation_from<I, T>(args: I) -> Result<CliInvocation, CliOutput>

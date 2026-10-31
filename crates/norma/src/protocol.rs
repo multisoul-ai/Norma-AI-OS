@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 mod brain;
+mod brain_copy;
 mod context;
 mod ego;
 mod errors;
@@ -9,6 +10,10 @@ mod question;
 mod workspace;
 
 pub use brain::{BrainDecision, BrainOp, ReportPriority};
+pub use brain_copy::{
+    validate_decision_copy, validate_proposal_copy, DecisionCopyError, DecisionCopyIssue,
+    DECISION_COPY_LIMIT,
+};
 pub use context::*;
 pub use ego::{
     EgoCaptureMode, EgoCardStatus, EgoCommand, EgoCommandFailure, EgoErrorCode, EgoOwnership,

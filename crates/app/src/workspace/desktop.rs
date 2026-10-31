@@ -38,6 +38,7 @@ mod dialogs_other;
 mod directory_navigation;
 mod dispatch;
 mod drawers;
+pub(crate) use drawers::overview_details::{AttentionDetails, DetailKey};
 pub(crate) use drawers::overview_questions::QuestionEditor;
 mod home;
 mod home_card;
@@ -171,6 +172,7 @@ pub(crate) struct DesktopWorkspaceUiState {
     pub(crate) activity_run_overview: Option<norma::mobile::RunOverview>,
     pub(crate) activity_updated_at_ms: Option<i64>,
     pub(crate) overview_cursor: Option<usize>,
+    pub(crate) attention: AttentionDetails,
     pub(crate) overview_prelight: Option<(String, u64)>,
     pub(crate) workspaces: Vec<DesktopWorkspace>,
     pub(crate) previews: HashMap<String, Vec<DesktopAreaPreview>>,
@@ -349,6 +351,7 @@ impl DesktopWorkspaceUiState {
             activity_run_overview: None,
             activity_updated_at_ms: None,
             overview_cursor: None,
+            attention: AttentionDetails::default(),
             overview_prelight: None,
             workspaces,
             previews: HashMap::new(),

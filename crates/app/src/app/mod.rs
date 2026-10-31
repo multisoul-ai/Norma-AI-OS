@@ -280,6 +280,7 @@ pub struct MultisoulApp {
     pub(crate) desktop_switcher_subscription: Option<gpui::Subscription>,
     pub(crate) desktop_ideas_input_subscription: Option<gpui::Subscription>,
     pub(crate) desktop_question_editor: Option<crate::workspace::desktop::QuestionEditor>,
+    pub(crate) desktop_question_drafts: Vec<crate::workspace::desktop::QuestionEditor>,
     pub(crate) background_restore: Option<crate::workspace::flow::PendingLiveSessionRestore>,
     pub(crate) desktop_overview_scroll: HashMap<String, gpui::ScrollHandle>,
     /// 想法栏的滚动位置（ScrollHandle 非 Send，不能放进跨线程的桌面状态）；新增想法时滚到末尾。

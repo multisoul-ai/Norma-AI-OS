@@ -276,6 +276,7 @@ impl MultisoulApp {
             desktop_switcher_subscription: None,
             desktop_ideas_input_subscription: None,
             desktop_question_editor: None,
+            desktop_question_drafts: Vec::new(),
             background_restore: None,
             desktop_overview_scroll: std::collections::HashMap::new(),
             ideas_scroll: gpui::ScrollHandle::new(),

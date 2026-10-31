@@ -196,11 +196,30 @@ impl MultisoulApp {
     pub(crate) fn refresh_brain_overview(&mut self, cx: &mut Context<Self>) {
         let mut snapshot = super::OverviewSnapshot::default();
         for ((workspace_id, area_id), session) in &self.desktop_workspace.sessions {
-            let app = session.read(cx);
-            snapshot.running |= app.brain.host.is_some();
+            snapshot.running |= session.read(cx).brain.host.is_some();
             if self.desktop_workspace.active_id.as_ref() != Some(workspace_id) {
                 continue;
             }
+            snapshot.approvals.extend(session.update(cx, |app, _| {
+                let waiting: Vec<_> = app
+                    .runtime
+                    .mobile_card_snapshots()
+                    .into_iter()
+                    .filter(|card| card.state == "waiting_approval")
+                    .map(|card| card.node_id)
+                    .collect();
+                waiting
+                    .into_iter()
+                    .flat_map(|node| {
+                        app.runtime
+                            .cached_mobile_approval_snapshots(node)
+                            .unwrap_or_default()
+                    })
+                    .filter(|approval| !approval.decisions.is_empty())
+                    .map(|approval| (area_id.clone(), approval))
+                    .collect::<Vec<_>>()
+            }));
+            let app = session.read(cx);
             snapshot
                 .questions
                 .extend(app.question_overview_rows(area_id));
@@ -250,7 +269,11 @@ impl MultisoulApp {
             })
         });
         if snapshot != self.brain.overview {
+            let approvals_changed = snapshot.approvals != self.brain.overview.approvals;
             self.brain.overview = snapshot;
+            if approvals_changed {
+                self.note_workspace_activity_changed(cx);
+            }
             cx.notify();
         }
     }

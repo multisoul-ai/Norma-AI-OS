@@ -28,11 +28,13 @@ public enum BrainPropose {
             setenv("NORMA_BRAIN_DIR", brainDir!.path, 1)
             setenv("NORMA_E2E_LANGUAGE", "zh-Hans", 1)
             try session.launch()
+            try await session.resize(width: 1440, height: 840)
             try await BrainSupport.createWorkspace(session, name: workspace)
             session.stop()
             guard let dataRoot = session.dataRoot else { throw E2EError.env("隔离数据目录丢失") }
             projectRoot = try CanvasProjectFixture.install(dataRoot: dataRoot, workspaceName: workspace)
             try session.launch()
+            try await session.resize(width: 1440, height: 840)
             _ = try await session.wait(Expectation(allOf: [workspace], timeout: 20))
             return try session.prove(names: [workspace], areaCount: 1, linkedTo: workspace).summary
         }
@@ -70,6 +72,7 @@ public enum BrainPropose {
         try await session.step("重启 App 后两条提议仍在，确认前没有任务发给 Agent") {
             session.stop()
             try session.launch()
+            try await session.resize(width: 1440, height: 840)
             try await BrainSupport.openProjectWithAgents(session, count: 0)
             try await BrainSupport.openOverview(session)
             _ = try await session.wait(Expectation(allOf: ["写登录接口文档"], timeout: 20))
@@ -82,6 +85,8 @@ public enum BrainPropose {
 
         try await session.step("展开“写登录接口文档”，点“拒绝”，这一行消失") {
             try await session.click(matching: ["写登录接口文档"], pick: .top)
+            _ = try await session.wait(Expectation(allOf: ["完整任务", "接口刚改过"], timeout: 6))
+            try await session.click(matching: ["完整任务"], pick: .top)
             let expanded = try await session.wait(Expectation(allOf: ["拒绝", "为登录接口写使用文档"], timeout: 6))
             try session.save(expanded, "02-expanded.png")
             try await session.click(matching: ["拒绝"], pick: .top)
@@ -98,7 +103,6 @@ public enum BrainPropose {
             guard let brainDir else { throw E2EError.env("大脑夹具目录丢失") }
             let marker = brainDir.appendingPathComponent("waiting-2")
             try Data().write(to: marker)
-            _ = try await session.wait(Expectation(allOf: ["请先回答当前问题"], timeout: 10))
             let blocked = try await session.wait(
                 Expectation(allOf: ["先处理卡片中的问题或审批", "等待确认"], timeout: 6))
             try session.save(blocked, "04a-waiting-confirmation.png")

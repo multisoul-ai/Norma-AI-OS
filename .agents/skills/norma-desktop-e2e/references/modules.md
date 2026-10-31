@@ -57,6 +57,8 @@
 | `agent` | `agent-voice-resume` | 同一卡片 Ctrl+C 后语音续发：本机脚本化豆包调用 `reply_agent`，真实 PTY 必须收到并执行第二条完整正文；旧交接模板展开去重，用户原话与独有背景保留。等待卡片「运行中」和「已结束」后再继续，不以派发动画代替送达。不覆盖麦克风、真实云端模型和 TTS。 |
 | `boot` | `boot-sync-animation` | 冷启动开机动画（正式启动在 Sync / Awaken 间随机）：`NORMA_E2E_BOOT_ANIMATION=sync` 播 Sync（OCR 看到 HUD 文字），约 6 秒后自动淡出露出首页，播放中按键立即退场；`=awaken` 播 Awaken（9 秒），播放中首页被遮住、之后露出；未设置时（其他场景默认）不播放、首页直接可用。不覆盖「减少动态效果」（系统设置，e2e 不改）。 |
 
+| `brain` | `brain-approvals-ui` | 紧凑审批默认收起，外层直接允许/拒绝；展开显示完整命令和单次范围，收起后操作；生产 Hook 各消费一次。中文 Sapphire Night、英文 Ink Black，均为深色；脚本化 Agent/幕僚，不执行命令、不使用真实模型。 |
+
 | `agent` | `agent-codex-wait-completion` | 真实 Codex + 本机 Responses 回放：API等待、思考、真实后台终端等待持续运行；提前Stop不完成；原生回合结束后Done且幕僚只收一次最终回复。连续帧单独比较卡片边缘动效，不覆盖真实云端模型/TTS。 |
 
 ## 预留模块
