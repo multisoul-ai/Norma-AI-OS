@@ -165,3 +165,11 @@
 本次从共享工作区仅提取全局外观相关改动，在独立分支提交，未携带另一任务的 agent/brain、Dock、布局或运行特效差异。初次提交的正常 pre-commit 钩子通过，包括 staged 约束、性能/视频/签名护栏、`cargo check --workspace --quiet` 和 `cargo fmt --check`。日志随附于 `docs/verification/global-appearance-2026-10-31/pr-commit.log`。
 
 随后同步远端 `dev` 的 `ca0001f6` 基线更新，自动合并无冲突；这项已合入基线的语音上下文修复不计入本 PR 的外观差异。既有 ENV 停止状态持续有效，提交过程中未重新运行 GUI。
+
+## PR CI 失败归因
+
+PR #166 的 GitHub CI 运行 `41183667577` 在 Domain contract consistency 步骤失败：`scripts/check-domain-contracts.py:57` 从 `crates/agent/src/adapter.rs` 提取 `create_agent` schema 时抛出 `IndexError`，后续 Rust check / fmt / clippy 未执行，不能声明远端 CI 通过。
+
+这是当前 `dev` 已有失败：基线 `ca0001f65d4b963d6465b652ed8066e0ed8a8419` 的 CI 运行 `41183346194` 报相同堆栈；将基线检查器及其全部 7 个输入文件导出到隔离临时目录，执行 `--root` 最小复现，同样退出 1。检查器和这 7 个输入文件在 PR 与基线逐字节一致。证据随附于 `docs/verification/global-appearance-2026-10-31/pr-ci-baseline-reproduction.log`、`docs/verification/global-appearance-2026-10-31/pr-ci-baseline-run.log` 和 `docs/verification/global-appearance-2026-10-31/pr-ci-failure.log`。
+
+未扩大本次改动去修改领域契约检查器或 agent schema。独立工作树的两次正常 pre-commit 均通过，集成日志为 `docs/verification/global-appearance-2026-10-31/pr-integration-commit.log`。现存 GUI ENV 未验项和浅色主题边界保持不变。
