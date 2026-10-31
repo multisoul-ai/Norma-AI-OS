@@ -134,9 +134,9 @@ fn aura_budget_tool_light_and_determinism() {
 
 /// 磁流体：膜偏移非负且不超留白；等待审批的液滴在底边中点；滴落有上限；结果确定。
 ///
-/// 数据：240 个采样点。Approval 推进 1000ms；Failed 推进 5000ms（el*0.035 远超 34）。
+/// 数据：240 个采样点。Approval 推进 1000ms；Failed 推进 5000ms（el*0.035 远超 16）。
 /// 预期：所有偏移 ∈ [0, 52]，52 < margin 56；Approval 时最大偏移的采样点离底边中点
-///       环形距离 < 0.03；Failed 底边最大偏移 ≤ 34 + 起伏(≤ 2.4+1.6*1.5) + 3。
+///       环形距离 < 0.03；Failed 底边最大偏移 ≤ 16 + 起伏(≤ 2.4+1.6*1.5) + 3。
 #[test]
 fn ferrofluid_offsets_drop_and_drip_limits() {
     let p = palette();
@@ -176,8 +176,8 @@ fn ferrofluid_offsets_drop_and_drip_limits() {
     run(&mut motion, RunStyle::Ferrofluid, 5000.0);
     let offsets = ferrofluid::offsets(&motion, &f, &base);
     let max = offsets.iter().cloned().fold(0.0, f32::max);
-    // 滴落上限 34 + 基础起伏 2.4 + 1.6*(0.6+0.4+0.5) + 下垂肩部 3 = 41.8
-    assert!(max <= 41.8 + 0.01, "滴落长度有上限，实际最大偏移 {max}");
+    // 滴落上限 16 + 基础起伏 2.4 + 1.6*(0.6+0.4+0.5) + 下垂肩部 3 = 23.8
+    assert!(max <= 23.8 + 0.01, "滴落长度有上限，实际最大偏移 {max}");
     assert_eq!(
         offsets,
         ferrofluid::offsets(&motion, &f, &base),
@@ -189,11 +189,43 @@ fn ferrofluid_offsets_drop_and_drip_limits() {
     );
 }
 
+/// 磁流体：各状态的膜（含尖刺、工具切换脉冲与液滴）连同外描边半宽都落在 24px 布局间距内，
+/// 不会钻到相邻卡片下方被挡住。
+///
+/// 数据：zoom=1 的卡片；思考、工具（从切换瞬间起）、等待、完成各逐帧推进 3000ms。
+/// 预期：每帧最大偏移 + 外描边半宽 3 ≤ 24。
+#[test]
+fn ferrofluid_reach_stays_inside_layout_gap() {
+    let p = palette();
+    let f = frame();
+    let base: Vec<_> = (0..ferrofluid::SAMPLES)
+        .map(|i| f.edge(i as f32 / ferrofluid::SAMPLES as f32))
+        .collect();
+    for state in [
+        RunState::Thinking,
+        RunState::Tool,
+        RunState::Approval,
+        RunState::Done,
+    ] {
+        let mut motion = RunMotion::new(RunStyle::Ferrofluid, input(state), &p);
+        for _ in 0..(3000 / 16) {
+            run(&mut motion, RunStyle::Ferrofluid, 16.0);
+            let max = ferrofluid::offsets(&motion, &f, &base)
+                .into_iter()
+                .fold(0.0, f32::max);
+            assert!(
+                max + 3.0 <= 24.0,
+                "{state:?} 膜外扩 {max} 加描边超出 24px 布局间距"
+            );
+        }
+    }
+}
+
 /// 减少动态效果：灵光、磁流体回落为卡片底边外的 3px 状态色细条；准备状态不画。
 ///
 /// 数据：frame() 卡片底边 y = 56 + 420 = 476。
 /// 执行过程：思考状态 tick 一次（减少动态效果直接落到目标值）后构建图元。
-/// 预期：思考时 1 个 Bar，高 3px，顶边在 476 + 2 = 478（卡片外、8px 布局间距内，
+/// 预期：思考时 1 个 Bar，高 3px，顶边在 476 + 2 = 478（卡片外、布局间距内，
 ///       否则会被画在其上的卡片正文挡住）；准备时为空。
 #[test]
 fn reduce_motion_falls_back_to_bottom_bar() {
@@ -210,8 +242,8 @@ fn reduce_motion_falls_back_to_bottom_bar() {
                     "{style:?} 细条在卡片底边外 2px，实际 y={y}"
                 );
                 assert!(
-                    y + height <= f.y + f.h + 8.0,
-                    "{style:?} 细条不能超出 8px 布局间距"
+                    y + height <= f.y + f.h + 24.0,
+                    "{style:?} 细条不能超出 24px 布局间距"
                 );
             }
             other => panic!("{style:?} 减少动态效果应只有一条细条: {other:?}"),

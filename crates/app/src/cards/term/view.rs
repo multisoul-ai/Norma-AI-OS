@@ -76,8 +76,14 @@ pub fn terminal_render_metrics(zoom: f32) -> TerminalRenderMetrics {
     }
 }
 
+/// 深色下阅读面 alpha 0x85，叠在约 16% 的卡片外壳上合成约 60% 不透明，透出壁纸。
+const DARK_TERM_SURFACE_ALPHA: u32 = 0x85;
+
 fn terminal_surface_bg(theme: Theme) -> u32 {
-    theme.term_bg
+    match theme.is_light() {
+        true => theme.term_bg,
+        false => (theme.term_bg & !0xff) | DARK_TERM_SURFACE_ALPHA,
+    }
 }
 
 #[cfg(test)]
@@ -201,6 +207,24 @@ mod tests {
             "有退出码时标签应包含具体 code=1"
         );
         assert!(!no_code.contains("code=1"), "无退出码标签不应误显示 code=1");
+    }
+
+    /// 场景：深色卡片整体约 60% 不透明，壁纸能透出来。
+    /// 数据构造：所有深色主题；外壳取生产渐变两端 alpha（DARK_SHELL_ALPHAS）。
+    /// 执行过程：与终端阅读面合成不透明度。
+    /// 预期结果：两端合成 alpha 都落在 55%–65%。
+    #[test]
+    fn test_dark_terminal_surface_composes_to_about_sixty_percent() {
+        let dark = ui::ThemeId::ALL.map(|id| (id, Theme::for_id(id)));
+        for (id, theme) in dark.into_iter().filter(|(_, theme)| !theme.is_light()) {
+            for shell in crate::cards::chrome::DARK_SHELL_ALPHAS {
+                let composed = composited_alpha(u32::from(shell), terminal_surface_bg(theme));
+                assert!(
+                    (0x8c..=0xa6).contains(&composed),
+                    "{id:?} 深色卡片合成 alpha 应约 60%，实际为 {composed:#04x}"
+                );
+            }
+        }
     }
 
     /// 场景：终端阅读面需要稳定底色，避免壁纸色相穿透代码。

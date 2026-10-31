@@ -16,6 +16,9 @@ pub const TITLE_BAR_H: f32 = 32.0;
 /// Paint the tint on the rounded shell itself. Rectangular wallpaper samples
 /// cannot follow its corners in GPUI 0.2.2 and leave visible material seams.
 /// ponytail: tint only; true blur needs a GPU backdrop with a rounded mask.
+/// 深色卡片外壳渐变两端的 alpha。
+pub(crate) const DARK_SHELL_ALPHAS: [u8; 2] = [0x24, 0x2e];
+
 pub fn card_background(theme: Theme) -> Background {
     if theme.is_light() {
         return linear_gradient(
@@ -26,8 +29,8 @@ pub fn card_background(theme: Theme) -> Background {
     }
     linear_gradient(
         155.0,
-        linear_color_stop(rgba(with_alpha(theme.title_bar, 0x24)), 0.0),
-        linear_color_stop(rgba(with_alpha(theme.node_fill, 0x2e)), 1.0),
+        linear_color_stop(rgba(with_alpha(theme.title_bar, DARK_SHELL_ALPHAS[0])), 0.0),
+        linear_color_stop(rgba(with_alpha(theme.node_fill, DARK_SHELL_ALPHAS[1])), 1.0),
     )
 }
 

@@ -5,7 +5,7 @@ mod diagnostics;
 mod keys;
 mod motion;
 mod view;
-pub(crate) use view::DOCK_RADIUS;
+pub(crate) use view::{command_dock_surface, DOCK_RADIUS};
 
 use super::{AppScreen, MultisoulApp, NewBrowser, NewTerminal};
 use crate::OpenFeatureGuide;
