@@ -138,43 +138,43 @@ fn activity_after_done_is_forwarded_without_another_confirm() {
     );
 }
 
-/// stop_hook_active 的 Stop 不进入确认窗口。
+/// stop_hook_active 的 Stop 照常进入确认窗口；被阻止后续跑的活动作废窗口。
 ///
-/// 数据构造：stop_hook_active=true 且 background_tasks=[]。随后才是正常空 Stop。
+/// 数据构造：Claude 与 Grok 文档都说明，被 stop hook 阻止后，续跑轮次和最终那次 Stop
+///   的 stop_hook_active 都是 true。旧实现对它永久 Hold，卡片会一直显示运行。
 ///
-/// 执行过程：hook Stop → poll(800) → 正常空 Stop → 窗口。
+/// 执行过程：hook Stop(t=0) → PreToolUse(t=100) 续跑 → 最终 hook Stop(t=1000) → 窗口。
 ///
 /// 预期结果：
-///   - 正断言：正常空 Stop 从自己的时间戳起 800ms 后确认。
-///   - 负断言：hook Stop 后 800ms 不确认。
+///   - 正断言：最终 Stop 从自己的时间戳起 800ms 后确认。
+///   - 负断言：续跑活动之后，第一次 Stop 的窗口不得确认。
 #[test]
-fn active_stop_hook_does_not_open_the_confirmation_window() {
+fn active_stop_hook_still_completes_after_the_window() {
     let mut judge = judge();
     let node = 7;
-    let hooked = judge.observe(
+    let hooked_stop = || {
+        claude(
+            node,
+            json!({"hook_event_name": "Stop", "stop_hook_active": true, "background_tasks": []}),
+        )
+    };
+    judge.observe(&hooked_stop(), 0);
+    judge.observe(
         &claude(
             node,
-            json!({
-                "hook_event_name": "Stop",
-                "stop_hook_active": true,
-                "background_tasks": []
-            }),
+            json!({"hook_event_name": "PreToolUse", "tool_name": "Bash"}),
         ),
-        0,
-    );
-    assert!(
-        matches!(hooked.as_slice(), [CompletionAction::KeepThinking { .. }]),
-        "stop hook 仍在跑时必须保持思考"
+        100,
     );
     assert!(
         confirm_flags(&judge.poll(CONFIRMATION_WINDOW_MS)).is_empty(),
-        "stop_hook_active 不得开始 800ms 确认"
+        "stop hook 阻止后的续跑活动必须作废第一次窗口"
     );
-    judge.observe(&claude(node, empty_stop()), 1_000);
+    judge.observe(&hooked_stop(), 1_000);
     assert_eq!(
         quiet_until_confirm(&mut judge, 1_000),
         vec![false],
-        "hook 结束后的空 Stop 才进入窗口"
+        "最终那次 stop_hook_active=true 的 Stop 也必须能完成"
     );
 }
 

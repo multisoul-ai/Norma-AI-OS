@@ -52,7 +52,7 @@ Done 随即被卡片、播报、移动端推送和 `crates/app/src/app/agent_run
 - 快照:`Stop` / `SubagentStop` 带 `background_tasks` 数组时,用数组 id 替换开放集合。缺字段只走增量账本,且账本已空时仍进入确认窗口,否则旧 hook 与无后台的回合永远不 Done。
 - 显式删除:`TaskStop` / `KillShell` / `KillBash` 按 `task_id` 删。`<task-notification>` 在 status 不是空也不是 `running` 时,按 `<task-id>` 与 `<tool-use-id>` 删。删到空也不马上 Done,要等下一次空快照的 `Stop` 加上确认窗口。
 - `SubagentStop` 有快照就替换(实测仍可能是 running);缺字段才按 `agent_id` 删除。它本身 Forward,并取消窗口。
-- `stop_hook_active == true` 不进入确认、不发 Done。
+- `stop_hook_active == true` 与普通 `Stop` 相同：被阻止后续跑和最终那次 Stop 都带 true，只能靠续跑活动作废窗口，否则卡片会永久运行。Grok 同样进入本账本：子会话（带 `subagentType`）的生命周期事件与会话关闭时 `reason != end_turn` 的 Stop 直接丢弃。
 - 清理:账本非空的 `SessionEnd`、`StopFailure`、Agent 进程退出(`abandon`)整体清空,不补发 Done。空账本且确认窗口仍开着时,`SessionEnd` 先 Confirm(`unsettled=false`)再 Forward。
 - 新的 `UserPromptSubmit` 不清账本,但取消待定窗口,并记下 `last_prompt_unix_ms`。
 

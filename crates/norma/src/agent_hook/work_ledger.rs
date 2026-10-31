@@ -1,4 +1,4 @@
-//! Claude 回合完成判定：工作账本 + 确认窗口。
+//! Claude / Grok 回合完成判定：工作账本 + 确认窗口。
 //!
 //! `Stop` 只表示回合结束。后台 Bash / 子 Agent 未结清时保持 Thinking，
 //! 确认窗口安静结束后才发出可被下游当成 Done 的 `Stop`。
@@ -18,9 +18,9 @@ pub const MAX_PROCESS_DEFERRALS: u8 = 3;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum CompletionAction {
-    /// 按原始事件映射状态。非 Claude 的 `Stop` 仍立即是 Done。
+    /// 按原始事件映射状态。Claude / Grok 以外的 `Stop` 仍立即是 Done。
     Forward(AgentHookEvent),
-    /// Claude 的 `Stop` 尚未确认。调用方把卡片保持在 Thinking，且不发完成副作用。
+    /// Claude / Grok 的 `Stop` 尚未确认。调用方把卡片保持在 Thinking，且不发完成副作用。
     KeepThinking { event: AgentHookEvent },
     /// 窗口结束，或后台等待超时。`event` 仍是原来的 `Stop`。
     Confirm {
@@ -61,7 +61,10 @@ impl CompletionJudge {
     }
 
     pub fn observe(&mut self, event: &AgentHookEvent, now_ms: u64) -> Vec<CompletionAction> {
-        if event.profile != AgentProfile::Claude {
+        if event.profile == AgentProfile::Grok && !is_grok_main_turn_event(event) {
+            return Vec::new();
+        }
+        if !matches!(event.profile, AgentProfile::Claude | AgentProfile::Grok) {
             return vec![CompletionAction::Forward(event.clone())];
         }
         match event.provider_event.as_str() {
@@ -160,42 +163,29 @@ impl CompletionJudge {
     fn on_stop(&mut self, event: &AgentHookEvent, now_ms: u64) -> Vec<CompletionAction> {
         let decision = {
             let node = self.ledger(event.node_id);
-            if stop_hook_active(&event.raw_json) {
-                if let Some(ids) = background_task_ids(&event.raw_json) {
-                    replace_open(node, ids);
+            // stop_hook_active 的最后一次 Stop 也是 true；续跑轮次的活动会作废窗口。
+            if let Some(ids) = background_task_ids(&event.raw_json) {
+                replace_open(node, ids);
+            }
+            node.turn_ended = true;
+            node.stashed_stop = Some(event.clone());
+            if node.open.is_empty() {
+                node.unsettled_since_ms = None;
+                node.deferrals = 0;
+                node.pending = Some(PendingWindow { since_ms: now_ms });
+                StopDecision::Window {
+                    probe_since: node.last_prompt_unix_ms,
                 }
+            } else {
                 node.pending = None;
-                node.turn_ended = false;
-                if node.open.is_empty() {
-                    node.unsettled_since_ms = None;
-                } else if node.unsettled_since_ms.is_none() {
+                if node.unsettled_since_ms.is_none() {
                     node.unsettled_since_ms = Some(now_ms);
                 }
-                StopDecision::Hold
-            } else {
-                if let Some(ids) = background_task_ids(&event.raw_json) {
-                    replace_open(node, ids);
-                }
-                node.turn_ended = true;
-                node.stashed_stop = Some(event.clone());
-                if node.open.is_empty() {
-                    node.unsettled_since_ms = None;
-                    node.deferrals = 0;
-                    node.pending = Some(PendingWindow { since_ms: now_ms });
-                    StopDecision::Window {
-                        probe_since: node.last_prompt_unix_ms,
-                    }
+                let since = node.unsettled_since_ms.unwrap_or(now_ms);
+                if now_ms >= since.saturating_add(BACKGROUND_WAIT_LIMIT_MS) {
+                    StopDecision::Timeout
                 } else {
-                    node.pending = None;
-                    if node.unsettled_since_ms.is_none() {
-                        node.unsettled_since_ms = Some(now_ms);
-                    }
-                    let since = node.unsettled_since_ms.unwrap_or(now_ms);
-                    if now_ms >= since.saturating_add(BACKGROUND_WAIT_LIMIT_MS) {
-                        StopDecision::Timeout
-                    } else {
-                        StopDecision::Hold
-                    }
+                    StopDecision::Hold
                 }
             }
         };
@@ -385,7 +375,11 @@ fn response_work_id(raw: &Value) -> Option<String> {
 }
 
 fn background_task_ids(raw: &Value) -> Option<HashSet<String>> {
-    let tasks = raw.get("background_tasks")?.as_array()?;
+    // Grok 只发 camelCase 的 `backgroundTasks`。
+    let tasks = raw
+        .get("background_tasks")
+        .or_else(|| raw.get("backgroundTasks"))?
+        .as_array()?;
     Some(
         tasks
             .iter()
@@ -394,10 +388,20 @@ fn background_task_ids(raw: &Value) -> Option<HashSet<String>> {
     )
 }
 
-fn stop_hook_active(raw: &Value) -> bool {
-    raw.get("stop_hook_active")
-        .and_then(Value::as_bool)
-        .unwrap_or(false)
+/// Grok 子会话的生命周期事件属于子 Agent，不是这张卡片的回合；
+/// 会话关闭时附带的 Stop（reason 不是 end_turn）也不是回合完成。
+fn is_grok_main_turn_event(event: &AgentHookEvent) -> bool {
+    let raw = &event.raw_json;
+    let lifecycle = matches!(
+        event.provider_event.as_str(),
+        "SessionStart" | "SessionEnd" | "UserPromptSubmit" | "Stop" | "StopFailure"
+    );
+    let in_subagent = raw
+        .get("subagentType")
+        .is_some_and(|value| !value.is_null());
+    let session_close_stop = event.provider_event == "Stop"
+        && string_at(raw, "reason").is_some_and(|reason| reason != "end_turn");
+    !(session_close_stop || (lifecycle && in_subagent))
 }
 
 fn prompt_text(raw: &Value) -> Option<String> {

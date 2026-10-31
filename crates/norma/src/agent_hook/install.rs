@@ -6,12 +6,12 @@ use super::hermes::{
 };
 use super::json_config::add_command_hook;
 use super::kimi::{install_kimi_hooks, kimi_hooks_installed_at, uninstall_kimi_hooks};
-use super::opencode::{install_opencode_plugin, uninstall_opencode_plugin};
+use super::opencode::{install_opencode_plugin, opencode_plugin_source, uninstall_opencode_plugin};
 use super::pi::{install_pi_extension, uninstall_pi_extension};
 use super::zcode::{install_zcode_hooks, uninstall_zcode_hooks, zcode_hooks_installed_at};
 use super::{
     build_hook_command, hook_events_for_source, hook_source_arg, AgentHookError, HookInstallPaths,
-    HookSource, HookTarget, AGENT_HOOK_BINARY_NAME, OPENCODE_PLUGIN_MARKER, PI_EXTENSION_MARKER,
+    HookSource, HookTarget, AGENT_HOOK_BINARY_NAME, PI_EXTENSION_MARKER,
 };
 use super::{default_install_paths, resolve_agent_hook_command_path};
 use serde_json::{json, Value};
@@ -110,8 +110,8 @@ pub fn agent_hooks_installed_at(path: &Path, source: HookSource) -> bool {
         return hermes_plugin_installed_at(path);
     }
     if source == HookSource::OpenCode {
-        return fs::read_to_string(path)
-            .is_ok_and(|source| source.contains(OPENCODE_PLUGIN_MARKER));
+        // 内容不同即视为未安装，启动 reconcile 才会把旧插件换成当前版本。
+        return fs::read_to_string(path).is_ok_and(|source| source == opencode_plugin_source());
     }
     if source == HookSource::Pi {
         return fs::read_to_string(path).is_ok_and(|source| source.contains(PI_EXTENSION_MARKER));
