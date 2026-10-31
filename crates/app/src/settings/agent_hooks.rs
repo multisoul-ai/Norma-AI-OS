@@ -3,9 +3,9 @@ use canvas::AgentProfile as CanvasAgentProfile;
 use canvas::CanvasNodeKind;
 #[cfg(test)]
 use crossbeam_channel::unbounded;
-use crossbeam_channel::Receiver;
 #[cfg(feature = "e2e-test-support")]
 use crossbeam_channel::Sender;
+use crossbeam_channel::{Receiver, Sender};
 use gpui::App;
 use norma::agent_hook::{
     extract_prompt_text, observe_conversation, task_state_for_provider_event, AgentHookEvent,
@@ -15,12 +15,20 @@ use norma::protocol::{AgentTaskResult, AgentTaskResultAvailability};
 use runtime::{
     AgentHookRuntimeConfig, AgentTaskState, AgentTaskUpdate, AgentTaskUpdateOutcome, Runtime,
 };
+use std::cell::RefCell;
 #[cfg(test)]
 use std::io::Write;
 #[cfg(test)]
 use std::net::{TcpListener, TcpStream};
 
 use super::agent_hook_ingress;
+
+mod agent_hook_completion;
+
+struct ProbeNote {
+    node_id: u64,
+    found: bool,
+}
 #[cfg(test)]
 use super::agent_hook_ingress::{read_authorized_event, AgentHookHttpError};
 
@@ -34,6 +42,9 @@ pub(crate) struct AgentHookServer {
     event_tap: Option<Sender<AgentHookEvent>>,
     endpoint: Option<String>,
     token: Option<String>,
+    completion: RefCell<norma::agent_hook::CompletionJudge>,
+    probe_tx: Sender<ProbeNote>,
+    probe_rx: Receiver<ProbeNote>,
 }
 
 #[derive(Debug, Default)]
@@ -55,12 +66,16 @@ pub(crate) struct AgentHookStartedTask {
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) struct AgentHookTerminalTask {
     pub(crate) node_id: u64,
+    /// 发布这条终态时的状态。同一 drain 里随后的 SessionEnd 会把实时状态改成 Ended，
+    /// 结算必须用这里的值，不能再读实时状态。
+    pub(crate) settled_state: AgentTaskState,
     pub(crate) result: AgentTaskResult,
 }
 
 impl AgentHookServer {
     pub(crate) fn start(cx: &mut App) -> Self {
         let registration = agent_hook_ingress::register(cx);
+        let (probe_tx, probe_rx) = crossbeam_channel::unbounded();
         Self {
             receiver: registration.receiver,
             approvals: registration.approvals,
@@ -71,6 +86,9 @@ impl AgentHookServer {
             event_tap: None,
             endpoint: registration.endpoint,
             token: registration.token,
+            completion: agent_hook_completion::fresh_judge(),
+            probe_tx,
+            probe_rx,
         }
     }
 
@@ -135,86 +153,24 @@ impl AgentHookServer {
         runtime: &mut Runtime,
         project_id: Option<&str>,
     ) -> AgentHookDrainReport {
-        let mut report = AgentHookDrainReport::default();
-        if let Some(project_id) = project_id {
-            report.changed |= runtime.drain_native_question_hosts(project_id);
-            report.session_binding_changed |= runtime.take_native_question_session_changed();
-        }
-        for event in self.receiver.try_iter() {
-            report.changed |= runtime.observe_native_question_result(&event);
-            let previous_progress = runtime.mobile_task_progress(event.node_id);
-            if !runtime.observe_mobile_hook(&event) {
-                continue;
-            }
-            report.changed |= previous_progress != runtime.mobile_task_progress(event.node_id);
-            #[cfg(feature = "e2e-test-support")]
-            if let Some(tap) = &self.event_tap {
-                let _ = tap.try_send(event.clone());
-            }
-            let node_id = event.node_id;
-            let started_task =
-                (event.provider_event == "UserPromptSubmit").then(|| AgentHookStartedTask {
-                    node_id,
-                    task_title: extract_prompt_text(&event.raw_json),
-                });
-            let is_ready = matches!(
-                agent_task_state_from_hook_event(&event),
-                Some(AgentTaskState::Ready)
-            );
-            let is_terminal = matches!(
-                agent_task_state_from_hook_event(&event),
-                Some(AgentTaskState::Done | AgentTaskState::Failed { .. } | AgentTaskState::Ended)
-            );
-            let terminal_task = is_terminal.then(|| AgentHookTerminalTask {
-                node_id,
-                result: task_result_from_hook_event(&event),
-            });
-            report.events.push(event.clone());
-            let outcome = apply_agent_hook_event_with_outcome(runtime, event);
-            if outcome.changed() {
-                report.changed = true;
-                if outcome.session_binding_changed {
-                    report.session_binding_changed = true;
-                }
-                if outcome.task_state_changed {
-                    if let Some(started_task) = started_task {
-                        report.started_tasks.push(started_task);
-                    }
-                    if is_ready {
-                        report.ready_node_ids.push(node_id);
-                    }
-                    if let Some(terminal_task) = terminal_task {
-                        report.terminal_tasks.push(terminal_task);
-                    }
-                }
-            }
-        }
-        // Lifecycle Hooks complete before the Provider enters its PermissionRequest Hook.
-        // Drain them first: a completed turn must reject an approval that arrived late.
-        while let Ok(approval) = self.approvals.try_recv() {
-            let mut event = approval.request().event.clone();
-            event.control_run_id = Some(approval.request().run_id.clone());
-            if runtime.accept_mobile_approval(approval) {
-                report.changed = true;
-                report.events.push(event.clone());
-                apply_agent_hook_event_with_outcome(runtime, event);
-            }
-        }
-        for question in self.questions.try_iter() {
-            let Some(project_id) = project_id else {
-                question.cancel();
-                continue;
-            };
-            match runtime.accept_native_question(question, project_id) {
-                Ok(_) => report.changed = true,
-                Err(reason) => tracing::debug!(reason, "native question registration rejected"),
-            }
-        }
-        report
+        self.drain_at(runtime, project_id, agent_hook_completion::unix_now_ms())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn drain_into_runtime_at(
+        &self,
+        runtime: &mut Runtime,
+        project_id: Option<&str>,
+        now_ms: u64,
+    ) -> AgentHookDrainReport {
+        self.drain_at(runtime, project_id, now_ms)
     }
 }
 
-fn task_result_from_hook_event(event: &AgentHookEvent) -> AgentTaskResult {
+fn task_result_from_hook_event(
+    event: &AgentHookEvent,
+    background_unsettled: bool,
+) -> AgentTaskResult {
     let observation = observe_conversation(event);
     match observation {
         Some(observation)
@@ -225,13 +181,36 @@ fn task_result_from_hook_event(event: &AgentHookEvent) -> AgentTaskResult {
                 availability: AgentTaskResultAvailability::Available,
                 text: observation.text,
                 truncated: observation.truncated,
+                background_unsettled,
             }
         }
         _ => AgentTaskResult {
             availability: AgentTaskResultAvailability::Unavailable,
             text: None,
             truncated: false,
+            background_unsettled,
         },
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn hook_server_for_test(receiver: Receiver<AgentHookEvent>) -> AgentHookServer {
+    let (probe_tx, probe_rx) = crossbeam_channel::unbounded();
+    #[cfg(feature = "e2e-test-support")]
+    let (event_sender, _) = crossbeam_channel::unbounded();
+    AgentHookServer {
+        receiver,
+        approvals: crossbeam_channel::bounded(1).1,
+        questions: crossbeam_channel::bounded(1).1,
+        #[cfg(feature = "e2e-test-support")]
+        event_sender,
+        #[cfg(feature = "e2e-test-support")]
+        event_tap: None,
+        endpoint: None,
+        token: None,
+        completion: agent_hook_completion::fresh_judge(),
+        probe_tx,
+        probe_rx,
     }
 }
 
@@ -469,3 +448,7 @@ mod session_binding_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/agent_hook_codex_host_tests.rs"]
 mod codex_host_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/agent_hook_completion_tests.rs"]
+mod completion_tests;

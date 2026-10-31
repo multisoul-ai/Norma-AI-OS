@@ -4,12 +4,25 @@ use super::super::super::MultisoulApp;
 
 impl MultisoulApp {
     pub(crate) fn advance_agent_task_queue(&mut self, node_id: NodeId) -> bool {
-        self.advance_agent_task_queue_with_result(node_id, None)
+        let state = self.runtime.agent_task_state(node_id);
+        self.settle_agent_task_queue(node_id, state, None)
     }
 
-    pub(crate) fn advance_agent_task_queue_with_result(
+    /// 使用 hook 发布当时的状态结算。调用方不得改读实时状态：
+    /// 同一 drain 里 Done 之后的 SessionEnd 会把实时状态覆盖成 Ended。
+    pub(crate) fn advance_published_agent_task(
         &mut self,
         node_id: NodeId,
+        settled_state: runtime::AgentTaskState,
+        result: norma::protocol::AgentTaskResult,
+    ) -> bool {
+        self.settle_agent_task_queue(node_id, Some(settled_state), Some(result))
+    }
+
+    fn settle_agent_task_queue(
+        &mut self,
+        node_id: NodeId,
+        runtime_state: Option<runtime::AgentTaskState>,
         result: Option<norma::protocol::AgentTaskResult>,
     ) -> bool {
         let Some(definition_id) = self.runtime.document.node(node_id).and_then(|node| {
@@ -20,7 +33,6 @@ impl MultisoulApp {
         }) else {
             return false;
         };
-        let runtime_state = self.runtime.agent_task_state(node_id);
         if matches!(runtime_state, Some(runtime::AgentTaskState::Ended)) {
             let coordinator_changed = self
                 .agent_task_coordinator
@@ -66,6 +78,7 @@ impl MultisoulApp {
                 availability: norma::protocol::AgentTaskResultAvailability::Unavailable,
                 text: None,
                 truncated: false,
+                background_unsettled: false,
             })
         };
         let stored_result = result
@@ -73,6 +86,7 @@ impl MultisoulApp {
             .map(|value| storage::StoredAgentDispatchResult {
                 text: value.text.clone(),
                 truncated: value.truncated,
+                background_unsettled: value.background_unsettled,
             });
         let writer = self.persistence.agent_dispatch_writer().cloned();
         let next = self

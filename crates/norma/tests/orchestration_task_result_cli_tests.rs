@@ -91,6 +91,7 @@ fn terminal_wait_json_includes_bound_agent_result() {
                 availability: AgentTaskResultAvailability::Available,
                 text: Some("测试通过，共 12 项".to_string()),
                 truncated: false,
+                background_unsettled: false,
             }),
         },
     };
@@ -157,6 +158,7 @@ fn task_result_json_uses_the_same_stable_task_result_shape() {
                 availability: AgentTaskResultAvailability::Available,
                 text: Some("结果已生成".to_string()),
                 truncated: false,
+                background_unsettled: false,
             }),
         },
     };

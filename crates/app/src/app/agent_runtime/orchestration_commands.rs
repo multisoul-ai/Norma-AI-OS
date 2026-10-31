@@ -310,6 +310,7 @@ fn wire_task_status(task: agent::AgentCoordinatedTask) -> AgentTaskStatus {
                 availability: norma::protocol::AgentTaskResultAvailability::Unavailable,
                 text: None,
                 truncated: false,
+                background_unsettled: false,
             })
         }),
     }

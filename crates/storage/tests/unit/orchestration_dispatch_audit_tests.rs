@@ -171,6 +171,7 @@ fn terminal_update_persists_result_for_exact_runtime_task() {
     let result = StoredAgentDispatchResult {
         text: Some("测试通过，共 12 项".to_string()),
         truncated: false,
+        background_unsettled: false,
     };
 
     let updated = store

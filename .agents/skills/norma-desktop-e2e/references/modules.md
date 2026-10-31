@@ -51,6 +51,7 @@
 | `brain` | `brain-claude-quota` | 无网络 Claude 0.94.0 consumer 回放：额度正文和 error 结束；设置重启保留已收到正文及 cancelled 结束；新轮隔离与 App 重开后的持久化面板。不验证服务端真实额度或语音。 |
 | `agent` | `agent-startup-watchdog` | Agent 卡片启动看门狗：HOME 重定向到已安装 hook 的假目录；假 `codex` 有首屏但不发 hook，约 15 秒后标题栏出现「迟迟未收到会话启动信号」徽标，发出 SessionStart 后消失；假 `claude` 启动即发 SessionStart，等过 15 秒也不出现徽标。不覆盖会话恢复路径与浅色/深色。 |
 | `agent` | `agent-codex-update-menu` | 原生 Codex 握手期间的交互菜单（如更新提示）：假 `codex` 报告 0.162.1 走原生握手，画出菜单；核对 ↑/↓ 移动选择、回车确认且卡片存活；卡死模式（持续刷屏不连接）约 60 秒后报「Codex 启动失败 … startup timed out」并退出。不覆盖真实中继握手（由 runtime 集成测试覆盖）。 |
+| `agent` | `agent-background-completion` | Claude 后台 Bash：假 `claude` 经真实 Hook 上报 `run_in_background` 与非空 `background_tasks` 的 Stop。结清前卡片为「运行中」且没有 Done；task-notification 与空 Stop 经过确认窗口后才显示 Done。不发 SessionEnd，不覆盖语音播报、子 Agent 与其他 profile。 |
 | `boot` | `boot-sync-animation` | 冷启动开机动画（正式启动在 Sync / Awaken 间随机）：`NORMA_E2E_BOOT_ANIMATION=sync` 播 Sync（OCR 看到 HUD 文字），约 6 秒后自动淡出露出首页，播放中按键立即退场；`=awaken` 播 Awaken（9 秒），播放中首页被遮住、之后露出；未设置时（其他场景默认）不播放、首页直接可用。不覆盖「减少动态效果」（系统设置，e2e 不改）。 |
 
 ## 预留模块

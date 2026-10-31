@@ -273,11 +273,22 @@ impl MultisoulApp {
                         let node_id = terminal.node_id;
                         if speak_agent_completions {
                             if let Some(report) = app.agent_completion_report_for_node(node_id) {
+                                let report = if terminal.result.background_unsettled {
+                                    format!(
+                                        "{report} {}",
+                                        ui::i18n::text("voice.background_unsettled")
+                                    )
+                                } else {
+                                    report
+                                };
                                 app.dialogue.queue_agent_report(report);
                             }
                         }
-                        queue_changed |= app
-                            .advance_agent_task_queue_with_result(node_id, Some(terminal.result));
+                        queue_changed |= app.advance_published_agent_task(
+                            node_id,
+                            terminal.settled_state,
+                            terminal.result,
+                        );
                     }
                     app.advance_session_reply_queue();
                     let runtime_events = app.runtime.take_events();

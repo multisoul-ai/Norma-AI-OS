@@ -17,6 +17,11 @@ mod atomic_file;
 mod conversation_observe;
 mod cursor;
 mod event;
+mod work_ledger;
+pub use work_ledger::{
+    CompletionAction, CompletionJudge, BACKGROUND_WAIT_LIMIT_MS, CONFIRMATION_WINDOW_MS,
+    MAX_PROCESS_DEFERRALS,
+};
 mod forward;
 mod hermes;
 mod install;
