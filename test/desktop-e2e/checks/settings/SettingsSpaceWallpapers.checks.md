@@ -9,5 +9,6 @@
 | `03-violet-nebula-dark.png` | 紫色星云预览，名称 Violet Nebula，Saved | 金色星环、空白预览 |
 | `04-emerald-aurora-dark.png` | 绿色极光预览，名称 Emerald Aurora，Saved | 紫色星云、下载按钮 |
 | `05-silver-moonscape-dark.png` | 银白月境预览，名称 Silver Moonscape，Saved | 绿色极光、错误提示 |
-| `06-space-library-light.png` | 浅色主题下五款中文名称和五张不同缩略图；蔚蓝地平线有选择边框和勾选 | 缺图、名称裁切、重复缩略图、五款条目上的下载按钮或需下载状态 |
-| `07-restored-space-wallpaper.png` | 浅色中文设置中当前预览恢复蔚蓝地平线 | 默认壁纸、空白预览、名称恢复成英文 |
+| `06-space-library-graphite.png` | Graphite主题下五款中文名称和五张不同缩略图；蔚蓝地平线有选择边框和勾选 | 缺图、名称裁切、重复缩略图、五款条目上的下载按钮或需下载状态 |
+| `07-restored-space-wallpaper.png` | Graphite中文设置中当前预览恢复蔚蓝地平线 | 默认壁纸、空白预览、名称恢复成英文 |
+| `00-global-wallpaper.png` | 直接从当前预览开始，明确全局生效，所有工作空间和项目共用 | 范围切换、跟随开关、目录专用背景说明 |

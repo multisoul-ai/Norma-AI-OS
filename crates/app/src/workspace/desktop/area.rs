@@ -182,7 +182,6 @@ impl MultisoulApp {
         self.desktop_workspace.loading_area_ids.insert(key.clone());
         cx.notify();
         let paths = self.database_paths.clone();
-        let context_area = area.clone();
         let work = cx.background_executor().spawn(async move {
             crate::app::background_project::PreparedProject::load_for_desktop(paths, area)
         });
@@ -197,42 +196,19 @@ impl MultisoulApp {
                 match prepared {
                     Ok(prepared) => {
                         let host = cx.weak_entity();
-                        let wallpaper_context = app
-                            .desktop_workspace
-                            .workspaces
-                            .iter()
-                            .find(|workspace| workspace.id == workspace_id)
-                            .cloned()
-                            .map(|workspace| {
-                                crate::settings::wallpaper::scoped::WallpaperContext {
-                                    workspace,
-                                    area: Some(
-                                        app.desktop_workspace
-                                            .areas
-                                            .iter()
-                                            .find(|area| {
-                                                area.id == context_area.id
-                                                    && area.desktop_workspace_id == workspace_id
-                                            })
-                                            .cloned()
-                                            .unwrap_or(context_area),
-                                    ),
-                                }
-                            });
                         let session = cx.new(|cx| {
                             let mut session = MultisoulApp::from_background_project(prepared, cx);
                             session.desktop_host = Some(host);
-                            session.wallpaper_settings.scoped.bind(wallpaper_context);
-                            session.wallpaper_settings.scoped.busy =
-                                app.wallpaper_settings.scoped.busy;
-                            session.wallpaper_settings.scoped.delete_prompt =
-                                app.wallpaper_settings.scoped.delete_prompt.clone();
-                            session.wallpaper_settings.scoped.global =
-                                app.wallpaper_settings.scoped.global.clone();
-                            session.wallpaper_settings.scoped.customs =
-                                app.wallpaper_settings.scoped.customs.clone();
+                            session.wallpaper_settings.preferences.busy =
+                                app.wallpaper_settings.preferences.busy;
+                            session.wallpaper_settings.preferences.delete_prompt =
+                                app.wallpaper_settings.preferences.delete_prompt.clone();
+                            session.wallpaper_settings.preferences.global =
+                                app.wallpaper_settings.preferences.global.clone();
+                            session.wallpaper_settings.preferences.customs =
+                                app.wallpaper_settings.preferences.customs.clone();
                             session.wallpaper_settings.set_effective_selection(
-                                session.wallpaper_settings.scoped.effective_selection(),
+                                session.wallpaper_settings.preferences.effective_selection(),
                                 session.motion.reduce_motion,
                             );
                             session.layout_strategy.chrome_in_parent = true;

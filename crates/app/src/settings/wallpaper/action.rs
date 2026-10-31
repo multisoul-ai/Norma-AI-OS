@@ -32,3 +32,15 @@ impl WallpaperAction for Button {
         })
     }
 }
+
+pub(super) fn request_builtin(
+    app: &mut crate::app::MultisoulApp,
+    rel: &'static str,
+    cx: &mut gpui::Context<crate::app::MultisoulApp>,
+) {
+    if !app.wallpaper_settings.preferences.busy
+        && app.wallpaper_settings.preferences.delete_prompt.is_none()
+    {
+        app.request_wallpaper_selection(super::state::WallpaperSelection::Builtin { rel }, cx);
+    }
+}

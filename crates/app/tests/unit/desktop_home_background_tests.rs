@@ -105,7 +105,7 @@ fn desktop_home_wallpaper_binding_uses_global_selection() {
         let alternate = WallpaperSelection::Builtin {
             rel: "wallpapers/norma-blue-horizon.png",
         };
-        app.wallpaper_settings.scoped.global = alternate.clone();
+        app.wallpaper_settings.preferences.global = alternate.clone();
         app.bind_desktop_wallpaper(cx);
         assert_eq!(
             app.wallpaper_settings.selection, alternate,
@@ -116,7 +116,7 @@ fn desktop_home_wallpaper_binding_uses_global_selection() {
             WallpaperSelection::default(),
             "不得覆盖成默认地球图"
         );
-        app.wallpaper_settings.scoped.global = WallpaperSelection::default();
+        app.wallpaper_settings.preferences.global = WallpaperSelection::default();
         app.bind_desktop_wallpaper(cx);
         assert_eq!(
             app.wallpaper_settings.selection,

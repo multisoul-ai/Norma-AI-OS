@@ -1,0 +1,35 @@
+OK: codesign readiness check passed
+[pre-commit] running cargo check...
+[pre-commit] running cargo fmt --check...
+[codex/global-appearance-20261031 334be49d] feat(settings): unify wallpaper and dispatch effects globally
+ 77 files changed, 4036 insertions(+), 1847 deletions(-)
+ create mode 100644 crates/app/src/app/appearance.rs
+ delete mode 100644 crates/app/src/settings/effects/scope.rs
+ create mode 100644 crates/app/src/settings/wallpaper/migration.rs
+ create mode 100644 crates/app/src/settings/wallpaper/preferences.rs
+ delete mode 100644 crates/app/src/settings/wallpaper/scope_view.rs
+ delete mode 100644 crates/app/src/settings/wallpaper/scoped.rs
+ create mode 100644 crates/storage/src/migrations/global_appearance.rs
+ create mode 100644 crates/storage/tests/global_appearance.rs
+ create mode 100644 docs/verification/2026-10-31-global-appearance.md
+ create mode 100644 docs/verification/global-appearance-2026-10-31/2026-10-31T07-41-56Z-report.json
+ create mode 100644 docs/verification/global-appearance-2026-10-31/2026-10-31T07-47-50Z-report.json
+ create mode 100644 docs/verification/global-appearance-2026-10-31/2026-10-31T07-50-05Z-report.json
+ create mode 100644 docs/verification/global-appearance-2026-10-31/2026-10-31T07-52-11Z-report.json
+ create mode 100644 docs/verification/global-appearance-2026-10-31/baseline-attribution.log
+ create mode 100644 docs/verification/global-appearance-2026-10-31/desktop-driver-tests.log
+ create mode 100644 docs/verification/global-appearance-2026-10-31/dispatch-environment-attribution.json
+ create mode 100644 docs/verification/global-appearance-2026-10-31/first-window-synced-wallpaper.png
+ create mode 100644 docs/verification/global-appearance-2026-10-31/followup-final-manifest-check.json
+ create mode 100644 docs/verification/global-appearance-2026-10-31/followup-manifest.json
+ create mode 100644 docs/verification/global-appearance-2026-10-31/global-effects-chinese.png
+ create mode 100644 docs/verification/global-appearance-2026-10-31/i18n-baseline.log
+ create mode 100644 docs/verification/global-appearance-2026-10-31/i18n-followup.log
+ create mode 100644 docs/verification/global-appearance-2026-10-31/migrated-wallpaper.png
+ create mode 100644 docs/verification/global-appearance-2026-10-31/new-window-green.log
+ create mode 100644 docs/verification/global-appearance-2026-10-31/new-window-red.log
+ create mode 100644 docs/verification/global-appearance-2026-10-31/restored-wallpaper-chinese.png
+ create mode 100644 docs/verification/global-appearance-2026-10-31/screenshot-sources.json
+ create mode 100644 test/desktop-e2e/Fixtures/settings/GlobalAppearanceFixture.swift
+ create mode 100644 test/desktop-e2e/Scenarios/settings/SettingsGlobalAppearance.swift
+ create mode 100644 test/desktop-e2e/checks/settings/SettingsGlobalAppearance.checks.md

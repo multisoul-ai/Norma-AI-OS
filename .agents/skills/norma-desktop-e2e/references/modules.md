@@ -67,3 +67,5 @@
 
 
 | `workspace` | `workspace-home-design` | Combo首页：Sapphire Night/Graphite主题×默认/Blue Horizon壁纸；12/1空间，默认/hover/Tab焦点/菜单/取消删除/搜索分组折叠/实时高亮/回车打开/Esc/无结果预填创建；命令输入隔离、面板按钮聚焦后关闭并跨帧保持关闭。 |
+
+| `settings` | `settings-global-appearance` | 旧空间/展开项目壁纸与特效迁移、双真实窗口全局偏好同步、重启不复活旧值、范围与跟随开关移除。英文 Ink Black；双语与 Graphite 由两个设置场景覆盖。 |

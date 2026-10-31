@@ -1,0 +1,21 @@
+base=ca0001f65d4b963d6465b652ed8066e0ed8a8419
+scripts/check-domain-contracts.py: identical_to_PR=True, sha256=1d845e0f13871372321e723c8ea1c9cfbd060ea80fcfbd655f9c4c3a1f436212
+crates/asr/src/catalog.rs: identical_to_PR=True, sha256=3aa78c71e43a3a6694c8bae79da9f8977a68793b2ce4092f59f3d164db722ab7
+docs/quality/asr-model-release-gate.md: identical_to_PR=True, sha256=542275eada570dbef0c4c531f6333e33e071a25285af07877f608f0a7cff4997
+crates/norma/src/protocol.rs: identical_to_PR=True, sha256=46a3d128e5d32fa7d80262c0eb600c78c4cf2cf0cec60ab088b1400ff2dbb13b
+crates/canvas/src/node/agent_profile.rs: identical_to_PR=True, sha256=dc1b845afffcc3d8a4e78ca701bf0e7156f866a1c3eb92d8a34d2fd69ce02cd3
+crates/agent/src/adapter.rs: identical_to_PR=True, sha256=84ce284bd21d81fb8a2227abfcf70d35a3dd0bd7c15a5139c404f73fdb6fbb8a
+crates/agent/src/adapter/commands.rs: identical_to_PR=True, sha256=49fd68d62d19bc74fe7a9888831a2f0d52b6869431228ea7a74fa27a97976b86
+crates/storage/src/agent_definition_store.rs: identical_to_PR=True, sha256=87241a7f94398cddb2aea11b2c3f8a191c1a2e7c5a6062f9bb41f1e35c80671b
+baseline_exit=1
+
+Traceback (most recent call last):
+  File "/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-appearance-ci-baseline-k3xvsgpm/scripts/check-domain-contracts.py", line 160, in <module>
+    raise SystemExit(main())
+  File "/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-appearance-ci-baseline-k3xvsgpm/scripts/check-domain-contracts.py", line 151, in main
+    failures.extend(check_agent_profile_contract(root))
+  File "/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-appearance-ci-baseline-k3xvsgpm/scripts/check-domain-contracts.py", line 106, in check_agent_profile_contract
+    schema_profiles = create_agent_schema_profiles(schema.read_text())
+  File "/var/folders/pf/k4j7_s8d0yv6z3jbtc7sfv2c0000gn/T/norma-appearance-ci-baseline-k3xvsgpm/scripts/check-domain-contracts.py", line 57, in create_agent_schema_profiles
+    create_agent = source.split('"create_agent"', 1)[1].split("definition(", 1)[0]
+IndexError: list index out of range
