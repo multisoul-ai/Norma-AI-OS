@@ -33,16 +33,23 @@ pub(super) fn owned_identity(command: &PtyCommand) -> Option<(u64, String)> {
     Some((env("MULTISOUL_NODE_ID")?.parse().ok()?, process.into()))
 }
 
+/// Returns server, native TUI and whether the relay must carry YOLO on session requests.
 fn launch_commands(
     original: &PtyCommand,
     server: &Path,
     relay: &Path,
-) -> Result<(PtyCommand, PtyCommand), PtyError> {
+) -> Result<(PtyCommand, PtyCommand, bool), PtyError> {
     let script = original
         .args
         .get(1)
         .and_then(|s| s.strip_prefix("exec codex "))
         .ok_or_else(|| PtyError::Spawn("unsupported native Codex command".into()))?;
+    // Codex rejects /resume and fork in a remote TUI that has permission overrides.
+    let mut words: Vec<&str> = script.split(' ').collect();
+    let before = words.len();
+    words.retain(|word| *word != "--dangerously-bypass-approvals-and-sandbox");
+    let full_access = words.len() != before;
+    let script = words.join(" ");
     let quote = crate::session_snapshot::shell_quote;
     let mut service = original.clone();
     service.args[1] = format!(
@@ -59,7 +66,7 @@ fn launch_commands(
         "exec codex --remote {} {script}",
         quote(&format!("unix://{}", relay.display()))
     );
-    Ok((service, native))
+    Ok((service, native, full_access))
 }
 
 pub(super) fn prepare(
@@ -155,7 +162,7 @@ fn launch(
     let relay_path = directory.path().join("native.sock");
     let listener = UnixListener::bind(&relay_path)?;
     listener.set_nonblocking(true)?;
-    let (server, mut native) = launch_commands(&command, &server_path, &relay_path)?;
+    let (server, mut native, full_access) = launch_commands(&command, &server_path, &relay_path)?;
     let binding = directory.path().join("version");
     let quote = crate::session_snapshot::shell_quote;
     // Probe in the same shell/environment that will exec the original TUI. Unknown
@@ -163,7 +170,7 @@ fn launch(
     native.args[1] = format!(
         r#"
 norma_codex_version=$(codex --version 2>/dev/null)
-if [[ "$norma_codex_version" != 'codex-cli 0.162.1' ]]; then
+if [[ "$norma_codex_version" != 'codex-cli 0.162.1' && "$norma_codex_version" != 'codex-cli 0.166.0' ]]; then
     printf 'unsupported' > {binding}
     printf '{marker}'
     {original}
@@ -230,7 +237,7 @@ printf '{marker}'
             Err(error) => return Err(error.into()),
         }
     };
-    let relay = CodexQuestionRelay::connect_verified(native_socket, &server_path)
+    let relay = CodexQuestionRelay::connect_verified(native_socket, &server_path, full_access)
         .map_err(PtyError::Spawn)?;
     let (connections, incoming) = crossbeam_channel::bounded(8);
     let host = CodexQuestionHost::start_with_connections(relay, incoming, node, process)
@@ -242,7 +249,11 @@ printf '{marker}'
             while !accept_control.is_cancelled() {
                 match listener.accept() {
                     Ok((socket, _)) => {
-                        match CodexQuestionRelay::connect_verified_paused(socket, &server_path) {
+                        match CodexQuestionRelay::connect_verified_paused(
+                            socket,
+                            &server_path,
+                            full_access,
+                        ) {
                             Ok(relay) => {
                                 if connections.send(relay).is_err() {
                                     break;
@@ -284,6 +295,9 @@ fn wait_launch(control: &LaunchControl, slot: &deferred::Preparation) -> Result<
 #[cfg(test)]
 #[path = "../../../tests/unit/codex_native_handshake_tests.rs"]
 mod handshake_tests;
+#[cfg(test)]
+#[path = "../../../tests/unit/codex_native_real_resume_tests.rs"]
+mod real_resume_tests;
 #[cfg(test)]
 #[path = "../../../tests/unit/codex_native_launch_tests.rs"]
 mod tests;

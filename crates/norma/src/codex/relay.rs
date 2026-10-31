@@ -101,17 +101,27 @@ pub struct CodexQuestionRelay {
 impl CodexQuestionRelay {
     /// Handshakes perform IO. The caller must already be on a background thread.
     pub fn connect(native: UnixStream, server: &Path) -> Result<Self, String> {
-        Self::connect_inner(native, server, false, true)
+        Self::connect_inner(native, server, false, true, false)
     }
 
     /// Production attachment: require the tested server version on the native initialize reply.
-    pub fn connect_verified(native: UnixStream, server: &Path) -> Result<Self, String> {
-        Self::connect_inner(native, server, true, true)
+    /// `full_access` carries the original YOLO launch on session requests, because a remote TUI
+    /// with permission overrides rejects /resume and fork.
+    pub fn connect_verified(
+        native: UnixStream,
+        server: &Path,
+        full_access: bool,
+    ) -> Result<Self, String> {
+        Self::connect_inner(native, server, true, true, full_access)
     }
 
     /// Complete transport handshakes, but let the host register input ownership before frames flow.
-    pub fn connect_verified_paused(native: UnixStream, server: &Path) -> Result<Self, String> {
-        Self::connect_inner(native, server, true, false)
+    pub fn connect_verified_paused(
+        native: UnixStream,
+        server: &Path,
+        full_access: bool,
+    ) -> Result<Self, String> {
+        Self::connect_inner(native, server, true, false, full_access)
     }
 
     pub(super) fn start_forwarding(&self) {
@@ -123,6 +133,7 @@ impl CodexQuestionRelay {
         server: &Path,
         check_version: bool,
         forwarding: bool,
+        full_access: bool,
     ) -> Result<Self, String> {
         let owner = crate::agent_hook::fresh_control_id().map_err(|error| error.to_string())?;
         let upstream = UnixStream::connect(server).map_err(|error| error.to_string())?;
@@ -182,6 +193,7 @@ impl CodexQuestionRelay {
                     inputs,
                     initialize: None,
                     version_verified: !check_version,
+                    full_access,
                 };
                 while relay.running.load(Ordering::Acquire)
                     && !worker_forwarding.load(Ordering::Acquire)
@@ -279,6 +291,7 @@ struct Relay {
     inputs: input::NativeInputs,
     initialize: Option<Value>,
     version_verified: bool,
+    full_access: bool,
 }
 
 impl Relay {

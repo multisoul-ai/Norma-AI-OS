@@ -10,7 +10,7 @@ fn original() -> PtyCommand {
         .env(norma::agent_hook::ENV_CONTROL_RUN_ID, "owned-process")
 }
 
-/// 在隔离目录里放一个假 `codex`：版本为已支持的 0.162.1；`app-server` 只创建并监听 socket；
+/// 在隔离目录里放一个假 `codex`：版本为已支持的 0.166.0；`app-server` 只创建并监听 socket；
 /// `--remote` 模拟更新菜单（按 `mode` 决定交互或刷屏），永远不连接中继 socket。
 fn command_with_fake_codex(dir: &std::path::Path, remote_body: &str) -> PtyCommand {
     command_with_prelude(dir, remote_body, "")
@@ -25,7 +25,7 @@ fn command_with_prelude(dir: &std::path::Path, remote_body: &str, prelude: &str)
         format!(
             r#"#!/bin/sh
 case "$*" in
-  '--version') printf 'codex-cli 0.162.1\n'; exit 0;;
+  '--version') printf 'codex-cli 0.166.0\n'; exit 0;;
   *app-server*) for last; do :; done
     exec python3 -c 'import socket,sys,time; s=socket.socket(socket.AF_UNIX); s.bind(sys.argv[1][7:]); s.listen(1); time.sleep(300)' "$last";;
   *--remote*) {remote_body};;

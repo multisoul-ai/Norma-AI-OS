@@ -7,6 +7,7 @@ public enum AgentModule {
         scenarioNames: [
             AgentStartupWatchdog.name,
             AgentCodexUpdateMenu.name,
+            AgentCodexResumeFork.name,
             AgentBackgroundCompletion.name,
         ],
         run: { scenario, session in
@@ -16,6 +17,9 @@ public enum AgentModule {
                 return true
             case AgentCodexUpdateMenu.name:
                 try await AgentCodexUpdateMenu.run(session)
+                return true
+            case AgentCodexResumeFork.name:
+                try await AgentCodexResumeFork.run(session)
                 return true
             case AgentBackgroundCompletion.name:
                 try await AgentBackgroundCompletion.run(session)

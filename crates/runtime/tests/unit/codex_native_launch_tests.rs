@@ -9,10 +9,10 @@ fn original() -> PtyCommand {
         .env(norma::agent_hook::ENV_CONTROL_RUN_ID, "owned-process")
 }
 
-/// 场景：宿主接入只改原TUI传输位置，不能改权限、cwd、resume身份或创建额外任务。
-/// 构造：原生Codex恢复命令带已有默认权限、Hook身份及带空格cwd，私有socket路径含单引号。
+/// 场景：宿主接入只改原TUI传输位置，不能改权限语义、cwd、resume身份或创建额外任务。
+/// 构造：原生Codex恢复命令带YOLO权限、Hook身份及带空格cwd，私有socket路径含单引号。
 /// 执行：构造server/TUI两条命令并检查保留的原参数与shell引用。
-/// 预期：原参数完整保留、原进程身份一致；server不创建thread/turn，不输入额外任务。
+/// 预期：YOLO从远程TUI移交relay（TUI带权限覆盖时Codex拒绝/resume与fork）；其余原参数完整保留。
 #[test]
 fn native_relay_launch_preserves_original_command_policy_and_identity() {
     let command = original();
@@ -21,17 +21,25 @@ fn native_relay_launch_preserves_original_command_policy_and_identity() {
         Some((7, "owned-process".into())),
         "只受控原生Codex命令可使用宿主"
     );
-    let (server, tui) = launch_commands(
+    let (server, tui, full_access) = launch_commands(
         &command,
         Path::new("/tmp/private/server.sock"),
         Path::new("/tmp/private/q'uote.sock"),
     )
     .unwrap();
+    assert!(
+        full_access,
+        "YOLO权限由relay在thread/start|resume|fork上携带"
+    );
     assert_eq!(tui.cwd, command.cwd, "恢复保持原cwd，不规范化符号链接");
     assert_eq!(server.cwd, command.cwd, "同一受控server使用同cwd");
     assert_eq!(tui.env, command.env, "保留原进程Hook身份");
     assert_eq!(server.env, command.env, "server Hook沿用同一拥有者");
-    assert_eq!(tui.args[1], "exec codex --remote 'unix:///tmp/private/q'\\''uote.sock' -c disable_paste_burst=true --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust resume 'original-session'", "仅在原命令前补私有remote端点");
+    assert_eq!(tui.args[1], "exec codex --remote 'unix:///tmp/private/q'\\''uote.sock' -c disable_paste_burst=true --dangerously-bypass-hook-trust resume 'original-session'", "补私有remote端点并移除远程TUI不接受的权限覆盖");
+    assert!(
+        !server.args[1].contains("approval") && !server.args[1].contains("sandbox"),
+        "server只设默认值不足以保证沙箱（TUI会发本地sandbox），不在server重复设置"
+    );
     assert!(
         server.args[1].contains("app-server --listen"),
         "只启动私有协议服务"
@@ -46,6 +54,38 @@ fn native_relay_launch_preserves_original_command_policy_and_identity() {
         owned_identity(&external).is_none(),
         "无拥有者身份不能静默接管"
     );
+}
+
+/// 场景：非YOLO原命令接入宿主时，不能被升级成YOLO。
+/// 构造：不带跳过审批参数的原生Codex命令，以及参数名只是前缀相近的命令。
+/// 执行：构造server/TUI两条命令。
+/// 预期：不开启relay全权限注入；TUI参数仅补remote端点，原审批与沙箱交由用户配置。
+#[test]
+fn native_relay_launch_never_escalates_non_yolo_command() {
+    for script in [
+        "exec codex -c disable_paste_burst=true resume 'original-session'",
+        "exec codex --dangerously-bypass-approvals-and-sandbox-later",
+    ] {
+        let mut command = original();
+        command.args[1] = script.into();
+        let (server, tui, full_access) = launch_commands(
+            &command,
+            Path::new("/tmp/private/server.sock"),
+            Path::new("/tmp/private/native.sock"),
+        )
+        .unwrap();
+        assert!(!full_access, "{script} 不能被升级为YOLO");
+        assert_eq!(
+            tui.args[1],
+            script.replacen(
+                "exec codex ",
+                "exec codex --remote 'unix:///tmp/private/native.sock' ",
+                1
+            ),
+            "非YOLO命令原样保留"
+        );
+        assert!(!server.args[1].contains("approval") && !server.args[1].contains("sandbox"));
+    }
 }
 
 /// 场景：异步准备尚未附着时，输入不能排队到未知界面；关闭阻止迟到进程进入。
@@ -82,7 +122,12 @@ fn preparing_native_terminal_rejects_input_and_cancels_late_spawn() {
 fn unsupported_codex_preserves_original_tui_and_resume() {
     use crate::LiveNode;
     use std::os::unix::fs::PermissionsExt;
-    for version in ["codex-cli 0.100.0", "codex-cli 99.0.0", "probe-failed"] {
+    for version in [
+        "codex-cli 0.100.0",
+        "codex-cli 0.163.0",
+        "codex-cli 99.0.0",
+        "probe-failed",
+    ] {
         let dir = tempfile::tempdir().unwrap();
         let binary = dir.path().join("codex");
         let shell = dir.path().join("shell");
