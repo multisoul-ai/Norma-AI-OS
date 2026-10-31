@@ -3,7 +3,7 @@
 # 真实发版走 Packager.toml（阶段 0 启用 signing-identity 后）。
 name = "app"
 product-name = "Norma OS"
-version = "0.1.73"
+version = "0.1.77"
 identifier = "com.norma.os"
 authors = ["multisoul"]
 formats = ["app", "dmg"]

@@ -1,0 +1,36 @@
+{
+  "reviewer": "independent subagent voice_eval_adversarial",
+  "base_commit": "780b09fa5dda07c0cf18eb2cd2d162be026573ca",
+  "current_commit": "d83d824e869a637d27b0fc350e382d2d2eab2676",
+  "scope": [
+    "scripts/voice-eval/report.py",
+    "test/voice-eval/test_report.py",
+    "crates/asr/tests/a1_eval.rs",
+    "crates/asr/tests/support/a1_eval_audit.rs",
+    "crates/agent/tests/voice_eval_route.rs"
+  ],
+  "constraints": "read-only; no private corpus, model inference, Cargo, synthesis or GUI",
+  "findings": [
+    {
+      "severity": "P1",
+      "issue": "route cache not bound to ASR source digest",
+      "status": "reproduced-fixed-rechecked",
+      "regression": "test_route_cache_is_bound_to_the_actual_asr_file"
+    },
+    {
+      "severity": "P2",
+      "issue": "ASR invented addressee counted as routing failure",
+      "status": "reproduced-fixed-rechecked",
+      "regression": "test_hallucinated_agent_names_are_recognition_errors"
+    }
+  ],
+  "followup": "no new confirmed G0 defect; SessionClosed cause remains unproven",
+  "source_sha256": {
+    "scripts/voice-eval/report.py": "7af6bbb49330052f52c84cbbdf9b72a304dd65a3641c624826a8d5a5139a8bdc",
+    "test/voice-eval/test_report.py": "e97142fdc52a6ce99d1cb093d41c588020100195bd0a83a0cfa2638d9e1065ef",
+    "crates/asr/tests/a1_eval.rs": "280570bf220298761180f8b5e9a90ba1404de404f176246ac0782c7a465f55ac",
+    "crates/asr/tests/support/a1_eval_audit.rs": "2e8d696ad5e81ab39cc826d2b69064ebe2effcf93fd693294302f3558fad853e",
+    "crates/agent/tests/voice_eval_route.rs": "76e54e4da675905353b088cc07039e1249ef37d4a406040ab589100a3a59b1e7"
+  },
+  "recorded_at": "2026-10-31T13:44:08.591840+00:00"
+}

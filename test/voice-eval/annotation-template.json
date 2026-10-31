@@ -1,0 +1,3422 @@
+{
+  "schema_version": 1,
+  "source": "human-holdout",
+  "samples": [
+    {
+      "id": "human-01",
+      "text": "",
+      "targets": [
+        "Daisy"
+      ],
+      "action": "reply",
+      "terms": [
+        {
+          "text": "Daisy",
+          "kind": "name",
+          "agent": "Daisy"
+        }
+      ],
+      "category": "leading",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-01.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-02",
+      "text": "",
+      "targets": [
+        "Alan"
+      ],
+      "action": "reply",
+      "terms": [
+        {
+          "text": "Alan",
+          "kind": "name",
+          "agent": "Alan"
+        }
+      ],
+      "category": "leading",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-02.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-03",
+      "text": "",
+      "targets": [
+        "Dana"
+      ],
+      "action": "reply",
+      "terms": [
+        {
+          "text": "Dana",
+          "kind": "name",
+          "agent": "Dana"
+        }
+      ],
+      "category": "leading",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-03.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-04",
+      "text": "",
+      "targets": [
+        "Diana"
+      ],
+      "action": "reply",
+      "terms": [
+        {
+          "text": "Diana",
+          "kind": "name",
+          "agent": "Diana"
+        }
+      ],
+      "category": "leading",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-04.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-05",
+      "text": "",
+      "targets": [
+        "Simon"
+      ],
+      "action": "reply",
+      "terms": [
+        {
+          "text": "Simon",
+          "kind": "name",
+          "agent": "Simon"
+        }
+      ],
+      "category": "leading",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-05.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-06",
+      "text": "",
+      "targets": [
+        "Haocen"
+      ],
+      "action": "reply",
+      "terms": [
+        {
+          "text": "Haocen",
+          "kind": "name",
+          "agent": "Haocen"
+        }
+      ],
+      "category": "leading",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-06.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-07",
+      "text": "",
+      "targets": [
+        "Rowan"
+      ],
+      "action": "reply",
+      "terms": [
+        {
+          "text": "Rowan",
+          "kind": "name",
+          "agent": "Rowan"
+        }
+      ],
+      "category": "leading",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-07.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-08",
+      "text": "",
+      "targets": [
+        "Daisy"
+      ],
+      "action": "assign",
+      "terms": [
+        {
+          "text": "Daisy",
+          "kind": "name",
+          "agent": "Daisy"
+        }
+      ],
+      "category": "embedded",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-08.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-09",
+      "text": "",
+      "targets": [
+        "Alan"
+      ],
+      "action": "assign",
+      "terms": [
+        {
+          "text": "Alan",
+          "kind": "name",
+          "agent": "Alan"
+        }
+      ],
+      "category": "embedded",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-09.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-10",
+      "text": "",
+      "targets": [
+        "Dana"
+      ],
+      "action": "assign",
+      "terms": [
+        {
+          "text": "Dana",
+          "kind": "name",
+          "agent": "Dana"
+        }
+      ],
+      "category": "embedded",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-10.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-11",
+      "text": "",
+      "targets": [
+        "Diana"
+      ],
+      "action": "assign",
+      "terms": [
+        {
+          "text": "Diana",
+          "kind": "name",
+          "agent": "Diana"
+        }
+      ],
+      "category": "embedded",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-11.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-12",
+      "text": "",
+      "targets": [
+        "Simon"
+      ],
+      "action": "assign",
+      "terms": [
+        {
+          "text": "Simon",
+          "kind": "name",
+          "agent": "Simon"
+        }
+      ],
+      "category": "embedded",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-12.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-13",
+      "text": "",
+      "targets": [
+        "Haocen"
+      ],
+      "action": "assign",
+      "terms": [
+        {
+          "text": "Haocen",
+          "kind": "name",
+          "agent": "Haocen"
+        }
+      ],
+      "category": "embedded",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-13.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-14",
+      "text": "",
+      "targets": [
+        "Rowan"
+      ],
+      "action": "assign",
+      "terms": [
+        {
+          "text": "Rowan",
+          "kind": "name",
+          "agent": "Rowan"
+        }
+      ],
+      "category": "embedded",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-14.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-15",
+      "text": "",
+      "targets": [
+        "Daisy"
+      ],
+      "action": "reply",
+      "terms": [
+        {
+          "text": "黛西",
+          "kind": "name",
+          "agent": "Daisy"
+        }
+      ],
+      "category": "alias",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-15.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-16",
+      "text": "",
+      "targets": [
+        "Alan"
+      ],
+      "action": "reply",
+      "terms": [
+        {
+          "text": "艾伦",
+          "kind": "name",
+          "agent": "Alan"
+        }
+      ],
+      "category": "alias",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-16.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-17",
+      "text": "",
+      "targets": [
+        "Dana"
+      ],
+      "action": "reply",
+      "terms": [
+        {
+          "text": "戴娜",
+          "kind": "name",
+          "agent": "Dana"
+        }
+      ],
+      "category": "alias",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-17.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-18",
+      "text": "",
+      "targets": [
+        "Diana"
+      ],
+      "action": "reply",
+      "terms": [
+        {
+          "text": "戴安娜",
+          "kind": "name",
+          "agent": "Diana"
+        }
+      ],
+      "category": "alias",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-18.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-19",
+      "text": "",
+      "targets": [
+        "Simon"
+      ],
+      "action": "reply",
+      "terms": [
+        {
+          "text": "西蒙",
+          "kind": "name",
+          "agent": "Simon"
+        }
+      ],
+      "category": "alias",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-19.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-20",
+      "text": "",
+      "targets": [
+        "Haocen"
+      ],
+      "action": "reply",
+      "terms": [
+        {
+          "text": "浩辰",
+          "kind": "name",
+          "agent": "Haocen"
+        }
+      ],
+      "category": "alias",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-20.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-21",
+      "text": "",
+      "targets": [
+        "Daisy"
+      ],
+      "action": "reply",
+      "terms": [
+        {
+          "text": "Daisy",
+          "kind": "name",
+          "agent": "Daisy"
+        }
+      ],
+      "category": "confusable",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-21.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-22",
+      "text": "",
+      "targets": [
+        "Dana"
+      ],
+      "action": "reply",
+      "terms": [
+        {
+          "text": "Dana",
+          "kind": "name",
+          "agent": "Dana"
+        }
+      ],
+      "category": "confusable",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-22.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-23",
+      "text": "",
+      "targets": [
+        "Diana"
+      ],
+      "action": "reply",
+      "terms": [
+        {
+          "text": "Diana",
+          "kind": "name",
+          "agent": "Diana"
+        }
+      ],
+      "category": "confusable",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-23.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-24",
+      "text": "",
+      "targets": [
+        "Daisy"
+      ],
+      "action": "reply",
+      "terms": [
+        {
+          "text": "Daisy",
+          "kind": "name",
+          "agent": "Daisy"
+        }
+      ],
+      "category": "confusable",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-24.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-25",
+      "text": "",
+      "targets": [
+        "Dana"
+      ],
+      "action": "reply",
+      "terms": [
+        {
+          "text": "Dana",
+          "kind": "name",
+          "agent": "Dana"
+        }
+      ],
+      "category": "confusable",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-25.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-26",
+      "text": "",
+      "targets": [
+        "Diana"
+      ],
+      "action": "reply",
+      "terms": [
+        {
+          "text": "Diana",
+          "kind": "name",
+          "agent": "Diana"
+        }
+      ],
+      "category": "confusable",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-26.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-27",
+      "text": "",
+      "targets": [
+        "Daisy"
+      ],
+      "action": "assign",
+      "terms": [
+        {
+          "text": "Daisy",
+          "kind": "name",
+          "agent": "Daisy"
+        },
+        {
+          "text": "gpui-component",
+          "kind": "term"
+        },
+        {
+          "text": "0.5.1",
+          "kind": "term"
+        }
+      ],
+      "category": "technical",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-27.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-28",
+      "text": "",
+      "targets": [
+        "Alan"
+      ],
+      "action": "assign",
+      "terms": [
+        {
+          "text": "Alan",
+          "kind": "name",
+          "agent": "Alan"
+        },
+        {
+          "text": "gpui-component",
+          "kind": "term"
+        },
+        {
+          "text": "0.5.1",
+          "kind": "term"
+        }
+      ],
+      "category": "technical",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-28.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-29",
+      "text": "",
+      "targets": [
+        "Dana"
+      ],
+      "action": "assign",
+      "terms": [
+        {
+          "text": "Dana",
+          "kind": "name",
+          "agent": "Dana"
+        },
+        {
+          "text": "gpui-component",
+          "kind": "term"
+        },
+        {
+          "text": "0.5.1",
+          "kind": "term"
+        }
+      ],
+      "category": "technical",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-29.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-30",
+      "text": "",
+      "targets": [
+        "Diana"
+      ],
+      "action": "assign",
+      "terms": [
+        {
+          "text": "Diana",
+          "kind": "name",
+          "agent": "Diana"
+        },
+        {
+          "text": "gpui-component",
+          "kind": "term"
+        },
+        {
+          "text": "0.5.1",
+          "kind": "term"
+        }
+      ],
+      "category": "technical",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-30.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-31",
+      "text": "",
+      "targets": [
+        "Simon"
+      ],
+      "action": "assign",
+      "terms": [
+        {
+          "text": "Simon",
+          "kind": "name",
+          "agent": "Simon"
+        },
+        {
+          "text": "gpui-component",
+          "kind": "term"
+        },
+        {
+          "text": "0.5.1",
+          "kind": "term"
+        }
+      ],
+      "category": "technical",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-31.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-32",
+      "text": "",
+      "targets": [
+        "Haocen"
+      ],
+      "action": "assign",
+      "terms": [
+        {
+          "text": "Haocen",
+          "kind": "name",
+          "agent": "Haocen"
+        },
+        {
+          "text": "gpui-component",
+          "kind": "term"
+        },
+        {
+          "text": "0.5.1",
+          "kind": "term"
+        }
+      ],
+      "category": "technical",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-32.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-33",
+      "text": "",
+      "targets": [],
+      "action": "none",
+      "terms": [],
+      "category": "unaddressed",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-33.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-34",
+      "text": "",
+      "targets": [],
+      "action": "none",
+      "terms": [],
+      "category": "unaddressed",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-34.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-35",
+      "text": "",
+      "targets": [],
+      "action": "none",
+      "terms": [],
+      "category": "unaddressed",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-35.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-36",
+      "text": "",
+      "targets": [],
+      "action": "none",
+      "terms": [],
+      "category": "unaddressed",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-36.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-37",
+      "text": "",
+      "targets": [],
+      "action": "none",
+      "terms": [],
+      "category": "unaddressed",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-37.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-38",
+      "text": "",
+      "targets": [],
+      "action": "none",
+      "terms": [],
+      "category": "unaddressed",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-38.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-39",
+      "text": "",
+      "targets": [
+        "Daisy"
+      ],
+      "action": "assign",
+      "terms": [
+        {
+          "text": "Daisy",
+          "kind": "name",
+          "agent": "Daisy"
+        },
+        {
+          "text": "Alan",
+          "kind": "name",
+          "agent": "Alan"
+        }
+      ],
+      "category": "correction",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-39.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-40",
+      "text": "",
+      "targets": [
+        "Alan"
+      ],
+      "action": "assign",
+      "terms": [
+        {
+          "text": "Alan",
+          "kind": "name",
+          "agent": "Alan"
+        },
+        {
+          "text": "Dana",
+          "kind": "name",
+          "agent": "Dana"
+        }
+      ],
+      "category": "correction",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-40.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-41",
+      "text": "",
+      "targets": [
+        "Dana"
+      ],
+      "action": "assign",
+      "terms": [
+        {
+          "text": "Dana",
+          "kind": "name",
+          "agent": "Dana"
+        },
+        {
+          "text": "Diana",
+          "kind": "name",
+          "agent": "Diana"
+        }
+      ],
+      "category": "correction",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-41.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-42",
+      "text": "",
+      "targets": [
+        "Diana"
+      ],
+      "action": "assign",
+      "terms": [
+        {
+          "text": "Diana",
+          "kind": "name",
+          "agent": "Diana"
+        },
+        {
+          "text": "Simon",
+          "kind": "name",
+          "agent": "Simon"
+        }
+      ],
+      "category": "correction",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-42.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-43",
+      "text": "",
+      "targets": [
+        "Simon"
+      ],
+      "action": "assign",
+      "terms": [
+        {
+          "text": "Simon",
+          "kind": "name",
+          "agent": "Simon"
+        },
+        {
+          "text": "Haocen",
+          "kind": "name",
+          "agent": "Haocen"
+        }
+      ],
+      "category": "correction",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-43.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-44",
+      "text": "",
+      "targets": [
+        "Haocen"
+      ],
+      "action": "assign",
+      "terms": [
+        {
+          "text": "Haocen",
+          "kind": "name",
+          "agent": "Haocen"
+        },
+        {
+          "text": "Rowan",
+          "kind": "name",
+          "agent": "Rowan"
+        }
+      ],
+      "category": "correction",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-44.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-45",
+      "text": "",
+      "targets": [
+        "Daisy",
+        "Alan"
+      ],
+      "action": "assign",
+      "terms": [
+        {
+          "text": "Daisy",
+          "kind": "name",
+          "agent": "Daisy"
+        },
+        {
+          "text": "Alan",
+          "kind": "name",
+          "agent": "Alan"
+        }
+      ],
+      "category": "multiple",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-45.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-46",
+      "text": "",
+      "targets": [
+        "Alan",
+        "Dana"
+      ],
+      "action": "assign",
+      "terms": [
+        {
+          "text": "Alan",
+          "kind": "name",
+          "agent": "Alan"
+        },
+        {
+          "text": "Dana",
+          "kind": "name",
+          "agent": "Dana"
+        }
+      ],
+      "category": "multiple",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-46.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-47",
+      "text": "",
+      "targets": [
+        "Dana",
+        "Diana"
+      ],
+      "action": "assign",
+      "terms": [
+        {
+          "text": "Dana",
+          "kind": "name",
+          "agent": "Dana"
+        },
+        {
+          "text": "Diana",
+          "kind": "name",
+          "agent": "Diana"
+        }
+      ],
+      "category": "multiple",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-47.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-48",
+      "text": "",
+      "targets": [
+        "Diana",
+        "Simon"
+      ],
+      "action": "assign",
+      "terms": [
+        {
+          "text": "Diana",
+          "kind": "name",
+          "agent": "Diana"
+        },
+        {
+          "text": "Simon",
+          "kind": "name",
+          "agent": "Simon"
+        }
+      ],
+      "category": "multiple",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-48.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-49",
+      "text": "",
+      "targets": [
+        "Simon",
+        "Haocen"
+      ],
+      "action": "assign",
+      "terms": [
+        {
+          "text": "Simon",
+          "kind": "name",
+          "agent": "Simon"
+        },
+        {
+          "text": "Haocen",
+          "kind": "name",
+          "agent": "Haocen"
+        }
+      ],
+      "category": "multiple",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-49.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    },
+    {
+      "id": "human-50",
+      "text": "",
+      "targets": [
+        "Haocen",
+        "Rowan"
+      ],
+      "action": "assign",
+      "terms": [
+        {
+          "text": "Haocen",
+          "kind": "name",
+          "agent": "Haocen"
+        },
+        {
+          "text": "Rowan",
+          "kind": "name",
+          "agent": "Rowan"
+        }
+      ],
+      "category": "multiple",
+      "roster_sha256": "af32ba4ecccdd40d7a2db08a1feb3aefb5ab91836227570f496e33b8c13cd93f",
+      "desktop_context": {
+        "cards": [
+          {
+            "agent": "Daisy",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Alan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Dana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Diana",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Simon",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Haocen",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Rowan",
+            "task_title": "",
+            "state": "ready"
+          },
+          {
+            "agent": "Quinn",
+            "task_title": "",
+            "state": "ready"
+          }
+        ]
+      },
+      "audio": "audio/human-50.wav",
+      "sha256": "",
+      "mic": "",
+      "env": "",
+      "annotation_status": "pending",
+      "selection_status": "proposed"
+    }
+  ]
+}

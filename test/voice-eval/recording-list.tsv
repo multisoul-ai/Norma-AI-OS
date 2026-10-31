@@ -1,0 +1,51 @@
+id	category	proposed_text	targets	action	mic	env
+human-01	leading	Daisy，请修复登录 bug	Daisy	reply	AirPods	安静
+human-02	leading	Alan，请检查支付 API	Alan	reply	AirPods	安静
+human-03	leading	Dana，请运行 cargo test	Dana	reply	AirPods	安静
+human-04	leading	Diana，请review 这个 PR	Diana	reply	AirPods	安静
+human-05	leading	Simon，请检查 GPUI 焦点	Simon	reply	AirPods	安静
+human-06	leading	Haocen，请分析 SQLite 慢查询	Haocen	reply	AirPods	安静
+human-07	leading	Rowan，请更新 README	Rowan	reply	AirPods	安静
+human-08	embedded	让 Daisy 去修复登录 bug	Daisy	assign	AirPods	安静
+human-09	embedded	请 Alan 去检查支付 API	Alan	assign	AirPods	安静
+human-10	embedded	叫 Dana 去运行 cargo test	Dana	assign	AirPods	安静
+human-11	embedded	安排给 Diana 去review 这个 PR	Diana	assign	内建麦克风	嘈杂
+human-12	embedded	这个交给 Simon 去检查 GPUI 焦点	Simon	assign	内建麦克风	嘈杂
+human-13	embedded	让 Haocen 去分析 SQLite 慢查询	Haocen	assign	内建麦克风	嘈杂
+human-14	embedded	请 Rowan 去更新 README	Rowan	assign	内建麦克风	嘈杂
+human-15	alias	黛西，请修复登录 bug	Daisy	reply	内建麦克风	嘈杂
+human-16	alias	艾伦，请检查支付 API	Alan	reply	内建麦克风	嘈杂
+human-17	alias	戴娜，请运行 cargo test	Dana	reply	内建麦克风	嘈杂
+human-18	alias	戴安娜，请review 这个 PR	Diana	reply	内建麦克风	嘈杂
+human-19	alias	西蒙，请检查 GPUI 焦点	Simon	reply	内建麦克风	嘈杂
+human-20	alias	浩辰，请分析 SQLite 慢查询	Haocen	reply	内建麦克风	嘈杂
+human-21	confusable	Daisy，请修复登录 bug	Daisy	reply	内建麦克风	安静
+human-22	confusable	Dana，请检查支付 API	Dana	reply	内建麦克风	安静
+human-23	confusable	Diana，请运行 cargo test	Diana	reply	内建麦克风	安静
+human-24	confusable	Daisy，请review 这个 PR	Daisy	reply	内建麦克风	安静
+human-25	confusable	Dana，请检查 GPUI 焦点	Dana	reply	内建麦克风	安静
+human-26	confusable	Diana，请分析 SQLite 慢查询	Diana	reply	内建麦克风	安静
+human-27	technical	Daisy，新任务：修复登录 bug，把 gpui-component 固定到 0.5.1	Daisy	assign	内建麦克风	安静
+human-28	technical	Alan，新任务：检查支付 API，把 gpui-component 固定到 0.5.1	Alan	assign	内建麦克风	安静
+human-29	technical	Dana，新任务：运行 cargo test，把 gpui-component 固定到 0.5.1	Dana	assign	内建麦克风	安静
+human-30	technical	Diana，新任务：review 这个 PR，把 gpui-component 固定到 0.5.1	Diana	assign	内建麦克风	安静
+human-31	technical	Simon，新任务：检查 GPUI 焦点，把 gpui-component 固定到 0.5.1	Simon	assign	内建麦克风	安静
+human-32	technical	Haocen，新任务：分析 SQLite 慢查询，把 gpui-component 固定到 0.5.1	Haocen	assign	内建麦克风	安静
+human-33	unaddressed	帮我看看现在谁在忙		none	内建麦克风	安静
+human-34	unaddressed	当前项目进展怎么样		none	内建麦克风	安静
+human-35	unaddressed	总结一下最近的测试结果		none	内建麦克风	安静
+human-36	unaddressed	哪个任务应该优先处理		none	内建麦克风	安静
+human-37	unaddressed	现在还有多少任务没完成		none	内建麦克风	安静
+human-38	unaddressed	帮我解释这个 GPUI 错误		none	内建麦克风	安静
+human-39	correction	不是 Alan，是 Daisy 去修复登录 bug	Daisy	assign	内建麦克风	安静
+human-40	correction	不是 Dana，是 Alan 去检查支付 API	Alan	assign	内建麦克风	安静
+human-41	correction	不是 Diana，是 Dana 去运行 cargo test	Dana	assign	内建麦克风	安静
+human-42	correction	不是 Simon，是 Diana 去review 这个 PR	Diana	assign	内建麦克风	安静
+human-43	correction	不是 Haocen，是 Simon 去检查 GPUI 焦点	Simon	assign	内建麦克风	安静
+human-44	correction	不是 Rowan，是 Haocen 去分析 SQLite 慢查询	Haocen	assign	内建麦克风	安静
+human-45	multiple	Daisy 和 Alan，新任务：分别修复登录 bug	Daisy,Alan	assign	内建麦克风	安静
+human-46	multiple	Alan 和 Dana，新任务：分别检查支付 API	Alan,Dana	assign	内建麦克风	安静
+human-47	multiple	Dana 和 Diana，新任务：分别运行 cargo test	Dana,Diana	assign	内建麦克风	安静
+human-48	multiple	Diana 和 Simon，新任务：分别review 这个 PR	Diana,Simon	assign	内建麦克风	安静
+human-49	multiple	Simon 和 Haocen，新任务：分别检查 GPUI 焦点	Simon,Haocen	assign	内建麦克风	安静
+human-50	multiple	Haocen 和 Rowan，新任务：分别分析 SQLite 慢查询	Haocen,Rowan	assign	内建麦克风	安静

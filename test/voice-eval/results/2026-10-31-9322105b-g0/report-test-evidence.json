@@ -1,0 +1,13 @@
+{
+  "commit": "780b09fa5dda07c0cf18eb2cd2d162be026573ca",
+  "configuration_sha256": "a835face938192dd6fdd4f07e5f1266bfd572108d7cec0506fed3ed8b6a5cbfc",
+  "report_sha256": "b8ce69b549a30fc7213d3aaa4f620383868c4621e3d8c197e14c0ad6a6204953",
+  "tests_sha256": "b8e4eb1c43c3991798b06b4ca93954eda5df4f2a34edecb9fcc78c69ea1065e7",
+  "command": [
+    "python3",
+    "test/voice-eval/test_report.py"
+  ],
+  "exit_code": 0,
+  "log": "report-tests.log",
+  "scope": "tool input validation only; no recognition accuracy claim"
+}
