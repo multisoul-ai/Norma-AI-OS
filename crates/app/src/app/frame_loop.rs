@@ -257,6 +257,7 @@ impl MultisoulApp {
                             app.register_external_agent_root(started.node_id, started.task_title);
                     }
                     for node_id in agent_hook_report.ready_node_ids {
+                        tracing::info!(node_id, "[ask-diag] hook reported card ready");
                         queue_changed |= app.submit_pending_agent_task_for_ready_node(node_id, cx);
                     }
                     queue_changed |= app.submit_due_pending_agent_tasks(Instant::now(), cx);

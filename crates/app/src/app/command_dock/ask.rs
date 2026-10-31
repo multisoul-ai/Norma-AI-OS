@@ -34,7 +34,15 @@ impl MultisoulApp {
     ) {
         let area = self.mobile_canvas_area(Some(window));
         let zoom = self.runtime.document.viewport.zoom;
+        tracing::info!(
+            target = ask.target,
+            message_chars = ask.message.chars().count(),
+            "[ask-diag] dock ask submitted"
+        );
         let outcome = self.ask_agent(ask.target, ask.message, area, zoom);
+        if let Err(error) = &outcome {
+            tracing::warn!(%error, "[ask-diag] dock ask failed");
+        }
         let Some(state) = self.command_dock.as_mut() else {
             return;
         };
@@ -75,6 +83,7 @@ impl MultisoulApp {
                 None,
             )
             .map_err(|error| failed(error.to_string()))?;
+            tracing::info!(?created, "[ask-diag] dock ask created card");
             let CardCommandResult::AgentCreated { name, .. } = created else {
                 return Err(failed("unexpected_result".into()));
             };
@@ -102,7 +111,19 @@ impl MultisoulApp {
             None,
         )
         .map_err(|error| failed(error.to_string()))?;
-        tracing::info!(agent = %name, ?result, "dock ask dispatched");
+        tracing::info!(agent = %name, ?result, "[ask-diag] dock ask dispatched");
+        if let CardCommandResult::AgentTasksDispatched { receipts } = &result {
+            for receipt in receipts {
+                tracing::info!(
+                    node_id = receipt.node_id,
+                    status = ?receipt.status,
+                    waiting_for_start = self.pending_agent_submissions.is_waiting_for_start(receipt.node_id),
+                    input_held = self.runtime.agent_task_input_held(receipt.node_id),
+                    task_state = ?self.runtime.agent_task_state(receipt.node_id),
+                    "[ask-diag] dispatch receipt"
+                );
+            }
+        }
         match result {
             CardCommandResult::AgentTasksDispatched { receipts }
                 if receipts
