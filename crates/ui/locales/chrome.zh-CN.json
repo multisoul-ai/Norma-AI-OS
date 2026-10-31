@@ -182,5 +182,9 @@
   "chrome.question_fill": "填写答案",
   "chrome.question_native": "在原卡片处理",
   "chrome.question_delegated": "幕僚正在回答…",
-  "chrome.question_delegate": "交给幕僚回答"
+  "chrome.question_delegate": "交给幕僚回答",
+  "chrome.ask_sent": "已发给 %{agent}",
+  "chrome.ask_failed": "发送失败：%{error}",
+  "chrome.ask_unknown_agent": "没有名为“%{agent}”的 Agent；用 ask codex|claude … 可新建",
+  "chrome.brain_handed_off": "已交给幕僚"
 }

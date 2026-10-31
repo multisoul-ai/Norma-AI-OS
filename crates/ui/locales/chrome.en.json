@@ -182,5 +182,9 @@
   "chrome.question_fill": "Answer",
   "chrome.question_native": "Open original card",
   "chrome.question_delegated": "Norma is answering…",
-  "chrome.question_delegate": "Ask Norma to answer"
+  "chrome.question_delegate": "Ask Norma to answer",
+  "chrome.ask_sent": "Sent to %{agent}",
+  "chrome.ask_failed": "Could not send: %{error}",
+  "chrome.ask_unknown_agent": "No agent named “%{agent}”. Use ask codex|claude … to create one",
+  "chrome.brain_handed_off": "Handed to your chief of staff"
 }

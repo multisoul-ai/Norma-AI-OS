@@ -17,4 +17,13 @@ public enum SQLRaw {
         defer { database.close() }
         return try database.query(sql) { Int(sqlite3_column_int64($0, 0)) }.first
     }
+
+    /// 只读取第一行第一列的文本；没有行时为 nil。
+    public static func text(database url: URL, _ sql: String) throws -> String? {
+        let database = try SQLiteDB(path: url.path, write: false)
+        defer { database.close() }
+        return try database.query(sql) { statement in
+            sqlite3_column_text(statement, 0).map { String(cString: $0) } ?? ""
+        }.first
+    }
 }
