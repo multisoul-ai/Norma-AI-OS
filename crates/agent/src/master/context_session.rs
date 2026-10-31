@@ -22,15 +22,28 @@ impl NormaSession {
                 .expect("context serialization")
                 .len()
         };
-        let data = crate::context::render_context_frame_measured(
-            &frame,
-            consumer,
-            &context.turn_id,
-            &context.user_input,
-            budget,
-            measure,
-        )
-        .map_err(|e| NormaSessionError::Runtime(e.to_string()))?;
+        // Keep tool-result headroom when possible. Only required material may
+        // reclaim it; optional material must not fill the whole input window.
+        let mut selection_budget = budget.saturating_sub(crate::MEMORY_TOOL_BYTES);
+        let data = loop {
+            match crate::context::render_context_frame_measured(
+                &frame,
+                consumer,
+                &context.turn_id,
+                &context.user_input,
+                selection_budget,
+                measure,
+            ) {
+                Ok(data) => break data,
+                Err(crate::context::ContextAssemblyError::BudgetExceeded {
+                    required_bytes,
+                    ..
+                }) if required_bytes > selection_budget && required_bytes <= budget => {
+                    selection_budget = required_bytes;
+                }
+                Err(error) => return Err(NormaSessionError::Runtime(error.to_string())),
+            }
+        };
         let bytes = measure(&data);
         self.history_char_budget = budget.saturating_sub(bytes);
         self.prune_protocol_history();
