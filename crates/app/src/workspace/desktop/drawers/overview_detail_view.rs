@@ -23,9 +23,11 @@ pub(super) fn header(
     let feedback = super::super::overview_rows::overview_feedback(theme);
     let expanded = app.desktop_workspace.attention.is_open(&key);
     let selector = id.clone();
+    let content = format!("{title}\n{meta}");
     div()
         .id(ElementId::Name(id.into()))
         .debug_selector(move || selector)
+        .tooltip(super::overview_parts::content_tooltip(content))
         .flex_1()
         .min_w(px(0.))
         .min_h(px(50.))

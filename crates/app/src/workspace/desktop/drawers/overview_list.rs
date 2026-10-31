@@ -7,7 +7,9 @@ use super::super::overview_rows::{
     OVERVIEW_TEXT_PRIMARY, OVERVIEW_TEXT_SECONDARY,
 };
 use super::overview_decisions::{decision_buttons, decision_target};
-use super::overview_parts::{action_label, group_chevron, row_copy, row_lead, tone_color};
+use super::overview_parts::{
+    action_label, content_tooltip, group_chevron, row_copy, row_lead, tone_color,
+};
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div, ElementId, Stateful};
 use ui::component::StyledExt;
@@ -294,9 +296,21 @@ impl MultisoulApp {
         let pressed = feedback.pressed;
         let height = row.height;
         let agent_row = row.is_agent;
+        let content = [
+            Some(row.primary.as_str()),
+            row.project_tag.as_deref(),
+            row.task_line.as_deref().or(Some(row.secondary.as_str())),
+            row.detail.as_deref(),
+        ]
+        .into_iter()
+        .flatten()
+        .filter(|text| !text.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n");
         div()
             .id(ElementId::Name(id.clone().into()))
             .debug_selector(move || id.clone())
+            .tooltip(content_tooltip(content))
             .w_full()
             // 栏内滚动容器里行不得被压缩到小于内容，否则相邻行文字会重叠。
             .flex_none()
@@ -415,6 +429,7 @@ pub(super) fn group_empty(theme: ui::Theme, group: OverviewGroup, fill: bool) ->
         .id(ElementId::Name(
             format!("desktop-run-empty-{}", group.key()).into(),
         ))
+        .tooltip(content_tooltip(format!("{title}\n{hint}")))
         .w_full()
         .when(fill, |empty| empty.h_full().min_h(px(0.0)))
         .when(!fill, |empty| empty.py(px(14.0)))
@@ -434,6 +449,9 @@ pub(super) fn group_empty(theme: ui::Theme, group: OverviewGroup, fill: bool) ->
         )
         .child(
             div()
+                .w_full()
+                .min_w(px(0.0))
+                .truncate()
                 .text_size(px(OVERVIEW_TEXT_PRIMARY))
                 .font_weight(gpui::FontWeight::MEDIUM)
                 .text_color(rgba(theme.text_primary))
@@ -442,6 +460,9 @@ pub(super) fn group_empty(theme: ui::Theme, group: OverviewGroup, fill: bool) ->
         .when(group != OverviewGroup::Idle, |empty| {
             empty.child(
                 div()
+                    .w_full()
+                    .min_w(px(0.0))
+                    .truncate()
                     .text_size(px(OVERVIEW_TEXT_COPY))
                     .text_color(rgba(theme.text_tertiary))
                     .child(hint),

@@ -160,8 +160,8 @@ fn drawer_empty_surface_matches_conversation_and_content_layout() {
         app.desktop_workspace.drawer_motion.retarget(true, true);
         let layout = app.desktop_assistant_layout(window);
         assert!(
-            (layout.canvas_width - 409.6).abs() < 0.5,
-            "抽屉开启动画首帧中央就应采用 1280-396.8-473.6=409.6px 目标宽度；实际 {}px",
+            (layout.canvas_width - 559.6).abs() < 0.5,
+            "抽屉开启动画首帧中央就应采用 1280-246.8-473.6=559.6px 目标宽度；实际 {}px",
             layout.canvas_width
         );
     });

@@ -85,42 +85,42 @@ fn reduced_motion_fades_at_open_position_without_sliding() {
 }
 
 /// 场景：原型的整高抽屉在宽桌面占据两侧，收起时画布扩展到窗口边缘。
-/// 数据构造：1280px 窗口，左宽为 1280×31%=396.8px，右宽为 1280×37%=473.6px。
+/// 数据构造：1280px 窗口，左宽为 1280×31%−150=246.8px，右宽为 1280×37%=473.6px。
 /// 执行过程：依次测量左开、双开和双关的终态布局。
-/// 预期结果：中间宽度分别为 883.2px、409.6px、1280px，面板不压住画布。
+/// 预期结果：中间宽度分别为 1033.2px、559.6px、1280px，面板不压住画布。
 #[test]
 fn drawer_layout_reserves_canvas_width_like_prototype() {
     let mut motion = DesktopAssistantDrawerMotion::default();
     motion.settle_left(true);
     let left = motion.layout(1280.0, true, false, false);
     assert!(
-        (left.left_width - 396.8).abs() < 0.01,
-        "左栏按原型的 31vw 计算"
+        (left.left_width - 246.8).abs() < 0.01,
+        "左栏在原 31vw 默认宽度基础上减少 150px"
     );
     assert!(
         (left.right_width - 473.6).abs() < 0.01,
         "右栏按原型的 37vw 计算"
     );
     assert!(
-        (left.left_space - 396.8).abs() < 0.01,
+        (left.left_space - 246.8).abs() < 0.01,
         "展开的左栏占据布局宽度"
     );
     assert_eq!(left.right_space, 0.0, "收起的右栏不占布局宽度");
     assert!(
-        (left.canvas_width - 883.2).abs() < 0.01,
+        (left.canvas_width - 1033.2).abs() < 0.01,
         "单侧展开时画布使用余下宽度"
     );
 
     motion.retarget(true, true);
     motion.tick(Duration::from_millis(300), false);
     let both = motion.layout(1280.0, true, true, false);
-    assert!((both.left_space - 396.8).abs() < 0.01, "左栏保持原位");
+    assert!((both.left_space - 246.8).abs() < 0.01, "左栏保持原位");
     assert!(
         (both.right_space - 473.6).abs() < 0.01,
         "右栏占据右侧布局宽度"
     );
     assert!(
-        (both.canvas_width - 409.6).abs() < 0.01,
+        (both.canvas_width - 559.6).abs() < 0.01,
         "两栏展开后画布占据中间剩余宽度"
     );
 
@@ -131,7 +131,7 @@ fn drawer_layout_reserves_canvas_width_like_prototype() {
     assert_eq!(closed.right_space, 0.0, "右栏收起后释放空间");
     assert_eq!(closed.canvas_width, 1280.0, "双栏收起时画布占满窗口");
 
-    // 原型仅在 760px 以下改为覆盖式抽屉；普通 900px 桌面窗口仍应形成三栏。
+    // 760px 以下改为覆盖式；900px 桌面保留三栏，画布宽 900−216−333=351px。
     let compact_desktop = DesktopDrawerLayout::new(900.0, 1.0, 1.0);
     assert!(
         compact_desktop.left_space >= 150.0,
@@ -142,8 +142,8 @@ fn drawer_layout_reserves_canvas_width_like_prototype() {
         "900px 桌面右栏仍应占位"
     );
     assert!(
-        (compact_desktop.canvas_width - 320.0).abs() < 0.01,
-        "画布保留最小宽度 320px"
+        (compact_desktop.canvas_width - 351.0).abs() < 0.01,
+        "默认左栏缩窄后，900px 窗口的画布应保留 351px"
     );
 
     let mobile = DesktopDrawerLayout::new(759.0, 1.0, 1.0);

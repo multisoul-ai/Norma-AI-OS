@@ -25,7 +25,7 @@ public enum WorkspaceModule {
             WorkspaceHandoffEffects.name,
             WorkspaceSwitchShortcuts.name,
         ],
-        visualScenarioNames: [WorkspaceIdeasDeleteUndo.name],
+        visualScenarioNames: [WorkspaceIdeasDeleteUndo.name, WorkspaceDrawerTabs.name],
         run: { scenario, session in
             switch scenario {
             case WorkspaceHomePreview.name:

@@ -128,7 +128,7 @@ public enum CanvasDrawers {
         try await session.step("拖动左栏边缘扩大画布占位") {
             let before = try await session.capture()
             let width = Double(before.windowFrame.width)
-            let edge = min(438, max(366, width * 0.31))
+            let edge = (min(438, max(366, width * 0.31)) - 150)
             let oldCenter = try centerOfCanvas(before)
             try await session.drag(
                 local: CGPoint(x: edge, y: 260),
@@ -147,7 +147,7 @@ public enum CanvasDrawers {
         try await session.step("左栏拖过最小宽度自动收起") {
             let before = try await session.capture()
             let width = Double(before.windowFrame.width)
-            let edge = min(438, max(366, width * 0.31)) + 100
+            let edge = (min(438, max(366, width * 0.31)) - 150) + 100
             try await session.drag(
                 local: CGPoint(x: edge, y: 260),
                 to: CGPoint(x: 100, y: 260),
@@ -219,7 +219,6 @@ private func clickTopClose(_ session: Session, side: DrawerSide) async throws {
     }
     let width = Double(frame.windowFrame.width)
     let rightWidth = min(560, max(370, width * 0.37))
-    let leftWidth = min(438, max(366, width * 0.31))
     // 左侧开关是标题栏固定锚点（x≈98），展开与收起位置一致；右侧开关在右抽屉内。
     let x = side == .left ? 98 : width - rightWidth + 28
     try await session.click(local: CGPoint(x: x, y: 26), on: frame)
@@ -291,7 +290,7 @@ private func wallpaperVisible(_ frame: Frame) -> Bool {
 private func assertCanvasRegion(_ frame: Frame, leftOpen: Bool, rightOpen: Bool) throws {
     let current = try centerOfCanvas(frame)
     let width = Double(frame.windowFrame.width)
-    let left = leftOpen ? min(438, max(366, width * 0.31)) : 0
+    let left = leftOpen ? (min(438, max(366, width * 0.31)) - 150) : 0
     let right = rightOpen ? min(560, max(370, width * 0.37)) : 0
     let expected = left + (width - left - right) / 2
     guard abs(current - expected) <= 18 else {
