@@ -44,6 +44,7 @@ pub(super) fn end_active_agent_task_for_manual_interrupt(
         task_title: None,
         session_id: None,
     }) {
+        app.session_reply_queue.interrupt_node(node_id);
         app.advance_agent_task_queue(node_id);
     }
 }
