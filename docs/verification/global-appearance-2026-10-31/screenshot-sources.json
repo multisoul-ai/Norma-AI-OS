@@ -1,0 +1,22 @@
+[
+  {
+    "file": "migrated-wallpaper.png",
+    "source": "artifacts/desktop-workspace-e2e/2026-10-31T07-41-56Z/01-migrated-wallpaper.png",
+    "sha256": "afa73f01912ec3848be7303868cb2dd05207cc2bcdfcd43973be9ffd93fbddda"
+  },
+  {
+    "file": "first-window-synced-wallpaper.png",
+    "source": "artifacts/desktop-workspace-e2e/2026-10-31T07-41-56Z/06-first-window-synced-wallpaper.png",
+    "sha256": "6242a0c5a1ea56eaeae0c34521a5cb8d4c4020047a4ed14f496fafcb0720f9e0"
+  },
+  {
+    "file": "global-effects-chinese.png",
+    "source": "artifacts/desktop-workspace-e2e/2026-10-31T07-47-50Z/07-global-effects-chinese.png",
+    "sha256": "c21f714b423ccbb8bb964da6f3d78df9c1bc239819aa5141326f679887c9dd35"
+  },
+  {
+    "file": "restored-wallpaper-chinese.png",
+    "source": "artifacts/desktop-workspace-e2e/2026-10-31T07-50-05Z/07-restored-space-wallpaper.png",
+    "sha256": "2b42be6ce16c8da69061696854585ba0f9871dad680da07fb77fb4c3bc96d8dc"
+  }
+]

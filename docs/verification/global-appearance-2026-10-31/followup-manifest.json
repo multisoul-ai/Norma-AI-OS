@@ -1,0 +1,37 @@
+{
+  "head": "bec4d2133df8b714ee51094a9c30850b7990491e",
+  "files": {
+    "crates/app/src/app/appearance.rs": {
+      "sha256": "bbce3d754516cc5adc157510909b31d673a58906851b19d666d1ae05f0dd6f6d",
+      "mtime": 1793429901.3360755
+    },
+    "crates/app/src/app/effects_actions.rs": {
+      "sha256": "8b3e1ba2740ebd1f1db5bcdcf56eae0ae39e8679464daa456a13472993804702",
+      "mtime": 1793430006.3988266
+    },
+    "crates/app/src/app/wallpaper_actions.rs": {
+      "sha256": "38edd706777bd24a6a39e2e380d4087a3762bf68c38fce8e98fc7134d28273e6",
+      "mtime": 1793429901.65502
+    },
+    "crates/app/src/settings/effects/state.rs": {
+      "sha256": "1d02bb9df46b3b4a6f16a843250d799622b5695a0751b4e7df0b21a032e438e0",
+      "mtime": 1793429901.699981
+    },
+    "crates/app/src/settings/wallpaper/preferences.rs": {
+      "sha256": "79557332f46e709bbf1f9e6c96350123f684b55f8f2aea1a8fc64226db431b02",
+      "mtime": 1793429901.7253752
+    },
+    "crates/storage/src/migrations/global_appearance.rs": {
+      "sha256": "ffa08ff8cdd9348f9c36ed9ebe7c7f4c901d81ce9b59ae10842d02eb751d791b",
+      "mtime": 1793429901.7653174
+    },
+    "crates/storage/src/migrations/desktop.rs": {
+      "sha256": "77ea59400dd722fecde8b1ac95fba2725675d6b745a4edddac1f620852f86b45",
+      "mtime": 1793431453.4891343
+    },
+    "target/debug/norma-os": {
+      "sha256": "fbb277da9db08a51cf4ef4497f23d97003dafada5f0e66422cd13216f391f527",
+      "mtime": 1793432342.1665118
+    }
+  }
+}

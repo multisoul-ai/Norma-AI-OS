@@ -1,3 +1,4 @@
+mod appearance;
 use crate::app::browser::{BrowserAddressEdit, BrowserStore};
 use crate::app::frame_throttle::FrameThrottle;
 #[cfg(test)]

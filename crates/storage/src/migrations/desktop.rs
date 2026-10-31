@@ -2,6 +2,8 @@ use crate::StorageResult;
 use rusqlite::Connection;
 #[path = "content_present.rs"]
 mod content_present;
+#[path = "global_appearance.rs"]
+mod global_appearance;
 
 pub(super) fn migrate(connection: &Connection) -> StorageResult<()> {
     connection.execute_batch(
@@ -78,6 +80,7 @@ pub(super) fn migrate(connection: &Connection) -> StorageResult<()> {
     migrate_wallpapers(connection)?;
     migrate_dispatch_effects(connection)?;
     migrate_project_instances(connection)?;
+    global_appearance::migrate(connection)?;
     Ok(())
 }
 
@@ -105,10 +108,11 @@ fn migrate_project_instances(connection: &Connection) -> StorageResult<()> {
             root_path TEXT NOT NULL,
             display_name TEXT NOT NULL,
             added_at_unix_ms INTEGER NOT NULL,
-            wallpaper_json TEXT
+            wallpaper_json TEXT,
+            dispatch_effect_json TEXT
         );
         INSERT INTO desktop_project_areas_instances
-            SELECT id,desktop_workspace_id,project_key,root_path,display_name,added_at_unix_ms,wallpaper_json
+            SELECT id,desktop_workspace_id,project_key,root_path,display_name,added_at_unix_ms,wallpaper_json,dispatch_effect_json
             FROM desktop_project_areas;
         DROP TABLE desktop_project_areas;
         ALTER TABLE desktop_project_areas_instances RENAME TO desktop_project_areas;",

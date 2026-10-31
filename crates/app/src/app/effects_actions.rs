@@ -5,7 +5,7 @@ use crate::app::MultisoulApp;
 use crate::motion::run_style::RunStyle;
 use crate::settings::effects::page::EffectsPageData;
 use crate::settings::effects::state::{
-    EffectsSettingsState, EffectsTarget, PlaybackSpeed, Source, KEY_RUN_STYLE, KEY_SPEED,
+    EffectsSettingsState, PlaybackSpeed, Source, KEY_DISPATCH, KEY_RUN_STYLE, KEY_SPEED,
 };
 use gpui::{App, Context};
 use storage::DispatchEffectPreference as Pref;
@@ -24,7 +24,7 @@ pub(crate) fn effects_snapshot(cx: &App) -> EffectsSettingsState {
 }
 
 struct LoadedEffects {
-    snapshot: storage::DispatchEffectSnapshot,
+    preference: Option<Pref>,
     speed: PlaybackSpeed,
     run_style: Option<String>,
 }
@@ -32,15 +32,16 @@ struct LoadedEffects {
 impl MultisoulApp {
     /// 宿主窗口启动时在后台读一次；会话窗口由宿主按键同步。
     pub(crate) fn load_effect_settings(&mut self, cx: &mut Context<Self>) {
-        let catalog = self.desktop_workspace.store.clone();
         let settings = storage::SettingsStore::new(self.database_paths.app_db_path().to_owned());
         let work = cx.background_executor().spawn(async move {
-            let snapshot = catalog.list_dispatch_effects().unwrap_or_else(|error| {
-                tracing::warn!(%error, "dispatch effect settings load failed");
-                Default::default()
-            });
+            let preference = settings
+                .get_string(KEY_DISPATCH)
+                .ok()
+                .flatten()
+                .and_then(|json| serde_json::from_str::<Pref>(&json).ok())
+                .filter(|pref| pref.validate().is_ok());
             LoadedEffects {
-                snapshot,
+                preference,
                 speed: PlaybackSpeed::from_key(
                     settings.get_string(KEY_SPEED).ok().flatten().as_deref(),
                 ),
@@ -51,8 +52,12 @@ impl MultisoulApp {
             let loaded = work.await;
             let _ = this.update(cx, |app, cx| {
                 with_effects(cx, |state| {
-                    state.load_snapshot(loaded.snapshot);
-                    state.speed = loaded.speed;
+                    if state.generation == 0 {
+                        state.global = loaded.preference;
+                    }
+                    if state.speed_generation == 0 {
+                        state.speed = loaded.speed;
+                    }
                     // 用户在读取完成前已经点选过，就不要用旧值覆盖。
                     if state.run_generation == 0 {
                         state.run_style = RunStyle::from_id(loaded.run_style.as_deref());
@@ -67,94 +72,30 @@ impl MultisoulApp {
         .detach();
     }
 
-    /// 本窗口当前所处的 (工作空间, 项目)。
-    fn effects_scope(&self) -> (Option<String>, Option<String>) {
-        let context = self.wallpaper_settings.scoped.context.as_ref();
-        (
-            context.map(|context| context.workspace.id.clone()),
-            context.and_then(|context| context.area.as_ref().map(|area| area.id.clone())),
-        )
-    }
-
-    pub(crate) fn apply_dispatch_effects(
-        &mut self,
-        workspace: Option<&str>,
-        area: Option<&str>,
-        cx: &App,
-    ) {
+    pub(crate) fn sync_dispatch_effects(&mut self, cx: &App) {
         let state = effects_snapshot(cx);
-        self.motion
-            .set_dispatch_style_selection(state.selection_for(workspace, area));
+        self.motion.set_dispatch_style_selection(state.selection());
         self.motion.set_dispatch_speed(state.speed.multiplier());
     }
 
-    pub(crate) fn sync_dispatch_effects(&mut self, cx: &App) {
-        let (workspace, area) = self.effects_scope();
-        self.apply_dispatch_effects(workspace.as_deref(), area.as_deref(), cx);
-    }
-
-    /// 宿主自己按当前上下文，各会话按自己的 (工作空间, 项目) 键同步。
+    /// All open projects use the same global preference, including background sessions.
     pub(crate) fn sync_all_dispatch_effects(&mut self, cx: &mut Context<Self>) {
         self.sync_dispatch_effects(cx);
-        let sessions: Vec<_> = self
-            .desktop_workspace
-            .sessions
-            .iter()
-            .map(|((workspace, area), session)| (workspace.clone(), area.clone(), session.clone()))
-            .collect();
-        for (workspace, area, session) in sessions {
-            session.update(cx, |session, cx| {
-                session.apply_dispatch_effects(Some(&workspace), Some(&area), cx)
-            });
-        }
-    }
-
-    /// 设置页正在编辑的对象：由范围开关与当前上下文决定。
-    pub(crate) fn effects_target(&self, edit_project: bool) -> Option<EffectsTarget> {
-        let context = self.wallpaper_settings.scoped.context.as_ref()?;
-        let workspace_id = context.workspace.id.clone();
-        match (edit_project, context.area.as_ref()) {
-            (true, Some(area)) => Some(EffectsTarget::Project {
-                workspace_id,
-                area_id: area.id.clone(),
-            }),
-            _ => Some(EffectsTarget::Workspace { workspace_id }),
-        }
-    }
-
-    fn effects_scope_label(&self, target: &EffectsTarget) -> String {
-        let Some(context) = self.wallpaper_settings.scoped.context.as_ref() else {
-            return String::new();
-        };
-        match (target, context.area.as_ref()) {
-            (EffectsTarget::Project { .. }, Some(area)) => {
-                format!("{} / {}", context.workspace.name, area.display_name)
+        let database = self.database_paths.app_db_path().to_owned();
+        let sender = cx.entity();
+        cx.defer(move |cx| {
+            for view in crate::app::appearance::views(&database, sender, cx) {
+                view.update(cx, |app, cx| {
+                    app.sync_dispatch_effects(cx);
+                    cx.notify();
+                });
             }
-            _ => context.workspace.name.clone(),
-        }
-    }
-
-    pub(crate) fn set_effects_scope(&mut self, edit_project: bool, cx: &mut Context<Self>) {
-        with_effects(cx, |state| {
-            state.edit_project = edit_project;
-            state.status = None;
         });
-        cx.notify();
     }
 
     pub(crate) fn pick_effect_style(&mut self, style: &str, cx: &mut Context<Self>) {
-        let Some(target) = self.target_for_edit(cx) else {
-            return;
-        };
-        let next = effects_snapshot(cx).picked(&target, style);
-        let label = ui::i18n::format(
-            "effects.saved",
-            &[
-                ("scope", self.effects_scope_label(&target)),
-                ("style", style_name(style).to_owned()),
-            ],
-        );
-        self.save_effect(target, Some(next), Some(label), cx);
+        let next = effects_snapshot(cx).picked(style);
+        self.save_effect(Some(next), cx);
     }
 
     pub(crate) fn set_effect_source(
@@ -163,65 +104,38 @@ impl MultisoulApp {
         value: Option<&str>,
         cx: &mut Context<Self>,
     ) {
-        let Some(target) = self.target_for_edit(cx) else {
+        let next = effects_snapshot(cx).with_source(source, value);
+        self.save_effect(Some(next), cx);
+    }
+
+    fn save_effect(&mut self, next: Option<Pref>, cx: &mut Context<Self>) {
+        // Serialize saves through the desktop host even when opened from a project view.
+        let host = crate::app::appearance::coordinator(self, cx)
+            .filter(|host| host.entity_id() != cx.entity_id());
+        if let Some(host) = host {
+            cx.defer(move |cx| host.update(cx, |app, cx| app.save_effect(next, cx)));
             return;
-        };
-        let next = effects_snapshot(cx).with_source(&target, source, value);
-        self.save_effect(target, Some(next), None, cx);
-    }
-
-    pub(crate) fn set_effects_follow_workspace(&mut self, follows: bool, cx: &mut Context<Self>) {
-        let Some(target @ EffectsTarget::Project { .. }) = self.target_for_edit(cx) else {
-            return;
-        };
-        let next = (!follows).then(|| effects_snapshot(cx).unfollowed(&target));
-        self.save_effect(target, next, None, cx);
-    }
-
-    fn target_for_edit(&self, cx: &App) -> Option<EffectsTarget> {
-        self.effects_target(effects_snapshot(cx).edit_project)
-    }
-
-    fn save_effect(
-        &mut self,
-        target: EffectsTarget,
-        next: Option<Pref>,
-        label: Option<String>,
-        cx: &mut Context<Self>,
-    ) {
-        let previous = effects_snapshot(cx).saved(&target).cloned();
+        }
+        let previous = effects_snapshot(cx).global;
         if previous == next || effects_snapshot(cx).busy {
             return;
         }
         with_effects(cx, |state| {
-            state.apply(&target, next.clone());
+            state.global = next.clone();
+            state.generation += 1;
             state.busy = true;
-            state.undo = Some((target.clone(), previous.clone()));
-            state.status = label
-                .clone()
-                .or_else(|| Some(ui::i18n::text("effects.saving").to_owned()));
+            state.undo = Some(previous.clone());
+            state.status = Some("effects.saving");
         });
         self.sync_all_dispatch_effects(cx);
         cx.notify();
-        let catalog = self.desktop_workspace.store.clone();
-        let write_target = target.clone();
-        let write_value = next.clone();
+        let settings = storage::SettingsStore::new(self.database_paths.app_db_path().to_owned());
         let work = cx.background_executor().spawn(async move {
-            match (&write_target, &write_value) {
-                (EffectsTarget::Workspace { workspace_id }, Some(pref)) => {
-                    catalog.set_workspace_dispatch_effect(workspace_id, pref)
-                }
-                (EffectsTarget::Workspace { workspace_id }, None) => {
-                    catalog.clear_workspace_dispatch_effect(workspace_id)
-                }
-                (
-                    EffectsTarget::Project {
-                        workspace_id,
-                        area_id,
-                    },
-                    pref,
-                ) => catalog.set_project_dispatch_effect(workspace_id, area_id, pref.as_ref()),
+            if let Some(pref) = &next {
+                pref.validate()?;
             }
+            let value = next.as_ref().map(serde_json::to_string).transpose()?;
+            settings.apply_string_changes(&[(KEY_DISPATCH.into(), value)])
         });
         cx.spawn(async move |this, cx| {
             let result = work.await;
@@ -229,13 +143,12 @@ impl MultisoulApp {
                 with_effects(cx, |state| {
                     state.busy = false;
                     if let Err(error) = &result {
-                        tracing::warn!(%error, ?target, "dispatch effect save failed");
-                        state.apply(&target, previous);
+                        tracing::warn!(%error, "global dispatch effect save failed");
+                        state.global = previous;
                         state.undo = None;
-                        state.status = Some(ui::i18n::text("effects.save_failed").to_owned());
-                    } else if state.status.as_deref() == Some(ui::i18n::text("effects.saving")) {
-                        // 没有专属提示的修改（来源覆盖、跟随开关）保存成功后收尾，不能一直停在“正在保存”。
-                        state.status = Some(ui::i18n::text("norma.saved").to_owned());
+                        state.status = Some("effects.save_failed");
+                    } else {
+                        state.status = Some("norma.saved");
                     }
                 });
                 app.sync_all_dispatch_effects(cx);
@@ -246,15 +159,33 @@ impl MultisoulApp {
     }
 
     pub(crate) fn undo_effect_change(&mut self, cx: &mut Context<Self>) {
-        let Some((target, previous)) = with_effects(cx, |state| state.undo.take()) else {
+        if effects_snapshot(cx).busy {
+            return;
+        }
+        let host = crate::app::appearance::coordinator(self, cx)
+            .filter(|host| host.entity_id() != cx.entity_id());
+        if let Some(host) = host {
+            cx.defer(move |cx| host.update(cx, |app, cx| app.undo_effect_change(cx)));
+            return;
+        }
+        let Some(previous) = with_effects(cx, |state| state.undo.take()) else {
             return;
         };
-        self.save_effect(target, previous, None, cx);
+        self.save_effect(previous, cx);
         with_effects(cx, |state| state.undo = None);
     }
 
     pub(crate) fn set_effect_speed(&mut self, speed: PlaybackSpeed, cx: &mut Context<Self>) {
-        with_effects(cx, |state| state.speed = speed);
+        if let Some(host) = crate::app::appearance::coordinator(self, cx)
+            .filter(|host| host.entity_id() != cx.entity_id())
+        {
+            cx.defer(move |cx| host.update(cx, |app, cx| app.set_effect_speed(speed, cx)));
+            return;
+        }
+        with_effects(cx, |state| {
+            state.speed = speed;
+            state.speed_generation += 1;
+        });
         self.persist_effect_option(KEY_SPEED, speed.key().into(), cx);
     }
 
@@ -294,10 +225,7 @@ pub(crate) fn style_chips(id: &str) -> [&'static str; 2] {
             ui::i18n::text("effects.chip1_meteor"),
             ui::i18n::text("effects.chip2_meteor"),
         ],
-        "ion" => [
-            ui::i18n::text("effects.chip1_ion"),
-            ui::i18n::text("effects.chip2_ion"),
-        ],
+        "ion" => [ui::i18n::text("effects.chip1_ion"), ""],
         "plane" => [
             ui::i18n::text("effects.chip1_plane"),
             ui::i18n::text("effects.chip2_plane"),
@@ -322,10 +250,7 @@ pub(crate) fn style_chips(id: &str) -> [&'static str; 2] {
             ui::i18n::text("effects.chip1_vortex"),
             ui::i18n::text("effects.chip2_vortex"),
         ],
-        "random" => [
-            ui::i18n::text("effects.chip1_random"),
-            ui::i18n::text("effects.chip2_random"),
-        ],
+        "random" => [ui::i18n::text("effects.chip1_random"), ""],
         _ => [
             ui::i18n::text("effects.chip1_meteor"),
             ui::i18n::text("effects.chip2_meteor"),
@@ -351,15 +276,9 @@ pub(crate) fn style_name(id: &str) -> &'static str {
 impl MultisoulApp {
     pub(crate) fn effects_page_data(&self, cx: &App) -> EffectsPageData {
         let state = effects_snapshot(cx);
-        let context = self.wallpaper_settings.scoped.context.as_ref();
         // 无障碍偏好只控制设置页的自动预览，派发始终播放选定的完整特效。
         let reduce_motion = self.motion.reduce_motion || crate::motion::system_reduce_motion();
         EffectsPageData {
-            target: self.effects_target(state.edit_project),
-            workspace_name: context.map(|context| context.workspace.name.clone()),
-            project_name: context
-                .and_then(|context| context.area.as_ref().map(|area| area.display_name.clone())),
-            can_edit_project: context.is_some_and(|context| context.area.is_some()),
             reduce_motion,
             hover: self.effects_ui.hover,
             hover_since: self.effects_ui.hover_since,
@@ -394,14 +313,11 @@ impl MultisoulApp {
 
     fn saved_source_index(&self, source: Source, cx: &App) -> usize {
         let state = effects_snapshot(cx);
-        let saved = self
-            .effects_target(state.edit_project)
-            .and_then(|target| state.effective_for(&target).cloned())
-            .and_then(|pref| match source {
-                Source::Voice => pref.voice,
-                Source::Idea => pref.idea,
-                Source::Handoff => pref.handoff,
-            });
+        let saved = state.global.and_then(|pref| match source {
+            Source::Voice => pref.voice,
+            Source::Idea => pref.idea,
+            Source::Handoff => pref.handoff,
+        });
         crate::settings::effects::sources::options(source)
             .iter()
             .position(|option| option.map(str::to_owned) == saved)

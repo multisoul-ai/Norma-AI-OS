@@ -4,7 +4,7 @@ import Fixtures
 import Foundation
 
 /// 想法拖到智能体卡片时，真实画布上播放用户选的派发特效；设置页里改款式立刻对下一次派发生效。
-/// 构造：隔离工作空间 + 项目 + 假智能体；启动前把工作空间特效写成烟花；之后在设置页实时改成闪电、星漩。
+/// 构造：隔离工作空间 + 项目 + 假智能体；启动前把全局特效写成烟花；之后在设置页实时改成闪电、星漩。
 /// 预期：每次派发后画布区域都有明显动画，并按款式的时长收尾——
 /// 闪电（0.76s）远短于烟花（1.9s）与星漩（1.76s）；想法都变成已指派。
 @MainActor
@@ -27,6 +27,7 @@ public enum WorkspaceDispatchEffects {
             fakeShell = shell
             setenv("ZDOTDIR", shell.path, 1)
             try session.launch()
+            try await session.resize(width: 1280, height: 800)
             _ = try await session.wait(Expectation(anyOf: ["Create Workspace", "Create your first"], timeout: 25))
             try await session.act("打开创建对话框", attempts: 4, expect: Expectation(anyOf: ["工作空间名称", "Workspace name"], timeout: 3.5)) {
                 let launch = try await session.capture()
@@ -47,8 +48,9 @@ public enum WorkspaceDispatchEffects {
             for (offset, body) in ideas.enumerated() {
                 try Catalog.seedIdea(database: database, workspaceName: workspace, body: body, position: 1024 * (offset + 1))
             }
-            try Catalog.seedWorkspaceDispatchEffect(database: database, workspaceName: workspace, json: "{\"style\":\"fireworks\",\"handoff\":\"ion\"}")
+            try Catalog.seedSetting(database: database, key: "effects.dispatch.v1", value: "{\"style\":\"fireworks\",\"handoff\":\"ion\"}")
             try session.launch()
+            try await session.resize(width: 1280, height: 800)
             _ = try await session.wait(Expectation(allOf: [workspace], timeout: 20))
             return "已写入 3 条想法与 {style:fireworks}"
         }

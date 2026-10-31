@@ -2,6 +2,15 @@ import Testing
 @testable import E2EKit
 
 struct LayoutShortcutTests {
+    /// 场景：全局外观验收同时保留两扇真实窗口。
+    /// 构造：macOS N=45 与 Command/Shift 修饰键。
+    /// 执行：通过 GPUI 和 AppKit 两条生产驱动编码。
+    /// 预期：两条路径都能发送“新建窗口”，不会因键码缺失产生 ENV。
+    @Test func newWindowShortcutIsAvailable() throws {
+        #expect(try keystroke(key: 45, modifiers: [0x37, 0x38]) == "cmd-shift-n", "保留新建窗口的全部修饰键")
+        #expect(try keyCharacters(45) == "n", "AppKit 应收到 N 的字符")
+    }
+
     /// 场景：布局验收需要实际触发合法 Master 及手动重排快捷键。
     /// 构造：使用 macOS 的 M=46、L=37 与 Command/Shift 虚拟键码。
     /// 执行：经过生产 GPUI 按键编码和 AppKit 字符编码。

@@ -275,5 +275,14 @@
   "settings.brain_activity_clear": "清除幕僚活动记录",
   "settings.brain_activity_clear_hint": "记录保留最近 7 天，保存在本机。清除后无法恢复。",
   "settings.brain_activity_clear_button": "清除",
-  "settings.brain_activity_clear_confirm": "确认清除"
+  "settings.brain_activity_clear_confirm": "确认清除",
+  "settings.global_wallpaper_hint": "全局生效，所有工作空间和项目使用同一张壁纸。",
+  "settings.global_wallpaper_delete_fallback": "删除后，所有工作空间和项目将恢复默认壁纸。",
+  "settings.wallpaper_save_failed": "壁纸保存失败，已恢复原来的选择。",
+  "settings.wallpaper_importing": "正在导入…",
+  "settings.wallpaper_import_failed": "壁纸导入失败：%{error}",
+  "settings.wallpaper_import_cancelled": "已取消导入",
+  "settings.wallpaper_deleted": "已删除壁纸",
+  "settings.wallpaper_file_delete_failed": "已恢复默认壁纸，但无法删除文件：%{error}",
+  "settings.wallpaper_delete_failed": "壁纸删除失败：%{error}"
 }

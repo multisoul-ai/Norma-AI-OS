@@ -53,3 +53,64 @@ fn test_legacy_builtin_png_selection_migrates_and_persists_webp_path() {
         "migration must not leave the removed legacy PNG path in SQLite"
     );
 }
+
+/// 场景：旧项目素材失效，升级后继续使用原先回退到的工作空间壁纸。
+/// 数据构造：空间使用 Aurora，展开项目引用不存在的内置资源；模拟未迁移数据库。
+/// 执行过程：加载全局壁纸状态，触发存储迁移和资源验证，再重新加载。
+/// 预期结果：两次均显示 Aurora，全局存档不保留失效资源。
+#[test]
+fn global_migration_preserves_workspace_fallback_for_invalid_project_wallpaper() {
+    let root = TestRootGuard::new();
+    let settings = root.settings_store();
+    let catalog = storage::DesktopWorkspaceStore::new(settings.path().to_owned());
+    let space = catalog
+        .create_with_wallpaper(
+            "Recent",
+            &storage::WallpaperReference::Builtin {
+                rel: "wallpapers/1350954.webp".into(),
+            },
+        )
+        .expect("空间");
+    let project = tempfile::tempdir().expect("项目目录");
+    let area = catalog
+        .add_project(&space.id, project.path())
+        .expect("项目");
+    let connection = rusqlite::Connection::open(settings.path()).expect("旧库");
+    connection
+        .execute(
+            "UPDATE desktop_project_areas SET wallpaper_json=?1 WHERE id=?2",
+            [
+                r#"{"kind":"builtin","rel":"wallpapers/obsolete.png"}"#,
+                &area.id,
+            ],
+        )
+        .expect("旧失效素材");
+    connection
+        .execute(
+            "UPDATE desktop_workspaces SET expanded_area_id=?1 WHERE id=?2",
+            [&area.id, &space.id],
+        )
+        .expect("展开项目");
+    connection
+        .execute(
+            "DELETE FROM settings WHERE key='appearance.global_migrated.v1'",
+            [],
+        )
+        .expect("模拟升级前");
+    drop(connection);
+    for _ in 0..2 {
+        let state = WallpaperSettingsState::load_from_store(settings.clone());
+        assert_eq!(
+            state.selection,
+            WallpaperSelection::Builtin {
+                rel: "wallpapers/1350954.webp"
+            },
+            "升级和重开均应保留旧界面实际使用的空间壁纸"
+        );
+    }
+    assert_eq!(
+        settings.get_string("wallpaper.value").expect("全局值"),
+        Some("wallpapers/1350954.webp".into()),
+        "失效项目素材不得保留为全局选择"
+    );
+}

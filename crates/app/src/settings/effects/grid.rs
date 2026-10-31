@@ -18,11 +18,8 @@ pub(super) fn grid_section(
     layout: &WallpaperLayout,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
-    let Some(target) = data.target.clone() else {
-        return div();
-    };
-    let selected = data.state.selected_style(&target).to_owned();
-    let dim = data.state.follows_workspace(&target);
+    let selected = data.state.selected_style().to_owned();
+    let dim = data.state.busy;
     div()
         .flex()
         .flex_col()
