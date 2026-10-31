@@ -60,6 +60,20 @@ public enum BrainDockChat {
             return try await session.capture().summary
         }
 
+        try await session.step("输入 ask 时 Dock 给出类型候选") {
+            let frame = try await session.capture()
+            try await session.click(
+                local: CGPoint(x: Double(frame.windowFrame.width) / 2, y: Double(frame.windowFrame.height) - 38), on: frame)
+            try await session.selectAll()
+            try await session.type("ask")
+            let hint = try await session.wait(Expectation(
+                anyOf: english ? ["creates a card"] : ["新建卡片并发送"], timeout: 8))
+            try session.save(hint, "dock-chat-ask-hint.png")
+            try await session.selectAll()
+            try await session.type(" ")
+            return hint.summary
+        }
+
         let first = "FIRSTALPHA 整理安装步骤"
         try await session.step("ask claude 新建卡片，任务完整送达恰好一次") {
             try await dock("ask claude \(first)", session)

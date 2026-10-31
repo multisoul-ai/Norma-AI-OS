@@ -15,6 +15,7 @@ pub(super) struct Ask<'a> {
 /// 纯解析：`ask ` 前缀（不分大小写）+ 目标 + 非空消息；其余输入都不是 ask。
 pub(super) fn parse(input: &str) -> Option<Ask<'_>> {
     let input = input.trim();
+    let input = input.strip_prefix('/').unwrap_or(input);
     let head = input
         .get(..4)
         .filter(|head| head.eq_ignore_ascii_case("ask "))?;
@@ -143,6 +144,13 @@ mod tests {
         assert_eq!(parse("ask codex   "), None);
         assert_eq!(parse("asked codex hi"), None);
         assert_eq!(parse("请 ask codex hi"), None);
+        assert_eq!(
+            parse("/ask codex hi"),
+            Some(Ask {
+                target: "codex",
+                message: "hi"
+            })
+        );
     }
 }
 

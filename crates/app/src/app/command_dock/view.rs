@@ -451,6 +451,13 @@ fn suggestion_title(item: &runtime::command::CommandSuggestion) -> String {
         Some(DockCommand::Theme(_) | DockCommand::AddProject(_)) => item.title.clone(),
         Some(DockCommand::BrowseProject) => ui::i18n::text("chrome.command.browse_project").into(),
         Some(DockCommand::Help) => ui::i18n::text("chrome.command.help").into(),
+        None if item.group == CommandGroup::Ask && item.completion == "ask " => {
+            ui::i18n::text("chrome.command.ask").into()
+        }
+        None if item.group == CommandGroup::Ask => ui::i18n::format(
+            "chrome.command.ask_agent",
+            &[("profile", item.title.clone())],
+        ),
         None if item.completion.starts_with("/new") => ui::i18n::text("chrome.new_agent").into(),
         None => ui::i18n::text("chrome.command.theme").into(),
     }
@@ -463,6 +470,7 @@ fn group_label(group: CommandGroup) -> &'static str {
         CommandGroup::Project => ui::i18n::text("shortcuts.add_project"),
         CommandGroup::Theme => ui::i18n::text("chrome.apply_theme"),
         CommandGroup::Help => ui::i18n::text("chrome.command.help"),
+        CommandGroup::Ask => ui::i18n::text("chrome.ask_group"),
     }
 }
 

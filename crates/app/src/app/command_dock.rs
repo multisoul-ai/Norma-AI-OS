@@ -254,7 +254,7 @@ impl MultisoulApp {
         }
         let Some(candidate) = state.suggestions().get(state.selected).cloned() else {
             self.trace_command_dock("execute_no_candidate", window, cx);
-            if !state.draft.trim().starts_with('/') {
+            if !state.draft.trim().starts_with('/') || ask::parse(&state.draft).is_some() {
                 self.submit_dock_conversation(window, cx);
             }
             return;

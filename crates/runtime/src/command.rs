@@ -20,6 +20,8 @@ pub enum DockCommand {
 pub enum CommandGroup {
     Agent,
     Terminal,
+    /// `ask <agent> …`：补全后继续输入消息，不直接执行。
+    Ask,
     Project,
     Theme,
     Help,
@@ -59,6 +61,14 @@ pub fn suggestions(
     if query.is_empty() || query == "/" {
         return all_choices(themes);
     }
+    let words: Vec<_> = query.split(' ').collect();
+    if matches!(words[0], "ask" | "/ask") {
+        return if words.len() <= 2 {
+            ask_choices(words.get(1).copied().unwrap_or(""))
+        } else {
+            Vec::new()
+        };
+    }
     if !query.starts_with('/') {
         let phrased = phrase_choices(&query, themes);
         return if phrased.is_empty() {
@@ -67,7 +77,6 @@ pub fn suggestions(
             phrased
         };
     }
-    let words: Vec<_> = query.split(' ').collect();
     match words[0] {
         "/new" if words.len() <= 2 => agent_choices(words.get(1).copied().unwrap_or("")),
         "/add" => project_choices(&words[1..].join(" "), projects),
@@ -124,6 +133,7 @@ fn ranked(items: Vec<CommandSuggestion>, query: &str) -> Vec<CommandSuggestion> 
             let name = name
                 .strip_prefix("new ")
                 .or_else(|| name.strip_prefix("theme "))
+                .or_else(|| name.strip_prefix("ask "))
                 .unwrap_or(name);
             let full =
                 fuzzy_score(query, s.completion.trim_start_matches('/')).filter(|n| *n >= 400);
@@ -146,6 +156,7 @@ fn ranked(items: Vec<CommandSuggestion>, query: &str) -> Vec<CommandSuggestion> 
 fn all_choices(themes: &[CommandTheme]) -> Vec<CommandSuggestion> {
     let mut all = agent_choices("");
     all.push(terminal_choice());
+    all.push(suggestion(CommandGroup::Ask, "ask", "ask ", None));
     all.push(browse_choice());
     all.extend(theme_choices("", themes));
     all.push(help_choice());
@@ -255,6 +266,23 @@ fn agent_choices(filter: &str) -> Vec<CommandSuggestion> {
         )
     })
     .collect();
+    ranked(all, filter)
+}
+
+/// `ask codex …` 的 Agent 类型候选；选中只补全到 `ask codex `，等待继续输入消息。
+fn ask_choices(filter: &str) -> Vec<CommandSuggestion> {
+    let all = agent_choices("")
+        .into_iter()
+        .filter_map(|choice| match choice.command {
+            Some(DockCommand::Agent(profile)) => Some(suggestion(
+                CommandGroup::Ask,
+                profile.display_title(),
+                &format!("ask {} ", profile.display_title().to_lowercase()),
+                None,
+            )),
+            _ => None,
+        })
+        .collect();
     ranked(all, filter)
 }
 

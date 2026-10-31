@@ -186,5 +186,8 @@
   "chrome.ask_sent": "已发给 %{agent}",
   "chrome.ask_failed": "发送失败：%{error}",
   "chrome.ask_unknown_agent": "没有名为“%{agent}”的 Agent；用 ask codex|claude … 可新建",
-  "chrome.brain_handed_off": "已交给幕僚"
+  "chrome.brain_handed_off": "已交给幕僚",
+  "chrome.command.ask": "ask — 给 Agent 发消息…",
+  "chrome.command.ask_agent": "ask %{profile}（新建卡片并发送）",
+  "chrome.ask_group": "ask 发消息"
 }

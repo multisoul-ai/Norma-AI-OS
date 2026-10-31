@@ -186,5 +186,8 @@
   "chrome.ask_sent": "Sent to %{agent}",
   "chrome.ask_failed": "Could not send: %{error}",
   "chrome.ask_unknown_agent": "No agent named “%{agent}”. Use ask codex|claude … to create one",
-  "chrome.brain_handed_off": "Handed to your chief of staff"
+  "chrome.brain_handed_off": "Handed to your chief of staff",
+  "chrome.command.ask": "Ask an agent…",
+  "chrome.command.ask_agent": "Ask %{profile} (creates a card)",
+  "chrome.ask_group": "Ask"
 }

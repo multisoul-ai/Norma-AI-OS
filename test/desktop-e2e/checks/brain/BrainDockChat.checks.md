@@ -6,3 +6,4 @@
 | --- | --- | --- |
 | `dock-chat-unknown.png` | 中文「没有名为“Nobodyxyz”的 Agent」/英文「No agent named “Nobodyxyz”」 | 新卡片、英文/中文混用、无提示 |
 | `dock-chat-brain-reply.png` | Dock 回复区显示「幕僚收到：今天进展如何 QQ7」 | 只有「已交给幕僚」、空白、报错 |
+| `dock-chat-ask-hint.png` | 输入 `ask` 后候选列出各 Agent 类型，如「ask Codex（新建卡片并发送）」/「Ask Codex (creates a card)」 | 空列表、未翻译键名 |
