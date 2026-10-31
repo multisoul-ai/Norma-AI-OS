@@ -35,6 +35,129 @@ fn context(original: &str) -> ToolContext {
     }
 }
 
+/// 场景：模型沿用上轮交接模板时，新任务不得再次套入英文说明和旧原话。
+/// 构造：模型正文含一层 PR #165 的旧模板；本轮原话要求审批按钮外置。
+/// 执行：通过公开 assign_agent_task 入口派发，检查 Adapter 实际收到的完整任务。
+/// 预期：当前任务、本轮原话和独有背景各出现一次，不再出现旧模板说明。
+#[tokio::test]
+async fn assignment_replaces_echoed_handoff_with_one_readable_request() {
+    let adapter = Arc::new(RecordingAdapter::default());
+    let original = "审批按钮应该放在外面，不要展开后才显示。";
+    let echoed = "把审批按钮移到卡片外层。\n\nOriginal user request (verbatim):\nUse the full request below to preserve this assignment's background, requirements, examples and constraints. Do not take over work assigned to other agents.\n背景：原型留白太多。\n\nOriginal user request (verbatim):\nUse the full request below to preserve this assignment's background, requirements, examples and constraints. Do not take over work assigned to other agents.\n背景：原型留白太多。";
+    NormaToolRuntime::new(adapter.clone())
+        .execute(
+            "assign_agent_task",
+            json!({"agent":"Alan", "task":echoed}),
+            &context(original),
+        )
+        .await
+        .expect("交接应成功");
+    let commands = adapter.0.lock().expect("实际交接记录");
+    let AdapterCommand::AssignAgentTask { task, .. } = &commands[0] else {
+        panic!("必须保持派发命令类型");
+    };
+    assert_eq!(task, "把审批按钮移到卡片外层。\n\n---\n\n背景：原型留白太多。\n\n---\n\n审批按钮应该放在外面，不要展开后才显示。", "任务说明、独有背景和原话应保持单层，使用简洁分隔");
+    assert!(
+        !task.contains("Original user request"),
+        "不得再次发送旧模板"
+    );
+    assert_eq!(
+        task.matches("背景：原型留白太多。").count(),
+        1,
+        "重复交接的背景只保留一次"
+    );
+}
+
+/// 场景：用户粘贴旧交接作为任务资料，或原话首尾含空白时，保真整理不能改写资料。
+/// 构造：含空白、换行和旧标题的原话，模型已经把完整原话放入任务。
+/// 执行：经公开 reply_agent 派发两类正文，比较实际命令。
+/// 预期：已有完整原话的正文逐字不变，不拆解用户引用的模板，也不再追加副本。
+#[tokio::test]
+async fn complete_request_keeps_whitespace_and_quoted_template_intact() {
+    for original in [
+        "  保留草稿。\n",
+        "请解释下面的引用：\nOriginal user request (verbatim):\n这是用户提供的资料。",
+    ] {
+        let adapter = Arc::new(RecordingAdapter::default());
+        NormaToolRuntime::new(adapter.clone())
+            .execute(
+                "reply_agent",
+                json!({"agent":"Alan", "message":original}),
+                &context(original),
+            )
+            .await
+            .expect("完整原话应可发送");
+        let commands = adapter.0.lock().expect("实际发送记录");
+        assert_eq!(
+            commands[0],
+            AdapterCommand::ReplyAgent {
+                agent: "Alan".into(),
+                message: original.into()
+            },
+            "用户原话与引用资料必须逐字不变"
+        );
+    }
+}
+
+/// 场景：模型已经附上本轮原话时，也要整理其额外复制的旧交接模板。
+/// 构造：任务说明、本轮原话、独有背景被三段旧模板包裹，原话重复两次。
+/// 执行：通过公开 assign_agent_task 派发并检查实际 Adapter 命令。
+/// 预期：原话与背景各保留一次，生成的英文模板为零；不能因 contains 原话就跳过整理。
+#[tokio::test]
+async fn complete_request_still_flattens_generated_handoff_wrappers() {
+    let original = "审批按钮放在外面。";
+    let legacy = "Original user request (verbatim):\nUse the full request below to preserve this assignment's background, requirements, examples and constraints. Do not take over work assigned to other agents.\n";
+    let task = format!("调整审批入口。\n\n{legacy}{original}\n\n{legacy}背景：原型留白太多。\n\n{legacy}{original}");
+    let adapter = Arc::new(RecordingAdapter::default());
+    NormaToolRuntime::new(adapter.clone())
+        .execute(
+            "assign_agent_task",
+            json!({"agent":"Alan", "task":task}),
+            &context(original),
+        )
+        .await
+        .expect("交接应成功");
+    let commands = adapter.0.lock().expect("实际发送记录");
+    assert_eq!(
+        commands[0],
+        AdapterCommand::AssignAgentTask {
+            agent: "Alan".into(),
+            task: "调整审批入口。\n\n---\n\n审批按钮放在外面。\n\n---\n\n背景：原型留白太多。"
+                .into()
+        },
+        "已有原话也必须清理重复生成的模板，同时保留独有背景"
+    );
+}
+
+/// 场景：用户把完整旧模板作为引用资料时，只有模型额外套的模板可以移除。
+/// 构造：原话含完整旧模板和首尾空白；模型在外层另加模板及独有背景。
+/// 执行：通过公开 reply_agent 派发，读取实际 Adapter 消息。
+/// 预期：用户引用与空白逐字保留一次，外层模板移除，任务说明和背景仍在。
+#[tokio::test]
+async fn generated_wrappers_do_not_rewrite_user_quoted_preamble() {
+    let legacy = "Original user request (verbatim):\nUse the full request below to preserve this assignment's background, requirements, examples and constraints. Do not take over work assigned to other agents.\n";
+    let original = format!("  请解释这段引用：\n{legacy}用户提供的资料。\n  ");
+    let task = format!("解释引用。\n\n{legacy}{original}\n\n{legacy}背景：保留原文格式。");
+    let adapter = Arc::new(RecordingAdapter::default());
+    NormaToolRuntime::new(adapter.clone())
+        .execute(
+            "reply_agent",
+            json!({"agent":"Alan", "message":task}),
+            &context(&original),
+        )
+        .await
+        .expect("引用应可交接");
+    let commands = adapter.0.lock().expect("实际交接记录");
+    assert_eq!(
+        commands[0],
+        AdapterCommand::ReplyAgent {
+            agent: "Alan".into(),
+            message: format!("解释引用。\n\n---\n\n{original}\n\n---\n\n背景：保留原文格式。")
+        },
+        "只整理生成的外层模板，不能把用户引用当作模板删除"
+    );
+}
+
 /// 场景：豆包把含背景和约束的长话术缩成一句任务时，执行端仍收到全部原话。
 /// 构造：原话包含原因、复现步骤、路径、否定约束和交付要求；模型只传“修复登录”。
 /// 执行：经公开工具运行时派发两次相同 operation_id，检查实际 Adapter 命令。
