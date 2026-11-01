@@ -1,12 +1,12 @@
 #![cfg(any(unix, windows))]
-use norma::agent_hook::{AgentHookEvent, HookQuestion, HookQuestionRequest, NativeSendStatus};
-use norma::codex::relay::{CodexQuestionRelay, CodexRelayEvent};
-use norma::codex::{UnixListener, UnixStream};
-use norma::protocol::{AgentProfile, QuestionAnswer, QuestionState};
+use crate::agent_hook::{AgentHookEvent, HookQuestion, HookQuestionRequest, NativeSendStatus};
+use crate::codex::relay::{CodexQuestionRelay, CodexRelayEvent};
+use crate::codex::{UnixListener, UnixStream};
+use crate::protocol::{AgentProfile, QuestionAnswer, QuestionState};
 use serde_json::{json, Value};
 use std::time::{Duration, Instant};
 use tungstenite::Message;
-#[path = "support/codex_relay.rs"]
+#[path = "../support/codex_relay.rs"]
 mod support;
 use support::{read, send, timed};
 
@@ -32,7 +32,8 @@ fn partial_answer_ping_and_disconnect_keep_transport_ownership_accurate() {
         let (finish, finished) = crossbeam_channel::bounded::<bool>(1);
         let (request, source) = large_question();
         let server = std::thread::spawn(move || {
-            let mut socket = tungstenite::accept(timed(listener.accept().unwrap().0)).unwrap();
+            let mut socket =
+                tungstenite::accept(timed(bounded_receiver(listener.accept().unwrap().0))).unwrap();
             read(&mut socket);
             send(
                 &mut socket,
@@ -52,7 +53,7 @@ fn partial_answer_ping_and_disconnect_keep_transport_ownership_accurate() {
                 "不得截断多题答案"
             );
             let mut consumed: Value =
-                serde_json::from_str(include_str!("fixtures/questions/codex-consumed.json"))
+                serde_json::from_str(include_str!("../fixtures/questions/codex-consumed.json"))
                     .unwrap();
             consumed["params"]["item"]["output"] = answer["result"].to_string().into();
             send(&mut socket, consumed);
@@ -83,7 +84,22 @@ fn partial_answer_ping_and_disconnect_keep_transport_ownership_accurate() {
             }
             let _ = socket.close(None);
         });
-        let relay = CodexQuestionRelay::connect(bridge, &path).unwrap();
+        let relay = CodexQuestionRelay::connect_with(
+            bridge,
+            || {
+                let upstream = UnixStream::connect(&path)?;
+                #[cfg(windows)]
+                constrain_buffer(
+                    &upstream,
+                    windows_sys::Win32::Networking::WinSock::SO_SNDBUF,
+                );
+                Ok(upstream)
+            },
+            false,
+            true,
+            false,
+        )
+        .unwrap();
         let lease = loop {
             if let CodexRelayEvent::Question(change) =
                 relay.events().recv_timeout(Duration::from_secs(5)).unwrap()
@@ -194,9 +210,9 @@ fn wait_for(mut ready: impl FnMut() -> bool) {
 
 fn large_question() -> (Value, Value) {
     let mut request: Value =
-        serde_json::from_str(include_str!("fixtures/questions/codex-request.json")).unwrap();
+        serde_json::from_str(include_str!("../fixtures/questions/codex-request.json")).unwrap();
     let mut source: Value =
-        serde_json::from_str(include_str!("fixtures/questions/codex-source.json")).unwrap();
+        serde_json::from_str(include_str!("../fixtures/questions/codex-source.json")).unwrap();
     let questions: Vec<_> = (0..16)
         .map(|index| {
             let mut question = request["params"]["questions"][0].clone();
@@ -207,4 +223,55 @@ fn large_question() -> (Value, Value) {
     request["params"]["questions"] = json!(questions);
     source["params"]["item"]["arguments"] = json!({"questions":questions}).to_string().into();
     (request, source)
+}
+
+// The unit resource seam constrains both real endpoints; production uses the same
+// constructor with UnixStream::connect and retains the OS default buffer sizes.
+fn bounded_receiver(stream: UnixStream) -> UnixStream {
+    #[cfg(windows)]
+    constrain_buffer(&stream, windows_sys::Win32::Networking::WinSock::SO_RCVBUF);
+    stream
+}
+
+#[cfg(windows)]
+fn constrain_buffer(stream: &UnixStream, option: i32) {
+    use std::os::windows::io::AsRawSocket;
+    use windows_sys::Win32::Networking::WinSock::{
+        getsockopt, setsockopt, WSAGetLastError, SOL_SOCKET,
+    };
+    // 4KiB requested, at most 8KiB with kernel accounting, far below the 512KiB answer.
+    let requested = 4096_i32;
+    let status = unsafe {
+        setsockopt(
+            stream.as_raw_socket() as _,
+            SOL_SOCKET,
+            option,
+            (&requested as *const i32).cast(),
+            std::mem::size_of::<i32>() as i32,
+        )
+    };
+    assert_eq!(status, 0, "必须真实约束 socket 缓冲：{}", unsafe {
+        WSAGetLastError()
+    });
+    let mut actual = 0_i32;
+    let mut length = std::mem::size_of::<i32>() as i32;
+    let status = unsafe {
+        getsockopt(
+            stream.as_raw_socket() as _,
+            SOL_SOCKET,
+            option,
+            (&mut actual as *mut i32).cast(),
+            &mut length,
+        )
+    };
+    assert_eq!(status, 0, "必须读回 OS 实际缓冲容量：{}", unsafe {
+        WSAGetLastError()
+    });
+    assert!(
+        actual > 0 && actual <= 8192,
+        "读回容量必须小于答案，不能凭设置成功假定背压：option={option}, actual={actual}"
+    );
+    eprintln!(
+        "partial fixture socket buffer: option={option}, requested={requested}, actual={actual}"
+    );
 }

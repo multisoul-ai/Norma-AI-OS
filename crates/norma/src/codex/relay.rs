@@ -138,8 +138,24 @@ impl CodexQuestionRelay {
         forwarding: bool,
         full_access: bool,
     ) -> Result<Self, String> {
+        Self::connect_with(
+            native,
+            || UnixStream::connect(server),
+            check_version,
+            forwarding,
+            full_access,
+        )
+    }
+
+    fn connect_with(
+        native: UnixStream,
+        connect: impl FnOnce() -> std::io::Result<UnixStream>,
+        check_version: bool,
+        forwarding: bool,
+        full_access: bool,
+    ) -> Result<Self, String> {
         let owner = crate::agent_hook::fresh_control_id().map_err(|error| error.to_string())?;
-        let upstream = UnixStream::connect(server).map_err(|error| error.to_string())?;
+        let upstream = connect().map_err(|error| error.to_string())?;
         for stream in [&native, &upstream] {
             // An accepted stream may inherit nonblocking mode; handshakes run off-thread.
             stream
@@ -433,3 +449,7 @@ impl Relay {
         })
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/codex_question_relay_partial.rs"]
+mod partial_tests;

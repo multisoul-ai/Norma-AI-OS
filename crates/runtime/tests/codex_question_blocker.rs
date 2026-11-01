@@ -151,14 +151,24 @@ fn unverified_native_request_blocks_tasks_without_becoming_answerable() {
         switch.send(()).unwrap();
         ready_rx.recv_timeout(Duration::from_secs(5)).unwrap();
         let deadline = Instant::now() + Duration::from_secs(3);
-        while runtime.agent_session_id(node).as_deref() != Some("next-thread")
-            && Instant::now() < deadline
-        {
+        let mut saved_sessions = Vec::new();
+        // Attached 与 SessionUsed 分别异步发布；切换身份不能代替持久化历史的回执。
+        loop {
             runtime.drain_native_question_hosts("p");
+            saved_sessions.extend(runtime.take_unprobed_session_titles());
+            if runtime.agent_session_id(node).as_deref() == Some("next-thread")
+                && saved_sessions
+                    .iter()
+                    .any(|(id, _, session)| *id == node && session == "next-thread")
+            {
+                break;
+            }
+            if Instant::now() >= deadline {
+                break;
+            }
             std::thread::sleep(Duration::from_millis(5));
         }
         let switched_state = runtime.agent_task_state(node);
-        let saved_sessions = runtime.take_unprobed_session_titles();
         finish.send(()).unwrap();
         tui.join().unwrap();
         server.join().unwrap();

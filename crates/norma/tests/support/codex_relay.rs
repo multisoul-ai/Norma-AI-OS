@@ -1,4 +1,4 @@
-use norma::codex::UnixStream;
+use super::UnixStream;
 use serde_json::Value;
 use std::time::Duration;
 use tungstenite::{Message, WebSocket};
