@@ -5,9 +5,12 @@ use crate::protocol::{
 };
 use std::env;
 use std::io::{BufRead, BufReader, Write};
+#[cfg(unix)]
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
+#[cfg(windows)]
+use uds_windows::UnixStream;
 
 const SOCKET_ENV: &str = "NORMA_SOCKET";
 #[cfg(not(debug_assertions))]

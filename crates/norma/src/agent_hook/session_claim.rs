@@ -27,12 +27,7 @@ fn marker_name(session_id: &str) -> Option<String> {
 }
 
 fn ensure_private_dir(dir: &PathBuf) -> std::io::Result<()> {
-    use std::os::unix::fs::DirBuilderExt;
-    match std::fs::DirBuilder::new().mode(0o700).create(dir) {
-        Ok(()) => Ok(()),
-        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => Ok(()),
-        Err(error) => Err(error),
-    }
+    crate::private_fs::create_private_dir(dir)
 }
 
 /// 首次针对某会话调用返回 `true`；`create_new` 不跟随符号链接，已存在即视为已注入。

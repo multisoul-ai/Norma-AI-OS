@@ -4678,8 +4678,10 @@ dependencies = [
  "tempfile",
  "tracing",
  "tungstenite",
+ "uds_windows",
  "ureq 3.3.0",
  "url",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

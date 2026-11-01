@@ -1,6 +1,8 @@
-use std::fs::{self, OpenOptions};
+use crate::private_fs;
+use std::fs;
 use std::io::Write;
-use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -20,13 +22,10 @@ pub(super) fn atomic_write(path: &Path, bytes: &[u8], mode: u32) -> Result<(), s
         std::process::id()
     ));
     let result = (|| {
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .mode(mode)
-            .open(&temp_path)?;
+        let mut file = private_fs::create_file(&temp_path, mode)?;
         file.write_all(bytes)?;
         file.sync_all()?;
+        #[cfg(unix)]
         file.set_permissions(fs::Permissions::from_mode(mode))?;
         drop(file);
         fs::rename(&temp_path, path)?;
@@ -39,8 +38,12 @@ pub(super) fn atomic_write(path: &Path, bytes: &[u8], mode: u32) -> Result<(), s
 }
 
 pub(super) fn set_mode(path: &Path, mode: u32) -> Result<(), std::io::Error> {
-    fs::set_permissions(path, fs::Permissions::from_mode(mode))
+    private_fs::set_mode(path, mode)
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/managed_files.rs"]
+mod tests;
 
 pub(super) fn remove_matching_binary(
     installed: &Path,

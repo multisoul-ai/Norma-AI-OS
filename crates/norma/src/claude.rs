@@ -1,11 +1,11 @@
 //! Bounded, lossless reads of the main Claude conversation. Paths come from an authenticated
 //! local Hook, never from a remote client; every returned message is checked against its project.
+use crate::file_identity::file_identity;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{
     fs::File,
     io::{BufRead, BufReader, Read, Seek, SeekFrom},
-    os::unix::fs::MetadataExt,
     path::{Path, PathBuf},
 };
 
@@ -81,14 +81,15 @@ pub fn read_transcript(
     }
     let (mut file, workspace) = open_transcript(path, projects_root, session_id, workspace)?;
     let metadata = file.metadata().map_err(|e| e.to_string())?;
+    let identity = file_identity(&file).map_err(|error| error.to_string())?;
     if !metadata.is_file() {
         return Err("transcript is not a regular file".into());
     }
     let length = metadata.len();
     let mut offset = 0;
     if let Some(cursor) = cursor {
-        if cursor.device != metadata.dev()
-            || cursor.inode != metadata.ino()
+        if cursor.device != identity.0
+            || cursor.inode != identity.1
             || length < cursor.observed_len
             || cursor.offset > length
         {
@@ -142,8 +143,8 @@ pub fn read_transcript(
     Ok(TranscriptPage {
         messages,
         cursor: TranscriptCursor {
-            device: metadata.dev(),
-            inode: metadata.ino(),
+            device: identity.0,
+            inode: identity.1,
             offset,
             observed_len: length,
         },
@@ -163,6 +164,7 @@ pub fn transcript_end(
 ) -> Result<TranscriptCursor, String> {
     let (mut file, _) = open_transcript(path, projects_root, session_id, workspace)?;
     let metadata = file.metadata().map_err(|e| e.to_string())?;
+    let identity = file_identity(&file).map_err(|error| error.to_string())?;
     if !metadata.is_file() {
         return Err("transcript is not a regular file".into());
     }
@@ -178,8 +180,8 @@ pub fn transcript_end(
         }
     }
     Ok(TranscriptCursor {
-        device: metadata.dev(),
-        inode: metadata.ino(),
+        device: identity.0,
+        inode: identity.1,
         offset: metadata.len(),
         observed_len: metadata.len(),
     })

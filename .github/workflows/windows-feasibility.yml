@@ -82,7 +82,11 @@ jobs:
       - name: Require norma Windows compilation without feature overrides
         if: always()
         shell: pwsh
-        run: cargo check --locked -p norma --lib --target x86_64-pc-windows-msvc
+        run: |
+          cargo check --locked -p norma --target x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p norma --lib --test client_platform --test codex_question --test cursor_questions --test client_tests --test protocol_tests --target x86_64-pc-windows-msvc
+          exit $LASTEXITCODE
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:

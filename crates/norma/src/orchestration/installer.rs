@@ -12,7 +12,6 @@ use crate::agent_hook::{
 use std::fmt;
 use std::fs::{self, File};
 use std::io::Read;
-use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
 mod reconcile;
@@ -357,8 +356,8 @@ impl OrchestrationInstaller {
                 reason: "Credential belongs to a different Provider.".to_string(),
             };
         }
-        let credential_mode = match fs::metadata(&path) {
-            Ok(metadata) => metadata.permissions().mode() & 0o777,
+        let private_permissions = match crate::private_fs::permissions_are_private(&path) {
+            Ok(private) => private,
             Err(error) => {
                 return ComponentState::Failed {
                     error_code: "credential_metadata_failed".to_string(),
@@ -366,12 +365,11 @@ impl OrchestrationInstaller {
                 };
             }
         };
-        if credential_mode != 0o600 {
+        if !private_permissions {
             return ComponentState::Failed {
                 error_code: "credential_permissions_insecure".to_string(),
-                message: format!(
-                    "Provider credential permissions are {credential_mode:#o}; required 0o600."
-                ),
+                message: "Provider credential permissions must be restricted to its owner."
+                    .to_string(),
             };
         }
         match registry.is_authorized(provider, &credential.token) {

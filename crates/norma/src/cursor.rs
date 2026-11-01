@@ -1,11 +1,11 @@
 //! Bounded reads of Cursor's local Agent transcript. The path is supplied by an authenticated
 //! local Hook and must resolve to this workspace and session under Cursor's projects directory.
+use crate::file_identity::file_identity;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{
     fs::File,
     io::{BufRead, BufReader, Read, Seek, SeekFrom},
-    os::unix::fs::MetadataExt,
     path::Path,
 };
 
@@ -55,14 +55,15 @@ pub fn read_transcript(
     }
     let mut file = open_transcript(path, projects_root, session_id, workspace)?;
     let metadata = file.metadata().map_err(|error| error.to_string())?;
+    let identity = file_identity(&file).map_err(|error| error.to_string())?;
     if !metadata.is_file() {
         return Err("transcript is not a regular file".into());
     }
     let length = metadata.len();
     let mut offset = 0;
     if let Some(cursor) = cursor {
-        if cursor.device != metadata.dev()
-            || cursor.inode != metadata.ino()
+        if cursor.device != identity.0
+            || cursor.inode != identity.1
             || length < cursor.observed_len
             || cursor.offset > length
         {
@@ -117,8 +118,8 @@ pub fn read_transcript(
     Ok(TranscriptPage {
         messages,
         cursor: TranscriptCursor {
-            device: metadata.dev(),
-            inode: metadata.ino(),
+            device: identity.0,
+            inode: identity.1,
             offset,
             observed_len: length,
         },
